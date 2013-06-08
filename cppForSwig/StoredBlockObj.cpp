@@ -1,4 +1,15 @@
 
+/////////////////////////////////////////////////////////////////////////////
+void StoredBlockHeader::setDuplicateID(uint8_t dupID)
+{
+   map<uint32_t, StoredTx>::iterator iter;
+   for(iter  = txMap_.begin();
+       iter != txMap_.end();
+       iter++)
+   {
+
+   }
+}
 
 /////////////////////////////////////////////////////////////////////////////
 bool StoredBlockHeader::haveFullBlock(void)

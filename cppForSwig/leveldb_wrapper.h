@@ -37,6 +37,8 @@ typedef enum
   DB_PREFIX_TXHINTS,
   DB_PREFIX_TRIENODES,
   DB_PREFIX_COUNT,
+  DB_PREFIX_HEADHASH,
+  DB_PREFIX_HEADHGT,
   DB_PREFIX_NONE,  // for seeking into DBs that don't use a prefix
 } DB_PREFIX;
 
@@ -157,8 +159,9 @@ private:
    BinaryDataRef getValueRef(DB_SELECT db, DB_PREFIX_TYPE prefix, BinaryDataRef key);
 
    /////////////////////////////////////////////////////////////////////////////
-   // Put value based on BinaryData key.  If batch writing, pass in the batch
+   // Put value based on BinaryDataRefs key and value
    void putValue(DB_SELECT db, BinaryDataRef key, BinaryDataRef value);
+   void putValue(DB_SELECT db, DB_PREFIX pref, BinaryDataRef key, BinaryDataRef value);
 
    /////////////////////////////////////////////////////////////////////////////
    // Put value based on BinaryData key.  If batch writing, pass in the batch
@@ -181,8 +184,18 @@ private:
    // the iterator already on the next desired block.  So our "advance" op may
    // have finished before it started.  Alternatively, we may be on this block 
    // because we checked it and decide we don't care, so we want to skip it.
+   bool advanceToNextHeader(bool skip=false);
    bool advanceToNextBlock(bool skip=false);
    void advanceIterAndRead(leveldb::Iterator* iter);
+
+   bool seekTo(DB_SELECT db, 
+               BinaryData const & key, 
+               leveldb::Iterator* it=NULL);
+   bool seekTo(DB_SELECT db, 
+               DB_PREFIX pref, 
+               BinaryData const & key, 
+               leveldb::Iterator* it=NULL);
+
 
 
    /////////////////////////////////////////////////////////////////////////////
@@ -203,6 +216,21 @@ private:
    uint32_t hgtxToHeight(uint32_t hgtx)  {return (hgtX & 0xffffff00)>>8;}
    uint8_t  hgtxToDupID(uint32_t hgtx)   {return (hgtX & 0x000000ff);}
    uint32_t heightAndDupToHgtx(uint32_t hgt, uint8_t dup) {return hgt<<8|dup;}
+
+   BinaryData getBlkDataKey(uint32_t height, 
+                            uint8_t  dup,
+                            bool     withPrefix=true);
+
+   BinaryData getBlkDataKey(uint32_t height, 
+                            uint8_t  dup,
+                            uint16_t txIdx, 
+                            bool     withPrefix=true);
+
+   BinaryData getBlkDataKey(uint32_t height, 
+                            uint8_t  dup,
+                            uint16_t txIdx,
+                            uint16_t txOutIdx,
+                            bool     withPrefix=true);
 
    /////////////////////////////////////////////////////////////////////////////
    // These four sliceTo* methods make copies, and thus safe to use even after
@@ -240,6 +268,7 @@ private:
    bool addHeader(BinaryData const & headerHash, BinaryData const & headerRaw);
 
 
+   BinaryData key
    
    // Interface to translate Stored* objects to persistent DB storage
    void putStoredBlockHeader(StoredBlockHeader const & sbh,
@@ -295,6 +324,7 @@ private:
    BinaryRefReader currReadValue_;;
    
    string lastGetValue_;
+   bool   dbIsOpen_;
 
    // In this case, a address is any TxOut script, which is usually
    // just a 25-byte script.  But this generically captures all types
