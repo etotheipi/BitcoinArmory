@@ -1,13 +1,34 @@
 
 /////////////////////////////////////////////////////////////////////////////
-void StoredBlockHeader::setDuplicateID(uint8_t dupID)
+void StoredBlockHeader::setParamsTrickle(uint32_t hgt,
+                                         uint8_t  dupID,
+                                         bool     isValid)
 {
-   map<uint32_t, StoredTx>::iterator iter;
+   // Set the params for this SBH object
+   blockHeight_  = hgt;
+   duplicateID_  = dupID;
+   isMainBranch_ = isValid;
+
+   // Then trickle down to each StoredTx object (if any)
+   map<uint32_t, StoredTx>::iterator iter;     
    for(iter  = txMap_.begin();
        iter != txMap_.end();
        iter++)
    {
+      iter->blockHeight_ = hgt;
+      iter->blockDupID_  = dupID;
+      iter->isValid_     = isValid;
 
+      // Trickle the data down to the TxOuts, too
+      map<uint32_t, StoredTxOut>::iterator iter2; 
+      for(iter2  = iter->txOutMap_.begin();
+          iter2 != iter->txOutMap_.end();
+          iter2++)
+      {
+         iter2->blockHeight_ = hgt;
+         iter2->blockDupID_  = dupID; 
+         iter2->isValid_     = isValid;
+      }
    }
 }
 

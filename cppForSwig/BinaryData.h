@@ -1081,11 +1081,6 @@ public:
    void put_uint32_t(uint32_t val) { theString_.append( (uint8_t*)(&val), 4); }
    void put_uint64_t(uint64_t val) { theString_.append( (uint8_t*)(&val), 8); }
 
-   //void put_int8_t  (  int8_t val) { theString_.append( val ); }
-   //void put_int16_t ( int16_t val) { theString_.append( (uint8_t*)(&val), 2); }
-   //void put_int32_t ( int32_t val) { theString_.append( (uint8_t*)(&val), 4); }
-   //void put_int64_t ( int64_t val) { theString_.append( (uint8_t*)(&val), 8); }
-
    /////////////////////////////////////////////////////////////////////////////
    uint8_t put_var_int(uint64_t val)
    {
@@ -1172,6 +1167,85 @@ private:
 
 
 };
+
+
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// This is only intended to be used for the four datatypes:
+//    uint8_t, uint16_t, uint32_t, uint64_t
+// Simplicity is what makes this so useful 
+template<typename DTYPE>
+class BitWriter
+{
+public:
+   BitWriter(void) : intVal_(0), bitsUsed_(0) {}
+
+   void putBits(DTYPE val, uint32_t bitWidth)
+   {
+      if(bitsUsed_ + bitWidth > sizeof(DTYPE)*8)
+         Log::ERR() << "Tried to put bits beyond end of bit field";
+
+      uint32_t shiftAmt = sizeof(DTYPE)*8 - (bitsUsed_ + bitWidth);
+      DTYPE mask = (DTYPE)(1ULL<<bitWidth - 1);
+      intVal_ |= (val & mask) << shiftAmt;
+      bitsUsed_ += bitWidth;
+   }
+
+   BinaryData getBinaryData(void) 
+   { 
+      return BinaryData((uint8_t*)&intVal_, sizeof(DTYPE));
+   }
+
+   DTYPE getValue(void)      { return intVal_; }
+   void  reset(void)         { intVal_ = 0; bitsUsed_ = 0; }
+
+private:
+   DTYPE    intVal_; 
+   uint32_t bitsUsed_;
+
+};
+
+
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// This is only intended to be used for the four datatypes:
+//    uint8_t, uint16_t, uint32_t, uint64_t
+// Simplicity is what makes this so useful 
+template<typename DTYPE>
+class BitReader
+{
+public:
+   BitReader(DTYPE valToRead) {setValue(valToRead);}
+   BitReader(BinaryRefReader & brr)
+   {
+      if(sizeof(DTYPE)==1)
+         setValue(brr.get_uint8_t());
+      else if(sizeof(DTYPE)==2)
+         setValue(brr.get_uint16_t());
+      else if(sizeof(DTYPE)==4)
+         setValue(brr.get_uint32_t());
+      else if(sizeof(DTYPE)==8)
+         setValue(brr.get_uint64_t());
+   }
+
+   void setValue(DTYPE val)   { intVal_ = val; bitsRead_ = 0; }
+
+   DTYPE getBits(uint32_t bitWidth)
+   {
+      uint32_t shiftAmt = sizeof(DTYPE)*8 - (bitsUsed_ + bitWidth);
+      DTYPE mask = (DTYPE)(1ULL<<bitWidth - 1);
+      bitsRead_ += bitWidth;
+      return ((intVal_ >> shiftAmt) & mask);
+   }
+
+   void reset(void) { intVal_ = 0; bitsRead_ = 0; }
+
+private:
+   DTYPE    intVal_; 
+   uint32_t bitsRead_;
+
+};
+
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////

@@ -62,6 +62,14 @@ InterfaceToLevelDB::InterfaceToLevelDB(
 }
 
 
+InterfaceToLevelDB::~InterfaceToLevelDB(void)
+{
+   for(uint32_t db=0; db<(uint32_t)DB_COUNT; db++)
+      if(batchStarts_[db] > 0)
+         Log::ERR() << "Shutting down the interface but batch in-progress";
+
+   closeDatabases();
+}
 
 /////////////////////////////////////////////////////////////////////////////
 BinaryData InterfaceToLevelDB::txOutScriptToLDBKey(BinaryData const & script)
@@ -78,20 +86,12 @@ BinaryData InterfaceToLevelDB::txHashToLDBKey(BinaryData const & txHash)
 {
    // We actually only store the first four bytes of the tx
    BinaryWriter bw(5);
-   bw.put_uint8_t(DB_PREFIX_BLKDATA);
+   bw.put_uint8_t(DB_PREFIX_TXHINTS);
    bw.put_BinaryData(txHash, 0, 4);
    return bw.getData();
 }
 
 
-/////////////////////////////////////////////////////////////////////////////
-//BinaryData InterfaceToLevelDB::headerHashToLDBKey(BinaryData const & headHash)
-//{
-   //BinaryWriter bw;
-   //bw.put_uint8_t(DB_PREFIX_HEADERS);
-   //bw.put_BinaryData(headHash);
-   //return bw.getData();
-//}
 
 /////////////////////////////////////////////////////////////////////////////
 bool InterfaceToLevelDB::openDatabases(void)
@@ -118,6 +118,7 @@ bool InterfaceToLevelDB::openDatabases(void)
       // Create an iterator that we'll use for ust about all DB seek ops
       iters_[db] = dbs_[db]->NewIterator(leveldb::ReadOptions());
       batches_[db] = NULL;
+      batchStarts_[db] = 0;
          
       BinaryData dbInfo = getValue(dbs_[db], getDBInfoKey());
       if(dbInfo.getSize() == 0)
@@ -125,15 +126,16 @@ bool InterfaceToLevelDB::openDatabases(void)
          // If DB didn't exist yet (dbinfo key is empty), seed it
          // A new database has the maximum flag settings
          // Flags can only be reduced.  Increasing requires redownloading
+         BitWriter<uint32_t> bitwrite;
          uint32_t flagBytes = 0;
-         flagBytes |= (uint32_t)ARMORY_DB_VERSION << 28;
-         flagBytes |= (uint32_t)armoryDbType_ << 24;
-         flagBytes |= (uint32_t)dbPruneType_ << 20;
+         bitwrite.putBits((uint32_t)ARMORY_DB_VERSION, 4);
+         bitwrite.putBits((uint32_t)armoryDbType_,     4);
+         bitwrite.putBits((uint32_t)dbPruneType_,      4);
 
          BinaryWriter bw(48);
          bw.put_uint32_t(ARMORY_DB_VERSION)
          bw.put_BinaryData(magicBytes_);
-         bw.put_uint32_t(flagBytes);
+         bw.put_uint32_t(bitwrite.getValue());
          bw.put_uint32_t(0);
          bw.put_BinaryData(genesisBlkHash_);
    
@@ -171,9 +173,10 @@ bool InterfaceToLevelDB::openDatabases(void)
             return false;
          }
 
-         uint32_t dbVer      = (flags & 0xf0000000) >> 28;
-         uint32_t dbType     = (flags & 0x0f000000) >> 24;
-         uint32_t pruneType  = (flags & 0x00f00000) >> 20;
+         BitReader<uint32_t> bitread(flags);
+         uint32_t dbVer      = bitread.getBits(4);
+         uint32_t dbType     = bitread.getBits(4);
+         uint32_t pruneType  = bitread.getBits(4);
 
          if(armoryDbType_ == ARMORY_DB_WHATEVER)
             armoryDbType_ = (ARMORY_DB_TYPE)dbType;
@@ -231,14 +234,47 @@ void InterfaceToLevelDB::closeDatabases(void)
    }
 }
 
+
+
 ////////////////////////////////////////////////////////////////////////////////
-// All put/del ops will be batched/queued, and only executed when commitBatch()
 void InterfaceToLevelDB::startBatch(DB_SELECT db)
 {
-   if(batches_[db]==NULL)
-      batches_[db] = new WriteBatch;
+   if(batchStarts_[db] == 0)
+   {
+      if(batches_[db] != NULL)
+      {
+         Log::ERR() << "Trying to startBatch but we already have one";
+         delete batches_[db];
+      }
 
-   batches_[db]->Clear();
+      batches_[db] = new WriteBatch;
+   }
+
+   // Increment the number of times we've called this function
+   batchStarts_[db] += 1;
+}
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+// Commit all the batched operations
+void InterfaceToLevelDB::commitBatch(DB_SELECT db)
+{
+   // Decrement the numbers of starts and only write if it's at zero
+   batchStarts_[db] -= 1;
+
+   if(batchStarts_[db] == 0)
+   {
+      if(batches_[db] == NULL)
+      {
+         Log::ERR() << "Trying to commitBatch but we don't have one";
+         return;
+      }
+
+      dbs_[db]->Write(leveldb::WriteOptions(), batches_[db]);
+      delete batches_[db];
+      batches_[db] = NULL;
+   }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -681,18 +717,22 @@ void InterfaceToLevelDB::readBlkDataHeaderValue(
                                  StoredBlockHeader & bh,
                                  bool ignoreMerkle)
 {
-   uint32_t flags = brr.get_uint32_t();
+   // Unserialize the raw header into the SBH object
    bh.unserialize(brr);
+
+   // Read the flags byte
+   BitReader<uint32_t> bitr32(brr.get_uint32_t());
+
+   uint32_t        dbVersion  =                  bitr32.getBits(4);
+   uint32_t        blkVersion =                  bitr32.getBits(4);
+   ARMORY_DB_TYPE  dbtype     = (ARMORY_DB_TYPE) bitr32.getBits(4);
+   DB_PRUNE_TYPE   pruneType  = (DB_PRUNE_TYPE)  bitr32.getBits(2);
+   MERKLE_SER_TYPE merkType   = (MERKLE_SER_TYPE)bitr32.getBits(2);
+
    bh.storedNumTx_    = brr.get_uint32_t();
    bh.storedNumBytes_ = brr.get_uint32_t();
 
-
-   uint8_t version             =                   (flags & 0xf0000000) >> 28;
-   ARMORY_DB_TYPE dbtype       = (ARMORY_DB_TYPE)( (flags & 0x0f000000) >> 24);
-   DB_PRUNE_TYPE pruneType     = (DB_PRUNE_TYPE)(  (flags & 0x00c00000) >> 22);
-   MERKLE_SER_TYPE merkleCode  = (MERKLE_SER_TYPE)((flags & 0x00300000) >> 20);
-
-   if(version != (uint8_t)ARMORY_DB_VERSION)
+   if(dbVersion != (uint8_t)ARMORY_DB_VERSION)
    {
       Log::ERR() << "Version mismatch in IFTLDB::getBlock()";
       advanceToNextBlock();
@@ -788,19 +828,19 @@ StoredTxOut InterfaceToLevelDB::readBlkDataTxOutKey( BinaryRefReader & brr)
 ////////////////////////////////////////////////////////////////////////////////
 void InterfaceToLevelDB::readBlkDataTxValue( BinaryRefReader & brr, StoredTx& tx)
 {
-   uint16_t flags = brr.get_uint16_t();
-   brr.get_BinaryData(tx.thisHash_, 32);
-
    // flags
    //    DBVersion      4 bits
    //    TxVersion      2 bits
    //    isValid        2 bits   (Unknown,  Valid, NotValid)
    //    HowTxSer       4 bits   (FullTxOut, TxNoTxOuts, numTxOutOnly)
-   uint8_t dbVer   = (flags & 0xf000) >> 12;
-   uint8_t txVer   = (flags & 0x0c00) >> 10;
-   uint8_t isValid = (flags & 0x0300) >>  8;
-   uint8_t txSer   = (flags & 0x00f0) >>  4;
+   BitReader<uint16_t> bitread(brr); // flags
+   uint16_t dbVer   = bitread.getBits(4);
+   uint16_t txVer   = bitread.getBits(2);
+   uint16_t isValid = bitread.getBits(2);
+   uint16_t txSer   = bitread.getBits(4);
    
+   brr.get_BinaryData(tx.thisHash_, 32);
+
    if(txSer == TX_SER_FULL || txSer == TX_SER_FRAGGED)
       tx.unserialize(brr, txSer==TX_SER_FRAGGED);
    else
@@ -814,16 +854,16 @@ void InterfaceToLevelDB::readBlkDataTxValue( BinaryRefReader & brr, StoredTx& tx
 void InterfaceToLevelDB::readBlkDataTxOutValue(BinaryRefReader & brr, 
                                                StoredTxOut & txOut)
 {
-   flags = brr.get_uint16_t();
    // Similar to TxValue flags
    //    DBVersion   4 bits
    //    TxVersion   2 bits
    //    isValid     2 bits
    //    Spentness   2 bits
-   uint8_t dbVer   =  (flags & 0xf000) >> 12;
-   uint8_t txVer   =  (flags & 0x0c00) >> 10; 
-   uint8_t isValid =  (flags & 0x0300) >>  8; 
-   uint8_t isSpent =  (flags & 0x00c0) >>  6; 
+   BitReader<uint16_t> bitread(brr);
+   uint16_t dbVer   =  bitread.getBits(4);
+   uint16_t txVer   =  bitread.getBits(2);
+   uint16_t isValid =  bitread.getBits(2);
+   uint16_t isSpent =  bitread.getBits(2);
    txOut.unserialize(brr);
    txOut.storedIsSpent_ = isSpent;
    if(isSpent == TXOUT_SPENTSAV && brr.getSizeRemaining()>=6)
@@ -869,15 +909,18 @@ void InterfaceToLevelDB::readRegisteredAddr(RegisteredAddress & regAddr,
    currReadKey_.get_BinaryData(regAddr.uniqueKey_, nBytes);
 
    // Now read the stored data fro this registered address
-   uint16_t flags = currReadValue_.get_uint16_t();
+   BitReader<uint16_t> bitread(currReadValue_);
+   uint8_t version               =                     bitread.getBits(4);
+   DB_PRUNE_TYPE pruneType       = (DB_PRUNE_TYPE)     bitread.getBits(2);
+   REGADDR_UTXO_TYPE txoListType = (REGADDR_UTXO_TYPE) bitread.getBits(2);
+   
+
+
+
    regAddr.alreadyScannedUpToBlk_ = currReadValue_.get_uint32_t();
    regAddr.sumValue_ = currReadValue_.get_uint64_t();
 
     
-   uint8_t version               =                   (flags & 0xf000) >> 12;
-   DB_PRUNE_TYPE pruneType       = DB_PRUNE_TYPE(    (flags & 0x0c00) >> 10);
-   REGADDR_UTXO_TYPE txoListType = REGADDR_UTXO_TYPE((flags & 0x0300) >>  8);
-   
 
    if(txoListType == REGADDR_UTXO_TREE)
    {
@@ -1052,8 +1095,8 @@ map<HashString, BlockHeader> InterfaceToLevelDB::getHeaderMap(void)
       // The "height" is actually a 3-byte height, and a "duplicate ID"
       // Reorgs lead to multiple headers having the same height.  Since 
       // the blockdata
-      header.storedHeight_(hgtX >> 8);
-      header.duplicateID_(hgtX & 0x000000ff);
+      header.storedHeight_(hgtxToHeight(hgtX));
+      header.duplicateID_(hgtxToDupID(hgtX));
 
       outMap[headerHash] = header;
    }
@@ -1164,12 +1207,11 @@ void InterfaceToLevelDB::serializeStoredBlockHeaderValue(
    if(db==HEADERS)
    {
       uint32_t hgtx = heightAndDupToHgtx(sbh.blockheight, sbh.duplicateID_);
-      bw.put_BinaryData(header80B);
+      bw.put_BinaryData(sbh.dataCopy_);
       bw.put_uint32_t(hgtx);
    }
    else if(db==BLKDATA)
    {
-      uint32_t flags = 0;
       uint32_t version = *(uint32_t*)sbh.dataCopy_.getPtr();
 
       MERKLE_SER_TYPE mtype;
@@ -1181,17 +1223,20 @@ void InterfaceToLevelDB::serializeStoredBlockHeaderValue(
          case ARMORY_DB_FULL:    mtype = MERKLE_SER_NONE;    break;
          case ARMORY_DB_SUPER:   mtype = MERKLE_SER_NONE;    break;
          default: 
-            Log::ERR() << "Invalid DB mode in serializeStoredBlockHeader";
+            Log::ERR() << "Invalid DB mode in serializeStoredBlockHeaderValue";
       }
       
       if(sbh.merkle_.getSize() > 0)
          mtype = (sbh.merkleIsPartial_ ? MERKLE_SER_PARTIAL : MERKLE_SER_FULL);
    
-
-      flags |= ((uint32_t)version       << 28) & 0xf0000000;
-      flags |= ((uint32_t)armoryDbType_ << 24) & 0x0f000000;
-      flags |= ((uint32_t)dbPruneType_  << 22) & 0x00c00000;
-      flags |= ((uint32_t)mtype         << 20) & 0x00300000;
+      // Create the flags byte
+      BitWriter<uint32_t> bitwrite;
+      bitwrite.putBits((uint32_t)ARMORY_DB_VERSION,  4);
+      bitwrite.putBits((uint32_t)version,            4);
+      bitwrite.putBits((uint32_t)armoryDbType_,      4);
+      bitwrite.putBits((uint32_t)dbPruneType_,       2);
+      bitwrite.putBits((uint32_t)mtype,              2);
+      uint32_t flags = bitwrite.getValue();
 
       bw.put_uint32_t(flags);
       bw.put_BinaryData(sbh.dataCopy_);
@@ -1200,9 +1245,43 @@ void InterfaceToLevelDB::serializeStoredBlockHeaderValue(
 
       if( mtype != MERKLE_SER_NONE )
          bw.put_BinaryData(sbh.merkle_);
-      
    }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void InterfaceToLevelDB::serializeStoredTxValue(
+                                          StoredTx const & stx,
+                                          BinaryWriter & bw)
+{
+   uint32_t version = *(uint32_t*)stx.dataCopy_.getPtr();
+   uint32_t validity = (stx.isValid_ ? 1 : 0);
    
+   switch(armoryDbType_)
+   {
+      // If we store all the tx anyway, don't need any/partial merkle trees
+      case ARMORY_DB_LITE:    mtype = TX_SER_FRAGGED; break;
+      case ARMORY_DB_PARTIAL: mtype = TX_SER_FRAGGED; break;
+      case ARMORY_DB_FULL:    mtype = TX_SER_FULL;    break;
+      case ARMORY_DB_SUPER:   mtype = TX_SER_FULL;    break;
+      default: 
+         Log::ERR() << "Invalid DB mode in serializeStoredTxValue";
+   }
+
+   BitWriter<uint16_t> bitwrite;
+   bitwrite.putBits((uint16_t)ARMORY_DB_VERSION,  4);
+   bitwrite.putBits((uint16_t)version,            4);
+   bitwrite.putBits((uint16_t)validity,           2);
+   bitwrite.putBits((uint16_t)txSerType,          2);
+
+   
+   bw.put_uint32_t(bitwrite.getValue());
+   bw.put_BinaryData(stx.thisHash_);
+
+   if(txSerType == TX_SER_FULL    || 
+      txSerType == TX_SER_FRAGGED )
+      bw.put_BinaryData(stx.dataCopy_);
+   else:
+      bw.put_var_int(stx.numTxOut_);
 }
 
 
@@ -1215,6 +1294,9 @@ void InterfaceToLevelDB::putStoredBlockHeader(
                           StoredBlockHeader & sbh,
                           bool withTx)
 {
+   uint32_t height  = sbh.blockHeight_;
+   bool     isValid = sbh.isMainBranch_;
+
    // First, check if it's already in the hash-indexed DB
    BinaryData existingHead = getValue(HEADERS, DB_PREFIX_HEADHASH, sbh.thisHash_);
    if(existingHead.getSize() > 0)
@@ -1225,10 +1307,10 @@ void InterfaceToLevelDB::putStoredBlockHeader(
 
    // Check if it's already in the height-indexed DB - determine dupID if not
    bool alreadyInHgtDB = false;
-   BinaryData hgt4((uint8_t*)&sbh.blockHeight_, 4);
+   BinaryData hgt4((uint8_t*)&height, 4);
    BinaryData hgtList = getValue(HEADERS, DB_PREFIX_HEADHGT, hgt4);
    if(hgtList.getSize() == 0)
-      sbh.duplicateID_ = 0;
+      sbh.setParamsTrickle(height, 0, isValid);
    else
    {
       int const lenEntry = 17;
@@ -1245,27 +1327,30 @@ void InterfaceToLevelDB::putStoredBlockHeader(
          if(sbh.thisHash_.startsWith(hash16))
          {
             alreadyInHgtDB = true;
-            sbh.duplicateID_ = dupID;
+            sbh.setParamsTrickle(height, i, isValid);
          }
       }
 
       if(!alreadyInHgtDB)
-         sbh.duplicateID_ = maxDup+1;
+         sbh.setParamsTrickle(height, maxDup+1, isValid);
    }
    
+   startBatch(HEADERS);
+
    if(!alreadyInHgtDB)
    {
       // Top bit is "isMainBranch_", lower 7 is the dupID
       uint8_t dup8 = sbh.duplicateID_ | (sbh.isMainBranch_ ? 0x80 : 0x00);
 
-      // Make sure it exists in height index
+      // Make sure it exists in height index.  Put the new ones first so 
+      // we can do less searching (since the last one stored is almost 
+      // always the one we think is valid
       BinaryWriter bw;
-      bw.put_BinaryData(hgtList);
       bw.put_uint8_t(dup8);
       bw.put_BinaryData(sbh.thisHash_.getSliceRef(0,16));
+      bw.put_BinaryData(hgtList);
       putValue(HEADERS, DB_PREFIX_HEADHGT, hgt4, bw.getDataRef());
    }
-
       
    // Overwrite the existing hash-indexed entry, just in case the dupID was
    // not known when previously written.  
@@ -1273,78 +1358,42 @@ void InterfaceToLevelDB::putStoredBlockHeader(
    serializeStoredBlockHeader(HEADERS, sbh, bwHeaders);
    putValue(HEADERS, DB_PREFIX_HEADHASH, sbh.thisHash_, bwHeaders.getDataRef());
 
+   commitBatch(HEADERS);
+
+
+   // For blkdata
+   if(withTx)
+      startBatch(BLKDATA);
+
    // Now put the data into the blkdata DB
    BinaryData key = getBlkDataKey(sbh.blockHeight_, sbh.duplicateID_);
    BinaryWriter bwBlkData;
    serializeStoredBlockHeader(BLKDATA, sbh, bwBlkData);
    putValue(BLKDATA, DB_PREFIX_BLKDATA, key.getRef(), bwBlkData.getDataRef());
    
-
-   /*
-   // Before we add it to the header DB, add it to the BlkData DB to get the 
-   // correct DupID
-   if(sbh.duplicateID_ == UINT8_MAX)
-      sbh.duplicateID_ = 0;
-
-   uint8_t dupID = 0;
-   for(; dupID<UINT8_MAX; dupID++)
-   {
-      // Data to look for
-      uint32_t hgtX = heightAndDupToHgtx(sbh.blockHeight_, dupID);
-      BinaryData seekKey(&hgtX, 4);
-
-      // Will store current search data here
-      StoredBlockHeader dbSBH;
-      uint32_t dbHgt, dbDup;
-
-      bool exists = seekTo(BLKDATA, DB_PREFIX_BLKDATA, hgtX);
-      if(!exists)
-         break; // done, need to add entry here
-
-      // Check whether the key of where the seek left us
-      BLKDATA_TYPE bdType = readBlkDataKey5B(currReadKey_, dbHgt, dbDup);
-      if(bdType != BLKDATA_HEADER)
-      {
-         Log::ERR() << "Somehow didn't even hit a header entry in putSBH";
-         break;
-      }
-
-      if(dbHgt != sbh.blockHeight_)
-         break; // done, ended up past all entries at this height
-
-      // If we got here, there's an existing entry at this height and dup
-      // We should check if it's the same one we're trying to insert
-      readBlkDataHeaderValue(currReadValue_, dbSBH, true);
-      if(dbSBH.thisHash_ == sbh.thisHash_)
-         break;
-   }
-   */
-
-   // The above loop guarantees we are left with the correct DupID
-   sbh.duplicateID_ = dupID;
-
- 
-   if(addToHeaderDB)
-   {
-      BinaryWriter bwVal;
-      serializeStoredBlockHeader(HEADERS, sbh, bwVal);
-      putValue(HEADERS, sbh.dataCopy_.getRef(), bwVal.getDataRef());
-   }
-
-   else:
-   {
-      BinaryWriter bwVal;
-      serializeStoredBlockHeader(HEADERS, sbh, bwVal);
-      putValue(HEADERS, sbh.dataCopy_.getRef(), bwVal.getDataRef());
-   }
+   // If we only wanted to update the BlockHeader record, we're done.
+   if(!withTx)
+      return;
    
-   // Then, add data to the blkdata DB
-   BinaryData existingHead = getValue(HEADERS, DB_PREFIX_HEADHASH, sbh.thisHash_);
-   if(existingHead.getSize() == 0)
+   for(uint32_t i=0; i<numTx_; i++)
    {
-      // I felt like there was something else I wanted to do here... ?
-      Log::WARN() << "Adding header that already exists in DB";
+      map<uint32_t, StoredTx>::iterator txIter = txMap_.find(i);
+      if(txIter != txMap_.end())
+      {
+         // Make sure the txIndex value is correct, then dump it to DB.
+         txIter->second.txIndex_ = i;
+
+         // When writing out the tx, we always write out the TxOuts.  
+         // (that's what the second "true" argument is specifying)
+         // There's no situation where we indicate *at the block-header 
+         // level*, that we want to put the Txs but not the TxOuts.  
+         // In other contexts, it may be desired to put/update a Tx 
+         // without updating the TxOuts.
+         putStoredTx(txIter->second, true);
+      }
    }
+
+   commitBatch(BLKDATA);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1369,10 +1418,62 @@ void InterfaceToLevelDB::getStoredBlockHeader(
 
 ////////////////////////////////////////////////////////////////////////////////
 void InterfaceToLevelDB::putStoredTx(         
-                          StoredTx const & st,
+                          StoredTx const & stx,
                           bool withTxOut)
 {
+   BinaryData ldbKey = getBlkDataKey(stx.blockHeight_, 
+                                     stx.blockDupID_, 
+                                     stx.txIndex_,
+                                     false);
 
+   startBatch(BLKDATA);
+
+   // First, check if it's already in the hash-indexed DB
+   BinaryData hash4(stx.thisHash_.getSliceRef(0,4));
+   BinaryData existingHints = getValue(BLKDATA, DB_PREFIX_HINT, hash4);
+
+   // We need to add a txhint
+   if(existingHints.getSize() > 0)
+   {
+      uint32_t numHints = existingHints.getSize() / 6;
+      bool alreadyHasHint = false;
+      for(uint32_t i=0; i<numHints; i++)
+      {
+         if(existingHints.getSliceRef(i*6, 6) == ldbKey)
+         {
+            alreadyHasHint = true;
+            break;
+         }
+      }
+      
+      if(!alreadyHasHint)
+      {
+         BinaryWriter bw;
+         bw.put_BinaryData(ldbKey);
+         bw.put_BinaryData(existingHints);
+         putValue(BLKDATA, DB_PREFIX_TXHINTS, hash4, bw.getDataRef());
+      }
+         
+   }
+
+
+   BinaryWriter bw;
+   serializeStoredTxValue(stx, bw);
+   putValue(BLKDATA, DB_PREFIX_BLKDATA, ldbKey, bw.getDataRef());
+
+   if(withTxOut)
+   {
+      map<uint32_t, StoredTxOut>::iterator iter;
+      for(iter  = txOutMap_.begin();
+         iter != txOutMap_.end();
+         iter++)
+      {
+         // Put all o
+         putStoredTxOut(iter->second);
+      }
+   }
+
+   commitBatch(BLKDATA);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1387,7 +1488,7 @@ void InterfaceToLevelDB::getStoredTx(
 
 ////////////////////////////////////////////////////////////////////////////////
 void InterfaceToLevelDB::putStoredTxOut(      
-                          StoredTxOut const & sto)
+                          StoredTxOut const & stxo)
 {
 
 }

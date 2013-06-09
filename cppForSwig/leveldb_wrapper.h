@@ -2,6 +2,7 @@
 #define _LEVELDB_WRAPPER_
 
 #include <sstream>
+#include <stack>
 #include "BinaryData.h"
 #include "leveldb/db.h"
 #include "BlockObj.h"
@@ -267,9 +268,18 @@ private:
    BinaryData getRawHeader(BinaryData const & headerHash);
    bool addHeader(BinaryData const & headerHash, BinaryData const & headerRaw);
 
+   /////////////////////////////////////////////////////////////////////////////
+   // All put/del ops will be batched/queued, and only executed when called
+   // commitBatch().  We track the number calls to startBatch and commitBatch
+   // and only write if we've called commit as many times as we called start.
+   // In this way, we can have multiple levels starting and ending batches 
+   // without caring whether a batched operation is already in process or if 
+   // it's the first
+   void startBatch(DB_SELECT db);
+   void commitBatch(DB_SELECT db);
+   void batchIsOn(DB_SELECT db)   { return (batches_[db] != NULL); }
 
-   BinaryData key
-   
+
    // Interface to translate Stored* objects to persistent DB storage
    void putStoredBlockHeader(StoredBlockHeader const & sbh,
                              bool withTx=false);
@@ -319,6 +329,10 @@ private:
    leveldb::WriteBatch* batches_[2];
    leveldb::DB*         dbs_[2];  
    string               dbPaths_[2];
+
+   // This will be used for 
+   uint32_t             batchStarts_[2];
+   
 
    BinaryRefReader currReadKey_;
    BinaryRefReader currReadValue_;;
