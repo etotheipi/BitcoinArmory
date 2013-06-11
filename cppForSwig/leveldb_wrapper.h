@@ -53,7 +53,7 @@ typedef enum
   ARMORY_DB_WHATEVER
 } ARMORY_DB_TYPE;
 
-#define ARMORY_DB_DEFAULT ARMORY_DB_PARTIAL
+#define ARMORY_DB_DEFAULT ARMORY_DB_FULL
 
 typedef enum
 {
@@ -88,8 +88,8 @@ typedef enum
 typedef enum
 {
   TXOUT_UNSPENT,
-  TXOUT_SPENTSAV,
-  TXOUT_SPENTFGT,
+  TXOUT_SPENT,
+  TXOUT_SPENTUNK,
 } TXOUT_SPENTNESS
 
 typedef enum
@@ -105,13 +105,6 @@ typedef enum
   REGADDR_UTXO_TREE
 } REGADDR_UTXO_TYPE;
 
-typedef enum
-{
-  UPDATE_DB_NORMAL,
-  UPDATE_DB_FORCE_VALID,
-  UPDATE_DB_FORCE_INVALID,
-} UPDATE_DB_TYPE
-
 
 
 
@@ -124,6 +117,8 @@ public:
                       BinaryData const & magic,
                       ARMORY_DB_TYPE     dbtype=ARMORY_DB_DEFAULT,
                       DB_PRUNE_TYPE      pruneType=DB_PRUNE_NONE);
+
+   ~InterfaceToLevelDB(void);
 
 private:
    BinaryData txOutScriptToLDBKey(BinaryData const & script);
@@ -143,7 +138,12 @@ private:
    /////////////////////////////////////////////////////////////////////////////
    // Get value using BinaryData object.  If you have a string, you can use
    // BinaryData key(string(theStr));
-   BinaryData getValue(DB_SELECT db, BinaryDataRef key);
+   BinaryData getValue(DB_SELECT db, BinaryDataRef keyWithPrefix);
+
+   /////////////////////////////////////////////////////////////////////////////
+   // Get value using BinaryData object.  If you have a string, you can use
+   // BinaryData key(string(theStr));
+   BinaryData getValue(DB_SELECT db, DB_PREFIX pref, BinaryDataRef key);
 
    /////////////////////////////////////////////////////////////////////////////
    // Get value using BinaryDataRef object.  Remember, references are only valid
@@ -283,22 +283,47 @@ private:
    // Interface to translate Stored* objects to persistent DB storage
    void putStoredBlockHeader(StoredBlockHeader const & sbh,
                              bool withTx=false);
+
    void getStoredBlockHeader(StoredBlockHeader & sbh,
                              BinaryDataRef headHash, 
                              bool withTx=false);
+
    void getStoredBlockHeader(StoredBlockHeader & sbh,
                              uint32_t blockHgt,
                              uint8_t blockDup=UINT8_MAX,
                              bool withTx=false);
 
+   void getStoredBlockHeader(StoredBlockHeader & sbh,
+                             uint32_t hgtX,
+                             bool withTx=false);
+
+
    void putStoredTx(         StoredTx const & st,
                              bool withTxOut=false);
+
    void getStoredTx(         StoredTx & st,
                              BinaryDataRef txHash, 
+                             uint32_t txIndex,
                              bool withTxOut=false);
 
+   void getStoredTx(         StoredTx & st,
+                             uint32_t hgtX,
+                             uint32_t txIndex,
+                             bool withTxOut=false);
+
+
    void putStoredTxOut(      StoredTxOut const & sto)
+
    void getStoredTxOut(      StoredTxOut & sto,
+                             BinaryDataRef txHash, 
+                             uint32_t txIndex,
+                             uint32_t txOutIndex,
+                             BinaryDataRef txHash)
+
+   void getStoredTxOut(      StoredTxOut & sto,
+                             uint32_t hgtX,
+                             uint32_t txIndex,
+                             uint32_t txOutIndex,
                              BinaryDataRef txHash)
 
 

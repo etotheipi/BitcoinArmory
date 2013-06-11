@@ -1048,6 +1048,9 @@ public:
    uint8_t const * exposeDataPtr(void)    { return bdRef_.getPtr(); }
    uint8_t const * getCurrPtr(void)       { return bdRef_.getPtr() + pos_; }
 
+   /////////////////////////////////////////////////////////////////////////////
+   void getRawRef(void) { return bdRef_;   }
+
 private:
    BinaryDataRef bdRef_;
    uint32_t totalSize_;

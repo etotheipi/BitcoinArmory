@@ -57,7 +57,6 @@ public:
    void unserialize(BinaryRefReader & brr,   bool isFragged=false);
 
 
-   uint32_t             version_;
    BinaryData           thisHash_;
    BinaryData           lockTime_;
    bool                 isInitialized_;
@@ -77,7 +76,8 @@ public:
 class StoredTxOut
 {
 public:
-   StoredTxOut(void) : isInitialized_(false), dataCopy_(0) {}
+   StoredTxOut(void) : 
+      isInitialized_(false), dataCopy_(0), spentByHgtX_(UINT32_MAX) {}
 
    void unserialize(BinaryData const & data);
    void unserialize(BinaryDataRef data);
@@ -86,9 +86,8 @@ public:
 
 
    bool writeToDB(bool skipIfExists=false);
-   bool getStoredTxOutByOutPoint(bool skipIfExists=false);
-   bool getStoredTxOutByHgtx(bool skipIfExists=false);
 
+   uint32_t          txVersion_;
    BinaryData        dataCopy_;
    bool              isInitialized_;
    uint32_t          blockHeight_;
@@ -99,6 +98,7 @@ public:
    bool              isSpent_;
    uint32_t          spentByHgtX_;
    uint16_t          spentByTxIndex_;
+   uint16_t          spentByTxInIndex_;
 };
 
 
