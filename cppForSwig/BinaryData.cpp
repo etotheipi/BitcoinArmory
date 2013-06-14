@@ -213,10 +213,13 @@ bool BinaryData::operator==(BinaryDataRef const & bd2) const
 {
    if(getSize() != bd2.getSize())
       return false;
-   for(unsigned int i=0; i<getSize(); i++)
-      if( data_[i] != bd2[i])
-         return false;
-   return true;
+
+   return (memcmp(getPtr(), bd2.getPtr(), getSize()) == 0);
+
+   //for(unsigned int i=0; i<getSize(); i++)
+      //if( data_[i] != bd2[i])
+         //return false;
+   //return true;
 }
 
 

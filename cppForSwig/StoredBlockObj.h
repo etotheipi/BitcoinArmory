@@ -66,7 +66,6 @@ public:
    uint32_t             blockHeight_;
    uint8_t              blockDupID_;
    uint8_t              txIndex_;
-   uint8_t              isValid_;
    uint32_t             numTxOut_;
    uint32_t             numBytes_;
    map<uint32_t, StoredTxOut> txOutMap_;
@@ -94,7 +93,6 @@ public:
    uint8_t           blockDupID_;
    uint16_t          txIndex_;
    uint16_t          txOutIndex_;
-   bool              isValid_;
    bool              isSpent_;
    uint32_t          spentByHgtX_;
    uint16_t          spentByTxIndex_;

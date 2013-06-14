@@ -226,10 +226,14 @@ public:
    {
       if(getSize() != bd2.getSize())
          return false;
-      for(unsigned int i=0; i<getSize(); i++)
-         if( data_[i] != bd2.data_[i] )
-            return false;
-      return true;
+
+      return (memcmp(getPtr(), bd2.getPtr(), getSize()) == 0);
+
+      // Why did I do this before?
+      //for(unsigned int i=0; i<getSize(); i++)
+         //if( data_[i] != bd2.data_[i] )
+            //return false;
+      //return true;
    }
 
    /////////////////////////////////////////////////////////////////////////////
@@ -661,10 +665,12 @@ public:
       else if(ptr_ == bd2.ptr_)
          return true;
       
-      for(unsigned int i=0; i<nBytes_; i++)
-         if( ptr_[i] != bd2.ptr_[i] )
-            return false;
-      return true;
+      return (memcmp(getPtr(), bd2.getPtr(), getSize()) == 0);
+
+      //for(unsigned int i=0; i<nBytes_; i++)
+         //if( ptr_[i] != bd2.ptr_[i] )
+            //return false;
+      //return true;
    }
 
    /////////////////////////////////////////////////////////////////////////////
@@ -675,10 +681,12 @@ public:
       else if(ptr_ == bd2.getPtr())
          return true;
 
-      for(unsigned int i=0; i<nBytes_; i++)
-         if( ptr_[i] != bd2[i])
-            return false;
-      return true;
+      return (memcmp(getPtr(), bd2.getPtr(), getSize()) == 0);
+
+      //for(unsigned int i=0; i<nBytes_; i++)
+         //if( ptr_[i] != bd2[i])
+            //return false;
+      //return true;
    }
 
    /////////////////////////////////////////////////////////////////////////////

@@ -163,12 +163,10 @@ private:
    // Put value based on BinaryDataRefs key and value
    void putValue(DB_SELECT db, BinaryDataRef key, BinaryDataRef value);
    void putValue(DB_SELECT db, DB_PREFIX pref, BinaryDataRef key, BinaryDataRef value);
-
    /////////////////////////////////////////////////////////////////////////////
    // Put value based on BinaryData key.  If batch writing, pass in the batch
-   void deleteValue(DB_SELECT db, 
-                    BinaryData const & key);
-                    
+   void deleteValue(DB_SELECT db, BinaryData const & key);
+   void deleteValue(DB_SELECT db, DB_PREFIX pref, BinaryData const & key);
 
    /////////////////////////////////////////////////////////////////////////////
    BinaryData sliceToBinaryData(leveldb::Slice slice);
@@ -204,6 +202,12 @@ private:
    void iteratorToRefReaders( leveldb::Iterator* it, 
                               BinaryRefReader & brrKey,
                               BinaryRefReader & brrValue);
+
+
+   /////////////////////////////////////////////////////////////////////////////
+   void deleteIterator(DB_SELECT db);
+   void resetIterator(DB_SELECT db);
+
 
    /////////////////////////////////////////////////////////////////////////////
    // Not sure why this is useful over getHeaderMap() ... this iterates over
@@ -354,6 +358,7 @@ private:
    leveldb::WriteBatch* batches_[2];
    leveldb::DB*         dbs_[2];  
    string               dbPaths_[2];
+   bool                 iterIsDirty_[2];
 
    // This will be used for 
    uint32_t             batchStarts_[2];

@@ -81,16 +81,6 @@ BinaryData InterfaceToLevelDB::txOutScriptToLDBKey(BinaryData const & script)
 }
 
 
-/////////////////////////////////////////////////////////////////////////////
-BinaryData InterfaceToLevelDB::txHashToLDBKey(BinaryData const & txHash)
-{
-   // We actually only store the first four bytes of the tx
-   BinaryWriter bw(5);
-   bw.put_uint8_t(DB_PREFIX_TXHINTS);
-   bw.put_BinaryData(txHash, 0, 4);
-   return bw.getData();
-}
-
 
 
 /////////////////////////////////////////////////////////////////////////////
@@ -274,6 +264,7 @@ void InterfaceToLevelDB::commitBatch(DB_SELECT db)
       dbs_[db]->Write(leveldb::WriteOptions(), batches_[db]);
       delete batches_[db];
       batches_[db] = NULL;
+      iterIsDirty_[db] = true;
    }
 }
 
@@ -413,7 +404,9 @@ void InterfaceToLevelDB::putValue(DB_SELECT db,
    {
       leveldb::Status stat = dbs_[db]->Put(leveldb::WriteOptions(), ldbkey, &value);
       checkStatus(stat);
+      iterIsDirty_[db] = true;
    }
+   
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -444,6 +437,7 @@ void InterfaceToLevelDB::deleteValue(DB_SELECT db,
    {
       leveldb::Status stat = dbs_[db]->Put(leveldb::ReadOptions(), ldbkey, &value);
       checkStatus(stat);
+      iterIsDirty_[db] = true;
    }
 }
 
@@ -543,6 +537,7 @@ bool InterfaceToLevelDB::advanceToNextBlock(bool skip)
 }
 
 
+/////////////////////////////////////////////////////////////////////////////
 void InterfaceToLevelDB::seekFirstRegAddr( levelbd::Iterator* it=NULL)
 {
    if(it==NULL)
@@ -636,6 +631,31 @@ void InterfaceToLevelDB::iteratorToReaders( leveldb::Iterator* it,
    brValue;.setNewData(it->value().data(), it->value().size());      
 }
 
+
+
+/////////////////////////////////////////////////////////////////////////////
+void InterfaceToLevelDB::deleteIterator(DB_SELECT db)
+{
+   delete iters_[db];
+   iters_[db] = NULL;
+   iterIsDirty_[db] = false;
+}
+
+
+/////////////////////////////////////////////////////////////////////////////
+void InterfaceToLevelDB::resetIterator(DB_SELECT db)
+{
+   // This may be very slow, so you should only do it when you're sure it's
+   // necessary.  You might just 
+   BinaryData key = currReadKey_.getRawRef().copy();
+   if(iters_[db] != NULL)
+      delete iters_[db];
+
+   iters_[db] = dbs_[db]->NewIterator(leveldb::ReadOptions());
+   seekTo(db, key);
+   iterIsDirty_[db] = false;
+}
+
 /////////////////////////////////////////////////////////////////////////////
 // Returns refs to key and value that become invalid when iterator is moved
 void InterfaceToLevelDB::iteratorToRefReaders( leveldb::Iterator* it, 
@@ -645,47 +665,6 @@ void InterfaceToLevelDB::iteratorToRefReaders( leveldb::Iterator* it,
    brrKey.setNewData(it->key().data(), it->key().size());      
    brrValue;.setNewData(it->value().data(), it->value().size());      
 }
-
-/////////////////////////////////////////////////////////////////////////////
-void InterfaceToLevelDB::readBlock( StoredBlockHeader & sbh, 
-                                    ignoreMerkle = true)
-{
-   bool isAnotherBlock = advanceToNextBlock();
-   if(!isAnotherBlock)
-   {
-      Log::ERR() << "Tried to getBlock() but none left";
-      return;
-   }
-
-    
-   // Read the key for the block
-   BLKDATA_TYPE bdtype = readBlkDataKey5B(currReadKey_,
-                                          sbh.blockHeight_,
-                                          sbh.duplicateID_);
-
-   if(bdtype == NOT_BLKDATA)
-   {
-      Log::ERR() << "somehow did not advance to new;
-      return; 
-   }
-
-   
-   // Read the header and the extra data with it.
-   readBlkDataHeaderValue(currReadValue_, sbh, ignoreMerkle);
-   
-   for(uint32_t tx=0; tx<sbh.numTx_; tx++)
-   {
-      advanceIterAndRead();
-      uint32_t height;
-      uint8_t  dupID;
-      BLKDATA_TYPE bdtype = readBlkDataKey5B(currReadKey_, height, dupID);
-      if(bdtype == BLKDATA_HEADER)
-      {
-         currReadKey_.resetPosition();
-         break
-      }
-
-      
 
 }
 
@@ -724,41 +703,46 @@ BLKDATA_TYPE InterfaceToLevelDB::readBlkDataKey5B(
 
 
 ////////////////////////////////////////////////////////////////////////////////
-void InterfaceToLevelDB::readBlkDataTxKey( BinaryRefReader & brr, StoredTx & tx)
-{
-   BLKDATA_TYPE bdtype = readBlkDataKey5B(brr, tx.storedHeight_, tx.storedDupID_);
-   if(bdtype != DB_PREFIX_BLKDATA)
-   {
-      tx = StoredTx();
-      return
-   }
+//void InterfaceToLevelDB::readBlkDataTxKey( BinaryRefReader & brr, StoredTx & tx)
+//{
+   //BLKDATA_TYPE bdtype = readBlkDataKey5B(brr, tx.storedHeight_, tx.storedDupID_);
+   //if(bdtype != DB_PREFIX_BLKDATA)
+   //{
+      //Log::ERR() << "Attempted to read Tx key, but not a StoredTx entry";
+      //tx = StoredTx();
+      //return;
+   //}
 
-   tx.txIndex_ = brr.get_uint16_t()
-}
-
-////////////////////////////////////////////////////////////////////////////////
-void InterfaceToLevelDB::readBlkDataTxOutKey( BinaryRefReader & brr, 
-                                              StoredTxOut & txout)
-{
-   BLKDATA_TYPE bdt = readBlkDataKey5B(brr, txOut.blockHeight_, tx.blockDupID_);
-   if(bdt != DB_PREFIX_BLKDATA)
-      return
-
-   txout.txIndex_    = brr.get_uint16_t();
-   txout.txOutIndex_ = brr.get_uint16_t();
-}
+   //tx.txIndex_ = brr.get_uint16_t()
+//}
 
 ////////////////////////////////////////////////////////////////////////////////
-StoredTxOut InterfaceToLevelDB::readBlkDataTxOutKey( BinaryRefReader & brr)
-{
-   StoredTxOut txo;
-   BLKDATA_TYPE bdt = readBlkDataKey5B(brr, txo.blockHeight_, txo.blockDupID_);
-   if(bdt != DB_PREFIX_BLKDATA)
-      return
+//void InterfaceToLevelDB::readBlkDataTxOutKey( BinaryRefReader & brr, 
+                                              //StoredTxOut & txout)
+//{
+   //BLKDATA_TYPE bdt = readBlkDataKey5B(brr, txOut.blockHeight_, tx.blockDupID_);
+   //if(bdt != DB_PREFIX_BLKDATA)
+   //{
+      //Log::ERR() << "Attempted to read Tx key, but not a StoredTx entry";
+      //tx = StoredTx();
+      //return;
+   //}
+   
+   //txout.txIndex_    = brr.get_uint16_t();
+   //txout.txOutIndex_ = brr.get_uint16_t();
+//}
 
-   txo.txIndex_    = brr.get_uint16_t();
-   txo.txOutIndex_ = brr.get_uint16_t();
-}
+////////////////////////////////////////////////////////////////////////////////
+//StoredTxOut InterfaceToLevelDB::readBlkDataTxOutKey( BinaryRefReader & brr)
+//{
+   //StoredTxOut txo;
+   //BLKDATA_TYPE bdt = readBlkDataKey5B(brr, txo.blockHeight_, txo.blockDupID_);
+   //if(bdt != DB_PREFIX_BLKDATA)
+      //return
+
+   //txo.txIndex_    = brr.get_uint16_t();
+   //txo.txOutIndex_ = brr.get_uint16_t();
+//}
 
 
 
@@ -795,11 +779,8 @@ void InterfaceToLevelDB::readRegisteredAddr(RegisteredAddress & regAddr,
    REGADDR_UTXO_TYPE txoListType = (REGADDR_UTXO_TYPE) bitread.getBits(2);
    
 
-
-
    regAddr.alreadyScannedUpToBlk_ = currReadValue_.get_uint32_t();
    regAddr.sumValue_ = currReadValue_.get_uint64_t();
-
     
 
    if(txoListType == REGADDR_UTXO_TREE)
@@ -931,13 +912,6 @@ bool InterfaceToLevelDB::readFullTx(Tx & tx, leveldb::Iterator* iter=NULL)
 }
 
 
-/////////////////////////////////////////////////////////////////////////////
-void InterfaceToLevelDB::getUtxoHistoryForAddr(BinaryData & const addrScript,
-                                               RegisteredAddress & regAddr,
-                                               vector<UnspentTxOut> & txoVect=NULL)
-{
-
-}
 
 /////////////////////////////////////////////////////////////////////////////
 bool InterfaceToLevelDB::advanceIterAndRead(leveldb::Iterator* iter)
@@ -951,10 +925,18 @@ bool InterfaceToLevelDB::advanceIterAndRead(leveldb::Iterator* iter)
 }
 
 /////////////////////////////////////////////////////////////////////////////
-void advanceIterAndRead(DB_SELECT db)
+void InterfaceToLevelDB::advanceIterAndRead(DB_SELECT db, DB_PREFIX prefix)
 {
-   return advanceIterAndRead(iters_[db]);
+   if(iterIsDirty_[db])
+      Log::ERR() << "DB has been changed since this iterator was created";
+
+   if(advanceIterAndRead(iters_[db]))
+      return (*(currReadKey_.exposeDataPtr()) != (uint8_t)prefix);
+   else 
+      return false;
 }
+
+
 
 /////////////////////////////////////////////////////////////////////////////
 map<HashString, BlockHeader> InterfaceToLevelDB::getHeaderMap(void)
@@ -1202,12 +1184,10 @@ void InterfaceToLevelDB::unserializeStoredTxValue(
    // flags
    //    DBVersion      4 bits
    //    TxVersion      2 bits
-   //    isValid        2 bits   (Unknown,  Valid, NotValid)
    //    HowTxSer       4 bits   (FullTxOut, TxNoTxOuts, numTxOutOnly)
    BitReader<uint16_t> bitread(brr); // flags
    uint16_t dbVer   = bitread.getBits(4);
    uint16_t txVer   = bitread.getBits(2);
-   uint16_t isValid = bitread.getBits(2);
    uint16_t txSer   = bitread.getBits(4);
    
    brr.get_BinaryData(tx.thisHash_, 32);
@@ -1217,7 +1197,6 @@ void InterfaceToLevelDB::unserializeStoredTxValue(
    else
       tx.numTxOut_ = brr.get_var_int();
 
-   tx.isValid_ = isValid;
 }
 
 
@@ -1227,8 +1206,7 @@ void InterfaceToLevelDB::serializeStoredTxValue(
                                           StoredTx const & stx,
                                           BinaryWriter & bw)
 {
-   uint32_t version = *(uint32_t*)stx.dataCopy_.getPtr();
-   uint32_t validity = (stx.isValid_ ? 1 : 0);
+   uint16_t version = *(uint16_t*)stx.dataCopy_.getPtr();
    TX_SERIALIZE_TYPE serType;
    
    switch(armoryDbType_)
@@ -1244,12 +1222,11 @@ void InterfaceToLevelDB::serializeStoredTxValue(
 
    BitWriter<uint16_t> bitwrite;
    bitwrite.putBits((uint16_t)ARMORY_DB_VERSION,  4);
-   bitwrite.putBits((uint16_t)version,            4);
-   bitwrite.putBits((uint16_t)validity,           2);
+   bitwrite.putBits((uint16_t)version,            2);
    bitwrite.putBits((uint16_t)serType,            2);
 
    
-   bw.put_uint32_t(bitwrite.getValue());
+   bw.put_uint16_t(bitwrite.getValue());
    bw.put_BinaryData(stx.thisHash_);
 
    if(serType == TX_SER_FULL    || 
@@ -1267,12 +1244,10 @@ void InterfaceToLevelDB::unserializeStoredTxOutValue(
    // Similar to TxValue flags
    //    DBVersion   4 bits
    //    TxVersion   2 bits
-   //    isValid     2 bits
    //    Spentness   2 bits
    BitReader<uint16_t> bitread(brr);
    uint16_t dbVer   =  bitread.getBits(4);
    uint16_t txVer   =  bitread.getBits(2);
-   uint16_t isValid =  bitread.getBits(2);
    uint16_t isSpent =  bitread.getBits(2);
 
 
@@ -1308,7 +1283,6 @@ void InterfaceToLevelDB::serializeStoredTxOutValue(
                                           BinaryWriter & bw,
                                           bool forceSaveSpentness)
 {
-   uint32_t validity  = (stxo.isValid_ ? 1 : 0);
    TXOUT_SPENTNESS spentness = (stxo.isSpent_ ? TXOUT_SPENT : TXOUT_UNSPENT);
    
    if(!forceSaveSpentness)
@@ -1331,7 +1305,6 @@ void InterfaceToLevelDB::serializeStoredTxOutValue(
    BitWriter<uint16_t> bitwrite;
    bitwrite.putBits((uint16_t)ARMORY_DB_VERSION,  4);
    bitwrite.putBits((uint16_t)stxo.txVersion_,    4);
-   bitwrite.putBits((uint16_t)validity,           2);
    bitwrite.putBits((uint16_t)spentness,          2);
 
    bw.put_uint16_t(bitwrite.getValue());
@@ -1376,7 +1349,7 @@ void InterfaceToLevelDB::putStoredBlockHeader(
    else
    {
       // If we already have 1+ headers at this height, figure out the dupID
-      int const lenEntry = 17;
+      int const lenEntry = 33;
       if(hgtList.getSize() % lenEntry > 0)
          Log::ERR() << "Invalid entry in headers-by-hgt db";
 
@@ -1386,8 +1359,8 @@ void InterfaceToLevelDB::putStoredBlockHeader(
          uint8_t dupID =  *(hgtList.getPtr() + i*lenEntry) & 0x7f;
          bool    valid = (*(hgtList.getPtr() + i*lenEntry) & 0x80) > 0;
          maxDup = max(maxDup, (int8_t)dupID);
-         BinaryDataRef hash16 = hgtList.getSliceRef(lenEntry*i+1, lenEntry-1);
-         if(sbh.thisHash_.startsWith(hash16))
+         BinaryDataRef hash = hgtList.getSliceRef(lenEntry*i+1, lenEntry-1);
+         if(sbh.thisHash_.startsWith(hash))
          {
             alreadyInHgtDB = true;
             sbh.setParamsTrickle(height, i, isValid);
@@ -1409,9 +1382,9 @@ void InterfaceToLevelDB::putStoredBlockHeader(
       // Make sure it exists in height index.  Put the new ones first so 
       // we can do less searching (since the last one stored is almost 
       // always the one we think is valid
-      BinaryWriter bw;
+      BinaryWriter bw(1+32+hgtList.getSize());  // reserve just enough size
       bw.put_uint8_t(dup8);
-      bw.put_BinaryData(sbh.thisHash_.getSliceRef(0,16));
+      bw.put_BinaryData(sbh.thisHash_)
       bw.put_BinaryData(hgtList);
       putValue(HEADERS, DB_PREFIX_HEADHGT, hgt4, bw.getDataRef());
    }
@@ -1461,6 +1434,47 @@ void InterfaceToLevelDB::putStoredBlockHeader(
    commitBatch(BLKDATA);
 }
 
+
+////////////////////////////////////////////////////////////////////////////////
+void InterfaceToLevelDB::getStoredBlockHeader(
+                                    StoredBlockHeader & sbh,
+                                    uint32_t blockHgt,
+                                    uint8_t blockDup,
+                                    bool withTx)
+{
+
+   if(!withTx)
+   {
+      //////
+      // Don't need to mess with seeking if we don't need the transactions.
+      BinaryData blkKey = getBlkDataKey(blockHgt, blockDup);
+      BinaryRefReader brr(getValueRef(BLKDATA, blkKey));
+      if(brr.getSize()==0)
+      {
+         Log::ERR() << "Header height&dup is not in BLKDATA";
+         return false;
+      }
+      unserializeStoredBlockHeaderValue(BLKDATA, brr, sbh, false);
+      return true;
+   }
+   else
+   {
+      //////
+      // Do the iterator thing because we're going to traverse the whole block
+      bool isInDB = seekTo(BLKDATA, getBlkDataKey(blockHgt, blockDup));
+      if(!isInDB)
+      {
+         Log::ERR() << "Header heigh&dup is not in BLKDATA DB";
+         Log::ERR() << "("<<blockHgt<<", "<<blockDup<<")";
+         return false;
+      }
+
+      // Now we read the whole block, not just the header
+      return readStoredBlockAtIter(sbh);
+   }
+
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 bool InterfaceToLevelDB::getStoredBlockHeader(
                           StoredBlockHeader & sbh,
@@ -1477,117 +1491,51 @@ bool InterfaceToLevelDB::getStoredBlockHeader(
    
    BinaryRefReader brr(headEntry);
    unserializeStoredBlockHeaderValue(HEADERS, brr, sbh);
-   BinaryData blkDataKey = getBlkDataKey(sbh.blockHeight_, sbh.duplicateID_);
-   
-   
 
-   if(!withTx)
-   {
-      //////
-      // Don't need to mess with seeking if we don't need the transactions.
-      // Just use regular getValue() calls.
-      BinaryDataRef bdr = getValueRef(BLKDATA, blkDataKey);
-      if(bdr.getSize()==0)
-      {
-         Log::ERR() << "Header hash was in HEADERS, but not BLKDATA";
-         return false;
-      }
-      BinaryRefReader brr(bdr);
-      unserializeStoredBlockHeaderValue(BLKDATA, brr, sbh, false);
-      return true;
-   }
-   else
-   {
-      //////
-      // Do the iterator thing because we're going to traverse the whole block
-      bool isInDB = seekTo(BLKDATA, blkDataKey);
-      if(!isInDB)
-      {
-         Log::ERR() << "Header hash was in HEADERS, but not BLKDATA";
-         return false;
-      }
-
-      // Grab the header first, then iterate over 
-      unserializeStoredBlockHeaderValue(BLKDATA, currReadValue_, sbh, false);
-
-      StoredTx    stx;
-      StoredTxOut stxo;
-      while(advanceIterAndRead(BLKDATA))
-      {
-         // If the iter key doesn't start with [PREFIX | HGT | DUP], we're done
-         if(!currReadKey_.getRawRef().startsWith(blkDataKey))
-            break;
-
-         BLKDATA_TYPE bdtype = readBlkDataKey5B(currReadKey_,
-                                                sbh.blockHeight_,
-                                                sbh.duplicateID_);
-   
-         currTxIdx = currReadKey_.get_uint16_t(); 
-         if(index > txList().size())
-         {
-            Log::ERR() << "Invalid index for tx at height " << (hgtX>>8)
-                     << " index " << index << endl;
-            return;
-         }
-   
-         // If this tx doesn't exist, we need to make it.  I think it's 
-         // technically possible to not have a BLKDATA_TX entry, and only 
-         // BLKDATA_TXOUT entries, thus we need to create the StoredTx 
-         // even if this is a BLKDATA_TXOUT.
-         if(sbh.txMap_.find(currTxIdx) == sbh.txMap_.end())
-         {
-            sbh.txMap_[currTxIdx] = StoredTx();
-            StoredTx & stx = sbh.txMap_[currTxIdx];
-
-            // Set the StoredTx parameters that it needs from the iter key
-            stx.blockHeight_ = sbh.blockHeight_;
-            stx.blockDupID_  = sbh.duplicateID_;
-            stx.txIndex_     = currTxIdx;
-         }
-
-         if(bdtype == BLKDATA_TX)
-         {
-            // Get everything else from the iter value
-            unserializeStoredTxValue(currReadValue_, stx);
-         }
-         else if(bdtype == BLKDATA_TXOUT)
-         {
-            currTxOutIdx = currReadKey_.get_uint16_t(); 
-
-            sbh.txMap_[currTxIdx].txOutMap_[currTxOutIdx] = StoredTxOut();
-            StoredTxOut & stxo = sbh.txMap_[currTxIdx].txOutMap_[currTxOutIdx];
-
-            stxo.blockHeight_ = sbh.blockHeight_;
-            stxo.blockDupID_  = sbh.duplicateID_;
-            stxo.txIndex_     = currTxIdx;
-            stxo.txOutIndex_  = currTxOutIdx;
-
-            unserializeStoredTxOutValue(currReadValue_, stxo, currTxOutIdx);
-         }
-         else
-         {
-            Log::ERR() << "Unexpected BLKDATA entry while iterating";
-            return false;
-         }
-      
-         
-      }
-      
-   }
-
-   return true;
+   return getStoredBlockHeader(sbh, sbh.blockHeight_, sbh.duplicateID_, withTx);
 }
+
 
 ////////////////////////////////////////////////////////////////////////////////
-void InterfaceToLevelDB::getStoredBlockHeader(
+bool InterfaceToLevelDB::getStoredBlockHeader(
                           StoredBlockHeader & sbh,
                           uint32_t blockHgt,
-                          uint8_t blockDup,
                           bool withTx)
 {
+   uint8_t dupID = getValidDuplicateIDForHeight(blockHgt);
+   if(dupID == UINT8_MAX)
+      Log::ERR() << "Headers DB has no block at height: " << blockHgt; 
 
+   return getStoredBlockHeader(sbh, blockHgt, dupID, withTx);
 }
 
+
+////////////////////////////////////////////////////////////////////////////////
+uint8_t InterfaceToLevelDB::getValidDuplicateIDForHeight(uint32_t blockHgt)
+{
+   BinaryData hgt4((uint8_t*)&blockHgt, 4);
+   BinaryDataRef hgtList = getValueRef(HEADERS, DB_PREFIX_HEADHGT, hgt4);
+
+   if(hgtList.getSize() == 0)
+   {
+      Log::ERR() << "Requested header does not exist in DB";
+      return false
+   }
+
+   uint8_t lenEntry = 33;
+   uint8_t numDup = hgtList.getSize() / lenEntry;
+   BinaryRefReader brr(hgtList);
+   for(uint8_t i=0; i<numDup; i++)
+   {
+      uint8_t dup8 = brr.get_uint8_t(); 
+      BinaryDataRef thisHash = brr.get_BinaryDataRef(lenEntry-1);
+      if(dup8 & 0x80 > 0)
+         return (dup8 & 0x7f);
+   }
+
+   Log::ERR() << "Requested a header-by-height but none were marked as main";
+   return 0xff;
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 void InterfaceToLevelDB::putStoredTx(         
@@ -1603,9 +1551,9 @@ void InterfaceToLevelDB::putStoredTx(
 
    // First, check if it's already in the hash-indexed DB
    BinaryData hash4(stx.thisHash_.getSliceRef(0,4));
-   BinaryData existingHints = getValue(BLKDATA, DB_PREFIX_HINT, hash4);
+   BinaryData existingHints = getValue(BLKDATA, DB_PREFIX_TXHINTS, hash4);
 
-   // We need to add a txhint
+   // We may need to add a txhint
    if(existingHints.getSize() > 0)
    {
       uint32_t numHints = existingHints.getSize() / 6;
@@ -1647,7 +1595,6 @@ void InterfaceToLevelDB::putStoredTx(
          iter->second.blockDupID_  = stx.blockDupID_;
          iter->second.txIndex_     = stx.txIndex_;
          iter->second.txOutIndex_  = iter->first;
-         iter->second.isValid_     = stx.isValid_;
          putStoredTxOut(iter->second);
       }
    }
@@ -1656,13 +1603,379 @@ void InterfaceToLevelDB::putStoredTx(
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void InterfaceToLevelDB::getStoredTx(         
-                          StoredTx & st,
-                          BinaryDataRef txHash, 
-                          bool withTxOut)
+// We assume we have a valid iterator left at the header entry for this block
+bool InterfaceToLevelDB::readStoredBlockAtIter(StoredBlockHeader & sbh)
 {
+   currReadKey_.resetPosition();
+   BinaryData blkDataKey(currReadKey_.getCurrPtr(), 5);
+   BLKDATA_TYPE bdtype = readBlkDataKey5B(currReadKey_,
+                                          sbh.blockHeight_,
+                                          sbh.duplicateID_);
+
+   
+   // Grab the header first, then iterate over 
+   unserializeStoredBlockHeaderValue(BLKDATA, currReadValue_, sbh, false);
+
+   // If for some reason we hit the end of the DB without any tx, bail
+   bool iterValid = advanceIterAndRead(BLKDATA, DB_PREFIX_BLKDATA);
+   if(!iterValid)
+      return true;  // this isn't an error, it's an block w/o any StoredTx
+
+   // Now start iterating over the tx data
+   uint32_t tempHgt;
+   uint8_t  tempDup;
+   while(currReadKey_.getRawRef().startsWith(blkDataKey))
+   {
+      // We can't just read the the tx, because we have to guarantee 
+      // there's a place for it in the sbh.txMap_
+      BLKDATA_TYPE bdtype = readBlkDataKey5B(currReadKey_, tempHgt, tempDup);
+
+      currTxIdx = currReadKey_.get_uint16_t(); 
+      if(currTxIdx >= sbh.numTx_)
+      {
+         Log::ERR() << "Invalid txIndex at height " << (sbh.blockHeight_)
+                    << " index " << index << endl;
+         return false;
+      }
+
+      if(sbh.txMap_.find(currTxIdx) == sbh.txMap_.end())
+         sbh.txMap_[currTxIdx] = StoredTx();
+
+      readStoredTxAtIter(sbh.blockHeight_, 
+                         sbh.duplicateID_, 
+                         sbh.txMap_[currTxIdx]);
+   } 
+} 
+
+
+////////////////////////////////////////////////////////////////////////////////
+// We assume we have a valid iterator left at the beginning of (potentially) a 
+// transaction in this block.  It's okay if it starts at at TxOut entry (in 
+// some instances we may not have a Tx entry, but only the TxOuts).
+bool InterfaceToLevelDB::readStoredTxAtIter(       
+                                       uint32_t height,
+                                       uint8_t  dupID,
+                                       StoredTx & stx)
+{
+   BinaryData blkPrefix = getBlkDataKey(height, dupID);
+
+   // Make sure that we are still within the desired block (but beyond header)
+   currReadKey_.resetPosition();
+   BinaryDataRef key = currReadKey_.getRawRef();
+   if(!key.startsWith(blkPrefix) || key.getSize() < 7)
+      return false;
+
+   // Check that we are at a tx with the correct height & dup
+   uint32_t storedHgt;
+   uint8_t  storedDup;
+   readBlkDataKey5B(currReadKey_, storedHgt, storedDup);
+   if(storedHgt != height || storedDup != dupID)
+      return false;
+
+   // Make sure the stx has correct height/dup/idx
+   stx.blockHeight_ = height;
+   stx.blockDupID_  = dupID;
+   stx.txIndex_     = currReadKey_.get_uint16_t();
+
+   BinaryData txPrefix = getBlkDataKey(height, dupID, stx.txIndex_);
+
+   
+   // Reset the key again, and then cycle through entries until no longer
+   // on an entry with the correct prefix.  Use do-while because we've 
+   // already verified the iterator is at a valid tx entry
+   currReadKey_.resetPosition();
+   do
+   {
+      // Stop if key doesn't start with [PREFIX | HGT | DUP | TXIDX]
+      if(!currReadKey_.getRawRef().startsWith(txPrefix))
+         break;
+
+      // Read the prefix, height and dup 
+      BLKDATA_TYPE bdtype = readBlkDataKey5B(currReadKey_,
+                                             sbh.blockHeight_,
+                                             sbh.duplicateID_);
+
+
+      // Now actually process the iter value
+      if(bdtype == BLKDATA_TX)
+      {
+         // Get everything else from the iter value
+         unserializeStoredTxValue(currReadValue_, stx);
+      }
+      else if(bdtype == BLKDATA_TXOUT)
+      {
+         currReadKey_.advance(2);
+         uint16_t txOutIdx = currReadKey_.get_uint16_t();
+         txOutMap_[txOutIdx] = StoredTxOut();
+         readStoredTxOutAtIter(height, dupID, stx.txIndex_, txOutMap_[txOutIdx]);
+      }
+      else
+      {
+         Log::ERR() << "Unexpected BLKDATA entry while iterating";
+         return false;
+      }
+   } while(advanceIterAndRead(BLKDATA, DB_PREFIX_BLKDATA))
+
+   return true;
+} 
+
+
+////////////////////////////////////////////////////////////////////////////////
+bool InterfaceToLevelDB::readStoredTxOutAtIter(       
+                                       uint32_t height,
+                                       uint8_t  dupID,
+                                       uint16_t txIndex,
+                                       StoredTxOut & stxo)
+{
+   if(currReadKey_.getSize() < 9)
+      return false;
+
+   currReadKey_.resetPosition();
+
+   // Check that we are at a tx with the correct height & dup & txIndex
+   uint32_t storedHgt;
+   uint8_t  storedDup;
+   readBlkDataKey5B(currReadKey_, storedHgt, storedDup);
+   uint16_t storedTxIdx    = currReadKey_.get_uint16_t();
+   uint16_t storedTxOutIdx = currReadKey_.get_uint16_t();
+
+   if(storedHgt != height || storedDup != dupID || storedTxIdx != txIndex)
+      return false;
+
+   stxo.blockHeight_ = height;
+   stxo.blockDupID_  = dupID;
+   stxo.txIndex_     = txIndex;
+   stxo.txOutIndex_  = storedTxOutIdx;
+
+   unserializeStoredTxOutValue(currReadValue_, stxo);
 
 }
+
+
+////////////////////////////////////////////////////////////////////////////////
+// Although this method technically makes a DB access, it's likely to be very
+// fast because the DB is so small and probably entirely cached.
+bool isBlockHeightAndDupValid(uint32_t hgt, uint8_t dup)
+{
+   SCOPED_TIMER("isBlockHeightAndDupValid");
+
+   static uint32_t const lenEntry = 33;
+
+   uint32_t hgtX = heightAndDupToHgtx(hgt,dup);
+   BinaryDataRef hgtxRef((uint8_t*)&hgtX, 4);
+   BinaryDataRef dupList = getValueRef(HEADERS, DB_PREFIX_HEADHGT, hgtxRef);
+   
+   uint8_t numDup = dupList.getSize() / lenEntry;
+   BinaryRefReader brr(dupList);
+   for(uint32_t dup=0; dup<numDup; dup++)
+   {
+      uint8_t dup8 = brr.get_uint8_t(); 
+      if(dup8 & 0x7f == dup)
+         return ((dup8 & 0x80) > 0);
+   
+      brr.advance(32);
+   }
+   
+   Log::ERR() << "Height & Dup requested was not found in HEADERS DB";
+   return false;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+vector<BinaryData> getAllTxHints(BinaryDataRef txHash)
+{
+   BinaryDataRef allHints = getValueRef(BLKDATA, 
+                                        DB_PREFIX_TXHINTS, 
+                                        txHash.getSliceRef(0,4));
+   vector<BinaryData> hintsOut(allHints.getSize() / 6);
+   for(uint32_t i=0; i<allHints.getSize()/6; i++)
+      hintsOut[i] = allHints.getSliceCopy(i*6, 6);
+
+   return hintsOut;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// We assume that the first TxHint that matches is correct.  This means that 
+// when we mark a transaction/block valid, we need to make sure all the hints
+// lists have the correct one in front.  Luckily, the TXHINTS entries are tiny 
+// and the number of modifications to make for each reorg is small.
+bool InterfaceToLevelDB::getStoredTx(         
+                          StoredTx & stx,
+                          BinaryDataRef txHash,
+                          bool returnValidOnly)
+{
+   BinaryData hash4(txHash.getSliceRef(0,4));
+   BinaryData existingHints = getValue(BLKDATA, DB_PREFIX_TXHINTS, hash4);
+
+   if(existingHints.getSize() == 0)
+   {
+      Log::ERR() << "No tx in DB with hash: " << txHash.toHexStr();
+      return false;
+   }
+
+   // Now go through all the hints looking for the first one with a matching hash
+   uint32_t numHints = existingHints.getSize() / 6;
+   uint32_t hgtx, height;
+   uint8_t  dup;
+   for(uint32_t i=0; i<numHints; i++)
+   {
+      BinaryDataRef hint = existingHints.getSliceRef(i*6, 6);
+      seekTo(BLKDATA, DB_PREFIX_BLKDATA, hint);
+
+      BLKDATA_TYPE bdtype = readBlkDataKey5B(currReadKey_, height, dup);
+      uint16_t txIdx = currReadKey_.get_uint16_t();
+      
+      // We don't actually know for sure whether the seekTo() found 
+      BinaryData key6 = getBlkDataKey(height, dup, txIdx, false);
+      if(key6 != hint)
+      {
+         Log::ERR() << "TxHint referenced a BLKDATA tx that doesn't exist";
+         continue;
+      }
+
+      currReadValue_.advance(2);  // skip flags
+      if(currReadValue_.get_BinaryDataRef(32) == txHash)
+      {
+         if(returnValidOnly && !isBlockHeightAndDupValid(height, dup))
+            continue;
+         
+         currReadKey_.resetPosition(); 
+         currReadValue_.resetPosition(); 
+         return readStoredTxAtIter(hgtxToHeight(hgtX), hgtxToDupID(hgtX), stx);
+      }
+   }
+
+   if(returnValidOnly)
+      Log::ERR() << "Could not find valid Tx with hash: " << txHash.toHexStr();
+   else
+      Log::ERR() << "Could not find any Tx with hash: " << txHash.toHexStr();
+
+   return false;
+   
+
+}
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+void InterfaceToLevelDB::getStoredTx(         
+                          StoredTx & stx,
+                          uint32_t blockHeight,
+                          uint32_t txIndex,
+                          bool withTxOut)
+{
+   uint8_t dupID = getValidDuplicateIDForHeight(blockHeight);
+   if(dupID == UINT8_MAX)
+      Log::ERR() << "Headers DB has no block at height: " << blockHeight; 
+
+   return getStoredTx(stx, blockHeight, dupID, txIndex, withTxOut);
+
+}
+
+////////////////////////////////////////////////////////////////////////////////
+bool InterfaceToLevelDB::getStoredTx(         
+                          StoredTx & stx,
+                          uint32_t blockHeight,
+                          uint32_t dupID,
+                          uint32_t txIndex,
+                          bool withTxOut)
+{
+   BinaryData blkDataKey = getBlkDataKey(blockHeight, dupID, txIndex);
+
+   if(!withTxOut)
+   {
+      // In some situations, withTxOut may not matter here:  the TxOuts may
+      // actually be serialized with the tx entry, thus the unserialize call
+      // may extract all TxOuts.
+      BinaryDataRef val = getValueRef(BLKDATA, blkDataKey);
+      if(val.getSize()==0)
+      {
+         Log::ERR() << "BLKDATA DB does not have requested tx";
+         Log::ERR() << "("<<blockHeight<<", "<<dupID<<", "<<txIndex<<")";
+         return false;
+      }
+
+      stx.blockHeight_ = blockHeight;
+      stx.blockDupID_  = dupID;
+      stx.txIndex_     = txIndex;
+
+      BinaryRefReader brr(val);
+      unserializeStoredTxValue(brr, stx);
+   }
+   else
+   {
+      
+      bool isInDB = seekTo(BLKDATA, blkDataKey);
+      if(!isInDB)
+      {
+         Log::ERR() << "BLKDATA DB does not have the requested tx";
+         Log::ERR() << "("<<blockHeight<<", "<<dupID<<", "<<txIndex<<")";
+         return false;
+      }
+
+      // Grab the header first, then iterate over 
+      unserializeStoredTxValue(BLKDATA, currReadValue_, sbh, false);
+
+      while(advanceIterAndRead(BLKDATA))
+      {
+         // If the iter key doesn't start with [PREFIX | HGT | DUP], we're done
+         if(!currReadKey_.getRawRef().startsWith(blkDataKey))
+            break;
+
+         
+         BLKDATA_TYPE bdtype = readBlkDataKey5B(currReadKey_,
+                                                sbh.blockHeight_,
+                                                sbh.duplicateID_);
+   
+         currTxIdx = currReadKey_.get_uint16_t(); 
+         if(index > txList().size())
+         {
+            Log::ERR() << "Invalid index for tx at height " << (hgtX>>8)
+                     << " index " << index << endl;
+            return;
+         }
+   
+         // If this tx doesn't exist, we need to make it.  I think it's 
+         // technically possible to not have a BLKDATA_TX entry, and only 
+         // BLKDATA_TXOUT entries, thus we need to create the StoredTx 
+         // even if this is a BLKDATA_TXOUT.
+         if(sbh.txMap_.find(currTxIdx) == sbh.txMap_.end())
+         {
+            sbh.txMap_[currTxIdx] = StoredTx();
+            StoredTx & stx = sbh.txMap_[currTxIdx];
+
+            // Set the StoredTx parameters that it needs from the iter key
+            stx.blockHeight_ = sbh.blockHeight_;
+            stx.blockDupID_  = sbh.duplicateID_;
+            stx.txIndex_     = currTxIdx;
+         }
+
+         if(bdtype == BLKDATA_TX)
+         {
+            // Get everything else from the iter value
+            unserializeStoredTxValue(currReadValue_, stx);
+         }
+         else if(bdtype == BLKDATA_TXOUT)
+         {
+            currTxOutIdx = currReadKey_.get_uint16_t(); 
+
+            sbh.txMap_[currTxIdx].txOutMap_[currTxOutIdx] = StoredTxOut();
+            StoredTxOut & stxo = sbh.txMap_[currTxIdx].txOutMap_[currTxOutIdx];
+
+            unserializeStoredTxOutValue(currReadValue_, stxo, currTxOutIdx);
+         }
+         else
+         {
+            Log::ERR() << "Unexpected BLKDATA entry while iterating";
+            return false;
+         }
+      } // while(advanceIter)
+   } // fetch header & txs
+
+   return true;
+}
+
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1673,16 +1986,57 @@ void InterfaceToLevelDB::putStoredTxOut( StoredTxOut const & stxo)
 
 
 ////////////////////////////////////////////////////////////////////////////////
-void InterfaceToLevelDB::getStoredTxOut(      
-                          StoredTxOut & sto,
-                          BinaryDataRef txHash)
+bool InterfaceToLevelDB::getStoredTxOut(      
+                              StoredTxOut & stxo,
+                              uint32_t blockHeight,
+                              uint32_t dupID,
+                              uint32_t txIndex,
+                              uint32_t txOutIndex)
 {
+   BinaryData blkKey = getBlkDataKey( blockHeight, dupID, txIndex, txOutIndex);
+   BinaryDataRef valRef = getValueRef(BLKDATA, blkKey);
+   if(valRef.getSize() == 0)
+   {
+      Log::ERR() << "BLKDATA DB does not have the requested TxOut";
+      return false;
+   }
+
+   stxo.blockHeight_ = blockHeight;
+   stxo.blockDupID_  = dupID;
+   stxo.txIndex_     = txIndex;
+   stxo.txOutIndex_  = txOutIndex;
+
+   BinaryRefReader brr(valRef);
+   unserializeStoredTxOutValue(brr, stxo);
 
 }
 
+////////////////////////////////////////////////////////////////////////////////
+bool InterfaceToLevelDB::getStoredTxOut(      
+                              StoredTxOut & stxo,
+                              uint32_t blockHeight,
+                              uint32_t txIndex,
+                              uint32_t txOutIndex)
+{
+   uint8_t dupID = getValidDuplicateIDForHeight(blockHeight);
+   if(dupID == UINT8_MAX)
+      Log::ERR() << "Headers DB has no block at height: " << blockHeight; 
+
+   return getStoredTxOut(stxo, blockHeight, dupID, txIndex, txOutIndex);
+}
 
 
 ////////////////////////////////////////////////////////////////////////////////
+bool InterfaceToLevelDB::setBlockValid(bool valid=true)
+{
+   // Mark the HEADHGT DB entry
+   // Make sure the txs are in the front of their respective TXHINT entries
+
+}
+
+////////////////////////////////////////////////////////////////////////////////
+//  Not sure that this is possible...
+/*
 bool InterfaceToLevelDB::updateHeaderHeight(BinaryDataRef headHash, 
                                             uint32_t height, uint8_t dup)
 {
@@ -1700,4 +2054,5 @@ bool InterfaceToLevelDB::updateHeaderHeight(BinaryDataRef headHash,
    putValue(HEADERS, headHash, bw.getDataRef());
    return true;
 }  
+*/
 

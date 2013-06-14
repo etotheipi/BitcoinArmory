@@ -17,7 +17,6 @@ void StoredBlockHeader::setParamsTrickle(uint32_t hgt,
    {
       iter->blockHeight_ = hgt;
       iter->blockDupID_  = dupID;
-      iter->isValid_     = isValid;
 
       // Trickle the data down to the TxOuts, too
       map<uint32_t, StoredTxOut>::iterator iter2; 
@@ -27,7 +26,6 @@ void StoredBlockHeader::setParamsTrickle(uint32_t hgt,
       {
          iter2->blockHeight_ = hgt;
          iter2->blockDupID_  = dupID; 
-         iter2->isValid_     = isValid;
       }
    }
 }
