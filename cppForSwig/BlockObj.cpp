@@ -15,6 +15,7 @@
 #include "BinaryData.h"
 #include "BtcUtils.h"
 #include "BlockObj.h"
+#include "leveldb_wrapper.h"
 
 
 
@@ -746,7 +747,9 @@ Tx TxRef::getTxCopy(void) const
    //out.setTxRefPtr(const_cast<TxRef*>(this));
    //out.setHeaderPtr(headerPtr_);
    //return out;
-   return Tx();
+   Tx txCopy;
+   dbIface_.getFullTxValue(txCopy, ldbKey6B_);
+   return txCopy;
 }
 
 /////////////////////////////////////////////////////////////////////////////

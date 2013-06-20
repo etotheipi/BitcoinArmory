@@ -846,7 +846,7 @@ public:
             return bw.getData();
          case(TXOUT_SCRIPT_NONSTANDARD):     
             bw.put_uint8_t(0xff);
-            bw.put_BinaryData(script.getSliceCopy(2,20));
+            bw.put_BinaryData(script);
             return bw.getData();
          default:
             cerr << "***ERROR:  What kind of TxOutScript did we get?" << endl;

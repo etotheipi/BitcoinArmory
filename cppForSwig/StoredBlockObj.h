@@ -94,6 +94,7 @@ public:
    uint16_t          txIndex_;
    uint16_t          txOutIndex_;
    bool              isSpent_;
+   bool              isFromCoinbase_;
    uint32_t          spentByHgtX_;
    uint16_t          spentByTxIndex_;
    uint16_t          spentByTxInIndex_;

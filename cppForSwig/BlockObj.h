@@ -75,7 +75,7 @@ public:
 
 
    /////////////////////////////////////////////////////////////////////////////
-   //vector<TxRef*> &   getTxRefPtrList(void) {return txPtrList_;}
+   //vector<TxRef > &   getTxRefPtrList(void) {return txPtrList_;}
    vector<BinaryData> getTxHashList(void);
    BinaryData         calcMerkleRoot(vector<BinaryData>* treeOut=NULL);
    bool               verifyMerkleRoot(void);
@@ -125,7 +125,7 @@ private:
    bool           isOnDiskYet_;
    uint32_t       wholeBlockSize_;
    uint32_t       numTx_;
-   vector<TxRef*> txPtrList_;
+   //vector<TxRef > txPtrList_;
 
 };
 
@@ -189,7 +189,7 @@ public:
    // Ptr to the beginning of the TxIn, last two arguments are supplemental
    TxIn(uint8_t const * ptr,  
         uint32_t        nBytes=0, 
-        TxRef*          parent=NULL, 
+        TxRef          parent=NULL, 
         int32_t         idx=-1) { unserialize(ptr, nBytes, parent, idx); } 
 
    uint8_t const *  getPtr(void) const { assert(isInitialized()); return dataCopy_.getPtr(); }
@@ -215,10 +215,11 @@ public:
    bool             isScriptSpendP2SH(void)  { return scriptType_ == TXIN_SCRIPT_SPENDP2SH; }
    bool             isScriptNonStd(void)     { return scriptType_ == TXIN_SCRIPT_NONSTANDARD; }
 
-   TxRef*           getParentTxPtr(void) { return parentTx_; }
+   //TxRef            getParentTxPtr(void) { return parentTx_; }
+   TxRef            getParentTx(void) { return parentTx_; }
    uint32_t         getIndex(void) { return index_; }
 
-   void setParentTx(TxRef* txref, int32_t idx=-1) { parentTx_=txref; index_=idx;}
+   void setParentTx(TxRef  txref, int32_t idx=-1) { parentTx_=txref; index_=idx;}
 
    uint32_t         getSequence(void)   { return *(uint32_t*)(getPtr()+getSize()-4); }
 
@@ -233,13 +234,13 @@ public:
 
    /////////////////////////////////////////////////////////////////////////////
    void unserialize(uint8_t const * ptr, 
-                        uint32_t nbytes=0, TxRef* parent=NULL, int32_t idx=-1);
+                        uint32_t nbytes=0, TxRef  parent=NULL, int32_t idx=-1);
    void unserialize(BinaryData    const & str, 
-                        uint32_t nbytes=0, TxRef* parent=NULL, int32_t idx=-1);
+                        uint32_t nbytes=0, TxRef  parent=NULL, int32_t idx=-1);
    void unserialize(BinaryDataRef const & str, 
-                        uint32_t nbytes=0, TxRef* parent=NULL, int32_t idx=-1);
+                        uint32_t nbytes=0, TxRef  parent=NULL, int32_t idx=-1);
    void unserialize(BinaryRefReader & brr, 
-                        uint32_t nbytes=0, TxRef* parent=NULL, int32_t idx=-1);
+                        uint32_t nbytes=0, TxRef  parent=NULL, int32_t idx=-1);
 
    void unserialize_swigsafe_(BinaryData const & rawIn) { unserialize(rawIn); }
 
@@ -262,7 +263,7 @@ private:
    uint32_t         index_;
    TXIN_SCRIPT_TYPE scriptType_;
    uint32_t         scriptOffset_;
-   TxRef*           parentTx_;
+   TxRef            parentTx_;
 
 
 };
@@ -281,7 +282,7 @@ public:
    TxOut(void) : dataCopy_(0), parentHash_(0) {}
    TxOut(uint8_t const * ptr, 
          uint32_t        nBytes=0, 
-         TxRef*          parent=NULL, 
+         TxRef           parent=NULL, 
          int32_t         idx=-1) { unserialize(ptr, nBytes, parent, idx); } 
 
    uint8_t const * getPtr(void) const { return dataCopy_.getPtr(); }
@@ -289,7 +290,7 @@ public:
    uint64_t        getValue(void) const { return *(uint64_t*)(dataCopy_.getPtr()); }
    bool            isStandard(void) const { return scriptType_ != TXOUT_SCRIPT_NONSTANDARD; }
    bool            isInitialized(void) const {return dataCopy_.getSize() > 0; }
-   TxRef*          getParentTxPtr(void) { return parentTx_; }
+   TxRef           getParentTxPtr(void) { return parentTx_; }
    uint32_t        getIndex(void) { return index_; }
 
    void setParentTx(TxRef * txref, int32_t idx=-1) { parentTx_=txref; index_=idx;}
@@ -326,13 +327,13 @@ public:
 
    /////////////////////////////////////////////////////////////////////////////
    void unserialize(uint8_t const * ptr, 
-                         uint32_t nbytes=0, TxRef* parent=NULL, int32_t idx=-1);
+                         uint32_t nbytes=0, TxRef  parent=NULL, int32_t idx=-1);
    void unserialize(BinaryData const & str, 
-                         uint32_t nbytes=0, TxRef* parent=NULL, int32_t idx=-1);
+                         uint32_t nbytes=0, TxRef  parent=NULL, int32_t idx=-1);
    void unserialize(BinaryDataRef const & str, 
-                         uint32_t nbytes=0, TxRef* parent=NULL, int32_t idx=-1);
+                         uint32_t nbytes=0, TxRef  parent=NULL, int32_t idx=-1);
    void unserialize(BinaryRefReader & brr, 
-                         uint32_t nbytes=0, TxRef* parent=NULL, int32_t idx=-1);
+                         uint32_t nbytes=0, TxRef  parent=NULL, int32_t idx=-1);
 
    void unserialize_swigsafe_(BinaryData const & rawOut) { unserialize(rawOut); }
 
@@ -348,7 +349,7 @@ private:
    uint32_t          index_;
    TXOUT_SCRIPT_TYPE scriptType_;
    BinaryData        recipientBinAddr20_;
-   TxRef*            parentTx_;
+   TxRef             parentTx_;
 };
 
 
@@ -368,7 +369,7 @@ public:
    Tx(BinaryRefReader & brr)     { unserialize(brr);       }
    Tx(BinaryData const & str)    { unserialize(str);       }
    Tx(BinaryDataRef const & str) { unserialize(str);       }
-   Tx(TxRef* txref);
+   Tx(TxRef  txref);
      
    uint8_t const * getPtr(void) const { return dataCopy_.getPtr(); }
    uint32_t        getSize(void) const {  return dataCopy_.getSize(); }
@@ -387,8 +388,8 @@ public:
 
    static Tx          createFromStr(BinaryData const & bd) {return Tx(bd);}
 
-   TxRef*             getTxRefPtr(void) const { return txRefPtr_; }
-   void               setTxRefPtr(TxRef* ptr) { txRefPtr_ = ptr; }
+   TxRef              getTxRefPtr(void) const { return txRefPtr_; }
+   void               setTxRefPtr(TxRef  ptr) { txRefPtr_ = ptr; }
    BlockHeader*       getHeaderPtr(void)  const { return headerPtr_; }
    void               setHeaderPtr(BlockHeader* bh)   { headerPtr_ = bh; }
 
@@ -450,7 +451,7 @@ private:
 
    // To be calculated later
    BlockHeader*  headerPtr_;
-   TxRef*        txRefPtr_;
+   TxRef         txRefPtr_;
 };
 
 
@@ -458,6 +459,8 @@ private:
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
+class InterfaceToLevelDB;  // Forward declare for pointer in TxRef
+
 class TxRef
 {
    friend class BlockDataManager_LevelDB;
@@ -465,22 +468,21 @@ class TxRef
 
 public:
    /////////////////////////////////////////////////////////////////////////////
-   TxRef(void) : ldbKey8B_(0), headerPtr_(NULL) {}
-   //TxRef(FileDataPtr fdr) : blkFilePtr_(fdr), headerPtr_(NULL) {}
+   TxRef(void) : ldbKey6B_(0), dbIface_(NULL) {}
+   TxRef(BinaryDataRef bdr) : ldbKey6B_(bdr), dbIface_(NULL) {}
      
    /////////////////////////////////////////////////////////////////////////////
    BinaryData         getThisHash(void) const;
    Tx                 getTxCopy(void) const;
    bool               isMainBranch(void)  const;
-   uint32_t           getSize(void) const {  return -1; }  // TODO: fix this!
 
    /////////////////////////////////////////////////////////////////////////////
    BlockHeader*       getHeaderPtr(void)  const { return headerPtr_; }
-   void               setHeaderPtr(BlockHeader* bh)   { headerPtr_ = bh; }
+   //void               setHeaderPtr(BlockHeader* bh)   { headerPtr_ = bh; }
    //FileDataPtr        getBlkFilePtr(void) { return blkFilePtr_; }
    //void               setBlkFilePtr(FileDataPtr const & b) { blkFilePtr_ = b; }
-   BinaryData         getLevelDBKey(void) { return ldbKey8B_;}
-   void               setLevelDBKey(BinaryData const & bd) { ldbKey8B_ = bd;}
+   BinaryData         getLevelDBKey(void) { return ldbKey6B_;}
+   void               setLevelDBKey(BinaryData const & bd) { ldbKey6B_ = bd;}
 
 
    /////////////////////////////////////////////////////////////////////////////
@@ -496,8 +498,18 @@ public:
 
 private:
    //FileDataPtr        blkFilePtr_;
-   BinaryData         ldbKey8B_;  // hgt(3) + dup(1) + txIdx(2) + txOutIdx(2)
-   BlockHeader*       headerPtr_;
+   //BlockHeader*       headerPtr_;
+
+   // Both filePtr and headerPtr can be replaced by a single ldbKey
+   // It is 6 bytes:  [ HeaderHgt(3) || DupID(1) || TxIndex(2) ]
+   // It tells us exactly how to get this Tx from LDB, and by the way
+   // the DB is structured, the first four bytes also tells us how 
+   // to get the associated header.  
+   BinaryData           ldbKey6B_;  
+
+   // TxRefs are associated with a particular interface (at this time, there
+   // will only be one interface).
+   InterfaceToLevelDB*  dbIface_;  
 };
 
 
@@ -525,8 +537,8 @@ public:
    //        realized that these copies will fall out of sync on a reorg
    TxIOPair(void);
    TxIOPair(uint64_t  amount);
-   TxIOPair(TxRef* txPtrO, uint32_t txoutIndex);
-   TxIOPair(TxRef* txPtrO, uint32_t txoutIndex, TxRef* txPtrI, uint32_t txinIndex);
+   TxIOPair(TxRef  txPtrO, uint32_t txoutIndex);
+   TxIOPair(TxRef  txPtrO, uint32_t txoutIndex, TxRef  txPtrI, uint32_t txinIndex);
 
    // Lots of accessors
    bool      hasTxOut(void) const   { return (txPtrOfOutput_   != NULL); }
@@ -558,8 +570,8 @@ public:
    BinaryData    getTxHashOfInput(void);
    BinaryData    getTxHashOfOutput(void);
 
-   bool setTxIn   (TxRef* txref, uint32_t index);
-   bool setTxOut  (TxRef* txref, uint32_t index);
+   bool setTxIn   (TxRef  txref, uint32_t index);
+   bool setTxOut  (TxRef  txref, uint32_t index);
    bool setTxInZC (Tx*    tx,    uint32_t index);
    bool setTxOutZC(Tx*    tx,    uint32_t index);
 
@@ -577,9 +589,9 @@ public:
 
 private:
    uint64_t  amount_;
-   TxRef*    txPtrOfOutput_;
+   TxRef     txPtrOfOutput_;
    uint32_t  indexOfOutput_;
-   TxRef*    txPtrOfInput_;
+   TxRef     txPtrOfInput_;
    uint32_t  indexOfInput_;
 
    // Zero-conf data isn't on disk, yet, so can't use TxRef
@@ -735,6 +747,8 @@ public:
    uint32_t          alreadyScannedUpToBlk_;
    uint64_t          sumValue_;
 
+   map
+
 };
 
 
@@ -771,7 +785,7 @@ public:
          blkNum_(blkNum),
          txIndex_(txIndex) { }
 
-   RegisteredTx(TxRef* txptr, BinaryData const & txHash, uint32_t blkNum, uint32_t txIndex) :
+   RegisteredTx(TxRef  txptr, BinaryData const & txHash, uint32_t blkNum, uint32_t txIndex) :
          txrefPtr_(txptr),
          txHash_(txHash),
          blkNum_(blkNum),

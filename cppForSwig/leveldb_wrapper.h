@@ -37,10 +37,10 @@ typedef enum
   DB_PREFIX_REGADDR,
   DB_PREFIX_TXHINTS,
   DB_PREFIX_TRIENODES,
-  DB_PREFIX_COUNT,
   DB_PREFIX_HEADHASH,
   DB_PREFIX_HEADHGT,
-  DB_PREFIX_NONE,  // for seeking into DBs that don't use a prefix
+  DB_PREFIX_UNDODATA,
+  DB_PREFIX_COUNT
 } DB_PREFIX;
 
 
@@ -146,18 +146,19 @@ private:
    BinaryData getValue(DB_SELECT db, DB_PREFIX pref, BinaryDataRef key);
 
    /////////////////////////////////////////////////////////////////////////////
-   // Get value using BinaryDataRef object.  Remember, references are only valid
-   // for as long as the iterator stays in one place.  If you want to collect 
-   // lots of values from the database, you must make copies of them using reg
-   // getValue() calls.
+   // Get value using BinaryDataRef object.  The data from the get* call is 
+   // actually stored in a member variable, and thus the refs are valid only 
+   // until the next get* call.
    BinaryDataRef getValueRef(DB_SELECT db, BinaryDataRef keyWithPrefix);
+   BinaryDataRef getValueRef(DB_SELECT db, DB_PREFIX_TYPE prefix, BinaryDataRef key);
 
    /////////////////////////////////////////////////////////////////////////////
-   // Get value using BinaryDataRef object.  Remember, references are only valid
-   // for as long as the iterator stays in one place.  If you want to collect 
-   // lots of values from the database, you must make copies of them using reg
-   // getValue() calls.
-   BinaryDataRef getValueRef(DB_SELECT db, DB_PREFIX_TYPE prefix, BinaryDataRef key);
+   // Same as the getValueRef, in that they are only valid until the next get*
+   // call.  These are convenience methods which basically just save us 
+   BinaryDataRef getValueReader(DB_SELECT db, BinaryDataRef keyWithPrefix);
+   BinaryDataRef getValueReader(DB_SELECT db, DB_PREFIX_TYPE prefix, BinaryDataRef key);
+
+
 
    /////////////////////////////////////////////////////////////////////////////
    // Put value based on BinaryDataRefs key and value
@@ -188,11 +189,11 @@ private:
    void advanceIterAndRead(leveldb::Iterator* iter);
 
    bool seekTo(DB_SELECT db, 
-               BinaryData const & key, 
+               BinaryDataRef key, 
                leveldb::Iterator* it=NULL);
    bool seekTo(DB_SELECT db, 
                DB_PREFIX pref, 
-               BinaryData const & key, 
+               BinaryDataRef key, 
                leveldb::Iterator* it=NULL);
 
 
@@ -215,7 +216,7 @@ private:
    void startHeaderIteration(void);
 
    /////////////////////////////////////////////////////////////////////////////
-   void startBlockIteration(void);
+   void startBlkDataIteration(DB_PREFIX prefix);
 
    /////////////////////////////////////////////////////////////////////////////
    uint32_t hgtxToHeight(uint32_t hgtx)  {return (hgtX & 0xffffff00)>>8;}
@@ -240,22 +241,21 @@ private:
    /////////////////////////////////////////////////////////////////////////////
    // These four sliceTo* methods make copies, and thus safe to use even after
    // we have advanced the iterator to new data
-   BinaryData sliceToBinaryData(leveldb::Slice slice)
-      { return BinaryData((uint8_t*)(slice.data()), slice.size()); }
-   void sliceToBinaryData(leveldb::Slice slice, BinaryData & bd)
-      { bd.copyFrom((uint8_t*)(slice.data()), slice.size()); }
-   BinaryReader sliceToBinaryReader(leveldb::Slice slice)
-      { return BinaryReader.copyFrom((uint8_t*)(slice.data()), slice.size()); }
-   void sliceToBinaryReader(leveldb::Slice slice, BinaryReader & brr)
-      { brr.setNewData((uint8_t*)(slice.data()), slice.size()); }
+   BinaryData   sliceToBinaryData(   leveldb::Slice slice);
+   void         sliceToBinaryData(   leveldb::Slice slice, BinaryData & bd);
+   BinaryReader sliceToBinaryReader( leveldb::Slice slice);
+   void         sliceToBinaryReader( leveldb::Slice slice, BinaryReader & brr);
 
    /////////////////////////////////////////////////////////////////////////////
    // The reamining sliceTo* methods are reference-based, which become
-   // invalid after the iterator moves on.  
-   BinaryDataRef sliceToBinaryDataRef(leveldb::Slice slice)
-      { return BinaryDataRef( (uint8_t*)(slice.data()), slice.size()); }
-   BinaryRefReader sliceToBinaryRefReader(leveldb::Slice slice)
-      { return BinaryRefReader( (uint8_t*)(slice.data()), slice.size()); }
+   // invalid after the iterator moves on.
+   BinaryDataRef   sliceToBinaryDataRef(  leveldb::Slice slice);
+   BinaryRefReader sliceToBinaryRefReader(leveldb::Slice slice);
+
+
+   /////////////////////////////////////////////////////////////////////////////
+   void resetIterReaders(void) 
+               { currReadKey_.resetPosition(); currReadValue_.resetPosition(); }
 
    /////////////////////////////////////////////////////////////////////////////
    void getNextBlock(void);
@@ -329,6 +329,12 @@ private:
                              uint32_t txIndex,
                              uint32_t txOutIndex,
                              BinaryDataRef txHash)
+
+
+   // TxRefs are much simpler with LDB than the previous FileDataPtr construct
+   TxRef getTxRef( BinaryDataRef txHash);
+   TxRef getTxRef( uint32_t hgtx, uint16_t txIndex);
+   TxRef getTxRef( uint32_t hgt, uint8_t  dup, uint16_t txIndex);
 
 
    bool checkStatus(leveldb::Status stat)
