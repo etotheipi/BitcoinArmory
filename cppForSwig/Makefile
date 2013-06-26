@@ -4,7 +4,7 @@ COMPILER_OPTS = -c -O2 -pipe -fPIC
 
 #**************************************************************************
 LINKER = g++ 
-OBJS = UniversalTimer.o BinaryData.o FileDataPtr.o BtcUtils.o BlockObj.o BlockUtils.o EncryptionUtils.o libcryptopp.a libleveldb.a
+OBJS = UniversalTimer.o BinaryData.o leveldb_wrapper.o StoredBlockObj.o BtcUtils.o BlockObj.o BlockUtils.o EncryptionUtils.o libcryptopp.a libleveldb.a
 
 
 DEPSDIR ?= /usr
@@ -55,28 +55,31 @@ libleveldb.a: Makefile
 UniversalTimer.o: UniversalTimer.h UniversalTimer.cpp
 	$(COMPILER) $(COMPILER_OPTS) $(INCLUDE_OPTS) UniversalTimer.cpp
 
-BinaryData.o: BinaryData.h BinaryData.cpp BtcUtils.h 
+BinaryData.o: BinaryData.h BinaryData.cpp BtcUtils.h log.h
 	$(COMPILER) $(COMPILER_OPTS) $(INCLUDE_OPTS) BinaryData.cpp
 
-FileDataPtr.o: FileDataPtr.h BtcUtils.h BinaryData.h FileDataPtr.cpp
-	$(COMPILER) $(COMPILER_OPTS) $(INCLUDE_OPTS) FileDataPtr.cpp
-
-BtcUtils.o: BtcUtils.h BtcUtils.cpp
+BtcUtils.o: BtcUtils.h BtcUtils.cpp log.h
 	$(COMPILER) $(COMPILER_OPTS) $(INCLUDE_OPTS) BtcUtils.cpp
 
-BlockObj.o: BinaryData.h BtcUtils.h BlockObj.h BlockObj.cpp
+BlockObj.o: log.h BinaryData.h BtcUtils.h BlockObj.h BlockObj.cpp
 	$(COMPILER) $(COMPILER_OPTS) $(INCLUDE_OPTS) BlockObj.cpp
 
-BlockUtils.o: BlockUtils.h BinaryData.h UniversalTimer.h PartialMerkle.h BlockUtils.cpp
+StoredBlockObj.o: log.h BtcUtils.h BinaryData.h StoredBlockObj.h StoredBlockObj.cpp
+	$(COMPILER) $(COMPILER_OPTS) $(INCLUDE_OPTS) StoredBlockObj.cpp
+
+leveldb_wrapper.o: log.h BtcUtils.h BinaryData.h leveldb_wrapper.h leveldb_wrapper.cpp
+	$(COMPILER) $(COMPILER_OPTS) $(INCLUDE_OPTS) leveldb_wrapper.cpp
+
+BlockUtils.o: log.h BlockUtils.h BinaryData.h UniversalTimer.h PartialMerkle.h BlockUtils.cpp
 	$(COMPILER) $(COMPILER_OPTS) $(INCLUDE_OPTS) BlockUtils.cpp
 
-EncryptionUtils.o: BtcUtils.h BinaryData.h EncryptionUtils.h EncryptionUtils.cpp
+EncryptionUtils.o: log.h BtcUtils.h BinaryData.h EncryptionUtils.h EncryptionUtils.cpp
 	$(COMPILER) $(COMPILER_OPTS) $(INCLUDE_OPTS) EncryptionUtils.cpp
 
-CppBlockUtils_wrap.cxx: BlockUtils.h BinaryData.h BlockObj.h UniversalTimer.h BlockUtils.h BlockUtils.cpp CppBlockUtils.i
+CppBlockUtils_wrap.cxx: log.h BlockUtils.h BinaryData.h BlockObj.h UniversalTimer.h BlockUtils.h BlockUtils.cpp CppBlockUtils.i
 	swig $(SWIG_OPTS) -outdir ../ -v CppBlockUtils.i 
 
-CppBlockUtils_wrap.o: BlockUtils.h  BinaryData.h UniversalTimer.h CppBlockUtils_wrap.cxx
+CppBlockUtils_wrap.o: log.h BlockUtils.h  BinaryData.h UniversalTimer.h CppBlockUtils_wrap.cxx
 	$(COMPILER) $(SWIG_INC) $(COMPILER_OPTS) $(INCLUDE_OPTS) $(LIBRARY_OPTS) CppBlockUtils_wrap.cxx
 
 

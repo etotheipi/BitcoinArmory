@@ -65,6 +65,7 @@ typedef enum
    TXOUT_SCRIPT_STDHASH160,
    TXOUT_SCRIPT_STDPUBKEY65,
    TXOUT_SCRIPT_STDPUBKEY33,
+   TXOUT_SCRIPT_MULTISIG,
    TXOUT_SCRIPT_P2SH,
    TXOUT_SCRIPT_NONSTANDARD,
 }  TXOUT_SCRIPT_TYPE;
@@ -75,9 +76,20 @@ typedef enum
    TXIN_SCRIPT_STDCOMPR,
    TXIN_SCRIPT_COINBASE,
    TXIN_SCRIPT_SPENDPUBKEY,
+   TXIN_SCRIPT_SPENDMULTI,
    TXIN_SCRIPT_SPENDP2SH,
    TXIN_SCRIPT_NONSTANDARD
 }  TXIN_SCRIPT_TYPE;
+
+
+typedef enum
+{
+  ADDR_PREFIX_HASH160=0x00,
+  ADDR_PREFIX_P2SH=0x05,
+  ADDR_PREFIX_MULTISIG=0xfe,
+  ADDR_PREFIX_NONSTD=0xff,
+} ADDR_PREFIX_TYPE;
+
 
 enum OPCODETYPE
 {
@@ -734,7 +746,7 @@ public:
    // TXOUT_SCRIPT_STDPUBKEY33,
    // TXOUT_SCRIPT_P2SH,
    // TXOUT_SCRIPT_NONSTANDARD,
-   static TXOUT_SCRIPT_TYPE getTxOutScriptType(BinaryDataRef const & s)
+   static TXOUT_SCRIPT_TYPE getTxOutScriptType(BinaryDataRef s)
    {
       uint32_t sz = s.getSize();
       if(sz < 23) 
@@ -761,25 +773,47 @@ public:
                s[1]    == 0x14 &&
                s[-1]   == 0x87)
          return TXOUT_SCRIPT_P2SH;
+      else if(isMultisigScript(s))
+         return TXOUT_SCRIPT_MULTISIG;
       else 
          return TXOUT_SCRIPT_NONSTANDARD;
    }
 
    /////////////////////////////////////////////////////////////////////////////
-   // TXIN_SCRIPT_STDUNCOMPR,
-   // TXIN_SCRIPT_STDCOMPR,
-   // TXIN_SCRIPT_COINBASE,
-   // TXIN_SCRIPT_SPENDPUBKEY,
-   // TXIN_SCRIPT_SPENDP2SH,
+   // TXIN_SCRIPT_STDUNCOMPR
+   // TXIN_SCRIPT_STDCOMPR
+   // TXIN_SCRIPT_COINBASE
+   // TXIN_SCRIPT_SPENDPUBKEY
+   // TXIN_SCRIPT_SPENDMULTI
+   // TXIN_SCRIPT_SPENDP2SH
    // TXIN_SCRIPT_NONSTANDARD
    static TXIN_SCRIPT_TYPE getTxInScriptType(BinaryDataRef const & s,
                                              BinaryDataRef const & prevTxHash)
    {
+      if(s.getSize() == 0)
+         return TXIN_SCRIPT_NONSTANDARD;
+
       if(prevTxHash == BtcUtils::EmptyHash_)
          return TXIN_SCRIPT_COINBASE;
 
-      if(s[0]==0x00 && s[2]==0x30 && s[4]==0x02)
-         return TXIN_SCRIPT_SPENDP2SH;
+      if(s[0]==0x00)
+      {
+         // TODO: All this complexity to check TxIn type may be too slow when 
+         //       scanning the blockchain...will need to investigate later
+         BinaryDataRef scriptAfter0x00(s.getPtr()+1, s.getSize()-1);
+         vector<BinaryDataRef> splitScr = splitPushOnlyScriptRefs(scriptAfter0x00);
+   
+         if(splitScr.size() != 0)
+         {
+            if(isMultisigScript(splitScr[splitScr.size()-1]))
+               return TXIN_SCRIPT_SPENDMULTI;
+
+            if(s[2]==0x30 && s[4]==0x02)
+               return TXIN_SCRIPT_SPENDP2SH;
+         }
+         return TXIN_SCRIPT_NONSTANDARD;
+      }
+         
 
       if( !(s[1]==0x30 && s[3]==0x02) )
          return TXIN_SCRIPT_NONSTANDARD;
@@ -812,6 +846,7 @@ public:
          case(TXOUT_SCRIPT_STDPUBKEY65): return getHash160(script.getSliceRef(1,65));
          case(TXOUT_SCRIPT_STDPUBKEY33): return getHash160(script.getSliceRef(1,33));
          case(TXOUT_SCRIPT_P2SH):        return script.getSliceCopy(2,20);
+         case(TXOUT_SCRIPT_MULTISIG):    return BadAddress_;
          case(TXOUT_SCRIPT_NONSTANDARD): return BadAddress_;
          default:                        return BadAddress_;
       }
@@ -820,7 +855,7 @@ public:
    /////////////////////////////////////////////////////////////////////////////
    // We use this for LevelDB keys, to return same key if the same priv/pub 
    // pair is used, and also saving a few bytes for common script types
-   static BinaryData getTxOutScriptUniqueKey(BinaryDataRef const & script, 
+   static BinaryData getTxOutScriptUniqueKey(BinaryDataRef script, 
                                     TXOUT_SCRIPT_TYPE type=TXOUT_SCRIPT_NONSTANDARD)
    {
       BinaryWriter bw; 
@@ -829,30 +864,126 @@ public:
       switch(type)
       {
          case(TXOUT_SCRIPT_STDHASH160):  
-            bw.put_uint8_t(0x00);
+            bw.put_uint8_t(ADDR_PREFIX_HASH160);
             bw.put_BinaryData(script.getSliceCopy(3,20));
             return bw.getData();
          case(TXOUT_SCRIPT_STDPUBKEY65): 
-            bw.put_uint8_t(0x00);
+            bw.put_uint8_t(ADDR_PREFIX_HASH160);
             bw.put_BinaryData( getHash160(script.getSliceRef(1,65)));
             return bw.getData();
          case(TXOUT_SCRIPT_STDPUBKEY33): 
-            bw.put_uint8_t(0x00);
+            bw.put_uint8_t(ADDR_PREFIX_HASH160);
             bw.put_BinaryData( getHash160(script.getSliceRef(1,33)));
             return bw.getData();
          case(TXOUT_SCRIPT_P2SH):       
-            bw.put_uint8_t(0x05);
+            bw.put_uint8_t(ADDR_PREFIX_P2SH);
             bw.put_BinaryData(script.getSliceCopy(2,20));
             return bw.getData();
          case(TXOUT_SCRIPT_NONSTANDARD):     
-            bw.put_uint8_t(0xff);
+            bw.put_uint8_t(ADDR_PREFIX_NONSTD);
             bw.put_BinaryData(script);
+            return bw.getData();
+         case(TXOUT_SCRIPT_MULTISIG):     
+            bw.put_uint8_t(ADDR_PREFIX_MULTISIG);
+            bw.put_BinaryData(getMultisigUniqueKey(script));
             return bw.getData();
          default:
             cerr << "***ERROR:  What kind of TxOutScript did we get?" << endl;
             return BinaryData(0);
       }
    }
+
+
+   /////////////////////////////////////////////////////////////////////////////
+   static bool isMultisigScript(BinaryDataRef script)
+   {
+      return (getMultisigUniqueKey(script).getSize() > 0);
+   }
+
+   /////////////////////////////////////////////////////////////////////////////
+   // TODO:  Interesting exercise:  is there a non-standard script that could
+   //        look like the output of this function operating on a multisig 
+   //        script (doesn't matter if it's valid or not)?  In other words, is
+   //        there is a hole where someone could mine a script that would be
+   //        forwarded by Bitcoin-Qt to this code, which would then produce
+   //        a non-std-unique-key that would be indistinguishable from the 
+   //        output of this function?  My guess is, no.  And my guess is that 
+   //        it's not a very useful even if it did.  But it would be good to
+   //        rule it out.
+   static BinaryData getMultisigUniqueKey(BinaryDataRef script)
+   {
+      static BinaryData nothing(0);
+
+      if( script[-1] != 0xae )
+         return nothing;
+
+      if( script[0] >= 1 && script[0] <= 20)
+         return nothing;
+
+      if( script[-2] >= 1 && script[-2] <= 20)
+         return nothing;
+
+      uint8_t M = script[0];
+      uint8_t N = script[-2];
+
+      BinaryWriter bw(2 + N*20);  // reserve enough space for header + N addr
+
+      bw.put_uint8_t(M);
+      bw.put_uint8_t(N);
+
+      BinaryRefReader brr(script);
+      brr.advance(1);
+      for(uint8_t i=0; i<N; i++)
+      {
+         uint8_t nextSz = script[brr.getPosition()];
+         if( nextSz != 0x41 && nextSz != 0x21 )
+            return nothing;
+
+         brr.advance(1);
+         bw.put_BinaryData(getHash160(brr.get_BinaryDataRef( nextSz )));
+      }
+
+      return bw.getData();
+   }
+
+
+   /////////////////////////////////////////////////////////////////////////////
+   // Return pair<M, list<Addr160>>; you can get N from list.size()
+   static pair<uint8_t, list<BinaryData> > getMultisigAddrList(BinaryDataRef script)
+   {
+      static pair<uint8_t, list<BinaryData> > emptyOut;
+      emptyOut.second.clear();
+
+      if( script[-1] != 0xae )
+         return emptyOut;
+
+      if( script[0] >= 1 && script[0] <= 20)
+         return emptyOut;
+
+      if( script[-2] >= 1 && script[-2] <= 20)
+         return emptyOut;
+
+      uint8_t M = script[0];
+      uint8_t N = script[-2];
+
+      BinaryRefReader brr(script);
+
+      brr.advance(1); // Skip over M-value
+
+      pair<uint8_t, list<BinaryData> > outPair;
+      for(uint8_t i=0; i<N; i++)
+      {
+         uint8_t nextSz = script[brr.getPosition()];
+         if( nextSz != 0x41 && nextSz != 0x21 )
+            return emptyOut;
+
+         brr.advance(1);
+         outPair.second.push_back(getHash160(brr.get_BinaryDataRef( nextSz )));
+      }
+      outPair.first = M;
+      return outPair;
+   }
+
 
    /////////////////////////////////////////////////////////////////////////////
    // TXIN_SCRIPT_STDUNCOMPR,
@@ -888,17 +1019,16 @@ public:
          }
          case(TXIN_SCRIPT_COINBASE):    
          case(TXIN_SCRIPT_SPENDPUBKEY):   
+         case(TXIN_SCRIPT_SPENDMULTI):   
          case(TXIN_SCRIPT_NONSTANDARD): 
          default:
             cerr << "***ERROR:  What kind of TxOutScript did we get?" << endl;
             return BadAddress_;
-         
       }
-
    }
 
    /////////////////////////////////////////////////////////////////////////////
-   static vector<BinaryDataRef> splitPushOnlyScriptRefs(BinaryData const & script)
+   static vector<BinaryDataRef> splitPushOnlyScriptRefs(BinaryDataRef script)
    {
       list<BinaryDataRef> opList;
 

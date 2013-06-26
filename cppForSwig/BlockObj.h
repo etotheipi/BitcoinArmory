@@ -15,6 +15,7 @@
 #include <cassert>
 
 #include "BinaryData.h"
+#include "BtcUtils.h"
 #include "leveldb_wrapper.h"
 //#include "FileDataPtr.h"
 
@@ -70,12 +71,9 @@ public:
    uint32_t        getBlockSize(void) const;
    uint32_t        setBlockSize(uint32_t sz) { wholeBlockSize_ = sz; }
    uint32_t        setNumTx(uint32_t ntx) { numTx_ = ntx; }
-   //FileDataPtr     getBlockFilePtr(void) { return thisBlockFilePtr_; }
-   //void            setBlockFilePtr(FileDataPtr b) { thisBlockFilePtr_ = b; }
 
 
    /////////////////////////////////////////////////////////////////////////////
-   //vector<TxRef > &   getTxRefPtrList(void) {return txPtrList_;}
    vector<BinaryData> getTxHashList(void);
    BinaryData         calcMerkleRoot(vector<BinaryData>* treeOut=NULL);
    bool               verifyMerkleRoot(void);
@@ -112,8 +110,6 @@ private:
    // Derived properties - we expect these to be set after construct/copy
    BinaryData     thisHash_;
    double         difficultyDbl_;
-   //FileDataPtr    thisBlockFilePtr_;  // points to beginning of blk, magic bytes
-
 
    // Need to compute these later
    BinaryData     nextHash_;
@@ -125,8 +121,65 @@ private:
    bool           isOnDiskYet_;
    uint32_t       wholeBlockSize_;
    uint32_t       numTx_;
-   //vector<TxRef > txPtrList_;
 
+};
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+class InterfaceToLevelDB;  
+
+class TxRef
+{
+   friend class BlockDataManager_LevelDB;
+   friend class Tx;
+
+public:
+   /////////////////////////////////////////////////////////////////////////////
+   TxRef(void) : ldbKey6B_(0), dbIface_(NULL) {}
+   TxRef(BinaryDataRef bdr) : ldbKey6B_(bdr), dbIface_(NULL) {}
+     
+   /////////////////////////////////////////////////////////////////////////////
+   BinaryData         getThisHash(void) const;
+   Tx                 getTxCopy(void) const;
+   bool               isMainBranch(void)  const;
+   bool               isInitialized(void)  const {return ldbKey6B_.getSize()>0;}
+
+   /////////////////////////////////////////////////////////////////////////////
+   BlockHeader        getHeaderCopy(void)  const;
+   BinaryData         getLevelDBKey(void)    { return ldbKey6B_;}
+   BinaryDataRef      getLevelDBKeyRef(void) { return ldbKey6B_.getRef();}
+   void               setLevelDBKey(BinaryData    const & bd) { bd.copyTo(ldbKey6B_); }
+   void               setLevelDBKey(BinaryDataRef const & bd) { bd.copyTo(ldbKey6B_); }
+
+
+   /////////////////////////////////////////////////////////////////////////////
+   BinaryData         serialize(void) const; 
+
+   /////////////////////////////////////////////////////////////////////////////
+   uint32_t           getBlockTimestamp(void) const;
+   uint32_t           getBlockHeight(void) const;
+   uint8_t            getBlockDupID(void) const;
+   uint16_t           getBlockTxIndex(void) const;
+
+   /////////////////////////////////////////////////////////////////////////////
+   void               pprint(ostream & os=cout, int nIndent=0) const;
+
+private:
+   //FileDataPtr        blkFilePtr_;
+   //BlockHeader*       headerPtr_;
+
+   // Both filePtr and headerPtr can be replaced by a single ldbKey
+   // It is 6 bytes:  [ HeaderHgt(3) || DupID(1) || TxIndex(2) ]
+   // It tells us exactly how to get this Tx from LDB, and by the way
+   // the DB is structured, the first four bytes also tells us how 
+   // to get the associated header.  
+   BinaryData           ldbKey6B_;  
+
+   // TxRefs are associated with a particular interface (at this time, there
+   // will only be one interface).
+   InterfaceToLevelDB*  dbIface_;  
 };
 
 
@@ -189,7 +242,7 @@ public:
    // Ptr to the beginning of the TxIn, last two arguments are supplemental
    TxIn(uint8_t const * ptr,  
         uint32_t        nBytes=0, 
-        TxRef          parent=NULL, 
+        TxRef           parent=TxRef(), 
         int32_t         idx=-1) { unserialize(ptr, nBytes, parent, idx); } 
 
    uint8_t const *  getPtr(void) const { assert(isInitialized()); return dataCopy_.getPtr(); }
@@ -215,11 +268,10 @@ public:
    bool             isScriptSpendP2SH(void)  { return scriptType_ == TXIN_SCRIPT_SPENDP2SH; }
    bool             isScriptNonStd(void)     { return scriptType_ == TXIN_SCRIPT_NONSTANDARD; }
 
-   //TxRef            getParentTxPtr(void) { return parentTx_; }
-   TxRef            getParentTx(void) { return parentTx_; }
+   TxRef            getParentTxRef(void) { return parentTx_; }
    uint32_t         getIndex(void) { return index_; }
 
-   void setParentTx(TxRef  txref, int32_t idx=-1) { parentTx_=txref; index_=idx;}
+   void setParentTx(TxRef txref, int32_t idx=-1) {parentTx_=txref; index_=idx;}
 
    uint32_t         getSequence(void)   { return *(uint32_t*)(getPtr()+getSize()-4); }
 
@@ -234,13 +286,13 @@ public:
 
    /////////////////////////////////////////////////////////////////////////////
    void unserialize(uint8_t const * ptr, 
-                        uint32_t nbytes=0, TxRef  parent=NULL, int32_t idx=-1);
+                        uint32_t nbytes=0, TxRef  parent=TxRef(), int32_t idx=-1);
    void unserialize(BinaryData    const & str, 
-                        uint32_t nbytes=0, TxRef  parent=NULL, int32_t idx=-1);
+                        uint32_t nbytes=0, TxRef  parent=TxRef(), int32_t idx=-1);
    void unserialize(BinaryDataRef const & str, 
-                        uint32_t nbytes=0, TxRef  parent=NULL, int32_t idx=-1);
+                        uint32_t nbytes=0, TxRef  parent=TxRef(), int32_t idx=-1);
    void unserialize(BinaryRefReader & brr, 
-                        uint32_t nbytes=0, TxRef  parent=NULL, int32_t idx=-1);
+                        uint32_t nbytes=0, TxRef  parent=TxRef(), int32_t idx=-1);
 
    void unserialize_swigsafe_(BinaryData const & rawIn) { unserialize(rawIn); }
 
@@ -282,7 +334,7 @@ public:
    TxOut(void) : dataCopy_(0), parentHash_(0) {}
    TxOut(uint8_t const * ptr, 
          uint32_t        nBytes=0, 
-         TxRef           parent=NULL, 
+         TxRef           parent=TxRef(), 
          int32_t         idx=-1) { unserialize(ptr, nBytes, parent, idx); } 
 
    uint8_t const * getPtr(void) const { return dataCopy_.getPtr(); }
@@ -290,10 +342,10 @@ public:
    uint64_t        getValue(void) const { return *(uint64_t*)(dataCopy_.getPtr()); }
    bool            isStandard(void) const { return scriptType_ != TXOUT_SCRIPT_NONSTANDARD; }
    bool            isInitialized(void) const {return dataCopy_.getSize() > 0; }
-   TxRef           getParentTxPtr(void) { return parentTx_; }
+   TxRef           getParentTxRef(void) { return parentTx_; }
    uint32_t        getIndex(void) { return index_; }
 
-   void setParentTx(TxRef * txref, int32_t idx=-1) { parentTx_=txref; index_=idx;}
+   void setParentTx(TxRef txref, int32_t idx=-1) { parentTx_=txref; index_=idx;}
 
 
    /////////////////////////////////////////////////////////////////////////////
@@ -327,13 +379,13 @@ public:
 
    /////////////////////////////////////////////////////////////////////////////
    void unserialize(uint8_t const * ptr, 
-                         uint32_t nbytes=0, TxRef  parent=NULL, int32_t idx=-1);
+                         uint32_t nbytes=0, TxRef  parent=TxRef(), int32_t idx=-1);
    void unserialize(BinaryData const & str, 
-                         uint32_t nbytes=0, TxRef  parent=NULL, int32_t idx=-1);
+                         uint32_t nbytes=0, TxRef  parent=TxRef(), int32_t idx=-1);
    void unserialize(BinaryDataRef const & str, 
-                         uint32_t nbytes=0, TxRef  parent=NULL, int32_t idx=-1);
+                         uint32_t nbytes=0, TxRef  parent=TxRef(), int32_t idx=-1);
    void unserialize(BinaryRefReader & brr, 
-                         uint32_t nbytes=0, TxRef  parent=NULL, int32_t idx=-1);
+                         uint32_t nbytes=0, TxRef  parent=TxRef(), int32_t idx=-1);
 
    void unserialize_swigsafe_(BinaryData const & rawOut) { unserialize(rawOut); }
 
@@ -363,13 +415,13 @@ class Tx
    friend class InterfaceToLevelDB;
 
 public:
-   Tx(void) : isInitialized_(false), headerPtr_(NULL), txRefPtr_(NULL),
+   Tx(void) : isInitialized_(false), headerPtr_(NULL),
               offsetsTxIn_(0), offsetsTxOut_(0) {}
    Tx(uint8_t const * ptr)       { unserialize(ptr);       }
    Tx(BinaryRefReader & brr)     { unserialize(brr);       }
    Tx(BinaryData const & str)    { unserialize(str);       }
    Tx(BinaryDataRef const & str) { unserialize(str);       }
-   Tx(TxRef  txref);
+   Tx(TxRef txref);
      
    uint8_t const * getPtr(void) const { return dataCopy_.getPtr(); }
    uint32_t        getSize(void) const {  return dataCopy_.getSize(); }
@@ -382,21 +434,16 @@ public:
    bool               isMainBranch(void) const;
    bool               isInitialized(void) const { return isInitialized_; }
 
-
+   /////////////////////////////////////////////////////////////////////////////
    uint32_t           getTxInOffset(uint32_t i) const  { return offsetsTxIn_[i]; }
    uint32_t           getTxOutOffset(uint32_t i) const { return offsetsTxOut_[i]; }
 
+   /////////////////////////////////////////////////////////////////////////////
    static Tx          createFromStr(BinaryData const & bd) {return Tx(bd);}
 
-   TxRef              getTxRefPtr(void) const { return txRefPtr_; }
-   void               setTxRefPtr(TxRef  ptr) { txRefPtr_ = ptr; }
-   BlockHeader*       getHeaderPtr(void)  const { return headerPtr_; }
-   void               setHeaderPtr(BlockHeader* bh)   { headerPtr_ = bh; }
-
-   // This is to identify whether this tx has an counterpart on disk
-   // If not, it's just a floater (probably zero-conf tx) and we need
-   // to avoid using the txRefPtr_
-   bool               isTethered(void) {return txRefPtr_!=NULL; }
+   /////////////////////////////////////////////////////////////////////////////
+   TxRef              getTxRef(void) const { return txRefObj_; }
+   void               setTxRef(TxRef ref) { txRefObj_ = ref; }
 
    /////////////////////////////////////////////////////////////////////////////
    BinaryData         serialize(void) const    { return dataCopy_; }
@@ -410,6 +457,7 @@ public:
    void unserialize_swigsafe_(BinaryData const & rawTx) { unserialize(rawTx); }
 
 
+   /////////////////////////////////////////////////////////////////////////////
    uint32_t    getLockTime(void) const { return lockTime_; }
    uint64_t    getSumOfOutputs(void);
 
@@ -451,66 +499,12 @@ private:
 
    // To be calculated later
    BlockHeader*  headerPtr_;
-   TxRef         txRefPtr_;
+   TxRef         txRefObj_;
 };
 
 
 
 
-////////////////////////////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////////////////////////////
-class InterfaceToLevelDB;  // Forward declare for pointer in TxRef
-
-class TxRef
-{
-   friend class BlockDataManager_LevelDB;
-   friend class Tx;
-
-public:
-   /////////////////////////////////////////////////////////////////////////////
-   TxRef(void) : ldbKey6B_(0), dbIface_(NULL) {}
-   TxRef(BinaryDataRef bdr) : ldbKey6B_(bdr), dbIface_(NULL) {}
-     
-   /////////////////////////////////////////////////////////////////////////////
-   BinaryData         getThisHash(void) const;
-   Tx                 getTxCopy(void) const;
-   bool               isMainBranch(void)  const;
-
-   /////////////////////////////////////////////////////////////////////////////
-   BlockHeader*       getHeaderPtr(void)  const { return headerPtr_; }
-   //void               setHeaderPtr(BlockHeader* bh)   { headerPtr_ = bh; }
-   //FileDataPtr        getBlkFilePtr(void) { return blkFilePtr_; }
-   //void               setBlkFilePtr(FileDataPtr const & b) { blkFilePtr_ = b; }
-   BinaryData         getLevelDBKey(void) { return ldbKey6B_;}
-   void               setLevelDBKey(BinaryData const & bd) { ldbKey6B_ = bd;}
-
-
-   /////////////////////////////////////////////////////////////////////////////
-   //BinaryData         serialize(void) const { return blkFilePtr_.getDataCopy(); }
-
-   /////////////////////////////////////////////////////////////////////////////
-   uint32_t           getBlockTimestamp(void) const;
-   uint32_t           getBlockHeight(void) const;
-   uint32_t           getBlockTxIndex(void) const;
-
-   /////////////////////////////////////////////////////////////////////////////
-   void               pprint(ostream & os=cout, int nIndent=0) const;
-
-private:
-   //FileDataPtr        blkFilePtr_;
-   //BlockHeader*       headerPtr_;
-
-   // Both filePtr and headerPtr can be replaced by a single ldbKey
-   // It is 6 bytes:  [ HeaderHgt(3) || DupID(1) || TxIndex(2) ]
-   // It tells us exactly how to get this Tx from LDB, and by the way
-   // the DB is structured, the first four bytes also tells us how 
-   // to get the associated header.  
-   BinaryData           ldbKey6B_;  
-
-   // TxRefs are associated with a particular interface (at this time, there
-   // will only be one interface).
-   InterfaceToLevelDB*  dbIface_;  
-};
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -537,26 +531,29 @@ public:
    //        realized that these copies will fall out of sync on a reorg
    TxIOPair(void);
    TxIOPair(uint64_t  amount);
-   TxIOPair(TxRef  txPtrO, uint32_t txoutIndex);
-   TxIOPair(TxRef  txPtrO, uint32_t txoutIndex, TxRef  txPtrI, uint32_t txinIndex);
+   TxIOPair(TxRef  txRefO, uint32_t txoutIndex);
+   TxIOPair(TxRef  txRefO, uint32_t txoutIndex, TxRef  txRefI, uint32_t txinIndex);
 
    // Lots of accessors
-   bool      hasTxOut(void) const   { return (txPtrOfOutput_   != NULL); }
-   bool      hasTxIn(void) const    { return (txPtrOfInput_    != NULL); }
+   bool      hasTxOut(void) const   { return (txRefOfOutput_.isInitialized()); }
+   bool      hasTxIn(void) const    { return (txRefOfInput_.isInitialized()); }
    bool      hasTxOutInMain(void) const;
    bool      hasTxInInMain(void) const;
    bool      hasTxOutZC(void) const;
    bool      hasTxInZC(void) const;
    bool      hasValue(void) const   { return (amount_!=0); }
    uint64_t  getValue(void) const   { return  amount_;}
+   void      setValue(uint64_t newVal) { amount_ = newVal;}
 
    //////////////////////////////////////////////////////////////////////////////
    TxOut     getTxOut(void) const;   
    TxIn      getTxIn(void) const;   
    TxOut     getTxOutZC(void) const {return txOfOutputZC_->getTxOut(indexOfOutputZC_);}
    TxIn      getTxInZC(void) const  {return txOfInputZC_->getTxIn(indexOfInputZC_);}
-   TxRef&    getTxRefOfOutput(void) const { return *txPtrOfOutput_; }
-   TxRef&    getTxRefOfInput(void) const  { return *txPtrOfInput_;  }
+   TxRef     getTxRefOfOutput(void) const { return txRefOfOutput_; }
+   TxRef     getTxRefOfInput(void) const  { return txRefOfInput_;  }
+   uint32_t  getIndexOfOutput(void) const { return indexOfOutput_; }
+   uint32_t  getIndexOfInput(void) const  { return indexOfInput_;  }
    OutPoint  getOutPoint(void) { return OutPoint(getTxHashOfOutput(),indexOfOutput_);}
 
    pair<bool,bool> reassessValidity(void);
@@ -589,9 +586,10 @@ public:
 
 private:
    uint64_t  amount_;
-   TxRef     txPtrOfOutput_;
+
+   TxRef     txRefOfOutput_;
    uint32_t  indexOfOutput_;
-   TxRef     txPtrOfInput_;
+   TxRef     txRefOfInput_;
    uint32_t  indexOfInput_;
 
    // Zero-conf data isn't on disk, yet, so can't use TxRef
@@ -713,6 +711,7 @@ public:
 ////////////////////////////////////////////////////////////////////////////////
 // BDM is now tracking "registered" addresses and wallets during each of its
 // normal scanning operations.  
+/*
 class RegisteredAddress
 {
 public:
@@ -747,9 +746,8 @@ public:
    uint32_t          alreadyScannedUpToBlk_;
    uint64_t          sumValue_;
 
-   map
-
 };
+*/
 
 
 
@@ -761,44 +759,42 @@ public:
 class RegisteredTx
 {
 public:
-   TxRef *       txrefPtr_;  // Not necessary for sorting, but useful
+   TxRef         txRefObj_;  // Not necessary for sorting, but useful
    BinaryData    txHash_;
    uint32_t      blkNum_;
    uint32_t      txIndex_;
 
 
-   TxRef *    getTxRefPtr()  { return txrefPtr_; }
-   Tx         getTxCopy()    { return txrefPtr_->getTxCopy(); }
+   TxRef      getTxRef()     { return txRefObj_; }
+   Tx         getTxCopy()    { return txRefObj_.getTxCopy(); }
    BinaryData getTxHash()    { return txHash_; }
    uint32_t   getBlkNum()    { return blkNum_; }
    uint32_t   getTxIndex()   { return txIndex_; }
 
    RegisteredTx(void) :
-         txrefPtr_(NULL),
          txHash_(""),
          blkNum_(UINT32_MAX),
          txIndex_(UINT32_MAX) { }
 
    RegisteredTx(BinaryData const & txHash, uint32_t blkNum, uint32_t txIndex) :
-         txrefPtr_(NULL),
          txHash_(txHash),
          blkNum_(blkNum),
          txIndex_(txIndex) { }
 
-   RegisteredTx(TxRef  txptr, BinaryData const & txHash, uint32_t blkNum, uint32_t txIndex) :
-         txrefPtr_(txptr),
+   RegisteredTx(TxRef txptr, BinaryData const & txHash, uint32_t blkNum, uint32_t txIndex) :
+         txRefObj_(txptr),
          txHash_(txHash),
          blkNum_(blkNum),
          txIndex_(txIndex) { }
 
-   RegisteredTx(TxRef & txref) :
-         txrefPtr_(&txref),
+   RegisteredTx(TxRef txref) :
+         txRefObj_(txref),
          txHash_(txref.getThisHash()),
          blkNum_(txref.getBlockHeight()),
          txIndex_(txref.getBlockTxIndex()) { }
 
    RegisteredTx(Tx & tx) :
-         txrefPtr_(tx.getTxRefPtr()),
+         txRefObj_(tx.getTxRef()),
          txHash_(tx.getThisHash()),
          blkNum_(tx.getBlockHeight()),
          txIndex_(tx.getBlockTxIndex()) { }

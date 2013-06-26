@@ -24,22 +24,23 @@
 
 typedef enum
 {
-   NOT_BLKDATA,
-   BLKDATA_HEADER,
-   BLKDATA_TX,
-   BLKDATA_TXOUT
+  NOT_BLKDATA,
+  BLKDATA_HEADER,
+  BLKDATA_TX,
+  BLKDATA_TXOUT
 } BLKDATA_TYPE
 
 typedef enum
 {
   DB_PREFIX_DBINFO,
-  DB_PREFIX_BLKDATA,
-  DB_PREFIX_REGADDR,
-  DB_PREFIX_TXHINTS,
-  DB_PREFIX_TRIENODES,
   DB_PREFIX_HEADHASH,
   DB_PREFIX_HEADHGT,
+  DB_PREFIX_BLKDATA,
+  DB_PREFIX_TXHINTS,
+  DB_PREFIX_SCRIPT,
+  DB_PREFIX_MULTISIG,
   DB_PREFIX_UNDODATA,
+  DB_PREFIX_TRIENODES,
   DB_PREFIX_COUNT
 } DB_PREFIX;
 
@@ -101,9 +102,10 @@ typedef enum
 
 typedef enum
 {
-  REGADDR_UTXO_VECTOR,
-  REGADDR_UTXO_TREE
-} REGADDR_UTXO_TYPE;
+  SCRIPT_UTXO_VECTOR,
+  SCRIPT_UTXO_TREE
+} SCRIPT_UTXO_TYPE;
+
 
 
 
@@ -197,6 +199,9 @@ private:
                leveldb::Iterator* it=NULL);
 
 
+   /////////////////////////////////////////////////////////////////////////////
+   string getPrefixName(DB_PREFIX_TYPE pref);
+   bool checkPrefixByte(BinaryRefReader brr, DB_PREFIX_TYPE prefix);
 
    /////////////////////////////////////////////////////////////////////////////
    // NOTE:  These ref readers become invalid as soon as the iterator is moved!
@@ -366,9 +371,13 @@ private:
    string               dbPaths_[2];
    bool                 iterIsDirty_[2];
 
-   // This will be used for 
+   // This will be incremented every time startBatch is called, decremented
+   // every time commitBatch is called.  We will only *actually* start a new
+   // batch when the value starts at zero, or commit when it ends at zero.
    uint32_t             batchStarts_[2];
    
+
+   vector<uint8_t>      validDupByHeight_;
 
    BinaryRefReader currReadKey_;
    BinaryRefReader currReadValue_;;
@@ -381,8 +390,6 @@ private:
    // of addresses including pubkey-only, P2SH, 
    set<RegisteredAddress>   registeredAddrSet_;
    uint32_t                 lowestScannedUpTo_;
-   
-
 };
 
 

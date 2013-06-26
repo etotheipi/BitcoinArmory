@@ -5,6 +5,12 @@
 #include "BtcUtils.h"
 #include "BlockObj.h"
 
+
+class StoredTx;
+class StoredTxOut;
+class StoredScriptHistory;
+
+////////////////////////////////////////////////////////////////////////////////
 class StoredBlockHeader
 {
 public:
@@ -14,9 +20,9 @@ public:
          merkle_(0), isMainBranch_(false) {}
                            
 
-   bool haveFullBlock(void);
-   BlockHeader getBlocKHeaderCopy(void);
-   BinaryData getSerializedBlock(void);
+   bool haveFullBlock(void) const;
+   BlockHeader getBlocKHeaderCopy(void) const;
+   BinaryData getSerializedBlock(void) const;
 
    void addTxToMap(uint32_t txIdx, Tx & tx);
    void addTxToMap(uint32_t txIdx, StoredTx & tx);
@@ -39,6 +45,8 @@ public:
    
 };
 
+
+////////////////////////////////////////////////////////////////////////////////
 class StoredTx
 {
 public:
@@ -47,9 +55,9 @@ public:
                     dataCopy_(0), 
                     numBytes_(0) {}
    
-   bool haveAllTxOut(void);
-   BinaryData getSerializedTx(void);
-   BinaryData getTxCopy(void);
+   bool haveAllTxOut(void) const;
+   BinaryData getSerializedTx(void) const;
+   BinaryData getTxCopy(void) const;
    void createFromTx(Tx & tx, bool doFrag);
 
    void unserialize(BinaryData const & data, bool isFragged=false);
@@ -72,6 +80,8 @@ public:
 
 };
 
+
+////////////////////////////////////////////////////////////////////////////////
 class StoredTxOut
 {
 public:
@@ -98,6 +108,25 @@ public:
    uint32_t          spentByHgtX_;
    uint16_t          spentByTxIndex_;
    uint16_t          spentByTxInIndex_;
+};
+
+
+////////////////////////////////////////////////////////////////////////////////
+class StoredScriptHistory
+{
+public:
+
+   StoredScriptHistory(void) : uniqueKey_(0), version_(UINT32_MAX) {}
+
+   bool isInitialized(void) { return uniqueKey_.getSize() > 0; }
+
+   uint32_t       version_;
+   BinaryData     uniqueKey_;
+   BinaryData     addrType_;
+   uint32_t       alreadyScannedUpToBlk_;
+   bool           hasMultisigEntries_;
+
+   vector<TxIOPair> txioVect_;
 };
 
 

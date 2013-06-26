@@ -61,6 +61,7 @@
 // We can remove these includes (Crypto++ ) if we remove the GenerateRandom()
 #include "cryptlib.h"
 #include "osrng.h"
+#include "log.h"
 
 #define DEFAULT_BUFFER_SIZE 64*1048576
 
@@ -139,6 +140,11 @@ public:
    void copyTo(uint8_t* outData) const { memcpy( outData, &(data_[0]), getSize()); }
    void copyTo(uint8_t* outData, size_t sz) const { memcpy( outData, &(data_[0]), (size_t)sz); }
    void copyTo(uint8_t* outData, size_t offset, size_t sz) const { memcpy( outData, &(data_[offset]), (size_t)sz); }
+   void copyTo(BinaryData & bd) const 
+   {
+      bd.resize(data_.size());
+      memcpy( bd.getPtr(), &data_[0], data_.size());
+   }
 
    void fill(uint8_t ch) { if(getSize()>0) memset(getPtr(), ch, getSize()); }
                
@@ -1057,7 +1063,7 @@ public:
    uint8_t const * getCurrPtr(void)       { return bdRef_.getPtr() + pos_; }
 
    /////////////////////////////////////////////////////////////////////////////
-   void getRawRef(void) { return bdRef_;   }
+   BinaryDataRef getRawRef(void) { return bdRef_;   }
 
 private:
    BinaryDataRef bdRef_;
@@ -1191,6 +1197,7 @@ class BitWriter
 public:
    BitWriter(void) : intVal_(0), bitsUsed_(0) {}
 
+
    void putBits(DTYPE val, uint32_t bitWidth)
    {
       if(bitsUsed_ + bitWidth > sizeof(DTYPE)*8)
@@ -1200,6 +1207,12 @@ public:
       DTYPE mask = (DTYPE)(1ULL<<bitWidth - 1);
       intVal_ |= (val & mask) << shiftAmt;
       bitsUsed_ += bitWidth;
+   }
+
+   void putBit(bool val)
+   {
+      DTYPE bit = (val ? 1 : 0);   
+      putBits(bit, 1);
    }
 
    BinaryData getBinaryData(void) 
@@ -1243,10 +1256,15 @@ public:
 
    DTYPE getBits(uint32_t bitWidth)
    {
-      uint32_t shiftAmt = sizeof(DTYPE)*8 - (bitsUsed_ + bitWidth);
+      uint32_t shiftAmt = sizeof(DTYPE)*8 - (bitsRead_ + bitWidth);
       DTYPE mask = (DTYPE)(1ULL<<bitWidth - 1);
       bitsRead_ += bitWidth;
       return ((intVal_ >> shiftAmt) & mask);
+   }
+
+   bool getBit(void)
+   {
+      return (getBits(1) > 0);
    }
 
    void reset(void) { intVal_ = 0; bitsRead_ = 0; }

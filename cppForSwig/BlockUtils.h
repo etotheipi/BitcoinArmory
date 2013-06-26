@@ -266,17 +266,20 @@ public:
    void addLedgerEntry(LedgerEntry const & le, bool isZeroConf=false); 
 
    void pprintLedger(void);
-
    void clearBlkData(void);
 
    
 
 private:
    BinaryData address20_;
+   uint8_t    addrType_;
    uint32_t   firstBlockNum_;
    uint32_t   firstTimestamp_;
    uint32_t   lastBlockNum_;
    uint32_t   lastTimestamp_;
+
+   // If any multisig scripts that include this address, we'll track them
+   bool       hasMultisigEntries_;
 
    // Each address will store a list of pointers to its transactions
    vector<TxIOPair*>     relevantTxIOPtrs_;
@@ -284,6 +287,8 @@ private:
    vector<LedgerEntry>   ledger_;
    vector<LedgerEntry>   ledgerZC_;
 
+   // Used to be part of the RegisteredAddress class
+   uint32_t alreadyScannedUpToBlk_;
 };
 
 
@@ -298,6 +303,7 @@ class BtcWallet
 {
 public:
    BtcWallet(void) : bdmPtr_(NULL) {}
+   BtcWallet(BlockDataManager_LevelDB* bdm) : bdmPtr_(bdm) {}
    ~BtcWallet(void);
 
    /////////////////////////////////////////////////////////////////////////////
@@ -339,7 +345,7 @@ public:
 
 
    // Scan a Tx for our TxIns/TxOuts.  Override default blk vals if you think
-   // you will save time by not checking addresses that are much newr than
+   // you will save time by not checking addresses that are much newer than
    // the block
    pair<bool,bool> isMineBulkFilter( Tx & tx );
 
@@ -397,9 +403,8 @@ public:
 
 private:
    vector<BtcAddress*>          addrPtrVect_;
-   map<HashString, BtcAddress>  addrMap_;
-   map<OutPoint, TxIOPair>      txioMap_;
-
+   //map<BinaryData, BtcAddress>  addrMap_;
+   //map<OutPoint, TxIOPair>      txioMap_;
 
    vector<LedgerEntry>          ledgerAllAddr_;  
    vector<LedgerEntry>          ledgerAllAddrZC_;  
@@ -408,8 +413,10 @@ private:
    map<OutPoint, TxIOPair>      nonStdTxioMap_;
    set<OutPoint>                nonStdUnspentOutPoints_;
 
-   BlockDataManager_LevelDB*       bdmPtr_;
-   static vector<LedgerEntry> EmptyLedger_;
+   BlockDataManager_LevelDB*    bdmPtr_;
+   static vector<LedgerEntry>   EmptyLedger_;
+
+
 };
 
 
@@ -424,27 +431,8 @@ struct ZeroConfData
 
 
 
-
-
-
-
-
-
-
-
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
-//
-// The goal of this class is to create a memory pool in RAM that looks exactly
-// the same as the block-headers storage on disk.  There is no serialization
-// or unserialization, we just copy back and forth between disk and RAM, and 
-// we're done.  So it should be about as fast as theoretically possible, you 
-// are limited only by your disk I/O speed.
-//
-// This is more of a simple test, which will later be applied to the entire
-// blockchain.  If it works as expected, then this will potentially be useful
-// for the official BTC client which seems to have some speed problems at 
-// startup and shutdown.
 //
 // This class is a singleton -- there can only ever be one, accessed through
 // the static method GetInstance().  This method gets the single instantiation
@@ -470,8 +458,6 @@ typedef enum
 
 
 class BlockDataManager_LevelDB;
-
-
 
 
 
@@ -511,7 +497,7 @@ private:
 
    map<HashString, BlockHeader> headerMap_;
 
-   multimap<HashString, TxRef>        txHintMap_;
+   //multimap<HashString, TxRef>        txHintMap_;
 
 
    
@@ -552,7 +538,7 @@ private:
    vector<BlockHeader*>               previouslyValidBlockHeaderPtrs_;
    vector<BlockHeader*>               orphanChainStartBlocks_;
 
-   static BlockDataManager_LevelDB*  theOnlyBDM_;
+   static BlockDataManager_LevelDB*   theOnlyBDM_;
    static bool                        bdmCreatedYet_;
    bool                               isInitialized_;
 
@@ -571,19 +557,28 @@ private:
    uint16_t filesReadSoFar_;
 
 
-   // We will now "register" all wallets and addresses, so that the BDM knows
-   // what addresses to look for in its first scan
+   // If the BDM is not in super-node mode, then it will be specifically tracking
+   // a set of addresses & wallets.  We register those addresses and wallets so
+   // that we know what TxOuts to track as we process blockchain data.  And when
+   // it may be necessary to do rescans.
+   //
+   // If instead we ARE in ARMORY_DB_SUPER (not implemented yet, as of this
+   // comment being written), then we don't have anything to track -- the DB
+   // will automatically update for all addresses, period.  And we'd best not 
+   // track those in RAM (maybe on a huge server...?)
    set<BtcWallet*>                    registeredWallets_;
-   map<HashString, RegisteredAddress> registeredAddrMap_;
+   map<BinaryData, BtcAddress>        registeredAddrMap_;
    list<RegisteredTx>                 registeredTxList_;
    set<HashString>                    registeredTxSet_;
    set<OutPoint>                      registeredOutPoints_;
    uint32_t                           allRegAddrScannedUpToBlk_; // one past top
 
+   map<OutPoint,   TxIOPair>          txioMap_;
 
 private:
    // Set the constructor to private so that only one can ever be created
    BlockDataManager_LevelDB(void);
+   ~BlockDataManager_LevelDB(void);
 
 public:
 
@@ -671,6 +666,9 @@ public:
                                 vector<uint32_t> * txOutOffsets=NULL);
    void     resetRegisteredWallets(void);
    void     pprintRegisteredWallets(void);
+
+
+   BtcWallet* createNewWallet(void);
 
    // Parsing requires the data TO ALREADY BE IN ITS PERMANENT MEMORY LOCATION
    // Pass in a wallet if you want to update the initialScanTxHashes_/OutPoints_
@@ -781,9 +779,6 @@ private:
    // this block.
    double traceChainDown(BlockHeader & bhpStart);
    void   markOrphanChain(BlockHeader & bhpStart);
-
-
-   
 };
 
 
