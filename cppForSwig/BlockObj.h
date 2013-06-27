@@ -37,7 +37,7 @@ public:
            isInitialized_(false),  isFinishedCalc_(false) {}
    BlockHeader(uint8_t const * ptr)       { unserialize(ptr); }
    BlockHeader(BinaryRefReader & brr)     { unserialize(brr); }
-   BlockHeader(BinaryDataRef const & str) { unserialize(str); }
+   BlockHeader(BinaryDataRef str)         { unserialize(str); }
    BlockHeader(BinaryData    const & str) { unserialize(str); }
    // SWIG needs a non-overloaded method
    BlockHeader & unserialize_1_(BinaryData const & str) { unserialize(str); return *this; }

@@ -1,10 +1,18 @@
 #ifndef _STORED_BLOCK_OBJ_
 #define _STORED_BLOCK_OBJ_
 
+#include <vector>
+#include <list>
+#include <map>
 #include "BinaryData.h"
 #include "BtcUtils.h"
 #include "BlockObj.h"
 
+
+class BlockHeader;
+class Tx;
+class TxRef;
+class TxIOPair;
 
 class StoredTx;
 class StoredTxOut;
@@ -23,11 +31,15 @@ public:
    bool haveFullBlock(void) const;
    BlockHeader getBlocKHeaderCopy(void) const;
    BinaryData getSerializedBlock(void) const;
+   BinaryData getSerializedBlockHeader(void) const;
+   void createFromBlockHeader(BlockHeader & bh);
 
-   void addTxToMap(uint32_t txIdx, Tx & tx);
-   void addTxToMap(uint32_t txIdx, StoredTx & tx);
+   void addTxToMap(uint16_t txIdx, Tx & tx);
+   void addStoredTxToMap(uint16_t txIdx, StoredTx & tx);
 
    void setParamsTrickle(uint32_t hgt, uint8_t dupID, bool isValid);
+
+   void unserialize(BinaryDataRef header80B);
 
    
    bool           isInitialized_;
@@ -42,7 +54,7 @@ public:
    uint8_t        isMainBranch_;
 
    bool           isPartial_;
-   map<uint32_t, StoredTx> txMap_;
+   map<uint16_t, StoredTx> txMap_;
 
    
 };
@@ -57,10 +69,10 @@ public:
                     dataCopy_(0), 
                     numBytes_(0) {}
    
-   bool haveAllTxOut(void) const;
+   bool       haveAllTxOut(void) const;
+   void       createFromTx(Tx & tx, bool doFrag=true);
    BinaryData getSerializedTx(void) const;
-   BinaryData getTxCopy(void) const;
-   void createFromTx(Tx & tx, bool doFrag);
+   Tx         getTxCopy(void) const;
 
    void unserialize(BinaryData const & data, bool isFragged=false);
    void unserialize(BinaryDataRef data,      bool isFragged=false);
@@ -73,12 +85,13 @@ public:
 
    BinaryData           dataCopy_;
    bool                 isFragged_;
+   uint32_t             version_;
    uint32_t             blockHeight_;
    uint8_t              blockDupID_;
-   uint8_t              txIndex_;
+   uint16_t             txIndex_;
    uint32_t             numTxOut_;
    uint32_t             numBytes_;
-   map<uint32_t, StoredTxOut> txOutMap_;
+   map<uint16_t, StoredTxOut> txOutMap_;
 
 };
 
@@ -95,12 +108,14 @@ public:
    void unserialize(BinaryRefReader & brr);
 
 
+   BinaryData getSerializedTxOut(void) const;
 
    bool writeToDB(bool skipIfExists=false);
 
    uint32_t          txVersion_;
    BinaryData        dataCopy_;
    bool              isInitialized_;
+   uint32_t          version_;
    uint32_t          blockHeight_;
    uint8_t           blockDupID_;
    uint16_t          txIndex_;

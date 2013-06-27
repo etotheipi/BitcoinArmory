@@ -5,10 +5,9 @@
 #include <vector>
 #include "log.h"
 #include "BinaryData.h"
-#include "leveldb/db.h"
+#include "BtcUtils.h"
 #include "BlockObj.h"
 #include "StoredBlockObj.h"
-#include "BtcUtils.h"
 
 #include "leveldb/db.h"
 #include "leveldb/write_batch.h"
@@ -28,6 +27,15 @@
 #define ARMORY_DB_DEFAULT   ARMORY_DB_FULL
 #define UTXO_STORAGE        SCRIPT_UTXO_VECTOR
 
+class BlockHeader;
+class Tx;
+class TxRef;
+class TxIOPair;
+
+class StoredHeader;
+class StoredTx;
+class StoredTxOut;
+class StoredScriptHistory;
 
 typedef enum
 {
@@ -42,7 +50,7 @@ typedef enum
   DB_PREFIX_DBINFO,
   DB_PREFIX_HEADHASH,
   DB_PREFIX_HEADHGT,
-  DB_PREFIX_BLKDATA,
+  DB_PREFIX_TXDATA,
   DB_PREFIX_TXHINTS,
   DB_PREFIX_SCRIPT,
   DB_PREFIX_MULTISIG,
@@ -442,13 +450,17 @@ private:
                              bool withTxOut=false);
 
    bool getStoredTx(         StoredTx & st,
-                             BinaryDataRef txHash, 
-                             uint32_t txIndex,
+                             BinaryDataRef txHash);
+
+   bool getStoredTx(         StoredTx & st,
+                             uint32_t blkHgt,
+                             uint16_t txIndex,
                              bool withTxOut=false);
 
    bool getStoredTx(         StoredTx & st,
-                             uint32_t hgtX,
-                             uint32_t txIndex,
+                             uint32_t blkHgt,
+                             uint8_t  dupID,
+                             uint16_t txIndex,
                              bool withTxOut=false);
 
 
@@ -457,14 +469,14 @@ private:
 
    bool getStoredTxOut(      StoredTxOut & stxo,
                              uint32_t blockHeight,
-                             uint32_t dupID,
-                             uint32_t txIndex,
-                             uint32_t txOutIndex);
+                             uint8_t  dupID,
+                             uint16_t txIndex,
+                             uint16_t txOutIndex);
 
    bool getStoredTxOut(      StoredTxOut & stxo,
                              uint32_t blockHeight,
-                             uint32_t txIndex,
-                             uint32_t txOutIndex);
+                             uint16_t txIndex,
+                             uint16_t txOutIndex);
 
 
    void putStoredScriptHistory( StoredScriptHistory & ssh);
@@ -498,8 +510,18 @@ private:
    TxRef getTxRef( uint32_t hgtx, uint16_t txIndex);
    TxRef getTxRef( uint32_t hgt, uint8_t  dup, uint16_t txIndex);
 
+   vector<BinaryData> getAllHintsForTxHash(BinaryDataRef txHash);
+
+
+   
+   bool markBlockHeaderValid(BinaryDataRef headHash);
+   bool markBlockHeaderValid(uint32_t height, uint8_t dup);
+   bool markTxEntryValid(uint32_t height, uint8_t dupID, uint16_t txIndex);
+
+
 
    bool checkStatus(leveldb::Status stat, bool warn=true);
+
 
 
 
