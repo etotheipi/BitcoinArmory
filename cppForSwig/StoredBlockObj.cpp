@@ -1,8 +1,8 @@
 
 /////////////////////////////////////////////////////////////////////////////
-void StoredBlockHeader::setParamsTrickle(uint32_t hgt,
-                                         uint8_t  dupID,
-                                         bool     isValid)
+void StoredHeader::setParamsTrickle(uint32_t hgt,
+                                    uint8_t  dupID,
+                                    bool     isValid)
 {
    // Set the params for this SBH object
    blockHeight_  = hgt;
@@ -31,7 +31,7 @@ void StoredBlockHeader::setParamsTrickle(uint32_t hgt,
 }
 
 /////////////////////////////////////////////////////////////////////////////
-bool StoredBlockHeader::haveFullBlock(void)
+bool StoredHeader::haveFullBlock(void)
 {
    if(!isInitialized || dataCopy_.getSize() != HEADER_SIZE)
       return false;
@@ -49,7 +49,7 @@ bool StoredBlockHeader::haveFullBlock(void)
 }
 
 /////////////////////////////////////////////////////////////////////////////
-BinaryData StoredBlockHeader::getSerializedBlock(void)
+BinaryData StoredHeader::getSerializedBlock(void)
 {
    if(!haveFullBlock())
       return BinaryData(0);
@@ -99,7 +99,7 @@ void unserialize(BinaryData & header80B);
 }
 
 /////////////////////////////////////////////////////////////////////////////
-void StoredBlockHeader::addTxToMap(uint32_t txIdx, Tx & tx)
+void StoredHeader::addTxToMap(uint32_t txIdx, Tx & tx)
 {
    StoredTx storedtx;
    storedtx.createFromTx(tx);
@@ -107,13 +107,13 @@ void StoredBlockHeader::addTxToMap(uint32_t txIdx, Tx & tx)
 }
 
 /////////////////////////////////////////////////////////////////////////////
-void StoredBlockHeader::addTxToMap(uint32_t txIdx, StoredTx & tx)
+void StoredHeader::addTxToMap(uint32_t txIdx, StoredTx & tx)
 {
       
 }
 
 /////////////////////////////////////////////////////////////////////////////
-BlockHeader StoredBlockHeader::getBlocKHeaderCopy(void)
+BlockHeader StoredHeader::getBlocKHeaderCopy(void)
 {
    if(!isInitialized)
       return BlockHeader(); 
@@ -128,7 +128,7 @@ BlockHeader StoredBlockHeader::getBlocKHeaderCopy(void)
 }
 
 /////////////////////////////////////////////////////////////////////////////
-BinaryData StoredBlockHeader::getSerializedBlockHeader(void)
+BinaryData StoredHeader::getSerializedBlockHeader(void)
 {
    if(!isInitialized)
       return BinaryData(0);
@@ -138,7 +138,7 @@ BinaryData StoredBlockHeader::getSerializedBlockHeader(void)
 
 
 /////////////////////////////////////////////////////////////////////////////
-void StoredBlockHeader::serializeForLDB(BinaryWriter & bw, 
+void StoredHeader::serializeForLDB(BinaryWriter & bw, 
                                         ARMORY_DB_TYPE dbType,
                                         DB_PRUNE_TYPE pruneType,
                                         MERKLE_SER_TYPE merkType=MERKLE_SER_FULL)
@@ -196,7 +196,7 @@ void StoredBlockHeader::serializeForLDB(BinaryWriter & bw,
 }
 
 /////////////////////////////////////////////////////////////////////////////
-bool StoredBlockHeader::serializeForHeaderDB(BinaryWriter & bw)
+bool StoredHeader::serializeForHeaderDB(BinaryWriter & bw)
 {
    if(!isInitialized_)
    {

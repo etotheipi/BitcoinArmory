@@ -1,8 +1,9 @@
 #ifndef _LEVELDB_WRAPPER_
 #define _LEVELDB_WRAPPER_
 
-#include <sstream>
-#include <stack>
+#include <list>
+#include <vector>
+#include "log.h"
 #include "BinaryData.h"
 #include "leveldb/db.h"
 #include "BlockObj.h"
@@ -11,7 +12,6 @@
 
 #include "leveldb/db.h"
 #include "leveldb/write_batch.h"
-#include "log.h"
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -22,13 +22,20 @@
 
 #define ARMORY_DB_VERSION   0x00
 
+#define STD_READ_OPTS       leveldb::ReadOptions()
+#define STD_WRITE_OPTS      leveldb::WriteOptions()
+
+#define ARMORY_DB_DEFAULT   ARMORY_DB_FULL
+#define UTXO_STORAGE        SCRIPT_UTXO_VECTOR
+
+
 typedef enum
 {
   NOT_BLKDATA,
   BLKDATA_HEADER,
   BLKDATA_TX,
   BLKDATA_TXOUT
-} BLKDATA_TYPE
+} BLKDATA_TYPE;
 
 typedef enum
 {
@@ -53,8 +60,6 @@ typedef enum
   ARMORY_DB_SUPER,
   ARMORY_DB_WHATEVER
 } ARMORY_DB_TYPE;
-
-#define ARMORY_DB_DEFAULT ARMORY_DB_FULL
 
 typedef enum
 {
@@ -91,7 +96,7 @@ typedef enum
   TXOUT_UNSPENT,
   TXOUT_SPENT,
   TXOUT_SPENTUNK,
-} TXOUT_SPENTNESS
+} TXOUT_SPENTNESS;
 
 typedef enum
 {
@@ -109,10 +114,68 @@ typedef enum
 
 
 
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+//
+// InterfaceToLevelDB
+//
+// This is intended to be the only part of the project that communicates 
+// directly with LevelDB objects.  All the public methods only interact with 
+// BinaryData, BinaryDataRef, and BinaryRefReader objects.  
+//
+// As of this writing (the first implementation of this interface), the 
+// interface and underlying DB structure is designed and tested for 
+// ARMORY_DB_FULL and DB_PRUNE_NONE, which is essentially the same mode that 
+// Armory used before the persistent blockchain upgrades.  However, much of
+// the design decisions about how to store and access data was done to best
+// accommodate future implementation of pruned/lite modes, as well as a 
+// supernode mode (which tracks all addresses and can be used to respond to
+// balance/UTXO queries from other nodes).  There is still implementation 
+// work to be done to enable these other modes, but it shouldn't require
+// changing the DB structure dramatically.  The biggest modification will 
+// adding and tracking undo-data to deal with reorgs in a pruned blockchain.
+//
+// NOTE 1: This class was designed with certain optimizations that may cause 
+//         unexpected behavior if you are not aware of it.  The following 
+//         methods return/modify static member of InterfaceToLevelDB:
+//
+//            getValue*
+//            seekTo*
+//            start*Iteration
+//            advance*
+//
+//         This is especially dangerous with getValueRef() which returns a
+//         reference to lastGetValue_ which changes under you as soon as you
+//         execute any other getValue* calls.  This eliminates unnecessary 
+//         copying of DB data but can cause all sorts of problems if you are 
+//         doing sequences of find-and-modify operations.  
+//
+//         It is best to avoid getValueRef() unless you are sure that you 
+//         understand how to use it safely.  Only use getValue() unless there
+//         is reason to believe that the optimization is needed.
+//
+//         Similarly, when using the seek/start/advance iterator methods, 
+//         keep in mind that various submethods you call may move the 
+//         iterator out from under you.  To be safe from this issue, it is
+//         best to copy the data behind currReadKey_ and currReadValue_ 
+//         after you move the iterator.
+//
+//
+//
+// NOTE 2: Batch writing operations are smoothed so that multiple, nested
+//         startBatch-commitBatch calls do not actually do anything except
+//         at the outer-most level.  But this means that you MUST make sure
+//         that there is a commit for every start, at every level.  If you
+//         return a value from a method sidestepping a required commitBatch 
+//         call, the code will stop writing to the DB at all!  
+//          
+
 
 class InterfaceToLevelDB
 {
 public:
+   InterfaceToLevelDB(void);
+
    InterfaceToLevelDB(string basedir, 
                       BinaryData const & genesisBlkHash,
                       BinaryData const & genesisTxHash,
@@ -120,15 +183,14 @@ public:
                       ARMORY_DB_TYPE     dbtype=ARMORY_DB_DEFAULT,
                       DB_PRUNE_TYPE      pruneType=DB_PRUNE_NONE);
 
+   void init(void);
+
    ~InterfaceToLevelDB(void);
 
 private:
-   BinaryData txOutScriptToLDBKey(BinaryData const & script);
-   BinaryData txHashToLDBKey(BinaryData const & txHash);
-   //BinaryData headerHashToLDBKey(BinaryData const & headHash);
 
    /////////////////////////////////////////////////////////////////////////////
-   void openDatabases(void);
+   bool openDatabases(void);
    
    /////////////////////////////////////////////////////////////////////////////
    void closeDatabases(void);
@@ -152,13 +214,13 @@ private:
    // actually stored in a member variable, and thus the refs are valid only 
    // until the next get* call.
    BinaryDataRef getValueRef(DB_SELECT db, BinaryDataRef keyWithPrefix);
-   BinaryDataRef getValueRef(DB_SELECT db, DB_PREFIX_TYPE prefix, BinaryDataRef key);
+   BinaryDataRef getValueRef(DB_SELECT db, DB_PREFIX prefix, BinaryDataRef key);
 
    /////////////////////////////////////////////////////////////////////////////
    // Same as the getValueRef, in that they are only valid until the next get*
    // call.  These are convenience methods which basically just save us 
-   BinaryDataRef getValueReader(DB_SELECT db, BinaryDataRef keyWithPrefix);
-   BinaryDataRef getValueReader(DB_SELECT db, DB_PREFIX_TYPE prefix, BinaryDataRef key);
+   BinaryRefReader getValueReader(DB_SELECT db, BinaryDataRef keyWithPrefix);
+   BinaryRefReader getValueReader(DB_SELECT db, DB_PREFIX prefix, BinaryDataRef key);
 
 
 
@@ -168,18 +230,15 @@ private:
    void putValue(DB_SELECT db, DB_PREFIX pref, BinaryDataRef key, BinaryDataRef value);
    /////////////////////////////////////////////////////////////////////////////
    // Put value based on BinaryData key.  If batch writing, pass in the batch
-   void deleteValue(DB_SELECT db, BinaryData const & key);
-   void deleteValue(DB_SELECT db, DB_PREFIX pref, BinaryData const & key);
+   void deleteValue(DB_SELECT db, BinaryDataRef key);
+   void deleteValue(DB_SELECT db, DB_PREFIX pref, BinaryDataRef key);
 
-   /////////////////////////////////////////////////////////////////////////////
-   BinaryData sliceToBinaryData(leveldb::Slice slice);
-   void       sliceToBinaryData(leveldb::Slice slice, BinaryData & bd);
 
    /////////////////////////////////////////////////////////////////////////////
    leveldb::Slice binaryDataToSlice(BinaryData const & bd) 
-         {return leveldb::Slice(bd.getPtr(), bd.getSize());}
+         {return leveldb::Slice((char*)bd.getPtr(), bd.getSize());}
    leveldb::Slice binaryDataRefToSlice(BinaryDataRef const & bdr)
-         {return leveldb::Slice(bdr.getPtr(), bdr.getSize());}
+         {return leveldb::Slice((char*)bdr.getPtr(), bdr.getSize());}
 
    /////////////////////////////////////////////////////////////////////////////
    // "Skip" refers to the behavior that the previous operation may have left
@@ -188,7 +247,8 @@ private:
    // because we checked it and decide we don't care, so we want to skip it.
    bool advanceToNextHeader(bool skip=false);
    bool advanceToNextBlock(bool skip=false);
-   void advanceIterAndRead(leveldb::Iterator* iter);
+   bool advanceIterAndRead(leveldb::Iterator* iter);
+   bool advanceIterAndRead(DB_SELECT, DB_PREFIX);
 
    bool seekTo(DB_SELECT db, 
                BinaryDataRef key, 
@@ -198,10 +258,19 @@ private:
                BinaryDataRef key, 
                leveldb::Iterator* it=NULL);
 
+   bool seekToTxByHash(BinaryDataRef txHash);
 
    /////////////////////////////////////////////////////////////////////////////
-   string getPrefixName(DB_PREFIX_TYPE pref);
-   bool checkPrefixByte(BinaryRefReader brr, DB_PREFIX_TYPE prefix);
+   string getPrefixName(uint8_t prefixInt);
+   string getPrefixName(DB_PREFIX pref);
+
+   bool checkPrefixByte(DB_PREFIX prefix,
+                        bool rewindWhenDone=false);
+
+   bool checkPrefixByte(BinaryRefReader brr, 
+                        DB_PREFIX prefix,
+                        bool rewindWhenDone=false);
+
 
    /////////////////////////////////////////////////////////////////////////////
    // NOTE:  These ref readers become invalid as soon as the iterator is moved!
@@ -209,6 +278,11 @@ private:
                               BinaryRefReader & brrKey,
                               BinaryRefReader & brrValue);
 
+
+   
+   BLKDATA_TYPE readBlkDataKey5B( BinaryRefReader & brr,
+                                  uint32_t & height,
+                                  uint8_t  & dupID);
 
    /////////////////////////////////////////////////////////////////////////////
    void deleteIterator(DB_SELECT db);
@@ -224,8 +298,8 @@ private:
    void startBlkDataIteration(DB_PREFIX prefix);
 
    /////////////////////////////////////////////////////////////////////////////
-   uint32_t hgtxToHeight(uint32_t hgtx)  {return (hgtX & 0xffffff00)>>8;}
-   uint8_t  hgtxToDupID(uint32_t hgtx)   {return (hgtX & 0x000000ff);}
+   uint32_t hgtxToHeight(uint32_t hgtX)  {return (hgtX & 0xffffff00)>>8;}
+   uint8_t  hgtxToDupID(uint32_t hgtX)   {return (hgtX & 0x000000ff);}
    uint32_t heightAndDupToHgtx(uint32_t hgt, uint8_t dup) {return hgt<<8|dup;}
 
    BinaryData getBlkDataKey(uint32_t height, 
@@ -246,6 +320,7 @@ private:
    /////////////////////////////////////////////////////////////////////////////
    // These four sliceTo* methods make copies, and thus safe to use even after
    // we have advanced the iterator to new data
+   /////////////////////////////////////////////////////////////////////////////
    BinaryData   sliceToBinaryData(   leveldb::Slice slice);
    void         sliceToBinaryData(   leveldb::Slice slice, BinaryData & bd);
    BinaryReader sliceToBinaryReader( leveldb::Slice slice);
@@ -269,13 +344,21 @@ private:
    void getBlock(BlockHeader & bh, 
                  vector<Tx> & txList, 
                  leveldb::Iterator* iter=NULL,
-                 ignoreMerkle = true);
+                 bool ignoreMerkle = true);
 
    void readBlkDataTxValue(BinaryRefReader & brr, Tx* tx);
+
+
+
+
+   void loadAllStoredHistory(void); 
 
    map<HashString, BlockHeader> getHeaderMap(void);
    BinaryData getRawHeader(BinaryData const & headerHash);
    bool addHeader(BinaryData const & headerHash, BinaryData const & headerRaw);
+
+   /////////////////////////////////////////////////////////////////////////////
+   BinaryData getDBInfoKey(void);
 
    /////////////////////////////////////////////////////////////////////////////
    // All put/del ops will be batched/queued, and only executed when called
@@ -286,54 +369,128 @@ private:
    // it's the first
    void startBatch(DB_SELECT db);
    void commitBatch(DB_SELECT db);
-   void batchIsOn(DB_SELECT db)   { return (batches_[db] != NULL); }
+   bool isBatchOn(DB_SELECT db)   { return batchStarts_[db] > 0; }
 
 
-   // Interface to translate Stored* objects to persistent DB storage
-   void putStoredBlockHeader(StoredBlockHeader const & sbh,
-                             bool withTx=false);
+   /////////////////////////////////////////////////////////////////////////////
+   uint8_t getValidDupIDForHeight_fromDB(uint32_t blockHgt);
+   uint8_t getValidDupIDForHeight(uint32_t blockHgt);
 
-   void getStoredBlockHeader(StoredBlockHeader & sbh,
-                             BinaryDataRef headHash, 
-                             bool withTx=false);
+   ////////////////////////////////////////////////////////////////////////////
+   // SERIALIZE / UNSERIALIZE STORED* METHODS
+   // These methods define exactly how Stored* objects are read and written
+   // to the values of the database entries.  They don't do anything with the
+   // keys of those entries.
+   ////////////////////////////////////////////////////////////////////////////
+   // UNSERIALIZE METHODS
+   void unserializeStoredHeaderValue(   DB_SELECT            db,
+                                        BinaryRefReader &    brr,
+                                        StoredHeader &       sbh,
+                                        bool ignoreMerkle = false);
 
-   void getStoredBlockHeader(StoredBlockHeader & sbh,
-                             uint32_t blockHgt,
-                             uint8_t blockDup=UINT8_MAX,
-                             bool withTx=false);
+   void unserializeStoredTxValue(       BinaryRefReader &    brr, 
+                                        StoredTx &           stx);
 
-   void getStoredBlockHeader(StoredBlockHeader & sbh,
-                             uint32_t hgtX,
-                             bool withTx=false);
+   void unserializeStoredTxOutValue(    BinaryRefReader &    brr, 
+                                        StoredTxOut &        stxo);
+
+   bool unserializeStoredTxOutValue(    BinaryRefReader &    brr, 
+                                        StoredTx &           stx, 
+                                        uint32_t             txOutIndex);
+
+   void unserializeStoredScriptHistory( BinaryRefReader &    brr, 
+                                        StoredScriptHistory &ssh);
 
 
-   void putStoredTx(         StoredTx const & st,
+   ////////////////////////////////////////////////////////////////////////////
+   // SERIALIZE METHODS
+   void serializeStoredHeaderValue(     DB_SELECT db,
+                                        StoredHeader const &        sbh,
+                                        BinaryWriter &              bw);
+
+   void serializeStoredTxValue(         StoredTx const &            stx,
+                                        BinaryWriter &              bw);
+
+   void serializeStoredTxOutValue(      StoredTxOut const &         stxo,
+                                        BinaryWriter &              bw,
+                                        bool forceSaveSpentness=false);
+
+   void serializeStoredScriptHistory(   StoredScriptHistory &       ssh,
+                                        BinaryWriter &              bw);
+
+   /////////////////////////////////////////////////////////////////////////////
+   // Interface to translate Stored* objects to/from persistent DB storage
+   void putStoredHeader(StoredHeader & sbh,
+                        bool withTx=false);
+
+   bool getStoredHeader(StoredHeader & sbh,
+                        BinaryDataRef headHash, 
+                        bool withTx=false);
+
+   bool getStoredHeader(StoredHeader & sbh,
+                        uint32_t blockHgt,
+                        uint8_t blockDup=UINT8_MAX,
+                        bool withTx=false);
+
+   bool getStoredHeader(StoredHeader & sbh,
+                        uint32_t hgtX,
+                        bool withTx=false);
+
+
+   /////////////////////////////////////////////////////////////////////////////
+   void putStoredTx(         StoredTx & st,
                              bool withTxOut=false);
 
-   void getStoredTx(         StoredTx & st,
+   bool getStoredTx(         StoredTx & st,
                              BinaryDataRef txHash, 
                              uint32_t txIndex,
                              bool withTxOut=false);
 
-   void getStoredTx(         StoredTx & st,
+   bool getStoredTx(         StoredTx & st,
                              uint32_t hgtX,
                              uint32_t txIndex,
                              bool withTxOut=false);
 
 
-   void putStoredTxOut(      StoredTxOut const & sto)
+   /////////////////////////////////////////////////////////////////////////////
+   void putStoredTxOut(      StoredTxOut const & sto);
 
-   void getStoredTxOut(      StoredTxOut & sto,
-                             BinaryDataRef txHash, 
+   bool getStoredTxOut(      StoredTxOut & stxo,
+                             uint32_t blockHeight,
+                             uint32_t dupID,
                              uint32_t txIndex,
-                             uint32_t txOutIndex,
-                             BinaryDataRef txHash)
+                             uint32_t txOutIndex);
 
-   void getStoredTxOut(      StoredTxOut & sto,
-                             uint32_t hgtX,
+   bool getStoredTxOut(      StoredTxOut & stxo,
+                             uint32_t blockHeight,
                              uint32_t txIndex,
-                             uint32_t txOutIndex,
-                             BinaryDataRef txHash)
+                             uint32_t txOutIndex);
+
+
+   void putStoredScriptHistory( StoredScriptHistory & ssh);
+
+   void getStoredScriptHistory( BinaryDataRef uniqueKey,
+                                StoredScriptHistory & ssh);
+
+   void getStoredScriptHistoryByRawScript(
+                                BinaryDataRef rawScript,
+                                StoredScriptHistory & ssh);
+
+   ////////////////////////////////////////////////////////////////////////////
+   // Some methods to grab data at the current iterator location.  Return
+   // false if reading fails (maybe because we were expecting to find the
+   // specified DB entry type, but the prefix byte indicated something else
+   bool readStoredBlockAtIter(StoredHeader & sbh);
+
+   bool readStoredTxAtIter(uint32_t height, uint8_t dupID, StoredTx & stx);
+
+   bool readStoredTxOutAtIter(uint32_t height, uint8_t  dupID, uint16_t txIndex,
+                                                            StoredTxOut & stxo);
+
+   bool readStoredScriptHistoryAtIter( StoredScriptHistory & ssh);
+
+   uint32_t readAllStoredScriptHistory(
+                       map<BinaryData, StoredScriptHistory> & storedScrMap);
 
 
    // TxRefs are much simpler with LDB than the previous FileDataPtr construct
@@ -342,28 +499,22 @@ private:
    TxRef getTxRef( uint32_t hgt, uint8_t  dup, uint16_t txIndex);
 
 
-   bool checkStatus(leveldb::Status stat)
-   {
-      if( stat.ok() )
-         return true;
-      Log::ERR() << "***LevelDB Error: " << stat.ToString();
-      return false;
-   }
+   bool checkStatus(leveldb::Status stat, bool warn=true);
 
 
 
 private:
-   string baseDir_;
+   string               baseDir_;
 
-   BinaryData genesisBlkHash_;
-   BinaryData genesisTxHash_;
-   BinaryData magicBytes_;
+   BinaryData           genesisBlkHash_;
+   BinaryData           genesisTxHash_;
+   BinaryData           magicBytes_;
 
-   HashString topBlockHash_;
-   uint32_t   topBlockHeight_;
+   HashString           topBlockHash_;
+   uint32_t             topBlockHeight_;
 
-   ARMORY_DB_TYPE  armoryDbType_;
-   DB_PRUNE_TYPE   dbPruneType_;
+   ARMORY_DB_TYPE       armoryDbType_;
+   DB_PRUNE_TYPE        dbPruneType_;
 
    leveldb::Iterator*   iters_[2];
    leveldb::WriteBatch* batches_[2];
@@ -379,17 +530,18 @@ private:
 
    vector<uint8_t>      validDupByHeight_;
 
-   BinaryRefReader currReadKey_;
-   BinaryRefReader currReadValue_;;
+   BinaryRefReader      currReadKey_;
+   BinaryRefReader      currReadValue_;;
    
-   string lastGetValue_;
-   bool   dbIsOpen_;
+   string               lastGetValue_;
+   bool                 dbIsOpen_;
+
+   uint32_t             lowestScannedUpTo_;
 
    // In this case, a address is any TxOut script, which is usually
    // just a 25-byte script.  But this generically captures all types
    // of addresses including pubkey-only, P2SH, 
-   set<RegisteredAddress>   registeredAddrSet_;
-   uint32_t                 lowestScannedUpTo_;
+   map<BinaryData, StoredScriptHistory>   registeredSSH_;
 };
 
 

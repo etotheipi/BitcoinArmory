@@ -11,10 +11,10 @@ class StoredTxOut;
 class StoredScriptHistory;
 
 ////////////////////////////////////////////////////////////////////////////////
-class StoredBlockHeader
+class StoredHeader
 {
 public:
-   StoredBlockHeader(void) : 
+   StoredHeader(void) : 
          isInitialized_(false), dataCopy_(0), thisHash_(0),
          blockHeight_(UINT32_MAX), duplicateID_(UINT8_MAX), 
          merkle_(0), isMainBranch_(false) {}
@@ -26,6 +26,8 @@ public:
 
    void addTxToMap(uint32_t txIdx, Tx & tx);
    void addTxToMap(uint32_t txIdx, StoredTx & tx);
+
+   void setParamsTrickle(uint32_t hgt, uint8_t dupID, bool isValid);
 
    
    bool           isInitialized_;
@@ -121,8 +123,8 @@ public:
    bool isInitialized(void) { return uniqueKey_.getSize() > 0; }
 
    uint32_t       version_;
-   BinaryData     uniqueKey_;
-   BinaryData     addrType_;
+   BinaryData     uniqueKey_;  // includes the prefix byte!
+   SCRIPT_PREFIX  scriptType_;
    uint32_t       alreadyScannedUpToBlk_;
    bool           hasMultisigEntries_;
 

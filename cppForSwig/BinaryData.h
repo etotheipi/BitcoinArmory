@@ -696,6 +696,11 @@ public:
    }
 
    /////////////////////////////////////////////////////////////////////////////
+   bool operator!=(BinaryDataRef const & bd2) const { return !((*this)==bd2); }
+   bool operator!=(BinaryData    const & bd2) const { return !((*this)==bd2); }
+
+
+   /////////////////////////////////////////////////////////////////////////////
    bool operator>(BinaryDataRef const & bd2) const
    {
       int minLen = min(nBytes_, bd2.nBytes_);
@@ -813,13 +818,25 @@ public:
       setNewData(toRead);
    }
 
+   /////////////////////////////////////////////////////////////////////////////
+   BinaryReader(uint8_t* ptr, uint32_t nBytes)
+   {
+      setNewData(ptr, nBytes);
+   }
 
+   /////////////////////////////////////////////////////////////////////////////
    void setNewData(BinaryData const & toRead)
    {
       bdStr_ = toRead;
       pos_ = 0;
    }
 
+   /////////////////////////////////////////////////////////////////////////////
+   void setNewData(uint8_t* ptr, uint32_t nBytes)
+   {
+      bdStr_ = BinaryData(ptr, nBytes);
+      pos_ = 0;
+   }
 
    /////////////////////////////////////////////////////////////////////////////
    void advance(uint32_t nBytes) 
@@ -1043,6 +1060,14 @@ public:
    {
       bdTarget.copyFrom( bdRef_.getPtr() + pos_, nBytes);
       pos_ += nBytes;
+   }
+
+   /////////////////////////////////////////////////////////////////////////////
+   BinaryData get_BinaryData(uint32_t nBytes)
+   {
+      BinaryData out;
+      get_BinaryData(out, nBytes);
+      return out;
    }
 
    /////////////////////////////////////////////////////////////////////////////

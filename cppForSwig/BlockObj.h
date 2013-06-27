@@ -139,6 +139,7 @@ public:
    /////////////////////////////////////////////////////////////////////////////
    TxRef(void) : ldbKey6B_(0), dbIface_(NULL) {}
    TxRef(BinaryDataRef bdr) : ldbKey6B_(bdr), dbIface_(NULL) {}
+   TxRef(BinaryDataRef bdr, InterfaceToLevelDB* ifc) : ldbKey6B_(bdr), dbIface_(ifc) {}
      
    /////////////////////////////////////////////////////////////////////////////
    BinaryData         getThisHash(void) const;

@@ -84,11 +84,11 @@ typedef enum
 
 typedef enum
 {
-  ADDR_PREFIX_HASH160=0x00,
-  ADDR_PREFIX_P2SH=0x05,
-  ADDR_PREFIX_MULTISIG=0xfe,
-  ADDR_PREFIX_NONSTD=0xff,
-} ADDR_PREFIX_TYPE;
+  SCRIPT_PREFIX_HASH160=0x00,
+  SCRIPT_PREFIX_P2SH=0x05,
+  SCRIPT_PREFIX_MULTISIG=0xfe,
+  SCRIPT_PREFIX_NONSTD=0xff,
+} SCRIPT_PREFIX;
 
 
 enum OPCODETYPE
@@ -864,27 +864,27 @@ public:
       switch(type)
       {
          case(TXOUT_SCRIPT_STDHASH160):  
-            bw.put_uint8_t(ADDR_PREFIX_HASH160);
+            bw.put_uint8_t(SCRIPT_PREFIX_HASH160);
             bw.put_BinaryData(script.getSliceCopy(3,20));
             return bw.getData();
          case(TXOUT_SCRIPT_STDPUBKEY65): 
-            bw.put_uint8_t(ADDR_PREFIX_HASH160);
+            bw.put_uint8_t(SCRIPT_PREFIX_HASH160);
             bw.put_BinaryData( getHash160(script.getSliceRef(1,65)));
             return bw.getData();
          case(TXOUT_SCRIPT_STDPUBKEY33): 
-            bw.put_uint8_t(ADDR_PREFIX_HASH160);
+            bw.put_uint8_t(SCRIPT_PREFIX_HASH160);
             bw.put_BinaryData( getHash160(script.getSliceRef(1,33)));
             return bw.getData();
          case(TXOUT_SCRIPT_P2SH):       
-            bw.put_uint8_t(ADDR_PREFIX_P2SH);
+            bw.put_uint8_t(SCRIPT_PREFIX_P2SH);
             bw.put_BinaryData(script.getSliceCopy(2,20));
             return bw.getData();
          case(TXOUT_SCRIPT_NONSTANDARD):     
-            bw.put_uint8_t(ADDR_PREFIX_NONSTD);
+            bw.put_uint8_t(SCRIPT_PREFIX_NONSTD);
             bw.put_BinaryData(script);
             return bw.getData();
          case(TXOUT_SCRIPT_MULTISIG):     
-            bw.put_uint8_t(ADDR_PREFIX_MULTISIG);
+            bw.put_uint8_t(SCRIPT_PREFIX_MULTISIG);
             bw.put_BinaryData(getMultisigUniqueKey(script));
             return bw.getData();
          default:

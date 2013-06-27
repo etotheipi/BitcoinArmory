@@ -1,7 +1,20 @@
 #include <iostream>
 #include <sstream>
+#include <map>
 #include "leveldb_wrapper.h"
 
+
+////////////////////////////////////////////////////////////////////////////////
+inline bool InterfaceToLevelDB::checkStatus(leveldb::Status stat, bool warn)
+{
+   if( stat.ok() )
+      return true;
+   
+   if(warn)
+      Log::ERR() << "***LevelDB Error: " << stat.ToString();
+
+   return false;
+}
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -20,14 +33,14 @@ inline void InterfaceToLevelDB::sliceToBinaryData(leveldb::Slice slice,
 ////////////////////////////////////////////////////////////////////////////////
 inline BinaryReader InterfaceToLevelDB::sliceToBinaryReader(leveldb::Slice slice)
 { 
-   return BinaryReader.copyFrom((uint8_t*)(slice.data()), slice.size()); 
+   return BinaryReader((uint8_t*)(slice.data()), slice.size());
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 inline void InterfaceToLevelDB::sliceToBinaryReader(leveldb::Slice slice, 
-                                                    BinaryReader & brr)
+                                                    BinaryReader & br)
 { 
-   brr.setNewData((uint8_t*)(slice.data()), slice.size()); 
+   br.setNewData((uint8_t*)(slice.data()), slice.size()); 
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -68,14 +81,15 @@ InterfaceToLevelDB::InterfaceToLevelDB()
 // specify them, if you want to throw an error if it's not what you were 
 // expecting
 InterfaceToLevelDB::InterfaceToLevelDB(
-                   string             basedir, 
-                   BinaryData const & genesisBlkHash, 
-                   BinaryData const & genesisTxHash, 
-                   BinaryData const & magic,
-                   ARMORY_DB_TYPE     dbtype=ARMORY_DB_WHATEVER,
-                   DB_PRUNE_TYPE      pruneType=DB_PRUNE_WHATEVER)
+                           string             basedir, 
+                           BinaryData const & genesisBlkHash, 
+                           BinaryData const & genesisTxHash, 
+                           BinaryData const & magic,
+                           ARMORY_DB_TYPE     dbtype,
+                           DB_PRUNE_TYPE      pruneType)
 {
    init();
+
    baseDir_ = basedir;
    char dbname[1024];
 
@@ -110,16 +124,6 @@ InterfaceToLevelDB::~InterfaceToLevelDB(void)
    closeDatabases();
 }
 
-/////////////////////////////////////////////////////////////////////////////
-BinaryData InterfaceToLevelDB::txOutScriptToLDBKey(BinaryData const & script,
-                                                   bool withPrefix)
-{
-   BinaryWriter bw(22);  // reserve 22 bytes which is almost always perfect
-   if(withPrefix)
-      bw.put_uint8_t(DB_PREFIX_SCRIPT);
-   bw.put_BinaryData(getTxOutScriptUniqueKey(script.getRef());
-   return bw.getData();
-}
 
 
 
@@ -127,6 +131,7 @@ BinaryData InterfaceToLevelDB::txOutScriptToLDBKey(BinaryData const & script,
 /////////////////////////////////////////////////////////////////////////////
 bool InterfaceToLevelDB::openDatabases(void)
 {
+   SCOPED_TIMER("openDatabases");
    if(genesisBlkHash_.getSize() == 0 || magicBytes_.getSize() == 0)
    {
       Log::ERR() << " must set magic bytes and genesis block";
@@ -140,18 +145,20 @@ bool InterfaceToLevelDB::openDatabases(void)
    vector<leveldb::DB*> dbs[2];
    for(uint32_t db=0; db<DB_COUNT; db++)
    {
+      DB_SELECT CURRDB = (DB_SELECT)db;
+      
       leveldb::Options opts;
       opts.create_if_missing = true;
-      //opts2.compression        = leveldb::kNoCompression;
-      //opts2.filter_policy      = leveldb::NewBloomFilter(10);
-      checkStatus(leveldb::DB::Open(opts2, dbPaths_[db],  &dbs_[db]));
+      leveldb::Status stat = leveldb::DB::Open(opts, dbPaths_[db],  &dbs_[db]);
+      if(!checkStatus(stat))
+         Log::ERR() << "Failed to open database! DB: " << db;
 
       // Create an iterator that we'll use for ust about all DB seek ops
       iters_[db] = dbs_[db]->NewIterator(leveldb::ReadOptions());
       batches_[db] = NULL;
       batchStarts_[db] = 0;
          
-      BinaryData dbInfo = getValue(dbs_[db], getDBInfoKey());
+      BinaryDataRef dbInfo = getValueRef(CURRDB, getDBInfoKey());
       if(dbInfo.getSize() == 0)
       {
          // If DB didn't exist yet (dbinfo key is empty), seed it
@@ -164,29 +171,30 @@ bool InterfaceToLevelDB::openDatabases(void)
          bitwrite.putBits((uint32_t)dbPruneType_,      4);
 
          BinaryWriter bw(48);
-         bw.put_uint32_t(ARMORY_DB_VERSION)
+         bw.put_uint32_t(ARMORY_DB_VERSION);
          bw.put_BinaryData(magicBytes_);
          bw.put_uint32_t(bitwrite.getValue());
          bw.put_uint32_t(0);
          bw.put_BinaryData(genesisBlkHash_);
    
-         putValue(dbs_[db], getDBInfoKey(), bw.getData());
+         putValue(CURRDB, getDBInfoKey(), bw.getData());
       }
       else
       {
          // Else we read the DB info and make sure everything matches up
-         if(dbinfo.getSize() < 40)
+         if(dbInfo.getSize() < 40)
          {
             Log::ERR() << "Invalid DatabaseInfo data";
             closeDatabases();
             return false;
          }
-         BinaryReader br(dbinfo);
-         uint32_t version = br.get_uint32_t();
-         BinaryData magic = br.get_BinaryData(4);
-         uint32_t flags   = br.get_uint32_t();
-         topBlockHeight_  = br.get_uint32_t();
-         topBlockHash_    = br.get_BinaryData(32);
+
+         BinaryRefReader brr(dbInfo);
+         uint32_t version = brr.get_uint32_t();
+         BinaryData magic = brr.get_BinaryData(4);
+         uint32_t flags   = brr.get_uint32_t();
+         topBlockHeight_  = brr.get_uint32_t();
+         topBlockHash_    = brr.get_BinaryData(32);
       
          // Check that the magic bytes are correct
          if(magicBytes_ != magic)
@@ -197,7 +205,7 @@ bool InterfaceToLevelDB::openDatabases(void)
          }
          
          // Check that we have the top hash (not sure about if we don't)
-         if( getValue(dbs_[db], topBlockHash_).getSize() == 0 )
+         if( getValueRef(CURRDB, DB_PREFIX_HEADHASH, topBlockHash_).getSize() == 0 )
          {
             Log::ERR() << " Top block doesn't exist!";
             closeDatabases();
@@ -226,35 +234,47 @@ bool InterfaceToLevelDB::openDatabases(void)
             closeDatabases();
             return false;
          }
-
-         // Reserve space in the vector to delay reallocation for 32 weeks
-         validDupByHeight_.clear();
-         validDupByHeight_.reserve(topBlockHeight_ + 32768);
-         validDupByHeight_.resize(topBlockHeight_+1);
       }
    }
+
+   // Reserve space in the vector to delay reallocation for 32 weeks
+   validDupByHeight_.clear();
+   validDupByHeight_.reserve(topBlockHeight_ + 32768);
+   validDupByHeight_.resize(topBlockHeight_+1);
+
+   return true;
 }
 
 
 /////////////////////////////////////////////////////////////////////////////
-void InterfaceToLevelDB::readAllStoredScriptHistory(
+uint32_t InterfaceToLevelDB::readAllStoredScriptHistory(
                           map<BinaryData, StoredScriptHistory> & regScriptMap)
 {
    // Now read all the StoredAddressObjects objects to make it easy to query
    // inclusion directly from RAM.
-   seekTo(BLKDATA, DB_PREFIX_SCRIPT, BinaryData(0))
-   lowestScannedUpTo_ = UINT32_MAX;
-   while(iter->Valid())
+   seekTo(BLKDATA, DB_PREFIX_SCRIPT, BinaryData(0));
+   startBlkDataIteration(DB_PREFIX_SCRIPT);
+   uint32_t lowestSync = UINT32_MAX;
+   while(advanceIterAndRead(BLKDATA, DB_PREFIX_SCRIPT))
    {
-      if(!checkPrefixByte(currReadKey_, DB_PREFIX_SCRIPT)
+      if(!checkPrefixByte(currReadKey_, DB_PREFIX_SCRIPT))
          break;
 
       StoredScriptHistory ssh;
       readStoredScriptHistoryAtIter(ssh);
-      registeredAddrSet_[ssh.uniqueKey] = ssh;
-      lowestScannedUpTo_ = min(lowestScannedUpTo_, ssh.alreadyScannedUpToBlk_);
-      iter->Next();
+      regScriptMap[ssh.uniqueKey_] = ssh;
+      lowestSync = min(lowestScannedUpTo_, ssh.alreadyScannedUpToBlk_);
    }
+
+   return lowestSync;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+void InterfaceToLevelDB::loadAllStoredHistory(void)
+{
+   SCOPED_TIMER("loadAllStoredHistory");
+   lowestScannedUpTo_ = readAllStoredScriptHistory(registeredSSH_);
 }
 
 
@@ -262,6 +282,7 @@ void InterfaceToLevelDB::readAllStoredScriptHistory(
 // DBs don't really need to be closed.  Just delete them
 void InterfaceToLevelDB::closeDatabases(void)
 {
+   SCOPED_TIMER("closeDatabases");
    for(uint32_t db=0; db<DB_COUNT; db++)
    {
       if( dbs_[db] != NULL)
@@ -276,6 +297,7 @@ void InterfaceToLevelDB::closeDatabases(void)
 ////////////////////////////////////////////////////////////////////////////////
 void InterfaceToLevelDB::startBatch(DB_SELECT db)
 {
+   SCOPED_TIMER("startBatch");
    if(batchStarts_[db] == 0)
    {
       if(batches_[db] != NULL)
@@ -284,7 +306,7 @@ void InterfaceToLevelDB::startBatch(DB_SELECT db)
          delete batches_[db];
       }
 
-      batches_[db] = new WriteBatch;
+      batches_[db] = new leveldb::WriteBatch;
    }
 
    // Increment the number of times we've called this function
@@ -297,6 +319,8 @@ void InterfaceToLevelDB::startBatch(DB_SELECT db)
 // Commit all the batched operations
 void InterfaceToLevelDB::commitBatch(DB_SELECT db)
 {
+   SCOPED_TIMER("commitBatch");
+
    // Decrement the numbers of starts and only write if it's at zero
    batchStarts_[db] -= 1;
 
@@ -309,40 +333,22 @@ void InterfaceToLevelDB::commitBatch(DB_SELECT db)
       }
 
       dbs_[db]->Write(leveldb::WriteOptions(), batches_[db]);
+      batches_[db]->Clear();
       delete batches_[db];
       batches_[db] = NULL;
       iterIsDirty_[db] = true;
    }
 }
 
-////////////////////////////////////////////////////////////////////////////////
-// Get value using pre-created slice
-void InterfaceToLevelDB::commitBatch(DB_SELECT db, doSync=false)
-{
-   if(batches_[db] == NULL)
-   {
-      Log::ERR() << " Can't commit NULL WriteBatch";
-      return;
-   }
-   leveldb::WriteOptions writeopt;
-   writeopt.sync = doSync;
-   leveldb::Status stat = dbs_[db]->Write(writeopt, batches_[db]);
-   checkStatus(stat);
-
-   batches_[db]->Clear();
-   delete batches_[db];
-   batches_[db] = NULL;
-}
 
 /////////////////////////////////////////////////////////////////////////////
 // Get value using pre-created slice
 inline BinaryData InterfaceToLevelDB::getValue(DB_SELECT db, leveldb::Slice ldbKey)
 {
-   leveldb::Status stat = db->Get(leveldb::ReadOptions(), ldbKey, &lastGetValue_);
-   if(stat==Status::IsNotFound())
+   leveldb::Status stat = dbs_[db]->Get(STD_READ_OPTS, ldbKey, &lastGetValue_);
+   if(!checkStatus(stat, false))
       return BinaryData(0);
 
-   checkStatus(stat);
    return BinaryData(lastGetValue_);
 }
 
@@ -363,11 +369,11 @@ inline BinaryData InterfaceToLevelDB::getValue(DB_SELECT db,
                                                DB_PREFIX prefix,
                                                BinaryDataRef key)
 {
-   BinaryData keyFull(key.size()+1);
+   BinaryData keyFull(key.getSize()+1);
    keyFull[0] = (uint8_t)prefix;
    key.copyTo(keyFull.getPtr()+1, key.getSize());
    leveldb::Slice ldbKey((char*)keyFull.getPtr(), keyFull.getSize());
-   return getValue(db, ldbKey)
+   return getValue(db, ldbKey);
 }
 
 
@@ -378,14 +384,12 @@ inline BinaryData InterfaceToLevelDB::getValue(DB_SELECT db,
 inline BinaryDataRef InterfaceToLevelDB::getValueRef(DB_SELECT db, 
                                                      BinaryDataRef key)
 {
-   //leveldb::Slice ldbKey((char*)key.getPtr(), key.getSize());
-   //return getValue(db, ldbKey)
-
-   leveldb::Status stat = db->Get(leveldb::ReadOptions(), ldbKey, &lastGetValue_);
-   if(stat==Status::IsNotFound())
+   leveldb::Slice ldbKey = binaryDataRefToSlice(key);
+   leveldb::Status stat = dbs_[db]->Get(STD_READ_OPTS, ldbKey, &lastGetValue_);
+   if(!checkStatus(stat, false))
       lastGetValue_ = string("");
 
-   return BinaryDataRef(lastGetValue_.data(), lastGetValue_.size());
+   return BinaryDataRef((uint8_t*)lastGetValue_.data(), lastGetValue_.size());
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -396,17 +400,17 @@ inline BinaryDataRef InterfaceToLevelDB::getValueRef(DB_SELECT db,
                                                      DB_PREFIX prefix, 
                                                      BinaryDataRef key)
 {
-   BinaryData ldbkey(key.getSize()+1)
-   ldbkey[0] = (uint8_t)prefix;
-   key.copyTo(ldbkey.getPtr()+1, key.getSize());
-   return getValueRef(db, ldbkey);
+   BinaryWriter bw(key.getSize() + 1);
+   bw.put_uint8_t((uint8_t)prefix);
+   bw.put_BinaryData(key);
+   return getValueRef(db, bw.getDataRef());
 }
 
 
 /////////////////////////////////////////////////////////////////////////////
 // Same as the getValueRef, in that they are only valid until the next get*
 // call.  These are convenience methods which basically just save us 
-inline BinaryDataRef InterfaceToLevelDB::getValueReader(
+inline BinaryRefReader InterfaceToLevelDB::getValueReader(
                                              DB_SELECT db, 
                                              BinaryDataRef keyWithPrefix)
 {
@@ -417,9 +421,9 @@ inline BinaryDataRef InterfaceToLevelDB::getValueReader(
 /////////////////////////////////////////////////////////////////////////////
 // Same as the getValueRef, in that they are only valid until the next get*
 // call.  These are convenience methods which basically just save us 
-inline BinaryDataRef InterfaceToLevelDB::getValueReader(
+inline BinaryRefReader InterfaceToLevelDB::getValueReader(
                                              DB_SELECT db, 
-                                             DB_PREFIX_TYPE prefix, 
+                                             DB_PREFIX prefix, 
                                              BinaryDataRef key)
 {
    return BinaryRefReader(getValueRef(db, prefix, key));
@@ -436,14 +440,14 @@ void InterfaceToLevelDB::putValue(DB_SELECT db,
                                   BinaryDataRef key, 
                                   BinaryDataRef value)
 {
-   leveldb::Slice ldbKey((char*)key.getPtr(), key.getSize());
-   leveldb::Slice ldbVal((char*)value.getPtr(), value.getSize());
+   leveldb::Slice ldbkey = binaryDataRefToSlice(key);
+   leveldb::Slice ldbval = binaryDataRefToSlice(value);
    
    if(batches_[db]!=NULL)
-      batches_[db]->Put(ldbkey, &value);
+      batches_[db]->Put(ldbkey, ldbval);
    else
    {
-      leveldb::Status stat = dbs_[db]->Put(leveldb::WriteOptions(), ldbkey, &value);
+      leveldb::Status stat = dbs_[db]->Put(STD_WRITE_OPTS, ldbkey, ldbval);
       checkStatus(stat);
       iterIsDirty_[db] = true;
    }
@@ -466,17 +470,17 @@ void InterfaceToLevelDB::putValue(DB_SELECT db,
 /////////////////////////////////////////////////////////////////////////////
 // Put value based on BinaryData key.  If batch writing, pass in the batch
 void InterfaceToLevelDB::deleteValue(DB_SELECT db, 
-                                     BinaryData const & key)
+                                     BinaryDataRef key)
                  
 {
    string value;
-   leveldb::Slice ldbKey((char*)key.getPtr(), key.getSize());
+   leveldb::Slice ldbKey = binaryDataRefToSlice(key);
    
    if(batches_[db]!=NULL)
-      batches_[db]->Put(ldbkey, &value);
+      batches_[db]->Delete(ldbKey);
    else
    {
-      leveldb::Status stat = dbs_[db]->Put(leveldb::ReadOptions(), ldbkey, &value);
+      leveldb::Status stat = dbs_[db]->Delete(STD_WRITE_OPTS, ldbKey);
       checkStatus(stat);
       iterIsDirty_[db] = true;
    }
@@ -541,7 +545,7 @@ void InterfaceToLevelDB::startHeaderIteration()
 void InterfaceToLevelDB::startBlkDataIteration(DB_PREFIX prefix)
 {
    seekTo(BLKDATA, prefix, BinaryData(0));
-   leveldb::Slice start(&prefix, 1);
+   leveldb::Slice start((char*)(&prefix), 1);
    iters_[BLKDATA]->Seek(start);
    iteratorToRefReaders(iters_[BLKDATA], currReadKey_, currReadValue_);
 }
@@ -560,7 +564,8 @@ bool InterfaceToLevelDB::advanceToNextBlock(bool skip)
    BinaryData key;
    while(1) 
    {
-      if(skip) it->Next();
+      if(skip) 
+         it->Next();
 
       if( !it->Valid() || it->key()[0] != (char)DB_PREFIX_BLKDATA)
          return false;
@@ -570,7 +575,8 @@ bool InterfaceToLevelDB::advanceToNextBlock(bool skip)
          return true;
       }
 
-      if(!skip) it->Next()
+      if(!skip) 
+         it->Next();
    } 
    Log::ERR() << "we should never get here...";
    return false;
@@ -587,7 +593,7 @@ bool InterfaceToLevelDB::seekTo(DB_SELECT db,
    if(it==NULL)
       it = iters_[db];
 
-   it.Seek(binaryDataToSlice(key));
+   it->Seek(binaryDataRefToSlice(key));
    if(!it->Valid())
       return false;
 
@@ -606,14 +612,14 @@ bool InterfaceToLevelDB::seekTo(DB_SELECT db,
    if(it==NULL)
       it = iters_[db];
 
-   BinaryData ldbkey;
+   BinaryData ldbKey;
    if(db==HEADERS)
       return seekTo(db, key, it);
    else
    {
       uint8_t prefInt = (uint8_t)prefix;
-      ldbkey = BinaryData(&prefInt, 1) + key;
-      return seekTo(db, ldbkey, it);
+      ldbKey = BinaryData(&prefInt, 1) + key;
+      return seekTo(db, ldbKey, it);
    }
 }
 
@@ -622,8 +628,9 @@ bool InterfaceToLevelDB::seekTo(DB_SELECT db,
 // We frequently have a Tx hash and need to determine the Hgt/Dup/Index of it.
 // And frequently when we do, we plan to read the tx right afterwards, so we
 // should leave the itereator there.
-bool seekToTxByHash(BinaryDataRef txHash)
+bool InterfaceToLevelDB::seekToTxByHash(BinaryDataRef txHash)
 {
+   SCOPED_TIMER("seekToTxByHash");
    BinaryData hash4(txHash.getSliceRef(0,4));
    BinaryData existingHints = getValue(BLKDATA, DB_PREFIX_TXHINTS, hash4);
 
@@ -666,58 +673,6 @@ bool seekToTxByHash(BinaryDataRef txHash)
 }
 
 
-/////////////////////////////////////////////////////////////////////////////
-void InterfaceToLevelDB::seekFirstScript( levelbd::Iterator* it=NULL)
-{
-   if(it==NULL)
-      it = iters_[BLKDATA];
-
-   char prefix = DB_PREFIX_SCRIPT;
-   leveldb::Slice start(&prefix, 1);
-   it.Seek(start);
-}
-
-
-/////////////////////////////////////////////////////////////////////////////
-bool InterfaceToLevelDB::seekToRegAddr(BinaryData const & addr,
-                                       leveldb::Iterator* it=NULL)
-{
-   if(it==NULL)
-      it = iters_[BLKDATA];
-
-   uint8_t prefix = DB_PREFIX_SCRIPT;
-   BianryData ldbkey = BinaryData(&prefix, 1) + addr;
-
-   it.Seek(binaryDataToSlice(ldbkey));
-   if(!it->Valid())
-      return false;
-
-   iteratorToRefReaders(it, currReadKey_, currReadValue_);
-   uint8_t itPrefix = currReadKey_.get_uint8_t();
-   uint32_t sz = currReadKey_.getSize();
-   if(itPrefix != prefix ||
-      currReadKey_.get_BinaryDataRef(sz-1) != addr)
-   {
-      currReadKey_.resetPosition();
-      return false;
-   }
-
-   currReadKey_.resetPosition();
-   return true;
-}
-
-
-/////////////////////////////////////////////////////////////////////////////
-// Makes copies of the key and value
-void InterfaceToLevelDB::iteratorToReaders( leveldb::Iterator* it, 
-                                            BinaryReader & brKey,
-                                            BinaryReader & brValue)
-{
-   brKey.setNewData(it->key().data(), it->key().size());      
-   brValue;.setNewData(it->value().data(), it->value().size());      
-}
-
-
 
 /////////////////////////////////////////////////////////////////////////////
 void InterfaceToLevelDB::deleteIterator(DB_SELECT db)
@@ -748,28 +703,26 @@ void InterfaceToLevelDB::iteratorToRefReaders( leveldb::Iterator* it,
                                                BinaryRefReader & brrKey,
                                                BinaryRefReader & brrValue)
 {
-   brrKey.setNewData(it->key().data(), it->key().size());      
-   brrValue;.setNewData(it->value().data(), it->value().size());      
-}
-
+   brrKey.setNewData((uint8_t*)(it->key().data()), it->key().size());      
+   brrValue.setNewData((uint8_t*)(it->value().data()), it->value().size());      
 }
 
 
 ////////////////////////////////////////////////////////////////////////////////
 BLKDATA_TYPE InterfaceToLevelDB::readBlkDataKey5B(
-                                 BinaryRefReader & brr,
-                                 uint32_t & height,
-                                 uint8_t  & dupID)
+                                       BinaryRefReader & brr,
+                                       uint32_t & height,
+                                       uint8_t  & dupID)
 {
-   uint8_t  prefix = brr.get_uint8_t()
-   if(prefix != DB_PREFIX_BLKDATA)
+   uint8_t prefix = brr.get_uint8_t();
+   if(prefix != (uint8_t)DB_PREFIX_BLKDATA)
    {
       height = 0xffffffff;
       dupID  =       0xff;
       return NOT_BLKDATA;
    }
    
-   uint32_t hgtX   = brr.get_uint32_t()
+   uint32_t hgtX   = brr.get_uint32_t();
    height = hgtxToHeight(hgtX);
    dupID  = hgtxToDupID(hgtX);
 
@@ -787,52 +740,14 @@ BLKDATA_TYPE InterfaceToLevelDB::readBlkDataKey5B(
 }
 
 
+////////////////////////////////////////////////////////////////////////////////
+string InterfaceToLevelDB::getPrefixName(uint8_t prefixInt)
+{
+   return getPrefixName((DB_PREFIX)prefixInt);
+}
 
 ////////////////////////////////////////////////////////////////////////////////
-//void InterfaceToLevelDB::readBlkDataTxKey( BinaryRefReader & brr, StoredTx & tx)
-//{
-   //BLKDATA_TYPE bdtype = readBlkDataKey5B(brr, tx.storedHeight_, tx.storedDupID_);
-   //if(bdtype != DB_PREFIX_BLKDATA)
-   //{
-      //Log::ERR() << "Attempted to read Tx key, but not a StoredTx entry";
-      //tx = StoredTx();
-      //return;
-   //}
-
-   //tx.txIndex_ = brr.get_uint16_t()
-//}
-
-////////////////////////////////////////////////////////////////////////////////
-//void InterfaceToLevelDB::readBlkDataTxOutKey( BinaryRefReader & brr, 
-                                              //StoredTxOut & txout)
-//{
-   //BLKDATA_TYPE bdt = readBlkDataKey5B(brr, txOut.blockHeight_, tx.blockDupID_);
-   //if(bdt != DB_PREFIX_BLKDATA)
-   //{
-      //Log::ERR() << "Attempted to read Tx key, but not a StoredTx entry";
-      //tx = StoredTx();
-      //return;
-   //}
-   
-   //txout.txIndex_    = brr.get_uint16_t();
-   //txout.txOutIndex_ = brr.get_uint16_t();
-//}
-
-////////////////////////////////////////////////////////////////////////////////
-//StoredTxOut InterfaceToLevelDB::readBlkDataTxOutKey( BinaryRefReader & brr)
-//{
-   //StoredTxOut txo;
-   //BLKDATA_TYPE bdt = readBlkDataKey5B(brr, txo.blockHeight_, txo.blockDupID_);
-   //if(bdt != DB_PREFIX_BLKDATA)
-      //return
-
-   //txo.txIndex_    = brr.get_uint16_t();
-   //txo.txOutIndex_ = brr.get_uint16_t();
-//}
-
-
-////////////////////////////////////////////////////////////////////////////////
-string InterfaceToLevelDB::getPrefixName(DB_PREFIX_TYPE pref)
+string InterfaceToLevelDB::getPrefixName(DB_PREFIX pref)
 {
    switch(pref)
    {
@@ -844,16 +759,16 @@ string InterfaceToLevelDB::getPrefixName(DB_PREFIX_TYPE pref)
       case DB_PREFIX_HEADHASH:  return string("HEADHASH"); 
       case DB_PREFIX_HEADHGT:   return string("HEADHGT"); 
       case DB_PREFIX_UNDODATA:  return string("UNDODATA"); 
-      case default:             return string("<unknown>"); 
+      default:                  return string("<unknown>"); 
    }
 }
 
 /////////////////////////////////////////////////////////////////////////////
 inline bool InterfaceToLevelDB::checkPrefixByte(BinaryRefReader brr, 
-                                                DB_PREFIX_TYPE prefix,
-                                                bool rewindWhenDone);
+                                                DB_PREFIX prefix,
+                                                bool rewindWhenDone)
 {
-   uint8_t oneByte = brr.get_uint8_t()
+   uint8_t oneByte = brr.get_uint8_t();
    bool out;
    if(oneByte == (uint8_t)prefix)
       out = true;
@@ -861,7 +776,7 @@ inline bool InterfaceToLevelDB::checkPrefixByte(BinaryRefReader brr,
    {
       Log::ERR() << "Unexpected prefix byte: "
                  << "Expected: " << getPrefixName(prefix)
-                 << "Received: " << getPrefixName(oneByte)
+                 << "Received: " << getPrefixName(oneByte);
       out = false;
    }
 
@@ -870,13 +785,14 @@ inline bool InterfaceToLevelDB::checkPrefixByte(BinaryRefReader brr,
 }
 
 /////////////////////////////////////////////////////////////////////////////
-inline bool InterfaceToLevelDB::checkPrefixByte(DB_PREFIX_TYPE prefix);
+inline bool InterfaceToLevelDB::checkPrefixByte(DB_PREFIX prefix, 
+                                                bool rewindWhenDone)
 {
-   return checkPrefixByte(currReadKey_, prefix); 
+   return checkPrefixByte(currReadKey_, prefix, rewindWhenDone);
 }
 
 /////////////////////////////////////////////////////////////////////////////
-bool readStoredScriptHistoryAtIter( StoredScriptHistory & ssh)
+bool InterfaceToLevelDB::readStoredScriptHistoryAtIter( StoredScriptHistory & ssh)
                                
 {
    resetIterReaders();
@@ -884,10 +800,10 @@ bool readStoredScriptHistoryAtIter( StoredScriptHistory & ssh)
    checkPrefixByte(currReadKey_, DB_PREFIX_SCRIPT);
       
    uint32_t nBytes = currReadKey_.getSizeRemaining();
-   ssh.addrType_ = currReadKey_.get_uint8_t()
+   ssh.scriptType_ = (SCRIPT_PREFIX)currReadKey_.get_uint8_t();
    currReadKey_.get_BinaryData(ssh.uniqueKey_, nBytes-1);
 
-   unserializeStoredScriptHistory(currReadValue_, ssh, accumTxIO);
+   unserializeStoredScriptHistory(currReadValue_, ssh);
 }
 
 
@@ -904,8 +820,8 @@ bool readStoredScriptHistoryAtIter( StoredScriptHistory & ssh)
 // zero-confirmation data as well as in-blockchain data.
 //
 void InterfaceToLevelDB::unserializeStoredScriptHistory(
-                                    BinaryRefReader      & brr, 
-                                    StoredScriptHistory  & ssh)
+                                       BinaryRefReader      & brr, 
+                                       StoredScriptHistory  & ssh)
 {
    // Now read the stored data fro this registered address
    BitReader<uint16_t> bitread(brr);
@@ -969,7 +885,7 @@ void InterfaceToLevelDB::unserializeStoredScriptHistory(
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void InterfaceToLevelDB::serializeStoredAddress(
+void InterfaceToLevelDB::serializeStoredScriptHistory(
                                           StoredScriptHistory & ssh,
                                           BinaryWriter        & bw)
 {
@@ -979,14 +895,14 @@ void InterfaceToLevelDB::serializeStoredAddress(
    BitWriter<uint16_t> bitwrite;
    bitwrite.putBits((uint16_t)ARMORY_DB_VERSION,   4);
    bitwrite.putBits((uint16_t)dbPruneType_,        2);
-   bitwrite.putBits((uint16_t)SCRIPT_UTXO_VECTOR, 2);
+   bitwrite.putBits((uint16_t)SCRIPT_UTXO_VECTOR,  2);
    bitwrite.putBit(ssh.hasMultisigEntries_);
    bw.put_uint16_t(bitwrite.getValue());
 
    // 
-   bw.put_uint32_t(ra.alreadyScannedUpToBlk_); 
+   bw.put_uint32_t(ssh.alreadyScannedUpToBlk_); 
 
-   if(txoListType == SCRIPT_UTXO_TREE)
+   if(UTXO_STORAGE == SCRIPT_UTXO_TREE)
    {
       // This is where we might implement the Reiner-Tree concept, by
       // having only a reference to one TxOut here, but it's actually 
@@ -994,41 +910,41 @@ void InterfaceToLevelDB::serializeStoredAddress(
       Log::ERR() << "TXO-trees are not implemented, yet!";
       return;
    }
-   else if(txoListType == SCRIPT_UTXO_VECTOR)
+   else if(UTXO_STORAGE == SCRIPT_UTXO_VECTOR)
    {
       // Get the TxOut list if a pointer was supplied
       // This list is unspent-TxOuts only if pruning enabled.  You will
       // have to dereference each one to check spentness if not pruning
-      uint32_t numTxo = (uint32_t)ssh.getTxIOList().size();
+      uint32_t numTxo = (uint32_t)ssh.txioVect_.size();
       for(uint32_t i=0; i<numTxo; i++)
       {
-         TxIOPair* txio = ssh.getTxIOList()[i];
-         bool isSpent = txio->hasTxInInMain();
+         TxIOPair & txio = ssh.txioVect_[i];
+         bool isSpent = txio.hasTxInInMain();
 
          // If spent and only maintaining a pruned DB, skip it
          if(isSpent && dbPruneType_==DB_PRUNE_ALL)
             continue;
 
          BitWriter<uint8_t> bitwrite;
-         bitwrite.putBit(txio->isTxOutFromSelf());
-         bitwrite.pubBit(txio->isFromCoinbase());
-         bitwrite.pubBit(txio->hasTxInInMain());
+         bitwrite.putBit(txio.isTxOutFromSelf());
+         bitwrite.putBit(txio.isFromCoinbase());
+         bitwrite.putBit(txio.hasTxInInMain());
          bw.put_uint8_t(bitwrite.getValue());
 
          // Always write the value and 8-byte TxOut
-         bw.put_uint64_t(txio->getValue());
-         bw.put_BinaryData(txio->getTxRefOfOutput().getLevelDBKeyRef());
-         bw.put_uint16_t(txio->getIndexOfOutput());
+         bw.put_uint64_t(txio.getValue());
+         bw.put_BinaryData(txio.getTxRefOfOutput().getLevelDBKeyRef());
+         bw.put_uint16_t(txio.getIndexOfOutput());
 
          // If not supposed to write the TxIn, we would've bailed earlier
          if(isSpent)
          {
-            if(!txio->getTxRefOfInput().isInitialized())
-               bw.put_uint64_t(0);
+            if(!txio.getTxRefOfInput().isInitialized())
+               bw.put_uint64_t(0);  // write 0x00*8 for "UNKNOWN"
             else
             {
-               bw.put_BinaryData(txio->getTxRefOfInput().getLevelDBKeyRef());
-               bw.put_uint16_t(txio->getIndexOfInput());
+               bw.put_BinaryData(txio.getTxRefOfInput().getLevelDBKeyRef());
+               bw.put_uint16_t(txio.getIndexOfInput());
             }
          }
       }
@@ -1036,20 +952,22 @@ void InterfaceToLevelDB::serializeStoredAddress(
 }
 
 
-void InterfaceToLevelDB::getStoredScriptHistoryByScript(BinaryDataRef txOutScript,
-                                                      StoredScriptHistory & sad)
-{
-   BinaryData uniqueKey = txOutScriptToLDBKey(txOutScript);
-   getStoredScriptHistory(uniqueKey, sad);
-}
-
+////////////////////////////////////////////////////////////////////////////////
 void InterfaceToLevelDB::getStoredScriptHistory(BinaryDataRef uniqueKey,
-                                              StoredScriptHistory & sad)
+                                                StoredScriptHistory & ssh)
 {
    BinaryRefReader brr = getValueRef(BLKDATA, DB_PREFIX_SCRIPT, uniqueKey);
-   
+   unserializeStoredScriptHistory(brr, ssh);
 }
 
+////////////////////////////////////////////////////////////////////////////////
+void InterfaceToLevelDB::getStoredScriptHistoryByRawScript(
+                                             BinaryDataRef script,
+                                             StoredScriptHistory & ssh)
+{
+   BinaryData uniqueKey = BtcUtils::getTxOutScriptUniqueKey(script);
+   getStoredScriptHistory(uniqueKey, ssh);
+}
 /*
 /////////////////////////////////////////////////////////////////////////////
 void InterfaceToLevelDB::readStoredScriptHistory(StoredScriptHistory & regAddr,
@@ -1190,7 +1108,7 @@ bool InterfaceToLevelDB::advanceIterAndRead(leveldb::Iterator* iter)
 }
 
 /////////////////////////////////////////////////////////////////////////////
-void InterfaceToLevelDB::advanceIterAndRead(DB_SELECT db, DB_PREFIX prefix)
+bool InterfaceToLevelDB::advanceIterAndRead(DB_SELECT db, DB_PREFIX prefix)
 {
    if(iterIsDirty_[db])
       Log::ERR() << "DB has been changed since this iterator was created";
@@ -1204,6 +1122,7 @@ void InterfaceToLevelDB::advanceIterAndRead(DB_SELECT db, DB_PREFIX prefix)
 
 
 /////////////////////////////////////////////////////////////////////////////
+/*
 map<HashString, BlockHeader> InterfaceToLevelDB::getHeaderMap(void)
 {
    map<HashString, BlockHeader> outMap;
@@ -1239,6 +1158,7 @@ map<HashString, BlockHeader> InterfaceToLevelDB::getHeaderMap(void)
 
    return outMap;
 }
+*/
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1271,15 +1191,15 @@ BinaryData InterfaceToLevelDB::getDBInfoKey(void)
    return dbinfokey;
 }
 
-StoredTx InterfaceToLevelDB::getFullTxFromKey6B(BinaryDataRef key6B)
-{
+//StoredTx InterfaceToLevelDB::getFullTxFromKey6B(BinaryDataRef key6B)
+//{
 
-}
+//}
 
-StoredTx InterfaceToLevelDB::getFullTxFromHash(BinaryDataRef txHash)
-{
+//StoredTx InterfaceToLevelDB::getFullTxFromHash(BinaryDataRef txHash)
+//{
 
-}
+//}
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1348,7 +1268,7 @@ uint8_t InterfaceToLevelDB::getValidDupIDForHeight_fromDB(uint32_t blockHgt)
    if(brrHgts.getSize() == 0)
    {
       Log::ERR() << "Requested header does not exist in DB";
-      return false
+      return false;
    }
 
    uint8_t lenEntry = 33;
@@ -1372,10 +1292,10 @@ uint8_t InterfaceToLevelDB::getValidDupIDForHeight_fromDB(uint32_t blockHgt)
 // and unserialized)
 
 ////////////////////////////////////////////////////////////////////////////////
-void InterfaceToLevelDB::unserializeStoredBlockHeaderValue( 
+void InterfaceToLevelDB::unserializeStoredHeaderValue( 
                                           DB_SELECT db,
                                           BinaryRefReader & brr,
-                                          StoredBlockHeader & sbh,
+                                          StoredHeader & sbh,
                                           bool ignoreMerkle)
 {
 
@@ -1399,25 +1319,25 @@ void InterfaceToLevelDB::unserializeStoredBlockHeaderValue(
       DB_PRUNE_TYPE   pruneType  = (DB_PRUNE_TYPE)  bitread.getBits(2);
       MERKLE_SER_TYPE merkType   = (MERKLE_SER_TYPE)bitread.getBits(2);
    
-      sbh.storedNumTx_    = brr.get_uint32_t();
-      sbh.storedNumBytes_ = brr.get_uint32_t();
+      sbh.numTx_    = brr.get_uint32_t();
+      sbh.numBytes_ = brr.get_uint32_t();
    
       if(dbVersion != (uint8_t)ARMORY_DB_VERSION)
       {
          Log::ERR() << "Version mismatch in IFTLDB::getBlock()";
          advanceToNextBlock();
-         return
+         return;
       }
 
       if( !ignoreMerkle )
       {
          uint32_t currPos = brr.getPosition();
          uint32_t totalSz = brr.getSize();
-         if(merkleCode == MERKLE_SER_NONE)
+         if(merkType == MERKLE_SER_NONE)
             sbh.merkle_.resize(0);
          else
          {
-            sbh.merkleIsPartial_ = (merkleCode == MERKLE_SER_PARTIAL);
+            sbh.merkleIsPartial_ = (merkType == MERKLE_SER_PARTIAL);
             brr.get_BinaryData(sbh.merkle_, totalSz - currPos);
          }
       }
@@ -1427,20 +1347,20 @@ void InterfaceToLevelDB::unserializeStoredBlockHeaderValue(
 
 ////////////////////////////////////////////////////////////////////////////////
 // We assume that the SBH has the correct blockheight already included.  
-void InterfaceToLevelDB::serializeStoredBlockHeaderValue(
+void InterfaceToLevelDB::serializeStoredHeaderValue(
                                           DB_SELECT db,
-                                          StoredBlockHeader const & sbh,
+                                          StoredHeader const & sbh,
                                           BinaryWriter & bw)
 {
    if(!sbh.isInitialized_)
    {
-      Log::ERROR() << "Attempted to serialize uninitialized block header";
+      Log::ERR() << "Attempted to serialize uninitialized block header";
       return;
    }
 
    if(db==HEADERS)
    {
-      uint32_t hgtx = heightAndDupToHgtx(sbh.blockheight, sbh.duplicateID_);
+      uint32_t hgtx = heightAndDupToHgtx(sbh.blockHeight_, sbh.duplicateID_);
       bw.put_BinaryData(sbh.dataCopy_);
       bw.put_uint32_t(hgtx);
    }
@@ -1457,7 +1377,7 @@ void InterfaceToLevelDB::serializeStoredBlockHeaderValue(
          case ARMORY_DB_FULL:    mtype = MERKLE_SER_NONE;    break;
          case ARMORY_DB_SUPER:   mtype = MERKLE_SER_NONE;    break;
          default: 
-            Log::ERR() << "Invalid DB mode in serializeStoredBlockHeaderValue";
+            Log::ERR() << "Invalid DB mode in serializeStoredHeaderValue";
       }
       
       if(sbh.merkle_.getSize() > 0)
@@ -1485,7 +1405,7 @@ void InterfaceToLevelDB::serializeStoredBlockHeaderValue(
 ////////////////////////////////////////////////////////////////////////////////
 void InterfaceToLevelDB::unserializeStoredTxValue( 
                                     BinaryRefReader & brr, 
-                                    StoredTx & tx)
+                                    StoredTx & stx)
 {
    // flags
    //    DBVersion      4 bits
@@ -1496,12 +1416,12 @@ void InterfaceToLevelDB::unserializeStoredTxValue(
    uint16_t txVer   = bitread.getBits(2);
    uint16_t txSer   = bitread.getBits(4);
    
-   brr.get_BinaryData(tx.thisHash_, 32);
+   brr.get_BinaryData(stx.thisHash_, 32);
 
    if(txSer == TX_SER_FULL || txSer == TX_SER_FRAGGED)
-      tx.unserialize(brr, txSer==TX_SER_FRAGGED);
+      stx.unserialize(brr, txSer==TX_SER_FRAGGED);
    else
-      tx.numTxOut_ = brr.get_var_int();
+      stx.numTxOut_ = brr.get_var_int();
 
 }
 
@@ -1538,7 +1458,7 @@ void InterfaceToLevelDB::serializeStoredTxValue(
    if(serType == TX_SER_FULL    || 
       serType == TX_SER_FRAGGED )
       bw.put_BinaryData(stx.dataCopy_);
-   else:
+   else
       bw.put_var_int(stx.numTxOut_);
 }
 
@@ -1558,7 +1478,7 @@ void InterfaceToLevelDB::unserializeStoredTxOutValue(
    uint16_t isCBase =  bitread.getBits(1);
 
    stxo.unserialize(brr);
-   stxo.storedIsSpent_  = isSpent;
+   stxo.isSpent_        = isSpent;
    stxo.isFromCoinbase_ = isCBase;
 
    if((TXOUT_SPENTNESS)isSpent == TXOUT_SPENT && brr.getSizeRemaining()>=8)
@@ -1572,14 +1492,15 @@ void InterfaceToLevelDB::unserializeStoredTxOutValue(
 /////////////////////////////////////////////////////////////////////////////
 bool InterfaceToLevelDB::unserializeStoredTxOutValue(
                                              BinaryRefReader & brr, 
-                                             Tx & tx, 
+                                             StoredTx & stx, 
                                              uint32_t txOutIndex)
 {
-   if(tx.storedTxOuts_.find(txOutIndex) == tx.storedTxOuts_.end())
-   {
+   // May remove this check/warning later.
+   if(stx.txOutMap_.find(txOutIndex) == stx.txOutMap_.end())
       Log::WARN() << "Tx does not have txOutIndex: " << txOutIndex;
-   }
-   readBlkDataTxOutValue(brr, tx.storedTxOuts_[txOutIndex]);
+
+   stx.txOutMap_[txOutIndex] = StoredTxOut();
+   unserializeStoredTxOutValue(brr, stx.txOutMap_[txOutIndex]);
 }
 
 
@@ -1621,9 +1542,9 @@ void InterfaceToLevelDB::serializeStoredTxOutValue(
    
    if(spentness == TXOUT_SPENT)
    {
-      bw.put_uint32_t(spentByHgtX_);
-      bw.put_uint16_t(spentByTxIndex_);
-      bw.put_uint16_t(spentByTxInIndex_);
+      bw.put_uint32_t(stxo.spentByHgtX_);
+      bw.put_uint16_t(stxo.spentByTxIndex_);
+      bw.put_uint16_t(stxo.spentByTxInIndex_);
    }
 }
 
@@ -1634,9 +1555,7 @@ void InterfaceToLevelDB::serializeStoredTxOutValue(
 // adjust the dupID value  in the input SBH
 // Will overwrite existing data, for simplicity, and so that this method allows
 // us to easily replace/update data, even if overwriting isn't always necessary
-void InterfaceToLevelDB::putStoredBlockHeader(
-                          StoredBlockHeader & sbh,
-                          bool withTx)
+void InterfaceToLevelDB::putStoredHeader( StoredHeader & sbh, bool withTx)
 {
    uint32_t height  = sbh.blockHeight_;
    bool     isValid = sbh.isMainBranch_;
@@ -1693,7 +1612,7 @@ void InterfaceToLevelDB::putStoredBlockHeader(
       // always the one we think is valid
       BinaryWriter bw(1+32+hgtList.getSize());  // reserve just enough size
       bw.put_uint8_t(dup8);
-      bw.put_BinaryData(sbh.thisHash_)
+      bw.put_BinaryData(sbh.thisHash_);
       bw.put_BinaryData(hgtList);
       putValue(HEADERS, DB_PREFIX_HEADHGT, hgt4, bw.getDataRef());
    }
@@ -1701,18 +1620,17 @@ void InterfaceToLevelDB::putStoredBlockHeader(
    // Overwrite the existing hash-indexed entry, just in case the dupID was
    // not known when previously written.  
    BinaryWriter bwHeaders;
-   serializeStoredBlockHeader(HEADERS, sbh, bwHeaders);
+   serializeStoredHeaderValue(HEADERS, sbh, bwHeaders);
    putValue(HEADERS, DB_PREFIX_HEADHASH, sbh.thisHash_, bwHeaders.getDataRef());
 
    commitBatch(HEADERS);
-
 
    startBatch(BLKDATA);
 
    // Now put the data into the blkdata DB
    BinaryData key = getBlkDataKey(sbh.blockHeight_, sbh.duplicateID_);
    BinaryWriter bwBlkData;
-   serializeStoredBlockHeader(BLKDATA, sbh, bwBlkData);
+   serializeStoredHeaderValue(BLKDATA, sbh, bwBlkData);
    putValue(BLKDATA, DB_PREFIX_BLKDATA, key.getRef(), bwBlkData.getDataRef());
    
    // If we only wanted to update the BlockHeader record, we're done.
@@ -1724,7 +1642,7 @@ void InterfaceToLevelDB::putStoredBlockHeader(
 
    for(uint32_t i=0; i<numTx_; i++)
    {
-      map<uint32_t, StoredTx>::iterator txIter = txMap_.find(i);
+      map<uint32_t, StoredTx>::iterator txIter = sbh.txMap_.find(i);
       if(txIter != txMap_.end())
       {
          // Make sure the txIndex value is correct, then dump it to DB.
@@ -1745,11 +1663,10 @@ void InterfaceToLevelDB::putStoredBlockHeader(
 
 
 ////////////////////////////////////////////////////////////////////////////////
-void InterfaceToLevelDB::getStoredBlockHeader(
-                                    StoredBlockHeader & sbh,
-                                    uint32_t blockHgt,
-                                    uint8_t blockDup,
-                                    bool withTx)
+void InterfaceToLevelDB::getStoredHeader( StoredHeader & sbh,
+                                          uint32_t blockHgt,
+                                          uint8_t blockDup,
+                                          bool withTx)
 {
 
    if(!withTx)
@@ -1763,7 +1680,7 @@ void InterfaceToLevelDB::getStoredBlockHeader(
          Log::ERR() << "Header height&dup is not in BLKDATA";
          return false;
       }
-      unserializeStoredBlockHeaderValue(BLKDATA, brr, sbh, false);
+      unserializeStoredHeaderValue(BLKDATA, brr, sbh, false);
       return true;
    }
    else
@@ -1785,10 +1702,10 @@ void InterfaceToLevelDB::getStoredBlockHeader(
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-bool InterfaceToLevelDB::getStoredBlockHeader(
-                          StoredBlockHeader & sbh,
-                          BinaryDataRef headHash, 
-                          bool withTx)
+bool InterfaceToLevelDB::getStoredHeader(
+                                       StoredHeader & sbh,
+                                       BinaryDataRef headHash, 
+                                       bool withTx)
 {
 
    BinaryData headEntry = getValue(HEADERS, DB_PREFIX_HEADHASH, headHash); 
@@ -1799,15 +1716,15 @@ bool InterfaceToLevelDB::getStoredBlockHeader(
    }
    
    BinaryRefReader brr(headEntry);
-   unserializeStoredBlockHeaderValue(HEADERS, brr, sbh);
+   unserializeStoredHeaderValue(HEADERS, brr, sbh);
 
-   return getStoredBlockHeader(sbh, sbh.blockHeight_, sbh.duplicateID_, withTx);
+   return getStoredHeader(sbh, sbh.blockHeight_, sbh.duplicateID_, withTx);
 }
 
 
 ////////////////////////////////////////////////////////////////////////////////
-bool InterfaceToLevelDB::getStoredBlockHeader(
-                              StoredBlockHeader & sbh,
+bool InterfaceToLevelDB::getStoredHeader(
+                              StoredHeader & sbh,
                               uint32_t blockHgt,
                               bool withTx)
 {
@@ -1815,13 +1732,13 @@ bool InterfaceToLevelDB::getStoredBlockHeader(
    if(dupID == UINT8_MAX)
       Log::ERR() << "Headers DB has no block at height: " << blockHgt; 
 
-   return getStoredBlockHeader(sbh, blockHgt, dupID, withTx);
+   return getStoredHeader(sbh, blockHgt, dupID, withTx);
 }
 
 
 
 ////////////////////////////////////////////////////////////////////////////////
-void InterfaceToLevelDB::putStoredTx( StoredTx const & stx, bool withTxOut)
+void InterfaceToLevelDB::putStoredTx( StoredTx & stx, bool withTxOut)
 {
    BinaryData ldbKey = getBlkDataKey(stx.blockHeight_, 
                                      stx.blockDupID_, 
@@ -1869,8 +1786,8 @@ void InterfaceToLevelDB::putStoredTx( StoredTx const & stx, bool withTxOut)
    if(withTxOut)
    {
       map<uint32_t, StoredTxOut>::iterator iter;
-      for(iter  = txOutMap_.begin();
-          iter != txOutMap_.end();
+      for(iter  = stx.txOutMap_.begin();
+          iter != stx.txOutMap_.end();
           iter++)
       {
          // Make sure all the parameters of the TxOut are set right 
@@ -1888,7 +1805,7 @@ void InterfaceToLevelDB::putStoredTx( StoredTx const & stx, bool withTxOut)
 
 ////////////////////////////////////////////////////////////////////////////////
 // We assume we have a valid iterator left at the header entry for this block
-bool InterfaceToLevelDB::readStoredBlockAtIter(StoredBlockHeader & sbh)
+bool InterfaceToLevelDB::readStoredBlockAtIter(StoredHeader & sbh)
 {
    currReadKey_.resetPosition();
    BinaryData blkDataKey(currReadKey_.getCurrPtr(), 5);
@@ -1898,7 +1815,7 @@ bool InterfaceToLevelDB::readStoredBlockAtIter(StoredBlockHeader & sbh)
 
    
    // Grab the header first, then iterate over 
-   unserializeStoredBlockHeaderValue(BLKDATA, currReadValue_, sbh, false);
+   unserializeStoredHeaderValue(BLKDATA, currReadValue_, sbh, false);
 
    // If for some reason we hit the end of the DB without any tx, bail
    bool iterValid = advanceIterAndRead(BLKDATA, DB_PREFIX_BLKDATA);
@@ -1918,7 +1835,7 @@ bool InterfaceToLevelDB::readStoredBlockAtIter(StoredBlockHeader & sbh)
       if(currTxIdx >= sbh.numTx_)
       {
          Log::ERR() << "Invalid txIndex at height " << (sbh.blockHeight_)
-                    << " index " << index << endl;
+                    << " index " << currTxIdx;
          return false;
       }
 
@@ -2034,37 +1951,6 @@ bool InterfaceToLevelDB::readStoredTxOutAtIter(
    unserializeStoredTxOutValue(currReadValue_, stxo);
 
 }
-
-
-////////////////////////////////////////////////////////////////////////////////
-// Although this method technically makes a DB access, it's likely to be very
-// fast because the DB is so small and probably entirely cached.
-//
-// This seems redundant w.r.t. to getValidDupIDForHeight
-//bool isBlockHeightAndDupValid(uint32_t hgt, uint8_t dup)
-//{
-   //SCOPED_TIMER("isBlockHeightAndDupValid");
-
-   //static uint32_t const lenEntry = 33;
-
-   //uint32_t hgtX = heightAndDupToHgtx(hgt,dup);
-   //BinaryDataRef hgtxRef((uint8_t*)&hgtX, 4);
-   //BinaryDataRef dupList = getValueRef(HEADERS, DB_PREFIX_HEADHGT, hgtxRef);
-   
-   //uint8_t numDup = dupList.getSize() / lenEntry;
-   //BinaryRefReader brr(dupList);
-   //for(uint32_t dup=0; dup<numDup; dup++)
-   //{
-      //uint8_t dup8 = brr.get_uint8_t(); 
-      //if(dup8 & 0x7f == dup)
-         //return ((dup8 & 0x80) > 0);
-   
-      //brr.advance(32);
-   //}
-   
-   //Log::ERR() << "Height & Dup requested was not found in HEADERS DB";
-   //return false;
-//}
 
 
 ////////////////////////////////////////////////////////////////////////////////
