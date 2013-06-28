@@ -71,20 +71,6 @@ BinaryData StoredHeader::getSerializedBlock(void) const
 }
 
 
-/*
-‘const std::map<unsigned int, StoredTx>’ as ‘this’ argument of ‘
-   std::map<_Key, _Tp, _Compare, _Alloc>::mapped_type& 
-   std::map<_Key, _Tp, _Compare, _Alloc>::operator[](const key_type&) 
-
-   [with _Key = unsigned int; 
-         _Tp = StoredTx; 
-         _Compare = std::less<unsigned int>; 
-         _Alloc = std::allocator<std::pair<const unsigned int, StoredTx> >; 
-         std::map<_Key, _Tp, _Compare, _Alloc>::mapped_type = StoredTx; 
-         std::map<_Key, _Tp, _Compare, _Alloc>::key_type = unsigned int]’ 
-         discards qualifiers [-fpermissive]
-
-*/
 
 /////////////////////////////////////////////////////////////////////////////
 void StoredHeader::createFromBlockHeader(BlockHeader & bh)
@@ -352,3 +338,5 @@ void StoredTx::createFromTx(Tx & tx, bool doFrag)
       brr.get_BinaryData(dataCopy_.getPtr()+firstOut, 4);
    }
 }
+
+

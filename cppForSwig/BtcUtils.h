@@ -28,6 +28,15 @@
 
 #define HEADER_SIZE 80
 #define CONVERTBTC 100000000
+#define NBLOCKS_REGARDED_AS_RESCAN 144
+#define MIN_CONFIRMATIONS   6
+#define COINBASE_MATURITY 120
+
+#define TX_0_UNCONFIRMED    0 
+#define TX_NOT_EXIST       -1
+#define TX_OFF_MAIN_BRANCH -2
+
+
 #define HashString     BinaryData
 #define HashStringRef  BinaryDataRef
 

@@ -38,21 +38,9 @@
 #include "leveldb/db.h"
 
 
-
-#define TX_0_UNCONFIRMED    0 
-#define TX_NOT_EXIST       -1
-#define TX_OFF_MAIN_BRANCH -2
-
-#define NBLOCKS_REGARDED_AS_RESCAN 144
-
-#define MIN_CONFIRMATIONS   6
-#define COINBASE_MATURITY 120
-
 using namespace std;
 
 class BlockDataManager_LevelDB;
-
-
 
 
 
@@ -271,12 +259,12 @@ public:
    
 
 private:
-   BinaryData address20_;
-   uint8_t    addrType_;
-   uint32_t   firstBlockNum_;
-   uint32_t   firstTimestamp_;
-   uint32_t   lastBlockNum_;
-   uint32_t   lastTimestamp_;
+   BinaryData     uniqueKey_;
+   SCRIPT_PREFIX  addrType_;
+   uint32_t       firstBlockNum_;
+   uint32_t       firstTimestamp_;
+   uint32_t       lastBlockNum_;
+   uint32_t       lastTimestamp_;
 
    // If any multisig scripts that include this address, we'll track them
    bool       hasMultisigEntries_;

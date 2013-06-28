@@ -29,6 +29,8 @@
 
 class BlockHeader;
 class Tx;
+class TxIn;
+class TxOut;
 class TxRef;
 class TxIOPair;
 
@@ -181,24 +183,90 @@ typedef enum
 
 class InterfaceToLevelDB
 {
-public:
+private:
+   /////////////////////////////////////////////////////////////////////////////
    InterfaceToLevelDB(void);
 
-   InterfaceToLevelDB(string basedir, 
+
+   /////////////////////////////////////////////////////////////////////////////
+   ~InterfaceToLevelDB(void);
+
+   /////////////////////////////////////////////////////////////////////////////
+   leveldb::Slice binaryDataToSlice(BinaryData const & bd) 
+         {return leveldb::Slice((char*)bd.getPtr(), bd.getSize());}
+   leveldb::Slice binaryDataRefToSlice(BinaryDataRef const & bdr)
+         {return leveldb::Slice((char*)bdr.getPtr(), bdr.getSize());}
+
+   bool seekTo(DB_SELECT db, 
+               BinaryDataRef key, 
+               leveldb::Iterator* it=NULL);
+   bool seekTo(DB_SELECT db, 
+               DB_PREFIX pref, 
+               BinaryDataRef key, 
+               leveldb::Iterator* it=NULL);
+
+   bool seekToTxByHash(BinaryDataRef txHash);
+
+   /////////////////////////////////////////////////////////////////////////////
+   string getPrefixName(uint8_t prefixInt);
+   string getPrefixName(DB_PREFIX pref);
+
+   bool checkPrefixByte(DB_PREFIX prefix,
+                        bool rewindWhenDone=false);
+
+   bool checkPrefixByte(BinaryRefReader brr, 
+                        DB_PREFIX prefix,
+                        bool rewindWhenDone=false);
+
+
+   /////////////////////////////////////////////////////////////////////////////
+   // NOTE:  These ref readers become invalid as soon as the iterator is moved!
+   void iteratorToRefReaders( leveldb::Iterator* it, 
+                              BinaryRefReader & brrKey,
+                              BinaryRefReader & brrValue);
+
+
+   
+   BLKDATA_TYPE readBlkDataKey5B( BinaryRefReader & brr,
+                                  uint32_t & height,
+                                  uint8_t  & dupID);
+
+   /////////////////////////////////////////////////////////////////////////////
+   void deleteIterator(DB_SELECT db);
+   void resetIterator(DB_SELECT db);
+
+   /////////////////////////////////////////////////////////////////////////////
+   // These four sliceTo* methods make copies, and thus safe to use even after
+   // we have advanced the iterator to new data
+   /////////////////////////////////////////////////////////////////////////////
+   BinaryData   sliceToBinaryData(   leveldb::Slice slice);
+   void         sliceToBinaryData(   leveldb::Slice slice, BinaryData & bd);
+   BinaryReader sliceToBinaryReader( leveldb::Slice slice);
+   void         sliceToBinaryReader( leveldb::Slice slice, BinaryReader & brr);
+
+   /////////////////////////////////////////////////////////////////////////////
+   // The reamining sliceTo* methods are reference-based, which become
+   // invalid after the iterator moves on.
+   BinaryDataRef   sliceToBinaryDataRef(  leveldb::Slice slice);
+   BinaryRefReader sliceToBinaryRefReader(leveldb::Slice slice);
+
+
+   /////////////////////////////////////////////////////////////////////////////
+   void resetIterReaders(void) 
+               { currReadKey_.resetPosition(); currReadValue_.resetPosition(); }
+public:
+
+   /////////////////////////////////////////////////////////////////////////////
+   void init(void);
+
+   /////////////////////////////////////////////////////////////////////////////
+   bool openDatabases(string basedir, 
                       BinaryData const & genesisBlkHash,
                       BinaryData const & genesisTxHash,
                       BinaryData const & magic,
                       ARMORY_DB_TYPE     dbtype=ARMORY_DB_DEFAULT,
                       DB_PRUNE_TYPE      pruneType=DB_PRUNE_NONE);
 
-   void init(void);
-
-   ~InterfaceToLevelDB(void);
-
-private:
-
-   /////////////////////////////////////////////////////////////////////////////
-   bool openDatabases(void);
    
    /////////////////////////////////////////////////////////////////////////////
    void closeDatabases(void);
@@ -243,12 +311,6 @@ private:
 
 
    /////////////////////////////////////////////////////////////////////////////
-   leveldb::Slice binaryDataToSlice(BinaryData const & bd) 
-         {return leveldb::Slice((char*)bd.getPtr(), bd.getSize());}
-   leveldb::Slice binaryDataRefToSlice(BinaryDataRef const & bdr)
-         {return leveldb::Slice((char*)bdr.getPtr(), bdr.getSize());}
-
-   /////////////////////////////////////////////////////////////////////////////
    // "Skip" refers to the behavior that the previous operation may have left
    // the iterator already on the next desired block.  So our "advance" op may
    // have finished before it started.  Alternatively, we may be on this block 
@@ -257,45 +319,6 @@ private:
    bool advanceToNextBlock(bool skip=false);
    bool advanceIterAndRead(leveldb::Iterator* iter);
    bool advanceIterAndRead(DB_SELECT, DB_PREFIX);
-
-   bool seekTo(DB_SELECT db, 
-               BinaryDataRef key, 
-               leveldb::Iterator* it=NULL);
-   bool seekTo(DB_SELECT db, 
-               DB_PREFIX pref, 
-               BinaryDataRef key, 
-               leveldb::Iterator* it=NULL);
-
-   bool seekToTxByHash(BinaryDataRef txHash);
-
-   /////////////////////////////////////////////////////////////////////////////
-   string getPrefixName(uint8_t prefixInt);
-   string getPrefixName(DB_PREFIX pref);
-
-   bool checkPrefixByte(DB_PREFIX prefix,
-                        bool rewindWhenDone=false);
-
-   bool checkPrefixByte(BinaryRefReader brr, 
-                        DB_PREFIX prefix,
-                        bool rewindWhenDone=false);
-
-
-   /////////////////////////////////////////////////////////////////////////////
-   // NOTE:  These ref readers become invalid as soon as the iterator is moved!
-   void iteratorToRefReaders( leveldb::Iterator* it, 
-                              BinaryRefReader & brrKey,
-                              BinaryRefReader & brrValue);
-
-
-   
-   BLKDATA_TYPE readBlkDataKey5B( BinaryRefReader & brr,
-                                  uint32_t & height,
-                                  uint8_t  & dupID);
-
-   /////////////////////////////////////////////////////////////////////////////
-   void deleteIterator(DB_SELECT db);
-   void resetIterator(DB_SELECT db);
-
 
    /////////////////////////////////////////////////////////////////////////////
    // Not sure why this is useful over getHeaderMap() ... this iterates over
@@ -325,25 +348,6 @@ private:
                             uint16_t txOutIdx,
                             bool     withPrefix=true);
 
-   /////////////////////////////////////////////////////////////////////////////
-   // These four sliceTo* methods make copies, and thus safe to use even after
-   // we have advanced the iterator to new data
-   /////////////////////////////////////////////////////////////////////////////
-   BinaryData   sliceToBinaryData(   leveldb::Slice slice);
-   void         sliceToBinaryData(   leveldb::Slice slice, BinaryData & bd);
-   BinaryReader sliceToBinaryReader( leveldb::Slice slice);
-   void         sliceToBinaryReader( leveldb::Slice slice, BinaryReader & brr);
-
-   /////////////////////////////////////////////////////////////////////////////
-   // The reamining sliceTo* methods are reference-based, which become
-   // invalid after the iterator moves on.
-   BinaryDataRef   sliceToBinaryDataRef(  leveldb::Slice slice);
-   BinaryRefReader sliceToBinaryRefReader(leveldb::Slice slice);
-
-
-   /////////////////////////////////////////////////////////////////////////////
-   void resetIterReaders(void) 
-               { currReadKey_.resetPosition(); currReadValue_.resetPosition(); }
 
    /////////////////////////////////////////////////////////////////////////////
    void getNextBlock(void);
@@ -354,16 +358,13 @@ private:
                  leveldb::Iterator* iter=NULL,
                  bool ignoreMerkle = true);
 
-   void readBlkDataTxValue(BinaryRefReader & brr, Tx* tx);
 
-
-
-
+   /////////////////////////////////////////////////////////////////////////////
    void loadAllStoredHistory(void); 
 
    map<HashString, BlockHeader> getHeaderMap(void);
    BinaryData getRawHeader(BinaryData const & headerHash);
-   bool addHeader(BinaryData const & headerHash, BinaryData const & headerRaw);
+   //bool addHeader(BinaryData const & headerHash, BinaryData const & headerRaw);
 
    /////////////////////////////////////////////////////////////////////////////
    BinaryData getDBInfoKey(void);
@@ -383,6 +384,9 @@ private:
    /////////////////////////////////////////////////////////////////////////////
    uint8_t getValidDupIDForHeight_fromDB(uint32_t blockHgt);
    uint8_t getValidDupIDForHeight(uint32_t blockHgt);
+
+   ////////////////////////////////////////////////////////////////////////////
+   uint8_t getDupForBlockHash(BinaryDataRef blockHash);
 
    ////////////////////////////////////////////////////////////////////////////
    // SERIALIZE / UNSERIALIZE STORED* METHODS
@@ -428,6 +432,8 @@ private:
 
    /////////////////////////////////////////////////////////////////////////////
    // Interface to translate Stored* objects to/from persistent DB storage
+   /////////////////////////////////////////////////////////////////////////////
+   // StoredHeader accessors
    void putStoredHeader(StoredHeader & sbh,
                         bool withTx=false);
 
@@ -446,6 +452,7 @@ private:
 
 
    /////////////////////////////////////////////////////////////////////////////
+   // StoredTx Accessors
    void putStoredTx(         StoredTx & st,
                              bool withTxOut=false);
 
@@ -465,6 +472,7 @@ private:
 
 
    /////////////////////////////////////////////////////////////////////////////
+   // StoredTxOut Accessors
    void putStoredTxOut(      StoredTxOut const & sto);
 
    bool getStoredTxOut(      StoredTxOut & stxo,
@@ -510,10 +518,29 @@ private:
    TxRef getTxRef( uint32_t hgtx, uint16_t txIndex);
    TxRef getTxRef( uint32_t hgt, uint8_t  dup, uint16_t txIndex);
 
+
+   // Sometimes we already know where the Tx is, but we don't know its hash
+   Tx getFullTxCopy( BinaryDataRef ldbKey6B );
+   Tx getFullTxCopy( uint32_t hgt, uint16_t txIndex);
+   Tx getFullTxCopy( uint32_t hgt, uint8_t dup, uint16_t txIndex);
+   TxOut getTxOutCopy(BinaryDataRef ldbKey6B, uint16_t txOutIdx);
+   TxIn  getTxInCopy( BinaryDataRef ldbKey6B, uint16_t txInIdx );
+
+
+   // Sometimes we already know where the Tx is, but we don't know its hash
+   BinaryData getTxHashForLdbKey( BinaryDataRef ldbKey6B );
+
+   BinaryData getTxHashForHeightAndIndex( uint32_t height, 
+                                          uint16_t txIndex);
+
+   BinaryData getTxHashForHeightAndIndex( uint32_t height, 
+                                          uint8_t  dup, 
+                                          uint16_t txIndex);
+
    vector<BinaryData> getAllHintsForTxHash(BinaryDataRef txHash);
 
 
-   
+   ////////////////////////////////////////////////////////////////////////////
    bool markBlockHeaderValid(BinaryDataRef headHash);
    bool markBlockHeaderValid(uint32_t height, uint8_t dup);
    bool markTxEntryValid(uint32_t height, uint8_t dupID, uint16_t txIndex);
@@ -563,7 +590,42 @@ private:
    // In this case, a address is any TxOut script, which is usually
    // just a 25-byte script.  But this generically captures all types
    // of addresses including pubkey-only, P2SH, 
-   map<BinaryData, StoredScriptHistory>   registeredSSH_;
+   map<BinaryData, StoredScriptHistory>   registeredSSHs_;
+};
+
+
+////////////////////////////////////////////////////////////////////////////////
+// A semi-singleton class: this basically allows you 
+class LevelDBWrapper
+{
+public:
+
+   /////////////////////////////////////////////////////////////////////////////
+   static InterfaceToLevelDB & GetInterface(uint32_t i=0)
+   {
+      if(ifaceVect_.size() < i+1)
+      {
+         ifaceVect_.resize(i+1); 
+         ifaceVect_[i]->init();
+      }
+
+      return *(ifaceVect_[i]);
+   }
+
+   /////////////////////////////////////////////////////////////////////////////
+   static InterfaceToLevelDB* GetInterfacePtr(uint32_t i=0)
+   {
+      if(ifaceVect_.size() < i+1)
+      {
+         ifaceVect_.resize(i+1); 
+         ifaceVect_[i]->init();
+      }
+
+      return ifaceVect_[i];
+   }
+
+private:
+   static vector<InterfaceToLevelDB*> ifaceVect_;
 };
 
 

@@ -17,10 +17,11 @@
 #include "BinaryData.h"
 #include "BtcUtils.h"
 #include "leveldb_wrapper.h"
-//#include "FileDataPtr.h"
 
 
 
+////////////////////////////////////////////////////////////////////////////////
+class InterfaceToLevelDB;  
 class TxRef;
 class Tx;
 
@@ -34,7 +35,7 @@ public:
 
    /////////////////////////////////////////////////////////////////////////////
    BlockHeader(void) : 
-           isInitialized_(false),  isFinishedCalc_(false) {}
+       isInitialized_(false), numTx_(UINT32_MAX), numBlockBytes_(UINT32_MAX) {}
    BlockHeader(uint8_t const * ptr)       { unserialize(ptr); }
    BlockHeader(BinaryRefReader & brr)     { unserialize(brr); }
    BlockHeader(BinaryDataRef str)         { unserialize(str); }
@@ -68,16 +69,9 @@ public:
    uint8_t const * getPtr(void) const  { assert(isInitialized_); return dataCopy_.getPtr(); }
    uint32_t        getSize(void) const { assert(isInitialized_); return dataCopy_.getSize(); }
    uint32_t        isInitialized(void) const { return isInitialized_; }
-   uint32_t        getBlockSize(void) const;
+   uint32_t        getBlockSize(void) const { return numBlockBytes_; }
    uint32_t        setBlockSize(uint32_t sz) { wholeBlockSize_ = sz; }
    uint32_t        setNumTx(uint32_t ntx) { numTx_ = ntx; }
-
-
-   /////////////////////////////////////////////////////////////////////////////
-   vector<BinaryData> getTxHashList(void);
-   BinaryData         calcMerkleRoot(vector<BinaryData>* treeOut=NULL);
-   bool               verifyMerkleRoot(void);
-   bool               verifyIntegrity(void);
 
    /////////////////////////////////////////////////////////////////////////////
    void          pprint(ostream & os=cout, int nIndent=0, bool pBigendian=true) const;
@@ -86,10 +80,8 @@ public:
    /////////////////////////////////////////////////////////////////////////////
    BinaryData    serialize(void)    { return dataCopy_; }
 
-   /////////////////////////////////////////////////////////////////////////////
-   BinaryData    serializeWholeBlock(BinaryData const & magic, 
-                                     bool withLead8Bytes) const;
 
+   /////////////////////////////////////////////////////////////////////////////
    // Just in case we ever want to calculate a difficulty-1 header via CPU...
    uint32_t      findNonce(void);
 
@@ -117,18 +109,15 @@ private:
    double         difficultySum_;
    bool           isMainBranch_;
    bool           isOrphan_;
-   bool           isFinishedCalc_;
-   bool           isOnDiskYet_;
    uint32_t       wholeBlockSize_;
    uint32_t       numTx_;
+   uint32_t       numBlockBytes_; // includes header + nTx + sum(Tx)
 
 };
 
 
 
 ////////////////////////////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////////////////////////////
-class InterfaceToLevelDB;  
 
 class TxRef
 {
@@ -137,9 +126,16 @@ class TxRef
 
 public:
    /////////////////////////////////////////////////////////////////////////////
-   TxRef(void) : ldbKey6B_(0), dbIface_(NULL) {}
-   TxRef(BinaryDataRef bdr) : ldbKey6B_(bdr), dbIface_(NULL) {}
-   TxRef(BinaryDataRef bdr, InterfaceToLevelDB* ifc) : ldbKey6B_(bdr), dbIface_(ifc) {}
+   TxRef(void) { setRef(); }
+   TxRef(BinaryDataRef bdr) { setRef(bdr); }
+   TxRef(BinaryDataRef bdr, InterfaceToLevelDB* ifc) { setRef(bdr, ifc); }
+
+   /////////////////////////////////////////////////////////////////////////////
+   void setRef(BinaryDataRef bdr=BinaryDataRef(), InterfaceToLevelDB* iface=NULL)
+   {
+      ldbKey6B_ = bdr.copy();
+      dbIface_ = (iface==NULL ? LevelDBWrapper().GetInterfacePtr() : iface);
+   }
      
    /////////////////////////////////////////////////////////////////////////////
    BinaryData         getThisHash(void) const;
@@ -154,6 +150,13 @@ public:
    void               setLevelDBKey(BinaryData    const & bd) { bd.copyTo(ldbKey6B_); }
    void               setLevelDBKey(BinaryDataRef const & bd) { bd.copyTo(ldbKey6B_); }
 
+
+   /////////////////////////////////////////////////////////////////////////////
+   // This as fast as you can get a single TxIn or TxOut from the DB.  But if 
+   // need multiple of them from the same Tx, you should getTxCopy() and then
+   // iterate over them in the Tx object
+   TxIn  getTxInCopy(uint32_t i); 
+   TxOut getTxOutCopy(uint32_t i);
 
    /////////////////////////////////////////////////////////////////////////////
    BinaryData         serialize(void) const; 
@@ -238,7 +241,7 @@ class TxIn
 
 public:
    TxIn(void) : dataCopy_(0), scriptType_(TXIN_SCRIPT_NONSTANDARD), 
-                scriptOffset_(0), parentHash_(0) {}
+                scriptOffset_(0), parentHeight_(UINT32_MAX), parentHash_(0) {}
 
    // Ptr to the beginning of the TxIn, last two arguments are supplemental
    TxIn(uint8_t const * ptr,  
@@ -272,7 +275,7 @@ public:
    TxRef            getParentTxRef(void) { return parentTx_; }
    uint32_t         getIndex(void) { return index_; }
 
-   void setParentTx(TxRef txref, int32_t idx=-1) {parentTx_=txref; index_=idx;}
+   //void setParentTx(TxRef txref, int32_t idx=-1) {parentTx_=txref; index_=idx;}
 
    uint32_t         getSequence(void)   { return *(uint32_t*)(getPtr()+getSize()-4); }
 
@@ -287,13 +290,13 @@ public:
 
    /////////////////////////////////////////////////////////////////////////////
    void unserialize(uint8_t const * ptr, 
-                        uint32_t nbytes=0, TxRef  parent=TxRef(), int32_t idx=-1);
+                        uint32_t nbytes=0, TxRef parent=TxRef(), int32_t idx=-1);
    void unserialize(BinaryData    const & str, 
-                        uint32_t nbytes=0, TxRef  parent=TxRef(), int32_t idx=-1);
+                        uint32_t nbytes=0, TxRef parent=TxRef(), int32_t idx=-1);
    void unserialize(BinaryDataRef const & str, 
-                        uint32_t nbytes=0, TxRef  parent=TxRef(), int32_t idx=-1);
+                        uint32_t nbytes=0, TxRef parent=TxRef(), int32_t idx=-1);
    void unserialize(BinaryRefReader & brr, 
-                        uint32_t nbytes=0, TxRef  parent=TxRef(), int32_t idx=-1);
+                        uint32_t nbytes=0, TxRef parent=TxRef(), int32_t idx=-1);
 
    void unserialize_swigsafe_(BinaryData const & rawIn) { unserialize(rawIn); }
 
@@ -346,7 +349,7 @@ public:
    TxRef           getParentTxRef(void) { return parentTx_; }
    uint32_t        getIndex(void) { return index_; }
 
-   void setParentTx(TxRef txref, int32_t idx=-1) { parentTx_=txref; index_=idx;}
+   //void setParentTx(TxRef txref, int32_t idx=-1) { parentTx_=txref; index_=idx;}
 
 
    /////////////////////////////////////////////////////////////////////////////
@@ -443,6 +446,7 @@ public:
    static Tx          createFromStr(BinaryData const & bd) {return Tx(bd);}
 
    /////////////////////////////////////////////////////////////////////////////
+   bool               hasTxRef(void) const { return txRefObj_.isInitialized(); }
    TxRef              getTxRef(void) const { return txRefObj_; }
    void               setTxRef(TxRef ref) { txRefObj_ = ref; }
 
@@ -547,8 +551,8 @@ public:
    void      setValue(uint64_t newVal) { amount_ = newVal;}
 
    //////////////////////////////////////////////////////////////////////////////
-   TxOut     getTxOut(void) const;   
-   TxIn      getTxIn(void) const;   
+   TxOut     getTxOut(void);
+   TxIn      getTxIn(void);
    TxOut     getTxOutZC(void) const {return txOfOutputZC_->getTxOut(indexOfOutputZC_);}
    TxIn      getTxInZC(void) const  {return txOfInputZC_->getTxIn(indexOfInputZC_);}
    TxRef     getTxRefOfOutput(void) const { return txRefOfOutput_; }
@@ -594,9 +598,9 @@ private:
    uint32_t  indexOfInput_;
 
    // Zero-conf data isn't on disk, yet, so can't use TxRef
-   Tx *      txOfOutputZC_;
+   Tx*       txOfOutputZC_;
    uint32_t  indexOfOutputZC_;
-   Tx *      txOfInputZC_;
+   Tx*       txOfInputZC_;
    uint32_t  indexOfInputZC_;
 
    bool      isTxOutFromSelf_;

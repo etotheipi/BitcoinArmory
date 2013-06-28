@@ -78,20 +78,34 @@ InterfaceToLevelDB::InterfaceToLevelDB()
    init();
 }
 
-////////////////////////////////////////////////////////////////////////////////
-// The dbType and pruneType inputs are left blank if you are just going to take 
-// whatever is the current state of database.  You can choose to manually 
-// specify them, if you want to throw an error if it's not what you were 
-// expecting
-InterfaceToLevelDB::InterfaceToLevelDB(
-                           string             basedir, 
-                           BinaryData const & genesisBlkHash, 
-                           BinaryData const & genesisTxHash, 
-                           BinaryData const & magic,
-                           ARMORY_DB_TYPE     dbtype,
-                           DB_PRUNE_TYPE      pruneType)
+
+/////////////////////////////////////////////////////////////////////////////
+InterfaceToLevelDB::~InterfaceToLevelDB(void)
 {
-   init();
+   for(uint32_t db=0; db<(uint32_t)DB_COUNT; db++)
+      if(batchStarts_[db] > 0)
+         Log::ERR() << "Unwritten batch in progress during shutdown";
+
+   closeDatabases();
+}
+
+
+
+
+
+/////////////////////////////////////////////////////////////////////////////
+// The dbType and pruneType inputs are left blank if you are just going to 
+// take whatever is the current state of database.  You can choose to 
+// manually specify them, if you want to throw an error if it's not what you 
+// were expecting
+bool InterfaceToLevelDB::openDatabases(string basedir, 
+                                       BinaryData const & genesisBlkHash,
+                                       BinaryData const & genesisTxHash,
+                                       BinaryData const & magic,
+                                       ARMORY_DB_TYPE     dbtype,
+                                       DB_PRUNE_TYPE      pruneType)
+{
+   SCOPED_TIMER("openDatabases");
 
    baseDir_ = basedir;
    char dbname[1024];
@@ -111,30 +125,7 @@ InterfaceToLevelDB::InterfaceToLevelDB(
    armoryDbType_ = dbtype;
    dbPruneType_  = pruneType;
 
-   // Open databases and check that everything is correct
-   // Or create the databases and start it up
-   openDatabases();
-}
 
-
-/////////////////////////////////////////////////////////////////////////////
-InterfaceToLevelDB::~InterfaceToLevelDB(void)
-{
-   for(uint32_t db=0; db<(uint32_t)DB_COUNT; db++)
-      if(batchStarts_[db] > 0)
-         Log::ERR() << "Unwritten batch in progress during shutdown";
-
-   closeDatabases();
-}
-
-
-
-
-
-/////////////////////////////////////////////////////////////////////////////
-bool InterfaceToLevelDB::openDatabases(void)
-{
-   SCOPED_TIMER("openDatabases");
    if(genesisBlkHash_.getSize() == 0 || magicBytes_.getSize() == 0)
    {
       Log::ERR() << " must set magic bytes and genesis block";
@@ -277,7 +268,7 @@ uint32_t InterfaceToLevelDB::readAllStoredScriptHistory(
 void InterfaceToLevelDB::loadAllStoredHistory(void)
 {
    SCOPED_TIMER("loadAllStoredHistory");
-   lowestScannedUpTo_ = readAllStoredScriptHistory(registeredSSH_);
+   lowestScannedUpTo_ = readAllStoredScriptHistory(registeredSSHs_);
 }
 
 
@@ -1174,7 +1165,7 @@ BinaryData InterfaceToLevelDB::getRawHeader(BinaryData const & headerHash)
    // so it's still here for reference
    static BinaryData headerOut(HEADER_SIZE);
    headerOut = getValue(HEADERS, DB_PREFIX_HEADHASH, headerHash);
-   return headerOut;
+   return headerOut.getSliceCopy(0, HEADER_SIZE);
 }
 
 
@@ -1960,6 +1951,153 @@ bool InterfaceToLevelDB::readStoredTxOutAtIter(
 
 
 ////////////////////////////////////////////////////////////////////////////////
+Tx InterfaceToLevelDB::getFullTxCopy( BinaryDataRef ldbKey6B )
+{
+   if(ldbKey6B.getSize() != 6)
+   {
+      Log::ERR() << "Provided zero-length ldbKey6B";
+      return BinaryData(0);
+   }
+    
+   if(seekTo(BLKDATA, DB_PREFIX_TXDATA, ldbKey6B))
+   {
+      Log::ERR() << "TxRef key does not exist in BLKDATA DB";
+      return BinaryData(0);
+   }
+
+   uint32_t hgtX = *(uint32_t*)ldbKey6B.getPtr();
+   StoredTx stx;
+   readStoredTxAtIter( hgtxToHeight(hgtX), hgtxToDupID(hgtX), stx);
+
+   if(!stx.haveAllTxOut())
+   {
+      Log::ERR() << "Requested full Tx but not all TxOut available";
+      return BinaryData(0);
+   }
+
+   return stx.getTxCopy();
+}
+
+////////////////////////////////////////////////////////////////////////////////
+Tx InterfaceToLevelDB::getFullTxCopy( uint32_t hgt, uint16_t txIndex)
+{
+   uint8_t dup = getValidDupIDForHeight(hgt);
+   if(dup == UINT8_MAX)
+      Log::ERR() << "Headers DB has no block at height: " << hgt;
+
+   BinaryData ldbKey = getBlkDataKey(hgt, dup, txIndex);
+   return getFullTxCopy(ldbKey);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+Tx InterfaceToLevelDB::getFullTxCopy( uint32_t hgt, uint8_t dup, uint16_t txIndex)
+{
+   BinaryData ldbKey = getBlkDataKey(hgt, dup, txIndex);
+   return getFullTxCopy(ldbKey);
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+TxOut InterfaceToLevelDB::getTxOutCopy( BinaryDataRef ldbKey6B, uint16_t txOutIdx)
+{
+   BinaryWriter bw(8);
+   bw.put_BinaryData(ldbKey6B);
+   bw.put_uint16_t(txOutIdx);
+   BinaryDataRef ldbKey8 = bw.getDataRef();
+
+   TxOut txoOut;
+   BinaryRefReader brr = getValueReader(BLKDATA, DB_PREFIX_TXDATA, ldbKey8);
+   if(brr.getSize()==0) 
+   {
+      Log::ERR() << "TxOut key does not exist in BLKDATA DB";
+      return TxOut();
+   }
+
+   TxRef parent(ldbKey6B, this);
+
+   brr.advance(2);
+   txoOut.unserialize(brr.getCurrPtr(), 0, parent, (uint32_t)txOutIdx);
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+TxIn InterfaceToLevelDB::getTxInCopy( BinaryDataRef ldbKey6B, uint16_t txInIdx)
+{
+   TxIn txiOut;
+   BinaryRefReader brr = getValueReader(BLKDATA, DB_PREFIX_TXDATA, ldbKey6B);
+   if(brr.getSize()==0) 
+   {
+      Log::ERR() << "TxOut key does not exist in BLKDATA DB";
+      return TxIn();
+   }
+
+   BitReader<uint16_t> bitread(brr); // flags
+   uint16_t dbVer   = bitread.getBits(4);
+   uint16_t txVer   = bitread.getBits(2);
+   uint16_t txSer   = bitread.getBits(4);
+   
+   brr.advance(32);
+
+   
+   if(txSer != TX_SER_FULL && txSer != TX_SER_FRAGGED)
+   {
+      Log::ERR() << "Tx not available to retrieve TxIn";
+      return TxIn();
+   }
+   else
+   {
+      bool isFragged = txSer==TX_SER_FRAGGED;
+      vector<uint32_t> offsetsIn;
+      BtcUtils::StoredTxCalcLength(brr.getCurrPtr(), isFragged, &offsetsIn);
+      if(offsetsIn.size()-1 < txInIdx+1) // offsets.size() is numTxIn+1
+      {
+         Log::ERR() << "Requested TxIn with index greater than numTxIn";
+         return TxIn();
+      }
+      TxRef parent(ldbKey6B, this);
+      uint8_t const * txInStart = brr.exposeDataPtr() + 34 + offsetsIn[txInIdx];
+      uint32_t txInLength = offsetsIn[txInIdx+1] - offsetsIn[txInIdx];
+      return TxIn(txInStart, txInLength, parent, txInIdx);
+   }
+}
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+BinaryData InterfaceToLevelDB::getTxHashForLdbKey( BinaryDataRef ldbKey6B )
+{
+   BinaryRefReader stxVal = getValueReader(BLKDATA, DB_PREFIX_TXDATA, ldbKey6B);
+   if(stxVal.getSize()==0)
+   {
+      Log::ERR() << "TxRef key does not exist in BLKDATA DB";
+      return BinaryData(0);
+   }
+
+   // We can't get here unless we found the precise Tx entry we were looking for
+   stxVal.advance(2);
+   return stxVal.get_BinaryData(32);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+BinaryData InterfaceToLevelDB::getTxHashForHeightAndIndex( uint32_t height,
+                                                           uint16_t txIndex)
+{
+   uint8_t dup = getValidDupIDForHeight(height);
+   if(dup == UINT8_MAX)
+      Log::ERR() << "Headers DB has no block at height: " << height;
+   return getTxHashForLdbKey(getBlkDataKey(height, dup, txIndex));
+}
+
+////////////////////////////////////////////////////////////////////////////////
+BinaryData InterfaceToLevelDB::getTxHashForHeightAndIndex( uint32_t height,
+                                                           uint8_t  dupID,
+                                                           uint16_t txIndex)
+{
+   return getTxHashForLdbKey(getBlkDataKey(height, dupID, txIndex));
+}
+
+////////////////////////////////////////////////////////////////////////////////
 vector<BinaryData> InterfaceToLevelDB::getAllHintsForTxHash(BinaryDataRef txHash)
 {
    BinaryDataRef allHints = getValueRef(BLKDATA, DB_PREFIX_TXHINTS, 
@@ -2398,4 +2536,5 @@ bool InterfaceToLevelDB::updateHeaderHeight(BinaryDataRef headHash,
    return true;
 }  
 */
+
 
