@@ -78,14 +78,59 @@ public:
 class Log
 {
 public:
-    Log(void) : isInitialized_(false) {}
-    static Log & GetInstance(const char * filename=NULL);
-    virtual ~Log();
+   Log(void) : isInitialized_(false) {}
 
-    LogStream& Get(LogLevel level = logInfo);
-    static void SetLogFile(string logfile) { GetInstance(logfile.c_str()); }
-    static void SetLogLevel(LogLevel level) { GetInstance().logLevel_ = (int)level; }
-    static string ToString(LogLevel level);
+   static Log & GetInstance(const char * filename=NULL)
+   {
+      static Log* theOneLog=NULL;
+      if(theOneLog==NULL || filename!=NULL)
+      {
+         // Close and delete any existing Log object
+         if(theOneLog != NULL)
+         {
+            theOneLog->ds_.close();
+            delete theOneLog;
+         }
+   
+         // Create a Log object
+         theOneLog = new Log;
+   
+         // Open the filestream if it's open
+         if(filename != NULL)
+         {
+            theOneLog->ds_.setLogFile(string(filename));
+            theOneLog->isInitialized_ = true;
+         }
+      }
+      return *theOneLog;
+   }
+
+   ~Log(void)
+   {
+      ds_ << "Closing logfile.\n";
+      ds_ << "...";
+   }
+
+   LogStream& Get(LogLevel level = logInfo)
+   {
+      if((int)level > logLevel_ || !isInitialized_)
+         return ns_;
+      
+      ds_.newline();
+      ds_ << "- " << NowTime();
+      ds_ << " " << ToString(level) << ": ";
+      return ds_;
+   }
+
+   static void SetLogFile(string logfile) { GetInstance(logfile.c_str()); }
+
+   static void SetLogLevel(LogLevel level) { GetInstance().logLevel_ = (int)level; }
+
+   static string ToString(LogLevel level)
+   {
+	   static const char* const buffer[] = {"ERROR ", "WARN  ", "INFO  ", "DEBUG ", "DEBUG1", "DEBUG2", "DEBUG3", "DEBUG4"};
+      return buffer[level];
+   }
 
     // Had to use "ERR" instead of "ERROR" because Windows didn't like ERROR
     static LogStream & ERR(void)    { return GetInstance().Get(logError);  }
@@ -112,55 +157,7 @@ private:
 };
 
 
-Log& Log::GetInstance(const char * filename)
-{
-   static Log* theOneLog=NULL;
-   if(theOneLog==NULL || filename!=NULL)
-   {
-      // Close and delete any existing Log object
-      if(theOneLog != NULL)
-      {
-         theOneLog->ds_.close();
-         delete theOneLog;
-      }
 
-      // Create a Log object
-      theOneLog = new Log;
-
-      // Open the filestream if it's open
-      if(filename != NULL)
-      {
-         theOneLog->ds_.setLogFile(string(filename));
-         theOneLog->isInitialized_ = true;
-      }
-   }
-   return *theOneLog;
-}
-
-
-LogStream& Log::Get(LogLevel level)
-{
-   if((int)level > logLevel_ || !isInitialized_)
-      return ns_;
-   
-   ds_.newline();
-   ds_ << "- " << NowTime();
-   ds_ << " " << ToString(level) << ": ";
-   return ds_;
-}
-
-Log::~Log()
-{
-    ds_ << "Closing logfile.\n";
-    ds_ << "...";
-}
-
-
-string Log::ToString(LogLevel level)
-{
-	static const char* const buffer[] = {"ERROR ", "WARN  ", "INFO  ", "DEBUG ", "DEBUG1", "DEBUG2", "DEBUG3", "DEBUG4"};
-   return buffer[level];
-}
 
 
 
