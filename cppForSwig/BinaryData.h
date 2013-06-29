@@ -230,6 +230,17 @@ public:
          return data_[i] < bd2.data_[i];
       }
       return (getSize() < bd2.getSize());
+
+      // I thought memcmp would be faster... apparently not (20% slower)
+      //int32_t minLen = min(getSize(), bd2.getSize());
+      //int32_t cmp = memcmp(getPtr(), bd2.getPtr(), minLen);
+
+      //if(cmp < 0)
+         //return true;
+      //else if(cmp==0)
+         //return getSize()<bd2.getSize();
+      
+      //return false;
    }
 
    /////////////////////////////////////////////////////////////////////////////
@@ -274,12 +285,18 @@ public:
    void copyTo(string & str) { str.assign( (char const *)(&(data_[0])), getSize()); }
 
    /////////////////////////////////////////////////////////////////////////////
-   string toBinStr(void) const 
+   string toBinStr(bool bigEndian=false) const 
    { 
       if(getSize()==0)
          return string("");
 
-      return string((char const *)(&(data_[0])), getSize());
+      if(bigEndian)
+      {
+         BinaryData out = copySwapEndian();
+         return string((char const *)(out.getPtr()), getSize());
+      }
+      else
+         return string((char const *)(getPtr()), getSize());
    }
 
    char* toCharPtr(void) const  { return  (char*)(&(data_[0])); }
@@ -491,13 +508,15 @@ public:
    // UNSAFE -- you don't know if outData holds enough space for this
    void copyTo(uint8_t* outData) const { memcpy( outData, ptr_, (size_t)nBytes_); }
    void copyTo(uint8_t* outData, size_t sz) const { memcpy( outData, ptr_, (size_t)sz); }
-   void copyTo(uint8_t* outData, size_t offset, size_t sz) const { memcpy( outData, ptr_+offset, (size_t)sz); }
+   void copyTo(uint8_t* outData, size_t offset, size_t sz) const 
+                                    { memcpy( outData, ptr_+offset, (size_t)sz); }
    void copyTo(BinaryData & bd) const 
    {
       bd.resize(nBytes_);
       memcpy( bd.getPtr(), ptr_, (size_t)nBytes_);
    }
 
+   /////////////////////////////////////////////////////////////////////////////
    BinaryData copy(void) const 
    {
       BinaryData outData(nBytes_);
@@ -508,15 +527,28 @@ public:
    /////////////////////////////////////////////////////////////////////////////
    // These are always memory-safe
    void copyTo(string & str) { str.assign( (char const *)(ptr_), nBytes_); }
-   string toBinStr(void) const 
+
+   /////////////////////////////////////////////////////////////////////////////
+   string toBinStr(bool bigEndian=false) const 
    { 
       if(getSize()==0)
          return string("");
-      return string((char const *)(ptr_), nBytes_); 
+
+      if(bigEndian)
+      {
+         BinaryData out = copy();
+         return string((char const *)(out.swapEndian().getPtr()), nBytes_); 
+      }
+      else
+         return string((char const *)(ptr_), nBytes_); 
    }
+
+   
+   /////////////////////////////////////////////////////////////////////////////
    char* toCharPtr(void) const  { return  (char*)(ptr_); }
    unsigned char* toUCharPtr(void) const { return (unsigned char*)(ptr_); }
 
+   /////////////////////////////////////////////////////////////////////////////
    uint8_t const & operator[](int32_t i) const { return (i<0 ? ptr_[nBytes_+i] : ptr_[i]); }
    bool isValid(void) const { return ptr_ != NULL; }
 
@@ -524,6 +556,9 @@ public:
    int32_t find(BinaryDataRef const & matchStr, uint32_t startPos=0)
    {
       int32_t finalAnswer = -1;
+      if(matchStr.getSize()==0)
+         return startPos;
+
       for(int32_t i=startPos; i<=(int32_t)nBytes_-(int32_t)matchStr.nBytes_; i++)
       {
          if(matchStr.ptr_[0] != ptr_[i])

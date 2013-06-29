@@ -57,6 +57,9 @@ BinaryData & BinaryData::append(uint8_t const * str, uint32_t sz)
 int32_t BinaryData::find(BinaryDataRef const & matchStr, uint32_t startPos)
 {
    int32_t finalAnswer = -1;
+   if(matchStr.getSize()==0)
+      return startPos;
+
    for(int32_t i=startPos; i<=(int32_t)getSize()-(int32_t)matchStr.getSize(); i++)
    {
       if(matchStr[0] != data_[i])

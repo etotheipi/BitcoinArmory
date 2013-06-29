@@ -80,8 +80,8 @@ gtest_main.a : gtest-all.o gtest_main.o
 	#$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ -lpthread -o $@
 
 
-BinaryDataTest.o : BinaryDataTest.cpp $(USER_DIR)/BinaryData.h $(GTEST_HEADERS)
-	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c BinaryDataTest.cpp 
+CppBlockUtilsTests.o : CppBlockUtilsTests.cpp $(USER_DIR)/BinaryData.h $(USER_DIR)/BtcUtils.h $(GTEST_HEADERS)
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c CppBlockUtilsTests.cpp 
 
 BinaryDataTest : ../BinaryData.o BinaryDataTest.o gtest_main.a
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ -lpthread -o $@
