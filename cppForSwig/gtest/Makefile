@@ -20,14 +20,14 @@ GTEST_DIR = ../../../googletest
 USER_DIR = ..
 
 # Flags passed to the preprocessor.
-CPPFLAGS += -I$(GTEST_DIR)/include -I$(USER_DIR)/cryptopp -L$(USER_DIR)
+CPPFLAGS += -I$(GTEST_DIR)/include -I$(USER_DIR) -I$(USER_DIR)/cryptopp -L$(USER_DIR) -L$(USER_DIR)/cryptopp 
 
 # Flags passed to the C++ compiler.
 CXXFLAGS += -g 
 
 # All tests produced by this Makefile.  Remember to add new tests you
 # created to the list.
-TESTS = BinaryDataTest
+TESTS = CppBlockUtilsTests
 
 # All Google Test headers.  Usually you shouldn't change this
 # definition.
@@ -83,7 +83,7 @@ gtest_main.a : gtest-all.o gtest_main.o
 CppBlockUtilsTests.o : CppBlockUtilsTests.cpp $(USER_DIR)/BinaryData.h $(USER_DIR)/BtcUtils.h $(GTEST_HEADERS)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c CppBlockUtilsTests.cpp 
 
-BinaryDataTest : ../BinaryData.o BinaryDataTest.o gtest_main.a
-	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ -lpthread -o $@
+CppBlockUtilsTests : $(USER_DIR)/BinaryData.o $(USER_DIR)/BtcUtils.o CppBlockUtilsTests.o gtest_main.a
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ -lpthread -lcryptopp -o $@
 
 

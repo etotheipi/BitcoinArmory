@@ -157,6 +157,14 @@ public:
    uint8_t   operator[](int32_t i) const { return (i<0 ? data_[getSize()+i] : data_[i]); } 
 
    /////////////////////////////////////////////////////////////////////////////
+   friend ostream& operator<<(ostream& os, BinaryData const & bd)
+   {
+      os << bd.toHexStr();
+      return os;
+   }
+  
+   
+   /////////////////////////////////////////////////////////////////////////////
    BinaryData operator+(BinaryData const & bd2) const
    {
       BinaryData out(getSize() + bd2.getSize());

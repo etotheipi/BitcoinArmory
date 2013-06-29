@@ -25,6 +25,7 @@
 #include "sha.h"
 #include "ripemd.h"
 #include "UniversalTimer.h"
+#include "log.h"
 
 #define HEADER_SIZE 80
 #define CONVERTBTC 100000000
@@ -255,9 +256,22 @@ public:
    BinaryData hash256(BinaryData const & str) {return getHash256(str);}
    BinaryData hash160(BinaryData const & str) {return getHash160(str);}
 
-   // We should keep the genesis hash handy 
    static BinaryData        BadAddress_;
    static BinaryData        EmptyHash_;
+
+   /////////////////////////////////////////////////////////////////////////////
+   static BinaryData BadAddress(void) { return BadAddress_; }
+   static BinaryData EmptyHash(void)  { return EmptyHash_;  }
+
+   /////////////////////////////////////////////////////////////////////////////
+   static pair<uint64_t, uint8_t> readVarInt(BinaryRefReader & brr)
+   {
+      uint64_t outVal;
+      uint32_t outLen;
+      outVal = readVarInt(brr.getCurrPtr(), &outLen);
+      brr.advance(outLen);
+      return pair<uint64_t, uint8_t>(outVal, (uint8_t)outLen);
+   }
 
    /////////////////////////////////////////////////////////////////////////////
    static uint64_t readVarInt(uint8_t const * strmPtr, uint32_t* lenOutPtr=NULL)
@@ -449,8 +463,8 @@ public:
    }
 
    /////////////////////////////////////////////////////////////////////////////
-   static void getHash256(BinaryDataRef const & strToHash, 
-                          BinaryData          & hashOutput)
+   static void getHash256(BinaryDataRef strToHash, 
+                          BinaryData    hashOutput)
    {
       getHash256(strToHash.getPtr(), strToHash.getSize(), hashOutput);
    }
@@ -465,7 +479,7 @@ public:
 
 
    /////////////////////////////////////////////////////////////////////////////
-   static BinaryData getHash256(BinaryDataRef const & strToHash)
+   static BinaryData getHash256(BinaryDataRef strToHash)
    {
       BinaryData hashOutput(32);
       getHash256(strToHash.getPtr(), strToHash.getSize(), hashOutput);
@@ -513,14 +527,14 @@ public:
    }
 
    /////////////////////////////////////////////////////////////////////////////
-   static void getHash160(BinaryDataRef const & strToHash,
-                          BinaryData & hashOutput)
+   static void getHash160(BinaryDataRef strToHash,
+                          BinaryData &  hashOutput)
    {
       getHash160(strToHash.getPtr(), strToHash.getSize(), hashOutput);
    }
 
    /////////////////////////////////////////////////////////////////////////////
-   static BinaryData getHash160(BinaryDataRef const & strToHash)
+   static BinaryData getHash160(BinaryDataRef strToHash)
    {
       BinaryData hashOutput(20);
       getHash160(strToHash.getPtr(), strToHash.getSize(), hashOutput);
@@ -753,6 +767,7 @@ public:
    // TXOUT_SCRIPT_STDHASH160,
    // TXOUT_SCRIPT_STDPUBKEY65,
    // TXOUT_SCRIPT_STDPUBKEY33,
+   // TXOUT_SCRIPT_MULTISIG,
    // TXOUT_SCRIPT_P2SH,
    // TXOUT_SCRIPT_NONSTANDARD,
    static TXOUT_SCRIPT_TYPE getTxOutScriptType(BinaryDataRef s)
@@ -796,8 +811,8 @@ public:
    // TXIN_SCRIPT_SPENDMULTI
    // TXIN_SCRIPT_SPENDP2SH
    // TXIN_SCRIPT_NONSTANDARD
-   static TXIN_SCRIPT_TYPE getTxInScriptType(BinaryDataRef const & s,
-                                             BinaryDataRef const & prevTxHash)
+   static TXIN_SCRIPT_TYPE getTxInScriptType(BinaryDataRef s,
+                                             BinaryDataRef prevTxHash)
    {
       if(s.getSize() == 0)
          return TXIN_SCRIPT_NONSTANDARD;
@@ -999,10 +1014,11 @@ public:
    // TXIN_SCRIPT_STDCOMPR,
    // TXIN_SCRIPT_COINBASE,
    // TXIN_SCRIPT_SPENDPUBKEY,
+   // TXIN_SCRIPT_SPENDMULTI,
    // TXIN_SCRIPT_SPENDP2SH,
    // TXIN_SCRIPT_NONSTANDARD
-   static BinaryData getTxInAddr(BinaryDataRef const & script, 
-                                 BinaryDataRef const & prevTxHash,
+   static BinaryData getTxInAddr(BinaryDataRef script, 
+                                 BinaryDataRef prevTxHash,
                                  TXIN_SCRIPT_TYPE type=TXIN_SCRIPT_NONSTANDARD)
    {
       if(type==TXIN_SCRIPT_NONSTANDARD)
@@ -1011,7 +1027,8 @@ public:
       return getTxInAddrFromType(script, type);
    }
 
-   static BinaryData getTxInAddrFromType( BinaryDataRef const & script,
+   /////////////////////////////////////////////////////////////////////////////
+   static BinaryData getTxInAddrFromType( BinaryDataRef script,
                                           TXIN_SCRIPT_TYPE type)
                                                 
    {
@@ -1024,14 +1041,14 @@ public:
          case(TXIN_SCRIPT_SPENDP2SH):   
          {
             vector<BinaryDataRef> pushVect = splitPushOnlyScriptRefs(script);   
-            return getHash160(pushVect[pushVect.size()]);
+            return getHash160(pushVect[pushVect.size()-1]);
          }
          case(TXIN_SCRIPT_COINBASE):    
          case(TXIN_SCRIPT_SPENDPUBKEY):   
          case(TXIN_SCRIPT_SPENDMULTI):   
          case(TXIN_SCRIPT_NONSTANDARD): 
          default:
-            cerr << "***ERROR:  What kind of TxOutScript did we get?" << endl;
+            Log::ERR() << "***ERROR:  What kind of TxOutScript did we get?";
             return BadAddress_;
       }
    }
@@ -1084,7 +1101,7 @@ public:
          }
          else
          {
-            cerr << "This is not a push-only script!" << endl;
+            Log::WARN() << "This is not a push-only script!";
             return vector<BinaryDataRef>(0);
          }
       }
