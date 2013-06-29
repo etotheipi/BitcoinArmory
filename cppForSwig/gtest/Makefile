@@ -83,7 +83,7 @@ gtest_main.a : gtest-all.o gtest_main.o
 CppBlockUtilsTests.o : CppBlockUtilsTests.cpp $(USER_DIR)/BinaryData.h $(USER_DIR)/BtcUtils.h $(GTEST_HEADERS)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c CppBlockUtilsTests.cpp 
 
-CppBlockUtilsTests : $(USER_DIR)/BinaryData.o $(USER_DIR)/BtcUtils.o CppBlockUtilsTests.o gtest_main.a
+CppBlockUtilsTests : $(USER_DIR)/BinaryData.o $(USER_DIR)/BtcUtils.o CppBlockUtilsTests.o gtest.a
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ -lpthread -lcryptopp -o $@
 
 

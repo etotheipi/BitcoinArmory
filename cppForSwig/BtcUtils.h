@@ -797,7 +797,8 @@ public:
                s[1]    == 0x14 &&
                s[-1]   == 0x87)
          return TXOUT_SCRIPT_P2SH;
-      else if(isMultisigScript(s))
+      else if( s[-1]   == 0xae && 
+               isMultisigScript(s))
          return TXOUT_SCRIPT_MULTISIG;
       else 
          return TXOUT_SCRIPT_NONSTANDARD;
@@ -824,18 +825,16 @@ public:
       {
          // TODO: All this complexity to check TxIn type may be too slow when 
          //       scanning the blockchain...will need to investigate later
-         BinaryDataRef scriptAfter0x00(s.getPtr()+1, s.getSize()-1);
-         vector<BinaryDataRef> splitScr = splitPushOnlyScriptRefs(scriptAfter0x00);
+         vector<BinaryDataRef> splitScr = splitPushOnlyScriptRefs(s);
    
-         if(splitScr.size() != 0)
-         {
-            if(isMultisigScript(splitScr[splitScr.size()-1]))
-               return TXIN_SCRIPT_SPENDMULTI;
+         if(splitScr.size() == 0)
+            return TXIN_SCRIPT_NONSTANDARD;
 
-            if(s[2]==0x30 && s[4]==0x02)
-               return TXIN_SCRIPT_SPENDP2SH;
-         }
-         return TXIN_SCRIPT_NONSTANDARD;
+         if(isMultisigScript(splitScr[splitScr.size()-1]))
+            return TXIN_SCRIPT_SPENDP2SH;
+
+         if(s[2]==0x30 && s[4]==0x02)
+            return TXIN_SCRIPT_SPENDMULTI;
       }
          
 
@@ -912,7 +911,7 @@ public:
             bw.put_BinaryData(getMultisigUniqueKey(script));
             return bw.getData();
          default:
-            cerr << "***ERROR:  What kind of TxOutScript did we get?" << endl;
+            Log::ERR() << "What kind of TxOutScript did we get?";
             return BinaryData(0);
       }
    }
@@ -950,6 +949,12 @@ public:
       uint8_t M = script[0];
       uint8_t N = script[-2];
 
+      if(M<81 || M>96|| N<81 || N>96)
+         return nothing;
+
+      M -= 80;
+      N -= 80;
+
       BinaryWriter bw(2 + N*20);  // reserve enough space for header + N addr
 
       bw.put_uint8_t(M);
@@ -959,11 +964,10 @@ public:
       brr.advance(1);
       for(uint8_t i=0; i<N; i++)
       {
-         uint8_t nextSz = script[brr.getPosition()];
+         uint8_t nextSz = brr.get_uint8_t();
          if( nextSz != 0x41 && nextSz != 0x21 )
             return nothing;
 
-         brr.advance(1);
          bw.put_BinaryData(getHash160(brr.get_BinaryDataRef( nextSz )));
       }
 
@@ -973,39 +977,43 @@ public:
 
    /////////////////////////////////////////////////////////////////////////////
    // Return pair<M, list<Addr160>>; you can get N from list.size()
-   static pair<uint8_t, list<BinaryData> > getMultisigAddrList(BinaryDataRef script)
+   static uint8_t getMultisigAddrList( BinaryDataRef script, 
+                                       vector<BinaryData> & addr160List)
    {
-      static pair<uint8_t, list<BinaryData> > emptyOut;
-      emptyOut.second.clear();
+      addr160List.clear();
 
       if( script[-1] != 0xae )
-         return emptyOut;
+         return 0;
 
       if( script[0] >= 1 && script[0] <= 20)
-         return emptyOut;
+         return 0;
 
       if( script[-2] >= 1 && script[-2] <= 20)
-         return emptyOut;
+         return 0;
 
       uint8_t M = script[0];
       uint8_t N = script[-2];
+      
+      if(M<81 || M>96|| N<81 || N>96)
+         return 0;
+
+      M -= 80;
+      N -= 80;
 
       BinaryRefReader brr(script);
 
       brr.advance(1); // Skip over M-value
-
-      pair<uint8_t, list<BinaryData> > outPair;
+      vector<BinaryData> accumList(N);
       for(uint8_t i=0; i<N; i++)
       {
-         uint8_t nextSz = script[brr.getPosition()];
+         uint8_t nextSz = brr.get_uint8_t();
          if( nextSz != 0x41 && nextSz != 0x21 )
-            return emptyOut;
+            return 0;
 
-         brr.advance(1);
-         outPair.second.push_back(getHash160(brr.get_BinaryDataRef( nextSz )));
+         accumList[i] = getHash160(brr.get_BinaryDataRef(nextSz));
       }
-      outPair.first = M;
-      return outPair;
+      addr160List.insert(addr160List.end(), accumList.begin(), accumList.end());
+      return M;
    }
 
 
@@ -1030,7 +1038,6 @@ public:
    /////////////////////////////////////////////////////////////////////////////
    static BinaryData getTxInAddrFromType( BinaryDataRef script,
                                           TXIN_SCRIPT_TYPE type)
-                                                
    {
       switch(type)
       {
@@ -1047,8 +1054,9 @@ public:
          case(TXIN_SCRIPT_SPENDPUBKEY):   
          case(TXIN_SCRIPT_SPENDMULTI):   
          case(TXIN_SCRIPT_NONSTANDARD): 
+            return BadAddress_;
          default:
-            Log::ERR() << "***ERROR:  What kind of TxOutScript did we get?";
+            Log::ERR() << "What kind of TxIn script did we get?";
             return BadAddress_;
       }
    }
@@ -1059,39 +1067,35 @@ public:
       list<BinaryDataRef> opList;
 
       BinaryRefReader brr(script);
-      opList.push_back(brr.get_BinaryDataRef(1));
-
       uint8_t nextOp;
       
       while(brr.getSizeRemaining() > 0)
       {
          nextOp = brr.get_uint8_t();
-         if(nextOp < 76)
+         if(nextOp == 0)
          {
             // Implicit pushdata
             brr.rewind(1);
             opList.push_back(brr.get_BinaryDataRef(1));
+         }
+         else if(nextOp < 76)
+         {
+            // Implicit pushdata
             opList.push_back(brr.get_BinaryDataRef(nextOp));
          }
          else if(nextOp == 76)
          {
             uint8_t nb = brr.get_uint8_t();
-            brr.rewind(2);
-            opList.push_back( brr.get_BinaryDataRef(2));
             opList.push_back( brr.get_BinaryDataRef(nb));
          }
          else if(nextOp == 77)
          {
             uint16_t nb = brr.get_uint16_t();
-            brr.rewind(3);
-            opList.push_back( brr.get_BinaryDataRef(3));
             opList.push_back( brr.get_BinaryDataRef(nb));
          }
          else if(nextOp == 78)
          {
             uint16_t nb = brr.get_uint32_t();
-            brr.rewind(5);
-            opList.push_back( brr.get_BinaryDataRef(5));
             opList.push_back( brr.get_BinaryDataRef(nb));
          }
          else if(nextOp > 78 && nextOp < 97 && nextOp !=80)
@@ -1100,10 +1104,7 @@ public:
             opList.push_back( brr.get_BinaryDataRef(1));
          }
          else
-         {
-            Log::WARN() << "This is not a push-only script!";
             return vector<BinaryDataRef>(0);
-         }
       }
 
       vector<BinaryDataRef> vectOut(opList.size());

@@ -537,6 +537,13 @@ public:
    void copyTo(string & str) { str.assign( (char const *)(ptr_), nBytes_); }
 
    /////////////////////////////////////////////////////////////////////////////
+   friend ostream& operator<<(ostream& os, BinaryDataRef const & bd)
+   {
+      os << bd.toHexStr();
+      return os;
+   }
+
+   /////////////////////////////////////////////////////////////////////////////
    string toBinStr(bool bigEndian=false) const 
    { 
       if(getSize()==0)

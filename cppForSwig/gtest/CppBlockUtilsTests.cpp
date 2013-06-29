@@ -2,6 +2,7 @@
 #include <iostream>
 #include "gtest/gtest.h"
 
+#include "../log.h"
 #include "../BinaryData.h"
 #include "../BtcUtils.h"
 
@@ -144,18 +145,26 @@ TEST_F(BinaryDataTest, Fill)
 ////////////////////////////////////////////////////////////////////////////////
 TEST_F(BinaryDataTest, IndexOp)
 {
-   //str4_ = "1234abcd";
-   //str5_ = "1234abcdef";
    EXPECT_EQ(bd4_[0], 0x12);
    EXPECT_EQ(bd4_[1], 0x34);
    EXPECT_EQ(bd4_[2], 0xab);
    EXPECT_EQ(bd4_[3], 0xcd);
+
+   EXPECT_EQ(bd4_[-4], 0x12);
+   EXPECT_EQ(bd4_[-3], 0x34);
+   EXPECT_EQ(bd4_[-2], 0xab);
+   EXPECT_EQ(bd4_[-1], 0xcd);
 
    bd4_[1] = 0xff;
    EXPECT_EQ(bd4_[0], 0x12);
    EXPECT_EQ(bd4_[1], 0xff);
    EXPECT_EQ(bd4_[2], 0xab);
    EXPECT_EQ(bd4_[3], 0xcd);
+
+   EXPECT_EQ(bd4_[-4], 0x12);
+   EXPECT_EQ(bd4_[-3], 0xff);
+   EXPECT_EQ(bd4_[-2], 0xab);
+   EXPECT_EQ(bd4_[-1], 0xcd);
 
    EXPECT_EQ(bd4_.toHexStr(), string("12ffabcd"));
 }
@@ -1050,6 +1059,7 @@ TEST_F(BtcUtilsTest, TxOutScriptID_Hash160)
    EXPECT_EQ(BtcUtils::getTxOutScriptUniqueKey(script, scrType), unique );
 }
 
+////////////////////////////////////////////////////////////////////////////////
 TEST_F(BtcUtilsTest, TxOutScriptID_PubKey65)
 {
    BinaryData script = READHEX("4104b0bd634234abbb1ba1e986e884185c61cf43e001f9137f23c2c409273eb16e6537a576782eba668a7ef8bd3b3cfb1edb7117ab65129b8a2e681f3c1e0908ef7bac");
@@ -1063,6 +1073,7 @@ TEST_F(BtcUtilsTest, TxOutScriptID_PubKey65)
    EXPECT_EQ(BtcUtils::getTxOutScriptUniqueKey(script, scrType), unique );
 }
 
+////////////////////////////////////////////////////////////////////////////////
 TEST_F(BtcUtilsTest, TxOutScriptID_PubKey33)
 {
    BinaryData script = READHEX("21024005c945d86ac6b01fb04258345abea7a845bd25689edb723d5ad4068ddd3036ac");
@@ -1076,6 +1087,7 @@ TEST_F(BtcUtilsTest, TxOutScriptID_PubKey33)
    EXPECT_EQ(BtcUtils::getTxOutScriptUniqueKey(script, scrType), unique );
 }
 
+////////////////////////////////////////////////////////////////////////////////
 TEST_F(BtcUtilsTest, TxOutScriptID_NonStd)
 {
    // This was from block 150951 which was erroneously produced by MagicalTux
@@ -1091,6 +1103,7 @@ TEST_F(BtcUtilsTest, TxOutScriptID_NonStd)
    EXPECT_EQ(BtcUtils::getTxOutScriptUniqueKey(script, scrType), unique );
 }
 
+////////////////////////////////////////////////////////////////////////////////
 TEST_F(BtcUtilsTest, TxOutScriptID_P2SH)
 {
    // P2SH script from tx: 4ac04b4830d115eb9a08f320ef30159cc107dfb72b29bbc2f370093f962397b4 (TxOut: 1)
@@ -1108,12 +1121,47 @@ TEST_F(BtcUtilsTest, TxOutScriptID_P2SH)
    EXPECT_EQ(BtcUtils::getTxOutScriptUniqueKey(script, scrType), unique );
 }
 
+////////////////////////////////////////////////////////////////////////////////
 TEST_F(BtcUtilsTest, TxOutScriptID_Multisig)
 {
-   EXPECT_TRUE(false);
+   BinaryData script = READHEX("5221034758cefcb75e16e4dfafb32383b709fa632086ea5ca982712de6add93060b17a2103fe96237629128a0ae8c3825af8a4be8fe3109b16f62af19cec0b1eb93b8717e252ae");
+   BinaryData pub1   = READHEX("034758cefcb75e16e4dfafb32383b709fa632086ea5ca982712de6add93060b17a");
+   BinaryData pub2   = READHEX("03fe96237629128a0ae8c3825af8a4be8fe3109b16f62af19cec0b1eb93b8717e2");
+   BinaryData addr1  = READHEX("785652a6b8e721e80ffa353e5dfd84f0658284a9");
+   BinaryData addr2  = READHEX("b3348abf9dd2d1491359f937e2af64b1bb6d525a");
+   BinaryData a160   = BtcUtils::BadAddress_;
+   BinaryData unique = READHEX("fe0202785652a6b8e721e80ffa353e5dfd84f0658284a9b3348abf9dd2d1491359f937e2af64b1bb6d525a");
+
+   TXOUT_SCRIPT_TYPE scrType = BtcUtils::getTxOutScriptType(script);
+   EXPECT_EQ(scrType, TXOUT_SCRIPT_MULTISIG);
+   EXPECT_EQ(BtcUtils::getTxOutRecipientAddr(script), a160 );
+   EXPECT_EQ(BtcUtils::getTxOutRecipientAddr(script, scrType), a160 );
+   EXPECT_EQ(BtcUtils::getTxOutScriptUniqueKey(script), unique );
+   EXPECT_EQ(BtcUtils::getTxOutScriptUniqueKey(script, scrType), unique );
 }
 
 
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(BtcUtilsTest, TxOutScriptID_MultiList)
+{
+   BinaryData script = READHEX("5221034758cefcb75e16e4dfafb32383b709fa632086ea5ca982712de6add93060b17a2103fe96237629128a0ae8c3825af8a4be8fe3109b16f62af19cec0b1eb93b8717e252ae");
+   BinaryData pub1   = READHEX("034758cefcb75e16e4dfafb32383b709fa632086ea5ca982712de6add93060b17a");
+   BinaryData pub2   = READHEX("03fe96237629128a0ae8c3825af8a4be8fe3109b16f62af19cec0b1eb93b8717e2");
+   BinaryData addr0  = READHEX("785652a6b8e721e80ffa353e5dfd84f0658284a9");
+   BinaryData addr1  = READHEX("b3348abf9dd2d1491359f937e2af64b1bb6d525a");
+   BinaryData a160   = BtcUtils::BadAddress_;
+   BinaryData unique = READHEX("fe0202785652a6b8e721e80ffa353e5dfd84f0658284a9b3348abf9dd2d1491359f937e2af64b1bb6d525a");
+
+   vector<BinaryData> a160List;
+   uint32_t M;
+
+   M = BtcUtils::getMultisigAddrList(script, a160List);
+   EXPECT_EQ(M, 2);              
+   EXPECT_EQ(a160List.size(), 2); // N
+   
+   EXPECT_EQ(a160List[0], addr0);
+   EXPECT_EQ(a160List[1], addr1);
+}
 
 
 //TEST_F(BtcUtilsTest, TxInScriptID)
@@ -1127,10 +1175,11 @@ TEST_F(BtcUtilsTest, TxOutScriptID_Multisig)
    //TXIN_SCRIPT_NONSTANDARD
 //}
  
+////////////////////////////////////////////////////////////////////////////////
 TEST_F(BtcUtilsTest, TxInScriptID_StdUncompr)
 {
    BinaryData script = READHEX("493046022100b9daf2733055be73ae00ee0c5d78ca639d554fe779f163396c1a39b7913e7eac02210091f0deeb2e510c74354afb30cc7d8fbac81b1ca8b3940613379adc41a6ffd226014104b1537fa5bc2242d25ebf54f31e76ebabe0b3de4a4dccd9004f058d6c2caa5d31164252e1e04e5df627fae7adec27fa9d40c271fc4d30ff375ef6b26eba192bac");
-   BinaryData a160   = READHEX("c42a8290196b2c5bcb35471b45aa0dc096baed5e");
+   BinaryData a160 = READHEX("c42a8290196b2c5bcb35471b45aa0dc096baed5e");
    BinaryData prevHash = prevHashReg_;
 
    TXIN_SCRIPT_TYPE scrType = BtcUtils::getTxInScriptType( script, prevHash);
@@ -1140,13 +1189,14 @@ TEST_F(BtcUtilsTest, TxInScriptID_StdUncompr)
    EXPECT_EQ(BtcUtils::getTxInAddrFromType(script,  scrType), a160);
 }
 
+////////////////////////////////////////////////////////////////////////////////
 TEST_F(BtcUtilsTest, TxInScriptID_StdCompr)
 {
    BinaryData script = READHEX("47304402205299224886e5e3402b0e9fa3527bcfe1d73c4e2040f18de8dd17f116e3365a1102202590dcc16c4b711daae6c37977ba579ca65bcaa8fba2bd7168a984be727ccf7a01210315122ff4d41d9fe3538a0a8c6c7f813cf12a901069a43d6478917246dc92a782");
-   BinaryData a160   = READHEX("03214fc1433a287e964d6c4242093c34e4ed0001");
+   BinaryData a160 = READHEX("03214fc1433a287e964d6c4242093c34e4ed0001");
    BinaryData prevHash = prevHashReg_;
 
-   TXIN_SCRIPT_TYPE scrType = BtcUtils::getTxInScriptType( script, prevHash);
+   TXIN_SCRIPT_TYPE scrType = BtcUtils::getTxInScriptType(script, prevHash);
    EXPECT_EQ(scrType,  TXIN_SCRIPT_STDCOMPR);
    EXPECT_EQ(BtcUtils::getTxInAddr(script, prevHash), a160);
    EXPECT_EQ(BtcUtils::getTxInAddr(script, prevHash, scrType), a160);
@@ -1154,10 +1204,11 @@ TEST_F(BtcUtilsTest, TxInScriptID_StdCompr)
 }
 
 
+////////////////////////////////////////////////////////////////////////////////
 TEST_F(BtcUtilsTest, TxInScriptID_Coinbase)
 {
    BinaryData script = READHEX("0310920304000071c3124d696e656420627920425443204775696c640800b75f950e000000");
-   BinaryData a160   =  BtcUtils::BadAddress_;
+   BinaryData a160 =  BtcUtils::BadAddress_;
    BinaryData prevHash = prevHashCB_;
 
    TXIN_SCRIPT_TYPE scrType = BtcUtils::getTxInScriptType(script, prevHash);
@@ -1167,10 +1218,11 @@ TEST_F(BtcUtilsTest, TxInScriptID_Coinbase)
    EXPECT_EQ(BtcUtils::getTxInAddrFromType(script,  scrType), a160);
 }
 
+////////////////////////////////////////////////////////////////////////////////
 TEST_F(BtcUtilsTest, TxInScriptID_SpendPubKey)
 {
    BinaryData script = READHEX("47304402201ffc44394e5a3dd9c8b55bdc12147e18574ac945d15dac026793bf3b8ff732af022035fd832549b5176126f735d87089c8c1c1319447a458a09818e173eaf0c2eef101");
-   BinaryData a160   =  BtcUtils::BadAddress_;
+   BinaryData a160 =  BtcUtils::BadAddress_;
    BinaryData prevHash = prevHashReg_;
 
    TXIN_SCRIPT_TYPE scrType = BtcUtils::getTxInScriptType(script, prevHash);
@@ -1181,12 +1233,47 @@ TEST_F(BtcUtilsTest, TxInScriptID_SpendPubKey)
    //txInHash160s.push_back( READHEX("957efec6af757ccbbcf9a436f0083c5ddaa3bf1d")); // this one can't be determined
 }
 
+
+
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(BtcUtilsTest, TxInScriptID_SpendMultisig)
+{
+
+   BinaryData script = READHEX("004830450221009254113fa46918f299b1d18ec918613e56cffbeba0960db05f66b51496e5bf3802201e229de334bd753a2b08b36cc3f38f5263a23e9714a737520db45494ec095ce80148304502206ee62f539d5cd94f990b7abfda77750f58ff91043c3f002501e5448ef6dba2520221009d29229cdfedda1dd02a1a90bb71b30b77e9c3fc28d1353f054c86371f6c2a8101");
+   BinaryData a160 =  BtcUtils::BadAddress_;
+   BinaryData prevHash = prevHashReg_;
+   TXIN_SCRIPT_TYPE scrType = BtcUtils::getTxInScriptType(script, prevHash);
+   EXPECT_EQ(scrType, TXIN_SCRIPT_SPENDMULTI);
+   EXPECT_EQ(BtcUtils::getTxInAddr(script, prevHash), a160);
+   EXPECT_EQ(BtcUtils::getTxInAddr(script, prevHash, scrType), a160);
+   EXPECT_EQ(BtcUtils::getTxInAddrFromType(script,  scrType), a160);
+
+
+   vector<BinaryDataRef> scrParts = BtcUtils::splitPushOnlyScriptRefs(script);
+   BinaryData zero = READHEX("00");
+   BinaryData sig1 = READHEX("30450221009254113fa46918f299b1d18ec918613e56cffbeba0960db05f66b51496e5bf3802201e229de334bd753a2b08b36cc3f38f5263a23e9714a737520db45494ec095ce801");
+   BinaryData sig2 = READHEX("304502206ee62f539d5cd94f990b7abfda77750f58ff91043c3f002501e5448ef6dba2520221009d29229cdfedda1dd02a1a90bb71b30b77e9c3fc28d1353f054c86371f6c2a8101");
+
+   EXPECT_EQ(scrParts.size(), 3);
+   EXPECT_EQ(scrParts[0], zero);
+   EXPECT_EQ(scrParts[1], sig1);
+   EXPECT_EQ(scrParts[2], sig2);
+
+   //BinaryData p2sh = READHEX("5221034758cefcb75e16e4dfafb32383b709fa632086ea5ca982712de6add93060b17a2103fe96237629128a0ae8c3825af8a4be8fe3109b16f62af19cec0b1eb93b8717e252ae");
+   //BinaryData pub1 = READHEX("034758cefcb75e16e4dfafb32383b709fa632086ea5ca982712de6add93060b17a");
+   //BinaryData pub1 = READHEX("03fe96237629128a0ae8c3825af8a4be8fe3109b16f62af19cec0b1eb93b8717e2");
+
+   
+}
+
+////////////////////////////////////////////////////////////////////////////////
 TEST_F(BtcUtilsTest, TxInScriptID_SpendP2SH)
 {
+
    // Spending P2SH output as above:  fd16d6bbf1a3498ca9777b9d31ceae883eb8cb6ede1fafbdd218bae107de66fe (TxIn: 1, 219 B)
    // Leading 0x00 byte is required due to a bug in OP_CHECKMULTISIG
    BinaryData script = READHEX("004830450221009254113fa46918f299b1d18ec918613e56cffbeba0960db05f66b51496e5bf3802201e229de334bd753a2b08b36cc3f38f5263a23e9714a737520db45494ec095ce80148304502206ee62f539d5cd94f990b7abfda77750f58ff91043c3f002501e5448ef6dba2520221009d29229cdfedda1dd02a1a90bb71b30b77e9c3fc28d1353f054c86371f6c2a8101475221034758cefcb75e16e4dfafb32383b709fa632086ea5ca982712de6add93060b17a2103fe96237629128a0ae8c3825af8a4be8fe3109b16f62af19cec0b1eb93b8717e252ae");
-   BinaryData a160   =  BtcUtils::BadAddress_;
+   BinaryData a160 =  READHEX("d0c15a7d41500976056b3345f542d8c944077c8a");
    BinaryData prevHash = prevHashReg_;
    TXIN_SCRIPT_TYPE scrType = BtcUtils::getTxInScriptType(script, prevHash);
    EXPECT_EQ(scrType, TXIN_SCRIPT_SPENDP2SH);
@@ -1198,6 +1285,32 @@ TEST_F(BtcUtilsTest, TxInScriptID_SpendP2SH)
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+// Now actually execute all the tests
+////////////////////////////////////////////////////////////////////////////////
+GTEST_API_ int main(int argc, char **argv) 
+{
+   std::cout << "Running main() from gtest_main.cc\n";
+
+   // Setup the log file 
+   Log::SetLogFile("cppTestsLog.txt");
+   Log::SetLogLevel(LogDebug4);
+
+   testing::InitGoogleTest(&argc, argv);
+   return RUN_ALL_TESTS();
+}
 
 
 

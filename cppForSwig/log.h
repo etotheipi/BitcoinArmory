@@ -13,14 +13,14 @@ inline string NowTime();
 
 typedef enum 
 {
-   logError, 
-   logWarn, 
-   logInfo, 
-   logDebug, 
-   logDebug1, 
-   logDebug2, 
-   logDebug3, 
-   logDebug4 
+   LogError, 
+   LogWarn, 
+   LogInfo, 
+   LogDebug, 
+   LogDebug1, 
+   LogDebug2, 
+   LogDebug3, 
+   LogDebug4 
 } LogLevel;
 
 
@@ -111,7 +111,7 @@ public:
       ds_ << "...";
    }
 
-   LogStream& Get(LogLevel level = logInfo)
+   LogStream& Get(LogLevel level = LogInfo)
    {
       if((int)level > logLevel_ || !isInitialized_)
          return ns_;
@@ -133,14 +133,14 @@ public:
    }
 
     // Had to use "ERR" instead of "ERROR" because Windows didn't like ERROR
-    static LogStream & ERR(void)    { return GetInstance().Get(logError);  }
-    static LogStream & WARN(void)   { return GetInstance().Get(logWarn);   }
-    static LogStream & INFO(void)   { return GetInstance().Get(logInfo);   }
-    static LogStream & DEBUG(void)  { return GetInstance().Get(logDebug);  }
-    static LogStream & DEBUG1(void) { return GetInstance().Get(logDebug1); }
-    static LogStream & DEBUG2(void) { return GetInstance().Get(logDebug2); }
-    static LogStream & DEBUG3(void) { return GetInstance().Get(logDebug3); }
-    static LogStream & DEBUG4(void) { return GetInstance().Get(logDebug4); }
+    static LogStream & ERR(void)    { return GetInstance().Get(LogError);  }
+    static LogStream & WARN(void)   { return GetInstance().Get(LogWarn);   }
+    static LogStream & INFO(void)   { return GetInstance().Get(LogInfo);   }
+    static LogStream & DEBUG(void)  { return GetInstance().Get(LogDebug);  }
+    static LogStream & DEBUG1(void) { return GetInstance().Get(LogDebug1); }
+    static LogStream & DEBUG2(void) { return GetInstance().Get(LogDebug2); }
+    static LogStream & DEBUG3(void) { return GetInstance().Get(LogDebug3); }
+    static LogStream & DEBUG4(void) { return GetInstance().Get(LogDebug4); }
 
     static bool isOpen(void) {GetInstance().ds_.fout_.is_open();}
     static string filename(void) {return GetInstance().ds_.fname_;}
@@ -176,7 +176,7 @@ private:
 
 
 //#ifndef FILELOG_MAX_LEVEL
-//#define FILELOG_MAX_LEVEL logDEBUG4
+//#define FILELOG_MAX_LEVEL LogDEBUG4
 //#endif
 
 #if defined(WIN32) || defined(_WIN32) || defined(__WIN32__)
