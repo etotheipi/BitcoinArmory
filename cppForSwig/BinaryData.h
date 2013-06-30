@@ -51,12 +51,6 @@
    #endif
 #endif
 
-#ifndef UINT32_MAX
-   #define UINT64_MAX 0xffffffffffffffffULL
-   #define UINT32_MAX 0xffffffff
-   #define UINT16_MAX 0xffff
-   #define UINT8_MAX  0xff
-#endif
 
 #include <iostream>
 #include <vector>

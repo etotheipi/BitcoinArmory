@@ -234,19 +234,63 @@ void StoredTx::unserialize(BinaryDataRef data, bool fragged)
 /////////////////////////////////////////////////////////////////////////////
 void StoredTx::unserialize(BinaryRefReader & brr, bool fragged)
 {
-   vector<uint32_t> offsetsI, offsetsO; 
+   vector<uint32_t> offsetsIn, offsetsOut; 
    uint32_t numBytes = BtcUtils::StoredTxCalcLength(brr.getCurrPtr(),
                                                     fragged,
-                                                    &offsetsI,
-                                                    &offsetsO);
-   dataCopy_.copyFrom(brr.getCurrPtr(), numBytes);
+                                                    &offsetsIn,
+                                                    &offsetsOut);
+   if(brr.getSizeRemaining() < numBytes)
+   {
+      Log::ERR() << "Not enough bytes in BRR to unserialize StoredTx";
+      return;
+   }
+
+   brr.get_BinaryData(dataCopy_, numBytes);
 
    isFragged_ = fragged;
-   numTxOut_  = offsetsO.size()-1;
+   numTxOut_  = offsetsOut.size()-1;
    version_   = *(uint32_t*)(dataCopy_.getPtr());
    lockTime_  = *(uint32_t*)(dataCopy_.getPtr() + numBytes - 4);
    isInitialized_ = true;
 }
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+void StoredTxOut::unserialize(BinaryData const & data)
+{
+   BinaryRefReader brr(data);
+   unserialize(brr);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void StoredTxOut::unserialize(BinaryDataRef data)
+{
+   BinaryRefReader brr(data);
+   unserialize(brr);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void StoredTxOut::unserialize(BinaryRefReader & brr)
+{
+   if(brr.getSizeRemaining() < 8)
+   {
+      Log::ERR() << "Not enough bytes in BRR to unserialize StoredTxOut";
+      return;
+   }
+
+   uint32_t numBytes = BtcUtils::TxOutCalcLength(brr.getCurrPtr());
+
+   if(brr.getSizeRemaining() < numBytes)
+   {
+      Log::ERR() << "Not enough bytes in BRR to unserialize StoredTxOut";
+      return;
+   }
+
+   brr.get_BinaryData(dataCopy_, numBytes);
+   isInitialized_ = true;
+}
+
 
 ////////////////////////////////////////////////////////////////////////////////
 bool StoredTx::haveAllTxOut(void) const
@@ -289,8 +333,17 @@ BinaryData StoredTx::getSerializedTx(void) const
    for(uint16_t txo=0; txo<numTxOut_; txo++)
       bw.put_BinaryData(txOutMap_.at(txo).getSerializedTxOut());
 
-   bw.put_BinaryData(dataCopy_.getPtr()+dataCopy_.getSize(), 4);
+   bw.put_BinaryData(dataCopy_.getPtr()+dataCopy_.getSize()-4, 4);
    return bw.getData();
+}
+
+////////////////////////////////////////////////////////////////////////////////
+BinaryData StoredTxOut::getSerializedTxOut(void) const
+{
+   if(!isInitialized_)
+      return BinaryData(0);
+
+   return dataCopy_;
 }
 
 ////////////////////////////////////////////////////////////////////////////////

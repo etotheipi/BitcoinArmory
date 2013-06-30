@@ -7,6 +7,7 @@
 
 #include <stdint.h>
 #include <stdio.h>
+#include <iostream>
 #include "leveldb/iterator.h"
 #include "leveldb/options.h"
 
@@ -27,7 +28,7 @@ inline bool ldbCheckStatus(leveldb::Status stat)
   if( stat.ok() )
     return true;
 
-  cout << "***LevelDB Error: " << stat.ToString() << endl;
+  std::cout << "***LevelDB Error: " << stat.ToString() << std::endl;
   return false;
 }
 

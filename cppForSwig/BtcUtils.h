@@ -1173,28 +1173,28 @@ public:
       switch (opcode)
       {
       // push value
-      case OP_0                 : return "0";
+      case OP_0                 : return "OP_0";
       case OP_PUSHDATA1           : return "OP_PUSHDATA1";
       case OP_PUSHDATA2           : return "OP_PUSHDATA2";
       case OP_PUSHDATA4           : return "OP_PUSHDATA4";
-      case OP_1NEGATE            : return "-1";
+      case OP_1NEGATE            : return "OP_1NEGATE";
       case OP_RESERVED            : return "OP_RESERVED";
-      case OP_1                 : return "1";
-      case OP_2                 : return "2";
-      case OP_3                 : return "3";
-      case OP_4                 : return "4";
-      case OP_5                 : return "5";
-      case OP_6                 : return "6";
-      case OP_7                 : return "7";
-      case OP_8                 : return "8";
-      case OP_9                 : return "9";
-      case OP_10                : return "10";
-      case OP_11                : return "11";
-      case OP_12                : return "12";
-      case OP_13                : return "13";
-      case OP_14                : return "14";
-      case OP_15                : return "15";
-      case OP_16                : return "16";
+      case OP_1                 : return "OP_1";
+      case OP_2                 : return "OP_2";
+      case OP_3                 : return "OP_3";
+      case OP_4                 : return "OP_4";
+      case OP_5                 : return "OP_5";
+      case OP_6                 : return "OP_6";
+      case OP_7                 : return "OP_7";
+      case OP_8                 : return "OP_8";
+      case OP_9                 : return "OP_9";
+      case OP_10                : return "OP_10";
+      case OP_11                : return "OP_11";
+      case OP_12                : return "OP_12";
+      case OP_13                : return "OP_13";
+      case OP_14                : return "OP_14";
+      case OP_15                : return "OP_15";
+      case OP_16                : return "OP_16";
    
       // control
       case OP_NOP               : return "OP_NOP";
@@ -1400,6 +1400,7 @@ public:
    }
 
 
+   /*
    static bool verifyProofOfWork(BinaryDataRef bh80)
    {
       BinaryData theHash = getHash256(bh80);
@@ -1411,7 +1412,6 @@ public:
    {
       return verifyProofOfWork(bh80.getRef(), theHash.getRef());
    }
-
 
    static bool verifyProofOfWork(BinaryDataRef bh80, BinaryDataRef bhrHash)
    {
@@ -1431,6 +1431,7 @@ public:
 
       return true;
    }
+   */
 
 };
    

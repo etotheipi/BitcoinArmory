@@ -131,11 +131,7 @@ public:
    TxRef(BinaryDataRef bdr, InterfaceToLevelDB* ifc) { setRef(bdr, ifc); }
 
    /////////////////////////////////////////////////////////////////////////////
-   void setRef(BinaryDataRef bdr=BinaryDataRef(), InterfaceToLevelDB* iface=NULL)
-   {
-      ldbKey6B_ = bdr.copy();
-      dbIface_ = (iface==NULL ? LevelDBWrapper().GetInterfacePtr() : iface);
-   }
+   void setRef(BinaryDataRef bdr=BinaryDataRef(), InterfaceToLevelDB* iface=NULL);
      
    /////////////////////////////////////////////////////////////////////////////
    BinaryData         getThisHash(void) const;

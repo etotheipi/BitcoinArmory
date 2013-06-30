@@ -1145,8 +1145,6 @@ TEST_F(BtcUtilsTest, TxOutScriptID_Multisig)
 TEST_F(BtcUtilsTest, TxOutScriptID_MultiList)
 {
    BinaryData script = READHEX("5221034758cefcb75e16e4dfafb32383b709fa632086ea5ca982712de6add93060b17a2103fe96237629128a0ae8c3825af8a4be8fe3109b16f62af19cec0b1eb93b8717e252ae");
-   BinaryData pub1   = READHEX("034758cefcb75e16e4dfafb32383b709fa632086ea5ca982712de6add93060b17a");
-   BinaryData pub2   = READHEX("03fe96237629128a0ae8c3825af8a4be8fe3109b16f62af19cec0b1eb93b8717e2");
    BinaryData addr0  = READHEX("785652a6b8e721e80ffa353e5dfd84f0658284a9");
    BinaryData addr1  = READHEX("b3348abf9dd2d1491359f937e2af64b1bb6d525a");
    BinaryData a160   = BtcUtils::BadAddress_;
@@ -1284,11 +1282,76 @@ TEST_F(BtcUtilsTest, TxInScriptID_SpendP2SH)
 
 
 
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(BtcUtilsTest, BitsToDifficulty)
+{
+
+   double a = BtcUtils::convertDiffBitsToDouble(READHEX("ffff001d"));
+   double b = BtcUtils::convertDiffBitsToDouble(READHEX("be2f021a"));
+   double c = BtcUtils::convertDiffBitsToDouble(READHEX("3daa011a"));
+   
+   EXPECT_DOUBLE_EQ(a, 1.0);
+   EXPECT_DOUBLE_EQ(b, 7672999.920164138);
+   EXPECT_DOUBLE_EQ(c, 10076292.883418716);
+}
 
 
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(BtcUtilsTest, ScriptToOpCodes)
+{
+   BinaryData complexScript = READHEX(
+      "526b006b7dac7ca9143cd1def404e12a85ead2b4d3f5f9f817fb0d46ef879a6c"
+      "936b7dac7ca9146a4e7d5f798e90e84db9244d4805459f87275943879a6c936b"
+      "7dac7ca914486efdd300987a054510b4ce1148d4ad290d911e879a6c936b6c6ca2");
 
+   vector<string> opstr;
+   opstr.reserve(40);
+   opstr.push_back(string("OP_2"));
+   opstr.push_back(string("OP_TOALTSTACK"));
+   opstr.push_back(string("OP_0"));
+   opstr.push_back(string("OP_TOALTSTACK"));
+   opstr.push_back(string("OP_TUCK"));
+   opstr.push_back(string("OP_CHECKSIG"));
+   opstr.push_back(string("OP_SWAP"));
+   opstr.push_back(string("OP_HASH160"));
+   opstr.push_back(string("[PUSHDATA -- 20 BYTES:]"));
+   opstr.push_back(string("3cd1def404e12a85ead2b4d3f5f9f817fb0d46ef"));
+   opstr.push_back(string("OP_EQUAL"));
+   opstr.push_back(string("OP_BOOLAND"));
+   opstr.push_back(string("OP_FROMALTSTACK"));
+   opstr.push_back(string("OP_ADD"));
+   opstr.push_back(string("OP_TOALTSTACK"));
+   opstr.push_back(string("OP_TUCK"));
+   opstr.push_back(string("OP_CHECKSIG"));
+   opstr.push_back(string("OP_SWAP"));
+   opstr.push_back(string("OP_HASH160"));
+   opstr.push_back(string("[PUSHDATA -- 20 BYTES:]"));
+   opstr.push_back(string("6a4e7d5f798e90e84db9244d4805459f87275943"));
+   opstr.push_back(string("OP_EQUAL"));
+   opstr.push_back(string("OP_BOOLAND"));
+   opstr.push_back(string("OP_FROMALTSTACK"));
+   opstr.push_back(string("OP_ADD"));
+   opstr.push_back(string("OP_TOALTSTACK"));
+   opstr.push_back(string("OP_TUCK"));
+   opstr.push_back(string("OP_CHECKSIG"));
+   opstr.push_back(string("OP_SWAP"));
+   opstr.push_back(string("OP_HASH160"));
+   opstr.push_back(string("[PUSHDATA -- 20 BYTES:]"));
+   opstr.push_back(string("486efdd300987a054510b4ce1148d4ad290d911e"));
+   opstr.push_back(string("OP_EQUAL"));
+   opstr.push_back(string("OP_BOOLAND"));
+   opstr.push_back(string("OP_FROMALTSTACK"));
+   opstr.push_back(string("OP_ADD"));
+   opstr.push_back(string("OP_TOALTSTACK"));
+   opstr.push_back(string("OP_FROMALTSTACK"));
+   opstr.push_back(string("OP_FROMALTSTACK"));
+   opstr.push_back(string("OP_GREATERTHANOREQUAL"));
 
-
+   vector<string> output = BtcUtils::convertScriptToOpStrings(complexScript);
+   ASSERT_EQ(output.size(), opstr.size());
+   for(uint32_t i=0; i<opstr.size(); i++)
+      EXPECT_EQ(output[i], opstr[i]);
+}
 
 
 

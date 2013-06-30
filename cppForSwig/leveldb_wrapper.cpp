@@ -1,11 +1,13 @@
 #include <iostream>
 #include <sstream>
 #include <map>
+#include <vector>
 #include "BtcUtils.h"
 #include "BlockObj.h"
 #include "StoredBlockObj.h"
 #include "leveldb_wrapper.h"
 
+vector<InterfaceToLevelDB*> LevelDBWrapper::ifaceVect_(1);
 
 ////////////////////////////////////////////////////////////////////////////////
 inline bool InterfaceToLevelDB::checkStatus(leveldb::Status stat, bool warn)

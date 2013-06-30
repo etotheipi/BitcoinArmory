@@ -681,6 +681,11 @@ BinaryData TxRef::getThisHash(void) const
    dbIface_->getTxHashForLdbKey(ldbKey6B_);
 }
 
+void TxRef::setRef(BinaryDataRef bdr, InterfaceToLevelDB* iface)
+{
+   ldbKey6B_ = bdr.copy();
+   dbIface_ = (iface==NULL ? LevelDBWrapper().GetInterfacePtr() : iface);
+}
 
 /////////////////////////////////////////////////////////////////////////////
 uint32_t TxRef::getBlockHeight(void) const

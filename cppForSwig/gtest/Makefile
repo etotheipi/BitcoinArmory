@@ -20,7 +20,33 @@ GTEST_DIR = ../../../googletest
 USER_DIR = ..
 
 # Flags passed to the preprocessor.
-CPPFLAGS += -I$(GTEST_DIR)/include -I$(USER_DIR) -I$(USER_DIR)/cryptopp -L$(USER_DIR) -L$(USER_DIR)/cryptopp 
+CPPFLAGS += -I$(GTEST_DIR)/include \
+				-I$(USER_DIR) \
+				-I$(USER_DIR)/cryptopp \
+				-I$(USER_DIR)/leveldb/include \
+				-L$(USER_DIR) \
+				-L$(USER_DIR)/cryptopp \
+				-L$(USER_DIR)/leveldb \
+				-D__STDC_LIMIT_MACROS
+
+HEADERS += 	$(USER_DIR)/BinaryData.h \
+		 		$(USER_DIR)/BtcUtils.h \
+		 		$(USER_DIR)/BlockObj.h \
+		 		$(USER_DIR)/StoredBlockObj.h \
+		 		$(USER_DIR)/leveldb_wrapper.h \
+		 		$(USER_DIR)/EncryptionUtils.h \
+		 		$(USER_DIR)/PartialMerkle.h
+
+OBJECTS += 	$(USER_DIR)/BinaryData.o \
+		 		$(USER_DIR)/BtcUtils.o \
+		 		$(USER_DIR)/BlockObj.o \
+		 		$(USER_DIR)/StoredBlockObj.o \
+		 		$(USER_DIR)/leveldb_wrapper.o \
+		 		$(USER_DIR)/EncryptionUtils.o \
+		 		$(USER_DIR)/UniversalTimer.o \
+		 		$(USER_DIR)/leveldb_wrapper.o \
+		 		$(USER_DIR)/libcryptopp.a \
+		 		$(USER_DIR)/libleveldb.a
 
 # Flags passed to the C++ compiler.
 CXXFLAGS += -g 
@@ -80,10 +106,10 @@ gtest_main.a : gtest-all.o gtest_main.o
 	#$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ -lpthread -o $@
 
 
-CppBlockUtilsTests.o : CppBlockUtilsTests.cpp $(USER_DIR)/BinaryData.h $(USER_DIR)/BtcUtils.h $(GTEST_HEADERS)
+CppBlockUtilsTests.o : CppBlockUtilsTests.cpp $(HEADERS) $(GTEST_HEADERS)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c CppBlockUtilsTests.cpp 
 
-CppBlockUtilsTests : $(USER_DIR)/BinaryData.o $(USER_DIR)/BtcUtils.o CppBlockUtilsTests.o gtest.a
+CppBlockUtilsTests : $(OBJECTS) CppBlockUtilsTests.o gtest.a
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ -lpthread -lcryptopp -o $@
 
 
