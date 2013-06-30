@@ -127,7 +127,7 @@ typedef enum
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 //
-// InterfaceToLevelDB
+// InterfaceToLDB
 //
 // This is intended to be the only part of the project that communicates 
 // directly with LevelDB objects.  All the public methods only interact with 
@@ -147,7 +147,7 @@ typedef enum
 //
 // NOTE 1: This class was designed with certain optimizations that may cause 
 //         unexpected behavior if you are not aware of it.  The following 
-//         methods return/modify static member of InterfaceToLevelDB:
+//         methods return/modify static member of InterfaceToLDB:
 //
 //            getValue*
 //            seekTo*
@@ -181,15 +181,15 @@ typedef enum
 //          
 
 
-class InterfaceToLevelDB
+class InterfaceToLDB
 {
 private:
    /////////////////////////////////////////////////////////////////////////////
-   InterfaceToLevelDB(void);
+   InterfaceToLDB(void);
 
 
    /////////////////////////////////////////////////////////////////////////////
-   ~InterfaceToLevelDB(void);
+   ~InterfaceToLDB(void);
 
    /////////////////////////////////////////////////////////////////////////////
    leveldb::Slice binaryDataToSlice(BinaryData const & bd) 
@@ -227,9 +227,10 @@ private:
 
 
    
-   BLKDATA_TYPE readBlkDataKey5B( BinaryRefReader & brr,
-                                  uint32_t & height,
-                                  uint8_t  & dupID);
+   /////////////////////////////////////////////////////////////////////////////
+   static BLKDATA_TYPE readBlkDataKey5B( BinaryRefReader & brr,
+                                         uint32_t & height,
+                                         uint8_t  & dupID);
 
    /////////////////////////////////////////////////////////////////////////////
    void deleteIterator(DB_SELECT db);
@@ -329,24 +330,33 @@ public:
    void startBlkDataIteration(DB_PREFIX prefix);
 
    /////////////////////////////////////////////////////////////////////////////
-   uint32_t hgtxToHeight(uint32_t hgtX)  {return (hgtX & 0xffffff00)>>8;}
-   uint8_t  hgtxToDupID(uint32_t hgtX)   {return (hgtX & 0x000000ff);}
-   uint32_t heightAndDupToHgtx(uint32_t hgt, uint8_t dup) {return hgt<<8|dup;}
+   static uint32_t hgtxToHeight(uint32_t hgtX)  {return (hgtX & 0xffffff00)>>8;}
+   static uint8_t  hgtxToDupID(uint32_t hgtX)   {return (hgtX & 0x000000ff);}
+   static uint32_t heightAndDupToHgtx(uint32_t hgt, uint8_t dup) {return hgt<<8|dup;}
 
-   BinaryData getBlkDataKey(uint32_t height, 
-                            uint8_t  dup,
-                            bool     withPrefix=true);
+   static BinaryData getBlkDataKey(uint32_t height, 
+                                   uint8_t  dup);
 
-   BinaryData getBlkDataKey(uint32_t height, 
-                            uint8_t  dup,
-                            uint16_t txIdx, 
-                            bool     withPrefix=true);
+   static BinaryData getBlkDataKey(uint32_t height, 
+                                   uint8_t  dup,
+                                   uint16_t txIdx);
 
-   BinaryData getBlkDataKey(uint32_t height, 
-                            uint8_t  dup,
-                            uint16_t txIdx,
-                            uint16_t txOutIdx,
-                            bool     withPrefix=true);
+   static BinaryData getBlkDataKey(uint32_t height, 
+                                   uint8_t  dup,
+                                   uint16_t txIdx,
+                                   uint16_t txOutIdx);
+
+   static BinaryData getBlkDataKeyNoPrefix(uint32_t height, 
+                                           uint8_t  dup);
+
+   static BinaryData getBlkDataKeyNoPrefix(uint32_t height, 
+                                           uint8_t  dup,
+                                           uint16_t txIdx);
+
+   static BinaryData getBlkDataKeyNoPrefix(uint32_t height, 
+                                           uint8_t  dup,
+                                           uint16_t txIdx,
+                                           uint16_t txOutIdx);
 
 
    /////////////////////////////////////////////////////////////////////////////
@@ -601,7 +611,7 @@ class LevelDBWrapper
 public:
 
    /////////////////////////////////////////////////////////////////////////////
-   static InterfaceToLevelDB & GetInterface(uint32_t i=0)
+   InterfaceToLDB & GetInterface(uint32_t i=0)
    {
       if(ifaceVect_.size() < i+1)
       {
@@ -613,7 +623,7 @@ public:
    }
 
    /////////////////////////////////////////////////////////////////////////////
-   static InterfaceToLevelDB* GetInterfacePtr(uint32_t i=0)
+   InterfaceToLDB* GetInterfacePtr(uint32_t i=0)
    {
       if(ifaceVect_.size() < i+1)
       {
@@ -625,7 +635,8 @@ public:
    }
 
 private:
-   static vector<InterfaceToLevelDB*> ifaceVect_;
+
+   static vector<InterfaceToLDB*> ifaceVect_;
 };
 
 

@@ -5,6 +5,8 @@
 #include "../log.h"
 #include "../BinaryData.h"
 #include "../BtcUtils.h"
+#include "../BlockObj.h"
+#include "../StoredBlockObj.h"
 
 #define READHEX BinaryData::CreateFromHex
 
@@ -796,23 +798,23 @@ protected:
    virtual void SetUp(void) 
    {
       rawHead_ = READHEX(
-            "010000001d8f4ec0443e1f19f305e488c1085c95de7cc3fd25e0d2c5bb5d0000"
-            "000000009762547903d36881a86751f3f5049e23050113f779735ef82734ebf0"
-            "b4450081d8c8c84db3936a1a334b035b");
+         "010000001d8f4ec0443e1f19f305e488c1085c95de7cc3fd25e0d2c5bb5d0000"
+         "000000009762547903d36881a86751f3f5049e23050113f779735ef82734ebf0"
+         "b4450081d8c8c84db3936a1a334b035b");
       headHashLE_ = READHEX(
-            "1195e67a7a6d0674bbd28ae096d602e1f038c8254b49dfe79d47000000000000");
+         "1195e67a7a6d0674bbd28ae096d602e1f038c8254b49dfe79d47000000000000");
       headHashBE_ = READHEX(
-            "000000000000479de7df494b25c838f0e102d696e08ad2bb74066d7a7ae69511");
+         "000000000000479de7df494b25c838f0e102d696e08ad2bb74066d7a7ae69511");
 
       satoshiPubKey_ = READHEX( "04"
-            "fc9702847840aaf195de8442ebecedf5b095cdbb9bc716bda9110971b28a49e0"
-            "ead8564ff0db22209e0374782c093bb899692d524e9d6a6956e7c5ecbcd68284");
+         "fc9702847840aaf195de8442ebecedf5b095cdbb9bc716bda9110971b28a49e0"
+         "ead8564ff0db22209e0374782c093bb899692d524e9d6a6956e7c5ecbcd68284");
       satoshiHash160_ = READHEX("65a4358f4691660849d9f235eb05f11fabbd69fa");
 
       prevHashCB_  = READHEX(
-            "0000000000000000000000000000000000000000000000000000000000000000");
+         "0000000000000000000000000000000000000000000000000000000000000000");
       prevHashReg_ = READHEX(
-            "894862e362905c6075074d9ec4b4e2dc34720089b1e9ef4738ee1b13f3bdcdb7");
+         "894862e362905c6075074d9ec4b4e2dc34720089b1e9ef4738ee1b13f3bdcdb7");
    }
 
    BinaryData rawHead_;
@@ -1355,8 +1357,423 @@ TEST_F(BtcUtilsTest, ScriptToOpCodes)
 
 
 
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+class BlockObjTest : public ::testing::Test
+{
+protected:
+   virtual void SetUp(void) 
+   {
+      rawHead_ = READHEX(
+         "01000000"
+         "1d8f4ec0443e1f19f305e488c1085c95de7cc3fd25e0d2c5bb5d000000000000"
+         "9762547903d36881a86751f3f5049e23050113f779735ef82734ebf0b4450081"
+         "d8c8c84d"
+         "b3936a1a"
+         "334b035b");
+      headHashLE_ = READHEX(
+         "1195e67a7a6d0674bbd28ae096d602e1f038c8254b49dfe79d47000000000000");
+      headHashBE_ = READHEX(
+         "000000000000479de7df494b25c838f0e102d696e08ad2bb74066d7a7ae69511");
+
+      rawTx0_ = READHEX( 
+         "01000000016290dce984203b6a5032e543e9e272d8bce934c7de4d15fa0fe44d"
+         "d49ae4ece9010000008b48304502204f2fa458d439f957308bca264689aa175e"
+         "3b7c5f78a901cb450ebd20936b2c500221008ea3883a5b80128e55c9c6070aa6"
+         "264e1e0ce3d18b7cd7e85108ce3d18b7419a0141044202550a5a6d3bb81549c4"
+         "a7803b1ad59cdbba4770439a4923624a8acfc7d34900beb54a24188f7f0a4068"
+         "9d905d4847cc7d6c8d808a457d833c2d44ef83f76bffffffff0242582c0a0000"
+         "00001976a914c1b4695d53b6ee57a28647ce63e45665df6762c288ac80d1f008"
+         "000000001976a9140e0aec36fe2545fb31a41164fb6954adcd96b34288ac0000"
+         "0000");
+      rawTx1_ = READHEX( 
+         "0100000001f658dbc28e703d86ee17c9a2d3b167a8508b082fa0745f55be5144"
+         "a4369873aa010000008c49304602210041e1186ca9a41fdfe1569d5d807ca7ff"
+         "6c5ffd19d2ad1be42f7f2a20cdc8f1cc0221003366b5d64fe81e53910e156914"
+         "091d12646bc0d1d662b7a65ead3ebe4ab8f6c40141048d103d81ac9691cf13f3"
+         "fc94e44968ef67b27f58b27372c13108552d24a6ee04785838f34624b294afee"
+         "83749b64478bb8480c20b242c376e77eea2b3dc48b4bffffffff0200e1f50500"
+         "0000001976a9141b00a2f6899335366f04b277e19d777559c35bc888ac40aeeb"
+         "02000000001976a9140e0aec36fe2545fb31a41164fb6954adcd96b34288ac00"
+         "000000");
+
+      rawBlock_ = READHEX(
+         "01000000eb10c9a996a2340a4d74eaab41421ed8664aa49d18538bab59010000"
+         "000000005a2f06efa9f2bd804f17877537f2080030cadbfa1eb50e02338117cc"
+         "604d91b9b7541a4ecfbb0a1a64f1ade703010000000100000000000000000000"
+         "00000000000000000000000000000000000000000000ffffffff0804cfbb0a1a"
+         "02360affffffff0100f2052a01000000434104c2239c4eedb3beb26785753463"
+         "be3ec62b82f6acd62efb65f452f8806f2ede0b338e31d1f69b1ce449558d7061"
+         "aa1648ddc2bf680834d3986624006a272dc21cac000000000100000003e8caa1"
+         "2bcb2e7e86499c9de49c45c5a1c6167ea4b894c8c83aebba1b6100f343010000"
+         "008c493046022100e2f5af5329d1244807f8347a2c8d9acc55a21a5db769e927"
+         "4e7e7ba0bb605b26022100c34ca3350df5089f3415d8af82364d7f567a6a297f"
+         "cc2c1d2034865633238b8c014104129e422ac490ddfcb7b1c405ab9fb4244124"
+         "6c4bca578de4f27b230de08408c64cad03af71ee8a3140b40408a7058a1984a9"
+         "f246492386113764c1ac132990d1ffffffff5b55c18864e16c08ef9989d31c7a"
+         "343e34c27c30cd7caa759651b0e08cae0106000000008c4930460221009ec9aa"
+         "3e0caf7caa321723dea561e232603e00686d4bfadf46c5c7352b07eb00022100"
+         "a4f18d937d1e2354b2e69e02b18d11620a6a9332d563e9e2bbcb01cee559680a"
+         "014104411b35dd963028300e36e82ee8cf1b0c8d5bf1fc4273e970469f5cb931"
+         "ee07759a2de5fef638961726d04bd5eb4e5072330b9b371e479733c942964bb8"
+         "6e2b22ffffffff3de0c1e913e6271769d8c0172cea2f00d6d3240afc3a20f9fa"
+         "247ce58af30d2a010000008c493046022100b610e169fd15ac9f60fe2b507529"
+         "281cf2267673f4690ba428cbb2ba3c3811fd022100ffbe9e3d71b21977a8e97f"
+         "de4c3ba47b896d08bc09ecb9d086bb59175b5b9f03014104ff07a1833fd8098b"
+         "25f48c66dcf8fde34cbdbcc0f5f21a8c2005b160406cbf34cc432842c6b37b25"
+         "90d16b165b36a3efc9908d65fb0e605314c9b278f40f3e1affffffff0240420f"
+         "00000000001976a914adfa66f57ded1b655eb4ccd96ee07ca62bc1ddfd88ac00"
+         "7d6a7d040000001976a914981a0c9ae61fa8f8c96ae6f8e383d6e07e77133e88"
+         "ac00000000010000000138e7586e0784280df58bd3dc5e3d350c9036b1ec4107"
+         "951378f45881799c92a4000000008a47304402207c945ae0bbdaf9dadba07bdf"
+         "23faa676485a53817af975ddf85a104f764fb93b02201ac6af32ddf597e610b4"
+         "002e41f2de46664587a379a0161323a85389b4f82dda014104ec8883d3e4f7a3"
+         "9d75c9f5bb9fd581dc9fb1b7cdf7d6b5a665e4db1fdb09281a74ab138a2dba25"
+         "248b5be38bf80249601ae688c90c6e0ac8811cdb740fcec31dffffffff022f66"
+         "ac61050000001976a914964642290c194e3bfab661c1085e47d67786d2d388ac"
+         "2f77e200000000001976a9141486a7046affd935919a3cb4b50a8a0c233c286c"
+         "88ac00000000");
+
+      bh_.unserialize(rawHead_);
+      tx1_.unserialize(rawTx0_);
+      tx2_.unserialize(rawTx1_);
+   }
+
+   BinaryData rawHead_;
+   BinaryData headHashLE_;
+   BinaryData headHashBE_;
+
+   BinaryData rawBlock_;
+
+   BinaryData rawTx0_;
+   BinaryData rawTx1_;
+
+   BlockHeader bh_;
+   Tx tx1_;
+   Tx tx2_;
+};
 
 
+
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(BlockObjTest, HeaderNoInit)
+{
+   BlockHeader bh;
+   EXPECT_FALSE(bh.isInitialized());
+   EXPECT_EQ(bh.getNumTx(), UINT32_MAX);
+   EXPECT_EQ(bh.getBlockSize(), UINT32_MAX);
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(BlockObjTest, HeaderUnserialize)
+{
+   EXPECT_TRUE(bh_.isInitialized());
+   EXPECT_EQ(bh_.getNumTx(), UINT32_MAX);
+   EXPECT_EQ(bh_.getBlockSize(), UINT32_MAX);
+   EXPECT_EQ(bh_.getVersion(), 1);
+   EXPECT_EQ(bh_.getThisHash(), headHashLE_);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(BlockObjTest, HeaderProps)
+{
+   BinaryData prevHash = READHEX(
+      "1d8f4ec0443e1f19f305e488c1085c95de7cc3fd25e0d2c5bb5d000000000000");
+   BinaryData merkleRoot = READHEX(
+      "9762547903d36881a86751f3f5049e23050113f779735ef82734ebf0b4450081");
+
+   // The values are actually little-endian in the serialization, but 
+   // 0x____ notation requires big-endian
+   uint32_t   timestamp =        0x4dc8c8d8;
+   uint32_t   nonce     =        0x5b034b33;
+   BinaryData diffBits  = READHEX("b3936a1a");
+
+   EXPECT_EQ(bh_.getPrevHash(), prevHash);
+   EXPECT_EQ(bh_.getTimestamp(), timestamp);
+   EXPECT_EQ(bh_.getDiffBits(), diffBits);
+   EXPECT_EQ(bh_.getNonce(), nonce);
+   EXPECT_DOUBLE_EQ(bh_.getDifficulty(), 157416.40184364893);
+
+   BinaryDataRef bdrThis(headHashLE_);
+   BinaryDataRef bdrPrev(rawHead_.getPtr()+4, 32);
+   EXPECT_EQ(bh_.getThisHashRef(), bdrThis);
+   EXPECT_EQ(bh_.getPrevHashRef(), bdrPrev);
+
+   EXPECT_EQ(BlockHeader(rawHead_).serialize(), rawHead_);
+}
+
+
+
+
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(BlockObjTest, TxRefNoInit)
+{
+   TxRef txr;
+   EXPECT_FALSE(txr.isInitialized());
+   EXPECT_FALSE(txr.isBound());
+
+   EXPECT_EQ(txr.getLevelDBKey(),     BinaryData(0));
+   EXPECT_EQ(txr.getLevelDBKeyRef(),  BinaryDataRef());
+   EXPECT_EQ(txr.getBlockTimestamp(), UINT32_MAX);
+   EXPECT_EQ(txr.getBlockHeight(),    UINT32_MAX);
+   EXPECT_EQ(txr.getBlockDupID(),     UINT8_MAX );
+   EXPECT_EQ(txr.getBlockTxIndex(),   UINT16_MAX);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(BlockObjTest, TxRefKeyParts)
+{
+   TxRef txr;
+   //BinaryData    newKey = READHEX("02c4e3020100");
+   BinaryData    newKey = READHEX("7fe3c4020f00");
+   BinaryDataRef newRef(newKey);
+
+
+   txr.setLevelDBKey(newKey);
+   EXPECT_EQ(txr.getLevelDBKey(),    newKey);
+   EXPECT_EQ(txr.getLevelDBKeyRef(), newRef);
+
+   EXPECT_EQ(txr.getBlockHeight(),  0x02c4e3);
+   EXPECT_EQ(txr.getBlockDupID(),   127);
+   EXPECT_EQ(txr.getBlockTxIndex(), 15);
+}
+
+
+
+
+class StoredBlockObjTest : public ::testing::Test
+{
+protected:
+   virtual void SetUp(void) 
+   {
+      rawHead_ = READHEX(
+         "01000000"
+         "1d8f4ec0443e1f19f305e488c1085c95de7cc3fd25e0d2c5bb5d000000000000"
+         "9762547903d36881a86751f3f5049e23050113f779735ef82734ebf0b4450081"
+         "d8c8c84d"
+         "b3936a1a"
+         "334b035b");
+      headHashLE_ = READHEX(
+         "1195e67a7a6d0674bbd28ae096d602e1f038c8254b49dfe79d47000000000000");
+      headHashBE_ = READHEX(
+         "000000000000479de7df494b25c838f0e102d696e08ad2bb74066d7a7ae69511");
+
+      rawTx0_ = READHEX( 
+         "01000000016290dce984203b6a5032e543e9e272d8bce934c7de4d15fa0fe44d"
+         "d49ae4ece9010000008b48304502204f2fa458d439f957308bca264689aa175e"
+         "3b7c5f78a901cb450ebd20936b2c500221008ea3883a5b80128e55c9c6070aa6"
+         "264e1e0ce3d18b7cd7e85108ce3d18b7419a0141044202550a5a6d3bb81549c4"
+         "a7803b1ad59cdbba4770439a4923624a8acfc7d34900beb54a24188f7f0a4068"
+         "9d905d4847cc7d6c8d808a457d833c2d44ef83f76bffffffff0242582c0a0000"
+         "00001976a914c1b4695d53b6ee57a28647ce63e45665df6762c288ac80d1f008"
+         "000000001976a9140e0aec36fe2545fb31a41164fb6954adcd96b34288ac0000"
+         "0000");
+      rawTx1_ = READHEX( 
+         "0100000001f658dbc28e703d86ee17c9a2d3b167a8508b082fa0745f55be5144"
+         "a4369873aa010000008c49304602210041e1186ca9a41fdfe1569d5d807ca7ff"
+         "6c5ffd19d2ad1be42f7f2a20cdc8f1cc0221003366b5d64fe81e53910e156914"
+         "091d12646bc0d1d662b7a65ead3ebe4ab8f6c40141048d103d81ac9691cf13f3"
+         "fc94e44968ef67b27f58b27372c13108552d24a6ee04785838f34624b294afee"
+         "83749b64478bb8480c20b242c376e77eea2b3dc48b4bffffffff0200e1f50500"
+         "0000001976a9141b00a2f6899335366f04b277e19d777559c35bc888ac40aeeb"
+         "02000000001976a9140e0aec36fe2545fb31a41164fb6954adcd96b34288ac00"
+         "000000");
+
+      rawBlock_ = READHEX(
+         "01000000eb10c9a996a2340a4d74eaab41421ed8664aa49d18538bab59010000"
+         "000000005a2f06efa9f2bd804f17877537f2080030cadbfa1eb50e02338117cc"
+         "604d91b9b7541a4ecfbb0a1a64f1ade703010000000100000000000000000000"
+         "00000000000000000000000000000000000000000000ffffffff0804cfbb0a1a"
+         "02360affffffff0100f2052a01000000434104c2239c4eedb3beb26785753463"
+         "be3ec62b82f6acd62efb65f452f8806f2ede0b338e31d1f69b1ce449558d7061"
+         "aa1648ddc2bf680834d3986624006a272dc21cac000000000100000003e8caa1"
+         "2bcb2e7e86499c9de49c45c5a1c6167ea4b894c8c83aebba1b6100f343010000"
+         "008c493046022100e2f5af5329d1244807f8347a2c8d9acc55a21a5db769e927"
+         "4e7e7ba0bb605b26022100c34ca3350df5089f3415d8af82364d7f567a6a297f"
+         "cc2c1d2034865633238b8c014104129e422ac490ddfcb7b1c405ab9fb4244124"
+         "6c4bca578de4f27b230de08408c64cad03af71ee8a3140b40408a7058a1984a9"
+         "f246492386113764c1ac132990d1ffffffff5b55c18864e16c08ef9989d31c7a"
+         "343e34c27c30cd7caa759651b0e08cae0106000000008c4930460221009ec9aa"
+         "3e0caf7caa321723dea561e232603e00686d4bfadf46c5c7352b07eb00022100"
+         "a4f18d937d1e2354b2e69e02b18d11620a6a9332d563e9e2bbcb01cee559680a"
+         "014104411b35dd963028300e36e82ee8cf1b0c8d5bf1fc4273e970469f5cb931"
+         "ee07759a2de5fef638961726d04bd5eb4e5072330b9b371e479733c942964bb8"
+         "6e2b22ffffffff3de0c1e913e6271769d8c0172cea2f00d6d3240afc3a20f9fa"
+         "247ce58af30d2a010000008c493046022100b610e169fd15ac9f60fe2b507529"
+         "281cf2267673f4690ba428cbb2ba3c3811fd022100ffbe9e3d71b21977a8e97f"
+         "de4c3ba47b896d08bc09ecb9d086bb59175b5b9f03014104ff07a1833fd8098b"
+         "25f48c66dcf8fde34cbdbcc0f5f21a8c2005b160406cbf34cc432842c6b37b25"
+         "90d16b165b36a3efc9908d65fb0e605314c9b278f40f3e1affffffff0240420f"
+         "00000000001976a914adfa66f57ded1b655eb4ccd96ee07ca62bc1ddfd88ac00"
+         "7d6a7d040000001976a914981a0c9ae61fa8f8c96ae6f8e383d6e07e77133e88"
+         "ac00000000010000000138e7586e0784280df58bd3dc5e3d350c9036b1ec4107"
+         "951378f45881799c92a4000000008a47304402207c945ae0bbdaf9dadba07bdf"
+         "23faa676485a53817af975ddf85a104f764fb93b02201ac6af32ddf597e610b4"
+         "002e41f2de46664587a379a0161323a85389b4f82dda014104ec8883d3e4f7a3"
+         "9d75c9f5bb9fd581dc9fb1b7cdf7d6b5a665e4db1fdb09281a74ab138a2dba25"
+         "248b5be38bf80249601ae688c90c6e0ac8811cdb740fcec31dffffffff022f66"
+         "ac61050000001976a914964642290c194e3bfab661c1085e47d67786d2d388ac"
+         "2f77e200000000001976a9141486a7046affd935919a3cb4b50a8a0c233c286c"
+         "88ac00000000");
+
+      rawTxUnfrag_ = READHEX(
+         // Version
+         "01000000"
+         // NumTxIn
+         "02"
+         // Start TxIn0
+         "0044fbc929d78e4203eed6f1d3d39c0157d8e5c100bbe0886779c0"
+         "ebf6a69324010000008a47304402206568144ed5e7064d6176c74738b04c08ca"
+         "19ca54ddeb480084b77f45eebfe57802207927d6975a5ac0e1bb36f5c05356dc"
+         "da1f521770511ee5e03239c8e1eecf3aed0141045d74feae58c4c36d7c35beac"
+         "05eddddc78b3ce4b02491a2eea72043978056a8bc439b99ddaad327207b09ef1"
+         "6a8910828e805b0cc8c11fba5caea2ee939346d7ffffffff"
+         // Start TxIn1
+         "45c866b219b17695"
+         "2508f8e5aea728f950186554fc4a5807e2186a8e1c4009e5000000008c493046"
+         "022100bd5d41662f98cfddc46e86ea7e4a3bc8fe9f1dfc5c4836eaf7df582596"
+         "cfe0e9022100fc459ae4f59b8279d679003b88935896acd10021b6e2e4619377"
+         "e336b5296c5e014104c00bab76a708ba7064b2315420a1c533ca9945eeff9754"
+         "cdc574224589e9113469b4e71752146a10028079e04948ecdf70609bf1b9801f"
+         "6b73ab75947ac339e5ffffffff"
+         // NumTxOut
+         "02"
+         // Start TxOut0
+         "ac4c8bd5000000001976a9148dce8946f1c7763bb60ea5cf16ef514cbed0633b88ac"
+         // Start TxOut1
+         "002f6859000000001976a9146a59ac0e8f553f292dfe5e9f3aaa1da93499c15e88ac"
+         // Locktime
+         "00000000");
+
+      rawTxFragged_ = READHEX(
+         //"01000000020044fbc929d78e4203eed6f1d3d39c0157d8e5c100bbe0886779c0"
+         //"ebf6a69324010000008a47304402206568144ed5e7064d6176c74738b04c08ca"
+         //"19ca54ddeb480084b77f45eebfe57802207927d6975a5ac0e1bb36f5c05356dc"
+         //"da1f521770511ee5e03239c8e1eecf3aed0141045d74feae58c4c36d7c35beac"
+         //"05eddddc78b3ce4b02491a2eea72043978056a8bc439b99ddaad327207b09ef1"
+         //"6a8910828e805b0cc8c11fba5caea2ee939346d7ffffffff45c866b219b17695"
+         //"2508f8e5aea728f950186554fc4a5807e2186a8e1c4009e5000000008c493046"
+         //"022100bd5d41662f98cfddc46e86ea7e4a3bc8fe9f1dfc5c4836eaf7df582596"
+         //"cfe0e9022100fc459ae4f59b8279d679003b88935896acd10021b6e2e4619377"
+         //"e336b5296c5e014104c00bab76a708ba7064b2315420a1c533ca9945eeff9754"
+         //"cdc574224589e9113469b4e71752146a10028079e04948ecdf70609bf1b9801f"
+         //"6b73ab75947ac339e5ffffffff0200000000");
+         // Version
+         "01000000"
+         // NumTxIn
+         "02"
+         // Start TxIn0
+         "0044fbc929d78e4203eed6f1d3d39c0157d8e5c100bbe0886779c0"
+         "ebf6a69324010000008a47304402206568144ed5e7064d6176c74738b04c08ca"
+         "19ca54ddeb480084b77f45eebfe57802207927d6975a5ac0e1bb36f5c05356dc"
+         "da1f521770511ee5e03239c8e1eecf3aed0141045d74feae58c4c36d7c35beac"
+         "05eddddc78b3ce4b02491a2eea72043978056a8bc439b99ddaad327207b09ef1"
+         "6a8910828e805b0cc8c11fba5caea2ee939346d7ffffffff"
+         // Start TxIn1
+         "45c866b219b17695"
+         "2508f8e5aea728f950186554fc4a5807e2186a8e1c4009e5000000008c493046"
+         "022100bd5d41662f98cfddc46e86ea7e4a3bc8fe9f1dfc5c4836eaf7df582596"
+         "cfe0e9022100fc459ae4f59b8279d679003b88935896acd10021b6e2e4619377"
+         "e336b5296c5e014104c00bab76a708ba7064b2315420a1c533ca9945eeff9754"
+         "cdc574224589e9113469b4e71752146a10028079e04948ecdf70609bf1b9801f"
+         "6b73ab75947ac339e5ffffffff"
+         // NumTxOut
+         "02"
+         // ... TxOuts fragged out 
+         // Locktime
+         "00000000");
+
+      rawTxOut0_ = READHEX(
+         // Value
+         "ac4c8bd500000000"
+         // Script size (var_int)
+         "19"
+         // Script
+         "76a9148dce8946f1c7763bb60ea5cf16ef514cbed0633b88ac");
+      rawTxOut1_ = READHEX(
+         // Value 
+         "002f685900000000"
+         // Script size (var_int)
+         "19"
+         // Script
+         "76a9146a59ac0e8f553f292dfe5e9f3aaa1da93499c15e88ac");
+
+      bh_.unserialize(rawHead_);
+      tx1_.unserialize(rawTx0_);
+      tx2_.unserialize(rawTx1_);
+   }
+
+   BinaryData rawHead_;
+   BinaryData headHashLE_;
+   BinaryData headHashBE_;
+
+   BinaryData rawBlock_;
+
+   BinaryData rawTx0_;
+   BinaryData rawTx1_;
+
+   BlockHeader bh_;
+   Tx tx1_;
+   Tx tx2_;
+
+   BinaryData rawTxUnfrag_;
+   BinaryData rawTxFragged_;
+   BinaryData rawTxOut0_;
+   BinaryData rawTxOut1_;
+};
+
+
+
+TEST_F(StoredBlockObjTest, LengthUnfrag)
+{
+   StoredTx tx;
+   vector<uint32_t> offin, offout;
+
+   uint32_t lenUnfrag  = BtcUtils::StoredTxCalcLength( rawTxUnfrag_.getPtr(), 
+                                                       false, 
+                                                       &offin, 
+                                                       &offout);
+   ASSERT_EQ(lenUnfrag,  438);
+
+   ASSERT_EQ(offin.size(),    3);
+   EXPECT_EQ(offin[0],        5);
+   EXPECT_EQ(offin[1],      184);
+   EXPECT_EQ(offin[2],      365);
+
+   ASSERT_EQ(offout.size(),   3);
+   EXPECT_EQ(offout[0],     366);
+   EXPECT_EQ(offout[1],     400);
+   EXPECT_EQ(offout[2],     434);
+}
+
+
+
+TEST_F(StoredBlockObjTest, LengthFragged)
+{
+   vector<uint32_t> offin, offout;
+
+   uint32_t lenFragged = BtcUtils::StoredTxCalcLength( rawTxFragged_.getPtr(), 
+                                                       true, 
+                                                       &offin, 
+                                                       &offout);
+   ASSERT_EQ(lenFragged, 370);
+
+   ASSERT_EQ(offin.size(),    3);
+   EXPECT_EQ(offin[0],        5);
+   EXPECT_EQ(offin[1],      184);
+   EXPECT_EQ(offin[2],      365);
+   
+   ASSERT_EQ(offout.size(),   3);
+   EXPECT_EQ(offout[0],     366);
+   EXPECT_EQ(offout[1],     366);
+   EXPECT_EQ(offout[2],     366);
+
+}
 
 
 

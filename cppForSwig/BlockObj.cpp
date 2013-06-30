@@ -34,7 +34,7 @@ void BlockHeader::unserialize(uint8_t const * ptr)
    isMainBranch_ = false;
    isOrphan_ = true;
    //txPtrList_ = vector<TxRef*>(0);
-   numTx_ = 0;
+   numTx_ = UINT32_MAX;
    wholeBlockSize_ = UINT32_MAX;
 }
 
@@ -653,6 +653,9 @@ void Tx::pprintAlot(ostream & os)
 /////////////////////////////////////////////////////////////////////////////
 BinaryData TxRef::serialize(void) const 
 { 
+   if(!isBound())
+      return BinaryData(0);
+
    return dbIface_->getFullTxCopy(ldbKey6B_).serialize();
 }
 
@@ -660,6 +663,9 @@ BinaryData TxRef::serialize(void) const
 /////////////////////////////////////////////////////////////////////////////
 Tx TxRef::getTxCopy(void) const
 {
+   if(!isBound())
+      return Tx();
+
    return dbIface_->getFullTxCopy(ldbKey6B_);
 }
 
@@ -670,6 +676,9 @@ bool TxRef::isMainBranch(void) const
       return false;
    else
    {
+      if(!isBound())
+         return false;
+
       uint8_t dup8 = dbIface_->getValidDupIDForHeight(getBlockHeight());
       return (getBlockDupID() == dup8);
    }
@@ -678,13 +687,24 @@ bool TxRef::isMainBranch(void) const
 /////////////////////////////////////////////////////////////////////////////
 BinaryData TxRef::getThisHash(void) const
 {
+   if(!isBound())
+      return BinaryData(0);
+
    dbIface_->getTxHashForLdbKey(ldbKey6B_);
 }
 
-void TxRef::setRef(BinaryDataRef bdr, InterfaceToLevelDB* iface)
+/////////////////////////////////////////////////////////////////////////////
+void TxRef::setRef(BinaryDataRef bdr, InterfaceToLDB* iface)
 {
    ldbKey6B_ = bdr.copy();
    dbIface_ = (iface==NULL ? LevelDBWrapper().GetInterfacePtr() : iface);
+}
+
+/////////////////////////////////////////////////////////////////////////////
+uint32_t TxRef::getBlockTimestamp(void)
+{
+   Log::ERR() << "Haven't implement timestamp retrieval yet!"; 
+   return UINT32_MAX;
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -700,7 +720,7 @@ uint32_t TxRef::getBlockHeight(void) const
 uint8_t TxRef::getBlockDupID(void) const
 {
    if(ldbKey6B_.getSize() == 6)
-      return *(ldbKey6B_.getPtr() + 3);
+      return (*(uint32_t*)ldbKey6B_.getPtr()) & 0x000000ff;
    else
       return UINT8_MAX;
 }

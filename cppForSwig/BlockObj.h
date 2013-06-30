@@ -21,7 +21,7 @@
 
 
 ////////////////////////////////////////////////////////////////////////////////
-class InterfaceToLevelDB;  
+class InterfaceToLDB;  
 class TxRef;
 class Tx;
 
@@ -29,7 +29,7 @@ class Tx;
 class BlockHeader
 {
    friend class BlockDataManager_LevelDB;
-   friend class InterfaceToLevelDB;
+   friend class InterfaceToLDB;
 
 public:
 
@@ -128,23 +128,24 @@ public:
    /////////////////////////////////////////////////////////////////////////////
    TxRef(void) { setRef(); }
    TxRef(BinaryDataRef bdr) { setRef(bdr); }
-   TxRef(BinaryDataRef bdr, InterfaceToLevelDB* ifc) { setRef(bdr, ifc); }
+   TxRef(BinaryDataRef bdr, InterfaceToLDB* ifc) { setRef(bdr, ifc); }
 
    /////////////////////////////////////////////////////////////////////////////
-   void setRef(BinaryDataRef bdr=BinaryDataRef(), InterfaceToLevelDB* iface=NULL);
+   void setRef(BinaryDataRef bdr=BinaryDataRef(), InterfaceToLDB* iface=NULL);
      
    /////////////////////////////////////////////////////////////////////////////
    BinaryData         getThisHash(void) const;
    Tx                 getTxCopy(void) const;
    bool               isMainBranch(void)  const;
    bool               isInitialized(void)  const {return ldbKey6B_.getSize()>0;}
+   bool               isBound(void)  const {return dbIface_!=NULL;}
 
    /////////////////////////////////////////////////////////////////////////////
    BlockHeader        getHeaderCopy(void)  const;
    BinaryData         getLevelDBKey(void)    { return ldbKey6B_;}
    BinaryDataRef      getLevelDBKeyRef(void) { return ldbKey6B_.getRef();}
-   void               setLevelDBKey(BinaryData    const & bd) { bd.copyTo(ldbKey6B_); }
-   void               setLevelDBKey(BinaryDataRef const & bd) { bd.copyTo(ldbKey6B_); }
+   void               setLevelDBKey(BinaryData    const & bd) { ldbKey6B_.copyFrom(bd); }
+   void               setLevelDBKey(BinaryDataRef const & bd) { ldbKey6B_.copyFrom(bd); }
 
 
    /////////////////////////////////////////////////////////////////////////////
@@ -158,7 +159,7 @@ public:
    BinaryData         serialize(void) const; 
 
    /////////////////////////////////////////////////////////////////////////////
-   uint32_t           getBlockTimestamp(void) const;
+   uint32_t           getBlockTimestamp(void);
    uint32_t           getBlockHeight(void) const;
    uint8_t            getBlockDupID(void) const;
    uint16_t           getBlockTxIndex(void) const;
@@ -179,7 +180,7 @@ private:
 
    // TxRefs are associated with a particular interface (at this time, there
    // will only be one interface).
-   InterfaceToLevelDB*  dbIface_;  
+   InterfaceToLDB*  dbIface_;  
 };
 
 
@@ -233,7 +234,7 @@ private:
 class TxIn
 {
    friend class BlockDataManager_LevelDB;
-   friend class InterfaceToLevelDB;
+   friend class InterfaceToLDB;
 
 public:
    TxIn(void) : dataCopy_(0), scriptType_(TXIN_SCRIPT_NONSTANDARD), 
@@ -326,7 +327,7 @@ private:
 class TxOut
 {
    friend class BlockDataManager_LevelDB;
-   friend class InterfaceToLevelDB;
+   friend class InterfaceToLDB;
 
 public:
 
@@ -412,7 +413,7 @@ private:
 class Tx
 {
    friend class BlockDataManager_LevelDB;
-   friend class InterfaceToLevelDB;
+   friend class InterfaceToLDB;
 
 public:
    Tx(void) : isInitialized_(false), headerPtr_(NULL),

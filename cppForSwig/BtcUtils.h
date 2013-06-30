@@ -706,6 +706,7 @@ public:
                                 vector<uint32_t> * offsetsOut=NULL)
    {
       BinaryRefReader brr(ptr);  
+
       
       // Tx Version;
       brr.advance(4);
@@ -734,8 +735,8 @@ public:
 
       if(fragged)
       {
-         offsetsOut->resize(nOut);
-         for(uint32_t i=0; i<nOut; i++)
+         offsetsOut->resize(nOut+1);
+         for(uint32_t i=0; i<nOut+1; i++)
             (*offsetsOut)[i] = brr.getPosition();
       }
       else
