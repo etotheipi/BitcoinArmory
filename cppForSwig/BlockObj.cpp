@@ -218,7 +218,10 @@ BinaryDataRef TxIn::getScriptRef(void) const
 
 
 /////////////////////////////////////////////////////////////////////////////
-void TxIn::unserialize(uint8_t const * ptr, uint32_t nbytes, TxRef parent, int32_t idx)
+void TxIn::unserialize(uint8_t const * ptr, 
+                       uint32_t        nbytes, 
+                       TxRef           parent, 
+                       uint32_t        idx)
 {
    parentTx_ = parent;
    index_ = idx;
@@ -229,13 +232,19 @@ void TxIn::unserialize(uint8_t const * ptr, uint32_t nbytes, TxRef parent, int32
 
    scriptType_ = BtcUtils::getTxInScriptType(getScriptRef(),
                                              BinaryDataRef(getPtr(),32));
+
+   if(!parentTx_.isInitialized())
+   {
+      parentHeight_ = UINT32_MAX;
+      parentHash_   = BinaryData(0);
+   }
 }
 
 /////////////////////////////////////////////////////////////////////////////
 void TxIn::unserialize(BinaryRefReader & brr, 
                        uint32_t nbytes,
                        TxRef parent, 
-                       int32_t idx)
+                       uint32_t idx)
 {
    unserialize(brr.getCurrPtr(), nbytes, parent, idx);
    brr.advance(getSize());
@@ -245,16 +254,16 @@ void TxIn::unserialize(BinaryRefReader & brr,
 void TxIn::unserialize(BinaryData const & str,
                        uint32_t nbytes,
                        TxRef parent,
-                       int32_t idx)
+                       uint32_t idx)
 {
    unserialize(str.getPtr(), nbytes, parent, idx);
 }
 
 /////////////////////////////////////////////////////////////////////////////
-void TxIn::unserialize(BinaryDataRef const & str,
+void TxIn::unserialize(BinaryDataRef str,
                        uint32_t nbytes,
                        TxRef parent,
-                       int32_t idx)
+                       uint32_t idx)
 {
    unserialize(str.getPtr(), nbytes, parent, idx);
 }
@@ -352,7 +361,7 @@ BinaryDataRef TxOut::getScriptRef(void)
 void TxOut::unserialize( uint8_t const * ptr,
                          uint32_t nbytes,
                          TxRef parent,
-                         int32_t idx)
+                         uint32_t idx)
 {
    parentTx_ = parent;
    index_ = idx;
@@ -363,13 +372,19 @@ void TxOut::unserialize( uint8_t const * ptr,
    BinaryDataRef scriptRef(dataCopy_.getPtr()+scriptOffset_, getScriptSize());
    scriptType_ = BtcUtils::getTxOutScriptType(scriptRef);
    recipientBinAddr20_ = BtcUtils::getTxOutRecipientAddr(scriptRef, scriptType_);
+
+   if(!parentTx_.isInitialized())
+   {
+      parentHeight_ = UINT32_MAX;
+      parentHash_   = BinaryData(0);
+   }
 }
 
 /////////////////////////////////////////////////////////////////////////////
 void TxOut::unserialize( BinaryData const & str,
                          uint32_t nbytes,
                          TxRef  parent,
-                         int32_t idx)
+                         uint32_t idx)
 {
    unserialize(str.getPtr(), nbytes, parent, idx);
 }
@@ -378,7 +393,7 @@ void TxOut::unserialize( BinaryData const & str,
 void TxOut::unserialize( BinaryDataRef const & str,
                          uint32_t nbytes,
                          TxRef  parent,
-                         int32_t idx)
+                         uint32_t idx)
 {
    unserialize(str.getPtr(), nbytes, parent, idx);
 }
@@ -387,7 +402,7 @@ void TxOut::unserialize( BinaryDataRef const & str,
 void TxOut::unserialize( BinaryRefReader & brr,
                          uint32_t nbytes,
                          TxRef  parent,
-                         int32_t idx)
+                         uint32_t idx)
 {
    unserialize( brr.getCurrPtr(), nbytes, parent, idx );
    brr.advance(getSize());
@@ -711,7 +726,7 @@ uint32_t TxRef::getBlockTimestamp(void)
 uint32_t TxRef::getBlockHeight(void) const
 {
    if(ldbKey6B_.getSize() == 6)
-      return (*(uint32_t*)ldbKey6B_.getPtr()) >> 8;
+      return InterfaceToLDB::hgtxToHeight(*(uint32_t*)ldbKey6B_.getPtr());
    else
       return UINT32_MAX;
 }
@@ -720,7 +735,7 @@ uint32_t TxRef::getBlockHeight(void) const
 uint8_t TxRef::getBlockDupID(void) const
 {
    if(ldbKey6B_.getSize() == 6)
-      return (*(uint32_t*)ldbKey6B_.getPtr()) & 0x000000ff;
+      return InterfaceToLDB::hgtxToDupID(*(uint32_t*)ldbKey6B_.getPtr());
    else
       return UINT8_MAX;
 }

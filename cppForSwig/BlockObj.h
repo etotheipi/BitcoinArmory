@@ -244,7 +244,7 @@ public:
    TxIn(uint8_t const * ptr,  
         uint32_t        nBytes=0, 
         TxRef           parent=TxRef(), 
-        int32_t         idx=-1) { unserialize(ptr, nBytes, parent, idx); } 
+        uint32_t        idx=UINT32_MAX) { unserialize(ptr, nBytes, parent, idx); } 
 
    uint8_t const *  getPtr(void) const { assert(isInitialized()); return dataCopy_.getPtr(); }
    uint32_t         getSize(void) const { assert(isInitialized()); return dataCopy_.getSize(); }
@@ -262,9 +262,10 @@ public:
 
    // SWIG doesn't handle these enums well, so we will provide some direct bools
    bool             isScriptStandard(void)   { return scriptType_ != TXIN_SCRIPT_NONSTANDARD;}
-   bool             isScriptUncomprKey(void) { return scriptType_ == TXIN_SCRIPT_STDUNCOMPR;}
-   bool             isScriptComprKey(void)   { return scriptType_ == TXIN_SCRIPT_STDCOMPR;}
+   bool             isScriptStdUncompr(void) { return scriptType_ == TXIN_SCRIPT_STDUNCOMPR;}
+   bool             isScriptStdCompr(void)   { return scriptType_ == TXIN_SCRIPT_STDCOMPR;}
    bool             isScriptCoinbase(void)   { return scriptType_ == TXIN_SCRIPT_COINBASE;}
+   bool             isScriptSpendMulti(void) { return scriptType_ == TXIN_SCRIPT_SPENDMULTI; }
    bool             isScriptSpendPubKey(void){ return scriptType_ == TXIN_SCRIPT_SPENDPUBKEY; }
    bool             isScriptSpendP2SH(void)  { return scriptType_ == TXIN_SCRIPT_SPENDP2SH; }
    bool             isScriptNonStd(void)     { return scriptType_ == TXIN_SCRIPT_NONSTANDARD; }
@@ -286,14 +287,25 @@ public:
    BinaryData       serialize(void)    { return dataCopy_; }
 
    /////////////////////////////////////////////////////////////////////////////
-   void unserialize(uint8_t const * ptr, 
-                        uint32_t nbytes=0, TxRef parent=TxRef(), int32_t idx=-1);
-   void unserialize(BinaryData    const & str, 
-                        uint32_t nbytes=0, TxRef parent=TxRef(), int32_t idx=-1);
-   void unserialize(BinaryDataRef const & str, 
-                        uint32_t nbytes=0, TxRef parent=TxRef(), int32_t idx=-1);
-   void unserialize(BinaryRefReader & brr, 
-                        uint32_t nbytes=0, TxRef parent=TxRef(), int32_t idx=-1);
+   void unserialize( uint8_t const * ptr, 
+                     uint32_t        nbytes=0, 
+                     TxRef           parent=TxRef(), 
+                     uint32_t        idx=UINT32_MAX);
+
+   void unserialize( BinaryData const & str, 
+                     uint32_t       nbytes=0, 
+                     TxRef          parent=TxRef(), 
+                     uint32_t       idx=UINT32_MAX);
+
+   void unserialize( BinaryDataRef  str, 
+                     uint32_t       nbytes=0, 
+                     TxRef          parent=TxRef(), 
+                     uint32_t       idx=UINT32_MAX);
+
+   void unserialize( BinaryRefReader & brr, 
+                     uint32_t       nbytes=0, 
+                     TxRef          parent=TxRef(), 
+                     uint32_t       idx=UINT32_MAX);
 
    void unserialize_swigsafe_(BinaryData const & rawIn) { unserialize(rawIn); }
 
@@ -336,7 +348,7 @@ public:
    TxOut(uint8_t const * ptr, 
          uint32_t        nBytes=0, 
          TxRef           parent=TxRef(), 
-         int32_t         idx=-1) { unserialize(ptr, nBytes, parent, idx); } 
+         uint32_t        idx=UINT32_MAX) { unserialize(ptr, nBytes, parent, idx); } 
 
    uint8_t const * getPtr(void) const { return dataCopy_.getPtr(); }
    uint32_t        getSize(void) const { return dataCopy_.getSize(); }
@@ -346,7 +358,7 @@ public:
    TxRef           getParentTxRef(void) { return parentTx_; }
    uint32_t        getIndex(void) { return index_; }
 
-   //void setParentTx(TxRef txref, int32_t idx=-1) { parentTx_=txref; index_=idx;}
+   //void setParentTx(TxRef txref, uint32_t idx=-1) { parentTx_=txref; index_=idx;}
 
 
    /////////////////////////////////////////////////////////////////////////////
@@ -379,14 +391,24 @@ public:
    void               setParentHeight(uint32_t blkheight) {parentHeight_ = blkheight;}
 
    /////////////////////////////////////////////////////////////////////////////
-   void unserialize(uint8_t const * ptr, 
-                         uint32_t nbytes=0, TxRef  parent=TxRef(), int32_t idx=-1);
-   void unserialize(BinaryData const & str, 
-                         uint32_t nbytes=0, TxRef  parent=TxRef(), int32_t idx=-1);
-   void unserialize(BinaryDataRef const & str, 
-                         uint32_t nbytes=0, TxRef  parent=TxRef(), int32_t idx=-1);
-   void unserialize(BinaryRefReader & brr, 
-                         uint32_t nbytes=0, TxRef  parent=TxRef(), int32_t idx=-1);
+   void unserialize( uint8_t const *   ptr, 
+                     uint32_t          nbytes=0, 
+                     TxRef             parent=TxRef(), 
+                     uint32_t          idx=UINT32_MAX);
+
+   void unserialize( BinaryData const & str, 
+                     uint32_t           nbytes=0, 
+                     TxRef              parent=TxRef(), 
+                     uint32_t           idx=UINT32_MAX);
+
+   void unserialize( BinaryDataRef const & str, 
+                     uint32_t          nbytes=0, 
+                     TxRef             parent=TxRef(), 
+                     uint32_t          idx=UINT32_MAX);
+   void unserialize( BinaryRefReader & brr, 
+                     uint32_t          nbytes=0, 
+                     TxRef             parent=TxRef(), 
+                     uint32_t          idx=UINT32_MAX);
 
    void unserialize_swigsafe_(BinaryData const & rawOut) { unserialize(rawOut); }
 

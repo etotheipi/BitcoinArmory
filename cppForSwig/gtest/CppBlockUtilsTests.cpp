@@ -308,6 +308,43 @@ TEST_F(BinaryDataTest, Endianness)
    EXPECT_EQ(bd4_, b);
 }
 
+
+TEST_F(BinaryDataTest, IntegerEndian)
+{
+   // 0x1234 in src code is always interpreted by the compiler as
+   // big-endian, regardless of the underlying architecture.  So 
+   // writing 0x1234 will be interpretted as an integer with value
+   // 4660 on all architectures.  
+   BinaryData a,b;
+
+   a = BinaryData::IntToStrLE<uint16_t>(0xabcd);
+   b = BinaryData::IntToStrBE<uint16_t>(0xabcd);
+   EXPECT_EQ(a, READHEX("cdab"));
+   EXPECT_EQ(b, READHEX("abcd"));
+
+   a = BinaryData::IntToStrLE((uint16_t)0xabcd);
+   b = BinaryData::IntToStrBE((uint16_t)0xabcd);
+   EXPECT_EQ(a, READHEX("cdab"));
+   EXPECT_EQ(b, READHEX("abcd"));
+
+   // This fails b/c it auto "promotes" non-suffix literals to int (4B)
+   a = BinaryData::IntToStrLE(0xabcd);
+   b = BinaryData::IntToStrBE(0xabcd);
+   EXPECT_NE(a, READHEX("cdab"));
+   EXPECT_NE(b, READHEX("abcd"));
+
+   a = BinaryData::IntToStrLE(0xfec38a11);
+   b = BinaryData::IntToStrBE(0xfec38a11);
+   EXPECT_EQ(a, READHEX("118ac3fe"));
+   EXPECT_EQ(b, READHEX("fec38a11"));
+
+   a = BinaryData::IntToStrLE(0x00000000fec38a11ULL);
+   b = BinaryData::IntToStrBE(0x00000000fec38a11ULL);
+   EXPECT_EQ(a, READHEX("118ac3fe00000000"));
+   EXPECT_EQ(b, READHEX("00000000fec38a11"));
+
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 TEST_F(BinaryDataTest, Find)
 {
@@ -1434,9 +1471,31 @@ protected:
          "2f77e200000000001976a9141486a7046affd935919a3cb4b50a8a0c233c286c"
          "88ac00000000");
 
-      bh_.unserialize(rawHead_);
-      tx1_.unserialize(rawTx0_);
-      tx2_.unserialize(rawTx1_);
+      rawTxIn_ = READHEX(
+         // OutPoint
+         "0044fbc929d78e4203eed6f1d3d39c0157d8e5c100bbe0886779c0ebf6a69324"
+         "01000000"
+         // Script Size
+         "8a"
+         // SigScript
+         "47304402206568144ed5e7064d6176c74738b04c08ca19ca54ddeb480084b77f"
+         "45eebfe57802207927d6975a5ac0e1bb36f5c05356dcda1f521770511ee5e032"
+         "39c8e1eecf3aed0141045d74feae58c4c36d7c35beac05eddddc78b3ce4b0249"
+         "1a2eea72043978056a8bc439b99ddaad327207b09ef16a8910828e805b0cc8c1"
+         "1fba5caea2ee939346d7"
+         // Sequence
+         "ffffffff");
+
+      rawTxOut_ = READHEX(
+         // Value
+         "ac4c8bd500000000"
+         // Script size (var_int)
+         "19"
+         // Script
+         "76""a9""14""8dce8946f1c7763bb60ea5cf16ef514cbed0633b""88""ac");
+         bh_.unserialize(rawHead_);
+         tx1_.unserialize(rawTx0_);
+         tx2_.unserialize(rawTx1_);
    }
 
    BinaryData rawHead_;
@@ -1447,6 +1506,8 @@ protected:
 
    BinaryData rawTx0_;
    BinaryData rawTx1_;
+   BinaryData rawTxIn_;
+   BinaryData rawTxOut_;
 
    BlockHeader bh_;
    Tx tx1_;
@@ -1476,7 +1537,7 @@ TEST_F(BlockObjTest, HeaderUnserialize)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-TEST_F(BlockObjTest, HeaderProps)
+TEST_F(BlockObjTest, HeaderProperties)
 {
    BinaryData prevHash = READHEX(
       "1d8f4ec0443e1f19f305e488c1085c95de7cc3fd25e0d2c5bb5d000000000000");
@@ -1505,47 +1566,173 @@ TEST_F(BlockObjTest, HeaderProps)
 
 
 
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(BlockObjTest, OutPointProperties)
+{
+   BinaryData rawOP = READHEX(
+      "0044fbc929d78e4203eed6f1d3d39c0157d8e5c100bbe0886779c0ebf6a69324"
+      "01000000");
+   BinaryData prevHash = READHEX(
+      "0044fbc929d78e4203eed6f1d3d39c0157d8e5c100bbe0886779c0ebf6a69324");
+   BinaryData prevIdx = READHEX(
+      "01000000");
+
+   OutPoint op;
+   EXPECT_EQ(op.getTxHash().getSize(), 32);
+   EXPECT_EQ(op.getTxOutIndex(), UINT32_MAX);
+
+   op.setTxHash(prevHash);
+   EXPECT_EQ(op.getTxHash().getSize(), 32);
+   EXPECT_EQ(op.getTxOutIndex(), UINT32_MAX);
+   EXPECT_EQ(op.getTxHash(), prevHash);
+   EXPECT_EQ(op.getTxHashRef(), prevHash.getRef());
+
+   op.setTxOutIndex(12);
+   EXPECT_EQ(op.getTxHash().getSize(), 32);
+   EXPECT_EQ(op.getTxOutIndex(), 12);
+   EXPECT_EQ(op.getTxHash(), prevHash);
+   EXPECT_EQ(op.getTxHashRef(), prevHash.getRef());
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(BlockObjTest, OutPointSerialize)
+{
+   BinaryData rawOP = READHEX(
+      "0044fbc929d78e4203eed6f1d3d39c0157d8e5c100bbe0886779c0ebf6a69324"
+      "01000000");
+   BinaryData prevHash = READHEX(
+      "0044fbc929d78e4203eed6f1d3d39c0157d8e5c100bbe0886779c0ebf6a69324");
+   BinaryData prevIdx = READHEX(
+      "01000000");
+
+   OutPoint op(rawOP.getPtr());
+   EXPECT_EQ(op.getTxHash().getSize(), 32);
+   EXPECT_EQ(op.getTxOutIndex(), 1);
+   EXPECT_EQ(op.getTxHash(), prevHash);
+   EXPECT_EQ(op.getTxHashRef(), prevHash.getRef());
+
+   EXPECT_EQ(op.serialize(), rawOP);
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(BlockObjTest, TxInNoInit)
+{
+   TxIn txin;
+
+   EXPECT_FALSE(txin.isInitialized());
+   EXPECT_EQ(   txin.serialize().getSize(), 0);
+   EXPECT_EQ(   txin.getScriptType(), TXIN_SCRIPT_NONSTANDARD);
+   EXPECT_FALSE(txin.isStandard());
+   EXPECT_FALSE(txin.isCoinbase());
+   EXPECT_EQ(   txin.getParentHeight(), 0xffffffff);
+
+   BinaryData newhash = READHEX("abcd1234");
+   txin.setParentHash(newhash);
+   txin.setParentHeight(1234);
+   
+   EXPECT_EQ(txin.getParentHash(),   newhash);
+   EXPECT_EQ(txin.getParentHeight(), 1234);
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(BlockObjTest, TxInUnserialize)
+{
+   BinaryRefReader brr(rawTxIn_);
+   uint32_t len = rawTxIn_.getSize();
+   BinaryData srcAddr = BtcUtils::getHash160( READHEX("04"
+      "5d74feae58c4c36d7c35beac05eddddc78b3ce4b02491a2eea72043978056a8b"
+      "c439b99ddaad327207b09ef16a8910828e805b0cc8c11fba5caea2ee939346d7"));
+   BinaryData rawOP = READHEX(
+      "0044fbc929d78e4203eed6f1d3d39c0157d8e5c100bbe0886779c0ebf6a69324"
+      "01000000");
+
+   vector<TxIn> txins(7);
+   txins[0] = TxIn(rawTxIn_.getPtr()); 
+   txins[1] = TxIn(rawTxIn_.getPtr(), len); 
+   txins[2] = TxIn(rawTxIn_.getPtr(), len, TxRef(), 12); 
+   txins[3].unserialize(rawTxIn_.getPtr());
+   txins[4].unserialize(rawTxIn_.getRef());
+   txins[5].unserialize(brr);
+   txins[6].unserialize_swigsafe_(rawTxIn_);
+
+   for(uint32_t i=0; i<7; i++)
+   {
+      EXPECT_TRUE( txins[i].isInitialized());
+      EXPECT_EQ(   txins[i].serialize().getSize(), len);
+      EXPECT_EQ(   txins[i].getScriptType(), TXIN_SCRIPT_STDUNCOMPR);
+      EXPECT_EQ(   txins[i].getScriptSize(), len-(36+1+4));
+      EXPECT_TRUE( txins[i].isStandard());
+      EXPECT_FALSE(txins[i].isCoinbase());
+      EXPECT_EQ(   txins[i].getSequence(), UINT32_MAX);
+      EXPECT_EQ(   txins[i].getSenderAddrIfAvailable(), srcAddr);
+      EXPECT_EQ(   txins[i].getOutPoint().serialize(), rawOP);
+
+      EXPECT_FALSE(txins[i].getParentTxRef().isInitialized());
+      EXPECT_EQ(   txins[i].getParentHeight(), UINT32_MAX);
+      EXPECT_EQ(   txins[i].getParentHash(),   BinaryData(0));
+      EXPECT_EQ(   txins[i].serialize(),       rawTxIn_);
+      if(i==2)
+         EXPECT_EQ(txins[i].getIndex(), 12);
+      else
+         EXPECT_EQ(txins[i].getIndex(), UINT32_MAX);
+   }
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(BlockObjTest, TxOutUnserialize)
+{
+   BinaryRefReader brr(rawTxOut_);
+   uint32_t len = rawTxOut_.getSize();
+   BinaryData dstAddr = READHEX("8dce8946f1c7763bb60ea5cf16ef514cbed0633b");
+
+   vector<TxOut> txouts(7);
+   txouts[0] = TxOut(rawTxOut_.getPtr()); 
+   txouts[1] = TxOut(rawTxOut_.getPtr(), len); 
+   txouts[2] = TxOut(rawTxOut_.getPtr(), len, TxRef(), 12); 
+   txouts[3].unserialize(rawTxOut_.getPtr());
+   txouts[4].unserialize(rawTxOut_.getRef());
+   txouts[5].unserialize(brr);
+   txouts[6].unserialize_swigsafe_(rawTxOut_);
+
+   for(uint32_t i=0; i<7; i++)
+   {
+      EXPECT_TRUE( txouts[i].isInitialized());
+      EXPECT_EQ(   txouts[i].getSize(), len);
+      EXPECT_EQ(   txouts[i].getScriptType(), TXOUT_SCRIPT_STDHASH160);
+      EXPECT_EQ(   txouts[i].getScriptSize(), 25);
+      EXPECT_TRUE( txouts[i].isStandard());
+      EXPECT_EQ(   txouts[i].getValue(), 0x00000000d58b4cac);
+      EXPECT_EQ(   txouts[i].getRecipientAddr(), dstAddr);
+
+      EXPECT_TRUE( txouts[i].isScriptStandard());
+      EXPECT_TRUE( txouts[i].isScriptStdHash160());
+      EXPECT_FALSE(txouts[i].isScriptStdPubKey65());
+      EXPECT_FALSE(txouts[i].isScriptStdPubKey33());
+      EXPECT_FALSE(txouts[i].isScriptP2SH());
+      EXPECT_FALSE(txouts[i].isScriptNonStd());
+
+      EXPECT_FALSE(txouts[i].getParentTxRef().isInitialized());
+      EXPECT_EQ(   txouts[i].getParentHeight(), UINT32_MAX);
+      EXPECT_EQ(   txouts[i].getParentHash(),   BinaryData(0));
+      EXPECT_EQ(   txouts[i].serialize(),       rawTxOut_);
+      if(i==2)
+         EXPECT_EQ(txouts[i].getIndex(), 12);
+      else
+         EXPECT_EQ(txouts[i].getIndex(), UINT32_MAX);
+   }
+}
+
 
 
 
 
 
 ////////////////////////////////////////////////////////////////////////////////
-TEST_F(BlockObjTest, TxRefNoInit)
-{
-   TxRef txr;
-   EXPECT_FALSE(txr.isInitialized());
-   EXPECT_FALSE(txr.isBound());
-
-   EXPECT_EQ(txr.getLevelDBKey(),     BinaryData(0));
-   EXPECT_EQ(txr.getLevelDBKeyRef(),  BinaryDataRef());
-   EXPECT_EQ(txr.getBlockTimestamp(), UINT32_MAX);
-   EXPECT_EQ(txr.getBlockHeight(),    UINT32_MAX);
-   EXPECT_EQ(txr.getBlockDupID(),     UINT8_MAX );
-   EXPECT_EQ(txr.getBlockTxIndex(),   UINT16_MAX);
-}
-
 ////////////////////////////////////////////////////////////////////////////////
-TEST_F(BlockObjTest, TxRefKeyParts)
-{
-   TxRef txr;
-   //BinaryData    newKey = READHEX("02c4e3020100");
-   BinaryData    newKey = READHEX("7fe3c4020f00");
-   BinaryDataRef newRef(newKey);
-
-
-   txr.setLevelDBKey(newKey);
-   EXPECT_EQ(txr.getLevelDBKey(),    newKey);
-   EXPECT_EQ(txr.getLevelDBKeyRef(), newRef);
-
-   EXPECT_EQ(txr.getBlockHeight(),  0x02c4e3);
-   EXPECT_EQ(txr.getBlockDupID(),   127);
-   EXPECT_EQ(txr.getBlockTxIndex(), 15);
-}
-
-
-
-
 class StoredBlockObjTest : public ::testing::Test
 {
 protected:
@@ -1694,7 +1881,7 @@ protected:
          // Script size (var_int)
          "19"
          // Script
-         "76a9148dce8946f1c7763bb60ea5cf16ef514cbed0633b88ac");
+         "76""a9""14""8dce8946f1c7763bb60ea5cf16ef514cbed0633b""88""ac");
       rawTxOut1_ = READHEX(
          // Value 
          "002f685900000000"
@@ -1729,6 +1916,7 @@ protected:
 
 
 
+////////////////////////////////////////////////////////////////////////////////
 TEST_F(StoredBlockObjTest, LengthUnfrag)
 {
    StoredTx tx;
@@ -1753,6 +1941,7 @@ TEST_F(StoredBlockObjTest, LengthUnfrag)
 
 
 
+////////////////////////////////////////////////////////////////////////////////
 TEST_F(StoredBlockObjTest, LengthFragged)
 {
    vector<uint32_t> offin, offout;
@@ -1773,8 +1962,110 @@ TEST_F(StoredBlockObjTest, LengthFragged)
    EXPECT_EQ(offout[1],     366);
    EXPECT_EQ(offout[2],     366);
 
+   uint8_t a = 0xf3;
+   a = 0xf3 % 256;  EXPECT_EQ(a, 0xf3);
+   a = 0x00f3 % 256;  EXPECT_EQ(a, 0xf3);
+   a = 0xa3f3 % 256;  EXPECT_EQ(a, 0xf3);
+   a = 0xfffff3 % 256;  EXPECT_EQ(a, 0xf3);
+   a = 0xabffaef3 % 256;  EXPECT_EQ(a, 0xf3);
+   
 }
 
+
+////////////////////////////////////////////////////////////////////////////////
+
+
+class TxRefTest : public ::testing::Test
+{
+protected:
+};
+
+class PartialMerkleTest : public ::testing::Test
+{
+protected:
+
+   virtual void SetUp(void) 
+   {
+      vector<BinaryData> txList_(7);
+      // The "abcd" quartets are to trigger endianness errors -- without them,
+      // these hashes are palindromes that work regardless of your endian-handling
+      txList_[0] = READHEX("00000000000000000000000000000000"
+                           "000000000000000000000000abcd0000");
+      txList_[1] = READHEX("11111111111111111111111111111111"
+                           "111111111111111111111111abcd1111");
+      txList_[2] = READHEX("22222222222222222222222222222222"
+                           "222222222222222222222222abcd2222");
+      txList_[3] = READHEX("33333333333333333333333333333333"
+                           "333333333333333333333333abcd3333");
+      txList_[4] = READHEX("44444444444444444444444444444444"
+                           "444444444444444444444444abcd4444");
+      txList_[5] = READHEX("55555555555555555555555555555555"
+                           "555555555555555555555555abcd5555");
+      txList_[6] = READHEX("66666666666666666666666666666666"
+                           "666666666666666666666666abcd6666");
+   
+      vector<BinaryData> merkleTree_ = BtcUtils::calculateMerkleTree(txList_); 
+
+      /*
+      cout << "Merkle Tree looks like the following (7 tx): " << endl;
+      cout << "The ** indicates the nodes we care about for partial tree test" << endl;
+      cout << "                                                    \n";
+      cout << "                   _____0a10_____                   \n";
+      cout << "                  /              \\                  \n";
+      cout << "                _/                \\_                \n";
+      cout << "            65df                    b4d6            \n";
+      cout << "          /      \\                /      \\          \n";
+      cout << "      6971        22dc        5675        d0b6      \n";
+      cout << "     /    \\      /    \\      /    \\      /          \n";
+      cout << "   0000  1111  2222  3333  4444  5555  6666         \n";
+      cout << "    **                            **                \n";
+      cout << "    " << endl;
+      cout << endl;
+
+      cout << "Full Merkle Tree (this one has been unit tested before):" << endl;
+      for(uint32_t i=0; i<merkleTree_.size(); i++)
+         cout << "    " << i << " " << merkleTree_[i].toHexStr() << endl;
+      */
+   }
+
+   vector<BinaryData> txList_;
+   vector<BinaryData> merkleTree_;
+};
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(TxRefTest, TxRefNoInit)
+{
+   TxRef txr;
+   EXPECT_FALSE(txr.isInitialized());
+   EXPECT_FALSE(txr.isBound());
+
+   EXPECT_EQ(txr.getLevelDBKey(),     BinaryData(0));
+   EXPECT_EQ(txr.getLevelDBKeyRef(),  BinaryDataRef());
+   EXPECT_EQ(txr.getBlockTimestamp(), UINT32_MAX);
+   EXPECT_EQ(txr.getBlockHeight(),    UINT32_MAX);
+   EXPECT_EQ(txr.getBlockDupID(),     UINT8_MAX );
+   EXPECT_EQ(txr.getBlockTxIndex(),   UINT16_MAX);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(TxRefTest, TxRefKeyParts)
+{
+   TxRef txr;
+   //BinaryData    newKey = READHEX("02c4e3020100");
+   BinaryData    newKey = READHEX("7fe3c4020f00");
+   BinaryDataRef newRef(newKey);
+
+
+   txr.setLevelDBKey(newKey);
+   EXPECT_EQ(txr.getLevelDBKey(),    newKey);
+   EXPECT_EQ(txr.getLevelDBKeyRef(), newRef);
+
+   EXPECT_EQ(txr.getBlockHeight(),  0x02c4e3);
+   EXPECT_EQ(txr.getBlockDupID(),   127);
+   EXPECT_EQ(txr.getBlockTxIndex(), 15);
+}
 
 
 ////////////////////////////////////////////////////////////////////////////////

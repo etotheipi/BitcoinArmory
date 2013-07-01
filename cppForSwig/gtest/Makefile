@@ -27,7 +27,7 @@ CPPFLAGS += -I$(GTEST_DIR)/include \
 				-L$(USER_DIR) \
 				-L$(USER_DIR)/cryptopp \
 				-L$(USER_DIR)/leveldb \
-				-D__STDC_LIMIT_MACROS \
+				-D__STDC_LIMIT_MACROS 
 
 HEADERS += 	$(USER_DIR)/BinaryData.h \
 		 		$(USER_DIR)/BtcUtils.h \

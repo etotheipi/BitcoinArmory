@@ -361,10 +361,34 @@ public:
       return string((char const *)(&(outStr[0])), 2*getSize());
    }
 
+   /////////////////////////////////////////////////////////////////////////////
    static BinaryData CreateFromHex(string const & str)
    {
       BinaryData out;
       out.createFromHex(str);
+      return out;
+   }
+
+
+   /////////////////////////////////////////////////////////////////////////////
+   template<typename INTTYPE>
+   static BinaryData IntToStrLE(INTTYPE val)
+   {
+      uint8_t const SZ = sizeof(INTTYPE);
+      BinaryData out(SZ);
+      for(uint8_t i=0; i<SZ; i++, val>>=8)
+         out[i] = val % 256;
+      return out;
+   }
+   
+   /////////////////////////////////////////////////////////////////////////////
+   template<typename INTTYPE>
+   static BinaryData IntToStrBE(INTTYPE val)
+   {
+      uint8_t const SZ = sizeof(INTTYPE);
+      BinaryData out(SZ);
+      for(uint8_t i=0; i<SZ; i++, val>>=8)
+         out[(SZ-1)-i] = val % 256;
       return out;
    }
 
