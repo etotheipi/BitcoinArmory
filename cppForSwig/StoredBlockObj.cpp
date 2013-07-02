@@ -161,9 +161,7 @@ void StoredHeader::unserializeFullBlock(BinaryRefReader brr,
       StoredTx & stx = stxMap_[tx];
 
       // Now copy the appropriate data from the vanilla Tx object
-      stx.createFromTx(thisTx, doFrag);
-      stx.blockHeight_   = UINT32_MAX;
-      stx.blockDupID_    = UINT8_MAX;
+      stx.createFromTx(thisTx, doFrag, true);
       stx.isFragged_     = doFrag;
       stx.version_       = thisTx.getVersion();
       stx.txIndex_       = tx;
@@ -217,12 +215,22 @@ void StoredHeader::addTxToMap(uint16_t txIdx, Tx & tx)
 /////////////////////////////////////////////////////////////////////////////
 void StoredHeader::addStoredTxToMap(uint16_t txIdx, StoredTx & stx)
 {
+   if(txIdx >= numTx_)
+   {
+      Log::ERR() << "TxIdx is greater than numTx of stored header";
+      return;
+   }
    stxMap_[txIdx] = stx; 
 }
 
 /////////////////////////////////////////////////////////////////////////////
 void StoredTx::addTxOutToMap(uint16_t idx, TxOut & txout)
 {
+   if(idx >= numTxOut_)
+   {
+      Log::ERR() << "TxOutIdx is greater than numTxOut of stored tx";
+      return;
+   }
    StoredTxOut stxo;
    stxo.unserialize(txout.serialize());
    stxoMap_[idx] = stxo;
@@ -231,6 +239,11 @@ void StoredTx::addTxOutToMap(uint16_t idx, TxOut & txout)
 /////////////////////////////////////////////////////////////////////////////
 void StoredTx::addStoredTxOutToMap(uint16_t idx, StoredTxOut & stxo)
 {
+   if(idx >= numTxOut_)
+   {
+      Log::ERR() << "TxOutIdx is greater than numTxOut of stored tx";
+      return;
+   }
    stxoMap_[idx] = stxo;
 }
 
@@ -493,13 +506,13 @@ StoredTx & StoredTx::createFromTx(Tx & tx, bool doFrag, bool withTxOuts)
 
    if(!doFrag)
    {
-      isInitialized_ = true;
       isFragged_ = false;
       dataCopy_ = tx.serialize(); 
+      isInitialized_ = true;
    }
    else
    {
-      BinaryRefReader brr(tx.serialize());
+      BinaryRefReader brr(tx.getPtr(), tx.getSize());
       uint32_t firstOut  = tx.getTxOutOffset(0);
       uint32_t afterLast = tx.getTxOutOffset(numTxOut_);
       uint32_t span = afterLast - firstOut;
@@ -507,6 +520,7 @@ StoredTx & StoredTx::createFromTx(Tx & tx, bool doFrag, bool withTxOuts)
       brr.get_BinaryData(dataCopy_.getPtr(), firstOut);
       brr.advance(span);
       brr.get_BinaryData(dataCopy_.getPtr()+firstOut, 4);
+      isInitialized_ = true;
    }
 
    if(withTxOuts)
@@ -518,8 +532,6 @@ StoredTx & StoredTx::createFromTx(Tx & tx, bool doFrag, bool withTxOuts)
 
          stxo.unserialize(tx.getTxOut(txo).serialize());
          stxo.txVersion_      = tx.getVersion();
-         stxo.blockHeight_    = UINT32_MAX;
-         stxo.blockDupID_     = UINT8_MAX;
          stxo.txIndex_        = tx.getBlockTxIndex();
          stxo.txOutIndex_     = txo;
          stxo.isFromCoinbase_ = tx.getTxIn(0).isCoinbase();

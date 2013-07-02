@@ -2327,8 +2327,8 @@ TEST_F(StoredBlockObjTest, StoredTxUnserUnfrag)
    ASSERT_EQ(   stx.stxoMap_.size(), 2);
    EXPECT_TRUE( stx.stxoMap_[0].isInitialized());
    EXPECT_TRUE( stx.stxoMap_[1].isInitialized());
-   EXPECT_EQ(   stx.stxoMap_[0].txIndex_, UINT32_MAX);
-   EXPECT_EQ(   stx.stxoMap_[1].txIndex_, UINT32_MAX);
+   EXPECT_EQ(   stx.stxoMap_[0].txIndex_, UINT16_MAX);
+   EXPECT_EQ(   stx.stxoMap_[1].txIndex_, UINT16_MAX);
    EXPECT_EQ(   stx.stxoMap_[0].txOutIndex_, 0);
    EXPECT_EQ(   stx.stxoMap_[1].txOutIndex_, 1);
 }
@@ -2344,7 +2344,7 @@ TEST_F(StoredBlockObjTest, StoredTxUnserFragged)
 
    EXPECT_TRUE( stx.isInitialized());
    EXPECT_TRUE( stx.haveAllTxOut());
-   EXPECT_FALSE(stx.isFragged_);
+   EXPECT_TRUE( stx.isFragged_);
    EXPECT_EQ(   stx.version_, 1);
    EXPECT_EQ(   stx.blockHeight_, UINT32_MAX);
    EXPECT_EQ(   stx.blockDupID_,  UINT8_MAX);
@@ -2354,15 +2354,36 @@ TEST_F(StoredBlockObjTest, StoredTxUnserFragged)
    ASSERT_EQ(   stx.stxoMap_.size(), 2);
    EXPECT_TRUE( stx.stxoMap_[0].isInitialized());
    EXPECT_TRUE( stx.stxoMap_[1].isInitialized());
-   EXPECT_EQ(   stx.stxoMap_[0].txIndex_, UINT32_MAX);
-   EXPECT_EQ(   stx.stxoMap_[1].txIndex_, UINT32_MAX);
+   EXPECT_EQ(   stx.stxoMap_[0].txIndex_, UINT16_MAX);
+   EXPECT_EQ(   stx.stxoMap_[1].txIndex_, UINT16_MAX);
    EXPECT_EQ(   stx.stxoMap_[0].txOutIndex_, 0);
    EXPECT_EQ(   stx.stxoMap_[1].txOutIndex_, 1);
 }
 
 
 
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(StoredBlockObjTest, StoredTxReconstruct)
+{
+   Tx regTx, reconTx;
+   StoredTx stx;
 
+   // Reconstruct an unfragged tx
+   regTx.unserialize(rawTx0_);
+   stx.createFromTx(regTx, false);
+
+   reconTx = stx.getTxCopy();
+   EXPECT_EQ(reconTx.serialize(),   rawTx0_);
+   EXPECT_EQ(stx.getSerializedTx(), rawTx0_);
+
+   // Reconstruct an fragged tx
+   regTx.unserialize(rawTx0_);
+   stx.createFromTx(regTx, true);
+
+   reconTx = stx.getTxCopy();
+   EXPECT_EQ(reconTx.serialize(),   rawTx0_);
+   EXPECT_EQ(stx.getSerializedTx(), rawTx0_);
+}
 
 
 ////////////////////////////////////////////////////////////////////////////////

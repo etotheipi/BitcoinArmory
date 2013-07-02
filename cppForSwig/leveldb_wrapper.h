@@ -330,9 +330,9 @@ public:
    void startBlkDataIteration(DB_PREFIX prefix);
 
    /////////////////////////////////////////////////////////////////////////////
-   static uint32_t hgtxToHeight(uint32_t hgtX)  {return (hgtX & 0xffffff00)>>8;}
-   static uint8_t  hgtxToDupID(uint32_t hgtX)   {return (hgtX & 0x000000ff);}
-   static uint32_t heightAndDupToHgtx(uint32_t hgt, uint8_t dup) {return hgt<<8|dup;}
+   static uint32_t    hgtxToHeight(BinaryData hgtx);
+   static uint8_t     hgtxToDupID(BinaryData hgtx);
+   static BinaryData  heightAndDupToHgtx(uint32_t hgt, uint8_t dup);
 
    static BinaryData getBlkDataKey(uint32_t height, 
                                    uint8_t  dup);
@@ -448,16 +448,16 @@ public:
                         bool withTx=false);
 
    bool getStoredHeader(StoredHeader & sbh,
-                        BinaryDataRef headHash, 
-                        bool withTx=false);
-
-   bool getStoredHeader(StoredHeader & sbh,
                         uint32_t blockHgt,
                         uint8_t blockDup=UINT8_MAX,
                         bool withTx=false);
 
    bool getStoredHeader(StoredHeader & sbh,
-                        uint32_t hgtX,
+                        BinaryDataRef headHash, 
+                        bool withTx=false);
+
+   bool getStoredHeader(StoredHeader & sbh,
+                        uint32_t blockHgt,
                         bool withTx=false);
 
 
@@ -525,8 +525,8 @@ public:
 
    // TxRefs are much simpler with LDB than the previous FileDataPtr construct
    TxRef getTxRef( BinaryDataRef txHash);
-   TxRef getTxRef( uint32_t hgtx, uint16_t txIndex);
-   TxRef getTxRef( uint32_t hgt, uint8_t  dup, uint16_t txIndex);
+   TxRef getTxRef( BinaryData hgtx, uint16_t txIndex);
+   TxRef getTxRef( uint32_t hgt, uint8_t dup, uint16_t txIndex);
 
 
    // Sometimes we already know where the Tx is, but we don't know its hash

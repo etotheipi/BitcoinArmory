@@ -128,8 +128,18 @@ public:
 class StoredTxOut
 {
 public:
-   StoredTxOut(void) : 
-      isInitialized_(false), dataCopy_(0), spentByHgtX_(UINT32_MAX) {}
+   StoredTxOut(void) : isInitialized_(false),   
+                       txVersion_(UINT32_MAX), 
+                       dataCopy_(0), 
+                       blockHeight_(UINT32_MAX), 
+                       blockDupID_(UINT8_MAX), 
+                       txIndex_(UINT16_MAX), 
+                       txOutIndex_(UINT16_MAX), 
+                       isSpent_(false), 
+                       isFromCoinbase_(false), 
+                       spentByHgtx_(0),
+                       spentByTxIndex_(UINT16_MAX),
+                       spentByTxInIndex_(UINT16_MAX) {}
 
    bool isInitialized(void) const {return isInitialized_;}
    void unserialize(BinaryData const & data);
@@ -142,17 +152,16 @@ public:
 
    bool writeToDB(bool skipIfExists=false);
 
+   bool              isInitialized_;
    uint32_t          txVersion_;
    BinaryData        dataCopy_;
-   bool              isInitialized_;
-   uint32_t          version_;
    uint32_t          blockHeight_;
    uint8_t           blockDupID_;
    uint16_t          txIndex_;
    uint16_t          txOutIndex_;
    bool              isSpent_;
    bool              isFromCoinbase_;
-   uint32_t          spentByHgtX_;
+   BinaryData        spentByHgtx_;
    uint16_t          spentByTxIndex_;
    uint16_t          spentByTxInIndex_;
 };

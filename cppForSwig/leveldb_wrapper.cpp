@@ -489,8 +489,8 @@ inline BinaryData InterfaceToLDB::getBlkDataKey(
                          uint8_t  dup)
 {
    BinaryWriter bw(5);
-   bw.put_uint8_t(DB_PREFIX_TXDATA);
-   bw.put_uint32_t(heightAndDupToHgtx(height,dup));
+   bw.put_uint8_t(    DB_PREFIX_TXDATA );
+   bw.put_BinaryData( heightAndDupToHgtx(height,dup) );
    return bw.getData();
 }
 
@@ -501,9 +501,9 @@ inline BinaryData InterfaceToLDB::getBlkDataKey(
                          uint16_t txIdx)
 {
    BinaryWriter bw(7);
-   bw.put_uint8_t(DB_PREFIX_TXDATA);
-   bw.put_uint32_t(heightAndDupToHgtx(height,dup));
-   bw.put_uint16_t(txIdx);
+   bw.put_uint8_t(    DB_PREFIX_TXDATA );
+   bw.put_BinaryData( heightAndDupToHgtx(height,dup) );
+   bw.put_uint16_t(   txIdx );
    return bw.getData();
 }
 
@@ -515,10 +515,10 @@ inline BinaryData InterfaceToLDB::getBlkDataKey(
                          uint16_t txOutIdx)
 {
    BinaryWriter bw(9);
-   bw.put_uint8_t(DB_PREFIX_TXDATA);
-   bw.put_uint32_t(heightAndDupToHgtx(height,dup));
-   bw.put_uint16_t(txIdx);
-   bw.put_uint16_t(txOutIdx);
+   bw.put_uint8_t(    DB_PREFIX_TXDATA );
+   bw.put_BinaryData( heightAndDupToHgtx(height,dup) );
+   bw.put_uint16_t(   txIdx );
+   bw.put_uint16_t(   txOutIdx );
    return bw.getData();
 }
 
@@ -527,9 +527,7 @@ inline BinaryData InterfaceToLDB::getBlkDataKeyNoPrefix(
                          uint32_t height, 
                          uint8_t  dup)
 {
-   BinaryWriter bw(5);
-   bw.put_uint32_t(heightAndDupToHgtx(height,dup));
-   return bw.getData();
+   return heightAndDupToHgtx(height,dup);
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -538,9 +536,9 @@ inline BinaryData InterfaceToLDB::getBlkDataKeyNoPrefix(
                          uint8_t  dup,
                          uint16_t txIdx)
 {
-   BinaryWriter bw(7);
-   bw.put_uint32_t(heightAndDupToHgtx(height,dup));
-   bw.put_uint16_t(txIdx);
+   BinaryWriter bw(6);
+   bw.put_BinaryData( heightAndDupToHgtx(height,dup));
+   bw.put_uint16_t(   txIdx);
    return bw.getData();
 }
 
@@ -551,10 +549,10 @@ inline BinaryData InterfaceToLDB::getBlkDataKeyNoPrefix(
                          uint16_t txIdx,
                          uint16_t txOutIdx)
 {
-   BinaryWriter bw(9);
-   bw.put_uint32_t(heightAndDupToHgtx(height,dup));
-   bw.put_uint16_t(txIdx);
-   bw.put_uint16_t(txOutIdx);
+   BinaryWriter bw(8);
+   bw.put_BinaryData( heightAndDupToHgtx(height,dup));
+   bw.put_uint16_t(   txIdx);
+   bw.put_uint16_t(   txOutIdx);
    return bw.getData();
 }
 
@@ -575,6 +573,26 @@ void InterfaceToLDB::startBlkDataIteration(DB_PREFIX prefix)
    iteratorToRefReaders(iters_[BLKDATA], currReadKey_, currReadValue_);
 }
 
+
+/////////////////////////////////////////////////////////////////////////////
+uint32_t InterfaceToLDB::hgtxToHeight(BinaryData hgtx)
+{
+   return (BinaryData::StrToIntBE<uint32_t>(hgtx) >> 8);
+
+}
+
+/////////////////////////////////////////////////////////////////////////////
+uint8_t InterfaceToLDB::hgtxToDupID(BinaryData hgtx)
+{
+   return hgtx[3];
+}
+
+/////////////////////////////////////////////////////////////////////////////
+BinaryData InterfaceToLDB::heightAndDupToHgtx(uint32_t hgt, uint8_t dup)
+{
+   uint32_t hgtx = (hgt<<8) | (uint32_t)dup;
+   return BinaryData::IntToStrBE<uint32_t>(hgtx);
+}
 
 /////////////////////////////////////////////////////////////////////////////
 // "Skip" refers to the behavior that the previous operation may have left
@@ -667,7 +685,7 @@ bool InterfaceToLDB::seekToTxByHash(BinaryDataRef txHash)
 
    // Now go through all the hints looking for the first one with a matching hash
    uint32_t numHints = existingHints.getSize() / 6;
-   uint32_t hgtx, height;
+   uint32_t height;
    uint8_t  dup;
    for(uint32_t i=0; i<numHints; i++)
    {
@@ -747,9 +765,9 @@ BLKDATA_TYPE InterfaceToLDB::readBlkDataKey5B(
       return NOT_BLKDATA;
    }
    
-   uint32_t hgtX   = brr.get_uint32_t();
-   height = hgtxToHeight(hgtX);
-   dupID  = hgtxToDupID(hgtX);
+   BinaryData hgtx = brr.get_BinaryData(4);
+   height = hgtxToHeight(hgtx);
+   dupID  = hgtxToDupID(hgtx);
 
    if(brr.getSizeRemaining() == 0)
       return BLKDATA_HEADER;
@@ -1016,9 +1034,9 @@ bool InterfaceToLDB::getUnspentTxOut( BinaryData & const ldbKey8B,
                                           UnspentTxOut & utxo)
 {
    BinaryRefReader txrr(txoData[i]);
-   uint32_t hgtX   = txrr.get_uint32_t();
-   uint16_t txIdx  = txrr.get_uint16_t();
-   uint16_t outIdx = txrr.get_uint16_t();
+   BinaryData hgtx   = txrr.get_BinaryData(4);
+   uint16_t   txIdx  = txrr.get_uint16_t();
+   uint16_t   outIdx = txrr.get_uint16_t();
 
 
    BinaryDataRef txRef(txoData[i].getPtr(), 6);
@@ -1046,7 +1064,7 @@ bool InterfaceToLDB::getUnspentTxOut( BinaryData & const ldbKey8B,
 
    utxo.txHash_     = tx.thisHash_;
    utxo.txOutIndex_ = outIdx;
-   utxo.txHeight_   = hgtxToHeight(hgtX);
+   utxo.txHeight_   = hgtxToHeight(hgtx);
    utxo.value_      = txout.getValue();
    utxo.script_     = txout.getScript();
 
@@ -1168,15 +1186,15 @@ map<HashString, BlockHeader> InterfaceToLDB::getHeaderMap(void)
 
       BinaryRefReader brr(headerEntry);
       header.unserialize(brr);
-      uint32_t hgtX    = brr.get_uint32_t();
-      uint32_t txCount = brr.get_uint32_t();
-      uint32_t nBytes  = brr.get_uint32_t();
+      BinaryData hgtx    = brr.get_BinaryData();
+      uint32_t   txCount = brr.get_uint32_t();
+      uint32_t   nBytes  = brr.get_uint32_t();
 
       // The "height" is actually a 3-byte height, and a "duplicate ID"
       // Reorgs lead to multiple headers having the same height.  Since 
       // the blockdata
-      header.storedHeight_(hgtxToHeight(hgtX));
-      header.duplicateID_(hgtxToDupID(hgtX));
+      header.storedHeight_(hgtxToHeight(hgtx));
+      header.duplicateID_(hgtxToDupID(hgtx));
 
       outMap[headerHash] = header;
    }
@@ -1327,7 +1345,7 @@ void InterfaceToLDB::unserializeStoredHeaderValue(
    if(db==HEADERS)
    {
       brr.get_BinaryData(sbh.dataCopy_, HEADER_SIZE);
-      uint32_t hgtx = brr.get_uint32_t();
+      BinaryData hgtx = brr.get_BinaryData(4);
       sbh.blockHeight_ = hgtxToHeight(hgtx);
       sbh.duplicateID_ = hgtxToDupID(hgtx);
    }
@@ -1385,9 +1403,9 @@ void InterfaceToLDB::serializeStoredHeaderValue(
 
    if(db==HEADERS)
    {
-      uint32_t hgtx = heightAndDupToHgtx(sbh.blockHeight_, sbh.duplicateID_);
+      BinaryData hgtx = heightAndDupToHgtx(sbh.blockHeight_, sbh.duplicateID_);
       bw.put_BinaryData(sbh.dataCopy_);
-      bw.put_uint32_t(hgtx);
+      bw.put_BinaryData(hgtx);
    }
    else if(db==BLKDATA)
    {
@@ -1510,7 +1528,7 @@ void InterfaceToLDB::unserializeStoredTxOutValue(
 
    if((TXOUT_SPENTNESS)isSpent == TXOUT_SPENT && brr.getSizeRemaining()>=8)
    {
-      stxo.spentByHgtX_      = brr.get_uint32_t(); 
+      stxo.spentByHgtx_      = brr.get_BinaryData(4); 
       stxo.spentByTxIndex_   = brr.get_uint16_t(); 
       stxo.spentByTxInIndex_ = brr.get_uint16_t(); 
    }
@@ -1569,9 +1587,9 @@ void InterfaceToLDB::serializeStoredTxOutValue(
    
    if(spentness == TXOUT_SPENT)
    {
-      bw.put_uint32_t(stxo.spentByHgtX_);
-      bw.put_uint16_t(stxo.spentByTxIndex_);
-      bw.put_uint16_t(stxo.spentByTxInIndex_);
+      bw.put_BinaryData(stxo.spentByHgtx_);
+      bw.put_uint16_t(  stxo.spentByTxIndex_);
+      bw.put_uint16_t(  stxo.spentByTxInIndex_);
    }
 }
 
@@ -1691,9 +1709,9 @@ void InterfaceToLDB::putStoredHeader( StoredHeader & sbh, bool withTx)
 
 ////////////////////////////////////////////////////////////////////////////////
 bool InterfaceToLDB::getStoredHeader( StoredHeader & sbh,
-                                          uint32_t blockHgt,
-                                          uint8_t blockDup,
-                                          bool withTx)
+                                      uint32_t blockHgt,
+                                      uint8_t blockDup,
+                                      bool withTx)
 {
 
    if(!withTx)
@@ -1729,10 +1747,9 @@ bool InterfaceToLDB::getStoredHeader( StoredHeader & sbh,
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-bool InterfaceToLDB::getStoredHeader(
-                                       StoredHeader & sbh,
-                                       BinaryDataRef headHash, 
-                                       bool withTx)
+bool InterfaceToLDB::getStoredHeader( StoredHeader & sbh,
+                                      BinaryDataRef headHash, 
+                                      bool withTx)
 {
 
    BinaryData headEntry = getValue(HEADERS, DB_PREFIX_HEADHASH, headHash); 
@@ -1750,10 +1767,9 @@ bool InterfaceToLDB::getStoredHeader(
 
 
 ////////////////////////////////////////////////////////////////////////////////
-bool InterfaceToLDB::getStoredHeader(
-                              StoredHeader & sbh,
-                              uint32_t blockHgt,
-                              bool withTx)
+bool InterfaceToLDB::getStoredHeader( StoredHeader & sbh,
+                                      uint32_t blockHgt,
+                                      bool withTx)
 {
    uint8_t dupID = getValidDupIDForHeight(blockHgt);
    if(dupID == UINT8_MAX)
@@ -1995,9 +2011,9 @@ Tx InterfaceToLDB::getFullTxCopy( BinaryDataRef ldbKey6B )
       return BinaryData(0);
    }
 
-   uint32_t hgtX = *(uint32_t*)ldbKey6B.getPtr();
+   BinaryData hgtx = ldbKey6B.getSliceCopy(0,4);
    StoredTx stx;
-   readStoredTxAtIter( hgtxToHeight(hgtX), hgtxToDupID(hgtX), stx);
+   readStoredTxAtIter( hgtxToHeight(hgtx), hgtxToDupID(hgtx), stx);
 
    if(!stx.haveAllTxOut())
    {
@@ -2355,10 +2371,10 @@ TxRef InterfaceToLDB::getTxRef( BinaryDataRef txHash )
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-TxRef InterfaceToLDB::getTxRef( uint32_t hgtx, uint16_t txIndex)
+TxRef InterfaceToLDB::getTxRef(BinaryData hgtx, uint16_t txIndex)
 {
    BinaryWriter bw;
-   bw.put_uint32_t(hgtx);
+   bw.put_BinaryData(hgtx);
    bw.put_uint16_t(txIndex);
    return TxRef(bw.getDataRef(), this);
 }
@@ -2367,7 +2383,7 @@ TxRef InterfaceToLDB::getTxRef( uint32_t hgtx, uint16_t txIndex)
 TxRef InterfaceToLDB::getTxRef( uint32_t hgt, uint8_t  dup, uint16_t txIndex)
 {
    BinaryWriter bw;
-   bw.put_uint32_t(heightAndDupToHgtx(hgt,dup));
+   bw.put_BinaryData(heightAndDupToHgtx(hgt,dup));
    bw.put_uint16_t(txIndex);
    return TxRef(bw.getDataRef(), this);
 }
@@ -2382,9 +2398,9 @@ bool InterfaceToLDB::markBlockHeaderValid(BinaryDataRef headHash)
       return false;
    }
    brr.advance(HEADER_SIZE);
-   uint32_t hgtX = *(uint32_t*)brr.getCurrPtr();
-   uint32_t height = hgtxToHeight(hgtX);
-   uint8_t  dup    = hgtxToDupID(hgtX);
+   BinaryData hgtx   = brr.get_BinaryData(4);
+   uint32_t   height = hgtxToHeight(hgtx);
+   uint8_t    dup    = hgtxToDupID(hgtx);
 
    return markBlockHeaderValid(height, dup);
 }
@@ -2559,7 +2575,7 @@ bool InterfaceToLDB::updateHeaderHeight(BinaryDataRef headHash,
       
    BinaryWriter bw(HEADER_SIZE + 4);
    bw.put_BinaryData(headVal.getPtr(), HEADER_SIZE);
-   bw.put_uint32_t(heightAndDupToHgtx(height, dup));
+   bw.put_BinaryData(heightAndDupToHgtx(height, dup));
 
    putValue(HEADERS, headHash, bw.getDataRef());
    return true;
