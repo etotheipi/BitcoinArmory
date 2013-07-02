@@ -31,6 +31,7 @@ public:
    virtual LogStream& operator<<(const char * str) = 0;
    virtual LogStream& operator<<(string const & str) = 0;
    virtual LogStream& operator<<(int i) = 0;
+   virtual LogStream& operator<<(size_t i) = 0;
    virtual LogStream& operator<<(unsigned int i) = 0;
    virtual LogStream& operator<<(float f) = 0;
    virtual LogStream& operator<<(double d) = 0;
@@ -49,6 +50,7 @@ public:
 
    LogStream& operator<<(const char * str)   { cout << str;  if(fout_.is_open()) fout_ << str; return *this; }
    LogStream& operator<<(string const & str) { cout << str.c_str(); if(fout_.is_open()) fout_ << str.c_str(); return *this; }
+   LogStream& operator<<(size_t i)           { cout << i;    if(fout_.is_open()) fout_ << i; return *this; }
    LogStream& operator<<(int i)              { cout << i;    if(fout_.is_open()) fout_ << i; return *this; }
    LogStream& operator<<(unsigned int i)     { cout << i;    if(fout_.is_open()) fout_ << i; return *this; }
    LogStream& operator<<(float f)            { cout << f;    if(fout_.is_open()) fout_ << f; return *this; }
@@ -68,6 +70,7 @@ class NullStream : public LogStream
 public:
    LogStream& operator<<(const char * str)   { return *this; }
    LogStream& operator<<(string const & str) { return *this; }
+   LogStream& operator<<(size_t i)           { return *this; }
    LogStream& operator<<(int i)              { return *this; }
    LogStream& operator<<(unsigned int i)     { return *this; }
    LogStream& operator<<(float f)            { return *this; }

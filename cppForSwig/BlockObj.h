@@ -450,7 +450,7 @@ public:
    uint32_t        getSize(void) const {  return dataCopy_.getSize(); }
 
    /////////////////////////////////////////////////////////////////////////////
-   uint32_t           getVersion(void)   const { return *(uint32_t*)(dataCopy_.getPtr()+4);}
+   uint32_t           getVersion(void)   const { return *(uint32_t*)(dataCopy_.getPtr());}
    uint32_t           getNumTxIn(void)   const { return offsetsTxIn_.size()-1;}
    uint32_t           getNumTxOut(void)  const { return offsetsTxOut_.size()-1;}
    BinaryData         getThisHash(void)  const;
@@ -629,6 +629,7 @@ private:
 
 ////////////////////////////////////////////////////////////////////////////////
 // Just a simple struct for storing spentness info
+/*
 class SpentByRef
 {
 public:
@@ -664,6 +665,7 @@ public:
    BinaryData dbKey_;
    uint16_t   txInIndex_;
 };
+*/
 
 
 ////////////////////////////////////////////////////////////////////////////////

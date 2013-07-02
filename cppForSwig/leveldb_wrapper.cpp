@@ -1523,11 +1523,11 @@ bool InterfaceToLDB::unserializeStoredTxOutValue(
                                              uint32_t txOutIndex)
 {
    // May remove this check/warning later.
-   if(stx.txOutMap_.find(txOutIndex) == stx.txOutMap_.end())
+   if(stx.stxoMap_.find(txOutIndex) == stx.stxoMap_.end())
       Log::WARN() << "Tx does not have txOutIndex: " << txOutIndex;
 
-   stx.txOutMap_[txOutIndex] = StoredTxOut();
-   unserializeStoredTxOutValue(brr, stx.txOutMap_[txOutIndex]);
+   stx.stxoMap_[txOutIndex] = StoredTxOut();
+   unserializeStoredTxOutValue(brr, stx.stxoMap_[txOutIndex]);
 }
 
 
@@ -1669,8 +1669,8 @@ void InterfaceToLDB::putStoredHeader( StoredHeader & sbh, bool withTx)
 
    for(uint32_t i=0; i<sbh.numTx_; i++)
    {
-      map<uint16_t, StoredTx>::iterator txIter = sbh.txMap_.find(i);
-      if(txIter != sbh.txMap_.end())
+      map<uint16_t, StoredTx>::iterator txIter = sbh.stxMap_.find(i);
+      if(txIter != sbh.stxMap_.end())
       {
          // Make sure the txIndex value is correct, then dump it to DB.
          txIter->second.txIndex_ = i;
@@ -1812,8 +1812,8 @@ void InterfaceToLDB::putStoredTx( StoredTx & stx, bool withTxOut)
    if(withTxOut)
    {
       map<uint16_t, StoredTxOut>::iterator iter;
-      for(iter  = stx.txOutMap_.begin();
-          iter != stx.txOutMap_.end();
+      for(iter  = stx.stxoMap_.begin();
+          iter != stx.stxoMap_.end();
           iter++)
       {
          // Make sure all the parameters of the TxOut are set right 
@@ -1854,7 +1854,7 @@ bool InterfaceToLDB::readStoredBlockAtIter(StoredHeader & sbh)
    while(currReadKey_.getRawRef().startsWith(blkDataKey))
    {
       // We can't just read the the tx, because we have to guarantee 
-      // there's a place for it in the sbh.txMap_
+      // there's a place for it in the sbh.stxMap_
       BLKDATA_TYPE bdtype = readBlkDataKey5B(currReadKey_, tempHgt, tempDup);
 
       uint16_t currTxIdx = currReadKey_.get_uint16_t(); 
@@ -1865,12 +1865,12 @@ bool InterfaceToLDB::readStoredBlockAtIter(StoredHeader & sbh)
          return false;
       }
 
-      if(sbh.txMap_.find(currTxIdx) == sbh.txMap_.end())
-         sbh.txMap_[currTxIdx] = StoredTx();
+      if(sbh.stxMap_.find(currTxIdx) == sbh.stxMap_.end())
+         sbh.stxMap_[currTxIdx] = StoredTx();
 
       readStoredTxAtIter(sbh.blockHeight_, 
                          sbh.duplicateID_, 
-                         sbh.txMap_[currTxIdx]);
+                         sbh.stxMap_[currTxIdx]);
    } 
 } 
 
@@ -1933,9 +1933,9 @@ bool InterfaceToLDB::readStoredTxAtIter(
       {
          currReadKey_.advance(2);
          uint16_t txOutIdx = currReadKey_.get_uint16_t();
-         stx.txOutMap_[txOutIdx] = StoredTxOut();
+         stx.stxoMap_[txOutIdx] = StoredTxOut();
          readStoredTxOutAtIter(height, dupID, stx.txIndex_, 
-                                             stx.txOutMap_[txOutIdx]);
+                                             stx.stxoMap_[txOutIdx]);
       }
       else
       {
@@ -2263,8 +2263,8 @@ bool InterfaceToLDB::getStoredTx(  StoredTx & stx,
          {
             uint16_t currTxOutIdx = currReadKey_.get_uint16_t(); 
 
-            stx.txOutMap_[currTxOutIdx] = StoredTxOut();
-            StoredTxOut & stxo = stx.txOutMap_[currTxOutIdx];
+            stx.stxoMap_[currTxOutIdx] = StoredTxOut();
+            StoredTxOut & stxo = stx.stxoMap_[currTxOutIdx];
 
             stxo.blockHeight_ = blockHeight;
             stxo.blockDupID_  = dupID;

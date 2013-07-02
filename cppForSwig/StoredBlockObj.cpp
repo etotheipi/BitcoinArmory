@@ -15,8 +15,8 @@ void StoredHeader::setParamsTrickle(uint32_t hgt,
 
    // Then trickle down to each StoredTx object (if any)
    map<uint16_t, StoredTx>::iterator iter;     
-   for(iter  = txMap_.begin();
-       iter != txMap_.end();
+   for(iter  = stxMap_.begin();
+       iter != stxMap_.end();
        iter++)
    {
       iter->second.blockHeight_ = hgt;
@@ -24,8 +24,8 @@ void StoredHeader::setParamsTrickle(uint32_t hgt,
 
       // Trickle the data down to the TxOuts, too
       map<uint16_t, StoredTxOut>::iterator iter2; 
-      for(iter2  = iter->second.txOutMap_.begin();
-          iter2 != iter->second.txOutMap_.end();
+      for(iter2  = iter->second.stxoMap_.begin();
+          iter2 != iter->second.stxoMap_.end();
           iter2++)
       {
          iter2->second.blockHeight_ = hgt;
@@ -42,8 +42,8 @@ bool StoredHeader::haveFullBlock(void) const
 
    for(uint16_t tx=0; tx<numTx_; tx++)
    {
-      map<uint16_t, StoredTx>::const_iterator iter = txMap_.find(tx);
-      if(iter == txMap_.end())
+      map<uint16_t, StoredTx>::const_iterator iter = stxMap_.find(tx);
+      if(iter == stxMap_.end())
          return false;
       if(!iter->second.haveAllTxOut())
          return false;
@@ -65,7 +65,7 @@ BinaryData StoredHeader::getSerializedBlock(void) const
    bw.put_BinaryData(dataCopy_); 
    bw.put_var_int(numTx_);
    for(uint16_t tx=0; tx<numTx_; tx++)
-      bw.put_BinaryData(txMap_.at(tx).getSerializedTx());
+      bw.put_BinaryData(stxMap_.at(tx).getSerializedTx());
    
    return bw.getData();
 }
@@ -91,6 +91,18 @@ void StoredHeader::createFromBlockHeader(BlockHeader & bh)
 }
 
 /////////////////////////////////////////////////////////////////////////////
+void StoredHeader::unserialize(BinaryData const & header80B)
+{
+   unserialize(header80B.getRef());
+}
+
+/////////////////////////////////////////////////////////////////////////////
+void StoredHeader::unserialize(BinaryRefReader brr)
+{
+   unserialize(brr.getRawRef());
+}
+
+/////////////////////////////////////////////////////////////////////////////
 void StoredHeader::unserialize(BinaryDataRef header80B)
 {
    if(header80B.getSize() != HEADER_SIZE)
@@ -104,6 +116,97 @@ void StoredHeader::unserialize(BinaryDataRef header80B)
 }
 
 /////////////////////////////////////////////////////////////////////////////
+void StoredHeader::unserializeFullBlock(BinaryRefReader brr, 
+                                        bool doFrag,
+                                        bool withPrefix)
+{
+   BinaryData magic;
+   uint32_t   nBytes = UINT32_MAX;
+   if(withPrefix)
+   {
+      magic  = brr.get_BinaryData(4);
+      nBytes = brr.get_uint32_t();
+
+      if(brr.getSizeRemaining() < nBytes)
+      {
+         Log::ERR() << "Not enough bytes remaining in BRR to read block";
+         return;
+      }
+   }
+
+   BlockHeader bh(brr); 
+   uint32_t nTx = (uint32_t)brr.get_var_int();
+
+   createFromBlockHeader(bh);
+   numTx_ = nTx;
+   numBytes_ = nBytes;
+   if(dataCopy_.getSize() != HEADER_SIZE)
+   {
+      Log::ERR() << "Unserializing header did not produce 80-byte object!";
+      return;
+   }
+
+   BtcUtils::getHash256(dataCopy_, thisHash_);
+
+   for(uint32_t tx=0; tx<nTx; tx++)
+   {
+      // We're going to have to come back to the beginning of the tx, later
+      uint32_t txStart = brr.getPosition();
+
+      // Read a regular tx and then convert it
+      Tx thisTx(brr);
+
+      // Now add it to the map
+      stxMap_[tx] = StoredTx();
+      StoredTx & stx = stxMap_[tx];
+
+      // Now copy the appropriate data from the vanilla Tx object
+      stx.createFromTx(thisTx, doFrag);
+      stx.blockHeight_   = UINT32_MAX;
+      stx.blockDupID_    = UINT8_MAX;
+      stx.isFragged_     = doFrag;
+      stx.version_       = thisTx.getVersion();
+      stx.txIndex_       = tx;
+      stx.isInitialized_ = true;
+
+
+      // Regardless of whether the tx is fragged, we still need the STXO map
+      // to be updated and consistent
+      brr.resetPosition();
+      brr.advance(txStart + thisTx.getTxOutOffset(0));
+      for(uint32_t txo=0; txo < thisTx.getNumTxOut(); txo++)
+      {
+         stx.stxoMap_[txo] = StoredTxOut();
+         StoredTxOut & stxo = stx.stxoMap_[txo];
+
+         stxo.unserialize(brr);
+         stxo.txVersion_      = thisTx.getVersion();
+         stxo.blockHeight_    = UINT32_MAX;
+         stxo.blockDupID_     = UINT8_MAX;
+         stxo.txIndex_        = tx;
+         stxo.txOutIndex_     = txo;
+         stxo.isFromCoinbase_ = thisTx.getTxIn(0).isCoinbase();
+         stxo.isInitialized_  = true;
+      }
+
+      // Sitting at the nLockTime, 4 bytes before the end
+      brr.advance(4);
+
+      // Finally, add the 
+      stxMap_[tx] = stx;
+   }
+}
+
+/////////////////////////////////////////////////////////////////////////////
+void StoredHeader::unserializeFullBlock(BinaryDataRef block, 
+                                        bool doFrag,
+                                        bool withPrefix)
+{
+   BinaryRefReader brr(block);
+   unserializeFullBlock(brr, doFrag, withPrefix);
+}
+
+/////////////////////////////////////////////////////////////////////////////
 void StoredHeader::addTxToMap(uint16_t txIdx, Tx & tx)
 {
    StoredTx storedTx;
@@ -114,11 +217,25 @@ void StoredHeader::addTxToMap(uint16_t txIdx, Tx & tx)
 /////////////////////////////////////////////////////////////////////////////
 void StoredHeader::addStoredTxToMap(uint16_t txIdx, StoredTx & stx)
 {
-   txMap_[txIdx] = stx; 
+   stxMap_[txIdx] = stx; 
 }
 
 /////////////////////////////////////////////////////////////////////////////
-BlockHeader StoredHeader::getBlocKHeaderCopy(void) const
+void StoredTx::addTxOutToMap(uint16_t idx, TxOut & txout)
+{
+   StoredTxOut stxo;
+   stxo.unserialize(txout.serialize());
+   stxoMap_[idx] = stxo;
+}
+
+/////////////////////////////////////////////////////////////////////////////
+void StoredTx::addStoredTxOutToMap(uint16_t idx, StoredTxOut & stxo)
+{
+   stxoMap_[idx] = stxo;
+}
+
+/////////////////////////////////////////////////////////////////////////////
+BlockHeader StoredHeader::getBlockHeaderCopy(void) const
 {
    if(!isInitialized_)
       return BlockHeader(); 
@@ -154,7 +271,7 @@ void StoredHeader::serializeForLDB(BinaryWriter & bw,
       return;
    }
 
-   if(merkType==MERKLE_SER_FULL && txMap_.size() < numTx_)
+   if(merkType==MERKLE_SER_FULL && stxMap_.size() < numTx_)
    {
       Log::ERR() << " Cannot produce full tx list";
       return;
@@ -177,8 +294,8 @@ void StoredHeader::serializeForLDB(BinaryWriter & bw,
 
    if(merkType == MERKLE_SER_FULL)
    {
-      map<uint16_t, StoredTx>::iterator iter = txMap_.begin();
-      while(iter != txMap_.end())
+      map<uint16_t, StoredTx>::iterator iter = stxMap_.begin();
+      while(iter != stxMap_.end())
          bw.put_BinaryData(iter->second.thisHash_)
    }
    else if(merkType == MERKLE_SER_PARTIAL)
@@ -190,8 +307,8 @@ void StoredHeader::serializeForLDB(BinaryWriter & bw,
          isReqTx = false;
          reqTxs = BinaryData(0);
       }
-      map<uint16_t, StoredTx>::iterator iter = txMap_.begin();
-      while(iter != txMap_.end())
+      map<uint16_t, StoredTx>::iterator iter = stxMap_.begin();
+      while(iter != stxMap_.end())
       {
          isReqTx[iter->first] = true;
          reqTxs[iter->first] = iter->second.thisHash_;
@@ -302,7 +419,7 @@ bool StoredTx::haveAllTxOut(void) const
       return true;
 
    for(uint16_t i=0; i<numTxOut_; i++)
-      if(txOutMap_.find(i) == txOutMap_.end())
+      if(stxoMap_.find(i) == stxoMap_.end())
          return false;
 
    return true;
@@ -331,7 +448,7 @@ BinaryData StoredTx::getSerializedTx(void) const
    bw.put_BinaryData(dataCopy_.getPtr(), dataCopy_.getSize()-4);
 
    for(uint16_t txo=0; txo<numTxOut_; txo++)
-      bw.put_BinaryData(txOutMap_.at(txo).getSerializedTxOut());
+      bw.put_BinaryData(stxoMap_.at(txo).getSerializedTxOut());
 
    bw.put_BinaryData(dataCopy_.getPtr()+dataCopy_.getSize()-4, 4);
    return bw.getData();
@@ -360,19 +477,20 @@ Tx StoredTx::getTxCopy(void) const
 
 
 ////////////////////////////////////////////////////////////////////////////////
-void StoredTx::createFromTx(Tx & tx, bool doFrag)
+StoredTx & StoredTx::createFromTx(Tx & tx, bool doFrag, bool withTxOuts)
 {
    if(!tx.isInitialized())
    {
       Log::ERR() << "Creating storedtx from uninitialized tx. Aborting.";
       isInitialized_ = false;
-      return;
+      return *this;
    }
 
    thisHash_ = tx.getThisHash();
    numTxOut_ = tx.getNumTxOut();
    version_  = tx.getVersion();
    lockTime_ = tx.getLockTime(); 
+
    if(!doFrag)
    {
       isInitialized_ = true;
@@ -390,6 +508,38 @@ void StoredTx::createFromTx(Tx & tx, bool doFrag)
       brr.advance(span);
       brr.get_BinaryData(dataCopy_.getPtr()+firstOut, 4);
    }
+
+   if(withTxOuts)
+   {
+      for(uint32_t txo = 0; txo < tx.getNumTxOut(); txo++)
+      {
+         stxoMap_[txo] = StoredTxOut();
+         StoredTxOut & stxo = stxoMap_[txo];
+
+         stxo.unserialize(tx.getTxOut(txo).serialize());
+         stxo.txVersion_      = tx.getVersion();
+         stxo.blockHeight_    = UINT32_MAX;
+         stxo.blockDupID_     = UINT8_MAX;
+         stxo.txIndex_        = tx.getBlockTxIndex();
+         stxo.txOutIndex_     = txo;
+         stxo.isFromCoinbase_ = tx.getTxIn(0).isCoinbase();
+         stxo.isInitialized_  = true;
+      }
+   }
+
+   return *this;
 }
+
+
+////////////////////////////////////////////////////////////////////////////////
+StoredTxOut & StoredTxOut::createFromTxOut(TxOut & txout)
+{
+   unserialize(txout.serialize());
+}
+
+
+
+
+
 
 

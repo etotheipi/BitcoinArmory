@@ -371,6 +371,9 @@ public:
 
 
    /////////////////////////////////////////////////////////////////////////////
+   // This is an architecture-agnostic way to serialize integers to little- or
+   // big-endian.  Bit-shift & mod will always return the lowest significant
+   // bytes, so we can put them into an array of bytes in the desired order.
    template<typename INTTYPE>
    static BinaryData IntToStrLE(INTTYPE val)
    {
@@ -389,6 +392,42 @@ public:
       BinaryData out(SZ);
       for(uint8_t i=0; i<SZ; i++, val>>=8)
          out[(SZ-1)-i] = val % 256;
+      return out;
+   }
+
+   /////////////////////////////////////////////////////////////////////////////
+   template<typename INTTYPE>
+   static INTTYPE StrToIntBE(BinaryData binstr)
+   {
+      uint8_t const SZ = sizeof(INTTYPE);
+      if(binstr.getSize() != SZ)
+      {
+         Log::ERR() << "StrToInt: strsz: " << binstr.getSize() << " intsz: " << SZ;
+         return (INTTYPE)0;
+      }
+      
+      INTTYPE out = 0;
+      for(uint8_t i=0; i<SZ; i++)
+         out |= ((INTTYPE)binstr[i]) << (8*((SZ-1)-i));
+
+      return out;
+   }
+
+   /////////////////////////////////////////////////////////////////////////////
+   template<typename INTTYPE>
+   static INTTYPE StrToIntLE(BinaryData binstr)
+   {
+      uint8_t const SZ = sizeof(INTTYPE);
+      if(binstr.getSize() != SZ)
+      {
+         Log::ERR() << "StrToInt: strsz: " << binstr.getSize() << " intsz: " << SZ;
+         return (INTTYPE)0;
+      }
+      
+      INTTYPE out = 0;
+      for(uint8_t i=0; i<SZ; i++)
+         out |= ((INTTYPE)binstr[i]) << (8*i);
+
       return out;
    }
 
@@ -1298,11 +1337,19 @@ public:
 
    void putBits(DTYPE val, uint32_t bitWidth)
    {
-      if(bitsUsed_ + bitWidth > sizeof(DTYPE)*8)
+      uint8_t const SZ = sizeof(DTYPE);
+      if(bitsUsed_ + bitWidth > SZ*8)
          Log::ERR() << "Tried to put bits beyond end of bit field";
 
-      uint32_t shiftAmt = sizeof(DTYPE)*8 - (bitsUsed_ + bitWidth);
-      DTYPE mask = (DTYPE)(1ULL<<bitWidth - 1);
+      if(bitsUsed_==0 && bitWidth==SZ*8)
+      {
+         bitsUsed_ = SZ*8;
+         intVal_ = val;
+         return;
+      }
+
+      uint32_t shiftAmt = SZ*8 - (bitsUsed_ + bitWidth);
+      DTYPE mask = (DTYPE)((1ULL<<bitWidth) - 1);
       intVal_ |= (val & mask) << shiftAmt;
       bitsUsed_ += bitWidth;
    }
@@ -1313,11 +1360,12 @@ public:
       putBits(bit, 1);
    }
 
-   BinaryData getBinaryData(void) 
-   { 
-      return BinaryData((uint8_t*)&intVal_, sizeof(DTYPE));
-   }
+   uint32_t getBitsUsed(void) {return bitsUsed_;}
 
+   BinaryData getBinaryData(void) 
+               { return BinaryData::IntToStrBE<DTYPE>(intVal_); }
+
+   // TODO:  Be careful that 
    DTYPE getValue(void)      { return intVal_; }
    void  reset(void)         { intVal_ = 0; bitsUsed_ = 0; }
 
@@ -1337,25 +1385,26 @@ template<typename DTYPE>
 class BitReader
 {
 public:
+   BitReader(void) {bitsRead_=0xffffffff;}
    BitReader(DTYPE valToRead) {setValue(valToRead);}
    BitReader(BinaryRefReader & brr)
    {
-      if(sizeof(DTYPE)==1)
-         setValue(brr.get_uint8_t());
-      else if(sizeof(DTYPE)==2)
-         setValue(brr.get_uint16_t());
-      else if(sizeof(DTYPE)==4)
-         setValue(brr.get_uint32_t());
-      else if(sizeof(DTYPE)==8)
-         setValue(brr.get_uint64_t());
+      BinaryData bytes = brr.get_BinaryData(sizeof(DTYPE));
+      setValue( BinaryData::StrToIntBE<DTYPE>(bytes) );
    }
 
    void setValue(DTYPE val)   { intVal_ = val; bitsRead_ = 0; }
 
    DTYPE getBits(uint32_t bitWidth)
    {
-      uint32_t shiftAmt = sizeof(DTYPE)*8 - (bitsRead_ + bitWidth);
-      DTYPE mask = (DTYPE)(1ULL<<bitWidth - 1);
+      uint8_t const SZ = sizeof(DTYPE);
+      if(bitsRead_==0 && bitWidth==SZ*8)
+      {
+         bitsRead_ = bitWidth;
+         return intVal_;
+      }
+      uint32_t shiftAmt = SZ*8 - (bitsRead_ + bitWidth);
+      DTYPE mask = (DTYPE)((1ULL<<bitWidth) - 1);
       bitsRead_ += bitWidth;
       return ((intVal_ >> shiftAmt) & mask);
    }

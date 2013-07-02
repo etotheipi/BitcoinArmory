@@ -11,6 +11,8 @@
 
 class BlockHeader;
 class Tx;
+class TxIn;
+class TxOut;
 class TxRef;
 class TxIOPair;
 
@@ -22,14 +24,20 @@ class StoredScriptHistory;
 class StoredHeader
 {
 public:
-   StoredHeader(void) : 
-         isInitialized_(false), dataCopy_(0), thisHash_(0),
-         blockHeight_(UINT32_MAX), duplicateID_(UINT8_MAX), 
-         merkle_(0), isMainBranch_(false) {}
+   StoredHeader(void) : isInitialized_(false), 
+                        dataCopy_(0), 
+                        thisHash_(0), 
+                        numTx_(UINT32_MAX), 
+                        numBytes_(UINT32_MAX), 
+                        blockHeight_(UINT32_MAX), 
+                        duplicateID_(UINT8_MAX), 
+                        merkle_(0), 
+                        isMainBranch_(false) {}
                            
 
+   bool isInitialized(void) const {return isInitialized_;}
    bool haveFullBlock(void) const;
-   BlockHeader getBlocKHeaderCopy(void) const;
+   BlockHeader getBlockHeaderCopy(void) const;
    BinaryData getSerializedBlock(void) const;
    BinaryData getSerializedBlockHeader(void) const;
    void createFromBlockHeader(BlockHeader & bh);
@@ -39,7 +47,19 @@ public:
 
    void setParamsTrickle(uint32_t hgt, uint8_t dupID, bool isValid);
 
+   void unserialize(BinaryData const & header80B);
    void unserialize(BinaryDataRef header80B);
+   void unserialize(BinaryRefReader brr);
+
+   void unserializeFullBlock(BinaryDataRef block, 
+                             bool doFrag=true,
+                             bool withPrefix8=false);
+
+   void unserializeFullBlock(BinaryRefReader brr, 
+                             bool doFrag=true,
+                             bool withPrefix8=false);
+
+   bool isMerkleCreated(void) { return (merkle_.getSize() != 0);}
 
    
    bool           isInitialized_;
@@ -54,7 +74,7 @@ public:
    uint8_t        isMainBranch_;
 
    bool           isPartial_;
-   map<uint16_t, StoredTx> txMap_;
+   map<uint16_t, StoredTx> stxMap_;
 
    
 };
@@ -67,12 +87,20 @@ public:
    StoredTx(void) : isInitialized_(false), 
                     thisHash_(0), 
                     dataCopy_(0), 
-                    numBytes_(0) {}
+                    blockHeight_(UINT32_MAX),
+                    blockDupID_(UINT8_MAX),
+                    txIndex_(UINT16_MAX),
+                    numTxOut_(UINT16_MAX),
+                    numBytes_(UINT32_MAX) {}
    
+   bool       isInitialized(void) const {return isInitialized_;}
    bool       haveAllTxOut(void) const;
-   void       createFromTx(Tx & tx, bool doFrag=true);
+   StoredTx&  createFromTx(Tx & tx, bool doFrag=true, bool withTxOuts=true);
    BinaryData getSerializedTx(void) const;
    Tx         getTxCopy(void) const;
+
+   void addTxOutToMap(uint16_t idx, TxOut & txout);
+   void addStoredTxOutToMap(uint16_t idx, StoredTxOut & txout);
 
    void unserialize(BinaryData const & data, bool isFragged=false);
    void unserialize(BinaryDataRef data,      bool isFragged=false);
@@ -89,9 +117,9 @@ public:
    uint32_t             blockHeight_;
    uint8_t              blockDupID_;
    uint16_t             txIndex_;
-   uint32_t             numTxOut_;
+   uint16_t             numTxOut_;
    uint32_t             numBytes_;
-   map<uint16_t, StoredTxOut> txOutMap_;
+   map<uint16_t, StoredTxOut> stxoMap_;
 
 };
 
@@ -103,11 +131,13 @@ public:
    StoredTxOut(void) : 
       isInitialized_(false), dataCopy_(0), spentByHgtX_(UINT32_MAX) {}
 
+   bool isInitialized(void) const {return isInitialized_;}
    void unserialize(BinaryData const & data);
    void unserialize(BinaryDataRef data);
    void unserialize(BinaryRefReader & brr);
 
 
+   StoredTxOut & createFromTxOut(TxOut & txout); 
    BinaryData getSerializedTxOut(void) const;
 
    bool writeToDB(bool skipIfExists=false);
