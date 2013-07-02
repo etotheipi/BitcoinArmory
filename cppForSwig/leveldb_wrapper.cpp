@@ -1409,7 +1409,7 @@ void InterfaceToLDB::serializeStoredHeaderValue(
    }
    else if(db==BLKDATA)
    {
-      uint32_t version = *(uint32_t*)sbh.dataCopy_.getPtr();
+      uint32_t version = READ_UINT32_LE(sbh.dataCopy_.getPtr());
 
       MERKLE_SER_TYPE mtype;
       switch(armoryDbType_)
@@ -1477,7 +1477,7 @@ void InterfaceToLDB::serializeStoredTxValue(
                                           StoredTx const & stx,
                                           BinaryWriter & bw)
 {
-   uint16_t version = *(uint16_t*)stx.dataCopy_.getPtr();
+   uint16_t version = (uint16_t)READ_UINT32_LE(stx.dataCopy_.getPtr());
    TX_SERIALIZE_TYPE serType;
    
    switch(armoryDbType_)
@@ -1833,7 +1833,7 @@ void InterfaceToLDB::putStoredTx( StoredTx & stx, bool withTxOut)
           iter++)
       {
          // Make sure all the parameters of the TxOut are set right 
-         iter->second.txVersion_   = *(uint32_t*)stx.dataCopy_.getPtr();
+         iter->second.txVersion_   = READ_UINT32_LE(stx.dataCopy_.getPtr());
          iter->second.blockHeight_ = stx.blockHeight_;
          iter->second.blockDupID_  = stx.blockDupID_;
          iter->second.txIndex_     = stx.txIndex_;

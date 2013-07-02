@@ -379,6 +379,28 @@ TEST_F(BinaryDataTest, BinDataToInt)
    EXPECT_EQ(a64, 0x00000000fec38a11);
    EXPECT_EQ(b64, 0x118ac3fe00000000);
     
+   // These are really just identical tests, I have no idea whether it
+   // was worth spending the time to write these, and even this comment
+   // here explaining how it was probably a waste of time...
+   a8 = READ_UINT8_BE(READHEX("ab"));
+   b8 = READ_UINT8_LE(READHEX("ab"));
+   EXPECT_EQ(a8, 0xab);
+   EXPECT_EQ(b8, 0xab);
+
+   a16 = READ_UINT16_BE(READHEX("abcd"));
+   b16 = READ_UINT16_LE(READHEX("abcd"));
+   EXPECT_EQ(a16, 0xabcd);
+   EXPECT_EQ(b16, 0xcdab);
+
+   a32 = READ_UINT32_BE(READHEX("fec38a11"));
+   b32 = READ_UINT32_LE(READHEX("fec38a11"));
+   EXPECT_EQ(a32, 0xfec38a11);
+   EXPECT_EQ(b32, 0x118ac3fe);
+
+   a64 = READ_UINT64_BE(READHEX("00000000fec38a11"));
+   b64 = READ_UINT64_LE(READHEX("00000000fec38a11"));
+   EXPECT_EQ(a64, 0x00000000fec38a11);
+   EXPECT_EQ(b64, 0x118ac3fe00000000);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -862,6 +884,7 @@ TEST_F(BinaryDataRefTest, Equality)
 
 
 ////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
 TEST(BitReadWriteTest, Writer8)
 {
    BitWriter<uint8_t> bitw;
@@ -908,32 +931,32 @@ TEST(BitReadWriteTest, Writer16)
    bitw.putBit(true);
    EXPECT_EQ( bitw.getValue(), 0x8000);
    EXPECT_EQ( bitw.getBitsUsed(), 1);
-   EXPECT_EQ( bitw.getBinaryData(), READHEX("8000"));
+   EXPECT_EQ( bitw.getBinaryData(), READHEX("0080"));
 
    bitw.putBit(false);
    EXPECT_EQ( bitw.getValue(), 0x8000);
    EXPECT_EQ( bitw.getBitsUsed(), 2);
-   EXPECT_EQ( bitw.getBinaryData(), READHEX("8000"));
+   EXPECT_EQ( bitw.getBinaryData(), READHEX("0080"));
 
    bitw.putBit(true);
    EXPECT_EQ( bitw.getValue(), 0xa000);
    EXPECT_EQ( bitw.getBitsUsed(), 3);
-   EXPECT_EQ( bitw.getBinaryData(), READHEX("a000"));
+   EXPECT_EQ( bitw.getBinaryData(), READHEX("00a0"));
 
    bitw.putBits(0, 2);
    EXPECT_EQ( bitw.getValue(),  0xa000);
    EXPECT_EQ( bitw.getBitsUsed(), 5);
-   EXPECT_EQ( bitw.getBinaryData(), READHEX("a000"));
+   EXPECT_EQ( bitw.getBinaryData(), READHEX("00a0"));
 
    bitw.putBits(3, 3);
    EXPECT_EQ( bitw.getValue(),  0xa300);
    EXPECT_EQ( bitw.getBitsUsed(), 8);
-   EXPECT_EQ( bitw.getBinaryData(), READHEX("a300"));
+   EXPECT_EQ( bitw.getBinaryData(), READHEX("00a3"));
 
    bitw.putBits(3, 8);
    EXPECT_EQ( bitw.getValue(),  0xa303);
    EXPECT_EQ( bitw.getBitsUsed(), 16);
-   EXPECT_EQ( bitw.getBinaryData(), READHEX("a303"));
+   EXPECT_EQ( bitw.getBinaryData(), READHEX("03a3"));
 }
 
 
@@ -945,7 +968,7 @@ TEST(BitReadWriteTest, Writer32)
    bitw.putBits(0xffffff00, 32);
    EXPECT_EQ( bitw.getValue(),  0xffffff00);
    EXPECT_EQ( bitw.getBitsUsed(), 32);
-   EXPECT_EQ( bitw.getBinaryData(), READHEX("ffffff00"));
+   EXPECT_EQ( bitw.getBinaryData(), READHEX("00ffffff"));
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -956,14 +979,14 @@ TEST(BitReadWriteTest, Writer64)
    bitw.putBits(0xffffff00ffffffaaULL, 64);
    EXPECT_EQ( bitw.getValue(),  0xffffff00ffffffaaULL);
    EXPECT_EQ( bitw.getBitsUsed(), 64);
-   EXPECT_EQ( bitw.getBinaryData(), READHEX("ffffff00ffffffaa"));
+   EXPECT_EQ( bitw.getBinaryData(), READHEX("aaffffff00ffffff"));
 
    BitWriter<uint64_t> bitw2;
    bitw2.putBits(0xff, 32);
    bitw2.putBits(0xff, 32);
    EXPECT_EQ( bitw2.getValue(),  0x000000ff000000ffULL);
    EXPECT_EQ( bitw2.getBitsUsed(), 64);
-   EXPECT_EQ( bitw2.getBinaryData(), READHEX("000000ff000000ff"));
+   EXPECT_EQ( bitw2.getBinaryData(), READHEX("ff000000ff000000"));
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1010,9 +1033,56 @@ TEST(BitReadWriteTest, Reader64)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+TEST(BinaryReadWriteTest, Writer)
+{
+   BinaryData out = READHEX("01""0100""013200aa""ff00ff00ff00ff00"
+                            "ab""fdffff""fe013200aa""ffff00ff00ff00ff00");
+
+   BinaryWriter bw;
+   bw.put_uint8_t(1);                       EXPECT_EQ(bw.getSize(), 1);
+   bw.put_uint16_t(1);                      EXPECT_EQ(bw.getSize(), 3);
+   bw.put_uint32_t(0xaa003201);             EXPECT_EQ(bw.getSize(), 7);
+   bw.put_uint64_t(0x00ff00ff00ff00ffULL);  EXPECT_EQ(bw.getSize(), 15);
+   bw.put_var_int(0xab);                    EXPECT_EQ(bw.getSize(), 16);
+   bw.put_var_int(0xffff);                  EXPECT_EQ(bw.getSize(), 19);
+   bw.put_var_int(0xaa003201);              EXPECT_EQ(bw.getSize(), 24);
+   bw.put_var_int(0x00ff00ff00ff00ffULL);   EXPECT_EQ(bw.getSize(), 33);
+
+   EXPECT_EQ(bw.getData(), out);
+   EXPECT_EQ(bw.getDataRef(), out.getRef());
+}
 
 
+////////////////////////////////////////////////////////////////////////////////
+TEST(BinaryReadWriteTest, Reader)
+{
+   BinaryData in = READHEX("01""0100""013200aa""ff00ff00ff00ff00"
+                           "ab""fdffff""fe013200aa""ffff00ff00ff00ff00");
 
+   BinaryReader br(in);
+   EXPECT_EQ(br.get_uint8_t(), 1);                       
+   EXPECT_EQ(br.get_uint16_t(), 1);                      
+   EXPECT_EQ(br.get_uint32_t(), 0xaa003201);             
+   EXPECT_EQ(br.get_uint64_t(), 0x00ff00ff00ff00ffULL);  
+   EXPECT_EQ(br.get_var_int(), 0xab);                   
+   EXPECT_EQ(br.get_var_int(), 0xffff);                
+   EXPECT_EQ(br.get_var_int(), 0xaa003201);           
+   EXPECT_EQ(br.get_var_int(), 0x00ff00ff00ff00ffULL);
+
+   BinaryRefReader brr(in);
+   EXPECT_EQ(brr.get_uint8_t(), 1);                       
+   EXPECT_EQ(brr.get_uint16_t(), 1);                      
+   EXPECT_EQ(brr.get_uint32_t(), 0xaa003201);             
+   EXPECT_EQ(brr.get_uint64_t(), 0x00ff00ff00ff00ffULL);  
+   EXPECT_EQ(brr.get_var_int(), 0xab);                   
+   EXPECT_EQ(brr.get_var_int(), 0xffff);                
+   EXPECT_EQ(brr.get_var_int(), 0xaa003201);           
+   EXPECT_EQ(brr.get_var_int(), 0x00ff00ff00ff00ffULL);
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
 class BtcUtilsTest : public ::testing::Test
 {
 protected:
@@ -2381,6 +2451,8 @@ TEST_F(StoredBlockObjTest, StoredTxReconstruct)
    stx.createFromTx(regTx, true);
 
    reconTx = stx.getTxCopy();
+   EXPECT_EQ(reconTx.serialize().getSize(),   rawTx0_.getSize());
+   EXPECT_EQ(stx.getSerializedTx().getSize(), rawTx0_.getSize());
    EXPECT_EQ(reconTx.serialize(),   rawTx0_);
    EXPECT_EQ(stx.getSerializedTx(), rawTx0_);
 }
@@ -2615,7 +2687,7 @@ TEST_F(TxRefTest, TxRefKeyParts)
 {
    TxRef txr;
    //BinaryData    newKey = READHEX("02c4e3020100");
-   BinaryData    newKey = READHEX("7fe3c4020f00");
+   BinaryData    newKey = READHEX("02c4e37f0f00");
    BinaryDataRef newRef(newKey);
 
 

@@ -43,19 +43,19 @@ public:
    // SWIG needs a non-overloaded method
    BlockHeader & unserialize_1_(BinaryData const & str) { unserialize(str); return *this; }
 
-   uint32_t           getVersion(void) const      { return  *(uint32_t*)(getPtr()  );  }
-   BinaryData const & getThisHash(void) const     { return thisHash_;                  }
-   BinaryData         getPrevHash(void) const     { return BinaryData(getPtr()+4 ,32); }
-   BinaryData const & getNextHash(void) const     { return nextHash_;                  }
-   BinaryData         getMerkleRoot(void) const   { return BinaryData(getPtr()+36,32); }
-   BinaryData         getDiffBits(void) const     { return BinaryData(getPtr()+72,4 ); }
-   uint32_t           getTimestamp(void) const    { return  *(uint32_t*)(getPtr()+68); }
-   uint32_t           getNonce(void) const        { return  *(uint32_t*)(getPtr()+76); }
-   uint32_t           getBlockHeight(void) const  { return blockHeight_;               }
-   bool               isMainBranch(void) const    { return isMainBranch_;              }
-   bool               isOrphan(void) const        { return isOrphan_;                  }
-   double             getDifficulty(void) const   { return difficultyDbl_;             }
-   double             getDifficultySum(void) const{ return difficultySum_;             }
+   uint32_t           getVersion(void) const      { return READ_UINT32_LE(getPtr() );   }
+   BinaryData const & getThisHash(void) const     { return thisHash_;                   }
+   BinaryData         getPrevHash(void) const     { return BinaryData(getPtr()+4 ,32);  }
+   BinaryData const & getNextHash(void) const     { return nextHash_;                   }
+   BinaryData         getMerkleRoot(void) const   { return BinaryData(getPtr()+36,32);  }
+   BinaryData         getDiffBits(void) const     { return BinaryData(getPtr()+72,4 );  }
+   uint32_t           getTimestamp(void) const    { return READ_UINT32_LE(getPtr()+68); }
+   uint32_t           getNonce(void) const        { return READ_UINT32_LE(getPtr()+76); }
+   uint32_t           getBlockHeight(void) const  { return blockHeight_;                }
+   bool               isMainBranch(void) const    { return isMainBranch_;               }
+   bool               isOrphan(void) const        { return isOrphan_;                   }
+   double             getDifficulty(void) const   { return difficultyDbl_;              }
+   double             getDifficultySum(void) const{ return difficultySum_;              }
 
    /////////////////////////////////////////////////////////////////////////////
    BinaryDataRef  getThisHashRef(void) const   { return thisHash_.getRef();            }
@@ -275,7 +275,7 @@ public:
 
    //void setParentTx(TxRef txref, int32_t idx=-1) {parentTx_=txref; index_=idx;}
 
-   uint32_t         getSequence(void)   { return *(uint32_t*)(getPtr()+getSize()-4); }
+   uint32_t         getSequence(void)   { return READ_UINT32_LE(getPtr()+getSize()-4); }
 
    BinaryData       getParentHash(void);
    uint32_t         getParentHeight(void);
@@ -352,7 +352,7 @@ public:
 
    uint8_t const * getPtr(void) const { return dataCopy_.getPtr(); }
    uint32_t        getSize(void) const { return dataCopy_.getSize(); }
-   uint64_t        getValue(void) const { return *(uint64_t*)(dataCopy_.getPtr()); }
+   uint64_t        getValue(void) const { return READ_UINT64_LE(dataCopy_.getPtr()); }
    bool            isStandard(void) const { return scriptType_ != TXOUT_SCRIPT_NONSTANDARD; }
    bool            isInitialized(void) const {return dataCopy_.getSize() > 0; }
    TxRef           getParentTxRef(void) { return parentTx_; }
@@ -450,7 +450,7 @@ public:
    uint32_t        getSize(void) const {  return dataCopy_.getSize(); }
 
    /////////////////////////////////////////////////////////////////////////////
-   uint32_t           getVersion(void)   const { return *(uint32_t*)(dataCopy_.getPtr());}
+   uint32_t           getVersion(void)   const { return READ_UINT32_LE(dataCopy_.getPtr());}
    uint32_t           getNumTxIn(void)   const { return offsetsTxIn_.size()-1;}
    uint32_t           getNumTxOut(void)  const { return offsetsTxOut_.size()-1;}
    BinaryData         getThisHash(void)  const;

@@ -955,7 +955,7 @@ LedgerEntry BtcWallet::calcLedgerEntryForTx(Tx & tx)
          // Std TxOut with 25-byte script
          addr20.copyFrom(ptr+12, 20);
          if( hasAddr(addr20) )
-            totalValue += *(uint64_t*)ptr;
+            totalValue += READ_UINT64_LE(ptr);
          else
             allTxOutIsOurs = false;
       }
@@ -964,7 +964,7 @@ LedgerEntry BtcWallet::calcLedgerEntryForTx(Tx & tx)
          // Std spend-coinbase TxOut script
          BtcUtils::getHash160_NoSafetyCheck(ptr+10, 65, addr20);
          if( hasAddr(addr20) )
-            totalValue += *(uint64_t*)ptr;
+            totalValue += READ_UINT64_LE(ptr);
          else
             allTxOutIsOurs = false;
       }
@@ -1533,10 +1533,10 @@ bool BlockDataManager_LevelDB::initializeDBandBlkFiles(void)
       headerHash.copyFrom((uint8_t const *)(it->key().data()), 32);
       dataPtr = (uint8_t const *)(it->value().data());
 
-      fileIndex  = *(uint16_t*)(dataPtr +  0);
-      startByte  = *(uint32_t*)(dataPtr +  2);
-      blkBytes   = *(uint32_t*)(dataPtr +  6);
-      rawHeadPtr = *(uint32_t*)(dataPtr + 10);
+      fileIndex  = READ_UINT16_LE((dataPtr +  0));
+      startByte  = READ_UINT32_LE((dataPtr +  2));
+      blkBytes   = READ_UINT32_LE((dataPtr +  6));
+      rawHeadPtr = READ_UINT32_LE((dataPtr + 10));
 
       // Create the header with this data
       thisHeader.unserialize(rawHeadPtr, HEADER_SIZE);
@@ -1666,8 +1666,8 @@ void readTransientDB(void)
 
          // Will overwrite the blkCreated and alreadyScannedUpToBlk_ vars on
          // addresses that were registered before this was called.
-         RegisteredAddress ra(entryKey, *(uint32_t*)(dataPtr+0));
-         ra.alreadyScannedUpToBlk_ = *(uint32_t*)(dataPtr+4);
+         RegisteredAddress ra(entryKey, READ_UINT32_LE((dataPtr+0)));
+         ra.alreadyScannedUpToBlk_ = READ_UINT32_LE((dataPtr+4));
          registeredAddrMap_[entryKey] = ra;
       }
       else if(entryType==RGTX)
@@ -1678,7 +1678,7 @@ void readTransientDB(void)
 
          if(registeredTxSet_.insert(entryKey).second == true)
          {
-            RegisteredTx rtx(entryKey, *(uint32_t*)(dataPtr+0), *(uint32_t*)(dataPtr+4));
+            RegisteredTx rtx(entryKey, READ_UINT32_LE(dataPtr+0), READ_UINT32_LE(dataPtr+4));
             registeredTxList_.push_back(rtx);
          }
          
@@ -1694,7 +1694,7 @@ void readTransientDB(void)
          if( entryKey.getSize() != 32 )
             continue;
 
-         uint64_t   txtime = *(uint64_t*)dataPtr+0;
+         uint64_t   txtime = READ_UINT64_LE(dataPtr+0);
          BinaryData rawTx(dataPtr+8, dataSz-8);
          if( BtcUtils::getHash256(rawTx) != entryKey)
          {
@@ -2910,7 +2910,7 @@ uint32_t BlockDataManager_LevelDB::readBlkFileUpdate(void)
          else
          {
             is.read((char*)fourBytes.getPtr(), 4);
-            endOfNewLastBlock += *(uint32_t*)(fourBytes.getPtr()) + 8;
+            endOfNewLastBlock += READ_UINT32_LE((fourBytes.getPtr()) + 8;
          }
       }
 

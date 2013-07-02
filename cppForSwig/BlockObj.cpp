@@ -159,7 +159,7 @@ BinaryData OutPoint::serialize(void)
 void OutPoint::unserialize(uint8_t const * ptr)
 {
    txHash_.copyFrom(ptr, 32);
-   txOutIndex_ = *(uint32_t*)(ptr+32);
+   txOutIndex_ = READ_UINT32_LE(ptr+32);
 }
 void OutPoint::unserialize(BinaryReader & br)
 {
@@ -472,8 +472,8 @@ void Tx::unserialize(uint8_t const * ptr)
    BtcUtils::getHash256(ptr, numBytes, thisHash_);
 
    uint32_t numTxOut = offsetsTxOut_.size()-1;
-   version_  = *(uint32_t*)(ptr);
-   lockTime_ = *(uint32_t*)(ptr + offsetsTxOut_[numTxOut]);
+   version_  = READ_UINT32_LE(ptr);
+   lockTime_ = READ_UINT32_LE(ptr + offsetsTxOut_[numTxOut]);
 
    isInitialized_ = true;
    headerPtr_ = NULL;
@@ -726,7 +726,7 @@ uint32_t TxRef::getBlockTimestamp(void)
 uint32_t TxRef::getBlockHeight(void) const
 {
    if(ldbKey6B_.getSize() == 6)
-      return InterfaceToLDB::hgtxToHeight(*(uint32_t*)ldbKey6B_.getPtr());
+      return InterfaceToLDB::hgtxToHeight(ldbKey6B_.getSliceCopy(0,4));
    else
       return UINT32_MAX;
 }
@@ -735,7 +735,7 @@ uint32_t TxRef::getBlockHeight(void) const
 uint8_t TxRef::getBlockDupID(void) const
 {
    if(ldbKey6B_.getSize() == 6)
-      return InterfaceToLDB::hgtxToDupID(*(uint32_t*)ldbKey6B_.getPtr());
+      return InterfaceToLDB::hgtxToDupID(ldbKey6B_.getSliceCopy(0,4));
    else
       return UINT8_MAX;
 }
@@ -744,7 +744,7 @@ uint8_t TxRef::getBlockDupID(void) const
 uint16_t TxRef::getBlockTxIndex(void) const
 {
    if(ldbKey6B_.getSize() == 6)
-      return *(uint16_t*)(ldbKey6B_.getPtr() + 4);
+      return READ_UINT16_LE(ldbKey6B_.getPtr() + 4);
    else
       return UINT16_MAX;
 }

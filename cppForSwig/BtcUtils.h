@@ -282,26 +282,26 @@ public:
       {
          if(lenOutPtr != NULL) 
             *lenOutPtr = 1;
-         return (uint64_t)firstByte;
+         return firstByte;
       }
       if(firstByte == 0xfd)
       {
          if(lenOutPtr != NULL) 
             *lenOutPtr = 3;
-         return (uint64_t)(*(uint16_t*)(strmPtr + 1));
+         return READ_UINT16_LE(strmPtr+1);
          
       }
       else if(firstByte == 0xfe)
       {
          if(lenOutPtr != NULL) 
             *lenOutPtr = 5;
-         return (uint64_t)(*(uint32_t*)(strmPtr + 1));
+         return READ_UINT32_LE(strmPtr+1);
       }
       else //if(firstByte == 0xff)
       {
          if(lenOutPtr != NULL) 
             *lenOutPtr = 9;
-         return *(uint64_t*)(strmPtr + 1);
+         return READ_UINT64_LE(strmPtr+1);
       }
    }
 
@@ -1131,7 +1131,7 @@ public:
    /////////////////////////////////////////////////////////////////////////////
    static double convertDiffBitsToDouble(BinaryData const & diffBitsBinary)
    {
-       uint32_t diffBits = *(uint32_t*)(diffBitsBinary.getPtr());
+       uint32_t diffBits = READ_UINT32_LE(diffBitsBinary);
        int nShift = (diffBits >> 24) & 0xff;
        double dDiff = (double)0x0000ffff / (double)(diffBits & 0x00ffffff);
    
@@ -1335,7 +1335,7 @@ public:
          }
          else if(nextOp == 76)
          {
-            uint8_t nb = *(uint8_t*)(script.getPtr() + i+1);
+            uint8_t nb = READ_UINT8_LE(script.getPtr() + i+1);
             if(i+1+1+nb > sz) { error=true; break; }
             BinaryData binObj = script.getSliceCopy(i+2, nb);
             opList.push_back("[OP_PUSHDATA1 -- " + num2str(nb) + " BYTES:]");
@@ -1344,7 +1344,7 @@ public:
          }
          else if(nextOp == 77)
          {
-            uint16_t nb = *(uint16_t*)(script.getPtr() + i+1);
+            uint16_t nb = READ_UINT16_LE(script.getPtr() + i+1);
             if(i+1+2+nb > sz) { error=true; break; }
             BinaryData binObj = script.getSliceCopy(i+3, min((int)nb,256));
             opList.push_back("[OP_PUSHDATA2 -- " + num2str(nb) + " BYTES:]");
@@ -1353,7 +1353,7 @@ public:
          }
          else if(nextOp == 78)
          {
-            uint32_t nb = *(uint32_t*)(script.getPtr() + i+1);
+            uint32_t nb = READ_UINT32_LE(script.getPtr() + i+1);
             if(i+1+4+nb > sz) { error=true; break; }
             BinaryData binObj = script.getSliceCopy(i+5, min((int)nb,256));
             opList.push_back("[OP_PUSHDATA4 -- " + num2str(nb) + " BYTES:]");

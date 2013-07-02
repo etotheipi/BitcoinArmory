@@ -67,6 +67,28 @@
 #include "UniversalTimer.h"
 
 
+#define READHEX        BinaryData::CreateFromHex
+
+#define READ_UINT8_LE  BinaryData::StrToIntLE<uint8_t>
+#define READ_UINT16_LE BinaryData::StrToIntLE<uint16_t>
+#define READ_UINT32_LE BinaryData::StrToIntLE<uint32_t>
+#define READ_UINT64_LE BinaryData::StrToIntLE<uint64_t>
+
+#define READ_UINT8_BE  BinaryData::StrToIntBE<uint8_t>
+#define READ_UINT16_BE BinaryData::StrToIntBE<uint16_t>
+#define READ_UINT32_BE BinaryData::StrToIntBE<uint32_t>
+#define READ_UINT64_BE BinaryData::StrToIntBE<uint64_t>
+
+#define WRITE_UINT8_LE  BinaryData::IntToStrLE<uint8_t>
+#define WRITE_UINT16_LE BinaryData::IntToStrLE<uint16_t>
+#define WRITE_UINT32_LE BinaryData::IntToStrLE<uint32_t>
+#define WRITE_UINT64_LE BinaryData::IntToStrLE<uint64_t>
+
+#define WRITE_UINT8_BE  BinaryData::IntToStrBE<uint8_t>
+#define WRITE_UINT16_BE BinaryData::IntToStrBE<uint16_t>
+#define WRITE_UINT32_BE BinaryData::IntToStrBE<uint32_t>
+#define WRITE_UINT64_BE BinaryData::IntToStrBE<uint64_t>
+
 using namespace std;
 
 class BinaryDataRef;
@@ -397,6 +419,24 @@ public:
 
    /////////////////////////////////////////////////////////////////////////////
    template<typename INTTYPE>
+   static INTTYPE StrToIntLE(BinaryData binstr)
+   {
+      uint8_t const SZ = sizeof(INTTYPE);
+      if(binstr.getSize() != SZ)
+      {
+         Log::ERR() << "StrToInt: strsz: " << binstr.getSize() << " intsz: " << SZ;
+         return (INTTYPE)0;
+      }
+      
+      INTTYPE out = 0;
+      for(uint8_t i=0; i<SZ; i++)
+         out |= ((INTTYPE)binstr[i]) << (8*i);
+
+      return out;
+   }
+
+   /////////////////////////////////////////////////////////////////////////////
+   template<typename INTTYPE>
    static INTTYPE StrToIntBE(BinaryData binstr)
    {
       uint8_t const SZ = sizeof(INTTYPE);
@@ -415,18 +455,24 @@ public:
 
    /////////////////////////////////////////////////////////////////////////////
    template<typename INTTYPE>
-   static INTTYPE StrToIntLE(BinaryData binstr)
+   static INTTYPE StrToIntLE(uint8_t const * ptr)
+   {
+      INTTYPE out = 0;
+      for(uint8_t i=0; i<sizeof(INTTYPE); i++)
+         out |= ((INTTYPE)ptr[i]) << (8*i);
+
+      return out;
+   }
+
+   /////////////////////////////////////////////////////////////////////////////
+   template<typename INTTYPE>
+   static INTTYPE StrToIntBE(uint8_t const * ptr)
    {
       uint8_t const SZ = sizeof(INTTYPE);
-      if(binstr.getSize() != SZ)
-      {
-         Log::ERR() << "StrToInt: strsz: " << binstr.getSize() << " intsz: " << SZ;
-         return (INTTYPE)0;
-      }
-      
+
       INTTYPE out = 0;
       for(uint8_t i=0; i<SZ; i++)
-         out |= ((INTTYPE)binstr[i]) << (8*i);
+         out |= ((INTTYPE)ptr[i]) << (8*((SZ-1)-i));
 
       return out;
    }
@@ -986,7 +1032,7 @@ public:
    /////////////////////////////////////////////////////////////////////////////
    uint16_t get_uint16_t(void)
    {
-      uint16_t outVal = *(uint16_t*)(bdStr_.getPtr() + pos_);
+      uint16_t outVal = READ_UINT16_LE(bdStr_.getPtr() + pos_);
       pos_ += 2;
       return outVal;
    }
@@ -994,7 +1040,7 @@ public:
    /////////////////////////////////////////////////////////////////////////////
    uint32_t get_uint32_t(void)
    {
-      uint32_t outVal = *(uint32_t*)(bdStr_.getPtr() + pos_);
+      uint32_t outVal = READ_UINT32_LE(bdStr_.getPtr() + pos_);
       pos_ += 4;
       return outVal;
    }
@@ -1002,7 +1048,7 @@ public:
    /////////////////////////////////////////////////////////////////////////////
    uint64_t get_uint64_t(void)
    {
-      uint64_t outVal = *(uint64_t*)(bdStr_.getPtr() + pos_);
+      uint64_t outVal = READ_UINT64_LE(bdStr_.getPtr() + pos_);
       pos_ += 8;
       return outVal;
    }
@@ -1230,10 +1276,24 @@ public:
 
 
    /////////////////////////////////////////////////////////////////////////////
+   // If you are on a little-endian system, you can uncomment these four lines
+   // and remove the subsequent four methods.  Those four methods guarantee
+   // that data is written as little-endian regardless of underlying 
+   // architecture, but if it's an LE arch anyway, you might as well use the
+   // simpler version which runs approx 2x faster;
+   /*
    void put_uint8_t (uint8_t  val) { theString_.append( val ); }
    void put_uint16_t(uint16_t val) { theString_.append( (uint8_t*)(&val), 2); }
    void put_uint32_t(uint32_t val) { theString_.append( (uint8_t*)(&val), 4); }
    void put_uint64_t(uint64_t val) { theString_.append( (uint8_t*)(&val), 8); }
+   */
+   void put_uint8_t (uint8_t  val) { theString_.append( val ); }
+   void put_uint16_t(uint16_t val) { BinaryData out = WRITE_UINT16_LE(val);
+                                     theString_.append( out.getPtr(), 2); }
+   void put_uint32_t(uint32_t val) { BinaryData out = WRITE_UINT32_LE(val);
+                                     theString_.append( out.getPtr(), 4); }
+   void put_uint64_t(uint64_t val) { BinaryData out = WRITE_UINT64_LE(val);
+                                     theString_.append( out.getPtr(), 8); }
 
    /////////////////////////////////////////////////////////////////////////////
    uint8_t put_var_int(uint64_t val)
@@ -1299,6 +1359,12 @@ public:
    }
 
    /////////////////////////////////////////////////////////////////////////////
+   uint32_t getSize(void)
+   {
+      return theString_.getSize();
+   }
+
+   /////////////////////////////////////////////////////////////////////////////
    BinaryDataRef getDataRef(void)
    {
       return theString_.getRef();
@@ -1314,6 +1380,13 @@ public:
    string toHex(void)
    {
       return theString_.toHexStr();
+   }
+
+   
+   /////////////////////////////////////////////////////////////////////////////
+   void reset(void)
+   {
+      theString_.resize(0);
    }
 
 private:
@@ -1363,7 +1436,7 @@ public:
    uint32_t getBitsUsed(void) {return bitsUsed_;}
 
    BinaryData getBinaryData(void) 
-               { return BinaryData::IntToStrBE<DTYPE>(intVal_); }
+               { return BinaryData::IntToStrLE<DTYPE>(intVal_); }
 
    // TODO:  Be careful that 
    DTYPE getValue(void)      { return intVal_; }
@@ -1390,7 +1463,7 @@ public:
    BitReader(BinaryRefReader & brr)
    {
       BinaryData bytes = brr.get_BinaryData(sizeof(DTYPE));
-      setValue( BinaryData::StrToIntBE<DTYPE>(bytes) );
+      setValue( BinaryData::StrToIntLE<DTYPE>(bytes) );
    }
 
    void setValue(DTYPE val)   { intVal_ = val; bitsRead_ = 0; }

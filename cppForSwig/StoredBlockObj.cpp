@@ -379,8 +379,8 @@ void StoredTx::unserialize(BinaryRefReader & brr, bool fragged)
 
    isFragged_ = fragged;
    numTxOut_  = offsetsOut.size()-1;
-   version_   = *(uint32_t*)(dataCopy_.getPtr());
-   lockTime_  = *(uint32_t*)(dataCopy_.getPtr() + numBytes - 4);
+   version_   = READ_UINT32_LE(dataCopy_.getPtr());
+   lockTime_  = READ_UINT32_LE(dataCopy_.getPtr() + numBytes - 4);
    isInitialized_ = true;
 }
 
@@ -451,17 +451,27 @@ BinaryData StoredTx::getSerializedTx(void) const
    else if(!haveAllTxOut())
       return BinaryData(0); 
     
-   if(!isFragged_)
-      return dataCopy_;
+   if(numBytes_ == UINT32_MAX)
+   {
+      Log::ERR() << "Do not know size of tx in order to serialize it";
+      return BinaryData(0);
+   }
 
    BinaryWriter bw;
-   if(numBytes_>0)
-      bw.reserve(numBytes_);
-
+   bw.reserve(numBytes_);
    bw.put_BinaryData(dataCopy_.getPtr(), dataCopy_.getSize()-4);
 
-   for(uint16_t txo=0; txo<numTxOut_; txo++)
-      bw.put_BinaryData(stxoMap_.at(txo).getSerializedTxOut());
+   map<uint16_t, StoredTxOut>::const_iterator iter;
+   uint16_t i=0;
+   for(iter = stxoMap_.begin(); iter != stxoMap_.end(); iter++, i++)
+   {
+      if(iter->first != i)
+      {
+         Log::ERR() << "Indices out of order accessing stxoMap_...?!";
+         return BinaryData(0);
+      }
+      bw.put_BinaryData(iter->second.getSerializedTxOut());
+   }
 
    bw.put_BinaryData(dataCopy_.getPtr()+dataCopy_.getSize()-4, 4);
    return bw.getData();
@@ -499,14 +509,15 @@ StoredTx & StoredTx::createFromTx(Tx & tx, bool doFrag, bool withTxOuts)
       return *this;
    }
 
-   thisHash_ = tx.getThisHash();
-   numTxOut_ = tx.getNumTxOut();
-   version_  = tx.getVersion();
-   lockTime_ = tx.getLockTime(); 
+   thisHash_  = tx.getThisHash();
+   numTxOut_  = tx.getNumTxOut();
+   version_   = tx.getVersion();
+   lockTime_  = tx.getLockTime(); 
+   numBytes_  = tx.getSize(); 
+   isFragged_ = doFrag;
 
    if(!doFrag)
    {
-      isFragged_ = false;
       dataCopy_ = tx.serialize(); 
       isInitialized_ = true;
    }
