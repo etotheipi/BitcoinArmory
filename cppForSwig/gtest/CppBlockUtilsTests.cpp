@@ -2451,11 +2451,21 @@ TEST_F(StoredBlockObjTest, StoredTxReconstruct)
    stx.createFromTx(regTx, true);
 
    reconTx = stx.getTxCopy();
-   EXPECT_EQ(reconTx.serialize().getSize(),   rawTx0_.getSize());
-   EXPECT_EQ(stx.getSerializedTx().getSize(), rawTx0_.getSize());
    EXPECT_EQ(reconTx.serialize(),   rawTx0_);
    EXPECT_EQ(stx.getSerializedTx(), rawTx0_);
 }
+
+
+////////////////////////////////////////////////////////////////////////////////
+//TEST_F(StoredBlockObjTest, StoredTxReconstruct)
+//{
+   //Tx regTx, reconTx;
+
+//}
+
+
+
+
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -2674,8 +2684,8 @@ TEST_F(TxRefTest, TxRefNoInit)
    EXPECT_FALSE(txr.isInitialized());
    EXPECT_FALSE(txr.isBound());
 
-   EXPECT_EQ(txr.getLevelDBKey(),     BinaryData(0));
-   EXPECT_EQ(txr.getLevelDBKeyRef(),  BinaryDataRef());
+   EXPECT_EQ(txr.getDBKey(),     BinaryData(0));
+   EXPECT_EQ(txr.getDBKeyRef(),  BinaryDataRef());
    //EXPECT_EQ(txr.getBlockTimestamp(), UINT32_MAX);
    EXPECT_EQ(txr.getBlockHeight(),    UINT32_MAX);
    EXPECT_EQ(txr.getBlockDupID(),     UINT8_MAX );
@@ -2691,9 +2701,9 @@ TEST_F(TxRefTest, TxRefKeyParts)
    BinaryDataRef newRef(newKey);
 
 
-   txr.setLevelDBKey(newKey);
-   EXPECT_EQ(txr.getLevelDBKey(),    newKey);
-   EXPECT_EQ(txr.getLevelDBKeyRef(), newRef);
+   txr.setDBKey(newKey);
+   EXPECT_EQ(txr.getDBKey(),    newKey);
+   EXPECT_EQ(txr.getDBKeyRef(), newRef);
 
    EXPECT_EQ(txr.getBlockHeight(),  0x02c4e3);
    EXPECT_EQ(txr.getBlockDupID(),   127);

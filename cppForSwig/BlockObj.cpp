@@ -671,7 +671,7 @@ BinaryData TxRef::serialize(void) const
    if(!isBound())
       return BinaryData(0);
 
-   return dbIface_->getFullTxCopy(ldbKey6B_).serialize();
+   return dbIface_->getFullTxCopy(dbKey6B_).serialize();
 }
 
 
@@ -681,13 +681,13 @@ Tx TxRef::getTxCopy(void) const
    if(!isBound())
       return Tx();
 
-   return dbIface_->getFullTxCopy(ldbKey6B_);
+   return dbIface_->getFullTxCopy(dbKey6B_);
 }
 
 /////////////////////////////////////////////////////////////////////////////
 bool TxRef::isMainBranch(void) const
 {
-   if(ldbKey6B_.getSize() != 6)
+   if(dbKey6B_.getSize() != 6)
       return false;
    else
    {
@@ -705,13 +705,13 @@ BinaryData TxRef::getThisHash(void) const
    if(!isBound())
       return BinaryData(0);
 
-   dbIface_->getTxHashForLdbKey(ldbKey6B_);
+   dbIface_->getTxHashForLdbKey(dbKey6B_);
 }
 
 /////////////////////////////////////////////////////////////////////////////
 void TxRef::setRef(BinaryDataRef bdr, InterfaceToLDB* iface)
 {
-   ldbKey6B_ = bdr.copy();
+   dbKey6B_ = bdr.copy();
    dbIface_ = (iface==NULL ? LevelDBWrapper().GetInterfacePtr() : iface);
 }
 
@@ -725,8 +725,8 @@ uint32_t TxRef::getBlockTimestamp(void)
 /////////////////////////////////////////////////////////////////////////////
 uint32_t TxRef::getBlockHeight(void) const
 {
-   if(ldbKey6B_.getSize() == 6)
-      return InterfaceToLDB::hgtxToHeight(ldbKey6B_.getSliceCopy(0,4));
+   if(dbKey6B_.getSize() == 6)
+      return ARMDB.hgtxToHeight(dbKey6B_.getSliceCopy(0,4));
    else
       return UINT32_MAX;
 }
@@ -734,8 +734,8 @@ uint32_t TxRef::getBlockHeight(void) const
 /////////////////////////////////////////////////////////////////////////////
 uint8_t TxRef::getBlockDupID(void) const
 {
-   if(ldbKey6B_.getSize() == 6)
-      return InterfaceToLDB::hgtxToDupID(ldbKey6B_.getSliceCopy(0,4));
+   if(dbKey6B_.getSize() == 6)
+      return ARMDB.hgtxToDupID(dbKey6B_.getSliceCopy(0,4));
    else
       return UINT8_MAX;
 }
@@ -743,8 +743,8 @@ uint8_t TxRef::getBlockDupID(void) const
 /////////////////////////////////////////////////////////////////////////////
 uint16_t TxRef::getBlockTxIndex(void) const
 {
-   if(ldbKey6B_.getSize() == 6)
-      return READ_UINT16_LE(ldbKey6B_.getPtr() + 4);
+   if(dbKey6B_.getSize() == 6)
+      return READ_UINT16_LE(dbKey6B_.getPtr() + 4);
    else
       return UINT16_MAX;
 }
@@ -769,13 +769,13 @@ void TxRef::pprint(ostream & os, int nIndent) const
 ////////////////////////////////////////////////////////////////////////////////
 TxIn  TxRef::getTxInCopy(uint32_t i)  
 {
-   return dbIface_->getTxInCopy( ldbKey6B_, i);
+   return dbIface_->getTxInCopy( dbKey6B_, i);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 TxOut TxRef::getTxOutCopy(uint32_t i) 
 {
-   return dbIface_->getTxOutCopy(ldbKey6B_, i);
+   return dbIface_->getTxOutCopy(dbKey6B_, i);
 }
 
 

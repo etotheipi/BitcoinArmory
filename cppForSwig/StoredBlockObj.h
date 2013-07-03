@@ -8,6 +8,93 @@
 #include "BtcUtils.h"
 #include "BlockObj.h"
 
+#define ARMORY_DB_VERSION   0x00
+#define ARMORY_DB_DEFAULT   ARMORY_DB_FULL
+#define UTXO_STORAGE        SCRIPT_UTXO_VECTOR
+
+enum BLKDATA_TYPE
+{
+  NOT_BLKDATA,
+  BLKDATA_HEADER,
+  BLKDATA_TX,
+  BLKDATA_TXOUT
+};
+
+enum DB_PREFIX
+{
+  DB_PREFIX_DBINFO,
+  DB_PREFIX_HEADHASH,
+  DB_PREFIX_HEADHGT,
+  DB_PREFIX_TXDATA,
+  DB_PREFIX_TXHINTS,
+  DB_PREFIX_SCRIPT,
+  DB_PREFIX_MULTISIG,
+  DB_PREFIX_UNDODATA,
+  DB_PREFIX_TRIENODES,
+  DB_PREFIX_COUNT
+};
+
+
+enum ARMORY_DB_TYPE
+{
+  ARMORY_DB_LITE,
+  ARMORY_DB_PARTIAL,
+  ARMORY_DB_FULL,
+  ARMORY_DB_SUPER,
+  ARMORY_DB_WHATEVER
+};
+
+enum DB_PRUNE_TYPE
+{
+  DB_PRUNE_ALL,
+  DB_PRUNE_NONE,
+  DB_PRUNE_WHATEVER
+};
+
+
+// In ARMORY_DB_PARTIAL and LITE, we may not store full tx, but we will know 
+// its block and index, so we can just request the full block from our peer.
+enum DB_TX_AVAIL
+{
+  DB_TX_EXISTS,
+  DB_TX_GETBLOCK,
+  DB_TX_UNKNOWN
+};
+
+enum DB_SELECT
+{
+  HEADERS,
+  BLKDATA,
+  DB_COUNT
+};
+
+
+enum TX_SERIALIZE_TYPE
+{
+  TX_SER_FULL,
+  TX_SER_FRAGGED,
+  TX_SER_COUNTOUT
+};
+
+enum TXOUT_SPENTNESS
+{
+  TXOUT_UNSPENT,
+  TXOUT_SPENT,
+  TXOUT_SPENTUNK,
+};
+
+enum MERKLE_SER_TYPE
+{
+  MERKLE_SER_NONE,
+  MERKLE_SER_PARTIAL,
+  MERKLE_SER_FULL
+};
+
+enum SCRIPT_UTXO_TYPE
+{
+  SCRIPT_UTXO_VECTOR,
+  SCRIPT_UTXO_TREE
+};
 
 class BlockHeader;
 class Tx;
@@ -19,6 +106,10 @@ class TxIOPair;
 class StoredTx;
 class StoredTxOut;
 class StoredScriptHistory;
+
+
+#define ARMDB DBUtils::GetInstance()
+
 
 ////////////////////////////////////////////////////////////////////////////////
 class StoredHeader
@@ -58,6 +149,14 @@ public:
    void unserializeFullBlock(BinaryRefReader brr, 
                              bool doFrag=true,
                              bool withPrefix8=false);
+
+   void unserializeDBValue( DB_SELECT         db,
+                            BinaryRefReader & brr,
+                            bool              ignoreMerkle = false);
+   void   serializeDBValue( DB_SELECT         db,
+                            BinaryWriter &    bw) const;
+
+
 
    bool isMerkleCreated(void) { return (merkle_.getSize() != 0);}
 
@@ -106,6 +205,10 @@ public:
    void unserialize(BinaryDataRef data,      bool isFragged=false);
    void unserialize(BinaryRefReader & brr,   bool isFragged=false);
 
+   void unserializeDBValue(BinaryRefReader & brr);
+   void   serializeDBValue(BinaryWriter &    bw ) const;
+
+
 
    BinaryData           thisHash_;
    BinaryData           lockTime_;
@@ -146,6 +249,9 @@ public:
    void unserialize(BinaryDataRef data);
    void unserialize(BinaryRefReader & brr);
 
+   void unserializeDBValue(BinaryRefReader & brr);
+   void   serializeDBValue(BinaryWriter &    bw,
+                           bool              forceSaveSpentness=false) const;
 
    StoredTxOut & createFromTxOut(TxOut & txout); 
    BinaryData getSerializedTxOut(void) const;
@@ -172,12 +278,20 @@ class StoredScriptHistory
 {
 public:
 
-   StoredScriptHistory(void) : uniqueKey_(0), version_(UINT32_MAX) {}
+   StoredScriptHistory(void) : uniqueKey_(0), 
+                               version_(UINT32_MAX),
+                               scriptType_(SCRIPT_PREFIX_NONSTD),
+                               alreadyScannedUpToBlk_(0),
+                               hasMultisigEntries_(false) {}
 
    bool isInitialized(void) { return uniqueKey_.getSize() > 0; }
 
-   uint32_t       version_;
+   void unserializeDBValue(BinaryRefReader & brr);
+   void   serializeDBValue(BinaryWriter    & bw ) const;
+
+
    BinaryData     uniqueKey_;  // includes the prefix byte!
+   uint32_t       version_;
    SCRIPT_PREFIX  scriptType_;
    uint32_t       alreadyScannedUpToBlk_;
    bool           hasMultisigEntries_;
@@ -185,6 +299,81 @@ public:
    vector<TxIOPair> txioVect_;
 };
 
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// Basically making stuff globally accessible through DBUtils singleton
+////////////////////////////////////////////////////////////////////////////////
+class DBUtils
+{
+public:
+
+   uint32_t   hgtxToHeight(BinaryData hgtx);
+   uint8_t    hgtxToDupID(BinaryData hgtx);
+   BinaryData heightAndDupToHgtx(uint32_t hgt, uint8_t dup);
+
+   BinaryData getBlkDataKey(uint32_t height, 
+                            uint8_t  dup);
+
+   BinaryData getBlkDataKey(uint32_t height, 
+                            uint8_t  dup,
+                            uint16_t txIdx);
+
+   BinaryData getBlkDataKey(uint32_t height, 
+                            uint8_t  dup,
+                            uint16_t txIdx,
+                            uint16_t txOutIdx);
+
+   BinaryData getBlkDataKeyNoPrefix(uint32_t height, 
+                                    uint8_t  dup);
+
+   BinaryData getBlkDataKeyNoPrefix(uint32_t height, 
+                                    uint8_t  dup,
+                                    uint16_t txIdx);
+
+   BinaryData getBlkDataKeyNoPrefix(uint32_t height, 
+                                    uint8_t  dup,
+                                    uint16_t txIdx,
+                                    uint16_t txOutIdx);
+
+   string getPrefixName(uint8_t prefixInt);
+   string getPrefixName(DB_PREFIX pref);
+
+   bool checkPrefixByte(BinaryRefReader brr, 
+                        DB_PREFIX prefix,
+                        bool rewindWhenDone=false);
+
+   void setArmoryDbType(ARMORY_DB_TYPE adt) { armoryDbType_ = adt; }
+   void setDbPruneType( DB_PRUNE_TYPE dpt)  { dbPruneType_  = dpt; }
+
+   ARMORY_DB_TYPE getArmoryDbType(void) { return armoryDbType_; }
+   DB_PRUNE_TYPE  getDbPruneType(void)  { return dbPruneType_;  }
+
+   static DBUtils& GetInstance(void)
+   {
+      static DBUtils* theOneUtilsObj = NULL;
+      if(theOneUtilsObj==NULL)
+      {
+         theOneUtilsObj = new DBUtils;
+      
+         // Default database structure
+         theOneUtilsObj->setArmoryDbType(ARMORY_DB_FULL);
+         theOneUtilsObj->setDbPruneType(DB_PRUNE_NONE);
+      }
+
+      return (*theOneUtilsObj);
+   }
+
+
+   
+private:
+   DBUtils(void) {}
+   
+   DB_PRUNE_TYPE  dbPruneType_;
+   ARMORY_DB_TYPE armoryDbType_;
+};
 
 
 #endif

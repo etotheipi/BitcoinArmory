@@ -3,6 +3,7 @@
 #include <map>
 #include "StoredBlockObj.h"
 
+
 /////////////////////////////////////////////////////////////////////////////
 void StoredHeader::setParamsTrickle(uint32_t hgt,
                                     uint8_t  dupID,
@@ -270,13 +271,119 @@ BinaryData StoredHeader::getSerializedBlockHeader(void) const
    return dataCopy_;
 }
 
+/////////////////////////////////////////////////////////////////////////////
+void StoredHeader::unserializeDBValue( DB_SELECT         db,
+                                       BinaryRefReader & brr,
+                                       bool              ignoreMerkle)
+{
+
+   if(db==HEADERS)
+   {
+      brr.get_BinaryData(dataCopy_, HEADER_SIZE);
+      BinaryData hgtx = brr.get_BinaryData(4);
+      blockHeight_ = ARMDB.hgtxToHeight(hgtx);
+      duplicateID_ = ARMDB.hgtxToDupID(hgtx);
+   }
+   else if(db==BLKDATA)
+   {
+      // Unserialize the raw header into the SBH object
+      brr.get_BinaryData(dataCopy_, HEADER_SIZE);
+   
+      // Read the flags byte
+      BitReader<uint32_t> bitread(brr);
+      uint32_t        dbVersion  =                  bitread.getBits(4);
+      uint32_t        blkVersion =                  bitread.getBits(4);
+      ARMORY_DB_TYPE  dbtype     = (ARMORY_DB_TYPE) bitread.getBits(4);
+      DB_PRUNE_TYPE   pruneType  = (DB_PRUNE_TYPE)  bitread.getBits(2);
+      MERKLE_SER_TYPE merkType   = (MERKLE_SER_TYPE)bitread.getBits(2);
+   
+      numTx_    = brr.get_uint32_t();
+      numBytes_ = brr.get_uint32_t();
+   
+      if(dbVersion != (uint8_t)ARMORY_DB_VERSION)
+      {
+         Log::ERR() << "Version mismatch in unserialize DB header";
+         return;
+      }
+
+      if( !ignoreMerkle )
+      {
+         uint32_t currPos = brr.getPosition();
+         uint32_t totalSz = brr.getSize();
+         if(merkType == MERKLE_SER_NONE)
+            merkle_.resize(0);
+         else
+         {
+            merkleIsPartial_ = (merkType == MERKLE_SER_PARTIAL);
+            brr.get_BinaryData(merkle_, totalSz - currPos);
+         }
+      }
+   }
+
+}
+
+/////////////////////////////////////////////////////////////////////////////
+void StoredHeader::serializeDBValue( DB_SELECT       db,
+                                     BinaryWriter &  bw) const
+{
+   if(!isInitialized_)
+   {
+      Log::ERR() << "Attempted to serialize uninitialized block header";
+      return;
+   }
+
+   if(db==HEADERS)
+   {
+      BinaryData hgtx = ARMDB.heightAndDupToHgtx(blockHeight_, duplicateID_);
+      bw.put_BinaryData(dataCopy_);
+      bw.put_BinaryData(hgtx);
+   }
+   else if(db==BLKDATA)
+   {
+      uint32_t version = READ_UINT32_LE(dataCopy_.getPtr());
+
+      MERKLE_SER_TYPE mtype;
+      switch(ARMDB.getArmoryDbType())
+      {
+         // If we store all the tx anyway, don't need any/partial merkle trees
+         case ARMORY_DB_LITE:    mtype = MERKLE_SER_PARTIAL; break;
+         case ARMORY_DB_PARTIAL: mtype = MERKLE_SER_FULL;    break;
+         case ARMORY_DB_FULL:    mtype = MERKLE_SER_NONE;    break;
+         case ARMORY_DB_SUPER:   mtype = MERKLE_SER_NONE;    break;
+         default: 
+            Log::ERR() << "Invalid DB mode in serializeStoredHeaderValue";
+      }
+      
+      // We assume that the appropriate partial-merkle tree has already
+      // been serialized and stored in merkle_
+      if(merkle_.getSize() > 0)
+         mtype = (merkleIsPartial_ ? MERKLE_SER_PARTIAL : MERKLE_SER_FULL);
+   
+      // Create the flags byte
+      BitWriter<uint32_t> bitwrite;
+      bitwrite.putBits((uint32_t)ARMORY_DB_VERSION,       4);
+      bitwrite.putBits((uint32_t)version,                 4);
+      bitwrite.putBits((uint32_t)ARMDB.getArmoryDbType(), 4);
+      bitwrite.putBits((uint32_t)ARMDB.getDbPruneType(),  2);
+      bitwrite.putBits((uint32_t)mtype,                   2);
+      uint32_t flags = bitwrite.getValue();
+
+      bw.put_uint32_t(flags);
+      bw.put_BinaryData(dataCopy_);
+      bw.put_uint32_t(numTx_);
+      bw.put_uint32_t(numBytes_);
+
+      if( mtype != MERKLE_SER_NONE )
+         bw.put_BinaryData(merkle_);
+   }
+}
 
 /////////////////////////////////////////////////////////////////////////////
 /*
-void StoredHeader::serializeForLDB(BinaryWriter & bw, 
-                                   ARMORY_DB_TYPE dbType,
-                                   DB_PRUNE_TYPE pruneType,
-                                   MERKLE_SER_TYPE merkType=MERKLE_SER_FULL)
+void StoredHeader::serializeForDB(BinaryWriter & bw, 
+                                  ARMORY_DB_TYPE dbType,
+                                  DB_PRUNE_TYPE pruneType,
+                                  MERKLE_SER_TYPE merkType=MERKLE_SER_FULL)
 {
    if(!isInitialized_ || dataCopy_.getSize()==0)
    {
@@ -339,7 +446,7 @@ bool StoredHeader::serializeForHeaderDB(BinaryWriter & bw)
       return false;
    }
    bw.put_BinaryData(dataCopy_);
-   bw.put_uint32_t( heightAndDupToHgtx(blockHeight_, duplicateID_) );
+   bw.put_uint32_t( ARMDB.heightAndDupToHgtx(blockHeight_, duplicateID_) );
 }
 */
 
@@ -386,39 +493,61 @@ void StoredTx::unserialize(BinaryRefReader & brr, bool fragged)
 
 
 
-////////////////////////////////////////////////////////////////////////////////
-void StoredTxOut::unserialize(BinaryData const & data)
+
+
+/////////////////////////////////////////////////////////////////////////////
+void StoredTx::unserializeDBValue(BinaryRefReader & brr)
 {
-   BinaryRefReader brr(data);
-   unserialize(brr);
+   // flags
+   //    DBVersion      4 bits
+   //    TxVersion      2 bits
+   //    HowTxSer       4 bits   (FullTxOut, TxNoTxOuts, numTxOutOnly)
+   BitReader<uint16_t> bitread(brr); // flags
+   uint16_t dbVer   = bitread.getBits(4);
+   uint16_t txVer   = bitread.getBits(2);
+   uint16_t txSer   = bitread.getBits(4);
+   
+   brr.get_BinaryData(thisHash_, 32);
+
+   if(txSer == TX_SER_FULL || txSer == TX_SER_FRAGGED)
+      unserialize(brr, txSer==TX_SER_FRAGGED);
+   else
+      numTxOut_ = brr.get_var_int();
 }
 
-////////////////////////////////////////////////////////////////////////////////
-void StoredTxOut::unserialize(BinaryDataRef data)
-{
-   BinaryRefReader brr(data);
-   unserialize(brr);
-}
 
-////////////////////////////////////////////////////////////////////////////////
-void StoredTxOut::unserialize(BinaryRefReader & brr)
+/////////////////////////////////////////////////////////////////////////////
+void StoredTx::serializeDBValue(BinaryWriter & bw) const
 {
-   if(brr.getSizeRemaining() < 8)
+   uint16_t version = (uint16_t)READ_UINT32_LE(dataCopy_.getPtr());
+   TX_SERIALIZE_TYPE serType;
+   
+   switch(ARMDB.getArmoryDbType())
    {
-      Log::ERR() << "Not enough bytes in BRR to unserialize StoredTxOut";
-      return;
+      // If we store all the tx anyway, don't need any/partial merkle trees
+      case ARMORY_DB_LITE:    serType = TX_SER_FRAGGED; break;
+      case ARMORY_DB_PARTIAL: serType = TX_SER_FRAGGED; break;
+      case ARMORY_DB_FULL:    serType = TX_SER_FULL;    break;
+      case ARMORY_DB_SUPER:   serType = TX_SER_FULL;    break;
+      default: 
+         Log::ERR() << "Invalid DB mode in serializeStoredTxValue";
    }
 
-   uint32_t numBytes = BtcUtils::TxOutCalcLength(brr.getCurrPtr());
+   BitWriter<uint16_t> bitwrite;
+   bitwrite.putBits((uint16_t)ARMORY_DB_VERSION,  4);
+   bitwrite.putBits((uint16_t)version,            2);
+   bitwrite.putBits((uint16_t)serType,            2);
 
-   if(brr.getSizeRemaining() < numBytes)
-   {
-      Log::ERR() << "Not enough bytes in BRR to unserialize StoredTxOut";
-      return;
-   }
+   
+   bw.put_uint16_t(bitwrite.getValue());
+   bw.put_BinaryData(thisHash_);
 
-   brr.get_BinaryData(dataCopy_, numBytes);
-   isInitialized_ = true;
+   if(serType == TX_SER_FULL    || 
+      serType == TX_SER_FRAGGED )
+      bw.put_BinaryData(dataCopy_);
+   else
+      bw.put_var_int(numTxOut_);
+
 }
 
 
@@ -476,6 +605,116 @@ BinaryData StoredTx::getSerializedTx(void) const
    bw.put_BinaryData(dataCopy_.getPtr()+dataCopy_.getSize()-4, 4);
    return bw.getData();
 }
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+void StoredTxOut::unserialize(BinaryData const & data)
+{
+   BinaryRefReader brr(data);
+   unserialize(brr);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void StoredTxOut::unserialize(BinaryDataRef data)
+{
+   BinaryRefReader brr(data);
+   unserialize(brr);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void StoredTxOut::unserialize(BinaryRefReader & brr)
+{
+   if(brr.getSizeRemaining() < 8)
+   {
+      Log::ERR() << "Not enough bytes in BRR to unserialize StoredTxOut";
+      return;
+   }
+
+   uint32_t numBytes = BtcUtils::TxOutCalcLength(brr.getCurrPtr());
+
+   if(brr.getSizeRemaining() < numBytes)
+   {
+      Log::ERR() << "Not enough bytes in BRR to unserialize StoredTxOut";
+      return;
+   }
+
+   brr.get_BinaryData(dataCopy_, numBytes);
+   isInitialized_ = true;
+}
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+void StoredTxOut::unserializeDBValue(BinaryRefReader & brr)
+{
+   // Similar to TxValue flags
+   //    DBVersion   4 bits
+   //    TxVersion   2 bits
+   //    Spentness   2 bits
+   BitReader<uint16_t> bitread(brr);
+   uint16_t dbVer   =  bitread.getBits(4);
+   uint16_t txVer   =  bitread.getBits(2);
+   uint16_t isSpent =  bitread.getBits(2);
+   uint16_t isCBase =  bitread.getBits(1);
+
+   unserialize(brr);
+   isSpent_        = isSpent;
+   isFromCoinbase_ = isCBase;
+
+   if((TXOUT_SPENTNESS)isSpent == TXOUT_SPENT && brr.getSizeRemaining()>=8)
+   {
+      spentByHgtx_      = brr.get_BinaryData(4); 
+      spentByTxIndex_   = brr.get_uint16_t(); 
+      spentByTxInIndex_ = brr.get_uint16_t(); 
+   }
+
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void StoredTxOut::serializeDBValue(BinaryWriter & bw,
+                                   bool forceSaveSpentness) const
+{
+   TXOUT_SPENTNESS spentness = (isSpent_ ? TXOUT_SPENT : TXOUT_UNSPENT);
+   
+   if(!forceSaveSpentness)
+   { 
+      switch(ARMDB.getDbPruneType())
+      {
+         //// If the DB is in lite or partial modes, we don't bother recording
+         //   spentness (in fact, if it's spent, this entry probably won't even
+         //   be written to the DB).
+         case ARMORY_DB_LITE:    spentness = TXOUT_SPENTUNK; break;
+         case ARMORY_DB_PARTIAL: spentness = TXOUT_SPENTUNK; break;
+         case ARMORY_DB_FULL:                                break;
+         case ARMORY_DB_SUPER:                               break;
+         default: 
+            Log::ERR() << "Invalid DB mode in serializeStoredTxOutValue";
+      }
+   }
+
+   uint16_t isCbase = (isFromCoinbase_ ? 1 : 0);
+
+   BitWriter<uint16_t> bitwrite;
+   bitwrite.putBits((uint16_t)ARMORY_DB_VERSION,  4);
+   bitwrite.putBits((uint16_t)txVersion_,    4);
+   bitwrite.putBits((uint16_t)spentness,          2);
+   bitwrite.putBits((uint16_t)isCbase,            1);
+
+   bw.put_uint16_t(bitwrite.getValue());
+   bw.put_BinaryData(dataCopy_);  // 8-byte value, var_int sz, pkscript
+   
+   if(spentness == TXOUT_SPENT)
+   {
+      bw.put_BinaryData(spentByHgtx_);
+      bw.put_uint16_t(  spentByTxIndex_);
+      bw.put_uint16_t(  spentByTxInIndex_);
+   }
+
+}
+
+
 
 ////////////////////////////////////////////////////////////////////////////////
 BinaryData StoredTxOut::getSerializedTxOut(void) const
@@ -563,6 +802,273 @@ StoredTxOut & StoredTxOut::createFromTxOut(TxOut & txout)
 
 
 
+////////////////////////////////////////////////////////////////////////////////
+// The list of spent/unspent txOuts is exactly what is needed to construct 
+// a full vector<TxIOPair> for each address.  Keep in mind that this list
+// only contains TxOuts and spentness of those TxOuts that are:
+//    (1) Already in the blockchain
+//    (2) On the longest chain at the time is was written
+// It contains no zero-confirmation tx data, and it may not be accurate 
+// if there was a reorg since it was written.  Part of the challenge of 
+// implementing this DB stuff correctly is making sure both conditions 
+// above are adhered to, despite TxIOPair objects being used in RAM to store
+// zero-confirmation data as well as in-blockchain data.
+void StoredScriptHistory::unserializeDBValue(BinaryRefReader & brr)
+{
+   // Now read the stored data fro this registered address
+   BitReader<uint16_t> bitread(brr);
+   version_                     =                    bitread.getBits(4);
+   DB_PRUNE_TYPE pruneType      = (DB_PRUNE_TYPE)    bitread.getBits(2);
+   SCRIPT_UTXO_TYPE txoListType = (SCRIPT_UTXO_TYPE) bitread.getBits(2);
+   hasMultisigEntries_          =                    bitread.getBit();
+
+   alreadyScannedUpToBlk_ = brr.get_uint32_t();
+
+   if(txoListType == SCRIPT_UTXO_TREE)
+   {
+      // This is where we might implement the Reiner-Tree concept, by
+      // having only a reference to one TxOut here, but it's actually 
+      // the root of some kind of authenticated tree structure.
+      Log::ERR() << "TXO-trees are not implemented, yet!";
+      return;
+   }
+   else if(txoListType == SCRIPT_UTXO_VECTOR)
+   {
+      // Get the TxOut list if a pointer was supplied
+      // This list is unspent-TxOuts only if pruning enabled.  You will
+      // have to dereference each one to check spentness if not pruning
+      uint32_t numTxo = (uint32_t)(brr.get_var_int());
+      txioVect_.reserve(numTxo);
+      for(uint32_t i=0; i<numTxo; i++)
+      {
+         BitReader<uint8_t> bitread(brr);
+         bool isFromSelf  = bitread.getBit();
+         bool isCoinbase  = bitread.getBit();
+         bool isSpent     = bitread.getBit();
+
+         // We always include the value, here
+         uint64_t txoValue  = brr.get_uint64_t();
+
+         TxIOPair txio;
+         if(!isSpent)
+         {
+            BinaryDataRef  txokey = brr.get_BinaryDataRef(6);
+            uint16_t       txoidx = brr.get_uint16_t();
+
+            txio = TxIOPair(TxRef(txokey), txoidx);
+         }
+         else
+         {
+            BinaryDataRef  txokey = brr.get_BinaryDataRef(6);
+            uint16_t       txoidx = brr.get_uint16_t();
+            BinaryDataRef  txikey = brr.get_BinaryDataRef(6);
+            uint16_t       txiidx = brr.get_uint16_t();
+
+            txio = TxIOPair(TxRef(txokey), txoidx, 
+                            TxRef(txikey), txiidx);
+
+         }
+         txio.setValue(txoValue);
+         txio.setTxOutFromSelf(isFromSelf);
+         txio.setFromCoinbase(isCoinbase);
+         txioVect_.push_back(txio);
+      }
+   }
+
+}
+
+void StoredScriptHistory::serializeDBValue(BinaryWriter & bw ) const
+{
+   // Write out all the flags
+   BitWriter<uint16_t> bitwrite;
+   bitwrite.putBits((uint16_t)ARMORY_DB_VERSION,       4);
+   bitwrite.putBits((uint16_t)ARMDB.getDbPruneType(),  2);
+   bitwrite.putBits((uint16_t)SCRIPT_UTXO_VECTOR,      2);
+   bitwrite.putBit(hasMultisigEntries_);
+   bw.put_uint16_t(bitwrite.getValue());
+
+   // 
+   bw.put_uint32_t(alreadyScannedUpToBlk_); 
+
+   if(UTXO_STORAGE == SCRIPT_UTXO_TREE)
+   {
+      // This is where we might implement the Reiner-Tree concept, by
+      // having only a reference to one TxOut here, but it's actually 
+      // the root of some kind of authenticated tree structure.
+      Log::ERR() << "TXO-trees are not implemented, yet!";
+      return;
+   }
+   else if(UTXO_STORAGE == SCRIPT_UTXO_VECTOR)
+   {
+      // Get the TxOut list if a pointer was supplied
+      // This list is unspent-TxOuts only if pruning enabled.  You will
+      // have to dereference each one to check spentness if not pruning
+      uint32_t numTxo = (uint32_t)txioVect_.size();
+      for(uint32_t i=0; i<numTxo; i++)
+      {
+         TxIOPair const & txio = txioVect_[i];
+         bool isSpent = txio.hasTxInInMain();
+
+         // If spent and only maintaining a pruned DB, skip it
+         if(isSpent && ARMDB.getDbPruneType()==DB_PRUNE_ALL)
+            continue;
+
+         BitWriter<uint8_t> bitwrite;
+         bitwrite.putBit(txio.isTxOutFromSelf());
+         bitwrite.putBit(txio.isFromCoinbase());
+         bitwrite.putBit(txio.hasTxInInMain());
+         bw.put_uint8_t(bitwrite.getValue());
+
+         // Always write the value and 8-byte TxOut
+         bw.put_uint64_t(txio.getValue());
+         bw.put_BinaryData(txio.getTxRefOfOutput().getDBKeyRef());
+         bw.put_uint16_t(txio.getIndexOfOutput());
+
+         // If not supposed to write the TxIn, we would've bailed earlier
+         if(isSpent)
+         {
+            if(!txio.getTxRefOfInput().isInitialized())
+               bw.put_uint64_t(0);  // write 0x00*8 for "UNKNOWN"
+            else
+            {
+               bw.put_BinaryData(txio.getTxRefOfInput().getDBKeyRef());
+               bw.put_uint16_t(txio.getIndexOfInput());
+            }
+         }
+      }
+   }
+
+}
 
 
 
+////////////////////////////////////////////////////////////////////////////////
+string DBUtils::getPrefixName(uint8_t prefixInt)
+{
+   return getPrefixName((DB_PREFIX)prefixInt);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+string DBUtils::getPrefixName(DB_PREFIX pref)
+{
+   switch(pref)
+   {
+      case DB_PREFIX_DBINFO:    return string("DBINFO"); 
+      case DB_PREFIX_TXDATA:   return string("BLKDATA"); 
+      case DB_PREFIX_SCRIPT:    return string("SCRIPT"); 
+      case DB_PREFIX_TXHINTS:   return string("TXHINTS"); 
+      case DB_PREFIX_TRIENODES: return string("TRIENODES"); 
+      case DB_PREFIX_HEADHASH:  return string("HEADHASH"); 
+      case DB_PREFIX_HEADHGT:   return string("HEADHGT"); 
+      case DB_PREFIX_UNDODATA:  return string("UNDODATA"); 
+      default:                  return string("<unknown>"); 
+   }
+}
+
+/////////////////////////////////////////////////////////////////////////////
+bool DBUtils::checkPrefixByte( BinaryRefReader brr, 
+                               DB_PREFIX prefix,
+                               bool rewindWhenDone)
+{
+   uint8_t oneByte = brr.get_uint8_t();
+   bool out;
+   if(oneByte == (uint8_t)prefix)
+      out = true;
+   else
+   {
+      Log::ERR() << "Unexpected prefix byte: "
+                 << "Expected: " << getPrefixName(prefix)
+                 << "Received: " << getPrefixName(oneByte);
+      out = false;
+   }
+
+   if(rewindWhenDone)
+      brr.rewind(1);
+}
+
+/////////////////////////////////////////////////////////////////////////////
+BinaryData DBUtils::getBlkDataKey( uint32_t height, 
+                                   uint8_t  dup)
+{
+   BinaryWriter bw(5);
+   bw.put_uint8_t(    DB_PREFIX_TXDATA );
+   bw.put_BinaryData( heightAndDupToHgtx(height,dup) );
+   return bw.getData();
+}
+
+/////////////////////////////////////////////////////////////////////////////
+BinaryData DBUtils::getBlkDataKey( uint32_t height, 
+                                   uint8_t  dup,
+                                   uint16_t txIdx)
+{
+   BinaryWriter bw(7);
+   bw.put_uint8_t(    DB_PREFIX_TXDATA );
+   bw.put_BinaryData( heightAndDupToHgtx(height,dup) );
+   bw.put_uint16_t(   txIdx );
+   return bw.getData();
+}
+
+/////////////////////////////////////////////////////////////////////////////
+BinaryData DBUtils::getBlkDataKey( uint32_t height, 
+                                   uint8_t  dup,
+                                   uint16_t txIdx,
+                                   uint16_t txOutIdx)
+{
+   BinaryWriter bw(9);
+   bw.put_uint8_t(    DB_PREFIX_TXDATA );
+   bw.put_BinaryData( heightAndDupToHgtx(height,dup) );
+   bw.put_uint16_t(   txIdx );
+   bw.put_uint16_t(   txOutIdx );
+   return bw.getData();
+}
+
+/////////////////////////////////////////////////////////////////////////////
+BinaryData DBUtils::getBlkDataKeyNoPrefix( uint32_t height, 
+                                           uint8_t  dup)
+{
+   return heightAndDupToHgtx(height,dup);
+}
+
+/////////////////////////////////////////////////////////////////////////////
+BinaryData DBUtils::getBlkDataKeyNoPrefix( uint32_t height, 
+                                           uint8_t  dup,
+                                           uint16_t txIdx)
+{
+   BinaryWriter bw(6);
+   bw.put_BinaryData( heightAndDupToHgtx(height,dup));
+   bw.put_uint16_t(   txIdx);
+   return bw.getData();
+}
+
+/////////////////////////////////////////////////////////////////////////////
+BinaryData DBUtils::getBlkDataKeyNoPrefix( uint32_t height, 
+                                           uint8_t  dup,
+                                           uint16_t txIdx,
+                                           uint16_t txOutIdx)
+{
+   BinaryWriter bw(8);
+   bw.put_BinaryData( heightAndDupToHgtx(height,dup));
+   bw.put_uint16_t(   txIdx);
+   bw.put_uint16_t(   txOutIdx);
+   return bw.getData();
+}
+
+/////////////////////////////////////////////////////////////////////////////
+uint32_t DBUtils::hgtxToHeight(BinaryData hgtx)
+{
+   return (BinaryData::StrToIntBE<uint32_t>(hgtx) >> 8);
+
+}
+
+/////////////////////////////////////////////////////////////////////////////
+uint8_t DBUtils::hgtxToDupID(BinaryData hgtx)
+{
+   return hgtx[3];
+}
+
+/////////////////////////////////////////////////////////////////////////////
+BinaryData DBUtils::heightAndDupToHgtx(uint32_t hgt, uint8_t dup)
+{
+   uint32_t hgtx = (hgt<<8) | (uint32_t)dup;
+   return BinaryData::IntToStrBE<uint32_t>(hgtx);
+}

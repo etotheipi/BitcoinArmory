@@ -16,7 +16,6 @@
 
 #include "BinaryData.h"
 #include "BtcUtils.h"
-#include "leveldb_wrapper.h"
 
 
 
@@ -24,6 +23,8 @@
 class InterfaceToLDB;  
 class TxRef;
 class Tx;
+class TxIn;
+class TxOut;
 
 
 class BlockHeader
@@ -137,15 +138,15 @@ public:
    BinaryData         getThisHash(void) const;
    Tx                 getTxCopy(void) const;
    bool               isMainBranch(void)  const;
-   bool               isInitialized(void)  const {return ldbKey6B_.getSize()>0;}
+   bool               isInitialized(void)  const {return dbKey6B_.getSize()>0;}
    bool               isBound(void)  const {return dbIface_!=NULL;}
 
    /////////////////////////////////////////////////////////////////////////////
    BlockHeader        getHeaderCopy(void)  const;
-   BinaryData         getLevelDBKey(void)    { return ldbKey6B_;}
-   BinaryDataRef      getLevelDBKeyRef(void) { return ldbKey6B_.getRef();}
-   void               setLevelDBKey(BinaryData    const & bd) { ldbKey6B_.copyFrom(bd); }
-   void               setLevelDBKey(BinaryDataRef const & bd) { ldbKey6B_.copyFrom(bd); }
+   BinaryData         getDBKey(void)    { return dbKey6B_;}
+   BinaryDataRef      getDBKeyRef(void) { return dbKey6B_.getRef();}
+   void               setDBKey(BinaryData    const & bd) { dbKey6B_.copyFrom(bd); }
+   void               setDBKey(BinaryDataRef const & bd) { dbKey6B_.copyFrom(bd); }
 
 
    /////////////////////////////////////////////////////////////////////////////
@@ -171,12 +172,12 @@ private:
    //FileDataPtr        blkFilePtr_;
    //BlockHeader*       headerPtr_;
 
-   // Both filePtr and headerPtr can be replaced by a single ldbKey
+   // Both filePtr and headerPtr can be replaced by a single dbKey
    // It is 6 bytes:  [ HeaderHgt(3) || DupID(1) || TxIndex(2) ]
-   // It tells us exactly how to get this Tx from LDB, and by the way
+   // It tells us exactly how to get this Tx from DB, and by the way
    // the DB is structured, the first four bytes also tells us how 
    // to get the associated header.  
-   BinaryData           ldbKey6B_;  
+   BinaryData           dbKey6B_;  
 
    // TxRefs are associated with a particular interface (at this time, there
    // will only be one interface).
@@ -581,9 +582,9 @@ public:
    OutPoint  getOutPoint(void) { return OutPoint(getTxHashOfOutput(),indexOfOutput_);}
 
    pair<bool,bool> reassessValidity(void);
-   bool  isTxOutFromSelf(void)  { return isTxOutFromSelf_; }
+   bool  isTxOutFromSelf(void) const  { return isTxOutFromSelf_; }
    void setTxOutFromSelf(bool isTrue=true) { isTxOutFromSelf_ = isTrue; }
-   bool  isFromCoinbase(void) { return isFromCoinbase_; }
+   bool  isFromCoinbase(void) const { return isFromCoinbase_; }
    void setFromCoinbase(bool isTrue=true) { isFromCoinbase_ = isTrue; }
 
 

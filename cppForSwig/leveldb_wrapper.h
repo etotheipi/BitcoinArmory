@@ -19,13 +19,8 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 
-#define ARMORY_DB_VERSION   0x00
-
 #define STD_READ_OPTS       leveldb::ReadOptions()
 #define STD_WRITE_OPTS      leveldb::WriteOptions()
-
-#define ARMORY_DB_DEFAULT   ARMORY_DB_FULL
-#define UTXO_STORAGE        SCRIPT_UTXO_VECTOR
 
 class BlockHeader;
 class Tx;
@@ -33,93 +28,12 @@ class TxIn;
 class TxOut;
 class TxRef;
 class TxIOPair;
+class DBUtils;
 
 class StoredHeader;
 class StoredTx;
 class StoredTxOut;
 class StoredScriptHistory;
-
-typedef enum
-{
-  NOT_BLKDATA,
-  BLKDATA_HEADER,
-  BLKDATA_TX,
-  BLKDATA_TXOUT
-} BLKDATA_TYPE;
-
-typedef enum
-{
-  DB_PREFIX_DBINFO,
-  DB_PREFIX_HEADHASH,
-  DB_PREFIX_HEADHGT,
-  DB_PREFIX_TXDATA,
-  DB_PREFIX_TXHINTS,
-  DB_PREFIX_SCRIPT,
-  DB_PREFIX_MULTISIG,
-  DB_PREFIX_UNDODATA,
-  DB_PREFIX_TRIENODES,
-  DB_PREFIX_COUNT
-} DB_PREFIX;
-
-
-typedef enum
-{
-  ARMORY_DB_LITE,
-  ARMORY_DB_PARTIAL,
-  ARMORY_DB_FULL,
-  ARMORY_DB_SUPER,
-  ARMORY_DB_WHATEVER
-} ARMORY_DB_TYPE;
-
-typedef enum
-{
-  DB_PRUNE_ALL,
-  DB_PRUNE_NONE,
-  DB_PRUNE_WHATEVER
-} DB_PRUNE_TYPE;
-
-
-typedef enum
-{
-  LDB_TX_EXISTS,
-  LDB_TX_GETBLOCK,
-  LDB_TX_UNKNOWN
-} LDB_TX_AVAIL;
-
-typedef enum
-{
-  HEADERS,
-  BLKDATA,
-  DB_COUNT
-} DB_SELECT;
-
-
-typedef enum
-{
-  TX_SER_FULL,
-  TX_SER_FRAGGED,
-  TX_SER_COUNTOUT
-} TX_SERIALIZE_TYPE;
-
-typedef enum
-{
-  TXOUT_UNSPENT,
-  TXOUT_SPENT,
-  TXOUT_SPENTUNK,
-} TXOUT_SPENTNESS;
-
-typedef enum
-{
-  MERKLE_SER_NONE,
-  MERKLE_SER_PARTIAL,
-  MERKLE_SER_FULL
-} MERKLE_SER_TYPE;
-
-typedef enum
-{
-  SCRIPT_UTXO_VECTOR,
-  SCRIPT_UTXO_TREE
-} SCRIPT_UTXO_TYPE;
 
 
 
@@ -206,17 +120,6 @@ private:
                leveldb::Iterator* it=NULL);
 
    bool seekToTxByHash(BinaryDataRef txHash);
-
-   /////////////////////////////////////////////////////////////////////////////
-   string getPrefixName(uint8_t prefixInt);
-   string getPrefixName(DB_PREFIX pref);
-
-   bool checkPrefixByte(DB_PREFIX prefix,
-                        bool rewindWhenDone=false);
-
-   bool checkPrefixByte(BinaryRefReader brr, 
-                        DB_PREFIX prefix,
-                        bool rewindWhenDone=false);
 
 
    /////////////////////////////////////////////////////////////////////////////
@@ -330,33 +233,6 @@ public:
    void startBlkDataIteration(DB_PREFIX prefix);
 
    /////////////////////////////////////////////////////////////////////////////
-   static uint32_t    hgtxToHeight(BinaryData hgtx);
-   static uint8_t     hgtxToDupID(BinaryData hgtx);
-   static BinaryData  heightAndDupToHgtx(uint32_t hgt, uint8_t dup);
-
-   static BinaryData getBlkDataKey(uint32_t height, 
-                                   uint8_t  dup);
-
-   static BinaryData getBlkDataKey(uint32_t height, 
-                                   uint8_t  dup,
-                                   uint16_t txIdx);
-
-   static BinaryData getBlkDataKey(uint32_t height, 
-                                   uint8_t  dup,
-                                   uint16_t txIdx,
-                                   uint16_t txOutIdx);
-
-   static BinaryData getBlkDataKeyNoPrefix(uint32_t height, 
-                                           uint8_t  dup);
-
-   static BinaryData getBlkDataKeyNoPrefix(uint32_t height, 
-                                           uint8_t  dup,
-                                           uint16_t txIdx);
-
-   static BinaryData getBlkDataKeyNoPrefix(uint32_t height, 
-                                           uint8_t  dup,
-                                           uint16_t txIdx,
-                                           uint16_t txOutIdx);
 
 
    /////////////////////////////////////////////////////////////////////////////
@@ -398,47 +274,7 @@ public:
    ////////////////////////////////////////////////////////////////////////////
    uint8_t getDupForBlockHash(BinaryDataRef blockHash);
 
-   ////////////////////////////////////////////////////////////////////////////
-   // SERIALIZE / UNSERIALIZE STORED* METHODS
-   // These methods define exactly how Stored* objects are read and written
-   // to the values of the database entries.  They don't do anything with the
-   // keys of those entries.
-   ////////////////////////////////////////////////////////////////////////////
-   // UNSERIALIZE METHODS
-   void unserializeStoredHeaderValue(   DB_SELECT            db,
-                                        BinaryRefReader &    brr,
-                                        StoredHeader &       sbh,
-                                        bool ignoreMerkle = false);
 
-   void unserializeStoredTxValue(       BinaryRefReader &    brr, 
-                                        StoredTx &           stx);
-
-   void unserializeStoredTxOutValue(    BinaryRefReader &    brr, 
-                                        StoredTxOut &        stxo);
-
-   bool unserializeStoredTxOutValue(    BinaryRefReader &    brr, 
-                                        StoredTx &           stx, 
-                                        uint32_t             txOutIndex);
-
-   void unserializeStoredScriptHistory( BinaryRefReader &    brr, 
-                                        StoredScriptHistory &ssh);
-
-
-   ////////////////////////////////////////////////////////////////////////////
-   // SERIALIZE METHODS
-   void serializeStoredHeaderValue(     DB_SELECT db,
-                                        StoredHeader const &        sbh,
-                                        BinaryWriter &              bw);
-
-   void serializeStoredTxValue(         StoredTx const &            stx,
-                                        BinaryWriter &              bw);
-
-   void serializeStoredTxOutValue(      StoredTxOut const &         stxo,
-                                        BinaryWriter &              bw,
-                                        bool forceSaveSpentness=false);
-
-   void serializeStoredScriptHistory(   StoredScriptHistory &       ssh,
-                                        BinaryWriter &              bw);
 
    /////////////////////////////////////////////////////////////////////////////
    // Interface to translate Stored* objects to/from persistent DB storage
@@ -530,11 +366,11 @@ public:
 
 
    // Sometimes we already know where the Tx is, but we don't know its hash
-   Tx getFullTxCopy( BinaryDataRef ldbKey6B );
-   Tx getFullTxCopy( uint32_t hgt, uint16_t txIndex);
-   Tx getFullTxCopy( uint32_t hgt, uint8_t dup, uint16_t txIndex);
-   TxOut getTxOutCopy(BinaryDataRef ldbKey6B, uint16_t txOutIdx);
-   TxIn  getTxInCopy( BinaryDataRef ldbKey6B, uint16_t txInIdx );
+   Tx    getFullTxCopy( BinaryDataRef ldbKey6B );
+   Tx    getFullTxCopy( uint32_t hgt, uint16_t txIndex);
+   Tx    getFullTxCopy( uint32_t hgt, uint8_t dup, uint16_t txIndex);
+   TxOut getTxOutCopy(  BinaryDataRef ldbKey6B, uint16_t txOutIdx);
+   TxIn  getTxInCopy(   BinaryDataRef ldbKey6B, uint16_t txInIdx );
 
 
    // Sometimes we already know where the Tx is, but we don't know its hash
@@ -554,6 +390,10 @@ public:
    bool markBlockHeaderValid(BinaryDataRef headHash);
    bool markBlockHeaderValid(uint32_t height, uint8_t dup);
    bool markTxEntryValid(uint32_t height, uint8_t dupID, uint16_t txIndex);
+
+   /////////////////////////////////////////////////////////////////////////////
+   inline bool checkPrefixByte(DB_PREFIX prefix, bool rewindWhenDone=false)
+         { return ARMDB.checkPrefixByte(currReadKey_, prefix, rewindWhenDone); }
 
 
 
