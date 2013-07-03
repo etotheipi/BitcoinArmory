@@ -93,6 +93,8 @@ using namespace std;
 
 class BinaryDataRef;
 
+//template<typename T> class BitPacker;
+
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 class BinaryData
@@ -1255,6 +1257,111 @@ private:
 
 };
 
+
+
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// This is only intended to be used for the four datatypes:
+//    uint8_t, uint16_t, uint32_t, uint64_t
+// Simplicity is what makes this so useful 
+template<typename DTYPE>
+class BitPacker
+{
+public:
+   BitPacker(void) : intVal_(0), bitsUsed_(0) {}
+
+
+   void putBits(DTYPE val, uint32_t bitWidth)
+   {
+      uint8_t const SZ = sizeof(DTYPE);
+      if(bitsUsed_ + bitWidth > SZ*8)
+         Log::ERR() << "Tried to put bits beyond end of bit field";
+
+      if(bitsUsed_==0 && bitWidth==SZ*8)
+      {
+         bitsUsed_ = SZ*8;
+         intVal_ = val;
+         return;
+      }
+
+      uint32_t shiftAmt = SZ*8 - (bitsUsed_ + bitWidth);
+      DTYPE mask = (DTYPE)((1ULL<<bitWidth) - 1);
+      intVal_ |= (val & mask) << shiftAmt;
+      bitsUsed_ += bitWidth;
+   }
+
+   void putBit(bool val)
+   {
+      DTYPE bit = (val ? 1 : 0);   
+      putBits(bit, 1);
+   }
+
+   uint32_t getBitsUsed(void) {return bitsUsed_;}
+
+   BinaryData getBinaryData(void) 
+               { return BinaryData::IntToStrLE<DTYPE>(intVal_); }
+
+   // Disabling this to avoid inadvertantly using it to write out 
+   // data in the wrong endianness.  (instead, always use getBinaryData
+   // or writeToStream
+   //DTYPE getValue(void)      { return intVal_; }
+   
+   void  reset(void)         { intVal_ = 0; bitsUsed_ = 0; }
+
+private:
+   DTYPE    intVal_; 
+   uint32_t bitsUsed_;
+
+};
+
+
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// This is only intended to be used for the four datatypes:
+//    uint8_t, uint16_t, uint32_t, uint64_t
+// Simplicity is what makes this so useful 
+template<typename DTYPE>
+class BitUnpacker
+{
+public:
+   BitUnpacker(void) {bitsRead_=0xffffffff;}
+   BitUnpacker(DTYPE valToRead) {setValue(valToRead);}
+   BitUnpacker(BinaryRefReader & brr)
+   {
+      BinaryData bytes = brr.get_BinaryData(sizeof(DTYPE));
+      setValue( BinaryData::StrToIntLE<DTYPE>(bytes) );
+   }
+
+   void setValue(DTYPE val)   { intVal_ = val; bitsRead_ = 0; }
+
+   DTYPE getBits(uint32_t bitWidth)
+   {
+      uint8_t const SZ = sizeof(DTYPE);
+      if(bitsRead_==0 && bitWidth==SZ*8)
+      {
+         bitsRead_ = bitWidth;
+         return intVal_;
+      }
+      uint32_t shiftAmt = SZ*8 - (bitsRead_ + bitWidth);
+      DTYPE mask = (DTYPE)((1ULL<<bitWidth) - 1);
+      bitsRead_ += bitWidth;
+      return ((intVal_ >> shiftAmt) & mask);
+   }
+
+   bool getBit(void)
+   {
+      return (getBits(1) > 0);
+   }
+
+   void reset(void) { intVal_ = 0; bitsRead_ = 0; }
+
+private:
+   DTYPE    intVal_; 
+   uint32_t bitsRead_;
+
+};
+
+
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 class BinaryWriter
@@ -1351,6 +1458,9 @@ public:
       theString_.append(targPtr, nBytes);
    }
 
+   /////////////////////////////////////////////////////////////////////////////
+   template<typename T>
+   void put_BitPacker(BitPacker<T> & bp) { put_BinaryData(bp.getBinaryData()); }
 
    /////////////////////////////////////////////////////////////////////////////
    BinaryData const & getData(void)
@@ -1395,105 +1505,6 @@ private:
 
 };
 
-
-////////////////////////////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////////////////////////////
-// This is only intended to be used for the four datatypes:
-//    uint8_t, uint16_t, uint32_t, uint64_t
-// Simplicity is what makes this so useful 
-template<typename DTYPE>
-class BitWriter
-{
-public:
-   BitWriter(void) : intVal_(0), bitsUsed_(0) {}
-
-
-   void putBits(DTYPE val, uint32_t bitWidth)
-   {
-      uint8_t const SZ = sizeof(DTYPE);
-      if(bitsUsed_ + bitWidth > SZ*8)
-         Log::ERR() << "Tried to put bits beyond end of bit field";
-
-      if(bitsUsed_==0 && bitWidth==SZ*8)
-      {
-         bitsUsed_ = SZ*8;
-         intVal_ = val;
-         return;
-      }
-
-      uint32_t shiftAmt = SZ*8 - (bitsUsed_ + bitWidth);
-      DTYPE mask = (DTYPE)((1ULL<<bitWidth) - 1);
-      intVal_ |= (val & mask) << shiftAmt;
-      bitsUsed_ += bitWidth;
-   }
-
-   void putBit(bool val)
-   {
-      DTYPE bit = (val ? 1 : 0);   
-      putBits(bit, 1);
-   }
-
-   uint32_t getBitsUsed(void) {return bitsUsed_;}
-
-   BinaryData getBinaryData(void) 
-               { return BinaryData::IntToStrLE<DTYPE>(intVal_); }
-
-   // TODO:  Be careful that 
-   DTYPE getValue(void)      { return intVal_; }
-   void  reset(void)         { intVal_ = 0; bitsUsed_ = 0; }
-
-private:
-   DTYPE    intVal_; 
-   uint32_t bitsUsed_;
-
-};
-
-
-////////////////////////////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////////////////////////////
-// This is only intended to be used for the four datatypes:
-//    uint8_t, uint16_t, uint32_t, uint64_t
-// Simplicity is what makes this so useful 
-template<typename DTYPE>
-class BitReader
-{
-public:
-   BitReader(void) {bitsRead_=0xffffffff;}
-   BitReader(DTYPE valToRead) {setValue(valToRead);}
-   BitReader(BinaryRefReader & brr)
-   {
-      BinaryData bytes = brr.get_BinaryData(sizeof(DTYPE));
-      setValue( BinaryData::StrToIntLE<DTYPE>(bytes) );
-   }
-
-   void setValue(DTYPE val)   { intVal_ = val; bitsRead_ = 0; }
-
-   DTYPE getBits(uint32_t bitWidth)
-   {
-      uint8_t const SZ = sizeof(DTYPE);
-      if(bitsRead_==0 && bitWidth==SZ*8)
-      {
-         bitsRead_ = bitWidth;
-         return intVal_;
-      }
-      uint32_t shiftAmt = SZ*8 - (bitsRead_ + bitWidth);
-      DTYPE mask = (DTYPE)((1ULL<<bitWidth) - 1);
-      bitsRead_ += bitWidth;
-      return ((intVal_ >> shiftAmt) & mask);
-   }
-
-   bool getBit(void)
-   {
-      return (getBits(1) > 0);
-   }
-
-   void reset(void) { intVal_ = 0; bitsRead_ = 0; }
-
-private:
-   DTYPE    intVal_; 
-   uint32_t bitsRead_;
-
-};
 
 
 ////////////////////////////////////////////////////////////////////////////////

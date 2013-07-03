@@ -161,16 +161,16 @@ bool InterfaceToLDB::openDatabases(string basedir,
          // If DB didn't exist yet (dbinfo key is empty), seed it
          // A new database has the maximum flag settings
          // Flags can only be reduced.  Increasing requires redownloading
-         BitWriter<uint32_t> bitwrite;
+         BitPacker<uint32_t> bitpack;
          uint32_t flagBytes = 0;
-         bitwrite.putBits((uint32_t)ARMORY_DB_VERSION, 4);
-         bitwrite.putBits((uint32_t)armoryDbType_,     4);
-         bitwrite.putBits((uint32_t)dbPruneType_,      4);
+         bitpack.putBits((uint32_t)ARMORY_DB_VERSION, 4);
+         bitpack.putBits((uint32_t)armoryDbType_,     4);
+         bitpack.putBits((uint32_t)dbPruneType_,      4);
 
          BinaryWriter bw(48);
          bw.put_uint32_t(ARMORY_DB_VERSION);
          bw.put_BinaryData(magicBytes_);
-         bw.put_uint32_t(bitwrite.getValue());
+         bw.put_BitPacker(bitpack);
          bw.put_uint32_t(0);
          bw.put_BinaryData(genesisBlkHash_);
    
@@ -209,10 +209,10 @@ bool InterfaceToLDB::openDatabases(string basedir,
             return false;
          }
 
-         BitReader<uint32_t> bitread(flags);
-         uint32_t dbVer      = bitread.getBits(4);
-         uint32_t dbType     = bitread.getBits(4);
-         uint32_t pruneType  = bitread.getBits(4);
+         BitUnpacker<uint32_t> bitunpack(flags);
+         uint32_t dbVer      = bitunpack.getBits(4);
+         uint32_t dbType     = bitunpack.getBits(4);
+         uint32_t pruneType  = bitunpack.getBits(4);
 
          if(armoryDbType_ == ARMORY_DB_WHATEVER)
             armoryDbType_ = (ARMORY_DB_TYPE)dbType;
@@ -1529,10 +1529,10 @@ TxIn InterfaceToLDB::getTxInCopy( BinaryDataRef ldbKey6B, uint16_t txInIdx)
       return TxIn();
    }
 
-   BitReader<uint16_t> bitread(brr); // flags
-   uint16_t dbVer   = bitread.getBits(4);
-   uint16_t txVer   = bitread.getBits(2);
-   uint16_t txSer   = bitread.getBits(4);
+   BitUnpacker<uint16_t> bitunpack(brr); // flags
+   uint16_t dbVer   = bitunpack.getBits(4);
+   uint16_t txVer   = bitunpack.getBits(2);
+   uint16_t txSer   = bitunpack.getBits(4);
    
    brr.advance(32);
 

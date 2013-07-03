@@ -137,6 +137,8 @@ public:
    void addStoredTxToMap(uint16_t txIdx, StoredTx & tx);
 
    void setParamsTrickle(uint32_t hgt, uint8_t dupID, bool isValid);
+   void setHeightAndDup(uint32_t hgt, uint8_t dupID);
+   void setHeightAndDup(BinaryData hgtx);
 
    void unserialize(BinaryData const & header80B);
    void unserialize(BinaryDataRef header80B);
@@ -175,6 +177,13 @@ public:
    bool           isPartial_;
    map<uint16_t, StoredTx> stxMap_;
 
+   // We don't actually enforce these members.  They're solely for recording
+   // the values that were unserialized with everything else, so that we can
+   // leter check that it
+   ARMORY_DB_TYPE  unserDbType_;
+   DB_PRUNE_TYPE   unserPrType_;
+   MERKLE_SER_TYPE unserMkType_;
+   uint32_t        unserVersion_;
    
 };
 

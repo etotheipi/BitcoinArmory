@@ -36,6 +36,20 @@ void StoredHeader::setParamsTrickle(uint32_t hgt,
 }
 
 /////////////////////////////////////////////////////////////////////////////
+void StoredHeader::setHeightAndDup(uint32_t hgt, uint8_t dupID)
+{
+   blockHeight_ = hgt;
+   duplicateID_ = dupID;
+}
+
+/////////////////////////////////////////////////////////////////////////////
+void StoredHeader::setHeightAndDup(BinaryData hgtx)
+{
+   blockHeight_ = ARMDB.hgtxToHeight(hgtx);
+   duplicateID_ = ARMDB.hgtxToDupID(hgtx);
+}
+
+/////////////////////////////////////////////////////////////////////////////
 bool StoredHeader::haveFullBlock(void) const
 {
    if(!isInitialized_ || dataCopy_.getSize() != HEADER_SIZE)
@@ -286,20 +300,19 @@ void StoredHeader::unserializeDBValue( DB_SELECT         db,
    }
    else if(db==BLKDATA)
    {
+      // Read the flags byte
+      BitUnpacker<uint32_t> bitunpack(brr);
+      uint32_t dbVersion  =                  bitunpack.getBits(4);
+      unserVersion_       =                  bitunpack.getBits(4);
+      unserDbType_        = (ARMORY_DB_TYPE) bitunpack.getBits(4);
+      unserPrType_        = (DB_PRUNE_TYPE)  bitunpack.getBits(2);
+      unserMkType_        = (MERKLE_SER_TYPE)bitunpack.getBits(2);
+   
       // Unserialize the raw header into the SBH object
       brr.get_BinaryData(dataCopy_, HEADER_SIZE);
-   
-      // Read the flags byte
-      BitReader<uint32_t> bitread(brr);
-      uint32_t        dbVersion  =                  bitread.getBits(4);
-      uint32_t        blkVersion =                  bitread.getBits(4);
-      ARMORY_DB_TYPE  dbtype     = (ARMORY_DB_TYPE) bitread.getBits(4);
-      DB_PRUNE_TYPE   pruneType  = (DB_PRUNE_TYPE)  bitread.getBits(2);
-      MERKLE_SER_TYPE merkType   = (MERKLE_SER_TYPE)bitread.getBits(2);
-   
       numTx_    = brr.get_uint32_t();
       numBytes_ = brr.get_uint32_t();
-   
+
       if(dbVersion != (uint8_t)ARMORY_DB_VERSION)
       {
          Log::ERR() << "Version mismatch in unserialize DB header";
@@ -310,11 +323,11 @@ void StoredHeader::unserializeDBValue( DB_SELECT         db,
       {
          uint32_t currPos = brr.getPosition();
          uint32_t totalSz = brr.getSize();
-         if(merkType == MERKLE_SER_NONE)
+         if(unserMkType_ == MERKLE_SER_NONE)
             merkle_.resize(0);
          else
          {
-            merkleIsPartial_ = (merkType == MERKLE_SER_PARTIAL);
+            merkleIsPartial_ = (unserMkType_ == MERKLE_SER_PARTIAL);
             brr.get_BinaryData(merkle_, totalSz - currPos);
          }
       }
@@ -342,6 +355,14 @@ void StoredHeader::serializeDBValue( DB_SELECT       db,
    {
       uint32_t version = READ_UINT32_LE(dataCopy_.getPtr());
 
+      // TODO:  We define merkle serialization types here, but we're not actually
+      //        enforcing it in this function.  Either merkle_ member contains 
+      //        the correct form of the merkle data or it doesn't.  We should 
+      //        figure out whether we need to make sure the correct data is 
+      //        already here when this function starts, or guarantee the data
+      //        is in the right form as part of this function.  For now I'm 
+      //        assuming that it's already in the right form, and thus the
+      //        determination of PARTIAL vs FULL is irrelevant
       MERKLE_SER_TYPE mtype;
       switch(ARMDB.getArmoryDbType())
       {
@@ -354,104 +375,32 @@ void StoredHeader::serializeDBValue( DB_SELECT       db,
             Log::ERR() << "Invalid DB mode in serializeStoredHeaderValue";
       }
       
-      // We assume that the appropriate partial-merkle tree has already
-      // been serialized and stored in merkle_
-      if(merkle_.getSize() > 0)
-         mtype = (merkleIsPartial_ ? MERKLE_SER_PARTIAL : MERKLE_SER_FULL);
+      // Override the above mtype if the merkle data is zero-length
+      if(merkle_.getSize()==0)
+         mtype = MERKLE_SER_NONE;
    
       // Create the flags byte
-      BitWriter<uint32_t> bitwrite;
-      bitwrite.putBits((uint32_t)ARMORY_DB_VERSION,       4);
-      bitwrite.putBits((uint32_t)version,                 4);
-      bitwrite.putBits((uint32_t)ARMDB.getArmoryDbType(), 4);
-      bitwrite.putBits((uint32_t)ARMDB.getDbPruneType(),  2);
-      bitwrite.putBits((uint32_t)mtype,                   2);
-      uint32_t flags = bitwrite.getValue();
+      BitPacker<uint32_t> bitpack;
+      bitpack.putBits((uint32_t)ARMORY_DB_VERSION,       4);
+      bitpack.putBits((uint32_t)version,                 4);
+      bitpack.putBits((uint32_t)ARMDB.getArmoryDbType(), 4);
+      bitpack.putBits((uint32_t)ARMDB.getDbPruneType(),  2);
+      bitpack.putBits((uint32_t)mtype,                   2);
 
-      bw.put_uint32_t(flags);
+      bw.put_BitPacker(bitpack);
       bw.put_BinaryData(dataCopy_);
       bw.put_uint32_t(numTx_);
       bw.put_uint32_t(numBytes_);
 
       if( mtype != MERKLE_SER_NONE )
+      {
          bw.put_BinaryData(merkle_);
-   }
-}
-
-/////////////////////////////////////////////////////////////////////////////
-/*
-void StoredHeader::serializeForDB(BinaryWriter & bw, 
-                                  ARMORY_DB_TYPE dbType,
-                                  DB_PRUNE_TYPE pruneType,
-                                  MERKLE_SER_TYPE merkType=MERKLE_SER_FULL)
-{
-   if(!isInitialized_ || dataCopy_.getSize()==0)
-   {
-      Log::ERR() << " can't serialize an uninitialized header!";
-      return;
-   }
-
-   if(merkType==MERKLE_SER_FULL && stxMap_.size() < numTx_)
-   {
-      Log::ERR() << " Cannot produce full tx list";
-      return;
-   }
-   
-   //uint8_t version             =                   (flags & 0xf0000000) >> 28;
-   //ARMORY_DB_TYPE dbtype       = (ARMORY_DB_TYPE)( (flags & 0x0f000000) >> 24);
-   //DB_PRUNE_TYPE pruneType     = (DB_PRUNE_TYPE)(  (flags & 0x00c00000) >> 22);
-   //MERKLE_SER_TYPE merkleCode  = (MERKLE_SER_TYPE)((flags & 0x00300000) >> 20);
-   uint32_t flags = 0;
-   flags |= ((uint32_t)ARMORY_DB_VERSION << 28) & 0xf0000000;
-   flags |= ((uint32_t)dbType            << 24) & 0x0f000000;
-   flags |= ((uint32_t)pruneType         << 22) & 0x00c00000;
-   flags |= ((uint32_t)merkType          << 20) & 0x00300000;
-
-   bw.put_uint32_t(flags);
-   bw.put_BinaryData(dataCopy_);
-   bw.put_uint32_t(numTx_);
-   bw.put_uint32_t(numBytes_);
-
-   if(merkType == MERKLE_SER_FULL)
-   {
-      map<uint16_t, StoredTx>::iterator iter = stxMap_.begin();
-      while(iter != stxMap_.end())
-         bw.put_BinaryData(iter->second.thisHash_)
-   }
-   else if(merkType == MERKLE_SER_PARTIAL)
-   {
-      vector<bool> isReqTx(numTx_);
-      vector<HashString> reqTxs(numTx_);
-      for(uint16_t tx=0; tx<numTx_; tx++)
-      {
-         isReqTx = false;
-         reqTxs = BinaryData(0);
+         if(merkle_.getSize()==0)
+            Log::ERR() << "Expected to serialize merkle tree, but empty string";
       }
-      map<uint16_t, StoredTx>::iterator iter = stxMap_.begin();
-      while(iter != stxMap_.end())
-      {
-         isReqTx[iter->first] = true;
-         reqTxs[iter->first] = iter->second.thisHash_;
-      }
-      bw.put_BinaryData(PartialMerkleTree(numTx_, isReqTx, reqTxs).serialize());
    }
 }
 
-/////////////////////////////////////////////////////////////////////////////
-bool StoredHeader::serializeForHeaderDB(BinaryWriter & bw)
-{
-   if(!isInitialized_)
-   {
-      Log::ERR() << "Uninitialized Header";
-      return false;
-   }
-   bw.put_BinaryData(dataCopy_);
-   bw.put_uint32_t( ARMDB.heightAndDupToHgtx(blockHeight_, duplicateID_) );
-}
-*/
-
-
-/////////////////////////////////////////////////////////////////////////////
 
 /////////////////////////////////////////////////////////////////////////////
 void StoredTx::unserialize(BinaryData const & data, bool fragged)
@@ -502,10 +451,10 @@ void StoredTx::unserializeDBValue(BinaryRefReader & brr)
    //    DBVersion      4 bits
    //    TxVersion      2 bits
    //    HowTxSer       4 bits   (FullTxOut, TxNoTxOuts, numTxOutOnly)
-   BitReader<uint16_t> bitread(brr); // flags
-   uint16_t dbVer   = bitread.getBits(4);
-   uint16_t txVer   = bitread.getBits(2);
-   uint16_t txSer   = bitread.getBits(4);
+   BitUnpacker<uint16_t> bitunpack(brr); // flags
+   uint16_t dbVer   = bitunpack.getBits(4);
+   uint16_t txVer   = bitunpack.getBits(2);
+   uint16_t txSer   = bitunpack.getBits(4);
    
    brr.get_BinaryData(thisHash_, 32);
 
@@ -533,13 +482,13 @@ void StoredTx::serializeDBValue(BinaryWriter & bw) const
          Log::ERR() << "Invalid DB mode in serializeStoredTxValue";
    }
 
-   BitWriter<uint16_t> bitwrite;
-   bitwrite.putBits((uint16_t)ARMORY_DB_VERSION,  4);
-   bitwrite.putBits((uint16_t)version,            2);
-   bitwrite.putBits((uint16_t)serType,            2);
+   BitPacker<uint16_t> bitpack;
+   bitpack.putBits((uint16_t)ARMORY_DB_VERSION,  4);
+   bitpack.putBits((uint16_t)version,            2);
+   bitpack.putBits((uint16_t)serType,            2);
 
    
-   bw.put_uint16_t(bitwrite.getValue());
+   bw.put_BitPacker(bitpack);
    bw.put_BinaryData(thisHash_);
 
    if(serType == TX_SER_FULL    || 
@@ -653,11 +602,11 @@ void StoredTxOut::unserializeDBValue(BinaryRefReader & brr)
    //    DBVersion   4 bits
    //    TxVersion   2 bits
    //    Spentness   2 bits
-   BitReader<uint16_t> bitread(brr);
-   uint16_t dbVer   =  bitread.getBits(4);
-   uint16_t txVer   =  bitread.getBits(2);
-   uint16_t isSpent =  bitread.getBits(2);
-   uint16_t isCBase =  bitread.getBits(1);
+   BitUnpacker<uint16_t> bitunpack(brr);
+   uint16_t dbVer   =  bitunpack.getBits(4);
+   uint16_t txVer   =  bitunpack.getBits(2);
+   uint16_t isSpent =  bitunpack.getBits(2);
+   uint16_t isCBase =  bitunpack.getBits(1);
 
    unserialize(brr);
    isSpent_        = isSpent;
@@ -696,13 +645,13 @@ void StoredTxOut::serializeDBValue(BinaryWriter & bw,
 
    uint16_t isCbase = (isFromCoinbase_ ? 1 : 0);
 
-   BitWriter<uint16_t> bitwrite;
-   bitwrite.putBits((uint16_t)ARMORY_DB_VERSION,  4);
-   bitwrite.putBits((uint16_t)txVersion_,    4);
-   bitwrite.putBits((uint16_t)spentness,          2);
-   bitwrite.putBits((uint16_t)isCbase,            1);
+   BitPacker<uint16_t> bitpack;
+   bitpack.putBits((uint16_t)ARMORY_DB_VERSION,  4);
+   bitpack.putBits((uint16_t)txVersion_,    4);
+   bitpack.putBits((uint16_t)spentness,          2);
+   bitpack.putBits((uint16_t)isCbase,            1);
 
-   bw.put_uint16_t(bitwrite.getValue());
+   bw.put_BitPacker(bitpack);
    bw.put_BinaryData(dataCopy_);  // 8-byte value, var_int sz, pkscript
    
    if(spentness == TXOUT_SPENT)
@@ -816,11 +765,11 @@ StoredTxOut & StoredTxOut::createFromTxOut(TxOut & txout)
 void StoredScriptHistory::unserializeDBValue(BinaryRefReader & brr)
 {
    // Now read the stored data fro this registered address
-   BitReader<uint16_t> bitread(brr);
-   version_                     =                    bitread.getBits(4);
-   DB_PRUNE_TYPE pruneType      = (DB_PRUNE_TYPE)    bitread.getBits(2);
-   SCRIPT_UTXO_TYPE txoListType = (SCRIPT_UTXO_TYPE) bitread.getBits(2);
-   hasMultisigEntries_          =                    bitread.getBit();
+   BitUnpacker<uint16_t> bitunpack(brr);
+   version_                     =                    bitunpack.getBits(4);
+   DB_PRUNE_TYPE pruneType      = (DB_PRUNE_TYPE)    bitunpack.getBits(2);
+   SCRIPT_UTXO_TYPE txoListType = (SCRIPT_UTXO_TYPE) bitunpack.getBits(2);
+   hasMultisigEntries_          =                    bitunpack.getBit();
 
    alreadyScannedUpToBlk_ = brr.get_uint32_t();
 
@@ -841,10 +790,10 @@ void StoredScriptHistory::unserializeDBValue(BinaryRefReader & brr)
       txioVect_.reserve(numTxo);
       for(uint32_t i=0; i<numTxo; i++)
       {
-         BitReader<uint8_t> bitread(brr);
-         bool isFromSelf  = bitread.getBit();
-         bool isCoinbase  = bitread.getBit();
-         bool isSpent     = bitread.getBit();
+         BitUnpacker<uint8_t> bitunpack(brr);
+         bool isFromSelf  = bitunpack.getBit();
+         bool isCoinbase  = bitunpack.getBit();
+         bool isSpent     = bitunpack.getBit();
 
          // We always include the value, here
          uint64_t txoValue  = brr.get_uint64_t();
@@ -880,12 +829,12 @@ void StoredScriptHistory::unserializeDBValue(BinaryRefReader & brr)
 void StoredScriptHistory::serializeDBValue(BinaryWriter & bw ) const
 {
    // Write out all the flags
-   BitWriter<uint16_t> bitwrite;
-   bitwrite.putBits((uint16_t)ARMORY_DB_VERSION,       4);
-   bitwrite.putBits((uint16_t)ARMDB.getDbPruneType(),  2);
-   bitwrite.putBits((uint16_t)SCRIPT_UTXO_VECTOR,      2);
-   bitwrite.putBit(hasMultisigEntries_);
-   bw.put_uint16_t(bitwrite.getValue());
+   BitPacker<uint16_t> bitpack;
+   bitpack.putBits((uint16_t)ARMORY_DB_VERSION,       4);
+   bitpack.putBits((uint16_t)ARMDB.getDbPruneType(),  2);
+   bitpack.putBits((uint16_t)SCRIPT_UTXO_VECTOR,      2);
+   bitpack.putBit(hasMultisigEntries_);
+   bw.put_BitPacker(bitpack);
 
    // 
    bw.put_uint32_t(alreadyScannedUpToBlk_); 
@@ -913,11 +862,11 @@ void StoredScriptHistory::serializeDBValue(BinaryWriter & bw ) const
          if(isSpent && ARMDB.getDbPruneType()==DB_PRUNE_ALL)
             continue;
 
-         BitWriter<uint8_t> bitwrite;
-         bitwrite.putBit(txio.isTxOutFromSelf());
-         bitwrite.putBit(txio.isFromCoinbase());
-         bitwrite.putBit(txio.hasTxInInMain());
-         bw.put_uint8_t(bitwrite.getValue());
+         BitPacker<uint8_t> bitpack;
+         bitpack.putBit(txio.isTxOutFromSelf());
+         bitpack.putBit(txio.isFromCoinbase());
+         bitpack.putBit(txio.hasTxInInMain());
+         bw.put_BitPacker(bitpack);
 
          // Always write the value and 8-byte TxOut
          bw.put_uint64_t(txio.getValue());
@@ -1056,19 +1005,19 @@ BinaryData DBUtils::getBlkDataKeyNoPrefix( uint32_t height,
 /////////////////////////////////////////////////////////////////////////////
 uint32_t DBUtils::hgtxToHeight(BinaryData hgtx)
 {
-   return (BinaryData::StrToIntBE<uint32_t>(hgtx) >> 8);
+   return (READ_UINT32_LE(hgtx) >> 8);
 
 }
 
 /////////////////////////////////////////////////////////////////////////////
 uint8_t DBUtils::hgtxToDupID(BinaryData hgtx)
 {
-   return hgtx[3];
+   return (READ_UINT32_LE(hgtx) & 0x7f);
 }
 
 /////////////////////////////////////////////////////////////////////////////
 BinaryData DBUtils::heightAndDupToHgtx(uint32_t hgt, uint8_t dup)
 {
-   uint32_t hgtx = (hgt<<8) | (uint32_t)dup;
-   return BinaryData::IntToStrBE<uint32_t>(hgtx);
+   uint32_t hgtxInt = (hgt<<8) | (uint32_t)dup;
+   return WRITE_UINT32_LE(hgtxInt);
 }

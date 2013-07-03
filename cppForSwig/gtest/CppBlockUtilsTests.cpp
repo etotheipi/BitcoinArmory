@@ -887,149 +887,150 @@ TEST_F(BinaryDataRefTest, Equality)
 ////////////////////////////////////////////////////////////////////////////////
 TEST(BitReadWriteTest, Writer8)
 {
-   BitWriter<uint8_t> bitw;
+   BitPacker<uint8_t> bitp;
+   BinaryWriter bw;
    
-   EXPECT_EQ( bitw.getValue(), 0);
-   EXPECT_EQ( bitw.getBitsUsed(), 0);
-   EXPECT_EQ( bitw.getBinaryData(), READHEX("00"));
+   //EXPECT_EQ( bitp.getValue(), 0);
+   EXPECT_EQ( bitp.getBitsUsed(), 0);
+   EXPECT_EQ( bitp.getBinaryData(), READHEX("00"));
 
-   bitw.putBit(true);
-   EXPECT_EQ( bitw.getValue(), 128);
-   EXPECT_EQ( bitw.getBitsUsed(), 1);
-   EXPECT_EQ( bitw.getBinaryData(), READHEX("80"));
+   bitp.putBit(true);
+   //EXPECT_EQ( bitp.getValue(), 128);
+   EXPECT_EQ( bitp.getBitsUsed(), 1);
+   EXPECT_EQ( bitp.getBinaryData(), READHEX("80"));
 
-   bitw.putBit(false);
-   EXPECT_EQ( bitw.getValue(), 128);
-   EXPECT_EQ( bitw.getBitsUsed(), 2);
-   EXPECT_EQ( bitw.getBinaryData(), READHEX("80"));
+   bitp.putBit(false);
+   //EXPECT_EQ( bitp.getValue(), 128);
+   EXPECT_EQ( bitp.getBitsUsed(), 2);
+   EXPECT_EQ( bitp.getBinaryData(), READHEX("80"));
 
-   bitw.putBit(true);
-   EXPECT_EQ( bitw.getValue(), 160);
-   EXPECT_EQ( bitw.getBitsUsed(), 3);
-   EXPECT_EQ( bitw.getBinaryData(), READHEX("a0"));
+   bitp.putBit(true);
+   //EXPECT_EQ( bitp.getValue(), 160);
+   EXPECT_EQ( bitp.getBitsUsed(), 3);
+   EXPECT_EQ( bitp.getBinaryData(), READHEX("a0"));
 
-   bitw.putBits(0, 2);
-   EXPECT_EQ( bitw.getValue(),  160);
-   EXPECT_EQ( bitw.getBitsUsed(), 5);
-   EXPECT_EQ( bitw.getBinaryData(), READHEX("a0"));
+   bitp.putBits(0, 2);
+   //EXPECT_EQ( bitp.getValue(),  160);
+   EXPECT_EQ( bitp.getBitsUsed(), 5);
+   EXPECT_EQ( bitp.getBinaryData(), READHEX("a0"));
 
-   bitw.putBits(3, 3);
-   EXPECT_EQ( bitw.getValue(),  163);
-   EXPECT_EQ( bitw.getBitsUsed(), 8);
-   EXPECT_EQ( bitw.getBinaryData(), READHEX("a3"));
+   bitp.putBits(3, 3);
+   //EXPECT_EQ( bitp.getValue(),  163);
+   EXPECT_EQ( bitp.getBitsUsed(), 8);
+   EXPECT_EQ( bitp.getBinaryData(), READHEX("a3"));
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 TEST(BitReadWriteTest, Writer16)
 {
-   BitWriter<uint16_t> bitw;
+   BitPacker<uint16_t> bitp;
    
-   EXPECT_EQ( bitw.getValue(), 0);
-   EXPECT_EQ( bitw.getBitsUsed(), 0);
-   EXPECT_EQ( bitw.getBinaryData(), READHEX("0000"));
+   //EXPECT_EQ( bitp.getValue(), 0);
+   EXPECT_EQ( bitp.getBitsUsed(), 0);
+   EXPECT_EQ( bitp.getBinaryData(), READHEX("0000"));
 
-   bitw.putBit(true);
-   EXPECT_EQ( bitw.getValue(), 0x8000);
-   EXPECT_EQ( bitw.getBitsUsed(), 1);
-   EXPECT_EQ( bitw.getBinaryData(), READHEX("0080"));
+   bitp.putBit(true);
+   //EXPECT_EQ( bitp.getValue(), 0x8000);
+   EXPECT_EQ( bitp.getBitsUsed(), 1);
+   EXPECT_EQ( bitp.getBinaryData(), READHEX("0080"));
 
-   bitw.putBit(false);
-   EXPECT_EQ( bitw.getValue(), 0x8000);
-   EXPECT_EQ( bitw.getBitsUsed(), 2);
-   EXPECT_EQ( bitw.getBinaryData(), READHEX("0080"));
+   bitp.putBit(false);
+   //EXPECT_EQ( bitp.getValue(), 0x8000);
+   EXPECT_EQ( bitp.getBitsUsed(), 2);
+   EXPECT_EQ( bitp.getBinaryData(), READHEX("0080"));
 
-   bitw.putBit(true);
-   EXPECT_EQ( bitw.getValue(), 0xa000);
-   EXPECT_EQ( bitw.getBitsUsed(), 3);
-   EXPECT_EQ( bitw.getBinaryData(), READHEX("00a0"));
+   bitp.putBit(true);
+   //EXPECT_EQ( bitp.getValue(), 0xa000);
+   EXPECT_EQ( bitp.getBitsUsed(), 3);
+   EXPECT_EQ( bitp.getBinaryData(), READHEX("00a0"));
 
-   bitw.putBits(0, 2);
-   EXPECT_EQ( bitw.getValue(),  0xa000);
-   EXPECT_EQ( bitw.getBitsUsed(), 5);
-   EXPECT_EQ( bitw.getBinaryData(), READHEX("00a0"));
+   bitp.putBits(0, 2);
+   //EXPECT_EQ( bitp.getValue(),  0xa000);
+   EXPECT_EQ( bitp.getBitsUsed(), 5);
+   EXPECT_EQ( bitp.getBinaryData(), READHEX("00a0"));
 
-   bitw.putBits(3, 3);
-   EXPECT_EQ( bitw.getValue(),  0xa300);
-   EXPECT_EQ( bitw.getBitsUsed(), 8);
-   EXPECT_EQ( bitw.getBinaryData(), READHEX("00a3"));
+   bitp.putBits(3, 3);
+   //EXPECT_EQ( bitp.getValue(),  0xa300);
+   EXPECT_EQ( bitp.getBitsUsed(), 8);
+   EXPECT_EQ( bitp.getBinaryData(), READHEX("00a3"));
 
-   bitw.putBits(3, 8);
-   EXPECT_EQ( bitw.getValue(),  0xa303);
-   EXPECT_EQ( bitw.getBitsUsed(), 16);
-   EXPECT_EQ( bitw.getBinaryData(), READHEX("03a3"));
+   bitp.putBits(3, 8);
+   //EXPECT_EQ( bitp.getValue(),  0xa303);
+   EXPECT_EQ( bitp.getBitsUsed(), 16);
+   EXPECT_EQ( bitp.getBinaryData(), READHEX("03a3"));
 }
 
 
 ////////////////////////////////////////////////////////////////////////////////
 TEST(BitReadWriteTest, Writer32)
 {
-   BitWriter<uint32_t> bitw;
+   BitPacker<uint32_t> bitp;
    
-   bitw.putBits(0xffffff00, 32);
-   EXPECT_EQ( bitw.getValue(),  0xffffff00);
-   EXPECT_EQ( bitw.getBitsUsed(), 32);
-   EXPECT_EQ( bitw.getBinaryData(), READHEX("00ffffff"));
+   bitp.putBits(0xffffff00, 32);
+   //EXPECT_EQ( bitp.getValue(),  0xffffff00);
+   EXPECT_EQ( bitp.getBitsUsed(), 32);
+   EXPECT_EQ( bitp.getBinaryData(), READHEX("00ffffff"));
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 TEST(BitReadWriteTest, Writer64)
 {
-   BitWriter<uint64_t> bitw;
+   BitPacker<uint64_t> bitp;
    
-   bitw.putBits(0xffffff00ffffffaaULL, 64);
-   EXPECT_EQ( bitw.getValue(),  0xffffff00ffffffaaULL);
-   EXPECT_EQ( bitw.getBitsUsed(), 64);
-   EXPECT_EQ( bitw.getBinaryData(), READHEX("aaffffff00ffffff"));
+   bitp.putBits(0xffffff00ffffffaaULL, 64);
+   //EXPECT_EQ( bitp.getValue(),  0xffffff00ffffffaaULL);
+   EXPECT_EQ( bitp.getBitsUsed(), 64);
+   EXPECT_EQ( bitp.getBinaryData(), READHEX("aaffffff00ffffff"));
 
-   BitWriter<uint64_t> bitw2;
-   bitw2.putBits(0xff, 32);
-   bitw2.putBits(0xff, 32);
-   EXPECT_EQ( bitw2.getValue(),  0x000000ff000000ffULL);
-   EXPECT_EQ( bitw2.getBitsUsed(), 64);
-   EXPECT_EQ( bitw2.getBinaryData(), READHEX("ff000000ff000000"));
+   BitPacker<uint64_t> bitp2;
+   bitp2.putBits(0xff, 32);
+   bitp2.putBits(0xff, 32);
+   //EXPECT_EQ( bitp2.getValue(),  0x000000ff000000ffULL);
+   EXPECT_EQ( bitp2.getBitsUsed(), 64);
+   EXPECT_EQ( bitp2.getBinaryData(), READHEX("ff000000ff000000"));
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 TEST(BitReadWriteTest, Reader8)
 {
-   BitReader<uint8_t> bitr;
+   BitUnpacker<uint8_t> bitu;
    
-   bitr.setValue(0xa3);
-   EXPECT_TRUE( bitr.getBit());
-   EXPECT_FALSE(bitr.getBit());
-   EXPECT_TRUE( bitr.getBit());
-   EXPECT_EQ(   bitr.getBits(2), 0);
-   EXPECT_EQ(   bitr.getBits(3), 3);
+   bitu.setValue(0xa3);
+   EXPECT_TRUE( bitu.getBit());
+   EXPECT_FALSE(bitu.getBit());
+   EXPECT_TRUE( bitu.getBit());
+   EXPECT_EQ(   bitu.getBits(2), 0);
+   EXPECT_EQ(   bitu.getBits(3), 3);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 TEST(BitReadWriteTest, Reader16)
 {
-   BitReader<uint16_t> bitr;
+   BitUnpacker<uint16_t> bitu;
    
-   bitr.setValue(0xa303);
+   bitu.setValue(0xa303);
    
-   EXPECT_TRUE( bitr.getBit());
-   EXPECT_FALSE(bitr.getBit());
-   EXPECT_TRUE( bitr.getBit());
-   EXPECT_EQ(   bitr.getBits(2), 0);
-   EXPECT_EQ(   bitr.getBits(3), 3);
-   EXPECT_EQ(   bitr.getBits(8), 3);
+   EXPECT_TRUE( bitu.getBit());
+   EXPECT_FALSE(bitu.getBit());
+   EXPECT_TRUE( bitu.getBit());
+   EXPECT_EQ(   bitu.getBits(2), 0);
+   EXPECT_EQ(   bitu.getBits(3), 3);
+   EXPECT_EQ(   bitu.getBits(8), 3);
 }
 
 
 ////////////////////////////////////////////////////////////////////////////////
 TEST(BitReadWriteTest, Reader32)
 {
-   BitReader<uint32_t> bitr(0xffffff00);
-   EXPECT_EQ(bitr.getBits(32), 0xffffff00);
+   BitUnpacker<uint32_t> bitu(0xffffff00);
+   EXPECT_EQ(bitu.getBits(32), 0xffffff00);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 TEST(BitReadWriteTest, Reader64)
 {
-   BitReader<uint64_t> bitr(0xffffff00ffffffaaULL);
-   EXPECT_EQ( bitr.getBits(64),  0xffffff00ffffffaaULL);
+   BitUnpacker<uint64_t> bitu(0xffffff00ffffffaaULL);
+   EXPECT_EQ( bitu.getBits(64),  0xffffff00ffffffaaULL);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -2266,6 +2267,13 @@ protected:
       bh_.unserialize(rawHead_);
       tx1_.unserialize(rawTx0_);
       tx2_.unserialize(rawTx1_);
+
+
+      sbh_.unserialize(rawHead_);
+
+      // Make sure the global DB type and prune type are reset for each test
+      ARMDB.setArmoryDbType(ARMORY_DB_FULL);
+      ARMDB.setDbPruneType(DB_PRUNE_NONE);
    }
 
    BinaryData rawHead_;
@@ -2285,6 +2293,10 @@ protected:
    BinaryData rawTxFragged_;
    BinaryData rawTxOut0_;
    BinaryData rawTxOut1_;
+
+
+
+   StoredHeader sbh_;
 };
 
 
@@ -2336,6 +2348,28 @@ TEST_F(StoredBlockObjTest, LengthFragged)
    EXPECT_EQ(offout[2],     366);
 }
 
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(StoredBlockObjTest, BlkDataKeys)
+{
+   uint32_t hgt = 0x001a332b;
+   uint8_t  dup = 0x01;
+   uint16_t tix = 0x0102;
+   uint16_t tox = 0x0021;
+   
+   EXPECT_EQ(ARMDB.getBlkDataKey(hgt, dup),           
+                                               READHEX("03012b331a"));
+   EXPECT_EQ(ARMDB.getBlkDataKey(hgt, dup, tix),      
+                                               READHEX("03012b331a0201"));
+   EXPECT_EQ(ARMDB.getBlkDataKey(hgt, dup, tix, tox), 
+                                               READHEX("03012b331a02012100"));
+
+   EXPECT_EQ(ARMDB.getBlkDataKeyNoPrefix(hgt, dup),           
+                                               READHEX("012b331a"));
+   EXPECT_EQ(ARMDB.getBlkDataKeyNoPrefix(hgt, dup, tix),      
+                                               READHEX("012b331a0201"));
+   EXPECT_EQ(ARMDB.getBlkDataKeyNoPrefix(hgt, dup, tix, tox), 
+                                               READHEX("012b331a02012100"));
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 TEST_F(StoredBlockObjTest, StoredHeaderNoInit)
@@ -2351,20 +2385,210 @@ TEST_F(StoredBlockObjTest, StoredHeaderNoInit)
 ////////////////////////////////////////////////////////////////////////////////
 TEST_F(StoredBlockObjTest, StoredHeaderUnserialize)
 {
-   StoredHeader sbh;
+   // SetUp already contains sbh_.unserialize(rawHead_);
+   EXPECT_TRUE( sbh_.isInitialized());
+   EXPECT_FALSE(sbh_.isMainBranch_);
+   EXPECT_FALSE(sbh_.haveFullBlock());
+   EXPECT_FALSE(sbh_.isMerkleCreated());
+   EXPECT_EQ(   sbh_.numTx_,       UINT32_MAX);
+   EXPECT_EQ(   sbh_.numBytes_,    UINT32_MAX);
+   EXPECT_EQ(   sbh_.blockHeight_, UINT32_MAX);
+   EXPECT_EQ(   sbh_.duplicateID_, UINT8_MAX);
+   EXPECT_EQ(   sbh_.merkle_.getSize(), 0);
+   EXPECT_EQ(   sbh_.stxMap_.size(), 0);
+}
 
-   sbh.unserialize(rawHead_);
-   
-   EXPECT_TRUE( sbh.isInitialized());
-   EXPECT_FALSE(sbh.isMainBranch_);
-   EXPECT_FALSE(sbh.haveFullBlock());
-   EXPECT_FALSE(sbh.isMerkleCreated());
-   EXPECT_EQ(   sbh.numTx_,       UINT32_MAX);
-   EXPECT_EQ(   sbh.numBytes_,    UINT32_MAX);
-   EXPECT_EQ(   sbh.blockHeight_, UINT32_MAX);
-   EXPECT_EQ(   sbh.duplicateID_, UINT8_MAX);
-   EXPECT_EQ(   sbh.merkle_.getSize(), 0);
-   EXPECT_EQ(   sbh.stxMap_.size(), 0);
+
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(StoredBlockObjTest, StoredHeaderDBSerFullH)
+{
+   ARMDB.setArmoryDbType(ARMORY_DB_FULL);
+   ARMDB.setDbPruneType(DB_PRUNE_NONE);
+
+   BinaryWriter bw;
+
+   sbh_.blockHeight_      = 65535;
+   sbh_.duplicateID_      = 1;
+   sbh_.merkle_           = READHEX("deadbeef");
+   sbh_.merkleIsPartial_  = false;
+   sbh_.isMainBranch_     = true;
+   sbh_.numTx_            = 15;
+   sbh_.numBytes_         = 65535;
+
+   // SetUp already contains sbh_.unserialize(rawHead_);
+   BinaryData last4 = READHEX("01ffff00");
+   sbh_.serializeDBValue(HEADERS, bw);
+   EXPECT_EQ(bw.getData(), rawHead_ + last4);
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(StoredBlockObjTest, StoredHeaderDBSerFullB1)
+{
+   // ARMORY_DB_FULL means no merkle string (cause all Tx are in the DB
+   // so the merkle tree would be redundant.
+   ARMDB.setArmoryDbType(ARMORY_DB_FULL);
+   ARMDB.setDbPruneType(DB_PRUNE_NONE);
+
+   BinaryWriter bw;
+
+   sbh_.blockHeight_      = 65535;
+   sbh_.duplicateID_      = 1;
+   sbh_.merkle_           = READHEX("deadbeef");
+   sbh_.merkleIsPartial_  = false;
+   sbh_.isMainBranch_     = true;
+   sbh_.numTx_            = 15;
+   sbh_.numBytes_         = 65535;
+
+   // SetUp already contains sbh_.unserialize(rawHead_);
+   BinaryData flags = READHEX("00002401");
+   BinaryData ntx   = READHEX("0f000000");
+   BinaryData nbyte = READHEX("ffff0000");
+
+   BinaryData headBlkData = flags + rawHead_ + ntx + nbyte;
+   sbh_.serializeDBValue(BLKDATA, bw);
+   EXPECT_EQ(bw.getData(), headBlkData);
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(StoredBlockObjTest, StoredHeaderDBSerFullB2)
+{
+   // With merkle string
+   ARMDB.setArmoryDbType(ARMORY_DB_PARTIAL);
+   ARMDB.setDbPruneType(DB_PRUNE_NONE);
+
+   BinaryWriter bw;
+
+   sbh_.blockHeight_      = 65535;
+   sbh_.duplicateID_      = 1;
+   sbh_.merkle_           = READHEX("deadbeef");
+   sbh_.merkleIsPartial_  = false;
+   sbh_.isMainBranch_     = true;
+   sbh_.numTx_            = 15;
+   sbh_.numBytes_         = 65535;
+
+   // SetUp already contains sbh_.unserialize(rawHead_);
+   BinaryData flags = READHEX("00001601");
+   BinaryData ntx   = READHEX("0f000000");
+   BinaryData nbyte = READHEX("ffff0000");
+
+   BinaryData headBlkData = flags + rawHead_ + ntx + nbyte + sbh_.merkle_;
+   sbh_.serializeDBValue(BLKDATA, bw);
+   EXPECT_EQ(bw.getData(), headBlkData);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(StoredBlockObjTest, StoredHeaderDBSerFullB3)
+{
+   ARMDB.setArmoryDbType(ARMORY_DB_LITE);
+   ARMDB.setDbPruneType(DB_PRUNE_ALL);
+
+   BinaryWriter bw;
+
+   sbh_.blockHeight_      = 65535;
+   sbh_.duplicateID_      = 1;
+   sbh_.merkle_           = BinaryData(0);
+   sbh_.merkleIsPartial_  = false;
+   sbh_.isMainBranch_     = true;
+   sbh_.numTx_            = 15;
+   sbh_.numBytes_         = 65535;
+
+   // SetUp already contains sbh_.unserialize(rawHead_);
+   BinaryData flags = READHEX("00000001");
+   BinaryData ntx   = READHEX("0f000000");
+   BinaryData nbyte = READHEX("ffff0000");
+
+   BinaryData headBlkData = flags + rawHead_ + ntx + nbyte;
+   sbh_.serializeDBValue(BLKDATA, bw);
+   EXPECT_EQ(bw.getData(), headBlkData);
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(StoredBlockObjTest, StoredHeaderDBUnserFullH)
+{
+   BinaryData dbval = READHEX(
+      "010000001d8f4ec0443e1f19f305e488c1085c95de7cc3fd25e0d2c5bb5d0000"
+      "000000009762547903d36881a86751f3f5049e23050113f779735ef82734ebf0"
+      "b4450081d8c8c84db3936a1a334b035b01ffff00");
+
+   BinaryRefReader brr(dbval);
+   sbh_.unserializeDBValue(HEADERS, brr);
+
+   EXPECT_EQ(sbh_.blockHeight_, 65535);
+   EXPECT_EQ(sbh_.duplicateID_, 1);
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(StoredBlockObjTest, StoredHeaderDBUnserFullB1)
+{
+   BinaryData dbval = READHEX(
+      "00002401010000001d8f4ec0443e1f19f305e488c1085c95de7cc3fd25e0d2c5"
+      "bb5d0000000000009762547903d36881a86751f3f5049e23050113f779735ef8"
+      "2734ebf0b4450081d8c8c84db3936a1a334b035b0f000000ffff0000");
+
+   BinaryRefReader brr(dbval);
+   sbh_.unserializeDBValue(BLKDATA, brr);
+   sbh_.setHeightAndDup(65535, 1);
+
+   EXPECT_EQ(sbh_.blockHeight_,  65535);
+   EXPECT_EQ(sbh_.duplicateID_,  1);
+   EXPECT_EQ(sbh_.merkle_     ,  READHEX(""));
+   EXPECT_EQ(sbh_.numTx_      ,  15);
+   EXPECT_EQ(sbh_.numBytes_   ,  65535);
+   EXPECT_EQ(sbh_.unserDbType_,  ARMORY_DB_FULL);
+   EXPECT_EQ(sbh_.unserPrType_,  DB_PRUNE_NONE);
+   EXPECT_EQ(sbh_.unserMkType_,  MERKLE_SER_NONE);
+   EXPECT_EQ(sbh_.unserVersion_, 1);
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(StoredBlockObjTest, StoredHeaderDBUnserFullB2)
+{
+   BinaryData dbval = READHEX(
+      "00001601010000001d8f4ec0443e1f19f305e488c1085c95de7cc3fd25e0d2c5"
+      "bb5d0000000000009762547903d36881a86751f3f5049e23050113f779735ef8"
+      "2734ebf0b4450081d8c8c84db3936a1a334b035b0f000000ffff0000deadbeef");
+
+   BinaryRefReader brr(dbval);
+   sbh_.unserializeDBValue(BLKDATA, brr);
+   sbh_.setHeightAndDup(65535, 1);
+
+   EXPECT_EQ(sbh_.blockHeight_ , 65535);
+   EXPECT_EQ(sbh_.duplicateID_ , 1);
+   EXPECT_EQ(sbh_.merkle_      , READHEX("deadbeef"));
+   EXPECT_EQ(sbh_.numTx_       , 15);
+   EXPECT_EQ(sbh_.numBytes_    , 65535);
+   EXPECT_EQ(sbh_.unserDbType_,  ARMORY_DB_PARTIAL);
+   EXPECT_EQ(sbh_.unserPrType_,  DB_PRUNE_NONE);
+   EXPECT_EQ(sbh_.unserMkType_,  MERKLE_SER_FULL);
+   EXPECT_EQ(sbh_.unserVersion_, 1);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(StoredBlockObjTest, StoredHeaderDBUnserFullB3)
+{
+   BinaryData dbval = READHEX(
+      "00000001010000001d8f4ec0443e1f19f305e488c1085c95de7cc3fd25e0d2c5"
+      "bb5d0000000000009762547903d36881a86751f3f5049e23050113f779735ef8"
+      "2734ebf0b4450081d8c8c84db3936a1a334b035b0f000000ffff0000");
+
+   BinaryRefReader brr(dbval);
+   sbh_.unserializeDBValue(BLKDATA, brr);
+   sbh_.setHeightAndDup(65535, 1);
+
+   EXPECT_EQ(sbh_.blockHeight_,  65535);
+   EXPECT_EQ(sbh_.duplicateID_,  1);
+   EXPECT_EQ(sbh_.merkle_     ,  READHEX(""));
+   EXPECT_EQ(sbh_.numTx_      ,  15);
+   EXPECT_EQ(sbh_.numBytes_   ,  65535);
+   EXPECT_EQ(sbh_.unserDbType_,  ARMORY_DB_LITE);
+   EXPECT_EQ(sbh_.unserPrType_,  DB_PRUNE_ALL);
+   EXPECT_EQ(sbh_.unserMkType_,  MERKLE_SER_NONE);
+   EXPECT_EQ(sbh_.unserVersion_, 1);
 }
 
 
@@ -2454,16 +2678,6 @@ TEST_F(StoredBlockObjTest, StoredTxReconstruct)
    EXPECT_EQ(reconTx.serialize(),   rawTx0_);
    EXPECT_EQ(stx.getSerializedTx(), rawTx0_);
 }
-
-
-////////////////////////////////////////////////////////////////////////////////
-//TEST_F(StoredBlockObjTest, StoredTxReconstruct)
-//{
-   //Tx regTx, reconTx;
-
-//}
-
-
 
 
 
@@ -2696,8 +2910,7 @@ TEST_F(TxRefTest, TxRefNoInit)
 TEST_F(TxRefTest, TxRefKeyParts)
 {
    TxRef txr;
-   //BinaryData    newKey = READHEX("02c4e3020100");
-   BinaryData    newKey = READHEX("02c4e37f0f00");
+   BinaryData    newKey = READHEX("7fe3c4020f00");
    BinaryDataRef newRef(newKey);
 
 
@@ -2711,6 +2924,14 @@ TEST_F(TxRefTest, TxRefKeyParts)
 }
 
 
+
+
+
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 // Now actually execute all the tests
 ////////////////////////////////////////////////////////////////////////////////
