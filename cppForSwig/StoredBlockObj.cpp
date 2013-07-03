@@ -302,8 +302,8 @@ void StoredHeader::unserializeDBValue( DB_SELECT         db,
    {
       // Read the flags byte
       BitUnpacker<uint32_t> bitunpack(brr);
-      uint32_t dbVersion  =                  bitunpack.getBits(4);
-      unserVersion_       =                  bitunpack.getBits(4);
+      unserArmVer_        =                  bitunpack.getBits(4);
+      unserBlkVer_        =                  bitunpack.getBits(4);
       unserDbType_        = (ARMORY_DB_TYPE) bitunpack.getBits(4);
       unserPrType_        = (DB_PRUNE_TYPE)  bitunpack.getBits(2);
       unserMkType_        = (MERKLE_SER_TYPE)bitunpack.getBits(2);
@@ -313,11 +313,8 @@ void StoredHeader::unserializeDBValue( DB_SELECT         db,
       numTx_    = brr.get_uint32_t();
       numBytes_ = brr.get_uint32_t();
 
-      if(dbVersion != (uint8_t)ARMORY_DB_VERSION)
-      {
-         Log::ERR() << "Version mismatch in unserialize DB header";
-         return;
-      }
+      if(unserArmVer_ != ARMORY_DB_VERSION)
+         Log::WARN() << "Version mismatch in unserialize DB header";
 
       if( !ignoreMerkle )
       {
@@ -421,23 +418,36 @@ void StoredTx::unserialize(BinaryDataRef data, bool fragged)
 void StoredTx::unserialize(BinaryRefReader & brr, bool fragged)
 {
    vector<uint32_t> offsetsIn, offsetsOut; 
-   uint32_t numBytes = BtcUtils::StoredTxCalcLength(brr.getCurrPtr(),
-                                                    fragged,
-                                                    &offsetsIn,
-                                                    &offsetsOut);
-   if(brr.getSizeRemaining() < numBytes)
+   uint32_t nbytes = BtcUtils::StoredTxCalcLength(brr.getCurrPtr(),
+                                                  fragged,
+                                                  &offsetsIn,
+                                                  &offsetsOut);
+   if(brr.getSizeRemaining() < nbytes)
    {
       Log::ERR() << "Not enough bytes in BRR to unserialize StoredTx";
       return;
    }
 
-   brr.get_BinaryData(dataCopy_, numBytes);
+   brr.get_BinaryData(dataCopy_, nbytes);
 
    isFragged_ = fragged;
    numTxOut_  = offsetsOut.size()-1;
    version_   = READ_UINT32_LE(dataCopy_.getPtr());
-   lockTime_  = READ_UINT32_LE(dataCopy_.getPtr() + numBytes - 4);
+   lockTime_  = READ_UINT32_LE(dataCopy_.getPtr() + nbytes - 4);
    isInitialized_ = true;
+
+   if(isFragged_)
+   {
+      fragBytes_ = nbytes;
+      numBytes_ = UINT32_MAX;
+   }
+   else
+   {
+      numBytes_ = nbytes;
+      uint32_t span = offsetsOut[numTxOut_] - offsetsOut[0];
+      fragBytes_ = numBytes_ - span;
+      thisHash_ = BtcUtils::getHash256(dataCopy_);
+   }
 }
 
 
@@ -452,14 +462,17 @@ void StoredTx::unserializeDBValue(BinaryRefReader & brr)
    //    TxVersion      2 bits
    //    HowTxSer       4 bits   (FullTxOut, TxNoTxOuts, numTxOutOnly)
    BitUnpacker<uint16_t> bitunpack(brr); // flags
-   uint16_t dbVer   = bitunpack.getBits(4);
-   uint16_t txVer   = bitunpack.getBits(2);
-   uint16_t txSer   = bitunpack.getBits(4);
+   unserArmVer_  = bitunpack.getBits(4);
+   unserTxVer_   = bitunpack.getBits(2);
+   unserTxType_  = (TX_SERIALIZE_TYPE)bitunpack.getBits(4);
+
+   if(unserArmVer_ != ARMORY_DB_VERSION)
+      Log::WARN() << "Version mismatch in unserialize DB tx";
    
    brr.get_BinaryData(thisHash_, 32);
 
-   if(txSer == TX_SER_FULL || txSer == TX_SER_FRAGGED)
-      unserialize(brr, txSer==TX_SER_FRAGGED);
+   if(unserTxType_ == TX_SER_FULL || unserTxType_ == TX_SER_FRAGGED)
+      unserialize(brr, unserTxType_==TX_SER_FRAGGED);
    else
       numTxOut_ = brr.get_var_int();
 }
@@ -468,35 +481,48 @@ void StoredTx::unserializeDBValue(BinaryRefReader & brr)
 /////////////////////////////////////////////////////////////////////////////
 void StoredTx::serializeDBValue(BinaryWriter & bw) const
 {
-   uint16_t version = (uint16_t)READ_UINT32_LE(dataCopy_.getPtr());
    TX_SERIALIZE_TYPE serType;
    
    switch(ARMDB.getArmoryDbType())
    {
-      // If we store all the tx anyway, don't need any/partial merkle trees
+      // In most cases, if storing separate TxOuts, fragged Tx is fine
       case ARMORY_DB_LITE:    serType = TX_SER_FRAGGED; break;
       case ARMORY_DB_PARTIAL: serType = TX_SER_FRAGGED; break;
-      case ARMORY_DB_FULL:    serType = TX_SER_FULL;    break;
+      case ARMORY_DB_FULL:    serType = TX_SER_FRAGGED; break;
       case ARMORY_DB_SUPER:   serType = TX_SER_FULL;    break;
       default: 
          Log::ERR() << "Invalid DB mode in serializeStoredTxValue";
    }
 
+   if(serType==TX_SER_FULL && !haveAllTxOut())
+   {
+      Log::ERR() << "Supposed to write out full Tx, but don't have it";
+      return;
+   }
+
+   if(thisHash_.getSize() == 0)
+   {
+      Log::ERR() << "Do not know tx hash to be able to DB-serialize StoredTx";
+      return;
+   }
+
+   uint16_t version = (uint16_t)READ_UINT32_LE(dataCopy_.getPtr());
+
    BitPacker<uint16_t> bitpack;
    bitpack.putBits((uint16_t)ARMORY_DB_VERSION,  4);
    bitpack.putBits((uint16_t)version,            2);
-   bitpack.putBits((uint16_t)serType,            2);
+   bitpack.putBits((uint16_t)serType,            4);
 
    
    bw.put_BitPacker(bitpack);
    bw.put_BinaryData(thisHash_);
 
-   if(serType == TX_SER_FULL    || 
-      serType == TX_SER_FRAGGED )
-      bw.put_BinaryData(dataCopy_);
+   if(serType == TX_SER_FULL)
+      bw.put_BinaryData(getSerializedTx());
+   else if(serType == TX_SER_FRAGGED)
+      bw.put_BinaryData(getSerializedTxFragged());
    else
       bw.put_var_int(numTxOut_);
-
 }
 
 
@@ -555,6 +581,33 @@ BinaryData StoredTx::getSerializedTx(void) const
    return bw.getData();
 }
 
+////////////////////////////////////////////////////////////////////////////////
+BinaryData StoredTx::getSerializedTxFragged(void) const
+{
+   if(!isInitialized_)
+      return BinaryData(0); 
+
+   if(isFragged_)
+      return dataCopy_;
+
+   if(numBytes_ == UINT32_MAX)
+   {
+      Log::ERR() << "Do not know size of tx in order to serialize it";
+      return BinaryData(0);
+   }
+
+   BinaryWriter bw;
+   vector<uint32_t> outOffsets;
+   BtcUtils::StoredTxCalcLength(dataCopy_.getPtr(), false, NULL, &outOffsets);
+   uint32_t firstOut  = outOffsets[0];
+   uint32_t afterLast = outOffsets[outOffsets.size()-1];
+   uint32_t span = afterLast - firstOut;
+
+   BinaryData output(dataCopy_.getSize() - span);
+   dataCopy_.getSliceRef(0,  firstOut).copyTo(output.getPtr());
+   dataCopy_.getSliceRef(afterLast, 4).copyTo(output.getPtr()+firstOut);
+   return output;
+}
 
 
 
@@ -704,6 +757,9 @@ StoredTx & StoredTx::createFromTx(Tx & tx, bool doFrag, bool withTxOuts)
    numBytes_  = tx.getSize(); 
    isFragged_ = doFrag;
 
+   uint32_t span = tx.getTxOutOffset(numTxOut_) - tx.getTxOutOffset(0);
+   fragBytes_ = numBytes_ - span;
+
    if(!doFrag)
    {
       dataCopy_ = tx.serialize(); 
@@ -737,6 +793,7 @@ StoredTx & StoredTx::createFromTx(Tx & tx, bool doFrag, bool withTxOuts)
          stxo.isInitialized_  = true;
       }
    }
+
 
    return *this;
 }

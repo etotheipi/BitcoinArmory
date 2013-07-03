@@ -179,11 +179,12 @@ public:
 
    // We don't actually enforce these members.  They're solely for recording
    // the values that were unserialized with everything else, so that we can
-   // leter check that it
+   // leter check that DB data matches what we were expecting
+   uint32_t        unserArmVer_;
+   uint32_t        unserBlkVer_;
    ARMORY_DB_TYPE  unserDbType_;
    DB_PRUNE_TYPE   unserPrType_;
    MERKLE_SER_TYPE unserMkType_;
-   uint32_t        unserVersion_;
    
 };
 
@@ -199,12 +200,14 @@ public:
                     blockDupID_(UINT8_MAX),
                     txIndex_(UINT16_MAX),
                     numTxOut_(UINT16_MAX),
-                    numBytes_(UINT32_MAX) {}
+                    numBytes_(UINT32_MAX),
+                    fragBytes_(UINT32_MAX) {}
    
    bool       isInitialized(void) const {return isInitialized_;}
    bool       haveAllTxOut(void) const;
    StoredTx&  createFromTx(Tx & tx, bool doFrag=true, bool withTxOuts=true);
    BinaryData getSerializedTx(void) const;
+   BinaryData getSerializedTxFragged(void) const;
    Tx         getTxCopy(void) const;
 
    void addTxOutToMap(uint16_t idx, TxOut & txout);
@@ -231,8 +234,15 @@ public:
    uint16_t             txIndex_;
    uint16_t             numTxOut_;
    uint32_t             numBytes_;
+   uint32_t             fragBytes_;
    map<uint16_t, StoredTxOut> stxoMap_;
 
+   // We don't actually enforce these members.  They're solely for recording
+   // the values that were unserialized with everything else, so that we can
+   // leter check that it
+   uint32_t          unserArmVer_;
+   uint32_t          unserTxVer_; 
+   TX_SERIALIZE_TYPE unserTxType_;
 };
 
 

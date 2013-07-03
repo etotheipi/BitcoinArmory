@@ -2372,7 +2372,7 @@ TEST_F(StoredBlockObjTest, BlkDataKeys)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-TEST_F(StoredBlockObjTest, StoredHeaderNoInit)
+TEST_F(StoredBlockObjTest, SHeaderNoInit)
 {
    StoredHeader sbh;
    
@@ -2383,7 +2383,7 @@ TEST_F(StoredBlockObjTest, StoredHeaderNoInit)
 
 
 ////////////////////////////////////////////////////////////////////////////////
-TEST_F(StoredBlockObjTest, StoredHeaderUnserialize)
+TEST_F(StoredBlockObjTest, SHeaderUnserialize)
 {
    // SetUp already contains sbh_.unserialize(rawHead_);
    EXPECT_TRUE( sbh_.isInitialized());
@@ -2400,7 +2400,7 @@ TEST_F(StoredBlockObjTest, StoredHeaderUnserialize)
 
 
 ////////////////////////////////////////////////////////////////////////////////
-TEST_F(StoredBlockObjTest, StoredHeaderDBSerFullH)
+TEST_F(StoredBlockObjTest, SHeaderDBSerFull_H)
 {
    ARMDB.setArmoryDbType(ARMORY_DB_FULL);
    ARMDB.setDbPruneType(DB_PRUNE_NONE);
@@ -2423,7 +2423,7 @@ TEST_F(StoredBlockObjTest, StoredHeaderDBSerFullH)
 
 
 ////////////////////////////////////////////////////////////////////////////////
-TEST_F(StoredBlockObjTest, StoredHeaderDBSerFullB1)
+TEST_F(StoredBlockObjTest, SHeaderDBSerFull_B1)
 {
    // ARMORY_DB_FULL means no merkle string (cause all Tx are in the DB
    // so the merkle tree would be redundant.
@@ -2452,7 +2452,7 @@ TEST_F(StoredBlockObjTest, StoredHeaderDBSerFullB1)
 
 
 ////////////////////////////////////////////////////////////////////////////////
-TEST_F(StoredBlockObjTest, StoredHeaderDBSerFullB2)
+TEST_F(StoredBlockObjTest, SHeaderDBSerFull_B2)
 {
    // With merkle string
    ARMDB.setArmoryDbType(ARMORY_DB_PARTIAL);
@@ -2479,7 +2479,7 @@ TEST_F(StoredBlockObjTest, StoredHeaderDBSerFullB2)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-TEST_F(StoredBlockObjTest, StoredHeaderDBSerFullB3)
+TEST_F(StoredBlockObjTest, SHeaderDBSerFull_B3)
 {
    ARMDB.setArmoryDbType(ARMORY_DB_LITE);
    ARMDB.setDbPruneType(DB_PRUNE_ALL);
@@ -2506,7 +2506,7 @@ TEST_F(StoredBlockObjTest, StoredHeaderDBSerFullB3)
 
 
 ////////////////////////////////////////////////////////////////////////////////
-TEST_F(StoredBlockObjTest, StoredHeaderDBUnserFullH)
+TEST_F(StoredBlockObjTest, SHeaderDBUnserFull_H)
 {
    BinaryData dbval = READHEX(
       "010000001d8f4ec0443e1f19f305e488c1085c95de7cc3fd25e0d2c5bb5d0000"
@@ -2522,7 +2522,7 @@ TEST_F(StoredBlockObjTest, StoredHeaderDBUnserFullH)
 
 
 ////////////////////////////////////////////////////////////////////////////////
-TEST_F(StoredBlockObjTest, StoredHeaderDBUnserFullB1)
+TEST_F(StoredBlockObjTest, SHeaderDBUnserFull_B1)
 {
    BinaryData dbval = READHEX(
       "00002401010000001d8f4ec0443e1f19f305e488c1085c95de7cc3fd25e0d2c5"
@@ -2538,15 +2538,16 @@ TEST_F(StoredBlockObjTest, StoredHeaderDBUnserFullB1)
    EXPECT_EQ(sbh_.merkle_     ,  READHEX(""));
    EXPECT_EQ(sbh_.numTx_      ,  15);
    EXPECT_EQ(sbh_.numBytes_   ,  65535);
+   EXPECT_EQ(sbh_.unserArmVer_,  0x00);
+   EXPECT_EQ(sbh_.unserBlkVer_,  1);
    EXPECT_EQ(sbh_.unserDbType_,  ARMORY_DB_FULL);
    EXPECT_EQ(sbh_.unserPrType_,  DB_PRUNE_NONE);
    EXPECT_EQ(sbh_.unserMkType_,  MERKLE_SER_NONE);
-   EXPECT_EQ(sbh_.unserVersion_, 1);
 }
 
 
 ////////////////////////////////////////////////////////////////////////////////
-TEST_F(StoredBlockObjTest, StoredHeaderDBUnserFullB2)
+TEST_F(StoredBlockObjTest, SHeaderDBUnserFull_B2)
 {
    BinaryData dbval = READHEX(
       "00001601010000001d8f4ec0443e1f19f305e488c1085c95de7cc3fd25e0d2c5"
@@ -2562,14 +2563,15 @@ TEST_F(StoredBlockObjTest, StoredHeaderDBUnserFullB2)
    EXPECT_EQ(sbh_.merkle_      , READHEX("deadbeef"));
    EXPECT_EQ(sbh_.numTx_       , 15);
    EXPECT_EQ(sbh_.numBytes_    , 65535);
+   EXPECT_EQ(sbh_.unserArmVer_,  0x00);
+   EXPECT_EQ(sbh_.unserBlkVer_,  1);
    EXPECT_EQ(sbh_.unserDbType_,  ARMORY_DB_PARTIAL);
    EXPECT_EQ(sbh_.unserPrType_,  DB_PRUNE_NONE);
    EXPECT_EQ(sbh_.unserMkType_,  MERKLE_SER_FULL);
-   EXPECT_EQ(sbh_.unserVersion_, 1);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-TEST_F(StoredBlockObjTest, StoredHeaderDBUnserFullB3)
+TEST_F(StoredBlockObjTest, SHeaderDBUnserFull_B3)
 {
    BinaryData dbval = READHEX(
       "00000001010000001d8f4ec0443e1f19f305e488c1085c95de7cc3fd25e0d2c5"
@@ -2585,15 +2587,17 @@ TEST_F(StoredBlockObjTest, StoredHeaderDBUnserFullB3)
    EXPECT_EQ(sbh_.merkle_     ,  READHEX(""));
    EXPECT_EQ(sbh_.numTx_      ,  15);
    EXPECT_EQ(sbh_.numBytes_   ,  65535);
+   EXPECT_EQ(sbh_.unserArmVer_,  0x00);
+   EXPECT_EQ(sbh_.unserBlkVer_,  1);
    EXPECT_EQ(sbh_.unserDbType_,  ARMORY_DB_LITE);
    EXPECT_EQ(sbh_.unserPrType_,  DB_PRUNE_ALL);
    EXPECT_EQ(sbh_.unserMkType_,  MERKLE_SER_NONE);
-   EXPECT_EQ(sbh_.unserVersion_, 1);
 }
 
 
+
 ////////////////////////////////////////////////////////////////////////////////
-TEST_F(StoredBlockObjTest, StoredTxNoInit)
+TEST_F(StoredBlockObjTest, STxNoInit)
 {
    StoredTx stx;
 
@@ -2602,7 +2606,7 @@ TEST_F(StoredBlockObjTest, StoredTxNoInit)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-TEST_F(StoredBlockObjTest, StoredTxUnserUnfrag)
+TEST_F(StoredBlockObjTest, STxUnserUnfrag)
 {
    Tx regTx(rawTx0_);
 
@@ -2617,6 +2621,8 @@ TEST_F(StoredBlockObjTest, StoredTxUnserUnfrag)
    EXPECT_EQ(   stx.blockDupID_,  UINT8_MAX);
    EXPECT_EQ(   stx.txIndex_,     UINT16_MAX);
    EXPECT_EQ(   stx.dataCopy_.getSize(), 258);
+   EXPECT_EQ(   stx.numBytes_,    258);
+   EXPECT_EQ(   stx.fragBytes_,   190);
 
    ASSERT_EQ(   stx.stxoMap_.size(), 2);
    EXPECT_TRUE( stx.stxoMap_[0].isInitialized());
@@ -2629,7 +2635,7 @@ TEST_F(StoredBlockObjTest, StoredTxUnserUnfrag)
 
 
 ////////////////////////////////////////////////////////////////////////////////
-TEST_F(StoredBlockObjTest, StoredTxUnserFragged)
+TEST_F(StoredBlockObjTest, STxUnserFragged)
 {
    Tx regTx(rawTx0_);
 
@@ -2657,7 +2663,7 @@ TEST_F(StoredBlockObjTest, StoredTxUnserFragged)
 
 
 ////////////////////////////////////////////////////////////////////////////////
-TEST_F(StoredBlockObjTest, StoredTxReconstruct)
+TEST_F(StoredBlockObjTest, STxReconstruct)
 {
    Tx regTx, reconTx;
    StoredTx stx;
@@ -2679,8 +2685,156 @@ TEST_F(StoredBlockObjTest, StoredTxReconstruct)
    EXPECT_EQ(stx.getSerializedTx(), rawTx0_);
 }
 
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(StoredBlockObjTest, STxSerUnfragToFrag)
+{
+   StoredTx stx;
+   stx.unserialize(rawTxUnfrag_);
 
+   EXPECT_EQ(stx.getSerializedTx(),        rawTxUnfrag_);
+   EXPECT_EQ(stx.getSerializedTxFragged(), rawTxFragged_);
+}
 
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(StoredBlockObjTest, STxSerDBValue_1)
+{
+   ARMDB.setArmoryDbType(ARMORY_DB_FULL);
+   ARMDB.setDbPruneType(DB_PRUNE_NONE);
+   
+   Tx origTx(rawTxUnfrag_);
+
+   StoredTx stx;
+   stx.unserialize(rawTxUnfrag_);
+
+   //   0123   45   67 01  23 4567 
+   //  |----| |--| |-- --|
+   //   DBVer TxVer TxSer
+   //
+   // For this example:  DBVer=0, TxVer=1, TxSer=FRAGGED[1]
+   //   0000   01   00 01  -- ----
+   BinaryData  first2  = READHEX("4004");
+   BinaryData  txHash  = origTx.getThisHash();
+   BinaryData  fragged = stx.getSerializedTxFragged();
+   BinaryData  output  = first2 + txHash + fragged;
+   
+   BinaryWriter bw;
+   stx.serializeDBValue(bw);
+   EXPECT_EQ(bw.getData(), output);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(StoredBlockObjTest, STxSerDBValue_2)
+{
+   ARMDB.setArmoryDbType(ARMORY_DB_SUPER);
+   ARMDB.setDbPruneType(DB_PRUNE_NONE);
+   
+   Tx origTx(rawTxUnfrag_);
+
+   StoredTx stx;
+   stx.unserialize(rawTxUnfrag_);
+
+   //   0123   45   67 01  23 4567 
+   //  |----| |--| |-- --|
+   //   DBVer TxVer TxSer
+   //
+   // For this example:  DBVer=0, TxVer=1, TxSer=FRAGGED[1]
+   //   0000   01   00 01  -- ----
+   BinaryData  first2  = READHEX("0004");
+   BinaryData  txHash  = origTx.getThisHash();
+   BinaryData  fragged = stx.getSerializedTx();  // Full Tx this time
+   BinaryData  output  = first2 + txHash + fragged;
+   
+   BinaryWriter bw;
+   stx.serializeDBValue(bw);
+   EXPECT_EQ(bw.getData(), output);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(StoredBlockObjTest, STxUnserDBValue_1)
+{
+   Tx origTx(rawTxUnfrag_);
+
+   BinaryData toUnser = READHEX(
+      "4004e471262336aa67391e57c8c6fe03bae29734079e06ff75c7fa4d0a873c83"
+      "f03c01000000020044fbc929d78e4203eed6f1d3d39c0157d8e5c100bbe08867"
+      "79c0ebf6a69324010000008a47304402206568144ed5e7064d6176c74738b04c"
+      "08ca19ca54ddeb480084b77f45eebfe57802207927d6975a5ac0e1bb36f5c053"
+      "56dcda1f521770511ee5e03239c8e1eecf3aed0141045d74feae58c4c36d7c35"
+      "beac05eddddc78b3ce4b02491a2eea72043978056a8bc439b99ddaad327207b0"
+      "9ef16a8910828e805b0cc8c11fba5caea2ee939346d7ffffffff45c866b219b1"
+      "76952508f8e5aea728f950186554fc4a5807e2186a8e1c4009e5000000008c49"
+      "3046022100bd5d41662f98cfddc46e86ea7e4a3bc8fe9f1dfc5c4836eaf7df58"
+      "2596cfe0e9022100fc459ae4f59b8279d679003b88935896acd10021b6e2e461"
+      "9377e336b5296c5e014104c00bab76a708ba7064b2315420a1c533ca9945eeff"
+      "9754cdc574224589e9113469b4e71752146a10028079e04948ecdf70609bf1b9"
+      "801f6b73ab75947ac339e5ffffffff0200000000");
+
+   BinaryRefReader brr(toUnser);
+
+   StoredTx stx;
+   stx.unserializeDBValue(brr);
+
+   EXPECT_TRUE( stx.isInitialized_);
+   EXPECT_EQ(   stx.thisHash_,    origTx.getThisHash());
+   EXPECT_EQ(   stx.lockTime_,    origTx.getLockTime());
+   EXPECT_EQ(   stx.dataCopy_,    rawTxFragged_);
+   EXPECT_TRUE( stx.isFragged_);
+   EXPECT_EQ(   stx.version_,     1);
+   EXPECT_EQ(   stx.blockHeight_, UINT32_MAX);
+   EXPECT_EQ(   stx.blockDupID_,  UINT8_MAX);
+   EXPECT_EQ(   stx.txIndex_,     UINT16_MAX);
+   EXPECT_EQ(   stx.numTxOut_,    origTx.getNumTxOut());
+   EXPECT_EQ(   stx.numBytes_,    UINT32_MAX);
+   EXPECT_EQ(   stx.fragBytes_,   370);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(StoredBlockObjTest, STxUnserDBValue_2)
+{
+   Tx origTx(rawTxUnfrag_);
+
+   BinaryData toUnser = READHEX(
+      "0004e471262336aa67391e57c8c6fe03bae29734079e06ff75c7fa4d0a873c83"
+      "f03c01000000020044fbc929d78e4203eed6f1d3d39c0157d8e5c100bbe08867"
+      "79c0ebf6a69324010000008a47304402206568144ed5e7064d6176c74738b04c"
+      "08ca19ca54ddeb480084b77f45eebfe57802207927d6975a5ac0e1bb36f5c053"
+      "56dcda1f521770511ee5e03239c8e1eecf3aed0141045d74feae58c4c36d7c35"
+      "beac05eddddc78b3ce4b02491a2eea72043978056a8bc439b99ddaad327207b0"
+      "9ef16a8910828e805b0cc8c11fba5caea2ee939346d7ffffffff45c866b219b1"
+      "76952508f8e5aea728f950186554fc4a5807e2186a8e1c4009e5000000008c49"
+      "3046022100bd5d41662f98cfddc46e86ea7e4a3bc8fe9f1dfc5c4836eaf7df58"
+      "2596cfe0e9022100fc459ae4f59b8279d679003b88935896acd10021b6e2e461"
+      "9377e336b5296c5e014104c00bab76a708ba7064b2315420a1c533ca9945eeff"
+      "9754cdc574224589e9113469b4e71752146a10028079e04948ecdf70609bf1b9"
+      "801f6b73ab75947ac339e5ffffffff02ac4c8bd5000000001976a9148dce8946"
+      "f1c7763bb60ea5cf16ef514cbed0633b88ac002f6859000000001976a9146a59"
+      "ac0e8f553f292dfe5e9f3aaa1da93499c15e88ac00000000");
+
+   BinaryRefReader brr(toUnser);
+
+   StoredTx stx;
+   stx.unserializeDBValue(brr);
+
+   EXPECT_TRUE( stx.isInitialized_);
+   EXPECT_EQ(   stx.thisHash_,    origTx.getThisHash());
+   EXPECT_EQ(   stx.lockTime_,    origTx.getLockTime());
+   EXPECT_EQ(   stx.dataCopy_,    rawTxUnfrag_);
+   EXPECT_FALSE(stx.isFragged_);
+   EXPECT_EQ(   stx.version_,     1);
+   EXPECT_EQ(   stx.blockHeight_, UINT32_MAX);
+   EXPECT_EQ(   stx.blockDupID_,  UINT8_MAX);
+   EXPECT_EQ(   stx.txIndex_,     UINT16_MAX);
+   EXPECT_EQ(   stx.numTxOut_,    origTx.getNumTxOut());
+   EXPECT_EQ(   stx.numBytes_,    origTx.getSize());
+   EXPECT_EQ(   stx.fragBytes_,   370);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+//TEST_F(StoredBlockObjTest, HeaderUnserFullBlock)
+//{
+   //StoredHeader sbh;
+   //sbh.unserializeFullBlock(rawBlock_);
+//}
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
@@ -2921,6 +3075,8 @@ TEST_F(TxRefTest, TxRefKeyParts)
    EXPECT_EQ(txr.getBlockHeight(),  0x02c4e3);
    EXPECT_EQ(txr.getBlockDupID(),   127);
    EXPECT_EQ(txr.getBlockTxIndex(), 15);
+
+   Log::ERR() << "Help me!  Error!";
 }
 
 
@@ -2942,9 +3098,14 @@ GTEST_API_ int main(int argc, char **argv)
    // Setup the log file 
    Log::SetLogFile("cppTestsLog.txt");
    Log::SetLogLevel(LogDebug4);
+   Log::DisableStdOut();
 
    testing::InitGoogleTest(&argc, argv);
-   return RUN_ALL_TESTS();
+   int exitCode = RUN_ALL_TESTS();
+   
+   Log::FlushStreams();
+
+   return exitCode;
 }
 
 

@@ -13,6 +13,7 @@ inline string NowTime();
 
 typedef enum 
 {
+   LogDisabled, 
    LogError, 
    LogWarn, 
    LogInfo, 
@@ -41,6 +42,10 @@ public:
 class DualStream : public LogStream
 {
 public:
+   DualStream(void) : noStdout_(false) {}
+
+   void enableStdOut(bool newbool) { noStdout_ = !newbool; }
+
    void setLogFile(string logfile) 
    { 
       fname_ = logfile;
@@ -48,19 +53,22 @@ public:
       fout_ << "\n\nLog file opened at " << NowTime() << ": " << fname_.c_str() << endl;
    }
 
-   LogStream& operator<<(const char * str)   { cout << str;  if(fout_.is_open()) fout_ << str; return *this; }
-   LogStream& operator<<(string const & str) { cout << str.c_str(); if(fout_.is_open()) fout_ << str.c_str(); return *this; }
-   LogStream& operator<<(size_t i)           { cout << i;    if(fout_.is_open()) fout_ << i; return *this; }
-   LogStream& operator<<(int i)              { cout << i;    if(fout_.is_open()) fout_ << i; return *this; }
-   LogStream& operator<<(unsigned int i)     { cout << i;    if(fout_.is_open()) fout_ << i; return *this; }
-   LogStream& operator<<(float f)            { cout << f;    if(fout_.is_open()) fout_ << f; return *this; }
-   LogStream& operator<<(double d)           { cout << d;    if(fout_.is_open()) fout_ << d; return *this; }
+   LogStream& operator<<(const char * str)   { if(!noStdout_) cout << str;  if(fout_.is_open()) fout_ << str; return *this; }
+   LogStream& operator<<(string const & str) { if(!noStdout_) cout << str.c_str(); if(fout_.is_open()) fout_ << str.c_str(); return *this; }
+   LogStream& operator<<(size_t i)           { if(!noStdout_) cout << i;    if(fout_.is_open()) fout_ << i; return *this; }
+   LogStream& operator<<(int i)              { if(!noStdout_) cout << i;    if(fout_.is_open()) fout_ << i; return *this; }
+   LogStream& operator<<(unsigned int i)     { if(!noStdout_) cout << i;    if(fout_.is_open()) fout_ << i; return *this; }
+   LogStream& operator<<(float f)            { if(!noStdout_) cout << f;    if(fout_.is_open()) fout_ << f; return *this; }
+   LogStream& operator<<(double d)           { if(!noStdout_) cout << d;    if(fout_.is_open()) fout_ << d; return *this; }
+
+   void flushStreams(void) {cout.flush(); fout_.flush();}
 
    void newline(void) { fout_ << endl;  cout << endl;}
    void close(void) { fout_.close(); }
 
    ofstream fout_;
    string   fname_;
+   bool     noStdout_;
 };
 
 
@@ -75,13 +83,15 @@ public:
    LogStream& operator<<(unsigned int i)     { return *this; }
    LogStream& operator<<(float f)            { return *this; }
    LogStream& operator<<(double d)           { return *this; }
+
+   void flushStreams(void) {}
 };
 
 
 class Log
 {
 public:
-   Log(void) : isInitialized_(false) {}
+   Log(void) : isInitialized_(false), disableStdout_(false) {}
 
    static Log & GetInstance(const char * filename=NULL)
    {
@@ -110,6 +120,7 @@ public:
 
    ~Log(void)
    {
+      ds_.flushStreams();
       ds_ << "Closing logfile.\n";
       ds_ << "...";
    }
@@ -128,10 +139,12 @@ public:
    static void SetLogFile(string logfile) { GetInstance(logfile.c_str()); }
 
    static void SetLogLevel(LogLevel level) { GetInstance().logLevel_ = (int)level; }
+   static void DisableStdOut(void) { GetInstance().ds_.enableStdOut(false);}
+   static void EnableStdOut(void) { GetInstance().ds_.enableStdOut(true);}
 
    static string ToString(LogLevel level)
    {
-	   static const char* const buffer[] = {"ERROR ", "WARN  ", "INFO  ", "DEBUG ", "DEBUG1", "DEBUG2", "DEBUG3", "DEBUG4"};
+	   static const char* const buffer[] = {"DISABLED", "ERROR ", "WARN  ", "INFO  ", "DEBUG ", "DEBUG1", "DEBUG2", "DEBUG3", "DEBUG4"};
       return buffer[level];
    }
 
@@ -147,12 +160,14 @@ public:
 
     static bool isOpen(void) {GetInstance().ds_.fout_.is_open();}
     static string filename(void) {return GetInstance().ds_.fname_;}
+    static void FlushStreams(void) {GetInstance().ds_.flushStreams();}
 
 protected:
     DualStream ds_;
     NullStream ns_;
     int logLevel_;
     bool isInitialized_;
+    bool disableStdout_;
 private:
     Log(const Log&);
     Log& operator =(const Log&);
