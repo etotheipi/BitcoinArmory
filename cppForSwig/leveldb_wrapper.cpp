@@ -1,6 +1,7 @@
 #include <iostream>
 #include <sstream>
 #include <map>
+#include <list>
 #include <vector>
 #include "BinaryData.h"
 #include "BtcUtils.h"
@@ -8,10 +9,10 @@
 #include "StoredBlockObj.h"
 #include "leveldb_wrapper.h"
 
-vector<InterfaceToLDB*> LevelDBWrapper::ifaceVect_(1);
+vector<InterfaceToLDB*> LevelDBWrapper::ifaceVect_(0);
 
 ////////////////////////////////////////////////////////////////////////////////
-inline bool InterfaceToLDB::checkStatus(leveldb::Status stat, bool warn)
+bool InterfaceToLDB::checkStatus(leveldb::Status stat, bool warn)
 {
    if( stat.ok() )
       return true;
@@ -24,39 +25,39 @@ inline bool InterfaceToLDB::checkStatus(leveldb::Status stat, bool warn)
 
 
 ////////////////////////////////////////////////////////////////////////////////
-inline BinaryData InterfaceToLDB::sliceToBinaryData(leveldb::Slice slice)
+BinaryData InterfaceToLDB::sliceToBinaryData(leveldb::Slice slice)
 { 
    return BinaryData((uint8_t*)(slice.data()), slice.size()); 
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-inline void InterfaceToLDB::sliceToBinaryData(leveldb::Slice slice, 
+void InterfaceToLDB::sliceToBinaryData(leveldb::Slice slice, 
                                                   BinaryData & bd)
 { 
    bd.copyFrom((uint8_t*)(slice.data()), slice.size()); 
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-inline BinaryReader InterfaceToLDB::sliceToBinaryReader(leveldb::Slice slice)
+BinaryReader InterfaceToLDB::sliceToBinaryReader(leveldb::Slice slice)
 { 
    return BinaryReader((uint8_t*)(slice.data()), slice.size());
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-inline void InterfaceToLDB::sliceToBinaryReader(leveldb::Slice slice, 
+void InterfaceToLDB::sliceToBinaryReader(leveldb::Slice slice, 
                                                     BinaryReader & br)
 { 
    br.setNewData((uint8_t*)(slice.data()), slice.size()); 
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-inline BinaryDataRef InterfaceToLDB::sliceToBinaryDataRef(leveldb::Slice slice)
+BinaryDataRef InterfaceToLDB::sliceToBinaryDataRef(leveldb::Slice slice)
 { 
    return BinaryDataRef( (uint8_t*)(slice.data()), slice.size()); 
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-inline BinaryRefReader InterfaceToLDB::sliceToBinaryRefReader(leveldb::Slice slice)
+BinaryRefReader InterfaceToLDB::sliceToBinaryRefReader(leveldb::Slice slice)
 { 
    return BinaryRefReader( (uint8_t*)(slice.data()), slice.size()); 
 }
@@ -64,6 +65,7 @@ inline BinaryRefReader InterfaceToLDB::sliceToBinaryRefReader(leveldb::Slice sli
 ////////////////////////////////////////////////////////////////////////////////
 void InterfaceToLDB::init()
 {
+   SCOPED_TIMER("InterfaceToLDB::init");
    dbIsOpen_ = false;
    for(uint8_t i=0; i<DB_COUNT; i++)
    {
@@ -102,11 +104,11 @@ InterfaceToLDB::~InterfaceToLDB(void)
 // manually specify them, if you want to throw an error if it's not what you 
 // were expecting
 bool InterfaceToLDB::openDatabases(string basedir, 
-                                       BinaryData const & genesisBlkHash,
-                                       BinaryData const & genesisTxHash,
-                                       BinaryData const & magic,
-                                       ARMORY_DB_TYPE     dbtype,
-                                       DB_PRUNE_TYPE      pruneType)
+                                   BinaryData const & genesisBlkHash,
+                                   BinaryData const & genesisTxHash,
+                                   BinaryData const & magic,
+                                   ARMORY_DB_TYPE     dbtype,
+                                   DB_PRUNE_TYPE      pruneType)
 {
    SCOPED_TIMER("openDatabases");
 
@@ -139,6 +141,7 @@ bool InterfaceToLDB::openDatabases(string basedir,
    // Just in case this isn't the first time we tried to open it.
    closeDatabases();
 
+
    vector<leveldb::DB*> dbs[2];
    for(uint32_t db=0; db<DB_COUNT; db++)
    {
@@ -154,7 +157,7 @@ bool InterfaceToLDB::openDatabases(string basedir,
       iters_[db] = dbs_[db]->NewIterator(leveldb::ReadOptions());
       batches_[db] = NULL;
       batchStarts_[db] = 0;
-         
+
       BinaryDataRef dbInfo = getValueRef(CURRDB, getDBInfoKey());
       if(dbInfo.getSize() == 0)
       {
@@ -168,7 +171,6 @@ bool InterfaceToLDB::openDatabases(string basedir,
          bitpack.putBits((uint32_t)dbPruneType_,      4);
 
          BinaryWriter bw(48);
-         bw.put_uint32_t(ARMORY_DB_VERSION);
          bw.put_BinaryData(magicBytes_);
          bw.put_BitPacker(bitpack);
          bw.put_uint32_t(0);
@@ -247,6 +249,7 @@ bool InterfaceToLDB::openDatabases(string basedir,
 uint32_t InterfaceToLDB::readAllStoredScriptHistory(
                           map<BinaryData, StoredScriptHistory> & regScriptMap)
 {
+   SCOPED_TIMER("readAllStoredScriptHistory");
    // Now read all the StoredAddressObjects objects to make it easy to query
    // inclusion directly from RAM.
    seekTo(BLKDATA, DB_PREFIX_SCRIPT, BinaryData(0));
@@ -340,7 +343,7 @@ void InterfaceToLDB::commitBatch(DB_SELECT db)
 
 /////////////////////////////////////////////////////////////////////////////
 // Get value using pre-created slice
-inline BinaryData InterfaceToLDB::getValue(DB_SELECT db, leveldb::Slice ldbKey)
+BinaryData InterfaceToLDB::getValue(DB_SELECT db, leveldb::Slice ldbKey)
 {
    leveldb::Status stat = dbs_[db]->Get(STD_READ_OPTS, ldbKey, &lastGetValue_);
    if(!checkStatus(stat, false))
@@ -352,7 +355,7 @@ inline BinaryData InterfaceToLDB::getValue(DB_SELECT db, leveldb::Slice ldbKey)
 /////////////////////////////////////////////////////////////////////////////
 // Get value using BinaryData object.  If you have a string, you can use
 // BinaryData key(string(theStr));
-inline BinaryData InterfaceToLDB::getValue(DB_SELECT db, BinaryDataRef key)
+BinaryData InterfaceToLDB::getValue(DB_SELECT db, BinaryDataRef key)
 {
    leveldb::Slice ldbKey((char*)key.getPtr(), key.getSize());
    return getValue(db, ldbKey);
@@ -362,7 +365,7 @@ inline BinaryData InterfaceToLDB::getValue(DB_SELECT db, BinaryDataRef key)
 /////////////////////////////////////////////////////////////////////////////
 // Get value using BinaryData object.  If you have a string, you can use
 // BinaryData key(string(theStr));
-inline BinaryData InterfaceToLDB::getValue(DB_SELECT db, 
+BinaryData InterfaceToLDB::getValue(DB_SELECT db, 
                                                DB_PREFIX prefix,
                                                BinaryDataRef key)
 {
@@ -378,7 +381,7 @@ inline BinaryData InterfaceToLDB::getValue(DB_SELECT db,
 // Get value using BinaryDataRef object.  The data from the get* call is 
 // actually copied to a member variable, and thus the refs are valid only 
 // until the next get* call.
-inline BinaryDataRef InterfaceToLDB::getValueRef(DB_SELECT db, 
+BinaryDataRef InterfaceToLDB::getValueRef(DB_SELECT db, 
                                                      BinaryDataRef key)
 {
    leveldb::Slice ldbKey = binaryDataRefToSlice(key);
@@ -393,7 +396,7 @@ inline BinaryDataRef InterfaceToLDB::getValueRef(DB_SELECT db,
 // Get value using BinaryDataRef object.  The data from the get* call is 
 // actually copied to a member variable, and thus the refs are valid only 
 // until the next get* call.
-inline BinaryDataRef InterfaceToLDB::getValueRef(DB_SELECT db, 
+BinaryDataRef InterfaceToLDB::getValueRef(DB_SELECT db, 
                                                      DB_PREFIX prefix, 
                                                      BinaryDataRef key)
 {
@@ -407,7 +410,7 @@ inline BinaryDataRef InterfaceToLDB::getValueRef(DB_SELECT db,
 /////////////////////////////////////////////////////////////////////////////
 // Same as the getValueRef, in that they are only valid until the next get*
 // call.  These are convenience methods which basically just save us 
-inline BinaryRefReader InterfaceToLDB::getValueReader(
+BinaryRefReader InterfaceToLDB::getValueReader(
                                              DB_SELECT db, 
                                              BinaryDataRef keyWithPrefix)
 {
@@ -418,7 +421,7 @@ inline BinaryRefReader InterfaceToLDB::getValueReader(
 /////////////////////////////////////////////////////////////////////////////
 // Same as the getValueRef, in that they are only valid until the next get*
 // call.  These are convenience methods which basically just save us 
-inline BinaryRefReader InterfaceToLDB::getValueReader(
+BinaryRefReader InterfaceToLDB::getValueReader(
                                              DB_SELECT db, 
                                              DB_PREFIX prefix, 
                                              BinaryDataRef key)
@@ -490,12 +493,14 @@ void InterfaceToLDB::deleteValue(DB_SELECT db,
 // the headers in hash-ID-order, instead of height-order
 void InterfaceToLDB::startHeaderIteration()
 {
+   SCOPED_TIMER("startHeaderIteration");
    seekTo(HEADERS, DB_PREFIX_HEADHASH, BinaryData(0));
 }
 
 /////////////////////////////////////////////////////////////////////////////
 void InterfaceToLDB::startBlkDataIteration(DB_PREFIX prefix)
 {
+   SCOPED_TIMER("startBlkDataIteration");
    seekTo(BLKDATA, prefix, BinaryData(0));
    leveldb::Slice start((char*)(&prefix), 1);
    iters_[BLKDATA]->Seek(start);
@@ -1054,6 +1059,7 @@ uint8_t InterfaceToLDB::getValidDupIDForHeight_fromDB(uint32_t blockHgt)
 // us to easily replace/update data, even if overwriting isn't always necessary
 void InterfaceToLDB::putStoredHeader( StoredHeader & sbh, bool withTx)
 {
+   SCOPED_TIMER("putStoredHeader");
    uint32_t height  = sbh.blockHeight_;
    bool     isValid = sbh.isMainBranch_;
 
@@ -1165,6 +1171,7 @@ bool InterfaceToLDB::getStoredHeader( StoredHeader & sbh,
                                       uint8_t blockDup,
                                       bool withTx)
 {
+   SCOPED_TIMER("getStoredHeader");
 
    if(!withTx)
    {
@@ -1203,6 +1210,7 @@ bool InterfaceToLDB::getStoredHeader( StoredHeader & sbh,
                                       BinaryDataRef headHash, 
                                       bool withTx)
 {
+   SCOPED_TIMER("getStoredHeader");
 
    BinaryData headEntry = getValue(HEADERS, DB_PREFIX_HEADHASH, headHash); 
    if(headEntry.getSize() == 0)
@@ -1235,6 +1243,7 @@ bool InterfaceToLDB::getStoredHeader( StoredHeader & sbh,
 ////////////////////////////////////////////////////////////////////////////////
 void InterfaceToLDB::putStoredTx( StoredTx & stx, bool withTxOut)
 {
+   SCOPED_TIMER("putStoredTx");
    BinaryData ldbKey = ARMDB.getBlkDataKeyNoPrefix(stx.blockHeight_, 
                                                    stx.blockDupID_, 
                                                    stx.txIndex_);
@@ -1451,6 +1460,7 @@ bool InterfaceToLDB::readStoredTxOutAtIter(
 ////////////////////////////////////////////////////////////////////////////////
 Tx InterfaceToLDB::getFullTxCopy( BinaryDataRef ldbKey6B )
 {
+   SCOPED_TIMER("getFullTxCopy");
    if(ldbKey6B.getSize() != 6)
    {
       Log::ERR() << "Provided zero-length ldbKey6B";
@@ -1479,6 +1489,7 @@ Tx InterfaceToLDB::getFullTxCopy( BinaryDataRef ldbKey6B )
 ////////////////////////////////////////////////////////////////////////////////
 Tx InterfaceToLDB::getFullTxCopy( uint32_t hgt, uint16_t txIndex)
 {
+   SCOPED_TIMER("getFullTxCopy");
    uint8_t dup = getValidDupIDForHeight(hgt);
    if(dup == UINT8_MAX)
       Log::ERR() << "Headers DB has no block at height: " << hgt;
@@ -1490,6 +1501,7 @@ Tx InterfaceToLDB::getFullTxCopy( uint32_t hgt, uint16_t txIndex)
 ////////////////////////////////////////////////////////////////////////////////
 Tx InterfaceToLDB::getFullTxCopy( uint32_t hgt, uint8_t dup, uint16_t txIndex)
 {
+   SCOPED_TIMER("getFullTxCopy");
    BinaryData ldbKey = ARMDB.getBlkDataKey(hgt, dup, txIndex);
    return getFullTxCopy(ldbKey);
 }
@@ -1498,6 +1510,7 @@ Tx InterfaceToLDB::getFullTxCopy( uint32_t hgt, uint8_t dup, uint16_t txIndex)
 ////////////////////////////////////////////////////////////////////////////////
 TxOut InterfaceToLDB::getTxOutCopy( BinaryDataRef ldbKey6B, uint16_t txOutIdx)
 {
+   SCOPED_TIMER("getTxOutCopy");
    BinaryWriter bw(8);
    bw.put_BinaryData(ldbKey6B);
    bw.put_uint16_t(txOutIdx);
@@ -1521,6 +1534,7 @@ TxOut InterfaceToLDB::getTxOutCopy( BinaryDataRef ldbKey6B, uint16_t txOutIdx)
 ////////////////////////////////////////////////////////////////////////////////
 TxIn InterfaceToLDB::getTxInCopy( BinaryDataRef ldbKey6B, uint16_t txInIdx)
 {
+   SCOPED_TIMER("getTxInCopy");
    TxIn txiOut;
    BinaryRefReader brr = getValueReader(BLKDATA, DB_PREFIX_TXDATA, ldbKey6B);
    if(brr.getSize()==0) 
@@ -1565,6 +1579,7 @@ TxIn InterfaceToLDB::getTxInCopy( BinaryDataRef ldbKey6B, uint16_t txInIdx)
 ////////////////////////////////////////////////////////////////////////////////
 BinaryData InterfaceToLDB::getTxHashForLdbKey( BinaryDataRef ldbKey6B )
 {
+   SCOPED_TIMER("getTxHashForLdbKey");
    BinaryRefReader stxVal = getValueReader(BLKDATA, DB_PREFIX_TXDATA, ldbKey6B);
    if(stxVal.getSize()==0)
    {
@@ -1579,8 +1594,9 @@ BinaryData InterfaceToLDB::getTxHashForLdbKey( BinaryDataRef ldbKey6B )
 
 ////////////////////////////////////////////////////////////////////////////////
 BinaryData InterfaceToLDB::getTxHashForHeightAndIndex( uint32_t height,
-                                                           uint16_t txIndex)
+                                                       uint16_t txIndex)
 {
+   SCOPED_TIMER("getTxHashForHeightAndIndex");
    uint8_t dup = getValidDupIDForHeight(height);
    if(dup == UINT8_MAX)
       Log::ERR() << "Headers DB has no block at height: " << height;
@@ -1589,15 +1605,17 @@ BinaryData InterfaceToLDB::getTxHashForHeightAndIndex( uint32_t height,
 
 ////////////////////////////////////////////////////////////////////////////////
 BinaryData InterfaceToLDB::getTxHashForHeightAndIndex( uint32_t height,
-                                                           uint8_t  dupID,
-                                                           uint16_t txIndex)
+                                                       uint8_t  dupID,
+                                                       uint16_t txIndex)
 {
+   SCOPED_TIMER("getTxHashForHeightAndIndex");
    return getTxHashForLdbKey(ARMDB.getBlkDataKey(height, dupID, txIndex));
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 vector<BinaryData> InterfaceToLDB::getAllHintsForTxHash(BinaryDataRef txHash)
 {
+   SCOPED_TIMER("getAllHintsForTxHash");
    BinaryDataRef allHints = getValueRef(BLKDATA, DB_PREFIX_TXHINTS, 
                                                 txHash.getSliceRef(0,4));
 
@@ -1617,6 +1635,7 @@ vector<BinaryData> InterfaceToLDB::getAllHintsForTxHash(BinaryDataRef txHash)
 bool InterfaceToLDB::getStoredTx( StoredTx & stx,
                                       BinaryDataRef txHash)
 {
+   SCOPED_TIMER("getStoredTx");
    BinaryData hash4(txHash.getSliceRef(0,4));
    BinaryData existingHints = getValue(BLKDATA, DB_PREFIX_TXHINTS, hash4);
 
@@ -1679,6 +1698,7 @@ bool InterfaceToLDB::getStoredTx(  StoredTx & stx,
                                        uint16_t txIndex,
                                        bool withTxOut)
 {
+   SCOPED_TIMER("getStoredTx");
    BinaryData blkDataKey = ARMDB.getBlkDataKey(blockHeight, dupID, txIndex);
    stx.blockHeight_ = blockHeight;
    stx.blockDupID_  = dupID;
@@ -1757,6 +1777,7 @@ bool InterfaceToLDB::getStoredTx(  StoredTx & stx,
 void InterfaceToLDB::putStoredTxOut( StoredTxOut const & stxo)
 {
     
+   SCOPED_TIMER("putStoredTx");
    BinaryData ldbKey = ARMDB.getBlkDataKeyNoPrefix(stxo.blockHeight_, 
                                                    stxo.blockDupID_, 
                                                    stxo.txIndex_,
@@ -1776,6 +1797,7 @@ bool InterfaceToLDB::getStoredTxOut(
                               uint16_t txIndex,
                               uint16_t txOutIndex)
 {
+   SCOPED_TIMER("getStoredTxOut");
    BinaryData blkKey = ARMDB.getBlkDataKey(blockHeight, dupID, txIndex, txOutIndex);
    BinaryRefReader brr = getValueReader(BLKDATA, blkKey);
    if(brr.getSize() == 0)
@@ -1843,6 +1865,7 @@ TxRef InterfaceToLDB::getTxRef( uint32_t hgt, uint8_t  dup, uint16_t txIndex)
 ////////////////////////////////////////////////////////////////////////////////
 bool InterfaceToLDB::markBlockHeaderValid(BinaryDataRef headHash)
 {
+   SCOPED_TIMER("markBlockHeaderValid");
    BinaryRefReader brr = getValueReader(HEADERS, DB_PREFIX_HEADHASH, headHash);
    if(brr.getSize()==0)
    {
@@ -1863,6 +1886,7 @@ bool InterfaceToLDB::markBlockHeaderValid(BinaryDataRef headHash)
 ////////////////////////////////////////////////////////////////////////////////
 bool InterfaceToLDB::markBlockHeaderValid(uint32_t height, uint8_t dup)
 {
+   SCOPED_TIMER("markBlockHeaderValid");
    BinaryData keyHgt((uint8_t*)&height, 4);
 
    BinaryRefReader brrHgts = getValueReader(HEADERS, DB_PREFIX_HEADHGT, keyHgt);
@@ -1930,6 +1954,7 @@ bool InterfaceToLDB::markTxEntryValid(uint32_t height,
                                           uint8_t  dupID,
                                           uint16_t txIndex)
 {
+   SCOPED_TIMER("markTxEntryValid");
    BinaryData blkDataKey = ARMDB.getBlkDataKeyNoPrefix(height, dupID, txIndex);
    BinaryRefReader brrTx = getValueReader(BLKDATA, DB_PREFIX_TXDATA, blkDataKey);
 
@@ -1978,6 +2003,41 @@ bool InterfaceToLDB::markTxEntryValid(uint32_t height,
    
    putValue(HEADERS, DB_PREFIX_HEADHGT, key4, bwOut.getDataRef());
    return true;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+list< pair<BinaryData, BinaryData> > InterfaceToLDB::getAllDatabaseEntries(DB_SELECT db)
+{
+   SCOPED_TIMER("getAllDatabaseEntries");
+   KVLIST outList;
+   KVITER outIter;
+
+   iters_[db] = dbs_[db]->NewIterator(leveldb::ReadOptions());
+   iters_[db]->SeekToFirst();
+   for (; iters_[db]->Valid(); iters_[db]->Next())
+   {
+      outList.push_back( pair<BinaryData, BinaryData>() );
+      outIter = outList.end();
+      outIter--;
+      sliceToBinaryData(iters_[db]->key(),   outIter->first);
+      sliceToBinaryData(iters_[db]->value(), outIter->second);
+   }
+   return outList;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+void InterfaceToLDB::printAllDatabaseEntries(DB_SELECT db)
+{
+   SCOPED_TIMER("printAllDatabaseEntries");
+   cout << "Printing DB entries... (DB=" << db << ")" << endl;
+   KVLIST dbList = getAllDatabaseEntries(db);
+   KVITER dbIter;
+   for(dbIter = dbList.begin();  dbIter != dbList.end(); dbIter++)
+   {
+      cout << "   \"" << dbIter->first.toHexStr() << "\"  ";
+      cout << "   \"" << dbIter->second.toHexStr() << "\"  " << endl;
+   }
 }
 
 

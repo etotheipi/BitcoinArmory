@@ -712,7 +712,8 @@ BinaryData TxRef::getThisHash(void) const
 void TxRef::setRef(BinaryDataRef bdr, InterfaceToLDB* iface)
 {
    dbKey6B_ = bdr.copy();
-   dbIface_ = (iface==NULL ? LevelDBWrapper().GetInterfacePtr() : iface);
+   if(iface==NULL)
+      dbIface_ = LevelDBWrapper().GetInterfacePtr();
 }
 
 /////////////////////////////////////////////////////////////////////////////

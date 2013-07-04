@@ -22,6 +22,9 @@
 #define STD_READ_OPTS       leveldb::ReadOptions()
 #define STD_WRITE_OPTS      leveldb::WriteOptions()
 
+#define KVLIST list<pair<BinaryData,BinaryData> > 
+#define KVITER list<pair<BinaryData,BinaryData> >::iterator
+
 class BlockHeader;
 class Tx;
 class TxIn;
@@ -98,12 +101,6 @@ class StoredScriptHistory;
 class InterfaceToLDB
 {
 private:
-   /////////////////////////////////////////////////////////////////////////////
-   InterfaceToLDB(void);
-
-
-   /////////////////////////////////////////////////////////////////////////////
-   ~InterfaceToLDB(void);
 
    /////////////////////////////////////////////////////////////////////////////
    leveldb::Slice binaryDataToSlice(BinaryData const & bd) 
@@ -159,6 +156,12 @@ private:
    void resetIterReaders(void) 
                { currReadKey_.resetPosition(); currReadValue_.resetPosition(); }
 public:
+
+   /////////////////////////////////////////////////////////////////////////////
+   InterfaceToLDB(void);
+   ~InterfaceToLDB(void);
+
+
 
    /////////////////////////////////////////////////////////////////////////////
    void init(void);
@@ -399,8 +402,8 @@ public:
 
    bool checkStatus(leveldb::Status stat, bool warn=true);
 
-
-
+   KVLIST getAllDatabaseEntries(DB_SELECT db);
+   void   printAllDatabaseEntries(DB_SELECT db);
 
 private:
    string               baseDir_;
@@ -451,11 +454,12 @@ class LevelDBWrapper
 public:
 
    /////////////////////////////////////////////////////////////////////////////
-   InterfaceToLDB & GetInterface(uint32_t i=0)
+   static InterfaceToLDB & GetInterface(uint32_t i=0)
    {
       if(ifaceVect_.size() < i+1)
       {
          ifaceVect_.resize(i+1); 
+         ifaceVect_[i] = new InterfaceToLDB;
          ifaceVect_[i]->init();
       }
 
@@ -463,11 +467,12 @@ public:
    }
 
    /////////////////////////////////////////////////////////////////////////////
-   InterfaceToLDB* GetInterfacePtr(uint32_t i=0)
+   static InterfaceToLDB* GetInterfacePtr(uint32_t i=0)
    {
       if(ifaceVect_.size() < i+1)
       {
          ifaceVect_.resize(i+1); 
+         ifaceVect_[i] = new InterfaceToLDB;
          ifaceVect_[i]->init();
       }
 

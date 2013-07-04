@@ -9,6 +9,7 @@
 #include "../BlockObj.h"
 #include "../StoredBlockObj.h"
 #include "../PartialMerkle.h"
+#include "../leveldb_wrapper.h"
 
 #define READHEX BinaryData::CreateFromHex
 
@@ -3042,38 +3043,71 @@ TEST_F(StoredBlockObjTest, SHeaderFullBlock)
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 #if defined(_MSC_VER) || defined(__MINGW32__)
-   class LevelDBTest : public ::testing::Test
+class LevelDBTest : public ::testing::Test
+{
+protected:
+   virtual void SetUp(void) 
    {
-   protected:
-      virtual void SetUp(void) 
-      {
-         Log::ERR() << "Have not implemented LevelDB tests in Windows!";
-         azjc#kslInduceCompileErrorklnvjkl;
-      }
-   };
+      Log::ERR() << "Have not implemented LevelDB tests in Windows!";
+      azjc#kslInduceCompileErrorklnvjkl;
+   }
+};
 #else
-   class LevelDBTest : public ::testing::Test
+class LevelDBTest : public ::testing::Test
+{
+protected:
+   virtual void SetUp(void) 
    {
-   protected:
-      virtual void SetUp(void) 
-      {
-         
-      }
-   
-      virtual void TearDown(void)
-      {
-         // This seem to be the best way to remove a dir tree in C++ (in Linux)
-         cout << "Deleting directory" << endl;
-         system("rm -rf ./ldbtestdir");
-      }
-   };
+      iface_ = LevelDBWrapper::GetInterfacePtr();
+   }
+
+   virtual void TearDown(void)
+   {
+      // This seem to be the best way to remove a dir tree in C++ (in Linux)
+      cout << "Deleting ldbtestdir directory" << endl;
+      system("rm -rf ./ldbtestdir");
+      system("mkdir ldbtestdir");
+   }
+
+   InterfaceToLDB* iface_;
+};
 #endif
 
 
 ////////////////////////////////////////////////////////////////////////////////
-TEST_F(LevelDBTest, CreateDB)
+TEST_F(LevelDBTest, OpenClose)
 {
+   iface_->openDatabases( string("ldbtestdir"),
+                          READHEX(MAINNET_GENESIS_HASH_HEX),
+                          READHEX(MAINNET_GENESIS_TX_HASH_HEX),
+                          READHEX(MAINNET_MAGIC_BYTES),
+                          ARMORY_DB_FULL,
+                          DB_PRUNE_NONE);
 
+                          
+   KVLIST HList = iface_->getAllDatabaseEntries(HEADERS);
+   KVLIST BList = iface_->getAllDatabaseEntries(BLKDATA);
+
+   // 0123 4567 0123 4567
+   // 0000 0010 0001 ---- ---- ---- ---- ----
+   BinaryData magic = READHEX(MAINNET_MAGIC_BYTES);
+   BinaryData flags = READHEX("00001002");
+   BinaryData zeros = READHEX("00000000");
+   BinaryData ghash = READHEX(MAINNET_GENESIS_HASH_HEX);
+
+   for(KVITER it=HList.begin(); it!=HList.end(); it++)
+   {
+      EXPECT_EQ(it->first,  READHEX("00"));
+      EXPECT_EQ(it->second, magic+flags+zeros+ghash);
+   }
+
+   for(KVITER it=BList.begin(); it!=BList.end(); it++)
+   {
+      EXPECT_EQ(it->first,  READHEX("00"));
+      EXPECT_EQ(it->second, magic+flags+zeros+ghash);
+   }
+                         
+   iface_->closeDatabases();
 }
 
 
@@ -3338,7 +3372,7 @@ GTEST_API_ int main(int argc, char **argv)
    // Setup the log file 
    Log::SetLogFile("cppTestsLog.txt");
    Log::SetLogLevel(LogDebug4);
-   Log::DisableStdOut();
+   //Log::DisableStdOut();
 
    testing::InitGoogleTest(&argc, argv);
    int exitCode = RUN_ALL_TESTS();
