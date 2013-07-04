@@ -198,7 +198,7 @@ void StoredHeader::unserializeFullBlock(BinaryRefReader brr,
          stxo.blockDupID_     = UINT8_MAX;
          stxo.txIndex_        = tx;
          stxo.txOutIndex_     = txo;
-         stxo.isFromCoinbase_ = thisTx.getTxIn(0).isCoinbase();
+         stxo.isCoinbase_     = thisTx.getTxIn(0).isCoinbase();
          stxo.isInitialized_  = true;
       }
 
@@ -217,6 +217,39 @@ void StoredHeader::unserializeFullBlock(BinaryDataRef block,
 {
    BinaryRefReader brr(block);
    unserializeFullBlock(brr, doFrag, withPrefix);
+}
+
+/////////////////////////////////////////////////////////////////////////////
+bool StoredHeader::serializeFullBlock(BinaryWriter & bw) const
+{
+   if(!haveFullBlock())
+   {
+      Log::ERR() << "Attempted to serialize full block, but only have partial";
+      return false;
+   }
+
+   if(numTx_ == UINT32_MAX)
+   {
+      Log::ERR() << "Number of tx not available while serializing full block";
+      return false;
+   }
+
+   BinaryWriter bwTemp(1024*1024); // preallocate 1 MB which is the limit
+   bwTemp.put_BinaryData(dataCopy_);
+   bwTemp.put_var_int(numTx_);
+   map<uint16_t, StoredTx>::const_iterator iter;
+   for(iter = stxMap_.begin(); iter != stxMap_.end(); iter++)
+   {
+      if(!iter->second.haveAllTxOut())
+      {
+         Log::ERR() << "Don't have all TxOut in tx during serialize full block";
+         return false;
+      }
+      bwTemp.put_BinaryData(iter->second.getSerializedTx());
+   }
+   
+   bw.put_BinaryData(bwTemp.getDataRef());
+   return true;
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -656,21 +689,14 @@ void StoredTxOut::unserializeDBValue(BinaryRefReader & brr)
    //    TxVersion   2 bits
    //    Spentness   2 bits
    BitUnpacker<uint16_t> bitunpack(brr);
-   uint16_t dbVer   =  bitunpack.getBits(4);
-   uint16_t txVer   =  bitunpack.getBits(2);
-   uint16_t isSpent =  bitunpack.getBits(2);
-   uint16_t isCBase =  bitunpack.getBits(1);
+   unserArmVer_ =                  bitunpack.getBits(4);
+   txVersion_   =                  bitunpack.getBits(2);
+   spentness_   = (TXOUT_SPENTNESS)bitunpack.getBits(2);
+   isCoinbase_  =                  bitunpack.getBits(1);
 
    unserialize(brr);
-   isSpent_        = isSpent;
-   isFromCoinbase_ = isCBase;
-
-   if((TXOUT_SPENTNESS)isSpent == TXOUT_SPENT && brr.getSizeRemaining()>=8)
-   {
-      spentByHgtx_      = brr.get_BinaryData(4); 
-      spentByTxIndex_   = brr.get_uint16_t(); 
-      spentByTxInIndex_ = brr.get_uint16_t(); 
-   }
+   if(spentness_ == TXOUT_SPENT && brr.getSizeRemaining()>=8)
+      spentByTxInKey_ = brr.get_BinaryData(8); 
 
 }
 
@@ -678,54 +704,45 @@ void StoredTxOut::unserializeDBValue(BinaryRefReader & brr)
 void StoredTxOut::serializeDBValue(BinaryWriter & bw,
                                    bool forceSaveSpentness) const
 {
-   TXOUT_SPENTNESS spentness = (isSpent_ ? TXOUT_SPENT : TXOUT_UNSPENT);
+   TXOUT_SPENTNESS writeSpent = spentness_;
    
    if(!forceSaveSpentness)
    { 
-      switch(ARMDB.getDbPruneType())
+      switch(ARMDB.getArmoryDbType())
       {
          //// If the DB is in lite or partial modes, we don't bother recording
          //   spentness (in fact, if it's spent, this entry probably won't even
          //   be written to the DB).
-         case ARMORY_DB_LITE:    spentness = TXOUT_SPENTUNK; break;
-         case ARMORY_DB_PARTIAL: spentness = TXOUT_SPENTUNK; break;
-         case ARMORY_DB_FULL:                                break;
-         case ARMORY_DB_SUPER:                               break;
+         case ARMORY_DB_LITE:    writeSpent = TXOUT_SPENTUNK; break;
+         case ARMORY_DB_PARTIAL: writeSpent = TXOUT_SPENTUNK; break;
+         case ARMORY_DB_FULL:                                 break;
+         case ARMORY_DB_SUPER:                                break;
          default: 
             Log::ERR() << "Invalid DB mode in serializeStoredTxOutValue";
       }
    }
 
-   uint16_t isCbase = (isFromCoinbase_ ? 1 : 0);
+   uint16_t isCbase = (isCoinbase_ ? 1 : 0);
 
    BitPacker<uint16_t> bitpack;
    bitpack.putBits((uint16_t)ARMORY_DB_VERSION,  4);
-   bitpack.putBits((uint16_t)txVersion_,    4);
-   bitpack.putBits((uint16_t)spentness,          2);
-   bitpack.putBits((uint16_t)isCbase,            1);
+   bitpack.putBits((uint16_t)txVersion_,         2);
+   bitpack.putBits((uint16_t)writeSpent,         2);
+   bitpack.putBit(           isCoinbase_);
 
    bw.put_BitPacker(bitpack);
    bw.put_BinaryData(dataCopy_);  // 8-byte value, var_int sz, pkscript
    
-   if(spentness == TXOUT_SPENT)
+   if(writeSpent == TXOUT_SPENT)
    {
-      bw.put_BinaryData(spentByHgtx_);
-      bw.put_uint16_t(  spentByTxIndex_);
-      bw.put_uint16_t(  spentByTxInIndex_);
+      if(spentByTxInKey_.getSize()==0)
+         Log::ERR() << "Need to write out spentByTxIn but no spentness data";
+      bw.put_BinaryData(spentByTxInKey_);
    }
 
 }
 
 
-
-////////////////////////////////////////////////////////////////////////////////
-BinaryData StoredTxOut::getSerializedTxOut(void) const
-{
-   if(!isInitialized_)
-      return BinaryData(0);
-
-   return dataCopy_;
-}
 
 ////////////////////////////////////////////////////////////////////////////////
 Tx StoredTx::getTxCopy(void) const
@@ -789,7 +806,7 @@ StoredTx & StoredTx::createFromTx(Tx & tx, bool doFrag, bool withTxOuts)
          stxo.txVersion_      = tx.getVersion();
          stxo.txIndex_        = tx.getBlockTxIndex();
          stxo.txOutIndex_     = txo;
-         stxo.isFromCoinbase_ = tx.getTxIn(0).isCoinbase();
+         stxo.isCoinbase_     = tx.getTxIn(0).isCoinbase();
          stxo.isInitialized_  = true;
       }
    }
@@ -805,6 +822,27 @@ StoredTxOut & StoredTxOut::createFromTxOut(TxOut & txout)
    unserialize(txout.serialize());
 }
 
+////////////////////////////////////////////////////////////////////////////////
+BinaryData StoredTxOut::getSerializedTxOut(void) const
+{
+   if(!isInitialized())
+   {
+      Log::ERR() << "Attempted to get serialized TxOut, but not initialized";
+      return BinaryData(0);
+   }
+   return dataCopy_;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+TxOut StoredTxOut::getTxOutCopy(void) const
+{
+   if(!isInitialized())
+   {
+      Log::ERR() << "Attempted to get TxOut copy but not initialized";
+      return TxOut();
+   }
+   return TxOut(dataCopy_.getPtr());
+}
 
 
 

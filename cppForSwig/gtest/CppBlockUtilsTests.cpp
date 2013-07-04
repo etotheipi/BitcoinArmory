@@ -401,6 +401,27 @@ TEST_F(BinaryDataTest, BinDataToInt)
    b64 = READ_UINT64_LE(READHEX("00000000fec38a11"));
    EXPECT_EQ(a64, 0x00000000fec38a11);
    EXPECT_EQ(b64, 0x118ac3fe00000000);
+
+   // Test the all-on-one read-int macros
+   a8 = READ_UINT8_HEX_BE("ab");
+   b8 = READ_UINT8_HEX_LE("ab");
+   EXPECT_EQ(a8, 0xab);
+   EXPECT_EQ(b8, 0xab);
+
+   a16 = READ_UINT16_HEX_BE("abcd");
+   b16 = READ_UINT16_HEX_LE("abcd");
+   EXPECT_EQ(a16, 0xabcd);
+   EXPECT_EQ(b16, 0xcdab);
+
+   a32 = READ_UINT32_HEX_BE("fec38a11");
+   b32 = READ_UINT32_HEX_LE("fec38a11");
+   EXPECT_EQ(a32, 0xfec38a11);
+   EXPECT_EQ(b32, 0x118ac3fe);
+
+   a64 = READ_UINT64_HEX_BE("00000000fec38a11");
+   b64 = READ_UINT64_HEX_LE("00000000fec38a11");
+   EXPECT_EQ(a64, 0x00000000fec38a11);
+   EXPECT_EQ(b64, 0x118ac3fe00000000);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -2262,7 +2283,7 @@ protected:
          // Script size (var_int)
          "19"
          // Script
-         "76a9146a59ac0e8f553f292dfe5e9f3aaa1da93499c15e88ac");
+         "76""a9""14""6a59ac0e8f553f292dfe5e9f3aaa1da93499c15e""88""ac");
 
       bh_.unserialize(rawHead_);
       tx1_.unserialize(rawTx0_);
@@ -2712,7 +2733,7 @@ TEST_F(StoredBlockObjTest, STxSerDBValue_1)
    //
    // For this example:  DBVer=0, TxVer=1, TxSer=FRAGGED[1]
    //   0000   01   00 01  -- ----
-   BinaryData  first2  = READHEX("4004");
+   BinaryData  first2  = READHEX("4004"); // little-endian, of course
    BinaryData  txHash  = origTx.getThisHash();
    BinaryData  fragged = stx.getSerializedTxFragged();
    BinaryData  output  = first2 + txHash + fragged;
@@ -2738,8 +2759,8 @@ TEST_F(StoredBlockObjTest, STxSerDBValue_2)
    //   DBVer TxVer TxSer
    //
    // For this example:  DBVer=0, TxVer=1, TxSer=FRAGGED[1]
-   //   0000   01   00 01  -- ----
-   BinaryData  first2  = READHEX("0004");
+   //   0000   01   00 00  -- ----
+   BinaryData  first2  = READHEX("0004"); // little-endian, of course
    BinaryData  txHash  = origTx.getThisHash();
    BinaryData  fragged = stx.getSerializedTx();  // Full Tx this time
    BinaryData  output  = first2 + txHash + fragged;
@@ -2774,7 +2795,7 @@ TEST_F(StoredBlockObjTest, STxUnserDBValue_1)
    StoredTx stx;
    stx.unserializeDBValue(brr);
 
-   EXPECT_TRUE( stx.isInitialized_);
+   EXPECT_TRUE( stx.isInitialized());
    EXPECT_EQ(   stx.thisHash_,    origTx.getThisHash());
    EXPECT_EQ(   stx.lockTime_,    origTx.getLockTime());
    EXPECT_EQ(   stx.dataCopy_,    rawTxFragged_);
@@ -2815,7 +2836,7 @@ TEST_F(StoredBlockObjTest, STxUnserDBValue_2)
    StoredTx stx;
    stx.unserializeDBValue(brr);
 
-   EXPECT_TRUE( stx.isInitialized_);
+   EXPECT_TRUE( stx.isInitialized());
    EXPECT_EQ(   stx.thisHash_,    origTx.getThisHash());
    EXPECT_EQ(   stx.lockTime_,    origTx.getLockTime());
    EXPECT_EQ(   stx.dataCopy_,    rawTxUnfrag_);
@@ -2829,12 +2850,233 @@ TEST_F(StoredBlockObjTest, STxUnserDBValue_2)
    EXPECT_EQ(   stx.fragBytes_,   370);
 }
 
+
 ////////////////////////////////////////////////////////////////////////////////
-//TEST_F(StoredBlockObjTest, HeaderUnserFullBlock)
-//{
-   //StoredHeader sbh;
-   //sbh.unserializeFullBlock(rawBlock_);
-//}
+TEST_F(StoredBlockObjTest, STxOutNoInit)
+{
+   StoredTxOut stxo;
+   EXPECT_FALSE(stxo.isInitialized());
+}
+
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(StoredBlockObjTest, STxOutUnserialize)
+{
+   TxOut        txo0,  txo1;
+   StoredTxOut stxo0, stxo1;
+
+   stxo0.unserialize(rawTxOut0_);
+   stxo1.unserialize(rawTxOut1_);
+    txo0.unserialize(rawTxOut0_);
+    txo1.unserialize(rawTxOut1_);
+
+   uint64_t val0 = READ_UINT64_HEX_LE("ac4c8bd500000000");
+   uint64_t val1 = READ_UINT64_HEX_LE("002f685900000000");
+
+   EXPECT_EQ(stxo0.getSerializedTxOut(), rawTxOut0_);
+   EXPECT_EQ(stxo0.getSerializedTxOut(), txo0.serialize());
+   EXPECT_EQ(stxo1.getSerializedTxOut(), rawTxOut1_);
+   EXPECT_EQ(stxo1.getSerializedTxOut(), txo1.serialize());
+
+   EXPECT_EQ(stxo0.getValue(), val0);
+   EXPECT_EQ(stxo1.getValue(), val1);
+   
+   TxOut txoRecon = stxo0.getTxOutCopy();
+   EXPECT_EQ(txoRecon.serialize(), rawTxOut0_);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(StoredBlockObjTest, STxOutSerDBValue_1)
+{
+   ARMDB.setArmoryDbType(ARMORY_DB_FULL);
+   ARMDB.setDbPruneType(DB_PRUNE_NONE);
+
+   StoredTxOut stxo0;
+
+   stxo0.unserialize(rawTxOut0_);
+
+   stxo0.txVersion_ = 1;
+   stxo0.spentness_ = TXOUT_UNSPENT;
+
+   //   0123   45    67   0  123 4567 
+   //  |----| |--|  |--| |-|
+   //   DBVer TxVer Spnt  CB
+   //
+   // For this example:  DBVer=0, TxVer=1, TxSer=FRAGGED[1]
+   //   0000   01    00   0  --- ----
+   
+   BinaryWriter bw;
+   stxo0.serializeDBValue(bw);
+   EXPECT_EQ(bw.getData(),  READHEX("0004") + rawTxOut0_);
+}
+   
+
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(StoredBlockObjTest, STxOutSerDBValue_2)
+{
+   ARMDB.setArmoryDbType(ARMORY_DB_FULL);
+   ARMDB.setDbPruneType(DB_PRUNE_NONE);
+
+   StoredTxOut stxo0;
+   stxo0.unserialize(rawTxOut0_);
+   stxo0.txVersion_ = 1;
+   stxo0.spentness_ = TXOUT_UNSPENT;
+
+   // Test a spent TxOut
+   //   0000   01    01   0  --- ----
+   BinaryWriter bw;
+   BinaryData spentStr = ARMDB.getBlkDataKeyNoPrefix( 100000, 1, 127, 15);
+   stxo0.spentness_ = TXOUT_SPENT;
+   stxo0.spentByTxInKey_ = spentStr;
+   stxo0.serializeDBValue(bw);
+   EXPECT_EQ(bw.getData(),  READHEX("0005") + rawTxOut0_ + spentStr);
+}
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(StoredBlockObjTest, STxOutSerDBValue_3)
+{
+   ARMDB.setArmoryDbType(ARMORY_DB_FULL);
+   ARMDB.setDbPruneType(DB_PRUNE_NONE);
+
+   StoredTxOut stxo0;
+   stxo0.unserialize(rawTxOut0_);
+   stxo0.txVersion_ = 1;
+   stxo0.isCoinbase_ = true;
+
+   // Test a spent TxOut but in lite mode where we don't record spentness
+   //   0000   01    01   1  --- ----
+   ARMDB.setArmoryDbType(ARMORY_DB_LITE);
+   ARMDB.setDbPruneType(DB_PRUNE_NONE);
+   BinaryWriter bw;
+   BinaryData spentStr = ARMDB.getBlkDataKeyNoPrefix( 100000, 1, 127, 15);
+   stxo0.spentness_ = TXOUT_SPENT;
+   stxo0.spentByTxInKey_ = spentStr;
+   stxo0.serializeDBValue(bw);
+   EXPECT_EQ(bw.getData(),  READHEX("8006") + rawTxOut0_);
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(StoredBlockObjTest, STxOutUnserDBValue_1)
+{
+   BinaryData input = READHEX( "0004ac4c8bd5000000001976a9148dce8946f1c7763b"
+                               "b60ea5cf16ef514cbed0633b88ac");
+   BinaryRefReader brr(input);
+   StoredTxOut stxo;
+   stxo.unserializeDBValue(brr);
+
+   EXPECT_TRUE( stxo.isInitialized());
+   EXPECT_EQ(   stxo.txVersion_,    1);
+   EXPECT_EQ(   stxo.dataCopy_,     rawTxOut0_);
+   EXPECT_EQ(   stxo.blockHeight_,  UINT32_MAX);
+   EXPECT_EQ(   stxo.blockDupID_,   UINT8_MAX);
+   EXPECT_EQ(   stxo.txIndex_,      UINT16_MAX);
+   EXPECT_EQ(   stxo.txOutIndex_,   UINT16_MAX);
+   EXPECT_EQ(   stxo.spentness_,    TXOUT_UNSPENT);
+   EXPECT_EQ(   stxo.spentByTxInKey_.getSize(), 0);
+   EXPECT_FALSE(stxo.isCoinbase_);
+   EXPECT_EQ(   stxo.unserArmVer_,  0);
+}
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(StoredBlockObjTest, STxOutUnserDBValue_2)
+{
+   BinaryData input = READHEX( "0005ac4c8bd5000000001976a9148dce8946f1c7763b"
+                               "b60ea5cf16ef514cbed0633b88ac01a086017f000f00");
+   BinaryRefReader brr(input);
+   StoredTxOut stxo;
+   stxo.unserializeDBValue(brr);
+
+   EXPECT_TRUE( stxo.isInitialized());
+   EXPECT_EQ(   stxo.txVersion_,    1);
+   EXPECT_EQ(   stxo.dataCopy_,     rawTxOut0_);
+   EXPECT_EQ(   stxo.blockHeight_,  UINT32_MAX);
+   EXPECT_EQ(   stxo.blockDupID_,   UINT8_MAX);
+   EXPECT_EQ(   stxo.txIndex_,      UINT16_MAX);
+   EXPECT_EQ(   stxo.txOutIndex_,   UINT16_MAX);
+   EXPECT_EQ(   stxo.spentness_,    TXOUT_SPENT);
+   EXPECT_FALSE(stxo.isCoinbase_);
+   EXPECT_EQ(   stxo.spentByTxInKey_, READHEX("01a086017f000f00"));
+   EXPECT_EQ(   stxo.unserArmVer_,  0);
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(StoredBlockObjTest, STxOutUnserDBValue_3)
+{
+   BinaryData input = READHEX( "8006ac4c8bd5000000001976a9148dce8946f1c7763b"
+                               "b60ea5cf16ef514cbed0633b88ac");
+   BinaryRefReader brr(input);
+
+   StoredTxOut stxo;
+   stxo.unserializeDBValue(brr);
+
+   EXPECT_TRUE( stxo.isInitialized());
+   EXPECT_EQ(   stxo.txVersion_,    1);
+   EXPECT_EQ(   stxo.dataCopy_,     rawTxOut0_);
+   EXPECT_EQ(   stxo.blockHeight_,  UINT32_MAX);
+   EXPECT_EQ(   stxo.blockDupID_,   UINT8_MAX);
+   EXPECT_EQ(   stxo.txIndex_,      UINT16_MAX);
+   EXPECT_EQ(   stxo.txOutIndex_,   UINT16_MAX);
+   EXPECT_EQ(   stxo.spentness_,    TXOUT_SPENTUNK);
+   EXPECT_TRUE( stxo.isCoinbase_);
+   EXPECT_EQ(   stxo.spentByTxInKey_.getSize(), 0);
+   EXPECT_EQ(   stxo.unserArmVer_,  0);
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(StoredBlockObjTest, SHeaderFullBlock)
+{
+   // I'll make this more robust later... kind of tired of writing tests...
+   StoredHeader sbh;
+   sbh.unserializeFullBlock(rawBlock_.getRef());
+
+   BinaryWriter bw;
+   sbh.serializeFullBlock(bw);
+
+   EXPECT_EQ(bw.getDataRef(), rawBlock_.getRef());
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+#if defined(_MSC_VER) || defined(__MINGW32__)
+   class LevelDBTest : public ::testing::Test
+   {
+   protected:
+      virtual void SetUp(void) 
+      {
+         Log::ERR() << "Have not implemented LevelDB tests in Windows!";
+         azjc#kslInduceCompileErrorklnvjkl;
+      }
+   };
+#else
+   class LevelDBTest : public ::testing::Test
+   {
+   protected:
+      virtual void SetUp(void) 
+      {
+         
+      }
+   
+      virtual void TearDown(void)
+      {
+         // This seem to be the best way to remove a dir tree in C++ (in Linux)
+         cout << "Deleting directory" << endl;
+         system("rm -rf ./ldbtestdir");
+      }
+   };
+#endif
+
+
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(LevelDBTest, CreateDB)
+{
+
+}
+
+
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
@@ -3075,8 +3317,6 @@ TEST_F(TxRefTest, TxRefKeyParts)
    EXPECT_EQ(txr.getBlockHeight(),  0x02c4e3);
    EXPECT_EQ(txr.getBlockDupID(),   127);
    EXPECT_EQ(txr.getBlockTxIndex(), 15);
-
-   Log::ERR() << "Help me!  Error!";
 }
 
 
@@ -3103,7 +3343,9 @@ GTEST_API_ int main(int argc, char **argv)
    testing::InitGoogleTest(&argc, argv);
    int exitCode = RUN_ALL_TESTS();
    
+   Log::ERR() << "\n";
    Log::FlushStreams();
+   
 
    return exitCode;
 }

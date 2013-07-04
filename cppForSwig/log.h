@@ -123,6 +123,7 @@ public:
       ds_.flushStreams();
       ds_ << "Closing logfile.\n";
       ds_ << "...";
+      ds_.close();
    }
 
    LogStream& Get(LogLevel level = LogInfo)

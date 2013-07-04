@@ -152,6 +152,8 @@ public:
                              bool doFrag=true,
                              bool withPrefix8=false);
 
+   bool serializeFullBlock( BinaryWriter & bw) const;
+
    void unserializeDBValue( DB_SELECT         db,
                             BinaryRefReader & brr,
                             bool              ignoreMerkle = false);
@@ -257,11 +259,9 @@ public:
                        blockDupID_(UINT8_MAX), 
                        txIndex_(UINT16_MAX), 
                        txOutIndex_(UINT16_MAX), 
-                       isSpent_(false), 
-                       isFromCoinbase_(false), 
-                       spentByHgtx_(0),
-                       spentByTxIndex_(UINT16_MAX),
-                       spentByTxInIndex_(UINT16_MAX) {}
+                       spentness_(TXOUT_SPENTUNK), 
+                       isCoinbase_(false), 
+                       spentByTxInKey_(0) {}
 
    bool isInitialized(void) const {return isInitialized_;}
    void unserialize(BinaryData const & data);
@@ -273,9 +273,14 @@ public:
                            bool              forceSaveSpentness=false) const;
 
    StoredTxOut & createFromTxOut(TxOut & txout); 
-   BinaryData getSerializedTxOut(void) const;
+   BinaryData    getSerializedTxOut(void) const;
+   TxOut         getTxOutCopy(void) const;
 
-   bool writeToDB(bool skipIfExists=false);
+   uint64_t getValue(void) 
+   { 
+      return dataCopy_.getSize()>=8 ? READ_UINT64_LE(dataCopy_.getPtr()) : UINT64_MAX;
+   }
+         
 
    bool              isInitialized_;
    uint32_t          txVersion_;
@@ -284,11 +289,14 @@ public:
    uint8_t           blockDupID_;
    uint16_t          txIndex_;
    uint16_t          txOutIndex_;
-   bool              isSpent_;
-   bool              isFromCoinbase_;
-   BinaryData        spentByHgtx_;
-   uint16_t          spentByTxIndex_;
-   uint16_t          spentByTxInIndex_;
+   TXOUT_SPENTNESS   spentness_;
+   bool              isCoinbase_;
+   BinaryData        spentByTxInKey_;
+
+   // We don't actually enforce these members.  They're solely for recording
+   // the values that were unserialized with everything else, so that we can
+   // leter check that it
+   uint32_t          unserArmVer_;
 };
 
 
