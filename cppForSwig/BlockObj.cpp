@@ -712,6 +712,7 @@ BinaryData TxRef::getThisHash(void) const
 void TxRef::setRef(BinaryDataRef bdr, InterfaceToLDB* iface)
 {
    dbKey6B_ = bdr.copy();
+   dbIface_ = iface;
    if(iface==NULL)
       dbIface_ = LevelDBWrapper().GetInterfacePtr();
 }
@@ -719,8 +720,15 @@ void TxRef::setRef(BinaryDataRef bdr, InterfaceToLDB* iface)
 /////////////////////////////////////////////////////////////////////////////
 uint32_t TxRef::getBlockTimestamp(void)
 {
-   Log::ERR() << "Haven't implement timestamp retrieval yet!"; 
-   return UINT32_MAX;
+   static StoredHeader sbh;
+
+   if(dbIface_!=NULL && dbKey6B_.getSize() == 6)
+   {
+      dbIface_->getStoredHeader(sbh, getBlockHeight(), getBlockDupID(), false);
+      return READ_UINT32_LE(sbh.dataCopy_.getPtr()+68);
+   }
+   else
+      return UINT32_MAX;
 }
 
 /////////////////////////////////////////////////////////////////////////////

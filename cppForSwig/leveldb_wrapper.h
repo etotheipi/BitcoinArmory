@@ -22,8 +22,7 @@
 #define STD_READ_OPTS       leveldb::ReadOptions()
 #define STD_WRITE_OPTS      leveldb::WriteOptions()
 
-#define KVLIST list<pair<BinaryData,BinaryData> > 
-#define KVITER list<pair<BinaryData,BinaryData> >::iterator
+#define KVLIST vector<pair<BinaryData,BinaryData> > 
 
 class BlockHeader;
 class Tx;
@@ -171,12 +170,21 @@ public:
                       BinaryData const & genesisBlkHash,
                       BinaryData const & genesisTxHash,
                       BinaryData const & magic,
-                      ARMORY_DB_TYPE     dbtype=ARMORY_DB_DEFAULT,
-                      DB_PRUNE_TYPE      pruneType=DB_PRUNE_NONE);
+                      ARMORY_DB_TYPE     dbtype=ARMORY_DB_WHATEVER,
+                      DB_PRUNE_TYPE      pruneType=DB_PRUNE_WHATEVER);
 
    
    /////////////////////////////////////////////////////////////////////////////
    void closeDatabases(void);
+
+   /////////////////////////////////////////////////////////////////////////////
+   bool databasesAreOpen(void) { return dbIsOpen_; }
+
+   /////////////////////////////////////////////////////////////////////////////
+   // Get latest block info
+   BinaryData getTopBlockHash(void) const   { return topBlockHash_; }
+   BinaryData getTopBlockHeight(void) const { return topBlockHeight_; }
+   
 
    /////////////////////////////////////////////////////////////////////////////
    // Get value using pre-created slice
@@ -210,6 +218,7 @@ public:
    /////////////////////////////////////////////////////////////////////////////
    // Put value based on BinaryDataRefs key and value
    void putValue(DB_SELECT db, BinaryDataRef key, BinaryDataRef value);
+   void putValue(DB_SELECT db, BinaryData const & key, BinaryData const & value);
    void putValue(DB_SELECT db, DB_PREFIX pref, BinaryDataRef key, BinaryDataRef value);
    /////////////////////////////////////////////////////////////////////////////
    // Put value based on BinaryData key.  If batch writing, pass in the batch

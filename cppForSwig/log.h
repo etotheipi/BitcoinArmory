@@ -63,7 +63,7 @@ public:
 
    void flushStreams(void) {cout.flush(); fout_.flush();}
 
-   void newline(void) { fout_ << endl;  cout << endl;}
+   void newline(void) { *this << "\n"; }
    void close(void) { fout_.close(); }
 
    ofstream fout_;
@@ -140,8 +140,7 @@ public:
    static void SetLogFile(string logfile) { GetInstance(logfile.c_str()); }
 
    static void SetLogLevel(LogLevel level) { GetInstance().logLevel_ = (int)level; }
-   static void DisableStdOut(void) { GetInstance().ds_.enableStdOut(false);}
-   static void EnableStdOut(void) { GetInstance().ds_.enableStdOut(true);}
+   static void SuppressStdout(bool b=true) { GetInstance().ds_.enableStdOut(!b);}
 
    static string ToString(LogLevel level)
    {

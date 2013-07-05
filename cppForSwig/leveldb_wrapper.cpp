@@ -127,8 +127,8 @@ bool InterfaceToLDB::openDatabases(string basedir,
    genesisTxHash_ = genesisTxHash;
    genesisBlkHash_ = genesisBlkHash;
 
-   armoryDbType_ = dbtype;
-   dbPruneType_  = pruneType;
+   ARMDB.setArmoryDbType(dbtype);
+   ARMDB.setDbPruneType(pruneType);
 
 
    if(genesisBlkHash_.getSize() == 0 || magicBytes_.getSize() == 0)
@@ -167,14 +167,17 @@ bool InterfaceToLDB::openDatabases(string basedir,
          BitPacker<uint32_t> bitpack;
          uint32_t flagBytes = 0;
          bitpack.putBits((uint32_t)ARMORY_DB_VERSION, 4);
-         bitpack.putBits((uint32_t)armoryDbType_,     4);
-         bitpack.putBits((uint32_t)dbPruneType_,      4);
+         bitpack.putBits((uint32_t)dbtype,            4);
+         bitpack.putBits((uint32_t)pruneType,         4);
 
          BinaryWriter bw(48);
          bw.put_BinaryData(magicBytes_);
          bw.put_BitPacker(bitpack);
-         bw.put_uint32_t(0);
+         bw.put_uint32_t(0); // top blk height
          bw.put_BinaryData(genesisBlkHash_);
+
+         topBlockHeight_  = 0;
+         topBlockHash_    = genesisBlkHash_;
    
          putValue(CURRDB, getDBInfoKey(), bw.getData());
       }
@@ -189,9 +192,8 @@ bool InterfaceToLDB::openDatabases(string basedir,
          }
 
          BinaryRefReader brr(dbInfo);
-         uint32_t version = brr.get_uint32_t();
          BinaryData magic = brr.get_BinaryData(4);
-         uint32_t flags   = brr.get_uint32_t();
+         BitUnpacker<uint32_t> bitunpack(brr);
          topBlockHeight_  = brr.get_uint32_t();
          topBlockHash_    = brr.get_BinaryData(32);
       
@@ -202,34 +204,35 @@ bool InterfaceToLDB::openDatabases(string basedir,
             closeDatabases();
             return false;
          }
-         
+   
          // Check that we have the top hash (not sure about if we don't)
-         if( getValueRef(CURRDB, DB_PREFIX_HEADHASH, topBlockHash_).getSize() == 0 )
-         {
-            Log::ERR() << " Top block doesn't exist!";
-            closeDatabases();
-            return false;
-         }
+         //if( getValueRef(CURRDB, DB_PREFIX_HEADHASH, topBlockHash_).getSize() == 0 )
+         //{
+            //Log::ERR() << " Top block doesn't exist!";
+            //closeDatabases();
+            //return false;
+         //}
 
-         BitUnpacker<uint32_t> bitunpack(flags);
          uint32_t dbVer      = bitunpack.getBits(4);
          uint32_t dbType     = bitunpack.getBits(4);
          uint32_t pruneType  = bitunpack.getBits(4);
 
-         if(armoryDbType_ == ARMORY_DB_WHATEVER)
-            armoryDbType_ = (ARMORY_DB_TYPE)dbType;
-         else if(armoryDbType_ != dbType)
+         if(ARMDB.getArmoryDbType() == ARMORY_DB_WHATEVER)
+            ARMDB.setArmoryDbType((ARMORY_DB_TYPE)dbType);
+         else if(ARMDB.getArmoryDbType() != dbType)
          {
             Log::ERR() << "Mismatch in DB type";
+            Log::ERR() << "DB is in  mode: " << (uint32_t)ARMDB.getArmoryDbType();
+            Log::ERR() << "Expecting mode: " << dbType;
             closeDatabases();
             return false;
          }
 
-         if(dbPruneType_ == DB_PRUNE_WHATEVER)
-            dbPruneType_ = (DB_PRUNE_TYPE)pruneType;
-         else if(dbPruneType_ != pruneType)
+         if(ARMDB.getDbPruneType() == DB_PRUNE_WHATEVER)
+            ARMDB.setDbPruneType((DB_PRUNE_TYPE)pruneType);
+         else if(ARMDB.getDbPruneType() != pruneType)
          {
-            Log::ERR() << "Mismatch in DB type";
+            Log::ERR() << "Mismatch in pruning mode";
             closeDatabases();
             return false;
          }
@@ -240,41 +243,9 @@ bool InterfaceToLDB::openDatabases(string basedir,
    validDupByHeight_.clear();
    validDupByHeight_.reserve(topBlockHeight_ + 32768);
    validDupByHeight_.resize(topBlockHeight_+1);
+   dbIsOpen_ = true;
 
    return true;
-}
-
-
-/////////////////////////////////////////////////////////////////////////////
-uint32_t InterfaceToLDB::readAllStoredScriptHistory(
-                          map<BinaryData, StoredScriptHistory> & regScriptMap)
-{
-   SCOPED_TIMER("readAllStoredScriptHistory");
-   // Now read all the StoredAddressObjects objects to make it easy to query
-   // inclusion directly from RAM.
-   seekTo(BLKDATA, DB_PREFIX_SCRIPT, BinaryData(0));
-   startBlkDataIteration(DB_PREFIX_SCRIPT);
-   uint32_t lowestSync = UINT32_MAX;
-   while(advanceIterAndRead(BLKDATA, DB_PREFIX_SCRIPT))
-   {
-      if(!checkPrefixByte(DB_PREFIX_SCRIPT))
-         break;
-
-      StoredScriptHistory ssh;
-      readStoredScriptHistoryAtIter(ssh);
-      regScriptMap[ssh.uniqueKey_] = ssh;
-      lowestSync = min(lowestScannedUpTo_, ssh.alreadyScannedUpToBlk_);
-   }
-
-   return lowestSync;
-}
-
-
-////////////////////////////////////////////////////////////////////////////////
-void InterfaceToLDB::loadAllStoredHistory(void)
-{
-   SCOPED_TIMER("loadAllStoredHistory");
-   lowestScannedUpTo_ = readAllStoredScriptHistory(registeredSSHs_);
 }
 
 
@@ -286,11 +257,18 @@ void InterfaceToLDB::closeDatabases(void)
    for(uint32_t db=0; db<DB_COUNT; db++)
    {
       if( dbs_[db] != NULL)
+      {
          delete dbs_[db];
+         dbs_[db] = NULL;
+      }
       
       if( batches_[db] != NULL )
+      {
          delete batches_[db];
+         batches_[db] = NULL;
+      }
    }
+   dbIsOpen_ = false;
 }
 
 
@@ -455,6 +433,14 @@ void InterfaceToLDB::putValue(DB_SELECT db,
 }
 
 /////////////////////////////////////////////////////////////////////////////
+void InterfaceToLDB::putValue(DB_SELECT db, 
+                              BinaryData const & key, 
+                              BinaryData const & value)
+{
+   putValue(db, key.getRef(), value.getRef());
+}
+
+/////////////////////////////////////////////////////////////////////////////
 // Put value based on BinaryData key.  If batch writing, pass in the batch
 void InterfaceToLDB::putValue(DB_SELECT db, 
                                   DB_PREFIX prefix,
@@ -468,9 +454,9 @@ void InterfaceToLDB::putValue(DB_SELECT db,
 }
 
 /////////////////////////////////////////////////////////////////////////////
-// Put value based on BinaryData key.  If batch writing, pass in the batch
+// Delete value based on BinaryData key.  If batch writing, pass in the batch
 void InterfaceToLDB::deleteValue(DB_SELECT db, 
-                                     BinaryDataRef key)
+                                 BinaryDataRef key)
                  
 {
    string value;
@@ -487,6 +473,17 @@ void InterfaceToLDB::deleteValue(DB_SELECT db,
 }
 
 
+/////////////////////////////////////////////////////////////////////////////
+// Delete Put value based on BinaryData key.  If batch writing, pass in the batch
+void InterfaceToLDB::deleteValue(DB_SELECT db, 
+                                 DB_PREFIX prefix,
+                                 BinaryDataRef key)
+{
+   BinaryWriter bw;
+   bw.put_uint8_t((uint8_t)prefix);
+   bw.put_BinaryData(key);
+   deleteValue(db, bw.getDataRef());
+}
 
 /////////////////////////////////////////////////////////////////////////////
 // Not sure why this is useful over getHeaderMap() ... this iterates over
@@ -733,6 +730,41 @@ void InterfaceToLDB::getStoredScriptHistoryByRawScript(
    BinaryData uniqueKey = BtcUtils::getTxOutScriptUniqueKey(script);
    getStoredScriptHistory(uniqueKey, ssh);
 }
+
+
+/////////////////////////////////////////////////////////////////////////////
+uint32_t InterfaceToLDB::readAllStoredScriptHistory(
+                          map<BinaryData, StoredScriptHistory> & regScriptMap)
+{
+   SCOPED_TIMER("readAllStoredScriptHistory");
+   // Now read all the StoredAddressObjects objects to make it easy to query
+   // inclusion directly from RAM.
+   seekTo(BLKDATA, DB_PREFIX_SCRIPT, BinaryData(0));
+   startBlkDataIteration(DB_PREFIX_SCRIPT);
+   uint32_t lowestSync = UINT32_MAX;
+   while(advanceIterAndRead(BLKDATA, DB_PREFIX_SCRIPT))
+   {
+      if(!checkPrefixByte(DB_PREFIX_SCRIPT))
+         break;
+
+      StoredScriptHistory ssh;
+      readStoredScriptHistoryAtIter(ssh);
+      regScriptMap[ssh.uniqueKey_] = ssh;
+      lowestSync = min(lowestScannedUpTo_, ssh.alreadyScannedUpToBlk_);
+   }
+
+   return lowestSync;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+void InterfaceToLDB::loadAllStoredHistory(void)
+{
+   SCOPED_TIMER("loadAllStoredHistory");
+   lowestScannedUpTo_ = readAllStoredScriptHistory(registeredSSHs_);
+}
+
+
 /*
 /////////////////////////////////////////////////////////////////////////////
 void InterfaceToLDB::readStoredScriptHistory(StoredScriptHistory & regAddr,
@@ -2006,21 +2038,20 @@ bool InterfaceToLDB::markTxEntryValid(uint32_t height,
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-list< pair<BinaryData, BinaryData> > InterfaceToLDB::getAllDatabaseEntries(DB_SELECT db)
+KVLIST InterfaceToLDB::getAllDatabaseEntries(DB_SELECT db)
 {
    SCOPED_TIMER("getAllDatabaseEntries");
    KVLIST outList;
-   KVITER outIter;
+   outList.reserve(100);
 
    iters_[db] = dbs_[db]->NewIterator(leveldb::ReadOptions());
    iters_[db]->SeekToFirst();
    for (; iters_[db]->Valid(); iters_[db]->Next())
    {
+      size_t last = outList.size();
       outList.push_back( pair<BinaryData, BinaryData>() );
-      outIter = outList.end();
-      outIter--;
-      sliceToBinaryData(iters_[db]->key(),   outIter->first);
-      sliceToBinaryData(iters_[db]->value(), outIter->second);
+      sliceToBinaryData(iters_[db]->key(),   outList[last].first);
+      sliceToBinaryData(iters_[db]->value(), outList[last].second);
    }
    return outList;
 }
@@ -2032,11 +2063,16 @@ void InterfaceToLDB::printAllDatabaseEntries(DB_SELECT db)
    SCOPED_TIMER("printAllDatabaseEntries");
    cout << "Printing DB entries... (DB=" << db << ")" << endl;
    KVLIST dbList = getAllDatabaseEntries(db);
-   KVITER dbIter;
-   for(dbIter = dbList.begin();  dbIter != dbList.end(); dbIter++)
+   if(dbList.size() == 0)
    {
-      cout << "   \"" << dbIter->first.toHexStr() << "\"  ";
-      cout << "   \"" << dbIter->second.toHexStr() << "\"  " << endl;
+      cout << "   <no entries in db>" << endl;
+      return;
+   }
+
+   for(uint32_t i=0; i<dbList.size(); i++)
+   {
+      cout << "   \"" << dbList[i].first.toHexStr() << "\"  ";
+      cout << "   \"" << dbList[i].second.toHexStr() << "\"  " << endl;
    }
 }
 

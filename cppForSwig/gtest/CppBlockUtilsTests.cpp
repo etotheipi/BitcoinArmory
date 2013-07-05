@@ -3042,83 +3042,43 @@ TEST_F(StoredBlockObjTest, SHeaderFullBlock)
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
-#if defined(_MSC_VER) || defined(__MINGW32__)
-class LevelDBTest : public ::testing::Test
-{
-protected:
-   virtual void SetUp(void) 
-   {
-      Log::ERR() << "Have not implemented LevelDB tests in Windows!";
-      azjc#kslInduceCompileErrorklnvjkl;
-   }
-};
-#else
-class LevelDBTest : public ::testing::Test
-{
-protected:
-   virtual void SetUp(void) 
-   {
-      iface_ = LevelDBWrapper::GetInterfacePtr();
-   }
-
-   virtual void TearDown(void)
-   {
-      // This seem to be the best way to remove a dir tree in C++ (in Linux)
-      cout << "Deleting ldbtestdir directory" << endl;
-      system("rm -rf ./ldbtestdir");
-      system("mkdir ldbtestdir");
-   }
-
-   InterfaceToLDB* iface_;
-};
-#endif
-
-
-////////////////////////////////////////////////////////////////////////////////
-TEST_F(LevelDBTest, OpenClose)
-{
-   iface_->openDatabases( string("ldbtestdir"),
-                          READHEX(MAINNET_GENESIS_HASH_HEX),
-                          READHEX(MAINNET_GENESIS_TX_HASH_HEX),
-                          READHEX(MAINNET_MAGIC_BYTES),
-                          ARMORY_DB_FULL,
-                          DB_PRUNE_NONE);
-
-                          
-   KVLIST HList = iface_->getAllDatabaseEntries(HEADERS);
-   KVLIST BList = iface_->getAllDatabaseEntries(BLKDATA);
-
-   // 0123 4567 0123 4567
-   // 0000 0010 0001 ---- ---- ---- ---- ----
-   BinaryData magic = READHEX(MAINNET_MAGIC_BYTES);
-   BinaryData flags = READHEX("00001002");
-   BinaryData zeros = READHEX("00000000");
-   BinaryData ghash = READHEX(MAINNET_GENESIS_HASH_HEX);
-
-   for(KVITER it=HList.begin(); it!=HList.end(); it++)
-   {
-      EXPECT_EQ(it->first,  READHEX("00"));
-      EXPECT_EQ(it->second, magic+flags+zeros+ghash);
-   }
-
-   for(KVITER it=BList.begin(); it!=BList.end(); it++)
-   {
-      EXPECT_EQ(it->first,  READHEX("00"));
-      EXPECT_EQ(it->second, magic+flags+zeros+ghash);
-   }
-                         
-   iface_->closeDatabases();
-}
-
-
-
-////////////////////////////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////////////////////////////
 class TxRefTest : public ::testing::Test
 {
 protected:
 };
 
+
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(TxRefTest, TxRefNoInit)
+{
+   TxRef txr;
+   EXPECT_FALSE(txr.isInitialized());
+   //EXPECT_FALSE(txr.isBound());
+
+   EXPECT_EQ(txr.getDBKey(),     BinaryData(0));
+   EXPECT_EQ(txr.getDBKeyRef(),  BinaryDataRef());
+   //EXPECT_EQ(txr.getBlockTimestamp(), UINT32_MAX);
+   EXPECT_EQ(txr.getBlockHeight(),    UINT32_MAX);
+   EXPECT_EQ(txr.getBlockDupID(),     UINT8_MAX );
+   EXPECT_EQ(txr.getBlockTxIndex(),   UINT16_MAX);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(TxRefTest, TxRefKeyParts)
+{
+   TxRef txr;
+   BinaryData    newKey = READHEX("7fe3c4020f00");
+   BinaryDataRef newRef(newKey);
+
+
+   txr.setDBKey(newKey);
+   EXPECT_EQ(txr.getDBKey(),    newKey);
+   EXPECT_EQ(txr.getDBKeyRef(), newRef);
+
+   EXPECT_EQ(txr.getBlockHeight(),  0x02c4e3);
+   EXPECT_EQ(txr.getBlockDupID(),   127);
+   EXPECT_EQ(txr.getBlockTxIndex(), 15);
+}
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -3321,44 +3281,271 @@ TEST_F(DISABLED_PartialMerkleTest, EmptyTree)
    
 }
 
-////////////////////////////////////////////////////////////////////////////////
-TEST_F(TxRefTest, TxRefNoInit)
-{
-   TxRef txr;
-   EXPECT_FALSE(txr.isInitialized());
-   EXPECT_FALSE(txr.isBound());
 
-   EXPECT_EQ(txr.getDBKey(),     BinaryData(0));
-   EXPECT_EQ(txr.getDBKeyRef(),  BinaryDataRef());
-   //EXPECT_EQ(txr.getBlockTimestamp(), UINT32_MAX);
-   EXPECT_EQ(txr.getBlockHeight(),    UINT32_MAX);
-   EXPECT_EQ(txr.getBlockDupID(),     UINT8_MAX );
-   EXPECT_EQ(txr.getBlockTxIndex(),   UINT16_MAX);
-}
+
+
+
 
 ////////////////////////////////////////////////////////////////////////////////
-TEST_F(TxRefTest, TxRefKeyParts)
+////////////////////////////////////////////////////////////////////////////////
+#if defined(_MSC_VER) || defined(__MINGW32__)
+class LevelDBTest : public ::testing::Test
 {
-   TxRef txr;
-   BinaryData    newKey = READHEX("7fe3c4020f00");
-   BinaryDataRef newRef(newKey);
+protected:
+   virtual void SetUp(void) 
+   {
+      Log::ERR() << "Have not implemented LevelDB tests in Windows!";
+      azjc#ksl_Induce_Compile_Error_klnvjkl;
+   }
+};
+#else
+class LevelDBTest : public ::testing::Test
+{
+protected:
+   virtual void SetUp(void) 
+   {
+      iface_ = LevelDBWrapper::GetInterfacePtr();
+      magic_ = READHEX(MAINNET_MAGIC_BYTES);
+      ghash_ = READHEX(MAINNET_GENESIS_HASH_HEX);
+      gentx_ = READHEX(MAINNET_GENESIS_TX_HASH_HEX);
+      zeros_ = READHEX("00000000");
+   }
+
+   virtual void TearDown(void)
+   {
+      // This seem to be the best way to remove a dir tree in C++ (in Linux)
+      system("rm -rf ./ldbtestdir/level*");
+   }
+
+   void addOutPairH(BinaryData key, BinaryData val)
+   { 
+      expectOutH_.push_back( pair<BinaryData,BinaryData>(key,val));
+   }
+
+   void addOutPairB(BinaryData key, BinaryData val)
+   { 
+      expectOutB_.push_back( pair<BinaryData,BinaryData>(key,val));
+   }
+
+   bool compareKVListRange(uint32_t startH, uint32_t endplus1H,
+                           uint32_t startB, uint32_t endplus1B)
+   {
+      KVLIST fromDB = iface_->getAllDatabaseEntries(HEADERS);
+
+      for(uint32_t i=startH; i<endplus1H; i++)
+         if(fromDB[i].first  != expectOutH_[i].first || 
+            fromDB[i].second != expectOutH_[i].second)
+            return false;
+
+      fromDB = iface_->getAllDatabaseEntries(BLKDATA);
+
+      for(uint32_t i=startB; i<endplus1B; i++)
+         if(fromDB[i].first  != expectOutB_[i].first || 
+            fromDB[i].second != expectOutB_[i].second)
+            return false;
+
+      return true;
+   }
+
+   InterfaceToLDB* iface_;
+   vector<pair<BinaryData, BinaryData> > expectOutH_;
+   vector<pair<BinaryData, BinaryData> > expectOutB_;
+
+   BinaryData magic_;
+   BinaryData ghash_;
+   BinaryData gentx_;
+   BinaryData zeros_;
+};
+#endif
 
 
-   txr.setDBKey(newKey);
-   EXPECT_EQ(txr.getDBKey(),    newKey);
-   EXPECT_EQ(txr.getDBKeyRef(), newRef);
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(LevelDBTest, OpenClose)
+{
+   iface_->openDatabases( string("ldbtestdir"),
+                          ghash_,
+                          gentx_,
+                          magic_,
+                          ARMORY_DB_FULL,
+                          DB_PRUNE_NONE);
 
-   EXPECT_EQ(txr.getBlockHeight(),  0x02c4e3);
-   EXPECT_EQ(txr.getBlockDupID(),   127);
-   EXPECT_EQ(txr.getBlockTxIndex(), 15);
+   EXPECT_EQ(iface_->getTopBlockHeight(), 0);
+   EXPECT_EQ(iface_->getTopBlockHash(), READHEX(MAINNET_GENESIS_HASH_HEX));
+                          
+   KVLIST HList = iface_->getAllDatabaseEntries(HEADERS);
+   KVLIST BList = iface_->getAllDatabaseEntries(BLKDATA);
+
+   // 0123 4567 0123 4567
+   // 0000 0010 0001 ---- ---- ---- ---- ----
+   BinaryData flags = READHEX("00001002");
+
+   for(uint32_t i=0; i<HList.size(); i++)
+   {
+      EXPECT_EQ(HList[i].first,  READHEX("00"));
+      EXPECT_EQ(BList[i].second, magic_ + flags + zeros_ + ghash_);
+   }
+
+   for(uint32_t i=0; i<BList.size(); i++)
+   {
+      EXPECT_EQ(HList[i].first,  READHEX("00"));
+      EXPECT_EQ(BList[i].second, magic_ + flags + zeros_ + ghash_);
+   }
+                         
+   iface_->closeDatabases();
 }
 
 
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(LevelDBTest, OpenCloseOpenNominal)
+{
+   // 0123 4567 0123 4567
+   // 0000 0010 0001 ---- ---- ---- ---- ----
+   BinaryData flags = READHEX("00001002");
+
+   iface_->openDatabases( string("ldbtestdir"),
+                          ghash_,
+                          gentx_,
+                          magic_,
+                          ARMORY_DB_FULL,
+                          DB_PRUNE_NONE);
 
 
+   iface_->closeDatabases();
+
+   iface_->openDatabases( string("ldbtestdir"),
+                          ghash_,
+                          gentx_,
+                          magic_,
+                          ARMORY_DB_FULL,
+                          DB_PRUNE_NONE);
+   ASSERT_TRUE(iface_->databasesAreOpen());
+
+   KVLIST HList = iface_->getAllDatabaseEntries(HEADERS);
+   KVLIST BList = iface_->getAllDatabaseEntries(BLKDATA);
+
+   for(uint32_t i=0; i<HList.size(); i++)
+   {
+      EXPECT_EQ(HList[i].first,  READHEX("00"));
+      EXPECT_EQ(BList[i].second, magic_ + flags + zeros_ + ghash_);
+   }
+
+   for(uint32_t i=0; i<BList.size(); i++)
+   {
+      EXPECT_EQ(HList[i].first,  READHEX("00"));
+      EXPECT_EQ(BList[i].second, magic_ + flags + zeros_ + ghash_);
+   }
+                         
+   iface_->closeDatabases();
+}
 
 
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(LevelDBTest, OpenCloseOpenMismatch)
+{
+   iface_->openDatabases( string("ldbtestdir"),
+                          ghash_,
+                          gentx_,
+                          magic_,
+                          ARMORY_DB_FULL,
+                          DB_PRUNE_NONE);
+   EXPECT_TRUE(iface_->databasesAreOpen());
+   iface_->closeDatabases();
 
+   iface_->openDatabases( string("ldbtestdir"),
+                          ghash_.getSliceCopy(0, 31) + READHEX("00"),
+                          gentx_,
+                          magic_,
+                          ARMORY_DB_FULL,
+                          DB_PRUNE_NONE);
+   EXPECT_TRUE(iface_->databasesAreOpen());
+   iface_->closeDatabases();
+
+   iface_->openDatabases( string("ldbtestdir"),
+                          ghash_,
+                          gentx_,
+                          magic_.getSliceCopy(0,3) + READHEX("00"),
+                          ARMORY_DB_FULL,
+                          DB_PRUNE_NONE);
+   EXPECT_FALSE(iface_->databasesAreOpen());
+
+   iface_->openDatabases( string("ldbtestdir"),
+                          ghash_,
+                          gentx_,
+                          magic_,
+                          ARMORY_DB_SUPER,
+                          DB_PRUNE_WHATEVER);
+   EXPECT_FALSE(iface_->databasesAreOpen());
+
+   iface_->openDatabases( string("ldbtestdir"),
+                          ghash_,
+                          gentx_,
+                          magic_);
+   ASSERT_TRUE( iface_->databasesAreOpen());
+
+   EXPECT_EQ(   ARMDB.getArmoryDbType(), ARMORY_DB_FULL);
+   EXPECT_EQ(   ARMDB.getDbPruneType(),  DB_PRUNE_NONE);
+
+   KVLIST HList = iface_->getAllDatabaseEntries(HEADERS);
+   KVLIST BList = iface_->getAllDatabaseEntries(BLKDATA);
+
+   EXPECT_EQ(HList.begin()->first,  READHEX("00"));
+   EXPECT_EQ(BList.begin()->first,  READHEX("00"));
+                         
+   iface_->closeDatabases();
+
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(LevelDBTest, PutGetDelete)
+{
+   BinaryData flags = READHEX("00001002");
+
+   iface_->openDatabases( string("ldbtestdir"),
+                          ghash_,
+                          gentx_,
+                          magic_,
+                          ARMORY_DB_FULL,
+                          DB_PRUNE_NONE);
+   ASSERT_TRUE(iface_->databasesAreOpen());
+   
+   DB_PREFIX TXDATA = DB_PREFIX_TXDATA;
+   BinaryData DBINFO = iface_->getDBInfoKey();
+   BinaryData PREFIX = WRITE_UINT8_LE((uint8_t)TXDATA);
+   BinaryData val0 = magic_+flags+zeros_+ghash_;
+   BinaryData commonValue = READHEX("abcd1234");
+   BinaryData keyAB = READHEX("0000");
+   BinaryData nothing = BinaryData(0);
+
+   addOutPairH(DBINFO,         val0);
+
+   addOutPairB(DBINFO,         val0);
+   addOutPairB(         keyAB, commonValue);
+   addOutPairB(PREFIX + keyAB, commonValue);
+
+   ASSERT_TRUE( compareKVListRange(0,1, 0,1));
+
+   iface_->putValue(BLKDATA, keyAB, commonValue);
+   ASSERT_TRUE( compareKVListRange(0,1, 0,2));
+
+   iface_->putValue(BLKDATA, DB_PREFIX_TXDATA, keyAB, commonValue);
+   ASSERT_TRUE( compareKVListRange(0,1, 0,3));
+
+   // Now test a bunch of get* methods
+   ASSERT_EQ( iface_->getValue(   BLKDATA, PREFIX+keyAB),           commonValue);
+   ASSERT_EQ( iface_->getValue(   BLKDATA, DB_PREFIX_DBINFO, nothing),  val0);
+   ASSERT_EQ( iface_->getValue(   BLKDATA, DBINFO),                 val0);
+   ASSERT_EQ( iface_->getValueRef(BLKDATA, PREFIX+keyAB),           commonValue);
+   ASSERT_EQ( iface_->getValueRef(BLKDATA, TXDATA, keyAB),          commonValue);
+   ASSERT_EQ( iface_->getValueReader(BLKDATA, PREFIX+keyAB).getRawRef(), commonValue);
+   ASSERT_EQ( iface_->getValueReader(BLKDATA, TXDATA, keyAB).getRawRef(),commonValue);
+
+   iface_->deleteValue(BLKDATA, DB_PREFIX_TXDATA, keyAB);
+   ASSERT_TRUE( compareKVListRange(0,1, 0,2));
+
+   iface_->deleteValue(BLKDATA, PREFIX+ keyAB);
+   ASSERT_TRUE( compareKVListRange(0,1, 0,1));
+}
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -3372,7 +3559,7 @@ GTEST_API_ int main(int argc, char **argv)
    // Setup the log file 
    Log::SetLogFile("cppTestsLog.txt");
    Log::SetLogLevel(LogDebug4);
-   //Log::DisableStdOut();
+   Log::SuppressStdout();
 
    testing::InitGoogleTest(&argc, argv);
    int exitCode = RUN_ALL_TESTS();
