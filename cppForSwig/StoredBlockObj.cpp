@@ -495,8 +495,8 @@ void StoredTx::unserializeDBValue(BinaryRefReader & brr)
    //    TxVersion      2 bits
    //    HowTxSer       4 bits   (FullTxOut, TxNoTxOuts, numTxOutOnly)
    BitUnpacker<uint16_t> bitunpack(brr); // flags
-   unserArmVer_  = bitunpack.getBits(4);
-   unserTxVer_   = bitunpack.getBits(2);
+   unserArmVer_  =                    bitunpack.getBits(4);
+   unserTxVer_   =                    bitunpack.getBits(2);
    unserTxType_  = (TX_SERIALIZE_TYPE)bitunpack.getBits(4);
 
    if(unserArmVer_ != ARMORY_DB_VERSION)

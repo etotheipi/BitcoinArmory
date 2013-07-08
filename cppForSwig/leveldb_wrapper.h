@@ -244,8 +244,6 @@ public:
    /////////////////////////////////////////////////////////////////////////////
    void startBlkDataIteration(DB_PREFIX prefix);
 
-   /////////////////////////////////////////////////////////////////////////////
-
 
    /////////////////////////////////////////////////////////////////////////////
    void getNextBlock(void);
@@ -402,6 +400,19 @@ public:
    bool markBlockHeaderValid(BinaryDataRef headHash);
    bool markBlockHeaderValid(uint32_t height, uint8_t dup);
    bool markTxEntryValid(uint32_t height, uint8_t dupID, uint16_t txIndex);
+
+   /////////////////////////////////////////////////////////////////////////////
+   bool addBlockToDB(StoredHeader const & sbh, bool notNecessarilyValid=false);
+   bool addBlockToDB(BinaryDataRef rawBlock, bool notNecessarilyValid=false);
+
+   /////////////////////////////////////////////////////////////////////////////
+   void computeUndoDataFromRawBlock(StoredHeader const & sbh, 
+                                    StoredUndoData & sud);
+   void computeUndoDataFromRawBlock(BinaryDataRef    rawBlock,
+                                    StoredUndoData & sud);
+   bool computeUndoDataForBlock(uint32_t height, uint8_t dupID=0xff);
+
+   bool revertBlock(uint32_t height, uint8_t dupID, StoredUndoData* sud=NULL);
 
    /////////////////////////////////////////////////////////////////////////////
    inline bool checkPrefixByte(DB_PREFIX prefix, bool rewindWhenDone=false)

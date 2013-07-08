@@ -2037,7 +2037,59 @@ bool InterfaceToLDB::markTxEntryValid(uint32_t height,
    return true;
 }
 
+
+
 ////////////////////////////////////////////////////////////////////////////////
+bool InterfaceToLDB::addBlockToDB(StoredHeader const & sbh, 
+                                  bool notNecessarilyValid)
+{
+   // Assumptions:
+   //  -- We have already determined the correct height and dup for the header 
+   //     and we assume it's part of the sbh object
+   //  -- We don't know if it's been added to the databases yet.
+   //
+   // Things to do when adding a block:
+   //
+   //  -- PREPARATION:
+   //    -- Create list of all OutPoints affected, and scripts touched
+   //    -- If not supernode, then check above data against registeredSSHs_
+   //    -- Fetch all StoredTxOuts from DB about to be removed
+   //    -- Get/create TXHINT entries for all tx in block
+   //    -- Compute all script keys and get/create all StoredScriptHistory objs
+   //    -- Check if any multisig scripts are affected, if so get those objs
+   //    -- If pruning, create StoredUndoData from TxOuts about to be removed
+   //    -- Modify any Tx/TxOuts in the SBH tree to accommodate any tx in this 
+   //       block that affect any other tx in this block
+   //
+   //  -- Check if the block {hgt,dup} has already been written to BLKDATA DB
+   //  -- Check if the header has already been added to HEADERS DB
+   //  
+   //  -- BATCH (HEADERS)
+   //    -- Add header to HEADHASH list
+   //    -- Add header to HEADHGT list
+   //    -- Update validDupByHeight_
+   //    -- Update DBINFO top block data
+   //
+   //  -- BATCH (BLKDATA)
+   //    -- Modify StoredTxOut with spentness info (or prep a delete operation
+   //       if pruning).
+   //    -- Modify StoredScriptHistory objs same as above.  
+   //    -- Modify StoredScriptHistory multisig objects as well.
+   //    -- Update SSH objects alreadyScannedUpToBlk_, if necessary
+   //    -- Write all new TXDATA entries for {hgt,dup}
+   //    -- If pruning, write StoredUndoData objs to DB
+   //    -- Update DBINFO top block data
+   //    
+}
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+// This is used only for debugging and testing with small database sizes.
+// For intance, the reorg unit test only has a couple blocks, a couple 
+// addresses and a dozen transactions.  We can easily predict and construct
+// the output of this function or analyze the output by eye.
 KVLIST InterfaceToLDB::getAllDatabaseEntries(DB_SELECT db)
 {
    SCOPED_TIMER("getAllDatabaseEntries");

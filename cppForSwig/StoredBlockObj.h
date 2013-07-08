@@ -330,6 +330,54 @@ public:
 
 
 ////////////////////////////////////////////////////////////////////////////////
+class StoredUndoData
+{
+public:
+   StoredUndoData(void) {}
+
+   void unserializeDBValue(BinaryRefReader & brr);
+   void   serializeDBValue(BinaryWriter    & bw ) const;
+
+   uint32_t  blockHash_;
+   uint32_t  blockHeight_;
+   uint8_t   blockDupID_;
+
+   vector<StoredTxOut>  stxOutsRemovedByBlock_;
+   vector<OutPoint>     outPointsAddedByBlock_;
+};
+
+
+////////////////////////////////////////////////////////////////////////////////
+class StoredTxHints
+{
+public:
+   StoredTxHints(void) {}
+
+
+   void setTxEntryValid(uint32_t height, uint8_t dupID, uint16_t txIndex);
+   void setTxEntryValid(BinaryData dbKey6B_);
+
+   void unserializeDBValue(BinaryRefReader & brr);
+   void   serializeDBValue(BinaryWriter    & bw ) const;
+
+
+   BinaryData           txHashPrefix_; 
+   vector<BinaryData>   dbKeyVector_;
+};
+
+////////////////////////////////////////////////////////////////////////////////
+class StoredHeadHgtLookup
+{
+   void unserializeDBValue(BinaryRefReader & brr);
+   void   serializeDBValue(BinaryWriter    & bw ) const;
+
+   uint32_t             height_;
+   vector<BinaryData>   dupAndHashList_;
+};
+
+
+
+////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 // Basically making stuff globally accessible through DBUtils singleton
 ////////////////////////////////////////////////////////////////////////////////
