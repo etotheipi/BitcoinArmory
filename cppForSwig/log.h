@@ -7,6 +7,18 @@
 #include <iostream>
 #include <stdio.h>
 
+
+#define LOGERR    (Log::ERR()    << "(" << __FILE__ << ":" << __LINE__ << ") ")
+#define LOGWARN   (Log::WARN()   << "(" << __FILE__ << ":" << __LINE__ << ") ")
+#define LOGINFO   (Log::INFO()   << "(" << __FILE__ << ":" << __LINE__ << ") ")
+#define LOGDEBUG  (Log::DEBUG()  << "(" << __FILE__ << ":" << __LINE__ << ") ")
+#define LOGDEBUG1 (Log::DEBUG1() << "(" << __FILE__ << ":" << __LINE__ << ") ")
+#define LOGDEBUG2 (Log::DEBUG2() << "(" << __FILE__ << ":" << __LINE__ << ") ")
+#define LOGDEBUG3 (Log::DEBUG3() << "(" << __FILE__ << ":" << __LINE__ << ") ")
+#define LOGDEBUG4 (Log::DEBUG4() << "(" << __FILE__ << ":" << __LINE__ << ") ")
+
+
+
 using namespace std;
 
 inline string NowTime();

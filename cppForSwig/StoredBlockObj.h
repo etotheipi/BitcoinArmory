@@ -361,8 +361,8 @@ public:
    void   serializeDBValue(BinaryWriter    & bw ) const;
 
 
-   BinaryData           txHashPrefix_; 
-   vector<BinaryData>   dbKeyVector_;
+   BinaryData         txHashPrefix_; 
+   list<BinaryData>   dbKeyList_;
 };
 
 ////////////////////////////////////////////////////////////////////////////////

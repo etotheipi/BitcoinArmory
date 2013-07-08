@@ -14,11 +14,12 @@ vector<InterfaceToLDB*> LevelDBWrapper::ifaceVect_(0);
 ////////////////////////////////////////////////////////////////////////////////
 bool InterfaceToLDB::checkStatus(leveldb::Status stat, bool warn)
 {
-   if( stat.ok() )
+   lastStatus_ = stat;
+   if( lastStatus_.ok() )
       return true;
    
    if(warn)
-      Log::ERR() << "***LevelDB Error: " << stat.ToString();
+      LOGWARN << "***LevelDB Error: " << lastStatus_.ToString();
 
    return false;
 }
@@ -89,7 +90,7 @@ InterfaceToLDB::~InterfaceToLDB(void)
 {
    for(uint32_t db=0; db<(uint32_t)DB_COUNT; db++)
       if(batchStarts_[db] > 0)
-         Log::ERR() << "Unwritten batch in progress during shutdown";
+         LOGERR << "Unwritten batch in progress during shutdown";
 
    closeDatabases();
 }
@@ -133,8 +134,8 @@ bool InterfaceToLDB::openDatabases(string basedir,
 
    if(genesisBlkHash_.getSize() == 0 || magicBytes_.getSize() == 0)
    {
-      Log::ERR() << " must set magic bytes and genesis block";
-      Log::ERR() << "           before opening databases.";
+      LOGERR << " must set magic bytes and genesis block";
+      LOGERR << "           before opening databases.";
       return false;
    }
 
@@ -151,7 +152,7 @@ bool InterfaceToLDB::openDatabases(string basedir,
       opts.create_if_missing = true;
       leveldb::Status stat = leveldb::DB::Open(opts, dbPaths_[db],  &dbs_[db]);
       if(!checkStatus(stat))
-         Log::ERR() << "Failed to open database! DB: " << db;
+         LOGERR << "Failed to open database! DB: " << db;
 
       // Create an iterator that we'll use for ust about all DB seek ops
       iters_[db] = dbs_[db]->NewIterator(leveldb::ReadOptions());
@@ -186,7 +187,7 @@ bool InterfaceToLDB::openDatabases(string basedir,
          // Else we read the DB info and make sure everything matches up
          if(dbInfo.getSize() < 40)
          {
-            Log::ERR() << "Invalid DatabaseInfo data";
+            LOGERR << "Invalid DatabaseInfo data";
             closeDatabases();
             return false;
          }
@@ -200,7 +201,7 @@ bool InterfaceToLDB::openDatabases(string basedir,
          // Check that the magic bytes are correct
          if(magicBytes_ != magic)
          {
-            Log::ERR() << " Magic bytes mismatch!  Different blkchain?";
+            LOGERR << " Magic bytes mismatch!  Different blkchain?";
             closeDatabases();
             return false;
          }
@@ -208,7 +209,7 @@ bool InterfaceToLDB::openDatabases(string basedir,
          // Check that we have the top hash (not sure about if we don't)
          //if( getValueRef(CURRDB, DB_PREFIX_HEADHASH, topBlockHash_).getSize() == 0 )
          //{
-            //Log::ERR() << " Top block doesn't exist!";
+            //LOGERR << " Top block doesn't exist!";
             //closeDatabases();
             //return false;
          //}
@@ -221,9 +222,9 @@ bool InterfaceToLDB::openDatabases(string basedir,
             ARMDB.setArmoryDbType((ARMORY_DB_TYPE)dbType);
          else if(ARMDB.getArmoryDbType() != dbType)
          {
-            Log::ERR() << "Mismatch in DB type";
-            Log::ERR() << "DB is in  mode: " << (uint32_t)ARMDB.getArmoryDbType();
-            Log::ERR() << "Expecting mode: " << dbType;
+            LOGERR << "Mismatch in DB type";
+            LOGERR << "DB is in  mode: " << (uint32_t)ARMDB.getArmoryDbType();
+            LOGERR << "Expecting mode: " << dbType;
             closeDatabases();
             return false;
          }
@@ -232,7 +233,7 @@ bool InterfaceToLDB::openDatabases(string basedir,
             ARMDB.setDbPruneType((DB_PRUNE_TYPE)pruneType);
          else if(ARMDB.getDbPruneType() != pruneType)
          {
-            Log::ERR() << "Mismatch in pruning mode";
+            LOGERR << "Mismatch in pruning mode";
             closeDatabases();
             return false;
          }
@@ -280,7 +281,7 @@ void InterfaceToLDB::startBatch(DB_SELECT db)
    {
       if(batches_[db] != NULL)
       {
-         Log::ERR() << "Trying to startBatch but we already have one";
+         LOGERR << "Trying to startBatch but we already have one";
          delete batches_[db];
       }
 
@@ -306,7 +307,7 @@ void InterfaceToLDB::commitBatch(DB_SELECT db)
    {
       if(batches_[db] == NULL)
       {
-         Log::ERR() << "Trying to commitBatch but we don't have one";
+         LOGERR << "Trying to commitBatch but we don't have one";
          return;
       }
 
@@ -533,7 +534,7 @@ bool InterfaceToLDB::advanceToNextBlock(bool skip)
       if(!skip) 
          it->Next();
    } 
-   Log::ERR() << "we should never get here...";
+   LOGERR << "we should never get here...";
    return false;
 }
 
@@ -591,7 +592,7 @@ bool InterfaceToLDB::seekToTxByHash(BinaryDataRef txHash)
 
    if(existingHints.getSize() == 0)
    {
-      Log::ERR() << "No tx in DB with hash: " << txHash.toHexStr();
+      LOGERR << "No tx in DB with hash: " << txHash.toHexStr();
       return false;
    }
 
@@ -610,7 +611,7 @@ bool InterfaceToLDB::seekToTxByHash(BinaryDataRef txHash)
       // We don't actually know for sure whether the seekTo() found a Tx or TxOut
       if(hint != currReadKey_.getRawRef().getSliceRef(1,6))
       {
-         Log::ERR() << "TxHint referenced a BLKDATA tx that doesn't exist";
+         LOGERR << "TxHint referenced a BLKDATA tx that doesn't exist";
          continue;
       }
 
@@ -622,7 +623,7 @@ bool InterfaceToLDB::seekToTxByHash(BinaryDataRef txHash)
       }
    }
 
-   Log::ERR() << "No tx in DB with hash: " << txHash.toHexStr();
+   LOGERR << "No tx in DB with hash: " << txHash.toHexStr();
    resetIterReaders();
    return false;
 }
@@ -689,7 +690,7 @@ BLKDATA_TYPE InterfaceToLDB::readBlkDataKey5B(
       return BLKDATA_TXOUT;
    else
    {
-      Log::ERR() << "Unexpected bytes remaining: " << brr.getSizeRemaining();
+      LOGERR << "Unexpected bytes remaining: " << brr.getSizeRemaining();
       return NOT_BLKDATA;
    }
 }
@@ -775,7 +776,7 @@ void InterfaceToLDB::readStoredScriptHistory(StoredScriptHistory & regAddr,
 
    if(!iter->Valid())
    { 
-      Log::ERR() << "Tried to access invalid iterator!";
+      LOGERR << "Tried to access invalid iterator!";
       return;
    }
 
@@ -797,7 +798,7 @@ bool InterfaceToLDB::getUnspentTxOut( BinaryData & const ldbKey8B,
    bool isFound = seekTo(BLKDATA, DB_PREFIX_TXDATA, txRef);
    if(!isFound)
    {
-      Log::ERR() << " could not find transaction in DB";
+      LOGERR << " could not find transaction in DB";
       return false;
    }
 
@@ -809,7 +810,7 @@ bool InterfaceToLDB::getUnspentTxOut( BinaryData & const ldbKey8B,
    BinaryRefReader brr = getValueReader(BLKDATA, DB_PREFIX_TXDATA, txoData[i]);
    if(brr.getSize()==0)
    {
-      Log::ERR() << " could not find TxOut in DB";
+      LOGERR << " could not find TxOut in DB";
       return false;
    }
 
@@ -864,7 +865,7 @@ bool InterfaceToLDB::readFullTx(Tx & tx, leveldb::Iterator* iter=NULL)
    readBlkDataTxKey(currReadKey_, tx);
    if(!tx.isInitialized())
    {
-      Log::ERR() << "iterator is not pointing to a Tx";
+      LOGERR << "iterator is not pointing to a Tx";
       return false;
    }
 
@@ -908,7 +909,7 @@ bool InterfaceToLDB::advanceIterAndRead(leveldb::Iterator* iter)
 bool InterfaceToLDB::advanceIterAndRead(DB_SELECT db, DB_PREFIX prefix)
 {
    if(iterIsDirty_[db])
-      Log::ERR() << "DB has been changed since this iterator was created";
+      LOGERR << "DB has been changed since this iterator was created";
 
    if(advanceIterAndRead(iters_[db]))
       return checkPrefixByte(prefix, true);
@@ -926,7 +927,7 @@ map<HashString, BlockHeader> InterfaceToLDB::getHeaderMap(void)
 
    iters_[HEADERS]->SeekToFirst();
    if( sliceToBinaryData(ldbiter->key()) != getDBInfoKey() )
-      Log::WARN() << "How do we not have a DB info key?" ;
+      LOGWARN << "How do we not have a DB info key?" ;
    else
       it->Next()
 
@@ -1013,7 +1014,7 @@ bool InterfaceToLDB::addBlockToDB(BinaryDataRef newBlock,
       BinaryDataRef first4 = brr.get_BinaryDataRef(4);
       if(first4 != magicBytes_)
       {
-         Log::ERR() << "Magic bytes don't match! " << first4.toHexStr().c_str();
+         LOGERR << "Magic bytes don't match! " << first4.toHexStr().c_str();
          return false;
       }
       
@@ -1047,7 +1048,7 @@ uint8_t InterfaceToLDB::getValidDupIDForHeight(uint32_t blockHgt)
 {
    if(validDupByHeight_.size() < blockHgt+1)
    {
-      Log::ERR() << "Block height exceeds DupID lookup table";
+      LOGERR << "Block height exceeds DupID lookup table";
       return UINT8_MAX;
    }
 
@@ -1064,7 +1065,7 @@ uint8_t InterfaceToLDB::getValidDupIDForHeight_fromDB(uint32_t blockHgt)
 
    if(brrHgts.getSize() == 0)
    {
-      Log::ERR() << "Requested header does not exist in DB";
+      LOGERR << "Requested header does not exist in DB";
       return false;
    }
 
@@ -1078,7 +1079,7 @@ uint8_t InterfaceToLDB::getValidDupIDForHeight_fromDB(uint32_t blockHgt)
          return (dup8 & 0x7f);
    }
 
-   Log::ERR() << "Requested a header-by-height but none were marked as main";
+   LOGERR << "Requested a header-by-height but none were marked as main";
    return UINT8_MAX;
 }
 
@@ -1100,7 +1101,7 @@ void InterfaceToLDB::putStoredHeader( StoredHeader & sbh, bool withTx)
    if(existingHead.getSize() > 0)
    {
       // Felt like there was something else to do here besides Log::WARN...
-      Log::WARN() << "Header already exists in DB.  Overwriting";
+      LOGWARN << "Header already exists in DB.  Overwriting";
    }
 
    // Check if it's already in the height-indexed DB - determine dupID if not
@@ -1114,7 +1115,7 @@ void InterfaceToLDB::putStoredHeader( StoredHeader & sbh, bool withTx)
       // If we already have 1+ headers at this height, figure out the dupID
       int const lenEntry = 33;
       if(hgtList.getSize() % lenEntry > 0)
-         Log::ERR() << "Invalid entry in headers-by-hgt db";
+         LOGERR << "Invalid entry in headers-by-hgt db";
 
       int8_t maxDup = -1;
       for(uint8_t i=0; i<hgtList.getSize() / lenEntry; i++)
@@ -1213,7 +1214,7 @@ bool InterfaceToLDB::getStoredHeader( StoredHeader & sbh,
       BinaryRefReader brr = getValueReader(BLKDATA, blkKey);
       if(brr.getSize()==0)
       {
-         Log::ERR() << "Header height&dup is not in BLKDATA";
+         LOGERR << "Header height&dup is not in BLKDATA";
          return false;
       }
       sbh.unserializeDBValue(BLKDATA, brr, false);
@@ -1226,8 +1227,8 @@ bool InterfaceToLDB::getStoredHeader( StoredHeader & sbh,
       bool isInDB = seekTo(BLKDATA, ARMDB.getBlkDataKey(blockHgt, blockDup));
       if(!isInDB)
       {
-         Log::ERR() << "Header heigh&dup is not in BLKDATA DB";
-         Log::ERR() << "("<<blockHgt<<", "<<blockDup<<")";
+         LOGERR << "Header heigh&dup is not in BLKDATA DB";
+         LOGERR << "("<<blockHgt<<", "<<blockDup<<")";
          return false;
       }
 
@@ -1247,7 +1248,7 @@ bool InterfaceToLDB::getStoredHeader( StoredHeader & sbh,
    BinaryData headEntry = getValue(HEADERS, DB_PREFIX_HEADHASH, headHash); 
    if(headEntry.getSize() == 0)
    {
-      Log::ERR() << "Requested header that is not in DB";
+      LOGERR << "Requested header that is not in DB";
       return false;
    }
    
@@ -1265,7 +1266,7 @@ bool InterfaceToLDB::getStoredHeader( StoredHeader & sbh,
 {
    uint8_t dupID = getValidDupIDForHeight(blockHgt);
    if(dupID == UINT8_MAX)
-      Log::ERR() << "Headers DB has no block at height: " << blockHgt; 
+      LOGERR << "Headers DB has no block at height: " << blockHgt; 
 
    return getStoredHeader(sbh, blockHgt, dupID, withTx);
 }
@@ -1369,7 +1370,7 @@ bool InterfaceToLDB::readStoredBlockAtIter(StoredHeader & sbh)
       uint16_t currTxIdx = currReadKey_.get_uint16_t(); 
       if(currTxIdx >= sbh.numTx_)
       {
-         Log::ERR() << "Invalid txIndex at height " << (sbh.blockHeight_)
+         LOGERR << "Invalid txIndex at height " << (sbh.blockHeight_)
                     << " index " << currTxIdx;
          return false;
       }
@@ -1448,7 +1449,7 @@ bool InterfaceToLDB::readStoredTxAtIter(
       }
       else
       {
-         Log::ERR() << "Unexpected BLKDATA entry while iterating";
+         LOGERR << "Unexpected BLKDATA entry while iterating";
          return false;
       }
    } while(advanceIterAndRead(BLKDATA, DB_PREFIX_TXDATA));
@@ -1495,13 +1496,13 @@ Tx InterfaceToLDB::getFullTxCopy( BinaryDataRef ldbKey6B )
    SCOPED_TIMER("getFullTxCopy");
    if(ldbKey6B.getSize() != 6)
    {
-      Log::ERR() << "Provided zero-length ldbKey6B";
+      LOGERR << "Provided zero-length ldbKey6B";
       return BinaryData(0);
    }
     
    if(seekTo(BLKDATA, DB_PREFIX_TXDATA, ldbKey6B))
    {
-      Log::ERR() << "TxRef key does not exist in BLKDATA DB";
+      LOGERR << "TxRef key does not exist in BLKDATA DB";
       return BinaryData(0);
    }
 
@@ -1511,7 +1512,7 @@ Tx InterfaceToLDB::getFullTxCopy( BinaryDataRef ldbKey6B )
 
    if(!stx.haveAllTxOut())
    {
-      Log::ERR() << "Requested full Tx but not all TxOut available";
+      LOGERR << "Requested full Tx but not all TxOut available";
       return BinaryData(0);
    }
 
@@ -1524,7 +1525,7 @@ Tx InterfaceToLDB::getFullTxCopy( uint32_t hgt, uint16_t txIndex)
    SCOPED_TIMER("getFullTxCopy");
    uint8_t dup = getValidDupIDForHeight(hgt);
    if(dup == UINT8_MAX)
-      Log::ERR() << "Headers DB has no block at height: " << hgt;
+      LOGERR << "Headers DB has no block at height: " << hgt;
 
    BinaryData ldbKey = ARMDB.getBlkDataKey(hgt, dup, txIndex);
    return getFullTxCopy(ldbKey);
@@ -1552,7 +1553,7 @@ TxOut InterfaceToLDB::getTxOutCopy( BinaryDataRef ldbKey6B, uint16_t txOutIdx)
    BinaryRefReader brr = getValueReader(BLKDATA, DB_PREFIX_TXDATA, ldbKey8);
    if(brr.getSize()==0) 
    {
-      Log::ERR() << "TxOut key does not exist in BLKDATA DB";
+      LOGERR << "TxOut key does not exist in BLKDATA DB";
       return TxOut();
    }
 
@@ -1571,7 +1572,7 @@ TxIn InterfaceToLDB::getTxInCopy( BinaryDataRef ldbKey6B, uint16_t txInIdx)
    BinaryRefReader brr = getValueReader(BLKDATA, DB_PREFIX_TXDATA, ldbKey6B);
    if(brr.getSize()==0) 
    {
-      Log::ERR() << "TxOut key does not exist in BLKDATA DB";
+      LOGERR << "TxOut key does not exist in BLKDATA DB";
       return TxIn();
    }
 
@@ -1585,7 +1586,7 @@ TxIn InterfaceToLDB::getTxInCopy( BinaryDataRef ldbKey6B, uint16_t txInIdx)
    
    if(txSer != TX_SER_FULL && txSer != TX_SER_FRAGGED)
    {
-      Log::ERR() << "Tx not available to retrieve TxIn";
+      LOGERR << "Tx not available to retrieve TxIn";
       return TxIn();
    }
    else
@@ -1595,7 +1596,7 @@ TxIn InterfaceToLDB::getTxInCopy( BinaryDataRef ldbKey6B, uint16_t txInIdx)
       BtcUtils::StoredTxCalcLength(brr.getCurrPtr(), isFragged, &offsetsIn);
       if(offsetsIn.size()-1 < txInIdx+1) // offsets.size() is numTxIn+1
       {
-         Log::ERR() << "Requested TxIn with index greater than numTxIn";
+         LOGERR << "Requested TxIn with index greater than numTxIn";
          return TxIn();
       }
       TxRef parent(ldbKey6B, this);
@@ -1615,7 +1616,7 @@ BinaryData InterfaceToLDB::getTxHashForLdbKey( BinaryDataRef ldbKey6B )
    BinaryRefReader stxVal = getValueReader(BLKDATA, DB_PREFIX_TXDATA, ldbKey6B);
    if(stxVal.getSize()==0)
    {
-      Log::ERR() << "TxRef key does not exist in BLKDATA DB";
+      LOGERR << "TxRef key does not exist in BLKDATA DB";
       return BinaryData(0);
    }
 
@@ -1631,7 +1632,7 @@ BinaryData InterfaceToLDB::getTxHashForHeightAndIndex( uint32_t height,
    SCOPED_TIMER("getTxHashForHeightAndIndex");
    uint8_t dup = getValidDupIDForHeight(height);
    if(dup == UINT8_MAX)
-      Log::ERR() << "Headers DB has no block at height: " << height;
+      LOGERR << "Headers DB has no block at height: " << height;
    return getTxHashForLdbKey(ARMDB.getBlkDataKey(height, dup, txIndex));
 }
 
@@ -1673,7 +1674,7 @@ bool InterfaceToLDB::getStoredTx( StoredTx & stx,
 
    if(existingHints.getSize() == 0)
    {
-      Log::ERR() << "No tx in DB with hash: " << txHash.toHexStr();
+      LOGERR << "No tx in DB with hash: " << txHash.toHexStr();
       return false;
    }
 
@@ -1693,7 +1694,7 @@ bool InterfaceToLDB::getStoredTx( StoredTx & stx,
       BinaryData key6 = ARMDB.getBlkDataKeyNoPrefix(height, dup, txIdx);
       if(key6 != hint)
       {
-         Log::ERR() << "TxHint referenced a BLKDATA tx that doesn't exist";
+         LOGERR << "TxHint referenced a BLKDATA tx that doesn't exist";
          continue;
       }
 
@@ -1717,7 +1718,7 @@ bool InterfaceToLDB::getStoredTx(  StoredTx & stx,
 {
    uint8_t dupID = getValidDupIDForHeight(blockHeight);
    if(dupID == UINT8_MAX)
-      Log::ERR() << "Headers DB has no block at height: " << blockHeight; 
+      LOGERR << "Headers DB has no block at height: " << blockHeight; 
 
    return getStoredTx(stx, blockHeight, dupID, txIndex, withTxOut);
 
@@ -1744,8 +1745,8 @@ bool InterfaceToLDB::getStoredTx(  StoredTx & stx,
       BinaryRefReader brr = getValueReader(BLKDATA, blkDataKey);
       if(brr.getSize()==0)
       {
-         Log::ERR() << "BLKDATA DB does not have requested tx";
-         Log::ERR() << "("<<blockHeight<<", "<<dupID<<", "<<txIndex<<")";
+         LOGERR << "BLKDATA DB does not have requested tx";
+         LOGERR << "("<<blockHeight<<", "<<dupID<<", "<<txIndex<<")";
          return false;
       }
 
@@ -1757,8 +1758,8 @@ bool InterfaceToLDB::getStoredTx(  StoredTx & stx,
       bool isInDB = seekTo(BLKDATA, blkDataKey);
       if(!isInDB)
       {
-         Log::ERR() << "BLKDATA DB does not have the requested tx";
-         Log::ERR() << "("<<blockHeight<<", "<<dupID<<", "<<txIndex<<")";
+         LOGERR << "BLKDATA DB does not have the requested tx";
+         LOGERR << "("<<blockHeight<<", "<<dupID<<", "<<txIndex<<")";
          return false;
       }
 
@@ -1794,7 +1795,7 @@ bool InterfaceToLDB::getStoredTx(  StoredTx & stx,
          }
          else
          {
-            Log::ERR() << "Unexpected BLKDATA entry while iterating";
+            LOGERR << "Unexpected BLKDATA entry while iterating";
             return false;
          }
       } // while(advanceIter)
@@ -1834,7 +1835,7 @@ bool InterfaceToLDB::getStoredTxOut(
    BinaryRefReader brr = getValueReader(BLKDATA, blkKey);
    if(brr.getSize() == 0)
    {
-      Log::ERR() << "BLKDATA DB does not have the requested TxOut";
+      LOGERR << "BLKDATA DB does not have the requested TxOut";
       return false;
    }
 
@@ -1857,7 +1858,7 @@ bool InterfaceToLDB::getStoredTxOut(
 {
    uint8_t dupID = getValidDupIDForHeight(blockHeight);
    if(dupID == UINT8_MAX)
-      Log::ERR() << "Headers DB has no block at height: " << blockHeight; 
+      LOGERR << "Headers DB has no block at height: " << blockHeight; 
 
    return getStoredTxOut(stxo, blockHeight, dupID, txIndex, txOutIndex);
 }
@@ -1901,7 +1902,7 @@ bool InterfaceToLDB::markBlockHeaderValid(BinaryDataRef headHash)
    BinaryRefReader brr = getValueReader(HEADERS, DB_PREFIX_HEADHASH, headHash);
    if(brr.getSize()==0)
    {
-      Log::ERR() << "Invalid header hash: " << headHash.toHexStr();
+      LOGERR << "Invalid header hash: " << headHash.toHexStr();
       return false;
    }
    brr.advance(HEADER_SIZE);
@@ -1926,7 +1927,7 @@ bool InterfaceToLDB::markBlockHeaderValid(uint32_t height, uint8_t dup)
 
    if(numDup==0)
    {
-      Log::ERR() << "Height and dup do not exist in HEADERS DB";
+      LOGERR << "Height and dup do not exist in HEADERS DB";
       return false;
    }
 
@@ -1968,7 +1969,7 @@ bool InterfaceToLDB::markBlockHeaderValid(uint32_t height, uint8_t dup)
    validDupByHeight_[height] = dup;
 
    if(!hasEntry)
-      Log::ERR() << "Header was not found header-height list";
+      LOGERR << "Header was not found header-height list";
 
    return hasEntry;
 }
@@ -1997,7 +1998,7 @@ bool InterfaceToLDB::markTxEntryValid(uint32_t height,
    uint32_t numHints = brrHints.getSize() / 6;
    if(numHints==0)
    {
-      Log::ERR() << "No TXHINTS entry for specified {hgt,dup,txidx}";      
+      LOGERR << "No TXHINTS entry for specified {hgt,dup,txidx}";      
       return false;
    }
    
@@ -2021,7 +2022,7 @@ bool InterfaceToLDB::markTxEntryValid(uint32_t height,
    // triggering an error/warning it didn't exist.
    if(!hasEntry)
    {
-      Log::ERR() << "Tx was not found in the TXHINTS list";
+      LOGERR << "Tx was not found in the TXHINTS list";
       return false;
    }
 
@@ -2061,6 +2062,7 @@ bool InterfaceToLDB::addBlockToDB(StoredHeader const & sbh,
    //    -- Modify any Tx/TxOuts in the SBH tree to accommodate any tx in this 
    //       block that affect any other tx in this block
    //
+   //
    //  -- Check if the block {hgt,dup} has already been written to BLKDATA DB
    //  -- Check if the header has already been added to HEADERS DB
    //  
@@ -2079,7 +2081,10 @@ bool InterfaceToLDB::addBlockToDB(StoredHeader const & sbh,
    //    -- Write all new TXDATA entries for {hgt,dup}
    //    -- If pruning, write StoredUndoData objs to DB
    //    -- Update DBINFO top block data
-   //    
+   
+   map<BinaryData, StoredScriptHistory> sshToModify;
+   map<BinaryData, StoredTxHints>       hintsToModify;
+   map<BinaryData, StoredTxOut>         stxosToModify;
 }
 
 
@@ -2169,7 +2174,7 @@ bool InterfaceToLDB::updateHeaderHeight(BinaryDataRef headHash,
    BinaryDataRef headVal = getValueRef(HEADERS, headHash);
    if(headVal.isNull())
    {
-      Log::ERR() << " Attempted to update a non-existent header!";
+      LOGERR << " Attempted to update a non-existent header!";
       return false;
    }
       

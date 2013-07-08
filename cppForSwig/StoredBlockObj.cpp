@@ -92,7 +92,7 @@ void StoredHeader::createFromBlockHeader(BlockHeader & bh)
 {
    if(!bh.isInitialized())
    {
-      Log::ERR() << "trying to create from uninitialized block header";
+      LOGERR << "trying to create from uninitialized block header";
       return;
    } 
 
@@ -122,7 +122,7 @@ void StoredHeader::unserialize(BinaryDataRef header80B)
 {
    if(header80B.getSize() != HEADER_SIZE)
    {
-      Log::ERR() << "Asked to unserialize a non-80-byte header";
+      LOGERR << "Asked to unserialize a non-80-byte header";
       return;
    }
    dataCopy_.copyFrom(header80B);
@@ -144,7 +144,7 @@ void StoredHeader::unserializeFullBlock(BinaryRefReader brr,
 
       if(brr.getSizeRemaining() < nBytes)
       {
-         Log::ERR() << "Not enough bytes remaining in BRR to read block";
+         LOGERR << "Not enough bytes remaining in BRR to read block";
          return;
       }
    }
@@ -157,7 +157,7 @@ void StoredHeader::unserializeFullBlock(BinaryRefReader brr,
    numBytes_ = nBytes;
    if(dataCopy_.getSize() != HEADER_SIZE)
    {
-      Log::ERR() << "Unserializing header did not produce 80-byte object!";
+      LOGERR << "Unserializing header did not produce 80-byte object!";
       return;
    }
 
@@ -224,13 +224,13 @@ bool StoredHeader::serializeFullBlock(BinaryWriter & bw) const
 {
    if(!haveFullBlock())
    {
-      Log::ERR() << "Attempted to serialize full block, but only have partial";
+      LOGERR << "Attempted to serialize full block, but only have partial";
       return false;
    }
 
    if(numTx_ == UINT32_MAX)
    {
-      Log::ERR() << "Number of tx not available while serializing full block";
+      LOGERR << "Number of tx not available while serializing full block";
       return false;
    }
 
@@ -242,7 +242,7 @@ bool StoredHeader::serializeFullBlock(BinaryWriter & bw) const
    {
       if(!iter->second.haveAllTxOut())
       {
-         Log::ERR() << "Don't have all TxOut in tx during serialize full block";
+         LOGERR << "Don't have all TxOut in tx during serialize full block";
          return false;
       }
       bwTemp.put_BinaryData(iter->second.getSerializedTx());
@@ -265,7 +265,7 @@ void StoredHeader::addStoredTxToMap(uint16_t txIdx, StoredTx & stx)
 {
    if(txIdx >= numTx_)
    {
-      Log::ERR() << "TxIdx is greater than numTx of stored header";
+      LOGERR << "TxIdx is greater than numTx of stored header";
       return;
    }
    stxMap_[txIdx] = stx; 
@@ -276,7 +276,7 @@ void StoredTx::addTxOutToMap(uint16_t idx, TxOut & txout)
 {
    if(idx >= numTxOut_)
    {
-      Log::ERR() << "TxOutIdx is greater than numTxOut of stored tx";
+      LOGERR << "TxOutIdx is greater than numTxOut of stored tx";
       return;
    }
    StoredTxOut stxo;
@@ -289,7 +289,7 @@ void StoredTx::addStoredTxOutToMap(uint16_t idx, StoredTxOut & stxo)
 {
    if(idx >= numTxOut_)
    {
-      Log::ERR() << "TxOutIdx is greater than numTxOut of stored tx";
+      LOGERR << "TxOutIdx is greater than numTxOut of stored tx";
       return;
    }
    stxoMap_[idx] = stxo;
@@ -347,7 +347,7 @@ void StoredHeader::unserializeDBValue( DB_SELECT         db,
       numBytes_ = brr.get_uint32_t();
 
       if(unserArmVer_ != ARMORY_DB_VERSION)
-         Log::WARN() << "Version mismatch in unserialize DB header";
+         LOGWARN << "Version mismatch in unserialize DB header";
 
       if( !ignoreMerkle )
       {
@@ -371,7 +371,7 @@ void StoredHeader::serializeDBValue( DB_SELECT       db,
 {
    if(!isInitialized_)
    {
-      Log::ERR() << "Attempted to serialize uninitialized block header";
+      LOGERR << "Attempted to serialize uninitialized block header";
       return;
    }
 
@@ -402,7 +402,7 @@ void StoredHeader::serializeDBValue( DB_SELECT       db,
          case ARMORY_DB_FULL:    mtype = MERKLE_SER_NONE;    break;
          case ARMORY_DB_SUPER:   mtype = MERKLE_SER_NONE;    break;
          default: 
-            Log::ERR() << "Invalid DB mode in serializeStoredHeaderValue";
+            LOGERR << "Invalid DB mode in serializeStoredHeaderValue";
       }
       
       // Override the above mtype if the merkle data is zero-length
@@ -426,7 +426,7 @@ void StoredHeader::serializeDBValue( DB_SELECT       db,
       {
          bw.put_BinaryData(merkle_);
          if(merkle_.getSize()==0)
-            Log::ERR() << "Expected to serialize merkle tree, but empty string";
+            LOGERR << "Expected to serialize merkle tree, but empty string";
       }
    }
 }
@@ -457,7 +457,7 @@ void StoredTx::unserialize(BinaryRefReader & brr, bool fragged)
                                                   &offsetsOut);
    if(brr.getSizeRemaining() < nbytes)
    {
-      Log::ERR() << "Not enough bytes in BRR to unserialize StoredTx";
+      LOGERR << "Not enough bytes in BRR to unserialize StoredTx";
       return;
    }
 
@@ -500,7 +500,7 @@ void StoredTx::unserializeDBValue(BinaryRefReader & brr)
    unserTxType_  = (TX_SERIALIZE_TYPE)bitunpack.getBits(4);
 
    if(unserArmVer_ != ARMORY_DB_VERSION)
-      Log::WARN() << "Version mismatch in unserialize DB tx";
+      LOGWARN << "Version mismatch in unserialize DB tx";
    
    brr.get_BinaryData(thisHash_, 32);
 
@@ -524,18 +524,18 @@ void StoredTx::serializeDBValue(BinaryWriter & bw) const
       case ARMORY_DB_FULL:    serType = TX_SER_FRAGGED; break;
       case ARMORY_DB_SUPER:   serType = TX_SER_FULL;    break;
       default: 
-         Log::ERR() << "Invalid DB mode in serializeStoredTxValue";
+         LOGERR << "Invalid DB mode in serializeStoredTxValue";
    }
 
    if(serType==TX_SER_FULL && !haveAllTxOut())
    {
-      Log::ERR() << "Supposed to write out full Tx, but don't have it";
+      LOGERR << "Supposed to write out full Tx, but don't have it";
       return;
    }
 
    if(thisHash_.getSize() == 0)
    {
-      Log::ERR() << "Do not know tx hash to be able to DB-serialize StoredTx";
+      LOGERR << "Do not know tx hash to be able to DB-serialize StoredTx";
       return;
    }
 
@@ -590,7 +590,7 @@ BinaryData StoredTx::getSerializedTx(void) const
     
    if(numBytes_ == UINT32_MAX)
    {
-      Log::ERR() << "Do not know size of tx in order to serialize it";
+      LOGERR << "Do not know size of tx in order to serialize it";
       return BinaryData(0);
    }
 
@@ -604,7 +604,7 @@ BinaryData StoredTx::getSerializedTx(void) const
    {
       if(iter->first != i)
       {
-         Log::ERR() << "Indices out of order accessing stxoMap_...?!";
+         LOGERR << "Indices out of order accessing stxoMap_...?!";
          return BinaryData(0);
       }
       bw.put_BinaryData(iter->second.getSerializedTxOut());
@@ -625,7 +625,7 @@ BinaryData StoredTx::getSerializedTxFragged(void) const
 
    if(numBytes_ == UINT32_MAX)
    {
-      Log::ERR() << "Do not know size of tx in order to serialize it";
+      LOGERR << "Do not know size of tx in order to serialize it";
       return BinaryData(0);
    }
 
@@ -663,7 +663,7 @@ void StoredTxOut::unserialize(BinaryRefReader & brr)
 {
    if(brr.getSizeRemaining() < 8)
    {
-      Log::ERR() << "Not enough bytes in BRR to unserialize StoredTxOut";
+      LOGERR << "Not enough bytes in BRR to unserialize StoredTxOut";
       return;
    }
 
@@ -671,7 +671,7 @@ void StoredTxOut::unserialize(BinaryRefReader & brr)
 
    if(brr.getSizeRemaining() < numBytes)
    {
-      Log::ERR() << "Not enough bytes in BRR to unserialize StoredTxOut";
+      LOGERR << "Not enough bytes in BRR to unserialize StoredTxOut";
       return;
    }
 
@@ -718,7 +718,7 @@ void StoredTxOut::serializeDBValue(BinaryWriter & bw,
          case ARMORY_DB_FULL:                                 break;
          case ARMORY_DB_SUPER:                                break;
          default: 
-            Log::ERR() << "Invalid DB mode in serializeStoredTxOutValue";
+            LOGERR << "Invalid DB mode in serializeStoredTxOutValue";
       }
    }
 
@@ -736,7 +736,7 @@ void StoredTxOut::serializeDBValue(BinaryWriter & bw,
    if(writeSpent == TXOUT_SPENT)
    {
       if(spentByTxInKey_.getSize()==0)
-         Log::ERR() << "Need to write out spentByTxIn but no spentness data";
+         LOGERR << "Need to write out spentByTxIn but no spentness data";
       bw.put_BinaryData(spentByTxInKey_);
    }
 
@@ -749,7 +749,7 @@ Tx StoredTx::getTxCopy(void) const
 {
    if(!haveAllTxOut())
    {
-      Log::ERR() << "Cannot get tx copy, because don't have full StoredTx!";
+      LOGERR << "Cannot get tx copy, because don't have full StoredTx!";
       return Tx();
    }
 
@@ -762,7 +762,7 @@ StoredTx & StoredTx::createFromTx(Tx & tx, bool doFrag, bool withTxOuts)
 {
    if(!tx.isInitialized())
    {
-      Log::ERR() << "Creating storedtx from uninitialized tx. Aborting.";
+      LOGERR << "Creating storedtx from uninitialized tx. Aborting.";
       isInitialized_ = false;
       return *this;
    }
@@ -827,7 +827,7 @@ BinaryData StoredTxOut::getSerializedTxOut(void) const
 {
    if(!isInitialized())
    {
-      Log::ERR() << "Attempted to get serialized TxOut, but not initialized";
+      LOGERR << "Attempted to get serialized TxOut, but not initialized";
       return BinaryData(0);
    }
    return dataCopy_;
@@ -838,7 +838,7 @@ TxOut StoredTxOut::getTxOutCopy(void) const
 {
    if(!isInitialized())
    {
-      Log::ERR() << "Attempted to get TxOut copy but not initialized";
+      LOGERR << "Attempted to get TxOut copy but not initialized";
       return TxOut();
    }
    return TxOut(dataCopy_.getPtr());
@@ -873,7 +873,7 @@ void StoredScriptHistory::unserializeDBValue(BinaryRefReader & brr)
       // This is where we might implement the Reiner-Tree concept, by
       // having only a reference to one TxOut here, but it's actually 
       // the root of some kind of authenticated tree structure.
-      Log::ERR() << "TXO-trees are not implemented, yet!";
+      LOGERR << "TXO-trees are not implemented, yet!";
       return;
    }
    else if(txoListType == SCRIPT_UTXO_VECTOR)
@@ -939,7 +939,7 @@ void StoredScriptHistory::serializeDBValue(BinaryWriter & bw ) const
       // This is where we might implement the Reiner-Tree concept, by
       // having only a reference to one TxOut here, but it's actually 
       // the root of some kind of authenticated tree structure.
-      Log::ERR() << "TXO-trees are not implemented, yet!";
+      LOGERR << "TXO-trees are not implemented, yet!";
       return;
    }
    else if(UTXO_STORAGE == SCRIPT_UTXO_VECTOR)
@@ -1020,7 +1020,7 @@ bool DBUtils::checkPrefixByte( BinaryRefReader brr,
       out = true;
    else
    {
-      Log::ERR() << "Unexpected prefix byte: "
+      LOGERR << "Unexpected prefix byte: "
                  << "Expected: " << getPrefixName(prefix)
                  << "Received: " << getPrefixName(oneByte);
       out = false;

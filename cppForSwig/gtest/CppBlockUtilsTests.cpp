@@ -3545,6 +3545,8 @@ TEST_F(LevelDBTest, PutGetDelete)
 
    iface_->deleteValue(BLKDATA, PREFIX+ keyAB);
    ASSERT_TRUE( compareKVListRange(0,1, 0,1));
+
+   iface_->deleteValue(BLKDATA, PREFIX+ keyAB);
 }
 
 

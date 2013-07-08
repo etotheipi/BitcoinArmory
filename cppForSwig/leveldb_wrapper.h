@@ -460,6 +460,8 @@ private:
 
    uint32_t             lowestScannedUpTo_;
 
+   leveldb::Status      lastStatus_;
+
    // In this case, a address is any TxOut script, which is usually
    // just a 25-byte script.  But this generically captures all types
    // of addresses including pubkey-only, P2SH, 
