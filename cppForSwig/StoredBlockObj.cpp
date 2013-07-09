@@ -86,6 +86,23 @@ BinaryData StoredHeader::getSerializedBlock(void) const
 }
 
 
+/////////////////////////////////////////////////////////////////////////////
+BinaryData StoredHeader::getDBKey(bool withPrefix) const
+{
+   if(blockHeight_==UINT32_MAX || duplicateID_==UINT8_MAX)
+   {
+      LOGERR << "Requesting DB key for incomplete SBH";
+      return BinaryData(0);
+   }
+
+   if(withPrefix)
+      return ARMDB.getBlkDataKey(blockHeight_, duplicateID_);
+   else
+      return ARMDB.getBlkDataKeyNoPrefix(blockHeight_, duplicateID_);
+
+}
+
+
 
 /////////////////////////////////////////////////////////////////////////////
 void StoredHeader::createFromBlockHeader(BlockHeader & bh)
@@ -431,6 +448,22 @@ void StoredHeader::serializeDBValue( DB_SELECT       db,
    }
 }
 
+/////////////////////////////////////////////////////////////////////////////
+BinaryData StoredTx::getDBKey(bool withPrefix) const
+{
+   if(blockHeight_ == UINT32_MAX || 
+      blockDupID_  == UINT8_MAX  || 
+      txIndex_     == UINT16_MAX)
+   {
+      LOGERR << "Requesting DB key for incomplete STX";
+      return BinaryData(0);
+   }
+
+   if(withPrefix)
+      return ARMDB.getBlkDataKey(blockHeight_, blockDupID_, txIndex_);
+   else
+      return ARMDB.getBlkDataKeyNoPrefix(blockHeight_, blockDupID_, txIndex_);
+}
 
 /////////////////////////////////////////////////////////////////////////////
 void StoredTx::unserialize(BinaryData const & data, bool fragged)
@@ -742,6 +775,26 @@ void StoredTxOut::serializeDBValue(BinaryWriter & bw,
 
 }
 
+/////////////////////////////////////////////////////////////////////////////
+BinaryData StoredTxOut::getDBKey(bool withPrefix) const
+{
+   if(blockHeight_ == UINT32_MAX || 
+      blockDupID_  == UINT8_MAX  || 
+      txIndex_     == UINT16_MAX ||
+      txOutIndex_  == UINT16_MAX)
+   {
+      LOGERR << "Requesting DB key for incomplete STXO";
+      return BinaryData(0);
+   }
+
+   if(withPrefix)
+      return ARMDB.getBlkDataKey(
+                             blockHeight_, blockDupID_, txIndex_, txOutIndex_);
+   else
+      return ARMDB.getBlkDataKeyNoPrefix(
+                             blockHeight_, blockDupID_, txIndex_, txOutIndex_);
+}
+
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -981,11 +1034,206 @@ void StoredScriptHistory::serializeDBValue(BinaryWriter & bw ) const
          }
       }
    }
-
 }
 
 
 
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+void StoredUndoData::unserializeDBValue(BinaryRefReader & brr)
+{
+   brr.get_BinaryData(blockHash_, 32);
+
+   uint32_t nStxoRmd = brr.get_uint32_t();
+   stxOutsRemovedByBlock_.clear();
+   stxOutsRemovedByBlock_.resize(nStxoRmd);
+   for(uint32_t i=0; i<nStxoRmd; i++)
+   {
+      StoredTxOut & stxo = stxOutsRemovedByBlock_[i];
+
+      // Store the standard flags that go with StoredTxOuts, minus spentness
+      BitUnpacker<uint8_t> bitunpack;
+      stxo.unserArmVer_ = bitunpack.getBits(4);
+      stxo.txVersion_   = bitunpack.getBits(2);
+      stxo.isCoinbase_  = bitunpack.getBit();
+
+      brr.get_BinaryData(stxo.parentHash_, 32);
+      stxo.txOutIndex_ = brr.get_uint32_t();
+      stxo.unserialize(brr);
+   }
+
+   uint32_t nOpAdded = brr.get_uint32_t();
+   outPointsAddedByBlock_.clear();
+   outPointsAddedByBlock_.resize(nStxoRmd);
+   for(uint32_t i=0; i<nOpAdded; i++)
+      outPointsAddedByBlock_[i].unserialize(brr);
+    
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void StoredUndoData::serializeDBValue(BinaryWriter & bw ) const
+{
+   bw.put_BinaryData(blockHash_);
+
+   uint32_t nStxoRmd = stxOutsRemovedByBlock_.size();
+   uint32_t nOpAdded = outPointsAddedByBlock_.size();
+
+
+   // Store the full TxOuts that were removed... since they will have been
+   // removed from the DB and have to be fully added again if we undo the block
+   bw.put_uint32_t(nStxoRmd);
+   for(uint32_t i=0; i<nStxoRmd; i++)
+   {
+      StoredTxOut const & stxo = stxOutsRemovedByBlock_[i];
+
+      if(stxo.parentHash_.getSize() == 0          || 
+         stxo.txOutIndex_           == UINT16_MAX   )
+      {
+         LOGERR << "Can't write undo data w/o parent hash and/or TxOut index";
+         return;
+      }
+
+      // Store the standard flags that go with StoredTxOuts, minus spentness
+      BitPacker<uint8_t> bitpack;
+      bitpack.putBits( (uint8_t)ARMDB.getArmoryDbType(),  4);
+      bitpack.putBits( (uint8_t)stxo.txVersion_,          2);
+      bitpack.putBit(           stxo.isCoinbase_);
+
+      bw.put_BitPacker(bitpack);
+      bw.put_BinaryData(stxo.parentHash_);
+      bw.put_uint32_t((uint32_t)stxo.txOutIndex_);
+      bw.put_BinaryData(stxo.getSerializedTxOut());
+   }
+
+   // Store just the OutPoints of the TxOuts that were added by this block.
+   // If we're undoing this block, we have the full TxOuts already in the DB
+   // somewhere that simply needs to be removed.  We could probably avoid 
+   // storing this data at all due to this DB design, but it is needed if we
+   // are ever going to serve any other process that expects the OutPoint list.
+   bw.put_uint32_t(nOpAdded);
+   for(uint32_t i=0; i<nOpAdded; i++)
+      bw.put_BinaryData(outPointsAddedByBlock_[i].serialize()); 
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+BinaryData StoredUndoData::getDBKey(bool withPrefix) const
+{
+   BinaryWriter bw(5);
+   if(withPrefix)
+      bw.put_uint8_t((uint8_t)DB_PREFIX_UNDODATA); 
+   bw.put_BinaryData( ARMDB.getBlkDataKeyNoPrefix(blockHeight_, blockDupID_));
+   return bw.getData();
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+void StoredTxHints::unserializeDBValue(BinaryRefReader & brr)
+{
+   uint32_t numHints = brr.get_var_int();
+   dbKeyList_.resize(numHints);
+   for(uint32_t i=0; i<numHints; i++)
+      brr.get_BinaryData(dbKeyList_[i], 6);
+
+   // Preferred simply means it's supposed to be first in the list
+   // This simply improves search time in the event there's multiple hints
+   preferredDBKey_ = dbKeyList_[0];
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+void StoredTxHints::serializeDBValue(BinaryWriter & bw ) const
+{
+   bw.put_var_int(dbKeyList_.size());
+   for(uint32_t i=0; i<dbKeyList_.size(); i++)
+   {
+      if(dbKeyList_[i] != preferredDBKey_)
+         continue;
+
+      bw.put_BinaryData(dbKeyList_[i]);
+      break;
+   }
+
+   for(uint32_t i=0; i<dbKeyList_.size(); i++)
+   {
+      if(dbKeyList_[i] == preferredDBKey_)
+         continue;
+
+      bw.put_BinaryData(dbKeyList_[i]);
+   }
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+BinaryData StoredTxHints::getDBKey(bool withPrefix) const
+{
+   BinaryWriter bw(5);
+   if(withPrefix)
+      bw.put_uint8_t((uint8_t)DB_PREFIX_TXHINTS); 
+   bw.put_BinaryData( txHashPrefix_);
+   return bw.getData();
+}
+
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+void StoredHeadHgtLookup::unserializeDBValue(BinaryRefReader & brr)
+{
+   uint32_t numHeads = brr.get_var_int();
+   dupAndHashList_.resize(numHeads);
+   preferredDup_ = UINT8_MAX;
+   for(uint32_t i=0; i<numHeads; i++)
+   {
+      uint8_t dup = brr.get_uint8_t();
+      dupAndHashList_[i].first = dup & 0x7f;
+      brr.get_BinaryData(dupAndHashList_[i].second, 32);
+      if(dup & 0x80 > 0)
+         preferredDup_ = dup & 0x7f;
+   }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void StoredHeadHgtLookup::serializeDBValue(BinaryWriter & bw ) const
+{
+   bw.put_var_int( dupAndHashList_.size() );
+
+   // Write the preferred/valid block header first
+   for(uint32_t i=0; i<dupAndHashList_.size(); i++)
+   {
+      if(dupAndHashList_[i].first != preferredDup_)
+         continue; 
+
+      bw.put_uint8_t(dupAndHashList_[i].first | 0x80);
+      bw.put_BinaryData(dupAndHashList_[i].second);
+      break;
+   }
+         
+   // Now write everything else
+   for(uint32_t i=0; i<dupAndHashList_.size(); i++)
+   {
+      if(dupAndHashList_[i].first == preferredDup_)
+         continue; 
+
+      bw.put_uint8_t(dupAndHashList_[i].first & 0x7f);
+      bw.put_BinaryData(dupAndHashList_[i].second);
+   }
+
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+BinaryData StoredHeadHgtLookup::getDBKey(bool withPrefix) const
+{
+   BinaryWriter bw(5);
+   if(withPrefix)
+      bw.put_uint8_t((uint8_t)DB_PREFIX_HEADHGT); 
+   bw.put_uint32_t(height_);
+   return bw.getData();
+
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 string DBUtils::getPrefixName(uint8_t prefixInt)
 {
@@ -998,7 +1246,7 @@ string DBUtils::getPrefixName(DB_PREFIX pref)
    switch(pref)
    {
       case DB_PREFIX_DBINFO:    return string("DBINFO"); 
-      case DB_PREFIX_TXDATA:   return string("BLKDATA"); 
+      case DB_PREFIX_TXDATA:    return string("TXDATA"); 
       case DB_PREFIX_SCRIPT:    return string("SCRIPT"); 
       case DB_PREFIX_TXHINTS:   return string("TXHINTS"); 
       case DB_PREFIX_TRIENODES: return string("TRIENODES"); 

@@ -3,6 +3,7 @@
 #include <map>
 #include <list>
 #include <vector>
+#include <set>
 #include "BinaryData.h"
 #include "BtcUtils.h"
 #include "BlockObj.h"
@@ -587,22 +588,13 @@ bool InterfaceToLDB::seekTo(DB_SELECT db,
 bool InterfaceToLDB::seekToTxByHash(BinaryDataRef txHash)
 {
    SCOPED_TIMER("seekToTxByHash");
-   BinaryData hash4(txHash.getSliceRef(0,4));
-   BinaryData existingHints = getValue(BLKDATA, DB_PREFIX_TXHINTS, hash4);
+   StoredTxHints sths = getHintsForTxHash(txHash);
 
-   if(existingHints.getSize() == 0)
-   {
-      LOGERR << "No tx in DB with hash: " << txHash.toHexStr();
-      return false;
-   }
-
-   // Now go through all the hints looking for the first one with a matching hash
-   uint32_t numHints = existingHints.getSize() / 6;
    uint32_t height;
    uint8_t  dup;
-   for(uint32_t i=0; i<numHints; i++)
+   for(uint32_t i=0; i<sths.getNumHints(); i++)
    {
-      BinaryDataRef hint = existingHints.getSliceRef(i*6, 6);
+      BinaryDataRef hint = sths.getHint(i);
       seekTo(BLKDATA, DB_PREFIX_TXDATA, hint);
 
       BLKDATA_TYPE bdtype = readBlkDataKey5B(currReadKey_, height, dup);
@@ -1646,17 +1638,21 @@ BinaryData InterfaceToLDB::getTxHashForHeightAndIndex( uint32_t height,
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-vector<BinaryData> InterfaceToLDB::getAllHintsForTxHash(BinaryDataRef txHash)
+StoredTxHints InterfaceToLDB::getHintsForTxHash(BinaryDataRef txHash)
 {
    SCOPED_TIMER("getAllHintsForTxHash");
-   BinaryDataRef allHints = getValueRef(BLKDATA, DB_PREFIX_TXHINTS, 
-                                                txHash.getSliceRef(0,4));
+   StoredTxHints sths;
+   sths.txHashPrefix_ = txHash.getSliceRef(0,4);
+   BinaryRefReader brr = getValueReader(BLKDATA, 
+                                        DB_PREFIX_TXHINTS, 
+                                        sths.txHashPrefix_);
+                                                
+   if(brr.getSize() == 0)
+      LOGERR << "No hints for prefix: " << sths.txHashPrefix_.toHexStr();
+   else
+      sths.unserializeDBValue(brr);
 
-   vector<BinaryData> hintsOut(allHints.getSize() / 6);
-   for(uint32_t i=0; i<allHints.getSize()/6; i++)
-      hintsOut[i] = allHints.getSliceCopy(i*6, 6);
-
-   return hintsOut;
+   return sths;
 }
 
 
@@ -1984,8 +1980,8 @@ bool InterfaceToLDB::markBlockHeaderValid(uint32_t height, uint8_t dup)
 // sure that the correct {hgt,dup,txidx} is in the front of the TXHINTS 
 // list.  
 bool InterfaceToLDB::markTxEntryValid(uint32_t height,
-                                          uint8_t  dupID,
-                                          uint16_t txIndex)
+                                      uint8_t  dupID,
+                                      uint16_t txIndex)
 {
    SCOPED_TIMER("markTxEntryValid");
    BinaryData blkDataKey = ARMDB.getBlkDataKeyNoPrefix(height, dupID, txIndex);
@@ -2041,54 +2037,124 @@ bool InterfaceToLDB::markTxEntryValid(uint32_t height,
 
 
 ////////////////////////////////////////////////////////////////////////////////
+// Assumptions:
+//  -- We have already determined the correct height and dup for the header 
+//     and we assume it's part of the sbh object
+//  -- We don't know if it's been added to the databases yet.
+//
+// Things to do when adding a block:
+//
+//  -- PREPARATION:
+//    -- Create list of all OutPoints affected, and scripts touched
+//    -- If not supernode, then check above data against registeredSSHs_
+//    -- Fetch all StoredTxOuts from DB about to be removed
+//    -- Get/create TXHINT entries for all tx in block
+//    -- Compute all script keys and get/create all StoredScriptHistory objs
+//    -- Check if any multisig scripts are affected, if so get those objs
+//    -- If pruning, create StoredUndoData from TxOuts about to be removed
+//    -- Modify any Tx/TxOuts in the SBH tree to accommodate any tx in this 
+//       block that affect any other tx in this block
+//
+//
+//  -- Check if the block {hgt,dup} has already been written to BLKDATA DB
+//  -- Check if the header has already been added to HEADERS DB
+//  
+//  -- BATCH (HEADERS)
+//    -- Add header to HEADHASH list
+//    -- Add header to HEADHGT list
+//    -- Update validDupByHeight_
+//    -- Update DBINFO top block data
+//
+//  -- BATCH (BLKDATA)
+//    -- Modify StoredTxOut with spentness info (or prep a delete operation
+//       if pruning).
+//    -- Modify StoredScriptHistory objs same as above.  
+//    -- Modify StoredScriptHistory multisig objects as well.
+//    -- Update SSH objects alreadyScannedUpToBlk_, if necessary
+//    -- Write all new TXDATA entries for {hgt,dup}
+//    -- If pruning, write StoredUndoData objs to DB
+//    -- Update DBINFO top block data
+//
+// IMPORTANT: we also need to make sure this method does nothing if the
+//            block has already been added properly (though, it okay for 
+//            it to take time to verify nothing needs to be done).  We may
+//            end up replaying some blocks to force consistency of the DB, 
+//            and this method needs to be robust to replaying already-added
+//            blocks, as well as fixing data if the replayed block appears
+//            to have been added already but is different.
+//
+//
+//
 bool InterfaceToLDB::addBlockToDB(StoredHeader const & sbh, 
                                   bool notNecessarilyValid)
 {
-   // Assumptions:
-   //  -- We have already determined the correct height and dup for the header 
-   //     and we assume it's part of the sbh object
-   //  -- We don't know if it's been added to the databases yet.
-   //
-   // Things to do when adding a block:
-   //
-   //  -- PREPARATION:
-   //    -- Create list of all OutPoints affected, and scripts touched
-   //    -- If not supernode, then check above data against registeredSSHs_
-   //    -- Fetch all StoredTxOuts from DB about to be removed
-   //    -- Get/create TXHINT entries for all tx in block
-   //    -- Compute all script keys and get/create all StoredScriptHistory objs
-   //    -- Check if any multisig scripts are affected, if so get those objs
-   //    -- If pruning, create StoredUndoData from TxOuts about to be removed
-   //    -- Modify any Tx/TxOuts in the SBH tree to accommodate any tx in this 
-   //       block that affect any other tx in this block
-   //
-   //
-   //  -- Check if the block {hgt,dup} has already been written to BLKDATA DB
-   //  -- Check if the header has already been added to HEADERS DB
-   //  
-   //  -- BATCH (HEADERS)
-   //    -- Add header to HEADHASH list
-   //    -- Add header to HEADHGT list
-   //    -- Update validDupByHeight_
-   //    -- Update DBINFO top block data
-   //
-   //  -- BATCH (BLKDATA)
-   //    -- Modify StoredTxOut with spentness info (or prep a delete operation
-   //       if pruning).
-   //    -- Modify StoredScriptHistory objs same as above.  
-   //    -- Modify StoredScriptHistory multisig objects as well.
-   //    -- Update SSH objects alreadyScannedUpToBlk_, if necessary
-   //    -- Write all new TXDATA entries for {hgt,dup}
-   //    -- If pruning, write StoredUndoData objs to DB
-   //    -- Update DBINFO top block data
    
    map<BinaryData, StoredScriptHistory> sshToModify;
    map<BinaryData, StoredTxHints>       hintsToModify;
    map<BinaryData, StoredTxOut>         stxosToModify;
+   set<BinaryData>                      keysToDelete;
 }
 
 
+////////////////////////////////////////////////////////////////////////////////
+// TODO:  Make sure that undo data makes sense in the case that the block 
+//        includes tx that spent tx in the same block
+//
+// TODO:  Does it matter that we will be modifying transactions 
+//        which are potentially also on the fork?   Maybe it matters only
+//        in a flip-flop reorg
+//
+// -- Go through all the StoredTxOuts:
+//      -- If pruning, add them back
+//      -- If no pruning, remove spentness flags/info
+//      -- Fetch SSH objects based on these TxOut scripts, update them
+// -- Go through OutPoints
+//      -- Look them up in the DB and find the associated SSH objects 
+//      -- (Don't need to remove the OutPoints, because the whole block
+//         and all tx will be ignored when the validDupByHeight_ is updated)
+// -- Update DBInfo object top block
+//
+//
+// Even though we don't strictly need undo-data for a no-pruning DB, we
+// put in the hooks for it to be used so it's an easy upgrade, later. In 
+// other words, we will always revert blocks based on StoredUndoData, and 
+// in the event that the SUD object is not supplied or stored in the DB,
+// we will create it from the full blocks.  All subsequent operations 
+// will then be identical, regardless of pruning or not.
+//
+bool InterfaceToLDB::revertBlock(uint32_t height, 
+                                 uint8_t  dupID, 
+                                 StoredUndoData* sud)
+{
+   StoredUndoData maybeNeedToComputeSUD;
+   if(sud==NULL)
+   {
+      if(ARMDB.getDbPruneType() == DB_PRUNE_ALL)
+      {
+         BinaryData      key = ARMDB.getBlkDataKeyNoPrefix(height,dupID);
+         BinaryRefReader brr = getValueReader(BLKDATA, DB_PREFIX_UNDODATA, key);
+         maybeNeedToComputeSUD.unserializeDBValue(brr);
+         sud = &maybeNeedToComputeSUD;
+      }
+      else
+      {
+         /*
+         bool works = computeUndoDataForBlock(height, dupID, maybeNeedToComputeSUD);
+         if(!works)
+         {
+            LOGERR << "Could not produce undo data for block!";
+            return false;
+         }
+         sud = &maybeNeedToComputeSUD;
+         */
+      }
+   }
+   
+   
 
+   
+
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 // This is used only for debugging and testing with small database sizes.

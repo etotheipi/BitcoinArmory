@@ -3532,11 +3532,11 @@ TEST_F(LevelDBTest, PutGetDelete)
    ASSERT_TRUE( compareKVListRange(0,1, 0,3));
 
    // Now test a bunch of get* methods
-   ASSERT_EQ( iface_->getValue(   BLKDATA, PREFIX+keyAB),           commonValue);
-   ASSERT_EQ( iface_->getValue(   BLKDATA, DB_PREFIX_DBINFO, nothing),  val0);
-   ASSERT_EQ( iface_->getValue(   BLKDATA, DBINFO),                 val0);
-   ASSERT_EQ( iface_->getValueRef(BLKDATA, PREFIX+keyAB),           commonValue);
-   ASSERT_EQ( iface_->getValueRef(BLKDATA, TXDATA, keyAB),          commonValue);
+   ASSERT_EQ( iface_->getValue(      BLKDATA, PREFIX+keyAB),             commonValue);
+   ASSERT_EQ( iface_->getValue(      BLKDATA, DB_PREFIX_DBINFO, nothing),val0);
+   ASSERT_EQ( iface_->getValue(      BLKDATA, DBINFO),                   val0);
+   ASSERT_EQ( iface_->getValueRef(   BLKDATA, PREFIX+keyAB),             commonValue);
+   ASSERT_EQ( iface_->getValueRef(   BLKDATA, TXDATA, keyAB),            commonValue);
    ASSERT_EQ( iface_->getValueReader(BLKDATA, PREFIX+keyAB).getRawRef(), commonValue);
    ASSERT_EQ( iface_->getValueReader(BLKDATA, TXDATA, keyAB).getRawRef(),commonValue);
 

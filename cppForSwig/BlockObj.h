@@ -212,8 +212,8 @@ public:
    bool operator<(OutPoint const & op2) const;
    bool operator==(OutPoint const & op2) const;
 
-   void        serialize(BinaryWriter & bw);
-   BinaryData  serialize(void);
+   void        serialize(BinaryWriter & bw) const;
+   BinaryData  serialize(void) const;
    void        unserialize(uint8_t const * ptr);
    void        unserialize(BinaryReader & br);
    void        unserialize(BinaryRefReader & brr);

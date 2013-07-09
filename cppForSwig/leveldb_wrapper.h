@@ -393,7 +393,7 @@ public:
                                           uint8_t  dup, 
                                           uint16_t txIndex);
 
-   vector<BinaryData> getAllHintsForTxHash(BinaryDataRef txHash);
+   StoredTxHints getHintsForTxHash(BinaryDataRef txHash);
 
 
    ////////////////////////////////////////////////////////////////////////////
@@ -410,7 +410,9 @@ public:
                                     StoredUndoData & sud);
    void computeUndoDataFromRawBlock(BinaryDataRef    rawBlock,
                                     StoredUndoData & sud);
-   bool computeUndoDataForBlock(uint32_t height, uint8_t dupID=0xff);
+   bool computeUndoDataForBlock(uint32_t height, 
+                                uint8_t dupID,
+                                StoredUndoData & sud);
 
    bool revertBlock(uint32_t height, uint8_t dupID, StoredUndoData* sud=NULL);
 

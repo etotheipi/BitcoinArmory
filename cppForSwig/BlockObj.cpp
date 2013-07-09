@@ -143,13 +143,13 @@ bool OutPoint::operator==(OutPoint const & op2) const
    return (txHash_ == op2.txHash_ && txOutIndex_ == op2.txOutIndex_);
 }
 
-void OutPoint::serialize(BinaryWriter & bw)
+void OutPoint::serialize(BinaryWriter & bw) const
 {
    bw.put_BinaryData(txHash_);
    bw.put_uint32_t(txOutIndex_);
 }
 
-BinaryData OutPoint::serialize(void)
+BinaryData OutPoint::serialize(void) const
 {
    BinaryWriter bw(36);
    serialize(bw);
