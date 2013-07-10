@@ -335,6 +335,31 @@ BinaryData StoredHeader::getSerializedBlockHeader(void) const
    return dataCopy_;
 }
 
+////////////////////////////////////////////////////////////////////////////////
+void StoredHeader::unserializeDBValue(DB_SELECT db,
+                                      BinaryData const & bd,
+                                      bool ignoreMerkle)
+{
+   BinaryRefReader brr(bd);
+   unserializeDBValue(db, brr, ignoreMerkle);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void StoredHeader::unserializeDBValue(DB_SELECT db,
+                                      BinaryDataRef bdr,
+                                      bool ignoreMerkle)
+{
+   BinaryRefReader brr(bdr);
+   unserializeDBValue(db, brr, ignoreMerkle);
+}
+////////////////////////////////////////////////////////////////////////////////
+BinaryData StoredHeader::serializeDBValue(DB_SELECT db) const
+{
+   BinaryWriter bw;
+   serializeDBValue(db, bw);
+   return bw.getData();
+}
+
 /////////////////////////////////////////////////////////////////////////////
 void StoredHeader::unserializeDBValue( DB_SELECT         db,
                                        BinaryRefReader & brr,
@@ -517,6 +542,28 @@ void StoredTx::unserialize(BinaryRefReader & brr, bool fragged)
 }
 
 
+////////////////////////////////////////////////////////////////////////////////
+void StoredTx::unserializeDBValue(BinaryData const & bd)
+{
+   BinaryRefReader brr(bd);
+   unserializeDBValue(brr);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void StoredTx::unserializeDBValue(BinaryDataRef bdr)
+                                  
+{
+   BinaryRefReader brr(bdr);
+   unserializeDBValue(brr);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+BinaryData StoredTx::serializeDBValue(void) const
+{
+   BinaryWriter bw;
+   serializeDBValue(bw);
+   return bw.getData();
+}
 
 
 
@@ -713,6 +760,19 @@ void StoredTxOut::unserialize(BinaryRefReader & brr)
 }
 
 
+////////////////////////////////////////////////////////////////////////////////
+void StoredTxOut::unserializeDBValue(BinaryData const & bd)
+{
+   BinaryRefReader brr(bd);
+   unserializeDBValue(brr);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void StoredTxOut::unserializeDBValue(BinaryDataRef bdr)
+{
+   BinaryRefReader brr(bdr);
+   unserializeDBValue(brr);
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 void StoredTxOut::unserializeDBValue(BinaryRefReader & brr)
@@ -731,6 +791,15 @@ void StoredTxOut::unserializeDBValue(BinaryRefReader & brr)
    if(spentness_ == TXOUT_SPENT && brr.getSizeRemaining()>=8)
       spentByTxInKey_ = brr.get_BinaryData(8); 
 
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+BinaryData StoredTxOut::serializeDBValue(bool forceSaveSpent) const
+{
+   BinaryWriter bw;
+   serializeDBValue(bw, forceSaveSpent);
+   return bw.getData();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1037,6 +1106,30 @@ void StoredScriptHistory::serializeDBValue(BinaryWriter & bw ) const
    }
 }
 
+
+////////////////////////////////////////////////////////////////////////////////
+void StoredScriptHistory::unserializeDBValue(BinaryData const & bd)
+{
+   BinaryRefReader brr(bd);
+   unserializeDBValue(brr);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void StoredScriptHistory::unserializeDBValue(BinaryDataRef bdr)
+                                  
+{
+   BinaryRefReader brr(bdr);
+   unserializeDBValue(brr);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+BinaryData StoredScriptHistory::serializeDBValue(void) const
+{
+   BinaryWriter bw;
+   serializeDBValue(bw);
+   return bw.getData();
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 BinaryData StoredScriptHistory::getDBKey(bool withPrefix) const
 {
@@ -1129,6 +1222,29 @@ void StoredUndoData::serializeDBValue(BinaryWriter & bw ) const
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+void StoredUndoData::unserializeDBValue(BinaryData const & bd)
+{
+   BinaryRefReader brr(bd);
+   unserializeDBValue(brr);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void StoredUndoData::unserializeDBValue(BinaryDataRef bdr)
+                                  
+{
+   BinaryRefReader brr(bdr);
+   unserializeDBValue(brr);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+BinaryData StoredUndoData::serializeDBValue(void) const
+{
+   BinaryWriter bw;
+   serializeDBValue(bw);
+   return bw.getData();
+}
+
+////////////////////////////////////////////////////////////////////////////////
 BinaryData StoredUndoData::getDBKey(bool withPrefix) const
 {
    if(!withPrefix)
@@ -1179,6 +1295,29 @@ void StoredTxHints::serializeDBValue(BinaryWriter & bw ) const
 
       bw.put_BinaryData(dbKeyList_[i]);
    }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void StoredTxHints::unserializeDBValue(BinaryData const & bd)
+{
+   BinaryRefReader brr(bd);
+   unserializeDBValue(brr);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void StoredTxHints::unserializeDBValue(BinaryDataRef bdr)
+                                  
+{
+   BinaryRefReader brr(bdr);
+   unserializeDBValue(brr);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+BinaryData StoredTxHints::serializeDBValue(void) const
+{
+   BinaryWriter bw;
+   serializeDBValue(bw);
+   return bw.getData();
 }
 
 
@@ -1241,6 +1380,28 @@ void StoredHeadHgtList::serializeDBValue(BinaryWriter & bw ) const
 
 }
 
+////////////////////////////////////////////////////////////////////////////////
+void StoredHeadHgtList::unserializeDBValue(BinaryData const & bd)
+{
+   BinaryRefReader brr(bd);
+   unserializeDBValue(brr);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void StoredHeadHgtList::unserializeDBValue(BinaryDataRef bdr)
+                                  
+{
+   BinaryRefReader brr(bdr);
+   unserializeDBValue(brr);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+BinaryData StoredHeadHgtList::serializeDBValue(void) const
+{
+   BinaryWriter bw;
+   serializeDBValue(bw);
+   return bw.getData();
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 BinaryData StoredHeadHgtList::getDBKey(bool withPrefix) const

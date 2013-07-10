@@ -13,6 +13,208 @@
 
 #define READHEX BinaryData::CreateFromHex
 
+
+/* This didn't work at all
+class BitcoinEnvironment : public ::testing::Environment 
+{
+public:
+   // Override this to define how to set up the environment.
+   virtual void SetUp() 
+   {
+      rawHead_ = READHEX(
+         "01000000"
+         "1d8f4ec0443e1f19f305e488c1085c95de7cc3fd25e0d2c5bb5d000000000000"
+         "9762547903d36881a86751f3f5049e23050113f779735ef82734ebf0b4450081"
+         "d8c8c84d"
+         "b3936a1a"
+         "334b035b");
+      headHashLE_ = READHEX(
+         "1195e67a7a6d0674bbd28ae096d602e1f038c8254b49dfe79d47000000000000");
+      headHashBE_ = READHEX(
+         "000000000000479de7df494b25c838f0e102d696e08ad2bb74066d7a7ae69511");
+
+      rawTx0_ = READHEX( 
+         "01000000016290dce984203b6a5032e543e9e272d8bce934c7de4d15fa0fe44d"
+         "d49ae4ece9010000008b48304502204f2fa458d439f957308bca264689aa175e"
+         "3b7c5f78a901cb450ebd20936b2c500221008ea3883a5b80128e55c9c6070aa6"
+         "264e1e0ce3d18b7cd7e85108ce3d18b7419a0141044202550a5a6d3bb81549c4"
+         "a7803b1ad59cdbba4770439a4923624a8acfc7d34900beb54a24188f7f0a4068"
+         "9d905d4847cc7d6c8d808a457d833c2d44ef83f76bffffffff0242582c0a0000"
+         "00001976a914c1b4695d53b6ee57a28647ce63e45665df6762c288ac80d1f008"
+         "000000001976a9140e0aec36fe2545fb31a41164fb6954adcd96b34288ac0000"
+         "0000");
+      rawTx1_ = READHEX( 
+         "0100000001f658dbc28e703d86ee17c9a2d3b167a8508b082fa0745f55be5144"
+         "a4369873aa010000008c49304602210041e1186ca9a41fdfe1569d5d807ca7ff"
+         "6c5ffd19d2ad1be42f7f2a20cdc8f1cc0221003366b5d64fe81e53910e156914"
+         "091d12646bc0d1d662b7a65ead3ebe4ab8f6c40141048d103d81ac9691cf13f3"
+         "fc94e44968ef67b27f58b27372c13108552d24a6ee04785838f34624b294afee"
+         "83749b64478bb8480c20b242c376e77eea2b3dc48b4bffffffff0200e1f50500"
+         "0000001976a9141b00a2f6899335366f04b277e19d777559c35bc888ac40aeeb"
+         "02000000001976a9140e0aec36fe2545fb31a41164fb6954adcd96b34288ac00"
+         "000000");
+
+      rawBlock_ = READHEX(
+         "01000000eb10c9a996a2340a4d74eaab41421ed8664aa49d18538bab59010000"
+         "000000005a2f06efa9f2bd804f17877537f2080030cadbfa1eb50e02338117cc"
+         "604d91b9b7541a4ecfbb0a1a64f1ade703010000000100000000000000000000"
+         "00000000000000000000000000000000000000000000ffffffff0804cfbb0a1a"
+         "02360affffffff0100f2052a01000000434104c2239c4eedb3beb26785753463"
+         "be3ec62b82f6acd62efb65f452f8806f2ede0b338e31d1f69b1ce449558d7061"
+         "aa1648ddc2bf680834d3986624006a272dc21cac000000000100000003e8caa1"
+         "2bcb2e7e86499c9de49c45c5a1c6167ea4b894c8c83aebba1b6100f343010000"
+         "008c493046022100e2f5af5329d1244807f8347a2c8d9acc55a21a5db769e927"
+         "4e7e7ba0bb605b26022100c34ca3350df5089f3415d8af82364d7f567a6a297f"
+         "cc2c1d2034865633238b8c014104129e422ac490ddfcb7b1c405ab9fb4244124"
+         "6c4bca578de4f27b230de08408c64cad03af71ee8a3140b40408a7058a1984a9"
+         "f246492386113764c1ac132990d1ffffffff5b55c18864e16c08ef9989d31c7a"
+         "343e34c27c30cd7caa759651b0e08cae0106000000008c4930460221009ec9aa"
+         "3e0caf7caa321723dea561e232603e00686d4bfadf46c5c7352b07eb00022100"
+         "a4f18d937d1e2354b2e69e02b18d11620a6a9332d563e9e2bbcb01cee559680a"
+         "014104411b35dd963028300e36e82ee8cf1b0c8d5bf1fc4273e970469f5cb931"
+         "ee07759a2de5fef638961726d04bd5eb4e5072330b9b371e479733c942964bb8"
+         "6e2b22ffffffff3de0c1e913e6271769d8c0172cea2f00d6d3240afc3a20f9fa"
+         "247ce58af30d2a010000008c493046022100b610e169fd15ac9f60fe2b507529"
+         "281cf2267673f4690ba428cbb2ba3c3811fd022100ffbe9e3d71b21977a8e97f"
+         "de4c3ba47b896d08bc09ecb9d086bb59175b5b9f03014104ff07a1833fd8098b"
+         "25f48c66dcf8fde34cbdbcc0f5f21a8c2005b160406cbf34cc432842c6b37b25"
+         "90d16b165b36a3efc9908d65fb0e605314c9b278f40f3e1affffffff0240420f"
+         "00000000001976a914adfa66f57ded1b655eb4ccd96ee07ca62bc1ddfd88ac00"
+         "7d6a7d040000001976a914981a0c9ae61fa8f8c96ae6f8e383d6e07e77133e88"
+         "ac00000000010000000138e7586e0784280df58bd3dc5e3d350c9036b1ec4107"
+         "951378f45881799c92a4000000008a47304402207c945ae0bbdaf9dadba07bdf"
+         "23faa676485a53817af975ddf85a104f764fb93b02201ac6af32ddf597e610b4"
+         "002e41f2de46664587a379a0161323a85389b4f82dda014104ec8883d3e4f7a3"
+         "9d75c9f5bb9fd581dc9fb1b7cdf7d6b5a665e4db1fdb09281a74ab138a2dba25"
+         "248b5be38bf80249601ae688c90c6e0ac8811cdb740fcec31dffffffff022f66"
+         "ac61050000001976a914964642290c194e3bfab661c1085e47d67786d2d388ac"
+         "2f77e200000000001976a9141486a7046affd935919a3cb4b50a8a0c233c286c"
+         "88ac00000000");
+
+      rawTxUnfrag_ = READHEX(
+         // Version
+         "01000000"
+         // NumTxIn
+         "02"
+         // Start TxIn0
+         "0044fbc929d78e4203eed6f1d3d39c0157d8e5c100bbe0886779c0"
+         "ebf6a69324010000008a47304402206568144ed5e7064d6176c74738b04c08ca"
+         "19ca54ddeb480084b77f45eebfe57802207927d6975a5ac0e1bb36f5c05356dc"
+         "da1f521770511ee5e03239c8e1eecf3aed0141045d74feae58c4c36d7c35beac"
+         "05eddddc78b3ce4b02491a2eea72043978056a8bc439b99ddaad327207b09ef1"
+         "6a8910828e805b0cc8c11fba5caea2ee939346d7ffffffff"
+         // Start TxIn1
+         "45c866b219b17695"
+         "2508f8e5aea728f950186554fc4a5807e2186a8e1c4009e5000000008c493046"
+         "022100bd5d41662f98cfddc46e86ea7e4a3bc8fe9f1dfc5c4836eaf7df582596"
+         "cfe0e9022100fc459ae4f59b8279d679003b88935896acd10021b6e2e4619377"
+         "e336b5296c5e014104c00bab76a708ba7064b2315420a1c533ca9945eeff9754"
+         "cdc574224589e9113469b4e71752146a10028079e04948ecdf70609bf1b9801f"
+         "6b73ab75947ac339e5ffffffff"
+         // NumTxOut
+         "02"
+         // Start TxOut0
+         "ac4c8bd5000000001976a9148dce8946f1c7763bb60ea5cf16ef514cbed0633b88ac"
+         // Start TxOut1
+         "002f6859000000001976a9146a59ac0e8f553f292dfe5e9f3aaa1da93499c15e88ac"
+         // Locktime
+         "00000000");
+
+      rawTxFragged_ = READHEX(
+         //"01000000020044fbc929d78e4203eed6f1d3d39c0157d8e5c100bbe0886779c0"
+         //"ebf6a69324010000008a47304402206568144ed5e7064d6176c74738b04c08ca"
+         //"19ca54ddeb480084b77f45eebfe57802207927d6975a5ac0e1bb36f5c05356dc"
+         //"da1f521770511ee5e03239c8e1eecf3aed0141045d74feae58c4c36d7c35beac"
+         //"05eddddc78b3ce4b02491a2eea72043978056a8bc439b99ddaad327207b09ef1"
+         //"6a8910828e805b0cc8c11fba5caea2ee939346d7ffffffff45c866b219b17695"
+         //"2508f8e5aea728f950186554fc4a5807e2186a8e1c4009e5000000008c493046"
+         //"022100bd5d41662f98cfddc46e86ea7e4a3bc8fe9f1dfc5c4836eaf7df582596"
+         //"cfe0e9022100fc459ae4f59b8279d679003b88935896acd10021b6e2e4619377"
+         //"e336b5296c5e014104c00bab76a708ba7064b2315420a1c533ca9945eeff9754"
+         //"cdc574224589e9113469b4e71752146a10028079e04948ecdf70609bf1b9801f"
+         //"6b73ab75947ac339e5ffffffff0200000000");
+         // Version
+         "01000000"
+         // NumTxIn
+         "02"
+         // Start TxIn0
+         "0044fbc929d78e4203eed6f1d3d39c0157d8e5c100bbe0886779c0"
+         "ebf6a69324010000008a47304402206568144ed5e7064d6176c74738b04c08ca"
+         "19ca54ddeb480084b77f45eebfe57802207927d6975a5ac0e1bb36f5c05356dc"
+         "da1f521770511ee5e03239c8e1eecf3aed0141045d74feae58c4c36d7c35beac"
+         "05eddddc78b3ce4b02491a2eea72043978056a8bc439b99ddaad327207b09ef1"
+         "6a8910828e805b0cc8c11fba5caea2ee939346d7ffffffff"
+         // Start TxIn1
+         "45c866b219b17695"
+         "2508f8e5aea728f950186554fc4a5807e2186a8e1c4009e5000000008c493046"
+         "022100bd5d41662f98cfddc46e86ea7e4a3bc8fe9f1dfc5c4836eaf7df582596"
+         "cfe0e9022100fc459ae4f59b8279d679003b88935896acd10021b6e2e4619377"
+         "e336b5296c5e014104c00bab76a708ba7064b2315420a1c533ca9945eeff9754"
+         "cdc574224589e9113469b4e71752146a10028079e04948ecdf70609bf1b9801f"
+         "6b73ab75947ac339e5ffffffff"
+         // NumTxOut
+         "02"
+         // ... TxOuts fragged out 
+         // Locktime
+         "00000000");
+
+      rawTxOut0_ = READHEX(
+         // Value
+         "ac4c8bd500000000"
+         // Script size (var_int)
+         "19"
+         // Script
+         "76""a9""14""8dce8946f1c7763bb60ea5cf16ef514cbed0633b""88""ac");
+      rawTxOut1_ = READHEX(
+         // Value 
+         "002f685900000000"
+         // Script size (var_int)
+         "19"
+         // Script
+         "76""a9""14""6a59ac0e8f553f292dfe5e9f3aaa1da93499c15e""88""ac");
+
+      bh_.unserialize(rawHead_);
+      tx1_.unserialize(rawTx0_);
+      tx2_.unserialize(rawTx1_);
+
+
+      sbh_.unserialize(rawHead_);
+
+      // Make sure the global DB type and prune type are reset for each test
+      ARMDB.setArmoryDbType(ARMORY_DB_FULL);
+      ARMDB.setDbPruneType(DB_PRUNE_NONE);
+   }
+
+   BinaryData rawHead_;
+   BinaryData headHashLE_;
+   BinaryData headHashBE_;
+
+   BinaryData rawBlock_;
+
+   BinaryData rawTx0_;
+   BinaryData rawTx1_;
+
+   BlockHeader bh_;
+   Tx tx1_;
+   Tx tx2_;
+
+   BinaryData rawTxUnfrag_;
+   BinaryData rawTxFragged_;
+   BinaryData rawTxOut0_;
+   BinaryData rawTxOut1_;
+
+   StoredHeader sbh_;
+
+};
+
+
+::testing::Environment* const btcenv = 
+               ::testing::AddGlobalTestEnvironment(new BitcoinEnvironment);
+*/
+
+
+
+
 ////////////////////////////////////////////////////////////////////////////////
 class BinaryDataTest : public ::testing::Test
 {
@@ -2511,8 +2713,6 @@ TEST_F(StoredBlockObjTest, SHeaderDBSerFull_H)
    ARMDB.setArmoryDbType(ARMORY_DB_FULL);
    ARMDB.setDbPruneType(DB_PRUNE_NONE);
 
-   BinaryWriter bw;
-
    sbh_.blockHeight_      = 65535;
    sbh_.duplicateID_      = 1;
    sbh_.merkle_           = READHEX("deadbeef");
@@ -2523,8 +2723,7 @@ TEST_F(StoredBlockObjTest, SHeaderDBSerFull_H)
 
    // SetUp already contains sbh_.unserialize(rawHead_);
    BinaryData last4 = READHEX("01ffff00");
-   sbh_.serializeDBValue(HEADERS, bw);
-   EXPECT_EQ(bw.getData(), rawHead_ + last4);
+   EXPECT_EQ(sbh_.serializeDBValue(HEADERS), rawHead_ + last4);
 }
 
 
@@ -2535,8 +2734,6 @@ TEST_F(StoredBlockObjTest, SHeaderDBSerFull_B1)
    // so the merkle tree would be redundant.
    ARMDB.setArmoryDbType(ARMORY_DB_FULL);
    ARMDB.setDbPruneType(DB_PRUNE_NONE);
-
-   BinaryWriter bw;
 
    sbh_.blockHeight_      = 65535;
    sbh_.duplicateID_      = 1;
@@ -2552,8 +2749,7 @@ TEST_F(StoredBlockObjTest, SHeaderDBSerFull_B1)
    BinaryData nbyte = READHEX("ffff0000");
 
    BinaryData headBlkData = flags + rawHead_ + ntx + nbyte;
-   sbh_.serializeDBValue(BLKDATA, bw);
-   EXPECT_EQ(bw.getData(), headBlkData);
+   EXPECT_EQ(sbh_.serializeDBValue(BLKDATA), headBlkData);
 }
 
 
@@ -2580,8 +2776,7 @@ TEST_F(StoredBlockObjTest, SHeaderDBSerFull_B2)
    BinaryData nbyte = READHEX("ffff0000");
 
    BinaryData headBlkData = flags + rawHead_ + ntx + nbyte + sbh_.merkle_;
-   sbh_.serializeDBValue(BLKDATA, bw);
-   EXPECT_EQ(bw.getData(), headBlkData);
+   EXPECT_EQ(sbh_.serializeDBValue(BLKDATA), headBlkData);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -2606,8 +2801,7 @@ TEST_F(StoredBlockObjTest, SHeaderDBSerFull_B3)
    BinaryData nbyte = READHEX("ffff0000");
 
    BinaryData headBlkData = flags + rawHead_ + ntx + nbyte;
-   sbh_.serializeDBValue(BLKDATA, bw);
-   EXPECT_EQ(bw.getData(), headBlkData);
+   EXPECT_EQ(sbh_.serializeDBValue(BLKDATA), headBlkData);
 }
 
 
@@ -2814,10 +3008,7 @@ TEST_F(StoredBlockObjTest, STxSerDBValue_1)
    BinaryData  txHash  = origTx.getThisHash();
    BinaryData  fragged = stx.getSerializedTxFragged();
    BinaryData  output  = first2 + txHash + fragged;
-   
-   BinaryWriter bw;
-   stx.serializeDBValue(bw);
-   EXPECT_EQ(bw.getData(), output);
+   EXPECT_EQ(stx.serializeDBValue(), output);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -2841,10 +3032,7 @@ TEST_F(StoredBlockObjTest, STxSerDBValue_2)
    BinaryData  txHash  = origTx.getThisHash();
    BinaryData  fragged = stx.getSerializedTx();  // Full Tx this time
    BinaryData  output  = first2 + txHash + fragged;
-   
-   BinaryWriter bw;
-   stx.serializeDBValue(bw);
-   EXPECT_EQ(bw.getData(), output);
+   EXPECT_EQ(stx.serializeDBValue(), output);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -2974,10 +3162,7 @@ TEST_F(StoredBlockObjTest, STxOutSerDBValue_1)
    //
    // For this example:  DBVer=0, TxVer=1, TxSer=FRAGGED[1]
    //   0000   01    00   0  --- ----
-   
-   BinaryWriter bw;
-   stxo0.serializeDBValue(bw);
-   EXPECT_EQ(bw.getData(),  READHEX("0004") + rawTxOut0_);
+   EXPECT_EQ(stxo0.serializeDBValue(),  READHEX("0004") + rawTxOut0_);
 }
    
 
@@ -2994,12 +3179,10 @@ TEST_F(StoredBlockObjTest, STxOutSerDBValue_2)
 
    // Test a spent TxOut
    //   0000   01    01   0  --- ----
-   BinaryWriter bw;
    BinaryData spentStr = ARMDB.getBlkDataKeyNoPrefix( 100000, 1, 127, 15);
    stxo0.spentness_ = TXOUT_SPENT;
    stxo0.spentByTxInKey_ = spentStr;
-   stxo0.serializeDBValue(bw);
-   EXPECT_EQ(bw.getData(),  READHEX("0005") + rawTxOut0_ + spentStr);
+   EXPECT_EQ(stxo0.serializeDBValue(), READHEX("0005")+rawTxOut0_+spentStr);
 }
 
 
@@ -3019,12 +3202,10 @@ TEST_F(StoredBlockObjTest, STxOutSerDBValue_3)
    //   0000   01    01   1  --- ----
    ARMDB.setArmoryDbType(ARMORY_DB_LITE);
    ARMDB.setDbPruneType(DB_PRUNE_NONE);
-   BinaryWriter bw;
    BinaryData spentStr = ARMDB.getBlkDataKeyNoPrefix( 100000, 1, 127, 15);
    stxo0.spentness_ = TXOUT_SPENT;
    stxo0.spentByTxInKey_ = spentStr;
-   stxo0.serializeDBValue(bw);
-   EXPECT_EQ(bw.getData(),  READHEX("8006") + rawTxOut0_);
+   EXPECT_EQ(stxo0.serializeDBValue(), READHEX("8006")+rawTxOut0_);
 }
 
 
@@ -3033,9 +3214,8 @@ TEST_F(StoredBlockObjTest, STxOutUnserDBValue_1)
 {
    BinaryData input = READHEX( "0004ac4c8bd5000000001976a9148dce8946f1c7763b"
                                "b60ea5cf16ef514cbed0633b88ac");
-   BinaryRefReader brr(input);
    StoredTxOut stxo;
-   stxo.unserializeDBValue(brr);
+   stxo.unserializeDBValue(input);
 
    EXPECT_TRUE( stxo.isInitialized());
    EXPECT_EQ(   stxo.txVersion_,    1);
@@ -3054,9 +3234,8 @@ TEST_F(StoredBlockObjTest, STxOutUnserDBValue_2)
 {
    BinaryData input = READHEX( "0005ac4c8bd5000000001976a9148dce8946f1c7763b"
                                "b60ea5cf16ef514cbed0633b88ac01a086017f000f00");
-   BinaryRefReader brr(input);
    StoredTxOut stxo;
-   stxo.unserializeDBValue(brr);
+   stxo.unserializeDBValue(input);
 
    EXPECT_TRUE( stxo.isInitialized());
    EXPECT_EQ(   stxo.txVersion_,    1);
@@ -3077,10 +3256,8 @@ TEST_F(StoredBlockObjTest, STxOutUnserDBValue_3)
 {
    BinaryData input = READHEX( "8006ac4c8bd5000000001976a9148dce8946f1c7763b"
                                "b60ea5cf16ef514cbed0633b88ac");
-   BinaryRefReader brr(input);
-
    StoredTxOut stxo;
-   stxo.unserializeDBValue(brr);
+   stxo.unserializeDBValue(input);
 
    EXPECT_TRUE( stxo.isInitialized());
    EXPECT_EQ(   stxo.txVersion_,    1);
@@ -3161,10 +3338,7 @@ TEST_F(StoredBlockObjTest, SUndoDataSer)
                           op0.serialize() +
                           op1.serialize();
 
-   BinaryWriter bw;
-   sud.serializeDBValue(bw);
-   
-   EXPECT_EQ(bw.getData(), answer);
+   EXPECT_EQ(sud.serializeDBValue(), answer);
 }
 
 
@@ -3193,9 +3367,8 @@ TEST_F(StoredBlockObjTest, SUndoDataUnser)
       "bbbbaaaabbbbaaaabbbbaaaabbbbaaaabbbbaaaabbbb01000000ffffbbbbffff"
       "bbbbffffbbbbffffbbbbffffbbbbffffbbbbffffbbbbffffbbbb02000000");
 
-   BinaryRefReader brr(sudToUnser);
    StoredUndoData sud;
-   sud.unserializeDBValue(brr);
+   sud.unserializeDBValue(sudToUnser);
 
    ASSERT_EQ(sud.outPointsAddedByBlock_.size(), 2);
    ASSERT_EQ(sud.stxOutsRemovedByBlock_.size(), 2);
@@ -3221,14 +3394,10 @@ TEST_F(StoredBlockObjTest, STxHintsSer)
    sths.txHashPrefix_ = READHEX("aaaaffff");
    sths.dbKeyList_.clear();
 
-   BinaryWriter out;
-
    /////
    BinaryWriter ans0;
    ans0.put_var_int(0);
-   out.reset();
-   sths.serializeDBValue(out);
-   EXPECT_EQ(out.getData(), ans0.getData());
+   EXPECT_EQ(sths.serializeDBValue(), ans0.getData());
 
    /////
    sths.dbKeyList_.push_back(hint0);
@@ -3238,9 +3407,7 @@ TEST_F(StoredBlockObjTest, STxHintsSer)
    ans1.put_BinaryData(hint0);
    EXPECT_EQ(sths.dbKeyList_.size(), 1);
    EXPECT_EQ(sths.preferredDBKey_, hint0);
-   out.reset();
-   sths.serializeDBValue(out);
-   EXPECT_EQ(out.getData(), ans1.getData());
+   EXPECT_EQ(sths.serializeDBValue(), ans1.getData());
 
    /////
    sths.dbKeyList_.push_back(hint1);
@@ -3252,9 +3419,7 @@ TEST_F(StoredBlockObjTest, STxHintsSer)
    ans3.put_BinaryData(hint2);
    EXPECT_EQ(sths.dbKeyList_.size(), 3);
    EXPECT_EQ(sths.preferredDBKey_, hint0);
-   out.reset();
-   sths.serializeDBValue(out);
-   EXPECT_EQ(out.getData(), ans3.getData());
+   EXPECT_EQ(sths.serializeDBValue(), ans3.getData());
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -3278,9 +3443,7 @@ TEST_F(StoredBlockObjTest, STxHintsReorder)
    expectedOut.put_BinaryData(hint0);
    expectedOut.put_BinaryData(hint2);
 
-   BinaryWriter output;
-   sths.serializeDBValue(output);
-   EXPECT_EQ(output.getData(), expectedOut.getData());
+   EXPECT_EQ(sths.serializeDBValue(), expectedOut.getData());
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -3296,23 +3459,18 @@ TEST_F(StoredBlockObjTest, STxHintsUnser)
 
    StoredTxHints sths0, sths1, sths3;
 
-   BinaryRefReader brr;
-
-   brr.setNewData(in0);
-   sths0.unserializeDBValue(brr);
+   sths0.unserializeDBValue(in0);
 
    EXPECT_EQ(sths0.dbKeyList_.size(), 0);
    EXPECT_EQ(sths0.preferredDBKey_.getSize(), 0);
 
-   brr.setNewData(in1);
-   sths1.unserializeDBValue(brr);
+   sths1.unserializeDBValue(in1);
 
    EXPECT_EQ(sths1.dbKeyList_.size(),  1);
    EXPECT_EQ(sths1.dbKeyList_[0],      hint0);
    EXPECT_EQ(sths1.preferredDBKey_,    hint0);
 
-   brr.setNewData(in3);
-   sths3.unserializeDBValue(brr);
+   sths3.unserializeDBValue(in3);
    EXPECT_EQ(sths3.dbKeyList_.size(),  3);
    EXPECT_EQ(sths3.dbKeyList_[0],      hint0);
    EXPECT_EQ(sths3.dbKeyList_[1],      hint1);
@@ -3337,51 +3495,45 @@ TEST_F(StoredBlockObjTest, StoredHeadHgtListSer)
    uint8_t dup1 = 1;
    uint8_t dup2 = 7;
 
-   BinaryWriter hhlSer;
    BinaryWriter expectOut;
 
    // Test writing empty list
    expectOut.reset();
-   hhlSer.reset();
-   testHHL = baseHHL;
-   testHHL.serializeDBValue(hhlSer);
    expectOut.put_uint8_t(0);
-   EXPECT_EQ(expectOut.getData(), expectOut.getData());
+   EXPECT_EQ(testHHL.serializeDBValue(), expectOut.getData());
 
    
    // Test writing list with one entry but no preferred dupID
    expectOut.reset();
-   hhlSer.reset();
    testHHL = baseHHL;
    testHHL.dupAndHashList_.push_back(pair<uint8_t, BinaryData>(dup0, hash0)); 
    expectOut.put_uint8_t(1);
    expectOut.put_uint8_t(dup0);
    expectOut.put_BinaryData(hash0);
-   EXPECT_EQ(expectOut.getData(), expectOut.getData());
+   EXPECT_EQ(testHHL.serializeDBValue(), expectOut.getData());
    
    // Test writing list with one entry which is a preferred dupID
    expectOut.reset();
-   hhlSer.reset();
    testHHL = baseHHL;
    testHHL.preferredDup_ = 0;
+   testHHL.dupAndHashList_.push_back(pair<uint8_t, BinaryData>(dup0, hash0)); 
    expectOut.put_uint8_t(1);
    expectOut.put_uint8_t(dup0 | 0x80);
    expectOut.put_BinaryData(hash0);
-   EXPECT_EQ(expectOut.getData(), expectOut.getData());
+   EXPECT_EQ(testHHL.serializeDBValue(), expectOut.getData());
 
    // Test writing list with one entry preferred dupID but that dup isn't avail
    expectOut.reset();
-   hhlSer.reset();
    testHHL = baseHHL;
    testHHL.preferredDup_ = 1;
+   testHHL.dupAndHashList_.push_back(pair<uint8_t, BinaryData>(dup0, hash0)); 
    expectOut.put_uint8_t(1);
    expectOut.put_uint8_t(dup0);
    expectOut.put_BinaryData(hash0);
-   EXPECT_EQ(expectOut.getData(), expectOut.getData());
+   EXPECT_EQ(testHHL.serializeDBValue(), expectOut.getData());
 
    // Test writing with three entries, no preferred
    expectOut.reset();
-   hhlSer.reset();
    testHHL = baseHHL;
    testHHL.dupAndHashList_.push_back(pair<uint8_t, BinaryData>(dup0, hash0)); 
    testHHL.dupAndHashList_.push_back(pair<uint8_t, BinaryData>(dup1, hash1)); 
@@ -3390,12 +3542,12 @@ TEST_F(StoredBlockObjTest, StoredHeadHgtListSer)
    expectOut.put_uint8_t(dup0); expectOut.put_BinaryData(hash0);
    expectOut.put_uint8_t(dup1); expectOut.put_BinaryData(hash1);
    expectOut.put_uint8_t(dup2); expectOut.put_BinaryData(hash2);
-   EXPECT_EQ(expectOut.getData(), expectOut.getData());
+   EXPECT_EQ(testHHL.serializeDBValue(), expectOut.getData());
 
 
    // Test writing with three entries, with preferred
    expectOut.reset();
-   hhlSer.reset();
+   testHHL = baseHHL;
    testHHL.dupAndHashList_.push_back(pair<uint8_t, BinaryData>(dup0, hash0)); 
    testHHL.dupAndHashList_.push_back(pair<uint8_t, BinaryData>(dup1, hash1)); 
    testHHL.dupAndHashList_.push_back(pair<uint8_t, BinaryData>(dup2, hash2)); 
@@ -3404,7 +3556,7 @@ TEST_F(StoredBlockObjTest, StoredHeadHgtListSer)
    expectOut.put_uint8_t(dup1 | 0x80); expectOut.put_BinaryData(hash1);
    expectOut.put_uint8_t(dup0);        expectOut.put_BinaryData(hash0);
    expectOut.put_uint8_t(dup2);        expectOut.put_BinaryData(hash2);
-   EXPECT_EQ(expectOut.getData(), expectOut.getData());
+   EXPECT_EQ(testHHL.serializeDBValue(), expectOut.getData());
 }
 
 
@@ -3755,24 +3907,204 @@ protected:
       ghash_ = READHEX(MAINNET_GENESIS_HASH_HEX);
       gentx_ = READHEX(MAINNET_GENESIS_TX_HASH_HEX);
       zeros_ = READHEX("00000000");
+
+      rawHead_ = READHEX(
+         "01000000"
+         "1d8f4ec0443e1f19f305e488c1085c95de7cc3fd25e0d2c5bb5d000000000000"
+         "9762547903d36881a86751f3f5049e23050113f779735ef82734ebf0b4450081"
+         "d8c8c84d"
+         "b3936a1a"
+         "334b035b");
+      headHashLE_ = READHEX(
+         "1195e67a7a6d0674bbd28ae096d602e1f038c8254b49dfe79d47000000000000");
+      headHashBE_ = READHEX(
+         "000000000000479de7df494b25c838f0e102d696e08ad2bb74066d7a7ae69511");
+
+      rawTx0_ = READHEX( 
+         "01000000016290dce984203b6a5032e543e9e272d8bce934c7de4d15fa0fe44d"
+         "d49ae4ece9010000008b48304502204f2fa458d439f957308bca264689aa175e"
+         "3b7c5f78a901cb450ebd20936b2c500221008ea3883a5b80128e55c9c6070aa6"
+         "264e1e0ce3d18b7cd7e85108ce3d18b7419a0141044202550a5a6d3bb81549c4"
+         "a7803b1ad59cdbba4770439a4923624a8acfc7d34900beb54a24188f7f0a4068"
+         "9d905d4847cc7d6c8d808a457d833c2d44ef83f76bffffffff0242582c0a0000"
+         "00001976a914c1b4695d53b6ee57a28647ce63e45665df6762c288ac80d1f008"
+         "000000001976a9140e0aec36fe2545fb31a41164fb6954adcd96b34288ac0000"
+         "0000");
+      rawTx1_ = READHEX( 
+         "0100000001f658dbc28e703d86ee17c9a2d3b167a8508b082fa0745f55be5144"
+         "a4369873aa010000008c49304602210041e1186ca9a41fdfe1569d5d807ca7ff"
+         "6c5ffd19d2ad1be42f7f2a20cdc8f1cc0221003366b5d64fe81e53910e156914"
+         "091d12646bc0d1d662b7a65ead3ebe4ab8f6c40141048d103d81ac9691cf13f3"
+         "fc94e44968ef67b27f58b27372c13108552d24a6ee04785838f34624b294afee"
+         "83749b64478bb8480c20b242c376e77eea2b3dc48b4bffffffff0200e1f50500"
+         "0000001976a9141b00a2f6899335366f04b277e19d777559c35bc888ac40aeeb"
+         "02000000001976a9140e0aec36fe2545fb31a41164fb6954adcd96b34288ac00"
+         "000000");
+
+      rawBlock_ = READHEX(
+         "01000000eb10c9a996a2340a4d74eaab41421ed8664aa49d18538bab59010000"
+         "000000005a2f06efa9f2bd804f17877537f2080030cadbfa1eb50e02338117cc"
+         "604d91b9b7541a4ecfbb0a1a64f1ade703010000000100000000000000000000"
+         "00000000000000000000000000000000000000000000ffffffff0804cfbb0a1a"
+         "02360affffffff0100f2052a01000000434104c2239c4eedb3beb26785753463"
+         "be3ec62b82f6acd62efb65f452f8806f2ede0b338e31d1f69b1ce449558d7061"
+         "aa1648ddc2bf680834d3986624006a272dc21cac000000000100000003e8caa1"
+         "2bcb2e7e86499c9de49c45c5a1c6167ea4b894c8c83aebba1b6100f343010000"
+         "008c493046022100e2f5af5329d1244807f8347a2c8d9acc55a21a5db769e927"
+         "4e7e7ba0bb605b26022100c34ca3350df5089f3415d8af82364d7f567a6a297f"
+         "cc2c1d2034865633238b8c014104129e422ac490ddfcb7b1c405ab9fb4244124"
+         "6c4bca578de4f27b230de08408c64cad03af71ee8a3140b40408a7058a1984a9"
+         "f246492386113764c1ac132990d1ffffffff5b55c18864e16c08ef9989d31c7a"
+         "343e34c27c30cd7caa759651b0e08cae0106000000008c4930460221009ec9aa"
+         "3e0caf7caa321723dea561e232603e00686d4bfadf46c5c7352b07eb00022100"
+         "a4f18d937d1e2354b2e69e02b18d11620a6a9332d563e9e2bbcb01cee559680a"
+         "014104411b35dd963028300e36e82ee8cf1b0c8d5bf1fc4273e970469f5cb931"
+         "ee07759a2de5fef638961726d04bd5eb4e5072330b9b371e479733c942964bb8"
+         "6e2b22ffffffff3de0c1e913e6271769d8c0172cea2f00d6d3240afc3a20f9fa"
+         "247ce58af30d2a010000008c493046022100b610e169fd15ac9f60fe2b507529"
+         "281cf2267673f4690ba428cbb2ba3c3811fd022100ffbe9e3d71b21977a8e97f"
+         "de4c3ba47b896d08bc09ecb9d086bb59175b5b9f03014104ff07a1833fd8098b"
+         "25f48c66dcf8fde34cbdbcc0f5f21a8c2005b160406cbf34cc432842c6b37b25"
+         "90d16b165b36a3efc9908d65fb0e605314c9b278f40f3e1affffffff0240420f"
+         "00000000001976a914adfa66f57ded1b655eb4ccd96ee07ca62bc1ddfd88ac00"
+         "7d6a7d040000001976a914981a0c9ae61fa8f8c96ae6f8e383d6e07e77133e88"
+         "ac00000000010000000138e7586e0784280df58bd3dc5e3d350c9036b1ec4107"
+         "951378f45881799c92a4000000008a47304402207c945ae0bbdaf9dadba07bdf"
+         "23faa676485a53817af975ddf85a104f764fb93b02201ac6af32ddf597e610b4"
+         "002e41f2de46664587a379a0161323a85389b4f82dda014104ec8883d3e4f7a3"
+         "9d75c9f5bb9fd581dc9fb1b7cdf7d6b5a665e4db1fdb09281a74ab138a2dba25"
+         "248b5be38bf80249601ae688c90c6e0ac8811cdb740fcec31dffffffff022f66"
+         "ac61050000001976a914964642290c194e3bfab661c1085e47d67786d2d388ac"
+         "2f77e200000000001976a9141486a7046affd935919a3cb4b50a8a0c233c286c"
+         "88ac00000000");
+
+      rawTxUnfrag_ = READHEX(
+         // Version
+         "01000000"
+         // NumTxIn
+         "02"
+         // Start TxIn0
+         "0044fbc929d78e4203eed6f1d3d39c0157d8e5c100bbe0886779c0"
+         "ebf6a69324010000008a47304402206568144ed5e7064d6176c74738b04c08ca"
+         "19ca54ddeb480084b77f45eebfe57802207927d6975a5ac0e1bb36f5c05356dc"
+         "da1f521770511ee5e03239c8e1eecf3aed0141045d74feae58c4c36d7c35beac"
+         "05eddddc78b3ce4b02491a2eea72043978056a8bc439b99ddaad327207b09ef1"
+         "6a8910828e805b0cc8c11fba5caea2ee939346d7ffffffff"
+         // Start TxIn1
+         "45c866b219b17695"
+         "2508f8e5aea728f950186554fc4a5807e2186a8e1c4009e5000000008c493046"
+         "022100bd5d41662f98cfddc46e86ea7e4a3bc8fe9f1dfc5c4836eaf7df582596"
+         "cfe0e9022100fc459ae4f59b8279d679003b88935896acd10021b6e2e4619377"
+         "e336b5296c5e014104c00bab76a708ba7064b2315420a1c533ca9945eeff9754"
+         "cdc574224589e9113469b4e71752146a10028079e04948ecdf70609bf1b9801f"
+         "6b73ab75947ac339e5ffffffff"
+         // NumTxOut
+         "02"
+         // Start TxOut0
+         "ac4c8bd5000000001976a9148dce8946f1c7763bb60ea5cf16ef514cbed0633b88ac"
+         // Start TxOut1
+         "002f6859000000001976a9146a59ac0e8f553f292dfe5e9f3aaa1da93499c15e88ac"
+         // Locktime
+         "00000000");
+
+      rawTxFragged_ = READHEX(
+         //"01000000020044fbc929d78e4203eed6f1d3d39c0157d8e5c100bbe0886779c0"
+         //"ebf6a69324010000008a47304402206568144ed5e7064d6176c74738b04c08ca"
+         //"19ca54ddeb480084b77f45eebfe57802207927d6975a5ac0e1bb36f5c05356dc"
+         //"da1f521770511ee5e03239c8e1eecf3aed0141045d74feae58c4c36d7c35beac"
+         //"05eddddc78b3ce4b02491a2eea72043978056a8bc439b99ddaad327207b09ef1"
+         //"6a8910828e805b0cc8c11fba5caea2ee939346d7ffffffff45c866b219b17695"
+         //"2508f8e5aea728f950186554fc4a5807e2186a8e1c4009e5000000008c493046"
+         //"022100bd5d41662f98cfddc46e86ea7e4a3bc8fe9f1dfc5c4836eaf7df582596"
+         //"cfe0e9022100fc459ae4f59b8279d679003b88935896acd10021b6e2e4619377"
+         //"e336b5296c5e014104c00bab76a708ba7064b2315420a1c533ca9945eeff9754"
+         //"cdc574224589e9113469b4e71752146a10028079e04948ecdf70609bf1b9801f"
+         //"6b73ab75947ac339e5ffffffff0200000000");
+         // Version
+         "01000000"
+         // NumTxIn
+         "02"
+         // Start TxIn0
+         "0044fbc929d78e4203eed6f1d3d39c0157d8e5c100bbe0886779c0"
+         "ebf6a69324010000008a47304402206568144ed5e7064d6176c74738b04c08ca"
+         "19ca54ddeb480084b77f45eebfe57802207927d6975a5ac0e1bb36f5c05356dc"
+         "da1f521770511ee5e03239c8e1eecf3aed0141045d74feae58c4c36d7c35beac"
+         "05eddddc78b3ce4b02491a2eea72043978056a8bc439b99ddaad327207b09ef1"
+         "6a8910828e805b0cc8c11fba5caea2ee939346d7ffffffff"
+         // Start TxIn1
+         "45c866b219b17695"
+         "2508f8e5aea728f950186554fc4a5807e2186a8e1c4009e5000000008c493046"
+         "022100bd5d41662f98cfddc46e86ea7e4a3bc8fe9f1dfc5c4836eaf7df582596"
+         "cfe0e9022100fc459ae4f59b8279d679003b88935896acd10021b6e2e4619377"
+         "e336b5296c5e014104c00bab76a708ba7064b2315420a1c533ca9945eeff9754"
+         "cdc574224589e9113469b4e71752146a10028079e04948ecdf70609bf1b9801f"
+         "6b73ab75947ac339e5ffffffff"
+         // NumTxOut
+         "02"
+         // ... TxOuts fragged out 
+         // Locktime
+         "00000000");
+
+      rawTxOut0_ = READHEX(
+         // Value
+         "ac4c8bd500000000"
+         // Script size (var_int)
+         "19"
+         // Script
+         "76""a9""14""8dce8946f1c7763bb60ea5cf16ef514cbed0633b""88""ac");
+      rawTxOut1_ = READHEX(
+         // Value 
+         "002f685900000000"
+         // Script size (var_int)
+         "19"
+         // Script
+         "76""a9""14""6a59ac0e8f553f292dfe5e9f3aaa1da93499c15e""88""ac");
+
+      bh_.unserialize(rawHead_);
+      tx1_.unserialize(rawTx0_);
+      tx2_.unserialize(rawTx1_);
+      sbh_.unserialize(rawHead_);
+
+      // Make sure the global DB type and prune type are reset for each test
+      ARMDB.setArmoryDbType(ARMORY_DB_FULL);
+      ARMDB.setDbPruneType(DB_PRUNE_NONE);
    }
 
+   /////
    virtual void TearDown(void)
    {
       // This seem to be the best way to remove a dir tree in C++ (in Linux)
       system("rm -rf ./ldbtestdir/level*");
    }
 
+   /////
    void addOutPairH(BinaryData key, BinaryData val)
    { 
       expectOutH_.push_back( pair<BinaryData,BinaryData>(key,val));
    }
 
+   /////
    void addOutPairB(BinaryData key, BinaryData val)
    { 
       expectOutB_.push_back( pair<BinaryData,BinaryData>(key,val));
    }
 
+   /////
+   void printOutPairs(void)
+   {
+      for(uint32_t i=0; i<expectOutH_.size(); i++)
+      {
+         cout << "\"" << expectOutH_[i].first.toHexStr() << "\"    ";
+         cout << "\"" << expectOutH_[i].second.toHexStr() << "\"    " << endl;
+      }
+      for(uint32_t i=0; i<expectOutB_.size(); i++)
+      {
+         cout << "\"" << expectOutB_[i].first.toHexStr() << "\"    ";
+         cout << "\"" << expectOutB_[i].second.toHexStr() << "\"    " << endl;
+      }
+   }
+
+   /////
    bool compareKVListRange(uint32_t startH, uint32_t endplus1H,
                            uint32_t startB, uint32_t endplus1B)
    {
@@ -3793,6 +4125,25 @@ protected:
       return true;
    }
 
+
+   /////
+   bool standardOpenDBs(void) 
+   {
+      
+      iface_->openDatabases( string("ldbtestdir"), 
+                             ghash_, gentx_, magic_, 
+                             ARMORY_DB_FULL, DB_PRUNE_NONE);
+
+      BinaryData DBINFO = iface_->getDBInfoKey();
+      BinaryData flags = READHEX("00001002");
+      BinaryData val0 = magic_+flags+zeros_+ghash_;
+      addOutPairH(DBINFO, val0);
+      addOutPairB(DBINFO, val0);
+
+      return iface_->databasesAreOpen();
+   }
+
+
    InterfaceToLDB* iface_;
    vector<pair<BinaryData, BinaryData> > expectOutH_;
    vector<pair<BinaryData, BinaryData> > expectOutB_;
@@ -3801,6 +4152,22 @@ protected:
    BinaryData ghash_;
    BinaryData gentx_;
    BinaryData zeros_;
+
+   BinaryData rawHead_;
+   BinaryData headHashLE_;
+   BinaryData headHashBE_;
+   BinaryData rawBlock_;
+   BinaryData rawTx0_;
+   BinaryData rawTx1_;
+   BlockHeader bh_;
+   Tx tx1_;
+   Tx tx2_;
+   StoredHeader sbh_;
+   BinaryData rawTxUnfrag_;
+   BinaryData rawTxFragged_;
+   BinaryData rawTxOut0_;
+   BinaryData rawTxOut1_;
+
 };
 #endif
 
@@ -3993,6 +4360,112 @@ TEST_F(LevelDBTest, PutGetDelete)
    ASSERT_TRUE( compareKVListRange(0,1, 0,1));
 
    iface_->deleteValue(BLKDATA, PREFIX+ keyAB);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(LevelDBTest, STxOutPutGet)
+{
+   BinaryData BDP     = WRITE_UINT8_LE((uint8_t)DB_PREFIX_TXDATA);
+   BinaryData hgtx    = READHEX("0f78e001");
+   BinaryData key6    = READHEX("0f78e0010700");
+   BinaryData key8    = READHEX("0f78e00107000100");
+   BinaryData stxoVal = READHEX("0004") + rawTxOut0_;
+   BinaryData stxoKey = BDP + key8;
+   
+   ASSERT_TRUE(standardOpenDBs());
+
+   StoredTxOut stxo;
+   stxo.txVersion_   = 1;
+   stxo.spentness_   = TXOUT_UNSPENT;
+   stxo.blockHeight_ = 123000;
+   stxo.duplicateID_ = 15;
+   stxo.txIndex_     = 7;
+   stxo.txOutIndex_  = 1;
+   stxo.unserialize(rawTxOut0_);
+   iface_->putStoredTxOut(stxo);
+
+   // Construct expected output
+   addOutPairB(stxoKey, stxoVal);
+   ASSERT_TRUE(compareKVListRange(0,1, 0,2));
+
+   StoredTxOut stxoGet;
+   iface_->getStoredTxOut(stxoGet, 123000, 15, 7, 1);
+   EXPECT_EQ(stxoGet.serializeDBValue(), stxo.serializeDBValue());
+
+   //iface_->validDupByHeight_[123000] = 15;
+   //iface_->getStoredTxOut(stxoGet, 123000, 7, 1);
+   //EXPECT_EQ(stxoGet.serializeDBValue(), stxo.serializeDBValue());
+   
+}
+
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(LevelDBTest, MultiPutBatch)
+{
+
+}
+
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(LevelDBTest, PutFullTx)
+{
+   
+   StoredTxOut stxo;
+
+   
+      rawTxUnfrag_ = READHEX(
+         // Version
+         "01000000"
+         // NumTxIn
+         "02"
+         // Start TxIn0
+         "0044fbc929d78e4203eed6f1d3d39c0157d8e5c100bbe0886779c0"
+         "ebf6a69324010000008a47304402206568144ed5e7064d6176c74738b04c08ca"
+         "19ca54ddeb480084b77f45eebfe57802207927d6975a5ac0e1bb36f5c05356dc"
+         "da1f521770511ee5e03239c8e1eecf3aed0141045d74feae58c4c36d7c35beac"
+         "05eddddc78b3ce4b02491a2eea72043978056a8bc439b99ddaad327207b09ef1"
+         "6a8910828e805b0cc8c11fba5caea2ee939346d7ffffffff"
+         // Start TxIn1
+         "45c866b219b17695"
+         "2508f8e5aea728f950186554fc4a5807e2186a8e1c4009e5000000008c493046"
+         "022100bd5d41662f98cfddc46e86ea7e4a3bc8fe9f1dfc5c4836eaf7df582596"
+         "cfe0e9022100fc459ae4f59b8279d679003b88935896acd10021b6e2e4619377"
+         "e336b5296c5e014104c00bab76a708ba7064b2315420a1c533ca9945eeff9754"
+         "cdc574224589e9113469b4e71752146a10028079e04948ecdf70609bf1b9801f"
+         "6b73ab75947ac339e5ffffffff"
+         // NumTxOut
+         "02"
+         // Start TxOut0
+         "ac4c8bd5000000001976a9148dce8946f1c7763bb60ea5cf16ef514cbed0633b88ac"
+         // Start TxOut1
+         "002f6859000000001976a9146a59ac0e8f553f292dfe5e9f3aaa1da93499c15e88ac"
+         // Locktime
+         "00000000");
+
+      rawTxFragged_ = READHEX(
+         // Version
+         "01000000"
+         // NumTxIn
+         "02"
+         // Start TxIn0
+         "0044fbc929d78e4203eed6f1d3d39c0157d8e5c100bbe0886779c0"
+         "ebf6a69324010000008a47304402206568144ed5e7064d6176c74738b04c08ca"
+         "19ca54ddeb480084b77f45eebfe57802207927d6975a5ac0e1bb36f5c05356dc"
+         "da1f521770511ee5e03239c8e1eecf3aed0141045d74feae58c4c36d7c35beac"
+         "05eddddc78b3ce4b02491a2eea72043978056a8bc439b99ddaad327207b09ef1"
+         "6a8910828e805b0cc8c11fba5caea2ee939346d7ffffffff"
+         // Start TxIn1
+         "45c866b219b17695"
+         "2508f8e5aea728f950186554fc4a5807e2186a8e1c4009e5000000008c493046"
+         "022100bd5d41662f98cfddc46e86ea7e4a3bc8fe9f1dfc5c4836eaf7df582596"
+         "cfe0e9022100fc459ae4f59b8279d679003b88935896acd10021b6e2e4619377"
+         "e336b5296c5e014104c00bab76a708ba7064b2315420a1c533ca9945eeff9754"
+         "cdc574224589e9113469b4e71752146a10028079e04948ecdf70609bf1b9801f"
+         "6b73ab75947ac339e5ffffffff"
+         // NumTxOut
+         "02"
+         // ... TxOuts fragged out 
+         // Locktime
+         "00000000");
+   
 }
 
 

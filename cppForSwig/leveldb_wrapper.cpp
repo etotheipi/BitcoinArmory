@@ -1807,11 +1807,8 @@ void InterfaceToLDB::putStoredTxOut( StoredTxOut const & stxo)
 {
     
    SCOPED_TIMER("putStoredTx");
-   BinaryData ldbKey = ARMDB.getBlkDataKeyNoPrefix(stxo.blockHeight_, 
-                                                   stxo.duplicateID_, 
-                                                   stxo.txIndex_,
-                                                   stxo.txOutIndex_);
 
+   BinaryData ldbKey = stxo.getDBKey(false);
    BinaryWriter bw;
    stxo.serializeDBValue(bw);
    putValue(BLKDATA, DB_PREFIX_TXDATA, ldbKey, bw.getDataRef());

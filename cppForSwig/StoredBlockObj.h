@@ -234,6 +234,9 @@ public:
    void   serializeDBValue( DB_SELECT         db,
                             BinaryWriter &    bw) const;
 
+   void unserializeDBValue(DB_SELECT db, BinaryData const & bd, bool ignMrkl=false);
+   void unserializeDBValue(DB_SELECT db, BinaryDataRef bdr,     bool ignMrkl=false);
+   BinaryData serializeDBValue(DB_SELECT db) const;
 
    BinaryData getDBKey(bool withPrefix=true) const;
 
@@ -294,8 +297,12 @@ public:
    void unserialize(BinaryDataRef data,      bool isFragged=false);
    void unserialize(BinaryRefReader & brr,   bool isFragged=false);
 
-   void unserializeDBValue(BinaryRefReader & brr);
-   void   serializeDBValue(BinaryWriter &    bw ) const;
+   void       unserializeDBValue(BinaryRefReader & brr);
+   void         serializeDBValue(BinaryWriter &    bw ) const;
+   void       unserializeDBValue(BinaryData const & bd);
+   void       unserializeDBValue(BinaryDataRef      bd);
+   BinaryData   serializeDBValue(void) const;
+
    BinaryData getDBKey(bool withPrefix=true) const;
 
 
@@ -345,9 +352,12 @@ public:
    void unserialize(BinaryDataRef data);
    void unserialize(BinaryRefReader & brr);
 
-   void unserializeDBValue(BinaryRefReader & brr);
-   void   serializeDBValue(BinaryWriter &    bw,
-                           bool              forceSaveSpentness=false) const;
+   void       unserializeDBValue(BinaryRefReader &  brr);
+   void         serializeDBValue(BinaryWriter & bw, bool forceSaveSpent=false) const;
+   void       unserializeDBValue(BinaryData const & bd);
+   void       unserializeDBValue(BinaryDataRef      bd);
+   BinaryData   serializeDBValue(bool forceSaveSpent=false) const;
+
    BinaryData getDBKey(bool withPrefix=true) const;
 
    StoredTxOut & createFromTxOut(TxOut & txout); 
@@ -395,8 +405,11 @@ public:
 
    bool isInitialized(void) { return uniqueKey_.getSize() > 0; }
 
-   void unserializeDBValue(BinaryRefReader & brr);
-   void   serializeDBValue(BinaryWriter    & bw ) const;
+   void       unserializeDBValue(BinaryRefReader & brr);
+   void         serializeDBValue(BinaryWriter    & bw ) const;
+   void       unserializeDBValue(BinaryData const & bd);
+   void       unserializeDBValue(BinaryDataRef      bd);
+   BinaryData   serializeDBValue(void) const;
 
    BinaryData getDBKey(bool withPrefix=true) const;
 
@@ -421,8 +434,11 @@ public:
 
    bool isInitialized(void) { return (outPointsAddedByBlock_.size() > 0);}
 
-   void unserializeDBValue(BinaryRefReader & brr);
-   void   serializeDBValue(BinaryWriter    & bw ) const;
+   void       unserializeDBValue(BinaryRefReader & brr);
+   void         serializeDBValue(BinaryWriter    & bw ) const;
+   void       unserializeDBValue(BinaryData const & bd);
+   void       unserializeDBValue(BinaryDataRef      bd);
+   BinaryData   serializeDBValue(void) const;
 
    BinaryData getDBKey(bool withPrefix=true) const;
 
@@ -450,8 +466,11 @@ public:
       { preferredDBKey_ = ARMDB.getBlkDataKeyNoPrefix(height,dupID,txIndex); }
    void setPreferredTx(BinaryData dbKey6B_) { preferredDBKey_ = dbKey6B_; }
 
-   void unserializeDBValue(BinaryRefReader & brr);
-   void   serializeDBValue(BinaryWriter    & bw ) const;
+   void       unserializeDBValue(BinaryRefReader & brr);
+   void         serializeDBValue(BinaryWriter    & bw ) const;
+   void       unserializeDBValue(BinaryData const & bd);
+   void       unserializeDBValue(BinaryDataRef      bd);
+   BinaryData   serializeDBValue(void) const;
 
    BinaryData getDBKey(bool withPrefix=true) const;
 
@@ -466,8 +485,11 @@ class StoredHeadHgtList
 public:
    StoredHeadHgtList(void) : height_(UINT32_MAX), preferredDup_(UINT8_MAX) {}
 
-   void unserializeDBValue(BinaryRefReader & brr);
-   void   serializeDBValue(BinaryWriter    & bw ) const;
+   void       unserializeDBValue(BinaryRefReader & brr);
+   void         serializeDBValue(BinaryWriter    & bw ) const;
+   void       unserializeDBValue(BinaryData const & bd);
+   void       unserializeDBValue(BinaryDataRef      bd);
+   BinaryData   serializeDBValue(void) const;
 
    BinaryData getDBKey(bool withPrefix=true) const;
 
