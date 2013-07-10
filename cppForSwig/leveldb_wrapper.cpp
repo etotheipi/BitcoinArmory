@@ -1270,7 +1270,7 @@ void InterfaceToLDB::putStoredTx( StoredTx & stx, bool withTxOut)
 {
    SCOPED_TIMER("putStoredTx");
    BinaryData ldbKey = ARMDB.getBlkDataKeyNoPrefix(stx.blockHeight_, 
-                                                   stx.blockDupID_, 
+                                                   stx.duplicateID_, 
                                                    stx.txIndex_);
 
    startBatch(BLKDATA);
@@ -1321,7 +1321,7 @@ void InterfaceToLDB::putStoredTx( StoredTx & stx, bool withTxOut)
          // Make sure all the parameters of the TxOut are set right 
          iter->second.txVersion_   = READ_UINT32_LE(stx.dataCopy_.getPtr());
          iter->second.blockHeight_ = stx.blockHeight_;
-         iter->second.blockDupID_  = stx.blockDupID_;
+         iter->second.duplicateID_  = stx.duplicateID_;
          iter->second.txIndex_     = stx.txIndex_;
          iter->second.txOutIndex_  = iter->first;
          putStoredTxOut(iter->second);
@@ -1403,7 +1403,7 @@ bool InterfaceToLDB::readStoredTxAtIter(
 
    // Make sure the stx has correct height/dup/idx
    stx.blockHeight_ = height;
-   stx.blockDupID_  = dupID;
+   stx.duplicateID_  = dupID;
    stx.txIndex_     = currReadKey_.get_uint16_t();
 
    BinaryData txPrefix = ARMDB.getBlkDataKey(height, dupID, stx.txIndex_);
@@ -1422,7 +1422,7 @@ bool InterfaceToLDB::readStoredTxAtIter(
       // Read the prefix, height and dup 
       BLKDATA_TYPE bdtype = readBlkDataKey5B(currReadKey_,
                                              stx.blockHeight_,
-                                             stx.blockDupID_);
+                                             stx.duplicateID_);
 
 
       // Now actually process the iter value
@@ -1473,7 +1473,7 @@ bool InterfaceToLDB::readStoredTxOutAtIter(
       return false;
 
    stxo.blockHeight_ = height;
-   stxo.blockDupID_  = dupID;
+   stxo.duplicateID_  = dupID;
    stxo.txIndex_     = txIndex;
    stxo.txOutIndex_  = storedTxOutIdx;
 
@@ -1730,7 +1730,7 @@ bool InterfaceToLDB::getStoredTx(  StoredTx & stx,
    SCOPED_TIMER("getStoredTx");
    BinaryData blkDataKey = ARMDB.getBlkDataKey(blockHeight, dupID, txIndex);
    stx.blockHeight_ = blockHeight;
-   stx.blockDupID_  = dupID;
+   stx.duplicateID_  = dupID;
    stx.txIndex_     = txIndex;
 
    if(!withTxOut)
@@ -1768,7 +1768,7 @@ bool InterfaceToLDB::getStoredTx(  StoredTx & stx,
          
          BLKDATA_TYPE bdtype = readBlkDataKey5B(currReadKey_,
                                                 stx.blockHeight_,
-                                                stx.blockDupID_);
+                                                stx.duplicateID_);
    
          uint16_t currTxIdx = currReadKey_.get_uint16_t(); 
 
@@ -1784,7 +1784,7 @@ bool InterfaceToLDB::getStoredTx(  StoredTx & stx,
             StoredTxOut & stxo = stx.stxoMap_[currTxOutIdx];
 
             stxo.blockHeight_ = blockHeight;
-            stxo.blockDupID_  = dupID;
+            stxo.duplicateID_  = dupID;
             stxo.txIndex_     = txIndex;
             stxo.txOutIndex_  = currTxOutIdx;
             stxo.unserializeDBValue(currReadValue_);
@@ -1808,7 +1808,7 @@ void InterfaceToLDB::putStoredTxOut( StoredTxOut const & stxo)
     
    SCOPED_TIMER("putStoredTx");
    BinaryData ldbKey = ARMDB.getBlkDataKeyNoPrefix(stxo.blockHeight_, 
-                                                   stxo.blockDupID_, 
+                                                   stxo.duplicateID_, 
                                                    stxo.txIndex_,
                                                    stxo.txOutIndex_);
 
@@ -1836,7 +1836,7 @@ bool InterfaceToLDB::getStoredTxOut(
    }
 
    stxo.blockHeight_ = blockHeight;
-   stxo.blockDupID_  = dupID;
+   stxo.duplicateID_  = dupID;
    stxo.txIndex_     = txIndex;
    stxo.txOutIndex_  = txOutIndex;
 

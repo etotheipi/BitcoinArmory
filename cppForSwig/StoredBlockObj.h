@@ -274,7 +274,7 @@ public:
                     thisHash_(0), 
                     dataCopy_(0), 
                     blockHeight_(UINT32_MAX),
-                    blockDupID_(UINT8_MAX),
+                    duplicateID_(UINT8_MAX),
                     txIndex_(UINT16_MAX),
                     numTxOut_(UINT16_MAX),
                     numBytes_(UINT32_MAX),
@@ -308,7 +308,7 @@ public:
    bool                 isFragged_;
    uint32_t             version_;
    uint32_t             blockHeight_;
-   uint8_t              blockDupID_;
+   uint8_t              duplicateID_;
    uint16_t             txIndex_;
    uint16_t             numTxOut_;
    uint32_t             numBytes_;
@@ -332,7 +332,7 @@ public:
                        txVersion_(UINT32_MAX), 
                        dataCopy_(0), 
                        blockHeight_(UINT32_MAX), 
-                       blockDupID_(UINT8_MAX), 
+                       duplicateID_(UINT8_MAX), 
                        parentHash_(0),
                        txIndex_(UINT16_MAX), 
                        txOutIndex_(UINT16_MAX), 
@@ -367,7 +367,7 @@ public:
    uint32_t          txVersion_;
    BinaryData        dataCopy_;
    uint32_t          blockHeight_;
-   uint8_t           blockDupID_;
+   uint8_t           duplicateID_;
    BinaryData        parentHash_;
    uint16_t          txIndex_;
    uint16_t          txOutIndex_;
@@ -388,8 +388,8 @@ class StoredScriptHistory
 public:
 
    StoredScriptHistory(void) : uniqueKey_(0), 
-                               version_(UINT32_MAX),
                                scriptType_(SCRIPT_PREFIX_NONSTD),
+                               version_(UINT32_MAX),
                                alreadyScannedUpToBlk_(0),
                                hasMultisigEntries_(false) {}
 
@@ -401,11 +401,11 @@ public:
    BinaryData getDBKey(bool withPrefix=true) const;
 
    BinaryData     uniqueKey_;  // includes the prefix byte!
-   uint32_t       version_;
    SCRIPT_PREFIX  scriptType_;
+   uint32_t       version_;
    uint32_t       alreadyScannedUpToBlk_;
    bool           hasMultisigEntries_;
-   bool           isMultisigEntry_;
+   bool           isMultisig_;
 
    vector<TxIOPair> txioVect_;
 };
@@ -419,6 +419,8 @@ class StoredUndoData
 public:
    StoredUndoData(void) {}
 
+   bool isInitialized(void) { return (outPointsAddedByBlock_.size() > 0);}
+
    void unserializeDBValue(BinaryRefReader & brr);
    void   serializeDBValue(BinaryWriter    & bw ) const;
 
@@ -426,7 +428,7 @@ public:
 
    BinaryData  blockHash_;
    uint32_t    blockHeight_;
-   uint8_t     blockDupID_;
+   uint8_t     duplicateID_;
 
    vector<StoredTxOut>  stxOutsRemovedByBlock_;
    vector<OutPoint>     outPointsAddedByBlock_;
@@ -438,6 +440,8 @@ class StoredTxHints
 {
 public:
    StoredTxHints(void) : dbKeyList_(0), preferredDBKey_(0) {}
+
+   bool isInitialized(void) { return txHashPrefix_.getSize() > 0; }
 
    uint32_t      getNumHints(void) const   { return dbKeyList_.size();      }
    BinaryDataRef getHint(uint32_t i) const { return dbKeyList_[i].getRef(); }
@@ -457,12 +461,17 @@ public:
 };
 
 ////////////////////////////////////////////////////////////////////////////////
-class StoredHeadHgtLookup
+class StoredHeadHgtList
 {
+public:
+   StoredHeadHgtList(void) : height_(UINT32_MAX), preferredDup_(UINT8_MAX) {}
+
    void unserializeDBValue(BinaryRefReader & brr);
    void   serializeDBValue(BinaryWriter    & bw ) const;
 
    BinaryData getDBKey(bool withPrefix=true) const;
+
+   bool isInitialized(void) { return (height_ != UINT32_MAX);}
 
    void setPreferredDupID(uint8_t newDup) {preferredDup_ = newDup;}
 
