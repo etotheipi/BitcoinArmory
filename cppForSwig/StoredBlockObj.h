@@ -210,7 +210,7 @@ public:
    void addTxToMap(uint16_t txIdx, Tx & tx);
    void addStoredTxToMap(uint16_t txIdx, StoredTx & tx);
 
-   void setParamsTrickle(uint32_t hgt, uint8_t dupID, bool isValid);
+   void setKeyData(uint32_t hgt, uint8_t dupID=UINT8_MAX);
    void setHeightAndDup(uint32_t hgt, uint8_t dupID);
    void setHeightAndDup(BinaryData hgtx);
 
@@ -285,10 +285,18 @@ public:
    
    bool       isInitialized(void) const {return isInitialized_;}
    bool       haveAllTxOut(void) const;
-   StoredTx&  createFromTx(Tx & tx, bool doFrag=true, bool withTxOuts=true);
+
+   StoredTx&  createFromTx(Tx & tx, bool 
+                           doFrag=true, 
+                           bool withTxOuts=true);
+   StoredTx & createFromTx(BinaryDataRef rawTx, bool 
+                           doFrag=true, 
+                           bool withTxOuts=true);
+
    BinaryData getSerializedTx(void) const;
    BinaryData getSerializedTxFragged(void) const;
    Tx         getTxCopy(void) const;
+   void       setKeyData(uint32_t height, uint8_t dup, uint16_t txIdx); 
 
    void addTxOutToMap(uint16_t idx, TxOut & txout);
    void addStoredTxOutToMap(uint16_t idx, StoredTxOut & txout);

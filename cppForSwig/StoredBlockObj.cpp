@@ -5,34 +5,16 @@
 
 
 /////////////////////////////////////////////////////////////////////////////
-void StoredHeader::setParamsTrickle(uint32_t hgt,
-                                    uint8_t  dupID,
-                                    bool     isValid)
+void StoredHeader::setKeyData(uint32_t hgt, uint8_t dupID)
 {
    // Set the params for this SBH object
    blockHeight_  = hgt;
    duplicateID_  = dupID;
-   isMainBranch_ = isValid;
 
    // Then trickle down to each StoredTx object (if any)
    map<uint16_t, StoredTx>::iterator iter;     
-   for(iter  = stxMap_.begin();
-       iter != stxMap_.end();
-       iter++)
-   {
-      iter->second.blockHeight_ = hgt;
-      iter->second.duplicateID_  = dupID;
-
-      // Trickle the data down to the TxOuts, too
-      map<uint16_t, StoredTxOut>::iterator iter2; 
-      for(iter2  = iter->second.stxoMap_.begin();
-          iter2 != iter->second.stxoMap_.end();
-          iter2++)
-      {
-         iter2->second.blockHeight_ = hgt;
-         iter2->second.duplicateID_  = dupID; 
-      }
-   }
+   for(iter = stxMap_.begin(); iter != stxMap_.end(); iter++)
+      iter->second.setKeyData(hgt, dupID, iter->first);
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -152,12 +134,10 @@ void StoredHeader::unserializeFullBlock(BinaryRefReader brr,
                                         bool doFrag,
                                         bool withPrefix)
 {
-   BinaryData magic;
-   uint32_t   nBytes = UINT32_MAX;
    if(withPrefix)
    {
-      magic  = brr.get_BinaryData(4);
-      nBytes = brr.get_uint32_t();
+      BinaryData magic  = brr.get_BinaryData(4);
+      uint32_t   nBytes = brr.get_uint32_t();
 
       if(brr.getSizeRemaining() < nBytes)
       {
@@ -171,7 +151,8 @@ void StoredHeader::unserializeFullBlock(BinaryRefReader brr,
 
    createFromBlockHeader(bh);
    numTx_ = nTx;
-   numBytes_ = nBytes;
+   
+   numBytes_ = HEADER_SIZE + BtcUtils::calcVarIntSize(numTx_);
    if(dataCopy_.getSize() != HEADER_SIZE)
    {
       LOGERR << "Unserializing header did not produce 80-byte object!";
@@ -187,6 +168,7 @@ void StoredHeader::unserializeFullBlock(BinaryRefReader brr,
 
       // Read a regular tx and then convert it
       Tx thisTx(brr);
+      numBytes_ += thisTx.getSize();
 
       // Now add it to the map
       stxMap_[tx] = StoredTx();
@@ -599,10 +581,11 @@ void StoredTx::serializeDBValue(BinaryWriter & bw) const
    switch(ARMDB.getArmoryDbType())
    {
       // In most cases, if storing separate TxOuts, fragged Tx is fine
+      // UPDATE:  I'm not sure there's a good reason to NOT frag ever
       case ARMORY_DB_LITE:    serType = TX_SER_FRAGGED; break;
       case ARMORY_DB_PARTIAL: serType = TX_SER_FRAGGED; break;
       case ARMORY_DB_FULL:    serType = TX_SER_FRAGGED; break;
-      case ARMORY_DB_SUPER:   serType = TX_SER_FULL;    break;
+      case ARMORY_DB_SUPER:   serType = TX_SER_FRAGGED; break;
       default: 
          LOGERR << "Invalid DB mode in serializeStoredTxValue";
    }
@@ -648,11 +631,7 @@ bool StoredTx::haveAllTxOut(void) const
    if(!isFragged_)
       return true;
 
-   for(uint16_t i=0; i<numTxOut_; i++)
-      if(stxoMap_.find(i) == stxoMap_.end())
-         return false;
-
-   return true;
+   return stxoMap_.size()==numTxOut_;
 
 }
 
@@ -878,6 +857,29 @@ Tx StoredTx::getTxCopy(void) const
    return Tx(getSerializedTx());
 }
 
+////////////////////////////////////////////////////////////////////////////////
+void StoredTx::setKeyData(uint32_t height, uint8_t dup, uint16_t txIdx)
+{
+   blockHeight_ = height;
+   duplicateID_ = dup;
+   txIndex_     = txIdx;
+
+   map<uint16_t, StoredTxOut>::iterator iter;
+   for(iter  = stxoMap_.begin();  iter != stxoMap_.end(); iter++)
+   {
+      iter->second.blockHeight_ = height;
+      iter->second.duplicateID_ = dup;
+      iter->second.txIndex_     = txIdx;
+      iter->second.txOutIndex_  = iter->first;
+   }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+StoredTx & StoredTx::createFromTx(BinaryDataRef rawTx, bool doFrag, bool withTxOuts)
+{
+   Tx tx(rawTx);
+   return createFromTx(tx, doFrag, withTxOuts);
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 StoredTx & StoredTx::createFromTx(Tx & tx, bool doFrag, bool withTxOuts)
@@ -932,7 +934,6 @@ StoredTx & StoredTx::createFromTx(Tx & tx, bool doFrag, bool withTxOuts)
          stxo.isInitialized_  = true;
       }
    }
-
 
    return *this;
 }

@@ -378,26 +378,26 @@ public:
    /////////////////////////////////////////////////////////////////////////////
    // StoredHeader accessors
    void putStoredHeader(StoredHeader & sbh,
-                        bool withTx=false);
+                        bool withBlkData=true);
 
    bool getStoredHeader(StoredHeader & sbh,
                         uint32_t blockHgt,
                         uint8_t blockDup=UINT8_MAX,
-                        bool withTx=false);
+                        bool withTx=true);
 
    bool getStoredHeader(StoredHeader & sbh,
                         BinaryDataRef headHash, 
-                        bool withTx=false);
+                        bool withTx=true);
 
    bool getStoredHeader(StoredHeader & sbh,
                         uint32_t blockHgt,
-                        bool withTx=false);
+                        bool withTx=true);
 
 
    /////////////////////////////////////////////////////////////////////////////
    // StoredTx Accessors
    void putStoredTx(         StoredTx & st,
-                             bool withTxOut=false);
+                             bool withTxOut=true);
 
    bool getStoredTx(         StoredTx & st,
                              BinaryDataRef txHash);
@@ -405,13 +405,13 @@ public:
    bool getStoredTx(         StoredTx & st,
                              uint32_t blkHgt,
                              uint16_t txIndex,
-                             bool withTxOut=false);
+                             bool withTxOut=true);
 
    bool getStoredTx(         StoredTx & st,
                              uint32_t blkHgt,
                              uint8_t  dupID,
                              uint16_t txIndex,
-                             bool withTxOut=false);
+                             bool withTxOut=true);
 
 
    /////////////////////////////////////////////////////////////////////////////
@@ -432,12 +432,16 @@ public:
 
    void putStoredScriptHistory( StoredScriptHistory & ssh);
 
-   void getStoredScriptHistory( BinaryDataRef uniqueKey,
-                                StoredScriptHistory & ssh);
+   void getStoredScriptHistory( StoredScriptHistory & ssh,
+                                BinaryDataRef uniqueKey);
 
    void getStoredScriptHistoryByRawScript(
-                                BinaryDataRef rawScript,
-                                StoredScriptHistory & ssh);
+                                StoredScriptHistory & ssh,
+                                BinaryDataRef rawScript);
+
+
+   bool putStoredHeadHgtList(StoredHeadHgtList const & hhl);
+   bool getStoredHeadHgtList(StoredHeadHgtList & hhl, uint32_t height);
 
    ////////////////////////////////////////////////////////////////////////////
    // Some methods to grab data at the current iterator location.  Return

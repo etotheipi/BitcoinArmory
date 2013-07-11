@@ -3127,8 +3127,10 @@ TEST_F(StoredBlockObjTest, STxSerDBValue_1)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-TEST_F(StoredBlockObjTest, STxSerDBValue_2)
+TEST_F(StoredBlockObjTest, DISABLED_STxSerDBValue_2)
 {
+   // I modified the ARMORY_DB_SUPER code to frag, as well.  There's no
+   // mode that doesn't frag, now.
    ARMDB.setArmoryDbType(ARMORY_DB_SUPER);
    ARMDB.setDbPruneType(DB_PRUNE_NONE);
    
@@ -4059,39 +4061,80 @@ protected:
       rawBlock_ = READHEX(
          "01000000eb10c9a996a2340a4d74eaab41421ed8664aa49d18538bab59010000"
          "000000005a2f06efa9f2bd804f17877537f2080030cadbfa1eb50e02338117cc"
-         "604d91b9b7541a4ecfbb0a1a64f1ade703010000000100000000000000000000"
-         "00000000000000000000000000000000000000000000ffffffff0804cfbb0a1a"
-         "02360affffffff0100f2052a01000000434104c2239c4eedb3beb26785753463"
-         "be3ec62b82f6acd62efb65f452f8806f2ede0b338e31d1f69b1ce449558d7061"
-         "aa1648ddc2bf680834d3986624006a272dc21cac000000000100000003e8caa1"
-         "2bcb2e7e86499c9de49c45c5a1c6167ea4b894c8c83aebba1b6100f343010000"
-         "008c493046022100e2f5af5329d1244807f8347a2c8d9acc55a21a5db769e927"
-         "4e7e7ba0bb605b26022100c34ca3350df5089f3415d8af82364d7f567a6a297f"
-         "cc2c1d2034865633238b8c014104129e422ac490ddfcb7b1c405ab9fb4244124"
-         "6c4bca578de4f27b230de08408c64cad03af71ee8a3140b40408a7058a1984a9"
-         "f246492386113764c1ac132990d1ffffffff5b55c18864e16c08ef9989d31c7a"
-         "343e34c27c30cd7caa759651b0e08cae0106000000008c4930460221009ec9aa"
-         "3e0caf7caa321723dea561e232603e00686d4bfadf46c5c7352b07eb00022100"
-         "a4f18d937d1e2354b2e69e02b18d11620a6a9332d563e9e2bbcb01cee559680a"
-         "014104411b35dd963028300e36e82ee8cf1b0c8d5bf1fc4273e970469f5cb931"
-         "ee07759a2de5fef638961726d04bd5eb4e5072330b9b371e479733c942964bb8"
-         "6e2b22ffffffff3de0c1e913e6271769d8c0172cea2f00d6d3240afc3a20f9fa"
-         "247ce58af30d2a010000008c493046022100b610e169fd15ac9f60fe2b507529"
-         "281cf2267673f4690ba428cbb2ba3c3811fd022100ffbe9e3d71b21977a8e97f"
-         "de4c3ba47b896d08bc09ecb9d086bb59175b5b9f03014104ff07a1833fd8098b"
-         "25f48c66dcf8fde34cbdbcc0f5f21a8c2005b160406cbf34cc432842c6b37b25"
-         "90d16b165b36a3efc9908d65fb0e605314c9b278f40f3e1affffffff0240420f"
-         "00000000001976a914adfa66f57ded1b655eb4ccd96ee07ca62bc1ddfd88ac00"
-         "7d6a7d040000001976a914981a0c9ae61fa8f8c96ae6f8e383d6e07e77133e88"
-         "ac00000000010000000138e7586e0784280df58bd3dc5e3d350c9036b1ec4107"
-         "951378f45881799c92a4000000008a47304402207c945ae0bbdaf9dadba07bdf"
-         "23faa676485a53817af975ddf85a104f764fb93b02201ac6af32ddf597e610b4"
-         "002e41f2de46664587a379a0161323a85389b4f82dda014104ec8883d3e4f7a3"
-         "9d75c9f5bb9fd581dc9fb1b7cdf7d6b5a665e4db1fdb09281a74ab138a2dba25"
-         "248b5be38bf80249601ae688c90c6e0ac8811cdb740fcec31dffffffff022f66"
-         "ac61050000001976a914964642290c194e3bfab661c1085e47d67786d2d388ac"
-         "2f77e200000000001976a9141486a7046affd935919a3cb4b50a8a0c233c286c"
-         "88ac00000000");
+         "604d91b9b7541a4ecfbb0a1a64f1ade7"
+         // 3 transactions
+         "03"  
+         ///// Tx0, version
+         "01000000"
+         "01"
+         // Tx0, Txin0
+         "0000000000000000000000000000000000000000000000000000000000000000"
+         "ffffffff"
+         "08""04cfbb0a1a02360a""ffffffff"  
+         // Tx0, 1 TxOut
+         "01"
+         // Tx0, TxOut0
+         "00f2052a01000000"
+         "434104c2239c4eedb3beb26785753463be3ec62b82f6acd62efb65f452f8806f"
+         "2ede0b338e31d1f69b1ce449558d7061aa1648ddc2bf680834d3986624006a27"
+         "2dc21cac"
+         // Tx0, Locktime
+         "00000000"
+         ///// Tx1, Version 
+         "01000000"
+         // Tx1, 3 txins
+         "03"
+         // Tx1, TxIn0
+         "e8caa12bcb2e7e86499c9de49c45c5a1c6167ea4b894c8c83aebba1b6100f343"
+         "01000000"
+         "8c493046022100e2f5af5329d1244807f8347a2c8d9acc55a21a5db769e9274e"
+         "7e7ba0bb605b26022100c34ca3350df5089f3415d8af82364d7f567a6a297fcc"
+         "2c1d2034865633238b8c014104129e422ac490ddfcb7b1c405ab9fb42441246c"
+         "4bca578de4f27b230de08408c64cad03af71ee8a3140b40408a7058a1984a9f2"
+         "46492386113764c1ac132990d1""ffffffff" 
+         // Tx1, TxIn1
+         "5b55c18864e16c08ef9989d31c7a343e34c27c30cd7caa759651b0e08cae0106"
+         "00000000"
+         "8c4930460221009ec9aa3e0caf7caa321723dea561e232603e00686d4bfadf46"
+         "c5c7352b07eb00022100a4f18d937d1e2354b2e69e02b18d11620a6a9332d563"
+         "e9e2bbcb01cee559680a014104411b35dd963028300e36e82ee8cf1b0c8d5bf1"
+         "fc4273e970469f5cb931ee07759a2de5fef638961726d04bd5eb4e5072330b9b"
+         "371e479733c942964bb86e2b22""ffffffff" 
+         // Tx1, TxIn2
+         "3de0c1e913e6271769d8c0172cea2f00d6d3240afc3a20f9fa247ce58af30d2a"
+         "01000000"
+         "8c493046022100b610e169fd15ac9f60fe2b507529281cf2267673f4690ba428"
+         "cbb2ba3c3811fd022100ffbe9e3d71b21977a8e97fde4c3ba47b896d08bc09ec"
+         "b9d086bb59175b5b9f03014104ff07a1833fd8098b25f48c66dcf8fde34cbdbc"
+         "c0f5f21a8c2005b160406cbf34cc432842c6b37b2590d16b165b36a3efc9908d"
+         "65fb0e605314c9b278f40f3e1a""ffffffff" 
+         // Tx1, 2 TxOuts
+         "02"
+         // Tx1, TxOut0
+         "40420f0000000000""19""76a914adfa66f57ded1b655eb4ccd96ee07ca62bc1ddfd88ac"
+         // Tx1, TxOut1
+         "007d6a7d04000000""19""76a914981a0c9ae61fa8f8c96ae6f8e383d6e07e77133e88ac"
+         // Tx1 Locktime
+         "00000000"
+         ///// Tx2 Version
+         "01000000"
+         // Tx2 1 TxIn
+         "01"
+         "38e7586e0784280df58bd3dc5e3d350c9036b1ec4107951378f45881799c92a4"
+         "00000000"
+         "8a47304402207c945ae0bbdaf9dadba07bdf23faa676485a53817af975ddf85a"
+         "104f764fb93b02201ac6af32ddf597e610b4002e41f2de46664587a379a01613"
+         "23a85389b4f82dda014104ec8883d3e4f7a39d75c9f5bb9fd581dc9fb1b7cdf7"
+         "d6b5a665e4db1fdb09281a74ab138a2dba25248b5be38bf80249601ae688c90c"
+         "6e0ac8811cdb740fcec31d""ffffffff" 
+         // Tx2, 2 TxOuts
+         "02"
+         // Tx2, TxOut0
+         "2f66ac6105000000""19""76a914964642290c194e3bfab661c1085e47d67786d2d388ac"
+         // Tx2, TxOut1
+         "2f77e20000000000""19""76a9141486a7046affd935919a3cb4b50a8a0c233c286c88ac"
+         // Tx2 Locktime
+         "00000000");
 
       rawTxUnfrag_ = READHEX(
          // Version
@@ -4123,18 +4166,6 @@ protected:
          "00000000");
 
       rawTxFragged_ = READHEX(
-         //"01000000020044fbc929d78e4203eed6f1d3d39c0157d8e5c100bbe0886779c0"
-         //"ebf6a69324010000008a47304402206568144ed5e7064d6176c74738b04c08ca"
-         //"19ca54ddeb480084b77f45eebfe57802207927d6975a5ac0e1bb36f5c05356dc"
-         //"da1f521770511ee5e03239c8e1eecf3aed0141045d74feae58c4c36d7c35beac"
-         //"05eddddc78b3ce4b02491a2eea72043978056a8bc439b99ddaad327207b09ef1"
-         //"6a8910828e805b0cc8c11fba5caea2ee939346d7ffffffff45c866b219b17695"
-         //"2508f8e5aea728f950186554fc4a5807e2186a8e1c4009e5000000008c493046"
-         //"022100bd5d41662f98cfddc46e86ea7e4a3bc8fe9f1dfc5c4836eaf7df582596"
-         //"cfe0e9022100fc459ae4f59b8279d679003b88935896acd10021b6e2e4619377"
-         //"e336b5296c5e014104c00bab76a708ba7064b2315420a1c533ca9945eeff9754"
-         //"cdc574224589e9113469b4e71752146a10028079e04948ecdf70609bf1b9801f"
-         //"6b73ab75947ac339e5ffffffff0200000000");
          // Version
          "01000000"
          // NumTxIn
@@ -4207,15 +4238,17 @@ protected:
    /////
    void printOutPairs(void)
    {
+      cout << "Num Houts: " << expectOutH_.size() << endl;
       for(uint32_t i=0; i<expectOutH_.size(); i++)
       {
-         cout << "\"" << expectOutH_[i].first.toHexStr() << "\"    ";
-         cout << "\"" << expectOutH_[i].second.toHexStr() << "\"    " << endl;
+         cout << "   \"" << expectOutH_[i].first.toHexStr() << "\"  ";
+         cout << "   \"" << expectOutH_[i].second.toHexStr() << "\"    " << endl;
       }
+      cout << "Num Bouts: " << expectOutB_.size() << endl;
       for(uint32_t i=0; i<expectOutB_.size(); i++)
       {
-         cout << "\"" << expectOutB_[i].first.toHexStr() << "\"    ";
-         cout << "\"" << expectOutB_[i].second.toHexStr() << "\"    " << endl;
+         cout << "   \"" << expectOutB_[i].first.toHexStr() << "\"  ";
+         cout << "   \"" << expectOutB_[i].second.toHexStr() << "\"    " << endl;
       }
    }
 
@@ -4225,17 +4258,40 @@ protected:
    {
       KVLIST fromDB = iface_->getAllDatabaseEntries(HEADERS);
 
+      if(fromDB.size() < endplus1H || expectOutH_.size() < endplus1H)
+         return false;
+
       for(uint32_t i=startH; i<endplus1H; i++)
          if(fromDB[i].first  != expectOutH_[i].first || 
             fromDB[i].second != expectOutH_[i].second)
+      {
+            cout << "Mismatch of DB keys/values: " << i << endl;
+            cout << "KEYS: " << endl;
+            cout << "   Database:   " << fromDB[i].first.toHexStr() << endl;
+            cout << "   Expected:   " << expectOutH_[i].first.toHexStr() << endl;
+            cout << "VALUES: " << endl;
+            cout << "   Database:   " << fromDB[i].second.toHexStr() << endl;
+            cout << "   Expected:   " << expectOutH_[i].second.toHexStr() << endl;
             return false;
+      }
 
       fromDB = iface_->getAllDatabaseEntries(BLKDATA);
+      if(fromDB.size() < endplus1B || expectOutB_.size() < endplus1B)
+         return false;
 
       for(uint32_t i=startB; i<endplus1B; i++)
          if(fromDB[i].first  != expectOutB_[i].first || 
             fromDB[i].second != expectOutB_[i].second)
+      {
+            cout << "Mismatch of DB keys/values: " << i << endl;
+            cout << "KEYS: " << endl;
+            cout << "   Database:   " << fromDB[i].first.toHexStr() << endl;
+            cout << "   Expected:   " << expectOutB_[i].first.toHexStr() << endl;
+            cout << "VALUES: " << endl;
+            cout << "   Database:   " << fromDB[i].second.toHexStr() << endl;
+            cout << "   Expected:   " << expectOutB_[i].second.toHexStr() << endl;
             return false;
+      }
 
       return true;
    }
@@ -4439,7 +4495,7 @@ TEST_F(LevelDBTest, PutGetDelete)
    
    DB_PREFIX TXDATA = DB_PREFIX_TXDATA;
    BinaryData DBINFO = iface_->getDBInfoKey();
-   BinaryData PREFIX = WRITE_UINT8_LE((uint8_t)TXDATA);
+   BinaryData PREFIX = WRITE_UINT8_BE((uint8_t)TXDATA);
    BinaryData val0 = magic_+flags+zeros_+ghash_;
    BinaryData commonValue = READHEX("abcd1234");
    BinaryData keyAB = READHEX("0000");
@@ -4480,7 +4536,7 @@ TEST_F(LevelDBTest, PutGetDelete)
 ////////////////////////////////////////////////////////////////////////////////
 TEST_F(LevelDBTest, STxOutPutGet)
 {
-   BinaryData BDP     = WRITE_UINT8_LE((uint8_t)DB_PREFIX_TXDATA);
+   BinaryData BDP     = WRITE_UINT8_BE((uint8_t)DB_PREFIX_TXDATA);
    BinaryData stxoVal = READHEX("0004") + rawTxOut0_;
    //BinaryData stxoKey = BDP + READHEX("0f78e00107000100");
    BinaryData stxoKey = BDP + READHEX("01e078""0f""0007""0001");
@@ -4532,75 +4588,310 @@ TEST_F(LevelDBTest, STxOutPutGet)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-TEST_F(LevelDBTest, MultiPutBatch)
+TEST_F(LevelDBTest, PutFullTxNoOuts)
 {
+   ARMDB.setArmoryDbType(ARMORY_DB_FULL);
+   ARMDB.setDbPruneType(DB_PRUNE_NONE);
 
+   ASSERT_TRUE(standardOpenDBs());
+
+   StoredTx stx;
+   stx.createFromTx(rawTxUnfrag_);
+   stx.setKeyData(123000, 15, 7);
+
+   BinaryData BDP     = WRITE_UINT8_BE((uint8_t)DB_PREFIX_TXDATA);
+   BinaryData stxKey  = BDP + READHEX("01e078""0f""0007");
+   BinaryData stxVal  = READHEX("4004") + stx.thisHash_ + rawTxFragged_;
+
+   iface_->putStoredTx(stx, false);
+   addOutPairB(stxKey,  stxVal);
+   EXPECT_TRUE(compareKVListRange(0,1, 0,2));
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 TEST_F(LevelDBTest, PutFullTx)
 {
-   
-   StoredTxOut stxo;
+   ARMDB.setArmoryDbType(ARMORY_DB_FULL);
+   ARMDB.setDbPruneType(DB_PRUNE_NONE);
 
+   BinaryData BDP     = WRITE_UINT8_BE((uint8_t)DB_PREFIX_TXDATA);
+   BinaryData stxoVal = READHEX("0004") + rawTxOut0_;
+   BinaryData stxKey   = BDP + READHEX("01e078""0f""0007");
+   BinaryData stxo0Key = BDP + READHEX("01e078""0f""0007""0000");
+   BinaryData stxo1Key = BDP + READHEX("01e078""0f""0007""0001");
+   BinaryData stxo0raw = READHEX(
+      "ac4c8bd5000000001976a9148dce8946f1c7763bb60ea5cf16ef514cbed0633b88ac");
+   BinaryData stxo1raw = READHEX(
+      "002f6859000000001976a9146a59ac0e8f553f292dfe5e9f3aaa1da93499c15e88ac");
    
-      rawTxUnfrag_ = READHEX(
-         // Version
-         "01000000"
-         // NumTxIn
-         "02"
-         // Start TxIn0
-         "0044fbc929d78e4203eed6f1d3d39c0157d8e5c100bbe0886779c0"
-         "ebf6a69324010000008a47304402206568144ed5e7064d6176c74738b04c08ca"
-         "19ca54ddeb480084b77f45eebfe57802207927d6975a5ac0e1bb36f5c05356dc"
-         "da1f521770511ee5e03239c8e1eecf3aed0141045d74feae58c4c36d7c35beac"
-         "05eddddc78b3ce4b02491a2eea72043978056a8bc439b99ddaad327207b09ef1"
-         "6a8910828e805b0cc8c11fba5caea2ee939346d7ffffffff"
-         // Start TxIn1
-         "45c866b219b17695"
-         "2508f8e5aea728f950186554fc4a5807e2186a8e1c4009e5000000008c493046"
-         "022100bd5d41662f98cfddc46e86ea7e4a3bc8fe9f1dfc5c4836eaf7df582596"
-         "cfe0e9022100fc459ae4f59b8279d679003b88935896acd10021b6e2e4619377"
-         "e336b5296c5e014104c00bab76a708ba7064b2315420a1c533ca9945eeff9754"
-         "cdc574224589e9113469b4e71752146a10028079e04948ecdf70609bf1b9801f"
-         "6b73ab75947ac339e5ffffffff"
-         // NumTxOut
-         "02"
-         // Start TxOut0
-         "ac4c8bd5000000001976a9148dce8946f1c7763bb60ea5cf16ef514cbed0633b88ac"
-         // Start TxOut1
-         "002f6859000000001976a9146a59ac0e8f553f292dfe5e9f3aaa1da93499c15e88ac"
-         // Locktime
-         "00000000");
+   ASSERT_TRUE(standardOpenDBs());
 
-      rawTxFragged_ = READHEX(
-         // Version
-         "01000000"
-         // NumTxIn
-         "02"
-         // Start TxIn0
-         "0044fbc929d78e4203eed6f1d3d39c0157d8e5c100bbe0886779c0"
-         "ebf6a69324010000008a47304402206568144ed5e7064d6176c74738b04c08ca"
-         "19ca54ddeb480084b77f45eebfe57802207927d6975a5ac0e1bb36f5c05356dc"
-         "da1f521770511ee5e03239c8e1eecf3aed0141045d74feae58c4c36d7c35beac"
-         "05eddddc78b3ce4b02491a2eea72043978056a8bc439b99ddaad327207b09ef1"
-         "6a8910828e805b0cc8c11fba5caea2ee939346d7ffffffff"
-         // Start TxIn1
-         "45c866b219b17695"
-         "2508f8e5aea728f950186554fc4a5807e2186a8e1c4009e5000000008c493046"
-         "022100bd5d41662f98cfddc46e86ea7e4a3bc8fe9f1dfc5c4836eaf7df582596"
-         "cfe0e9022100fc459ae4f59b8279d679003b88935896acd10021b6e2e4619377"
-         "e336b5296c5e014104c00bab76a708ba7064b2315420a1c533ca9945eeff9754"
-         "cdc574224589e9113469b4e71752146a10028079e04948ecdf70609bf1b9801f"
-         "6b73ab75947ac339e5ffffffff"
-         // NumTxOut
-         "02"
-         // ... TxOuts fragged out 
-         // Locktime
-         "00000000");
-   
+   StoredTx stx;
+   stx.createFromTx(rawTxUnfrag_);
+   stx.setKeyData(123000, 15, 7);
+
+   ASSERT_EQ(stx.stxoMap_.size(), 2);
+   for(uint32_t i=0; i<2; i++)
+   {
+      stx.stxoMap_[i].spentness_  = TXOUT_UNSPENT;
+      stx.stxoMap_[i].isCoinbase_ = false;
+
+      ASSERT_EQ(stx.stxoMap_[i].blockHeight_, 123000);
+      ASSERT_EQ(stx.stxoMap_[i].duplicateID_,     15);
+      ASSERT_EQ(stx.stxoMap_[i].txIndex_,          7);
+      ASSERT_EQ(stx.stxoMap_[i].txOutIndex_,       i);
+      ASSERT_EQ(stx.stxoMap_[i].isCoinbase_,   false);
+   }
+
+   BinaryData stxVal = READHEX("4004") + stx.thisHash_ + rawTxFragged_;
+   BinaryData stxo0Val = READHEX("0004") + stxo0raw;
+   BinaryData stxo1Val = READHEX("0004") + stxo1raw;
+
+   iface_->putStoredTx(stx);
+   addOutPairB(stxKey,  stxVal);
+   addOutPairB(stxo0Key, stxo0Val);
+   addOutPairB(stxo1Key, stxo1Val);
+   EXPECT_TRUE(compareKVListRange(0,1, 0,4));
+
 }
 
+
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(LevelDBTest, PutFullBlockNoTx)
+{
+   ARMDB.setArmoryDbType(ARMORY_DB_FULL);
+   ARMDB.setDbPruneType(DB_PRUNE_NONE);
+
+   StoredHeader sbh;
+   BinaryRefReader brr(rawBlock_);
+   sbh.unserializeFullBlock(brr);
+   sbh.setKeyData(123000, UINT8_MAX);
+
+   StoredHeadHgtList hhl;
+   hhl.height_ = 123000;
+   hhl.dupAndHashList_.push_back( pair<uint8_t, BinaryData>(0, sbh.thisHash_));
+   hhl.preferredDup_ = UINT8_MAX;
+
+   BinaryData BDP   = WRITE_UINT8_BE((uint8_t)DB_PREFIX_TXDATA);
+   BinaryData HHP   = WRITE_UINT8_BE((uint8_t)DB_PREFIX_HEADHASH);
+   BinaryData HGP   = WRITE_UINT8_BE((uint8_t)DB_PREFIX_HEADHGT);
+   BinaryData hgtx  = READHEX("01e078""00");
+   BinaryData sbh_HH_key = HHP + sbh.thisHash_;
+   BinaryData sbh_HH_val = sbh.dataCopy_ + hgtx;
+   BinaryData sbh_HG_key = hhl.getDBKey();
+   BinaryData sbh_HG_val = hhl.serializeDBValue();
+   
+   ASSERT_TRUE(standardOpenDBs());
+
+   addOutPairH( sbh_HH_key, sbh_HH_val);
+   addOutPairH( sbh_HG_key, sbh_HG_val);
+
+   iface_->putStoredHeader(sbh, false);
+   EXPECT_TRUE(compareKVListRange(0,3, 0,1));
+
+}
+
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(LevelDBTest, PutFullBlock)
+{
+   /*
+      rawBlock_ = READHEX(
+         "01000000eb10c9a996a2340a4d74eaab41421ed8664aa49d18538bab59010000"
+         "000000005a2f06efa9f2bd804f17877537f2080030cadbfa1eb50e02338117cc"
+         "604d91b9b7541a4ecfbb0a1a64f1ade7"
+         "03"  // Num Tx
+         // Tx0, version
+         "01000000"
+         "01"
+         // Tx0, Txin0
+         "0000000000000000000000000000000000000000000000000000000000000000"
+         "ffffffff"
+         "08""04cfbb0a1a02360a""ffffffff"  
+         // Tx0, 1 TxOut
+         "01"
+         // Tx0, TxOut0
+         "00f2052a01000000"
+         "434104c2239c4eedb3beb26785753463be3ec62b82f6acd62efb65f452f8806f"
+         "2ede0b338e31d1f69b1ce449558d7061aa1648ddc2bf680834d3986624006a27"
+         "2dc21cac"
+         // Tx0, Locktime
+         "00000000"
+         // Tx1, Version 
+         "01000000"
+         // Tx1, 3 txins
+         "03"
+         // Tx1, TxIn0
+         "e8caa12bcb2e7e86499c9de49c45c5a1c6167ea4b894c8c83aebba1b6100f343"
+         "01000000"
+         "8c493046022100e2f5af5329d1244807f8347a2c8d9acc55a21a5db769e9274e"
+         "7e7ba0bb605b26022100c34ca3350df5089f3415d8af82364d7f567a6a297fcc"
+         "2c1d2034865633238b8c014104129e422ac490ddfcb7b1c405ab9fb42441246c"
+         "4bca578de4f27b230de08408c64cad03af71ee8a3140b40408a7058a1984a9f2"
+         "46492386113764c1ac132990d1""ffffffff" 
+         // Tx1, TxIn1
+         "5b55c18864e16c08ef9989d31c7a343e34c27c30cd7caa759651b0e08cae0106"
+         "00000000"
+         "8c4930460221009ec9aa3e0caf7caa321723dea561e232603e00686d4bfadf46"
+         "c5c7352b07eb00022100a4f18d937d1e2354b2e69e02b18d11620a6a9332d563"
+         "e9e2bbcb01cee559680a014104411b35dd963028300e36e82ee8cf1b0c8d5bf1"
+         "fc4273e970469f5cb931ee07759a2de5fef638961726d04bd5eb4e5072330b9b"
+         "371e479733c942964bb86e2b22""ffffffff" 
+         // Tx1, TxIn2
+         "3de0c1e913e6271769d8c0172cea2f00d6d3240afc3a20f9fa247ce58af30d2a"
+         "01000000"
+         "8c493046022100b610e169fd15ac9f60fe2b507529281cf2267673f4690ba428"
+         "cbb2ba3c3811fd022100ffbe9e3d71b21977a8e97fde4c3ba47b896d08bc09ec"
+         "b9d086bb59175b5b9f03014104ff07a1833fd8098b25f48c66dcf8fde34cbdbc"
+         "c0f5f21a8c2005b160406cbf34cc432842c6b37b2590d16b165b36a3efc9908d"
+         "65fb0e605314c9b278f40f3e1a""ffffffff" 
+         // Tx1, 2 TxOuts
+         "02"
+         // Tx1, TxOut0
+         "40420f0000000000""19""76a914adfa66f57ded1b655eb4ccd96ee07ca62bc1ddfd88ac"
+         // Tx1, TxOut1
+         "007d6a7d04000000""19""76a914981a0c9ae61fa8f8c96ae6f8e383d6e07e77133e88ac"
+         // Tx1 Locktime
+         "00000000"
+
+         // Tx2 Version
+         "01000000"
+         // Tx2 1 TxIn
+         "01"
+         "38e7586e0784280df58bd3dc5e3d350c9036b1ec4107951378f45881799c92a4"
+         "00000000"
+         "8a47304402207c945ae0bbdaf9dadba07bdf23faa676485a53817af975ddf85a"
+         "104f764fb93b02201ac6af32ddf597e610b4002e41f2de46664587a379a01613"
+         "23a85389b4f82dda014104ec8883d3e4f7a39d75c9f5bb9fd581dc9fb1b7cdf7"
+         "d6b5a665e4db1fdb09281a74ab138a2dba25248b5be38bf80249601ae688c90c"
+         "6e0ac8811cdb740fcec31d""ffffffff" 
+         // Tx2, 2 TxOuts
+         "02"
+         // Tx2, TxOut0
+         "2f66ac6105000000""19""76a914964642290c194e3bfab661c1085e47d67786d2d388ac"
+         // Tx2, TxOut1
+         "2f77e20000000000""19""76a9141486a7046affd935919a3cb4b50a8a0c233c286c88ac"
+         // Tx2 Locktime
+         "00000000");
+   */
+
+   ARMDB.setArmoryDbType(ARMORY_DB_FULL);
+   ARMDB.setDbPruneType(DB_PRUNE_NONE);
+   ASSERT_TRUE(standardOpenDBs());
+
+   StoredHeader sbh;
+   BinaryRefReader brr(rawBlock_);
+   sbh.unserializeFullBlock(brr);
+   sbh.setKeyData(123000);
+
+   BinaryData rawHeader = READHEX(
+         "01000000eb10c9a996a2340a4d74eaab41421ed8664aa49d18538bab59010000"
+         "000000005a2f06efa9f2bd804f17877537f2080030cadbfa1eb50e02338117cc"
+         "604d91b9b7541a4ecfbb0a1a64f1ade7");
+
+   // Compute and write the headers to the expected-output
+   StoredHeadHgtList hhl;
+   hhl.height_ = 123000;
+   hhl.dupAndHashList_.push_back( pair<uint8_t, BinaryData>(0, sbh.thisHash_));
+   hhl.preferredDup_ = UINT8_MAX;
+   BinaryData HHP   = WRITE_UINT8_BE((uint8_t)DB_PREFIX_HEADHASH);
+   BinaryData HGP   = WRITE_UINT8_BE((uint8_t)DB_PREFIX_HEADHGT);
+   BinaryData sbh_HH_key = HHP + sbh.thisHash_;
+   BinaryData sbh_HH_val = rawHeader + READHEX("01e078""00");
+   BinaryData sbh_HG_key = hhl.getDBKey();
+   BinaryData sbh_HG_val = hhl.serializeDBValue();
+   // Only HEADHASH and HEADHGT entries get written
+   addOutPairH( sbh_HH_key, sbh_HH_val);
+   addOutPairH( sbh_HG_key, sbh_HG_val);
+
+   // Now compute and write the BLKDATA
+   BinaryData BDP       = WRITE_UINT8_BE((uint8_t)DB_PREFIX_TXDATA);
+   BinaryData sbhKey    = BDP + READHEX("01e078""00");
+   BinaryData stx0Key   = BDP + READHEX("01e078""00""0000");
+   BinaryData stx1Key   = BDP + READHEX("01e078""00""0001");
+   BinaryData stx2Key   = BDP + READHEX("01e078""00""0002");
+   BinaryData stxo00Key = BDP + READHEX("01e078""00""0000""0000");
+   BinaryData stxo10Key = BDP + READHEX("01e078""00""0001""0000");
+   BinaryData stxo11Key = BDP + READHEX("01e078""00""0001""0001");
+   BinaryData stxo20Key = BDP + READHEX("01e078""00""0002""0000");
+   BinaryData stxo21Key = BDP + READHEX("01e078""00""0002""0001");
+   BinaryData stxo00Raw = READHEX( "00f2052a01000000""434104"
+      "c2239c4eedb3beb26785753463be3ec62b82f6acd62efb65f452f8806f2ede0b"
+      "338e31d1f69b1ce449558d7061aa1648ddc2bf680834d3986624006a272dc21cac");
+   BinaryData stxo10Raw = READHEX( "40420f0000000000"
+      "19""76a914adfa66f57ded1b655eb4ccd96ee07ca62bc1ddfd88ac");
+   BinaryData stxo11Raw = READHEX( "007d6a7d04000000"
+      "19""76a914981a0c9ae61fa8f8c96ae6f8e383d6e07e77133e88ac");
+   BinaryData stxo20Raw = READHEX( "2f66ac6105000000"
+      "19""76a914964642290c194e3bfab661c1085e47d67786d2d388ac");
+   BinaryData stxo21Raw = READHEX( "2f77e20000000000"
+      "19""76a9141486a7046affd935919a3cb4b50a8a0c233c286c88ac");
+
+   StoredTx & stx0 = sbh.stxMap_[0];
+   StoredTx & stx1 = sbh.stxMap_[1];
+   StoredTx & stx2 = sbh.stxMap_[2];
+   BinaryData hflags = READHEX("00002401");
+   BinaryData ntx    = READHEX("03000000");
+   BinaryData nbyte  = READHEX("46040000");
+
+   // Add header to BLKDATA
+   addOutPairB(sbhKey, hflags + rawHeader + ntx + nbyte);
+
+   //   0123   45   67 01  23 4567 
+   //  |----| |--| |-- --|
+   //   DBVer TxVer TxSer
+   //
+   // For this example:  DBVer=0, TxVer=1, TxSer=FRAGGED[1]
+   //   0000   01   00 00  -- ----
+   //
+   //   0123   45    67   0  123 4567 
+   //  |----| |--|  |--| |-|
+   //   DBVer TxVer Spnt  CB
+   //
+   // For this example:  DBVer=0, TxVer=1, TxSer=FRAGGED[1]
+   //   0000   01    00   0  --- ----
+
+   // Add Tx0 to BLKDATA
+   addOutPairB(stx0Key,   READHEX("4004") + stx0.thisHash_ + stx0.getSerializedTxFragged());
+   addOutPairB(stxo00Key, READHEX("8004") + stxo00Raw); // is coinbase
+
+   // Add Tx1 to BLKDATA
+   addOutPairB(stx1Key,   READHEX("4004") + stx1.thisHash_ + stx1.getSerializedTxFragged());
+   addOutPairB(stxo10Key, READHEX("0004") + stxo10Raw);
+   addOutPairB(stxo11Key, READHEX("0004") + stxo11Raw);
+
+   // Add Tx2 to BLKDATA
+   addOutPairB(stx2Key,   READHEX("4004") + stx2.thisHash_ + stx2.getSerializedTxFragged());
+   addOutPairB(stxo20Key, READHEX("0004") + stxo20Raw);
+   addOutPairB(stxo21Key, READHEX("0004") + stxo21Raw);
+
+   ASSERT_EQ(sbh.stxMap_.size(), 3);
+   for(uint32_t i=0; i<3; i++)
+   {
+      ASSERT_EQ(sbh.stxMap_[i].blockHeight_,    123000);
+      ASSERT_EQ(sbh.stxMap_[i].duplicateID_, UINT8_MAX);
+      ASSERT_EQ(sbh.stxMap_[i].txIndex_,             i);
+      for(uint32_t j=0; j<sbh.stxMap_[i].stxoMap_.size(); j++)
+      {
+         sbh.stxMap_[i].stxoMap_[j].spentness_ = TXOUT_UNSPENT;
+         //sbh.stxoMap_[i].isCoinbase_ = (j==0);
+
+         ASSERT_EQ(sbh.stxMap_[i].stxoMap_[j].blockHeight_,    123000);
+         ASSERT_EQ(sbh.stxMap_[i].stxoMap_[j].duplicateID_, UINT8_MAX);
+         ASSERT_EQ(sbh.stxMap_[i].stxoMap_[j].txIndex_,             i);
+         ASSERT_EQ(sbh.stxMap_[i].stxoMap_[j].txOutIndex_,          j);
+      }
+   }
+
+   iface_->putStoredHeader(sbh);
+
+   EXPECT_TRUE(compareKVListRange(0,3, 0,9));
+}
+
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(LevelDBTest, MultiPutBatch)
+{
+
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
