@@ -590,15 +590,10 @@ bool InterfaceToLDB::seekToTxByHash(BinaryDataRef txHash)
    SCOPED_TIMER("seekToTxByHash");
    StoredTxHints sths = getHintsForTxHash(txHash);
 
-   uint32_t height;
-   uint8_t  dup;
    for(uint32_t i=0; i<sths.getNumHints(); i++)
    {
       BinaryDataRef hint = sths.getHint(i);
       seekTo(BLKDATA, DB_PREFIX_TXDATA, hint);
-
-      BLKDATA_TYPE bdtype = readBlkDataKey5B(currReadKey_, height, dup);
-      uint16_t txIdx = currReadKey_.get_uint16_t();
       
       // We don't actually know for sure whether the seekTo() found a Tx or TxOut
       if(hint != currReadKey_.getRawRef().getSliceRef(1,6))
@@ -656,30 +651,102 @@ void InterfaceToLDB::iteratorToRefReaders( leveldb::Iterator* it,
 }
 
 
+
 ////////////////////////////////////////////////////////////////////////////////
-BLKDATA_TYPE InterfaceToLDB::readBlkDataKey5B(
+BLKDATA_TYPE InterfaceToLDB::readBlkDataKey(
                                        BinaryRefReader & brr,
                                        uint32_t & height,
                                        uint8_t  & dupID)
 {
+   uint16_t tempTxIdx;
+   uint16_t tempTxOutIdx;
+   return readBlkDataKey(brr, height, dupID, tempTxIdx, tempTxOutIdx);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+BLKDATA_TYPE InterfaceToLDB::readBlkDataKey(
+                                       BinaryRefReader & brr,
+                                       uint32_t & height,
+                                       uint8_t  & dupID,
+                                       uint16_t & txIdx)
+{
+   uint16_t tempTxOutIdx;
+   return readBlkDataKey(brr, height, dupID, txIdx, tempTxOutIdx);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+BLKDATA_TYPE InterfaceToLDB::readBlkDataKey(
+                                       BinaryRefReader & brr,
+                                       uint32_t & height,
+                                       uint8_t  & dupID,
+                                       uint16_t & txIdx,
+                                       uint16_t & txOutIdx)
+{
    uint8_t prefix = brr.get_uint8_t();
    if(prefix != (uint8_t)DB_PREFIX_TXDATA)
    {
-      height = 0xffffffff;
-      dupID  =       0xff;
+      height   = 0xffffffff;
+      dupID    =       0xff;
+      txIdx    =     0xffff;
+      txOutIdx =     0xffff;
       return NOT_BLKDATA;
    }
    
+   return readBlkDataKeyNoPrefix(brr, height, dupID, txIdx, txOutIdx);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+BLKDATA_TYPE InterfaceToLDB::readBlkDataKeyNoPrefix(
+                                       BinaryRefReader & brr,
+                                       uint32_t & height,
+                                       uint8_t  & dupID)
+{
+   uint16_t tempTxIdx;
+   uint16_t tempTxOutIdx;
+   return readBlkDataKeyNoPrefix(brr, height, dupID, tempTxIdx, tempTxOutIdx);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+BLKDATA_TYPE InterfaceToLDB::readBlkDataKeyNoPrefix(
+                                       BinaryRefReader & brr,
+                                       uint32_t & height,
+                                       uint8_t  & dupID,
+                                       uint16_t & txIdx)
+{
+   uint16_t tempTxOutIdx;
+   return readBlkDataKeyNoPrefix(brr, height, dupID, txIdx, tempTxOutIdx);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+BLKDATA_TYPE InterfaceToLDB::readBlkDataKeyNoPrefix(
+                                       BinaryRefReader & brr,
+                                       uint32_t & height,
+                                       uint8_t  & dupID,
+                                       uint16_t & txIdx,
+                                       uint16_t & txOutIdx)
+{
    BinaryData hgtx = brr.get_BinaryData(4);
    height = ARMDB.hgtxToHeight(hgtx);
    dupID  = ARMDB.hgtxToDupID(hgtx);
 
    if(brr.getSizeRemaining() == 0)
+   {
+      txIdx    = 0xffff;
+      txOutIdx = 0xffff;
       return BLKDATA_HEADER;
+   }
    else if(brr.getSizeRemaining() == 2)
+   {
+      txIdx    = brr.get_uint16_t(BIGENDIAN);
+      txOutIdx = 0xffff;
       return BLKDATA_TX;
+   }
    else if(brr.getSizeRemaining() == 4)
+   {
+      txIdx    = brr.get_uint16_t(BIGENDIAN);
+      txOutIdx = brr.get_uint16_t(BIGENDIAN);
       return BLKDATA_TXOUT;
+   }
    else
    {
       LOGERR << "Unexpected bytes remaining: " << brr.getSizeRemaining();
@@ -782,8 +849,8 @@ bool InterfaceToLDB::getUnspentTxOut( BinaryData & const ldbKey8B,
 {
    BinaryRefReader txrr(txoData[i]);
    BinaryData hgtx   = txrr.get_BinaryData(4);
-   uint16_t   txIdx  = txrr.get_uint16_t();
-   uint16_t   outIdx = txrr.get_uint16_t();
+   uint16_t   txIdx  = txrr.get_uint16_t(BE);
+   uint16_t   outIdx = txrr.get_uint16_t(BE);
 
 
    BinaryDataRef txRef(txoData[i].getPtr(), 6);
@@ -869,7 +936,7 @@ bool InterfaceToLDB::readFullTx(Tx & tx, leveldb::Iterator* iter=NULL)
    while(1)
    {
       advanceIterAndRead(iter);
-      if(readBlkDataKey5B(currReadKey_) != BLKDATA_TXOUT)
+      if(readBlkDataKey(currReadKey_) != BLKDATA_TXOUT)
       {
          currReadKey_.resetPosition();
          break;
@@ -1337,9 +1404,9 @@ bool InterfaceToLDB::readStoredBlockAtIter(StoredHeader & sbh)
 {
    currReadKey_.resetPosition();
    BinaryData blkDataKey(currReadKey_.getCurrPtr(), 5);
-   BLKDATA_TYPE bdtype = readBlkDataKey5B(currReadKey_,
-                                          sbh.blockHeight_,
-                                          sbh.duplicateID_);
+   BLKDATA_TYPE bdtype = readBlkDataKey(currReadKey_,
+                                        sbh.blockHeight_,
+                                        sbh.duplicateID_);
 
    
    // Grab the header first, then iterate over 
@@ -1353,26 +1420,29 @@ bool InterfaceToLDB::readStoredBlockAtIter(StoredHeader & sbh)
    // Now start iterating over the tx data
    uint32_t tempHgt;
    uint8_t  tempDup;
+   uint16_t currIdx;
    while(currReadKey_.getRawRef().startsWith(blkDataKey))
    {
       // We can't just read the the tx, because we have to guarantee 
       // there's a place for it in the sbh.stxMap_
-      BLKDATA_TYPE bdtype = readBlkDataKey5B(currReadKey_, tempHgt, tempDup);
+      BLKDATA_TYPE bdtype = readBlkDataKey(currReadKey_, 
+                                           tempHgt, 
+                                           tempDup,
+                                           currIdx);
 
-      uint16_t currTxIdx = currReadKey_.get_uint16_t(); 
-      if(currTxIdx >= sbh.numTx_)
+      if(currIdx >= sbh.numTx_)
       {
          LOGERR << "Invalid txIndex at height " << (sbh.blockHeight_)
-                    << " index " << currTxIdx;
+                    << " index " << currIdx;
          return false;
       }
 
-      if(sbh.stxMap_.find(currTxIdx) == sbh.stxMap_.end())
-         sbh.stxMap_[currTxIdx] = StoredTx();
+      if(sbh.stxMap_.find(currIdx) == sbh.stxMap_.end())
+         sbh.stxMap_[currIdx] = StoredTx();
 
       readStoredTxAtIter(sbh.blockHeight_, 
                          sbh.duplicateID_, 
-                         sbh.stxMap_[currTxIdx]);
+                         sbh.stxMap_[currIdx]);
    } 
 } 
 
@@ -1381,10 +1451,9 @@ bool InterfaceToLDB::readStoredBlockAtIter(StoredHeader & sbh)
 // We assume we have a valid iterator left at the beginning of (potentially) a 
 // transaction in this block.  It's okay if it starts at at TxOut entry (in 
 // some instances we may not have a Tx entry, but only the TxOuts).
-bool InterfaceToLDB::readStoredTxAtIter(       
-                                       uint32_t height,
-                                       uint8_t  dupID,
-                                       StoredTx & stx)
+bool InterfaceToLDB::readStoredTxAtIter( uint32_t height,
+                                         uint8_t  dupID,
+                                         StoredTx & stx)
 {
    BinaryData blkPrefix = ARMDB.getBlkDataKey(height, dupID);
 
@@ -1397,14 +1466,16 @@ bool InterfaceToLDB::readStoredTxAtIter(
    // Check that we are at a tx with the correct height & dup
    uint32_t storedHgt;
    uint8_t  storedDup;
-   readBlkDataKey5B(currReadKey_, storedHgt, storedDup);
+   uint16_t storedIdx;
+   readBlkDataKey(currReadKey_, storedHgt, storedDup, storedIdx);
+
    if(storedHgt != height || storedDup != dupID)
       return false;
 
    // Make sure the stx has correct height/dup/idx
-   stx.blockHeight_ = height;
-   stx.duplicateID_  = dupID;
-   stx.txIndex_     = currReadKey_.get_uint16_t();
+   stx.blockHeight_ = storedHgt;
+   stx.duplicateID_ = storedDup;
+   stx.txIndex_     = storedIdx;
 
    BinaryData txPrefix = ARMDB.getBlkDataKey(height, dupID, stx.txIndex_);
 
@@ -1420,9 +1491,12 @@ bool InterfaceToLDB::readStoredTxAtIter(
          break;
 
       // Read the prefix, height and dup 
-      BLKDATA_TYPE bdtype = readBlkDataKey5B(currReadKey_,
-                                             stx.blockHeight_,
-                                             stx.duplicateID_);
+      uint16_t txOutIdx;
+      BLKDATA_TYPE bdtype = readBlkDataKey(currReadKey_,
+                                           stx.blockHeight_,
+                                           stx.duplicateID_,
+                                           stx.txIndex_,
+                                           txOutIdx);
 
 
       // Now actually process the iter value
@@ -1433,11 +1507,8 @@ bool InterfaceToLDB::readStoredTxAtIter(
       }
       else if(bdtype == BLKDATA_TXOUT)
       {
-         currReadKey_.advance(2);
-         uint16_t txOutIdx = currReadKey_.get_uint16_t();
          stx.stxoMap_[txOutIdx] = StoredTxOut();
-         readStoredTxOutAtIter(height, dupID, stx.txIndex_, 
-                                             stx.stxoMap_[txOutIdx]);
+         readStoredTxOutAtIter(height, dupID, stx.txIndex_, stx.stxoMap_[txOutIdx]);
       }
       else
       {
@@ -1463,19 +1534,19 @@ bool InterfaceToLDB::readStoredTxOutAtIter(
    currReadKey_.resetPosition();
 
    // Check that we are at a tx with the correct height & dup & txIndex
-   uint32_t storedHgt;
-   uint8_t  storedDup;
-   readBlkDataKey5B(currReadKey_, storedHgt, storedDup);
-   uint16_t storedTxIdx    = currReadKey_.get_uint16_t();
-   uint16_t storedTxOutIdx = currReadKey_.get_uint16_t();
+   uint32_t keyHgt;
+   uint8_t  keyDup;
+   uint16_t keyTxIdx;
+   uint16_t keyTxOutIdx;
+   readBlkDataKey(currReadKey_, keyHgt, keyDup, keyTxIdx, keyTxOutIdx);
 
-   if(storedHgt != height || storedDup != dupID || storedTxIdx != txIndex)
+   if(keyHgt != height || keyDup != dupID || keyTxIdx != txIndex)
       return false;
 
    stxo.blockHeight_ = height;
-   stxo.duplicateID_  = dupID;
+   stxo.duplicateID_ = dupID;
    stxo.txIndex_     = txIndex;
-   stxo.txOutIndex_  = storedTxOutIdx;
+   stxo.txOutIndex_  = keyTxOutIdx;
 
    stxo.unserializeDBValue(currReadValue_);
 
@@ -1538,7 +1609,7 @@ TxOut InterfaceToLDB::getTxOutCopy( BinaryDataRef ldbKey6B, uint16_t txOutIdx)
    SCOPED_TIMER("getTxOutCopy");
    BinaryWriter bw(8);
    bw.put_BinaryData(ldbKey6B);
-   bw.put_uint16_t(txOutIdx);
+   bw.put_uint16_t(txOutIdx, BIGENDIAN);
    BinaryDataRef ldbKey8 = bw.getDataRef();
 
    TxOut txoOut;
@@ -1662,7 +1733,7 @@ StoredTxHints InterfaceToLDB::getHintsForTxHash(BinaryDataRef txHash)
 // lists have the correct one in front.  Luckily, the TXHINTS entries are tiny 
 // and the number of modifications to make for each reorg is small.
 bool InterfaceToLDB::getStoredTx( StoredTx & stx,
-                                      BinaryDataRef txHash)
+                                  BinaryDataRef txHash)
 {
    SCOPED_TIMER("getStoredTx");
    BinaryData hash4(txHash.getSliceRef(0,4));
@@ -1678,13 +1749,13 @@ bool InterfaceToLDB::getStoredTx( StoredTx & stx,
    uint32_t numHints = existingHints.getSize() / 6;
    uint32_t height;
    uint8_t  dup;
+   uint16_t txIdx;
    for(uint32_t i=0; i<numHints; i++)
    {
       BinaryDataRef hint = existingHints.getSliceRef(i*6, 6);
       seekTo(BLKDATA, DB_PREFIX_TXDATA, hint);
 
-      BLKDATA_TYPE bdtype = readBlkDataKey5B(currReadKey_, height, dup);
-      uint16_t txIdx = currReadKey_.get_uint16_t();
+      BLKDATA_TYPE bdtype = readBlkDataKey(currReadKey_, height, dup, txIdx);
       
       // We don't actually know for sure whether the seekTo() found 
       BinaryData key6 = ARMDB.getBlkDataKeyNoPrefix(height, dup, txIdx);
@@ -1766,20 +1837,19 @@ bool InterfaceToLDB::getStoredTx(  StoredTx & stx,
             break;
 
          
-         BLKDATA_TYPE bdtype = readBlkDataKey5B(currReadKey_,
-                                                stx.blockHeight_,
-                                                stx.duplicateID_);
+         uint16_t currTxOutIdx;
+         BLKDATA_TYPE bdtype = readBlkDataKey(currReadKey_,
+                                              stx.blockHeight_,
+                                              stx.duplicateID_,
+                                              stx.txIndex_,
+                                              currTxOutIdx);
    
-         uint16_t currTxIdx = currReadKey_.get_uint16_t(); 
-
          if(bdtype == BLKDATA_TX)
          {
             stx.unserializeDBValue(currReadValue_);
          }
          else if(bdtype == BLKDATA_TXOUT)
          {
-            uint16_t currTxOutIdx = currReadKey_.get_uint16_t(); 
-
             stx.stxoMap_[currTxOutIdx] = StoredTxOut();
             StoredTxOut & stxo = stx.stxoMap_[currTxOutIdx];
 
@@ -1875,7 +1945,7 @@ TxRef InterfaceToLDB::getTxRef(BinaryData hgtx, uint16_t txIndex)
 {
    BinaryWriter bw;
    bw.put_BinaryData(hgtx);
-   bw.put_uint16_t(txIndex);
+   bw.put_uint16_t(txIndex, BIGENDIAN);
    return TxRef(bw.getDataRef(), this);
 }
 
@@ -1884,7 +1954,7 @@ TxRef InterfaceToLDB::getTxRef( uint32_t hgt, uint8_t  dup, uint16_t txIndex)
 {
    BinaryWriter bw;
    bw.put_BinaryData(ARMDB.heightAndDupToHgtx(hgt,dup));
-   bw.put_uint16_t(txIndex);
+   bw.put_uint16_t(txIndex, BIGENDIAN);
    return TxRef(bw.getDataRef(), this);
 }
 

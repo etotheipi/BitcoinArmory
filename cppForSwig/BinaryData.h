@@ -99,6 +99,15 @@
 #define WRITE_UINT32_BE BinaryData::IntToStrBE<uint32_t>
 #define WRITE_UINT64_BE BinaryData::IntToStrBE<uint64_t>
 
+enum ENDIAN 
+{ 
+   LITTLEENDIAN, 
+   BIGENDIAN 
+};
+
+#define LE LITTLEENDIAN
+#define BE BIGENDIAN
+
 using namespace std;
 
 class BinaryDataRef;
@@ -1034,7 +1043,7 @@ public:
 
 
    /////////////////////////////////////////////////////////////////////////////
-   uint8_t get_uint8_t(void)
+   uint8_t get_uint8_t(ENDIAN e=LE)
    {
       uint8_t outVal = bdStr_[pos_];
       pos_ += 1;
@@ -1042,25 +1051,28 @@ public:
    }
 
    /////////////////////////////////////////////////////////////////////////////
-   uint16_t get_uint16_t(void)
+   uint16_t get_uint16_t(ENDIAN e=LE)
    {
-      uint16_t outVal = READ_UINT16_LE(bdStr_.getPtr() + pos_);
+      uint16_t outVal = (e==LE ? READ_UINT16_LE(bdStr_.getPtr() + pos_) :
+                                 READ_UINT16_BE(bdStr_.getPtr() + pos_));
       pos_ += 2;
       return outVal;
    }
 
    /////////////////////////////////////////////////////////////////////////////
-   uint32_t get_uint32_t(void)
+   uint32_t get_uint32_t(ENDIAN e=LE)
    {
-      uint32_t outVal = READ_UINT32_LE(bdStr_.getPtr() + pos_);
+      uint32_t outVal = (e==LE ? READ_UINT32_LE(bdStr_.getPtr() + pos_) :
+                                 READ_UINT32_BE(bdStr_.getPtr() + pos_));
       pos_ += 4;
       return outVal;
    }
 
    /////////////////////////////////////////////////////////////////////////////
-   uint64_t get_uint64_t(void)
+   uint64_t get_uint64_t(ENDIAN e=LE)
    {
-      uint64_t outVal = READ_UINT64_LE(bdStr_.getPtr() + pos_);
+      uint64_t outVal = (e==LE ? READ_UINT64_LE(bdStr_.getPtr() + pos_) :
+                                 READ_UINT64_BE(bdStr_.getPtr() + pos_));
       pos_ += 8;
       return outVal;
    }
@@ -1186,7 +1198,7 @@ public:
 
 
    /////////////////////////////////////////////////////////////////////////////
-   uint8_t get_uint8_t(void)
+   uint8_t get_uint8_t(ENDIAN e=LE)
    {
       uint8_t outVal = bdRef_[pos_];
       pos_ += 1;
@@ -1194,25 +1206,28 @@ public:
    }
 
    /////////////////////////////////////////////////////////////////////////////
-   uint16_t get_uint16_t(void)
+   uint16_t get_uint16_t(ENDIAN e=LE)
    {
-      uint16_t outVal = *(uint16_t*)(bdRef_.getPtr() + pos_);
+      uint16_t  outVal = (e==LE ? READ_UINT16_LE(bdRef_.getPtr() + pos_) :
+                                  READ_UINT16_BE(bdRef_.getPtr() + pos_) );
       pos_ += 2;
       return outVal;
    }
 
    /////////////////////////////////////////////////////////////////////////////
-   uint32_t get_uint32_t(void)
+   uint32_t get_uint32_t(ENDIAN e=LE)
    {
-      uint32_t outVal = *(uint32_t*)(bdRef_.getPtr() + pos_);
+      uint32_t  outVal = (e==LE ? READ_UINT32_LE(bdRef_.getPtr() + pos_) :
+                                  READ_UINT32_BE(bdRef_.getPtr() + pos_) );
       pos_ += 4;
       return outVal;
    }
 
    /////////////////////////////////////////////////////////////////////////////
-   uint64_t get_uint64_t(void)
+   uint64_t get_uint64_t(ENDIAN e=LE)
    {
-      uint64_t outVal = *(uint64_t*)(bdRef_.getPtr() + pos_);
+      uint64_t  outVal = (e==LE ? READ_UINT64_LE(bdRef_.getPtr() + pos_) :
+                                  READ_UINT64_BE(bdRef_.getPtr() + pos_) );
       pos_ += 8;
       return outVal;
    }
@@ -1393,24 +1408,29 @@ public:
 
 
    /////////////////////////////////////////////////////////////////////////////
-   // If you are on a little-endian system, you can uncomment these four lines
-   // and remove the subsequent four methods.  Those four methods guarantee
-   // that data is written as little-endian regardless of underlying 
-   // architecture, but if it's an LE arch anyway, you might as well use the
-   // simpler version which runs approx 2x faster;
-   /*
-   void put_uint8_t (uint8_t  val) { theString_.append( val ); }
-   void put_uint16_t(uint16_t val) { theString_.append( (uint8_t*)(&val), 2); }
-   void put_uint32_t(uint32_t val) { theString_.append( (uint8_t*)(&val), 4); }
-   void put_uint64_t(uint64_t val) { theString_.append( (uint8_t*)(&val), 8); }
-   */
-   void put_uint8_t (uint8_t  val) { theString_.append( val ); }
-   void put_uint16_t(uint16_t val) { BinaryData out = WRITE_UINT16_LE(val);
-                                     theString_.append( out.getPtr(), 2); }
-   void put_uint32_t(uint32_t val) { BinaryData out = WRITE_UINT32_LE(val);
-                                     theString_.append( out.getPtr(), 4); }
-   void put_uint64_t(uint64_t val) { BinaryData out = WRITE_UINT64_LE(val);
-                                     theString_.append( out.getPtr(), 8); }
+   // These write data properly regardless of the architecture
+   void put_uint8_t (uint8_t  val, ENDIAN e=LE) { theString_.append( val ); }
+
+   /////
+   void put_uint16_t(uint16_t val, ENDIAN e=LE) 
+   { 
+      BinaryData out = (e==LE ? WRITE_UINT16_LE(val) : WRITE_UINT16_BE(val));
+      theString_.append( out.getPtr(), 2); 
+   }
+
+   /////
+   void put_uint32_t(uint32_t val, ENDIAN e=LE) 
+   { 
+      BinaryData out = (e==LE ? WRITE_UINT32_LE(val) : WRITE_UINT32_BE(val));
+      theString_.append( out.getPtr(), 4); 
+   }
+
+   /////
+   void put_uint64_t(uint64_t val, ENDIAN e=LE) 
+   { 
+      BinaryData out = (e==LE ? WRITE_UINT64_LE(val) : WRITE_UINT64_BE(val));
+      theString_.append( out.getPtr(), 8); 
+   }
 
    /////////////////////////////////////////////////////////////////////////////
    uint8_t put_var_int(uint64_t val)

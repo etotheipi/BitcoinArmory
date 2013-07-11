@@ -38,6 +38,59 @@ class StoredTxOut;
 class StoredScriptHistory;
 
 
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// NOTE:  VERY IMPORTANT NOTE ABOUT THE DATABASE STRUCTURE
+//
+//    Almost everywhere you see integers serialized throughout Bitcoin, is uses
+//    little-endian.  This is critical to follow because you are always handling
+//    hashes of these serializations, so the byte-ordering matters.
+//
+// *HOWEVER*:  
+//     
+//    This database design relies on the natural ordering of database
+//    keys which are frequently concatenations of integers.  For instance, each 
+//    block is indexed by height, and we expect an iteration over all keys will
+//    traverse the blocks in height-order.  BUT THIS DOESN'T WORK IF THE KEYS
+//    ARE WRITTEN IN LITTLE-ENDIAN.  Therefore, all serialized integers in 
+//    database KEYS are BIG-ENDIAN.  All other serializations in database VALUES
+//    are LITTLE-ENDIAN (including var_ints, and all put/get_uintX_t() calls).
+//
+// *HOWEVER-2*:
+//
+//    This gets exceptionally confusing because some of the DB VALUES include 
+//    references to DB KEYS, thus requiring those specific serializations to be 
+//    LE, even though the rest of the data uses BE.
+//
+// REPEATED:
+//
+//    Database Keys:    BIG-ENDIAN integers
+//    Database Values:  LITTLE-ENDIAN integers
+//
+//
+// How to avoid getting yourself in a mess with this:
+//
+//    Always use hgtx methods:
+//       hgtxToHeight( BinaryData(4) )
+//       hgtxToDupID( BinaryData(4) )
+//       heightAndDupToHgtx( uint32_t, uint8_t)
+//
+//    Always use BIGENDIAN for txIndex_ or txOutIndex_ serializations:
+//       BinaryWriter.put_uint16_t(txIndex,    BIGENDIAN);
+//       BinaryWriter.put_uint16_t(txOutIndex, BIGENDIAN);
+//       BinaryReader.get_uint16_t(BIGENDIAN);
+//       BinaryReader.get_uint16_t(BIGENDIAN);
+//
+//
+// *OR*  
+//
+//    Don't mess with the internals of the DB!  The public methods that are
+//    used to access the data in the DB externally do not require an 
+//    understanding of how the data is actually serialized under the hood.
+//
+//
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -127,9 +180,43 @@ private:
 
    
    /////////////////////////////////////////////////////////////////////////////
-   static BLKDATA_TYPE readBlkDataKey5B( BinaryRefReader & brr,
-                                         uint32_t & height,
-                                         uint8_t  & dupID);
+   static BLKDATA_TYPE readBlkDataKey( BinaryRefReader & brr,
+                                       uint32_t & height,
+                                       uint8_t  & dupID);
+
+   /////////////////////////////////////////////////////////////////////////////
+   static BLKDATA_TYPE readBlkDataKey( BinaryRefReader & brr,
+                                       uint32_t & height,
+                                       uint8_t  & dupID,
+                                       uint16_t & txIdx);
+
+   /////////////////////////////////////////////////////////////////////////////
+   static BLKDATA_TYPE readBlkDataKey( BinaryRefReader & brr,
+                                       uint32_t & height,
+                                       uint8_t  & dupID,
+                                       uint16_t & txIdx,
+                                       uint16_t & txOutIdx);
+   /////////////////////////////////////////////////////////////////////////////
+   static BLKDATA_TYPE readBlkDataKeyNoPrefix( 
+                                       BinaryRefReader & brr,
+                                       uint32_t & height,
+                                       uint8_t  & dupID);
+
+   /////////////////////////////////////////////////////////////////////////////
+   static BLKDATA_TYPE readBlkDataKeyNoPrefix( 
+                                       BinaryRefReader & brr,
+                                       uint32_t & height,
+                                       uint8_t  & dupID,
+                                       uint16_t & txIdx);
+
+   /////////////////////////////////////////////////////////////////////////////
+   static BLKDATA_TYPE readBlkDataKeyNoPrefix( 
+                                       BinaryRefReader & brr,
+                                       uint32_t & height,
+                                       uint8_t  & dupID,
+                                       uint16_t & txIdx,
+                                       uint16_t & txOutIdx);
+   
 
    /////////////////////////////////////////////////////////////////////////////
    void deleteIterator(DB_SELECT db);

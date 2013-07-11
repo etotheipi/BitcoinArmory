@@ -1019,16 +1019,16 @@ void StoredScriptHistory::unserializeDBValue(BinaryRefReader & brr)
          if(!isSpent)
          {
             BinaryDataRef  txokey = brr.get_BinaryDataRef(6);
-            uint16_t       txoidx = brr.get_uint16_t();
+            uint16_t       txoidx = brr.get_uint16_t(BIGENDIAN);
 
             txio = TxIOPair(TxRef(txokey), txoidx);
          }
          else
          {
             BinaryDataRef  txokey = brr.get_BinaryDataRef(6);
-            uint16_t       txoidx = brr.get_uint16_t();
+            uint16_t       txoidx = brr.get_uint16_t(BIGENDIAN);
             BinaryDataRef  txikey = brr.get_BinaryDataRef(6);
-            uint16_t       txiidx = brr.get_uint16_t();
+            uint16_t       txiidx = brr.get_uint16_t(BIGENDIAN);
 
             txio = TxIOPair(TxRef(txokey), txoidx, 
                             TxRef(txikey), txiidx);
@@ -1089,7 +1089,7 @@ void StoredScriptHistory::serializeDBValue(BinaryWriter & bw ) const
          // Always write the value and 8-byte TxOut
          bw.put_uint64_t(txio.getValue());
          bw.put_BinaryData(txio.getTxRefOfOutput().getDBKeyRef());
-         bw.put_uint16_t(txio.getIndexOfOutput());
+         bw.put_uint16_t(txio.getIndexOfOutput(), BIGENDIAN);
 
          // If not supposed to write the TxIn, we would've bailed earlier
          if(isSpent)
@@ -1099,7 +1099,7 @@ void StoredScriptHistory::serializeDBValue(BinaryWriter & bw ) const
             else
             {
                bw.put_BinaryData(txio.getTxRefOfInput().getDBKeyRef());
-               bw.put_uint16_t(txio.getIndexOfInput());
+               bw.put_uint16_t(txio.getIndexOfInput(), BIGENDIAN);
             }
          }
       }
@@ -1409,7 +1409,7 @@ BinaryData StoredHeadHgtList::getDBKey(bool withPrefix) const
    BinaryWriter bw(5);
    if(withPrefix)
       bw.put_uint8_t((uint8_t)DB_PREFIX_HEADHGT); 
-   bw.put_uint32_t(height_);
+   bw.put_uint32_t(height_, BIGENDIAN);
    return bw.getData();
 
 }
@@ -1478,7 +1478,7 @@ BinaryData DBUtils::getBlkDataKey( uint32_t height,
    BinaryWriter bw(7);
    bw.put_uint8_t(    DB_PREFIX_TXDATA );
    bw.put_BinaryData( heightAndDupToHgtx(height,dup) );
-   bw.put_uint16_t(   txIdx );
+   bw.put_uint16_t(   txIdx, BIGENDIAN); 
    return bw.getData();
 }
 
@@ -1491,8 +1491,8 @@ BinaryData DBUtils::getBlkDataKey( uint32_t height,
    BinaryWriter bw(9);
    bw.put_uint8_t(    DB_PREFIX_TXDATA );
    bw.put_BinaryData( heightAndDupToHgtx(height,dup) );
-   bw.put_uint16_t(   txIdx );
-   bw.put_uint16_t(   txOutIdx );
+   bw.put_uint16_t(   txIdx,    BIGENDIAN);
+   bw.put_uint16_t(   txOutIdx, BIGENDIAN);
    return bw.getData();
 }
 
@@ -1510,7 +1510,7 @@ BinaryData DBUtils::getBlkDataKeyNoPrefix( uint32_t height,
 {
    BinaryWriter bw(6);
    bw.put_BinaryData( heightAndDupToHgtx(height,dup));
-   bw.put_uint16_t(   txIdx);
+   bw.put_uint16_t(   txIdx, BIGENDIAN);
    return bw.getData();
 }
 
@@ -1522,27 +1522,28 @@ BinaryData DBUtils::getBlkDataKeyNoPrefix( uint32_t height,
 {
    BinaryWriter bw(8);
    bw.put_BinaryData( heightAndDupToHgtx(height,dup));
-   bw.put_uint16_t(   txIdx);
-   bw.put_uint16_t(   txOutIdx);
+   bw.put_uint16_t(   txIdx,    BIGENDIAN);
+   bw.put_uint16_t(   txOutIdx, BIGENDIAN);
    return bw.getData();
 }
 
 /////////////////////////////////////////////////////////////////////////////
 uint32_t DBUtils::hgtxToHeight(BinaryData hgtx)
 {
-   return (READ_UINT32_LE(hgtx) >> 8);
+   return (READ_UINT32_BE(hgtx) >> 8);
 
 }
 
 /////////////////////////////////////////////////////////////////////////////
 uint8_t DBUtils::hgtxToDupID(BinaryData hgtx)
 {
-   return (READ_UINT32_LE(hgtx) & 0x7f);
+   return (READ_UINT32_BE(hgtx) & 0x7f);
 }
 
 /////////////////////////////////////////////////////////////////////////////
 BinaryData DBUtils::heightAndDupToHgtx(uint32_t hgt, uint8_t dup)
 {
    uint32_t hgtxInt = (hgt<<8) | (uint32_t)dup;
-   return WRITE_UINT32_LE(hgtxInt);
+   return WRITE_UINT32_BE(hgtxInt);
 }
+

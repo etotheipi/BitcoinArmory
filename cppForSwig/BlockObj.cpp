@@ -725,7 +725,7 @@ uint32_t TxRef::getBlockTimestamp(void)
    if(dbIface_!=NULL && dbKey6B_.getSize() == 6)
    {
       dbIface_->getStoredHeader(sbh, getBlockHeight(), getBlockDupID(), false);
-      return READ_UINT32_LE(sbh.dataCopy_.getPtr()+68);
+      return READ_UINT32_BE(sbh.dataCopy_.getPtr()+68);
    }
    else
       return UINT32_MAX;
@@ -753,7 +753,7 @@ uint8_t TxRef::getBlockDupID(void) const
 uint16_t TxRef::getBlockTxIndex(void) const
 {
    if(dbKey6B_.getSize() == 6)
-      return READ_UINT16_LE(dbKey6B_.getPtr() + 4);
+      return READ_UINT16_BE(dbKey6B_.getPtr() + 4);
    else
       return UINT16_MAX;
 }
