@@ -161,12 +161,10 @@ private:
          {return leveldb::Slice((char*)bdr.getPtr(), bdr.getSize());}
 
    bool seekTo(DB_SELECT db, 
-               BinaryDataRef key, 
-               leveldb::Iterator* it=NULL);
+               BinaryDataRef key);
    bool seekTo(DB_SELECT db, 
                DB_PREFIX pref, 
-               BinaryDataRef key, 
-               leveldb::Iterator* it=NULL);
+               BinaryDataRef key);
 
    bool seekToTxByHash(BinaryDataRef txHash);
 
@@ -179,48 +177,10 @@ private:
 
 
    
-   /////////////////////////////////////////////////////////////////////////////
-   static BLKDATA_TYPE readBlkDataKey( BinaryRefReader & brr,
-                                       uint32_t & height,
-                                       uint8_t  & dupID);
-
-   /////////////////////////////////////////////////////////////////////////////
-   static BLKDATA_TYPE readBlkDataKey( BinaryRefReader & brr,
-                                       uint32_t & height,
-                                       uint8_t  & dupID,
-                                       uint16_t & txIdx);
-
-   /////////////////////////////////////////////////////////////////////////////
-   static BLKDATA_TYPE readBlkDataKey( BinaryRefReader & brr,
-                                       uint32_t & height,
-                                       uint8_t  & dupID,
-                                       uint16_t & txIdx,
-                                       uint16_t & txOutIdx);
-   /////////////////////////////////////////////////////////////////////////////
-   static BLKDATA_TYPE readBlkDataKeyNoPrefix( 
-                                       BinaryRefReader & brr,
-                                       uint32_t & height,
-                                       uint8_t  & dupID);
-
-   /////////////////////////////////////////////////////////////////////////////
-   static BLKDATA_TYPE readBlkDataKeyNoPrefix( 
-                                       BinaryRefReader & brr,
-                                       uint32_t & height,
-                                       uint8_t  & dupID,
-                                       uint16_t & txIdx);
-
-   /////////////////////////////////////////////////////////////////////////////
-   static BLKDATA_TYPE readBlkDataKeyNoPrefix( 
-                                       BinaryRefReader & brr,
-                                       uint32_t & height,
-                                       uint8_t  & dupID,
-                                       uint16_t & txIdx,
-                                       uint16_t & txOutIdx);
-   
 
    /////////////////////////////////////////////////////////////////////////////
    void deleteIterator(DB_SELECT db);
-   void resetIterator(DB_SELECT db);
+   void resetIterator(DB_SELECT db, bool seekToPrevKey=false);
 
    /////////////////////////////////////////////////////////////////////////////
    // These four sliceTo* methods make copies, and thus safe to use even after
@@ -511,9 +471,47 @@ public:
    inline bool checkPrefixByte(DB_PREFIX prefix, bool rewindWhenDone=false)
          { return ARMDB.checkPrefixByte(currReadKey_, prefix, rewindWhenDone); }
 
-
-
+   /////////////////////////////////////////////////////////////////////////////
    bool checkStatus(leveldb::Status stat, bool warn=true);
+
+   /////////////////////////////////////////////////////////////////////////////
+   static BLKDATA_TYPE readBlkDataKey( BinaryRefReader & brr,
+                                       uint32_t & height,
+                                       uint8_t  & dupID);
+
+   /////////////////////////////////////////////////////////////////////////////
+   static BLKDATA_TYPE readBlkDataKey( BinaryRefReader & brr,
+                                       uint32_t & height,
+                                       uint8_t  & dupID,
+                                       uint16_t & txIdx);
+
+   /////////////////////////////////////////////////////////////////////////////
+   static BLKDATA_TYPE readBlkDataKey( BinaryRefReader & brr,
+                                       uint32_t & height,
+                                       uint8_t  & dupID,
+                                       uint16_t & txIdx,
+                                       uint16_t & txOutIdx);
+   /////////////////////////////////////////////////////////////////////////////
+   static BLKDATA_TYPE readBlkDataKeyNoPrefix( 
+                                       BinaryRefReader & brr,
+                                       uint32_t & height,
+                                       uint8_t  & dupID);
+
+   /////////////////////////////////////////////////////////////////////////////
+   static BLKDATA_TYPE readBlkDataKeyNoPrefix( 
+                                       BinaryRefReader & brr,
+                                       uint32_t & height,
+                                       uint8_t  & dupID,
+                                       uint16_t & txIdx);
+
+   /////////////////////////////////////////////////////////////////////////////
+   static BLKDATA_TYPE readBlkDataKeyNoPrefix( 
+                                       BinaryRefReader & brr,
+                                       uint32_t & height,
+                                       uint8_t  & dupID,
+                                       uint16_t & txIdx,
+                                       uint16_t & txOutIdx);
+   
 
    KVLIST getAllDatabaseEntries(DB_SELECT db);
    void   printAllDatabaseEntries(DB_SELECT db);

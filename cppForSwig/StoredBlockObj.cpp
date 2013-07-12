@@ -34,7 +34,7 @@ void StoredHeader::setHeightAndDup(BinaryData hgtx)
 /////////////////////////////////////////////////////////////////////////////
 bool StoredHeader::haveFullBlock(void) const
 {
-   if(!isInitialized_ || dataCopy_.getSize() != HEADER_SIZE)
+   if(dataCopy_.getSize() != HEADER_SIZE)
       return false;
 
    for(uint16_t tx=0; tx<numTx_; tx++)
@@ -125,8 +125,7 @@ void StoredHeader::unserialize(BinaryDataRef header80B)
       return;
    }
    dataCopy_.copyFrom(header80B);
-   thisHash_ = BtcUtils::getHash256(header80B);
-   isInitialized_ = true;
+   BtcUtils::getHash256(header80B, thisHash_);
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -179,7 +178,6 @@ void StoredHeader::unserializeFullBlock(BinaryRefReader brr,
       stx.isFragged_     = doFrag;
       stx.version_       = thisTx.getVersion();
       stx.txIndex_       = tx;
-      stx.isInitialized_ = true;
 
 
       // Regardless of whether the tx is fragged, we still need the STXO map
@@ -198,7 +196,6 @@ void StoredHeader::unserializeFullBlock(BinaryRefReader brr,
          stxo.txIndex_        = tx;
          stxo.txOutIndex_     = txo;
          stxo.isCoinbase_     = thisTx.getTxIn(0).isCoinbase();
-         stxo.isInitialized_  = true;
       }
 
       // Sitting at the nLockTime, 4 bytes before the end
@@ -297,7 +294,7 @@ void StoredTx::addStoredTxOutToMap(uint16_t idx, StoredTxOut & stxo)
 /////////////////////////////////////////////////////////////////////////////
 BlockHeader StoredHeader::getBlockHeaderCopy(void) const
 {
-   if(!isInitialized_)
+   if(!isInitialized())
       return BlockHeader(); 
 
    BlockHeader bh(dataCopy_);
@@ -311,7 +308,7 @@ BlockHeader StoredHeader::getBlockHeaderCopy(void) const
 /////////////////////////////////////////////////////////////////////////////
 BinaryData StoredHeader::getSerializedBlockHeader(void) const
 {
-   if(!isInitialized_)
+   if(!isInitialized())
       return BinaryData(0);
 
    return dataCopy_;
@@ -367,6 +364,7 @@ void StoredHeader::unserializeDBValue( DB_SELECT         db,
    
       // Unserialize the raw header into the SBH object
       brr.get_BinaryData(dataCopy_, HEADER_SIZE);
+      BtcUtils::getHash256(dataCopy_, thisHash_);
       numTx_    = brr.get_uint32_t();
       numBytes_ = brr.get_uint32_t();
 
@@ -393,7 +391,7 @@ void StoredHeader::unserializeDBValue( DB_SELECT         db,
 void StoredHeader::serializeDBValue( DB_SELECT       db,
                                      BinaryWriter &  bw) const
 {
-   if(!isInitialized_)
+   if(!isInitialized())
    {
       LOGERR << "Attempted to serialize uninitialized block header";
       return;
@@ -507,7 +505,6 @@ void StoredTx::unserialize(BinaryRefReader & brr, bool fragged)
    numTxOut_  = offsetsOut.size()-1;
    version_   = READ_UINT32_LE(dataCopy_.getPtr());
    lockTime_  = READ_UINT32_LE(dataCopy_.getPtr() + nbytes - 4);
-   isInitialized_ = true;
 
    if(isFragged_)
    {
@@ -519,7 +516,7 @@ void StoredTx::unserialize(BinaryRefReader & brr, bool fragged)
       numBytes_ = nbytes;
       uint32_t span = offsetsOut[numTxOut_] - offsetsOut[0];
       fragBytes_ = numBytes_ - span;
-      thisHash_ = BtcUtils::getHash256(dataCopy_);
+      BtcUtils::getHash256(dataCopy_, thisHash_);
    }
 }
 
@@ -625,7 +622,7 @@ void StoredTx::serializeDBValue(BinaryWriter & bw) const
 ////////////////////////////////////////////////////////////////////////////////
 bool StoredTx::haveAllTxOut(void) const
 {
-   if(!isInitialized_ || dataCopy_.getSize()==0)
+   if(!isInitialized())
       return false; 
 
    if(!isFragged_)
@@ -639,22 +636,20 @@ bool StoredTx::haveAllTxOut(void) const
 ////////////////////////////////////////////////////////////////////////////////
 BinaryData StoredTx::getSerializedTx(void) const
 {
-   if(!isInitialized_)
+   if(!isInitialized())
       return BinaryData(0); 
 
    if(!isFragged_)
       return dataCopy_;
    else if(!haveAllTxOut())
       return BinaryData(0); 
-    
-   if(numBytes_ == UINT32_MAX)
-   {
-      LOGERR << "Do not know size of tx in order to serialize it";
-      return BinaryData(0);
-   }
 
    BinaryWriter bw;
    bw.reserve(numBytes_);
+    
+   if(numBytes_ != UINT32_MAX)
+      bw.reserve(numBytes_);
+
    bw.put_BinaryData(dataCopy_.getPtr(), dataCopy_.getSize()-4);
 
    map<uint16_t, StoredTxOut>::const_iterator iter;
@@ -676,7 +671,7 @@ BinaryData StoredTx::getSerializedTx(void) const
 ////////////////////////////////////////////////////////////////////////////////
 BinaryData StoredTx::getSerializedTxFragged(void) const
 {
-   if(!isInitialized_)
+   if(!isInitialized())
       return BinaryData(0); 
 
    if(isFragged_)
@@ -735,7 +730,6 @@ void StoredTxOut::unserialize(BinaryRefReader & brr)
    }
 
    brr.get_BinaryData(dataCopy_, numBytes);
-   isInitialized_ = true;
 }
 
 
@@ -887,7 +881,7 @@ StoredTx & StoredTx::createFromTx(Tx & tx, bool doFrag, bool withTxOuts)
    if(!tx.isInitialized())
    {
       LOGERR << "Creating storedtx from uninitialized tx. Aborting.";
-      isInitialized_ = false;
+      dataCopy_.resize(0);
       return *this;
    }
 
@@ -902,10 +896,7 @@ StoredTx & StoredTx::createFromTx(Tx & tx, bool doFrag, bool withTxOuts)
    fragBytes_ = numBytes_ - span;
 
    if(!doFrag)
-   {
       dataCopy_ = tx.serialize(); 
-      isInitialized_ = true;
-   }
    else
    {
       BinaryRefReader brr(tx.getPtr(), tx.getSize());
@@ -916,7 +907,6 @@ StoredTx & StoredTx::createFromTx(Tx & tx, bool doFrag, bool withTxOuts)
       brr.get_BinaryData(dataCopy_.getPtr(), firstOut);
       brr.advance(span);
       brr.get_BinaryData(dataCopy_.getPtr()+firstOut, 4);
-      isInitialized_ = true;
    }
 
    if(withTxOuts)
@@ -931,7 +921,6 @@ StoredTx & StoredTx::createFromTx(Tx & tx, bool doFrag, bool withTxOuts)
          stxo.txIndex_        = tx.getBlockTxIndex();
          stxo.txOutIndex_     = txo;
          stxo.isCoinbase_     = tx.getTxIn(0).isCoinbase();
-         stxo.isInitialized_  = true;
       }
    }
 
@@ -1459,6 +1448,8 @@ bool DBUtils::checkPrefixByte( BinaryRefReader brr,
 
    if(rewindWhenDone)
       brr.rewind(1);
+
+   return out;
 }
 
 /////////////////////////////////////////////////////////////////////////////

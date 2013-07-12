@@ -1188,8 +1188,10 @@ public:
    /////////////////////////////////////////////////////////////////////////////
    void rewind(uint32_t nBytes) 
    { 
+      uint32_t start = pos_;
       pos_ -= nBytes;  
-      pos_ = max(pos_, (uint32_t)0);
+      if(pos_ > start)
+         pos_ = (uint32_t)0;
    }
 
 

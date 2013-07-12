@@ -189,8 +189,7 @@ private:
 class StoredHeader
 {
 public:
-   StoredHeader(void) : isInitialized_(false), 
-                        dataCopy_(0), 
+   StoredHeader(void) : dataCopy_(0), 
                         thisHash_(0), 
                         numTx_(UINT32_MAX), 
                         numBytes_(UINT32_MAX), 
@@ -200,7 +199,7 @@ public:
                         isMainBranch_(false) {}
                            
 
-   bool isInitialized(void) const {return isInitialized_;}
+   bool isInitialized(void) const {return dataCopy_.getSize() > 0;}
    bool haveFullBlock(void) const;
    BlockHeader getBlockHeaderCopy(void) const;
    BinaryData getSerializedBlock(void) const;
@@ -243,7 +242,6 @@ public:
    bool isMerkleCreated(void) { return (merkle_.getSize() != 0);}
 
    
-   bool           isInitialized_;
    BinaryData     dataCopy_;
    BinaryData     thisHash_;
    uint32_t       numTx_;
@@ -273,8 +271,7 @@ public:
 class StoredTx
 {
 public:
-   StoredTx(void) : isInitialized_(false), 
-                    thisHash_(0), 
+   StoredTx(void) : thisHash_(0), 
                     dataCopy_(0), 
                     blockHeight_(UINT32_MAX),
                     duplicateID_(UINT8_MAX),
@@ -283,7 +280,7 @@ public:
                     numBytes_(UINT32_MAX),
                     fragBytes_(UINT32_MAX) {}
    
-   bool       isInitialized(void) const {return isInitialized_;}
+   bool       isInitialized(void) const {return dataCopy_.getSize() > 0;}
    bool       haveAllTxOut(void) const;
 
    StoredTx&  createFromTx(Tx & tx, bool 
@@ -317,7 +314,6 @@ public:
 
    BinaryData           thisHash_;
    BinaryData           lockTime_;
-   bool                 isInitialized_;
 
    BinaryData           dataCopy_;
    bool                 isFragged_;
@@ -343,8 +339,7 @@ public:
 class StoredTxOut
 {
 public:
-   StoredTxOut(void) : isInitialized_(false),   
-                       txVersion_(UINT32_MAX), 
+   StoredTxOut(void) : txVersion_(UINT32_MAX), 
                        dataCopy_(0), 
                        blockHeight_(UINT32_MAX), 
                        duplicateID_(UINT8_MAX), 
@@ -355,7 +350,7 @@ public:
                        isCoinbase_(false), 
                        spentByTxInKey_(0) {}
 
-   bool isInitialized(void) const {return isInitialized_;}
+   bool isInitialized(void) const {return dataCopy_.getSize() > 0;}
    void unserialize(BinaryData const & data);
    void unserialize(BinaryDataRef data);
    void unserialize(BinaryRefReader & brr);
@@ -381,7 +376,6 @@ public:
    }
          
 
-   bool              isInitialized_;
    uint32_t          txVersion_;
    BinaryData        dataCopy_;
    uint32_t          blockHeight_;
