@@ -7,17 +7,14 @@
 #include <iostream>
 #include <stdio.h>
 
-
-#define LOGERR    (Log::ERR()    << "(" << __FILE__ << ":" << __LINE__ << ") ")
-#define LOGWARN   (Log::WARN()   << "(" << __FILE__ << ":" << __LINE__ << ") ")
-#define LOGINFO   (Log::INFO()   << "(" << __FILE__ << ":" << __LINE__ << ") ")
-#define LOGDEBUG  (Log::DEBUG()  << "(" << __FILE__ << ":" << __LINE__ << ") ")
-#define LOGDEBUG1 (Log::DEBUG1() << "(" << __FILE__ << ":" << __LINE__ << ") ")
-#define LOGDEBUG2 (Log::DEBUG2() << "(" << __FILE__ << ":" << __LINE__ << ") ")
-#define LOGDEBUG3 (Log::DEBUG3() << "(" << __FILE__ << ":" << __LINE__ << ") ")
-#define LOGDEBUG4 (Log::DEBUG4() << "(" << __FILE__ << ":" << __LINE__ << ") ")
-
-
+#define LOGERR    (LogNewLine(LogError).getLogStream()   << "(" << __FILE__ << ":" << __LINE__ << ") ")
+#define LOGWARN   (LogNewLine(LogWarn).getLogStream()    << "(" << __FILE__ << ":" << __LINE__ << ") ")
+#define LOGINFO   (LogNewLine(LogInfo).getLogStream()    << "(" << __FILE__ << ":" << __LINE__ << ") ")
+#define LOGDEBUG  (LogNewLine(LogDebug).getLogStream()   << "(" << __FILE__ << ":" << __LINE__ << ") ")
+#define LOGDEBUG1 (LogNewLine(LogDebug1).getLogStream()  << "(" << __FILE__ << ":" << __LINE__ << ") ")
+#define LOGDEBUG2 (LogNewLine(LogDebug2).getLogStream()  << "(" << __FILE__ << ":" << __LINE__ << ") ")
+#define LOGDEBUG3 (LogNewLine(LogDebug3).getLogStream()  << "(" << __FILE__ << ":" << __LINE__ << ") ")
+#define LOGDEBUG4 (LogNewLine(LogDebug4).getLogStream()  << "(" << __FILE__ << ":" << __LINE__ << ") ")
 
 using namespace std;
 
@@ -132,24 +129,24 @@ public:
 
    ~Log(void)
    {
-      ds_.flushStreams();
-      ds_ << "Closing logfile.\n";
-      ds_ << "...";
-      ds_.close();
+      CloseLogFile();
    }
 
    LogStream& Get(LogLevel level = LogInfo)
    {
       if((int)level > logLevel_ || !isInitialized_)
          return ns_;
-      
-      ds_.newline();
-      ds_ << "- " << NowTime();
-      ds_ << " " << ToString(level) << ": ";
-      return ds_;
+      else 
+         return ds_;
    }
 
    static void SetLogFile(string logfile) { GetInstance(logfile.c_str()); }
+   static void CloseLogFile(void)
+   { 
+      GetInstance().ds_.flushStreams();
+      GetInstance().ds_ << "Closing logfile.\n";
+      GetInstance().ds_.close();
+   }
 
    static void SetLogLevel(LogLevel level) { GetInstance().logLevel_ = (int)level; }
    static void SuppressStdout(bool b=true) { GetInstance().ds_.enableStdOut(!b);}
@@ -159,16 +156,6 @@ public:
 	   static const char* const buffer[] = {"DISABLED", "ERROR ", "WARN  ", "INFO  ", "DEBUG ", "DEBUG1", "DEBUG2", "DEBUG3", "DEBUG4"};
       return buffer[level];
    }
-
-    // Had to use "ERR" instead of "ERROR" because Windows didn't like ERROR
-    static LogStream & ERR(void)    { return GetInstance().Get(LogError);  }
-    static LogStream & WARN(void)   { return GetInstance().Get(LogWarn);   }
-    static LogStream & INFO(void)   { return GetInstance().Get(LogInfo);   }
-    static LogStream & DEBUG(void)  { return GetInstance().Get(LogDebug);  }
-    static LogStream & DEBUG1(void) { return GetInstance().Get(LogDebug1); }
-    static LogStream & DEBUG2(void) { return GetInstance().Get(LogDebug2); }
-    static LogStream & DEBUG3(void) { return GetInstance().Get(LogDebug3); }
-    static LogStream & DEBUG4(void) { return GetInstance().Get(LogDebug4); }
 
     static bool isOpen(void) {GetInstance().ds_.fout_.is_open();}
     static string filename(void) {return GetInstance().ds_.fname_;}
@@ -187,6 +174,28 @@ private:
 };
 
 
+
+// I missed the opportunity with the above class, to design it as a constantly
+// constructing/destructing object that adds a newline on every destruct.  So 
+// instead I create this little wrapper that does it for me.
+class LogNewLine
+{
+public:
+   LogNewLine(LogLevel lvl) : logLevel_(lvl) {}
+
+   LogStream & getLogStream(void) 
+   { 
+      LogStream & lg = Log::GetInstance().Get(logLevel_);
+      lg << "-" << Log::ToString(logLevel_);
+      lg << "- " << NowTime() << ": ";
+      return lg;
+   }
+
+   ~LogNewLine(void) { Log::GetInstance().Get(logLevel_) << "\n"; }
+
+private:
+   LogLevel logLevel_;
+};
 
 
 

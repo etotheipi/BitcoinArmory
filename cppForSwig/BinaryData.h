@@ -445,7 +445,7 @@ public:
       uint8_t const SZ = sizeof(INTTYPE);
       if(binstr.getSize() != SZ)
       {
-         Log::ERR() << "StrToInt: strsz: " << binstr.getSize() << " intsz: " << SZ;
+         LOGERR << "StrToInt: strsz: " << binstr.getSize() << " intsz: " << SZ;
          return (INTTYPE)0;
       }
       
@@ -463,7 +463,7 @@ public:
       uint8_t const SZ = sizeof(INTTYPE);
       if(binstr.getSize() != SZ)
       {
-         Log::ERR() << "StrToInt: strsz: " << binstr.getSize() << " intsz: " << SZ;
+         LOGERR << "StrToInt: strsz: " << binstr.getSize() << " intsz: " << SZ;
          return (INTTYPE)0;
       }
       
@@ -1302,7 +1302,7 @@ public:
    {
       uint8_t const SZ = sizeof(DTYPE);
       if(bitsUsed_ + bitWidth > SZ*8)
-         Log::ERR() << "Tried to put bits beyond end of bit field";
+         LOGERR << "Tried to put bits beyond end of bit field";
 
       if(bitsUsed_==0 && bitWidth==SZ*8)
       {

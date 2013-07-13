@@ -152,6 +152,9 @@ public:
    bool checkPrefixByte(BinaryRefReader brr, 
                         DB_PREFIX prefix,
                         bool rewindWhenDone=false);
+   bool checkPrefixByteWError( BinaryRefReader brr, 
+                               DB_PREFIX prefix,
+                               bool rewindWhenDone);
 
    void setArmoryDbType(ARMORY_DB_TYPE adt) { armoryDbType_ = adt; }
    void setDbPruneType( DB_PRUNE_TYPE dpt)  { dbPruneType_  = dpt; }
@@ -457,7 +460,7 @@ public:
 class StoredTxHints
 {
 public:
-   StoredTxHints(void) : dbKeyList_(0), preferredDBKey_(0) {}
+   StoredTxHints(void) : txHashPrefix_(0), dbKeyList_(0), preferredDBKey_(0) {}
 
    bool isInitialized(void) { return txHashPrefix_.getSize() > 0; }
 
@@ -492,6 +495,21 @@ public:
    void       unserializeDBValue(BinaryData const & bd);
    void       unserializeDBValue(BinaryDataRef      bd);
    BinaryData   serializeDBValue(void) const;
+
+   void addDupAndHash(uint8_t dup, BinaryDataRef hash)
+   {
+      for(uint32_t i=0; i<dupAndHashList_.size(); i++)
+      {
+         if(dupAndHashList_[i].first == dup)
+         {
+            if(dupAndHashList_[i].second != hash)
+               LOGERR << "Pushing different hash into existing HHL dupID"; 
+            dupAndHashList_[i] = pair<uint8_t, BinaryData>(dup,hash);
+            return;
+         }
+      }
+      dupAndHashList_.push_back(pair<uint8_t, BinaryData>(dup,hash));
+   }
 
    BinaryData getDBKey(bool withPrefix=true) const;
 

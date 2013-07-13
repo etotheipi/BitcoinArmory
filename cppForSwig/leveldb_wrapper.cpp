@@ -786,36 +786,6 @@ void InterfaceToLDB::getStoredScriptHistoryByRawScript(
 }
 
 
-////////////////////////////////////////////////////////////////////////////////
-bool InterfaceToLDB::putStoredHeadHgtList(StoredHeadHgtList const & hhl)
-{
-   SCOPED_TIMER("putStoredHeadHgtList");
-
-   if(hhl.height_ == UINT32_MAX)
-   {
-      LOGERR << "HHL does not have a valid height to be put into DB";
-      return false;
-   }
-
-   putValue(HEADERS, hhl.getDBKey(), hhl.serializeDBValue());
-   return true;
-}
-
-////////////////////////////////////////////////////////////////////////////////
-bool InterfaceToLDB::getStoredHeadHgtList(StoredHeadHgtList & hhl, uint32_t height)
-{
-   BinaryData ldbKey = WRITE_UINT32_BE(height);
-   BinaryDataRef bdr = getValueRef(HEADERS, DB_PREFIX_HEADHGT, ldbKey);
-   hhl.height_ = height;
-   if(bdr.getSize() == 0)
-   {
-      hhl.preferredDup_ = UINT8_MAX;
-      hhl.dupAndHashList_.resize(0);
-   }
-   else
-      hhl.unserializeDBValue(bdr);
-
-}
 
 /////////////////////////////////////////////////////////////////////////////
 uint32_t InterfaceToLDB::readAllStoredScriptHistory(
@@ -1135,14 +1105,21 @@ uint8_t InterfaceToLDB::getValidDupIDForHeight(uint32_t blockHgt)
       LOGERR << "Block height exceeds DupID lookup table";
       return UINT8_MAX;
    }
-
    return validDupByHeight_[blockHgt];
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void InterfaceToLDB::setValidDupIDForHeight(uint32_t blockHgt, uint8_t dup)
+{
+   while(validDupByHeight_.size() < blockHgt+1)
+      validDupByHeight_.push_back(UINT8_MAX);
+   validDupByHeight_[blockHgt] = dup;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 uint8_t InterfaceToLDB::getValidDupIDForHeight_fromDB(uint32_t blockHgt)
 {
-   SCOPED_TIMER("getValidDupIDForHeight");
+   SCOPED_TIMER("getValidDupIDForHeight_fromDB");
 
    BinaryData hgt4((uint8_t*)&blockHgt, 4);
    BinaryRefReader brrHgts = getValueReader(HEADERS, DB_PREFIX_HEADHGT, hgt4);
@@ -1171,50 +1148,47 @@ uint8_t InterfaceToLDB::getValidDupIDForHeight_fromDB(uint32_t blockHgt)
 
 ////////////////////////////////////////////////////////////////////////////////
 // We assume that the SBH has the correct blockheight already included.  Will 
-// adjust the dupID value  in the input SBH
+// adjust the dupID value in the SBH after we determine it.
 // Will overwrite existing data, for simplicity, and so that this method allows
 // us to easily replace/update data, even if overwriting isn't always necessary
+//
+// NOTE:  If you want this header to be marked valid/invalid, make sure the 
+//        isMainBranch_ property of the SBH is set appropriate before calling.
 void InterfaceToLDB::putStoredHeader( StoredHeader & sbh, bool withBlkData)
 {
    SCOPED_TIMER("putStoredHeader");
    uint32_t height  = sbh.blockHeight_;
-   bool     isValid = sbh.isMainBranch_;
 
    // First, check if it's already in the hash-indexed DB
    StoredHeadHgtList hhl;
    getStoredHeadHgtList(hhl, height);
-   BinaryData existingHead = getValue(HEADERS, DB_PREFIX_HEADHASH, sbh.thisHash_);
-   if(existingHead.getSize() > 0)
-   {
-      // Felt like there was something else to do here besides Log::WARN...
-      LOGWARN << "Header already exists in DB.  Overwriting";
-   }
 
    // Check if it's already in the height-indexed DB - determine dupID if not
    bool alreadyInHgtDB = false;
    if(hhl.dupAndHashList_.size() == 0)
    {
       sbh.setKeyData(height, 0);
-      hhl.dupAndHashList_.push_back(pair<uint8_t,BinaryData>(0, sbh.thisHash_));
+      hhl.addDupAndHash(0, sbh.thisHash_);
    }
    else
    {
       int8_t maxDup = -1;
       for(uint8_t i=0; i<hhl.dupAndHashList_.size(); i++)
       {
-         maxDup = max(maxDup, (int8_t)hhl.dupAndHashList_[i].first);
+         uint8_t dup = hhl.dupAndHashList_[i].first;
+         maxDup = max(maxDup, (int8_t)dup);
          if(sbh.thisHash_ == hhl.dupAndHashList_[i].second)
          {
             alreadyInHgtDB = true;
-            sbh.setKeyData(height, i);
+            sbh.setKeyData(height, dup);
+            break;
          }
       }
 
       if(!alreadyInHgtDB)
       {
          sbh.setKeyData(height, maxDup+1);
-         hhl.dupAndHashList_.push_back(pair<uint8_t,BinaryData>(maxDup+1, 
-                                                                sbh.thisHash_));
+         hhl.addDupAndHash(maxDup+1, sbh.thisHash_);
       }
    }
    
@@ -1227,14 +1201,17 @@ void InterfaceToLDB::putStoredHeader( StoredHeader & sbh, bool withBlkData)
    // Overwrite the existing hash-indexed entry, just in case the dupID was
    // not known when previously written.  
    putValue(HEADERS, DB_PREFIX_HEADHASH, sbh.thisHash_, sbh.serializeDBValue(HEADERS));
-
    commitBatch(HEADERS);
 
+   // Update our quick lookup table
+   if(sbh.isMainBranch_)
+      setValidDupIDForHeight(sbh.blockHeight_, sbh.duplicateID_);
+
+   ///////
+   // If we only wanted to update the headers DB, we're done.
    if(!withBlkData)
       return;
 
-   ///////
-   // Now put the data into the blkdata DB
    startBatch(BLKDATA);
 
    BinaryData key = ARMDB.getBlkDataKey(sbh.blockHeight_, sbh.duplicateID_);
@@ -1350,36 +1327,37 @@ void InterfaceToLDB::putStoredTx( StoredTx & stx, bool withTxOut)
                                                    stx.duplicateID_, 
                                                    stx.txIndex_);
 
-   startBatch(BLKDATA);
 
    // First, check if it's already in the hash-indexed DB
-   BinaryData hash4(stx.thisHash_.getSliceRef(0,4));
-   BinaryData existingHints = getValue(BLKDATA, DB_PREFIX_TXHINTS, hash4);
+   StoredTxHints sths;
+   getStoredTxHints(sths, stx.thisHash_);
 
-   // Check for an existing Tx hint and add it if not there.  
-   if(existingHints.getSize() > 0)
+   // Check whether the hint already exists in the DB
+   bool needToAddTxToHints = true;
+   bool needToUpdateHints = false;
+   for(uint32_t i=0; i<sths.dbKeyList_.size(); i++)
    {
-      uint32_t numHints = existingHints.getSize() / 6;
-      bool alreadyHasHint = false;
-      for(uint32_t i=0; i<numHints; i++)
+      if(sths.dbKeyList_[i] == ldbKey)
       {
-         if(existingHints.getSliceRef(i*6, 6) == ldbKey)
-         {
-            alreadyHasHint = true;
-            break;
-         }
+         needToAddTxToHints = false;
+         needToUpdateHints = (sths.preferredDBKey_==ldbKey);
+         sths.preferredDBKey_ = ldbKey;
+         break;
       }
-      
-      if(!alreadyHasHint)
-      {
-         BinaryWriter bw;
-         bw.put_BinaryData(ldbKey);
-         bw.put_BinaryData(existingHints);
-         putValue(BLKDATA, DB_PREFIX_TXHINTS, hash4, bw.getDataRef());
-      }
-         
    }
 
+   // Add it to the hint list if needed
+   if(needToAddTxToHints)
+   {
+      sths.dbKeyList_.push_back(ldbKey);
+      sths.preferredDBKey_ = ldbKey;
+   }
+
+   // Batch update the DB
+   startBatch(BLKDATA);
+
+   if(needToAddTxToHints || needToUpdateHints)
+      putStoredTxHints(sths);
 
    // Now add the base Tx entry in the BLKDATA DB.
    BinaryWriter bw;
@@ -1492,6 +1470,10 @@ bool InterfaceToLDB::readStoredTxAtIter( uint32_t height,
    stx.blockHeight_ = storedHgt;
    stx.duplicateID_ = storedDup;
    stx.txIndex_     = storedIdx;
+
+   // Use a temp variable instead of stx.numBytes_ directly, because the 
+   // stx.unserializeDBValue() call will reset numBytes to UINT32_MAX.
+   // Assign it at the end, if we're confident we have the correct value.
    uint32_t nbytes  = 0;
 
    BinaryData txPrefix = ARMDB.getBlkDataKey(height, dupID, stx.txIndex_);
@@ -1950,6 +1932,115 @@ bool InterfaceToLDB::getStoredTxOut(
 
 
 
+
+
+////////////////////////////////////////////////////////////////////////////////
+/*
+bool InterfaceToLDB::putStoredUndoData(StoredUndoData const & sud)
+{
+
+}
+
+////////////////////////////////////////////////////////////////////////////////
+bool InterfaceToLDB::getStoredUndoData(StoredUndoData & sud, uint32_t height)
+{
+
+}
+
+////////////////////////////////////////////////////////////////////////////////
+bool InterfaceToLDB::getStoredUndoData(StoredUndoData & sud, 
+                                       uint32_t         height, 
+                                       uint8_t          dup)
+{
+
+}
+
+////////////////////////////////////////////////////////////////////////////////
+bool InterfaceToLDB::getStoredUndoData(StoredUndoData & sud, 
+                                       BinaryDataRef    headHash)
+{
+
+}
+*/
+
+
+////////////////////////////////////////////////////////////////////////////////
+bool InterfaceToLDB::putStoredTxHints(StoredTxHints const & sths)
+{
+   SCOPED_TIMER("putStoredTxHints");
+   if(sths.txHashPrefix_.getSize()==0)
+   {
+      LOGERR << "STHS does have a set prefix, so cannot be put into DB";
+      return false;
+   }
+   putValue(BLKDATA, sths.getDBKey(), sths.serializeDBValue());
+}
+
+////////////////////////////////////////////////////////////////////////////////
+bool InterfaceToLDB::getStoredTxHints(StoredTxHints & sths, 
+                                      BinaryDataRef hashPrefix)
+{
+   if(hashPrefix.getSize() < 4)
+   {
+      LOGERR << "Cannot get hints without at least 4-byte prefix";
+      return false;
+   }
+   BinaryDataRef prefix4 = hashPrefix.getSliceRef(0,4);
+   sths.txHashPrefix_ = prefix4.copy();
+
+   BinaryDataRef bdr = getValueRef(BLKDATA, DB_PREFIX_TXHINTS, prefix4);
+   if(bdr.getSize() > 0)
+   {
+      sths.unserializeDBValue(bdr);
+      return true;
+   }
+   else
+   {
+      sths.dbKeyList_.resize(0);
+      sths.preferredDBKey_.resize(0);
+      return false;
+   }
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+bool InterfaceToLDB::putStoredHeadHgtList(StoredHeadHgtList const & hhl)
+{
+   SCOPED_TIMER("putStoredHeadHgtList");
+
+   if(hhl.height_ == UINT32_MAX)
+   {
+      LOGERR << "HHL does not have a valid height to be put into DB";
+      return false;
+   }
+
+   putValue(HEADERS, hhl.getDBKey(), hhl.serializeDBValue());
+   return true;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+bool InterfaceToLDB::getStoredHeadHgtList(StoredHeadHgtList & hhl, uint32_t height)
+{
+   BinaryData ldbKey = WRITE_UINT32_BE(height);
+   BinaryDataRef bdr = getValueRef(HEADERS, DB_PREFIX_HEADHGT, ldbKey);
+   hhl.height_ = height;
+   if(bdr.getSize() > 0)
+   {
+      hhl.unserializeDBValue(bdr);
+      return true;
+   }
+   else
+   {
+      hhl.preferredDup_ = UINT8_MAX;
+      hhl.dupAndHashList_.resize(0);
+      return false;
+   }
+   
+}
+
+
+
+
 ////////////////////////////////////////////////////////////////////////////////
 TxRef InterfaceToLDB::getTxRef( BinaryDataRef txHash )
 {
@@ -2051,7 +2142,7 @@ bool InterfaceToLDB::markBlockHeaderValid(uint32_t height, uint8_t dup)
    putValue(HEADERS, DB_PREFIX_HEADHGT, keyHgt, bwOut.getDataRef());
 
    // Make sure we have a quick-lookup available.
-   validDupByHeight_[height] = dup;
+   setValidDupIDForHeight(height, dup);
 
    if(!hasEntry)
       LOGERR << "Header was not found header-height list";

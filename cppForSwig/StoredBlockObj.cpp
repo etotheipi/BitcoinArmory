@@ -1253,7 +1253,7 @@ BinaryData StoredUndoData::getDBKey(bool withPrefix) const
 ////////////////////////////////////////////////////////////////////////////////
 void StoredTxHints::unserializeDBValue(BinaryRefReader & brr)
 {
-   uint32_t numHints = brr.get_var_int();
+   uint32_t numHints = (brr.getSizeRemaining()==0 ? 0 : brr.get_var_int());
    dbKeyList_.resize(numHints);
    for(uint32_t i=0; i<numHints; i++)
       brr.get_BinaryData(dbKeyList_[i], 6);
@@ -1430,9 +1430,9 @@ string DBUtils::getPrefixName(DB_PREFIX pref)
 }
 
 /////////////////////////////////////////////////////////////////////////////
-bool DBUtils::checkPrefixByte( BinaryRefReader brr, 
-                               DB_PREFIX prefix,
-                               bool rewindWhenDone)
+bool DBUtils::checkPrefixByteWError( BinaryRefReader brr, 
+                                     DB_PREFIX prefix,
+                                     bool rewindWhenDone)
 {
    uint8_t oneByte = brr.get_uint8_t();
    bool out;
@@ -1445,6 +1445,20 @@ bool DBUtils::checkPrefixByte( BinaryRefReader brr,
                  << "Received: " << getPrefixName(oneByte);
       out = false;
    }
+
+   if(rewindWhenDone)
+      brr.rewind(1);
+
+   return out;
+}
+
+/////////////////////////////////////////////////////////////////////////////
+bool DBUtils::checkPrefixByte( BinaryRefReader brr, 
+                               DB_PREFIX prefix,
+                               bool rewindWhenDone)
+{
+   uint8_t oneByte = brr.get_uint8_t();
+   bool out = (oneByte == (uint8_t)prefix);
 
    if(rewindWhenDone)
       brr.rewind(1);

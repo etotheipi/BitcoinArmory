@@ -4237,6 +4237,13 @@ protected:
    }
 
    /////
+   void replaceTopOutPairB(BinaryData key, BinaryData val)
+   { 
+      uint32_t last = expectOutB_.size() -1;
+      expectOutB_[last] = pair<BinaryData,BinaryData>(key,val);
+   }
+
+   /////
    void printOutPairs(void)
    {
       cout << "Num Houts: " << expectOutH_.size() << endl;
@@ -4874,13 +4881,7 @@ TEST_F(LevelDBTest, PutFullBlockNoTx)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// This is the mother of all tests.  Because it's a very exhaustive test, and
-// as long as the DB is built (and passing the test), I might as well test the
-// get methods as well.  While it would be better to save off a copy of the 
-// DB and test the get* methods separately, I don't want to bloat the repo
-// with all that test data.  And I don't want to copy and paste this test 
-// into the next one just to isolate the test.
-TEST_F(LevelDBTest, PutGetFullBlock)
+TEST_F(LevelDBTest, PutFullBlock)
 {
    ARMDB.setArmoryDbType(ARMORY_DB_FULL);
    ARMDB.setDbPruneType(DB_PRUNE_NONE);
@@ -4892,9 +4893,9 @@ TEST_F(LevelDBTest, PutGetFullBlock)
    sbh.setKeyData(123000);
 
    BinaryData rawHeader = READHEX(
-         "01000000eb10c9a996a2340a4d74eaab41421ed8664aa49d18538bab59010000"
-         "000000005a2f06efa9f2bd804f17877537f2080030cadbfa1eb50e02338117cc"
-         "604d91b9b7541a4ecfbb0a1a64f1ade7");
+      "01000000eb10c9a996a2340a4d74eaab41421ed8664aa49d18538bab59010000"
+      "000000005a2f06efa9f2bd804f17877537f2080030cadbfa1eb50e02338117cc"
+      "604d91b9b7541a4ecfbb0a1a64f1ade7");
 
    // Compute and write the headers to the expected-output
    StoredHeadHgtList hhl;
@@ -4981,8 +4982,32 @@ TEST_F(LevelDBTest, PutGetFullBlock)
    iface_->putStoredHeader(sbh);
 
    ASSERT_TRUE(compareKVListRange(0,3, 0,9));
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// Of course, this test only works if the previous test passes (but doesn't 
+// require a saved state, it just re-puts the full block into the DB).  I
+// did it this way, because I wasn't comfortable committing the pre-filled
+// DB to the repo.
+TEST_F(LevelDBTest, GetFullBlock)
+{
+   ARMDB.setArmoryDbType(ARMORY_DB_FULL);
+   ARMDB.setDbPruneType(DB_PRUNE_NONE);
+   ASSERT_TRUE(standardOpenDBs());
+
+   StoredHeader sbh;
+   BinaryRefReader brr(rawBlock_);
+   sbh.unserializeFullBlock(brr);
+   sbh.setKeyData(123000);
+   sbh.isMainBranch_ = true;
 
 
+   iface_->putStoredHeader(sbh);
+
+   BinaryData rawHeader = READHEX(
+      "01000000eb10c9a996a2340a4d74eaab41421ed8664aa49d18538bab59010000"
+      "000000005a2f06efa9f2bd804f17877537f2080030cadbfa1eb50e02338117cc"
+      "604d91b9b7541a4ecfbb0a1a64f1ade7");
    BinaryData headerHash = BtcUtils::getHash256(rawHeader);
    ////////////////////
    // Now test the get methods
@@ -5025,19 +5050,69 @@ TEST_F(LevelDBTest, PutGetFullBlock)
          EXPECT_EQ( sbhGet.stxMap_[1].numTxOut_,         2);
          EXPECT_EQ( sbhGet.stxMap_[1].numBytes_,       621);
          EXPECT_EQ( sbhGet.stxMap_[0].stxoMap_[0].isCoinbase_, true);
-         EXPECT_EQ( sbhGet.stxMap_[0].stxoMap_[0].spentness_, TXOUT_UNSPENT);
+         EXPECT_EQ( sbhGet.stxMap_[0].stxoMap_[0].spentness_, TXOUT_SPENTUNK);
          EXPECT_EQ( sbhGet.stxMap_[1].stxoMap_[0].isCoinbase_, false);
          EXPECT_EQ( sbhGet.stxMap_[1].stxoMap_[0].blockHeight_, 123000);
          EXPECT_EQ( sbhGet.stxMap_[1].stxoMap_[0].duplicateID_,      0);
          EXPECT_EQ( sbhGet.stxMap_[1].stxoMap_[0].txIndex_,          1);
          EXPECT_EQ( sbhGet.stxMap_[1].stxoMap_[0].txOutIndex_,       0);
       }
-
    }
 }
 
 
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(LevelDBTest, PutGetStoredTxHints)
+{
+   ASSERT_TRUE(standardOpenDBs());
 
+   BinaryData prefix = READHEX("aabbccdd");
+
+   StoredTxHints sths;
+   EXPECT_FALSE(iface_->getStoredTxHints(sths, prefix));
+
+   sths.txHashPrefix_ = prefix;
+   
+   EXPECT_TRUE(iface_->putStoredTxHints(sths));
+
+   BinaryData THP = WRITE_UINT8_BE((uint8_t)DB_PREFIX_TXHINTS);
+   addOutPairB(THP + prefix, READHEX("00"));
+
+   compareKVListRange(0,1, 0,2);
+   
+   /////
+   sths.dbKeyList_.push_back(READHEX("abcd1234ffff"));
+   replaceTopOutPairB(THP + prefix,  READHEX("01""abcd1234ffff"));
+   EXPECT_TRUE(iface_->putStoredTxHints(sths));
+   compareKVListRange(0,1, 0,2);
+
+   /////
+   sths.dbKeyList_.push_back(READHEX("00002222aaaa"));
+   replaceTopOutPairB(THP + prefix,  READHEX("02""abcd1234ffff""00002222aaaa"));
+   EXPECT_TRUE(iface_->putStoredTxHints(sths));
+   compareKVListRange(0,1, 0,2);
+
+   /////
+   sths.preferredDBKey_ = READHEX("00002222aaaa");
+   replaceTopOutPairB(THP + prefix,  READHEX("02""00002222aaaa""abcd1234ffff"));
+   EXPECT_TRUE(iface_->putStoredTxHints(sths));
+   compareKVListRange(0,1, 0,2);
+
+   // Now test the get methods
+   EXPECT_TRUE( iface_->getStoredTxHints(sths, prefix));
+   EXPECT_EQ(   sths.txHashPrefix_,  prefix);
+   EXPECT_EQ(   sths.dbKeyList_.size(),  2);
+   EXPECT_EQ(   sths.preferredDBKey_, READHEX("00002222aaaa"));
+
+   //
+   sths.dbKeyList_.resize(0);
+   sths.preferredDBKey_.resize(0);
+   EXPECT_TRUE( iface_->putStoredTxHints(sths));
+   EXPECT_TRUE( iface_->getStoredTxHints(sths, prefix));
+   EXPECT_EQ(   sths.txHashPrefix_,  prefix);
+   EXPECT_EQ(   sths.dbKeyList_.size(),  0);
+   EXPECT_EQ(   sths.preferredDBKey_.getSize(), 0);
+}
 
 
 
@@ -5058,13 +5133,12 @@ GTEST_API_ int main(int argc, char **argv)
 
    // Setup the log file 
    Log::SetLogFile("cppTestsLog.txt");
-   Log::SetLogLevel(LogDebug4);
+   Log::SetLogLevel(LogDebug2);
    //Log::SuppressStdout();
 
    testing::InitGoogleTest(&argc, argv);
    int exitCode = RUN_ALL_TESTS();
    
-   Log::ERR() << "\n";
    Log::FlushStreams();
    
 

@@ -912,7 +912,7 @@ public:
             bw.put_BinaryData(getMultisigUniqueKey(script));
             return bw.getData();
          default:
-            Log::ERR() << "What kind of TxOutScript did we get?";
+            LOGERR << "What kind of TxOutScript did we get?";
             return BinaryData(0);
       }
    }
@@ -1057,7 +1057,7 @@ public:
          case(TXIN_SCRIPT_NONSTANDARD): 
             return BadAddress_;
          default:
-            Log::ERR() << "What kind of TxIn script did we get?";
+            LOGERR << "What kind of TxIn script did we get?";
             return BadAddress_;
       }
    }

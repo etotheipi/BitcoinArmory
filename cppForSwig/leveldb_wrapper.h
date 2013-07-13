@@ -327,6 +327,7 @@ public:
    /////////////////////////////////////////////////////////////////////////////
    uint8_t getValidDupIDForHeight_fromDB(uint32_t blockHgt);
    uint8_t getValidDupIDForHeight(uint32_t blockHgt);
+   void    setValidDupIDForHeight(uint32_t blockHgt, uint8_t dup);
 
    ////////////////////////////////////////////////////////////////////////////
    uint8_t getDupForBlockHash(BinaryDataRef blockHash);
@@ -399,6 +400,14 @@ public:
                                 StoredScriptHistory & ssh,
                                 BinaryDataRef rawScript);
 
+
+   bool putStoredUndoData(StoredUndoData const & sud);
+   bool getStoredUndoData(StoredUndoData & sud, uint32_t height);
+   bool getStoredUndoData(StoredUndoData & sud, uint32_t height, uint8_t dup);
+   bool getStoredUndoData(StoredUndoData & sud, BinaryDataRef headHash);
+
+   bool putStoredTxHints(StoredTxHints const & sths);
+   bool getStoredTxHints(StoredTxHints & sths, BinaryDataRef hashPrefix);
 
    bool putStoredHeadHgtList(StoredHeadHgtList const & hhl);
    bool getStoredHeadHgtList(StoredHeadHgtList & hhl, uint32_t height);
