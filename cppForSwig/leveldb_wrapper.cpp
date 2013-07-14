@@ -160,79 +160,54 @@ bool InterfaceToLDB::openDatabases(string basedir,
       batches_[db] = NULL;
       batchStarts_[db] = 0;
 
-      BinaryDataRef dbInfo = getValueRef(CURRDB, getDBInfoKey());
-      if(dbInfo.getSize() == 0)
+      StoredDBInfo sdbi;
+      getStoredDBInfo(CURRDB, sdbi, false); 
+      if(!sdbi.isInitialized())
       {
          // If DB didn't exist yet (dbinfo key is empty), seed it
          // A new database has the maximum flag settings
          // Flags can only be reduced.  Increasing requires redownloading
-         BitPacker<uint32_t> bitpack;
-         uint32_t flagBytes = 0;
-         bitpack.putBits((uint32_t)ARMORY_DB_VERSION, 4);
-         bitpack.putBits((uint32_t)dbtype,            4);
-         bitpack.putBits((uint32_t)pruneType,         4);
-
-         BinaryWriter bw(48);
-         bw.put_BinaryData(magicBytes_);
-         bw.put_BitPacker(bitpack);
-         bw.put_uint32_t(0); // top blk height
-         bw.put_BinaryData(genesisBlkHash_);
+         StoredDBInfo sdbi;
+         sdbi.magic_      = magicBytes_;
+         sdbi.topBlkHgt_  = 0;
+         sdbi.topBlkHash_ = genesisBlkHash_;
 
          topBlockHeight_  = 0;
          topBlockHash_    = genesisBlkHash_;
    
-         putValue(CURRDB, getDBInfoKey(), bw.getData());
+         putStoredDBInfo(CURRDB, sdbi);
       }
       else
       {
-         // Else we read the DB info and make sure everything matches up
-         if(dbInfo.getSize() < 40)
-         {
-            LOGERR << "Invalid DatabaseInfo data";
-            closeDatabases();
-            return false;
-         }
-
-         BinaryRefReader brr(dbInfo);
-         BinaryData magic = brr.get_BinaryData(4);
-         BitUnpacker<uint32_t> bitunpack(brr);
-         topBlockHeight_  = brr.get_uint32_t();
-         topBlockHash_    = brr.get_BinaryData(32);
+         topBlockHeight_  = sdbi.topBlkHgt_;
+         topBlockHash_    = sdbi.topBlkHash_;
       
          // Check that the magic bytes are correct
-         if(magicBytes_ != magic)
+         if(magicBytes_ != sdbi.magic_)
          {
             LOGERR << " Magic bytes mismatch!  Different blkchain?";
             closeDatabases();
             return false;
          }
    
-         // Check that we have the top hash (not sure about if we don't)
-         //if( getValueRef(CURRDB, DB_PREFIX_HEADHASH, topBlockHash_).getSize() == 0 )
-         //{
-            //LOGERR << " Top block doesn't exist!";
-            //closeDatabases();
-            //return false;
-         //}
-
-         uint32_t dbVer      = bitunpack.getBits(4);
-         uint32_t dbType     = bitunpack.getBits(4);
-         uint32_t pruneType  = bitunpack.getBits(4);
-
          if(ARMDB.getArmoryDbType() == ARMORY_DB_WHATEVER)
-            ARMDB.setArmoryDbType((ARMORY_DB_TYPE)dbType);
-         else if(ARMDB.getArmoryDbType() != dbType)
+         {
+            ARMDB.setArmoryDbType(sdbi.armoryType_);
+         }
+         else if(ARMDB.getArmoryDbType() != sdbi.armoryType_)
          {
             LOGERR << "Mismatch in DB type";
             LOGERR << "DB is in  mode: " << (uint32_t)ARMDB.getArmoryDbType();
-            LOGERR << "Expecting mode: " << dbType;
+            LOGERR << "Expecting mode: " << sdbi.armoryType_;
             closeDatabases();
             return false;
          }
 
          if(ARMDB.getDbPruneType() == DB_PRUNE_WHATEVER)
-            ARMDB.setDbPruneType((DB_PRUNE_TYPE)pruneType);
-         else if(ARMDB.getDbPruneType() != pruneType)
+         {
+            ARMDB.setDbPruneType(sdbi.pruneType_);
+         }
+         else if(ARMDB.getDbPruneType() != sdbi.pruneType_)
          {
             LOGERR << "Mismatch in pruning mode";
             closeDatabases();
@@ -1145,6 +1120,31 @@ uint8_t InterfaceToLDB::getValidDupIDForHeight_fromDB(uint32_t blockHgt)
 }
 
 
+////////////////////////////////////////////////////////////////////////////////
+void InterfaceToLDB::putStoredDBInfo(DB_SELECT db, StoredDBInfo const & sdbi)
+{
+   if(!sdbi.isInitialized())
+   {
+      LOGERR << "Tried to put DB info into DB but it's not initialized";
+      return;
+   }
+   putValue(db, sdbi.getDBKey(), sdbi.serializeDBValue());
+}
+
+////////////////////////////////////////////////////////////////////////////////
+bool InterfaceToLDB::getStoredDBInfo(DB_SELECT db, StoredDBInfo & sdbi, bool warn)
+{
+   BinaryRefReader brr = getValueRef(db, StoredDBInfo::getDBKey());
+    
+   if(brr.getSize() == 0 && warn) 
+   {
+      LOGERR << "No DB info key in database to get";
+      return false;
+   }
+   sdbi.unserializeDBValue(brr);
+   return true;
+}
+
 
 ////////////////////////////////////////////////////////////////////////////////
 // We assume that the SBH has the correct blockheight already included.  Will 
@@ -1205,7 +1205,9 @@ void InterfaceToLDB::putStoredHeader( StoredHeader & sbh, bool withBlkData)
 
    // Update our quick lookup table
    if(sbh.isMainBranch_)
+   {
       setValidDupIDForHeight(sbh.blockHeight_, sbh.duplicateID_);
+   }
 
    ///////
    // If we only wanted to update the headers DB, we're done.
@@ -1974,6 +1976,7 @@ bool InterfaceToLDB::putStoredTxHints(StoredTxHints const & sths)
       return false;
    }
    putValue(BLKDATA, sths.getDBKey(), sths.serializeDBValue());
+   return true;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -2035,7 +2038,6 @@ bool InterfaceToLDB::getStoredHeadHgtList(StoredHeadHgtList & hhl, uint32_t heig
       hhl.dupAndHashList_.resize(0);
       return false;
    }
-   
 }
 
 

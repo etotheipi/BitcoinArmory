@@ -1155,32 +1155,32 @@ TEST(BitReadWriteTest, Writer16)
    bitp.putBit(true);
    //EXPECT_EQ( bitp.getValue(), 0x8000);
    EXPECT_EQ( bitp.getBitsUsed(), 1);
-   EXPECT_EQ( bitp.getBinaryData(), READHEX("0080"));
+   EXPECT_EQ( bitp.getBinaryData(), READHEX("8000"));
 
    bitp.putBit(false);
    //EXPECT_EQ( bitp.getValue(), 0x8000);
    EXPECT_EQ( bitp.getBitsUsed(), 2);
-   EXPECT_EQ( bitp.getBinaryData(), READHEX("0080"));
+   EXPECT_EQ( bitp.getBinaryData(), READHEX("8000"));
 
    bitp.putBit(true);
    //EXPECT_EQ( bitp.getValue(), 0xa000);
    EXPECT_EQ( bitp.getBitsUsed(), 3);
-   EXPECT_EQ( bitp.getBinaryData(), READHEX("00a0"));
+   EXPECT_EQ( bitp.getBinaryData(), READHEX("a000"));
 
    bitp.putBits(0, 2);
    //EXPECT_EQ( bitp.getValue(),  0xa000);
    EXPECT_EQ( bitp.getBitsUsed(), 5);
-   EXPECT_EQ( bitp.getBinaryData(), READHEX("00a0"));
+   EXPECT_EQ( bitp.getBinaryData(), READHEX("a000"));
 
    bitp.putBits(3, 3);
    //EXPECT_EQ( bitp.getValue(),  0xa300);
    EXPECT_EQ( bitp.getBitsUsed(), 8);
-   EXPECT_EQ( bitp.getBinaryData(), READHEX("00a3"));
+   EXPECT_EQ( bitp.getBinaryData(), READHEX("a300"));
 
    bitp.putBits(3, 8);
    //EXPECT_EQ( bitp.getValue(),  0xa303);
    EXPECT_EQ( bitp.getBitsUsed(), 16);
-   EXPECT_EQ( bitp.getBinaryData(), READHEX("03a3"));
+   EXPECT_EQ( bitp.getBinaryData(), READHEX("a303"));
 }
 
 
@@ -1192,7 +1192,7 @@ TEST(BitReadWriteTest, Writer32)
    bitp.putBits(0xffffff00, 32);
    //EXPECT_EQ( bitp.getValue(),  0xffffff00);
    EXPECT_EQ( bitp.getBitsUsed(), 32);
-   EXPECT_EQ( bitp.getBinaryData(), READHEX("00ffffff"));
+   EXPECT_EQ( bitp.getBinaryData(), READHEX("ffffff00"));
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1203,14 +1203,14 @@ TEST(BitReadWriteTest, Writer64)
    bitp.putBits(0xffffff00ffffffaaULL, 64);
    //EXPECT_EQ( bitp.getValue(),  0xffffff00ffffffaaULL);
    EXPECT_EQ( bitp.getBitsUsed(), 64);
-   EXPECT_EQ( bitp.getBinaryData(), READHEX("aaffffff00ffffff"));
+   EXPECT_EQ( bitp.getBinaryData(), READHEX("ffffff00ffffffaa"));
 
    BitPacker<uint64_t> bitp2;
    bitp2.putBits(0xff, 32);
    bitp2.putBits(0xff, 32);
    //EXPECT_EQ( bitp2.getValue(),  0x000000ff000000ffULL);
    EXPECT_EQ( bitp2.getBitsUsed(), 64);
-   EXPECT_EQ( bitp2.getBinaryData(), READHEX("ff000000ff000000"));
+   EXPECT_EQ( bitp2.getBinaryData(), READHEX("000000ff000000ff"));
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -2859,7 +2859,7 @@ TEST_F(StoredBlockObjTest, SHeaderDBSerFull_B1)
    sbh_.numBytes_         = 65535;
 
    // SetUp already contains sbh_.unserialize(rawHead_);
-   BinaryData flags = READHEX("00002401");
+   BinaryData flags = READHEX("01240000");
    BinaryData ntx   = READHEX("0f000000");
    BinaryData nbyte = READHEX("ffff0000");
 
@@ -2886,7 +2886,7 @@ TEST_F(StoredBlockObjTest, SHeaderDBSerFull_B2)
    sbh_.numBytes_         = 65535;
 
    // SetUp already contains sbh_.unserialize(rawHead_);
-   BinaryData flags = READHEX("00001601");
+   BinaryData flags = READHEX("01160000");
    BinaryData ntx   = READHEX("0f000000");
    BinaryData nbyte = READHEX("ffff0000");
 
@@ -2911,7 +2911,7 @@ TEST_F(StoredBlockObjTest, SHeaderDBSerFull_B3)
    sbh_.numBytes_         = 65535;
 
    // SetUp already contains sbh_.unserialize(rawHead_);
-   BinaryData flags = READHEX("00000001");
+   BinaryData flags = READHEX("01000000");
    BinaryData ntx   = READHEX("0f000000");
    BinaryData nbyte = READHEX("ffff0000");
 
@@ -2940,7 +2940,7 @@ TEST_F(StoredBlockObjTest, SHeaderDBUnserFull_H)
 TEST_F(StoredBlockObjTest, SHeaderDBUnserFull_B1)
 {
    BinaryData dbval = READHEX(
-      "00002401010000001d8f4ec0443e1f19f305e488c1085c95de7cc3fd25e0d2c5"
+      "01240000010000001d8f4ec0443e1f19f305e488c1085c95de7cc3fd25e0d2c5"
       "bb5d0000000000009762547903d36881a86751f3f5049e23050113f779735ef8"
       "2734ebf0b4450081d8c8c84db3936a1a334b035b0f000000ffff0000");
 
@@ -2965,7 +2965,7 @@ TEST_F(StoredBlockObjTest, SHeaderDBUnserFull_B1)
 TEST_F(StoredBlockObjTest, SHeaderDBUnserFull_B2)
 {
    BinaryData dbval = READHEX(
-      "00001601010000001d8f4ec0443e1f19f305e488c1085c95de7cc3fd25e0d2c5"
+      "01160000010000001d8f4ec0443e1f19f305e488c1085c95de7cc3fd25e0d2c5"
       "bb5d0000000000009762547903d36881a86751f3f5049e23050113f779735ef8"
       "2734ebf0b4450081d8c8c84db3936a1a334b035b0f000000ffff0000deadbeef");
 
@@ -2989,7 +2989,7 @@ TEST_F(StoredBlockObjTest, SHeaderDBUnserFull_B2)
 TEST_F(StoredBlockObjTest, SHeaderDBUnserFull_B3)
 {
    BinaryData dbval = READHEX(
-      "00000001010000001d8f4ec0443e1f19f305e488c1085c95de7cc3fd25e0d2c5"
+      "01000000010000001d8f4ec0443e1f19f305e488c1085c95de7cc3fd25e0d2c5"
       "bb5d0000000000009762547903d36881a86751f3f5049e23050113f779735ef8"
       "2734ebf0b4450081d8c8c84db3936a1a334b035b0f000000ffff0000");
 
@@ -3119,7 +3119,7 @@ TEST_F(StoredBlockObjTest, STxSerDBValue_1)
    //
    // For this example:  DBVer=0, TxVer=1, TxSer=FRAGGED[1]
    //   0000   01   00 01  -- ----
-   BinaryData  first2  = READHEX("4004"); // little-endian, of course
+   BinaryData  first2  = READHEX("0440"); // little-endian, of course
    BinaryData  txHash  = origTx.getThisHash();
    BinaryData  fragged = stx.getSerializedTxFragged();
    BinaryData  output  = first2 + txHash + fragged;
@@ -3145,7 +3145,7 @@ TEST_F(StoredBlockObjTest, DISABLED_STxSerDBValue_2)
    //
    // For this example:  DBVer=0, TxVer=1, TxSer=FRAGGED[1]
    //   0000   01   00 00  -- ----
-   BinaryData  first2  = READHEX("0004"); // little-endian, of course
+   BinaryData  first2  = READHEX("0400"); // little-endian, of course
    BinaryData  txHash  = origTx.getThisHash();
    BinaryData  fragged = stx.getSerializedTx();  // Full Tx this time
    BinaryData  output  = first2 + txHash + fragged;
@@ -3158,7 +3158,7 @@ TEST_F(StoredBlockObjTest, STxUnserDBValue_1)
    Tx origTx(rawTxUnfrag_);
 
    BinaryData toUnser = READHEX(
-      "4004e471262336aa67391e57c8c6fe03bae29734079e06ff75c7fa4d0a873c83"
+      "0440e471262336aa67391e57c8c6fe03bae29734079e06ff75c7fa4d0a873c83"
       "f03c01000000020044fbc929d78e4203eed6f1d3d39c0157d8e5c100bbe08867"
       "79c0ebf6a69324010000008a47304402206568144ed5e7064d6176c74738b04c"
       "08ca19ca54ddeb480084b77f45eebfe57802207927d6975a5ac0e1bb36f5c053"
@@ -3279,7 +3279,7 @@ TEST_F(StoredBlockObjTest, STxOutSerDBValue_1)
    //
    // For this example:  DBVer=0, TxVer=1, TxSer=FRAGGED[1]
    //   0000   01    00   0  --- ----
-   EXPECT_EQ(stxo0.serializeDBValue(),  READHEX("0004") + rawTxOut0_);
+   EXPECT_EQ(stxo0.serializeDBValue(),  READHEX("0400") + rawTxOut0_);
 }
    
 
@@ -3299,7 +3299,7 @@ TEST_F(StoredBlockObjTest, STxOutSerDBValue_2)
    BinaryData spentStr = ARMDB.getBlkDataKeyNoPrefix( 100000, 1, 127, 15);
    stxo0.spentness_ = TXOUT_SPENT;
    stxo0.spentByTxInKey_ = spentStr;
-   EXPECT_EQ(stxo0.serializeDBValue(), READHEX("0005")+rawTxOut0_+spentStr);
+   EXPECT_EQ(stxo0.serializeDBValue(), READHEX("0500")+rawTxOut0_+spentStr);
 }
 
 
@@ -3322,14 +3322,14 @@ TEST_F(StoredBlockObjTest, STxOutSerDBValue_3)
    BinaryData spentStr = ARMDB.getBlkDataKeyNoPrefix( 100000, 1, 127, 15);
    stxo0.spentness_ = TXOUT_SPENT;
    stxo0.spentByTxInKey_ = spentStr;
-   EXPECT_EQ(stxo0.serializeDBValue(), READHEX("8006")+rawTxOut0_);
+   EXPECT_EQ(stxo0.serializeDBValue(), READHEX("0680")+rawTxOut0_);
 }
 
 
 ////////////////////////////////////////////////////////////////////////////////
 TEST_F(StoredBlockObjTest, STxOutUnserDBValue_1)
 {
-   BinaryData input = READHEX( "0004ac4c8bd5000000001976a9148dce8946f1c7763b"
+   BinaryData input = READHEX( "0400ac4c8bd5000000001976a9148dce8946f1c7763b"
                                "b60ea5cf16ef514cbed0633b88ac");
    StoredTxOut stxo;
    stxo.unserializeDBValue(input);
@@ -3349,7 +3349,7 @@ TEST_F(StoredBlockObjTest, STxOutUnserDBValue_1)
 ////////////////////////////////////////////////////////////////////////////////
 TEST_F(StoredBlockObjTest, STxOutUnserDBValue_2)
 {
-   BinaryData input = READHEX( "0005ac4c8bd5000000001976a9148dce8946f1c7763b"
+   BinaryData input = READHEX( "0500ac4c8bd5000000001976a9148dce8946f1c7763b"
                                "b60ea5cf16ef514cbed0633b88ac01a086017f000f00");
    StoredTxOut stxo;
    stxo.unserializeDBValue(input);
@@ -3371,7 +3371,7 @@ TEST_F(StoredBlockObjTest, STxOutUnserDBValue_2)
 ////////////////////////////////////////////////////////////////////////////////
 TEST_F(StoredBlockObjTest, STxOutUnserDBValue_3)
 {
-   BinaryData input = READHEX( "8006ac4c8bd5000000001976a9148dce8946f1c7763b"
+   BinaryData input = READHEX( "0680ac4c8bd5000000001976a9148dce8946f1c7763b"
                                "b60ea5cf16ef514cbed0633b88ac");
    StoredTxOut stxo;
    stxo.unserializeDBValue(input);
@@ -4314,7 +4314,7 @@ protected:
                              ARMORY_DB_FULL, DB_PRUNE_NONE);
 
       BinaryData DBINFO = iface_->getDBInfoKey();
-      BinaryData flags = READHEX("00001002");
+      BinaryData flags = READHEX("02100000");
       BinaryData val0 = magic_+flags+zeros_+ghash_;
       addOutPairH(DBINFO, val0);
       addOutPairB(DBINFO, val0);
@@ -4540,6 +4540,8 @@ TEST_F(LevelDBTest, OpenClose)
                           magic_,
                           ARMORY_DB_FULL,
                           DB_PRUNE_NONE);
+   
+   ASSERT_TRUE(iface_->databasesAreOpen());
 
    EXPECT_EQ(iface_->getTopBlockHeight(), 0);
    EXPECT_EQ(iface_->getTopBlockHash(), READHEX(MAINNET_GENESIS_HASH_HEX));
@@ -4549,7 +4551,7 @@ TEST_F(LevelDBTest, OpenClose)
 
    // 0123 4567 0123 4567
    // 0000 0010 0001 ---- ---- ---- ---- ----
-   BinaryData flags = READHEX("00001002");
+   BinaryData flags = READHEX("02100000");
 
    for(uint32_t i=0; i<HList.size(); i++)
    {
@@ -4572,7 +4574,7 @@ TEST_F(LevelDBTest, OpenCloseOpenNominal)
 {
    // 0123 4567 0123 4567
    // 0000 0010 0001 ---- ---- ---- ---- ----
-   BinaryData flags = READHEX("00001002");
+   BinaryData flags = READHEX("02100000");
 
    iface_->openDatabases( string("ldbtestdir"),
                           ghash_,
@@ -4673,7 +4675,7 @@ TEST_F(LevelDBTest, OpenCloseOpenMismatch)
 ////////////////////////////////////////////////////////////////////////////////
 TEST_F(LevelDBTest, PutGetDelete)
 {
-   BinaryData flags = READHEX("00001002");
+   BinaryData flags = READHEX("02100000");
 
    iface_->openDatabases( string("ldbtestdir"),
                           ghash_,
@@ -4727,7 +4729,7 @@ TEST_F(LevelDBTest, PutGetDelete)
 TEST_F(LevelDBTest, STxOutPutGet)
 {
    BinaryData TXP     = WRITE_UINT8_BE((uint8_t)DB_PREFIX_TXDATA);
-   BinaryData stxoVal = READHEX("0004") + rawTxOut0_;
+   BinaryData stxoVal = READHEX("0400") + rawTxOut0_;
    BinaryData stxoKey = TXP + READHEX("01e078""0f""0007""0001");
    
    ASSERT_TRUE(standardOpenDBs());
@@ -4762,7 +4764,7 @@ TEST_F(LevelDBTest, STxOutPutGet)
    stxo1.txIndex_     = 7;
    stxo1.txOutIndex_  = 1;
    stxo1.unserialize(rawTxOut1_);
-   stxoVal = READHEX("0004") + rawTxOut1_;
+   stxoVal = READHEX("0400") + rawTxOut1_;
    stxoKey = TXP + READHEX("030e8d""03""00070001");
    iface_->putStoredTxOut(stxo1);
 
@@ -4790,7 +4792,7 @@ TEST_F(LevelDBTest, PutFullTxNoOuts)
 
    BinaryData TXP     = WRITE_UINT8_BE((uint8_t)DB_PREFIX_TXDATA);
    BinaryData stxKey  = TXP + READHEX("01e078""0f""0007");
-   BinaryData stxVal  = READHEX("4004") + stx.thisHash_ + rawTxFragged_;
+   BinaryData stxVal  = READHEX("0440") + stx.thisHash_ + rawTxFragged_;
 
    iface_->putStoredTx(stx, false);
    addOutPairB(stxKey,  stxVal);
@@ -4804,7 +4806,7 @@ TEST_F(LevelDBTest, PutFullTx)
    ARMDB.setDbPruneType(DB_PRUNE_NONE);
 
    BinaryData TXP     = WRITE_UINT8_BE((uint8_t)DB_PREFIX_TXDATA);
-   BinaryData stxoVal = READHEX("0004") + rawTxOut0_;
+   BinaryData stxoVal = READHEX("0400") + rawTxOut0_;
    BinaryData stxKey   = TXP + READHEX("01e078""0f""0007");
    BinaryData stxo0Key = TXP + READHEX("01e078""0f""0007""0000");
    BinaryData stxo1Key = TXP + READHEX("01e078""0f""0007""0001");
@@ -4832,16 +4834,15 @@ TEST_F(LevelDBTest, PutFullTx)
       ASSERT_EQ(stx.stxoMap_[i].isCoinbase_,   false);
    }
 
-   BinaryData stxVal = READHEX("4004") + stx.thisHash_ + rawTxFragged_;
-   BinaryData stxo0Val = READHEX("0004") + stxo0raw;
-   BinaryData stxo1Val = READHEX("0004") + stxo1raw;
+   BinaryData stxVal = READHEX("0440") + stx.thisHash_ + rawTxFragged_;
+   BinaryData stxo0Val = READHEX("0400") + stxo0raw;
+   BinaryData stxo1Val = READHEX("0400") + stxo1raw;
 
    iface_->putStoredTx(stx);
    addOutPairB(stxKey,  stxVal);
    addOutPairB(stxo0Key, stxo0Val);
    addOutPairB(stxo1Key, stxo1Val);
    EXPECT_TRUE(compareKVListRange(0,1, 0,4));
-
 }
 
 
@@ -4938,7 +4939,7 @@ TEST_F(LevelDBTest, PutFullBlock)
    StoredTx & stx0 = sbh.stxMap_[0];
    StoredTx & stx1 = sbh.stxMap_[1];
    StoredTx & stx2 = sbh.stxMap_[2];
-   BinaryData hflags = READHEX("00002401");
+   BinaryData hflags = READHEX("01240000");
    BinaryData ntx    = READHEX("03000000");
    BinaryData nbyte  = READHEX("46040000");
 
@@ -4946,18 +4947,18 @@ TEST_F(LevelDBTest, PutFullBlock)
    addOutPairB(sbhKey, hflags + rawHeader + ntx + nbyte);
 
    // Add Tx0 to BLKDATA
-   addOutPairB(stx0Key,   READHEX("4004") + stx0.thisHash_ + stx0.getSerializedTxFragged());
-   addOutPairB(stxo00Key, READHEX("8004") + stxo00Raw); // is coinbase
+   addOutPairB(stx0Key,   READHEX("0440") + stx0.thisHash_ + stx0.getSerializedTxFragged());
+   addOutPairB(stxo00Key, READHEX("0480") + stxo00Raw); // is coinbase
 
    // Add Tx1 to BLKDATA
-   addOutPairB(stx1Key,   READHEX("4004") + stx1.thisHash_ + stx1.getSerializedTxFragged());
-   addOutPairB(stxo10Key, READHEX("0004") + stxo10Raw);
-   addOutPairB(stxo11Key, READHEX("0004") + stxo11Raw);
+   addOutPairB(stx1Key,   READHEX("0440") + stx1.thisHash_ + stx1.getSerializedTxFragged());
+   addOutPairB(stxo10Key, READHEX("0400") + stxo10Raw);
+   addOutPairB(stxo11Key, READHEX("0400") + stxo11Raw);
 
    // Add Tx2 to BLKDATA
-   addOutPairB(stx2Key,   READHEX("4004") + stx2.thisHash_ + stx2.getSerializedTxFragged());
-   addOutPairB(stxo20Key, READHEX("0004") + stxo20Raw);
-   addOutPairB(stxo21Key, READHEX("0004") + stxo21Raw);
+   addOutPairB(stx2Key,   READHEX("0440") + stx2.thisHash_ + stx2.getSerializedTxFragged());
+   addOutPairB(stxo20Key, READHEX("0400") + stxo20Raw);
+   addOutPairB(stxo21Key, READHEX("0400") + stxo21Raw);
 
    // DuplicateID values get set when we putStoredHeader since we don't know
    // what dupIDs have been taken until we try to put it in the database.
@@ -5073,7 +5074,7 @@ TEST_F(LevelDBTest, PutGetStoredTxHints)
 
    sths.txHashPrefix_ = prefix;
    
-   EXPECT_TRUE(iface_->putStoredTxHints(sths));
+   ASSERT_TRUE(iface_->putStoredTxHints(sths));
 
    BinaryData THP = WRITE_UINT8_BE((uint8_t)DB_PREFIX_TXHINTS);
    addOutPairB(THP + prefix, READHEX("00"));
@@ -5115,9 +5116,17 @@ TEST_F(LevelDBTest, PutGetStoredTxHints)
 }
 
 
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(LevelDBTest, DISABLED_PutGetStoredUndoData)
+{
+   // We don't actually use undo data at all yet, so I'll skip the tests for now
+}
 
 
-
+TEST_F(LevelDBTest, HeaderDump)
+{
+   // We don't actually use undo data at all yet, so I'll skip the tests for now
+}
 
 
 
@@ -5132,15 +5141,14 @@ GTEST_API_ int main(int argc, char **argv)
    std::cout << "Running main() from gtest_main.cc\n";
 
    // Setup the log file 
-   Log::SetLogFile("cppTestsLog.txt");
-   Log::SetLogLevel(LogDebug2);
-   //Log::SuppressStdout();
+   STARTLOGGING("cppTestsLog.txt", LogLvlDebug2);
+   //LOGDISABLESTDOUT();
 
    testing::InitGoogleTest(&argc, argv);
    int exitCode = RUN_ALL_TESTS();
    
-   Log::FlushStreams();
-   
+   FLUSHLOG();
+
 
    return exitCode;
 }

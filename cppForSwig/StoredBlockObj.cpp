@@ -5,6 +5,79 @@
 
 
 /////////////////////////////////////////////////////////////////////////////
+BinaryData StoredDBInfo::getDBKey(void)
+{
+   // Return a key that is guaranteed to be before all other non-empty
+   // DB keys
+   static BinaryData dbinfokey(0);
+   if(dbinfokey.getSize() == 0)
+   {
+      BinaryWriter bw(1);
+      bw.put_uint8_t((uint8_t)DB_PREFIX_DBINFO); 
+      dbinfokey = bw.getData();
+   }
+   return dbinfokey;
+}
+
+/////////////////////////////////////////////////////////////////////////////
+void StoredDBInfo::unserializeDBValue(BinaryRefReader & brr)
+{
+   if(brr.getSizeRemaining() < 44)
+   {
+      magic_.resize(0);
+      topBlkHgt_ = UINT32_MAX;
+      topBlkHash_.resize(0);
+      return;
+   }
+   brr.get_BinaryData(magic_, 4);
+   BitUnpacker<uint32_t> bitunpack(brr);
+   topBlkHgt_ = brr.get_uint32_t();
+   brr.get_BinaryData(topBlkHash_, 32);
+
+   armoryVer_  =                 bitunpack.getBits(4);
+   armoryType_ = (ARMORY_DB_TYPE)bitunpack.getBits(4);
+   pruneType_  = (DB_PRUNE_TYPE) bitunpack.getBits(4);
+}
+
+/////////////////////////////////////////////////////////////////////////////
+void StoredDBInfo::serializeDBValue(BinaryWriter & bw ) const
+{
+   BitPacker<uint32_t> bitpack;
+   bitpack.putBits((uint32_t)armoryVer_,   4);
+   bitpack.putBits((uint32_t)armoryType_,  4);
+   bitpack.putBits((uint32_t)pruneType_,   4);
+
+   bw.put_BinaryData(magic_);
+   bw.put_BitPacker(bitpack);
+   bw.put_uint32_t(topBlkHgt_); // top blk height
+   bw.put_BinaryData(topBlkHash_);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void StoredDBInfo::unserializeDBValue(BinaryData const & bd)
+{
+   BinaryRefReader brr(bd);
+   unserializeDBValue(brr);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void StoredDBInfo::unserializeDBValue(BinaryDataRef bdr)
+                                  
+{
+   BinaryRefReader brr(bdr);
+   unserializeDBValue(brr);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+BinaryData StoredDBInfo::serializeDBValue(void) const
+{
+   BinaryWriter bw;
+   serializeDBValue(bw);
+   return bw.getData();
+}
+
+
+/////////////////////////////////////////////////////////////////////////////
 void StoredHeader::setKeyData(uint32_t hgt, uint8_t dupID)
 {
    // Set the params for this SBH object

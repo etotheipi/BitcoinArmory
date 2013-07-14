@@ -187,6 +187,35 @@ private:
 };
 
 
+class StoredDBInfo
+{
+public:
+   StoredDBInfo(void) : 
+      magic_(0),
+      topBlkHgt_(UINT32_MAX),
+      topBlkHash_(0),
+      armoryVer_(ARMORY_DB_VERSION),
+      armoryType_(ARMDB.getArmoryDbType()),
+      pruneType_(ARMDB.getDbPruneType())   {}
+
+   bool isInitialized(void) const { return magic_.getSize() > 0; }
+
+   static BinaryData getDBKey(void);
+   
+   void       unserializeDBValue(BinaryRefReader & brr);
+   void         serializeDBValue(BinaryWriter &    bw ) const;
+   void       unserializeDBValue(BinaryData const & bd);
+   void       unserializeDBValue(BinaryDataRef      bd);
+   BinaryData   serializeDBValue(void) const;
+
+   BinaryData      magic_;
+   uint32_t        topBlkHgt_;
+   BinaryData      topBlkHash_;
+   uint32_t        armoryVer_;
+   ARMORY_DB_TYPE  armoryType_;
+   DB_PRUNE_TYPE   pruneType_;
+};
+
 
 ////////////////////////////////////////////////////////////////////////////////
 class StoredHeader

@@ -1326,7 +1326,7 @@ public:
    uint32_t getBitsUsed(void) {return bitsUsed_;}
 
    BinaryData getBinaryData(void) 
-               { return BinaryData::IntToStrLE<DTYPE>(intVal_); }
+               { return BinaryData::IntToStrBE<DTYPE>(intVal_); }
 
    // Disabling this to avoid inadvertantly using it to write out 
    // data in the wrong endianness.  (instead, always use getBinaryData
@@ -1356,7 +1356,7 @@ public:
    BitUnpacker(BinaryRefReader & brr)
    {
       BinaryData bytes = brr.get_BinaryData(sizeof(DTYPE));
-      setValue( BinaryData::StrToIntLE<DTYPE>(bytes) );
+      setValue( BinaryData::StrToIntBE<DTYPE>(bytes) );
    }
 
    void setValue(DTYPE val)   { intVal_ = val; bitsRead_ = 0; }

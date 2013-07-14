@@ -230,7 +230,7 @@ public:
    /////////////////////////////////////////////////////////////////////////////
    // Get latest block info
    BinaryData getTopBlockHash(void) const   { return topBlockHash_; }
-   BinaryData getTopBlockHeight(void) const { return topBlockHeight_; }
+   uint32_t   getTopBlockHeight(void) const { return topBlockHeight_; }
    
 
    /////////////////////////////////////////////////////////////////////////////
@@ -336,6 +336,10 @@ public:
 
    /////////////////////////////////////////////////////////////////////////////
    // Interface to translate Stored* objects to/from persistent DB storage
+   /////////////////////////////////////////////////////////////////////////////
+   void putStoredDBInfo(DB_SELECT db, StoredDBInfo const & sdbi);
+   bool getStoredDBInfo(DB_SELECT db, StoredDBInfo & sdbi, bool warn=true);
+   
    /////////////////////////////////////////////////////////////////////////////
    // StoredHeader accessors
    void putStoredHeader(StoredHeader & sbh,
