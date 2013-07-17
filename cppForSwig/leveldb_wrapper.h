@@ -284,7 +284,8 @@ public:
    bool advanceIterAndRead(DB_SELECT, DB_PREFIX);
 
    /////////////////////////////////////////////////////////////////////////////
-   void readAllHeaders(map<HashString, BlockHeader> & bdmHeaderMap);
+   void readAllHeaders(map<HashString, BlockHeader>  & headerMap,
+                       map<HashString, StoredHeader> & storedMap);
 
    /////////////////////////////////////////////////////////////////////////////
    // When we're not in supernode mode, we're going to need to track only 
@@ -423,6 +424,9 @@ public:
 
    bool putStoredHeadHgtList(StoredHeadHgtList const & hhl);
    bool getStoredHeadHgtList(StoredHeadHgtList & hhl, uint32_t height);
+
+   void getAllSSHForHash160( vector<StoredScriptHistory> & sshList,
+                             BinaryDataRef hash160);
 
    ////////////////////////////////////////////////////////////////////////////
    // Some methods to grab data at the current iterator location.  Return

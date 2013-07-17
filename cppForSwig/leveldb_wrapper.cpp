@@ -465,11 +465,11 @@ void InterfaceToLDB::deleteValue(DB_SELECT db,
 /////////////////////////////////////////////////////////////////////////////
 // Not sure why this is useful over getHeaderMap() ... this iterates over
 // the headers in hash-ID-order, instead of height-order
-void InterfaceToLDB::startHeaderIteration()
-{
-   SCOPED_TIMER("startHeaderIteration");
-   seekTo(HEADERS, DB_PREFIX_HEADHASH, BinaryData(0));
-}
+//void InterfaceToLDB::startHeaderIteration()
+//{
+   //SCOPED_TIMER("startHeaderIteration");
+   //seekTo(HEADERS, DB_PREFIX_HEADHASH, BinaryData(0));
+//}
 
 /////////////////////////////////////////////////////////////////////////////
 void InterfaceToLDB::startBlkDataIteration(DB_PREFIX prefix)
@@ -742,6 +742,18 @@ bool InterfaceToLDB::readStoredScriptHistoryAtIter( StoredScriptHistory & ssh)
 
 
 ////////////////////////////////////////////////////////////////////////////////
+void InterfaceToLDB::putStoredScriptHistory( StoredScriptHistory & ssh)
+{
+   SCOPED_TIMER("putStoredScriptHistory");
+   if(!ssh.isInitialized())
+   {
+      LOGERR << "Trying to put uninitialized SSH into DB";
+      return;
+   }
+   putValue(HEADERS, ssh.getDBKey(), ssh.serializeDBValue());
+}
+
+////////////////////////////////////////////////////////////////////////////////
 void InterfaceToLDB::getStoredScriptHistory( StoredScriptHistory & ssh,
                                              BinaryDataRef uniqueKey)
 {
@@ -789,11 +801,11 @@ void InterfaceToLDB::getAllSSHForHash160(
       // We have to go fetch the TxOut from the TXDATA and get its script
       BinaryRefReader brr = getValueReader(BLKDATA, 
                                            DB_PREFIX_TXDATA, 
-                                           multisigDBKeys_[i]);
+                                           ssh.multisigDBKeys_[i]);
 
       if(brr.getSize() == 0)
       {
-         BinaryRefReader brrTXO(multisigDBKeys_[i]);
+         BinaryRefReader brrTXO(ssh.multisigDBKeys_[i]);
          uint32_t hgt;  uint8_t dup;  uint16_t txi, txo;
          readBlkDataKeyNoPrefix(brrTXO, hgt, dup, txi, txo);
          LOGWARN << "Multisig script recorded but DNE at (hgt,tx,txout) = "
@@ -813,7 +825,7 @@ void InterfaceToLDB::getAllSSHForHash160(
       if(uniqKeyMS[0] != (uint8_t)SCRIPT_PREFIX_MULTISIG)
       {
          LOGWARN << "Multisig script expected but other type found"; 
-         BinaryRefReader brrTXO(multisigDBKeys_[i]);
+         BinaryRefReader brrTXO(ssh.multisigDBKeys_[i]);
          uint32_t hgt;  uint8_t dup;  uint16_t txi, txo;
          readBlkDataKeyNoPrefix(brrTXO, hgt, dup, txi, txo);
          LOGWARN << "Multisig script expected, non-MS found (hgt,tx,txout) = "
@@ -827,7 +839,7 @@ void InterfaceToLDB::getAllSSHForHash160(
          LOGWARN << "Multisig script found, but no SSH exists for it";
          continue;
       }
-      sshList.append(sshMS);
+      sshList.push_back(sshMS);
    }
 
 }
@@ -1060,7 +1072,7 @@ void InterfaceToLDB::addRegisteredScript(BinaryDataRef rawScript,
 
 /////////////////////////////////////////////////////////////////////////////
 void InterfaceToLDB::readAllHeaders(map<HashString, BlockHeader> & headerMap,
-                                    map<HashString, StoredHeader> & sbhMap)
+                                    map<HashString, StoredHeader> & storedMap)
 {
    seekTo(HEADERS, DB_PREFIX_HEADHASH, BinaryDataRef(0));
    if(!iters_[HEADERS]->Valid() ||
@@ -1088,12 +1100,11 @@ void InterfaceToLDB::readAllHeaders(map<HashString, BlockHeader> & headerMap,
 
       sbh.unserializeDBValue(HEADERS, currReadValue_);
       regHead.unserialize(sbh.dataCopy_);
+
       headerMap[sbh.thisHash_] = regHead;
-      sbhMap[sbh.thisHash_]    = sbh;
+      storedMap[sbh.thisHash_] = sbh;
 
    } while(advanceIterAndRead(HEADERS, DB_PREFIX_HEADHASH));
-
-   return outMap;
 }
 
 

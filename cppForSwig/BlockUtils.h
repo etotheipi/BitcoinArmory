@@ -475,7 +475,7 @@ private:
  
    bool checkLdbStatus(leveldb::Status stat);
 
-   bool initializeDBandBlkFiles(void);
+   bool initializeDBInterface(ARMORY_DB_TYPE dbt, DB_PRUNE_TYPE prt);
 
    // The header data includes file pointers to where the blocks are located.
    // If the blk files exist, but are different for some reason (moved Armory

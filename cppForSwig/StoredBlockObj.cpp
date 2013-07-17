@@ -1107,7 +1107,7 @@ void StoredScriptHistory::unserializeDBValue(BinaryRefReader & brr)
       // information about that particular TxOut.
       multisigDBKeys_.resize(brr.get_var_int());
       for(uint32_t i=0; i<multisigDBKeys_.size(); i++)
-         brr.getBinaryData(multisigDBKeys_[i], 8);
+         brr.get_BinaryData(multisigDBKeys_[i], 8);
    }
 
 }
@@ -1172,7 +1172,7 @@ void StoredScriptHistory::serializeDBValue(BinaryWriter & bw ) const
       // that contains this address
       bw.put_var_int(multisigDBKeys_.size());
       for(uint32_t i=0; i<multisigDBKeys_.size(); i++)
-         bw.put_BinaryData(multisigDBKeys_[i]; 
+         bw.put_BinaryData(multisigDBKeys_[i]); 
    }
 }
 

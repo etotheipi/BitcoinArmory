@@ -490,7 +490,7 @@ public:
    uint64_t    getSumOfOutputs(void);
 
 
-   BinaryData getRecipientForTxOut(uint32_t txOutIndex);
+   BinaryData getScrAddrForTxOut(uint32_t txOutIndex);
 
    /////////////////////////////////////////////////////////////////////////////
    // These are not pointers to persistent object, these methods actually 

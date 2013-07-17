@@ -1727,7 +1727,7 @@ TEST_F(BtcUtilsTest, TxOutScriptID_NonStd)
    // This is not only non-standard, it's non-spendable
    BinaryData script = READHEX("76a90088ac");
    BinaryData a160   = BtcUtils::BadAddress_;
-   BinaryData unique = READHEX("ff76a90088ac");
+   BinaryData unique = READHEX("ff") + BtcUtils::getHash160(READHEX("76a90088ac"));
    TXOUT_SCRIPT_TYPE scrType = BtcUtils::getTxOutScriptType(script);
    EXPECT_EQ(scrType, TXOUT_SCRIPT_NONSTANDARD );
    EXPECT_EQ(BtcUtils::getTxOutRecipientAddr(script), a160 );
@@ -1757,7 +1757,10 @@ TEST_F(BtcUtilsTest, TxOutScriptID_P2SH)
 ////////////////////////////////////////////////////////////////////////////////
 TEST_F(BtcUtilsTest, TxOutScriptID_Multisig)
 {
-   BinaryData script = READHEX("5221034758cefcb75e16e4dfafb32383b709fa632086ea5ca982712de6add93060b17a2103fe96237629128a0ae8c3825af8a4be8fe3109b16f62af19cec0b1eb93b8717e252ae");
+   BinaryData script = READHEX(
+      "5221034758cefcb75e16e4dfafb32383b709fa632086ea5ca982712de6add93"
+      "060b17a2103fe96237629128a0ae8c3825af8a4be8fe3109b16f62af19cec0b1"
+      "eb93b8717e252ae");
    BinaryData pub1   = READHEX("034758cefcb75e16e4dfafb32383b709fa632086ea5ca982712de6add93060b17a");
    BinaryData pub2   = READHEX("03fe96237629128a0ae8c3825af8a4be8fe3109b16f62af19cec0b1eb93b8717e2");
    BinaryData addr1  = READHEX("785652a6b8e721e80ffa353e5dfd84f0658284a9");
@@ -1777,11 +1780,16 @@ TEST_F(BtcUtilsTest, TxOutScriptID_Multisig)
 ////////////////////////////////////////////////////////////////////////////////
 TEST_F(BtcUtilsTest, TxOutScriptID_MultiList)
 {
-   BinaryData script = READHEX("5221034758cefcb75e16e4dfafb32383b709fa632086ea5ca982712de6add93060b17a2103fe96237629128a0ae8c3825af8a4be8fe3109b16f62af19cec0b1eb93b8717e252ae");
+   BinaryData script = READHEX(
+      "5221034758cefcb75e16e4dfafb32383b709fa632086ea5ca982712de6add930"
+      "60b17a2103fe96237629128a0ae8c3825af8a4be8fe3109b16f62af19cec0b1e"
+      "b93b8717e252ae");
    BinaryData addr0  = READHEX("785652a6b8e721e80ffa353e5dfd84f0658284a9");
    BinaryData addr1  = READHEX("b3348abf9dd2d1491359f937e2af64b1bb6d525a");
    BinaryData a160   = BtcUtils::BadAddress_;
-   BinaryData unique = READHEX("fe0202785652a6b8e721e80ffa353e5dfd84f0658284a9b3348abf9dd2d1491359f937e2af64b1bb6d525a");
+   BinaryData unique = READHEX(
+      "fe0202785652a6b8e721e80ffa353e5dfd84f0658284a9b3348abf9dd2d14913"
+      "59f937e2af64b1bb6d525a");
 
    vector<BinaryData> a160List;
    uint32_t M;
@@ -2313,7 +2321,7 @@ TEST_F(BlockObjTest, TxOutUnserialize)
       EXPECT_EQ(   txouts[i].getScriptSize(), 25);
       EXPECT_TRUE( txouts[i].isStandard());
       EXPECT_EQ(   txouts[i].getValue(), 0x00000000d58b4cac);
-      EXPECT_EQ(   txouts[i].getRecipientAddr(), dstAddr);
+      EXPECT_EQ(   txouts[i].getScrAddressStr(), HASH160PREFIX+dstAddr);
 
       EXPECT_TRUE( txouts[i].isScriptStandard());
       EXPECT_TRUE( txouts[i].isScriptStdHash160());
@@ -2409,10 +2417,10 @@ TEST_F(BlockObjTest, TxUnserialize)
 
       EXPECT_EQ(   txs[i].serialize(), rawTx0_);
       EXPECT_EQ(   txs[0].getTxIn(0).getSenderAddrIfAvailable(), tx0_In0);
-      EXPECT_EQ(   txs[i].getTxOut(0).getRecipientAddr(), tx0_Out0);
-      EXPECT_EQ(   txs[i].getTxOut(1).getRecipientAddr(), tx0_Out1);
-      EXPECT_EQ(   txs[i].getRecipientForTxOut(0), tx0_Out0);
-      EXPECT_EQ(   txs[i].getRecipientForTxOut(1), tx0_Out1);
+      EXPECT_EQ(   txs[i].getTxOut(0).getScrAddressStr(), HASH160PREFIX+tx0_Out0);
+      EXPECT_EQ(   txs[i].getTxOut(1).getScrAddressStr(), HASH160PREFIX+tx0_Out1);
+      EXPECT_EQ(   txs[i].getScrAddrForTxOut(0), HASH160PREFIX+tx0_Out0);
+      EXPECT_EQ(   txs[i].getScrAddrForTxOut(1), HASH160PREFIX+tx0_Out1);
       EXPECT_EQ(   txs[i].getTxOut(0).getValue(), v0);
       EXPECT_EQ(   txs[i].getTxOut(1).getValue(), v1);
       EXPECT_EQ(   txs[i].getSumOfOutputs(),  v0+v1);
@@ -2700,9 +2708,7 @@ TEST_F(StoredBlockObjTest, GetDBKeys)
    stxo.txOutIndex_  = txo;
 
    ssh1.uniqueKey_   = key;
-   ssh1.isMultisig_  = false;
    ssh2.uniqueKey_   = key;
-   ssh2.isMultisig_  = true;
    sud.blockHeight_  = hgt;
    sud.duplicateID_  = dup;
    hhl.height_       = hgt;
@@ -4313,7 +4319,7 @@ protected:
                              ghash_, gentx_, magic_, 
                              ARMORY_DB_FULL, DB_PRUNE_NONE);
 
-      BinaryData DBINFO = iface_->getDBInfoKey();
+      BinaryData DBINFO = StoredDBInfo().getDBKey();
       BinaryData flags = READHEX("02100000");
       BinaryData val0 = magic_+flags+zeros_+ghash_;
       addOutPairH(DBINFO, val0);
@@ -4686,7 +4692,7 @@ TEST_F(LevelDBTest, PutGetDelete)
    ASSERT_TRUE(iface_->databasesAreOpen());
    
    DB_PREFIX TXDATA = DB_PREFIX_TXDATA;
-   BinaryData DBINFO = iface_->getDBInfoKey();
+   BinaryData DBINFO = StoredDBInfo().getDBKey();
    BinaryData PREFIX = WRITE_UINT8_BE((uint8_t)TXDATA);
    BinaryData val0 = magic_+flags+zeros_+ghash_;
    BinaryData commonValue = READHEX("abcd1234");

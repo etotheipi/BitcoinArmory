@@ -371,7 +371,7 @@ void TxOut::unserialize( uint8_t const * ptr,
    scriptOffset_ = 8 + BtcUtils::readVarIntLength(getPtr()+8);
    BinaryDataRef scriptRef(dataCopy_.getPtr()+scriptOffset_, getScriptSize());
    scriptType_ = BtcUtils::getTxOutScriptType(scriptRef);
-   recipientBinAddr20_ = BtcUtils::getTxOutRecipientAddr(scriptRef, scriptType_);
+   uniqueScrAddr_ = BtcUtils::getTxOutScriptUniqueKey(scriptRef);
 
    if(!parentTx_.isInitialized())
    {
@@ -446,7 +446,7 @@ void TxOut::pprint(ostream & os, int nIndent, bool pBigendian)
    case TXOUT_SCRIPT_NONSTANDARD: os << "UNKNOWN " << endl; break;
    }
    os << indent << "   Recip:  " 
-                << recipientBinAddr20_.toHexStr(pBigendian).c_str() 
+                << uniqueScrAddr_.toHexStr(pBigendian).c_str() 
                 << (pBigendian ? " (BE)" : " (LE)") << endl;
    os << indent << "   Value:  " << getValue() << endl;
 }
@@ -515,21 +515,10 @@ uint64_t Tx::getSumOfOutputs(void)
 
 
 /////////////////////////////////////////////////////////////////////////////
-BinaryData Tx::getRecipientForTxOut(uint32_t txOutIndex) 
+BinaryData Tx::getScrAddrForTxOut(uint32_t txOutIndex) 
 {
    TxOut txout = getTxOut(txOutIndex);
-   //if(txout.getScriptType() == TXOUT_SCRIPT_STANDARD ||
-      //txout.getScriptType() == TXOUT_SCRIPT_COINBASE)
-   //{
-      //return txout.getRecipientAddr();
-   //}
-   //else
-   //{
-      //// TODO:  We may actually want to have another branch for P2SH
-      ////        and pass out the P2SH script hash
-      //return BinaryData("");
-   //}
-   return BtcUtils::getTxOutRecipientAddr(txout.getScript());
+   return BtcUtils::getTxOutScriptUniqueKey(txout.getScript());
 }
 
 
