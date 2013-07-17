@@ -284,9 +284,19 @@ public:
    bool advanceIterAndRead(DB_SELECT, DB_PREFIX);
 
    /////////////////////////////////////////////////////////////////////////////
-   // Not sure why this is useful over getHeaderMap() ... this iterates over
-   // the headers in hash-ID-order, instead of height-order
-   void startHeaderIteration(void);
+   void readAllHeaders(map<HashString, BlockHeader> & bdmHeaderMap);
+
+   /////////////////////////////////////////////////////////////////////////////
+   // When we're not in supernode mode, we're going to need to track only 
+   // specific addresses.  We will keep a list of those addresses here.
+   // UINT32_MAX for the "scannedUpToBlk" arg means that this address is totally
+   // new and does not require a rescan.  If you don't know when the scraddress
+   // was created, use 0.  Or if you know something, you can supply it.  Though
+   // in many cases, we will just do a full rescan if it's not totally new.
+   void addRegisteredScript(BinaryDataRef rawScript,
+                            uint32_t      scannedUpToBlk=UINT32_MAX);
+   
+   
 
    /////////////////////////////////////////////////////////////////////////////
    void startBlkDataIteration(DB_PREFIX prefix);
@@ -309,8 +319,6 @@ public:
    BinaryData getRawHeader(BinaryData const & headerHash);
    //bool addHeader(BinaryData const & headerHash, BinaryData const & headerRaw);
 
-   /////////////////////////////////////////////////////////////////////////////
-   BinaryData getDBInfoKey(void);
 
    /////////////////////////////////////////////////////////////////////////////
    // All put/del ops will be batched/queued, and only executed when called
@@ -528,6 +536,10 @@ public:
 
    KVLIST getAllDatabaseEntries(DB_SELECT db);
    void   printAllDatabaseEntries(DB_SELECT db);
+
+   BinaryData getGenesisBlockHash(void) { return genesisBlkHash_; }
+   BinaryData getGenesisTxHash(void)    { return genesisTxHash_; }
+   BinaryData getMagicBytes(void)       { return magicBytes_; }
 
 private:
    string               baseDir_;

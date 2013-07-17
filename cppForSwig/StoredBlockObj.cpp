@@ -1049,7 +1049,6 @@ void StoredScriptHistory::unserializeDBValue(BinaryRefReader & brr)
    version_                     =                    bitunpack.getBits(4);
    DB_PRUNE_TYPE pruneType      = (DB_PRUNE_TYPE)    bitunpack.getBits(2);
    SCRIPT_UTXO_TYPE txoListType = (SCRIPT_UTXO_TYPE) bitunpack.getBits(2);
-   hasMultisigEntries_          =                    bitunpack.getBit();
 
    alreadyScannedUpToBlk_ = brr.get_uint32_t();
 
@@ -1102,6 +1101,13 @@ void StoredScriptHistory::unserializeDBValue(BinaryRefReader & brr)
          txio.setFromCoinbase(isCoinbase);
          txioVect_.push_back(txio);
       }
+
+      // We only store the hgtx+txindx+txoutindex of each multisig script 
+      // that contains this address.  THAT entry contains the TXIO/spentness
+      // information about that particular TxOut.
+      multisigDBKeys_.resize(brr.get_var_int());
+      for(uint32_t i=0; i<multisigDBKeys_.size(); i++)
+         brr.getBinaryData(multisigDBKeys_[i], 8);
    }
 
 }
@@ -1114,7 +1120,6 @@ void StoredScriptHistory::serializeDBValue(BinaryWriter & bw ) const
    bitpack.putBits((uint16_t)ARMORY_DB_VERSION,       4);
    bitpack.putBits((uint16_t)ARMDB.getDbPruneType(),  2);
    bitpack.putBits((uint16_t)SCRIPT_UTXO_VECTOR,      2);
-   bitpack.putBit(hasMultisigEntries_);
    bw.put_BitPacker(bitpack);
 
    // 
@@ -1130,11 +1135,7 @@ void StoredScriptHistory::serializeDBValue(BinaryWriter & bw ) const
    }
    else if(UTXO_STORAGE == SCRIPT_UTXO_VECTOR)
    {
-      // Get the TxOut list if a pointer was supplied
-      // This list is unspent-TxOuts only if pruning enabled.  You will
-      // have to dereference each one to check spentness if not pruning
-      uint32_t numTxo = (uint32_t)txioVect_.size();
-      for(uint32_t i=0; i<numTxo; i++)
+      for(uint32_t i=0; i<txioVect_.size(); i++)
       {
          TxIOPair const & txio = txioVect_[i];
          bool isSpent = txio.hasTxInInMain();
@@ -1166,6 +1167,12 @@ void StoredScriptHistory::serializeDBValue(BinaryWriter & bw ) const
             }
          }
       }
+
+      // We only store the hgtx+txindx+txoutindex of each multisig script 
+      // that contains this address
+      bw.put_var_int(multisigDBKeys_.size());
+      for(uint32_t i=0; i<multisigDBKeys_.size(); i++)
+         bw.put_BinaryData(multisigDBKeys_[i]; 
    }
 }
 

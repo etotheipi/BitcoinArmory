@@ -187,6 +187,7 @@ private:
 };
 
 
+////////////////////////////////////////////////////////////////////////////////
 class StoredDBInfo
 {
 public:
@@ -451,10 +452,9 @@ public:
    SCRIPT_PREFIX  scriptType_;
    uint32_t       version_;
    uint32_t       alreadyScannedUpToBlk_;
-   bool           hasMultisigEntries_;
-   bool           isMultisig_;
 
    vector<TxIOPair> txioVect_;
+   vector<BinaryData> multisigDBKeys_;
 };
 
 

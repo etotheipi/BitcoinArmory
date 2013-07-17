@@ -48,11 +48,11 @@ class BlockDataManager_LevelDB;
 //
 // LedgerEntry  
 //
-// LedgerEntry class is used for bother BtcAddresses and BtcWallets.  Members
+// LedgerEntry class is used for bother ScrAddresses and BtcWallets.  Members
 // have slightly different meanings (or irrelevant) depending which one it's
 // used with.
 //
-//  BtcAddress -- Each entry corresponds to ONE TxIn OR ONE TxOut
+//  ScrAddress -- Each entry corresponds to ONE TxIn OR ONE TxOut
 //
 //    addr20_    -  useless - just repeating this address
 //    value_     -  net debit/credit on addr balance, in Satoshis (1e-8 BTC)
@@ -193,30 +193,43 @@ class BtcWallet;
 
 ////////////////////////////////////////////////////////////////////////////////
 //
-// BtcAddress  
+// ScrAddress  
 //
 // This class is only for scanning the blockchain (information only).  It has
 // no need to keep track of the public and private keys of various addresses,
 // which is done by the python code leveraging this class.
 //
+// I call these as "scraddresses".  In most contexts, it represents an
+// "address" that people use to send coins per-to-person, but it could actually
+// represent any kind of TxOut script.  Multisig, P2SH, or any non-standard,
+// unusual, escrow, whatever "address."  While it might be more technically
+// correct to just call this class "Script" or "TxOutScript", I felt like 
+// "address" is a term that will always exist in the Bitcoin ecosystem, and 
+// frequently used even when not preferred.
+//
+// Similarly, we refer to the member variable scraddr_ as a "scradder".  It
+// is actually a reduction of the TxOut script to a form that is identical
+// regardless of whether pay-to-pubkey or pay-to-pubkey-hash is used. 
+//
+//
 ////////////////////////////////////////////////////////////////////////////////
-class BtcAddress
+class ScrAddress
 {
    friend class BtcWallet;
 public:
 
-   BtcAddress(void) : 
-      address20_(0), firstBlockNum_(0), firstTimestamp_(0), 
+   ScrAddress(void) : 
+      scrAddr_(0), firstBlockNum_(0), firstTimestamp_(0), 
       lastBlockNum_(0), lastTimestamp_(0), 
       relevantTxIOPtrs_(0), ledger_(0) {}
 
-   BtcAddress(BinaryData    addr, 
+   ScrAddress(BinaryData    addr, 
               uint32_t      firstBlockNum  = UINT32_MAX,
               uint32_t      firstTimestamp = UINT32_MAX,
               uint32_t      lastBlockNum   = 0,
               uint32_t      lastTimestamp  = 0);
    
-   BinaryData const &  getAddrStr20(void) const  {return address20_;      }
+   BinaryData const &  getScrAddr(void) const    {return scrAddr_;      }
    uint32_t       getFirstBlockNum(void) const   {return firstBlockNum_;  }
    uint32_t       getFirstTimestamp(void) const  {return firstTimestamp_; }
    uint32_t       getLastBlockNum(void)          {return lastBlockNum_;   }
@@ -226,7 +239,7 @@ public:
    void           setLastBlockNum(uint32_t b)    { lastBlockNum_   = b; }
    void           setLastTimestamp(uint32_t t)   { lastTimestamp_  = t; }
 
-   void           setAddrStr20(BinaryData bd)    { address20_.copyFrom(bd);}
+   void           setScrAddr(BinaryData bd)    { scrAddr_.copyFrom(bd);}
 
    void     sortLedger(void);
    uint32_t removeInvalidEntries(void);
@@ -259,15 +272,14 @@ public:
    
 
 private:
-   BinaryData     uniqueKey_;
-   SCRIPT_PREFIX  addrType_;
+   BinaryData     scrAddr_; // this includes the prefix byte!
    uint32_t       firstBlockNum_;
    uint32_t       firstTimestamp_;
    uint32_t       lastBlockNum_;
    uint32_t       lastTimestamp_;
 
    // If any multisig scripts that include this address, we'll track them
-   bool       hasMultisigEntries_;
+   bool           hasMultisigEntries_;
 
    // Each address will store a list of pointers to its transactions
    vector<TxIOPair*>     relevantTxIOPtrs_;
@@ -297,7 +309,7 @@ public:
    /////////////////////////////////////////////////////////////////////////////
    // addAddress when blockchain rescan req'd, addNewAddress for just-created
    void addNewAddress(BinaryData addr);
-   void addAddress(BtcAddress const & newAddr);
+   void addAddress(ScrAddress const & newAddr);
    void addAddress(BinaryData    addr, 
                    uint32_t      firstTimestamp = 0,
                    uint32_t      firstBlockNum  = 0,
@@ -307,7 +319,7 @@ public:
    // SWIG has some serious problems with typemaps and variable arg lists
    // Here I just create some extra functions that sidestep all the problems
    // but it would be nice to figure out "typemap typecheck" in SWIG...
-   void addAddress_BtcAddress_(BtcAddress const & newAddr);
+   void addAddress_ScrAddress_(ScrAddress const & newAddr);
 
    // Adds a new address that is assumed to be imported, and thus will
    // require a blockchain scan
@@ -346,7 +358,7 @@ public:
                            uint32_t    txidx, 
                            Tx &        txref,
                            uint32_t    txoutidx,
-                           BtcAddress& addr);
+                           ScrAddress& addr);
 
    LedgerEntry calcLedgerEntryForTx(Tx & tx);
    LedgerEntry calcLedgerEntryForTx(TxRef & txref);
@@ -365,9 +377,9 @@ public:
    void clearZeroConfPool(void);
 
    
-   uint32_t     getNumAddr(void) const {return addrMap_.size();}
-   BtcAddress & getAddrByIndex(uint32_t i) { return *(addrPtrVect_[i]); }
-   BtcAddress & getAddrByHash160(BinaryData const & a) { return addrMap_[a];}
+   uint32_t     getNumScrAddr(void) const {return scrAddrMap_.size();}
+   ScrAddress & getScrAddrByIndex(uint32_t i) { return *(addrPtrVect_[i]); }
+   ScrAddress & getScrAddrByKey(BinaryData const & a) { return scrAddrMap_[a];}
 
    void     sortLedger(void);
    uint32_t removeInvalidEntries(void);
@@ -390,8 +402,8 @@ public:
    vector<LedgerEntry> & getEmptyLedger(void) { EmptyLedger_.clear(); return EmptyLedger_;}
 
 private:
-   vector<BtcAddress*>          addrPtrVect_;
-   //map<BinaryData, BtcAddress>  addrMap_;
+   vector<ScrAddress*>          addrPtrVect_;
+   //map<BinaryData, ScrAddress>  scrAddrMap_;
    //map<OutPoint, TxIOPair>      txioMap_;
 
    vector<LedgerEntry>          ledgerAllAddr_;  
@@ -459,21 +471,8 @@ class BlockDataManager_LevelDB;
 class BlockDataManager_LevelDB
 {
 private:
-
-   // We used to store the header and TxRef data in map/multimap<> objects.
-   // However, due to the size of the blockchain, even storing just the 
-   // index information in RAM is becoming prohibitive.  
-   //
-   // Therefore, we will use LevelDB to store the index information, at least
-   // until we switch to maintaining the entire blockchain itself in LevelDB.
-   string headerPath_;
-   string txHintPath_;  // will store {merkle root --> tx hash} list, too
-   string transientPath_;  // will store {merkle root --> tx hash} list, too
    
-   leveldb::DB* headerDB_;
-   leveldb::DB* txHintDB_;
-   leveldb::DB* transientDB_;
-   
+ 
    bool checkLdbStatus(leveldb::Status stat);
 
    bool initializeDBandBlkFiles(void);
@@ -487,6 +486,9 @@ private:
 
    //multimap<HashString, TxRef>        txHintMap_;
 
+
+   // This is our permanent link to the two databases used
+   InterfaceToLDB* iface_;
 
    
    // Need a separate memory pool just for zero-confirmation transactions
@@ -555,11 +557,11 @@ private:
    // will automatically update for all addresses, period.  And we'd best not 
    // track those in RAM (maybe on a huge server...?)
    set<BtcWallet*>                    registeredWallets_;
-   map<BinaryData, BtcAddress>        registeredAddrMap_;
+   map<BinaryData, ScrAddress>        registeredScrAddrMap_;
    list<RegisteredTx>                 registeredTxList_;
    set<HashString>                    registeredTxSet_;
    set<OutPoint>                      registeredOutPoints_;
-   uint32_t                           allRegAddrScannedUpToBlk_; // one past top
+   uint32_t                           allScannedUpToBlk_; // one past top
 
    map<OutPoint,   TxIOPair>          txioMap_;
 

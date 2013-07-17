@@ -905,7 +905,7 @@ public:
             return bw.getData();
          case(TXOUT_SCRIPT_NONSTANDARD):     
             bw.put_uint8_t(SCRIPT_PREFIX_NONSTD);
-            bw.put_BinaryData(script);
+            bw.put_BinaryData(getHash160(script));
             return bw.getData();
          case(TXOUT_SCRIPT_MULTISIG):     
             bw.put_uint8_t(SCRIPT_PREFIX_MULTISIG);
@@ -939,12 +939,6 @@ public:
       static BinaryData nothing(0);
 
       if( script[-1] != 0xae )
-         return nothing;
-
-      if( script[0] >= 1 && script[0] <= 20)
-         return nothing;
-
-      if( script[-2] >= 1 && script[-2] <= 20)
          return nothing;
 
       uint8_t M = script[0];
@@ -984,12 +978,6 @@ public:
       addr160List.clear();
 
       if( script[-1] != 0xae )
-         return 0;
-
-      if( script[0] >= 1 && script[0] <= 20)
-         return 0;
-
-      if( script[-2] >= 1 && script[-2] <= 20)
          return 0;
 
       uint8_t M = script[0];

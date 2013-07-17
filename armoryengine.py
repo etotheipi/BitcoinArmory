@@ -13075,7 +13075,8 @@ else:
 #     Key:    timerName  
 #     Value:  [cumulTime, numStart, lastStart, isRunning]
 #
-TimerMap = {}
+import collections
+TimerMap = collections.OrderedDict()
 
 def TimerStart(timerName):
    if not TimerMap.has_key(timerName):

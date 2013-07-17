@@ -734,13 +734,11 @@ bool InterfaceToLDB::readStoredScriptHistoryAtIter( StoredScriptHistory & ssh)
    checkPrefixByte(DB_PREFIX_SCRIPT);
       
    uint32_t nBytes = currReadKey_.getSizeRemaining();
-   ssh.scriptType_ = (SCRIPT_PREFIX)currReadKey_.get_uint8_t();
-   currReadKey_.get_BinaryData(ssh.uniqueKey_, nBytes-1);
+   currReadKey_.get_BinaryData(ssh.uniqueKey_, nBytes);
+   ssh.scriptType_ = (SCRIPT_PREFIX)ssh.uniqueKey_[0];
 
    ssh.unserializeDBValue(currReadValue_);
 }
-
-
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -758,6 +756,80 @@ void InterfaceToLDB::getStoredScriptHistoryByRawScript(
 {
    BinaryData uniqueKey = BtcUtils::getTxOutScriptUniqueKey(script);
    getStoredScriptHistory(ssh, uniqueKey);
+}
+
+
+/////////////////////////////////////////////////////////////////////////////
+// We grab the regular entries for the hash160, then go grab all the 
+// multisig entries as well, if they exist
+void InterfaceToLDB::getAllSSHForHash160(
+                                    vector<StoredScriptHistory> & sshList,
+                                    BinaryDataRef hash160)
+{
+   sshList.clear();
+   StoredScriptHistory ssh;
+
+   BinaryData PREFIX_REG = WRITE_UINT8_LE((uint8_t)SCRIPT_PREFIX_HASH160);
+   getStoredScriptHistory(ssh, PREFIX_REG + hash160);
+
+   if(!ssh.isInitialized())
+      return;
+
+   sshList.push_back(ssh);
+
+   // For the vast majority of keys, we're done.
+   if(ssh.multisigDBKeys_.size()==0)
+      return;
+
+   // If we're here, there's more data to grab -- multi-sig scripts for this
+   // particular address need to be fetched
+   StoredScriptHistory sshMS;
+   for(uint32_t i=0; i<ssh.multisigDBKeys_.size(); i++)
+   {
+      // We have to go fetch the TxOut from the TXDATA and get its script
+      BinaryRefReader brr = getValueReader(BLKDATA, 
+                                           DB_PREFIX_TXDATA, 
+                                           multisigDBKeys_[i]);
+
+      if(brr.getSize() == 0)
+      {
+         BinaryRefReader brrTXO(multisigDBKeys_[i]);
+         uint32_t hgt;  uint8_t dup;  uint16_t txi, txo;
+         readBlkDataKeyNoPrefix(brrTXO, hgt, dup, txi, txo);
+         LOGWARN << "Multisig script recorded but DNE at (hgt,tx,txout) = "
+                 << "(" << hgt << "," << txi << "," << txo << ")";
+         continue;
+      }
+
+      // We found a TxOut, let's read its script and go fetch the SSH for that
+      StoredTxOut stxo;
+      stxo.unserializeDBValue(brr);
+      BinaryRefReader brrTXO(stxo.dataCopy_);
+      brrTXO.advance(8);
+      uint32_t scrSize = brrTXO.get_var_int();
+      BinaryDataRef msScript = brrTXO.get_BinaryData(scrSize);
+      
+      BinaryData uniqKeyMS = BtcUtils::getTxOutScriptUniqueKey(msScript);
+      if(uniqKeyMS[0] != (uint8_t)SCRIPT_PREFIX_MULTISIG)
+      {
+         LOGWARN << "Multisig script expected but other type found"; 
+         BinaryRefReader brrTXO(multisigDBKeys_[i]);
+         uint32_t hgt;  uint8_t dup;  uint16_t txi, txo;
+         readBlkDataKeyNoPrefix(brrTXO, hgt, dup, txi, txo);
+         LOGWARN << "Multisig script expected, non-MS found (hgt,tx,txout) = "
+                 << "(" << hgt << "," << txi << "," << txo << ")";
+         continue;
+      }
+
+      getStoredScriptHistory(sshMS, uniqKeyMS);
+      if(!sshMS.isInitialized())
+      {
+         LOGWARN << "Multisig script found, but no SSH exists for it";
+         continue;
+      }
+      sshList.append(sshMS);
+   }
+
 }
 
 
@@ -947,130 +1019,84 @@ bool InterfaceToLDB::advanceIterAndRead(DB_SELECT db, DB_PREFIX prefix)
 }
 
 
+////////////////////////////////////////////////////////////////////////////////
+// We must guarantee that we don't overwrite data if 
+void InterfaceToLDB::addRegisteredScript(BinaryDataRef rawScript, 
+                                         uint32_t      blockCreated)
+{
+   BinaryData uniqKey = BtcUtils::getTxOutScriptUniqueKey(rawScript);
+   bool       isMulti = BtcUtils::isMultisigScript(rawScript);
+
+   StoredScriptHistory ssh;
+   getStoredScriptHistory(ssh, uniqKey);
+   
+   uint32_t scannedTo;
+   if(!ssh.isInitialized())
+   {
+      // Script is not registered in the DB yet
+      ssh.uniqueKey_  = uniqKey;
+      ssh.scriptType_ = (SCRIPT_PREFIX)uniqKey[0];
+      ssh.version_    = ARMORY_DB_VERSION;
+      ssh.alreadyScannedUpToBlk_ = blockCreated;
+      ssh.txioVect_.resize(0);
+      ssh.multisigDBKeys_.resize(0);
+      putStoredScriptHistory(ssh);
+   }
+   else
+   {
+      if(blockCreated!=UINT32_MAX)
+         scannedTo = max(ssh.alreadyScannedUpToBlk_, blockCreated);
+      
+      // Only overwrite if the data in the DB is incorrect
+      if(scannedTo != ssh.alreadyScannedUpToBlk_)
+      {
+         ssh.alreadyScannedUpToBlk_ = scannedTo;
+         putStoredScriptHistory(ssh);
+      }
+   }
+
+   registeredSSHs_[uniqKey] = ssh;
+}
 
 /////////////////////////////////////////////////////////////////////////////
-/*
-map<HashString, BlockHeader> InterfaceToLDB::getHeaderMap(void)
+void InterfaceToLDB::readAllHeaders(map<HashString, BlockHeader> & headerMap,
+                                    map<HashString, StoredHeader> & sbhMap)
 {
-   map<HashString, BlockHeader> outMap;
-
-   iters_[HEADERS]->SeekToFirst();
-   if( sliceToBinaryData(ldbiter->key()) != getDBInfoKey() )
-      LOGWARN << "How do we not have a DB info key?" ;
-   else
-      it->Next()
-
-   BinaryData headerHash;
-   BinaryData headerEntry;
-   BlockHeader header;
-   for (; it->Valid(); it->Next())
+   seekTo(HEADERS, DB_PREFIX_HEADHASH, BinaryDataRef(0));
+   if(!iters_[HEADERS]->Valid() ||
+      currReadKey_.get_uint8_t() != (uint8_t)DB_PREFIX_HEADHASH)
    {
-      sliceToBinaryData(it->key(),   headerHash);
-      sliceToBinaryData(it->value(), headerEntry);
-
-      BinaryRefReader brr(headerEntry);
-      header.unserialize(brr);
-      BinaryData hgtx    = brr.get_BinaryData();
-      uint32_t   txCount = brr.get_uint32_t();
-      uint32_t   nBytes  = brr.get_uint32_t();
-
-      // The "height" is actually a 3-byte height, and a "duplicate ID"
-      // Reorgs lead to multiple headers having the same height.  Since 
-      // the blockdata
-      header.storedHeight_(ARMDB.hgtxToHeight(hgtx));
-      header.duplicateID_(ARMDB.hgtxToDupID(hgtx));
-
-      outMap[headerHash] = header;
+      LOGWARN << "No headers in DB yet!";
+      return;
    }
+   
+
+   StoredHeader sbh;
+   BlockHeader  regHead;
+   do
+   {
+      resetIterReaders();
+      checkPrefixByte(DB_PREFIX_HEADHASH);
+   
+      if(currReadKey_.getSizeRemaining() == 32)
+      {
+         LOGERR << "How did we get header hash not 32 bytes?";
+         continue;
+      }
+
+      currReadKey_.get_BinaryData(sbh.thisHash_, 32);
+
+      sbh.unserializeDBValue(HEADERS, currReadValue_);
+      regHead.unserialize(sbh.dataCopy_);
+      headerMap[sbh.thisHash_] = regHead;
+      sbhMap[sbh.thisHash_]    = sbh;
+
+   } while(advanceIterAndRead(HEADERS, DB_PREFIX_HEADHASH));
 
    return outMap;
 }
-*/
 
 
-////////////////////////////////////////////////////////////////////////////////
-BinaryData InterfaceToLDB::getRawHeader(BinaryData const & headerHash)
-{
-   // I used the seek method originally to try to return
-   // a slice that didn't need to be copied.  But in the 
-   // end, I'm doing a copy anyway.  So I switched to 
-   // regular DB.Get and commented out the seek method 
-   // so it's still here for reference
-   static BinaryData headerOut(HEADER_SIZE);
-   headerOut = getValue(HEADERS, DB_PREFIX_HEADHASH, headerHash);
-   return headerOut.getSliceCopy(0, HEADER_SIZE);
-}
-
-
-
-////////////////////////////////////////////////////////////////////////////////
-BinaryData InterfaceToLDB::getDBInfoKey(void)
-{
-   // Return a key that is guaranteed to be before all other non-empty
-   // DB keys
-   static BinaryData dbinfokey(0);
-   if(dbinfokey.getSize() == 0)
-   {
-      BinaryWriter bw(1);
-      bw.put_uint8_t((uint8_t)DB_PREFIX_DBINFO); 
-      dbinfokey = bw.getData();
-   }
-   return dbinfokey;
-}
-
-//StoredTx InterfaceToLDB::getFullTxFromKey6B(BinaryDataRef key6B)
-//{
-
-//}
-
-//StoredTx InterfaceToLDB::getFullTxFromHash(BinaryDataRef txHash)
-//{
-
-//}
-
-
-////////////////////////////////////////////////////////////////////////////////
-/*  I think the BDM will do this, not the DB interface
-bool InterfaceToLDB::addBlockToDB(BinaryDataRef newBlock,
-                                      bool withLead8B, 
-                                      UPDATE_DB_TYPE updType=UPDATE_DB_NORMAL)
-{
-   
-   BinaryRefReader brr(newBlock);
-
-   if(withLead8B)
-   {
-      BinaryDataRef first4 = brr.get_BinaryDataRef(4);
-      if(first4 != magicBytes_)
-      {
-         LOGERR << "Magic bytes don't match! " << first4.toHexStr().c_str();
-         return false;
-      }
-      
-      // The next 4 bytes is the block size, but we will end up computing this
-      // anyway, as we dissect the block.
-      brr.advance(4);
-   }
-
-   BlockHeader bh(brr);
-   
-   uint32_t nTx = brr.get_var_int();
-   vector<Tx> allTxInBlock(nTx);
-   for(uint32_t itx=0; itx<nTx; itx++)
-      allTxInBlock[itx].unserialize(brr);
-   
-   
-   // Check whether the DB has it already.
-   bool chkAlready = (getValue(HEADERS, bh.getThisHash()).getSize() == 0);
-
-   bool doValid;
-   bool skipEntirely = false;
-   if(updType==UPDATE_DB_NORMAL)
-   {
-   }
-   
-}
-*/
 
 ////////////////////////////////////////////////////////////////////////////////
 uint8_t InterfaceToLDB::getValidDupIDForHeight(uint32_t blockHgt)
@@ -1157,13 +1183,18 @@ bool InterfaceToLDB::getStoredDBInfo(DB_SELECT db, StoredDBInfo & sdbi, bool war
 void InterfaceToLDB::putStoredHeader( StoredHeader & sbh, bool withBlkData)
 {
    SCOPED_TIMER("putStoredHeader");
+
+   // We may need to update DBInfo after this operation
+   StoredDBInfo sdbiH, sdbiB;
+   getStoredDBInfo(HEADERS, sdbiH);
+   getStoredDBInfo(BLKDATA, sdbiB);
+
    uint32_t height  = sbh.blockHeight_;
 
-   // First, check if it's already in the hash-indexed DB
+   // Check if it's already in the height-indexed DB - determine dupID if not
    StoredHeadHgtList hhl;
    getStoredHeadHgtList(hhl, height);
 
-   // Check if it's already in the height-indexed DB - determine dupID if not
    bool alreadyInHgtDB = false;
    if(hhl.dupAndHashList_.size() == 0)
    {
@@ -1200,13 +1231,20 @@ void InterfaceToLDB::putStoredHeader( StoredHeader & sbh, bool withBlkData)
       
    // Overwrite the existing hash-indexed entry, just in case the dupID was
    // not known when previously written.  
-   putValue(HEADERS, DB_PREFIX_HEADHASH, sbh.thisHash_, sbh.serializeDBValue(HEADERS));
+   putValue(HEADERS, DB_PREFIX_HEADHASH, sbh.thisHash_, 
+                                                sbh.serializeDBValue(HEADERS));
    commitBatch(HEADERS);
 
-   // Update our quick lookup table
+   // If this block is valid, update quick lookup table, and store it in DBInfo
    if(sbh.isMainBranch_)
    {
       setValidDupIDForHeight(sbh.blockHeight_, sbh.duplicateID_);
+      if(sbh.blockHeight_ > sdbiH.topBlkHgt_)
+      {
+         sdbiH.topBlkHgt_  = sbh.blockHeight_;
+         sdbiH.topBlkHash_ = sbh.thisHash_;
+         putStoredDBInfo(HEADERS, sdbiH);
+      }
    }
 
    ///////
@@ -1238,6 +1276,14 @@ void InterfaceToLDB::putStoredHeader( StoredHeader & sbh, bool withBlkData)
          // without updating the TxOuts.
          putStoredTx(txIter->second, true);
       }
+   }
+
+   // If this is a valid block being put in BLKDATA DB, update DBInfo
+   if(sbh.isMainBranch_ && sbh.blockHeight_ > sdbiB.topBlkHgt_)
+   {
+      sdbiB.topBlkHgt_  = sbh.blockHeight_;
+      sdbiB.topBlkHash_ = sbh.thisHash_;
+      putStoredDBInfo(BLKDATA, sdbiB);
    }
 
    commitBatch(BLKDATA);
@@ -2270,7 +2316,6 @@ bool InterfaceToLDB::markTxEntryValid(uint32_t height,
 bool InterfaceToLDB::addBlockToDB(StoredHeader const & sbh, 
                                   bool notNecessarilyValid)
 {
-   
    map<BinaryData, StoredScriptHistory> sshToModify;
    map<BinaryData, StoredTxHints>       hintsToModify;
    map<BinaryData, StoredTxOut>         stxosToModify;

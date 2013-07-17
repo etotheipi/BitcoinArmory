@@ -363,8 +363,10 @@ public:
 
 
    /////////////////////////////////////////////////////////////////////////////
-   BinaryData const & getRecipientAddr(void) const    { return recipientBinAddr20_; }
-   BinaryDataRef      getRecipientAddrRef(void) const { return recipientBinAddr20_.getRef(); }
+   BinaryData const & getScrAddressStr(void) const { return uniqueScrAddr_; }
+   BinaryDataRef      getScrAddressRef(void) const { return uniqueScrAddr_.getRef(); }
+   //BinaryData const & getRecipientAddr(void) const    { return recipientBinAddr20_; }
+   //BinaryDataRef      getRecipientAddrRef(void) const { return recipientBinAddr20_.getRef(); }
 
    /////////////////////////////////////////////////////////////////////////////
    BinaryData         getScript(void);
@@ -421,10 +423,11 @@ private:
    uint32_t          parentHeight_;
 
    // Derived properties - we expect these to be set after construct/copy
+   //BinaryData        recipientBinAddr20_;
+   BinaryData        uniqueScrAddr_;
+   TXOUT_SCRIPT_TYPE scriptType_;
    uint32_t          scriptOffset_;
    uint32_t          index_;
-   TXOUT_SCRIPT_TYPE scriptType_;
-   BinaryData        recipientBinAddr20_;
    TxRef             parentTx_;
 };
 
@@ -808,8 +811,8 @@ public:
          blkNum_(blkNum),
          txIndex_(txIndex) { }
 
-   RegisteredTx(TxRef txptr, BinaryData const & txHash, uint32_t blkNum, uint32_t txIndex) :
-         txRefObj_(txptr),
+   RegisteredTx(TxRef txref, BinaryData const & txHash, uint32_t blkNum, uint32_t txIndex) :
+         txRefObj_(txref),
          txHash_(txHash),
          blkNum_(blkNum),
          txIndex_(txIndex) { }

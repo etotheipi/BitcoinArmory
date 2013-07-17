@@ -5002,14 +5002,27 @@ TEST_F(LevelDBTest, GetFullBlock)
    sbh.setKeyData(123000);
    sbh.isMainBranch_ = true;
 
+   // Check the DBInfo before and after putting the valid header
+   StoredDBInfo sdbi;
+   iface_->getStoredDBInfo(HEADERS, sdbi);
+   EXPECT_EQ(sdbi.topBlkHgt_,  0);
+   EXPECT_EQ(sdbi.topBlkHash_, iface_->getGenesisBlockHash());
 
    iface_->putStoredHeader(sbh);
+
+   // Since we marked this block main-branch, it should have non-MAX validDup
+   EXPECT_EQ(iface_->getValidDupIDForHeight(123000), 0);
+   BinaryData headerHash = READHEX(
+      "7d97d862654e03d6c43b77820a40df894e3d6890784528e9cd05000000000000");
+   iface_->getStoredDBInfo(HEADERS, sdbi);
+   EXPECT_EQ(sdbi.topBlkHgt_,  123000);
+   EXPECT_EQ(sdbi.topBlkHash_, headerHash);
 
    BinaryData rawHeader = READHEX(
       "01000000eb10c9a996a2340a4d74eaab41421ed8664aa49d18538bab59010000"
       "000000005a2f06efa9f2bd804f17877537f2080030cadbfa1eb50e02338117cc"
       "604d91b9b7541a4ecfbb0a1a64f1ade7");
-   BinaryData headerHash = BtcUtils::getHash256(rawHeader);
+
    ////////////////////
    // Now test the get methods
   
@@ -5059,6 +5072,7 @@ TEST_F(LevelDBTest, GetFullBlock)
          EXPECT_EQ( sbhGet.stxMap_[1].stxoMap_[0].txOutIndex_,       0);
       }
    }
+
 }
 
 
