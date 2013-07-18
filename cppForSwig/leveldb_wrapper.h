@@ -350,8 +350,15 @@ public:
    bool getStoredDBInfo(DB_SELECT db, StoredDBInfo & sdbi, bool warn=true);
    
    /////////////////////////////////////////////////////////////////////////////
+   // BareHeaders are those int the HEADERS DB with no blockdta associated
+   uint8_t putBareHeader(StoredHeader & sbh); 
+   bool    getBareHeader(StoredHeader & sbh, uint32_t blkHgt, uint8_t dup); 
+   bool    getBareHeader(StoredHeader & sbh, uint32_t blkHgt); 
+   bool    getBareHeader(StoredHeader & sbh, BinaryDataRef headHash);
+
+   /////////////////////////////////////////////////////////////////////////////
    // StoredHeader accessors
-   void putStoredHeader(StoredHeader & sbh,
+   uint8_t putStoredHeader(StoredHeader & sbh,
                         bool withBlkData=true);
 
    bool getStoredHeader(StoredHeader & sbh,

@@ -374,6 +374,7 @@ BlockHeader StoredHeader::getBlockHeaderCopy(void) const
 
    bh.setNumTx(numTx_);
    bh.setBlockSize(numBytes_);
+   bh.setDuplicateID(duplicateID_);
 
    return bh;
 }
@@ -424,6 +425,7 @@ void StoredHeader::unserializeDBValue( DB_SELECT         db,
       BinaryData hgtx = brr.get_BinaryData(4);
       blockHeight_ = ARMDB.hgtxToHeight(hgtx);
       duplicateID_ = ARMDB.hgtxToDupID(hgtx);
+      BtcUtils::getHash256(dataCopy_, thisHash_);
    }
    else if(db==BLKDATA)
    {

@@ -94,6 +94,9 @@ public:
 
    void unserialize_swigsafe_(BinaryData const & rawHead) { unserialize(rawHead); }
 
+   uint8_t getDuplicateID(void) const { return duplicateID_; }
+   void    setDuplicateID(uint8_t d)  { duplicateID_ = d; }
+
    void clearDataCopy() {dataCopy_.resize(0);}
 
 private:
@@ -113,6 +116,9 @@ private:
    uint32_t       wholeBlockSize_;
    uint32_t       numTx_;
    uint32_t       numBlockBytes_; // includes header + nTx + sum(Tx)
+
+   // Specific to the DB storage
+   uint8_t        duplicateID_; // ID of this blk rel to others at same height
 
 };
 

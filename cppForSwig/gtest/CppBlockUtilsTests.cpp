@@ -1695,7 +1695,9 @@ TEST_F(BtcUtilsTest, TxOutScriptID_Hash160)
 ////////////////////////////////////////////////////////////////////////////////
 TEST_F(BtcUtilsTest, TxOutScriptID_PubKey65)
 {
-   BinaryData script = READHEX("4104b0bd634234abbb1ba1e986e884185c61cf43e001f9137f23c2c409273eb16e6537a576782eba668a7ef8bd3b3cfb1edb7117ab65129b8a2e681f3c1e0908ef7bac");
+   BinaryData script = READHEX(
+      "4104b0bd634234abbb1ba1e986e884185c61cf43e001f9137f23c2c409273eb1"
+      "6e6537a576782eba668a7ef8bd3b3cfb1edb7117ab65129b8a2e681f3c1e0908ef7bac");
    BinaryData a160   = READHEX(  "e24b86bff5112623ba67c63b6380636cbdf1a66d");
    BinaryData unique = READHEX("00e24b86bff5112623ba67c63b6380636cbdf1a66d");
    TXOUT_SCRIPT_TYPE scrType = BtcUtils::getTxOutScriptType(script);
@@ -1709,7 +1711,8 @@ TEST_F(BtcUtilsTest, TxOutScriptID_PubKey65)
 ////////////////////////////////////////////////////////////////////////////////
 TEST_F(BtcUtilsTest, TxOutScriptID_PubKey33)
 {
-   BinaryData script = READHEX("21024005c945d86ac6b01fb04258345abea7a845bd25689edb723d5ad4068ddd3036ac");
+   BinaryData script = READHEX(
+      "21024005c945d86ac6b01fb04258345abea7a845bd25689edb723d5ad4068ddd3036ac");
    BinaryData a160   = READHEX(  "0c1b83d01d0ffb2bccae606963376cca3863a7ce");
    BinaryData unique = READHEX("000c1b83d01d0ffb2bccae606963376cca3863a7ce");
    TXOUT_SCRIPT_TYPE scrType = BtcUtils::getTxOutScriptType(script);
@@ -1766,7 +1769,9 @@ TEST_F(BtcUtilsTest, TxOutScriptID_Multisig)
    BinaryData addr1  = READHEX("785652a6b8e721e80ffa353e5dfd84f0658284a9");
    BinaryData addr2  = READHEX("b3348abf9dd2d1491359f937e2af64b1bb6d525a");
    BinaryData a160   = BtcUtils::BadAddress_;
-   BinaryData unique = READHEX("fe0202785652a6b8e721e80ffa353e5dfd84f0658284a9b3348abf9dd2d1491359f937e2af64b1bb6d525a");
+   BinaryData unique = READHEX(
+      "fe0202785652a6b8e721e80ffa353e5dfd84f0658284a9b3348abf9dd2d14913"
+      "59f937e2af64b1bb6d525a");
 
    TXOUT_SCRIPT_TYPE scrType = BtcUtils::getTxOutScriptType(script);
    EXPECT_EQ(scrType, TXOUT_SCRIPT_MULTISIG);
@@ -1817,7 +1822,12 @@ TEST_F(BtcUtilsTest, TxOutScriptID_MultiList)
 ////////////////////////////////////////////////////////////////////////////////
 TEST_F(BtcUtilsTest, TxInScriptID_StdUncompr)
 {
-   BinaryData script = READHEX("493046022100b9daf2733055be73ae00ee0c5d78ca639d554fe779f163396c1a39b7913e7eac02210091f0deeb2e510c74354afb30cc7d8fbac81b1ca8b3940613379adc41a6ffd226014104b1537fa5bc2242d25ebf54f31e76ebabe0b3de4a4dccd9004f058d6c2caa5d31164252e1e04e5df627fae7adec27fa9d40c271fc4d30ff375ef6b26eba192bac");
+   BinaryData script = READHEX(
+      "493046022100b9daf2733055be73ae00ee0c5d78ca639d554fe779f163396c1a"
+      "39b7913e7eac02210091f0deeb2e510c74354afb30cc7d8fbac81b1ca8b39406"
+      "13379adc41a6ffd226014104b1537fa5bc2242d25ebf54f31e76ebabe0b3de4a"
+      "4dccd9004f058d6c2caa5d31164252e1e04e5df627fae7adec27fa9d40c271fc"
+      "4d30ff375ef6b26eba192bac");
    BinaryData a160 = READHEX("c42a8290196b2c5bcb35471b45aa0dc096baed5e");
    BinaryData prevHash = prevHashReg_;
 
@@ -1831,7 +1841,11 @@ TEST_F(BtcUtilsTest, TxInScriptID_StdUncompr)
 ////////////////////////////////////////////////////////////////////////////////
 TEST_F(BtcUtilsTest, TxInScriptID_StdCompr)
 {
-   BinaryData script = READHEX("47304402205299224886e5e3402b0e9fa3527bcfe1d73c4e2040f18de8dd17f116e3365a1102202590dcc16c4b711daae6c37977ba579ca65bcaa8fba2bd7168a984be727ccf7a01210315122ff4d41d9fe3538a0a8c6c7f813cf12a901069a43d6478917246dc92a782");
+   BinaryData script = READHEX(
+      "47304402205299224886e5e3402b0e9fa3527bcfe1d73c4e2040f18de8dd17f1"
+      "16e3365a1102202590dcc16c4b711daae6c37977ba579ca65bcaa8fba2bd7168"
+      "a984be727ccf7a01210315122ff4d41d9fe3538a0a8c6c7f813cf12a901069a4"
+      "3d6478917246dc92a782");
    BinaryData a160 = READHEX("03214fc1433a287e964d6c4242093c34e4ed0001");
    BinaryData prevHash = prevHashReg_;
 
@@ -1846,7 +1860,8 @@ TEST_F(BtcUtilsTest, TxInScriptID_StdCompr)
 ////////////////////////////////////////////////////////////////////////////////
 TEST_F(BtcUtilsTest, TxInScriptID_Coinbase)
 {
-   BinaryData script = READHEX("0310920304000071c3124d696e656420627920425443204775696c640800b75f950e000000");
+   BinaryData script = READHEX(
+      "0310920304000071c3124d696e656420627920425443204775696c640800b75f950e000000");
    BinaryData a160 =  BtcUtils::BadAddress_;
    BinaryData prevHash = prevHashCB_;
 
@@ -1860,7 +1875,10 @@ TEST_F(BtcUtilsTest, TxInScriptID_Coinbase)
 ////////////////////////////////////////////////////////////////////////////////
 TEST_F(BtcUtilsTest, TxInScriptID_SpendPubKey)
 {
-   BinaryData script = READHEX("47304402201ffc44394e5a3dd9c8b55bdc12147e18574ac945d15dac026793bf3b8ff732af022035fd832549b5176126f735d87089c8c1c1319447a458a09818e173eaf0c2eef101");
+   BinaryData script = READHEX(
+      "47304402201ffc44394e5a3dd9c8b55bdc12147e18574ac945d15dac026793bf"
+      "3b8ff732af022035fd832549b5176126f735d87089c8c1c1319447a458a09818"
+      "e173eaf0c2eef101");
    BinaryData a160 =  BtcUtils::BadAddress_;
    BinaryData prevHash = prevHashReg_;
 
@@ -1878,7 +1896,12 @@ TEST_F(BtcUtilsTest, TxInScriptID_SpendPubKey)
 TEST_F(BtcUtilsTest, TxInScriptID_SpendMultisig)
 {
 
-   BinaryData script = READHEX("004830450221009254113fa46918f299b1d18ec918613e56cffbeba0960db05f66b51496e5bf3802201e229de334bd753a2b08b36cc3f38f5263a23e9714a737520db45494ec095ce80148304502206ee62f539d5cd94f990b7abfda77750f58ff91043c3f002501e5448ef6dba2520221009d29229cdfedda1dd02a1a90bb71b30b77e9c3fc28d1353f054c86371f6c2a8101");
+   BinaryData script = READHEX(
+      "004830450221009254113fa46918f299b1d18ec918613e56cffbeba0960db05f"
+      "66b51496e5bf3802201e229de334bd753a2b08b36cc3f38f5263a23e9714a737"
+      "520db45494ec095ce80148304502206ee62f539d5cd94f990b7abfda77750f58"
+      "ff91043c3f002501e5448ef6dba2520221009d29229cdfedda1dd02a1a90bb71"
+      "b30b77e9c3fc28d1353f054c86371f6c2a8101");
    BinaryData a160 =  BtcUtils::BadAddress_;
    BinaryData prevHash = prevHashReg_;
    TXIN_SCRIPT_TYPE scrType = BtcUtils::getTxInScriptType(script, prevHash);
@@ -1890,8 +1913,14 @@ TEST_F(BtcUtilsTest, TxInScriptID_SpendMultisig)
 
    vector<BinaryDataRef> scrParts = BtcUtils::splitPushOnlyScriptRefs(script);
    BinaryData zero = READHEX("00");
-   BinaryData sig1 = READHEX("30450221009254113fa46918f299b1d18ec918613e56cffbeba0960db05f66b51496e5bf3802201e229de334bd753a2b08b36cc3f38f5263a23e9714a737520db45494ec095ce801");
-   BinaryData sig2 = READHEX("304502206ee62f539d5cd94f990b7abfda77750f58ff91043c3f002501e5448ef6dba2520221009d29229cdfedda1dd02a1a90bb71b30b77e9c3fc28d1353f054c86371f6c2a8101");
+   BinaryData sig1 = READHEX(
+      "30450221009254113fa46918f299b1d18ec918613e56cffbeba0960db05f66b5"
+      "1496e5bf3802201e229de334bd753a2b08b36cc3f38f5263a23e9714a737520d"
+      "b45494ec095ce801");
+   BinaryData sig2 = READHEX(
+      "304502206ee62f539d5cd94f990b7abfda77750f58ff91043c3f002501e5448e"
+      "f6dba2520221009d29229cdfedda1dd02a1a90bb71b30b77e9c3fc28d1353f05"
+      "4c86371f6c2a8101");
 
    EXPECT_EQ(scrParts.size(), 3);
    EXPECT_EQ(scrParts[0], zero);
@@ -1911,7 +1940,14 @@ TEST_F(BtcUtilsTest, TxInScriptID_SpendP2SH)
 
    // Spending P2SH output as above:  fd16d6bbf1a3498ca9777b9d31ceae883eb8cb6ede1fafbdd218bae107de66fe (TxIn: 1, 219 B)
    // Leading 0x00 byte is required due to a bug in OP_CHECKMULTISIG
-   BinaryData script = READHEX("004830450221009254113fa46918f299b1d18ec918613e56cffbeba0960db05f66b51496e5bf3802201e229de334bd753a2b08b36cc3f38f5263a23e9714a737520db45494ec095ce80148304502206ee62f539d5cd94f990b7abfda77750f58ff91043c3f002501e5448ef6dba2520221009d29229cdfedda1dd02a1a90bb71b30b77e9c3fc28d1353f054c86371f6c2a8101475221034758cefcb75e16e4dfafb32383b709fa632086ea5ca982712de6add93060b17a2103fe96237629128a0ae8c3825af8a4be8fe3109b16f62af19cec0b1eb93b8717e252ae");
+   BinaryData script = READHEX(
+      "004830450221009254113fa46918f299b1d18ec918613e56cffbeba0960db05f"
+      "66b51496e5bf3802201e229de334bd753a2b08b36cc3f38f5263a23e9714a737"
+      "520db45494ec095ce80148304502206ee62f539d5cd94f990b7abfda77750f58"
+      "ff91043c3f002501e5448ef6dba2520221009d29229cdfedda1dd02a1a90bb71"
+      "b30b77e9c3fc28d1353f054c86371f6c2a8101475221034758cefcb75e16e4df"
+      "afb32383b709fa632086ea5ca982712de6add93060b17a2103fe96237629128a"
+      "0ae8c3825af8a4be8fe3109b16f62af19cec0b1eb93b8717e252ae");
    BinaryData a160 =  READHEX("d0c15a7d41500976056b3345f542d8c944077c8a");
    BinaryData prevHash = prevHashReg_;
    TXIN_SCRIPT_TYPE scrType = BtcUtils::getTxInScriptType(script, prevHash);
@@ -4273,38 +4309,48 @@ protected:
       KVLIST fromDB = iface_->getAllDatabaseEntries(HEADERS);
 
       if(fromDB.size() < endplus1H || expectOutH_.size() < endplus1H)
+      {
+         LOGERR << "Headers DB not the correct size";
+         LOGERR << "DB  size:  " << (int)fromDB.size();
+         LOGERR << "Expected:  " << (int)expectOutH_.size();
          return false;
+      }
 
       for(uint32_t i=startH; i<endplus1H; i++)
          if(fromDB[i].first  != expectOutH_[i].first || 
             fromDB[i].second != expectOutH_[i].second)
       {
-            cout << "Mismatch of DB keys/values: " << i << endl;
-            cout << "KEYS: " << endl;
-            cout << "   Database:   " << fromDB[i].first.toHexStr() << endl;
-            cout << "   Expected:   " << expectOutH_[i].first.toHexStr() << endl;
-            cout << "VALUES: " << endl;
-            cout << "   Database:   " << fromDB[i].second.toHexStr() << endl;
-            cout << "   Expected:   " << expectOutH_[i].second.toHexStr() << endl;
-            return false;
+         LOGERR << "Mismatch of DB keys/values: " << i;
+         LOGERR << "KEYS: ";
+         LOGERR << "   Database:   " << fromDB[i].first.toHexStr();
+         LOGERR << "   Expected:   " << expectOutH_[i].first.toHexStr();
+         LOGERR << "VALUES: ";
+         LOGERR << "   Database:   " << fromDB[i].second.toHexStr();
+         LOGERR << "   Expected:   " << expectOutH_[i].second.toHexStr();
+         return false;
       }
 
       fromDB = iface_->getAllDatabaseEntries(BLKDATA);
       if(fromDB.size() < endplus1B || expectOutB_.size() < endplus1B)
+      {
+         LOGERR << "BLKDATA DB not the correct size";
+         LOGERR << "DB  size:  " << (int)fromDB.size();
+         LOGERR << "Expected:  " << (int)expectOutB_.size();
          return false;
+      }
 
       for(uint32_t i=startB; i<endplus1B; i++)
          if(fromDB[i].first  != expectOutB_[i].first || 
             fromDB[i].second != expectOutB_[i].second)
       {
-            cout << "Mismatch of DB keys/values: " << i << endl;
-            cout << "KEYS: " << endl;
-            cout << "   Database:   " << fromDB[i].first.toHexStr() << endl;
-            cout << "   Expected:   " << expectOutB_[i].first.toHexStr() << endl;
-            cout << "VALUES: " << endl;
-            cout << "   Database:   " << fromDB[i].second.toHexStr() << endl;
-            cout << "   Expected:   " << expectOutB_[i].second.toHexStr() << endl;
-            return false;
+         LOGERR << "Mismatch of DB keys/values: " << i;
+         LOGERR << "KEYS: ";
+         LOGERR << "   Database:   " << fromDB[i].first.toHexStr();
+         LOGERR << "   Expected:   " << expectOutB_[i].first.toHexStr();
+         LOGERR << "VALUES: ";
+         LOGERR << "   Database:   " << fromDB[i].second.toHexStr();
+         LOGERR << "   Expected:   " << expectOutB_[i].second.toHexStr();
+         return false;
       }
 
       return true;
@@ -4882,9 +4928,85 @@ TEST_F(LevelDBTest, PutFullBlockNoTx)
    addOutPairH( sbh_HH_key, sbh_HH_val);
    addOutPairH( sbh_HG_key, sbh_HG_val);
 
-   iface_->putStoredHeader(sbh, false);
+   uint8_t sdup = iface_->putStoredHeader(sbh, false);
    EXPECT_TRUE(compareKVListRange(0,3, 0,1));
+   EXPECT_EQ(sdup, 0);
 
+   // Try adding it again and see if get the correct dup again, and no touch DB
+   sdup = iface_->putStoredHeader(sbh, false);
+   EXPECT_TRUE(compareKVListRange(0,3, 0,1));
+   EXPECT_EQ(sdup, 0);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(LevelDBTest, PutGetBareHeader)
+{
+   ARMDB.setArmoryDbType(ARMORY_DB_FULL);
+   ARMDB.setDbPruneType(DB_PRUNE_NONE);
+
+   StoredHeader sbh;
+   BinaryRefReader brr(rawBlock_);
+   sbh.unserializeFullBlock(brr);
+   sbh.setKeyData(123000, UINT8_MAX);
+   BinaryData header0 = sbh.thisHash_;
+
+   ASSERT_TRUE(standardOpenDBs());
+
+   uint8_t sdup = iface_->putBareHeader(sbh);
+   EXPECT_EQ(sdup, 0);
+   EXPECT_EQ(sbh.duplicateID_, 0);
+
+   // Try adding it again and see if get the correct dup again, and no touch DB
+   sdup = iface_->putStoredHeader(sbh, false);
+   EXPECT_EQ(sdup, 0);
+   EXPECT_EQ(sbh.duplicateID_, 0);
+
+   // Add a new header and make sure duplicate ID is done correctly
+   BinaryData newHeader = READHEX( 
+      "0000000105d3571220ef5f87c6ac0bc8bf5b33c02a9e6edf83c84d840109592c"
+      "0000000027523728e15f5fe1ac507bff92499eada4af8a0c485d5178e3f96568"
+      "c18f84994e0e4efc1c0175d646a91ad4");
+   BinaryData header1 = BtcUtils::getHash256(newHeader);
+
+   StoredHeader sbh2;
+   sbh2.unserialize(newHeader);
+   sbh2.setKeyData(123000, UINT8_MAX);
+   
+   uint8_t newDup = iface_->putBareHeader(sbh2);
+   EXPECT_EQ(newDup, 1);
+   EXPECT_EQ(sbh2.duplicateID_, 1);
+   
+   // Now add a new, isMainBranch_ header
+   StoredHeader sbh3;
+   BinaryData anotherHead = READHEX(
+      "010000001d8f4ec0443e1f19f305e488c1085c95de7cc3fd25e0d2c5bb5d0000"
+      "000000009762547903d36881a86751f3f5049e23050113f779735ef82734ebf0"
+      "b4450081d8c8c84db3936a1a334b035b");
+   BinaryData header2 = BtcUtils::getHash256(anotherHead);
+
+   sbh3.unserialize(anotherHead);
+   sbh3.setKeyData(123000, UINT8_MAX);
+   sbh3.isMainBranch_ = true;
+   uint8_t anotherDup = iface_->putBareHeader(sbh3);
+   EXPECT_EQ(anotherDup, 2);
+   EXPECT_EQ(sbh3.duplicateID_, 2);
+   EXPECT_EQ(iface_->getValidDupIDForHeight(123000), 2);
+   
+   // Now test getting bare headers
+   StoredHeader sbh4;
+   iface_->getBareHeader(sbh4, 123000);
+   EXPECT_EQ(sbh4.thisHash_, header2);
+   EXPECT_EQ(sbh4.duplicateID_, 2);
+   
+   iface_->getBareHeader(sbh4, 123000, 1);
+   EXPECT_EQ(sbh4.thisHash_, header1);
+   EXPECT_EQ(sbh4.duplicateID_, 1);
+
+   // Re-add the same SBH3, make sure nothing changes
+   iface_->putBareHeader(sbh3);
+   EXPECT_EQ(sbh3.duplicateID_, 2);
+   EXPECT_EQ(iface_->getValidDupIDForHeight(123000), 2);
+   
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -4990,6 +5112,8 @@ TEST_F(LevelDBTest, PutFullBlock)
 
    ASSERT_TRUE(compareKVListRange(0,3, 0,9));
 }
+
+
 
 ////////////////////////////////////////////////////////////////////////////////
 // Of course, this test only works if the previous test passes (but doesn't 

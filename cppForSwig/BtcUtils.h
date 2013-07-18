@@ -468,7 +468,7 @@ public:
 
    /////////////////////////////////////////////////////////////////////////////
    static void getHash256(BinaryDataRef strToHash, 
-                          BinaryData    hashOutput)
+                          BinaryData &  hashOutput)
    {
       getHash256(strToHash.getPtr(), strToHash.getSize(), hashOutput);
    }

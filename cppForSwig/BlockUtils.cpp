@@ -1512,24 +1512,16 @@ bool BlockDataManager_LevelDB::checkLdbStatus(leveldb::Status stat)
 }
 
 /////////////////////////////////////////////////////////////////////////////
-bool BlockDataManager_LevelDB::initializeDBandBlkFiles(ARMORY_DB_TYPE dbtype,
-                                                       DB_PRUNE_TYPE  prtype)
+bool BlockDataManager_LevelDB::initializeDBInterface(ARMORY_DB_TYPE dbtype,
+                                                     DB_PRUNE_TYPE  prtype)
 {
-   SCOPED_TIMER("readHeadersDB");
+   SCOPED_TIMER("initializeDBInterface");
    if(!isBlkParamsSet_ || !isLevelDBSet_)
    {
       cerr << "Cannot sync databases until blockfile params and LevelDB"
            << "paths are set. " << endl;
       return false;
    }
-
-   headerMap_.clear();
-   BinaryData headerHash(32);
-   BinaryData headerData(HEADER_SIZE);
-   BlockHeader thisHeader;
-   uint8_t const * keyPtr;
-   uint8_t const * dataPtr;
-   uint8_t const * rawHeadPtr;
 
 
    iface_->openDatabases(blkFileDir_, 
@@ -1539,46 +1531,89 @@ bool BlockDataManager_LevelDB::initializeDBandBlkFiles(ARMORY_DB_TYPE dbtype,
                          dbtype, 
                          prtype);
 
-   // (1) Read transient database
-   //readTransientDB()
+   // (1) Read all headers from the HEADERS DB
+   headerMap_.clear();
+   map<HashString, StoredHeader> sbhMap;
+   iface_->readAllHeaders(headerMap_, sbhMap);
 
-   // (1) Read all headers and organize the chain
-
-   leveldb::Iterator* it = headerDB_->NewIterator(leveldb::ReadOptions());
-   for(it->SeekToFirst(); it->Valid(); it->Next())
-   {
-      /*
-      // It's important to remember that:
-      //  (1) The fileDataPtr points to the magic bytes before the block on disk
-      //  (2) The blkBytes refers only to header+nTx+tx1+tx2+...+txn
-      headerHash.copyFrom((uint8_t const *)(it->key().data()), 32);
-      dataPtr = (uint8_t const *)(it->value().data());
-
-      fileIndex  = READ_UINT16_LE((dataPtr +  0));
-      startByte  = READ_UINT32_LE((dataPtr +  2));
-      blkBytes   = READ_UINT32_LE((dataPtr +  6));
-      rawHeadPtr = READ_UINT32_LE((dataPtr + 10));
-
-      // Create the header with this data
-      thisHeader.unserialize(rawHeadPtr, HEADER_SIZE);
-      thisHeader.setBlockSize(blkBytes);
-
-      if(thisHeader.getThisHash() != headerHash)
-         cerr << "Header hash in DB does not match header data!" << endl;
-
-      thisHeader.setBlockFilePtr(FileDataPtr(fileIndex, startByte, blkBytes));
-      headerMap_[thisHeader.getThisHash()] = thisHeader;
-      */
-      
-   }
-
-   // This will organize the headers into a tree and find the longest chain
+   // Organize them into the longest chain
    organizeChain(true);
 
+   // Now go through and check that the stored headers match the reorganized
+   uint32_t topBlockDB = getTopBlockHeight();
+   TIMER_START("initializeDBInterface::checkAllHeaders");
+   for(uint32_t i=0; i<=headersByHeight_.size(); i++)
+   {
+      // Go through all valid headers and make sure they are stored correctly
+      BinaryDataRef headHash = headersByHeight_[i]->getThisHashRef();
+      StoredHeader & sbh = sbhMap[headHash];
+      if(!sbh.isMainBranch_)
+      {
+         LOGWARN << "StoredHeader was not properly marked as valid";
+         LOGWARN << "(hgt, dup) = (" << sbh.blockHeight_ << ", " 
+                 << sbh.duplicateID_ << ")";
+         sbh.isMainBranch_ = true;
+         iface_->putStoredHeader(sbh, false);
+      }
+      iface_->setValidDupIDForHeight(sbh.duplicateID_);
+   }
+   TIMER_STOP("initializeDBInterface::checkAllHeaders");
 
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+// The name of this function reflects that we are going to implement headers-
+// first "verification."  Rather, we are going to organize the chain of headers
+// before we add any blocks, and then only add blocks that are on the main 
+// chain.  Return false if these headers induced a reorg.
+bool BlockDataManager_LevelDB::addHeadersFirst(vector<BinaryData> headVect)
+{
+   vector<BlockHeader*> headersToDB;
+   headersToDB.reserve(headVect.size());
+   for(uint32_t h=0; h<headVect.size(); h++)
+   {
+      pair<HashString, BlockHeader>                      bhInputPair;
+      pair<map<HashString, BlockHeader>::iterator, bool> bhInsResult;
+
+      // Actually insert it.  Take note of whether it was already there.
+      bhInputPair.second.unserialize(headVect[h]);
+      bhInputPair.first = bhInputPair.second.getThisHash();
+      bhInsResult       = headerMap_.insert(bhInputPair);
+
+      //if(bhInsResult.second) // true means didn't exist before
+      headersToDB.push_back(&(bhInsResult.first->second));
+   }
+
+   // Organize the chain with the new headers, note whether a reorg occurred
+   bool prevTopBlockStillValid = organizeChain();
+
+   // Add the main-branch headers to the DB.  We will handle reorg ops later.
+   // The batching is safe because, since we never write duplicates
+   iface_->startBatch(HEADERS);
+   for(uint32_t h=0; h<headersToDB.size(); h++)
+   {
+      if(!headersToDB[i]->isMainBranch())
+         continue;
+
+      StoredHeader sbh;
+      sbh.CreateFromBlockHeader(*headersToDB[i]);
+      uint8_t dup = iface_->putBareHeader(sbh);
+      headersToDB[i]->setDuplicateID(dup);
+   }
+   iface_->commitBatch(HEADERS);
+
+}
+
+
+
+   // 
+   // This is an ancient first shot at some DB code... it doesn't match 
+   // any of the infrastructure we have now, but I left it in case I need
+   // to go back and look at my thought process back then.
+   /*
    // (2) Now let's make sure the blk files are the same ones used to construct
    //     these databases, originally.
-   uint32_t topBlockDB    = getTopBlockHeight();
    //uint32_t topBlockSyncd = ldbSyncHeightWithBlkFiles();
 
    TIMER_START("findHighestSyncBlock");
@@ -1589,7 +1624,6 @@ bool BlockDataManager_LevelDB::initializeDBandBlkFiles(ARMORY_DB_TYPE dbtype,
    bool prevIterSyncd = false;
    for(int32_t h=top; h>=0; h-=syncStepSize)
    {
-      /*
       BinaryData & dbCopy   = getHeaderByHeight(h)->serialize();
       BinaryData   diskCopy = headPtr->getBlockFilePtr().getDataCopy();
       if(dbCopy == diskCopy)
@@ -1600,7 +1634,6 @@ bool BlockDataManager_LevelDB::initializeDBandBlkFiles(ARMORY_DB_TYPE dbtype,
       }
       else if(prevIterSyncd)
          prevIterSyncd = false;
-      */
    }
 
    if(topBlockSyncd <= syncStepSize)
@@ -1624,26 +1657,22 @@ bool BlockDataManager_LevelDB::initializeDBandBlkFiles(ARMORY_DB_TYPE dbtype,
       // (3b) Simply fetch all updates to the blockchain files since last exit
       // We have to make sure our next readBlkFileUpdate starts at the correct 
       // place (one block past the current top block).
-      /*
       BlockHeader * bhptr = &getTopBlockHeader();
       uint32_t topBlkSize  = bhptr->getBlockSize();
       uint32_t topBlkStart = bhptr->getBlockFilePtr()->getStartByte();
       lastBlkFileBytes_ = topBlkStart + topBlkSize; // magic bytes & blk sz
       lastTopBlock_ = topBlockDB;
-      */
    }
-
-
-
-
 
    //updateRegisteredAddresses(topBlock - 12);
    //readBlkFileUpdate();
 }
+*/
 
 
 
-
+// Same as above... this code is ancient!
+/*
 void readTransientDB(void)
 {
    // All the transient data from the last time Armory was running:
@@ -1651,7 +1680,6 @@ void readTransientDB(void)
    //    Registered Tx's (all blockchain tx relevant to this wallet)
    //    Registered OutPoints (basically, the UTXO set for these wallets)
    //    Registered OutPoints (basically, the UTXO set for these wallets)
-   /*
    leveldb::Iterator* it;
    //it = transientDB_->NewIterator(leveldb::ReadOptions());
    BinaryData entryType(4);
@@ -1744,8 +1772,8 @@ void readTransientDB(void)
    {
       alreadyBlk = min(alreadyBlk, iter->second.alreadyScannedUpToBlk_);
    }
-   */
 }
+*/
 
 
 /////////////////////////////////////////////////////////////////////////////
@@ -1754,6 +1782,7 @@ void readTransientDB(void)
 // the blkfiles, we'll just rebuild everything (it's unlikely we'll save 
 // too much time in the rare cases this is needed, and the partial rebuild
 // will be much more reliable).  Nonetheless, we could theoretically 
+/*
 bool BlockDataManager_LevelDB::rebuildDatabases(uint32_t startAtBlk)
 {
    SCOPED_TIMER("rebuildDatabases");
@@ -1795,8 +1824,8 @@ bool BlockDataManager_LevelDB::rebuildDatabases(uint32_t startAtBlk)
    
    // Modified from RAM implementation to write scanned data directly to DB
    parseEntireBlockchain();
-      
 }
+*/
 
 
 
@@ -2547,6 +2576,7 @@ void BlockDataManager_LevelDB::pprintRegisteredWallets(void)
    }
 }
 
+/////////////////////////////////////////////////////////////////////////////
 BtcWallet* BlockDataManager_LevelDB::createNewWallet(void)
 {
    BtcWallet* newWlt = new BtcWallet(this);
@@ -3280,9 +3310,9 @@ vector<bool> BlockDataManager_LevelDB::addNewBlockData(BinaryRefReader & brrRawB
 
    // Now parse the block data and record where it will be on disk
    bool addDataSucceeded = parseNewBlock(brrRawBlock, 
-                                             fileIndex0Idx,
-                                             thisHeaderOffset,
-                                             blockSize);
+                                         fileIndex0Idx,
+                                         thisHeaderOffset,
+                                         blockSize);
 
 
    vector<bool> vb(3);
@@ -3513,14 +3543,15 @@ bool BlockDataManager_LevelDB::organizeChain(bool forceRebuild)
       thisHeaderPtr->isOrphan_       = false;
       headersByHeight_[thisHeaderPtr->getBlockHeight()] = thisHeaderPtr;
 
+      // This loop not necessary anymore with the DB implementation
       // We need to guarantee that the txs are pointing to the right block
       // header, because they could've been linked to an invalidated block
-      for(uint32_t i=0; i<thisHeaderPtr->getTxRefPtrList().size(); i++)
-      {
-         TxRef & tx = *(thisHeaderPtr->getTxRefPtrList()[i]);
-         tx.setHeaderPtr(thisHeaderPtr);
+      //for(uint32_t i=0; i<thisHeaderPtr->getTxRefPtrList().size(); i++)
+      //{
+         //TxRef & tx = *(thisHeaderPtr->getTxRefPtrList()[i]);
+         //tx.setHeaderPtr(thisHeaderPtr);
          //tx.setMainBranch(true);
-      }
+      //}
 
       HashString & childHash    = thisHeaderPtr->thisHash_;
       thisHeaderPtr             = &(headerMap_[thisHeaderPtr->getPrevHash()]);
@@ -4006,6 +4037,85 @@ bool BlockDataManager_LevelDB::isTxFinal(Tx & tx)
 
 
 
+////////////////////////////////////////////////////////////////////////////////
+// AddBlockTODB
+//
+// Assumptions:
+//  -- We have already determined the correct height and dup for the header 
+//     and we assume it's part of the sbh object
+//  -- We don't know if it's been added to the databases yet.
+//
+// Things to do when adding a block:
+//
+//  -- PREPARATION:
+//    -- Create list of all OutPoints affected, and scripts touched
+//    -- If not supernode, then check above data against registeredSSHs_
+//    -- Fetch all StoredTxOuts from DB about to be removed
+//    -- Get/create TXHINT entries for all tx in block
+//    -- Compute all script keys and get/create all StoredScriptHistory objs
+//    -- Check if any multisig scripts are affected, if so get those objs
+//    -- If pruning, create StoredUndoData from TxOuts about to be removed
+//    -- Modify any Tx/TxOuts in the SBH tree to accommodate any tx in this 
+//       block that affect any other tx in this block
+//
+//
+//  -- Check if the block {hgt,dup} has already been written to BLKDATA DB
+//  -- Check if the header has already been added to HEADERS DB
+//  
+//  -- BATCH (HEADERS)
+//    -- Add header to HEADHASH list
+//    -- Add header to HEADHGT list
+//    -- Update validDupByHeight_
+//    -- Update DBINFO top block data
+//
+//  -- BATCH (BLKDATA)
+//    -- Modify StoredTxOut with spentness info (or prep a delete operation
+//       if pruning).
+//    -- Modify StoredScriptHistory objs same as above.  
+//    -- Modify StoredScriptHistory multisig objects as well.
+//    -- Update SSH objects alreadyScannedUpToBlk_, if necessary
+//    -- Write all new TXDATA entries for {hgt,dup}
+//    -- If pruning, write StoredUndoData objs to DB
+//    -- Update DBINFO top block data
+//
+// IMPORTANT: we also need to make sure this method does nothing if the
+//            block has already been added properly (though, it okay for 
+//            it to take time to verify nothing needs to be done).  We may
+//            end up replaying some blocks to force consistency of the DB, 
+//            and this method needs to be robust to replaying already-added
+//            blocks, as well as fixing data if the replayed block appears
+//            to have been added already but is different.
+//
+//
+//
+bool InterfaceToLDB::addBlockToDB(BinaryDataRef fullBlock,
+                                  bool notNecessarilyValid,
+                                  bool withPrefix)
+{
+   StoredHeader sbh;
+   sbh.unserializeFullBlock(fullBlock, true, withPrefix);
+   addBlockToDB(sbh, notNecessarilyValid);
+}
+
+bool InterfaceToLDB::addBlockToDB(StoredHeader const & sbh, 
+                                  bool notNecessarilyValid)
+{
+   map<BinaryData, StoredScriptHistory> sshToModify;
+   map<BinaryData, StoredTxHints>       hintsToModify;
+   map<BinaryData, StoredTxOut>         stxosToModify;
+   set<BinaryData>                      keysToDelete;
+
+   // Consider if the block is already in here
+   if(sbh.duplicateID_ == UINT8_MAX)
+   {
+      iface_->getStoredHeader(HEADER
+   }
+
+   for(uint32_t itx=0; itx<sbh.stxMap_.size(); itx++)
+   {
+
+   }
+}
 
 
 

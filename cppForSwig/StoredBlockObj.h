@@ -283,7 +283,7 @@ public:
    uint8_t        duplicateID_;
    BinaryData     merkle_;
    bool           merkleIsPartial_;
-   uint8_t        isMainBranch_;
+   bool           isMainBranch_;
 
    bool           isPartial_;
    map<uint16_t, StoredTx> stxMap_;

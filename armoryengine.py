@@ -13077,64 +13077,79 @@ else:
 #
 import collections
 TimerMap = collections.OrderedDict()
+# Wanted to used namedtuple, but that would be immutable
+class TimerObj(object):
+   def __init__(self):
+      self.cumulTime = 0
+      self.callCount = 0
+      self.lastStart = 0
+      self.isRunning = False
+      
 
-def TimerStart(timerName):
+################################################################################
+def TimerStart(timerName, nCall=1):
    if not TimerMap.has_key(timerName):
-      TimerMap[timerName] = [0, 0, 0, False]
+      TimerMap[timerName] = TimerObj()
 
    timerEntry = TimerMap[timerName]
-   timerEntry[1] += 1
-   timerEntry[2]  = RightNow()
-   timerEntry[3]  = True
+   timerEntry.callCount += nCall
+   timerEntry.lastStart  = RightNow()
+   timerEntry.isRunning  = True
 
+################################################################################
 def TimerStop(timerName):
    if not TimerMap.has_key(timerName):
       LOGWARN('Requested stop timer that does not exist! (%s)' % timerName)
       return
 
-   if not TimerMap[timerName][3]:
+   if not TimerMap[timerName].isRunning:
       LOGWARN('Requested stop timer that is not running! (%s)' % timerName)
       return
 
    timerEntry = TimerMap[timerName]
-   timerEntry[0] += RightNow() - timerEntry[2]
-   timerEntry[2]  = 0
-   timerEntry[3]  = False
+   timerEntry.cumulTime += RightNow() - timerEntry.lastStart
+   timerEntry.lastStart  = 0
+   timerEntry.isRunning  = False
 
 
-
+################################################################################
 def TimerReset(timerName):
    if not TimerMap.has_key(timerName):
       LOGERROR('Requested reset timer that does not exist! (%s)' % timerName)
 
    # Even if it didn't exist, it will be created now
-   TimerMap[timerName] = [0, 0, 0, False]
+   TimerMap[timerName] = TimerObj(0,0,0,False)
 
 
+################################################################################
 def ReadTimer(timerName):
    if not TimerMap.has_key(timerName):
       LOGERROR('Requested read timer that does not exist! (%s)' % timerName)
       return
 
    timerEntry = TimerMap[timerName]
-   return timerEntry[0] + (RightNow() - timerEntry[2])
+   return timerEntry.cumulTime + (RightNow() - timerEntry.lastStart)
    
 
 def PrintTimings():
-   print 'Timings:  '.ljust(30), 
-   print 'nCall'.rjust(13),
-   print 'cumulTime'.rjust(13),
-   print 'avgTime'.rjust(13)
-   print '-'*70
-   for tname,quad in TimerMap.iteritems():
-      print ('%s' % tname).ljust(30), 
-      print ('%d' % quad[1]).rjust(13),
-      print ('%0.6f' % quad[0]).rjust(13),
-      avg = quad[0]/quad[1]
-      print ('%0.6f' % avg).rjust(13)
-   print '-'*70
+   print 'Timings:  '.ljust(22), 
+   print 'nCall'.rjust(8),
+   print 'cumulTime'.rjust(12),
+   print 'avgTime'.rjust(12),
+   print 'ops/sec'.rjust(12)
+   print '-'*80
+   for tname,tobj in TimerMap.iteritems():
+      print ('%s' % tname).ljust(22), 
+      print ('%d' % tobj.callCount).rjust(8),
+      print ('%0.6f' % tobj.cumulTime).rjust(12),
+      avg = tobj.cumulTime/tobj.callCount
+      ops = tobj.callCount/tobj.cumulTime
+      print ('%0.6f' % avg).rjust(12),
+      print ('%0.2f' % ops).rjust(12)
+   print '-'*80
       
 
+##
 def SaveTimingsCSV(fname):
    f = open(fname, 'w')
    f.write( 'TimerName,')
@@ -13142,10 +13157,10 @@ def SaveTimingsCSV(fname):
    f.write( 'cumulTime,')
    f.write( 'avgTime\n\n')
    for tname,quad in TimerMap.iteritems():
-      f.write('%s,' % tname)
-      f.write('%d,' % quad[1])
-      f.write('%0.6f,' % quad[0])
-      avg = quad[0]/quad[1]
+      f.write('"%s",' % tname)
+      f.write('%d,' % quad.callCount)
+      f.write('%0.6f,' % quad.cumulTime)
+      avg = quad.cumulTime/quad.callCount
       f.write('%0.6f\n' % avg)
    f.write('\n\nNote: timings may be incorrect if errors '
                       'were triggered in the timed functions')

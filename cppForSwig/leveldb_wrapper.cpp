@@ -1191,77 +1191,19 @@ bool InterfaceToLDB::getStoredDBInfo(DB_SELECT db, StoredDBInfo & sdbi, bool war
 //
 // NOTE:  If you want this header to be marked valid/invalid, make sure the 
 //        isMainBranch_ property of the SBH is set appropriate before calling.
-void InterfaceToLDB::putStoredHeader( StoredHeader & sbh, bool withBlkData)
+uint8_t InterfaceToLDB::putStoredHeader( StoredHeader & sbh, bool withBlkData)
 {
    SCOPED_TIMER("putStoredHeader");
-
-   // We may need to update DBInfo after this operation
-   StoredDBInfo sdbiH, sdbiB;
-   getStoredDBInfo(HEADERS, sdbiH);
+   StoredDBInfo sdbiB;
    getStoredDBInfo(BLKDATA, sdbiB);
 
-   uint32_t height  = sbh.blockHeight_;
-
-   // Check if it's already in the height-indexed DB - determine dupID if not
-   StoredHeadHgtList hhl;
-   getStoredHeadHgtList(hhl, height);
-
-   bool alreadyInHgtDB = false;
-   if(hhl.dupAndHashList_.size() == 0)
-   {
-      sbh.setKeyData(height, 0);
-      hhl.addDupAndHash(0, sbh.thisHash_);
-   }
-   else
-   {
-      int8_t maxDup = -1;
-      for(uint8_t i=0; i<hhl.dupAndHashList_.size(); i++)
-      {
-         uint8_t dup = hhl.dupAndHashList_[i].first;
-         maxDup = max(maxDup, (int8_t)dup);
-         if(sbh.thisHash_ == hhl.dupAndHashList_[i].second)
-         {
-            alreadyInHgtDB = true;
-            sbh.setKeyData(height, dup);
-            break;
-         }
-      }
-
-      if(!alreadyInHgtDB)
-      {
-         sbh.setKeyData(height, maxDup+1);
-         hhl.addDupAndHash(maxDup+1, sbh.thisHash_);
-      }
-   }
-   
-   // Batch the two operations to make sure they both hit the DB, or neither 
-   startBatch(HEADERS);
-
-   if(!alreadyInHgtDB)
-      putStoredHeadHgtList(hhl);
-      
-   // Overwrite the existing hash-indexed entry, just in case the dupID was
-   // not known when previously written.  
-   putValue(HEADERS, DB_PREFIX_HEADHASH, sbh.thisHash_, 
-                                                sbh.serializeDBValue(HEADERS));
-   commitBatch(HEADERS);
-
-   // If this block is valid, update quick lookup table, and store it in DBInfo
-   if(sbh.isMainBranch_)
-   {
-      setValidDupIDForHeight(sbh.blockHeight_, sbh.duplicateID_);
-      if(sbh.blockHeight_ > sdbiH.topBlkHgt_)
-      {
-         sdbiH.topBlkHgt_  = sbh.blockHeight_;
-         sdbiH.topBlkHash_ = sbh.thisHash_;
-         putStoredDBInfo(HEADERS, sdbiH);
-      }
-   }
+   // Put header into HEADERS DB
+   uint8_t newDup = putBareHeader(sbh);
 
    ///////
    // If we only wanted to update the headers DB, we're done.
    if(!withBlkData)
-      return;
+      return newDup;
 
    startBatch(BLKDATA);
 
@@ -1298,8 +1240,151 @@ void InterfaceToLDB::putStoredHeader( StoredHeader & sbh, bool withBlkData)
    }
 
    commitBatch(BLKDATA);
+   return newDup;
 }
 
+////////////////////////////////////////////////////////////////////////////////
+// Puts bare header into HEADERS DB.  Use "putStoredHeader" to add to both
+// (which actually calls this method as the first step)
+//
+// Returns the duplicateID of the header just inserted
+uint8_t InterfaceToLDB::putBareHeader(StoredHeader & sbh)
+{
+   SCOPED_TIMER("putBareHeader");
+
+   if(!sbh.isInitialized())
+   {
+      LOGERR << "Attempting to put uninitialized bare header into DB";
+      return UINT8_MAX;
+   }
+
+   StoredDBInfo sdbiH;
+   getStoredDBInfo(HEADERS, sdbiH);
+
+   uint32_t height  = sbh.blockHeight_;
+   uint8_t sbhDupID = UINT8_MAX;
+
+   // Check if it's already in the height-indexed DB - determine dupID if not
+   StoredHeadHgtList hhl;
+   getStoredHeadHgtList(hhl, height);
+
+   bool alreadyInHgtDB = false;
+   bool needToWriteHHL = false;
+   if(hhl.dupAndHashList_.size() == 0)
+   {
+      sbhDupID = 0;
+      hhl.addDupAndHash(0, sbh.thisHash_);
+      needToWriteHHL = true;
+   }
+   else
+   {
+      int8_t maxDup = -1;
+      for(uint8_t i=0; i<hhl.dupAndHashList_.size(); i++)
+      {
+         uint8_t dup = hhl.dupAndHashList_[i].first;
+         maxDup = max(maxDup, (int8_t)dup);
+         if(sbh.thisHash_ == hhl.dupAndHashList_[i].second)
+         {
+            alreadyInHgtDB = true;
+            sbhDupID = dup;
+            if(hhl.preferredDup_ != dup && sbh.isMainBranch_)
+            {
+               // The header was in the head-hgt list, but not preferred
+               hhl.preferredDup_ = dup;
+               needToWriteHHL = true;
+            }
+            break;
+         }
+      }
+
+      if(!alreadyInHgtDB)
+      {
+         needToWriteHHL = true;
+         sbhDupID = maxDup+1;
+         hhl.addDupAndHash(sbhDupID, sbh.thisHash_);
+         if(sbh.isMainBranch_)
+            hhl.preferredDup_ = sbhDupID;
+      }
+   }
+
+   sbh.setKeyData(height, sbhDupID);
+   
+   // Batch the two operations to make sure they both hit the DB, or neither 
+   startBatch(HEADERS);
+
+   if(needToWriteHHL)
+      putStoredHeadHgtList(hhl);
+      
+   // Overwrite the existing hash-indexed entry, just in case the dupID was
+   // not known when previously written.  
+   putValue(HEADERS, DB_PREFIX_HEADHASH, sbh.thisHash_, 
+                                                sbh.serializeDBValue(HEADERS));
+
+   // If this block is valid, update quick lookup table, and store it in DBInfo
+   if(sbh.isMainBranch_)
+   {
+      setValidDupIDForHeight(sbh.blockHeight_, sbh.duplicateID_);
+      if(sbh.blockHeight_ >= sdbiH.topBlkHgt_)
+      {
+         sdbiH.topBlkHgt_  = sbh.blockHeight_;
+         sdbiH.topBlkHash_ = sbh.thisHash_;
+         putStoredDBInfo(HEADERS, sdbiH);
+      }
+   }
+   commitBatch(HEADERS);
+   return sbhDupID;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// "BareHeader" refers to 
+bool InterfaceToLDB::getBareHeader(StoredHeader & sbh, 
+                                   uint32_t blockHgt, 
+                                   uint8_t dup)
+{
+   SCOPED_TIMER("getBareHeader");
+
+   // Get the hash from the head-hgt list
+   StoredHeadHgtList hhl;
+   if(!getStoredHeadHgtList(hhl, blockHgt))
+   {
+      LOGERR << "No headers at height " << blockHgt;
+      return false;
+   }
+
+   for(uint32_t i=0; i<hhl.dupAndHashList_.size(); i++)
+      if(dup==hhl.dupAndHashList_[i].first)
+         return getBareHeader(sbh, hhl.dupAndHashList_[i].second);
+
+   return false;
+
+}
+
+////////////////////////////////////////////////////////////////////////////////
+bool InterfaceToLDB::getBareHeader(StoredHeader & sbh, uint32_t blockHgt)
+{
+   SCOPED_TIMER("getBareHeader(duplookup)");
+
+   uint8_t dupID = getValidDupIDForHeight(blockHgt);
+   if(dupID == UINT8_MAX)
+      LOGERR << "Headers DB has no block at height: " << blockHgt; 
+
+   return getBareHeader(sbh, blockHgt, dupID);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+bool InterfaceToLDB::getBareHeader(StoredHeader & sbh, BinaryDataRef headHash)
+{
+   SCOPED_TIMER("getBareHeader(hashlookup)");
+
+   BinaryRefReader brr = getValueReader(HEADERS, DB_PREFIX_HEADHASH, headHash);
+   if(brr.getSize() == 0)
+   {
+      LOGERR << "Header found in HHL but hash does not exist in DB";
+      return false;
+   }
+   sbh.unserializeDBValue(HEADERS, brr);
+   return true;
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 bool InterfaceToLDB::getStoredHeader( StoredHeader & sbh,
@@ -1348,7 +1433,7 @@ bool InterfaceToLDB::getStoredHeader( StoredHeader & sbh,
                                       BinaryDataRef headHash, 
                                       bool withTx)
 {
-   SCOPED_TIMER("getStoredHeader");
+   SCOPED_TIMER("getStoredHeader(hashlookup)");
 
    BinaryData headEntry = getValue(HEADERS, DB_PREFIX_HEADHASH, headHash); 
    if(headEntry.getSize() == 0)
@@ -1369,6 +1454,8 @@ bool InterfaceToLDB::getStoredHeader( StoredHeader & sbh,
                                       uint32_t blockHgt,
                                       bool withTx)
 {
+   SCOPED_TIMER("getStoredHeader(duplookup)");
+
    uint8_t dupID = getValidDupIDForHeight(blockHgt);
    if(dupID == UINT8_MAX)
       LOGERR << "Headers DB has no block at height: " << blockHgt; 
@@ -2275,63 +2362,6 @@ bool InterfaceToLDB::markTxEntryValid(uint32_t height,
 
 
 
-////////////////////////////////////////////////////////////////////////////////
-// Assumptions:
-//  -- We have already determined the correct height and dup for the header 
-//     and we assume it's part of the sbh object
-//  -- We don't know if it's been added to the databases yet.
-//
-// Things to do when adding a block:
-//
-//  -- PREPARATION:
-//    -- Create list of all OutPoints affected, and scripts touched
-//    -- If not supernode, then check above data against registeredSSHs_
-//    -- Fetch all StoredTxOuts from DB about to be removed
-//    -- Get/create TXHINT entries for all tx in block
-//    -- Compute all script keys and get/create all StoredScriptHistory objs
-//    -- Check if any multisig scripts are affected, if so get those objs
-//    -- If pruning, create StoredUndoData from TxOuts about to be removed
-//    -- Modify any Tx/TxOuts in the SBH tree to accommodate any tx in this 
-//       block that affect any other tx in this block
-//
-//
-//  -- Check if the block {hgt,dup} has already been written to BLKDATA DB
-//  -- Check if the header has already been added to HEADERS DB
-//  
-//  -- BATCH (HEADERS)
-//    -- Add header to HEADHASH list
-//    -- Add header to HEADHGT list
-//    -- Update validDupByHeight_
-//    -- Update DBINFO top block data
-//
-//  -- BATCH (BLKDATA)
-//    -- Modify StoredTxOut with spentness info (or prep a delete operation
-//       if pruning).
-//    -- Modify StoredScriptHistory objs same as above.  
-//    -- Modify StoredScriptHistory multisig objects as well.
-//    -- Update SSH objects alreadyScannedUpToBlk_, if necessary
-//    -- Write all new TXDATA entries for {hgt,dup}
-//    -- If pruning, write StoredUndoData objs to DB
-//    -- Update DBINFO top block data
-//
-// IMPORTANT: we also need to make sure this method does nothing if the
-//            block has already been added properly (though, it okay for 
-//            it to take time to verify nothing needs to be done).  We may
-//            end up replaying some blocks to force consistency of the DB, 
-//            and this method needs to be robust to replaying already-added
-//            blocks, as well as fixing data if the replayed block appears
-//            to have been added already but is different.
-//
-//
-//
-bool InterfaceToLDB::addBlockToDB(StoredHeader const & sbh, 
-                                  bool notNecessarilyValid)
-{
-   map<BinaryData, StoredScriptHistory> sshToModify;
-   map<BinaryData, StoredTxHints>       hintsToModify;
-   map<BinaryData, StoredTxOut>         stxosToModify;
-   set<BinaryData>                      keysToDelete;
-}
 
 
 ////////////////////////////////////////////////////////////////////////////////
