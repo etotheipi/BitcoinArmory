@@ -711,7 +711,7 @@ void BtcWallet::scanTx(Tx & tx,
             if( addrIter == scrAddrMap_.end())
             {
                // Have TxIO but address is not in the map...?
-               cout << "ERROR: TxIn in TxIO map, but addr not in wallet...?" << endl;
+               LOGERR << "ERROR: TxIn in TxIO map, but addr not in wallet...?";
                continue;
             }
             thisAddrPtr = &addrIter->second;
@@ -1056,34 +1056,30 @@ void BtcWallet::scanNonStdTx(uint32_t blknum,
    int findIdx = txout.getScriptRef().find(thisAddr.getScrAddr());
    if(findIdx > -1)
    {
-      cout << "ALERT:  Found non-standard transaction referencing" << endl;
-      cout << "        an address in your wallet.  There is no way" << endl;
-      cout << "        for this program to determine if you can" << endl;
-      cout << "        spend these BTC or not.  Please email the" << endl;
-      cout << "        following information to etotheipi@gmail.com" << endl;
-      cout << "        for help identifying the transaction and how" << endl;
-      cout << "        to spend it:" << endl;
-      cout << endl;
-      cout << "   Block Number: " << blknum << endl;
-      cout << "   Tx Hash:      " << tx.getThisHash().copySwapEndian().toHexStr() 
-                               << " (BE)" << endl;
-      cout << "   TxOut Index:  " << txoutidx << endl;
-      cout << "   PubKey Hash:  " << thisAddr.getScrAddr().toHexStr() 
-                               << " (LE)" << endl;
-      cout << "   RawScript:    " << endl;
+      LOGERR << "ALERT:  Found non-standard transaction referencing";
+      LOGERR << "        an address in your wallet.  There is no way";
+      LOGERR << "        for this program to determine if you can";
+      LOGERR << "        spend these BTC or not.  Please email the";
+      LOGERR << "        following information to etotheipi@gmail.com";
+      LOGERR << "        for help identifying the transaction and how";
+      LOGERR << "        to spend it:";
+      LOGERR << "   Block Number: " << blknum;
+      LOGERR << "   Tx Hash:      " << tx.getThisHash().copySwapEndian().toHexStr() 
+                               << " (BE)";
+      LOGERR << "   TxOut Index:  " << txoutidx;
+      LOGERR << "   PubKey Hash:  " << thisAddr.getScrAddr().toHexStr() << " (LE)";
+      LOGERR << "   RawScript:    ";
       BinaryDataRef scr = txout.getScriptRef();
       uint32_t sz = scr.getSize(); 
       for(uint32_t i=0; i<sz; i+=32)
       {
          if( i < sz-32 )
-            cout << "      " << scr.getSliceCopy(i,sz-i).toHexStr();
+            LOGERR << "      " << scr.getSliceCopy(i,sz-i).toHexStr();
          else
-            cout << "      " << scr.getSliceCopy(i,32).toHexStr();
+            LOGERR << "      " << scr.getSliceCopy(i,32).toHexStr();
       }
-      cout << endl;
-      cout << "   Attempting to interpret script:" << endl;
+      LOGERR << "   Attempting to interpret script:";
       BtcUtils::pprintScript(scr);
-      cout << endl;
 
 
       OutPoint outpt(tx.getThisHash(), txoutidx);      
@@ -1355,10 +1351,9 @@ BlockDataManager_LevelDB::~BlockDataManager_LevelDB(void)
 /////////////////////////////////////////////////////////////////////////////
 // We must set the network-specific data for this blockchain
 //
-// bdm.SetBtcNetworkParams( 
-//       BinaryData::CreateFromHex(MAINNET_GENESIS_HASH_HEX),
-//       BinaryData::CreateFromHex(MAINNET_GENESIS_TX_HASH_HEX),
-//       BinaryData::CreateFromHex(MAINNET_MAGIC_BYTES));
+// bdm.SetBtcNetworkParams( READHEX(MAINNET_GENESIS_HASH_HEX),
+//                          READHEX(MAINNET_GENESIS_TX_HASH_HEX),
+//                          READHEX(MAINNET_MAGIC_BYTES));
 //
 // The above call will work 
 void BlockDataManager_LevelDB::SetBtcNetworkParams(
@@ -1440,10 +1435,6 @@ bool BlockDataManager_LevelDB::SetBlkFileLocation(string   blkdir,
    isBlkParamsSet_ = true;
 
 
-   // Initialize a global cache that will be used...
-   FileDataCache & globalCache = FileDataPtr::getGlobalCacheRef();
-   globalCache.setCacheSize(cacheSize);
-
    // Next thing we need to do is find all the blk000X.dat files.
    // BtcUtils::GetFileSize uses only ifstreams, and thus should be
    // able to determine if a file exists in an OS-independent way.
@@ -1466,9 +1457,9 @@ bool BlockDataManager_LevelDB::SetBlkFileLocation(string   blkdir,
    numBlkFiles_--;
 
    if(numBlkFiles_!=UINT16_MAX)
-      cout << "Highest blkXXXX.dat file: " << numBlkFiles_ << endl;
+      LOGERR << "Highest blkXXXX.dat file: " << numBlkFiles_;
    else
-      cerr << "Error finding blockchain files (blkXXXX.dat)" << endl;
+      LOGERR << "Error finding blockchain files (blkXXXX.dat)";
 
    return (numBlkFiles_!=UINT16_MAX);
 }
@@ -1478,23 +1469,18 @@ void BlockDataManager_LevelDB::SelectNetwork(string netName)
 {
    if(netName.compare("Main") == 0)
    {
-      SetBtcNetworkParams( 
-         BinaryData::CreateFromHex(MAINNET_GENESIS_HASH_HEX),
-         BinaryData::CreateFromHex(MAINNET_GENESIS_TX_HASH_HEX),
-         BinaryData::CreateFromHex(MAINNET_MAGIC_BYTES)         );
+      SetBtcNetworkParams( READHEX(MAINNET_GENESIS_HASH_HEX),
+                           READHEX(MAINNET_GENESIS_TX_HASH_HEX),
+                           READHEX(MAINNET_MAGIC_BYTES)         );
    }
    else if(netName.compare("Test") == 0)
    {
-      SetBtcNetworkParams( 
-         BinaryData::CreateFromHex(TESTNET_GENESIS_HASH_HEX),
-         BinaryData::CreateFromHex(TESTNET_GENESIS_TX_HASH_HEX),
-         BinaryData::CreateFromHex(TESTNET_MAGIC_BYTES)         );
+      SetBtcNetworkParams( READHEX(TESTNET_GENESIS_HASH_HEX),
+                           READHEX(TESTNET_GENESIS_TX_HASH_HEX),
+                           READHEX(TESTNET_MAGIC_BYTES)         );
    }
    else
-   {
-      cout << "ERROR: Unrecognized network name" << endl;
-      cerr << "ERROR: Unrecognized network name" << endl;
-   }
+      LOGERR << "ERROR: Unrecognized network name";
 
    isNetParamsSet_ = true;
 }
@@ -1507,7 +1493,7 @@ bool BlockDataManager_LevelDB::checkLdbStatus(leveldb::Status stat)
    if( stat.ok() )
       return true;
 
-   cerr << "***LevelDB Error: " << stat.ToString() << endl;
+   LOGERR << "***LevelDB Error: " << stat.ToString();
    return false;
 }
 
@@ -1518,8 +1504,7 @@ bool BlockDataManager_LevelDB::initializeDBInterface(ARMORY_DB_TYPE dbtype,
    SCOPED_TIMER("initializeDBInterface");
    if(!isBlkParamsSet_ || !isLevelDBSet_)
    {
-      cerr << "Cannot sync databases until blockfile params and LevelDB"
-           << "paths are set. " << endl;
+      LOGERR << "Cannot sync DB until blkfile and LevelDB paths are set. ";
       return false;
    }
 
@@ -1567,7 +1552,19 @@ bool BlockDataManager_LevelDB::initializeDBInterface(ARMORY_DB_TYPE dbtype,
 // first "verification."  Rather, we are going to organize the chain of headers
 // before we add any blocks, and then only add blocks that are on the main 
 // chain.  Return false if these headers induced a reorg.
-bool BlockDataManager_LevelDB::addHeadersFirst(vector<BinaryData> headVect)
+bool BlockDataManager_LevelDB::addHeadersFirst(BinaryDataRef rawHeader)
+{
+   vector<BinaryData> toAdd(1);
+   toAdd[0] = rawHeader.copy();
+   return addHeadersFirst(toAdd);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// Add the headers to the DB, which is required before putting raw blocks.
+// Can only put raw blocks when we know their height and dupID.  After we 
+// put the headers, then we put raw blocks.  Then we go through the valid
+// headers and applyToDB the raw blocks.
+bool BlockDataManager_LevelDB::addHeadersFirst(vector<BinaryData> const & headVect)
 {
    vector<BlockHeader*> headersToDB;
    headersToDB.reserve(headVect.size());
@@ -1589,7 +1586,7 @@ bool BlockDataManager_LevelDB::addHeadersFirst(vector<BinaryData> headVect)
    bool prevTopBlockStillValid = organizeChain();
 
    // Add the main-branch headers to the DB.  We will handle reorg ops later.
-   // The batching is safe because, since we never write duplicates
+   // The batching is safe since we never write multiple blocks at the same hgt
    iface_->startBatch(HEADERS);
    for(uint32_t h=0; h<headersToDB.size(); h++)
    {
@@ -1603,7 +1600,20 @@ bool BlockDataManager_LevelDB::addHeadersFirst(vector<BinaryData> headVect)
    }
    iface_->commitBatch(HEADERS);
 
+   // We need to add the non-main-branch headers, too.  
+   for(uint32_t h=0; h<headersToDB.size(); h++)
+   {
+      if(headersToDB[i]->isMainBranch())
+         continue;
+
+      StoredHeader sbh;
+      sbh.CreateFromBlockHeader(*headersToDB[i]);
+      uint8_t dup = iface_->putBareHeader(sbh);
+      headersToDB[i]->setDuplicateID(dup);
+   }
+   return prevTopBlockStillValid;
 }
+
 
 
 
@@ -1640,8 +1650,8 @@ bool BlockDataManager_LevelDB::addHeadersFirst(vector<BinaryData> headVect)
       topBlockSyncd = 0;
 
    TIMER_STOP("findHighestSyncBlock");
-   cout << "TopHeaderInDB: "           << topBlockDB << ", "
-        << "TopHeaderFoundInBlkFile: " << topBlockSyncd << endl;
+   LOGERR << "TopHeaderInDB: "           << topBlockDB << ", "
+          << "TopHeaderFoundInBlkFile: " << topBlockSyncd;
   
 
    // I know I just found where the synchronization diverged... but really,
@@ -1747,7 +1757,7 @@ void readTransientDB(void)
          BinaryData rawTx(dataPtr+8, dataSz-8);
          if( BtcUtils::getHash256(rawTx) != entryKey)
          {
-            cerr << "WARNING:  Zero-conf tx does not match its own hash!" << endl;
+            LOGERR << "WARNING:  Zero-conf tx does not match its own hash!";
             continue;
          }
 
@@ -1789,8 +1799,8 @@ bool BlockDataManager_LevelDB::rebuildDatabases(uint32_t startAtBlk)
    
    if(!isBlkParamsSet_ || !isLevelDBSet_)
    {
-      cerr << "Cannot rebuild databases until blockfile params and LevelDB"
-           << "paths are set. " << endl;
+      LOGERR << "Cannot rebuild databases until blockfile params and LevelDB"
+             << "paths are set. ";
       return false;
    }
 
@@ -1798,8 +1808,8 @@ bool BlockDataManager_LevelDB::rebuildDatabases(uint32_t startAtBlk)
    // For now, if we
    if(startAtBlk!=0)
    {
-      cerr << "RebuildDB: Partial rebuilds not supported yet.  "
-           << "Doing full rebuild" << endl;
+      LOGERR << "RebuildDB: Partial rebuilds not supported yet.  "
+             << "Doing full rebuild";
    }
 
    delete headerDB_;  
@@ -1924,16 +1934,16 @@ void BlockDataManager_LevelDB::Reset(void)
 /////////////////////////////////////////////////////////////////////////////
 int32_t BlockDataManager_LevelDB::getNumConfirmations(HashString txHash)
 {
-   TxRef* txrefptr = getTxRefByHash(txHash);
-   if(txrefptr == NULL)
+   TxRef txrefobj = getTxRefByHash(txHash);
+   if(txrefobj.isNull())
       return TX_NOT_EXIST;
    else
    {
-      if(txrefptr->getHeaderPtr() == NULL)
+      if(txrefobj->getHeaderPtr() == NULL)
          return TX_0_UNCONFIRMED; 
       else
       { 
-         BlockHeader & txbh = *(txrefptr->getHeaderPtr());
+         BlockHeader & txbh = *(txrefobj->getHeaderPtr());
          if(!txbh.isMainBranch())
             return TX_OFF_MAIN_BRANCH;
 
@@ -2024,9 +2034,10 @@ TxRef BlockDataManager_LevelDB::getTxRefByHash(HashString const & txhash)
 //
 //        i.e. transactions with same 4-byte prefix -- OK
 //             transactions with same 32-byte hash  -- NOT OK
+/* I don't think this is needed anymore after the LevelDB upgrade
 TxRef * BlockDataManager_LevelDB::insertTxRef(HashString const & txHash, 
-                                               FileDataPtr & fdp,
-                                               BlockHeader * bhptr)
+                                              FileDataPtr & fdp,
+                                              BlockHeader * bhptr)
 {
    static multimap<HashString, TxRef>::iterator lowerBound;
    static multimap<HashString, TxRef>::iterator upperBound;
@@ -2053,15 +2064,16 @@ TxRef * BlockDataManager_LevelDB::insertTxRef(HashString const & txHash,
    txInsResult = txHintMap_.insert(lowerBound, txInputPair);
    return &(txInsResult->second);
 }
+*/
 
 /////////////////////////////////////////////////////////////////////////////
 Tx BlockDataManager_LevelDB::getTxByHash(HashString const & txhash)
 {
 
-   TxRef txrefptr = getTxRefByHash(txhash);
+   TxRef txrefobj = getTxRefByHash(txhash);
 
-   if(txrefptr!=NULL)
-      return txrefptr->getTxCopy();
+   if(!txrefobj.isNull())
+      return txrefobj->getTxCopy();
    else
    {
       // It's not in the blockchain, but maybe in the zero-conf tx list
@@ -2524,11 +2536,7 @@ void BlockDataManager_LevelDB::rescanBlocks(uint32_t blk0, uint32_t blk1)
    for(uint32_t h=blk0; h<blk1; h++)
    {
       BlockHeader & bhr = *(headersByHeight_[h]);
-      vector<TxRef*> const & txlist = bhr.getTxRefPtrList();
-
-      // This call simply pulls the entire block into cache, so that 
-      // all the subsequent TxRef dereferences will be super fast.
-      bhr.getBlockFilePtr().preCacheThisChunk();
+      vector<TxRef> const & txlist = bhr.getTxRefPtrList();
 
       bytesReadSoFar_ += bhr.getBlockSize();
 
@@ -2621,7 +2629,7 @@ void BlockDataManager_LevelDB::scanRegisteredTxForWallet( BtcWallet & wlt,
       Tx theTx = txIter->getTxCopy();
       if( !theTx.isInitialized() )
       {
-         cout << "***WARNING: How did we get a NULL tx?" << endl;
+         LOGWARN << "***WARNING: How did we get a NULL tx?";
          continue;
       }
 
@@ -2730,19 +2738,16 @@ vector<TxRef*> BlockDataManager_LevelDB::findAllNonStdTx(void)
 uint32_t BlockDataManager_LevelDB::parseEntireBlockchain(uint32_t cacheSize)
 {
    SCOPED_TIMER("parseEntireBlockchain");
-   cout << "Number of registered addr: " << registeredScrAddrMap_.size() << endl;
+   LOGINFO << "Number of registered addr: " << registeredScrAddrMap_.size();
 
    // Remove this file
-   string bfile = armoryHomeDir_ + string("/blkfiles.txt");
+   string bfile     = armoryHomeDir_ + string("/blkfiles.txt");
    string abortFile = armoryHomeDir_ + string("/abortload.txt");
    if(BtcUtils::GetFileSize(bfile) != FILE_DOES_NOT_EXIST)
       remove(bfile.c_str());
    if(BtcUtils::GetFileSize(abortFile) != FILE_DOES_NOT_EXIST)
       remove(abortFile.c_str());
 
-   // Initialize a global cache that will be used...
-   FileDataCache & globalCache = FileDataPtr::getGlobalCacheRef();
-   globalCache.setCacheSize(cacheSize);
 
    // Next thing we need to do is find all the blk000X.dat files.
    // BtcUtils::GetFileSize uses only ifstreams, and thus should be
@@ -2768,17 +2773,16 @@ uint32_t BlockDataManager_LevelDB::parseEntireBlockchain(uint32_t cacheSize)
 
    if(numBlkFiles_==UINT16_MAX)
    {
-      cout << "Error finding blockchain files (blkXXXX.dat)" << endl;
+      LOGERR << "Error finding blockchain files (blkXXXX.dat)";
       return 0;
    }
-   cout << "Highest blkXXXX.dat file: " << numBlkFiles_ << endl;
+   LOGINFO << "Highest blkXXXX.dat file: " << numBlkFiles_;
 
 
 
    if(GenesisHash_.getSize() == 0)
    {
-      cout << "***ERROR: Set net params before loading blockchain!" << endl;
-      cerr << "***ERROR: Set net params before loading blockchain!" << endl;
+      LOGERR << "***ERROR: Set net params before loading blockchain!";
       return 0;
    }
 
@@ -2791,7 +2795,7 @@ uint32_t BlockDataManager_LevelDB::parseEntireBlockchain(uint32_t cacheSize)
    for(uint32_t fnum=1; fnum<=numBlkFiles_; fnum++)
    {
       string blkfile = blkFileList_[fnum-1];
-      cout << "Attempting to read blockchain file: " << blkfile.c_str() << endl;
+      LOGINFO << "Attempting to read blockchain file: " << blkfile.c_str();
       uint64_t filesize = globalCache.getFileSize(fnum-1);
 
       // Open the file, and check the magic bytes on the first block
@@ -2799,14 +2803,13 @@ uint32_t BlockDataManager_LevelDB::parseEntireBlockchain(uint32_t cacheSize)
       BinaryData fileMagic(4);
       is.read((char*)(fileMagic.getPtr()), 4);
       is.seekg(0, ios::beg);
-      cout << blkfile.c_str() << " is " << 
-                 BtcUtils::numToStrWCommas(filesize).c_str() << " bytes" << endl;
+      LOGINFO << blkfile.c_str() << " is " 
+              << BtcUtils::numToStrWCommas(filesize).c_str() << " bytes";
 
       if( !(fileMagic == MagicBytes_ ) )
       {
-         cerr << "***ERROR:  Block file is for the wrong network!" << endl;
-         cerr << "           MagicBytes of this file: " ;
-         cerr << fileMagic.toHexStr().c_str() << endl;
+         LOGERR << "Block file is the wrong network!  MagicBytes: "
+                << fileMagic.toHexStr().c_str();
          return 0;
       }
 
@@ -2879,8 +2882,7 @@ uint32_t BlockDataManager_LevelDB::parseEntireBlockchain(uint32_t cacheSize)
 
 
    // We need to maintain the physical size of all blkXXXX.dat files together
-   //FileDataCache & globalCache = FileDataPtr::getGlobalCacheRef();
-   totalBlockchainBytes_ = globalCache.getCumulFileSize();
+   totalBlockchainBytes_ = bytesReadSoFar_;
 
 
 
@@ -2937,8 +2939,7 @@ uint32_t BlockDataManager_LevelDB::readBlkFileUpdate(void)
 
    if( filesize == FILE_DOES_NOT_EXIST )
    {
-      cout << "***ERROR:  Cannot open " << filename.c_str() << endl;
-      cerr << "***ERROR:  Cannot open " << filename.c_str() << endl;
+      LOGERR << "***ERROR:  Cannot open " << filename.c_str();
       return 0;
    }
    else if((int64_t)filesize-(int64_t)endOfPrevLastBlock_ < 8)
@@ -2989,9 +2990,6 @@ uint32_t BlockDataManager_LevelDB::readBlkFileUpdate(void)
    if(currBlkBytesToRead==0 && nextBlkBytesToRead==0)
       return 0;
    
-   // Force the caching code to close and re-open block file to see new data
-   FileDataPtr::getGlobalCacheRef().refreshLastFile();
-
    // Observe if everything was up to date when we started, because we're 
    // going to add new blockchain data and don't want to trigger a rescan 
    // if this is just a normal update.
@@ -3051,10 +3049,7 @@ uint32_t BlockDataManager_LevelDB::readBlkFileUpdate(void)
          break;
          
       uint32_t nextBlockSize = brr.get_uint32_t();
-      blockAddResults = addNewBlockData( brr,
-                                         useFileIndex0Idx,
-                                         blockHeaderOffset,
-                                         nextBlockSize);
+      blockAddResults = addNewBlockData( brr, nextBlockSize);
 
 
       bool blockAddSucceeded = blockAddResults[0];
@@ -3094,7 +3089,6 @@ uint32_t BlockDataManager_LevelDB::readBlkFileUpdate(void)
    cout << "Added new blocks to memory pool: " << nBlkRead << endl;
    if(nextBlkBytesToRead>0)
    {
-      FileDataPtr::getGlobalCacheRef().openFile(numBlkFiles_, nextFilename);
       numBlkFiles_ += 1;
       blkFileList_.push_back(nextFilename);
    }
@@ -3230,10 +3224,6 @@ bool BlockDataManager_LevelDB::parseNewBlock(BinaryRefReader & brr,
    bhInsResult = headerMap_.insert(bhInputPair);
    BlockHeader * bhptr = &(bhInsResult.first->second);
 
-   // The pointer will be going out of scope, but keep the file location data
-   FileDataPtr fdpThisBlock(fileIndex0Idx, thisHeaderOffset-8, blockSize+8); 
-   bhptr->setBlockFilePtr(fdpThisBlock);
-
    // Note where we will start looking for the next block, later
    endOfPrevLastBlock_ = thisHeaderOffset + blockSize;
 
@@ -3258,9 +3248,6 @@ bool BlockDataManager_LevelDB::parseNewBlock(BinaryRefReader & brr,
       uint8_t const * ptrToRawTx = brr.getCurrPtr();
       
       txSize = BtcUtils::TxCalcLength(ptrToRawTx, &offsetsIn, &offsetsOut);
-
-      FileDataPtr fdpThisTx(fileIndex0Idx, txOffset, txSize);
-      txInputPair.second.setBlkFilePtr(fdpThisTx);
 
       // Insert the FileDataPtr into the multimap
       BtcUtils::getHash256_NoSafetyCheck(ptrToRawTx, txSize, hashResult);
@@ -3300,9 +3287,7 @@ bool BlockDataManager_LevelDB::parseNewBlock(BinaryRefReader & brr,
 // Btw, yes I know I could've used a bitset here, but I was too lazy to add
 // the #include and look up the members for using it...
 vector<bool> BlockDataManager_LevelDB::addNewBlockData(BinaryRefReader & brrRawBlock,
-                                                        uint32_t fileIndex0Idx,
-                                                        uint32_t thisHeaderOffset,
-                                                        uint32_t blockSize)
+                                                       uint32_t blockSize)
 {
    SCOPED_TIMER("addNewBlockData");
    uint8_t const * startPtr = brrRawBlock.getCurrPtr();
@@ -4038,12 +4023,55 @@ bool BlockDataManager_LevelDB::isTxFinal(Tx & tx)
 
 
 ////////////////////////////////////////////////////////////////////////////////
-// AddBlockTODB
+/* just like the addHeadersFirst -- this is changing the fundamental way that
+ * we handle blockchain data, and we should avoid doing it on the first major
+ * upgrade.  We may come back to tihs code later.
+bool BlockDataManager_LevelDB::addRawBlockToDB(BinaryDataRef fullBlock,
+                                               bool notNecessarilyValid,
+                                               bool withPrefix)
+{
+   StoredHeader sbh;
+   sbh.unserializeFullBlock(fullBlock, true, withPrefix);
+
+   
+   bool prevTopBlockStillValid = addHeadersFirst(sbh.dataCopy_);
+   if(sbh.duplicateID_==UINT8_MAX)
+   {
+      LOGERR << "Could not insert header for some reason";
+      return false;
+   }
+
+   if(!prevTopBlockStillValid)
+   {
+      LOGWARN << "Reorg detected!";
+      purgeZeroConfPool();
+   
+      vector<StoredHeader> blocksToUndo;
+      BlockHeader* bhptr = prevTopBlockPtr_;
+      while(bhptr != reorgBranchPoint_)
+      {
+         StoredHeader sbhTemp;
+         iface_->getStoredHeader(sbhTemp, bhptr->getThisHash(), true);
+         blocksToUndo.push_back(sbhTemp);
+      }
+
+      for(uint32_t i=0; i<blocksToUndo.size(); i++)
+      { 
+         undoBlockInDatabase(sbh); 
+      }
+   }
+
+   return insertBlockData(sbh, notNecessarilyValid);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// AddRawBlockTODB
 //
 // Assumptions:
 //  -- We have already determined the correct height and dup for the header 
 //     and we assume it's part of the sbh object
-//  -- We don't know if it's been added to the databases yet.
+//  -- It has definitely been added to the headers DB (bail if not)
+//  -- We don't know if it's been added to the blkdata DB yet
 //
 // Things to do when adding a block:
 //
@@ -4086,46 +4114,201 @@ bool BlockDataManager_LevelDB::isTxFinal(Tx & tx)
 //            blocks, as well as fixing data if the replayed block appears
 //            to have been added already but is different.
 //
-//
-//
-bool InterfaceToLDB::addBlockToDB(BinaryDataRef fullBlock,
-                                  bool notNecessarilyValid,
-                                  bool withPrefix)
+bool BlockDataManager_LevelDB::insertBlockData(StoredHeader const & sbh, 
+                                     bool notNecessarilyValid)
 {
-   StoredHeader sbh;
-   sbh.unserializeFullBlock(fullBlock, true, withPrefix);
-   addBlockToDB(sbh, notNecessarilyValid);
-}
+   StoredHeader sbhTemp;
+   if(!iface_->getBareHeader(sbhTemp, sbh.thisHash_))
+   {
+      LOGERR << "Cannot add full block until it's added to the HEADERS DB"; 
+      return false;
+   }
 
-bool InterfaceToLDB::addBlockToDB(StoredHeader const & sbh, 
-                                  bool notNecessarilyValid)
-{
-   map<BinaryData, StoredScriptHistory> sshToModify;
-   map<BinaryData, StoredTxHints>       hintsToModify;
-   map<BinaryData, StoredTxOut>         stxosToModify;
-   set<BinaryData>                      keysToDelete;
+   if(sbh.stxMap_.size() == 0)
+   {
+      LOGERR << "Cannot add block without transactions!";
+      return false;
+   }
 
    // Consider if the block is already in here
    if(sbh.duplicateID_ == UINT8_MAX)
    {
-      iface_->getStoredHeader(HEADER
+      LOGERR << "Dup ID must be set already before calling insertBlockData";
+      return false;
    }
+   
+   uint32_t height = sbh.blockHeight_;
+   uint8_t  dupID  = sbh.duplicateID_;
+
+   map<BinaryData, StoredScriptHistory> sshToModify;
+   map<BinaryData, StoredTxHints>       hintsToModify;
+   map<BinaryData, StoredTx>            stxToAdd;
+   map<BinaryData, StoredTxOut>         stxosToModify;
+   set<BinaryData>                      keysToDelete;
 
    for(uint32_t itx=0; itx<sbh.stxMap_.size(); itx++)
    {
 
    }
 }
+*/
 
 
 
 
+////////////////////////////////////////////////////////////////////////////////
+bool BlockDataManager_LevelDB::addTxToDB(Tx & tx)
+{
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// Assume that stx.blockHeight_ and .duplicateID_ are set correctly
+// TODO:  Make sure that if Tx5 spends an input from Tx2 in the same 
+//        block that it is handled correctly, etc.
+bool BlockDataManager_LevelDB::addTxToDB(
+                        StoredTx &                             thisSTX,
+                        map<BinaryData, StoredTx> &            stxToModify,
+                        map<BinaryData, StoredScriptHistory> & sshToModify,
+                        set<BinaryData> &                      keysToDelete)
+{
+
+   // Anything else to do besides simply store it in the DB?
+   if(!isMainBranch)
+   {
+      iface_->putStoredTx(thisSTX, true);
+      return true;
+   }
+
+   
+   Tx tx = thisSTX.getFullTxCopy();
+
+   if(stxToModify.find(tx.getThisHash()) != stxToModify.end())
+      LOGERR << "How did we already add this tx?";
+
+   // Obvious this thisSTX will have to be added
+   stxToModify[tx.getThisHash()] = thisSTX;
+   
+   // Go through and find all the previous TxOuts that are affect by this tx
+   StoredTx stxTemp;
+   StoredScriptHistory sshTemp;
+
+   for(uint32_t iin=0; iin<tx.getNumTxIn(); iin++)
+   {
+      TxIn txin = tx.getTxIn(iin);
+      if(txin.isCoinbase())
+         continue;
+
+      OutPoint op = txin.getOutPoint()
+      BinaryDataRef opTxHash = op.getTxHashRef();
+      uint32_t      opTxoIdx = op.getTxOutIndex();
+
+      StoredTx * stxptr;
+      StoredScriptHistory * sshptr;
+
+      // Get the existing STX or make a new one
+      if(stxToModify.find(opTxHash) != stxToModify.end())
+         stxptr = &stxToModify[opTxHash];
+      else
+      {
+         iface_->getStoredTx(stxTemp, opTxHash);
+         stxToModify[opTxHash] = stxTemp;
+         stxptr = &stxToModify[opTxHash];
+      }
+
+      StoredTxOut & stxo = stxptr->stxoMap_[opTxoIdx];
+      BinaryData uniqKey = stxo.getScrAddress();
+
+
+      // Get the existing SSH or make a new one
+      if(sshToModify.find(uniqKey) != sshToModify.end())
+         stxptr = &stxToModify[opTxHash];
+      else
+      {
+         iface_->getStoredScriptHistory(sshTemp, uniqKey);
+         sshToModify[uniqKey] = sshTemp; 
+         sshptr = &sshToModify[uniqKey];
+      }
+
+
+      // Modify the stxo in the tempor
+      map<uint32_t, StoredTxOut>::iterator iter = stxptr->stxoMap_.find(opTxoIdx);
+      if(iter == stxptr->stxoMap_.end())
+      {
+         LOGERR << "Needed to get OutPoint for a TxIn, but DNE";
+         continue;
+      }
+   
+      if(stxTemp.stxoMap_[opTxoIdx].spentness_ == TXOUT_SPENT)
+      {
+         LOGERR << "Trying to mark TxOut spent, but it's already marked";
+         continue;
+      }
+
+      // Need to modify existing UTXOs, so that we can delete or mark as spent
+      StoredTxOut & stxo = stxptr->stxoMap_[opTxoIdx];
+      stxo.spentness_ = TXOUT_SPENT;
+      stxo.spentByTxInKey_ = ARMDB.getBlkDataKeyNoPrefix(thisSTX.blockHeight_, 
+                                                         thisSTX.duplicateID_, 
+                                                         thisSTX.txIndex_, 
+                                                         iin);
+
+      if(ARMDB.getArmoryDbType() != ARMORY_DB_SUPER)
+      {
+         LOGERR << "Don't know what to do this in non-supernode mode!";
+      }
+
+      // Assuming supernode, we don't need to worry about removing references
+      // to multisig scripts that reference this script.  Simply find and 
+      // update the correct SSH TXIO directly
+      for(uint32_t i=0; i<sshptr->txioVect_.size(); i++)
+      {
+         TxIOPair & txio = sshptr->txioVect[i]; 
+         if(txio.getTxRefOfOutput().getDBKey() == stxo.getDBKey())
+         {
+            txio.setTxIn(TxRef(thisSTX.getDBKey()), iin);
+            break;
+         }
+      }
+   }
+
+   return true;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+bool BlockDataManager_LevelDB::addRawBlockToDB(StoredHeader & sbh)
+{
+   SCOPED_TIMER("addRawBlockToDB");
+
+   if(!sbh.isInitialized())
+   {
+      LOGERR << "Cannot add raw block to DB when SBH object is uninitialized";
+      return false;
+   }
+   
+   if(sbh.stxMap_.size() == 0)
+   {
+      LOGERR << "Cannot add raw block to DB without any transactions";
+      return false;
+   }
+
+   if(sbh.blockHeight_==UINT32_MAX || sbh.duplicateID_==UINT8_MAX)
+   {
+      LOGERR << "Cannot add raw block to DB without hgt & dup";
+      return false;
+   }
+
+   sbh.blockAppliedToDB_ = false;
+      
+   iface_->putStoredHeader(sbh, true);
+}
 
 
 
+bool BlockDataManager_LevelDB::addBlockToDB(StoredHeader & sbh)
+{
 
-
-
+}
 
 
 

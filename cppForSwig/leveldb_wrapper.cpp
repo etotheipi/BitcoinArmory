@@ -1486,7 +1486,7 @@ void InterfaceToLDB::putStoredTx( StoredTx & stx, bool withTxOut)
       if(sths.dbKeyList_[i] == ldbKey)
       {
          needToAddTxToHints = false;
-         needToUpdateHints = (sths.preferredDBKey_==ldbKey);
+         needToUpdateHints = (sths.preferredDBKey_!=ldbKey);
          sths.preferredDBKey_ = ldbKey;
          break;
       }
@@ -1642,7 +1642,6 @@ bool InterfaceToLDB::readStoredTxAtIter( uint32_t height,
                                            stx.duplicateID_,
                                            stx.txIndex_,
                                            txOutIdx);
-
 
       // Now actually process the iter value
       if(bdtype == BLKDATA_TX)

@@ -5272,8 +5272,27 @@ TEST_F(LevelDBTest, HeaderDump)
    // We don't actually use undo data at all yet, so I'll skip the tests for now
 }
 
+// This was really just to time the logging to determine how much impact it 
+// has.  It looks like writing to file is about 1,000,000 logs/sec, while 
+// writing to the null stream (below the threshold log level) is about 
+// 2,200,000/sec.    As long as we use log messages sparingly (and timer
+// calls which call the logger), there will be no problem leaving them
+// on even in production code.
+/*
+TEST(TimeDebugging, WriteToLogNoStdOut)
+{
+   LOGDISABLESTDOUT();
+   for(uint32_t i=0; i<1000000; i++)
+      LOGERR << "Testing writing out " << 3 << " diff things";
+   LOGENABLESTDOUT();
+}
 
-
+TEST(TimeDebugging, WriteNull)
+{
+   for(uint32_t i=0; i<1000000; i++)
+      LOGDEBUG4 << "Testing writing out " << 3 << " diff things";
+}
+*/
 
 
 ////////////////////////////////////////////////////////////////////////////////

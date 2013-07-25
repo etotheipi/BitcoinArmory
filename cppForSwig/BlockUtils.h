@@ -570,6 +570,12 @@ private:
    BlockDataManager_LevelDB(void);
    ~BlockDataManager_LevelDB(void);
 
+   // These are private because from outside BDM you should never call these
+   // methods yourself.  You only add and remove blocks, which will call
+   // these methods in the correct order.
+   bool addTxToDB(StoredTx & stx);
+   bool reverseTxInDB(StoredTx & stx);
+
 public:
 
    static BlockDataManager_LevelDB & GetInstance(void);

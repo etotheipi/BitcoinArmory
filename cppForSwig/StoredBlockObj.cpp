@@ -431,11 +431,12 @@ void StoredHeader::unserializeDBValue( DB_SELECT         db,
    {
       // Read the flags byte
       BitUnpacker<uint32_t> bitunpack(brr);
-      unserArmVer_        =                  bitunpack.getBits(4);
-      unserBlkVer_        =                  bitunpack.getBits(4);
-      unserDbType_        = (ARMORY_DB_TYPE) bitunpack.getBits(4);
-      unserPrType_        = (DB_PRUNE_TYPE)  bitunpack.getBits(2);
-      unserMkType_        = (MERKLE_SER_TYPE)bitunpack.getBits(2);
+      unserArmVer_      =                  bitunpack.getBits(4);
+      unserBlkVer_      =                  bitunpack.getBits(4);
+      unserDbType_      = (ARMORY_DB_TYPE) bitunpack.getBits(4);
+      unserPrType_      = (DB_PRUNE_TYPE)  bitunpack.getBits(2);
+      unserMkType_      = (MERKLE_SER_TYPE)bitunpack.getBits(2);
+      blockAppliedToDB_ =                  bitunpack.getBit();
    
       // Unserialize the raw header into the SBH object
       brr.get_BinaryData(dataCopy_, HEADER_SIZE);
@@ -513,6 +514,7 @@ void StoredHeader::serializeDBValue( DB_SELECT       db,
       bitpack.putBits((uint32_t)ARMDB.getArmoryDbType(), 4);
       bitpack.putBits((uint32_t)ARMDB.getDbPruneType(),  2);
       bitpack.putBits((uint32_t)mtype,                   2);
+      bitpack.putBit(blockAppliedToDB_);
 
       bw.put_BitPacker(bitpack);
       bw.put_BinaryData(dataCopy_);
@@ -1031,6 +1033,14 @@ TxOut StoredTxOut::getTxOutCopy(void) const
    return TxOut(dataCopy_.getPtr());
 }
 
+////////////////////////////////////////////////////////////////////////////////
+BinaryData StoredTxOut::getScrAddress(void) const
+{
+   BinaryRefReader brr(dataCopy_);
+   brr.advance(8);
+   uint64_t scrsz = brr.get_var_int();
+   BtcUtils::getTxOutScriptUniqueKey(brr.get_BinaryDataRef(scrsz));
+}
 
 
 ////////////////////////////////////////////////////////////////////////////////

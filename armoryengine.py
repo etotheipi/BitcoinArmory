@@ -1667,6 +1667,16 @@ class BinaryUnpacker(object):
          value = unpack(E+'I', self.binaryStr[pos:pos+4])[0]
          self.advance(4)
          return value
+      elif varType == VAR_INT:
+         sizeCheck(1)
+         [value, nBytes] = unpackVarInt(self.binaryStr[pos:pos+9])
+         self.advance(nBytes)
+         return value
+      elif varType == BINARY_CHUNK:
+         sizeCheck(sz)
+         binOut = self.binaryStr[pos:pos+sz]
+         self.advance(sz)
+         return binOut
       elif varType == UINT64:
          sizeCheck(8)
          value = unpack(E+'Q', self.binaryStr[pos:pos+8])[0]
@@ -1702,11 +1712,6 @@ class BinaryUnpacker(object):
          value = unpack(E+'h', self.binaryStr[pos:pos+2])[0]
          self.advance(2)
          return value
-      elif varType == VAR_INT:
-         sizeCheck(1)
-         [value, nBytes] = unpackVarInt(self.binaryStr[pos:pos+9])
-         self.advance(nBytes)
-         return value
       elif varType == VAR_STR:
          sizeCheck(1)
          [value, nBytes] = unpackVarInt(self.binaryStr[pos:pos+9])
@@ -1718,11 +1723,6 @@ class BinaryUnpacker(object):
          value = unpack(E+'f', self.binaryStr[pos:pos+4])
          self.advance(4)
          return value
-      elif varType == BINARY_CHUNK:
-         sizeCheck(sz)
-         binOut = self.binaryStr[pos:pos+sz]
-         self.advance(sz)
-         return binOut
 
       LOGERROR('Var Type not recognized!  VarType = %d', varType)
       raise UnpackerError, "Var type not recognized!  VarType="+str(varType)

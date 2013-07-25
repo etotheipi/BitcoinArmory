@@ -154,6 +154,7 @@ public:
    void               setDBKey(BinaryData    const & bd) { dbKey6B_.copyFrom(bd); }
    void               setDBKey(BinaryDataRef const & bd) { dbKey6B_.copyFrom(bd); }
 
+   bool               isNull(void) { return !isInitialized();}
 
    /////////////////////////////////////////////////////////////////////////////
    // This as fast as you can get a single TxIn or TxOut from the DB.  But if 

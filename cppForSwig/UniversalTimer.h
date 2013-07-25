@@ -33,6 +33,7 @@
 #include <ctime>
 #include <iomanip>
 #include <string>
+#include "log.h"
 
 // Use these #define's to wrap code blocks, not just a single function
 #define TIMER_START(NAME) UniversalTimer::instance().start(NAME)
@@ -108,20 +109,20 @@ private:
          start_time_(0),
          stop_time_(0),
          accum_time_(0) { }
-      void start (void);
-      void restart(void);
-      void stop (void);
-      double read (void);
-      void reset (void);
+      void   start(void);
+      void   restart(void);
+      void   stop(void);
+      double read(void);
+      void   reset(void);
       double getPrev(void) { return prev_elapsed_; }
    private:
-      bool isRunning_;
+      bool    isRunning_;
       clock_t start_clock_;
       clock_t stop_clock_;
-      time_t start_time_;
-      time_t stop_time_;
-      double prev_elapsed_;
-      double accum_time_;
+      time_t  start_time_;
+      time_t  stop_time_;
+      double  prev_elapsed_;
+      double  accum_time_;
    };
    static UniversalTimer* theUT_;
    map<string, timer> call_timers_;
@@ -146,10 +147,7 @@ public:
    { 
       timerName_ = name; 
       UniversalTimer::instance().start(timerName_);
-
-      #ifdef _DEBUG
-         cout << "Executing " << timerName_.c_str() << endl;
-      #endif
+      LOGDEBUG3 << "Executing " << timerName_.c_str();
    }
 
 
@@ -157,10 +155,8 @@ public:
    { 
       UniversalTimer::instance().stop(timerName_);
       lastTiming_ = UniversalTimer::instance().read(timerName_);
-      #ifdef _DEBUG
-         cout << "Finishing " << timerName_.c_str()
-              << "(" << lastTiming_*1000.0 << " ms)" << endl;
-      #endif
+      LOGDEBUG3 << "Finishing " << timerName_.c_str()
+                << "(" << lastTiming_*1000.0 << " ms)";
    }
 
 private: 

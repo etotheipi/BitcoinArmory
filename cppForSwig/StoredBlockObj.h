@@ -28,7 +28,6 @@ enum DB_PREFIX
   DB_PREFIX_TXDATA,
   DB_PREFIX_TXHINTS,
   DB_PREFIX_SCRIPT,
-  DB_PREFIX_MULTISIG,
   DB_PREFIX_UNDODATA,
   DB_PREFIX_TRIENODES,
   DB_PREFIX_COUNT
@@ -229,7 +228,8 @@ public:
                         blockHeight_(UINT32_MAX), 
                         duplicateID_(UINT8_MAX), 
                         merkle_(0), 
-                        isMainBranch_(false) {}
+                        isMainBranch_(false),
+                        blockAppliedToDB_(false) {}
                            
 
    bool isInitialized(void) const {return dataCopy_.getSize() > 0;}
@@ -284,6 +284,7 @@ public:
    BinaryData     merkle_;
    bool           merkleIsPartial_;
    bool           isMainBranch_;
+   bool           blockAppliedToDB_;
 
    bool           isPartial_;
    map<uint16_t, StoredTx> stxMap_;
@@ -399,6 +400,8 @@ public:
    StoredTxOut & createFromTxOut(TxOut & txout); 
    BinaryData    getSerializedTxOut(void) const;
    TxOut         getTxOutCopy(void) const;
+
+   BinaryData    getScrAddress(void) const;
 
    uint64_t getValue(void) 
    { 
