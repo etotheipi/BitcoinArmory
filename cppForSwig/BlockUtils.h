@@ -432,6 +432,18 @@ struct ZeroConfData
 
 
 ////////////////////////////////////////////////////////////////////////////////
+// A somewhat convenient way to store and pass around block-update data but I 
+// never actually used it on the .cpp side.
+//struct BlockWriteBatchData
+//{
+   //map<BinaryData, StoredTx>              stxToModify;
+   //map<BinaryData, StoredScriptHistory>   sshToModify;
+   //set<BinaryData>                        keysToDelete;
+//}
+
+
+
+////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 //
 // This class is a singleton -- there can only ever be one, accessed through

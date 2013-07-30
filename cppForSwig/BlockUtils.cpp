@@ -1564,7 +1564,7 @@ bool BlockDataManager_LevelDB::addHeadersFirst(BinaryDataRef rawHeader)
 // Can only put raw blocks when we know their height and dupID.  After we 
 // put the headers, then we put raw blocks.  Then we go through the valid
 // headers and applyToDB the raw blocks.
-bool BlockDataManager_LevelDB::addHeadersFirst(vector<BinaryData> const & headVect)
+bool BlockDataManager_LevelDB::addHeadersFirst(vector<StoredHeader> const & headVect)
 {
    vector<BlockHeader*> headersToDB;
    headersToDB.reserve(headVect.size());
@@ -4155,31 +4155,19 @@ bool BlockDataManager_LevelDB::insertBlockData(StoredHeader const & sbh,
 
 
 
-
 ////////////////////////////////////////////////////////////////////////////////
-bool BlockDataManager_LevelDB::addTxToDB(Tx & tx)
-{
-}
-
-////////////////////////////////////////////////////////////////////////////////
-// Assume that stx.blockHeight_ and .duplicateID_ are set correctly
+// Assume that stx.blockHeight_ and .duplicateID_ are set correctly.
+// We created the maps and sets outside this function, because we need to keep
+// a master list of updates induced by all tx in this block.  
 // TODO:  Make sure that if Tx5 spends an input from Tx2 in the same 
 //        block that it is handled correctly, etc.
-bool BlockDataManager_LevelDB::addTxToDB(
+bool BlockDataManager_LevelDB::applyTxToBatchWriteData(
                         StoredTx &                             thisSTX,
                         map<BinaryData, StoredTx> &            stxToModify,
                         map<BinaryData, StoredScriptHistory> & sshToModify,
                         set<BinaryData> &                      keysToDelete)
 {
 
-   // Anything else to do besides simply store it in the DB?
-   if(!isMainBranch)
-   {
-      iface_->putStoredTx(thisSTX, true);
-      return true;
-   }
-
-   
    Tx tx = thisSTX.getFullTxCopy();
 
    if(stxToModify.find(tx.getThisHash()) != stxToModify.end())
@@ -4218,7 +4206,6 @@ bool BlockDataManager_LevelDB::addTxToDB(
       StoredTxOut & stxo = stxptr->stxoMap_[opTxoIdx];
       BinaryData uniqKey = stxo.getScrAddress();
 
-
       // Get the existing SSH or make a new one
       if(sshToModify.find(uniqKey) != sshToModify.end())
          stxptr = &stxToModify[opTxHash];
@@ -4229,8 +4216,7 @@ bool BlockDataManager_LevelDB::addTxToDB(
          sshptr = &sshToModify[uniqKey];
       }
 
-
-      // Modify the stxo in the tempor
+      // Update the stxo by marking it spent by this Block:TxIndex:TxInIndex
       map<uint32_t, StoredTxOut>::iterator iter = stxptr->stxoMap_.find(opTxoIdx);
       if(iter == stxptr->stxoMap_.end())
       {
@@ -4271,8 +4257,59 @@ bool BlockDataManager_LevelDB::addTxToDB(
       }
    }
 
+
+
+   // We don't really need to do anything to add TxOuts, since they will be 
+   // added automatically when this block is written to the DB and marked as
+   // already applied.  However, the one thing that still needs to be done 
+   // is catch any multisig TxOuts, and update the related single-sig SSH
+   // entries in the DB.
+   for(uint32_t iout=0; iout<tx.getNumTxOut(); iout++)
+   {
+      // SPECIAL ACCOMMODATION FOR MULTISIG SCRIPTS!
+      // FETCH THE INDIVIDUAL SSHs and UPDATE THEM!
+      if(uniqKey[0] == SCRIPT_PREFIX_MULTISIG)
+      {
+         BinaryData thisOutKey = ARMDB.getBlkDataKeyNoPrefix(
+                                                   thisSTX.blockHeight_, 
+                                                   thisSTX.duplicateID_, 
+                                                   thisSTX.txIndex_, 
+                                                   iout);
+
+         vector<BinaryData> addr160List;
+         BtcUtils::getMultisigAddrList(stxo.getScriptRef(), addr160List);
+         for(uint32_t a=0; a<addr160List.size(); i++)
+         {
+            BinaryData prefix = WRITE_UINT8_LE(SCRIPT_PREFIX_HASH160);
+            BinaryData uniqKey = prefix + addr160List[a];
+
+            // Get the existing SSH or make a new one
+            StoredScriptHistory * sshptr;
+            StoredScriptHistory   sshTemp;
+            if(sshToModify.find(uniqKey) != sshToModify.end())
+               stxptr = &stxToModify[opTxHash];
+            else
+            {
+               StoredScriptHistory sshTemp;
+               iface_->getStoredScriptHistory(sshTemp, uniqKey);
+               sshToModify[uniqKey] = sshTemp; 
+               sshptr = &sshToModify[uniqKey];
+            }
+
+            for(uint32_t i=0; i<sshptr->multisigDBKeys_.size(); i++)
+            {
+               if(thisOutKey == sshptr->multisigDBKeys_[i])
+                  LOGERR << "Somehow hash160 entry already has this multisig";
+               else
+                  sshptr->multisigDBKeys_[i].push_back(thisOutKey);
+            }
+         }
+      }
+   }
    return true;
 }
+
+
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -4299,15 +4336,119 @@ bool BlockDataManager_LevelDB::addRawBlockToDB(StoredHeader & sbh)
    }
 
    sbh.blockAppliedToDB_ = false;
-      
    iface_->putStoredHeader(sbh, true);
 }
 
-
-
-bool BlockDataManager_LevelDB::addBlockToDB(StoredHeader & sbh)
+////////////////////////////////////////////////////////////////////////////////
+bool BlockDataManager_LevelDB::undoBlockFromDB(uint32_t hgt, uint8_t dup)
 {
+   // This is garbage code right here, I haven't actually impl
+   compile_error_fix_me;
+}
 
+////////////////////////////////////////////////////////////////////////////////
+bool BlockDataManager_LevelDB::undoBlockFromDB(StoredUndoData const & sud)
+{
+   StoredHeader sbh;
+   iface_->getStoredHeader(sbh, sud.blockHeight_, sud.duplicateID_, false);
+   if(!sbh.blockAppliedToDB_)
+   {
+      LOGERR << "This block was never applied to the DB...can't undo!";
+      return false;
+   }
+
+   map<BinaryData, StoredTx>              stxToModify;
+   map<BinaryData, StoredScriptHistory>   sshToModify;
+    
+   // In the future we will accommodate more user modes
+   if(ARMDB.getArmoryDbType() != ARMORY_DB_SUPER)
+   {
+      LOGERR << "Don't know what to do this in non-supernode mode!";
+   }
+   
+   vector<StoredTx> & 
+
+   for(uint32_t i=sud.stxOutsRemovedByBlock_.size()-1; i>=0; i--)
+   {
+      
+   }
+
+
+
+
+
+
+   sbh.blockAppliedToDB_ = false;
+   iface_->putStoredHeader(sbh, false);
+
+   return true;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+bool BlockDataManager_LevelDB::applyBlockToDB(uint32_t hgt, uint8_t dup)
+{
+   if(iface_->getValidDupIDForHeight(hgt) != dup)
+   {
+      LOGERR << "Dup requested is not the main branch for the given height!";
+      return fals;e
+   }
+
+   // Start with some empty maps, and fill them with existing DB data, or 
+   // create new data.  Either way, whatever ends up in these maps will
+   // but pushed to the backing DB.
+   map<BinaryData, StoredTx>              stxToModify;
+   map<BinaryData, StoredScriptHistory>   sshToModify;
+   set<BinaryData>                        keysToDelete;
+
+   StoredHeader sbh;
+   iface_->getStoredHeader(sbh, hgt, dup);
+
+   // Apply all the tx to the update data
+   map<uint16_t, StoredTx>::iterator iter;
+   for(iter = sbh.stxMap_.begin(); iter != sbh.stxMap_.end(); iter++)
+   {
+      // This will fetch all the affected [Stored]Tx and modify the maps in 
+      // RAM.  It will check the maps first to see if it's already been pulled,
+      // and then it will modify either the pulled StoredTx or pre-existing
+      // one.  This means that if a single Tx is affected by multiple TxIns
+      // or TxOuts, earlier changes will not be overwritten by newer changes.
+      applyTxToBatchWriteData(*iter, stxToModify, sshToModify, keysToDelete);
+   }
+
+   // At this point we should have a list of STX and SSH with all the correct
+   // modifications (or creations) to represent this block.  Let's apply it.
+   iface_->startBatch(BLKDATA)
+
+   sbh.blockAppliedToDB_ = true;
+   iface_->putStoredHeader(sbh, false);
+
+   map<BinaryData, StoredTx>::iterator iter_stx;
+   for(iter_stx  = stxToModify.begin();
+       iter_stx != stxToModify.end();
+       iter_stx++)
+   {
+      iface_->putStoredTx(*iter_stx);
+   }
+       
+   map<BinaryData, StoredScriptHistory>::iterator iter_ssh;
+   for(iter_ssh  = sshToModify.begin();
+       iter_ssh != sshToModify.end();
+       iter_ssh++)
+   {
+      iface_->putStoredScriptHistory(*iter_ssh);
+
+   }
+
+   set<BinaryData>::iterator iter_del;
+   for(iter_del  = keysToDelete.begin();
+       iter_del != keysToDelete.end();
+       iter_del++)
+   {
+      iface_->deleteValue(BLKDATA, *iter_del);
+   }
+
+   iface_->commitBatch(BLKDATA)
+   
 }
 
 

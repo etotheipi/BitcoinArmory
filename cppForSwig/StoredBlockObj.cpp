@@ -898,7 +898,7 @@ void StoredTxOut::serializeDBValue(BinaryWriter & bw,
 BinaryData StoredTxOut::getDBKey(bool withPrefix) const
 {
    if(blockHeight_ == UINT32_MAX || 
-      duplicateID_  == UINT8_MAX  || 
+      duplicateID_ == UINT8_MAX  || 
       txIndex_     == UINT16_MAX ||
       txOutIndex_  == UINT16_MAX)
    {
@@ -1042,6 +1042,14 @@ BinaryData StoredTxOut::getScrAddress(void) const
    BtcUtils::getTxOutScriptUniqueKey(brr.get_BinaryDataRef(scrsz));
 }
 
+////////////////////////////////////////////////////////////////////////////////
+BinaryDataRef StoredTxOut::getScriptRef(void) const
+{
+   BinaryRefReader brr(dataCopy_);
+   brr.advance(8);
+   uint64_t scrsz = brr.get_var_int();
+   return brr.get_BinaryDataRef(scrsz);
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 // The list of spent/unspent txOuts is exactly what is needed to construct 

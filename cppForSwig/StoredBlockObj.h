@@ -317,11 +317,11 @@ public:
    bool       isInitialized(void) const {return dataCopy_.getSize() > 0;}
    bool       haveAllTxOut(void) const;
 
-   StoredTx&  createFromTx(Tx & tx, bool 
-                           doFrag=true, 
+   StoredTx&  createFromTx(Tx & tx, 
+                           bool doFrag=true, 
                            bool withTxOuts=true);
-   StoredTx & createFromTx(BinaryDataRef rawTx, bool 
-                           doFrag=true, 
+   StoredTx & createFromTx(BinaryDataRef rawTx, 
+                           bool doFrag=true, 
                            bool withTxOuts=true);
 
    BinaryData getSerializedTx(void) const;
@@ -402,6 +402,7 @@ public:
    TxOut         getTxOutCopy(void) const;
 
    BinaryData    getScrAddress(void) const;
+   BinaryDataRef getScriptRef(void) const;
 
    uint64_t getValue(void) 
    { 
