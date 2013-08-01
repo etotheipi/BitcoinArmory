@@ -4197,6 +4197,12 @@ bool BlockDataManager_LevelDB::applyTxToBatchWriteData(
       if(txin.isCoinbase())
          continue;
 
+      // We will need the DB key for this TxIn
+      BinaryData txinKey  = ARMDB.getBlkDataKeyNoPrefix(thisSTX.blockHeight_, 
+                                                        thisSTX.duplicateID_, 
+                                                        thisSTX.txIndex_, 
+                                                        iin);
+
       OutPoint op = txin.getOutPoint()
       BinaryDataRef opTxHash = op.getTxHashRef();
       uint32_t      opTxoIdx = op.getTxOutIndex();
@@ -4205,12 +4211,9 @@ bool BlockDataManager_LevelDB::applyTxToBatchWriteData(
       // map if it's not already there.  Or it will do nothing if it's
       // already part of the map.  In both cases, it returns a pointer
       // to the STX that will be written to DB that we can modify.
-      StoredTx * stxptr  = makeSureSTXInMap(opTxHash, stxToModify);
-      StoredTxOut & stxo = stxptr->stxoMap_[opTxoIdx];
-      BinaryData uniqKey = stxo.getScrAddress();
-
-      // Same story as stxToModify above
-      StoredScriptHistory * sshptr = makeSureSSHInMap(uniqKey,  sshToModify);
+      StoredTx    * stxptr  = makeSureSTXInMap(opTxHash, stxToModify);
+      StoredTxOut & stxo    = stxptr->stxoMap_[opTxoIdx];
+      BinaryData    uniqKey = stxo.getScrAddress();
 
       // Update the stxo by marking it spent by this Block:TxIndex:TxInIndex
       map<uint32_t, StoredTxOut>::iterator iter = stxptr->stxoMap_.find(opTxoIdx);
@@ -4220,24 +4223,25 @@ bool BlockDataManager_LevelDB::applyTxToBatchWriteData(
          continue;
       }
    
-      if(stxTemp.stxoMap_[opTxoIdx].spentness_ == TXOUT_SPENT)
+      if(iter->second.spentness_ == TXOUT_SPENT)
       {
          LOGERR << "Trying to mark TxOut spent, but it's already marked";
          continue;
       }
 
       // Need to modify existing UTXOs, so that we can delete or mark as spent
-      StoredTxOut & stxo = stxptr->stxoMap_[opTxoIdx];
-      stxo.spentness_ = TXOUT_SPENT;
-      stxo.spentByTxInKey_ = ARMDB.getBlkDataKeyNoPrefix(thisSTX.blockHeight_, 
-                                                         thisSTX.duplicateID_, 
-                                                         thisSTX.txIndex_, 
-                                                         iin);
+      iter->second.spentness_      = TXOUT_SPENT;
+      iter->second.spentByTxInKey_ = txinKey;
 
       if(ARMDB.getArmoryDbType() != ARMORY_DB_SUPER)
       {
          LOGERR << "Don't know what to do this in non-supernode mode!";
       }
+
+      ////// Now update the SSH to show this TxIOPair was spent
+      // Same story as stxToModify above, except this will actually create a new
+      // SSH if it doesn't exist in the map or the DB
+      StoredScriptHistory * sshptr = makeSureSSHInMap(uniqKey,  sshToModify);
 
       // Assuming supernode, we don't need to worry about removing references
       // to multisig scripts that reference this script.  Simply find and 
@@ -4245,7 +4249,14 @@ bool BlockDataManager_LevelDB::applyTxToBatchWriteData(
       for(uint32_t i=0; i<sshptr->txioVect_.size(); i++)
       {
          TxIOPair & txio = sshptr->txioVect[i]; 
-         if(txio.getTxRefOfOutput().getDBKey() == stxo.getDBKey())
+         TxRef txref = txio.getTxRefOfOutput();
+         uint32_t txOutIndex = 
+         
+         // This is inefficient!  TODO:  redo SSH objects to have better lookup! 
+         if(txref.getBlockHeight()  == iter->second.blockHeight_ && 
+            txref.getBlockDupID()   == iter->second.duplicateID_ &&
+            txref.getBlockTxIndex() == iter->second.txIndex_     &&
+            txio.getIndexOfOutput() == iter->second.txOutIndex     )
          {
             txio.setTxIn(TxRef(thisSTX.getDBKey()), iin);
             break;
@@ -4262,6 +4273,50 @@ bool BlockDataManager_LevelDB::applyTxToBatchWriteData(
    // entries in the DB.
    for(uint32_t iout=0; iout<tx.getNumTxOut(); iout++)
    {
+      if(ARMDB.getArmoryDbType() != ARMORY_DB_SUPER)
+      {
+         LOGERR << "Figure out how to handle this since not all SSH in DB will";
+         LOGERR << "be updated on every tx and block";
+         // Elaboration: if we maintain this variable on every block for every
+         // SSH, then we are reading the entire SSH DB and re-writing it, on 
+         // every block.  Instead, we may not want to touch this at all, and 
+         // make it "addressIsFullySynchronized" vs "addressNeedsScanningFromBlk"
+         if(sshptr->alreadyScannedUpToBlk_ != UINT32_MAX)
+            sshptr->alreadyScannedUpToBlk_ = thisSTX.blockHeight_;
+      }
+
+
+      // TODO:  Right now the lookup is only useful to catch errors in DB logic
+      //        This may be stupid slow, and we should just blindly add the UTXO
+      bool needsToBeAdded = true;
+      for(uint32_t i=0; i<sshptr->txioVect_.size(); i++)
+      {
+         TxIOPair & txio = sshptr->txioVect[i]; 
+         TxRef txref = txio.getTxRefOfOutput();
+         if(txref.getBlockHeight()  == thisSTX.blockHeight_ && 
+            txref.getBlockDupID()   == thisSTX.duplicateID_ &&
+            txref.getBlockTxIndex() == thisSTX.txIndex_     &&
+            txio.getIndexOfOutput() == iout                    )
+         {
+            LOGERR << "This STXO is already in the stored script history!";
+            needsToBeAdded = false;
+            txio.setTxIn(TxRef(), UINT32_MAX);
+            break;
+         }
+      }
+
+
+      // This should always need to be added
+      if(needsToBeAdded)
+      {
+         StoredTxOut & stxo = thisSTX.stxoMap_[iout];
+         TxIOPair txio(TxRef(thisSTX.getDBKey(false), iout));
+         txio.setValue(*(uint64_t*)(stxo.dataCopy_.getPtr()));
+         txio.setFromCoinbase(stxo.isCoinbase_)
+         sshptr->txioVect_.push_back(txio);
+      }
+      
+
       // SPECIAL ACCOMMODATION FOR MULTISIG SCRIPTS!
       // FETCH THE INDIVIDUAL SSHs and UPDATE THEM!
       if(uniqKey[0] == SCRIPT_PREFIX_MULTISIG)
@@ -4276,8 +4331,7 @@ bool BlockDataManager_LevelDB::applyTxToBatchWriteData(
          BtcUtils::getMultisigAddrList(stxo.getScriptRef(), addr160List);
          for(uint32_t a=0; a<addr160List.size(); i++)
          {
-            BinaryData prefix = WRITE_UINT8_LE(SCRIPT_PREFIX_HASH160);
-            BinaryData uniqKey = prefix + addr160List[a];
+            BinaryData uniqKey = HASH160PREFIX + addr160List[a];
 
             // Get the existing SSH or make a new one
             StoredScriptHistory* sshptr = makeSureSSHInMap(uniqKey,sshToModify);
@@ -4440,19 +4494,65 @@ bool BlockDataManager_LevelDB::undoBlockFromDB(StoredUndoData const & sud)
                                             sudStxo.parentHash_,
                                             stxToModify);
       
-      StoredTxOut & modStxo = stxptr->stxoMap_[sudStxo.txOutIndex_];
-      if(modStxo.spentness_ == TXOUT_UNSPENT || 
-         modStxo.spentByTxInKey_.size() ==0 )
+      if(ARMDB.getDbPruneType() == DB_PRUNE_NONE)
       {
-         LOGERR << "STXO needs to be re-added/marked-unspent but it";
-         LOGERR << "was already declared unspent in the DB";
-         continue;
+         // If full/super, we have the TxOut in DB, just need mark it unspent
+         StoredTxOut & modStxo = stxptr->stxoMap_[sudStxo.txOutIndex_];
+         if(modStxo.spentness_ == TXOUT_UNSPENT || 
+            modStxo.spentByTxInKey_.size() ==0 )
+         {
+            LOGERR << "STXO needs to be re-added/marked-unspent but it";
+            LOGERR << "was already declared unspent in the DB";
+            continue;
+         }
+         
+         modStxo.spentness_ = TXOUT_UNSPENT;
+         modStxo.spentByTxInKey_ = BinaryData(0);
+
+         //
+         lkjskljfldk_compile_error_finish_this_method
       }
+      else
+      {
+         // If we're pruning, we should have the Tx in the DB, but without the
+         // TxOut because it had been pruned by this block on the forward op
+         uint16_t idx = sudStxo.txOutIndex_;
+         if(stxptr->stxoMap_[idx] != stxptr->stxoMap_.end())
+            LOGERR << "Somehow this TxOut had not been pruned!" << endl;
+         else
+            stxptr->stxoMap_[idx] = sudStxo;
+
+         stxptr->stxoMap_[idx].spentness_      = TXOUT_UNSPENT;
+         stxptr->stxoMap_[idx].spentByTxInKey_ = BinaryData(0);
+      }
+
+      ////// Finished updating STX, now update the SSH in the DB
+      // Updating the SSH objects works the same regardless of pruning
+      StoredTxOut & modStxo = stxptr->stxoMap_[sudStxo.txOutIndex_];
+      BinaryData txOutKey = ARMDB.getBlkDataKeyNoPrefix( modStxo.blockHeight_, 
+                                                         modStxo.duplicateID_, 
+                                                         modStxo.txIndex_, 
+                                                         modStxo.txOutIndex_);
+      BinaryData uniqKey = sudStxo.getScrAddress();
+   
+      // Always a primary SSH to update
+      StoredScriptHistory* sshptr = makeSureSSHInMap(uniqKey, sshToModify);
+      sshptr->alreadyScannedUpToBlk_ = modStxo.blockHeight_ -1;
       
-      modStxo.spentness_ = TXOUT_UNSPENT;
-      modStxo.spentByTxInKey_ = BinaryData(0);
-            
-      lkjskljfldk_compile_error_finish_this_method
+      
+      // If multisig, we need to update the SSHs for individual addresses
+      if(uniqKey[0] == SCRIPT_PREFIX_MULTISIG)
+      {
+
+         vector<BinaryData> addr160List;
+         BtcUtils::getMultisigAddrList(stxo.getScriptRef(), addr160List);
+         for(uint32_t a=0; a<addr160List.size(); i++)
+         {
+            BinaryData uniqKey = HASH160PREFIX + addr160List[a];
+            // Get the existing SSH or make a new one
+            StoredScriptHistory* sshptr = makeSureSSHInMap(uniqKey,sshToModify);
+         }
+      }
    }
 
 
@@ -4481,12 +4581,23 @@ StoredScriptHistory* BlockDataManager_LevelDB::makeSureSSHInMap(
 
    // If already in Map
    if(sshMap.find(uniqKey) != sshMap.end())
-      stxptr = &stxToModify[opTxHash];
+      stxptr = &sshToModify[uniqKey];
    else
    {
       iface_->getStoredScriptHistory(sshTemp, uniqKey);
-      sshMap[uniqKey] = sshTemp; 
-      sshptr = &sshMap[uniqKey];
+      if(sshTemp.isInitialized())
+      {
+         // We already have an SSH in DB -- simply modify it
+         sshMap[uniqKey] = sshTemp; 
+         sshptr = &sshMap[uniqKey];
+      }
+      else
+      {
+         sshMap[uniqKey] = StoredScriptHistory(); 
+         sshptr = &sshMap[uniqKey];
+         sshptr->uniqueKey_ = uniqKey;
+
+      }
    }
 
    return sshptr;
@@ -4498,6 +4609,9 @@ StoredTx* BlockDataManager_LevelDB::makeSureSTXInMap(
                                        BinaryDataRef txHash,
                                        map<BinaryData, StoredTx> & stxMap);
 {
+   // TODO:  If we are pruning, we may have completely removed this tx from
+   //        the DB, which means that it won't be in the map or the DB.
+   //        But this method was written before pruning was ever implemented...
    StoredTx * stxptr;
    StoredTx   stxTemp;
 

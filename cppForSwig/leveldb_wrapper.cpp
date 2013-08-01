@@ -781,8 +781,7 @@ void InterfaceToLDB::getAllSSHForHash160(
    sshList.clear();
    StoredScriptHistory ssh;
 
-   BinaryData PREFIX_REG = WRITE_UINT8_LE((uint8_t)SCRIPT_PREFIX_HASH160);
-   getStoredScriptHistory(ssh, PREFIX_REG + hash160);
+   getStoredScriptHistory(ssh, HASH160PREFIX + hash160);
 
    if(!ssh.isInitialized())
       return;
@@ -822,7 +821,7 @@ void InterfaceToLDB::getAllSSHForHash160(
       BinaryDataRef msScript = brrTXO.get_BinaryData(scrSize);
       
       BinaryData uniqKeyMS = BtcUtils::getTxOutScriptUniqueKey(msScript);
-      if(uniqKeyMS[0] != (uint8_t)SCRIPT_PREFIX_MULTISIG)
+      if(uniqKeyMS[0] != SCRIPT_PREFIX_MULTISIG)
       {
          LOGWARN << "Multisig script expected but other type found"; 
          BinaryRefReader brrTXO(ssh.multisigDBKeys_[i]);

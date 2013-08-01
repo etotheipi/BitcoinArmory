@@ -52,7 +52,7 @@ class BlockDataManager_LevelDB;
 // have slightly different meanings (or irrelevant) depending which one it's
 // used with.
 //
-//  ScrAddress -- Each entry corresponds to ONE TxIn OR ONE TxOut
+//  Address -- Each entry corresponds to ONE TxIn OR ONE TxOut
 //
 //    addr20_    -  useless - just repeating this address
 //    value_     -  net debit/credit on addr balance, in Satoshis (1e-8 BTC)

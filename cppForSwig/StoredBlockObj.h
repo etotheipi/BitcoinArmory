@@ -457,6 +457,9 @@ public:
    uint32_t       version_;
    uint32_t       alreadyScannedUpToBlk_;
 
+   // TODO: Maybe the txioVect should be a map<BinaryData,TxIO> for more-
+   //       efficient search and update...?   On the other hand, it's 
+   //       currently sorted chronologically which has other benefits
    vector<TxIOPair> txioVect_;
    vector<BinaryData> multisigDBKeys_;
 };

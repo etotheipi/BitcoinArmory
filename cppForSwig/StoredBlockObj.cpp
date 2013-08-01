@@ -1039,7 +1039,7 @@ BinaryData StoredTxOut::getScrAddress(void) const
    BinaryRefReader brr(dataCopy_);
    brr.advance(8);
    uint64_t scrsz = brr.get_var_int();
-   BtcUtils::getTxOutScriptUniqueKey(brr.get_BinaryDataRef(scrsz));
+   return BtcUtils::getTxOutScriptUniqueKey(brr.get_BinaryDataRef(scrsz));
 }
 
 ////////////////////////////////////////////////////////////////////////////////
