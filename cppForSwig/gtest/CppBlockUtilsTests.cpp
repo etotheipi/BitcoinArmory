@@ -3470,6 +3470,12 @@ TEST_F(StoredBlockObjTest, SUndoDataSer)
 
    stxo0.txVersion_  = 1;
    stxo1.txVersion_  = 1;
+   stxo0.blockHeight_ = 100000;
+   stxo1.blockHeight_ = 100000;
+   stxo0.duplicateID_ = 2;
+   stxo1.duplicateID_ = 2;
+   stxo0.txIndex_ = 17;
+   stxo1.txIndex_ = 17;
    stxo0.parentHash_ = arbHash;
    stxo1.parentHash_ = arbHash;
    stxo0.txOutIndex_ = 5;
@@ -3489,13 +3495,14 @@ TEST_F(StoredBlockObjTest, SUndoDataSer)
    BinaryData flags = READHEX("24");
    BinaryData str2  = WRITE_UINT32_LE(2);
    BinaryData str5  = WRITE_UINT32_LE(5);
-   BinaryData answer = arbHash + 
-                       str2 + 
-                          flags + arbHash + str5 + rawTxOut0_ +
-                          flags + arbHash + str5 + rawTxOut1_ +
-                       str2 +
-                          op0.serialize() +
-                          op1.serialize();
+   BinaryData answer = 
+         arbHash + 
+            str2 + 
+               flags + stxo0.getDBKey(false) + arbHash + str5 + rawTxOut0_ +
+               flags + stxo1.getDBKey(false) + arbHash + str5 + rawTxOut1_ +
+            str2 +
+               op0.serialize() +
+               op1.serialize();
 
    EXPECT_EQ(sud.serializeDBValue(), answer);
 }
@@ -3516,15 +3523,26 @@ TEST_F(StoredBlockObjTest, SUndoDataUnser)
    OutPoint op0(op0_str, 1);
    OutPoint op1(op1_str, 2);
 
+   //BinaryData sudToUnser = READHEX( 
+      //"1111222111122211112222221111222211112221111222111122211112221111"
+      //"0200000024111122211112221111222222111122221111222111122211112221"
+      //"111222111105000000ac4c8bd5000000001976a9148dce8946f1c7763bb60ea5"
+      //"cf16ef514cbed0633b88ac241111222111122211112222221111222211112221"
+      //"11122211112221111222111105000000002f6859000000001976a9146a59ac0e"
+      //"8f553f292dfe5e9f3aaa1da93499c15e88ac02000000aaaabbbbaaaabbbbaaaa"
+      //"bbbbaaaabbbbaaaabbbbaaaabbbbaaaabbbbaaaabbbb01000000ffffbbbbffff"
+      //"bbbbffffbbbbffffbbbbffffbbbbffffbbbbffffbbbbffffbbbb02000000");
+
    BinaryData sudToUnser = READHEX( 
       "1111222111122211112222221111222211112221111222111122211112221111"
-      "0200000024111122211112221111222222111122221111222111122211112221"
-      "111222111105000000ac4c8bd5000000001976a9148dce8946f1c7763bb60ea5"
-      "cf16ef514cbed0633b88ac241111222111122211112222221111222211112221"
-      "11122211112221111222111105000000002f6859000000001976a9146a59ac0e"
-      "8f553f292dfe5e9f3aaa1da93499c15e88ac02000000aaaabbbbaaaabbbbaaaa"
-      "bbbbaaaabbbbaaaabbbbaaaabbbbaaaabbbbaaaabbbb01000000ffffbbbbffff"
-      "bbbbffffbbbbffffbbbbffffbbbbffffbbbbffffbbbbffffbbbb02000000");
+      "02000000240186a0020011000511112221111222111122222211112222111122"
+      "2111122211112221111222111105000000ac4c8bd5000000001976a9148dce89"
+      "46f1c7763bb60ea5cf16ef514cbed0633b88ac240186a0020011000511112221"
+      "1112221111222222111122221111222111122211112221111222111105000000"
+      "002f6859000000001976a9146a59ac0e8f553f292dfe5e9f3aaa1da93499c15e"
+      "88ac02000000aaaabbbbaaaabbbbaaaabbbbaaaabbbbaaaabbbbaaaabbbbaaaa"
+      "bbbbaaaabbbb01000000ffffbbbbffffbbbbffffbbbbffffbbbbffffbbbbffff"
+      "bbbbffffbbbbffffbbbb02000000");
 
    StoredUndoData sud;
    sud.unserializeDBValue(sudToUnser);
@@ -3539,6 +3557,13 @@ TEST_F(StoredBlockObjTest, SUndoDataUnser)
 
    EXPECT_EQ(sud.stxOutsRemovedByBlock_[0].parentHash_, arbHash);
    EXPECT_EQ(sud.stxOutsRemovedByBlock_[1].parentHash_, arbHash);
+
+   EXPECT_EQ(sud.stxOutsRemovedByBlock_[0].blockHeight_, 100000);
+   EXPECT_EQ(sud.stxOutsRemovedByBlock_[1].blockHeight_, 100000);
+   EXPECT_EQ(sud.stxOutsRemovedByBlock_[0].duplicateID_, 2);
+   EXPECT_EQ(sud.stxOutsRemovedByBlock_[1].duplicateID_, 2);
+   EXPECT_EQ(sud.stxOutsRemovedByBlock_[0].txIndex_, 17);
+   EXPECT_EQ(sud.stxOutsRemovedByBlock_[1].txIndex_, 17);
 }
 
 

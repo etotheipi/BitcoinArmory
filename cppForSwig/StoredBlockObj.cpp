@@ -898,7 +898,7 @@ void StoredTxOut::serializeDBValue(BinaryWriter & bw,
 BinaryData StoredTxOut::getDBKey(bool withPrefix) const
 {
    if(blockHeight_ == UINT32_MAX || 
-      duplicateID_ == UINT8_MAX  || 
+      duplicateID_  == UINT8_MAX  || 
       txIndex_     == UINT16_MAX ||
       txOutIndex_  == UINT16_MAX)
    {
@@ -1253,8 +1253,19 @@ void StoredUndoData::unserializeDBValue(BinaryRefReader & brr)
       stxo.txVersion_   = bitunpack.getBits(2);
       stxo.isCoinbase_  = bitunpack.getBit();
 
+      BinaryData hgtx   = brr.get_BinaryData(4);
+      stxo.blockHeight_ = ARMDB.hgtxToHeight(hgtx);
+      stxo.duplicateID_ = ARMDB.hgtxToDupID(hgtx);
+      stxo.txIndex_     = brr.get_uint16_t(BIGENDIAN);
+      stxo.txOutIndex_  = brr.get_uint16_t(BIGENDIAN);
+
+      // This is the raw OutPoint of the removed TxOut.  May not strictly
+      // be necessary for processing undo ops in this DB (but might be), 
+      // but may be useful for giving to peers if needed w/o exta lookups
       brr.get_BinaryData(stxo.parentHash_, 32);
       stxo.txOutIndex_ = brr.get_uint32_t();
+   
+      // Then read the raw TxOut itself
       stxo.unserialize(brr);
    }
 
@@ -1296,6 +1307,13 @@ void StoredUndoData::serializeDBValue(BinaryWriter & bw ) const
       bitpack.putBit(           stxo.isCoinbase_);
 
       bw.put_BitPacker(bitpack);
+
+      // Put the blkdata key directly into the DB to save us a lookup 
+      bw.put_BinaryData( ARMDB.getBlkDataKeyNoPrefix( stxo.blockHeight_,
+                                                      stxo.duplicateID_,
+                                                      stxo.txIndex_,
+                                                      stxo.txOutIndex_));
+
       bw.put_BinaryData(stxo.parentHash_);
       bw.put_uint32_t((uint32_t)stxo.txOutIndex_);
       bw.put_BinaryData(stxo.getSerializedTxOut());

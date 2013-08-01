@@ -787,6 +787,20 @@ private:
    // this block.
    double traceChainDown(BlockHeader & bhpStart);
    void   markOrphanChain(BlockHeader & bhpStart);
+
+   /////////////////////////////////////////////////////////////////////////////
+   // Helper methods for updating the DB
+   StoredScriptHistory* makeSureSSHInMap( BinaryData uniqKey,
+                                 map<BinaryData, StoredScriptHistory> & sshMap);
+
+   StoredTx* makeSureSTXInMap( BinaryData txHash,
+                               map<BinaryData, StoredTx> & stxMap);
+   StoredTx* makeSureSTXInMap( 
+                               uint32_t   height,
+                               uint8_t    dupID,
+                               uint16_t   txIndex,
+                               BinaryData txHash,
+                               map<BinaryData, StoredTx> & stxMap);
 };
 
 

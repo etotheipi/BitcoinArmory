@@ -4170,10 +4170,21 @@ bool BlockDataManager_LevelDB::applyTxToBatchWriteData(
 
    Tx tx = thisSTX.getFullTxCopy();
 
+   // We never expect thisSTX to already be in the map (other tx in the map
+   // may be affected/retrieved multiple times).  
    if(stxToModify.find(tx.getThisHash()) != stxToModify.end())
       LOGERR << "How did we already add this tx?";
 
-   // Obvious this thisSTX will have to be added
+   // I just noticed we never set TxOuts to TXOUT_UNSPENT.  Might as well do 
+   // it here -- by definition if we just added this Tx to the DB, it couldn't
+   // have been spent yet.
+   map<uint16_t, StoredTxOut>::iterator iter;
+   for(iter = thisSTX.stxoMap_.begin(); iter != thisSTX.stxoMap_.end(), iter++)
+      iter->second.spentness_ = TXOUT_UNSPENT;
+
+   // This tx itself needs to be added to the map, which makes it accessible 
+   // to future tx in the same block which spend outputs from this tx, without
+   // doing anything crazy in the code here
    stxToModify[tx.getThisHash()] = thisSTX;
    
    // Go through and find all the previous TxOuts that are affect by this tx
@@ -4190,31 +4201,16 @@ bool BlockDataManager_LevelDB::applyTxToBatchWriteData(
       BinaryDataRef opTxHash = op.getTxHashRef();
       uint32_t      opTxoIdx = op.getTxOutIndex();
 
-      StoredTx * stxptr;
-      StoredScriptHistory * sshptr;
-
-      // Get the existing STX or make a new one
-      if(stxToModify.find(opTxHash) != stxToModify.end())
-         stxptr = &stxToModify[opTxHash];
-      else
-      {
-         iface_->getStoredTx(stxTemp, opTxHash);
-         stxToModify[opTxHash] = stxTemp;
-         stxptr = &stxToModify[opTxHash];
-      }
-
+      // This will fetch the STX from DB and put it in the stxToModify
+      // map if it's not already there.  Or it will do nothing if it's
+      // already part of the map.  In both cases, it returns a pointer
+      // to the STX that will be written to DB that we can modify.
+      StoredTx * stxptr  = makeSureSTXInMap(opTxHash, stxToModify);
       StoredTxOut & stxo = stxptr->stxoMap_[opTxoIdx];
       BinaryData uniqKey = stxo.getScrAddress();
 
-      // Get the existing SSH or make a new one
-      if(sshToModify.find(uniqKey) != sshToModify.end())
-         stxptr = &stxToModify[opTxHash];
-      else
-      {
-         iface_->getStoredScriptHistory(sshTemp, uniqKey);
-         sshToModify[uniqKey] = sshTemp; 
-         sshptr = &sshToModify[uniqKey];
-      }
+      // Same story as stxToModify above
+      StoredScriptHistory * sshptr = makeSureSSHInMap(uniqKey,  sshToModify);
 
       // Update the stxo by marking it spent by this Block:TxIndex:TxInIndex
       map<uint32_t, StoredTxOut>::iterator iter = stxptr->stxoMap_.find(opTxoIdx);
@@ -4284,25 +4280,21 @@ bool BlockDataManager_LevelDB::applyTxToBatchWriteData(
             BinaryData uniqKey = prefix + addr160List[a];
 
             // Get the existing SSH or make a new one
-            StoredScriptHistory * sshptr;
-            StoredScriptHistory   sshTemp;
-            if(sshToModify.find(uniqKey) != sshToModify.end())
-               stxptr = &stxToModify[opTxHash];
-            else
-            {
-               StoredScriptHistory sshTemp;
-               iface_->getStoredScriptHistory(sshTemp, uniqKey);
-               sshToModify[uniqKey] = sshTemp; 
-               sshptr = &sshToModify[uniqKey];
-            }
+            StoredScriptHistory* sshptr = makeSureSSHInMap(uniqKey,sshToModify);
 
+            bool alreadyHaveMS = false;
             for(uint32_t i=0; i<sshptr->multisigDBKeys_.size(); i++)
             {
                if(thisOutKey == sshptr->multisigDBKeys_[i])
+               {
+                  alreadyHaveMS = true;
                   LOGERR << "Somehow hash160 entry already has this multisig";
-               else
-                  sshptr->multisigDBKeys_[i].push_back(thisOutKey);
+                  break;
+               }
             }
+         
+            if(!alreadyHaveMS)
+               sshptr->multisigDBKeys_[i].push_back(thisOutKey);
          }
       }
    }
@@ -4339,50 +4331,6 @@ bool BlockDataManager_LevelDB::addRawBlockToDB(StoredHeader & sbh)
    iface_->putStoredHeader(sbh, true);
 }
 
-////////////////////////////////////////////////////////////////////////////////
-bool BlockDataManager_LevelDB::undoBlockFromDB(uint32_t hgt, uint8_t dup)
-{
-   // This is garbage code right here, I haven't actually impl
-   compile_error_fix_me;
-}
-
-////////////////////////////////////////////////////////////////////////////////
-bool BlockDataManager_LevelDB::undoBlockFromDB(StoredUndoData const & sud)
-{
-   StoredHeader sbh;
-   iface_->getStoredHeader(sbh, sud.blockHeight_, sud.duplicateID_, false);
-   if(!sbh.blockAppliedToDB_)
-   {
-      LOGERR << "This block was never applied to the DB...can't undo!";
-      return false;
-   }
-
-   map<BinaryData, StoredTx>              stxToModify;
-   map<BinaryData, StoredScriptHistory>   sshToModify;
-    
-   // In the future we will accommodate more user modes
-   if(ARMDB.getArmoryDbType() != ARMORY_DB_SUPER)
-   {
-      LOGERR << "Don't know what to do this in non-supernode mode!";
-   }
-   
-   vector<StoredTx> & 
-
-   for(uint32_t i=sud.stxOutsRemovedByBlock_.size()-1; i>=0; i--)
-   {
-      
-   }
-
-
-
-
-
-
-   sbh.blockAppliedToDB_ = false;
-   iface_->putStoredHeader(sbh, false);
-
-   return true;
-}
 
 ////////////////////////////////////////////////////////////////////////////////
 bool BlockDataManager_LevelDB::applyBlockToDB(uint32_t hgt, uint8_t dup)
@@ -4453,8 +4401,146 @@ bool BlockDataManager_LevelDB::applyBlockToDB(uint32_t hgt, uint8_t dup)
 
 
 
+////////////////////////////////////////////////////////////////////////////////
+bool BlockDataManager_LevelDB::undoBlockFromDB(uint32_t hgt, uint8_t dup)
+{
+   // This is garbage code right here, I haven't actually impl
+   compile_error_fix_me;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+bool BlockDataManager_LevelDB::undoBlockFromDB(StoredUndoData const & sud)
+{
+   StoredHeader sbh;
+   iface_->getStoredHeader(sbh, sud.blockHeight_, sud.duplicateID_, false);
+   if(!sbh.blockAppliedToDB_)
+   {
+      LOGERR << "This block was never applied to the DB...can't undo!";
+      return false;
+   }
+
+   map<BinaryData, StoredTx>              stxToModify;
+   map<BinaryData, StoredScriptHistory>   sshToModify;
+   set<BinaryData>                        keysToDelete;
+    
+   // In the future we will accommodate more user modes
+   if(ARMDB.getArmoryDbType() != ARMORY_DB_SUPER)
+   {
+      LOGERR << "Don't know what to do this in non-supernode mode!";
+   }
+   
+   // Process the stxOutsRemovedByBlock_ in reverse order
+   for(uint32_t i=sud.stxOutsRemovedByBlock_.size()-1; i>=0; i--)
+   {
+      StoredTxOut & sudStxo = stxOutsRemovedByBlock_[i];
+   
+      StoredTx * stxptr = makeSureSTXInMap( sudStxo.blockHeight_,
+                                            sudStxo.duplicateID_,
+                                            sudStxo.txIndex_,
+                                            sudStxo.parentHash_,
+                                            stxToModify);
+      
+      StoredTxOut & modStxo = stxptr->stxoMap_[sudStxo.txOutIndex_];
+      if(modStxo.spentness_ == TXOUT_UNSPENT || 
+         modStxo.spentByTxInKey_.size() ==0 )
+      {
+         LOGERR << "STXO needs to be re-added/marked-unspent but it";
+         LOGERR << "was already declared unspent in the DB";
+         continue;
+      }
+      
+      modStxo.spentness_ = TXOUT_UNSPENT;
+      modStxo.spentByTxInKey_ = BinaryData(0);
+            
+      lkjskljfldk_compile_error_finish_this_method
+   }
 
 
+
+
+
+
+   sbh.blockAppliedToDB_ = false;
+   iface_->putStoredHeader(sbh, false);
+
+   return true;
+}
+
+
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+StoredScriptHistory* BlockDataManager_LevelDB::makeSureSSHInMap(
+                           BinaryDataRef uniqKey,
+                           map<BinaryData, StoredScriptHistory> & sshMap);
+{
+   StoredScriptHistory * sshptr;
+   StoredScriptHistory   sshTemp;
+
+   // If already in Map
+   if(sshMap.find(uniqKey) != sshMap.end())
+      stxptr = &stxToModify[opTxHash];
+   else
+   {
+      iface_->getStoredScriptHistory(sshTemp, uniqKey);
+      sshMap[uniqKey] = sshTemp; 
+      sshptr = &sshMap[uniqKey];
+   }
+
+   return sshptr;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+StoredTx* BlockDataManager_LevelDB::makeSureSTXInMap(
+                                       BinaryDataRef txHash,
+                                       map<BinaryData, StoredTx> & stxMap);
+{
+   StoredTx * stxptr;
+   StoredTx   stxTemp;
+
+   // Get the existing STX or make a new one
+   if(stxMap.find(txHash) != stxMap.end())
+      stxptr = &stxMap[txHash];
+   else
+   {
+      iface_->getStoredTx(stxTemp, txHash);
+      stxMap[txHash] = stxTemp;
+      stxptr = &stxMap[txHash];
+   }
+   
+   return stxptr;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// We still pass in the hash anyway, because we are creating this method to 
+// avoid having to do an unnecessary lookup, and we'd have to do one if we
+// only passed in {hgt,dup,idx}.  This is okay because the only other method
+// calling this one already has the txHash (from the OutPoint)
+StoredTx* BlockDataManager_LevelDB::makeSureSTXInMap(
+                                       uint32_t hgt,
+                                       uint8_t  dup,
+                                       uint16_t txIdx,
+                                       BinaryDataRef txHash,
+                                       map<BinaryData, StoredTx> & stxMap);
+{
+   StoredTx * stxptr;
+   StoredTx   stxTemp;
+
+   // Get the existing STX or make a new one
+   if(stxMap.find(txHash) != stxMap.end())
+      stxptr = &stxMap[txHash];
+   else
+   {
+      iface_->getStoredTx(stxTemp, hgt, dup, txIdx);
+      stxMap[txHash] = stxTemp;
+      stxptr = &stxMap[txHash];
+   }
+   
+   return stxptr;
+}
 
 
 

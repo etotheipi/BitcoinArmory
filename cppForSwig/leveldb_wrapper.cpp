@@ -2089,7 +2089,7 @@ bool InterfaceToLDB::putStoredUndoData(StoredUndoData const & sud)
 ////////////////////////////////////////////////////////////////////////////////
 bool InterfaceToLDB::getStoredUndoData(StoredUndoData & sud, uint32_t height)
 {
-
+   
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -2097,7 +2097,19 @@ bool InterfaceToLDB::getStoredUndoData(StoredUndoData & sud,
                                        uint32_t         height, 
                                        uint8_t          dup)
 {
+   BinaryData key = ARMDB.getBlkDataKeyNoPrefix(height, dup); 
+   BinaryRefReader brr = getValueReader(BLKDATA, DB_PREFIX_UNDODATA, key);
 
+   if(brr.getSize() == 0)
+   {
+      LOGERR << " 
+   }
+
+   for(uint32_t i=0; i<sud.stxOutsRemovedByBlock_.size(); i++)
+   {
+      sud.stxOutsRemovedByBlock_[i].blockHeight_ = height;
+      sud.stxOutsRemovedByBlock_[i].duplicateID_ = dup;
+   }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
