@@ -81,7 +81,10 @@ parser.add_option("--mtdebug",         dest="mtdebug",     default=False,     ac
 parser.add_option("--skip-online-check", dest="forceOnline", default=False,   action="store_true", help="Go into online mode, even if internet connection isn't detected")
 parser.add_option("--skip-version-check", dest="skipVerCheck", default=False, action="store_true", help="Do not contact bitcoinarmory.com to check for new versions")
 parser.add_option("--keypool",         dest="keypool",     default=100, type="int",                help="Default number of addresses to lookahead in Armory wallets")
-
+parser.add_option("--port", dest="port", default=None, type="int", help="Unit Test Argument - Do not consume")
+parser.add_option("--verbosity", dest="verbosity", default=None, type="int", help="Unit Test Argument - Do not consume")
+parser.add_option("--coverage_output_dir", dest="coverageOutputDir", default=None, type="str", help="Unit Test Argument - Do not consume")
+parser.add_option("--coverage_include", dest="coverageInclude", default=None, type="str", help="Unit Test Argument - Do not consume")
 
 ################################################################################
 # We need to have some methods for casting ASCII<->Unicode<->Preferred
@@ -125,8 +128,6 @@ def toPreferred(theStr):
 def lenBytes(theStr, theEncoding=DEFAULT_ENCODING):
    return len(toBytes(theStr, theEncoding))
 ################################################################################
-
-
 
 (CLI_OPTIONS, CLI_ARGS) = parser.parse_args()
 
@@ -1672,7 +1673,7 @@ class BinaryUnpacker(object):
          return binOut
       elif varType == FLOAT:
          sizeCheck(4)
-         value = unpack(E+'f', self.binaryStr[pos:pos+4])
+         value = unpack(E+'f', self.binaryStr[pos:pos+4])[0]
          self.advance(4)
          return value
       elif varType == BINARY_CHUNK:
@@ -1681,7 +1682,7 @@ class BinaryUnpacker(object):
          self.advance(sz)
          return binOut
 
-      LOGERROR('Var Type not recognized!  VarType = %d', varType)
+      LOGERROR('Var Type not recognized!  VarTyepe = %d', varType)
       raise UnpackerError, "Var type not recognized!  VarType="+str(varType)
 
 
@@ -4597,12 +4598,12 @@ def convertScriptToOpStrings(binScript):
          opList.append(binary_to_hex(binObj))
          i += nb+2
       elif nextOp == 77:
-         nb = binScript[i+1:i+3];
+         nb = binary_to_int(binScript[i+1:i+3]);
          if i+1+2+nb > sz:
             error = True;
             break
          nbprint = min(nb,256)
-         binObj = binScript[i+3,i+3+nbprint]
+         binObj = binScript[i+3:i+3+nbprint]
          opList.append("[OP_PUSHDATA2 -- " + str(nb) + " BYTES:]");
          opList.append(binary_to_hex(binObj) + '...')
          i += nb+3
