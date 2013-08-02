@@ -782,6 +782,7 @@ public:
 private:
 
    /////////////////////////////////////////////////////////////////////////////
+   // Update/organize the headers map (figure out longest chain, mark orphans)
    // Start from a node, trace down to the highest solved block, accumulate
    // difficulties and difficultySum values.  Return the difficultySum of 
    // this block.
@@ -790,8 +791,28 @@ private:
 
    /////////////////////////////////////////////////////////////////////////////
    // Helper methods for updating the DB
+
+   /////////////////////////////////////////////////////////////////////////////
+   bool markTxOutUnspentInSSH( StoredScriptHistory & ssh,
+                               BinaryData txOutKey8B,
+                               uint64_t value = uint64_t,
+                               bool isCoinBase = false,
+                               bool isFromSelf = false);
+   bool markTxOutSpentInSSH(   StoredScriptHistory & ssh,
+                               BinaryData txOutKey8B,
+                               BinaryData txInKey8B);
+
+   /////////////////////////////////////////////////////////////////////////////
+   bool addMultisigEntryToSSH( StoredScriptHistory & ssh,
+                               BinaryData txOutKey8B);
+   bool removeMultisigEntryFromSSH( StoredScriptHistory & ssh,
+                                    BinaryData txOutKey8B);
+
+
+   /////////////////////////////////////////////////////////////////////////////
    StoredScriptHistory* makeSureSSHInMap( BinaryData uniqKey,
-                                 map<BinaryData, StoredScriptHistory> & sshMap);
+                                 map<BinaryData, StoredScriptHistory> & sshMap,
+                                 bool createIfDNE=true);
 
    StoredTx* makeSureSTXInMap( BinaryData txHash,
                                map<BinaryData, StoredTx> & stxMap);

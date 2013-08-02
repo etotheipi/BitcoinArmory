@@ -141,20 +141,23 @@ public:
    void setRef(BinaryDataRef bdr=BinaryDataRef(), InterfaceToLDB* iface=NULL);
      
    /////////////////////////////////////////////////////////////////////////////
-   BinaryData         getThisHash(void) const;
-   Tx                 getTxCopy(void) const;
-   bool               isMainBranch(void)  const;
-   bool               isInitialized(void)  const {return dbKey6B_.getSize()>0;}
-   bool               isBound(void)  const {return dbIface_!=NULL;}
+   BinaryData     getThisHash(void) const;
+   Tx             getTxCopy(void) const;
+   bool           isMainBranch(void)  const;
+   bool           isInitialized(void)  const {return dbKey6B_.getSize()>0;}
+   bool           isBound(void)  const {return dbIface_!=NULL;}
 
    /////////////////////////////////////////////////////////////////////////////
-   BlockHeader        getHeaderCopy(void)  const;
-   BinaryData         getDBKey(void)    { return dbKey6B_;}
-   BinaryDataRef      getDBKeyRef(void) { return dbKey6B_.getRef();}
-   void               setDBKey(BinaryData    const & bd) { dbKey6B_.copyFrom(bd); }
-   void               setDBKey(BinaryDataRef const & bd) { dbKey6B_.copyFrom(bd); }
+   BlockHeader    getHeaderCopy(void)  const;
+   BinaryData     getDBKey(void) const   { return dbKey6B_;}
+   BinaryDataRef  getDBKeyRef(void)      { return dbKey6B_.getRef();}
+   void           setDBKey(BinaryData    const & bd) {dbKey6B_.copyFrom(bd);}
+   void           setDBKey(BinaryDataRef const & bd) {dbKey6B_.copyFrom(bd);}
 
-   bool               isNull(void) { return !isInitialized();}
+   bool           isNull(void) { return !isInitialized();}
+
+   /////////////////////////////////////////////////////////////////////////////
+   BinaryData     getDBKeyOfChild(uint16_t i) {return dbKey6B_+WRITE_UINT16_BE(i);}
 
    /////////////////////////////////////////////////////////////////////////////
    // This as fast as you can get a single TxIn or TxOut from the DB.  But if 
@@ -174,6 +177,10 @@ public:
 
    /////////////////////////////////////////////////////////////////////////////
    void               pprint(ostream & os=cout, int nIndent=0) const;
+
+   /////////////////////////////////////////////////////////////////////////////
+   bool operator==(BinaryData const & dbkey) const { return dbKey6B_ == dbkey; }
+   bool operator==(TxRef const & txr) const  { return dbKey6B_ == txr.dbKey6B_;}
 
 private:
    //FileDataPtr        blkFilePtr_;
@@ -597,13 +604,19 @@ public:
    bool  isFromCoinbase(void) const { return isFromCoinbase_; }
    void setFromCoinbase(bool isTrue=true) { isFromCoinbase_ = isTrue; }
 
+   BinaryData getDBKeyOfOutput(void) 
+               { return txRefOfOutput_.getDBKeyOfChild(indexOfOutput_);}
+   BinaryData getDBKeyOfInput(void) 
+               { return txRefOfInput_.getDBKeyOfChild(indexOfInput_);}
 
    //////////////////////////////////////////////////////////////////////////////
    BinaryData    getTxHashOfInput(void);
    BinaryData    getTxHashOfOutput(void);
 
    bool setTxIn   (TxRef  txref, uint32_t index);
+   bool setTxIn   (BinaryData dbKey8B);
    bool setTxOut  (TxRef  txref, uint32_t index);
+   bool setTxOut  (BinaryData dbKey8B);
    bool setTxInZC (Tx*    tx,    uint32_t index);
    bool setTxOutZC(Tx*    tx,    uint32_t index);
 

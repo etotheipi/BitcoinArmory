@@ -901,6 +901,24 @@ bool TxIOPair::setTxIn(TxRef  txref, uint32_t index)
 }
 
 //////////////////////////////////////////////////////////////////////////////
+bool TxIOPair::setTxIn(BinaryData dbKey8B)
+{
+   BinaryRefReader brr(dbKey8B);
+   BinaryDataRef txKey6B = brr.get_BinaryDataRef(6);
+   uint16_t      txInIdx = brr.get_uint16_t(BIGENDIAN);
+   setTxIn(TxRef(txKey6B), (uint32_t)txInIdx);
+}
+
+//////////////////////////////////////////////////////////////////////////////
+bool TxIOPair::setTxOut(BinaryData dbKey8B)
+{
+   BinaryRefReader brr(dbKey8B);
+   BinaryDataRef txKey6B  = brr.get_BinaryDataRef(6);
+   uint16_t      txOutIdx = brr.get_uint16_t(BIGENDIAN);
+   setTxOut(TxRef(txKey6B), (uint32_t)txOutIdx);
+}
+
+//////////////////////////////////////////////////////////////////////////////
 bool TxIOPair::setTxInZC(Tx* tx, uint32_t index)
 { 
    if(hasTxInInMain() || hasTxInZC())

@@ -1652,8 +1652,11 @@ bool InterfaceToLDB::readStoredTxAtIter( uint32_t height,
       else if(bdtype == BLKDATA_TXOUT)
       {
          stx.stxoMap_[txOutIdx] = StoredTxOut();
-         readStoredTxOutAtIter(height, dupID, stx.txIndex_, stx.stxoMap_[txOutIdx]);
-         nbytes += stx.stxoMap_[txOutIdx].dataCopy_.getSize();
+         StoredTxOut & stxo = stx.stxoMap_[txOutIdx];
+         readStoredTxOutAtIter(height, dupID, stx.txIndex_, stxo);
+         stxo.parentHash_ = stx.thisHash_;
+         stxo.txVersion_  = stx.version_;
+         nbytes += stxo.dataCopy_.getSize();
       }
       else
       {

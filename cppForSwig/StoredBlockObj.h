@@ -343,6 +343,7 @@ public:
    BinaryData   serializeDBValue(void) const;
 
    BinaryData getDBKey(bool withPrefix=true) const;
+   BinaryData getDBKeyOfChild(uint16_t i, bool withPrefix=true) const;
 
 
 
@@ -396,6 +397,7 @@ public:
    BinaryData   serializeDBValue(bool forceSaveSpent=false) const;
 
    BinaryData getDBKey(bool withPrefix=true) const;
+   BinaryData getDBKeyOfParentTx(bool withPrefix=true) const;
 
    StoredTxOut & createFromTxOut(TxOut & txout); 
    BinaryData    getSerializedTxOut(void) const;
@@ -403,6 +405,9 @@ public:
 
    BinaryData    getScrAddress(void) const;
    BinaryDataRef getScriptRef(void) const;
+   uint64_t      getValue(void) const;
+
+   bool matchesDBKey(BinaryDataRef dbkey) const;
 
    uint64_t getValue(void) 
    { 
@@ -457,7 +462,7 @@ public:
    uint32_t       version_;
    uint32_t       alreadyScannedUpToBlk_;
 
-   // TODO: Maybe the txioVect should be a map<BinaryData,TxIO> for more-
+   // TODO: Maybe these vectors should instead be set<>'s or map<>'s for
    //       efficient search and update...?   On the other hand, it's 
    //       currently sorted chronologically which has other benefits
    vector<TxIOPair> txioVect_;

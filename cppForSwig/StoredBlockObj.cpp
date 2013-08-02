@@ -548,6 +548,12 @@ BinaryData StoredTx::getDBKey(bool withPrefix) const
 }
 
 /////////////////////////////////////////////////////////////////////////////
+BinaryData StoredTx::getDBKeyOfChild(uint16_t i, bool withPrefix) const
+{
+   return (getDBKey(withPrefix) + WRITE_UINT16_BE(i));
+}
+
+/////////////////////////////////////////////////////////////////////////////
 void StoredTx::unserialize(BinaryData const & data, bool fragged)
 {
    BinaryRefReader brr(data);
@@ -898,7 +904,7 @@ void StoredTxOut::serializeDBValue(BinaryWriter & bw,
 BinaryData StoredTxOut::getDBKey(bool withPrefix) const
 {
    if(blockHeight_ == UINT32_MAX || 
-      duplicateID_  == UINT8_MAX  || 
+      duplicateID_ == UINT8_MAX  || 
       txIndex_     == UINT16_MAX ||
       txOutIndex_  == UINT16_MAX)
    {
@@ -914,6 +920,29 @@ BinaryData StoredTxOut::getDBKey(bool withPrefix) const
                              blockHeight_, duplicateID_, txIndex_, txOutIndex_);
 }
 
+////////////////////////////////////////////////////////////////////////////////
+BinaryData StoredTxOut::getDBKeyOfParentTx(bool withPrefix) const
+{
+   BinaryData stxoKey = getDBKey(withPrefix);
+   if(withPrefix)
+      return stxoKey.getSliceCopy(0, 7);
+   else
+      return stxoKey.getSliceCopy(0, 6);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+bool StoredTxOut::matchesDBKey(BinaryDataRef dbkey) const
+{
+   if(dbkey.getSize() == 8)
+      return (getDBKey(false) == dbkey);
+   else if(dbkey.getSize() == 9)
+      return (getDBKey(true) == dbkey);
+   else
+   {
+      LOGERR << "Non STXO-DBKey passed in to check match against STXO";
+      return false;
+   }
+}
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1049,6 +1078,15 @@ BinaryDataRef StoredTxOut::getScriptRef(void) const
    brr.advance(8);
    uint64_t scrsz = brr.get_var_int();
    return brr.get_BinaryDataRef(scrsz);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+BinaryDataRef StoredTxOut::getValue(void) const
+{
+   if(!isInitialized())
+      return UINT64_MAX;
+
+   return *(uint64_t*)dataCopy_.getPtr();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
