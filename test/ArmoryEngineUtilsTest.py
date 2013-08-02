@@ -10,7 +10,7 @@ from armoryengine import isASCII, BinaryUnpacker, toBytes, DEFAULT_ENCODING,\
    LITTLEENDIAN, coin2str, coin2str_approx, NegativeValueError,\
    TooMuchPrecisionError, binary_to_hex, TheBDM, BinaryPacker, UINT32, FLOAT,\
    VAR_STR, VAR_INT, INT64, INT32, INT16, INT8, UINT64, UINT8, UINT16,\
-   BINARY_CHUNK, PackerError, UnpackerError
+   BINARY_CHUNK, PackerError, UnpackerError, FiniteField
 import locale
 import armoryengine
 import hashlib
@@ -237,6 +237,34 @@ class BinaryPackerUnpackerTest(unittest.TestCase):
       print ERROR_EXPECTED_TEXT
       self.assertRaises(UnpackerError, bu.get, UNKNOWN_TYPE)
       self.assertRaises(UnpackerError, bu.get, BINARY_CHUNK, 1)
+      
+class FiniteFieldTest(unittest.TestCase):  
+   
+   def testFiniteFieldTest(self):
+      ff1 = FiniteField(1)
+      ff256 = FiniteField(256)
+      TEST_A = 200
+      TEST_B = 100
+      TEST_ADD_RESULT = 49
+      TEST_SUB_RESULT = 100
+      TEST_MULT_RESULT = 171
+      TEST_DIV_RESULT = 2
+      TEST_MTRX = [[1, 2, 3], [3,4,5], [6,7,8] ]
+      TEST_BAD_MTRX = [[1, 2, 3], [3,4,5] ]
+      TEST_RMROW1CO1L_RESULT = [[1, 3], [6, 8]]
+      TEST_DET = 0
+      self.assertEqual(ff1.add(TEST_A, TEST_B), TEST_ADD_RESULT)
+      self.assertEqual(ff1.subtract(TEST_A, TEST_B), TEST_SUB_RESULT)
+      self.assertEqual(ff1.mult(TEST_A, TEST_B), TEST_MULT_RESULT)
+      self.assertEqual(ff1.divide(TEST_A, TEST_B), TEST_DIV_RESULT)
+      self.assertEqual(ff1.mtrxrmrowcol(TEST_MTRX, 1, 1), TEST_RMROW1CO1L_RESULT)
+      self.assertEqual(ff1.mtrxrmrowcol(TEST_BAD_MTRX, 1, 1), [])
+      self.assertEqual(ff1.mtrxdet([[1]]), 1)
+      self.assertEqual(ff1.mtrxdet(TEST_BAD_MTRX), -1)
+      self.assertEqual(ff1.mtrxdet(TEST_MTRX), TEST_DET)
+      
+      
+      
       
       
 if __name__ == "__main__":
