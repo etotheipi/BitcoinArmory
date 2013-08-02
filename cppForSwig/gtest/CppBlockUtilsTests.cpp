@@ -3226,7 +3226,7 @@ TEST_F(StoredBlockObjTest, STxUnserDBValue_1)
    EXPECT_TRUE( stx.isFragged_);
    EXPECT_EQ(   stx.version_,     1);
    EXPECT_EQ(   stx.blockHeight_, UINT32_MAX);
-   EXPECT_EQ(   stx.duplicateID_,  UINT8_MAX);
+   EXPECT_EQ(   stx.duplicateID_, UINT8_MAX);
    EXPECT_EQ(   stx.txIndex_,     UINT16_MAX);
    EXPECT_EQ(   stx.numTxOut_,    origTx.getNumTxOut());
    EXPECT_EQ(   stx.numBytes_,    UINT32_MAX);
@@ -3507,6 +3507,29 @@ TEST_F(StoredBlockObjTest, SUndoDataSer)
    EXPECT_EQ(sud.serializeDBValue(), answer);
 }
 
+
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(StoredBlockObjTest, SScriptHistoryMarkSpent)
+{
+   EXPECT_TRUE(false);
+   StoredScriptHistory ssh;
+
+   uint64_t COIN = 100000000ULL;
+   TxIOPair txio0(READHEX("01e078""0f""0007""0001"), 10*COIN);
+   TxIOPair txio1(READHEX("01e078""0f""0009""0005"),  5*COIN);
+   txio0.setFromCoinbase(true);
+   txio1.setFromCoinbase(false);
+   txio0.setTxOutFromSelf(false);
+   txio1.setTxOutFromSelf(true);
+  
+   // Mark the second one spent (from same block as it was created)
+   txio2.setTxIn( READHEX("01e078""0f""000f""0000")
+
+
+   // markTxOutSpentInSSH(ssh, txoutkey, txinkey)
+
+   
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 TEST_F(StoredBlockObjTest, SUndoDataUnser)

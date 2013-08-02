@@ -4734,7 +4734,7 @@ bool BlockDataManager_LevelDB::markTxOutSpentInSSH(
                                              
 ////////////////////////////////////////////////////////////////////////////////
 // We only need the last three args (value, isCB, isSelf) if pruning.
-// Will add to the SSH txio list if not present
+// **Will add to the SSH txio list if not present
 bool BlockDataManager_LevelDB::markTxOutUnspentInSSH(
                                             StoredScriptHistory & ssh,
                                             BinaryData txOutKey8B,
@@ -4776,12 +4776,14 @@ bool BlockDataManager_LevelDB::markTxOutUnspentInSSH(
       //LOGERR << "Somehow STXO-to-mark-unspent did not exist in SSH";
       //return false;
    //}
+   // We actually expect to get here non-pruning, because we may be calling
+   // this to ADD the TxIO instead of just updating it
 
    TxIOPair txio = TxIOPair()
    txio.setValue(value);
    txio.setTxOut(txOutKey8B);
-   txio.setTxOutFromSelf(isFromSelf);
    txio.setFromCoinbase(isCoinBase);
+   txio.setTxOutFromSelf(isFromSelf);
    ssh.txioVect_.push_back(txio);
    return true;
 }

@@ -840,6 +840,20 @@ TxIOPair::TxIOPair(TxRef     txPtrO,
    setTxIn (txPtrI, txinIndex );
 }
 
+//////////////////////////////////////////////////////////////////////////////
+TxIOPair::TxIOPair(BinaryData txOutKey8B, uint64_t val) :
+   amount_(val),
+   indexOfOutput_(0),
+   indexOfInput_(0),
+   txOfOutputZC_(NULL),
+   indexOfOutputZC_(0),
+   txOfInputZC_(NULL),
+   indexOfInputZC_(0),
+   isTxOutFromSelf_(false),
+   isFromCoinbase_(false)
+{
+   setTxOut(txOutKey8B);
+}
 
 //////////////////////////////////////////////////////////////////////////////
 HashString TxIOPair::getTxHashOfOutput(void)

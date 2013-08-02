@@ -574,6 +574,7 @@ public:
    TxIOPair(void);
    TxIOPair(uint64_t  amount);
    TxIOPair(TxRef  txRefO, uint32_t txoutIndex);
+   TxIOPair(BinaryData txOutKey8B, uint64_t);
    TxIOPair(TxRef  txRefO, uint32_t txoutIndex, TxRef  txRefI, uint32_t txinIndex);
 
    // Lots of accessors

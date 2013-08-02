@@ -1081,7 +1081,7 @@ BinaryDataRef StoredTxOut::getScriptRef(void) const
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-BinaryDataRef StoredTxOut::getValue(void) const
+uint64_t StoredTxOut::getValue(void) const
 {
    if(!isInitialized())
       return UINT64_MAX;
