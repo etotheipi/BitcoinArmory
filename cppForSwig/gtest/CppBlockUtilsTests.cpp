@@ -3508,28 +3508,6 @@ TEST_F(StoredBlockObjTest, SUndoDataSer)
 }
 
 
-////////////////////////////////////////////////////////////////////////////////
-TEST_F(StoredBlockObjTest, SScriptHistoryMarkSpent)
-{
-   EXPECT_TRUE(false);
-   StoredScriptHistory ssh;
-
-   uint64_t COIN = 100000000ULL;
-   TxIOPair txio0(READHEX("01e078""0f""0007""0001"), 10*COIN);
-   TxIOPair txio1(READHEX("01e078""0f""0009""0005"),  5*COIN);
-   txio0.setFromCoinbase(true);
-   txio1.setFromCoinbase(false);
-   txio0.setTxOutFromSelf(false);
-   txio1.setTxOutFromSelf(true);
-  
-   // Mark the second one spent (from same block as it was created)
-   txio2.setTxIn( READHEX("01e078""0f""000f""0000")
-
-
-   // markTxOutSpentInSSH(ssh, txoutkey, txinkey)
-
-   
-}
 
 ////////////////////////////////////////////////////////////////////////////////
 TEST_F(StoredBlockObjTest, SUndoDataUnser)
@@ -4087,8 +4065,69 @@ TEST_F(DISABLED_PartialMerkleTest, EmptyTree)
 }
 
 
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(BlockUtils, SScriptHistoryMarkSpent)
+{
+   ARMDB.setArmoryDbType(ARMORY_DB_SUPER);
+   ARMDB.setDbPruneType(DB_PRUNE_NONE);
+
+   EXPECT_TRUE(false);
+   StoredScriptHistory ssh;
+
+   BinaryData a160 = READHEX("aabbccdd11223344aabbccdd11223344aabbccdd"); 
+
+   BinaryData dbKey0 = READHEX("01e078""0f""0007""0001");
+   BinaryData dbKey1 = READHEX("01e078""0f""0009""0005");
+   BinaryData dbKey2 = READHEX("01e078""0f""000f""0000");
+   BinaryData dbKey3 = READHEX("01e078""0f""0030""0003");
+   BinaryData dbKey4 = READHEX("01e078""0f""0030""0009");
+   BinaryData dbKey5 = READHEX("01e078""0f""00a0""0008");
+
+   uint64_t COIN = 100000000ULL;
+   TxIOPair txio0(dbKey0, 10*COIN);
+   TxIOPair txio1(dbKey1,  5*COIN);
+   txio0.setFromCoinbase(true);
+   txio1.setFromCoinbase(false);
+   txio0.setTxOutFromSelf(false);
+   txio1.setTxOutFromSelf(true);
+  
+   // Mark the second one spent (from same block as it was created)
+   txio1.setTxIn(dbKey2);
+   
+
+   ssh.uniqueKey_ = HASH160PREFIX + a160;
+   ssh.scriptType_ = SCRIPT_PREFIX_HASH160;
+   ssh.version_ = 1;
+   ssh.alreadyScannedUpToBlk_ = UINT32_MAX;
+
+   ssh.txioVect_.push_back(txio0);
+   ssh.txioVect_.push_back(txio1);
+   ssh.multisigDBKeys_.push_back(dbKey3);
+   ssh.multisigDBKeys_.push_back(dbKey4);
+
+   BinaryData origRaw = ssh.serializeDBValue();
+   
+   markTxOutSpentInSSH(ssh, dbKey0, dbKey5)
+   markTxOutUnspentInSSH(ssh, dbKey0);
+
+   BinaryData rt1Raw = ssh.serializeDBValue();
+
+   markTxOutUnspentInSSH(ssh, dbKey1);
+   markTxOutSpentInSSH(ssh, dbKey1, dbKey2)
+
+   BinaryData rt2Raw = ssh.serializeDBValue();
+
+   EXPECT_EQ(origRaw, rt1Raw);
+   EXPECT_EQ(origRaw, rt2Raw);
+}
 
 
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(BlockUtils, MultiRescanBlkSafe)
+{
+   bdm_.rescanBlocks(0, 3);
+   bdm_.rescanBlocks(0, 3);
+}
 
 
 ////////////////////////////////////////////////////////////////////////////////

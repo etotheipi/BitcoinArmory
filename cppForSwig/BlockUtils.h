@@ -229,11 +229,11 @@ public:
               uint32_t      lastBlockNum   = 0,
               uint32_t      lastTimestamp  = 0);
    
-   BinaryData const &  getScrAddr(void) const    {return scrAddr_;      }
-   uint32_t       getFirstBlockNum(void) const   {return firstBlockNum_;  }
-   uint32_t       getFirstTimestamp(void) const  {return firstTimestamp_; }
-   uint32_t       getLastBlockNum(void)          {return lastBlockNum_;   }
-   uint32_t       getLastTimestamp(void)         {return lastTimestamp_;  }
+   BinaryData const &  getScrAddr(void) const    {return scrAddr_;       }
+   uint32_t       getFirstBlockNum(void) const   {return firstBlockNum_; }
+   uint32_t       getFirstTimestamp(void) const  {return firstTimestamp_;}
+   uint32_t       getLastBlockNum(void)          {return lastBlockNum_;  }
+   uint32_t       getLastTimestamp(void)         {return lastTimestamp_; }
    void           setFirstBlockNum(uint32_t b)   { firstBlockNum_  = b; }
    void           setFirstTimestamp(uint32_t t)  { firstTimestamp_ = t; }
    void           setLastBlockNum(uint32_t b)    { lastBlockNum_   = b; }
@@ -347,7 +347,7 @@ public:
    // Scan a Tx for our TxIns/TxOuts.  Override default blk vals if you think
    // you will save time by not checking addresses that are much newer than
    // the block
-   pair<bool,bool> isMineBulkFilter( Tx & tx );
+   pair<bool,bool> isMineBulkFilter( Tx & tx, bool withMultiSig=false);
 
    void       scanTx(Tx & tx, 
                      uint32_t txIndex = UINT32_MAX,
@@ -688,6 +688,7 @@ public:
 
 
    // Does a full scan!
+   bool     processHeadersInFile(string filename);
    uint32_t parseEntireBlockchain(uint32_t cacheSz=DEFAULT_CACHE_SIZE);
 
    // When we add new block data, we will need to store/copy it to its
@@ -721,6 +722,7 @@ public:
                             uint32_t endBlknum=UINT32_MAX);
 
    void rescanBlocks(uint32_t blk0=0, uint32_t blk1=UINT32_MAX);
+   void writeScanStatusFile(uint32_t hgt, string bfile, string timerName);
 
    // This will only be used by the above method, probably wouldn't be called
    // directly from any other code

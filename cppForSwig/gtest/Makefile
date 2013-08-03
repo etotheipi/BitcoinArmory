@@ -47,6 +47,7 @@ OBJECTS += 	BinaryData.o \
 		 		EncryptionUtils.o \
 		 		UniversalTimer.o \
 		 		leveldb_wrapper.o \
+		 		BlockUtils.o \
 		 		libcryptopp.a \
 		 		libleveldb.a
 

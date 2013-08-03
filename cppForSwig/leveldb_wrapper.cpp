@@ -472,6 +472,7 @@ void InterfaceToLDB::deleteValue(DB_SELECT db,
 //}
 
 /////////////////////////////////////////////////////////////////////////////
+/*
 void InterfaceToLDB::startBlkDataIteration(DB_PREFIX prefix)
 {
    SCOPED_TIMER("startBlkDataIteration");
@@ -480,6 +481,7 @@ void InterfaceToLDB::startBlkDataIteration(DB_PREFIX prefix)
    iters_[BLKDATA]->Seek(start);
    iteratorToRefReaders(iters_[BLKDATA], currReadKey_, currReadValue_);
 }
+*/
 
 
 
