@@ -1682,7 +1682,7 @@ class BinaryUnpacker(object):
          self.advance(sz)
          return binOut
 
-      LOGERROR('Var Type not recognized!  VarTyepe = %d', varType)
+      LOGERROR('Var Type not recognized!  VarType = %d', varType)
       raise UnpackerError, "Var type not recognized!  VarType="+str(varType)
 
 
@@ -1892,7 +1892,7 @@ class FiniteField(object):
 
 
 ################################################################################
-def SplitSecret(secret, needed, pieces, nbytes=None):
+def SplitSecret(secret,needed, pieces, nbytes=None):
    if nbytes==None:
       nbytes = len(secret)
 
@@ -1902,8 +1902,8 @@ def SplitSecret(secret, needed, pieces, nbytes=None):
    # Convert secret to an integer
    a = binary_to_int(SecureBinaryData(secret).toBinStr(),BIGENDIAN)
    if not a<ff.prime:
-      LOGERROR('Secret must be less than %s', int_to_hex(ff.prime,BIGENDIAN))
-      LOGERROR('             You entered %s', int_to_hex(a,BIGENDIAN))
+      LOGERROR('Secret must be less than %s', int_to_hex(ff.prime,endOut=BIGENDIAN))
+      LOGERROR('             You entered %s', int_to_hex(a,endOut=BIGENDIAN))
       raise FiniteFieldError
 
    if not pieces>=needed:
