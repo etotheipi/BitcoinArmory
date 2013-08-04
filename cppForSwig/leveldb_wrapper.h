@@ -283,6 +283,8 @@ public:
    bool advanceIterAndRead(leveldb::Iterator* iter);
    bool advanceIterAndRead(DB_SELECT, DB_PREFIX);
 
+   bool dbIterIsValid(DB_SELECT db, DB_PREFIX prefix);
+
    /////////////////////////////////////////////////////////////////////////////
    void readAllHeaders(map<HashString, BlockHeader>  & headerMap,
                        map<HashString, StoredHeader> & storedMap);
@@ -380,7 +382,13 @@ public:
    void putStoredTx(         StoredTx & st,
                              bool withTxOut=true);
 
-   bool getStoredTx(         StoredTx & st,
+   bool getStoredTx(         StoredTx & stx,
+                             BinaryDataRef txHashOrDBKey);
+
+   bool getStoredTx_byDBKey( StoredTx & stx,
+                             BinaryDataRef dbKey);
+
+   bool getStoredTx_byHash(  StoredTx & stx,
                              BinaryDataRef txHash);
 
    bool getStoredTx(         StoredTx & st,
@@ -501,49 +509,11 @@ public:
 
    /////////////////////////////////////////////////////////////////////////////
    inline bool checkPrefixByte(DB_PREFIX prefix, bool rewindWhenDone=false)
-         { return ARMDB.checkPrefixByte(currReadKey_, prefix, rewindWhenDone); }
+         { return DBUtils::checkPrefixByte(currReadKey_, prefix, rewindWhenDone); }
 
    /////////////////////////////////////////////////////////////////////////////
    bool checkStatus(leveldb::Status stat, bool warn=true);
 
-   /////////////////////////////////////////////////////////////////////////////
-   static BLKDATA_TYPE readBlkDataKey( BinaryRefReader & brr,
-                                       uint32_t & height,
-                                       uint8_t  & dupID);
-
-   /////////////////////////////////////////////////////////////////////////////
-   static BLKDATA_TYPE readBlkDataKey( BinaryRefReader & brr,
-                                       uint32_t & height,
-                                       uint8_t  & dupID,
-                                       uint16_t & txIdx);
-
-   /////////////////////////////////////////////////////////////////////////////
-   static BLKDATA_TYPE readBlkDataKey( BinaryRefReader & brr,
-                                       uint32_t & height,
-                                       uint8_t  & dupID,
-                                       uint16_t & txIdx,
-                                       uint16_t & txOutIdx);
-   /////////////////////////////////////////////////////////////////////////////
-   static BLKDATA_TYPE readBlkDataKeyNoPrefix( 
-                                       BinaryRefReader & brr,
-                                       uint32_t & height,
-                                       uint8_t  & dupID);
-
-   /////////////////////////////////////////////////////////////////////////////
-   static BLKDATA_TYPE readBlkDataKeyNoPrefix( 
-                                       BinaryRefReader & brr,
-                                       uint32_t & height,
-                                       uint8_t  & dupID,
-                                       uint16_t & txIdx);
-
-   /////////////////////////////////////////////////////////////////////////////
-   static BLKDATA_TYPE readBlkDataKeyNoPrefix( 
-                                       BinaryRefReader & brr,
-                                       uint32_t & height,
-                                       uint8_t  & dupID,
-                                       uint16_t & txIdx,
-                                       uint16_t & txOutIdx);
-   
 
    KVLIST getAllDatabaseEntries(DB_SELECT db);
    void   printAllDatabaseEntries(DB_SELECT db);

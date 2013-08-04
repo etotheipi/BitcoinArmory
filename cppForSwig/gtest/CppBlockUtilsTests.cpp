@@ -2846,6 +2846,186 @@ TEST_F(StoredBlockObjTest, BlkDataKeys)
                                                READHEX("1a332b0101020021"));
 }
 
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(StoredBlockObjTest, ReadBlkKeyData)
+{
+   BinaryData TXP  = WRITE_UINT8_BE((uint8_t)DB_PREFIX_TXDATA);
+   BinaryData key5p = TXP + READHEX("01e078""0f");
+   BinaryData key7p = TXP + READHEX("01e078""0f""0007");
+   BinaryData key9p = TXP + READHEX("01e078""0f""0007""0001");
+   BinaryData key5 =        READHEX("01e078""0f");
+   BinaryData key7 =        READHEX("01e078""0f""0007");
+   BinaryData key9 =        READHEX("01e078""0f""0007""0001");
+   BinaryRefReader brr;
+
+   uint32_t hgt;
+   uint8_t  dup;
+   uint16_t txi;
+   uint16_t txo;
+
+   BLKDATA_TYPE bdtype;
+
+   /////////////////////////////////////////////////////////////////////////////
+   // 5 bytes, with prefix
+   brr.setNewData(key5p);
+   bdtype = ARMDB.readBlkDataKey(brr, hgt, dup);
+   EXPECT_EQ( hgt,     123000);
+   EXPECT_EQ( dup,         15);
+   EXPECT_EQ( brr.getSizeRemaining(), 0);
+   EXPECT_EQ( bdtype, BLKDATA_HEADER);
+
+   brr.setNewData(key5p);
+   bdtype = ARMDB.readBlkDataKey(brr, hgt, dup, txi);
+   EXPECT_EQ( hgt,     123000);
+   EXPECT_EQ( dup,         15);
+   EXPECT_EQ( txi, UINT16_MAX);
+   EXPECT_EQ( brr.getSizeRemaining(), 0);
+   EXPECT_EQ( bdtype, BLKDATA_HEADER);
+   
+   brr.setNewData(key5p);
+   bdtype = ARMDB.readBlkDataKey(brr, hgt, dup, txi, txo);
+   EXPECT_EQ( hgt,     123000);
+   EXPECT_EQ( dup,         15);
+   EXPECT_EQ( txi, UINT16_MAX);
+   EXPECT_EQ( txo, UINT16_MAX);
+   EXPECT_EQ( brr.getSizeRemaining(), 0);
+   EXPECT_EQ( bdtype, BLKDATA_HEADER);
+
+
+   /////////////////////////////////////////////////////////////////////////////
+   // 7 bytes, with prefix
+   brr.setNewData(key7p);
+   bdtype = ARMDB.readBlkDataKey(brr, hgt, dup);
+   EXPECT_EQ( hgt,     123000);
+   EXPECT_EQ( dup,         15);
+   EXPECT_EQ( brr.getSizeRemaining(), 0);
+   EXPECT_EQ( bdtype, BLKDATA_TX);
+
+   brr.setNewData(key7p);
+   bdtype = ARMDB.readBlkDataKey(brr, hgt, dup, txi);
+   EXPECT_EQ( hgt,     123000);
+   EXPECT_EQ( dup,         15);
+   EXPECT_EQ( txi,          7);
+   EXPECT_EQ( brr.getSizeRemaining(), 0);
+   EXPECT_EQ( bdtype, BLKDATA_TX);
+   
+   brr.setNewData(key7p);
+   bdtype = ARMDB.readBlkDataKey(brr, hgt, dup, txi, txo);
+   EXPECT_EQ( hgt,     123000);
+   EXPECT_EQ( dup,         15);
+   EXPECT_EQ( txi,          7);
+   EXPECT_EQ( txo, UINT16_MAX);
+   EXPECT_EQ( brr.getSizeRemaining(), 0);
+   EXPECT_EQ( bdtype, BLKDATA_TX);
+
+
+   /////////////////////////////////////////////////////////////////////////////
+   // 9 bytes, with prefix
+   brr.setNewData(key9p);
+   bdtype = ARMDB.readBlkDataKey(brr, hgt, dup);
+   EXPECT_EQ( hgt,     123000);
+   EXPECT_EQ( dup,         15);
+   EXPECT_EQ( brr.getSizeRemaining(), 0);
+   EXPECT_EQ( bdtype, BLKDATA_TXOUT);
+
+   brr.setNewData(key9p);
+   bdtype = ARMDB.readBlkDataKey(brr, hgt, dup, txi);
+   EXPECT_EQ( hgt,     123000);
+   EXPECT_EQ( dup,         15);
+   EXPECT_EQ( txi,          7);
+   EXPECT_EQ( brr.getSizeRemaining(), 0);
+   EXPECT_EQ( bdtype, BLKDATA_TXOUT);
+   
+   brr.setNewData(key9p);
+   bdtype = ARMDB.readBlkDataKey(brr, hgt, dup, txi, txo);
+   EXPECT_EQ( hgt,     123000);
+   EXPECT_EQ( dup,         15);
+   EXPECT_EQ( txi,          7);
+   EXPECT_EQ( txo,          1);
+   EXPECT_EQ( brr.getSizeRemaining(), 0);
+   EXPECT_EQ( bdtype, BLKDATA_TXOUT);
+
+
+   /////////////////////////////////////////////////////////////////////////////
+   // 5 bytes, no prefix
+   brr.setNewData(key5);
+   bdtype = ARMDB.readBlkDataKeyNoPrefix(brr, hgt, dup);
+   EXPECT_EQ( hgt,     123000);
+   EXPECT_EQ( dup,         15);
+   EXPECT_EQ( brr.getSizeRemaining(), 0);
+   EXPECT_EQ( bdtype, BLKDATA_HEADER);
+
+   brr.setNewData(key5);
+   bdtype = ARMDB.readBlkDataKeyNoPrefix(brr, hgt, dup, txi);
+   EXPECT_EQ( hgt,     123000);
+   EXPECT_EQ( dup,         15);
+   EXPECT_EQ( txi, UINT16_MAX);
+   EXPECT_EQ( brr.getSizeRemaining(), 0);
+   EXPECT_EQ( bdtype, BLKDATA_HEADER);
+   
+   brr.setNewData(key5);
+   bdtype = ARMDB.readBlkDataKeyNoPrefix(brr, hgt, dup, txi, txo);
+   EXPECT_EQ( hgt,     123000);
+   EXPECT_EQ( dup,         15);
+   EXPECT_EQ( txi, UINT16_MAX);
+   EXPECT_EQ( txo, UINT16_MAX);
+   EXPECT_EQ( brr.getSizeRemaining(), 0);
+   EXPECT_EQ( bdtype, BLKDATA_HEADER);
+
+
+   /////////////////////////////////////////////////////////////////////////////
+   // 7 bytes, no prefix
+   brr.setNewData(key7);
+   bdtype = ARMDB.readBlkDataKeyNoPrefix(brr, hgt, dup);
+   EXPECT_EQ( hgt,     123000);
+   EXPECT_EQ( dup,         15);
+   EXPECT_EQ( brr.getSizeRemaining(), 0);
+   EXPECT_EQ( bdtype, BLKDATA_TX);
+
+   brr.setNewData(key7);
+   bdtype = ARMDB.readBlkDataKeyNoPrefix(brr, hgt, dup, txi);
+   EXPECT_EQ( hgt,     123000);
+   EXPECT_EQ( dup,         15);
+   EXPECT_EQ( txi,          7);
+   EXPECT_EQ( brr.getSizeRemaining(), 0);
+   EXPECT_EQ( bdtype, BLKDATA_TX);
+   
+   brr.setNewData(key7);
+   bdtype = ARMDB.readBlkDataKeyNoPrefix(brr, hgt, dup, txi, txo);
+   EXPECT_EQ( hgt,     123000);
+   EXPECT_EQ( dup,         15);
+   EXPECT_EQ( txi,          7);
+   EXPECT_EQ( txo, UINT16_MAX);
+   EXPECT_EQ( brr.getSizeRemaining(), 0);
+   EXPECT_EQ( bdtype, BLKDATA_TX);
+
+
+   /////////////////////////////////////////////////////////////////////////////
+   // 9 bytes, no prefix
+   brr.setNewData(key9);
+   bdtype = ARMDB.readBlkDataKeyNoPrefix(brr, hgt, dup);
+   EXPECT_EQ( hgt,     123000);
+   EXPECT_EQ( dup,         15);
+   EXPECT_EQ( brr.getSizeRemaining(), 0);
+   EXPECT_EQ( bdtype, BLKDATA_TXOUT);
+
+   brr.setNewData(key9);
+   bdtype = ARMDB.readBlkDataKeyNoPrefix(brr, hgt, dup, txi);
+   EXPECT_EQ( hgt,     123000);
+   EXPECT_EQ( dup,         15);
+   EXPECT_EQ( txi,          7);
+   EXPECT_EQ( brr.getSizeRemaining(), 0);
+   EXPECT_EQ( bdtype, BLKDATA_TXOUT);
+   
+   brr.setNewData(key9);
+   bdtype = ARMDB.readBlkDataKeyNoPrefix(brr, hgt, dup, txi, txo);
+   EXPECT_EQ( hgt,     123000);
+   EXPECT_EQ( dup,         15);
+   EXPECT_EQ( txi,          7);
+   EXPECT_EQ( txo,          1);
+   EXPECT_EQ( brr.getSizeRemaining(), 0);
+   EXPECT_EQ( bdtype, BLKDATA_TXOUT);
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 TEST_F(StoredBlockObjTest, SHeaderUnserialize)
@@ -4489,186 +4669,6 @@ protected:
 };
 #endif
 
-////////////////////////////////////////////////////////////////////////////////
-TEST_F(LevelDBTest, ReadBlkKeyData)
-{
-   BinaryData TXP  = WRITE_UINT8_BE((uint8_t)DB_PREFIX_TXDATA);
-   BinaryData key5p = TXP + READHEX("01e078""0f");
-   BinaryData key7p = TXP + READHEX("01e078""0f""0007");
-   BinaryData key9p = TXP + READHEX("01e078""0f""0007""0001");
-   BinaryData key5 =        READHEX("01e078""0f");
-   BinaryData key7 =        READHEX("01e078""0f""0007");
-   BinaryData key9 =        READHEX("01e078""0f""0007""0001");
-   BinaryRefReader brr;
-
-   uint32_t hgt;
-   uint8_t  dup;
-   uint16_t txi;
-   uint16_t txo;
-
-   BLKDATA_TYPE bdtype;
-
-   /////////////////////////////////////////////////////////////////////////////
-   // 5 bytes, with prefix
-   brr.setNewData(key5p);
-   bdtype = iface_->readBlkDataKey(brr, hgt, dup);
-   EXPECT_EQ( hgt,     123000);
-   EXPECT_EQ( dup,         15);
-   EXPECT_EQ( brr.getSizeRemaining(), 0);
-   EXPECT_EQ( bdtype, BLKDATA_HEADER);
-
-   brr.setNewData(key5p);
-   bdtype = iface_->readBlkDataKey(brr, hgt, dup, txi);
-   EXPECT_EQ( hgt,     123000);
-   EXPECT_EQ( dup,         15);
-   EXPECT_EQ( txi, UINT16_MAX);
-   EXPECT_EQ( brr.getSizeRemaining(), 0);
-   EXPECT_EQ( bdtype, BLKDATA_HEADER);
-   
-   brr.setNewData(key5p);
-   bdtype = iface_->readBlkDataKey(brr, hgt, dup, txi, txo);
-   EXPECT_EQ( hgt,     123000);
-   EXPECT_EQ( dup,         15);
-   EXPECT_EQ( txi, UINT16_MAX);
-   EXPECT_EQ( txo, UINT16_MAX);
-   EXPECT_EQ( brr.getSizeRemaining(), 0);
-   EXPECT_EQ( bdtype, BLKDATA_HEADER);
-
-
-   /////////////////////////////////////////////////////////////////////////////
-   // 7 bytes, with prefix
-   brr.setNewData(key7p);
-   bdtype = iface_->readBlkDataKey(brr, hgt, dup);
-   EXPECT_EQ( hgt,     123000);
-   EXPECT_EQ( dup,         15);
-   EXPECT_EQ( brr.getSizeRemaining(), 0);
-   EXPECT_EQ( bdtype, BLKDATA_TX);
-
-   brr.setNewData(key7p);
-   bdtype = iface_->readBlkDataKey(brr, hgt, dup, txi);
-   EXPECT_EQ( hgt,     123000);
-   EXPECT_EQ( dup,         15);
-   EXPECT_EQ( txi,          7);
-   EXPECT_EQ( brr.getSizeRemaining(), 0);
-   EXPECT_EQ( bdtype, BLKDATA_TX);
-   
-   brr.setNewData(key7p);
-   bdtype = iface_->readBlkDataKey(brr, hgt, dup, txi, txo);
-   EXPECT_EQ( hgt,     123000);
-   EXPECT_EQ( dup,         15);
-   EXPECT_EQ( txi,          7);
-   EXPECT_EQ( txo, UINT16_MAX);
-   EXPECT_EQ( brr.getSizeRemaining(), 0);
-   EXPECT_EQ( bdtype, BLKDATA_TX);
-
-
-   /////////////////////////////////////////////////////////////////////////////
-   // 9 bytes, with prefix
-   brr.setNewData(key9p);
-   bdtype = iface_->readBlkDataKey(brr, hgt, dup);
-   EXPECT_EQ( hgt,     123000);
-   EXPECT_EQ( dup,         15);
-   EXPECT_EQ( brr.getSizeRemaining(), 0);
-   EXPECT_EQ( bdtype, BLKDATA_TXOUT);
-
-   brr.setNewData(key9p);
-   bdtype = iface_->readBlkDataKey(brr, hgt, dup, txi);
-   EXPECT_EQ( hgt,     123000);
-   EXPECT_EQ( dup,         15);
-   EXPECT_EQ( txi,          7);
-   EXPECT_EQ( brr.getSizeRemaining(), 0);
-   EXPECT_EQ( bdtype, BLKDATA_TXOUT);
-   
-   brr.setNewData(key9p);
-   bdtype = iface_->readBlkDataKey(brr, hgt, dup, txi, txo);
-   EXPECT_EQ( hgt,     123000);
-   EXPECT_EQ( dup,         15);
-   EXPECT_EQ( txi,          7);
-   EXPECT_EQ( txo,          1);
-   EXPECT_EQ( brr.getSizeRemaining(), 0);
-   EXPECT_EQ( bdtype, BLKDATA_TXOUT);
-
-
-   /////////////////////////////////////////////////////////////////////////////
-   // 5 bytes, no prefix
-   brr.setNewData(key5);
-   bdtype = iface_->readBlkDataKeyNoPrefix(brr, hgt, dup);
-   EXPECT_EQ( hgt,     123000);
-   EXPECT_EQ( dup,         15);
-   EXPECT_EQ( brr.getSizeRemaining(), 0);
-   EXPECT_EQ( bdtype, BLKDATA_HEADER);
-
-   brr.setNewData(key5);
-   bdtype = iface_->readBlkDataKeyNoPrefix(brr, hgt, dup, txi);
-   EXPECT_EQ( hgt,     123000);
-   EXPECT_EQ( dup,         15);
-   EXPECT_EQ( txi, UINT16_MAX);
-   EXPECT_EQ( brr.getSizeRemaining(), 0);
-   EXPECT_EQ( bdtype, BLKDATA_HEADER);
-   
-   brr.setNewData(key5);
-   bdtype = iface_->readBlkDataKeyNoPrefix(brr, hgt, dup, txi, txo);
-   EXPECT_EQ( hgt,     123000);
-   EXPECT_EQ( dup,         15);
-   EXPECT_EQ( txi, UINT16_MAX);
-   EXPECT_EQ( txo, UINT16_MAX);
-   EXPECT_EQ( brr.getSizeRemaining(), 0);
-   EXPECT_EQ( bdtype, BLKDATA_HEADER);
-
-
-   /////////////////////////////////////////////////////////////////////////////
-   // 7 bytes, no prefix
-   brr.setNewData(key7);
-   bdtype = iface_->readBlkDataKeyNoPrefix(brr, hgt, dup);
-   EXPECT_EQ( hgt,     123000);
-   EXPECT_EQ( dup,         15);
-   EXPECT_EQ( brr.getSizeRemaining(), 0);
-   EXPECT_EQ( bdtype, BLKDATA_TX);
-
-   brr.setNewData(key7);
-   bdtype = iface_->readBlkDataKeyNoPrefix(brr, hgt, dup, txi);
-   EXPECT_EQ( hgt,     123000);
-   EXPECT_EQ( dup,         15);
-   EXPECT_EQ( txi,          7);
-   EXPECT_EQ( brr.getSizeRemaining(), 0);
-   EXPECT_EQ( bdtype, BLKDATA_TX);
-   
-   brr.setNewData(key7);
-   bdtype = iface_->readBlkDataKeyNoPrefix(brr, hgt, dup, txi, txo);
-   EXPECT_EQ( hgt,     123000);
-   EXPECT_EQ( dup,         15);
-   EXPECT_EQ( txi,          7);
-   EXPECT_EQ( txo, UINT16_MAX);
-   EXPECT_EQ( brr.getSizeRemaining(), 0);
-   EXPECT_EQ( bdtype, BLKDATA_TX);
-
-
-   /////////////////////////////////////////////////////////////////////////////
-   // 9 bytes, no prefix
-   brr.setNewData(key9);
-   bdtype = iface_->readBlkDataKeyNoPrefix(brr, hgt, dup);
-   EXPECT_EQ( hgt,     123000);
-   EXPECT_EQ( dup,         15);
-   EXPECT_EQ( brr.getSizeRemaining(), 0);
-   EXPECT_EQ( bdtype, BLKDATA_TXOUT);
-
-   brr.setNewData(key9);
-   bdtype = iface_->readBlkDataKeyNoPrefix(brr, hgt, dup, txi);
-   EXPECT_EQ( hgt,     123000);
-   EXPECT_EQ( dup,         15);
-   EXPECT_EQ( txi,          7);
-   EXPECT_EQ( brr.getSizeRemaining(), 0);
-   EXPECT_EQ( bdtype, BLKDATA_TXOUT);
-   
-   brr.setNewData(key9);
-   bdtype = iface_->readBlkDataKeyNoPrefix(brr, hgt, dup, txi, txo);
-   EXPECT_EQ( hgt,     123000);
-   EXPECT_EQ( dup,         15);
-   EXPECT_EQ( txi,          7);
-   EXPECT_EQ( txo,          1);
-   EXPECT_EQ( brr.getSizeRemaining(), 0);
-   EXPECT_EQ( bdtype, BLKDATA_TXOUT);
-}
 
 ////////////////////////////////////////////////////////////////////////////////
 TEST_F(LevelDBTest, OpenClose)

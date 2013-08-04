@@ -287,7 +287,7 @@ private:
    vector<LedgerEntry>   ledger_;
    vector<LedgerEntry>   ledgerZC_;
 
-   // Used to be part of the RegisteredAddress class
+   // Used to be part of the RegisteredScrAddr class
    uint32_t alreadyScannedUpToBlk_;
 };
 
@@ -323,11 +323,11 @@ public:
 
    // Adds a new address that is assumed to be imported, and thus will
    // require a blockchain scan
-   void addAddress_1_(BinaryData    addr);
+   void addAddress_1_(BinaryData addr);
 
    // Adds a new address that we claim has never been seen until thos moment,
    // and thus there's no point in doing a blockchain rescan.
-   void addNewAddress_1_(BinaryData    addr) {addNewAddress(addr);}
+   void addNewAddress_1_(BinaryData addr) {addNewAddress(addr);}
 
    // Blockchain rescan will depend on the firstBlockNum input
    void addAddress_3_(BinaryData    addr, 
@@ -349,16 +349,16 @@ public:
    // the block
    pair<bool,bool> isMineBulkFilter( Tx & tx, bool withMultiSig=false);
 
-   void       scanTx(Tx & tx, 
-                     uint32_t txIndex = UINT32_MAX,
-                     uint32_t blktime = UINT32_MAX,
-                     uint32_t blknum  = UINT32_MAX);
+   void scanTx(Tx & tx, 
+               uint32_t txIndex = UINT32_MAX,
+               uint32_t blktime = UINT32_MAX,
+               uint32_t blknum  = UINT32_MAX);
 
-   void       scanNonStdTx(uint32_t    blknum, 
-                           uint32_t    txidx, 
-                           Tx &        txref,
-                           uint32_t    txoutidx,
-                           ScrAddress& addr);
+   void scanNonStdTx(uint32_t    blknum, 
+                     uint32_t    txidx, 
+                     Tx &        txref,
+                     uint32_t    txoutidx,
+                     ScrAddress& addr);
 
    LedgerEntry calcLedgerEntryForTx(Tx & tx);
    LedgerEntry calcLedgerEntryForTx(TxRef & txref);
@@ -378,7 +378,7 @@ public:
 
    
    uint32_t     getNumScrAddr(void) const {return scrAddrMap_.size();}
-   ScrAddress & getScrAddrByIndex(uint32_t i) { return *(addrPtrVect_[i]); }
+   ScrAddress & getScrAddrByIndex(uint32_t i) { return *(scrAddrPtrs_[i]); }
    ScrAddress & getScrAddrByKey(BinaryData const & a) { return scrAddrMap_[a];}
 
    void     sortLedger(void);
@@ -402,9 +402,9 @@ public:
    vector<LedgerEntry> & getEmptyLedger(void) { EmptyLedger_.clear(); return EmptyLedger_;}
 
 private:
-   vector<ScrAddress*>          addrPtrVect_;
-   //map<BinaryData, ScrAddress>  scrAddrMap_;
-   //map<OutPoint, TxIOPair>      txioMap_;
+   vector<ScrAddress*>          scrAddrPtrs_;
+   map<BinaryData, ScrAddress>  scrAddrMap_;
+   map<OutPoint, TxIOPair>      txioMap_;
 
    vector<LedgerEntry>          ledgerAllAddr_;  
    vector<LedgerEntry>          ledgerAllAddrZC_;  
@@ -414,7 +414,7 @@ private:
    set<OutPoint>                nonStdUnspentOutPoints_;
 
    BlockDataManager_LevelDB*    bdmPtr_;
-   static vector<LedgerEntry>   EmptyLedger_;
+   static vector<LedgerEntry>   EmptyLedger_; // just a null-reference object
 
 
 };
@@ -569,13 +569,17 @@ private:
    // will automatically update for all addresses, period.  And we'd best not 
    // track those in RAM (maybe on a huge server...?)
    set<BtcWallet*>                    registeredWallets_;
-   map<BinaryData, ScrAddress>        registeredScrAddrMap_;
+   map<BinaryData, RegisteredScrAddr> registeredScrAddrMap_;
    list<RegisteredTx>                 registeredTxList_;
    set<HashString>                    registeredTxSet_;
    set<OutPoint>                      registeredOutPoints_;
    uint32_t                           allScannedUpToBlk_; // one past top
 
-   map<OutPoint,   TxIOPair>          txioMap_;
+   // TODO: We eventually want to maintain some kind of master TxIO map, instead
+   // of storing them in the individual wallets.  With the new DB, it makes more
+   // sense to do this, and it will become easier to compute total balance when
+   // multiple wallets share the same addresses
+   //map<OutPoint,   TxIOPair>          txioMap_;
 
 private:
    // Set the constructor to private so that only one can ever be created

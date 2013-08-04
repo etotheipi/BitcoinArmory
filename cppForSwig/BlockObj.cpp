@@ -1230,7 +1230,8 @@ void UnspentTxOut::pprintOneLine(uint32_t currBlk)
 
 ////////////////////////////////////////////////////////////////////////////////
 /*
-RegisteredAddress::RegisteredAddress(BtcAddress const & addrObj, int32_t blkCreated)
+RegisteredScrAddr::RegisteredScrAddr(BtcAddress const & addrObj, 
+                                     int32_t blkCreated)
 {
    uniqueKey_ = addrObj.getAddrStr20();
    addrType_ = 0x00;

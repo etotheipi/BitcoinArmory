@@ -299,7 +299,7 @@ void BtcWallet::addScrAddr(HashString    scrAddr,
    ScrAddrObj* addrPtr = &(scrAddrMap_[scrAddr]);
    *addrPtr = ScrAddrObj(scrAddr, firstTimestamp, firstBlockNum,
                                   lastTimestamp,  lastBlockNum);
-   addrPtrVect_.push_back(addrPtr);
+   scrAddrPtrs_.push_back(addrPtr);
 
    // Default behavior is "don't know, must rescan" if no firstBlk is spec'd
    if(bdmPtr_!=NULL)
@@ -314,7 +314,7 @@ void BtcWallet::addNewScrAddr(BinaryData scrAddr)
 
    ScrAddrObj* addrPtr = &(scrAddrMap_[scrAddr]);
    *addrPtr = ScrAddrObj(scrAddr, 0,0, 0,0); 
-   addrPtrVect_.push_back(addrPtr);
+   scrAddrPtrs_.push_back(addrPtr);
 
    if(bdmPtr_!=NULL)
       bdmPtr_->registerNewAddress(scrAddr);
@@ -330,7 +330,7 @@ void BtcWallet::addAddress(ScrAddrObj const & newScrAddr)
    {            
       ScrAddrObj * addrPtr = &(scrAddrMap_[newAddr.getScrAddr()]);
       *addrPtr = newAddr;
-      addrPtrVect_.push_back(addrPtr);
+      scrAddrPtrs_.push_back(addrPtr);
    }
 
    if(bdmPtr_!=NULL)
@@ -469,9 +469,9 @@ pair<bool,bool> BtcWallet::isMineBulkFilter(Tx & tx, bool withMultiSig)
        
       // Try to flag non-standard scripts
       //TxOut txout = tx.getTxOut(iout);
-      //for(uint32_t i=0; i<addrPtrVect_.size(); i++)
+      //for(uint32_t i=0; i<scrAddrPtrs_.size(); i++)
       //{
-         //ScrAddrObj & thisAddr = *(addrPtrVect_[i]);
+         //ScrAddrObj & thisAddr = *(scrAddrPtrs_[i]);
          //HashString const & addr20 = thisAddr.getScrAddr();
          //if(txout.getScriptRef().find(thisAddr.getScrAddr()) > -1)
             //scanNonStdTx(0, 0, tx, iout, thisAddr);
@@ -562,10 +562,16 @@ void BlockDataManager_LevelDB::insertRegisteredTxIfNew(HashString txHash)
                          tx_ptr->getBlockHeight(),
                          tx_ptr->getBlockTxIndex());
       registeredTxList_.push_back(regTx);
-      regTx.writeToLDB(transientDB_);
    }
 }
 
+/////////////////////////////////////////////////////////////////////////////
+void BlockDataManager_LevelDB::insertRegisteredTxIfNew(RegisteredTx & regTx)
+{
+   // .insert() function returns pair<iter,bool> with bool true if inserted
+   if(registeredTxSet_.insert(regTx.getThisHash()).second == true)
+      registeredTxList_.push_back(regTx);
+}
 
 
 /////////////////////////////////////////////////////////////////////////////
@@ -580,10 +586,11 @@ void BlockDataManager_LevelDB::insertRegisteredTxIfNew(HashString txHash)
 //  If the txSize and offsets have been pre-calculated, you can pass them 
 //  in, or pass {0, NULL, NULL} to have it calculated for you.
 //  
-void BlockDataManager_LevelDB::registeredAddrScan( uint8_t const * txptr,
-                                                   uint32_t txSize,
-                                                   vector<uint32_t> * txInOffsets,
-                                                   vector<uint32_t> * txOutOffsets)
+void BlockDataManager_LevelDB::registeredAddrScan( 
+                                            uint8_t const * txptr,
+                                            uint32_t txSize,
+                                            vector<uint32_t> * txInOffsets,
+                                            vector<uint32_t> * txOutOffsets)
 {
    // Probably doesn't matter, but I'll keep these on the heap between calls
    static vector<uint32_t> localOffsIn;
@@ -654,9 +661,9 @@ void BlockDataManager_LevelDB::registeredAddrScan( uint8_t const * txptr,
          /* TODO:  Right now we will just ignoring non-std tx
                    I don't do anything with them right now, anyway
          TxOut txout = tx.getTxOut(iout);
-         for(uint32_t i=0; i<addrPtrVect_.size(); i++)
+         for(uint32_t i=0; i<scrAddrPtrs_.size(); i++)
          {
-            ScrAddrObj & thisAddr = *(addrPtrVect_[i]);
+            ScrAddrObj & thisAddr = *(scrAddrPtrs_[i]);
             HashString const & addr20 = thisAddr.getScrAddr();
             if(txout.getScriptRef().find(thisAddr.getScrAddr()) > -1)
                scanNonStdTx(0, 0, tx, iout, thisAddr);
@@ -715,9 +722,9 @@ void BtcWallet::scanTx(Tx & tx,
    map<HashString, ScrAddrObj>::iterator addrIter;
    ScrAddrObj* thisAddrPtr;
    HashString  addr20;
-   //for(uint32_t i=0; i<addrPtrVect_.size(); i++)
+   //for(uint32_t i=0; i<scrAddrPtrs_.size(); i++)
    //{
-      //ScrAddrObj & thisAddr = *(addrPtrVect_[i]);
+      //ScrAddrObj & thisAddr = *(scrAddrPtrs_[i]);
       //HashString const & addr20 = thisAddr.getScrAddr();
 
       ///// LOOP OVER ALL TXIN IN BLOCK /////
@@ -760,7 +767,7 @@ void BtcWallet::scanTx(Tx & tx,
             int64_t thisVal = (int64_t)txout.getValue();
             totalLedgerAmt -= thisVal;
 
-            // Skip, if this is a zero-conf-spend, but it's already got a zero-conf
+            // Skip, if zero-conf-spend, but it's already got a zero-conf
             if( isZeroConf && txio.hasTxInZC() )
                return; // this tx can't be valid, might as well bail now
 
@@ -815,9 +822,9 @@ void BtcWallet::scanTx(Tx & tx,
    //}
 
 
-   //for(uint32_t i=0; i<addrPtrVect_.size(); i++)
+   //for(uint32_t i=0; i<scrAddrPtrs_.size(); i++)
    //{
-      //ScrAddrObj & thisAddr = *(addrPtrVect_[i]);
+      //ScrAddrObj & thisAddr = *(scrAddrPtrs_[i]);
       //HashString const & addr20 = thisAddr.getScrAddr();
 
       ///// LOOP OVER ALL TXOUT IN TX /////
@@ -1077,8 +1084,8 @@ void BtcWallet::clearBlkData(void)
    nonStdTxioMap_.clear();
    nonStdUnspentOutPoints_.clear();
 
-   for(uint32_t a=0; a<addrPtrVect_.size(); a++)
-      addrPtrVect_[a]->clearBlkData();
+   for(uint32_t a=0; a<scrAddrPtrs_.size(); a++)
+      scrAddrPtrs_[a]->clearBlkData();
 }
 
 
@@ -1464,8 +1471,7 @@ void BlockDataManager_LevelDB::SetHomeDirLocation(string homeDir)
 //
 bool BlockDataManager_LevelDB::SetBlkFileLocation(string   blkdir,
                                                   uint32_t blkdigits,
-                                                  uint32_t blkstartidx,
-                                                  uint64_t cacheSize)
+                                                  uint32_t blkstartidx)
 {
    SCOPED_TIMER("SetBlkFileLocation");
    blkFileDir_    = blkdir; 
@@ -1658,7 +1664,7 @@ bool BlockDataManager_LevelDB::addHeadersFirst(vector<StoredHeader> const & head
 
    // 
    // This is an ancient first shot at some DB code... it doesn't match 
-   // any of the infrastructure we have now, but I left it in case I need
+   // any of the infrastructure we have now, but I left it here case I need
    // to go back and look at my thought process back then.
    /*
    // (2) Now let's make sure the blk files are the same ones used to construct
@@ -1894,28 +1900,6 @@ BlockDataManager_LevelDB & BlockDataManager_LevelDB::GetInstance(void)
    return (*theOnlyBDM_);
 }
 
-
-
-
-/////////////////////////////////////////////////////////////////////////////
-/*
-void BlockDataManager_LevelDB::insertRegOutPoint(OutPoint& op) 
-{
-
-   BinaryWriter keyWriter(4+32);
-   keyWriter.put_BinaryData( string("RGOP").data(), 4);
-   keyWriter.put_BinaryData( op.serialize() );
-
-   leveldb::Slice key(keyWriter.ToString());
-   leveldb::Slice val(string(""));
-      
-   // Put it in the database
-   leveldb::Status stat = db->Put(leveldb::WriteOptions(), key, val);
-
-   // ...and then add it to the RAM map
-   registeredOutPoints_.insert(op);
-}
-*/
 
 
 /////////////////////////////////////////////////////////////////////////////
@@ -2587,7 +2571,6 @@ void BlockDataManager_LevelDB::rescanBlocks(uint32_t blk0, uint32_t blk1)
          registeredAddrScan(thisTx);
       }
 
-         
       if( (h<120000 && h%10000==0) || (h>=120000 && h%1000==0) )
       {
          if(armoryHomeDir_.size() > 0)
@@ -2603,8 +2586,8 @@ void BlockDataManager_LevelDB::rescanBlocks(uint32_t blk0, uint32_t blk1)
    TIMER_STOP("LoadProgress");
    */
 
-   BinaryData startKey = ARMDB.getBlkDataKey(blk0, 0);
-   BinaryData endKey   = ARMDB.getBlkDataKey(blk1, 0);
+   BinaryData startKey = DBUtils::getBlkDataKey(blk0, 0);
+   BinaryData endKey   = DBUtils::getBlkDataKey(blk1, 0);
    iface_->seekTo(BLKDATA, startKey);
 
    // Start scanning and timer
@@ -2623,10 +2606,7 @@ void BlockDataManager_LevelDB::rescanBlocks(uint32_t blk0, uint32_t blk1)
          continue;
 
       applyBlockToDB(hgt, dup); 
-
-      // Track the byte count 
       bytesReadSoFar_ += sbh.numBytes_;
-
       writeScanStatusFile(hgt, bfile, string("LoadProgress"));
 
    } while(advanceIterAndRead(BLKDATA, DB_PREFIX_TXDATA));
@@ -2824,6 +2804,16 @@ vector<TxRef*> BlockDataManager_LevelDB::findAllNonStdTx(void)
 
 
 /////////////////////////////////////////////////////////////////////////////
+// With the LevelDB database integration, we now index all blockchain data
+// by block height and index (tx index in block, txout index in tx).  The
+// only way to actually do that is to process the headers first, so that 
+// when we do read the block data the first time, we know how to put it
+// into the DB.  
+//
+// For now, we have no problem holding all the headers in RAM and organizing
+// them all in one shot.  But RAM-limited devices (say, if this was going 
+// to be ported to Android), may not be able to do even that, and may have
+// to read and process the headers in batches.  
 bool BlockDataManager_LevelDB::processHeadersInFile(string filename)
 {
    SCOPED_TIMER("processHeadersInFile");
@@ -2903,9 +2893,57 @@ bool BlockDataManager_LevelDB::processHeadersInFile(string filename)
 }
 
 
+////////////////////////////////////////////////////////////////////////////////
+// We assume that all the addresses we care about have been registered with
+// the BDM.  Before, the BDM we would rescan the blockchain and use the method
+// isMineBulkFilter() to extract all "RegisteredTx" which are all tx relevant
+// to the list of "RegisteredAddress" objects.  Now, the DB defaults to super-
+// node mode and tracks all that for us on disk.  So when we start up, rather
+// than having to search the blockchain, we just look the StoredScriptHistory
+// list for each of our "RegisteredAddress" objects, and then pull all the 
+// relevant tx from the database.  After that, the BDM operates 99% identically
+// to before.  We just didn't have to do a full scan to fill the RegTx list
+//
+// In the future, we will use the StoredScriptHistory objects to directly fill
+// the TxIOPair map -- all the data is tracked by the DB and we could pull it
+// directly.  But that would require reorganizing a ton of BDM code, and may
+// be difficult to guarantee that all the previous functionality was there and
+// working.  This way, all of our previously-tested code remains mostly 
+// untouched
+bool BlockDataManager_LevelDB::loadScrAddrHistoryFromDB(void)
+{
+   SCOPED_TIMER("loadScrAddrHistoryFromDB");
+
+   map<BinaryData, RegisteredScrAddr>::iterator iter;
+   for(iter  = registeredScrAddrMap_.begin();
+       iter != registeredScrAddrMap_.end();
+       iter++)
+   {
+      StoredScriptHistory ssh;
+      iface_->getStoredScriptHistory(ssh, iter->second.uniqueKey_);
+      
+      for(uint32_t i=0; i<ssh.txioVect_.size(); i++)
+      {
+         TxIOPair & txio = ssh.txioVect_[i];
+         BinaryDataRef txKey = txio.getTxRefOfOutput().getDBKeyRef();
+         
+         StoredTx stx;
+         iface_->getStoredTx(stx, txKey);
+         RegisteredTx regTx(txio.getTxRefOfOutput(),
+                            stx.thisHash_,
+                            stx.blockHeight_,
+                            stx.txIndex_);
+         insertRegisteredTxIfNew(regTx);
+      }
+   }
+}
+
 
 /////////////////////////////////////////////////////////////////////////////
-uint32_t BlockDataManager_LevelDB::parseEntireBlockchain(uint32_t cacheSize)
+// TODO:  We might want to find a way to destroy/delete the existing DB 
+//        before executing this... since we may be calling this as a way
+//        to recover from a DB error...
+uint32_t BlockDataManager_LevelDB::parseEntireBlockchain(void)
 {
    SCOPED_TIMER("parseEntireBlockchain");
    LOGINFO << "Number of registered addr: " << registeredScrAddrMap_.size();
@@ -2925,8 +2963,6 @@ uint32_t BlockDataManager_LevelDB::parseEntireBlockchain(uint32_t cacheSize)
    numBlkFiles_=0;
    totalBlockchainBytes_ = 0;
    blkFileList_.clear();
-
-
    while(numBlkFiles_ < UINT16_MAX)
    {
       string path = BtcUtils::getBlkFilename(blkFileDir_,
@@ -2956,7 +2992,8 @@ uint32_t BlockDataManager_LevelDB::parseEntireBlockchain(uint32_t cacheSize)
       return 0;
    }
 
-   // Read headers 
+   // New with LevelDB:  must read and organize headers before handling the
+   // full blockchain data
    for(uint32_t fnum=1; fnum<=numBlkFiles_; fnum++)
       processHeadersInFile(blkFileList_[fnum-1]);
 
@@ -3141,7 +3178,7 @@ uint32_t BlockDataManager_LevelDB::readBlkFileUpdate(void)
          is.seekg(endOfNewLastBlock, ios::beg);
          is.read((char*)fourBytes.getPtr(), 4);
 
-         if(fourBytes!=MagicBytes_)
+         if(fourBytes != MagicBytes_)
             break;
          else
          {
@@ -3156,7 +3193,7 @@ uint32_t BlockDataManager_LevelDB::readBlkFileUpdate(void)
 
 
    // Check to see if there was a blkfile split, and we have to switch
-   // to tracking the new file..  this condition may trigger only once a year...
+   // to tracking the new file..  this condition triggers about once a week
    string nextFilename = BtcUtils::getBlkFilename(blkFileDir_, 
                                                   blkFileDigits_,
                                                   numBlkFiles_+blkFileStart_);
@@ -3467,8 +3504,9 @@ bool BlockDataManager_LevelDB::parseNewBlock(BinaryRefReader & brr,
 // we will need to copy it to its permanent memory location before parsing it.
 // Btw, yes I know I could've used a bitset here, but I was too lazy to add
 // the #include and look up the members for using it...
-vector<bool> BlockDataManager_LevelDB::addNewBlockData(BinaryRefReader & brrRawBlock,
-                                                       uint32_t blockSize)
+vector<bool> BlockDataManager_LevelDB::addNewBlockData(
+                                                BinaryRefReader & brrRawBlock,
+                                                uint32_t blockSize)
 {
    SCOPED_TIMER("addNewBlockData");
    uint8_t const * startPtr = brrRawBlock.getCurrPtr();
@@ -4100,7 +4138,7 @@ void BtcWallet::clearZeroConfPool(void)
    SCOPED_TIMER("clearZeroConfPool");
    ledgerAllAddrZC_.clear();
    for(uint32_t i=0; i<scrAddrMap_.size(); i++)
-      addrPtrVect_[i]->clearZeroConfPool();
+      scrAddrPtrs_[i]->clearZeroConfPool();
 
 
    // Need to "unlock" the TxIOPairs that were locked with zero-conf txs
@@ -4420,7 +4458,7 @@ bool BlockDataManager_LevelDB::applyTxToBatchWriteData(
       stxoSpend.spentness_      = TXOUT_SPENT;
       stxoSpend.spentByTxInKey_ = thisSTX.getDBKeyOfChild(iin);
 
-      if(ARMDB.getArmoryDbType() != ARMORY_DB_SUPER)
+      if(DBUtils::getArmoryDbType() != ARMORY_DB_SUPER)
       {
          LOGERR << "Don't know what to do this in non-supernode mode!";
       }
@@ -4449,7 +4487,7 @@ bool BlockDataManager_LevelDB::applyTxToBatchWriteData(
       BinaryData uniqKey = stxoToAdd.getScrAddrObj();
       StoredScriptHistory* sshptr=makeSureSSHInMap(uniqKey, sshToModify, true);
 
-      if(ARMDB.getArmoryDbType() != ARMORY_DB_SUPER)
+      if(DBUtils::getArmoryDbType() != ARMORY_DB_SUPER)
       {
          LOGERR << "Figure out how to handle this since not all SSH in DB will";
          LOGERR << "be updated on every tx and block";
@@ -4606,7 +4644,7 @@ bool BlockDataManager_LevelDB::applyBlockToDB(StoredHeader & sbh)
    }
 
    // Only if pruning, we need to store 
-   if(ARMDB.getDbPruneType() == DB_PRUNE_ALL)
+   if(DBUtils::getDbPruneType() == DB_PRUNE_ALL)
       iface_->putStoredUndoData(sud);
 
    iface_->commitBatch(BLKDATA)
@@ -4703,7 +4741,7 @@ bool BlockDataManager_LevelDB::undoBlockFromDB(StoredUndoData const & sud)
    set<BinaryData>                        keysToDelete;
     
    // In the future we will accommodate more user modes
-   if(ARMDB.getArmoryDbType() != ARMORY_DB_SUPER)
+   if(DBUtils::getArmoryDbType() != ARMORY_DB_SUPER)
    {
       LOGERR << "Don't know what to do this in non-supernode mode!";
    }
@@ -4724,7 +4762,7 @@ bool BlockDataManager_LevelDB::undoBlockFromDB(StoredUndoData const & sud)
       map<uint16_t,StoredTxOut>::iterator iter;
 
 
-      if(ARMDB.getDbPruneType() == DB_PRUNE_NONE)
+      if(DBUtils::getDbPruneType() == DB_PRUNE_NONE)
       {
          // If full/super, we have the TxOut in DB, just need mark it unspent
          iter = stxptr->stxoMap_.find(stxoIdx);
@@ -4899,7 +4937,7 @@ bool BlockDataManager_LevelDB::markTxOutSpentInSSH(
       if(txoKey == ldbKey8B)
       {
          // We found the TxIO we care about 
-         if(ARMDB.getDbPruneType() == DB_PRUNE_NONE)
+         if(DBUtils::getDbPruneType() == DB_PRUNE_NONE)
          {
             // No pruning, Expect unspent, mark it as spent 
             if(txInKey8B.getSize() == 0)
@@ -4922,7 +4960,7 @@ bool BlockDataManager_LevelDB::markTxOutSpentInSSH(
    } 
 
    // If we got here... then we never found the STXO in the SSH
-   if(ARMDB.getDbPruneType() == DB_PRUNE_NONE)
+   if(DBUtils::getDbPruneType() == DB_PRUNE_NONE)
    {
       LOGERR << "We should've found an STXO in the SSH but didn't";
       return false;
@@ -4949,7 +4987,7 @@ bool BlockDataManager_LevelDB::markTxOutUnspentInSSH(
       BinaryData txoKey = txio.getDBKeyOfOutput();
       if(txoKey == ldbKey8B)
       {
-         if(ARMDB.getDbPruneType() == DB_PRUNE_NONE)
+         if(DBUtils::getDbPruneType() == DB_PRUNE_NONE)
          {
             // Expect spent, mark it as unspent 
             if(!txio.hasTxIn()) 
@@ -4972,7 +5010,7 @@ bool BlockDataManager_LevelDB::markTxOutUnspentInSSH(
    }
 
    // For non-pruning DB, we should never get here
-   //if(ARMDB.getDbPruneType() == DB_PRUNE_NONE)
+   //if(DBUtils::getDbPruneType() == DB_PRUNE_NONE)
    //{
       //LOGERR << "Somehow STXO-to-mark-unspent did not exist in SSH";
       //return false;

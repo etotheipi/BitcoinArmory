@@ -123,7 +123,7 @@ public:
 
    /////////////////////////////////////////////////////////////////////////////
    BinaryData(void) : data_(0)                 {                         }
-   BinaryData(size_t sz)                       { alloc(sz);              }
+   explicit BinaryData(size_t sz)              { alloc(sz);              }
    BinaryData(uint8_t const * inData, size_t sz)      
                                                { copyFrom(inData, sz);   }
    BinaryData(uint8_t const * dstart, uint8_t const * dend ) 

@@ -762,25 +762,24 @@ public:
 ////////////////////////////////////////////////////////////////////////////////
 // BDM is now tracking "registered" addresses and wallets during each of its
 // normal scanning operations.  
-/*
-class RegisteredAddress
+class RegisteredScrAddr
 {
 public:
-   RegisteredAddress(HashString  a160=HashString(0),
+   RegisteredScrAddr(HashString  a160=HashString(0),
                      uint32_t    blkCreated=0) :
          uniqueKey_(a160),
          blkCreated_(blkCreated),
          alreadyScannedUpToBlk_(blkCreated) { }
 
 
-   //RegisteredAddress(BtcAddress const & addrObj, int32_t blkCreated=-1);
+   //RegisteredScrAddr(BtcAddress const & addrObj, int32_t blkCreated=-1);
 
 
-   bool operator==(RegisteredAddress const & ra2) const 
+   bool operator==(RegisteredScrAddr const & ra2) const 
                                     { return uniqueKey_ == ra2.uniqueKey_;}
-   bool operator< (RegisteredAddress const & ra2) const 
+   bool operator< (RegisteredScrAddr const & ra2) const 
                                     { return uniqueKey_ <  ra2.uniqueKey_;}
-   bool operator> (RegisteredAddress const & ra2) const 
+   bool operator> (RegisteredScrAddr const & ra2) const 
                                     { return uniqueKey_ >  ra2.uniqueKey_;}
 
    
@@ -798,7 +797,6 @@ public:
    uint64_t          sumValue_;
 
 };
-*/
 
 
 

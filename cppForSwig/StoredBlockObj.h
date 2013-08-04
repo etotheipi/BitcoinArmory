@@ -107,66 +107,114 @@ class StoredTxOut;
 class StoredScriptHistory;
 
 
-#define ARMDB DBUtils::GetInstance()
+#define DBUtils GlobalDBUtilities::GetInstance()
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 // Basically making stuff globally accessible through DBUtils singleton
 ////////////////////////////////////////////////////////////////////////////////
-class DBUtils
+class GlobalDBUtilities
 {
 public:
 
-   uint32_t   hgtxToHeight(BinaryData hgtx);
-   uint8_t    hgtxToDupID(BinaryData hgtx);
-   BinaryData heightAndDupToHgtx(uint32_t hgt, uint8_t dup);
+   static uint32_t   hgtxToHeight(BinaryData hgtx);
+   static uint8_t    hgtxToDupID(BinaryData hgtx);
+   static BinaryData heightAndDupToHgtx(uint32_t hgt, uint8_t dup);
 
-   BinaryData getBlkDataKey(uint32_t height, 
+   /////////////////////////////////////////////////////////////////////////////
+   static BinaryData getBlkDataKey(uint32_t height, 
                             uint8_t  dup);
 
-   BinaryData getBlkDataKey(uint32_t height, 
+   /////////////////////////////////////////////////////////////////////////////
+   static BinaryData getBlkDataKey(uint32_t height, 
                             uint8_t  dup,
                             uint16_t txIdx);
 
-   BinaryData getBlkDataKey(uint32_t height, 
+   /////////////////////////////////////////////////////////////////////////////
+   static BinaryData getBlkDataKey(uint32_t height, 
                             uint8_t  dup,
                             uint16_t txIdx,
                             uint16_t txOutIdx);
 
-   BinaryData getBlkDataKeyNoPrefix(uint32_t height, 
+   /////////////////////////////////////////////////////////////////////////////
+   static BinaryData getBlkDataKeyNoPrefix(uint32_t height, 
                                     uint8_t  dup);
 
-   BinaryData getBlkDataKeyNoPrefix(uint32_t height, 
+   /////////////////////////////////////////////////////////////////////////////
+   static BinaryData getBlkDataKeyNoPrefix(uint32_t height, 
                                     uint8_t  dup,
                                     uint16_t txIdx);
 
-   BinaryData getBlkDataKeyNoPrefix(uint32_t height, 
+   /////////////////////////////////////////////////////////////////////////////
+   static BinaryData getBlkDataKeyNoPrefix(uint32_t height, 
                                     uint8_t  dup,
                                     uint16_t txIdx,
                                     uint16_t txOutIdx);
 
-   string getPrefixName(uint8_t prefixInt);
-   string getPrefixName(DB_PREFIX pref);
 
-   bool checkPrefixByte(BinaryRefReader brr, 
+
+   /////////////////////////////////////////////////////////////////////////////
+   static BLKDATA_TYPE readBlkDataKey( BinaryRefReader & brr,
+                                uint32_t & height,
+                                uint8_t  & dupID);
+
+   /////////////////////////////////////////////////////////////////////////////
+   static BLKDATA_TYPE readBlkDataKey( BinaryRefReader & brr,
+                                uint32_t & height,
+                                uint8_t  & dupID,
+                                uint16_t & txIdx);
+
+   /////////////////////////////////////////////////////////////////////////////
+   static BLKDATA_TYPE readBlkDataKey( BinaryRefReader & brr,
+                                uint32_t & height,
+                                uint8_t  & dupID,
+                                uint16_t & txIdx,
+                                uint16_t & txOutIdx);
+   /////////////////////////////////////////////////////////////////////////////
+   static BLKDATA_TYPE readBlkDataKeyNoPrefix( 
+                                BinaryRefReader & brr,
+                                uint32_t & height,
+                                uint8_t  & dupID);
+
+   /////////////////////////////////////////////////////////////////////////////
+   static BLKDATA_TYPE readBlkDataKeyNoPrefix( 
+                                BinaryRefReader & brr,
+                                uint32_t & height,
+                                uint8_t  & dupID,
+                                uint16_t & txIdx);
+
+   /////////////////////////////////////////////////////////////////////////////
+   static BLKDATA_TYPE readBlkDataKeyNoPrefix( 
+                                BinaryRefReader & brr,
+                                uint32_t & height,
+                                uint8_t  & dupID,
+                                uint16_t & txIdx,
+                                uint16_t & txOutIdx);
+   
+
+
+   static string getPrefixName(uint8_t prefixInt);
+   static string getPrefixName(DB_PREFIX pref);
+
+   static bool checkPrefixByte(BinaryRefReader brr, 
                         DB_PREFIX prefix,
                         bool rewindWhenDone=false);
-   bool checkPrefixByteWError( BinaryRefReader brr, 
+   static bool checkPrefixByteWError( BinaryRefReader brr, 
                                DB_PREFIX prefix,
                                bool rewindWhenDone);
 
-   void setArmoryDbType(ARMORY_DB_TYPE adt) { armoryDbType_ = adt; }
-   void setDbPruneType( DB_PRUNE_TYPE dpt)  { dbPruneType_  = dpt; }
+   static void setArmoryDbType(ARMORY_DB_TYPE adt) { armoryDbType_ = adt; }
+   static void setDbPruneType( DB_PRUNE_TYPE dpt)  { dbPruneType_  = dpt; }
 
-   ARMORY_DB_TYPE getArmoryDbType(void) { return armoryDbType_; }
-   DB_PRUNE_TYPE  getDbPruneType(void)  { return dbPruneType_;  }
+   static ARMORY_DB_TYPE getArmoryDbType(void) { return armoryDbType_; }
+   static DB_PRUNE_TYPE  getDbPruneType(void)  { return dbPruneType_;  }
 
-   static DBUtils& GetInstance(void)
+   static GlobalDBUtilities& GetInstance(void)
    {
-      static DBUtils* theOneUtilsObj = NULL;
+      static GlobalDBUtilities* theOneUtilsObj = NULL;
       if(theOneUtilsObj==NULL)
       {
-         theOneUtilsObj = new DBUtils;
+         theOneUtilsObj = new GlobalDBUtilities;
       
          // Default database structure
          theOneUtilsObj->setArmoryDbType(ARMORY_DB_FULL);
@@ -179,10 +227,10 @@ public:
 
    
 private:
-   DBUtils(void) {}
+   GlobalDBUtilities(void) {}
    
-   DB_PRUNE_TYPE  dbPruneType_;
-   ARMORY_DB_TYPE armoryDbType_;
+   static DB_PRUNE_TYPE  dbPruneType_;
+   static ARMORY_DB_TYPE armoryDbType_;
 };
 
 
@@ -195,8 +243,8 @@ public:
       topBlkHgt_(UINT32_MAX),
       topBlkHash_(0),
       armoryVer_(ARMORY_DB_VERSION),
-      armoryType_(ARMDB.getArmoryDbType()),
-      pruneType_(ARMDB.getDbPruneType())   {}
+      armoryType_(DBUtils::getArmoryDbType()),
+      pruneType_(DBUtils::getDbPruneType())   {}
 
    bool isInitialized(void) const { return magic_.getSize() > 0; }
 
@@ -509,7 +557,7 @@ public:
    BinaryDataRef getHint(uint32_t i) const { return dbKeyList_[i].getRef(); }
 
    void setPreferredTx(uint32_t height, uint8_t dupID, uint16_t txIndex) 
-      { preferredDBKey_ = ARMDB.getBlkDataKeyNoPrefix(height,dupID,txIndex); }
+      { preferredDBKey_ = DBUtils::getBlkDataKeyNoPrefix(height,dupID,txIndex); }
    void setPreferredTx(BinaryData dbKey6B_) { preferredDBKey_ = dbKey6B_; }
 
    void       unserializeDBValue(BinaryRefReader & brr);
