@@ -162,7 +162,7 @@ public:
 
    /////
    AddressBookEntry(void) : addr160_(BtcUtils::EmptyHash_) { txList_.clear(); }
-   AddressBookEntry(BinaryData a160) : addr160_(a160) { txList_.clear(); }
+   explicit AddressBookEntry(BinaryData a160) : addr160_(a160) { txList_.clear(); }
    void addTx(Tx & tx) { txList_.push_back( RegisteredTx(tx) ); }
    BinaryData getAddr160(void) { return addr160_; }
 
@@ -303,7 +303,7 @@ class BtcWallet
 {
 public:
    BtcWallet(void) : bdmPtr_(NULL) {}
-   BtcWallet(BlockDataManager_LevelDB* bdm) : bdmPtr_(bdm) {}
+   explicit BtcWallet(BlockDataManager_LevelDB* bdm) : bdmPtr_(bdm) {}
    ~BtcWallet(void);
 
    /////////////////////////////////////////////////////////////////////////////
@@ -517,11 +517,10 @@ private:
    bool                               isLevelDBSet_;
    string                             armoryHomeDir_;
    string                             blkFileDir_;
-   uint32_t                           blkFileDigits_;
-   uint32_t                           blkFileStart_;
    vector<string>                     blkFileList_;
    uint64_t                           numBlkFiles_;
    uint64_t                           endOfPrevLastBlock_;
+   uint64_t                           endOfLastBlockByte_;
 
    // These should be set after the blockchain is organized
    deque<BlockHeader*>                headersByHeight_;
@@ -693,7 +692,7 @@ public:
 
    // Does a full scan!
    bool     processHeadersInFile(string filename);
-   uint32_t parseEntireBlockchain(uint32_t cacheSz=DEFAULT_CACHE_SIZE);
+   uint32_t rebuildDatabasesFromBlkFiles(void);
 
    // When we add new block data, we will need to store/copy it to its
    // permanent memory location before parsing it.
@@ -725,7 +724,7 @@ public:
                             uint32_t startBlknum=0,
                             uint32_t endBlknum=UINT32_MAX);
 
-   void rescanBlocks(uint32_t blk0=0, uint32_t blk1=UINT32_MAX);
+   void reapplyBlocksToDB(uint32_t blk0=0, uint32_t blk1=UINT32_MAX);
    void writeScanStatusFile(uint32_t hgt, string bfile, string timerName);
 
    // This will only be used by the above method, probably wouldn't be called

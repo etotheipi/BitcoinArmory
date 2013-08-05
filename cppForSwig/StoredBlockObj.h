@@ -521,6 +521,10 @@ public:
 
 
 ////////////////////////////////////////////////////////////////////////////////
+// TODO:  it turns out that outPointsAddedByBlock_ is not "right."  If a Tx has
+//        20 txOuts, there's no reason to write 36 * 20 = 720 bytes when you 
+//        can just as easily write the header once, and the numTxOut and create
+//        the OutPoints yourself.  Will fix this later.
 class StoredUndoData
 {
 public:

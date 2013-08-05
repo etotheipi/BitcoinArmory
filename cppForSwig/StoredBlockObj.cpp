@@ -173,7 +173,7 @@ void StoredHeader::createFromBlockHeader(BlockHeader & bh)
    numTx_ = bh.getNumTx();
    numBytes_ = bh.getBlockSize();
    blockHeight_ = bh.getBlockHeight();
-   duplicateID_ = 0xff;
+   duplicateID_ = UINT8_MAX;
    isMainBranch_ = bh.isMainBranch();
 }
 
@@ -1425,6 +1425,10 @@ void StoredTxHints::unserializeDBValue(BinaryRefReader & brr)
 void StoredTxHints::serializeDBValue(BinaryWriter & bw ) const
 {
    bw.put_var_int(dbKeyList_.size());
+   
+   // Find and write the preferred key first, skip all unpreferred (the first
+   // one in the list is the preferred key... that paradigm could be improved
+   // for sure...)
    for(uint32_t i=0; i<dbKeyList_.size(); i++)
    {
       if(dbKeyList_[i] != preferredDBKey_)
@@ -1434,6 +1438,8 @@ void StoredTxHints::serializeDBValue(BinaryWriter & bw ) const
       break;
    }
 
+   // Now write all the remaining keys in whatever order they are naturally
+   // sorted (skip the preferred key since it was already written)
    for(uint32_t i=0; i<dbKeyList_.size(); i++)
    {
       if(dbKeyList_[i] == preferredDBKey_)

@@ -225,6 +225,10 @@ public:
    void closeDatabases(void);
 
    /////////////////////////////////////////////////////////////////////////////
+   // Sometimes, we just need to nuke everything and start over
+   void destroyAndResetDatabase(void);
+
+   /////////////////////////////////////////////////////////////////////////////
    bool databasesAreOpen(void) { return dbIsOpen_; }
 
    /////////////////////////////////////////////////////////////////////////////
@@ -436,6 +440,7 @@ public:
 
    bool putStoredTxHints(StoredTxHints const & sths);
    bool getStoredTxHints(StoredTxHints & sths, BinaryDataRef hashPrefix);
+   void updatePreferredTxHint(BinaryDataRef hashOrPrefix, BinaryData preferKey);
 
    bool putStoredHeadHgtList(StoredHeadHgtList const & hhl);
    bool getStoredHeadHgtList(StoredHeadHgtList & hhl, uint32_t height);
@@ -521,6 +526,8 @@ public:
    BinaryData getGenesisBlockHash(void) { return genesisBlkHash_; }
    BinaryData getGenesisTxHash(void)    { return genesisTxHash_; }
    BinaryData getMagicBytes(void)       { return magicBytes_; }
+
+
 
 private:
    string               baseDir_;

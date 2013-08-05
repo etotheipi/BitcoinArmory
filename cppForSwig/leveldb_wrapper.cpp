@@ -248,6 +248,20 @@ void InterfaceToLDB::closeDatabases(void)
    dbIsOpen_ = false;
 }
 
+////////////////////////////////////////////////////////////////////////////////
+void InterfaceToLDB::destroyAndResetDatabase(void)
+{
+   SCOPED_TIMER("destroyAndResetDatabase");
+
+   closeDatabases();
+   leveldb::Options options;
+   leveldb::DestroyDB(dbPaths_[HEADERS], options);
+   leveldb::DestroyDB(dbPaths_[BLKDATA], options);
+   
+   // Reopen the databases with the exact same parameters as before
+   // The close & destroy operations shouldn't have changed any of that.
+   openDatabases(baseDir_, genesisBlkHash_, genesisTxHash_, magicBytes_);
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 void InterfaceToLDB::startBatch(DB_SELECT db)
@@ -1373,12 +1387,13 @@ bool InterfaceToLDB::getStoredHeader( StoredHeader & sbh,
 
 
 ////////////////////////////////////////////////////////////////////////////////
+// This assumes that this new tx is "preferred" and will update the list as such
 void InterfaceToLDB::putStoredTx( StoredTx & stx, bool withTxOut)
 {
    SCOPED_TIMER("putStoredTx");
    BinaryData ldbKey = DBUtils::getBlkDataKeyNoPrefix(stx.blockHeight_, 
-                                                   stx.duplicateID_, 
-                                                   stx.txIndex_);
+                                                      stx.duplicateID_, 
+                                                      stx.txIndex_);
 
 
    // First, check if it's already in the hash-indexed DB
@@ -1437,6 +1452,34 @@ void InterfaceToLDB::putStoredTx( StoredTx & stx, bool withTxOut)
    }
 
    commitBatch(BLKDATA);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void InterfaceToLDB::updatePreferredTxHint( BinaryDataRef hashOrPrefix,
+                                            BinaryData    preferDBKey)
+{
+   StoredTxHints sths;
+   getStoredTxHints(sths, hashOrPrefix);
+
+   if(sths.preferredDBKey_ == preferDBKey)
+      return;
+
+   // Check whether the hint already exists in the DB
+   bool exists = false;
+   for(uint32_t i=0; i<sths.dbKeyList_.size(); i++)
+   {
+      if(sths.dbKeyList_[i] == ldbKey)
+      {
+         exists = true;
+         break;
+      }
+   }
+
+   if(!exists)
+      sths.dbKeyList_.push_back(preferDBKey);
+
+   sths.preferredDBKey_ = preferDBKey;
+   putStoredTxHints(sths);
 }
 
 ////////////////////////////////////////////////////////////////////////////////

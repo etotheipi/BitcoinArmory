@@ -36,11 +36,16 @@ public:
 
    /////////////////////////////////////////////////////////////////////////////
    BlockHeader(void) : 
-       isInitialized_(false), numTx_(UINT32_MAX), numBlockBytes_(UINT32_MAX) {}
-   BlockHeader(uint8_t const * ptr)       { unserialize(ptr); }
-   BlockHeader(BinaryRefReader & brr)     { unserialize(brr); }
-   BlockHeader(BinaryDataRef str)         { unserialize(str); }
-   BlockHeader(BinaryData    const & str) { unserialize(str); }
+      isInitialized_(false), 
+      numTx_(UINT32_MAX), 
+      numBlockBytes_(UINT32_MAX),
+      duplicateID_(UINT8_MAX) {}
+
+   explicit BlockHeader(uint8_t const * ptr)      { unserialize(ptr); }
+   explicit BlockHeader(BinaryRefReader & brr)    { unserialize(brr); }
+   explicit BlockHeader(BinaryDataRef str)        { unserialize(str); }
+   explicit BlockHeader(BinaryData const & str)   { unserialize(str); }
+
    // SWIG needs a non-overloaded method
    BlockHeader & unserialize_1_(BinaryData const & str) { unserialize(str); return *this; }
 
@@ -116,6 +121,10 @@ private:
    uint32_t       wholeBlockSize_;
    uint32_t       numTx_;
    uint32_t       numBlockBytes_; // includes header + nTx + sum(Tx)
+
+   uint32_t       blockInFile_;
+   uint32_t       blockInFileNum_;
+   uint32_t       blockFileOffset_;
 
    // Specific to the DB storage
    uint8_t        duplicateID_; // ID of this blk rel to others at same height
@@ -211,8 +220,8 @@ class OutPoint
 public:
    OutPoint(void) : txHash_(32), txOutIndex_(UINT32_MAX) { }
 
-   OutPoint(uint8_t const * ptr) { unserialize(ptr); }
-   OutPoint(BinaryData const & txHash, uint32_t txOutIndex) : 
+   explicit OutPoint(uint8_t const * ptr) { unserialize(ptr); }
+   explicit OutPoint(BinaryData const & txHash, uint32_t txOutIndex) : 
                 txHash_(txHash), txOutIndex_(txOutIndex) { }
 
    BinaryData const &   getTxHash(void)     const { return txHash_; }
@@ -458,11 +467,11 @@ class Tx
 public:
    Tx(void) : isInitialized_(false), headerPtr_(NULL),
               offsetsTxIn_(0), offsetsTxOut_(0) {}
-   Tx(uint8_t const * ptr)       { unserialize(ptr);       }
-   Tx(BinaryRefReader & brr)     { unserialize(brr);       }
-   Tx(BinaryData const & str)    { unserialize(str);       }
-   Tx(BinaryDataRef const & str) { unserialize(str);       }
-   Tx(TxRef txref);
+   explicit Tx(uint8_t const * ptr)       { unserialize(ptr);       }
+   explicit Tx(BinaryRefReader & brr)     { unserialize(brr);       }
+   explicit Tx(BinaryData const & str)    { unserialize(str);       }
+   explicit Tx(BinaryDataRef const & str) { unserialize(str);       }
+   explicit Tx(TxRef txref);
      
    uint8_t const * getPtr(void) const { return dataCopy_.getPtr(); }
    uint32_t        getSize(void) const {  return dataCopy_.getSize(); }
@@ -572,10 +581,11 @@ public:
    //        we should probably do that here, too.  I designed this before I
    //        realized that these copies will fall out of sync on a reorg
    TxIOPair(void);
-   TxIOPair(uint64_t  amount);
-   TxIOPair(TxRef  txRefO, uint32_t txoutIndex);
-   TxIOPair(BinaryData txOutKey8B, uint64_t);
-   TxIOPair(TxRef  txRefO, uint32_t txoutIndex, TxRef  txRefI, uint32_t txinIndex);
+   explicit TxIOPair(uint64_t amount);
+   explicit TxIOPair(TxRef txRefO, uint32_t txoutIndex);
+   explicit TxIOPair(BinaryData txOutKey8B, uint64_t);
+   explicit TxIOPair(TxRef txRefO, uint32_t txoutIndex, 
+                     TxRef txRefI, uint32_t txinIndex);
 
    // Lots of accessors
    bool      hasTxOut(void) const   { return (txRefOfOutput_.isInitialized()); }
@@ -811,6 +821,7 @@ public:
    TxRef         txRefObj_;  // Not necessary for sorting, but useful
    BinaryData    txHash_;
    uint32_t      blkNum_;
+   uint32_t      dupID_;;
    uint32_t      txIndex_;
 
 
@@ -857,8 +868,6 @@ public:
       else
          return (txIndex_<rt2.txIndex_);
    }
-
-
 };
 
 
