@@ -6,7 +6,8 @@ Created on Aug 4, 2013
 import unittest
 from armoryengine import hex_to_binary, PyTx, BinaryUnpacker, PyBlock,\
    binary_to_hex, hex_to_int, PyBtcAddress, PyCreateAndSignTx, PyTxIn,\
-   PyOutPoint, PyTxOut, ONE_BTC, PyScriptProcessor, getTxOutMultiSigInfo
+   PyOutPoint, PyTxOut, ONE_BTC, PyScriptProcessor, getTxOutMultiSigInfo,\
+   prettyHex, BlockComponent
 
 # Unserialize an reserialize
 tx1raw = hex_to_binary( \
@@ -69,6 +70,7 @@ tx2Fake = PyTx().unserialize(hex_to_binary( (
    '00000019 76a914c5 22664fb0 e55cdc5c 0cea73b4 aad97ec8 34323288 ac000000'
    '00'                                                                     ).replace(' ','')))
 
+ALL_ZERO_OUTPOINT = hex_to_binary('00' * 36)
 
 class PyTXTest(unittest.TestCase):
 
@@ -95,17 +97,18 @@ class PyTXTest(unittest.TestCase):
       self.assertEqual(blk.blockHeader.merkleRoot, blk.blockData.merkleRoot)
    
    def testCreateTx(self):
-      AddrA = PyBtcAddress().createFromPrivateKey(hex_to_int('aa' * 32))
-      AddrB = PyBtcAddress().createFromPrivateKey(hex_to_int('bb' * 32)) 
+      addrA = PyBtcAddress().createFromPrivateKey(hex_to_int('aa' * 32))
+      addrB = PyBtcAddress().createFromPrivateKey(hex_to_int('bb' * 32)) 
+
       # This TxIn will be completely ignored, so it can contain garbage
       txinA = PyTxIn()
       txinA.outpoint  = PyOutPoint().unserialize(hex_to_binary('00'*36))
       txinA.binScript = hex_to_binary('99'*4)
       txinA.sequence  = hex_to_binary('ff'*4)
-      
+
       txoutA = PyTxOut()
       txoutA.value = 50 * ONE_BTC
-      txoutA.binScript = '\x76\xa9\x14' + AddrA.getAddr160() + '\x88\xac'
+      txoutA.binScript = '\x76\xa9\x14' + addrA.getAddr160() + '\x88\xac'
    
       tx1 = PyTx()
       tx1.version    = 1
@@ -116,7 +119,7 @@ class PyTXTest(unittest.TestCase):
       tx1.locktime   = 0
       tx1hash = tx1.getHash()
       # Creating transaction to send coins from A to B
-      tx2 = PyCreateAndSignTx( [[ AddrA, tx1, 0 ]],  [[AddrB, 50*(10**8)]])
+      tx2 = PyCreateAndSignTx( [[ addrA, tx1, 0 ]],  [[addrB, 50*(10**8)]])
       psp = PyScriptProcessor()
       psp.setTxObjects(tx1, tx2, 0)
       self.assertTrue(psp.verifyTransactionValid())
@@ -170,7 +173,38 @@ class PyTXTest(unittest.TestCase):
          btcAddrList.append(PyBtcAddress().createFromPublicKeyHash160(a).getAddrStr())
       self.assertEqual(btcAddrList, expectedBtcAddrList)
 
+   def testUnpackUnserializePyOutPoint(self):
+      outpoint = PyOutPoint().unserialize(BinaryUnpacker(ALL_ZERO_OUTPOINT))
+      self.assertEqual(outpoint.txHash, hex_to_binary('00'*32))
+      self.assertEqual(outpoint.txOutIndex, 0)
+   
+   def testCopyPyOutPoint(self):
+      outpoint = PyOutPoint().unserialize(BinaryUnpacker(ALL_ZERO_OUTPOINT))
+      outpointCopy = outpoint.copy()
+      self.assertEqual(outpoint.txHash, outpointCopy.txHash)
+      self.assertEqual(outpoint.txOutIndex, outpointCopy.txOutIndex)
+   
+   def testPPrintPyOutPoint(self):
+      # No return value - Should just print 0s
+      outpoint = PyOutPoint().unserialize(BinaryUnpacker(ALL_ZERO_OUTPOINT))
+      print "PyOutPoint PPrint Test. Expect all 0s: "
+      outpoint.pprint()
+      
+   def testCreateCppFromCppPyOutPoint(self):
+      outpoint = PyOutPoint().unserialize(BinaryUnpacker(ALL_ZERO_OUTPOINT))
+      outpointFromCpp = PyOutPoint().fromCpp(outpoint.createCpp())
+      self.assertEqual(outpoint.txHash, outpointFromCpp.txHash)
+      self.assertEqual(outpoint.txOutIndex, outpointFromCpp.txOutIndex)
+   
+   def testBogusBlockComponent(self):
+      class TestBlockComponent(BlockComponent):
+         pass
+      testBlkComp =  TestBlockComponent()
+      self.assertRaises(NotImplementedError, testBlkComp.serialize)  
+      self.assertRaises(NotImplementedError, testBlkComp.unserialize)  
+         
    # TODO:  Add some tests for the OP_CHECKMULTISIG support in TxDP
+   
    
 if __name__ == "__main__":
    #import sys;sys.argv = ['', 'Test.testName']

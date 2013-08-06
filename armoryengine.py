@@ -3947,7 +3947,27 @@ def TxInScriptExtractAddr160IfAvail(txinObj):
 indent = ' '*3
 
 #####
-class PyOutPoint(object):
+class BlockComponent(object):
+   
+   def copy(self):
+      return self.__class__().unserialize(self.serialize())
+
+   def fromCpp(self, cppOP):
+      return self.unserialize(cppOP.serialize())
+
+   def createCpp(self):
+      """ Convert a raw OutPoint with no context, to a C++ OutPoint """
+      cppop = Cpp.OutPoint()
+      cppop.unserialize_swigsafe_(self.serialize())
+      return cppop
+   
+   def serialize(self):
+      raise NotImplementedError
+
+   def unserialize(self):
+      raise NotImplementedError
+   
+class PyOutPoint(BlockComponent):
    #def __init__(self, txHash, txOutIndex):
       #self.txHash = txHash
       #self.txOutIndex     = outIndex
@@ -3969,11 +3989,6 @@ class PyOutPoint(object):
       binOut.put(UINT32, self.txOutIndex)
       return binOut.getBinaryString()
 
-
-   def copy(self):
-      return PyOutPoint().unserialize(self.serialize())
-
-
    def pprint(self, nIndent=0, endian=BIGENDIAN):
       indstr = indent*nIndent
       print indstr + 'OutPoint:'
@@ -3982,18 +3997,8 @@ class PyOutPoint(object):
                   '(BE)' if endian==BIGENDIAN else '(LE)'
       print indstr + indent + 'TxOutIndex:', self.txOutIndex
 
-
-   def fromCpp(self, cppOP):
-      return self.unserialize(cppOP.serialize())
-
-   def createCpp(self):
-      """ Convert a raw OutPoint with no context, to a C++ OutPoint """
-      cppop = Cpp.OutPoint()
-      cppop.unserialize_swigsafe_(self.serialize())
-      return cppop
-
 #####
-class PyTxIn(object):
+class PyTxIn(BlockComponent):
    def __init__(self):
       self.outpoint   = UNINITIALIZED
       self.binScript  = UNINITIALIZED
@@ -4024,19 +4029,6 @@ class PyTxIn(object):
       binOut.put(UINT32, self.intSeq)
       return binOut.getBinaryString()
 
-   def copy(self):
-      return PyTxIn().unserialize(self.serialize())
-
-
-   def fromCpp(self, cppTxIn):
-      return self.unserialize(cppTxIn.serialize())
-
-   def createCpp(self):
-      """ Convert a raw PyTxIn with no context, to a C++ TxIn """
-      cppin = Cpp.TxIn()
-      cppin.unserialize_swigsafe_(self.serialize())
-      return cppin
-
    def pprint(self, nIndent=0, endian=BIGENDIAN):
       indstr = indent*nIndent
       print indstr + 'PyTxIn:'
@@ -4054,7 +4046,7 @@ class PyTxIn(object):
 
 
 #####
-class PyTxOut(object):
+class PyTxOut(BlockComponent):
    def __init__(self):
       self.value     = UNINITIALIZED
       self.binScript = UNINITIALIZED
@@ -4084,18 +4076,6 @@ class PyTxOut(object):
       binOut.put(BINARY_CHUNK, self.binScript)
       return binOut.getBinaryString()
 
-   def copy(self):
-      return PyTxOut().unserialize(self.serialize())
-
-   def fromCpp(self, cppTxOut):
-      return self.unserialize(cppTxOut.serialize())
-
-   def createCpp(self):
-      """ Convert a raw PyTxOut with no context, to a C++ TxOut """
-      cppout = Cpp.TxOut()
-      cppout.unserialize_swigsafe_(self.serialize())
-      return cppout
-
    def pprint(self, nIndent=0, endian=BIGENDIAN):
       indstr = indent*nIndent
       print indstr + 'TxOut:'
@@ -4111,7 +4091,7 @@ class PyTxOut(object):
          print indstr + indent + 'Script:   <Non-standard script!>'
 
 #####
-class PyTx(object):
+class PyTx(BlockComponent):
    def __init__(self):
       self.version    = UNINITIALIZED
       self.inputs     = UNINITIALIZED
@@ -4153,9 +4133,6 @@ class PyTx(object):
       self.nBytes = endPos - startPos
       self.thisHash = hash256(self.serialize())
       return self
-
-   def copy(self):
-      return PyTx().unserialize(self.serialize())
 
    def getHash(self):
       return hash256(self.serialize())
@@ -4212,21 +4189,6 @@ class PyTx(object):
       for out in self.outputs:
          out.pprint(nIndent+2, endian=endian)
 
-
-
-   #def pprintShort(self, nIndent=0, endian=BIGENDIAN):
-      #print '\nTransaction: %s' % self.getHashHex()
-
-
-   def fromCpp(self, cppTx):
-      return self.unserialize(cppTx.serialize())
-
-   def createCpp(self):
-      """ Convert a raw PyTx with no context, to a C++ Tx """
-      cpptx = Cpp.Tx()
-      cpptx.unserialize_swigsafe_(self.serialize())
-      return cpptx
-
    def fetchCpp(self):
       """ Use the info in this PyTx to get the C++ version from TheBDM """
       return TheBDM.getTxByHash(self.getHash())
@@ -4260,7 +4222,7 @@ class PyTx(object):
 ################################################################################
 
 
-class PyBlockHeader(object):
+class PyBlockHeader(BlockComponent):
    def __init__(self):
       self.version      = 1
       self.prevBlkHash  = ''
@@ -4308,9 +4270,6 @@ class PyBlockHeader(object):
       self.theHash     = hash256(self.serialize())
       return self
 
-   def copy(self):
-      return PyBlockHeader().unserialize(self.serialize())
-
    def getHash(self, endian=LITTLEENDIAN):
       if self.version == UNINITIALIZED:
          raise UnitializedBlockDataError, 'PyBlockHeader object not initialized!'
@@ -4333,21 +4292,11 @@ class PyBlockHeader(object):
          raise UnitializedBlockDataError, 'PyBlockHeader object not initialized!'
       self.intDifficult = binaryBits_to_difficulty(self.diffBits)
       return self.intDifficult
-
-   def fromCpp(self, cppHead):
-      return self.unserialize(cppHead.serialize())
-
-   def createCpp(self):
-      """ Convert a raw blockheader with no context, to a C++ BlockHeader """
-      cppbh = Cpp.BlockHeader()
-      cppbh.unserialize_swigsafe_(self.serialize())
-      return cppbh
-
+   
    def fetchCpp(self):
       """ Convert a raw blockheader with no context, to a C++ BlockHeader """
       return TheBDM.getHeaderByHash(self.getHash())
       
-
    def pprint(self, nIndent=0, endian=BIGENDIAN):
       indstr = indent*nIndent
       print indstr + 'BlockHeader:'
