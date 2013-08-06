@@ -7,7 +7,7 @@ import unittest
 from armoryengine import hex_to_binary, PyTx, BinaryUnpacker, PyBlock,\
    binary_to_hex, hex_to_int, PyBtcAddress, PyCreateAndSignTx, PyTxIn,\
    PyOutPoint, PyTxOut, ONE_BTC, PyScriptProcessor, getTxOutMultiSigInfo,\
-   prettyHex, BlockComponent
+   prettyHex, BlockComponent, TXOUT_SCRIPT_STANDARD
 
 # Unserialize an reserialize
 tx1raw = hex_to_binary( \
@@ -104,12 +104,27 @@ class PyTXTest(unittest.TestCase):
       txinA = PyTxIn()
       txinA.outpoint  = PyOutPoint().unserialize(hex_to_binary('00'*36))
       txinA.binScript = hex_to_binary('99'*4)
-      txinA.sequence  = hex_to_binary('ff'*4)
-
+      txinA.intSeq  = hex_to_int('ff'*4)
+      # test binary unpacker in unserialize
+      testTxIn = PyTxIn().unserialize(txinA.serialize())
+      self.assertEqual(txinA.getScript(), testTxIn.getScript())
+      self.assertEqual(txinA.intSeq, testTxIn.intSeq)
+      self.assertEqual(txinA.outpoint.txHash, testTxIn.outpoint.txHash)
       txoutA = PyTxOut()
       txoutA.value = 50 * ONE_BTC
       txoutA.binScript = '\x76\xa9\x14' + addrA.getAddr160() + '\x88\xac'
+      # Test pprint
+      print '\nTest pretty print PyTxIn, expect PrevTXHash all 0s'
+      testTxIn.pprint()
    
+      # test binary unpacker in unserialize
+      testTxOut = PyTxOut().unserialize(txoutA.serialize())
+      self.assertEqual(txoutA.getScript(), testTxOut.getScript())
+      self.assertEqual(txoutA.value, testTxOut.getValue())
+      # Test pprint
+      print '\nTest pretty print PyTxOut'
+      testTxOut.pprint()
+      
       tx1 = PyTx()
       tx1.version    = 1
       tx1.numInputs  = 1
@@ -118,11 +133,18 @@ class PyTXTest(unittest.TestCase):
       tx1.outputs    = [txoutA]
       tx1.locktime   = 0
       tx1hash = tx1.getHash()
+      recipientList = tx1.makeRecipientsList()
+      self.assertEqual(len(recipientList), 1)
+      self.assertEqual(recipientList[0][0], TXOUT_SCRIPT_STANDARD)
+      self.assertEqual(recipientList[0][1], 50 * ONE_BTC)
+      
+      self.assertEqual(tx1.getHashHex(), binary_to_hex(tx1hash))
       # Creating transaction to send coins from A to B
       tx2 = PyCreateAndSignTx( [[ addrA, tx1, 0 ]],  [[addrB, 50*(10**8)]])
       psp = PyScriptProcessor()
       psp.setTxObjects(tx1, tx2, 0)
       self.assertTrue(psp.verifyTransactionValid())
+      
    
    def testVerifyTxFromFakeBlockChain(self):
       psp = PyScriptProcessor()
@@ -202,6 +224,7 @@ class PyTXTest(unittest.TestCase):
       testBlkComp =  TestBlockComponent()
       self.assertRaises(NotImplementedError, testBlkComp.serialize)  
       self.assertRaises(NotImplementedError, testBlkComp.unserialize)  
+
          
    # TODO:  Add some tests for the OP_CHECKMULTISIG support in TxDP
    

@@ -4012,6 +4012,7 @@ class PyTxIn(BlockComponent):
          txInData = BinaryUnpacker( toUnpack )
 
       self.outpoint  = PyOutPoint().unserialize( txInData.get(BINARY_CHUNK, 36) )
+      
       scriptSize     = txInData.get(VAR_INT)
       if txInData.getRemainingSize() < scriptSize+4: raise UnserializeError
       self.binScript = txInData.get(BINARY_CHUNK, scriptSize)
