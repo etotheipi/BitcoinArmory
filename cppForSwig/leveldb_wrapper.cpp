@@ -654,7 +654,7 @@ void InterfaceToLDB::iteratorToRefReaders( leveldb::Iterator* it,
 
 
 /////////////////////////////////////////////////////////////////////////////
-bool InterfaceToLDB::readStoredScriptHistoryAtIter( StoredScriptHistory & ssh)
+bool InterfaceToLDB::readStoredScriptHistoryAtIter(StoredScriptHistory & ssh)
                                
 {
    resetIterReaders();
@@ -663,8 +663,6 @@ bool InterfaceToLDB::readStoredScriptHistoryAtIter( StoredScriptHistory & ssh)
       
    uint32_t nBytes = currReadKey_.getSizeRemaining();
    currReadKey_.get_BinaryData(ssh.uniqueKey_, nBytes);
-   ssh.scriptType_ = (SCRIPT_PREFIX)ssh.uniqueKey_[0];
-
    ssh.unserializeDBValue(currReadValue_);
 }
 
@@ -974,7 +972,6 @@ void InterfaceToLDB::addRegisteredScript(BinaryDataRef rawScript,
    {
       // Script is not registered in the DB yet
       ssh.uniqueKey_  = uniqKey;
-      ssh.scriptType_ = (SCRIPT_PREFIX)uniqKey[0];
       ssh.version_    = ARMORY_DB_VERSION;
       ssh.alreadyScannedUpToBlk_ = blockCreated;
       ssh.txioVect_.resize(0);

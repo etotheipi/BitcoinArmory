@@ -467,20 +467,21 @@ Tx::Tx(TxRef  txref)
 /////////////////////////////////////////////////////////////////////////////
 void Tx::unserialize(uint8_t const * ptr)
 {
-   uint32_t numBytes = BtcUtils::TxCalcLength(ptr, &offsetsTxIn_, &offsetsTxOut_);
-   dataCopy_.copyFrom(ptr, numBytes);
-   BtcUtils::getHash256(ptr, numBytes, thisHash_);
+   uint32_t nBytes = BtcUtils::TxCalcLength(ptr, &offsetsTxIn_, &offsetsTxOut_);
+   dataCopy_.copyFrom(ptr, nBytes);
+   BtcUtils::getHash256(ptr, nBytes, thisHash_);
 
    uint32_t numTxOut = offsetsTxOut_.size()-1;
    version_  = READ_UINT32_LE(ptr);
    lockTime_ = READ_UINT32_LE(ptr + offsetsTxOut_[numTxOut]);
 
    isInitialized_ = true;
-   headerPtr_ = NULL;
+   //headerPtr_ = NULL;
 }
 
 
 /////////////////////////////////////////////////////////////////////////////
+/*
 bool Tx::isMainBranch(void) const
 {
    if(headerPtr_==NULL || !headerPtr_->isMainBranch())
@@ -488,6 +489,7 @@ bool Tx::isMainBranch(void) const
    else
       return true;   
 }
+*/
 
 /////////////////////////////////////////////////////////////////////////////
 BinaryData Tx::getThisHash(void) const
@@ -560,34 +562,6 @@ TxOut Tx::getTxOut(int i)
 
 
 /////////////////////////////////////////////////////////////////////////////
-uint32_t Tx::getBlockTimestamp(void)
-{
-   if(headerPtr_!=NULL)
-      return headerPtr_->getTimestamp();
-   return UINT32_MAX;
-}
-
-/////////////////////////////////////////////////////////////////////////////
-uint32_t Tx::getBlockHeight(void)
-{
-   if(headerPtr_!=NULL && headerPtr_->isMainBranch())
-      return headerPtr_->getBlockHeight();
-   return UINT32_MAX;
-}
-
-
-/////////////////////////////////////////////////////////////////////////////
-// We have the Tx, but we don't know its index... gotta get Tx list from
-// header and try to match up
-uint32_t Tx::getBlockTxIndex(void)
-{
-   if(!txRefObj_.isInitialized())
-      return UINT32_MAX;
-
-   return txRefObj_.getBlockTxIndex();
-}
-
-/////////////////////////////////////////////////////////////////////////////
 void Tx::pprint(ostream & os, int nIndent, bool pBigendian) 
 {
    string indent = "";
@@ -596,10 +570,10 @@ void Tx::pprint(ostream & os, int nIndent, bool pBigendian)
     
    os << indent << "Tx:   " << thisHash_.toHexStr(pBigendian) 
                 << (pBigendian ? " (BE)" : " (LE)") << endl;
-   if( headerPtr_==NULL)
+   if( txRefObj_.isNull())
       os << indent << "   Blk:  <NOT PART OF A BLOCK YET>" << endl;
    else
-      os << indent << "   Blk:         " << headerPtr_->getBlockHeight() << endl;
+      os << indent << "   Blk:         " << getBlockHeight() << endl;
 
    os << indent << "   TxSize:      " << getSize() << " bytes" << endl;
    os << indent << "   NumInputs:   " << getNumTxIn() << endl;
@@ -620,10 +594,10 @@ void Tx::pprint(ostream & os, int nIndent, bool pBigendian)
 void Tx::pprintAlot(ostream & os)
 {
    cout << "Tx hash:   " << thisHash_.toHexStr(true) << endl;
-   if(headerPtr_!=NULL)
+   if(!txRefObj_.isNull())
    {
-      cout << "HeaderNum: " << headerPtr_->getBlockHeight() << endl;
-      cout << "HeadHash:  " << headerPtr_->getThisHash().toHexStr(true) << endl;
+      cout << "HeaderNum: " << getBlockHeight() << endl;
+      cout << "HeadHash:  " << getBlockHash().toHexStr(true) << endl;
    }
 
    cout << endl << "NumTxIn:   " << getNumTxIn() << endl;
@@ -684,7 +658,7 @@ bool TxRef::isMainBranch(void) const
          return false;
 
       uint8_t dup8 = dbIface_->getValidDupIDForHeight(getBlockHeight());
-      return (getBlockDupID() == dup8);
+      return (getDuplicateID() == dup8);
    }
 }
 
@@ -713,12 +687,26 @@ uint32_t TxRef::getBlockTimestamp(void)
 
    if(dbIface_!=NULL && dbKey6B_.getSize() == 6)
    {
-      dbIface_->getStoredHeader(sbh, getBlockHeight(), getBlockDupID(), false);
+      dbIface_->getStoredHeader(sbh, getBlockHeight(), getDuplicateID(), false);
       return READ_UINT32_BE(sbh.dataCopy_.getPtr()+68);
    }
    else
       return UINT32_MAX;
 }
+
+/////////////////////////////////////////////////////////////////////////////
+BinaryData TxRef::getBlockHash(void) const
+{
+   static StoredHeader sbh;
+   if(dbIface_!=NULL && dbKey6B_.getSize() == 6)
+   {
+      dbIface_->getStoredHeader(sbh, getBlockHeight(), getDuplicateID(), false);
+      return sbh.thisHash_;
+   }
+   else
+      return BtcUtils::EmptyHash_;
+}
+
 
 /////////////////////////////////////////////////////////////////////////////
 uint32_t TxRef::getBlockHeight(void) const
@@ -730,7 +718,7 @@ uint32_t TxRef::getBlockHeight(void) const
 }
 
 /////////////////////////////////////////////////////////////////////////////
-uint8_t TxRef::getBlockDupID(void) const
+uint8_t TxRef::getDuplicateID(void) const
 {
    if(dbKey6B_.getSize() == 6)
       return DBUtils.hgtxToDupID(dbKey6B_.getSliceCopy(0,4));

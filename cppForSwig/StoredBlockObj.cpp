@@ -955,7 +955,9 @@ Tx StoredTx::getTxCopy(void) const
       LOGERR << "Cannot get tx copy, because don't have full StoredTx!";
       return Tx();
    }
-
+   
+   Tx returnTx(getSerializedTx());
+   returnTx.setTxRef( TxRef(getDBKey(false)));
    return Tx(getSerializedTx());
 }
 

@@ -160,14 +160,6 @@ private:
    leveldb::Slice binaryDataRefToSlice(BinaryDataRef const & bdr)
          {return leveldb::Slice((char*)bdr.getPtr(), bdr.getSize());}
 
-   bool seekTo(DB_SELECT db, 
-               BinaryDataRef key);
-   bool seekTo(DB_SELECT db, 
-               DB_PREFIX pref, 
-               BinaryDataRef key);
-
-   bool seekToTxByHash(BinaryDataRef txHash);
-
 
    /////////////////////////////////////////////////////////////////////////////
    // NOTE:  These ref readers become invalid as soon as the iterator is moved!
@@ -275,6 +267,16 @@ public:
    // Put value based on BinaryData key.  If batch writing, pass in the batch
    void deleteValue(DB_SELECT db, BinaryDataRef key);
    void deleteValue(DB_SELECT db, DB_PREFIX pref, BinaryDataRef key);
+
+   // Move the iterator in DB to the lowest entry with key >= inputKey
+   bool seekTo(DB_SELECT db, 
+               BinaryDataRef key);
+   bool seekTo(DB_SELECT db, 
+               DB_PREFIX pref, 
+               BinaryDataRef key);
+
+   // Move the iterator to the first entry >= txHash
+   bool seekToTxByHash(BinaryDataRef txHash);
 
 
    /////////////////////////////////////////////////////////////////////////////

@@ -81,6 +81,11 @@ public:
    uint32_t        setNumTx(uint32_t ntx) { numTx_ = ntx; }
 
    /////////////////////////////////////////////////////////////////////////////
+   void           setBlockFile(string filename)     {blkFile_       = filename;}
+   void           setBlockFileNum(uint32_t fnum)    {blkFileNum_    = fnum;}
+   void           setBlockFileOffset(uint32_t offs) {blkFileOffset_ = offs;}
+
+   /////////////////////////////////////////////////////////////////////////////
    void          pprint(ostream & os=cout, int nIndent=0, bool pBigendian=true) const;
    void          pprintAlot(ostream & os=cout);
 
@@ -119,13 +124,14 @@ private:
    double         difficultySum_;
    bool           isMainBranch_;
    bool           isOrphan_;
+   bool           isFinishedCalc_;
    uint32_t       wholeBlockSize_;
    uint32_t       numTx_;
    uint32_t       numBlockBytes_; // includes header + nTx + sum(Tx)
 
-   uint32_t       blockInFile_;
-   uint32_t       blockInFileNum_;
-   uint32_t       blockFileOffset_;
+   string         blkFile_;
+   uint32_t       blkFileNum_;
+   uint32_t       blkFileOffset_;
 
    // Specific to the DB storage
    uint8_t        duplicateID_; // ID of this blk rel to others at same height
@@ -158,7 +164,6 @@ public:
    bool           isBound(void)  const {return dbIface_!=NULL;}
 
    /////////////////////////////////////////////////////////////////////////////
-   BlockHeader    getHeaderCopy(void)  const;
    BinaryData     getDBKey(void) const   { return dbKey6B_;}
    BinaryDataRef  getDBKeyRef(void)      { return dbKey6B_.getRef();}
    void           setDBKey(BinaryData    const & bd) {dbKey6B_.copyFrom(bd);}
@@ -180,9 +185,10 @@ public:
    BinaryData         serialize(void) const; 
 
    /////////////////////////////////////////////////////////////////////////////
+   BinaryData         getBlockHash(void) const;
    uint32_t           getBlockTimestamp(void);
    uint32_t           getBlockHeight(void) const;
-   uint8_t            getBlockDupID(void) const;
+   uint8_t            getDuplicateID(void) const;
    uint16_t           getBlockTxIndex(void) const;
 
    /////////////////////////////////////////////////////////////////////////////
@@ -466,16 +472,15 @@ class Tx
    friend class InterfaceToLDB;
 
 public:
-   Tx(void) : isInitialized_(false), headerPtr_(NULL),
-              offsetsTxIn_(0), offsetsTxOut_(0) {}
+   Tx(void) : isInitialized_(false), offsetsTxIn_(0), offsetsTxOut_(0) {}
    explicit Tx(uint8_t const * ptr)       { unserialize(ptr);       }
    explicit Tx(BinaryRefReader & brr)     { unserialize(brr);       }
    explicit Tx(BinaryData const & str)    { unserialize(str);       }
    explicit Tx(BinaryDataRef const & str) { unserialize(str);       }
    explicit Tx(TxRef txref);
      
-   uint8_t const * getPtr(void) const { return dataCopy_.getPtr(); }
-   uint32_t        getSize(void) const {  return dataCopy_.getSize(); }
+   uint8_t const *    getPtr(void)  const { return dataCopy_.getPtr();  }
+   uint32_t           getSize(void) const { return dataCopy_.getSize(); }
 
    /////////////////////////////////////////////////////////////////////////////
    uint32_t           getVersion(void)   const { return READ_UINT32_LE(dataCopy_.getPtr());}
@@ -524,9 +529,12 @@ public:
    TxOut  getTxOut(int i);
 
    /////////////////////////////////////////////////////////////////////////////
-   uint32_t  getBlockTimestamp(void);
-   uint32_t  getBlockHeight(void);
-   uint32_t  getBlockTxIndex(void);
+   // All these methods return UINTX_MAX if txRefObj.isNull()
+   BinaryData getBlockHash(void)      { return txRefObj_.getBlockHash();      }
+   uint32_t   getBlockTimestamp(void) { return txRefObj_.getBlockTimestamp(); }
+   uint32_t   getBlockHeight(void)    { return txRefObj_.getBlockHeight();    }
+   uint8_t    getDuplicateID(void)    { return txRefObj_.getDuplicateID();    }
+   uint16_t   getBlockTxIndex(void)   { return txRefObj_.getBlockTxIndex();   }
 
    /////////////////////////////////////////////////////////////////////////////
    void pprint(ostream & os=cout, int nIndent=0, bool pBigendian=true);
@@ -550,7 +558,7 @@ private:
    vector<uint32_t> offsetsTxOut_;
 
    // To be calculated later
-   BlockHeader*  headerPtr_;
+   //BlockHeader*  headerPtr_;
    TxRef         txRefObj_;
 };
 

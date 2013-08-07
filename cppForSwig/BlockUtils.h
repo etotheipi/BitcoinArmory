@@ -52,6 +52,12 @@ typedef enum
 } ADD_BLOCK_RESULT_INDEX;
 
 
+typedef enum
+{
+  TX_DNE,
+  TX_ZEROCONF,
+  TX_IN_BLOCKCHAIN
+} TX_AVAILABILITY;
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -615,7 +621,7 @@ public:
    /////////////////////////////////////////////////////////////////////////////
    void Reset(void);
    int32_t          getNumConfirmations(BinaryData txHash);
-   BlockHeader &    getTopBlockHeader(void) ;
+   BlockHeader &    getTopBlockHeader(void);
    BlockHeader &    getGenesisBlock(void) ;
    BlockHeader *    getHeaderByHeight(int index);
    BlockHeader *    getHeaderByHash(BinaryData const & blkHash);
@@ -651,17 +657,17 @@ public:
    uint32_t evalLowestAddressCreationBlock(void);
    bool     evalRescanIsRequired(void);
    uint32_t numBlocksToRescan(BtcWallet & wlt, uint32_t topBlk=UINT32_MAX);
-   void     updateRegisteredAddresses(uint32_t newTopBlk);
+   void     updateRegisteredScrAddrs(uint32_t newTopBlk);
 
    bool     walletIsRegistered(BtcWallet & wlt);
    bool     addressIsRegistered(HashString addr160);
    void     insertRegisteredTxIfNew(HashString txHash);
    void     insertRegisteredTxIfNew(RegisteredTx & regTx);
-   void     registeredAddrScan( Tx & theTx );
-   void     registeredAddrScan( uint8_t const * txptr,
-                                uint32_t txSize=0,
-                                vector<uint32_t> * txInOffsets=NULL,
-                                vector<uint32_t> * txOutOffsets=NULL);
+   void     registeredScrAddrScan( Tx & theTx );
+   void     registeredScrAddrScan( uint8_t const * txptr,
+                                   uint32_t txSize=0,
+                                   vector<uint32_t> * txInOffsets=NULL,
+                                   vector<uint32_t> * txOutOffsets=NULL);
    void     resetRegisteredWallets(void);
    void     pprintRegisteredWallets(void);
 
@@ -677,33 +683,54 @@ public:
                      
 
 
-   // Does a full scan!
+   // These are the high-level methods for reading block files, and indexing
+   // the blockfile data.
+   bool     extractHeadersInBlkFile(uint32_t fnum);
+   bool     processAllHeadersFromAllBlkFiles(void);
    bool     processHeadersInFile(string filename);
    uint32_t rebuildDatabasesFromBlkFiles(void);
+   bool     addRawBlockToDB(BinaryRefReader & brr);
+   
+   // On the first pass through the blockchain data, we only write the raw
+   // blocks to do the DB.  We don't "apply" them (marking TxOuts spent and
+   // updating StoredScriptHistory objects).  When we know the longest chain,
+   // we do apply them.
+   bool applyBlockToDB(uint32_t hgt, uint8_t dup);
+   bool applyBlockToDB(StoredHeader & sbh);
+   void reapplyBlocksToDB(uint32_t blk0=0, uint32_t blk1=UINT32_MAX);
+
+   // When we reorg, we have to undo blocks that have been applied.
+   bool createUndoDataFromBlock(uint32_t hgt, uint8_t dup, StoredUndoData & sud);
+   bool undoBlockFromDB(StoredUndoData & sud);
 
    // When we add new block data, we will need to store/copy it to its
    // permanent memory location before parsing it.
    // These methods return (blockAddSucceeded, newBlockIsTop, didCauseReorg)
-   vector<bool>     addNewBlockData(   BinaryRefReader & brrRawBlock,
-                                       uint32_t        fileIndex,
-                                       uint32_t        thisHeaderOffset,
-                                       uint32_t        blockSize);
+   uint32_t       readBlkFileUpdate(void);
+   vector<bool> addNewBlockData(BinaryRefReader & brrRawBlock, 
+                                uint32_t fileIndex0Idx,
+                                uint32_t thisHeaderOffset,
+                                uint32_t blockSize);
+   void reassessAfterReorg(BlockHeader* oldTopPtr,
+                           BlockHeader* newTopPtr,
+                           BlockHeader* branchPtr );
 
-   void             reassessAfterReorg(BlockHeader* oldTopPtr,
-                                       BlockHeader* newTopPtr,
-                                       BlockHeader* branchPtr );
 
-   int  hasTxWithHash(BinaryData const & txhash);
-   bool hasHeaderWithHash(BinaryData const & txhash) const;
+
+   bool loadScrAddrHistoryFromDB(void);
+
+   // Check for availability of data with a given hash
+   TX_AVAILABILITY hasTxWithHash(BinaryDataRef txhash);
+   bool hasHeaderWithHash(BinaryDataRef headHash) const;
 
    uint32_t getNumBlocks(void) const { return headerMap_.size(); }
    //uint32_t getNumTx(void) const { return txHintMap_.size(); }
 
    vector<BlockHeader*> getHeadersNotOnMainChain(void);
 
-   vector<BlockHeader*>    prefixSearchHeaders(BinaryData const & searchStr);
-   vector<TxRef*>          prefixSearchTx     (BinaryData const & searchStr);
-   vector<BinaryData>      prefixSearchAddress(BinaryData const & searchStr);
+   //vector<BlockHeader*>    prefixSearchHeaders(BinaryData const & searchStr);
+   //vector<TxRef*>          prefixSearchTx     (BinaryData const & searchStr);
+   //vector<BinaryData>      prefixSearchAddress(BinaryData const & searchStr);
 
    bool addHeadersFirst(BinaryDataRef rawHeader);
    bool addHeadersFirst(vector<StoredHeader> const & headVect);
@@ -714,7 +741,6 @@ public:
                             uint32_t startBlknum=0,
                             uint32_t endBlknum=UINT32_MAX);
 
-   void reapplyBlocksToDB(uint32_t blk0=0, uint32_t blk1=UINT32_MAX);
    void writeScanStatusFile(uint32_t hgt, string bfile, string timerName);
 
    // This will only be used by the above method, probably wouldn't be called
@@ -725,8 +751,6 @@ public:
 
 
  
-   uint32_t       readBlkFileUpdate(void);
-   bool           verifyBlkFileIntegrity(void);
    //vector<TxRef*> findAllNonStdTx(void);
    
 
@@ -766,6 +790,14 @@ public:
    BinaryData getSenderAddr20(TxIn & txin);
    int64_t    getSentValue(TxIn & txin);
 
+   /////////////////////////////////////////////////////////////////////////////
+   // We used to have a method in TxRef class to do this, because all TxRefs 
+   // had pointers to their parent header object.  Now, TxRefs are much more
+   // isolated, so we have to ask the BDM to help us find the correct header
+   // (which is considerably easier with the DB design that indexes everything
+   // by block height...
+   BlockHeader* getHeaderPtrForTxRef(TxRef txr);
+   BlockHeader* getHeaderPtrForTx(Tx & txObj);
 
    /////////////////////////////////////////////////////////////////////////////
    // A couple random methods to expose internal data structures for testing.
@@ -786,6 +818,12 @@ private:
 
    /////////////////////////////////////////////////////////////////////////////
    // Helper methods for updating the DB
+   bool applyTxToBatchWriteData(
+                        StoredTx &                             thisSTX,
+                        map<BinaryData, StoredTx> &            stxToModify,
+                        map<BinaryData, StoredScriptHistory> & sshToModify,
+                        set<BinaryData> &                      keysToDelete,
+                        StoredUndoData *                       sud);
 
    /////////////////////////////////////////////////////////////////////////////
    bool markTxOutUnspentInSSH( StoredScriptHistory & ssh,
@@ -798,26 +836,31 @@ private:
                                BinaryData txOutKey8B,
                                BinaryData txInKey8B);
 
+   bool removeTxOutFromSSH(    StoredScriptHistory & ssh,
+                               BinaryData txOutKey8B);
+
    /////////////////////////////////////////////////////////////////////////////
    bool addMultisigEntryToSSH( StoredScriptHistory & ssh,
                                BinaryData txOutKey8B);
 
-   bool removeMultisigEntryFromSSH( StoredScriptHistory & ssh,
-                                    BinaryData txOutKey8B);
+   bool removeMultisigEntryFromSSH( 
+                               StoredScriptHistory & ssh,
+                               BinaryData txOutKey8B);
 
 
    /////////////////////////////////////////////////////////////////////////////
-   StoredScriptHistory* makeSureSSHInMap( BinaryData uniqKey,
-                                 map<BinaryData, StoredScriptHistory> & sshMap,
-                                 bool createIfDNE=true);
+   StoredScriptHistory* makeSureSSHInMap(    
+                               BinaryDataRef uniqKey,
+                               map<BinaryData, StoredScriptHistory> & sshMap,
+                               bool createIfDNE=true);
 
-   StoredTx* makeSureSTXInMap( BinaryData txHash,
+   StoredTx* makeSureSTXInMap( BinaryDataRef txHash,
                                map<BinaryData, StoredTx> & stxMap);
-   StoredTx* makeSureSTXInMap( 
-                               uint32_t   height,
-                               uint8_t    dupID,
-                               uint16_t   txIndex,
-                               BinaryData txHash,
+
+   StoredTx* makeSureSTXInMap( uint32_t      height,
+                               uint8_t       dupID,
+                               uint16_t      txIndex,
+                               BinaryDataRef txHash,
                                map<BinaryData, StoredTx> & stxMap);
 };
 

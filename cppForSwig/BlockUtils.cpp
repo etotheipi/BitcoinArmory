@@ -553,7 +553,7 @@ void BtcWallet::pprintAlot(uint32_t topBlk, bool withAddr)
 }
 
 /////////////////////////////////////////////////////////////////////////////
-// This method is used in the registeredAddrScan to conditionally create and
+// This method is used in the registeredScrAddrScan to conditionally create and
 // insert a transaction into the registered list 
 void BlockDataManager_LevelDB::insertRegisteredTxIfNew(HashString txHash)
 {
@@ -590,7 +590,7 @@ void BlockDataManager_LevelDB::insertRegisteredTxIfNew(RegisteredTx & regTx)
 //  If the txSize and offsets have been pre-calculated, you can pass them 
 //  in, or pass {0, NULL, NULL} to have it calculated for you.
 //  
-void BlockDataManager_LevelDB::registeredAddrScan( 
+void BlockDataManager_LevelDB::registeredScrAddrScan( 
                                             uint8_t const * txptr,
                                             uint32_t txSize,
                                             vector<uint32_t> * txInOffsets,
@@ -681,9 +681,9 @@ void BlockDataManager_LevelDB::registeredAddrScan(
 
 
 /////////////////////////////////////////////////////////////////////////////
-void BlockDataManager_LevelDB::registeredAddrScan( Tx & theTx )
+void BlockDataManager_LevelDB::registeredScrAddrScan( Tx & theTx )
 {
-   registeredAddrScan(theTx.getPtr(),
+   registeredScrAddrScan(theTx.getPtr(),
                       theTx.getSize(),
                       &theTx.offsetsTxIn_, 
                       &theTx.offsetsTxOut_);
@@ -1578,7 +1578,7 @@ bool BlockDataManager_LevelDB::addHeadersFirst(vector<StoredHeader> const & head
       pair<map<HashString, BlockHeader>::iterator, bool> bhInsResult;
 
       // Actually insert it.  Take note of whether it was already there.
-      bhInputPair.second.unserialize(headVect[h]);
+      bhInputPair.second.unserialize(headVect[h].dataCopy_);
       bhInputPair.first = bhInputPair.second.getThisHash();
       bhInsResult       = headerMap_.insert(bhInputPair);
 
@@ -1598,7 +1598,7 @@ bool BlockDataManager_LevelDB::addHeadersFirst(vector<StoredHeader> const & head
          continue;
 
       StoredHeader sbh;
-      sbh.CreateFromBlockHeader(*headersToDB[h]);
+      sbh.createFromBlockHeader(*headersToDB[h]);
       uint8_t dup = iface_->putBareHeader(sbh);
       headersToDB[h]->setDuplicateID(dup);
    }
@@ -1611,7 +1611,7 @@ bool BlockDataManager_LevelDB::addHeadersFirst(vector<StoredHeader> const & head
          continue;
 
       StoredHeader sbh;
-      sbh.CreateFromBlockHeader(*headersToDB[h]);
+      sbh.createFromBlockHeader(*headersToDB[h]);
       uint8_t dup = iface_->putBareHeader(sbh);
       headersToDB[h]->setDuplicateID(dup);
    }
@@ -1701,11 +1701,12 @@ int32_t BlockDataManager_LevelDB::getNumConfirmations(HashString txHash)
       return TX_NOT_EXIST;
    else
    {
-      if(txrefobj->getHeaderPtr() == NULL)
+      BlockHeader* bhptr = getHeaderPtrForTxRef(txrefobj);
+      if(bhptr == NULL)
          return TX_0_UNCONFIRMED; 
       else
       { 
-         BlockHeader & txbh = *(txrefobj->getHeaderPtr());
+         BlockHeader & txbh = *bhptr;
          if(!txbh.isMainBranch())
             return TX_OFF_MAIN_BRANCH;
 
@@ -1793,7 +1794,7 @@ Tx BlockDataManager_LevelDB::getTxByHash(HashString const & txhash)
    TxRef txrefobj = getTxRefByHash(txhash);
 
    if(!txrefobj.isNull())
-      return txrefobj->getTxCopy();
+      return txrefobj.getTxCopy();
    else
    {
       // It's not in the blockchain, but maybe in the zero-conf tx list
@@ -1807,26 +1808,27 @@ Tx BlockDataManager_LevelDB::getTxByHash(HashString const & txhash)
 
 
 /////////////////////////////////////////////////////////////////////////////
-int BlockDataManager_LevelDB::hasTxWithHash(BinaryData const & txhash)
+TX_AVAILABILITY BlockDataManager_LevelDB::hasTxWithHash(BinaryDataRef txHash)
 {
-   if(getTxRefByHash(txhash)==NULL)
+   if(getTxRefByHash(txHash).isNull())
    {
-      if(zeroConfMap_.find(txhash)==zeroConfMap_.end())
-         return 0;  // No tx at all
+      if(zeroConfMap_.find(txHash)==zeroConfMap_.end())
+         return TX_DNE;  // No tx at all
       else
-         return 1;  // Zero-conf tx
+         return TX_ZEROCONF;  // Zero-conf tx
    }
    else
-      return 2;     // In the blockchain already
+      return TX_IN_BLOCKCHAIN; // In the blockchain already
 }
 
 /////////////////////////////////////////////////////////////////////////////
-bool BlockDataManager_LevelDB::hasHeaderWithHash(HashString const & txhash) const
+bool BlockDataManager_LevelDB::hasHeaderWithHash(HashStringRef txHash) const
 {
-   return (headerMap_.find(txhash) != headerMap_.end());
+   return (headerMap_.find(txHash) != headerMap_.end());
 }
 
 /////////////////////////////////////////////////////////////////////////////
+/*
 vector<BlockHeader*> BlockDataManager_LevelDB::prefixSearchHeaders(BinaryData const & searchStr)
 {
    vector<BlockHeader*> outList(0);
@@ -1856,8 +1858,10 @@ vector<BlockHeader*> BlockDataManager_LevelDB::prefixSearchHeaders(BinaryData co
    }
    return outList;
 }
+*/
 
 /////////////////////////////////////////////////////////////////////////////
+/*
 vector<TxRef*> BlockDataManager_LevelDB::prefixSearchTx(BinaryData const & searchStr)
 {
    vector<TxRef*> outList(0);
@@ -1903,6 +1907,7 @@ vector<BinaryData> BlockDataManager_LevelDB::prefixSearchAddress(BinaryData cons
    // before calling this method
    return vector<BinaryData>(0);
 }
+*/
 
 
 
@@ -1953,7 +1958,7 @@ bool BlockDataManager_LevelDB::registerAddress(HashString scraddr,
    if(addrIsNew)
       firstBlk = getTopBlockHeight() + 1;
 
-   registeredScrAddrMap_[scraddr] = RegisteredAddress(scraddr, firstBlk);
+   registeredScrAddrMap_[scraddr] = RegisteredScrAddr(scraddr, firstBlk);
    allScannedUpToBlk_  = min(firstBlk, allScannedUpToBlk_);
    return true;
 }
@@ -1967,7 +1972,7 @@ bool BlockDataManager_LevelDB::registerNewAddress(HashString scraddr)
       return false;
 
    uint32_t currBlk = getTopBlockHeight();
-   registeredScrAddrMap_[scraddr] = RegisteredAddress(scraddr, currBlk);
+   registeredScrAddrMap_[scraddr] = RegisteredScrAddr(scraddr, currBlk);
 
    // New address cannot affect allScannedUpToBlk_, so don't bother
    //allScannedUpToBlk_  = min(currBlk, allScannedUpToBlk_);
@@ -1986,7 +1991,7 @@ bool BlockDataManager_LevelDB::registerImportedAddress(HashString scraddr,
    if(createBlk==UINT32_MAX)
       createBlk = 0;
 
-   registeredScrAddrMap_[scraddr] = RegisteredAddress(scraddr, createBlk);
+   registeredScrAddrMap_[scraddr] = RegisteredScrAddr(scraddr, createBlk);
    allScannedUpToBlk_ = min(createBlk, allScannedUpToBlk_);
    return true;
 }
@@ -2019,7 +2024,7 @@ uint32_t BlockDataManager_LevelDB::evalLowestBlockNextScan(void)
    SCOPED_TIMER("evalLowestBlockNextScan");
 
    uint32_t lowestBlk = UINT32_MAX;
-   map<HashString, RegisteredAddress>::iterator raIter;
+   map<HashString, RegisteredScrAddr>::iterator raIter;
    for(raIter  = registeredScrAddrMap_.begin();
        raIter != registeredScrAddrMap_.end();
        raIter++)
@@ -2038,7 +2043,7 @@ uint32_t BlockDataManager_LevelDB::evalLowestAddressCreationBlock(void)
    SCOPED_TIMER("evalLowestAddressCreationBlock");
 
    uint32_t lowestBlk = UINT32_MAX;
-   map<HashString, RegisteredAddress>::iterator raIter;
+   map<HashString, RegisteredScrAddr>::iterator raIter;
    for(raIter  = registeredScrAddrMap_.begin();
        raIter != registeredScrAddrMap_.end();
        raIter++)
@@ -2108,7 +2113,7 @@ uint32_t BlockDataManager_LevelDB::numBlocksToRescan( BtcWallet & wlt,
       if(registeredScrAddrMap_.find(addr.getScrAddr()) == registeredScrAddrMap_.end())
          return endBlk;  // Gotta do a full rescan!
 
-      RegisteredAddress & ra = registeredScrAddrMap_[addr.getScrAddr()];
+      RegisteredScrAddr & ra = registeredScrAddrMap_[addr.getScrAddr()];
       maxAddrBehind = max(maxAddrBehind, endBlk-ra.alreadyScannedUpToBlk_);
    }
 
@@ -2118,9 +2123,9 @@ uint32_t BlockDataManager_LevelDB::numBlocksToRescan( BtcWallet & wlt,
 
 
 ////////////////////////////////////////////////////////////////////////////////
-void BlockDataManager_LevelDB::updateRegisteredAddresses(uint32_t newTopBlk)
+void BlockDataManager_LevelDB::updateRegisteredScrAddrs(uint32_t newTopBlk)
 {
-   map<HashString, RegisteredAddress>::iterator raIter;
+   map<HashString, RegisteredScrAddr>::iterator raIter;
    for(raIter  = registeredScrAddrMap_.begin();
        raIter != registeredScrAddrMap_.end();
        raIter++)
@@ -2146,7 +2151,7 @@ void BlockDataManager_LevelDB::resetRegisteredWallets(void)
    }
 
    // Reset all addresses to "new"
-   updateRegisteredAddresses(0);
+   updateRegisteredScrAddrs(0);
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -2190,7 +2195,7 @@ bool BlockDataManager_LevelDB::addressIsRegistered(HashString scraddr)
 //     We need to scan from blocks X-->Y.  Assume X is 1000 and Y is 2000
 //     If allScannedUpToBlk_==1500:
 //
-//     registeredAddrScan from 1500-->2000
+//     registeredScrAddrScan from 1500-->2000
 //     sort registered list
 //     scanTx all tx in registered list between 1000 and 2000
 void BlockDataManager_LevelDB::scanBlockchainForTx(BtcWallet & myWallet,
@@ -2215,7 +2220,7 @@ void BlockDataManager_LevelDB::scanBlockchainForTx(BtcWallet & myWallet,
    reapplyBlocksToDB(allScannedUpToBlk_, endBlknum);
 
    allScannedUpToBlk_ = endBlknum;
-   updateRegisteredAddresses(endBlknum);
+   updateRegisteredScrAddrs(endBlknum);
 
 
    // *********************************************************************** //
@@ -2265,7 +2270,7 @@ void BlockDataManager_LevelDB::reapplyBlocksToDB(uint32_t blk0, uint32_t blk1)
       for(uint32_t itx=0; itx<txlist.size(); itx++)
       {
          Tx thisTx = txlist[itx]->getTxCopy();
-         registeredAddrScan(thisTx);
+         registeredScrAddrScan(thisTx);
       }
 
       if( (h<120000 && h%10000==0) || (h>=120000 && h%1000==0) )
@@ -2283,8 +2288,8 @@ void BlockDataManager_LevelDB::reapplyBlocksToDB(uint32_t blk0, uint32_t blk1)
    TIMER_STOP("LoadProgress");
    */
 
-   BinaryData startKey = DBUtils::getBlkDataKey(blk0, 0);
-   BinaryData endKey   = DBUtils::getBlkDataKey(blk1, 0);
+   BinaryData startKey = DBUtils.getBlkDataKey(blk0, 0);
+   BinaryData endKey   = DBUtils.getBlkDataKey(blk1, 0);
    iface_->seekTo(BLKDATA, startKey);
 
    // Start scanning and timer
@@ -2294,8 +2299,8 @@ void BlockDataManager_LevelDB::reapplyBlocksToDB(uint32_t blk0, uint32_t blk1)
    {
       StoredHeader sbh;
       iface_->readStoredBlockAtIter(sbh);
-      uint32_t hgt = shb.blockHeight_;
-      uint8_t  dup = shb.duplicateID_;
+      uint32_t hgt = sbh.blockHeight_;
+      uint8_t  dup = sbh.duplicateID_;
       if(blk0 > hgt || hgt >= blk1)
          break;
 
@@ -2306,12 +2311,12 @@ void BlockDataManager_LevelDB::reapplyBlocksToDB(uint32_t blk0, uint32_t blk1)
       bytesReadSoFar_ += sbh.numBytes_;
       writeScanStatusFile(hgt, bfile, string("LoadProgress"));
 
-   } while(advanceIterAndRead(BLKDATA, DB_PREFIX_TXDATA));
+   } while(iface_->advanceIterAndRead(BLKDATA, DB_PREFIX_TXDATA));
 
    TIMER_STOP("LoadProgress");
 
    allScannedUpToBlk_ = blk1;
-   updateRegisteredAddresses(blk1);
+   updateRegisteredScrAddrs(blk1);
 }
 
 
@@ -2381,8 +2386,8 @@ void BlockDataManager_LevelDB::scanRegisteredTxForWallet( BtcWallet & wlt,
       if(txIter->txIndex_ > UINT32_MAX/2)
       {
          // The RegisteredTx was created before the chain was organized
-         txIter->blkNum_ = txIter->txrefPtr_->getBlockHeight();
-         txIter->txIndex_ = txIter->txrefPtr_->getBlockTxIndex();
+         txIter->blkNum_ = txIter->txRefObj_.getBlockHeight();
+         txIter->txIndex_ = txIter->txRefObj_.getBlockTxIndex();
       }
    }
    registeredTxList_.sort();
@@ -2400,7 +2405,7 @@ void BlockDataManager_LevelDB::scanRegisteredTxForWallet( BtcWallet & wlt,
          continue;
       }
 
-      BlockHeader* bhptr = theTx.getHeaderPtr();
+      BlockHeader* bhptr = getHeaderPtrForTx(theTx);
       // This condition happens on invalid Tx (like invalid P2Pool coinbases)
       if( bhptr==NULL )
          continue;
@@ -2514,7 +2519,8 @@ bool BlockDataManager_LevelDB::extractHeadersInBlkFile(uint32_t fnum)
 {
    SCOPED_TIMER("extractHeadersInBlkFile");
    string filename = blkFileList_[fnum];
-   if(BtcUtils::GetFileSize(filename) != FILE_DOES_NOT_EXIST)
+   uint64_t filesize = BtcUtils::GetFileSize(filename);
+   if(filesize != FILE_DOES_NOT_EXIST)
    {
       LOGERR << "File does not exist: " << filename.c_str();
       return false;
@@ -2578,9 +2584,9 @@ bool BlockDataManager_LevelDB::extractHeadersInBlkFile(uint32_t fnum)
          if(!bhInsResult.second)
             LOGERR << "Somehow tried to add header that's already in map";
 
-         bhInsResult.first->setBlockFile(filename);
-         bhInsResult.first->setBlockFileNum(fnum);
-         bhInsResult.first->setBlockFileOffset(endOfLastBlockByte_);
+         bhInsResult.first->second.setBlockFile(filename);
+         bhInsResult.first->second.setBlockFileNum(fnum);
+         bhInsResult.first->second.setBlockFileOffset(endOfLastBlockByte_);
          
          brr.advance(nextBlkSize - HEADER_SIZE);
          endOfLastBlockByte_ += nextBlkSize+8;
@@ -2616,8 +2622,8 @@ bool BlockDataManager_LevelDB::processAllHeadersFromAllBlkFiles(void)
    // Now write all headers to DB, get duplicate IDs and mark longest chain
    iface_->startBatch(HEADERS);
 
-   map<HashString, BlockHeader>::iterator iterH;
-   for(iterH = headerMap_.begin(); iterH != headerMap_.end(); iterH++)
+   map<HashString, BlockHeader>::iterator iter;
+   for(iter = headerMap_.begin(); iter != headerMap_.end(); iter++)
    {
       StoredHeader sbh;
       sbh.createFromBlockHeader(iter->second);
@@ -2632,10 +2638,10 @@ bool BlockDataManager_LevelDB::processAllHeadersFromAllBlkFiles(void)
 // We assume that all the addresses we care about have been registered with
 // the BDM.  Before, the BDM we would rescan the blockchain and use the method
 // isMineBulkFilter() to extract all "RegisteredTx" which are all tx relevant
-// to the list of "RegisteredAddress" objects.  Now, the DB defaults to super-
+// to the list of "RegisteredScrAddr" objects.  Now, the DB defaults to super-
 // node mode and tracks all that for us on disk.  So when we start up, rather
 // than having to search the blockchain, we just look the StoredScriptHistory
-// list for each of our "RegisteredAddress" objects, and then pull all the 
+// list for each of our "RegisteredScrAddr" objects, and then pull all the 
 // relevant tx from the database.  After that, the BDM operates 99% identically
 // to before.  We just didn't have to do a full scan to fill the RegTx list
 //
@@ -2736,11 +2742,13 @@ uint32_t BlockDataManager_LevelDB::rebuildDatabasesFromBlkFiles(void)
    uint32_t blocksReadSoFar_ = 0;
    uint32_t bytesReadSoFar_ = 0;
    TIMER_START("LoadProgress");
-   for(uint32_t fnum=1; fnum<=numBlkFiles_; fnum++)
+   for(uint32_t fnum=0; fnum<numBlkFiles_; fnum++)
    {
-      string blkfile = blkFileList_[fnum-1];
+      string blkfile = blkFileList_[fnum];
       LOGINFO << "Attempting to read blockchain file: " << blkfile.c_str();
-      //uint64_t filesize = globalCache.getFileSize(fnum-1);
+      //uint64_t filesize = globalCache.getFileSize(fnum);
+      uint64_t filesize = BtcUtils::GetFileSize(blkFileList_[fnum]);
+      
 
       // Open the file, and check the magic bytes on the first block
       ifstream is(blkfile.c_str(), ios::in | ios::binary);
@@ -2768,7 +2776,7 @@ uint32_t BlockDataManager_LevelDB::rebuildDatabasesFromBlkFiles(void)
             return 0;
          ofstream topblks(bfile.c_str(), ios::app);
          double t = TIMER_READ_SEC("LoadProgress");
-         topblks << fnum-1 << " " << numBlkFiles_ << " " << t << endl;
+         topblks << fnum << " " << numBlkFiles_ << " " << t << endl;
       }
 
       // Now have a bunch of blockchain data buffered
@@ -2822,7 +2830,7 @@ uint32_t BlockDataManager_LevelDB::rebuildDatabasesFromBlkFiles(void)
 
             // Don't read past the last header we processed (in case new 
             // blocks were added since we processed the headers
-            if(fnum == numBlkFiles_ && locInBlkFile >= endOfLastBlockByte_)
+            if(fnum == numBlkFiles_-1 && locInBlkFile >= endOfLastBlockByte_)
             {
                breakbreak = true;
                break;
@@ -2853,7 +2861,7 @@ uint32_t BlockDataManager_LevelDB::rebuildDatabasesFromBlkFiles(void)
    lastTopBlock_ = getTopBlockHeight() + 1;
    allScannedUpToBlk_ = lastTopBlock_;
 
-   updateRegisteredAddresses(lastTopBlock_);
+   updateRegisteredScrAddrs(lastTopBlock_);
    
 
    // Since loading takes so long, there's a good chance that new block data
@@ -2929,7 +2937,7 @@ uint32_t BlockDataManager_LevelDB::readBlkFileUpdate(void)
          else
          {
             is.read((char*)fourBytes.getPtr(), 4);
-            endOfNewLastBlock += READ_UINT32_LE((fourBytes.getPtr()) + 8;
+            endOfNewLastBlock += READ_UINT32_LE((fourBytes.getPtr()) + 8);
          }
       }
 
@@ -2944,7 +2952,7 @@ uint32_t BlockDataManager_LevelDB::readBlkFileUpdate(void)
    if(nextBlkBytesToRead == FILE_DOES_NOT_EXIST)
       nextBlkBytesToRead = 0;
    else
-      cout << "New block file split! " << nextFilename << endl;
+      LOGINFO << "New block file split! " << nextFilename.c_str();
 
 
    // If there is no new data, no need to continue
@@ -3014,27 +3022,33 @@ uint32_t BlockDataManager_LevelDB::readBlkFileUpdate(void)
          
       uint32_t nextBlockSize = brr.get_uint32_t();
 
-      blockAddResults = addNewBlockData(brr, nextBlockSize);
-      bool blockAddSucceeded = blockAddResults[0];
-      bool blockIsNewTop     = blockAddResults[1];
-      bool blockchainReorg   = blockAddResults[2];
+      blockAddResults = addNewBlockData(brr, 
+                                        useFileIndex0Idx,
+                                        blockHeaderOffset,
+                                        nextBlockSize);
+
+      bool blockAddSucceeded = blockAddResults[ADD_BLOCK_SUCCEEDED    ];
+      bool blockIsNewTop     = blockAddResults[ADD_BLOCK_NEW_TOP_BLOCK];
+      bool blockchainReorg   = blockAddResults[ADD_BLOCK_CAUSED_REORG ];
 
       if(blockAddSucceeded)
          nBlkRead++;
 
       if(blockIsNewTop)
       {
-         BlockHeader & bh = headerMap_[newHeadHash];
+         BlockHeader & bh = getTopBlockHeader();
          uint32_t hgt = bh.getBlockHeight();
          uint8_t  dup = bh.getDuplicateID();
-         if(vb[ADD_BLOCK_NEW_TOP_BLOCK])
-            applyBlockToDB(hgt, dup);
+         applyBlockToDB(hgt, dup);
          purgeZeroConfPool();
 
          StoredHeader sbh;
          iface_->getStoredHeader(sbh, hgt, dup);
-         for(uint32_t itx=0; itx<sbh.stxMap_.size(); i++) 
-            registeredAddrScan(sbh.stxMap_[itx].dataCopy_.getPtr(), txSize);
+         for(uint32_t itx=0; itx<sbh.stxMap_.size(); itx++) 
+         {
+            BinaryDataRef bdr(sbh.stxMap_[itx].dataCopy_);
+            registeredScrAddrScan(bdr.getPtr(), bdr.getSize());
+         }
       }
       else if(blockchainReorg)
       {
@@ -3063,11 +3077,11 @@ uint32_t BlockDataManager_LevelDB::readBlkFileUpdate(void)
    if(prevRegisteredUpToDate)
    {
       allScannedUpToBlk_ = getTopBlockHeight()+1;
-      updateRegisteredAddresses(allScannedUpToBlk_);
+      updateRegisteredScrAddrs(allScannedUpToBlk_);
    }
 
    // If the blk file split, switch to tracking it
-   cout << "Added new blocks to memory pool: " << nBlkRead << endl;
+   LOGINFO << "Added new blocks to memory pool: " << nBlkRead;
    if(nextBlkBytesToRead>0)
    {
       numBlkFiles_ += 1;
@@ -3106,7 +3120,7 @@ void BlockDataManager_LevelDB::updateWalletAfterReorg(BtcWallet & wlt)
          ledg[i].setValid(false);
 
       if(txJustAffected_.count(txHash) > 0)
-         ledg[i].changeBlkNum(getTxRefByHash(txHash)->getBlockHeight());
+         ledg[i].changeBlkNum(getTxRefByHash(txHash).getBlockHeight());
    }
 
    // Now fix the individual address ledgers
@@ -3121,7 +3135,7 @@ void BlockDataManager_LevelDB::updateWalletAfterReorg(BtcWallet & wlt)
             addrLedg[i].setValid(false);
    
          if(txJustAffected_.count(txHash) > 0) 
-            addrLedg[i].changeBlkNum(getTxRefByHash(txHash)->getBlockHeight());
+            addrLedg[i].changeBlkNum(getTxRefByHash(txHash).getBlockHeight());
       }
    }
 }
@@ -3143,6 +3157,7 @@ void BlockDataManager_LevelDB::updateWalletsAfterReorg(set<BtcWallet*> wltset)
 }
 
 /////////////////////////////////////////////////////////////////////////////
+/* This was never actually used
 bool BlockDataManager_LevelDB::verifyBlkFileIntegrity(void)
 {
    SCOPED_TIMER("verifyBlkFileIntegrity");
@@ -3163,15 +3178,16 @@ bool BlockDataManager_LevelDB::verifyBlkFileIntegrity(void)
          cout << "  Block hash (BE):   " << endl;
          cout << "    " << bhr.getThisHash().copySwapEndian().toHexStr() << endl;
          cout << "  Num Tx :         " << bhr.getNumTx() << endl;
-         cout << "  Tx Hash List: (compare to raw tx data on blockexplorer)" << endl;
-         for(uint32_t t=0; t<bhr.getNumTx(); t++)
-            cout << "    " << bhr.getTxRefPtrList()[t]->getThisHash().copySwapEndian().toHexStr() << endl;
+         //cout << "  Tx Hash List: (compare to raw tx data on blockexplorer)" << endl;
+         //for(uint32_t t=0; t<bhr.getNumTx(); t++)
+            //cout << "    " << bhr.getTxRefPtrList()[t]->getThisHash().copySwapEndian().toHexStr() << endl;
       }
       isGood = isGood && thisHeaderIsGood;
    }
    return isGood;
    PDEBUG("Done verifying blockfile integrity");
 }
+*/
 
 
 
@@ -3202,7 +3218,7 @@ bool BlockDataManager_LevelDB::parseNewBlock(BinaryRefReader & brr,
 
    // Then put the bare header into the DB and get its duplicate ID.
    StoredHeader sbh;
-   sbh.CreateFromBlockHeader(*bhptr);
+   sbh.createFromBlockHeader(*bhptr);
    uint8_t dup = iface_->putBareHeader(sbh);
    bhptr->setDuplicateID(dup);
 
@@ -3239,7 +3255,7 @@ bool BlockDataManager_LevelDB::parseNewBlock(BinaryRefReader & brr,
 
       // Figure out, as quickly as possible, whether this tx has any relevance
       // to any of the registered addresses.  Again, using pointers...
-      registeredAddrScan(ptrToRawTx, txSize, &offsetsIn, &offsetsOut);
+      registeredScrAddrScan(ptrToRawTx, txSize, &offsetsIn, &offsetsOut);
 
       // Prepare for the next tx.  Manually advance brr since used ptr directly
       txOffset += txSize;
@@ -3255,34 +3271,31 @@ bool BlockDataManager_LevelDB::parseNewBlock(BinaryRefReader & brr,
 //    (1)  Block data was added to memory pool successfully
 //    (2)  New block added is at the top of the chain
 //    (3)  Adding block data caused blockchain reorganization
-//
-// This method assumes the data is not in the permanent memory pool yet, and
-// we will need to copy it to its permanent memory location before parsing it.
-// Btw, yes I know I could've used a bitset here, but I was too lazy to add
-// the #include and look up the members for using it...
 vector<bool> BlockDataManager_LevelDB::addNewBlockData(
                                                 BinaryRefReader & brrRawBlock,
+                                                uint32_t fileIndex0Idx,
+                                                uint32_t thisHeaderOffset,
                                                 uint32_t blockSize)
 {
    SCOPED_TIMER("addNewBlockData");
    uint8_t const * startPtr = brrRawBlock.getCurrPtr();
    HashString newHeadHash = BtcUtils::getHash256(startPtr, HEADER_SIZE);
 
-   // Now parse the block data and record where it will be on disk
-   //bool addDataSucceeded = parseNewBlock(brrRawBlock, 
-                                         //fileIndex0Idx,
-                                         //thisHeaderOffset,
-                                         //blockSize);
+   vector<bool> vb(3);
+   vb[ADD_BLOCK_SUCCEEDED]     = false;  // Added to memory pool
+   vb[ADD_BLOCK_NEW_TOP_BLOCK] = false;  // New block is new top of chain
+   vb[ADD_BLOCK_CAUSED_REORG]  = false;  // Add caused reorganization
 
+   /////////////////////////////////////////////////////////////////////////////
    // This used to be in parseNewBlock(...) but relocated here because it's
    // not duplicated anywhere, and during the upgrade to LevelDB I needed
    // the code flow to be more linear in order to figure out how to put 
    // all the pieces together properly.  I may refactor this code out into
    // its own method again, later
-   if(brr.getSizeRemaining() < blockSize || brr.isEndOfStream())
+   if(brrRawBlock.getSizeRemaining() < blockSize || brrRawBlock.isEndOfStream())
    {
       LOGERR << "***ERROR:  parseNewBlock did not get enough data...";
-      return false;
+      return vb;
    }
 
    // Create the objects once that will be used for insertion
@@ -3291,21 +3304,21 @@ vector<bool> BlockDataManager_LevelDB::addNewBlockData(
    static pair<map<HashString, BlockHeader>::iterator, bool> bhInsResult;
    
    // Read the header and insert it into the map.
-   bhInputPair.second.unserialize(brr);
+   bhInputPair.second.unserialize(brrRawBlock);
    bhInputPair.first = bhInputPair.second.getThisHash();
    bhInsResult = headerMap_.insert(bhInputPair);
    BlockHeader * bhptr = &(bhInsResult.first->second);
 
    // Then put the bare header into the DB and get its duplicate ID.
    StoredHeader sbh;
-   sbh.CreateFromBlockHeader(*bhptr);
+   sbh.createFromBlockHeader(*bhptr);
    uint8_t dup = iface_->putBareHeader(sbh);
    bhptr->setDuplicateID(dup);
 
    // Regardless of whether this was a reorg, we have to add the raw block
    // to the DB, but we don't apply it yet.
-   brr.rewind(HEADER_SIZE);
-   addRawBlockToDB(brr);
+   brrRawBlock.rewind(HEADER_SIZE);
+   addRawBlockToDB(brrRawBlock);
 
    // Note where we will start looking for the next block, later
    endOfPrevLastBlock_ = thisHeaderOffset + blockSize;
@@ -3313,7 +3326,7 @@ vector<bool> BlockDataManager_LevelDB::addNewBlockData(
    /* From parseNewBlock but not needed here in the new code
    // Read the #tx and fill in some header properties
    uint8_t viSize;
-   uint32_t nTx = (uint32_t)brr.get_var_int(&viSize);
+   uint32_t nTx = (uint32_t)brrRawBlock.get_var_int(&viSize);
 
    // The file offset of the first tx in this block is after the var_int
    uint32_t txOffset = thisHeaderOffset + HEADER_SIZE + viSize; 
@@ -3329,31 +3342,20 @@ vector<bool> BlockDataManager_LevelDB::addNewBlockData(
    {
       // We get a little funky here because I need to avoid ALL unnecessary
       // copying -- therefore everything is pointers...and confusing...
-      uint8_t const * ptrToRawTx = brr.getCurrPtr();
+      uint8_t const * ptrToRawTx = brrRawBlock.getCurrPtr();
       
       txSize = BtcUtils::TxCalcLength(ptrToRawTx, &offsetsIn, &offsetsOut);
       BtcUtils::getHash256_NoSafetyCheck(ptrToRawTx, txSize, hashResult);
 
       // Figure out, as quickly as possible, whether this tx has any relevance
-      registeredAddrScan(ptrToRawTx, txSize, &offsetsIn, &offsetsOut);
+      registeredScrAddrScan(ptrToRawTx, txSize, &offsetsIn, &offsetsOut);
 
       // Prepare for the next tx.  Manually advance brr since used ptr directly
       txOffset += txSize;
-      brr.advance(txSize);
+      brrRawBlock.advance(txSize);
    }
    return true;
    */
-
-
-   vector<bool> vb(3);
-   if( !addDataSucceeded ) 
-   {
-      cout << "Adding new block data to memory pool failed!";
-      vb[ADD_BLOCK_SUCCEEDED]     = false;  // Added to memory pool
-      vb[ADD_BLOCK_NEW_TOP_BLOCK] = false;  // New block is new top of chain
-      vb[ADD_BLOCK_CAUSED_REORG]  = false;  // Add caused reorganization
-      return vb;
-   }
 
    // Finally, let's re-assess the state of the blockchain with the new data
    // Check the lastBlockWasReorg_ variable to see if there was a reorg
@@ -3365,7 +3367,7 @@ vector<bool> BlockDataManager_LevelDB::addNewBlockData(
    bool newBlockIsNewTop = getHeaderByHash(newHeadHash)->isMainBranch();
 
    // This method passes out 3 booleans
-   vb[ADD_BLOCK_SUCCEEDED]     =  addDataSucceeded;
+   vb[ADD_BLOCK_SUCCEEDED]     =  true;
    vb[ADD_BLOCK_NEW_TOP_BLOCK] =  newBlockIsNewTop;
    vb[ADD_BLOCK_CAUSED_REORG]  = !prevTopBlockStillValid;
    return vb;
@@ -3407,14 +3409,14 @@ void BlockDataManager_LevelDB::reassessAfterReorg( BlockHeader* oldTopPtr,
                                                    BlockHeader* branchPtr)
 {
    SCOPED_TIMER("reassessAfterReorg");
-   cout << "Reassessing Tx validity after (after reorg?)" << endl;
+   LOGINFO << "Reassessing Tx validity after (after reorg?)";
 
    // Walk down invalidated chain first, until we get to the branch point
    // Mark transactions as invalid
    txJustInvalidated_.clear();
    txJustAffected_.clear();
    BlockHeader* thisHeaderPtr = oldTopPtr;
-   cout << "Invalidating old-chain transactions..." << endl;
+   LOGINFO << "Invalidating old-chain transactions...";
    while(thisHeaderPtr != branchPtr)
    {
       uint32_t hgt = thisHeaderPtr->getBlockHeight();
@@ -3451,9 +3453,9 @@ void BlockDataManager_LevelDB::reassessAfterReorg( BlockHeader* oldTopPtr,
    //       I need to apply the blocks in order, so I switched it to start
    //       from the branch point and walk up
    thisHeaderPtr = branchPtr; // note branch block was not undone, skip it
-   cout << "Marking new-chain transactions valid..." << endl;
+   LOGINFO << "Marking new-chain transactions valid...";
    while( thisHeaderPtr->getNextHash() != BtcUtils::EmptyHash_ &&
-          thisHeaderPtr->getNextHash().getSize > 0 ) 
+          thisHeaderPtr->getNextHash().getSize() > 0 ) 
    {
       thisHeaderPtr = getHeaderByHash(thisHeaderPtr->getNextHash());
       // Update the DB first
@@ -3470,9 +3472,9 @@ void BlockDataManager_LevelDB::reassessAfterReorg( BlockHeader* oldTopPtr,
          //TxRef * txptr = thisHeaderPtr->getTxRefPtrList()[i];
          //txptr->setHeaderPtr(thisHeaderPtr);
          //txptr->setMainBranch(true);
-         LOGWARN << "   Tx: " << stx.thisHash_.getSliceCopy().toHexStr();
-         txJustInvalidated_.erase(txptr->getThisHash());
-         txJustAffected_.insert(txptr->getThisHash());
+         LOGWARN << "   Tx: " << stx.thisHash_.getSliceCopy(0,8).toHexStr();
+         txJustInvalidated_.erase(stx.thisHash_);
+         txJustAffected_.insert(stx.thisHash_);
       }
       thisHeaderPtr = getHeaderByHash(thisHeaderPtr->getPrevHash());
    }
@@ -3695,11 +3697,15 @@ double BlockDataManager_LevelDB::traceChainDown(BlockHeader & bhpStart)
 /////////////////////////////////////////////////////////////////////////////
 void BlockDataManager_LevelDB::markOrphanChain(BlockHeader & bhpStart)
 {
+   // TODO:  This method was written 18 months ago, and appeared to have 
+   //        a bug in it when I revisited it.  Not sure the bug was real
+   //        but I attempted to fix it.  This note is to remind you/me 
+   //        to check the old version of this method if any problems 
+   //        crop up.
    PDEBUG("Marking orphan chain");
-   bhpStart.isMainBranch_ = true;
    map<HashString, BlockHeader>::iterator iter;
-   iter = headerMap_.find(bhpStart.getPrevHash());
-   HashStringRef lastHeadHash(32);
+   iter = headerMap_.find(bhpStart.getThisHash());
+   HashStringRef lastHeadHash;
    while( iter != headerMap_.end() )
    {
       // I don't see how it's possible to have a header that used to be 
@@ -3709,15 +3715,12 @@ void BlockDataManager_LevelDB::markOrphanChain(BlockHeader & bhpStart)
       {
          // NOTE: this actually gets triggered when we scan the testnet
          //       blk0001.dat file on main net, etc
-         cout << "***ERROR: Block previously main branch, now orphan!?"
-              << iter->second.getThisHash().toHexStr() << endl;
-         cerr << "***ERROR: Block previously main branch, now orphan!?"
-              << iter->second.getThisHash().toHexStr() << endl;
+         LOGERR << "Block previously main branch, now orphan!?";
          previouslyValidBlockHeaderPtrs_.push_back(&(iter->second));
       }
       iter->second.isOrphan_ = true;
       iter->second.isMainBranch_ = false;
-      lastHeadHash.setRef(iter->second.thisHash_);
+      lastHeadHash = iter->second.thisHash_.getRef();
       iter = headerMap_.find(iter->second.getPrevHash());
    }
    orphanChainStartBlocks_.push_back(&(headerMap_[lastHeadHash.copy()]));
@@ -3762,6 +3765,34 @@ int64_t BlockDataManager_LevelDB::getSentValue(TxIn & txin)
 
 
 
+////////////////////////////////////////////////////////////////////////////////
+BlockHeader* BlockDataManager_LevelDB::getHeaderPtrForTxRef(TxRef txr) 
+{
+   if(txr.isNull())
+      return NULL;
+
+   uint32_t hgt = txr.getBlockHeight();
+   uint8_t  dup = txr.getDuplicateID();
+   BlockHeader* bhptr = headersByHeight_[hgt];
+   if(bhptr->getDuplicateID() != dup)
+   {
+      LOGERR << "Requested txref not on main chain (BH dupID is diff)";
+      return NULL;
+   }
+   return bhptr;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+BlockHeader* BlockDataManager_LevelDB::getHeaderPtrForTx(Tx & txObj) 
+{
+   if(txObj.getTxRef().isNull())
+   {
+      LOGERR << "TxRef in Tx object is not set, cannot get header ptr";
+      return NULL; 
+   }
+   
+   return getHeaderPtrForTxRef(txObj.getTxRef());
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 // Methods for handling zero-confirmation transactions
@@ -4218,7 +4249,7 @@ bool BlockDataManager_LevelDB::applyTxToBatchWriteData(
 {
    SCOPED_TIMER("applyTxToBatchWriteData");
 
-   Tx tx = thisSTX.getFullTxCopy();
+   Tx tx = thisSTX.getTxCopy();
 
    // We never expect thisSTX to already be in the map (other tx in the map
    // may be affected/retrieved multiple times).  
@@ -4229,7 +4260,9 @@ bool BlockDataManager_LevelDB::applyTxToBatchWriteData(
    // it here -- by definition if we just added this Tx to the DB, it couldn't
    // have been spent yet.
    map<uint16_t, StoredTxOut>::iterator iter;
-   for(iter = thisSTX.stxoMap_.begin(); iter != thisSTX.stxoMap_.end(), iter++)
+   for(iter  = thisSTX.stxoMap_.begin(); 
+       iter != thisSTX.stxoMap_.end();
+       iter++)
       iter->second.spentness_ = TXOUT_UNSPENT;
 
    // This tx itself needs to be added to the map, which makes it accessible 
@@ -4247,7 +4280,7 @@ bool BlockDataManager_LevelDB::applyTxToBatchWriteData(
          continue;
 
       // Get the OutPoint data of TxOut being spent
-      OutPoint      op       = txin.getOutPoint()
+      OutPoint      op       = txin.getOutPoint();
       BinaryDataRef opTxHash = op.getTxHashRef();
       uint32_t      opTxoIdx = op.getTxOutIndex();
 
@@ -4257,7 +4290,7 @@ bool BlockDataManager_LevelDB::applyTxToBatchWriteData(
       // to the STX that will be written to DB that we can modify.
       StoredTx    * stxptr  = makeSureSTXInMap(opTxHash, stxToModify);
       StoredTxOut & stxo    = stxptr->stxoMap_[opTxoIdx];
-      BinaryData    uniqKey = stxo.getScrAddrObj();
+      BinaryData    uniqKey = stxo.getScrAddress();
 
       // Update the stxo by marking it spent by this Block:TxIndex:TxInIndex
       map<uint16_t,StoredTxOut>::iterator iter = stxptr->stxoMap_.find(opTxoIdx);
@@ -4287,7 +4320,7 @@ bool BlockDataManager_LevelDB::applyTxToBatchWriteData(
       stxoSpend.spentness_      = TXOUT_SPENT;
       stxoSpend.spentByTxInKey_ = thisSTX.getDBKeyOfChild(iin);
 
-      if(DBUtils::getArmoryDbType() != ARMORY_DB_SUPER)
+      if(DBUtils.getArmoryDbType() != ARMORY_DB_SUPER)
       {
          LOGERR << "Don't know what to do this in non-supernode mode!";
       }
@@ -4313,10 +4346,10 @@ bool BlockDataManager_LevelDB::applyTxToBatchWriteData(
    for(uint32_t iout=0; iout<tx.getNumTxOut(); iout++)
    {
       StoredTxOut & stxoToAdd = thisSTX.stxoMap_[iout];
-      BinaryData uniqKey = stxoToAdd.getScrAddrObj();
+      BinaryData uniqKey = stxoToAdd.getScrAddress();
       StoredScriptHistory* sshptr=makeSureSSHInMap(uniqKey, sshToModify, true);
 
-      if(DBUtils::getArmoryDbType() != ARMORY_DB_SUPER)
+      if(DBUtils.getArmoryDbType() != ARMORY_DB_SUPER)
       {
          LOGERR << "Figure out how to handle this since not all SSH in DB will";
          LOGERR << "be updated on every tx and block";
@@ -4335,15 +4368,15 @@ bool BlockDataManager_LevelDB::applyTxToBatchWriteData(
          BinaryData thisOutKey = thisSTX.getDBKeyOfChild(iout);
 
          vector<BinaryData> addr160List;
-         BtcUtils::getMultisigAddrList(stxo.getScriptRef(), addr160List);
-         for(uint32_t a=0; a<addr160List.size(); i++)
+         BtcUtils::getMultisigAddrList(stxoToAdd.getScriptRef(), addr160List);
+         for(uint32_t a=0; a<addr160List.size(); a++)
          {
             // Get the existing SSH or make a new one
             BinaryData uniqKey = HASH160PREFIX + addr160List[a];
             StoredScriptHistory* sshms = makeSureSSHInMap(uniqKey,
                                                           sshToModify, 
                                                           true);
-            addMultisigEntryToSSH(*sshms, thisSTX.getDBKeyOfChild(iout);
+            addMultisigEntryToSSH(*sshms, thisSTX.getDBKeyOfChild(iout));
          }
       }
    }
@@ -4396,8 +4429,7 @@ bool BlockDataManager_LevelDB::addRawBlockToDB(BinaryRefReader & brr)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-bool BlockDataManager_LevelDB::applyBlockToDB(uint32_t hgt, 
-                                              uint8_t  dup)
+bool BlockDataManager_LevelDB::applyBlockToDB(uint32_t hgt, uint8_t  dup)
 {
    StoredHeader sbh;
    iface_->getStoredHeader(sbh, hgt, dup);
@@ -4409,7 +4441,7 @@ bool BlockDataManager_LevelDB::applyBlockToDB(StoredHeader & sbh)
 {
    SCOPED_TIMER("applyBlockToDB");
 
-   if(iface_->getValidDupIDForHeight(hgt) != dup)
+   if(iface_->getValidDupIDForHeight(sbh.blockHeight_) != sbh.duplicateID_)
    {
       LOGERR << "Dup requested is not the main branch for the given height!";
       return false;
@@ -4437,7 +4469,7 @@ bool BlockDataManager_LevelDB::applyBlockToDB(StoredHeader & sbh)
       // and then it will modify either the pulled StoredTx or pre-existing
       // one.  This means that if a single Tx is affected by multiple TxIns
       // or TxOuts, earlier changes will not be overwritten by newer changes.
-      applyTxToBatchWriteData(*iter, 
+      applyTxToBatchWriteData(iter->second, 
                               stxToModify, 
                               sshToModify, 
                               keysToDelete,
@@ -4446,7 +4478,7 @@ bool BlockDataManager_LevelDB::applyBlockToDB(StoredHeader & sbh)
 
    // At this point we should have a list of STX and SSH with all the correct
    // modifications (or creations) to represent this block.  Let's apply it.
-   iface_->startBatch(BLKDATA)
+   iface_->startBatch(BLKDATA);
 
    sbh.blockAppliedToDB_ = true;
    iface_->putStoredHeader(sbh, false);
@@ -4456,7 +4488,7 @@ bool BlockDataManager_LevelDB::applyBlockToDB(StoredHeader & sbh)
        iter_stx != stxToModify.end();
        iter_stx++)
    {
-      iface_->putStoredTx(*iter_stx);
+      iface_->putStoredTx(iter_stx->second, true);
    }
        
    map<BinaryData, StoredScriptHistory>::iterator iter_ssh;
@@ -4464,7 +4496,7 @@ bool BlockDataManager_LevelDB::applyBlockToDB(StoredHeader & sbh)
        iter_ssh != sshToModify.end();
        iter_ssh++)
    {
-      iface_->putStoredScriptHistory(*iter_ssh);
+      iface_->putStoredScriptHistory(iter_ssh->second);
 
    }
 
@@ -4477,10 +4509,10 @@ bool BlockDataManager_LevelDB::applyBlockToDB(StoredHeader & sbh)
    }
 
    // Only if pruning, we need to store 
-   if(DBUtils::getDbPruneType() == DB_PRUNE_ALL)
+   if(DBUtils.getDbPruneType() == DB_PRUNE_ALL)
       iface_->putStoredUndoData(sud);
 
-   iface_->commitBatch(BLKDATA)
+   iface_->commitBatch(BLKDATA);
    return true;
 }
 
@@ -4503,14 +4535,13 @@ bool BlockDataManager_LevelDB::createUndoDataFromBlock(uint32_t hgt,
    SCOPED_TIMER("createUndoDataFromBlock");
 
    // This is garbage code right here, I haven't actually impl
-   StoredUndoData sud;
    StoredHeader sbh;
 
    // Fetch the full, stored block
    iface_->getStoredHeader(sbh, hgt, dup, true);
    if(!sbh.haveFullBlock())
    {
-      LOGERR <<< "Cannot get undo data for block because not full!";
+      LOGERR << "Cannot get undo data for block because not full!";
       return false;
    }
 
@@ -4529,7 +4560,7 @@ bool BlockDataManager_LevelDB::createUndoDataFromBlock(uint32_t hgt,
       {
          TxIn txin = regTx.getTxIn(iin);
          BinaryDataRef prevHash  = txin.getOutPoint().getTxHashRef();
-         BinaryDataRef prevIndex = txin.getOutPoint().getTxOutIndex();
+         uint16_t      prevIndex = txin.getOutPoint().getTxOutIndex();
          
          // Above we checked the block to be undone is full, but we
          // still need to make sure the prevTx we just fetched has our data.
@@ -4557,7 +4588,7 @@ bool BlockDataManager_LevelDB::createUndoDataFromBlock(uint32_t hgt,
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-bool BlockDataManager_LevelDB::undoBlockFromDB(StoredUndoData const & sud)
+bool BlockDataManager_LevelDB::undoBlockFromDB(StoredUndoData & sud)
 {
    SCOPED_TIMER("undoBlockFromDB");
 
@@ -4574,7 +4605,7 @@ bool BlockDataManager_LevelDB::undoBlockFromDB(StoredUndoData const & sud)
    set<BinaryData>                        keysToDelete;
     
    // In the future we will accommodate more user modes
-   if(DBUtils::getArmoryDbType() != ARMORY_DB_SUPER)
+   if(DBUtils.getArmoryDbType() != ARMORY_DB_SUPER)
    {
       LOGERR << "Don't know what to do this in non-supernode mode!";
    }
@@ -4584,7 +4615,7 @@ bool BlockDataManager_LevelDB::undoBlockFromDB(StoredUndoData const & sud)
    // Process the stxOutsRemovedByBlock_ in reverse order
    for(uint32_t i=sud.stxOutsRemovedByBlock_.size()-1; i>=0; i--)
    {
-      StoredTxOut & sudStxo = stxOutsRemovedByBlock_[i];
+      StoredTxOut & sudStxo = sud.stxOutsRemovedByBlock_[i];
       StoredTx * stxptr = makeSureSTXInMap( sudStxo.blockHeight_,
                                             sudStxo.duplicateID_,
                                             sudStxo.txIndex_,
@@ -4595,7 +4626,7 @@ bool BlockDataManager_LevelDB::undoBlockFromDB(StoredUndoData const & sud)
       map<uint16_t,StoredTxOut>::iterator iter;
 
 
-      if(DBUtils::getDbPruneType() == DB_PRUNE_NONE)
+      if(DBUtils.getDbPruneType() == DB_PRUNE_NONE)
       {
          // If full/super, we have the TxOut in DB, just need mark it unspent
          iter = stxptr->stxoMap_.find(stxoIdx);
@@ -4607,7 +4638,7 @@ bool BlockDataManager_LevelDB::undoBlockFromDB(StoredUndoData const & sud)
 
          StoredTxOut & stxoReAdd = iter->second;
          if(stxoReAdd.spentness_ == TXOUT_UNSPENT || 
-            stxoReAdd.spentByTxInKey_.size() == 0 )
+            stxoReAdd.spentByTxInKey_.getSize() == 0 )
          {
             LOGERR << "STXO needs to be re-added/marked-unspent but it";
             LOGERR << "was already declared unspent in the DB";
@@ -4620,13 +4651,14 @@ bool BlockDataManager_LevelDB::undoBlockFromDB(StoredUndoData const & sud)
       {
          // If we're pruning, we should have the Tx in the DB, but without the
          // TxOut because it had been pruned by this block on the forward op
-         if(stxptr->stxoMap_[stxoIdx] != stxptr->stxoMap_.end())
-            LOGERR << "Somehow this TxOut had not been pruned!" << endl;
+         iter = stxptr->stxoMap_.find(stxoIdx);
+         if(iter != stxptr->stxoMap_.end())
+            LOGERR << "Somehow this TxOut had not been pruned!";
          else
-            stxptr->stxoMap_[stxoIdx] = sudStxo;
+            iter->second = sudStxo;
 
-         stxptr->stxoMap_[stxoIdx].spentness_      = TXOUT_UNSPENT;
-         stxptr->stxoMap_[stxoIdx].spentByTxInKey_ = BinaryData(0);
+         iter->second.spentness_      = TXOUT_UNSPENT;
+         iter->second.spentByTxInKey_ = BinaryData(0);
       }
 
       ////// Finished updating STX, now update the SSH in the DB
@@ -4641,7 +4673,7 @@ bool BlockDataManager_LevelDB::undoBlockFromDB(StoredUndoData const & sud)
       StoredTxOut & stxoReAdd = iter->second;
    
       // Always a primary SSH to update (compared to multisig entries)
-      BinaryData uniqKey = stxoReAdd.getScrAddrObj();
+      BinaryData uniqKey = stxoReAdd.getScrAddress();
       StoredScriptHistory* sshptr = makeSureSSHInMap(uniqKey, sshToModify);
       if(sshptr==NULL)
       {
@@ -4653,7 +4685,7 @@ bool BlockDataManager_LevelDB::undoBlockFromDB(StoredUndoData const & sud)
       markTxOutUnspentInSSH( *sshptr,
                              stxoReAdd.getDBKey(false),
                              stxoReAdd.getValue(),
-                             stxoReAdd.isCoinBase_,
+                             stxoReAdd.isCoinbase_,
                              false);
 
       
@@ -4662,7 +4694,7 @@ bool BlockDataManager_LevelDB::undoBlockFromDB(StoredUndoData const & sud)
       {
 
          vector<BinaryData> addr160List;
-         BtcUtils::getMultisigAddrList(stxo.getScriptRef(), addr160List);
+         BtcUtils::getMultisigAddrList(stxoReAdd.getScriptRef(), addr160List);
          for(uint32_t a=0; a<addr160List.size(); i++)
          {
             // Get the existing SSH or make a new one
@@ -4745,7 +4777,7 @@ bool BlockDataManager_LevelDB::removeTxOutFromSSH(
    {
       TxIOPair & txio = ssh.txioVect_[i];
       BinaryData txoKey = txio.getDBKeyOfOutput();
-      if(txoKey == ldbKey8B)
+      if(txoKey == txOutKey8B)
       {
          ssh.txioVect_.erase(ssh.txioVect_.begin() + i);
          return true;
@@ -4767,10 +4799,10 @@ bool BlockDataManager_LevelDB::markTxOutSpentInSSH(
    {
       TxIOPair & txio = ssh.txioVect_[i];
       BinaryData txoKey = txio.getDBKeyOfOutput();
-      if(txoKey == ldbKey8B)
+      if(txoKey == txOutKey8B)
       {
          // We found the TxIO we care about 
-         if(DBUtils::getDbPruneType() == DB_PRUNE_NONE)
+         if(DBUtils.getDbPruneType() == DB_PRUNE_NONE)
          {
             // No pruning, Expect unspent, mark it as spent 
             if(txInKey8B.getSize() == 0)
@@ -4793,7 +4825,7 @@ bool BlockDataManager_LevelDB::markTxOutSpentInSSH(
    } 
 
    // If we got here... then we never found the STXO in the SSH
-   if(DBUtils::getDbPruneType() == DB_PRUNE_NONE)
+   if(DBUtils.getDbPruneType() == DB_PRUNE_NONE)
    {
       LOGERR << "We should've found an STXO in the SSH but didn't";
       return false;
@@ -4818,9 +4850,9 @@ bool BlockDataManager_LevelDB::markTxOutUnspentInSSH(
    {
       TxIOPair & txio = ssh.txioVect_[i];
       BinaryData txoKey = txio.getDBKeyOfOutput();
-      if(txoKey == ldbKey8B)
+      if(txoKey == txOutKey8B)
       {
-         if(DBUtils::getDbPruneType() == DB_PRUNE_NONE)
+         if(DBUtils.getDbPruneType() == DB_PRUNE_NONE)
          {
             // Expect spent, mark it as unspent 
             if(!txio.hasTxIn()) 
@@ -4843,7 +4875,7 @@ bool BlockDataManager_LevelDB::markTxOutUnspentInSSH(
    }
 
    // For non-pruning DB, we should never get here
-   //if(DBUtils::getDbPruneType() == DB_PRUNE_NONE)
+   //if(DBUtils.getDbPruneType() == DB_PRUNE_NONE)
    //{
       //LOGERR << "Somehow STXO-to-mark-unspent did not exist in SSH";
       //return false;
@@ -4851,7 +4883,7 @@ bool BlockDataManager_LevelDB::markTxOutUnspentInSSH(
    // We actually expect to get here non-pruning, because we may be calling
    // this to ADD the TxIO instead of just updating it
 
-   TxIOPair txio = TxIOPair()
+   TxIOPair txio = TxIOPair();
    txio.setValue(value);
    txio.setTxOut(txOutKey8B);
    txio.setFromCoinbase(isCoinBase);
@@ -4909,7 +4941,7 @@ StoredScriptHistory* BlockDataManager_LevelDB::makeSureSSHInMap(
 
    // If already in Map
    if(sshMap.find(uniqKey) != sshMap.end())
-      stxptr = &sshToModify[uniqKey];
+      sshptr = &sshMap[uniqKey];
    else
    {
       iface_->getStoredScriptHistory(sshTemp, uniqKey);
@@ -4938,7 +4970,7 @@ StoredScriptHistory* BlockDataManager_LevelDB::makeSureSSHInMap(
 ////////////////////////////////////////////////////////////////////////////////
 StoredTx* BlockDataManager_LevelDB::makeSureSTXInMap(
                                        BinaryDataRef txHash,
-                                       map<BinaryData, StoredTx> & stxMap);
+                                       map<BinaryData, StoredTx> & stxMap)
 {
    // TODO:  If we are pruning, we may have completely removed this tx from
    //        the DB, which means that it won't be in the map or the DB.
@@ -4969,7 +5001,7 @@ StoredTx* BlockDataManager_LevelDB::makeSureSTXInMap(
                                        uint8_t  dup,
                                        uint16_t txIdx,
                                        BinaryDataRef txHash,
-                                       map<BinaryData, StoredTx> & stxMap);
+                                       map<BinaryData, StoredTx> & stxMap)
 {
    StoredTx * stxptr;
    StoredTx   stxTemp;
