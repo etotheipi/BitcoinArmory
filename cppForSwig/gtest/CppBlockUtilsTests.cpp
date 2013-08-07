@@ -181,8 +181,8 @@ public:
       sbh_.unserialize(rawHead_);
 
       // Make sure the global DB type and prune type are reset for each test
-      ARMDB.setArmoryDbType(ARMORY_DB_FULL);
-      ARMDB.setDbPruneType(DB_PRUNE_NONE);
+      DBUtils.setArmoryDbType(ARMORY_DB_FULL);
+      DBUtils.setDbPruneType(DB_PRUNE_NONE);
    }
 
    BinaryData rawHead_;
@@ -2655,8 +2655,8 @@ protected:
       sbh_.unserialize(rawHead_);
 
       // Make sure the global DB type and prune type are reset for each test
-      ARMDB.setArmoryDbType(ARMORY_DB_FULL);
-      ARMDB.setDbPruneType(DB_PRUNE_NONE);
+      DBUtils.setArmoryDbType(ARMORY_DB_FULL);
+      DBUtils.setDbPruneType(DB_PRUNE_NONE);
    }
 
    BinaryData PREFBYTE(DB_PREFIX pref) 
@@ -2831,18 +2831,18 @@ TEST_F(StoredBlockObjTest, BlkDataKeys)
    uint16_t tix = 0x0102;
    uint16_t tox = 0x0021;
    
-   EXPECT_EQ(ARMDB.getBlkDataKey(hgt, dup),           
+   EXPECT_EQ(DBUtils.getBlkDataKey(hgt, dup),           
                                                READHEX("031a332b01"));
-   EXPECT_EQ(ARMDB.getBlkDataKey(hgt, dup, tix),      
+   EXPECT_EQ(DBUtils.getBlkDataKey(hgt, dup, tix),      
                                                READHEX("031a332b010102"));
-   EXPECT_EQ(ARMDB.getBlkDataKey(hgt, dup, tix, tox), 
+   EXPECT_EQ(DBUtils.getBlkDataKey(hgt, dup, tix, tox), 
                                                READHEX("031a332b0101020021"));
 
-   EXPECT_EQ(ARMDB.getBlkDataKeyNoPrefix(hgt, dup),           
+   EXPECT_EQ(DBUtils.getBlkDataKeyNoPrefix(hgt, dup),           
                                                READHEX("1a332b01"));
-   EXPECT_EQ(ARMDB.getBlkDataKeyNoPrefix(hgt, dup, tix),      
+   EXPECT_EQ(DBUtils.getBlkDataKeyNoPrefix(hgt, dup, tix),      
                                                READHEX("1a332b010102"));
-   EXPECT_EQ(ARMDB.getBlkDataKeyNoPrefix(hgt, dup, tix, tox), 
+   EXPECT_EQ(DBUtils.getBlkDataKeyNoPrefix(hgt, dup, tix, tox), 
                                                READHEX("1a332b0101020021"));
 }
 
@@ -2868,14 +2868,14 @@ TEST_F(StoredBlockObjTest, ReadBlkKeyData)
    /////////////////////////////////////////////////////////////////////////////
    // 5 bytes, with prefix
    brr.setNewData(key5p);
-   bdtype = ARMDB.readBlkDataKey(brr, hgt, dup);
+   bdtype = DBUtils.readBlkDataKey(brr, hgt, dup);
    EXPECT_EQ( hgt,     123000);
    EXPECT_EQ( dup,         15);
    EXPECT_EQ( brr.getSizeRemaining(), 0);
    EXPECT_EQ( bdtype, BLKDATA_HEADER);
 
    brr.setNewData(key5p);
-   bdtype = ARMDB.readBlkDataKey(brr, hgt, dup, txi);
+   bdtype = DBUtils.readBlkDataKey(brr, hgt, dup, txi);
    EXPECT_EQ( hgt,     123000);
    EXPECT_EQ( dup,         15);
    EXPECT_EQ( txi, UINT16_MAX);
@@ -2883,7 +2883,7 @@ TEST_F(StoredBlockObjTest, ReadBlkKeyData)
    EXPECT_EQ( bdtype, BLKDATA_HEADER);
    
    brr.setNewData(key5p);
-   bdtype = ARMDB.readBlkDataKey(brr, hgt, dup, txi, txo);
+   bdtype = DBUtils.readBlkDataKey(brr, hgt, dup, txi, txo);
    EXPECT_EQ( hgt,     123000);
    EXPECT_EQ( dup,         15);
    EXPECT_EQ( txi, UINT16_MAX);
@@ -2895,14 +2895,14 @@ TEST_F(StoredBlockObjTest, ReadBlkKeyData)
    /////////////////////////////////////////////////////////////////////////////
    // 7 bytes, with prefix
    brr.setNewData(key7p);
-   bdtype = ARMDB.readBlkDataKey(brr, hgt, dup);
+   bdtype = DBUtils.readBlkDataKey(brr, hgt, dup);
    EXPECT_EQ( hgt,     123000);
    EXPECT_EQ( dup,         15);
    EXPECT_EQ( brr.getSizeRemaining(), 0);
    EXPECT_EQ( bdtype, BLKDATA_TX);
 
    brr.setNewData(key7p);
-   bdtype = ARMDB.readBlkDataKey(brr, hgt, dup, txi);
+   bdtype = DBUtils.readBlkDataKey(brr, hgt, dup, txi);
    EXPECT_EQ( hgt,     123000);
    EXPECT_EQ( dup,         15);
    EXPECT_EQ( txi,          7);
@@ -2910,7 +2910,7 @@ TEST_F(StoredBlockObjTest, ReadBlkKeyData)
    EXPECT_EQ( bdtype, BLKDATA_TX);
    
    brr.setNewData(key7p);
-   bdtype = ARMDB.readBlkDataKey(brr, hgt, dup, txi, txo);
+   bdtype = DBUtils.readBlkDataKey(brr, hgt, dup, txi, txo);
    EXPECT_EQ( hgt,     123000);
    EXPECT_EQ( dup,         15);
    EXPECT_EQ( txi,          7);
@@ -2922,14 +2922,14 @@ TEST_F(StoredBlockObjTest, ReadBlkKeyData)
    /////////////////////////////////////////////////////////////////////////////
    // 9 bytes, with prefix
    brr.setNewData(key9p);
-   bdtype = ARMDB.readBlkDataKey(brr, hgt, dup);
+   bdtype = DBUtils.readBlkDataKey(brr, hgt, dup);
    EXPECT_EQ( hgt,     123000);
    EXPECT_EQ( dup,         15);
    EXPECT_EQ( brr.getSizeRemaining(), 0);
    EXPECT_EQ( bdtype, BLKDATA_TXOUT);
 
    brr.setNewData(key9p);
-   bdtype = ARMDB.readBlkDataKey(brr, hgt, dup, txi);
+   bdtype = DBUtils.readBlkDataKey(brr, hgt, dup, txi);
    EXPECT_EQ( hgt,     123000);
    EXPECT_EQ( dup,         15);
    EXPECT_EQ( txi,          7);
@@ -2937,7 +2937,7 @@ TEST_F(StoredBlockObjTest, ReadBlkKeyData)
    EXPECT_EQ( bdtype, BLKDATA_TXOUT);
    
    brr.setNewData(key9p);
-   bdtype = ARMDB.readBlkDataKey(brr, hgt, dup, txi, txo);
+   bdtype = DBUtils.readBlkDataKey(brr, hgt, dup, txi, txo);
    EXPECT_EQ( hgt,     123000);
    EXPECT_EQ( dup,         15);
    EXPECT_EQ( txi,          7);
@@ -2949,14 +2949,14 @@ TEST_F(StoredBlockObjTest, ReadBlkKeyData)
    /////////////////////////////////////////////////////////////////////////////
    // 5 bytes, no prefix
    brr.setNewData(key5);
-   bdtype = ARMDB.readBlkDataKeyNoPrefix(brr, hgt, dup);
+   bdtype = DBUtils.readBlkDataKeyNoPrefix(brr, hgt, dup);
    EXPECT_EQ( hgt,     123000);
    EXPECT_EQ( dup,         15);
    EXPECT_EQ( brr.getSizeRemaining(), 0);
    EXPECT_EQ( bdtype, BLKDATA_HEADER);
 
    brr.setNewData(key5);
-   bdtype = ARMDB.readBlkDataKeyNoPrefix(brr, hgt, dup, txi);
+   bdtype = DBUtils.readBlkDataKeyNoPrefix(brr, hgt, dup, txi);
    EXPECT_EQ( hgt,     123000);
    EXPECT_EQ( dup,         15);
    EXPECT_EQ( txi, UINT16_MAX);
@@ -2964,7 +2964,7 @@ TEST_F(StoredBlockObjTest, ReadBlkKeyData)
    EXPECT_EQ( bdtype, BLKDATA_HEADER);
    
    brr.setNewData(key5);
-   bdtype = ARMDB.readBlkDataKeyNoPrefix(brr, hgt, dup, txi, txo);
+   bdtype = DBUtils.readBlkDataKeyNoPrefix(brr, hgt, dup, txi, txo);
    EXPECT_EQ( hgt,     123000);
    EXPECT_EQ( dup,         15);
    EXPECT_EQ( txi, UINT16_MAX);
@@ -2976,14 +2976,14 @@ TEST_F(StoredBlockObjTest, ReadBlkKeyData)
    /////////////////////////////////////////////////////////////////////////////
    // 7 bytes, no prefix
    brr.setNewData(key7);
-   bdtype = ARMDB.readBlkDataKeyNoPrefix(brr, hgt, dup);
+   bdtype = DBUtils.readBlkDataKeyNoPrefix(brr, hgt, dup);
    EXPECT_EQ( hgt,     123000);
    EXPECT_EQ( dup,         15);
    EXPECT_EQ( brr.getSizeRemaining(), 0);
    EXPECT_EQ( bdtype, BLKDATA_TX);
 
    brr.setNewData(key7);
-   bdtype = ARMDB.readBlkDataKeyNoPrefix(brr, hgt, dup, txi);
+   bdtype = DBUtils.readBlkDataKeyNoPrefix(brr, hgt, dup, txi);
    EXPECT_EQ( hgt,     123000);
    EXPECT_EQ( dup,         15);
    EXPECT_EQ( txi,          7);
@@ -2991,7 +2991,7 @@ TEST_F(StoredBlockObjTest, ReadBlkKeyData)
    EXPECT_EQ( bdtype, BLKDATA_TX);
    
    brr.setNewData(key7);
-   bdtype = ARMDB.readBlkDataKeyNoPrefix(brr, hgt, dup, txi, txo);
+   bdtype = DBUtils.readBlkDataKeyNoPrefix(brr, hgt, dup, txi, txo);
    EXPECT_EQ( hgt,     123000);
    EXPECT_EQ( dup,         15);
    EXPECT_EQ( txi,          7);
@@ -3003,14 +3003,14 @@ TEST_F(StoredBlockObjTest, ReadBlkKeyData)
    /////////////////////////////////////////////////////////////////////////////
    // 9 bytes, no prefix
    brr.setNewData(key9);
-   bdtype = ARMDB.readBlkDataKeyNoPrefix(brr, hgt, dup);
+   bdtype = DBUtils.readBlkDataKeyNoPrefix(brr, hgt, dup);
    EXPECT_EQ( hgt,     123000);
    EXPECT_EQ( dup,         15);
    EXPECT_EQ( brr.getSizeRemaining(), 0);
    EXPECT_EQ( bdtype, BLKDATA_TXOUT);
 
    brr.setNewData(key9);
-   bdtype = ARMDB.readBlkDataKeyNoPrefix(brr, hgt, dup, txi);
+   bdtype = DBUtils.readBlkDataKeyNoPrefix(brr, hgt, dup, txi);
    EXPECT_EQ( hgt,     123000);
    EXPECT_EQ( dup,         15);
    EXPECT_EQ( txi,          7);
@@ -3018,7 +3018,7 @@ TEST_F(StoredBlockObjTest, ReadBlkKeyData)
    EXPECT_EQ( bdtype, BLKDATA_TXOUT);
    
    brr.setNewData(key9);
-   bdtype = ARMDB.readBlkDataKeyNoPrefix(brr, hgt, dup, txi, txo);
+   bdtype = DBUtils.readBlkDataKeyNoPrefix(brr, hgt, dup, txi, txo);
    EXPECT_EQ( hgt,     123000);
    EXPECT_EQ( dup,         15);
    EXPECT_EQ( txi,          7);
@@ -3047,8 +3047,8 @@ TEST_F(StoredBlockObjTest, SHeaderUnserialize)
 ////////////////////////////////////////////////////////////////////////////////
 TEST_F(StoredBlockObjTest, SHeaderDBSerFull_H)
 {
-   ARMDB.setArmoryDbType(ARMORY_DB_FULL);
-   ARMDB.setDbPruneType(DB_PRUNE_NONE);
+   DBUtils.setArmoryDbType(ARMORY_DB_FULL);
+   DBUtils.setDbPruneType(DB_PRUNE_NONE);
 
    sbh_.blockHeight_      = 65535;
    sbh_.duplicateID_      = 1;
@@ -3069,8 +3069,8 @@ TEST_F(StoredBlockObjTest, SHeaderDBSerFull_B1)
 {
    // ARMORY_DB_FULL means no merkle string (cause all Tx are in the DB
    // so the merkle tree would be redundant.
-   ARMDB.setArmoryDbType(ARMORY_DB_FULL);
-   ARMDB.setDbPruneType(DB_PRUNE_NONE);
+   DBUtils.setArmoryDbType(ARMORY_DB_FULL);
+   DBUtils.setDbPruneType(DB_PRUNE_NONE);
 
    sbh_.blockHeight_      = 65535;
    sbh_.duplicateID_      = 1;
@@ -3094,8 +3094,8 @@ TEST_F(StoredBlockObjTest, SHeaderDBSerFull_B1)
 TEST_F(StoredBlockObjTest, SHeaderDBSerFull_B2)
 {
    // With merkle string
-   ARMDB.setArmoryDbType(ARMORY_DB_PARTIAL);
-   ARMDB.setDbPruneType(DB_PRUNE_NONE);
+   DBUtils.setArmoryDbType(ARMORY_DB_PARTIAL);
+   DBUtils.setDbPruneType(DB_PRUNE_NONE);
 
    BinaryWriter bw;
 
@@ -3119,8 +3119,8 @@ TEST_F(StoredBlockObjTest, SHeaderDBSerFull_B2)
 ////////////////////////////////////////////////////////////////////////////////
 TEST_F(StoredBlockObjTest, SHeaderDBSerFull_B3)
 {
-   ARMDB.setArmoryDbType(ARMORY_DB_LITE);
-   ARMDB.setDbPruneType(DB_PRUNE_ALL);
+   DBUtils.setArmoryDbType(ARMORY_DB_LITE);
+   DBUtils.setDbPruneType(DB_PRUNE_ALL);
 
    BinaryWriter bw;
 
@@ -3327,8 +3327,8 @@ TEST_F(StoredBlockObjTest, STxSerUnfragToFrag)
 ////////////////////////////////////////////////////////////////////////////////
 TEST_F(StoredBlockObjTest, STxSerDBValue_1)
 {
-   ARMDB.setArmoryDbType(ARMORY_DB_FULL);
-   ARMDB.setDbPruneType(DB_PRUNE_NONE);
+   DBUtils.setArmoryDbType(ARMORY_DB_FULL);
+   DBUtils.setDbPruneType(DB_PRUNE_NONE);
    
    Tx origTx(rawTxUnfrag_);
 
@@ -3353,8 +3353,8 @@ TEST_F(StoredBlockObjTest, DISABLED_STxSerDBValue_2)
 {
    // I modified the ARMORY_DB_SUPER code to frag, as well.  There's no
    // mode that doesn't frag, now.
-   ARMDB.setArmoryDbType(ARMORY_DB_SUPER);
-   ARMDB.setDbPruneType(DB_PRUNE_NONE);
+   DBUtils.setArmoryDbType(ARMORY_DB_SUPER);
+   DBUtils.setDbPruneType(DB_PRUNE_NONE);
    
    Tx origTx(rawTxUnfrag_);
 
@@ -3485,8 +3485,8 @@ TEST_F(StoredBlockObjTest, STxOutUnserialize)
 ////////////////////////////////////////////////////////////////////////////////
 TEST_F(StoredBlockObjTest, STxOutSerDBValue_1)
 {
-   ARMDB.setArmoryDbType(ARMORY_DB_FULL);
-   ARMDB.setDbPruneType(DB_PRUNE_NONE);
+   DBUtils.setArmoryDbType(ARMORY_DB_FULL);
+   DBUtils.setDbPruneType(DB_PRUNE_NONE);
 
    StoredTxOut stxo0;
 
@@ -3508,8 +3508,8 @@ TEST_F(StoredBlockObjTest, STxOutSerDBValue_1)
 ////////////////////////////////////////////////////////////////////////////////
 TEST_F(StoredBlockObjTest, STxOutSerDBValue_2)
 {
-   ARMDB.setArmoryDbType(ARMORY_DB_FULL);
-   ARMDB.setDbPruneType(DB_PRUNE_NONE);
+   DBUtils.setArmoryDbType(ARMORY_DB_FULL);
+   DBUtils.setDbPruneType(DB_PRUNE_NONE);
 
    StoredTxOut stxo0;
    stxo0.unserialize(rawTxOut0_);
@@ -3518,7 +3518,7 @@ TEST_F(StoredBlockObjTest, STxOutSerDBValue_2)
 
    // Test a spent TxOut
    //   0000   01    01   0  --- ----
-   BinaryData spentStr = ARMDB.getBlkDataKeyNoPrefix( 100000, 1, 127, 15);
+   BinaryData spentStr = DBUtils.getBlkDataKeyNoPrefix( 100000, 1, 127, 15);
    stxo0.spentness_ = TXOUT_SPENT;
    stxo0.spentByTxInKey_ = spentStr;
    EXPECT_EQ(stxo0.serializeDBValue(), READHEX("0500")+rawTxOut0_+spentStr);
@@ -3529,8 +3529,8 @@ TEST_F(StoredBlockObjTest, STxOutSerDBValue_2)
 ////////////////////////////////////////////////////////////////////////////////
 TEST_F(StoredBlockObjTest, STxOutSerDBValue_3)
 {
-   ARMDB.setArmoryDbType(ARMORY_DB_FULL);
-   ARMDB.setDbPruneType(DB_PRUNE_NONE);
+   DBUtils.setArmoryDbType(ARMORY_DB_FULL);
+   DBUtils.setDbPruneType(DB_PRUNE_NONE);
 
    StoredTxOut stxo0;
    stxo0.unserialize(rawTxOut0_);
@@ -3539,9 +3539,9 @@ TEST_F(StoredBlockObjTest, STxOutSerDBValue_3)
 
    // Test a spent TxOut but in lite mode where we don't record spentness
    //   0000   01    01   1  --- ----
-   ARMDB.setArmoryDbType(ARMORY_DB_LITE);
-   ARMDB.setDbPruneType(DB_PRUNE_NONE);
-   BinaryData spentStr = ARMDB.getBlkDataKeyNoPrefix( 100000, 1, 127, 15);
+   DBUtils.setArmoryDbType(ARMORY_DB_LITE);
+   DBUtils.setDbPruneType(DB_PRUNE_NONE);
+   BinaryData spentStr = DBUtils.getBlkDataKeyNoPrefix( 100000, 1, 127, 15);
    stxo0.spentness_ = TXOUT_SPENT;
    stxo0.spentByTxInKey_ = spentStr;
    EXPECT_EQ(stxo0.serializeDBValue(), READHEX("0680")+rawTxOut0_);
@@ -3629,8 +3629,8 @@ TEST_F(StoredBlockObjTest, SHeaderFullBlock)
 ////////////////////////////////////////////////////////////////////////////////
 TEST_F(StoredBlockObjTest, SUndoDataSer)
 {
-   ARMDB.setArmoryDbType(ARMORY_DB_FULL);
-   ARMDB.setDbPruneType(DB_PRUNE_NONE);
+   DBUtils.setArmoryDbType(ARMORY_DB_FULL);
+   DBUtils.setDbPruneType(DB_PRUNE_NONE);
 
    BinaryData arbHash  = READHEX("11112221111222111122222211112222"
                                  "11112221111222111122211112221111");
@@ -3692,8 +3692,8 @@ TEST_F(StoredBlockObjTest, SUndoDataSer)
 ////////////////////////////////////////////////////////////////////////////////
 TEST_F(StoredBlockObjTest, SUndoDataUnser)
 {
-   ARMDB.setArmoryDbType(ARMORY_DB_FULL);
-   ARMDB.setDbPruneType(DB_PRUNE_NONE);
+   DBUtils.setArmoryDbType(ARMORY_DB_FULL);
+   DBUtils.setDbPruneType(DB_PRUNE_NONE);
 
    BinaryData arbHash  = READHEX("11112221111222111122222211112222"
                                  "11112221111222111122211112221111");
@@ -3751,9 +3751,9 @@ TEST_F(StoredBlockObjTest, SUndoDataUnser)
 ////////////////////////////////////////////////////////////////////////////////
 TEST_F(StoredBlockObjTest, STxHintsSer)
 {
-   BinaryData hint0 = ARMDB.getBlkDataKeyNoPrefix(123000,  7, 255);
-   BinaryData hint1 = ARMDB.getBlkDataKeyNoPrefix(123000, 15, 127);
-   BinaryData hint2 = ARMDB.getBlkDataKeyNoPrefix(183922, 15,   3);
+   BinaryData hint0 = DBUtils.getBlkDataKeyNoPrefix(123000,  7, 255);
+   BinaryData hint1 = DBUtils.getBlkDataKeyNoPrefix(123000, 15, 127);
+   BinaryData hint2 = DBUtils.getBlkDataKeyNoPrefix(183922, 15,   3);
 
    StoredTxHints sths;
    sths.txHashPrefix_ = READHEX("aaaaffff");
@@ -3790,9 +3790,9 @@ TEST_F(StoredBlockObjTest, STxHintsSer)
 ////////////////////////////////////////////////////////////////////////////////
 TEST_F(StoredBlockObjTest, STxHintsReorder)
 {
-   BinaryData hint0 = ARMDB.getBlkDataKeyNoPrefix(123000,  7, 255);
-   BinaryData hint1 = ARMDB.getBlkDataKeyNoPrefix(123000, 15, 127);
-   BinaryData hint2 = ARMDB.getBlkDataKeyNoPrefix(183922, 15,   3);
+   BinaryData hint0 = DBUtils.getBlkDataKeyNoPrefix(123000,  7, 255);
+   BinaryData hint1 = DBUtils.getBlkDataKeyNoPrefix(123000, 15, 127);
+   BinaryData hint2 = DBUtils.getBlkDataKeyNoPrefix(183922, 15,   3);
 
    StoredTxHints sths;
    sths.txHashPrefix_ = READHEX("aaaaffff");
@@ -3814,9 +3814,9 @@ TEST_F(StoredBlockObjTest, STxHintsReorder)
 ////////////////////////////////////////////////////////////////////////////////
 TEST_F(StoredBlockObjTest, STxHintsUnser)
 {
-   BinaryData hint0 = ARMDB.getBlkDataKeyNoPrefix(123000,  7, 255);
-   BinaryData hint1 = ARMDB.getBlkDataKeyNoPrefix(123000, 15, 127);
-   BinaryData hint2 = ARMDB.getBlkDataKeyNoPrefix(183922, 15,   3);
+   BinaryData hint0 = DBUtils.getBlkDataKeyNoPrefix(123000,  7, 255);
+   BinaryData hint1 = DBUtils.getBlkDataKeyNoPrefix(123000, 15, 127);
+   BinaryData hint2 = DBUtils.getBlkDataKeyNoPrefix(183922, 15,   3);
 
    BinaryData in0 = READHEX("00");
    BinaryData in1 = READHEX("01""01e0780700ff");
@@ -4246,10 +4246,11 @@ TEST_F(DISABLED_PartialMerkleTest, EmptyTree)
 
 
 ////////////////////////////////////////////////////////////////////////////////
+/*
 TEST_F(BlockUtils, SScriptHistoryMarkSpent)
 {
-   ARMDB.setArmoryDbType(ARMORY_DB_SUPER);
-   ARMDB.setDbPruneType(DB_PRUNE_NONE);
+   DBUtils.setArmoryDbType(ARMORY_DB_SUPER);
+   DBUtils.setDbPruneType(DB_PRUNE_NONE);
 
    EXPECT_TRUE(false);
    StoredScriptHistory ssh;
@@ -4308,6 +4309,7 @@ TEST_F(BlockUtils, MultiRescanBlkSafe)
    bdm_.rescanBlocks(0, 3);
    bdm_.rescanBlocks(0, 3);
 }
+*/
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -4522,8 +4524,8 @@ protected:
       sbh_.unserialize(rawHead_);
 
       // Make sure the global DB type and prune type are reset for each test
-      ARMDB.setArmoryDbType(ARMORY_DB_FULL);
-      ARMDB.setDbPruneType(DB_PRUNE_NONE);
+      DBUtils.setArmoryDbType(ARMORY_DB_FULL);
+      DBUtils.setDbPruneType(DB_PRUNE_NONE);
    }
 
    /////
@@ -4796,8 +4798,8 @@ TEST_F(LevelDBTest, OpenCloseOpenMismatch)
                           magic_);
    ASSERT_TRUE( iface_->databasesAreOpen());
 
-   EXPECT_EQ(   ARMDB.getArmoryDbType(), ARMORY_DB_FULL);
-   EXPECT_EQ(   ARMDB.getDbPruneType(),  DB_PRUNE_NONE);
+   EXPECT_EQ(   DBUtils.getArmoryDbType(), ARMORY_DB_FULL);
+   EXPECT_EQ(   DBUtils.getDbPruneType(),  DB_PRUNE_NONE);
 
    KVLIST HList = iface_->getAllDatabaseEntries(HEADERS);
    KVLIST BList = iface_->getAllDatabaseEntries(BLKDATA);
@@ -4920,8 +4922,8 @@ TEST_F(LevelDBTest, STxOutPutGet)
 ////////////////////////////////////////////////////////////////////////////////
 TEST_F(LevelDBTest, PutFullTxNoOuts)
 {
-   ARMDB.setArmoryDbType(ARMORY_DB_FULL);
-   ARMDB.setDbPruneType(DB_PRUNE_NONE);
+   DBUtils.setArmoryDbType(ARMORY_DB_FULL);
+   DBUtils.setDbPruneType(DB_PRUNE_NONE);
 
    ASSERT_TRUE(standardOpenDBs());
 
@@ -4941,8 +4943,8 @@ TEST_F(LevelDBTest, PutFullTxNoOuts)
 ////////////////////////////////////////////////////////////////////////////////
 TEST_F(LevelDBTest, PutFullTx)
 {
-   ARMDB.setArmoryDbType(ARMORY_DB_FULL);
-   ARMDB.setDbPruneType(DB_PRUNE_NONE);
+   DBUtils.setArmoryDbType(ARMORY_DB_FULL);
+   DBUtils.setDbPruneType(DB_PRUNE_NONE);
 
    BinaryData TXP     = WRITE_UINT8_BE((uint8_t)DB_PREFIX_TXDATA);
    BinaryData stxoVal = READHEX("0400") + rawTxOut0_;
@@ -4988,8 +4990,8 @@ TEST_F(LevelDBTest, PutFullTx)
 ////////////////////////////////////////////////////////////////////////////////
 TEST_F(LevelDBTest, PutFullBlockNoTx)
 {
-   ARMDB.setArmoryDbType(ARMORY_DB_FULL);
-   ARMDB.setDbPruneType(DB_PRUNE_NONE);
+   DBUtils.setArmoryDbType(ARMORY_DB_FULL);
+   DBUtils.setDbPruneType(DB_PRUNE_NONE);
 
    StoredHeader sbh;
    BinaryRefReader brr(rawBlock_);
@@ -5028,8 +5030,8 @@ TEST_F(LevelDBTest, PutFullBlockNoTx)
 ////////////////////////////////////////////////////////////////////////////////
 TEST_F(LevelDBTest, PutGetBareHeader)
 {
-   ARMDB.setArmoryDbType(ARMORY_DB_FULL);
-   ARMDB.setDbPruneType(DB_PRUNE_NONE);
+   DBUtils.setArmoryDbType(ARMORY_DB_FULL);
+   DBUtils.setDbPruneType(DB_PRUNE_NONE);
 
    StoredHeader sbh;
    BinaryRefReader brr(rawBlock_);
@@ -5099,8 +5101,8 @@ TEST_F(LevelDBTest, PutGetBareHeader)
 ////////////////////////////////////////////////////////////////////////////////
 TEST_F(LevelDBTest, PutFullBlock)
 {
-   ARMDB.setArmoryDbType(ARMORY_DB_FULL);
-   ARMDB.setDbPruneType(DB_PRUNE_NONE);
+   DBUtils.setArmoryDbType(ARMORY_DB_FULL);
+   DBUtils.setDbPruneType(DB_PRUNE_NONE);
    ASSERT_TRUE(standardOpenDBs());
 
    StoredHeader sbh;
@@ -5209,8 +5211,8 @@ TEST_F(LevelDBTest, PutFullBlock)
 // DB to the repo.
 TEST_F(LevelDBTest, GetFullBlock)
 {
-   ARMDB.setArmoryDbType(ARMORY_DB_FULL);
-   ARMDB.setDbPruneType(DB_PRUNE_NONE);
+   DBUtils.setArmoryDbType(ARMORY_DB_FULL);
+   DBUtils.setDbPruneType(DB_PRUNE_NONE);
    ASSERT_TRUE(standardOpenDBs());
 
    StoredHeader sbh;

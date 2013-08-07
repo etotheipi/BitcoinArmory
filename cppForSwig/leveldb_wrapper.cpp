@@ -129,8 +129,8 @@ bool InterfaceToLDB::openDatabases(string basedir,
    genesisTxHash_ = genesisTxHash;
    genesisBlkHash_ = genesisBlkHash;
 
-   DBUtils::setArmoryDbType(dbtype);
-   DBUtils::setDbPruneType(pruneType);
+   DBUtils.setArmoryDbType(dbtype);
+   DBUtils.setDbPruneType(pruneType);
 
 
    if(genesisBlkHash_.getSize() == 0 || magicBytes_.getSize() == 0)
@@ -190,24 +190,24 @@ bool InterfaceToLDB::openDatabases(string basedir,
             return false;
          }
    
-         if(DBUtils::getArmoryDbType() == ARMORY_DB_WHATEVER)
+         if(DBUtils.getArmoryDbType() == ARMORY_DB_WHATEVER)
          {
-            DBUtils::setArmoryDbType(sdbi.armoryType_);
+            DBUtils.setArmoryDbType(sdbi.armoryType_);
          }
-         else if(DBUtils::getArmoryDbType() != sdbi.armoryType_)
+         else if(DBUtils.getArmoryDbType() != sdbi.armoryType_)
          {
             LOGERR << "Mismatch in DB type";
-            LOGERR << "DB is in  mode: " << (uint32_t)DBUtils::getArmoryDbType();
+            LOGERR << "DB is in  mode: " << (uint32_t)DBUtils.getArmoryDbType();
             LOGERR << "Expecting mode: " << sdbi.armoryType_;
             closeDatabases();
             return false;
          }
 
-         if(DBUtils::getDbPruneType() == DB_PRUNE_WHATEVER)
+         if(DBUtils.getDbPruneType() == DB_PRUNE_WHATEVER)
          {
-            DBUtils::setDbPruneType(sdbi.pruneType_);
+            DBUtils.setDbPruneType(sdbi.pruneType_);
          }
-         else if(DBUtils::getDbPruneType() != sdbi.pruneType_)
+         else if(DBUtils.getDbPruneType() != sdbi.pruneType_)
          {
             LOGERR << "Mismatch in pruning mode";
             closeDatabases();
@@ -534,9 +534,15 @@ bool InterfaceToLDB::advanceToNextBlock(bool skip)
 /////////////////////////////////////////////////////////////////////////////
 bool InterfaceToLDB::dbIterIsValid(DB_SELECT db, DB_PREFIX prefix)
 {
-   if(!iters_[db]->Valid();
+   if(!iters_[db]->Valid());
+      return false;
+
    resetIterReaders();
-   currReadValue_
+   if(!currReadValue_.get_uint8_t() == (uint8_t)prefix)
+      return false;
+
+   resetIterReaders();
+   return true;
 }
 
 
@@ -728,7 +734,7 @@ void InterfaceToLDB::getAllSSHForHash160(
       {
          BinaryRefReader brrTXO(ssh.multisigDBKeys_[i]);
          uint32_t hgt;  uint8_t dup;  uint16_t txi, txo;
-         readBlkDataKeyNoPrefix(brrTXO, hgt, dup, txi, txo);
+         DBUtils.readBlkDataKeyNoPrefix(brrTXO, hgt, dup, txi, txo);
          LOGWARN << "Multisig script recorded but DNE at (hgt,tx,txout) = "
                  << "(" << hgt << "," << txi << "," << txo << ")";
          continue;
@@ -748,7 +754,7 @@ void InterfaceToLDB::getAllSSHForHash160(
          LOGWARN << "Multisig script expected but other type found"; 
          BinaryRefReader brrTXO(ssh.multisigDBKeys_[i]);
          uint32_t hgt;  uint8_t dup;  uint16_t txi, txo;
-         readBlkDataKeyNoPrefix(brrTXO, hgt, dup, txi, txo);
+         DBUtils.readBlkDataKeyNoPrefix(brrTXO, hgt, dup, txi, txo);
          LOGWARN << "Multisig script expected, non-MS found (hgt,tx,txout) = "
                  << "(" << hgt << "," << txi << "," << txo << ")";
          continue;
@@ -767,6 +773,7 @@ void InterfaceToLDB::getAllSSHForHash160(
 
 
 
+/*
 /////////////////////////////////////////////////////////////////////////////
 uint32_t InterfaceToLDB::readAllStoredScriptHistory(
                           map<BinaryData, StoredScriptHistory> & regScriptMap)
@@ -800,7 +807,6 @@ void InterfaceToLDB::loadAllStoredHistory(void)
 }
 
 
-/*
 /////////////////////////////////////////////////////////////////////////////
 void InterfaceToLDB::readStoredScriptHistory(StoredScriptHistory & regAddr,
                                             vector<BinaryData>* txoVect=NULL)
@@ -853,7 +859,7 @@ bool InterfaceToLDB::getUnspentTxOut( BinaryData & const ldbKey8B,
 
    utxo.txHash_     = tx.thisHash_;
    utxo.txOutIndex_ = outIdx;
-   utxo.txHeight_   = DBUtils::hgtxToHeight(hgtx);
+   utxo.txHeight_   = DBUtils.hgtxToHeight(hgtx);
    utxo.value_      = txout.getValue();
    utxo.script_     = txout.getScript();
 
@@ -911,7 +917,7 @@ bool InterfaceToLDB::readFullTx(Tx & tx, leveldb::Iterator* iter=NULL)
    while(1)
    {
       advanceIterAndRead(iter);
-      if(readBlkDataKey(currReadKey_) != BLKDATA_TXOUT)
+      if(DBUtils.readBlkDataKey(currReadKey_) != BLKDATA_TXOUT)
       {
          currReadKey_.resetPosition();
          break;
@@ -995,7 +1001,7 @@ void InterfaceToLDB::addRegisteredScript(BinaryDataRef rawScript,
 void InterfaceToLDB::readAllHeaders(map<HashString, BlockHeader> & headerMap,
                                     map<HashString, StoredHeader> & storedMap)
 {
-   seekTo(HEADERS, DB_PREFIX_HEADHASH, BinaryDataRef(0));
+   seekTo(HEADERS, DB_PREFIX_HEADHASH, BinaryData(0));
    if(!iters_[HEADERS]->Valid() ||
       currReadKey_.get_uint8_t() != (uint8_t)DB_PREFIX_HEADHASH)
    {
@@ -1128,7 +1134,7 @@ uint8_t InterfaceToLDB::putStoredHeader( StoredHeader & sbh, bool withBlkData)
 
    startBatch(BLKDATA);
 
-   BinaryData key = DBUtils::getBlkDataKey(sbh.blockHeight_, sbh.duplicateID_);
+   BinaryData key = DBUtils.getBlkDataKey(sbh.blockHeight_, sbh.duplicateID_);
    BinaryWriter bwBlkData;
    sbh.serializeDBValue(BLKDATA, bwBlkData);
    putValue(BLKDATA, key.getRef(), bwBlkData.getDataRef());
@@ -1319,7 +1325,7 @@ bool InterfaceToLDB::getStoredHeader( StoredHeader & sbh,
    {
       //////
       // Don't need to mess with seeking if we don't need the transactions.
-      BinaryData blkKey = DBUtils::getBlkDataKey(blockHgt, blockDup);
+      BinaryData blkKey = DBUtils.getBlkDataKey(blockHgt, blockDup);
       BinaryRefReader brr = getValueReader(BLKDATA, blkKey);
       if(brr.getSize()==0)
       {
@@ -1335,7 +1341,7 @@ bool InterfaceToLDB::getStoredHeader( StoredHeader & sbh,
    {
       //////
       // Do the iterator thing because we're going to traverse the whole block
-      bool isInDB = seekTo(BLKDATA, DBUtils::getBlkDataKey(blockHgt, blockDup));
+      bool isInDB = seekTo(BLKDATA, DBUtils.getBlkDataKey(blockHgt, blockDup));
       if(!isInDB)
       {
          LOGERR << "Header heigh&dup is not in BLKDATA DB";
@@ -1391,7 +1397,7 @@ bool InterfaceToLDB::getStoredHeader( StoredHeader & sbh,
 void InterfaceToLDB::putStoredTx( StoredTx & stx, bool withTxOut)
 {
    SCOPED_TIMER("putStoredTx");
-   BinaryData ldbKey = DBUtils::getBlkDataKeyNoPrefix(stx.blockHeight_, 
+   BinaryData ldbKey = DBUtils.getBlkDataKeyNoPrefix(stx.blockHeight_, 
                                                       stx.duplicateID_, 
                                                       stx.txIndex_);
 
@@ -1468,7 +1474,7 @@ void InterfaceToLDB::updatePreferredTxHint( BinaryDataRef hashOrPrefix,
    bool exists = false;
    for(uint32_t i=0; i<sths.dbKeyList_.size(); i++)
    {
-      if(sths.dbKeyList_[i] == ldbKey)
+      if(sths.dbKeyList_[i] == preferDBKey)
       {
          exists = true;
          break;
@@ -1476,10 +1482,16 @@ void InterfaceToLDB::updatePreferredTxHint( BinaryDataRef hashOrPrefix,
    }
 
    if(!exists)
-      sths.dbKeyList_.push_back(preferDBKey);
+   {
+      LOGERR << "Key not in hint list, something is wrong";
+      return;
+   }
+
+   // sths.dbKeyList_.push_back(preferDBKey);
 
    sths.preferredDBKey_ = preferDBKey;
    putStoredTxHints(sths);
+
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1490,9 +1502,10 @@ bool InterfaceToLDB::readStoredBlockAtIter(StoredHeader & sbh)
 
    resetIterReaders();
    BinaryData blkDataKey(currReadKey_.getCurrPtr(), 5);
-   BLKDATA_TYPE bdtype = readBlkDataKey(currReadKey_,
-                                        sbh.blockHeight_,
-                                        sbh.duplicateID_);
+
+   BLKDATA_TYPE bdtype = DBUtils.readBlkDataKey(currReadKey_,
+                                                sbh.blockHeight_,
+                                                sbh.duplicateID_);
 
    
    // Grab the header first, then iterate over 
@@ -1514,10 +1527,10 @@ bool InterfaceToLDB::readStoredBlockAtIter(StoredHeader & sbh)
 
       // We can't just read the the tx, because we have to guarantee 
       // there's a place for it in the sbh.stxMap_
-      BLKDATA_TYPE bdtype = readBlkDataKey(currReadKey_, 
-                                           tempHgt, 
-                                           tempDup,
-                                           currIdx);
+      BLKDATA_TYPE bdtype = DBUtils.readBlkDataKey(currReadKey_, 
+                                                   tempHgt, 
+                                                   tempDup,
+                                                   currIdx);
 
       if(currIdx >= sbh.numTx_)
       {
@@ -1545,7 +1558,7 @@ bool InterfaceToLDB::readStoredTxAtIter( uint32_t height,
                                          uint8_t  dupID,
                                          StoredTx & stx)
 {
-   BinaryData blkPrefix = DBUtils::getBlkDataKey(height, dupID);
+   BinaryData blkPrefix = DBUtils.getBlkDataKey(height, dupID);
 
    // Make sure that we are still within the desired block (but beyond header)
    resetIterReaders();
@@ -1557,7 +1570,7 @@ bool InterfaceToLDB::readStoredTxAtIter( uint32_t height,
    uint32_t storedHgt;
    uint8_t  storedDup;
    uint16_t storedIdx;
-   readBlkDataKey(currReadKey_, storedHgt, storedDup, storedIdx);
+   DBUtils.readBlkDataKey(currReadKey_, storedHgt, storedDup, storedIdx);
 
    if(storedHgt != height || storedDup != dupID)
       return false;
@@ -1572,7 +1585,7 @@ bool InterfaceToLDB::readStoredTxAtIter( uint32_t height,
    // Assign it at the end, if we're confident we have the correct value.
    uint32_t nbytes  = 0;
 
-   BinaryData txPrefix = DBUtils::getBlkDataKey(height, dupID, stx.txIndex_);
+   BinaryData txPrefix = DBUtils.getBlkDataKey(height, dupID, stx.txIndex_);
 
    
    // Reset the key again, and then cycle through entries until no longer
@@ -1587,7 +1600,7 @@ bool InterfaceToLDB::readStoredTxAtIter( uint32_t height,
 
       // Read the prefix, height and dup 
       uint16_t txOutIdx;
-      BLKDATA_TYPE bdtype = readBlkDataKey(currReadKey_,
+      BLKDATA_TYPE bdtype = DBUtils.readBlkDataKey(currReadKey_,
                                            stx.blockHeight_,
                                            stx.duplicateID_,
                                            stx.txIndex_,
@@ -1640,7 +1653,7 @@ bool InterfaceToLDB::readStoredTxOutAtIter(
    uint8_t  keyDup;
    uint16_t keyTxIdx;
    uint16_t keyTxOutIdx;
-   readBlkDataKey(currReadKey_, keyHgt, keyDup, keyTxIdx, keyTxOutIdx);
+   DBUtils.readBlkDataKey(currReadKey_, keyHgt, keyDup, keyTxIdx, keyTxOutIdx);
 
    if(keyHgt != height || keyDup != dupID || keyTxIdx != txIndex)
       return false;
@@ -1662,23 +1675,23 @@ Tx InterfaceToLDB::getFullTxCopy( BinaryDataRef ldbKey6B )
    if(ldbKey6B.getSize() != 6)
    {
       LOGERR << "Provided zero-length ldbKey6B";
-      return BinaryData(0);
+      return Tx();
    }
     
    if(seekTo(BLKDATA, DB_PREFIX_TXDATA, ldbKey6B))
    {
       LOGERR << "TxRef key does not exist in BLKDATA DB";
-      return BinaryData(0);
+      return Tx();
    }
 
    BinaryData hgtx = ldbKey6B.getSliceCopy(0,4);
    StoredTx stx;
-   readStoredTxAtIter( DBUtils::hgtxToHeight(hgtx), DBUtils::hgtxToDupID(hgtx), stx);
+   readStoredTxAtIter( DBUtils.hgtxToHeight(hgtx), DBUtils.hgtxToDupID(hgtx), stx);
 
    if(!stx.haveAllTxOut())
    {
       LOGERR << "Requested full Tx but not all TxOut available";
-      return BinaryData(0);
+      return Tx();
    }
 
    return stx.getTxCopy();
@@ -1692,7 +1705,7 @@ Tx InterfaceToLDB::getFullTxCopy( uint32_t hgt, uint16_t txIndex)
    if(dup == UINT8_MAX)
       LOGERR << "Headers DB has no block at height: " << hgt;
 
-   BinaryData ldbKey = DBUtils::getBlkDataKey(hgt, dup, txIndex);
+   BinaryData ldbKey = DBUtils.getBlkDataKey(hgt, dup, txIndex);
    return getFullTxCopy(ldbKey);
 }
 
@@ -1700,7 +1713,7 @@ Tx InterfaceToLDB::getFullTxCopy( uint32_t hgt, uint16_t txIndex)
 Tx InterfaceToLDB::getFullTxCopy( uint32_t hgt, uint8_t dup, uint16_t txIndex)
 {
    SCOPED_TIMER("getFullTxCopy");
-   BinaryData ldbKey = DBUtils::getBlkDataKey(hgt, dup, txIndex);
+   BinaryData ldbKey = DBUtils.getBlkDataKey(hgt, dup, txIndex);
    return getFullTxCopy(ldbKey);
 }
 
@@ -1798,7 +1811,7 @@ BinaryData InterfaceToLDB::getTxHashForHeightAndIndex( uint32_t height,
    uint8_t dup = getValidDupIDForHeight(height);
    if(dup == UINT8_MAX)
       LOGERR << "Headers DB has no block at height: " << height;
-   return getTxHashForLdbKey(DBUtils::getBlkDataKey(height, dup, txIndex));
+   return getTxHashForLdbKey(DBUtils.getBlkDataKey(height, dup, txIndex));
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1807,7 +1820,7 @@ BinaryData InterfaceToLDB::getTxHashForHeightAndIndex( uint32_t height,
                                                        uint16_t txIndex)
 {
    SCOPED_TIMER("getTxHashForHeightAndIndex");
-   return getTxHashForLdbKey(DBUtils::getBlkDataKey(height, dupID, txIndex));
+   return getTxHashForLdbKey(DBUtils.getBlkDataKey(height, dupID, txIndex));
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1840,7 +1853,7 @@ bool InterfaceToLDB::getStoredTx( StoredTx & stx,
       return getStoredTx_byDBKey(stx, txHashOrDBKey);
    else
    {
-      LOGERR << "Unrecognized input string: " << txHashOrDBKey.toHex();
+      LOGERR << "Unrecognized input string: " << txHashOrDBKey.toHexStr();
       return false;
    }
 }
@@ -1853,17 +1866,19 @@ bool InterfaceToLDB::getStoredTx_byDBKey( StoredTx & stx,
    uint8_t  dup;
    uint16_t txi;
 
+   BinaryRefReader brrKey(dbKey);
+
    if(dbKey.getSize() == 6)
-      DBUtils::readBlkDataKeyNoPrefix(dbKey, hgt, dup, txi);
+      DBUtils.readBlkDataKeyNoPrefix(brrKey, hgt, dup, txi);
    else if(dbKey.getSize() == 7)
-      DBUtils::readBlkDataKey(dbKey, hgt, dup, txi);
+      DBUtils.readBlkDataKey(brrKey, hgt, dup, txi);
    else
    {
-      LOGERR << "Unrecognized input string: " << txHashOrDBKey.toHex();
+      LOGERR << "Unrecognized input string: " << dbKey.toHexStr();
       return false;
    }
 
-   return getStoredTx(stx, hgt, dup, txIndex, true);
+   return getStoredTx(stx, hgt, dup, txi, true);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1894,10 +1909,10 @@ bool InterfaceToLDB::getStoredTx_byHash( StoredTx & stx,
       BinaryDataRef hint = existingHints.getSliceRef(i*6, 6);
       seekTo(BLKDATA, DB_PREFIX_TXDATA, hint);
 
-      BLKDATA_TYPE bdtype = readBlkDataKey(currReadKey_, height, dup, txIdx);
+      BLKDATA_TYPE bdtype = DBUtils.readBlkDataKey(currReadKey_, height, dup, txIdx);
       
       // We don't actually know for sure whether the seekTo() found 
-      BinaryData key6 = DBUtils::getBlkDataKeyNoPrefix(height, dup, txIdx);
+      BinaryData key6 = DBUtils.getBlkDataKeyNoPrefix(height, dup, txIdx);
       if(key6 != hint)
       {
          LOGERR << "TxHint referenced a BLKDATA tx that doesn't exist";
@@ -1938,7 +1953,7 @@ bool InterfaceToLDB::getStoredTx( StoredTx & stx,
                                   bool withTxOut)
 {
    SCOPED_TIMER("getStoredTx");
-   BinaryData blkDataKey = DBUtils::getBlkDataKey(blockHeight, dupID, txIndex);
+   BinaryData blkDataKey = DBUtils.getBlkDataKey(blockHeight, dupID, txIndex);
    stx.blockHeight_ = blockHeight;
    stx.duplicateID_  = dupID;
    stx.txIndex_     = txIndex;
@@ -1977,7 +1992,7 @@ bool InterfaceToLDB::getStoredTx( StoredTx & stx,
 
          
          uint16_t currTxOutIdx;
-         BLKDATA_TYPE bdtype = readBlkDataKey(currReadKey_,
+         BLKDATA_TYPE bdtype = DBUtils.readBlkDataKey(currReadKey_,
                                               stx.blockHeight_,
                                               stx.duplicateID_,
                                               stx.txIndex_,
@@ -2033,7 +2048,7 @@ bool InterfaceToLDB::getStoredTxOut(
                               uint16_t txOutIndex)
 {
    SCOPED_TIMER("getStoredTxOut");
-   BinaryData blkKey = DBUtils::getBlkDataKey(blockHeight, dupID, txIndex, txOutIndex);
+   BinaryData blkKey = DBUtils.getBlkDataKey(blockHeight, dupID, txIndex, txOutIndex);
    BinaryRefReader brr = getValueReader(BLKDATA, blkKey);
    if(brr.getSize() == 0)
    {
@@ -2087,7 +2102,7 @@ bool InterfaceToLDB::getStoredUndoData(StoredUndoData & sud,
                                        uint32_t         height, 
                                        uint8_t          dup)
 {
-   BinaryData key = DBUtils::getBlkDataKeyNoPrefix(height, dup); 
+   BinaryData key = DBUtils.getBlkDataKeyNoPrefix(height, dup); 
    BinaryRefReader brr = getValueReader(BLKDATA, DB_PREFIX_UNDODATA, key);
 
    if(brr.getSize() == 0)
@@ -2213,7 +2228,7 @@ TxRef InterfaceToLDB::getTxRef(BinaryData hgtx, uint16_t txIndex)
 TxRef InterfaceToLDB::getTxRef( uint32_t hgt, uint8_t  dup, uint16_t txIndex)
 {
    BinaryWriter bw;
-   bw.put_BinaryData(DBUtils::heightAndDupToHgtx(hgt,dup));
+   bw.put_BinaryData(DBUtils.heightAndDupToHgtx(hgt,dup));
    bw.put_uint16_t(txIndex, BIGENDIAN);
    return TxRef(bw.getDataRef(), this);
 }
@@ -2230,8 +2245,8 @@ bool InterfaceToLDB::markBlockHeaderValid(BinaryDataRef headHash)
    }
    brr.advance(HEADER_SIZE);
    BinaryData hgtx   = brr.get_BinaryData(4);
-   uint32_t   height = DBUtils::hgtxToHeight(hgtx);
-   uint8_t    dup    = DBUtils::hgtxToDupID(hgtx);
+   uint32_t   height = DBUtils.hgtxToHeight(hgtx);
+   uint8_t    dup    = DBUtils.hgtxToDupID(hgtx);
 
    return markBlockHeaderValid(height, dup);
 }
@@ -2311,7 +2326,7 @@ bool InterfaceToLDB::markTxEntryValid(uint32_t height,
                                       uint16_t txIndex)
 {
    SCOPED_TIMER("markTxEntryValid");
-   BinaryData blkDataKey = DBUtils::getBlkDataKeyNoPrefix(height, dupID, txIndex);
+   BinaryData blkDataKey = DBUtils.getBlkDataKeyNoPrefix(height, dupID, txIndex);
    BinaryRefReader brrTx = getValueReader(BLKDATA, DB_PREFIX_TXDATA, blkDataKey);
 
    brrTx.advance(2);
@@ -2398,9 +2413,9 @@ bool InterfaceToLDB::revertBlock(uint32_t height,
    StoredUndoData maybeNeedToComputeSUD;
    if(sud==NULL)
    {
-      if(DBUtils::getDbPruneType() == DB_PRUNE_ALL)
+      if(DBUtils.getDbPruneType() == DB_PRUNE_ALL)
       {
-         BinaryData      key = DBUtils::getBlkDataKeyNoPrefix(height,dupID);
+         BinaryData      key = DBUtils.getBlkDataKeyNoPrefix(height,dupID);
          BinaryRefReader brr = getValueReader(BLKDATA, DB_PREFIX_UNDODATA, key);
          maybeNeedToComputeSUD.unserializeDBValue(brr);
          sud = &maybeNeedToComputeSUD;

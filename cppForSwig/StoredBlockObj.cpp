@@ -3,6 +3,8 @@
 #include <map>
 #include "StoredBlockObj.h"
 
+DB_PRUNE_TYPE  GlobalDBUtilities::dbPruneType_  = DB_PRUNE_WHATEVER;
+ARMORY_DB_TYPE GlobalDBUtilities::armoryDbType_ = ARMORY_DB_WHATEVER;
 
 /////////////////////////////////////////////////////////////////////////////
 BinaryData StoredDBInfo::getDBKey(void)
@@ -100,8 +102,8 @@ void StoredHeader::setHeightAndDup(uint32_t hgt, uint8_t dupID)
 /////////////////////////////////////////////////////////////////////////////
 void StoredHeader::setHeightAndDup(BinaryData hgtx)
 {
-   blockHeight_ = DBUtils::hgtxToHeight(hgtx);
-   duplicateID_ = DBUtils::hgtxToDupID(hgtx);
+   blockHeight_ = DBUtils.hgtxToHeight(hgtx);
+   duplicateID_ = DBUtils.hgtxToDupID(hgtx);
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -151,9 +153,9 @@ BinaryData StoredHeader::getDBKey(bool withPrefix) const
    }
 
    if(withPrefix)
-      return DBUtils::getBlkDataKey(blockHeight_, duplicateID_);
+      return DBUtils.getBlkDataKey(blockHeight_, duplicateID_);
    else
-      return DBUtils::getBlkDataKeyNoPrefix(blockHeight_, duplicateID_);
+      return DBUtils.getBlkDataKeyNoPrefix(blockHeight_, duplicateID_);
 
 }
 
@@ -423,8 +425,8 @@ void StoredHeader::unserializeDBValue( DB_SELECT         db,
    {
       brr.get_BinaryData(dataCopy_, HEADER_SIZE);
       BinaryData hgtx = brr.get_BinaryData(4);
-      blockHeight_ = DBUtils::hgtxToHeight(hgtx);
-      duplicateID_ = DBUtils::hgtxToDupID(hgtx);
+      blockHeight_ = DBUtils.hgtxToHeight(hgtx);
+      duplicateID_ = DBUtils.hgtxToDupID(hgtx);
       BtcUtils::getHash256(dataCopy_, thisHash_);
    }
    else if(db==BLKDATA)
@@ -475,7 +477,7 @@ void StoredHeader::serializeDBValue( DB_SELECT       db,
 
    if(db==HEADERS)
    {
-      BinaryData hgtx = DBUtils::heightAndDupToHgtx(blockHeight_, duplicateID_);
+      BinaryData hgtx = DBUtils.heightAndDupToHgtx(blockHeight_, duplicateID_);
       bw.put_BinaryData(dataCopy_);
       bw.put_BinaryData(hgtx);
    }
@@ -492,7 +494,7 @@ void StoredHeader::serializeDBValue( DB_SELECT       db,
       //        assuming that it's already in the right form, and thus the
       //        determination of PARTIAL vs FULL is irrelevant
       MERKLE_SER_TYPE mtype;
-      switch(DBUtils::getArmoryDbType())
+      switch(DBUtils.getArmoryDbType())
       {
          // If we store all the tx anyway, don't need any/partial merkle trees
          case ARMORY_DB_LITE:    mtype = MERKLE_SER_PARTIAL; break;
@@ -511,8 +513,8 @@ void StoredHeader::serializeDBValue( DB_SELECT       db,
       BitPacker<uint32_t> bitpack;
       bitpack.putBits((uint32_t)ARMORY_DB_VERSION,       4);
       bitpack.putBits((uint32_t)version,                 4);
-      bitpack.putBits((uint32_t)DBUtils::getArmoryDbType(), 4);
-      bitpack.putBits((uint32_t)DBUtils::getDbPruneType(),  2);
+      bitpack.putBits((uint32_t)DBUtils.getArmoryDbType(), 4);
+      bitpack.putBits((uint32_t)DBUtils.getDbPruneType(),  2);
       bitpack.putBits((uint32_t)mtype,                   2);
       bitpack.putBit(blockAppliedToDB_);
 
@@ -542,9 +544,9 @@ BinaryData StoredTx::getDBKey(bool withPrefix) const
    }
 
    if(withPrefix)
-      return DBUtils::getBlkDataKey(blockHeight_, duplicateID_, txIndex_);
+      return DBUtils.getBlkDataKey(blockHeight_, duplicateID_, txIndex_);
    else
-      return DBUtils::getBlkDataKeyNoPrefix(blockHeight_, duplicateID_, txIndex_);
+      return DBUtils.getBlkDataKeyNoPrefix(blockHeight_, duplicateID_, txIndex_);
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -658,7 +660,7 @@ void StoredTx::serializeDBValue(BinaryWriter & bw) const
 {
    TX_SERIALIZE_TYPE serType;
    
-   switch(DBUtils::getArmoryDbType())
+   switch(DBUtils.getArmoryDbType())
    {
       // In most cases, if storing separate TxOuts, fragged Tx is fine
       // UPDATE:  I'm not sure there's a good reason to NOT frag ever
@@ -866,7 +868,7 @@ void StoredTxOut::serializeDBValue(BinaryWriter & bw,
    
    if(!forceSaveSpentness)
    { 
-      switch(DBUtils::getArmoryDbType())
+      switch(DBUtils.getArmoryDbType())
       {
          //// If the DB is in lite or partial modes, we don't bother recording
          //   spentness (in fact, if it's spent, this entry probably won't even
@@ -913,10 +915,10 @@ BinaryData StoredTxOut::getDBKey(bool withPrefix) const
    }
 
    if(withPrefix)
-      return DBUtils::getBlkDataKey(
+      return DBUtils.getBlkDataKey(
                              blockHeight_, duplicateID_, txIndex_, txOutIndex_);
    else
-      return DBUtils::getBlkDataKeyNoPrefix(
+      return DBUtils.getBlkDataKeyNoPrefix(
                              blockHeight_, duplicateID_, txIndex_, txOutIndex_);
 }
 
@@ -1176,7 +1178,7 @@ void StoredScriptHistory::serializeDBValue(BinaryWriter & bw ) const
    // Write out all the flags
    BitPacker<uint16_t> bitpack;
    bitpack.putBits((uint16_t)ARMORY_DB_VERSION,       4);
-   bitpack.putBits((uint16_t)DBUtils::getDbPruneType(),  2);
+   bitpack.putBits((uint16_t)DBUtils.getDbPruneType(),  2);
    bitpack.putBits((uint16_t)SCRIPT_UTXO_VECTOR,      2);
    bw.put_BitPacker(bitpack);
 
@@ -1199,7 +1201,7 @@ void StoredScriptHistory::serializeDBValue(BinaryWriter & bw ) const
          bool isSpent = txio.hasTxInInMain();
 
          // If spent and only maintaining a pruned DB, skip it
-         if(isSpent && DBUtils::getDbPruneType()==DB_PRUNE_ALL)
+         if(isSpent && DBUtils.getDbPruneType()==DB_PRUNE_ALL)
             continue;
 
          BitPacker<uint8_t> bitpack;
@@ -1270,6 +1272,14 @@ BinaryData StoredScriptHistory::getDBKey(bool withPrefix) const
 }
 
 
+////////////////////////////////////////////////////////////////////////////////
+SCRIPT_PREFIX StoredScriptHistory::getScriptType(void) const
+{
+   if(uniqueKey_.getSize() == 0)
+      return SCRIPT_PREFIX_NONSTD;
+   else
+      return (SCRIPT_PREFIX)uniqueKey_[0];
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
@@ -1292,8 +1302,8 @@ void StoredUndoData::unserializeDBValue(BinaryRefReader & brr)
       stxo.isCoinbase_  = bitunpack.getBit();
 
       BinaryData hgtx   = brr.get_BinaryData(4);
-      stxo.blockHeight_ = DBUtils::hgtxToHeight(hgtx);
-      stxo.duplicateID_ = DBUtils::hgtxToDupID(hgtx);
+      stxo.blockHeight_ = DBUtils.hgtxToHeight(hgtx);
+      stxo.duplicateID_ = DBUtils.hgtxToDupID(hgtx);
       stxo.txIndex_     = brr.get_uint16_t(BIGENDIAN);
       stxo.txOutIndex_  = brr.get_uint16_t(BIGENDIAN);
 
@@ -1340,14 +1350,14 @@ void StoredUndoData::serializeDBValue(BinaryWriter & bw ) const
 
       // Store the standard flags that go with StoredTxOuts, minus spentness
       BitPacker<uint8_t> bitpack;
-      bitpack.putBits( (uint8_t)DBUtils::getArmoryDbType(),  4);
+      bitpack.putBits( (uint8_t)DBUtils.getArmoryDbType(),  4);
       bitpack.putBits( (uint8_t)stxo.txVersion_,          2);
       bitpack.putBit(           stxo.isCoinbase_);
 
       bw.put_BitPacker(bitpack);
 
       // Put the blkdata key directly into the DB to save us a lookup 
-      bw.put_BinaryData( DBUtils::getBlkDataKeyNoPrefix( stxo.blockHeight_,
+      bw.put_BinaryData( DBUtils.getBlkDataKeyNoPrefix( stxo.blockHeight_,
                                                       stxo.duplicateID_,
                                                       stxo.txIndex_,
                                                       stxo.txOutIndex_));
@@ -1394,12 +1404,12 @@ BinaryData StoredUndoData::serializeDBValue(void) const
 BinaryData StoredUndoData::getDBKey(bool withPrefix) const
 {
    if(!withPrefix)
-      return DBUtils::getBlkDataKeyNoPrefix(blockHeight_, duplicateID_);
+      return DBUtils.getBlkDataKeyNoPrefix(blockHeight_, duplicateID_);
    else
    {
       BinaryWriter bw(5);
       bw.put_uint8_t((uint8_t)DB_PREFIX_UNDODATA); 
-      bw.put_BinaryData( DBUtils::getBlkDataKeyNoPrefix(blockHeight_, duplicateID_));
+      bw.put_BinaryData( DBUtils.getBlkDataKeyNoPrefix(blockHeight_, duplicateID_));
       return bw.getData();
    }
 }
@@ -1566,6 +1576,16 @@ BinaryData StoredHeadHgtList::getDBKey(bool withPrefix) const
 
 }
 
+
+////////////////////////////////////////////////////////////////////////////////
+BLKDATA_TYPE GlobalDBUtilities::readBlkDataKey( BinaryRefReader & brr,
+                                                uint32_t & height,
+                                                uint8_t  & dupID)
+{
+   uint16_t tempTxIdx;
+   uint16_t tempTxOutIdx;
+   return readBlkDataKey(brr, height, dupID, tempTxIdx, tempTxOutIdx);
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 BLKDATA_TYPE GlobalDBUtilities::readBlkDataKey( BinaryRefReader & brr,

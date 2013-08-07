@@ -30,7 +30,7 @@ class TxIn;
 class TxOut;
 class TxRef;
 class TxIOPair;
-class DBUtils;
+class GlobalDBUtilities;
 
 class StoredHeader;
 class StoredTx;
@@ -514,7 +514,7 @@ public:
 
    /////////////////////////////////////////////////////////////////////////////
    inline bool checkPrefixByte(DB_PREFIX prefix, bool rewindWhenDone=false)
-         { return DBUtils::checkPrefixByte(currReadKey_, prefix, rewindWhenDone); }
+         { return DBUtils.checkPrefixByte(currReadKey_, prefix, rewindWhenDone); }
 
    /////////////////////////////////////////////////////////////////////////////
    bool checkStatus(leveldb::Status stat, bool warn=true);

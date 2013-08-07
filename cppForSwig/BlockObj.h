@@ -21,6 +21,7 @@
 
 ////////////////////////////////////////////////////////////////////////////////
 class InterfaceToLDB;  
+class GlobalDBUtilities;  
 class TxRef;
 class Tx;
 class TxIn;
@@ -821,7 +822,6 @@ public:
    TxRef         txRefObj_;  // Not necessary for sorting, but useful
    BinaryData    txHash_;
    uint32_t      blkNum_;
-   uint32_t      dupID_;;
    uint32_t      txIndex_;
 
 

@@ -16,6 +16,7 @@
 
 BlockDataManager_LevelDB* BlockDataManager_LevelDB::theOnlyBDM_ = NULL;
 vector<LedgerEntry> BtcWallet::EmptyLedger_(0);
+InterfaceToLDB* BlockDataManager_LevelDB::iface_=NULL;
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -286,11 +287,11 @@ void ScrAddrObj::pprintLedger(void)
 // the exact same thing.  The only difference is to tell the BDM whether it 
 // should do a rescan of the blockchain, or if we know there's nothing to find
 // so don't bother (perhaps because we just created the address)...
-void BtcWallet::addScrAddr(HashString    scrAddr, 
-                           uint32_t      firstTimestamp,
-                           uint32_t      firstBlockNum,
-                           uint32_t      lastTimestamp,
-                           uint32_t      lastBlockNum)
+void BtcWallet::addScrAddress(HashString    scrAddr, 
+                              uint32_t      firstTimestamp,
+                              uint32_t      firstBlockNum,
+                              uint32_t      lastTimestamp,
+                              uint32_t      lastBlockNum)
 {
 
    if(scrAddrMap_.find(scrAddr) != scrAddrMap_.end())
@@ -307,7 +308,7 @@ void BtcWallet::addScrAddr(HashString    scrAddr,
 }
 
 /////////////////////////////////////////////////////////////////////////////
-void BtcWallet::addNewScrAddr(BinaryData scrAddr)
+void BtcWallet::addNewScrAddress(BinaryData scrAddr)
 {
    if(scrAddrMap_.find(scrAddr) != scrAddrMap_.end())
       return;
@@ -321,21 +322,21 @@ void BtcWallet::addNewScrAddr(BinaryData scrAddr)
 }
 
 /////////////////////////////////////////////////////////////////////////////
-void BtcWallet::addAddress(ScrAddrObj const & newScrAddr)
+void BtcWallet::addScrAddress(ScrAddrObj const & newScrAddr)
 {
    if(scrAddrMap_.find(newScrAddr.getScrAddr()) != scrAddrMap_.end())
       return;
 
-   if(newAddr.getScrAddr().getSize() > 0)
+   if(newScrAddr.getScrAddr().getSize() > 0)
    {            
-      ScrAddrObj * addrPtr = &(scrAddrMap_[newAddr.getScrAddr()]);
-      *addrPtr = newAddr;
+      ScrAddrObj * addrPtr = &(scrAddrMap_[newScrAddr.getScrAddr()]);
+      *addrPtr = newScrAddr;
       scrAddrPtrs_.push_back(addrPtr);
    }
 
    if(bdmPtr_!=NULL)
-      bdmPtr_->registerImportedAddress(newAddr.getScrAddr(), 
-                                       newAddr.getFirstBlockNum());
+      bdmPtr_->registerImportedAddress(newScrAddr.getScrAddr(), 
+                                       newScrAddr.getFirstBlockNum());
 }
 
 
@@ -343,35 +344,35 @@ void BtcWallet::addAddress(ScrAddrObj const & newScrAddr)
 // SWIG has some serious problems with typemaps and variable arg lists
 // Here I just create some extra functions that sidestep all the problems
 // but it would be nice to figure out "typemap typecheck" in SWIG...
-void BtcWallet::addAddress_ScrAddrObj_(ScrAddrObj const & newScrAddr)
+void BtcWallet::addScrAddress_ScrAddrObj_(ScrAddrObj const & newScrAddr)
 { 
-   addScrAddr(newScrAddr); 
+   addScrAddress(newScrAddr); 
 }
 
 /////////////////////////////////////////////////////////////////////////////
-void BtcWallet::addAddress_1_(HashString scrAddr)
+void BtcWallet::addScrAddress_1_(HashString scrAddr)
 {  
    PDEBUG("Adding address to BtcWallet");
-   addAddress(scrAddr); 
+   addScrAddress(scrAddr); 
 } 
 
 /////////////////////////////////////////////////////////////////////////////
-void BtcWallet::addAddress_3_(HashString    scrAddr, 
+void BtcWallet::addScrAddress_3_(HashString    scrAddr, 
                               uint32_t      firstTimestamp,
                               uint32_t      firstBlockNum)
 {  
-   addAddress(scrAddr, firstBlockNum, firstTimestamp); 
+   addScrAddress(scrAddr, firstBlockNum, firstTimestamp); 
 }
 
 /////////////////////////////////////////////////////////////////////////////
-void BtcWallet::addAddress_5_(HashString    scrAddr, 
+void BtcWallet::addScrAddress_5_(HashString    scrAddr, 
                               uint32_t      firstTimestamp,
                               uint32_t      firstBlockNum,
                               uint32_t      lastTimestamp,
                               uint32_t      lastBlockNum)
 {  
-   addAddress(scrAddr, firstBlockNum, firstTimestamp, 
-                        lastBlockNum,  lastTimestamp); 
+   addScrAddress(scrAddr, firstBlockNum, firstTimestamp, 
+                          lastBlockNum,  lastTimestamp); 
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -447,23 +448,26 @@ pair<bool,bool> BtcWallet::isMineBulkFilter(Tx & tx, bool withMultiSig)
          // This branch may be compute-intensive, so it's opt-in only
          uint32_t viStart  = tx.getTxOutOffset(iout) + 8;
          uint32_t txOutEnd = tx.getTxOutOffset(iout+1);
-         BinaryRefReader brr(viStart, txOutEnd-viStart);
-         uint64_t scrsz = brr.get_var_int()
-         BinaryDataRef scr = brr.get_BinaryDataRef((uint32_t)vi);
-
-         BinaryData msigkey = getMultisigUniqueKey(scr); 
-         if(msigkey.getSize() == 0)
-            continue
+         if(txStartPtr[txOutEnd-1] == OP_CHECKMULTISIG)
+         {
+            BinaryRefReader brr(ptr, txOutEnd-viStart);
+            uint64_t scrsz = brr.get_var_int();
+            BinaryDataRef scr = brr.get_BinaryDataRef((uint32_t)scrsz);
+   
+            BinaryData msigkey = BtcUtils::getMultisigUniqueKey(scr); 
+            if(msigkey.getSize() == 0)
+               continue;
         
-         if(hasScrAddr(MSIGPREFIX + msigkey))
-            return pair<bool,bool>(true,false);
-
-         BinaryRefReader brrmsig(msigkey);
-         uint8_t M = brrmsig.get_uint8_t();
-         uint8_t N = brrmsig.get_uint8_t();
-         for(uint8_t a=0; a<N; a++)
-            if(hasScrAddr(HASH160PREFIX + brr.get_BinaryDataRef(20))
+            if(hasScrAddr(MSIGPREFIX + msigkey))
                return pair<bool,bool>(true,false);
+
+            BinaryRefReader brrmsig(msigkey);
+            uint8_t M = brrmsig.get_uint8_t();
+            uint8_t N = brrmsig.get_uint8_t();
+            for(uint8_t a=0; a<N; a++)
+               if(hasScrAddr(HASH160PREFIX + brr.get_BinaryDataRef(20)))
+                  return pair<bool,bool>(true,false);
+         }
       }
 
        
@@ -472,7 +476,7 @@ pair<bool,bool> BtcWallet::isMineBulkFilter(Tx & tx, bool withMultiSig)
       //for(uint32_t i=0; i<scrAddrPtrs_.size(); i++)
       //{
          //ScrAddrObj & thisAddr = *(scrAddrPtrs_[i]);
-         //HashString const & addr20 = thisAddr.getScrAddr();
+         //HashString const & scraddr = thisAddr.getScrAddr();
          //if(txout.getScriptRef().find(thisAddr.getScrAddr()) > -1)
             //scanNonStdTx(0, 0, tx, iout, thisAddr);
          //continue;
@@ -518,8 +522,8 @@ void BtcWallet::pprintAlot(uint32_t topBlk, bool withAddr)
       for(uint32_t i=0; i<getNumScrAddr(); i++)
       {
          ScrAddrObj & addr = getScrAddrByIndex(i);
-         HashString addr160 = addr.getScrAddr();
-         cout << "\nAddress: " << addr160.toHexStr().c_str() << endl;
+         HashString scraddr = addr.getScrAddr();
+         cout << "\nAddress: " << scraddr.toHexStr().c_str() << endl;
          cout << "   Tot: " << addr.getFullBalance() << endl;
          cout << "   Spd: " << addr.getSpendableBalance(topBlk) << endl;
          cout << "   Ucn: " << addr.getUnconfirmedBalance(topBlk) << endl;
@@ -556,11 +560,11 @@ void BlockDataManager_LevelDB::insertRegisteredTxIfNew(HashString txHash)
    // .insert() function returns pair<iter,bool> with bool true if inserted
    if(registeredTxSet_.insert(txHash).second == true)
    {
-      TxRef tx_ptr = getTxRefByHash(txHash);
-      RegisteredTx regTx(tx_ptr,
-                         tx_ptr->getThisHash(),
-                         tx_ptr->getBlockHeight(),
-                         tx_ptr->getBlockTxIndex());
+      TxRef txref = getTxRefByHash(txHash);
+      RegisteredTx regTx(txref,
+                         txref.getThisHash(),
+                         txref.getBlockHeight(),
+                         txref.getBlockTxIndex());
       registeredTxList_.push_back(regTx);
    }
 }
@@ -569,7 +573,7 @@ void BlockDataManager_LevelDB::insertRegisteredTxIfNew(HashString txHash)
 void BlockDataManager_LevelDB::insertRegisteredTxIfNew(RegisteredTx & regTx)
 {
    // .insert() function returns pair<iter,bool> with bool true if inserted
-   if(registeredTxSet_.insert(regTx.getThisHash()).second == true)
+   if(registeredTxSet_.insert(regTx.getTxHash()).second == true)
       registeredTxList_.push_back(regTx);
 }
 
@@ -629,15 +633,15 @@ void BlockDataManager_LevelDB::registeredAddrScan(
    for(uint32_t iout=0; iout<nTxOut; iout++)
    {
       static uint8_t scriptLenFirstByte;
-      static HashString addr20(20);
+      static HashString scraddr(20);
 
       uint8_t const * ptr = (txStartPtr + (*txOutOffsets)[iout] + 8);
       scriptLenFirstByte = *(uint8_t*)ptr;
       if(scriptLenFirstByte == 25)
       {
          // Std TxOut with 25-byte script
-         addr20.copyFrom(ptr+4, 20);
-         if( addressIsRegistered(addr20) )
+         scraddr.copyFrom(ptr+4, 20);
+         if( addressIsRegistered(scraddr) )
          {
             HashString txHash = BtcUtils::getHash256(txptr, txSize);
             insertRegisteredTxIfNew(txHash);
@@ -647,9 +651,9 @@ void BlockDataManager_LevelDB::registeredAddrScan(
       else if(scriptLenFirstByte==67)
       {
          // Std spend-coinbase TxOut script
-         static HashString addr20(20);
-         BtcUtils::getHash160_NoSafetyCheck(ptr+2, 65, addr20);
-         if( addressIsRegistered(addr20) )
+         static HashString scraddr(20);
+         BtcUtils::getHash160_NoSafetyCheck(ptr+2, 65, scraddr);
+         if( addressIsRegistered(scraddr) )
          {
             HashString txHash = BtcUtils::getHash256(txptr, txSize);
             insertRegisteredTxIfNew(txHash);
@@ -664,7 +668,7 @@ void BlockDataManager_LevelDB::registeredAddrScan(
          for(uint32_t i=0; i<scrAddrPtrs_.size(); i++)
          {
             ScrAddrObj & thisAddr = *(scrAddrPtrs_[i]);
-            HashString const & addr20 = thisAddr.getScrAddr();
+            HashString const & scraddr = thisAddr.getScrAddr();
             if(txout.getScriptRef().find(thisAddr.getScrAddr()) > -1)
                scanNonStdTx(0, 0, tx, iout, thisAddr);
             continue;
@@ -721,11 +725,11 @@ void BtcWallet::scanTx(Tx & tx,
 
    map<HashString, ScrAddrObj>::iterator addrIter;
    ScrAddrObj* thisAddrPtr;
-   HashString  addr20;
+   HashString  scraddr;
    //for(uint32_t i=0; i<scrAddrPtrs_.size(); i++)
    //{
       //ScrAddrObj & thisAddr = *(scrAddrPtrs_[i]);
-      //HashString const & addr20 = thisAddr.getScrAddr();
+      //HashString const & scraddr = thisAddr.getScrAddr();
 
       ///// LOOP OVER ALL TXIN IN BLOCK /////
       for(uint32_t iin=0; iin<tx.getNumTxIn(); iin++)
@@ -752,8 +756,8 @@ void BtcWallet::scanTx(Tx & tx,
             TxOut txout = txio.getTxOut();
 
             // It's our TxIn, so address should be in this wallet
-            addr20   = txout.getRecipientAddr();
-            addrIter = scrAddrMap_.find(addr20);
+            scraddr  = txout.getScrAddressStr();
+            addrIter = scrAddrMap_.find(scraddr);
             if( addrIter == scrAddrMap_.end())
             {
                // Have TxIO but address is not in the map...?
@@ -788,7 +792,7 @@ void BtcWallet::scanTx(Tx & tx,
 
                anyNewTxInIsOurs = true;
 
-               LedgerEntry newEntry(addr20, 
+               LedgerEntry newEntry(scraddr, 
                                    -(int64_t)thisVal,
                                     blknum, 
                                     tx.getThisHash(), 
@@ -825,21 +829,21 @@ void BtcWallet::scanTx(Tx & tx,
    //for(uint32_t i=0; i<scrAddrPtrs_.size(); i++)
    //{
       //ScrAddrObj & thisAddr = *(scrAddrPtrs_[i]);
-      //HashString const & addr20 = thisAddr.getScrAddr();
+      //HashString const & scraddr = thisAddr.getScrAddr();
 
       ///// LOOP OVER ALL TXOUT IN TX /////
       for(uint32_t iout=0; iout<tx.getNumTxOut(); iout++)
       {
          TxOut txout = tx.getTxOut(iout);
-         if( txout.getScriptType() == TXOUT_SCRIPT_UNKNOWN )
+         if( txout.getScriptType() == TXOUT_SCRIPT_NONSTANDARD )
          {
-            //if(txout.getScriptRef().find(addr20) > -1)
+            //if(txout.getScriptRef().find(scraddr) > -1)
                //scanNonStdTx(blknum, txIndex, tx, iout, *thisAddrPtr);
             continue;
          }
 
-         addr20   = txout.getRecipientAddr();
-         addrIter = scrAddrMap_.find(addr20);
+         scraddr   = txout.getScrAddressStr();
+         addrIter = scrAddrMap_.find(scraddr);
          if( addrIter != scrAddrMap_.end())
          {
             thisAddrPtr = &addrIter->second;
@@ -911,7 +915,7 @@ void BtcWallet::scanTx(Tx & tx,
 
             if(doAddLedgerEntry)
             {
-               LedgerEntry newLedger(addr20, 
+               LedgerEntry newLedger(scraddr, 
                                      thisVal, 
                                      blknum, 
                                      tx.getThisHash(), 
@@ -1005,7 +1009,8 @@ LedgerEntry BtcWallet::calcLedgerEntryForTx(Tx & tx)
    // TxOuts are a little more complicated, because we have to process each
    // different type separately.  Nonetheless, 99% of transactions use the
    // 25-byte repr which is ridiculously fast
-   HashString addr20(20);
+   //    TODO:  update this for multisig and P2SH 
+   HashString scraddr(21);
    for(uint32_t iout=0; iout<tx.getNumTxOut(); iout++)
    {
       static uint8_t scriptLenFirstByte;
@@ -1015,8 +1020,8 @@ LedgerEntry BtcWallet::calcLedgerEntryForTx(Tx & tx)
       if(scriptLenFirstByte == 25)
       {
          // Std TxOut with 25-byte script
-         addr20.copyFrom(ptr+12, 20);
-         if( hasScrAddr(addr20) )
+         scraddr.copyFrom(ptr+12, 20);
+         if( hasScrAddr(scraddr) )
             totalValue += READ_UINT64_LE(ptr);
          else
             allTxOutIsOurs = false;
@@ -1024,8 +1029,8 @@ LedgerEntry BtcWallet::calcLedgerEntryForTx(Tx & tx)
       else if(scriptLenFirstByte==67)
       {
          // Std spend-coinbase TxOut script
-         BtcUtils::getHash160_NoSafetyCheck(ptr+10, 65, addr20);
-         if( hasScrAddr(addr20) )
+         BtcUtils::getHash160_NoSafetyCheck(ptr+10, 65, scraddr);
+         if( hasScrAddr(scraddr) )
             totalValue += READ_UINT64_LE(ptr);
          else
             allTxOutIsOurs = false;
@@ -1312,18 +1317,18 @@ vector<AddressBookEntry> BtcWallet::createAddressBook(void)
       perTxAddrSet.clear();
       for(uint32_t iout=0; iout<thisTx.getNumTxOut(); iout++)
       {
-         HashString addr160 = thisTx.getTxOut(iout).getRecipientAddr();
+         HashString scraddr = thisTx.getTxOut(iout).getScrAddressStr();
 
          // Skip this address if it's in our wallet (usually change addr)
-         if( hasScrAddr(addr160) || perTxAddrSet.count(addr160)>0)
+         if( hasScrAddr(scraddr) || perTxAddrSet.count(scraddr)>0)
             continue; 
 
          // It's someone else's address for sure, add it to the map if necessary
-         if(sentToMap.count(addr160)==0)
-            sentToMap[addr160] = AddressBookEntry(addr160);
+         if(sentToMap.count(scraddr)==0)
+            sentToMap[scraddr] = AddressBookEntry(scraddr);
 
-         sentToMap[addr160].addTx(thisTx);
-         perTxAddrSet.insert(addr160);
+         sentToMap[scraddr].addTx(thisTx);
+         perTxAddrSet.insert(scraddr);
       }
       
    }
@@ -1364,12 +1369,8 @@ BlockDataManager_LevelDB::BlockDataManager_LevelDB(void) :
       allScannedUpToBlk_(0)
 {
    headerMap_.clear();
-   headerDB_ = NULL;
-   txHintDB_ = NULL;
-   transientDB_ = NULL;
    isNetParamsSet_ = false;
    isBlkParamsSet_ = false;
-   isLevelDBSet_ = false;
 
    zeroConfRawTxList_.clear();
    zeroConfMap_.clear();
@@ -1411,40 +1412,6 @@ void BlockDataManager_LevelDB::SetBtcNetworkParams(
    GenesisHash_.copyFrom(GenHash);
    GenesisTxHash_.copyFrom(GenTxHash);
    MagicBytes_.copyFrom(MagicBytes);
-}
-
-
-/////////////////////////////////////////////////////////////////////////////
-void BlockDataManager_LevelDB::SetLevelDBPaths(string headerPath,
-                                                string txHintPath,
-                                                string transientPath)
-{
-   SCOPED_TIMER("SetLevelDBPaths");
-   headerPath_ = headerPath;
-   txHintPath_ = txHintPath;
-
-   leveldb::Status stat;
-
-   // Header databse
-   leveldb::Options opts1;
-   opts1.create_if_missing = true;
-   stat = leveldb::DB::Open(opts1, headerPath_.c_str(), &headerDB_);
-   leveldb::ldbCheckStatus(stat);
-
-   // TxRef database
-   leveldb::Options opts2;
-   opts2.create_if_missing = true;
-   stat = leveldb::DB::Open(opts2, txHintPath_.c_str(), &txHintDB_);
-   leveldb::ldbCheckStatus(stat);
-
-   // Registered addr/tx database
-   leveldb::Options opts3;
-   opts3.create_if_missing = true;
-   stat = leveldb::DB::Open(opts3, transientPath_.c_str(), &transientDB_);
-   leveldb::ldbCheckStatus(stat);
-
-
-   isLevelDBSet_ = true;
 }
 
 
@@ -1591,8 +1558,8 @@ bool BlockDataManager_LevelDB::initializeDBInterface(ARMORY_DB_TYPE dbtype,
 // chain.  Return false if these headers induced a reorg.
 bool BlockDataManager_LevelDB::addHeadersFirst(BinaryDataRef rawHeader)
 {
-   vector<BinaryData> toAdd(1);
-   toAdd[0] = rawHeader.copy();
+   vector<StoredHeader> toAdd(1);
+   toAdd[0].unserialize(rawHeader);
    return addHeadersFirst(toAdd);
 }
 
@@ -1627,26 +1594,26 @@ bool BlockDataManager_LevelDB::addHeadersFirst(vector<StoredHeader> const & head
    iface_->startBatch(HEADERS);
    for(uint32_t h=0; h<headersToDB.size(); h++)
    {
-      if(!headersToDB[i]->isMainBranch())
+      if(!headersToDB[h]->isMainBranch())
          continue;
 
       StoredHeader sbh;
-      sbh.CreateFromBlockHeader(*headersToDB[i]);
+      sbh.CreateFromBlockHeader(*headersToDB[h]);
       uint8_t dup = iface_->putBareHeader(sbh);
-      headersToDB[i]->setDuplicateID(dup);
+      headersToDB[h]->setDuplicateID(dup);
    }
    iface_->commitBatch(HEADERS);
 
    // We need to add the non-main-branch headers, too.  
    for(uint32_t h=0; h<headersToDB.size(); h++)
    {
-      if(headersToDB[i]->isMainBranch())
+      if(headersToDB[h]->isMainBranch())
          continue;
 
       StoredHeader sbh;
-      sbh.CreateFromBlockHeader(*headersToDB[i]);
+      sbh.CreateFromBlockHeader(*headersToDB[h]);
       uint8_t dup = iface_->putBareHeader(sbh);
-      headersToDB[i]->setDuplicateID(dup);
+      headersToDB[h]->setDuplicateID(dup);
    }
    return prevTopBlockStillValid;
 }
@@ -1972,12 +1939,12 @@ bool BlockDataManager_LevelDB::registerWallet(BtcWallet* wltPtr, bool wltIsNew)
 
 
 /////////////////////////////////////////////////////////////////////////////
-bool BlockDataManager_LevelDB::registerAddress(HashString addr160, 
+bool BlockDataManager_LevelDB::registerAddress(HashString scraddr, 
                                                 bool addrIsNew,
                                                 uint32_t firstBlk)
 {
    SCOPED_TIMER("registerAddress");
-   if(registeredScrAddrMap_.find(addr160) != registeredScrAddrMap_.end())
+   if(registeredScrAddrMap_.find(scraddr) != registeredScrAddrMap_.end())
    {
       // Address is already registered.  Don't think there's anything to do 
       return false;
@@ -1986,21 +1953,21 @@ bool BlockDataManager_LevelDB::registerAddress(HashString addr160,
    if(addrIsNew)
       firstBlk = getTopBlockHeight() + 1;
 
-   registeredScrAddrMap_[addr160] = RegisteredAddress(addr160, firstBlk);
+   registeredScrAddrMap_[scraddr] = RegisteredAddress(scraddr, firstBlk);
    allScannedUpToBlk_  = min(firstBlk, allScannedUpToBlk_);
    return true;
 }
 
 
 /////////////////////////////////////////////////////////////////////////////
-bool BlockDataManager_LevelDB::registerNewAddress(HashString addr160)
+bool BlockDataManager_LevelDB::registerNewAddress(HashString scraddr)
 {
    SCOPED_TIMER("registerNewAddress");
-   if(registeredScrAddrMap_.find(addr160) != registeredScrAddrMap_.end())
+   if(registeredScrAddrMap_.find(scraddr) != registeredScrAddrMap_.end())
       return false;
 
    uint32_t currBlk = getTopBlockHeight();
-   registeredScrAddrMap_[addr160] = RegisteredAddress(addr160, currBlk);
+   registeredScrAddrMap_[scraddr] = RegisteredAddress(scraddr, currBlk);
 
    // New address cannot affect allScannedUpToBlk_, so don't bother
    //allScannedUpToBlk_  = min(currBlk, allScannedUpToBlk_);
@@ -2008,31 +1975,31 @@ bool BlockDataManager_LevelDB::registerNewAddress(HashString addr160)
 }
 
 /////////////////////////////////////////////////////////////////////////////
-bool BlockDataManager_LevelDB::registerImportedAddress(HashString addr160,
+bool BlockDataManager_LevelDB::registerImportedAddress(HashString scraddr,
                                                     uint32_t createBlk)
 {
    SCOPED_TIMER("registerImportedAddress");
-   if(registeredScrAddrMap_.find(addr160) != registeredScrAddrMap_.end())
+   if(registeredScrAddrMap_.find(scraddr) != registeredScrAddrMap_.end())
       return false;
 
    // In some cases we may have used UINT32_MAX to specify "don't know"
    if(createBlk==UINT32_MAX)
       createBlk = 0;
 
-   registeredScrAddrMap_[addr160] = RegisteredAddress(addr160, createBlk);
+   registeredScrAddrMap_[scraddr] = RegisteredAddress(scraddr, createBlk);
    allScannedUpToBlk_ = min(createBlk, allScannedUpToBlk_);
    return true;
 }
 
 
 /////////////////////////////////////////////////////////////////////////////
-bool BlockDataManager_LevelDB::unregisterAddress(HashString addr160)
+bool BlockDataManager_LevelDB::unregisterAddress(HashString scraddr)
 {
    SCOPED_TIMER("unregisterAddress");
-   if(registeredScrAddrMap_.find(addr160) == registeredScrAddrMap_.end())
+   if(registeredScrAddrMap_.find(scraddr) == registeredScrAddrMap_.end())
       return false;
    
-   registeredScrAddrMap_.erase(addr160);
+   registeredScrAddrMap_.erase(scraddr);
    allScannedUpToBlk_ = evalLowestBlockNextScan();
    return true;
 }
@@ -2189,9 +2156,9 @@ bool BlockDataManager_LevelDB::walletIsRegistered(BtcWallet & wlt)
 }
 
 /////////////////////////////////////////////////////////////////////////////
-bool BlockDataManager_LevelDB::addressIsRegistered(HashString addr160)
+bool BlockDataManager_LevelDB::addressIsRegistered(HashString scraddr)
 {
-   return (registeredScrAddrMap_.find(addr160)!=registeredScrAddrMap_.end());
+   return (registeredScrAddrMap_.find(scraddr)!=registeredScrAddrMap_.end());
 }
 
 
@@ -2653,7 +2620,7 @@ bool BlockDataManager_LevelDB::processAllHeadersFromAllBlkFiles(void)
    for(iterH = headerMap_.begin(); iterH != headerMap_.end(); iterH++)
    {
       StoredHeader sbh;
-      sbh.CreateFromBlockHeader(iter->second);
+      sbh.createFromBlockHeader(iter->second);
       uint8_t dup = iface_->putBareHeader(sbh);
       iter->second.duplicateID_ = dup;  // make sure headerMap_ and DB agree
    }
@@ -3057,11 +3024,17 @@ uint32_t BlockDataManager_LevelDB::readBlkFileUpdate(void)
 
       if(blockIsNewTop)
       {
-         // TODO: does this go here?
          BlockHeader & bh = headerMap_[newHeadHash];
+         uint32_t hgt = bh.getBlockHeight();
+         uint8_t  dup = bh.getDuplicateID();
          if(vb[ADD_BLOCK_NEW_TOP_BLOCK])
-            applyBlockToDB(bh.getBlockHeight(), bh.getDuplicateID());
+            applyBlockToDB(hgt, dup);
          purgeZeroConfPool();
+
+         StoredHeader sbh;
+         iface_->getStoredHeader(sbh, hgt, dup);
+         for(uint32_t itx=0; itx<sbh.stxMap_.size(); i++) 
+            registeredAddrScan(sbh.stxMap_[itx].dataCopy_.getPtr(), txSize);
       }
       else if(blockchainReorg)
       {
@@ -3172,7 +3145,7 @@ void BlockDataManager_LevelDB::updateWalletsAfterReorg(set<BtcWallet*> wltset)
 /////////////////////////////////////////////////////////////////////////////
 bool BlockDataManager_LevelDB::verifyBlkFileIntegrity(void)
 {
-   SCOPED_TIMER("updateWalletAfterReorg");
+   SCOPED_TIMER("verifyBlkFileIntegrity");
    PDEBUG("Verifying blk0001.dat integrity");
 
    bool isGood = true;
@@ -3304,7 +3277,8 @@ vector<bool> BlockDataManager_LevelDB::addNewBlockData(
    // This used to be in parseNewBlock(...) but relocated here because it's
    // not duplicated anywhere, and during the upgrade to LevelDB I needed
    // the code flow to be more linear in order to figure out how to put 
-   // all the pieces together properly
+   // all the pieces together properly.  I may refactor this code out into
+   // its own method again, later
    if(brr.getSizeRemaining() < blockSize || brr.isEndOfStream())
    {
       LOGERR << "***ERROR:  parseNewBlock did not get enough data...";
@@ -3772,7 +3746,7 @@ HashString BlockDataManager_LevelDB::getSenderAddr20(TxIn & txin)
    if(txin.isCoinbase())
       return HashString(0);
 
-   return getPrevTxOut(txin).getRecipientAddr();
+   return getPrevTxOut(txin).getScrAddressStr();
 }
 
 
@@ -3853,7 +3827,7 @@ bool BlockDataManager_LevelDB::addNewZeroConfTx(BinaryData const & rawTx,
     
    // If this is already in the zero-conf map or in the blockchain, ignore it
    if(zeroConfMap_.find(txHash) != zeroConfMap_.end() || 
-      getTxRefPtrByHash(txHash) != NULL)
+      !getTxRefByHash(txHash).isNull())
       return false;
    
    
@@ -3866,20 +3840,10 @@ bool BlockDataManager_LevelDB::addNewZeroConfTx(BinaryData const & rawTx,
    // Record time.  Write to file
    if(writeToFile)
    {
-      // ZERO-CONF TRANSACTION   { "ZCTX"|TXHASH32 --> TXTIME8|RAWTX }
-      /*
-      BinaryWriter keyWriter(4+32);
-      keyWriter.put_BinaryData( string("ZCTX").data(), 4);
-      keyWriter.put_BinaryData( txHash );
-      
-      BinaryWriter valWriter;
-      valWriter.put_uint64_t(txtime);
-      valWriter.put_BinaryData(rawTx);
-
-      leveldb::Slice key(keyWriter.toString());
-      leveldb::Slice val(valWriter.toString());
-      leveldb::Status stat = transientDB_->Put(leveldb::WriteOptions(), key, val);
-      */
+      ofstream zcFile(zcFilename_.c_str(), ios::app | ios::binary);
+      zcFile.write( (char*)(&zc.txtime_), sizeof(uint64_t) );
+      zcFile.write( (char*)zc.txobj_.getPtr(),  zc.txobj_.getSize());
+      zcFile.close();
    }
    return true;
 }
@@ -3898,7 +3862,7 @@ void BlockDataManager_LevelDB::purgeZeroConfPool(void)
        iter != zeroConfMap_.end();
        iter++)
    {
-      if(getTxRefPtrByHash(iter->first) != NULL)
+      if(!getTxRefByHash(iter->first).isNull())
          mapRmList.push_back(iter);
    }
 
@@ -4032,36 +3996,36 @@ void BtcWallet::clearZeroConfPool(void)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-vector<LedgerEntry> & BtcWallet::getTxLedger(HashString const * addr160)
+vector<LedgerEntry> & BtcWallet::getTxLedger(HashString const * scraddr)
 {
    SCOPED_TIMER("BtcWallet::getTxLedger");
 
    // Make sure to rebuild the ZC ledgers before calling this method
-   if(addr160==NULL)
+   if(scraddr==NULL)
       return ledgerAllAddr_;
    else
    {
-      if(scrAddrMap_.find(*addr160) == scrAddrMap_.end())
+      if(scrAddrMap_.find(*scraddr) == scrAddrMap_.end())
          return getEmptyLedger();
       else
-         return scrAddrMap_[*addr160].getTxLedger();
+         return scrAddrMap_[*scraddr].getTxLedger();
    }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-vector<LedgerEntry> & BtcWallet::getZeroConfLedger(HashString const * addr160)
+vector<LedgerEntry> & BtcWallet::getZeroConfLedger(HashString const * scraddr)
 {
    SCOPED_TIMER("BtcWallet::getZeroConfLedger");
 
    // Make sure to rebuild the ZC ledgers before calling this method
-   if(addr160==NULL)
+   if(scraddr==NULL)
       return ledgerAllAddrZC_;
    else
    {
-      if(scrAddrMap_.find(*addr160) == scrAddrMap_.end())
+      if(scrAddrMap_.find(*scraddr) == scrAddrMap_.end())
          return getEmptyLedger();
       else
-         return scrAddrMap_[*addr160].getZeroConfLedger();
+         return scrAddrMap_[*scraddr].getZeroConfLedger();
    }
 }
 

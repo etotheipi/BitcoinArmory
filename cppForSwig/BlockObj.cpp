@@ -724,7 +724,7 @@ uint32_t TxRef::getBlockTimestamp(void)
 uint32_t TxRef::getBlockHeight(void) const
 {
    if(dbKey6B_.getSize() == 6)
-      return ARMDB.hgtxToHeight(dbKey6B_.getSliceCopy(0,4));
+      return DBUtils.hgtxToHeight(dbKey6B_.getSliceCopy(0,4));
    else
       return UINT32_MAX;
 }
@@ -733,7 +733,7 @@ uint32_t TxRef::getBlockHeight(void) const
 uint8_t TxRef::getBlockDupID(void) const
 {
    if(dbKey6B_.getSize() == 6)
-      return ARMDB.hgtxToDupID(dbKey6B_.getSliceCopy(0,4));
+      return DBUtils.hgtxToDupID(dbKey6B_.getSliceCopy(0,4));
    else
       return UINT8_MAX;
 }

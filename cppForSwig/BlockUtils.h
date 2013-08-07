@@ -31,6 +31,8 @@
 #include "BinaryData.h"
 #include "BtcUtils.h"
 #include "BlockObj.h"
+#include "StoredBlockObj.h"
+#include "leveldb_wrapper.h"
 
 #include "cryptlib.h"
 #include "sha.h"
@@ -41,6 +43,14 @@
 using namespace std;
 
 class BlockDataManager_LevelDB;
+
+typedef enum
+{
+  ADD_BLOCK_SUCCEEDED,
+  ADD_BLOCK_NEW_TOP_BLOCK,
+  ADD_BLOCK_CAUSED_REORG,
+} ADD_BLOCK_RESULT_INDEX;
+
 
 
 
@@ -54,7 +64,7 @@ class BlockDataManager_LevelDB;
 //
 //  Address -- Each entry corresponds to ONE TxIn OR ONE TxOut
 //
-//    addr20_    -  useless - just repeating this address
+//    scrAddr_    -  useless - just repeating this address
 //    value_     -  net debit/credit on addr balance, in Satoshis (1e-8 BTC)
 //    blockNum_  -  block height of the tx in which this txin/out was included
 //    txHash_    -  hash of the tx in which this txin/txout was included
@@ -68,7 +78,7 @@ class BlockDataManager_LevelDB;
 //
 //  BtcWallet -- Each entry corresponds to ONE WHOLE TRANSACTION
 //
-//    addr20_    -  useless - originally had a purpose, but lost it
+//    scrAddr_    -  useless - originally had a purpose, but lost it
 //    value_     -  total debit/credit on WALLET balance, in Satoshis (1e-8 BTC)
 //    blockNum_  -  block height of the block in which this tx was included
 //    txHash_    -  hash of this tx 
@@ -83,7 +93,7 @@ class LedgerEntry
 {
 public:
    LedgerEntry(void) :
-      addr20_(0),
+      scrAddr_(0),
       value_(0),
       blockNum_(UINT32_MAX),
       txHash_(BtcUtils::EmptyHash_),
@@ -94,7 +104,7 @@ public:
       isSentToSelf_(false),
       isChangeBack_(false) {}
 
-   LedgerEntry(BinaryData const & addr20,
+   LedgerEntry(BinaryData const & scraddr,
                int64_t val, 
                uint32_t blkNum, 
                BinaryData const & txhash, 
@@ -103,7 +113,7 @@ public:
                bool isCoinbase=false,
                bool isToSelf=false,
                bool isChange=false) :
-      addr20_(addr20),
+      scrAddr_(scraddr),
       value_(val),
       blockNum_(blkNum),
       txHash_(txhash),
@@ -114,7 +124,7 @@ public:
       isSentToSelf_(isToSelf),
       isChangeBack_(isChange) {}
 
-   BinaryData const &  getAddrStr20(void) const { return addr20_;        }
+   BinaryData const &  getScrAddr(void) const   { return scrAddr_;       }
    int64_t             getValue(void) const     { return value_;         }
    uint32_t            getBlockNum(void) const  { return blockNum_;      }
    BinaryData const &  getTxHash(void) const    { return txHash_;        }
@@ -125,7 +135,9 @@ public:
    bool                isSentToSelf(void) const { return isSentToSelf_;  }
    bool                isChangeBack(void) const { return isChangeBack_;  }
 
-   void setAddr20(BinaryData const & bd) { addr20_.copyFrom(bd); }
+   SCRIPT_PREFIX getScriptType(void) const {return (SCRIPT_PREFIX)scrAddr_[0];}
+
+   void setAddr20(BinaryData const & bd) { scrAddr_.copyFrom(bd); }
    void setValid(bool b=true) { isValid_ = b; }
    void changeBlkNum(uint32_t newHgt) {blockNum_ = newHgt; }
       
@@ -138,7 +150,7 @@ public:
 private:
    
 
-   BinaryData       addr20_;
+   BinaryData       scrAddr_;
    int64_t          value_;
    uint32_t         blockNum_;
    BinaryData       txHash_;
@@ -193,7 +205,7 @@ class BtcWallet;
 
 ////////////////////////////////////////////////////////////////////////////////
 //
-// ScrAddress  
+// ScrAddrObj  
 //
 // This class is only for scanning the blockchain (information only).  It has
 // no need to keep track of the public and private keys of various addresses,
@@ -213,17 +225,17 @@ class BtcWallet;
 //
 //
 ////////////////////////////////////////////////////////////////////////////////
-class ScrAddress
+class ScrAddrObj
 {
    friend class BtcWallet;
 public:
 
-   ScrAddress(void) : 
+   ScrAddrObj(void) : 
       scrAddr_(0), firstBlockNum_(0), firstTimestamp_(0), 
       lastBlockNum_(0), lastTimestamp_(0), 
       relevantTxIOPtrs_(0), ledger_(0) {}
 
-   ScrAddress(BinaryData    addr, 
+   ScrAddrObj(BinaryData    addr, 
               uint32_t      firstBlockNum  = UINT32_MAX,
               uint32_t      firstTimestamp = UINT32_MAX,
               uint32_t      lastBlockNum   = 0,
@@ -307,10 +319,10 @@ public:
    ~BtcWallet(void);
 
    /////////////////////////////////////////////////////////////////////////////
-   // addAddress when blockchain rescan req'd, addNewAddress for just-created
-   void addNewAddress(BinaryData addr);
-   void addAddress(ScrAddress const & newAddr);
-   void addAddress(BinaryData    addr, 
+   // addScrAddr when blockchain rescan req'd, addNewScrAddr for just-created
+   void addNewScrAddress(BinaryData addr);
+   void addScrAddress(ScrAddrObj const & newAddr);
+   void addScrAddress(BinaryData    addr, 
                    uint32_t      firstTimestamp = 0,
                    uint32_t      firstBlockNum  = 0,
                    uint32_t      lastTimestamp  = 0,
@@ -319,29 +331,29 @@ public:
    // SWIG has some serious problems with typemaps and variable arg lists
    // Here I just create some extra functions that sidestep all the problems
    // but it would be nice to figure out "typemap typecheck" in SWIG...
-   void addAddress_ScrAddress_(ScrAddress const & newAddr);
+   void addScrAddress_ScrAddrObj_(ScrAddrObj const & newAddr);
 
    // Adds a new address that is assumed to be imported, and thus will
    // require a blockchain scan
-   void addAddress_1_(BinaryData addr);
+   void addScrAddress_1_(BinaryData addr);
 
    // Adds a new address that we claim has never been seen until thos moment,
    // and thus there's no point in doing a blockchain rescan.
-   void addNewAddress_1_(BinaryData addr) {addNewAddress(addr);}
+   void addNewScrAddr_1_(BinaryData addr) {addNewScrAddress(addr);}
 
    // Blockchain rescan will depend on the firstBlockNum input
-   void addAddress_3_(BinaryData    addr, 
+   void addScrAddress_3_(BinaryData    addr, 
                       uint32_t      firstTimestamp,
                       uint32_t      firstBlockNum);
 
    // Blockchain rescan will depend on the firstBlockNum input
-   void addAddress_5_(BinaryData    addr, 
+   void addScrAddress_5_(BinaryData    addr, 
                       uint32_t      firstTimestamp,
                       uint32_t      firstBlockNum,
                       uint32_t      lastTimestamp,
                       uint32_t      lastBlockNum);
 
-   bool hasAddr(BinaryData const & addr20);
+   bool hasScrAddr(BinaryData const & scrAddr);
 
 
    // Scan a Tx for our TxIns/TxOuts.  Override default blk vals if you think
@@ -358,7 +370,7 @@ public:
                      uint32_t    txidx, 
                      Tx &        txref,
                      uint32_t    txoutidx,
-                     ScrAddress& addr);
+                     ScrAddrObj& addr);
 
    LedgerEntry calcLedgerEntryForTx(Tx & tx);
    LedgerEntry calcLedgerEntryForTx(TxRef & txref);
@@ -378,8 +390,8 @@ public:
 
    
    uint32_t     getNumScrAddr(void) const {return scrAddrMap_.size();}
-   ScrAddress & getScrAddrByIndex(uint32_t i) { return *(scrAddrPtrs_[i]); }
-   ScrAddress & getScrAddrByKey(BinaryData const & a) { return scrAddrMap_[a];}
+   ScrAddrObj & getScrAddrByIndex(uint32_t i) { return *(scrAddrPtrs_[i]); }
+   ScrAddrObj & getScrAddrByKey(BinaryData const & a) { return scrAddrMap_[a];}
 
    void     sortLedger(void);
    uint32_t removeInvalidEntries(void);
@@ -402,8 +414,8 @@ public:
    vector<LedgerEntry> & getEmptyLedger(void) { EmptyLedger_.clear(); return EmptyLedger_;}
 
 private:
-   vector<ScrAddress*>          scrAddrPtrs_;
-   map<BinaryData, ScrAddress>  scrAddrMap_;
+   vector<ScrAddrObj*>          scrAddrPtrs_;
+   map<BinaryData, ScrAddrObj>  scrAddrMap_;
    map<OutPoint, TxIOPair>      txioMap_;
 
    vector<LedgerEntry>          ledgerAllAddr_;  
@@ -451,25 +463,6 @@ struct ZeroConfData
 // of the BDM class, and then its public members can be used to access the 
 // block data that is sitting in memory.
 //
-typedef enum
-{
-   BDM_MODE_FULL_BLOCKCHAIN,
-   BDM_MODE_LIGHT_STORAGE,
-   BDM_MODE_NO_STORAGE,
-   BDM_MODE_COUNT
-}  BDM_MODE;
-
-
-typedef enum
-{
-  ADD_BLOCK_SUCCEEDED,
-  ADD_BLOCK_NEW_TOP_BLOCK,
-  ADD_BLOCK_CAUSED_REORG,
-} ADD_BLOCK_RESULT_INDEX;
-
-
-
-class BlockDataManager_LevelDB;
 
 
 
@@ -500,7 +493,7 @@ private:
 
 
    // This is our permanent link to the two databases used
-   InterfaceToLDB* iface_;
+   static InterfaceToLDB* iface_;
 
    
    // Need a separate memory pool just for zero-confirmation transactions
@@ -597,10 +590,7 @@ public:
    bool isInitialized(void) const { return isInitialized_;}
 
    void SetHomeDirLocation(string homeDir);
-   bool SetBlkFileLocation(string   blkdir,
-                           uint32_t blkdigits,
-                           uint32_t blkstartidx,
-                           uint64_t cacheSize=DEFAULT_CACHE_SIZE);
+   bool SetBlkFileLocation(string blkdir);
    void SetLevelDBPaths(string headerPath,
                         string txHintPath,
                         string transientPath);
@@ -631,15 +621,11 @@ public:
    BlockHeader *    getHeaderByHash(BinaryData const & blkHash);
    string           getBlockfilePath(void) {return blkFileDir_;}
 
-   TxRef *          getTxRefPtrByHash(BinaryData const & txHash);
-   Tx               getTxByHash(BinaryData const & txHash);
+   //TxRef *          getTxRefPtrByHash(BinaryData const & txHash);
+   //Tx               getTxByHash(BinaryData const & txHash);
 
-   //////////////////////////////////////////////////////////////////////////
-   // Returns a pointer to the TxRef as it resides in the multimap node
-   // There should only ever be exactly one copy
-   TxRef *          insertTxRef(HashString const & txHash,
-                                FileDataPtr & fdp,
-                                BlockHeader * bhptr=NULL);
+   TxRef            getTxRefByHash(BinaryData const & txHash);
+   Tx               getTxByHash(BinaryData const & txHash);
 
    uint32_t getTopBlockHeight(void) {return getTopBlockHeader().getBlockHeight();}
 
@@ -670,6 +656,7 @@ public:
    bool     walletIsRegistered(BtcWallet & wlt);
    bool     addressIsRegistered(HashString addr160);
    void     insertRegisteredTxIfNew(HashString txHash);
+   void     insertRegisteredTxIfNew(RegisteredTx & regTx);
    void     registeredAddrScan( Tx & theTx );
    void     registeredAddrScan( uint8_t const * txptr,
                                 uint32_t txSize=0,
@@ -717,6 +704,9 @@ public:
    vector<BlockHeader*>    prefixSearchHeaders(BinaryData const & searchStr);
    vector<TxRef*>          prefixSearchTx     (BinaryData const & searchStr);
    vector<BinaryData>      prefixSearchAddress(BinaryData const & searchStr);
+
+   bool addHeadersFirst(BinaryDataRef rawHeader);
+   bool addHeadersFirst(vector<StoredHeader> const & headVect);
 
    // Traverse the blockchain and update the wallet[s] with the relevant Tx data
    // See comments above the scanBlockchainForTx in the .cpp, for more info
@@ -800,9 +790,10 @@ private:
    /////////////////////////////////////////////////////////////////////////////
    bool markTxOutUnspentInSSH( StoredScriptHistory & ssh,
                                BinaryData txOutKey8B,
-                               uint64_t value = uint64_t,
+                               uint64_t value = UINT64_MAX,
                                bool isCoinBase = false,
                                bool isFromSelf = false);
+
    bool markTxOutSpentInSSH(   StoredScriptHistory & ssh,
                                BinaryData txOutKey8B,
                                BinaryData txInKey8B);
@@ -810,6 +801,7 @@ private:
    /////////////////////////////////////////////////////////////////////////////
    bool addMultisigEntryToSSH( StoredScriptHistory & ssh,
                                BinaryData txOutKey8B);
+
    bool removeMultisigEntryFromSSH( StoredScriptHistory & ssh,
                                     BinaryData txOutKey8B);
 

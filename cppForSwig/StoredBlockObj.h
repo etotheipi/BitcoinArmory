@@ -138,70 +138,70 @@ public:
 
    /////////////////////////////////////////////////////////////////////////////
    static BinaryData getBlkDataKeyNoPrefix(uint32_t height, 
-                                    uint8_t  dup);
+                                           uint8_t  dup);
 
    /////////////////////////////////////////////////////////////////////////////
    static BinaryData getBlkDataKeyNoPrefix(uint32_t height, 
-                                    uint8_t  dup,
-                                    uint16_t txIdx);
+                                           uint8_t  dup,
+                                           uint16_t txIdx);
 
    /////////////////////////////////////////////////////////////////////////////
    static BinaryData getBlkDataKeyNoPrefix(uint32_t height, 
-                                    uint8_t  dup,
-                                    uint16_t txIdx,
-                                    uint16_t txOutIdx);
+                                           uint8_t  dup,
+                                           uint16_t txIdx,
+                                           uint16_t txOutIdx);
 
 
 
    /////////////////////////////////////////////////////////////////////////////
    static BLKDATA_TYPE readBlkDataKey( BinaryRefReader & brr,
-                                uint32_t & height,
-                                uint8_t  & dupID);
+                                       uint32_t & height,
+                                       uint8_t  & dupID);
 
    /////////////////////////////////////////////////////////////////////////////
    static BLKDATA_TYPE readBlkDataKey( BinaryRefReader & brr,
-                                uint32_t & height,
-                                uint8_t  & dupID,
-                                uint16_t & txIdx);
+                                       uint32_t & height,
+                                       uint8_t  & dupID,
+                                       uint16_t & txIdx);
 
    /////////////////////////////////////////////////////////////////////////////
    static BLKDATA_TYPE readBlkDataKey( BinaryRefReader & brr,
-                                uint32_t & height,
-                                uint8_t  & dupID,
-                                uint16_t & txIdx,
-                                uint16_t & txOutIdx);
+                                       uint32_t & height,
+                                       uint8_t  & dupID,
+                                       uint16_t & txIdx,
+                                       uint16_t & txOutIdx);
    /////////////////////////////////////////////////////////////////////////////
    static BLKDATA_TYPE readBlkDataKeyNoPrefix( 
-                                BinaryRefReader & brr,
-                                uint32_t & height,
-                                uint8_t  & dupID);
+                                       BinaryRefReader & brr,
+                                       uint32_t & height,
+                                       uint8_t  & dupID);
 
    /////////////////////////////////////////////////////////////////////////////
    static BLKDATA_TYPE readBlkDataKeyNoPrefix( 
-                                BinaryRefReader & brr,
-                                uint32_t & height,
-                                uint8_t  & dupID,
-                                uint16_t & txIdx);
+                                       BinaryRefReader & brr,
+                                       uint32_t & height,
+                                       uint8_t  & dupID,
+                                       uint16_t & txIdx);
 
    /////////////////////////////////////////////////////////////////////////////
    static BLKDATA_TYPE readBlkDataKeyNoPrefix( 
-                                BinaryRefReader & brr,
-                                uint32_t & height,
-                                uint8_t  & dupID,
-                                uint16_t & txIdx,
-                                uint16_t & txOutIdx);
+                                       BinaryRefReader & brr,
+                                       uint32_t & height,
+                                       uint8_t  & dupID,
+                                       uint16_t & txIdx,
+                                       uint16_t & txOutIdx);
    
 
 
    static string getPrefixName(uint8_t prefixInt);
    static string getPrefixName(DB_PREFIX pref);
 
-   static bool checkPrefixByte(BinaryRefReader brr, 
-                        DB_PREFIX prefix,
-                        bool rewindWhenDone=false);
+   static bool checkPrefixByte(       BinaryRefReader brr, 
+                                      DB_PREFIX prefix,
+                                      bool rewindWhenDone=false);
    static bool checkPrefixByteWError( BinaryRefReader brr, 
-                               DB_PREFIX prefix,
-                               bool rewindWhenDone);
+                                      DB_PREFIX prefix,
+                                      bool rewindWhenDone);
 
    static void setArmoryDbType(ARMORY_DB_TYPE adt) { armoryDbType_ = adt; }
    static void setDbPruneType( DB_PRUNE_TYPE dpt)  { dbPruneType_  = dpt; }
@@ -243,8 +243,8 @@ public:
       topBlkHgt_(UINT32_MAX),
       topBlkHash_(0),
       armoryVer_(ARMORY_DB_VERSION),
-      armoryType_(DBUtils::getArmoryDbType()),
-      pruneType_(DBUtils::getDbPruneType())   {}
+      armoryType_(DBUtils.getArmoryDbType()),
+      pruneType_(DBUtils.getDbPruneType())   {}
 
    bool isInitialized(void) const { return magic_.getSize() > 0; }
 
@@ -396,7 +396,7 @@ public:
 
 
    BinaryData           thisHash_;
-   BinaryData           lockTime_;
+   uint32_t             lockTime_;
 
    BinaryData           dataCopy_;
    bool                 isFragged_;
@@ -490,7 +490,6 @@ class StoredScriptHistory
 public:
 
    StoredScriptHistory(void) : uniqueKey_(0), 
-                               scriptType_(SCRIPT_PREFIX_NONSTD),
                                version_(UINT32_MAX),
                                alreadyScannedUpToBlk_(0) {}
                                
@@ -503,10 +502,10 @@ public:
    void       unserializeDBValue(BinaryDataRef      bd);
    BinaryData   serializeDBValue(void) const;
 
-   BinaryData getDBKey(bool withPrefix=true) const;
+   BinaryData    getDBKey(bool withPrefix=true) const;
+   SCRIPT_PREFIX getScriptType(void) const;
 
    BinaryData     uniqueKey_;  // includes the prefix byte!
-   SCRIPT_PREFIX  scriptType_;
    uint32_t       version_;
    uint32_t       alreadyScannedUpToBlk_;
 
@@ -561,7 +560,7 @@ public:
    BinaryDataRef getHint(uint32_t i) const { return dbKeyList_[i].getRef(); }
 
    void setPreferredTx(uint32_t height, uint8_t dupID, uint16_t txIndex) 
-      { preferredDBKey_ = DBUtils::getBlkDataKeyNoPrefix(height,dupID,txIndex); }
+      { preferredDBKey_ = DBUtils.getBlkDataKeyNoPrefix(height,dupID,txIndex); }
    void setPreferredTx(BinaryData dbKey6B_) { preferredDBKey_ = dbKey6B_; }
 
    void       unserializeDBValue(BinaryRefReader & brr);
