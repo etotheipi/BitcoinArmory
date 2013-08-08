@@ -3,20 +3,18 @@ Created on Jul 29, 2013
 
 @author: Andy
 '''
-import unittest
-
-from armoryengine import isASCII, BinaryUnpacker, toBytes, DEFAULT_ENCODING,\
-   toUnicode, toPreferred, lenBytes, hex_to_binary, hash256, BIGENDIAN,\
-   LITTLEENDIAN, coin2str, coin2str_approx, NegativeValueError,\
-   TooMuchPrecisionError, binary_to_hex, TheBDM, BinaryPacker, UINT32, FLOAT,\
-   VAR_STR, VAR_INT, INT64, INT32, INT16, INT8, UINT64, UINT8, UINT16,\
-   BINARY_CHUNK, PackerError, UnpackerError, FiniteField, FiniteFieldError,\
-   SplitSecret, ReconstructSecret, PyTx
-import locale
-import armoryengine
-import hashlib
-import time
 from random import shuffle
+from utilities.ArmoryUtils import isASCII, toBytes, toUnicode, toPreferred, \
+   lenBytes, BIGENDIAN, hex_to_binary, LITTLEENDIAN, hash256, NegativeValueError, \
+   TooMuchPrecisionError, hex_switchEndian, str2coin
+from utilities.BinaryPacker import BinaryPacker, UINT8, UINT16, UINT32, UINT64, \
+   INT8, INT16, INT32, INT64, VAR_INT, VAR_STR, FLOAT, BINARY_CHUNK, PackerError
+from utilities.BinaryUnpacker import BinaryUnpacker, UnpackerError
+import hashlib
+import locale
+import time
+import unittest
+import utilities.ArmoryUtils
 
 UNICODE_STRING = u'unicode string'  
 NON_ASCII_STRING = '\xff\x00 Non-ASCII string \xff\x00'
@@ -148,11 +146,11 @@ class ArmoryEngineTest(unittest.TestCase):
       self.callTestFunction('coin2str_approx','      988       ', LONG_TEST_NUMBER)
       self.callTestFunction('coin2str_approx','     -988       ', LONG_TEST_NUMBER * -1)
       self.callTestFunction('str2coin', LONG_TEST_NUMBER, '987.53178900')
-      self.assertRaises(ValueError, armoryengine.str2coin, '    ')
-      self.assertRaises(NegativeValueError, armoryengine.str2coin, '-1', False)
+      self.assertRaises(ValueError, str2coin, '    ')
+      self.assertRaises(NegativeValueError, str2coin, '-1', False)
       self.callTestFunction('str2coin', -100000000, '-1', True)
-      self.assertRaises(NegativeValueError, armoryengine.str2coin, '-1.1', False)
-      self.assertRaises(TooMuchPrecisionError, armoryengine.str2coin, '.1111', True, 2, False)
+      self.assertRaises(NegativeValueError, str2coin, '-1.1', False)
+      self.assertRaises(TooMuchPrecisionError, str2coin, '.1111', True, 2, False)
       self.callTestFunction('str2coin', 11110000, '.1111', True, 8, True)
       self.callTestFunction('sha1', hashlib.new('sha1', bstr).digest(), bstr)
       self.callTestFunction('sha512', hashlib.new('sha512', bstr).digest(), bstr)
@@ -165,7 +163,7 @@ class ArmoryEngineTest(unittest.TestCase):
       Provide a function name, inputs and some known outputs
       Prints a pass/fail string if the outputs match
       """
-      fn = getattr(armoryengine, fnName)
+      fn = getattr(utilities.ArmoryUtils, fnName)
       actualOutput = fn(*args,**kwargs)
       self.assertAlmostEqual(expectedOutput, actualOutput, 4, \
          '\n\t' + '___Inputs___:' + str(args) + '\n\t' + '___ExpOut___:' + \

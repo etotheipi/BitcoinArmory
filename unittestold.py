@@ -758,8 +758,8 @@ if Test_EncryptedAddress:
    addr20  = pubKey.getHash160()
 
    # We pretend that we plugged some passphrases through a KDF
-   fakeKdfOutput1 = SecureBinaryData( hex_to_binary('11'*32) )
-   fakeKdfOutput2 = SecureBinaryData( hex_to_binary('22'*32) )
+   FAKE_KDF_OUTPUT1 = SecureBinaryData( hex_to_binary('11'*32) )
+   FAKE_KDF_OUTPUT2 = SecureBinaryData( hex_to_binary('22'*32) )
 
    # Test serializing an empty address object:  we'll be using this
    # in other methods to determine the length of an address, which
@@ -791,7 +791,7 @@ if Test_EncryptedAddress:
    # Now try locking and unlock addresses
    print '\nTesting address locking'
    testAddr.enableKeyEncryption(theIV)
-   testAddr.lock(fakeKdfOutput1)
+   testAddr.lock(FAKE_KDF_OUTPUT1)
    if debugPrint: testAddr.pprint(indent=' '*3)
 
    print '\nTest serializing locked address',
@@ -801,7 +801,7 @@ if Test_EncryptedAddress:
    printpassorfail(serializedAddr == serializedRetest)
 
    print '\nTesting address unlocking'
-   testAddr.unlock(fakeKdfOutput1)
+   testAddr.unlock(FAKE_KDF_OUTPUT1)
    if debugPrint: testAddr.pprint(indent=' '*3)
 
    print '\nTest serializing encrypted-but-unlocked address',
@@ -815,7 +815,7 @@ if Test_EncryptedAddress:
    print '  OP(None --> Key1)'
    testAddr = PyBtcAddress().createFromPlainKeyData(privKey, addr20, publicKey65=pubKey)
    testAddr.enableKeyEncryption(theIV)
-   testAddr.changeEncryptionKey(None, fakeKdfOutput1)
+   testAddr.changeEncryptionKey(None, FAKE_KDF_OUTPUT1)
    if debugPrint: testAddr.pprint(indent=' '*3)
 
    # Save off this data for a later test
@@ -825,13 +825,13 @@ if Test_EncryptedAddress:
    plainPubKey1  = testAddr.binPublicKey65
 
    print '\n  OP(Key1 --> Unencrypted)'
-   testAddr.changeEncryptionKey(fakeKdfOutput1, None)
+   testAddr.changeEncryptionKey(FAKE_KDF_OUTPUT1, None)
    if debugPrint: testAddr.pprint(indent=' '*3)
       
    print '\n  OP(Unencrypted --> Key2)'
    if not testAddr.isKeyEncryptionEnabled():
       testAddr.enableKeyEncryption(theIV)
-   testAddr.changeEncryptionKey(None, fakeKdfOutput2)
+   testAddr.changeEncryptionKey(None, FAKE_KDF_OUTPUT2)
    if debugPrint: testAddr.pprint(indent=' '*3)
 
    # Save off this data for a later test
@@ -841,16 +841,16 @@ if Test_EncryptedAddress:
    plainPubKey2  = testAddr.binPublicKey65
 
    print '\n  OP(Key2 --> Key1)'
-   testAddr.changeEncryptionKey(fakeKdfOutput2, fakeKdfOutput1)
+   testAddr.changeEncryptionKey(FAKE_KDF_OUTPUT2, FAKE_KDF_OUTPUT1)
    if debugPrint: testAddr.pprint(indent=' '*3)
 
    print '\n  OP(Key1 --> Lock --> Key2)'
-   testAddr.lock(fakeKdfOutput1)
-   testAddr.changeEncryptionKey(fakeKdfOutput1, fakeKdfOutput2)
+   testAddr.lock(FAKE_KDF_OUTPUT1)
+   testAddr.changeEncryptionKey(FAKE_KDF_OUTPUT1, FAKE_KDF_OUTPUT2)
    if debugPrint: testAddr.pprint(indent=' '*3)
 
    print '\n  OP(Key2 --> Lock --> Unencrypted)'
-   testAddr.changeEncryptionKey(fakeKdfOutput2, None)
+   testAddr.changeEncryptionKey(FAKE_KDF_OUTPUT2, None)
    if debugPrint: testAddr.pprint(indent=' '*3)
    
    print '\nEncryption Key Tests: '
@@ -866,7 +866,7 @@ if Test_EncryptedAddress:
    if debugPrint: testAddr.pprint(indent=' '*3)
 
    print '\n  OP(EncrAddr --> Unlock1)'
-   testAddr.unlock(fakeKdfOutput1)
+   testAddr.unlock(FAKE_KDF_OUTPUT1)
    if debugPrint: testAddr.pprint(indent=' '*3)
 
    print '\n  OP(Unlock1 --> Lock1)'
@@ -874,7 +874,7 @@ if Test_EncryptedAddress:
    if debugPrint: testAddr.pprint(indent=' '*3)
 
    print '\n  OP(Lock1 --> Lock2)'
-   testAddr.changeEncryptionKey(fakeKdfOutput1, fakeKdfOutput2)
+   testAddr.changeEncryptionKey(FAKE_KDF_OUTPUT1, FAKE_KDF_OUTPUT2)
    if debugPrint: testAddr.pprint(indent=' '*3)
 
    print '\nTest serializing locked wallet from pre-encrypted data',
@@ -969,16 +969,16 @@ if Test_EncryptedAddress:
    printpassorfail(serializedAddr == serializedRetest)
 
    print '\n  OP(addr[0] locked)'
-   addr0.lock(fakeKdfOutput1)
+   addr0.lock(FAKE_KDF_OUTPUT1)
    if debugPrint: addr0.pprint(indent=' '*3)
 
    print '\n  OP(addr[0] w/Key --> addr[1])'
-   addr1 = addr0.extendAddressChain(fakeKdfOutput1, newIV=theIV)
+   addr1 = addr0.extendAddressChain(FAKE_KDF_OUTPUT1, newIV=theIV)
    if debugPrint: addr1.pprint(indent=' '*3)
 
    print '\n  OP(addr[1] w/Key --> addr[2])'
-   addr2 = addr1.extendAddressChain(fakeKdfOutput1, newIV=theIV)
-   addr2.unlock(fakeKdfOutput1)
+   addr2 = addr1.extendAddressChain(FAKE_KDF_OUTPUT1, newIV=theIV)
+   addr2.unlock(FAKE_KDF_OUTPUT1)
    priv2a = addr2.binPrivKey32_Plain.copy()
    addr2.lock()
    if debugPrint: addr2.pprint(indent=' '*3)
@@ -999,7 +999,7 @@ if Test_EncryptedAddress:
                                           willBeEncr=True, IV16=theIV)
    addr0.markAsRootAddr(chaincode)
    print '\n  OP(addr[0] locked)'
-   addr0.lock(fakeKdfOutput1)
+   addr0.lock(FAKE_KDF_OUTPUT1)
    if debugPrint: addr0.pprint(indent=' '*3)
 
    print '\n  OP(addr[0] locked --> addr[1] locked)'
@@ -1020,7 +1020,7 @@ if Test_EncryptedAddress:
    serializedRetest = retestAddr.serialize()
    printpassorfail(serializedAddr == serializedRetest)
 
-   addr2.unlock(fakeKdfOutput1)
+   addr2.unlock(FAKE_KDF_OUTPUT1)
    priv2b = addr2.binPrivKey32_Plain.copy()
    print '\n  OP(addr[2] locked --> unlocked)'
    if debugPrint: addr2.pprint(indent=' '*3)
