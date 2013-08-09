@@ -6,8 +6,9 @@ Created on Aug 6, 2013
 import sys
 sys.argv.append('--nologging')
 from CppBlockUtils import CryptoECDSA, SecureBinaryData
-from armoryengine import PyBtcAddress, UnserializeError
-from utilities.ArmoryUtils import hex_to_binary, RightNow
+from armoryengine import PyBtcAddress, UnserializeError, PyScriptProcessor
+from utilities.ArmoryUtils import hex_to_binary, RightNow, int_to_binary,\
+   checkAddrStrValid, hash256
 import unittest
 
 INIT_VECTOR = '77'*16
@@ -368,6 +369,26 @@ class PyBtcAddressTest(unittest.TestCase):
       testAddr.lock(FAKE_KDF_OUTPUT1)
       self.assertTrue(testAddr.verifyEncryptionKey(FAKE_KDF_OUTPUT1))
       self.assertFalse(testAddr.verifyEncryptionKey(FAKE_KDF_OUTPUT2))
+      
+   def testSimpleAddress(self):
+      # Execute the tests with Satoshi's public key from the Bitcoin specification page
+      satoshiPubKeyHex = '04fc9702847840aaf195de8442ebecedf5b095cdbb9bc716bda9110971b28a49e0ead8564ff0db22209e0374782c093bb899692d524e9d6a6956e7c5ecbcd68284'
+      satoshiAddrStr = '1AGRxqDa5WjUKBwHB9XYEjmkv1ucoUUy1s'
+      addrPiece1Hex = '65a4358f4691660849d9f235eb05f11fabbd69fa'
+      addrPiece2Hex = 'd8b2307a'
+      addrPiece1Bin = hex_to_binary(addrPiece1Hex)
+      addrPiece2Bin = hex_to_binary(addrPiece2Hex)
+
+      saddr = PyBtcAddress().createFromPublicKey( hex_to_binary(satoshiPubKeyHex) )
+      print '\tAddr calc from pubkey: ', saddr.calculateAddrStr()
+      self.assertTrue(checkAddrStrValid(satoshiAddrStr))
+   
+      testAddr = PyBtcAddress().createFromPlainKeyData(PRIVATE_KEY, ADDRESS_20, publicKey65=PUBLIC_KEY)
+      msg = int_to_binary(39029348428)
+      theHash = hash256(msg)
+      derSig = testAddr.generateDERSignature(theHash)
+      # Testing ECDSA signing & verification -- arbitrary binary strings:
+      self.assertTrue(testAddr.verifyDERSignature( theHash, derSig))
       
 if __name__ == "__main__":
    #import sys;sys.argv = ['', 'Test.testName']

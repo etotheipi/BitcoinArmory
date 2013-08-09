@@ -20,7 +20,8 @@ from subprocess import Popen, PIPE
 from sys import argv
 from utilities.BinaryPacker import BinaryPacker
 from utilities.BinaryUnpacker import BinaryUnpacker
-from utilities.ArmoryUtils import ARMORY_HOME_DIR, ARMORY_LOG_FILE, ARMORY_RPC_PORT, \
+from utilities.Timer import Timer, TimeThisFunction
+from utilities.ArmoryUtils import ARMORY_HOME_DIR, ARMORY_RPC_PORT, \
    toPreferred, OS_NAME, OS_VARIANT, BTC_HOME_DIR, getVersionString, \
    USER_HOME_DIR, ARMORY_LOG_FILE, LOGINFO, OS_WINDOWS, LOGWARN, OS_LINUX, RightNow, \
    LOGEXCEPT, LOGERROR, OS_MACOSX, NETWORKS, RightNowUTC, UINT32_MAX, hash256, \
@@ -1032,6 +1033,7 @@ class PyBtcAddress(object):
 
 
    #############################################################################
+   @TimeThisFunction
    def generateDERSignature(self, binMsg, secureKdfOutput=None):
       """
       This generates a DER signature for this address using the private key.
@@ -1041,8 +1043,6 @@ class PyBtcAddress(object):
       If an encryption key IS provided, then we unlock the address just long
       enough to sign the message and then re-lock it
       """
-      
-      TimerStart('generateDERSignature')
 
       if not self.hasPrivKey():
          raise KeyDataError, 'Cannot sign for address without private key!'
@@ -1084,7 +1084,6 @@ class PyBtcAddress(object):
       finally:
          # Always re-lock/cleanup after unlocking, even after an exception.
          # If locking triggers an error too, we will just skip it.
-         TimerStop('generateDERSignature')
          try:
             if secureKdfOutput!=None:
                self.lock(secureKdfOutput)
@@ -1096,9 +1095,8 @@ class PyBtcAddress(object):
 
 
    #############################################################################
+   @TimeThisFunction
    def verifyDERSignature(self, binMsgVerify, derSig):
-
-      TimerStart('verifyDERSignature')
       if not self.hasPubKey():
          raise KeyDataError, 'No public key available for this address!'
 
@@ -1127,7 +1125,6 @@ class PyBtcAddress(object):
       secMsg    = SecureBinaryData(binMsgVerify)
       secSig    = SecureBinaryData(r[-32:] + s[-32:])
       secPubKey = SecureBinaryData(self.binPublicKey65)
-      TimerStop('verifyDERSignature')
       return CryptoECDSA().VerifyData(secMsg, secSig, secPubKey)
 
    #############################################################################
@@ -1144,6 +1141,7 @@ class PyBtcAddress(object):
       return (self.chainIndex==-1)
 
    #############################################################################
+   @TimeThisFunction
    def extendAddressChain(self, secureKdfOutput=None, newIV=None):
       """
       We require some fairly complicated logic here, due to the fact that a
@@ -1155,7 +1153,6 @@ class PyBtcAddress(object):
       data they will need to create the key, to be applied on next unlock.
       """
       LOGDEBUG('Extending address chain')
-      TimerStart('extendAddressChain')
       if not self.chaincode.getSize() == 32:
          raise KeyDataError, 'No chaincode has been defined to extend chain'
 
@@ -1201,7 +1198,6 @@ class PyBtcAddress(object):
             if not wasLocked:
                newAddr.unlock(secureKdfOutput)
                self.unlock(secureKdfOutput)
-         TimerStop('extendAddressChain')
          return newAddr
       else:
          # We are extending the address based solely on its public key
@@ -1238,7 +1234,6 @@ class PyBtcAddress(object):
                newAddr.createPrivKeyNextUnlock_IVandKey[0] = self.binInitVect16.copy()
                newAddr.createPrivKeyNextUnlock_IVandKey[1] = self.binPrivKey32_Encr.copy()
                newAddr.createPrivKeyNextUnlock_ChainDepth  = 1
-         TimerStop('extendAddressChain')
          return newAddr
 
 
@@ -2885,10 +2880,8 @@ class PyScriptProcessor(object):
       elif isinstance(txOldData, str):
          self.script2 = str(txOldData)
 
-
-
+   @TimeThisFunction
    def verifyTransactionValid(self, txOldData=None, txNew=None, txInIndex=-1):
-      TimerStart('psp.verifyTransactionValid')
       if txOldData and txNew and txInIndex != -1:
          self.setTxObjects(txOldData, txNew, txInIndex)
       else:
@@ -2911,7 +2904,6 @@ class PyScriptProcessor(object):
       if not exitCode2 == SCRIPT_NO_ERROR:
          raise VerifyScriptError, ('Second script failed!  Exit Code: ' + str(exitCode2))
 
-      TimerStop('psp.verifyTransactionValid')
       return self.stack[-1]==1
 
 
@@ -4150,14 +4142,13 @@ def PyEvalCoinSelect(utxoSelectList, targetOutVal, minFee, weights=WEIGHTS):
 
 
 ################################################################################
+@TimeThisFunction
 def PySelectCoins(unspentTxOutInfo, targetOutVal, minFee=0, numRand=10, margin=CENT):
    """
    Intense algorithm for coin selection:  computes about 30 different ways to
    select coins based on the desired target output and the min tx fee.  Then
    ranks the various solutions and picks the best one
    """
-   
-   TimerStart('PySelectCoins')
 
    if sum([u.getValue() for u in unspentTxOutInfo]) < targetOutVal:
       return []
@@ -4249,9 +4240,6 @@ def PySelectCoins(unspentTxOutInfo, targetOutVal, minFee=0, numRand=10, margin=C
          finalSelection.append(other) 
          if len(finalSelection)>=IDEAL_NUM_INPUTS:
             break
-
-   TimerStop('PySelectCoins')
-
    return finalSelection
 
 
@@ -5098,6 +5086,7 @@ class PyBtcWallet(object):
       self.doBlockchainSync = syncYes
 
    #############################################################################
+   @TimeThisFunction
    def syncWithBlockchain(self, startBlk=None):
       """
       Will block until getTopBlockHeader() returns, which could be a while.
@@ -5109,9 +5098,6 @@ class PyBtcWallet(object):
       to use the BDM methods directly, not the queue.  This will deadlock 
       otherwise.
       """
-
-      TimerStart('syncWithBlockchain')
-
       if TheBDM.getBDMState() in ('Offline', 'Uninitialized'):
          LOGWARN('Called syncWithBlockchain but BDM is %s', TheBDM.getBDMState())
          return
@@ -5133,12 +5119,8 @@ class PyBtcWallet(object):
          LOGERROR('Blockchain-sync requested, but current wallet')
          LOGERROR('is set to BLOCKCHAIN_DONOTUSE')
 
-
-      TimerStop('syncWithBlockchain')
-
-
-
    #############################################################################
+   @TimeThisFunction
    def syncWithBlockchainLite(self, startBlk=None):
       """
       This is just like a regular sync, but it won't rescan the whole blockchain
@@ -5146,8 +5128,6 @@ class PyBtcWallet(object):
       still only scan what the blockchain picked up on the last scan.  Use the
       non-lite version to allow a full scan.
       """
-
-      TimerStart('syncWithBlockchain')
 
       if TheBDM.getBDMState() in ('Offline', 'Uninitialized'):
          LOGWARN('Called syncWithBlockchainLite but BDM is %s', TheBDM.getBDMState())
@@ -5169,10 +5149,6 @@ class PyBtcWallet(object):
       else:
          LOGERROR('Blockchain-sync requested, but current wallet')
          LOGERROR('is set to BLOCKCHAIN_DONOTUSE')
-
-
-      TimerStop('syncWithBlockchain')
-
 
    #############################################################################
    def getCommentForAddrBookEntry(self, abe):
@@ -5723,6 +5699,7 @@ class PyBtcWallet(object):
 
 
    #############################################################################
+   @TimeThisFunction
    def freshImportFindHighestIndex(self, stepSize=None):
       """ 
       This is much like detectHighestUsedIndex, except this will extend the
@@ -6492,10 +6469,8 @@ class PyBtcWallet(object):
       return (dtype, hashVal, binData)
 
    #############################################################################
+   @TimeThisFunction
    def readWalletFile(self, wltpath, verifyIntegrity=True, doScanNow=False):
-
-      TimerStart('readWalletFile')
-
       if not os.path.exists(wltpath):
          raise FileExistsError, "No wallet file:"+wltpath
 
@@ -6566,9 +6541,6 @@ class PyBtcWallet(object):
       if getVersionInt(self.version) < getVersionInt(PYBTCWALLET_VERSION):
          LOGERROR('Wallets older than version 1.35 no loger supported!')
          return
-
-      TimerStop('readWalletFile')
-
       return self
 
 
@@ -10535,14 +10507,12 @@ class BlockDataManagerThread(threading.Thread):
 
 
    #############################################################################
+   @TimeThisFunction
    def __startLoadBlockchain(self):
       """
       This should only be called by the threaded BDM, and thus there should
       never be a conflict.  
       """
-
-      TimerStart('__startLoadBlockchain')
-
       if self.blkMode == BLOCKCHAINMODE.Rescanning:
          LOGERROR('Blockchain is already scanning.  Was this called already?')         
          return
@@ -10592,11 +10562,9 @@ class BlockDataManagerThread(threading.Thread):
          #time.sleep(20) 
 
       self.bdm.scanBlockchainForTx(self.masterCppWallet)
-
-      TimerStop('__startLoadBlockchain')
-
       
    #############################################################################
+   @TimeThisFunction
    def __startRescanBlockchain(self):
       """
       This should only be called by the threaded BDM, and thus there should
@@ -10630,6 +10598,7 @@ class BlockDataManagerThread(threading.Thread):
 
 
    #############################################################################
+   @TimeThisFunction
    def __startRecoveryRescan(self, pywlt):
       """
       This should only be called by the threaded BDM, and thus there should
@@ -10666,9 +10635,7 @@ class BlockDataManagerThread(threading.Thread):
       pywlt.calledFromBDM = True
       
       # Do the scan...
-      TimerStart('WalletRecoveryScan')
       pywlt.freshImportFindHighestIndex()
-      TimerStop('WalletRecoveryScan')
 
       # Unset flag when done
       pywlt.calledFromBDM = prevCalledFromBDM
@@ -10681,6 +10648,7 @@ class BlockDataManagerThread(threading.Thread):
    
 
    #############################################################################
+   @TimeThisFunction
    def __readBlockfileUpdates(self):
       ''' 
       This method can be blocking... it always has been without a problem,
@@ -10697,6 +10665,7 @@ class BlockDataManagerThread(threading.Thread):
          
 
    #############################################################################
+   @TimeThisFunction
    def __updateWalletsAfterScan(self):
       """
       This will actually do a scan regardless of whether it is currently
@@ -10789,6 +10758,10 @@ class BlockDataManagerThread(threading.Thread):
             return name   
 
    #############################################################################
+   @TimeThisFunction
+   def createAddressBook(self, cppWlt):
+      return cppWlt.createAddressBook()
+
    def run(self):
       """
       This thread runs in an infinite loop, waiting for things to show up
@@ -10912,42 +10885,27 @@ class BlockDataManagerThread(threading.Thread):
 
             elif cmd == BDMINPUTTYPE.AddrBookRequested:
                cppWlt = inputTuple[3] 
-               TimerStart('createAddressBook')
-               output = cppWlt.createAddressBook()
-               TimerStop('createAddressBook')
+               output = self.createAddressBook(cppWlt)
                                              
             elif cmd == BDMINPUTTYPE.UpdateWallets:
-               TimerStart('updateWltsAfterScan')
                self.__updateWalletsAfterScan()
-               TimerStop('updateWltsAfterScan')
 
             elif cmd == BDMINPUTTYPE.StartScanRequested:
                LOGINFO('Start Initial BDM Load Requested')
                
-               TimerStart('loadBlockchain')
                self.__startLoadBlockchain()
-               TimerStop('loadBlockchain')
 
             elif cmd == BDMINPUTTYPE.RescanRequested:
                LOGINFO('Start Rescan Requested')
-               TimerStart('rescanBlockchain')
                self.__startRescanBlockchain()
-               TimerStop('rescanBlockchain')
 
             elif cmd == BDMINPUTTYPE.WalletRecoveryScan:
                LOGINFO('Wallet Recovery Scan Requested')
                pywlt = inputTuple[3]
-               TimerStart('recoveryRescan')
                self.__startRecoveryRescan(pywlt)
-               TimerStop('recoveryRescan')
                
-
             elif cmd == BDMINPUTTYPE.ReadBlkUpdate:
-               
-               TimerStart('readBlkFileUpdate')
                output = self.__readBlockfileUpdates()
-               TimerStop('readBlkFileUpdate')
-               
 
             elif cmd == BDMINPUTTYPE.Passthrough:
                # If the caller is waiting, then it is notified by output
@@ -11031,96 +10989,7 @@ else:
 
    # Also load the might-be-needed SatoshiDaemonManager
    TheSDM = SatoshiDaemonManager()
-
-
-
-
-
-
-
-################################################################################
-#  
-#  Keep track of lots of different timers:
-#
-#     Key:    timerName  
-#     Value:  [cumulTime, numStart, lastStart, isRunning]
-#
-TimerMap = {}
-
-def TimerStart(timerName):
-   if not TimerMap.has_key(timerName):
-      TimerMap[timerName] = [0, 0, 0, False]
-
-   timerEntry = TimerMap[timerName]
-   timerEntry[1] += 1
-   timerEntry[2]  = RightNow()
-   timerEntry[3]  = True
-
-def TimerStop(timerName):
-   if not TimerMap.has_key(timerName):
-      LOGWARN('Requested stop timer that does not exist! (%s)' % timerName)
-      return
-
-   if not TimerMap[timerName][3]:
-      LOGWARN('Requested stop timer that is not running! (%s)' % timerName)
-      return
-
-   timerEntry = TimerMap[timerName]
-   timerEntry[0] += RightNow() - timerEntry[2]
-   timerEntry[2]  = 0
-   timerEntry[3]  = False
-
-
-
-def TimerReset(timerName):
-   if not TimerMap.has_key(timerName):
-      LOGERROR('Requested reset timer that does not exist! (%s)' % timerName)
-
-   # Even if it didn't exist, it will be created now
-   TimerMap[timerName] = [0, 0, 0, False]
-
-
-def ReadTimer(timerName):
-   if not TimerMap.has_key(timerName):
-      LOGERROR('Requested read timer that does not exist! (%s)' % timerName)
-      return
-
-   timerEntry = TimerMap[timerName]
-   return timerEntry[0] + (RightNow() - timerEntry[2])
    
-
-def PrintTimings():
-   print 'Timings:  '.ljust(30), 
-   print 'nCall'.rjust(13),
-   print 'cumulTime'.rjust(13),
-   print 'avgTime'.rjust(13)
-   print '-'*70
-   for tname,quad in TimerMap.iteritems():
-      print ('%s' % tname).ljust(30), 
-      print ('%d' % quad[1]).rjust(13),
-      print ('%0.6f' % quad[0]).rjust(13),
-      avg = quad[0]/quad[1]
-      print ('%0.6f' % avg).rjust(13)
-   print '-'*70
-      
-
-def SaveTimingsCSV(fname):
-   f = open(fname, 'w')
-   f.write( 'TimerName,')
-   f.write( 'nCall,')
-   f.write( 'cumulTime,')
-   f.write( 'avgTime\n\n')
-   for tname,quad in TimerMap.iteritems():
-      f.write('%s,' % tname)
-      f.write('%d,' % quad[1])
-      f.write('%0.6f,' % quad[0])
-      avg = quad[0]/quad[1]
-      f.write('%0.6f\n' % avg)
-   f.write('\n\nNote: timings may be incorrect if errors '
-                      'were triggered in the timed functions')
-   print 'Saved timings to file: %s' % fname
-   
-
 def EstimateCumulativeBlockchainSize(blkNum):
    # I tried to make a "static" variable here so that 
    # the string wouldn't be parsed on every call, but 

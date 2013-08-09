@@ -22,7 +22,6 @@ UNICODE_STRING = u'unicode string'
 NON_ASCII_STRING = '\xff\x00 Non-ASCII string \xff\x00'
 ASCII_STRING = 'ascii string'
 LONG_TEST_NUMBER = 98753178900
-RightNow = time.time
 
 class ArmoryEngineTest(unittest.TestCase):
 
