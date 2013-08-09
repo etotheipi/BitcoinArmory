@@ -3,6 +3,8 @@ Created on Jul 29, 2013
 
 @author: Andy
 '''
+import sys
+sys.argv.append('--nologging')
 from random import shuffle
 from utilities.ArmoryUtils import isASCII, toBytes, toUnicode, toPreferred, \
    lenBytes, BIGENDIAN, hex_to_binary, LITTLEENDIAN, hash256, NegativeValueError, \
@@ -23,6 +25,7 @@ LONG_TEST_NUMBER = 98753178900
 RightNow = time.time
 
 class ArmoryEngineTest(unittest.TestCase):
+
 
    def testIsASCII(self):
       self.assertTrue(isASCII(ASCII_STRING))

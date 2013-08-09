@@ -11207,11 +11207,3 @@ def EstimateCumulativeBlockchainSize(blkNum):
       extraOnTop = (blkNum - bend) * rate
       return dend+extraOnTop
       
-         
-         
-         
-         
-         
-         
-         
-

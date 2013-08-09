@@ -3,6 +3,8 @@ Created on Aug 6, 2013
 
 @author: Andy
 '''
+import sys
+sys.argv.append('--nologging')
 from CppBlockUtils import CryptoECDSA, SecureBinaryData
 from armoryengine import PyBtcAddress, UnserializeError
 from utilities.ArmoryUtils import hex_to_binary, RightNow
@@ -33,8 +35,7 @@ class PyBtcAddressTest(unittest.TestCase):
 
    def setUp(self):
       pass
-
-   
+      
    def tearDown(self):
       pass
 
@@ -168,7 +169,7 @@ class PyBtcAddressTest(unittest.TestCase):
       self.assertEqual(testAddr.binPrivKey32_Plain.toHexStr(), '')
       self.assertEqual(testAddr.binPrivKey32_Encr.toHexStr(), TEST_ADDR1_PRIV_KEY_ENCR2)
          
-      print '\nTest serializing locked wallet from pre-encrypted data',
+      # Test serializing locked wallet from pre-encrypted data'
       serializedAddr = testAddr.serialize()
       retestAddr = PyBtcAddress().unserialize(serializedAddr)
       serializedRetest = retestAddr.serialize()

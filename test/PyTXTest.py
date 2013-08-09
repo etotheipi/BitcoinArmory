@@ -3,6 +3,8 @@ Created on Aug 4, 2013
 
 @author: Andy
 '''
+import sys
+sys.argv.append('--nologging')
 import unittest
 from armoryengine import hex_to_binary, PyTx, BinaryUnpacker, PyBlock,\
    binary_to_hex, hex_to_int, PyBtcAddress, PyCreateAndSignTx, PyTxIn,\
