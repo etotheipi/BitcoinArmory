@@ -35,7 +35,6 @@ void BlockHeader::unserialize(uint8_t const * ptr)
    isOrphan_ = true;
    //txPtrList_ = vector<TxRef*>(0);
    numTx_ = UINT32_MAX;
-   wholeBlockSize_ = UINT32_MAX;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -937,15 +936,12 @@ bool TxIOPair::setTxInZC(Tx* tx, uint32_t index)
 }
 
 //////////////////////////////////////////////////////////////////////////////
-bool TxIOPair::setTxOut(TxRef  txref, uint32_t index)
+bool TxIOPair::setTxOut(TxRef txref, uint32_t index)
 {
    txRefOfOutput_   = txref; 
    indexOfOutput_   = index;
    txOfOutputZC_    = NULL;
    indexOfOutputZC_ = 0;
-   if(hasTxOut())
-      amount_ = getTxOut().getValue();
-
    return true;
 }
 
@@ -960,8 +956,6 @@ bool TxIOPair::setTxOutZC(Tx* tx, uint32_t index)
       indexOfOutput_   = 0;
       txOfOutputZC_    = tx;
       indexOfOutputZC_ = index;
-      if(hasTxOutZC())
-         amount_ = getTxOutZC().getValue();
    }
    return true;
 }

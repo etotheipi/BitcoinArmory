@@ -595,15 +595,12 @@ public:
    static BlockDataManager_LevelDB & GetInstance(void);
    bool isInitialized(void) const { return isInitialized_;}
 
+   void SelectNetwork(string netName);
    void SetHomeDirLocation(string homeDir);
    bool SetBlkFileLocation(string blkdir);
-   void SetLevelDBPaths(string headerPath,
-                        string txHintPath,
-                        string transientPath);
    void SetBtcNetworkParams( BinaryData const & GenHash,
                              BinaryData const & GenTxHash,
                              BinaryData const & MagicBytes);
-   void SelectNetwork(string netName);
 
    BinaryData getGenesisHash(void)   { return GenesisHash_;   }
    BinaryData getGenesisTxHash(void) { return GenesisTxHash_; }
@@ -633,7 +630,8 @@ public:
    TxRef            getTxRefByHash(BinaryData const & txHash);
    Tx               getTxByHash(BinaryData const & txHash);
 
-   uint32_t getTopBlockHeight(void) {return getTopBlockHeader().getBlockHeight();}
+   uint32_t         getTopBlockHeight(void) {return getTopBlockHeader().getBlockHeight();}
+   BinaryData       getTopBlockHash(void)   {return getTopBlockHeader().getThisHash();}
 
    bool isDirty(uint32_t numBlockToBeConsideredDirty=2016) const; 
 
@@ -806,7 +804,11 @@ public:
    map<HashString, BlockHeader> & getHeaderMapRef(void) { return headerMap_; }
    deque<BlockHeader*> &          getHeadersByHeightRef(void) { return headersByHeight_;}
 
-private:
+// These things should probably be private, but they also need to be test-able,
+// and googletest apparently cannot access private methods without polluting 
+// this class with gtest code
+//private: 
+
 
    /////////////////////////////////////////////////////////////////////////////
    // Update/organize the headers map (figure out longest chain, mark orphans)

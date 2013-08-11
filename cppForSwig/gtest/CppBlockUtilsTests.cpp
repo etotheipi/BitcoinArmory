@@ -10,8 +10,10 @@
 #include "../StoredBlockObj.h"
 #include "../PartialMerkle.h"
 #include "../leveldb_wrapper.h"
+#include "../BlockUtils.h"
 
 #define READHEX BinaryData::CreateFromHex
+#define TheBDM BlockDataManager_LevelDB::GetInstance()
 
 
 /* This didn't work at all
@@ -237,6 +239,7 @@ protected:
    BinaryData bd0_;
    BinaryData bd4_;
    BinaryData bd5_;
+
 };
 
 
@@ -2441,7 +2444,7 @@ TEST_F(BlockObjTest, TxUnserialize)
       EXPECT_EQ(   txs[i].getNumTxIn(), 1);
       EXPECT_EQ(   txs[i].getNumTxOut(), 2);
       EXPECT_EQ(   txs[i].getThisHash(), tx0hash.copySwapEndian());
-      EXPECT_FALSE(txs[i].isMainBranch());
+      //EXPECT_FALSE(txs[i].isMainBranch());
 
       EXPECT_EQ(   txs[i].getTxInOffset(0),    5);
       EXPECT_EQ(   txs[i].getTxInOffset(1),  185);
@@ -2461,7 +2464,7 @@ TEST_F(BlockObjTest, TxUnserialize)
       EXPECT_EQ(   txs[i].getTxOut(1).getValue(), v1);
       EXPECT_EQ(   txs[i].getSumOfOutputs(),  v0+v1);
 
-      EXPECT_EQ(   txs[i].getBlockTxIndex(),  UINT32_MAX);
+      EXPECT_EQ(   txs[i].getBlockTxIndex(),  UINT16_MAX);
    }
 }
 
@@ -4022,7 +4025,7 @@ TEST_F(TxRefTest, TxRefNoInit)
    EXPECT_EQ(txr.getDBKeyRef(),  BinaryDataRef());
    //EXPECT_EQ(txr.getBlockTimestamp(), UINT32_MAX);
    EXPECT_EQ(txr.getBlockHeight(),    UINT32_MAX);
-   EXPECT_EQ(txr.getBlockDupID(),     UINT8_MAX );
+   EXPECT_EQ(txr.getDuplicateID(),    UINT8_MAX );
    EXPECT_EQ(txr.getBlockTxIndex(),   UINT16_MAX);
 }
 
@@ -4039,7 +4042,7 @@ TEST_F(TxRefTest, TxRefKeyParts)
    EXPECT_EQ(txr.getDBKeyRef(), newRef);
 
    EXPECT_EQ(txr.getBlockHeight(),  0xe3c402);
-   EXPECT_EQ(txr.getBlockDupID(),   127);
+   EXPECT_EQ(txr.getDuplicateID(),  127);
    EXPECT_EQ(txr.getBlockTxIndex(), 15);
 }
 
@@ -4246,13 +4249,117 @@ TEST_F(DISABLED_PartialMerkleTest, EmptyTree)
 
 
 ////////////////////////////////////////////////////////////////////////////////
-/*
-TEST_F(BlockUtils, SScriptHistoryMarkSpent)
+class BlockUtilsTest : public ::testing::Test
+{
+protected:
+
+   /////////////////////////////////////////////////////////////////////////////
+   virtual void SetUp(void) 
+   {
+      iface_ = LevelDBWrapper::GetInterfacePtr();
+      magic_ = READHEX(MAINNET_MAGIC_BYTES);
+      ghash_ = READHEX(MAINNET_GENESIS_HASH_HEX);
+      gentx_ = READHEX(MAINNET_GENESIS_TX_HASH_HEX);
+      zeros_ = READHEX("00000000");
+      DBUtils.setArmoryDbType(ARMORY_DB_FULL);
+      DBUtils.setDbPruneType(DB_PRUNE_NONE);
+
+      blkdir_  = string("./blkfiletest");
+      homedir_ = string("./fakehomedir");
+      ldbdir_  = string("./ldbtestdir");
+
+      iface_->openDatabases( string("ldbtestdir"), 
+                             ghash_, gentx_, magic_, 
+                             ARMORY_DB_FULL, DB_PRUNE_NONE);
+      if(!iface_->databasesAreOpen())
+         LOGERR << "ERROR OPENING DATABASES FOR TESTING!";
+
+      mkdir(blkdir_);
+      mkdir(homedir_);
+
+      // Put the first 5 blocks into the blkdir
+      char* newBlkName = new char[4096];
+      sprintf(newBlkName, "./%s/blk00000.dat", blkdir_.c_str());
+      copyFile("../reorgTest/blk_0_to_4.dat", newBlkName);
+      delete[] newBlkName;
+
+      TheBDM.SelectNetwork("Main");
+      TheBDM.SetBlkFileLocation(blkdir_);
+      TheBDM.SetHomeDirLocation(homedir_);
+   }
+
+
+   /////////////////////////////////////////////////////////////////////////////
+   virtual void TearDown(void)
+   {
+      rmdir(blkdir_);
+      rmdir(homedir_);
+
+      char* delstr = new char[4096];
+      sprintf(delstr, "%s/level*", ldbdir_.c_str());
+      rmdir(delstr);
+      delete[] delstr;
+   }
+
+   /////////////////////////////////////////////////////////////////////////////
+   // Simple method for copying files (works in all OS, probably not efficient)
+   bool copyFile(string src, string dst)
+   {
+      uint32_t srcsz = BtcUtils::GetFileSize(src);
+      if(srcsz == FILE_DOES_NOT_EXIST)
+         return false;
+   
+      BinaryData temp(srcsz);
+      ifstream is(src.c_str(), ios::in  | ios::binary);
+      is.read((char*)temp.getPtr(), srcsz);
+      is.close();
+   
+      ofstream os(dst.c_str(), ios::out | ios::binary);
+      os.write((char*)temp.getPtr(), srcsz);
+      os.close();
+      return true;
+   }
+
+#if defined(_MSC_VER) || defined(__MINGW32__)
+   compile_error_fixme_what_to_do_in_windows;
+#else
+
+   /////////////////////////////////////////////////////////////////////////////
+   void rmdir(string src)
+   {
+      char* syscmd = new char[4096];
+      sprintf(syscmd, "rm -rf %s", src.c_str());
+      system(syscmd);
+      delete[] syscmd;
+   }
+
+   /////////////////////////////////////////////////////////////////////////////
+   void mkdir(string newdir)
+   {
+      char* syscmd = new char[4096];
+      sprintf(syscmd, "mkdir -p %s", newdir.c_str());
+      system(syscmd);
+      delete[] syscmd;
+   }
+#endif
+
+   InterfaceToLDB* iface_;
+   BinaryData magic_;
+   BinaryData ghash_;
+   BinaryData gentx_;
+   BinaryData zeros_;
+
+   string blkdir_;
+   string homedir_;
+   string ldbdir_;
+};
+
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(BlockUtilsTest, SScriptHistoryMarkSpent)
 {
    DBUtils.setArmoryDbType(ARMORY_DB_SUPER);
    DBUtils.setDbPruneType(DB_PRUNE_NONE);
 
-   EXPECT_TRUE(false);
    StoredScriptHistory ssh;
 
    BinaryData a160 = READHEX("aabbccdd11223344aabbccdd11223344aabbccdd"); 
@@ -4264,20 +4371,57 @@ TEST_F(BlockUtils, SScriptHistoryMarkSpent)
    BinaryData dbKey4 = READHEX("01e078""0f""0030""0009");
    BinaryData dbKey5 = READHEX("01e078""0f""00a0""0008");
 
-   uint64_t COIN = 100000000ULL;
+   uint32_t hgt = READ_UINT32_HEX_BE("0001e078");
+   uint32_t dup = READ_UINT8_HEX_BE("0f");
+
    TxIOPair txio0(dbKey0, 10*COIN);
    TxIOPair txio1(dbKey1,  5*COIN);
    txio0.setFromCoinbase(true);
    txio1.setFromCoinbase(false);
    txio0.setTxOutFromSelf(false);
    txio1.setTxOutFromSelf(true);
+
+   BinaryData expectSSH_orig = READHEX(
+      "0400""ffffffff"
+         "40""00ca9a3b00000000""01e0780f0007""0001"
+         "a0""0065cd1d00000000""01e0780f0009""0005""01e0780f000f0000"
+      "02"
+         "01e0780f00300003"
+         "01e0780f00300009");
+
+   BinaryData expectSSH_bothspent = READHEX(
+      "0400""ffffffff"
+         "60""00ca9a3b00000000""01e0780f0007""0001""01e0780f00a00008"
+         "a0""0065cd1d00000000""01e0780f0009""0005""01e0780f000f0000"
+      "02"
+         "01e0780f00300003"
+         "01e0780f00300009");
+
+   BinaryData expectSSH_bothunspent = READHEX(
+      "0400""ffffffff"
+         "40""00ca9a3b00000000""01e0780f0007""0001"
+         "80""0065cd1d00000000""01e0780f0009""0005"
+      "02"
+         "01e0780f00300003"
+         "01e0780f00300009");
+
+   BinaryData expectSSH_afterrm = READHEX(
+      "0400""ffffffff"
+         "40""00ca9a3b00000000""01e0780f0007""0001"
+      "02"
+         "01e0780f00300003"
+         "01e0780f00300009");
   
    // Mark the second one spent (from same block as it was created)
    txio1.setTxIn(dbKey2);
+
+   // In order for for these tests to work properly, the TxIns and TxOuts need
+   // to look like they're in the main branch.  Se we set the valid dupID vals
+   // so that txio.hasTxInInMain() and txio.hasTxOutInMain() both pass
+   iface_->setValidDupIDForHeight(hgt, dup);
    
 
    ssh.uniqueKey_ = HASH160PREFIX + a160;
-   ssh.scriptType_ = SCRIPT_PREFIX_HASH160;
    ssh.version_ = 1;
    ssh.alreadyScannedUpToBlk_ = UINT32_MAX;
 
@@ -4286,23 +4430,49 @@ TEST_F(BlockUtils, SScriptHistoryMarkSpent)
    ssh.multisigDBKeys_.push_back(dbKey3);
    ssh.multisigDBKeys_.push_back(dbKey4);
 
-   BinaryData origRaw = ssh.serializeDBValue();
+   // Check the initial state matches expectations
+   EXPECT_EQ(ssh.serializeDBValue(), expectSSH_orig);
+
+   // Mark the first output spent (second one was already marked spent)
+   TheBDM.markTxOutSpentInSSH(ssh, dbKey0, dbKey5);
+   EXPECT_EQ(ssh.serializeDBValue(), expectSSH_bothspent);
+
+   // Undo the last operation
+   TheBDM.markTxOutUnspentInSSH(ssh, dbKey0);
+   EXPECT_EQ(ssh.serializeDBValue(), expectSSH_orig);
+
+
+   TheBDM.markTxOutUnspentInSSH(ssh, dbKey1);
+   EXPECT_EQ(ssh.serializeDBValue(), expectSSH_bothunspent);
+
+   TheBDM.markTxOutSpentInSSH(ssh, dbKey1, dbKey2);
+   EXPECT_EQ(ssh.serializeDBValue(), expectSSH_orig);
+
+
+   TheBDM.removeTxOutFromSSH(ssh, dbKey1);
+   EXPECT_EQ(ssh.serializeDBValue(), expectSSH_afterrm);
+
+}
+
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(BlockUtilsTest, ReadHeaders)
+{
+   EXPECT_EQ(TheBDM.getNumBlocks(), 0);
+   TheBDM.processAllHeadersFromAllBlkFiles();
    
-   markTxOutSpentInSSH(ssh, dbKey0, dbKey5)
-   markTxOutUnspentInSSH(ssh, dbKey0);
+   EXPECT_EQ(TheBDM.getNumBlocks(), 5);
+   EXPECT_EQ(TheBDM.getTopBlockHeight(), 4);
 
-   BinaryData rt1Raw = ssh.serializeDBValue();
-
-   markTxOutUnspentInSSH(ssh, dbKey1);
-   markTxOutSpentInSSH(ssh, dbKey1, dbKey2)
-
-   BinaryData rt2Raw = ssh.serializeDBValue();
-
-   EXPECT_EQ(origRaw, rt1Raw);
-   EXPECT_EQ(origRaw, rt2Raw);
+   
+   StoredDBInfo sdbi;
+   iface_->getStoredDBInfo(HEADERS, sdbi);
+   EXPECT_EQ(sdbi.topBlkHgt_, 4);
+   //READHEX("01008e121ba0d275f49a21bbc171d7d49890de13c9b9733e0104654d262f00000000"
+   //iface_->printAllDatabaseEntries(HEADERS);
 }
 
 
+/*
 ////////////////////////////////////////////////////////////////////////////////
 TEST_F(BlockUtils, MultiRescanBlkSafe)
 {
@@ -4335,6 +4505,8 @@ protected:
       ghash_ = READHEX(MAINNET_GENESIS_HASH_HEX);
       gentx_ = READHEX(MAINNET_GENESIS_TX_HASH_HEX);
       zeros_ = READHEX("00000000");
+      DBUtils.setArmoryDbType(ARMORY_DB_FULL);
+      DBUtils.setDbPruneType(DB_PRUNE_NONE);
 
       rawHead_ = READHEX(
          "01000000"

@@ -870,6 +870,7 @@ void BtcWallet::scanTx(Tx & tx,
                   // there was, but that TxOut was invalidated due to reorg
                   // and now being re-added
                   txioIter->second.setTxOutZC(&tx, iout);
+                  txioIter->second.setValue((uint64_t)thisVal);
                   thisAddrPtr->addTxIO( txioIter->second, isZeroConf);
                   doAddLedgerEntry = true;
                }
@@ -885,6 +886,7 @@ void BtcWallet::scanTx(Tx & tx,
                   // to be added (it's already part of the relevantTxIOPtrsZC_
                   // but that will be removed)
                   txioIter->second.setTxOut(tx.getTxRef(), iout);
+                  txioIter->second.setValue((uint64_t)thisVal);
                   thisAddrPtr->addTxIO( txioIter->second, isZeroConf);
                   doAddLedgerEntry = true;
                }
@@ -892,7 +894,7 @@ void BtcWallet::scanTx(Tx & tx,
             else
             {
                // TxIO is not in the map yet -- create and add it
-               TxIOPair newTxio;
+               TxIOPair newTxio(thisVal);
                if(isZeroConf)
                   newTxio.setTxOutZC(&tx, iout);
                else
@@ -1459,7 +1461,7 @@ bool BlockDataManager_LevelDB::SetBlkFileLocation(string blkdir)
    }
 
    if(numBlkFiles_!=UINT16_MAX)
-      LOGERR << "Highest blkXXXX.dat file: " << numBlkFiles_;
+      LOGINFO << "Highest blkXXXX.dat file: " << numBlkFiles_-1;
    else
       LOGERR << "Error finding blockchain files (blkXXXX.dat)";
 
@@ -2520,7 +2522,7 @@ bool BlockDataManager_LevelDB::extractHeadersInBlkFile(uint32_t fnum)
    SCOPED_TIMER("extractHeadersInBlkFile");
    string filename = blkFileList_[fnum];
    uint64_t filesize = BtcUtils::GetFileSize(filename);
-   if(filesize != FILE_DOES_NOT_EXIST)
+   if(filesize == FILE_DOES_NOT_EXIST)
    {
       LOGERR << "File does not exist: " << filename.c_str();
       return false;
@@ -2579,16 +2581,19 @@ bool BlockDataManager_LevelDB::extractHeadersInBlkFile(uint32_t fnum)
          // Create a reader for the entire block, grab header, skip rest
          BinaryRefReader brr(bsb.reader().getCurrPtr(), nextBlkSize);
          bhInputPair.second.unserialize(brr);
+         uint64_t nTx = brr.get_var_int();
          bhInputPair.first = bhInputPair.second.getThisHash();
          bhInsResult = headerMap_.insert(bhInputPair);
          if(!bhInsResult.second)
-            LOGERR << "Somehow tried to add header that's already in map";
+            LOGWARN << "Somehow tried to add header that's already in map";
 
          bhInsResult.first->second.setBlockFile(filename);
          bhInsResult.first->second.setBlockFileNum(fnum);
          bhInsResult.first->second.setBlockFileOffset(endOfLastBlockByte_);
+         bhInsResult.first->second.setNumTx(nTx);
+         bhInsResult.first->second.setBlockSize(nextBlkSize);
          
-         brr.advance(nextBlkSize - HEADER_SIZE);
+         bsb.reader().advance(nextBlkSize);
          endOfLastBlockByte_ += nextBlkSize+8;
       }
 
@@ -2630,8 +2635,20 @@ bool BlockDataManager_LevelDB::processAllHeadersFromAllBlkFiles(void)
       uint8_t dup = iface_->putBareHeader(sbh);
       iter->second.duplicateID_ = dup;  // make sure headerMap_ and DB agree
    }
-
+   
    iface_->commitBatch(HEADERS);
+
+
+   // Hack:  The batch operation from above keeps reading the stored DB info
+   //        and "overwriting" it, but it's batched and not committed between
+   //        operations, so it doesn't update properly.  Fixed by doing it
+   //        right here.  All other cases of adding headers, we either don't
+   //        batch them, or we only add one at a time.
+   StoredDBInfo sdbi;
+   iface_->getStoredDBInfo(HEADERS, sdbi);
+   sdbi.topBlkHgt_  = getTopBlockHeight();
+   sdbi.topBlkHash_ = getTopBlockHash();
+   iface_->putStoredDBInfo(HEADERS, sdbi);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -4534,7 +4551,6 @@ bool BlockDataManager_LevelDB::createUndoDataFromBlock(uint32_t hgt,
 {
    SCOPED_TIMER("createUndoDataFromBlock");
 
-   // This is garbage code right here, I haven't actually impl
    StoredHeader sbh;
 
    // Fetch the full, stored block

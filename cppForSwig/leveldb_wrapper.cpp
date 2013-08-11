@@ -1198,6 +1198,8 @@ uint8_t InterfaceToLDB::putBareHeader(StoredHeader & sbh)
    {
       sbhDupID = 0;
       hhl.addDupAndHash(0, sbh.thisHash_);
+      if(sbh.isMainBranch_)
+         hhl.preferredDup_ = 0;
       needToWriteHHL = true;
    }
    else
@@ -2082,16 +2084,17 @@ bool InterfaceToLDB::getStoredTxOut(
 
 
 ////////////////////////////////////////////////////////////////////////////////
-/*
 bool InterfaceToLDB::putStoredUndoData(StoredUndoData const & sud)
 {
-
+   LOGERR << "putStoredUndoData not implemented yet!!!";
+   return false;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 bool InterfaceToLDB::getStoredUndoData(StoredUndoData & sud, uint32_t height)
 {
-   
+   LOGERR << "getStoredUndoData not implemented yet!!!";
+   return false;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -2099,6 +2102,10 @@ bool InterfaceToLDB::getStoredUndoData(StoredUndoData & sud,
                                        uint32_t         height, 
                                        uint8_t          dup)
 {
+   LOGERR << "getStoredUndoData not implemented yet!!!";
+   return false;
+
+   /*
    BinaryData key = DBUtils.getBlkDataKeyNoPrefix(height, dup); 
    BinaryRefReader brr = getValueReader(BLKDATA, DB_PREFIX_UNDODATA, key);
 
@@ -2112,15 +2119,16 @@ bool InterfaceToLDB::getStoredUndoData(StoredUndoData & sud,
       sud.stxOutsRemovedByBlock_[i].blockHeight_ = height;
       sud.stxOutsRemovedByBlock_[i].duplicateID_ = dup;
    }
+   */
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 bool InterfaceToLDB::getStoredUndoData(StoredUndoData & sud, 
                                        BinaryDataRef    headHash)
 {
-
+   LOGERR << "getStoredUndoData not implemented yet!!!";
+   return false;
 }
-*/
 
 
 ////////////////////////////////////////////////////////////////////////////////

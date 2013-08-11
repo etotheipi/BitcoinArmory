@@ -435,6 +435,9 @@ public:
                                 BinaryDataRef rawScript);
 
 
+   // None of the SUD methods are implemented because we don't actually need
+   // to read/write SUD to the database -- our only mode is ARMORY_DB_SUPER
+   // which doesn't require storing undo data
    bool putStoredUndoData(StoredUndoData const & sud);
    bool getStoredUndoData(StoredUndoData & sud, uint32_t height);
    bool getStoredUndoData(StoredUndoData & sud, uint32_t height, uint8_t dup);

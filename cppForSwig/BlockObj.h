@@ -77,7 +77,7 @@ public:
    uint32_t        getSize(void) const { assert(isInitialized_); return dataCopy_.getSize(); }
    uint32_t        isInitialized(void) const { return isInitialized_; }
    uint32_t        getBlockSize(void) const { return numBlockBytes_; }
-   uint32_t        setBlockSize(uint32_t sz) { wholeBlockSize_ = sz; }
+   uint32_t        setBlockSize(uint32_t sz) { numBlockBytes_ = sz; }
    uint32_t        setNumTx(uint32_t ntx) { numTx_ = ntx; }
 
    /////////////////////////////////////////////////////////////////////////////
@@ -125,7 +125,6 @@ private:
    bool           isMainBranch_;
    bool           isOrphan_;
    bool           isFinishedCalc_;
-   uint32_t       wholeBlockSize_;
    uint32_t       numTx_;
    uint32_t       numBlockBytes_; // includes header + nTx + sum(Tx)
 
@@ -830,38 +829,43 @@ public:
    TxRef         txRefObj_;  // Not necessary for sorting, but useful
    BinaryData    txHash_;
    uint32_t      blkNum_;
-   uint32_t      txIndex_;
+   uint16_t      txIndex_;
 
 
    TxRef      getTxRef()     { return txRefObj_; }
    Tx         getTxCopy()    { return txRefObj_.getTxCopy(); }
    BinaryData getTxHash()    { return txHash_; }
    uint32_t   getBlkNum()    { return blkNum_; }
-   uint32_t   getTxIndex()   { return txIndex_; }
+   uint16_t   getTxIndex()   { return txIndex_; }
 
    RegisteredTx(void) :
          txHash_(""),
          blkNum_(UINT32_MAX),
-         txIndex_(UINT32_MAX) { }
+         txIndex_(UINT16_MAX) { }
 
-   RegisteredTx(BinaryData const & txHash, uint32_t blkNum, uint32_t txIndex) :
+   RegisteredTx( BinaryData const & txHash,
+                 uint32_t blkNum,
+                 uint16_t txIndex) :
          txHash_(txHash),
          blkNum_(blkNum),
          txIndex_(txIndex) { }
 
-   RegisteredTx(TxRef txref, BinaryData const & txHash, uint32_t blkNum, uint32_t txIndex) :
+   RegisteredTx( TxRef txref, 
+                 BinaryData const & txHash,
+                 uint32_t blkNum,
+                 uint16_t txIndex) :
          txRefObj_(txref),
          txHash_(txHash),
          blkNum_(blkNum),
          txIndex_(txIndex) { }
 
-   RegisteredTx(TxRef txref) :
+   explicit RegisteredTx(TxRef txref) :
          txRefObj_(txref),
          txHash_(txref.getThisHash()),
          blkNum_(txref.getBlockHeight()),
          txIndex_(txref.getBlockTxIndex()) { }
 
-   RegisteredTx(Tx & tx) :
+   explicit RegisteredTx(Tx & tx) :
          txRefObj_(tx.getTxRef()),
          txHash_(tx.getThisHash()),
          blkNum_(tx.getBlockHeight()),
