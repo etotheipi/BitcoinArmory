@@ -73,9 +73,10 @@
 #define STARTLOGGING(LOGFILE, LOGLEVEL)         \
                   Log::SetLogFile(LOGFILE);     \
                   Log::SetLogLevel(LOGLEVEL);
-#define LOGDISABLESTDOUT() Log::SuppressStdout(true)
-#define LOGENABLESTDOUT()  Log::SuppressStdout(false)
-#define FLUSHLOG()         Log::FlushStreams()
+#define LOGDISABLESTDOUT()  Log::SuppressStdout(true)
+#define LOGENABLESTDOUT()   Log::SuppressStdout(false)
+#define SETLOGLEVEL(LOGLVL) Log::SetLogLevel(LOGLVL)
+#define FLUSHLOG()          Log::FlushStreams()
 
 
 #define MAX_LOG_FILE_SIZE (500*1024)

@@ -593,6 +593,7 @@ private:
 public:
 
    static BlockDataManager_LevelDB & GetInstance(void);
+   static BlockDataManager_LevelDB & DestroyInstance(void);
    bool isInitialized(void) const { return isInitialized_;}
 
    void SelectNetwork(string netName);
@@ -684,7 +685,8 @@ public:
    // These are the high-level methods for reading block files, and indexing
    // the blockfile data.
    bool     extractHeadersInBlkFile(uint32_t fnum);
-   bool     processAllHeadersFromAllBlkFiles(void);
+   uint32_t detectAllBlkFiles(void);
+   bool     processAllHeadersInBlkFiles(uint32_t fnumStart, uint32_t fnumEndPlus1);
    bool     processHeadersInFile(string filename);
    uint32_t rebuildDatabasesFromBlkFiles(void);
    bool     addRawBlockToDB(BinaryRefReader & brr);

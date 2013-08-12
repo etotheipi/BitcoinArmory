@@ -17,6 +17,7 @@
 BlockDataManager_LevelDB* BlockDataManager_LevelDB::theOnlyBDM_ = NULL;
 vector<LedgerEntry> BtcWallet::EmptyLedger_(0);
 InterfaceToLDB* BlockDataManager_LevelDB::iface_=NULL;
+bool BlockDataManager_LevelDB::bdmCreatedYet_=false;
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1395,6 +1396,8 @@ BlockDataManager_LevelDB::~BlockDataManager_LevelDB(void)
    {
       delete *iter;
    }
+
+   Reset();
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -1441,29 +1444,31 @@ bool BlockDataManager_LevelDB::SetBlkFileLocation(string blkdir)
    blkFileDir_    = blkdir; 
    isBlkParamsSet_ = true;
 
+   detectAllBlkFiles();
+
    // Next thing we need to do is find all the blk000X.dat files.
    // BtcUtils::GetFileSize uses only ifstreams, and thus should be
    // able to determine if a file exists in an OS-independent way.
-   numBlkFiles_=0;
-   totalBlockchainBytes_ = 0;
-   blkFileList_.clear();
+   //numBlkFiles_=0;
+   //totalBlockchainBytes_ = 0;
+   //blkFileList_.clear();
 
-   while(numBlkFiles_ < UINT16_MAX)
-   {
-      string path = BtcUtils::getBlkFilename(blkFileDir_, numBlkFiles_);
-      uint64_t filesize = BtcUtils::GetFileSize(path);
-      if(filesize == FILE_DOES_NOT_EXIST)
-         break;
+   //while(numBlkFiles_ < UINT16_MAX)
+   //{
+      //string path = BtcUtils::getBlkFilename(blkFileDir_, numBlkFiles_);
+      //uint64_t filesize = BtcUtils::GetFileSize(path);
+      //if(filesize == FILE_DOES_NOT_EXIST)
+         //break;
 
-      numBlkFiles_++;
-      blkFileList_.push_back(string(path));
-      totalBlockchainBytes_ += filesize;
-   }
+      //numBlkFiles_++;
+      //blkFileList_.push_back(string(path));
+      //totalBlockchainBytes_ += filesize;
+   //}
 
-   if(numBlkFiles_!=UINT16_MAX)
-      LOGINFO << "Highest blkXXXX.dat file: " << numBlkFiles_-1;
-   else
-      LOGERR << "Error finding blockchain files (blkXXXX.dat)";
+   //if(numBlkFiles_!=UINT16_MAX)
+      //LOGINFO << "Highest blkXXXX.dat file: " << numBlkFiles_-1;
+   //else
+      //LOGERR << "Error finding blockchain files (blkXXXX.dat)";
 
    return (numBlkFiles_!=UINT16_MAX);
 }
@@ -1631,7 +1636,6 @@ bool BlockDataManager_LevelDB::addHeadersFirst(vector<StoredHeader> const & head
 // that will ever exist
 BlockDataManager_LevelDB & BlockDataManager_LevelDB::GetInstance(void) 
 {
-   static bool bdmCreatedYet_ = false;
    if( !bdmCreatedYet_ )
    {
       theOnlyBDM_ = new BlockDataManager_LevelDB;
@@ -1642,6 +1646,16 @@ BlockDataManager_LevelDB & BlockDataManager_LevelDB::GetInstance(void)
 }
 
 
+/////////////////////////////////////////////////////////////////////////////
+BlockDataManager_LevelDB & BlockDataManager_LevelDB::DestroyInstance(void) 
+{
+   theOnlyBDM_->Reset();
+   iface_->closeDatabases();
+   delete theOnlyBDM_;
+   bdmCreatedYet_ = false;
+   iface_ = NULL;
+}
+
 
 /////////////////////////////////////////////////////////////////////////////
 void BlockDataManager_LevelDB::Reset(void)
@@ -1651,16 +1665,29 @@ void BlockDataManager_LevelDB::Reset(void)
    // Clear out all the "real" data in the blkfile
    blkFileDir_ = "";
    headerMap_.clear();
-   //txHintMap_.clear();
 
-   // These are not used at the moment, but we should clear them anyway
+   zeroConfRawTxList_.clear();
+   zeroConfMap_.clear();
+   zcEnabled_ = false;
+   zcFilename_ = "";
+
+   isNetParamsSet_ = false;
+   isBlkParamsSet_ = false;
+   isLevelDBSet_ = false;
+   armoryHomeDir_ = string("");
+   blkFileDir_ = string("");
    blkFileList_.clear();
+   numBlkFiles_ = UINT64_MAX;
+
+   endOfPrevLastBlock_ = UINT64_MAX;
+   endOfLastBlockByte_ = UINT64_MAX;
 
 
    // These should be set after the blockchain is organized
    headersByHeight_.clear();
    topBlockPtr_ = NULL;
    genBlockPtr_ = NULL;
+   lastTopBlock_ = UINT32_MAX;;
 
    // Reorganization details
    lastBlockWasReorg_ = false;
@@ -1671,16 +1698,17 @@ void BlockDataManager_LevelDB::Reset(void)
    // Reset orphan chains
    previouslyValidBlockHeaderPtrs_.clear();
    orphanChainStartBlocks_.clear();
+
+   GenesisHash_.resize(0);
+   GenesisTxHash_.resize(0);
+   MagicBytes_.resize(0);
    
    totalBlockchainBytes_ = 0;
-   endOfPrevLastBlock_ = 0;
+   bytesReadSoFar_ = 0;
+   blocksReadSoFar_ = 0;
+   filesReadSoFar_ = 0;
 
    isInitialized_ = false;
-
-   zcEnabled_ = false;
-   zcFilename_ = "";
-   zeroConfMap_.clear();
-   zeroConfRawTxList_.clear();
 
    // Clear out any of the registered tx data we have collected so far.
    // Doesn't take any time to recollect if it we have to rescan, anyway.
@@ -2606,26 +2634,57 @@ bool BlockDataManager_LevelDB::extractHeadersInBlkFile(uint32_t fnum)
 }
 
 
+/////////////////////////////////////////////////////////////////////////////
+uint32_t BlockDataManager_LevelDB::detectAllBlkFiles(void)
+{
+   // Next thing we need to do is find all the blk000X.dat files.
+   // BtcUtils::GetFileSize uses only ifstreams, and thus should be
+   // able to determine if a file exists in an OS-independent way.
+   numBlkFiles_=0;
+   totalBlockchainBytes_ = 0;
+   blkFileList_.clear();
+   while(numBlkFiles_ < UINT16_MAX)
+   {
+      string path = BtcUtils::getBlkFilename(blkFileDir_, numBlkFiles_);
+      uint64_t filesize = BtcUtils::GetFileSize(path);
+      if(filesize == FILE_DOES_NOT_EXIST)
+         break;
+
+      numBlkFiles_++;
+      blkFileList_.push_back(string(path));
+      totalBlockchainBytes_ += filesize;
+   }
+
+   if(numBlkFiles_==UINT16_MAX)
+   {
+      LOGERR << "Error finding blockchain files (blkXXXX.dat)";
+      return 0;
+   }
+
+}
+
 
 /////////////////////////////////////////////////////////////////////////////
-bool BlockDataManager_LevelDB::processAllHeadersFromAllBlkFiles(void)
+bool BlockDataManager_LevelDB::processAllHeadersInBlkFiles(uint32_t fnumStart,
+                                                           uint32_t fnumEnd)
 {
-   SCOPED_TIMER("processAllHeadersFromAllBlkFiles");
+   SCOPED_TIMER("processAllHeadersInBlkFiles");
+
+   detectAllBlkFiles();
 
    // Clear the headers in advance
-   headerMap_.clear();
+   //headerMap_.clear();
 
-   for(uint32_t fnum=0; fnum<numBlkFiles_; fnum++)
+   // fnumEnd is one past the end, in usual 0-indexed fashion
+   for(uint32_t fnum=fnumStart; fnum<fnumEnd; fnum++)
       extractHeadersInBlkFile(fnum);
 
    // This will return true unless genesis block was reorg'd...
    bool prevTopBlkStillValid = organizeChain(true);
-   if(!prevTopBlkStillValid)
-      LOGERR << "Somehow reorged on a full header organization...?";
-
 
    // Now write all headers to DB, get duplicate IDs and mark longest chain
-   iface_->startBatch(HEADERS);
+   // Removed for simplicity
+   //iface_->startBatch(HEADERS);
 
    map<HashString, BlockHeader>::iterator iter;
    for(iter = headerMap_.begin(); iter != headerMap_.end(); iter++)
@@ -2636,7 +2695,7 @@ bool BlockDataManager_LevelDB::processAllHeadersFromAllBlkFiles(void)
       iter->second.duplicateID_ = dup;  // make sure headerMap_ and DB agree
    }
    
-   iface_->commitBatch(HEADERS);
+   //iface_->commitBatch(HEADERS);
 
 
    // Hack:  The batch operation from above keeps reading the stored DB info
@@ -2644,11 +2703,13 @@ bool BlockDataManager_LevelDB::processAllHeadersFromAllBlkFiles(void)
    //        operations, so it doesn't update properly.  Fixed by doing it
    //        right here.  All other cases of adding headers, we either don't
    //        batch them, or we only add one at a time.
-   StoredDBInfo sdbi;
-   iface_->getStoredDBInfo(HEADERS, sdbi);
-   sdbi.topBlkHgt_  = getTopBlockHeight();
-   sdbi.topBlkHash_ = getTopBlockHash();
-   iface_->putStoredDBInfo(HEADERS, sdbi);
+   // I removed the batch, because it seemed unnecessary and was causing probs
+   //StoredDBInfo sdbi;
+   //iface_->getStoredDBInfo(HEADERS, sdbi);
+   //sdbi.topBlkHgt_  = getTopBlockHeight();
+   //sdbi.topBlkHash_ = getTopBlockHash();
+   //iface_->putStoredDBInfo(HEADERS, sdbi);
+   return prevTopBlkStillValid;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -2717,30 +2778,7 @@ uint32_t BlockDataManager_LevelDB::rebuildDatabasesFromBlkFiles(void)
       remove(abortFile.c_str());
 
 
-   // Next thing we need to do is find all the blk000X.dat files.
-   // BtcUtils::GetFileSize uses only ifstreams, and thus should be
-   // able to determine if a file exists in an OS-independent way.
-   numBlkFiles_=0;
-   totalBlockchainBytes_ = 0;
-   blkFileList_.clear();
-   while(numBlkFiles_ < UINT16_MAX)
-   {
-      string path = BtcUtils::getBlkFilename(blkFileDir_, numBlkFiles_);
-      uint64_t filesize = BtcUtils::GetFileSize(path);
-      if(filesize == FILE_DOES_NOT_EXIST)
-         break;
-
-      numBlkFiles_++;
-      blkFileList_.push_back(string(path));
-      totalBlockchainBytes_ += filesize;
-   }
-
-   if(numBlkFiles_==UINT16_MAX)
-   {
-      LOGERR << "Error finding blockchain files (blkXXXX.dat)";
-      return 0;
-   }
-   LOGINFO << "Highest blkXXXX.dat file: " << numBlkFiles_-1;
+   detectAllBlkFiles();
 
    if(GenesisHash_.getSize() == 0)
    {
@@ -2752,7 +2790,7 @@ uint32_t BlockDataManager_LevelDB::rebuildDatabasesFromBlkFiles(void)
    // New with LevelDB:  must read and organize headers before handling the
    // full blockchain data.  We need to figure out the longest chain and write
    // the headers to the DB before actually processing any block data.  
-   processAllHeadersFromAllBlkFiles();
+   processAllHeadersInBlkFiles(0, numBlkFiles_);
 
    /////////////////////////////////////////////////////////////////////////////
    // Now we start the meat of this process...
@@ -3518,6 +3556,7 @@ vector<BlockHeader*> BlockDataManager_LevelDB::getHeadersNotOnMainChain(void)
 }
 
 
+////////////////////////////////////////////////////////////////////////////////
 // This returns false if our new main branch does not include the previous
 // topBlock.  If this returns false, that probably means that we have
 // previously considered some blocks to be valid that no longer are valid.
@@ -3544,6 +3583,7 @@ bool BlockDataManager_LevelDB::organizeChain(bool forceRebuild)
          iter->second.blockHeight_    =  0;
          iter->second.isFinishedCalc_ =  false;
          iter->second.nextHash_       =  BtcUtils::EmptyHash_;
+         iter->second.isMainBranch_   =  false;
       }
       topBlockPtr_ = NULL;
    }
@@ -3557,11 +3597,6 @@ bool BlockDataManager_LevelDB::organizeChain(bool forceRebuild)
    genBlock.isOrphan_       = false;
    genBlock.isFinishedCalc_ = true;
    genBlock.isInitialized_  = true; 
-   //genBlock.txPtrList_      = vector<TxRef*>(1);
-   //genBlock.txPtrList_[0]   = getTxRefByHash(GenesisTxHash_);
-   //genBlock.txPtrList_[0]->setMainBranch(true);
-   //genBlock.txPtrList_[0]->setHeaderPtr(&genBlock);
-
 
    // If this is the first run, the topBlock is the genesis block
    if(topBlockPtr_ == NULL)

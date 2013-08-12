@@ -171,17 +171,10 @@ bool InterfaceToLDB::openDatabases(string basedir,
          sdbi.magic_      = magicBytes_;
          sdbi.topBlkHgt_  = 0;
          sdbi.topBlkHash_ = genesisBlkHash_;
-
-         topBlockHeight_  = 0;
-         topBlockHash_    = genesisBlkHash_;
-   
          putStoredDBInfo(CURRDB, sdbi);
       }
       else
       {
-         topBlockHeight_  = sdbi.topBlkHgt_;
-         topBlockHash_    = sdbi.topBlkHash_;
-      
          // Check that the magic bytes are correct
          if(magicBytes_ != sdbi.magic_)
          {
@@ -218,8 +211,8 @@ bool InterfaceToLDB::openDatabases(string basedir,
 
    // Reserve space in the vector to delay reallocation for 32 weeks
    validDupByHeight_.clear();
-   validDupByHeight_.reserve(topBlockHeight_ + 32768);
-   validDupByHeight_.resize(topBlockHeight_+1);
+   validDupByHeight_.reserve(getTopBlockHeight(HEADERS) + 32768);
+   validDupByHeight_.resize(getTopBlockHeight(HEADERS)+1);
    dbIsOpen_ = true;
 
    return true;
@@ -282,6 +275,24 @@ void InterfaceToLDB::startBatch(DB_SELECT db)
    batchStarts_[db] += 1;
 }
 
+
+
+////////////////////////////////////////////////////////////////////////////////
+BinaryData InterfaceToLDB::getTopBlockHash(DB_SELECT db)
+{
+   StoredDBInfo sdbi;
+   getStoredDBInfo(db, sdbi);
+   return sdbi.topBlkHash_;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+uint32_t InterfaceToLDB::getTopBlockHeight(DB_SELECT db)
+{
+   StoredDBInfo sdbi;
+   getStoredDBInfo(db, sdbi);
+   return sdbi.topBlkHgt_;
+}
 
 
 ////////////////////////////////////////////////////////////////////////////////

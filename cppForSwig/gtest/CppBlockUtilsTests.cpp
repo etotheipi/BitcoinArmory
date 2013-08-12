@@ -4278,14 +4278,20 @@ protected:
       mkdir(homedir_);
 
       // Put the first 5 blocks into the blkdir
-      char* newBlkName = new char[4096];
-      sprintf(newBlkName, "./%s/blk00000.dat", blkdir_.c_str());
-      copyFile("../reorgTest/blk_0_to_4.dat", newBlkName);
-      delete[] newBlkName;
+      copyFile("../reorgTest/blk_0_to_4.dat", BtcUtils::getBlkFilename(blkdir_, 0));
 
       TheBDM.SelectNetwork("Main");
       TheBDM.SetBlkFileLocation(blkdir_);
       TheBDM.SetHomeDirLocation(homedir_);
+
+      blkHash0 = READHEX("6fe28c0ab6f1b372c1a6a246ae63f74f931e8365e15a089c68d6190000000000");
+      blkHash1 = READHEX("1b5514b83257d924be7f10c65b95b1f3c0e50081e1dfd8943eece5eb00000000");
+      blkHash2 = READHEX("979fc39616bf1dc6b1f88167f76383d44d65ccd0fc99b7f91bcb2c9500000000");
+      blkHash3 = READHEX("50f8231e5fd476f470e1ba4937bc97cb304136c96c765339308935bc00000000");
+      blkHash4 = READHEX("8e121ba0d275f49a21bbc171d7d49890de13c9b9733e0104654d262f00000000");
+      blkHash3A= READHEX("dd63f62ef59d5b6a6da2a36407f76e4e28026a3fd3a46700d284424700000000");
+      blkHash4A= READHEX("bfa204022816102169b4e1d4f78cdf77258048f6d14282144cc01d5500000000");
+      blkHash5A= READHEX("4e049fd71ef7381a73e4f550d97812d1eb0fbd1489c1774e18855f1900000000");
    }
 
 
@@ -4299,7 +4305,10 @@ protected:
       sprintf(delstr, "%s/level*", ldbdir_.c_str());
       rmdir(delstr);
       delete[] delstr;
+
+      BlockDataManager_LevelDB::DestroyInstance();
    }
+
 
    /////////////////////////////////////////////////////////////////////////////
    // Simple method for copying files (works in all OS, probably not efficient)
@@ -4315,6 +4324,25 @@ protected:
       is.close();
    
       ofstream os(dst.c_str(), ios::out | ios::binary);
+      os.write((char*)temp.getPtr(), srcsz);
+      os.close();
+      return true;
+   }
+
+   /////////////////////////////////////////////////////////////////////////////
+   // Simple method for copying files (works in all OS, probably not efficient)
+   bool appendFile(string src, string dst)
+   {
+      uint32_t srcsz = BtcUtils::GetFileSize(src);
+      if(srcsz == FILE_DOES_NOT_EXIST)
+         return false;
+   
+      BinaryData temp(srcsz);
+      ifstream is(src.c_str(), ios::in  | ios::binary);
+      is.read((char*)temp.getPtr(), srcsz);
+      is.close();
+   
+      ofstream os(dst.c_str(), ios::app | ios::binary);
       os.write((char*)temp.getPtr(), srcsz);
       os.close();
       return true;
@@ -4352,6 +4380,16 @@ protected:
    string blkdir_;
    string homedir_;
    string ldbdir_;
+   string blk0dat_;;
+
+   BinaryData blkHash0;
+   BinaryData blkHash1;
+   BinaryData blkHash2;
+   BinaryData blkHash3;
+   BinaryData blkHash4;
+   BinaryData blkHash3A;
+   BinaryData blkHash4A;
+   BinaryData blkHash5A;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -4455,22 +4493,60 @@ TEST_F(BlockUtilsTest, SScriptHistoryMarkSpent)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-TEST_F(BlockUtilsTest, ReadHeaders)
+TEST_F(BlockUtilsTest, HeadersOnly)
 {
    EXPECT_EQ(TheBDM.getNumBlocks(), 0);
-   TheBDM.processAllHeadersFromAllBlkFiles();
+   TheBDM.processAllHeadersInBlkFiles(0,1);
+   
+   EXPECT_EQ(TheBDM.getNumBlocks(), 5);
+   EXPECT_EQ(TheBDM.getTopBlockHeight(), 4);
+   EXPECT_EQ(TheBDM.getTopBlockHash(), blkHash4);
+   EXPECT_EQ(iface_->getTopBlockHeight(HEADERS), 4);
+   //iface_->printAllDatabaseEntries(HEADERS);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(BlockUtilsTest, HeadersOnly_Reorg)
+{
+   SETLOGLEVEL(LogLvlError);
+   EXPECT_EQ(TheBDM.getNumBlocks(), 0);
+   TheBDM.processAllHeadersInBlkFiles(0,1);
    
    EXPECT_EQ(TheBDM.getNumBlocks(), 5);
    EXPECT_EQ(TheBDM.getTopBlockHeight(), 4);
 
-   
-   StoredDBInfo sdbi;
-   iface_->getStoredDBInfo(HEADERS, sdbi);
-   EXPECT_EQ(sdbi.topBlkHgt_, 4);
-   //READHEX("01008e121ba0d275f49a21bbc171d7d49890de13c9b9733e0104654d262f00000000"
-   //iface_->printAllDatabaseEntries(HEADERS);
-}
 
+   EXPECT_EQ(iface_->getTopBlockHeight(HEADERS), 4);
+   EXPECT_EQ(iface_->getTopBlockHash(HEADERS), blkHash4);
+
+   copyFile("../reorgTest/blk_3A.dat", BtcUtils::getBlkFilename(blkdir_, 1));
+   TheBDM.processAllHeadersInBlkFiles(1,2);
+   EXPECT_EQ(iface_->getTopBlockHeight(HEADERS), 4);
+   EXPECT_EQ(iface_->getTopBlockHash(HEADERS), blkHash4);
+   EXPECT_FALSE(TheBDM.getHeaderByHash(blkHash3A)->isMainBranch());
+   EXPECT_TRUE( TheBDM.getHeaderByHash(blkHash3 )->isMainBranch());
+
+   copyFile("../reorgTest/blk_4A.dat", BtcUtils::getBlkFilename(blkdir_, 2));
+   TheBDM.processAllHeadersInBlkFiles(2,3);
+   EXPECT_EQ(iface_->getTopBlockHeight(HEADERS), 4);
+   EXPECT_EQ(iface_->getTopBlockHash(HEADERS), blkHash4);
+   EXPECT_FALSE(TheBDM.getHeaderByHash(blkHash3A)->isMainBranch());
+   EXPECT_TRUE( TheBDM.getHeaderByHash(blkHash3 )->isMainBranch());
+   EXPECT_FALSE(TheBDM.getHeaderByHash(blkHash4A)->isMainBranch());
+   EXPECT_TRUE( TheBDM.getHeaderByHash(blkHash4 )->isMainBranch());
+
+   copyFile("../reorgTest/blk_5A.dat", BtcUtils::getBlkFilename(blkdir_, 3));
+   TheBDM.processAllHeadersInBlkFiles(3,4);
+   EXPECT_EQ(iface_->getTopBlockHeight(HEADERS), 5);
+   EXPECT_EQ(iface_->getTopBlockHeight(HEADERS), 5);
+   EXPECT_EQ(iface_->getTopBlockHash(HEADERS), blkHash5A);
+   EXPECT_FALSE(TheBDM.getHeaderByHash(blkHash3 )->isMainBranch());
+   EXPECT_TRUE( TheBDM.getHeaderByHash(blkHash3A)->isMainBranch());
+   EXPECT_FALSE(TheBDM.getHeaderByHash(blkHash4 )->isMainBranch());
+   EXPECT_TRUE( TheBDM.getHeaderByHash(blkHash4A)->isMainBranch());
+
+   SETLOGLEVEL(LogLvlDebug2);
+}
 
 /*
 ////////////////////////////////////////////////////////////////////////////////
@@ -4856,8 +4932,8 @@ TEST_F(LevelDBTest, OpenClose)
    
    ASSERT_TRUE(iface_->databasesAreOpen());
 
-   EXPECT_EQ(iface_->getTopBlockHeight(), 0);
-   EXPECT_EQ(iface_->getTopBlockHash(), READHEX(MAINNET_GENESIS_HASH_HEX));
+   EXPECT_EQ(iface_->getTopBlockHeight(HEADERS), 0);
+   EXPECT_EQ(iface_->getTopBlockHash(HEADERS), READHEX(MAINNET_GENESIS_HASH_HEX));
                           
    KVLIST HList = iface_->getAllDatabaseEntries(HEADERS);
    KVLIST BList = iface_->getAllDatabaseEntries(BLKDATA);

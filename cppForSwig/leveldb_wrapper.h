@@ -225,8 +225,8 @@ public:
 
    /////////////////////////////////////////////////////////////////////////////
    // Get latest block info
-   BinaryData getTopBlockHash(void) const   { return topBlockHash_; }
-   uint32_t   getTopBlockHeight(void) const { return topBlockHeight_; }
+   BinaryData getTopBlockHash(DB_SELECT db);
+   uint32_t   getTopBlockHeight(DB_SELECT db);
    
 
    /////////////////////////////////////////////////////////////////////////////
@@ -540,9 +540,6 @@ private:
    BinaryData           genesisBlkHash_;
    BinaryData           genesisTxHash_;
    BinaryData           magicBytes_;
-
-   HashString           topBlockHash_;
-   uint32_t             topBlockHeight_;
 
    ARMORY_DB_TYPE       armoryDbType_;
    DB_PRUNE_TYPE        dbPruneType_;
