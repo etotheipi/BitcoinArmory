@@ -172,7 +172,6 @@ private:
 
    /////////////////////////////////////////////////////////////////////////////
    void deleteIterator(DB_SELECT db);
-   void resetIterator(DB_SELECT db, bool seekToPrevKey=false);
 
    /////////////////////////////////////////////////////////////////////////////
    // These four sliceTo* methods make copies, and thus safe to use even after
@@ -228,6 +227,8 @@ public:
    BinaryData getTopBlockHash(DB_SELECT db);
    uint32_t   getTopBlockHeight(DB_SELECT db);
    
+   /////////////////////////////////////////////////////////////////////////////
+   void resetIterator(DB_SELECT db, bool seekToPrevKey=false);
 
    /////////////////////////////////////////////////////////////////////////////
    // Get value using pre-created slice
@@ -256,6 +257,8 @@ public:
    BinaryRefReader getValueReader(DB_SELECT db, BinaryDataRef keyWithPrefix);
    BinaryRefReader getValueReader(DB_SELECT db, DB_PREFIX prefix, BinaryDataRef key);
 
+   BinaryData getIterKeyCopy(void)   { return currReadKey_.getRawRef().copy();}
+   BinaryData getIterValueCopy(void) { return currReadValue_.getRawRef().copy();}
 
 
    /////////////////////////////////////////////////////////////////////////////
@@ -284,7 +287,6 @@ public:
    // the iterator already on the next desired block.  So our "advance" op may
    // have finished before it started.  Alternatively, we may be on this block 
    // because we checked it and decide we don't care, so we want to skip it.
-   bool advanceToNextHeader(bool skip=false);
    bool advanceToNextBlock(bool skip=false);
    bool advanceIterAndRead(leveldb::Iterator* iter);
    bool advanceIterAndRead(DB_SELECT, DB_PREFIX);
@@ -527,6 +529,7 @@ public:
 
    KVLIST getAllDatabaseEntries(DB_SELECT db);
    void   printAllDatabaseEntries(DB_SELECT db);
+   void   pprintBlkDataDB(uint32_t indent=3);
 
    BinaryData getGenesisBlockHash(void) { return genesisBlkHash_; }
    BinaryData getGenesisTxHash(void)    { return genesisTxHash_; }

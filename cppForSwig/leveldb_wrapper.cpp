@@ -246,6 +246,11 @@ void InterfaceToLDB::destroyAndResetDatabase(void)
 {
    SCOPED_TIMER("destroyAndResetDatabase");
 
+   // We want to make sure the database is restarted with the same parameters
+   // it was called with originally
+   ARMORY_DB_TYPE atype = DBUtils.getArmoryDbType();
+   DB_PRUNE_TYPE  dtype = DBUtils.getDbPruneType();
+
    closeDatabases();
    leveldb::Options options;
    leveldb::DestroyDB(dbPaths_[HEADERS], options);
@@ -253,7 +258,8 @@ void InterfaceToLDB::destroyAndResetDatabase(void)
    
    // Reopen the databases with the exact same parameters as before
    // The close & destroy operations shouldn't have changed any of that.
-   openDatabases(baseDir_, genesisBlkHash_, genesisTxHash_, magicBytes_);
+   openDatabases(baseDir_, genesisBlkHash_, genesisTxHash_, magicBytes_,
+                                                               atype, dtype);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -2464,6 +2470,9 @@ bool InterfaceToLDB::revertBlock(uint32_t height,
 KVLIST InterfaceToLDB::getAllDatabaseEntries(DB_SELECT db)
 {
    SCOPED_TIMER("getAllDatabaseEntries");
+
+   BinaryData prevIterLoc = sliceToBinaryData(iters_[db]->key());
+
    KVLIST outList;
    outList.reserve(100);
 
@@ -2476,6 +2485,8 @@ KVLIST InterfaceToLDB::getAllDatabaseEntries(DB_SELECT db)
       sliceToBinaryData(iters_[db]->key(),   outList[last].first);
       sliceToBinaryData(iters_[db]->value(), outList[last].second);
    }
+
+   seekTo(db, prevIterLoc);
    return outList;
 }
 
@@ -2484,6 +2495,9 @@ KVLIST InterfaceToLDB::getAllDatabaseEntries(DB_SELECT db)
 void InterfaceToLDB::printAllDatabaseEntries(DB_SELECT db)
 {
    SCOPED_TIMER("printAllDatabaseEntries");
+
+   BinaryData prevIterLoc = sliceToBinaryData(iters_[db]->key());
+
    cout << "Printing DB entries... (DB=" << db << ")" << endl;
    KVLIST dbList = getAllDatabaseEntries(db);
    if(dbList.size() == 0)
@@ -2497,8 +2511,79 @@ void InterfaceToLDB::printAllDatabaseEntries(DB_SELECT db)
       cout << "   \"" << dbList[i].first.toHexStr() << "\"  ";
       cout << "   \"" << dbList[i].second.toHexStr() << "\"  " << endl;
    }
+
+   seekTo(db, prevIterLoc);
 }
 
+#define PPRINTENTRY(TYPE, IND) \
+    TYPE data; \
+    data.unserializeDBKey(key); \
+    data.unserializeDBValue(val); \
+    data.pprintOneLine(indent + IND); 
+   
+
+#define PPRINTENTRYDB(TYPE, IND) \
+    TYPE data; \
+    data.unserializeDBKey(BLKDATA, key); \
+    data.unserializeDBValue(BLKDATA, val); \
+    data.pprintOneLine(indent + IND); 
+
+////////////////////////////////////////////////////////////////////////////////
+void InterfaceToLDB::pprintBlkDataDB(uint32_t indent)
+{
+   SCOPED_TIMER("pprintBlkDataDB");
+   DB_SELECT db = BLKDATA;
+
+   BinaryData prevIterLoc = sliceToBinaryData(iters_[db]->key());
+
+   cout << "Pretty-printing BLKDATA DB" << endl;
+   KVLIST dbList = getAllDatabaseEntries(db);
+   if(dbList.size() == 0)
+   {
+      cout << "   <no entries in db>" << endl;
+      return;
+   }
+
+   for(uint32_t i=0; i<dbList.size(); i++)
+   {
+      BinaryData key = dbList[i].first;
+      BinaryData val = dbList[i].second;
+      if(key[0] == DB_PREFIX_DBINFO)
+      {
+         PPRINTENTRY(StoredDBInfo, 0);
+         cout << "-------------------------------------" << endl;
+      }
+      else if(key[0] == DB_PREFIX_TXDATA)
+      {
+         if(key.getSize() == 5)      {PPRINTENTRYDB(StoredHeader, 0);}
+         else if(key.getSize() == 7) {PPRINTENTRY(StoredTx, 3); }
+         else if(key.getSize() == 9) {PPRINTENTRY(StoredTxOut, 6);}
+         else
+            cout << "INVALID TXDATA KEY: '" << key.toHexStr() << "'" << endl;
+      }
+      else if(key[0] == DB_PREFIX_SCRIPT) 
+      {
+         PPRINTENTRY(StoredScriptHistory, 0);
+      }
+      else
+      {
+         for(uint32_t j=0; j<indent; j++)
+            cout << " ";
+
+         if(key[0] == DB_PREFIX_TXHINTS)
+            cout << "TXHINT: ";
+         else if(key[0]==DB_PREFIX_UNDODATA)
+            cout << "UNDO: ";
+
+         cout << "\"" << dbList[i].first.toHexStr() << "\"  ";
+         cout << "\"" << dbList[i].second.toHexStr() << "\"  " << endl;
+      }
+         
+   }
+
+   seekTo(db, prevIterLoc);
+   
+}
 
 /*
 ////////////////////////////////////////////////////////////////////////////////

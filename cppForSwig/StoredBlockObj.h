@@ -211,24 +211,22 @@ public:
 
    static GlobalDBUtilities& GetInstance(void)
    {
-      static GlobalDBUtilities* theOneUtilsObj = NULL;
-      if(theOneUtilsObj==NULL)
+      if(theOneUtilsObj_==NULL)
       {
-         theOneUtilsObj = new GlobalDBUtilities;
+         theOneUtilsObj_ = new GlobalDBUtilities;
       
          // Default database structure
-         theOneUtilsObj->setArmoryDbType(ARMORY_DB_FULL);
-         theOneUtilsObj->setDbPruneType(DB_PRUNE_NONE);
+         theOneUtilsObj_->setArmoryDbType(ARMORY_DB_FULL);
+         theOneUtilsObj_->setDbPruneType(DB_PRUNE_NONE);
       }
-
-      return (*theOneUtilsObj);
+      return (*theOneUtilsObj_);
    }
 
 
    
 private:
    GlobalDBUtilities(void) {}
-   
+   static GlobalDBUtilities* theOneUtilsObj_; 
    static DB_PRUNE_TYPE  dbPruneType_;
    static ARMORY_DB_TYPE armoryDbType_;
 };
@@ -255,6 +253,9 @@ public:
    void       unserializeDBValue(BinaryData const & bd);
    void       unserializeDBValue(BinaryDataRef      bd);
    BinaryData   serializeDBValue(void) const;
+   void       unserializeDBKey(BinaryDataRef key) {}
+
+   void pprintOneLine(uint32_t indent=3);
 
    BinaryData      magic_;
    uint32_t        topBlkHgt_;
@@ -317,11 +318,15 @@ public:
    void unserializeDBValue(DB_SELECT db, BinaryData const & bd, bool ignMrkl=false);
    void unserializeDBValue(DB_SELECT db, BinaryDataRef bdr,     bool ignMrkl=false);
    BinaryData serializeDBValue(DB_SELECT db) const;
+   void       unserializeDBKey(DB_SELECT db, BinaryDataRef key);
 
    BinaryData getDBKey(bool withPrefix=true) const;
 
    bool isMerkleCreated(void) { return (merkle_.getSize() != 0);}
 
+
+   void pprintOneLine(uint32_t indent=3);
+   void pprintFullBlock(uint32_t indent=3);
    
    BinaryData     dataCopy_;
    BinaryData     thisHash_;
@@ -389,10 +394,13 @@ public:
    void       unserializeDBValue(BinaryData const & bd);
    void       unserializeDBValue(BinaryDataRef      bd);
    BinaryData   serializeDBValue(void) const;
+   void       unserializeDBKey(BinaryDataRef key);
 
    BinaryData getDBKey(bool withPrefix=true) const;
    BinaryData getDBKeyOfChild(uint16_t i, bool withPrefix=true) const;
 
+   void pprintOneLine(uint32_t indent=3);
+   void pprintFullTx(uint32_t indent=3);
 
 
    BinaryData           thisHash_;
@@ -443,6 +451,7 @@ public:
    void       unserializeDBValue(BinaryData const & bd);
    void       unserializeDBValue(BinaryDataRef      bd);
    BinaryData   serializeDBValue(bool forceSaveSpent=false) const;
+   void       unserializeDBKey(BinaryDataRef key);
 
    BinaryData getDBKey(bool withPrefix=true) const;
    BinaryData getDBKeyOfParentTx(bool withPrefix=true) const;
@@ -465,6 +474,8 @@ public:
          return UINT64_MAX;
    }
          
+
+   void pprintOneLine(uint32_t indent=3);
 
    uint32_t          txVersion_;
    BinaryData        dataCopy_;
@@ -501,9 +512,13 @@ public:
    void       unserializeDBValue(BinaryData const & bd);
    void       unserializeDBValue(BinaryDataRef      bd);
    BinaryData   serializeDBValue(void) const;
+   void       unserializeDBKey(BinaryDataRef key, bool withPrefix=true);
 
    BinaryData    getDBKey(bool withPrefix=true) const;
    SCRIPT_PREFIX getScriptType(void) const;
+
+   void pprintOneLine(uint32_t indent=3);
+   void pprintFullSSH(uint32_t indent=3);
 
    BinaryData     uniqueKey_;  // includes the prefix byte!
    uint32_t       version_;
@@ -568,6 +583,7 @@ public:
    void       unserializeDBValue(BinaryData const & bd);
    void       unserializeDBValue(BinaryDataRef      bd);
    BinaryData   serializeDBValue(void) const;
+   void       unserializeDBKey(BinaryDataRef key, bool withPrefix=true);
 
    BinaryData getDBKey(bool withPrefix=true) const;
 
@@ -587,6 +603,7 @@ public:
    void       unserializeDBValue(BinaryData const & bd);
    void       unserializeDBValue(BinaryDataRef      bd);
    BinaryData   serializeDBValue(void) const;
+   void       unserializeDBKey(BinaryDataRef key);
 
    void addDupAndHash(uint8_t dup, BinaryDataRef hash)
    {

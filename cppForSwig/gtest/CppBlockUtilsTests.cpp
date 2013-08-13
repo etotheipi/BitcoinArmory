@@ -4270,7 +4270,7 @@ protected:
 
       iface_->openDatabases( string("ldbtestdir"), 
                              ghash_, gentx_, magic_, 
-                             ARMORY_DB_FULL, DB_PRUNE_NONE);
+                             ARMORY_DB_SUPER, DB_PRUNE_NONE);
       if(!iface_->databasesAreOpen())
          LOGERR << "ERROR OPENING DATABASES FOR TESTING!";
 
@@ -4515,7 +4515,6 @@ TEST_F(BlockUtilsTest, HeadersOnly_Reorg)
    EXPECT_EQ(TheBDM.getNumBlocks(), 5);
    EXPECT_EQ(TheBDM.getTopBlockHeight(), 4);
 
-
    EXPECT_EQ(iface_->getTopBlockHeight(HEADERS), 4);
    EXPECT_EQ(iface_->getTopBlockHash(HEADERS), blkHash4);
 
@@ -4546,6 +4545,15 @@ TEST_F(BlockUtilsTest, HeadersOnly_Reorg)
    EXPECT_TRUE( TheBDM.getHeaderByHash(blkHash4A)->isMainBranch());
 
    SETLOGLEVEL(LogLvlDebug2);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(BlockUtilsTest, Load5Blocks)
+{
+   DBUtils.setArmoryDbType(ARMORY_DB_SUPER);
+   DBUtils.setDbPruneType(DB_PRUNE_NONE);
+   TheBDM.rebuildDatabasesFromBlkFiles(); 
+   iface_->pprintBlkDataDB(HEADERS);
 }
 
 /*
@@ -5003,7 +5011,7 @@ TEST_F(LevelDBTest, OpenCloseOpenNominal)
 
 
 ////////////////////////////////////////////////////////////////////////////////
-TEST_F(LevelDBTest, OpenCloseOpenMismatch)
+TEST_F(LevelDBTest, DISABLED_OpenCloseOpenMismatch)
 {
    LOGERR << "Expecting four error messages here:  this is normal";
    iface_->openDatabases( string("ldbtestdir"),

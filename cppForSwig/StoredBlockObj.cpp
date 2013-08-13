@@ -5,6 +5,7 @@
 
 DB_PRUNE_TYPE  GlobalDBUtilities::dbPruneType_  = DB_PRUNE_WHATEVER;
 ARMORY_DB_TYPE GlobalDBUtilities::armoryDbType_ = ARMORY_DB_WHATEVER;
+GlobalDBUtilities* GlobalDBUtilities::theOneUtilsObj_ = NULL;
 
 /////////////////////////////////////////////////////////////////////////////
 BinaryData StoredDBInfo::getDBKey(void)
@@ -78,6 +79,17 @@ BinaryData StoredDBInfo::serializeDBValue(void) const
    return bw.getData();
 }
 
+/////////////////////////////////////////////////////////////////////////////
+void StoredDBInfo::pprintOneLine(uint32_t indent)
+{
+   for(uint32_t i=0; i<indent; i++)
+      cout << " ";
+   
+   cout << "DBINFO: " 
+        << " TopBlk: " << topBlkHgt_
+        << " , " << topBlkHash_.getSliceCopy(0,4).toHexStr().c_str()
+        << endl;
+}
 
 /////////////////////////////////////////////////////////////////////////////
 void StoredHeader::setKeyData(uint32_t hgt, uint8_t dupID)
@@ -532,6 +544,53 @@ void StoredHeader::serializeDBValue( DB_SELECT       db,
    }
 }
 
+
+/////////////////////////////////////////////////////////////////////////////
+void StoredHeader::unserializeDBKey(DB_SELECT db, BinaryDataRef key)
+{
+   if(db==BLKDATA)
+   {
+      BinaryRefReader brr(key);
+      if(key.getSize() == 4)
+         DBUtils.readBlkDataKeyNoPrefix(brr, blockHeight_, duplicateID_);
+      else if(key.getSize() == 5)
+         DBUtils.readBlkDataKey(brr, blockHeight_, duplicateID_);
+      else
+         LOGERR << "Invalid key for StoredHeader";
+   }
+   else
+      LOGERR << "This method not intended for HEADERS DB";
+}
+
+
+/////////////////////////////////////////////////////////////////////////////
+void StoredHeader::pprintOneLine(uint32_t indent)
+{
+   for(uint32_t i=0; i<indent; i++)
+      cout << " ";
+   
+   cout << "H: " << thisHash_.getSliceCopy(0,4).toHexStr()
+        << " (" << blockHeight_ << "," << (uint32_t)duplicateID_ << ")"
+        << " #Tx: " << numTx_
+        << " Main: " << (isMainBranch_ ? "T" : "F")
+        << " #Byte: " << numBytes_
+        << endl;
+}
+
+/////////////////////////////////////////////////////////////////////////////
+void StoredHeader::pprintFullBlock(uint32_t indent)
+{
+   pprintOneLine(indent);
+   if(numTx_ > 10000)
+   {
+      cout << "      <No tx to print>" << endl;
+      return;
+   }
+
+   for(uint32_t i=0; i<numTx_; i++)
+      stxMap_[i].pprintFullTx(indent+3);
+}
+
 /////////////////////////////////////////////////////////////////////////////
 BinaryData StoredTx::getDBKey(bool withPrefix) const
 {
@@ -781,7 +840,46 @@ BinaryData StoredTx::getSerializedTxFragged(void) const
    return output;
 }
 
+/////////////////////////////////////////////////////////////////////////////
+void StoredTx::unserializeDBKey(BinaryDataRef key)
+{
+   BinaryRefReader brr(key);
+   if(key.getSize() == 6)
+      DBUtils.readBlkDataKeyNoPrefix(brr, blockHeight_, duplicateID_, txIndex_);
+   else if(key.getSize() == 7)
+      DBUtils.readBlkDataKey(brr, blockHeight_, duplicateID_, txIndex_);
+   else
+      LOGERR << "Invalid key for StoredTx";
+}
 
+////////////////////////////////////////////////////////////////////////////////
+void StoredTx::pprintOneLine(uint32_t indent)
+{
+   for(uint32_t i=0; i<indent; i++)
+      cout << " ";
+   
+   cout << "TX: " << thisHash_.getSliceCopy(0,4).toHexStr()
+        << " (" << blockHeight_ 
+        << "," << (uint32_t)duplicateID_ 
+        << "," << txIndex_ << ")"
+        << " #TXO: " << numTxOut_
+        << " #Byte: " << numBytes_
+        << endl;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void StoredTx::pprintFullTx(uint32_t indent)
+{
+   pprintOneLine(indent);
+   if(numTxOut_ > 10000)
+   {
+      cout << "         <No txout to print>" << endl;
+      return;
+   }
+
+   for(uint32_t i=0; i<numTxOut_; i++)
+      stxoMap_[i].pprintOneLine(indent+3);
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 void StoredTxOut::unserialize(BinaryData const & data)
@@ -1094,6 +1192,43 @@ uint64_t StoredTxOut::getValue(void) const
    return *(uint64_t*)dataCopy_.getPtr();
 }
 
+/////////////////////////////////////////////////////////////////////////////
+void StoredTxOut::unserializeDBKey(BinaryDataRef key)
+{
+   BinaryRefReader brr(key);
+   if(key.getSize() == 8)
+      DBUtils.readBlkDataKeyNoPrefix(brr, blockHeight_, duplicateID_, txIndex_, txOutIndex_);
+   else if(key.getSize() == 9)
+      DBUtils.readBlkDataKey(brr, blockHeight_, duplicateID_, txIndex_, txOutIndex_);
+   else
+      LOGERR << "Invalid key for StoredTxOut";
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void StoredTxOut::pprintOneLine(uint32_t indent)
+{
+   for(uint32_t i=0; i<indent; i++)
+      cout << " ";
+
+   string pprintHash("");
+   if(parentHash_.getSize() > 0)
+      pprintHash = parentHash_.getSliceCopy(0,4).toHexStr();
+  
+   cout << "TXOUT:   Parent=" << pprintHash.c_str()
+        << " (" << blockHeight_ 
+        << "," << (uint32_t)duplicateID_ 
+        << "," << txIndex_
+        << "," << txOutIndex_ << ")"
+        << " isCB: " << (isCoinbase_ ? "(X)" : "   ");
+
+   if(spentness_ == TXOUT_SPENTUNK)
+        cout << " Spnt: " << "<-----UNKNOWN---->" << endl;
+   else if(spentness_ == TXOUT_UNSPENT)
+        cout << " Spnt: " << "<                >" << endl;
+   else 
+        cout << " Spnt: " << "<" << spentByTxInKey_.toHexStr() << ">" << endl;
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // The list of spent/unspent txOuts is exactly what is needed to construct 
 // a full vector<TxIOPair> for each address.  Keep in mind that this list
@@ -1181,7 +1316,7 @@ void StoredScriptHistory::serializeDBValue(BinaryWriter & bw ) const
    // Write out all the flags
    BitPacker<uint16_t> bitpack;
    bitpack.putBits((uint16_t)ARMORY_DB_VERSION,       4);
-   bitpack.putBits((uint16_t)DBUtils.getDbPruneType(),  2);
+   bitpack.putBits((uint16_t)DBUtils.getDbPruneType(),2);
    bitpack.putBits((uint16_t)SCRIPT_UTXO_VECTOR,      2);
    bw.put_BitPacker(bitpack);
 
@@ -1283,6 +1418,98 @@ SCRIPT_PREFIX StoredScriptHistory::getScriptType(void) const
    else
       return (SCRIPT_PREFIX)uniqueKey_[0];
 }
+
+
+/////////////////////////////////////////////////////////////////////////////
+void StoredScriptHistory::unserializeDBKey(BinaryDataRef key, bool withPrefix)
+{
+   // Assume prefix
+   if(withPrefix)
+      uniqueKey_ = key.getSliceCopy(1, key.getSize()-1);
+   else
+      uniqueKey_ = key;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void StoredScriptHistory::pprintOneLine(uint32_t indent)
+{
+   for(uint32_t i=0; i<indent; i++)
+      cout << " ";
+
+   string ktype;
+   if(uniqueKey_[0] == SCRIPT_PREFIX_HASH160)
+      ktype = "H160";
+   else if(uniqueKey_[0] == SCRIPT_PREFIX_P2SH)
+      ktype = "P2SH";
+   else if(uniqueKey_[0] == SCRIPT_PREFIX_MULTISIG)
+      ktype = "MSIG";
+   else if(uniqueKey_[0] == SCRIPT_PREFIX_NONSTD)
+      ktype = "NSTD";
+   
+   uint32_t sz = uniqueKey_.getSize();
+   cout << "SSH: " << ktype.c_str() 
+        << uniqueKey_.getSliceCopy(1,sz-1).toHexStr()
+        << " Sync: " << alreadyScannedUpToBlk_ 
+        << " #IO: " << txioVect_.size() 
+        << " #MS: " << multisigDBKeys_.size() 
+        << endl;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+void StoredScriptHistory::pprintFullSSH(uint32_t indent)
+{
+   pprintOneLine(indent);
+
+   // Print all the txioVects
+   for(uint32_t i=0; i<txioVect_.size(); i++)
+   {
+      for(uint32_t ind=0; ind<indent+3; ind++)
+         cout << " ";
+
+      TxIOPair & txio = txioVect_[i];
+      uint32_t hgt;
+      uint8_t  dup;
+      uint16_t txi;
+      uint16_t txo = txio.getIndexOfOutput();
+      BinaryRefReader brrTxOut(txio.getDBKeyOfOutput());
+      DBUtils.readBlkDataKeyNoPrefix(brrTxOut, hgt, dup, txi);
+      cout << "TXIO: (" << hgt << "," << (uint32_t)dup 
+                          << "," << txi << "," << txo << ")";
+
+      if(txio.hasTxIn())
+         cout << "UNSPENT";
+      else
+      {
+         uint16_t txo = txio.getIndexOfInput();
+         BinaryRefReader brrTxIn(txio.getDBKeyOfInput());
+         DBUtils.readBlkDataKeyNoPrefix(brrTxIn, hgt, dup, txi);
+         cout << "  SPENT: (" << hgt << "," << (uint32_t)dup 
+                       << "," << txi << "," << txo << ")";
+      }
+      cout << endl;
+   }
+
+   // Multisig keys
+   for(uint32_t i=0; i<multisigDBKeys_.size(); i++)
+   {
+      for(uint32_t ind=0; ind<indent+3; ind++)
+         cout << " ";
+
+      BinaryDataRef msigkey = multisigDBKeys_[i];
+      uint32_t hgt;
+      uint8_t  dup;
+      uint16_t txi;
+      uint16_t txo;
+      BinaryRefReader brrTxOut(msigkey);
+      DBUtils.readBlkDataKeyNoPrefix(brrTxOut, hgt, dup, txi,txo);
+      cout << "MSIG: "
+           << "(" << hgt << "," << (uint32_t)dup << 
+                       "," << txi << "," << txo << ")"
+           << endl;
+   }
+}
+
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
@@ -1498,6 +1725,15 @@ BinaryData StoredTxHints::getDBKey(bool withPrefix) const
       bw.put_BinaryData( txHashPrefix_);
       return bw.getData();
    }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void StoredTxHints::unserializeDBKey(BinaryDataRef key, bool withPrefix)
+{
+   if(withPrefix)
+      txHashPrefix_ = key.getSliceCopy(1, 4);
+   else
+      txHashPrefix_ = key;
 }
 
 ////////////////////////////////////////////////////////////////////////////////

@@ -2325,8 +2325,13 @@ void BlockDataManager_LevelDB::reapplyBlocksToDB(uint32_t blk0, uint32_t blk1)
    // Start scanning and timer
    TIMER_START("LoadProgress");
 
+   
+   iface_->pprintBlkDataDB(BLKDATA);
+
    do
    {
+      cout << "Iter is at key(1): " << iface_->getIterKeyCopy().toHexStr() << endl;
+
       StoredHeader sbh;
       iface_->readStoredBlockAtIter(sbh);
       uint32_t hgt = sbh.blockHeight_;
@@ -2341,7 +2346,19 @@ void BlockDataManager_LevelDB::reapplyBlocksToDB(uint32_t blk0, uint32_t blk1)
       bytesReadSoFar_ += sbh.numBytes_;
       writeScanStatusFile(hgt, bfile, string("LoadProgress"));
 
-   } while(iface_->advanceIterAndRead(BLKDATA, DB_PREFIX_TXDATA));
+      // TODO:  Check whether this is needed and if there is a performance
+      //        improvement to removing it.  For now, I'm including to be
+      //        absolutely sure that the DB updates properly (not reading
+      //        from an iterator that was created before the DB was last 
+      //        updated).  But it may slow down the process considerably,
+      //        since LevelDB has optimized the hell out of key-order 
+      //        traversal.
+      iface_->resetIterator(BLKDATA, true);
+
+      iface_->pprintBlkDataDB(BLKDATA);
+      cout << "Iter is at key(2): " << iface_->getIterKeyCopy().toHexStr() << endl;
+
+   } while(iface_->advanceToNextBlock(false));
 
    TIMER_STOP("LoadProgress");
 
@@ -4153,136 +4170,6 @@ bool BlockDataManager_LevelDB::isTxFinal(Tx & tx)
 
 
 
-////////////////////////////////////////////////////////////////////////////////
-/* just like the addHeadersFirst -- this is changing the fundamental way that
- * we handle blockchain data, and we should avoid doing it on the first major
- * upgrade.  We may come back to tihs code later.
-bool BlockDataManager_LevelDB::addRawBlockToDB(BinaryDataRef fullBlock,
-                                               bool notNecessarilyValid,
-                                               bool withPrefix)
-{
-   StoredHeader sbh;
-   sbh.unserializeFullBlock(fullBlock, true, withPrefix);
-
-   
-   bool prevTopBlockStillValid = addHeadersFirst(sbh.dataCopy_);
-   if(sbh.duplicateID_==UINT8_MAX)
-   {
-      LOGERR << "Could not insert header for some reason";
-      return false;
-   }
-
-   if(!prevTopBlockStillValid)
-   {
-      LOGWARN << "Reorg detected!";
-      purgeZeroConfPool();
-   
-      vector<StoredHeader> blocksToUndo;
-      BlockHeader* bhptr = prevTopBlockPtr_;
-      while(bhptr != reorgBranchPoint_)
-      {
-         StoredHeader sbhTemp;
-         iface_->getStoredHeader(sbhTemp, bhptr->getThisHash(), true);
-         blocksToUndo.push_back(sbhTemp);
-      }
-
-      for(uint32_t i=0; i<blocksToUndo.size(); i++)
-      { 
-         undoBlockInDatabase(sbh); 
-      }
-   }
-
-   return insertBlockData(sbh, notNecessarilyValid);
-}
-
-////////////////////////////////////////////////////////////////////////////////
-// AddRawBlockTODB
-//
-// Assumptions:
-//  -- We have already determined the correct height and dup for the header 
-//     and we assume it's part of the sbh object
-//  -- It has definitely been added to the headers DB (bail if not)
-//  -- We don't know if it's been added to the blkdata DB yet
-//
-// Things to do when adding a block:
-//
-//  -- PREPARATION:
-//    -- Create list of all OutPoints affected, and scripts touched
-//    -- If not supernode, then check above data against registeredSSHs_
-//    -- Fetch all StoredTxOuts from DB about to be removed
-//    -- Get/create TXHINT entries for all tx in block
-//    -- Compute all script keys and get/create all StoredScriptHistory objs
-//    -- Check if any multisig scripts are affected, if so get those objs
-//    -- If pruning, create StoredUndoData from TxOuts about to be removed
-//    -- Modify any Tx/TxOuts in the SBH tree to accommodate any tx in this 
-//       block that affect any other tx in this block
-//
-//
-//  -- Check if the block {hgt,dup} has already been written to BLKDATA DB
-//  -- Check if the header has already been added to HEADERS DB
-//  
-//  -- BATCH (HEADERS)
-//    -- Add header to HEADHASH list
-//    -- Add header to HEADHGT list
-//    -- Update validDupByHeight_
-//    -- Update DBINFO top block data
-//
-//  -- BATCH (BLKDATA)
-//    -- Modify StoredTxOut with spentness info (or prep a delete operation
-//       if pruning).
-//    -- Modify StoredScriptHistory objs same as above.  
-//    -- Modify StoredScriptHistory multisig objects as well.
-//    -- Update SSH objects alreadyScannedUpToBlk_, if necessary
-//    -- Write all new TXDATA entries for {hgt,dup}
-//    -- If pruning, write StoredUndoData objs to DB
-//    -- Update DBINFO top block data
-//
-// IMPORTANT: we also need to make sure this method does nothing if the
-//            block has already been added properly (though, it okay for 
-//            it to take time to verify nothing needs to be done).  We may
-//            end up replaying some blocks to force consistency of the DB, 
-//            and this method needs to be robust to replaying already-added
-//            blocks, as well as fixing data if the replayed block appears
-//            to have been added already but is different.
-//
-bool BlockDataManager_LevelDB::insertBlockData(StoredHeader const & sbh, 
-                                     bool notNecessarilyValid)
-{
-   StoredHeader sbhTemp;
-   if(!iface_->getBareHeader(sbhTemp, sbh.thisHash_))
-   {
-      LOGERR << "Cannot add full block until it's added to the HEADERS DB"; 
-      return false;
-   }
-
-   if(sbh.stxMap_.size() == 0)
-   {
-      LOGERR << "Cannot add block without transactions!";
-      return false;
-   }
-
-   // Consider if the block is already in here
-   if(sbh.duplicateID_ == UINT8_MAX)
-   {
-      LOGERR << "Dup ID must be set already before calling insertBlockData";
-      return false;
-   }
-   
-   uint32_t height = sbh.blockHeight_;
-   uint8_t  dupID  = sbh.duplicateID_;
-
-   map<BinaryData, StoredScriptHistory> sshToModify;
-   map<BinaryData, StoredTxHints>       hintsToModify;
-   map<BinaryData, StoredTx>            stxToAdd;
-   map<BinaryData, StoredTxOut>         stxosToModify;
-   set<BinaryData>                      keysToDelete;
-
-   for(uint32_t itx=0; itx<sbh.stxMap_.size(); itx++)
-   {
-
-   }
-}
-*/
 
 
 
@@ -4481,6 +4368,56 @@ bool BlockDataManager_LevelDB::addRawBlockToDB(BinaryRefReader & brr)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+// AddRawBlockTODB
+//
+// Assumptions:
+//  -- We have already determined the correct height and dup for the header 
+//     and we assume it's part of the sbh object
+//  -- It has definitely been added to the headers DB (bail if not)
+//  -- We don't know if it's been added to the blkdata DB yet
+//
+// Things to do when adding a block:
+//
+//  -- PREPARATION:
+//    -- Create list of all OutPoints affected, and scripts touched
+//    -- If not supernode, then check above data against registeredSSHs_
+//    -- Fetch all StoredTxOuts from DB about to be removed
+//    -- Get/create TXHINT entries for all tx in block
+//    -- Compute all script keys and get/create all StoredScriptHistory objs
+//    -- Check if any multisig scripts are affected, if so get those objs
+//    -- If pruning, create StoredUndoData from TxOuts about to be removed
+//    -- Modify any Tx/TxOuts in the SBH tree to accommodate any tx in this 
+//       block that affect any other tx in this block
+//
+//
+//  -- Check if the block {hgt,dup} has already been written to BLKDATA DB
+//  -- Check if the header has already been added to HEADERS DB
+//  
+//  -- BATCH (HEADERS)
+//    -- Add header to HEADHASH list
+//    -- Add header to HEADHGT list
+//    -- Update validDupByHeight_
+//    -- Update DBINFO top block data
+//
+//  -- BATCH (BLKDATA)
+//    -- Modify StoredTxOut with spentness info (or prep a delete operation
+//       if pruning).
+//    -- Modify StoredScriptHistory objs same as above.  
+//    -- Modify StoredScriptHistory multisig objects as well.
+//    -- Update SSH objects alreadyScannedUpToBlk_, if necessary
+//    -- Write all new TXDATA entries for {hgt,dup}
+//    -- If pruning, write StoredUndoData objs to DB
+//    -- Update DBINFO top block data
+//
+// IMPORTANT: we also need to make sure this method does nothing if the
+//            block has already been added properly (though, it okay for 
+//            it to take time to verify nothing needs to be done).  We may
+//            end up replaying some blocks to force consistency of the DB, 
+//            and this method needs to be robust to replaying already-added
+//            blocks, as well as fixing data if the replayed block appears
+//            to have been added already but is different.
+//
+////////////////////////////////////////////////////////////////////////////////
 bool BlockDataManager_LevelDB::applyBlockToDB(uint32_t hgt, uint8_t  dup)
 {
    StoredHeader sbh;
@@ -4498,6 +4435,8 @@ bool BlockDataManager_LevelDB::applyBlockToDB(StoredHeader & sbh)
       LOGERR << "Dup requested is not the main branch for the given height!";
       return false;
    }
+   else
+      sbh.isMainBranch_ = true;
 
    // Start with some empty maps, and fill them with existing DB data, or 
    // create new data.  Either way, whatever ends up in these maps will
