@@ -270,7 +270,7 @@ public:
       return buffer[level];
    }
 
-    static bool isOpen(void) {GetInstance().ds_.fout_.is_open();}
+    static bool isOpen(void) {return GetInstance().ds_.fout_.is_open();}
     static string filename(void) {return GetInstance().ds_.fname_;}
     static void FlushStreams(void) {GetInstance().ds_.flushStreams();}
 

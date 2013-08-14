@@ -502,7 +502,7 @@ public:
 
    StoredScriptHistory(void) : uniqueKey_(0), 
                                version_(UINT32_MAX),
-                               alreadyScannedUpToBlk_(0) {}
+                               alreadyScannedUpToBlk_(0) { }
                                
 
    bool isInitialized(void) { return uniqueKey_.getSize() > 0; }

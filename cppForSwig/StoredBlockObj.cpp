@@ -523,11 +523,11 @@ void StoredHeader::serializeDBValue( DB_SELECT       db,
    
       // Create the flags byte
       BitPacker<uint32_t> bitpack;
-      bitpack.putBits((uint32_t)ARMORY_DB_VERSION,       4);
-      bitpack.putBits((uint32_t)version,                 4);
+      bitpack.putBits((uint32_t)ARMORY_DB_VERSION,         4);
+      bitpack.putBits((uint32_t)version,                   4);
       bitpack.putBits((uint32_t)DBUtils.getArmoryDbType(), 4);
       bitpack.putBits((uint32_t)DBUtils.getDbPruneType(),  2);
-      bitpack.putBits((uint32_t)mtype,                   2);
+      bitpack.putBits((uint32_t)mtype,                     2);
       bitpack.putBit(blockAppliedToDB_);
 
       bw.put_BitPacker(bitpack);
@@ -569,11 +569,10 @@ void StoredHeader::pprintOneLine(uint32_t indent)
    for(uint32_t i=0; i<indent; i++)
       cout << " ";
    
-   cout << "H: " << thisHash_.getSliceCopy(0,4).toHexStr()
+   cout << "HEADER: " << thisHash_.getSliceCopy(0,4).toHexStr()
         << " (" << blockHeight_ << "," << (uint32_t)duplicateID_ << ")"
         << " #Tx: " << numTx_
-        << " Main: " << (isMainBranch_ ? "T" : "F")
-        << " #Byte: " << numBytes_
+        << " Applied: " << (blockAppliedToDB_ ? "T" : "F")
         << endl;
 }
 
@@ -863,7 +862,6 @@ void StoredTx::pprintOneLine(uint32_t indent)
         << "," << (uint32_t)duplicateID_ 
         << "," << txIndex_ << ")"
         << " #TXO: " << numTxOut_
-        << " #Byte: " << numBytes_
         << endl;
 }
 
@@ -1057,7 +1055,7 @@ Tx StoredTx::getTxCopy(void) const
    Tx returnTx(getSerializedTx());
    if(blockHeight_ != UINT32_MAX)
       returnTx.setTxRef(TxRef(getDBKey(false)));
-   return Tx(getSerializedTx());
+   return returnTx;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1214,7 +1212,7 @@ void StoredTxOut::pprintOneLine(uint32_t indent)
    if(parentHash_.getSize() > 0)
       pprintHash = parentHash_.getSliceCopy(0,4).toHexStr();
   
-   cout << "TXOUT:   Parent=" << pprintHash.c_str()
+   cout << "TXOUT:   Value=" << (double)(getValue())/(100000000.0)
         << " (" << blockHeight_ 
         << "," << (uint32_t)duplicateID_ 
         << "," << txIndex_
@@ -1249,6 +1247,9 @@ void StoredScriptHistory::unserializeDBValue(BinaryRefReader & brr)
    SCRIPT_UTXO_TYPE txoListType = (SCRIPT_UTXO_TYPE) bitunpack.getBits(2);
 
    alreadyScannedUpToBlk_ = brr.get_uint32_t();
+   
+   txioVect_.clear();
+   multisigDBKeys_.clear();
 
    if(txoListType == SCRIPT_UTXO_TREE)
    {
@@ -1333,6 +1334,7 @@ void StoredScriptHistory::serializeDBValue(BinaryWriter & bw ) const
    }
    else if(UTXO_STORAGE == SCRIPT_UTXO_VECTOR)
    {
+      bw.put_var_int(txioVect_.size());
       for(uint32_t i=0; i<txioVect_.size(); i++)
       {
          TxIOPair const & txio = txioVect_[i];
@@ -1447,7 +1449,7 @@ void StoredScriptHistory::pprintOneLine(uint32_t indent)
       ktype = "NSTD";
    
    uint32_t sz = uniqueKey_.getSize();
-   cout << "SSH: " << ktype.c_str() 
+   cout << "SSHOBJ: " << ktype.c_str() << ": "
         << uniqueKey_.getSliceCopy(1,sz-1).toHexStr()
         << " Sync: " << alreadyScannedUpToBlk_ 
         << " #IO: " << txioVect_.size() 
@@ -1472,17 +1474,19 @@ void StoredScriptHistory::pprintFullSSH(uint32_t indent)
       uint8_t  dup;
       uint16_t txi;
       uint16_t txo = txio.getIndexOfOutput();
-      BinaryRefReader brrTxOut(txio.getDBKeyOfOutput());
+      BinaryData txoKey = txio.getDBKeyOfOutput();
+      BinaryRefReader brrTxOut(txoKey);
       DBUtils.readBlkDataKeyNoPrefix(brrTxOut, hgt, dup, txi);
       cout << "TXIO: (" << hgt << "," << (uint32_t)dup 
                           << "," << txi << "," << txo << ")";
 
-      if(txio.hasTxIn())
-         cout << "UNSPENT";
+      if(!txio.hasTxIn())
+         cout << "  UNSPENT";
       else
       {
          uint16_t txo = txio.getIndexOfInput();
-         BinaryRefReader brrTxIn(txio.getDBKeyOfInput());
+         BinaryData txiKey = txio.getDBKeyOfInput();
+         BinaryRefReader brrTxIn(txiKey);
          DBUtils.readBlkDataKeyNoPrefix(brrTxIn, hgt, dup, txi);
          cout << "  SPENT: (" << hgt << "," << (uint32_t)dup 
                        << "," << txi << "," << txo << ")";

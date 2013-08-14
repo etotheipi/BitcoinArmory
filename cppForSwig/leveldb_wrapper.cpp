@@ -551,7 +551,7 @@ bool InterfaceToLDB::advanceToNextBlock(bool skip)
 /////////////////////////////////////////////////////////////////////////////
 bool InterfaceToLDB::dbIterIsValid(DB_SELECT db, DB_PREFIX prefix)
 {
-   if(!iters_[db]->Valid());
+   if(!iters_[db]->Valid())
       return false;
 
    resetIterReaders();
@@ -671,7 +671,7 @@ void InterfaceToLDB::iteratorToRefReaders( leveldb::Iterator* it,
 
 
 /////////////////////////////////////////////////////////////////////////////
-bool InterfaceToLDB::readStoredScriptHistoryAtIter(StoredScriptHistory & ssh)
+void InterfaceToLDB::readStoredScriptHistoryAtIter(StoredScriptHistory & ssh)
                                
 {
    resetIterReaders();
@@ -693,7 +693,7 @@ void InterfaceToLDB::putStoredScriptHistory( StoredScriptHistory & ssh)
       LOGERR << "Trying to put uninitialized SSH into DB";
       return;
    }
-   putValue(HEADERS, ssh.getDBKey(), ssh.serializeDBValue());
+   putValue(BLKDATA, ssh.getDBKey(), ssh.serializeDBValue());
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -702,6 +702,7 @@ void InterfaceToLDB::getStoredScriptHistory( StoredScriptHistory & ssh,
 {
    BinaryRefReader brr = getValueRef(BLKDATA, DB_PREFIX_SCRIPT, uniqueKey);
    ssh.unserializeDBValue(brr);
+   ssh.uniqueKey_ = uniqueKey;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1653,7 +1654,7 @@ bool InterfaceToLDB::readStoredTxAtIter( uint32_t height,
 
 
 ////////////////////////////////////////////////////////////////////////////////
-bool InterfaceToLDB::readStoredTxOutAtIter(       
+bool InterfaceToLDB::readStoredTxOutAtIter(
                                        uint32_t height,
                                        uint8_t  dupID,
                                        uint16_t txIndex,
@@ -1681,6 +1682,7 @@ bool InterfaceToLDB::readStoredTxOutAtIter(
 
    stxo.unserializeDBValue(currReadValue_);
 
+   return true;
 }
 
 
@@ -1755,6 +1757,7 @@ TxOut InterfaceToLDB::getTxOutCopy( BinaryDataRef ldbKey6B, uint16_t txOutIdx)
 
    brr.advance(2);
    txoOut.unserialize(brr.getCurrPtr(), 0, parent, (uint32_t)txOutIdx);
+   return txoOut;
 }
 
 
@@ -1907,22 +1910,23 @@ bool InterfaceToLDB::getStoredTx_byHash( StoredTx & stx,
 {
    SCOPED_TIMER("getStoredTx");
    BinaryData hash4(txHash.getSliceRef(0,4));
-   BinaryData existingHints = getValue(BLKDATA, DB_PREFIX_TXHINTS, hash4);
+   BinaryData hintsDBVal = getValue(BLKDATA, DB_PREFIX_TXHINTS, hash4);
+   uint32_t valSize = hintsDBVal.getSize();
 
-   if(existingHints.getSize() == 0)
+   if(valSize < 2)
    {
       LOGERR << "No tx in DB with hash: " << txHash.toHexStr();
       return false;
    }
 
-   // Now go through all the hints looking for the first one with a matching hash
-   uint32_t numHints = existingHints.getSize() / 6;
+   BinaryRefReader brrHints(hintsDBVal);
+   uint32_t numHints = brrHints.get_var_int();
    uint32_t height;
    uint8_t  dup;
    uint16_t txIdx;
    for(uint32_t i=0; i<numHints; i++)
    {
-      BinaryDataRef hint = existingHints.getSliceRef(i*6, 6);
+      BinaryDataRef hint = brrHints.get_BinaryDataRef(6);
       seekTo(BLKDATA, DB_PREFIX_TXDATA, hint);
 
       BLKDATA_TYPE bdtype = DBUtils.readBlkDataKey(currReadKey_, height, dup, txIdx);
@@ -1932,6 +1936,8 @@ bool InterfaceToLDB::getStoredTx_byHash( StoredTx & stx,
       if(key6 != hint)
       {
          LOGERR << "TxHint referenced a BLKDATA tx that doesn't exist";
+         LOGERR << "Key:  '" << key6.toHexStr() << "', "
+                << "Hint: '" << hint.toHexStr() << "'";
          continue;
       }
 
@@ -2398,69 +2404,7 @@ bool InterfaceToLDB::markTxEntryValid(uint32_t height,
    return true;
 }
 
-
-
-
-
-////////////////////////////////////////////////////////////////////////////////
-// TODO:  Make sure that undo data makes sense in the case that the block 
-//        includes tx that spent tx in the same block
-//
-// TODO:  Does it matter that we will be modifying transactions 
-//        which are potentially also on the fork?   Maybe it matters only
-//        in a flip-flop reorg
-//
-// -- Go through all the StoredTxOuts:
-//      -- If pruning, add them back
-//      -- If no pruning, remove spentness flags/info
-//      -- Fetch SSH objects based on these TxOut scripts, update them
-// -- Go through OutPoints
-//      -- Look them up in the DB and find the associated SSH objects 
-//      -- (Don't need to remove the OutPoints, because the whole block
-//         and all tx will be ignored when the validDupByHeight_ is updated)
-// -- Update DBInfo object top block
-//
-//
-// Even though we don't strictly need undo-data for a no-pruning DB, we
-// put in the hooks for it to be used so it's an easy upgrade, later. In 
-// other words, we will always revert blocks based on StoredUndoData, and 
-// in the event that the SUD object is not supplied or stored in the DB,
-// we will create it from the full blocks.  All subsequent operations 
-// will then be identical, regardless of pruning or not.
-//
-bool InterfaceToLDB::revertBlock(uint32_t height, 
-                                 uint8_t  dupID, 
-                                 StoredUndoData* sud)
-{
-   StoredUndoData maybeNeedToComputeSUD;
-   if(sud==NULL)
-   {
-      if(DBUtils.getDbPruneType() == DB_PRUNE_ALL)
-      {
-         BinaryData      key = DBUtils.getBlkDataKeyNoPrefix(height,dupID);
-         BinaryRefReader brr = getValueReader(BLKDATA, DB_PREFIX_UNDODATA, key);
-         maybeNeedToComputeSUD.unserializeDBValue(brr);
-         sud = &maybeNeedToComputeSUD;
-      }
-      else
-      {
-         /*
-         bool works = computeUndoDataForBlock(height, dupID, maybeNeedToComputeSUD);
-         if(!works)
-         {
-            LOGERR << "Could not produce undo data for block!";
-            return false;
-         }
-         sud = &maybeNeedToComputeSUD;
-         */
-      }
-   }
    
-   
-
-   
-
-}
 
 ////////////////////////////////////////////////////////////////////////////////
 // This is used only for debugging and testing with small database sizes.
@@ -2564,6 +2508,7 @@ void InterfaceToLDB::pprintBlkDataDB(uint32_t indent)
       else if(key[0] == DB_PREFIX_SCRIPT) 
       {
          PPRINTENTRY(StoredScriptHistory, 0);
+         data.pprintFullSSH(indent);
       }
       else
       {

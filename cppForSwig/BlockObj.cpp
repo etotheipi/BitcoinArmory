@@ -667,7 +667,7 @@ BinaryData TxRef::getThisHash(void) const
    if(!isBound())
       return BinaryData(0);
 
-   dbIface_->getTxHashForLdbKey(dbKey6B_);
+   return dbIface_->getTxHashForLdbKey(dbKey6B_);
 }
 
 /////////////////////////////////////////////////////////////////////////////

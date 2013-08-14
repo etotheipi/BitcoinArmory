@@ -466,7 +466,7 @@ public:
    bool readStoredTxOutAtIter(uint32_t height, uint8_t  dupID, uint16_t txIndex,
                                                             StoredTxOut & stxo);
 
-   bool readStoredScriptHistoryAtIter( StoredScriptHistory & ssh);
+   void readStoredScriptHistoryAtIter( StoredScriptHistory & ssh);
 
    uint32_t readAllStoredScriptHistory(
                        map<BinaryData, StoredScriptHistory> & storedScrMap);
@@ -517,7 +517,6 @@ public:
                                 uint8_t dupID,
                                 StoredUndoData & sud);
 
-   bool revertBlock(uint32_t height, uint8_t dupID, StoredUndoData* sud=NULL);
 
    /////////////////////////////////////////////////////////////////////////////
    inline bool checkPrefixByte(DB_PREFIX prefix, bool rewindWhenDone=false)

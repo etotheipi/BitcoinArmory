@@ -77,8 +77,8 @@ public:
    uint32_t        getSize(void) const { assert(isInitialized_); return dataCopy_.getSize(); }
    uint32_t        isInitialized(void) const { return isInitialized_; }
    uint32_t        getBlockSize(void) const { return numBlockBytes_; }
-   uint32_t        setBlockSize(uint32_t sz) { numBlockBytes_ = sz; }
-   uint32_t        setNumTx(uint32_t ntx) { numTx_ = ntx; }
+   void            setBlockSize(uint32_t sz) { numBlockBytes_ = sz; }
+   void            setNumTx(uint32_t ntx) { numTx_ = ntx; }
 
    /////////////////////////////////////////////////////////////////////////////
    void           setBlockFile(string filename)     {blkFile_       = filename;}

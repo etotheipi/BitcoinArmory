@@ -4421,6 +4421,7 @@ TEST_F(BlockUtilsTest, SScriptHistoryMarkSpent)
 
    BinaryData expectSSH_orig = READHEX(
       "0400""ffffffff"
+      "02"
          "40""00ca9a3b00000000""01e0780f0007""0001"
          "a0""0065cd1d00000000""01e0780f0009""0005""01e0780f000f0000"
       "02"
@@ -4429,6 +4430,7 @@ TEST_F(BlockUtilsTest, SScriptHistoryMarkSpent)
 
    BinaryData expectSSH_bothspent = READHEX(
       "0400""ffffffff"
+      "02"
          "60""00ca9a3b00000000""01e0780f0007""0001""01e0780f00a00008"
          "a0""0065cd1d00000000""01e0780f0009""0005""01e0780f000f0000"
       "02"
@@ -4437,6 +4439,7 @@ TEST_F(BlockUtilsTest, SScriptHistoryMarkSpent)
 
    BinaryData expectSSH_bothunspent = READHEX(
       "0400""ffffffff"
+      "02"
          "40""00ca9a3b00000000""01e0780f0007""0001"
          "80""0065cd1d00000000""01e0780f0009""0005"
       "02"
@@ -4445,6 +4448,7 @@ TEST_F(BlockUtilsTest, SScriptHistoryMarkSpent)
 
    BinaryData expectSSH_afterrm = READHEX(
       "0400""ffffffff"
+      "01"
          "40""00ca9a3b00000000""01e0780f0007""0001"
       "02"
          "01e0780f00300003"

@@ -1647,7 +1647,7 @@ BlockDataManager_LevelDB & BlockDataManager_LevelDB::GetInstance(void)
 
 
 /////////////////////////////////////////////////////////////////////////////
-BlockDataManager_LevelDB & BlockDataManager_LevelDB::DestroyInstance(void) 
+void BlockDataManager_LevelDB::DestroyInstance(void)
 {
    theOnlyBDM_->Reset();
    iface_->closeDatabases();
@@ -2326,6 +2326,9 @@ void BlockDataManager_LevelDB::reapplyBlocksToDB(uint32_t blk0, uint32_t blk1)
    TIMER_START("LoadProgress");
 
    
+   cout << "*********************************************************" << endl;
+   cout << "Original state of DB before applying any blocks:" << endl;
+   cout << "*********************************************************" << endl;
    iface_->pprintBlkDataDB(BLKDATA);
 
    do
@@ -2356,7 +2359,7 @@ void BlockDataManager_LevelDB::reapplyBlocksToDB(uint32_t blk0, uint32_t blk1)
       iface_->resetIterator(BLKDATA, true);
 
       iface_->pprintBlkDataDB(BLKDATA);
-      cout << "Iter is at key(2): " << iface_->getIterKeyCopy().toHexStr() << endl;
+      iface_->printAllDatabaseEntries(BLKDATA);
 
    } while(iface_->advanceToNextBlock(false));
 
@@ -2677,7 +2680,7 @@ uint32_t BlockDataManager_LevelDB::detectAllBlkFiles(void)
       LOGERR << "Error finding blockchain files (blkXXXX.dat)";
       return 0;
    }
-
+   return numBlkFiles_;
 }
 
 
@@ -2772,6 +2775,7 @@ bool BlockDataManager_LevelDB::loadScrAddrHistoryFromDB(void)
          insertRegisteredTxIfNew(regTx);
       }
    }
+   return true;
 }
 
 
@@ -4257,7 +4261,7 @@ bool BlockDataManager_LevelDB::applyTxToBatchWriteData(
 
       // Need to modify existing UTXOs, so that we can delete or mark as spent
       stxoSpend.spentness_      = TXOUT_SPENT;
-      stxoSpend.spentByTxInKey_ = thisSTX.getDBKeyOfChild(iin);
+      stxoSpend.spentByTxInKey_ = thisSTX.getDBKeyOfChild(iin, false);
 
       if(DBUtils.getArmoryDbType() != ARMORY_DB_SUPER)
       {
@@ -4274,7 +4278,7 @@ bool BlockDataManager_LevelDB::applyTxToBatchWriteData(
       // update the correct SSH TXIO directly
       markTxOutSpentInSSH(*sshptr, 
                           stxoSpend.getDBKey(false),
-                          thisSTX.getDBKeyOfChild(iin));
+                          thisSTX.getDBKeyOfChild(iin,false));
    }
 
 

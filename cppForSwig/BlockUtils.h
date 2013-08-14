@@ -593,7 +593,7 @@ private:
 public:
 
    static BlockDataManager_LevelDB & GetInstance(void);
-   static BlockDataManager_LevelDB & DestroyInstance(void);
+   static void DestroyInstance(void);
    bool isInitialized(void) const { return isInitialized_;}
 
    void SelectNetwork(string netName);
