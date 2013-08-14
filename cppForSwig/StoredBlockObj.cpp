@@ -1514,6 +1514,46 @@ void StoredScriptHistory::pprintFullSSH(uint32_t indent)
    }
 }
 
+////////////////////////////////////////////////////////////////////////////////
+uint64_t StoredScriptHistory::getScriptReceived(bool withMultisig)
+{
+   uint64_t bal = 0;
+   for(uint32_t i=0; i<txioVect_.size(); i++)
+      bal += txioVect_[i].getValue();
+
+   if(!withMultisig)
+      return bal;
+
+   for(uint32_t i=0; i<multisigDBKeys_.size(); i++)
+   {
+      LOGERR << "Have not yet implemented multisig balance accum";
+      return UINT64_MAX;
+   }
+
+}
+
+////////////////////////////////////////////////////////////////////////////////
+uint64_t StoredScriptHistory::getScriptBalance(bool withMultisig)
+{
+   uint64_t bal = 0;
+   for(uint32_t i=0; i<txioVect_.size(); i++)
+   {
+      TxIOPair & txio = txioVect_[i];
+      if(!txio.hasTxIn())
+         bal += txio.getValue();
+   }
+
+   if(!withMultisig)
+      return bal;
+
+   
+   for(uint32_t i=0; i<multisigDBKeys_.size(); i++)
+   {
+      LOGERR << "Have not yet implemented multisig balance accum";
+      return UINT64_MAX;
+   }
+
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////

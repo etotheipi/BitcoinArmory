@@ -2333,8 +2333,6 @@ void BlockDataManager_LevelDB::reapplyBlocksToDB(uint32_t blk0, uint32_t blk1)
 
    do
    {
-      cout << "Iter is at key(1): " << iface_->getIterKeyCopy().toHexStr() << endl;
-
       StoredHeader sbh;
       iface_->readStoredBlockAtIter(sbh);
       uint32_t hgt = sbh.blockHeight_;
@@ -2345,7 +2343,19 @@ void BlockDataManager_LevelDB::reapplyBlocksToDB(uint32_t blk0, uint32_t blk1)
       if(dup != iface_->getValidDupIDForHeight(hgt))
          continue;
 
+      // Ugh!  Design inefficiency: this loop and applyToBlockDB both use
+      // the same iterator, which means that applyBlockToDB will usually 
+      // leave us with the iterator in a different place than we started.
+      // I'm not clear how inefficient it is to keep re-seeking (given that
+      // there's a lot of caching going on under-the-hood).  It may be better
+      // to have each method create its own iterator... TODO:  profile/test
+      // this idea.  For now we will just save the current DB key, and 
+      // re-seek to it afterwards.
+      BinaryData prevIterKey = iface_->getIterKeyCopy();
       applyBlockToDB(hgt, dup); 
+      iface_->seekTo(BLKDATA, prevIterKey);
+
+
       bytesReadSoFar_ += sbh.numBytes_;
       writeScanStatusFile(hgt, bfile, string("LoadProgress"));
 
@@ -2357,9 +2367,7 @@ void BlockDataManager_LevelDB::reapplyBlocksToDB(uint32_t blk0, uint32_t blk1)
       //        since LevelDB has optimized the hell out of key-order 
       //        traversal.
       iface_->resetIterator(BLKDATA, true);
-
       iface_->pprintBlkDataDB(BLKDATA);
-      iface_->printAllDatabaseEntries(BLKDATA);
 
    } while(iface_->advanceToNextBlock(false));
 
@@ -2948,8 +2956,6 @@ uint32_t BlockDataManager_LevelDB::rebuildDatabasesFromBlkFiles(void)
    isInitialized_ = true;
    purgeZeroConfPool();
 
-   TIMER_STOP("parseEntireBlockchain");
-
    #ifdef _DEBUG
       UniversalTimer::instance().printCSV(cout,true);
       UniversalTimer::instance().printCSV(string("timings.csv"));
@@ -3163,11 +3169,6 @@ uint32_t BlockDataManager_LevelDB::readBlkFileUpdate(void)
       numBlkFiles_ += 1;
       blkFileList_.push_back(nextFilename);
    }
-
-   // We'll stop the timer here so it will stop before printing
-   // It will be stopped again when the TimerToken goes out of scope,
-   // but it does no harm to stop a timer multiple times.
-   TIMER_STOP("readBlkFileUpdate");
 
    #ifdef _DEBUG
       UniversalTimer::instance().printCSV(cout,true);

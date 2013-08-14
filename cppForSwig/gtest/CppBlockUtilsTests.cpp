@@ -4292,6 +4292,11 @@ protected:
       blkHash3A= READHEX("dd63f62ef59d5b6a6da2a36407f76e4e28026a3fd3a46700d284424700000000");
       blkHash4A= READHEX("bfa204022816102169b4e1d4f78cdf77258048f6d14282144cc01d5500000000");
       blkHash5A= READHEX("4e049fd71ef7381a73e4f550d97812d1eb0fbd1489c1774e18855f1900000000");
+
+      addrA_ = READHEX("62e907b15cbf27d5425399ebf6f0fb50ebb88f18");
+      addrB_ = READHEX("ee26c56fc1d942be8d7a24b2a1001dd894693980");
+      addrC_ = READHEX("cb2abde8bccacc32e893df3a054b9ef7f227a4ce");
+      addrD_ = READHEX("c522664fb0e55cdc5c0cea73b4aad97ec8343232");
    }
 
 
@@ -4390,6 +4395,11 @@ protected:
    BinaryData blkHash3A;
    BinaryData blkHash4A;
    BinaryData blkHash5A;
+
+   BinaryData addrA_;
+   BinaryData addrB_;
+   BinaryData addrC_;
+   BinaryData addrD_;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -4558,6 +4568,32 @@ TEST_F(BlockUtilsTest, Load5Blocks)
    DBUtils.setDbPruneType(DB_PRUNE_NONE);
    TheBDM.rebuildDatabasesFromBlkFiles(); 
    iface_->pprintBlkDataDB(HEADERS);
+
+   StoredScriptHistory ssh;
+
+   iface_->getStoredScriptHistory(ssh, HASH160PREFIX + addrA_);
+   EXPECT_EQ(ssh.getScriptBalance(),  100*COIN);
+   EXPECT_EQ(ssh.getScriptReceived(), 100*COIN);
+   EXPECT_EQ(ssh.txioVect_.size(),      2);
+   EXPECT_EQ(ssh.multisigDBKeys_.size(),0);
+
+   iface_->getStoredScriptHistory(ssh, HASH160PREFIX + addrB_);
+   EXPECT_EQ(ssh.getScriptBalance(),    0*COIN);
+   EXPECT_EQ(ssh.getScriptReceived(), 140*COIN);
+   EXPECT_EQ(ssh.txioVect_.size(),      3);
+   EXPECT_EQ(ssh.multisigDBKeys_.size(),0);
+
+   iface_->getStoredScriptHistory(ssh, HASH160PREFIX + addrC_);
+   EXPECT_EQ(ssh.getScriptBalance(),   50*COIN);
+   EXPECT_EQ(ssh.getScriptReceived(),  60*COIN);
+   EXPECT_EQ(ssh.txioVect_.size(),      2);
+   EXPECT_EQ(ssh.multisigDBKeys_.size(),0);
+
+   iface_->getStoredScriptHistory(ssh, HASH160PREFIX + addrD_);
+   EXPECT_EQ(ssh.getScriptBalance(),  100*COIN);
+   EXPECT_EQ(ssh.getScriptReceived(), 100*COIN);
+   EXPECT_EQ(ssh.txioVect_.size(),      3);
+   EXPECT_EQ(ssh.multisigDBKeys_.size(),0);
 }
 
 /*

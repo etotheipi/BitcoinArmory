@@ -520,6 +520,9 @@ public:
    void pprintOneLine(uint32_t indent=3);
    void pprintFullSSH(uint32_t indent=3);
 
+   uint64_t getScriptReceived(bool withMultisig=false);
+   uint64_t getScriptBalance(bool withMultisig=false);
+
    BinaryData     uniqueKey_;  // includes the prefix byte!
    uint32_t       version_;
    uint32_t       alreadyScannedUpToBlk_;
