@@ -533,10 +533,10 @@ TxIn Tx::getTxIn(int i)
    uint32_t txinSize = offsetsTxIn_[i+1] - offsetsTxIn_[i];
    TxIn out(dataCopy_.getPtr()+offsetsTxIn_[i], txinSize, txRefObj_, i);
    
-   if(!txRefObj_.isInitialized())
+   if(txRefObj_.isInitialized())
    {
       out.setParentHash(getThisHash());
-      out.setParentHeight(UINT32_MAX);
+      out.setParentHeight(txRefObj_.getBlockHeight());
    }
    return out;
 }
@@ -551,10 +551,10 @@ TxOut Tx::getTxOut(int i)
    uint32_t txoutSize = offsetsTxOut_[i+1] - offsetsTxOut_[i];
    TxOut out(dataCopy_.getPtr()+offsetsTxOut_[i], txoutSize, txRefObj_, i);
    
-   if(!txRefObj_.isInitialized())
+   if(txRefObj_.isInitialized())
    {
       out.setParentHash(getThisHash());
-      out.setParentHeight(UINT32_MAX);
+      out.setParentHeight(txRefObj_.getBlockHeight());
    }
    return out;
 }

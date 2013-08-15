@@ -4278,7 +4278,8 @@ protected:
       mkdir(homedir_);
 
       // Put the first 5 blocks into the blkdir
-      copyFile("../reorgTest/blk_0_to_4.dat", BtcUtils::getBlkFilename(blkdir_, 0));
+      blk0dat_ = BtcUtils::getBlkFilename(blkdir_, 0);
+      copyFile("../reorgTest/blk_0_to_4.dat", blk0dat_);
 
       TheBDM.SelectNetwork("Main");
       TheBDM.SetBlkFileLocation(blkdir_);
@@ -4317,11 +4318,13 @@ protected:
 
    /////////////////////////////////////////////////////////////////////////////
    // Simple method for copying files (works in all OS, probably not efficient)
-   bool copyFile(string src, string dst)
+   bool copyFile(string src, string dst, uint32_t nbytes=UINT32_MAX)
    {
       uint32_t srcsz = BtcUtils::GetFileSize(src);
       if(srcsz == FILE_DOES_NOT_EXIST)
          return false;
+
+      srcsz = min(srcsz, nbytes);
    
       BinaryData temp(srcsz);
       ifstream is(src.c_str(), ios::in  | ios::binary);
@@ -4596,6 +4599,61 @@ TEST_F(BlockUtilsTest, Load5Blocks)
    EXPECT_EQ(ssh.multisigDBKeys_.size(),0);
 }
 
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(BlockUtilsTest, Load4BlocksPlus1)
+{
+   // Copy only the first four blocks.  Will copy the full file next to test
+   // readBlkFileUpdate method on non-reorg blocks.
+   copyFile("../reorgTest/blk_0_to_4.dat", blk0dat_, 1596);
+   TheBDM.rebuildDatabasesFromBlkFiles(); 
+   EXPECT_EQ(iface_->getTopBlockHeight(HEADERS), 3);
+   EXPECT_EQ(iface_->getTopBlockHash(HEADERS), blkHash3);
+   EXPECT_TRUE(TheBDM.getHeaderByHash(blkHash3)->isMainBranch());
+   
+   copyFile("../reorgTest/blk_0_to_4.dat", blk0dat_);
+   TheBDM.readBlkFileUpdate(); 
+   EXPECT_EQ(iface_->getTopBlockHeight(HEADERS), 4);
+   EXPECT_EQ(iface_->getTopBlockHash(HEADERS), blkHash4);
+   EXPECT_TRUE(TheBDM.getHeaderByHash(blkHash4)->isMainBranch());
+}
+
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(BlockUtilsTest, Load5Blocks_Plus2NoReorg)
+{
+   DBUtils.setArmoryDbType(ARMORY_DB_SUPER);
+   DBUtils.setDbPruneType(DB_PRUNE_NONE);
+   TheBDM.rebuildDatabasesFromBlkFiles(); 
+
+
+   copyFile("../reorgTest/blk_3A.dat", blk0dat_);
+   TheBDM.readBlkFileUpdate();
+   EXPECT_EQ(TheBDM.getTopBlockHash(),   blkHash4);
+   EXPECT_EQ(TheBDM.getTopBlockHeight(), 4);
+
+   copyFile("../reorgTest/blk_4A.dat", blk0dat_);
+   TheBDM.readBlkFileUpdate();
+   EXPECT_EQ(TheBDM.getTopBlockHash(),   blkHash4);
+   EXPECT_EQ(TheBDM.getTopBlockHeight(), 4);
+
+   //copyFile("../reorgTest/blk_5A.dat", blk0dat_);
+   iface_->pprintBlkDataDB(HEADERS);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(BlockUtilsTest, Load5Blocks_FullReorg)
+{
+   DBUtils.setArmoryDbType(ARMORY_DB_SUPER);
+   DBUtils.setDbPruneType(DB_PRUNE_NONE);
+   TheBDM.rebuildDatabasesFromBlkFiles(); 
+
+   copyFile("../reorgTest/blk_3A.dat", blk0dat_);
+   TheBDM.readBlkFileUpdate();
+   copyFile("../reorgTest/blk_4A.dat", blk0dat_);
+   TheBDM.readBlkFileUpdate();
+   copyFile("../reorgTest/blk_5A.dat", blk0dat_);
+   TheBDM.readBlkFileUpdate();
+   iface_->pprintBlkDataDB(HEADERS);
+}
 /*
 ////////////////////////////////////////////////////////////////////////////////
 TEST_F(BlockUtils, MultiRescanBlkSafe)

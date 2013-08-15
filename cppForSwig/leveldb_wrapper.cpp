@@ -1185,6 +1185,7 @@ uint8_t InterfaceToLDB::putStoredHeader( StoredHeader & sbh, bool withBlkData)
    return newDup;
 }
 
+
 ////////////////////////////////////////////////////////////////////////////////
 // Puts bare header into HEADERS DB.  Use "putStoredHeader" to add to both
 // (which actually calls this method as the first step)
@@ -2415,7 +2416,10 @@ KVLIST InterfaceToLDB::getAllDatabaseEntries(DB_SELECT db)
 {
    SCOPED_TIMER("getAllDatabaseEntries");
 
-   BinaryData prevIterLoc = sliceToBinaryData(iters_[db]->key());
+   bool restoreIterAtEnd = iters_[db]->Valid();
+   BinaryData prevIterLoc;
+   if(restoreIterAtEnd)
+      prevIterLoc = sliceToBinaryData(iters_[db]->key());
 
    KVLIST outList;
    outList.reserve(100);
@@ -2430,7 +2434,9 @@ KVLIST InterfaceToLDB::getAllDatabaseEntries(DB_SELECT db)
       sliceToBinaryData(iters_[db]->value(), outList[last].second);
    }
 
-   seekTo(db, prevIterLoc);
+   if(restoreIterAtEnd)
+      seekTo(db, prevIterLoc);
+
    return outList;
 }
 
@@ -2440,7 +2446,10 @@ void InterfaceToLDB::printAllDatabaseEntries(DB_SELECT db)
 {
    SCOPED_TIMER("printAllDatabaseEntries");
 
-   BinaryData prevIterLoc = sliceToBinaryData(iters_[db]->key());
+   bool restoreIterAtEnd = iters_[db]->Valid();
+   BinaryData prevIterLoc;
+   if(restoreIterAtEnd)
+      prevIterLoc = sliceToBinaryData(iters_[db]->key());
 
    cout << "Printing DB entries... (DB=" << db << ")" << endl;
    KVLIST dbList = getAllDatabaseEntries(db);
@@ -2456,7 +2465,8 @@ void InterfaceToLDB::printAllDatabaseEntries(DB_SELECT db)
       cout << "   \"" << dbList[i].second.toHexStr() << "\"  " << endl;
    }
 
-   seekTo(db, prevIterLoc);
+   if(restoreIterAtEnd)
+      seekTo(db, prevIterLoc);
 }
 
 #define PPRINTENTRY(TYPE, IND) \

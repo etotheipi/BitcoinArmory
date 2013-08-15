@@ -518,7 +518,6 @@ private:
    string                             blkFileDir_;
    vector<string>                     blkFileList_;
    uint64_t                           numBlkFiles_;
-   uint64_t                           endOfPrevLastBlock_;
    uint64_t                           endOfLastBlockByte_;
 
    // These should be set after the blockchain is organized
@@ -690,7 +689,8 @@ public:
    bool     processHeadersInFile(string filename);
    uint32_t rebuildDatabasesFromBlkFiles(void);
    bool     addRawBlockToDB(BinaryRefReader & brr);
-   
+   bool     updateBlkDataHeader(StoredHeader const & sbh);
+
    // On the first pass through the blockchain data, we only write the raw
    // blocks to do the DB.  We don't "apply" them (marking TxOuts spent and
    // updating StoredScriptHistory objects).  When we know the longest chain,

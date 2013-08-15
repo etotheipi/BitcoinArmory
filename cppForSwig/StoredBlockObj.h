@@ -481,9 +481,9 @@ public:
    BinaryData        dataCopy_;
    uint32_t          blockHeight_;
    uint8_t           duplicateID_;
-   BinaryData        parentHash_;
    uint16_t          txIndex_;
    uint16_t          txOutIndex_;
+   BinaryData        parentHash_;
    TXOUT_SPENTNESS   spentness_;
    bool              isCoinbase_;
    BinaryData        spentByTxInKey_;

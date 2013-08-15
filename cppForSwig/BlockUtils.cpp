@@ -1361,7 +1361,7 @@ vector<AddressBookEntry> BtcWallet::createAddressBook(void)
 ////////////////////////////////////////////////////////////////////////////////
 BlockDataManager_LevelDB::BlockDataManager_LevelDB(void) : 
       totalBlockchainBytes_(0),
-      endOfPrevLastBlock_(0),
+      endOfLastBlockByte_(0),
       topBlockPtr_(NULL),
       genBlockPtr_(NULL),
       lastBlockWasReorg_(false),
@@ -1679,7 +1679,6 @@ void BlockDataManager_LevelDB::Reset(void)
    blkFileList_.clear();
    numBlkFiles_ = UINT64_MAX;
 
-   endOfPrevLastBlock_ = UINT64_MAX;
    endOfLastBlockByte_ = UINT64_MAX;
 
 
@@ -2374,7 +2373,7 @@ void BlockDataManager_LevelDB::reapplyBlocksToDB(uint32_t blk0, uint32_t blk1)
    TIMER_STOP("LoadProgress");
 
    allScannedUpToBlk_ = blk1;
-   updateRegisteredScrAddrs(blk1);
+   //updateRegisteredScrAddrs(blk1);
 }
 
 
@@ -2996,7 +2995,7 @@ uint32_t BlockDataManager_LevelDB::readBlkFileUpdate(void)
       LOGERR << "***ERROR:  Cannot open " << filename.c_str();
       return 0;
    }
-   else if((int64_t)filesize-(int64_t)endOfPrevLastBlock_ < 8)
+   else if((int64_t)filesize-(int64_t)endOfLastBlockByte_ < 8)
    {
       // This condition triggers if we hit the end of the file -- will
       // usually only be triggered by Bitcoin-Qt/bitcoind pre-0.8
@@ -3007,7 +3006,7 @@ uint32_t BlockDataManager_LevelDB::readBlkFileUpdate(void)
       // For post-0.8, the filesize will almost always be larger (padded).
       // Keep checking where we expect to see magic bytes, we know we're 
       // at the end if we see zero-bytes instead.
-      uint64_t endOfNewLastBlock = endOfPrevLastBlock_;
+      uint64_t endOfNewLastBlock = endOfLastBlockByte_;
       BinaryData fourBytes(4);
       while((int64_t)filesize - (int64_t)endOfNewLastBlock >= 8)
       {
@@ -3019,11 +3018,11 @@ uint32_t BlockDataManager_LevelDB::readBlkFileUpdate(void)
          else
          {
             is.read((char*)fourBytes.getPtr(), 4);
-            endOfNewLastBlock += READ_UINT32_LE((fourBytes.getPtr()) + 8);
+            endOfNewLastBlock += READ_UINT32_LE((fourBytes.getPtr())) + 8;
          }
       }
 
-      currBlkBytesToRead = endOfNewLastBlock - endOfPrevLastBlock_;
+      currBlkBytesToRead = endOfNewLastBlock - endOfLastBlockByte_;
    }
       
 
@@ -3054,7 +3053,7 @@ uint32_t BlockDataManager_LevelDB::readBlkFileUpdate(void)
    if(currBlkBytesToRead>0)
    {
       ifstream is(filename.c_str(), ios::in | ios::binary);
-      is.seekg(endOfPrevLastBlock_, ios::beg);
+      is.seekg(endOfLastBlockByte_, ios::beg);
       is.read((char*)newBlockDataRaw.getPtr(), currBlkBytesToRead);
       is.close();
    }
@@ -3088,7 +3087,7 @@ uint32_t BlockDataManager_LevelDB::readBlkFileUpdate(void)
       // We concatenated all data together, even if across two files
       // Check which file data belongs to and set FileDataPtr appropriately
       uint32_t useFileIndex0Idx = numBlkFiles_-1;
-      uint32_t blockHeaderOffset = endOfPrevLastBlock_ + 8;
+      uint32_t blockHeaderOffset = endOfLastBlockByte_ + 8;
       if(brr.getPosition() >= currBlkBytesToRead)
       {
          useFileIndex0Idx = numBlkFiles_;
@@ -3116,7 +3115,17 @@ uint32_t BlockDataManager_LevelDB::readBlkFileUpdate(void)
       if(blockAddSucceeded)
          nBlkRead++;
 
-      if(blockIsNewTop)
+      if(blockchainReorg)
+      {
+         LOGWARN << "Blockchain Reorganization detected!";
+         reassessAfterReorg(prevTopBlockPtr_, topBlockPtr_, reorgBranchPoint_);
+         LOGWARN << "Done reassessing tx validity ";
+         purgeZeroConfPool();
+
+         // Update all the registered wallets...
+         updateWalletsAfterReorg(registeredWallets_);
+      }
+      else if(blockIsNewTop)
       {
          BlockHeader & bh = getTopBlockHeader();
          uint32_t hgt = bh.getBlockHeight();
@@ -3131,16 +3140,6 @@ uint32_t BlockDataManager_LevelDB::readBlkFileUpdate(void)
             BinaryDataRef bdr(sbh.stxMap_[itx].dataCopy_);
             registeredScrAddrScan(bdr.getPtr(), bdr.getSize());
          }
-      }
-      else if(blockchainReorg)
-      {
-         LOGWARN << "Blockchain Reorganization detected!";
-         reassessAfterReorg(prevTopBlockPtr_, topBlockPtr_, reorgBranchPoint_);
-         LOGWARN << "Done reassessing tx validity ";
-         purgeZeroConfPool();
-
-         // Update all the registered wallets...
-         updateWalletsAfterReorg(registeredWallets_);
       }
       else
       {
@@ -3305,7 +3304,7 @@ bool BlockDataManager_LevelDB::parseNewBlock(BinaryRefReader & brr,
    addRawBlockToDB(brr);
 
    // Note where we will start looking for the next block, later
-   endOfPrevLastBlock_ = thisHeaderOffset + blockSize;
+   endOfLastBlockByte_ = thisHeaderOffset + blockSize;
 
    // Read the #tx and fill in some header properties
    uint8_t viSize;
@@ -3386,6 +3385,11 @@ vector<bool> BlockDataManager_LevelDB::addNewBlockData(
    bhInsResult = headerMap_.insert(bhInputPair);
    BlockHeader * bhptr = &(bhInsResult.first->second);
 
+   // Finally, let's re-assess the state of the blockchain with the new data
+   // Check the lastBlockWasReorg_ variable to see if there was a reorg
+   bool prevTopBlockStillValid = organizeChain(); 
+   lastBlockWasReorg_ = !prevTopBlockStillValid;
+
    // Then put the bare header into the DB and get its duplicate ID.
    StoredHeader sbh;
    sbh.createFromBlockHeader(*bhptr);
@@ -3398,7 +3402,7 @@ vector<bool> BlockDataManager_LevelDB::addNewBlockData(
    addRawBlockToDB(brrRawBlock);
 
    // Note where we will start looking for the next block, later
-   endOfPrevLastBlock_ = thisHeaderOffset + blockSize;
+   endOfLastBlockByte_ = thisHeaderOffset + blockSize;
 
    /* From parseNewBlock but not needed here in the new code
    // Read the #tx and fill in some header properties
@@ -3434,10 +3438,6 @@ vector<bool> BlockDataManager_LevelDB::addNewBlockData(
    return true;
    */
 
-   // Finally, let's re-assess the state of the blockchain with the new data
-   // Check the lastBlockWasReorg_ variable to see if there was a reorg
-   bool prevTopBlockStillValid = organizeChain(); 
-   lastBlockWasReorg_ = !prevTopBlockStillValid;
 
    // Since this method only adds one block, if it's not on the main branch,
    // then it's not the new head
@@ -3447,6 +3447,11 @@ vector<bool> BlockDataManager_LevelDB::addNewBlockData(
    vb[ADD_BLOCK_SUCCEEDED]     =  true;
    vb[ADD_BLOCK_NEW_TOP_BLOCK] =  newBlockIsNewTop;
    vb[ADD_BLOCK_CAUSED_REORG]  = !prevTopBlockStillValid;
+
+   // We actually accessed the pointer directly in this method, without 
+   // advancing the BRR position.  But the outer function expects to see
+   // the current location we would've been at if it was advanced.
+   brrRawBlock.advance(blockSize);
    return vb;
 }
 
@@ -4372,6 +4377,16 @@ bool BlockDataManager_LevelDB::addRawBlockToDB(BinaryRefReader & brr)
    return true;
 }
 
+
+////////////////////////////////////////////////////////////////////////////////
+// Not sure if this deserves its own method anymore, but it has it anyway.  
+// Used to update the blockAppliedToDB_ flag, and maybe numTx and numBytes
+// if needed for some reason.
+bool BlockDataManager_LevelDB::updateBlkDataHeader(StoredHeader const & sbh)
+{
+   iface_->putValue(BLKDATA, sbh.getDBKey(), sbh.serializeDBValue(BLKDATA));
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // AddRawBlockTODB
 //
@@ -4477,7 +4492,8 @@ bool BlockDataManager_LevelDB::applyBlockToDB(StoredHeader & sbh)
    iface_->startBatch(BLKDATA);
 
    sbh.blockAppliedToDB_ = true;
-   iface_->putStoredHeader(sbh, false);
+   updateBlkDataHeader(sbh);
+   //iface_->putStoredHeader(sbh, false);
 
    map<BinaryData, StoredTx>::iterator iter_stx;
    for(iter_stx  = stxToModify.begin();
@@ -4554,8 +4570,12 @@ bool BlockDataManager_LevelDB::createUndoDataFromBlock(uint32_t hgt,
       for(uint32_t iin=0; iin<regTx.getNumTxIn(); iin++)
       {
          TxIn txin = regTx.getTxIn(iin);
-         BinaryDataRef prevHash  = txin.getOutPoint().getTxHashRef();
-         uint16_t      prevIndex = txin.getOutPoint().getTxOutIndex();
+         BinaryData prevHash  = txin.getOutPoint().getTxHash();
+         uint16_t   prevIndex = txin.getOutPoint().getTxOutIndex();
+
+         // Skip if coinbase input
+         if(prevHash == BtcUtils::EmptyHash_)
+            continue;
          
          // Above we checked the block to be undone is full, but we
          // still need to make sure the prevTx we just fetched has our data.
@@ -4608,7 +4628,10 @@ bool BlockDataManager_LevelDB::undoBlockFromDB(StoredUndoData & sud)
 
    ///// Put the STXOs back into the DB which were removed by this block
    // Process the stxOutsRemovedByBlock_ in reverse order
-   for(uint32_t i=sud.stxOutsRemovedByBlock_.size()-1; i>=0; i--)
+   // Use int32_t index so that -1 != UINT32_MAX and we go into inf loop
+   cout << "******************************************************" << endl;
+   iface_->pprintBlkDataDB(BLKDATA);
+   for(int32_t i=sud.stxOutsRemovedByBlock_.size()-1; i>=0; i--)
    {
       StoredTxOut & sudStxo = sud.stxOutsRemovedByBlock_[i];
       StoredTx * stxptr = makeSureSTXInMap( sudStxo.blockHeight_,
@@ -4616,6 +4639,9 @@ bool BlockDataManager_LevelDB::undoBlockFromDB(StoredUndoData & sud)
                                             sudStxo.txIndex_,
                                             sudStxo.parentHash_,
                                             stxToModify);
+
+      cout << "(1)" << endl;
+      stxptr->pprintFullTx();
       
       uint16_t stxoIdx = sudStxo.txOutIndex_;
       map<uint16_t,StoredTxOut>::iterator iter;
@@ -4656,6 +4682,9 @@ bool BlockDataManager_LevelDB::undoBlockFromDB(StoredUndoData & sud)
          iter->second.spentByTxInKey_ = BinaryData(0);
       }
 
+      cout << "(1a)" << endl;
+      stxptr->pprintFullTx();
+
       ////// Finished updating STX, now update the SSH in the DB
       // Updating the SSH objects works the same regardless of pruning
       iter = stxptr->stxoMap_.find(stxoIdx);
@@ -4670,6 +4699,8 @@ bool BlockDataManager_LevelDB::undoBlockFromDB(StoredUndoData & sud)
       // Always a primary SSH to update (compared to multisig entries)
       BinaryData uniqKey = stxoReAdd.getScrAddress();
       StoredScriptHistory* sshptr = makeSureSSHInMap(uniqKey, sshToModify);
+      cout << "(2)" << endl;
+      sshptr->pprintFullSSH();
       if(sshptr==NULL)
       {
          LOGERR << "No SSH found for marking TxOut unspent on undo";
@@ -4698,13 +4729,16 @@ bool BlockDataManager_LevelDB::undoBlockFromDB(StoredUndoData & sud)
             addMultisigEntryToSSH(*sshptr, stxoReAdd.getDBKey(false));
          }
       }
+      cout << "(2a)" << endl;
+      sshptr->pprintFullSSH();
    }
 
 
    // The OutPoint list is every new, unspent TxOut created by this block.
    // When they were added, we updated all the StoredScriptHistory objects
    // to include references to them.  We need to remove them now.
-   for(uint32_t i=sud.outPointsAddedByBlock_.size()-1; i>=0; i--)
+   // Use int32_t index so that -1 != UINT32_MAX and we go into inf loop
+   for(int32_t i=sud.outPointsAddedByBlock_.size()-1; i>=0; i--)
    {
       BinaryData txHash  = sud.outPointsAddedByBlock_[i].getTxHash();
       uint16_t   txoIdx  = sud.outPointsAddedByBlock_[i].getTxOutIndex();
@@ -4714,9 +4748,15 @@ bool BlockDataManager_LevelDB::undoBlockFromDB(StoredUndoData & sud)
       StoredTxOut & stxo    = stxptr->stxoMap_[txoIdx];
       BinaryData    stxoKey = stxo.getDBKey(false);
 
+      cout << "(3)" << endl;
+      stxptr->pprintFullTx();
+
       // Then fetch the StoredScriptHistory of the StoredTxOut scraddress
       BinaryData uniq = stxo.getScrAddress();
       StoredScriptHistory * sshptr = makeSureSSHInMap(uniq, sshToModify, false);
+
+      cout << "(4)" << endl;
+      sshptr->pprintFullSSH();
 
       // If we are tracking that SSH, remove the reference to this OutPoint
       if(sshptr != NULL)
@@ -4737,6 +4777,10 @@ bool BlockDataManager_LevelDB::undoBlockFromDB(StoredUndoData & sud)
             removeMultisigEntryFromSSH(*sshms, stxoKey);
          }
       }
+      cout << "(3a)" << endl;
+      stxptr->pprintFullTx();
+      cout << "(4a)" << endl;
+      sshptr->pprintFullSSH();
    }
 
 
@@ -4757,7 +4801,7 @@ bool BlockDataManager_LevelDB::undoBlockFromDB(StoredUndoData & sud)
 
    // Finally, mark this block as UNapplied.
    sbh.blockAppliedToDB_ = false;
-   iface_->putStoredHeader(sbh, false);
+   iface_->updateBlkDataHeader(sbh);
 
    return true;
 }
