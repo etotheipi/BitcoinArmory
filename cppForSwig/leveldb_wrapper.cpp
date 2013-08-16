@@ -416,8 +416,64 @@ BinaryRefReader InterfaceToLDB::getValueReader(
 }
 
 
+/////////////////////////////////////////////////////////////////////////////
+// Header Key:  returns header hash
+// Tx Key:      returns tx hash
+// TxOut Key:   returns serialized OutPoint
+BinaryData InterfaceToLDB::getHashForDBKey(BinaryData dbkey)
+{
+   uint32_t hgt;
+   uint8_t  dup;
+   uint16_t txi; 
+   uint16_t txo; 
+
+   uint32_t sz = dbkey.getSize();
+   if(sz < 4 || sz > 9)
+   {
+      LOGERR << "Invalid DBKey size: " << sz << ", " << dbkey.toHexStr();
+      return BinaryData(0);
+   }
+   
+   BinaryRefReader brr(dbkey);
+   if(dbkey.getSize() % 2 == 0)
+      DBUtils.readBlkDataKeyNoPrefix(brr, hgt, dup, txi, txo);
+   else
+      DBUtils.readBlkDataKey(brr, hgt, dup, txi, txo);
+
+   return getHashForDBKey(hgt, dup, txi, txo);
+}
 
 
+/////////////////////////////////////////////////////////////////////////////
+// Header Key:  returns header hash
+// Tx Key:      returns tx hash
+// TxOut Key:   returns serialized OutPoint
+BinaryData InterfaceToLDB::getHashForDBKey(uint32_t hgt,
+                                           uint8_t  dup,
+                                           uint16_t txi,
+                                           uint16_t txo)
+{
+
+   if(txi==UINT16_MAX)
+   {
+      StoredHeader sbh; 
+      getBareHeader(sbh, hgt, dup);
+      return sbh.thisHash_;
+   }
+   else if(txo==UINT16_MAX)
+   {
+      StoredTx stx;
+      getStoredTx(stx, hgt, dup, txi, false);
+      return stx.thisHash_;
+   }
+   else 
+   {
+      StoredTx stx;
+      getStoredTx(stx, hgt, dup, txi, false);
+      OutPoint op(stx.thisHash_, txo);
+      return op.serialize();
+   }
+}
 
 
 /////////////////////////////////////////////////////////////////////////////
@@ -1353,6 +1409,7 @@ bool InterfaceToLDB::getStoredHeader( StoredHeader & sbh,
       sbh.blockHeight_ = blockHgt;
       sbh.duplicateID_ = blockDup;
       sbh.unserializeDBValue(BLKDATA, brr, false);
+      sbh.isMainBranch_ = (blockDup == getValidDupIDForHeight(blockHgt));
       return true;
    }
    else
@@ -1368,7 +1425,9 @@ bool InterfaceToLDB::getStoredHeader( StoredHeader & sbh,
       }
 
       // Now we read the whole block, not just the header
-      return readStoredBlockAtIter(sbh);
+      bool success = readStoredBlockAtIter(sbh);
+      sbh.isMainBranch_ = (blockDup == getValidDupIDForHeight(blockHgt));
+      return success; 
    }
 
 }
@@ -2007,6 +2066,9 @@ bool InterfaceToLDB::getStoredTx( StoredTx & stx,
          return false;
       }
 
+      return readStoredTxAtIter(stx.blockHeight_, stx.duplicateID_, stx);
+
+      /*
       while(advanceIterAndRead(BLKDATA, DB_PREFIX_TXDATA))
       {
          // If the iter key doesn't start with [PREFIX | HGT | DUP], we're done
@@ -2042,6 +2104,8 @@ bool InterfaceToLDB::getStoredTx( StoredTx & stx,
             return false;
          }
       } // while(advanceIter)
+      */
+
    } // fetch header & txs
 
    return true;
@@ -2287,58 +2351,30 @@ bool InterfaceToLDB::markBlockHeaderValid(BinaryDataRef headHash)
 bool InterfaceToLDB::markBlockHeaderValid(uint32_t height, uint8_t dup)
 {
    SCOPED_TIMER("markBlockHeaderValid");
-   BinaryData keyHgt((uint8_t*)&height, 4);
 
-   BinaryRefReader brrHgts = getValueReader(HEADERS, DB_PREFIX_HEADHGT, keyHgt);
-   uint32_t numDup = brrHgts.getSize() / 33;
+   StoredHeadHgtList hhl;
+   getStoredHeadHgtList(hhl, height);
+   if(hhl.preferredDup_ == dup)
+      return true;
 
-   if(numDup==0)
+   bool hasEntry = false;
+   for(uint32_t i=0; i<hhl.dupAndHashList_.size(); i++)
+      if(hhl.dupAndHashList_[i].first == dup)
+         hasEntry = true;
+   
+
+   if(hasEntry)
    {
-      LOGERR << "Height and dup do not exist in HEADERS DB";
+      hhl.setPreferredDupID(dup);
+      putStoredHeadHgtList(hhl);
+      setValidDupIDForHeight(height, dup);
+      return true;
+   }   
+   else
+   {
+      LOGERR << "Header was not found header-height list";
       return false;
    }
-
-   // First create a list with the correct header in front
-   list<BinaryDataRef> collectList;
-   bool hasEntry = false;
-   for(uint8_t i=0; i<numDup; i++)
-   {
-      uint8_t dup8 = *(brrHgts.getCurrPtr()); // just peek at the next byte
-
-      if(dup8 & 0x7f != dup)
-         collectList.push_back( brrHgts.get_BinaryDataRef(33) );
-      else
-      {
-         collectList.push_front( brrHgts.get_BinaryDataRef(33) );
-         hasEntry = true;
-      }
-   }
-   
-   // If there was no entry with this hash, then all existing values will be 
-   // written with not-valid.
-   BinaryWriter bwOut(33*numDup);
-   list<BinaryDataRef>::iterator iter = collectList.begin();
-   for(uint8_t i=0; i<numDup; i++, iter++)
-   {
-      BinaryRefReader brr(*iter);
-      if(i==0 && hasEntry) 
-         bwOut.put_uint8_t(brr.get_uint8_t() | 0x80);
-      else                 
-         bwOut.put_uint8_t(brr.get_uint8_t() & 0x7f);
-      
-      bwOut.put_BinaryData(brr.get_BinaryDataRef(32));
-   }
-   
-   // Rewrite the HEADHGT entries
-   putValue(HEADERS, DB_PREFIX_HEADHGT, keyHgt, bwOut.getDataRef());
-
-   // Make sure we have a quick-lookup available.
-   setValidDupIDForHeight(height, dup);
-
-   if(!hasEntry)
-      LOGERR << "Header was not found header-height list";
-
-   return hasEntry;
 }
 
 ////////////////////////////////////////////////////////////////////////////////

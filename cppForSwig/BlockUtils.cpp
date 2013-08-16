@@ -2324,11 +2324,6 @@ void BlockDataManager_LevelDB::reapplyBlocksToDB(uint32_t blk0, uint32_t blk1)
    // Start scanning and timer
    TIMER_START("LoadProgress");
 
-   
-   cout << "*********************************************************" << endl;
-   cout << "Original state of DB before applying any blocks:" << endl;
-   cout << "*********************************************************" << endl;
-   iface_->pprintBlkDataDB(BLKDATA);
 
    do
    {
@@ -2366,7 +2361,6 @@ void BlockDataManager_LevelDB::reapplyBlocksToDB(uint32_t blk0, uint32_t blk1)
       //        since LevelDB has optimized the hell out of key-order 
       //        traversal.
       iface_->resetIterator(BLKDATA, true);
-      iface_->pprintBlkDataDB(BLKDATA);
 
    } while(iface_->advanceToNextBlock(false));
 
@@ -3517,10 +3511,6 @@ void BlockDataManager_LevelDB::reassessAfterReorg( BlockHeader* oldTopPtr,
       for(uint32_t i=0; i<sbh.numTx_; i++)
       {
          StoredTx & stx = sbh.stxMap_[i];
-
-         //TxRef * txptr = thisHeaderPtr->getTxRefPtrList()[i];
-         //txptr->setHeaderPtr(NULL);
-         //txptr->setMainBranch(false);
          LOGWARN << "   Tx: " << stx.thisHash_.getSliceCopy(0,8).toHexStr();
          txJustInvalidated_.insert(stx.thisHash_);
          txJustAffected_.insert(stx.thisHash_);
@@ -3540,9 +3530,9 @@ void BlockDataManager_LevelDB::reassessAfterReorg( BlockHeader* oldTopPtr,
           thisHeaderPtr->getNextHash().getSize() > 0 ) 
    {
       thisHeaderPtr = getHeaderByHash(thisHeaderPtr->getNextHash());
-      // Update the DB first
       uint32_t hgt = thisHeaderPtr->getBlockHeight();
       uint8_t  dup = thisHeaderPtr->getDuplicateID();
+      iface_->markBlockHeaderValid(hgt, dup);
       StoredHeader sbh;
       iface_->getStoredHeader(sbh, hgt, dup, true);
       applyBlockToDB(sbh);
@@ -3550,15 +3540,10 @@ void BlockDataManager_LevelDB::reassessAfterReorg( BlockHeader* oldTopPtr,
       for(uint32_t i=0; i<sbh.numTx_; i++)
       {
          StoredTx & stx = sbh.stxMap_[i];
-
-         //TxRef * txptr = thisHeaderPtr->getTxRefPtrList()[i];
-         //txptr->setHeaderPtr(thisHeaderPtr);
-         //txptr->setMainBranch(true);
          LOGWARN << "   Tx: " << stx.thisHash_.getSliceCopy(0,8).toHexStr();
          txJustInvalidated_.erase(stx.thisHash_);
          txJustAffected_.insert(stx.thisHash_);
       }
-      thisHeaderPtr = getHeaderByHash(thisHeaderPtr->getPrevHash());
    }
 
    LOGWARN << "Done reassessing tx validity";
@@ -4495,30 +4480,8 @@ bool BlockDataManager_LevelDB::applyBlockToDB(StoredHeader & sbh)
    updateBlkDataHeader(sbh);
    //iface_->putStoredHeader(sbh, false);
 
-   map<BinaryData, StoredTx>::iterator iter_stx;
-   for(iter_stx  = stxToModify.begin();
-       iter_stx != stxToModify.end();
-       iter_stx++)
-   {
-      iface_->putStoredTx(iter_stx->second, true);
-   }
-       
-   map<BinaryData, StoredScriptHistory>::iterator iter_ssh;
-   for(iter_ssh  = sshToModify.begin();
-       iter_ssh != sshToModify.end();
-       iter_ssh++)
-   {
-      iface_->putStoredScriptHistory(iter_ssh->second);
-
-   }
-
-   set<BinaryData>::iterator iter_del;
-   for(iter_del  = keysToDelete.begin();
-       iter_del != keysToDelete.end();
-       iter_del++)
-   {
-      iface_->deleteValue(BLKDATA, *iter_del);
-   }
+   // Now actually write all the changes to the DB all at once
+   applyModsToDB(stxToModify, sshToModify, keysToDelete);
 
    // Only if pruning, we need to store 
    if(DBUtils.getDbPruneType() == DB_PRUNE_ALL)
@@ -4602,13 +4565,52 @@ bool BlockDataManager_LevelDB::createUndoDataFromBlock(uint32_t hgt,
    return true;
 }
 
+
+////////////////////////////////////////////////////////////////////////////////
+void BlockDataManager_LevelDB::applyModsToDB(
+                           map<BinaryData, StoredTx> &            stxToModify,
+                           map<BinaryData, StoredScriptHistory> & sshToModify,
+                           set<BinaryData> &                      keysToDelete)
+{
+
+   iface_->startBatch(BLKDATA);
+
+   map<BinaryData, StoredTx>::iterator iter_stx;
+   for(iter_stx  = stxToModify.begin();
+       iter_stx != stxToModify.end();
+       iter_stx++)
+   {
+      iface_->putStoredTx(iter_stx->second, true);
+   }
+       
+   map<BinaryData, StoredScriptHistory>::iterator iter_ssh;
+   for(iter_ssh  = sshToModify.begin();
+       iter_ssh != sshToModify.end();
+       iter_ssh++)
+   {
+      iface_->putStoredScriptHistory(iter_ssh->second);
+
+   }
+
+   set<BinaryData>::iterator iter_del;
+   for(iter_del  = keysToDelete.begin();
+       iter_del != keysToDelete.end();
+       iter_del++)
+   {
+      iface_->deleteValue(BLKDATA, *iter_del);
+   }
+
+   iface_->commitBatch(BLKDATA);
+}
+                        
+
 ////////////////////////////////////////////////////////////////////////////////
 bool BlockDataManager_LevelDB::undoBlockFromDB(StoredUndoData & sud)
 {
    SCOPED_TIMER("undoBlockFromDB");
 
    StoredHeader sbh;
-   iface_->getStoredHeader(sbh, sud.blockHeight_, sud.duplicateID_, false);
+   iface_->getStoredHeader(sbh, sud.blockHeight_, sud.duplicateID_);
    if(!sbh.blockAppliedToDB_)
    {
       LOGERR << "This block was never applied to the DB...can't undo!";
@@ -4629,8 +4631,6 @@ bool BlockDataManager_LevelDB::undoBlockFromDB(StoredUndoData & sud)
    ///// Put the STXOs back into the DB which were removed by this block
    // Process the stxOutsRemovedByBlock_ in reverse order
    // Use int32_t index so that -1 != UINT32_MAX and we go into inf loop
-   cout << "******************************************************" << endl;
-   iface_->pprintBlkDataDB(BLKDATA);
    for(int32_t i=sud.stxOutsRemovedByBlock_.size()-1; i>=0; i--)
    {
       StoredTxOut & sudStxo = sud.stxOutsRemovedByBlock_[i];
@@ -4640,8 +4640,6 @@ bool BlockDataManager_LevelDB::undoBlockFromDB(StoredUndoData & sud)
                                             sudStxo.parentHash_,
                                             stxToModify);
 
-      cout << "(1)" << endl;
-      stxptr->pprintFullTx();
       
       uint16_t stxoIdx = sudStxo.txOutIndex_;
       map<uint16_t,StoredTxOut>::iterator iter;
@@ -4682,8 +4680,6 @@ bool BlockDataManager_LevelDB::undoBlockFromDB(StoredUndoData & sud)
          iter->second.spentByTxInKey_ = BinaryData(0);
       }
 
-      cout << "(1a)" << endl;
-      stxptr->pprintFullTx();
 
       ////// Finished updating STX, now update the SSH in the DB
       // Updating the SSH objects works the same regardless of pruning
@@ -4699,8 +4695,6 @@ bool BlockDataManager_LevelDB::undoBlockFromDB(StoredUndoData & sud)
       // Always a primary SSH to update (compared to multisig entries)
       BinaryData uniqKey = stxoReAdd.getScrAddress();
       StoredScriptHistory* sshptr = makeSureSSHInMap(uniqKey, sshToModify);
-      cout << "(2)" << endl;
-      sshptr->pprintFullSSH();
       if(sshptr==NULL)
       {
          LOGERR << "No SSH found for marking TxOut unspent on undo";
@@ -4729,8 +4723,6 @@ bool BlockDataManager_LevelDB::undoBlockFromDB(StoredUndoData & sud)
             addMultisigEntryToSSH(*sshptr, stxoReAdd.getDBKey(false));
          }
       }
-      cout << "(2a)" << endl;
-      sshptr->pprintFullSSH();
    }
 
 
@@ -4738,49 +4730,62 @@ bool BlockDataManager_LevelDB::undoBlockFromDB(StoredUndoData & sud)
    // When they were added, we updated all the StoredScriptHistory objects
    // to include references to them.  We need to remove them now.
    // Use int32_t index so that -1 != UINT32_MAX and we go into inf loop
+
+   /* Since our DB is already indexed by height&dup, just use that instead
+      of the data in the SUD object (had some problems with duplicate tx
+      in the txhints lists, and using hgt/dup directly solves it
    for(int32_t i=sud.outPointsAddedByBlock_.size()-1; i>=0; i--)
    {
       BinaryData txHash  = sud.outPointsAddedByBlock_[i].getTxHash();
       uint16_t   txoIdx  = sud.outPointsAddedByBlock_[i].getTxOutIndex();
+   */
 
-      // Get the STX (all of which should be from this block we're undoing)
-      StoredTx *    stxptr  = makeSureSTXInMap(txHash, stxToModify);
-      StoredTxOut & stxo    = stxptr->stxoMap_[txoIdx];
-      BinaryData    stxoKey = stxo.getDBKey(false);
+   for(int16_t itx=sbh.numTx_-1; itx>=0; itx--)
+   {
+      // Ironically, even though I'm using hgt & dup, I still need the hash
+      // in order to key the stxToModify map
+      BinaryData txHash = iface_->getHashForDBKey(sbh.blockHeight_,
+                                                  sbh.duplicateID_,
+                                                  itx);
 
-      cout << "(3)" << endl;
-      stxptr->pprintFullTx();
+      StoredTx * stxptr  = makeSureSTXInMap(sbh.blockHeight_,
+                                            sbh.duplicateID_,
+                                            itx, 
+                                            txHash,
+                                            stxToModify);
 
-      // Then fetch the StoredScriptHistory of the StoredTxOut scraddress
-      BinaryData uniq = stxo.getScrAddress();
-      StoredScriptHistory * sshptr = makeSureSSHInMap(uniq, sshToModify, false);
-
-      cout << "(4)" << endl;
-      sshptr->pprintFullSSH();
-
-      // If we are tracking that SSH, remove the reference to this OutPoint
-      if(sshptr != NULL)
-         removeTxOutFromSSH(*sshptr, stxoKey);
-
-      // Now remove any multisig entries that were added due to this TxOut
-      if(uniq[0] == SCRIPT_PREFIX_MULTISIG)
+      for(int16_t txoIdx = stxptr->stxoMap_.size()-1; txoIdx >= 0; txoIdx--)
       {
-         vector<BinaryData> addr160List;
-         BtcUtils::getMultisigAddrList(stxo.getScriptRef(), addr160List);
-         for(uint32_t a=0; a<addr160List.size(); i++)
+
+         StoredTxOut & stxo    = stxptr->stxoMap_[txoIdx];
+         BinaryData    stxoKey = stxo.getDBKey(false);
+
+   
+         // Then fetch the StoredScriptHistory of the StoredTxOut scraddress
+         BinaryData uniq = stxo.getScrAddress();
+         StoredScriptHistory * sshptr = makeSureSSHInMap(uniq, sshToModify, false);
+   
+   
+         // If we are tracking that SSH, remove the reference to this OutPoint
+         if(sshptr != NULL)
+            removeTxOutFromSSH(*sshptr, stxoKey);
+   
+         // Now remove any multisig entries that were added due to this TxOut
+         if(uniq[0] == SCRIPT_PREFIX_MULTISIG)
          {
-            // Get the individual address obj for this multisig piece
-            BinaryData uniqKey = HASH160PREFIX + addr160List[a];
-            StoredScriptHistory* sshms = makeSureSSHInMap(uniqKey,
-                                                          sshToModify, 
-                                                          true);
-            removeMultisigEntryFromSSH(*sshms, stxoKey);
+            vector<BinaryData> addr160List;
+            BtcUtils::getMultisigAddrList(stxo.getScriptRef(), addr160List);
+            for(uint32_t a=0; a<addr160List.size(); a++)
+            {
+               // Get the individual address obj for this multisig piece
+               BinaryData uniqKey = HASH160PREFIX + addr160List[a];
+               StoredScriptHistory* sshms = makeSureSSHInMap(uniqKey,
+                                                            sshToModify, 
+                                                            true);
+               removeMultisigEntryFromSSH(*sshms, stxoKey);
+            }
          }
       }
-      cout << "(3a)" << endl;
-      stxptr->pprintFullTx();
-      cout << "(4a)" << endl;
-      sshptr->pprintFullSSH();
    }
 
 
@@ -4801,7 +4806,8 @@ bool BlockDataManager_LevelDB::undoBlockFromDB(StoredUndoData & sud)
 
    // Finally, mark this block as UNapplied.
    sbh.blockAppliedToDB_ = false;
-   iface_->updateBlkDataHeader(sbh);
+   updateBlkDataHeader(sbh);
+   applyModsToDB(stxToModify, sshToModify, keysToDelete);
 
    return true;
 }
@@ -5016,6 +5022,8 @@ StoredTx* BlockDataManager_LevelDB::makeSureSTXInMap(
    //        But this method was written before pruning was ever implemented...
    StoredTx * stxptr;
    StoredTx   stxTemp;
+
+   cout << txHash.toHexStr() << endl;
 
    // Get the existing STX or make a new one
    if(stxMap.find(txHash) != stxMap.end())

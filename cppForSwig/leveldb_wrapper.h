@@ -261,6 +261,12 @@ public:
    BinaryData getIterValueCopy(void) { return currReadValue_.getRawRef().copy();}
 
 
+   BinaryData getHashForDBKey(BinaryData dbkey);
+   BinaryData getHashForDBKey(uint32_t hgt,
+                              uint8_t  dup,
+                              uint16_t txi=UINT16_MAX,
+                              uint16_t txo=UINT16_MAX);
+
    /////////////////////////////////////////////////////////////////////////////
    // Put value based on BinaryDataRefs key and value
    void putValue(DB_SELECT db, BinaryDataRef key, BinaryDataRef value);

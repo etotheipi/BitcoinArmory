@@ -829,6 +829,10 @@ public:
                         set<BinaryData> &                      keysToDelete,
                         StoredUndoData *                       sud);
 
+   void applyModsToDB(  map<BinaryData, StoredTx> &            stxToModify,
+                        map<BinaryData, StoredScriptHistory> & sshToModify,
+                        set<BinaryData> &                      keysToDelete);
+
    /////////////////////////////////////////////////////////////////////////////
    bool markTxOutUnspentInSSH( StoredScriptHistory & ssh,
                                BinaryData txOutKey8B,

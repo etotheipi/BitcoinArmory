@@ -4636,7 +4636,7 @@ TEST_F(BlockUtilsTest, Load5Blocks_Plus2NoReorg)
    EXPECT_EQ(TheBDM.getTopBlockHeight(), 4);
 
    //copyFile("../reorgTest/blk_5A.dat", blk0dat_);
-   iface_->pprintBlkDataDB(HEADERS);
+   //iface_->pprintBlkDataDB(BLKDATA);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -4652,7 +4652,34 @@ TEST_F(BlockUtilsTest, Load5Blocks_FullReorg)
    TheBDM.readBlkFileUpdate();
    copyFile("../reorgTest/blk_5A.dat", blk0dat_);
    TheBDM.readBlkFileUpdate();
-   iface_->pprintBlkDataDB(HEADERS);
+
+   //iface_->pprintBlkDataDB(BLKDATA);
+
+   StoredScriptHistory ssh;
+
+   iface_->getStoredScriptHistory(ssh, HASH160PREFIX + addrA_);
+   EXPECT_EQ(ssh.getScriptBalance(),  150*COIN);
+   EXPECT_EQ(ssh.getScriptReceived(), 150*COIN);
+   EXPECT_EQ(ssh.txioVect_.size(),      3);
+   EXPECT_EQ(ssh.multisigDBKeys_.size(),0);
+
+   iface_->getStoredScriptHistory(ssh, HASH160PREFIX + addrB_);
+   EXPECT_EQ(ssh.getScriptBalance(),   10*COIN);
+   EXPECT_EQ(ssh.getScriptReceived(), 150*COIN);
+   EXPECT_EQ(ssh.txioVect_.size(),      4);
+   EXPECT_EQ(ssh.multisigDBKeys_.size(),0);
+
+   iface_->getStoredScriptHistory(ssh, HASH160PREFIX + addrC_);
+   EXPECT_EQ(ssh.getScriptBalance(),    0*COIN);
+   EXPECT_EQ(ssh.getScriptReceived(),  10*COIN);
+   EXPECT_EQ(ssh.txioVect_.size(),      1);
+   EXPECT_EQ(ssh.multisigDBKeys_.size(),0);
+
+   iface_->getStoredScriptHistory(ssh, HASH160PREFIX + addrD_);
+   EXPECT_EQ(ssh.getScriptBalance(),  140*COIN);
+   EXPECT_EQ(ssh.getScriptReceived(), 140*COIN);
+   EXPECT_EQ(ssh.txioVect_.size(),      3);
+   EXPECT_EQ(ssh.multisigDBKeys_.size(),0);
 }
 /*
 ////////////////////////////////////////////////////////////////////////////////

@@ -571,7 +571,7 @@ void StoredHeader::pprintOneLine(uint32_t indent)
    
    cout << "HEADER: " << thisHash_.getSliceCopy(0,4).toHexStr()
         << " (" << blockHeight_ << "," << (uint32_t)duplicateID_ << ")"
-        << " #Tx: " << numTx_
+        << "     #Tx: " << numTx_
         << " Applied: " << (blockAppliedToDB_ ? "T" : "F")
         << endl;
 }
@@ -857,11 +857,11 @@ void StoredTx::pprintOneLine(uint32_t indent)
    for(uint32_t i=0; i<indent; i++)
       cout << " ";
    
-   cout << "TX: " << thisHash_.getSliceCopy(0,4).toHexStr()
+   cout << "TX:  " << thisHash_.getSliceCopy(0,4).toHexStr()
         << " (" << blockHeight_ 
         << "," << (uint32_t)duplicateID_ 
         << "," << txIndex_ << ")"
-        << " #TXO: " << numTxOut_
+        << "   #TXO: " << numTxOut_
         << endl;
 }
 
@@ -1212,11 +1212,12 @@ void StoredTxOut::pprintOneLine(uint32_t indent)
    if(parentHash_.getSize() > 0)
       pprintHash = parentHash_.getSliceCopy(0,4).toHexStr();
   
-   cout << "TXOUT:   Value=" << (double)(getValue())/(100000000.0)
-        << " (" << blockHeight_ 
+   cout << "TXOUT:   "
+        << "  (" << blockHeight_ 
         << "," << (uint32_t)duplicateID_ 
         << "," << txIndex_
         << "," << txOutIndex_ << ")"
+        << " Value=" << (double)(getValue())/(100000000.0)
         << " isCB: " << (isCoinbase_ ? "(X)" : "   ");
 
    if(spentness_ == TXOUT_SPENTUNK)
