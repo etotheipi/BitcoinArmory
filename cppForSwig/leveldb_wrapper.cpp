@@ -1048,7 +1048,6 @@ void InterfaceToLDB::addRegisteredScript(BinaryDataRef rawScript,
       ssh.uniqueKey_  = uniqKey;
       ssh.version_    = ARMORY_DB_VERSION;
       ssh.alreadyScannedUpToBlk_ = blockCreated;
-      ssh.txioVect_.resize(0);
       ssh.multisigDBKeys_.resize(0);
       putStoredScriptHistory(ssh);
    }

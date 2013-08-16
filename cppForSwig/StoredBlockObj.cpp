@@ -1249,7 +1249,7 @@ void StoredScriptHistory::unserializeDBValue(BinaryRefReader & brr)
 
    alreadyScannedUpToBlk_ = brr.get_uint32_t();
    
-   txioVect_.clear();
+   txioSet_.clear();
    multisigDBKeys_.clear();
 
    if(txoListType == SCRIPT_UTXO_TREE)
@@ -1266,7 +1266,6 @@ void StoredScriptHistory::unserializeDBValue(BinaryRefReader & brr)
       // This list is unspent-TxOuts only if pruning enabled.  You will
       // have to dereference each one to check spentness if not pruning
       uint32_t numTxo = (uint32_t)(brr.get_var_int());
-      txioVect_.reserve(numTxo);
       for(uint32_t i=0; i<numTxo; i++)
       {
          BitUnpacker<uint8_t> bitunpack(brr);
@@ -1299,7 +1298,7 @@ void StoredScriptHistory::unserializeDBValue(BinaryRefReader & brr)
          txio.setValue(txoValue);
          txio.setTxOutFromSelf(isFromSelf);
          txio.setFromCoinbase(isCoinbase);
-         txioVect_.push_back(txio);
+         insertTxio(txio);
       }
 
       // We only store the hgtx+txindx+txoutindex of each multisig script 
@@ -1335,10 +1334,11 @@ void StoredScriptHistory::serializeDBValue(BinaryWriter & bw ) const
    }
    else if(UTXO_STORAGE == SCRIPT_UTXO_VECTOR)
    {
-      bw.put_var_int(txioVect_.size());
-      for(uint32_t i=0; i<txioVect_.size(); i++)
+      bw.put_var_int(txioSet_.size());
+      map<BinaryData, TxIOPair>::const_iterator iter;
+      for(iter = txioSet_.begin(); iter != txioSet_.end(); iter++)
       {
-         TxIOPair const & txio = txioVect_[i];
+         TxIOPair const & txio = iter->second;
          bool isSpent = txio.hasTxInInMain();
 
          // If spent and only maintaining a pruned DB, skip it
@@ -1453,7 +1453,7 @@ void StoredScriptHistory::pprintOneLine(uint32_t indent)
    cout << "SSHOBJ: " << ktype.c_str() << ": "
         << uniqueKey_.getSliceCopy(1,sz-1).toHexStr()
         << " Sync: " << alreadyScannedUpToBlk_ 
-        << " #IO: " << txioVect_.size() 
+        << " #IO: " << txioSet_.size() 
         << " #MS: " << multisigDBKeys_.size() 
         << endl;
 }
@@ -1465,12 +1465,13 @@ void StoredScriptHistory::pprintFullSSH(uint32_t indent)
    pprintOneLine(indent);
 
    // Print all the txioVects
-   for(uint32_t i=0; i<txioVect_.size(); i++)
+   map<BinaryData, TxIOPair>::iterator iter;
+   for(iter = txioSet_.begin(); iter != txioSet_.end(); iter++)
    {
       for(uint32_t ind=0; ind<indent+3; ind++)
          cout << " ";
 
-      TxIOPair & txio = txioVect_[i];
+      TxIOPair & txio = iter->second;
       uint32_t hgt;
       uint8_t  dup;
       uint16_t txi;
@@ -1519,8 +1520,9 @@ void StoredScriptHistory::pprintFullSSH(uint32_t indent)
 uint64_t StoredScriptHistory::getScriptReceived(bool withMultisig)
 {
    uint64_t bal = 0;
-   for(uint32_t i=0; i<txioVect_.size(); i++)
-      bal += txioVect_[i].getValue();
+   map<BinaryData, TxIOPair>::iterator iter;
+   for(iter = txioSet_.begin(); iter != txioSet_.end(); iter++)
+      bal += iter->second.getValue();
 
    if(!withMultisig)
       return bal;
@@ -1537,11 +1539,11 @@ uint64_t StoredScriptHistory::getScriptReceived(bool withMultisig)
 uint64_t StoredScriptHistory::getScriptBalance(bool withMultisig)
 {
    uint64_t bal = 0;
-   for(uint32_t i=0; i<txioVect_.size(); i++)
+   map<BinaryData, TxIOPair>::iterator iter;
+   for(iter = txioSet_.begin(); iter != txioSet_.end(); iter++)
    {
-      TxIOPair & txio = txioVect_[i];
-      if(!txio.hasTxIn())
-         bal += txio.getValue();
+      if(!iter->second.hasTxIn())
+         bal += iter->second.getValue();
    }
 
    if(!withMultisig)
@@ -1554,6 +1556,46 @@ uint64_t StoredScriptHistory::getScriptBalance(bool withMultisig)
       return UINT64_MAX;
    }
 
+}
+
+////////////////////////////////////////////////////////////////////////////////
+TxIOPair* StoredScriptHistory::findTxio(BinaryData const & dbKey8B)
+{
+   map<BinaryData, TxIOPair>::iterator iter = txioSet_.find(dbKey8B);
+   if(iter == txioSet_.end())
+      return NULL;
+   else
+      return &(iter->second);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+TxIOPair& StoredScriptHistory::insertTxio(TxIOPair const & txio, bool withOverwrite)
+{
+   pair<BinaryData, TxIOPair> txioInsertPair(txio.getDBKeyOfOutput(), txio);
+   pair<map<BinaryData, TxIOPair>::iterator, bool> txioInsertResult;
+
+   // This returns pair<ExistingOrInsertedIter, wasInserted>
+   txioInsertResult = txioSet_.insert(txioInsertPair);
+
+   // If not inserted, then it was already there.  Overwrite if requested
+   if(!txioInsertResult.second && withOverwrite)
+      txioInsertResult.first->second = txio;
+
+   return txioInsertResult.first->second;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+bool StoredScriptHistory::eraseTxio(TxIOPair const & txio)
+{
+   uint32_t itemsRemoved = txioSet_.erase(txio.getDBKeyOfOutput());
+   return (itemsRemoved>0);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+bool StoredScriptHistory::eraseTxio(BinaryData const & dbKey8B)
+{
+   uint32_t itemsRemoved = txioSet_.erase(dbKey8B);
+   return (itemsRemoved>0);
 }
 
 ////////////////////////////////////////////////////////////////////////////////

@@ -2762,9 +2762,10 @@ bool BlockDataManager_LevelDB::loadScrAddrHistoryFromDB(void)
       StoredScriptHistory ssh;
       iface_->getStoredScriptHistory(ssh, iter->second.uniqueKey_);
       
-      for(uint32_t i=0; i<ssh.txioVect_.size(); i++)
+      map<BinaryData, TxIOPair>::iterator iter;
+      for(iter = ssh.txioSet_.begin(); iter != ssh.txioSet_.end(); iter++)
       {
-         TxIOPair & txio = ssh.txioVect_[i];
+         TxIOPair & txio = iter->second;
          BinaryDataRef txKey = txio.getTxRefOfOutput().getDBKeyRef();
          
          StoredTx stx;
@@ -4799,7 +4800,7 @@ bool BlockDataManager_LevelDB::undoBlockFromDB(StoredUndoData & sud)
        iter++)
    {
       if(iter->second.multisigDBKeys_.size() == 0 &&
-         iter->second.txioVect_.size() == 0)
+         iter->second.txioSet_.size() == 0)
          keysToDelete.insert(iter->first);
    }
 
@@ -4818,19 +4819,27 @@ bool BlockDataManager_LevelDB::removeTxOutFromSSH(
                                             StoredScriptHistory & ssh,
                                             BinaryData txOutKey8B)
 {
-   for(uint32_t i=0; i<ssh.txioVect_.size(); i++)
+   /*
+   map<BinaryData, TxIOPair>::iterator iter;
+   for(iter = ssh.txioSet_.begin(); iter != ssh.txioSet_.end(); iter++)
    {
-      TxIOPair & txio = ssh.txioVect_[i];
+      TxIOPair & txio = iter->second;
       BinaryData txoKey = txio.getDBKeyOfOutput();
       if(txoKey == txOutKey8B)
       {
-         ssh.txioVect_.erase(ssh.txioVect_.begin() + i);
+         ssh.eraseTxio(txio);
          return true;
       }
    }
-
-   LOGERR << "TxOut did not exist in SSH to be removed";
-   return false;
+   */
+   bool wasRemoved = ssh.eraseTxio(txOutKey8B);
+   if(!wasRemoved)
+   {
+      LOGERR << "Could not remove TxOut from SSH, because DNE";
+      return false;
+   }
+   
+   return true;
 }
 
 
@@ -4840,10 +4849,41 @@ bool BlockDataManager_LevelDB::markTxOutSpentInSSH(
                                             BinaryData txOutKey8B,
                                             BinaryData txInKey8B)
 {
-   for(uint32_t i=0; i<ssh.txioVect_.size(); i++)
+   // We found the TxIO we care about 
+   if(DBUtils.getDbPruneType() != DB_PRUNE_NONE)
    {
-      TxIOPair & txio = ssh.txioVect_[i];
-      BinaryData txoKey = txio.getDBKeyOfOutput();
+      LOGERR << "Have not yet implemented pruning logic yet!";
+      return false;
+   }
+
+   TxIOPair * txioptr = ssh.findTxio(txOutKey8B);
+   if(txioptr==NULL)
+   {
+      LOGERR << "We should've found an STXO in the SSH but didn't";
+      return false;
+   }
+
+   if(txioptr->hasTxInInMain())
+   {
+      LOGERR << "TxOut is already marked as spent";
+      return false;
+   }
+
+   if(txInKey8B.getSize() != 8)
+   {
+      LOGERR << "TxIn key input not valid! " << txInKey8B.toHexStr();
+      return false;
+   }
+
+   txioptr->setTxIn(txInKey8B);
+
+
+   /*
+   map<BinaryData, TxIOPair>::iterator iter;
+   for(iter = ssh.txioSet_.begin(); iter != ssh.txioSet_.end(); iter++)
+   {
+      BinaryData txoKey = iter->first;
+      TxIOPair & txio = iter->second;
       if(txoKey == txOutKey8B)
       {
          // We found the TxIO we care about 
@@ -4852,7 +4892,7 @@ bool BlockDataManager_LevelDB::markTxOutSpentInSSH(
             // No pruning, Expect unspent, mark it as spent 
             if(txInKey8B.getSize() == 0)
                LOGERR << "Need to mark STXO spent, but no spent-by key given";
-            else if(txio.hasTxIn())
+            else if(txio.hasTxInInMain())
                LOGERR << "TxOut is already marked as spent";
             else
             {
@@ -4862,7 +4902,7 @@ bool BlockDataManager_LevelDB::markTxOutSpentInSSH(
          }
          else
          {
-            // ssh.txioVect_.erase(i);  // ?
+            // ssh.txioSet_.erase(i);  // ?
             LOGERR << "Have not yet implemented pruning logic yet!";
             return false;
          }
@@ -4875,6 +4915,7 @@ bool BlockDataManager_LevelDB::markTxOutSpentInSSH(
       LOGERR << "We should've found an STXO in the SSH but didn't";
       return false;
    }
+   */
 
    
 
@@ -4883,7 +4924,7 @@ bool BlockDataManager_LevelDB::markTxOutSpentInSSH(
                                              
 ////////////////////////////////////////////////////////////////////////////////
 // We only need the last three args (value, isCB, isSelf) if pruning.
-// **Will add to the SSH txio list if not present
+// ** WILL ADD to the SSH txio list if not present
 bool BlockDataManager_LevelDB::markTxOutUnspentInSSH(
                                             StoredScriptHistory & ssh,
                                             BinaryData txOutKey8B,
@@ -4891,16 +4932,48 @@ bool BlockDataManager_LevelDB::markTxOutUnspentInSSH(
                                             bool isCoinBase,
                                             bool isFromSelf)
 {
-   for(uint32_t i=0; i<ssh.txioVect_.size(); i++)
+   TxIOPair* txioptr = ssh.findTxio(txOutKey8B);
+   if(txioptr != NULL)
    {
-      TxIOPair & txio = ssh.txioVect_[i];
+      if(DBUtils.getDbPruneType() != DB_PRUNE_NONE)
+      {
+         LOGERR << "Found STXO that we expected to already be pruned...";
+         return false;
+      }
+
+      if(!txioptr->hasTxInInMain())
+      {
+         LOGERR << "STXO already marked unspent in SSH";
+         return false;
+      }
+
+      txioptr->setTxIn(TxRef(), UINT32_MAX);
+      return true;
+   }
+   else
+   {
+      // The TxIOPair was not in the SSH yet;  add it
+      TxIOPair txio = TxIOPair();
+      txio.setValue(value);
+      txio.setTxOut(txOutKey8B);
+      txio.setFromCoinbase(isCoinBase);
+      txio.setTxOutFromSelf(isFromSelf);
+      ssh.insertTxio(txio);
+      return true;
+   }
+
+   /*
+   map<BinaryData, TxIOPair>::iterator iter;
+   for(iter = ssh.txioSet_.begin(); iter != ssh.txioSet_.end(); iter++)
+   {
+      TxIOPair & txio = iter->second;
       BinaryData txoKey = txio.getDBKeyOfOutput();
       if(txoKey == txOutKey8B)
       {
          if(DBUtils.getDbPruneType() == DB_PRUNE_NONE)
          {
             // Expect spent, mark it as unspent 
-            if(!txio.hasTxIn()) 
+            if(!txio.hasTxInInMain()) 
             {
                LOGERR << "STXO already marked unspent in SSH";
                return false;
@@ -4919,22 +4992,15 @@ bool BlockDataManager_LevelDB::markTxOutUnspentInSSH(
       }
    }
 
-   // For non-pruning DB, we should never get here
-   //if(DBUtils.getDbPruneType() == DB_PRUNE_NONE)
-   //{
-      //LOGERR << "Somehow STXO-to-mark-unspent did not exist in SSH";
-      //return false;
-   //}
-   // We actually expect to get here non-pruning, because we may be calling
-   // this to ADD the TxIO instead of just updating it
 
    TxIOPair txio = TxIOPair();
    txio.setValue(value);
    txio.setTxOut(txOutKey8B);
    txio.setFromCoinbase(isCoinBase);
    txio.setTxOutFromSelf(isFromSelf);
-   ssh.txioVect_.push_back(txio);
+   ssh.insertTxio(txio);
    return true;
+   */
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -4942,6 +5008,7 @@ bool BlockDataManager_LevelDB::addMultisigEntryToSSH(
                                             StoredScriptHistory & ssh,
                                             BinaryData txOutKey8B)
 {
+   /*
    for(uint32_t i=0; i<ssh.multisigDBKeys_.size(); i++)
    {
       if(ssh.multisigDBKeys_[i] == txOutKey8B)
@@ -4953,6 +5020,16 @@ bool BlockDataManager_LevelDB::addMultisigEntryToSSH(
 
    ssh.multisigDBKeys_.push_back(txOutKey8B);
    return true;
+   */
+
+   pair<set<BinaryData>::iterator, bool> insResult;
+   insResult = ssh.multisigDBKeys_.insert(txOutKey8B);
+   if(!insResult.second)
+   {
+      LOGERR << "Already have multisig entry in SSH";
+      return false;
+   }
+   return true;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -4960,6 +5037,7 @@ bool BlockDataManager_LevelDB::removeMultisigEntryFromSSH(
                                             StoredScriptHistory & ssh,
                                             BinaryData txOutKey8B)
 {
+   /*
    for(uint32_t i=0; i<ssh.multisigDBKeys_.size(); i++)
    {
       if(ssh.multisigDBKeys_[i] == txOutKey8B)
@@ -4968,11 +5046,17 @@ bool BlockDataManager_LevelDB::removeMultisigEntryFromSSH(
          return true;
       }
    } 
-
-   
    LOGERR << "Multisig entry in SSH did not exist before, cannot remove!";
    return false;
+   */
     
+   size_t numRemoved = ssh.multisigDBKeys_.erase(txOutKey8B);
+   if(numRemoved == 0)
+   {
+      LOGERR << "Multisig entry in SSH did not exist before, cannot remove!";
+      return false;
+   }
+   return true;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -5022,8 +5106,6 @@ StoredTx* BlockDataManager_LevelDB::makeSureSTXInMap(
    //        But this method was written before pruning was ever implemented...
    StoredTx * stxptr;
    StoredTx   stxTemp;
-
-   cout << txHash.toHexStr() << endl;
 
    // Get the existing STX or make a new one
    if(stxMap.find(txHash) != stxMap.end())

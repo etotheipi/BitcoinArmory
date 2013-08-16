@@ -4480,8 +4480,8 @@ TEST_F(BlockUtilsTest, SScriptHistoryMarkSpent)
    ssh.version_ = 1;
    ssh.alreadyScannedUpToBlk_ = UINT32_MAX;
 
-   ssh.txioVect_.push_back(txio0);
-   ssh.txioVect_.push_back(txio1);
+   ssh.insertTxio(txio0);
+   ssh.insertTxio(txio1);
    ssh.multisigDBKeys_.push_back(dbKey3);
    ssh.multisigDBKeys_.push_back(dbKey4);
 
@@ -4570,32 +4570,31 @@ TEST_F(BlockUtilsTest, Load5Blocks)
    DBUtils.setArmoryDbType(ARMORY_DB_SUPER);
    DBUtils.setDbPruneType(DB_PRUNE_NONE);
    TheBDM.rebuildDatabasesFromBlkFiles(); 
-   iface_->pprintBlkDataDB(HEADERS);
 
    StoredScriptHistory ssh;
 
    iface_->getStoredScriptHistory(ssh, HASH160PREFIX + addrA_);
    EXPECT_EQ(ssh.getScriptBalance(),  100*COIN);
    EXPECT_EQ(ssh.getScriptReceived(), 100*COIN);
-   EXPECT_EQ(ssh.txioVect_.size(),      2);
+   EXPECT_EQ(ssh.txioSet_.size(),       2);
    EXPECT_EQ(ssh.multisigDBKeys_.size(),0);
 
    iface_->getStoredScriptHistory(ssh, HASH160PREFIX + addrB_);
    EXPECT_EQ(ssh.getScriptBalance(),    0*COIN);
    EXPECT_EQ(ssh.getScriptReceived(), 140*COIN);
-   EXPECT_EQ(ssh.txioVect_.size(),      3);
+   EXPECT_EQ(ssh.txioSet_.size(),       3);
    EXPECT_EQ(ssh.multisigDBKeys_.size(),0);
 
    iface_->getStoredScriptHistory(ssh, HASH160PREFIX + addrC_);
    EXPECT_EQ(ssh.getScriptBalance(),   50*COIN);
    EXPECT_EQ(ssh.getScriptReceived(),  60*COIN);
-   EXPECT_EQ(ssh.txioVect_.size(),      2);
+   EXPECT_EQ(ssh.txioSet_.size(),       2);
    EXPECT_EQ(ssh.multisigDBKeys_.size(),0);
 
    iface_->getStoredScriptHistory(ssh, HASH160PREFIX + addrD_);
    EXPECT_EQ(ssh.getScriptBalance(),  100*COIN);
    EXPECT_EQ(ssh.getScriptReceived(), 100*COIN);
-   EXPECT_EQ(ssh.txioVect_.size(),      3);
+   EXPECT_EQ(ssh.txioSet_.size(),       3);
    EXPECT_EQ(ssh.multisigDBKeys_.size(),0);
 }
 
@@ -4660,27 +4659,29 @@ TEST_F(BlockUtilsTest, Load5Blocks_FullReorg)
    iface_->getStoredScriptHistory(ssh, HASH160PREFIX + addrA_);
    EXPECT_EQ(ssh.getScriptBalance(),  150*COIN);
    EXPECT_EQ(ssh.getScriptReceived(), 150*COIN);
-   EXPECT_EQ(ssh.txioVect_.size(),      3);
+   EXPECT_EQ(ssh.txioSet_.size(),       3);
    EXPECT_EQ(ssh.multisigDBKeys_.size(),0);
 
    iface_->getStoredScriptHistory(ssh, HASH160PREFIX + addrB_);
    EXPECT_EQ(ssh.getScriptBalance(),   10*COIN);
    EXPECT_EQ(ssh.getScriptReceived(), 150*COIN);
-   EXPECT_EQ(ssh.txioVect_.size(),      4);
+   EXPECT_EQ(ssh.txioSet_.size(),       4);
    EXPECT_EQ(ssh.multisigDBKeys_.size(),0);
 
    iface_->getStoredScriptHistory(ssh, HASH160PREFIX + addrC_);
    EXPECT_EQ(ssh.getScriptBalance(),    0*COIN);
    EXPECT_EQ(ssh.getScriptReceived(),  10*COIN);
-   EXPECT_EQ(ssh.txioVect_.size(),      1);
+   EXPECT_EQ(ssh.txioSet_.size(),       1);
    EXPECT_EQ(ssh.multisigDBKeys_.size(),0);
 
    iface_->getStoredScriptHistory(ssh, HASH160PREFIX + addrD_);
    EXPECT_EQ(ssh.getScriptBalance(),  140*COIN);
    EXPECT_EQ(ssh.getScriptReceived(), 140*COIN);
-   EXPECT_EQ(ssh.txioVect_.size(),      3);
+   EXPECT_EQ(ssh.txioSet_.size(),       3);
    EXPECT_EQ(ssh.multisigDBKeys_.size(),0);
 }
+
+
 /*
 ////////////////////////////////////////////////////////////////////////////////
 TEST_F(BlockUtils, MultiRescanBlkSafe)

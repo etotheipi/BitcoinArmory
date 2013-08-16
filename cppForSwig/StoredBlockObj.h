@@ -523,6 +523,11 @@ public:
    uint64_t getScriptReceived(bool withMultisig=false);
    uint64_t getScriptBalance(bool withMultisig=false);
 
+   TxIOPair*   findTxio(BinaryData const & dbKey8B);
+   TxIOPair& insertTxio(TxIOPair const & txio, bool withOverwrite=true);
+   bool       eraseTxio(TxIOPair const & txio);
+   bool       eraseTxio(BinaryData const & dbKey8B);
+
    BinaryData     uniqueKey_;  // includes the prefix byte!
    uint32_t       version_;
    uint32_t       alreadyScannedUpToBlk_;
@@ -530,7 +535,7 @@ public:
    // TODO: Maybe these vectors should instead be set<>'s or map<>'s for
    //       efficient search and update...?   On the other hand, it's 
    //       currently sorted chronologically which has other benefits
-   vector<TxIOPair> txioVect_;
+   map<BinaryData, TxIOPair> txioSet_;
    vector<BinaryData> multisigDBKeys_;
 };
 

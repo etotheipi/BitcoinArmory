@@ -12,6 +12,7 @@
 #include <iostream>
 #include <vector>
 #include <map>
+#include <set>
 #include <cassert>
 
 #include "BinaryData.h"
@@ -171,7 +172,8 @@ public:
    bool           isNull(void) { return !isInitialized();}
 
    /////////////////////////////////////////////////////////////////////////////
-   BinaryData     getDBKeyOfChild(uint16_t i) {return dbKey6B_+WRITE_UINT16_BE(i);}
+   BinaryData     getDBKeyOfChild(uint16_t i) const
+                                          {return dbKey6B_+WRITE_UINT16_BE(i);}
 
    /////////////////////////////////////////////////////////////////////////////
    // This as fast as you can get a single TxIn or TxOut from the DB.  But if 
@@ -623,9 +625,9 @@ public:
    bool  isFromCoinbase(void) const { return isFromCoinbase_; }
    void setFromCoinbase(bool isTrue=true) { isFromCoinbase_ = isTrue; }
 
-   BinaryData getDBKeyOfOutput(void) 
+   BinaryData getDBKeyOfOutput(void) const
                { return txRefOfOutput_.getDBKeyOfChild(indexOfOutput_);}
-   BinaryData getDBKeyOfInput(void) 
+   BinaryData getDBKeyOfInput(void) const
                { return txRefOfInput_.getDBKeyOfChild(indexOfInput_);}
 
    //////////////////////////////////////////////////////////////////////////////
@@ -648,8 +650,12 @@ public:
    bool isSpendable(uint32_t currBlk=0);
    bool isMineButUnconfirmed(uint32_t currBlk);
    void clearZCFields(void);
-
    void pprintOneLine(void);
+
+   bool operator<(TxIOPair const & t2)
+      { return (getDBKeyOfOutput() < t2.getDBKeyOfOutput()); }
+   bool operator==(TxIOPair const & t2)
+      { return (getDBKeyOfOutput() == t2.getDBKeyOfOutput()); }
 
 private:
    uint64_t  amount_;
