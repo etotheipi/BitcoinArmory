@@ -4268,8 +4268,7 @@ protected:
       homedir_ = string("./fakehomedir");
       ldbdir_  = string("./ldbtestdir");
 
-      iface_->openDatabases( string("ldbtestdir"), 
-                             ghash_, gentx_, magic_, 
+      iface_->openDatabases( ldbdir_, ghash_, gentx_, magic_, 
                              ARMORY_DB_SUPER, DB_PRUNE_NONE);
       if(!iface_->databasesAreOpen())
          LOGERR << "ERROR OPENING DATABASES FOR TESTING!";
@@ -4681,6 +4680,36 @@ TEST_F(BlockUtilsTest, Load5Blocks_FullReorg)
    EXPECT_EQ(ssh.multisigDBKeys_.size(),0);
 }
 
+
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(BlockUtilsTest, TimeAndSpaceTest_usuallydisabled)
+{
+   DBUtils.setArmoryDbType(ARMORY_DB_SUPER);
+   DBUtils.setDbPruneType(DB_PRUNE_NONE);
+
+   string oldblkdir = blkdir_;
+   blkdir_  = string("/home/alan/.bitcoin/blks3");
+   TheBDM.SelectNetwork("Main");
+   //blkdir_  = string("/home/alan/.bitcoin/testnet3/blocks");
+   //TheBDM.SelectNetwork("Test");
+   TheBDM.SetBlkFileLocation(blkdir_);
+   TheBDM.SetHomeDirLocation(homedir_);
+
+   StoredScriptHistory ssh;
+   TheBDM.rebuildDatabasesFromBlkFiles(); 
+   BinaryData scrAddr  = READHEX("11b366edfc0a8b66feebae5c2e25a7b6a5d1cf31");
+   BinaryData scrAddr2 = READHEX("39aa3d569e06a1d7926dc4be1193c99bf2eb9ee0");
+   BinaryData scrAddr3 = READHEX("758e51b5e398a32c6abd091b3fde383291267cfa");
+   EXPECT_EQ(TheBDM.getDBBalanceForHash160(scrAddr), 18*COIN);
+   TheBDM.pprintSSHInfoAboutHash160(scrAddr);
+   TheBDM.pprintSSHInfoAboutHash160(scrAddr2);
+   TheBDM.pprintSSHInfoAboutHash160(scrAddr3);
+
+   blkdir_ = oldblkdir;
+   //cout << "waiting..." << endl;
+   //int pause;
+   //cin >> pause;
+}
 
 /*
 ////////////////////////////////////////////////////////////////////////////////

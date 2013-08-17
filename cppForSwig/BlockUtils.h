@@ -40,6 +40,8 @@
 #include "leveldb/db.h"
 
 
+#define DB_BLK_BATCH_SIZE 1000
+
 using namespace std;
 
 class BlockDataManager_LevelDB;
@@ -697,6 +699,20 @@ public:
    // we do apply them.
    bool applyBlockToDB(uint32_t hgt, uint8_t dup);
    bool applyBlockToDB(StoredHeader & sbh);
+   bool applyBlockToDB( 
+         StoredHeader & sbh,
+         map<BinaryData, StoredTx> &            stxToModify,
+         map<BinaryData, StoredScriptHistory> & sshToModify,
+         set<BinaryData> &                      keysToDelete,
+         bool                                   applyWhenDone=true);
+   bool applyBlockToDB(
+         uint32_t hgt, 
+         uint8_t dup,
+         map<BinaryData, StoredTx> &            stxToModify,
+         map<BinaryData, StoredScriptHistory> & sshToModify,
+         set<BinaryData> &                      keysToDelete,
+         bool                                   applyWhenDone=true);
+
    void reapplyBlocksToDB(uint32_t blk0=0, uint32_t blk1=UINT32_MAX);
 
    // When we reorg, we have to undo blocks that have been applied.
@@ -751,8 +767,13 @@ public:
 
 
  
-   //vector<TxRef*> findAllNonStdTx(void);
-   
+   /////////////////////////////////////////////////////////////////////////////
+   // With the blockchain in supernode mode, we can just query address balances
+   // and UTXO sets directly.  These will fail if not supernode mode
+   uint64_t             getDBBalanceForHash160(BinaryDataRef addr160);
+   uint64_t             getDBReceivedForHash160(BinaryDataRef addr160);
+   vector<UnspentTxOut> getUTXOVectForHash160(BinaryDataRef addr160);
+   vector<TxIOPair>     getHistoryForHash160(BinaryDataRef addr160);
 
    // For zero-confirmation tx-handling
    void enableZeroConf(string);
@@ -811,6 +832,7 @@ public:
 // this class with gtest code
 //private: 
 
+   void pprintSSHInfoAboutHash160(BinaryData const & a160);
 
    /////////////////////////////////////////////////////////////////////////////
    // Update/organize the headers map (figure out longest chain, mark orphans)

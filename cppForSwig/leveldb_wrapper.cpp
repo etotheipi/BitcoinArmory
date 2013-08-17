@@ -76,6 +76,7 @@ void InterfaceToLDB::init()
       dbs_[i] = NULL;
       dbPaths_[i] = string("");
       batchStarts_[i] = 0;
+      dbFilterPolicy_[i] = NULL;
    }
 }
 
@@ -148,9 +149,11 @@ bool InterfaceToLDB::openDatabases(string basedir,
    for(uint32_t db=0; db<DB_COUNT; db++)
    {
       DB_SELECT CURRDB = (DB_SELECT)db;
-      
       leveldb::Options opts;
       opts.create_if_missing = true;
+      //opts.block_cache = leveldb::NewLRUCache(100 * 1048576);
+      //dbFilterPolicy_[db] = leveldb::NewBloomFilterPolicy(10);
+      //opts.filter_policy = leveldb::NewBloomFilterPolicy(10);
       leveldb::Status stat = leveldb::DB::Open(opts, dbPaths_[db],  &dbs_[db]);
       if(!checkStatus(stat))
          LOGERR << "Failed to open database! DB: " << db;
@@ -237,8 +240,15 @@ void InterfaceToLDB::closeDatabases(void)
          delete batches_[db];
          batches_[db] = NULL;
       }
+
+      if(dbFilterPolicy_[db] != NULL)
+      {
+         delete dbFilterPolicy_[db];
+         dbFilterPolicy_[db] = NULL;
+      }
    }
    dbIsOpen_ = false;
+
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -699,6 +709,7 @@ void InterfaceToLDB::deleteIterator(DB_SELECT db)
 /////////////////////////////////////////////////////////////////////////////
 void InterfaceToLDB::resetIterator(DB_SELECT db, bool seekToPrevKey)
 {
+   SCOPED_TIMER("resetIterator");
    // This may be very slow, so you should only do it when you're sure it's
    // necessary.  You might just 
    BinaryData key = currReadKey_.getRawRef().copy();
@@ -730,6 +741,7 @@ void InterfaceToLDB::iteratorToRefReaders( leveldb::Iterator* it,
 void InterfaceToLDB::readStoredScriptHistoryAtIter(StoredScriptHistory & ssh)
                                
 {
+   SCOPED_TIMER("readStoredScriptHistoryAtIter");
    resetIterReaders();
 
    checkPrefixByte(DB_PREFIX_SCRIPT);
@@ -756,7 +768,10 @@ void InterfaceToLDB::putStoredScriptHistory( StoredScriptHistory & ssh)
 void InterfaceToLDB::getStoredScriptHistory( StoredScriptHistory & ssh,
                                              BinaryDataRef uniqueKey)
 {
-   BinaryRefReader brr = getValueRef(BLKDATA, DB_PREFIX_SCRIPT, uniqueKey);
+   SCOPED_TIMER("getStoredScriptHistory");
+   BinaryRefReader brr = getValueReader(BLKDATA, DB_PREFIX_SCRIPT, uniqueKey);
+   if(brr.getSize() == 0)
+      return;
    ssh.unserializeDBValue(brr);
    ssh.uniqueKey_ = uniqueKey;
 }
@@ -778,6 +793,7 @@ void InterfaceToLDB::getAllSSHForHash160(
                                     vector<StoredScriptHistory> & sshList,
                                     BinaryDataRef hash160)
 {
+   SCOPED_TIMER("getAllSSHForHash160");
    sshList.clear();
    StoredScriptHistory ssh;
 
@@ -844,165 +860,6 @@ void InterfaceToLDB::getAllSSHForHash160(
 }
 
 
-
-/*
-/////////////////////////////////////////////////////////////////////////////
-uint32_t InterfaceToLDB::readAllStoredScriptHistory(
-                          map<BinaryData, StoredScriptHistory> & regScriptMap)
-{
-   SCOPED_TIMER("readAllStoredScriptHistory");
-   // Now read all the StoredAddressObjects objects to make it easy to query
-   // inclusion directly from RAM.
-   seekTo(BLKDATA, DB_PREFIX_SCRIPT, BinaryData(0));
-   startBlkDataIteration(DB_PREFIX_SCRIPT);
-   uint32_t lowestSync = UINT32_MAX;
-   while(advanceIterAndRead(BLKDATA, DB_PREFIX_SCRIPT))
-   {
-      if(!checkPrefixByte(DB_PREFIX_SCRIPT))
-         break;
-
-      StoredScriptHistory ssh;
-      readStoredScriptHistoryAtIter(ssh);
-      regScriptMap[ssh.uniqueKey_] = ssh;
-      lowestSync = min(lowestScannedUpTo_, ssh.alreadyScannedUpToBlk_);
-   }
-
-   return lowestSync;
-}
-
-
-////////////////////////////////////////////////////////////////////////////////
-void InterfaceToLDB::loadAllStoredHistory(void)
-{
-   SCOPED_TIMER("loadAllStoredHistory");
-   lowestScannedUpTo_ = readAllStoredScriptHistory(registeredSSHs_);
-}
-
-
-/////////////////////////////////////////////////////////////////////////////
-void InterfaceToLDB::readStoredScriptHistory(StoredScriptHistory & regAddr,
-                                            vector<BinaryData>* txoVect=NULL)
-{
-   if(iter==NULL)
-      iter = iters_[BLKDATA];
-
-   if(!iter->Valid())
-   { 
-      LOGERR << "Tried to access invalid iterator!";
-      return;
-   }
-
-   iteratorToRefReaders(iter, currReadKey_, currReadValue_);
-    
-}
-
-/////////////////////////////////////////////////////////////////////////////
-bool InterfaceToLDB::getUnspentTxOut( BinaryData & const ldbKey8B,
-                                          UnspentTxOut & utxo)
-{
-   BinaryRefReader txrr(txoData[i]);
-   BinaryData hgtx   = txrr.get_BinaryData(4);
-   uint16_t   txIdx  = txrr.get_uint16_t(BE);
-   uint16_t   outIdx = txrr.get_uint16_t(BE);
-
-
-   BinaryDataRef txRef(txoData[i].getPtr(), 6);
-   bool isFound = seekTo(BLKDATA, DB_PREFIX_TXDATA, txRef);
-   if(!isFound)
-   {
-      LOGERR << " could not find transaction in DB";
-      return false;
-   }
-
-   // Need to get the height and hash of the parent transaction
-   Tx tx;
-   readBlkDataTxValue(currReadValue_, tx)
-
-   // Now get the TxOut directly
-   BinaryRefReader brr = getValueReader(BLKDATA, DB_PREFIX_TXDATA, txoData[i]);
-   if(brr.getSize()==0)
-   {
-      LOGERR << " could not find TxOut in DB";
-      return false;
-   }
-
-   TxOut txout;
-   readBlkDataTxOutValue(brr, txout);
-
-   utxo.txHash_     = tx.thisHash_;
-   utxo.txOutIndex_ = outIdx;
-   utxo.txHeight_   = DBUtils.hgtxToHeight(hgtx);
-   utxo.value_      = txout.getValue();
-   utxo.script_     = txout.getScript();
-
-   return txout.storedIsSpent_;
-}
-
-/////////////////////////////////////////////////////////////////////////////
-bool InterfaceToLDB::getUtxoListForAddr( BinaryData & const scriptWithType,
-                                             vector<UnspentTxOut> & utxoVect)
-{
-   BinaryWriter bw(22);
-   bw.put_uint8_t(DB_PREFIX_SCRIPT);
-   bw.put_BinaryData(scriptWithType);
-
-   seekTo(BLKDATA, DB_PREFIX_SCRIPT, bw.getData());
-
-   StoredScriptHistory ra;
-   vector<BinaryData> txoData;
-
-   readRegisteredAddr(ra, &txoData);
-   utxoVect.clear();
-   utxoVect.reserve(txoData.size());
-
-   for(uint32_t i=0; i<txoData.size(); i++)
-   {
-      UnspentTxOut utxo;
-      bool isSpent = getUnspentTxOut(txoData[i], utxo);
-      if(!isSpent)
-         utxoVect.push_back(utxo);
-   }
-   
-   return true;
-
-}
-
-
-
-bool InterfaceToLDB::readFullTx(Tx & tx, leveldb::Iterator* iter=NULL)
-{
-   if(iter==NULL)
-      iter = iters_[BLKDATA];
-
-   readBlkDataTxKey(currReadKey_, tx);
-   if(!tx.isInitialized())
-   {
-      LOGERR << "iterator is not pointing to a Tx";
-      return false;
-   }
-
-   readBlkDataTxValue(currReadValue_, tx);
-
-   if(!tx.isPartial_)
-      return;
-   
-   while(1)
-   {
-      advanceIterAndRead(iter);
-      if(DBUtils.readBlkDataKey(currReadKey_) != BLKDATA_TXOUT)
-      {
-         currReadKey_.resetPosition();
-         break;
-      }
-
-      TxOut txout;
-      readBlkDataTxOutKey(currReadKey_, txout);
-      readBlkDataTxOutValue(currReadValue_, txout);
-
-      
-   }
-}
-*/
 
 
 
@@ -1128,7 +985,6 @@ void InterfaceToLDB::setValidDupIDForHeight(uint32_t blockHgt, uint8_t dup)
 ////////////////////////////////////////////////////////////////////////////////
 uint8_t InterfaceToLDB::getValidDupIDForHeight_fromDB(uint32_t blockHgt)
 {
-   SCOPED_TIMER("getValidDupIDForHeight_fromDB");
 
    BinaryData hgt4((uint8_t*)&blockHgt, 4);
    BinaryRefReader brrHgts = getValueReader(HEADERS, DB_PREFIX_HEADHGT, hgt4);
@@ -1157,6 +1013,7 @@ uint8_t InterfaceToLDB::getValidDupIDForHeight_fromDB(uint32_t blockHgt)
 ////////////////////////////////////////////////////////////////////////////////
 void InterfaceToLDB::putStoredDBInfo(DB_SELECT db, StoredDBInfo const & sdbi)
 {
+   SCOPED_TIMER("putStoredDBInfo");
    if(!sdbi.isInitialized())
    {
       LOGERR << "Tried to put DB info into DB but it's not initialized";
@@ -1168,6 +1025,7 @@ void InterfaceToLDB::putStoredDBInfo(DB_SELECT db, StoredDBInfo const & sdbi)
 ////////////////////////////////////////////////////////////////////////////////
 bool InterfaceToLDB::getStoredDBInfo(DB_SELECT db, StoredDBInfo & sdbi, bool warn)
 {
+   SCOPED_TIMER("getStoredDBInfo");
    BinaryRefReader brr = getValueRef(db, StoredDBInfo::getDBKey());
     
    if(brr.getSize() == 0 && warn) 
@@ -1540,6 +1398,7 @@ void InterfaceToLDB::putStoredTx( StoredTx & stx, bool withTxOut)
 void InterfaceToLDB::updatePreferredTxHint( BinaryDataRef hashOrPrefix,
                                             BinaryData    preferDBKey)
 {
+   SCOPED_TIMER("updatePreferredTxHint");
    StoredTxHints sths;
    getStoredTxHints(sths, hashOrPrefix);
 
@@ -1634,6 +1493,7 @@ bool InterfaceToLDB::readStoredTxAtIter( uint32_t height,
                                          uint8_t  dupID,
                                          StoredTx & stx)
 {
+   SCOPED_TIMER("readStoredTxAtIter");
    BinaryData blkPrefix = DBUtils.getBlkDataKey(height, dupID);
 
    // Make sure that we are still within the desired block (but beyond header)
@@ -2213,6 +2073,7 @@ bool InterfaceToLDB::getStoredUndoData(StoredUndoData & sud,
 bool InterfaceToLDB::getStoredUndoData(StoredUndoData & sud, 
                                        BinaryDataRef    headHash)
 {
+   SCOPED_TIMER("getStoredUndoData");
    LOGERR << "getStoredUndoData not implemented yet!!!";
    return false;
 }

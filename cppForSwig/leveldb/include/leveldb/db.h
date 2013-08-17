@@ -7,7 +7,6 @@
 
 #include <stdint.h>
 #include <stdio.h>
-#include <iostream>
 #include "leveldb/iterator.h"
 #include "leveldb/options.h"
 
@@ -15,23 +14,12 @@ namespace leveldb {
 
 // Update Makefile if you change these
 static const int kMajorVersion = 1;
-static const int kMinorVersion = 5;
+static const int kMinorVersion = 12;
 
 struct Options;
 struct ReadOptions;
 struct WriteOptions;
 class WriteBatch;
-
-
-inline bool ldbCheckStatus(leveldb::Status stat)
-{
-  if( stat.ok() )
-    return true;
-
-  std::cout << "***LevelDB Error: " << stat.ToString() << std::endl;
-  return false;
-}
-
 
 // Abstract handle to particular state of a DB.
 // A Snapshot is an immutable object and can therefore be safely
@@ -151,8 +139,6 @@ class DB {
   // Therefore the following call will compact the entire database:
   //    db->CompactRange(NULL, NULL);
   virtual void CompactRange(const Slice* begin, const Slice* end) = 0;
-
-
 
  private:
   // No copying allowed

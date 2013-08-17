@@ -2283,39 +2283,6 @@ void BlockDataManager_LevelDB::reapplyBlocksToDB(uint32_t blk0, uint32_t blk1)
       remove(bfile.c_str());
    }
 
-   // This loop isn't needed in the new database-backed BDM, but I might
-   // need it relocated to another method.
-   /*
-   TIMER_START("LoadProgress");
-   bytesReadSoFar_ = 0;
-   for(uint32_t h=blk0; h<blk1; h++)
-   {
-      BlockHeader & bhr = *(headersByHeight_[h]);
-      vector<TxRef> const & txlist = bhr.getTxRefPtrList();
-
-      bytesReadSoFar_ += bhr.getBlockSize();
-
-      ///// LOOP OVER ALL TX FOR THIS HEADER/////
-      for(uint32_t itx=0; itx<txlist.size(); itx++)
-      {
-         Tx thisTx = txlist[itx]->getTxCopy();
-         registeredScrAddrScan(thisTx);
-      }
-
-      if( (h<120000 && h%10000==0) || (h>=120000 && h%1000==0) )
-      {
-         if(armoryHomeDir_.size() > 0)
-         {
-            ofstream topblks(bfile.c_str(), ios::app);
-            double t = TIMER_READ_SEC("LoadProgress");
-            topblks << bytesReadSoFar_ << " " 
-                    << totalBlockchainBytes_ << " " 
-                    << t << endl;
-         }
-      }
-   }
-   TIMER_STOP("LoadProgress");
-   */
 
    BinaryData startKey = DBUtils.getBlkDataKey(blk0, 0);
    BinaryData endKey   = DBUtils.getBlkDataKey(blk1, 0);
@@ -2324,15 +2291,26 @@ void BlockDataManager_LevelDB::reapplyBlocksToDB(uint32_t blk0, uint32_t blk1)
    // Start scanning and timer
    TIMER_START("LoadProgress");
 
+   bool doBatches = (blk1-blk0 > DB_BLK_BATCH_SIZE);
+   map<BinaryData, StoredTx>             stxToModify;
+   map<BinaryData, StoredScriptHistory>  sshToModify;
+   set<BinaryData>                       keysToDelete;
 
+   uint32_t hgt;
+   uint8_t  dup;
    do
    {
+      
       StoredHeader sbh;
       iface_->readStoredBlockAtIter(sbh);
-      uint32_t hgt = sbh.blockHeight_;
-      uint8_t  dup = sbh.duplicateID_;
+      hgt = sbh.blockHeight_;
+      dup = sbh.duplicateID_;
       if(blk0 > hgt || hgt >= blk1)
          break;
+      
+
+      if(hgt%DB_BLK_BATCH_SIZE == 0)
+         LOGWARN << "Finished applying blocks up to " << hgt;
 
       if(dup != iface_->getValidDupIDForHeight(hgt))
          continue;
@@ -2346,7 +2324,13 @@ void BlockDataManager_LevelDB::reapplyBlocksToDB(uint32_t blk0, uint32_t blk1)
       // this idea.  For now we will just save the current DB key, and 
       // re-seek to it afterwards.
       BinaryData prevIterKey = iface_->getIterKeyCopy();
-      applyBlockToDB(hgt, dup); 
+      if(!doBatches)
+         applyBlockToDB(hgt, dup); 
+      else
+      {
+         bool commit = (hgt%DB_BLK_BATCH_SIZE == 0);
+         applyBlockToDB(hgt, dup, stxToModify, sshToModify, keysToDelete, commit);
+      }
       iface_->seekTo(BLKDATA, prevIterKey);
 
 
@@ -2362,7 +2346,20 @@ void BlockDataManager_LevelDB::reapplyBlocksToDB(uint32_t blk0, uint32_t blk1)
       //        traversal.
       iface_->resetIterator(BLKDATA, true);
 
+      if(hgt%1000 == 0)
+      {
+         UniversalTimer::instance().printCSV(cout,true);
+         UniversalTimer::instance().printCSV(string("timings.csv"));
+      }
+      
+
    } while(iface_->advanceToNextBlock(false));
+
+
+   // If we're batching, we probably haven't commited the last batch.  Hgt 
+   // and dup vars are still in scope.  
+   if(doBatches)
+      applyModsToDB(stxToModify, sshToModify, keysToDelete);
 
    TIMER_STOP("LoadProgress");
 
@@ -2484,6 +2481,102 @@ void BlockDataManager_LevelDB::scanRegisteredTxForWallet( BtcWallet & wlt,
 
 }
 
+
+/////////////////////////////////////////////////////////////////////////////
+uint64_t BlockDataManager_LevelDB::getDBBalanceForHash160(   
+                                                      BinaryDataRef addr160)
+{
+   StoredScriptHistory ssh;
+
+   iface_->getStoredScriptHistory(ssh, HASH160PREFIX + addr160);
+   if(!ssh.isInitialized())
+   {
+      LOGWARN << "Requested ssh that doesn't exist";
+      return UINT64_MAX;
+   }
+
+   return ssh.getScriptBalance();
+}
+
+/////////////////////////////////////////////////////////////////////////////
+uint64_t BlockDataManager_LevelDB::getDBReceivedForHash160(   
+                                                      BinaryDataRef addr160)
+{
+   StoredScriptHistory ssh;
+
+   iface_->getStoredScriptHistory(ssh, HASH160PREFIX + addr160);
+   if(!ssh.isInitialized())
+   {
+      LOGWARN << "Requested ssh that doesn't exist";
+      return UINT64_MAX;
+   }
+
+   return ssh.getScriptReceived();
+}
+
+/////////////////////////////////////////////////////////////////////////////
+vector<UnspentTxOut> BlockDataManager_LevelDB::getUTXOVectForHash160(
+                                                      BinaryDataRef addr160)
+{
+   StoredScriptHistory ssh;
+   vector<UnspentTxOut> outVect(0);
+
+   iface_->getStoredScriptHistory(ssh, HASH160PREFIX + addr160);
+   if(!ssh.isInitialized())
+   {
+      LOGWARN << "Requested ssh that doesn't exist";
+      return outVect;
+   }
+
+
+   size_t numTxo = ssh.txioSet_.size();
+   outVect.reserve(numTxo);
+   map<BinaryData, TxIOPair>::iterator iter;
+   for(iter = ssh.txioSet_.begin(); iter != ssh.txioSet_.end(); iter++)
+   {
+      TxIOPair & txio = iter->second;
+      StoredTx stx;
+      BinaryData txKey = txio.getTxRefOfOutput().getDBKey();
+      uint16_t txoIdx = txio.getIndexOfOutput();
+      iface_->getStoredTx(stx, txKey);
+
+      StoredTxOut & stxo = stx.stxoMap_[txoIdx];
+      if(stxo.isSpent())
+         continue;
+
+      UnspentTxOut utxo(stx.thisHash_, 
+                        txoIdx,
+                        stx.blockHeight_,
+                        txio.getValue(),
+                        stx.stxoMap_[txoIdx].getScriptRef());
+      
+      outVect.push_back(utxo);
+   }
+
+   return outVect;
+
+}
+
+/////////////////////////////////////////////////////////////////////////////
+vector<TxIOPair> BlockDataManager_LevelDB::getHistoryForHash160(
+                                                BinaryDataRef addr160)
+{
+   StoredScriptHistory ssh;
+   iface_->getStoredScriptHistory(ssh, HASH160PREFIX + addr160);
+   vector<TxIOPair> outVect;
+   if(!ssh.isInitialized())
+   {
+      LOGWARN << "Requested ssh that doesn't exist";
+      return outVect;
+   }
+
+   outVect.reserve(ssh.txioSet_.size());
+   map<BinaryData, TxIOPair>::iterator iter;
+   for(iter = ssh.txioSet_.begin(); iter != ssh.txioSet_.end(); iter++)
+      outVect.push_back(iter->second);   
+   
+   return outVect;
+}
 
 
 /////////////////////////////////////////////////////////////////////////////
@@ -2786,7 +2879,7 @@ bool BlockDataManager_LevelDB::loadScrAddrHistoryFromDB(void)
 // only be used when rebuilding the DB from scratch (hopefully
 uint32_t BlockDataManager_LevelDB::rebuildDatabasesFromBlkFiles(void)
 {
-   SCOPED_TIMER("parseEntireBlockchain");
+   SCOPED_TIMER("rebuildDatabasesFromBlkFiles");
    LOGINFO << "Number of registered addr: " << registeredScrAddrMap_.size();
 
    // When we parse the entire block
@@ -2802,6 +2895,11 @@ uint32_t BlockDataManager_LevelDB::rebuildDatabasesFromBlkFiles(void)
 
 
    detectAllBlkFiles();
+   if(numBlkFiles_==0)
+   {
+      LOGERR << "No blockfiles could be found!  Aborting...";
+      return 0;
+   }
 
    if(GenesisHash_.getSize() == 0)
    {
@@ -2819,7 +2917,7 @@ uint32_t BlockDataManager_LevelDB::rebuildDatabasesFromBlkFiles(void)
    // Now we start the meat of this process...
    uint32_t blocksReadSoFar_ = 0;
    uint32_t bytesReadSoFar_ = 0;
-   TIMER_START("LoadProgress");
+   TIMER_START("addRawBlocksToDB");
    for(uint32_t fnum=0; fnum<numBlkFiles_; fnum++)
    {
       string blkfile = blkFileList_[fnum];
@@ -2922,7 +3020,7 @@ uint32_t BlockDataManager_LevelDB::rebuildDatabasesFromBlkFiles(void)
 
 
    }
-   TIMER_STOP("LoadProgress");
+   TIMER_STOP("addRawBlocksToDB");
 
    
    // The first version of the DB engine will do super-node, where it tracks
@@ -3114,7 +3212,6 @@ uint32_t BlockDataManager_LevelDB::readBlkFileUpdate(void)
       {
          LOGWARN << "Blockchain Reorganization detected!";
          reassessAfterReorg(prevTopBlockPtr_, topBlockPtr_, reorgBranchPoint_);
-         LOGWARN << "Done reassessing tx validity ";
          purgeZeroConfPool();
 
          // Update all the registered wallets...
@@ -4028,6 +4125,34 @@ void BlockDataManager_LevelDB::rescanWalletZeroConf(BtcWallet & wlt)
    }
 }
 
+////////////////////////////////////////////////////////////////////////////////
+void BlockDataManager_LevelDB::pprintSSHInfoAboutHash160(BinaryData const & a160)
+{
+   StoredScriptHistory ssh;
+   iface_->getStoredScriptHistory(ssh, HASH160PREFIX + a160);
+   if(!ssh.isInitialized())
+   {
+      cout << "Address is not in DB: " << a160.toHexStr().c_str() << endl;
+      return;
+   }
+
+   vector<UnspentTxOut> utxos = getUTXOVectForHash160(a160);
+   vector<TxIOPair> txios = getHistoryForHash160(a160);
+
+   uint64_t bal = getDBBalanceForHash160(a160);
+   uint64_t rcv = getDBReceivedForHash160(a160);
+
+   cout << "Information for hash160: " << a160.toHexStr().c_str() << endl;
+   cout << "Received:  " << rcv << endl;
+   cout << "Balance:   " << bal << endl;
+   cout << "NumUtxos:  " << utxos.size() << endl;
+   cout << "NumTxios:  " << txios.size() << endl;
+   for(uint32_t i=0; i<utxos.size(); i++)
+      utxos[i].pprintOneLine(UINT32_MAX);
+
+   cout << "Full SSH info:" << endl; 
+   ssh.pprintFullSSH();
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 void BlockDataManager_LevelDB::pprintZeroConfPool(void)
@@ -4426,13 +4551,49 @@ bool BlockDataManager_LevelDB::updateBlkDataHeader(StoredHeader const & sbh)
 ////////////////////////////////////////////////////////////////////////////////
 bool BlockDataManager_LevelDB::applyBlockToDB(uint32_t hgt, uint8_t  dup)
 {
-   StoredHeader sbh;
-   iface_->getStoredHeader(sbh, hgt, dup);
-   return applyBlockToDB(sbh);
+   map<BinaryData, StoredTx>              stxToModify;
+   map<BinaryData, StoredScriptHistory>   sshToModify;
+   set<BinaryData>                        keysToDelete;
+   applyBlockToDB(hgt, dup, stxToModify, sshToModify, keysToDelete, true);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 bool BlockDataManager_LevelDB::applyBlockToDB(StoredHeader & sbh)
+{
+   map<BinaryData, StoredTx>              stxToModify;
+   map<BinaryData, StoredScriptHistory>   sshToModify;
+   set<BinaryData>                        keysToDelete;
+
+   applyBlockToDB(sbh, stxToModify, sshToModify, keysToDelete, true);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+bool BlockDataManager_LevelDB::applyBlockToDB( 
+                        uint32_t hgt, 
+                        uint8_t  dup,
+                        map<BinaryData, StoredTx> &            stxToModify,
+                        map<BinaryData, StoredScriptHistory> & sshToModify,
+                        set<BinaryData> &                      keysToDelete,
+                        bool                                   applyWhenDone)
+{
+   StoredHeader sbh;
+   iface_->getStoredHeader(sbh, hgt, dup);
+   return applyBlockToDB(sbh, 
+                         stxToModify, 
+                         sshToModify, 
+                         keysToDelete, 
+                         applyWhenDone);
+
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+bool BlockDataManager_LevelDB::applyBlockToDB(
+                        StoredHeader & sbh,
+                        map<BinaryData, StoredTx> &            stxToModify,
+                        map<BinaryData, StoredScriptHistory> & sshToModify,
+                        set<BinaryData> &                      keysToDelete,
+                        bool                                   applyWhenDone)
 {
    SCOPED_TIMER("applyBlockToDB");
 
@@ -4443,13 +4604,6 @@ bool BlockDataManager_LevelDB::applyBlockToDB(StoredHeader & sbh)
    }
    else
       sbh.isMainBranch_ = true;
-
-   // Start with some empty maps, and fill them with existing DB data, or 
-   // create new data.  Either way, whatever ends up in these maps will
-   // but pushed to the backing DB.
-   map<BinaryData, StoredTx>              stxToModify;
-   map<BinaryData, StoredScriptHistory>   sshToModify;
-   set<BinaryData>                        keysToDelete;
 
    // We will accumulate undoData as we apply the tx
    StoredUndoData sud;
@@ -4475,20 +4629,18 @@ bool BlockDataManager_LevelDB::applyBlockToDB(StoredHeader & sbh)
 
    // At this point we should have a list of STX and SSH with all the correct
    // modifications (or creations) to represent this block.  Let's apply it.
-   iface_->startBatch(BLKDATA);
-
    sbh.blockAppliedToDB_ = true;
    updateBlkDataHeader(sbh);
    //iface_->putStoredHeader(sbh, false);
 
    // Now actually write all the changes to the DB all at once
-   applyModsToDB(stxToModify, sshToModify, keysToDelete);
+   if(applyWhenDone)
+      applyModsToDB(stxToModify, sshToModify, keysToDelete);
 
    // Only if pruning, we need to store 
    if(DBUtils.getDbPruneType() == DB_PRUNE_ALL)
       iface_->putStoredUndoData(sud);
 
-   iface_->commitBatch(BLKDATA);
    return true;
 }
 
@@ -4602,6 +4754,10 @@ void BlockDataManager_LevelDB::applyModsToDB(
    }
 
    iface_->commitBatch(BLKDATA);
+
+   stxToModify.clear();
+   sshToModify.clear();
+   keysToDelete.clear();
 }
                         
 
@@ -5008,20 +5164,21 @@ bool BlockDataManager_LevelDB::addMultisigEntryToSSH(
                                             StoredScriptHistory & ssh,
                                             BinaryData txOutKey8B)
 {
-   /*
    for(uint32_t i=0; i<ssh.multisigDBKeys_.size(); i++)
    {
       if(ssh.multisigDBKeys_[i] == txOutKey8B)
       {
          LOGERR << "Already have multisig entry in SSH";
+         LOGERR << "TxOutKey: " << txOutKey8B.toHexStr().c_str();
+         ssh.pprintFullSSH();
          return false;
       }
    } 
 
    ssh.multisigDBKeys_.push_back(txOutKey8B);
    return true;
-   */
 
+   /*
    pair<set<BinaryData>::iterator, bool> insResult;
    insResult = ssh.multisigDBKeys_.insert(txOutKey8B);
    if(!insResult.second)
@@ -5030,6 +5187,7 @@ bool BlockDataManager_LevelDB::addMultisigEntryToSSH(
       return false;
    }
    return true;
+   */
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -5037,7 +5195,6 @@ bool BlockDataManager_LevelDB::removeMultisigEntryFromSSH(
                                             StoredScriptHistory & ssh,
                                             BinaryData txOutKey8B)
 {
-   /*
    for(uint32_t i=0; i<ssh.multisigDBKeys_.size(); i++)
    {
       if(ssh.multisigDBKeys_[i] == txOutKey8B)
@@ -5048,8 +5205,8 @@ bool BlockDataManager_LevelDB::removeMultisigEntryFromSSH(
    } 
    LOGERR << "Multisig entry in SSH did not exist before, cannot remove!";
    return false;
-   */
     
+   /*
    size_t numRemoved = ssh.multisigDBKeys_.erase(txOutKey8B);
    if(numRemoved == 0)
    {
@@ -5057,6 +5214,7 @@ bool BlockDataManager_LevelDB::removeMultisigEntryFromSSH(
       return false;
    }
    return true;
+   */
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -5065,23 +5223,29 @@ StoredScriptHistory* BlockDataManager_LevelDB::makeSureSSHInMap(
                            map<BinaryData, StoredScriptHistory> & sshMap,
                            bool createIfDNE)
 {
+   SCOPED_TIMER("makeSureSSHInMap");
    StoredScriptHistory * sshptr;
    StoredScriptHistory   sshTemp;
 
    // If already in Map
    if(sshMap.find(uniqKey) != sshMap.end())
+   {
+      SCOPED_TIMER("___SSH_AlreadyInMap");
       sshptr = &sshMap[uniqKey];
+   }
    else
    {
       iface_->getStoredScriptHistory(sshTemp, uniqKey);
       if(sshTemp.isInitialized())
       {
+         SCOPED_TIMER("___SSH_AlreadyInDB");
          // We already have an SSH in DB -- simply modify it
          sshMap[uniqKey] = sshTemp; 
          sshptr = &sshMap[uniqKey];
       }
       else
       {
+         SCOPED_TIMER("___SSH_NeedCreate");
          if(!createIfDNE)
             return NULL;
 

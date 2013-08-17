@@ -475,6 +475,9 @@ public:
    }
          
 
+   bool isSpent(void) { return spentness_==TXOUT_SPENT; }
+   
+
    void pprintOneLine(uint32_t indent=3);
 
    uint32_t          txVersion_;
@@ -536,6 +539,9 @@ public:
    //       efficient search and update...?   On the other hand, it's 
    //       currently sorted chronologically which has other benefits
    map<BinaryData, TxIOPair> txioSet_;
+  
+   // I tried to change this to a set, but apparnetly I did it wrong
+   // 
    vector<BinaryData> multisigDBKeys_;
 };
 

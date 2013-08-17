@@ -29,7 +29,8 @@ CPPFLAGS += -I$(GTEST_DIR)/include \
 				-L$(USER_DIR)/leveldb \
 				-D__STDC_LIMIT_MACROS \
 				-g \
-				#-D_DEBUG
+				-D_DEBUG \
+				#-O2 \
 
 HEADERS += 	$(USER_DIR)/BinaryData.h \
 		 		$(USER_DIR)/BtcUtils.h \
@@ -53,6 +54,7 @@ OBJECTS += 	BinaryData.o \
 
 # Flags passed to the C++ compiler.
 CXXFLAGS += -g 
+#CXXFLAGS += -O2
 
 # All tests produced by this Makefile.  Remember to add new tests you
 # created to the list.

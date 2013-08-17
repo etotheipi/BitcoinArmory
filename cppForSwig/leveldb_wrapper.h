@@ -11,6 +11,8 @@
 
 #include "leveldb/db.h"
 #include "leveldb/write_batch.h"
+#include "leveldb/cache.h"
+#include "leveldb/filter_policy.h"
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -552,11 +554,12 @@ private:
    ARMORY_DB_TYPE       armoryDbType_;
    DB_PRUNE_TYPE        dbPruneType_;
 
-   leveldb::Iterator*   iters_[2];
-   leveldb::WriteBatch* batches_[2];
-   leveldb::DB*         dbs_[2];  
-   string               dbPaths_[2];
-   bool                 iterIsDirty_[2];
+   leveldb::Iterator*     iters_[2];
+   leveldb::WriteBatch*   batches_[2];
+   leveldb::DB*           dbs_[2];  
+   string                 dbPaths_[2];
+   bool                   iterIsDirty_[2];
+   leveldb::FilterPolicy* dbFilterPolicy_[2];
 
    // This will be incremented every time startBatch is called, decremented
    // every time commitBatch is called.  We will only *actually* start a new
