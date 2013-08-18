@@ -40,7 +40,7 @@
 #include "leveldb/db.h"
 
 
-#define DB_BLK_BATCH_SIZE 1000
+#define DB_BLK_BATCH_SIZE 100
 
 using namespace std;
 

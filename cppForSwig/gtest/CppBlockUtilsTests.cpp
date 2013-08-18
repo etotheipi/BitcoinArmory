@@ -4688,7 +4688,7 @@ TEST_F(BlockUtilsTest, TimeAndSpaceTest_usuallydisabled)
    DBUtils.setDbPruneType(DB_PRUNE_NONE);
 
    string oldblkdir = blkdir_;
-   blkdir_  = string("/home/alan/.bitcoin/blks3");
+   blkdir_  = string("/home/alan/.bitcoin/blocks");
    TheBDM.SelectNetwork("Main");
    //blkdir_  = string("/home/alan/.bitcoin/testnet3/blocks");
    //TheBDM.SelectNetwork("Test");
@@ -4700,15 +4700,16 @@ TEST_F(BlockUtilsTest, TimeAndSpaceTest_usuallydisabled)
    BinaryData scrAddr  = READHEX("11b366edfc0a8b66feebae5c2e25a7b6a5d1cf31");
    BinaryData scrAddr2 = READHEX("39aa3d569e06a1d7926dc4be1193c99bf2eb9ee0");
    BinaryData scrAddr3 = READHEX("758e51b5e398a32c6abd091b3fde383291267cfa");
+   BinaryData scrAddr4 = READHEX("6c22eb00e3f93acac5ae5d81a9db78a645dfc9c7");
    EXPECT_EQ(TheBDM.getDBBalanceForHash160(scrAddr), 18*COIN);
    TheBDM.pprintSSHInfoAboutHash160(scrAddr);
    TheBDM.pprintSSHInfoAboutHash160(scrAddr2);
    TheBDM.pprintSSHInfoAboutHash160(scrAddr3);
-
+   TheBDM.pprintSSHInfoAboutHash160(scrAddr4);
    blkdir_ = oldblkdir;
-   //cout << "waiting..." << endl;
-   //int pause;
-   //cin >> pause;
+   LOGINFO << "waiting... (please copy the DB dir...)";
+   int pause;
+   cin >> pause;
 }
 
 /*

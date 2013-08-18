@@ -2971,6 +2971,8 @@ uint32_t BlockDataManager_LevelDB::rebuildDatabasesFromBlkFiles(void)
 
       // It turns out that this streambuffering is probably not helping, but
       // it doesn't hurt either, so I'm leaving it alone
+      iface_->startBatch(BLKDATA);
+
       while(bsb.streamPull())
       {
          while(bsb.reader().getSizeRemaining() > 8)
@@ -2998,6 +3000,14 @@ uint32_t BlockDataManager_LevelDB::rebuildDatabasesFromBlkFiles(void)
             BinaryRefReader brr(bsb.reader().getCurrPtr(), nextBlkSize);
 
             bool addRaw = addRawBlockToDB(brr);
+
+            if(blocksReadSoFar_%DB_BLK_BATCH_SIZE == 0 &&
+               iface_->isBatchOn(BLKDATA))
+            {
+               iface_->commitBatch(BLKDATA);
+               iface_->startBatch(BLKDATA);
+            }
+
             //parseNewBlock(brr, fnum-1, bsb.getFileByteLocation(), nextBlkSize);
             blocksReadSoFar_++;
             bytesReadSoFar_ += nextBlkSize;
@@ -3016,6 +3026,9 @@ uint32_t BlockDataManager_LevelDB::rebuildDatabasesFromBlkFiles(void)
          if(isEOF || breakbreak)
             break;
       }
+
+      if(iface_->isBatchOn(BLKDATA))
+         iface_->commitBatch(BLKDATA);
 
 
 
@@ -4436,7 +4449,7 @@ bool BlockDataManager_LevelDB::applyTxToBatchWriteData(
             StoredScriptHistory* sshms = makeSureSSHInMap(uniqKey,
                                                           sshToModify, 
                                                           true);
-            addMultisigEntryToSSH(*sshms, thisSTX.getDBKeyOfChild(iout));
+            addMultisigEntryToSSH(*sshms, thisSTX.getDBKeyOfChild(iout,false));
          }
       }
    }
@@ -5164,13 +5177,15 @@ bool BlockDataManager_LevelDB::addMultisigEntryToSSH(
                                             StoredScriptHistory & ssh,
                                             BinaryData txOutKey8B)
 {
+   cout << "Multisig: " << txOutKey8B.toHexStr().c_str() << endl;
+   cout << "SSH:      " << ssh.uniqueKey_.toHexStr().c_str() << endl;
    for(uint32_t i=0; i<ssh.multisigDBKeys_.size(); i++)
    {
       if(ssh.multisigDBKeys_[i] == txOutKey8B)
       {
          LOGERR << "Already have multisig entry in SSH";
          LOGERR << "TxOutKey: " << txOutKey8B.toHexStr().c_str();
-         ssh.pprintFullSSH();
+         LOGERR << "SSH: " << ssh.uniqueKey_.toHexStr().c_str();
          return false;
       }
    } 
