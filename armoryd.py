@@ -154,8 +154,12 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
       recipvalpairs = []
       for a in args:
-         r,v = a.split(':')
-         recipvalpairs.append([addrStr_to_hash160(r), JSONtoAmount(v)])
+         if isinstance(a, dict):
+            for r, v in a.iteritems():
+               recipvalpairs.append([addrStr_to_hash160(r), JSONtoAmount(v)])
+         else:
+            r,v = a.split(':')
+            recipvalpairs.append([addrStr_to_hash160(r), JSONtoAmount(v)])
 
       return self.create_unsigned_transaction(recipvalpairs)
 
