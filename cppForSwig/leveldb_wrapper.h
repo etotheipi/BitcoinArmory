@@ -474,7 +474,7 @@ public:
    bool readStoredTxOutAtIter(uint32_t height, uint8_t  dupID, uint16_t txIndex,
                                                             StoredTxOut & stxo);
 
-   void readStoredScriptHistoryAtIter( StoredScriptHistory & ssh);
+   bool readStoredScriptHistoryAtIter( StoredScriptHistory & ssh);
 
    uint32_t readAllStoredScriptHistory(
                        map<BinaryData, StoredScriptHistory> & storedScrMap);

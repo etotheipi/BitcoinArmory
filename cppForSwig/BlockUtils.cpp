@@ -4506,7 +4506,7 @@ bool BlockDataManager_LevelDB::addRawBlockToDB(BinaryRefReader & brr)
 // Not sure if this deserves its own method anymore, but it has it anyway.  
 // Used to update the blockAppliedToDB_ flag, and maybe numTx and numBytes
 // if needed for some reason.
-bool BlockDataManager_LevelDB::updateBlkDataHeader(StoredHeader const & sbh)
+void BlockDataManager_LevelDB::updateBlkDataHeader(StoredHeader const & sbh)
 {
    iface_->putValue(BLKDATA, sbh.getDBKey(), sbh.serializeDBValue(BLKDATA));
 }

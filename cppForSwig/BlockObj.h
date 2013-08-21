@@ -593,7 +593,7 @@ public:
    TxIOPair(void);
    explicit TxIOPair(uint64_t amount);
    explicit TxIOPair(TxRef txRefO, uint32_t txoutIndex);
-   explicit TxIOPair(BinaryData txOutKey8B, uint64_t);
+   explicit TxIOPair(BinaryData txOutKey8B, uint64_t, value);
    explicit TxIOPair(TxRef txRefO, uint32_t txoutIndex, 
                      TxRef txRefI, uint32_t txinIndex);
 
@@ -624,6 +624,8 @@ public:
    void setTxOutFromSelf(bool isTrue=true) { isTxOutFromSelf_ = isTrue; }
    bool  isFromCoinbase(void) const { return isFromCoinbase_; }
    void setFromCoinbase(bool isTrue=true) { isFromCoinbase_ = isTrue; }
+   bool  isMultisig(void) const { return isMultisig_; }
+   void setMultisig(bool isTrue=true) { isMultisig_ = isTrue; }
 
    BinaryData getDBKeyOfOutput(void) const
                { return txRefOfOutput_.getDBKeyOfChild(indexOfOutput_);}
@@ -673,6 +675,7 @@ private:
 
    bool      isTxOutFromSelf_;
    bool      isFromCoinbase_;
+   bool      isMultisig_;
 };
 
 

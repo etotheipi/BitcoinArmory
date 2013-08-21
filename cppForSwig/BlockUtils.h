@@ -691,7 +691,7 @@ public:
    bool     processHeadersInFile(string filename);
    uint32_t rebuildDatabasesFromBlkFiles(void);
    bool     addRawBlockToDB(BinaryRefReader & brr);
-   bool     updateBlkDataHeader(StoredHeader const & sbh);
+   void     updateBlkDataHeader(StoredHeader const & sbh);
 
    // On the first pass through the blockchain data, we only write the raw
    // blocks to do the DB.  We don't "apply" them (marking TxOuts spent and

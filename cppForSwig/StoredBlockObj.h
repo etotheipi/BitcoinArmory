@@ -505,7 +505,9 @@ public:
 
    StoredScriptHistory(void) : uniqueKey_(0), 
                                version_(UINT32_MAX),
-                               alreadyScannedUpToBlk_(0) { }
+                               alreadyScannedUpToBlk_(0),
+                               useMultipleEntries_(false),
+                               totalTxioCount_(0) { }
                                
 
    bool isInitialized(void) { return uniqueKey_.getSize() > 0; }
@@ -534,19 +536,64 @@ public:
    BinaryData     uniqueKey_;  // includes the prefix byte!
    uint32_t       version_;
    uint32_t       alreadyScannedUpToBlk_;
+   bool           useMultipleEntries_;
+   uint32_t       totalTxioCount_;
+
+   // If this SSH has only one TxIO (most of them), then we don't bother
+   // with supplemental entries just to hold that one TxIO in the DB.
+   // We always stored them in RAM using the StoredScriptSubHistory 
+   // objects which will have the per-block lists of TxIOs.  But when 
+   // it gets serialized to disk, we will store single-Txio SSHs in
+   // the base entry and forego extra DB entries.
+   map<BinaryData, StoredScriptSubHistory> subHistMap_;
+};
+
+
+////////////////////////////////////////////////////////////////////////////////
+// We must break out script histories into isolated sub-histories, to
+// accommodate thoroughly re-used addresses like 1VayNert* and 1dice*.  If 
+// we didn't do it, those DB entries would be many megabytes, and those many
+// MB would be updated multiple times per block.   So we break them into
+// subhistories by block.  This is exceptionally well-suited for SatoshiDice
+// addresses since transactions in one block tend to be related to 
+// transactions in the previous few blocks before it.  
+class StoredScriptSubHistory
+{
+public:
+
+   StoredScriptHistory(void) : uniqueKey_(0), hgtX_(0) {}
+                               
+
+   bool isInitialized(void) { return uniqueKey_.getSize() > 0; }
+
+   void       unserializeDBValue(BinaryRefReader & brr);
+   void         serializeDBValue(BinaryWriter    & bw ) const;
+   void       unserializeDBValue(BinaryData const & bd);
+   void       unserializeDBValue(BinaryDataRef      bd);
+   BinaryData   serializeDBValue(void) const;
+   void       unserializeDBKey(BinaryDataRef key, bool withPrefix=true);
+
+   BinaryData    getDBKey(bool withPrefix=true) const;
+   SCRIPT_PREFIX getScriptType(void) const;
+
+   void pprintOneLine(uint32_t indent=3);
+   void pprintFullSSH(uint32_t indent=3);
+
+   TxIOPair*   findTxio(BinaryData const & dbKey8B);
+   TxIOPair& insertTxio(TxIOPair const & txio, bool withOverwrite=true);
+   bool       eraseTxio(TxIOPair const & txio);
+   bool       eraseTxio(BinaryData const & dbKey8B);
+
+   
+
+   BinaryData     uniqueKey_;  // includes the prefix byte!
+   BinaryData     hgtX_;
 
    // TODO: Maybe these vectors should instead be set<>'s or map<>'s for
    //       efficient search and update...?   On the other hand, it's 
    //       currently sorted chronologically which has other benefits
    map<BinaryData, TxIOPair> txioSet_;
-  
-   // I tried to change this to a set, but apparnetly I did it wrong
-   // 
-   vector<BinaryData> multisigDBKeys_;
-};
-
-
-
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 // TODO:  it turns out that outPointsAddedByBlock_ is not "right."  If a Tx has

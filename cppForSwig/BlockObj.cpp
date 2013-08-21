@@ -782,7 +782,8 @@ TxIOPair::TxIOPair(void) :
    txOfInputZC_(NULL),
    indexOfInputZC_(0),
    isTxOutFromSelf_(false),
-   isFromCoinbase_(false) {}
+   isFromCoinbase_(false),
+   isMultisig_(false) {}
 
 //////////////////////////////////////////////////////////////////////////////
 TxIOPair::TxIOPair(uint64_t  amount) :
@@ -794,7 +795,8 @@ TxIOPair::TxIOPair(uint64_t  amount) :
    txOfInputZC_(NULL),
    indexOfInputZC_(0) ,
    isTxOutFromSelf_(false),
-   isFromCoinbase_(false) {}
+   isFromCoinbase_(false),
+   isMultisig_(false) {}
 
 //////////////////////////////////////////////////////////////////////////////
 TxIOPair::TxIOPair(TxRef txPtrO, uint32_t txoutIndex) :
@@ -805,7 +807,8 @@ TxIOPair::TxIOPair(TxRef txPtrO, uint32_t txoutIndex) :
    txOfInputZC_(NULL),
    indexOfInputZC_(0),
    isTxOutFromSelf_(false),
-   isFromCoinbase_(false)
+   isFromCoinbase_(false),
+   isMultisig_(false)
 { 
    setTxOut(txPtrO, txoutIndex);
 }
@@ -821,7 +824,8 @@ TxIOPair::TxIOPair(TxRef     txPtrO,
    txOfInputZC_(NULL),
    indexOfInputZC_(0),
    isTxOutFromSelf_(false),
-   isFromCoinbase_(false)
+   isFromCoinbase_(false),
+   isMultisig_(false)
 { 
    setTxOut(txPtrO, txoutIndex);
    setTxIn (txPtrI, txinIndex );
@@ -837,7 +841,8 @@ TxIOPair::TxIOPair(BinaryData txOutKey8B, uint64_t val) :
    txOfInputZC_(NULL),
    indexOfInputZC_(0),
    isTxOutFromSelf_(false),
-   isFromCoinbase_(false)
+   isFromCoinbase_(false),
+   isMultisig_(false)
 {
    setTxOut(txOutKey8B);
 }
@@ -907,7 +912,7 @@ bool TxIOPair::setTxIn(BinaryData dbKey8B)
    BinaryRefReader brr(dbKey8B);
    BinaryDataRef txKey6B = brr.get_BinaryDataRef(6);
    uint16_t      txInIdx = brr.get_uint16_t(BIGENDIAN);
-   setTxIn(TxRef(txKey6B), (uint32_t)txInIdx);
+   return setTxIn(TxRef(txKey6B), (uint32_t)txInIdx);
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -916,7 +921,7 @@ bool TxIOPair::setTxOut(BinaryData dbKey8B)
    BinaryRefReader brr(dbKey8B);
    BinaryDataRef txKey6B  = brr.get_BinaryDataRef(6);
    uint16_t      txOutIdx = brr.get_uint16_t(BIGENDIAN);
-   setTxOut(TxRef(txKey6B), (uint32_t)txOutIdx);
+   return setTxOut(TxRef(txKey6B), (uint32_t)txOutIdx);
 }
 
 //////////////////////////////////////////////////////////////////////////////
