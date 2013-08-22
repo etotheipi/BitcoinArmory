@@ -773,7 +773,8 @@ public:
    uint64_t             getDBBalanceForHash160(BinaryDataRef addr160);
    uint64_t             getDBReceivedForHash160(BinaryDataRef addr160);
    vector<UnspentTxOut> getUTXOVectForHash160(BinaryDataRef addr160);
-   vector<TxIOPair>     getHistoryForHash160(BinaryDataRef addr160);
+   vector<TxIOPair>     getHistoryForScrAddr(BinaryDataRef uniqKey, 
+                                             bool withMultiSig=false);
 
    // For zero-confirmation tx-handling
    void enableZeroConf(string);
@@ -858,9 +859,9 @@ public:
    /////////////////////////////////////////////////////////////////////////////
    bool markTxOutUnspentInSSH( StoredScriptHistory & ssh,
                                BinaryData txOutKey8B,
-                               uint64_t value = UINT64_MAX,
-                               bool isCoinBase = false,
-                               bool isFromSelf = false);
+                               uint64_t value=UINT64_MAX,
+                               bool isCoinBase=false,
+                               bool isMultisigRef=false);
 
    bool markTxOutSpentInSSH(   StoredScriptHistory & ssh,
                                BinaryData txOutKey8B,
@@ -869,18 +870,12 @@ public:
    bool removeTxOutFromSSH(    StoredScriptHistory & ssh,
                                BinaryData txOutKey8B);
 
-   /////////////////////////////////////////////////////////////////////////////
-   bool addMultisigEntryToSSH( StoredScriptHistory & ssh,
-                               BinaryData txOutKey8B);
-
-   bool removeMultisigEntryFromSSH( 
-                               StoredScriptHistory & ssh,
-                               BinaryData txOutKey8B);
 
 
    /////////////////////////////////////////////////////////////////////////////
    StoredScriptHistory* makeSureSSHInMap(    
                                BinaryDataRef uniqKey,
+                               BinaryDataRef hgtX,
                                map<BinaryData, StoredScriptHistory> & sshMap,
                                bool createIfDNE=true);
 

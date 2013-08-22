@@ -631,8 +631,7 @@ bool InterfaceToLDB::dbIterIsValid(DB_SELECT db, DB_PREFIX prefix)
 
 /////////////////////////////////////////////////////////////////////////////
 // If we are seeking into the HEADERS DB, then ignore prefix
-bool InterfaceToLDB::seekTo(DB_SELECT db,
-                            BinaryDataRef key)
+bool InterfaceToLDB::seekTo(DB_SELECT db, BinaryDataRef key)
 {
    if(iterIsDirty_[db])
       resetIterator(db);
@@ -738,14 +737,14 @@ void InterfaceToLDB::iteratorToRefReaders( leveldb::Iterator* it,
 
 
 /////////////////////////////////////////////////////////////////////////////
-void InterfaceToLDB::readStoredScriptHistoryAtIter(StoredScriptHistory & ssh)
+bool InterfaceToLDB::readStoredScriptHistoryAtIter(StoredScriptHistory & ssh)
 {
    SCOPED_TIMER("readStoredScriptHistoryAtIter");
    resetIterReaders();
 
    checkPrefixByte(DB_PREFIX_SCRIPT);
 
-   BinaryDataRef sshKey = currReadKey_.getDataRef();
+   BinaryDataRef sshKey = currReadKey_.getRawRef();
    ssh.unserializeDBKey(sshKey, true);
    ssh.unserializeDBValue(currReadValue_);
 
@@ -757,7 +756,7 @@ void InterfaceToLDB::readStoredScriptHistoryAtIter(StoredScriptHistory & ssh)
       
 
    // If for some reason we hit the end of the DB without any tx, bail
-   bool iterValid = advanceIterAndRead(BLKDATA, DB_PREFIX_SCRIPT)
+   bool iterValid = advanceIterAndRead(BLKDATA, DB_PREFIX_SCRIPT);
    if(!iterValid)
    {
       LOGERR << "No sub-SSH entries after the SSH";
@@ -769,22 +768,22 @@ void InterfaceToLDB::readStoredScriptHistoryAtIter(StoredScriptHistory & ssh)
    uint32_t numTxioRead = 0;
    while(iters_[BLKDATA]->Valid())
    {
-      if(!currReadKey_.getRawRef().startsWith(blkDataKey))
+      if(!currReadKey_.getRawRef().startsWith(ssh.uniqueKey_))
          break;
 
       pair<BinaryData, StoredScriptSubHistory> keyValPair;
-      keyValPair.first = currReadKey_.getSliceRef(1,4);
-      keyValPair.second.unserializeDBKey(currReadKey_);
+      keyValPair.first = currReadKey_.getRawRef().getSliceRef(1,4);
+      keyValPair.second.unserializeDBKey(currReadKey_.getRawRef());
       keyValPair.second.unserializeDBValue(currReadValue_);
       iter = ssh.subHistMap_.insert(keyValPair).first;
       numTxioRead += iter->second.txioSet_.size(); 
       advanceIterAndRead(BLKDATA, DB_PREFIX_SCRIPT);
    } 
 
-   if(numTxioRead != totalTxioCount_)
+   if(numTxioRead != ssh.totalTxioCount_)
    {
       LOGERR << "Number of TXIOs read does not match SSH entry value";
-      totalTxioCount_ = numTxioRead;
+      ssh.totalTxioCount_ = numTxioRead;
    }
    return true;
 } 
@@ -808,7 +807,7 @@ void InterfaceToLDB::getStoredScriptHistory( StoredScriptHistory & ssh,
                                              BinaryDataRef uniqueKey)
 {
    SCOPED_TIMER("getStoredScriptHistory");
-   seekTo(BLKDATA< DB_PREFIX_SCRIPT, uniqueKey);
+   seekTo(BLKDATA, DB_PREFIX_SCRIPT, uniqueKey);
    readStoredScriptHistoryAtIter(ssh);
 }
 
@@ -825,7 +824,7 @@ void InterfaceToLDB::getStoredScriptHistoryByRawScript(
 // This doesn't actually return a SUBhistory, it grabs it and adds it to the
 // regulary-SSH object
 bool InterfaceToLDB::getStoredScriptSubHistory( StoredScriptHistory & ssh,
-                                                BinaryData const & hgtX)
+                                                BinaryDataRef hgtX)
 {
    BinaryData key = ssh.uniqueKey_ + hgtX; 
    BinaryRefReader brr = getValueReader(BLKDATA, DB_PREFIX_SCRIPT, key);
@@ -845,15 +844,17 @@ bool InterfaceToLDB::getStoredScriptSubHistory( StoredScriptHistory & ssh,
 // Aggregates multiple getSubSSH calls into a single "get me this list of
 // stuff" call.
 bool InterfaceToLDB::getStoredScriptHistorySlice(StoredScriptHistory & ssh,
+                                                 BinaryDataRef uniqKey,
                                                  vector<BinaryData> hgtxVect)
 {
    SCOPED_TIMER("getStoredScriptHistorySlice");
-   resetIterReaders();
+
+   BinaryRefReader brr = getValueReader(BLKDATA, DB_PREFIX_SCRIPT, uniqKey);
+   if(brr.getSize() == 0)
+      return false;
 
    checkPrefixByte(DB_PREFIX_SCRIPT);
-
-   BinaryDataRef sshKey = currReadKey_.getDataRef();
-   ssh.unserializeDBKey(sshKey, true);
+   ssh.unserializeDBKey(currReadKey_.getRawRef(), true);
    ssh.unserializeDBValue(currReadValue_);
 
    // If there is only one, it may not match anything in our hgtxVect,
@@ -867,7 +868,7 @@ bool InterfaceToLDB::getStoredScriptHistorySlice(StoredScriptHistory & ssh,
       
 
    // If for some reason we hit the end of the DB without any tx, bail
-   for(uint32_t i=0; i<hgtxVect; i++)
+   for(uint32_t i=0; i<hgtxVect.size(); i++)
       getStoredScriptSubHistory(ssh, hgtxVect[i]);
 
 }
@@ -890,59 +891,6 @@ void InterfaceToLDB::getAllSSHForHash160(
       return;
 
    sshList.push_back(ssh);
-
-   // For the vast majority of keys, we're done.
-   if(ssh.multisigDBKeys_.size()==0)
-      return;
-
-   // If we're here, there's more data to grab -- multi-sig scripts for this
-   // particular address need to be fetched
-   StoredScriptHistory sshMS;
-   for(uint32_t i=0; i<ssh.multisigDBKeys_.size(); i++)
-   {
-      // We have to go fetch the TxOut from the TXDATA and get its script
-      BinaryRefReader brr = getValueReader(BLKDATA, 
-                                           DB_PREFIX_TXDATA, 
-                                           ssh.multisigDBKeys_[i]);
-
-      if(brr.getSize() == 0)
-      {
-         BinaryRefReader brrTXO(ssh.multisigDBKeys_[i]);
-         uint32_t hgt;  uint8_t dup;  uint16_t txi, txo;
-         DBUtils.readBlkDataKeyNoPrefix(brrTXO, hgt, dup, txi, txo);
-         LOGWARN << "Multisig script recorded but DNE at (hgt,tx,txout) = "
-                 << "(" << hgt << "," << txi << "," << txo << ")";
-         continue;
-      }
-
-      // We found a TxOut, let's read its script and go fetch the SSH for that
-      StoredTxOut stxo;
-      stxo.unserializeDBValue(brr);
-      BinaryRefReader brrTXO(stxo.dataCopy_);
-      brrTXO.advance(8);
-      uint32_t scrSize = brrTXO.get_var_int();
-      BinaryDataRef msScript = brrTXO.get_BinaryData(scrSize);
-      
-      BinaryData uniqKeyMS = BtcUtils::getTxOutScriptUniqueKey(msScript);
-      if(uniqKeyMS[0] != SCRIPT_PREFIX_MULTISIG)
-      {
-         LOGWARN << "Multisig script expected but other type found"; 
-         BinaryRefReader brrTXO(ssh.multisigDBKeys_[i]);
-         uint32_t hgt;  uint8_t dup;  uint16_t txi, txo;
-         DBUtils.readBlkDataKeyNoPrefix(brrTXO, hgt, dup, txi, txo);
-         LOGWARN << "Multisig script expected, non-MS found (hgt,tx,txout) = "
-                 << "(" << hgt << "," << txi << "," << txo << ")";
-         continue;
-      }
-
-      getStoredScriptHistory(sshMS, uniqKeyMS);
-      if(!sshMS.isInitialized())
-      {
-         LOGWARN << "Multisig script found, but no SSH exists for it";
-         continue;
-      }
-      sshList.push_back(sshMS);
-   }
 
 }
 
@@ -992,7 +940,7 @@ void InterfaceToLDB::addRegisteredScript(BinaryDataRef rawScript,
       ssh.uniqueKey_  = uniqKey;
       ssh.version_    = ARMORY_DB_VERSION;
       ssh.alreadyScannedUpToBlk_ = blockCreated;
-      ssh.multisigDBKeys_.resize(0);
+      //ssh.multisigDBKeys_.resize(0);
       putStoredScriptHistory(ssh);
    }
    else

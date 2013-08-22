@@ -1242,74 +1242,45 @@ void StoredTxOut::pprintOneLine(uint32_t indent)
 void StoredScriptHistory::unserializeDBValue(BinaryRefReader & brr)
 {
    // Now read the stored data fro this registered address
+   DB_PRUNE_TYPE pruneType;
+   SCRIPT_UTXO_TYPE txoListType;
    BitUnpacker<uint16_t> bitunpack(brr);
-   version_                     =                    bitunpack.getBits(4);
-   DB_PRUNE_TYPE pruneType      = (DB_PRUNE_TYPE)    bitunpack.getBits(2);
-   SCRIPT_UTXO_TYPE txoListType = (SCRIPT_UTXO_TYPE) bitunpack.getBits(2);
+   version_            =                    bitunpack.getBits(4);
+   pruneType           = (DB_PRUNE_TYPE)    bitunpack.getBits(2);
+   txoListType         = (SCRIPT_UTXO_TYPE) bitunpack.getBits(2);
+   useMultipleEntries_ =                    bitunpack.getBit();
 
    alreadyScannedUpToBlk_ = brr.get_uint32_t();
    totalTxioCount_ = brr.get_var_int();
    
-   txioSet_.clear();
-   multisigDBKeys_.clear();
-
-   if(txoListType == SCRIPT_UTXO_TREE)
+   subHistMap_.clear();
+   if(!useMultipleEntries_)
    {
-      // This is where we might implement the Reiner-Tree concept, by
-      // having only a reference to one TxOut here, but it's actually 
-      // the root of some kind of authenticated tree structure.
-      LOGERR << "TXO-trees are not implemented, yet!";
-      return;
+      // If we are not using multiple entries, then we have a TxIO in this 
+      // base SSH entry, and no sub-histories.  Otherwise, there's nothing
+      // else to be read from this DB value
+      BitUnpacker<uint8_t> bitunpack(brr);
+      bool isFromSelf  = bitunpack.getBit();
+      bool isCoinbase  = bitunpack.getBit();
+      bool isSpent     = bitunpack.getBit();
+      bool isMulti     = bitunpack.getBit();
+
+      // We always include the 8-byte value
+      uint64_t txoValue  = brr.get_uint64_t();
+
+      // First 4 bytes is same for all TxIOs, and was copied outside the loop.
+      // So we grab the last four bytes and copy it to the end.
+      BinaryData fullTxOutKey = brr.get_BinaryData(8);
+      TxIOPair txio(fullTxOutKey, txoValue);
+
+      if(isSpent)
+         txio.setTxIn(brr.get_BinaryDataRef(8));
+
+      txio.setTxOutFromSelf(isFromSelf);
+      txio.setFromCoinbase(isCoinbase);
+      txio.setMultisig(isMulti);
+      insertTxio(txio);
    }
-   else if(txoListType == SCRIPT_UTXO_VECTOR)
-   {
-      // Get the TxOut list if a pointer was supplied
-      // This list is unspent-TxOuts only if pruning enabled.  You will
-      // have to dereference each one to check spentness if not pruning
-      uint32_t numTxo = (uint32_t)(brr.get_var_int());
-      for(uint32_t i=0; i<numTxo; i++)
-      {
-         BitUnpacker<uint8_t> bitunpack(brr);
-         bool isFromSelf  = bitunpack.getBit();
-         bool isCoinbase  = bitunpack.getBit();
-         bool isSpent     = bitunpack.getBit();
-
-         // We always include the value, here
-         uint64_t txoValue  = brr.get_uint64_t();
-
-         TxIOPair txio;
-         if(!isSpent)
-         {
-            BinaryDataRef  txokey = brr.get_BinaryDataRef(6);
-            uint16_t       txoidx = brr.get_uint16_t(BIGENDIAN);
-
-            txio = TxIOPair(TxRef(txokey), txoidx);
-         }
-         else
-         {
-            BinaryDataRef  txokey = brr.get_BinaryDataRef(6);
-            uint16_t       txoidx = brr.get_uint16_t(BIGENDIAN);
-            BinaryDataRef  txikey = brr.get_BinaryDataRef(6);
-            uint16_t       txiidx = brr.get_uint16_t(BIGENDIAN);
-
-            txio = TxIOPair(TxRef(txokey), txoidx, 
-                            TxRef(txikey), txiidx);
-
-         }
-         txio.setValue(txoValue);
-         txio.setTxOutFromSelf(isFromSelf);
-         txio.setFromCoinbase(isCoinbase);
-         insertTxio(txio);
-      }
-
-      // We only store the hgtx+txindx+txoutindex of each multisig script 
-      // that contains this address.  THAT entry contains the TXIO/spentness
-      // information about that particular TxOut.
-      multisigDBKeys_.resize(brr.get_var_int());
-      for(uint32_t i=0; i<multisigDBKeys_.size(); i++)
-         brr.get_BinaryData(multisigDBKeys_[i], 8);
-   }
-
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1320,70 +1291,50 @@ void StoredScriptHistory::serializeDBValue(BinaryWriter & bw ) const
    bitpack.putBits((uint16_t)ARMORY_DB_VERSION,       4);
    bitpack.putBits((uint16_t)DBUtils.getDbPruneType(),2);
    bitpack.putBits((uint16_t)SCRIPT_UTXO_VECTOR,      2);
+   bitpack.putBit(useMultipleEntries_);
    bw.put_BitPacker(bitpack);
-
-   bool useMulti = true;
-   if(subHistMap_.size()==1 && !useMultipleEntries_)
-   {
-      map<BinaryData, StoredScriptSubHistory>::iterator iter = subHistMap_.begin();
-      if(iter->second.txioSet_.size()==1)
-         
-   }
 
    // 
    bw.put_uint32_t(alreadyScannedUpToBlk_); 
    bw.put_var_int(totalTxioCount_); 
 
-   if(UTXO_STORAGE == SCRIPT_UTXO_TREE)
+   // Most addresses have only one TxIO, so we store it in the base SSH
+   // DB entry.   If there's more than one, we serialize nothing else,
+   // and stored all the TxIOs in the sub-SSH entries (sub-histories).
+   if(!useMultipleEntries_)
    {
-      // This is where we might implement the Reiner-Tree concept, by
-      // having only a reference to one TxOut here, but it's actually 
-      // the root of some kind of authenticated tree structure.
-      LOGERR << "TXO-trees are not implemented, yet!";
-      return;
-   }
-   else if(UTXO_STORAGE == SCRIPT_UTXO_VECTOR)
-   {
-      bw.put_var_int(txioSet_.size());
-      map<BinaryData, TxIOPair>::const_iterator iter;
-      for(iter = txioSet_.begin(); iter != txioSet_.end(); iter++)
+      if(subHistMap_.size() != 1)
       {
-         TxIOPair const & txio = iter->second;
-         bool isSpent = txio.hasTxInInMain();
-
-         // If spent and only maintaining a pruned DB, skip it
-         if(isSpent && DBUtils.getDbPruneType()==DB_PRUNE_ALL)
-            continue;
-
-         BitPacker<uint8_t> bitpack;
-         bitpack.putBit(txio.isTxOutFromSelf());
-         bitpack.putBit(txio.isFromCoinbase());
-         bitpack.putBit(txio.hasTxInInMain());
-         bw.put_BitPacker(bitpack);
-
-         // Always write the value and 8-byte TxOut
-         bw.put_uint64_t(txio.getValue());
-         bw.put_BinaryData(txio.getTxRefOfOutput().getDBKeyRef());
-         bw.put_uint16_t(txio.getIndexOfOutput(), BIGENDIAN);
-
-         // If not supposed to write the TxIn, we would've bailed earlier
-         if(isSpent)
-         {
-            if(!txio.getTxRefOfInput().isInitialized())
-               bw.put_uint64_t(0);  // write 0x00*8 for "UNKNOWN"
-            else
-            {
-               bw.put_BinaryData(txio.getTxRefOfInput().getDBKeyRef());
-               bw.put_uint16_t(txio.getIndexOfInput(), BIGENDIAN);
-            }
-         }
+         LOGERR << "!multi entry but " << subHistMap_.size() << " TxIOs?";
+         return;
       }
 
-      // We only store the hgtx+txindx+txoutindex of each multisig script 
-      // that contains this address
-      bw.put_var_int(multisigDBKeys_.size());
-      for(uint32_t i=0; i<multisigDBKeys_.size(); i++)
-         bw.put_BinaryData(multisigDBKeys_[i]); 
+      map<BinaryData, StoredScriptSubHistory>::const_iterator iter;
+      iter = subHistMap_.begin();
+      if(iter->second.txioSet_.size() != 1)
+      {
+         LOGERR << "One subSSH but " << iter->second.txioSet_.size() << " TxIOs?";
+         return;
+      }
+
+      // Iter is pointing to the first SubSSH, now get the first/only TxIOPair
+      TxIOPair const & txio = iter->second.txioSet_.begin()->second;
+      BinaryDataRef key8B = txio.getDBKeyOfOutput();
+
+      BitPacker<uint8_t> bitpack;
+      bitpack.putBit(txio.isTxOutFromSelf());
+      bitpack.putBit(txio.isFromCoinbase());
+      bitpack.putBit(txio.hasTxInInMain());
+      bitpack.putBit(txio.isMultisig());
+      bw.put_BitPacker(bitpack);
+
+      // Always write the value and last 4 bytes of dbkey (first 4 is in dbkey)
+      bw.put_uint64_t(txio.getValue());
+      bw.put_BinaryData(key8B.getSliceCopy(4,4));
+
+      // If not supposed to write the TxIn, we would've bailed earlier
+      if(txio.hasTxInInMain())
+         bw.put_BinaryData(txio.getDBKeyOfInput());
    }
 }
 
@@ -1463,8 +1414,7 @@ void StoredScriptHistory::pprintOneLine(uint32_t indent)
    cout << "SSHOBJ: " << ktype.c_str() << ": "
         << uniqueKey_.getSliceCopy(1,sz-1).toHexStr()
         << " Sync: " << alreadyScannedUpToBlk_ 
-        << " #IO: " << txioSet_.size() 
-        << " #MS: " << multisigDBKeys_.size() 
+        << " #IO: " << totalTxioCount_
         << endl;
 }
 
@@ -1475,63 +1425,31 @@ void StoredScriptHistory::pprintFullSSH(uint32_t indent)
    pprintOneLine(indent);
 
    // Print all the txioVects
-   map<BinaryData, TxIOPair>::iterator iter;
-   for(iter = txioSet_.begin(); iter != txioSet_.end(); iter++)
-   {
-      for(uint32_t ind=0; ind<indent+3; ind++)
-         cout << " ";
-
-      TxIOPair & txio = iter->second;
-      uint32_t hgt;
-      uint8_t  dup;
-      uint16_t txi;
-      uint16_t txo = txio.getIndexOfOutput();
-      BinaryData txoKey = txio.getDBKeyOfOutput();
-      BinaryRefReader brrTxOut(txoKey);
-      DBUtils.readBlkDataKeyNoPrefix(brrTxOut, hgt, dup, txi);
-      cout << "TXIO: (" << hgt << "," << (uint32_t)dup 
-                          << "," << txi << "," << txo << ")";
-
-      if(!txio.hasTxIn())
-         cout << "  UNSPENT";
-      else
-      {
-         uint16_t txo = txio.getIndexOfInput();
-         BinaryData txiKey = txio.getDBKeyOfInput();
-         BinaryRefReader brrTxIn(txiKey);
-         DBUtils.readBlkDataKeyNoPrefix(brrTxIn, hgt, dup, txi);
-         cout << "  SPENT: (" << hgt << "," << (uint32_t)dup 
-                       << "," << txi << "," << txo << ")";
-      }
-      cout << endl;
-   }
+   map<BinaryData, StoredScriptSubHistory>::iterator iter;
+   for(iter = subHistMap_.begin(); iter != subHistMap_.end(); iter++)
+      iter->second.pprintFullSubSSH(indent+3);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 uint64_t StoredScriptHistory::getScriptReceived(bool withMultisig)
 {
    uint64_t bal = 0;
-   map<BinaryData, TxIOPair>::iterator iter;
-   for(iter = txioSet_.begin(); iter != txioSet_.end(); iter++)
-      bal += iter->second.getValue();
+   map<BinaryData, StoredScriptSubHistory>::iterator iter;
+   for(iter = subHistMap_.begin(); iter != subHistMap_.end(); iter++)
+      bal += iter->second.getSubHistoryReceived(withMultisig);
 
-   if(!withMultisig)
-      return bal;
+   return bal;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 uint64_t StoredScriptHistory::getScriptBalance(bool withMultisig)
 {
    uint64_t bal = 0;
-   map<BinaryData, TxIOPair>::iterator iter;
-   for(iter = txioSet_.begin(); iter != txioSet_.end(); iter++)
-   {
-      if(!iter->second.hasTxIn())
-         bal += iter->second.getValue();
-   }
+   map<BinaryData, StoredScriptSubHistory>::iterator iter;
+   for(iter = subHistMap_.begin(); iter != subHistMap_.end(); iter++)
+      bal += iter->second.getSubHistoryBalance(withMultisig);
 
-   if(!withMultisig)
-      return bal;
+   return bal;
 }
 
 
@@ -1545,18 +1463,20 @@ TxIOPair* StoredScriptHistory::findTxio(BinaryData const & dbKey8B)
    if(totalTxioCount_ == 1)
    {
       // We gotta do some simple checks to avoid segfaulting in case 
-      // totalTxioCount_ is wrong...
+      // totalTxioCount_ is wrong (which shouldn't ever happen)
       if(subHistMap_.size() != 1)
       {
          LOGERR << "totalTxioCount_ and subHistMap_.size do not agree!";
          return NULL;
       }
+
       StoredScriptSubHistory & subSSH = subHistMap_.begin()->second;
       if(subSSH.txioSet_.size() != 1)
       {
          LOGERR << "totalTxioCount_ and subSSH.txioSet_.size() do not agree!";
          return NULL;
       }
+
       TxIOPair* outptr = &(subSSH.txioSet_.begin()->second);
       return (outptr->getDBKeyOfOutput() == dbKey8B ? outptr : NULL);
    }
@@ -1570,7 +1490,7 @@ TxIOPair* StoredScriptHistory::findTxio(BinaryData const & dbKey8B)
          return NULL;
    
       // This returns NULL if does not exist.
-      return iterSubHist->findTxio(dbKey8B);
+      return iterSubSSH->second.findTxio(dbKey8B);
    }
 }
 
@@ -1583,7 +1503,7 @@ TxIOPair& StoredScriptHistory::insertTxio(TxIOPair const & txio, bool withOverwr
    iterSubHist = subHistMap_.find(first4);
    if(iterSubHist == subHistMap_.end())
    {
-      // Create a new sub-history add it to the map
+      // Create a new sub-history add it to its map
       subHistMap_[first4] = StoredScriptSubHistory();
       totalTxioCount_ += 1;
       useMultipleEntries_ = (totalTxioCount_>1);
@@ -1605,24 +1525,33 @@ TxIOPair& StoredScriptHistory::insertTxio(TxIOPair const & txio, bool withOverwr
 // true, regardless of how many TxIO we have.  
 bool StoredScriptHistory::eraseTxio(TxIOPair const & txio)
 {
-   BinaryData first4 = txio.getDBKeyOfOutput().getSliceCopy(0,4);
-   map<BinaryData, StoredScriptSubHistory>::iterator iterSubHist;
-   iterSubHist = subHistMap_.find(first4);
-   if(iterSubHist == subHistMap_.end())
-      return false;
-
-   bool wasRemoved = iterSubHist->eraseTxio(txio);
-   if(wasRemoved)
-      totalTxioCount_ -= 1;
-   if(iterSubHist->txioSet_.size() == 0)
-      subHistMap_.erase(iterSubHist);
+   return eraseTxio(txio.getDBKeyOfOutput());
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 bool StoredScriptHistory::eraseTxio(BinaryData const & dbKey8B)
 {
-   uint32_t itemsRemoved = txioSet_.erase(dbKey8B);
-   return (itemsRemoved>0);
+   if(dbKey8B.getSize() != 8)
+   {
+      LOGERR << "Invalid dbKey: " << dbKey8B.toHexStr().c_str();
+      return false;
+   }
+
+   BinaryData first4 = dbKey8B.getSliceCopy(0,4);
+   map<BinaryData, StoredScriptSubHistory>::iterator iterSubHist;
+   iterSubHist = subHistMap_.find(first4);
+   if(iterSubHist == subHistMap_.end())
+      return false;
+
+   bool wasRemoved = iterSubHist->second.eraseTxio(dbKey8B);
+
+   if(wasRemoved)
+      totalTxioCount_ -= 1;
+
+   if(iterSubHist->second.txioSet_.size() == 0)
+      subHistMap_.erase(iterSubHist);
+
+   return wasRemoved;
 }
 
 
@@ -1647,7 +1576,7 @@ void StoredScriptSubHistory::unserializeDBValue(BinaryRefReader & brr)
    }
 
    BinaryData fullTxOutKey(8);
-   hgtX_.copyTo(fullTxOutKey.getPtr())
+   hgtX_.copyTo(fullTxOutKey.getPtr());
 
    uint32_t numTxo = (uint32_t)(brr.get_var_int());
    for(uint32_t i=0; i<numTxo; i++)
@@ -1667,7 +1596,7 @@ void StoredScriptSubHistory::unserializeDBValue(BinaryRefReader & brr)
       TxIOPair txio(fullTxOutKey, txoValue);
 
       if(isSpent)
-         txio.setTxIn(get_BinaryDataRef(8));
+         txio.setTxIn(brr.get_BinaryDataRef(8));
 
       txio.setTxOutFromSelf(isFromSelf);
       txio.setFromCoinbase(isCoinbase);
@@ -1701,7 +1630,7 @@ void StoredScriptSubHistory::serializeDBValue(BinaryWriter & bw ) const
 
       // We need to write
       BinaryDataRef key8B = txio.getDBKeyOfOutput();
-      if(!key8B.startsWith(hgtX_)
+      if(!key8B.startsWith(hgtX_))
          LOGERR << "How did TxIO key not match hgtX_??";
 
       BitPacker<uint8_t> bitpack;
@@ -1714,11 +1643,10 @@ void StoredScriptSubHistory::serializeDBValue(BinaryWriter & bw ) const
       // Always write the value and last 4 bytes of dbkey (first 4 is in dbkey)
       bw.put_uint64_t(txio.getValue());
       bw.put_BinaryData(key8B.getSliceCopy(4,4));
-   
 
       // If not supposed to write the TxIn, we would've bailed earlier
       if(isSpent)
-         bw.put_BinaryData(txio.getDBKeyOfInput())
+         bw.put_BinaryData(txio.getDBKeyOfInput());
    }
 }
 
@@ -1753,7 +1681,7 @@ void StoredScriptSubHistory::unserializeDBKey(BinaryDataRef key, bool withPrefix
    // Assume prefix
    if(withPrefix)
    {
-      checkPrefixByte(brr, DB_PREFIX_SCRIPT);
+      DBUtils.checkPrefixByte(brr, DB_PREFIX_SCRIPT);
       sz -= 1;
    }
 
@@ -1782,13 +1710,15 @@ SCRIPT_PREFIX StoredScriptSubHistory::getScriptType(void) const
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void StoredScriptSubHistory::pprintFullSubSSH(uint32_t indent=3)
+void StoredScriptSubHistory::pprintFullSubSSH(uint32_t indent)
 {
    for(uint32_t ind=0; ind<indent; ind++)
       cout << " ";
 
+   uint32_t hgt = DBUtils.hgtxToHeight(hgtX_);
+   uint8_t  dup = DBUtils.hgtxToDupID(hgtX_);
    cout << "SubSSH: " << uniqueKey_.getSliceCopy(1,4).toHexStr().c_str();
-   cout << " Hgt&Dup: 
+   cout << " Hgt&Dup: (" << hgt << "," << dup << ")" << endl;
 
    // Print all the txioVects
    map<BinaryData, TxIOPair>::iterator iter;
@@ -1811,7 +1741,7 @@ void StoredScriptSubHistory::pprintFullSubSSH(uint32_t indent=3)
       BinaryData scraddr = txio.getTxOut().getScrAddressStr();
       cout << " isCB: " << (txio.isFromCoinbase() ? "X" : " ");
       cout << " isMS: " << (txio.isMultisig() ? "X" : " ");
-      cout << " Type: " << (uint32_t)uniqueKey_[0] << e
+      cout << " Type: " << (uint32_t)uniqueKey_[0];
       cout << " Addr: " << uniqueKey_.getSliceCopy(1,4).toHexStr().c_str();
 
       if(txio.hasTxIn())
@@ -1844,7 +1774,7 @@ TxIOPair& StoredScriptSubHistory::insertTxio(TxIOPair const & txio,
                                              bool withOverwrite)
 {
    BinaryData key8B = txio.getDBKeyOfOutput();
-   if(!key8B.startsWith(hgtX))
+   if(!key8B.startsWith(hgtX_))
    {
       LOGERR << "This txio does not belong in this subSSH";
       // Hmm, can't return a NULL ref... let's just fix any bug that causes
@@ -1875,13 +1805,65 @@ bool StoredScriptSubHistory::eraseTxio(TxIOPair const & txio)
 ////////////////////////////////////////////////////////////////////////////////
 bool StoredScriptSubHistory::eraseTxio(BinaryData const & dbKey8B)
 {
-   uint32_t itemsRemoved = txioSet_.erase(dbKey8B)
+   uint32_t itemsRemoved = txioSet_.erase(dbKey8B);
    return (itemsRemoved>0);
 }
 
 
+////////////////////////////////////////////////////////////////////////////////
+uint64_t StoredScriptSubHistory::getSubHistoryReceived(bool withMultisig)
+{
+   uint64_t bal = 0;
+   map<BinaryData, TxIOPair>::iterator iter;
+   for(iter = txioSet_.begin(); iter != txioSet_.end(); iter++)
+      if(!iter->second.isMultisig() || withMultisig)
+         bal += iter->second.getValue();
+   
+   return bal;
+}
 
+////////////////////////////////////////////////////////////////////////////////
+uint64_t StoredScriptSubHistory::getSubHistoryBalance(bool withMultisig)
+{
+   uint64_t bal = 0;
+   map<BinaryData, TxIOPair>::iterator iter;
+   for(iter = txioSet_.begin(); iter != txioSet_.end(); iter++)
+   {
+      if(!iter->second.hasTxIn())
+         if(!iter->second.isMultisig() || withMultisig)
+            bal += iter->second.getValue();
+   }
+   return bal;
+}
 
+/* Meh, no demand for this functionality yet ... finish it later
+////////////////////////////////////////////////////////////////////////////////
+// One loop to compute all four values
+//    values[0] ~ current balance no multisig
+//    values[1] ~ current balance multisig-only
+//    values[2] ~ total received  no multisig
+//    values[3] ~ total received  multisig-only
+vector<uint64_t> StoredScriptSubHistory::getSubHistoryValues(void)
+{
+   //
+   vector<uint64_t> values(4);
+   for(uint32_t i=0; i<4; i++)
+      values[i] = 0;
+
+   map<BinaryData, TxIOPair>::iterator iter;
+   for(iter = txioSet_.begin(); iter != txioSet_.end(); iter++)
+   {
+      if(iter->second.isMultisig())
+      {
+         
+      }
+      if(!iter->second.hasTxIn())
+         if(!iter->second.isMultisig() || withMultisig)
+            bal += iter->second.getValue();
+   }
+   return bal;
+}
+*/
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////

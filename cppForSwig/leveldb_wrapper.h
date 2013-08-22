@@ -444,6 +444,16 @@ public:
                                 StoredScriptHistory & ssh,
                                 BinaryDataRef rawScript);
 
+   // This method doesn't actually "return" a sub-SSH.  It fetches the 
+   // sub-SSH from DB and adds it to the supplied regular-SSH.
+   bool getStoredScriptSubHistory( StoredScriptHistory & ssh,
+                                   BinaryDataRef hgtX);
+
+   // Give a list of block hgt&dup pairs (hgtX), and this method will populate
+   // the SSH with all the sub histories for those hgtX values
+   bool getStoredScriptHistorySlice(StoredScriptHistory & ssh,
+                                    BinaryDataRef uniqKey,
+                                    vector<BinaryData> hgtxVect);
 
    // None of the SUD methods are implemented because we don't actually need
    // to read/write SUD to the database -- our only mode is ARMORY_DB_SUPER

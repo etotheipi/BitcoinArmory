@@ -2529,28 +2529,37 @@ vector<UnspentTxOut> BlockDataManager_LevelDB::getUTXOVectForHash160(
    }
 
 
-   size_t numTxo = ssh.txioSet_.size();
+   size_t numTxo = ssh.totalTxioCount_;
    outVect.reserve(numTxo);
-   map<BinaryData, TxIOPair>::iterator iter;
-   for(iter = ssh.txioSet_.begin(); iter != ssh.txioSet_.end(); iter++)
+   map<BinaryData, StoredScriptSubHistory>::iterator iterSubSSH;
+   map<BinaryData, TxIOPair>::iterator iterTxio;
+   for(iterSubSSH  = ssh.subHistMap_.begin(); 
+       iterSubSSH != ssh.subHistMap_.end(); 
+       iterSubSSH++)
    {
-      TxIOPair & txio = iter->second;
-      StoredTx stx;
-      BinaryData txKey = txio.getTxRefOfOutput().getDBKey();
-      uint16_t txoIdx = txio.getIndexOfOutput();
-      iface_->getStoredTx(stx, txKey);
+      StoredScriptSubHistory & subSSH = iterSubSSH->second;
+      for(iterTxio  = subSSH.txioSet_.begin(); 
+          iterTxio != subSSH.txioSet_.end(); 
+          iterTxio++)
+      {
+         TxIOPair & txio = iterTxio->second;
+         StoredTx stx;
+         BinaryData txKey = txio.getTxRefOfOutput().getDBKey();
+         uint16_t txoIdx = txio.getIndexOfOutput();
+         iface_->getStoredTx(stx, txKey);
 
-      StoredTxOut & stxo = stx.stxoMap_[txoIdx];
-      if(stxo.isSpent())
-         continue;
-
-      UnspentTxOut utxo(stx.thisHash_, 
-                        txoIdx,
-                        stx.blockHeight_,
-                        txio.getValue(),
-                        stx.stxoMap_[txoIdx].getScriptRef());
-      
-      outVect.push_back(utxo);
+         StoredTxOut & stxo = stx.stxoMap_[txoIdx];
+         if(stxo.isSpent())
+            continue;
+   
+         UnspentTxOut utxo(stx.thisHash_, 
+                           txoIdx,
+                           stx.blockHeight_,
+                           txio.getValue(),
+                           stx.stxoMap_[txoIdx].getScriptRef());
+         
+         outVect.push_back(utxo);
+      }
    }
 
    return outVect;
@@ -2558,22 +2567,33 @@ vector<UnspentTxOut> BlockDataManager_LevelDB::getUTXOVectForHash160(
 }
 
 /////////////////////////////////////////////////////////////////////////////
-vector<TxIOPair> BlockDataManager_LevelDB::getHistoryForHash160(
-                                                BinaryDataRef addr160)
+vector<TxIOPair> BlockDataManager_LevelDB::getHistoryForScrAddr(
+                                                BinaryDataRef uniqKey,
+                                                bool withMultisig)
 {
    StoredScriptHistory ssh;
-   iface_->getStoredScriptHistory(ssh, HASH160PREFIX + addr160);
-   vector<TxIOPair> outVect;
+   iface_->getStoredScriptHistory(ssh, uniqKey);
+   vector<TxIOPair> outVect(0);
    if(!ssh.isInitialized())
    {
       LOGWARN << "Requested ssh that doesn't exist";
       return outVect;
    }
 
-   outVect.reserve(ssh.txioSet_.size());
-   map<BinaryData, TxIOPair>::iterator iter;
-   for(iter = ssh.txioSet_.begin(); iter != ssh.txioSet_.end(); iter++)
-      outVect.push_back(iter->second);   
+   outVect.reserve(ssh.totalTxioCount_);
+   map<BinaryData, StoredScriptSubHistory>::iterator iterSubSSH;
+   map<BinaryData, TxIOPair>::iterator iterTxio;
+   for(iterSubSSH  = ssh.subHistMap_.begin();
+       iterSubSSH != ssh.subHistMap_.end(); 
+       iterSubSSH++)
+   {
+      for(iterTxio  = iterSubSSH->second.txioSet_.begin();
+          iterTxio != iterSubSSH->second.txioSet_.end(); 
+          iterTxio++)
+      {
+         outVect.push_back(iterTxio->second);   
+      }
+   }
    
    return outVect;
 }
@@ -2847,23 +2867,21 @@ bool BlockDataManager_LevelDB::loadScrAddrHistoryFromDB(void)
 {
    SCOPED_TIMER("loadScrAddrHistoryFromDB");
 
+
    map<BinaryData, RegisteredScrAddr>::iterator iter;
    for(iter  = registeredScrAddrMap_.begin();
        iter != registeredScrAddrMap_.end();
        iter++)
    {
-      StoredScriptHistory ssh;
-      iface_->getStoredScriptHistory(ssh, iter->second.uniqueKey_);
-      
-      map<BinaryData, TxIOPair>::iterator iter;
-      for(iter = ssh.txioSet_.begin(); iter != ssh.txioSet_.end(); iter++)
+
+      vector<TxIOPair> hist = getHistoryForScrAddr(iter->second.uniqueKey_);
+      for(uint32_t i=0; i<hist.size(); i++)
       {
-         TxIOPair & txio = iter->second;
-         BinaryDataRef txKey = txio.getTxRefOfOutput().getDBKeyRef();
+         BinaryDataRef txKey = hist[i].getTxRefOfOutput().getDBKeyRef();
          
          StoredTx stx;
          iface_->getStoredTx(stx, txKey);
-         RegisteredTx regTx(txio.getTxRefOfOutput(),
+         RegisteredTx regTx(hist[i].getTxRefOfOutput(),
                             stx.thisHash_,
                             stx.blockHeight_,
                             stx.txIndex_);
@@ -4150,7 +4168,7 @@ void BlockDataManager_LevelDB::pprintSSHInfoAboutHash160(BinaryData const & a160
    }
 
    vector<UnspentTxOut> utxos = getUTXOVectForHash160(a160);
-   vector<TxIOPair> txios = getHistoryForHash160(a160);
+   vector<TxIOPair> txios = getHistoryForScrAddr(a160);
 
    uint64_t bal = getDBBalanceForHash160(a160);
    uint64_t rcv = getDBReceivedForHash160(a160);
@@ -4449,7 +4467,11 @@ bool BlockDataManager_LevelDB::applyTxToBatchWriteData(
             StoredScriptHistory* sshms = makeSureSSHInMap(uniqKey,
                                                           sshToModify, 
                                                           true);
-            addMultisigEntryToSSH(*sshms, thisSTX.getDBKeyOfChild(iout,false));
+            markTxOutUnspentInSSH( *sshms, 
+                                   stxoToAdd.getDBKey(false),
+                                   stxoToAdd.getValue(),
+                                   stxoToAdd.isCoinbase_,
+                                   true);
          }
       }
    }
@@ -4890,7 +4912,11 @@ bool BlockDataManager_LevelDB::undoBlockFromDB(StoredUndoData & sud)
             // Get the existing SSH or make a new one
             BinaryData uniqKey = HASH160PREFIX + addr160List[a];
             StoredScriptHistory* sshptr = makeSureSSHInMap(uniqKey, sshToModify);
-            addMultisigEntryToSSH(*sshptr, stxoReAdd.getDBKey(false));
+            markTxOutUnspentInSSH( *sshptr,
+                                   stxoReAdd.getDBKey(false),
+                                   stxoReAdd.getValue(),
+                                   stxoReAdd.isCoinbase_,
+                                   true);
          }
       }
    }
@@ -4950,9 +4976,9 @@ bool BlockDataManager_LevelDB::undoBlockFromDB(StoredUndoData & sud)
                // Get the individual address obj for this multisig piece
                BinaryData uniqKey = HASH160PREFIX + addr160List[a];
                StoredScriptHistory* sshms = makeSureSSHInMap(uniqKey,
-                                                            sshToModify, 
-                                                            true);
-               removeMultisigEntryFromSSH(*sshms, stxoKey);
+                                                             sshToModify, 
+                                                             false);
+               removeTxOutFromSSH(*sshms, stxoKey);
             }
          }
       }
@@ -4968,8 +4994,7 @@ bool BlockDataManager_LevelDB::undoBlockFromDB(StoredUndoData & sud)
        iter != sshToModify.end();
        iter++)
    {
-      if(iter->second.multisigDBKeys_.size() == 0 &&
-         iter->second.txioSet_.size() == 0)
+      if(iter->second.totalTxioCount_ == 0)
          keysToDelete.insert(iter->first);
    }
 
@@ -5092,14 +5117,30 @@ bool BlockDataManager_LevelDB::markTxOutSpentInSSH(
 }
                                              
 ////////////////////////////////////////////////////////////////////////////////
-// We only need the last three args (value, isCB, isSelf) if pruning.
-// ** WILL ADD to the SSH txio list if not present
+// This method will add the TxIOPair to the SSH object if it doesn't exist,
+// in addition to marking it unspent.  
+//
+// If there is a 2-of-3 multisig scraddr M, which includes pubkeys, X, Y and Z,
+// then the DB will ultimately look like this:
+//
+//    Key:                       Value:
+//    PREFIX_SCRIPT + M          TxIO (isMultisigRef = false)
+//    PREFIX_SCRIPT + X          TxIO (isMultisigRef = true)
+//    PREFIX_SCRIPT + Y          TxIO (isMultisigRef = true)
+//    PREFIX_SCRIPT + Z          TxIO (isMultisigRef = true)
+//    
+// We will ultimately update all four entries, but the TxIOs that are added
+// to X, Y and Z will be flagged so they are not interpretted as single-sig
+// addresses.  We do this so we can later lookup multi-sig addresses that 
+// involve a given scraddr, but don't automatically include them in any
+// balance or UTXO set calculations.
+//   
 bool BlockDataManager_LevelDB::markTxOutUnspentInSSH(
                                             StoredScriptHistory & ssh,
                                             BinaryData txOutKey8B,
                                             uint64_t value,
                                             bool isCoinBase,
-                                            bool isFromSelf)
+                                            bool isMultisigRef)
 {
    TxIOPair* txioptr = ssh.findTxio(txOutKey8B);
    if(txioptr != NULL)
@@ -5126,7 +5167,8 @@ bool BlockDataManager_LevelDB::markTxOutUnspentInSSH(
       txio.setValue(value);
       txio.setTxOut(txOutKey8B);
       txio.setFromCoinbase(isCoinBase);
-      txio.setTxOutFromSelf(isFromSelf);
+      txio.setTxOutFromSelf(false);
+      txio.setMultisig(isMultisigRef);
       ssh.insertTxio(txio);
       return true;
    }
@@ -5172,69 +5214,12 @@ bool BlockDataManager_LevelDB::markTxOutUnspentInSSH(
    */
 }
 
-////////////////////////////////////////////////////////////////////////////////
-bool BlockDataManager_LevelDB::addMultisigEntryToSSH(
-                                            StoredScriptHistory & ssh,
-                                            BinaryData txOutKey8B)
-{
-   cout << "Multisig: " << txOutKey8B.toHexStr().c_str() << endl;
-   cout << "SSH:      " << ssh.uniqueKey_.toHexStr().c_str() << endl;
-   for(uint32_t i=0; i<ssh.multisigDBKeys_.size(); i++)
-   {
-      if(ssh.multisigDBKeys_[i] == txOutKey8B)
-      {
-         LOGERR << "Already have multisig entry in SSH";
-         LOGERR << "TxOutKey: " << txOutKey8B.toHexStr().c_str();
-         LOGERR << "SSH: " << ssh.uniqueKey_.toHexStr().c_str();
-         return false;
-      }
-   } 
 
-   ssh.multisigDBKeys_.push_back(txOutKey8B);
-   return true;
-
-   /*
-   pair<set<BinaryData>::iterator, bool> insResult;
-   insResult = ssh.multisigDBKeys_.insert(txOutKey8B);
-   if(!insResult.second)
-   {
-      LOGERR << "Already have multisig entry in SSH";
-      return false;
-   }
-   return true;
-   */
-}
-
-////////////////////////////////////////////////////////////////////////////////
-bool BlockDataManager_LevelDB::removeMultisigEntryFromSSH(
-                                            StoredScriptHistory & ssh,
-                                            BinaryData txOutKey8B)
-{
-   for(uint32_t i=0; i<ssh.multisigDBKeys_.size(); i++)
-   {
-      if(ssh.multisigDBKeys_[i] == txOutKey8B)
-      {
-         ssh.multisigDBKeys_.erase(ssh.multisigDBKeys_.begin() + i);
-         return true;
-      }
-   } 
-   LOGERR << "Multisig entry in SSH did not exist before, cannot remove!";
-   return false;
-    
-   /*
-   size_t numRemoved = ssh.multisigDBKeys_.erase(txOutKey8B);
-   if(numRemoved == 0)
-   {
-      LOGERR << "Multisig entry in SSH did not exist before, cannot remove!";
-      return false;
-   }
-   return true;
-   */
-}
 
 ////////////////////////////////////////////////////////////////////////////////
 StoredScriptHistory* BlockDataManager_LevelDB::makeSureSSHInMap(
                            BinaryDataRef uniqKey,
+                           BinaryDataRef hgtX,
                            map<BinaryData, StoredScriptHistory> & sshMap,
                            bool createIfDNE)
 {
@@ -5270,6 +5255,13 @@ StoredScriptHistory* BlockDataManager_LevelDB::makeSureSSHInMap(
 
       }
    }
+
+
+   // If sub-history for this block doesn't exist, add an empty one before
+   // returning the pointer to the SSH.  Since we haven't actually inserted
+   // anything into the SubSSH, we don't need to adjust the totalTxioCount_
+   if(sshptr->subHistMap_.find(hgtX) == sshptr->subHistMap_.end())
+      subHistMap_[hgtX] = StoredScriptSubHistory();
 
    return sshptr;
 }

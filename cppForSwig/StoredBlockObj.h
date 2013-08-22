@@ -499,6 +499,8 @@ public:
 
 
 ////////////////////////////////////////////////////////////////////////////////
+class StoredScriptSubHistory;
+
 class StoredScriptHistory
 {
 public:
@@ -561,7 +563,7 @@ class StoredScriptSubHistory
 {
 public:
 
-   StoredScriptHistory(void) : uniqueKey_(0), hgtX_(0) {}
+   StoredScriptSubHistory(void) : uniqueKey_(0), hgtX_(0) {}
                                
 
    bool isInitialized(void) { return uniqueKey_.getSize() > 0; }
@@ -584,16 +586,17 @@ public:
    bool       eraseTxio(TxIOPair const & txio);
    bool       eraseTxio(BinaryData const & dbKey8B);
 
-   
+   uint64_t getSubHistoryBalance(bool withMultisig=false);
+   uint64_t getSubHistoryReceived(bool withMultisig=false);
+   vector<uint64_t> getSubHistoryValues(void);
 
+   void pprintFullSubSSH(uint32_t indent=3);
+
+   // Store all TxIOs for this ScrAddr and block
    BinaryData     uniqueKey_;  // includes the prefix byte!
    BinaryData     hgtX_;
-
-   // TODO: Maybe these vectors should instead be set<>'s or map<>'s for
-   //       efficient search and update...?   On the other hand, it's 
-   //       currently sorted chronologically which has other benefits
    map<BinaryData, TxIOPair> txioSet_;
-}
+};
 
 ////////////////////////////////////////////////////////////////////////////////
 // TODO:  it turns out that outPointsAddedByBlock_ is not "right."  If a Tx has

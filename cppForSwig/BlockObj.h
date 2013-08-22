@@ -593,7 +593,7 @@ public:
    TxIOPair(void);
    explicit TxIOPair(uint64_t amount);
    explicit TxIOPair(TxRef txRefO, uint32_t txoutIndex);
-   explicit TxIOPair(BinaryData txOutKey8B, uint64_t, value);
+   explicit TxIOPair(BinaryData txOutKey8B, uint64_t value);
    explicit TxIOPair(TxRef txRefO, uint32_t txoutIndex, 
                      TxRef txRefI, uint32_t txinIndex);
 
