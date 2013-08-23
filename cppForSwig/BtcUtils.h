@@ -70,6 +70,8 @@
 #define MSIGPREFIX    WRITE_UINT8_LE((uint8_t)SCRIPT_PREFIX_MULTISIG)
 #define NONSTDPREFIX  WRITE_UINT8_LE((uint8_t)SCRIPT_PREFIX_NONSTD)
 
+#define NOT_FOUND_IN_MAP(ITER,MAP) (ITER == MAP.end())
+
 
 class BinaryData;
 class BinaryDataRef;

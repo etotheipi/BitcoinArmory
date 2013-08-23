@@ -446,7 +446,7 @@ public:
 
    // This method doesn't actually "return" a sub-SSH.  It fetches the 
    // sub-SSH from DB and adds it to the supplied regular-SSH.
-   bool getStoredScriptSubHistory( StoredScriptHistory & ssh,
+   bool getStoredSubHistory( StoredScriptHistory & ssh,
                                    BinaryDataRef hgtX);
 
    // Give a list of block hgt&dup pairs (hgtX), and this method will populate

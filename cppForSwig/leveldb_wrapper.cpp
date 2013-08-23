@@ -764,14 +764,14 @@ bool InterfaceToLDB::readStoredScriptHistoryAtIter(StoredScriptHistory & ssh)
    }
 
    // Now start iterating over the sub histories
-   map<BinaryData, StoredScriptSubHistory>::iterator iter;
+   map<BinaryData, StoredSubHistory>::iterator iter;
    uint32_t numTxioRead = 0;
    while(iters_[BLKDATA]->Valid())
    {
       if(!currReadKey_.getRawRef().startsWith(ssh.uniqueKey_))
          break;
 
-      pair<BinaryData, StoredScriptSubHistory> keyValPair;
+      pair<BinaryData, StoredSubHistory> keyValPair;
       keyValPair.first = currReadKey_.getRawRef().getSliceRef(1,4);
       keyValPair.second.unserializeDBKey(currReadKey_.getRawRef());
       keyValPair.second.unserializeDBValue(currReadValue_);
@@ -799,8 +799,17 @@ void InterfaceToLDB::putStoredScriptHistory( StoredScriptHistory & ssh)
       LOGERR << "Trying to put uninitialized SSH into DB";
       return;
    }
+
    putValue(BLKDATA, ssh.getDBKey(), ssh.serializeDBValue());
+   map<BinaryData, StoredSubHistory>::iterator iter;
+   for(iter = subHistMap_.begin(); iter != subHistMap_.end(); iter++)
+   {
+      StoredSubHistory & subssh = iter->second;
+      if(subssh.txioSet_.size() > 0)
+         putValue(BLKDATA, subssh.getDBKey(), subssh.serializeDBValue());
+   }
 }
+
 
 ////////////////////////////////////////////////////////////////////////////////
 void InterfaceToLDB::getStoredScriptHistory( StoredScriptHistory & ssh,
@@ -823,7 +832,7 @@ void InterfaceToLDB::getStoredScriptHistoryByRawScript(
 /////////////////////////////////////////////////////////////////////////////
 // This doesn't actually return a SUBhistory, it grabs it and adds it to the
 // regulary-SSH object
-bool InterfaceToLDB::getStoredScriptSubHistory( StoredScriptHistory & ssh,
+bool InterfaceToLDB::getStoredSubHistory( StoredScriptHistory & ssh,
                                                 BinaryDataRef hgtX)
 {
    BinaryData key = ssh.uniqueKey_ + hgtX; 
@@ -832,7 +841,7 @@ bool InterfaceToLDB::getStoredScriptSubHistory( StoredScriptHistory & ssh,
    if(brr.getSize() == 0)
       return false;
 
-   pair<BinaryData, StoredScriptSubHistory> keyValPair;
+   pair<BinaryData, StoredSubHistory> keyValPair;
    keyValPair.first = hgtX;
    keyValPair.second.unserializeDBValue(brr);
    keyValPair.second.uniqueKey_ = ssh.uniqueKey_;
@@ -869,7 +878,7 @@ bool InterfaceToLDB::getStoredScriptHistorySlice(StoredScriptHistory & ssh,
 
    // If for some reason we hit the end of the DB without any tx, bail
    for(uint32_t i=0; i<hgtxVect.size(); i++)
-      getStoredScriptSubHistory(ssh, hgtxVect[i]);
+      getStoredSubHistory(ssh, hgtxVect[i]);
 
 }
 

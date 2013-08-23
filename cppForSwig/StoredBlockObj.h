@@ -105,6 +105,7 @@ class TxIOPair;
 class StoredTx;
 class StoredTxOut;
 class StoredScriptHistory;
+class StoredSubHistory;
 
 
 #define DBUtils GlobalDBUtilities::GetInstance()
@@ -398,6 +399,7 @@ public:
 
    BinaryData getDBKey(bool withPrefix=true) const;
    BinaryData getDBKeyOfChild(uint16_t i, bool withPrefix=true) const;
+   BinaryData getHgtX(void) const {return getDBKey(false).getSliceCopy(0,4);}
 
    void pprintOneLine(uint32_t indent=3);
    void pprintFullTx(uint32_t indent=3);
@@ -498,9 +500,8 @@ public:
 };
 
 
-////////////////////////////////////////////////////////////////////////////////
-class StoredScriptSubHistory;
 
+////////////////////////////////////////////////////////////////////////////////
 class StoredScriptHistory
 {
 public:
@@ -509,7 +510,8 @@ public:
                                version_(UINT32_MAX),
                                alreadyScannedUpToBlk_(0),
                                useMultipleEntries_(false),
-                               totalTxioCount_(0) { }
+                               totalTxioCount_(0),
+                               totalUnspent_(0) { }
                                
 
    bool isInitialized(void) { return uniqueKey_.getSize() > 0; }
@@ -539,15 +541,16 @@ public:
    uint32_t       version_;
    uint32_t       alreadyScannedUpToBlk_;
    bool           useMultipleEntries_;
-   uint32_t       totalTxioCount_;
+   uint64_t       totalTxioCount_;
+   uint64_t       totalUnspent_;
 
    // If this SSH has only one TxIO (most of them), then we don't bother
    // with supplemental entries just to hold that one TxIO in the DB.
-   // We always stored them in RAM using the StoredScriptSubHistory 
+   // We always stored them in RAM using the StoredSubHistory 
    // objects which will have the per-block lists of TxIOs.  But when 
    // it gets serialized to disk, we will store single-Txio SSHs in
    // the base entry and forego extra DB entries.
-   map<BinaryData, StoredScriptSubHistory> subHistMap_;
+   map<BinaryData, StoredSubHistory> subHistMap_;
 };
 
 
@@ -559,11 +562,11 @@ public:
 // subhistories by block.  This is exceptionally well-suited for SatoshiDice
 // addresses since transactions in one block tend to be related to 
 // transactions in the previous few blocks before it.  
-class StoredScriptSubHistory
+class StoredSubHistory
 {
 public:
 
-   StoredScriptSubHistory(void) : uniqueKey_(0), hgtX_(0) {}
+   StoredSubHistory(void) : uniqueKey_(0), hgtX_(0) {}
                                
 
    bool isInitialized(void) { return uniqueKey_.getSize() > 0; }
@@ -583,8 +586,19 @@ public:
 
    TxIOPair*   findTxio(BinaryData const & dbKey8B);
    TxIOPair& insertTxio(TxIOPair const & txio, bool withOverwrite=true);
-   bool       eraseTxio(TxIOPair const & txio);
-   bool       eraseTxio(BinaryData const & dbKey8B);
+   uint64_t   eraseTxio(TxIOPair const & txio);
+   uint64_t   eraseTxio(BinaryData const & dbKey8B);
+
+   
+   // This adds the TxOut if it doesn't exist yet
+   uint64_t   markTxOutUnspent(BinaryData txOutKey8B, 
+                               uint64_t   value=UINT64_MAX,
+                               bool       isCoinbase=false,
+                               bool       isMultisigRef=false);
+
+   uint64_t   markTxOutSpent(BinaryData txOutKey8B, 
+                             BinaryData  txInKey8B);
+                              
 
    uint64_t getSubHistoryBalance(bool withMultisig=false);
    uint64_t getSubHistoryReceived(bool withMultisig=false);
