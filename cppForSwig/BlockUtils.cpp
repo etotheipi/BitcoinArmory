@@ -4905,7 +4905,9 @@ bool BlockDataManager_LevelDB::undoBlockFromDB(StoredUndoData & sud)
          {
             // Get the existing SSH or make a new one
             BinaryData uniqKey = HASH160PREFIX + addr160List[a];
-            StoredScriptHistory* sshptr = makeSureSSHInMap(uniqKey, sshToModify);
+            StoredScriptHistory* sshptr = makeSureSSHInMap(uniqKey, 
+                                                           stxoReAdd.getHgtX(),
+                                                           sshToModify);
             markTxOutUnspentInSSH( *sshptr,
                                    stxoReAdd.getDBKey(false),
                                    stxoReAdd.getValue(),
@@ -5048,7 +5050,7 @@ StoredScriptHistory* BlockDataManager_LevelDB::makeSureSSHInMap(
       if(sshTemp.isInitialized())
       {
          SCOPED_TIMER("___SSH_AlreadyInDB");
-         // We already have an SSH in DB -- simply modify it
+         // We already have an SSH in DB -- pull it into the map
          sshMap[uniqKey] = sshTemp; 
          sshptr = &sshMap[uniqKey];
       }
@@ -5069,13 +5071,7 @@ StoredScriptHistory* BlockDataManager_LevelDB::makeSureSSHInMap(
    // If sub-history for this block doesn't exist, add an empty one before
    // returning the pointer to the SSH.  Since we haven't actually inserted
    // anything into the SubSSH, we don't need to adjust the totalTxioCount_
-   if(sshptr->subHistMap_.find(hgtX) == sshptr->subHistMap_.end())
-   {
-      subHistMap_[hgtX] = StoredSubHistory();
-      subHistMap_[hgtX].uniqueKey_ = uniqKey;
-      subHistMap_[hgtX].hgtX_ = hgtX;
-   }
-
+   iface_->fetchStoredSubHistory(*sshptr, hgtX);
    return sshptr;
 }
 

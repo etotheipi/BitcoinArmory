@@ -802,7 +802,9 @@ void InterfaceToLDB::putStoredScriptHistory( StoredScriptHistory & ssh)
 
    putValue(BLKDATA, ssh.getDBKey(), ssh.serializeDBValue());
    map<BinaryData, StoredSubHistory>::iterator iter;
-   for(iter = subHistMap_.begin(); iter != subHistMap_.end(); iter++)
+   for(iter  = ssh.subHistMap_.begin(); 
+       iter != ssh.subHistMap_.end(); 
+       iter++)
    {
       StoredSubHistory & subssh = iter->second;
       if(subssh.txioSet_.size() > 0)
@@ -820,6 +822,7 @@ void InterfaceToLDB::getStoredScriptHistory( StoredScriptHistory & ssh,
    readStoredScriptHistoryAtIter(ssh);
 }
 
+
 ////////////////////////////////////////////////////////////////////////////////
 void InterfaceToLDB::getStoredScriptHistoryByRawScript(
                                              StoredScriptHistory & ssh,
@@ -829,12 +832,22 @@ void InterfaceToLDB::getStoredScriptHistoryByRawScript(
    getStoredScriptHistory(ssh, uniqueKey);
 }
 
+
 /////////////////////////////////////////////////////////////////////////////
 // This doesn't actually return a SUBhistory, it grabs it and adds it to the
 // regulary-SSH object
-bool InterfaceToLDB::getStoredSubHistory( StoredScriptHistory & ssh,
-                                                BinaryDataRef hgtX)
+bool InterfaceToLDB::fetchStoredSubHistory( StoredScriptHistory & ssh,
+                                            BinaryData hgtX)
 {
+   // If we never even read the base entry...
+   if(!ssh.isInitialized())
+   {
+      seekTo(BLKDATA, DB_PREFIX_SCRIPT, ssh.uniqueKey_);
+      ssh.unserializeDBKey(currReadKey_.getRawRef());
+      ssh.unserializeDBValue(currReadValue_.getRawRef());
+   }
+       
+      
    BinaryData key = ssh.uniqueKey_ + hgtX; 
    BinaryRefReader brr = getValueReader(BLKDATA, DB_PREFIX_SCRIPT, key);
 
@@ -846,41 +859,27 @@ bool InterfaceToLDB::getStoredSubHistory( StoredScriptHistory & ssh,
    keyValPair.second.unserializeDBValue(brr);
    keyValPair.second.uniqueKey_ = ssh.uniqueKey_;
    keyValPair.second.hgtX_ = hgtX;
-   return ssh.subHistMap_.insert(keyValPair).second;
+   pair<map<BinaryData, StoredSubHistory>::iterator, bool> insResult; 
+   insResult = ssh.subHistMap_.insert(keyValPair);
+   
+   bool alreadyExisted = !insResult.second;
+   if(alreadyExisted)
+   {
+      // If already existed, we need to merge the DB data into the RAM struct
+      StoredSubHistory & subsshAlreadyInRAM = insResult.first->second;
+      StoredSubHistory & subsshTriedToAdd   = keyValPair.second;
+      LOGINFO << "SubSSH already in SSH...should this happen?";
+      map<BinaryData, TxIOPair>::iterator iter;
+      for(iter  = subsshTriedToAdd.txioSet_.begin();
+          iter != subsshTriedToAdd.txioSet_.end();
+          iter++)
+      {
+         subsshAlreadyInRAM.txioSet_[iter->first] = iter->second;
+      }
+   }
+   return true;
 }
 
-/////////////////////////////////////////////////////////////////////////////
-// Aggregates multiple getSubSSH calls into a single "get me this list of
-// stuff" call.
-bool InterfaceToLDB::getStoredScriptHistorySlice(StoredScriptHistory & ssh,
-                                                 BinaryDataRef uniqKey,
-                                                 vector<BinaryData> hgtxVect)
-{
-   SCOPED_TIMER("getStoredScriptHistorySlice");
-
-   BinaryRefReader brr = getValueReader(BLKDATA, DB_PREFIX_SCRIPT, uniqKey);
-   if(brr.getSize() == 0)
-      return false;
-
-   checkPrefixByte(DB_PREFIX_SCRIPT);
-   ssh.unserializeDBKey(currReadKey_.getRawRef(), true);
-   ssh.unserializeDBValue(currReadValue_);
-
-   // If there is only one, it may not match anything in our hgtxVect,
-   // but it doesn't matter if we end up with extraneous data... as long
-   // as it includes what's in the hgtxVect if it exists in the DB
-   if(!ssh.useMultipleEntries_)
-      return true;
-
-   if(ssh.totalTxioCount_ == 0)
-      LOGWARN << "How did we end up with zero Txios in an SSH?";
-      
-
-   // If for some reason we hit the end of the DB without any tx, bail
-   for(uint32_t i=0; i<hgtxVect.size(); i++)
-      getStoredSubHistory(ssh, hgtxVect[i]);
-
-}
 
 
 /////////////////////////////////////////////////////////////////////////////

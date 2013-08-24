@@ -457,6 +457,7 @@ public:
 
    BinaryData getDBKey(bool withPrefix=true) const;
    BinaryData getDBKeyOfParentTx(bool withPrefix=true) const;
+   BinaryData getHgtX(void) const {return getDBKey(false).getSliceCopy(0,4);}
 
    StoredTxOut & createFromTxOut(TxOut & txout); 
    BinaryData    getSerializedTxOut(void) const;
@@ -536,6 +537,18 @@ public:
    TxIOPair& insertTxio(TxIOPair const & txio, bool withOverwrite=true);
    bool       eraseTxio(TxIOPair const & txio);
    bool       eraseTxio(BinaryData const & dbKey8B);
+
+   map<BinaryData, TxIOPair>  getFullTxioMap(void);
+   map<BinaryData, TxIOPair>  getTxioMapSlice(vector<BinaryData> & hgtxList);
+
+   // This adds the TxOut if it doesn't exist yet
+   uint64_t   markTxOutUnspent(BinaryData txOutKey8B, 
+                               uint64_t   value=UINT64_MAX,
+                               bool       isCoinbase=false,
+                               bool       isMultisigRef=false);
+
+   uint64_t   markTxOutSpent(BinaryData txOutKey8B, 
+                             BinaryData  txInKey8B);
 
    BinaryData     uniqueKey_;  // includes the prefix byte!
    uint32_t       version_;

@@ -1509,7 +1509,7 @@ TxIOPair& StoredScriptHistory::insertTxio(TxIOPair const & txio, bool withOverwr
    map<BinaryData, StoredSubHistory>::iterator iterSubHist;
    iterSubHist = subHistMap_.find(first4);
    //if(iterSubHist == subHistMap_.end())
-   if(NOT_FOUND_IN_MAP(iterSubSSH, subHistMap_))
+   if(NOT_FOUND_IN_MAP(iterSubHist, subHistMap_))
    {
       // Create a new sub-history add it to its map
       subHistMap_[first4] = StoredSubHistory();
@@ -1562,7 +1562,7 @@ bool StoredScriptHistory::eraseTxio(BinaryData const & dbKey8B)
    StoredSubHistory & subssh = iterSubHist->second;
    uint64_t valueRemoved = subssh.eraseTxio(dbKey8B);
 
-   bool wasRemoved = (valueRemoved!=UINT64_MAX)
+   bool wasRemoved = (valueRemoved!=UINT64_MAX);
    if(wasRemoved)
    {
       totalTxioCount_ -= 1;
@@ -1579,7 +1579,7 @@ bool StoredScriptHistory::eraseTxio(BinaryData const & dbKey8B)
 ////////////////////////////////////////////////////////////////////////////////
 // This adds the TxOut if it doesn't exist yet
 uint64_t StoredScriptHistory::markTxOutSpent(BinaryData txOutKey8B, 
-                                                BinaryData txInKey8B)
+                                             BinaryData txInKey8B)
 {
    if(txOutKey8B.getSize() != 8 || txInKey8B.getSize() != 8)
    {
@@ -1611,7 +1611,7 @@ uint64_t StoredScriptHistory::markTxOutSpent(BinaryData txOutKey8B,
 uint64_t StoredScriptHistory::markTxOutUnspent(BinaryData txOutKey8B, 
                                                uint64_t   value,
                                                bool       isCoinbase,
-                                               bool       isMultisigRef)
+                                               bool       isMultisig)
 {
    if(txOutKey8B.getSize() != 8)
    {
@@ -1626,15 +1626,71 @@ uint64_t StoredScriptHistory::markTxOutUnspent(BinaryData txOutKey8B,
 
    if(NOT_FOUND_IN_MAP(iter, subHistMap_))
    {
+      // The TxOut doesn't actually exist yet, so we have to add it
       if(value == UINT64_MAX)
       {
          LOGERR << "Tried to create TxOut in SSH but no value supplied!";
          return UINT64_MAX;
       }
-      TxIOPair txio(txOutKey8B, value)
-      insertTxio(txOutKey8B 
+      pair<BinaryData, StoredSubHistory> toInsert(first4, StoredSubHistory());
+      iter = subHistMap_.insert(toInsert).first;
    }
 
+   // More sanity checking
+   if(iter == subHistMap_.end())
+   {
+      LOGERR << "Somehow still don't have the subSSH after trying to insert it";
+      return UINT64_MAX;
+   }
+
+   //
+   StoredSubHistory & subssh = iter->second;
+   uint32_t prevSize = subssh.txioSet_.size();
+   uint64_t val = subssh.markTxOutUnspent(txOutKey8B, value, isCoinbase, isMultisig);
+   uint32_t newSize = subssh.txioSet_.size();
+
+   totalUnspent_ += val;
+   if(newSize > prevSize)
+      totalTxioCount_ += (newSize - prevSize);
+
+   return val;
+
+   /*
+   else
+   {
+      map<BinaryData, TxIOPair>::iterator iterTxio;
+      iterTxio = subssh.txioSet_.find(txOutKey8B);
+      if(NOT_FOUND_IN_MAP(iterTxio, subssh.txioSet_))
+      {
+         // Create new TxIO from inputs, add to sub-hist, update totals
+         TxIOPair txio(txOutKey8B, value)
+         txio.setFromCoinbase(isCoinBase);
+         txio.setMultisig(isMultisig);
+         txio.setTxOutFromSelf(false); // in super-node mode, we don't use this
+         subssh.insertTxio(txio);
+            
+         totalTxioCount_ += 1;
+         uint64_t valDiff = (isMultisig ? 0 : value);
+         totalUnspent_ += valDiff;
+         return valDiff;
+      }
+      else
+      {
+         // TxIO already exists here.  Update it
+         TxIOPair & txio = iterTxio->second;
+         if(!txio.hasTxInInMain())
+         {
+            LOGWARN << "TxIO is already marked unspent!  Nothing to do";
+            return 0;
+         }
+
+         txio.setTxIn(TxRef(), UINT32_MAX);
+         uint64_t valDiff = (txio.isMultisig() ? 0 : txio.getValue());
+         totalUnspent_ += valDiff;
+         return valDiff;
+      }
+   }
+   */
 }
 
 
@@ -1856,8 +1912,7 @@ TxIOPair* StoredSubHistory::findTxio(BinaryData const & dbKey8B)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-TxIOPair& StoredSubHistory::insertTxio(TxIOPair const & txio, 
-                                             bool withOverwrite)
+TxIOPair& StoredSubHistory::insertTxio(TxIOPair const & txio, bool withOverwrite)
 {
    BinaryData key8B = txio.getDBKeyOfOutput();
    if(!key8B.startsWith(hgtX_))
@@ -2029,7 +2084,7 @@ uint64_t StoredSubHistory::markTxOutUnspent(BinaryData txOutKey8B,
    
       // The TxIOPair was not in the SSH yet;  add it
       TxIOPair txio = TxIOPair(txOutKey8B, value);
-      txio.setFromCoinbase(isCoinBase);
+      txio.setFromCoinbase(isCoinbase);
       txio.setMultisig(isMultisigRef);
       txio.setTxOutFromSelf(false); // in super-node mode, we don't use this
       insertTxio(txio);
