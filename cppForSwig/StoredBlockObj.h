@@ -512,10 +512,10 @@ public:
                                alreadyScannedUpToBlk_(0),
                                useMultipleEntries_(false),
                                totalTxioCount_(0),
-                               totalUnspent_(0) { }
+                               totalUnspent_(0) {}
                                
 
-   bool isInitialized(void) { return uniqueKey_.getSize() > 0; }
+   bool isInitialized(void) const { return uniqueKey_.getSize() > 0; }
 
    void       unserializeDBValue(BinaryRefReader & brr);
    void         serializeDBValue(BinaryWriter    & bw ) const;
@@ -533,13 +533,15 @@ public:
    uint64_t getScriptReceived(bool withMultisig=false);
    uint64_t getScriptBalance(bool withMultisig=false);
 
-   TxIOPair*   findTxio(BinaryData const & dbKey8B);
+   bool     haveFullHistoryLoaded(void) const;
+
+   TxIOPair*   findTxio(BinaryData const & dbKey8B, bool inclMultisig=false);
    TxIOPair& insertTxio(TxIOPair const & txio, bool withOverwrite=true);
    bool       eraseTxio(TxIOPair const & txio);
    bool       eraseTxio(BinaryData const & dbKey8B);
 
-   map<BinaryData, TxIOPair>  getFullTxioMap(void);
-   map<BinaryData, TxIOPair>  getTxioMapSlice(vector<BinaryData> & hgtxList);
+   bool getFullTxioMap(map<BinaryData, TxIOPair> & mapToFill,
+                       bool withMultisig=false);
 
    // This adds the TxOut if it doesn't exist yet
    uint64_t   markTxOutUnspent(BinaryData txOutKey8B, 
@@ -593,11 +595,12 @@ public:
 
    BinaryData    getDBKey(bool withPrefix=true) const;
    SCRIPT_PREFIX getScriptType(void) const;
+   uint64_t      getTxioCount(void) const {return (uint64_t)txioSet_.size();}
 
    void pprintOneLine(uint32_t indent=3);
    void pprintFullSSH(uint32_t indent=3);
 
-   TxIOPair*   findTxio(BinaryData const & dbKey8B);
+   TxIOPair*   findTxio(BinaryData const & dbKey8B, bool includeMultisig=false);
    TxIOPair& insertTxio(TxIOPair const & txio, bool withOverwrite=true);
    uint64_t   eraseTxio(TxIOPair const & txio);
    uint64_t   eraseTxio(BinaryData const & dbKey8B);
@@ -615,7 +618,7 @@ public:
 
    uint64_t getSubHistoryBalance(bool withMultisig=false);
    uint64_t getSubHistoryReceived(bool withMultisig=false);
-   vector<uint64_t> getSubHistoryValues(void);
+   //vector<uint64_t> getSubHistoryValues(void);
 
    void pprintFullSubSSH(uint32_t indent=3);
 

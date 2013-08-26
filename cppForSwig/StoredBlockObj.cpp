@@ -1436,33 +1436,13 @@ void StoredScriptHistory::pprintFullSSH(uint32_t indent)
       iter->second.pprintFullSubSSH(indent+3);
 }
 
-////////////////////////////////////////////////////////////////////////////////
-uint64_t StoredScriptHistory::getScriptReceived(bool withMultisig)
-{
-   uint64_t bal = 0;
-   map<BinaryData, StoredSubHistory>::iterator iter;
-   for(iter = subHistMap_.begin(); iter != subHistMap_.end(); iter++)
-      bal += iter->second.getSubHistoryReceived(withMultisig);
-
-   return bal;
-}
-
-////////////////////////////////////////////////////////////////////////////////
-uint64_t StoredScriptHistory::getScriptBalance(bool withMultisig)
-{
-   uint64_t bal = 0;
-   map<BinaryData, StoredSubHistory>::iterator iter;
-   for(iter = subHistMap_.begin(); iter != subHistMap_.end(); iter++)
-      bal += iter->second.getSubHistoryBalance(withMultisig);
-
-   return bal;
-}
 
 
 ////////////////////////////////////////////////////////////////////////////////
-TxIOPair* StoredScriptHistory::findTxio(BinaryData const & dbKey8B)
+TxIOPair* StoredScriptHistory::findTxio(BinaryData const & dbKey8B, 
+                                        bool includeMultisig)
 {
-   if(subHistMap_.size() == 0)
+   if(!isInitialized() || subHistMap_.size() == 0)
       return NULL;
 
    // Optimize case of 1 txio -- don't bother with extra copies or map.find ops
@@ -1484,6 +1464,9 @@ TxIOPair* StoredScriptHistory::findTxio(BinaryData const & dbKey8B)
       }
 
       TxIOPair* outptr = &(subSSH.txioSet_.begin()->second);
+      if(!includeMultisig && outptr->isMultisig())
+         return NULL;
+
       return (outptr->getDBKeyOfOutput() == dbKey8B ? outptr : NULL);
    }
    else
@@ -1497,7 +1480,14 @@ TxIOPair* StoredScriptHistory::findTxio(BinaryData const & dbKey8B)
          return NULL;
    
       // This returns NULL if does not exist.
-      return iterSubSSH->second.findTxio(dbKey8B);
+      TxIOPair* outptr = iterSubSSH->second.findTxio(dbKey8B);
+      if(outptr==NULL)
+         return NULL;
+
+      if(!includeMultisig && outptr->isMultisig())
+         return NULL;
+
+      return outptr;
    }
 }
 
@@ -1546,6 +1536,9 @@ bool StoredScriptHistory::eraseTxio(TxIOPair const & txio)
 ////////////////////////////////////////////////////////////////////////////////
 bool StoredScriptHistory::eraseTxio(BinaryData const & dbKey8B)
 {
+   if(!isInitialized())
+      return false;
+
    if(dbKey8B.getSize() != 8)
    {
       LOGERR << "Invalid dbKey: " << dbKey8B.toHexStr().c_str();
@@ -1581,6 +1574,9 @@ bool StoredScriptHistory::eraseTxio(BinaryData const & dbKey8B)
 uint64_t StoredScriptHistory::markTxOutSpent(BinaryData txOutKey8B, 
                                              BinaryData txInKey8B)
 {
+   if(!isInitialized())
+      return UINT64_MAX;
+
    if(txOutKey8B.getSize() != 8 || txInKey8B.getSize() != 8)
    {
       LOGERR << "Invalid input to mark TxOut spent";
@@ -1613,6 +1609,9 @@ uint64_t StoredScriptHistory::markTxOutUnspent(BinaryData txOutKey8B,
                                                bool       isCoinbase,
                                                bool       isMultisig)
 {
+   if(!isInitialized())
+      return UINT64_MAX;
+
    if(txOutKey8B.getSize() != 8)
    {
       LOGERR << "Invalid input to mark TxOut unspent";
@@ -1626,7 +1625,7 @@ uint64_t StoredScriptHistory::markTxOutUnspent(BinaryData txOutKey8B,
 
    if(NOT_FOUND_IN_MAP(iter, subHistMap_))
    {
-      // The TxOut doesn't actually exist yet, so we have to add it
+      // The SubHistory doesn't actually exist yet, so we have to add it
       if(value == UINT64_MAX)
       {
          LOGERR << "Tried to create TxOut in SSH but no value supplied!";
@@ -1643,56 +1642,105 @@ uint64_t StoredScriptHistory::markTxOutUnspent(BinaryData txOutKey8B,
       return UINT64_MAX;
    }
 
-   //
+   // 
    StoredSubHistory & subssh = iter->second;
    uint32_t prevSize = subssh.txioSet_.size();
    uint64_t val = subssh.markTxOutUnspent(txOutKey8B, value, isCoinbase, isMultisig);
    uint32_t newSize = subssh.txioSet_.size();
 
-   totalUnspent_ += val;
-   if(newSize > prevSize)
-      totalTxioCount_ += (newSize - prevSize);
+   totalUnspent_   += val;
+   totalTxioCount_ += (newSize - prevSize); // should only ever be +=0 or +=1
 
    return val;
+}
 
-   /*
-   else
+
+
+////////////////////////////////////////////////////////////////////////////////
+bool StoredScriptHistory::haveFullHistoryLoaded(void) const
+{
+   if(!isInitialized())
+      return false;
+
+   uint32_t numTxio = 0;
+   map<BinaryData, StoredSubHistory>::const_iterator iter;
+   for(iter = subHistMap_.begin(); iter != subHistMap_.end(); iter++)
+      numTxio += iter->second.getTxioCount();
+
+   if(numTxio > totalTxioCount_)
+      LOGERR << "Somehow stored total is less than counted total...?";
+
+   return (numTxio==totalTxioCount_);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+uint64_t StoredScriptHistory::getScriptReceived(bool withMultisig)
+{
+   if(!haveFullHistoryLoaded())
+      return UINT64_MAX;
+
+   uint64_t bal = 0;
+   map<BinaryData, StoredSubHistory>::iterator iter;
+   for(iter = subHistMap_.begin(); iter != subHistMap_.end(); iter++)
+      bal += iter->second.getSubHistoryReceived(withMultisig);
+
+   return bal;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+uint64_t StoredScriptHistory::getScriptBalance(bool withMultisig)
+{
+   // If regular balance, 
+   if(!withMultisig)
+      return totalUnspent_;
+
+   // If with multisig we have to load and count everything
+   if(!haveFullHistoryLoaded())
+      return UINT64_MAX;
+
+   uint64_t bal = 0;
+   map<BinaryData, StoredSubHistory>::iterator iter;
+   for(iter = subHistMap_.begin(); iter != subHistMap_.end(); iter++)
+      bal += iter->second.getSubHistoryBalance(withMultisig);
+
+   return bal;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+bool StoredScriptHistory::getFullTxioMap( map<BinaryData, TxIOPair> & mapToFill,
+                                          bool withMultisig)
+{
+   if(!haveFullHistoryLoaded())
+      return false;
+
+   map<BinaryData, StoredSubHistory>::iterator iterSubSSH;
+   for(iterSubSSH  = subHistMap_.begin(); 
+       iterSubSSH != subHistMap_.end(); 
+       iterSubSSH++)
    {
-      map<BinaryData, TxIOPair>::iterator iterTxio;
-      iterTxio = subssh.txioSet_.find(txOutKey8B);
-      if(NOT_FOUND_IN_MAP(iterTxio, subssh.txioSet_))
+      StoredSubHistory & subssh = iterSubSSH->second;
+
+      if(withMultisig)
       {
-         // Create new TxIO from inputs, add to sub-hist, update totals
-         TxIOPair txio(txOutKey8B, value)
-         txio.setFromCoinbase(isCoinBase);
-         txio.setMultisig(isMultisig);
-         txio.setTxOutFromSelf(false); // in super-node mode, we don't use this
-         subssh.insertTxio(txio);
-            
-         totalTxioCount_ += 1;
-         uint64_t valDiff = (isMultisig ? 0 : value);
-         totalUnspent_ += valDiff;
-         return valDiff;
+         // If with multisig, we can just copy everything
+         mapToFill.insert(subssh.txioSet_.begin(), subssh.txioSet_.end());
       }
       else
       {
-         // TxIO already exists here.  Update it
-         TxIOPair & txio = iterTxio->second;
-         if(!txio.hasTxInInMain())
+         // Otherwise, we have to filter out the multisig TxIOs
+         map<BinaryData, TxIOPair>::iterator iterTxio;
+         for(iterTxio  = subssh.txioSet_.begin();
+             iterTxio != subssh.txioSet_.end();
+             iterTxio++)
          {
-            LOGWARN << "TxIO is already marked unspent!  Nothing to do";
-            return 0;
+            if(!iterTxio->second.isMultisig())
+               mapToFill[iterTxio->first] = iterTxio->second;
          }
-
-         txio.setTxIn(TxRef(), UINT32_MAX);
-         uint64_t valDiff = (txio.isMultisig() ? 0 : txio.getValue());
-         totalUnspent_ += valDiff;
-         return valDiff;
+         
       }
    }
-   */
+   return true;
 }
-
 
 
 
@@ -1901,14 +1949,19 @@ void StoredSubHistory::pprintFullSubSSH(uint32_t indent)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-TxIOPair* StoredSubHistory::findTxio(BinaryData const & dbKey8B)
+TxIOPair* StoredSubHistory::findTxio(BinaryData const & dbKey8B, bool withMulti)
 {
    map<BinaryData, TxIOPair>::iterator iter = txioSet_.find(dbKey8B);
    //if(iter == txioSet_.end())
    if(NOT_FOUND_IN_MAP(iter, txioSet_))
       return NULL;
    else
+   {
+      if(!withMulti && iter->second.isMultisig())
+         return NULL;
+
       return &(iter->second);
+   }
 }
 
 ////////////////////////////////////////////////////////////////////////////////

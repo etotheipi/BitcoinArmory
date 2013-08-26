@@ -812,13 +812,21 @@ void InterfaceToLDB::putStoredScriptHistory( StoredScriptHistory & ssh)
    }
 }
 
+////////////////////////////////////////////////////////////////////////////////
+void InterfaceToLDB::getStoredScriptHistorySummary( StoredScriptHistory & ssh,
+                                                    BinaryDataRef scrAddrStr)
+{
+   seekTo(BLKDATA, DB_PREFIX_SCRIPT, scrAddrStr);
+   ssh.unserializeDBKey(currReadKey_.getRawRef());
+   ssh.unserializeDBValue(currReadValue_.getRawRef());
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 void InterfaceToLDB::getStoredScriptHistory( StoredScriptHistory & ssh,
-                                             BinaryDataRef uniqueKey)
+                                             BinaryDataRef scrAddrStr)
 {
    SCOPED_TIMER("getStoredScriptHistory");
-   seekTo(BLKDATA, DB_PREFIX_SCRIPT, uniqueKey);
+   seekTo(BLKDATA, DB_PREFIX_SCRIPT, scrAddrStr);
    readStoredScriptHistoryAtIter(ssh);
 }
 
@@ -839,14 +847,6 @@ void InterfaceToLDB::getStoredScriptHistoryByRawScript(
 bool InterfaceToLDB::fetchStoredSubHistory( StoredScriptHistory & ssh,
                                             BinaryData hgtX)
 {
-   // If we never even read the base entry...
-   if(!ssh.isInitialized())
-   {
-      seekTo(BLKDATA, DB_PREFIX_SCRIPT, ssh.uniqueKey_);
-      ssh.unserializeDBKey(currReadKey_.getRawRef());
-      ssh.unserializeDBValue(currReadValue_.getRawRef());
-   }
-       
       
    BinaryData key = ssh.uniqueKey_ + hgtX; 
    BinaryRefReader brr = getValueReader(BLKDATA, DB_PREFIX_SCRIPT, key);
@@ -881,28 +881,76 @@ bool InterfaceToLDB::fetchStoredSubHistory( StoredScriptHistory & ssh,
 }
 
 
-
-/////////////////////////////////////////////////////////////////////////////
-// We grab the regular entries for the hash160, then go grab all the 
-// multisig entries as well, if they exist
-void InterfaceToLDB::getAllSSHForHash160(
-                                    vector<StoredScriptHistory> & sshList,
-                                    BinaryDataRef hash160)
+////////////////////////////////////////////////////////////////////////////////
+uint64_t InterfaceToLDB::getBalanceForScrAddr(BinaryDataRef scrAddr, bool withMulti)
 {
-   SCOPED_TIMER("getAllSSHForHash160");
-   sshList.clear();
    StoredScriptHistory ssh;
+   if(!withMulti)
+   {
+      getStoredScriptHistorySummary(ssh, scrAddr); 
+      return ssh.totalUnspent_;
+   }
+   else
+   {
+      getStoredScriptHistory(ssh, scrAddr);
+      if(!ssh.hasAnyMultisig_)
+         return ssh.totalUnspent_;
 
-   getStoredScriptHistory(ssh, HASH160PREFIX + hash160);
-
-   if(!ssh.isInitialized())
-      return;
-
-   sshList.push_back(ssh);
-
+      uint64_t total = ssh.totalUnspent_;
+      map<BinaryData, UnspentTxOut> utxoList;
+      map<BinaryData, UnspentTxOut>::iterator iter;
+      getFullUTXOMapForSSH(ssh, utxoList, true);
+      for(iter = utxoList.begin(); iter != utxoList.end(); iter++)
+         if(iter->second.isMultisigRef())
+            total += iter->second.getValue();
+   }
 }
 
 
+////////////////////////////////////////////////////////////////////////////////
+// We need the block hashes and scripts, which need to be retrieved from the
+// DB, which is why this method can't be part of StoredBlockObj.h/.cpp
+bool InterfaceToLDB::getFullUTXOMapForSSH( 
+                                StoredScriptHistory & ssh,
+                                map<BinaryData, UnspentTxOut> & mapToFill,
+                                bool withMultisig)
+{
+   if(!ssh.haveFullHistoryLoaded())
+      return false;
+
+   map<BinaryData, StoredSubHistory>::iterator iterSubSSH;
+   map<BinaryData, TxIOPair>::iterator iterTxio;
+   for(iterSubSSH  = ssh.subHistMap_.begin(); 
+       iterSubSSH != ssh.subHistMap_.end(); 
+       iterSubSSH++)
+   {
+      StoredSubHistory & subSSH = iterSubSSH->second;
+      for(iterTxio  = subSSH.txioSet_.begin(); 
+          iterTxio != subSSH.txioSet_.end(); 
+          iterTxio++)
+      {
+         TxIOPair & txio = iterTxio->second;
+         StoredTx stx;
+         BinaryData txoKey = txio.getDBKeyOfOutput();
+         BinaryData txKey  = txio.getTxRefOfOutput().getDBKey();
+         uint16_t txoIdx = txio.getIndexOfOutput();
+         getStoredTx(stx, txKey);
+
+         StoredTxOut & stxo = stx.stxoMap_[txoIdx];
+         if(stxo.isSpent())
+            continue;
+         
+         mapToFill[txoKey] = UnspentTxOut(
+                                   stx.thisHash_,
+                                   txoIdx,
+                                   stx.blockHeight_,
+                                   txio.getValue(),
+                                   stx.stxoMap_[txoIdx].getScriptRef());
+      }
+   }
+
+   return true;
+}
 
 
 

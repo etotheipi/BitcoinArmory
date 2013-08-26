@@ -3847,7 +3847,7 @@ TEST_F(StoredBlockObjTest, STxHintsUnser)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-TEST_F(StoredBlockObjTest, StoredHeadHgtListSer)
+TEST_F(StoredBlockObjTest, SHeadHgtListSer)
 {
    StoredHeadHgtList baseHHL, testHHL;
    baseHHL.height_ = 123000;
@@ -3929,7 +3929,7 @@ TEST_F(StoredBlockObjTest, StoredHeadHgtListSer)
 
 
 ////////////////////////////////////////////////////////////////////////////////
-TEST_F(StoredBlockObjTest, StoredHeadHgtListUnser)
+TEST_F(StoredBlockObjTest, SHeadHgtListUnser)
 {
    BinaryData hash0 = READHEX("aaaabbbbaaaabbbbaaaabbbbaaaabbbb"
                               "aaaabbbbaaaabbbbaaaabbbbaaaabbbb");
@@ -4001,7 +4001,6 @@ TEST_F(StoredBlockObjTest, StoredHeadHgtListUnser)
          EXPECT_EQ(hhl.preferredDup_,  1);
       }
    }
-
 }
 
 
@@ -4425,12 +4424,27 @@ TEST_F(BlockUtilsTest, SScriptHistoryMarkSpent)
    uint32_t dup = READ_UINT8_HEX_BE("0f");
 
    TxIOPair txio0(dbKey0, 10*COIN);
-   TxIOPair txio1(dbKey1,  5*COIN);
-   txio0.setFromCoinbase(true);
-   txio1.setFromCoinbase(false);
-   txio0.setTxOutFromSelf(false);
-   txio1.setTxOutFromSelf(true);
+   TxIOPair txio1(dbKey1, 11*COIN);
+   TxIOPair txio2(dbKey2, 12*COIN);
+   TxIOPair txio3(dbKey3, 13*COIN);
 
+   txio0.setFromCoinbase(true);
+   txio0.setTxOutFromSelf(false);
+   txio0.setMultisig(false);
+
+   txio1.setFromCoinbase(false);
+   txio1.setTxOutFromSelf(true);
+   txio1.setMultisig(false);
+
+   txio2.setFromCoinbase(false);
+   txio2.setTxOutFromSelf(false);
+   txio2.setMultisig(true);
+
+   txio3.setFromCoinbase(false);
+   txio3.setTxOutFromSelf(false);
+   txio3.setMultisig(true);
+
+   /* original expected values before SSH-subSSH upgrade
    BinaryData expectSSH_orig = READHEX(
       "0400""ffffffff"
       "02"
@@ -4465,9 +4479,50 @@ TEST_F(BlockUtilsTest, SScriptHistoryMarkSpent)
       "02"
          "01e0780f00300003"
          "01e0780f00300009");
+   */
+   //BinaryData dbKey0 = READHEX("01e078""0f""0007""0001");
+   //BinaryData dbKey1 = READHEX("01e078""0f""0009""0005");
+   //BinaryData dbKey2 = READHEX("01e078""0f""000f""0000");
+   //BinaryData dbKey3 = READHEX("01e078""0f""0030""0003");
+   //BinaryData dbKey4 = READHEX("01e078""0f""0030""0009");
+   //BinaryData dbKey5 = READHEX("01e078""0f""00a0""0008");
+
+   BinaryData expectSSH_orig = READHEX(
+      "0400""ffffffff"
+      "04"
+         "40""00ca9a3b00000000""01e0780f0007""0001"
+         "a0""00ab904100000000""01e0780f0009""0005""01e0780f000f0000"
+         "a8""008c864700000000""01e0780f0030""0003"
+         "a8""006d7c4d00000000""01e0780f0030""0009");
+
+   BinaryData expectSSH_bothspent = READHEX(
+      "0400""ffffffff"
+      "02"
+         "60""00ca9a3b00000000""01e0780f0007""0001""01e0780f00a00008"
+         "a0""0065cd1d00000000""01e0780f0009""0005""01e0780f000f0000"
+      "02"
+         "01e0780f00300003"
+         "01e0780f00300009");
+
+   BinaryData expectSSH_bothunspent = READHEX(
+      "0400""ffffffff"
+      "02"
+         "40""00ca9a3b00000000""01e0780f0007""0001"
+         "80""0065cd1d00000000""01e0780f0009""0005"
+      "02"
+         "01e0780f00300003"
+         "01e0780f00300009");
+
+   BinaryData expectSSH_afterrm = READHEX(
+      "0400""ffffffff"
+      "01"
+         "40""00ca9a3b00000000""01e0780f0007""0001"
+      "02"
+         "01e0780f00300003"
+         "01e0780f00300009");
   
    // Mark the second one spent (from same block as it was created)
-   txio1.setTxIn(dbKey2);
+   txio1.setTxIn(dbKey4);
 
    // In order for for these tests to work properly, the TxIns and TxOuts need
    // to look like they're in the main branch.  Se we set the valid dupID vals

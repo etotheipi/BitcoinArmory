@@ -438,7 +438,10 @@ public:
    void putStoredScriptHistory( StoredScriptHistory & ssh);
 
    void getStoredScriptHistory( StoredScriptHistory & ssh,
-                                BinaryDataRef uniqueKey);
+                                BinaryDataRef scrAddrStr);
+
+   void getStoredScriptHistorySummary( StoredScriptHistory & ssh,
+                                       BinaryDataRef scrAddrStr);
 
    void getStoredScriptHistoryByRawScript(
                                 StoredScriptHistory & ssh,
@@ -451,6 +454,16 @@ public:
    // sub-SSH from DB and adds it to the supplied regular-SSH.
    bool fetchStoredSubHistory( StoredScriptHistory & ssh, BinaryData hgtX);
 
+   // This could go in StoredBlockObj if it didn't need to lookup DB data
+   bool     getFullUTXOMapForSSH(StoredScriptHistory & ssh,
+                                 map<BinaryData, UnspentTxOut> & mapToFill,
+                                 bool withMultisig=false);
+
+   uint64_t getBalanceForScrAddr(BinaryDataRef scrAddr, bool withMulti=false);
+   
+   // TODO: We should probably implement some kind of method for accessing or 
+   //       running calculations on an SSH without ever loading the entire
+   //       thing into RAM.  
 
    // None of the SUD methods are implemented because we don't actually need
    // to read/write SUD to the database -- our only mode is ARMORY_DB_SUPER
@@ -467,9 +480,6 @@ public:
    bool putStoredHeadHgtList(StoredHeadHgtList const & hhl);
    bool getStoredHeadHgtList(StoredHeadHgtList & hhl, uint32_t height);
 
-   void getAllSSHForHash160( vector<StoredScriptHistory> & sshList,
-                             BinaryDataRef hash160);
-
    ////////////////////////////////////////////////////////////////////////////
    // Some methods to grab data at the current iterator location.  Return
    // false if reading fails (maybe because we were expecting to find the
@@ -482,9 +492,6 @@ public:
                                                             StoredTxOut & stxo);
 
    bool readStoredScriptHistoryAtIter( StoredScriptHistory & ssh);
-
-   uint32_t readAllStoredScriptHistory(
-                       map<BinaryData, StoredScriptHistory> & storedScrMap);
 
 
    // TxRefs are much simpler with LDB than the previous FileDataPtr construct

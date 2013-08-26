@@ -1114,13 +1114,14 @@ UnspentTxOut::UnspentTxOut(void) :
    txHeight_(0),
    value_(0),
    script_(BinaryData(0)),
-   numConfirm_(0)
+   numConfirm_(0),
+   isMultisigRef_(false)
 {
    // Nothing to do here
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void UnspentTxOut::init(TxOut & txout, uint32_t blkNum)
+void UnspentTxOut::init(TxOut & txout, uint32_t blkNum, bool isMulti)
 {
    txHash_     = txout.getParentHash();
    txOutIndex_ = txout.getIndex();
@@ -1128,12 +1129,13 @@ void UnspentTxOut::init(TxOut & txout, uint32_t blkNum)
    value_      = txout.getValue();
    script_     = txout.getScript();
    updateNumConfirm(blkNum);
+   isMultisigRef_ = isMulti;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-BinaryData UnspentTxOut::getRecipientAddr(void) const
+BinaryData UnspentTxOut::getRecipientScrAddr(void) const
 {
-   return BtcUtils::getTxOutRecipientAddr(getScript());
+   return BtcUtils::getTxOutScriptUniqueKey(getScript());
 }
 
 

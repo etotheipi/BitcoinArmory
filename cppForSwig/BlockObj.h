@@ -735,18 +735,19 @@ public:
       txHash_(hash), txOutIndex_(outIndex), txHeight_(height),
       value_(val), script_(script) {}
 
-   void init(TxOut & txout, uint32_t blknum);
+   void init(TxOut & txout, uint32_t blknum, bool isMultiRef=false);
 
    BinaryData   getTxHash(void) const      { return txHash_;     }
    uint32_t     getTxOutIndex(void) const  { return txOutIndex_; }
    uint64_t     getValue(void)  const      { return value_;      }
    uint64_t     getTxHeight(void)  const   { return txHeight_;   }
    uint32_t     getNumConfirm(void) const  { return numConfirm_; }
+   uint32_t     isMultisigRef(void) const  { return isMultisigRef_; }
 
    OutPoint getOutPoint(void) const { return OutPoint(txHash_, txOutIndex_); }
 
    BinaryData const & getScript(void) const      { return script_;     }
-   BinaryData   getRecipientAddr(void) const;
+   BinaryData   getRecipientScrAddr(void) const;
 
    uint32_t   updateNumConfirm(uint32_t currBlknum);
    void pprintOneLine(uint32_t currBlk=UINT32_MAX);
@@ -778,6 +779,7 @@ public:
    uint64_t   value_;
    BinaryData script_;
    uint32_t   numConfirm_;
+   bool       isMultisigRef_;
 
    // This can be set and used as part of a compare function:  if you want
    // each TxOut prioritization to be dependent on the target Tx amount.
