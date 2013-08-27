@@ -26,7 +26,12 @@ if not os.path.exists(walletPath):
 
 myEncryptedWlt = PyBtcWallet().readWalletFile(walletPath)
 
-def all_casings(input_string):
+
+def printMaxResultsErrorAndExit():
+   print "To many passwords to try. Please reduce the scope of your search."
+   exit(1)
+
+def all_casings(input_string, maxResults):
    """
    A useful method for producing a list of all casings of a given string
    """
@@ -34,28 +39,28 @@ def all_casings(input_string):
    if input_string:
       first = input_string[:1]
       if first.lower() == first.upper():
-         for sub_casing in all_casings(input_string[1:]):
+         for sub_casing in all_casings(input_string[1:], maxResults):
             out.append( first + sub_casing)
       else:
-         if len(input_string) > 1:
-            for sub_casing in all_casings(input_string[1:]):
-               out.append( first.lower() + sub_casing)
-               out.append( first.upper() + sub_casing)
-         else:
-            out.append(first.lower())
-            out.append(first.upper())
+         for sub_casing in all_casings(input_string[1:], maxResults/2 + 1):
+            out.append( first.lower() + sub_casing)
+            out.append( first.upper() + sub_casing)
+   else:
+      out = ['']
+   if len(out) > maxResults:
+      printMaxResultsErrorAndExit()
    return out
 
 def generateRandomStrings(minLen, maxLen, charList, maxResults):
    result = []
    if maxResults > len(charList):
       if maxLen > 1:
-         postfixList = generateRandomStrings(minLen - 1, maxLen - 1, charList, maxResults/len(charList))
+         postfixList = generateRandomStrings(minLen - 1, maxLen - 1, charList, maxResults/len(charList) + 1)
          result.extend([prefix + postfix for prefix in charList for postfix in postfixList])
       if minLen < 2:
          result.extend(charList[:maxResults])
    else :
-      print "To many random strings. Please exclude more Characters."
+      printMaxResultsErrorAndExit()
    return result
    
 
@@ -73,10 +78,10 @@ def createPwdList(charList, knownWords, minEndingChars, maxEndingChars, maxResul
             if caseKnown:
                prefix += myWord
             else:
-               allCasingsList = all_casings(myWord)
-               if (len(allCasingsList) > 1):
+               allCasingsList = all_casings(myWord, maxResults)
+               if len(allCasingsList) > 1:
                   prefixList = [prefix + case for case in allCasingsList]
-               else:
+               elif len(allCasingsList) == 1:
                   prefix += prefixList[0]
          else:
             prefixList = [prefix + postfix for postfix in generateRandomStrings(minOffset, maxOffset, charList, maxResults)]
@@ -84,7 +89,7 @@ def createPwdList(charList, knownWords, minEndingChars, maxEndingChars, maxResul
             knownWords[i][2] = 0 
             i -= 1    # back up i to redo this Known word
          if len(prefixList) > 0:
-            postfixList = createPwdList(charList, knownWords[i+1:], minEndingChars, maxEndingChars, maxResults/len(prefixList) )
+            postfixList = createPwdList(charList, knownWords[i+1:], minEndingChars, maxEndingChars, maxResults/len(prefixList) + 1)
             pwdList = [prefix + postfix for prefix in prefixList for postfix in postfixList]
             break
       if len(pwdList) == 0:
@@ -93,6 +98,8 @@ def createPwdList(charList, knownWords, minEndingChars, maxEndingChars, maxResul
             pwdList = [prefix + postfix for postfix in postfixList]
          else:
             pwdList = [prefix] 
+   if maxResults== 0 or len(pwdList) > maxResults:
+      printMaxResultsErrorAndExit()
    return pwdList
 
 def searchForPassword(passwordList):
@@ -151,7 +158,7 @@ EXCLUDED_CHARS = \
 1,  # 1   48;   digit 1
 1,  # 1   49;   digit 1
 1,  # 2   50;   digit 2
-1,  # 3   51;   digit 3
+0,  # 3   51;   digit 3
 1,  # 4   52;   digit 4
 1,  # 5   53;   digit 5
 1,  # 6   54;   digit 6
@@ -233,20 +240,22 @@ EXCLUDED_CHARS = \
 # end of the previous string, or the begining of the Password for the first entry.
 # Also specify if you know the case of the string. Use True if you know the case, or False
 # to try all case combinations for all alpha characters.
+# If you are unsure about a term in the list. Try one run with, and one run without.
 KNOWN_WORDS = \
-[['fa', 0, 0, False], ['keWa', 0, 0, True], ['123', 1, 4, True]]
+[['FakeWal', 0, 0, True],['le', 0, 0, False],['12' ,1 , 2, True]]
 
 # What is the minimum number of unknown characters at the end of the password
-MIN_UNKNOWN_ENDING_CHARS = 0 # Example Value
+MIN_UNKNOWN_ENDING_CHARS = 1 # Example Value
 
 # What is the maximum number of unknown characters at the end of the password
-MAX_UNKNOWN_ENDING_CHARS = 0 # Example Value
+MAX_UNKNOWN_ENDING_CHARS = 1 # Example Value
 
 
 # Give an upperlimit for the number of passwords to try.
 # The algorithm may give an error for numbers of less than this.
 # Example: If you want 5 million results, you may have to set the max to 20 million
-MAX_PWD_LIST_LEN = 5000000
+MAX_PWD_LIST_LEN = 20000000
+
 
 # If any arguments are contradictary createPwdList will return empty
 charList = [chr(i+32) for i in range(len(EXCLUDED_CHARS)) if not EXCLUDED_CHARS[i]]
