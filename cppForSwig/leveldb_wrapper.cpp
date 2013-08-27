@@ -893,9 +893,6 @@ uint64_t InterfaceToLDB::getBalanceForScrAddr(BinaryDataRef scrAddr, bool withMu
    else
    {
       getStoredScriptHistory(ssh, scrAddr);
-      if(!ssh.hasAnyMultisig_)
-         return ssh.totalUnspent_;
-
       uint64_t total = ssh.totalUnspent_;
       map<BinaryData, UnspentTxOut> utxoList;
       map<BinaryData, UnspentTxOut>::iterator iter;

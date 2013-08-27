@@ -4425,9 +4425,8 @@ bool BlockDataManager_LevelDB::applyTxToBatchWriteData(
       // Assuming supernode, we don't need to worry about removing references
       // to multisig scripts that reference this script.  Simply find and 
       // update the correct SSH TXIO directly
-      markTxOutSpentInSSH(*sshptr, 
-                          stxoSpend.getDBKey(false),
-                          thisSTX.getDBKeyOfChild(iin, false));
+      sshptr->markTxOutSpent(stxoSpend.getDBKey(false),
+                             thisSTX.getDBKeyOfChild(iin, false));
    }
 
 
@@ -4443,11 +4442,10 @@ bool BlockDataManager_LevelDB::applyTxToBatchWriteData(
       StoredScriptHistory* sshptr = makeSureSSHInMap(uniqKey, hgtX, sshToModify);
 
       // Add reference to the next STXO to the respective SSH object
-      markTxOutUnspentInSSH( *sshptr, 
-                             stxoToAdd.getDBKey(false),
-                             stxoToAdd.getValue(),
-                             stxoToAdd.isCoinbase_,
-                             false);
+      sshptr->markTxOutUnspent(stxoToAdd.getDBKey(false),
+                               stxoToAdd.getValue(),
+                               stxoToAdd.isCoinbase_,
+                               false);
                              
       // If this was a multisig address, add a ref to each individual scraddr
       if(uniqKey[0] == SCRIPT_PREFIX_MULTISIG)
@@ -4462,14 +4460,19 @@ bool BlockDataManager_LevelDB::applyTxToBatchWriteData(
                                                           hgtX,
                                                           sshToModify, 
                                                           true);
-            markTxOutUnspentInSSH( *sshms, 
-                                   stxoToAdd.getDBKey(false),
-                                   stxoToAdd.getValue(),
-                                   stxoToAdd.isCoinbase_,
-                                   true);
+            sshms->markTxOutUnspent(stxoToAdd.getDBKey(false),
+                                    stxoToAdd.getValue(),
+                                    stxoToAdd.isCoinbase_,
+                                    true);
          }
       }
    }
+
+   // If, at the end of this process, we have any empty SSH objects
+   // (should only happen if pruning), then remove them from the 
+   // to-modify list, and add to the keysToDelete list.
+   findSSHEntriesToDelete(sshToModify, keysToDelete);
+
    return true;
 }
 
@@ -4888,11 +4891,10 @@ bool BlockDataManager_LevelDB::undoBlockFromDB(StoredUndoData & sud)
       }
 
       // Now get the TxIOPair in the StoredScriptHistory and mark unspent
-      markTxOutUnspentInSSH( *sshptr,
-                             stxoReAdd.getDBKey(false),
-                             stxoReAdd.getValue(),
-                             stxoReAdd.isCoinbase_,
-                             false);
+      sshptr->markTxOutUnspent(stxoReAdd.getDBKey(false),
+                               stxoReAdd.getValue(),
+                               stxoReAdd.isCoinbase_,
+                               false);
 
       
       // If multisig, we need to update the SSHs for individual addresses
@@ -4905,14 +4907,13 @@ bool BlockDataManager_LevelDB::undoBlockFromDB(StoredUndoData & sud)
          {
             // Get the existing SSH or make a new one
             BinaryData uniqKey = HASH160PREFIX + addr160List[a];
-            StoredScriptHistory* sshptr = makeSureSSHInMap(uniqKey, 
-                                                           stxoReAdd.getHgtX(),
-                                                           sshToModify);
-            markTxOutUnspentInSSH( *sshptr,
-                                   stxoReAdd.getDBKey(false),
-                                   stxoReAdd.getValue(),
-                                   stxoReAdd.isCoinbase_,
-                                   true);
+            StoredScriptHistory* sshms = makeSureSSHInMap(uniqKey, 
+                                                          stxoReAdd.getHgtX(),
+                                                          sshToModify);
+            sshms->markTxOutUnspent(stxoReAdd.getDBKey(false),
+                                    stxoReAdd.getValue(),
+                                    stxoReAdd.isCoinbase_,
+                                    true);
          }
       }
    }
@@ -4964,7 +4965,7 @@ bool BlockDataManager_LevelDB::undoBlockFromDB(StoredUndoData & sud)
    
          // If we are tracking that SSH, remove the reference to this OutPoint
          if(sshptr != NULL)
-            removeTxOutFromSSH(*sshptr, stxoKey);
+            sshptr->eraseTxio(stxoKey);
    
          // Now remove any multisig entries that were added due to this TxOut
          if(uniqKey[0] == SCRIPT_PREFIX_MULTISIG)
@@ -4979,7 +4980,7 @@ bool BlockDataManager_LevelDB::undoBlockFromDB(StoredUndoData & sud)
                                                              hgtX,
                                                              sshToModify, 
                                                              false);
-               removeTxOutFromSSH(*sshms, stxoKey);
+               sshms->eraseTxio(stxoKey);
             }
          }
       }
@@ -4995,8 +4996,7 @@ bool BlockDataManager_LevelDB::undoBlockFromDB(StoredUndoData & sud)
        iter != sshToModify.end();
        iter++)
    {
-      if(iter->second.totalTxioCount_ == 0)
-         keysToDelete.insert(iter->first);
+      findSSHEntriesToDelete(sshToModify, keysToDelete);
    }
 
 
@@ -5005,22 +5005,6 @@ bool BlockDataManager_LevelDB::undoBlockFromDB(StoredUndoData & sud)
    updateBlkDataHeader(sbh);
    applyModsToDB(stxToModify, sshToModify, keysToDelete);
 
-   return true;
-}
-
-
-////////////////////////////////////////////////////////////////////////////////
-bool BlockDataManager_LevelDB::removeTxOutFromSSH(
-                                            StoredScriptHistory & ssh,
-                                            BinaryData txOutKey8B)
-{
-   bool wasRemoved = ssh.eraseTxio(txOutKey8B);
-   if(!wasRemoved)
-   {
-      LOGERR << "Could not remove TxOut from SSH, because DNE";
-      return false;
-   }
-   
    return true;
 }
 
@@ -5127,6 +5111,53 @@ StoredTx* BlockDataManager_LevelDB::makeSureSTXInMap(
    
    return stxptr;
 }
+
+
+////////////////////////////////////////////////////////////////////////////////
+void BlockDataManager_LevelDB::findSSHEntriesToDelete( 
+                     map<BinaryData, StoredScriptHistory> & sshMap,
+                     set<BinaryData> & keysToDelete)
+{
+   vector<BinaryData> fullSSHToDelete(0);
+   map<BinaryData, StoredScriptHistory>::iterator iterSSH;
+   for(iterSSH  = sshMap.begin();
+       iterSSH != sshMap.end();
+       iterSSH++)
+   {
+      StoredScriptHistory & ssh = iterSSH->second;
+      map<BinaryData, StoredSubHistory>::iterator iterSub;
+      for(iterSub = ssh.subHistMap_.begin(); 
+          iterSub != ssh.subHistMap_.end(); 
+          iterSub++)
+      {
+         StoredSubHistory & subssh = iterSub->second;
+         if(subssh.txioSet_.size() == 0)
+            keysToDelete.insert(subssh.getDBKey(true));
+      }
+   
+      // If the full SSH is empty (not just sub history), mark it to be removed
+      if(iterSSH->second.totalTxioCount_ == 0)
+         fullSSHToDelete.push_back(iterSSH->first);
+   }
+
+   // We have to delete in a separate loop, because we don't want to delete
+   // elements in the map we are iterating over, in the above loop.
+   for(uint32_t i=0; i<fullSSHToDelete.size(); i++)
+      sshMap.erase(fullSSHToDelete[i]);
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

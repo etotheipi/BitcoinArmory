@@ -856,21 +856,6 @@ public:
                         map<BinaryData, StoredScriptHistory> & sshToModify,
                         set<BinaryData> &                      keysToDelete);
 
-   /////////////////////////////////////////////////////////////////////////////
-   bool markTxOutUnspentInSSH( StoredScriptHistory & ssh,
-                               BinaryData txOutKey8B,
-                               uint64_t value=UINT64_MAX,
-                               bool isCoinBase=false,
-                               bool isMultisigRef=false);
-
-   bool markTxOutSpentInSSH(   StoredScriptHistory & ssh,
-                               BinaryData txOutKey8B,
-                               BinaryData txInKey8B);
-
-   bool removeTxOutFromSSH(    StoredScriptHistory & ssh,
-                               BinaryData txOutKey8B);
-
-
 
    /////////////////////////////////////////////////////////////////////////////
    StoredScriptHistory* makeSureSSHInMap(    
@@ -887,6 +872,9 @@ public:
                                uint16_t      txIndex,
                                BinaryDataRef txHash,
                                map<BinaryData, StoredTx> & stxMap);
+
+   void findSSHEntriesToDelete( map<BinaryData, StoredScriptHistory> & sshMap,
+                                set<BinaryData> & keysToDelete);
 };
 
 

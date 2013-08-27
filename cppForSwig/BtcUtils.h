@@ -70,7 +70,11 @@
 #define MSIGPREFIX    WRITE_UINT8_LE((uint8_t)SCRIPT_PREFIX_MULTISIG)
 #define NONSTDPREFIX  WRITE_UINT8_LE((uint8_t)SCRIPT_PREFIX_NONSTD)
 
+// Really, these defs are just for making it painfully clear in the 
+// code what you are attempting to compare.  I'm constantly messing 
+// up == and != when trying to read through the code.
 #define NOT_FOUND_IN_MAP(ITER,MAP) (ITER == MAP.end())
+#define     FOUND_IN_MAP(ITER,MAP) (ITER != MAP.end())
 
 
 class BinaryData;

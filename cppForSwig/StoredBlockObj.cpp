@@ -1253,6 +1253,10 @@ void StoredScriptHistory::unserializeDBValue(BinaryRefReader & brr)
 
    alreadyScannedUpToBlk_ = brr.get_uint32_t();
    totalTxioCount_ = brr.get_var_int();
+
+   // We shouldn't end up with empty SSH's, but should catch it just in case
+   if(totalTxioCount_==0)
+      return;
    
    subHistMap_.clear();
    if(useMultipleEntries_)
@@ -1276,13 +1280,20 @@ void StoredScriptHistory::unserializeDBValue(BinaryRefReader & brr)
       BinaryData fullTxOutKey = brr.get_BinaryData(8);
       TxIOPair txio(fullTxOutKey, txoValue);
 
+      totalUnspent_ = 0;
       if(isSpent)
          txio.setTxIn(brr.get_BinaryDataRef(8));
+      else
+      {
+         if(!isMulti) 
+            totalUnspent_ = txoValue;
+      }
 
       txio.setTxOutFromSelf(isFromSelf);
       txio.setFromCoinbase(isCoinbase);
       txio.setMultisig(isMulti);
       insertTxio(txio);
+   
    }
 }
 
@@ -1300,6 +1311,10 @@ void StoredScriptHistory::serializeDBValue(BinaryWriter & bw ) const
    // 
    bw.put_uint32_t(alreadyScannedUpToBlk_); 
    bw.put_var_int(totalTxioCount_); 
+
+   // We shouldn't end up with empty SSH's, but should catch it just in case
+   if(totalTxioCount_==0)
+      return;
 
    // Most addresses have only one TxIO, so we store it in the base SSH
    // DB entry.   If there's more than one, we serialize nothing else,
@@ -1324,7 +1339,7 @@ void StoredScriptHistory::serializeDBValue(BinaryWriter & bw ) const
 
       // Iter is pointing to the first SubSSH, now get the first/only TxIOPair
       TxIOPair const & txio = iter->second.txioSet_.begin()->second;
-      BinaryDataRef key8B = txio.getDBKeyOfOutput();
+      BinaryData key8B = txio.getDBKeyOfOutput();
 
       BitPacker<uint8_t> bitpack;
       bitpack.putBit(txio.isTxOutFromSelf());
@@ -1335,7 +1350,7 @@ void StoredScriptHistory::serializeDBValue(BinaryWriter & bw ) const
 
       // Always write the value and last 4 bytes of dbkey (first 4 is in dbkey)
       bw.put_uint64_t(txio.getValue());
-      bw.put_BinaryData(key8B.getSliceCopy(4,4));
+      bw.put_BinaryData(key8B);
 
       // If not supposed to write the TxIn, we would've bailed earlier
       if(txio.hasTxInInMain())
@@ -1567,6 +1582,7 @@ bool StoredScriptHistory::eraseTxio(BinaryData const & dbKey8B)
 
    return wasRemoved;
 }
+
 
 
 ////////////////////////////////////////////////////////////////////////////////
