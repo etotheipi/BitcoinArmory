@@ -843,7 +843,8 @@ void InterfaceToLDB::getStoredScriptHistoryByRawScript(
 
 /////////////////////////////////////////////////////////////////////////////
 // This doesn't actually return a SUBhistory, it grabs it and adds it to the
-// regulary-SSH object
+// regular-SSH object.  This does not affect balance or Txio count.  It's 
+// simply filling in data that the SSH may be expected to have.  
 bool InterfaceToLDB::fetchStoredSubHistory( StoredScriptHistory & ssh,
                                             BinaryData hgtX)
 {
@@ -854,30 +855,12 @@ bool InterfaceToLDB::fetchStoredSubHistory( StoredScriptHistory & ssh,
    if(brr.getSize() == 0)
       return false;
 
-   pair<BinaryData, StoredSubHistory> keyValPair;
-   keyValPair.first = hgtX;
-   keyValPair.second.unserializeDBValue(brr);
-   keyValPair.second.uniqueKey_ = ssh.uniqueKey_;
-   keyValPair.second.hgtX_ = hgtX;
-   pair<map<BinaryData, StoredSubHistory>::iterator, bool> insResult; 
-   insResult = ssh.subHistMap_.insert(keyValPair);
-   
-   bool alreadyExisted = !insResult.second;
-   if(alreadyExisted)
-   {
-      // If already existed, we need to merge the DB data into the RAM struct
-      StoredSubHistory & subsshAlreadyInRAM = insResult.first->second;
-      StoredSubHistory & subsshTriedToAdd   = keyValPair.second;
-      LOGINFO << "SubSSH already in SSH...should this happen?";
-      map<BinaryData, TxIOPair>::iterator iter;
-      for(iter  = subsshTriedToAdd.txioSet_.begin();
-          iter != subsshTriedToAdd.txioSet_.end();
-          iter++)
-      {
-         subsshAlreadyInRAM.txioSet_[iter->first] = iter->second;
-      }
-   }
-   return true;
+   StoredSubHistory subssh;
+   subssh.unserializeDBValue(brr);
+   subssh.uniqueKey_ = ssh.uniqueKey_;
+   subssh.hgtX_      = hgtX;
+
+   return ssh.mergeSubHistory(subssh);
 }
 
 

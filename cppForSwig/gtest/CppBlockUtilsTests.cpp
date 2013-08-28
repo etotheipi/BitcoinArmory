@@ -4110,6 +4110,52 @@ TEST_F(StoredBlockObjTest, SScriptHistorySer)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+TEST_F(StoredBlockObjTest, SScriptHistoryUnser)
+{
+   StoredScriptHistory ssh, sshorig;
+   BinaryData toUnser;
+   BinaryData hgtX0 = READHEX("0000ff00");
+   BinaryData hgtX1 = READHEX("00010000");
+   BinaryData uniq  = READHEX("00""01ab01ab01ab01ab01ab01ab01ab01ab01ab01ab");
+
+   sshorig.uniqueKey_ = uniq;
+   sshorig.version_  = 1;
+
+   /////////////////////////////////////////////////////////////////////////////
+   ssh = sshorig;
+   toUnser = READHEX("0400""ffff0000""00");
+   ssh.unserializeDBValue(toUnser);
+
+   EXPECT_EQ(   ssh.subHistMap_.size(), 0);
+   EXPECT_FALSE(ssh.useMultipleEntries_);
+   EXPECT_EQ(   ssh.alreadyScannedUpToBlk_, 65535);
+   EXPECT_EQ(   ssh.totalTxioCount_, 0);
+   EXPECT_EQ(   ssh.totalUnspent_, 0);
+
+   /////////////////////////////////////////////////////////////////////////////
+   ssh = sshorig;
+   toUnser = READHEX("0400""ffff0000""01""00""0100000000000000""0000ff00""0001""0001");
+   ssh.unserializeDBValue(toUnser);
+   BinaryData txioKey = hgtX0 + READHEX("00010001");
+
+   EXPECT_EQ(   ssh.subHistMap_.size(), 1);
+   EXPECT_FALSE(ssh.useMultipleEntries_);
+   EXPECT_EQ(   ssh.alreadyScannedUpToBlk_, 65535);
+   EXPECT_EQ(   ssh.totalTxioCount_, 1);
+   EXPECT_EQ(   ssh.totalUnspent_, READ_UINT64_HEX_LE("0100000000000000"));
+   ASSERT_NE(   ssh.subHistMap_.find(hgtX0), ssh.subHistMap_.end());
+   StoredSubHistory & subssh = ssh.subHistMap_[hgtX0];
+   EXPECT_EQ(   subssh.uniqueKey_, uniq);
+   EXPECT_EQ(   subssh.hgtX_, hgtX0);
+   EXPECT_EQ(   subssh.txioSet_.size(), 1);
+   ASSERT_NE(   subssh.txioSet_.find(txioKey), subssh.txioSet_.end());
+   TxIOPair & txio = subssh.txioSet_[txioKey];
+   EXPECT_EQ(   txio.getValue(), READ_UINT64_HEX_LE("0100000000000000"));
+   EXPECT_EQ(   txio.getDBKeyOfOutput(), READHEX("0000ff0000010001"));
+
+}
+
+////////////////////////////////////////////////////////////////////////////////
 /*
 TEST_F(StoredBlockObjTest, SScriptHistoryMarkSpent)
 {

@@ -1584,6 +1584,40 @@ bool StoredScriptHistory::eraseTxio(BinaryData const & dbKey8B)
 }
 
 
+////////////////////////////////////////////////////////////////////////////////
+bool StoredScriptHistory::mergeSubHistory(StoredSubHistory & subssh)
+{
+   if(uniqueKey_ != subssh.uniqueKey_)
+   {
+      LOGERR << "Attempting to add sub-SSH to incorrect SSH";
+      return false;
+   }
+
+   pair<BinaryData, StoredSubHistory> keyValPair;
+   keyValPair.first = subssh.hgtX_;
+   keyValPair.second = subssh;
+   pair<map<BinaryData, StoredSubHistory>::iterator, bool> insResult; 
+   insResult = subHistMap_.insert(keyValPair);
+   
+   bool alreadyExisted = !insResult.second;
+   if(alreadyExisted)
+   {
+      // If already existed, we need to merge the DB data into the RAM struct
+      StoredSubHistory & subsshAlreadyInRAM = insResult.first->second;
+      StoredSubHistory & subsshTriedToAdd   = subssh;
+      LOGINFO << "SubSSH already in SSH...should this happen?";
+      map<BinaryData, TxIOPair>::iterator iter;
+      for(iter  = subsshTriedToAdd.txioSet_.begin();
+          iter != subsshTriedToAdd.txioSet_.end();
+          iter++)
+      {
+         subsshAlreadyInRAM.txioSet_[iter->first] = iter->second;
+      }
+   }
+   return true;
+}
+
+
 
 ////////////////////////////////////////////////////////////////////////////////
 // This adds the TxOut if it doesn't exist yet

@@ -540,6 +540,8 @@ public:
    bool       eraseTxio(TxIOPair const & txio);
    bool       eraseTxio(BinaryData const & dbKey8B);
 
+   bool       mergeSubHistory(StoredSubHistory & subssh);
+
    bool getFullTxioMap(map<BinaryData, TxIOPair> & mapToFill,
                        bool withMultisig=false);
 
