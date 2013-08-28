@@ -4011,21 +4011,106 @@ TEST_F(StoredBlockObjTest, SScriptHistorySer)
    ssh.version_ = 1;
    ssh.alreadyScannedUpToBlk_ = 65535;
 
-   BinaryData expect;
+   /////////////////////////////////////////////////////////////////////////////
+   // Empty SSH (probably shouldn't even be serialized/written, in the future)
+   BinaryData expect, expSub1, expSub2;
    expect = READHEX("0400""ffff0000""00");
    EXPECT_EQ(ssh.serializeDBValue(), expect);
 
-   TxIOPair txio0(READHEX("0000ff00""0001""0001"), 255);
+   /////////////////////////////////////////////////////////////////////////////
+   // With a single TxIO
+   TxIOPair txio0(READHEX("0000ff00""0001""0001"), READ_UINT64_HEX_LE("0100000000000000"));
    txio0.setFromCoinbase(false);
    txio0.setTxOutFromSelf(false);
    txio0.setMultisig(false);
    ssh.insertTxio(txio0);
 
-   expect = READHEX("0400""ffff0000""01""00""ff00000000000000""0000ff00""0001""0001");
+   expect = READHEX("0400""ffff0000""01""00""0100000000000000""0000ff00""0001""0001");
    EXPECT_EQ(ssh.serializeDBValue(), expect);
+
+   /////////////////////////////////////////////////////////////////////////////
+   // Added a second one, different subSSH
+   TxIOPair txio1(READHEX("00010000""0002""0002"), READ_UINT64_HEX_LE("0002000000000000"));
+   ssh.insertTxio(txio1);
+   expect  = READHEX("0480""ffff0000""02""0102000000000000");
+   expSub1 = READHEX("01""00""0100000000000000""0001""0001");
+   expSub2 = READHEX("01""00""0002000000000000""0002""0002");
+   EXPECT_EQ(ssh.serializeDBValue(), expect);
+   EXPECT_EQ(ssh.subHistMap_[READHEX("0000ff00")].serializeDBValue(), expSub1);
+   EXPECT_EQ(ssh.subHistMap_[READHEX("00010000")].serializeDBValue(), expSub2);
+
+   /////////////////////////////////////////////////////////////////////////////
+   // Added another TxIO to the second subSSH
+   TxIOPair txio2(READHEX("00010000""0004""0004"), READ_UINT64_HEX_LE("0000030000000000"));
+   ssh.insertTxio(txio2);
+   expect  = READHEX("0480""ffff0000""03""0102030000000000");
+   expSub1 = READHEX("01"
+                       "00""0100000000000000""0001""0001");
+   expSub2 = READHEX("02"
+                       "00""0002000000000000""0002""0002"
+                       "00""0000030000000000""0004""0004");
+   EXPECT_EQ(ssh.serializeDBValue(), expect);
+   EXPECT_EQ(ssh.subHistMap_[READHEX("0000ff00")].serializeDBValue(), expSub1);
+   EXPECT_EQ(ssh.subHistMap_[READHEX("00010000")].serializeDBValue(), expSub2);
+
+   /////////////////////////////////////////////////////////////////////////////
+   // Now we explicitly delete a TxIO (with pruning, this should be basically
+   // equivalent to marking it spent, but we are DB-mode-agnostic here, testing
+   // just the base insert/erase operations)
+   ssh.eraseTxio(txio1);
+   expect  = READHEX("0480""ffff0000""02""0100030000000000");
+   expSub1 = READHEX("01"
+                       "00""0100000000000000""0001""0001");
+   expSub2 = READHEX("01"
+                       "00""0000030000000000""0004""0004");
+   EXPECT_EQ(ssh.serializeDBValue(), expect);
+   EXPECT_EQ(ssh.subHistMap_[READHEX("0000ff00")].serializeDBValue(), expSub1);
+   EXPECT_EQ(ssh.subHistMap_[READHEX("00010000")].serializeDBValue(), expSub2);
+   
+   /////////////////////////////////////////////////////////////////////////////
+   // Insert a multisig TxIO -- this should increment totalTxioCount_, but not 
+   // the value 
+   TxIOPair txio3(READHEX("00010000""0006""0006"), READ_UINT64_HEX_LE("0000000400000000"));
+   txio3.setMultisig(true);
+   ssh.insertTxio(txio3);
+   expect  = READHEX("0480""ffff0000""03""0100030000000000");
+   expSub1 = READHEX("01"
+                       "00""0100000000000000""0001""0001");
+   expSub2 = READHEX("02"
+                       "00""0000030000000000""0004""0004"
+                       "10""0000000400000000""0006""0006");
+   EXPECT_EQ(ssh.serializeDBValue(), expect);
+   EXPECT_EQ(ssh.subHistMap_[READHEX("0000ff00")].serializeDBValue(), expSub1);
+   EXPECT_EQ(ssh.subHistMap_[READHEX("00010000")].serializeDBValue(), expSub2);
+   
+   /////////////////////////////////////////////////////////////////////////////
+   // Remove the multisig
+   ssh.eraseTxio(txio3);
+   expect  = READHEX("0480""ffff0000""02""0100030000000000");
+   expSub1 = READHEX("01"
+                       "00""0100000000000000""0001""0001");
+   expSub2 = READHEX("01"
+                       "00""0000030000000000""0004""0004");
+   EXPECT_EQ(ssh.serializeDBValue(), expect);
+   EXPECT_EQ(ssh.subHistMap_[READHEX("0000ff00")].serializeDBValue(), expSub1);
+   EXPECT_EQ(ssh.subHistMap_[READHEX("00010000")].serializeDBValue(), expSub2);
+
+   /////////////////////////////////////////////////////////////////////////////
+   // Remove a full subSSH (it shouldn't be deleted, though, that will be done
+   // by BlockUtils in a post-processing step
+   ssh.eraseTxio(txio0);
+   expect  = READHEX("0480""ffff0000""01""0000030000000000");
+   expSub1 = READHEX("00");
+   expSub2 = READHEX("01"
+                       "00""0000030000000000""0004""0004");
+   EXPECT_EQ(ssh.serializeDBValue(), expect);
+   EXPECT_EQ(ssh.subHistMap_[READHEX("0000ff00")].serializeDBValue(), expSub1);
+   EXPECT_EQ(ssh.subHistMap_[READHEX("00010000")].serializeDBValue(), expSub2);
+   
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+/*
 TEST_F(StoredBlockObjTest, SScriptHistoryMarkSpent)
 {
    DBUtils.setArmoryDbType(ARMORY_DB_SUPER);
@@ -4066,42 +4151,6 @@ TEST_F(StoredBlockObjTest, SScriptHistoryMarkSpent)
    txio3.setTxOutFromSelf(false);
    txio3.setMultisig(true);
 
-   /* original expected values before SSH-subSSH upgrade
-   BinaryData expectSSH_orig = READHEX(
-      "0400""ffffffff"
-      "02"
-         "40""00ca9a3b00000000""01e0780f0007""0001"
-         "a0""0065cd1d00000000""01e0780f0009""0005""01e0780f000f0000"
-      "02"
-         "01e0780f00300003"
-         "01e0780f00300009");
-
-   BinaryData expectSSH_bothspent = READHEX(
-      "0400""ffffffff"
-      "02"
-         "60""00ca9a3b00000000""01e0780f0007""0001""01e0780f00a00008"
-         "a0""0065cd1d00000000""01e0780f0009""0005""01e0780f000f0000"
-      "02"
-         "01e0780f00300003"
-         "01e0780f00300009");
-
-   BinaryData expectSSH_bothunspent = READHEX(
-      "0400""ffffffff"
-      "02"
-         "40""00ca9a3b00000000""01e0780f0007""0001"
-         "80""0065cd1d00000000""01e0780f0009""0005"
-      "02"
-         "01e0780f00300003"
-         "01e0780f00300009");
-
-   BinaryData expectSSH_afterrm = READHEX(
-      "0400""ffffffff"
-      "01"
-         "40""00ca9a3b00000000""01e0780f0007""0001"
-      "02"
-         "01e0780f00300003"
-         "01e0780f00300009");
-   */
    //BinaryData dbKey0 = READHEX("01e078""0f""0007""0001");
    //BinaryData dbKey1 = READHEX("01e078""0f""0009""0005");
    //BinaryData dbKey2 = READHEX("01e078""0f""000f""0000");
@@ -4189,6 +4238,7 @@ TEST_F(StoredBlockObjTest, SScriptHistoryMarkSpent)
    EXPECT_EQ(ssh.serializeDBValue(), expectSSH_afterrm);
 
 }
+*/
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////

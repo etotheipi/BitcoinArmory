@@ -1834,7 +1834,7 @@ void StoredSubHistory::serializeDBValue(BinaryWriter & bw ) const
       }
 
       // We need to write
-      BinaryDataRef key8B = txio.getDBKeyOfOutput();
+      BinaryData key8B = txio.getDBKeyOfOutput();
       if(!key8B.startsWith(hgtX_))
          LOGERR << "How did TxIO key not match hgtX_??";
 
