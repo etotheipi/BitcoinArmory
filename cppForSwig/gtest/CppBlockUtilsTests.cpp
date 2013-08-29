@@ -4113,17 +4113,23 @@ TEST_F(StoredBlockObjTest, SScriptHistorySer)
 TEST_F(StoredBlockObjTest, SScriptHistoryUnser)
 {
    StoredScriptHistory ssh, sshorig;
+   StoredSubHistory subssh1, subssh2;
    BinaryData toUnser;
    BinaryData hgtX0 = READHEX("0000ff00");
    BinaryData hgtX1 = READHEX("00010000");
-   BinaryData uniq  = READHEX("00""01ab01ab01ab01ab01ab01ab01ab01ab01ab01ab");
+   BinaryData uniq  = READHEX("00""0000ffff0000ffff0000ffff0000ffff0000ffff");
 
    sshorig.uniqueKey_ = uniq;
    sshorig.version_  = 1;
 
+   BinaryWriter bw;
+   bw.put_uint8_t(DB_PREFIX_SCRIPT);
+   BinaryData DBPREF = bw.getData();
+
    /////////////////////////////////////////////////////////////////////////////
    ssh = sshorig;
    toUnser = READHEX("0400""ffff0000""00");
+   ssh.unserializeDBKey(DBPREF + uniq);
    ssh.unserializeDBValue(toUnser);
 
    EXPECT_EQ(   ssh.subHistMap_.size(), 0);
@@ -4135,6 +4141,7 @@ TEST_F(StoredBlockObjTest, SScriptHistoryUnser)
    /////////////////////////////////////////////////////////////////////////////
    ssh = sshorig;
    toUnser = READHEX("0400""ffff0000""01""00""0100000000000000""0000ff00""0001""0001");
+   ssh.unserializeDBKey(DBPREF + uniq);
    ssh.unserializeDBValue(toUnser);
    BinaryData txioKey = hgtX0 + READHEX("00010001");
 
@@ -4153,6 +4160,69 @@ TEST_F(StoredBlockObjTest, SScriptHistoryUnser)
    EXPECT_EQ(   txio.getValue(), READ_UINT64_HEX_LE("0100000000000000"));
    EXPECT_EQ(   txio.getDBKeyOfOutput(), READHEX("0000ff0000010001"));
 
+   /////////////////////////////////////////////////////////////////////////////
+   // Test reading a subSSH and merging it with the regular SSH
+   ssh = sshorig;
+   subssh1 = StoredSubHistory();
+
+   ssh.unserializeDBKey(DBPREF + uniq);
+   ssh.unserializeDBValue(READHEX("0480""ffff0000""02""0000030400000000"));
+   subssh1.unserializeDBKey(DBPREF + uniq + hgtX0);
+   subssh1.unserializeDBValue(READHEX("02"
+                                        "00""0000030000000000""0004""0004"
+                                        "00""0000000400000000""0006""0006"));
+
+   BinaryData last4_0 = READHEX("0004""0004");
+   BinaryData last4_1 = READHEX("0006""0006");
+   BinaryData txio0key = hgtX0 + last4_0;
+   BinaryData txio1key = hgtX0 + last4_1;
+   uint64_t val0 = READ_UINT64_HEX_LE("0000030000000000");
+   uint64_t val1 = READ_UINT64_HEX_LE("0000000400000000");
+
+   // Unmerged, so SSH doesn't have the subSSH as part of it yet.
+   EXPECT_EQ(   ssh.subHistMap_.size(), 0);
+   EXPECT_TRUE( ssh.useMultipleEntries_);
+   EXPECT_EQ(   ssh.alreadyScannedUpToBlk_, 65535);
+   EXPECT_EQ(   ssh.totalTxioCount_, 2);
+   EXPECT_EQ(   ssh.totalUnspent_, READ_UINT64_HEX_LE("0000030400000000"));
+
+   EXPECT_EQ(   subssh1.uniqueKey_,  uniq);
+   EXPECT_EQ(   subssh1.hgtX_,       hgtX0);
+   EXPECT_EQ(   subssh1.txioSet_.size(), 2);
+   ASSERT_NE(   subssh1.txioSet_.find(txio0key), subssh1.txioSet_.end());
+   ASSERT_NE(   subssh1.txioSet_.find(txio1key), subssh1.txioSet_.end());
+   EXPECT_EQ(   subssh1.txioSet_[txio0key].getValue(), val0);
+   EXPECT_EQ(   subssh1.txioSet_[txio1key].getValue(), val1);
+   EXPECT_EQ(   subssh1.txioSet_[txio0key].getDBKeyOfOutput(), txio0key);
+   EXPECT_EQ(   subssh1.txioSet_[txio1key].getDBKeyOfOutput(), txio1key);
+   
+   ssh.mergeSubHistory(subssh1);
+   EXPECT_EQ(   ssh.subHistMap_.size(), 1);
+   ASSERT_NE(   ssh.subHistMap_.find(hgtX0), ssh.subHistMap_.end());
+
+   StoredSubHistory & subref = ssh.subHistMap_[hgtX0];
+   EXPECT_EQ(   subref.uniqueKey_, uniq);
+   EXPECT_EQ(   subref.hgtX_,      hgtX0);
+   EXPECT_EQ(   subref.txioSet_.size(), 2);
+   ASSERT_NE(   subref.txioSet_.find(txio0key), subref.txioSet_.end());
+   ASSERT_NE(   subref.txioSet_.find(txio1key), subref.txioSet_.end());
+   EXPECT_EQ(   subref.txioSet_[txio0key].getValue(), val0);
+   EXPECT_EQ(   subref.txioSet_[txio1key].getValue(), val1);
+   EXPECT_EQ(   subref.txioSet_[txio0key].getDBKeyOfOutput(), txio0key);
+   EXPECT_EQ(   subref.txioSet_[txio1key].getDBKeyOfOutput(), txio1key);
+   
+
+
+   /////////////////////////////////////////////////////////////////////////////
+   // Try it with two sub-SSHs and a multisig object
+   //ssh = sshorig;
+   //subssh1 = StoredSubHistory();
+   //subssh2 = StoredSubHistory();
+   //expSub1 = READHEX("01"
+                       //"00""0100000000000000""0001""0001");
+   //expSub2 = READHEX("02"
+                       //"00""0000030000000000""0004""0004"
+                       //"10""0000000400000000""0006""0006");
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -4285,611 +4355,6 @@ TEST_F(StoredBlockObjTest, SScriptHistoryMarkSpent)
 
 }
 */
-
-////////////////////////////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////////////////////////////
-class TxRefTest : public ::testing::Test
-{
-protected:
-};
-
-
-////////////////////////////////////////////////////////////////////////////////
-TEST_F(TxRefTest, TxRefNoInit)
-{
-   TxRef txr;
-   EXPECT_FALSE(txr.isInitialized());
-   //EXPECT_FALSE(txr.isBound());
-
-   EXPECT_EQ(txr.getDBKey(),     BinaryData(0));
-   EXPECT_EQ(txr.getDBKeyRef(),  BinaryDataRef());
-   //EXPECT_EQ(txr.getBlockTimestamp(), UINT32_MAX);
-   EXPECT_EQ(txr.getBlockHeight(),    UINT32_MAX);
-   EXPECT_EQ(txr.getDuplicateID(),    UINT8_MAX );
-   EXPECT_EQ(txr.getBlockTxIndex(),   UINT16_MAX);
-}
-
-////////////////////////////////////////////////////////////////////////////////
-TEST_F(TxRefTest, TxRefKeyParts)
-{
-   TxRef txr;
-   BinaryData    newKey = READHEX("e3c4027f000f");
-   BinaryDataRef newRef(newKey);
-
-
-   txr.setDBKey(newKey);
-   EXPECT_EQ(txr.getDBKey(),    newKey);
-   EXPECT_EQ(txr.getDBKeyRef(), newRef);
-
-   EXPECT_EQ(txr.getBlockHeight(),  0xe3c402);
-   EXPECT_EQ(txr.getDuplicateID(),  127);
-   EXPECT_EQ(txr.getBlockTxIndex(), 15);
-}
-
-
-////////////////////////////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////////////////////////////
-// TODO:  These tests were taken directly from the BlockUtilsTest.cpp where 
-//        they previously ran without issue.  After bringing them over to here,
-//        they now seg-fault.  Disabled for now, since the PartialMerkleTrees 
-//        are not actually in use anywhere yet.
-class DISABLED_PartialMerkleTest : public ::testing::Test
-{
-protected:
-
-   virtual void SetUp(void) 
-   {
-      vector<BinaryData> txList_(7);
-      // The "abcd" quartets are to trigger endianness errors -- without them,
-      // these hashes are palindromes that work regardless of your endian-handling
-      txList_[0] = READHEX("00000000000000000000000000000000"
-                           "000000000000000000000000abcd0000");
-      txList_[1] = READHEX("11111111111111111111111111111111"
-                           "111111111111111111111111abcd1111");
-      txList_[2] = READHEX("22222222222222222222222222222222"
-                           "222222222222222222222222abcd2222");
-      txList_[3] = READHEX("33333333333333333333333333333333"
-                           "333333333333333333333333abcd3333");
-      txList_[4] = READHEX("44444444444444444444444444444444"
-                           "444444444444444444444444abcd4444");
-      txList_[5] = READHEX("55555555555555555555555555555555"
-                           "555555555555555555555555abcd5555");
-      txList_[6] = READHEX("66666666666666666666666666666666"
-                           "666666666666666666666666abcd6666");
-   
-      vector<BinaryData> merkleTree_ = BtcUtils::calculateMerkleTree(txList_); 
-
-      /*
-      cout << "Merkle Tree looks like the following (7 tx): " << endl;
-      cout << "The ** indicates the nodes we care about for partial tree test" << endl;
-      cout << "                                                    \n";
-      cout << "                   _____0a10_____                   \n";
-      cout << "                  /              \\                  \n";
-      cout << "                _/                \\_                \n";
-      cout << "            65df                    b4d6            \n";
-      cout << "          /      \\                /      \\          \n";
-      cout << "      6971        22dc        5675        d0b6      \n";
-      cout << "     /    \\      /    \\      /    \\      /          \n";
-      cout << "   0000  1111  2222  3333  4444  5555  6666         \n";
-      cout << "    **                            **                \n";
-      cout << "    " << endl;
-      cout << endl;
-
-      cout << "Full Merkle Tree (this one has been unit tested before):" << endl;
-      for(uint32_t i=0; i<merkleTree_.size(); i++)
-         cout << "    " << i << " " << merkleTree_[i].toHexStr() << endl;
-      */
-   }
-
-   vector<BinaryData> txList_;
-   vector<BinaryData> merkleTree_;
-};
-
-
-
-////////////////////////////////////////////////////////////////////////////////
-TEST_F(DISABLED_PartialMerkleTest, FullTree)
-{
-   vector<bool> isOurs(7);
-   isOurs[0] = true;
-   isOurs[1] = true;
-   isOurs[2] = true;
-   isOurs[3] = true;
-   isOurs[4] = true;
-   isOurs[5] = true;
-   isOurs[6] = true;
-
-   //cout << "Start serializing a full tree" << endl;
-   PartialMerkleTree pmtFull(7, &isOurs, &txList_);
-   BinaryData pmtSerFull = pmtFull.serialize();
-
-   //cout << "Finished serializing (full)" << endl;
-   //cout << "Merkle Root: " << pmtFull.getMerkleRoot().toHexStr() << endl;
-
-   //cout << "Starting unserialize (full):" << endl;
-   //cout << "Serialized: " << pmtSerFull.toHexStr() << endl;
-   PartialMerkleTree pmtFull2(7);
-   pmtFull2.unserialize(pmtSerFull);
-   BinaryData pmtSerFull2 = pmtFull2.serialize();
-   //cout << "Reserializ: " << pmtSerFull2.toHexStr() << endl;
-   //cout << "Equal? " << (pmtSerFull==pmtSerFull2 ? "True" : "False") << endl;
-
-   //cout << "Print Tree:" << endl;
-   //pmtFull2.pprintTree();
-   EXPECT_EQ(pmtSerFull, pmtSerFull2);
-}
-
-
-////////////////////////////////////////////////////////////////////////////////
-TEST_F(DISABLED_PartialMerkleTest, SingleLeaf)
-{
-   vector<bool> isOurs(7);
-   /////////////////////////////////////////////////////////////////////////////
-   // Test all 7 single-flagged trees
-   for(uint32_t i=0; i<7; i++)
-   {
-      for(uint32_t j=0; j<7; j++)
-         isOurs[j] = i==j;
-
-      PartialMerkleTree pmt(7, &isOurs, &txList_);
-      //cout << "Serializing (partial)" << endl;
-      BinaryData pmtSer = pmt.serialize();
-      PartialMerkleTree pmt2(7);
-      //cout << "Unserializing (partial)" << endl;
-      pmt2.unserialize(pmtSer);
-      //cout << "Reserializing (partial)" << endl;
-      BinaryData pmtSer2 = pmt2.serialize();
-      //cout << "Serialized (Partial): " << pmtSer.toHexStr() << endl;
-      //cout << "Reserializ (Partial): " << pmtSer.toHexStr() << endl;
-      //cout << "Equal? " << (pmtSer==pmtSer2 ? "True" : "False") << endl;
-
-      //cout << "Print Tree:" << endl;
-      //pmt2.pprintTree();
-      EXPECT_EQ(pmtSer, pmtSer2);
-   }
-}
-
-
-////////////////////////////////////////////////////////////////////////////////
-TEST_F(DISABLED_PartialMerkleTest, MultiLeaf)
-{
-   // Use deterministic seed
-   srand(0);
-
-   vector<bool> isOurs(7);
-
-   /////////////////////////////////////////////////////////////////////////////
-   // Test a variety of 3-flagged trees
-   for(uint32_t i=0; i<512; i++)
-   {
-      if(i<256)
-      { 
-         // 2/3 of leaves will be selected
-         for(uint32_t j=0; j<7; j++)
-            isOurs[j] = (rand() % 3 < 2);  
-      }
-      else
-      {
-         // 1/3 of leaves will be selected
-         for(uint32_t j=0; j<7; j++)
-            isOurs[j] = (rand() % 3 < 1);  
-      }
-
-      PartialMerkleTree pmt(7, &isOurs, &txList_);
-      //cout << "Serializing (partial)" << endl;
-      BinaryData pmtSer = pmt.serialize();
-      PartialMerkleTree pmt2(7);
-      //cout << "Unserializing (partial)" << endl;
-      pmt2.unserialize(pmtSer);
-      //cout << "Reserializing (partial)" << endl;
-      BinaryData pmtSer2 = pmt2.serialize();
-      //cout << "Serialized (Partial): " << pmtSer.toHexStr() << endl;
-      //cout << "Reserializ (Partial): " << pmtSer.toHexStr() << endl;
-      cout << "Equal? " << (pmtSer==pmtSer2 ? "True" : "False") << endl;
-
-      //cout << "Print Tree:" << endl;
-      //pmt2.pprintTree();
-      EXPECT_EQ(pmtSer, pmtSer2);
-   }
-}
-
-
-////////////////////////////////////////////////////////////////////////////////
-TEST_F(DISABLED_PartialMerkleTest, EmptyTree)
-{
-   vector<bool> isOurs(7);
-   isOurs[0] = false;
-   isOurs[1] = false;
-   isOurs[2] = false;
-   isOurs[3] = false;
-   isOurs[4] = false;
-   isOurs[5] = false;
-   isOurs[6] = false;
-
-   //cout << "Start serializing a full tree" << endl;
-   PartialMerkleTree pmtFull(7, &isOurs, &txList_);
-   BinaryData pmtSerFull = pmtFull.serialize();
-
-   //cout << "Finished serializing (full)" << endl;
-   //cout << "Merkle Root: " << pmtFull.getMerkleRoot().toHexStr() << endl;
-
-   //cout << "Starting unserialize (full):" << endl;
-   //cout << "Serialized: " << pmtSerFull.toHexStr() << endl;
-   PartialMerkleTree pmtFull2(7);
-   pmtFull2.unserialize(pmtSerFull);
-   BinaryData pmtSerFull2 = pmtFull2.serialize();
-   //cout << "Reserializ: " << pmtSerFull2.toHexStr() << endl;
-   //cout << "Equal? " << (pmtSerFull==pmtSerFull2 ? "True" : "False") << endl;
-
-   //cout << "Print Tree:" << endl;
-   //pmtFull2.pprintTree();
-   EXPECT_EQ(pmtSerFull, pmtSerFull2);
-   
-}
-
-
-////////////////////////////////////////////////////////////////////////////////
-class BlockUtilsTest : public ::testing::Test
-{
-protected:
-
-   /////////////////////////////////////////////////////////////////////////////
-   virtual void SetUp(void) 
-   {
-      iface_ = LevelDBWrapper::GetInterfacePtr();
-      magic_ = READHEX(MAINNET_MAGIC_BYTES);
-      ghash_ = READHEX(MAINNET_GENESIS_HASH_HEX);
-      gentx_ = READHEX(MAINNET_GENESIS_TX_HASH_HEX);
-      zeros_ = READHEX("00000000");
-      DBUtils.setArmoryDbType(ARMORY_DB_FULL);
-      DBUtils.setDbPruneType(DB_PRUNE_NONE);
-
-      blkdir_  = string("./blkfiletest");
-      homedir_ = string("./fakehomedir");
-      ldbdir_  = string("./ldbtestdir");
-
-      iface_->openDatabases( ldbdir_, ghash_, gentx_, magic_, 
-                             ARMORY_DB_SUPER, DB_PRUNE_NONE);
-      if(!iface_->databasesAreOpen())
-         LOGERR << "ERROR OPENING DATABASES FOR TESTING!";
-
-      mkdir(blkdir_);
-      mkdir(homedir_);
-
-      // Put the first 5 blocks into the blkdir
-      blk0dat_ = BtcUtils::getBlkFilename(blkdir_, 0);
-      copyFile("../reorgTest/blk_0_to_4.dat", blk0dat_);
-
-      TheBDM.SelectNetwork("Main");
-      TheBDM.SetBlkFileLocation(blkdir_);
-      TheBDM.SetHomeDirLocation(homedir_);
-
-      blkHash0 = READHEX("6fe28c0ab6f1b372c1a6a246ae63f74f931e8365e15a089c68d6190000000000");
-      blkHash1 = READHEX("1b5514b83257d924be7f10c65b95b1f3c0e50081e1dfd8943eece5eb00000000");
-      blkHash2 = READHEX("979fc39616bf1dc6b1f88167f76383d44d65ccd0fc99b7f91bcb2c9500000000");
-      blkHash3 = READHEX("50f8231e5fd476f470e1ba4937bc97cb304136c96c765339308935bc00000000");
-      blkHash4 = READHEX("8e121ba0d275f49a21bbc171d7d49890de13c9b9733e0104654d262f00000000");
-      blkHash3A= READHEX("dd63f62ef59d5b6a6da2a36407f76e4e28026a3fd3a46700d284424700000000");
-      blkHash4A= READHEX("bfa204022816102169b4e1d4f78cdf77258048f6d14282144cc01d5500000000");
-      blkHash5A= READHEX("4e049fd71ef7381a73e4f550d97812d1eb0fbd1489c1774e18855f1900000000");
-
-      addrA_ = READHEX("62e907b15cbf27d5425399ebf6f0fb50ebb88f18");
-      addrB_ = READHEX("ee26c56fc1d942be8d7a24b2a1001dd894693980");
-      addrC_ = READHEX("cb2abde8bccacc32e893df3a054b9ef7f227a4ce");
-      addrD_ = READHEX("c522664fb0e55cdc5c0cea73b4aad97ec8343232");
-   }
-
-
-   /////////////////////////////////////////////////////////////////////////////
-   virtual void TearDown(void)
-   {
-      rmdir(blkdir_);
-      rmdir(homedir_);
-
-      char* delstr = new char[4096];
-      sprintf(delstr, "%s/level*", ldbdir_.c_str());
-      rmdir(delstr);
-      delete[] delstr;
-
-      BlockDataManager_LevelDB::DestroyInstance();
-   }
-
-
-   /////////////////////////////////////////////////////////////////////////////
-   // Simple method for copying files (works in all OS, probably not efficient)
-   bool copyFile(string src, string dst, uint32_t nbytes=UINT32_MAX)
-   {
-      uint32_t srcsz = BtcUtils::GetFileSize(src);
-      if(srcsz == FILE_DOES_NOT_EXIST)
-         return false;
-
-      srcsz = min(srcsz, nbytes);
-   
-      BinaryData temp(srcsz);
-      ifstream is(src.c_str(), ios::in  | ios::binary);
-      is.read((char*)temp.getPtr(), srcsz);
-      is.close();
-   
-      ofstream os(dst.c_str(), ios::out | ios::binary);
-      os.write((char*)temp.getPtr(), srcsz);
-      os.close();
-      return true;
-   }
-
-   /////////////////////////////////////////////////////////////////////////////
-   // Simple method for copying files (works in all OS, probably not efficient)
-   bool appendFile(string src, string dst)
-   {
-      uint32_t srcsz = BtcUtils::GetFileSize(src);
-      if(srcsz == FILE_DOES_NOT_EXIST)
-         return false;
-   
-      BinaryData temp(srcsz);
-      ifstream is(src.c_str(), ios::in  | ios::binary);
-      is.read((char*)temp.getPtr(), srcsz);
-      is.close();
-   
-      ofstream os(dst.c_str(), ios::app | ios::binary);
-      os.write((char*)temp.getPtr(), srcsz);
-      os.close();
-      return true;
-   }
-
-#if defined(_MSC_VER) || defined(__MINGW32__)
-   compile_error_fixme_what_to_do_in_windows;
-#else
-
-   /////////////////////////////////////////////////////////////////////////////
-   void rmdir(string src)
-   {
-      char* syscmd = new char[4096];
-      sprintf(syscmd, "rm -rf %s", src.c_str());
-      system(syscmd);
-      delete[] syscmd;
-   }
-
-   /////////////////////////////////////////////////////////////////////////////
-   void mkdir(string newdir)
-   {
-      char* syscmd = new char[4096];
-      sprintf(syscmd, "mkdir -p %s", newdir.c_str());
-      system(syscmd);
-      delete[] syscmd;
-   }
-#endif
-
-   InterfaceToLDB* iface_;
-   BinaryData magic_;
-   BinaryData ghash_;
-   BinaryData gentx_;
-   BinaryData zeros_;
-
-   string blkdir_;
-   string homedir_;
-   string ldbdir_;
-   string blk0dat_;;
-
-   BinaryData blkHash0;
-   BinaryData blkHash1;
-   BinaryData blkHash2;
-   BinaryData blkHash3;
-   BinaryData blkHash4;
-   BinaryData blkHash3A;
-   BinaryData blkHash4A;
-   BinaryData blkHash5A;
-
-   BinaryData addrA_;
-   BinaryData addrB_;
-   BinaryData addrC_;
-   BinaryData addrD_;
-};
-
-
-////////////////////////////////////////////////////////////////////////////////
-TEST_F(BlockUtilsTest, HeadersOnly)
-{
-   EXPECT_EQ(TheBDM.getNumBlocks(), 0);
-   TheBDM.processAllHeadersInBlkFiles(0,1);
-   
-   EXPECT_EQ(TheBDM.getNumBlocks(), 5);
-   EXPECT_EQ(TheBDM.getTopBlockHeight(), 4);
-   EXPECT_EQ(TheBDM.getTopBlockHash(), blkHash4);
-   EXPECT_EQ(iface_->getTopBlockHeight(HEADERS), 4);
-   //iface_->printAllDatabaseEntries(HEADERS);
-}
-
-////////////////////////////////////////////////////////////////////////////////
-TEST_F(BlockUtilsTest, HeadersOnly_Reorg)
-{
-   SETLOGLEVEL(LogLvlError);
-   EXPECT_EQ(TheBDM.getNumBlocks(), 0);
-   TheBDM.processAllHeadersInBlkFiles(0,1);
-   
-   EXPECT_EQ(TheBDM.getNumBlocks(), 5);
-   EXPECT_EQ(TheBDM.getTopBlockHeight(), 4);
-
-   EXPECT_EQ(iface_->getTopBlockHeight(HEADERS), 4);
-   EXPECT_EQ(iface_->getTopBlockHash(HEADERS), blkHash4);
-
-   copyFile("../reorgTest/blk_3A.dat", BtcUtils::getBlkFilename(blkdir_, 1));
-   TheBDM.processAllHeadersInBlkFiles(1,2);
-   EXPECT_EQ(iface_->getTopBlockHeight(HEADERS), 4);
-   EXPECT_EQ(iface_->getTopBlockHash(HEADERS), blkHash4);
-   EXPECT_FALSE(TheBDM.getHeaderByHash(blkHash3A)->isMainBranch());
-   EXPECT_TRUE( TheBDM.getHeaderByHash(blkHash3 )->isMainBranch());
-
-   copyFile("../reorgTest/blk_4A.dat", BtcUtils::getBlkFilename(blkdir_, 2));
-   TheBDM.processAllHeadersInBlkFiles(2,3);
-   EXPECT_EQ(iface_->getTopBlockHeight(HEADERS), 4);
-   EXPECT_EQ(iface_->getTopBlockHash(HEADERS), blkHash4);
-   EXPECT_FALSE(TheBDM.getHeaderByHash(blkHash3A)->isMainBranch());
-   EXPECT_TRUE( TheBDM.getHeaderByHash(blkHash3 )->isMainBranch());
-   EXPECT_FALSE(TheBDM.getHeaderByHash(blkHash4A)->isMainBranch());
-   EXPECT_TRUE( TheBDM.getHeaderByHash(blkHash4 )->isMainBranch());
-
-   copyFile("../reorgTest/blk_5A.dat", BtcUtils::getBlkFilename(blkdir_, 3));
-   TheBDM.processAllHeadersInBlkFiles(3,4);
-   EXPECT_EQ(iface_->getTopBlockHeight(HEADERS), 5);
-   EXPECT_EQ(iface_->getTopBlockHeight(HEADERS), 5);
-   EXPECT_EQ(iface_->getTopBlockHash(HEADERS), blkHash5A);
-   EXPECT_FALSE(TheBDM.getHeaderByHash(blkHash3 )->isMainBranch());
-   EXPECT_TRUE( TheBDM.getHeaderByHash(blkHash3A)->isMainBranch());
-   EXPECT_FALSE(TheBDM.getHeaderByHash(blkHash4 )->isMainBranch());
-   EXPECT_TRUE( TheBDM.getHeaderByHash(blkHash4A)->isMainBranch());
-
-   SETLOGLEVEL(LogLvlDebug2);
-}
-
-////////////////////////////////////////////////////////////////////////////////
-TEST_F(BlockUtilsTest, Load5Blocks)
-{
-   DBUtils.setArmoryDbType(ARMORY_DB_SUPER);
-   DBUtils.setDbPruneType(DB_PRUNE_NONE);
-   TheBDM.rebuildDatabasesFromBlkFiles(); 
-
-   StoredScriptHistory ssh;
-
-   iface_->getStoredScriptHistory(ssh, HASH160PREFIX + addrA_);
-   EXPECT_EQ(ssh.getScriptBalance(),  100*COIN);
-   EXPECT_EQ(ssh.getScriptReceived(), 100*COIN);
-   EXPECT_EQ(ssh.totalTxioCount_,       2);
-
-   iface_->getStoredScriptHistory(ssh, HASH160PREFIX + addrB_);
-   EXPECT_EQ(ssh.getScriptBalance(),    0*COIN);
-   EXPECT_EQ(ssh.getScriptReceived(), 140*COIN);
-   EXPECT_EQ(ssh.totalTxioCount_,       3);
-
-   iface_->getStoredScriptHistory(ssh, HASH160PREFIX + addrC_);
-   EXPECT_EQ(ssh.getScriptBalance(),   50*COIN);
-   EXPECT_EQ(ssh.getScriptReceived(),  60*COIN);
-   EXPECT_EQ(ssh.totalTxioCount_,       2);
-
-   iface_->getStoredScriptHistory(ssh, HASH160PREFIX + addrD_);
-   EXPECT_EQ(ssh.getScriptBalance(),  100*COIN);
-   EXPECT_EQ(ssh.getScriptReceived(), 100*COIN);
-   EXPECT_EQ(ssh.totalTxioCount_,       3);
-}
-
-////////////////////////////////////////////////////////////////////////////////
-TEST_F(BlockUtilsTest, Load4BlocksPlus1)
-{
-   // Copy only the first four blocks.  Will copy the full file next to test
-   // readBlkFileUpdate method on non-reorg blocks.
-   copyFile("../reorgTest/blk_0_to_4.dat", blk0dat_, 1596);
-   TheBDM.rebuildDatabasesFromBlkFiles(); 
-   EXPECT_EQ(iface_->getTopBlockHeight(HEADERS), 3);
-   EXPECT_EQ(iface_->getTopBlockHash(HEADERS), blkHash3);
-   EXPECT_TRUE(TheBDM.getHeaderByHash(blkHash3)->isMainBranch());
-   
-   copyFile("../reorgTest/blk_0_to_4.dat", blk0dat_);
-   TheBDM.readBlkFileUpdate(); 
-   EXPECT_EQ(iface_->getTopBlockHeight(HEADERS), 4);
-   EXPECT_EQ(iface_->getTopBlockHash(HEADERS), blkHash4);
-   EXPECT_TRUE(TheBDM.getHeaderByHash(blkHash4)->isMainBranch());
-}
-
-////////////////////////////////////////////////////////////////////////////////
-TEST_F(BlockUtilsTest, Load5Blocks_Plus2NoReorg)
-{
-   DBUtils.setArmoryDbType(ARMORY_DB_SUPER);
-   DBUtils.setDbPruneType(DB_PRUNE_NONE);
-   TheBDM.rebuildDatabasesFromBlkFiles(); 
-
-
-   copyFile("../reorgTest/blk_3A.dat", blk0dat_);
-   TheBDM.readBlkFileUpdate();
-   EXPECT_EQ(TheBDM.getTopBlockHash(),   blkHash4);
-   EXPECT_EQ(TheBDM.getTopBlockHeight(), 4);
-
-   copyFile("../reorgTest/blk_4A.dat", blk0dat_);
-   TheBDM.readBlkFileUpdate();
-   EXPECT_EQ(TheBDM.getTopBlockHash(),   blkHash4);
-   EXPECT_EQ(TheBDM.getTopBlockHeight(), 4);
-
-   //copyFile("../reorgTest/blk_5A.dat", blk0dat_);
-   //iface_->pprintBlkDataDB(BLKDATA);
-}
-
-////////////////////////////////////////////////////////////////////////////////
-TEST_F(BlockUtilsTest, Load5Blocks_FullReorg)
-{
-   DBUtils.setArmoryDbType(ARMORY_DB_SUPER);
-   DBUtils.setDbPruneType(DB_PRUNE_NONE);
-   TheBDM.rebuildDatabasesFromBlkFiles(); 
-
-   copyFile("../reorgTest/blk_3A.dat", blk0dat_);
-   TheBDM.readBlkFileUpdate();
-   copyFile("../reorgTest/blk_4A.dat", blk0dat_);
-   TheBDM.readBlkFileUpdate();
-   copyFile("../reorgTest/blk_5A.dat", blk0dat_);
-   TheBDM.readBlkFileUpdate();
-
-   //iface_->pprintBlkDataDB(BLKDATA);
-
-   StoredScriptHistory ssh;
-
-   iface_->getStoredScriptHistory(ssh, HASH160PREFIX + addrA_);
-   EXPECT_EQ(ssh.getScriptBalance(),  150*COIN);
-   EXPECT_EQ(ssh.getScriptReceived(), 150*COIN);
-   EXPECT_EQ(ssh.totalTxioCount_,       3);
-
-   iface_->getStoredScriptHistory(ssh, HASH160PREFIX + addrB_);
-   EXPECT_EQ(ssh.getScriptBalance(),   10*COIN);
-   EXPECT_EQ(ssh.getScriptReceived(), 150*COIN);
-   EXPECT_EQ(ssh.totalTxioCount_,       4);
-
-   iface_->getStoredScriptHistory(ssh, HASH160PREFIX + addrC_);
-   EXPECT_EQ(ssh.getScriptBalance(),    0*COIN);
-   EXPECT_EQ(ssh.getScriptReceived(),  10*COIN);
-   EXPECT_EQ(ssh.totalTxioCount_,       1);
-
-   iface_->getStoredScriptHistory(ssh, HASH160PREFIX + addrD_);
-   EXPECT_EQ(ssh.getScriptBalance(),  140*COIN);
-   EXPECT_EQ(ssh.getScriptReceived(), 140*COIN);
-   EXPECT_EQ(ssh.totalTxioCount_,       3);
-}
-
-
-////////////////////////////////////////////////////////////////////////////////
-TEST_F(BlockUtilsTest, TimeAndSpaceTest_usuallydisabled)
-{
-   DBUtils.setArmoryDbType(ARMORY_DB_SUPER);
-   DBUtils.setDbPruneType(DB_PRUNE_NONE);
-
-   string oldblkdir = blkdir_;
-   blkdir_  = string("/home/alan/.bitcoin/blocks");
-   TheBDM.SelectNetwork("Main");
-   //blkdir_  = string("/home/alan/.bitcoin/testnet3/blocks");
-   //TheBDM.SelectNetwork("Test");
-   TheBDM.SetBlkFileLocation(blkdir_);
-   TheBDM.SetHomeDirLocation(homedir_);
-
-   StoredScriptHistory ssh;
-   TheBDM.rebuildDatabasesFromBlkFiles(); 
-   BinaryData scrAddr  = READHEX("11b366edfc0a8b66feebae5c2e25a7b6a5d1cf31");
-   BinaryData scrAddr2 = READHEX("39aa3d569e06a1d7926dc4be1193c99bf2eb9ee0");
-   BinaryData scrAddr3 = READHEX("758e51b5e398a32c6abd091b3fde383291267cfa");
-   BinaryData scrAddr4 = READHEX("6c22eb00e3f93acac5ae5d81a9db78a645dfc9c7");
-   EXPECT_EQ(TheBDM.getDBBalanceForHash160(scrAddr), 18*COIN);
-   TheBDM.pprintSSHInfoAboutHash160(scrAddr);
-   TheBDM.pprintSSHInfoAboutHash160(scrAddr2);
-   TheBDM.pprintSSHInfoAboutHash160(scrAddr3);
-   TheBDM.pprintSSHInfoAboutHash160(scrAddr4);
-   blkdir_ = oldblkdir;
-   LOGINFO << "waiting... (please copy the DB dir...)";
-   int pause;
-   cin >> pause;
-}
-
-/*
-////////////////////////////////////////////////////////////////////////////////
-TEST_F(BlockUtils, MultiRescanBlkSafe)
-{
-   bdm_.rescanBlocks(0, 3);
-   bdm_.rescanBlocks(0, 3);
-}
-*/
-
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
@@ -5931,6 +5396,14 @@ TEST_F(LevelDBTest, PutGetStoredTxHints)
 
 
 ////////////////////////////////////////////////////////////////////////////////
+TEST_F(LevelDBTest, PutGetStoredScriptHistory)
+{
+   ASSERT_TRUE(standardOpenDBs());
+
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
 TEST_F(LevelDBTest, DISABLED_PutGetStoredUndoData)
 {
    // We don't actually use undo data at all yet, so I'll skip the tests for now
@@ -5941,6 +5414,611 @@ TEST_F(LevelDBTest, HeaderDump)
 {
    // We don't actually use undo data at all yet, so I'll skip the tests for now
 }
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+class TxRefTest : public ::testing::Test
+{
+protected:
+};
+
+
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(TxRefTest, TxRefNoInit)
+{
+   TxRef txr;
+   EXPECT_FALSE(txr.isInitialized());
+   //EXPECT_FALSE(txr.isBound());
+
+   EXPECT_EQ(txr.getDBKey(),     BinaryData(0));
+   EXPECT_EQ(txr.getDBKeyRef(),  BinaryDataRef());
+   //EXPECT_EQ(txr.getBlockTimestamp(), UINT32_MAX);
+   EXPECT_EQ(txr.getBlockHeight(),    UINT32_MAX);
+   EXPECT_EQ(txr.getDuplicateID(),    UINT8_MAX );
+   EXPECT_EQ(txr.getBlockTxIndex(),   UINT16_MAX);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(TxRefTest, TxRefKeyParts)
+{
+   TxRef txr;
+   BinaryData    newKey = READHEX("e3c4027f000f");
+   BinaryDataRef newRef(newKey);
+
+
+   txr.setDBKey(newKey);
+   EXPECT_EQ(txr.getDBKey(),    newKey);
+   EXPECT_EQ(txr.getDBKeyRef(), newRef);
+
+   EXPECT_EQ(txr.getBlockHeight(),  0xe3c402);
+   EXPECT_EQ(txr.getDuplicateID(),  127);
+   EXPECT_EQ(txr.getBlockTxIndex(), 15);
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// TODO:  These tests were taken directly from the BlockUtilsTest.cpp where 
+//        they previously ran without issue.  After bringing them over to here,
+//        they now seg-fault.  Disabled for now, since the PartialMerkleTrees 
+//        are not actually in use anywhere yet.
+class DISABLED_PartialMerkleTest : public ::testing::Test
+{
+protected:
+
+   virtual void SetUp(void) 
+   {
+      vector<BinaryData> txList_(7);
+      // The "abcd" quartets are to trigger endianness errors -- without them,
+      // these hashes are palindromes that work regardless of your endian-handling
+      txList_[0] = READHEX("00000000000000000000000000000000"
+                           "000000000000000000000000abcd0000");
+      txList_[1] = READHEX("11111111111111111111111111111111"
+                           "111111111111111111111111abcd1111");
+      txList_[2] = READHEX("22222222222222222222222222222222"
+                           "222222222222222222222222abcd2222");
+      txList_[3] = READHEX("33333333333333333333333333333333"
+                           "333333333333333333333333abcd3333");
+      txList_[4] = READHEX("44444444444444444444444444444444"
+                           "444444444444444444444444abcd4444");
+      txList_[5] = READHEX("55555555555555555555555555555555"
+                           "555555555555555555555555abcd5555");
+      txList_[6] = READHEX("66666666666666666666666666666666"
+                           "666666666666666666666666abcd6666");
+   
+      vector<BinaryData> merkleTree_ = BtcUtils::calculateMerkleTree(txList_); 
+
+      /*
+      cout << "Merkle Tree looks like the following (7 tx): " << endl;
+      cout << "The ** indicates the nodes we care about for partial tree test" << endl;
+      cout << "                                                    \n";
+      cout << "                   _____0a10_____                   \n";
+      cout << "                  /              \\                  \n";
+      cout << "                _/                \\_                \n";
+      cout << "            65df                    b4d6            \n";
+      cout << "          /      \\                /      \\          \n";
+      cout << "      6971        22dc        5675        d0b6      \n";
+      cout << "     /    \\      /    \\      /    \\      /          \n";
+      cout << "   0000  1111  2222  3333  4444  5555  6666         \n";
+      cout << "    **                            **                \n";
+      cout << "    " << endl;
+      cout << endl;
+
+      cout << "Full Merkle Tree (this one has been unit tested before):" << endl;
+      for(uint32_t i=0; i<merkleTree_.size(); i++)
+         cout << "    " << i << " " << merkleTree_[i].toHexStr() << endl;
+      */
+   }
+
+   vector<BinaryData> txList_;
+   vector<BinaryData> merkleTree_;
+};
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(DISABLED_PartialMerkleTest, FullTree)
+{
+   vector<bool> isOurs(7);
+   isOurs[0] = true;
+   isOurs[1] = true;
+   isOurs[2] = true;
+   isOurs[3] = true;
+   isOurs[4] = true;
+   isOurs[5] = true;
+   isOurs[6] = true;
+
+   //cout << "Start serializing a full tree" << endl;
+   PartialMerkleTree pmtFull(7, &isOurs, &txList_);
+   BinaryData pmtSerFull = pmtFull.serialize();
+
+   //cout << "Finished serializing (full)" << endl;
+   //cout << "Merkle Root: " << pmtFull.getMerkleRoot().toHexStr() << endl;
+
+   //cout << "Starting unserialize (full):" << endl;
+   //cout << "Serialized: " << pmtSerFull.toHexStr() << endl;
+   PartialMerkleTree pmtFull2(7);
+   pmtFull2.unserialize(pmtSerFull);
+   BinaryData pmtSerFull2 = pmtFull2.serialize();
+   //cout << "Reserializ: " << pmtSerFull2.toHexStr() << endl;
+   //cout << "Equal? " << (pmtSerFull==pmtSerFull2 ? "True" : "False") << endl;
+
+   //cout << "Print Tree:" << endl;
+   //pmtFull2.pprintTree();
+   EXPECT_EQ(pmtSerFull, pmtSerFull2);
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(DISABLED_PartialMerkleTest, SingleLeaf)
+{
+   vector<bool> isOurs(7);
+   /////////////////////////////////////////////////////////////////////////////
+   // Test all 7 single-flagged trees
+   for(uint32_t i=0; i<7; i++)
+   {
+      for(uint32_t j=0; j<7; j++)
+         isOurs[j] = i==j;
+
+      PartialMerkleTree pmt(7, &isOurs, &txList_);
+      //cout << "Serializing (partial)" << endl;
+      BinaryData pmtSer = pmt.serialize();
+      PartialMerkleTree pmt2(7);
+      //cout << "Unserializing (partial)" << endl;
+      pmt2.unserialize(pmtSer);
+      //cout << "Reserializing (partial)" << endl;
+      BinaryData pmtSer2 = pmt2.serialize();
+      //cout << "Serialized (Partial): " << pmtSer.toHexStr() << endl;
+      //cout << "Reserializ (Partial): " << pmtSer.toHexStr() << endl;
+      //cout << "Equal? " << (pmtSer==pmtSer2 ? "True" : "False") << endl;
+
+      //cout << "Print Tree:" << endl;
+      //pmt2.pprintTree();
+      EXPECT_EQ(pmtSer, pmtSer2);
+   }
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(DISABLED_PartialMerkleTest, MultiLeaf)
+{
+   // Use deterministic seed
+   srand(0);
+
+   vector<bool> isOurs(7);
+
+   /////////////////////////////////////////////////////////////////////////////
+   // Test a variety of 3-flagged trees
+   for(uint32_t i=0; i<512; i++)
+   {
+      if(i<256)
+      { 
+         // 2/3 of leaves will be selected
+         for(uint32_t j=0; j<7; j++)
+            isOurs[j] = (rand() % 3 < 2);  
+      }
+      else
+      {
+         // 1/3 of leaves will be selected
+         for(uint32_t j=0; j<7; j++)
+            isOurs[j] = (rand() % 3 < 1);  
+      }
+
+      PartialMerkleTree pmt(7, &isOurs, &txList_);
+      //cout << "Serializing (partial)" << endl;
+      BinaryData pmtSer = pmt.serialize();
+      PartialMerkleTree pmt2(7);
+      //cout << "Unserializing (partial)" << endl;
+      pmt2.unserialize(pmtSer);
+      //cout << "Reserializing (partial)" << endl;
+      BinaryData pmtSer2 = pmt2.serialize();
+      //cout << "Serialized (Partial): " << pmtSer.toHexStr() << endl;
+      //cout << "Reserializ (Partial): " << pmtSer.toHexStr() << endl;
+      cout << "Equal? " << (pmtSer==pmtSer2 ? "True" : "False") << endl;
+
+      //cout << "Print Tree:" << endl;
+      //pmt2.pprintTree();
+      EXPECT_EQ(pmtSer, pmtSer2);
+   }
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(DISABLED_PartialMerkleTest, EmptyTree)
+{
+   vector<bool> isOurs(7);
+   isOurs[0] = false;
+   isOurs[1] = false;
+   isOurs[2] = false;
+   isOurs[3] = false;
+   isOurs[4] = false;
+   isOurs[5] = false;
+   isOurs[6] = false;
+
+   //cout << "Start serializing a full tree" << endl;
+   PartialMerkleTree pmtFull(7, &isOurs, &txList_);
+   BinaryData pmtSerFull = pmtFull.serialize();
+
+   //cout << "Finished serializing (full)" << endl;
+   //cout << "Merkle Root: " << pmtFull.getMerkleRoot().toHexStr() << endl;
+
+   //cout << "Starting unserialize (full):" << endl;
+   //cout << "Serialized: " << pmtSerFull.toHexStr() << endl;
+   PartialMerkleTree pmtFull2(7);
+   pmtFull2.unserialize(pmtSerFull);
+   BinaryData pmtSerFull2 = pmtFull2.serialize();
+   //cout << "Reserializ: " << pmtSerFull2.toHexStr() << endl;
+   //cout << "Equal? " << (pmtSerFull==pmtSerFull2 ? "True" : "False") << endl;
+
+   //cout << "Print Tree:" << endl;
+   //pmtFull2.pprintTree();
+   EXPECT_EQ(pmtSerFull, pmtSerFull2);
+   
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+class BlockUtilsTest : public ::testing::Test
+{
+protected:
+
+   /////////////////////////////////////////////////////////////////////////////
+   virtual void SetUp(void) 
+   {
+      iface_ = LevelDBWrapper::GetInterfacePtr();
+      magic_ = READHEX(MAINNET_MAGIC_BYTES);
+      ghash_ = READHEX(MAINNET_GENESIS_HASH_HEX);
+      gentx_ = READHEX(MAINNET_GENESIS_TX_HASH_HEX);
+      zeros_ = READHEX("00000000");
+      DBUtils.setArmoryDbType(ARMORY_DB_FULL);
+      DBUtils.setDbPruneType(DB_PRUNE_NONE);
+
+      blkdir_  = string("./blkfiletest");
+      homedir_ = string("./fakehomedir");
+      ldbdir_  = string("./ldbtestdir");
+
+      iface_->openDatabases( ldbdir_, ghash_, gentx_, magic_, 
+                             ARMORY_DB_SUPER, DB_PRUNE_NONE);
+      if(!iface_->databasesAreOpen())
+         LOGERR << "ERROR OPENING DATABASES FOR TESTING!";
+
+      mkdir(blkdir_);
+      mkdir(homedir_);
+
+      // Put the first 5 blocks into the blkdir
+      blk0dat_ = BtcUtils::getBlkFilename(blkdir_, 0);
+      copyFile("../reorgTest/blk_0_to_4.dat", blk0dat_);
+
+      TheBDM.SelectNetwork("Main");
+      TheBDM.SetBlkFileLocation(blkdir_);
+      TheBDM.SetHomeDirLocation(homedir_);
+
+      blkHash0 = READHEX("6fe28c0ab6f1b372c1a6a246ae63f74f931e8365e15a089c68d6190000000000");
+      blkHash1 = READHEX("1b5514b83257d924be7f10c65b95b1f3c0e50081e1dfd8943eece5eb00000000");
+      blkHash2 = READHEX("979fc39616bf1dc6b1f88167f76383d44d65ccd0fc99b7f91bcb2c9500000000");
+      blkHash3 = READHEX("50f8231e5fd476f470e1ba4937bc97cb304136c96c765339308935bc00000000");
+      blkHash4 = READHEX("8e121ba0d275f49a21bbc171d7d49890de13c9b9733e0104654d262f00000000");
+      blkHash3A= READHEX("dd63f62ef59d5b6a6da2a36407f76e4e28026a3fd3a46700d284424700000000");
+      blkHash4A= READHEX("bfa204022816102169b4e1d4f78cdf77258048f6d14282144cc01d5500000000");
+      blkHash5A= READHEX("4e049fd71ef7381a73e4f550d97812d1eb0fbd1489c1774e18855f1900000000");
+
+      addrA_ = READHEX("62e907b15cbf27d5425399ebf6f0fb50ebb88f18");
+      addrB_ = READHEX("ee26c56fc1d942be8d7a24b2a1001dd894693980");
+      addrC_ = READHEX("cb2abde8bccacc32e893df3a054b9ef7f227a4ce");
+      addrD_ = READHEX("c522664fb0e55cdc5c0cea73b4aad97ec8343232");
+   }
+
+
+   /////////////////////////////////////////////////////////////////////////////
+   virtual void TearDown(void)
+   {
+      rmdir(blkdir_);
+      rmdir(homedir_);
+
+      char* delstr = new char[4096];
+      sprintf(delstr, "%s/level*", ldbdir_.c_str());
+      rmdir(delstr);
+      delete[] delstr;
+
+      BlockDataManager_LevelDB::DestroyInstance();
+   }
+
+
+   /////////////////////////////////////////////////////////////////////////////
+   // Simple method for copying files (works in all OS, probably not efficient)
+   bool copyFile(string src, string dst, uint32_t nbytes=UINT32_MAX)
+   {
+      uint32_t srcsz = BtcUtils::GetFileSize(src);
+      if(srcsz == FILE_DOES_NOT_EXIST)
+         return false;
+
+      srcsz = min(srcsz, nbytes);
+   
+      BinaryData temp(srcsz);
+      ifstream is(src.c_str(), ios::in  | ios::binary);
+      is.read((char*)temp.getPtr(), srcsz);
+      is.close();
+   
+      ofstream os(dst.c_str(), ios::out | ios::binary);
+      os.write((char*)temp.getPtr(), srcsz);
+      os.close();
+      return true;
+   }
+
+   /////////////////////////////////////////////////////////////////////////////
+   // Simple method for copying files (works in all OS, probably not efficient)
+   bool appendFile(string src, string dst)
+   {
+      uint32_t srcsz = BtcUtils::GetFileSize(src);
+      if(srcsz == FILE_DOES_NOT_EXIST)
+         return false;
+   
+      BinaryData temp(srcsz);
+      ifstream is(src.c_str(), ios::in  | ios::binary);
+      is.read((char*)temp.getPtr(), srcsz);
+      is.close();
+   
+      ofstream os(dst.c_str(), ios::app | ios::binary);
+      os.write((char*)temp.getPtr(), srcsz);
+      os.close();
+      return true;
+   }
+
+#if defined(_MSC_VER) || defined(__MINGW32__)
+   compile_error_fixme_what_to_do_in_windows;
+#else
+
+   /////////////////////////////////////////////////////////////////////////////
+   void rmdir(string src)
+   {
+      char* syscmd = new char[4096];
+      sprintf(syscmd, "rm -rf %s", src.c_str());
+      system(syscmd);
+      delete[] syscmd;
+   }
+
+   /////////////////////////////////////////////////////////////////////////////
+   void mkdir(string newdir)
+   {
+      char* syscmd = new char[4096];
+      sprintf(syscmd, "mkdir -p %s", newdir.c_str());
+      system(syscmd);
+      delete[] syscmd;
+   }
+#endif
+
+   InterfaceToLDB* iface_;
+   BinaryData magic_;
+   BinaryData ghash_;
+   BinaryData gentx_;
+   BinaryData zeros_;
+
+   string blkdir_;
+   string homedir_;
+   string ldbdir_;
+   string blk0dat_;;
+
+   BinaryData blkHash0;
+   BinaryData blkHash1;
+   BinaryData blkHash2;
+   BinaryData blkHash3;
+   BinaryData blkHash4;
+   BinaryData blkHash3A;
+   BinaryData blkHash4A;
+   BinaryData blkHash5A;
+
+   BinaryData addrA_;
+   BinaryData addrB_;
+   BinaryData addrC_;
+   BinaryData addrD_;
+};
+
+
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(BlockUtilsTest, HeadersOnly)
+{
+   EXPECT_EQ(TheBDM.getNumBlocks(), 0);
+   TheBDM.processAllHeadersInBlkFiles(0,1);
+   
+   EXPECT_EQ(TheBDM.getNumBlocks(), 5);
+   EXPECT_EQ(TheBDM.getTopBlockHeight(), 4);
+   EXPECT_EQ(TheBDM.getTopBlockHash(), blkHash4);
+   EXPECT_EQ(iface_->getTopBlockHeight(HEADERS), 4);
+   //iface_->printAllDatabaseEntries(HEADERS);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(BlockUtilsTest, HeadersOnly_Reorg)
+{
+   SETLOGLEVEL(LogLvlError);
+   EXPECT_EQ(TheBDM.getNumBlocks(), 0);
+   TheBDM.processAllHeadersInBlkFiles(0,1);
+   
+   EXPECT_EQ(TheBDM.getNumBlocks(), 5);
+   EXPECT_EQ(TheBDM.getTopBlockHeight(), 4);
+
+   EXPECT_EQ(iface_->getTopBlockHeight(HEADERS), 4);
+   EXPECT_EQ(iface_->getTopBlockHash(HEADERS), blkHash4);
+
+   copyFile("../reorgTest/blk_3A.dat", BtcUtils::getBlkFilename(blkdir_, 1));
+   TheBDM.processAllHeadersInBlkFiles(1,2);
+   EXPECT_EQ(iface_->getTopBlockHeight(HEADERS), 4);
+   EXPECT_EQ(iface_->getTopBlockHash(HEADERS), blkHash4);
+   EXPECT_FALSE(TheBDM.getHeaderByHash(blkHash3A)->isMainBranch());
+   EXPECT_TRUE( TheBDM.getHeaderByHash(blkHash3 )->isMainBranch());
+
+   copyFile("../reorgTest/blk_4A.dat", BtcUtils::getBlkFilename(blkdir_, 2));
+   TheBDM.processAllHeadersInBlkFiles(2,3);
+   EXPECT_EQ(iface_->getTopBlockHeight(HEADERS), 4);
+   EXPECT_EQ(iface_->getTopBlockHash(HEADERS), blkHash4);
+   EXPECT_FALSE(TheBDM.getHeaderByHash(blkHash3A)->isMainBranch());
+   EXPECT_TRUE( TheBDM.getHeaderByHash(blkHash3 )->isMainBranch());
+   EXPECT_FALSE(TheBDM.getHeaderByHash(blkHash4A)->isMainBranch());
+   EXPECT_TRUE( TheBDM.getHeaderByHash(blkHash4 )->isMainBranch());
+
+   copyFile("../reorgTest/blk_5A.dat", BtcUtils::getBlkFilename(blkdir_, 3));
+   TheBDM.processAllHeadersInBlkFiles(3,4);
+   EXPECT_EQ(iface_->getTopBlockHeight(HEADERS), 5);
+   EXPECT_EQ(iface_->getTopBlockHeight(HEADERS), 5);
+   EXPECT_EQ(iface_->getTopBlockHash(HEADERS), blkHash5A);
+   EXPECT_FALSE(TheBDM.getHeaderByHash(blkHash3 )->isMainBranch());
+   EXPECT_TRUE( TheBDM.getHeaderByHash(blkHash3A)->isMainBranch());
+   EXPECT_FALSE(TheBDM.getHeaderByHash(blkHash4 )->isMainBranch());
+   EXPECT_TRUE( TheBDM.getHeaderByHash(blkHash4A)->isMainBranch());
+
+   SETLOGLEVEL(LogLvlDebug2);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(BlockUtilsTest, Load5Blocks)
+{
+   DBUtils.setArmoryDbType(ARMORY_DB_SUPER);
+   DBUtils.setDbPruneType(DB_PRUNE_NONE);
+   TheBDM.rebuildDatabasesFromBlkFiles(); 
+
+   StoredScriptHistory ssh;
+
+   iface_->getStoredScriptHistory(ssh, HASH160PREFIX + addrA_);
+   EXPECT_EQ(ssh.getScriptBalance(),  100*COIN);
+   EXPECT_EQ(ssh.getScriptReceived(), 100*COIN);
+   EXPECT_EQ(ssh.totalTxioCount_,       2);
+
+   iface_->getStoredScriptHistory(ssh, HASH160PREFIX + addrB_);
+   EXPECT_EQ(ssh.getScriptBalance(),    0*COIN);
+   EXPECT_EQ(ssh.getScriptReceived(), 140*COIN);
+   EXPECT_EQ(ssh.totalTxioCount_,       3);
+
+   iface_->getStoredScriptHistory(ssh, HASH160PREFIX + addrC_);
+   EXPECT_EQ(ssh.getScriptBalance(),   50*COIN);
+   EXPECT_EQ(ssh.getScriptReceived(),  60*COIN);
+   EXPECT_EQ(ssh.totalTxioCount_,       2);
+
+   iface_->getStoredScriptHistory(ssh, HASH160PREFIX + addrD_);
+   EXPECT_EQ(ssh.getScriptBalance(),  100*COIN);
+   EXPECT_EQ(ssh.getScriptReceived(), 100*COIN);
+   EXPECT_EQ(ssh.totalTxioCount_,       3);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(BlockUtilsTest, Load4BlocksPlus1)
+{
+   // Copy only the first four blocks.  Will copy the full file next to test
+   // readBlkFileUpdate method on non-reorg blocks.
+   copyFile("../reorgTest/blk_0_to_4.dat", blk0dat_, 1596);
+   TheBDM.rebuildDatabasesFromBlkFiles(); 
+   EXPECT_EQ(iface_->getTopBlockHeight(HEADERS), 3);
+   EXPECT_EQ(iface_->getTopBlockHash(HEADERS), blkHash3);
+   EXPECT_TRUE(TheBDM.getHeaderByHash(blkHash3)->isMainBranch());
+   
+   copyFile("../reorgTest/blk_0_to_4.dat", blk0dat_);
+   TheBDM.readBlkFileUpdate(); 
+   EXPECT_EQ(iface_->getTopBlockHeight(HEADERS), 4);
+   EXPECT_EQ(iface_->getTopBlockHash(HEADERS), blkHash4);
+   EXPECT_TRUE(TheBDM.getHeaderByHash(blkHash4)->isMainBranch());
+}
+
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(BlockUtilsTest, Load5Blocks_Plus2NoReorg)
+{
+   DBUtils.setArmoryDbType(ARMORY_DB_SUPER);
+   DBUtils.setDbPruneType(DB_PRUNE_NONE);
+   TheBDM.rebuildDatabasesFromBlkFiles(); 
+
+
+   copyFile("../reorgTest/blk_3A.dat", blk0dat_);
+   TheBDM.readBlkFileUpdate();
+   EXPECT_EQ(TheBDM.getTopBlockHash(),   blkHash4);
+   EXPECT_EQ(TheBDM.getTopBlockHeight(), 4);
+
+   copyFile("../reorgTest/blk_4A.dat", blk0dat_);
+   TheBDM.readBlkFileUpdate();
+   EXPECT_EQ(TheBDM.getTopBlockHash(),   blkHash4);
+   EXPECT_EQ(TheBDM.getTopBlockHeight(), 4);
+
+   //copyFile("../reorgTest/blk_5A.dat", blk0dat_);
+   //iface_->pprintBlkDataDB(BLKDATA);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(BlockUtilsTest, Load5Blocks_FullReorg)
+{
+   DBUtils.setArmoryDbType(ARMORY_DB_SUPER);
+   DBUtils.setDbPruneType(DB_PRUNE_NONE);
+   TheBDM.rebuildDatabasesFromBlkFiles(); 
+
+   copyFile("../reorgTest/blk_3A.dat", blk0dat_);
+   TheBDM.readBlkFileUpdate();
+   copyFile("../reorgTest/blk_4A.dat", blk0dat_);
+   TheBDM.readBlkFileUpdate();
+   copyFile("../reorgTest/blk_5A.dat", blk0dat_);
+   TheBDM.readBlkFileUpdate();
+
+   //iface_->pprintBlkDataDB(BLKDATA);
+
+   StoredScriptHistory ssh;
+
+   iface_->getStoredScriptHistory(ssh, HASH160PREFIX + addrA_);
+   EXPECT_EQ(ssh.getScriptBalance(),  150*COIN);
+   EXPECT_EQ(ssh.getScriptReceived(), 150*COIN);
+   EXPECT_EQ(ssh.totalTxioCount_,       3);
+
+   iface_->getStoredScriptHistory(ssh, HASH160PREFIX + addrB_);
+   EXPECT_EQ(ssh.getScriptBalance(),   10*COIN);
+   EXPECT_EQ(ssh.getScriptReceived(), 150*COIN);
+   EXPECT_EQ(ssh.totalTxioCount_,       4);
+
+   iface_->getStoredScriptHistory(ssh, HASH160PREFIX + addrC_);
+   EXPECT_EQ(ssh.getScriptBalance(),    0*COIN);
+   EXPECT_EQ(ssh.getScriptReceived(),  10*COIN);
+   EXPECT_EQ(ssh.totalTxioCount_,       1);
+
+   iface_->getStoredScriptHistory(ssh, HASH160PREFIX + addrD_);
+   EXPECT_EQ(ssh.getScriptBalance(),  140*COIN);
+   EXPECT_EQ(ssh.getScriptReceived(), 140*COIN);
+   EXPECT_EQ(ssh.totalTxioCount_,       3);
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(BlockUtilsTest, TimeAndSpaceTest_usuallydisabled)
+{
+   DBUtils.setArmoryDbType(ARMORY_DB_SUPER);
+   DBUtils.setDbPruneType(DB_PRUNE_NONE);
+
+   string oldblkdir = blkdir_;
+   blkdir_  = string("/home/alan/.bitcoin/blocks");
+   TheBDM.SelectNetwork("Main");
+   //blkdir_  = string("/home/alan/.bitcoin/testnet3/blocks");
+   //TheBDM.SelectNetwork("Test");
+   TheBDM.SetBlkFileLocation(blkdir_);
+   TheBDM.SetHomeDirLocation(homedir_);
+
+   StoredScriptHistory ssh;
+   TheBDM.rebuildDatabasesFromBlkFiles(); 
+   BinaryData scrAddr  = READHEX("11b366edfc0a8b66feebae5c2e25a7b6a5d1cf31");
+   BinaryData scrAddr2 = READHEX("39aa3d569e06a1d7926dc4be1193c99bf2eb9ee0");
+   BinaryData scrAddr3 = READHEX("758e51b5e398a32c6abd091b3fde383291267cfa");
+   BinaryData scrAddr4 = READHEX("6c22eb00e3f93acac5ae5d81a9db78a645dfc9c7");
+   EXPECT_EQ(TheBDM.getDBBalanceForHash160(scrAddr), 18*COIN);
+   TheBDM.pprintSSHInfoAboutHash160(scrAddr);
+   TheBDM.pprintSSHInfoAboutHash160(scrAddr2);
+   TheBDM.pprintSSHInfoAboutHash160(scrAddr3);
+   TheBDM.pprintSSHInfoAboutHash160(scrAddr4);
+   blkdir_ = oldblkdir;
+   LOGINFO << "waiting... (please copy the DB dir...)";
+   int pause;
+   cin >> pause;
+}
+
+/*
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(BlockUtils, MultiRescanBlkSafe)
+{
+   bdm_.rescanBlocks(0, 3);
+   bdm_.rescanBlocks(0, 3);
+}
+*/
+
+
 
 // This was really just to time the logging to determine how much impact it 
 // has.  It looks like writing to file is about 1,000,000 logs/sec, while 

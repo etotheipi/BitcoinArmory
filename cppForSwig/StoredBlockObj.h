@@ -197,12 +197,12 @@ public:
    static string getPrefixName(uint8_t prefixInt);
    static string getPrefixName(DB_PREFIX pref);
 
-   static bool checkPrefixByte(       BinaryRefReader brr, 
+   static bool checkPrefixByte(       BinaryRefReader & brr, 
                                       DB_PREFIX prefix,
                                       bool rewindWhenDone=false);
-   static bool checkPrefixByteWError( BinaryRefReader brr, 
+   static bool checkPrefixByteWError( BinaryRefReader & brr, 
                                       DB_PREFIX prefix,
-                                      bool rewindWhenDone);
+                                      bool rewindWhenDone=false);
 
    static void setArmoryDbType(ARMORY_DB_TYPE adt) { armoryDbType_ = adt; }
    static void setDbPruneType( DB_PRUNE_TYPE dpt)  { dbPruneType_  = dpt; }
@@ -536,11 +536,13 @@ public:
    bool     haveFullHistoryLoaded(void) const;
 
    TxIOPair*   findTxio(BinaryData const & dbKey8B, bool inclMultisig=false);
-   TxIOPair& insertTxio(TxIOPair const & txio, bool withOverwrite=true);
    bool       eraseTxio(TxIOPair const & txio);
    bool       eraseTxio(BinaryData const & dbKey8B);
 
    bool       mergeSubHistory(StoredSubHistory & subssh);
+   TxIOPair& insertTxio(TxIOPair const & txio, 
+                        bool withOverwrite=true,
+                        bool skipTally=false);
 
    bool getFullTxioMap(map<BinaryData, TxIOPair> & mapToFill,
                        bool withMultisig=false);

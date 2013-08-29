@@ -1292,7 +1292,11 @@ void StoredScriptHistory::unserializeDBValue(BinaryRefReader & brr)
       txio.setTxOutFromSelf(isFromSelf);
       txio.setFromCoinbase(isCoinbase);
       txio.setMultisig(isMulti);
-      insertTxio(txio);
+  
+      // The second "true" is to tell the insert function to skip incrementing
+      // the totalUnspent_ and totalTxioCount_, since that data is already
+      // correct.  
+      insertTxio(txio, true, true); 
    
    }
 }
@@ -1507,7 +1511,9 @@ TxIOPair* StoredScriptHistory::findTxio(BinaryData const & dbKey8B,
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-TxIOPair& StoredScriptHistory::insertTxio(TxIOPair const & txio, bool withOverwrite)
+TxIOPair& StoredScriptHistory::insertTxio(TxIOPair const & txio, 
+                                          bool withOverwrite,
+                                          bool skipTally)
 {
    BinaryData dbKey8  = txio.getDBKeyOfOutput();
    BinaryData first4 = dbKey8.getSliceCopy(0,4);
@@ -1518,23 +1524,28 @@ TxIOPair& StoredScriptHistory::insertTxio(TxIOPair const & txio, bool withOverwr
    {
       // Create a new sub-history add it to its map
       subHistMap_[first4] = StoredSubHistory();
-      totalTxioCount_ += 1;
-      if(!txio.hasTxInInMain() && !txio.isMultisig())
-         totalUnspent_ += txio.getValue();
-      useMultipleEntries_ = (totalTxioCount_>1);
+      subHistMap_[first4].uniqueKey_ = uniqueKey_;
+      subHistMap_[first4].hgtX_ = first4;
+      if(!skipTally)
+      {
+         totalTxioCount_ += 1;
+         if(!txio.hasTxInInMain() && !txio.isMultisig())
+            totalUnspent_ += txio.getValue();
+         useMultipleEntries_ = (totalTxioCount_>1);
+      }
       return subHistMap_[first4].insertTxio(txio, withOverwrite);
    }
    else
    {
       // We have sub-history already, though not sure about this specific Txio
-      if(iterSubHist->second.findTxio(dbKey8) == NULL)
+      if(iterSubHist->second.findTxio(dbKey8) == NULL && !skipTally)
       {
          // We don't have it yet, the insert call will add it
          totalTxioCount_ += 1;
          if(!txio.hasTxInInMain() && !txio.isMultisig())
             totalUnspent_ += txio.getValue();
+         useMultipleEntries_ = (totalTxioCount_>1);
       }
-      useMultipleEntries_ = (totalTxioCount_>1);
       return iterSubHist->second.insertTxio(txio, withOverwrite); 
    }
 }
@@ -2657,9 +2668,9 @@ string GlobalDBUtilities::getPrefixName(DB_PREFIX pref)
 }
 
 /////////////////////////////////////////////////////////////////////////////
-bool GlobalDBUtilities::checkPrefixByteWError( BinaryRefReader brr, 
-                                                DB_PREFIX prefix,
-                                                bool rewindWhenDone)
+bool GlobalDBUtilities::checkPrefixByteWError( BinaryRefReader & brr, 
+                                               DB_PREFIX prefix,
+                                               bool rewindWhenDone)
 {
    uint8_t oneByte = brr.get_uint8_t();
    bool out;
@@ -2680,7 +2691,7 @@ bool GlobalDBUtilities::checkPrefixByteWError( BinaryRefReader brr,
 }
 
 /////////////////////////////////////////////////////////////////////////////
-bool GlobalDBUtilities::checkPrefixByte( BinaryRefReader brr, 
+bool GlobalDBUtilities::checkPrefixByte( BinaryRefReader & brr, 
                                           DB_PREFIX prefix,
                                           bool rewindWhenDone)
 {
