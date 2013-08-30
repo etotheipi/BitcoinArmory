@@ -1948,6 +1948,7 @@ BinaryData StoredSubHistory::getDBKey(bool withPrefix) const
 
    bw.put_BinaryData(uniqueKey_);
    bw.put_BinaryData(hgtX_);
+   return bw.getData();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1967,8 +1968,8 @@ void StoredSubHistory::pprintFullSubSSH(uint32_t indent)
 
    uint32_t hgt = DBUtils.hgtxToHeight(hgtX_);
    uint8_t  dup = DBUtils.hgtxToDupID(hgtX_);
-   cout << "SubSSH: " << uniqueKey_.getSliceCopy(1,4).toHexStr().c_str();
-   cout << " Hgt&Dup: (" << hgt << "," << dup << ")" << endl;
+   cout << "SubSSH: " << hgtX_.toHexStr().c_str();
+   cout << " Hgt&Dup: (" << hgt << "," << (uint32_t)dup << ")" << endl;
 
    // Print all the txioVects
    map<BinaryData, TxIOPair>::iterator iter;

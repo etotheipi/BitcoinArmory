@@ -5400,6 +5400,174 @@ TEST_F(LevelDBTest, PutGetStoredScriptHistory)
 {
    ASSERT_TRUE(standardOpenDBs());
 
+   ///////////////////////////////////////////////////////////////////////////
+   // A whole bunch of setup stuff we need for SSH operations to work right
+   InterfaceToLDB * iface = LevelDBWrapper::GetInterfacePtr();
+   iface->setValidDupIDForHeight(255,0);
+   iface->setValidDupIDForHeight(256,0);
+
+   BinaryData dbkey0 = READHEX("0000ff00""0001""0001");
+   BinaryData dbkey1 = READHEX("0000ff00""0002""0002");
+   BinaryData dbkey2 = READHEX("00010000""0004""0004");
+   BinaryData dbkey3 = READHEX("00010000""0006""0006");
+   uint64_t   val0   = READ_UINT64_HEX_LE("0100000000000000");
+   uint64_t   val1   = READ_UINT64_HEX_LE("0002000000000000");
+   uint64_t   val2   = READ_UINT64_HEX_LE("0000030000000000");
+   uint64_t   val3   = READ_UINT64_HEX_LE("0000000400000000");
+
+   BinaryData PREFIX = READHEX("03");
+   BinaryData RAWTX = READHEX(
+         "01000000016290dce984203b6a5032e543e9e272d8bce934c7de4d15fa0fe44d"
+         "d49ae4ece9010000008b48304502204f2fa458d439f957308bca264689aa175e"
+         "3b7c5f78a901cb450ebd20936b2c500221008ea3883a5b80128e55c9c6070aa6"
+         "264e1e0ce3d18b7cd7e85108ce3d18b7419a0141044202550a5a6d3bb81549c4"
+         "a7803b1ad59cdbba4770439a4923624a8acfc7d34900beb54a24188f7f0a4068"
+         "9d905d4847cc7d6c8d808a457d833c2d44ef83f76bffffffff0242582c0a0000"
+         "00001976a914c1b4695d53b6ee57a28647ce63e45665df6762c288ac80d1f008"
+         "000000001976a9140e0aec36fe2545fb31a41164fb6954adcd96b34288ac0000"
+         "0000");
+   iface->putValue(BLKDATA, DB_PREFIX_TXDATA, dbkey0, RAWTX);
+   iface->putValue(BLKDATA, DB_PREFIX_TXDATA, dbkey1, RAWTX);
+   iface->putValue(BLKDATA, DB_PREFIX_TXDATA, dbkey2, RAWTX);
+   iface->putValue(BLKDATA, DB_PREFIX_TXDATA, dbkey3, RAWTX);
+
+   TxIOPair txio0(dbkey0, val0);
+   TxIOPair txio1(dbkey1, val1);
+   TxIOPair txio2(dbkey2, val2);
+   TxIOPair txio3(dbkey3, val3);
+   txio3.setMultisig(true);
+   ///////////////////////////////////////////////////////////////////////////
+
+   StoredSubHistory * subptr;
+   TxIOPair * txioptr;
+
+   StoredScriptHistory ssh, sshorig, sshtemp;
+   BinaryData hgtX0 = READHEX("0000ff00");
+   BinaryData hgtX1 = READHEX("00010000");
+   BinaryData uniq  = READHEX("00""0000ffff0000ffff0000ffff0000ffff0000ffff");
+   sshorig.uniqueKey_ = uniq;
+   uint32_t blk = READ_UINT32_HEX_LE("ffff0000");
+   sshorig.alreadyScannedUpToBlk_ = blk;
+   sshorig.version_  = 1;
+
+   /////////////////////////////////////////////////////////////////////////////
+   // Haven't actually done anything yet...
+   ssh = sshorig;
+   EXPECT_EQ(ssh.uniqueKey_, uniq);
+   EXPECT_EQ(ssh.alreadyScannedUpToBlk_, blk);
+   EXPECT_EQ(ssh.subHistMap_.size(), 0);
+
+   /////////////////////////////////////////////////////////////////////////////
+   // An empty SSH -- this shouldn't happen in production, but test it anyway
+   iface_->putStoredScriptHistory(ssh);
+   iface_->getStoredScriptHistory(sshtemp, uniq);
+
+   EXPECT_EQ(sshtemp.uniqueKey_, uniq);
+   EXPECT_EQ(sshtemp.alreadyScannedUpToBlk_, blk);
+   EXPECT_EQ(sshtemp.subHistMap_.size(), 0);
+   
+   /////////////////////////////////////////////////////////////////////////////
+   // A single txio
+   ssh = sshorig;
+   ssh.insertTxio(txio0);
+
+   iface_->putStoredScriptHistory(ssh);
+   iface_->getStoredScriptHistory(sshtemp, uniq);
+
+   EXPECT_EQ(sshtemp.uniqueKey_, uniq);
+   EXPECT_EQ(sshtemp.alreadyScannedUpToBlk_, blk);
+   EXPECT_EQ(sshtemp.totalTxioCount_, 1);
+   EXPECT_EQ(sshtemp.totalUnspent_, val0);
+   EXPECT_EQ(sshtemp.subHistMap_.size(), 1);
+   ASSERT_NE(sshtemp.subHistMap_.find(hgtX0), sshtemp.subHistMap_.end());
+   subptr = &sshtemp.subHistMap_[hgtX0];
+   EXPECT_EQ(subptr->uniqueKey_, uniq);
+   EXPECT_EQ(subptr->hgtX_, hgtX0);
+   ASSERT_EQ(subptr->txioSet_.size(), 1);
+   ASSERT_NE(subptr->txioSet_.find(dbkey0), subptr->txioSet_.end());
+   txioptr = &subptr->txioSet_[dbkey0];
+   EXPECT_EQ(txioptr->getDBKeyOfOutput(), dbkey0);
+   EXPECT_EQ(txioptr->getValue(), val0);
+   EXPECT_FALSE(txioptr->isMultisig());
+   
+   /////////////////////////////////////////////////////////////////////////////
+   // Two TxIOPairs in one sub history
+   ssh = sshorig;
+   sshtemp = StoredScriptHistory();
+   ssh.insertTxio(txio0);
+   ssh.insertTxio(txio1);
+
+   cout << "*************************" << endl;
+   iface_->printAllDatabaseEntries(BLKDATA);
+   iface_->pprintBlkDataDB(BLKDATA);
+   iface_->putStoredScriptHistory(ssh);
+   cout << "*************************" << endl;
+   iface_->printAllDatabaseEntries(BLKDATA);
+   iface_->pprintBlkDataDB(BLKDATA);
+   iface_->getStoredScriptHistory(sshtemp, uniq);
+   cout << "*************************" << endl;
+
+   EXPECT_EQ(sshtemp.uniqueKey_, uniq);
+   EXPECT_EQ(sshtemp.alreadyScannedUpToBlk_, blk);
+   EXPECT_EQ(sshtemp.totalTxioCount_, 2);
+   EXPECT_EQ(sshtemp.totalUnspent_, val0+val1);
+   EXPECT_EQ(sshtemp.subHistMap_.size(), 1);
+   ASSERT_NE(sshtemp.subHistMap_.find(hgtX0), sshtemp.subHistMap_.end());
+   subptr = &sshtemp.subHistMap_[hgtX0];
+   EXPECT_EQ(subptr->uniqueKey_, uniq);
+   EXPECT_EQ(subptr->hgtX_, hgtX0);
+   ASSERT_EQ(subptr->txioSet_.size(), 2);
+   ASSERT_NE(subptr->txioSet_.find(dbkey0), subptr->txioSet_.end());
+   txioptr = &subptr->txioSet_[dbkey0];
+   EXPECT_EQ(txioptr->getDBKeyOfOutput(), dbkey0);
+   EXPECT_EQ(txioptr->getValue(), val0);
+   EXPECT_FALSE(txioptr->isMultisig());
+   txioptr = &subptr->txioSet_[dbkey1];
+   EXPECT_EQ(txioptr->getDBKeyOfOutput(), dbkey1);
+   EXPECT_EQ(txioptr->getValue(), val1);
+   EXPECT_FALSE(txioptr->isMultisig());
+   
+
+   /////////////////////////////////////////////////////////////////////////////
+   // Add new sub-history with multisig
+   ssh = sshorig;
+   ssh.insertTxio(txio0);
+   ssh.insertTxio(txio1);
+   ssh.insertTxio(txio3);
+
+   iface_->putStoredScriptHistory(ssh);
+   iface_->getStoredScriptHistory(sshtemp, uniq);
+
+   EXPECT_EQ(sshtemp.uniqueKey_, uniq);
+   EXPECT_EQ(sshtemp.alreadyScannedUpToBlk_, blk);
+   EXPECT_EQ(sshtemp.totalTxioCount_, 3);
+   EXPECT_EQ(sshtemp.totalUnspent_, val0+val1);
+   EXPECT_EQ(sshtemp.subHistMap_.size(), 3);
+
+   ASSERT_NE(sshtemp.subHistMap_.find(hgtX0), sshtemp.subHistMap_.end());
+   subptr = &sshtemp.subHistMap_[hgtX0];
+   EXPECT_EQ(subptr->uniqueKey_, uniq);
+   EXPECT_EQ(subptr->hgtX_, hgtX0);
+   ASSERT_EQ(subptr->txioSet_.size(), 2);
+   ASSERT_NE(subptr->txioSet_.find(dbkey0), subptr->txioSet_.end());
+   txioptr = &subptr->txioSet_[dbkey0];
+   EXPECT_EQ(txioptr->getDBKeyOfOutput(), dbkey0);
+   EXPECT_EQ(txioptr->getValue(), val0);
+   txioptr = &subptr->txioSet_[dbkey1];
+   EXPECT_EQ(txioptr->getDBKeyOfOutput(), dbkey1);
+   EXPECT_EQ(txioptr->getValue(), val1);
+   EXPECT_FALSE(txioptr->isMultisig());
+
+   ASSERT_NE(sshtemp.subHistMap_.find(hgtX1), sshtemp.subHistMap_.end());
+   subptr = &sshtemp.subHistMap_[hgtX1];
+   EXPECT_EQ(subptr->uniqueKey_, uniq);
+   EXPECT_EQ(subptr->hgtX_, hgtX1);
+   ASSERT_EQ(subptr->txioSet_.size(), 2);
+   ASSERT_NE(subptr->txioSet_.find(dbkey3), subptr->txioSet_.end());
+   txioptr = &subptr->txioSet_[dbkey0];
+   EXPECT_EQ(txioptr->getDBKeyOfOutput(), dbkey0);
+   EXPECT_EQ(txioptr->getValue(), val0);
+   EXPECT_TRUE(txioptr->isMultisig());
 }
 
 

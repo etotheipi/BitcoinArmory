@@ -768,7 +768,9 @@ bool InterfaceToLDB::readStoredScriptHistoryAtIter(StoredScriptHistory & ssh)
    uint32_t numTxioRead = 0;
    while(iters_[BLKDATA]->Valid())
    {
-      if(!currReadKey_.getRawRef().startsWith(ssh.uniqueKey_))
+      uint32_t sz = currReadKey_.getSize();
+      BinaryDataRef keyNoPrefix= currReadKey_.getRawRef().getSliceRef(1,sz-1);
+      if(!keyNoPrefix.startsWith(ssh.uniqueKey_))
          break;
 
       pair<BinaryData, StoredSubHistory> keyValPair;
@@ -801,6 +803,10 @@ void InterfaceToLDB::putStoredScriptHistory( StoredScriptHistory & ssh)
    }
 
    putValue(BLKDATA, ssh.getDBKey(), ssh.serializeDBValue());
+
+   if(!ssh.useMultipleEntries_)
+      return;
+
    map<BinaryData, StoredSubHistory>::iterator iter;
    for(iter  = ssh.subHistMap_.begin(); 
        iter != ssh.subHistMap_.end(); 
@@ -2455,7 +2461,10 @@ void InterfaceToLDB::pprintBlkDataDB(uint32_t indent)
    SCOPED_TIMER("pprintBlkDataDB");
    DB_SELECT db = BLKDATA;
 
-   BinaryData prevIterLoc = sliceToBinaryData(iters_[db]->key());
+   bool restoreIterAtEnd = iters_[db]->Valid();
+   BinaryData prevIterLoc;
+   if(restoreIterAtEnd)
+      prevIterLoc = sliceToBinaryData(iters_[db]->key());
 
    cout << "Pretty-printing BLKDATA DB" << endl;
    KVLIST dbList = getAllDatabaseEntries(db);
@@ -2465,11 +2474,17 @@ void InterfaceToLDB::pprintBlkDataDB(uint32_t indent)
       return;
    }
 
+   BinaryData lastSSH = READHEX("00");
    for(uint32_t i=0; i<dbList.size(); i++)
    {
       BinaryData key = dbList[i].first;
       BinaryData val = dbList[i].second;
-      if(key[0] == DB_PREFIX_DBINFO)
+      if(key.getSize() == 0)
+      {
+         cout << "\"" << "\"  ";
+         cout << "\"" << dbList[i].second.toHexStr() << "\"  " << endl;
+      }
+      else if(key[0] == DB_PREFIX_DBINFO)
       {
          PPRINTENTRY(StoredDBInfo, 0);
          cout << "-------------------------------------" << endl;
@@ -2484,8 +2499,24 @@ void InterfaceToLDB::pprintBlkDataDB(uint32_t indent)
       }
       else if(key[0] == DB_PREFIX_SCRIPT) 
       {
-         PPRINTENTRY(StoredScriptHistory, 0);
-         data.pprintFullSSH(indent);
+         StoredScriptHistory ssh;
+         StoredSubHistory subssh;
+      
+         if(!key.startsWith(lastSSH))
+         {
+            // New SSH object, base entry
+            ssh.unserializeDBKey(key); 
+            ssh.unserializeDBValue(val); 
+            ssh.pprintFullSSH(indent + 3); 
+            lastSSH = key;
+         }
+         else
+         {
+            // This is a sub-history for the previous SSH
+            subssh.unserializeDBKey(key); 
+            subssh.unserializeDBValue(val); 
+            subssh.pprintFullSubSSH(indent + 6);
+         }
       }
       else
       {
@@ -2503,7 +2534,8 @@ void InterfaceToLDB::pprintBlkDataDB(uint32_t indent)
          
    }
 
-   seekTo(db, prevIterLoc);
+   if(restoreIterAtEnd)
+      seekTo(db, prevIterLoc);
    
 }
 
