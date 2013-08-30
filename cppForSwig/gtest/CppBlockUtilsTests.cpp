@@ -5497,15 +5497,8 @@ TEST_F(LevelDBTest, PutGetStoredScriptHistory)
    ssh.insertTxio(txio0);
    ssh.insertTxio(txio1);
 
-   cout << "*************************" << endl;
-   iface_->printAllDatabaseEntries(BLKDATA);
-   iface_->pprintBlkDataDB(BLKDATA);
    iface_->putStoredScriptHistory(ssh);
-   cout << "*************************" << endl;
-   iface_->printAllDatabaseEntries(BLKDATA);
-   iface_->pprintBlkDataDB(BLKDATA);
    iface_->getStoredScriptHistory(sshtemp, uniq);
-   cout << "*************************" << endl;
 
    EXPECT_EQ(sshtemp.uniqueKey_, uniq);
    EXPECT_EQ(sshtemp.alreadyScannedUpToBlk_, blk);
@@ -5542,7 +5535,7 @@ TEST_F(LevelDBTest, PutGetStoredScriptHistory)
    EXPECT_EQ(sshtemp.alreadyScannedUpToBlk_, blk);
    EXPECT_EQ(sshtemp.totalTxioCount_, 3);
    EXPECT_EQ(sshtemp.totalUnspent_, val0+val1);
-   EXPECT_EQ(sshtemp.subHistMap_.size(), 3);
+   EXPECT_EQ(sshtemp.subHistMap_.size(), 2);
 
    ASSERT_NE(sshtemp.subHistMap_.find(hgtX0), sshtemp.subHistMap_.end());
    subptr = &sshtemp.subHistMap_[hgtX0];
@@ -5562,11 +5555,11 @@ TEST_F(LevelDBTest, PutGetStoredScriptHistory)
    subptr = &sshtemp.subHistMap_[hgtX1];
    EXPECT_EQ(subptr->uniqueKey_, uniq);
    EXPECT_EQ(subptr->hgtX_, hgtX1);
-   ASSERT_EQ(subptr->txioSet_.size(), 2);
+   ASSERT_EQ(subptr->txioSet_.size(), 1);
    ASSERT_NE(subptr->txioSet_.find(dbkey3), subptr->txioSet_.end());
-   txioptr = &subptr->txioSet_[dbkey0];
-   EXPECT_EQ(txioptr->getDBKeyOfOutput(), dbkey0);
-   EXPECT_EQ(txioptr->getValue(), val0);
+   txioptr = &subptr->txioSet_[dbkey3];
+   EXPECT_EQ(txioptr->getDBKeyOfOutput(), dbkey3);
+   EXPECT_EQ(txioptr->getValue(), val3);
    EXPECT_TRUE(txioptr->isMultisig());
 }
 

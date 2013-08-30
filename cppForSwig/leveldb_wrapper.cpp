@@ -774,7 +774,7 @@ bool InterfaceToLDB::readStoredScriptHistoryAtIter(StoredScriptHistory & ssh)
          break;
 
       pair<BinaryData, StoredSubHistory> keyValPair;
-      keyValPair.first = currReadKey_.getRawRef().getSliceRef(1,4);
+      keyValPair.first = keyNoPrefix.getSliceCopy(sz-5, 4);
       keyValPair.second.unserializeDBKey(currReadKey_.getRawRef());
       keyValPair.second.unserializeDBValue(currReadValue_);
       iter = ssh.subHistMap_.insert(keyValPair).first;
