@@ -452,7 +452,9 @@ public:
    // but we do need to harness them.  This method could be renamed to
    // "getPartialScriptHistory()" ... it reads the main 
    // sub-SSH from DB and adds it to the supplied regular-SSH.
-   bool fetchStoredSubHistory( StoredScriptHistory & ssh, BinaryData hgtX);
+   bool fetchStoredSubHistory( StoredScriptHistory & ssh, 
+                               BinaryData hgtX,
+                               bool forceReadAndMerge=false);
 
    // This could go in StoredBlockObj if it didn't need to lookup DB data
    bool     getFullUTXOMapForSSH(StoredScriptHistory & ssh,

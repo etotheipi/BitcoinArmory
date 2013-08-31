@@ -73,9 +73,10 @@
 // Really, these defs are just for making it painfully clear in the 
 // code what you are attempting to compare.  I'm constantly messing 
 // up == and != when trying to read through the code.
-#define NOT_FOUND_IN_MAP(ITER,MAP) (ITER == MAP.end())
-#define     FOUND_IN_MAP(ITER,MAP) (ITER != MAP.end())
-
+#define  KEY_NOT_IN_MAP(KEY,MAP)  (MAP.find(KEY) == MAP.end())
+#define      KEY_IN_MAP(KEY,MAP)  (MAP.find(KEY) != MAP.end())
+#define ITER_NOT_IN_MAP(ITER,MAP) (ITER == MAP.end())
+#define     ITER_IN_MAP(ITER,MAP) (ITER != MAP.end())
 
 class BinaryData;
 class BinaryDataRef;

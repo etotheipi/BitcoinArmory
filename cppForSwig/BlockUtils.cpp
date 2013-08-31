@@ -295,7 +295,8 @@ void BtcWallet::addScrAddress(HashString    scrAddr,
                               uint32_t      lastBlockNum)
 {
 
-   if(scrAddrMap_.find(scrAddr) != scrAddrMap_.end())
+   //if(scrAddrMap_.find(scrAddr) != scrAddrMap_.end())
+   if(KEY_IN_MAP(scrAddr, scrAddrMap_))
       return;
 
    ScrAddrObj* addrPtr = &(scrAddrMap_[scrAddr]);
@@ -311,7 +312,8 @@ void BtcWallet::addScrAddress(HashString    scrAddr,
 /////////////////////////////////////////////////////////////////////////////
 void BtcWallet::addNewScrAddress(BinaryData scrAddr)
 {
-   if(scrAddrMap_.find(scrAddr) != scrAddrMap_.end())
+   //if(scrAddrMap_.find(scrAddr) != scrAddrMap_.end())
+   if(KEY_IN_MAP(scrAddr, scrAddrMap_))
       return;
 
    ScrAddrObj* addrPtr = &(scrAddrMap_[scrAddr]);
@@ -325,7 +327,8 @@ void BtcWallet::addNewScrAddress(BinaryData scrAddr)
 /////////////////////////////////////////////////////////////////////////////
 void BtcWallet::addScrAddress(ScrAddrObj const & newScrAddr)
 {
-   if(scrAddrMap_.find(newScrAddr.getScrAddr()) != scrAddrMap_.end())
+   //if(scrAddrMap_.find(newScrAddr.getScrAddr()) != scrAddrMap_.end())
+   if(KEY_IN_MAP(newScrAddr.getScrAddr(), scrAddrMap_))
       return;
 
    if(newScrAddr.getScrAddr().getSize() > 0)
@@ -379,7 +382,8 @@ void BtcWallet::addScrAddress_5_(HashString    scrAddr,
 /////////////////////////////////////////////////////////////////////////////
 bool BtcWallet::hasScrAddr(HashString const & scrAddr)
 {
-   return scrAddrMap_.find(scrAddr) != scrAddrMap_.end();
+   //return scrAddrMap_.find(scrAddr) != scrAddrMap_.end();
+   return KEY_IN_MAP(scrAddr, scrAddrMap_);
 }
 
 
@@ -400,7 +404,8 @@ pair<bool,bool> BtcWallet::isMineBulkFilter(Tx & tx, bool withMultiSig)
       // We have the txin, now check if it contains one of our TxOuts
       static OutPoint op;
       op.unserialize(txStartPtr + tx.getTxInOffset(iin));
-      if(txioMap_.find(op) != txioMap_.end())
+      //if(txioMap_.find(op) != txioMap_.end())
+      if(KEY_IN_MAP(op, txioMap_))
          return pair<bool,bool>(true,true);
    }
 
@@ -746,7 +751,8 @@ void BtcWallet::scanTx(Tx & tx,
 
          // We have the txin, now check if it contains one of our TxOuts
          map<OutPoint, TxIOPair>::iterator txioIter = txioMap_.find(outpt);
-         bool txioWasInMapAlready = (txioIter != txioMap_.end());
+         //bool txioWasInMapAlready = (txioIter != txioMap_.end());
+         bool txioWasInMapAlready = ITER_IN_MAP(txioIter, txioMap_);
          if(txioWasInMapAlready)
          {
             // If we are here, we know that this input is spending an 
@@ -759,7 +765,8 @@ void BtcWallet::scanTx(Tx & tx,
             // It's our TxIn, so address should be in this wallet
             scraddr  = txout.getScrAddressStr();
             addrIter = scrAddrMap_.find(scraddr);
-            if( addrIter == scrAddrMap_.end())
+            //if( addrIter == scrAddrMap_.end())
+            if(ITER_NOT_IN_MAP(addrIter, scrAddrMap_))
             {
                // Have TxIO but address is not in the map...?
                LOGERR << "ERROR: TxIn in TxIO map, but addr not in wallet...?";
@@ -814,7 +821,8 @@ void BtcWallet::scanTx(Tx & tx,
             // Lots of txins that we won't have, this is a normal conditional
             // But we should check the non-std txio list since it may actually
             // be there
-            if(nonStdTxioMap_.find(outpt) != nonStdTxioMap_.end())
+            //if(nonStdTxioMap_.find(outpt) != nonStdTxioMap_.end())
+            if(KEY_IN_MAP(outpt, nonStdTxioMap_))
             {
                if(isZeroConf)
                   nonStdTxioMap_[outpt].setTxInZC(&tx, iin);
@@ -845,7 +853,8 @@ void BtcWallet::scanTx(Tx & tx,
 
          scraddr   = txout.getScrAddressStr();
          addrIter = scrAddrMap_.find(scraddr);
-         if( addrIter != scrAddrMap_.end())
+         //if( addrIter != scrAddrMap_.end())
+         if(ITER_IN_MAP(addrIter, scrAddrMap_))
          {
             thisAddrPtr = &addrIter->second;
             // If we got here, at least this TxOut is for this address.
@@ -856,7 +865,8 @@ void BtcWallet::scanTx(Tx & tx,
 
             OutPoint outpt(tx.getThisHash(), iout);      
             map<OutPoint, TxIOPair>::iterator txioIter = txioMap_.find(outpt);
-            bool txioWasInMapAlready = (txioIter != txioMap_.end());
+            //bool txioWasInMapAlready = (txioIter != txioMap_.end());
+            bool txioWasInMapAlready = ITER_IN_MAP(txioIter, txioMap_);
             bool doAddLedgerEntry = false;
             if(txioWasInMapAlready)
             {
@@ -1001,7 +1011,8 @@ LedgerEntry BtcWallet::calcLedgerEntryForTx(Tx & tx)
       if(op.getTxHashRef() == BtcUtils::EmptyHash_)
          isCoinbaseTx = true;
 
-      if(txioMap_.find(op) != txioMap_.end())
+      //if(txioMap_.find(op) != txioMap_.end())
+      if(KEY_IN_MAP(op, txioMap_))
       {
          anyTxInIsOurs = true;
          totalValue -= txioMap_[op].getValue();
@@ -1265,7 +1276,8 @@ void BtcWallet::sortLedger(void)
 bool BtcWallet::isOutPointMine(HashString const & hsh, uint32_t idx)
 {
    OutPoint op(hsh, idx);
-   return (txioMap_.find(op)!=txioMap_.end());
+   //return (txioMap_.find(op)!=txioMap_.end());
+   return KEY_IN_MAP(op, txioMap_);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1779,7 +1791,8 @@ BlockHeader * BlockDataManager_LevelDB::getHeaderByHeight(int index)
 BlockHeader * BlockDataManager_LevelDB::getHeaderByHash(HashString const & blkHash)
 {
    map<HashString, BlockHeader>::iterator it = headerMap_.find(blkHash);
-   if(it==headerMap_.end())
+   //if(it==headerMap_.end())
+   if(ITER_NOT_IN_MAP(it, headerMap_))
       return NULL;
    else
       return &(it->second);
@@ -1828,7 +1841,8 @@ Tx BlockDataManager_LevelDB::getTxByHash(HashString const & txhash)
    {
       // It's not in the blockchain, but maybe in the zero-conf tx list
       map<HashString, ZeroConfData>::const_iterator iter = zeroConfMap_.find(txhash);
-      if(iter==zeroConfMap_.end())
+      //if(iter==zeroConfMap_.end())
+      if(ITER_NOT_IN_MAP(iter, zeroConfMap_))
          return Tx();
       else
          return iter->second.txobj_;
@@ -1841,7 +1855,8 @@ TX_AVAILABILITY BlockDataManager_LevelDB::hasTxWithHash(BinaryDataRef txHash)
 {
    if(getTxRefByHash(txHash).isNull())
    {
-      if(zeroConfMap_.find(txHash)==zeroConfMap_.end())
+      //if(zeroConfMap_.find(txHash)==zeroConfMap_.end())
+      if(KEY_NOT_IN_MAP(txHash, zeroConfMap_))
          return TX_DNE;  // No tx at all
       else
          return TX_ZEROCONF;  // Zero-conf tx
@@ -1853,7 +1868,8 @@ TX_AVAILABILITY BlockDataManager_LevelDB::hasTxWithHash(BinaryDataRef txHash)
 /////////////////////////////////////////////////////////////////////////////
 bool BlockDataManager_LevelDB::hasHeaderWithHash(HashStringRef txHash) const
 {
-   return (headerMap_.find(txHash) != headerMap_.end());
+   //return (headerMap_.find(txHash) != headerMap_.end());
+   return KEY_IN_MAP(txHash, headerMap_);
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -1948,7 +1964,8 @@ bool BlockDataManager_LevelDB::registerWallet(BtcWallet* wltPtr, bool wltIsNew)
    SCOPED_TIMER("registerWallet");
 
    // Check if the wallet is already registered
-   if(registeredWallets_.find(wltPtr) != registeredWallets_.end())
+   //if(registeredWallets_.find(wltPtr) != registeredWallets_.end())
+   if(KEY_IN_MAP(wltPtr, registeredWallets_))
       return false;
 
    // Add it to the list of wallets to watch
@@ -1978,7 +1995,8 @@ bool BlockDataManager_LevelDB::registerAddress(HashString scraddr,
                                                 uint32_t firstBlk)
 {
    SCOPED_TIMER("registerAddress");
-   if(registeredScrAddrMap_.find(scraddr) != registeredScrAddrMap_.end())
+   //if(registeredScrAddrMap_.find(scraddr) != registeredScrAddrMap_.end())
+   if(KEY_IN_MAP(scraddr, registeredScrAddrMap_))
    {
       // Address is already registered.  Don't think there's anything to do 
       return false;
@@ -1997,7 +2015,8 @@ bool BlockDataManager_LevelDB::registerAddress(HashString scraddr,
 bool BlockDataManager_LevelDB::registerNewAddress(HashString scraddr)
 {
    SCOPED_TIMER("registerNewAddress");
-   if(registeredScrAddrMap_.find(scraddr) != registeredScrAddrMap_.end())
+   //if(registeredScrAddrMap_.find(scraddr) != registeredScrAddrMap_.end())
+   if(KEY_IN_MAP(scraddr, registeredScrAddrMap_))
       return false;
 
    uint32_t currBlk = getTopBlockHeight();
@@ -2013,7 +2032,8 @@ bool BlockDataManager_LevelDB::registerImportedAddress(HashString scraddr,
                                                     uint32_t createBlk)
 {
    SCOPED_TIMER("registerImportedAddress");
-   if(registeredScrAddrMap_.find(scraddr) != registeredScrAddrMap_.end())
+   //if(registeredScrAddrMap_.find(scraddr) != registeredScrAddrMap_.end())
+   if(KEY_IN_MAP(scraddr, registeredScrAddrMap_))
       return false;
 
    // In some cases we may have used UINT32_MAX to specify "don't know"
@@ -2030,7 +2050,8 @@ bool BlockDataManager_LevelDB::registerImportedAddress(HashString scraddr,
 bool BlockDataManager_LevelDB::unregisterAddress(HashString scraddr)
 {
    SCOPED_TIMER("unregisterAddress");
-   if(registeredScrAddrMap_.find(scraddr) == registeredScrAddrMap_.end())
+   //if(registeredScrAddrMap_.find(scraddr) == registeredScrAddrMap_.end())
+   if(KEY_IN_MAP(scraddr, registeredScrAddrMap_))
       return false;
    
    registeredScrAddrMap_.erase(scraddr);
@@ -2139,7 +2160,8 @@ uint32_t BlockDataManager_LevelDB::numBlocksToRescan( BtcWallet & wlt,
       ScrAddrObj & addr = wlt.getScrAddrByIndex(i);
 
       // If any address is not registered, will have to do a full scan
-      if(registeredScrAddrMap_.find(addr.getScrAddr()) == registeredScrAddrMap_.end())
+      //if(registeredScrAddrMap_.find(addr.getScrAddr()) == registeredScrAddrMap_.end())
+      if(KEY_NOT_IN_MAP(addr.getScrAddr(), registeredScrAddrMap_))
          return endBlk;  // Gotta do a full rescan!
 
       RegisteredScrAddr & ra = registeredScrAddrMap_[addr.getScrAddr()];
@@ -2186,13 +2208,15 @@ void BlockDataManager_LevelDB::resetRegisteredWallets(void)
 /////////////////////////////////////////////////////////////////////////////
 bool BlockDataManager_LevelDB::walletIsRegistered(BtcWallet & wlt)
 {
-   return (registeredWallets_.find(&wlt)!=registeredWallets_.end());
+   //return (registeredWallets_.find(&wlt)!=registeredWallets_.end());
+   return KEY_IN_MAP(&wlt, registeredWallets_);
 }
 
 /////////////////////////////////////////////////////////////////////////////
 bool BlockDataManager_LevelDB::addressIsRegistered(HashString scraddr)
 {
-   return (registeredScrAddrMap_.find(scraddr)!=registeredScrAddrMap_.end());
+   //return (registeredScrAddrMap_.find(scraddr)!=registeredScrAddrMap_.end());
+   return KEY_IN_MAP(scraddr, registeredScrAddrMap_);
 }
 
 
@@ -3854,7 +3878,8 @@ double BlockDataManager_LevelDB::traceChainDown(BlockHeader & bhpStart)
       blkIdx++;
 
       iter = headerMap_.find(thisPtr->getPrevHash());
-      if( iter != headerMap_.end() )
+      //if( iter != headerMap_.end() )
+      if(ITER_IN_MAP(iter, headerMap_))
          thisPtr = &(iter->second);
       else
       {
@@ -3899,7 +3924,8 @@ void BlockDataManager_LevelDB::markOrphanChain(BlockHeader & bhpStart)
    map<HashString, BlockHeader>::iterator iter;
    iter = headerMap_.find(bhpStart.getThisHash());
    HashStringRef lastHeadHash;
-   while( iter != headerMap_.end() )
+   //while( iter != headerMap_.end() )
+   while( ITER_IN_MAP(iter, headerMap_) )
    {
       // I don't see how it's possible to have a header that used to be 
       // in the main branch, but is now an ORPHAN (meaning it has no
@@ -4050,8 +4076,8 @@ bool BlockDataManager_LevelDB::addNewZeroConfTx(BinaryData const & rawTx,
    HashString txHash = BtcUtils::getHash256(rawTx);
     
    // If this is already in the zero-conf map or in the blockchain, ignore it
-   if(zeroConfMap_.find(txHash) != zeroConfMap_.end() || 
-      !getTxRefByHash(txHash).isNull())
+   //if(zeroConfMap_.find(txHash) != zeroConfMap_.end() || 
+   if(KEY_IN_MAP(txHash, zeroConfMap_) || !getTxRefByHash(txHash).isNull())
       return false;
    
    
@@ -4257,7 +4283,8 @@ vector<LedgerEntry> & BtcWallet::getTxLedger(HashString const * scraddr)
       return ledgerAllAddr_;
    else
    {
-      if(scrAddrMap_.find(*scraddr) == scrAddrMap_.end())
+      //if(scrAddrMap_.find(*scraddr) == scrAddrMap_.end())
+      if(KEY_NOT_IN_MAP(*scraddr, scrAddrMap_))
          return getEmptyLedger();
       else
          return scrAddrMap_[*scraddr].getTxLedger();
@@ -4274,7 +4301,8 @@ vector<LedgerEntry> & BtcWallet::getZeroConfLedger(HashString const * scraddr)
       return ledgerAllAddrZC_;
    else
    {
-      if(scrAddrMap_.find(*scraddr) == scrAddrMap_.end())
+      //if(scrAddrMap_.find(*scraddr) == scrAddrMap_.end())
+      if(KEY_NOT_IN_MAP(*scraddr, scrAddrMap_))
          return getEmptyLedger();
       else
          return scrAddrMap_[*scraddr].getZeroConfLedger();
@@ -4344,7 +4372,8 @@ bool BlockDataManager_LevelDB::applyTxToBatchWriteData(
 
    // We never expect thisSTX to already be in the map (other tx in the map
    // may be affected/retrieved multiple times).  
-   if(stxToModify.find(tx.getThisHash()) != stxToModify.end())
+   //if(stxToModify.find(tx.getThisHash()) != stxToModify.end())
+   if(KEY_IN_MAP(tx.getThisHash(), stxToModify))
       LOGERR << "How did we already add this tx?";
 
    // I just noticed we never set TxOuts to TXOUT_UNSPENT.  Might as well do 
@@ -4387,7 +4416,8 @@ bool BlockDataManager_LevelDB::applyTxToBatchWriteData(
       map<uint16_t,StoredTxOut>::iterator iter = stxptr->stxoMap_.find(opTxoIdx);
       
       // Some sanity checks
-      if(iter == stxptr->stxoMap_.end())
+      //if(iter == stxptr->stxoMap_.end())
+      if(ITER_NOT_IN_MAP(iter, stxptr->stxoMap_))
       {
          LOGERR << "Needed to get OutPoint for a TxIn, but DNE";
          continue;
@@ -4730,7 +4760,8 @@ bool BlockDataManager_LevelDB::createUndoDataFromBlock(uint32_t hgt,
          // still need to make sure the prevTx we just fetched has our data.
          StoredTx prevStx;
          iface_->getStoredTx(prevStx, prevHash);
-         if(prevStx.stxoMap_.find(prevIndex) == prevStx.stxoMap_.end())
+         //if(prevStx.stxoMap_.find(prevIndex) == prevStx.stxoMap_.end())
+         if(KEY_NOT_IN_MAP(prevIndex, prevStx.stxoMap_))
          {
             LOGERR << "StoredTx retrieved from DB, but TxOut not with it";
             return false;
@@ -4839,7 +4870,8 @@ bool BlockDataManager_LevelDB::undoBlockFromDB(StoredUndoData & sud)
       {
          // If full/super, we have the TxOut in DB, just need mark it unspent
          iter = stxptr->stxoMap_.find(stxoIdx);
-         if(iter == stxptr->stxoMap_.end())
+         //if(iter == stxptr->stxoMap_.end())
+         if(ITER_NOT_IN_MAP(iter, stxptr->stxoMap_))
          {
             LOGERR << "Expecting to find existing STXO, but DNE";
             continue;
@@ -4861,7 +4893,8 @@ bool BlockDataManager_LevelDB::undoBlockFromDB(StoredUndoData & sud)
          // If we're pruning, we should have the Tx in the DB, but without the
          // TxOut because it had been pruned by this block on the forward op
          iter = stxptr->stxoMap_.find(stxoIdx);
-         if(iter != stxptr->stxoMap_.end())
+         //if(iter != stxptr->stxoMap_.end())
+         if(ITER_IN_MAP(iter, stxptr->stxoMap_))
             LOGERR << "Somehow this TxOut had not been pruned!";
          else
             iter->second = sudStxo;
@@ -4874,7 +4907,8 @@ bool BlockDataManager_LevelDB::undoBlockFromDB(StoredUndoData & sud)
       ////// Finished updating STX, now update the SSH in the DB
       // Updating the SSH objects works the same regardless of pruning
       iter = stxptr->stxoMap_.find(stxoIdx);
-      if(iter == stxptr->stxoMap_.end())
+      //if(iter == stxptr->stxoMap_.end())
+      if(ITER_NOT_IN_MAP(iter, stxptr->stxoMap_))
       {
          LOGERR << "Somehow STXO DNE even though we should've just added it!";
          continue;
@@ -5023,14 +5057,15 @@ StoredScriptHistory* BlockDataManager_LevelDB::makeSureSSHInMap(
    StoredScriptHistory   sshTemp;
 
    // If already in Map
-   if(sshMap.find(uniqKey) != sshMap.end())
+   map<BinaryData, StoredScriptHistory>::iterator iter = sshMap.find(uniqKey);
+   if(ITER_IN_MAP(iter, sshMap))
    {
       SCOPED_TIMER("___SSH_AlreadyInMap");
-      sshptr = &sshMap[uniqKey];
+      sshptr = &(iter->second);
    }
    else
    {
-      iface_->getStoredScriptHistory(sshTemp, uniqKey);
+      iface_->getStoredScriptHistorySummary(sshTemp, uniqKey);
       if(sshTemp.isInitialized())
       {
          SCOPED_TIMER("___SSH_AlreadyInDB");
@@ -5047,7 +5082,6 @@ StoredScriptHistory* BlockDataManager_LevelDB::makeSureSSHInMap(
          sshMap[uniqKey] = StoredScriptHistory(); 
          sshptr = &sshMap[uniqKey];
          sshptr->uniqueKey_ = uniqKey;
-
       }
    }
 
@@ -5055,7 +5089,7 @@ StoredScriptHistory* BlockDataManager_LevelDB::makeSureSSHInMap(
    // If sub-history for this block doesn't exist, add an empty one before
    // returning the pointer to the SSH.  Since we haven't actually inserted
    // anything into the SubSSH, we don't need to adjust the totalTxioCount_
-   iface_->fetchStoredSubHistory(*sshptr, hgtX);
+   iface_->fetchStoredSubHistory(*sshptr, hgtX, false);
    return sshptr;
 }
 
@@ -5072,8 +5106,9 @@ StoredTx* BlockDataManager_LevelDB::makeSureSTXInMap(
    StoredTx   stxTemp;
 
    // Get the existing STX or make a new one
-   if(stxMap.find(txHash) != stxMap.end())
-      stxptr = &stxMap[txHash];
+   map<BinaryData, StoredTx>::iterator txIter = stxMap.find(txHash);
+   if(ITER_IN_MAP(txIter, stxMap))
+      stxptr = &(txIter->second);
    else
    {
       iface_->getStoredTx(stxTemp, txHash);
@@ -5100,8 +5135,9 @@ StoredTx* BlockDataManager_LevelDB::makeSureSTXInMap(
    StoredTx   stxTemp;
 
    // Get the existing STX or make a new one
-   if(stxMap.find(txHash) != stxMap.end())
-      stxptr = &stxMap[txHash];
+   map<BinaryData, StoredTx>::iterator txIter = stxMap.find(txHash);
+   if(ITER_IN_MAP(txIter, stxMap))
+      stxptr = &(txIter->second);
    else
    {
       iface_->getStoredTx(stxTemp, hgt, dup, txIdx);

@@ -127,8 +127,7 @@ bool StoredHeader::haveFullBlock(void) const
    for(uint16_t tx=0; tx<numTx_; tx++)
    {
       map<uint16_t, StoredTx>::const_iterator iter = stxMap_.find(tx);
-      //if(iter == stxMap_.end())
-      if(NOT_FOUND_IN_MAP(iter, stxMap_))
+      if(ITER_NOT_IN_MAP(iter, stxMap_))
          return false;
       if(!iter->second.haveAllTxOut())
          return false;
@@ -1494,8 +1493,7 @@ TxIOPair* StoredScriptHistory::findTxio(BinaryData const & dbKey8B,
       BinaryData first4 = dbKey8B.getSliceCopy(0,4);
       map<BinaryData, StoredSubHistory>::iterator iterSubSSH;
       iterSubSSH = subHistMap_.find(first4);
-      //if(iterSubSSH == subHistMap_.end())
-      if(NOT_FOUND_IN_MAP(iterSubSSH, subHistMap_))
+      if(ITER_NOT_IN_MAP(iterSubSSH, subHistMap_))
          return NULL;
    
       // This returns NULL if does not exist.
@@ -1519,8 +1517,7 @@ TxIOPair& StoredScriptHistory::insertTxio(TxIOPair const & txio,
    BinaryData first4 = dbKey8.getSliceCopy(0,4);
    map<BinaryData, StoredSubHistory>::iterator iterSubHist;
    iterSubHist = subHistMap_.find(first4);
-   //if(iterSubHist == subHistMap_.end())
-   if(NOT_FOUND_IN_MAP(iterSubHist, subHistMap_))
+   if(ITER_NOT_IN_MAP(iterSubHist, subHistMap_))
    {
       // Create a new sub-history add it to its map
       subHistMap_[first4] = StoredSubHistory();
@@ -1574,8 +1571,7 @@ bool StoredScriptHistory::eraseTxio(BinaryData const & dbKey8B)
    BinaryData first4 = dbKey8B.getSliceCopy(0,4);
    map<BinaryData, StoredSubHistory>::iterator iterSubHist;
    iterSubHist = subHistMap_.find(first4);
-   //if(iterSubHist == subHistMap_.end())
-   if(NOT_FOUND_IN_MAP(iterSubHist, subHistMap_))
+   if(ITER_NOT_IN_MAP(iterSubHist, subHistMap_))
       return false;
 
    StoredSubHistory & subssh = iterSubHist->second;
@@ -1650,8 +1646,7 @@ uint64_t StoredScriptHistory::markTxOutSpent(BinaryData txOutKey8B,
    map<BinaryData, StoredSubHistory>::iterator iter;
    iter = subHistMap_.find(first4);
 
-   //if(iter == subHistMap_.end())
-   if(NOT_FOUND_IN_MAP(iter, subHistMap_))
+   if(ITER_NOT_IN_MAP(iter, subHistMap_))
    {
       LOGWARN << "Trying to mark TxIO spent, but does not exist!";
       return UINT64_MAX;
@@ -1684,7 +1679,7 @@ uint64_t StoredScriptHistory::markTxOutUnspent(BinaryData txOutKey8B,
    map<BinaryData, StoredSubHistory>::iterator iter;
    iter = subHistMap_.find(first4);
 
-   if(NOT_FOUND_IN_MAP(iter, subHistMap_))
+   if(ITER_NOT_IN_MAP(iter, subHistMap_))
    {
       // The SubHistory doesn't actually exist yet, so we have to add it
       if(value == UINT64_MAX)
@@ -1697,7 +1692,7 @@ uint64_t StoredScriptHistory::markTxOutUnspent(BinaryData txOutKey8B,
    }
 
    // More sanity checking
-   if(iter == subHistMap_.end())
+   if(ITER_NOT_IN_MAP(iter, subHistMap_))
    {
       LOGERR << "Somehow still don't have the subSSH after trying to insert it";
       return UINT64_MAX;
@@ -2014,8 +2009,7 @@ void StoredSubHistory::pprintFullSubSSH(uint32_t indent)
 TxIOPair* StoredSubHistory::findTxio(BinaryData const & dbKey8B, bool withMulti)
 {
    map<BinaryData, TxIOPair>::iterator iter = txioSet_.find(dbKey8B);
-   //if(iter == txioSet_.end())
-   if(NOT_FOUND_IN_MAP(iter, txioSet_))
+   if(ITER_NOT_IN_MAP(iter, txioSet_))
       return NULL;
    else
    {
@@ -2064,8 +2058,7 @@ uint64_t StoredSubHistory::eraseTxio(TxIOPair const & txio)
 uint64_t StoredSubHistory::eraseTxio(BinaryData const & dbKey8B)
 {
    map<BinaryData, TxIOPair>::iterator iter = txioSet_.find(dbKey8B);
-   //if(iter == txioSet_.end())
-   if(NOT_FOUND_IN_MAP(iter, txioSet_))
+   if(ITER_NOT_IN_MAP(iter, txioSet_))
       return UINT64_MAX;
    else
    {

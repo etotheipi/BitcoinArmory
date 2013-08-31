@@ -852,8 +852,11 @@ void InterfaceToLDB::getStoredScriptHistoryByRawScript(
 // regular-SSH object.  This does not affect balance or Txio count.  It's 
 // simply filling in data that the SSH may be expected to have.  
 bool InterfaceToLDB::fetchStoredSubHistory( StoredScriptHistory & ssh,
-                                            BinaryData hgtX)
+                                            BinaryData hgtX,
+                                            bool forceReadDB)
 {
+   if(!forceReadDB && KEY_IN_MAP(hgtX, ssh.subHistMap_))
+      return true;
       
    BinaryData key = ssh.uniqueKey_ + hgtX; 
    BinaryRefReader brr = getValueReader(BLKDATA, DB_PREFIX_SCRIPT, key);
@@ -1148,7 +1151,8 @@ uint8_t InterfaceToLDB::putStoredHeader( StoredHeader & sbh, bool withBlkData)
    for(uint32_t i=0; i<sbh.numTx_; i++)
    {
       map<uint16_t, StoredTx>::iterator txIter = sbh.stxMap_.find(i);
-      if(txIter != sbh.stxMap_.end())
+      //if(txIter != sbh.stxMap_.end())
+      if(ITER_IN_MAP(txIter, sbh.stxMap_))
       {
          // Make sure the txIndex value is correct, then dump it to DB.
          txIter->second.txIndex_ = i;
@@ -1551,7 +1555,8 @@ bool InterfaceToLDB::readStoredBlockAtIter(StoredHeader & sbh)
          return false;
       }
 
-      if(sbh.stxMap_.find(currIdx) == sbh.stxMap_.end())
+      //if(sbh.stxMap_.find(currIdx) == sbh.stxMap_.end())
+      if(KEY_NOT_IN_MAP(currIdx, sbh.stxMap_))
          sbh.stxMap_[currIdx] = StoredTx();
 
       readStoredTxAtIter(sbh.blockHeight_, 
