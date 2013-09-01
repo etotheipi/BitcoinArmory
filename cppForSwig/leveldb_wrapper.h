@@ -299,7 +299,7 @@ public:
    bool advanceIterAndRead(leveldb::Iterator* iter);
    bool advanceIterAndRead(DB_SELECT, DB_PREFIX);
 
-   bool dbIterIsValid(DB_SELECT db, DB_PREFIX prefix);
+   bool dbIterIsValid(DB_SELECT db, DB_PREFIX prefix=DB_PREFIX_COUNT);
 
    /////////////////////////////////////////////////////////////////////////////
    void readAllHeaders(map<HashString, BlockHeader>  & headerMap,
@@ -454,6 +454,7 @@ public:
    // sub-SSH from DB and adds it to the supplied regular-SSH.
    bool fetchStoredSubHistory( StoredScriptHistory & ssh, 
                                BinaryData hgtX,
+                               bool createIfDNE=false,
                                bool forceReadAndMerge=false);
 
    // This could go in StoredBlockObj if it didn't need to lookup DB data
@@ -528,9 +529,6 @@ public:
    bool markBlockHeaderValid(uint32_t height, uint8_t dup);
    bool markTxEntryValid(uint32_t height, uint8_t dupID, uint16_t txIndex);
 
-   /////////////////////////////////////////////////////////////////////////////
-   bool addBlockToDB(StoredHeader const & sbh, bool notNecessarilyValid=false);
-   bool addBlockToDB(BinaryDataRef rawBlock, bool notNecessarilyValid=false);
 
    /////////////////////////////////////////////////////////////////////////////
    void computeUndoDataFromRawBlock(StoredHeader const & sbh, 

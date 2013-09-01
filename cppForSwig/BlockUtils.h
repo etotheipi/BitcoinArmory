@@ -40,7 +40,10 @@
 #include "leveldb/db.h"
 
 
-#define DB_BLK_BATCH_SIZE 100
+#define DB_BLK_BATCH_SIZE   100
+#define UPDATE_BYTES_SSH     25
+#define UPDATE_BYTES_SUBSSH  75
+#define UPDATE_BYTES_THRESH  16*1024*1024
 
 using namespace std;
 
@@ -522,6 +525,9 @@ private:
    uint64_t                           numBlkFiles_;
    uint64_t                           endOfLastBlockByte_;
 
+   // Used to estimate how much data is queued to be written to DB
+   uint64_t                           dbUpdateSize_;
+
    // These should be set after the blockchain is organized
    deque<BlockHeader*>                headersByHeight_;
    BlockHeader*                       topBlockPtr_;
@@ -875,6 +881,13 @@ public:
 
    void findSSHEntriesToDelete( map<BinaryData, StoredScriptHistory> & sshMap,
                                 set<BinaryData> & keysToDelete);
+
+
+   /////////////////////////////////////////////////////////////////////////////
+   // We may use this to trigger flushing the queued DB updates
+   //bool estimateDBUpdateSize(
+                        //map<BinaryData, StoredTx> &            stxToModify,
+                        //map<BinaryData, StoredScriptHistory> & sshToModify);
 };
 
 

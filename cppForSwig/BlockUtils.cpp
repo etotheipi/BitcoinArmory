@@ -1374,6 +1374,7 @@ vector<AddressBookEntry> BtcWallet::createAddressBook(void)
 BlockDataManager_LevelDB::BlockDataManager_LevelDB(void) : 
       totalBlockchainBytes_(0),
       endOfLastBlockByte_(0),
+      dbUpdateSize_(0),
       topBlockPtr_(NULL),
       genBlockPtr_(NULL),
       lastBlockWasReorg_(false),
@@ -1692,6 +1693,7 @@ void BlockDataManager_LevelDB::Reset(void)
    numBlkFiles_ = UINT64_MAX;
 
    endOfLastBlockByte_ = UINT64_MAX;
+   dbUpdateSize_ = 0;
 
 
    // These should be set after the blockchain is organized
@@ -2347,15 +2349,29 @@ void BlockDataManager_LevelDB::reapplyBlocksToDB(uint32_t blk0, uint32_t blk1)
       // to have each method create its own iterator... TODO:  profile/test
       // this idea.  For now we will just save the current DB key, and 
       // re-seek to it afterwards.
-      BinaryData prevIterKey = iface_->getIterKeyCopy();
+      BinaryData prevIterKey(0);
+      if(iface_->dbIterIsValid(BLKDATA))
+         prevIterKey = iface_->getIterKeyCopy();
+
+      cout << "********BEFORE*******" << endl;
+      iface_->pprintBlkDataDB(BLKDATA);
       if(!doBatches)
          applyBlockToDB(hgt, dup); 
       else
       {
-         bool commit = (hgt%DB_BLK_BATCH_SIZE == 0);
+         bool commit_blk = (hgt%DB_BLK_BATCH_SIZE == 0);
+         bool commit_sz  = (dbUpdateSize_ > UPDATE_BYTES_THRESH);
+         bool commit = commit_blk || commit_sz;
          applyBlockToDB(hgt, dup, stxToModify, sshToModify, keysToDelete, commit);
       }
-      iface_->seekTo(BLKDATA, prevIterKey);
+
+      cout << "********AFTER*******" << endl;
+      iface_->pprintBlkDataDB(BLKDATA);
+      cout << "********END*******" << endl;
+
+      // If we had a valid iter position before applyBlockToDB, restore it
+      if(prevIterKey.getSize() > 0)
+         iface_->seekTo(BLKDATA, prevIterKey);
 
 
       bytesReadSoFar_ += sbh.numBytes_;
@@ -4389,6 +4405,8 @@ bool BlockDataManager_LevelDB::applyTxToBatchWriteData(
    // to future tx in the same block which spend outputs from this tx, without
    // doing anything crazy in the code here
    stxToModify[tx.getThisHash()] = thisSTX;
+
+   dbUpdateSize_ += thisSTX.numBytes_;
    
    // Go through and find all the previous TxOuts that are affected by this tx
    StoredTx stxTemp;
@@ -4497,11 +4515,6 @@ bool BlockDataManager_LevelDB::applyTxToBatchWriteData(
          }
       }
    }
-
-   // If, at the end of this process, we have any empty SSH objects
-   // (should only happen if pruning), then remove them from the 
-   // to-modify list, and add to the keysToDelete list.
-   findSSHEntriesToDelete(sshToModify, keysToDelete);
 
    return true;
 }
@@ -4690,6 +4703,11 @@ bool BlockDataManager_LevelDB::applyBlockToDB(
                               &sud);
    }
 
+   // If, at the end of this process, we have any empty SSH objects
+   // (should only happen if pruning), then remove them from the 
+   // to-modify list, and add to the keysToDelete list.
+   //findSSHEntriesToDelete(sshToModify, keysToDelete);
+
    // At this point we should have a list of STX and SSH with all the correct
    // modifications (or creations) to represent this block.  Let's apply it.
    sbh.blockAppliedToDB_ = true;
@@ -4701,6 +4719,8 @@ bool BlockDataManager_LevelDB::applyBlockToDB(
       applyModsToDB(stxToModify, sshToModify, keysToDelete);
 
    // Only if pruning, we need to store 
+   // TODO: this is going to get run every block, probably should batch it 
+   //       like we do with the other data...when we actually implement pruning
    if(DBUtils.getDbPruneType() == DB_PRUNE_ALL)
       iface_->putStoredUndoData(sud);
 
@@ -4789,6 +4809,8 @@ void BlockDataManager_LevelDB::applyModsToDB(
                            map<BinaryData, StoredScriptHistory> & sshToModify,
                            set<BinaryData> &                      keysToDelete)
 {
+   // Before we apply, let's figure out if some DB keys need to be deleted
+   findSSHEntriesToDelete(sshToModify, keysToDelete);
 
    iface_->startBatch(BLKDATA);
 
@@ -4822,6 +4844,7 @@ void BlockDataManager_LevelDB::applyModsToDB(
    stxToModify.clear();
    sshToModify.clear();
    keysToDelete.clear();
+   dbUpdateSize_ = 0;
 }
                         
 
@@ -5025,13 +5048,7 @@ bool BlockDataManager_LevelDB::undoBlockFromDB(StoredUndoData & sud)
    // Check for any SSH objects that are now completely empty.  If they exist,
    // they should be removed from the DB, instead of simply written as empty
    // objects
-   map<BinaryData, StoredScriptHistory>::iterator iter;
-   for(iter  = sshToModify.begin(); 
-       iter != sshToModify.end();
-       iter++)
-   {
-      findSSHEntriesToDelete(sshToModify, keysToDelete);
-   }
+   findSSHEntriesToDelete(sshToModify, keysToDelete);
 
 
    // Finally, mark this block as UNapplied.
@@ -5066,6 +5083,7 @@ StoredScriptHistory* BlockDataManager_LevelDB::makeSureSSHInMap(
    else
    {
       iface_->getStoredScriptHistorySummary(sshTemp, uniqKey);
+      dbUpdateSize_ += UPDATE_BYTES_SSH;
       if(sshTemp.isInitialized())
       {
          SCOPED_TIMER("___SSH_AlreadyInDB");
@@ -5089,7 +5107,11 @@ StoredScriptHistory* BlockDataManager_LevelDB::makeSureSSHInMap(
    // If sub-history for this block doesn't exist, add an empty one before
    // returning the pointer to the SSH.  Since we haven't actually inserted
    // anything into the SubSSH, we don't need to adjust the totalTxioCount_
-   iface_->fetchStoredSubHistory(*sshptr, hgtX, false);
+   uint32_t prevSize = sshptr->subHistMap_.size();
+   iface_->fetchStoredSubHistory(*sshptr, hgtX, true, false);
+   uint32_t newSize = sshptr->subHistMap_.size();
+
+   dbUpdateSize_ += (newSize - prevSize) * UPDATE_BYTES_SUBSSH;
    return sshptr;
 }
 
@@ -5114,6 +5136,7 @@ StoredTx* BlockDataManager_LevelDB::makeSureSTXInMap(
       iface_->getStoredTx(stxTemp, txHash);
       stxMap[txHash] = stxTemp;
       stxptr = &stxMap[txHash];
+      dbUpdateSize_ += stxptr->numBytes_;
    }
    
    return stxptr;
@@ -5143,6 +5166,7 @@ StoredTx* BlockDataManager_LevelDB::makeSureSTXInMap(
       iface_->getStoredTx(stxTemp, hgt, dup, txIdx);
       stxMap[txHash] = stxTemp;
       stxptr = &stxMap[txHash];
+      dbUpdateSize_ += stxptr->numBytes_;
    }
    
    return stxptr;
@@ -5173,7 +5197,10 @@ void BlockDataManager_LevelDB::findSSHEntriesToDelete(
    
       // If the full SSH is empty (not just sub history), mark it to be removed
       if(iterSSH->second.totalTxioCount_ == 0)
+      {
          fullSSHToDelete.push_back(iterSSH->first);
+         keysToDelete.insert(iterSSH->second.getDBKey(true));
+      }
    }
 
    // We have to delete in a separate loop, because we don't want to delete
@@ -5184,6 +5211,14 @@ void BlockDataManager_LevelDB::findSSHEntriesToDelete(
 
 
 
+////////////////////////////////////////////////////////////////////////////////
+// We may use this to trigger flushing the queued DB updates
+//bool BlockDataManager_LevelDB::estimateDBUpdateSize(
+                        //map<BinaryData, StoredTx> &            stxToModify,
+                        //map<BinaryData, StoredScriptHistory> & sshToModify)
+//{
+ 
+//}
 
 
 

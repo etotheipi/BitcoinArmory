@@ -1689,6 +1689,8 @@ uint64_t StoredScriptHistory::markTxOutUnspent(BinaryData txOutKey8B,
       }
       pair<BinaryData, StoredSubHistory> toInsert(first4, StoredSubHistory());
       iter = subHistMap_.insert(toInsert).first;
+      iter->second.uniqueKey_ = uniqueKey_;
+      iter->second.hgtX_      = first4;
    }
 
    // More sanity checking
@@ -1698,14 +1700,17 @@ uint64_t StoredScriptHistory::markTxOutUnspent(BinaryData txOutKey8B,
       return UINT64_MAX;
    }
 
-   // 
    StoredSubHistory & subssh = iter->second;
    uint32_t prevSize = subssh.txioSet_.size();
    uint64_t val = subssh.markTxOutUnspent(txOutKey8B, value, isCoinbase, isMultisig);
    uint32_t newSize = subssh.txioSet_.size();
 
+   // Value returned above is zero if it's multisig, so no need to check here
+   // Also, markTxOutUnspent doesn't indicate whether a new entry was added,
+   // so we use txioSet_.size() to update appropriately.
    totalUnspent_   += val;
    totalTxioCount_ += (newSize - prevSize); // should only ever be +=0 or +=1
+   useMultipleEntries_ = (totalTxioCount_>1);
 
    return val;
 }
@@ -1985,6 +1990,7 @@ void StoredSubHistory::pprintFullSubSSH(uint32_t indent)
                           << "," << txi << "," << txo << ")";
 
       BinaryData scraddr = txio.getTxOut().getScrAddressStr();
+      cout << " VALUE: " << (txio.getValue() /COIN);
       cout << " isCB: " << (txio.isFromCoinbase() ? "X" : " ");
       cout << " isMS: " << (txio.isMultisig() ? "X" : " ");
       cout << " Type: " << (uint32_t)uniqueKey_[0];

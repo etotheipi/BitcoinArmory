@@ -617,14 +617,23 @@ bool InterfaceToLDB::advanceToNextBlock(bool skip)
 /////////////////////////////////////////////////////////////////////////////
 bool InterfaceToLDB::dbIterIsValid(DB_SELECT db, DB_PREFIX prefix)
 {
+   bool anyPrefixIsOkay = (prefix==DB_PREFIX_COUNT);
+
    if(!iters_[db]->Valid())
       return false;
 
-   resetIterReaders();
-   if(!currReadValue_.get_uint8_t() == (uint8_t)prefix)
+   if(currReadKey_.getSize() == 0)
+   {
+      LOGERR << "Iter is valid but somehow key is zero length...?";
+      return false;
+   }
+
+   if(anyPrefixIsOkay)
+      return true;
+
+   if(currReadKey_.getRawRef()[0] != (uint8_t)prefix)
       return false;
 
-   resetIterReaders();
    return true;
 }
 
@@ -822,7 +831,12 @@ void InterfaceToLDB::putStoredScriptHistory( StoredScriptHistory & ssh)
 void InterfaceToLDB::getStoredScriptHistorySummary( StoredScriptHistory & ssh,
                                                     BinaryDataRef scrAddrStr)
 {
-   seekTo(BLKDATA, DB_PREFIX_SCRIPT, scrAddrStr);
+   bool foundMatch = seekTo(BLKDATA, DB_PREFIX_SCRIPT, scrAddrStr);
+   if(!foundMatch)
+   {
+      ssh.uniqueKey_.resize(0);
+      return;
+   }
    ssh.unserializeDBKey(currReadKey_.getRawRef());
    ssh.unserializeDBValue(currReadValue_.getRawRef());
 }
@@ -853,6 +867,7 @@ void InterfaceToLDB::getStoredScriptHistoryByRawScript(
 // simply filling in data that the SSH may be expected to have.  
 bool InterfaceToLDB::fetchStoredSubHistory( StoredScriptHistory & ssh,
                                             BinaryData hgtX,
+                                            bool createIfDNE,
                                             bool forceReadDB)
 {
    if(!forceReadDB && KEY_IN_MAP(hgtX, ssh.subHistMap_))
@@ -861,13 +876,14 @@ bool InterfaceToLDB::fetchStoredSubHistory( StoredScriptHistory & ssh,
    BinaryData key = ssh.uniqueKey_ + hgtX; 
    BinaryRefReader brr = getValueReader(BLKDATA, DB_PREFIX_SCRIPT, key);
 
-   if(brr.getSize() == 0)
-      return false;
-
    StoredSubHistory subssh;
-   subssh.unserializeDBValue(brr);
    subssh.uniqueKey_ = ssh.uniqueKey_;
    subssh.hgtX_      = hgtX;
+
+   if(brr.getSize() > 0)
+      subssh.unserializeDBValue(brr);
+   else if(!createIfDNE)
+      return false;
 
    return ssh.mergeSubHistory(subssh);
 }
