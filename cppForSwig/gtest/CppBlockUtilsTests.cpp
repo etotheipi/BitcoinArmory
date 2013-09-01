@@ -6114,7 +6114,6 @@ TEST_F(BlockUtilsTest, Load5Blocks_FullReorg)
    TheBDM.readBlkFileUpdate();
 
    //iface_->pprintBlkDataDB(BLKDATA);
-
    StoredScriptHistory ssh;
 
    iface_->getStoredScriptHistory(ssh, HASH160PREFIX + addrA_);

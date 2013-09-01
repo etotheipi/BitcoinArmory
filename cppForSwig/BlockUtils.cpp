@@ -2353,8 +2353,8 @@ void BlockDataManager_LevelDB::reapplyBlocksToDB(uint32_t blk0, uint32_t blk1)
       if(iface_->dbIterIsValid(BLKDATA))
          prevIterKey = iface_->getIterKeyCopy();
 
-      cout << "********BEFORE*******" << endl;
-      iface_->pprintBlkDataDB(BLKDATA);
+      //cout << "********BEFORE*******" << endl;
+      //iface_->pprintBlkDataDB(BLKDATA);
       if(!doBatches)
          applyBlockToDB(hgt, dup); 
       else
@@ -2365,9 +2365,9 @@ void BlockDataManager_LevelDB::reapplyBlocksToDB(uint32_t blk0, uint32_t blk1)
          applyBlockToDB(hgt, dup, stxToModify, sshToModify, keysToDelete, commit);
       }
 
-      cout << "********AFTER*******" << endl;
-      iface_->pprintBlkDataDB(BLKDATA);
-      cout << "********END*******" << endl;
+      //cout << "********AFTER*******" << endl;
+      //iface_->pprintBlkDataDB(BLKDATA);
+      //cout << "********END*******" << endl;
 
       // If we had a valid iter position before applyBlockToDB, restore it
       if(prevIterKey.getSize() > 0)
@@ -2388,7 +2388,7 @@ void BlockDataManager_LevelDB::reapplyBlocksToDB(uint32_t blk0, uint32_t blk1)
 
       if(hgt%1000 == 0)
       {
-         UniversalTimer::instance().printCSV(cout,true);
+         //UniversalTimer::instance().printCSV(cout,true);
          UniversalTimer::instance().printCSV(string("timings.csv"));
       }
       
@@ -3120,7 +3120,7 @@ uint32_t BlockDataManager_LevelDB::rebuildDatabasesFromBlkFiles(void)
    purgeZeroConfPool();
 
    #ifdef _DEBUG
-      UniversalTimer::instance().printCSV(cout,true);
+      //UniversalTimer::instance().printCSV(cout,true);
       UniversalTimer::instance().printCSV(string("timings.csv"));
    #endif
 
@@ -3333,7 +3333,7 @@ uint32_t BlockDataManager_LevelDB::readBlkFileUpdate(void)
    }
 
    #ifdef _DEBUG
-      UniversalTimer::instance().printCSV(cout,true);
+      //UniversalTimer::instance().printCSV(cout,true);
       UniversalTimer::instance().printCSV(string("timings.csv"));
    #endif
 
@@ -4980,16 +4980,6 @@ bool BlockDataManager_LevelDB::undoBlockFromDB(StoredUndoData & sud)
    // When they were added, we updated all the StoredScriptHistory objects
    // to include references to them.  We need to remove them now.
    // Use int32_t index so that -1 != UINT32_MAX and we go into inf loop
-
-   /* Since our DB is already indexed by height&dup, just use that instead
-      of the data in the SUD object (had some problems with duplicate tx
-      in the txhints lists, and using hgt/dup directly solves it
-   for(int32_t i=sud.outPointsAddedByBlock_.size()-1; i>=0; i--)
-   {
-      BinaryData txHash  = sud.outPointsAddedByBlock_[i].getTxHash();
-      uint16_t   txoIdx  = sud.outPointsAddedByBlock_[i].getTxOutIndex();
-   */
-
    for(int16_t itx=sbh.numTx_-1; itx>=0; itx--)
    {
       // Ironically, even though I'm using hgt & dup, I still need the hash

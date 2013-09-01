@@ -28,8 +28,8 @@ CPPFLAGS += -I$(GTEST_DIR)/include \
 				-L$(USER_DIR)/cryptopp \
 				-L$(USER_DIR)/leveldb \
 				-D__STDC_LIMIT_MACROS \
-				-D_DEBUG \
-				-g
+				-g \
+				#-D_DEBUG \
 				#-O2 \
 
 HEADERS += 	$(USER_DIR)/BinaryData.h \

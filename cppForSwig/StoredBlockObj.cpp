@@ -1584,8 +1584,13 @@ bool StoredScriptHistory::eraseTxio(BinaryData const & dbKey8B)
       totalUnspent_   -= valueRemoved;
    }
 
-   if(iterSubHist->second.txioSet_.size() == 0)
-      subHistMap_.erase(iterSubHist);
+   // Commented out because we need to be able to iterate through and see 
+   // which subHistMap_ are empty (later) so they can be removed from the DB.
+   // If we erase it here without recording any kind of tracking data, later 
+   // we have no idea what was removed and those dead SubSSH objects are left
+   // in the DB. 
+   //if(iterSubHist->second.txioSet_.size() == 0)
+      //subHistMap_.erase(iterSubHist);
 
    return wasRemoved;
 }
