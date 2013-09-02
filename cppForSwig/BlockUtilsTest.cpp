@@ -87,15 +87,15 @@ int main(void)
    //string blkdir("/home/alan/.bitcoin");
    //string blkdir("/home/alan/.bitcoin/testnet/");
    //string blkdir("C:/Users/VBox/AppData/Roaming/Bitcoin");
-   //string blkdir("C:/Users/VBox/AppData/Roaming/Bitcoin/testnet");
+   string blkdir("C:/Users/Andy/AppData/Roaming/Bitcoin/testnet");
    //string multitest("./multiblktest");
    
 
    //printTestHeader("Read-and-Organize-Blockchain");
-   //TestReadAndOrganizeChain(blkdir);
+   TestReadAndOrganizeChain(blkdir);
 
    //printTestHeader("Wallet-Relevant-Tx-Scan");
-   //TestScanForWalletTx(blkdir);
+   TestScanForWalletTx(blkdir);
 
    //printTestHeader("Find-Non-Standard-Tx");
    //TestFindNonStdTx(blkdir);

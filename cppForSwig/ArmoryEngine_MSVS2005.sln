@@ -1,19 +1,9 @@
 ﻿
-Microsoft Visual Studio Solution File, Format Version 10.00
-# Visual Studio 2008
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ArmoryEngine_MSVS2005", "ArmoryEngine_MSVS2005.vcproj", "{9B73A6D3-E0A1-469F-B473-420029B3F380}"
-	ProjectSection(ProjectDependencies) = postProject
-		{3423EC9A-52E4-4A4D-9753-EDEBC38785EF} = {3423EC9A-52E4-4A4D-9753-EDEBC38785EF}
-	EndProjectSection
+Microsoft Visual Studio Solution File, Format Version 11.00
+# Visual Studio 2010
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ArmoryEngine_MSVS2005", "ArmoryEngine_MSVS2005.vcxproj", "{9B73A6D3-E0A1-469F-B473-420029B3F380}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "SWIG_compile_dll_MSVS2005", "SWIG_compile_dll_MSVS2005.vcproj", "{E5837BA8-5CA6-498D-B5C0-EDBD2E32719C}"
-	ProjectSection(ProjectDependencies) = postProject
-		{9B73A6D3-E0A1-469F-B473-420029B3F380} = {9B73A6D3-E0A1-469F-B473-420029B3F380}
-	EndProjectSection
-EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "cryptlib", "cryptopp\cryptlib.vcproj", "{3423EC9A-52E4-4A4D-9753-EDEBC38785EF}"
-EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "guardian", "guardian.vcproj", "{D35F732D-55D7-4037-9C6D-E141F740F802}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "cryptlib", "cryptopp\cryptlib.vcxproj", "{3423EC9A-52E4-4A4D-9753-EDEBC38785EF}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -41,19 +31,6 @@ Global
 		{9B73A6D3-E0A1-469F-B473-420029B3F380}.Release|Win32.Build.0 = Release|Win32
 		{9B73A6D3-E0A1-469F-B473-420029B3F380}.Release|x64.ActiveCfg = Release|x64
 		{9B73A6D3-E0A1-469F-B473-420029B3F380}.Release|x64.Build.0 = Release|x64
-		{E5837BA8-5CA6-498D-B5C0-EDBD2E32719C}.Debug|Win32.ActiveCfg = Debug|Win32
-		{E5837BA8-5CA6-498D-B5C0-EDBD2E32719C}.Debug|x64.ActiveCfg = Debug|x64
-		{E5837BA8-5CA6-498D-B5C0-EDBD2E32719C}.Debug|x64.Build.0 = Debug|x64
-		{E5837BA8-5CA6-498D-B5C0-EDBD2E32719C}.DLL-Import Debug|Win32.ActiveCfg = Debug|Win32
-		{E5837BA8-5CA6-498D-B5C0-EDBD2E32719C}.DLL-Import Debug|Win32.Build.0 = Debug|Win32
-		{E5837BA8-5CA6-498D-B5C0-EDBD2E32719C}.DLL-Import Debug|x64.ActiveCfg = Debug|Win32
-		{E5837BA8-5CA6-498D-B5C0-EDBD2E32719C}.DLL-Import Release|Win32.ActiveCfg = Release|Win32
-		{E5837BA8-5CA6-498D-B5C0-EDBD2E32719C}.DLL-Import Release|Win32.Build.0 = Release|Win32
-		{E5837BA8-5CA6-498D-B5C0-EDBD2E32719C}.DLL-Import Release|x64.ActiveCfg = Release|Win32
-		{E5837BA8-5CA6-498D-B5C0-EDBD2E32719C}.Release|Win32.ActiveCfg = Release|Win32
-		{E5837BA8-5CA6-498D-B5C0-EDBD2E32719C}.Release|Win32.Build.0 = Release|Win32
-		{E5837BA8-5CA6-498D-B5C0-EDBD2E32719C}.Release|x64.ActiveCfg = Release|x64
-		{E5837BA8-5CA6-498D-B5C0-EDBD2E32719C}.Release|x64.Build.0 = Release|x64
 		{3423EC9A-52E4-4A4D-9753-EDEBC38785EF}.Debug|Win32.ActiveCfg = Debug|Win32
 		{3423EC9A-52E4-4A4D-9753-EDEBC38785EF}.Debug|x64.ActiveCfg = Debug|x64
 		{3423EC9A-52E4-4A4D-9753-EDEBC38785EF}.Debug|x64.Build.0 = Debug|x64
@@ -67,19 +44,6 @@ Global
 		{3423EC9A-52E4-4A4D-9753-EDEBC38785EF}.DLL-Import Release|x64.Build.0 = DLL-Import Release|x64
 		{3423EC9A-52E4-4A4D-9753-EDEBC38785EF}.Release|Win32.ActiveCfg = Release|Win32
 		{3423EC9A-52E4-4A4D-9753-EDEBC38785EF}.Release|x64.ActiveCfg = Release|x64
-		{D35F732D-55D7-4037-9C6D-E141F740F802}.Debug|Win32.ActiveCfg = Debug|Win32
-		{D35F732D-55D7-4037-9C6D-E141F740F802}.Debug|Win32.Build.0 = Debug|Win32
-		{D35F732D-55D7-4037-9C6D-E141F740F802}.Debug|x64.ActiveCfg = Debug|Win32
-		{D35F732D-55D7-4037-9C6D-E141F740F802}.DLL-Import Debug|Win32.ActiveCfg = Debug|Win32
-		{D35F732D-55D7-4037-9C6D-E141F740F802}.DLL-Import Debug|Win32.Build.0 = Debug|Win32
-		{D35F732D-55D7-4037-9C6D-E141F740F802}.DLL-Import Debug|x64.ActiveCfg = Debug|Win32
-		{D35F732D-55D7-4037-9C6D-E141F740F802}.DLL-Import Release|Win32.ActiveCfg = Release|Win32
-		{D35F732D-55D7-4037-9C6D-E141F740F802}.DLL-Import Release|Win32.Build.0 = Release|Win32
-		{D35F732D-55D7-4037-9C6D-E141F740F802}.DLL-Import Release|x64.ActiveCfg = Release|Win32
-		{D35F732D-55D7-4037-9C6D-E141F740F802}.Release|Win32.ActiveCfg = Release|Win32
-		{D35F732D-55D7-4037-9C6D-E141F740F802}.Release|Win32.Build.0 = Release|Win32
-		{D35F732D-55D7-4037-9C6D-E141F740F802}.Release|x64.ActiveCfg = Release|Win32
-		{D35F732D-55D7-4037-9C6D-E141F740F802}.Release|x64.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -5,7 +5,7 @@ Created on Aug 30, 2013
 '''
 import sys
 sys.argv.append('--nologging')
-from sys import argv, path
+from sys import path
 import os
 
 from armoryengine import PyBtcWallet
@@ -17,38 +17,27 @@ from operator import add, mul
 MAX_LIST_LEN = 20000000
 
 class MaxResultsExceeded(Exception): pass
+class WalletNotFound(object): pass
 
 path.append('..')
 path.append('/usr/bin/armory')
-
-def loadWallet():
-   if len(argv)<2:
-      print '***USAGE: '
-      print '    %s /path/to/wallet/file.wallet' % argv[0]
-      exit(0)
-   walletPath = argv[1]
-   if not os.path.exists(walletPath):
-      print 'Wallet does not exist:'
-      print '  ', walletPath
-      exit(0)
-   return PyBtcWallet().readWalletFile(walletPath)
-
-
-def printMaxResultsExceededAndExit():
-   print "To many passwords to try. Please reduce the scope of your search."
-   exit(1)
 
 class PwdSeg(object):
    def __init__(self, known):
       self.known = known
    
    # Abstract method
-   def getSegList(self, maxResults=MAX_LIST_LEN):
-      raise NotImplementedError("Subclass must implement getSegList()")
-   
-   # Abstract method
    def getSegListLen(self):
       raise NotImplementedError("Subclass must implement getSegListLength()")
+
+   # Abstract Generator
+   def segListGenerator(self, maxResults=MAX_LIST_LEN):
+      raise NotImplementedError("Subclass must implement getSegList()")
+      yield None
+   
+   # Abstract method
+   def getSegList(self, maxResults=MAX_LIST_LEN):
+      raise NotImplementedError("Subclass must implement getSegList()")
 
 class UnknownCaseSeg(PwdSeg):
    def __init__(self, known):
@@ -56,18 +45,25 @@ class UnknownCaseSeg(PwdSeg):
    
    getBothCases = lambda self, ch : [ch.lower(), ch.upper()] if ch.lower() != ch.upper() else [ch]
    
-   getSegListRecursion = lambda self, seg : \
-      [a + b \
-         for a in self.getBothCases(seg[0]) \
-         for b in self.getSegListRecursion(seg[1:])] if len(seg)>0 else ['']
-   
+   def segListRecursiveGenerator(self, seg):
+      if len(seg) > 0:
+         for a in self.getBothCases(seg[0]):
+            for b in self.segListRecursiveGenerator(seg[1:]):
+               yield a + b
+      else:
+         yield ''
+         
    def getSegListLen(self):
       return reduce(mul, [1 if ch.lower() == ch.upper() else 2 for ch in self.known]) 
    
-   def getSegList(self, maxResults=MAX_LIST_LEN):
+   def segListGenerator(self, maxResults=MAX_LIST_LEN):
       if self.getSegListLen() > maxResults:
          raise MaxResultsExceeded
-      return self.getSegListRecursion(self.known)
+      for seg in self.segListRecursiveGenerator(self.known):
+         yield seg
+      
+   def getSegList(self, maxResults=MAX_LIST_LEN):
+      return [seg for seg in self.segListGenerator(maxResults)] 
    
 class KnownSeg(PwdSeg):
    def __init__(self, known):
@@ -75,10 +71,13 @@ class KnownSeg(PwdSeg):
    
    def getSegListLen(self):
       return 1
-   
-   def getSegList(self, maxResults=MAX_LIST_LEN):
-      return [self.known]
 
+   def segListGenerator(self, maxResults=MAX_LIST_LEN):
+      yield self.known
+
+   def getSegList(self, maxResults=MAX_LIST_LEN):
+      return [seg for seg in self.segListGenerator()]
+   
 class UnknownSeg(PwdSeg):
    def __init__(self, known, minLen, maxLen):
       super(UnknownSeg, self).__init__(known)
@@ -89,81 +88,108 @@ class UnknownSeg(PwdSeg):
    def removeDups(self):
       self.known = ''.join(set(self.known))
       
-   getSegListRecursion = lambda self, segLen : \
-      [a + b \
-         for a in self.known \
-         for b in self.getSegListRecursion(segLen-1)] if segLen > 0 else ['']
-   
+   def segListRecursiveGenerator(self, segLen):
+      if segLen > 0:
+         for a in self.known:
+            for b in self.segListRecursiveGenerator(segLen-1):
+               yield a + b
+      else:
+         yield ''
+
    def getSegListLen(self):
       return reduce(add, [len(self.known) ** i for i in range(self.minLen, self.maxLen + 1)]) 
    
-   def getSegList(self, maxResults=MAX_LIST_LEN):
+   def segListGenerator(self, maxResults=MAX_LIST_LEN):
       if self.getSegListLen() > maxResults:
          raise MaxResultsExceeded
-      return reduce(lambda x,y : x + self.getSegListRecursion(y),
-                    range(self.minLen, self.maxLen + 1),
-                    [])
+      for segLen in range(self.minLen, self.maxLen + 1):
+         for seg in self.segListRecursiveGenerator(segLen):
+            yield seg
    
-def countPasswords(segList, segOrdList):
-   return reduce(add, [reduce(mul, [len(segList[segIndex])
-                                    for segIndex in segOrd])
-                       for segOrd in segOrdList])
+   def getSegList(self, maxResults=MAX_LIST_LEN):
+      return [seg for seg in self.segListGenerator(maxResults)]
+   
 
-# Generates passwords from segs in segList
-#     Example Input: [['a'],['b'],['c'],['1','2'],['!']]
-# The segOrdList contains a list of ordered 
-# permutations of the segList:
-#     Example Input: [[1,2,3],[3,1,2,],[1,2]]
-# Yields one password at a time until all permutations are exhausted
-#     Example: a1!, a2!, b1!, b2!, c1!, c2!,
-#              !a1, !a2, !b1, !b2, !c1, !c2,
-#              a1, a2, b1, b2, c1, c2
-def paswordGenerator(segList, segOrdList, result = ''):
-   for segOrd in segOrdList:
-      orderedSegList = [segList[segIndex] for segIndex in segOrd]
-      for seg in orderedSegList[0]:
-         if len(segList) > 1:
-            internalPWGenerator = paswordGenerator(segList[1:], result + seg)
-            for item in internalPWGenerator:
-               yield item
-         else:
-            yield result + seg
 
-def searchForPassword(segList, segOrdList=[]):
-   if len(segOrdList) == 0:
-      segOrdList = [range(len(segList))]
-   passwordCount = countPasswords(segList, segOrdList)
-   startTime = RightNow()
-   found = False
-   thePasswordGenerator = paswordGenerator(segList, segOrdList)
-   myEncryptedWlt = loadWallet();
-   for i,p in enumerate(thePasswordGenerator):
-      isValid = myEncryptedWlt.verifyPassphrase( SecureBinaryData(p) ) 
+
+class PasswordFinder(object): 
+   def __init__(self, walletPath):
+      if not os.path.exists(walletPath):
+         print 'Wallet does not exist:'
+         print '  ', walletPath
+         raise WalletNotFound
+      self.wallet = PyBtcWallet().readWalletFile(walletPath)
+
+   def countPasswords(self, segList, segOrdList):
+      return reduce(add, [reduce(mul, [len(segList[segIndex])
+                                       for segIndex in segOrd])
+                          for segOrd in segOrdList])
+   
+   def recursivePasswordGenerator(self, segList):
+      if len(segList) > 0:
+         for a in segList[0]:
+            for b in self.recursivePasswordGenerator(segList[1:]):
+               yield a + b
+      else:
+         yield ''
          
-      if isValid:
-         # If the passphrase was wrong, it would error out, and not continue
-         print 'Passphrase found!'
-         print ''
-         print '\t', p
-         print ''
-         print 'Thanks for using this script.  If you recovered coins because of it, '
-         print 'please consider donating :) '
-         print '   1ArmoryXcfq7TnCSuZa9fQjRYwJ4bkRKfv'
-         print ''
-         found = True
-         open('FOUND_PASSWORD.txt','w').write(p)
-         break
-      elif i%100==0:
-            telapsed = (RightNow() - startTime)/3600.
-            print ('%d/%d passphrases tested... (%0.1f hours so far)'%(i,passwordCount,telapsed)).rjust(40)
-      print p,
-      if i % 10 == 9:
-         print
+   # Generates passwords from segs in segList
+   #     Example Input: [['a','b','c'],['1','2'],['!']]
+   # The segOrdList contains a list of ordered 
+   # permutations of the segList:
+   #     Example Input: [[0,1,2],[2,0,1,],[0,1]]
+   # Yields one password at a time until all permutations are exhausted
+   #     Example: a1!, a2!, b1!, b2!, c1!, c2!,
+   #              !a1, !a2, !b1, !b2, !c1, !c2,
+   #              a1, a2, b1, b2, c1, c2
+   # The above example is a test case found in test/FindPassTest.py
+   def passwordGenerator(self, segList, segOrdList):
+      for segOrd in segOrdList:
+         orderedSegList = [segList[segIndex] for segIndex in segOrd]
+         for result in self.recursivePasswordGenerator(orderedSegList):
+            yield result
    
-   if not found:
-      print ''
-      
-      print 'Script finished!'
-      print 'Sorry, none of the provided passphrases were correct :('
-      print ''
-
+   def searchForPassword(self, segList, segOrdList=[]):
+      if len(segOrdList) == 0:
+         segOrdList = [range(len(segList))]
+      passwordCount = self.countPasswords(segList, segOrdList)
+      startTime = RightNow()
+      found = False
+      result = None
+      for i,p in enumerate(self.passwordGenerator(segList, segOrdList)):
+         isValid = self.wallet.verifyPassphrase( SecureBinaryData(p) ) 
+            
+         if isValid:
+            # If the passphrase was wrong, it would error out, and not continue
+            print 'Passphrase found!'
+            print ''
+            print '\t', p
+            print ''
+            print 'Thanks for using this script.  If you recovered coins because of it, '
+            print 'please consider donating :) '
+            print '   1ArmoryXcfq7TnCSuZa9fQjRYwJ4bkRKfv'
+            print ''
+            found = True
+            open('FOUND_PASSWORD.txt','w').write(p)
+            result = p
+            break
+         elif i%100==0:
+               telapsed = (RightNow() - startTime)/3600.
+               print ('%d/%d passphrases tested... (%0.1f hours so far)'%(i,passwordCount,telapsed)).rjust(40)
+         print p,
+         if i % 10 == 9:
+            print
+      if not found:
+         print ''
+         
+         print 'Script finished!'
+         print 'Sorry, none of the provided passphrases were correct :('
+         print ''
+      return result
+'''
+if len(argv)<2:
+   print '***USAGE: '
+   print '    %s /path/to/wallet/file.wallet' % argv[0]
+   exit(0)
+passwordFinder = PasswordFinder(argv[1])
+'''

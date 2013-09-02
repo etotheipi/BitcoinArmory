@@ -4,16 +4,27 @@ Created on Aug 26, 2013
 @author: Andy
 '''
 from extras.findpass import UnknownCaseSeg, MaxResultsExceeded, KnownSeg, \
-   UnknownSeg
+   UnknownSeg, PwdSeg, PasswordFinder, WalletNotFound
 import unittest
 
 
 seg1Input = 'abc'
 seg2Input = '123abcdef123ghijklmno123'
 
+segList1 = [['a','b','c'],['1','2'],['!']]
+segOrdList1 = [[0,1,2],[2,0,1,],[0,1]]
+expectedResult1 = ['a1!', 'a2!', 'b1!', 'b2!', 'c1!', 'c2!', \
+                '!a1', '!a2', '!b1', '!b2', '!c1', '!c2', \
+                 'a1', 'a2', 'b1', 'b2', 'c1', 'c2']
+
+
+
+def expectedResultGenerator(expectedResult):
+   for x in expectedResult:
+      yield x
+
 class Test(unittest.TestCase):
    
-      
    def testUnknownCaseSeg(self):
       seg1 = UnknownCaseSeg(seg1Input)
       segStringList1 = seg1.getSegList()
@@ -26,7 +37,6 @@ class Test(unittest.TestCase):
       self.assertEqual(expectedSeg2Len, len(segStringList2))
       self.assertTrue(seg2Input.upper() in segStringList2)
       self.assertRaises(MaxResultsExceeded, seg2.getSegList, expectedSeg2Len-1)
-
 
    def testKnownSeg(self):
       seg1 = KnownSeg(seg1Input)
@@ -53,3 +63,21 @@ class Test(unittest.TestCase):
       self.assertEqual(expectedSeg2Len, len(segStringList2))
       self.assertTrue(seg2Input[0] * seg2Len in segStringList2)
       self.assertRaises(MaxResultsExceeded, seg2.getSegList, expectedSeg2Len-1)
+   
+
+   def testPasswordFinder(self):
+      # Name of wallet is the password followed by '.wallet'
+      passwordFinder = PasswordFinder('FakeWallet123.wallet')
+      self.assertTrue(passwordFinder.wallet.isLocked)
+      theExpectedResultGenerator = expectedResultGenerator(expectedResult1)
+      for i, result in enumerate(passwordFinder.passwordGenerator(segList1, segOrdList1)):
+         expectedResult = expectedResult1[i]
+         self.assertEqual(expectedResult, result)
+      self.assertEqual(len(expectedResult1), \
+                       passwordFinder.countPasswords(segList1, segOrdList1))
+      passwordFinderSegList = [KnownSeg('Wallet').getSegList(),
+                               UnknownSeg('123', 3, 3).getSegList(), 
+                               UnknownCaseSeg('Fake').getSegList()]
+      expectedFoundPassword = 'FakeWallet123'
+      foundPassword = passwordFinder.searchForPassword(passwordFinderSegList, segOrdList1)
+      self.assertEqual(foundPassword, expectedFoundPassword)
