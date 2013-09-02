@@ -6145,6 +6145,7 @@ TEST_F(BlockUtilsTest, TimeAndSpaceTest_usuallydisabled)
    DBUtils.setDbPruneType(DB_PRUNE_NONE);
 
    string oldblkdir = blkdir_;
+   //blkdir_  = string("/home/alan/.bitcoin/blks3");
    blkdir_  = string("/home/alan/.bitcoin/blocks");
    TheBDM.SelectNetwork("Main");
    //blkdir_  = string("/home/alan/.bitcoin/testnet3/blocks");

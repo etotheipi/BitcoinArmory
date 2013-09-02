@@ -1459,31 +1459,15 @@ bool BlockDataManager_LevelDB::SetBlkFileLocation(string blkdir)
 
    detectAllBlkFiles();
 
-   // Next thing we need to do is find all the blk000X.dat files.
-   // BtcUtils::GetFileSize uses only ifstreams, and thus should be
-   // able to determine if a file exists in an OS-independent way.
-   //numBlkFiles_=0;
-   //totalBlockchainBytes_ = 0;
-   //blkFileList_.clear();
-
-   //while(numBlkFiles_ < UINT16_MAX)
-   //{
-      //string path = BtcUtils::getBlkFilename(blkFileDir_, numBlkFiles_);
-      //uint64_t filesize = BtcUtils::GetFileSize(path);
-      //if(filesize == FILE_DOES_NOT_EXIST)
-         //break;
-
-      //numBlkFiles_++;
-      //blkFileList_.push_back(string(path));
-      //totalBlockchainBytes_ += filesize;
-   //}
-
-   //if(numBlkFiles_!=UINT16_MAX)
-      //LOGINFO << "Highest blkXXXX.dat file: " << numBlkFiles_-1;
-   //else
-      //LOGERR << "Error finding blockchain files (blkXXXX.dat)";
-
    return (numBlkFiles_!=UINT16_MAX);
+}
+
+/////////////////////////////////////////////////////////////////////////////
+void BlockDataManager_LevelDB::SetLevelDBLocation(string ldbdir)
+{
+   SCOPED_TIMER("SetBlkFileLocation");
+   leveldbDir_    = ldbdir; 
+   isLevelDBSet_  = true;
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -1520,7 +1504,6 @@ bool BlockDataManager_LevelDB::checkLdbStatus(leveldb::Status stat)
 }
 
 /////////////////////////////////////////////////////////////////////////////
-/*
 bool BlockDataManager_LevelDB::initializeDBInterface(ARMORY_DB_TYPE dbtype,
                                                      DB_PRUNE_TYPE  prtype)
 {
@@ -1532,7 +1515,7 @@ bool BlockDataManager_LevelDB::initializeDBInterface(ARMORY_DB_TYPE dbtype,
    }
 
 
-   iface_->openDatabases(blkFileDir_, 
+   iface_->openDatabases(leveldbDir_, 
                          GenesisHash_, 
                          GenesisTxHash_, 
                          MagicBytes_,
@@ -1563,12 +1546,11 @@ bool BlockDataManager_LevelDB::initializeDBInterface(ARMORY_DB_TYPE dbtype,
          sbh.isMainBranch_ = true;
          iface_->putStoredHeader(sbh, false);
       }
-      iface_->setValidDupIDForHeight(sbh.duplicateID_);
+      iface_->setValidDupIDForHeight(sbh.blockHeight_, sbh.duplicateID_);
    }
    TIMER_STOP("initializeDBInterface::checkAllHeaders");
 
 }
-*/
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -2317,7 +2299,7 @@ void BlockDataManager_LevelDB::reapplyBlocksToDB(uint32_t blk0, uint32_t blk1)
    // Start scanning and timer
    TIMER_START("LoadProgress");
 
-   bool doBatches = (blk1-blk0 > DB_BLK_BATCH_SIZE);
+   bool doBatches = (blk1-blk0 > NUM_BLKS_BATCH_THRESH);
    map<BinaryData, StoredTx>             stxToModify;
    map<BinaryData, StoredScriptHistory>  sshToModify;
    set<BinaryData>                       keysToDelete;
@@ -2335,7 +2317,7 @@ void BlockDataManager_LevelDB::reapplyBlocksToDB(uint32_t blk0, uint32_t blk1)
          break;
       
 
-      if(hgt%DB_BLK_BATCH_SIZE == 0)
+      if(hgt%2500 == 0)
          LOGWARN << "Finished applying blocks up to " << hgt;
 
       if(dup != iface_->getValidDupIDForHeight(hgt))
@@ -2359,9 +2341,9 @@ void BlockDataManager_LevelDB::reapplyBlocksToDB(uint32_t blk0, uint32_t blk1)
          applyBlockToDB(hgt, dup); 
       else
       {
-         bool commit_blk = (hgt%DB_BLK_BATCH_SIZE == 0);
-         bool commit_sz  = (dbUpdateSize_ > UPDATE_BYTES_THRESH);
-         bool commit = commit_blk || commit_sz;
+         bool commit = (dbUpdateSize_ > UPDATE_BYTES_THRESH);
+         if(commit)
+            LOGINFO << "Flushing DB cache after this block: " << hgt;
          applyBlockToDB(hgt, dup, stxToModify, sshToModify, keysToDelete, commit);
       }
 
@@ -2969,7 +2951,13 @@ uint32_t BlockDataManager_LevelDB::rebuildDatabasesFromBlkFiles(void)
    // New with LevelDB:  must read and organize headers before handling the
    // full blockchain data.  We need to figure out the longest chain and write
    // the headers to the DB before actually processing any block data.  
+   LOGINFO << "Reading all headers and building chain...";
    processAllHeadersInBlkFiles(0, numBlkFiles_);
+
+   dbUpdateSize_ = 0;
+
+   LOGINFO << "Total number of blk*.dat files: " << numBlkFiles_;
+   LOGINFO << "Total number of blocks found:   " << getTopBlockHeight() + 1;
 
    /////////////////////////////////////////////////////////////////////////////
    // Now we start the meat of this process...
@@ -3057,11 +3045,15 @@ uint32_t BlockDataManager_LevelDB::rebuildDatabasesFromBlkFiles(void)
    
             BinaryRefReader brr(bsb.reader().getCurrPtr(), nextBlkSize);
 
+            
             bool addRaw = addRawBlockToDB(brr);
+            dbUpdateSize_ += nextBlkSize;
 
-            if(blocksReadSoFar_%DB_BLK_BATCH_SIZE == 0 &&
+            if(dbUpdateSize_ > UPDATE_BYTES_THRESH && 
                iface_->isBatchOn(BLKDATA))
             {
+               LOGINFO << "Flushing DB cache after blocks: " << blocksReadSoFar_;
+               dbUpdateSize_ = 0;
                iface_->commitBatch(BLKDATA);
                iface_->startBatch(BLKDATA);
             }
@@ -3093,6 +3085,8 @@ uint32_t BlockDataManager_LevelDB::rebuildDatabasesFromBlkFiles(void)
    }
    TIMER_STOP("addRawBlocksToDB");
 
+   LOGINFO << "Finished putting " << blocksReadSoFar_ << " raw blocks into DB";
+   LOGINFO << "Build script histories and update spentness of all blocks...";
    
    // The first version of the DB engine will do super-node, where it tracks
    // all ScrAddrs, and thus we don't even need to register any scraddrs 

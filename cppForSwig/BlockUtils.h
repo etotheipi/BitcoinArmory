@@ -40,10 +40,10 @@
 #include "leveldb/db.h"
 
 
-#define DB_BLK_BATCH_SIZE   100
-#define UPDATE_BYTES_SSH     25
-#define UPDATE_BYTES_SUBSSH  75
-#define UPDATE_BYTES_THRESH  16*1024*1024
+#define NUM_BLKS_BATCH_THRESH 30
+#define UPDATE_BYTES_SSH      25
+#define UPDATE_BYTES_SUBSSH   75
+#define UPDATE_BYTES_THRESH   128*1024*1024
 
 using namespace std;
 
@@ -520,6 +520,7 @@ private:
    bool                               isBlkParamsSet_;
    bool                               isLevelDBSet_;
    string                             armoryHomeDir_;
+   string                             leveldbDir_;
    string                             blkFileDir_;
    vector<string>                     blkFileList_;
    uint64_t                           numBlkFiles_;
@@ -606,6 +607,7 @@ public:
    void SelectNetwork(string netName);
    void SetHomeDirLocation(string homeDir);
    bool SetBlkFileLocation(string blkdir);
+   void SetLevelDBLocation(string ldbdir);
    void SetBtcNetworkParams( BinaryData const & GenHash,
                              BinaryData const & GenTxHash,
                              BinaryData const & MagicBytes);
