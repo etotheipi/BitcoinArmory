@@ -1522,17 +1522,26 @@ bool BlockDataManager_LevelDB::initializeDBInterface(ARMORY_DB_TYPE dbtype,
                          dbtype, 
                          prtype);
 
-   // (1) Read all headers from the HEADERS DB
-   headerMap_.clear();
+
+   StoredDBInfo sdbi;
+   iface_->getStoredDBInfo(HEADERS, sdbi, true);
    map<HashString, StoredHeader> sbhMap;
-   iface_->readAllHeaders(headerMap_, sbhMap);
+   if(sdbi.topBlkHgt_ == 0)
+   {
+      LOGINFO << "DB is empty, must create new DB and build";
+      return false;
+   }
+   else
+   {
+      headerMap_.clear();
+      iface_->readAllHeaders(headerMap_, sbhMap);
+   }
 
    // Organize them into the longest chain
    organizeChain(true);
 
    // Now go through and check that the stored headers match the reorganized
    uint32_t topBlockDB = getTopBlockHeight();
-   TIMER_START("initializeDBInterface::checkAllHeaders");
    for(uint32_t i=0; i<=headersByHeight_.size(); i++)
    {
       // Go through all valid headers and make sure they are stored correctly
@@ -1548,8 +1557,7 @@ bool BlockDataManager_LevelDB::initializeDBInterface(ARMORY_DB_TYPE dbtype,
       }
       iface_->setValidDupIDForHeight(sbh.blockHeight_, sbh.duplicateID_);
    }
-   TIMER_STOP("initializeDBInterface::checkAllHeaders");
-
+   return true;
 }
 
 
@@ -3292,10 +3300,11 @@ uint32_t BlockDataManager_LevelDB::readBlkFileUpdate(void)
 
          StoredHeader sbh;
          iface_->getStoredHeader(sbh, hgt, dup);
-         for(uint32_t itx=0; itx<sbh.stxMap_.size(); itx++) 
+         map<uint16_t, StoredTx>::iterator iter;
+         for(iter = sbh.stxMap_.begin(); iter != sbh.stxMap_.end(); iter++)
          {
-            BinaryDataRef bdr(sbh.stxMap_[itx].dataCopy_);
-            registeredScrAddrScan(bdr.getPtr(), bdr.getSize());
+            Tx regTx = iter->second.getTxCopy();
+            registeredScrAddrScan(regTx.getPtr(), regTx.getSize());
          }
       }
       else

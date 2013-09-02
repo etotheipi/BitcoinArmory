@@ -847,6 +847,13 @@ void InterfaceToLDB::getStoredScriptHistory( StoredScriptHistory & ssh,
 {
    SCOPED_TIMER("getStoredScriptHistory");
    seekTo(BLKDATA, DB_PREFIX_SCRIPT, scrAddrStr);
+   uint32_t sz = currReadKey_.getSize();
+   if(currReadKey_.getRawRef().getSliceRef(1,sz-1) != scrAddrStr)
+   {
+      ssh.uniqueKey_.resize(0);
+      return;
+   }
+
    readStoredScriptHistoryAtIter(ssh);
 }
 

@@ -6146,10 +6146,10 @@ TEST_F(BlockUtilsTest, TimeAndSpaceTest_usuallydisabled)
 
    string oldblkdir = blkdir_;
    //blkdir_  = string("/home/alan/.bitcoin/blks3");
-   blkdir_  = string("/home/alan/.bitcoin/blocks");
+   //blkdir_  = string("/home/alan/.bitcoin/blocks");
    TheBDM.SelectNetwork("Main");
-   //blkdir_  = string("/home/alan/.bitcoin/testnet3/blocks");
-   //TheBDM.SelectNetwork("Test");
+   blkdir_  = string("/home/alan/.bitcoin/testnet3/blocks");
+   TheBDM.SelectNetwork("Test");
    TheBDM.SetBlkFileLocation(blkdir_);
    TheBDM.SetHomeDirLocation(homedir_);
 
@@ -6178,6 +6178,10 @@ TEST_F(BlockUtils, MultiRescanBlkSafe)
    bdm_.rescanBlocks(0, 3);
 }
 */
+
+
+
+
 
 
 
