@@ -2181,13 +2181,13 @@ uint64_t StoredSubHistory::markTxOutUnspent(BinaryData txOutKey8B,
       if(DBUtils.getDbPruneType() != DB_PRUNE_NONE)
       {
          LOGERR << "Found STXO that we expected to already be pruned...";
-         return UINT64_MAX;
+         return 0;
       }
 
       if(!txioptr->hasTxInInMain())
       {
          LOGWARN << "STXO already marked unspent in SSH";
-         return UINT64_MAX;
+         return 0;
       }
 
       txioptr->setTxIn(TxRef(), UINT32_MAX);

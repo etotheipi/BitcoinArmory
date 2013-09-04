@@ -2420,6 +2420,9 @@ bool InterfaceToLDB::markTxEntryValid(uint32_t height,
 KVLIST InterfaceToLDB::getAllDatabaseEntries(DB_SELECT db)
 {
    SCOPED_TIMER("getAllDatabaseEntries");
+   
+   if(!databasesAreOpen())
+      return KVLIST();
 
    bool restoreIterAtEnd = iters_[db]->Valid();
    BinaryData prevIterLoc;

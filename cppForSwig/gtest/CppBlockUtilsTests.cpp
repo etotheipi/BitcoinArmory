@@ -6190,6 +6190,8 @@ TEST_F(BlockUtilsTest, RestartDBAfterBuild)
    EXPECT_EQ(ssh.getScriptBalance(),  100*COIN);
    EXPECT_EQ(ssh.getScriptReceived(), 100*COIN);
    EXPECT_EQ(ssh.totalTxioCount_,       3);
+
+   iface_->pprintBlkDataDB(BLKDATA);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -6199,6 +6201,7 @@ TEST_F(BlockUtilsTest, RestartDBAfterBuild_withReplay)
    // readBlkFileUpdate method on non-reorg blocks.
    copyFile("../reorgTest/blk_0_to_4.dat", blk0dat_, 926);
    TheBDM.buildDatabasesFromBlkFiles(); 
+   iface_->pprintBlkDataDB(BLKDATA);
    EXPECT_EQ(iface_->getTopBlockHeight(HEADERS), 2);
    EXPECT_EQ(iface_->getTopBlockHash(HEADERS), blkHash2);
    EXPECT_TRUE(TheBDM.getHeaderByHash(blkHash2)->isMainBranch());
@@ -6215,13 +6218,19 @@ TEST_F(BlockUtilsTest, RestartDBAfterBuild_withReplay)
    DBUtils.setArmoryDbType(ARMORY_DB_SUPER);
    DBUtils.setDbPruneType(DB_PRUNE_NONE);
 
+   cout << "Before initializeDBInterface" << endl;
+   iface_->pprintBlkDataDB(BLKDATA);
    uint32_t replayRewind = 700;
    bool success = TheBDM.initializeDBInterface(ARMORY_DB_SUPER, 
                                                DB_PRUNE_NONE,
                                                replayRewind);
    ASSERT_TRUE(success);
 
+   cout << "Before updateDatabasesOnLoad" << endl;
+   iface_->pprintBlkDataDB(BLKDATA);
    TheBDM.updateDatabasesOnLoad();
+   cout << "After updateDatabasesOnLoad" << endl;
+   iface_->pprintBlkDataDB(BLKDATA);
    
    EXPECT_EQ(TheBDM.getTopBlockHeightInDB(HEADERS), 4);
    EXPECT_EQ(TheBDM.getTopBlockHeightInDB(BLKDATA), 4);
