@@ -1547,6 +1547,8 @@ bool BlockDataManager_LevelDB::initializeDBInterface(ARMORY_DB_TYPE dbtype,
    if(topBlk_H == 0)
    {
       LOGINFO << "DB is empty, must create new DB and build";
+      lastBlkFileNum_ = 0;
+      endOfLastBlockByte_ = 0;
       return false;
    }
 
@@ -1610,8 +1612,6 @@ bool BlockDataManager_LevelDB::initializeDBInterface(ARMORY_DB_TYPE dbtype,
 
    LOGINFO << "Rewinding start block to enforce DB integrity";
    LOGINFO << "Start at blockfile:              " << lastBlkFileNum_;
-   
-   endOfLastBlockByte_ = findFirstUnrecogBlockLoc(lastBlkFileNum_);
    LOGINFO << "Start location in above blkfile: " << endOfLastBlockByte_;
 }
 
@@ -1695,7 +1695,7 @@ uint32_t BlockDataManager_LevelDB::findFirstUnrecogBlockLoc(uint32_t fnum)
 uint32_t BlockDataManager_LevelDB::findFirstBlkApproxOffset(uint32_t fnum,
                                                             uint32_t offset) const
 {
-   if(fnum <= numBlkFiles_)
+   if(fnum >= numBlkFiles_)
    {
       LOGERR << "Blkfile number out of range! (" << fnum << ")";
       return UINT32_MAX;
@@ -3144,6 +3144,7 @@ uint32_t BlockDataManager_LevelDB::buildDatabasesFromBlkFiles(
    // Now we start the meat of this process...
    uint32_t blocksReadSoFar_ = 0;
    uint32_t bytesReadSoFar_ = 0;
+   uint32_t firstBlkToApply = UINT32_MAX;
    TIMER_START("addRawBlocksToDB");
    for(uint32_t fnum=startFnum; fnum<numBlkFiles_; fnum++)
    {
@@ -3181,7 +3182,20 @@ uint32_t BlockDataManager_LevelDB::buildDatabasesFromBlkFiles(
          topblks << fnum << " " << numBlkFiles_ << " " << t << endl;
       }
 
-      // Now have a bunch of blockchain data buffered
+      
+      // If there's an offset, we apply it to the first file.  And the 
+      // BinaryStreamBuffer should be supplied the number of bytes remaining,
+      // not the filesize
+      if(fnum==startFnum)
+      {
+         if(startOffset > filesize)
+         {
+            LOGERR << "Starting offset exceeds file size!";
+            return 0;
+         }
+         filesize -= startOffset;
+      }
+
       BinaryStreamBuffer bsb;
       bsb.attachAsStreamBuffer(is, filesize);
    
@@ -3193,7 +3207,7 @@ uint32_t BlockDataManager_LevelDB::buildDatabasesFromBlkFiles(
       // We use these two vars to stop parsing if we exceed the last header
       // that was processed (a new block was added since we processed headers)
       bool breakbreak = false;
-      uint32_t locInBlkFile = 0;
+      uint32_t locInBlkFile = startOffset;
 
       iface_->startBatch(BLKDATA);
 
@@ -3224,6 +3238,16 @@ uint32_t BlockDataManager_LevelDB::buildDatabasesFromBlkFiles(
             alreadyRead8B = false;
    
             BinaryRefReader brr(bsb.reader().getCurrPtr(), nextBlkSize);
+
+            // Later, we will start applying these new blocks, but need to know
+            // at which block *number* we need to start.
+            if(firstBlkToApply==UINT32_MAX)
+            {
+               BinaryDataRef rawHead = brr.get_BinaryDataRef(HEADER_SIZE);
+               brr.rewind(HEADER_SIZE);
+               BlockHeader * bh = getHeaderByHash(BtcUtils::getHash256(rawHead));
+               firstBlkToApply = bh->getBlockHeight();
+            }
 
             bool addRaw = addRawBlockToDB(brr);
             dbUpdateSize_ += nextBlkSize;
@@ -3267,10 +3291,10 @@ uint32_t BlockDataManager_LevelDB::buildDatabasesFromBlkFiles(
    // The first version of the DB engine will do super-node, where it tracks
    // all ScrAddrs, and thus we don't even need to register any scraddrs 
    // before running this.
-   applyBlocksToDB(0, blocksReadSoFar_);
+   applyBlocksToDB(firstBlkToApply, getTopBlockHeight()+1);
 
    // We need to maintain the physical size of all blkXXXX.dat files together
-   totalBlockchainBytes_ = bytesReadSoFar_;
+   //totalBlockchainBytes_ = bytesReadSoFar_;
 
    // Update registered address list so we know what's already been scanned
    lastTopBlock_ = getTopBlockHeight() + 1;

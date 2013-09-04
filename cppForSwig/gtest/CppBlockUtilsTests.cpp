@@ -6169,8 +6169,86 @@ TEST_F(BlockUtilsTest, RestartDBAfterBuild)
    EXPECT_EQ(TheBDM.getTopBlockHeightInDB(BLKDATA), 4);
    EXPECT_TRUE(TheBDM.getHeaderByHash(blkHash4)->isMainBranch());
 
+   StoredScriptHistory ssh;
+
+   iface_->getStoredScriptHistory(ssh, HASH160PREFIX + addrA_);
+   EXPECT_EQ(ssh.getScriptBalance(),  100*COIN);
+   EXPECT_EQ(ssh.getScriptReceived(), 100*COIN);
+   EXPECT_EQ(ssh.totalTxioCount_,       2);
+
+   iface_->getStoredScriptHistory(ssh, HASH160PREFIX + addrB_);
+   EXPECT_EQ(ssh.getScriptBalance(),    0*COIN);
+   EXPECT_EQ(ssh.getScriptReceived(), 140*COIN);
+   EXPECT_EQ(ssh.totalTxioCount_,       3);
+
+   iface_->getStoredScriptHistory(ssh, HASH160PREFIX + addrC_);
+   EXPECT_EQ(ssh.getScriptBalance(),   50*COIN);
+   EXPECT_EQ(ssh.getScriptReceived(),  60*COIN);
+   EXPECT_EQ(ssh.totalTxioCount_,       2);
+
+   iface_->getStoredScriptHistory(ssh, HASH160PREFIX + addrD_);
+   EXPECT_EQ(ssh.getScriptBalance(),  100*COIN);
+   EXPECT_EQ(ssh.getScriptReceived(), 100*COIN);
+   EXPECT_EQ(ssh.totalTxioCount_,       3);
 }
 
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(BlockUtilsTest, RestartDBAfterBuild_withReplay)
+{
+   // Copy only the first four blocks.  Will copy the full file next to test
+   // readBlkFileUpdate method on non-reorg blocks.
+   copyFile("../reorgTest/blk_0_to_4.dat", blk0dat_, 926);
+   TheBDM.buildDatabasesFromBlkFiles(); 
+   EXPECT_EQ(iface_->getTopBlockHeight(HEADERS), 2);
+   EXPECT_EQ(iface_->getTopBlockHash(HEADERS), blkHash2);
+   EXPECT_TRUE(TheBDM.getHeaderByHash(blkHash2)->isMainBranch());
+   TheBDM.DestroyInstance();
+   
+   // Add two more blocks
+   copyFile("../reorgTest/blk_0_to_4.dat", blk0dat_);
+
+   // Now reinitialize the DB and hopefully detect the new blocks and update
+   TheBDM.SelectNetwork("Main");
+   TheBDM.SetBlkFileLocation(blkdir_);
+   TheBDM.SetHomeDirLocation(homedir_);
+   TheBDM.SetLevelDBLocation(ldbdir_);
+   DBUtils.setArmoryDbType(ARMORY_DB_SUPER);
+   DBUtils.setDbPruneType(DB_PRUNE_NONE);
+
+   uint32_t replayRewind = 700;
+   bool success = TheBDM.initializeDBInterface(ARMORY_DB_SUPER, 
+                                               DB_PRUNE_NONE,
+                                               replayRewind);
+   ASSERT_TRUE(success);
+
+   TheBDM.updateDatabasesOnLoad();
+   
+   EXPECT_EQ(TheBDM.getTopBlockHeightInDB(HEADERS), 4);
+   EXPECT_EQ(TheBDM.getTopBlockHeightInDB(BLKDATA), 4);
+   EXPECT_TRUE(TheBDM.getHeaderByHash(blkHash4)->isMainBranch());
+
+   StoredScriptHistory ssh;
+
+   iface_->getStoredScriptHistory(ssh, HASH160PREFIX + addrA_);
+   EXPECT_EQ(ssh.getScriptBalance(),  100*COIN);
+   EXPECT_EQ(ssh.getScriptReceived(), 100*COIN);
+   EXPECT_EQ(ssh.totalTxioCount_,       2);
+
+   iface_->getStoredScriptHistory(ssh, HASH160PREFIX + addrB_);
+   EXPECT_EQ(ssh.getScriptBalance(),    0*COIN);
+   EXPECT_EQ(ssh.getScriptReceived(), 140*COIN);
+   EXPECT_EQ(ssh.totalTxioCount_,       3);
+
+   iface_->getStoredScriptHistory(ssh, HASH160PREFIX + addrC_);
+   EXPECT_EQ(ssh.getScriptBalance(),   50*COIN);
+   EXPECT_EQ(ssh.getScriptReceived(),  60*COIN);
+   EXPECT_EQ(ssh.totalTxioCount_,       2);
+
+   iface_->getStoredScriptHistory(ssh, HASH160PREFIX + addrD_);
+   EXPECT_EQ(ssh.getScriptBalance(),  100*COIN);
+   EXPECT_EQ(ssh.getScriptReceived(), 100*COIN);
+   EXPECT_EQ(ssh.totalTxioCount_,       3);
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 TEST_F(BlockUtilsTest, DISABLED_TimeAndSpaceTest_usuallydisabled)
