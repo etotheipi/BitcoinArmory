@@ -5978,7 +5978,7 @@ protected:
 TEST_F(BlockUtilsTest, HeadersOnly)
 {
    EXPECT_EQ(TheBDM.getNumBlocks(), 0);
-   TheBDM.processAllHeadersInBlkFiles(0,1);
+   TheBDM.processAllHeadersInBlkFiles(0);
    
    EXPECT_EQ(TheBDM.getNumBlocks(), 5);
    EXPECT_EQ(TheBDM.getTopBlockHeight(), 4);
@@ -5992,7 +5992,7 @@ TEST_F(BlockUtilsTest, HeadersOnly_Reorg)
 {
    SETLOGLEVEL(LogLvlError);
    EXPECT_EQ(TheBDM.getNumBlocks(), 0);
-   TheBDM.processAllHeadersInBlkFiles(0,1);
+   TheBDM.processAllHeadersInBlkFiles(0);
    
    EXPECT_EQ(TheBDM.getNumBlocks(), 5);
    EXPECT_EQ(TheBDM.getTopBlockHeight(), 4);
@@ -6001,14 +6001,14 @@ TEST_F(BlockUtilsTest, HeadersOnly_Reorg)
    EXPECT_EQ(iface_->getTopBlockHash(HEADERS), blkHash4);
 
    copyFile("../reorgTest/blk_3A.dat", BtcUtils::getBlkFilename(blkdir_, 1));
-   TheBDM.processAllHeadersInBlkFiles(1,2);
+   TheBDM.processAllHeadersInBlkFiles(1);
    EXPECT_EQ(iface_->getTopBlockHeight(HEADERS), 4);
    EXPECT_EQ(iface_->getTopBlockHash(HEADERS), blkHash4);
    EXPECT_FALSE(TheBDM.getHeaderByHash(blkHash3A)->isMainBranch());
    EXPECT_TRUE( TheBDM.getHeaderByHash(blkHash3 )->isMainBranch());
 
    copyFile("../reorgTest/blk_4A.dat", BtcUtils::getBlkFilename(blkdir_, 2));
-   TheBDM.processAllHeadersInBlkFiles(2,3);
+   TheBDM.processAllHeadersInBlkFiles(2);
    EXPECT_EQ(iface_->getTopBlockHeight(HEADERS), 4);
    EXPECT_EQ(iface_->getTopBlockHash(HEADERS), blkHash4);
    EXPECT_FALSE(TheBDM.getHeaderByHash(blkHash3A)->isMainBranch());
@@ -6017,7 +6017,7 @@ TEST_F(BlockUtilsTest, HeadersOnly_Reorg)
    EXPECT_TRUE( TheBDM.getHeaderByHash(blkHash4 )->isMainBranch());
 
    copyFile("../reorgTest/blk_5A.dat", BtcUtils::getBlkFilename(blkdir_, 3));
-   TheBDM.processAllHeadersInBlkFiles(3,4);
+   TheBDM.processAllHeadersInBlkFiles(3);
    EXPECT_EQ(iface_->getTopBlockHeight(HEADERS), 5);
    EXPECT_EQ(iface_->getTopBlockHeight(HEADERS), 5);
    EXPECT_EQ(iface_->getTopBlockHash(HEADERS), blkHash5A);
@@ -6034,7 +6034,7 @@ TEST_F(BlockUtilsTest, Load5Blocks)
 {
    DBUtils.setArmoryDbType(ARMORY_DB_SUPER);
    DBUtils.setDbPruneType(DB_PRUNE_NONE);
-   TheBDM.rebuildDatabasesFromBlkFiles(); 
+   TheBDM.buildDatabasesFromBlkFiles(); 
 
    StoredScriptHistory ssh;
 
@@ -6065,7 +6065,7 @@ TEST_F(BlockUtilsTest, Load4BlocksPlus1)
    // Copy only the first four blocks.  Will copy the full file next to test
    // readBlkFileUpdate method on non-reorg blocks.
    copyFile("../reorgTest/blk_0_to_4.dat", blk0dat_, 1596);
-   TheBDM.rebuildDatabasesFromBlkFiles(); 
+   TheBDM.buildDatabasesFromBlkFiles(); 
    EXPECT_EQ(iface_->getTopBlockHeight(HEADERS), 3);
    EXPECT_EQ(iface_->getTopBlockHash(HEADERS), blkHash3);
    EXPECT_TRUE(TheBDM.getHeaderByHash(blkHash3)->isMainBranch());
@@ -6082,7 +6082,7 @@ TEST_F(BlockUtilsTest, Load5Blocks_Plus2NoReorg)
 {
    DBUtils.setArmoryDbType(ARMORY_DB_SUPER);
    DBUtils.setDbPruneType(DB_PRUNE_NONE);
-   TheBDM.rebuildDatabasesFromBlkFiles(); 
+   TheBDM.buildDatabasesFromBlkFiles(); 
 
 
    copyFile("../reorgTest/blk_3A.dat", blk0dat_);
@@ -6104,7 +6104,7 @@ TEST_F(BlockUtilsTest, Load5Blocks_FullReorg)
 {
    DBUtils.setArmoryDbType(ARMORY_DB_SUPER);
    DBUtils.setDbPruneType(DB_PRUNE_NONE);
-   TheBDM.rebuildDatabasesFromBlkFiles(); 
+   TheBDM.buildDatabasesFromBlkFiles(); 
 
    copyFile("../reorgTest/blk_3A.dat", blk0dat_);
    TheBDM.readBlkFileUpdate();
@@ -6137,9 +6137,43 @@ TEST_F(BlockUtilsTest, Load5Blocks_FullReorg)
    EXPECT_EQ(ssh.totalTxioCount_,       3);
 }
 
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(BlockUtilsTest, RestartDBAfterBuild)
+{
+   // Copy only the first four blocks.  Will copy the full file next to test
+   // readBlkFileUpdate method on non-reorg blocks.
+   copyFile("../reorgTest/blk_0_to_4.dat", blk0dat_, 926);
+   TheBDM.buildDatabasesFromBlkFiles(); 
+   EXPECT_EQ(iface_->getTopBlockHeight(HEADERS), 2);
+   EXPECT_EQ(iface_->getTopBlockHash(HEADERS), blkHash2);
+   EXPECT_TRUE(TheBDM.getHeaderByHash(blkHash2)->isMainBranch());
+   TheBDM.DestroyInstance();
+   
+   // Add two more blocks
+   copyFile("../reorgTest/blk_0_to_4.dat", blk0dat_);
+
+   // Now reinitialize the DB and hopefully detect the new blocks and update
+   TheBDM.SelectNetwork("Main");
+   TheBDM.SetBlkFileLocation(blkdir_);
+   TheBDM.SetHomeDirLocation(homedir_);
+   TheBDM.SetLevelDBLocation(ldbdir_);
+   DBUtils.setArmoryDbType(ARMORY_DB_SUPER);
+   DBUtils.setDbPruneType(DB_PRUNE_NONE);
+
+   bool success = TheBDM.initializeDBInterface(ARMORY_DB_SUPER, DB_PRUNE_NONE);
+   ASSERT_TRUE(success);
+
+   TheBDM.updateDatabasesOnLoad();
+   
+   EXPECT_EQ(TheBDM.getTopBlockHeightInDB(HEADERS), 4);
+   EXPECT_EQ(TheBDM.getTopBlockHeightInDB(BLKDATA), 4);
+   EXPECT_TRUE(TheBDM.getHeaderByHash(blkHash4)->isMainBranch());
+
+}
+
 
 ////////////////////////////////////////////////////////////////////////////////
-TEST_F(BlockUtilsTest, TimeAndSpaceTest_usuallydisabled)
+TEST_F(BlockUtilsTest, DISABLED_TimeAndSpaceTest_usuallydisabled)
 {
    DBUtils.setArmoryDbType(ARMORY_DB_SUPER);
    DBUtils.setDbPruneType(DB_PRUNE_NONE);
@@ -6147,14 +6181,14 @@ TEST_F(BlockUtilsTest, TimeAndSpaceTest_usuallydisabled)
    string oldblkdir = blkdir_;
    //blkdir_  = string("/home/alan/.bitcoin/blks3");
    //blkdir_  = string("/home/alan/.bitcoin/blocks");
-   TheBDM.SelectNetwork("Main");
+   //TheBDM.SelectNetwork("Main");
    blkdir_  = string("/home/alan/.bitcoin/testnet3/blocks");
    TheBDM.SelectNetwork("Test");
    TheBDM.SetBlkFileLocation(blkdir_);
    TheBDM.SetHomeDirLocation(homedir_);
 
    StoredScriptHistory ssh;
-   TheBDM.rebuildDatabasesFromBlkFiles(); 
+   TheBDM.buildDatabasesFromBlkFiles(); 
    BinaryData scrAddr  = READHEX("11b366edfc0a8b66feebae5c2e25a7b6a5d1cf31");
    BinaryData scrAddr2 = READHEX("39aa3d569e06a1d7926dc4be1193c99bf2eb9ee0");
    BinaryData scrAddr3 = READHEX("758e51b5e398a32c6abd091b3fde383291267cfa");

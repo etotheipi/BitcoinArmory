@@ -491,21 +491,11 @@ private:
  
    bool checkLdbStatus(leveldb::Status stat);
 
-   bool initializeDBInterface(ARMORY_DB_TYPE dbt, DB_PRUNE_TYPE prt);
-
-   // The header data includes file pointers to where the blocks are located.
-   // If the blk files exist, but are different for some reason (moved Armory
-   // to a different system), then the databases need to be rebuilt
-   bool     rebuildDatabases(uint32_t startAtBlk=0);
 
    map<HashString, BlockHeader> headerMap_;
 
-   //multimap<HashString, TxRef>        txHintMap_;
-
-
    // This is our permanent link to the two databases used
    static InterfaceToLDB* iface_;
-
    
    // Need a separate memory pool just for zero-confirmation transactions
    // We need the second map to make sure we can find the data to remove
@@ -524,6 +514,7 @@ private:
    string                             blkFileDir_;
    vector<string>                     blkFileList_;
    uint64_t                           numBlkFiles_;
+   uint32_t                           lastBlkFileNum_;
    uint64_t                           endOfLastBlockByte_;
 
    // Used to estimate how much data is queued to be written to DB
@@ -592,12 +583,6 @@ private:
    BlockDataManager_LevelDB(void);
    ~BlockDataManager_LevelDB(void);
 
-   // These are private because from outside BDM you should never call these
-   // methods yourself.  You only add and remove blocks, which will call
-   // these methods in the correct order.
-   bool addTxToDB(StoredTx & stx);
-   bool reverseTxInDB(StoredTx & stx);
-
 public:
 
    static BlockDataManager_LevelDB & GetInstance(void);
@@ -612,6 +597,22 @@ public:
                              BinaryData const & GenTxHash,
                              BinaryData const & MagicBytes);
 
+   //////////////////////////////////////////////////////////////////////////
+   // This method opens the databases, and figures out up to what block each
+   // of them is sync'd to.  Then it figures out where that corresponds in
+   // the blk*.dat files, so that it can pick up where it left off.  You can 
+   // use the last argument to specify an approximate amount of blocks 
+   // (specified in bytes) that you would like to replay:  i.e. if 10 MB,
+   // lastBlkFileNum_ and endOfLastBlockByte_ variables will be set to
+   // the first block that is approximately 10 MB behind your latest block.
+   // Then you can pick up from there and let the DB clean up any mess that
+   // was left from an unclean shutdown.
+   bool initializeDBInterface(ARMORY_DB_TYPE dbt, 
+                              DB_PRUNE_TYPE prt, 
+                              uint32_t replayNBytes=0);
+
+   /////////////////////////////////////////////////////////////////////////////
+   // Get the parameters of the network as they've been set
    BinaryData getGenesisHash(void)   { return GenesisHash_;   }
    BinaryData getGenesisTxHash(void) { return GenesisTxHash_; }
    BinaryData getMagicBytes(void)    { return MagicBytes_;    }
@@ -624,6 +625,11 @@ public:
    uint64_t getLoadProgressBytes(void)    const {return bytesReadSoFar_;}
    uint32_t getLoadProgressBlocks(void)   const {return blocksReadSoFar_;}
    uint16_t getLoadProgressFiles(void)    const {return filesReadSoFar_;}
+
+   uint32_t getTopBlockHeightInDB(DB_SELECT db);
+   vector<BinaryData> getFirstHashOfEachBlkFile(void) const;
+   uint32_t findFirstUnrecogBlockLoc(uint32_t fnum);
+   uint32_t findFirstBlkApproxOffset(uint32_t fnum, uint32_t offset) const;
 
    /////////////////////////////////////////////////////////////////////////////
    void Reset(void);
@@ -693,11 +699,12 @@ public:
 
    // These are the high-level methods for reading block files, and indexing
    // the blockfile data.
-   bool     extractHeadersInBlkFile(uint32_t fnum);
+   bool     extractHeadersInBlkFile(uint32_t fnum, uint32_t offset=0);
    uint32_t detectAllBlkFiles(void);
-   bool     processAllHeadersInBlkFiles(uint32_t fnumStart, uint32_t fnumEndPlus1);
+   bool     processAllHeadersInBlkFiles(uint32_t fnumStart=0, uint32_t offset=0);
    bool     processHeadersInFile(string filename);
-   uint32_t rebuildDatabasesFromBlkFiles(void);
+   uint32_t buildDatabasesFromBlkFiles(uint32_t fnum=0, uint32_t offset=0);
+   uint32_t updateDatabasesOnLoad(void);
    bool     addRawBlockToDB(BinaryRefReader & brr);
    void     updateBlkDataHeader(StoredHeader const & sbh);
 
@@ -721,7 +728,7 @@ public:
          set<BinaryData> &                      keysToDelete,
          bool                                   applyWhenDone=true);
 
-   void reapplyBlocksToDB(uint32_t blk0=0, uint32_t blk1=UINT32_MAX);
+   void applyBlocksToDB(uint32_t blk0=0, uint32_t blk1=UINT32_MAX);
 
    // When we reorg, we have to undo blocks that have been applied.
    bool createUndoDataFromBlock(uint32_t hgt, uint8_t dup, StoredUndoData & sud);

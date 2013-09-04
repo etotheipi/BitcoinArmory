@@ -1028,6 +1028,10 @@ void InterfaceToLDB::addRegisteredScript(BinaryDataRef rawScript,
 }
 
 /////////////////////////////////////////////////////////////////////////////
+// TODO: We should also read the HeaderHgtList entries to get the blockchain
+//       sorting that is saved in the DB.  But right now, I'm not sure what
+//       that would get us since we are reading all the headers and doing
+//       a fresh organize/sort anyway.
 void InterfaceToLDB::readAllHeaders(map<HashString, BlockHeader> & headerMap,
                                     map<HashString, StoredHeader> & storedMap)
 {
@@ -1047,7 +1051,7 @@ void InterfaceToLDB::readAllHeaders(map<HashString, BlockHeader> & headerMap,
       resetIterReaders();
       checkPrefixByte(DB_PREFIX_HEADHASH);
    
-      if(currReadKey_.getSizeRemaining() == 32)
+      if(currReadKey_.getSizeRemaining() != 32)
       {
          LOGERR << "How did we get header hash not 32 bytes?";
          continue;
