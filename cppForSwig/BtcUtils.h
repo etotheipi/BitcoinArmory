@@ -1396,6 +1396,47 @@ public:
    }
 
 
+   /////////////////////////////////////////////////////////////////////////////
+   // Simple method for copying files (works in all OS, probably not efficient)
+   static bool copyFile(string src, string dst, uint32_t nbytes=UINT32_MAX)
+   {
+      uint32_t srcsz = GetFileSize(src);
+      if(srcsz == FILE_DOES_NOT_EXIST)
+         return false;
+
+      srcsz = min(srcsz, nbytes);
+   
+      BinaryData temp(srcsz);
+      ifstream is(src.c_str(), ios::in  | ios::binary);
+      is.read((char*)temp.getPtr(), srcsz);
+      is.close();
+   
+      ofstream os(dst.c_str(), ios::out | ios::binary);
+      os.write((char*)temp.getPtr(), srcsz);
+      os.close();
+      return true;
+   }
+
+   /////////////////////////////////////////////////////////////////////////////
+   // Simple method for copying files (works in all OS, probably not efficient)
+   static bool appendFile(string src, string dst)
+   {
+      uint32_t srcsz = GetFileSize(src);
+      if(srcsz == FILE_DOES_NOT_EXIST)
+         return false;
+   
+      BinaryData temp(srcsz);
+      ifstream is(src.c_str(), ios::in  | ios::binary);
+      is.read((char*)temp.getPtr(), srcsz);
+      is.close();
+   
+      ofstream os(dst.c_str(), ios::app | ios::binary);
+      os.write((char*)temp.getPtr(), srcsz);
+      os.close();
+      return true;
+   }
+
+
    /*
    static bool verifyProofOfWork(BinaryDataRef bh80)
    {

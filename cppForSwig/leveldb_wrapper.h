@@ -388,9 +388,10 @@ public:
                         BinaryDataRef headHash, 
                         bool withTx=true);
 
-   bool getStoredHeader(StoredHeader & sbh,
-                        uint32_t blockHgt,
-                        bool withTx=true);
+   // This seemed unnecessary and was also causing conflicts with optional args
+   //bool getStoredHeader(StoredHeader & sbh,
+                        //uint32_t blockHgt,
+                        //bool withTx=true);
 
 
    /////////////////////////////////////////////////////////////////////////////

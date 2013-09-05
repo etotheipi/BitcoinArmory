@@ -1419,6 +1419,7 @@ bool InterfaceToLDB::getStoredHeader( StoredHeader & sbh,
 
 
 ////////////////////////////////////////////////////////////////////////////////
+/*
 bool InterfaceToLDB::getStoredHeader( StoredHeader & sbh,
                                       uint32_t blockHgt,
                                       bool withTx)
@@ -1431,6 +1432,7 @@ bool InterfaceToLDB::getStoredHeader( StoredHeader & sbh,
 
    return getStoredHeader(sbh, blockHgt, dupID, withTx);
 }
+*/
 
 
 

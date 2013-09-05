@@ -306,7 +306,7 @@ void BtcWallet::addScrAddress(HashString    scrAddr,
 
    // Default behavior is "don't know, must rescan" if no firstBlk is spec'd
    if(bdmPtr_!=NULL)
-      bdmPtr_->registerImportedAddress(scrAddr, firstBlockNum);
+      bdmPtr_->registerImportedScrAddr(scrAddr, firstBlockNum);
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -321,7 +321,7 @@ void BtcWallet::addNewScrAddress(BinaryData scrAddr)
    scrAddrPtrs_.push_back(addrPtr);
 
    if(bdmPtr_!=NULL)
-      bdmPtr_->registerNewAddress(scrAddr);
+      bdmPtr_->registerNewScrAddr(scrAddr);
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -339,7 +339,7 @@ void BtcWallet::addScrAddress(ScrAddrObj const & newScrAddr)
    }
 
    if(bdmPtr_!=NULL)
-      bdmPtr_->registerImportedAddress(newScrAddr.getScrAddr(), 
+      bdmPtr_->registerImportedScrAddr(newScrAddr.getScrAddr(), 
                                        newScrAddr.getFirstBlockNum());
 }
 
@@ -647,7 +647,7 @@ void BlockDataManager_LevelDB::registeredScrAddrScan(
       {
          // Std TxOut with 25-byte script
          scraddr.copyFrom(ptr+4, 20);
-         if( addressIsRegistered(scraddr) )
+         if( scrAddrIsRegistered(scraddr) )
          {
             HashString txHash = BtcUtils::getHash256(txptr, txSize);
             insertRegisteredTxIfNew(txHash);
@@ -659,7 +659,7 @@ void BlockDataManager_LevelDB::registeredScrAddrScan(
          // Std spend-coinbase TxOut script
          static HashString scraddr(20);
          BtcUtils::getHash160_NoSafetyCheck(ptr+2, 65, scraddr);
-         if( addressIsRegistered(scraddr) )
+         if( scrAddrIsRegistered(scraddr) )
          {
             HashString txHash = BtcUtils::getHash256(txptr, txSize);
             insertRegisteredTxIfNew(txHash);
@@ -1724,6 +1724,52 @@ uint32_t BlockDataManager_LevelDB::findFirstBlkApproxOffset(uint32_t fnum,
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+// This behaves very much like the algorithm for finding the branch point 
+// in the header tree with a peer.
+uint32_t BlockDataManager_LevelDB::findFirstUnappliedBlock(void)
+{
+   SCOPED_TIMER("findFirstUnappliedBlock");
+
+   if(!iface_->databasesAreOpen())
+   {
+      LOGERR << "Database is not open!";
+      return UINT32_MAX;
+   }
+   
+   int32_t blkCheck = (int32_t)getTopBlockHeightInDB(BLKDATA);
+
+   StoredHeader sbh;
+   uint32_t toSub = 0;
+   uint32_t nIter = 0;
+   do
+   {
+      blkCheck -= toSub;
+      if(blkCheck < 0)
+      {
+         blkCheck = 0;
+         break;
+      }
+
+      iface_->getStoredHeader(sbh, (uint32_t)blkCheck);
+
+      if(nIter++ < 10) 
+         toSub += 1;  // we get some N^2 action here (for the first 10 iter)
+      else
+         toSub = (uint32_t)(1.5*toSub); // after that, increase exponentially
+
+   } while(!sbh.blockAppliedToDB_);
+
+   // We likely overshot in the last loop, so walk forward until we get to it.
+   do
+   {
+      iface_->getStoredHeader(sbh, (uint32_t)blkCheck);
+      blkCheck += 1;   
+   } while(sbh.blockAppliedToDB_);
+
+   return (uint32_t)blkCheck;
+}
+
+////////////////////////////////////////////////////////////////////////////////
 uint32_t BlockDataManager_LevelDB::getTopBlockHeightInDB(DB_SELECT db)
 {
    StoredDBInfo sdbi;
@@ -2140,9 +2186,9 @@ bool BlockDataManager_LevelDB::registerWallet(BtcWallet* wltPtr, bool wltIsNew)
       ScrAddrObj & addr = wltPtr->getScrAddrByIndex(i);
 
       if(wltIsNew)
-         registerNewAddress(addr.getScrAddr());
+         registerNewScrAddr(addr.getScrAddr());
       else
-         registerImportedAddress(addr.getScrAddr(), addr.getFirstBlockNum());
+         registerImportedScrAddr(addr.getScrAddr(), addr.getFirstBlockNum());
    }
 
    // We need to make sure the wallet can tell the BDM when an address is added
@@ -2152,11 +2198,11 @@ bool BlockDataManager_LevelDB::registerWallet(BtcWallet* wltPtr, bool wltIsNew)
 
 
 /////////////////////////////////////////////////////////////////////////////
-bool BlockDataManager_LevelDB::registerAddress(HashString scraddr, 
+bool BlockDataManager_LevelDB::registerScrAddr(HashString scraddr, 
                                                 bool addrIsNew,
                                                 uint32_t firstBlk)
 {
-   SCOPED_TIMER("registerAddress");
+   SCOPED_TIMER("registerScrAddr");
    //if(registeredScrAddrMap_.find(scraddr) != registeredScrAddrMap_.end())
    if(KEY_IN_MAP(scraddr, registeredScrAddrMap_))
    {
@@ -2174,9 +2220,9 @@ bool BlockDataManager_LevelDB::registerAddress(HashString scraddr,
 
 
 /////////////////////////////////////////////////////////////////////////////
-bool BlockDataManager_LevelDB::registerNewAddress(HashString scraddr)
+bool BlockDataManager_LevelDB::registerNewScrAddr(HashString scraddr)
 {
-   SCOPED_TIMER("registerNewAddress");
+   SCOPED_TIMER("registerNewScrAddr");
    //if(registeredScrAddrMap_.find(scraddr) != registeredScrAddrMap_.end())
    if(KEY_IN_MAP(scraddr, registeredScrAddrMap_))
       return false;
@@ -2190,10 +2236,10 @@ bool BlockDataManager_LevelDB::registerNewAddress(HashString scraddr)
 }
 
 /////////////////////////////////////////////////////////////////////////////
-bool BlockDataManager_LevelDB::registerImportedAddress(HashString scraddr,
+bool BlockDataManager_LevelDB::registerImportedScrAddr(HashString scraddr,
                                                     uint32_t createBlk)
 {
-   SCOPED_TIMER("registerImportedAddress");
+   SCOPED_TIMER("registerImportedScrAddr");
    //if(registeredScrAddrMap_.find(scraddr) != registeredScrAddrMap_.end())
    if(KEY_IN_MAP(scraddr, registeredScrAddrMap_))
       return false;
@@ -2209,9 +2255,9 @@ bool BlockDataManager_LevelDB::registerImportedAddress(HashString scraddr,
 
 
 /////////////////////////////////////////////////////////////////////////////
-bool BlockDataManager_LevelDB::unregisterAddress(HashString scraddr)
+bool BlockDataManager_LevelDB::unregisterScrAddr(HashString scraddr)
 {
-   SCOPED_TIMER("unregisterAddress");
+   SCOPED_TIMER("unregisterScrAddr");
    //if(registeredScrAddrMap_.find(scraddr) == registeredScrAddrMap_.end())
    if(KEY_IN_MAP(scraddr, registeredScrAddrMap_))
       return false;
@@ -2250,7 +2296,7 @@ uint32_t BlockDataManager_LevelDB::evalLowestBlockNextScan(void)
 
 /////////////////////////////////////////////////////////////////////////////
 // This method isn't really used yet...
-uint32_t BlockDataManager_LevelDB::evalLowestAddressCreationBlock(void)
+uint32_t BlockDataManager_LevelDB::evalLowestScrAddrCreationBlock(void)
 {
    SCOPED_TIMER("evalLowestAddressCreationBlock");
 
@@ -2375,7 +2421,7 @@ bool BlockDataManager_LevelDB::walletIsRegistered(BtcWallet & wlt)
 }
 
 /////////////////////////////////////////////////////////////////////////////
-bool BlockDataManager_LevelDB::addressIsRegistered(HashString scraddr)
+bool BlockDataManager_LevelDB::scrAddrIsRegistered(HashString scraddr)
 {
    //return (registeredScrAddrMap_.find(scraddr)!=registeredScrAddrMap_.end());
    return KEY_IN_MAP(scraddr, registeredScrAddrMap_);
@@ -2432,7 +2478,7 @@ void BlockDataManager_LevelDB::scanBlockchainForTx(BtcWallet & myWallet,
 
 
    // This is the part that might take a while...
-   applyBlocksToDB(allScannedUpToBlk_, endBlknum);
+   //applyBlocksToDB(allScannedUpToBlk_, endBlknum);
 
    allScannedUpToBlk_ = endBlknum;
    updateRegisteredScrAddrs(endBlknum);
@@ -3052,7 +3098,7 @@ bool BlockDataManager_LevelDB::processAllHeadersInBlkFiles(uint32_t fnumStart,
 // be difficult to guarantee that all the previous functionality was there and
 // working.  This way, all of our previously-tested code remains mostly 
 // untouched
-bool BlockDataManager_LevelDB::loadScrAddrHistoryFromDB(void)
+void BlockDataManager_LevelDB::loadScrAddrHistoryFromDB(void)
 {
    SCOPED_TIMER("loadScrAddrHistoryFromDB");
 
@@ -3077,7 +3123,6 @@ bool BlockDataManager_LevelDB::loadScrAddrHistoryFromDB(void)
          insertRegisteredTxIfNew(regTx);
       }
    }
-   return true;
 }
 
 

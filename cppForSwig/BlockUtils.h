@@ -607,8 +607,8 @@ public:
    // the first block that is approximately 10 MB behind your latest block.
    // Then you can pick up from there and let the DB clean up any mess that
    // was left from an unclean shutdown.
-   bool initializeDBInterface(ARMORY_DB_TYPE dbt, 
-                              DB_PRUNE_TYPE prt, 
+   bool initializeDBInterface(ARMORY_DB_TYPE dbt = ARMORY_DB_WHATEVER,
+                              DB_PRUNE_TYPE prt = DB_PRUNE_WHATEVER,
                               uint32_t replayNBytes=0);
 
    /////////////////////////////////////////////////////////////////////////////
@@ -630,6 +630,7 @@ public:
    vector<BinaryData> getFirstHashOfEachBlkFile(void) const;
    uint32_t findFirstUnrecogBlockLoc(uint32_t fnum);
    uint32_t findFirstBlkApproxOffset(uint32_t fnum, uint32_t offset) const;
+   uint32_t findFirstUnappliedBlock(void);
 
    /////////////////////////////////////////////////////////////////////////////
    void Reset(void);
@@ -663,18 +664,18 @@ public:
    // it goes, and does a full [re-]scan of the blockchain only if necessary.
    bool     registerWallet(BtcWallet* wallet, bool wltIsNew=false);
    void     unregisterWallet(BtcWallet* wlt) {registeredWallets_.erase(wlt);}
-   bool     registerAddress(HashString addr160, bool isNew, uint32_t blk0);
-   bool     registerNewAddress(HashString addr160);
-   bool     registerImportedAddress(HashString addr160, uint32_t createBlk=0);
-   bool     unregisterAddress(HashString addr160);
+   bool     registerScrAddr(HashString addr160, bool isNew, uint32_t blk0);
+   bool     registerNewScrAddr(HashString addr160);
+   bool     registerImportedScrAddr(HashString addr160, uint32_t createBlk=0);
+   bool     unregisterScrAddr(HashString addr160);
    uint32_t evalLowestBlockNextScan(void);
-   uint32_t evalLowestAddressCreationBlock(void);
+   uint32_t evalLowestScrAddrCreationBlock(void);
    bool     evalRescanIsRequired(void);
    uint32_t numBlocksToRescan(BtcWallet & wlt, uint32_t topBlk=UINT32_MAX);
    void     updateRegisteredScrAddrs(uint32_t newTopBlk);
 
    bool     walletIsRegistered(BtcWallet & wlt);
-   bool     addressIsRegistered(HashString addr160);
+   bool     scrAddrIsRegistered(HashString addr160);
    void     insertRegisteredTxIfNew(HashString txHash);
    void     insertRegisteredTxIfNew(RegisteredTx & regTx);
    void     registeredScrAddrScan( Tx & theTx );
@@ -748,7 +749,7 @@ public:
 
 
 
-   bool loadScrAddrHistoryFromDB(void);
+   void loadScrAddrHistoryFromDB(void);
 
    // Check for availability of data with a given hash
    TX_AVAILABILITY hasTxWithHash(BinaryDataRef txhash);

@@ -5847,7 +5847,7 @@ protected:
 
       // Put the first 5 blocks into the blkdir
       blk0dat_ = BtcUtils::getBlkFilename(blkdir_, 0);
-      copyFile("../reorgTest/blk_0_to_4.dat", blk0dat_);
+      BtcUtils::copyFile("../reorgTest/blk_0_to_4.dat", blk0dat_);
 
       TheBDM.SelectNetwork("Main");
       TheBDM.SetBlkFileLocation(blkdir_);
@@ -5866,6 +5866,8 @@ protected:
       addrB_ = READHEX("ee26c56fc1d942be8d7a24b2a1001dd894693980");
       addrC_ = READHEX("cb2abde8bccacc32e893df3a054b9ef7f227a4ce");
       addrD_ = READHEX("c522664fb0e55cdc5c0cea73b4aad97ec8343232");
+
+      LOGDISABLESTDOUT();
    }
 
 
@@ -5881,48 +5883,10 @@ protected:
       delete[] delstr;
 
       BlockDataManager_LevelDB::DestroyInstance();
+      LOGENABLESTDOUT();
    }
 
 
-   /////////////////////////////////////////////////////////////////////////////
-   // Simple method for copying files (works in all OS, probably not efficient)
-   bool copyFile(string src, string dst, uint32_t nbytes=UINT32_MAX)
-   {
-      uint32_t srcsz = BtcUtils::GetFileSize(src);
-      if(srcsz == FILE_DOES_NOT_EXIST)
-         return false;
-
-      srcsz = min(srcsz, nbytes);
-   
-      BinaryData temp(srcsz);
-      ifstream is(src.c_str(), ios::in  | ios::binary);
-      is.read((char*)temp.getPtr(), srcsz);
-      is.close();
-   
-      ofstream os(dst.c_str(), ios::out | ios::binary);
-      os.write((char*)temp.getPtr(), srcsz);
-      os.close();
-      return true;
-   }
-
-   /////////////////////////////////////////////////////////////////////////////
-   // Simple method for copying files (works in all OS, probably not efficient)
-   bool appendFile(string src, string dst)
-   {
-      uint32_t srcsz = BtcUtils::GetFileSize(src);
-      if(srcsz == FILE_DOES_NOT_EXIST)
-         return false;
-   
-      BinaryData temp(srcsz);
-      ifstream is(src.c_str(), ios::in  | ios::binary);
-      is.read((char*)temp.getPtr(), srcsz);
-      is.close();
-   
-      ofstream os(dst.c_str(), ios::app | ios::binary);
-      os.write((char*)temp.getPtr(), srcsz);
-      os.close();
-      return true;
-   }
 
 #if defined(_MSC_VER) || defined(__MINGW32__)
    compile_error_fixme_what_to_do_in_windows;
@@ -6000,14 +5964,14 @@ TEST_F(BlockUtilsTest, HeadersOnly_Reorg)
    EXPECT_EQ(iface_->getTopBlockHeight(HEADERS), 4);
    EXPECT_EQ(iface_->getTopBlockHash(HEADERS), blkHash4);
 
-   copyFile("../reorgTest/blk_3A.dat", BtcUtils::getBlkFilename(blkdir_, 1));
+   BtcUtils::copyFile("../reorgTest/blk_3A.dat", BtcUtils::getBlkFilename(blkdir_, 1));
    TheBDM.processAllHeadersInBlkFiles(1);
    EXPECT_EQ(iface_->getTopBlockHeight(HEADERS), 4);
    EXPECT_EQ(iface_->getTopBlockHash(HEADERS), blkHash4);
    EXPECT_FALSE(TheBDM.getHeaderByHash(blkHash3A)->isMainBranch());
    EXPECT_TRUE( TheBDM.getHeaderByHash(blkHash3 )->isMainBranch());
 
-   copyFile("../reorgTest/blk_4A.dat", BtcUtils::getBlkFilename(blkdir_, 2));
+   BtcUtils::copyFile("../reorgTest/blk_4A.dat", BtcUtils::getBlkFilename(blkdir_, 2));
    TheBDM.processAllHeadersInBlkFiles(2);
    EXPECT_EQ(iface_->getTopBlockHeight(HEADERS), 4);
    EXPECT_EQ(iface_->getTopBlockHash(HEADERS), blkHash4);
@@ -6016,7 +5980,7 @@ TEST_F(BlockUtilsTest, HeadersOnly_Reorg)
    EXPECT_FALSE(TheBDM.getHeaderByHash(blkHash4A)->isMainBranch());
    EXPECT_TRUE( TheBDM.getHeaderByHash(blkHash4 )->isMainBranch());
 
-   copyFile("../reorgTest/blk_5A.dat", BtcUtils::getBlkFilename(blkdir_, 3));
+   BtcUtils::copyFile("../reorgTest/blk_5A.dat", BtcUtils::getBlkFilename(blkdir_, 3));
    TheBDM.processAllHeadersInBlkFiles(3);
    EXPECT_EQ(iface_->getTopBlockHeight(HEADERS), 5);
    EXPECT_EQ(iface_->getTopBlockHeight(HEADERS), 5);
@@ -6064,13 +6028,13 @@ TEST_F(BlockUtilsTest, Load4BlocksPlus1)
 {
    // Copy only the first four blocks.  Will copy the full file next to test
    // readBlkFileUpdate method on non-reorg blocks.
-   copyFile("../reorgTest/blk_0_to_4.dat", blk0dat_, 1596);
+   BtcUtils::copyFile("../reorgTest/blk_0_to_4.dat", blk0dat_, 1596);
    TheBDM.buildDatabasesFromBlkFiles(); 
    EXPECT_EQ(iface_->getTopBlockHeight(HEADERS), 3);
    EXPECT_EQ(iface_->getTopBlockHash(HEADERS), blkHash3);
    EXPECT_TRUE(TheBDM.getHeaderByHash(blkHash3)->isMainBranch());
    
-   copyFile("../reorgTest/blk_0_to_4.dat", blk0dat_);
+   BtcUtils::copyFile("../reorgTest/blk_0_to_4.dat", blk0dat_);
    TheBDM.readBlkFileUpdate(); 
    EXPECT_EQ(iface_->getTopBlockHeight(HEADERS), 4);
    EXPECT_EQ(iface_->getTopBlockHash(HEADERS), blkHash4);
@@ -6085,17 +6049,17 @@ TEST_F(BlockUtilsTest, Load5Blocks_Plus2NoReorg)
    TheBDM.buildDatabasesFromBlkFiles(); 
 
 
-   copyFile("../reorgTest/blk_3A.dat", blk0dat_);
+   BtcUtils::copyFile("../reorgTest/blk_3A.dat", blk0dat_);
    TheBDM.readBlkFileUpdate();
    EXPECT_EQ(TheBDM.getTopBlockHash(),   blkHash4);
    EXPECT_EQ(TheBDM.getTopBlockHeight(), 4);
 
-   copyFile("../reorgTest/blk_4A.dat", blk0dat_);
+   BtcUtils::copyFile("../reorgTest/blk_4A.dat", blk0dat_);
    TheBDM.readBlkFileUpdate();
    EXPECT_EQ(TheBDM.getTopBlockHash(),   blkHash4);
    EXPECT_EQ(TheBDM.getTopBlockHeight(), 4);
 
-   //copyFile("../reorgTest/blk_5A.dat", blk0dat_);
+   //BtcUtils::copyFile("../reorgTest/blk_5A.dat", blk0dat_);
    //iface_->pprintBlkDataDB(BLKDATA);
 }
 
@@ -6106,11 +6070,11 @@ TEST_F(BlockUtilsTest, Load5Blocks_FullReorg)
    DBUtils.setDbPruneType(DB_PRUNE_NONE);
    TheBDM.buildDatabasesFromBlkFiles(); 
 
-   copyFile("../reorgTest/blk_3A.dat", blk0dat_);
+   BtcUtils::copyFile("../reorgTest/blk_3A.dat", blk0dat_);
    TheBDM.readBlkFileUpdate();
-   copyFile("../reorgTest/blk_4A.dat", blk0dat_);
+   BtcUtils::copyFile("../reorgTest/blk_4A.dat", blk0dat_);
    TheBDM.readBlkFileUpdate();
-   copyFile("../reorgTest/blk_5A.dat", blk0dat_);
+   BtcUtils::copyFile("../reorgTest/blk_5A.dat", blk0dat_);
    TheBDM.readBlkFileUpdate();
 
    //iface_->pprintBlkDataDB(BLKDATA);
@@ -6142,7 +6106,7 @@ TEST_F(BlockUtilsTest, RestartDBAfterBuild)
 {
    // Copy only the first four blocks.  Will copy the full file next to test
    // readBlkFileUpdate method on non-reorg blocks.
-   copyFile("../reorgTest/blk_0_to_4.dat", blk0dat_, 926);
+   BtcUtils::copyFile("../reorgTest/blk_0_to_4.dat", blk0dat_, 926);
    TheBDM.buildDatabasesFromBlkFiles(); 
    EXPECT_EQ(iface_->getTopBlockHeight(HEADERS), 2);
    EXPECT_EQ(iface_->getTopBlockHash(HEADERS), blkHash2);
@@ -6150,7 +6114,7 @@ TEST_F(BlockUtilsTest, RestartDBAfterBuild)
    TheBDM.DestroyInstance();
    
    // Add two more blocks
-   copyFile("../reorgTest/blk_0_to_4.dat", blk0dat_);
+   BtcUtils::copyFile("../reorgTest/blk_0_to_4.dat", blk0dat_);
 
    // Now reinitialize the DB and hopefully detect the new blocks and update
    TheBDM.SelectNetwork("Main");
@@ -6191,7 +6155,6 @@ TEST_F(BlockUtilsTest, RestartDBAfterBuild)
    EXPECT_EQ(ssh.getScriptReceived(), 100*COIN);
    EXPECT_EQ(ssh.totalTxioCount_,       3);
 
-   iface_->pprintBlkDataDB(BLKDATA);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -6199,16 +6162,15 @@ TEST_F(BlockUtilsTest, RestartDBAfterBuild_withReplay)
 {
    // Copy only the first four blocks.  Will copy the full file next to test
    // readBlkFileUpdate method on non-reorg blocks.
-   copyFile("../reorgTest/blk_0_to_4.dat", blk0dat_, 926);
+   BtcUtils::copyFile("../reorgTest/blk_0_to_4.dat", blk0dat_, 926);
    TheBDM.buildDatabasesFromBlkFiles(); 
-   iface_->pprintBlkDataDB(BLKDATA);
    EXPECT_EQ(iface_->getTopBlockHeight(HEADERS), 2);
    EXPECT_EQ(iface_->getTopBlockHash(HEADERS), blkHash2);
    EXPECT_TRUE(TheBDM.getHeaderByHash(blkHash2)->isMainBranch());
    TheBDM.DestroyInstance();
    
    // Add two more blocks
-   copyFile("../reorgTest/blk_0_to_4.dat", blk0dat_);
+   BtcUtils::copyFile("../reorgTest/blk_0_to_4.dat", blk0dat_);
 
    // Now reinitialize the DB and hopefully detect the new blocks and update
    TheBDM.SelectNetwork("Main");
@@ -6218,19 +6180,13 @@ TEST_F(BlockUtilsTest, RestartDBAfterBuild_withReplay)
    DBUtils.setArmoryDbType(ARMORY_DB_SUPER);
    DBUtils.setDbPruneType(DB_PRUNE_NONE);
 
-   cout << "Before initializeDBInterface" << endl;
-   iface_->pprintBlkDataDB(BLKDATA);
    uint32_t replayRewind = 700;
    bool success = TheBDM.initializeDBInterface(ARMORY_DB_SUPER, 
                                                DB_PRUNE_NONE,
                                                replayRewind);
    ASSERT_TRUE(success);
 
-   cout << "Before updateDatabasesOnLoad" << endl;
-   iface_->pprintBlkDataDB(BLKDATA);
    TheBDM.updateDatabasesOnLoad();
-   cout << "After updateDatabasesOnLoad" << endl;
-   iface_->pprintBlkDataDB(BLKDATA);
    
    EXPECT_EQ(TheBDM.getTopBlockHeightInDB(HEADERS), 4);
    EXPECT_EQ(TheBDM.getTopBlockHeightInDB(BLKDATA), 4);
@@ -6257,6 +6213,18 @@ TEST_F(BlockUtilsTest, RestartDBAfterBuild_withReplay)
    EXPECT_EQ(ssh.getScriptBalance(),  100*COIN);
    EXPECT_EQ(ssh.getScriptReceived(), 100*COIN);
    EXPECT_EQ(ssh.totalTxioCount_,       3);
+
+   // Random note (since I just spent 2 hours trying to figure out why
+   // I wasn't getting warnings about re-marking TxOuts spent that were
+   // already marked spent):   We get three warnings about TxOuts that
+   // already marked unspent in the SSH objects when we replay blocks 
+   // 1 and 2 (but not 0). This is expected.  But, I also expected a 
+   // warning about a TxOut already marked spent.  Turns out that 
+   // we are replaying the previous block first which calls "markUnspent" 
+   // before we hit this mark-spent logic.  So when we started the
+   // method, we actually did have a already-marked-spent TxOut, but 
+   // it was marked unspent before we got the point of trying to mark
+   // it spent again.   In other words, all expected behavior.
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -6291,19 +6259,160 @@ TEST_F(BlockUtilsTest, DISABLED_TimeAndSpaceTest_usuallydisabled)
    cin >> pause;
 }
 
-/*
+
 ////////////////////////////////////////////////////////////////////////////////
-TEST_F(BlockUtils, MultiRescanBlkSafe)
+// I thought I was going to do something different with this set of tests,
+// but I ended up with an exact copy of the BlockUtilsTest fixture.  Oh well.
+class BlockUtilsWithWalletTest: public ::testing::Test
 {
-   bdm_.rescanBlocks(0, 3);
-   bdm_.rescanBlocks(0, 3);
+protected:
+   /////////////////////////////////////////////////////////////////////////////
+   virtual void SetUp(void) 
+   {
+      iface_ = LevelDBWrapper::GetInterfacePtr();
+      magic_ = READHEX(MAINNET_MAGIC_BYTES);
+      ghash_ = READHEX(MAINNET_GENESIS_HASH_HEX);
+      gentx_ = READHEX(MAINNET_GENESIS_TX_HASH_HEX);
+      zeros_ = READHEX("00000000");
+      DBUtils.setArmoryDbType(ARMORY_DB_FULL);
+      DBUtils.setDbPruneType(DB_PRUNE_NONE);
+
+      blkdir_  = string("./blkfiletest");
+      homedir_ = string("./fakehomedir");
+      ldbdir_  = string("./ldbtestdir");
+
+      iface_->openDatabases( ldbdir_, ghash_, gentx_, magic_, 
+                             ARMORY_DB_SUPER, DB_PRUNE_NONE);
+      if(!iface_->databasesAreOpen())
+         LOGERR << "ERROR OPENING DATABASES FOR TESTING!";
+
+      mkdir(blkdir_);
+      mkdir(homedir_);
+
+      // Put the first 5 blocks into the blkdir
+      blk0dat_ = BtcUtils::getBlkFilename(blkdir_, 0);
+      BtcUtils::copyFile("../reorgTest/blk_0_to_4.dat", blk0dat_);
+
+      TheBDM.SelectNetwork("Main");
+      TheBDM.SetBlkFileLocation(blkdir_);
+      TheBDM.SetHomeDirLocation(homedir_);
+
+      blkHash0 = READHEX("6fe28c0ab6f1b372c1a6a246ae63f74f931e8365e15a089c68d6190000000000");
+      blkHash1 = READHEX("1b5514b83257d924be7f10c65b95b1f3c0e50081e1dfd8943eece5eb00000000");
+      blkHash2 = READHEX("979fc39616bf1dc6b1f88167f76383d44d65ccd0fc99b7f91bcb2c9500000000");
+      blkHash3 = READHEX("50f8231e5fd476f470e1ba4937bc97cb304136c96c765339308935bc00000000");
+      blkHash4 = READHEX("8e121ba0d275f49a21bbc171d7d49890de13c9b9733e0104654d262f00000000");
+      blkHash3A= READHEX("dd63f62ef59d5b6a6da2a36407f76e4e28026a3fd3a46700d284424700000000");
+      blkHash4A= READHEX("bfa204022816102169b4e1d4f78cdf77258048f6d14282144cc01d5500000000");
+      blkHash5A= READHEX("4e049fd71ef7381a73e4f550d97812d1eb0fbd1489c1774e18855f1900000000");
+
+      addrA_ = READHEX("62e907b15cbf27d5425399ebf6f0fb50ebb88f18");
+      addrB_ = READHEX("ee26c56fc1d942be8d7a24b2a1001dd894693980");
+      addrC_ = READHEX("cb2abde8bccacc32e893df3a054b9ef7f227a4ce");
+      addrD_ = READHEX("c522664fb0e55cdc5c0cea73b4aad97ec8343232");
+
+      LOGDISABLESTDOUT();
+   }
+
+
+   /////////////////////////////////////////////////////////////////////////////
+   virtual void TearDown(void)
+   {
+      rmdir(blkdir_);
+      rmdir(homedir_);
+
+      char* delstr = new char[4096];
+      sprintf(delstr, "%s/level*", ldbdir_.c_str());
+      rmdir(delstr);
+      delete[] delstr;
+
+      BlockDataManager_LevelDB::DestroyInstance();
+      LOGENABLESTDOUT();
+   }
+
+
+
+#if defined(_MSC_VER) || defined(__MINGW32__)
+   compile_error_fixme_what_to_do_in_windows;
+#else
+
+   /////////////////////////////////////////////////////////////////////////////
+   void rmdir(string src)
+   {
+      char* syscmd = new char[4096];
+      sprintf(syscmd, "rm -rf %s", src.c_str());
+      system(syscmd);
+      delete[] syscmd;
+   }
+
+   /////////////////////////////////////////////////////////////////////////////
+   void mkdir(string newdir)
+   {
+      char* syscmd = new char[4096];
+      sprintf(syscmd, "mkdir -p %s", newdir.c_str());
+      system(syscmd);
+      delete[] syscmd;
+   }
+#endif
+
+   InterfaceToLDB* iface_;
+   BinaryData magic_;
+   BinaryData ghash_;
+   BinaryData gentx_;
+   BinaryData zeros_;
+
+   string blkdir_;
+   string homedir_;
+   string ldbdir_;
+   string blk0dat_;;
+
+   BinaryData blkHash0;
+   BinaryData blkHash1;
+   BinaryData blkHash2;
+   BinaryData blkHash3;
+   BinaryData blkHash4;
+   BinaryData blkHash3A;
+   BinaryData blkHash4A;
+   BinaryData blkHash5A;
+
+   BinaryData addrA_;
+   BinaryData addrB_;
+   BinaryData addrC_;
+   BinaryData addrD_;
+};
+
+
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(BlockUtilsWithWalletTest, PreRegisterScrAddrs)
+{
+   BtcWallet wlt;
+   wlt.addScrAddress(addrA_);
+   wlt.addScrAddress(addrB_);
+   wlt.addScrAddress(addrC_);
+   TheBDM.registerWallet(&wlt);
+   TheBDM.registerNewScrAddr(addrD_);
+
+   BtcUtils::copyFile("../reorgTest/blk_0_to_4.dat", blk0dat_);
+   TheBDM.initializeDBInterface(); 
+
+   TheBDM.loadScrAddrHistoryFromDB();
+   TheBDM.scanBlockchainForTx(wlt);
+
+   uint64_t balanceWlt;
+   uint64_t balanceDB;
+   
+   balanceWlt = wlt.getScrAddrByKey(addrA_).getFullBalance();
+   balanceDB  = iface_->getBalanceForScrAddr(addrA_);
+   EXPECT_EQ(balanceWlt, balanceDB);
+   EXPECT_EQ(balanceWlt,  100*COIN);
+   EXPECT_EQ(balanceDB,   100*COIN);
+   
+   balanceWlt = wlt.getScrAddrByKey(addrB_).getFullBalance();
+   balanceDB  = iface_->getBalanceForScrAddr(addrB_);
+   EXPECT_EQ(balanceWlt, balanceDB);
+   EXPECT_EQ(balanceWlt,    0*COIN);
+   EXPECT_EQ(balanceDB,     0*COIN);
 }
-*/
-
-
-
-
-
 
 
 // This was really just to time the logging to determine how much impact it 
