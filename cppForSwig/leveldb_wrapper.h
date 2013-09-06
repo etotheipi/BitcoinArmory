@@ -505,11 +505,11 @@ public:
 
 
    // Sometimes we already know where the Tx is, but we don't know its hash
-   Tx    getFullTxCopy( BinaryDataRef ldbKey6B );
+   Tx    getFullTxCopy( BinaryData ldbKey6B );
    Tx    getFullTxCopy( uint32_t hgt, uint16_t txIndex);
    Tx    getFullTxCopy( uint32_t hgt, uint8_t dup, uint16_t txIndex);
-   TxOut getTxOutCopy(  BinaryDataRef ldbKey6B, uint16_t txOutIdx);
-   TxIn  getTxInCopy(   BinaryDataRef ldbKey6B, uint16_t txInIdx );
+   TxOut getTxOutCopy(  BinaryData ldbKey6B, uint16_t txOutIdx);
+   TxIn  getTxInCopy(   BinaryData ldbKey6B, uint16_t txInIdx );
 
 
    // Sometimes we already know where the Tx is, but we don't know its hash

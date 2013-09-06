@@ -1717,7 +1717,7 @@ bool InterfaceToLDB::readStoredTxOutAtIter(
 
 
 ////////////////////////////////////////////////////////////////////////////////
-Tx InterfaceToLDB::getFullTxCopy( BinaryDataRef ldbKey6B )
+Tx InterfaceToLDB::getFullTxCopy( BinaryData ldbKey6B )
 {
    SCOPED_TIMER("getFullTxCopy");
    if(ldbKey6B.getSize() != 6)
@@ -1726,7 +1726,7 @@ Tx InterfaceToLDB::getFullTxCopy( BinaryDataRef ldbKey6B )
       return Tx();
    }
     
-   if(seekTo(BLKDATA, DB_PREFIX_TXDATA, ldbKey6B))
+   if(!seekTo(BLKDATA, DB_PREFIX_TXDATA, ldbKey6B))
    {
       LOGERR << "TxRef key does not exist in BLKDATA DB";
       return Tx();
@@ -1767,7 +1767,7 @@ Tx InterfaceToLDB::getFullTxCopy( uint32_t hgt, uint8_t dup, uint16_t txIndex)
 
 
 ////////////////////////////////////////////////////////////////////////////////
-TxOut InterfaceToLDB::getTxOutCopy( BinaryDataRef ldbKey6B, uint16_t txOutIdx)
+TxOut InterfaceToLDB::getTxOutCopy( BinaryData ldbKey6B, uint16_t txOutIdx)
 {
    SCOPED_TIMER("getTxOutCopy");
    BinaryWriter bw(8);
@@ -1792,7 +1792,7 @@ TxOut InterfaceToLDB::getTxOutCopy( BinaryDataRef ldbKey6B, uint16_t txOutIdx)
 
 
 ////////////////////////////////////////////////////////////////////////////////
-TxIn InterfaceToLDB::getTxInCopy( BinaryDataRef ldbKey6B, uint16_t txInIdx)
+TxIn InterfaceToLDB::getTxInCopy( BinaryData ldbKey6B, uint16_t txInIdx)
 {
    SCOPED_TIMER("getTxInCopy");
    TxIn txiOut;

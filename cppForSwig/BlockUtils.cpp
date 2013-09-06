@@ -1453,7 +1453,6 @@ void BlockDataManager_LevelDB::SetHomeDirLocation(string homeDir)
 //
 bool BlockDataManager_LevelDB::SetBlkFileLocation(string blkdir)
 {
-   SCOPED_TIMER("SetBlkFileLocation");
    blkFileDir_    = blkdir; 
    isBlkParamsSet_ = true;
 
@@ -1465,7 +1464,6 @@ bool BlockDataManager_LevelDB::SetBlkFileLocation(string blkdir)
 /////////////////////////////////////////////////////////////////////////////
 void BlockDataManager_LevelDB::SetLevelDBLocation(string ldbdir)
 {
-   SCOPED_TIMER("SetBlkFileLocation");
    leveldbDir_    = ldbdir; 
    isLevelDBSet_  = true;
 }
@@ -1807,6 +1805,8 @@ bool BlockDataManager_LevelDB::addHeadersFirst(vector<StoredHeader> const & head
       bhInputPair.second.unserialize(headVect[h].dataCopy_);
       bhInputPair.first = bhInputPair.second.getThisHash();
       bhInsResult       = headerMap_.insert(bhInputPair);
+      if(!bhInsResult.second)
+         bhInsResult.first->second = bhInputPair.second;
 
       //if(bhInsResult.second) // true means didn't exist before
       headersToDB.push_back(&(bhInsResult.first->second));
@@ -2821,10 +2821,7 @@ vector<TxIOPair> BlockDataManager_LevelDB::getHistoryForScrAddr(
    iface_->getStoredScriptHistory(ssh, uniqKey);
    vector<TxIOPair> outVect(0);
    if(!ssh.isInitialized())
-   {
-      LOGWARN << "Requested ssh that doesn't exist";
       return outVect;
-   }
 
    outVect.reserve(ssh.totalTxioCount_);
    map<BinaryData, StoredSubHistory>::iterator iterSubSSH;
@@ -2833,11 +2830,13 @@ vector<TxIOPair> BlockDataManager_LevelDB::getHistoryForScrAddr(
        iterSubSSH != ssh.subHistMap_.end(); 
        iterSubSSH++)
    {
-      for(iterTxio  = iterSubSSH->second.txioSet_.begin();
-          iterTxio != iterSubSSH->second.txioSet_.end(); 
+      StoredSubHistory & subssh = iterSubSSH->second;
+      for(iterTxio  = subssh.txioSet_.begin();
+          iterTxio != subssh.txioSet_.end(); 
           iterTxio++)
       {
-         outVect.push_back(iterTxio->second);   
+         TxIOPair & txio = iterTxio->second;
+         outVect.push_back(txio);   
       }
    }
    
@@ -2986,7 +2985,11 @@ bool BlockDataManager_LevelDB::extractHeadersInBlkFile(uint32_t fnum,
       bhInputPair.first = bhInputPair.second.getThisHash();
       bhInsResult = headerMap_.insert(bhInputPair);
       if(!bhInsResult.second)
+      {
          LOGWARN << "Somehow tried to add header that's already in map";
+         // But overwrite the header anyway
+         bhInsResult.first->second = bhInputPair.second;
+      }
 
       bhInsResult.first->second.setBlockFile(filename);
       bhInsResult.first->second.setBlockFileNum(fnum);
@@ -3006,6 +3009,8 @@ bool BlockDataManager_LevelDB::extractHeadersInBlkFile(uint32_t fnum,
 /////////////////////////////////////////////////////////////////////////////
 uint32_t BlockDataManager_LevelDB::detectAllBlkFiles(void)
 {
+   SCOPED_TIMER("detectAllBlkFiles");
+
    // Next thing we need to do is find all the blk000X.dat files.
    // BtcUtils::GetFileSize uses only ifstreams, and thus should be
    // able to determine if a file exists in an OS-independent way.
@@ -3112,7 +3117,7 @@ void BlockDataManager_LevelDB::loadScrAddrHistoryFromDB(void)
       vector<TxIOPair> hist = getHistoryForScrAddr(iter->second.uniqueKey_);
       for(uint32_t i=0; i<hist.size(); i++)
       {
-         BinaryDataRef txKey = hist[i].getTxRefOfOutput().getDBKeyRef();
+         BinaryData txKey = hist[i].getTxRefOfOutput().getDBKey();
          
          StoredTx stx;
          iface_->getStoredTx(stx, txKey);
@@ -3691,6 +3696,8 @@ bool BlockDataManager_LevelDB::parseNewBlock(BinaryRefReader & brr,
    bhInputPair.first = bhInputPair.second.getThisHash();
    bhInsResult = headerMap_.insert(bhInputPair);
    BlockHeader * bhptr = &(bhInsResult.first->second);
+   if(!bhInsResult.second)
+      *bhptr = bhInsResult.first->second; // overwrite it even if insert fails
 
    // Then put the bare header into the DB and get its duplicate ID.
    StoredHeader sbh;
@@ -3784,6 +3791,8 @@ vector<bool> BlockDataManager_LevelDB::addNewBlockData(
    bhInputPair.first = bhInputPair.second.getThisHash();
    bhInsResult = headerMap_.insert(bhInputPair);
    BlockHeader * bhptr = &(bhInsResult.first->second);
+   if(!bhInsResult.second)
+      *bhptr = bhInsResult.first->second; // overwrite it even if insert fails
 
    // Finally, let's re-assess the state of the blockchain with the new data
    // Check the lastBlockWasReorg_ variable to see if there was a reorg

@@ -664,10 +664,12 @@ public:
    // it goes, and does a full [re-]scan of the blockchain only if necessary.
    bool     registerWallet(BtcWallet* wallet, bool wltIsNew=false);
    void     unregisterWallet(BtcWallet* wlt) {registeredWallets_.erase(wlt);}
-   bool     registerScrAddr(HashString addr160, bool isNew, uint32_t blk0);
-   bool     registerNewScrAddr(HashString addr160);
+
+   bool     registerScrAddr(BinaryData scraddr, bool isNew, uint32_t blk0);
+   bool     registerNewScrAddr(BinaryData scraddr);
    bool     registerImportedScrAddr(HashString addr160, uint32_t createBlk=0);
    bool     unregisterScrAddr(HashString addr160);
+
    uint32_t evalLowestBlockNextScan(void);
    uint32_t evalLowestScrAddrCreationBlock(void);
    bool     evalRescanIsRequired(void);
