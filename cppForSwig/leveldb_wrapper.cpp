@@ -969,6 +969,9 @@ bool InterfaceToLDB::getFullUTXOMapForSSH(
 /////////////////////////////////////////////////////////////////////////////
 bool InterfaceToLDB::advanceIterAndRead(leveldb::Iterator* iter)
 {
+   if(!iter->Valid())
+      return false; 
+
    iter->Next();
    if(!iter->Valid())
       return false;
@@ -982,6 +985,9 @@ bool InterfaceToLDB::advanceIterAndRead(DB_SELECT db, DB_PREFIX prefix)
 {
    if(iterIsDirty_[db])
       LOGERR << "DB has been changed since this iterator was created";
+
+   if(!iters_[db]->Valid())
+      return false; 
 
    if(advanceIterAndRead(iters_[db]))
       return checkPrefixByte(prefix, true);

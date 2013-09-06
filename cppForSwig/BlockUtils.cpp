@@ -1371,32 +1371,9 @@ vector<AddressBookEntry> BtcWallet::createAddressBook(void)
 //
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
-BlockDataManager_LevelDB::BlockDataManager_LevelDB(void) : 
-      totalBlockchainBytes_(0),
-      endOfLastBlockByte_(0),
-      dbUpdateSize_(0),
-      topBlockPtr_(NULL),
-      genBlockPtr_(NULL),
-      lastBlockWasReorg_(false),
-      isInitialized_(false),
-      GenesisHash_(0),
-      GenesisTxHash_(0),
-      MagicBytes_(0),
-      allScannedUpToBlk_(0)
+BlockDataManager_LevelDB::BlockDataManager_LevelDB(void) 
 {
-   headerMap_.clear();
-   isNetParamsSet_ = false;
-   isBlkParamsSet_ = false;
-
-   zeroConfRawTxList_.clear();
-   zeroConfMap_.clear();
-   zcEnabled_ = false;
-   zcFilename_ = string("");
-
-   headersByHeight_.clear();
-   blkFileList_.clear();
-   previouslyValidBlockHeaderPtrs_.clear();
-   orphanChainStartBlocks_.clear();
+   Reset();
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -1875,7 +1852,6 @@ void BlockDataManager_LevelDB::DestroyInstance(void)
    iface_ = NULL;
 }
 
-
 /////////////////////////////////////////////////////////////////////////////
 void BlockDataManager_LevelDB::Reset(void)
 {
@@ -1898,7 +1874,8 @@ void BlockDataManager_LevelDB::Reset(void)
    blkFileList_.clear();
    numBlkFiles_ = UINT64_MAX;
 
-   endOfLastBlockByte_ = UINT64_MAX;
+   endOfLastBlockByte_ = 0;
+   lastBlkFileNum_ = 0;
    dbUpdateSize_ = 0;
 
 
@@ -2541,8 +2518,8 @@ void BlockDataManager_LevelDB::applyBlocksToDB(uint32_t blk0, uint32_t blk1)
          break;
       
 
-      if(hgt%2500 == 0)
-         LOGWARN << "Finished applying blocks up to " << hgt;
+      if(hgt%2500 == 2499)
+         LOGWARN << "Finished applying blocks up to " << (hgt+1);
 
       if(dup != iface_->getValidDupIDForHeight(hgt))
          continue;

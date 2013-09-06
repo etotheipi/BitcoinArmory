@@ -5868,6 +5868,11 @@ protected:
       addrC_ = READHEX("cb2abde8bccacc32e893df3a054b9ef7f227a4ce");
       addrD_ = READHEX("c522664fb0e55cdc5c0cea73b4aad97ec8343232");
 
+      scrAddrA_ = HASH160PREFIX + addrA_;
+      scrAddrB_ = HASH160PREFIX + addrB_;
+      scrAddrC_ = HASH160PREFIX + addrC_;
+      scrAddrD_ = HASH160PREFIX + addrD_;
+
       LOGDISABLESTDOUT();
    }
 
@@ -5936,6 +5941,10 @@ protected:
    BinaryData addrB_;
    BinaryData addrC_;
    BinaryData addrD_;
+   BinaryData scrAddrA_;
+   BinaryData scrAddrB_;
+   BinaryData scrAddrC_;
+   BinaryData scrAddrD_;
 };
 
 
@@ -6003,22 +6012,22 @@ TEST_F(BlockUtilsTest, Load5Blocks)
 
    StoredScriptHistory ssh;
 
-   iface_->getStoredScriptHistory(ssh, HASH160PREFIX + addrA_);
+   iface_->getStoredScriptHistory(ssh, scrAddrA_);
    EXPECT_EQ(ssh.getScriptBalance(),  100*COIN);
    EXPECT_EQ(ssh.getScriptReceived(), 100*COIN);
    EXPECT_EQ(ssh.totalTxioCount_,       2);
 
-   iface_->getStoredScriptHistory(ssh, HASH160PREFIX + addrB_);
+   iface_->getStoredScriptHistory(ssh, scrAddrB_);
    EXPECT_EQ(ssh.getScriptBalance(),    0*COIN);
    EXPECT_EQ(ssh.getScriptReceived(), 140*COIN);
    EXPECT_EQ(ssh.totalTxioCount_,       3);
 
-   iface_->getStoredScriptHistory(ssh, HASH160PREFIX + addrC_);
+   iface_->getStoredScriptHistory(ssh, scrAddrC_);
    EXPECT_EQ(ssh.getScriptBalance(),   50*COIN);
    EXPECT_EQ(ssh.getScriptReceived(),  60*COIN);
    EXPECT_EQ(ssh.totalTxioCount_,       2);
 
-   iface_->getStoredScriptHistory(ssh, HASH160PREFIX + addrD_);
+   iface_->getStoredScriptHistory(ssh, scrAddrD_);
    EXPECT_EQ(ssh.getScriptBalance(),  100*COIN);
    EXPECT_EQ(ssh.getScriptReceived(), 100*COIN);
    EXPECT_EQ(ssh.totalTxioCount_,       3);
@@ -6081,22 +6090,22 @@ TEST_F(BlockUtilsTest, Load5Blocks_FullReorg)
    //iface_->pprintBlkDataDB(BLKDATA);
    StoredScriptHistory ssh;
 
-   iface_->getStoredScriptHistory(ssh, HASH160PREFIX + addrA_);
+   iface_->getStoredScriptHistory(ssh, scrAddrA_);
    EXPECT_EQ(ssh.getScriptBalance(),  150*COIN);
    EXPECT_EQ(ssh.getScriptReceived(), 150*COIN);
    EXPECT_EQ(ssh.totalTxioCount_,       3);
 
-   iface_->getStoredScriptHistory(ssh, HASH160PREFIX + addrB_);
+   iface_->getStoredScriptHistory(ssh, scrAddrB_);
    EXPECT_EQ(ssh.getScriptBalance(),   10*COIN);
    EXPECT_EQ(ssh.getScriptReceived(), 150*COIN);
    EXPECT_EQ(ssh.totalTxioCount_,       4);
 
-   iface_->getStoredScriptHistory(ssh, HASH160PREFIX + addrC_);
+   iface_->getStoredScriptHistory(ssh, scrAddrC_);
    EXPECT_EQ(ssh.getScriptBalance(),    0*COIN);
    EXPECT_EQ(ssh.getScriptReceived(),  10*COIN);
    EXPECT_EQ(ssh.totalTxioCount_,       1);
 
-   iface_->getStoredScriptHistory(ssh, HASH160PREFIX + addrD_);
+   iface_->getStoredScriptHistory(ssh, scrAddrD_);
    EXPECT_EQ(ssh.getScriptBalance(),  140*COIN);
    EXPECT_EQ(ssh.getScriptReceived(), 140*COIN);
    EXPECT_EQ(ssh.totalTxioCount_,       3);
@@ -6136,22 +6145,22 @@ TEST_F(BlockUtilsTest, RestartDBAfterBuild)
 
    StoredScriptHistory ssh;
 
-   iface_->getStoredScriptHistory(ssh, HASH160PREFIX + addrA_);
+   iface_->getStoredScriptHistory(ssh, scrAddrA_);
    EXPECT_EQ(ssh.getScriptBalance(),  100*COIN);
    EXPECT_EQ(ssh.getScriptReceived(), 100*COIN);
    EXPECT_EQ(ssh.totalTxioCount_,       2);
 
-   iface_->getStoredScriptHistory(ssh, HASH160PREFIX + addrB_);
+   iface_->getStoredScriptHistory(ssh, scrAddrB_);
    EXPECT_EQ(ssh.getScriptBalance(),    0*COIN);
    EXPECT_EQ(ssh.getScriptReceived(), 140*COIN);
    EXPECT_EQ(ssh.totalTxioCount_,       3);
 
-   iface_->getStoredScriptHistory(ssh, HASH160PREFIX + addrC_);
+   iface_->getStoredScriptHistory(ssh, scrAddrC_);
    EXPECT_EQ(ssh.getScriptBalance(),   50*COIN);
    EXPECT_EQ(ssh.getScriptReceived(),  60*COIN);
    EXPECT_EQ(ssh.totalTxioCount_,       2);
 
-   iface_->getStoredScriptHistory(ssh, HASH160PREFIX + addrD_);
+   iface_->getStoredScriptHistory(ssh, scrAddrD_);
    EXPECT_EQ(ssh.getScriptBalance(),  100*COIN);
    EXPECT_EQ(ssh.getScriptReceived(), 100*COIN);
    EXPECT_EQ(ssh.totalTxioCount_,       3);
@@ -6195,22 +6204,22 @@ TEST_F(BlockUtilsTest, RestartDBAfterBuild_withReplay)
 
    StoredScriptHistory ssh;
 
-   iface_->getStoredScriptHistory(ssh, HASH160PREFIX + addrA_);
+   iface_->getStoredScriptHistory(ssh, scrAddrA_);
    EXPECT_EQ(ssh.getScriptBalance(),  100*COIN);
    EXPECT_EQ(ssh.getScriptReceived(), 100*COIN);
    EXPECT_EQ(ssh.totalTxioCount_,       2);
 
-   iface_->getStoredScriptHistory(ssh, HASH160PREFIX + addrB_);
+   iface_->getStoredScriptHistory(ssh, scrAddrB_);
    EXPECT_EQ(ssh.getScriptBalance(),    0*COIN);
    EXPECT_EQ(ssh.getScriptReceived(), 140*COIN);
    EXPECT_EQ(ssh.totalTxioCount_,       3);
 
-   iface_->getStoredScriptHistory(ssh, HASH160PREFIX + addrC_);
+   iface_->getStoredScriptHistory(ssh, scrAddrC_);
    EXPECT_EQ(ssh.getScriptBalance(),   50*COIN);
    EXPECT_EQ(ssh.getScriptReceived(),  60*COIN);
    EXPECT_EQ(ssh.totalTxioCount_,       2);
 
-   iface_->getStoredScriptHistory(ssh, HASH160PREFIX + addrD_);
+   iface_->getStoredScriptHistory(ssh, scrAddrD_);
    EXPECT_EQ(ssh.getScriptBalance(),  100*COIN);
    EXPECT_EQ(ssh.getScriptReceived(), 100*COIN);
    EXPECT_EQ(ssh.totalTxioCount_,       3);
@@ -6313,6 +6322,11 @@ protected:
       addrC_ = READHEX("cb2abde8bccacc32e893df3a054b9ef7f227a4ce");
       addrD_ = READHEX("c522664fb0e55cdc5c0cea73b4aad97ec8343232");
 
+      scrAddrA_ = HASH160PREFIX + addrA_;
+      scrAddrB_ = HASH160PREFIX + addrB_;
+      scrAddrC_ = HASH160PREFIX + addrC_;
+      scrAddrD_ = HASH160PREFIX + addrD_;
+
       LOGDISABLESTDOUT();
    }
 
@@ -6381,19 +6395,23 @@ protected:
    BinaryData addrB_;
    BinaryData addrC_;
    BinaryData addrD_;
+
+   BinaryData scrAddrA_;
+   BinaryData scrAddrB_;
+   BinaryData scrAddrC_;
+   BinaryData scrAddrD_;
 };
 
 
 ////////////////////////////////////////////////////////////////////////////////
 TEST_F(BlockUtilsWithWalletTest, PreRegisterScrAddrs)
 {
-   LOGENABLESTDOUT();
    BtcWallet wlt;
-   wlt.addScrAddress(HASH160PREFIX + addrA_);
-   wlt.addScrAddress(HASH160PREFIX + addrB_);
-   wlt.addScrAddress(HASH160PREFIX + addrC_);
+   wlt.addScrAddress(scrAddrA_);
+   wlt.addScrAddress(scrAddrB_);
+   wlt.addScrAddress(scrAddrC_);
    TheBDM.registerWallet(&wlt);
-   TheBDM.registerNewScrAddr(HASH160PREFIX + addrD_);
+   TheBDM.registerNewScrAddr(scrAddrD_);
 
    BtcUtils::copyFile("../reorgTest/blk_0_to_4.dat", blk0dat_);
    TheBDM.updateDatabasesOnLoad(); 
@@ -6404,56 +6422,73 @@ TEST_F(BlockUtilsWithWalletTest, PreRegisterScrAddrs)
    uint64_t balanceWlt;
    uint64_t balanceDB;
    
-   balanceWlt = wlt.getScrAddrByKey(addrA_).getFullBalance();
-   balanceDB  = iface_->getBalanceForScrAddr(HASH160PREFIX + addrA_);
+   balanceWlt = wlt.getScrAddrByKey(scrAddrA_).getFullBalance();
+   balanceDB  = iface_->getBalanceForScrAddr(scrAddrA_);
    EXPECT_EQ(balanceWlt, balanceDB);
    EXPECT_EQ(balanceWlt,  100*COIN);
    EXPECT_EQ(balanceDB,   100*COIN);
    
-   balanceWlt = wlt.getScrAddrByKey(addrB_).getFullBalance();
-   balanceDB  = iface_->getBalanceForScrAddr(HASH160PREFIX + addrB_);
+   balanceWlt = wlt.getScrAddrByKey(scrAddrB_).getFullBalance();
+   balanceDB  = iface_->getBalanceForScrAddr(scrAddrB_);
    EXPECT_EQ(balanceWlt, balanceDB);
    EXPECT_EQ(balanceWlt,    0*COIN);
    EXPECT_EQ(balanceDB,     0*COIN);
 
-   balanceWlt = wlt.getScrAddrByKey(addrC_).getFullBalance();
-   balanceDB  = iface_->getBalanceForScrAddr(HASH160PREFIX + addrC_);
+   balanceWlt = wlt.getScrAddrByKey(scrAddrC_).getFullBalance();
+   balanceDB  = iface_->getBalanceForScrAddr(scrAddrC_);
    EXPECT_EQ(balanceWlt, balanceDB);
    EXPECT_EQ(balanceWlt,   50*COIN);
    EXPECT_EQ(balanceDB,    50*COIN);
 
-   balanceWlt = wlt.getScrAddrByKey(addrD_).getFullBalance();
-   balanceDB  = iface_->getBalanceForScrAddr(HASH160PREFIX + addrD_);
+   balanceWlt = wlt.getScrAddrByKey(scrAddrD_).getFullBalance();
+   balanceDB  = iface_->getBalanceForScrAddr(scrAddrD_);
+   EXPECT_EQ(balanceWlt,    0*COIN);  // D is not part of the wallet
+   EXPECT_EQ(balanceDB,   100*COIN);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(BlockUtilsWithWalletTest, PostRegisterScrAddr)
+{
+   BtcUtils::copyFile("../reorgTest/blk_0_to_4.dat", blk0dat_);
+   TheBDM.updateDatabasesOnLoad(); 
+
+   // We do all the database stuff first, THEN load the addresses
+   BtcWallet wlt;
+   wlt.addScrAddress(scrAddrA_);
+   wlt.addScrAddress(scrAddrB_);
+   wlt.addScrAddress(scrAddrC_);
+   TheBDM.registerWallet(&wlt);
+   TheBDM.registerNewScrAddr(scrAddrD_);
+   TheBDM.loadScrAddrHistoryFromDB();
+   TheBDM.scanBlockchainForTx(wlt);
+
+   uint64_t balanceWlt;
+   uint64_t balanceDB;
+   
+   balanceWlt = wlt.getScrAddrByKey(scrAddrA_).getFullBalance();
+   balanceDB  = iface_->getBalanceForScrAddr(scrAddrA_);
    EXPECT_EQ(balanceWlt, balanceDB);
    EXPECT_EQ(balanceWlt,  100*COIN);
    EXPECT_EQ(balanceDB,   100*COIN);
+   
+   balanceWlt = wlt.getScrAddrByKey(scrAddrB_).getFullBalance();
+   balanceDB  = iface_->getBalanceForScrAddr(scrAddrB_);
+   EXPECT_EQ(balanceWlt, balanceDB);
+   EXPECT_EQ(balanceWlt,    0*COIN);
+   EXPECT_EQ(balanceDB,     0*COIN);
 
-   /*
-   StoredScriptHistory ssh;
+   balanceWlt = wlt.getScrAddrByKey(scrAddrC_).getFullBalance();
+   balanceDB  = iface_->getBalanceForScrAddr(scrAddrC_);
+   EXPECT_EQ(balanceWlt, balanceDB);
+   EXPECT_EQ(balanceWlt,   50*COIN);
+   EXPECT_EQ(balanceDB,    50*COIN);
 
-   iface_->getStoredScriptHistory(ssh, HASH160PREFIX + addrA_);
-   EXPECT_EQ(ssh.getScriptBalance(),  100*COIN);
-   EXPECT_EQ(ssh.getScriptReceived(), 100*COIN);
-   EXPECT_EQ(ssh.totalTxioCount_,       2);
-
-   iface_->getStoredScriptHistory(ssh, HASH160PREFIX + addrB_);
-   EXPECT_EQ(ssh.getScriptBalance(),    0*COIN);
-   EXPECT_EQ(ssh.getScriptReceived(), 140*COIN);
-   EXPECT_EQ(ssh.totalTxioCount_,       3);
-
-   iface_->getStoredScriptHistory(ssh, HASH160PREFIX + addrC_);
-   EXPECT_EQ(ssh.getScriptBalance(),   50*COIN);
-   EXPECT_EQ(ssh.getScriptReceived(),  60*COIN);
-   EXPECT_EQ(ssh.totalTxioCount_,       2);
-
-   iface_->getStoredScriptHistory(ssh, HASH160PREFIX + addrD_);
-   EXPECT_EQ(ssh.getScriptBalance(),  100*COIN);
-   EXPECT_EQ(ssh.getScriptReceived(), 100*COIN);
-   EXPECT_EQ(ssh.totalTxioCount_,       3);
-   */
+   balanceWlt = wlt.getScrAddrByKey(scrAddrD_).getFullBalance();
+   balanceDB  = iface_->getBalanceForScrAddr(scrAddrD_);
+   EXPECT_EQ(balanceWlt,    0*COIN);  // D is not part of the wallet
+   EXPECT_EQ(balanceDB,   100*COIN);
 
 }
-
 
 // This was really just to time the logging to determine how much impact it 
 // has.  It looks like writing to file is about 1,000,000 logs/sec, while 
