@@ -516,6 +516,7 @@ private:
    uint64_t                           numBlkFiles_;
    uint32_t                           lastBlkFileNum_;
    uint64_t                           endOfLastBlockByte_;
+   uint64_t                           alreadyApplied_;
 
    // Used to estimate how much data is queued to be written to DB
    uint64_t                           dbUpdateSize_;
@@ -627,6 +628,7 @@ public:
    uint16_t getLoadProgressFiles(void)    const {return filesReadSoFar_;}
 
    uint32_t getTopBlockHeightInDB(DB_SELECT db);
+   uint32_t getAppliedToHeightInDB(void);
    vector<BinaryData> getFirstHashOfEachBlkFile(void) const;
    uint32_t findFirstUnrecogBlockLoc(uint32_t fnum);
    uint32_t findFirstBlkApproxOffset(uint32_t fnum, uint32_t offset) const;
@@ -640,9 +642,6 @@ public:
    BlockHeader *    getHeaderByHeight(int index);
    BlockHeader *    getHeaderByHash(BinaryData const & blkHash);
    string           getBlockfilePath(void) {return blkFileDir_;}
-
-   //TxRef *          getTxRefPtrByHash(BinaryData const & txHash);
-   //Tx               getTxByHash(BinaryData const & txHash);
 
    TxRef            getTxRefByHash(BinaryData const & txHash);
    Tx               getTxByHash(BinaryData const & txHash);
@@ -707,7 +706,7 @@ public:
    bool     processAllHeadersInBlkFiles(uint32_t fnumStart=0, uint32_t offset=0);
    bool     processHeadersInFile(string filename);
    uint32_t buildDatabasesFromBlkFiles(uint32_t fnum=0, uint32_t offset=0);
-   uint32_t updateDatabasesOnLoad(void);
+   uint32_t initializeAndBuildDatabases(void);
    bool     addRawBlockToDB(BinaryRefReader & brr);
    void     updateBlkDataHeader(StoredHeader const & sbh);
 
@@ -751,10 +750,12 @@ public:
 
 
 
-   void loadScrAddrHistoryFromDB(void);
+   void fetchAllRegisteredScrAddrData(void);
 
    // Check for availability of data with a given hash
-   TX_AVAILABILITY hasTxWithHash(BinaryDataRef txhash);
+   TX_AVAILABILITY getTxHashAvail(BinaryDataRef txhash);
+   bool hasTxWithHash(BinaryDataRef txhash);
+   bool hasTxWithHashInDB(BinaryDataRef txhash);
    bool hasHeaderWithHash(BinaryDataRef headHash) const;
 
    uint32_t getNumBlocks(void) const { return headerMap_.size(); }

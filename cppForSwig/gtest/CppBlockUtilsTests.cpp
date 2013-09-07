@@ -4682,7 +4682,7 @@ protected:
 
       BinaryData DBINFO = StoredDBInfo().getDBKey();
       BinaryData flags = READHEX("02100000");
-      BinaryData val0 = magic_+flags+zeros_+ghash_;
+      BinaryData val0 = magic_+flags+zeros_+zeros_+ghash_;
       addOutPairH(DBINFO, val0);
       addOutPairB(DBINFO, val0);
 
@@ -4743,13 +4743,13 @@ TEST_F(LevelDBTest, OpenClose)
    for(uint32_t i=0; i<HList.size(); i++)
    {
       EXPECT_EQ(HList[i].first,  READHEX("00"));
-      EXPECT_EQ(BList[i].second, magic_ + flags + zeros_ + ghash_);
+      EXPECT_EQ(BList[i].second, magic_ + flags + zeros_ + zeros_ + ghash_);
    }
 
    for(uint32_t i=0; i<BList.size(); i++)
    {
       EXPECT_EQ(HList[i].first,  READHEX("00"));
-      EXPECT_EQ(BList[i].second, magic_ + flags + zeros_ + ghash_);
+      EXPECT_EQ(BList[i].second, magic_ + flags + zeros_ + zeros_ + ghash_);
    }
                          
    iface_->closeDatabases();
@@ -4787,13 +4787,13 @@ TEST_F(LevelDBTest, OpenCloseOpenNominal)
    for(uint32_t i=0; i<HList.size(); i++)
    {
       EXPECT_EQ(HList[i].first,  READHEX("00"));
-      EXPECT_EQ(BList[i].second, magic_ + flags + zeros_ + ghash_);
+      EXPECT_EQ(BList[i].second, magic_ + flags + zeros_ + zeros_ + ghash_);
    }
 
    for(uint32_t i=0; i<BList.size(); i++)
    {
       EXPECT_EQ(HList[i].first,  READHEX("00"));
-      EXPECT_EQ(BList[i].second, magic_ + flags + zeros_ + ghash_);
+      EXPECT_EQ(BList[i].second, magic_ + flags + zeros_ + zeros_ + ghash_);
    }
                          
    iface_->closeDatabases();
@@ -4875,7 +4875,7 @@ TEST_F(LevelDBTest, PutGetDelete)
    DB_PREFIX TXDATA = DB_PREFIX_TXDATA;
    BinaryData DBINFO = StoredDBInfo().getDBKey();
    BinaryData PREFIX = WRITE_UINT8_BE((uint8_t)TXDATA);
-   BinaryData val0 = magic_+flags+zeros_+ghash_;
+   BinaryData val0 = magic_+flags+zeros_+zeros_+ghash_;
    BinaryData commonValue = READHEX("abcd1234");
    BinaryData keyAB = READHEX("0000");
    BinaryData nothing = BinaryData(0);
@@ -6137,7 +6137,7 @@ TEST_F(BlockUtilsTest, RestartDBAfterBuild)
    bool success = TheBDM.initializeDBInterface(ARMORY_DB_SUPER, DB_PRUNE_NONE);
    ASSERT_TRUE(success);
 
-   TheBDM.updateDatabasesOnLoad();
+   TheBDM.initializeAndBuildDatabases();
    
    EXPECT_EQ(TheBDM.getTopBlockHeightInDB(HEADERS), 4);
    EXPECT_EQ(TheBDM.getTopBlockHeightInDB(BLKDATA), 4);
@@ -6196,7 +6196,7 @@ TEST_F(BlockUtilsTest, RestartDBAfterBuild_withReplay)
                                                replayRewind);
    ASSERT_TRUE(success);
 
-   TheBDM.updateDatabasesOnLoad();
+   TheBDM.initializeAndBuildDatabases();
    
    EXPECT_EQ(TheBDM.getTopBlockHeightInDB(HEADERS), 4);
    EXPECT_EQ(TheBDM.getTopBlockHeightInDB(BLKDATA), 4);
@@ -6414,9 +6414,9 @@ TEST_F(BlockUtilsWithWalletTest, PreRegisterScrAddrs)
    TheBDM.registerNewScrAddr(scrAddrD_);
 
    BtcUtils::copyFile("../reorgTest/blk_0_to_4.dat", blk0dat_);
-   TheBDM.updateDatabasesOnLoad(); 
+   TheBDM.initializeAndBuildDatabases(); 
 
-   TheBDM.loadScrAddrHistoryFromDB();
+   TheBDM.fetchAllRegisteredScrAddrData();
    TheBDM.scanBlockchainForTx(wlt);
 
    uint64_t balanceWlt;
@@ -6424,19 +6424,16 @@ TEST_F(BlockUtilsWithWalletTest, PreRegisterScrAddrs)
    
    balanceWlt = wlt.getScrAddrByKey(scrAddrA_).getFullBalance();
    balanceDB  = iface_->getBalanceForScrAddr(scrAddrA_);
-   EXPECT_EQ(balanceWlt, balanceDB);
    EXPECT_EQ(balanceWlt,  100*COIN);
    EXPECT_EQ(balanceDB,   100*COIN);
    
    balanceWlt = wlt.getScrAddrByKey(scrAddrB_).getFullBalance();
    balanceDB  = iface_->getBalanceForScrAddr(scrAddrB_);
-   EXPECT_EQ(balanceWlt, balanceDB);
    EXPECT_EQ(balanceWlt,    0*COIN);
    EXPECT_EQ(balanceDB,     0*COIN);
 
    balanceWlt = wlt.getScrAddrByKey(scrAddrC_).getFullBalance();
    balanceDB  = iface_->getBalanceForScrAddr(scrAddrC_);
-   EXPECT_EQ(balanceWlt, balanceDB);
    EXPECT_EQ(balanceWlt,   50*COIN);
    EXPECT_EQ(balanceDB,    50*COIN);
 
@@ -6450,7 +6447,7 @@ TEST_F(BlockUtilsWithWalletTest, PreRegisterScrAddrs)
 TEST_F(BlockUtilsWithWalletTest, PostRegisterScrAddr)
 {
    BtcUtils::copyFile("../reorgTest/blk_0_to_4.dat", blk0dat_);
-   TheBDM.updateDatabasesOnLoad(); 
+   TheBDM.initializeAndBuildDatabases(); 
 
    // We do all the database stuff first, THEN load the addresses
    BtcWallet wlt;
@@ -6459,7 +6456,7 @@ TEST_F(BlockUtilsWithWalletTest, PostRegisterScrAddr)
    wlt.addScrAddress(scrAddrC_);
    TheBDM.registerWallet(&wlt);
    TheBDM.registerNewScrAddr(scrAddrD_);
-   TheBDM.loadScrAddrHistoryFromDB();
+   TheBDM.fetchAllRegisteredScrAddrData();
    TheBDM.scanBlockchainForTx(wlt);
 
    uint64_t balanceWlt;
@@ -6467,19 +6464,16 @@ TEST_F(BlockUtilsWithWalletTest, PostRegisterScrAddr)
    
    balanceWlt = wlt.getScrAddrByKey(scrAddrA_).getFullBalance();
    balanceDB  = iface_->getBalanceForScrAddr(scrAddrA_);
-   EXPECT_EQ(balanceWlt, balanceDB);
    EXPECT_EQ(balanceWlt,  100*COIN);
    EXPECT_EQ(balanceDB,   100*COIN);
    
    balanceWlt = wlt.getScrAddrByKey(scrAddrB_).getFullBalance();
    balanceDB  = iface_->getBalanceForScrAddr(scrAddrB_);
-   EXPECT_EQ(balanceWlt, balanceDB);
    EXPECT_EQ(balanceWlt,    0*COIN);
    EXPECT_EQ(balanceDB,     0*COIN);
 
    balanceWlt = wlt.getScrAddrByKey(scrAddrC_).getFullBalance();
    balanceDB  = iface_->getBalanceForScrAddr(scrAddrC_);
-   EXPECT_EQ(balanceWlt, balanceDB);
    EXPECT_EQ(balanceWlt,   50*COIN);
    EXPECT_EQ(balanceDB,    50*COIN);
 
@@ -6487,7 +6481,6 @@ TEST_F(BlockUtilsWithWalletTest, PostRegisterScrAddr)
    balanceDB  = iface_->getBalanceForScrAddr(scrAddrD_);
    EXPECT_EQ(balanceWlt,    0*COIN);  // D is not part of the wallet
    EXPECT_EQ(balanceDB,   100*COIN);
-
 }
 
 // This was really just to time the logging to determine how much impact it 

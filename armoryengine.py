@@ -68,6 +68,7 @@ parser.add_option("--datadir",         dest="datadir",     default='DEFAULT', ty
 parser.add_option("--satoshi-datadir", dest="satoshiHome", default='DEFAULT', type='str',          help="The Bitcoin-Qt/bitcoind home directory")
 parser.add_option("--satoshi-port",    dest="satoshiPort", default='DEFAULT', type="str",          help="For Bitcoin-Qt instances operating on a non-standard port")
 #parser.add_option("--bitcoind-path",   dest="bitcoindPath",default='DEFAULT', type="str",          help="Path to the location of bitcoind on your system")
+parser.add_option("--dbdir",           dest="leveldbDir",  default='DEFAULT', type='str',          help="Location to store blocks database (defaults to --datadir)")
 parser.add_option("--rpcport",         dest="rpcport",     default='DEFAULT', type="str",          help="RPC port for running armoryd.py")
 parser.add_option("--testnet",         dest="testnet",     default=False,     action="store_true", help="Use the testnet protocol")
 parser.add_option("--offline",         dest="offline",     default=False,     action="store_true", help="Force Armory to run in offline mode")
@@ -187,6 +188,7 @@ OS_VARIANT       = ''
 USER_HOME_DIR    = ''
 BTC_HOME_DIR     = ''
 ARMORY_HOME_DIR  = ''
+LEVELDB_DIR      = ''
 SUBDIR = 'testnet3' if USE_TESTNET else ''
 if OS_WINDOWS:
    OS_NAME         = 'Windows'
@@ -194,12 +196,18 @@ if OS_WINDOWS:
    USER_HOME_DIR   = os.getenv('APPDATA')
    BTC_HOME_DIR    = os.path.join(USER_HOME_DIR, 'Bitcoin', SUBDIR)
    ARMORY_HOME_DIR = os.path.join(USER_HOME_DIR, 'Armory', SUBDIR)
+   LEVELDB_DIR     = os.path.join(ARMORY_HOME_DIR, 'databases')
+   BLKFILE_DIR     = os.path.join(BTC_HOME_DIR, 'blocks')
+   BLKFILE_1stFILE = os.path.join(BLKFILE_DIR, 'blk00000.dat')
 elif OS_LINUX:
    OS_NAME         = 'Linux'
    OS_VARIANT      = platform.linux_distribution()
    USER_HOME_DIR   = os.getenv('HOME')
    BTC_HOME_DIR    = os.path.join(USER_HOME_DIR, '.bitcoin', SUBDIR)
    ARMORY_HOME_DIR = os.path.join(USER_HOME_DIR, '.armory', SUBDIR)
+   LEVELDB_DIR     = os.path.join(ARMORY_HOME_DIR, 'databases')
+   BLKFILE_DIR     = os.path.join(BTC_HOME_DIR, 'blocks')
+   BLKFILE_1stFILE = os.path.join(BLKFILE_DIR, 'blk00000.dat')
 elif OS_MACOSX:
    platform.mac_ver()
    OS_NAME         = 'MacOSX'
@@ -207,6 +215,9 @@ elif OS_MACOSX:
    USER_HOME_DIR   = os.path.expanduser('~/Library/Application Support')
    BTC_HOME_DIR    = os.path.join(USER_HOME_DIR, 'Bitcoin', SUBDIR)
    ARMORY_HOME_DIR = os.path.join(USER_HOME_DIR, 'Armory', SUBDIR)
+   LEVELDB_DIR     = os.path.join(ARMORY_HOME_DIR, 'databases')
+   BLKFILE_DIR     = os.path.join(BTC_HOME_DIR, 'blocks')
+   BLKFILE_1stFILE = os.path.join(BLKFILE_DIR, 'blk00000.dat')
 else:
    print '***Unknown operating system!'
    print '***Cannot determine default directory locations'
@@ -226,6 +237,13 @@ if not CLI_OPTIONS.datadir.lower()=='default':
       print 'Directory "%s" does not exist!  Using default!' % CLI_OPTIONS.datadir
    else:
       ARMORY_HOME_DIR = CLI_OPTIONS.datadir
+
+# Same for the directory that holds the LevelDB databases
+if not CLI_OPTIONS.leveldbDir.lower()=='default':
+   if not os.path.exists(CLI_OPTIONS.datadir):
+      print 'Directory "%s" does not exist!  Using default!' % CLI_OPTIONS.leveldbDir
+   else:
+      LEVELDB_DIR  = CLI_OPTIONS.datadir
 
 
 # Change the settings file to use
@@ -254,76 +272,6 @@ if ARMORY_HOME_DIR and not os.path.exists(ARMORY_HOME_DIR):
    os.makedirs(ARMORY_HOME_DIR)
 
 
-def findLatestBlkFiles(baseDir):
-   # Bitcoin-Qt 0.8+ uses new location.  User might also be specifying
-   # non-standard location.  Detect whatever the heck we can...
-   lastModTimeOld4 = 0
-   lastModTimeOld5 = 0
-   lastModTimeNew4 = 0
-   lastModTimeNew5 = 0
-   baseDir = toPreferred(baseDir)
-   newDir = os.path.join(baseDir, 'blocks')
-   
-   newBlkPath4 = lambda x: os.path.join(newDir,  'blk%04d.dat'%x)
-   newBlkPath5 = lambda x: os.path.join(newDir,  'blk%05d.dat'%x)
-   oldBlkPath4 = lambda x: os.path.join(baseDir, 'blk%04d.dat'%x)
-   oldBlkPath5 = lambda x: os.path.join(baseDir, 'blk%05d.dat'%x)
-
-   # Check the last modification time of the top blocks/blk000X.dat
-   i = 1;
-   if os.path.exists(newDir) and os.path.exists(newBlkPath4(i)):
-      while( os.path.exists(newBlkPath4(i) ) ):
-         lastModTimeNew4 = os.path.getmtime(newBlkPath4(i))
-         i += 1
-   
-   # Check the last modification time of the top blocks/blk0000X.dat
-   i = 0;
-   if os.path.exists(newDir) and os.path.exists(newBlkPath5(i)):
-      while( os.path.exists(newBlkPath5(i) ) ):
-         lastModTimeNew5 = os.path.getmtime(newBlkPath5(i))
-         i += 1
-
-   # Check the last modification time of the top blk000X.dat
-   i = 1;
-   if os.path.exists(baseDir) and os.path.exists( oldBlkPath4(i)):
-      while( os.path.exists(oldBlkPath4(i) ) ):
-         lastModTimeOld4 = os.path.getmtime(oldBlkPath4(i))
-         i += 1
-
-   # Check the last modification time of the top blk0000X.dat
-   i = 0;
-   if os.path.exists(baseDir) and os.path.exists( oldBlkPath5(i)):
-      while( os.path.exists(oldBlkPath5(i) ) ):
-         lastModTimeOld5 = os.path.getmtime(oldBlkPath5(i))
-         i += 1
-
-   latestMod = max(lastModTimeNew4, lastModTimeNew5, lastModTimeOld4, lastModTimeOld5)
-   #if latestMod==0:
-      #print '\n*****ERROR:  No blkXXXXX.dat files found!\n'
-
-   output = [newDir, 5, 0]
-   if(lastModTimeNew4 == latestMod):
-      output = [newDir, 4, 1]
-   elif(lastModTimeNew5 == latestMod):
-      output = [newDir, 5, 0]
-   elif(lastModTimeOld4 == latestMod):
-      output = [baseDir, 4, 1]
-   elif(lastModTimeOld5 == latestMod):
-      output = [baseDir, 5, 0]
-
-   # We didn't detect anything... will return default location for 0.8+
-   firstFile  = os.path.join(output[0], 'blk')
-   firstFile += ('%%0%dd.dat' % output[1]) % output[2]
-   output.append(firstFile)
-   return output
-
-
-BLKFILE_LOCATION = findLatestBlkFiles(BTC_HOME_DIR)
-BLKFILE_DIRECTORY  = BLKFILE_LOCATION[0]
-BLKFILE_NUMDIGITS  = BLKFILE_LOCATION[1]
-BLKFILE_STARTINDEX = BLKFILE_LOCATION[2]
-BLKFILE_FIRSTFILE  = BLKFILE_LOCATION[3]
-
 
 if sys.argv[0]=='ArmoryQt.py':
    print '********************************************************************************'
@@ -334,7 +282,7 @@ if sys.argv[0]=='ArmoryQt.py':
    print '   OS Variant            :', OS_VARIANT
    print '   User home-directory   :', USER_HOME_DIR
    print '   Satoshi BTC directory :', BTC_HOME_DIR
-   print '   First blkX.dat file   :', BLKFILE_FIRSTFILE
+   print '   First blkX.dat file   :', BLKFILE_1stFILE
    print '   Armory home dir       :', ARMORY_HOME_DIR
    print '   Armory settings file  :', SETTINGS_PATH
    print '   Armory log file       :', ARMORY_LOG_FILE
@@ -838,7 +786,7 @@ LOGINFO('Detected Operating system: ' + OS_NAME)
 LOGINFO('   OS Variant            : ' + (str(OS_VARIANT) if OS_MACOSX else '-'.join(OS_VARIANT)))
 LOGINFO('   User home-directory   : ' + USER_HOME_DIR)
 LOGINFO('   Satoshi BTC directory : ' + BTC_HOME_DIR)
-LOGINFO('   First blk*.dat file   : ' + BLKFILE_FIRSTFILE)
+LOGINFO('   First blk*.dat file   : ' + BLKFILE_1stFILE)
 LOGINFO('   Armory home dir       : ' + ARMORY_HOME_DIR)
 LOGINFO('Detected System Specs    : ')
 LOGINFO('   Total Available RAM   : %0.2f GB', SystemSpecs.Memory)
@@ -2902,37 +2850,6 @@ class PyBtcAddress(object):
       return CryptoECDSA().VerifyData(secMsg, secSig, secPubKey)
 
 
-
-   #############################################################################
-   def createNewRandomAddress(self, secureKdfOutput=None, IV16=None):
-      """
-      This generates a new private key directly into a secure binary container
-      and then encrypts it immediately if encryption is enabled and the AES key
-      (from KDF) is available to do so.  This behaves like a static method,
-      returning a copy/ref to itself.
-
-      TODO:  There is no way for this method to know whether you wanted the
-             key to be encrypted forgot to provide a key
-      """
-      self.__init__()
-      self.binPrivKey32_Plain = CryptoECDSA().GenerateNewPrivateKey()
-      self.binPublicKey65 = CryptoECDSA().ComputePublicKey(self.binPrivKey32_Plain)
-      self.addrStr20 = self.binPublicKey65.getHash160()
-      self.isInitialized = True
-
-      if secureKdfOutput!=None:
-         self.binInitVect16 = IV16
-         if IV16==None or IV16.getSize()!=16:
-            self.binInitVect16 = SecureBinaryData().GenerateRandom(16)
-         self.lock(secureKdfOutput)
-         self.isLocked      = True
-         self.useEncryption = True
-      else:
-         self.isLocked      = False
-         self.useEncryption = False
-      return self
-
-
    #############################################################################
    def markAsRootAddr(self, chaincode):
       if not chaincode.getSize()==32:
@@ -3179,7 +3096,7 @@ class PyBtcAddress(object):
 
          cppWlt = Cpp.BtcWallet()
          cppWlt.addAddress_1_(self.getAddr160())
-         TheBDM.registerAddress(self.getAddr160())
+         TheBDM.registerScrAddr(self.getAddr160())
          TheBDM.rescanBlockchain(wait=False)
 
          <... do some other stuff ...>
@@ -3199,7 +3116,7 @@ class PyBtcAddress(object):
          # We are expecting this method to return balance
          # and UTXO data, so we must make sure we're blocking.
          cppWlt = Cpp.BtcWallet()
-         cppWlt.addAddress_1_(self.getAddr160())
+         cppWlt.addScrAddr_1_(HASH160PREFIX +self.getAddr160())
          TheBDM.registerWallet(cppWlt, wait=True)
          TheBDM.scanBlockchainForTx(cppWlt, wait=True)
 
@@ -4571,9 +4488,9 @@ def getFeeForTx(txHash):
       txref = TheBDM.getTxByHash(txHash)
       valIn, valOut = 0,0
       for i in range(txref.getNumTxIn()):
-         valIn += TheBDM.getSentValue(txref.getTxIn(i))
+         valIn += TheBDM.getSentValue(txref.getTxInCopy(i))
       for i in range(txref.getNumTxOut()):
-         valOut += txref.getTxOut(i).getValue()
+         valOut += txref.getTxOutCopy(i).getValue()
       return valIn - valOut
       
 
@@ -4591,18 +4508,18 @@ def determineSentToSelfAmt(le, wlt):
       if not txref.isInitialized():
          return (0, 0)
       if txref.getNumTxOut()==1:
-         return (txref.getTxOut(0).getValue(), -1)
+         return (txref.getTxOutCopy(0).getValue(), -1)
       maxChainIndex = -5
       txOutChangeVal = 0
       changeIndex = -1
       valSum = 0
       for i in range(txref.getNumTxOut()):
-         valSum += txref.getTxOut(i).getValue()
-         addr160 = txref.getTxOut(i).getRecipientAddr()
+         valSum += txref.getTxOutCopy(i).getValue()
+         addr160 = txref.getTxOutCopy(i).getRecipientAddr()
          addr    = wlt.getAddrByHash160(addr160)
          if addr and addr.chainIndex > maxChainIndex:
             maxChainIndex = addr.chainIndex
-            txOutChangeVal = txref.getTxOut(i).getValue()
+            txOutChangeVal = txref.getTxOutCopy(i).getValue()
             changeIndex = i
                   
       amt = valSum - txOutChangeVal
@@ -5278,13 +5195,13 @@ def getUnspentTxOutsForAddrList(addr160List, utxoType='Sweep', startBlk=-1, \
 
    Multi-threading update:
 
-      This one-stop-shop method has to be blocking.  You might want to
-      register the address and rescan asynchronously, skipping this method
+      This one-stop-shop method has to be blocking.  Instead, you might want 
+      to register the address and rescan asynchronously, skipping this method
       entirely:
 
          cppWlt = Cpp.BtcWallet()
-         cppWlt.addAddress_1_(self.getAddr160())
-         TheBDM.registerAddress(self.getAddr160())
+         cppWlt.addScrAddr_1_(self.getAddr160())
+         TheBDM.registerScrAddr(self.getAddr160())
          TheBDM.rescanBlockchain(wait=False)
 
          <... do some other stuff ...>
@@ -5304,9 +5221,9 @@ def getUnspentTxOutsForAddrList(addr160List, utxoType='Sweep', startBlk=-1, \
       cppWlt = Cpp.BtcWallet()
       for addr in addr160List:
          if isinstance(addr, PyBtcAddress):
-            cppWlt.addAddress_1_(addr.getAddr160())
+            cppWlt.addAddress_1_(HASH160PREFIX + addr.getAddr160())
          else:
-            cppWlt.addAddress_1_(addr)
+            cppWlt.addAddress_1_(HASH160PREFIX + addr)
    
       TheBDM.registerWallet(cppWlt)
       currBlk = TheBDM.getTopBlockHeight()
@@ -7112,7 +7029,7 @@ class PyBtcWallet(object):
                                                                not self.hasAddr(addr160):
          return -1
       else:
-         addr = self.cppWallet.getAddrByHash160(addr160)
+         addr = self.cppWallet.getScrAddrByKey(HASH160PREFIX + addr160)
          if balType.lower() in ('spendable','spend'):
             return addr.getSpendableBalance(currBlk)
          elif balType.lower() in ('unconfirmed','unconf'):
@@ -7156,8 +7073,8 @@ class PyBtcWallet(object):
                                                             not self.hasAddr(addr160):
          return []
       else:
-         ledgBlkChain = self.cppWallet.getAddrByHash160(addr160).getTxLedger()
-         ledgZeroConf = self.cppWallet.getAddrByHash160(addr160).getZeroConfLedger()
+         ledgBlkChain = self.cppWallet.getScrAddrByKey(HASH160PREFIX + addr160).getTxLedger()
+         ledgZeroConf = self.cppWallet.getScrAddrByKey(HASH160PREFIX + addr160).getZeroConfLedger()
          if ledgType.lower() in ('full','all','ultimate'):
             ledg = []
             ledg.extend(ledgBlkChain)
@@ -7199,9 +7116,9 @@ class PyBtcWallet(object):
          currBlk = TheBDM.getTopBlockHeight(calledFromBDM=self.calledFromBDM)
          self.syncWithBlockchain()
          if txType.lower() in ('spend', 'spendable'):
-            return self.cppWallet.getAddrByHash160(addr160).getSpendableTxOutList(currBlk);
+            return self.cppWallet.getScrAddrByKey(HASH160PREFIX + addr160).getSpendableTxOutList(currBlk);
          elif txType.lower() in ('full', 'all', 'unspent', 'ultimate'):
-            return self.cppWallet.getAddrByHash160(addr160).getFullTxOutList(currBlk);
+            return self.cppWallet.getScrAddrByKey(HASH160PREFIX + addr160).getFullTxOutList(currBlk);
          else:
             raise TypeError, 'Unknown TxOutList type! ' + txType
       else:
@@ -7504,11 +7421,11 @@ class PyBtcWallet(object):
       # BDM private methods directly
       if doRegister:
          if self.calledFromBDM:
-            TheBDM.registerAddress_bdm_direct(new160, timeInfo=isActuallyNew)
+            TheBDM.registerScrAddr_bdm_direct(HASH160PREFIX + new160, timeInfo=isActuallyNew)
          else:
             # This uses the thread queue, which means the address will be
             # registered next time the BDM is not busy
-            TheBDM.registerAddress(new160, isFresh=isActuallyNew)
+            TheBDM.registerScrAddr(HASH160PREFIX + new160, isFresh=isActuallyNew)
 
       return new160
       
@@ -8201,7 +8118,7 @@ class PyBtcWallet(object):
          tx = TheBDM.getTxByHash(txHash)
          if tx.isInitialized():
             for i in range(tx.getNumTxOut()):
-               a160 = tx.getRecipientForTxOut(i)
+               a160 = CheckHash160(tx.getScrAddrForTxOut(i))
      
                if self.hasAddr(a160):
                   self.txAddrMap[txHash].append(a160)
@@ -8924,13 +8841,13 @@ class PyBtcWallet(object):
          if not self.isLocked:
             self.addrMap[newAddr160].unlock(self.kdfKey)
 
-      self.cppWallet.addAddress_5_(newAddr160, \
+      self.cppWallet.addAddress_5_(HASH160PREFIX + newAddr160, \
                                    firstTime, firstBlk, lastTime, lastBlk)
 
       # The following line MAY deadlock if this method is called from the BDM
       # thread.  Do not write any BDM methods that calls this method!
-      TheBDM.registerImportedAddress(newAddr160, firstTime, firstBlk, \
-                                                 lastTime,  lastBlk)
+      TheBDM.registerImportedScrAddr(HASH160PREFIX + newAddr160, 
+                                     firstTime, firstBlk, lastTime,  lastBlk)
 
 
       return newAddr160
@@ -9061,6 +8978,7 @@ class PyBtcWallet(object):
       DO NOT CALL FROM A BDM METHOD.  Instead, call directly:
          self.bdm.numBlocksToRescan(pywlt.cppWallet) > 2016
       """
+      LOGINFO('***Checking for rescan -- do we need this anymore?')
       if self.calledFromBDM:
          LOGERROR('Called checkIfRescanRequired() from BDM method!')
          LOGERROR('Don\'t do this!')
@@ -11840,7 +11758,7 @@ class BlockDataManagerThread(threading.Thread):
       (the C++ equivalent), you need to do:
    
             cppWallet.addAddress_1_(newAddr)
-            TheBDM.registerAddress(newAddr, isFresh=?) 
+            TheBDM.registerScrAddr(newAddr, isFresh=?) 
 
       This will add the address to the TheBDM.masterCppWallet.  Then when you 
       queue up the TheBDM to do a rescan (if necessary), it will update only 
@@ -11898,10 +11816,9 @@ class BlockDataManagerThread(threading.Thread):
       self.masterCppWallet = Cpp.BtcWallet()
       self.bdm.registerWallet(self.masterCppWallet)
        
-      self.blkdir = BLKFILE_DIRECTORY
-      self.blkdig = BLKFILE_NUMDIGITS
-      self.blkidx = BLKFILE_STARTINDEX
-      self.blk1st = BLKFILE_FIRSTFILE
+      self.blkdir = BLKFILE_DIR
+      self.blk1st = BLKFILE_1stFILE
+      self.ldbdir = LEVELDB_DIR
       self.lastPctLoad = 0
 
       
@@ -12108,7 +12025,19 @@ class BlockDataManagerThread(threading.Thread):
          LOGERROR('Cannot set blockchain/satoshi path after BDM is started')
          return
 
-      self.blkdir, self.blkdig, self.blkidx, self.blk1st = findLatestBlkFiles(blkdir)
+      self.blkdir = blkdir
+
+   #############################################################################
+   def setLevelDBDir(self, ldbdir):
+      if not os.path.exists(ldbdir):
+         LOGERROR('setSatoshiDir: directory does not exist: %s', ldbdir)
+         return
+
+      if not self.blkMode in (BLOCKCHAINMODE.Offline, BLOCKCHAINMODE.Uninitialized):
+         LOGERROR('Cannot set blockchain/satoshi path after BDM is started')
+         return
+
+      self.ldbdir = ldbdir
 
 
    #############################################################################
@@ -12390,19 +12319,19 @@ class BlockDataManagerThread(threading.Thread):
       return self.waitForOutputIfNecessary(expectOutput, rndID)
       
    #############################################################################
-   def registerAddress(self, a160, isFresh=False, wait=None):
+   def registerScrAddr(self, scrAddr, isFresh=False, wait=None):
       """
       This is for a generic address:  treat it as imported (requires rescan)
       unless specifically specified otherwise
       """
       if isFresh:
-         self.registerNewAddress(a160, wait=wait)
+         self.registerNewScrAddr(scrAddr, wait=wait)
       else:
-         self.registerImportedAddress(a160, wait=wait)
+         self.registerImportedScrAddr(scrAddr, wait=wait)
 
  
    #############################################################################
-   def registerNewAddress(self, a160, wait=None):
+   def registerNewScrAddr(self, scrAddr, wait=None):
       """
       Variable isFresh==True means the address was just [freshly] created,
       and we need to watch for transactions with it, but we don't need
@@ -12413,14 +12342,14 @@ class BlockDataManagerThread(threading.Thread):
          expectOutput = True
 
       rndID = int(random.uniform(0,100000000)) 
-      self.inputQueue.put([BDMINPUTTYPE.RegisterAddr, rndID, expectOutput, a160, True])
+      self.inputQueue.put([BDMINPUTTYPE.RegisterAddr, rndID, expectOutput, scrAddr, True])
 
       return self.waitForOutputIfNecessary(expectOutput, rndID)
 
 
 
    #############################################################################
-   def registerImportedAddress(self, a160, \
+   def registerImportedScrAddr(self, scrAddr, \
                                      firstTime=UINT32_MAX, \
                                      firstBlk=UINT32_MAX, \
                                      lastTime=0, \
@@ -12435,7 +12364,7 @@ class BlockDataManagerThread(threading.Thread):
          expectOutput = True
 
       rndID = int(random.uniform(0,100000000)) 
-      self.inputQueue.put([BDMINPUTTYPE.RegisterAddr, rndID, expectOutput, a160, \
+      self.inputQueue.put([BDMINPUTTYPE.RegisterAddr, rndID, expectOutput, scrAddr, \
                                    [firstTime, firstBlk, lastTime, lastBlk]])
 
       return self.waitForOutputIfNecessary(expectOutput, rndID)
@@ -12452,14 +12381,14 @@ class BlockDataManagerThread(threading.Thread):
          expectOutput = True
 
       if isinstance(wlt, PyBtcWallet):
-         addrs = [a.getAddr160() for a in wlt.getAddrList()]
+         scrAddrs = [HASH160PREFIX + a.getAddr160() for a in wlt.getAddrList()]
 
          if isFresh:
-            for a160 in addrs:
-               self.registerNewAddress(a160, wait=wait)
+            for scrad in scrAddrs:
+               self.registerNewScrAddr(scrad, wait=wait)
          else:
-            for a160 in addrs:
-               self.registerImportedAddress(a160, wait=wait)
+            for scrad in scrAddrs:
+               self.registerImportedScrAddr(scrad, wait=wait)
 
          if not wlt in self.pyWltList:
             self.pyWltList.append(wlt)
@@ -12468,7 +12397,7 @@ class BlockDataManagerThread(threading.Thread):
          naddr = wlt.getNumAddr()
 
          for a in range(naddr):
-            self.registerAddress(wlt.getAddrByIndex(a).getAddrStr20(), isFresh, wait=wait)
+            self.registerScrAddr(wlt.getAddrByIndex(a).getAddrStr20(), isFresh, wait=wait)
 
          if not wlt in self.cppWltList:
             self.cppWltList.append(wlt)
@@ -12487,9 +12416,9 @@ class BlockDataManagerThread(threading.Thread):
    # I can do is create non-private versions of these methods that access BDM
    # methods directly, but should not be used under any circumstances, unless
    # we know for sure that the BDM ultimately called this method.
-   def registerAddress_bdm_direct(self, a160, timeInfo):
+   def registerScrAddr_bdm_direct(self, scrAddr, timeInfo):
       """ 
-      Something went awry calling __registerAddressNow from the PyBtcWallet
+      Something went awry calling __registerScrAddrNow from the PyBtcWallet
       code (apparently I don't understand __methods).  Use this method to 
       externally bypass the BDM thread queue and register the address 
       immediately.  
@@ -12498,7 +12427,7 @@ class BlockDataManagerThread(threading.Thread):
       This method can be called from a non BDM class, but should only do so if 
       that class method was called by the BDM (thus, no conflicts)
       """
-      self.__registerAddressNow(a160, timeInfo)
+      self.__registerScrAddrNow(scrAddr, timeInfo)
 
 
    #############################################################################
@@ -12541,7 +12470,7 @@ class BlockDataManagerThread(threading.Thread):
    
 
    #############################################################################
-   def __registerAddressNow(self, a160, timeInfo):
+   def __registerScrAddrNow(self, scrAddr, timeInfo):
       """
       Do the registration right now.  This should not be called directly
       outside of this class.  This is only called by the BDM thread when
@@ -12551,18 +12480,18 @@ class BlockDataManagerThread(threading.Thread):
       if isinstance(timeInfo, bool):
          isFresh = timeInfo
          if isFresh:
-            # We claimed to have just created this address...(so no rescan needed)
-            self.masterCppWallet.addNewAddress(a160)
+            # We claimed to have just created this ScrAddr...(so no rescan needed)
+            self.masterCppWallet.addNewScrAddr(scrAddr)
          else:
-            self.masterCppWallet.addAddress_1_(a160)
+            self.masterCppWallet.addScrAddr_1_(scrAddr)
       else:
          if isinstance(timeInfo, (list,tuple)) and len(timeInfo)==4:
-            self.masterCppWallet.addAddress_5_(a160, *timeInfo)
+            self.masterCppWallet.addScrAddr_5_(scrAddr, *timeInfo)
          else:
             LOGWARN('Unrecognized time information in register method.')
             LOGWARN('   Data: %s', str(timeInfo))
             LOGWARN('Assuming imported key requires full rescan...')
-            self.masterCppWallet.addAddress_1_(a160)
+            self.masterCppWallet.addScrAddr_1_(scrAddr)
 
 
 
@@ -12609,20 +12538,21 @@ class BlockDataManagerThread(threading.Thread):
       self.aboutToRescan = False
 
       self.bdm.SetHomeDirLocation(ARMORY_HOME_DIR)
-      self.bdm.SetBlkFileLocation(self.blkdir, self.blkdig, self.blkidx)
+      self.bdm.SetBlkFileLocation(self.blkdir)
+      self.bdm.SetLevelDBLocation(self.ldbdir)
       self.bdm.SetBtcNetworkParams( GENESIS_BLOCK_HASH, \
                                     GENESIS_TX_HASH,    \
                                     MAGIC_BYTES)
 
       ### This is the part that takes forever
-      self.bdm.registerWallet(self.masterCppWallet)
-      self.bdm.parseEntireBlockchain()
+      self.bdm.initializeAndBuildDatabases()
 
       #print 'TopBlock:', self.bdm.getTopBlockHeight()
       #if USE_TESTNET:
          #print 'SLEEPING FOR 20 sec (DEBUGGING)'
          #time.sleep(20) 
 
+      self.bdm.registerWallet(self.masterCppWallet)
       self.bdm.scanBlockchainForTx(self.masterCppWallet)
 
       TimerStop('__startLoadBlockchain')
@@ -12888,8 +12818,8 @@ class BlockDataManagerThread(threading.Thread):
 
 
             if cmd == BDMINPUTTYPE.RegisterAddr:
-               a160,timeInfo = inputTuple[3:]
-               self.__registerAddressNow(a160, timeInfo)
+               scrAddr,timeInfo = inputTuple[3:]
+               self.__registerScrAddrNow(scrAddr, timeInfo)
 
             elif cmd == BDMINPUTTYPE.ZeroConfTxToInsert:
                rawTx  = inputTuple[3]
@@ -12997,6 +12927,8 @@ class BlockDataManagerThread(threading.Thread):
                
             elif cmd == BDMINPUTTYPE.GoOnlineRequested:
                LOGINFO('Go online requested')
+               self.bdm.
+               """
                # This only sets the blkMode to what will later be
                # recognized as online-requested, or offline
                self.prefMode = BLOCKCHAINMODE.Full
@@ -13008,6 +12940,7 @@ class BlockDataManagerThread(threading.Thread):
                else:
                   self.blkMode = BLOCKCHAINMODE.Uninitialized
                   self.__startLoadBlockchain()
+               """
 
             elif cmd == BDMINPUTTYPE.GoOfflineRequested:
                LOGINFO('Go offline requested')
@@ -13050,6 +12983,12 @@ if CLI_OPTIONS.offline:
    TheSDM = SatoshiDaemonManager()
 
 else:
+   # NOTE:  "TheBDM" is sometimes used in the C++ code to reference the
+   #        singleton BlockDataManager_LevelDB class object.  Here, 
+   #        "TheBDM" refers to a python BlockDataManagerThead class 
+   #        object that wraps the C++ version.  It implements some of 
+   #        it's own methods, and then passes through anything it 
+   #        doesn't recognize to the C++ object.
    LOGINFO('Using the asynchronous/multi-threaded BlockDataManager.')
    LOGINFO('Blockchain operations will happen in the background.  ')
    LOGINFO('Devs: check TheBDM.getBDMState() before asking for data.')

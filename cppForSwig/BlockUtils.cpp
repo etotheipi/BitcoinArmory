@@ -1499,6 +1499,12 @@ bool BlockDataManager_LevelDB::initializeDBInterface(ARMORY_DB_TYPE dbtype,
       return false;
    }
 
+   if(databasesAreOpen())
+   {
+      LOGERR << "Attempted to initialize a database that was already open";
+      return false;
+   }
+
 
    bool openWithErr = iface_->openDatabases(leveldbDir_, 
                                             GenesisHash_, 
@@ -1515,9 +1521,11 @@ bool BlockDataManager_LevelDB::initializeDBInterface(ARMORY_DB_TYPE dbtype,
 
    uint32_t topBlk_H = getTopBlockHeightInDB(HEADERS);
    uint32_t topBlk_B = getTopBlockHeightInDB(BLKDATA);
+   uint32_t appBlk_B = getAppliedToHeightInDB();
 
-   LOGINFO << "Top block in HEADERS DB: " << topBlk_H;
-   LOGINFO << "Top block in BLKDATA DB: " << topBlk_B;
+   LOGINFO << "Top block in HEADERS DB:  " << topBlk_H;
+   LOGINFO << "Top block in BLKDATA DB:  " << topBlk_B;
+   LOGINFO << "Applied blocks up to hgt: " << appBlk_B;
 
    if(topBlk_H == 0)
    {
@@ -1559,6 +1567,7 @@ bool BlockDataManager_LevelDB::initializeDBInterface(ARMORY_DB_TYPE dbtype,
 
    LOGINFO << "Total blk*.dat files:            " << numBlkFiles_;
    LOGINFO << "Last with recognized first hash: " << lastBlkFileNum_;
+   LOGINFO << "Last block in already applied:   " << alreadyApplied_;
    
    endOfLastBlockByte_ = findFirstUnrecogBlockLoc(lastBlkFileNum_);
    LOGINFO << "Location of first unrecog block: " << endOfLastBlockByte_;
@@ -1750,6 +1759,14 @@ uint32_t BlockDataManager_LevelDB::getTopBlockHeightInDB(DB_SELECT db)
    StoredDBInfo sdbi;
    iface_->getStoredDBInfo(db, sdbi, false); 
    return sdbi.topBlkHgt_;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+uint32_t BlockDataManager_LevelDB::getAppliedToHeightInDB(void)
+{
+   StoredDBInfo sdbi;
+   iface_->getStoredDBInfo(BLKDATA, sdbi, false); 
+   return sdbi.appliedToHgt_;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1989,28 +2006,6 @@ BlockHeader * BlockDataManager_LevelDB::getHeaderByHash(HashString const & blkHa
 TxRef BlockDataManager_LevelDB::getTxRefByHash(HashString const & txhash) 
 {
    return iface_->getTxRef(txhash);
-
-   //typedef multimap<HashString,TxRef>::iterator hintMapIter;
-
-   //static HashString hash4(4);
-   //hash4.copyFrom(txhash.getPtr(), 4);
-   //pair<hintMapIter, hintMapIter> eqRange = txHintMap_.equal_range(hash4);
-
-   //if(eqRange.first==eqRange.second)
-      //return NULL;
-   //else
-   //{
-      //hintMapIter iter;
-      //for( iter = eqRange.first; iter != eqRange.second; iter++ )
-      //{
-         //if(iter->second.getThisHash() == txhash)
-            //return &(iter->second);
-      //}
-
-      //// If we got here, we have some matching prefixes, but no tx that
-      //// match the full requested tx-hash
-      //return NULL;
-   //}
 }
 
 
@@ -2036,7 +2031,7 @@ Tx BlockDataManager_LevelDB::getTxByHash(HashString const & txhash)
 
 
 /////////////////////////////////////////////////////////////////////////////
-TX_AVAILABILITY BlockDataManager_LevelDB::hasTxWithHash(BinaryDataRef txHash)
+TX_AVAILABILITY BlockDataManager_LevelDB::getTxHashAvail(BinaryDataRef txHash)
 {
    if(getTxRefByHash(txHash).isNull())
    {
@@ -2048,6 +2043,21 @@ TX_AVAILABILITY BlockDataManager_LevelDB::hasTxWithHash(BinaryDataRef txHash)
    }
    else
       return TX_IN_BLOCKCHAIN; // In the blockchain already
+}
+
+/////////////////////////////////////////////////////////////////////////////
+bool BlockDataManager_LevelDB::hasTxWithHashInDB(BinaryDataRef txHash)
+{
+   return iface_->getTxRef(txHash).isInitialized();
+}
+
+/////////////////////////////////////////////////////////////////////////////
+bool BlockDataManager_LevelDB::hasTxWithHash(BinaryDataRef txHash)
+{
+   if(iface_->getTxRef(txHash).isInitialized())
+      return true;
+   else
+      return KEY_IN_MAP(txHash, zeroConfMap_);
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -3026,16 +3036,17 @@ bool BlockDataManager_LevelDB::processAllHeadersInBlkFiles(uint32_t fnumStart,
    // In first file, start at supplied offset;  start at beginning for others
    for(uint32_t fnum=fnumStart; fnum<numBlkFiles_; fnum++)
    {
-      uint32_t offs = (fnum==fnumStart ? startOffset : 0);
-      extractHeadersInBlkFile(fnum, offs);
+      uint32_t useOffset = (fnum==fnumStart ? startOffset : 0);
+      extractHeadersInBlkFile(fnum, useOffset);
    }
 
    // This will return true unless genesis block was reorg'd...
    bool prevTopBlkStillValid = organizeChain(true);
-
-   // Now write all headers to DB, get duplicate IDs and mark longest chain
-   // Removed for simplicity
-   //iface_->startBatch(HEADERS);
+   if(!prevTopBlkStillValid)
+   {
+      LOGERR << "Organize chain indicated reorg in process all headers!";
+      LOGERR << "Did we shut down last time on an orphan block?";
+   }
 
    map<HashString, BlockHeader>::iterator iter;
    for(iter = headerMap_.begin(); iter != headerMap_.end(); iter++)
@@ -3045,21 +3056,7 @@ bool BlockDataManager_LevelDB::processAllHeadersInBlkFiles(uint32_t fnumStart,
       uint8_t dup = iface_->putBareHeader(sbh);
       iter->second.duplicateID_ = dup;  // make sure headerMap_ and DB agree
    }
-   
-   //iface_->commitBatch(HEADERS);
 
-
-   // Hack:  The batch operation from above keeps reading the stored DB info
-   //        and "overwriting" it, but it's batched and not committed between
-   //        operations, so it doesn't update properly.  Fixed by doing it
-   //        right here.  All other cases of adding headers, we either don't
-   //        batch them, or we only add one at a time.
-   // I removed the batch, because it seemed unnecessary and was causing probs
-   //StoredDBInfo sdbi;
-   //iface_->getStoredDBInfo(HEADERS, sdbi);
-   //sdbi.topBlkHgt_  = getTopBlockHeight();
-   //sdbi.topBlkHash_ = getTopBlockHash();
-   //iface_->putStoredDBInfo(HEADERS, sdbi);
    return prevTopBlkStillValid;
 }
 
@@ -3080,9 +3077,9 @@ bool BlockDataManager_LevelDB::processAllHeadersInBlkFiles(uint32_t fnumStart,
 // be difficult to guarantee that all the previous functionality was there and
 // working.  This way, all of our previously-tested code remains mostly 
 // untouched
-void BlockDataManager_LevelDB::loadScrAddrHistoryFromDB(void)
+void BlockDataManager_LevelDB::fetchAllRegisteredScrAddrData(void)
 {
-   SCOPED_TIMER("loadScrAddrHistoryFromDB");
+   SCOPED_TIMER("fetchAllRegisteredScrAddrData");
 
 
    map<BinaryData, RegisteredScrAddr>::iterator iter;
@@ -3109,7 +3106,7 @@ void BlockDataManager_LevelDB::loadScrAddrHistoryFromDB(void)
 
 
 /////////////////////////////////////////////////////////////////////////////
-uint32_t BlockDataManager_LevelDB::updateDatabasesOnLoad(void)
+uint32_t BlockDataManager_LevelDB::initializeAndBuildDatabases(void)
 {
    if(!iface_->databasesAreOpen())
       initializeDBInterface(ARMORY_DB_WHATEVER, DB_PRUNE_WHATEVER);
@@ -3172,7 +3169,6 @@ uint32_t BlockDataManager_LevelDB::buildDatabasesFromBlkFiles(
    uint32_t blocksReadSoFar_ = 0;
    uint32_t bytesReadSoFar_ = 0;
    uint32_t firstBlkToApply = UINT32_MAX;
-   TIMER_START("addRawBlocksToDB");
    for(uint32_t fnum=startFnum; fnum<numBlkFiles_; fnum++)
    {
       string blkfile = blkFileList_[fnum];
@@ -3310,7 +3306,6 @@ uint32_t BlockDataManager_LevelDB::buildDatabasesFromBlkFiles(
          iface_->commitBatch(BLKDATA);
 
    }
-   TIMER_STOP("addRawBlocksToDB");
 
    LOGINFO << "Finished putting " << blocksReadSoFar_ << " raw blocks into DB";
    LOGINFO << "Now, build script histories, update spentness of all blocks...";
@@ -3652,6 +3647,7 @@ bool BlockDataManager_LevelDB::verifyBlkFileIntegrity(void)
 /////////////////////////////////////////////////////////////////////////////
 // Pass in a BRR that starts at the beginning of the serialized block,
 // i.e. the first 80 bytes of this BRR is the blockheader
+/*
 bool BlockDataManager_LevelDB::parseNewBlock(BinaryRefReader & brr,
                                              uint32_t fileIndex0Idx,
                                              uint32_t thisHeaderOffset,
@@ -3723,6 +3719,7 @@ bool BlockDataManager_LevelDB::parseNewBlock(BinaryRefReader & brr,
    }
    return true;
 }
+*/
    
 
 
@@ -5035,6 +5032,8 @@ void BlockDataManager_LevelDB::applyModsToDB(
    // Before we apply, let's figure out if some DB keys need to be deleted
    findSSHEntriesToDelete(sshToModify, keysToDelete);
 
+   uint32_t newAppliedToHeight = 0;
+
    iface_->startBatch(BLKDATA);
 
    map<BinaryData, StoredTx>::iterator iter_stx;
@@ -5043,6 +5042,11 @@ void BlockDataManager_LevelDB::applyModsToDB(
        iter_stx++)
    {
       iface_->putStoredTx(iter_stx->second, true);
+      
+      // This list always contains the latest block num
+      // We detect here instead of complicating the interfaces
+      uint32_t thisHgt = iter_stx->second.blockHeight_;
+      newAppliedToHeight = max(newAppliedToHeight, iter_stx->second.blockHeight_);
    }
        
    map<BinaryData, StoredScriptHistory>::iterator iter_ssh;
@@ -5060,6 +5064,20 @@ void BlockDataManager_LevelDB::applyModsToDB(
        iter_del++)
    {
       iface_->deleteValue(BLKDATA, *iter_del);
+   }
+
+
+   if(newAppliedToHeight != 0)
+   {
+      StoredDBInfo sdbi;
+      iface_->getStoredDBInfo(BLKDATA, sdbi);
+      if(!sdbi.isInitialized())
+         LOGERR << "How do we have invalid SDBI in applyMods?";
+      else
+      {
+         sdbi.appliedToHgt_  = newAppliedToHeight;
+         iface_->putStoredDBInfo(BLKDATA, sdbi);
+      }
    }
 
    iface_->commitBatch(BLKDATA);

@@ -34,7 +34,8 @@ void StoredDBInfo::unserializeDBValue(BinaryRefReader & brr)
    }
    brr.get_BinaryData(magic_, 4);
    BitUnpacker<uint32_t> bitunpack(brr);
-   topBlkHgt_ = brr.get_uint32_t();
+   topBlkHgt_    = brr.get_uint32_t();
+   appliedToHgt_ = brr.get_uint32_t();
    brr.get_BinaryData(topBlkHash_, 32);
 
    armoryVer_  =                 bitunpack.getBits(4);
@@ -53,6 +54,7 @@ void StoredDBInfo::serializeDBValue(BinaryWriter & bw ) const
    bw.put_BinaryData(magic_);
    bw.put_BitPacker(bitpack);
    bw.put_uint32_t(topBlkHgt_); // top blk height
+   bw.put_uint32_t(appliedToHgt_); // top blk height
    bw.put_BinaryData(topBlkHash_);
 }
 

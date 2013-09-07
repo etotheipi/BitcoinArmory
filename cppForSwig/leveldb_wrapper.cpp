@@ -1162,8 +1162,6 @@ bool InterfaceToLDB::getStoredDBInfo(DB_SELECT db, StoredDBInfo & sdbi, bool war
 uint8_t InterfaceToLDB::putStoredHeader( StoredHeader & sbh, bool withBlkData)
 {
    SCOPED_TIMER("putStoredHeader");
-   StoredDBInfo sdbiB;
-   getStoredDBInfo(BLKDATA, sdbiB);
 
    // Put header into HEADERS DB
    uint8_t newDup = putBareHeader(sbh);
@@ -1201,11 +1199,16 @@ uint8_t InterfaceToLDB::putStoredHeader( StoredHeader & sbh, bool withBlkData)
    }
 
    // If this is a valid block being put in BLKDATA DB, update DBInfo
-   if(sbh.isMainBranch_ && sbh.blockHeight_ > sdbiB.topBlkHgt_)
+   if(sbh.isMainBranch_ && withBlkData)
    {
-      sdbiB.topBlkHgt_  = sbh.blockHeight_;
-      sdbiB.topBlkHash_ = sbh.thisHash_;
-      putStoredDBInfo(BLKDATA, sdbiB);
+      StoredDBInfo sdbiB;
+      getStoredDBInfo(BLKDATA, sdbiB);
+      if(sbh.blockHeight_ > sdbiB.topBlkHgt_)
+      {
+         sdbiB.topBlkHgt_  = sbh.blockHeight_;
+         sdbiB.topBlkHash_ = sbh.thisHash_;
+         putStoredDBInfo(BLKDATA, sdbiB);
+      }
    }
 
    commitBatch(BLKDATA);

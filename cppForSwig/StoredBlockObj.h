@@ -239,8 +239,9 @@ class StoredDBInfo
 public:
    StoredDBInfo(void) : 
       magic_(0),
-      topBlkHgt_(UINT32_MAX),
+      topBlkHgt_(0),
       topBlkHash_(0),
+      appliedToHgt_(0),
       armoryVer_(ARMORY_DB_VERSION),
       armoryType_(DBUtils.getArmoryDbType()),
       pruneType_(DBUtils.getDbPruneType())   {}
@@ -261,6 +262,7 @@ public:
    BinaryData      magic_;
    uint32_t        topBlkHgt_;
    BinaryData      topBlkHash_;
+   uint32_t        appliedToHgt_; // only used in BLKDATA DB
    uint32_t        armoryVer_;
    ARMORY_DB_TYPE  armoryType_;
    DB_PRUNE_TYPE   pruneType_;
