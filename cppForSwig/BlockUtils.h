@@ -184,10 +184,10 @@ class AddressBookEntry
 public:
 
    /////
-   AddressBookEntry(void) : addr160_(BtcUtils::EmptyHash_) { txList_.clear(); }
-   explicit AddressBookEntry(BinaryData a160) : addr160_(a160) { txList_.clear(); }
+   AddressBookEntry(void) : scrAddr_(BtcUtils::EmptyHash_) { txList_.clear(); }
+   explicit AddressBookEntry(BinaryData scraddr) : scrAddr_(scraddr) { txList_.clear(); }
    void addTx(Tx & tx) { txList_.push_back( RegisteredTx(tx) ); }
-   BinaryData getAddr160(void) { return addr160_; }
+   BinaryData getScrAddr(void) { return scrAddr_; }
 
    /////
    vector<RegisteredTx> getTxList(void)
@@ -201,13 +201,13 @@ public:
    {
       // If one of the entries has no tx (this shouldn't happen), sort by hash
       if( txList_.size()==0 || abe2.txList_.size()==0)
-         return addr160_ < abe2.addr160_;
+         return scrAddr_ < abe2.scrAddr_;
 
       return (txList_[0] < abe2.txList_[0]);
    }
 
 private:
-   BinaryData addr160_;
+   BinaryData scrAddr_;
    vector<RegisteredTx> txList_;
 };
 
@@ -407,8 +407,8 @@ public:
    void     sortLedger(void);
    uint32_t removeInvalidEntries(void);
 
-   vector<LedgerEntry> &     getZeroConfLedger(BinaryData const * addr160=NULL);
-   vector<LedgerEntry> &     getTxLedger(BinaryData const * addr160=NULL); 
+   vector<LedgerEntry> &     getZeroConfLedger(BinaryData const * scrAddr=NULL);
+   vector<LedgerEntry> &     getTxLedger(BinaryData const * scrAddr=NULL); 
    map<OutPoint, TxIOPair> & getTxIOMap(void)    {return txioMap_;}
    map<OutPoint, TxIOPair> & getNonStdTxIO(void) {return nonStdTxioMap_;}
 
@@ -666,8 +666,8 @@ public:
 
    bool     registerScrAddr(BinaryData scraddr, bool isNew, uint32_t blk0);
    bool     registerNewScrAddr(BinaryData scraddr);
-   bool     registerImportedScrAddr(HashString addr160, uint32_t createBlk=0);
-   bool     unregisterScrAddr(HashString addr160);
+   bool     registerImportedScrAddr(HashString scrAddr, uint32_t createBlk=0);
+   bool     unregisterScrAddr(HashString scrAddr);
 
    uint32_t evalLowestBlockNextScan(void);
    uint32_t evalLowestScrAddrCreationBlock(void);
@@ -676,7 +676,7 @@ public:
    void     updateRegisteredScrAddrs(uint32_t newTopBlk);
 
    bool     walletIsRegistered(BtcWallet & wlt);
-   bool     scrAddrIsRegistered(HashString addr160);
+   bool     scrAddrIsRegistered(HashString scrAddr);
    void     insertRegisteredTxIfNew(HashString txHash);
    void     insertRegisteredTxIfNew(RegisteredTx & regTx);
    void     registeredScrAddrScan( Tx & theTx );
@@ -692,10 +692,10 @@ public:
 
    // Parsing requires the data TO ALREADY BE IN ITS PERMANENT MEMORY LOCATION
    // Pass in a wallet if you want to update the initialScanTxHashes_/OutPoints_
-   bool     parseNewBlock(BinaryRefReader & rawBlockDataReader,
-                          uint32_t fileIndex,
-                          uint32_t thisHeaderOffset,
-                          uint32_t blockSize);
+   //bool     parseNewBlock(BinaryRefReader & rawBlockDataReader,
+                          //uint32_t fileIndex,
+                          //uint32_t thisHeaderOffset,
+                          //uint32_t blockSize);
                      
 
 
@@ -704,7 +704,7 @@ public:
    bool     extractHeadersInBlkFile(uint32_t fnum, uint32_t offset=0);
    uint32_t detectAllBlkFiles(void);
    bool     processAllHeadersInBlkFiles(uint32_t fnumStart=0, uint32_t offset=0);
-   bool     processHeadersInFile(string filename);
+   //bool     processHeadersInFile(string filename);
    uint32_t buildDatabasesFromBlkFiles(uint32_t fnum=0, uint32_t offset=0);
    uint32_t initializeAndBuildDatabases(void);
    bool     addRawBlockToDB(BinaryRefReader & brr);

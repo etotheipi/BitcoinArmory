@@ -169,7 +169,7 @@ public:
    void           setDBKey(BinaryData    const & bd) {dbKey6B_.copyFrom(bd);}
    void           setDBKey(BinaryDataRef const & bd) {dbKey6B_.copyFrom(bd);}
 
-   bool           isNull(void) { return !isInitialized();}
+   bool           isNull(void) const { return !isInitialized();}
 
    /////////////////////////////////////////////////////////////////////////////
    BinaryData     getDBKeyOfChild(uint16_t i) const
@@ -511,7 +511,7 @@ public:
    void unserialize(BinaryData const & str) { unserialize(str.getPtr()); }
    void unserialize(BinaryDataRef const & str) { unserialize(str.getPtr()); }
    void unserialize(BinaryRefReader & brr);
-   void unserialize_no_txout(BinaryRefReader & brr);
+   //void unserialize_no_txout(BinaryRefReader & brr);
    void unserialize_swigsafe_(BinaryData const & rawTx) { unserialize(rawTx); }
 
 

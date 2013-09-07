@@ -955,6 +955,27 @@ FORMAT_SYMBOLS = [ \
    ['%%', 'percent symbol'] ]
 
 
+# The database uses prefixes to identify type of address.  Until the new 
+# wallet format is created that supports more than just hash160 addresses
+# we have to explicitly add the prefix to any hash160 values that are being 
+# sent to any of the C++ utilities.  For instance, the BlockDataManager (BDM)
+# (C++ stuff) tracks regular hash160 addresses, P2SH, multisig, and all
+# non-standard scripts.  Any such "scrAddrs" (script-addresses) will eventually
+# be valid entities for tracking in a wallet.  Until then, all of our python
+# utilities all use just hash160 values, and we manually add the prefix 
+# before talking to the BDM.
+HASH160PREFIX  = '\x00'
+P2SHPREFIX     = '\x05'
+MSIGPREFIX     = '\xfe'
+NONSTDPREFIX   = '\xff'
+def CheckHash160(scrAddr):
+   if not len(scrAddr)==21:
+      raise BadAddressError, "Supplied scrAddr is not a Hash160 value!"
+   if not scrAddr[0] == HASH160PREFIX:
+      raise BadAddressError, "Supplied scrAddr is not a Hash160 value!"
+   return scrAddr[1:]
+
+
 # Some time methods (RightNow() return local unix timestamp)
 RightNow = time.time
 def RightNowUTC():
@@ -3096,7 +3117,7 @@ class PyBtcAddress(object):
 
          cppWlt = Cpp.BtcWallet()
          cppWlt.addAddress_1_(self.getAddr160())
-         TheBDM.registerScrAddr(self.getAddr160())
+         TheBDM.registerScrAddr(HASH160PREFIX + self.getAddr160())
          TheBDM.rescanBlockchain(wait=False)
 
          <... do some other stuff ...>
@@ -5201,7 +5222,7 @@ def getUnspentTxOutsForAddrList(addr160List, utxoType='Sweep', startBlk=-1, \
 
          cppWlt = Cpp.BtcWallet()
          cppWlt.addScrAddr_1_(self.getAddr160())
-         TheBDM.registerScrAddr(self.getAddr160())
+         TheBDM.registerScrAddr(HASH160PREFIX + self.getAddr160())
          TheBDM.rescanBlockchain(wait=False)
 
          <... do some other stuff ...>
@@ -12397,7 +12418,7 @@ class BlockDataManagerThread(threading.Thread):
          naddr = wlt.getNumAddr()
 
          for a in range(naddr):
-            self.registerScrAddr(wlt.getAddrByIndex(a).getAddrStr20(), isFresh, wait=wait)
+            self.registerScrAddr(wlt.getScrAddrByIndex(a).getScrAddr(), isFresh, wait=wait)
 
          if not wlt in self.cppWltList:
             self.cppWltList.append(wlt)
@@ -12927,8 +12948,6 @@ class BlockDataManagerThread(threading.Thread):
                
             elif cmd == BDMINPUTTYPE.GoOnlineRequested:
                LOGINFO('Go online requested')
-               self.bdm.
-               """
                # This only sets the blkMode to what will later be
                # recognized as online-requested, or offline
                self.prefMode = BLOCKCHAINMODE.Full
@@ -12940,7 +12959,6 @@ class BlockDataManagerThread(threading.Thread):
                else:
                   self.blkMode = BLOCKCHAINMODE.Uninitialized
                   self.__startLoadBlockchain()
-               """
 
             elif cmd == BDMINPUTTYPE.GoOfflineRequested:
                LOGINFO('Go offline requested')

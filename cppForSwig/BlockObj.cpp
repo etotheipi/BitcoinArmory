@@ -480,15 +480,13 @@ void Tx::unserialize(uint8_t const * ptr)
 
 
 /////////////////////////////////////////////////////////////////////////////
-/*
 bool Tx::isMainBranch(void) const
 {
-   if(headerPtr_==NULL || !headerPtr_->isMainBranch())
+   if(txRefObj_.isNull())
       return false;
    else
-      return true;   
+      return txRefObj_.isMainBranch();
 }
-*/
 
 /////////////////////////////////////////////////////////////////////////////
 BinaryData Tx::getThisHash(void) const

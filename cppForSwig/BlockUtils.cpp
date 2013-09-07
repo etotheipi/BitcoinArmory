@@ -1499,7 +1499,7 @@ bool BlockDataManager_LevelDB::initializeDBInterface(ARMORY_DB_TYPE dbtype,
       return false;
    }
 
-   if(databasesAreOpen())
+   if(iface_->databasesAreOpen())
    {
       LOGERR << "Attempted to initialize a database that was already open";
       return false;
