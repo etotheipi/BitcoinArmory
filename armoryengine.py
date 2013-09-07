@@ -134,6 +134,7 @@ def lenBytes(theStr, theEncoding=DEFAULT_ENCODING):
 
 # Use CLI args to determine testnet or not
 USE_TESTNET = CLI_OPTIONS.testnet
+#USE_TESTNET = True
    
 
 # Set default port for inter-process communication
@@ -271,6 +272,9 @@ ARMORY_LOG_FILE = CLI_OPTIONS.logFile
 if ARMORY_HOME_DIR and not os.path.exists(ARMORY_HOME_DIR):
    os.makedirs(ARMORY_HOME_DIR)
 
+
+if not os.path.exists(LEVELDB_DIR):
+   os.makedirs(LEVELDB_DIR)
 
 
 if sys.argv[0]=='ArmoryQt.py':
@@ -974,6 +978,23 @@ def CheckHash160(scrAddr):
    if not scrAddr[0] == HASH160PREFIX:
       raise BadAddressError, "Supplied scrAddr is not a Hash160 value!"
    return scrAddr[1:]
+
+def Hash160ToScrAddr(a160):
+   if not len(a160)==20:
+      LOGERROR('Invalid hash160 value!')
+   return HASH160PREFIX + a160
+
+def HexHash160ToScrAddr(a160):
+   if not len(a160)==40:
+      LOGERROR('Invalid hash160 value!')
+   return HASH160PREFIX + hex_to_binary(a160)
+
+
+# Some more constants that are needed to play nice with the C++ utilities
+ARMORY_DB_LITE, ARMORY_DB_PARTIAL, ARMORY_DB_FULL, ARMORY_DB_SUPER = range(4)
+DB_PRUNE_ALL, DB_PRUNE_NONE = range(2)
+
+
 
 
 # Some time methods (RightNow() return local unix timestamp)
@@ -3139,7 +3160,7 @@ class PyBtcAddress(object):
          cppWlt = Cpp.BtcWallet()
          cppWlt.addScrAddr_1_(HASH160PREFIX +self.getAddr160())
          TheBDM.registerWallet(cppWlt, wait=True)
-         TheBDM.scanBlockchainForTx(cppWlt, wait=True)
+         TheBDM.scanRegisteredTxForWallet(cppWlt, wait=True)
 
          utxoList = cppWlt.getUnspentTxOutList()
          bal = cppWlt.getSpendableBalance()
@@ -5248,7 +5269,7 @@ def getUnspentTxOutsForAddrList(addr160List, utxoType='Sweep', startBlk=-1, \
    
       TheBDM.registerWallet(cppWlt)
       currBlk = TheBDM.getTopBlockHeight()
-      TheBDM.scanBlockchainForTx(cppWlt, currBlk+1 if startBlk==-1 else startBlk)
+      TheBDM.scanRegisteredTxForWallet(cppWlt, currBlk+1 if startBlk==-1 else startBlk)
 
       if utxoType.lower() in ('sweep','unspent','full','all','ultimate'):
          return cppWlt.getFullTxOutList(currBlk)
@@ -6939,7 +6960,7 @@ class PyBtcWallet(object):
             TheBDM.scanBlockchainForTx_bdm_direct(self.cppWallet, startBlk)
             self.lastSyncBlockNum = TheBDM.getTopBlockHeight_bdm_direct()
          else:
-            TheBDM.scanBlockchainForTx(self.cppWallet, startBlk, wait=True)
+            TheBDM.scanRegisteredTxForWallet(self.cppWallet, startBlk, wait=True)
             self.lastSyncBlockNum = TheBDM.getTopBlockHeight(wait=True)
       else:
          LOGERROR('Blockchain-sync requested, but current wallet')
@@ -9340,9 +9361,9 @@ class PyBtcWallet(object):
 
 
 def pprintLedgerEntry(le, indent=''):
-   
-   if len(le.getAddrStr20())==20:
-      addrStr = hash160_to_addrStr(le.getAddrStr20())[:12]
+   if len(le.getScrAddr())==21:
+      hash160 = CheckHash160(le.getScrAddr())
+      addrStr = hash160_to_addrStr(hash160)[:12]
    else:
       addrStr = ''
 
@@ -12458,7 +12479,7 @@ class BlockDataManagerThread(threading.Thread):
       This method can be called from a non BDM class, but should only do so if 
       that class method was called by the BDM (thus, no conflicts)
       """
-      self.bdm.scanBlockchainForTx(cppWlt, startBlk, endBlk)
+      self.bdm.scanRegisteredTxForWallet(cppWlt, startBlk, endBlk)
    
    #############################################################################
    def scanRegisteredTxForWallet_bdm_direct(self, cppWlt, startBlk=0, endBlk=UINT32_MAX):
@@ -12467,7 +12488,7 @@ class BlockDataManagerThread(threading.Thread):
       This method can be called from a non BDM class, but should only do so if 
       that class method was called by the BDM (thus, no conflicts)
       """
-      self.bdm.scanBlockchainForTx(cppWlt, startBlk, endBlk)
+      self.bdm.scanRegisteredTxForWallet(cppWlt, startBlk, endBlk)
 
    #############################################################################
    def getTopBlockHeight_bdm_direct(self):
@@ -12566,7 +12587,7 @@ class BlockDataManagerThread(threading.Thread):
                                     MAGIC_BYTES)
 
       ### This is the part that takes forever
-      self.bdm.initializeAndBuildDatabases()
+      self.bdm.initializeAndBuildDatabases(ARMORY_DB_SUPER, DB_PRUNE_NONE)
 
       #print 'TopBlock:', self.bdm.getTopBlockHeight()
       #if USE_TESTNET:
@@ -12574,7 +12595,7 @@ class BlockDataManagerThread(threading.Thread):
          #time.sleep(20) 
 
       self.bdm.registerWallet(self.masterCppWallet)
-      self.bdm.scanBlockchainForTx(self.masterCppWallet)
+      self.bdm.scanRegisteredTxForWallet(self.masterCppWallet)
 
       TimerStop('__startLoadBlockchain')
 
@@ -12609,7 +12630,7 @@ class BlockDataManagerThread(threading.Thread):
       self.aboutToRescan = False
          
       # Blockchain will rescan as much as it needs.  
-      self.bdm.scanBlockchainForTx(self.masterCppWallet)
+      self.bdm.scanRegisteredTxForWallet(self.masterCppWallet)
 
 
    #############################################################################
@@ -12659,7 +12680,7 @@ class BlockDataManagerThread(threading.Thread):
       #####
 
 
-      #self.bdm.scanBlockchainForTx(self.masterCppWallet)
+      #self.bdm.scanRegisteredTxForWallet(self.masterCppWallet)
 
    
 
@@ -12706,7 +12727,7 @@ class BlockDataManagerThread(threading.Thread):
          pyWlt.syncWithBlockchain()
 
       for cppWlt in self.cppWltList:
-         self.bdm.scanBlockchainForTx(cppWlt)
+         self.bdm.scanRegisteredTxForWallet(cppWlt)
 
 
 

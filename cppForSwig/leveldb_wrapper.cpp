@@ -158,6 +158,10 @@ bool InterfaceToLDB::openDatabases(string basedir,
       if(!checkStatus(stat))
          LOGERR << "Failed to open database! DB: " << db;
 
+      //LOGINFO << "LevelDB directories:";
+      //LOGINFO << "LDB BLKDATA: " << dbPaths_[BLKDATA].c_str();
+      //LOGINFO << "LDB HEADERS: " << dbPaths_[HEADERS].c_str();
+
       // Create an iterator that we'll use for ust about all DB seek ops
       iters_[db] = dbs_[db]->NewIterator(leveldb::ReadOptions());
       batches_[db] = NULL;

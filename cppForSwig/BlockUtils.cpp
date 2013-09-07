@@ -380,7 +380,7 @@ void BtcWallet::addScrAddress_5_(HashString    scrAddr,
 }
 
 /////////////////////////////////////////////////////////////////////////////
-bool BtcWallet::hasScrAddr(HashString const & scrAddr)
+bool BtcWallet::hasScrAddress(HashString const & scrAddr)
 {
    //return scrAddrMap_.find(scrAddr) != scrAddrMap_.end();
    return KEY_IN_MAP(scrAddr, scrAddrMap_);
@@ -423,14 +423,14 @@ pair<bool,bool> BtcWallet::isMineBulkFilter(Tx & tx, bool withMultiSig)
       {
          // Std TxOut with 25-byte script
          scrAddr.copyFrom(ptr+4, 20);
-         if( hasScrAddr(HASH160PREFIX + scrAddr) )
+         if( hasScrAddress(HASH160PREFIX + scrAddr) )
             return pair<bool,bool>(true,false);
       }
       if(scriptLenFirstByte == 23)
       {
          // Std P2SH with 23-byte script
          scrAddr.copyFrom(ptr+3, 20);
-         if( hasScrAddr(P2SHPREFIX + scrAddr) )
+         if( hasScrAddress(P2SHPREFIX + scrAddr) )
             return pair<bool,bool>(true,false);
       }
       else if(scriptLenFirstByte==67)
@@ -438,7 +438,7 @@ pair<bool,bool> BtcWallet::isMineBulkFilter(Tx & tx, bool withMultiSig)
          // Std spend-coinbase TxOut script
          static HashString scrAddr(20);
          BtcUtils::getHash160_NoSafetyCheck(ptr+2, 65, scrAddr);
-         if( hasScrAddr(HASH160PREFIX + scrAddr) )
+         if( hasScrAddress(HASH160PREFIX + scrAddr) )
             return pair<bool,bool>(true,false);
       }
       else if(scriptLenFirstByte==35)
@@ -446,7 +446,7 @@ pair<bool,bool> BtcWallet::isMineBulkFilter(Tx & tx, bool withMultiSig)
          // Std spend-coinbase TxOut script
          static HashString scrAddr(20);
          BtcUtils::getHash160_NoSafetyCheck(ptr+2, 33, scrAddr);
-         if( hasScrAddr(HASH160PREFIX + scrAddr) )
+         if( hasScrAddress(HASH160PREFIX + scrAddr) )
             return pair<bool,bool>(true,false);
       }
       else if(withMultiSig)
@@ -464,14 +464,14 @@ pair<bool,bool> BtcWallet::isMineBulkFilter(Tx & tx, bool withMultiSig)
             if(msigkey.getSize() == 0)
                continue;
         
-            if(hasScrAddr(MSIGPREFIX + msigkey))
+            if(hasScrAddress(MSIGPREFIX + msigkey))
                return pair<bool,bool>(true,false);
 
             BinaryRefReader brrmsig(msigkey);
             uint8_t M = brrmsig.get_uint8_t();
             uint8_t N = brrmsig.get_uint8_t();
             for(uint8_t a=0; a<N; a++)
-               if(hasScrAddr(HASH160PREFIX + brr.get_BinaryDataRef(20)))
+               if(hasScrAddress(HASH160PREFIX + brr.get_BinaryDataRef(20)))
                   return pair<bool,bool>(true,false);
          }
       }
@@ -1035,7 +1035,7 @@ LedgerEntry BtcWallet::calcLedgerEntryForTx(Tx & tx)
       {
          // Std TxOut with 25-byte script
          scraddr.copyFrom(ptr+12, 20);
-         if( hasScrAddr(scraddr) )
+         if( hasScrAddress(scraddr) )
             totalValue += READ_UINT64_LE(ptr);
          else
             allTxOutIsOurs = false;
@@ -1044,7 +1044,7 @@ LedgerEntry BtcWallet::calcLedgerEntryForTx(Tx & tx)
       {
          // Std spend-coinbase TxOut script
          BtcUtils::getHash160_NoSafetyCheck(ptr+10, 65, scraddr);
-         if( hasScrAddr(scraddr) )
+         if( hasScrAddress(scraddr) )
             totalValue += READ_UINT64_LE(ptr);
          else
             allTxOutIsOurs = false;
@@ -1335,7 +1335,7 @@ vector<AddressBookEntry> BtcWallet::createAddressBook(void)
          HashString scraddr = thisTx.getTxOut(iout).getScrAddressStr();
 
          // Skip this address if it's in our wallet (usually change addr)
-         if( hasScrAddr(scraddr) || perTxAddrSet.count(scraddr)>0)
+         if( hasScrAddress(scraddr) || perTxAddrSet.count(scraddr)>0)
             continue; 
 
          // It's someone else's address for sure, add it to the map if necessary
@@ -1415,8 +1415,8 @@ void BlockDataManager_LevelDB::SetBtcNetworkParams(
 void BlockDataManager_LevelDB::SetHomeDirLocation(string homeDir)
 {
    // This will eventually be used to store blocks/DB
-   PDEBUG("SetHomeDirLocation");
    armoryHomeDir_ = homeDir; 
+   LOGINFO << "Set home directory: " << armoryHomeDir_.c_str();
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -1435,6 +1435,8 @@ bool BlockDataManager_LevelDB::SetBlkFileLocation(string blkdir)
 
    detectAllBlkFiles();
 
+   LOGINFO << "Set blkfile dir: " << blkFileDir_.c_str();
+
    return (numBlkFiles_!=UINT16_MAX);
 }
 
@@ -1443,6 +1445,7 @@ void BlockDataManager_LevelDB::SetLevelDBLocation(string ldbdir)
 {
    leveldbDir_    = ldbdir; 
    isLevelDBSet_  = true;
+   LOGINFO << "Set leveldb dir: " << leveldbDir_.c_str();
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -2448,9 +2451,13 @@ bool BlockDataManager_LevelDB::scrAddrIsRegistered(HashString scraddr)
 //     scanTx all tx in registered list between 1000 and 2000
 void BlockDataManager_LevelDB::scanBlockchainForTx(BtcWallet & myWallet,
                                                     uint32_t startBlknum,
-                                                    uint32_t endBlknum)
+                                                    uint32_t endBlknum,
+                                                    bool fetchFirst)
 {
    SCOPED_TIMER("scanBlockchainForTx");
+
+   if(fetchFirst)
+      fetchAllRegisteredScrAddrData(myWallet);
 
    // The BDM knows the highest block to which ALL CURRENT REGISTERED ADDRESSES
    // are up-to-date in the registeredTxList_ list.  
@@ -2723,10 +2730,7 @@ uint64_t BlockDataManager_LevelDB::getDBBalanceForHash160(
 
    iface_->getStoredScriptHistory(ssh, HASH160PREFIX + addr160);
    if(!ssh.isInitialized())
-   {
-      LOGWARN << "Requested ssh that doesn't exist";
-      return UINT64_MAX;
-   }
+      return 0;
 
    return ssh.getScriptBalance();
 }
@@ -2739,10 +2743,7 @@ uint64_t BlockDataManager_LevelDB::getDBReceivedForHash160(
 
    iface_->getStoredScriptHistory(ssh, HASH160PREFIX + addr160);
    if(!ssh.isInitialized())
-   {
-      LOGWARN << "Requested ssh that doesn't exist";
-      return UINT64_MAX;
-   }
+      return 0;
 
    return ssh.getScriptReceived();
 }
@@ -2756,10 +2757,7 @@ vector<UnspentTxOut> BlockDataManager_LevelDB::getUTXOVectForHash160(
 
    iface_->getStoredScriptHistory(ssh, HASH160PREFIX + addr160);
    if(!ssh.isInitialized())
-   {
-      LOGWARN << "Requested ssh that doesn't exist";
       return outVect;
-   }
 
 
    size_t numTxo = ssh.totalTxioCount_;
@@ -3079,12 +3077,50 @@ bool BlockDataManager_LevelDB::processAllHeadersInBlkFiles(uint32_t fnumStart,
 // untouched
 void BlockDataManager_LevelDB::fetchAllRegisteredScrAddrData(void)
 {
+   fetchAllRegisteredScrAddrData(registeredScrAddrMap_);
+}
+
+/////////////////////////////////////////////////////////////////////////////
+void BlockDataManager_LevelDB::fetchAllRegisteredScrAddrData(
+                                                       BtcWallet & myWallet)
+{
+   SCOPED_TIMER("fetchAllRegisteredScrAddrData");
+
+
+   //map<BinaryData, ScrAddrObj>::iterator iter;
+   //for(iter  = addrMap.begin();
+       //iter != addrMap.end();
+       //iter++)
+   for(uint32_t s=0; s<myWallet.getNumScrAddr(); s++)
+   {
+
+      ScrAddrObj & scrAddr = myWallet.getScrAddrByIndex(s);
+      vector<TxIOPair> hist = getHistoryForScrAddr(scrAddr.getScrAddr());
+      for(uint32_t i=0; i<hist.size(); i++)
+      {
+         BinaryData txKey = hist[i].getTxRefOfOutput().getDBKey();
+         
+         StoredTx stx;
+         iface_->getStoredTx(stx, txKey);
+         RegisteredTx regTx(hist[i].getTxRefOfOutput(),
+                            stx.thisHash_,
+                            stx.blockHeight_,
+                            stx.txIndex_);
+         insertRegisteredTxIfNew(regTx);
+      }
+   }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void BlockDataManager_LevelDB::fetchAllRegisteredScrAddrData(
+                           map<BinaryData, RegisteredScrAddr> & addrMap)
+{
    SCOPED_TIMER("fetchAllRegisteredScrAddrData");
 
 
    map<BinaryData, RegisteredScrAddr>::iterator iter;
-   for(iter  = registeredScrAddrMap_.begin();
-       iter != registeredScrAddrMap_.end();
+   for(iter  = addrMap.begin();
+       iter != addrMap.end();
        iter++)
    {
 
@@ -3106,10 +3142,20 @@ void BlockDataManager_LevelDB::fetchAllRegisteredScrAddrData(void)
 
 
 /////////////////////////////////////////////////////////////////////////////
-uint32_t BlockDataManager_LevelDB::initializeAndBuildDatabases(void)
+uint32_t BlockDataManager_LevelDB::initializeAndBuildDatabases( uint32_t atype, 
+                                                                uint32_t dtype)
+{
+   return initializeAndBuildDatabases((ARMORY_DB_TYPE)atype, 
+                                       (DB_PRUNE_TYPE)dtype);
+}
+
+/////////////////////////////////////////////////////////////////////////////
+uint32_t BlockDataManager_LevelDB::initializeAndBuildDatabases(
+                                                   ARMORY_DB_TYPE atype,
+                                                   DB_PRUNE_TYPE  dtype)
 {
    if(!iface_->databasesAreOpen())
-      initializeDBInterface(ARMORY_DB_WHATEVER, DB_PRUNE_WHATEVER);
+      initializeDBInterface(atype, dtype);
       
    // The initialize call above will figure out where in the blkfiles we
    // left off when we

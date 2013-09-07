@@ -13,8 +13,8 @@ LE = LITTLEENDIAN
 BE = BIGENDIAN
 
 
-Test_BasicUtils       = False
-Test_PyBlockUtils     = False
+Test_BasicUtils       = True
+Test_PyBlockUtils     = True
 Test_CppBlockUtils    = True
 Test_SimpleAddress    = False
 Test_MultiSigTx       = False
@@ -37,7 +37,7 @@ Test_URIParse         = False
 Test_BkgdThread       = False
 Test_AsyncBDM         = False
 Test_Timers           = False
-Test_EstBlockchain    = True
+Test_EstBlockchain    = False
 
 Test_SatoshiManager   = False
 
@@ -328,10 +328,14 @@ if Test_PyBlockUtils:
 ################################################################################
 if Test_CppBlockUtils:
 
-   print '\n\nLoading Blockchain from:', BLKFILE_FIRSTFILE
-   BDM_LoadBlockchainFile(BLKFILE_FIRSTFILE)
-   print 'Done!'
-
+   blkdir = 'cppForSwig/reorgTest'
+   TheBDM.StartCppLogging('./unit_test_log.txt', 7)
+   shutil.copy(os.path.join(blkdir, 'blk_0_to_4.dat'), \
+               os.path.join(blkdir, 'blk00000.dat'))
+   print 'About to set satoshi dir: ', blkdir
+   TheBDM.setSatoshiDir(blkdir)
+   TheBDM.setBlocking(True)
+   TheBDM.setOnlineMode(True)
 
    print '\n\nCurrent Top Block is:', TheBDM.getTopBlockHeader().getBlockHeight()
    TheBDM.getTopBlockHeader().pprint()
@@ -348,21 +352,21 @@ if Test_CppBlockUtils:
    cppWlt = Cpp.BtcWallet()
 
    if not USE_TESTNET:
-      cppWlt.addAddress_1_(hex_to_binary("604875c897a079f4db88e5d71145be2093cae194"))
-      cppWlt.addAddress_1_(hex_to_binary("8996182392d6f05e732410de4fc3fa273bac7ee6"))
-      cppWlt.addAddress_1_(hex_to_binary("b5e2331304bc6c541ffe81a66ab664159979125b"))
-      cppWlt.addAddress_1_(hex_to_binary("ebbfaaeedd97bc30df0d6887fd62021d768f5cb8"))
-      cppWlt.addAddress_1_(hex_to_binary("11b366edfc0a8b66feebae5c2e25a7b6a5d1cf31"))
+      cppWlt.addScrAddr_1_(hex_to_binary("604875c897a079f4db88e5d71145be2093cae194"))
+      cppWlt.addScrAddr_1_(hex_to_binary("8996182392d6f05e732410de4fc3fa273bac7ee6"))
+      cppWlt.addScrAddr_1_(hex_to_binary("b5e2331304bc6c541ffe81a66ab664159979125b"))
+      cppWlt.addScrAddr_1_(hex_to_binary("ebbfaaeedd97bc30df0d6887fd62021d768f5cb8"))
+      cppWlt.addScrAddr_1_(hex_to_binary("11b366edfc0a8b66feebae5c2e25a7b6a5d1cf31"))
    else:
       # Test-network addresses
-      cppWlt.addAddress_1_(hex_to_binary("5aa2b7e93537198ef969ad5fb63bea5e098ab0cc"))
-      cppWlt.addAddress_1_(hex_to_binary("28b2eb2dc53cd15ab3dc6abf6c8ea3978523f948"))
-      cppWlt.addAddress_1_(hex_to_binary("720fbde315f371f62c158b7353b3629e7fb071a8"))
-      cppWlt.addAddress_1_(hex_to_binary("0cc51a562976a075b984c7215968d41af43be98f"))
-      cppWlt.addAddress_1_(hex_to_binary("57ac7bfb77b1f678043ac6ea0fa67b4686c271e5"))
-      cppWlt.addAddress_1_(hex_to_binary("b11bdcd6371e5b567b439cd95d928e869d1f546a"))
-      cppWlt.addAddress_1_(hex_to_binary("2bb0974f6d43e3baa03d82610aac2b6ed017967d"))
-      cppWlt.addAddress_1_(hex_to_binary("61d62799e52bc8ee514976a19d67478f25df2bb1"))
+      cppWlt.addScrAddr_1_(hex_to_binary("5aa2b7e93537198ef969ad5fb63bea5e098ab0cc"))
+      cppWlt.addScrAddr_1_(hex_to_binary("28b2eb2dc53cd15ab3dc6abf6c8ea3978523f948"))
+      cppWlt.addScrAddr_1_(hex_to_binary("720fbde315f371f62c158b7353b3629e7fb071a8"))
+      cppWlt.addScrAddr_1_(hex_to_binary("0cc51a562976a075b984c7215968d41af43be98f"))
+      cppWlt.addScrAddr_1_(hex_to_binary("57ac7bfb77b1f678043ac6ea0fa67b4686c271e5"))
+      cppWlt.addScrAddr_1_(hex_to_binary("b11bdcd6371e5b567b439cd95d928e869d1f546a"))
+      cppWlt.addScrAddr_1_(hex_to_binary("2bb0974f6d43e3baa03d82610aac2b6ed017967d"))
+      cppWlt.addScrAddr_1_(hex_to_binary("61d62799e52bc8ee514976a19d67478f25df2bb1"))
 
    # We do the scan three times to make sure that there are no problems
    # with rescanning the same tx's multiple times (it's bound to happen 
@@ -376,7 +380,8 @@ if Test_CppBlockUtils:
    for i in range(nAddr):
       cppAddr = cppWlt.getAddrByIndex(i)
       bal = cppAddr.getBalance()
-      print '   %s %s' % (hash160_to_addrStr(cppAddr.getAddrStr20())[:12], coin2str(bal))
+      a160 = CheckHash160(cppAddr.getScrAddr())
+      print '   %s %s' % (hash160_to_addrStr(a160)[:12], coin2str(bal))
 
    leVect = cppWlt.getTxLedger()
    print '\n\nLedger for all Addr:'
@@ -1464,7 +1469,8 @@ if Test_EncryptedWallet:
    cppwlt = wlt.cppWallet
    naddr = cppwlt.getNumAddr()
    for i in range(naddr):
-      print '   Address:', hash160_to_addrStr(cppwlt.getAddrByIndex(i).getAddrStr20())
+      a160 = CheckHash160(cppwlt.getScrAddrByIndex(i).getScrAddr())
+      print '   Address:', hash160_to_addrStr(a160)
 
    
    print '\n(10) Loading blockchain from blk0001.dat'
@@ -1922,16 +1928,16 @@ if Test_AddressBooks:
 
       
    cppWlt = Cpp.BtcWallet()
-   cppWlt.addAddress_1_(hex_to_binary("0c6b92101c7025643c346d9c3e23034a8a843e21"))
-   cppWlt.addAddress_1_(hex_to_binary("11b366edfc0a8b66feebae5c2e25a7b6a5d1cf31"))
-   cppWlt.addAddress_1_(hex_to_binary("34c9f8dc91dfe1ae1c59e76cbe1aa39d0b7fc041"))
-   cppWlt.addAddress_1_(hex_to_binary("d77561813ca968270d5f63794ddb6aab3493605e"))
-   cppWlt.addAddress_1_(hex_to_binary("0e0aec36fe2545fb31a41164fb6954adcd96b342"))
-   cppWlt.addAddress_1_(hex_to_binary("6c27c8e67b7376f3ab63553fe37a4481c4f951cf"))
+   cppWlt.addScrAddr_1_(hex_to_binary("0c6b92101c7025643c346d9c3e23034a8a843e21"))
+   cppWlt.addScrAddr_1_(hex_to_binary("11b366edfc0a8b66feebae5c2e25a7b6a5d1cf31"))
+   cppWlt.addScrAddr_1_(hex_to_binary("34c9f8dc91dfe1ae1c59e76cbe1aa39d0b7fc041"))
+   cppWlt.addScrAddr_1_(hex_to_binary("d77561813ca968270d5f63794ddb6aab3493605e"))
+   cppWlt.addScrAddr_1_(hex_to_binary("0e0aec36fe2545fb31a41164fb6954adcd96b342"))
+   cppWlt.addScrAddr_1_(hex_to_binary("6c27c8e67b7376f3ab63553fe37a4481c4f951cf"))
 
    TheBDM.registerWallet(cppWlt)
    
-   print '\n\nLoading Blockchain from:', BLKFILE_FIRSTFILE
+   print '\n\nLoading Blockchain from:', BLKFILE_1stFILE
    BDM_LoadBlockchainFile(BLKFILE_FIRSTFILE)
    print 'Done!'
 
@@ -1945,7 +1951,7 @@ if Test_AddressBooks:
    print "[:] ", len(AddrBook[:])
 
    for abe in AddrBook:
-      print binary_to_hex(abe.getAddr160()),
+      print binary_to_hex(abe.getScrAddr()),
       print len(abe.getTxList())
       for rtx in abe.getTxList():
          print '\t', binary_to_hex(rtx.getTxHash()), rtx.getBlkNum(), rtx.getTxIndex()
@@ -2121,16 +2127,16 @@ if Test_AsyncBDM:
       cppWlt = Cpp.BtcWallet()
    
       if not USE_TESTNET:
-         cppWlt.addAddress_1_(hex_to_binary("604875c897a079f4db88e5d71145be2093cae194"))
-         cppWlt.addAddress_1_(hex_to_binary("8996182392d6f05e732410de4fc3fa273bac7ee6"))
-         cppWlt.addAddress_1_(hex_to_binary("b5e2331304bc6c541ffe81a66ab664159979125b"))
-         cppWlt.addAddress_1_(hex_to_binary("ebbfaaeedd97bc30df0d6887fd62021d768f5cb8"))
+         cppWlt.addScrAddr_1_(hex_to_binary("604875c897a079f4db88e5d71145be2093cae194"))
+         cppWlt.addScrAddr_1_(hex_to_binary("8996182392d6f05e732410de4fc3fa273bac7ee6"))
+         cppWlt.addScrAddr_1_(hex_to_binary("b5e2331304bc6c541ffe81a66ab664159979125b"))
+         cppWlt.addScrAddr_1_(hex_to_binary("ebbfaaeedd97bc30df0d6887fd62021d768f5cb8"))
       else:
          # Test-network addresses
-         cppWlt.addAddress_1_(hex_to_binary("5aa2b7e93537198ef969ad5fb63bea5e098ab0cc"))
-         cppWlt.addAddress_1_(hex_to_binary("28b2eb2dc53cd15ab3dc6abf6c8ea3978523f948"))
-         cppWlt.addAddress_1_(hex_to_binary("720fbde315f371f62c158b7353b3629e7fb071a8"))
-         cppWlt.addAddress_1_(hex_to_binary("0cc51a562976a075b984c7215968d41af43be98f"))
+         cppWlt.addScrAddr_1_(hex_to_binary("5aa2b7e93537198ef969ad5fb63bea5e098ab0cc"))
+         cppWlt.addScrAddr_1_(hex_to_binary("28b2eb2dc53cd15ab3dc6abf6c8ea3978523f948"))
+         cppWlt.addScrAddr_1_(hex_to_binary("720fbde315f371f62c158b7353b3629e7fb071a8"))
+         cppWlt.addScrAddr_1_(hex_to_binary("0cc51a562976a075b984c7215968d41af43be98f"))
    
       cppWltEmpty = Cpp.BtcWallet()
    
@@ -2167,16 +2173,17 @@ if Test_AsyncBDM:
       for i in range(nAddr):
          cppAddr = cppWlt.getAddrByIndex(i)
          bal = cppAddr.getSpendableBalance()
-         print '   %s %s' % (hash160_to_addrStr(cppAddr.getAddrStr20())[:12], coin2str(bal))
+         a160 = cppAddr.getScrAddr()
+         print '   %s %s' % (hash160_to_addrStr(a160)[:12], coin2str(bal))
    
    
       if not USE_TESTNET:
-         cppWltEmpty.addAddress_1_(hex_to_binary("11b366edfc0a8b66feebae5c2e25a7b6a5d1cf31"))
+         cppWltEmpty.addScrAddr_1_(hex_to_binary("11b366edfc0a8b66feebae5c2e25a7b6a5d1cf31"))
       else:
-         cppWltEmpty.addAddress_1_(hex_to_binary("57ac7bfb77b1f678043ac6ea0fa67b4686c271e5"))
-         cppWltEmpty.addAddress_1_(hex_to_binary("b11bdcd6371e5b567b439cd95d928e869d1f546a"))
-         cppWltEmpty.addAddress_1_(hex_to_binary("2bb0974f6d43e3baa03d82610aac2b6ed017967d"))
-         cppWltEmpty.addAddress_1_(hex_to_binary("61d62799e52bc8ee514976a19d67478f25df2bb1"))
+         cppWltEmpty.addScrAddr_1_(hex_to_binary("57ac7bfb77b1f678043ac6ea0fa67b4686c271e5"))
+         cppWltEmpty.addScrAddr_1_(hex_to_binary("b11bdcd6371e5b567b439cd95d928e869d1f546a"))
+         cppWltEmpty.addScrAddr_1_(hex_to_binary("2bb0974f6d43e3baa03d82610aac2b6ed017967d"))
+         cppWltEmpty.addScrAddr_1_(hex_to_binary("61d62799e52bc8ee514976a19d67478f25df2bb1"))
    
       # In practice, we won't be adding the addresses directly to the C++ wallets
       # We will add them to the python wallets, which will absorb them into the 
@@ -2206,7 +2213,8 @@ if Test_AsyncBDM:
       for i in range(nAddr):
          cppAddr = cppWltEmpty.getAddrByIndex(i)
          bal = cppAddr.getSpendableBalance()
-         print '   %s %s' % (hash160_to_addrStr(cppAddr.getAddrStr20())[:12], coin2str(bal))
+         a160 = cppAddr.getScrAddr()
+         print '   %s %s' % (hash160_to_addrStr(a160)[:12], coin2str(bal))
 
 
 

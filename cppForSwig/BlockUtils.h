@@ -148,7 +148,7 @@ public:
 
    SCRIPT_PREFIX getScriptType(void) const {return (SCRIPT_PREFIX)scrAddr_[0];}
 
-   void setAddr20(BinaryData const & bd) { scrAddr_.copyFrom(bd); }
+   void setScrAddr(BinaryData const & bd) { scrAddr_.copyFrom(bd); }
    void setValid(bool b=true) { isValid_ = b; }
    void changeBlkNum(uint32_t newHgt) {blockNum_ = newHgt; }
       
@@ -350,7 +350,7 @@ public:
 
    // Adds a new address that we claim has never been seen until thos moment,
    // and thus there's no point in doing a blockchain rescan.
-   void addNewScrAddr_1_(BinaryData addr) {addNewScrAddress(addr);}
+   void addNewScrAddress_1_(BinaryData addr) {addNewScrAddress(addr);}
 
    // Blockchain rescan will depend on the firstBlockNum input
    void addScrAddress_3_(BinaryData    addr, 
@@ -364,7 +364,7 @@ public:
                       uint32_t      lastTimestamp,
                       uint32_t      lastBlockNum);
 
-   bool hasScrAddr(BinaryData const & scrAddr);
+   bool hasScrAddress(BinaryData const & scrAddr);
 
 
    // Scan a Tx for our TxIns/TxOuts.  Override default blk vals if you think
@@ -706,7 +706,9 @@ public:
    bool     processAllHeadersInBlkFiles(uint32_t fnumStart=0, uint32_t offset=0);
    //bool     processHeadersInFile(string filename);
    uint32_t buildDatabasesFromBlkFiles(uint32_t fnum=0, uint32_t offset=0);
-   uint32_t initializeAndBuildDatabases(void);
+   uint32_t initializeAndBuildDatabases(ARMORY_DB_TYPE atype=ARMORY_DB_WHATEVER,
+                                        DB_PRUNE_TYPE  dtype=DB_PRUNE_WHATEVER);
+   uint32_t initializeAndBuildDatabases(uint32_t atype, uint32_t dtype);
    bool     addRawBlockToDB(BinaryRefReader & brr);
    void     updateBlkDataHeader(StoredHeader const & sbh);
 
@@ -751,6 +753,9 @@ public:
 
 
    void fetchAllRegisteredScrAddrData(void);
+   void fetchAllRegisteredScrAddrData(BtcWallet & myWlt);
+   void fetchAllRegisteredScrAddrData(
+                              map<BinaryData, RegisteredScrAddr> & addrMap);
 
    // Check for availability of data with a given hash
    TX_AVAILABILITY getTxHashAvail(BinaryDataRef txhash);
@@ -774,7 +779,8 @@ public:
    // See comments above the scanBlockchainForTx in the .cpp, for more info
    void scanBlockchainForTx(BtcWallet & myWallet,
                             uint32_t startBlknum=0,
-                            uint32_t endBlknum=UINT32_MAX);
+                            uint32_t endBlknum=UINT32_MAX,
+                            bool fetchFirst=true);
 
    void writeScanStatusFile(uint32_t hgt, string bfile, string timerName);
 
@@ -895,6 +901,15 @@ public:
    void findSSHEntriesToDelete( map<BinaryData, StoredScriptHistory> & sshMap,
                                 set<BinaryData> & keysToDelete);
 
+   // Simple wrapper around the logger so that they are easy to access from SWIG
+   void StartCppLogging(string fname, int lvl) { STARTLOGGING(fname, (LogLevel)lvl); }
+   void ChangeCppLogLevel(int lvl) { SETLOGLEVEL((LogLevel)lvl); }
+   void DisableCppLogging(void) { SETLOGLEVEL(LogLvlDisabled); }
+   void EnableCppLogStdOut(void) { LOGENABLESTDOUT(); }
+   void DisableCppLogStdOut(void) { LOGDISABLESTDOUT(); }
+
+   ////////////////////////////////////////////////////////////////////////////////
+   void debugPrintDatabases(void) { iface_->pprintBlkDataDB(BLKDATA); }
 
    /////////////////////////////////////////////////////////////////////////////
    // We may use this to trigger flushing the queued DB updates

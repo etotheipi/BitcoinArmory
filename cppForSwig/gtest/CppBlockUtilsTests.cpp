@@ -6457,7 +6457,7 @@ TEST_F(BlockUtilsWithWalletTest, PostRegisterScrAddr)
    TheBDM.registerWallet(&wlt);
    TheBDM.registerNewScrAddr(scrAddrD_);
    TheBDM.fetchAllRegisteredScrAddrData();
-   TheBDM.scanBlockchainForTx(wlt);
+   TheBDM.scanRegisteredTxForWallet(wlt);
 
    uint64_t balanceWlt;
    uint64_t balanceDB;
