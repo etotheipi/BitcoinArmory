@@ -4557,7 +4557,7 @@ def determineSentToSelfAmt(le, wlt):
       valSum = 0
       for i in range(txref.getNumTxOut()):
          valSum += txref.getTxOutCopy(i).getValue()
-         addr160 = txref.getTxOutCopy(i).getRecipientAddr()
+         addr160 = CheckHash160(txref.getTxOutCopy(i).getScrAddressStr())
          addr    = wlt.getAddrByHash160(addr160)
          if addr and addr.chainIndex > maxChainIndex:
             maxChainIndex = addr.chainIndex
@@ -5525,7 +5525,8 @@ def pprintUnspentTxOutList(utxoList, headerLine='Coin Selection: '):
    print '   ','NumConf'.rjust(8),
    print '   ','PriorityFactor'.rjust(16)
    for utxo in utxoList:
-      print '   ',hash160_to_addrStr(utxo.getRecipientHash160()).ljust(34),
+      a160 = CheckHash160(utxo.getRecipientScrAddr())
+      print '   ',hash160_to_addrStr(a160).ljust(34),
       print '   ',(coin2str(utxo.getValue()) + ' BTC').rjust(18),
       print '   ',str(utxo.getNumConfirm()).rjust(8),
       print '   ', ('%0.2f' % (utxo.getValue()*utxo.getNumConfirm()/(ONE_BTC*144.))).rjust(16)
@@ -6043,9 +6044,11 @@ def PySelectCoins(unspentTxOutInfo, targetOutVal, minFee=0, numRand=10, margin=C
    if len(finalSelection) < IDEAL_NUM_INPUTS and \
           SCORES[IDX_OUTANONYM] == 0:
 
-      alreadyUsedAddr = set( [utxo.getRecipientAddr() for utxo in finalSelection] )
-      getPriority = lambda a: a.getValue() * a.getNumConfirm()
-      getUtxoID = lambda a: a.getTxHash() + int_to_binary(a.getTxOutIndex())
+      utxoToHash160 = lambda a: CheckHash160(a.getRecipientScrAddr())
+      getPriority   = lambda a: a.getValue() * a.getNumConfirm()
+      getUtxoID     = lambda a: a.getTxHash() + int_to_binary(a.getTxOutIndex())
+
+      alreadyUsedAddr = set( [utxoToHash160(utxo) for utxo in finalSelection] )
       utxoSmallToLarge = sorted(unspentTxOutInfo, key=getPriority)
       utxoSmToLgIDs = [getUtxoID(utxo) for utxo in utxoSmallToLarge]
       finalSelectIDs = [getUtxoID(utxo) for utxo in finalSelection]
@@ -6057,7 +6060,7 @@ def PySelectCoins(unspentTxOutInfo, targetOutVal, minFee=0, numRand=10, margin=C
             continue
 
          # We only consider UTXOs that won't link any new addresses together
-         if not other.getRecipientAddr() in alreadyUsedAddr:
+         if not utxoToHash160(other) in alreadyUsedAddr:
             continue
          
          # Avoid zero-conf inputs altogether

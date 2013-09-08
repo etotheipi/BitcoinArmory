@@ -688,7 +688,7 @@ bool InterfaceToLDB::seekToTxByHash(BinaryDataRef txHash)
       // We don't actually know for sure whether the seekTo() found a Tx or TxOut
       if(hint != currReadKey_.getRawRef().getSliceRef(1,6))
       {
-         LOGERR << "TxHint referenced a BLKDATA tx that doesn't exist";
+         //LOGERR << "TxHint referenced a BLKDATA tx that doesn't exist";
          continue;
       }
 
@@ -700,7 +700,7 @@ bool InterfaceToLDB::seekToTxByHash(BinaryDataRef txHash)
       }
    }
 
-   LOGERR << "No tx in DB with hash: " << txHash.toHexStr();
+   //LOGERR << "No tx in DB with hash: " << txHash.toHexStr();
    resetIterReaders();
    return false;
 }
@@ -1896,7 +1896,10 @@ StoredTxHints InterfaceToLDB::getHintsForTxHash(BinaryDataRef txHash)
                                         sths.txHashPrefix_);
                                                 
    if(brr.getSize() == 0)
-      LOGERR << "No hints for prefix: " << sths.txHashPrefix_.toHexStr();
+   {
+      // Don't need to throw any errors, we frequently ask for tx that DNE
+      //LOGERR << "No hints for prefix: " << sths.txHashPrefix_.toHexStr();
+   }
    else
       sths.unserializeDBValue(brr);
 

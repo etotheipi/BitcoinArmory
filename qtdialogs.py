@@ -7424,8 +7424,9 @@ def extractTxInfo(pytx, rcvTime=None):
    if TheBDM.getBDMState()=='BlockchainReady': 
       txcpp = TheBDM.getTxByHash(txHash)
       if txcpp.isInitialized():
-         headref = txcpp.getHeaderPtr()
-         if headref:
+         hgt = txcpp.getBlockHeight()
+         if hgt < TheBDM.getTopBlockHeight():
+            headref = TheBDM.getHeaderByHeight(hgt)
             txTime  = unixTimeToFormatStr(headref.getTimestamp())
             txBlk   = headref.getBlockHeight()
             txIdx   = txcpp.getBlockTxIndex()
@@ -7448,15 +7449,16 @@ def extractTxInfo(pytx, rcvTime=None):
       haveAllInput=True
       for i in range(txcpp.getNumTxIn()):
          txinFromList.append([])
-         cppTxin = txcpp.getTxIn(i)
+         cppTxin = txcpp.getTxInCopy(i)
          prevTxHash = cppTxin.getOutPoint().getTxHash()
          if TheBDM.getTxByHash(prevTxHash).isInitialized():
-            prevTxOut = TheBDM.getPrevTxOut(cppTxin)
-            txinFromList[-1].append(TheBDM.getSenderAddr20(cppTxin))
+            prevTx    = TheBDM.getPrevTx(cppTxin)
+            prevTxOut = prevTx.getTxOutCopy(cppTxin.getOutPoint().getTxOutIndex())
+            txinFromList[-1].append(CheckHash160(TheBDM.getSenderScrAddr(cppTxin)))
             txinFromList[-1].append(TheBDM.getSentValue(cppTxin))
-            if prevTxOut.getParentTxPtr():
-               txinFromList[-1].append(prevTxOut.getParentTxPtr().getBlockHeight())
-               txinFromList[-1].append(prevTxOut.getParentTxPtr().getThisHash())
+            if prevTx.isInitialized():
+               txinFromList[-1].append(prevTx.getBlockHeight())
+               txinFromList[-1].append(prevTx.getThisHash())
                txinFromList[-1].append(prevTxOut.getIndex())
             else:
                LOGERROR('How did we get a bad parent pointer? (extractTxInfo)')
@@ -12501,9 +12503,10 @@ class DlgBackupCenter(ArmoryDialog):
          if DlgFragBackup(self, self.main, self.wlt).exec_():
             self.accept()
       elif self.optDigitalBackupPlain.isChecked():
-         self.main.makeWalletCopy(self, self.wlt, 'Decrypt', 'decrypt')
+         if self.main.digitalBackupWarning():
+            self.main.makeWalletCopy(self, self.wlt, 'Decrypt', 'decrypt')
       elif self.optDigitalBackupCrypt.isChecked():
-         self.main.makeWalletCopy(self, self.wlt, 'Decrypt', 'encrypt')
+         self.main.makeWalletCopy(self, self.wlt, 'Encrypt', 'encrypt')
       elif self.optIndivKeyListTop.isChecked():
          if self.wlt.useEncryption and self.wlt.isLocked:
             dlg = DlgUnlockWallet(self.wlt, self, self.main, 'Unlock Private Keys')
@@ -12548,7 +12551,7 @@ class DlgSimpleBackup(ArmoryDialog):
 
       ### Paper
       lblPaper = QRichLabel( tr(""" 
-         Use a printer or pen-and-paper to write down your wallet "root." """))
+         Use a printer or pen-and-paper to write down your wallet "seed." """))
       btnPaper = QPushButton( tr('Make Paper Backup'))
 
       ### Digital
@@ -12562,8 +12565,9 @@ class DlgSimpleBackup(ArmoryDialog):
       btnOther = QPushButton(tr('See Other Backup Options'))
 
       def backupDigital():
-         self.accept()
-         self.main.makeWalletCopy(self, self.wlt, 'Decrypt', 'decrypt')
+         if self.main.digitalBackupWarning():
+            self.accept()
+            self.main.makeWalletCopy(self, self.wlt, 'Decrypt', 'decrypt')
 
       def backupPaper():
          self.accept()

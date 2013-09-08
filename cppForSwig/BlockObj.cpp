@@ -507,7 +507,7 @@ uint64_t Tx::getSumOfOutputs(void)
 {
    uint64_t sumVal = 0;
    for(uint32_t i=0; i<getNumTxOut(); i++)
-      sumVal += getTxOut(i).getValue();
+      sumVal += getTxOutCopy(i).getValue();
 
    return sumVal;
 }
@@ -516,7 +516,7 @@ uint64_t Tx::getSumOfOutputs(void)
 /////////////////////////////////////////////////////////////////////////////
 BinaryData Tx::getScrAddrForTxOut(uint32_t txOutIndex) 
 {
-   TxOut txout = getTxOut(txOutIndex);
+   TxOut txout = getTxOutCopy(txOutIndex);
    return BtcUtils::getTxOutScriptUniqueKey(txout.getScript());
 }
 
@@ -525,7 +525,7 @@ BinaryData Tx::getScrAddrForTxOut(uint32_t txOutIndex)
 // This is not a pointer to persistent object, this method actually CREATES
 // the TxIn.   But it's fast and doesn't hold a lot of post-construction
 // information, so it can probably just be computed on the fly
-TxIn Tx::getTxIn(int i)
+TxIn Tx::getTxInCopy(int i)
 {
    assert(isInitialized());
    uint32_t txinSize = offsetsTxIn_[i+1] - offsetsTxIn_[i];
@@ -543,7 +543,7 @@ TxIn Tx::getTxIn(int i)
 // This is not a pointer to persistent object, this method actually CREATES
 // the TxOut.   But it's fast and doesn't hold a lot of post-construction
 // information, so it can probably just be computed on the fly
-TxOut Tx::getTxOut(int i)
+TxOut Tx::getTxOutCopy(int i)
 {
    assert(isInitialized());
    uint32_t txoutSize = offsetsTxOut_[i+1] - offsetsTxOut_[i];
@@ -577,10 +577,10 @@ void Tx::pprint(ostream & os, int nIndent, bool pBigendian)
    os << indent << "   NumOutputs:  " << getNumTxOut() << endl;
    os << endl;
    for(uint32_t i=0; i<getNumTxIn(); i++)
-      getTxIn(i).pprint(os, nIndent+1, pBigendian);
+      getTxInCopy(i).pprint(os, nIndent+1, pBigendian);
    os << endl;
    for(uint32_t i=0; i<getNumTxOut(); i++)
-      getTxOut(i).pprint(os, nIndent+1, pBigendian);
+      getTxOutCopy(i).pprint(os, nIndent+1, pBigendian);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -600,7 +600,7 @@ void Tx::pprintAlot(ostream & os)
    cout << endl << "NumTxIn:   " << getNumTxIn() << endl;
    for(uint32_t i=0; i<getNumTxIn(); i++)
    {
-      TxIn txin = getTxIn(i);
+      TxIn txin = getTxInCopy(i);
       cout << "   TxIn: " << i << endl;
       cout << "      Siz:  " << txin.getSize() << endl;
       cout << "      Scr:  " << txin.getScriptSize() << "  Type: " 
@@ -613,7 +613,7 @@ void Tx::pprintAlot(ostream & os)
    cout << endl <<  "NumTxOut:   " << getNumTxOut() << endl;
    for(uint32_t i=0; i<getNumTxOut(); i++)
    {
-      TxOut txout = getTxOut(i);
+      TxOut txout = getTxOutCopy(i);
       cout << "   TxOut: " << i << endl;
       cout << "      Siz:  " << txout.getSize() << endl;
       cout << "      Scr:  " << txout.getScriptSize() << "  Type: " 
@@ -869,7 +869,7 @@ HashString TxIOPair::getTxHashOfInput(void)
 
 
 //////////////////////////////////////////////////////////////////////////////
-TxOut TxIOPair::getTxOut(void) 
+TxOut TxIOPair::getTxOutCopy(void) 
 {
    // I actually want this to segfault when there is no TxOut... 
    // we should't ever be trying to access it without checking it 
@@ -882,7 +882,7 @@ TxOut TxIOPair::getTxOut(void)
 
 
 //////////////////////////////////////////////////////////////////////////////
-TxIn TxIOPair::getTxIn(void) 
+TxIn TxIOPair::getTxInCopy(void) 
 {
    // I actually want this to segfault when there is no TxIn... 
    // we should't ever be trying to access it without checking it 
@@ -967,7 +967,7 @@ bool TxIOPair::setTxOutZC(Tx* tx, uint32_t index)
 bool TxIOPair::isStandardTxOutScript(void) 
 { 
    if(hasTxOut()) 
-      return getTxOut().isStandard();
+      return getTxOutCopy().isStandard();
    return false;
 }
 

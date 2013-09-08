@@ -284,7 +284,7 @@ void StoredHeader::unserializeFullBlock(BinaryRefReader brr,
          stxo.duplicateID_     = UINT8_MAX;
          stxo.txIndex_        = tx;
          stxo.txOutIndex_     = txo;
-         stxo.isCoinbase_     = thisTx.getTxIn(0).isCoinbase();
+         stxo.isCoinbase_     = thisTx.getTxInCopy(0).isCoinbase();
       }
 
       // Sitting at the nLockTime, 4 bytes before the end
@@ -1125,11 +1125,11 @@ StoredTx & StoredTx::createFromTx(Tx & tx, bool doFrag, bool withTxOuts)
          stxoMap_[txo] = StoredTxOut();
          StoredTxOut & stxo = stxoMap_[txo];
 
-         stxo.unserialize(tx.getTxOut(txo).serialize());
+         stxo.unserialize(tx.getTxOutCopy(txo).serialize());
          stxo.txVersion_      = tx.getVersion();
          stxo.txIndex_        = tx.getBlockTxIndex();
          stxo.txOutIndex_     = txo;
-         stxo.isCoinbase_     = tx.getTxIn(0).isCoinbase();
+         stxo.isCoinbase_     = tx.getTxInCopy(0).isCoinbase();
       }
    }
 
@@ -1996,7 +1996,7 @@ void StoredSubHistory::pprintFullSubSSH(uint32_t indent)
       cout << "TXIO: (" << hgt << "," << (uint32_t)dup 
                           << "," << txi << "," << txo << ")";
 
-      BinaryData scraddr = txio.getTxOut().getScrAddressStr();
+      BinaryData scraddr = txio.getTxOutCopy().getScrAddressStr();
       cout << " VALUE: " << (txio.getValue() /COIN);
       cout << " isCB: " << (txio.isFromCoinbase() ? "X" : " ");
       cout << " isMS: " << (txio.isMultisig() ? "X" : " ");

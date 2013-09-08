@@ -2678,6 +2678,19 @@ class ArmoryMainWindow(QMainWindow):
          self.addWalletToApplication(dlgPaper.newWallet, walletIsNew=False)
          #self.newWalletList.append([dlgPaper.newWallet, False])
          LOGINFO('Import Complete!')
+
+
+   #############################################################################
+   def digitalBackupWarning(self):
+      reply = QMessageBox.warning(self, 'Be Careful!', tr("""
+        <font color="red"><b>WARNING:</b></font> You are about to make an 
+        <u>unencrypted</u> backup of your wallet.  It is highly recommended
+        that you do <u>not</u> ever save unencrypted wallets to your regular
+        hard drive.  This feature is intended for saving to a USB key or
+        other removable media."""), QMessageBox.Ok | QMessageBox.Cancel)
+      return (reply==QMessageBox.Ok)
+   
+   
    
    #############################################################################
    def execMigrateSatoshi(self):
@@ -4637,8 +4650,9 @@ class ArmoryMainWindow(QMainWindow):
          else:
             txref = TheBDM.getTxByHash(le.getTxHash())
             nOut = txref.getNumTxOut()
-            recips = [txref.getTxOut(i).getRecipientAddr() for i in range(nOut)]
-            values = [txref.getTxOut(i).getValue()         for i in range(nOut)]
+            getScrAddr = lambda i: txref.getTxOutCopy(i).getScrAddressStr()
+            recips = [CheckHash160(getScrAddr(i))          for i in range(nOut)]
+            values = [txref.getTxOutCopy(i).getValue()     for i in range(nOut)]
             idxMine  = filter(lambda i:     wlt.hasAddr(recips[i]), range(nOut))
             idxOther = filter(lambda i: not wlt.hasAddr(recips[i]), range(nOut))
             mine  = [(recips[i],values[i]) for i in idxMine]

@@ -834,7 +834,8 @@ public:
    // We're going to need the BDM's help to get the sender for a TxIn since it
    // sometimes requires going and finding the TxOut from the distant past
    TxOut      getPrevTxOut(TxIn & txin);
-   BinaryData getSenderAddr20(TxIn & txin);
+   Tx         getPrevTx(TxIn & txin);
+   BinaryData getSenderScrAddr(TxIn & txin);
    int64_t    getSentValue(TxIn & txin);
 
    /////////////////////////////////////////////////////////////////////////////

@@ -805,7 +805,7 @@ class SentToAddrBookModel(QAbstractTableModel):
       # the python code... :(
       for abe in TheBDM.getAddressBook(self.wlt.cppWallet):     
 
-         addr160 = abe.getAddr160()
+         addr160 = CheckHash160(abe.getScrAddr())
 
          # Only grab addresses that are not in any of your Armory wallets
          if not self.main.getWalletForAddr160(addr160):

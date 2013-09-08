@@ -526,8 +526,8 @@ public:
    // These are not pointers to persistent object, these methods actually 
    // CREATES the TxIn/TxOut.  But the construction is fast, so it's
    // okay to do it on the fly
-   TxIn   getTxIn(int i);
-   TxOut  getTxOut(int i);
+   TxIn   getTxInCopy(int i);
+   TxOut  getTxOutCopy(int i);
 
    /////////////////////////////////////////////////////////////////////////////
    // All these methods return UINTX_MAX if txRefObj.isNull()
@@ -609,10 +609,10 @@ public:
    void      setValue(uint64_t newVal) { amount_ = newVal;}
 
    //////////////////////////////////////////////////////////////////////////////
-   TxOut     getTxOut(void);
-   TxIn      getTxIn(void);
-   TxOut     getTxOutZC(void) const {return txOfOutputZC_->getTxOut(indexOfOutputZC_);}
-   TxIn      getTxInZC(void) const  {return txOfInputZC_->getTxIn(indexOfInputZC_);}
+   TxOut     getTxOutCopy(void);
+   TxIn      getTxInCopy(void);
+   TxOut     getTxOutZC(void) const {return txOfOutputZC_->getTxOutCopy(indexOfOutputZC_);}
+   TxIn      getTxInZC(void) const  {return txOfInputZC_->getTxInCopy(indexOfInputZC_);}
    TxRef     getTxRefOfOutput(void) const { return txRefOfOutput_; }
    TxRef     getTxRefOfInput(void) const  { return txRefOfInput_;  }
    uint32_t  getIndexOfOutput(void) const { return indexOfOutput_; }

@@ -173,7 +173,7 @@ vector<UnspentTxOut> ScrAddrObj::getSpendableTxOutList(uint32_t blkNum)
       TxIOPair & txio = *relevantTxIOPtrs_[i];
       if(txio.isSpendable(blkNum))
       {
-         TxOut txout = txio.getTxOut();
+         TxOut txout = txio.getTxOutCopy();
          utxoList.push_back( UnspentTxOut(txout, blkNum) );
       }
    }
@@ -182,7 +182,7 @@ vector<UnspentTxOut> ScrAddrObj::getSpendableTxOutList(uint32_t blkNum)
       TxIOPair & txio = *relevantTxIOPtrsZC_[i];
       if(txio.isSpendable(blkNum))
       {
-         TxOut txout = txio.getTxOut();
+         TxOut txout = txio.getTxOutCopy();
          utxoList.push_back( UnspentTxOut(txout, blkNum) );
       }
    }
@@ -198,7 +198,7 @@ vector<UnspentTxOut> ScrAddrObj::getFullTxOutList(uint32_t blkNum)
       TxIOPair & txio = *relevantTxIOPtrs_[i];
       if(txio.isUnspent())
       {
-         TxOut txout = txio.getTxOut();
+         TxOut txout = txio.getTxOutCopy();
          utxoList.push_back( UnspentTxOut(txout, blkNum) );
       }
    }
@@ -207,7 +207,7 @@ vector<UnspentTxOut> ScrAddrObj::getFullTxOutList(uint32_t blkNum)
       TxIOPair & txio = *relevantTxIOPtrsZC_[i];
       if(txio.isUnspent())
       {
-         TxOut txout = txio.getTxOut();
+         TxOut txout = txio.getTxOutCopy();
          utxoList.push_back( UnspentTxOut(txout, blkNum) );
       }
    }
@@ -477,7 +477,7 @@ pair<bool,bool> BtcWallet::isMineBulkFilter(Tx & tx, bool withMultiSig)
 
        
       // Try to flag non-standard scripts
-      //TxOut txout = tx.getTxOut(iout);
+      //TxOut txout = tx.getTxOutCopy(iout);
       //for(uint32_t i=0; i<scrAddrPtrs_.size(); i++)
       //{
          //ScrAddrObj & thisAddr = *(scrAddrPtrs_[i]);
@@ -669,7 +669,7 @@ void BlockDataManager_LevelDB::registeredScrAddrScan(
       {
          /* TODO:  Right now we will just ignoring non-std tx
                    I don't do anything with them right now, anyway
-         TxOut txout = tx.getTxOut(iout);
+         TxOut txout = tx.getTxOutCopy(iout);
          for(uint32_t i=0; i<scrAddrPtrs_.size(); i++)
          {
             ScrAddrObj & thisAddr = *(scrAddrPtrs_[i]);
@@ -739,7 +739,7 @@ void BtcWallet::scanTx(Tx & tx,
       ///// LOOP OVER ALL TXIN IN BLOCK /////
       for(uint32_t iin=0; iin<tx.getNumTxIn(); iin++)
       {
-         TxIn txin = tx.getTxIn(iin);
+         TxIn txin = tx.getTxInCopy(iin);
          OutPoint outpt = txin.getOutPoint();
          // Empty hash in Outpoint means it's a COINBASE tx --> no addr inputs
          if(outpt.getTxHashRef() == BtcUtils::EmptyHash_)
@@ -759,7 +759,7 @@ void BtcWallet::scanTx(Tx & tx,
             // We will get here for every address in the search, even 
             // though it is only relevant to one of the addresses.
             TxIOPair & txio  = txioIter->second;
-            TxOut txout = txio.getTxOut();
+            TxOut txout = txio.getTxOutCopy();
 
             // It's our TxIn, so address should be in this wallet
             scraddr  = txout.getScrAddressStr();
@@ -842,7 +842,7 @@ void BtcWallet::scanTx(Tx & tx,
       ///// LOOP OVER ALL TXOUT IN TX /////
       for(uint32_t iout=0; iout<tx.getNumTxOut(); iout++)
       {
-         TxOut txout = tx.getTxOut(iout);
+         TxOut txout = tx.getTxOutCopy(iout);
          if( txout.getScriptType() == TXOUT_SCRIPT_NONSTANDARD )
          {
             //if(txout.getScriptRef().find(scraddr) > -1)
@@ -1116,7 +1116,7 @@ void BtcWallet::scanNonStdTx(uint32_t blknum,
                              uint32_t txoutidx,
                              ScrAddrObj& thisAddr)
 {
-   TxOut txout = tx.getTxOut(txoutidx);
+   TxOut txout = tx.getTxOutCopy(txoutidx);
    int findIdx = txout.getScriptRef().find(thisAddr.getScrAddr());
    if(findIdx > -1)
    {
@@ -1216,7 +1216,7 @@ vector<UnspentTxOut> BtcWallet::getSpendableTxOutList(uint32_t blkNum)
       TxIOPair & txio = iter->second;
       if(txio.isSpendable(blkNum))
       {
-         TxOut txout = txio.getTxOut();
+         TxOut txout = txio.getTxOutCopy();
          utxoList.push_back(UnspentTxOut(txout, blkNum) );
       }
    }
@@ -1236,7 +1236,7 @@ vector<UnspentTxOut> BtcWallet::getFullTxOutList(uint32_t blkNum)
       TxIOPair & txio = iter->second;
       if(txio.isUnspent())
       {
-         TxOut txout = txio.getTxOut();
+         TxOut txout = txio.getTxOutCopy();
          utxoList.push_back(UnspentTxOut(txout, blkNum) );
       }
    }
@@ -1331,7 +1331,7 @@ vector<AddressBookEntry> BtcWallet::createAddressBook(void)
       perTxAddrSet.clear();
       for(uint32_t iout=0; iout<thisTx.getNumTxOut(); iout++)
       {
-         HashString scraddr = thisTx.getTxOut(iout).getScrAddressStr();
+         HashString scraddr = thisTx.getTxOutCopy(iout).getScrAddressStr();
 
          // Skip this address if it's in our wallet (usually change addr)
          if( hasScrAddress(scraddr) || perTxAddrSet.count(scraddr)>0)
@@ -2487,10 +2487,6 @@ void BlockDataManager_LevelDB::scanBlockchainForTx(BtcWallet & myWallet,
    // Finally, walk through all the registered tx
    scanRegisteredTxForWallet(myWallet, startBlknum, endBlknum);
 
-   // We should clean up any dangling TxIOs in the wallet then rescan
-   if(zcEnabled_)
-      rescanWalletZeroConf(myWallet);
-
 }
 
 
@@ -2857,7 +2853,7 @@ vector<TxRef*> BlockDataManager_LevelDB::findAllNonStdTx(void)
          ///// LOOP OVER ALL TXIN IN BLOCK /////
          for(uint32_t iin=0; iin<tx.getNumTxIn(); iin++)
          {
-            TxIn txin = tx.getTxIn(iin);
+            TxIn txin = tx.getTxInCopy(iin);
             if(txin.getScriptType() == TXIN_SCRIPT_UNKNOWN)
             {
                txVectOut.push_back(&tx);
@@ -2877,7 +2873,7 @@ vector<TxRef*> BlockDataManager_LevelDB::findAllNonStdTx(void)
          for(uint32_t iout=0; iout<tx.getNumTxOut(); iout++)
          {
             
-            TxOut txout = tx.getTxOut(iout);
+            TxOut txout = tx.getTxOutCopy(iout);
             if(txout.getScriptType() == TXOUT_SCRIPT_UNKNOWN)
             {
                txVectOut.push_back(&tx);               
@@ -3884,7 +3880,7 @@ vector<bool> BlockDataManager_LevelDB::addNewBlockData(
 
    // We actually accessed the pointer directly in this method, without 
    // advancing the BRR position.  But the outer function expects to see
-   // the current location we would've been at if it was advanced.
+   // the new location we would've been at if the BRR was used directly.
    brrRawBlock.advance(blockSize);
    return vb;
 }
@@ -4246,11 +4242,24 @@ TxOut BlockDataManager_LevelDB::getPrevTxOut(TxIn & txin)
    OutPoint op = txin.getOutPoint();
    Tx theTx = getTxByHash(op.getTxHash());
    uint32_t idx = op.getTxOutIndex();
-   return theTx.getTxOut(idx);
+   return theTx.getTxOutCopy(idx);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-HashString BlockDataManager_LevelDB::getSenderAddr20(TxIn & txin)
+// We're going to need the BDM's help to get the sender for a TxIn since it
+// sometimes requires going and finding the TxOut from the distant past
+////////////////////////////////////////////////////////////////////////////////
+Tx BlockDataManager_LevelDB::getPrevTx(TxIn & txin)
+{
+   if(txin.isCoinbase())
+      return Tx();
+
+   OutPoint op = txin.getOutPoint();
+   return getTxByHash(op.getTxHash());
+}
+
+////////////////////////////////////////////////////////////////////////////////
+HashString BlockDataManager_LevelDB::getSenderScrAddr(TxIn & txin)
 {
    if(txin.isCoinbase())
       return HashString(0);
@@ -4363,8 +4372,8 @@ bool BlockDataManager_LevelDB::addNewZeroConfTx(BinaryData const & rawTx,
    HashString txHash = BtcUtils::getHash256(rawTx);
     
    // If this is already in the zero-conf map or in the blockchain, ignore it
-   //if(zeroConfMap_.find(txHash) != zeroConfMap_.end() || 
-   if(KEY_IN_MAP(txHash, zeroConfMap_) || !getTxRefByHash(txHash).isNull())
+   //if(KEY_IN_MAP(txHash, zeroConfMap_) || !getTxRefByHash(txHash).isNull())
+   if(hasTxWithHash(txHash))
       return false;
    
    
@@ -4512,7 +4521,7 @@ void BlockDataManager_LevelDB::pprintZeroConfPool(void)
       Tx & tx = zcd.txobj_;
       cout << tx.getThisHash().getSliceCopy(0,8).toHexStr().c_str() << " ";
       for(uint32_t i=0; i<tx.getNumTxOut(); i++)
-         cout << tx.getTxOut(i).getValue() << " ";
+         cout << tx.getTxOutCopy(i).getValue() << " ";
       cout << endl;
    }
 }
@@ -4623,7 +4632,7 @@ bool BlockDataManager_LevelDB::isTxFinal(Tx & tx)
 
    bool allSeqMax = true;
    for(uint32_t i=0; i<tx.getNumTxIn(); i++)
-      if(tx.getTxIn(i).getSequence() < UINT32_MAX)
+      if(tx.getTxInCopy(i).getSequence() < UINT32_MAX)
          allSeqMax = false;
 
    if(allSeqMax)
@@ -4684,7 +4693,7 @@ bool BlockDataManager_LevelDB::applyTxToBatchWriteData(
    StoredScriptHistory sshTemp;
    for(uint32_t iin=0; iin<tx.getNumTxIn(); iin++)
    {
-      TxIn txin = tx.getTxIn(iin);
+      TxIn txin = tx.getTxInCopy(iin);
       if(txin.isCoinbase())
          continue;
 
@@ -5039,7 +5048,7 @@ bool BlockDataManager_LevelDB::createUndoDataFromBlock(uint32_t hgt,
       Tx regTx = stx.getTxCopy();
       for(uint32_t iin=0; iin<regTx.getNumTxIn(); iin++)
       {
-         TxIn txin = regTx.getTxIn(iin);
+         TxIn txin = regTx.getTxInCopy(iin);
          BinaryData prevHash  = txin.getOutPoint().getTxHash();
          uint16_t   prevIndex = txin.getOutPoint().getTxOutIndex();
 
