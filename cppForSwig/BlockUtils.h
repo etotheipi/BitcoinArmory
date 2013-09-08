@@ -401,8 +401,8 @@ public:
 
    
    uint32_t     getNumScrAddr(void) const {return scrAddrMap_.size();}
-   ScrAddrObj & getScrAddrByIndex(uint32_t i) { return *(scrAddrPtrs_[i]); }
-   ScrAddrObj & getScrAddrByKey(BinaryData const & a) { return scrAddrMap_[a];}
+   ScrAddrObj & getScrAddrObjByIndex(uint32_t i) { return *(scrAddrPtrs_[i]); }
+   ScrAddrObj & getScrAddrObjByKey(BinaryData const & a) { return scrAddrMap_[a];}
 
    void     sortLedger(void);
    uint32_t removeInvalidEntries(void);

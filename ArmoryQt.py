@@ -2256,7 +2256,7 @@ class ArmoryMainWindow(QMainWindow):
 
 
    #############################################################################
-   def createSweepAddrTx(self, addrToSweepList, sweepTo160, forceZeroFee=False):
+   def createSweepAddrTx(self, a160ToSweepList, sweepTo160, forceZeroFee=False):
       """
       This method takes a list of addresses (likely just created from private
       key data), finds all their unspent TxOuts, and creates a signed tx that
@@ -2266,12 +2266,12 @@ class ArmoryMainWindow(QMainWindow):
       and deducted from the output value, if necessary.
       """
       LOGINFO('createSweepAddrTx')
-      if not isinstance(addrToSweepList, (list, tuple)):
-         addrToSweepList = [addrToSweepList]
-      addr160List = [a.getAddr160() for a in addrToSweepList]
-      getAddr = lambda addr160: addrToSweepList[addr160List.index(addr160)]
+      if not isinstance(a160ToSweepList, (list, tuple)):
+         a160ToSweepList = [a160ToSweepList]
+      addr160List = [a.getAddr160() for a in a160ToSweepList]
+      getAddr = lambda addr160: a160ToSweepList[addr160List.index(addr160)]
 
-      utxoList = getUnspentTxOutsForAddrList(addr160List, 'Sweep', 0)
+      utxoList = getUnspentTxOutsForAddr160List(addr160List, 'Sweep', 0)
       if len(utxoList)==0:
          return [None, 0, 0]
       
@@ -2282,7 +2282,7 @@ class ArmoryMainWindow(QMainWindow):
          # The PyCreateAndSignTx method require PyTx and PyBtcAddress objects
          CppPrevTx = TheBDM.getTxByHash(utxo.getTxHash()) 
          PyPrevTx = PyTx().unserialize(CppPrevTx.serialize())
-         addr160 = utxo.getRecipientAddr()
+         addr160 = CheckHash160(utxo.getRecipientScrAddr())
          inputSide.append([getAddr(addr160), PyPrevTx, utxo.getTxOutIndex()])
 
       minFee = calcMinSuggestedFees(utxoList, outValue, 0)[1]
@@ -2365,7 +2365,7 @@ class ArmoryMainWindow(QMainWindow):
 
       if confirmed==QMessageBox.Yes:
          for addr in pybtcaddrList:
-            TheBDM.registerImportedAddress(addr.getAddr160())
+            TheBDM.registerImportedAddress(Hash160ToScrAddr(addr.getAddr160()))
          self.sweepAfterScanList = pybtcaddrList
          self.sweepAfterScanTarg = targAddr160
          TheBDM.rescanBlockchain(wait=False)

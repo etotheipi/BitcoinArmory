@@ -6483,6 +6483,47 @@ TEST_F(BlockUtilsWithWalletTest, PostRegisterScrAddr)
    EXPECT_EQ(balanceDB,   100*COIN);
 }
 
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(BlockUtilsWithWalletTest, ZeroConfUpdate)
+{
+   // Copy only the first four blocks
+   BtcUtils::copyFile("../reorgTest/blk_0_to_4.dat", blk0dat_, 1596);
+   TheBDM.initializeAndBuildDatabases(); 
+
+   // We do all the database stuff first, THEN load the addresses
+   BtcWallet wlt;
+   wlt.addScrAddress(scrAddrA_);
+   wlt.addScrAddress(scrAddrB_);
+   wlt.addScrAddress(scrAddrC_);
+   TheBDM.registerWallet(&wlt);
+   TheBDM.registerNewScrAddr(scrAddrD_);
+   TheBDM.fetchAllRegisteredScrAddrData();
+   TheBDM.scanRegisteredTxForWallet(wlt);
+
+   uint64_t balanceWlt;
+   uint64_t balanceDB;
+   
+   balanceWlt = wlt.getScrAddrByKey(scrAddrA_).getFullBalance();
+   balanceDB  = iface_->getBalanceForScrAddr(scrAddrA_);
+   EXPECT_EQ(balanceWlt,  100*COIN);
+   EXPECT_EQ(balanceDB,   100*COIN);
+   
+   balanceWlt = wlt.getScrAddrByKey(scrAddrB_).getFullBalance();
+   balanceDB  = iface_->getBalanceForScrAddr(scrAddrB_);
+   EXPECT_EQ(balanceWlt,    0*COIN);
+   EXPECT_EQ(balanceDB,     0*COIN);
+
+   balanceWlt = wlt.getScrAddrByKey(scrAddrC_).getFullBalance();
+   balanceDB  = iface_->getBalanceForScrAddr(scrAddrC_);
+   EXPECT_EQ(balanceWlt,   50*COIN);
+   EXPECT_EQ(balanceDB,    50*COIN);
+
+   balanceWlt = wlt.getScrAddrByKey(scrAddrD_).getFullBalance();
+   balanceDB  = iface_->getBalanceForScrAddr(scrAddrD_);
+   EXPECT_EQ(balanceWlt,    0*COIN);  // D is not part of the wallet
+   EXPECT_EQ(balanceDB,   100*COIN);
+}
+
 // This was really just to time the logging to determine how much impact it 
 // has.  It looks like writing to file is about 1,000,000 logs/sec, while 
 // writing to the null stream (below the threshold log level) is about 

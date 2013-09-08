@@ -2678,7 +2678,7 @@ class DlgImportAddress(ArmoryDialog):
    
          cppWlt = Cpp.BtcWallet()
          for addr160,addrStr,SecurePriv in privKeyList:
-            cppWlt.addAddress_1_(addr160)
+            cppWlt.addScrAddr_1_(Hash160ToScrAddr(addr160))
 
          
          # If we got here, let's go ahead and sweep!
@@ -5717,7 +5717,7 @@ class DlgSendBitcoins(ArmoryDialog):
             self.main.setWltSetting(self.wltID, 'ChangeBehavior', self.selectedBehavior)
          else:
             if self.radioFeedback.isChecked():
-               changeAddr160 = utxoList[0].getRecipientAddr()
+               changeAddr160 = CheckHash160(utxoList[0].getRecipientScrAddr())
                self.selectedBehavior = 'Feedback'
             elif self.radioSpecify.isChecked():
                addrStr = str(self.edtChangeAddr.text()).strip()
@@ -8056,9 +8056,11 @@ class DlgDispTxInfo(ArmoryDialog):
          opprint = []
          for op in oplist:
             if len(op)==40 and not '[' in op:
-               opprint.append(op + ' <font color="gray">(%s)</font>' % hash160_to_addrStr(hex_to_binary(op)))
+               opprint.append(op + ' <font color="gray">(%s)</font>' % \
+                                       hash160_to_addrStr(hex_to_binary(op)))
             elif len(op)==130 and not '[' in op:
-               opprint.append(op + ' <font color="gray">(%s)</font>' % hash160_to_addrStr(hash160(hex_to_binary(op))))
+               opprint.append(op + ' <font color="gray">(%s)</font>' % \
+                               hash160_to_addrStr(hash160(hex_to_binary(op))))
             else:
                opprint.append(op)
          lblScript = QRichLabel('')
@@ -9781,7 +9783,8 @@ class DlgAddressBook(ArmoryDialog):
          wlt = self.main.walletMap[self.selectedWltID]
          self.btnSelectWlt.setText('%s Wallet: %s' % (self.actStr, self.selectedWltID))
          nextAddr160 = wlt.peekNextUnusedAddr160()
-         self.lblSelectWlt.setText('Will create new address: %s...' % hash160_to_addrStr(nextAddr160)[:10])
+         self.lblSelectWlt.setText('Will create new address: %s...' % \
+                                    hash160_to_addrStr(nextAddr160)[:10])
 
          # If switched wallet selection, de-select address so it doesn't look
          # like the currently-selected address is for this different wallet

@@ -527,7 +527,7 @@ void BtcWallet::pprintAlot(uint32_t topBlk, bool withAddr)
    {
       for(uint32_t i=0; i<getNumScrAddr(); i++)
       {
-         ScrAddrObj & addr = getScrAddrByIndex(i);
+         ScrAddrObj & addr = getScrAddrObjByIndex(i);
          HashString scraddr = addr.getScrAddr();
          cout << "\nAddress: " << scraddr.toHexStr().c_str() << endl;
          cout << "   Tot: " << addr.getFullBalance() << endl;
@@ -2173,7 +2173,7 @@ bool BlockDataManager_LevelDB::registerWallet(BtcWallet* wltPtr, bool wltIsNew)
    for(uint32_t i=0; i<wltPtr->getNumScrAddr(); i++)
    {
       // If this is a new wallet, the value of getFirstBlockNum is irrelevant
-      ScrAddrObj & addr = wltPtr->getScrAddrByIndex(i);
+      ScrAddrObj & addr = wltPtr->getScrAddrObjByIndex(i);
 
       if(wltIsNew)
          registerNewScrAddr(addr.getScrAddr());
@@ -2355,7 +2355,7 @@ uint32_t BlockDataManager_LevelDB::numBlocksToRescan( BtcWallet & wlt,
    uint32_t maxAddrBehind = 0;
    for(uint32_t i=0; i<wlt.getNumScrAddr(); i++)
    {
-      ScrAddrObj & addr = wlt.getScrAddrByIndex(i);
+      ScrAddrObj & addr = wlt.getScrAddrObjByIndex(i);
 
       // If any address is not registered, will have to do a full scan
       //if(registeredScrAddrMap_.find(addr.getScrAddr()) == registeredScrAddrMap_.end())
@@ -3094,7 +3094,7 @@ void BlockDataManager_LevelDB::fetchAllRegisteredScrAddrData(
    for(uint32_t s=0; s<myWallet.getNumScrAddr(); s++)
    {
 
-      ScrAddrObj & scrAddr = myWallet.getScrAddrByIndex(s);
+      ScrAddrObj & scrAddr = myWallet.getScrAddrObjByIndex(s);
       vector<TxIOPair> hist = getHistoryForScrAddr(scrAddr.getScrAddr());
       for(uint32_t i=0; i<hist.size(); i++)
       {
@@ -3625,7 +3625,7 @@ void BlockDataManager_LevelDB::updateWalletAfterReorg(BtcWallet & wlt)
    // Now fix the individual address ledgers
    for(uint32_t a=0; a<wlt.getNumScrAddr(); a++)
    {
-      ScrAddrObj & addr = wlt.getScrAddrByIndex(a);
+      ScrAddrObj & addr = wlt.getScrAddrObjByIndex(a);
 	   vector<LedgerEntry> & addrLedg = addr.getTxLedger();
       for(uint32_t i=0; i<addrLedg.size(); i++)
       {

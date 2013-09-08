@@ -3138,7 +3138,7 @@ class PyBtcAddress(object):
 
          cppWlt = Cpp.BtcWallet()
          cppWlt.addAddress_1_(self.getAddr160())
-         TheBDM.registerScrAddr(HASH160PREFIX + self.getAddr160())
+         TheBDM.registerScrAddr(Hash160ToScrAddr(self.getAddr160()))
          TheBDM.rescanBlockchain(wait=False)
 
          <... do some other stuff ...>
@@ -3158,7 +3158,7 @@ class PyBtcAddress(object):
          # We are expecting this method to return balance
          # and UTXO data, so we must make sure we're blocking.
          cppWlt = Cpp.BtcWallet()
-         cppWlt.addScrAddr_1_(HASH160PREFIX +self.getAddr160())
+         cppWlt.addScrAddr_1_(Hash160ToScrAddr(self.getAddr160()))
          TheBDM.registerWallet(cppWlt, wait=True)
          TheBDM.scanRegisteredTxForWallet(cppWlt, wait=True)
 
@@ -5216,7 +5216,8 @@ class PyScriptProcessor(object):
 
 
 ################################################################################
-def getUnspentTxOutsForAddrList(addr160List, utxoType='Sweep', startBlk=-1, \
+#def getUnspentTxOutsForAddrList(addr160List, utxoType='Sweep', startBlk=-1, \
+def getUnspentTxOutsForAddr160List(addr160List, utxoType='Sweep', startBlk=-1, \
                                  abortIfBDMBusy=False):
    """
 
@@ -5243,7 +5244,7 @@ def getUnspentTxOutsForAddrList(addr160List, utxoType='Sweep', startBlk=-1, \
 
          cppWlt = Cpp.BtcWallet()
          cppWlt.addScrAddr_1_(self.getAddr160())
-         TheBDM.registerScrAddr(HASH160PREFIX + self.getAddr160())
+         TheBDM.registerScrAddr(Hash160ToScrAddr(self.getAddr160()))
          TheBDM.rescanBlockchain(wait=False)
 
          <... do some other stuff ...>
@@ -5263,9 +5264,9 @@ def getUnspentTxOutsForAddrList(addr160List, utxoType='Sweep', startBlk=-1, \
       cppWlt = Cpp.BtcWallet()
       for addr in addr160List:
          if isinstance(addr, PyBtcAddress):
-            cppWlt.addAddress_1_(HASH160PREFIX + addr.getAddr160())
+            cppWlt.addAddress_1_(Hash160ToScrAddr(addr.getAddr160()))
          else:
-            cppWlt.addAddress_1_(HASH160PREFIX + addr)
+            cppWlt.addAddress_1_(Hash160ToScrAddr(addr))
    
       TheBDM.registerWallet(cppWlt)
       currBlk = TheBDM.getTopBlockHeight()
@@ -5464,18 +5465,25 @@ def PyCreateAndSignTx(srcTxOuts, dstAddrsVals):
 ################################################################################
 # These would normally be defined by C++ and fed in, but I've recreated
 # the C++ class here... it's really just a container, anyway
+#
+# TODO:  LevelDB upgrade: had to upgrade this class to use arbitrary 
+#        ScrAddress "notation", even though everything else on the python
+#        side expects pure hash160 values.  For now, it looks like it can
+#        handle arbitrary scripts, but the CheckHash160() calls will 
+#        (correctly) throw errors if you don't.  We can upgrade this in
+#        the future.
 class PyUnspentTxOut(object):
-   def __init__(self, addr='', val=-1, numConf=-1):
+   def __init__(self, scrAddr='', val=-1, numConf=-1):
       pass
-      #self.addr = addr
+      #self.scrAddr = scrAddr
       #self.val  = long(val*ONE_BTC)
       #self.conf = numConf
-      #self.binScript = '\x76\xa9\x14' + self.addr + '\x88\xac'
    def createFromCppUtxo(self, cppUtxo):
-      self.addr = cppUtxo.getRecipientAddr()
+      self.scrAddr = cppUtxo.getRecipientScrAddr()
       self.val  = cppUtxo.getValue()
       self.conf = cppUtxo.getNumConfirm()
-      self.binScript = '\x76\xa9\x14' + self.addr + '\x88\xac'
+      # For now, this will throw errors unless we always use hash160 scraddrs
+      self.binScript = '\x76\xa9\x14' + CheckHash160(self.scrAddr) + '\x88\xac'
       self.txHash     = cppUtxo.getTxHash()
       self.txOutIndex = cppUtxo.getTxOutIndex()
       return self
@@ -5489,11 +5497,13 @@ class PyUnspentTxOut(object):
       return self.conf
    def getScript(self):
       return self.binScript
-   def getRecipientAddr(self):
-      return self.addr
+   def getRecipientScrAddr(self):
+      return self.scrAddr
+   def getRecipientHash160(self):
+      return CheckHash160(self.scrAddr)
    def prettyStr(self, indent=''):
       pstr = [indent]
-      pstr.append(binary_to_hex(self.addr[:8]))
+      pstr.append(binary_to_hex(self.scrAddr[:8]))
       pstr.append(coin2str(self.val))
       pstr.append(str(self.conf).rjust(8,' '))
       return '  '.join(pstr)
@@ -5515,7 +5525,7 @@ def pprintUnspentTxOutList(utxoList, headerLine='Coin Selection: '):
    print '   ','NumConf'.rjust(8),
    print '   ','PriorityFactor'.rjust(16)
    for utxo in utxoList:
-      print '   ',hash160_to_addrStr(utxo.getRecipientAddr()).ljust(34),
+      print '   ',hash160_to_addrStr(utxo.getRecipientHash160()).ljust(34),
       print '   ',(coin2str(utxo.getValue()) + ' BTC').rjust(18),
       print '   ',str(utxo.getNumConfirm()).rjust(8),
       print '   ', ('%0.2f' % (utxo.getValue()*utxo.getNumConfirm()/(ONE_BTC*144.))).rjust(16)
@@ -7071,7 +7081,7 @@ class PyBtcWallet(object):
                                                                not self.hasAddr(addr160):
          return -1
       else:
-         addr = self.cppWallet.getScrAddrByKey(HASH160PREFIX + addr160)
+         addr = self.cppWallet.getScrAddrObjByKey(Hash160ToScrAddr(addr160))
          if balType.lower() in ('spendable','spend'):
             return addr.getSpendableBalance(currBlk)
          elif balType.lower() in ('unconfirmed','unconf'):
@@ -7115,8 +7125,9 @@ class PyBtcWallet(object):
                                                             not self.hasAddr(addr160):
          return []
       else:
-         ledgBlkChain = self.cppWallet.getScrAddrByKey(HASH160PREFIX + addr160).getTxLedger()
-         ledgZeroConf = self.cppWallet.getScrAddrByKey(HASH160PREFIX + addr160).getZeroConfLedger()
+         scrAddr = Hash160ToScrAddr(addr160)
+         ledgBlkChain = self.cppWallet.getScrAddrObjByKey(scrAddr).getTxLedger()
+         ledgZeroConf = self.cppWallet.getScrAddrObjByKey(scrAddr).getZeroConfLedger()
          if ledgType.lower() in ('full','all','ultimate'):
             ledg = []
             ledg.extend(ledgBlkChain)
@@ -7157,10 +7168,12 @@ class PyBtcWallet(object):
 
          currBlk = TheBDM.getTopBlockHeight(calledFromBDM=self.calledFromBDM)
          self.syncWithBlockchain()
+         scrAddrStr = Hash160ToScrAddr(addr160)
+         cppAddr = self.cppWallet.getScrAddrObjByKey(scrAddrStr)
          if txType.lower() in ('spend', 'spendable'):
-            return self.cppWallet.getScrAddrByKey(HASH160PREFIX + addr160).getSpendableTxOutList(currBlk);
+            return cppAddr.getSpendableTxOutList(currBlk);
          elif txType.lower() in ('full', 'all', 'unspent', 'ultimate'):
-            return self.cppWallet.getScrAddrByKey(HASH160PREFIX + addr160).getFullTxOutList(currBlk);
+            return cppAddr.getFullTxOutList(currBlk);
          else:
             raise TypeError, 'Unknown TxOutList type! ' + txType
       else:
@@ -7463,11 +7476,11 @@ class PyBtcWallet(object):
       # BDM private methods directly
       if doRegister:
          if self.calledFromBDM:
-            TheBDM.registerScrAddr_bdm_direct(HASH160PREFIX + new160, timeInfo=isActuallyNew)
+            TheBDM.registerScrAddr_bdm_direct(Hash160ToScrAddr(new160), timeInfo=isActuallyNew)
          else:
             # This uses the thread queue, which means the address will be
             # registered next time the BDM is not busy
-            TheBDM.registerScrAddr(HASH160PREFIX + new160, isFresh=isActuallyNew)
+            TheBDM.registerScrAddr(Hash160ToScrAddr(new160), isFresh=isActuallyNew)
 
       return new160
       
@@ -8883,12 +8896,12 @@ class PyBtcWallet(object):
          if not self.isLocked:
             self.addrMap[newAddr160].unlock(self.kdfKey)
 
-      self.cppWallet.addAddress_5_(HASH160PREFIX + newAddr160, \
+      self.cppWallet.addAddress_5_(Hash160ToScrAddr(newAddr160), \
                                    firstTime, firstBlk, lastTime, lastBlk)
 
       # The following line MAY deadlock if this method is called from the BDM
       # thread.  Do not write any BDM methods that calls this method!
-      TheBDM.registerImportedScrAddr(HASH160PREFIX + newAddr160, 
+      TheBDM.registerImportedScrAddr(Hash160ToScrAddr(newAddr160), 
                                      firstTime, firstBlk, lastTime,  lastBlk)
 
 
@@ -12071,13 +12084,13 @@ class BlockDataManagerThread(threading.Thread):
 
    #############################################################################
    def setLevelDBDir(self, ldbdir):
-      if not os.path.exists(ldbdir):
-         LOGERROR('setSatoshiDir: directory does not exist: %s', ldbdir)
-         return
 
       if not self.blkMode in (BLOCKCHAINMODE.Offline, BLOCKCHAINMODE.Uninitialized):
          LOGERROR('Cannot set blockchain/satoshi path after BDM is started')
          return
+
+      if not os.path.exists(ldbdir):
+         os.makedirs(ldbdir)
 
       self.ldbdir = ldbdir
 
@@ -12423,7 +12436,7 @@ class BlockDataManagerThread(threading.Thread):
          expectOutput = True
 
       if isinstance(wlt, PyBtcWallet):
-         scrAddrs = [HASH160PREFIX + a.getAddr160() for a in wlt.getAddrList()]
+         scrAddrs = [Hash160ToScrAddr(a.getAddr160()) for a in wlt.getAddrList()]
 
          if isFresh:
             for scrad in scrAddrs:
@@ -12439,7 +12452,7 @@ class BlockDataManagerThread(threading.Thread):
          naddr = wlt.getNumAddr()
 
          for a in range(naddr):
-            self.registerScrAddr(wlt.getScrAddrByIndex(a).getScrAddr(), isFresh, wait=wait)
+            self.registerScrAddr(wlt.getScrAddrObjByIndex(a).getScrAddr(), isFresh, wait=wait)
 
          if not wlt in self.cppWltList:
             self.cppWltList.append(wlt)
