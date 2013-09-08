@@ -180,7 +180,7 @@ public:
    LogStream& operator<<(float f)            { if(!noStdout_) cout << f;    if(fout_.is_open()) fout_ << f; return *this; }
    LogStream& operator<<(double d)           { if(!noStdout_) cout << d;    if(fout_.is_open()) fout_ << d; return *this; }
 
-   void flushStreams(void) {cout.flush(); fout_.flush();}
+   void FlushStreams(void) {cout.flush(); fout_.flush();}
 
    void newline(void) { *this << "\n"; }
    void close(void) { fout_.close(); }
@@ -203,7 +203,7 @@ public:
    LogStream& operator<<(float f)            { return *this; }
    LogStream& operator<<(double d)           { return *this; }
 
-   void flushStreams(void) {}
+   void FlushStreams(void) {}
 };
 
 
@@ -253,7 +253,7 @@ public:
    static void SetLogFile(string logfile) { GetInstance(logfile.c_str()); }
    static void CloseLogFile(void)
    { 
-      GetInstance().ds_.flushStreams();
+      GetInstance().ds_.FlushStreams();
       GetInstance().ds_ << "Closing logfile.\n";
       GetInstance().ds_.close();
       // This doesn't actually seem to stop the StdOut logging... not sure why yet
@@ -272,7 +272,7 @@ public:
 
     static bool isOpen(void) {return GetInstance().ds_.fout_.is_open();}
     static string filename(void) {return GetInstance().ds_.fname_;}
-    static void FlushStreams(void) {GetInstance().ds_.flushStreams();}
+    static void FlushStreams(void) {GetInstance().ds_.FlushStreams();}
 
 protected:
     DualStream ds_;
@@ -304,7 +304,11 @@ public:
       return lg;
    }
 
-   ~LoggerObj(void) { Log::GetInstance().Get(logLevel_) << "\n"; }
+   ~LoggerObj(void) 
+   { 
+      Log::GetInstance().Get(logLevel_) << "\n";
+      Log::GetInstance().FlushStreams();
+   }
 
 private:
    LogLevel logLevel_;

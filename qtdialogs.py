@@ -2678,7 +2678,7 @@ class DlgImportAddress(ArmoryDialog):
    
          cppWlt = Cpp.BtcWallet()
          for addr160,addrStr,SecurePriv in privKeyList:
-            cppWlt.addScrAddr_1_(Hash160ToScrAddr(addr160))
+            cppWlt.addScrAddress_1_(Hash160ToScrAddr(addr160))
 
          
          # If we got here, let's go ahead and sweep!
@@ -3418,7 +3418,7 @@ class DlgAddressInfo(ArmoryDialog):
       
 
       dlgLayout = QGridLayout()
-      cppAddr = self.wlt.cppWallet.getAddrByHash160(addr160)
+      cppAddr = self.wlt.cppWallet.getScrAddrObjByKey(Hash160ToScrAddr(addr160))
       addrStr = self.addr.getAddrStr()
 
 

@@ -449,7 +449,7 @@ class WalletAddrDispModel(QAbstractTableModel):
             else:
                return QVariant('')
          if col==COL.NumTx: 
-            cppAddr = self.wlt.cppWallet.getAddrByHash160(addr160)
+            cppAddr = self.wlt.cppWallet.getScrAddrObjByKey(Hash160ToScrAddr(addr160))
             return QVariant( len(cppAddr.getTxLedger()) + \
                              len(cppAddr.getZeroConfLedger()))
          if col==COL.ChainIdx:
@@ -460,7 +460,7 @@ class WalletAddrDispModel(QAbstractTableModel):
          if col==COL.Balance: 
             if not TheBDM.getBDMState()=='BlockchainReady':
                return QVariant('(...)')
-            cppAddr = self.wlt.cppWallet.getAddrByHash160(addr160)
+            cppAddr = self.wlt.cppWallet.getScrAddrObjByKey(Hash160ToScrAddr(addr160))
             return QVariant( coin2str(cppAddr.getFullBalance(), maxZeros=2) )
       elif role==Qt.TextAlignmentRole:
          if col in (COL.Address, COL.Comment, COL.ChainIdx):
@@ -476,12 +476,12 @@ class WalletAddrDispModel(QAbstractTableModel):
          if col==COL.Balance:
             if not TheBDM.getBDMState()=='BlockchainReady':
                return QVariant(Colors.Foreground)
-            cppAddr = self.wlt.cppWallet.getAddrByHash160(addr160)
+            cppAddr = self.wlt.cppWallet.getScrAddrObjByKey(Hash160ToScrAddr(addr160))
             val = cppAddr.getFullBalance()
             if   val>0: return QVariant(Colors.TextGreen)
             else:       return QVariant(Colors.Foreground)
       elif role==Qt.FontRole:
-         hasTx = len(self.wlt.cppWallet.getAddrByHash160(addr160).getTxLedger())>0
+         hasTx = len(self.wlt.cppWallet.getScrAddrObjByKey(Hash160ToScrAddr(addr160)).getTxLedger())>0
          cmt = str(self.index(index.row(),COL.Comment).data().toString())
          isChange = (cmt==CHANGE_ADDR_DESCR_STRING)
 
@@ -513,7 +513,7 @@ class WalletAddrDispModel(QAbstractTableModel):
          if not TheBDM.getBDMState()=='BlockchainReady':
             return QVariant( Colors.TblWltOther )
 
-         cppAddr = self.wlt.cppWallet.getAddrByHash160(addr160)
+         cppAddr = self.wlt.cppWallet.getScrAddrObjByKey(Hash160ToScrAddr(addr160))
          val = cppAddr.getFullBalance()
          if val>0:
             return QVariant( Colors.SlightGreen )

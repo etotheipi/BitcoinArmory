@@ -759,9 +759,9 @@ public:
 
    // Check for availability of data with a given hash
    TX_AVAILABILITY getTxHashAvail(BinaryDataRef txhash);
-   bool hasTxWithHash(BinaryDataRef txhash);
-   bool hasTxWithHashInDB(BinaryDataRef txhash);
-   bool hasHeaderWithHash(BinaryDataRef headHash) const;
+   bool hasTxWithHash(BinaryData const & txhash);
+   bool hasTxWithHashInDB(BinaryData const & txhash);
+   bool hasHeaderWithHash(BinaryData const & headHash) const;
 
    uint32_t getNumBlocks(void) const { return headerMap_.size(); }
    //uint32_t getNumTx(void) const { return txHintMap_.size(); }

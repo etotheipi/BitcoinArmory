@@ -15,8 +15,8 @@
 
 
 # Version Numbers 
-BTCARMORY_VERSION    = (0, 88, 2, 0)  # (Major, Minor, Bugfix, AutoIncrement) 
-PYBTCWALLET_VERSION  = (1, 35, 0, 0)  # (Major, Minor, Bugfix, AutoIncrement)
+BTCARMORY_VERSION    = (0, 89, 95, 0)  # (Major, Minor, Bugfix, AutoIncrement) 
+PYBTCWALLET_VERSION  = (1, 35,  0, 0)  # (Major, Minor, Bugfix, AutoIncrement)
 
 ARMORY_DONATION_ADDR = '1ArmoryXcfq7TnCSuZa9fQjRYwJ4bkRKfv'
 ARMORY_DONATION_PUBKEY = ( '04' 
@@ -3137,7 +3137,7 @@ class PyBtcAddress(object):
       entirely:
 
          cppWlt = Cpp.BtcWallet()
-         cppWlt.addAddress_1_(self.getAddr160())
+         cppWlt.addScrAddress_1_(Hash160ToScrAddr(self.getAddr160()))
          TheBDM.registerScrAddr(Hash160ToScrAddr(self.getAddr160()))
          TheBDM.rescanBlockchain(wait=False)
 
@@ -3158,7 +3158,7 @@ class PyBtcAddress(object):
          # We are expecting this method to return balance
          # and UTXO data, so we must make sure we're blocking.
          cppWlt = Cpp.BtcWallet()
-         cppWlt.addScrAddr_1_(Hash160ToScrAddr(self.getAddr160()))
+         cppWlt.addScrAddress_1_(Hash160ToScrAddr(self.getAddr160()))
          TheBDM.registerWallet(cppWlt, wait=True)
          TheBDM.scanRegisteredTxForWallet(cppWlt, wait=True)
 
@@ -5243,7 +5243,7 @@ def getUnspentTxOutsForAddr160List(addr160List, utxoType='Sweep', startBlk=-1, \
       entirely:
 
          cppWlt = Cpp.BtcWallet()
-         cppWlt.addScrAddr_1_(self.getAddr160())
+         cppWlt.addScrAddress_1_(Hash160ToScrAddr(self.getAddr160()))
          TheBDM.registerScrAddr(Hash160ToScrAddr(self.getAddr160()))
          TheBDM.rescanBlockchain(wait=False)
 
@@ -5264,9 +5264,9 @@ def getUnspentTxOutsForAddr160List(addr160List, utxoType='Sweep', startBlk=-1, \
       cppWlt = Cpp.BtcWallet()
       for addr in addr160List:
          if isinstance(addr, PyBtcAddress):
-            cppWlt.addAddress_1_(Hash160ToScrAddr(addr.getAddr160()))
+            cppWlt.addScrAddress_1_(Hash160ToScrAddr(addr.getAddr160()))
          else:
-            cppWlt.addAddress_1_(Hash160ToScrAddr(addr))
+            cppWlt.addScrAddress_1_(Hash160ToScrAddr(addr))
    
       TheBDM.registerWallet(cppWlt)
       currBlk = TheBDM.getTopBlockHeight()
@@ -6970,7 +6970,7 @@ class PyBtcWallet(object):
             TheBDM.scanBlockchainForTx_bdm_direct(self.cppWallet, startBlk)
             self.lastSyncBlockNum = TheBDM.getTopBlockHeight_bdm_direct()
          else:
-            TheBDM.scanRegisteredTxForWallet(self.cppWallet, startBlk, wait=True)
+            TheBDM.scanBlockchainForTx(self.cppWallet, startBlk, wait=True)
             self.lastSyncBlockNum = TheBDM.getTopBlockHeight(wait=True)
       else:
          LOGERROR('Blockchain-sync requested, but current wallet')
@@ -7372,8 +7372,10 @@ class PyBtcWallet(object):
 
       # Don't forget to sync the C++ wallet object
       self.cppWallet = Cpp.BtcWallet()
-      self.cppWallet.addAddress_5_(rootAddr.getAddr160(), time0,blk0,time0,blk0)
-      self.cppWallet.addAddress_5_(first160,              time0,blk0,time0,blk0)
+      self.cppWallet.addScrAddress_5_(Hash160ToScrAddr(rootAddr.getAddr160()), \
+                                                      time0,blk0,time0,blk0)
+      self.cppWallet.addScrAddress_5_(Hash160ToScrAddr(first160), \
+                                                      time0,blk0,time0,blk0)
 
       # We might be holding the wallet temporarily and not ready to register it
       if doRegisterWithBDM:
@@ -7468,7 +7470,8 @@ class PyBtcWallet(object):
 
       # In the future we will enable first/last seen, but not yet
       time0,blk0 = getCurrTimeAndBlock() if isActuallyNew else (0,0)
-      self.cppWallet.addAddress_5_(new160, time0,blk0,time0,blk0)
+      self.cppWallet.addScrAddress_5_(Hash160ToScrAddr(new160), \
+                                   time0,blk0,time0,blk0)
 
       # For recovery rescans, this method will be called directly by
       # the BDM, which may cause a deadlock if we go through the 
@@ -8462,7 +8465,8 @@ class PyBtcWallet(object):
             # Update the parallel C++ object that scans the blockchain for us
             timeRng = newAddr.getTimeRange()
             blkRng  = newAddr.getBlockRange()
-            self.cppWallet.addAddress_5_(hashVal, timeRng[0], blkRng[0], \
+            self.cppWallet.addScrAddress_5_(Hash160ToScrAddr(hashVal), \
+                                                  timeRng[0], blkRng[0], \
                                                   timeRng[1], blkRng[1])
          if dtype in (WLT_DATATYPE_ADDRCOMMENT, WLT_DATATYPE_TXCOMMENT):
             self.commentsMap[hashVal] = rawData # actually ASCII data, here
@@ -8896,7 +8900,7 @@ class PyBtcWallet(object):
          if not self.isLocked:
             self.addrMap[newAddr160].unlock(self.kdfKey)
 
-      self.cppWallet.addAddress_5_(Hash160ToScrAddr(newAddr160), \
+      self.cppWallet.addScrAddress_5_(Hash160ToScrAddr(newAddr160), \
                                    firstTime, firstBlk, lastTime, lastBlk)
 
       # The following line MAY deadlock if this method is called from the BDM
@@ -11812,7 +11816,7 @@ class BlockDataManagerThread(threading.Thread):
       PyBtcWallet class does this for you, but if you are using raw BtcWallets
       (the C++ equivalent), you need to do:
    
-            cppWallet.addAddress_1_(newAddr)
+            cppWallet.addScrAddress_1_(Hash160ToScrAddr(newAddr))
             TheBDM.registerScrAddr(newAddr, isFresh=?) 
 
       This will add the address to the TheBDM.masterCppWallet.  Then when you 
@@ -12449,7 +12453,7 @@ class BlockDataManagerThread(threading.Thread):
             self.pyWltList.append(wlt)
 
       elif isinstance(wlt, Cpp.BtcWallet):
-         naddr = wlt.getNumAddr()
+         naddr = wlt.getNumScrAddr()
 
          for a in range(naddr):
             self.registerScrAddr(wlt.getScrAddrObjByIndex(a).getScrAddr(), isFresh, wait=wait)
@@ -12536,17 +12540,17 @@ class BlockDataManagerThread(threading.Thread):
          isFresh = timeInfo
          if isFresh:
             # We claimed to have just created this ScrAddr...(so no rescan needed)
-            self.masterCppWallet.addNewScrAddr(scrAddr)
+            self.masterCppWallet.addNewScrAddress_1_(scrAddr)
          else:
-            self.masterCppWallet.addScrAddr_1_(scrAddr)
+            self.masterCppWallet.addScrAddress_1_(scrAddr)
       else:
          if isinstance(timeInfo, (list,tuple)) and len(timeInfo)==4:
-            self.masterCppWallet.addScrAddr_5_(scrAddr, *timeInfo)
+            self.masterCppWallet.addScrAddress_5_(scrAddr, *timeInfo)
          else:
             LOGWARN('Unrecognized time information in register method.')
             LOGWARN('   Data: %s', str(timeInfo))
             LOGWARN('Assuming imported key requires full rescan...')
-            self.masterCppWallet.addScrAddr_1_(scrAddr)
+            self.masterCppWallet.addScrAddress_1_(scrAddr)
 
 
 
@@ -13049,6 +13053,11 @@ else:
    TheBDM = BlockDataManagerThread(isOffline=False, blocking=False)
    TheBDM.setDaemon(True)
    TheBDM.start()
+
+   if CLI_OPTIONS.doDebug or CLI_OPTIONS.netlog or CLI_OPTIONS.mtdebug:
+      cppLogFile = os.path.join(ARMORY_HOME_DIR, 'armorycpplog.txt')
+      TheBDM.StartCppLogging(cppLogFile, 3)
+      TheBDM.EnableCppLogStdOut()
 
    # Also load the might-be-needed SatoshiDaemonManager
    TheSDM = SatoshiDaemonManager()

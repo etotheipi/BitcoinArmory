@@ -356,7 +356,6 @@ void BtcWallet::addScrAddress_ScrAddrObj_(ScrAddrObj const & newScrAddr)
 /////////////////////////////////////////////////////////////////////////////
 void BtcWallet::addScrAddress_1_(HashString scrAddr)
 {  
-   PDEBUG("Adding address to BtcWallet");
    addScrAddress(scrAddr); 
 } 
 
@@ -1403,7 +1402,7 @@ void BlockDataManager_LevelDB::SetBtcNetworkParams(
                                     BinaryData const & GenTxHash,
                                     BinaryData const & MagicBytes)
 {
-   PDEBUG("SetBtcNetworkParams");
+   LOGINFO << "SetBtcNetworkParams";
    GenesisHash_.copyFrom(GenHash);
    GenesisTxHash_.copyFrom(GenTxHash);
    MagicBytes_.copyFrom(MagicBytes);
@@ -1524,11 +1523,11 @@ bool BlockDataManager_LevelDB::initializeDBInterface(ARMORY_DB_TYPE dbtype,
 
    uint32_t topBlk_H = getTopBlockHeightInDB(HEADERS);
    uint32_t topBlk_B = getTopBlockHeightInDB(BLKDATA);
-   uint32_t appBlk_B = getAppliedToHeightInDB();
+   alreadyApplied_   = getAppliedToHeightInDB();
 
    LOGINFO << "Top block in HEADERS DB:  " << topBlk_H;
    LOGINFO << "Top block in BLKDATA DB:  " << topBlk_B;
-   LOGINFO << "Applied blocks up to hgt: " << appBlk_B;
+   LOGINFO << "Applied blocks up to hgt: " << alreadyApplied_;
 
    if(topBlk_H == 0)
    {
@@ -1656,8 +1655,11 @@ uint32_t BlockDataManager_LevelDB::findFirstUnrecogBlockLoc(uint32_t fnum)
    {
       is.read((char*)magic.getPtr(), 4);
       if(is.eof()) break;
-      if(magic!=MagicBytes_)
-         return UINT32_MAX;
+
+   
+      // This is not an error, it just simply hit the padding
+      if(magic!=MagicBytes_)  
+         break;
 
       is.read((char*)szstr.getPtr(), 4);
       uint32_t blksize = READ_UINT32_LE(szstr.getPtr());
@@ -2049,13 +2051,13 @@ TX_AVAILABILITY BlockDataManager_LevelDB::getTxHashAvail(BinaryDataRef txHash)
 }
 
 /////////////////////////////////////////////////////////////////////////////
-bool BlockDataManager_LevelDB::hasTxWithHashInDB(BinaryDataRef txHash)
+bool BlockDataManager_LevelDB::hasTxWithHashInDB(BinaryData const & txHash)
 {
    return iface_->getTxRef(txHash).isInitialized();
 }
 
 /////////////////////////////////////////////////////////////////////////////
-bool BlockDataManager_LevelDB::hasTxWithHash(BinaryDataRef txHash)
+bool BlockDataManager_LevelDB::hasTxWithHash(BinaryData const & txHash)
 {
    if(iface_->getTxRef(txHash).isInitialized())
       return true;
@@ -2064,7 +2066,7 @@ bool BlockDataManager_LevelDB::hasTxWithHash(BinaryDataRef txHash)
 }
 
 /////////////////////////////////////////////////////////////////////////////
-bool BlockDataManager_LevelDB::hasHeaderWithHash(HashStringRef txHash) const
+bool BlockDataManager_LevelDB::hasHeaderWithHash(BinaryData const & txHash) const
 {
    //return (headerMap_.find(txHash) != headerMap_.end());
    return KEY_IN_MAP(txHash, headerMap_);
@@ -2325,11 +2327,14 @@ bool BlockDataManager_LevelDB::evalRescanIsRequired(void)
 bool BlockDataManager_LevelDB::isDirty( 
                               uint32_t numBlocksToBeConsideredDirty ) const
 {
-   if(!isInitialized_)
-      return false;
+   return false;
+
+   // TODO:  fix this before implementing something other than super-node!
+   //if(!isInitialized_)
+      //return false;
    
-   uint32_t numBlocksBehind = lastTopBlock_-allScannedUpToBlk_;
-   return (numBlocksBehind > numBlocksToBeConsideredDirty);
+   //uint32_t numBlocksBehind = lastTopBlock_-allScannedUpToBlk_;
+   //return (numBlocksBehind > numBlocksToBeConsideredDirty);
   
 }
 
@@ -4012,7 +4017,7 @@ vector<BlockHeader*> BlockDataManager_LevelDB::getHeadersNotOnMainChain(void)
 bool BlockDataManager_LevelDB::organizeChain(bool forceRebuild)
 {
    SCOPED_TIMER("organizeChain");
-   PDEBUG2("Organizing chain", (forceRebuild ? "w/ rebuild" : ""));
+   LOGINFO << ("Organizing chain", (forceRebuild ? "w/ rebuild" : ""));
    // If rebuild, we zero out any original organization data and do a 
    // rebuild of the chain from scratch.  This will need to be done in
    // the event that our first call to organizeChain returns false, which
@@ -4114,7 +4119,7 @@ bool BlockDataManager_LevelDB::organizeChain(bool forceRebuild)
    // On a full rebuild, prevChainStillValid should ALWAYS be true
    if( !prevChainStillValid )
    {
-      PDEBUG("Reorg detected!");
+      LOGWARN << "Reorg detected!";
       reorgBranchPoint_ = thisHeaderPtr;
 
       // There was a dangerous bug -- prevTopBlockPtr_ is set correctly 
@@ -4128,7 +4133,7 @@ bool BlockDataManager_LevelDB::organizeChain(bool forceRebuild)
    }
 
    // Let the caller know that there was no reorg
-   PDEBUG("Done organizing chain");
+   LOGINFO << "Done organizing chain";
    return true;
 }
 
@@ -4202,7 +4207,7 @@ void BlockDataManager_LevelDB::markOrphanChain(BlockHeader & bhpStart)
    //        but I attempted to fix it.  This note is to remind you/me 
    //        to check the old version of this method if any problems 
    //        crop up.
-   PDEBUG("Marking orphan chain");
+   LOGWARN << "Marking orphan chain";
    map<HashString, BlockHeader>::iterator iter;
    iter = headerMap_.find(bhpStart.getThisHash());
    HashStringRef lastHeadHash;
@@ -4225,7 +4230,7 @@ void BlockDataManager_LevelDB::markOrphanChain(BlockHeader & bhpStart)
       iter = headerMap_.find(iter->second.getPrevHash());
    }
    orphanChainStartBlocks_.push_back(&(headerMap_[lastHeadHash.copy()]));
-   PDEBUG("Done marking orphan chain");
+   LOGWARN << "Done marking orphan chain";
 }
 
 

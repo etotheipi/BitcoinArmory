@@ -6505,8 +6505,8 @@ TEST_F(BlockUtilsWithWalletTest, ZeroConfUpdate)
    
    balanceWlt = wlt.getScrAddrByKey(scrAddrA_).getFullBalance();
    balanceDB  = iface_->getBalanceForScrAddr(scrAddrA_);
-   EXPECT_EQ(balanceWlt,  100*COIN);
-   EXPECT_EQ(balanceDB,   100*COIN);
+   EXPECT_EQ(balanceWlt,   50*COIN);
+   EXPECT_EQ(balanceDB,    50*COIN);
    
    balanceWlt = wlt.getScrAddrByKey(scrAddrB_).getFullBalance();
    balanceDB  = iface_->getBalanceForScrAddr(scrAddrB_);
@@ -6515,13 +6515,44 @@ TEST_F(BlockUtilsWithWalletTest, ZeroConfUpdate)
 
    balanceWlt = wlt.getScrAddrByKey(scrAddrC_).getFullBalance();
    balanceDB  = iface_->getBalanceForScrAddr(scrAddrC_);
-   EXPECT_EQ(balanceWlt,   50*COIN);
-   EXPECT_EQ(balanceDB,    50*COIN);
+   EXPECT_EQ(balanceWlt,  100*COIN);
+   EXPECT_EQ(balanceDB,   100*COIN);
 
    balanceWlt = wlt.getScrAddrByKey(scrAddrD_).getFullBalance();
    balanceDB  = iface_->getBalanceForScrAddr(scrAddrD_);
    EXPECT_EQ(balanceWlt,    0*COIN);  // D is not part of the wallet
+   EXPECT_EQ(balanceDB,    50*COIN);
+
+
+   BinaryData newTx = READHEX("
+      01000000019b2468285fc191b7a033b2f32b3de8f0c39d1eac622f5132565f1e 
+      a8ca74ec8d000000004a4930460221007a284fa21364d749389ff62328e837dd 
+      2676cbe4e202c0766e3950cbd0a911e40221005ac1541e381b6d358df08cce6a 
+      2869b76d5ffe05b6aaca5c03ebcba8559c4ede01ffffffff0100f2052a010000 
+      001976a914c522664fb0e55cdc5c0cea73b4aad97ec834323288ac00000000");
+
+   TheBDM.addNewZeroConfTx(newTx, 1300000000, false)
+
+   balanceWlt = wlt.getScrAddrByKey(scrAddrA_).getFullBalance();
+   balanceDB  = iface_->getBalanceForScrAddr(scrAddrA_);
+   EXPECT_EQ(balanceWlt,   50*COIN);
+   EXPECT_EQ(balanceDB,    50*COIN);
+   
+   balanceWlt = wlt.getScrAddrByKey(scrAddrB_).getFullBalance();
+   balanceDB  = iface_->getBalanceForScrAddr(scrAddrB_);
+   EXPECT_EQ(balanceWlt,    0*COIN);
+   EXPECT_EQ(balanceDB,     0*COIN);
+
+   balanceWlt = wlt.getScrAddrByKey(scrAddrC_).getFullBalance();
+   balanceDB  = iface_->getBalanceForScrAddr(scrAddrC_);
+   EXPECT_EQ(balanceWlt,  100*COIN);
    EXPECT_EQ(balanceDB,   100*COIN);
+
+   balanceWlt = wlt.getScrAddrByKey(scrAddrD_).getFullBalance();
+   balanceDB  = iface_->getBalanceForScrAddr(scrAddrD_);
+   EXPECT_EQ(balanceWlt,    0*COIN);  // D is not part of the wallet
+   EXPECT_EQ(balanceDB,    50*COIN);
+   
 }
 
 // This was really just to time the logging to determine how much impact it 

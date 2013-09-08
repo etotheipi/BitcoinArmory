@@ -1740,7 +1740,9 @@ class ArmoryMainWindow(QMainWindow):
          for wltID in self.walletMap.iterkeys():
             LOGINFO('Syncing wallet: %s', wltID)
             self.walletMap[wltID].setBlockchainSyncFlag(BLOCKCHAIN_READONLY)
-            self.walletMap[wltID].syncWithBlockchainLite(0)
+            # Used to do "sync-lite" when we had to rescan for new addresses,
+            #self.walletMap[wltID].syncWithBlockchainLite(0)
+            self.walletMap[wltID].syncWithBlockchain(0)
             self.walletMap[wltID].detectHighestUsedIndex(True)  # expand wlt if necessary
             self.walletMap[wltID].fillAddressPool()
          TimerStop('initialWalletSync')
@@ -2342,6 +2344,8 @@ class ArmoryMainWindow(QMainWindow):
          confirmed=True
 
       else:
+         
+         """ For supernode mode, no more rescanning needed!
          msgConfirm = ( \
             'Armory must scan the global transaction history in order to '
             'find any bitcoins associated with the %s you supplied. '
@@ -2364,13 +2368,18 @@ class ArmoryMainWindow(QMainWindow):
                                                 QMessageBox.Yes | QMessageBox.No)
 
       if confirmed==QMessageBox.Yes:
-         for addr in pybtcaddrList:
-            TheBDM.registerImportedAddress(Hash160ToScrAddr(addr.getAddr160()))
-         self.sweepAfterScanList = pybtcaddrList
-         self.sweepAfterScanTarg = targAddr160
-         TheBDM.rescanBlockchain(wait=False)
-         self.setDashboardDetails()
-         return True
+         """
+
+      for addr in pybtcaddrList:
+         TheBDM.registerImportedAddress(Hash160ToScrAddr(addr.getAddr160()))
+      self.sweepAfterScanList = pybtcaddrList
+      self.sweepAfterScanTarg = targAddr160
+      #TheBDM.rescanBlockchain(wait=False)
+      TheBDM.rescanBlockchain(wait=True)
+      self.createCombinedLedger()
+      self.walletModel.reset()
+      self.setDashboardDetails()
+      return True
 
 
    #############################################################################
@@ -3006,13 +3015,11 @@ class ArmoryMainWindow(QMainWindow):
          extraStr = tr( """ 
             <br><br><b><u>Advanced tip:</u></b> This log file is maintained at 
             the following location on your hard drive:
-            <br><br>
-            %s
-            <br><br>
+            <br><br> %s <br><br>
             Before sending the log file, you may edit it to remove information that 
             does not seem relevant for debugging purposes.  Or, extract the error 
             messages from the log file and copy only those into a bug report email """) % \
-            ARMORY_LOG_FILE)
+            ARMORY_LOG_FILE
             
       #reply = QMessageBox.warning(self, 'Export Log File', \
       reply = MsgBoxCustom(MSGBOX.Warning, 'Privacy Warning', tr("""
