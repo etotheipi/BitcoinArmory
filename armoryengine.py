@@ -1,18 +1,10 @@
 ################################################################################
-#
-# Copyright (C) 2011-2013, Alan C. Reiner    <alan.reiner@gmail.com>
-# Distributed under the GNU Affero General Public License (AGPL v3)
-# See LICENSE or http://www.gnu.org/licenses/agpl.html
-#
+#                                                                              #
+# Copyright (C) 2011-2013, Armory Technologies, Inc.                           #
+# Distributed under the GNU Affero General Public License (AGPL v3)            #
+# See LICENSE or http://www.gnu.org/licenses/agpl.html                         #
+#                                                                              #
 ################################################################################
-#
-# Project:    Armory
-# Author:     Alan Reiner
-# Website:    www.bitcoinarmory.com
-# Orig Date:  20 November, 2011
-#
-################################################################################
-
 
 # Version Numbers 
 BTCARMORY_VERSION    = (0, 89, 95, 0)  # (Major, Minor, Bugfix, AutoIncrement) 
@@ -254,15 +246,15 @@ if CLI_OPTIONS.settingsPath.lower()=='default':
    CLI_OPTIONS.settingsPath = os.path.join(ARMORY_HOME_DIR, 'ArmorySettings.txt')
 
 # Change the log file to use
-if CLI_OPTIONS.logFile.lower()=='default':
-   if sys.argv[0] in ['ArmoryQt.py', 'ArmoryQt.exe', 'Armory.exe']:
-      CLI_OPTIONS.logFile = os.path.join(ARMORY_HOME_DIR, 'armorylog.txt')
-   else:
-      basename = os.path.basename(sys.argv[0])
-      CLI_OPTIONS.logFile = os.path.join(ARMORY_HOME_DIR, '%s.log.txt' % basename)
+ARMORY_LOG_FILE = os.path.join(ARMORY_HOME_DIR, 'armorylog.txt')
+ARMCPP_LOG_FILE = os.path.join(ARMORY_HOME_DIR, 'armorycpplog.txt')
+if sys.argv[0] in ['ArmoryQt.py', 'ArmoryQt.exe', 'Armory.exe']:
+   ARMORY_LOG_FILElogFile = os.path.join(ARMORY_HOME_DIR, 'armorylog.txt')
+else:
+   basename = os.path.basename(sys.argv[0])
+   CLI_OPTIONS.logFile = os.path.join(ARMORY_HOME_DIR, '%s.log.txt' % basename)
 
 SETTINGS_PATH   = CLI_OPTIONS.settingsPath
-ARMORY_LOG_FILE = CLI_OPTIONS.logFile
 
 
 # If this is the first Armory has been run, create directories

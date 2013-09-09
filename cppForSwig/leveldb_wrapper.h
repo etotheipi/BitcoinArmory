@@ -1,3 +1,11 @@
+////////////////////////////////////////////////////////////////////////////////
+//                                                                            //
+//  Copyright(C) 2011-2013, Armory Technologies, Inc.                         //
+//  Distributed under the GNU Affero General Public License (AGPL v3)         //
+//  See LICENSE or http://www.gnu.org/licenses/agpl.html                      //
+//                                                                            //
+////////////////////////////////////////////////////////////////////////////////
+//
 #ifndef _LEVELDB_WRAPPER_
 #define _LEVELDB_WRAPPER_
 
@@ -62,7 +70,7 @@ class StoredScriptHistory;
 //
 //    This gets exceptionally confusing because some of the DB VALUES include 
 //    references to DB KEYS, thus requiring those specific serializations to be 
-//    LE, even though the rest of the data uses BE.
+//    BE, even though the rest of the data uses LE.
 //
 // REPEATED:
 //

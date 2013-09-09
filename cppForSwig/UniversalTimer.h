@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////
 //                                                                            //
-//  Copyright (C) 2011-2013, Alan C. Reiner    <alan.reiner@gmail.com>        //
+//  Copyright(C) 2011-2013, Armory Technologies, Inc.                         //
 //  Distributed under the GNU Affero General Public License (AGPL v3)         //
 //  See LICENSE or http://www.gnu.org/licenses/agpl.html                      //
 //                                                                            //
@@ -17,12 +17,6 @@
 // about 22s...
 //
 // Therefore, each timing adds about 4.5 microseconds of overhead to the code
-//
-// NOTE:  This class was originally used on a machine with no internet access
-//        or USB ports.  The code had to be printed, scanned and OCR'd.  While
-//        I have debugged the original code rigorously, there is no guarantees
-//        that this version of it is bug-free (I don't feel like exhaustively
-//        testing it again...)
 //
 ////////////////////////////////////////////////////////////////////////////////
 #ifndef _UNIVERSALTIMER_H_

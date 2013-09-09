@@ -1,3 +1,11 @@
+////////////////////////////////////////////////////////////////////////////////
+//                                                                            //
+//  Copyright(C) 2011-2013, Armory Technologies, Inc.                         //
+//  Distributed under the GNU Affero General Public License (AGPL v3)         //
+//  See LICENSE or http://www.gnu.org/licenses/agpl.html                      //
+//                                                                            //
+////////////////////////////////////////////////////////////////////////////////
+//
 #include <iostream>
 #include <sstream>
 #include <map>

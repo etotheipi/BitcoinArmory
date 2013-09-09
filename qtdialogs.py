@@ -1,10 +1,11 @@
 ################################################################################
-#
-# Copyright (C) 2011-2013, Alan C. Reiner    <alan.reiner@gmail.com>
-# Distributed under the GNU Affero General Public License (AGPL v3)
-# See LICENSE or http://www.gnu.org/licenses/agpl.html
-#
+#                                                                              #
+# Copyright (C) 2011-2013, Armory Technologies, Inc.                           #
+# Distributed under the GNU Affero General Public License (AGPL v3)            #
+# See LICENSE or http://www.gnu.org/licenses/agpl.html                         #
+#                                                                              #
 ################################################################################
+
 import sys
 import time
 import shutil
@@ -2316,9 +2317,8 @@ class DlgImportAddress(ArmoryDialog):
                                             'into your wallet\n'
                                             '(Not available in offline mode)')
          elif TheBDM.getBDMState()=='Scanning':
-            self.radioSweep  = QRadioButton('Sweep any funds owned by this address '
-                                            'into your wallet\n'
-                                            '(Must wait for blockchain scanning to finish)')
+            self.radioSweep  = QRadioButton(tr("""
+               Sweep any funds owned by this address into your wallet"""))
          self.radioImport.setChecked(True)
          self.radioSweep.setEnabled(False)
 
@@ -2565,7 +2565,8 @@ class DlgImportAddress(ArmoryDialog):
          #######################################################################
          if TheBDM.getBDMState()=='BlockchainReady':
             nblk = TheBDM.numBlocksToRescan(self.wlt.cppWallet, wait=True)
-            if nblk<2016:
+            #if nblk<2016:
+            if True:  # for super-node, no rescanning
                self.wlt.syncWithBlockchain(0)
                QMessageBox.information(self, 'Import Successful', \
                   'The address was imported into your wallet successfully, and '
@@ -2594,14 +2595,17 @@ class DlgImportAddress(ArmoryDialog):
                   
          #######################################################################
          elif TheBDM.getBDMState()=='Scanning':
-            warnMsg = ( \
-               'The address was imported successfully, but your wallet balance '
-               'will be incorrect until the global transaction history is '
-               'searched for previous transactions.  Armory is currently in the '
-               'middle of a blockchain scan, but it will start another scan as '
-               'soon as this one is complete.  Wallet and address balances will '
-               'not be available until these operations are completed.', \
-               QMessageBox.Ok)
+            #warnMsg = ( \
+               #'The address was imported successfully, but your wallet balance '
+               #'will be incorrect until the global transaction history is '
+               #'searched for previous transactions.  Armory is currently in the '
+               #'middle of a blockchain scan, but it will start another scan as '
+               #'soon as this one is complete.  Wallet and address balances will '
+               #'not be available until these operations are completed.', \
+               #QMessageBox.Ok)
+            warnMsg = tr("""
+               The address was imported successfully, but its balance will be
+               incorrect until blockchain scanning is complete.""")
             self.main.startRescanBlockchain()
             self.main.setDashboardDetails()
 
@@ -2754,10 +2758,11 @@ class DlgImportAddress(ArmoryDialog):
                'Nothing was imported.')
             return
          elif nImport==0 and nTotal>0:
-            MsgBoxCustom(MSGBOX.Error,'Error!', 'Failed:  No addresses could be imported. '
-               'Please check the logfile (ArmoryQt.exe.log) or the console output '
-               'for information about why it failed (and email alan.reiner@gmail.com '
-               'for help fixing the problem).')
+            MsgBoxCustom(MSGBOX.Error, 'Error!', tr( """
+               Failed:  No addresses could be imported. 
+               Please check the logfile (ArmoryQt.exe.log) or the console output 
+               for information about why it failed (and email support@bitcoinarmory.com
+               for help fixing the problem). """))
             return
          else:
             if nError == 0:
@@ -2782,7 +2787,8 @@ class DlgImportAddress(ArmoryDialog):
          #######################################################################
          if TheBDM.getBDMState()=='BlockchainReady':
             nblk = TheBDM.numBlocksToRescan(self.wlt.cppWallet, wait=True)
-            if nblk<2016:
+            #if nblk<2016:
+            if True:
                self.wlt.syncWithBlockchain(0)
                QMessageBox.information(self, 'Import Successful', \
                   'The addresses were imported into your wallet successfully, and '
@@ -2811,14 +2817,17 @@ class DlgImportAddress(ArmoryDialog):
                   
          #######################################################################
          elif TheBDM.getBDMState()=='Scanning':
-            warnMsg = ( \
-               'The addresses were imported successfully, but your wallet balance '
-               'will be incorrect until the global transaction history is '
-               'searched for previous transactions.  Armory is currently in the '
-               'middle of a blockchain scan, but it will start another scan as '
-               'soon as this one is complete.  Wallet and address balances will '
-               'not be available until these operations are completed.', \
-               QMessageBox.Ok)
+            #warnMsg = ( \
+               #'The addresses were imported successfully, but your wallet balance '
+               #'will be incorrect until the global transaction history is '
+               #'searched for previous transactions.  Armory is currently in the '
+               #'middle of a blockchain scan, but it will start another scan as '
+               #'soon as this one is complete.  Wallet and address balances will '
+               #'not be available until these operations are completed.', \
+               #QMessageBox.Ok)
+            warnMsg = tr("""
+               The addresses were imported successfully, but your balances will 
+               be incorrect until blockchain scanning is complete.""")
             self.main.startRescanBlockchain()
             self.main.setDashboardDetails()
    
@@ -3248,7 +3257,7 @@ class DlgImportWallet(ArmoryDialog):
 #      if self.nImport==0:
 #         MsgBoxCustom(MSGBOX.Error,'Error!', 'Failed:  No addresses could be imported. '
 #            'Please check the logfile (ArmoryQt.exe.log) or the console output '
-#            'for information about why it failed (and email alan.reiner@gmail.com '
+#            'for information about why it failed (and email support@bitcoinarmory.com.'
 #            'for help fixing the problem).')
 #      else:
 #         if self.nError == 0:
@@ -9958,7 +9967,7 @@ class DlgHelpAbout(ArmoryDialog):
                                     getVersionString(BTCARMORY_VERSION), doWrap=False)
       lblWebpage = QRichLabel('<a href="https://www.bitcoinarmory.com">https://www.bitcoinarmory.com</a>')
       lblWebpage.setOpenExternalLinks(True)
-      lblCopyright = QRichLabel('Copyright \xa9 2011-2013 Alan C. Reiner')
+      lblCopyright = QRichLabel('Copyright \xa9 2011-2013 Armory Technologies, Inc.')
       lblLicense = QRichLabel('Licensed under the '
                               '<a href="http://www.gnu.org/licenses/agpl-3.0.html">'
                               'Affero General Public License, Version 3</a> (AGPLv3)')

@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////
 //                                                                            //
-//  Copyright (C) 2011-2013, Alan C. Reiner    <alan.reiner@gmail.com>        //
+//  Copyright(C) 2011-2013, Armory Technologies, Inc.                         //
 //  Distributed under the GNU Affero General Public License (AGPL v3)         //
 //  See LICENSE or http://www.gnu.org/licenses/agpl.html                      //
 //                                                                            //
@@ -2466,6 +2466,9 @@ void BlockDataManager_LevelDB::scanBlockchainForTx(BtcWallet & myWallet,
 {
    SCOPED_TIMER("scanBlockchainForTx");
 
+   // TODO:  We should implement selective fetching!  (i.e. only fetch
+   //        and register scraddr data that is between those two blocks).
+   //        At the moment, it is 
    if(fetchFirst)
       fetchAllRegisteredScrAddrData(myWallet);
 

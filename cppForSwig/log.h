@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////
 //                                                                            //
-//  Copyright (C) 2011-2013, Alan C. Reiner    <alan.reiner@gmail.com>        //
+//  Copyright(C) 2011-2013, Armory Technologies, Inc.                         //
 //  Distributed under the GNU Affero General Public License (AGPL v3)         //
 //  See LICENSE or http://www.gnu.org/licenses/agpl.html                      //
 //                                                                            //
@@ -84,6 +84,7 @@
 using namespace std;
 
 inline string NowTime();
+inline unsigned long long int NowTimeInt();
 
 typedef enum 
 {
@@ -108,6 +109,7 @@ public:
    virtual LogStream& operator<<(int i) = 0;
    virtual LogStream& operator<<(size_t i) = 0;
    virtual LogStream& operator<<(unsigned int i) = 0;
+   virtual LogStream& operator<<(unsigned long long int i) = 0;
    virtual LogStream& operator<<(float f) = 0;
    virtual LogStream& operator<<(double d) = 0;
 };
@@ -125,7 +127,7 @@ public:
       fname_ = logfile;
       truncateFile(fname_, maxSz);
       fout_.open(fname_.c_str(), ios::app); 
-      fout_ << "\n\nLog file opened at " << NowTime() << ": " << fname_.c_str() << endl;
+      fout_ << "\n\nLog file opened at " << NowTimeInt() << ": " << fname_.c_str() << endl;
    }
 
    
@@ -177,6 +179,7 @@ public:
    LogStream& operator<<(size_t i)           { if(!noStdout_) cout << i;    if(fout_.is_open()) fout_ << i; return *this; }
    LogStream& operator<<(int i)              { if(!noStdout_) cout << i;    if(fout_.is_open()) fout_ << i; return *this; }
    LogStream& operator<<(unsigned int i)     { if(!noStdout_) cout << i;    if(fout_.is_open()) fout_ << i; return *this; }
+   LogStream& operator<<(unsigned long long int i) { if(!noStdout_) cout << i;    if(fout_.is_open()) fout_ << i; return *this; }
    LogStream& operator<<(float f)            { if(!noStdout_) cout << f;    if(fout_.is_open()) fout_ << f; return *this; }
    LogStream& operator<<(double d)           { if(!noStdout_) cout << d;    if(fout_.is_open()) fout_ << d; return *this; }
 
@@ -200,6 +203,7 @@ public:
    LogStream& operator<<(size_t i)           { return *this; }
    LogStream& operator<<(int i)              { return *this; }
    LogStream& operator<<(unsigned int i)     { return *this; }
+   LogStream& operator<<(unsigned long long int i)     { return *this; }
    LogStream& operator<<(float f)            { return *this; }
    LogStream& operator<<(double d)           { return *this; }
 
@@ -300,7 +304,7 @@ public:
    { 
       LogStream & lg = Log::GetInstance().Get(logLevel_);
       lg << "-" << Log::ToString(logLevel_);
-      lg << "- " << NowTime().c_str() << ": ";
+      lg << "- " << NowTimeInt() << ": ";
       return lg;
    }
 
@@ -369,6 +373,13 @@ inline string NowTime()
     char result[100] = {0};
     sprintf(result, "%s", buffer);
     return result;
+}
+
+inline unsigned long long int NowTimeInt(void)
+{
+   time_t t;
+   time(&t);
+   return (unsigned long long int)t;
 }
 
 #endif //WIN32

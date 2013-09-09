@@ -1,16 +1,9 @@
 ################################################################################
-#
-# Copyright (C) 2011-2013, Alan C. Reiner    <alan.reiner@gmail.com>
-# Distributed under the GNU Affero General Public License (AGPL v3)
-# See LICENSE or http://www.gnu.org/licenses/agpl.html
-#
-################################################################################
-#
-# Project:    Armory              
-# Author:     Alan Reiner
-# Website:    www.bitcoinarmory.com
-# Orig Date:  20 November, 2011
-#
+#                                                                              #
+# Copyright (C) 2011-2013, Armory Technologies, Inc.                           #
+# Distributed under the GNU Affero General Public License (AGPL v3)            #
+# See LICENSE or http://www.gnu.org/licenses/agpl.html                         #
+#                                                                              #
 ################################################################################
 
 import hashlib
@@ -33,7 +26,7 @@ from datetime import datetime
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *
 
-# Over 15,000 lines of python to help us out
+# Over 20,000 lines of python to help us out
 from armoryengine import *
 from armorymodels import *
 from qtdialogs    import *
@@ -2371,7 +2364,7 @@ class ArmoryMainWindow(QMainWindow):
          """
 
       for addr in pybtcaddrList:
-         TheBDM.registerImportedAddress(Hash160ToScrAddr(addr.getAddr160()))
+         TheBDM.registerImportedScrAddr(Hash160ToScrAddr(addr.getAddr160()))
       self.sweepAfterScanList = pybtcaddrList
       self.sweepAfterScanTarg = targAddr160
       #TheBDM.rescanBlockchain(wait=False)
@@ -2490,7 +2483,7 @@ class ArmoryMainWindow(QMainWindow):
                   'reporting this error the the Armory '
                   'developers.  From the main window, go to '
                   '"<b>File</b>"-->"<b>Export Log File</b>" to make a copy of your '
-                  'log file to send via email to alan.reiner@gmail.com.  ' \
+                  'log file to send via email to support@bitcoinarmory.com.  ' \
                    % (searchstr,searchstr[:8]), \
                   QMessageBox.Ok)
                   
@@ -3851,7 +3844,7 @@ class ArmoryMainWindow(QMainWindow):
             'accepting connections from localhost.  '
             '<br><br>'
             'If you have not changed anything, please export the log file '
-            '(from the "File" menu) and send it to alan.reiner@gmail.com.')
+            '(from the "File" menu) and send it to support@bitcoinarmory.com')
          if state == 'OfflineSatoshiAvail':
             return ( \
             'Armory does not detect internet access, but it does detect '
@@ -3904,18 +3897,19 @@ class ArmoryMainWindow(QMainWindow):
                (soutDisp if len(sout)>0 else '') +
                (serrDisp if len(serr)>0 else '') )
             else:
-               return ( \
-               'There was an error starting the underlying Bitcoin engine.  '
-               'This should not normally happen.  Usually it occurs when you '
-               'have been using Bitcoin-Qt prior to using Armory, especially '
-               'if you have upgraded or downgraded Bitcoin-Qt recently (manually, '
-               'or through the Armory automatic installation).  '
-               '<br><br>'
-               'Unfortunately, this error is so strange, Armory does not '
-               'recognize it.  Please go to "Export Log File" from the "File" '
-               'menu and email at as an attachment to <a href="mailto:'
-               'alan.reiner@gmail.com?Subject=Bitcoind%20Crash">alan.reiner@'
-               'gmail.com</a>.  We apologize for the inconvenience!')
+               return ( tr("""
+                  There was an error starting the underlying Bitcoin engine.  
+                  This should not normally happen.  Usually it occurs when you 
+                  have been using Bitcoin-Qt prior to using Armory, especially 
+                  if you have upgraded or downgraded Bitcoin-Qt recently (manually, 
+                  or through the Armory automatic installation).  
+                  <br><br>
+                  Unfortunately, this error is so strange, Armory does not 
+                  recognize it.  Please go to "Export Log File" from the "File" 
+                  menu and email at as an attachment to <a href="mailto:
+                  support@bitcoinarmory.com?Subject=Bitcoind%20Crash">
+                  support@bitcoinarmory.com</a>.  We apologize for the 
+                  inconvenience!"""))
          
 
    #############################################################################

@@ -1,10 +1,11 @@
 ################################################################################
-#
-# Copyright (C) 2011-2013, Alan C. Reiner    <alan.reiner@gmail.com>
-# Distributed under the GNU Affero General Public License (AGPL v3)
-# See LICENSE or http://www.gnu.org/licenses/agpl.html
-#
+#                                                                              #
+# Copyright (C) 2011-2013, Armory Technologies, Inc.                           #
+# Distributed under the GNU Affero General Public License (AGPL v3)            #
+# See LICENSE or http://www.gnu.org/licenses/agpl.html                         #
+#                                                                              #
 ################################################################################
+
 import os
 import platform
 import sys
@@ -449,7 +450,7 @@ class WalletAddrDispModel(QAbstractTableModel):
             else:
                return QVariant('')
          if col==COL.NumTx: 
-            cppAddr = self.wlt.cppWallet.getScrAddrObjByKey(Hash160ToScrAddr(addr160))
+            cppAddr = self.wlt.cppWallet.getAddrByHash160(addr160)
             return QVariant( len(cppAddr.getTxLedger()) + \
                              len(cppAddr.getZeroConfLedger()))
          if col==COL.ChainIdx:
@@ -460,7 +461,7 @@ class WalletAddrDispModel(QAbstractTableModel):
          if col==COL.Balance: 
             if not TheBDM.getBDMState()=='BlockchainReady':
                return QVariant('(...)')
-            cppAddr = self.wlt.cppWallet.getScrAddrObjByKey(Hash160ToScrAddr(addr160))
+            cppAddr = self.wlt.cppWallet.getAddrByHash160(addr160)
             return QVariant( coin2str(cppAddr.getFullBalance(), maxZeros=2) )
       elif role==Qt.TextAlignmentRole:
          if col in (COL.Address, COL.Comment, COL.ChainIdx):
@@ -476,12 +477,12 @@ class WalletAddrDispModel(QAbstractTableModel):
          if col==COL.Balance:
             if not TheBDM.getBDMState()=='BlockchainReady':
                return QVariant(Colors.Foreground)
-            cppAddr = self.wlt.cppWallet.getScrAddrObjByKey(Hash160ToScrAddr(addr160))
+            cppAddr = self.wlt.cppWallet.getAddrByHash160(addr160)
             val = cppAddr.getFullBalance()
             if   val>0: return QVariant(Colors.TextGreen)
             else:       return QVariant(Colors.Foreground)
       elif role==Qt.FontRole:
-         hasTx = len(self.wlt.cppWallet.getScrAddrObjByKey(Hash160ToScrAddr(addr160)).getTxLedger())>0
+         hasTx = len(self.wlt.cppWallet.getAddrByHash160(addr160).getTxLedger())>0
          cmt = str(self.index(index.row(),COL.Comment).data().toString())
          isChange = (cmt==CHANGE_ADDR_DESCR_STRING)
 
@@ -513,7 +514,7 @@ class WalletAddrDispModel(QAbstractTableModel):
          if not TheBDM.getBDMState()=='BlockchainReady':
             return QVariant( Colors.TblWltOther )
 
-         cppAddr = self.wlt.cppWallet.getScrAddrObjByKey(Hash160ToScrAddr(addr160))
+         cppAddr = self.wlt.cppWallet.getAddrByHash160(addr160)
          val = cppAddr.getFullBalance()
          if val>0:
             return QVariant( Colors.SlightGreen )
@@ -805,7 +806,7 @@ class SentToAddrBookModel(QAbstractTableModel):
       # the python code... :(
       for abe in TheBDM.getAddressBook(self.wlt.cppWallet):     
 
-         addr160 = CheckHash160(abe.getScrAddr())
+         addr160 = abe.getAddr160()
 
          # Only grab addresses that are not in any of your Armory wallets
          if not self.main.getWalletForAddr160(addr160):
