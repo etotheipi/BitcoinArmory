@@ -1313,7 +1313,7 @@ class ArmoryMainWindow(QMainWindow):
 
    #############################################################################
    def checkHaveBlockfiles(self):
-      return os.path.exists(TheBDM.blk1st)
+      return os.path.exists(os.path.join(TheBDM.btcdir, 'blocks'))
 
    #############################################################################
    def onlineModeIsPossible(self):
@@ -3759,7 +3759,7 @@ class ArmoryMainWindow(QMainWindow):
             'find the blkXXXX.dat files in <br><br>%s<br><br> '
             'If you know where they are located, please restart '
             'Armory using the " --satoshi-datadir=[path]" '
-            'to notify Armory where to find them.') % BLKFILE_DIRECTORY
+            'to notify Armory where to find them.') % BLKFILE_DIR
          elif state == 'Disconnected':
             return ( \
             'Armory was previously online, but the connection to Bitcoin-Qt/'

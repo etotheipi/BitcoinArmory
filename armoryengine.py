@@ -199,7 +199,6 @@ if OS_WINDOWS:
    ARMORY_HOME_DIR = os.path.join(USER_HOME_DIR, 'Armory', SUBDIR)
    LEVELDB_DIR     = os.path.join(ARMORY_HOME_DIR, 'databases')
    BLKFILE_DIR     = os.path.join(BTC_HOME_DIR, 'blocks')
-   BLKFILE_1stFILE = os.path.join(BLKFILE_DIR, 'blk00000.dat')
 elif OS_LINUX:
    OS_NAME         = 'Linux'
    OS_VARIANT      = platform.linux_distribution()
@@ -208,7 +207,6 @@ elif OS_LINUX:
    ARMORY_HOME_DIR = os.path.join(USER_HOME_DIR, '.armory', SUBDIR)
    LEVELDB_DIR     = os.path.join(ARMORY_HOME_DIR, 'databases')
    BLKFILE_DIR     = os.path.join(BTC_HOME_DIR, 'blocks')
-   BLKFILE_1stFILE = os.path.join(BLKFILE_DIR, 'blk00000.dat')
 elif OS_MACOSX:
    platform.mac_ver()
    OS_NAME         = 'MacOSX'
@@ -218,7 +216,6 @@ elif OS_MACOSX:
    ARMORY_HOME_DIR = os.path.join(USER_HOME_DIR, 'Armory', SUBDIR)
    LEVELDB_DIR     = os.path.join(ARMORY_HOME_DIR, 'databases')
    BLKFILE_DIR     = os.path.join(BTC_HOME_DIR, 'blocks')
-   BLKFILE_1stFILE = os.path.join(BLKFILE_DIR, 'blk00000.dat')
 else:
    print '***Unknown operating system!'
    print '***Cannot determine default directory locations'
@@ -286,7 +283,6 @@ if sys.argv[0]=='ArmoryQt.py':
    print '   OS Variant            :', OS_VARIANT
    print '   User home-directory   :', USER_HOME_DIR
    print '   Satoshi BTC directory :', BTC_HOME_DIR
-   print '   First blkX.dat file   :', BLKFILE_1stFILE
    print '   Armory home dir       :', ARMORY_HOME_DIR
    print '   Armory settings file  :', SETTINGS_PATH
    print '   Armory log file       :', ARMORY_LOG_FILE
@@ -790,7 +786,6 @@ LOGINFO('Detected Operating system: ' + OS_NAME)
 LOGINFO('   OS Variant            : ' + (str(OS_VARIANT) if OS_MACOSX else '-'.join(OS_VARIANT)))
 LOGINFO('   User home-directory   : ' + USER_HOME_DIR)
 LOGINFO('   Satoshi BTC directory : ' + BTC_HOME_DIR)
-LOGINFO('   First blk*.dat file   : ' + BLKFILE_1stFILE)
 LOGINFO('   Armory home dir       : ' + ARMORY_HOME_DIR)
 LOGINFO('Detected System Specs    : ')
 LOGINFO('   Total Available RAM   : %0.2f GB', SystemSpecs.Memory)
@@ -11878,8 +11873,7 @@ class BlockDataManagerThread(threading.Thread):
       self.masterCppWallet = Cpp.BtcWallet()
       self.bdm.registerWallet(self.masterCppWallet)
        
-      self.blkdir = BLKFILE_DIR
-      self.blk1st = BLKFILE_1stFILE
+      self.btcdir = BTC_HOME_DIR
       self.ldbdir = LEVELDB_DIR
       self.lastPctLoad = 0
 
@@ -12078,16 +12072,16 @@ class BlockDataManagerThread(threading.Thread):
       return self.waitForOutputIfNecessary(expectOutput, rndID)
 
    #############################################################################
-   def setSatoshiDir(self, blkdir):
-      if not os.path.exists(blkdir):
-         LOGERROR('setSatoshiDir: directory does not exist: %s', blkdir)
+   def setSatoshiDir(self, newBtcDir):
+      if not os.path.exists(newBtcDir):
+         LOGERROR('setSatoshiDir: directory does not exist: %s', newBtcDir)
          return
 
       if not self.blkMode in (BLOCKCHAINMODE.Offline, BLOCKCHAINMODE.Uninitialized):
          LOGERROR('Cannot set blockchain/satoshi path after BDM is started')
          return
 
-      self.blkdir = blkdir
+      self.btcdir = newBtcDir
 
    #############################################################################
    def setLevelDBDir(self, ldbdir):
@@ -12586,12 +12580,15 @@ class BlockDataManagerThread(threading.Thread):
          os.remove(bfile)
 
       # Check for the existence of the Bitcoin-Qt directory
-      if not os.path.exists(self.blkdir):
-         raise FileExistsError, ('Directory does not exist: %s' % self.blkdir)
+      if not os.path.exists(self.btcdir):
+         raise FileExistsError, ('Directory does not exist: %s' % self.btcdir)
+
+      blkdir = os.path.join(self.btcdir, 'blocks')
+      blk1st = os.path.join(blkdir, 'blk00000.dat')
 
       # ... and its blk000X.dat files
-      if not os.path.exists(self.blk1st):
-         LOGERROR('Blockchain data not available: %s', self.blk1st)
+      if not os.path.exists(blk1st):
+         LOGERROR('Blockchain data not available: %s', blk1st)
          self.prefMode = BLOCKCHAINMODE.Offline
          raise FileExistsError, ('Blockchain data not available: %s' % self.blk1st)
 
@@ -12600,7 +12597,7 @@ class BlockDataManagerThread(threading.Thread):
       self.aboutToRescan = False
 
       self.bdm.SetHomeDirLocation(ARMORY_HOME_DIR)
-      self.bdm.SetBlkFileLocation(self.blkdir)
+      self.bdm.SetBlkFileLocation(blkdir)
       self.bdm.SetLevelDBLocation(self.ldbdir)
       self.bdm.SetBtcNetworkParams( GENESIS_BLOCK_HASH, \
                                     GENESIS_TX_HASH,    \
@@ -12747,7 +12744,27 @@ class BlockDataManagerThread(threading.Thread):
          pyWlt.syncWithBlockchain()
 
       for cppWlt in self.cppWltList:
-         self.bdm.scanRegisteredTxForWallet(cppWlt)
+         # The pre-leveldb version of Armory specifically required to call
+         #
+         #    scanRegisteredTxForWallet   (scan already-collected reg tx)
+         #
+         # instead of 
+         #
+         #    scanBlockchainForTx         (search for reg tx then scan)
+         #
+         # Because the second one will induce a full rescan to find all new
+         # registeredTx, if we recently imported an addr or wallet.  If we 
+         # imported but decided not to rescan yet, we wan tthe first one,  
+         # which only scans the registered tx that are already collected 
+         # (including new blocks, but not previous blocks).  
+         #
+         # However, with the leveldb stuff only supporting super-node, there
+         # is no rescanning, thus it's safe to always call scanBlockchainForTx,
+         # which grabs everything from the database almost instantaneously.  
+         # However we may want to re-examine this after we implement new
+         # database modes of operation
+         #self.bdm.scanRegisteredTxForWallet(cppWlt)
+         self.bdm.scanBlockchainForTx(cppWlt)
 
 
 
@@ -12771,7 +12788,7 @@ class BlockDataManagerThread(threading.Thread):
 
       # Flags
       self.startBDM     = False
-      #self.blkdir       = BTC_HOME_DIR
+      #self.btcdir       = BTC_HOME_DIR
 
       # Lists of wallets that should be checked after blockchain updates
       self.pyWltList    = []   # these will be python refs
@@ -13057,10 +13074,10 @@ else:
    TheBDM.setDaemon(True)
    TheBDM.start()
 
-   if CLI_OPTIONS.doDebug or CLI_OPTIONS.netlog or CLI_OPTIONS.mtdebug:
-      cppLogFile = os.path.join(ARMORY_HOME_DIR, 'armorycpplog.txt')
-      TheBDM.StartCppLogging(cppLogFile, 3)
-      TheBDM.EnableCppLogStdOut()
+   #if CLI_OPTIONS.doDebug or CLI_OPTIONS.netlog or CLI_OPTIONS.mtdebug:
+   cppLogFile = os.path.join(ARMORY_HOME_DIR, 'armorycpplog.txt')
+   TheBDM.StartCppLogging(cppLogFile, 3)
+   TheBDM.EnableCppLogStdOut()
 
    # Also load the might-be-needed SatoshiDaemonManager
    TheSDM = SatoshiDaemonManager()

@@ -272,7 +272,7 @@ void TxIn::unserialize(BinaryDataRef str,
 // Not all TxIns have this information.  Have to go to the Outpoint and get
 // the corresponding TxOut to find the sender.  In the case the sender is
 // not available, return false and don't write the output
-bool TxIn::getSenderAddrIfAvailable(BinaryData & addrTarget) const
+bool TxIn::getSenderScrAddrIfAvail(BinaryData & addrTarget) const
 {
    if(scriptType_ == TXIN_SCRIPT_NONSTANDARD ||
       scriptType_ == TXIN_SCRIPT_COINBASE)
@@ -286,10 +286,10 @@ bool TxIn::getSenderAddrIfAvailable(BinaryData & addrTarget) const
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-BinaryData TxIn::getSenderAddrIfAvailable(void) const
+BinaryData TxIn::getSenderScrAddrIfAvail(void) const
 {
    BinaryData addrTarget(20);
-   getSenderAddrIfAvailable(addrTarget);
+   getSenderScrAddrIfAvail(addrTarget);
    return addrTarget;
 }
 
@@ -331,7 +331,7 @@ void TxIn::pprint(ostream & os, int nIndent, bool pBigendian) const
       case TXIN_SCRIPT_NONSTANDARD: os << "UNKNOWN " << endl; break;
    }
    os << indent << "   Bytes:   " << getSize() << endl;
-   os << indent << "   Sender:  " << getSenderAddrIfAvailable().toHexStr() << endl;
+   os << indent << "   Sender:  " << getSenderScrAddrIfAvail().toHexStr() << endl;
 }
 
 

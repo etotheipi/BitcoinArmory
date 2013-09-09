@@ -516,7 +516,7 @@ private:
    uint64_t                           numBlkFiles_;
    uint32_t                           lastBlkFileNum_;
    uint64_t                           endOfLastBlockByte_;
-   uint64_t                           alreadyApplied_;
+   uint32_t                           alreadyApplied_;
 
    // Used to estimate how much data is queued to be written to DB
    uint64_t                           dbUpdateSize_;

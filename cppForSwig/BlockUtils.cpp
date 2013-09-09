@@ -609,7 +609,7 @@ void BlockDataManager_LevelDB::registeredScrAddrScan(
    {
       txInOffsets  = &localOffsIn;
       txOutOffsets = &localOffsOut;
-      uint32_t txSize = BtcUtils::TxCalcLength(txptr, txInOffsets, txOutOffsets);
+      BtcUtils::TxCalcLength(txptr, txInOffsets, txOutOffsets);
    }
    
    uint32_t nTxIn  = txInOffsets->size()-1;
@@ -954,7 +954,7 @@ void BtcWallet::scanTx(Tx & tx,
 
    bool allTxOutIsOurs = true;
    bool anyTxOutIsOurs = false;
-   for(int i=0; i<tx.getNumTxOut(); i++)
+   for(uint32_t i=0; i<tx.getNumTxOut(); i++)
    {
       if( thisTxOutIsOurs[i] )
          anyTxOutIsOurs = true;
@@ -1034,7 +1034,7 @@ LedgerEntry BtcWallet::calcLedgerEntryForTx(Tx & tx)
       {
          // Std TxOut with 25-byte script
          scraddr.copyFrom(ptr+12, 20);
-         if( hasScrAddress(scraddr) )
+         if( hasScrAddress(HASH160PREFIX + scraddr) )
             totalValue += READ_UINT64_LE(ptr);
          else
             allTxOutIsOurs = false;
@@ -1043,7 +1043,7 @@ LedgerEntry BtcWallet::calcLedgerEntryForTx(Tx & tx)
       {
          // Std spend-coinbase TxOut script
          BtcUtils::getHash160_NoSafetyCheck(ptr+10, 65, scraddr);
-         if( hasScrAddress(scraddr) )
+         if( hasScrAddress(HASH160PREFIX + scraddr) )
             totalValue += READ_UINT64_LE(ptr);
          else
             allTxOutIsOurs = false;
@@ -1659,7 +1659,12 @@ uint32_t BlockDataManager_LevelDB::findFirstUnrecogBlockLoc(uint32_t fnum)
    
       // This is not an error, it just simply hit the padding
       if(magic!=MagicBytes_)  
+      {
+         LOGERR << "Magic bytes don't match.  This might just be end-of-file";
+         LOGERR << "File Bytes: " << magic.toHexStr().c_str();
+         LOGERR << "Expected  : " << MagicBytes_.toHexStr().c_str();
          break;
+      }
 
       is.read((char*)szstr.getPtr(), 4);
       uint32_t blksize = READ_UINT32_LE(szstr.getPtr());
@@ -2940,7 +2945,6 @@ bool BlockDataManager_LevelDB::extractHeadersInBlkFile(uint32_t fnum,
    }
 
 
-   uint32_t nextBlkSize;
    BinaryData rawHeader(HEADER_SIZE);
 
    // Some objects to help insert header data efficiently
@@ -2948,7 +2952,6 @@ bool BlockDataManager_LevelDB::extractHeadersInBlkFile(uint32_t fnum,
    pair<map<HashString, BlockHeader>::iterator, bool> bhInsResult;
    endOfLastBlockByte_ = startOffset;
 
-   uint16_t nTx;
    uint32_t const HEAD_AND_NTX_SZ = HEADER_SIZE + 10; // enough
    BinaryData magic(4), szstr(4), rawHead(HEAD_AND_NTX_SZ);
    while(!is.eof())
@@ -3360,6 +3363,7 @@ uint32_t BlockDataManager_LevelDB::buildDatabasesFromBlkFiles(
    // The first version of the DB engine will do super-node, where it tracks
    // all ScrAddrs, and thus we don't even need to register any scraddrs 
    // before running this.
+   firstBlkToApply = min(firstBlkToApply, alreadyApplied_);
    applyBlocksToDB(firstBlkToApply, getTopBlockHeight()+1);
 
    // We need to maintain the physical size of all blkXXXX.dat files together
@@ -4910,7 +4914,7 @@ bool BlockDataManager_LevelDB::applyBlockToDB(uint32_t hgt, uint8_t  dup)
    map<BinaryData, StoredTx>              stxToModify;
    map<BinaryData, StoredScriptHistory>   sshToModify;
    set<BinaryData>                        keysToDelete;
-   applyBlockToDB(hgt, dup, stxToModify, sshToModify, keysToDelete, true);
+   return applyBlockToDB(hgt, dup, stxToModify, sshToModify, keysToDelete, true);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -4920,7 +4924,7 @@ bool BlockDataManager_LevelDB::applyBlockToDB(StoredHeader & sbh)
    map<BinaryData, StoredScriptHistory>   sshToModify;
    set<BinaryData>                        keysToDelete;
 
-   applyBlockToDB(sbh, stxToModify, sshToModify, keysToDelete, true);
+   return applyBlockToDB(sbh, stxToModify, sshToModify, keysToDelete, true);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -5106,7 +5110,7 @@ void BlockDataManager_LevelDB::applyModsToDB(
       // This list always contains the latest block num
       // We detect here instead of complicating the interfaces
       uint32_t thisHgt = iter_stx->second.blockHeight_;
-      newAppliedToHeight = max(newAppliedToHeight, iter_stx->second.blockHeight_);
+      newAppliedToHeight = max(newAppliedToHeight, thisHgt);
    }
        
    map<BinaryData, StoredScriptHistory>::iterator iter_ssh;

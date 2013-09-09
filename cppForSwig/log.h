@@ -300,7 +300,7 @@ public:
    { 
       LogStream & lg = Log::GetInstance().Get(logLevel_);
       lg << "-" << Log::ToString(logLevel_);
-      lg << "- " << NowTime() << ": ";
+      lg << "- " << NowTime().c_str() << ": ";
       return lg;
    }
 

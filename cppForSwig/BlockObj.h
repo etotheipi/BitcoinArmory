@@ -345,8 +345,8 @@ public:
    // Not all TxIns have sendor info.  Might have to go to the Outpoint and get
    // the corresponding TxOut to find the sender.  In the case the sender is
    // not available, return false and don't write the output
-   bool       getSenderAddrIfAvailable(BinaryData & addrTarget) const;
-   BinaryData getSenderAddrIfAvailable(void) const;
+   bool       getSenderScrAddrIfAvail(BinaryData & addrTarget) const;
+   BinaryData getSenderScrAddrIfAvail(void) const;
 
    void pprint(ostream & os=cout, int nIndent=0, bool pBigendian=true) const;
 
