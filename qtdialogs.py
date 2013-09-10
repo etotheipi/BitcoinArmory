@@ -4233,79 +4233,6 @@ class DlgSetComment(ArmoryDialog):
 
 
 
-PAPER_DPI       = 72
-PAPER_A4_WIDTH  =  8.5*PAPER_DPI
-PAPER_A4_HEIGHT = 11.0*PAPER_DPI
-
-class GfxViewPaper(QGraphicsView):
-   def __init__(self, parent=None, main=None):
-      super(GfxViewPaper, self).__init__(parent)
-      self.setRenderHint(QPainter.TextAntialiasing) 
-
-class GfxItemText(QGraphicsTextItem):
-   """
-   So far, I'm pretty bad at setting the boundingRect properly.  I have 
-   hacked it to be usable for this specific situation, but it's not very
-   reusable...
-   """
-   def __init__(self, text, position, scene, font=GETFONT('Courier',8), lineWidth=None):
-      super(GfxItemText, self).__init__(text)
-      self.setFont(font)
-      self.setPos(position)
-      if lineWidth:
-         self.setTextWidth(lineWidth)
-
-      self.setDefaultTextColor(QColor(0,0,0))
-
-   def boundingRect(self):
-      w,h = relaxedSizeStr(self, self.toPlainText())
-      nLine=1
-      if self.textWidth()>0:
-         twid = self.textWidth()
-         nLine = max(1, int(float(w) / float(twid) + 0.5))
-      return QRectF(0, 0, w, nLine*(1.5*h))
-
-   
-class GfxItemQRCode(QGraphicsItem):
-   """
-   Converts binary data to base58, and encodes the Base58 characters in
-   the QR-code.  It seems weird to use Base58 instead of binary, but the
-   QR-code has no problem with the size, instead, we want the data in the
-   QR-code to match exactly what is human-readable on the page, which is
-   in Base58.
-
-   You must supply exactly one of "totalSize" or "modSize".  TotalSize
-   guarantees that the QR code will fit insides box of a given size.  
-   ModSize is how big each module/pixel of the QR code is, which means 
-   that a bigger QR block results in a bigger physical size on paper.
-   """
-   def __init__(self, position, scene, rawDataToEncode, totalSize=None, modSize=None):
-      super(GfxItemQRCode, self).__init__()
-      self.setPos(position)
-      self.qrmtrx, self.modCt = CreateQRMatrix(rawDataToEncode, 'h')
-
-      if totalSize==None and not modSize==None:
-         totalSize = float(self.modCt)*float(modSize)
-      self.modSz = round(float(totalSize)/ float(self.modCt) - 0.5)
-      # Readjust totalsize to make sure that 
-      totalSize = self.modCt*self.modSz
-      self.Rect = QRectF(0,0, totalSize, totalSize)
-         
-
-
-   def boundingRect(self):
-      return self.Rect
-
-   def paint(self, painter, option, widget=None):
-      painter.setPen(Qt.NoPen)
-      painter.setBrush(QBrush(QColor(0,0,0)))
-
-      for r in range(self.modCt):
-         for c in range(self.modCt):
-            if self.qrmtrx[r][c] > 0:
-               painter.drawRect(*[self.modSz*a for a in [r,c,1,1]])
-
-
 class DlgRemoveWallet(ArmoryDialog):
    def __init__(self, wlt, parent=None, main=None):
       super(DlgRemoveWallet, self).__init__(parent, main)
@@ -8159,6 +8086,232 @@ class DlgDispTxInfo(ArmoryDialog):
 
 
 
+class GfxViewPaper(QGraphicsView):
+   def __init__(self, parent=None, main=None):
+      super(GfxViewPaper, self).__init__(parent)
+      self.setRenderHint(QPainter.TextAntialiasing) 
+
+class GfxItemText(QGraphicsTextItem):
+   """
+   So far, I'm pretty bad at setting the boundingRect properly.  I have 
+   hacked it to be usable for this specific situation, but it's not very
+   reusable...
+   """
+   def __init__(self, text, position, scene, font=GETFONT('Courier',8), lineWidth=None):
+      super(GfxItemText, self).__init__(text)
+      self.setFont(font)
+      self.setPos(position)
+      if lineWidth:
+         self.setTextWidth(lineWidth)
+
+      self.setDefaultTextColor(self.PAGE_TEXT_COLOR)
+
+   def boundingRect(self):
+      w,h = relaxedSizeStr(self, self.toPlainText())
+      nLine=1
+      if self.textWidth()>0:
+         twid = self.textWidth()
+         nLine = max(1, int(float(w) / float(twid) + 0.5))
+      return QRectF(0, 0, w, nLine*(1.5*h))
+
+   
+class GfxItemQRCode(QGraphicsItem):
+   """
+   Converts binary data to base58, and encodes the Base58 characters in
+   the QR-code.  It seems weird to use Base58 instead of binary, but the
+   QR-code has no problem with the size, instead, we want the data in the
+   QR-code to match exactly what is human-readable on the page, which is
+   in Base58.
+
+   You must supply exactly one of "totalSize" or "modSize".  TotalSize
+   guarantees that the QR code will fit insides box of a given size.  
+   ModSize is how big each module/pixel of the QR code is, which means 
+   that a bigger QR block results in a bigger physical size on paper.
+   """
+   def __init__(self, rawDataToEncode, maxSize=None):
+      super(GfxItemQRCode, self).__init__()
+      self.maxSize = maxSize
+      self.updateQRData(rawDataToEncode)
+
+   def boundingRect(self):
+      return self.Rect
+
+   def updateQRData(self, toEncode, maxSize=None):
+      if maxSize==None:
+         maxSize = self.maxSize
+      else:
+         self.maxSize = maxSize
+
+      self.qrmtrx, self.modCt = CreateQRMatrix(toEncode, 'H')
+      self.modSz = round(float(self.maxSize)/ float(self.modCt) - 0.5)
+      totalSize = self.modCt*self.modSz
+      self.Rect = QRectF(0,0, totalSize, totalSize)
+         
+   def paint(self, painter, option, widget=None):
+      painter.setPen(Qt.NoPen)
+      painter.setBrush(QBrush(QColor(0,0,0)))
+
+      for r in range(self.modCt):
+         for c in range(self.modCt):
+            if self.qrmtrx[r][c] > 0:
+               painter.drawRect(*[self.modSz*a for a in [r,c,1,1]])
+
+
+class SimplePrintableGraphicsScene(object):
+
+
+   def __init__(self, parent, main):
+      """
+      We use the following coordinates:
+            
+            -----> +x
+            |
+            |
+            V +y
+
+      """
+      self.parent = parent
+      self.main   = main
+
+      self.INCH = 72
+      self.PAPER_A4_WIDTH  =  8.5*self.INCH
+      self.PAPER_A4_HEIGHT = 11.0*self.INCH
+      self.MARGIN_PIXELS   = 0.6*self.INCH
+
+      self.PAGE_BKGD_COLOR = QColor(255,255,255)
+      self.PAGE_TEXT_COLOR = QColor(  0,  0,  0)
+
+      self.fontFix   = GETFONT('Courier',  9)
+      self.fontVar   = GETFONT('Times',   10)
+       
+      self.gfxScene = QGraphicsScene(self.parent)
+      self.gfxScene.setSceneRect(0,0, self.PAPER_A4_WIDTH, self.PAPER_A4_HEIGHT)
+      self.gfxScene.setBackgroundBrush(self.PAGE_BKGD_COLOR)
+
+      # For when it eventually makes it to the printer
+      self.printer = QPrinter(QPrinter.HighResolution)
+      self.printer.setPageSize(QPrinter.Letter)
+      self.gfxPainter = QPainter(self.printer)
+      self.gfxPainter.setRenderHint(QPainter.TextAntialiasing)
+      self.gfxPainter.setPen(Qt.NoPen)
+      self.gfxPainter.setBrush(QBrush(self.PAGE_TEXT_COLOR))
+
+      self.cursorPos = QPointF(self.MARGIN_PIXELS, self.MARGIN_PIXELS)
+      self.lastCursorMove = (0,0)
+
+   
+
+   def getScene(self):
+      return self.gfxScene
+
+   def pageRect(self):
+      marg = self.MARGIN_PIXELS
+      return QRectF(marg, marg, self.PAPER_A4_WIDTH-marg, self.PAPER_A4_HEIGHT-marg)
+
+   def insidePageRect(self, pt=None):
+      if pt==None:
+         pt = self.cursorPos
+
+      return self.pageRect.contains(pt)
+   
+   def moveCursor(self, dx, dy, absolute=False):
+      xOld,yOld = self.cursorPos.x(), self.cursorPos.y()
+      if absolute:
+         self.cursorPos = QPointF(dx,dy)
+         self.lastCursorMove = (dx-xOld, dy-yOld)
+      else:
+         self.cursorPos = QPointF(xOld+dx, yOld+dy)
+         self.lastCursorMove = (dx, dy)
+
+
+   def resetCursor(self):
+      self.cursorPos = QPointF(self.MARGIN_PIXELS, self.MARGIN_PIXELS)
+
+
+   def newLine(self, extra_dy=0):
+      xOld,yOld = self.cursorPos.x(), self.cursorPos.y()
+      xNew = self.MARGIN_PIXELS
+      yNew = self.cursorPos.y() + self.lastItemSize[1] + extra_dy - 5
+      self.moveCursor(xNew-xOld, yNew-yOld)
+
+
+   def drawHLine(self, width=None, penWidth=1):
+      if width==None:
+         width = 3*self.INCH
+      currX,currY = self.cursorPos.x(), self.cursorPos.y()
+      lineItem = QGraphicsLineItem(currX, currY, currX+width, currY)
+      pen = QPen()
+      pen.setWidth(penWidth)
+      lineItem.setPen( pen)
+      self.gfxScene.addItem(lineItem)
+      rect = lineItem.boundingRect()
+      self.lastItemSize = (rect.width(), rect.height())
+      self.moveCursor(rect.width(), 0)
+      return self.lastItemSize
+
+   def drawRect(self, w, h, edgeColor=QColor(0,0,0), fillColor=None, penWidth=1):
+      rectItem = QGraphicsRectItem(self.cursorPos.x(), self.cursorPos.y(), w, h)
+      if edgeColor==None:
+         rectItem.setPen(Qt.NoPen)
+      else:
+         pen = QPen(edgeColor)
+         pen.setWidth(penWidth)
+         rectItem.setPen(pen)
+
+      if fillColor==None:
+         rectItem.setBrush(QBrush(Qt.NoBrush))
+      else:
+         rectItem.setBrush(QBrush(fillColor))
+
+      self.gfxScene.addItem(rectItem)
+      rect = rectItem.boundingRect()
+      self.lastItemSize = (rect.width(), rect.height())
+      self.moveCursor(rect.width(), 0)
+      return self.lastItemSize
+      
+
+   def drawText(self, txt, font=GETFONT('Var',9), wrapWidth=None, useHtml=True):
+      txtItem = QGraphicsTextItem('')
+      if useHtml:
+         txtItem.setHtml(toUnicode(txt))
+      else:
+         txtItem.setPlainText(toUnicode(txt))
+      txtItem.setDefaultTextColor(self.PAGE_TEXT_COLOR)
+      txtItem.setPos(self.cursorPos)
+      txtItem.setFont(font)
+      if not wrapWidth==None:
+         txtItem.setTextWidth(wrapWidth)
+      self.gfxScene.addItem(txtItem)
+      rect = txtItem.boundingRect()
+      self.lastItemSize = (rect.width(), rect.height())
+      self.moveCursor(rect.width(), 0)
+      return self.lastItemSize
+
+   def drawPixmapFile(self, pixFn):
+      pix = QPixmap(pixFn)
+      pixItem = QGraphicsPixmapItem( pix )
+      pixItem.setPos( self.cursorPos )
+      pixItem.setMatrix( QMatrix() )
+      self.gfxScene.addItem(pixItem)
+      rect = pixItem.boundingRect()
+      self.lastItemSize = (rect.width(), rect.height())
+      self.moveCursor(rect.width(), 0)
+      return self.lastItemSize
+      
+   def drawQR(self, qrdata, size=150):
+      objQR = GfxItemQRCode(qrdata, size)
+      objQR.setPos(self.cursorPos)
+      objQR.setMatrix(QMatrix())
+      self.gfxScene.addItem( objQR )
+      rect = objQR.boundingRect()
+      self.lastItemSize = (rect.width(), rect.height())
+      self.moveCursor(rect.width(), 0)
+      return self.lastItemSize
+
+         
+
+
+
 class DlgPaperBackup(ArmoryDialog):
    """
    Open up a "Make Paper Backup" dialog, so the user can print out a hard
@@ -8172,14 +8325,12 @@ class DlgPaperBackup(ArmoryDialog):
    (in order to manipulate the private keys for printing), but I don't think
    this is a big deal, because printing would be infrequent
    """
-   def __init__(self, wlt, parent=None, main=None):
+   def __init__(self, wlt, parent=None, main=None, use_printer_mask=True):
       super(DlgPaperBackup, self).__init__(parent, main)
 
 
-      FontFix = GETFONT('Courier',9)
-      FontVar = GETFONT('Times',10)
-      
-
+      self.wlt = wlt
+      self.binMask  = SecureBinaryData(0)
       self.binPriv  = wlt.addrMap['ROOT'].binPrivKey32_Plain.copy()
       self.binChain = wlt.addrMap['ROOT'].chaincode.copy()
       if wlt.useEncryption and wlt.isLocked:
@@ -8191,140 +8342,196 @@ class DlgPaperBackup(ArmoryDialog):
             self.reject()
             
 
-                
-      self.view = GfxViewPaper()
-      self.scene = QGraphicsScene(self)
-      self.scene.setSceneRect(0,0, PAPER_A4_WIDTH, PAPER_A4_HEIGHT)
-      self.scene.setBackgroundBrush(QColor(255,255,255))
-      self.view.setScene(self.scene)
-
-
-      sizeQR = 100
-      INCH = 72
-      paperMargin = 0.8*INCH
-      
-      leftEdge = 0.5*INCH
-      topEdge  = 0.5*INCH
-
-
-      GlobalPos = QPointF(leftEdge, topEdge)
-
-      # Draw the logo in the top-left
-      logoPixmap = QPixmap(':/armory_logo_h36.png') 
-      logo = QGraphicsPixmapItem( logoPixmap )
-      logo.setPos( GlobalPos )
-      logo.setMatrix( QMatrix() )
-      self.scene.addItem(logo)
-      logoRect = logo.boundingRect()
-      #moveNewLine(GlobalPos, int(logoRect.height()*1.3 + 0.5))
-      GlobalPos = QPointF(leftEdge, GlobalPos.y()+int(logoRect.height()*1.3 + 0.5))
-
-      def addInfoLine(field, val, pos):
-         txt = GfxItemText(field, pos, self.scene, FontVar)
-         self.scene.addItem( txt )
-         pos = QPointF(pos.x()+relaxedSizeStr(FontFix, 'W'*15)[0], pos.y())
    
-         txt = GfxItemText(val, pos, self.scene, FontVar)
-         self.scene.addItem( txt )
-         pos = QPointF(leftEdge, pos.y() + 20)
-         return pos
+
+      self.scene = SimplePrintableGraphicsScene(self, self.main)
+      self.view = QGraphicsView()
+      self.view.setRenderHint(QPainter.TextAntialiasing) 
+      self.view.setScene(self.scene.getScene())
+
+      INCH = self.scene.INCH
+      MARGIN = self.scene.MARGIN_PIXELS 
+
+      # USE PRINTER MASK TO PREVENT PRINTER SW FROM SEEING DATA
+      # Hardcode salt & IV because they should *never* change
+      # Rainow tables aren't all that useful against high-entropy
+      # random passwords.
+      self.IV   = SecureBinaryData('&\x0cH3\xc1\x1c\x16\x8a\x86`\xa6k<C\x1fD')
+      self.SALT = SecureBinaryData('\xd5\xa35\xe6Y\xdbj\x93M\xf1\xca\x0fM\x81'
+                          '\x94\x7fh\x1ci\xe7\x12c+b\xd5Y\\\x8f\xee\xab\xa0)')
+      FULLSTR = self.binPriv.toBinStr() + self.binChain.toBinStr()
+      self.PASSPHRASE = SecureBinaryData(HMAC512(FULLSTR, self.SALT.toBinStr())[:8])
+      self.kdf = KdfRomix()
+      self.kdf.usePrecomputedKdfParams(long(8*MEGABYTE), 1, self.SALT)
+      start = RightNow()
+      self.binCrypt32 = self.kdf.DeriveKey(self.PASSPHRASE)
+      LOGINFO('Deriving printermask took %0.2f seconds' % (RightNow() - start))
+      self.binPrivCrypt = CryptoAES().EncryptCBC(  self.binCrypt32,
+                                                   self.binPriv,
+                                                   self.IV)
+      self.binChainCrypt = CryptoAES().EncryptCBC( self.binCrypt32,
+                                                   self.binChain,
+                                                   self.IV)
          
+      print binary_to_base58(self.PASSPHRASE.toBinStr())
+
+      self.scene.drawPixmapFile(':/armory_logo_h36.png') 
+      self.scene.newLine()
+
+      self.scene.drawText('Paper Backup for Armory Wallet', GETFONT('Var', 11))
+      self.scene.newLine()
+      self.scene.drawText('http://www.bitcoinarmory.com')
+
+      self.scene.newLine(extra_dy=20)
+      self.scene.drawHLine()
+      self.scene.newLine(extra_dy=20)
+
       
-      txt = GfxItemText('Paper Backup for Armory Wallet', GlobalPos, self.scene, GETFONT('Times', 14))
-      self.scene.addItem( txt )
-      #moveNewLine(GlobalPos, 30)
-      GlobalPos = QPointF(leftEdge, GlobalPos.y() + 1.3*txt.boundingRect().height())
+      topPos = self.scene.cursorPos.x(), self.scene.cursorPos.y()
+      verSize  = self.scene.drawText(tr('Wallet Version:')); self.scene.newLine()
+      idSize   = self.scene.drawText(tr('Wallet ID:'));   self.scene.newLine()
+      nameSize = self.scene.drawText(tr('Wallet Name:')); self.scene.newLine()
+      typSize  = self.scene.drawText(tr('Backup Type:')); self.scene.newLine()
+      offsetX = max([s[0] for s in [nameSize, idSize, verSize, typSize]]) + 20
 
-      GlobalPos = addInfoLine('Wallet Name:', wlt.labelName, GlobalPos)
-      GlobalPos = addInfoLine('Wallet Unique ID:', wlt.uniqueIDB58, GlobalPos)
-      GlobalPos = addInfoLine('Wallet Version:', getVersionString(wlt.version), GlobalPos)
+      self.scene.moveCursor(*topPos, absolute=True)
 
+      self.scene.moveCursor(offsetX, 0)
+      self.scene.drawText('1.35'); self.scene.newLine()
 
-      #moveNewLine(GlobalPos, 20)
-      GlobalPos = QPointF(leftEdge, GlobalPos.y()+50)
-      warnMsg = ('WARNING: The data shown here gives anyone unrestricted '
-                 'access to all the bitcoins in this wallet.  '
-                 'Please store this page in a secure place!  '
-                 'The QR code is '
-                 'included only for convenience, and is not needed to '
-                 'restore your wallet.')
-                 
+      self.scene.moveCursor(offsetX, 0)
+      self.scene.drawText(self.wlt.uniqueIDB58); self.scene.newLine()
 
-      wrapWidth = 0.9*(PAPER_A4_WIDTH - 2*paperMargin)
-      txt = GfxItemText(warnMsg, GlobalPos, self.scene, FontVar, lineWidth=wrapWidth)
-      self.scene.addItem(txt)
+      self.scene.moveCursor(offsetX, 0)
+      self.scene.drawText(self.wlt.labelName); self.scene.newLine()
 
-      GlobalPos = QPointF(leftEdge, GlobalPos.y()+75)
+      self.scene.moveCursor(offsetX, 0)
+      self.scene.drawText('Single-Sheet'); self.scene.newLine()
       
-
-      # Start drawing the actual wallet data
-      # The checksums are really more to determine if an error was made,
-      # as opposed to correcting the errors.  It will attempt to correct
-      # the errors, but there's a high (relatively speaking) chance that
-      # it will do so incorrectly.  In such a case, the user can just 
-      # re-enter all the data (it's annoying, but should be infrequent)
-      self.binPriv0     = self.binPriv.toBinStr()[:16]
-      self.binPriv1     = self.binPriv.toBinStr()[16:]
-      self.binChain0    = self.binChain.toBinStr()[:16]
-      self.binChain1    = self.binChain.toBinStr()[16:]
-      self.binPriv0Chk  = computeChecksum(self.binPriv0, nBytes=2)
-      self.binPriv1Chk  = computeChecksum(self.binPriv1, nBytes=2)
-      self.binChain0Chk = computeChecksum(self.binChain0, nBytes=2)
-      self.binChain1Chk = computeChecksum(self.binChain1, nBytes=2)
-
-      rawTxt = []
-      for data,chk in [(self.binPriv0, self.binPriv0Chk), \
-                       (self.binPriv1, self.binPriv1Chk), \
-                       (self.binChain0, self.binChain0Chk), \
-                       (self.binChain1, self.binChain1Chk)]:
-         rawTxt.append([])
-         data16 = binary_to_easyType16(data)
-         chk16  = binary_to_easyType16(chk)
-         for c in range(0,32,4):
-            rawTxt[-1].append( data16[c:c+4] )
-         rawTxt[-1].append( chk16 )
+      wrap = 0.9*self.scene.pageRect().width()
       
-      
-      # We use specific fonts here, for consistency of printing
-      quadWidth,quadHeight = relaxedSizeStr(FontFix, 'abcd ')
-      quadWidth+=8  # for some reason, even the relaxed size is too small...
+      warnMsg = tr(""" 
+         <font color="#aa0000"><b>WARNING:</b></font> Anyone who has access to this 
+         page has access to all the bitcoins in this wallet!  Please keep this 
+         page in a safe place.""")
 
-      rootPrefix  = GfxItemText('Root Key:',   GlobalPos, self.scene, GETFONT('Times', 12))
-      chainPrefix = GfxItemText('Chain Code:', GlobalPos, self.scene, GETFONT('Times', 12))
-      rowPrefixSz = max( rootPrefix.boundingRect().width(), \
-                         chainPrefix.boundingRect().width()) + 0.2*INCH
-      
-      topOfRow0 = GlobalPos.y()
-      topOfRow2 = GlobalPos.y() + 2*quadHeight
-
-      for r,row in enumerate(rawTxt):
-         #moveNewLine(GlobalPos, quadHeight)
-         GlobalPos = QPointF(leftEdge, GlobalPos.y()+quadHeight)
-         if r==0: 
-            rootPrefix.setPos(GlobalPos)
-            self.scene.addItem(rootPrefix)
-         elif r==2:
-            chainPrefix.setPos(GlobalPos)
-            self.scene.addItem(chainPrefix)
-
-         #movePosRight(GlobalPos, rowPrefixSz)
-         GlobalPos = QPointF(GlobalPos.x()+rowPrefixSz, GlobalPos.y())
-         for c,strQuad in enumerate(row):
-            obj = GfxItemText(strQuad, GlobalPos, self.scene, FontFix)
-            self.scene.addItem(obj)
-            #movePosRight(GlobalPos, quadWidth)
-            GlobalPos = QPointF(GlobalPos.x()+quadWidth, GlobalPos.y())
+      foreverMsg = tr(""" 
+         The following four lines of completely backup all addresses 
+         <i>ever generated</i> by this wallet.
+         This can be used to recover your wallet if you forget your passphrase or 
+         suffer hardware failure and lose your wallet files. """)
          
+            
+                  
+
+      self.scene.newLine()
+      self.scene.drawText(warnMsg, GETFONT('Var', 9), wrapWidth=wrap)
+
+      self.scene.newLine(extra_dy=20)
+      self.scene.drawHLine()
+      self.scene.newLine(extra_dy=20)
+
+      self.scene.drawText(foreverMsg, GETFONT('var', 8), wrapWidth=wrap)
+      self.scene.newLine(extra_dy=10)
+
+
+
+      prevCursor = self.scene.cursorPos.x(), self.scene.cursorPos.y()
+      self.scene.resetCursor()
+
+      self.scene.moveCursor(4.0*INCH, 0)
+
+      pmWid, pmHgt = 2.75*INCH, 1.5*INCH, 
+      if use_printer_mask:
+         self.scene.drawRect(pmWid, pmHgt, edgeColor=QColor(180,0,0), penWidth=3)
+
+      self.scene.resetCursor()
+      self.scene.moveCursor(4.07*INCH, 0.07*INCH)
+      
+      if use_printer_mask:
+         self.scene.drawText(tr("""
+            <b><font color="#770000">CRITICAL:</font>  This backup will not 
+            work without the PrinterMask
+            encryption key that is displayed on the screen. Write it 
+            on the line below, in ink:"""), wrapWidth=pmWid*0.93, font=GETFONT('Var', 7))
+
+         self.scene.newLine(extra_dy = 8)
+         self.scene.moveCursor(4.07*INCH, 0)
+         keyWid,keyHgt = self.scene.drawText('Key:')
+         self.scene.moveCursor(0,keyHgt-3)
+         wid = pmWid - keyWid
+         w,h = self.scene.drawHLine(width=wid*0.9, penWidth=2)
+   
+      self.scene.moveCursor(*prevCursor, absolute=True)
+
+
+      rootSize = 0
+      yVals = [self.scene.cursorPos.y()]
+      self.scene.moveCursor(20,0)
+      rootSize = max(self.scene.drawText('<b>Root Key:</b>')[0], rootSize)
+      self.scene.newLine()
+
+      yVals.append(self.scene.cursorPos.y())
+      self.scene.moveCursor(20,0)
+      rootSize = max(self.scene.drawText('')[0], rootSize)
+      self.scene.newLine()
+      
+      yVals.append(self.scene.cursorPos.y())
+      self.scene.moveCursor(20,0)
+      rootSize = max(self.scene.drawText('<b>Chaincode:</b>')[0], rootSize)
+      self.scene.newLine()
+
+      yVals.append(self.scene.cursorPos.y())
+      self.scene.moveCursor(20,0)
+      rootSize = max(self.scene.drawText('')[0], rootSize)
+      self.scene.newLine()
+
+      KEYFONT = GETFONT('Fixed', 8, bold=True)
+
+      if use_printer_mask:
+         code12 = self.binPrivCrypt.toBinStr()
+         code34 = self.binChainCrypt.toBinStr()
+      else:
+         code12 = self.binPriv.toBinStr()
+         code34 = self.binChain.toBinStr()
          
 
-      SIZE = 170
-      qrRightSide = PAPER_A4_WIDTH - paperMargin
-      qrLeftEdge  = qrRightSide - SIZE - 25
-      qrTopStart  = topEdge + 0.5*paperMargin  # a little more margin
-      qrPos = QPointF(qrLeftEdge, qrTopStart)
-      data = '\n'.join([' '.join(row) for row in rawTxt])
-      objQR = GfxItemQRCode( qrPos, self.scene, data, SIZE)
-      self.scene.addItem( objQR )
+      Lines = []
+      Lines.append(makeSixteenBytesEasy(code12[:16]))
+      Lines.append(makeSixteenBytesEasy(code12[16:]))
+      Lines.append(makeSixteenBytesEasy(code34[:16]))
+      Lines.append(makeSixteenBytesEasy(code34[16:]))
+
+      for i in range(4):
+         self.scene.moveCursor(MARGIN+rootSize+30, yVals[i], absolute=True)
+         self.scene.drawText(Lines[i], KEYFONT, useHtml=False)
+
+      code12,code34 = None,None
+
+      top = yVals[0]
+      bottom = self.scene.cursorPos.y() + self.scene.lastItemSize[1]
+      
+      self.scene.moveCursor(MARGIN, top, absolute=True)
+      width = self.scene.pageRect().width() - 2*MARGIN
+      height = bottom - top
+      self.scene.drawRect( width, height, edgeColor=QColor(0,0,0), fillColor=None)
+
+      self.scene.moveCursor(MARGIN, bottom, absolute=True)
+      self.scene.moveCursor(0, 30)
+
+      self.scene.drawText( tr("""
+         The following QR code is for convenience only.  It contains the 
+         exact same data as the four lines above.  If you copy this backup 
+         by hand, you can safely ignore this QR code. """), wrapWidth=4*INCH)
+
+      self.scene.moveCursor(20,0)
+      x,y = self.scene.cursorPos.x(), self.scene.cursorPos.y()
+      edgeRgt = self.scene.pageRect().width() - MARGIN
+      edgeBot = self.scene.pageRect().height() - MARGIN
+
+      qrSize = min(edgeRgt - x, edgeBot - y)
+      self.scene.drawQR('\n'.join(Lines), qrSize)
+      
 
 
       btnPrint = QPushButton('&Print...')
@@ -8375,16 +8582,16 @@ class DlgPaperBackup(ArmoryDialog):
       if dialog.exec_():
           painter = QPainter(self.printer)
           painter.setRenderHint(QPainter.TextAntialiasing)
-          self.scene.render(painter)
+          self.scene.getScene().render(painter)
           self.accept()
 
    def cleanup(self):
       self.binPriv.destroy()
-      self.binPriv     = None
-      self.binPriv0    = None
-      self.binPriv1    = None
-      self.binPriv0Chk = None
-      self.binPriv1Chk = None
+      self.binChain.destroy()
+      self.binPrivCrypt.destroy()
+      self.binChainCrypt.destroy()
+      self.binCrypt32.destroy()
+      self.PASSPHRASE.destroy()
 
    def accept(self):
       self.cleanup()
@@ -8619,7 +8826,7 @@ class DlgExecLongProcess(ArmoryDialog):
       QDialog.exec_(self)
 
 
-       
+
          
 
 

@@ -1075,17 +1075,17 @@ def hash160(s):
    return Cpp.BtcUtils().getHash160_SWIG(s)
 
 
-def HMAC(key, msg, hashfunc=sha512):
+def HMAC(key, msg, hashfunc=sha512, hashsz=None):
    """ This is intended to be simple, not fast.  For speed, use HDWalletCrypto() """
-   key = (sha512(key) if len(key)>64 else key)
-   key = key + ('\x00'*(64-len(key)) if len(key)<64 else '')
+   hashsz = len(hashfunc('')) if hashsz==None else hashsz
+   key = (hashfunc(key) if len(key)>hashsz else key)
+   key = key.ljust(hashsz, '\x00')
    okey = ''.join([chr(ord('\x5c')^ord(c)) for c in key])
    ikey = ''.join([chr(ord('\x36')^ord(c)) for c in key])
    return hashfunc( okey + hashfunc(ikey + msg) )
 
-HMAC256 = lambda key,msg: HMAC(key,msg,sha256)
-HMAC512 = lambda key,msg: HMAC(key,msg,sha512)
-
+HMAC256 = lambda key,msg: HMAC(key,msg,sha256, 32)
+HMAC512 = lambda key,msg: HMAC(key,msg,sha512, 64)
 
 ################################################################################
 def prettyHex(theStr, indent='', withAddr=True, major=8, minor=8):
@@ -1369,7 +1369,11 @@ def makeSixteenBytesEasy(b16):
       raise ValueError, 'Must supply 16-byte input'
    chk2 = computeChecksum(b16, nBytes=2)
    et18 = binary_to_easyType16(b16 + chk2) 
-   return ' '.join([et18[i*4:(i+1)*4] for i in range(9)])
+   nineQuads = [et18[i*4:(i+1)*4] for i in range(9)]
+   three1 = ' '.join(nineQuads[:3])
+   three2 = ' '.join(nineQuads[3:6])
+   three3 = ' '.join(nineQuads[6:])
+   return '   '.join([three1, three2, three3])
 
 def readSixteenEasyBytes(et18):
    b18 = easyType16_to_binary(et18.strip().replace(' ',''))
