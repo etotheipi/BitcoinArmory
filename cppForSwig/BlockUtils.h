@@ -763,6 +763,7 @@ public:
    void fetchAllRegisteredScrAddrData(BtcWallet & myWlt);
    void fetchAllRegisteredScrAddrData(
                               map<BinaryData, RegisteredScrAddr> & addrMap);
+   void fetchAllRegisteredScrAddrData(BinaryData const & scrAddr);
 
    // Check for availability of data with a given hash
    TX_AVAILABILITY getTxHashAvail(BinaryDataRef txhash);

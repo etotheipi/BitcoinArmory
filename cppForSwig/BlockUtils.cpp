@@ -2824,7 +2824,8 @@ vector<TxIOPair> BlockDataManager_LevelDB::getHistoryForScrAddr(
           iterTxio++)
       {
          TxIOPair & txio = iterTxio->second;
-         outVect.push_back(txio);   
+         if(withMultisig || !txio.isMultisig())
+            outVect.push_back(txio);   
       }
    }
    
@@ -3087,28 +3088,11 @@ void BlockDataManager_LevelDB::fetchAllRegisteredScrAddrData(
 {
    SCOPED_TIMER("fetchAllRegisteredScrAddrData");
 
-
-   //map<BinaryData, ScrAddrObj>::iterator iter;
-   //for(iter  = addrMap.begin();
-       //iter != addrMap.end();
-       //iter++)
-   for(uint32_t s=0; s<myWallet.getNumScrAddr(); s++)
+   uint32_t numAddr = myWallet.getNumScrAddr();
+   for(uint32_t s=0; s<numAddr; s++)
    {
-
-      ScrAddrObj & scrAddr = myWallet.getScrAddrObjByIndex(s);
-      vector<TxIOPair> hist = getHistoryForScrAddr(scrAddr.getScrAddr());
-      for(uint32_t i=0; i<hist.size(); i++)
-      {
-         BinaryData txKey = hist[i].getTxRefOfOutput().getDBKey();
-         
-         StoredTx stx;
-         iface_->getStoredTx(stx, txKey);
-         RegisteredTx regTx(hist[i].getTxRefOfOutput(),
-                            stx.thisHash_,
-                            stx.blockHeight_,
-                            stx.txIndex_);
-         insertRegisteredTxIfNew(regTx);
-      }
+      ScrAddrObj & scrAddrObj = myWallet.getScrAddrObjByIndex(s);
+      fetchAllRegisteredScrAddrData(scrAddrObj.getScrAddr());
    }
 }
 
@@ -3120,24 +3104,36 @@ void BlockDataManager_LevelDB::fetchAllRegisteredScrAddrData(
 
 
    map<BinaryData, RegisteredScrAddr>::iterator iter;
-   for(iter  = addrMap.begin();
-       iter != addrMap.end();
-       iter++)
-   {
+   for(iter  = addrMap.begin(); iter != addrMap.end(); iter++)
+      fetchAllRegisteredScrAddrData(iter->second.uniqueKey_);
+}
 
-      vector<TxIOPair> hist = getHistoryForScrAddr(iter->second.uniqueKey_);
-      for(uint32_t i=0; i<hist.size(); i++)
-      {
-         BinaryData txKey = hist[i].getTxRefOfOutput().getDBKey();
-         
-         StoredTx stx;
-         iface_->getStoredTx(stx, txKey);
-         RegisteredTx regTx(hist[i].getTxRefOfOutput(),
-                            stx.thisHash_,
-                            stx.blockHeight_,
-                            stx.txIndex_);
-         insertRegisteredTxIfNew(regTx);
-      }
+
+/////////////////////////////////////////////////////////////////////////////
+void BlockDataManager_LevelDB::fetchAllRegisteredScrAddrData(
+                                             BinaryData const & scrAddr)
+{
+   vector<TxIOPair> hist = getHistoryForScrAddr(scrAddr);
+   BinaryData txKey;
+   StoredTx stx;
+   TxRef txref;
+   RegisteredTx regTx;
+   for(uint32_t i=0; i<hist.size(); i++)
+   {
+      // Fetch the full tx of the arriving coins
+      txref = hist[i].getTxRefOfOutput();
+      iface_->getStoredTx(stx, txref.getDBKey());
+      regTx = RegisteredTx(txref, stx.thisHash_, stx.blockHeight_, stx.txIndex_);
+      insertRegisteredTxIfNew(regTx);
+
+      txref = hist[i].getTxRefOfInput();
+      if(txref.isNull())
+         continue;
+
+      // If the coins were spent, also fetch the tx in which they were spent
+      iface_->getStoredTx(stx, txref.getDBKey());
+      regTx = RegisteredTx(txref, stx.thisHash_, stx.blockHeight_, stx.txIndex_);
+      insertRegisteredTxIfNew(regTx);
    }
 }
 
@@ -4482,7 +4478,7 @@ void BlockDataManager_LevelDB::pprintSSHInfoAboutHash160(BinaryData const & a160
    iface_->getStoredScriptHistory(ssh, HASH160PREFIX + a160);
    if(!ssh.isInitialized())
    {
-      cout << "Address is not in DB: " << a160.toHexStr().c_str() << endl;
+      LOGERR << "Address is not in DB: " << a160.toHexStr().c_str();
       return;
    }
 

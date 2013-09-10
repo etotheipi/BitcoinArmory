@@ -5825,6 +5825,7 @@ protected:
    /////////////////////////////////////////////////////////////////////////////
    virtual void SetUp(void) 
    {
+      LOGDISABLESTDOUT();
       iface_ = LevelDBWrapper::GetInterfacePtr();
       magic_ = READHEX(MAINNET_MAGIC_BYTES);
       ghash_ = READHEX(MAINNET_GENESIS_HASH_HEX);
@@ -5873,7 +5874,6 @@ protected:
       scrAddrC_ = HASH160PREFIX + addrC_;
       scrAddrD_ = HASH160PREFIX + addrD_;
 
-      LOGDISABLESTDOUT();
    }
 
 
@@ -6279,6 +6279,7 @@ protected:
    /////////////////////////////////////////////////////////////////////////////
    virtual void SetUp(void) 
    {
+      LOGDISABLESTDOUT();
       iface_ = LevelDBWrapper::GetInterfacePtr();
       magic_ = READHEX(MAINNET_MAGIC_BYTES);
       ghash_ = READHEX(MAINNET_GENESIS_HASH_HEX);
@@ -6327,7 +6328,6 @@ protected:
       scrAddrC_ = HASH160PREFIX + addrC_;
       scrAddrD_ = HASH160PREFIX + addrD_;
 
-      LOGDISABLESTDOUT();
    }
 
 
@@ -6482,6 +6482,147 @@ TEST_F(BlockUtilsWithWalletTest, PostRegisterScrAddr)
    EXPECT_EQ(balanceWlt,    0*COIN);  // D is not part of the wallet
    EXPECT_EQ(balanceDB,   100*COIN);
 }
+
+////////////////////////////////////////////////////////////////////////////////
+/* Never got around to finishing this...
+class TestMainnetBlkchain: public ::testing::Test
+{
+protected:
+   /////////////////////////////////////////////////////////////////////////////
+   virtual void SetUp(void) 
+   {
+      iface_ = LevelDBWrapper::GetInterfacePtr();
+      magic_ = READHEX(MAINNET_MAGIC_BYTES);
+      ghash_ = READHEX(MAINNET_GENESIS_HASH_HEX);
+      gentx_ = READHEX(MAINNET_GENESIS_TX_HASH_HEX);
+      zeros_ = READHEX("00000000");
+      DBUtils.setArmoryDbType(ARMORY_DB_FULL);
+      DBUtils.setDbPruneType(DB_PRUNE_NONE);
+
+      blkdir_  = string("/home/alan/.bitcoin");
+      homedir_ = string("./fakehomedir");
+      ldbdir_  = string("/home/alan/ARMORY_DB_257k_BLKS");
+
+      iface_->openDatabases( ldbdir_, ghash_, gentx_, magic_, 
+                             ARMORY_DB_SUPER, DB_PRUNE_NONE);
+      if(!iface_->databasesAreOpen())
+         LOGERR << "ERROR OPENING DATABASES FOR TESTING!";
+
+      mkdir(homedir_);
+
+      TheBDM.SelectNetwork("Main");
+      TheBDM.SetBlkFileLocation(blkdir_);
+      TheBDM.SetHomeDirLocation(homedir_);
+      TheBDM.SetLevelDBLocation(ldbdir_);
+
+      addrA_ = READHEX("b077a2b5e8a53f1d3ef4100117125de6a5b15f6b");
+      addrB_ = READHEX("4c765bca17f9881ad6d4336a1d4ec34a091e5a6f");
+
+      scrAddrA_ = HASH160PREFIX + addrA_;
+      scrAddrB_ = HASH160PREFIX + addrB_;
+
+      LOGDISABLESTDOUT();
+   }
+
+
+   /////////////////////////////////////////////////////////////////////////////
+   virtual void TearDown(void)
+   {
+      rmdir(homedir_);
+
+      BlockDataManager_LevelDB::DestroyInstance();
+      LOGENABLESTDOUT();
+   }
+
+
+   /////////////////////////////////////////////////////////////////////////////
+   void rmdir(string src)
+   {
+      char* syscmd = new char[4096];
+      sprintf(syscmd, "rm -rf %s", src.c_str());
+      system(syscmd);
+      delete[] syscmd;
+   }
+
+   /////////////////////////////////////////////////////////////////////////////
+   void mkdir(string newdir)
+   {
+      char* syscmd = new char[4096];
+      sprintf(syscmd, "mkdir -p %s", newdir.c_str());
+      system(syscmd);
+      delete[] syscmd;
+   }
+#endif
+
+   InterfaceToLDB* iface_;
+   BinaryData magic_;
+   BinaryData ghash_;
+   BinaryData gentx_;
+   BinaryData zeros_;
+
+   string blkdir_;
+   string homedir_;
+   string ldbdir_;
+   string blk0dat_;;
+
+   BinaryData blkHash0;
+   BinaryData blkHash1;
+   BinaryData blkHash2;
+   BinaryData blkHash3;
+   BinaryData blkHash4;
+   BinaryData blkHash3A;
+   BinaryData blkHash4A;
+   BinaryData blkHash5A;
+
+   BinaryData addrA_;
+   BinaryData addrB_;
+   BinaryData addrC_;
+   BinaryData addrD_;
+
+   BinaryData scrAddrA_;
+   BinaryData scrAddrB_;
+   BinaryData scrAddrC_;
+   BinaryData scrAddrD_;
+};
+
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(BlockUtilsWithWalletTest, TestBalanceMainnet_usuallydisabled)
+{
+   TheBDM.initializeAndBuildDatabases(); 
+
+   // We do all the database stuff first, THEN load the addresses
+   BtcWallet wlt;
+   wlt.addScrAddress(scrAddrA_);
+   wlt.addScrAddress(scrAddrB_);
+   TheBDM.registerWallet(&wlt);
+   TheBDM.registerNewScrAddr(scrAddrD_);
+   TheBDM.fetchAllRegisteredScrAddrData();
+   TheBDM.scanRegisteredTxForWallet(wlt);
+
+   uint64_t balanceWlt;
+   uint64_t balanceDB;
+   
+   balanceWlt = wlt.getScrAddrObjByKey(scrAddrA_).getFullBalance();
+   balanceDB  = iface_->getBalanceForScrAddr(scrAddrA_);
+   EXPECT_EQ(balanceWlt,  100*COIN);
+   EXPECT_EQ(balanceDB,   100*COIN);
+   
+   balanceWlt = wlt.getScrAddrObjByKey(scrAddrB_).getFullBalance();
+   balanceDB  = iface_->getBalanceForScrAddr(scrAddrB_);
+   EXPECT_EQ(balanceWlt,    0*COIN);
+   EXPECT_EQ(balanceDB,     0*COIN);
+
+   balanceWlt = wlt.getScrAddrObjByKey(scrAddrC_).getFullBalance();
+   balanceDB  = iface_->getBalanceForScrAddr(scrAddrC_);
+   EXPECT_EQ(balanceWlt,   50*COIN);
+   EXPECT_EQ(balanceDB,    50*COIN);
+
+   balanceWlt = wlt.getScrAddrObjByKey(scrAddrD_).getFullBalance();
+   balanceDB  = iface_->getBalanceForScrAddr(scrAddrD_);
+   EXPECT_EQ(balanceWlt,    0*COIN);  // D is not part of the wallet
+   EXPECT_EQ(balanceDB,   100*COIN);
+}
+*/
 
 ////////////////////////////////////////////////////////////////////////////////
 /*  TODO: Whoops, never finished this...

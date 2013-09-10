@@ -3047,12 +3047,21 @@ class ArmoryMainWindow(QMainWindow):
          
 
       if reply:
+         # TODO: Interleave the C++ log and the python log.  That could be a lot of work!
          defaultFn = 'armorylog_%s.txt' % unixTimeToFormatStr(RightNow(), '%Y%m%d_%H%M')
          logfn = self.getFileSave(title='Export Log File', \
                                   ffilter=['Text Files (*.txt)'], \
                                   defaultFilename=defaultFn)
          if len(str(logfn)) > 0:
             shutil.copy(ARMORY_LOG_FILE, logfn)
+            fin = open(os.path.join(ARMORY_HOME_DIR, 'armorycpplog.txt'), 'rb')
+            toAppend = fin.read()
+            fin.close()
+
+            fout= open(os.path.join(logfn), 'ab')
+            fout.write(toAppend)
+            fout.close()
+            
             LOGINFO('Log saved to %s', logfn)
 
    #############################################################################
