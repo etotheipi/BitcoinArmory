@@ -790,7 +790,6 @@ public:
                             bool fetchFirst=true);
 
    void writeBuildStatusFile(DB_BUILD_PHASE phase, 
-                             uint32_t hgt, 
                              string bfile, 
                              string timerName);
 

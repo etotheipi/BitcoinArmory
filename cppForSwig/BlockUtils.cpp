@@ -2596,7 +2596,7 @@ void BlockDataManager_LevelDB::applyBlockRangeToDB(uint32_t blk0, uint32_t blk1)
       {
          //UniversalTimer::instance().printCSV(cout,true);
          UniversalTimer::instance().printCSV(string("timings.csv"));
-         writeBuildStatusFile(DB_BUILD_APPLY, hgt, bfile, "applyBlockRangeToDB");
+         writeBuildStatusFile(DB_BUILD_APPLY, bfile, "applyBlockRangeToDB");
       }
       
 
@@ -2615,26 +2615,18 @@ void BlockDataManager_LevelDB::applyBlockRangeToDB(uint32_t blk0, uint32_t blk1)
 
 /////////////////////////////////////////////////////////////////////////////
 void BlockDataManager_LevelDB::writeBuildStatusFile(DB_BUILD_PHASE phase,
-                                                    uint32_t hgt, 
                                                     string bfile,
                                                     string timerName)
 {
    if(phase==DB_BUILD_HEADERS)
       return;
 
-   cout << "Executing write status file" << endl;
-   if( (hgt<120000 && hgt%10000==0) || (hgt>=120000 && hgt%1000==0) )
-   {
-      if(armoryHomeDir_.size() > 0)
-      {
-         ofstream topblks(bfile.c_str(), ios::app);
-         double t = TIMER_READ_SEC(timerName);
-         topblks << (uint32_t)phase << " "
-                 << bytesReadSoFar_ << " " 
-                 << totalBlockchainBytes_ << " " 
-                 << t << endl;
-      }
-   }
+      ofstream topblks(bfile.c_str(), ios::app);
+      double t = TIMER_READ_SEC(timerName);
+      topblks << (uint32_t)phase << " "
+              << bytesReadSoFar_ << " " 
+              << totalBlockchainBytes_ << " " 
+              << t << endl;
 }
 
 
@@ -3311,7 +3303,7 @@ uint32_t BlockDataManager_LevelDB::buildDatabasesFromBlkFiles(
                BinaryDataRef rawHead = brr.get_BinaryDataRef(HEADER_SIZE);
                brr.rewind(HEADER_SIZE);
                BlockHeader * bh = getHeaderByHash(BtcUtils::getHash256(rawHead));
-               firstBlkToApply = bh->getBlockHeight()+1;
+               firstBlkToApply = bh->getBlockHeight();
             }
 
             bool addRaw = addRawBlockToDB(brr);
@@ -3349,18 +3341,15 @@ uint32_t BlockDataManager_LevelDB::buildDatabasesFromBlkFiles(
       // update properly (from the main python thread) when the BDM 
       // is actively loading/scanning in a separate thread.
       // We'll watch for this file from the python code.
-      cout << "Raw blocks added so far: " << blocksReadSoFar_ << endl;
-      writeBuildStatusFile(DB_BUILD_ADD_RAW,    
-                           blocksReadSoFar_, 
-                           bfile, 
-                           "dumpRawBlocksToDB");
+      if(armoryHomeDir_.size() > 0)
+         writeBuildStatusFile(DB_BUILD_ADD_RAW, bfile, "dumpRawBlocksToDB");
 
       if(iface_->isBatchOn(BLKDATA))
          iface_->commitBatch(BLKDATA);
 
    }
-
    TIMER_STOP("dumpRawBlocksToDB");
+
    LOGINFO << "Finished putting " << blocksReadSoFar_ << " raw blocks into DB";
    LOGINFO << "Now, build script histories, update spentness of all blocks...";
    
