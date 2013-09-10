@@ -1370,10 +1370,10 @@ def makeSixteenBytesEasy(b16):
    chk2 = computeChecksum(b16, nBytes=2)
    et18 = binary_to_easyType16(b16 + chk2) 
    nineQuads = [et18[i*4:(i+1)*4] for i in range(9)]
-   three1 = ' '.join(nineQuads[:3])
-   three2 = ' '.join(nineQuads[3:6])
-   three3 = ' '.join(nineQuads[6:])
-   return '   '.join([three1, three2, three3])
+   first4  = ' '.join(nineQuads[:4])
+   second4 = ' '.join(nineQuads[4:8])
+   last1   = nineQuads[8]
+   return '  '.join([first4, second4, last1])
 
 def readSixteenEasyBytes(et18):
    b18 = easyType16_to_binary(et18.strip().replace(' ',''))
@@ -1858,12 +1858,10 @@ class FiniteField(object):
       baddinv = self.powinv(b)
       return self.mult(a,baddinv)
    
-   
    def mtrxrmrowcol(self,mtrx,r,c):
       if not len(mtrx) == len(mtrx[0]):
          LOGERROR('Must be a square matrix!')
          return []
-   
       sz = len(mtrx)
       return [[mtrx[i][j] for j in range(sz) if not j==c] for i in range(sz) if not i==r]
       
@@ -1936,52 +1934,30 @@ def SplitSecret(secret, needed, pieces, nbytes=None, use_random_x=False):
       LOGERROR('You must create more pieces than needed to reconstruct!')
       raise FiniteFieldError
 
-
    if needed==1 or needed>8:
       LOGERROR('Can split secrets into parts *requiring* at most 8 fragments')
       LOGERROR('You can break it into as many optional fragments as you want')
-      return fragments
+      raise FiniteFieldError
 
 
+   # We deterministically produce the coefficients so that we always use the
+   # same polynomial for a given secret
    lasthmac = secret[:]
    othernum = []
    for i in range(pieces+needed-1):
       lasthmac = HMAC512(lasthmac, 'splitsecrets')[:nbytes]
-      othernum.append(lasthmac)
+      othernum.append(binary_to_int(lasthmac))
 
-   othernum = [binary_to_int(n) for n in othernum]
-   if needed==2:
-      b = othernum[0]
-      poly = lambda x:  ff.add(ff.mult(a,x), b)
-      for i in range(pieces):
-         x = othernum[i+1] if use_random_x else i+1
-         fragments.append( [x, poly(x)] )
-
-   elif needed==3:
-      def poly(x):
-         b = othernum[0]
-         c = othernum[1]
-         x2  = ff.power(x,2)
-         ax2 = ff.mult(a,x2)
-         bx  = ff.mult(b,x)
-         return ff.add(ff.add(ax2,bx),c) 
-
-      for i in range(pieces):
-         x = othernum[i+2] if use_random_x else i+1
-         fragments.append( [x, poly(x)] )
-
-   else:
-      def poly(x):
-         polyout = ff.mult(a, ff.power(x,needed-1))
-         for i,e in enumerate(range(needed-2,-1,-1)):
-            term = ff.mult(othernum[i], ff.power(x,e))
-            polyout = ff.add(polyout, term)
-         return polyout
-         
-      for i in range(pieces):
-         x = othernum[i+2] if use_random_x else i+1
-         fragments.append( [x, poly(x)] )
-
+   def poly(x):
+      polyout = ff.mult(a, ff.power(x,needed-1))
+      for i,e in enumerate(range(needed-2,-1,-1)):
+         term = ff.mult(othernum[i], ff.power(x,e))
+         polyout = ff.add(polyout, term)
+      return polyout
+      
+   for i in range(pieces):
+      x = othernum[i+2] if use_random_x else i+1
+      fragments.append( [x, poly(x)] )
 
    secret,a = None,None
    fragments = [ [int_to_binary(p, nbytes, BIGENDIAN) for p in frag] for frag in fragments]
@@ -1992,48 +1968,57 @@ def SplitSecret(secret, needed, pieces, nbytes=None, use_random_x=False):
 def ReconstructSecret(fragments, needed, nbytes):
 
    ff = FiniteField(nbytes)
-   if needed==2:
-      x1,y1 = [binary_to_int(f, BIGENDIAN) for f in fragments[0]]
-      x2,y2 = [binary_to_int(f, BIGENDIAN) for f in fragments[1]]
+   pairs = fragments[:needed]
+   m = []
+   v = []
+   for x,y in pairs:
+      x = binary_to_int(x, BIGENDIAN)
+      y = binary_to_int(y, BIGENDIAN)
+      m.append([])
+      for i,e in enumerate(range(needed-1,-1,-1)):
+         m[-1].append( ff.power(x,e) )
+      v.append(y)
 
-      m = [[x1,1],[x2,1]]
-      v = [y1,y2]
-
-      minv = ff.mtrxinv(m)
-      a,b = ff.mtrxmultvect(minv,v)
-      return int_to_binary(a, nbytes, BIGENDIAN)
-   
-   elif needed==3:
-      x1,y1 = [binary_to_int(f, BIGENDIAN) for f in fragments[0]]
-      x2,y2 = [binary_to_int(f, BIGENDIAN) for f in fragments[1]]
-      x3,y3 = [binary_to_int(f, BIGENDIAN) for f in fragments[2]]
-
-      sq = lambda x: ff.power(x,2)
-      m = [  [sq(x1), x1 ,1], \
-             [sq(x2), x2, 1], \
-             [sq(x3), x3, 1] ]
-      v = [y1,y2,y3]
-
-      minv = ff.mtrxinv(m)
-      a,b,c = ff.mtrxmultvect(minv,v)
-      return int_to_binary(a, nbytes, BIGENDIAN)
-   else:
-      pairs = fragments[:needed]
-      m = []
-      v = []
-      for x,y in pairs:
-         x = binary_to_int(x, BIGENDIAN)
-         y = binary_to_int(y, BIGENDIAN)
-         m.append([])
-         for i,e in enumerate(range(needed-1,-1,-1)):
-            m[-1].append( ff.power(x,e) )
-         v.append(y)
-
-      minv = ff.mtrxinv(m)
-      outvect = ff.mtrxmultvect(minv,v)
-      return int_to_binary(outvect[0], nbytes, BIGENDIAN)
+   minv = ff.mtrxinv(m)
+   outvect = ff.mtrxmultvect(minv,v)
+   return int_to_binary(outvect[0], nbytes, BIGENDIAN)
          
+
+
    
+################################################################################
+def ComputeFragIDBase58(M, wltIDBin):
+   mBin4   = int_to_binary(M, widthBytes=4, endOut=BIGENDIAN)
+   fragBin = hash256(wltIDBin + mBin4)[:4]
+   fragB58 = str(M) + binary_to_base58(fragBin) 
+   return fragB58
+
+################################################################################
+def ComputeFragIDLineHex(M, index, wltIDBin, isSecure=False, addSpaces=False):
+   fragID  = int_to_hex((128+M) if isSecure else M)
+   fragID += int_to_hex(index+1)
+   fragID += binary_to_hex(wltIDBin)
+   
+   if addSpaces:
+      fragID = ' '.join([fragID[i*4:(i+1)*4] for i in range(4)])
+
+   return fragID
+   
+
+################################################################################
+def ReadFragIDLineBin(binLine):
+   doMask = binary_to_int(binLine[0]) > 127
+   M      = binary_to_int(binLine[0]) & 0x7f
+   fnum   = binary_to_int(binLine[1]) 
+   wltID  = binLine[2:]
+   
+   idBase58 = ComputeFragIDBase58(M, wltID) + '-#' + str(fnum)
+   return (M, fnum, wltID, doMask, idBase58)
+
+    
+################################################################################
+def ReadFragIDLineHex(hexLine):
+   return ReadFragIDLineBin( hex_to_binary(hexLine.strip().replace(' ','')))
 
 
 # END FINITE FIELD OPERATIONS
@@ -2165,8 +2150,8 @@ def parsePrivateKeyData(theStr):
 
 
 ################################################################################
-def encodePrivKeyBase58(privKeyBin):
-   bin33 = PRIVKEYBYTE + privKeyBin
+def encodePrivKeyBase58(privKeyBin, leadByte=PRIVKEYBYTE):
+   bin33 = leadByte + privKeyBin
    chk = computeChecksum(bin33)
    return binary_to_base58(bin33 + chk)
 
@@ -2373,6 +2358,13 @@ class PyBtcAddress(object):
       if len(self.addrStr20)!=20:
          raise KeyDataError, 'PyBtcAddress does not have an address string!'
       return self.addrStr20
+
+
+   #############################################################################
+   def isCompressed(self):
+      # Armory wallets (v1.35) do not support compressed keys
+      return False 
+   
 
    #############################################################################
    def touch(self, unixTime=None, blkNum=None):
@@ -6707,6 +6699,60 @@ DEFAULT_COMPUTE_TIME_TARGET = 0.25
 DEFAULT_MAXMEM_LIMIT        = 32*1024*1024
 
 
+#############################################################################
+def DeriveChaincodeFromRootKey(sbdPrivKey):
+   return SecureBinaryData( HMAC256( sbdPrivKey.getHash256(), \
+                                     'Derive Chaincode from Root Key'))
+
+
+################################################################################
+def HardcodedKeyMaskParams():
+   paramMap = {}
+   paramMap['IV']   = SecureBinaryData('&\x0cH3\xc1\x1c\x16\x8a\x86`\xa6k<C\x1fD')
+   paramMap['SALT'] = SecureBinaryData('\xd5\xa35\xe6Y\xdbj\x93M\xf1\xca\x0fM\x81'
+                              '\x94\x7fh\x1ci\xe7\x12c+b\xd5Y\\\x8f\xee\xab\xa0)')
+   paramMap['KDFBYTES'] = long(16*MEGABYTE)
+
+   def hardcodeCreateSecurePrintPassphrase(secret):
+      if isinstance(secret, basestring):
+         secret = SecureBinaryData(secret)
+      bin7 = HMAC512(secret.getHash256(), paramMap['SALT'].toBinStr())[:7]
+      out,bin7 = SecureBinaryData(binary_to_base58(bin7 + hash256(bin7)[0])), None
+      return out 
+
+   def hardcodeCheckPassphrase(passphrase):
+      if isinstance(passphrase, basestring):
+         pwd = base58_to_binary(passphrase)
+      else:
+         pwd = base58_to_binary(passphrase.toBinStr())
+
+      isgood,pwd = (hash256(pwd[:7])[0] == pwd[-1]), None
+      return isgood
+
+   def hardcodeApplyKdf(secret):
+      if isinstance(secret, basestring):
+         secret = SecureBinaryData(secret)
+      kdf = KdfRomix() 
+      kdf.usePrecomputedKdfParams(paramMap['KDFBYTES'], 1, paramMap['SALT'])
+      return kdf.DeriveKey(secret)
+
+   def hardcodeMask(secret, passphrase=None, ekey=None):
+      if not ekey:
+         ekey = hardcodeApplyKdf(passphrase)
+      return CryptoAES().EncryptCBC(secret, ekey, paramMap['IV'])
+
+   def hardcodeUnmask(secret, passphrase=None, ekey=None):
+      if not ekey:
+         ekey = applyKdf(passphrase)
+      return CryptoAES().DecryptCBC(secret, ekey, paramMap['IV'])
+
+   paramMap['FUNC_PWD']    = hardcodeCreateSecurePrintPassphrase
+   paramMap['FUNC_KDF']    = hardcodeApplyKdf
+   paramMap['FUNC_MASK']   = hardcodeMask
+   paramMap['FUNC_UNMASK'] = hardcodeUnmask
+   paramMap['FUNC_CHKPWD'] = hardcodeCheckPassphrase
+   return paramMap
+
 
 ################################################################################
 ################################################################################
@@ -7230,6 +7276,9 @@ class PyBtcWallet(object):
       """
       self.defaultKeyLifetime = lifetimeInSec
 
+
+
+   
    #############################################################################
    def createNewWallet(self, newWalletFilePath=None, \
                              plainRootKey=None, chaincode=None, \
@@ -7300,7 +7349,14 @@ class PyBtcWallet(object):
          plainRootKey = SecureBinaryData().GenerateRandom(32)
 
       if not chaincode:
-         chaincode = SecureBinaryData().GenerateRandom(32)
+         #chaincode = SecureBinaryData().GenerateRandom(32)
+         # For wallet 1.35a, derive chaincode deterministically from root key
+         # The root key already has 256 bits of entropy which is excessive,
+         # anyway.  And my original reason for having the chaincode random is 
+         # no longer valid.
+         chaincode = DeriveChaincodeFromRootKey(plainRootKey)
+            
+                             
 
       # Create the root address object
       rootAddr = PyBtcAddress().createFromPlainKeyData( \

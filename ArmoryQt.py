@@ -240,14 +240,20 @@ class ArmoryMainWindow(QMainWindow):
       self.ledgerView.setContextMenuPolicy(Qt.CustomContextMenu)
       self.ledgerView.customContextMenuRequested.connect(self.showContextMenuLedger)
 
-      btnAddWallet = QPushButton("Create New Wallet")
-      btnImportWlt = QPushButton("Import Wallet")
-      self.connect(btnAddWallet, SIGNAL('clicked()'), self.createNewWallet)
-      self.connect(btnImportWlt, SIGNAL('clicked()'), self.execImportWallet)
+      btnAddWallet  = QPushButton("Create Wallet")
+      btnImportWlt  = QPushButton("Import Wallet")
+      btnRestoreWlt = QPushButton("Restore Backup")
+      self.connect(btnAddWallet,  SIGNAL('clicked()'), self.createNewWallet)
+      self.connect(btnImportWlt,  SIGNAL('clicked()'), self.execImportWallet)
+      self.connect(btnRestoreWlt, SIGNAL('clicked()'), self.execRestoreWlt)
 
       # Put the Wallet info into it's own little box
       lblAvail = QLabel("<b>Available Wallets:</b>")
-      viewHeader = makeLayoutFrame('Horiz', [lblAvail, 'Stretch', btnAddWallet, btnImportWlt])
+      viewHeader = makeLayoutFrame('Horiz', [lblAvail, \
+                                             'Stretch', \
+                                             btnAddWallet, \
+                                             btnImportWlt, \
+                                             btnRestoreWlt ])
       wltFrame = QFrame()
       wltFrame.setFrameStyle(QFrame.Box|QFrame.Sunken)
       wltLayout = QGridLayout()
@@ -1636,7 +1642,7 @@ class ArmoryMainWindow(QMainWindow):
          lastDir = ARMORY_HOME_DIR
 
       types = list(ffilter)
-      types.append('All files (*)')
+      types.append(tr('All files (*)'))
       typesStr = ';; '.join(types)
       # Found a bug with Swig+Threading+PyQt+OSX -- save/load file dialogs freeze
       # User picobit discovered this is avoided if you use the Qt dialogs, instead 
@@ -2242,12 +2248,15 @@ class ArmoryMainWindow(QMainWindow):
       
       # Prompt user to print paper backup if they requested it.
       if dlg.chkPrintPaper.isChecked():
-         dlg = DlgPaperBackup(newWallet, self, self)
-         dlg.exec_()
+         OpenPaperBackupWindow('Single', self, self.main, self.wlt, \
+            tr("Create Paper Backup"))
 
 
 
 
+   #############################################################################
+   def execRestoreWlt(self):
+      DlgUniversalRestoreSelect(self, self).exec_()
 
 
    #############################################################################
@@ -2616,61 +2625,68 @@ class ArmoryMainWindow(QMainWindow):
    def execRestorePaperBackup(self):
       dlgPaper = DlgImportPaperWallet(self, self)
       if dlgPaper.exec_():
-
-         LOGINFO('Raw import successful.')
-         
-         # If we are offline, then we can't assume there will ever be a 
-         # rescan.  Just add the wallet to the application
-         if TheBDM.getBDMState() in ('Uninitialized', 'Offline'):
-            self.addWalletToApplication(dlgPaper.newWallet, walletIsNew=False)
-            return
-         
-         elif TheBDM.getBDMState()=='BlockchainReady':
-            doRescanNow = QMessageBox.question(self, 'Rescan Needed', \
-               'The wallet was recovered successfully, but cannot be displayed '
-               'until the global transaction history is '
-               'searched for previous transactions.  This scan will potentially '
-               'take much longer than a regular rescan, and the wallet cannot '
-               'be shown on the main display until this rescan is complete.'
-               '<br><br>'
-               '<b>Would you like to go into offline mode to start this scan now?'
-               '</b>  If you click "No" the scan will be aborted, and the wallet '
-               'will not be added to Armory.', \
-               QMessageBox.Yes | QMessageBox.No)
-         else:
-            doRescanNow = QMessageBox.question(self, 'Rescan Needed', \
-               'The wallet was recovered successfully, but cannot be displayed '
-               'until a special kind of rescan is performed to find previous '
-               'transactions.  However, Armory is currently in the middle of '
-               'a scan.  Would you like to start the recovery scan immediately '
-               'afterwards?'
-               '<br><br>'
-               '</b>  If you click "No" the scan will be aborted, and the wallet '
-               'will not be added to Armory.  Restore the wallet again when you '
-               'are able to wait for the recovery scan.', \
-               QMessageBox.Yes | QMessageBox.No)
-
-         if doRescanNow == QMessageBox.Yes:
-            LOGINFO('User requested rescan after wallet restore')
-            TheBDM.startWalletRecoveryScan(dlgPaper.newWallet) 
-            self.setDashboardDetails()
-         else:
-            LOGINFO('User aborted the wallet-recovery scan')
-            QMessageBox.warning(self, 'Import Failed', \
-               'The wallet was not restored.  To restore the wallet, reenter '
-               'the "Restore Wallet" dialog again when you are able to wait '
-               'for the rescan operation.  ', QMessageBox.Ok)
-            # The wallet cannot exist without also being on disk. 
-            # If the user aborted, we should remove the disk data.
-            thepath       = dlgPaper.newWallet.getWalletPath()
-            thepathBackup = dlgPaper.newWallet.getWalletPath('backup')
-            os.remove(thepath)
-            os.remove(thepathBackup)
-            return
-
-         self.addWalletToApplication(dlgPaper.newWallet, walletIsNew=False)
-         #self.newWalletList.append([dlgPaper.newWallet, False])
+         self.addWalletToAppAndAskAboutRescan(dlgPaper.newWallet)
          LOGINFO('Import Complete!')
+
+   #############################################################################
+   def addWalletToAppAndAskAboutRescan(self, newWallet):
+      LOGINFO('Raw import successful.')
+         
+      # If we are offline, then we can't assume there will ever be a 
+      # rescan.  Just add the wallet to the application
+      if TheBDM.getBDMState() in ('Uninitialized', 'Offline'):
+         self.addWalletToApplication(newWallet, walletIsNew=False)
+         return
+         
+      """ Removed for supernode mode -- no rescanning anymore
+      elif TheBDM.getBDMState()=='BlockchainReady':
+         doRescanNow = QMessageBox.question(self, 'Rescan Needed', \
+            'The wallet was recovered successfully, but cannot be displayed '
+            'until the global transaction history is '
+            'searched for previous transactions.  This scan will potentially '
+            'take much longer than a regular rescan, and the wallet cannot '
+            'be shown on the main display until this rescan is complete.'
+            '<br><br>'
+            '<b>Would you like to go into offline mode to start this scan now?'
+            '</b>  If you click "No" the scan will be aborted, and the wallet '
+            'will not be added to Armory.', \
+            QMessageBox.Yes | QMessageBox.No)
+      else:
+         doRescanNow = QMessageBox.question(self, 'Rescan Needed', \
+            'The wallet was recovered successfully, but cannot be displayed '
+            'until a special kind of rescan is performed to find previous '
+            'transactions.  However, Armory is currently in the middle of '
+            'a scan.  Would you like to start the recovery scan immediately '
+            'afterwards?'
+            '<br><br>'
+            '</b>  If you click "No" the scan will be aborted, and the wallet '
+            'will not be added to Armory.  Restore the wallet again when you '
+            'are able to wait for the recovery scan.', \
+            QMessageBox.Yes | QMessageBox.No)
+
+      if doRescanNow == QMessageBox.Yes:
+         LOGINFO('User requested rescan after wallet restore')
+         TheBDM.startWalletRecoveryScan(newWallet) 
+         self.setDashboardDetails()
+      else:
+         LOGINFO('User aborted the wallet-recovery scan')
+         QMessageBox.warning(self, 'Import Failed', \
+            'The wallet was not restored.  To restore the wallet, reenter '
+            'the "Restore Wallet" dialog again when you are able to wait '
+            'for the rescan operation.  ', QMessageBox.Ok)
+         # The wallet cannot exist without also being on disk. 
+         # If the user aborted, we should remove the disk data.
+         thepath       = newWallet.getWalletPath()
+         thepathBackup = newWallet.getWalletPath('backup')
+         os.remove(thepath)
+         os.remove(thepathBackup)
+         return
+      """
+
+      TheBDM.startWalletRecoveryScan(newWallet) 
+      self.setDashboardDetails()
+      self.addWalletToApplication(newWallet, walletIsNew=False)
+      LOGINFO('Import Complete!')
 
 
    #############################################################################

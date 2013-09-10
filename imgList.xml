@@ -81,6 +81,13 @@
       <file alias="folder-new-5.png">img/folder-new-5.png</file>
       <file alias="folder.png">img/folder.png</file>
       <file alias="folder24.png">img/folder24.png</file>
+      <file alias="frag2f.png">img/frag2f.png</file>
+      <file alias="frag3f.png">img/frag3f.png</file>
+      <file alias="frag4f.png">img/frag4f.png</file>
+      <file alias="frag5f.png">img/frag5f.png</file>
+      <file alias="frag6f.png">img/frag6f.png</file>
+      <file alias="frag7f.png">img/frag7f.png</file>
+      <file alias="frag8f.png">img/frag8f.png</file>
       <file alias="lockedIcon.png">img/lockedIcon.png</file>
       <file alias="loadicon_0.png">img/loadicon_0.png</file>
       <file alias="loadicon_1.png">img/loadicon_1.png</file>
@@ -101,6 +108,7 @@
       <file alias="preferences256.png">img/preferences256.png</file>
       <file alias="printer_icon.png">img/printer_icon.png</file>
       <file alias="process-stop-4.png">img/process-stop-4.png</file>
+      <file alias="red_X.png">img/red_X.png</file>
       <file alias="scroll_up_24.png">img/scroll_up_24.png</file>
       <file alias="scroll_down_24.png">img/scroll_down_24.png</file>
       <file alias="scroll_up_18.png">img/scroll_up_18.png</file>
