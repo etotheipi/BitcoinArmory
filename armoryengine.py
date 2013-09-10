@@ -12035,6 +12035,8 @@ class BlockDataManagerThread(threading.Thread):
       try:
          with open(bfile,'r') as f:
             tmtrx = [ line.split() for line in f.readlines() ] 
+            # TODO: take into account the new phase info
+            tmtrx = [ line[1:] for line in tmtrx]
             pct0 = float(tmtrx[0][0])  / float(tmtrx[0][1])
             pct1 = float(tmtrx[-1][0]) / float(tmtrx[-1][1])
             t0 = float(tmtrx[0][2])

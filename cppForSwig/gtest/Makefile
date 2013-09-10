@@ -148,7 +148,13 @@ EncryptionUtils.o: $(USER_DIR)/log.h $(USER_DIR)/BtcUtils.h $(USER_DIR)/BinaryDa
 CppBlockUtilsTests.o : CppBlockUtilsTests.cpp $(HEADERS) $(GTEST_HEADERS)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c CppBlockUtilsTests.cpp 
 
+getScrAddrData.o : getScrAddrData.cpp $(HEADERS) $(GTEST_HEADERS)
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c getScrAddrData.cpp 
+
 CppBlockUtilsTests : $(OBJECTS) CppBlockUtilsTests.o gtest.a
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ -lpthread -lcryptopp -o $@
+
+getScrAddrData : $(OBJECTS) getScrAddrData.o 
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ -lpthread -lcryptopp -o $@
 
 

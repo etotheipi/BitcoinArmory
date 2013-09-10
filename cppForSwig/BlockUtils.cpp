@@ -2485,7 +2485,7 @@ void BlockDataManager_LevelDB::scanBlockchainForTx(BtcWallet & myWallet,
 
 
    // This is the part that might take a while...
-   //applyBlocksToDB(allScannedUpToBlk_, endBlknum);
+   //applyBlockRangeToDB(allScannedUpToBlk_, endBlknum);
 
    allScannedUpToBlk_ = endBlknum;
    updateRegisteredScrAddrs(endBlknum);
@@ -2504,9 +2504,9 @@ void BlockDataManager_LevelDB::scanBlockchainForTx(BtcWallet & myWallet,
 // raw blockdata is stored in the DB with no SSH objects.  This goes through
 // and processes every Tx, creating new SSHs if not there, and creating and
 // marking-spent new TxOuts.  
-void BlockDataManager_LevelDB::applyBlocksToDB(uint32_t blk0, uint32_t blk1)
+void BlockDataManager_LevelDB::applyBlockRangeToDB(uint32_t blk0, uint32_t blk1)
 {
-   SCOPED_TIMER("applyBlocksToDB");
+   SCOPED_TIMER("applyBlockRangeToDB");
 
    blk1 = min(blk1, getTopBlockHeight()+1);
 
@@ -2524,8 +2524,6 @@ void BlockDataManager_LevelDB::applyBlocksToDB(uint32_t blk0, uint32_t blk1)
    iface_->seekTo(BLKDATA, startKey);
 
    // Start scanning and timer
-   TIMER_START("LoadProgress");
-
    bool doBatches = (blk1-blk0 > NUM_BLKS_BATCH_THRESH);
    map<BinaryData, StoredTx>             stxToModify;
    map<BinaryData, StoredScriptHistory>  sshToModify;
@@ -2584,7 +2582,6 @@ void BlockDataManager_LevelDB::applyBlocksToDB(uint32_t blk0, uint32_t blk1)
 
 
       bytesReadSoFar_ += sbh.numBytes_;
-      writeScanStatusFile(hgt, bfile, string("LoadProgress"));
 
       // TODO:  Check whether this is needed and if there is a performance
       //        improvement to removing it.  For now, I'm including to be
@@ -2599,6 +2596,7 @@ void BlockDataManager_LevelDB::applyBlocksToDB(uint32_t blk0, uint32_t blk1)
       {
          //UniversalTimer::instance().printCSV(cout,true);
          UniversalTimer::instance().printCSV(string("timings.csv"));
+         writeBuildStatusFile(DB_BUILD_APPLY, hgt, bfile, "applyBlockRangeToDB");
       }
       
 
@@ -2610,25 +2608,29 @@ void BlockDataManager_LevelDB::applyBlocksToDB(uint32_t blk0, uint32_t blk1)
    if(doBatches)
       applyModsToDB(stxToModify, sshToModify, keysToDelete);
 
-   TIMER_STOP("LoadProgress");
-
    allScannedUpToBlk_ = blk1;
    //updateRegisteredScrAddrs(blk1);
 }
 
 
 /////////////////////////////////////////////////////////////////////////////
-void BlockDataManager_LevelDB::writeScanStatusFile(uint32_t hgt, 
-                                                   string bfile, 
-                                                   string timerName)
+void BlockDataManager_LevelDB::writeBuildStatusFile(DB_BUILD_PHASE phase,
+                                                    uint32_t hgt, 
+                                                    string bfile,
+                                                    string timerName)
 {
+   if(phase==DB_BUILD_HEADERS)
+      return;
+
+   cout << "Executing write status file" << endl;
    if( (hgt<120000 && hgt%10000==0) || (hgt>=120000 && hgt%1000==0) )
    {
       if(armoryHomeDir_.size() > 0)
       {
          ofstream topblks(bfile.c_str(), ios::app);
          double t = TIMER_READ_SEC(timerName);
-         topblks << bytesReadSoFar_ << " " 
+         topblks << (uint32_t)phase << " "
+                 << bytesReadSoFar_ << " " 
                  << totalBlockchainBytes_ << " " 
                  << t << endl;
       }
@@ -3222,6 +3224,7 @@ uint32_t BlockDataManager_LevelDB::buildDatabasesFromBlkFiles(
    uint32_t blocksReadSoFar_ = 0;
    uint32_t bytesReadSoFar_ = 0;
    uint32_t firstBlkToApply = UINT32_MAX;
+   TIMER_START("dumpRawBlocksToDB");
    for(uint32_t fnum=startFnum; fnum<numBlkFiles_; fnum++)
    {
       string blkfile = blkFileList_[fnum];
@@ -3242,20 +3245,6 @@ uint32_t BlockDataManager_LevelDB::buildDatabasesFromBlkFiles(
          LOGERR << "Block file is the wrong network!  MagicBytes: "
                 << fileMagic.toHexStr().c_str();
          return 0;
-      }
-
-      // This is a hack of hacks, but I can't seem to pass this data 
-      // out through getLoadProgress* methods, because they don't 
-      // update properly (from the main python thread) when the BDM 
-      // is actively loading/scanning in a separate thread.
-      // We'll watch for this file from the python code.
-      if(armoryHomeDir_.size() > 0)
-      {
-         if(BtcUtils::GetFileSize(abortFile) != FILE_DOES_NOT_EXIST)
-            return 0;
-         ofstream topblks(bfile.c_str(), ios::app);
-         double t = TIMER_READ_SEC("LoadProgress");
-         topblks << fnum << " " << numBlkFiles_ << " " << t << endl;
       }
 
       
@@ -3322,7 +3311,7 @@ uint32_t BlockDataManager_LevelDB::buildDatabasesFromBlkFiles(
                BinaryDataRef rawHead = brr.get_BinaryDataRef(HEADER_SIZE);
                brr.rewind(HEADER_SIZE);
                BlockHeader * bh = getHeaderByHash(BtcUtils::getHash256(rawHead));
-               firstBlkToApply = bh->getBlockHeight();
+               firstBlkToApply = bh->getBlockHeight()+1;
             }
 
             bool addRaw = addRawBlockToDB(brr);
@@ -3355,11 +3344,23 @@ uint32_t BlockDataManager_LevelDB::buildDatabasesFromBlkFiles(
             break;
       }
 
+      // This is a hack of hacks, but I can't seem to pass this data 
+      // out through getLoadProgress* methods, because they don't 
+      // update properly (from the main python thread) when the BDM 
+      // is actively loading/scanning in a separate thread.
+      // We'll watch for this file from the python code.
+      cout << "Raw blocks added so far: " << blocksReadSoFar_ << endl;
+      writeBuildStatusFile(DB_BUILD_ADD_RAW,    
+                           blocksReadSoFar_, 
+                           bfile, 
+                           "dumpRawBlocksToDB");
+
       if(iface_->isBatchOn(BLKDATA))
          iface_->commitBatch(BLKDATA);
 
    }
 
+   TIMER_STOP("dumpRawBlocksToDB");
    LOGINFO << "Finished putting " << blocksReadSoFar_ << " raw blocks into DB";
    LOGINFO << "Now, build script histories, update spentness of all blocks...";
    
@@ -3367,7 +3368,7 @@ uint32_t BlockDataManager_LevelDB::buildDatabasesFromBlkFiles(
    // all ScrAddrs, and thus we don't even need to register any scraddrs 
    // before running this.
    firstBlkToApply = min(firstBlkToApply, alreadyApplied_);
-   applyBlocksToDB(firstBlkToApply, getTopBlockHeight()+1);
+   applyBlockRangeToDB(firstBlkToApply, getTopBlockHeight()+1);
 
    // We need to maintain the physical size of all blkXXXX.dat files together
    //totalBlockchainBytes_ = bytesReadSoFar_;

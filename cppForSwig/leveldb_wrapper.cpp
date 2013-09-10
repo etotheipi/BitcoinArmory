@@ -156,9 +156,11 @@ bool InterfaceToLDB::openDatabases(string basedir,
    vector<leveldb::DB*> dbs[2];
    for(uint32_t db=0; db<DB_COUNT; db++)
    {
+
       DB_SELECT CURRDB = (DB_SELECT)db;
       leveldb::Options opts;
       opts.create_if_missing = true;
+      //opts.compression = leveldb::kNoCompression;
       //opts.block_cache = leveldb::NewLRUCache(100 * 1048576);
       //dbFilterPolicy_[db] = leveldb::NewBloomFilterPolicy(10);
       //opts.filter_policy = leveldb::NewBloomFilterPolicy(10);

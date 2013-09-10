@@ -43,7 +43,7 @@
 #define NUM_BLKS_BATCH_THRESH 30
 #define UPDATE_BYTES_SSH      25
 #define UPDATE_BYTES_SUBSSH   75
-#define UPDATE_BYTES_THRESH   128*1024*1024
+#define UPDATE_BYTES_THRESH   96*1024*1024
 
 using namespace std;
 
@@ -64,6 +64,13 @@ typedef enum
   TX_IN_BLOCKCHAIN
 } TX_AVAILABILITY;
 
+
+typedef enum
+{
+  DB_BUILD_HEADERS,
+  DB_BUILD_ADD_RAW,
+  DB_BUILD_APPLY
+} DB_BUILD_PHASE;
 
 ////////////////////////////////////////////////////////////////////////////////
 //
@@ -732,7 +739,7 @@ public:
          set<BinaryData> &                      keysToDelete,
          bool                                   applyWhenDone=true);
 
-   void applyBlocksToDB(uint32_t blk0=0, uint32_t blk1=UINT32_MAX);
+   void applyBlockRangeToDB(uint32_t blk0=0, uint32_t blk1=UINT32_MAX);
 
    // When we reorg, we have to undo blocks that have been applied.
    bool createUndoDataFromBlock(uint32_t hgt, uint8_t dup, StoredUndoData & sud);
@@ -782,7 +789,10 @@ public:
                             uint32_t endBlknum=UINT32_MAX,
                             bool fetchFirst=true);
 
-   void writeScanStatusFile(uint32_t hgt, string bfile, string timerName);
+   void writeBuildStatusFile(DB_BUILD_PHASE phase, 
+                             uint32_t hgt, 
+                             string bfile, 
+                             string timerName);
 
    // This will only be used by the above method, probably wouldn't be called
    // directly from any other code
