@@ -7,7 +7,7 @@
 ################################################################################
 
 # Version Numbers 
-BTCARMORY_VERSION    = (0, 89, 95, 0)  # (Major, Minor, Bugfix, AutoIncrement) 
+BTCARMORY_VERSION    = (0, 89, 96, 0)  # (Major, Minor, Bugfix, AutoIncrement) 
 PYBTCWALLET_VERSION  = (1, 35,  0, 0)  # (Major, Minor, Bugfix, AutoIncrement)
 
 ARMORY_DONATION_ADDR = '1ArmoryXcfq7TnCSuZa9fQjRYwJ4bkRKfv'
@@ -12036,6 +12036,7 @@ class BlockDataManagerThread(threading.Thread):
          with open(bfile,'r') as f:
             tmtrx = [ line.split() for line in f.readlines() ] 
             # TODO: take into account the new phase info
+            phase0
             tmtrx = [ line[1:] for line in tmtrx]
             pct0 = float(tmtrx[0][0])  / float(tmtrx[0][1])
             pct1 = float(tmtrx[-1][0]) / float(tmtrx[-1][1])
