@@ -538,10 +538,22 @@ class ArmoryMainWindow(QMainWindow):
          self.usermode = USERMODE.Expert               
          actSetModeDev.setChecked(True)
 
-      actOpenSigner = self.createAction('&Message Signing', lambda: DlgECDSACalc(self,self, 0).exec_())
+      
+      def openMsgSigning():
+         QMessageBox.warning(self, tr('Message Signing'), tr("""
+            The message signing capability in Armory is currently not 
+            compatible with any other apps.  Until a new signing system 
+            is integrated, the following window will only be useful
+            if the person verifying the message is also using 
+            Armory."""), QMessageBox.Ok)
+         DlgECDSACalc(self,self, 0).exec_()
+
+      actOpenSigner = self.createAction('&Message Signing', openMsgSigning)
       actOpenTools  = self.createAction('&EC Calculator',   lambda: DlgECDSACalc(self,self, 1).exec_())
-      self.menusList[MENUS.Tools].addAction(actOpenSigner)
-      self.menusList[MENUS.Tools].addAction(actOpenTools)
+
+      if currmode=='Expert':
+         self.menusList[MENUS.Tools].addAction(actOpenSigner)
+         self.menusList[MENUS.Tools].addAction(actOpenTools)
 
 
       # Addresses
@@ -2479,8 +2491,8 @@ class ArmoryMainWindow(QMainWindow):
                   'the transaction actually succeeded, you can try this direct link '
                   'to blockchain.info:'
                   '<br><br>'
-                  '<a href="http://blockchain.info/search/%s">'
-                  'http://blockchain.info/search/%s...</a>.  '
+                  '<a href="https://blockchain.info/search/%s">'
+                  'https://blockchain.info/search/%s...</a>.  '
                   '<br><br>'
                   'If you do not see the '
                   'transaction on that webpage within one minute, it failed and you '
@@ -2820,7 +2832,7 @@ class ArmoryMainWindow(QMainWindow):
       txHash = hex_switchEndian(txHash)
       wltID  = str(self.ledgerView.model().index(row, LEDGERCOLS.WltID).data().toString())
 
-      blkchnURL = 'http://blockchain.info/tx/%s' % txHash
+      blkchnURL = 'https://blockchain.info/tx/%s' % txHash
 
       if action==actViewTx:
          self.showLedgerTx()

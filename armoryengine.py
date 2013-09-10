@@ -7,7 +7,7 @@
 ################################################################################
 
 # Version Numbers 
-BTCARMORY_VERSION    = (0, 89, 96, 0)  # (Major, Minor, Bugfix, AutoIncrement) 
+BTCARMORY_VERSION    = (0, 89, 97, 0)  # (Major, Minor, Bugfix, AutoIncrement) 
 PYBTCWALLET_VERSION  = (1, 35,  0, 0)  # (Major, Minor, Bugfix, AutoIncrement)
 
 ARMORY_DONATION_ADDR = '1ArmoryXcfq7TnCSuZa9fQjRYwJ4bkRKfv'
@@ -8228,12 +8228,12 @@ class PyBtcWallet(object):
             for i in range(tx.getNumTxOut()):
                try:
                   a160 = CheckHash160(tx.getScrAddrForTxOut(i))
+                  if self.hasAddr(a160):
+                     self.txAddrMap[txHash].append(a160)
                except: 
                   LOGERROR("Unrecognized scraddr: " + binary_to_hex(tx.getScrAddrForTxOut(i)))
                
      
-               if self.hasAddr(a160):
-                  self.txAddrMap[txHash].append(a160)
             
 
       addrComments = []

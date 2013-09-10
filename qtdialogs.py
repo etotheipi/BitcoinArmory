@@ -309,6 +309,7 @@ class LetterButton(QPushButton):
       self.special = Spec
       self.target  = edtTarget
       self.parent  = parent
+      
       if self.special:
          super(LetterButton, self).setFont(GETFONT('Var',8))
       else:
@@ -330,6 +331,9 @@ class LetterButton(QPushButton):
    def insertLetter(self):
       currPwd = str(self.parent.edtPasswd.text())
       insChar = self.upper if self.parent.btnShift.isChecked() else self.lower
+      if len(insChar)==2 and insChar.startswith('#'):
+         insChar = insChar[1]
+      
       self.parent.edtPasswd.setText( currPwd + insChar )
       self.parent.reshuffleKeys()
 
@@ -1247,7 +1251,7 @@ class DlgWalletDetails(ArmoryDialog):
       elif action==actionBlkChnInfo:
          try:
             import webbrowser
-            blkchnURL = 'http://blockchain.info/address/%s' % addr
+            blkchnURL = 'https://blockchain.info/address/%s' % addr
             webbrowser.open(blkchnURL)
          except:
             QMessageBox.critical(self, 'Could not open browser', \
@@ -9817,7 +9821,7 @@ class DlgECDSACalc(ArmoryDialog):
          # This address is ours, get the priv key and fill in everything else
          wlt = self.main.walletMap[wltID]
          if wlt.useEncryption and wlt.isLocked:
-            dlg = DlgUnlockWallet(wlt, self.main, 'Encrypt New Address')
+            dlg = DlgUnlockWallet(wlt, self, self.main, 'Encrypt New Address')
             if not dlg.exec_():
                reply = QMessageBox.critical(self, 'Wallet is locked',
                   'Could not unlock wallet, so private key data could not '
@@ -9903,7 +9907,7 @@ class DlgECDSACalc(ArmoryDialog):
       if not haveRawPriv:
          wlt = self.main.walletMap[wltID]
          if wlt.useEncryption and wlt.isLocked:
-            dlg = DlgUnlockWallet(wlt, self.main, 'Encrypt New Address')
+            dlg = DlgUnlockWallet(wlt, self, self.main, 'Encrypt New Address')
             if not dlg.exec_():
                reply = QMessageBox.critical(self, 'Wallet is locked',
                   'Could not unlock wallet, so private key data could not '
@@ -10575,12 +10579,12 @@ class DlgHelpAbout(ArmoryDialog):
       imgLogo.setPixmap(QPixmap(':/armory_logo_h56.png'))
       imgLogo.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
 
-      lblHead = QRichLabel('Armory Bitcoin Client : Version %s-beta' % \
+      lblHead = QRichLabel('Armory Bitcoin Wallet : Version %s-beta' % \
                                     getVersionString(BTCARMORY_VERSION), doWrap=False)
       lblWebpage = QRichLabel('<a href="https://www.bitcoinarmory.com">https://www.bitcoinarmory.com</a>')
       lblWebpage.setOpenExternalLinks(True)
-      lblCopyright = QRichLabel('Copyright \xa9 2011-2013 Armory Technologies, Inc.')
-      lblLicense = QRichLabel('Licensed under the '
+      lblCopyright = QRichLabel(u'Copyright \xa9 2011-2013 Armory Technologies, Inc.')
+      lblLicense = QRichLabel(u'Licensed under the '
                               '<a href="http://www.gnu.org/licenses/agpl-3.0.html">'
                               'Affero General Public License, Version 3</a> (AGPLv3)')
       lblLicense.setOpenExternalLinks(True)
