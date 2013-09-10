@@ -1338,6 +1338,7 @@ void StoredScriptHistory::serializeDBValue(BinaryWriter & bw ) const
       if(subHistMap_.size() != 1)
       {
          LOGERR << "!multi entry but " << subHistMap_.size() << " TxIOs?";
+         LOGERR << uniqueKey_.toHexStr().c_str();
          return;
       }
 

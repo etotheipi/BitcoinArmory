@@ -8166,7 +8166,11 @@ class PyBtcWallet(object):
          tx = TheBDM.getTxByHash(txHash)
          if tx.isInitialized():
             for i in range(tx.getNumTxOut()):
-               a160 = CheckHash160(tx.getScrAddrForTxOut(i))
+               try:
+                  a160 = CheckHash160(tx.getScrAddrForTxOut(i))
+               except: 
+                  LOGERROR("Unrecognized scraddr: " + binary_to_hex(tx.getScrAddrForTxOut(i)))
+               
      
                if self.hasAddr(a160):
                   self.txAddrMap[txHash].append(a160)

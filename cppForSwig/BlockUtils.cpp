@@ -2524,7 +2524,8 @@ void BlockDataManager_LevelDB::applyBlockRangeToDB(uint32_t blk0, uint32_t blk1)
    iface_->seekTo(BLKDATA, startKey);
 
    // Start scanning and timer
-   bool doBatches = (blk1-blk0 > NUM_BLKS_BATCH_THRESH);
+   //bool doBatches = (blk1-blk0 > NUM_BLKS_BATCH_THRESH);
+   bool doBatches = true;
    map<BinaryData, StoredTx>             stxToModify;
    map<BinaryData, StoredScriptHistory>  sshToModify;
    set<BinaryData>                       keysToDelete;
@@ -3032,6 +3033,12 @@ bool BlockDataManager_LevelDB::processAllHeadersInBlkFiles(uint32_t fnumStart,
    SCOPED_TIMER("processAllHeadersInBlkFiles");
 
    detectAllBlkFiles();
+   
+   //uint32_t topBlkH = getTopBlockHeightInDB(HEADERS);
+   //uint32_t topBlkB = getTopBlockHeightInDB(HEADERS);
+   //cout << "Top blk heights in DB: " << topBlkH << " " << topBlkB << endl;
+   //uint32_t topBlk = getTopBlockHeight();
+   //cout << "Top blk heights in RAM: " << topBlk;
 
    // In first file, start at supplied offset;  start at beginning for others
    for(uint32_t fnum=fnumStart; fnum<numBlkFiles_; fnum++)
@@ -3047,6 +3054,9 @@ bool BlockDataManager_LevelDB::processAllHeadersInBlkFiles(uint32_t fnumStart,
       LOGERR << "Organize chain indicated reorg in process all headers!";
       LOGERR << "Did we shut down last time on an orphan block?";
    }
+
+   //topBlk = getTopBlockHeight();
+   //cout << "Top blk heights in RAM: " << topBlk;
 
    map<HashString, BlockHeader>::iterator iter;
    for(iter = headerMap_.begin(); iter != headerMap_.end(); iter++)
@@ -4658,6 +4668,10 @@ bool BlockDataManager_LevelDB::applyTxToBatchWriteData(
    SCOPED_TIMER("applyTxToBatchWriteData");
 
    Tx tx = thisSTX.getTxCopy();
+
+   //cout << "Tx block height: " 
+        //<< thisSTX.blockHeight_ << ":"
+        //<< thisSTX.txIndex_ << endl;
 
    // We never expect thisSTX to already be in the map (other tx in the map
    // may be affected/retrieved multiple times).  
