@@ -43,6 +43,7 @@ enum DB_PREFIX
 
 enum ARMORY_DB_TYPE
 {
+  ARMORY_DB_BARE, // only raw block data
   ARMORY_DB_LITE,
   ARMORY_DB_PARTIAL,
   ARMORY_DB_FULL,
@@ -507,6 +508,7 @@ public:
    // the values that were unserialized with everything else, so that we can
    // leter check that it
    uint32_t          unserArmVer_;
+   uint32_t          unserDbType_;
 };
 
 

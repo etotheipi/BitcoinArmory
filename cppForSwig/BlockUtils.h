@@ -377,7 +377,11 @@ public:
    // Scan a Tx for our TxIns/TxOuts.  Override default blk vals if you think
    // you will save time by not checking addresses that are much newer than
    // the block
-   pair<bool,bool> isMineBulkFilter( Tx & tx, bool withMultiSig=false);
+   pair<bool,bool> isMineBulkFilter( Tx & tx,   
+                                     bool withMultiSig=false);
+   pair<bool,bool> isMineBulkFilter( Tx & tx, 
+                                     map<OutPoint, TxIOPair> & txiomap,
+                                     bool withMultiSig=false);
 
    void scanTx(Tx & tx, 
                uint32_t txIndex = UINT32_MAX,
@@ -687,6 +691,7 @@ public:
    bool     scrAddrIsRegistered(HashString scrAddr);
    void     insertRegisteredTxIfNew(HashString txHash);
    void     insertRegisteredTxIfNew(RegisteredTx & regTx);
+   void     insertRegisteredTxIfNew(Tx const & tx);
    void     registeredScrAddrScan( Tx & theTx );
    void     registeredScrAddrScan( uint8_t const * txptr,
                                    uint32_t txSize=0,

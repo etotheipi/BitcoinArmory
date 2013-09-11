@@ -583,16 +583,17 @@ void InterfaceToLDB::deleteValue(DB_SELECT db,
 //}
 
 /////////////////////////////////////////////////////////////////////////////
-/*
-void InterfaceToLDB::startBlkDataIteration(DB_PREFIX prefix)
+bool InterfaceToLDB::startBlkDataIteration(DB_PREFIX prefix)
 {
    SCOPED_TIMER("startBlkDataIteration");
-   seekTo(BLKDATA, prefix, BinaryData(0));
-   leveldb::Slice start((char*)(&prefix), 1);
-   iters_[BLKDATA]->Seek(start);
-   iteratorToRefReaders(iters_[BLKDATA], currReadKey_, currReadValue_);
+   if(!seekTo(BLKDATA, prefix, BinaryData(0)))
+   {
+      LOGERR << "No block data!";   
+      return false;
+   }
+
+   return true;
 }
-*/
 
 
 
@@ -877,7 +878,7 @@ void InterfaceToLDB::getStoredScriptHistoryByRawScript(
                                              StoredScriptHistory & ssh,
                                              BinaryDataRef script)
 {
-   BinaryData uniqueKey = BtcUtils::getTxOutScriptUniqueKey(script);
+   BinaryData uniqueKey = BtcUtils::getTxOutScrAddr(script);
    getStoredScriptHistory(ssh, uniqueKey);
 }
 
@@ -1015,7 +1016,7 @@ bool InterfaceToLDB::advanceIterAndRead(DB_SELECT db, DB_PREFIX prefix)
 void InterfaceToLDB::addRegisteredScript(BinaryDataRef rawScript, 
                                          uint32_t      blockCreated)
 {
-   BinaryData uniqKey = BtcUtils::getTxOutScriptUniqueKey(rawScript);
+   BinaryData uniqKey = BtcUtils::getTxOutScrAddr(rawScript);
    bool       isMulti = BtcUtils::isMultisigScript(rawScript);
 
    StoredScriptHistory ssh;
@@ -1578,6 +1579,7 @@ bool InterfaceToLDB::readStoredBlockAtIter(StoredHeader & sbh)
    
    // Grab the header first, then iterate over 
    sbh.unserializeDBValue(BLKDATA, currReadValue_, false);
+   sbh.isMainBranch_ = (sbh.duplicateID_==getValidDupIDForHeight(sbh.blockHeight_));
 
    // If for some reason we hit the end of the DB without any tx, bail
    bool iterValid = advanceIterAndRead(BLKDATA, DB_PREFIX_TXDATA);

@@ -1691,8 +1691,8 @@ TEST_F(BtcUtilsTest, TxOutScriptID_Hash160)
    EXPECT_EQ(scrType, TXOUT_SCRIPT_STDHASH160 );
    EXPECT_EQ(BtcUtils::getTxOutRecipientAddr(script), a160 );
    EXPECT_EQ(BtcUtils::getTxOutRecipientAddr(script, scrType), a160 );
-   EXPECT_EQ(BtcUtils::getTxOutScriptUniqueKey(script), unique );
-   EXPECT_EQ(BtcUtils::getTxOutScriptUniqueKey(script, scrType), unique );
+   EXPECT_EQ(BtcUtils::getTxOutScrAddr(script), unique );
+   EXPECT_EQ(BtcUtils::getTxOutScrAddr(script, scrType), unique );
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1707,8 +1707,8 @@ TEST_F(BtcUtilsTest, TxOutScriptID_PubKey65)
    EXPECT_EQ(scrType, TXOUT_SCRIPT_STDPUBKEY65 );
    EXPECT_EQ(BtcUtils::getTxOutRecipientAddr(script), a160 );
    EXPECT_EQ(BtcUtils::getTxOutRecipientAddr(script, scrType), a160 );
-   EXPECT_EQ(BtcUtils::getTxOutScriptUniqueKey(script), unique );
-   EXPECT_EQ(BtcUtils::getTxOutScriptUniqueKey(script, scrType), unique );
+   EXPECT_EQ(BtcUtils::getTxOutScrAddr(script), unique );
+   EXPECT_EQ(BtcUtils::getTxOutScrAddr(script, scrType), unique );
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1722,8 +1722,8 @@ TEST_F(BtcUtilsTest, TxOutScriptID_PubKey33)
    EXPECT_EQ(scrType, TXOUT_SCRIPT_STDPUBKEY33 );
    EXPECT_EQ(BtcUtils::getTxOutRecipientAddr(script), a160 );
    EXPECT_EQ(BtcUtils::getTxOutRecipientAddr(script, scrType), a160 );
-   EXPECT_EQ(BtcUtils::getTxOutScriptUniqueKey(script), unique );
-   EXPECT_EQ(BtcUtils::getTxOutScriptUniqueKey(script, scrType), unique );
+   EXPECT_EQ(BtcUtils::getTxOutScrAddr(script), unique );
+   EXPECT_EQ(BtcUtils::getTxOutScrAddr(script, scrType), unique );
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1738,8 +1738,8 @@ TEST_F(BtcUtilsTest, TxOutScriptID_NonStd)
    EXPECT_EQ(scrType, TXOUT_SCRIPT_NONSTANDARD );
    EXPECT_EQ(BtcUtils::getTxOutRecipientAddr(script), a160 );
    EXPECT_EQ(BtcUtils::getTxOutRecipientAddr(script, scrType), a160 );
-   EXPECT_EQ(BtcUtils::getTxOutScriptUniqueKey(script), unique );
-   EXPECT_EQ(BtcUtils::getTxOutScriptUniqueKey(script, scrType), unique );
+   EXPECT_EQ(BtcUtils::getTxOutScrAddr(script), unique );
+   EXPECT_EQ(BtcUtils::getTxOutScrAddr(script, scrType), unique );
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1756,8 +1756,8 @@ TEST_F(BtcUtilsTest, TxOutScriptID_P2SH)
    EXPECT_EQ(scrType, TXOUT_SCRIPT_P2SH);
    EXPECT_EQ(BtcUtils::getTxOutRecipientAddr(script), a160 );
    EXPECT_EQ(BtcUtils::getTxOutRecipientAddr(script, scrType), a160 );
-   EXPECT_EQ(BtcUtils::getTxOutScriptUniqueKey(script), unique );
-   EXPECT_EQ(BtcUtils::getTxOutScriptUniqueKey(script, scrType), unique );
+   EXPECT_EQ(BtcUtils::getTxOutScrAddr(script), unique );
+   EXPECT_EQ(BtcUtils::getTxOutScrAddr(script, scrType), unique );
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1780,8 +1780,8 @@ TEST_F(BtcUtilsTest, TxOutScriptID_Multisig)
    EXPECT_EQ(scrType, TXOUT_SCRIPT_MULTISIG);
    EXPECT_EQ(BtcUtils::getTxOutRecipientAddr(script), a160 );
    EXPECT_EQ(BtcUtils::getTxOutRecipientAddr(script, scrType), a160 );
-   EXPECT_EQ(BtcUtils::getTxOutScriptUniqueKey(script), unique );
-   EXPECT_EQ(BtcUtils::getTxOutScriptUniqueKey(script, scrType), unique );
+   EXPECT_EQ(BtcUtils::getTxOutScrAddr(script), unique );
+   EXPECT_EQ(BtcUtils::getTxOutScrAddr(script, scrType), unique );
 }
 
 
@@ -3084,7 +3084,7 @@ TEST_F(StoredBlockObjTest, SHeaderDBSerFull_B1)
    sbh_.numBytes_         = 65535;
 
    // SetUp already contains sbh_.unserialize(rawHead_);
-   BinaryData flags = READHEX("01240000");
+   BinaryData flags = READHEX("01340000");
    BinaryData ntx   = READHEX("0f000000");
    BinaryData nbyte = READHEX("ffff0000");
 
@@ -3111,7 +3111,7 @@ TEST_F(StoredBlockObjTest, SHeaderDBSerFull_B2)
    sbh_.numBytes_         = 65535;
 
    // SetUp already contains sbh_.unserialize(rawHead_);
-   BinaryData flags = READHEX("01160000");
+   BinaryData flags = READHEX("01260000");
    BinaryData ntx   = READHEX("0f000000");
    BinaryData nbyte = READHEX("ffff0000");
 
@@ -3136,7 +3136,7 @@ TEST_F(StoredBlockObjTest, SHeaderDBSerFull_B3)
    sbh_.numBytes_         = 65535;
 
    // SetUp already contains sbh_.unserialize(rawHead_);
-   BinaryData flags = READHEX("01000000");
+   BinaryData flags = READHEX("01100000");
    BinaryData ntx   = READHEX("0f000000");
    BinaryData nbyte = READHEX("ffff0000");
 
@@ -3165,7 +3165,7 @@ TEST_F(StoredBlockObjTest, SHeaderDBUnserFull_H)
 TEST_F(StoredBlockObjTest, SHeaderDBUnserFull_B1)
 {
    BinaryData dbval = READHEX(
-      "01240000010000001d8f4ec0443e1f19f305e488c1085c95de7cc3fd25e0d2c5"
+      "01340000010000001d8f4ec0443e1f19f305e488c1085c95de7cc3fd25e0d2c5"
       "bb5d0000000000009762547903d36881a86751f3f5049e23050113f779735ef8"
       "2734ebf0b4450081d8c8c84db3936a1a334b035b0f000000ffff0000");
 
@@ -3190,7 +3190,7 @@ TEST_F(StoredBlockObjTest, SHeaderDBUnserFull_B1)
 TEST_F(StoredBlockObjTest, SHeaderDBUnserFull_B2)
 {
    BinaryData dbval = READHEX(
-      "01160000010000001d8f4ec0443e1f19f305e488c1085c95de7cc3fd25e0d2c5"
+      "01260000010000001d8f4ec0443e1f19f305e488c1085c95de7cc3fd25e0d2c5"
       "bb5d0000000000009762547903d36881a86751f3f5049e23050113f779735ef8"
       "2734ebf0b4450081d8c8c84db3936a1a334b035b0f000000ffff0000deadbeef");
 
@@ -3214,7 +3214,7 @@ TEST_F(StoredBlockObjTest, SHeaderDBUnserFull_B2)
 TEST_F(StoredBlockObjTest, SHeaderDBUnserFull_B3)
 {
    BinaryData dbval = READHEX(
-      "01000000010000001d8f4ec0443e1f19f305e488c1085c95de7cc3fd25e0d2c5"
+      "01100000010000001d8f4ec0443e1f19f305e488c1085c95de7cc3fd25e0d2c5"
       "bb5d0000000000009762547903d36881a86751f3f5049e23050113f779735ef8"
       "2734ebf0b4450081d8c8c84db3936a1a334b035b0f000000ffff0000");
 
@@ -3675,7 +3675,7 @@ TEST_F(StoredBlockObjTest, SUndoDataSer)
    sud.blockHeight_ = 123000; // unused for this test
    sud.duplicateID_ = 15;     // unused for this test
 
-   BinaryData flags = READHEX("24");
+   BinaryData flags = READHEX("34");
    BinaryData str2  = WRITE_UINT32_LE(2);
    BinaryData str5  = WRITE_UINT32_LE(5);
    BinaryData answer = 
@@ -4681,7 +4681,7 @@ protected:
                              ARMORY_DB_FULL, DB_PRUNE_NONE);
 
       BinaryData DBINFO = StoredDBInfo().getDBKey();
-      BinaryData flags = READHEX("02100000");
+      BinaryData flags = READHEX("03100000");
       BinaryData val0 = magic_+flags+zeros_+zeros_+ghash_;
       addOutPairH(DBINFO, val0);
       addOutPairB(DBINFO, val0);
@@ -4738,7 +4738,7 @@ TEST_F(LevelDBTest, OpenClose)
 
    // 0123 4567 0123 4567
    // 0000 0010 0001 ---- ---- ---- ---- ----
-   BinaryData flags = READHEX("02100000");
+   BinaryData flags = READHEX("03100000");
 
    for(uint32_t i=0; i<HList.size(); i++)
    {
@@ -4761,7 +4761,7 @@ TEST_F(LevelDBTest, OpenCloseOpenNominal)
 {
    // 0123 4567 0123 4567
    // 0000 0010 0001 ---- ---- ---- ---- ----
-   BinaryData flags = READHEX("02100000");
+   BinaryData flags = READHEX("03100000");
 
    iface_->openDatabases( string("ldbtestdir"),
                           ghash_,
@@ -4862,7 +4862,7 @@ TEST_F(LevelDBTest, DISABLED_OpenCloseOpenMismatch)
 ////////////////////////////////////////////////////////////////////////////////
 TEST_F(LevelDBTest, PutGetDelete)
 {
-   BinaryData flags = READHEX("02100000");
+   BinaryData flags = READHEX("03100000");
 
    iface_->openDatabases( string("ldbtestdir"),
                           ghash_,
@@ -5202,7 +5202,7 @@ TEST_F(LevelDBTest, PutFullBlock)
    StoredTx & stx0 = sbh.stxMap_[0];
    StoredTx & stx1 = sbh.stxMap_[1];
    StoredTx & stx2 = sbh.stxMap_[2];
-   BinaryData hflags = READHEX("01240000");
+   BinaryData hflags = READHEX("01340000");
    BinaryData ntx    = READHEX("03000000");
    BinaryData nbyte  = READHEX("46040000");
 

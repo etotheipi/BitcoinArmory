@@ -387,9 +387,18 @@ bool BtcWallet::hasScrAddress(HashString const & scrAddr)
 
 
 /////////////////////////////////////////////////////////////////////////////
+pair<bool,bool> BtcWallet::isMineBulkFilter(Tx & tx, 
+                                            bool withMultiSig)
+{
+   return isMineBulkFilter(tx, txioMap_, withMultiSig);
+}
+
+/////////////////////////////////////////////////////////////////////////////
 // Determine, as fast as possible, whether this tx is relevant to us
 // Return  <IsOurs, InputIsOurs>
-pair<bool,bool> BtcWallet::isMineBulkFilter(Tx & tx, bool withMultiSig)
+pair<bool,bool> BtcWallet::isMineBulkFilter(Tx & tx, 
+                                            map<OutPoint, TxIOPair> & txiomap,
+                                            bool withMultiSig)
 {
    // Since 99.999%+ of all transactions are not ours, let's do the 
    // fastest bulk filter possible, even though it will add 
@@ -403,8 +412,7 @@ pair<bool,bool> BtcWallet::isMineBulkFilter(Tx & tx, bool withMultiSig)
       // We have the txin, now check if it contains one of our TxOuts
       static OutPoint op;
       op.unserialize(txStartPtr + tx.getTxInOffset(iin));
-      //if(txioMap_.find(op) != txioMap_.end())
-      if(KEY_IN_MAP(op, txioMap_))
+      if(KEY_IN_MAP(op, txiomap))
          return pair<bool,bool>(true,true);
    }
 
@@ -572,6 +580,35 @@ void BlockDataManager_LevelDB::insertRegisteredTxIfNew(HashString txHash)
                          txref.getBlockTxIndex());
       registeredTxList_.push_back(regTx);
    }
+}
+
+/////////////////////////////////////////////////////////////////////////////
+void BlockDataManager_LevelDB::insertRegisteredTxIfNew(Tx const & tx)
+{
+   BinaryData txHash = tx.getThisHash();
+   if(registeredTxSet_.insert(txHash).second == true)
+   {
+      TxRef txref = tx.getTxRef();
+      if(txref.isNull())
+      {
+         LOGERR << "How did we get a null txref when we have a full tx?";
+         txref = getTxRefByHash(txHash);
+      }
+   
+      if(txref.isNull())
+      {
+         LOGERR << "Could not get the tx from the DB, either!";
+         registeredTxSet_.erase(txHash);
+         return;
+      }
+         
+      RegisteredTx regTx(txref,
+                         txref.getThisHash(),
+                         txref.getBlockHeight(),
+                         txref.getBlockTxIndex());
+      registeredTxList_.push_back(regTx);
+   }
+   
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -2335,12 +2372,11 @@ bool BlockDataManager_LevelDB::isDirty(
 {
    return false;
 
-   // TODO:  fix this before implementing something other than super-node!
-   //if(!isInitialized_)
-      //return false;
+   if(!isInitialized_)
+      return false;
    
-   //uint32_t numBlocksBehind = lastTopBlock_-allScannedUpToBlk_;
-   //return (numBlocksBehind > numBlocksToBeConsideredDirty);
+   uint32_t numBlocksBehind = lastTopBlock_-allScannedUpToBlk_;
+   return (numBlocksBehind > numBlocksToBeConsideredDirty);
   
 }
 
@@ -2470,7 +2506,7 @@ void BlockDataManager_LevelDB::scanBlockchainForTx(BtcWallet & myWallet,
    // TODO:  We should implement selective fetching!  (i.e. only fetch
    //        and register scraddr data that is between those two blocks).
    //        At the moment, it is 
-   if(fetchFirst)
+   if(fetchFirst && DBUtils.getArmoryDbType()!=ARMORY_DB_BARE)
       fetchAllRegisteredScrAddrData(myWallet);
 
    // The BDM knows the highest block to which ALL CURRENT REGISTERED ADDRESSES
@@ -3359,15 +3395,96 @@ uint32_t BlockDataManager_LevelDB::buildDatabasesFromBlkFiles(
 
    LOGINFO << "Finished putting " << blocksReadSoFar_ << " raw blocks into DB";
    LOGINFO << "Now, build script histories, update spentness of all blocks...";
+
+
+
+   if(DBUtils.getArmoryDbType() == ARMORY_DB_BARE)
+   { 
+      if(registeredScrAddrMap_.size() == 0)
+      {
+         LOGWARN << "No addresses are registered with the BDM, so there's no";
+         LOGWARN << "point in doing a blockchain scan yet.";
+      }
+      else
+      {
+         //map<OutPoint, TxIOPair> txioTracker;
+         iface_->startBlkDataIteration(DB_PREFIX_TXDATA);
+         StoredHeader sbh;
+         //TxIOPair nullTxio; 
+         while(iface_->dbIterIsValid(BLKDATA, DB_PREFIX_TXDATA))
+         {
+            // Get the full block from the DB
+            iface_->readStoredBlockAtIter(sbh);
+            uint32_t hgt     = sbh.blockHeight_;
+            uint8_t  dup     = sbh.duplicateID_;
+            uint8_t  dupMain = iface_->getValidDupIDForHeight(hgt);
+            if(!sbh.isMainBranch_ || dup != dupMain)
+            {
+               LOGWARN << "Either an error, or hit an orphan";
+               LOGWARN << "Height: " << hgt;
+               LOGWARN << "Dup:    " << (uint32_t)dup;
+               LOGWARN << "Valid:  " << (uint32_t)dupMain;
+               LOGWARN << "IsMain: " << (sbh.isMainBranch_ ? "TRUE" : "FALSE");
+               continue;
+            }
    
-   // The first version of the DB engine will do super-node, where it tracks
-   // all ScrAddrs, and thus we don't even need to register any scraddrs 
-   // before running this.
-   firstBlkToApply = min(firstBlkToApply, alreadyApplied_);
-   applyBlockRangeToDB(firstBlkToApply, getTopBlockHeight()+1);
+            // If we're here, we need to check the tx for relevance to the 
+            // global scrAddr list.  Add to registered Tx map if so
+            map<uint16_t, StoredTx>::iterator iter;
+            for(iter  = sbh.stxMap_.begin();
+                iter != sbh.stxMap_.end();
+                iter++)
+            {
+               Tx tx = iter->second.getTxCopy();
+               registeredScrAddrScan(tx.getPtr(), tx.getSize());
+      
+
+               /* Whoops, reimplemented registeredScrAddrScan 
+               bool txIsOurs = isMineBulkFilter(tx, txioTracker).first;
+               if(txIsOurs)
+               {
+                  // No matter what, it's relevant, add it to the list
+                  insertRegisteredTxIfNew(tx);
+
+                  // But we also need to figure out which OutPoints specifically
+                  // are ours, so that we can recognize TxIns in future tx
+                  for(uint32_t iout = 0; iout < tx.getNumTxOut(); i++)
+                  {
+                     TxOut txo = tx.getTxOutCopy(iout);
+                     BinaryDataRef script = txo.getScriptRef();
+                     BinaryData scrAddr = BtcUtils::getTxOutScrAddr(script);
+                     if(KEY_IN_MAP(scrAddr, registeredScrAddrMap_))
+                     {
+                        // This TxOut is relevant, add it to the tracker.
+                        // The TxIO itself actually doesn't matter: the 
+                        // bulk filter only checks whether the key is in 
+                        // the map.  But the bulk filter is also used by 
+                        // scanTx, which passes it a map<OP,TXIO>, so we
+                        // used a map here, so both methods could use it.
+                        // (even though we'd probably be better with a 
+                        // set<OutPoint>).
+                        OutPoint op(tx.getThisHash(), iout);
+                        pair<OutPoint, TxIOPair> toBeInserted(op, nullTxio);
+                        txioTracker.insert(toBeInserted);
+                     }
+                  }
+               }
+               */
+            }
+         }
+      }
+   }
+   else
+   {
+      // The first version of the DB engine will do super-node, where it tracks
+      // all ScrAddrs, and thus we don't even need to register any scraddrs 
+      // before running this.
+      firstBlkToApply = min(firstBlkToApply, alreadyApplied_);
+      applyBlockRangeToDB(firstBlkToApply, getTopBlockHeight()+1);
+   }
 
    // We need to maintain the physical size of all blkXXXX.dat files together
-   //totalBlockchainBytes_ = bytesReadSoFar_;
+   totalBlockchainBytes_ = bytesReadSoFar_;
 
    // Update registered address list so we know what's already been scanned
    lastTopBlock_ = getTopBlockHeight() + 1;
