@@ -8735,7 +8735,7 @@ class DlgPrintBackup(ArmoryDialog):
       elif printType=='SingleSheetImported':
          bType = tr('Imported Keys ' + ssType)
       elif printType.lower().startswith('frag'):
-         bstr = tr('Fragmented %d-of-%d') % (self.fragData['M'], self.fragData['N'])
+         bstr = tr('Fragmented Backup (%d-of-%d)') % (self.fragData['M'], self.fragData['N'])
          bType = bstr + ' ' + tr(ssType)
       
       if printType.startswith('SingleSheet'):
@@ -13767,14 +13767,19 @@ class DlgRestoreSingle(ArmoryDialog):
       frmCombo = makeHorizFrame([lblType, 'Space(20)', self.comboBackupType, 'Stretch'])
 
 
-      # 
+
+      class QLE(QLineEdit):
+         def focusInEvent(self, event):
+            self.setFocus()
+
       self.lblSP = QRichLabel(tr('SecurePrint\xe2\x84\xa2 Code:'), doWrap=False)
       self.edtSP = QLineEdit()
       self.prfxList = [QLabel(tr('Root Key:')), QLabel(''), QLabel(tr('Chaincode:')), QLabel('')]
-      self.edtList = [QLineEdit(), QLineEdit(), QLineEdit(), QLineEdit()]
+      self.edtList = [QLE(), QLE(), QLE(), QLE()]
 
       inpMask = '<AAAA\ AAAA\ AAAA\ AAAA\ \ AAAA\ AAAA\ AAAA\ AAAA\ \ AAAA!'
       
+
       self.frmSP = makeHorizFrame(['Stretch', self.lblSP, self.edtSP])
 
       frmAllInputs = QFrame()
@@ -13837,6 +13842,7 @@ class DlgRestoreSingle(ArmoryDialog):
 
       self.isLongForm = (visList[-1]==1)
          
+      
    #############################################################################
    def verifyUserInput(self):
       inputLines = []
