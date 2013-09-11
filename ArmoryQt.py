@@ -95,6 +95,7 @@ class ArmoryMainWindow(QMainWindow):
       self.satoshiHomePath = None
       self.satoshiExeSearchPath = None
       self.initSyncCircBuff = []
+      self.latestVer = {}
 
 
       # We want to determine whether the user just upgraded to a new version
@@ -2695,9 +2696,9 @@ class ArmoryMainWindow(QMainWindow):
          return
       """
 
-      TheBDM.startWalletRecoveryScan(newWallet) 
-      self.setDashboardDetails()
+      #TheBDM.startWalletRecoveryScan(newWallet) 
       self.addWalletToApplication(newWallet, walletIsNew=False)
+      self.setDashboardDetails()
       LOGINFO('Import Complete!')
 
 
@@ -4173,7 +4174,7 @@ class ArmoryMainWindow(QMainWindow):
                      self.lblDashModeSync.setText( 'Synchronizing with Network', \
                                               size=4, bold=True, color='Foreground')
 
-                  self.lblDashModeScan.setText( 'Scanning Transaction History', \
+                  self.lblDashModeScan.setText( 'Building Blockchain Database', \
                                               size=4, bold=True, color='DisableFG')
                   if self.approxBlkLeft > 1440: # more than 10 days
                      descr1 += self.GetDashStateText('Auto', 'InitializingLongTime')
@@ -4288,7 +4289,7 @@ class ArmoryMainWindow(QMainWindow):
                self.lblTimeLeftSync.setVisible(False)
                self.lblDashModeSync.setVisible(False)
 
-            self.lblDashModeScan.setText( 'Scanning Transaction History', \
+            self.lblDashModeScan.setText( 'Building Blockchain Database', \
                                         size=4, bold=True, color='Foreground')
             self.mainDisplayTabs.setTabEnabled(self.MAINTABS.Transactions, False)
    

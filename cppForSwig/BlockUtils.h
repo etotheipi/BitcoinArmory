@@ -521,8 +521,9 @@ private:
    string                             blkFileDir_;
    vector<string>                     blkFileList_;
    uint64_t                           numBlkFiles_;
-   uint32_t                           lastBlkFileNum_;
    uint64_t                           endOfLastBlockByte_;
+   uint32_t                           startScanBlkNum_;
+   uint64_t                           startScanOffset_;
    uint32_t                           alreadyApplied_;
 
    // Used to estimate how much data is queued to be written to DB

@@ -1379,7 +1379,8 @@ class DlgWalletDetails(ArmoryDialog):
 
 
    def execBackupDlg(self):
-      DlgBackupCenter(self, self.main, self.wlt).exec_()
+      DlgSimpleBackup(self, self.main, self.wlt).exec_()
+      #DlgBackupCenter(self, self.main, self.wlt).exec_()
 
    def execPrintDlg(self):
       if self.wlt.isLocked:
@@ -12782,7 +12783,7 @@ class DlgBackupCenter(ArmoryDialog):
       self.optPaperBackupOne  = QRadioButtonBackupCtr(self, \
                                     'Single-Sheet (Recommended)', self.OPTIONS.Paper1)
       self.optPaperBackupFrag = QRadioButtonBackupCtr(self, \
-                                    'Fragmented (M-of-N)', self.OPTIONS.PaperN)
+                                    'Fragmented Backup (M-of-N)', self.OPTIONS.PaperN)
           
       self.optDigitalBackupTop   = QRadioButtonBackupCtr(self, \
                                     'Digital Backup', self.OPTIONS.DigPlain)
