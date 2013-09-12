@@ -695,6 +695,7 @@ public:
                                     BinaryDataRef txHash,
                                     uint32_t hgt,
                                     uint16_t txIndex);
+   bool     removeRegisteredTx(BinaryData const & txHash);
 
    void     registeredScrAddrScan( Tx & theTx );
    void     registeredScrAddrScan( uint8_t const * txptr,
@@ -799,6 +800,7 @@ public:
 
    // Traverse the blockchain and update the wallet[s] with the relevant Tx data
    // See comments above the scanBlockchainForTx in the .cpp, for more info
+   // NOTE: THIS ASSUMES THAT registeredTxSet_/List_ is already populated!
    void scanBlockchainForTx(BtcWallet & myWallet,
                             uint32_t startBlknum=0,
                             uint32_t endBlknum=UINT32_MAX,
@@ -814,6 +816,7 @@ public:
                                    uint32_t blkStart=0,
                                    uint32_t blkEnd=UINT32_MAX);
 
+   void initialBlockchainLoadScan(void);
 
  
    /////////////////////////////////////////////////////////////////////////////

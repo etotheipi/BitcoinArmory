@@ -615,6 +615,23 @@ void BlockDataManager_LevelDB::insertRegisteredTxIfNew(RegisteredTx & regTx)
       registeredTxList_.push_back(regTx);
 }
 
+/////////////////////////////////////////////////////////////////////////////
+bool BlockDataManager_LevelDB::removeRegisteredTx(BinaryData const & txHash)
+{
+   list<RegisteredTx>::iterator iter;
+   for(iter  = registeredTxList_.begin();
+       iter != registeredTxList_.end();
+       iter++)
+   {
+      if(iter->txHash_ == txHash)
+      {
+         registeredTxList_.erase(iter);
+         return true;
+      }
+   }
+
+   return false;
+}
 
 /////////////////////////////////////////////////////////////////////////////
 //  This basically does the same thing as the bulk filter, but it's for the
@@ -1747,6 +1764,7 @@ bool BlockDataManager_LevelDB::initializeDBInterface(ARMORY_DB_TYPE dbtype,
    LOGINFO << "Rewinding start block to enforce DB integrity";
    LOGINFO << "Start at blockfile:              " << startScanBlkNum_;
    LOGINFO << "Start location in above blkfile: " << startScanOffset_;
+   return true;
 }
 
 
@@ -2478,8 +2496,6 @@ bool BlockDataManager_LevelDB::evalRescanIsRequired(void)
 bool BlockDataManager_LevelDB::isDirty( 
                               uint32_t numBlocksToBeConsideredDirty ) const
 {
-   return false;
-
    if(!isInitialized_)
       return false;
    
@@ -3514,75 +3530,8 @@ uint32_t BlockDataManager_LevelDB::buildDatabasesFromBlkFiles(
       }
       else
       {
-         //map<OutPoint, TxIOPair> txioTracker;
-         iface_->startBlkDataIteration(DB_PREFIX_TXDATA);
-         //TxIOPair nullTxio; 
-         while(iface_->dbIterIsValid(BLKDATA, DB_PREFIX_TXDATA))
-         {
-            // Get the full block from the DB
-            StoredHeader sbh;
-            iface_->readStoredBlockAtIter(sbh);
-            uint32_t hgt     = sbh.blockHeight_;
-            uint8_t  dup     = sbh.duplicateID_;
-            uint8_t  dupMain = iface_->getValidDupIDForHeight(hgt);
-            if(!sbh.isMainBranch_ || dup != dupMain)
-            {
-               LOGWARN << "Either an error, or hit an orphan";
-               LOGWARN << "Height: " << hgt;
-               LOGWARN << "Dup:    " << (uint32_t)dup;
-               LOGWARN << "Valid:  " << (uint32_t)dupMain;
-               LOGWARN << "IsMain: " << (sbh.isMainBranch_ ? "TRUE" : "FALSE");
-               continue;
-            }
-   
-            // If we're here, we need to check the tx for relevance to the 
-            // global scrAddr list.  Add to registered Tx map if so
-            map<uint16_t, StoredTx>::iterator iter;
-            for(iter  = sbh.stxMap_.begin();
-                iter != sbh.stxMap_.end();
-                iter++)
-            {
-               StoredTx & stx = iter->second;
-               Tx tx = stx.getTxCopy();
-               registeredScrAddrScan_IterSafe(stx);
-      
-               /*
-               if(txIsOurs)
-               {
-                  // No matter what, it's relevant, add it to the list
-                  insertRegisteredTxIfNew(tx.getTxRef(),
-                                          stx.thisHash_,
-                                          stx.blockHeight_,
-                                          stx.txIndex_);
-
-                  // But we also need to figure out which OutPoints specifically
-                  // are ours, so that we can recognize TxIns in future tx
-                  for(uint32_t iout = 0; iout < tx.getNumTxOut(); i++)
-                  {
-                     // Also can't use tx.getTxOutCopy because it uses the 
-                     // txRefObj_ to fetch some data (and moves the iterator)
-                     //TxOut txo = tx.getTxOutCopy(iout);
-                     TxOut txo = stx.getTxOutCopy(iout);
-                     if(KEY_IN_MAP(txo.getScrAddressStr(), registeredScrAddrMap_))
-                     {
-                        // This TxOut is relevant, add it to the tracker.
-                        // The TxIO itself actually doesn't matter: the 
-                        // bulk filter only checks whether the key is in 
-                        // the map.  But the bulk filter is also used by 
-                        // scanTx, which passes it a map<OP,TXIO>, so we
-                        // used a map here, so both methods could use it.
-                        // (even though we'd probably be better with a 
-                        // set<OutPoint>).
-                        OutPoint op(tx.getThisHash(), iout);
-                        if(registeredOutPoints_.count(op) > 0)
-                        pair<OutPoint, TxIOPair> toBeInserted(op, nullTxio);
-                        txioTracker.insert(toBeInserted);
-                     }
-                  }
-               }
-               */
-            }
-         }
+         LOGINFO << "Starting initial blockchain load";
+         initialBlockchainLoadScan();
       }
    }
    else
@@ -3617,6 +3566,43 @@ uint32_t BlockDataManager_LevelDB::buildDatabasesFromBlkFiles(
    #endif
 
    return blocksReadSoFar_;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+void BlockDataManager_LevelDB::initialBlockchainLoadScan(void)
+{
+   iface_->startBlkDataIteration(DB_PREFIX_TXDATA);
+   while(iface_->dbIterIsValid(BLKDATA, DB_PREFIX_TXDATA))
+   {
+      // Get the full block from the DB
+      StoredHeader sbh;
+      iface_->readStoredBlockAtIter(sbh);
+      uint32_t hgt     = sbh.blockHeight_;
+      uint8_t  dup     = sbh.duplicateID_;
+      uint8_t  dupMain = iface_->getValidDupIDForHeight(hgt);
+      if(!sbh.isMainBranch_ || dup != dupMain)
+      {
+         LOGWARN << "Either an error, or hit an orphan";
+         LOGWARN << "Height: " << hgt;
+         LOGWARN << "Dup:    " << (uint32_t)dup;
+         LOGWARN << "Valid:  " << (uint32_t)dupMain;
+         LOGWARN << "IsMain: " << (sbh.isMainBranch_ ? "TRUE" : "FALSE");
+         continue;
+      }
+   
+      // If we're here, we need to check the tx for relevance to the 
+      // global scrAddr list.  Add to registered Tx map if so
+      map<uint16_t, StoredTx>::iterator iter;
+      for(iter  = sbh.stxMap_.begin();
+          iter != sbh.stxMap_.end();
+          iter++)
+      {
+         StoredTx & stx = iter->second;
+         Tx tx = stx.getTxCopy();
+         registeredScrAddrScan_IterSafe(stx);
+      }
+   }
 }
 
 
@@ -3785,7 +3771,13 @@ uint32_t BlockDataManager_LevelDB::readBlkFileUpdate(void)
          BlockHeader & bh = getTopBlockHeader();
          uint32_t hgt = bh.getBlockHeight();
          uint8_t  dup = bh.getDuplicateID();
-         applyBlockToDB(hgt, dup);
+   
+         if(DBUtils.getArmoryDbType() != ARMORY_DB_BARE) 
+         {
+            LOGINFO << "Applying block to DB!";
+            applyBlockToDB(hgt, dup);
+         }
+
          purgeZeroConfPool();
 
          StoredHeader sbh;
@@ -4186,6 +4178,8 @@ void BlockDataManager_LevelDB::reassessAfterReorg( BlockHeader* oldTopPtr,
          LOGWARN << "   Tx: " << stx.thisHash_.getSliceCopy(0,8).toHexStr();
          txJustInvalidated_.insert(stx.thisHash_);
          txJustAffected_.insert(stx.thisHash_);
+         registeredTxSet_.erase(stx.thisHash_);
+         removeRegisteredTx(stx.thisHash_);
       }
       thisHeaderPtr = getHeaderByHash(thisHeaderPtr->getPrevHash());
    }
@@ -4207,7 +4201,6 @@ void BlockDataManager_LevelDB::reassessAfterReorg( BlockHeader* oldTopPtr,
       iface_->markBlockHeaderValid(hgt, dup);
       StoredHeader sbh;
       iface_->getStoredHeader(sbh, hgt, dup, true);
-
 
       if(DBUtils.getArmoryDbType() != ARMORY_DB_BARE)
          applyBlockToDB(sbh);

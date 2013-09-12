@@ -978,7 +978,7 @@ def HexHash160ToScrAddr(a160):
 
 
 # Some more constants that are needed to play nice with the C++ utilities
-ARMORY_DB_LITE, ARMORY_DB_PARTIAL, ARMORY_DB_FULL, ARMORY_DB_SUPER = range(4)
+ARMORY_DB_BARE, ARMORY_DB_LITE, ARMORY_DB_PARTIAL, ARMORY_DB_FULL, ARMORY_DB_SUPER = range(5)
 DB_PRUNE_ALL, DB_PRUNE_NONE = range(2)
 
 
@@ -12662,15 +12662,17 @@ class BlockDataManagerThread(threading.Thread):
                                     GENESIS_TX_HASH,    \
                                     MAGIC_BYTES)
 
+      # The master wallet contains all addresses of all wallets registered
+      self.bdm.registerWallet(self.masterCppWallet)
+
       ### This is the part that takes forever
-      self.bdm.initializeAndBuildDatabases(ARMORY_DB_SUPER, DB_PRUNE_NONE)
+      self.bdm.initializeAndBuildDatabases(ARMORY_DB_BARE, DB_PRUNE_NONE)
 
       #print 'TopBlock:', self.bdm.getTopBlockHeight()
       #if USE_TESTNET:
          #print 'SLEEPING FOR 20 sec (DEBUGGING)'
          #time.sleep(20) 
 
-      self.bdm.registerWallet(self.masterCppWallet)
       self.bdm.scanRegisteredTxForWallet(self.masterCppWallet)
 
       TimerStop('__startLoadBlockchain')
