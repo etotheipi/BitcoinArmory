@@ -5816,7 +5816,221 @@ TEST_F(DISABLED_PartialMerkleTest, EmptyTree)
    
 }
 
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// THESE ARE ARMORY_DB_BARE tests.  Identical to above except for the mode.
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+class BlockUtilsBare : public ::testing::Test
+{
+protected:
 
+   /////////////////////////////////////////////////////////////////////////////
+   virtual void SetUp(void) 
+   {
+      LOGDISABLESTDOUT();
+      iface_ = LevelDBWrapper::GetInterfacePtr();
+      magic_ = READHEX(MAINNET_MAGIC_BYTES);
+      ghash_ = READHEX(MAINNET_GENESIS_HASH_HEX);
+      gentx_ = READHEX(MAINNET_GENESIS_TX_HASH_HEX);
+      zeros_ = READHEX("00000000");
+      DBUtils.setArmoryDbType(ARMORY_DB_BARE);
+      DBUtils.setDbPruneType(DB_PRUNE_NONE);
+
+      blkdir_  = string("./blkfiletest");
+      homedir_ = string("./fakehomedir");
+      ldbdir_  = string("./ldbtestdir");
+
+      iface_->openDatabases( ldbdir_, ghash_, gentx_, magic_, 
+                             ARMORY_DB_BARE, DB_PRUNE_NONE);
+      if(!iface_->databasesAreOpen())
+         LOGERR << "ERROR OPENING DATABASES FOR TESTING!";
+
+      mkdir(blkdir_);
+      mkdir(homedir_);
+
+      // Put the first 5 blocks into the blkdir
+      blk0dat_ = BtcUtils::getBlkFilename(blkdir_, 0);
+      BtcUtils::copyFile("../reorgTest/blk_0_to_4.dat", blk0dat_);
+
+      TheBDM.SelectNetwork("Main");
+      TheBDM.SetBlkFileLocation(blkdir_);
+      TheBDM.SetHomeDirLocation(homedir_);
+      TheBDM.SetLevelDBLocation(ldbdir_);
+
+      blkHash0 = READHEX("6fe28c0ab6f1b372c1a6a246ae63f74f931e8365e15a089c68d6190000000000");
+      blkHash1 = READHEX("1b5514b83257d924be7f10c65b95b1f3c0e50081e1dfd8943eece5eb00000000");
+      blkHash2 = READHEX("979fc39616bf1dc6b1f88167f76383d44d65ccd0fc99b7f91bcb2c9500000000");
+      blkHash3 = READHEX("50f8231e5fd476f470e1ba4937bc97cb304136c96c765339308935bc00000000");
+      blkHash4 = READHEX("8e121ba0d275f49a21bbc171d7d49890de13c9b9733e0104654d262f00000000");
+      blkHash3A= READHEX("dd63f62ef59d5b6a6da2a36407f76e4e28026a3fd3a46700d284424700000000");
+      blkHash4A= READHEX("bfa204022816102169b4e1d4f78cdf77258048f6d14282144cc01d5500000000");
+      blkHash5A= READHEX("4e049fd71ef7381a73e4f550d97812d1eb0fbd1489c1774e18855f1900000000");
+
+      addrA_ = READHEX("62e907b15cbf27d5425399ebf6f0fb50ebb88f18");
+      addrB_ = READHEX("ee26c56fc1d942be8d7a24b2a1001dd894693980");
+      addrC_ = READHEX("cb2abde8bccacc32e893df3a054b9ef7f227a4ce");
+      addrD_ = READHEX("c522664fb0e55cdc5c0cea73b4aad97ec8343232");
+
+      scrAddrA_ = HASH160PREFIX + addrA_;
+      scrAddrB_ = HASH160PREFIX + addrB_;
+      scrAddrC_ = HASH160PREFIX + addrC_;
+      scrAddrD_ = HASH160PREFIX + addrD_;
+
+   }
+
+
+   /////////////////////////////////////////////////////////////////////////////
+   virtual void TearDown(void)
+   {
+      rmdir(blkdir_);
+      rmdir(homedir_);
+
+      char* delstr = new char[4096];
+      sprintf(delstr, "%s/level*", ldbdir_.c_str());
+      rmdir(delstr);
+      delete[] delstr;
+
+      BlockDataManager_LevelDB::DestroyInstance();
+      LOGENABLESTDOUT();
+   }
+
+
+
+#if defined(_MSC_VER) || defined(__MINGW32__)
+   compile_error_fixme_what_to_do_in_windows;
+#else
+
+   /////////////////////////////////////////////////////////////////////////////
+   void rmdir(string src)
+   {
+      char* syscmd = new char[4096];
+      sprintf(syscmd, "rm -rf %s", src.c_str());
+      system(syscmd);
+      delete[] syscmd;
+   }
+
+   /////////////////////////////////////////////////////////////////////////////
+   void mkdir(string newdir)
+   {
+      char* syscmd = new char[4096];
+      sprintf(syscmd, "mkdir -p %s", newdir.c_str());
+      system(syscmd);
+      delete[] syscmd;
+   }
+#endif
+
+   InterfaceToLDB* iface_;
+   BinaryData magic_;
+   BinaryData ghash_;
+   BinaryData gentx_;
+   BinaryData zeros_;
+
+   string blkdir_;
+   string homedir_;
+   string ldbdir_;
+   string blk0dat_;;
+
+   BinaryData blkHash0;
+   BinaryData blkHash1;
+   BinaryData blkHash2;
+   BinaryData blkHash3;
+   BinaryData blkHash4;
+   BinaryData blkHash3A;
+   BinaryData blkHash4A;
+   BinaryData blkHash5A;
+
+   BinaryData addrA_;
+   BinaryData addrB_;
+   BinaryData addrC_;
+   BinaryData addrD_;
+   BinaryData scrAddrA_;
+   BinaryData scrAddrB_;
+   BinaryData scrAddrC_;
+   BinaryData scrAddrD_;
+};
+
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(BlockUtilsBare, BuildNoRegisterWlt)
+{
+   LOGENABLESTDOUT();
+   TheBDM.buildDatabasesFromBlkFiles(); 
+}
+
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(BlockUtilsBare, Load5Blocks)
+{
+   LOGENABLESTDOUT();
+   BtcWallet wlt;
+   wlt.addScrAddress(scrAddrA_);
+   wlt.addScrAddress(scrAddrB_);
+   wlt.addScrAddress(scrAddrC_);
+   TheBDM.registerWallet(&wlt);
+   TheBDM.registerNewScrAddr(scrAddrD_);
+   
+   TheBDM.buildDatabasesFromBlkFiles(); 
+   TheBDM.scanBlockchainForTx(wlt);
+
+   ScrAddrObj * scrobj;
+   scrobj = &wlt.getScrAddrObjByKey(scrAddrA_);
+   EXPECT_EQ(scrobj->getFullBalance(),100*COIN);
+   scrobj = &wlt.getScrAddrObjByKey(scrAddrB_);
+   EXPECT_EQ(scrobj->getFullBalance(),  0*COIN);
+   scrobj = &wlt.getScrAddrObjByKey(scrAddrC_);
+   EXPECT_EQ(scrobj->getFullBalance(), 50*COIN);
+   scrobj = &wlt.getScrAddrObjByKey(scrAddrD_);
+   EXPECT_EQ(scrobj->getFullBalance(),  0*COIN);  // hasn't been scanned yet
+
+   EXPECT_EQ(wlt.getFullBalance(), 150*COIN);
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(BlockUtilsBare, Load5Blocks_FullReorg)
+{
+   LOGENABLESTDOUT();
+   BtcWallet wlt;
+   wlt.addScrAddress(scrAddrA_);
+   wlt.addScrAddress(scrAddrB_);
+   wlt.addScrAddress(scrAddrC_);
+   TheBDM.registerWallet(&wlt);
+   TheBDM.registerNewScrAddr(scrAddrD_);
+
+   BtcWallet wlt2;
+   wlt2.addScrAddress(scrAddrD_);
+   
+   TheBDM.buildDatabasesFromBlkFiles(); 
+   TheBDM.scanBlockchainForTx(wlt);
+   TheBDM.scanBlockchainForTx(wlt2);
+
+   BtcUtils::copyFile("../reorgTest/blk_3A.dat", blk0dat_);
+   TheBDM.readBlkFileUpdate();
+   BtcUtils::copyFile("../reorgTest/blk_4A.dat", blk0dat_);
+   TheBDM.readBlkFileUpdate();
+   BtcUtils::copyFile("../reorgTest/blk_5A.dat", blk0dat_);
+   TheBDM.readBlkFileUpdate();
+
+   TheBDM.scanBlockchainForTx(wlt);
+   TheBDM.scanBlockchainForTx(wlt2);
+
+   ScrAddrObj * scrobj;
+   scrobj = &wlt.getScrAddrObjByKey(scrAddrA_);
+   EXPECT_EQ(scrobj->getFullBalance(),150*COIN);
+   scrobj = &wlt.getScrAddrObjByKey(scrAddrB_);
+   EXPECT_EQ(scrobj->getFullBalance(), 10*COIN);
+   scrobj = &wlt.getScrAddrObjByKey(scrAddrC_);
+   EXPECT_EQ(scrobj->getFullBalance(),  0*COIN);
+   scrobj = &wlt.getScrAddrObjByKey(scrAddrD_);
+   EXPECT_EQ(scrobj->getFullBalance(),140*COIN);
+
+   EXPECT_EQ(wlt.getFullBalance(), 160*COIN);
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// THESE ARE ARMORY_DB_SUPER tests.  Identical to above except for the mode.
+////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 class BlockUtilsTest : public ::testing::Test
 {
@@ -6268,6 +6482,9 @@ TEST_F(BlockUtilsTest, DISABLED_TimeAndSpaceTest_usuallydisabled)
    int pause;
    cin >> pause;
 }
+
+
+
 
 
 ////////////////////////////////////////////////////////////////////////////////

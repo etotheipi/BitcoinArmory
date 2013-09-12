@@ -583,18 +583,17 @@ void BlockDataManager_LevelDB::insertRegisteredTxIfNew(HashString txHash)
 }
 
 /////////////////////////////////////////////////////////////////////////////
-void BlockDataManager_LevelDB::insertRegisteredTxIfNew(Tx const & tx)
+// TODO: I should investigate whether we should remove registered tx on
+//       a reorg.  It doesn't look like we do, though it may also not 
+//       matter as long as the scanRegisteredTxForWallet checks for main
+//       branch before processing it.
+void BlockDataManager_LevelDB::insertRegisteredTxIfNew(TxRef const & txref,
+                                                       BinaryDataRef txHash,
+                                                       uint32_t hgt,
+                                                       uint16_t txIndex)
 {
-   BinaryData txHash = tx.getThisHash();
    if(registeredTxSet_.insert(txHash).second == true)
    {
-      TxRef txref = tx.getTxRef();
-      if(txref.isNull())
-      {
-         LOGERR << "How did we get a null txref when we have a full tx?";
-         txref = getTxRefByHash(txHash);
-      }
-   
       if(txref.isNull())
       {
          LOGERR << "Could not get the tx from the DB, either!";
@@ -602,10 +601,7 @@ void BlockDataManager_LevelDB::insertRegisteredTxIfNew(Tx const & tx)
          return;
       }
          
-      RegisteredTx regTx(txref,
-                         txref.getThisHash(),
-                         txref.getBlockHeight(),
-                         txref.getBlockTxIndex());
+      RegisteredTx regTx(txref, txHash, hgt, txIndex);
       registeredTxList_.push_back(regTx);
    }
    
@@ -675,15 +671,15 @@ void BlockDataManager_LevelDB::registeredScrAddrScan(
    for(uint32_t iout=0; iout<nTxOut; iout++)
    {
       static uint8_t scriptLenFirstByte;
-      static HashString scraddr(20);
+      static HashString addr160(20);
 
       uint8_t const * ptr = (txStartPtr + (*txOutOffsets)[iout] + 8);
       scriptLenFirstByte = *(uint8_t*)ptr;
       if(scriptLenFirstByte == 25)
       {
          // Std TxOut with 25-byte script
-         scraddr.copyFrom(ptr+4, 20);
-         if( scrAddrIsRegistered(scraddr) )
+         addr160.copyFrom(ptr+4, 20);
+         if( scrAddrIsRegistered(HASH160PREFIX + addr160) )
          {
             HashString txHash = BtcUtils::getHash256(txptr, txSize);
             insertRegisteredTxIfNew(txHash);
@@ -693,9 +689,8 @@ void BlockDataManager_LevelDB::registeredScrAddrScan(
       else if(scriptLenFirstByte==67)
       {
          // Std spend-coinbase TxOut script
-         static HashString scraddr(20);
-         BtcUtils::getHash160_NoSafetyCheck(ptr+2, 65, scraddr);
-         if( scrAddrIsRegistered(scraddr) )
+         BtcUtils::getHash160_NoSafetyCheck(ptr+2, 65, addr160);
+         if( scrAddrIsRegistered(HASH160PREFIX + addr160) )
          {
             HashString txHash = BtcUtils::getHash256(txptr, txSize);
             insertRegisteredTxIfNew(txHash);
@@ -721,14 +716,130 @@ void BlockDataManager_LevelDB::registeredScrAddrScan(
    }
 }
 
+////////////////////////////////////////////////////////////////////////////////
+//
+// Ugh: back to that design inefficiency.  Sincee we are 
+// relying on a contiguous iteration over the entire database,
+// we need the iface_->iters_[BLKDATA] to be untouched inside
+// this function.  Unfortunately, most TxRef() operations move 
+// the pointer.  Even if we move it back, it's likely to break
+// the efficiency of DB-order iteration.  We may consider 
+// creating multiple iterators on the iface_ side.  Until then, 
+// we can't use registeredScrAddrScan.
+//
+void BlockDataManager_LevelDB::registeredScrAddrScan_IterSafe( 
+                                            StoredTx & stx,
+                                            vector<uint32_t> * txInOffsets,
+                                            vector<uint32_t> * txOutOffsets)
+{
+   if(registeredScrAddrMap_.size() == 0)
+      return;
+
+   if(!stx.isInitialized())
+   {
+      LOGERR << "Passed uninitialized STX to regAddrScan";
+      return;
+   }
+
+   // Probably doesn't matter, but I'll keep these on the heap between calls
+   static vector<uint32_t> localOffsIn;
+   static vector<uint32_t> localOffsOut;
+
+   Tx tx = stx.getTxCopy();
+   uint8_t const * txStartPtr = tx.getPtr();
+
+   if(txInOffsets==NULL || txOutOffsets==NULL)
+   {
+      txInOffsets  = &localOffsIn;
+      txOutOffsets = &localOffsOut;
+      BtcUtils::TxCalcLength(txStartPtr, txInOffsets, txOutOffsets);
+   }
+   
+   uint32_t nTxIn  = txInOffsets->size()-1;
+   uint32_t nTxOut = txOutOffsets->size()-1;
+   
+   for(uint32_t iin=0; iin<nTxIn; iin++)
+   {
+      // We have the txin, now check if it spends one of our TxOuts
+      static OutPoint op;
+      op.unserialize(txStartPtr + (*txInOffsets)[iin]);
+      if(registeredOutPoints_.count(op) > 0)
+      {
+         insertRegisteredTxIfNew(tx.getTxRef(),
+                                 stx.thisHash_,
+                                 stx.blockHeight_,
+                                 stx.txIndex_);
+         break; // we only care if ANY txIns are ours, not which ones
+      }
+   }
+
+   // We have to scan all TxOuts regardless, to make sure our list of 
+   // registeredOutPoints_ is up-to-date so that we can identify TxIns that are
+   // ours on future to-be-scanned transactions
+   for(uint32_t iout=0; iout<nTxOut; iout++)
+   {
+      static uint8_t scriptLenFirstByte;
+      static HashString addr160(20);
+      static HashString scrAddr;
+
+      uint8_t const * ptr = (txStartPtr + (*txOutOffsets)[iout] + 8);
+      scriptLenFirstByte = *(uint8_t*)ptr;
+      if(scriptLenFirstByte == 25)
+      {
+         // Std TxOut with 25-byte script
+         addr160.copyFrom(ptr+4, 20);
+         scrAddr = HASH160PREFIX + addr160;
+      }
+      else if(scriptLenFirstByte==67)
+      {
+         // Std spend-coinbase TxOut script
+         BtcUtils::getHash160_NoSafetyCheck(ptr+2, 65, addr160);
+         scrAddr = HASH160PREFIX + addr160;
+      }
+      else if(scriptLenFirstByte==35)
+      {
+         // Compressed public key
+         BtcUtils::getHash160_NoSafetyCheck(ptr+2, 33, addr160);
+         scrAddr = HASH160PREFIX + addr160;
+      }
+      else
+      {
+         /* TODO:  Right now we will just ignoring non-std tx
+                   I don't do anything with them right now, anyway
+         scrAddr = getTxOutScrAddr(stx.stxoMap_[iout].getScript());
+
+         // Old code for scanning non-std txout... 
+         TxOut txout = tx.getTxOutCopy(iout);
+         for(uint32_t i=0; i<scrAddrPtrs_.size(); i++)
+         {
+            ScrAddrObj & thisAddr = *(scrAddrPtrs_[i]);
+            HashString const & scraddr = thisAddr.getScrAddr();
+            if(txout.getScriptRef().find(thisAddr.getScrAddr()) > -1)
+               scanNonStdTx(0, 0, tx, iout, thisAddr);
+            continue;
+         }
+         //break;
+         */
+      }
+
+      if(scrAddrIsRegistered(scrAddr))
+      {
+         insertRegisteredTxIfNew(tx.getTxRef(),
+                                 stx.thisHash_,
+                                 stx.blockHeight_,
+                                 stx.txIndex_);
+         registeredOutPoints_.insert(OutPoint(stx.thisHash_, iout));
+      }
+   }
+}
 
 /////////////////////////////////////////////////////////////////////////////
 void BlockDataManager_LevelDB::registeredScrAddrScan( Tx & theTx )
 {
    registeredScrAddrScan(theTx.getPtr(),
-                      theTx.getSize(),
-                      &theTx.offsetsTxIn_, 
-                      &theTx.offsetsTxOut_);
+                         theTx.getSize(),
+                         &theTx.offsetsTxIn_, 
+                         &theTx.offsetsTxOut_);
 }
 
 
@@ -2238,7 +2349,6 @@ bool BlockDataManager_LevelDB::registerScrAddr(HashString scraddr,
                                                 uint32_t firstBlk)
 {
    SCOPED_TIMER("registerScrAddr");
-   //if(registeredScrAddrMap_.find(scraddr) != registeredScrAddrMap_.end())
    if(KEY_IN_MAP(scraddr, registeredScrAddrMap_))
    {
       // Address is already registered.  Don't think there's anything to do 
@@ -2258,7 +2368,6 @@ bool BlockDataManager_LevelDB::registerScrAddr(HashString scraddr,
 bool BlockDataManager_LevelDB::registerNewScrAddr(HashString scraddr)
 {
    SCOPED_TIMER("registerNewScrAddr");
-   //if(registeredScrAddrMap_.find(scraddr) != registeredScrAddrMap_.end())
    if(KEY_IN_MAP(scraddr, registeredScrAddrMap_))
       return false;
 
@@ -2275,7 +2384,6 @@ bool BlockDataManager_LevelDB::registerImportedScrAddr(HashString scraddr,
                                                     uint32_t createBlk)
 {
    SCOPED_TIMER("registerImportedScrAddr");
-   //if(registeredScrAddrMap_.find(scraddr) != registeredScrAddrMap_.end())
    if(KEY_IN_MAP(scraddr, registeredScrAddrMap_))
       return false;
 
@@ -3394,8 +3502,7 @@ uint32_t BlockDataManager_LevelDB::buildDatabasesFromBlkFiles(
    TIMER_STOP("dumpRawBlocksToDB");
 
    LOGINFO << "Finished putting " << blocksReadSoFar_ << " raw blocks into DB";
-   LOGINFO << "Now, build script histories, update spentness of all blocks...";
-
+   //LOGINFO << "Now, build script histories, update spentness of all blocks...";
 
 
    if(DBUtils.getArmoryDbType() == ARMORY_DB_BARE)
@@ -3409,11 +3516,11 @@ uint32_t BlockDataManager_LevelDB::buildDatabasesFromBlkFiles(
       {
          //map<OutPoint, TxIOPair> txioTracker;
          iface_->startBlkDataIteration(DB_PREFIX_TXDATA);
-         StoredHeader sbh;
          //TxIOPair nullTxio; 
          while(iface_->dbIterIsValid(BLKDATA, DB_PREFIX_TXDATA))
          {
             // Get the full block from the DB
+            StoredHeader sbh;
             iface_->readStoredBlockAtIter(sbh);
             uint32_t hgt     = sbh.blockHeight_;
             uint8_t  dup     = sbh.duplicateID_;
@@ -3435,25 +3542,28 @@ uint32_t BlockDataManager_LevelDB::buildDatabasesFromBlkFiles(
                 iter != sbh.stxMap_.end();
                 iter++)
             {
-               Tx tx = iter->second.getTxCopy();
-               registeredScrAddrScan(tx.getPtr(), tx.getSize());
+               StoredTx & stx = iter->second;
+               Tx tx = stx.getTxCopy();
+               registeredScrAddrScan_IterSafe(stx);
       
-
-               /* Whoops, reimplemented registeredScrAddrScan 
-               bool txIsOurs = isMineBulkFilter(tx, txioTracker).first;
+               /*
                if(txIsOurs)
                {
                   // No matter what, it's relevant, add it to the list
-                  insertRegisteredTxIfNew(tx);
+                  insertRegisteredTxIfNew(tx.getTxRef(),
+                                          stx.thisHash_,
+                                          stx.blockHeight_,
+                                          stx.txIndex_);
 
                   // But we also need to figure out which OutPoints specifically
                   // are ours, so that we can recognize TxIns in future tx
                   for(uint32_t iout = 0; iout < tx.getNumTxOut(); i++)
                   {
-                     TxOut txo = tx.getTxOutCopy(iout);
-                     BinaryDataRef script = txo.getScriptRef();
-                     BinaryData scrAddr = BtcUtils::getTxOutScrAddr(script);
-                     if(KEY_IN_MAP(scrAddr, registeredScrAddrMap_))
+                     // Also can't use tx.getTxOutCopy because it uses the 
+                     // txRefObj_ to fetch some data (and moves the iterator)
+                     //TxOut txo = tx.getTxOutCopy(iout);
+                     TxOut txo = stx.getTxOutCopy(iout);
+                     if(KEY_IN_MAP(txo.getScrAddressStr(), registeredScrAddrMap_))
                      {
                         // This TxOut is relevant, add it to the tracker.
                         // The TxIO itself actually doesn't matter: the 
@@ -3464,6 +3574,7 @@ uint32_t BlockDataManager_LevelDB::buildDatabasesFromBlkFiles(
                         // (even though we'd probably be better with a 
                         // set<OutPoint>).
                         OutPoint op(tx.getThisHash(), iout);
+                        if(registeredOutPoints_.count(op) > 0)
                         pair<OutPoint, TxIOPair> toBeInserted(op, nullTxio);
                         txioTracker.insert(toBeInserted);
                      }
@@ -4054,11 +4165,15 @@ void BlockDataManager_LevelDB::reassessAfterReorg( BlockHeader* oldTopPtr,
    {
       uint32_t hgt = thisHeaderPtr->getBlockHeight();
       uint8_t  dup = thisHeaderPtr->getDuplicateID();
-      // Added with leveldb... in addition to reversing blocks in RAM, we also
-      // need to undo the blocks in the DB
-      StoredUndoData sud;
-      createUndoDataFromBlock(hgt, dup, sud);
-      undoBlockFromDB(sud);
+
+      if(DBUtils.getArmoryDbType() != ARMORY_DB_BARE)
+      {
+         // Added with leveldb... in addition to reversing blocks in RAM, 
+         // we also need to undo the blocks in the DB
+         StoredUndoData sud;
+         createUndoDataFromBlock(hgt, dup, sud);
+         undoBlockFromDB(sud);
+      }
       
       StoredHeader sbh;
       iface_->getStoredHeader(sbh, hgt, dup, true);
@@ -4092,7 +4207,10 @@ void BlockDataManager_LevelDB::reassessAfterReorg( BlockHeader* oldTopPtr,
       iface_->markBlockHeaderValid(hgt, dup);
       StoredHeader sbh;
       iface_->getStoredHeader(sbh, hgt, dup, true);
-      applyBlockToDB(sbh);
+
+
+      if(DBUtils.getArmoryDbType() != ARMORY_DB_BARE)
+         applyBlockToDB(sbh);
 
       for(uint32_t i=0; i<sbh.numTx_; i++)
       {
@@ -4100,6 +4218,7 @@ void BlockDataManager_LevelDB::reassessAfterReorg( BlockHeader* oldTopPtr,
          LOGWARN << "   Tx: " << stx.thisHash_.getSliceCopy(0,8).toHexStr();
          txJustInvalidated_.erase(stx.thisHash_);
          txJustAffected_.insert(stx.thisHash_);
+         registeredScrAddrScan_IterSafe(stx);
       }
    }
 
@@ -4134,7 +4253,12 @@ vector<BlockHeader*> BlockDataManager_LevelDB::getHeadersNotOnMainChain(void)
 bool BlockDataManager_LevelDB::organizeChain(bool forceRebuild)
 {
    SCOPED_TIMER("organizeChain");
-   LOGINFO << ("Organizing chain", (forceRebuild ? "w/ rebuild" : ""));
+
+   // Why did this line not through an error?  I left here to remind 
+   // myself to go figure it out.
+   //LOGINFO << ("Organizing chain", (forceRebuild ? "w/ rebuild" : ""));
+   LOGINFO << "Organizing chain " << (forceRebuild ? "w/ rebuild" : "");
+
    // If rebuild, we zero out any original organization data and do a 
    // rebuild of the chain from scratch.  This will need to be done in
    // the event that our first call to organizeChain returns false, which

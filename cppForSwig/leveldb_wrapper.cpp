@@ -586,12 +586,7 @@ void InterfaceToLDB::deleteValue(DB_SELECT db,
 bool InterfaceToLDB::startBlkDataIteration(DB_PREFIX prefix)
 {
    SCOPED_TIMER("startBlkDataIteration");
-   if(!seekTo(BLKDATA, prefix, BinaryData(0)))
-   {
-      LOGERR << "No block data!";   
-      return false;
-   }
-
+   seekTo(BLKDATA, prefix, BinaryData(0));
    return true;
 }
 

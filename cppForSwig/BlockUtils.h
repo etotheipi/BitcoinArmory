@@ -691,10 +691,18 @@ public:
    bool     scrAddrIsRegistered(HashString scrAddr);
    void     insertRegisteredTxIfNew(HashString txHash);
    void     insertRegisteredTxIfNew(RegisteredTx & regTx);
-   void     insertRegisteredTxIfNew(Tx const & tx);
+   void     insertRegisteredTxIfNew(TxRef const & txref,
+                                    BinaryDataRef txHash,
+                                    uint32_t hgt,
+                                    uint16_t txIndex);
+
    void     registeredScrAddrScan( Tx & theTx );
    void     registeredScrAddrScan( uint8_t const * txptr,
                                    uint32_t txSize=0,
+                                   vector<uint32_t> * txInOffsets=NULL,
+                                   vector<uint32_t> * txOutOffsets=NULL);
+   void     registeredScrAddrScan_IterSafe( 
+                                   StoredTx & stx,
                                    vector<uint32_t> * txInOffsets=NULL,
                                    vector<uint32_t> * txOutOffsets=NULL);
    void     resetRegisteredWallets(void);
