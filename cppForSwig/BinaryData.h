@@ -62,7 +62,7 @@
 #include "osrng.h"
 #include "log.h"
 
-#define DEFAULT_BUFFER_SIZE 64*1048576
+#define DEFAULT_BUFFER_SIZE 32*1048576
 
 #include "UniversalTimer.h"
 

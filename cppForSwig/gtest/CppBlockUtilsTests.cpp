@@ -6059,6 +6059,80 @@ TEST_F(BlockUtilsBare, Load5Blocks_FullReorg)
    EXPECT_EQ(wlt.getFullBalance(), 160*COIN);
 }
 
+class LoadTestnetBareTest : public ::testing::Test
+{
+protected:
+
+   /////////////////////////////////////////////////////////////////////////////
+   virtual void TearDown(void)  {}
+
+   virtual void SetUp(void) 
+   {
+      DBUtils.setArmoryDbType(ARMORY_DB_BARE);
+      DBUtils.setDbPruneType(DB_PRUNE_NONE);
+
+      blkdir_  = string("/home/alan/.bitcoin/testnet3/blocks");
+      homedir_ = string("/home/alan/.armory/testnet3");
+      ldbdir_  = string("/home/alan/.armory/testnet3/databases");
+
+
+      mkdir(ldbdir_);
+      mkdir(homedir_);
+
+      TheBDM.SelectNetwork("Test");
+      TheBDM.SetBlkFileLocation(blkdir_);
+      TheBDM.SetHomeDirLocation(homedir_);
+      TheBDM.SetLevelDBLocation(ldbdir_);
+   }
+
+   void mkdir(string newdir)
+   {
+      char* syscmd = new char[4096];
+      sprintf(syscmd, "mkdir -p %s", newdir.c_str());
+      system(syscmd);
+      delete[] syscmd;
+   }
+
+   InterfaceToLDB* iface_;
+   BinaryData magic_;
+   BinaryData ghash_;
+   BinaryData gentx_;
+   BinaryData zeros_;
+
+   string blkdir_;
+   string homedir_;
+   string ldbdir_;
+   string blk0dat_;;
+
+   BinaryData addrA_;
+   BinaryData addrB_;
+   BinaryData addrC_;
+   BinaryData addrD_;
+   BinaryData scrAddrA_;
+   BinaryData scrAddrB_;
+   BinaryData scrAddrC_;
+   BinaryData scrAddrD_;
+};
+
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(LoadTestnetBareTest, StepThroughDebug_usually_disabled)
+{
+   // These aren't actually testnet addr, balances will be zero
+   BinaryData scrAddrA_ = READHEX("0062e907b15cbf27d5425399ebf6f0fb50ebb88f18");
+   BinaryData scrAddrB_ = READHEX("00ee26c56fc1d942be8d7a24b2a1001dd894693980");
+   BinaryData scrAddrC_ = READHEX("00cb2abde8bccacc32e893df3a054b9ef7f227a4ce");
+    
+   BtcWallet wlt;
+   wlt.addScrAddress(scrAddrA_);
+   wlt.addScrAddress(scrAddrB_);
+   wlt.addScrAddress(scrAddrC_);
+   TheBDM.registerWallet(&wlt);
+
+   TheBDM.initializeAndBuildDatabases();
+   TheBDM.scanBlockchainForTx(wlt);
+   TheBDM.DestroyInstance();
+}
+
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
@@ -6516,6 +6590,7 @@ TEST_F(BlockUtilsTest, DISABLED_TimeAndSpaceTest_usuallydisabled)
    int pause;
    cin >> pause;
 }
+
 
 
 

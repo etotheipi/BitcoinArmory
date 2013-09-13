@@ -1736,29 +1736,25 @@ bool BlockDataManager_LevelDB::initializeDBInterface(ARMORY_DB_TYPE dbtype,
 
    // startHeaderBlkFile_/Offset_ is where we were before the last shutdown
    vector<BinaryData> firstHashes = getFirstHashOfEachBlkFile();
-   bool lastWasUnrecog = false;
    for(startHeaderBlkFile_ = 0; 
        startHeaderBlkFile_ < firstHashes.size(); 
        startHeaderBlkFile_++)
    {
       // hasHeaderWithHash is probing the RAM block headers we just organized
       if(!hasHeaderWithHash(firstHashes[startHeaderBlkFile_]))
-      {
-         lastWasUnrecog = true;
          break;
-      }
    }
 
    // If no new blkfiles since last load, the above loop ends w/o "break"
    // If it's zero, then we don't have anything, start at zero
    // If new blk file, then startHeaderBlkFile_ is at the first blk file
    // with an unrecognized hash... we must've left off in the prev blkfile
-   if(lastWasUnrecog  &&  startHeaderBlkFile_ > 0)
+   if(startHeaderBlkFile_ > 0)
       startHeaderBlkFile_--;
 
 
    startHeaderOffset_ = findOffsetFirstUnrecognized(startHeaderBlkFile_);
-   LOGINFO << "First unrecognized hash location:   " << startHeaderBlkFile_;
+   LOGINFO << "First unrecognized hash file:       " << startHeaderBlkFile_;
    LOGINFO << "Offset of first unrecog block:      " << startHeaderOffset_;
 
 
@@ -1780,7 +1776,7 @@ bool BlockDataManager_LevelDB::initializeDBInterface(ARMORY_DB_TYPE dbtype,
    }
 
 
-   if(replayNBytes==0)
+   if(replayNBytes>0)
    {
       LOGERR << "TODO: implement block replay ... no replay will be used now";
       return true;
@@ -1946,13 +1942,10 @@ pair<uint32_t, uint32_t> BlockDataManager_LevelDB::findFileAndOffsetForHgt(
          break;
 
       if(bhptr->getBlockHeight() > hgt)
-      {
-         blkfile = max(blkfile-1, 0);
          break;
-      }
    }
 
-   
+   blkfile = max(blkfile-1, 0);
    if(blkfile >= numBlkFiles_)
    {
       LOGERR << "Blkfile number out of range! (" << blkfile << ")";
@@ -3495,6 +3488,19 @@ uint32_t BlockDataManager_LevelDB::buildDatabasesFromBlkFiles(void)
       return 0;
    }
 
+
+   // On DB initialization, we start processing here
+   //LOGINFO << startHeaderHgt_ << " HeadHgt";
+   //LOGINFO << startRawBlkHgt_ << " RawHgt";
+   //LOGINFO << startApplyHgt_ << " ApplyHgt";
+   //LOGINFO << startHeaderBlkFile_ << " HeadBlkF";
+   //LOGINFO << startRawBlkFile_ << " RawBlkF";
+   //LOGINFO << startApplyBlkFile_ << " ApplyBlkF";
+   //LOGINFO << startHeaderOffset_ << " HeadOffs";
+   //LOGINFO << startRawOffset_ << " RawOffs";
+   //LOGINFO << startApplyOffset_ << " ApplyOffs";
+
+
    /////////////////////////////////////////////////////////////////////////////
    // New with LevelDB:  must read and organize headers before handling the
    // full blockchain data.  We need to figure out the longest chain and write
@@ -3618,17 +3624,18 @@ uint32_t BlockDataManager_LevelDB::buildDatabasesFromBlkFiles(void)
             }
          }
 
+         // This is a hack of hacks, but I can't seem to pass this data 
+         // out through getLoadProgress* methods, because they don't 
+         // update properly (from the main python thread) when the BDM 
+         // is actively loading/scanning in a separate thread.
+         // We'll watch for this file from the python code.
+         if(armoryHomeDir_.size() > 0)
+            writeBuildStatusFile(DB_BUILD_ADD_RAW, bfile, "dumpRawBlocksToDB");
+
          if(isEOF || breakbreak)
             break;
       }
 
-      // This is a hack of hacks, but I can't seem to pass this data 
-      // out through getLoadProgress* methods, because they don't 
-      // update properly (from the main python thread) when the BDM 
-      // is actively loading/scanning in a separate thread.
-      // We'll watch for this file from the python code.
-      if(armoryHomeDir_.size() > 0)
-         writeBuildStatusFile(DB_BUILD_ADD_RAW, bfile, "dumpRawBlocksToDB");
 
       if(iface_->isBatchOn(BLKDATA))
          iface_->commitBatch(BLKDATA);
@@ -3655,6 +3662,7 @@ uint32_t BlockDataManager_LevelDB::buildDatabasesFromBlkFiles(void)
 
       LOGINFO << "Starting initial blockchain scan";
       scanDBForRegisteredTx(scanStart);
+      LOGINFO << "Finished blockchain scan";
    }
 
    // If bare mode, we don't do
@@ -3702,6 +3710,7 @@ void BlockDataManager_LevelDB::scanDBForRegisteredTx(uint32_t blk0,
    BinaryData firstKey = DBUtils.getBlkDataKey(blk0, 0);
    iface_->seekTo(BLKDATA, firstKey);
 
+   TIMER_START("ScanBlockchain");
    while(iface_->dbIterIsValid(BLKDATA, DB_PREFIX_TXDATA))
    {
       // Get the full block from the DB
@@ -3732,11 +3741,14 @@ void BlockDataManager_LevelDB::scanDBForRegisteredTx(uint32_t blk0,
 
       if(armoryHomeDir_.size() > 0)
       {
-         string bfile = armoryHomeDir_ + string("/blkfiles.txt");
          if((hgt < 120000 && hgt%10000 == 0) || (hgt > 120000 && hgt%1000==0))
-            writeBuildStatusFile(DB_BUILD_SCAN, bfile, "scanDBForRegisteredTx");
+         {
+            string bfile = armoryHomeDir_ + string("/blkfiles.txt");
+            writeBuildStatusFile(DB_BUILD_SCAN, bfile, "ScanBlockchain");
+         }
       }
    }
+   TIMER_STOP("ScanBlockchain");
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -4458,7 +4470,7 @@ bool BlockDataManager_LevelDB::organizeChain(bool forceRebuild)
    // Why did this line not through an error?  I left here to remind 
    // myself to go figure it out.
    //LOGINFO << ("Organizing chain", (forceRebuild ? "w/ rebuild" : ""));
-   LOGINFO << "Organizing chain " << (forceRebuild ? "w/ rebuild" : "");
+   LOGDEBUG << "Organizing chain " << (forceRebuild ? "w/ rebuild" : "");
 
    // If rebuild, we zero out any original organization data and do a 
    // rebuild of the chain from scratch.  This will need to be done in
@@ -4575,7 +4587,7 @@ bool BlockDataManager_LevelDB::organizeChain(bool forceRebuild)
    }
 
    // Let the caller know that there was no reorg
-   LOGINFO << "Done organizing chain";
+   LOGDEBUG << "Done organizing chain";
    return true;
 }
 
