@@ -12215,28 +12215,34 @@ class BlockDataManagerThread(threading.Thread):
       # to communicating via files... bleh 
       bfile = os.path.join(ARMORY_HOME_DIR,'blkfiles.txt')
       if not os.path.exists(bfile):
-         return [-1,-1,-1]
+         return [-1,-1,-1,-1]
 
       try:
          with open(bfile,'r') as f:
-            tmtrx = [ line.split() for line in f.readlines() ] 
+            tmtrx = [line.split() for line in f.readlines() if len(line.strip())>0]
             # TODO: take into account the new phase info
-            phase0
-            tmtrx = [ line[1:] for line in tmtrx]
-            pct0 = float(tmtrx[0][0])  / float(tmtrx[0][1])
-            pct1 = float(tmtrx[-1][0]) / float(tmtrx[-1][1])
-            t0 = float(tmtrx[0][2])
-            t1 = float(tmtrx[-1][2])
-            if not t1>t0:
-               return [-1,-1,-1]
+            phases  = [float(row[0])  for row in tmtrx]
+            currPhase = phases[-1]
+            startat = [float(row[1]) for row in tmtrx if float(row[0])==currPhase]
+            sofar   = [float(row[2]) for row in tmtrx if float(row[0])==currPhase]
+            total   = [float(row[3]) for row in tmtrx if float(row[0])==currPhase]
+            times   = [float(row[4]) for row in tmtrx if float(row[0])==currPhase]
+            
+            todo = total[0] - startat[0]
+            pct0 = sofar[0]  / todo
+            pct1 = sofar[-1] / todo
+            t0,t1 = times[0], times[-1]
+            if (not t1>t0) or todo<0:
+               return [-1,-1,-1,-1]
             rate = (pct1-pct0) / (t1-t0) 
             tleft = (1-pct1)/rate
             if not self.lastPctLoad == pct1:
                LOGINFO('Reading blockchain, pct complete: %0.1f', 100*pct1)
             self.lastPctLoad = pct1 
-            return [pct1,rate,tleft]
+            return [currPhase,pct1,rate,tleft]
       except:
-         return [-1,-1,-1]
+         raise
+         return [-1,-1,-1,-1]
             
 
    

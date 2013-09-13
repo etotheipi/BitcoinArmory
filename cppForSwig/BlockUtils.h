@@ -525,12 +525,15 @@ private:
    string                             leveldbDir_;
    string                             blkFileDir_;
    vector<string>                     blkFileList_;
+   vector<uint64_t>                   blkFileSizes_; // bytes before this blk
+   vector<uint64_t>                   blkFileCumul_;
    uint64_t                           numBlkFiles_;
    uint64_t                           endOfLastBlockByte_;
 
    // On DB initialization, we start processing here
    uint32_t                           startHeaderHgt_;
    uint32_t                           startRawBlkHgt_;
+   uint32_t                           startScanHgt_;
    uint32_t                           startApplyHgt_;
 
    // The following blkfile and offsets correspond to the above heights
@@ -538,6 +541,8 @@ private:
    uint64_t                           startHeaderOffset_;
    uint32_t                           startRawBlkFile_;
    uint64_t                           startRawOffset_;
+   uint32_t                           startScanBlkFile_;
+   uint64_t                           startScanOffset_;
    uint32_t                           startApplyBlkFile_;
    uint64_t                           startApplyOffset_;
 
@@ -657,7 +662,7 @@ public:
    uint32_t findFirstBlkApproxOffset(uint32_t fnum, uint32_t offset) const;
    uint32_t findFirstUnappliedBlock(void);
    pair<uint32_t, uint32_t> findFileAndOffsetForHgt(
-               uint32_t hgt, vector<BinaryData> & firstHashOfEachBlkFile);
+               uint32_t hgt, vector<BinaryData>* firstHashOfEachBlkFile=NULL);
 
    /////////////////////////////////////////////////////////////////////////////
    void Reset(void);
@@ -821,9 +826,9 @@ public:
                             uint32_t endBlknum=UINT32_MAX,
                             bool fetchFirst=true);
 
-   void writeBuildStatusFile(DB_BUILD_PHASE phase, 
-                             string bfile, 
-                             string timerName);
+   void writeProgressFile(DB_BUILD_PHASE phase, 
+                          string bfile, 
+                          string timerName);
 
    // This will only be used by the above method, probably wouldn't be called
    // directly from any other code

@@ -1761,7 +1761,7 @@ bool BlockDataManager_LevelDB::initializeDBInterface(ARMORY_DB_TYPE dbtype,
    // Note that startRawBlkHgt_ is topBlk+1, so this return where we should
    // actually start processing raw blocks, not the last one we processed
    pair<uint32_t, uint32_t> rawBlockLoc;
-   rawBlockLoc = findFileAndOffsetForHgt(startRawBlkHgt_, firstHashes);
+   rawBlockLoc = findFileAndOffsetForHgt(startRawBlkHgt_, &firstHashes);
    startRawBlkFile_ = rawBlockLoc.first;
    startRawOffset_ = rawBlockLoc.second;
    LOGINFO << "First blkfile not in DB:            " << startRawBlkFile_;
@@ -1931,13 +1931,20 @@ uint32_t BlockDataManager_LevelDB::findFirstBlkApproxOffset(uint32_t fnum,
 ////////////////////////////////////////////////////////////////////////////////
 pair<uint32_t, uint32_t> BlockDataManager_LevelDB::findFileAndOffsetForHgt(
                                            uint32_t hgt, 
-                                           vector<BinaryData> & firstHashes)
+                                           vector<BinaryData> * firstHashes)
 {
+   vector<BinaryData> recomputedHashes;
+   if(firstHashes==NULL)
+   {
+      recomputedHashes = getFirstHashOfEachBlkFile();
+      firstHashes = &recomputedHashes;
+   }
+
    pair<uint32_t, uint32_t> outPair;
    int32_t blkfile;
-   for(blkfile = 0; blkfile < firstHashes.size(); blkfile++)
+   for(blkfile = 0; blkfile < firstHashes->size(); blkfile++)
    {
-      BlockHeader * bhptr = getHeaderByHash(firstHashes[blkfile]);
+      BlockHeader * bhptr = getHeaderByHash((*firstHashes)[blkfile]);
       if(bhptr == NULL)
          break;
 
@@ -2877,7 +2884,7 @@ void BlockDataManager_LevelDB::applyBlockRangeToDB(uint32_t blk0, uint32_t blk1)
       {
          //UniversalTimer::instance().printCSV(cout,true);
          UniversalTimer::instance().printCSV(string("timings.csv"));
-         writeBuildStatusFile(DB_BUILD_APPLY, bfile, "applyBlockRangeToDB");
+         writeProgressFile(DB_BUILD_APPLY, bfile, "applyBlockRangeToDB");
       }
       
 
@@ -2893,16 +2900,26 @@ void BlockDataManager_LevelDB::applyBlockRangeToDB(uint32_t blk0, uint32_t blk1)
 
 
 /////////////////////////////////////////////////////////////////////////////
-void BlockDataManager_LevelDB::writeBuildStatusFile(DB_BUILD_PHASE phase,
+void BlockDataManager_LevelDB::writeProgressFile(DB_BUILD_PHASE phase,
                                                     string bfile,
                                                     string timerName)
 {
    if(phase==DB_BUILD_HEADERS)
       return;
 
+   uint64_t startedAtByte_ = 0;
+   if(phase==DB_BUILD_ADD_RAW)
+      startedAtByte_ = blkFileCumul_[startRawBlkFile_]   + startRawOffset_;
+   else if(phase==DB_BUILD_SCAN)
+      startedAtByte_ = blkFileCumul_[startScanBlkFile_]  + startScanOffset_;
+   else if(phase==DB_BUILD_APPLY)
+      startedAtByte_ = blkFileCumul_[startApplyBlkFile_] + startApplyOffset_;
+      
+
    ofstream topblks(bfile.c_str(), ios::app);
    double t = TIMER_READ_SEC(timerName);
    topblks << (uint32_t)phase << " "
+           << startedAtByte_ << " " 
            << bytesReadSoFar_ << " " 
            << totalBlockchainBytes_ << " " 
            << t << endl;
@@ -3294,6 +3311,8 @@ uint32_t BlockDataManager_LevelDB::detectAllBlkFiles(void)
    numBlkFiles_=0;
    totalBlockchainBytes_ = 0;
    blkFileList_.clear();
+   blkFileSizes_.clear();
+   blkFileCumul_.clear();
    while(numBlkFiles_ < UINT16_MAX)
    {
       string path = BtcUtils::getBlkFilename(blkFileDir_, numBlkFiles_);
@@ -3303,6 +3322,8 @@ uint32_t BlockDataManager_LevelDB::detectAllBlkFiles(void)
 
       numBlkFiles_++;
       blkFileList_.push_back(string(path));
+      blkFileSizes_.push_back(filesize);
+      blkFileCumul_.push_back(totalBlockchainBytes_);
       totalBlockchainBytes_ += filesize;
    }
 
@@ -3630,7 +3651,7 @@ uint32_t BlockDataManager_LevelDB::buildDatabasesFromBlkFiles(bool forceRebuild)
          // is actively loading/scanning in a separate thread.
          // We'll watch for this file from the python code.
          if(armoryHomeDir_.size() > 0)
-            writeBuildStatusFile(DB_BUILD_ADD_RAW, bfile, "dumpRawBlocksToDB");
+            writeProgressFile(DB_BUILD_ADD_RAW, bfile, "dumpRawBlocksToDB");
 
          if(isEOF || breakbreak)
             break;
@@ -3657,11 +3678,15 @@ uint32_t BlockDataManager_LevelDB::buildDatabasesFromBlkFiles(bool forceRebuild)
       // Start scan from the beginning.  At a later time we'll figure out
       // how to save data to the DB and reload it
       readAndDeleteHistories();
-      uint32_t scanStart = evalLowestBlockNextScan();
-      //uint32_t scanStart = 0;
+      startScanHgt_ = evalLowestBlockNextScan();
 
-      LOGINFO << "Starting initial blockchain scan from blk: " << scanStart;
-      scanDBForRegisteredTx(scanStart);
+      // For progress bar purposes, let's find the blkfile location of scanStart
+      pair<uint32_t, uint32_t> blkLoc = findFileAndOffsetForHgt(startScanHgt_);
+      startScanBlkFile_ = blkLoc.first;
+      startScanOffset_ = blkLoc.second;
+
+      LOGINFO << "Starting initial blockchain scan from blk: " << startScanHgt_;
+      scanDBForRegisteredTx(startScanHgt_);
       LOGINFO << "Finished blockchain scan";
    }
 
@@ -3744,7 +3769,7 @@ void BlockDataManager_LevelDB::scanDBForRegisteredTx(uint32_t blk0,
          if((hgt < 120000 && hgt%10000 == 0) || (hgt > 120000 && hgt%1000==0))
          {
             string bfile = armoryHomeDir_ + string("/blkfiles.txt");
-            writeBuildStatusFile(DB_BUILD_SCAN, bfile, "ScanBlockchain");
+            writeProgressFile(DB_BUILD_SCAN, bfile, "ScanBlockchain");
          }
       }
    }
