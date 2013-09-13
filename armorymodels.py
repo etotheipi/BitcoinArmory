@@ -419,6 +419,7 @@ class WalletAddrDispModel(QAbstractTableModel):
       self.addr160List = [a.getAddr160() for a in addrList]
 
 
+   @TimeThisFunction
    def reset(self):
       self.filterAddrList()
       super(WalletAddrDispModel, self).reset()

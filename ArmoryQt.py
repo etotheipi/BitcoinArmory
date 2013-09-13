@@ -55,10 +55,9 @@ class ArmoryMainWindow(QMainWindow):
    """ The primary Armory window """
 
    #############################################################################
+   @TimeThisFunction
    def __init__(self, parent=None):
       super(ArmoryMainWindow, self).__init__(parent)
-
-      TimerStart('MainWindowInit')
 
       # Load the settings file
       self.settingsPath = CLI_OPTIONS.settingsPath
@@ -592,9 +591,6 @@ class ArmoryMainWindow(QMainWindow):
          self.ledgerView.setColumnWidth(LEDGERCOLS.NumConf, 20)
          self.ledgerView.setColumnWidth(LEDGERCOLS.TxDir,   72)
 
-
-      TimerStop('MainWindowInit')
-
       reactor.callLater(0.1,  self.execIntroDialog)
       reactor.callLater(1, self.Heartbeat)
 
@@ -1125,9 +1121,9 @@ class ArmoryMainWindow(QMainWindow):
        
 
    #############################################################################
+   @TimeThisFunction
    def setupNetworking(self):
       LOGINFO('Setting up networking...')
-      TimerStart('setupNetworking')
       self.internetAvail = False
 
       # Prevent Armory from being opened twice
@@ -1183,7 +1179,6 @@ class ArmoryMainWindow(QMainWindow):
       LOGINFO('Bitcoin-Qt/bitcoind is Available: %s', self.bitcoindIsAvailable())
 
 
-      TimerStop('setupNetworking')
 
    ############################################################################
    def startBitcoindIfNecessary(self):
@@ -1444,9 +1439,9 @@ class ArmoryMainWindow(QMainWindow):
       
 
    #############################################################################
+   @TimeThisFunction
    def loadWalletsAndSettings(self):
       LOGINFO('loadWalletsAndSettings')
-      TimerStart('loadWltSettings')
 
       self.getSettingOrSetDefault('First_Load',         True)
       self.getSettingOrSetDefault('Load_Count',         0)
@@ -1557,7 +1552,6 @@ class ArmoryMainWindow(QMainWindow):
       self.lastDirectory = savedDir
       self.writeSetting('LastDirectory', savedDir)
 
-      TimerStop('loadWltSettings')
 
    #############################################################################
    def getFileSave(self, title='Save Wallet File', \
@@ -1678,9 +1672,19 @@ class ArmoryMainWindow(QMainWindow):
 
 
    #############################################################################
+
+   @TimeThisFunction
+   def initialWalletSync(self):
+      for wltID in self.walletMap.iterkeys():
+         LOGINFO('Syncing wallet: %s', wltID)
+         self.walletMap[wltID].setBlockchainSyncFlag(BLOCKCHAIN_READONLY)
+         self.walletMap[wltID].syncWithBlockchainLite(0)
+         self.walletMap[wltID].detectHighestUsedIndex(True) # expand wlt if necessary
+         self.walletMap[wltID].fillAddressPool()
+         
+   @TimeThisFunction
    def finishLoadBlockchain(self):
 
-      TimerStart('finishLoadBlockchain')
       # Now that the blockchain is loaded, let's populate the wallet info
       if TheBDM.isInitialized():
 
@@ -1691,16 +1695,6 @@ class ArmoryMainWindow(QMainWindow):
             self.checkMemoryPoolCorruption(mempoolfile)
             TheBDM.enableZeroConf(mempoolfile)
             self.memPoolInit = True
-
-         TimerStart('initialWalletSync')
-         for wltID in self.walletMap.iterkeys():
-            LOGINFO('Syncing wallet: %s', wltID)
-            self.walletMap[wltID].setBlockchainSyncFlag(BLOCKCHAIN_READONLY)
-            self.walletMap[wltID].syncWithBlockchainLite(0)
-            self.walletMap[wltID].detectHighestUsedIndex(True)  # expand wlt if necessary
-            self.walletMap[wltID].fillAddressPool()
-         TimerStop('initialWalletSync')
-
          
          self.createCombinedLedger()
          self.ledgerSize = len(self.combinedLedger)
@@ -1735,8 +1729,6 @@ class ArmoryMainWindow(QMainWindow):
       # This will force the table to refresh with new data
       self.setDashboardDetails()
       self.walletModel.reset()
-      
-      TimerStop('finishLoadBlockchain')
 
 
    #############################################################################
@@ -1774,13 +1766,12 @@ class ArmoryMainWindow(QMainWindow):
 
 
    #############################################################################
+   @TimeThisFunction
    def createCombinedLedger(self, wltIDList=None, withZeroConf=True):
       """
       Create a ledger to display on the main screen, that consists of ledger
       entries of any SUBSET of available wallets.
       """
-   
-      TimerStart('createCombinedLedger')
 
       start = RightNow()
       if wltIDList==None:
@@ -1814,7 +1805,6 @@ class ArmoryMainWindow(QMainWindow):
                
 
       if wltIDList==None:
-         TimerStop('createCombinedLedger')
          return
 
       self.combinedLedger = []
@@ -1882,17 +1872,12 @@ class ArmoryMainWindow(QMainWindow):
 
       except AttributeError:
          raise
-      finally: 
-         TimerStop('createCombinedLedger')
 
-
-      
 
    #############################################################################
+   @TimeThisFunction
    def convertLedgerToTable(self, ledger):
 
-      TimerStart('convertLedgerTbl')
-      
       table2D = []
       datefmt = self.getPreferredDateFormat()
       for wltID,le in ledger: 
@@ -1961,24 +1946,20 @@ class ArmoryMainWindow(QMainWindow):
 
          # Finally, attach the row to the table
          table2D.append(row)
-
-      TimerStop('convertLedgerTbl')
-
       return table2D
 
       
    #############################################################################
+   @TimeThisFunction
    def walletListChanged(self):
-      TimerStart('wltListChanged')
       self.walletModel.reset()
       self.populateLedgerComboBox()
       self.createCombinedLedger()
-      TimerStop('wltListChanged')
 
 
    #############################################################################
+   @TimeThisFunction
    def populateLedgerComboBox(self):
-      TimerStart('populateLedgerCombo')
       self.comboWltSelect.clear()
       self.comboWltSelect.addItem( 'My Wallets'        )
       self.comboWltSelect.addItem( 'Offline Wallets'   )
@@ -1990,8 +1971,6 @@ class ArmoryMainWindow(QMainWindow):
       self.comboWltSelect.insertSeparator(4)
       comboIdx = self.getSettingOrSetDefault('LastFilterState', 0)
       self.comboWltSelect.setCurrentIndex(comboIdx)
-      TimerStop('populateLedgerCombo')
-      
 
    #############################################################################
    def execDlgWalletDetails(self, index=None):
@@ -2053,10 +2032,9 @@ class ArmoryMainWindow(QMainWindow):
 
 
    #############################################################################
+   @TimeThisFunction
    def getAddrCommentIfAvailAll(self, txHash):
-      TimerStart('getAddrCommentIfAvail')
       if not TheBDM.isInitialized():
-         TimerStop('getAddrCommentIfAvail')
          return ''
       else:
          
@@ -3067,6 +3045,7 @@ class ArmoryMainWindow(QMainWindow):
       
    
    #############################################################################
+   @TimeThisFunction
    def resetBdmBeforeScan(self):
       """
       I have spent hours trying to debug situations where starting a scan or 
@@ -3076,13 +3055,9 @@ class ArmoryMainWindow(QMainWindow):
       if TheBDM.getBDMState()=='Scanning': 
          LOGINFO('Aborting load')
          touchFile(os.path.join(ARMORY_HOME_DIR,'abortload.txt'))
-      TimerStart("resetBdmBeforeScan")
       TheBDM.Reset(wait=False)
       for wid,wlt in self.walletMap.iteritems():
          TheBDM.registerWallet(wlt.cppWallet)
-      TimerStop("resetBdmBeforeScan")
-
-
 
    #############################################################################
    def SetupDashboard(self):
@@ -3855,13 +3830,13 @@ class ArmoryMainWindow(QMainWindow):
          
 
    #############################################################################
+   @TimeThisFunction
    def setDashboardDetails(self, INIT=False):
       """
       We've dumped all the dashboard text into the above 2 methods in order
       to declutter this method.
       """
 
-      TimerStart('setDashboardDetails')
       onlineAvail = self.onlineModeIsPossible()
 
       sdmState = TheSDM.getSDMState()
@@ -4216,9 +4191,7 @@ class ArmoryMainWindow(QMainWindow):
       self.lblDashModeScan.setContentsMargins(50,5,50,5)
       vbar = self.scrl.verticalScrollBar()
       vbar.setValue(vbar.minimum())
-         
-      TimerStop('setDashboardDetails')
-            
+
    
    #############################################################################
    def createToolTipWidget(self, tiptext, iconSz=2):
@@ -4297,6 +4270,36 @@ class ArmoryMainWindow(QMainWindow):
       
    
    #############################################################################
+
+   @TimeThisFunction
+   def checkNewZeroConf(self, wltID, wlt):
+      # For each new tx, check each wallet
+      rawTx = self.newZeroConfSinceLastUpdate.pop()
+      for wltID in self.walletMap.keys():
+         wlt = self.walletMap[wltID]
+         le = wlt.cppWallet.calcLedgerEntryForTxStr(rawTx)
+         if not le.getTxHash() == '\x00' * 32:
+            LOGDEBUG('ZerConf tx for wallet: %s.  Adding to notify queue.' % wltID)
+            notifyIn = self.getSettingOrSetDefault('NotifyBtcIn', not OS_MACOSX)
+            notifyOut = self.getSettingOrSetDefault('NotifyBtcOut', not OS_MACOSX)
+            if (le.getValue() <= 0 and notifyOut) or (le.getValue() > 0 and notifyIn):
+               self.notifyQueue.append([wltID, le, False]) # notifiedAlready=False
+            self.createCombinedLedger()
+            self.walletModel.reset()
+      
+      return wltID
+
+
+   @TimeThisFunction
+   def newBlockSyncRescanZC(self, wltID, prevLedgSize):
+      for wltID in self.walletMap.keys():
+         self.walletMap[wltID].syncWithBlockchainLite()
+         TheBDM.rescanWalletZeroConf(self.walletMap[wltID].cppWallet)
+         newLedgerSize = len(self.walletMap[wltID].getTxLedger())
+         didAffectUs = prevLedgSize[wltID] != newLedgerSize
+      
+      return didAffectUs
+
    def Heartbeat(self, nextBeatSec=1):
       """
       This method is invoked when the app is initialized, and will
@@ -4447,26 +4450,10 @@ class ArmoryMainWindow(QMainWindow):
                   TheBDM.rescanWalletZeroConf(wlt.cppWallet, wait=True)
 
             while len(self.newZeroConfSinceLastUpdate)>0:
-               TimerStart('CheckNewZeroConf')
-               # For each new tx, check each wallet
-               rawTx = self.newZeroConfSinceLastUpdate.pop()
-               for wltID in self.walletMap.keys():
-                  wlt = self.walletMap[wltID]
-                  le = wlt.cppWallet.calcLedgerEntryForTxStr(rawTx)
-                  if not le.getTxHash()=='\x00'*32:
-                     LOGDEBUG('ZerConf tx for wallet: %s.  Adding to notify queue.' % wltID)
-                     notifyIn  = self.getSettingOrSetDefault('NotifyBtcIn',  not OS_MACOSX)
-                     notifyOut = self.getSettingOrSetDefault('NotifyBtcOut', not OS_MACOSX)
-                     if (le.getValue()<=0 and notifyOut) or (le.getValue()>0 and notifyIn):
-                        self.notifyQueue.append([wltID, le, False])  # notifiedAlready=False
-                     self.createCombinedLedger()
-                     self.walletModel.reset()
-               TimerStop('CheckNewZeroConf')
+               wltID = self.checkNewZeroConf(wltID, wlt)
    
             # Trigger any notifications, if we have them...
-            TimerStart('doSystemTrayThing')
             self.doTheSystemTrayThing()
-            TimerStop('doSystemTrayThing')
 
             if newBlocks>0 and not TheBDM.isDirty():
    
@@ -4484,13 +4471,7 @@ class ArmoryMainWindow(QMainWindow):
                didAffectUs = False
    
                # LITE sync means it won't rescan if addresses have been imported
-               TimerStart('newBlockSyncRescanZC')
-               for wltID in self.walletMap.keys():
-                  self.walletMap[wltID].syncWithBlockchainLite()
-                  TheBDM.rescanWalletZeroConf(self.walletMap[wltID].cppWallet)
-                  newLedgerSize = len(self.walletMap[wltID].getTxLedger())
-                  didAffectUs = (prevLedgSize[wltID] != newLedgerSize)
-               TimerStop('newBlockSyncRescanZC')
+               didAffectUs = self.newBlockSyncRescanZC(wltID, prevLedgSize)
             
                if didAffectUs:
                   LOGINFO('New Block contained a transaction relevant to us!')
@@ -4510,9 +4491,7 @@ class ArmoryMainWindow(QMainWindow):
                      (htmlColor('TextGreen'), self.currBlockNum))
       
                # Update the wallet view to immediately reflect new balances
-               TimerStart('walletModelReset')
                self.walletModel.reset()
-               TimerStop('walletModelReset')
       
             blkRecvAgo  = RightNow() - self.blkReceived
             #blkStampAgo = RightNow() - TheBDM.getTopBlockHeader().getTimestamp()
@@ -4551,6 +4530,7 @@ class ArmoryMainWindow(QMainWindow):
             
 
    #############################################################################
+   @TimeThisFunction
    def doTheSystemTrayThing(self):
       """
       I named this method as it is because this is not just "show a message."

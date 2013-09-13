@@ -9999,32 +9999,41 @@ class BlockDataManagerThread(threading.Thread):
 
 
    #############################################################################
-   def predictLoadTime(self):
+   def predictLoadTime(self, armoryHomeDir=ARMORY_HOME_DIR, blkFileName='blkfiles.txt'):
       # Apparently we can't read the C++ state while it's scanning, 
       # specifically getLoadProgress* methods.  Thus we have to resort
       # to communicating via files... bleh 
-      bfile = os.path.join(ARMORY_HOME_DIR,'blkfiles.txt')
+      bfile = os.path.join(armoryHomeDir,blkFileName)
       if not os.path.exists(bfile):
          return [-1,-1,-1]
 
       try:
          with open(bfile,'r') as f:
             tmtrx = [ line.split() for line in f.readlines() ] 
-            pct0 = float(tmtrx[0][0])  / float(tmtrx[0][1])
-            pct1 = float(tmtrx[-1][0]) / float(tmtrx[-1][1])
-            t0 = float(tmtrx[0][2])
-            t1 = float(tmtrx[-1][2])
+            phase1Tmtrx = [ line[1:] for line in tmtrx if line[0] == '1']
+            if len(tmtrx) > len(phase1Tmtrx):
+               curTmtrx = [ line[1:] for line in tmtrx if line[0] == '2']
+            else:
+               curTmtrx = phase1Tmtrx
+            pct0 = float(curTmtrx[0][0])  / float(curTmtrx[0][1])
+            pct1 = float(curTmtrx[-1][0]) / float(curTmtrx[-1][1])
+            t0 = float(curTmtrx[0][2])
+            t1 = float(curTmtrx[-1][2])
             if not t1>t0:
                return [-1,-1,-1]
             rate = (pct1-pct0) / (t1-t0) 
-            tleft = (1-pct1)/rate
-            if not self.lastPctLoad == pct1:
+            # There are 2 phases
+            # Phase 1 reliably represents 1/4 of the total computation time.
+            # Phase 2 represents 3/4
+            totalPct = pct1 / 4 if phase1Tmtrx == curTmtrx else 3 * pct1 / 4 + .25
+            totalRate = rate / 4 if phase1Tmtrx == curTmtrx else 3 * rate / 4
+            tleft = (1-totalPct)/totalRate
+            if not self.lastPctLoad == totalPct:
                LOGINFO('Reading blockchain, pct complete: %0.1f', 100*pct1)
-            self.lastPctLoad = pct1 
-            return [pct1,rate,tleft]
+            self.lastPctLoad = totalPct 
+            return [totalPct,totalRate,tleft]
       except:
          return [-1,-1,-1]
-            
 
    
       

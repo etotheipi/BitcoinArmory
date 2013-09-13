@@ -3,8 +3,6 @@ Created on Aug 30, 2013
 
 @author: Andy
 '''
-import sys
-sys.argv.append('--nologging')
 from sys import path
 import os
 
@@ -113,12 +111,15 @@ class UnknownSeg(PwdSeg):
 
 
 class PasswordFinder(object): 
-   def __init__(self, walletPath):
-      if not os.path.exists(walletPath):
-         print 'Wallet does not exist:'
-         print '  ', walletPath
-         raise WalletNotFound
-      self.wallet = PyBtcWallet().readWalletFile(walletPath)
+   def __init__(self, wallet=None, walletPath=''):
+      if wallet != None:
+         self.wallet = wallet
+      else:
+         if not os.path.exists(walletPath):
+            print 'Wallet does not exist:'
+            print '  ', walletPath
+            raise WalletNotFound
+         self.wallet = PyBtcWallet().readWalletFile(walletPath)
 
    def countPasswords(self, segList, segOrdList):
       return reduce(add, [reduce(mul, [len(segList[segIndex])

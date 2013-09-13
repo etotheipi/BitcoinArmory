@@ -16,6 +16,7 @@ from armoryengine import *
 from armorymodels import *
 from armorycolors import Colors, htmlColor
 import qrc_img_resources
+from extras.findpass import PasswordFinder
 
 MIN_PASSWD_WIDTH = lambda obj: tightSizeStr(obj, '*'*16)[0]
 
@@ -933,6 +934,7 @@ class DlgWalletDetails(ArmoryDialog):
       lbtnVwKeys  = QLabelButton('Backup Individual Keys')
       lbtnExport  = QLabelButton('Make Digital Backup')
       lbtnRemove  = QLabelButton('Delete/Remove Wallet')
+      lbtnRecover  = QLabelButton('Recover Password Wallet')
 
       self.connect(lbtnSendBtc, SIGNAL('clicked()'), self.execSendBtc)
       self.connect(lbtnGenAddr, SIGNAL('clicked()'), self.getNewAddress)
@@ -943,6 +945,7 @@ class DlgWalletDetails(ArmoryDialog):
       self.connect(lbtnDeleteA, SIGNAL('clicked()'), self.execDeleteAddress)
       self.connect(lbtnExport,  SIGNAL('clicked()'), self.saveWalletCopy)
       self.connect(lbtnForkWlt, SIGNAL('clicked()'), self.forkOnlineWallet)
+      self.connect(lbtnRecover, SIGNAL('clicked()'), self.recoverPwd)
 
       lbtnSendBtc.setToolTip('<u></u>Send bitcoins to other users, or transfer '
                              'between wallets')
@@ -982,6 +985,8 @@ class DlgWalletDetails(ArmoryDialog):
       lbtnRemove.setToolTip('<u></u>Permanently delete this wallet, or just delete '
                             'the private keys to convert it to a watching-only '
                             'wallet.')
+      lbtnRecover.setToolTip('<u></u>Attempt to recover a lost password using '
+                            'details that you remember.')
       if not self.wlt.watchingOnly:
          lbtnChangeCrypto.setToolTip('<u></u>Add/Remove/Change wallet encryption settings.')
 
@@ -1009,6 +1014,7 @@ class DlgWalletDetails(ArmoryDialog):
       if True:              optLayout.addWidget(lbtnVwKeys)
       if hasPriv and adv:   optLayout.addWidget(lbtnForkWlt)
       if True:              optLayout.addWidget(lbtnRemove)
+      if True:              optLayout.addWidget(lbtnRecover)
 
       if hasPriv and adv:  optLayout.addWidget(createVBoxSeparator())
 
@@ -1493,7 +1499,10 @@ class DlgWalletDetails(ArmoryDialog):
       self.wlt.forkOnlineWallet(saveLoc, self.wlt.labelName, \
                              '(Watching-Only) ' + self.wlt.labelDescr)
    
-         
+      
+   def recoverPwd(self):
+      passwordFinder = PasswordFinder(wallet = self.wlt)
+            
          
 
 
