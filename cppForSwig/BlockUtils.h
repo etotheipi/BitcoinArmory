@@ -69,7 +69,8 @@ typedef enum
 {
   DB_BUILD_HEADERS,
   DB_BUILD_ADD_RAW,
-  DB_BUILD_APPLY
+  DB_BUILD_APPLY,
+  DB_BUILD_SCAN
 } DB_BUILD_PHASE;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -526,9 +527,19 @@ private:
    vector<string>                     blkFileList_;
    uint64_t                           numBlkFiles_;
    uint64_t                           endOfLastBlockByte_;
-   uint32_t                           startScanBlkNum_;
-   uint64_t                           startScanOffset_;
-   uint32_t                           alreadyApplied_;
+
+   // On DB initialization, we start processing here
+   uint32_t                           startHeaderHgt_;
+   uint32_t                           startRawBlkHgt_;
+   uint32_t                           startApplyHgt_;
+
+   // The following blkfile and offsets correspond to the above heights
+   uint32_t                           startHeaderBlkFile_;
+   uint64_t                           startHeaderOffset_;
+   uint32_t                           startRawBlkFile_;
+   uint64_t                           startRawOffset_;
+   uint32_t                           startApplyBlkFile_;
+   uint64_t                           startApplyOffset_;
 
    // Used to estimate how much data is queued to be written to DB
    uint64_t                           dbUpdateSize_;
@@ -642,9 +653,11 @@ public:
    uint32_t getTopBlockHeightInDB(DB_SELECT db);
    uint32_t getAppliedToHeightInDB(void);
    vector<BinaryData> getFirstHashOfEachBlkFile(void) const;
-   uint32_t findFirstUnrecogBlockLoc(uint32_t fnum);
+   uint32_t findOffsetFirstUnrecognized(uint32_t fnum);
    uint32_t findFirstBlkApproxOffset(uint32_t fnum, uint32_t offset) const;
    uint32_t findFirstUnappliedBlock(void);
+   pair<uint32_t, uint32_t> findFileAndOffsetForHgt(
+               uint32_t hgt, vector<BinaryData> & firstHashOfEachBlkFile);
 
    /////////////////////////////////////////////////////////////////////////////
    void Reset(void);
@@ -725,9 +738,9 @@ public:
    // the blockfile data.
    bool     extractHeadersInBlkFile(uint32_t fnum, uint32_t offset=0);
    uint32_t detectAllBlkFiles(void);
-   bool     processAllHeadersInBlkFiles(uint32_t fnumStart=0, uint32_t offset=0);
+   bool     processNewHeadersInBlkFiles(uint32_t fnumStart=0, uint32_t offset=0);
    //bool     processHeadersInFile(string filename);
-   uint32_t buildDatabasesFromBlkFiles(uint32_t fnum=0, uint32_t offset=0);
+   uint32_t buildDatabasesFromBlkFiles(void);
    uint32_t initializeAndBuildDatabases(ARMORY_DB_TYPE atype=ARMORY_DB_WHATEVER,
                                         DB_PRUNE_TYPE  dtype=DB_PRUNE_WHATEVER);
    uint32_t initializeAndBuildDatabases(uint32_t atype, uint32_t dtype);
@@ -773,6 +786,8 @@ public:
                            BlockHeader* branchPtr );
 
 
+   void readAndDeleteHistories(void);
+   void shutdownSaveScrAddrHistories(void);
 
    void fetchAllRegisteredScrAddrData(void);
    void fetchAllRegisteredScrAddrData(BtcWallet & myWlt);
@@ -816,7 +831,7 @@ public:
                                    uint32_t blkStart=0,
                                    uint32_t blkEnd=UINT32_MAX);
 
-   void initialBlockchainLoadScan(void);
+   void scanDBForRegisteredTx(uint32_t blk0=0, uint32_t blk1=UINT32_MAX);
 
  
    /////////////////////////////////////////////////////////////////////////////
