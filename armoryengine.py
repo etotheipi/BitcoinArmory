@@ -12955,6 +12955,9 @@ class BlockDataManagerThread(threading.Thread):
 
    #############################################################################
    def __shutdown(self):
+      if self.blkMode == BLOCKCHAINMODE.Full:
+         self.bdm.shutdownSaveScrAddrHistories()
+
       self.__reset()
       self.blkMode = BLOCKCHAINMODE.Offline
       self.doShutdown = True

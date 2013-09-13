@@ -3457,13 +3457,13 @@ uint32_t BlockDataManager_LevelDB::initializeAndBuildDatabases(
 // only be used when rebuilding the DB from scratch (hopefully).
 //
 // This method actually does all three of 
-uint32_t BlockDataManager_LevelDB::buildDatabasesFromBlkFiles(void)
+uint32_t BlockDataManager_LevelDB::buildDatabasesFromBlkFiles(bool forceRebuild)
 {
    SCOPED_TIMER("buildDatabasesFromBlkFiles");
    LOGINFO << "Number of registered addr: " << registeredScrAddrMap_.size();
 
    // When we parse the entire block
-   if(startHeaderBlkFile_==0 && startHeaderOffset_==0)
+   if(forceRebuild || (startHeaderBlkFile_==0 && startHeaderOffset_==0))
       iface_->destroyAndResetDatabase();
 
    // Remove this file
@@ -3656,11 +3656,11 @@ uint32_t BlockDataManager_LevelDB::buildDatabasesFromBlkFiles(void)
    {
       // Start scan from the beginning.  At a later time we'll figure out
       // how to save data to the DB and reload it
-      //readRegisteredScrAddrHistories();
-      //uint32_t scanStart = evalLowestBlockNextScan();
-      uint32_t scanStart = 0;
+      readAndDeleteHistories();
+      uint32_t scanStart = evalLowestBlockNextScan();
+      //uint32_t scanStart = 0;
 
-      LOGINFO << "Starting initial blockchain scan";
+      LOGINFO << "Starting initial blockchain scan from blk: " << scanStart;
       scanDBForRegisteredTx(scanStart);
       LOGINFO << "Finished blockchain scan";
    }
@@ -3754,6 +3754,7 @@ void BlockDataManager_LevelDB::scanDBForRegisteredTx(uint32_t blk0,
 ////////////////////////////////////////////////////////////////////////////////
 void BlockDataManager_LevelDB::readAndDeleteHistories(void)
 {
+   LOGINFO << "Reading saved wallet histories from last scan";
 
    // Iterate through all registered ScrAddrs, and register any relevant tx
    fetchAllRegisteredScrAddrData();
@@ -3780,14 +3781,13 @@ void BlockDataManager_LevelDB::readAndDeleteHistories(void)
    } while(iface_->advanceIterAndRead(BLKDATA, DB_PREFIX_SCRIPT));
 
    iface_->commitBatch(BLKDATA);
-
 }
 
 
 ////////////////////////////////////////////////////////////////////////////////
 void BlockDataManager_LevelDB::shutdownSaveScrAddrHistories(void)
 {
-   LOGERR << "Not implemented yet!";
+   LOGINFO << "Saving wallet history for next load";
 
    iface_->startBatch(BLKDATA);
 

@@ -740,7 +740,7 @@ public:
    uint32_t detectAllBlkFiles(void);
    bool     processNewHeadersInBlkFiles(uint32_t fnumStart=0, uint32_t offset=0);
    //bool     processHeadersInFile(string filename);
-   uint32_t buildDatabasesFromBlkFiles(void);
+   uint32_t buildDatabasesFromBlkFiles(bool forceRebuild=false);
    uint32_t initializeAndBuildDatabases(ARMORY_DB_TYPE atype=ARMORY_DB_WHATEVER,
                                         DB_PRUNE_TYPE  dtype=DB_PRUNE_WHATEVER);
    uint32_t initializeAndBuildDatabases(uint32_t atype, uint32_t dtype);
