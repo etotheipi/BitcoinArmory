@@ -2773,6 +2773,7 @@ void BlockDataManager_LevelDB::scanBlockchainForTx(BtcWallet & myWallet,
 
    // This is the part that might take a while...
    //applyBlockRangeToDB(allScannedUpToBlk_, endBlknum);
+   scanDBForRegisteredTx(allScannedUpToBlk_, endBlknum);
 
    allScannedUpToBlk_ = endBlknum;
    updateRegisteredScrAddrs(endBlknum);
@@ -3474,6 +3475,19 @@ uint32_t BlockDataManager_LevelDB::initializeAndBuildDatabases(
 }
 
 /////////////////////////////////////////////////////////////////////////////
+void BlockDataManager_LevelDB::destroyAndResetDatabases(void)
+{
+   if(iface_ != NULL)
+   {
+      LOGWARN << "Destroying databases;  will need to be rebuilt";
+      iface_->destroyAndResetDatabases();
+      return;
+   }
+   LOGERR << "Attempted to destroy databases, but no DB interface set";
+}
+
+
+/////////////////////////////////////////////////////////////////////////////
 // This used to be "parseEntireBlockchain()", but changed because it will 
 // only be used when rebuilding the DB from scratch (hopefully).
 //
@@ -3485,7 +3499,7 @@ uint32_t BlockDataManager_LevelDB::buildDatabasesFromBlkFiles(bool forceRebuild)
 
    // When we parse the entire block
    if(forceRebuild || (startHeaderBlkFile_==0 && startHeaderOffset_==0))
-      iface_->destroyAndResetDatabase();
+      destroyAndResetDatabases();
 
    // Remove this file
    string bfile     = armoryHomeDir_ + string("/blkfiles.txt");
@@ -3732,6 +3746,15 @@ void BlockDataManager_LevelDB::scanDBForRegisteredTx(uint32_t blk0,
    SCOPED_TIMER("scanDBForRegisteredTx");
    bytesReadSoFar_ = 0;
 
+   
+   string bfile = armoryHomeDir_ + string("/blkfiles.txt");
+   bool doScanProgressThing = (blk1-blk0 > NUM_BLKS_IS_DIRTY);
+   if(doScanProgressThing)
+   {
+      if(BtcUtils::GetFileSize(bfile) != FILE_DOES_NOT_EXIST)
+         remove(bfile.c_str());
+   }
+
    BinaryData firstKey = DBUtils.getBlkDataKey(blk0, 0);
    iface_->seekTo(BLKDATA, firstKey);
 
@@ -3764,13 +3787,10 @@ void BlockDataManager_LevelDB::scanDBForRegisteredTx(uint32_t blk0,
          registeredScrAddrScan_IterSafe(stx);
       }
 
-      if(armoryHomeDir_.size() > 0)
+      if(doScanProgressThing && armoryHomeDir_.size() > 0)
       {
          if((hgt < 120000 && hgt%10000 == 0) || (hgt > 120000 && hgt%1000==0))
-         {
-            string bfile = armoryHomeDir_ + string("/blkfiles.txt");
             writeProgressFile(DB_BUILD_SCAN, bfile, "ScanBlockchain");
-         }
       }
    }
    TIMER_STOP("ScanBlockchain");
@@ -3875,6 +3895,7 @@ uint32_t BlockDataManager_LevelDB::readBlkFileUpdate(void)
    }
       
 
+   uint32_t prevTopBlk = getTopBlockHeight()+1;
    uint64_t currBlkBytesToRead;
 
    if( filesize == FILE_DOES_NOT_EXIST )
@@ -4023,16 +4044,15 @@ uint32_t BlockDataManager_LevelDB::readBlkFileUpdate(void)
             applyBlockToDB(hgt, dup);
          }
 
-         purgeZeroConfPool();
-
-         StoredHeader sbh;
-         iface_->getStoredHeader(sbh, hgt, dup);
-         map<uint16_t, StoredTx>::iterator iter;
-         for(iter = sbh.stxMap_.begin(); iter != sbh.stxMap_.end(); iter++)
-         {
-            Tx regTx = iter->second.getTxCopy();
-            registeredScrAddrScan(regTx.getPtr(), regTx.getSize());
-         }
+         // Replaced this with the scanDBForRegisteredTx call outside the loop
+         //StoredHeader sbh;
+         //iface_->getStoredHeader(sbh, hgt, dup);
+         //map<uint16_t, StoredTx>::iterator iter;
+         //for(iter = sbh.stxMap_.begin(); iter != sbh.stxMap_.end(); iter++)
+         //{
+            //Tx regTx = iter->second.getTxCopy();
+            //registeredScrAddrScan(regTx.getPtr(), regTx.getSize());
+         //}
       }
       else
       {
@@ -4045,8 +4065,11 @@ uint32_t BlockDataManager_LevelDB::readBlkFileUpdate(void)
       if(brr.isEndOfStream() || brr.getSizeRemaining() < 8)
          keepGoing = false;
    }
+
    lastTopBlock_ = getTopBlockHeight()+1;
 
+   purgeZeroConfPool();
+   scanDBForRegisteredTx(prevTopBlk, lastTopBlock_);
 
    if(prevRegisteredUpToDate)
    {

@@ -11905,6 +11905,7 @@ BDMINPUTTYPE  = enum('RegisterAddr', \
                      'BlockAtHeightRequested', \
                      'HeaderAtHeightRequested', \
                      'StartScanRequested', \
+                     'ForceRebuild', \
                      'RescanRequested', \
                      'WalletRecoveryScan', \
                      'UpdateWallets', \
@@ -12228,6 +12229,7 @@ class BlockDataManagerThread(threading.Thread):
             total   = [float(row[3]) for row in tmtrx if float(row[0])==currPhase]
             times   = [float(row[4]) for row in tmtrx if float(row[0])==currPhase]
             
+            startRow = 0 if len(startat)<=10 else -10
             todo = total[0] - startat[0]
             pct0 = sofar[0]  / todo
             pct1 = sofar[-1] / todo
@@ -12281,6 +12283,18 @@ class BlockDataManagerThread(threading.Thread):
 
       self.ldbdir = ldbdir
 
+   #############################################################################
+   def stopAndRebuildDB(self, goOnline=True, wait=None):
+      expectOutput = False
+      if not wait==False and (self.alwaysBlock or wait==True):
+         expectOutput = True
+
+      rndID = int(random.uniform(0,100000000)) 
+      self.aboutToRescan = True
+
+      self.inputQueue.put([BDMINPUTTYPE.ForceRebuild, rndID, expectOutput])
+
+      return self.waitForOutputIfNecessary(expectOutput, rndID)
 
    #############################################################################
    def setOnlineMode(self, goOnline=True, wait=None):
@@ -12355,7 +12369,7 @@ class BlockDataManagerThread(threading.Thread):
 
 
    #############################################################################
-   def rescanBlockchain(self, wait=None):
+   def rescanBlockchain(self, forceFullScan=False, wait=None):
       expectOutput = False
       if not wait==False and (self.alwaysBlock or wait==True):
          expectOutput = True
@@ -12363,7 +12377,7 @@ class BlockDataManagerThread(threading.Thread):
       self.aboutToRescan = True
 
       rndID = int(random.uniform(0,100000000)) 
-      self.inputQueue.put([BDMINPUTTYPE.RescanRequested, rndID, expectOutput])
+      self.inputQueue.put([BDMINPUTTYPE.RescanRequested, rndID, expectOutput, forceFullScan])
       LOGINFO('Blockchain rescan requested')
       return self.waitForOutputIfNecessary(expectOutput, rndID)
 
@@ -12807,11 +12821,18 @@ class BlockDataManagerThread(threading.Thread):
 
       
    #############################################################################
-   def __startRescanBlockchain(self):
+   def __startRescanBlockchain(self, forceFullScan=False):
       """
       This should only be called by the threaded BDM, and thus there should
       never be a conflict.  
+   
+      If we don't force a full scan, we let TheBDM figure out how much of the 
+      chain needs to be rescanned.  Which may not be very much.  We may 
+      force a full scan if we think there's an issue with balances.
       """
+      if forceFullScan:
+         self.__reset()
+
       if self.blkMode==BLOCKCHAINMODE.Offline:
          LOGERROR('Blockchain is in offline mode.  How can we rescan?')
       elif self.blkMode==BLOCKCHAINMODE.Uninitialized:
@@ -12969,7 +12990,14 @@ class BlockDataManagerThread(threading.Thread):
       self.doShutdown = True
 
    #############################################################################
+   def __fullRebuild(self):
+      self.bdm.destroyAndResetDatabases()
+      self.__reset()
+      self.__startLoadBlockchain()
+
+   #############################################################################
    def __reset(self):
+      LOGERROR('Resetting BDM and all wallets')
       self.bdm.Reset()
       
       if self.blkMode in (BLOCKCHAINMODE.Full, BLOCKCHAINMODE.Rescanning):
@@ -12978,6 +13006,7 @@ class BlockDataManagerThread(threading.Thread):
       elif not self.blkMode==BLOCKCHAINMODE.Offline:
          return
          
+      self.bdm.resetRegisteredWallets()
 
       # Flags
       self.startBDM     = False
@@ -12986,6 +13015,7 @@ class BlockDataManagerThread(threading.Thread):
       # Lists of wallets that should be checked after blockchain updates
       self.pyWltList    = []   # these will be python refs
       self.cppWltList   = []   # these will be C++ refs
+
 
       # The BlockDataManager is easier to use if you put all your addresses
       # into a C++ BtcWallet object, and let it 
@@ -13165,7 +13195,8 @@ class BlockDataManagerThread(threading.Thread):
             elif cmd == BDMINPUTTYPE.RescanRequested:
                LOGINFO('Start Rescan Requested')
                TimerStart('rescanBlockchain')
-               self.__startRescanBlockchain()
+               forceFullRescan = inputTuple[3]
+               self.__startRescanBlockchain(forceFullRescan)
                TimerStop('rescanBlockchain')
 
             elif cmd == BDMINPUTTYPE.WalletRecoveryScan:
@@ -13192,6 +13223,10 @@ class BlockDataManagerThread(threading.Thread):
             elif cmd == BDMINPUTTYPE.Shutdown:
                LOGINFO('Shutdown Requested')
                self.__shutdown()
+
+            elif cmd == BDMINPUTTYPE.ForceRebuild:
+               LOGINFO('Rebuild databases requested')
+               self.__fullRebuild()
 
             elif cmd == BDMINPUTTYPE.Reset:
                LOGINFO('Reset Requested')
