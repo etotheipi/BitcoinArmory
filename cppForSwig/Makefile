@@ -1,6 +1,6 @@
 COMPILER = g++ 
-#COMPILER_OPTS = -c -g -Wall -fPIC -D_DEBUG
-COMPILER_OPTS = -c -O2 -pipe -fPIC 
+COMPILER_OPTS = -c -g -Wall -fPIC 
+#COMPILER_OPTS = -c -O2 -pipe -fPIC 
 
 #**************************************************************************
 LINKER = g++ 
@@ -91,8 +91,8 @@ CppBlockUtils_wrap.o: log.h BlockUtils.h  BinaryData.h UniversalTimer.h CppBlock
 #************************************************************************
 clean:
 	touch CppBlockUtils.i
-	rm -f *.o *.out libleveldb.a libcryptopp.a cryptopp/*.out
-	cd cryptopp; make clean;
+	rm -f *.o *.out 
+	#cd cryptopp; make clean;
 	
 
 

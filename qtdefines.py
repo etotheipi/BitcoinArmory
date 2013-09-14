@@ -587,6 +587,11 @@ def makeLayoutFrame(dirStr, widgetList, style=QFrame.NoFrame):
          else:
             frmLine.setFrameStyle(QFrame.VLine | QFrame.Plain)
          frmLayout.addWidget(frmLine)
+      elif isinstance(w,str) and w.lower().startswith('strut'):
+         first = w.index('(')+1 
+         last  = w.index(')')
+         strutSz = int(w[first:last])
+         frmLayout.addStrut(strutSz)
       elif isinstance(w,QSpacerItem):
          frmLayout.addItem(w)
       else:
@@ -608,8 +613,6 @@ def makeHorizFrame(widgetList, style=QFrame.NoFrame):
 
 
 def QImageLabel(imgfn, size=None, stretch='NoStretch'):
-   if not os.path.exists(imgfn):
-      raise FileExistsError, 'Image for QImageLabel does not exist!'
 
    lbl = QLabel()
 

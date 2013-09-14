@@ -13,9 +13,15 @@ LE = LITTLEENDIAN
 BE = BIGENDIAN
 
 
+<<<<<<< HEAD:not_very_good_tests.py
 Test_BasicUtils       = True
 Test_PyBlockUtils     = True
 Test_CppBlockUtils    = True
+=======
+Test_BasicUtils       = False
+Test_PyBlockUtils     = False
+Test_CppBlockUtils    = False
+>>>>>>> backupcenter:unittest.py
 Test_SimpleAddress    = False
 Test_MultiSigTx       = False
 Test_TxSimpleCreate   = False
@@ -24,7 +30,7 @@ Test_EncryptedWallet  = False
 Test_TxDistProposals  = False
 Test_SelectCoins      = False
 Test_CryptoTiming     = False
-Test_FiniteField      = False
+Test_FiniteField      = True
 Test_PyBkgdThread     = False
 
 Test_NetworkObjects   = False
@@ -2318,9 +2324,9 @@ if Test_FiniteField:
 
    from random import shuffle
 
-   def testSecret(secretHex, M, N, nbytes=1):
+   def testSecret(secretHex, M, N, nbytes):
       
-      secret = hex_to_binary(secretHex)
+      secret = hex_to_binary(secretHex, BIGENDIAN)
       print '\nSplitting secret into %d-of-%d: secret=%s' % (M,N,secretHex)
       tstart = RightNow() 
       out = SplitSecret(secret, M, N)
@@ -2340,20 +2346,23 @@ if Test_FiniteField:
          reconstruct = ReconstructSecret(out, M, nbytes)
          trecon += RightNow() - tstart
          
-         print '   The reconstructed secret is:', binary_to_hex(reconstruct)
+         print '   The reconstructed secret is:', binary_to_hex(reconstruct, BIGENDIAN)
+         assert(secret == reconstruct)
 
       print 'Splitting secret took: %0.5f sec' % tsplit
       print 'Reconstructing takes:  %0.5f sec' % (trecon/10)
 
 
-   testSecret('9f', 2,3)
-   testSecret('9f', 3,5)
-   testSecret('9f', 4,7)
-   testSecret('9f', 5,9)
-   testSecret('9f', 6,7)
 
-   testSecret('9f'*16, 3,5, 16)
-   testSecret('9f'*16, 7,10, 16)
+   testSecret('00000002', 2,3, 4)
+   testSecret('00000002', 3,5, 4)
+   testSecret('00000002', 4,7, 4)
+   testSecret('00000002', 5,9, 4)
+   testSecret('00000002', 6,10, 4)
+   testSecret('12afc83f', 6,20, 4)
+
+   testSecret('9f'*16, 2,4, 16)
+   testSecret('9f'*16, 5,5, 16)
 
 
    

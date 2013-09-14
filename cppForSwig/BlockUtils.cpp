@@ -1486,7 +1486,7 @@ bool BlockDataManager_LevelDB::checkLdbStatus(leveldb::Status stat)
 // the blk*.dat files, so that it can pick up where it left off.  You can 
 // use the last argument to specify an approximate amount of blocks 
 // (specified in bytes) that you would like to replay:  i.e. if 10 MB,
-// lastBlkFileNum_ and endOfLastBlockByte_ variables will be set to
+// startScanBlkNum_ and endOfLastBlockByte_ variables will be set to
 // the first block that is approximately 10 MB behind your latest block.
 // Then you can pick up from there and let the DB clean up any mess that
 // was left from an unclean shutdown.
@@ -1532,8 +1532,8 @@ bool BlockDataManager_LevelDB::initializeDBInterface(ARMORY_DB_TYPE dbtype,
    if(topBlk_H == 0)
    {
       LOGINFO << "DB is empty, must create new DB and build";
-      lastBlkFileNum_ = 0;
-      endOfLastBlockByte_ = 0;
+      startScanBlkNum_ = 0;
+      startScanOffset_ = 0;
       return false;
    }
 
@@ -1558,47 +1558,47 @@ bool BlockDataManager_LevelDB::initializeDBInterface(ARMORY_DB_TYPE dbtype,
    // Now find where in the blkfiles our top block is
    detectAllBlkFiles();
    vector<BinaryData> firstHashes = getFirstHashOfEachBlkFile();
-   for(lastBlkFileNum_=0; lastBlkFileNum_<firstHashes.size(); lastBlkFileNum_++)
-      if(getHeaderByHash(firstHashes[lastBlkFileNum_])==NULL)
+   for(startScanBlkNum_=0; startScanBlkNum_<firstHashes.size(); startScanBlkNum_++)
+      if(getHeaderByHash(firstHashes[startScanBlkNum_])==NULL)
          break;
 
-   // We usually overstep the actual lastBlkFileNum_ by one
-   if(lastBlkFileNum_ > 0)
-      lastBlkFileNum_--;
+   // We usually overstep the actual startScanBlkNum_ by one
+   if(startScanBlkNum_ > 0)
+      startScanBlkNum_--;
 
 
    LOGINFO << "Total blk*.dat files:            " << numBlkFiles_;
-   LOGINFO << "Last with recognized first hash: " << lastBlkFileNum_;
+   LOGINFO << "Last with recognized first hash: " << startScanBlkNum_;
    LOGINFO << "Last block in already applied:   " << alreadyApplied_;
    
-   endOfLastBlockByte_ = findFirstUnrecogBlockLoc(lastBlkFileNum_);
-   LOGINFO << "Location of first unrecog block: " << endOfLastBlockByte_;
+   startScanOffset_ = findFirstUnrecogBlockLoc(startScanBlkNum_);
+   LOGINFO << "Location of first unrecog block: " << startScanOffset_;
 
    // If we're content here, just return
    if(replayNBytes==0)
       return true;
 
-   // If we want to replay some blocks, we need to adjust lastBlkFileNum_
-   // and endOfLastBlockByte_ to be approx "replayNBytes" behind where
+   // If we want to replay some blocks, we need to adjust startScanBlkNum_
+   // and startScanOffset_ to be approx "replayNBytes" behind where
    // they are currently set.
-   int32_t targOffset = (int32_t)endOfLastBlockByte_ - (int32_t)replayNBytes;
-   if(targOffset > 0 || lastBlkFileNum_==0)
+   int32_t targOffset = (int32_t)startScanOffset_ - (int32_t)replayNBytes;
+   if(targOffset > 0 || startScanBlkNum_==0)
    {
       targOffset = max(0, targOffset);
-      endOfLastBlockByte_ = findFirstBlkApproxOffset(lastBlkFileNum_, targOffset); 
+      startScanOffset_ = findFirstBlkApproxOffset(startScanBlkNum_, targOffset); 
    }
    else
    {
-      lastBlkFileNum_--;
-      uint32_t prevFileSize = BtcUtils::GetFileSize(blkFileList_[lastBlkFileNum_]);
+      startScanBlkNum_--;
+      uint32_t prevFileSize = BtcUtils::GetFileSize(blkFileList_[startScanBlkNum_]);
       targOffset = (int32_t)prevFileSize - (int32_t)replayNBytes;
       targOffset = max(0, targOffset);
-      endOfLastBlockByte_ = findFirstBlkApproxOffset(lastBlkFileNum_, targOffset); 
+      startScanOffset_ = findFirstBlkApproxOffset(startScanBlkNum_, targOffset); 
    }
 
    LOGINFO << "Rewinding start block to enforce DB integrity";
-   LOGINFO << "Start at blockfile:              " << lastBlkFileNum_;
-   LOGINFO << "Start location in above blkfile: " << endOfLastBlockByte_;
+   LOGINFO << "Start at blockfile:              " << startScanBlkNum_;
+   LOGINFO << "Start location in above blkfile: " << startScanOffset_;
 }
 
 
@@ -1902,7 +1902,8 @@ void BlockDataManager_LevelDB::Reset(void)
    numBlkFiles_ = UINT64_MAX;
 
    endOfLastBlockByte_ = 0;
-   lastBlkFileNum_ = 0;
+   startScanOffset_ = 0;
+   startScanBlkNum_ = 0;
    dbUpdateSize_ = 0;
 
 
@@ -2524,7 +2525,8 @@ void BlockDataManager_LevelDB::applyBlockRangeToDB(uint32_t blk0, uint32_t blk1)
    iface_->seekTo(BLKDATA, startKey);
 
    // Start scanning and timer
-   bool doBatches = (blk1-blk0 > NUM_BLKS_BATCH_THRESH);
+   //bool doBatches = (blk1-blk0 > NUM_BLKS_BATCH_THRESH);
+   bool doBatches = true;
    map<BinaryData, StoredTx>             stxToModify;
    map<BinaryData, StoredScriptHistory>  sshToModify;
    set<BinaryData>                       keysToDelete;
@@ -3032,6 +3034,12 @@ bool BlockDataManager_LevelDB::processAllHeadersInBlkFiles(uint32_t fnumStart,
    SCOPED_TIMER("processAllHeadersInBlkFiles");
 
    detectAllBlkFiles();
+   
+   //uint32_t topBlkH = getTopBlockHeightInDB(HEADERS);
+   //uint32_t topBlkB = getTopBlockHeightInDB(HEADERS);
+   //cout << "Top blk heights in DB: " << topBlkH << " " << topBlkB << endl;
+   //uint32_t topBlk = getTopBlockHeight();
+   //cout << "Top blk heights in RAM: " << topBlk;
 
    // In first file, start at supplied offset;  start at beginning for others
    for(uint32_t fnum=fnumStart; fnum<numBlkFiles_; fnum++)
@@ -3047,6 +3055,9 @@ bool BlockDataManager_LevelDB::processAllHeadersInBlkFiles(uint32_t fnumStart,
       LOGERR << "Organize chain indicated reorg in process all headers!";
       LOGERR << "Did we shut down last time on an orphan block?";
    }
+
+   //topBlk = getTopBlockHeight();
+   //cout << "Top blk heights in RAM: " << topBlk;
 
    map<HashString, BlockHeader>::iterator iter;
    for(iter = headerMap_.begin(); iter != headerMap_.end(); iter++)
@@ -3156,7 +3167,7 @@ uint32_t BlockDataManager_LevelDB::initializeAndBuildDatabases(
       
    // The initialize call above will figure out where in the blkfiles we
    // left off when we
-   return buildDatabasesFromBlkFiles(lastBlkFileNum_, endOfLastBlockByte_);
+   return buildDatabasesFromBlkFiles(startScanBlkNum_, startScanOffset_);
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -4658,6 +4669,10 @@ bool BlockDataManager_LevelDB::applyTxToBatchWriteData(
    SCOPED_TIMER("applyTxToBatchWriteData");
 
    Tx tx = thisSTX.getTxCopy();
+
+   //cout << "Tx block height: " 
+        //<< thisSTX.blockHeight_ << ":"
+        //<< thisSTX.txIndex_ << endl;
 
    // We never expect thisSTX to already be in the map (other tx in the map
    // may be affected/retrieved multiple times).  
