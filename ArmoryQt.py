@@ -3481,7 +3481,17 @@ class ArmoryMainWindow(QMainWindow):
       if TheBDM.getBDMState()=='Scanning':
          # Scan time is super-simple to predict: it's pretty much linear
          # with the number of bytes remaining.
-         pct,rate,tleft = TheBDM.predictLoadTime()
+         phase,pct,rate,tleft = TheBDM.predictLoadTime()
+         if phase==1:
+            self.lblDashModeScan.setText( 'Building Databases', \
+                                        size=4, bold=True, color='Foreground')
+         elif phase==3:
+            self.lblDashModeScan.setText( 'Scanning Transaction History', \
+                                        size=4, bold=True, color='Foreground')
+         elif phase==4:
+            self.lblDashModeScan.setText( 'Global Blockchain Index', \
+                                        size=4, bold=True, color='Foreground')
+
          self.barProgressSync.setValue(100)
          tleft15 = (int(tleft-1)/15 + 1)*15
          if tleft < 2:
@@ -4174,7 +4184,7 @@ class ArmoryMainWindow(QMainWindow):
                      self.lblDashModeSync.setText( 'Synchronizing with Network', \
                                               size=4, bold=True, color='Foreground')
 
-                  self.lblDashModeScan.setText( 'Building Blockchain Database', \
+                  self.lblDashModeScan.setText( 'Build Databases and Scan', \
                                               size=4, bold=True, color='DisableFG')
                   if self.approxBlkLeft > 1440: # more than 10 days
                      descr1 += self.GetDashStateText('Auto', 'InitializingLongTime')
@@ -4289,7 +4299,7 @@ class ArmoryMainWindow(QMainWindow):
                self.lblTimeLeftSync.setVisible(False)
                self.lblDashModeSync.setVisible(False)
 
-            self.lblDashModeScan.setText( 'Building Blockchain Database', \
+            self.lblDashModeScan.setText( 'Building Databases', \
                                         size=4, bold=True, color='Foreground')
             self.mainDisplayTabs.setTabEnabled(self.MAINTABS.Transactions, False)
    

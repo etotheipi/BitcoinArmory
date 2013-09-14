@@ -370,7 +370,7 @@ void TxOut::unserialize( uint8_t const * ptr,
    scriptOffset_ = 8 + BtcUtils::readVarIntLength(getPtr()+8);
    BinaryDataRef scriptRef(dataCopy_.getPtr()+scriptOffset_, getScriptSize());
    scriptType_ = BtcUtils::getTxOutScriptType(scriptRef);
-   uniqueScrAddr_ = BtcUtils::getTxOutScriptUniqueKey(scriptRef);
+   uniqueScrAddr_ = BtcUtils::getTxOutScrAddr(scriptRef);
 
    if(!parentTx_.isInitialized())
    {
@@ -517,7 +517,7 @@ uint64_t Tx::getSumOfOutputs(void)
 BinaryData Tx::getScrAddrForTxOut(uint32_t txOutIndex) 
 {
    TxOut txout = getTxOutCopy(txOutIndex);
-   return BtcUtils::getTxOutScriptUniqueKey(txout.getScript());
+   return BtcUtils::getTxOutScrAddr(txout.getScript());
 }
 
 
@@ -1133,7 +1133,7 @@ void UnspentTxOut::init(TxOut & txout, uint32_t blkNum, bool isMulti)
 ////////////////////////////////////////////////////////////////////////////////
 BinaryData UnspentTxOut::getRecipientScrAddr(void) const
 {
-   return BtcUtils::getTxOutScriptUniqueKey(getScript());
+   return BtcUtils::getTxOutScrAddr(getScript());
 }
 
 

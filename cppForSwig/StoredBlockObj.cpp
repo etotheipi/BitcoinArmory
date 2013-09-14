@@ -518,6 +518,7 @@ void StoredHeader::serializeDBValue( DB_SELECT       db,
       switch(DBUtils.getArmoryDbType())
       {
          // If we store all the tx anyway, don't need any/partial merkle trees
+         case ARMORY_DB_BARE:    mtype = MERKLE_SER_NONE;    break;
          case ARMORY_DB_LITE:    mtype = MERKLE_SER_PARTIAL; break;
          case ARMORY_DB_PARTIAL: mtype = MERKLE_SER_FULL;    break;
          case ARMORY_DB_FULL:    mtype = MERKLE_SER_NONE;    break;
@@ -731,6 +732,7 @@ void StoredTx::serializeDBValue(BinaryWriter & bw) const
    {
       // In most cases, if storing separate TxOuts, fragged Tx is fine
       // UPDATE:  I'm not sure there's a good reason to NOT frag ever
+      case ARMORY_DB_BARE:    serType = TX_SER_FRAGGED; break;
       case ARMORY_DB_LITE:    serType = TX_SER_FRAGGED; break;
       case ARMORY_DB_PARTIAL: serType = TX_SER_FRAGGED; break;
       case ARMORY_DB_FULL:    serType = TX_SER_FRAGGED; break;
@@ -978,6 +980,7 @@ void StoredTxOut::serializeDBValue(BinaryWriter & bw,
          //// If the DB is in lite or partial modes, we don't bother recording
          //   spentness (in fact, if it's spent, this entry probably won't even
          //   be written to the DB).
+         case ARMORY_DB_BARE:                                 break;
          case ARMORY_DB_LITE:    writeSpent = TXOUT_SPENTUNK; break;
          case ARMORY_DB_PARTIAL: writeSpent = TXOUT_SPENTUNK; break;
          case ARMORY_DB_FULL:                                 break;
@@ -1178,7 +1181,7 @@ BinaryData StoredTxOut::getScrAddress(void) const
    BinaryRefReader brr(dataCopy_);
    brr.advance(8);
    uint64_t scrsz = brr.get_var_int();
-   return BtcUtils::getTxOutScriptUniqueKey(brr.get_BinaryDataRef(scrsz));
+   return BtcUtils::getTxOutScrAddr(brr.get_BinaryDataRef(scrsz));
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -2266,7 +2269,7 @@ void StoredUndoData::unserializeDBValue(BinaryRefReader & brr)
 
       // Store the standard flags that go with StoredTxOuts, minus spentness
       BitUnpacker<uint8_t> bitunpack(brr);
-      stxo.unserArmVer_ = bitunpack.getBits(4);
+      stxo.unserDbType_ = bitunpack.getBits(4);
       stxo.txVersion_   = bitunpack.getBits(2);
       stxo.isCoinbase_  = bitunpack.getBit();
 
@@ -2320,16 +2323,16 @@ void StoredUndoData::serializeDBValue(BinaryWriter & bw ) const
       // Store the standard flags that go with StoredTxOuts, minus spentness
       BitPacker<uint8_t> bitpack;
       bitpack.putBits( (uint8_t)DBUtils.getArmoryDbType(),  4);
-      bitpack.putBits( (uint8_t)stxo.txVersion_,          2);
+      bitpack.putBits( (uint8_t)stxo.txVersion_,            2);
       bitpack.putBit(           stxo.isCoinbase_);
 
       bw.put_BitPacker(bitpack);
 
       // Put the blkdata key directly into the DB to save us a lookup 
       bw.put_BinaryData( DBUtils.getBlkDataKeyNoPrefix( stxo.blockHeight_,
-                                                      stxo.duplicateID_,
-                                                      stxo.txIndex_,
-                                                      stxo.txOutIndex_));
+                                                        stxo.duplicateID_,
+                                                        stxo.txIndex_,
+                                                        stxo.txOutIndex_));
 
       bw.put_BinaryData(stxo.parentHash_);
       bw.put_uint32_t((uint32_t)stxo.txOutIndex_);

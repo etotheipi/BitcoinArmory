@@ -890,7 +890,7 @@ public:
    /////////////////////////////////////////////////////////////////////////////
    // We use this for LevelDB keys, to return same key if the same priv/pub 
    // pair is used, and also saving a few bytes for common script types
-   static BinaryData getTxOutScriptUniqueKey(BinaryDataRef script, 
+   static BinaryData getTxOutScrAddr(BinaryDataRef script, 
                                     TXOUT_SCRIPT_TYPE type=TXOUT_SCRIPT_NONSTANDARD)
    {
       BinaryWriter bw; 

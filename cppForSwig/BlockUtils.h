@@ -69,7 +69,8 @@ typedef enum
 {
   DB_BUILD_HEADERS,
   DB_BUILD_ADD_RAW,
-  DB_BUILD_APPLY
+  DB_BUILD_APPLY,
+  DB_BUILD_SCAN
 } DB_BUILD_PHASE;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -377,7 +378,11 @@ public:
    // Scan a Tx for our TxIns/TxOuts.  Override default blk vals if you think
    // you will save time by not checking addresses that are much newer than
    // the block
-   pair<bool,bool> isMineBulkFilter( Tx & tx, bool withMultiSig=false);
+   pair<bool,bool> isMineBulkFilter( Tx & tx,   
+                                     bool withMultiSig=false);
+   pair<bool,bool> isMineBulkFilter( Tx & tx, 
+                                     map<OutPoint, TxIOPair> & txiomap,
+                                     bool withMultiSig=false);
 
    void scanTx(Tx & tx, 
                uint32_t txIndex = UINT32_MAX,
@@ -520,11 +525,26 @@ private:
    string                             leveldbDir_;
    string                             blkFileDir_;
    vector<string>                     blkFileList_;
+   vector<uint64_t>                   blkFileSizes_; // bytes before this blk
+   vector<uint64_t>                   blkFileCumul_;
    uint64_t                           numBlkFiles_;
    uint64_t                           endOfLastBlockByte_;
-   uint32_t                           startScanBlkNum_;
+
+   // On DB initialization, we start processing here
+   uint32_t                           startHeaderHgt_;
+   uint32_t                           startRawBlkHgt_;
+   uint32_t                           startScanHgt_;
+   uint32_t                           startApplyHgt_;
+
+   // The following blkfile and offsets correspond to the above heights
+   uint32_t                           startHeaderBlkFile_;
+   uint64_t                           startHeaderOffset_;
+   uint32_t                           startRawBlkFile_;
+   uint64_t                           startRawOffset_;
+   uint32_t                           startScanBlkFile_;
    uint64_t                           startScanOffset_;
-   uint32_t                           alreadyApplied_;
+   uint32_t                           startApplyBlkFile_;
+   uint64_t                           startApplyOffset_;
 
    // Used to estimate how much data is queued to be written to DB
    uint64_t                           dbUpdateSize_;
@@ -638,9 +658,11 @@ public:
    uint32_t getTopBlockHeightInDB(DB_SELECT db);
    uint32_t getAppliedToHeightInDB(void);
    vector<BinaryData> getFirstHashOfEachBlkFile(void) const;
-   uint32_t findFirstUnrecogBlockLoc(uint32_t fnum);
+   uint32_t findOffsetFirstUnrecognized(uint32_t fnum);
    uint32_t findFirstBlkApproxOffset(uint32_t fnum, uint32_t offset) const;
    uint32_t findFirstUnappliedBlock(void);
+   pair<uint32_t, uint32_t> findFileAndOffsetForHgt(
+               uint32_t hgt, vector<BinaryData>* firstHashOfEachBlkFile=NULL);
 
    /////////////////////////////////////////////////////////////////////////////
    void Reset(void);
@@ -687,9 +709,19 @@ public:
    bool     scrAddrIsRegistered(HashString scrAddr);
    void     insertRegisteredTxIfNew(HashString txHash);
    void     insertRegisteredTxIfNew(RegisteredTx & regTx);
+   void     insertRegisteredTxIfNew(TxRef const & txref,
+                                    BinaryDataRef txHash,
+                                    uint32_t hgt,
+                                    uint16_t txIndex);
+   bool     removeRegisteredTx(BinaryData const & txHash);
+
    void     registeredScrAddrScan( Tx & theTx );
    void     registeredScrAddrScan( uint8_t const * txptr,
                                    uint32_t txSize=0,
+                                   vector<uint32_t> * txInOffsets=NULL,
+                                   vector<uint32_t> * txOutOffsets=NULL);
+   void     registeredScrAddrScan_IterSafe( 
+                                   StoredTx & stx,
                                    vector<uint32_t> * txInOffsets=NULL,
                                    vector<uint32_t> * txOutOffsets=NULL);
    void     resetRegisteredWallets(void);
@@ -711,9 +743,9 @@ public:
    // the blockfile data.
    bool     extractHeadersInBlkFile(uint32_t fnum, uint32_t offset=0);
    uint32_t detectAllBlkFiles(void);
-   bool     processAllHeadersInBlkFiles(uint32_t fnumStart=0, uint32_t offset=0);
+   bool     processNewHeadersInBlkFiles(uint32_t fnumStart=0, uint32_t offset=0);
    //bool     processHeadersInFile(string filename);
-   uint32_t buildDatabasesFromBlkFiles(uint32_t fnum=0, uint32_t offset=0);
+   uint32_t buildDatabasesFromBlkFiles(bool forceRebuild=false);
    uint32_t initializeAndBuildDatabases(ARMORY_DB_TYPE atype=ARMORY_DB_WHATEVER,
                                         DB_PRUNE_TYPE  dtype=DB_PRUNE_WHATEVER);
    uint32_t initializeAndBuildDatabases(uint32_t atype, uint32_t dtype);
@@ -759,6 +791,8 @@ public:
                            BlockHeader* branchPtr );
 
 
+   void readAndDeleteHistories(void);
+   void shutdownSaveScrAddrHistories(void);
 
    void fetchAllRegisteredScrAddrData(void);
    void fetchAllRegisteredScrAddrData(BtcWallet & myWlt);
@@ -786,14 +820,15 @@ public:
 
    // Traverse the blockchain and update the wallet[s] with the relevant Tx data
    // See comments above the scanBlockchainForTx in the .cpp, for more info
+   // NOTE: THIS ASSUMES THAT registeredTxSet_/List_ is already populated!
    void scanBlockchainForTx(BtcWallet & myWallet,
                             uint32_t startBlknum=0,
                             uint32_t endBlknum=UINT32_MAX,
                             bool fetchFirst=true);
 
-   void writeBuildStatusFile(DB_BUILD_PHASE phase, 
-                             string bfile, 
-                             string timerName);
+   void writeProgressFile(DB_BUILD_PHASE phase, 
+                          string bfile, 
+                          string timerName);
 
    // This will only be used by the above method, probably wouldn't be called
    // directly from any other code
@@ -801,6 +836,7 @@ public:
                                    uint32_t blkStart=0,
                                    uint32_t blkEnd=UINT32_MAX);
 
+   void scanDBForRegisteredTx(uint32_t blk0=0, uint32_t blk1=UINT32_MAX);
 
  
    /////////////////////////////////////////////////////////////////////////////
