@@ -107,7 +107,6 @@ public:
    virtual LogStream& operator<<(const char * str) = 0;
    virtual LogStream& operator<<(string const & str) = 0;
    virtual LogStream& operator<<(int i) = 0;
-   virtual LogStream& operator<<(size_t i) = 0;
    virtual LogStream& operator<<(unsigned int i) = 0;
    virtual LogStream& operator<<(unsigned long long int i) = 0;
    virtual LogStream& operator<<(float f) = 0;
@@ -176,7 +175,6 @@ public:
 
    LogStream& operator<<(const char * str)   { if(!noStdout_) cout << str;  if(fout_.is_open()) fout_ << str; return *this; }
    LogStream& operator<<(string const & str) { if(!noStdout_) cout << str.c_str(); if(fout_.is_open()) fout_ << str.c_str(); return *this; }
-   LogStream& operator<<(size_t i)           { if(!noStdout_) cout << i;    if(fout_.is_open()) fout_ << i; return *this; }
    LogStream& operator<<(int i)              { if(!noStdout_) cout << i;    if(fout_.is_open()) fout_ << i; return *this; }
    LogStream& operator<<(unsigned int i)     { if(!noStdout_) cout << i;    if(fout_.is_open()) fout_ << i; return *this; }
    LogStream& operator<<(unsigned long long int i) { if(!noStdout_) cout << i;    if(fout_.is_open()) fout_ << i; return *this; }
@@ -200,7 +198,6 @@ class NullStream : public LogStream
 public:
    LogStream& operator<<(const char * str)   { return *this; }
    LogStream& operator<<(string const & str) { return *this; }
-   LogStream& operator<<(size_t i)           { return *this; }
    LogStream& operator<<(int i)              { return *this; }
    LogStream& operator<<(unsigned int i)     { return *this; }
    LogStream& operator<<(unsigned long long int i)     { return *this; }
@@ -355,6 +352,12 @@ inline string NowTime()
     static DWORD first = GetTickCount();
     sprintf(result, "%s.%03ld", buffer, (long)(GetTickCount() - first) % 1000); 
     return result;
+}
+
+// TODO: Implement time stamp in windows
+inline unsigned long long int NowTimeInt(void)
+{
+	return 0;
 }
 
 #else

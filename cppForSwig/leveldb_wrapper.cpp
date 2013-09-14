@@ -84,7 +84,7 @@ void InterfaceToLDB::init()
       dbs_[i] = NULL;
       dbPaths_[i] = string("");
       batchStarts_[i] = 0;
-      dbFilterPolicy_[i] = NULL;
+    //  dbFilterPolicy_[i] = NULL;
    }
 }
 
@@ -254,12 +254,13 @@ void InterfaceToLDB::closeDatabases(void)
          delete batches_[db];
          batches_[db] = NULL;
       }
-
+/*
       if(dbFilterPolicy_[db] != NULL)
       {
          delete dbFilterPolicy_[db];
          dbFilterPolicy_[db] = NULL;
       }
+	  */
    }
    dbIsOpen_ = false;
 
