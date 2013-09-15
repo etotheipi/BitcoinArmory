@@ -2534,7 +2534,7 @@ class DlgImportAddress(ArmoryDialog):
          if not wltID=='':
             addr = self.main.walletMap[wltID].addrMap[addr160]
             typ = 'Imported' if addr.chainIndex==-2 else 'Permanent'
-            msg = ('The key you entered is already part of another wallet you own:'
+            msg = tr('The key you entered is already part of another wallet you own:'
                    '<br><br>'
                    '<b>Address</b>: ' + addrStr + '<br>'
                    '<b>Wallet ID</b>: ' + wltID + '<br>'
@@ -2572,8 +2572,7 @@ class DlgImportAddress(ArmoryDialog):
          #######################################################################
          if TheBDM.getBDMState()=='BlockchainReady':
             nblk = TheBDM.numBlocksToRescan(self.wlt.cppWallet, wait=True)
-            #if nblk<2016:
-            if True:  # for super-node, no rescanning
+            if nblk<2016:
                self.wlt.syncWithBlockchain(0)
                QMessageBox.information(self, 'Import Successful', \
                   'The address was imported into your wallet successfully, and '
@@ -2602,17 +2601,14 @@ class DlgImportAddress(ArmoryDialog):
                   
          #######################################################################
          elif TheBDM.getBDMState()=='Scanning':
-            #warnMsg = ( \
-               #'The address was imported successfully, but your wallet balance '
-               #'will be incorrect until the global transaction history is '
-               #'searched for previous transactions.  Armory is currently in the '
-               #'middle of a blockchain scan, but it will start another scan as '
-               #'soon as this one is complete.  Wallet and address balances will '
-               #'not be available until these operations are completed.', \
-               #QMessageBox.Ok)
-            warnMsg = tr("""
-               The address was imported successfully, but its balance will be
-               incorrect until blockchain scanning is complete.""")
+            warnMsg = ( \
+               'The address was imported successfully, but your wallet balance '
+               'will be incorrect until the global transaction history is '
+               'searched for previous transactions.  Armory is currently in the '
+               'middle of a blockchain scan, but it will start another scan as '
+               'soon as this one is complete.  Wallet and address balances will '
+               'not be available until these operations are completed.', \
+               QMessageBox.Ok)
             self.main.startRescanBlockchain()
             self.main.setDashboardDetails()
 
@@ -2794,8 +2790,7 @@ class DlgImportAddress(ArmoryDialog):
          #######################################################################
          if TheBDM.getBDMState()=='BlockchainReady':
             nblk = TheBDM.numBlocksToRescan(self.wlt.cppWallet, wait=True)
-            #if nblk<2016:
-            if True:
+            if nblk<2016:
                self.wlt.syncWithBlockchain(0)
                QMessageBox.information(self, 'Import Successful', \
                   'The addresses were imported into your wallet successfully, and '
@@ -2824,17 +2819,14 @@ class DlgImportAddress(ArmoryDialog):
                   
          #######################################################################
          elif TheBDM.getBDMState()=='Scanning':
-            #warnMsg = ( \
-               #'The addresses were imported successfully, but your wallet balance '
-               #'will be incorrect until the global transaction history is '
-               #'searched for previous transactions.  Armory is currently in the '
-               #'middle of a blockchain scan, but it will start another scan as '
-               #'soon as this one is complete.  Wallet and address balances will '
-               #'not be available until these operations are completed.', \
-               #QMessageBox.Ok)
-            warnMsg = tr("""
-               The addresses were imported successfully, but your balances will 
-               be incorrect until blockchain scanning is complete.""")
+            warnMsg = tr( \
+               'The addresses were imported successfully, but your wallet balance '
+               'will be incorrect until the global transaction history is '
+               'searched for previous transactions.  Armory is currently in the '
+               'middle of a blockchain scan, but it will start another scan as '
+               'soon as this one is complete.  Wallet and address balances will '
+               'not be available until these operations are completed.', \
+               QMessageBox.Ok)
             self.main.startRescanBlockchain()
             self.main.setDashboardDetails()
    
@@ -2908,8 +2900,11 @@ class DlgImportWallet(ArmoryDialog):
 
       self.btnImportFile.setMinimumWidth(300)
 
+      def restoreBackup():
+         DlgUniversalRestoreSelect(self, self.main).exec_()
+
       self.connect( self.btnImportFile,  SIGNAL("clicked()"), self.acceptImport)
-      self.connect( self.btnImportPaper, SIGNAL('clicked()'), self.acceptPaper)
+      self.connect( self.btnImportPaper, SIGNAL('clicked()'), restoreBackup)
       self.connect( self.btnMigrate,     SIGNAL('clicked()'), self.acceptMigrate)
 
       ttip1 = self.main.createToolTipWidget( \
@@ -2932,6 +2927,7 @@ class DlgImportWallet(ArmoryDialog):
       for ttip in (ttip1, ttip2):
          ttip.setMaximumSize(w,h)
          ttip.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+
 
       # Set up the layout
       layout = QGridLayout()
@@ -10585,9 +10581,9 @@ class DlgHelpAbout(ArmoryDialog):
       lblWebpage = QRichLabel('<a href="https://www.bitcoinarmory.com">https://www.bitcoinarmory.com</a>')
       lblWebpage.setOpenExternalLinks(True)
       lblCopyright = QRichLabel(u'Copyright \xa9 2011-2013 Armory Technologies, Inc.')
-      lblLicense = QRichLabel(u'Licensed under the '
+      lblLicense = QRichLabel(tr(u'Licensed under the '
                               '<a href="http://www.gnu.org/licenses/agpl-3.0.html">'
-                              'Affero General Public License, Version 3</a> (AGPLv3)')
+                              'Affero General Public License, Version 3</a> (AGPLv3)'))
       lblLicense.setOpenExternalLinks(True)
 
       lblHead.setAlignment(Qt.AlignHCenter)

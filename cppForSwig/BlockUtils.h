@@ -45,6 +45,7 @@
 #define UPDATE_BYTES_SUBSSH   75
 #define UPDATE_BYTES_THRESH   96*1024*1024
 
+#define NUM_BLKS_IS_DIRTY 2016
 using namespace std;
 
 class BlockDataManager_LevelDB;
@@ -548,6 +549,7 @@ private:
 
    // Used to estimate how much data is queued to be written to DB
    uint64_t                           dbUpdateSize_;
+   bool                               requestRescan_;
 
    // These should be set after the blockchain is organized
    deque<BlockHeader*>                headersByHeight_;
@@ -626,6 +628,8 @@ public:
                              BinaryData const & GenTxHash,
                              BinaryData const & MagicBytes);
 
+   void SetRescanNextLoad(bool b=true) { requestRescan_=b; }
+
    //////////////////////////////////////////////////////////////////////////
    // This method opens the databases, and figures out up to what block each
    // of them is sync'd to.  Then it figures out where that corresponds in
@@ -679,7 +683,7 @@ public:
    uint32_t         getTopBlockHeight(void) {return getTopBlockHeader().getBlockHeight();}
    BinaryData       getTopBlockHash(void)   {return getTopBlockHeader().getThisHash();}
 
-   bool isDirty(uint32_t numBlockToBeConsideredDirty=2016) const; 
+   bool isDirty(uint32_t numBlockToBeConsideredDirty=NUM_BLKS_IS_DIRTY) const; 
 
    //uint32_t getNumTx(void) { return txHintMap_.size(); }
    uint32_t getNumHeaders(void) { return headerMap_.size(); }
@@ -745,7 +749,8 @@ public:
    uint32_t detectAllBlkFiles(void);
    bool     processNewHeadersInBlkFiles(uint32_t fnumStart=0, uint32_t offset=0);
    //bool     processHeadersInFile(string filename);
-   uint32_t buildDatabasesFromBlkFiles(bool forceRebuild=false);
+   void     destroyAndResetDatabases(void);
+   uint32_t buildDatabasesFromBlkFiles(bool forceRescan=false);
    uint32_t initializeAndBuildDatabases(ARMORY_DB_TYPE atype=ARMORY_DB_WHATEVER,
                                         DB_PRUNE_TYPE  dtype=DB_PRUNE_WHATEVER);
    uint32_t initializeAndBuildDatabases(uint32_t atype, uint32_t dtype);
@@ -791,7 +796,7 @@ public:
                            BlockHeader* branchPtr );
 
 
-   void readAndDeleteHistories(void);
+   void deleteHistories(void);
    void shutdownSaveScrAddrHistories(void);
 
    void fetchAllRegisteredScrAddrData(void);
@@ -836,6 +841,7 @@ public:
                                    uint32_t blkStart=0,
                                    uint32_t blkEnd=UINT32_MAX);
 
+   void rescanDBForRegisteredTx(void);
    void scanDBForRegisteredTx(uint32_t blk0=0, uint32_t blk1=UINT32_MAX);
 
  

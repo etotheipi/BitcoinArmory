@@ -74,6 +74,8 @@ parser.add_option("--mtdebug",         dest="mtdebug",     default=False,     ac
 parser.add_option("--skip-online-check", dest="forceOnline", default=False,   action="store_true", help="Go into online mode, even if internet connection isn't detected")
 parser.add_option("--skip-version-check", dest="skipVerCheck", default=False, action="store_true", help="Do not contact bitcoinarmory.com to check for new versions")
 parser.add_option("--keypool",         dest="keypool",     default=100, type="int",                help="Default number of addresses to lookahead in Armory wallets")
+parser.add_option("--rebuild",         dest="rebuild",     default=False,     action="store_true", help="Rebuild blockchain database and rescan")
+parser.add_option("--rescan",          dest="rescan",      default=False,     action="store_true", help="Rescan existing blockchain DB")
 
 
 ################################################################################
@@ -234,6 +236,15 @@ if not CLI_OPTIONS.leveldbDir.lower()=='default':
       print 'Directory "%s" does not exist!  Using default!' % CLI_OPTIONS.leveldbDir
    else:
       LEVELDB_DIR  = CLI_OPTIONS.datadir
+
+
+if CLI_OPTIONS.rebuild: 
+   if not os.path.exists(LEVELDB_DIR):
+      print "Rebuild requested but path does not exist"
+   else:
+      print 'Deleting LevelDB directory for full rebuild...',
+      shutil.rmtree(LEVELDB_DIR)
+      print 'done'
 
 
 # Change the settings file to use
@@ -11905,6 +11916,7 @@ BDMINPUTTYPE  = enum('RegisterAddr', \
                      'BlockAtHeightRequested', \
                      'HeaderAtHeightRequested', \
                      'StartScanRequested', \
+                     'ForceRebuild', \
                      'RescanRequested', \
                      'WalletRecoveryScan', \
                      'UpdateWallets', \
@@ -12228,6 +12240,7 @@ class BlockDataManagerThread(threading.Thread):
             total   = [float(row[3]) for row in tmtrx if float(row[0])==currPhase]
             times   = [float(row[4]) for row in tmtrx if float(row[0])==currPhase]
             
+            startRow = 0 if len(startat)<=10 else -10
             todo = total[0] - startat[0]
             pct0 = sofar[0]  / todo
             pct1 = sofar[-1] / todo
@@ -12281,6 +12294,18 @@ class BlockDataManagerThread(threading.Thread):
 
       self.ldbdir = ldbdir
 
+   #############################################################################
+   def stopAndRebuildDB(self, goOnline=True, wait=None):
+      expectOutput = False
+      if not wait==False and (self.alwaysBlock or wait==True):
+         expectOutput = True
+
+      rndID = int(random.uniform(0,100000000)) 
+      self.aboutToRescan = True
+
+      self.inputQueue.put([BDMINPUTTYPE.ForceRebuild, rndID, expectOutput])
+
+      return self.waitForOutputIfNecessary(expectOutput, rndID)
 
    #############################################################################
    def setOnlineMode(self, goOnline=True, wait=None):
@@ -12355,7 +12380,7 @@ class BlockDataManagerThread(threading.Thread):
 
 
    #############################################################################
-   def rescanBlockchain(self, wait=None):
+   def rescanBlockchain(self, forceFullScan=False, wait=None):
       expectOutput = False
       if not wait==False and (self.alwaysBlock or wait==True):
          expectOutput = True
@@ -12363,7 +12388,7 @@ class BlockDataManagerThread(threading.Thread):
       self.aboutToRescan = True
 
       rndID = int(random.uniform(0,100000000)) 
-      self.inputQueue.put([BDMINPUTTYPE.RescanRequested, rndID, expectOutput])
+      self.inputQueue.put([BDMINPUTTYPE.RescanRequested, rndID, expectOutput, forceFullScan])
       LOGINFO('Blockchain rescan requested')
       return self.waitForOutputIfNecessary(expectOutput, rndID)
 
@@ -12793,6 +12818,9 @@ class BlockDataManagerThread(threading.Thread):
       self.bdm.registerWallet(self.masterCppWallet)
 
       ### This is the part that takes forever
+      if CLI_OPTIONS.rescan:
+         LOGINFO('Database rescan requested.  Ignoring saved script histories')
+         self.bdm.SetRescanNextLoad(True)
       self.bdm.initializeAndBuildDatabases(ARMORY_DB_BARE, DB_PRUNE_NONE)
 
       #print 'TopBlock:', self.bdm.getTopBlockHeight()
@@ -12807,10 +12835,14 @@ class BlockDataManagerThread(threading.Thread):
 
       
    #############################################################################
-   def __startRescanBlockchain(self):
+   def __startRescanBlockchain(self, forceFullScan=False):
       """
       This should only be called by the threaded BDM, and thus there should
       never be a conflict.  
+   
+      If we don't force a full scan, we let TheBDM figure out how much of the 
+      chain needs to be rescanned.  Which may not be very much.  We may 
+      force a full scan if we think there's an issue with balances.
       """
       if self.blkMode==BLOCKCHAINMODE.Offline:
          LOGERROR('Blockchain is in offline mode.  How can we rescan?')
@@ -12834,10 +12866,13 @@ class BlockDataManagerThread(threading.Thread):
 
 
       self.aboutToRescan = False
-         
-      # Blockchain will rescan as much as it needs.  
-      #self.bdm.scanRegisteredTxForWallet(self.masterCppWallet)
-      self.bdm.scanBlockchainForTx(self.masterCppWallet)
+      
+      if forceFullScan:
+         self.bdm.rescanDBForRegisteredTx();
+      else:
+         # Blockchain will rescan as much as it needs.  
+         #self.bdm.scanRegisteredTxForWallet(self.masterCppWallet)
+         self.bdm.scanBlockchainForTx(self.masterCppWallet)
 
 
    #############################################################################
@@ -12885,9 +12920,7 @@ class BlockDataManagerThread(threading.Thread):
       pywlt.calledFromBDM = prevCalledFromBDM
 
       #####
-
-
-      #self.bdm.scanRegisteredTxForWallet(self.masterCppWallet)
+      self.bdm.scanRegisteredTxForWallet(self.masterCppWallet)
 
    
 
@@ -12969,7 +13002,14 @@ class BlockDataManagerThread(threading.Thread):
       self.doShutdown = True
 
    #############################################################################
+   def __fullRebuild(self):
+      self.bdm.destroyAndResetDatabases()
+      self.__reset()
+      self.__startLoadBlockchain()
+
+   #############################################################################
    def __reset(self):
+      LOGERROR('Resetting BDM and all wallets')
       self.bdm.Reset()
       
       if self.blkMode in (BLOCKCHAINMODE.Full, BLOCKCHAINMODE.Rescanning):
@@ -12978,6 +13018,7 @@ class BlockDataManagerThread(threading.Thread):
       elif not self.blkMode==BLOCKCHAINMODE.Offline:
          return
          
+      self.bdm.resetRegisteredWallets()
 
       # Flags
       self.startBDM     = False
@@ -12986,6 +13027,7 @@ class BlockDataManagerThread(threading.Thread):
       # Lists of wallets that should be checked after blockchain updates
       self.pyWltList    = []   # these will be python refs
       self.cppWltList   = []   # these will be C++ refs
+
 
       # The BlockDataManager is easier to use if you put all your addresses
       # into a C++ BtcWallet object, and let it 
@@ -13163,9 +13205,10 @@ class BlockDataManagerThread(threading.Thread):
                TimerStop('loadBlockchain')
 
             elif cmd == BDMINPUTTYPE.RescanRequested:
-               LOGINFO('Start Rescan Requested')
                TimerStart('rescanBlockchain')
-               self.__startRescanBlockchain()
+               fullRescan = inputTuple[3]
+               LOGINFO(('Full' if fullRescan else 'Regular') +' Rescan Requested')
+               self.__startRescanBlockchain(forceFullRescan)
                TimerStop('rescanBlockchain')
 
             elif cmd == BDMINPUTTYPE.WalletRecoveryScan:
@@ -13192,6 +13235,10 @@ class BlockDataManagerThread(threading.Thread):
             elif cmd == BDMINPUTTYPE.Shutdown:
                LOGINFO('Shutdown Requested')
                self.__shutdown()
+
+            elif cmd == BDMINPUTTYPE.ForceRebuild:
+               LOGINFO('Rebuild databases requested')
+               self.__fullRebuild()
 
             elif cmd == BDMINPUTTYPE.Reset:
                LOGINFO('Reset Requested')

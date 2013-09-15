@@ -267,7 +267,7 @@ void InterfaceToLDB::closeDatabases(void)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void InterfaceToLDB::destroyAndResetDatabase(void)
+void InterfaceToLDB::destroyAndResetDatabases(void)
 {
    SCOPED_TIMER("destroyAndResetDatabase");
 

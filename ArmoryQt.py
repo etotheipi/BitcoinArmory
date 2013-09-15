@@ -469,6 +469,7 @@ class ArmoryMainWindow(QMainWindow):
       ##########################################################################
       # Set up menu and actions
       #MENUS = enum('File', 'Wallet', 'User', "Tools", "Network")
+      currmode = self.getSettingOrSetDefault('User_Mode', 'Advanced')
       MENUS = enum('File', 'User', 'Tools', 'Addresses', 'Wallets', 'Help')
       self.menu = self.menuBar()
       self.menusList = []
@@ -514,7 +515,7 @@ class ArmoryMainWindow(QMainWindow):
       modeActGrp = QActionGroup(self)
       actSetModeStd = self.createAction('&Standard',  chngStd, True)
       actSetModeAdv = self.createAction('&Advanced',  chngAdv, True)
-      actSetModeDev = self.createAction('&Expert', chngDev, True)
+      actSetModeDev = self.createAction('&Expert',    chngDev, True)
 
       modeActGrp.addAction(actSetModeStd)
       modeActGrp.addAction(actSetModeAdv)
@@ -526,7 +527,6 @@ class ArmoryMainWindow(QMainWindow):
 
 
 
-      currmode = self.getSettingOrSetDefault('User_Mode', 'Advanced')
       LOGINFO('Usermode: %s', currmode)
       self.firstModeSwitch=True
       if currmode=='Standard':
@@ -552,8 +552,8 @@ class ArmoryMainWindow(QMainWindow):
       actOpenSigner = self.createAction('&Message Signing', openMsgSigning)
       actOpenTools  = self.createAction('&EC Calculator',   lambda: DlgECDSACalc(self,self, 1).exec_())
 
+      self.menusList[MENUS.Tools].addAction(actOpenSigner)
       if currmode=='Expert':
-         self.menusList[MENUS.Tools].addAction(actOpenSigner)
          self.menusList[MENUS.Tools].addAction(actOpenTools)
 
 
@@ -567,16 +567,20 @@ class ArmoryMainWindow(QMainWindow):
          self.menusList[MENUS.Addresses].addAction(actImportKey)
          self.menusList[MENUS.Addresses].addAction(actSweepKey)
 
-      actCreateNew      = self.createAction('&Create New Wallet',        self.createNewWallet)
-      actImportWlt      = self.createAction('&Import Armory Wallet File',      self.execGetImportWltName)
-      actRestorePaper   = self.createAction('&Restore from Paper Backup', self.execRestorePaperBackup)
-      #actMigrateSatoshi = self.createAction('&Migrate Bitcoin Wallet',    self.execMigrateSatoshi)
-      actAddressBook    = self.createAction('View &Address Book',         self.execAddressBook)
-
+      actCreateNew    = self.createAction('&Create New Wallet',        self.createNewWallet)
+      actImportWlt    = self.createAction('&Import Armory Wallet File',      self.execGetImportWltName)
+      actRestorePaper = self.createAction('&Restore from Paper Backup', self.execRestorePaperBackup)
+      actAddressBook  = self.createAction('View &Address Book',         self.execAddressBook)
+      actRescanOnly   = self.createAction('Rescan Blockchain', self.forceRescanDB)
+      actRebuildAll   = self.createAction('Rescan with Database Rebuild', self.forceRebuildAndRescan)
 
       self.menusList[MENUS.Wallets].addAction(actCreateNew)
       self.menusList[MENUS.Wallets].addAction(actImportWlt)
       self.menusList[MENUS.Wallets].addAction(actRestorePaper)
+      self.menusList[MENUS.Wallets].addSeparator()
+      self.menusList[MENUS.Wallets].addAction(actRescanOnly)
+      self.menusList[MENUS.Wallets].addAction(actRebuildAll)
+
       #self.menusList[MENUS.Wallets].addAction(actMigrateSatoshi)
       #self.menusList[MENUS.Wallets].addAction(actAddressBook)
 
@@ -1713,11 +1717,27 @@ class ArmoryMainWindow(QMainWindow):
    def writeSetting(self, settingName, val):
       self.settings.set(settingName, val)
 
+   #############################################################################
+   def forceRescanDB(self):
+      self.needUpdateAfterScan = True
+      self.lblDashModeScan.setText( 'Scanning Transaction History', \
+                                        size=4, bold=True, color='Foreground')
+      self.startRescanBlockchain(forceFullScan=True)
+      self.setDashboardDetails()
 
    #############################################################################
-   def startRescanBlockchain(self):
+   def forceRebuildAndRescan(self):
+      self.needUpdateAfterScan = True
+      self.lblDashModeScan.setText( 'Preparing Databases', \
+                                        size=4, bold=True, color='Foreground')
+      self.resetBdmBeforeScan()  # this resets BDM and then re-registeres wlts
+      TheBDM.stopAndRebuildDB()
+      self.setDashboardDetails()
+
+   #############################################################################
+   def startRescanBlockchain(self, forceFullScan=False):
       if TheBDM.getBDMState() in ('Offline','Uninitialized'):
-         LOGWARNING('Rescan requested but Armory is in offline mode')
+         LOGWARN('Rescan requested but Armory is in offline mode')
          return 
 
       if TheBDM.getBDMState()=='Scanning':
@@ -1725,9 +1745,10 @@ class ArmoryMainWindow(QMainWindow):
       else:
          LOGINFO('Starting blockchain rescan...')
 
+
       # Start it in the background
+      TheBDM.rescanBlockchain(forceFullScan, wait=False)
       self.needUpdateAfterScan = True
-      TheBDM.rescanBlockchain(wait=False)
       self.setDashboardDetails()
 
 
@@ -1753,8 +1774,8 @@ class ArmoryMainWindow(QMainWindow):
             LOGINFO('Syncing wallet: %s', wltID)
             self.walletMap[wltID].setBlockchainSyncFlag(BLOCKCHAIN_READONLY)
             # Used to do "sync-lite" when we had to rescan for new addresses,
-            #self.walletMap[wltID].syncWithBlockchainLite(0)
-            self.walletMap[wltID].syncWithBlockchain(0)
+            self.walletMap[wltID].syncWithBlockchainLite(0)
+            #self.walletMap[wltID].syncWithBlockchain(0)
             self.walletMap[wltID].detectHighestUsedIndex(True)  # expand wlt if necessary
             self.walletMap[wltID].fillAddressPool()
          TimerStop('initialWalletSync')
@@ -2359,8 +2380,6 @@ class ArmoryMainWindow(QMainWindow):
          confirmed=True
 
       else:
-         
-         """ For supernode mode, no more rescanning needed!
          msgConfirm = ( \
             'Armory must scan the global transaction history in order to '
             'find any bitcoins associated with the %s you supplied. '
@@ -2383,18 +2402,16 @@ class ArmoryMainWindow(QMainWindow):
                                                 QMessageBox.Yes | QMessageBox.No)
 
       if confirmed==QMessageBox.Yes:
-         """
-
-      for addr in pybtcaddrList:
-         TheBDM.registerImportedScrAddr(Hash160ToScrAddr(addr.getAddr160()))
-      self.sweepAfterScanList = pybtcaddrList
-      self.sweepAfterScanTarg = targAddr160
-      #TheBDM.rescanBlockchain(wait=False)
-      TheBDM.rescanBlockchain(wait=True)
-      self.createCombinedLedger()
-      self.walletModel.reset()
-      self.setDashboardDetails()
-      return True
+         for addr in pybtcaddrList:
+            TheBDM.registerImportedScrAddr(Hash160ToScrAddr(addr.getAddr160()))
+         self.sweepAfterScanList = pybtcaddrList
+         self.sweepAfterScanTarg = targAddr160
+         TheBDM.rescanBlockchain(wait=False)
+         self.setDashboardDetails()
+         return True
+         #TheBDM.rescanBlockchain(wait=True)
+         #self.createCombinedLedger()
+         #self.walletModel.reset()
 
 
    #############################################################################
@@ -2636,10 +2653,11 @@ class ArmoryMainWindow(QMainWindow):
 
    #############################################################################
    def execRestorePaperBackup(self):
-      dlgPaper = DlgImportPaperWallet(self, self)
-      if dlgPaper.exec_():
-         self.addWalletToAppAndAskAboutRescan(dlgPaper.newWallet)
-         LOGINFO('Import Complete!')
+      DlgUniversalRestoreSelect(self, self).exec_()
+      #dlgPaper = DlgImportPaperWallet(self, self)
+      #if dlgPaper.exec_():
+         #self.addWalletToAppAndAskAboutRescan(dlgPaper.newWallet)
+         #LOGINFO('Import Complete!')
 
    #############################################################################
    def addWalletToAppAndAskAboutRescan(self, newWallet):
@@ -2651,7 +2669,6 @@ class ArmoryMainWindow(QMainWindow):
          self.addWalletToApplication(newWallet, walletIsNew=False)
          return
          
-      """ Removed for supernode mode -- no rescanning anymore
       elif TheBDM.getBDMState()=='BlockchainReady':
          doRescanNow = QMessageBox.question(self, 'Rescan Needed', \
             'The wallet was recovered successfully, but cannot be displayed '
@@ -2694,11 +2711,8 @@ class ArmoryMainWindow(QMainWindow):
          os.remove(thepath)
          os.remove(thepathBackup)
          return
-      """
 
-      #TheBDM.startWalletRecoveryScan(newWallet) 
       self.addWalletToApplication(newWallet, walletIsNew=False)
-      self.setDashboardDetails()
       LOGINFO('Import Complete!')
 
 
@@ -3083,7 +3097,11 @@ class ArmoryMainWindow(QMainWindow):
                                   defaultFilename=defaultFn)
          if len(str(logfn)) > 0:
             shutil.copy(ARMORY_LOG_FILE, logfn)
-            fin = open(os.path.join(ARMORY_HOME_DIR, 'armorycpplog.txt'), 'rb')
+            cppLogFN = os.path.join(ARMORY_HOME_DIR, 'armorycpplog.txt')
+            sz = os.path.getsize(cppLogFN)
+            fin = open(cppLogFN, 'rb')
+            if sz > 500*1024:
+               skip = fin.read(sz - 500*1024)
             toAppend = fin.read()
             fin.close()
 
@@ -3148,6 +3166,7 @@ class ArmoryMainWindow(QMainWindow):
          else:
             self.startBitcoindIfNecessary() 
       elif TheBDM.getBDMState() == 'BlockchainReady' and TheBDM.isDirty():
+         self.resetBdmBeforeScan()
          self.startRescanBlockchain()
       elif TheBDM.getBDMState() in ('Offline','Uninitialized'):
          self.resetBdmBeforeScan()
@@ -3163,14 +3182,11 @@ class ArmoryMainWindow(QMainWindow):
    
    #############################################################################
    def resetBdmBeforeScan(self):
-      """
-      I have spent hours trying to debug situations where starting a scan or 
-      rescan fails, and still not found the reason.  However, it always seems
-      to work after a reset and re-register of all addresses/wallets.  
-      """
       if TheBDM.getBDMState()=='Scanning': 
          LOGINFO('Aborting load')
          touchFile(os.path.join(ARMORY_HOME_DIR,'abortload.txt'))
+         os.remove(os.path.join(ARMORY_HOME_DIR,'blkfiles.txt'))
+
       TimerStart("resetBdmBeforeScan")
       TheBDM.Reset(wait=False)
       for wid,wlt in self.walletMap.iteritems():
@@ -4299,8 +4315,9 @@ class ArmoryMainWindow(QMainWindow):
                self.lblTimeLeftSync.setVisible(False)
                self.lblDashModeSync.setVisible(False)
 
-            self.lblDashModeScan.setText( 'Building Databases', \
-                                        size=4, bold=True, color='Foreground')
+            if len(str(self.lblDashModeScan.text()).strip()) == 0:
+               self.lblDashModeScan.setText( 'Preparing Databases', \
+                                          size=4, bold=True, color='Foreground')
             self.mainDisplayTabs.setTabEnabled(self.MAINTABS.Transactions, False)
    
             if len(self.walletMap)==0:
@@ -4435,6 +4452,7 @@ class ArmoryMainWindow(QMainWindow):
 
       sdmState = TheSDM.getSDMState()
       bdmState = TheBDM.getBDMState()
+      #print '(SDM, BDM) State = (%s, %s)' % (sdmState, bdmState)
             
 
       try:

@@ -6115,7 +6115,7 @@ protected:
 };
 
 ////////////////////////////////////////////////////////////////////////////////
-TEST_F(LoadTestnetBareTest, StepThroughDebug_usually_disabled)
+TEST_F(LoadTestnetBareTest, DISABLED_StepThroughDebug_usually_disabled)
 {
    // These aren't actually testnet addr, balances will be zero
    BinaryData scrAddrA_ = READHEX("0062e907b15cbf27d5425399ebf6f0fb50ebb88f18");
