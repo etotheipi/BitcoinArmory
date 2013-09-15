@@ -1745,12 +1745,10 @@ class ArmoryMainWindow(QMainWindow):
       else:
          LOGINFO('Starting blockchain rescan...')
 
-      if(forceFullScan):
-         self.resetBdmBeforeScan()
 
       # Start it in the background
+      TheBDM.rescanBlockchain(forceFullScan, wait=False)
       self.needUpdateAfterScan = True
-      TheBDM.rescanBlockchain(forceFullScan)
       self.setDashboardDetails()
 
 
@@ -1776,8 +1774,8 @@ class ArmoryMainWindow(QMainWindow):
             LOGINFO('Syncing wallet: %s', wltID)
             self.walletMap[wltID].setBlockchainSyncFlag(BLOCKCHAIN_READONLY)
             # Used to do "sync-lite" when we had to rescan for new addresses,
-            #self.walletMap[wltID].syncWithBlockchainLite(0)
-            self.walletMap[wltID].syncWithBlockchain(0)
+            self.walletMap[wltID].syncWithBlockchainLite(0)
+            #self.walletMap[wltID].syncWithBlockchain(0)
             self.walletMap[wltID].detectHighestUsedIndex(True)  # expand wlt if necessary
             self.walletMap[wltID].fillAddressPool()
          TimerStop('initialWalletSync')
@@ -2382,8 +2380,6 @@ class ArmoryMainWindow(QMainWindow):
          confirmed=True
 
       else:
-         
-         """ For supernode mode, no more rescanning needed!
          msgConfirm = ( \
             'Armory must scan the global transaction history in order to '
             'find any bitcoins associated with the %s you supplied. '
@@ -2406,18 +2402,16 @@ class ArmoryMainWindow(QMainWindow):
                                                 QMessageBox.Yes | QMessageBox.No)
 
       if confirmed==QMessageBox.Yes:
-         """
-
-      for addr in pybtcaddrList:
-         TheBDM.registerImportedScrAddr(Hash160ToScrAddr(addr.getAddr160()))
-      self.sweepAfterScanList = pybtcaddrList
-      self.sweepAfterScanTarg = targAddr160
-      #TheBDM.rescanBlockchain(wait=False)
-      TheBDM.rescanBlockchain(wait=True)
-      self.createCombinedLedger()
-      self.walletModel.reset()
-      self.setDashboardDetails()
-      return True
+         for addr in pybtcaddrList:
+            TheBDM.registerImportedScrAddr(Hash160ToScrAddr(addr.getAddr160()))
+         self.sweepAfterScanList = pybtcaddrList
+         self.sweepAfterScanTarg = targAddr160
+         TheBDM.rescanBlockchain(wait=False)
+         self.setDashboardDetails()
+         return True
+         #TheBDM.rescanBlockchain(wait=True)
+         #self.createCombinedLedger()
+         #self.walletModel.reset()
 
 
    #############################################################################
@@ -2659,10 +2653,11 @@ class ArmoryMainWindow(QMainWindow):
 
    #############################################################################
    def execRestorePaperBackup(self):
-      dlgPaper = DlgImportPaperWallet(self, self)
-      if dlgPaper.exec_():
-         self.addWalletToAppAndAskAboutRescan(dlgPaper.newWallet)
-         LOGINFO('Import Complete!')
+      DlgUniversalRestoreSelect(self, self).exec_()
+      #dlgPaper = DlgImportPaperWallet(self, self)
+      #if dlgPaper.exec_():
+         #self.addWalletToAppAndAskAboutRescan(dlgPaper.newWallet)
+         #LOGINFO('Import Complete!')
 
    #############################################################################
    def addWalletToAppAndAskAboutRescan(self, newWallet):
@@ -2674,7 +2669,6 @@ class ArmoryMainWindow(QMainWindow):
          self.addWalletToApplication(newWallet, walletIsNew=False)
          return
          
-      """ Removed for supernode mode -- no rescanning anymore
       elif TheBDM.getBDMState()=='BlockchainReady':
          doRescanNow = QMessageBox.question(self, 'Rescan Needed', \
             'The wallet was recovered successfully, but cannot be displayed '
@@ -2717,11 +2711,8 @@ class ArmoryMainWindow(QMainWindow):
          os.remove(thepath)
          os.remove(thepathBackup)
          return
-      """
 
-      #TheBDM.startWalletRecoveryScan(newWallet) 
       self.addWalletToApplication(newWallet, walletIsNew=False)
-      self.setDashboardDetails()
       LOGINFO('Import Complete!')
 
 
@@ -3106,7 +3097,11 @@ class ArmoryMainWindow(QMainWindow):
                                   defaultFilename=defaultFn)
          if len(str(logfn)) > 0:
             shutil.copy(ARMORY_LOG_FILE, logfn)
-            fin = open(os.path.join(ARMORY_HOME_DIR, 'armorycpplog.txt'), 'rb')
+            cppLogFN = os.path.join(ARMORY_HOME_DIR, 'armorycpplog.txt')
+            sz = os.path.getsize(cppLogFN)
+            fin = open(cppLogFN, 'rb')
+            if sz > 500*1024:
+               skip = fin.read(sz - 500*1024)
             toAppend = fin.read()
             fin.close()
 
@@ -3171,6 +3166,7 @@ class ArmoryMainWindow(QMainWindow):
          else:
             self.startBitcoindIfNecessary() 
       elif TheBDM.getBDMState() == 'BlockchainReady' and TheBDM.isDirty():
+         self.resetBdmBeforeScan()
          self.startRescanBlockchain()
       elif TheBDM.getBDMState() in ('Offline','Uninitialized'):
          self.resetBdmBeforeScan()
@@ -3186,17 +3182,13 @@ class ArmoryMainWindow(QMainWindow):
    
    #############################################################################
    def resetBdmBeforeScan(self):
-      """
-      I have spent hours trying to debug situations where starting a scan or 
-      rescan fails, and still not found the reason.  However, it always seems
-      to work after a reset and re-register of all addresses/wallets.  
-      """
       if TheBDM.getBDMState()=='Scanning': 
          LOGINFO('Aborting load')
          touchFile(os.path.join(ARMORY_HOME_DIR,'abortload.txt'))
+         os.remove(os.path.join(ARMORY_HOME_DIR,'blkfiles.txt'))
 
       TimerStart("resetBdmBeforeScan")
-      TheBDM.Reset(wait=True)
+      TheBDM.Reset(wait=False)
       for wid,wlt in self.walletMap.iteritems():
          TheBDM.registerWallet(wlt.cppWallet)
       TimerStop("resetBdmBeforeScan")

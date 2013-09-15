@@ -2197,6 +2197,7 @@ void BlockDataManager_LevelDB::Reset(void)
    startApplyBlkFile_ = 0;
    startApplyOffset_ = 0;
 
+   requestRescan_ = false;
 
 
    // These should be set after the blockchain is organized
@@ -2747,9 +2748,9 @@ bool BlockDataManager_LevelDB::scrAddrIsRegistered(HashString scraddr)
 //     sort registered list
 //     scanTx all tx in registered list between 1000 and 2000
 void BlockDataManager_LevelDB::scanBlockchainForTx(BtcWallet & myWallet,
-                                                    uint32_t startBlknum,
-                                                    uint32_t endBlknum,
-                                                    bool fetchFirst)
+                                                   uint32_t startBlknum,
+                                                   uint32_t endBlknum,
+                                                   bool fetchFirst)
 {
    SCOPED_TIMER("scanBlockchainForTx");
 
@@ -3492,13 +3493,13 @@ void BlockDataManager_LevelDB::destroyAndResetDatabases(void)
 // only be used when rebuilding the DB from scratch (hopefully).
 //
 // This method actually does all three of 
-uint32_t BlockDataManager_LevelDB::buildDatabasesFromBlkFiles(bool forceRebuild)
+uint32_t BlockDataManager_LevelDB::buildDatabasesFromBlkFiles(bool forceRescan)
 {
    SCOPED_TIMER("buildDatabasesFromBlkFiles");
    LOGINFO << "Number of registered addr: " << registeredScrAddrMap_.size();
 
    // When we parse the entire block
-   if(forceRebuild || (startHeaderBlkFile_==0 && startHeaderOffset_==0))
+   if(startHeaderBlkFile_==0 && startHeaderOffset_==0)
       destroyAndResetDatabases();
 
    // Remove this file
@@ -3689,10 +3690,19 @@ uint32_t BlockDataManager_LevelDB::buildDatabasesFromBlkFiles(bool forceRebuild)
    }
    else
    {
-      // Start scan from the beginning.  At a later time we'll figure out
-      // how to save data to the DB and reload it
-      readAndDeleteHistories();
+      // If no rescan is forced, grab the SSH entries from the DB
+      if(forceRescan || requestRescan_)
+         requestRescan_ = false; // we rescan by not calling the fetch*() func
+      else
+         fetchAllRegisteredScrAddrData();
+
+      // We always delete the histories, regardless of whether we read them or
+      // not.  We only save them on a clean shutdown, so we know they are 
+      // consistent.  Unclean shutdowns/kills will force a rescan simply by
+      // the above fetch call getting noting out of the database
+      deleteHistories();
       startScanHgt_ = evalLowestBlockNextScan();
+      
 
       // For progress bar purposes, let's find the blkfile location of scanStart
       pair<uint32_t, uint32_t> blkLoc = findFileAndOffsetForHgt(startScanHgt_);
@@ -3738,6 +3748,12 @@ uint32_t BlockDataManager_LevelDB::buildDatabasesFromBlkFiles(bool forceRebuild)
    return blocksReadSoFar_;
 }
 
+////////////////////////////////////////////////////////////////////////////////
+void BlockDataManager_LevelDB::rescanDBForRegisteredTx(void)
+{
+   resetRegisteredWallets();
+   scanDBForRegisteredTx(0);
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 void BlockDataManager_LevelDB::scanDBForRegisteredTx(uint32_t blk0,
@@ -3751,8 +3767,8 @@ void BlockDataManager_LevelDB::scanDBForRegisteredTx(uint32_t blk0,
    bool doScanProgressThing = (blk1-blk0 > NUM_BLKS_IS_DIRTY);
    if(doScanProgressThing)
    {
-      if(BtcUtils::GetFileSize(bfile) != FILE_DOES_NOT_EXIST)
-         remove(bfile.c_str());
+      //if(BtcUtils::GetFileSize(bfile) != FILE_DOES_NOT_EXIST)
+         //remove(bfile.c_str());
    }
 
    BinaryData firstKey = DBUtils.getBlkDataKey(blk0, 0);
@@ -3797,18 +3813,11 @@ void BlockDataManager_LevelDB::scanDBForRegisteredTx(uint32_t blk0,
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void BlockDataManager_LevelDB::readAndDeleteHistories(void)
+// Deletes all SSH entries in the database
+void BlockDataManager_LevelDB::deleteHistories(void)
 {
-   LOGINFO << "Reading saved wallet histories from last scan";
+   SCOPED_TIMER("deleteHistories");
 
-   // Iterate through all registered ScrAddrs, and register any relevant tx
-   fetchAllRegisteredScrAddrData();
-   
-   // Delete all SSH in the database: I do this for consistency
-   // If we shut down cleanly, we can guarantee that consistent SSH data
-   // is written to the database and the next load will load instantly.  
-   // If it doesn't shut down cleanly, then we will just have to do a 
-   // full rescan
    iface_->startBatch(BLKDATA);
    iface_->seekTo(BLKDATA, DB_PREFIX_SCRIPT, BinaryData(0));
    do 

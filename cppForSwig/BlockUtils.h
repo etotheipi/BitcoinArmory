@@ -549,6 +549,7 @@ private:
 
    // Used to estimate how much data is queued to be written to DB
    uint64_t                           dbUpdateSize_;
+   bool                               requestRescan_;
 
    // These should be set after the blockchain is organized
    deque<BlockHeader*>                headersByHeight_;
@@ -626,6 +627,8 @@ public:
    void SetBtcNetworkParams( BinaryData const & GenHash,
                              BinaryData const & GenTxHash,
                              BinaryData const & MagicBytes);
+
+   void SetRescanNextLoad(bool b=true) { requestRescan_=b; }
 
    //////////////////////////////////////////////////////////////////////////
    // This method opens the databases, and figures out up to what block each
@@ -747,7 +750,7 @@ public:
    bool     processNewHeadersInBlkFiles(uint32_t fnumStart=0, uint32_t offset=0);
    //bool     processHeadersInFile(string filename);
    void     destroyAndResetDatabases(void);
-   uint32_t buildDatabasesFromBlkFiles(bool forceRebuild=false);
+   uint32_t buildDatabasesFromBlkFiles(bool forceRescan=false);
    uint32_t initializeAndBuildDatabases(ARMORY_DB_TYPE atype=ARMORY_DB_WHATEVER,
                                         DB_PRUNE_TYPE  dtype=DB_PRUNE_WHATEVER);
    uint32_t initializeAndBuildDatabases(uint32_t atype, uint32_t dtype);
@@ -793,7 +796,7 @@ public:
                            BlockHeader* branchPtr );
 
 
-   void readAndDeleteHistories(void);
+   void deleteHistories(void);
    void shutdownSaveScrAddrHistories(void);
 
    void fetchAllRegisteredScrAddrData(void);
@@ -838,6 +841,7 @@ public:
                                    uint32_t blkStart=0,
                                    uint32_t blkEnd=UINT32_MAX);
 
+   void rescanDBForRegisteredTx(void);
    void scanDBForRegisteredTx(uint32_t blk0=0, uint32_t blk1=UINT32_MAX);
 
  
