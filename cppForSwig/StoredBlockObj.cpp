@@ -1151,6 +1151,7 @@ StoredTx & StoredTx::createFromTx(Tx & tx, bool doFrag, bool withTxOuts)
 StoredTxOut & StoredTxOut::createFromTxOut(TxOut & txout)
 {
    unserialize(txout.serialize());
+   return *this;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
