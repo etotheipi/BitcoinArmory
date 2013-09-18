@@ -86,7 +86,7 @@ public:
    /////////////////////////////////////////////////////////////////////////////
    void           setBlockFile(string filename)     {blkFile_       = filename;}
    void           setBlockFileNum(uint32_t fnum)    {blkFileNum_    = fnum;}
-   void           setBlockFileOffset(uint32_t offs) {blkFileOffset_ = offs;}
+   void           setBlockFileOffset(uint64_t offs) {blkFileOffset_ = offs;}
 
    /////////////////////////////////////////////////////////////////////////////
    void          pprint(ostream & os=cout, int nIndent=0, bool pBigendian=true) const;
@@ -133,7 +133,7 @@ private:
 
    string         blkFile_;
    uint32_t       blkFileNum_;
-   uint32_t       blkFileOffset_;
+   uint64_t       blkFileOffset_;
 
    // Specific to the DB storage
    uint8_t        duplicateID_; // ID of this blk rel to others at same height

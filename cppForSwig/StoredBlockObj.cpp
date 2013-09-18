@@ -719,7 +719,7 @@ void StoredTx::unserializeDBValue(BinaryRefReader & brr)
    if(unserTxType_ == TX_SER_FULL || unserTxType_ == TX_SER_FRAGGED)
       unserialize(brr, unserTxType_==TX_SER_FRAGGED);
    else
-      numTxOut_ = brr.get_var_int();
+      numTxOut_ = (uint32_t)brr.get_var_int();
 }
 
 
@@ -950,7 +950,7 @@ void StoredTxOut::unserializeDBValue(BinaryRefReader & brr)
    unserArmVer_ =                  bitunpack.getBits(4);
    txVersion_   =                  bitunpack.getBits(2);
    spentness_   = (TXOUT_SPENTNESS)bitunpack.getBits(2);
-   isCoinbase_  =                  bitunpack.getBits(1);
+   isCoinbase_  =                  bitunpack.getBit();
 
    unserialize(brr);
    if(spentness_ == TXOUT_SPENT && brr.getSizeRemaining()>=8)
@@ -1181,7 +1181,7 @@ BinaryData StoredTxOut::getScrAddress(void) const
 {
    BinaryRefReader brr(dataCopy_);
    brr.advance(8);
-   uint64_t scrsz = brr.get_var_int();
+   uint32_t scrsz = (uint32_t)brr.get_var_int();
    return BtcUtils::getTxOutScrAddr(brr.get_BinaryDataRef(scrsz));
 }
 
@@ -1190,7 +1190,7 @@ BinaryDataRef StoredTxOut::getScriptRef(void) const
 {
    BinaryRefReader brr(dataCopy_);
    brr.advance(8);
-   uint64_t scrsz = brr.get_var_int();
+   uint32_t scrsz = (uint32_t)brr.get_var_int();
    return brr.get_BinaryDataRef(scrsz);
 }
 
@@ -1742,7 +1742,7 @@ bool StoredScriptHistory::haveFullHistoryLoaded(void) const
    if(!isInitialized())
       return false;
 
-   uint32_t numTxio = 0;
+   uint64_t numTxio = 0;
    map<BinaryData, StoredSubHistory>::const_iterator iter;
    for(iter = subHistMap_.begin(); iter != subHistMap_.end(); iter++)
       numTxio += iter->second.getTxioCount();
@@ -2392,8 +2392,8 @@ BinaryData StoredUndoData::getDBKey(bool withPrefix) const
 ////////////////////////////////////////////////////////////////////////////////
 void StoredTxHints::unserializeDBValue(BinaryRefReader & brr)
 {
-   uint32_t numHints = (brr.getSizeRemaining()==0 ? 0 : brr.get_var_int());
-   dbKeyList_.resize(numHints);
+   uint64_t numHints = (brr.getSizeRemaining()==0 ? 0 : brr.get_var_int());
+   dbKeyList_.resize((uint32_t)numHints);
    for(uint32_t i=0; i<numHints; i++)
       brr.get_BinaryData(dbKeyList_[i], 6);
 

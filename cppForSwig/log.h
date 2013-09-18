@@ -157,7 +157,7 @@ public:
 
          // Allocate buffer to hold the rest of the file (about maxSizeInBytes)
          unsigned long long int bytesToCopy = fsize - is.tellg();
-         char* lastBytes = new char[bytesToCopy];
+         char* lastBytes = new char[(unsigned int)bytesToCopy];
          is.read(lastBytes, bytesToCopy);
          is.close();
          
