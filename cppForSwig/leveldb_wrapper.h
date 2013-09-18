@@ -582,7 +582,7 @@ private:
    leveldb::DB*           dbs_[2];  
    string                 dbPaths_[2];
    bool                   iterIsDirty_[2];
-   // leveldb::FilterPolicy* dbFilterPolicy_[2];
+   //leveldb::FilterPolicy* dbFilterPolicy_[2];
 
    // This will be incremented every time startBatch is called, decremented
    // every time commitBatch is called.  We will only *actually* start a new

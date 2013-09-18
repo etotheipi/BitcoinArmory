@@ -1,0 +1,312 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="DebugDll|Win32">
+      <Configuration>DebugDll</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="ReleaseDll|Win32">
+      <Configuration>ReleaseDll</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\..\..\leveldb_src\db\builder.cc" />
+    <ClCompile Include="..\..\..\leveldb_src\db\c.cc" />
+    <ClCompile Include="..\..\..\leveldb_src\db\dbformat.cc" />
+    <ClCompile Include="..\..\..\leveldb_src\db\db_impl.cc" />
+    <ClCompile Include="..\..\..\leveldb_src\db\db_iter.cc" />
+    <ClCompile Include="..\..\..\leveldb_src\db\filename.cc" />
+    <ClCompile Include="..\..\..\leveldb_src\db\log_reader.cc" />
+    <ClCompile Include="..\..\..\leveldb_src\db\log_writer.cc" />
+    <ClCompile Include="..\..\..\leveldb_src\db\memtable.cc" />
+    <ClCompile Include="..\..\..\leveldb_src\db\repair.cc" />
+    <ClCompile Include="..\..\..\leveldb_src\db\table_cache.cc" />
+    <ClCompile Include="..\..\..\leveldb_src\db\version_edit.cc" />
+    <ClCompile Include="..\..\..\leveldb_src\db\version_set.cc" />
+    <ClCompile Include="..\..\..\leveldb_src\db\write_batch.cc" />
+    <ClCompile Include="..\..\..\leveldb_src\table\block.cc" />
+    <ClCompile Include="..\..\..\leveldb_src\table\block_builder.cc" />
+    <ClCompile Include="..\..\..\leveldb_src\table\format.cc" />
+    <ClCompile Include="..\..\..\leveldb_src\table\iterator.cc" />
+    <ClCompile Include="..\..\..\leveldb_src\table\merger.cc" />
+    <ClCompile Include="..\..\..\leveldb_src\table\table.cc" />
+    <ClCompile Include="..\..\..\leveldb_src\table\table_builder.cc" />
+    <ClCompile Include="..\..\..\leveldb_src\table\two_level_iterator.cc" />
+    <ClCompile Include="..\..\..\leveldb_src\util\arena.cc" />
+    <ClCompile Include="..\..\..\leveldb_src\util\cache.cc" />
+    <ClCompile Include="..\..\..\leveldb_src\util\coding.cc" />
+    <ClCompile Include="..\..\..\leveldb_src\util\comparator.cc" />
+    <ClCompile Include="..\..\..\leveldb_src\util\crc32c.cc" />
+    <ClCompile Include="..\..\..\leveldb_src\util\env.cc" />
+    <ClCompile Include="..\..\..\leveldb_src\util\hash.cc" />
+    <ClCompile Include="..\..\..\leveldb_src\util\histogram.cc" />
+    <ClCompile Include="..\..\..\leveldb_src\util\logging.cc" />
+    <ClCompile Include="..\..\..\leveldb_src\util\options.cc" />
+    <ClCompile Include="..\..\..\leveldb_src\util\status.cc" />
+    <ClCompile Include="..\..\..\leveldb_src\util\testharness.cc" />
+    <ClCompile Include="..\..\..\leveldb_src\util\testutil.cc" />
+    <ClCompile Include="..\..\..\win32_impl_src\env_win32.cc" />
+    <ClCompile Include="..\..\..\win32_impl_src\port_win32.cc" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\..\..\leveldb_src\db\builder.h" />
+    <ClInclude Include="..\..\..\leveldb_src\db\dbformat.h" />
+    <ClInclude Include="..\..\..\leveldb_src\db\db_impl.h" />
+    <ClInclude Include="..\..\..\leveldb_src\db\db_iter.h" />
+    <ClInclude Include="..\..\..\leveldb_src\db\filename.h" />
+    <ClInclude Include="..\..\..\leveldb_src\db\log_format.h" />
+    <ClInclude Include="..\..\..\leveldb_src\db\log_reader.h" />
+    <ClInclude Include="..\..\..\leveldb_src\db\log_writer.h" />
+    <ClInclude Include="..\..\..\leveldb_src\db\memtable.h" />
+    <ClInclude Include="..\..\..\leveldb_src\db\skiplist.h" />
+    <ClInclude Include="..\..\..\leveldb_src\db\snapshot.h" />
+    <ClInclude Include="..\..\..\leveldb_src\db\table_cache.h" />
+    <ClInclude Include="..\..\..\leveldb_src\db\version_edit.h" />
+    <ClInclude Include="..\..\..\leveldb_src\db\version_set.h" />
+    <ClInclude Include="..\..\..\leveldb_src\db\write_batch_internal.h" />
+    <ClInclude Include="..\..\..\leveldb_src\include\leveldb\c.h" />
+    <ClInclude Include="..\..\..\leveldb_src\include\leveldb\cache.h" />
+    <ClInclude Include="..\..\..\leveldb_src\include\leveldb\comparator.h" />
+    <ClInclude Include="..\..\..\leveldb_src\include\leveldb\db.h" />
+    <ClInclude Include="..\..\..\leveldb_src\include\leveldb\env.h" />
+    <ClInclude Include="..\..\..\leveldb_src\include\leveldb\iterator.h" />
+    <ClInclude Include="..\..\..\leveldb_src\include\leveldb\options.h" />
+    <ClInclude Include="..\..\..\leveldb_src\include\leveldb\slice.h" />
+    <ClInclude Include="..\..\..\leveldb_src\include\leveldb\status.h" />
+    <ClInclude Include="..\..\..\leveldb_src\include\leveldb\table.h" />
+    <ClInclude Include="..\..\..\leveldb_src\include\leveldb\table_builder.h" />
+    <ClInclude Include="..\..\..\leveldb_src\include\leveldb\write_batch.h" />
+    <ClInclude Include="..\..\..\leveldb_src\port\atomic_pointer.h" />
+    <ClInclude Include="..\..\..\leveldb_src\port\port.h" />
+    <ClInclude Include="..\..\..\leveldb_src\table\block.h" />
+    <ClInclude Include="..\..\..\leveldb_src\table\block_builder.h" />
+    <ClInclude Include="..\..\..\leveldb_src\table\format.h" />
+    <ClInclude Include="..\..\..\leveldb_src\table\iterator_wrapper.h" />
+    <ClInclude Include="..\..\..\leveldb_src\table\merger.h" />
+    <ClInclude Include="..\..\..\leveldb_src\table\two_level_iterator.h" />
+    <ClInclude Include="..\..\..\leveldb_src\util\arena.h" />
+    <ClInclude Include="..\..\..\leveldb_src\util\coding.h" />
+    <ClInclude Include="..\..\..\leveldb_src\util\crc32c.h" />
+    <ClInclude Include="..\..\..\leveldb_src\util\hash.h" />
+    <ClInclude Include="..\..\..\leveldb_src\util\histogram.h" />
+    <ClInclude Include="..\..\..\leveldb_src\util\logging.h" />
+    <ClInclude Include="..\..\..\leveldb_src\util\mutexlock.h" />
+    <ClInclude Include="..\..\..\leveldb_src\util\posix_logger.h" />
+    <ClInclude Include="..\..\..\leveldb_src\util\random.h" />
+    <ClInclude Include="..\..\..\leveldb_src\util\testharness.h" />
+    <ClInclude Include="..\..\..\leveldb_src\util\testutil.h" />
+    <ClInclude Include="..\..\..\win32_impl_src\env_win32.h" />
+    <ClInclude Include="..\..\..\win32_impl_src\leveldb.h" />
+    <ClInclude Include="..\..\..\win32_impl_src\port_win32.h" />
+    <ClInclude Include="..\..\..\win32_impl_src\stdint.h" />
+    <ClInclude Include="..\..\..\win32_impl_src\unistd.h" />
+    <ClInclude Include="..\..\..\win32_impl_src\win32exports.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\..\..\win32_impl_src\leveldb.def">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+    </None>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{A9A4ECC5-A6A5-423C-AAC3-1C28E9973255}</ProjectGuid>
+    <Keyword>Win32Proj</Keyword>
+    <RootNamespace>leveldb</RootNamespace>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <CharacterSet>Unicode</CharacterSet>
+    <PlatformToolset>v110</PlatformToolset>
+    <UseOfAtl>Static</UseOfAtl>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='DebugDll|Win32'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <CharacterSet>Unicode</CharacterSet>
+    <PlatformToolset>v110</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+    <PlatformToolset>v110</PlatformToolset>
+    <UseOfAtl>Static</UseOfAtl>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseDll|Win32'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+    <PlatformToolset>v110</PlatformToolset>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='DebugDll|Win32'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseDll|Win32'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <TargetName>$(ProjectName)_d</TargetName>
+    <IntDir>$(SolutionDir)_exports\Intermediate\$(ProjectName).$(Configuration)\</IntDir>
+    <OutDir>$(SolutionDir)libs\</OutDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='DebugDll|Win32'">
+    <TargetName>$(ProjectName)_d</TargetName>
+    <IntDir>$(SolutionDir)_exports\Intermediate\$(ProjectName).$(Configuration)\</IntDir>
+    <OutDir>$(SolutionDir)libs</OutDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <IntDir>$(Configuration)\</IntDir>
+    <OutDir>$(SolutionDir)libs\</OutDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseDll|Win32'">
+    <IntDir>$(SolutionDir)_exports\Intermediate\$(ProjectName).$(Configuration)\</IntDir>
+    <OutDir>$(SolutionDir)libs</OutDir>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <ClCompile>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>Disabled</Optimization>
+      <PreprocessorDefinitions>WIN32;_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>..\..\..\win32_impl_src;..\..\..\snappy_src;..\..\..\leveldb_src;..\..\..\leveldb_src\include;C:\WinDDK\7600.16385.1\inc\atl71</AdditionalIncludeDirectories>
+      <ProgramDataBaseFileName>$(OutDir)$(TargetName).pdb</ProgramDataBaseFileName>
+      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+    </Link>
+    <Lib>
+      <AdditionalDependencies>$(SolutionDir)libs\snappy_d.lib</AdditionalDependencies>
+    </Lib>
+    <PostBuildEvent>
+      <Command>
+      </Command>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='DebugDll|Win32'">
+    <ClCompile>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>Disabled</Optimization>
+      <PreprocessorDefinitions>WIN32;_DEBUG;DLL_BUILD;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>..\..\..\win32_impl_src;..\..\..\snappy_src;..\..\..\leveldb_src;..\..\..\leveldb_src\include</AdditionalIncludeDirectories>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies>..\_exports\Debug\snappy_d.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <ModuleDefinitionFile>..\..\..\win32_impl_src\leveldb.def</ModuleDefinitionFile>
+    </Link>
+    <Lib>
+      <AdditionalDependencies>..\_exports\Debug\snappy_d.lib</AdditionalDependencies>
+    </Lib>
+    <PostBuildEvent>
+      <Command>md "$(SolutionDir)..\..\lib_leveldb_vc10\lib\$(ConfigurationName)"
+xcopy "$(TargetDir)$(TargetName).lib" "$(SolutionDir)..\..\lib_leveldb_vc10\lib\$(ConfigurationName)" /y
+xcopy "$(TargetDir)$(TargetName).dll" "$(SolutionDir)..\..\lib_leveldb_vc10\lib\$(ConfigurationName)" /y
+xcopy "$(TargetDir)$(TargetName).pdb" "$(SolutionDir)..\..\lib_leveldb_vc10\lib\$(ConfigurationName)" /y
+xcopy "$(SolutionDir)..\..\leveldb_src\include\*.*" "$(SolutionDir)..\..\lib_leveldb_vc10\include"/e/y/s/i
+xcopy "$(SolutionDir)..\..\win32_impl_src\win32exports.h" "$(SolutionDir)..\..\lib_leveldb_vc10\include\leveldb"/e/y/s
+xcopy "$(SolutionDir)..\..\win32_impl_src\stdint.h" "$(SolutionDir)..\..\lib_leveldb_vc10\include\leveldb"/e/y/s
+xcopy "$(SolutionDir)..\..\win32_impl_src\unistd.h" "$(SolutionDir)..\..\lib_leveldb_vc10\include\leveldb"/e/y/s
+xcopy "$(SolutionDir)..\..\win32_impl_src\leveldb.h" "$(SolutionDir)..\..\lib_leveldb_vc10\include"/e/y/s</Command>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <Optimization>MaxSpeed</Optimization>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <PreprocessorDefinitions>WIN32;NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>..\..\..\snappy_src;..\..\..\leveldb_src;..\..\..\leveldb_src\include;..\..\..\win32_impl_src;C:\WinDDK\7600.16385.1\inc\atl71</AdditionalIncludeDirectories>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+    </Link>
+    <ProjectReference>
+      <LinkLibraryDependencies>false</LinkLibraryDependencies>
+    </ProjectReference>
+    <Lib>
+      <AdditionalDependencies>
+      </AdditionalDependencies>
+      <LinkTimeCodeGeneration>true</LinkTimeCodeGeneration>
+    </Lib>
+    <PostBuildEvent>
+      <Command>
+      </Command>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseDll|Win32'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <Optimization>MaxSpeed</Optimization>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <PreprocessorDefinitions>WIN32;NDEBUG;DLL_BUILD;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>..\..\..\snappy_src;..\..\..\leveldb_src;..\..\..\leveldb_src\include;..\..\..\win32_impl_src</AdditionalIncludeDirectories>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>false</GenerateDebugInformation>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+      <AdditionalDependencies>..\_exports\Release\snappy.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <ModuleDefinitionFile>..\..\..\win32_impl_src\leveldb.def</ModuleDefinitionFile>
+    </Link>
+    <ProjectReference>
+      <LinkLibraryDependencies>false</LinkLibraryDependencies>
+    </ProjectReference>
+    <Lib>
+      <AdditionalDependencies>..\_exports\Release\snappy.lib</AdditionalDependencies>
+      <LinkTimeCodeGeneration>true</LinkTimeCodeGeneration>
+    </Lib>
+    <PostBuildEvent>
+      <Command>md "$(SolutionDir)..\..\lib_leveldb_vc10\lib\$(ConfigurationName)"
+xcopy "$(TargetDir)$(TargetName).lib" "$(SolutionDir)..\..\lib_leveldb_vc10\lib\$(ConfigurationName)" /y
+xcopy "$(TargetDir)$(TargetName).dll" "$(SolutionDir)..\..\lib_leveldb_vc10\lib\$(ConfigurationName)" /y
+xcopy "$(SolutionDir)..\..\leveldb_src\include\*.*" "$(SolutionDir)..\..\lib_leveldb_vc10\include"/e/y/s/i
+xcopy "$(SolutionDir)..\..\win32_impl_src\win32exports.h" "$(SolutionDir)..\..\lib_leveldb_vc10\include\leveldb"/e/y/s
+xcopy "$(SolutionDir)..\..\win32_impl_src\stdint.h" "$(SolutionDir)..\..\lib_leveldb_vc10\include\leveldb"/e/y/s
+xcopy "$(SolutionDir)..\..\win32_impl_src\unistd.h" "$(SolutionDir)..\..\lib_leveldb_vc10\include\leveldb"/e/y/s
+xcopy "$(SolutionDir)..\..\win32_impl_src\leveldb.h" "$(SolutionDir)..\..\lib_leveldb_vc10\include"/e/y/s</Command>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>
