@@ -217,23 +217,33 @@ else:
 
 # Allow user to override default bitcoin-qt/bitcoind home directory
 if not CLI_OPTIONS.satoshiHome.lower()=='default':
+   success = True
+   if USE_TESTNET:
+      testnetTry = os.path.join(CLI_OPTIONS.satoshiHome, 'testnet3')
+      if os.path.exists(testnetTry):
+         CLI_OPTIONS.satoshiHome = testnetTry
+
    if not os.path.exists(CLI_OPTIONS.satoshiHome):
-      print 'Directory "%s" does not exist!  Using default!' % CLI_OPTIONS.satoshiHome
+      print 'Directory "%s" does not exist!  Using default!' % \
+                                                CLI_OPTIONS.satoshiHome
    else:
       BTC_HOME_DIR = CLI_OPTIONS.satoshiHome
+
 
 
 # Allow user to override default Armory home directory
 if not CLI_OPTIONS.datadir.lower()=='default':
    if not os.path.exists(CLI_OPTIONS.datadir):
-      print 'Directory "%s" does not exist!  Using default!' % CLI_OPTIONS.datadir
+      print 'Directory "%s" does not exist!  Using default!' % \
+                                                CLI_OPTIONS.datadir
    else:
       ARMORY_HOME_DIR = CLI_OPTIONS.datadir
 
 # Same for the directory that holds the LevelDB databases
 if not CLI_OPTIONS.leveldbDir.lower()=='default':
    if not os.path.exists(CLI_OPTIONS.datadir):
-      print 'Directory "%s" does not exist!  Using default!' % CLI_OPTIONS.leveldbDir
+      print 'Directory "%s" does not exist!  Using default!' % \
+                                                CLI_OPTIONS.leveldbDir
    else:
       LEVELDB_DIR  = CLI_OPTIONS.datadir
 
@@ -6720,9 +6730,25 @@ def DeriveChaincodeFromRootKey(sbdPrivKey):
 ################################################################################
 def HardcodedKeyMaskParams():
    paramMap = {}
-   paramMap['IV']   = SecureBinaryData('&\x0cH3\xc1\x1c\x16\x8a\x86`\xa6k<C\x1fD')
-   paramMap['SALT'] = SecureBinaryData('\xd5\xa35\xe6Y\xdbj\x93M\xf1\xca\x0fM\x81'
-                              '\x94\x7fh\x1ci\xe7\x12c+b\xd5Y\\\x8f\xee\xab\xa0)')
+
+   # Nothing up my sleeve!  Need some hardcoded random numbers to use for
+   # encryption IV and salt.  Using the first 256 digits of Pi for the 
+   # the IV, and first 256 digits of e for the salt (hashed)
+   digits_pi = ( \
+      'ARMORY_ENCRYPTION_INITIALIZATION_VECTOR_'
+      '1415926535897932384626433832795028841971693993751058209749445923'
+      '0781640628620899862803482534211706798214808651328230664709384460'
+      '9550582231725359408128481117450284102701938521105559644622948954'
+      '9303819644288109756659334461284756482337867831652712019091456485')
+   digits_e = ( \
+      'ARMORY_KEY_DERIVATION_FUNCTION_SALT_'
+      '7182818284590452353602874713526624977572470936999595749669676277'
+      '2407663035354759457138217852516642742746639193200305992181741359'
+      '6629043572900334295260595630738132328627943490763233829880753195'
+      '2510190115738341879307021540891499348841675092447614606680822648')
+      
+   paramMap['IV']    = SecureBinaryData( hash256(digits_pi)[:16] )
+   paramMap['SALT']  = SecureBinaryData( hash256(digits_pi) )
    paramMap['KDFBYTES'] = long(16*MEGABYTE)
 
    def hardcodeCreateSecurePrintPassphrase(secret):
