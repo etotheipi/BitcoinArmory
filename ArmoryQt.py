@@ -1316,7 +1316,7 @@ class ArmoryMainWindow(QMainWindow):
          self.settings.set('FailedLoadCount', self.numTriesOpen+1)
 
          self.switchNetworkMode(NETWORKMODE.Full)
-         self.resetBdmBeforeScan()
+         #self.resetBdmBeforeScan()
          TheBDM.setOnlineMode(True, wait=False)
 
       else:
@@ -1722,7 +1722,7 @@ class ArmoryMainWindow(QMainWindow):
       self.needUpdateAfterScan = True
       self.lblDashModeScan.setText( 'Scanning Transaction History', \
                                         size=4, bold=True, color='Foreground')
-      self.startRescanBlockchain(forceFullScan=True)
+      TheBDM.rescanBlockchain('ForceRescan', wait=False)
       self.setDashboardDetails()
 
    #############################################################################
@@ -1730,8 +1730,8 @@ class ArmoryMainWindow(QMainWindow):
       self.needUpdateAfterScan = True
       self.lblDashModeScan.setText( 'Preparing Databases', \
                                         size=4, bold=True, color='Foreground')
-      self.resetBdmBeforeScan()  # this resets BDM and then re-registeres wlts
-      TheBDM.stopAndRebuildDB()
+      #self.resetBdmBeforeScan()  # this resets BDM and then re-registeres wlts
+      TheBDM.rescanBlockchain('ForceRebuild', wait=False)
       self.setDashboardDetails()
 
    #############################################################################
@@ -1747,7 +1747,7 @@ class ArmoryMainWindow(QMainWindow):
 
 
       # Start it in the background
-      TheBDM.rescanBlockchain(forceFullScan, wait=False)
+      TheBDM.rescanBlockchain('AsNeeded', wait=False)
       self.needUpdateAfterScan = True
       self.setDashboardDetails()
 
@@ -2406,7 +2406,7 @@ class ArmoryMainWindow(QMainWindow):
             TheBDM.registerImportedScrAddr(Hash160ToScrAddr(addr.getAddr160()))
          self.sweepAfterScanList = pybtcaddrList
          self.sweepAfterScanTarg = targAddr160
-         TheBDM.rescanBlockchain(wait=False)
+         TheBDM.startRescanBlockchain('AsNeeded', wait=False)
          self.setDashboardDetails()
          return True
          #TheBDM.rescanBlockchain(wait=True)
@@ -2631,7 +2631,8 @@ class ArmoryMainWindow(QMainWindow):
 
       if doRescanNow == QMessageBox.Yes:
          LOGINFO('User requested rescan after wallet import')
-         TheBDM.startWalletRecoveryScan(newWlt) 
+         #TheBDM.startWalletRecoveryScan(newWlt) 
+         self.startRescanBlockchain()
          self.setDashboardDetails()
       else:
          LOGINFO('User aborted the wallet-import scan')
@@ -2696,7 +2697,8 @@ class ArmoryMainWindow(QMainWindow):
 
       if doRescanNow == QMessageBox.Yes:
          LOGINFO('User requested rescan after wallet restore')
-         TheBDM.startWalletRecoveryScan(newWallet) 
+         #TheBDM.startWalletRecoveryScan(newWallet) 
+         self.startRescanBlockchain()
          self.setDashboardDetails()
       else:
          LOGINFO('User aborted the wallet-recovery scan')
@@ -3166,10 +3168,10 @@ class ArmoryMainWindow(QMainWindow):
          else:
             self.startBitcoindIfNecessary() 
       elif TheBDM.getBDMState() == 'BlockchainReady' and TheBDM.isDirty():
-         self.resetBdmBeforeScan()
+         #self.resetBdmBeforeScan()
          self.startRescanBlockchain()
       elif TheBDM.getBDMState() in ('Offline','Uninitialized'):
-         self.resetBdmBeforeScan()
+         #self.resetBdmBeforeScan()
          TheBDM.setOnlineMode(True)
          self.switchNetworkMode(NETWORKMODE.Full)
       else:
@@ -3409,7 +3411,7 @@ class ArmoryMainWindow(QMainWindow):
       if closeWhenDone:
          # It's a long story why I need this, and only when closing...
          TheSDM.stopBitcoind()
-         self.resetBdmBeforeScan()
+         #self.resetBdmBeforeScan()
          self.switchNetworkMode(NETWORKMODE.Offline)
          from twisted.internet import reactor
          reactor.callLater(1, self.Heartbeat)
@@ -4452,7 +4454,7 @@ class ArmoryMainWindow(QMainWindow):
 
       sdmState = TheSDM.getSDMState()
       bdmState = TheBDM.getBDMState()
-      #print '(SDM, BDM) State = (%s, %s)' % (sdmState, bdmState)
+      print '(SDM, BDM) State = (%s, %s)' % (sdmState, bdmState)
             
 
       try:
@@ -4617,7 +4619,7 @@ class ArmoryMainWindow(QMainWindow):
                if didAffectUs:
                   LOGINFO('New Block contained a transaction relevant to us!')
                   self.walletListChanged()
-                  self.notifyOnSurpriseTx(self.currBlockNum-newBlks, \
+                  self.notifyOnSurpriseTx(self.currBlockNum-newBlocks, \
                                           self.currBlockNum+1)
       
                self.createCombinedLedger()

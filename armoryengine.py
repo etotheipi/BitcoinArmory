@@ -247,14 +247,6 @@ if not CLI_OPTIONS.leveldbDir.lower()=='default':
       LEVELDB_DIR  = CLI_OPTIONS.leveldbDir
 
 
-if CLI_OPTIONS.rebuild: 
-   if not os.path.exists(LEVELDB_DIR):
-      print "Rebuild requested but path does not exist"
-   else:
-      print 'Deleting LevelDB directory for full rebuild...',
-      shutil.rmtree(LEVELDB_DIR)
-      print 'done'
-
 
 # Change the settings file to use
 #BITCOIND_PATH = None
@@ -12406,7 +12398,7 @@ class BlockDataManagerThread(threading.Thread):
 
 
    #############################################################################
-   def rescanBlockchain(self, forceFullScan=False, wait=None):
+   def rescanBlockchain(self, scanType='AsNeeded', wait=None):
       expectOutput = False
       if not wait==False and (self.alwaysBlock or wait==True):
          expectOutput = True
@@ -12414,7 +12406,7 @@ class BlockDataManagerThread(threading.Thread):
       self.aboutToRescan = True
 
       rndID = int(random.uniform(0,100000000)) 
-      self.inputQueue.put([BDMINPUTTYPE.RescanRequested, rndID, expectOutput, forceFullScan])
+      self.inputQueue.put([BDMINPUTTYPE.RescanRequested, rndID, expectOutput, scanType])
       LOGINFO('Blockchain rescan requested')
       return self.waitForOutputIfNecessary(expectOutput, rndID)
 
@@ -12833,6 +12825,7 @@ class BlockDataManagerThread(threading.Thread):
       self.blkMode = BLOCKCHAINMODE.Rescanning
       self.aboutToRescan = False
 
+      self.bdm.SetDatabaseModes(ARMORY_DB_BARE, DB_PRUNE_NONE);
       self.bdm.SetHomeDirLocation(ARMORY_HOME_DIR)
       self.bdm.SetBlkFileLocation(blkdir)
       self.bdm.SetLevelDBLocation(self.ldbdir)
@@ -12843,25 +12836,23 @@ class BlockDataManagerThread(threading.Thread):
       # The master wallet contains all addresses of all wallets registered
       self.bdm.registerWallet(self.masterCppWallet)
 
-      ### This is the part that takes forever
+      # Now we actually startup the BDM and run with it
+      if CLI_OPTIONS.rebuild:
+         self.bdm.doInitialSyncOnLoad_Rebuild()
       if CLI_OPTIONS.rescan:
-         LOGINFO('Database rescan requested.  Ignoring saved script histories')
-         self.bdm.SetRescanNextLoad(True)
-      self.bdm.initializeAndBuildDatabases(ARMORY_DB_BARE, DB_PRUNE_NONE)
+         self.bdm.doInitialSyncOnLoad_Rescan()
+      else:
+         self.bdm.doInitialSyncOnLoad()
 
-      #print 'TopBlock:', self.bdm.getTopBlockHeight()
-      #if USE_TESTNET:
-         #print 'SLEEPING FOR 20 sec (DEBUGGING)'
-         #time.sleep(20) 
-
+      # The above op populates the BDM with all relevent tx, but those tx
+      # still need to be scanned to collect the wallet ledger and UTXO sets
       self.bdm.scanBlockchainForTx(self.masterCppWallet)
-      #self.bdm.scanRegisteredTxForWallet(self.masterCppWallet)
 
       TimerStop('__startLoadBlockchain')
 
       
    #############################################################################
-   def __startRescanBlockchain(self, forceFullScan=False):
+   def __startRescanBlockchain(self, scanType='AsNeeded'):
       """
       This should only be called by the threaded BDM, and thus there should
       never be a conflict.  
@@ -12883,22 +12874,29 @@ class BlockDataManagerThread(threading.Thread):
       if not self.isDirty():
          LOGWARN('It does not look like we need a rescan... doing it anyway')
 
-      if self.bdm.numBlocksToRescan(self.masterCppWallet) < 144:
-         LOGINFO('Rescan requested, but <1 day\'s worth of block to rescan')
-         self.blkMode = BLOCKCHAINMODE.LiteScanning
-      else:
-         LOGINFO('Rescan requested, and very large scan is necessary')
-         self.blkMode = BLOCKCHAINMODE.Rescanning
+      if scanType=='AsNeeded':
+         if self.bdm.numBlocksToRescan(self.masterCppWallet) < 144:
+            LOGINFO('Rescan requested, but <1 day\'s worth of block to rescan')
+            self.blkMode = BLOCKCHAINMODE.LiteScanning
+         else:
+            LOGINFO('Rescan requested, and very large scan is necessary')
+            self.blkMode = BLOCKCHAINMODE.Rescanning
 
 
       self.aboutToRescan = False
       
-      if forceFullScan:
-         self.bdm.rescanDBForRegisteredTx();
-      else:
-         # Blockchain will rescan as much as it needs.  
-         #self.bdm.scanRegisteredTxForWallet(self.masterCppWallet)
-         self.bdm.scanBlockchainForTx(self.masterCppWallet)
+      if scanType=='AsNeeded':
+         self.bdm.doSyncIfNeeded()
+      elif scanType=='ForceRescan':
+         LOGINFO('Forcing full rescan of blockchain')
+         self.bdm.doFullRescanRegardlessOfSync()
+         self.blkMode = BLOCKCHAINMODE.Rescanning
+      elif scanType=='ForceRebuild':
+         LOGINFO('Forcing full rebuild of blockchain database')
+         self.bdm.doRebuildDatabases()
+         self.blkMode = BLOCKCHAINMODE.Rescanning
+
+      self.bdm.scanBlockchainForTx(self.masterCppWallet)
 
 
    #############################################################################
@@ -13232,9 +13230,11 @@ class BlockDataManagerThread(threading.Thread):
 
             elif cmd == BDMINPUTTYPE.RescanRequested:
                TimerStart('rescanBlockchain')
-               fullRescan = inputTuple[3]
-               LOGINFO(('Full' if fullRescan else 'Regular') +' Rescan Requested')
-               self.__startRescanBlockchain(forceFullRescan)
+               scanType = inputTuple[3]
+               if not scanType in ('AsNeeded', 'ForceRescan', 'ForceRebuild'):
+                  LOGERROR('Invalid scan type for rescanning: ' + scanType)
+                  scanType = 'AsNeeded'
+               self.__startRescanBlockchain(scanType)
                TimerStop('rescanBlockchain')
 
             elif cmd == BDMINPUTTYPE.WalletRecoveryScan:

@@ -107,11 +107,13 @@ public:
    virtual LogStream& operator<<(const char * str) = 0;
    virtual LogStream& operator<<(string const & str) = 0;
    virtual LogStream& operator<<(int i) = 0;
-   //virtual LogStream& operator<<(size_t i) = 0;
    virtual LogStream& operator<<(unsigned int i) = 0;
    virtual LogStream& operator<<(unsigned long long int i) = 0;
    virtual LogStream& operator<<(float f) = 0;
    virtual LogStream& operator<<(double d) = 0;
+#if !defined(_MSC_VER) && !defined(__MINGW32__)
+   virtual LogStream& operator<<(size_t i) = 0;
+#endif
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -176,12 +178,14 @@ public:
 
    LogStream& operator<<(const char * str)   { if(!noStdout_) cout << str;  if(fout_.is_open()) fout_ << str; return *this; }
    LogStream& operator<<(string const & str) { if(!noStdout_) cout << str.c_str(); if(fout_.is_open()) fout_ << str.c_str(); return *this; }
-   //LogStream& operator<<(size_t i)           { if(!noStdout_) cout << i;    if(fout_.is_open()) fout_ << i; return *this; }
    LogStream& operator<<(int i)              { if(!noStdout_) cout << i;    if(fout_.is_open()) fout_ << i; return *this; }
    LogStream& operator<<(unsigned int i)     { if(!noStdout_) cout << i;    if(fout_.is_open()) fout_ << i; return *this; }
    LogStream& operator<<(unsigned long long int i) { if(!noStdout_) cout << i;    if(fout_.is_open()) fout_ << i; return *this; }
    LogStream& operator<<(float f)            { if(!noStdout_) cout << f;    if(fout_.is_open()) fout_ << f; return *this; }
    LogStream& operator<<(double d)           { if(!noStdout_) cout << d;    if(fout_.is_open()) fout_ << d; return *this; }
+#if !defined(_MSC_VER) && !defined(__MINGW32__)
+   LogStream& operator<<(size_t i)           { if(!noStdout_) cout << i;    if(fout_.is_open()) fout_ << i; return *this; }
+#endif
 
    void FlushStreams(void) {cout.flush(); fout_.flush();}
 
@@ -200,12 +204,14 @@ class NullStream : public LogStream
 public:
    LogStream& operator<<(const char * str)   { return *this; }
    LogStream& operator<<(string const & str) { return *this; }
-   //LogStream& operator<<(size_t i)           { return *this; }
    LogStream& operator<<(int i)              { return *this; }
    LogStream& operator<<(unsigned int i)     { return *this; }
    LogStream& operator<<(unsigned long long int i)     { return *this; }
    LogStream& operator<<(float f)            { return *this; }
    LogStream& operator<<(double d)           { return *this; }
+#if !defined(_MSC_VER) && !defined(__MINGW32__)
+   LogStream& operator<<(size_t i)           { return *this; }
+#endif
 
    void FlushStreams(void) {}
 };
