@@ -191,7 +191,6 @@ if OS_WINDOWS:
    USER_HOME_DIR   = os.getenv('APPDATA')
    BTC_HOME_DIR    = os.path.join(USER_HOME_DIR, 'Bitcoin', SUBDIR)
    ARMORY_HOME_DIR = os.path.join(USER_HOME_DIR, 'Armory', SUBDIR)
-   LEVELDB_DIR     = os.path.join(ARMORY_HOME_DIR, 'databases')
    BLKFILE_DIR     = os.path.join(BTC_HOME_DIR, 'blocks')
 elif OS_LINUX:
    OS_NAME         = 'Linux'
@@ -199,7 +198,6 @@ elif OS_LINUX:
    USER_HOME_DIR   = os.getenv('HOME')
    BTC_HOME_DIR    = os.path.join(USER_HOME_DIR, '.bitcoin', SUBDIR)
    ARMORY_HOME_DIR = os.path.join(USER_HOME_DIR, '.armory', SUBDIR)
-   LEVELDB_DIR     = os.path.join(ARMORY_HOME_DIR, 'databases')
    BLKFILE_DIR     = os.path.join(BTC_HOME_DIR, 'blocks')
 elif OS_MACOSX:
    platform.mac_ver()
@@ -208,7 +206,6 @@ elif OS_MACOSX:
    USER_HOME_DIR   = os.path.expanduser('~/Library/Application Support')
    BTC_HOME_DIR    = os.path.join(USER_HOME_DIR, 'Bitcoin', SUBDIR)
    ARMORY_HOME_DIR = os.path.join(USER_HOME_DIR, 'Armory', SUBDIR)
-   LEVELDB_DIR     = os.path.join(ARMORY_HOME_DIR, 'databases')
    BLKFILE_DIR     = os.path.join(BTC_HOME_DIR, 'blocks')
 else:
    print '***Unknown operating system!'
@@ -240,12 +237,14 @@ if not CLI_OPTIONS.datadir.lower()=='default':
       ARMORY_HOME_DIR = CLI_OPTIONS.datadir
 
 # Same for the directory that holds the LevelDB databases
+LEVELDB_DIR     = os.path.join(ARMORY_HOME_DIR, 'databases')
 if not CLI_OPTIONS.leveldbDir.lower()=='default':
-   if not os.path.exists(CLI_OPTIONS.datadir):
+   if not os.path.exists(CLI_OPTIONS.leveldbDir):
       print 'Directory "%s" does not exist!  Using default!' % \
                                                 CLI_OPTIONS.leveldbDir
+      os.makedirs(CLI_OPTIONS.leveldbDir)
    else:
-      LEVELDB_DIR  = CLI_OPTIONS.datadir
+      LEVELDB_DIR  = CLI_OPTIONS.leveldbDir
 
 
 if CLI_OPTIONS.rebuild: 
@@ -297,6 +296,7 @@ if sys.argv[0]=='ArmoryQt.py':
    print '   User home-directory   :', USER_HOME_DIR
    print '   Satoshi BTC directory :', BTC_HOME_DIR
    print '   Armory home dir       :', ARMORY_HOME_DIR
+   print '   LevelDB directory     :', LEVELDB_DIR
    print '   Armory settings file  :', SETTINGS_PATH
    print '   Armory log file       :', ARMORY_LOG_FILE
 
