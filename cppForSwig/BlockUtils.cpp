@@ -1685,7 +1685,7 @@ bool BlockDataManager_LevelDB::initializeDBInterface(ARMORY_DB_TYPE dbtype,
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-bool BlockDataManager_LevelDB::detectCurrentSyncState(uint32_t replayNBytes)
+bool BlockDataManager_LevelDB::detectCurrentSyncState(bool initialLoad)
 {
 
    if(!iface_->databasesAreOpen())
@@ -1721,6 +1721,20 @@ bool BlockDataManager_LevelDB::detectCurrentSyncState(uint32_t replayNBytes)
    }
 
    // This fetches the header data from the DB
+   if(!initialLoad)
+   {
+      // If this isn't the initial load, s
+      startHeaderBlkFile_= numBlkFiles_ - 1;
+      startHeaderOffset_ = endOfLastBlockByte_;
+      startRawBlkHgt_    = startHeaderHgt_;
+      startRawBlkFile_   = numBlkFiles_ - 1;
+      startRawOffset_    = endOfLastBlockByte_;
+      startApplyHgt_     = startHeaderHgt_;
+      startApplyBlkFile_ = numBlkFiles_ - 1;
+      startApplyOffset_  = endOfLastBlockByte_;
+      return true;
+   }
+
    map<HashString, StoredHeader> sbhMap;
    headerMap_.clear();
    iface_->readAllHeaders(headerMap_, sbhMap);
@@ -1784,11 +1798,11 @@ bool BlockDataManager_LevelDB::detectCurrentSyncState(uint32_t replayNBytes)
    }
 
 
-   if(replayNBytes>0)
-   {
-      LOGERR << "TODO: implement block replay ... no replay will be used now";
-      return true;
-   }
+   //if(replayNBytes>0)
+   //{
+      //LOGERR << "TODO: implement block replay ... no replay will be used now";
+      //return true;
+   //}
 
    return true;
 
@@ -2204,8 +2218,6 @@ void BlockDataManager_LevelDB::Reset(void)
    startRawOffset_ = 0;
    startApplyBlkFile_ = 0;
    startApplyOffset_ = 0;
-
-   requestRescan_ = false;
 
 
    // These should be set after the blockchain is organized
@@ -3474,7 +3486,7 @@ void BlockDataManager_LevelDB::destroyAndResetDatabases(void)
 
 
 /////////////////////////////////////////////////////////////////////////////
-void BlockDataManager_LevelDB::rebuildDatabases(void)
+void BlockDataManager_LevelDB::doRebuildDatabases(void)
 {
    //                    Rescan  Rebuild !Fetch  Initial                    
    buildAndScanDatabases(true,   true,   true,   false);
@@ -3539,6 +3551,11 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
    if(!iface_->databasesAreOpen())
       initializeDBInterface(DBUtils.getArmoryDbType(), DBUtils.getDbPruneType());
       
+   LOGDEBUG << "Called build&scan with ("
+            << (forceRescan ? 1 : 0) << ","
+            << (forceRebuild ? 1 : 0) << ","
+            << (skipFetch ? 1 : 0) << ","
+            << (initialLoad ? 1 : 0) << ")";
    /*
    map<BinaryData, RegisteredScrAddr>::iterator iter;
    for(iter  = registeredScrAddrMap_.begin();
@@ -3549,43 +3566,54 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
    */
 
    // This method will fetch (but not delete) script histories in DB
-   detectCurrentSyncState(skipFetch);
+   if(!forceRescan)
+      detectCurrentSyncState(initialLoad);
 
-   // When we parse the entire block
+   // If we're going to rebuild, might as well destroy the DB for god measure
    if(forceRebuild || (startHeaderBlkFile_==0 && startHeaderOffset_==0))
    {
+      LOGINFO << "Clearing databases for clean build";
       forceRebuild = true;
       forceRescan = true;
       skipFetch = true;
       destroyAndResetDatabases();
    }
 
-   // If no rescan is forced, grab the SSH entries from the DB
-   if(skipFetch || forceRescan  || forceRebuild || requestRescan_)
-      requestRescan_ = false; // reset the var so it's not true on the next call
-   else
-      fetchAllRegisteredScrAddrData();
+   // If we're going to be rescanning, reset the wallets
+   if(forceRescan)
+   {
+      LOGINFO << "Resetting wallets for rescan";
+      skipFetch = true;
+      resetRegisteredWallets();
+   }
 
-   if(DBUtils.getArmoryDbType() != ARMORY_DB_SUPER)
+   // If no rescan is forced, grab the SSH entries from the DB
+   if(!skipFetch && initialLoad)
+   {
+      LOGINFO << "Fetching stored script histories from DB";
+      fetchAllRegisteredScrAddrData();
+   }
+
+   if(initialLoad && DBUtils.getArmoryDbType() != ARMORY_DB_SUPER)
    {
       // We always delete the histories, regardless of whether we read them or
       // not.  We only save them on a clean shutdown, so we know they are 
       // consistent.  Unclean shutdowns/kills will force a rescan simply by
       // the fetch call (at the top) getting nothing out of the database
-      deleteHistories();
-      startScanHgt_ = (forceRescan ? 0 : evalLowestBlockNextScan());
+      if(initialLoad)
+         deleteHistories();
+
    }
 
-   LOGINFO << startHeaderHgt_     << " HeadHgt"
-           << startRawBlkHgt_     << " RawHgt"
-           << startApplyHgt_      << " ApplyHgt";
-   LOGINFO << startHeaderBlkFile_ << " HeadBlkF"
-           << startRawBlkFile_    << " RawBlkF"
-           << startApplyBlkFile_  << " ApplyBlkF";
-   LOGINFO << startHeaderOffset_  << " HeadOffs"
-           << startRawOffset_     << " RawOffs"
-           << startApplyOffset_   << " ApplyOffs";
-
+   LOGINFO << startHeaderHgt_     << " HeadHgt    "
+           << startRawBlkHgt_     << " RawHgt     "
+           << startApplyHgt_      << " ApplyHgt   ";
+   LOGINFO << startHeaderBlkFile_ << " HeadBlkF   "
+           << startRawBlkFile_    << " RawBlkF    "
+           << startApplyBlkFile_  << " ApplyBlkF  ";
+   LOGINFO << startHeaderOffset_  << " HeadOffs   "
+           << startRawOffset_     << " RawOffs    "
+           << startApplyOffset_   << " ApplyOffs  ";
 
 
    // Remove this file
@@ -3633,14 +3661,14 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
    blocksReadSoFar_ = 0;
    bytesReadSoFar_ = 0;
 
-
    if(initialLoad || forceRebuild)
    {
+      LOGINFO << "Getting latest blocks from blk*.dat files";
       TIMER_START("dumpRawBlocksToDB");
       for(uint32_t fnum=startRawBlkFile_; fnum<numBlkFiles_; fnum++)
       {
          string blkfile = blkFileList_[fnum];
-         LOGINFO << "Reading blockchain file: " << blkfile.c_str();
+         LOGINFO << "Parsing blockchain file: " << blkfile.c_str();
    
          // The supplied offset only applies to the first blockfile we're reading.
          // After that, the offset is always zero
@@ -3665,6 +3693,7 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
    }
    else if(DBUtils.getArmoryDbType() != ARMORY_DB_SUPER)
    {
+      // We don't do this in SUPER mode because there is no rescanning 
       // For progress bar purposes, let's find the blkfile location of scanStart
       if(forceRescan)
       {
@@ -3675,25 +3704,22 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
       else
       {
          pair<uint32_t, uint32_t> blkLoc = findFileAndOffsetForHgt(startScanHgt_);
+         startScanHgt_     = evalLowestBlockNextScan();
          startScanBlkFile_ = blkLoc.first;
-         startScanOffset_ = blkLoc.second;
+         startScanOffset_  = blkLoc.second;
       }
-   
-      LOGINFO << startScanHgt_       << " ScanHgt"
-              << startScanBlkFile_   << " ScanBlkF"
-              << startScanOffset_    << " ScanOffs";
 
-      LOGINFO << "Starting initial blockchain scan from blk: " << startScanHgt_;
+      LOGINFO << "Starting scan from block height: " << startScanHgt_;
       scanDBForRegisteredTx(startScanHgt_);
-      LOGINFO << "Finished blockchain scan";
+      LOGINFO << "Finished blockchain scan in " 
+              << TIMER_READ_SEC("scanDBForRegisteredTx") << " seconds";
    }
 
    // If bare mode, we don't do
    if(DBUtils.getArmoryDbType() != ARMORY_DB_BARE)
    { 
-      // The first version of the DB engine will do super-node, where it tracks
-      // all ScrAddrs, and thus we don't even need to register any scraddrs 
-      // before running this.
+      // In any DB type other than bare, we will be walking through the blocks
+      // and updating the spentness fields and script histories
       applyBlockRangeToDB(startApplyHgt_, getTopBlockHeight()+1);
    }
 
@@ -3833,13 +3859,6 @@ void BlockDataManager_LevelDB::readRawBlocksInFile(uint32_t fnum, uint32_t foffs
 }
 
 
-
-////////////////////////////////////////////////////////////////////////////////
-void BlockDataManager_LevelDB::rescanDBForRegisteredTx(void)
-{
-   resetRegisteredWallets();
-   scanDBForRegisteredTx(0);
-}
 
 ////////////////////////////////////////////////////////////////////////////////
 void BlockDataManager_LevelDB::scanDBForRegisteredTx(uint32_t blk0,

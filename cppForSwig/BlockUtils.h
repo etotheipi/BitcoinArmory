@@ -657,7 +657,7 @@ public:
    // This figures out where we should start loading headers/rawblocks/scanning
    // The replay argument has been temporarily disable since it's not currently
    // being used, and was causing problems instead.
-   bool detectCurrentSyncState(uint32_t replayNBytes=0);
+   bool detectCurrentSyncState(bool initialLoad);
 
    /////////////////////////////////////////////////////////////////////////////
    // Get the parameters of the network as they've been set
@@ -772,7 +772,7 @@ public:
                                   bool initialLoad=false);
    void readRawBlocksInFile(uint32_t blkFileNum, uint32_t offset);
    // These are wrappers around "buildAndScanDatabases"
-   void rebuildDatabases(void);
+   void doRebuildDatabases(void);
    void doFullRescanRegardlessOfSync(void);
    void doSyncIfNeeded(void);
    void doInitialSyncOnLoad(void);
@@ -869,7 +869,6 @@ public:
                                    uint32_t blkStart=0,
                                    uint32_t blkEnd=UINT32_MAX);
 
-   void rescanDBForRegisteredTx(void);
    void scanDBForRegisteredTx(uint32_t blk0=0, uint32_t blk1=UINT32_MAX);
 
  

@@ -6059,6 +6059,230 @@ TEST_F(BlockUtilsBare, Load5Blocks_FullReorg)
    EXPECT_EQ(wlt.getFullBalance(), 160*COIN);
 }
 
+
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(BlockUtilsBare, Load5Blocks_RescanOps)
+{
+   LOGENABLESTDOUT();
+   ScrAddrObj * scrobj;
+   BtcWallet wlt;
+   wlt.addScrAddress(scrAddrA_);
+   wlt.addScrAddress(scrAddrB_);
+   wlt.addScrAddress(scrAddrC_);
+   TheBDM.registerWallet(&wlt);
+
+   // Regular sync
+   TheBDM.doInitialSyncOnLoad();
+   TheBDM.scanBlockchainForTx(wlt);
+
+   scrobj = &wlt.getScrAddrObjByKey(scrAddrA_);
+   EXPECT_EQ(scrobj->getFullBalance(),100*COIN);
+   scrobj = &wlt.getScrAddrObjByKey(scrAddrB_);
+   EXPECT_EQ(scrobj->getFullBalance(),  0*COIN);
+   scrobj = &wlt.getScrAddrObjByKey(scrAddrC_);
+   EXPECT_EQ(scrobj->getFullBalance(), 50*COIN);
+
+   // Rebuild on-the-fly
+   TheBDM.doRebuildDatabases();
+   TheBDM.scanBlockchainForTx(wlt);
+
+   scrobj = &wlt.getScrAddrObjByKey(scrAddrA_);
+   EXPECT_EQ(scrobj->getFullBalance(),100*COIN);
+   scrobj = &wlt.getScrAddrObjByKey(scrAddrB_);
+   EXPECT_EQ(scrobj->getFullBalance(),  0*COIN);
+   scrobj = &wlt.getScrAddrObjByKey(scrAddrC_);
+   EXPECT_EQ(scrobj->getFullBalance(), 50*COIN);
+
+   // Rebuild on-the-fly
+   TheBDM.doFullRescanRegardlessOfSync();
+   TheBDM.scanBlockchainForTx(wlt);
+
+   scrobj = &wlt.getScrAddrObjByKey(scrAddrA_);
+   EXPECT_EQ(scrobj->getFullBalance(),100*COIN);
+   scrobj = &wlt.getScrAddrObjByKey(scrAddrB_);
+   EXPECT_EQ(scrobj->getFullBalance(),  0*COIN);
+   scrobj = &wlt.getScrAddrObjByKey(scrAddrC_);
+   EXPECT_EQ(scrobj->getFullBalance(), 50*COIN);
+   
+
+   TheBDM.doSyncIfNeeded();
+   TheBDM.scanBlockchainForTx(wlt);
+
+   scrobj = &wlt.getScrAddrObjByKey(scrAddrA_);
+   EXPECT_EQ(scrobj->getFullBalance(),100*COIN);
+   scrobj = &wlt.getScrAddrObjByKey(scrAddrB_);
+   EXPECT_EQ(scrobj->getFullBalance(),  0*COIN);
+   scrobj = &wlt.getScrAddrObjByKey(scrAddrC_);
+   EXPECT_EQ(scrobj->getFullBalance(), 50*COIN);
+
+   // Now add a new addr (with balance) and rescan
+
+   //scrobj = &wlt.getScrAddrObjByKey(scrAddrD_);
+   //EXPECT_EQ(scrobj->getFullBalance(),100*COIN);  // hasn't been scanned yet
+
+}
+
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(BlockUtilsBare, Load5Blocks_RescanEmptyDB)
+{
+   LOGENABLESTDOUT();
+   ScrAddrObj * scrobj;
+   BtcWallet wlt;
+   wlt.addScrAddress(scrAddrA_);
+   wlt.addScrAddress(scrAddrB_);
+   wlt.addScrAddress(scrAddrC_);
+   TheBDM.registerWallet(&wlt);
+
+   TheBDM.doInitialSyncOnLoad_Rescan();
+   TheBDM.scanBlockchainForTx(wlt);
+
+   scrobj = &wlt.getScrAddrObjByKey(scrAddrA_);
+   EXPECT_EQ(scrobj->getFullBalance(),100*COIN);
+   scrobj = &wlt.getScrAddrObjByKey(scrAddrB_);
+   EXPECT_EQ(scrobj->getFullBalance(),  0*COIN);
+   scrobj = &wlt.getScrAddrObjByKey(scrAddrC_);
+   EXPECT_EQ(scrobj->getFullBalance(), 50*COIN);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(BlockUtilsBare, Load5Blocks_RebuildEmptyDB)
+{
+   LOGENABLESTDOUT();
+   ScrAddrObj * scrobj;
+   BtcWallet wlt;
+   wlt.addScrAddress(scrAddrA_);
+   wlt.addScrAddress(scrAddrB_);
+   wlt.addScrAddress(scrAddrC_);
+   TheBDM.registerWallet(&wlt);
+
+   ///////////////////////////////////////////
+   TheBDM.doInitialSyncOnLoad_Rebuild();
+   ///////////////////////////////////////////
+
+   TheBDM.scanBlockchainForTx(wlt);
+
+   scrobj = &wlt.getScrAddrObjByKey(scrAddrA_);
+   EXPECT_EQ(scrobj->getFullBalance(),100*COIN);
+   scrobj = &wlt.getScrAddrObjByKey(scrAddrB_);
+   EXPECT_EQ(scrobj->getFullBalance(),  0*COIN);
+   scrobj = &wlt.getScrAddrObjByKey(scrAddrC_);
+   EXPECT_EQ(scrobj->getFullBalance(), 50*COIN);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(BlockUtilsBare, Load5Blocks_ForceFullRescan)
+{
+   LOGENABLESTDOUT();
+   ScrAddrObj * scrobj;
+   BtcWallet wlt;
+   wlt.addScrAddress(scrAddrA_);
+   wlt.addScrAddress(scrAddrB_);
+   wlt.addScrAddress(scrAddrC_);
+   TheBDM.registerWallet(&wlt);
+
+   // This is just a regular load
+   TheBDM.doInitialSyncOnLoad();
+   TheBDM.scanBlockchainForTx(wlt);
+
+   wlt.addScrAddress(scrAddrD_);
+
+   scrobj = &wlt.getScrAddrObjByKey(scrAddrA_);
+   EXPECT_EQ(scrobj->getFullBalance(),100*COIN);
+   scrobj = &wlt.getScrAddrObjByKey(scrAddrB_);
+   EXPECT_EQ(scrobj->getFullBalance(),  0*COIN);
+   scrobj = &wlt.getScrAddrObjByKey(scrAddrC_);
+   EXPECT_EQ(scrobj->getFullBalance(), 50*COIN);
+   scrobj = &wlt.getScrAddrObjByKey(scrAddrD_);
+   EXPECT_EQ(scrobj->getFullBalance(),  0*COIN);
+
+   ///////////////////////////////////////////
+   TheBDM.doFullRescanRegardlessOfSync();
+   ///////////////////////////////////////////
+   
+   TheBDM.scanBlockchainForTx(wlt);
+
+   scrobj = &wlt.getScrAddrObjByKey(scrAddrA_);
+   EXPECT_EQ(scrobj->getFullBalance(),100*COIN);
+   scrobj = &wlt.getScrAddrObjByKey(scrAddrB_);
+   EXPECT_EQ(scrobj->getFullBalance(),  0*COIN);
+   scrobj = &wlt.getScrAddrObjByKey(scrAddrC_);
+   EXPECT_EQ(scrobj->getFullBalance(), 50*COIN);
+   scrobj = &wlt.getScrAddrObjByKey(scrAddrD_);
+   EXPECT_EQ(scrobj->getFullBalance(),100*COIN);
+
+   ///////////////////////////////////////////
+   TheBDM.doRebuildDatabases();
+   ///////////////////////////////////////////
+   
+   TheBDM.scanBlockchainForTx(wlt);
+
+   scrobj = &wlt.getScrAddrObjByKey(scrAddrA_);
+   EXPECT_EQ(scrobj->getFullBalance(),100*COIN);
+   scrobj = &wlt.getScrAddrObjByKey(scrAddrB_);
+   EXPECT_EQ(scrobj->getFullBalance(),  0*COIN);
+   scrobj = &wlt.getScrAddrObjByKey(scrAddrC_);
+   EXPECT_EQ(scrobj->getFullBalance(), 50*COIN);
+   scrobj = &wlt.getScrAddrObjByKey(scrAddrD_);
+   EXPECT_EQ(scrobj->getFullBalance(),100*COIN);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(BlockUtilsBare, Load5Blocks_ScanWhatIsNeeded)
+{
+   LOGENABLESTDOUT();
+   ScrAddrObj * scrobj;
+   BtcWallet wlt;
+   wlt.addScrAddress(scrAddrA_);
+   wlt.addScrAddress(scrAddrB_);
+   wlt.addScrAddress(scrAddrC_);
+   TheBDM.registerWallet(&wlt);
+
+   // This is just a regular load
+   TheBDM.doInitialSyncOnLoad();
+   TheBDM.scanBlockchainForTx(wlt);
+
+   wlt.addScrAddress(scrAddrD_);
+
+   scrobj = &wlt.getScrAddrObjByKey(scrAddrA_);
+   EXPECT_EQ(scrobj->getFullBalance(),100*COIN);
+   scrobj = &wlt.getScrAddrObjByKey(scrAddrB_);
+   EXPECT_EQ(scrobj->getFullBalance(),  0*COIN);
+   scrobj = &wlt.getScrAddrObjByKey(scrAddrC_);
+   EXPECT_EQ(scrobj->getFullBalance(), 50*COIN);
+   scrobj = &wlt.getScrAddrObjByKey(scrAddrD_);
+   EXPECT_EQ(scrobj->getFullBalance(),  0*COIN);
+
+   ///////////////////////////////////////////
+   TheBDM.doSyncIfNeeded();
+   ///////////////////////////////////////////
+
+   TheBDM.scanBlockchainForTx(wlt);
+
+   scrobj = &wlt.getScrAddrObjByKey(scrAddrA_);
+   EXPECT_EQ(scrobj->getFullBalance(),100*COIN);
+   scrobj = &wlt.getScrAddrObjByKey(scrAddrB_);
+   EXPECT_EQ(scrobj->getFullBalance(),  0*COIN);
+   scrobj = &wlt.getScrAddrObjByKey(scrAddrC_);
+   EXPECT_EQ(scrobj->getFullBalance(), 50*COIN);
+   scrobj = &wlt.getScrAddrObjByKey(scrAddrD_);
+   EXPECT_EQ(scrobj->getFullBalance(),100*COIN);
+
+   ///////////////////////////////////////////
+   TheBDM.doSyncIfNeeded();
+   ///////////////////////////////////////////
+
+   TheBDM.scanBlockchainForTx(wlt);
+
+   scrobj = &wlt.getScrAddrObjByKey(scrAddrA_);
+   EXPECT_EQ(scrobj->getFullBalance(),100*COIN);
+   scrobj = &wlt.getScrAddrObjByKey(scrAddrB_);
+   EXPECT_EQ(scrobj->getFullBalance(),  0*COIN);
+   scrobj = &wlt.getScrAddrObjByKey(scrAddrC_);
+   EXPECT_EQ(scrobj->getFullBalance(), 50*COIN);
+   scrobj = &wlt.getScrAddrObjByKey(scrAddrD_);
+   EXPECT_EQ(scrobj->getFullBalance(),100*COIN);
+}
+
 class LoadTestnetBareTest : public ::testing::Test
 {
 protected:
