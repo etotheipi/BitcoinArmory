@@ -1,0 +1,6 @@
+1.You must define LEVELDB_DLL in your project if you use leveldb as a dll.
+2.If your windows version is lower than 6.0(windows vista),you should undefine the USE_VISTA_API micro in port_win32.h.
+3.Leveldbwin may be not stable now ,so it is not suggested to use leveldbwin in your project.
+4.Modification in leveldb code :
+	1) including path in some headers.
+	2) delete some useless platform files.

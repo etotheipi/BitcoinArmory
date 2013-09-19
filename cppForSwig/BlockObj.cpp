@@ -1151,8 +1151,8 @@ uint32_t UnspentTxOut::updateNumConfirm(uint32_t currBlkNum)
 bool UnspentTxOut::CompareNaive(UnspentTxOut const & uto1, 
                                 UnspentTxOut const & uto2)
 {
-   float val1 = uto1.getValue();
-   float val2 = uto2.getValue();
+   float val1 = (float)uto1.getValue();
+   float val2 = (float)uto2.getValue();
    return (val1*uto1.numConfirm_ < val2*uto2.numConfirm_);
 }
 

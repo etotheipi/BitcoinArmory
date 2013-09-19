@@ -1862,7 +1862,7 @@ vector<BinaryData> BlockDataManager_LevelDB::getFirstHashOfEachBlkFile(void) con
    {
       ifstream is(blkFileList_[f].c_str(), ios::in|ios::binary);
       is.seekg(0, ios::end);
-      size_t filesize = is.tellg();
+      size_t filesize = (size_t)is.tellg();
       is.seekg(0, ios::beg);
       if(filesize < 88)
       {
@@ -1975,7 +1975,7 @@ pair<uint32_t, uint32_t> BlockDataManager_LevelDB::findFileAndOffsetForHgt(
 
    pair<uint32_t, uint32_t> outPair;
    int32_t blkfile;
-   for(blkfile = 0; blkfile < firstHashes->size(); blkfile++)
+   for(blkfile = 0; blkfile < (int32_t)firstHashes->size(); blkfile++)
    {
       BlockHeader * bhptr = getHeaderByHash((*firstHashes)[blkfile]);
       if(bhptr == NULL)
@@ -1986,7 +1986,7 @@ pair<uint32_t, uint32_t> BlockDataManager_LevelDB::findFileAndOffsetForHgt(
    }
 
    blkfile = max(blkfile-1, 0);
-   if(blkfile >= numBlkFiles_)
+   if(blkfile >= (int32_t)numBlkFiles_)
    {
       LOGERR << "Blkfile number out of range! (" << blkfile << ")";
       return outPair;
@@ -2215,7 +2215,7 @@ void BlockDataManager_LevelDB::Reset(void)
    armoryHomeDir_ = string("");
    blkFileDir_ = string("");
    blkFileList_.clear();
-   numBlkFiles_ = UINT64_MAX;
+   numBlkFiles_ = UINT32_MAX;
 
    dbUpdateSize_ = 0;
    endOfLastBlockByte_ = 0;
@@ -3089,7 +3089,7 @@ vector<UnspentTxOut> BlockDataManager_LevelDB::getUTXOVectForHash160(
       return outVect;
 
 
-   size_t numTxo = ssh.totalTxioCount_;
+   size_t numTxo = (size_t)ssh.totalTxioCount_;
    outVect.reserve(numTxo);
    map<BinaryData, StoredSubHistory>::iterator iterSubSSH;
    map<BinaryData, TxIOPair>::iterator iterTxio;
@@ -3143,7 +3143,7 @@ vector<TxIOPair> BlockDataManager_LevelDB::getHistoryForScrAddr(
    if(!ssh.isInitialized())
       return outVect;
 
-   outVect.reserve(ssh.totalTxioCount_);
+   outVect.reserve((size_t)ssh.totalTxioCount_);
    map<BinaryData, StoredSubHistory>::iterator iterSubSSH;
    map<BinaryData, TxIOPair>::iterator iterTxio;
    for(iterSubSSH  = ssh.subHistMap_.begin();
@@ -3246,7 +3246,7 @@ vector<TxRef*> BlockDataManager_LevelDB::findAllNonStdTx(void)
 // to be ported to Android), may not be able to do even that, and may have
 // to read and process the headers in batches.  
 bool BlockDataManager_LevelDB::extractHeadersInBlkFile(uint32_t fnum, 
-                                                       uint32_t startOffset)
+                                                       uint64_t startOffset)
 {
    SCOPED_TIMER("extractHeadersInBlkFile");
    string filename = blkFileList_[fnum];
@@ -3300,7 +3300,7 @@ bool BlockDataManager_LevelDB::extractHeadersInBlkFile(uint32_t fnum,
       // Create a reader for the entire block, grab header, skip rest
       BinaryRefReader brr(rawHead);
       bhInputPair.second.unserialize(brr);
-      uint64_t nTx = brr.get_var_int();
+      uint32_t nTx = (uint32_t)brr.get_var_int();
       bhInputPair.first = bhInputPair.second.getThisHash();
       bhInsResult = headerMap_.insert(bhInputPair);
       if(!bhInsResult.second)
@@ -3368,7 +3368,7 @@ uint32_t BlockDataManager_LevelDB::detectAllBlkFiles(void)
 
 /////////////////////////////////////////////////////////////////////////////
 bool BlockDataManager_LevelDB::processNewHeadersInBlkFiles(uint32_t fnumStart,
-                                                           uint32_t startOffset)
+                                                           uint64_t startOffset)
 {
    SCOPED_TIMER("processNewHeadersInBlkFiles");
 
@@ -3377,7 +3377,7 @@ bool BlockDataManager_LevelDB::processNewHeadersInBlkFiles(uint32_t fnumStart,
    // In first file, start at supplied offset;  start at beginning for others
    for(uint32_t fnum=fnumStart; fnum<numBlkFiles_; fnum++)
    {
-      uint32_t useOffset = (fnum==fnumStart ? startOffset : 0);
+      uint64_t useOffset = (fnum==fnumStart ? startOffset : 0);
       extractHeadersInBlkFile(fnum, useOffset);
    }
 
@@ -4084,7 +4084,7 @@ uint32_t BlockDataManager_LevelDB::readBlkFileUpdate(void)
    bool prevRegisteredUpToDate = (allScannedUpToBlk_==nextBlk);
    
    // Pull in the remaining data in old/curr blkfile, and beginning of new
-   BinaryData newBlockDataRaw(currBlkBytesToRead + nextBlkBytesToRead);
+   BinaryData newBlockDataRaw((size_t)(currBlkBytesToRead+nextBlkBytesToRead));
 
    // Seek to the beginning of the new data and read it
    if(currBlkBytesToRead>0)
@@ -4124,11 +4124,11 @@ uint32_t BlockDataManager_LevelDB::readBlkFileUpdate(void)
       // We concatenated all data together, even if across two files
       // Check which file data belongs to and set FileDataPtr appropriately
       uint32_t useFileIndex0Idx = numBlkFiles_-1;
-      uint32_t blockHeaderOffset = endOfLastBlockByte_ + 8;
+      uint32_t bhOffset = (uint32_t)(endOfLastBlockByte_ + 8);
       if(brr.getPosition() >= currBlkBytesToRead)
       {
          useFileIndex0Idx = numBlkFiles_;
-         blockHeaderOffset = brr.getPosition() - currBlkBytesToRead + 8;
+         bhOffset = (uint32_t)(brr.getPosition() - currBlkBytesToRead + 8);
       }
       
 
@@ -4142,7 +4142,7 @@ uint32_t BlockDataManager_LevelDB::readBlkFileUpdate(void)
 
       blockAddResults = addNewBlockData(brr, 
                                         useFileIndex0Idx,
-                                        blockHeaderOffset,
+                                        bhOffset,
                                         nextBlockSize);
 
       bool blockAddSucceeded = blockAddResults[ADD_BLOCK_SUCCEEDED    ];
@@ -4965,7 +4965,7 @@ void BlockDataManager_LevelDB::readZeroConfFile(string zcFilename)
       return;
 
    ifstream zcFile(zcFilename_.c_str(),  ios::in | ios::binary);
-   BinaryData zcData(filesize);
+   BinaryData zcData((size_t)filesize);
    zcFile.read((char*)zcData.getPtr(), filesize);
    zcFile.close();
 
@@ -4977,7 +4977,7 @@ void BlockDataManager_LevelDB::readZeroConfFile(string zcFilename)
       uint32_t txSize = BtcUtils::TxCalcLength(brr.getCurrPtr());
       BinaryData rawtx(txSize);
       brr.get_BinaryData(rawtx.getPtr(), txSize);
-      addNewZeroConfTx(rawtx, txTime, false);
+      addNewZeroConfTx(rawtx, (uint32_t)txTime, false);
    }
    purgeZeroConfPool();
 }
@@ -4992,8 +4992,8 @@ void BlockDataManager_LevelDB::disableZeroConf(string zcFilename)
 
 ////////////////////////////////////////////////////////////////////////////////
 bool BlockDataManager_LevelDB::addNewZeroConfTx(BinaryData const & rawTx, 
-                                                 uint64_t txtime,
-                                                 bool writeToFile)
+                                                uint32_t txtime,
+                                                bool writeToFile)
 {
    SCOPED_TIMER("addNewZeroConfTx");
    // TODO:  We should do some kind of verification check on this tx
@@ -5002,7 +5002,7 @@ bool BlockDataManager_LevelDB::addNewZeroConfTx(BinaryData const & rawTx,
    //        us and the network and doing the checking for us.
 
    if(txtime==0)
-      txtime = time(NULL);
+      txtime = (uint32_t)time(NULL);
 
    HashString txHash = BtcUtils::getHash256(rawTx);
     
@@ -5109,7 +5109,7 @@ void BlockDataManager_LevelDB::rescanWalletZeroConf(BtcWallet & wlt)
       if( !isTxFinal(zcd.txobj_) )
          continue;
 
-      wlt.scanTx(zcd.txobj_, 0, zcd.txtime_, UINT32_MAX);
+      wlt.scanTx(zcd.txobj_, 0, (uint32_t)zcd.txtime_, UINT32_MAX);
    }
 }
 

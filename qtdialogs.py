@@ -13170,6 +13170,11 @@ class DlgSimpleBackup(ArmoryDialog):
          of these events.   If you've ever forgotten a password or had
          a hardware failure, make a backup! """))
 
+      ### Test backup option
+      lblTest = QRichLabel( tr(""" 
+         Test a previously-made backup to make sure it works."""))
+      btnTest = QPushButton( tr('Test a Paper Backup'))
+
       ### Paper
       lblPaper = QRichLabel( tr(""" 
          Use a printer or pen-and-paper to write down your wallet "seed." """))
@@ -13177,8 +13182,8 @@ class DlgSimpleBackup(ArmoryDialog):
 
       ### Digital
       lblDigital = QRichLabel( tr("""
-         Create an unencrypted copy of your wallet file (including imported 
-         addresses)."""))
+         Create an unencrypted copy of your wallet file, including imported 
+         addresses."""))
       btnDigital = QPushButton(tr('Make Digital Backup'))
 
       ### Other
@@ -13577,10 +13582,12 @@ class DlgFragBackup(ArmoryDialog):
 
       if doMask:
          qmsg += tr("""
-            <b><u><font color="%s">Important</font</u></b>:  The fragment was encrypted with the 
+            <b><u><font color="%s">Important</font</u></b>:  
+            The fragment was encrypted with the 
             SecurePrint\xe2\x84\xa2 encryption code.  You must keep this
-            code with the backup in order to use it!  The code is:
-            <br><br> <font color="%s" size=5>%s</font>""") % \
+            code with the backup in order to use it!  The code <u>is</u>
+            case-sensitive!  
+            <br><br> <font color="%s" size=5><b>%s</b></font>""") % \
             (htmlColor('TextWarn'), htmlColor('TextBlue'), self.randpass.toBinStr())
 
       QMessageBox.information(self, 'Success', qmsg, QMessageBox.Ok)

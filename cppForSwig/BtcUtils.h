@@ -424,7 +424,10 @@ public:
    {
       list<bool> out;
       for(uint32_t i=0; i<nBits; i++)
-         out.push_back(bits[i/8] & (1 << (7-i%8)));
+      {
+         uint8_t bit = bits[i/8] & (1 << (7-i%8));
+         out.push_back(bit>0);
+      }
       return out;
    }
 
@@ -1400,13 +1403,13 @@ public:
    // Simple method for copying files (works in all OS, probably not efficient)
    static bool copyFile(string src, string dst, uint32_t nbytes=UINT32_MAX)
    {
-      uint32_t srcsz = GetFileSize(src);
+      uint64_t srcsz = GetFileSize(src);
       if(srcsz == FILE_DOES_NOT_EXIST)
          return false;
 
-      srcsz = min(srcsz, nbytes);
+      srcsz = min((uint32_t)srcsz, nbytes);
    
-      BinaryData temp(srcsz);
+      BinaryData temp((size_t)srcsz);
       ifstream is(src.c_str(), ios::in  | ios::binary);
       is.read((char*)temp.getPtr(), srcsz);
       is.close();
@@ -1421,11 +1424,11 @@ public:
    // Simple method for copying files (works in all OS, probably not efficient)
    static bool appendFile(string src, string dst)
    {
-      uint32_t srcsz = GetFileSize(src);
+      uint64_t srcsz = GetFileSize(src);
       if(srcsz == FILE_DOES_NOT_EXIST)
          return false;
    
-      BinaryData temp(srcsz);
+      BinaryData temp((size_t)srcsz);
       ifstream is(src.c_str(), ios::in  | ios::binary);
       is.read((char*)temp.getPtr(), srcsz);
       is.close();

@@ -20,12 +20,14 @@
     <ConfigurationType>StaticLibrary</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
     <CharacterSet>Unicode</CharacterSet>
+    <PlatformToolset>v110</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
     <ConfigurationType>StaticLibrary</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
+    <PlatformToolset>v110</PlatformToolset>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="ExtensionSettings">
@@ -39,9 +41,12 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <LinkIncremental>true</LinkIncremental>
+    <OutDir>$(SolutionDir)libs\</OutDir>
+    <TargetName>$(ProjectName)_d</TargetName>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
+    <OutDir>$(SolutionDir)libs\</OutDir>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -76,6 +81,10 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
     </Link>
+    <PostBuildEvent>
+      <Command>
+      </Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="3way.cpp" />
@@ -141,8 +150,6 @@
     <ClCompile Include="integer.cpp" />
     <ClCompile Include="iterhash.cpp" />
     <ClCompile Include="luc.cpp" />
-    <ClCompile Include="mars.cpp" />
-    <ClCompile Include="marss.cpp" />
     <ClCompile Include="md2.cpp" />
     <ClCompile Include="md4.cpp" />
     <ClCompile Include="md5.cpp" />
@@ -154,7 +161,6 @@
     <ClCompile Include="network.cpp" />
     <ClCompile Include="oaep.cpp" />
     <ClCompile Include="osrng.cpp" />
-    <ClCompile Include="panama.cpp" />
     <ClCompile Include="pch.cpp" />
     <ClCompile Include="pkcspad.cpp" />
     <ClCompile Include="polynomi.cpp" />
@@ -167,7 +173,6 @@
     <ClCompile Include="rc5.cpp" />
     <ClCompile Include="rc6.cpp" />
     <ClCompile Include="rdtables.cpp" />
-    <ClCompile Include="regtest.cpp" />
     <ClCompile Include="rijndael.cpp" />
     <ClCompile Include="ripemd.cpp" />
     <ClCompile Include="rng.cpp" />
@@ -197,9 +202,6 @@
     <ClCompile Include="trdlocal.cpp" />
     <ClCompile Include="ttmac.cpp" />
     <ClCompile Include="twofish.cpp" />
-    <ClCompile Include="validat1.cpp" />
-    <ClCompile Include="validat2.cpp" />
-    <ClCompile Include="validat3.cpp" />
     <ClCompile Include="vmac.cpp" />
     <ClCompile Include="wait.cpp" />
     <ClCompile Include="wake.cpp" />
@@ -273,7 +275,6 @@
     <ClInclude Include="iterhash.h" />
     <ClInclude Include="lubyrack.h" />
     <ClInclude Include="luc.h" />
-    <ClInclude Include="mars.h" />
     <ClInclude Include="md2.h" />
     <ClInclude Include="md4.h" />
     <ClInclude Include="md5.h" />
@@ -290,7 +291,6 @@
     <ClInclude Include="oaep.h" />
     <ClInclude Include="oids.h" />
     <ClInclude Include="osrng.h" />
-    <ClInclude Include="panama.h" />
     <ClInclude Include="pch.h" />
     <ClInclude Include="pkcspad.h" />
     <ClInclude Include="polynomi.h" />

@@ -129,7 +129,7 @@ public:
                uint32_t blkNum, 
                BinaryData const & txhash, 
                uint32_t idx,
-               uint64_t txtime=0,
+               uint32_t txtime=0,
                bool isCoinbase=false,
                bool isToSelf=false,
                bool isChange=false) :
@@ -175,7 +175,7 @@ private:
    uint32_t         blockNum_;
    BinaryData       txHash_;
    uint32_t         index_;  // either a tx index, txout index or txin index
-   uint64_t         txTime_;
+   uint32_t         txTime_;
    bool             isValid_;
    bool             isCoinbase_;
    bool             isSentToSelf_;
@@ -461,7 +461,7 @@ private:
 struct ZeroConfData
 {
    Tx            txobj_;   
-   uint64_t      txtime_;
+   uint32_t      txtime_;
    list<BinaryData>::iterator iter_;
 };
 
@@ -528,7 +528,7 @@ private:
    vector<string>                     blkFileList_;
    vector<uint64_t>                   blkFileSizes_; // bytes before this blk
    vector<uint64_t>                   blkFileCumul_;
-   uint64_t                           numBlkFiles_;
+   uint32_t                           numBlkFiles_;
    uint64_t                           endOfLastBlockByte_;
 
    // These files are for signaling to python code, which had to be hacked 
@@ -669,7 +669,7 @@ public:
    // These don't actually work while scanning in another thread!? 
    // The getLoadProgress* methods don't seem to update until after scan done
    uint64_t getTotalBlockchainBytes(void) const {return totalBlockchainBytes_;}
-   uint16_t getTotalBlkFiles(void)        const {return numBlkFiles_;}
+   uint32_t getTotalBlkFiles(void)        const {return numBlkFiles_;}
    uint64_t getLoadProgressBytes(void)    const {return bytesReadSoFar_;}
    uint32_t getLoadProgressBlocks(void)   const {return blocksReadSoFar_;}
    uint16_t getLoadProgressFiles(void)    const {return filesReadSoFar_;}
@@ -761,9 +761,9 @@ public:
 
    // These are the high-level methods for reading block files, and indexing
    // the blockfile data.
-   bool     extractHeadersInBlkFile(uint32_t fnum, uint32_t offset=0);
+   bool     extractHeadersInBlkFile(uint32_t fnum, uint64_t offset=0);
    uint32_t detectAllBlkFiles(void);
-   bool     processNewHeadersInBlkFiles(uint32_t fnumStart=0, uint32_t offset=0);
+   bool     processNewHeadersInBlkFiles(uint32_t fnumStart=0, uint64_t offset=0);
    //bool     processHeadersInFile(string filename);
    void     destroyAndResetDatabases(void);
    void     buildAndScanDatabases(bool forceRescan=false, 
@@ -885,7 +885,7 @@ public:
    void enableZeroConf(string);
    void disableZeroConf(string);
    void readZeroConfFile(string);
-   bool addNewZeroConfTx(BinaryData const & rawTx, uint64_t txtime, bool writeToFile);
+   bool addNewZeroConfTx(BinaryData const & rawTx, uint32_t txtime, bool writeToFile);
    void purgeZeroConfPool(void);
    void pprintZeroConfPool(void);
    void rewriteZeroConfFile(void);

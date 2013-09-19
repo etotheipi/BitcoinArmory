@@ -84,7 +84,7 @@ void InterfaceToLDB::init()
       dbs_[i] = NULL;
       dbPaths_[i] = string("");
       batchStarts_[i] = 0;
-      dbFilterPolicy_[i] = NULL;
+      //dbFilterPolicy_[i] = NULL;
    }
 }
 
@@ -124,7 +124,6 @@ bool InterfaceToLDB::openDatabases(string basedir,
    SCOPED_TIMER("openDatabases");
 
    baseDir_ = basedir;
-   char dbname[1024];
 
    stringstream head;
    head << baseDir_ << "/" << "leveldb_headers";
@@ -255,11 +254,11 @@ void InterfaceToLDB::closeDatabases(void)
          batches_[db] = NULL;
       }
 
-      if(dbFilterPolicy_[db] != NULL)
-      {
-         delete dbFilterPolicy_[db];
-         dbFilterPolicy_[db] = NULL;
-      }
+      //if(dbFilterPolicy_[db] != NULL)
+      //{
+         //delete dbFilterPolicy_[db];
+         //dbFilterPolicy_[db] = NULL;
+      //}
    }
    dbIsOpen_ = false;
 
@@ -1124,7 +1123,7 @@ uint8_t InterfaceToLDB::getValidDupIDForHeight_fromDB(uint32_t blockHgt)
    {
       uint8_t dup8 = brrHgts.get_uint8_t(); 
       BinaryDataRef thisHash = brrHgts.get_BinaryDataRef(lenEntry-1);
-      if(dup8 & 0x80 > 0)
+      if((dup8 & 0x80) > 0)
          return (dup8 & 0x7f);
    }
 
@@ -1841,7 +1840,7 @@ TxIn InterfaceToLDB::getTxInCopy( BinaryData ldbKey6B, uint16_t txInIdx)
       bool isFragged = txSer==TX_SER_FRAGGED;
       vector<uint32_t> offsetsIn;
       BtcUtils::StoredTxCalcLength(brr.getCurrPtr(), isFragged, &offsetsIn);
-      if(offsetsIn.size()-1 < txInIdx+1) // offsets.size() is numTxIn+1
+      if((uint32_t)(offsetsIn.size()-1) < (uint32_t)(txInIdx+1))
       {
          LOGERR << "Requested TxIn with index greater than numTxIn";
          return TxIn();
@@ -1973,7 +1972,7 @@ bool InterfaceToLDB::getStoredTx_byHash( StoredTx & stx,
    }
 
    BinaryRefReader brrHints(hintsDBVal);
-   uint32_t numHints = brrHints.get_var_int();
+   uint32_t numHints = (uint32_t)brrHints.get_var_int();
    uint32_t height;
    uint8_t  dup;
    uint16_t txIdx;
