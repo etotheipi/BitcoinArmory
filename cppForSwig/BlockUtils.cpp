@@ -1685,7 +1685,9 @@ bool BlockDataManager_LevelDB::initializeDBInterface(ARMORY_DB_TYPE dbtype,
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-bool BlockDataManager_LevelDB::detectCurrentSyncState(bool initialLoad)
+bool BlockDataManager_LevelDB::detectCurrentSyncState(
+                                          bool forceRebuild,
+                                          bool initialLoad)
 {
 
    if(!iface_->databasesAreOpen())
@@ -1704,26 +1706,35 @@ bool BlockDataManager_LevelDB::detectCurrentSyncState(bool initialLoad)
    startRawBlkHgt_ -= (startRawBlkHgt_==1 ? 1 : 0);
    startApplyHgt_  -= (startApplyHgt_ ==1 ? 1 : 0);
 
-   LOGINFO << "Top block in HEADERS DB:  " << startHeaderHgt_;
-   LOGINFO << "Top block in BLKDATA DB:  " << startRawBlkHgt_;
-   LOGINFO << "Applied blocks up to hgt: " << startApplyHgt_;
+   LOGINFO << "Current Top block in HEADERS DB:  " << startHeaderHgt_;
+   LOGINFO << "Current Top block in BLKDATA DB:  " << startRawBlkHgt_;
+   LOGINFO << "Current Applied blocks up to hgt: " << startApplyHgt_;
 
-   if(startHeaderHgt_ == 0)
+   if(startHeaderHgt_ == 0 || forceRebuild)
    {
-      LOGINFO << "DB is empty, must create new DB and build";
+      if(forceRebuild)
+         LOGINFO << "Ignore existing sync state, rebuilding database";
+
+      startHeaderHgt_     = 0;
       startHeaderBlkFile_ = 0;
-      startHeaderOffset_ = 0;
+      startHeaderOffset_  = 0;
+      startRawBlkHgt_     = 0;
       startRawBlkFile_    = 0;
-      startRawOffset_    = 0;
+      startRawOffset_     = 0;
+      startApplyHgt_      = 0;
       startApplyBlkFile_  = 0;
-      startApplyOffset_  = 0;
-      return false;
+      startApplyOffset_   = 0;
+      headerMap_.clear();
+      topBlockPtr_ = NULL;
+      genBlockPtr_ = NULL;
+      lastTopBlock_ = UINT32_MAX;;
+      return true;
    }
 
    // This fetches the header data from the DB
    if(!initialLoad)
    {
-      // If this isn't the initial load, s
+      // If this isn't the initial load, 
       startHeaderBlkFile_= numBlkFiles_ - 1;
       startHeaderOffset_ = endOfLastBlockByte_;
       startRawBlkHgt_    = startHeaderHgt_;
@@ -3488,43 +3499,49 @@ void BlockDataManager_LevelDB::destroyAndResetDatabases(void)
 /////////////////////////////////////////////////////////////////////////////
 void BlockDataManager_LevelDB::doRebuildDatabases(void)
 {
-   //                    Rescan  Rebuild !Fetch  Initial                    
+   LOGINFO << "Executing: doRebuildDatabases";
    buildAndScanDatabases(true,   true,   true,   false);
+   //                    Rescan  Rebuild !Fetch  Initial                    
 }
 
 /////////////////////////////////////////////////////////////////////////////
 void BlockDataManager_LevelDB::doFullRescanRegardlessOfSync(void)
 {
-   //                    Rescan  Rebuild !Fetch  Initial                    
+   LOGINFO << "Executing: doFullRescanRegardlessOfSync";
    buildAndScanDatabases(true,   false,  true,   false);
+   //                    Rescan  Rebuild !Fetch  Initial                    
 }
 
 /////////////////////////////////////////////////////////////////////////////
 void BlockDataManager_LevelDB::doSyncIfNeeded(void)
 {
-   //                    Rescan  Rebuild !Fetch  Initial                    
+   LOGINFO << "Executing: doSyncIfNeeded";
    buildAndScanDatabases(false,  false,  true,   false);
+   //                    Rescan  Rebuild !Fetch  Initial                    
 }
 
 /////////////////////////////////////////////////////////////////////////////
 void BlockDataManager_LevelDB::doInitialSyncOnLoad(void)
 {
-   //                    Rescan  Rebuild !Fetch  Initial                    
+   LOGINFO << "Executing: doInitialSyncOnLoad";
    buildAndScanDatabases(false,  false,  false,  true);
+   //                    Rescan  Rebuild !Fetch  Initial                    
 }
 
 /////////////////////////////////////////////////////////////////////////////
 void BlockDataManager_LevelDB::doInitialSyncOnLoad_Rescan(void)
 {
-   //                    Rescan  Rebuild !Fetch  Initial                    
+   LOGINFO << "Executing: doInitialSyncOnLoad_Rescan";
    buildAndScanDatabases(true,   false,  false,  true);
+   //                    Rescan  Rebuild !Fetch  Initial                    
 }
 
 /////////////////////////////////////////////////////////////////////////////
 void BlockDataManager_LevelDB::doInitialSyncOnLoad_Rebuild(void)
 {
-   //                    Rescan  Rebuild !Fetch  Initial                    
+   LOGINFO << "Executing: doInitialSyncOnLoad_Rebuild";
    buildAndScanDatabases(false,  true,   true,   true);
+   //                    Rescan  Rebuild !Fetch  Initial                    
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -3534,7 +3551,7 @@ void BlockDataManager_LevelDB::doInitialSyncOnLoad_Rebuild(void)
 // The default behavior of this method is to do the minimal amount of work
 // neceesary to get sync'd.  It does this by assuming all database data is 
 // correct.  We can choose to rebuild/recalculate.  "forceRescan" and
-// "skipFetch" are slightly different:  forceRecan will guarantee that
+// "skipFetch" are slightly different:  forceRescan will guarantee that
 // we always start scanning from block 0.  skipFetch means we won't pull
 // any data out of the database when this is called, but if all our 
 // wallets are already synchronized, we won't bother rescanning
@@ -3565,12 +3582,12 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
                << " " << iter->second.alreadyScannedUpToBlk_;
    */
 
-   // This method will fetch (but not delete) script histories in DB
-   if(!forceRescan)
-      detectCurrentSyncState(initialLoad);
+   // This will figure out where we should start reading headers, blocks,
+   // and where we should start applying or scanning
+   detectCurrentSyncState(forceRebuild, initialLoad);
 
    // If we're going to rebuild, might as well destroy the DB for god measure
-   if(forceRebuild || (startHeaderBlkFile_==0 && startHeaderOffset_==0))
+   if(forceRebuild || startHeaderHgt_==0)
    {
       LOGINFO << "Clearing databases for clean build";
       forceRebuild = true;

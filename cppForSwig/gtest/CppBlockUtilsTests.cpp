@@ -6063,7 +6063,6 @@ TEST_F(BlockUtilsBare, Load5Blocks_FullReorg)
 ////////////////////////////////////////////////////////////////////////////////
 TEST_F(BlockUtilsBare, Load5Blocks_RescanOps)
 {
-   LOGENABLESTDOUT();
    ScrAddrObj * scrobj;
    BtcWallet wlt;
    wlt.addScrAddress(scrAddrA_);
@@ -6125,7 +6124,6 @@ TEST_F(BlockUtilsBare, Load5Blocks_RescanOps)
 ////////////////////////////////////////////////////////////////////////////////
 TEST_F(BlockUtilsBare, Load5Blocks_RescanEmptyDB)
 {
-   LOGENABLESTDOUT();
    ScrAddrObj * scrobj;
    BtcWallet wlt;
    wlt.addScrAddress(scrAddrA_);
@@ -6147,7 +6145,6 @@ TEST_F(BlockUtilsBare, Load5Blocks_RescanEmptyDB)
 ////////////////////////////////////////////////////////////////////////////////
 TEST_F(BlockUtilsBare, Load5Blocks_RebuildEmptyDB)
 {
-   LOGENABLESTDOUT();
    ScrAddrObj * scrobj;
    BtcWallet wlt;
    wlt.addScrAddress(scrAddrA_);
@@ -6170,9 +6167,8 @@ TEST_F(BlockUtilsBare, Load5Blocks_RebuildEmptyDB)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-TEST_F(BlockUtilsBare, Load5Blocks_ForceFullRescan)
+TEST_F(BlockUtilsBare, Load5Blocks_ForceFullRewhatever)
 {
-   LOGENABLESTDOUT();
    ScrAddrObj * scrobj;
    BtcWallet wlt;
    wlt.addScrAddress(scrAddrA_);
@@ -6229,7 +6225,6 @@ TEST_F(BlockUtilsBare, Load5Blocks_ForceFullRescan)
 ////////////////////////////////////////////////////////////////////////////////
 TEST_F(BlockUtilsBare, Load5Blocks_ScanWhatIsNeeded)
 {
-   LOGENABLESTDOUT();
    ScrAddrObj * scrobj;
    BtcWallet wlt;
    wlt.addScrAddress(scrAddrA_);

@@ -657,7 +657,7 @@ public:
    // This figures out where we should start loading headers/rawblocks/scanning
    // The replay argument has been temporarily disable since it's not currently
    // being used, and was causing problems instead.
-   bool detectCurrentSyncState(bool initialLoad);
+   bool detectCurrentSyncState(bool rebuild, bool initialLoad);
 
    /////////////////////////////////////////////////////////////////////////////
    // Get the parameters of the network as they've been set
