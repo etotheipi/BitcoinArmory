@@ -13186,8 +13186,8 @@ class DlgSimpleBackup(ArmoryDialog):
 
       ### Digital
       lblDigital = QRichLabel( tr("""
-         Create an unencrypted copy of your wallet file (including imported 
-         addresses)."""))
+         Create an unencrypted copy of your wallet file, including imported 
+         addresses."""))
       btnDigital = QPushButton(tr('Make Digital Backup'))
 
       ### Other
@@ -13586,10 +13586,12 @@ class DlgFragBackup(ArmoryDialog):
 
       if doMask:
          qmsg += tr("""
-            <b><u><font color="%s">Important</font</u></b>:  The fragment was encrypted with the 
+            <b><u><font color="%s">Important</font</u></b>:  
+            The fragment was encrypted with the 
             SecurePrint\xe2\x84\xa2 encryption code.  You must keep this
-            code with the backup in order to use it!  The code is:
-            <br><br> <font color="%s" size=5>%s</font>""") % \
+            code with the backup in order to use it!  The code <u>is</u>
+            case-sensitive!  
+            <br><br> <font color="%s" size=5><b>%s</b></font>""") % \
             (htmlColor('TextWarn'), htmlColor('TextBlue'), self.randpass.toBinStr())
 
       QMessageBox.information(self, 'Success', qmsg, QMessageBox.Ok)
@@ -13691,6 +13693,7 @@ class DlgUniversalRestoreSelect(ArmoryDialog):
       self.rdoSingle  = QRadioButton(tr('Single-Sheet Backup (printed)'))
       self.rdoFragged = QRadioButton(tr('Fragmented Backup (incl. mix of paper and files)'))
       self.rdoDigital = QRadioButton(tr('Digital Backup'))
+      self.chkTest =    QCheckBox('This is a test recovery to make sure my backup works')
       btngrp = QButtonGroup(self)
       btngrp.addButton(self.rdoSingle)
       btngrp.addButton(self.rdoFragged)
@@ -13721,12 +13724,18 @@ class DlgUniversalRestoreSelect(ArmoryDialog):
 
 
    def clickedOkay(self):
+      ### Test backup option
+
+      if self.chkTest.isChecked():
+         LOGINFO('Executing recovery test')
+
       if self.rdoSingle.isChecked():
          self.accept()
          dlg = DlgRestoreSingle(self.parent, self.main)
          if dlg.exec_():
             self.main.addWalletToAppAndAskAboutRescan(dlg.newWallet)
             LOGINFO('Wallet Restore Complete!')
+            TheBDM.main.startRescanBlockchain()
             
       elif self.rdoFragged.isChecked():
          self.accept()
@@ -13734,8 +13743,9 @@ class DlgUniversalRestoreSelect(ArmoryDialog):
          if dlg.exec_():
             self.main.addWalletToAppAndAskAboutRescan(dlg.newWallet)
             LOGINFO('Wallet Restore Complete!')
-      elif self.rdoFragged.isChecked():
-         self.main.execRestorePaperBackup()
+            TheBDM.main.startRescanBlockchain()
+      elif self.rdoDigital.isChecked():
+         self.main.execGetImportWltName()
          self.accept()
 
 

@@ -514,6 +514,9 @@ public:
 
 
 ////////////////////////////////////////////////////////////////////////////////
+// TODO:  I just realized that this should probably hold a "first-born-block"
+//        field for each address in the summary entry.  Though, maybe it's 
+//        sufficient to just look at the first subSSH entry to get that info...
 class StoredScriptHistory
 {
 public:

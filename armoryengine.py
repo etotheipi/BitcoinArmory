@@ -102,34 +102,36 @@ except:
 
 # Allow user to override default bitcoin-qt/bitcoind home directory
 if not CLI_OPTIONS.satoshiHome.lower()=='default':
+   success = True
+   if USE_TESTNET:
+      testnetTry = os.path.join(CLI_OPTIONS.satoshiHome, 'testnet3')
+      if os.path.exists(testnetTry):
+         CLI_OPTIONS.satoshiHome = testnetTry
+
    if not os.path.exists(CLI_OPTIONS.satoshiHome):
-      print 'Directory "%s" does not exist!  Using default!' % CLI_OPTIONS.satoshiHome
+      print 'Directory "%s" does not exist!  Using default!' % \
+                                                CLI_OPTIONS.satoshiHome
    else:
       BTC_HOME_DIR = CLI_OPTIONS.satoshiHome
+
 
 
 # Allow user to override default Armory home directory
 if not CLI_OPTIONS.datadir.lower()=='default':
    if not os.path.exists(CLI_OPTIONS.datadir):
-      print 'Directory "%s" does not exist!  Using default!' % CLI_OPTIONS.datadir
+      print 'Directory "%s" does not exist!  Using default!' % \
+                                                CLI_OPTIONS.datadir
    else:
       ARMORY_HOME_DIR = CLI_OPTIONS.datadir
 
 # Same for the directory that holds the LevelDB databases
 if not CLI_OPTIONS.leveldbDir.lower()=='default':
    if not os.path.exists(CLI_OPTIONS.datadir):
-      print 'Directory "%s" does not exist!  Using default!' % CLI_OPTIONS.leveldbDir
+      print 'Directory "%s" does not exist!  Using default!' % \
+                                                CLI_OPTIONS.leveldbDir
    else:
       LEVELDB_DIR  = CLI_OPTIONS.datadir
 
-
-if CLI_OPTIONS.rebuild: 
-   if not os.path.exists(LEVELDB_DIR):
-      print "Rebuild requested but path does not exist"
-   else:
-      print 'Deleting LevelDB directory for full rebuild...',
-      shutil.rmtree(LEVELDB_DIR)
-      print 'done'
 
 
 # Change the settings file to use
@@ -4857,9 +4859,25 @@ def DeriveChaincodeFromRootKey(sbdPrivKey):
 ################################################################################
 def HardcodedKeyMaskParams():
    paramMap = {}
-   paramMap['IV']   = SecureBinaryData('&\x0cH3\xc1\x1c\x16\x8a\x86`\xa6k<C\x1fD')
-   paramMap['SALT'] = SecureBinaryData('\xd5\xa35\xe6Y\xdbj\x93M\xf1\xca\x0fM\x81'
-                              '\x94\x7fh\x1ci\xe7\x12c+b\xd5Y\\\x8f\xee\xab\xa0)')
+
+   # Nothing up my sleeve!  Need some hardcoded random numbers to use for
+   # encryption IV and salt.  Using the first 256 digits of Pi for the 
+   # the IV, and first 256 digits of e for the salt (hashed)
+   digits_pi = ( \
+      'ARMORY_ENCRYPTION_INITIALIZATION_VECTOR_'
+      '1415926535897932384626433832795028841971693993751058209749445923'
+      '0781640628620899862803482534211706798214808651328230664709384460'
+      '9550582231725359408128481117450284102701938521105559644622948954'
+      '9303819644288109756659334461284756482337867831652712019091456485')
+   digits_e = ( \
+      'ARMORY_KEY_DERIVATION_FUNCTION_SALT_'
+      '7182818284590452353602874713526624977572470936999595749669676277'
+      '2407663035354759457138217852516642742746639193200305992181741359'
+      '6629043572900334295260595630738132328627943490763233829880753195'
+      '2510190115738341879307021540891499348841675092447614606680822648')
+      
+   paramMap['IV']    = SecureBinaryData( hash256(digits_pi)[:16] )
+   paramMap['SALT']  = SecureBinaryData( hash256(digits_pi) )
    paramMap['KDFBYTES'] = long(16*MEGABYTE)
 
    def hardcodeCreateSecurePrintPassphrase(secret):
@@ -10490,7 +10508,7 @@ class BlockDataManagerThread(threading.Thread):
 
 
    #############################################################################
-   def rescanBlockchain(self, forceFullScan=False, wait=None):
+   def rescanBlockchain(self, scanType='AsNeeded', wait=None):
       expectOutput = False
       if not wait==False and (self.alwaysBlock or wait==True):
          expectOutput = True
@@ -10498,7 +10516,7 @@ class BlockDataManagerThread(threading.Thread):
       self.aboutToRescan = True
 
       rndID = int(random.uniform(0,100000000)) 
-      self.inputQueue.put([BDMINPUTTYPE.RescanRequested, rndID, expectOutput, forceFullScan])
+      self.inputQueue.put([BDMINPUTTYPE.RescanRequested, rndID, expectOutput, scanType])
       LOGINFO('Blockchain rescan requested')
       return self.waitForOutputIfNecessary(expectOutput, rndID)
 
@@ -10915,6 +10933,7 @@ class BlockDataManagerThread(threading.Thread):
       self.blkMode = BLOCKCHAINMODE.Rescanning
       self.aboutToRescan = False
 
+      self.bdm.SetDatabaseModes(ARMORY_DB_BARE, DB_PRUNE_NONE);
       self.bdm.SetHomeDirLocation(ARMORY_HOME_DIR)
       self.bdm.SetBlkFileLocation(blkdir)
       self.bdm.SetLevelDBLocation(self.ldbdir)
@@ -10925,22 +10944,21 @@ class BlockDataManagerThread(threading.Thread):
       # The master wallet contains all addresses of all wallets registered
       self.bdm.registerWallet(self.masterCppWallet)
 
-      ### This is the part that takes forever
+      # Now we actually startup the BDM and run with it
+      if CLI_OPTIONS.rebuild:
+         self.bdm.doInitialSyncOnLoad_Rebuild()
       if CLI_OPTIONS.rescan:
-         LOGINFO('Database rescan requested.  Ignoring saved script histories')
-         self.bdm.SetRescanNextLoad(True)
-      self.bdm.initializeAndBuildDatabases(ARMORY_DB_BARE, DB_PRUNE_NONE)
+         self.bdm.doInitialSyncOnLoad_Rescan()
+      else:
+         self.bdm.doInitialSyncOnLoad()
 
-      #print 'TopBlock:', self.bdm.getTopBlockHeight()
-      #if USE_TESTNET:
-         #print 'SLEEPING FOR 20 sec (DEBUGGING)'
-         #time.sleep(20) 
-
+      # The above op populates the BDM with all relevent tx, but those tx
+      # still need to be scanned to collect the wallet ledger and UTXO sets
       self.bdm.scanBlockchainForTx(self.masterCppWallet)
       
    #############################################################################
    @TimeThisFunction
-   def __startRescanBlockchain(self):
+   def __startRescanBlockchain(self, scanType='AsNeeded'):
       """
       This should only be called by the threaded BDM, and thus there should
       never be a conflict.  
@@ -10962,22 +10980,29 @@ class BlockDataManagerThread(threading.Thread):
       if not self.isDirty():
          LOGWARN('It does not look like we need a rescan... doing it anyway')
 
-      if self.bdm.numBlocksToRescan(self.masterCppWallet) < 144:
-         LOGINFO('Rescan requested, but <1 day\'s worth of block to rescan')
-         self.blkMode = BLOCKCHAINMODE.LiteScanning
-      else:
-         LOGINFO('Rescan requested, and very large scan is necessary')
-         self.blkMode = BLOCKCHAINMODE.Rescanning
+      if scanType=='AsNeeded':
+         if self.bdm.numBlocksToRescan(self.masterCppWallet) < 144:
+            LOGINFO('Rescan requested, but <1 day\'s worth of block to rescan')
+            self.blkMode = BLOCKCHAINMODE.LiteScanning
+         else:
+            LOGINFO('Rescan requested, and very large scan is necessary')
+            self.blkMode = BLOCKCHAINMODE.Rescanning
 
 
       self.aboutToRescan = False
       
-      if forceFullScan:
-         self.bdm.rescanDBForRegisteredTx();
-      else:
-         # Blockchain will rescan as much as it needs.  
-         #self.bdm.scanRegisteredTxForWallet(self.masterCppWallet)
-         self.bdm.scanBlockchainForTx(self.masterCppWallet)
+      if scanType=='AsNeeded':
+         self.bdm.doSyncIfNeeded()
+      elif scanType=='ForceRescan':
+         LOGINFO('Forcing full rescan of blockchain')
+         self.bdm.doFullRescanRegardlessOfSync()
+         self.blkMode = BLOCKCHAINMODE.Rescanning
+      elif scanType=='ForceRebuild':
+         LOGINFO('Forcing full rebuild of blockchain database')
+         self.bdm.doRebuildDatabases()
+         self.blkMode = BLOCKCHAINMODE.Rescanning
+
+      self.bdm.scanBlockchainForTx(self.masterCppWallet)
 
 
    #############################################################################
@@ -11309,9 +11334,11 @@ class BlockDataManagerThread(threading.Thread):
                self.__startLoadBlockchain()
 
             elif cmd == BDMINPUTTYPE.RescanRequested:
-               fullRescan = inputTuple[3]
-               LOGINFO(('Full' if fullRescan else 'Regular') +' Rescan Requested')
-               self.__startRescanBlockchain(forceFullRescan)
+               scanType = inputTuple[3]
+               if not scanType in ('AsNeeded', 'ForceRescan', 'ForceRebuild'):
+                  LOGERROR('Invalid scan type for rescanning: ' + scanType)
+                  scanType = 'AsNeeded'
+               self.__startRescanBlockchain(scanType)
 
             elif cmd == BDMINPUTTYPE.WalletRecoveryScan:
                LOGINFO('Wallet Recovery Scan Requested')

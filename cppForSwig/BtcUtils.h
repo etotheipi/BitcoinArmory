@@ -1407,7 +1407,7 @@ public:
       if(srcsz == FILE_DOES_NOT_EXIST)
          return false;
 
-      srcsz = min(srcsz, nbytes);
+      srcsz = min((uint32_t)srcsz, nbytes);
    
       BinaryData temp((size_t)srcsz);
       ifstream is(src.c_str(), ios::in  | ios::binary);

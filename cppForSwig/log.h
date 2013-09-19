@@ -111,6 +111,9 @@ public:
    virtual LogStream& operator<<(unsigned long long int i) = 0;
    virtual LogStream& operator<<(float f) = 0;
    virtual LogStream& operator<<(double d) = 0;
+#if !defined(_MSC_VER) && !defined(__MINGW32__)
+   virtual LogStream& operator<<(size_t i) = 0;
+#endif
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -180,6 +183,9 @@ public:
    LogStream& operator<<(unsigned long long int i) { if(!noStdout_) cout << i;    if(fout_.is_open()) fout_ << i; return *this; }
    LogStream& operator<<(float f)            { if(!noStdout_) cout << f;    if(fout_.is_open()) fout_ << f; return *this; }
    LogStream& operator<<(double d)           { if(!noStdout_) cout << d;    if(fout_.is_open()) fout_ << d; return *this; }
+#if !defined(_MSC_VER) && !defined(__MINGW32__)
+   LogStream& operator<<(size_t i)           { if(!noStdout_) cout << i;    if(fout_.is_open()) fout_ << i; return *this; }
+#endif
 
    void FlushStreams(void) {cout.flush(); fout_.flush();}
 
@@ -203,6 +209,9 @@ public:
    LogStream& operator<<(unsigned long long int i)     { return *this; }
    LogStream& operator<<(float f)            { return *this; }
    LogStream& operator<<(double d)           { return *this; }
+#if !defined(_MSC_VER) && !defined(__MINGW32__)
+   LogStream& operator<<(size_t i)           { return *this; }
+#endif
 
    void FlushStreams(void) {}
 };
