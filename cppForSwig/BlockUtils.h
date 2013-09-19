@@ -531,6 +531,11 @@ private:
    uint64_t                           numBlkFiles_;
    uint64_t                           endOfLastBlockByte_;
 
+   // These files are for signaling to python code, which had to be hacked 
+   // in order to work while TheBDM is scanning
+   string                             blkProgressFile_;
+   string                             abortLoadFile_;
+
    // On DB initialization, we start processing here
    uint32_t                           startHeaderHgt_;
    uint32_t                           startRawBlkHgt_;
@@ -620,6 +625,11 @@ public:
    static void DestroyInstance(void);
    bool isInitialized(void) const { return isInitialized_;}
 
+   void SetDatabaseModes(ARMORY_DB_TYPE atype, DB_PRUNE_TYPE dtype)
+             { DBUtils.setArmoryDbType(atype); DBUtils.setDbPruneType(dtype);}
+   void SetDatabaseModes(int atype, int dtype)
+             { DBUtils.setArmoryDbType((ARMORY_DB_TYPE)atype); 
+               DBUtils.setDbPruneType((DB_PRUNE_TYPE)dtype);}
    void SelectNetwork(string netName);
    void SetHomeDirLocation(string homeDir);
    bool SetBlkFileLocation(string blkdir);
@@ -641,8 +651,13 @@ public:
    // Then you can pick up from there and let the DB clean up any mess that
    // was left from an unclean shutdown.
    bool initializeDBInterface(ARMORY_DB_TYPE dbt = ARMORY_DB_WHATEVER,
-                              DB_PRUNE_TYPE prt = DB_PRUNE_WHATEVER,
-                              uint32_t replayNBytes=0);
+                              DB_PRUNE_TYPE prt = DB_PRUNE_WHATEVER);
+
+
+   // This figures out where we should start loading headers/rawblocks/scanning
+   // The replay argument has been temporarily disable since it's not currently
+   // being used, and was causing problems instead.
+   bool detectCurrentSyncState(uint32_t replayNBytes=0);
 
    /////////////////////////////////////////////////////////////////////////////
    // Get the parameters of the network as they've been set
@@ -742,6 +757,7 @@ public:
                           //uint32_t blockSize);
                      
 
+   //
 
    // These are the high-level methods for reading block files, and indexing
    // the blockfile data.
@@ -750,7 +766,19 @@ public:
    bool     processNewHeadersInBlkFiles(uint32_t fnumStart=0, uint32_t offset=0);
    //bool     processHeadersInFile(string filename);
    void     destroyAndResetDatabases(void);
-   uint32_t buildDatabasesFromBlkFiles(bool forceRescan=false);
+   void     buildAndScanDatabases(bool forceRescan=false, 
+                                  bool forceRebuild=false, 
+                                  bool skipFetch=false,
+                                  bool initialLoad=false);
+   void readRawBlocksInFile(uint32_t blkFileNum, uint32_t offset);
+   // These are wrappers around "buildAndScanDatabases"
+   void rebuildDatabases(void);
+   void doFullRescanRegardlessOfSync(void);
+   void doSyncIfNeeded(void);
+   void doInitialSyncOnLoad(void);
+   void doInitialSyncOnLoad_Rescan(void);
+   void doInitialSyncOnLoad_Rebuild(void);
+
    uint32_t initializeAndBuildDatabases(ARMORY_DB_TYPE atype=ARMORY_DB_WHATEVER,
                                         DB_PRUNE_TYPE  dtype=DB_PRUNE_WHATEVER);
    uint32_t initializeAndBuildDatabases(uint32_t atype, uint32_t dtype);

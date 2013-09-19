@@ -5618,7 +5618,7 @@ TEST_F(TxRefTest, TxRefKeyParts)
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
-// TODO:  These tests were taken directly from the BlockUtilsTest.cpp where 
+// TODO:  These tests were taken directly from the BlockUtilsSuper.cpp where 
 //        they previously ran without issue.  After bringing them over to here,
 //        they now seg-fault.  Disabled for now, since the PartialMerkleTrees 
 //        are not actually in use anywhere yet.
@@ -5953,7 +5953,7 @@ protected:
 ////////////////////////////////////////////////////////////////////////////////
 TEST_F(BlockUtilsBare, BuildNoRegisterWlt)
 {
-   TheBDM.buildDatabasesFromBlkFiles(); 
+   TheBDM.doInitialSyncOnLoad(); 
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -5966,7 +5966,7 @@ TEST_F(BlockUtilsBare, Load5Blocks)
    TheBDM.registerWallet(&wlt);
    TheBDM.registerNewScrAddr(scrAddrD_);
    
-   TheBDM.buildDatabasesFromBlkFiles(); 
+   TheBDM.doInitialSyncOnLoad(); 
    TheBDM.scanBlockchainForTx(wlt);
 
    ScrAddrObj * scrobj;
@@ -5995,7 +5995,7 @@ TEST_F(BlockUtilsBare, Load4Blocks_Plus1)
    // Copy only the first four blocks.  Will copy the full file next to test
    // readBlkFileUpdate method on non-reorg blocks.
    BtcUtils::copyFile("../reorgTest/blk_0_to_4.dat", blk0dat_, 1596);
-   TheBDM.buildDatabasesFromBlkFiles(); 
+   TheBDM.doInitialSyncOnLoad(); 
    TheBDM.scanBlockchainForTx(wlt);
    EXPECT_EQ(iface_->getTopBlockHeight(HEADERS), 3);
    EXPECT_EQ(iface_->getTopBlockHash(HEADERS), blkHash3);
@@ -6032,7 +6032,7 @@ TEST_F(BlockUtilsBare, Load5Blocks_FullReorg)
    BtcWallet wlt2;
    wlt2.addScrAddress(scrAddrD_);
    
-   TheBDM.buildDatabasesFromBlkFiles(); 
+   TheBDM.doInitialSyncOnLoad(); 
    TheBDM.scanBlockchainForTx(wlt);
    TheBDM.scanBlockchainForTx(wlt2);
 
@@ -6128,7 +6128,7 @@ TEST_F(LoadTestnetBareTest, DISABLED_StepThroughDebug_usually_disabled)
    wlt.addScrAddress(scrAddrC_);
    TheBDM.registerWallet(&wlt);
 
-   TheBDM.initializeAndBuildDatabases();
+   TheBDM.doInitialSyncOnLoad();
    TheBDM.scanBlockchainForTx(wlt);
    TheBDM.DestroyInstance();
 }
@@ -6139,7 +6139,7 @@ TEST_F(LoadTestnetBareTest, DISABLED_StepThroughDebug_usually_disabled)
 // THESE ARE ARMORY_DB_SUPER tests.  Identical to above except for the mode.
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
-class BlockUtilsTest : public ::testing::Test
+class BlockUtilsSuper : public ::testing::Test
 {
 protected:
 
@@ -6152,17 +6152,11 @@ protected:
       ghash_ = READHEX(MAINNET_GENESIS_HASH_HEX);
       gentx_ = READHEX(MAINNET_GENESIS_TX_HASH_HEX);
       zeros_ = READHEX("00000000");
-      DBUtils.setArmoryDbType(ARMORY_DB_FULL);
-      DBUtils.setDbPruneType(DB_PRUNE_NONE);
 
       blkdir_  = string("./blkfiletest");
       homedir_ = string("./fakehomedir");
       ldbdir_  = string("./ldbtestdir");
 
-      iface_->openDatabases( ldbdir_, ghash_, gentx_, magic_, 
-                             ARMORY_DB_SUPER, DB_PRUNE_NONE);
-      if(!iface_->databasesAreOpen())
-         LOGERR << "ERROR OPENING DATABASES FOR TESTING!";
 
       mkdir(blkdir_);
       mkdir(homedir_);
@@ -6171,10 +6165,16 @@ protected:
       blk0dat_ = BtcUtils::getBlkFilename(blkdir_, 0);
       BtcUtils::copyFile("../reorgTest/blk_0_to_4.dat", blk0dat_);
 
+      TheBDM.SetDatabaseModes(ARMORY_DB_SUPER, DB_PRUNE_NONE);
       TheBDM.SelectNetwork("Main");
       TheBDM.SetBlkFileLocation(blkdir_);
       TheBDM.SetHomeDirLocation(homedir_);
       TheBDM.SetLevelDBLocation(ldbdir_);
+
+      iface_->openDatabases( ldbdir_, ghash_, gentx_, magic_, 
+                             ARMORY_DB_SUPER, DB_PRUNE_NONE);
+      if(!iface_->databasesAreOpen())
+         LOGERR << "ERROR OPENING DATABASES FOR TESTING!";
 
       blkHash0 = READHEX("6fe28c0ab6f1b372c1a6a246ae63f74f931e8365e15a089c68d6190000000000");
       blkHash1 = READHEX("1b5514b83257d924be7f10c65b95b1f3c0e50081e1dfd8943eece5eb00000000");
@@ -6270,7 +6270,7 @@ protected:
 
 
 ////////////////////////////////////////////////////////////////////////////////
-TEST_F(BlockUtilsTest, HeadersOnly)
+TEST_F(BlockUtilsSuper, HeadersOnly)
 {
    EXPECT_EQ(TheBDM.getNumBlocks(), 0);
    TheBDM.processNewHeadersInBlkFiles(0);
@@ -6283,7 +6283,7 @@ TEST_F(BlockUtilsTest, HeadersOnly)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-TEST_F(BlockUtilsTest, HeadersOnly_Reorg)
+TEST_F(BlockUtilsSuper, HeadersOnly_Reorg)
 {
    SETLOGLEVEL(LogLvlError);
    EXPECT_EQ(TheBDM.getNumBlocks(), 0);
@@ -6325,11 +6325,11 @@ TEST_F(BlockUtilsTest, HeadersOnly_Reorg)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-TEST_F(BlockUtilsTest, Load5Blocks)
+TEST_F(BlockUtilsSuper, Load5Blocks)
 {
    DBUtils.setArmoryDbType(ARMORY_DB_SUPER);
    DBUtils.setDbPruneType(DB_PRUNE_NONE);
-   TheBDM.buildDatabasesFromBlkFiles(); 
+   TheBDM.doInitialSyncOnLoad(); 
 
    StoredScriptHistory ssh;
 
@@ -6355,12 +6355,12 @@ TEST_F(BlockUtilsTest, Load5Blocks)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-TEST_F(BlockUtilsTest, Load4BlocksPlus1)
+TEST_F(BlockUtilsSuper, Load4BlocksPlus1)
 {
    // Copy only the first four blocks.  Will copy the full file next to test
    // readBlkFileUpdate method on non-reorg blocks.
    BtcUtils::copyFile("../reorgTest/blk_0_to_4.dat", blk0dat_, 1596);
-   TheBDM.buildDatabasesFromBlkFiles(); 
+   TheBDM.doInitialSyncOnLoad(); 
    EXPECT_EQ(iface_->getTopBlockHeight(HEADERS), 3);
    EXPECT_EQ(iface_->getTopBlockHash(HEADERS), blkHash3);
    EXPECT_TRUE(TheBDM.getHeaderByHash(blkHash3)->isMainBranch());
@@ -6373,11 +6373,11 @@ TEST_F(BlockUtilsTest, Load4BlocksPlus1)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-TEST_F(BlockUtilsTest, Load5Blocks_Plus2NoReorg)
+TEST_F(BlockUtilsSuper, Load5Blocks_Plus2NoReorg)
 {
    DBUtils.setArmoryDbType(ARMORY_DB_SUPER);
    DBUtils.setDbPruneType(DB_PRUNE_NONE);
-   TheBDM.buildDatabasesFromBlkFiles(); 
+   TheBDM.doInitialSyncOnLoad(); 
 
 
    BtcUtils::copyFile("../reorgTest/blk_3A.dat", blk0dat_);
@@ -6395,11 +6395,11 @@ TEST_F(BlockUtilsTest, Load5Blocks_Plus2NoReorg)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-TEST_F(BlockUtilsTest, Load5Blocks_FullReorg)
+TEST_F(BlockUtilsSuper, Load5Blocks_FullReorg)
 {
    DBUtils.setArmoryDbType(ARMORY_DB_SUPER);
    DBUtils.setDbPruneType(DB_PRUNE_NONE);
-   TheBDM.buildDatabasesFromBlkFiles(); 
+   TheBDM.doInitialSyncOnLoad(); 
 
    BtcUtils::copyFile("../reorgTest/blk_3A.dat", blk0dat_);
    TheBDM.readBlkFileUpdate();
@@ -6434,12 +6434,12 @@ TEST_F(BlockUtilsTest, Load5Blocks_FullReorg)
 
 ////////////////////////////////////////////////////////////////////////////////
 // These next two tests disabled because they broke after ARMORY_DB_BARE impl
-TEST_F(BlockUtilsTest, DISABLED_RestartDBAfterBuild)
+TEST_F(BlockUtilsSuper, DISABLED_RestartDBAfterBuild)
 {
    // Copy only the first four blocks.  Will copy the full file next to test
    // readBlkFileUpdate method on non-reorg blocks.
    BtcUtils::copyFile("../reorgTest/blk_0_to_4.dat", blk0dat_, 926);
-   TheBDM.buildDatabasesFromBlkFiles(); 
+   TheBDM.doInitialSyncOnLoad(); 
    EXPECT_EQ(iface_->getTopBlockHeight(HEADERS), 2);
    EXPECT_EQ(iface_->getTopBlockHash(HEADERS), blkHash2);
    EXPECT_TRUE(TheBDM.getHeaderByHash(blkHash2)->isMainBranch());
@@ -6456,10 +6456,8 @@ TEST_F(BlockUtilsTest, DISABLED_RestartDBAfterBuild)
    DBUtils.setArmoryDbType(ARMORY_DB_SUPER);
    DBUtils.setDbPruneType(DB_PRUNE_NONE);
 
-   bool success = TheBDM.initializeDBInterface(ARMORY_DB_SUPER, DB_PRUNE_NONE);
-   ASSERT_TRUE(success);
-
-   TheBDM.initializeAndBuildDatabases();
+   TheBDM.SetDatabaseModes(ARMORY_DB_SUPER, DB_PRUNE_NONE);
+   TheBDM.doInitialSyncOnLoad();
    
    EXPECT_EQ(TheBDM.getTopBlockHeightInDB(HEADERS), 4);
    EXPECT_EQ(TheBDM.getTopBlockHeightInDB(BLKDATA), 4);
@@ -6490,12 +6488,12 @@ TEST_F(BlockUtilsTest, DISABLED_RestartDBAfterBuild)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-TEST_F(BlockUtilsTest, DISABLED_RestartDBAfterBuild_withReplay)
+TEST_F(BlockUtilsSuper, DISABLED_RestartDBAfterBuild_withReplay)
 {
    // Copy only the first four blocks.  Will copy the full file next to test
    // readBlkFileUpdate method on non-reorg blocks.
    BtcUtils::copyFile("../reorgTest/blk_0_to_4.dat", blk0dat_, 926);
-   TheBDM.buildDatabasesFromBlkFiles(); 
+   TheBDM.doInitialSyncOnLoad(); 
    EXPECT_EQ(iface_->getTopBlockHeight(HEADERS), 2);
    EXPECT_EQ(iface_->getTopBlockHash(HEADERS), blkHash2);
    EXPECT_TRUE(TheBDM.getHeaderByHash(blkHash2)->isMainBranch());
@@ -6513,12 +6511,11 @@ TEST_F(BlockUtilsTest, DISABLED_RestartDBAfterBuild_withReplay)
    DBUtils.setDbPruneType(DB_PRUNE_NONE);
 
    uint32_t replayRewind = 700;
-   bool success = TheBDM.initializeDBInterface(ARMORY_DB_SUPER, 
-                                               DB_PRUNE_NONE,
-                                               replayRewind);
-   ASSERT_TRUE(success);
+   TheBDM.SetDatabaseModes(ARMORY_DB_SUPER, DB_PRUNE_NONE);
+   TheBDM.doInitialSyncOnLoad();
+                                               
 
-   TheBDM.initializeAndBuildDatabases();
+   TheBDM.doInitialSyncOnLoad();
    
    EXPECT_EQ(TheBDM.getTopBlockHeightInDB(HEADERS), 4);
    EXPECT_EQ(TheBDM.getTopBlockHeightInDB(BLKDATA), 4);
@@ -6560,7 +6557,7 @@ TEST_F(BlockUtilsTest, DISABLED_RestartDBAfterBuild_withReplay)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-TEST_F(BlockUtilsTest, DISABLED_TimeAndSpaceTest_usuallydisabled)
+TEST_F(BlockUtilsSuper, DISABLED_TimeAndSpaceTest_usuallydisabled)
 {
    DBUtils.setArmoryDbType(ARMORY_DB_SUPER);
    DBUtils.setDbPruneType(DB_PRUNE_NONE);
@@ -6575,7 +6572,7 @@ TEST_F(BlockUtilsTest, DISABLED_TimeAndSpaceTest_usuallydisabled)
    TheBDM.SetHomeDirLocation(homedir_);
 
    StoredScriptHistory ssh;
-   TheBDM.buildDatabasesFromBlkFiles(); 
+   TheBDM.doInitialSyncOnLoad(); 
    BinaryData scrAddr  = READHEX("11b366edfc0a8b66feebae5c2e25a7b6a5d1cf31");
    BinaryData scrAddr2 = READHEX("39aa3d569e06a1d7926dc4be1193c99bf2eb9ee0");
    BinaryData scrAddr3 = READHEX("758e51b5e398a32c6abd091b3fde383291267cfa");
@@ -6598,7 +6595,7 @@ TEST_F(BlockUtilsTest, DISABLED_TimeAndSpaceTest_usuallydisabled)
 
 ////////////////////////////////////////////////////////////////////////////////
 // I thought I was going to do something different with this set of tests,
-// but I ended up with an exact copy of the BlockUtilsTest fixture.  Oh well.
+// but I ended up with an exact copy of the BlockUtilsSuper fixture.  Oh well.
 class BlockUtilsWithWalletTest: public ::testing::Test
 {
 protected:
@@ -6611,17 +6608,10 @@ protected:
       ghash_ = READHEX(MAINNET_GENESIS_HASH_HEX);
       gentx_ = READHEX(MAINNET_GENESIS_TX_HASH_HEX);
       zeros_ = READHEX("00000000");
-      DBUtils.setArmoryDbType(ARMORY_DB_FULL);
-      DBUtils.setDbPruneType(DB_PRUNE_NONE);
 
       blkdir_  = string("./blkfiletest");
       homedir_ = string("./fakehomedir");
       ldbdir_  = string("./ldbtestdir");
-
-      iface_->openDatabases( ldbdir_, ghash_, gentx_, magic_, 
-                             ARMORY_DB_SUPER, DB_PRUNE_NONE);
-      if(!iface_->databasesAreOpen())
-         LOGERR << "ERROR OPENING DATABASES FOR TESTING!";
 
       mkdir(blkdir_);
       mkdir(homedir_);
@@ -6630,6 +6620,7 @@ protected:
       blk0dat_ = BtcUtils::getBlkFilename(blkdir_, 0);
       BtcUtils::copyFile("../reorgTest/blk_0_to_4.dat", blk0dat_);
 
+      TheBDM.SetDatabaseModes(ARMORY_DB_SUPER, DB_PRUNE_NONE);
       TheBDM.SelectNetwork("Main");
       TheBDM.SetBlkFileLocation(blkdir_);
       TheBDM.SetHomeDirLocation(homedir_);
@@ -6740,7 +6731,7 @@ TEST_F(BlockUtilsWithWalletTest, PreRegisterScrAddrs)
    TheBDM.registerNewScrAddr(scrAddrD_);
 
    BtcUtils::copyFile("../reorgTest/blk_0_to_4.dat", blk0dat_);
-   TheBDM.initializeAndBuildDatabases(); 
+   TheBDM.doInitialSyncOnLoad();
 
    TheBDM.fetchAllRegisteredScrAddrData();
    TheBDM.scanBlockchainForTx(wlt);
@@ -6773,7 +6764,7 @@ TEST_F(BlockUtilsWithWalletTest, PreRegisterScrAddrs)
 TEST_F(BlockUtilsWithWalletTest, PostRegisterScrAddr)
 {
    BtcUtils::copyFile("../reorgTest/blk_0_to_4.dat", blk0dat_);
-   TheBDM.initializeAndBuildDatabases(); 
+   TheBDM.doInitialSyncOnLoad();
 
    // We do all the database stuff first, THEN load the addresses
    BtcWallet wlt;
@@ -6914,7 +6905,7 @@ protected:
 ////////////////////////////////////////////////////////////////////////////////
 TEST_F(BlockUtilsWithWalletTest, TestBalanceMainnet_usuallydisabled)
 {
-   TheBDM.initializeAndBuildDatabases(); 
+   TheBDM.doInitialSyncOnLoad();
 
    // We do all the database stuff first, THEN load the addresses
    BtcWallet wlt;
@@ -6956,7 +6947,7 @@ TEST_F(BlockUtilsWithWalletTest, ZeroConfUpdate)
 {
    // Copy only the first four blocks
    BtcUtils::copyFile("../reorgTest/blk_0_to_4.dat", blk0dat_, 1596);
-   TheBDM.initializeAndBuildDatabases(); 
+   TheBDM.doInitialSyncOnLoad();
 
    // We do all the database stuff first, THEN load the addresses
    BtcWallet wlt;

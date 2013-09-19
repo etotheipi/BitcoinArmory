@@ -13718,6 +13718,7 @@ class DlgUniversalRestoreSelect(ArmoryDialog):
          if dlg.exec_():
             self.main.addWalletToAppAndAskAboutRescan(dlg.newWallet)
             LOGINFO('Wallet Restore Complete!')
+            TheBDM.rescanBlockchain(wait=False)
             
       elif self.rdoFragged.isChecked():
          self.accept()
@@ -13725,8 +13726,9 @@ class DlgUniversalRestoreSelect(ArmoryDialog):
          if dlg.exec_():
             self.main.addWalletToAppAndAskAboutRescan(dlg.newWallet)
             LOGINFO('Wallet Restore Complete!')
-      elif self.rdoFragged.isChecked():
-         self.main.execRestorePaperBackup()
+            TheBDM.rescanBlockchain(wait=False)
+      elif self.rdoDigital.isChecked():
+         self.main.execGetImportWltName()
          self.accept()
 
 

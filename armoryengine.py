@@ -13208,7 +13208,7 @@ class BlockDataManagerThread(threading.Thread):
                TimerStart('rescanBlockchain')
                fullRescan = inputTuple[3]
                LOGINFO(('Full' if fullRescan else 'Regular') +' Rescan Requested')
-               self.__startRescanBlockchain(forceFullRescan)
+               self.__startRescanBlockchain(fullRescan)
                TimerStop('rescanBlockchain')
 
             elif cmd == BDMINPUTTYPE.WalletRecoveryScan:

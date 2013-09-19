@@ -1579,8 +1579,10 @@ void BlockDataManager_LevelDB::SetBtcNetworkParams(
 void BlockDataManager_LevelDB::SetHomeDirLocation(string homeDir)
 {
    // This will eventually be used to store blocks/DB
-   armoryHomeDir_ = homeDir; 
    LOGINFO << "Set home directory: " << armoryHomeDir_.c_str();
+   armoryHomeDir_   = homeDir; 
+   blkProgressFile_ = homeDir + string("/blkfiles.txt");
+   abortLoadFile_   = homeDir + string("/abortload.txt");
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -1656,8 +1658,7 @@ bool BlockDataManager_LevelDB::checkLdbStatus(leveldb::Status stat)
 // Then you can pick up from there and let the DB clean up any mess that
 // was left from an unclean shutdown.
 bool BlockDataManager_LevelDB::initializeDBInterface(ARMORY_DB_TYPE dbtype,
-                                                     DB_PRUNE_TYPE  prtype,
-                                                     uint32_t replayNBytes)
+                                                     DB_PRUNE_TYPE  prtype)
 {
    SCOPED_TIMER("initializeDBInterface");
    if(!isBlkParamsSet_ || !isLevelDBSet_)
@@ -1679,6 +1680,13 @@ bool BlockDataManager_LevelDB::initializeDBInterface(ARMORY_DB_TYPE dbtype,
                                             MagicBytes_,
                                             dbtype, 
                                             prtype);
+
+   return openWithErr;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+bool BlockDataManager_LevelDB::detectCurrentSyncState(uint32_t replayNBytes)
+{
 
    if(!iface_->databasesAreOpen())
    {
@@ -2236,6 +2244,7 @@ void BlockDataManager_LevelDB::Reset(void)
    registeredTxList_.clear(); 
    registeredOutPoints_.clear(); 
    allScannedUpToBlk_ = 0;
+
 }
 
 
@@ -2804,10 +2813,6 @@ void BlockDataManager_LevelDB::applyBlockRangeToDB(uint32_t blk0, uint32_t blk1)
 
    blk1 = min(blk1, getTopBlockHeight()+1);
 
-   // Using the same file-writing hack to communicate progress to python
-   string bfile = armoryHomeDir_ + string("/blkfiles.txt");
-
-
    BinaryData startKey = DBUtils.getBlkDataKey(blk0, 0);
    BinaryData endKey   = DBUtils.getBlkDataKey(blk1, 0);
    iface_->seekTo(BLKDATA, startKey);
@@ -2886,7 +2891,7 @@ void BlockDataManager_LevelDB::applyBlockRangeToDB(uint32_t blk0, uint32_t blk1)
       {
          //UniversalTimer::instance().printCSV(cout,true);
          UniversalTimer::instance().printCSV(string("timings.csv"));
-         writeProgressFile(DB_BUILD_APPLY, bfile, "applyBlockRangeToDB");
+         writeProgressFile(DB_BUILD_APPLY, blkProgressFile_, "applyBlockRangeToDB");
       }
       
 
@@ -3454,26 +3459,6 @@ void BlockDataManager_LevelDB::fetchAllRegisteredScrAddrData(
 }
 
 
-/////////////////////////////////////////////////////////////////////////////
-uint32_t BlockDataManager_LevelDB::initializeAndBuildDatabases( uint32_t atype, 
-                                                                uint32_t dtype)
-{
-   return initializeAndBuildDatabases((ARMORY_DB_TYPE)atype, 
-                                       (DB_PRUNE_TYPE)dtype);
-}
-
-/////////////////////////////////////////////////////////////////////////////
-uint32_t BlockDataManager_LevelDB::initializeAndBuildDatabases(
-                                                   ARMORY_DB_TYPE atype,
-                                                   DB_PRUNE_TYPE  dtype)
-{
-   if(!iface_->databasesAreOpen())
-      initializeDBInterface(atype, dtype);
-      
-   // The initialize call above will figure out where in the blkfiles we
-   // left off when we
-   return buildDatabasesFromBlkFiles();
-}
 
 /////////////////////////////////////////////////////////////////////////////
 void BlockDataManager_LevelDB::destroyAndResetDatabases(void)
@@ -3489,60 +3474,152 @@ void BlockDataManager_LevelDB::destroyAndResetDatabases(void)
 
 
 /////////////////////////////////////////////////////////////////////////////
+void BlockDataManager_LevelDB::rebuildDatabases(void)
+{
+   //                    Rescan  Rebuild !Fetch  Initial                    
+   buildAndScanDatabases(true,   true,   true,   false);
+}
+
+/////////////////////////////////////////////////////////////////////////////
+void BlockDataManager_LevelDB::doFullRescanRegardlessOfSync(void)
+{
+   //                    Rescan  Rebuild !Fetch  Initial                    
+   buildAndScanDatabases(true,   false,  true,   false);
+}
+
+/////////////////////////////////////////////////////////////////////////////
+void BlockDataManager_LevelDB::doSyncIfNeeded(void)
+{
+   //                    Rescan  Rebuild !Fetch  Initial                    
+   buildAndScanDatabases(false,  false,  true,   false);
+}
+
+/////////////////////////////////////////////////////////////////////////////
+void BlockDataManager_LevelDB::doInitialSyncOnLoad(void)
+{
+   //                    Rescan  Rebuild !Fetch  Initial                    
+   buildAndScanDatabases(false,  false,  false,  true);
+}
+
+/////////////////////////////////////////////////////////////////////////////
+void BlockDataManager_LevelDB::doInitialSyncOnLoad_Rescan(void)
+{
+   //                    Rescan  Rebuild !Fetch  Initial                    
+   buildAndScanDatabases(true,   false,  false,  true);
+}
+
+/////////////////////////////////////////////////////////////////////////////
+void BlockDataManager_LevelDB::doInitialSyncOnLoad_Rebuild(void)
+{
+   //                    Rescan  Rebuild !Fetch  Initial                    
+   buildAndScanDatabases(false,  true,   true,   true);
+}
+
+/////////////////////////////////////////////////////////////////////////////
 // This used to be "parseEntireBlockchain()", but changed because it will 
 // only be used when rebuilding the DB from scratch (hopefully).
 //
-// This method actually does all three of 
-uint32_t BlockDataManager_LevelDB::buildDatabasesFromBlkFiles(bool forceRescan)
+// The default behavior of this method is to do the minimal amount of work
+// neceesary to get sync'd.  It does this by assuming all database data is 
+// correct.  We can choose to rebuild/recalculate.  "forceRescan" and
+// "skipFetch" are slightly different:  forceRecan will guarantee that
+// we always start scanning from block 0.  skipFetch means we won't pull
+// any data out of the database when this is called, but if all our 
+// wallets are already synchronized, we won't bother rescanning
+void BlockDataManager_LevelDB::buildAndScanDatabases(
+                                             bool forceRescan, 
+                                             bool forceRebuild,
+                                             bool skipFetch,
+                                             bool initialLoad)
 {
-   SCOPED_TIMER("buildDatabasesFromBlkFiles");
+
+   SCOPED_TIMER("buildAndScanDatabases");
    LOGINFO << "Number of registered addr: " << registeredScrAddrMap_.size();
 
+   if(!iface_->databasesAreOpen())
+      initializeDBInterface(DBUtils.getArmoryDbType(), DBUtils.getDbPruneType());
+      
+   /*
+   map<BinaryData, RegisteredScrAddr>::iterator iter;
+   for(iter  = registeredScrAddrMap_.begin();
+       iter != registeredScrAddrMap_.end();
+       iter ++)
+      LOGINFO << "ScrAddr: " << iter->second.uniqueKey_.toHexStr().c_str()
+               << " " << iter->second.alreadyScannedUpToBlk_;
+   */
+
+   // This method will fetch (but not delete) script histories in DB
+   detectCurrentSyncState(skipFetch);
+
    // When we parse the entire block
-   if(startHeaderBlkFile_==0 && startHeaderOffset_==0)
+   if(forceRebuild || (startHeaderBlkFile_==0 && startHeaderOffset_==0))
+   {
+      forceRebuild = true;
+      forceRescan = true;
+      skipFetch = true;
       destroyAndResetDatabases();
+   }
+
+   // If no rescan is forced, grab the SSH entries from the DB
+   if(skipFetch || forceRescan  || forceRebuild || requestRescan_)
+      requestRescan_ = false; // reset the var so it's not true on the next call
+   else
+      fetchAllRegisteredScrAddrData();
+
+   if(DBUtils.getArmoryDbType() != ARMORY_DB_SUPER)
+   {
+      // We always delete the histories, regardless of whether we read them or
+      // not.  We only save them on a clean shutdown, so we know they are 
+      // consistent.  Unclean shutdowns/kills will force a rescan simply by
+      // the fetch call (at the top) getting nothing out of the database
+      deleteHistories();
+      startScanHgt_ = (forceRescan ? 0 : evalLowestBlockNextScan());
+   }
+
+   LOGINFO << startHeaderHgt_     << " HeadHgt"
+           << startRawBlkHgt_     << " RawHgt"
+           << startApplyHgt_      << " ApplyHgt";
+   LOGINFO << startHeaderBlkFile_ << " HeadBlkF"
+           << startRawBlkFile_    << " RawBlkF"
+           << startApplyBlkFile_  << " ApplyBlkF";
+   LOGINFO << startHeaderOffset_  << " HeadOffs"
+           << startRawOffset_     << " RawOffs"
+           << startApplyOffset_   << " ApplyOffs";
+
+
 
    // Remove this file
-   string bfile     = armoryHomeDir_ + string("/blkfiles.txt");
-   string abortFile = armoryHomeDir_ + string("/abortload.txt");
-   if(BtcUtils::GetFileSize(bfile) != FILE_DOES_NOT_EXIST)
-      remove(bfile.c_str());
-   if(BtcUtils::GetFileSize(abortFile) != FILE_DOES_NOT_EXIST)
-      remove(abortFile.c_str());
+   if(BtcUtils::GetFileSize(blkProgressFile_) != FILE_DOES_NOT_EXIST)
+      remove(blkProgressFile_.c_str());
+   if(BtcUtils::GetFileSize(abortLoadFile_) != FILE_DOES_NOT_EXIST)
+      remove(abortLoadFile_.c_str());
 
 
-   detectAllBlkFiles();
+   if(!initialLoad)
+      detectAllBlkFiles(); // only need to spend time on this on the first call
+
    if(numBlkFiles_==0)
    {
       LOGERR << "No blockfiles could be found!  Aborting...";
-      return 0;
+      return;
    }
 
    if(GenesisHash_.getSize() == 0)
    {
       LOGERR << "***ERROR: Set net params before loading blockchain!";
-      return 0;
+      return;
    }
-
-
-   // On DB initialization, we start processing here
-   //LOGINFO << startHeaderHgt_ << " HeadHgt";
-   //LOGINFO << startRawBlkHgt_ << " RawHgt";
-   //LOGINFO << startApplyHgt_ << " ApplyHgt";
-   //LOGINFO << startHeaderBlkFile_ << " HeadBlkF";
-   //LOGINFO << startRawBlkFile_ << " RawBlkF";
-   //LOGINFO << startApplyBlkFile_ << " ApplyBlkF";
-   //LOGINFO << startHeaderOffset_ << " HeadOffs";
-   //LOGINFO << startRawOffset_ << " RawOffs";
-   //LOGINFO << startApplyOffset_ << " ApplyOffs";
 
 
    /////////////////////////////////////////////////////////////////////////////
    // New with LevelDB:  must read and organize headers before handling the
    // full blockchain data.  We need to figure out the longest chain and write
    // the headers to the DB before actually processing any block data.  
-   LOGINFO << "Reading all headers and building chain...";
-   processNewHeadersInBlkFiles(startHeaderBlkFile_, startHeaderOffset_);
+   if(initialLoad || forceRebuild)
+   {
+      LOGINFO << "Reading all headers and building chain...";
+      processNewHeadersInBlkFiles(startHeaderBlkFile_, startHeaderOffset_);
+   }
 
    dbUpdateSize_ = 0;
    LOGINFO << "Total number of blk*.dat files: " << numBlkFiles_;
@@ -3550,164 +3627,61 @@ uint32_t BlockDataManager_LevelDB::buildDatabasesFromBlkFiles(bool forceRescan)
 
    /////////////////////////////////////////////////////////////////////////////
    // Now we start the meat of this process...
+
+   /////////////////////////////////////////////////////////////////////////////
+   // Add the raw blocks from the blk*.dat files into the DB
    blocksReadSoFar_ = 0;
    bytesReadSoFar_ = 0;
-   TIMER_START("dumpRawBlocksToDB");
-   for(uint32_t fnum=startRawBlkFile_; fnum<numBlkFiles_; fnum++)
+
+
+   if(initialLoad || forceRebuild)
    {
-      string blkfile = blkFileList_[fnum];
-      LOGINFO << "Reading blockchain file: " << blkfile.c_str();
-      uint64_t filesize = BtcUtils::GetFileSize(blkFileList_[fnum]);
+      TIMER_START("dumpRawBlocksToDB");
+      for(uint32_t fnum=startRawBlkFile_; fnum<numBlkFiles_; fnum++)
+      {
+         string blkfile = blkFileList_[fnum];
+         LOGINFO << "Reading blockchain file: " << blkfile.c_str();
+   
+         // The supplied offset only applies to the first blockfile we're reading.
+         // After that, the offset is always zero
+         uint32_t startOffset = 0;
+         if(fnum==startRawBlkFile_)
+            startOffset = startRawOffset_;
       
-
-      // Open the file, and check the magic bytes on the first block
-      ifstream is(blkfile.c_str(), ios::in | ios::binary);
-      BinaryData fileMagic(4);
-      is.read((char*)(fileMagic.getPtr()), 4);
-      if( !(fileMagic == MagicBytes_ ) )
-      {
-         LOGERR << "Block file is the wrong network!  MagicBytes: "
-                << fileMagic.toHexStr().c_str();
-         return 0;
+         readRawBlocksInFile(fnum, startOffset);
       }
-
-      // If there's an offset, we apply it to the first file.  And the 
-      // BinaryStreamBuffer should be supplied the number of bytes remaining,
-      // not the whole filesize
-      uint32_t startOffset = 0;
-      uint32_t bufferSize  = filesize;
-      if(fnum==startRawBlkFile_)
-      {
-         if(startOffset > filesize)
-         {
-            LOGERR << "Starting offset exceeds file size!";
-         }
-         startOffset = startRawOffset_;
-         bufferSize -= startOffset;
-      }
-
-      // Seek will leave us where at the first blk in file not in the BLKDATA DB
-      is.seekg(startOffset, ios::beg);
-      LOGINFO << blkfile.c_str() << " is " 
-              << BtcUtils::numToStrWCommas(filesize).c_str() << " bytes";
-
-
-      BinaryStreamBuffer bsb;
-      bsb.attachAsStreamBuffer(is, bufferSize);
-   
-      bool alreadyRead8B = false;
-      uint32_t nextBlkSize;
-      bool isEOF = false;
-      BinaryData firstFour(4);
-  
-      // We use these two vars to stop parsing if we exceed the last header
-      // that was processed (a new block was added since we processed headers)
-      bool breakbreak = false;
-      uint32_t locInBlkFile = startOffset;
-
-      iface_->startBatch(BLKDATA);
-
-      // It turns out that this streambuffering is probably not helping, but
-      // it doesn't hurt either, so I'm leaving it alone
-      while(bsb.streamPull())
-      {
-         while(bsb.reader().getSizeRemaining() > 8)
-         {
-            
-            if(!alreadyRead8B)
-            {
-               bsb.reader().get_BinaryData(firstFour, 4);
-               if(firstFour!=MagicBytes_)
-               {
-                  isEOF = true; 
-                  break;
-               }
-               nextBlkSize = bsb.reader().get_uint32_t();
-               bytesReadSoFar_ += 8;
-            }
-   
-            if(bsb.reader().getSizeRemaining() < nextBlkSize)
-            {
-               alreadyRead8B = true;
-               break;
-            }
-            alreadyRead8B = false;
-   
-            BinaryRefReader brr(bsb.reader().getCurrPtr(), nextBlkSize);
-
-            addRawBlockToDB(brr);
-            dbUpdateSize_ += nextBlkSize;
-
-            if(dbUpdateSize_>UPDATE_BYTES_THRESH && iface_->isBatchOn(BLKDATA))
-            {
-               LOGINFO << "Flushing DB cache after blocks: " << blocksReadSoFar_;
-               dbUpdateSize_ = 0;
-               iface_->commitBatch(BLKDATA);
-               iface_->startBatch(BLKDATA);
-            }
-
-            blocksReadSoFar_++;
-            bytesReadSoFar_ += nextBlkSize;
-            locInBlkFile += nextBlkSize + 8;
-            bsb.reader().advance(nextBlkSize);
-
-            // Don't read past the last header we processed (in case new 
-            // blocks were added since we processed the headers
-            if(fnum == numBlkFiles_-1 && locInBlkFile >= endOfLastBlockByte_)
-            {
-               breakbreak = true;
-               break;
-            }
-         }
-
-         // This is a hack of hacks, but I can't seem to pass this data 
-         // out through getLoadProgress* methods, because they don't 
-         // update properly (from the main python thread) when the BDM 
-         // is actively loading/scanning in a separate thread.
-         // We'll watch for this file from the python code.
-         if(armoryHomeDir_.size() > 0)
-            writeProgressFile(DB_BUILD_ADD_RAW, bfile, "dumpRawBlocksToDB");
-
-         if(isEOF || breakbreak)
-            break;
-      }
-
-
-      if(iface_->isBatchOn(BLKDATA))
-         iface_->commitBatch(BLKDATA);
-
+      TIMER_STOP("dumpRawBlocksToDB");
    }
 
-   TIMER_STOP("dumpRawBlocksToDB");
-   LOGINFO << "Finished putting " << blocksReadSoFar_ 
-           << " raw blocks into DB (" 
-           << TIMER_READ_SEC("dumpRawBlocksToDB") << " seconds)";
+   double timeElapsed = TIMER_READ_SEC("dumpRawBlocksToDB");
+   LOGINFO << "Processed " << blocksReadSoFar_ << " raw blocks DB (" 
+           <<  (int)timeElapsed << " seconds)";
 
+   // Now start scanning the raw blocks
    if(registeredScrAddrMap_.size() == 0)
    {
       LOGWARN << "No addresses are registered with the BDM, so there's no";
       LOGWARN << "point in doing a blockchain scan yet.";
    }
-   else
+   else if(DBUtils.getArmoryDbType() != ARMORY_DB_SUPER)
    {
-      // If no rescan is forced, grab the SSH entries from the DB
-      if(forceRescan || requestRescan_)
-         requestRescan_ = false; // we rescan by not calling the fetch*() func
-      else
-         fetchAllRegisteredScrAddrData();
-
-      // We always delete the histories, regardless of whether we read them or
-      // not.  We only save them on a clean shutdown, so we know they are 
-      // consistent.  Unclean shutdowns/kills will force a rescan simply by
-      // the above fetch call getting noting out of the database
-      deleteHistories();
-      startScanHgt_ = evalLowestBlockNextScan();
-      
-
       // For progress bar purposes, let's find the blkfile location of scanStart
-      pair<uint32_t, uint32_t> blkLoc = findFileAndOffsetForHgt(startScanHgt_);
-      startScanBlkFile_ = blkLoc.first;
-      startScanOffset_ = blkLoc.second;
+      if(forceRescan)
+      {
+         startScanHgt_ = 0;
+         startScanBlkFile_ = 0;
+         startScanOffset_ = 0;
+      }
+      else
+      {
+         pair<uint32_t, uint32_t> blkLoc = findFileAndOffsetForHgt(startScanHgt_);
+         startScanBlkFile_ = blkLoc.first;
+         startScanOffset_ = blkLoc.second;
+      }
+   
+      LOGINFO << startScanHgt_       << " ScanHgt"
+              << startScanBlkFile_   << " ScanBlkF"
+              << startScanOffset_    << " ScanOffs";
 
       LOGINFO << "Starting initial blockchain scan from blk: " << startScanHgt_;
       scanDBForRegisteredTx(startScanHgt_);
@@ -3735,8 +3709,6 @@ uint32_t BlockDataManager_LevelDB::buildDatabasesFromBlkFiles(bool forceRescan)
    // Since loading takes so long, there's a good chance that new block data
    // came in... let's get it.
    readBlkFileUpdate();
-
-   // Return the number of blocks read from blkfile (this includes invalids)
    isInitialized_ = true;
    purgeZeroConfPool();
 
@@ -3745,8 +3717,122 @@ uint32_t BlockDataManager_LevelDB::buildDatabasesFromBlkFiles(bool forceRescan)
       UniversalTimer::instance().printCSV(string("timings.csv"));
    #endif
 
-   return blocksReadSoFar_;
+   /*
+   for(iter  = registeredScrAddrMap_.begin();
+       iter != registeredScrAddrMap_.end();
+       iter ++)
+      LOGINFO << "ScrAddr: " << iter->second.uniqueKey_.toHexStr().c_str()
+               << " " << iter->second.alreadyScannedUpToBlk_;
+   */
 }
+
+
+////////////////////////////////////////////////////////////////////////////////
+void BlockDataManager_LevelDB::readRawBlocksInFile(uint32_t fnum, uint32_t foffset)
+{
+
+   string blkfile = blkFileList_[fnum];
+   uint64_t filesize = BtcUtils::GetFileSize(blkfile);
+   string fsizestr = BtcUtils::numToStrWCommas(filesize);
+   LOGINFO << blkfile.c_str() << " is " << fsizestr.c_str() << " bytes";
+
+   // Open the file, and check the magic bytes on the first block
+   ifstream is(blkfile.c_str(), ios::in | ios::binary);
+   BinaryData fileMagic(4);
+   is.read((char*)(fileMagic.getPtr()), 4);
+   if( !(fileMagic == MagicBytes_ ) )
+   {
+      LOGERR << "Block file is the wrong network!  MagicBytes: "
+             << fileMagic.toHexStr().c_str();
+   }
+
+   // Seek to the supplied offset
+   is.seekg(foffset, ios::beg);
+
+   BinaryStreamBuffer bsb;
+   bsb.attachAsStreamBuffer(is, filesize-foffset);
+
+   bool alreadyRead8B = false;
+   uint32_t nextBlkSize;
+   bool isEOF = false;
+   BinaryData firstFour(4);
+
+   // We use these two vars to stop parsing if we exceed the last header
+   // that was processed (a new block was added since we processed headers)
+   bool breakbreak = false;
+   uint32_t locInBlkFile = foffset;
+
+   iface_->startBatch(BLKDATA);
+
+   // It turns out that this streambuffering is probably not helping, but
+   // it doesn't hurt either, so I'm leaving it alone
+   while(bsb.streamPull())
+   {
+      while(bsb.reader().getSizeRemaining() > 8)
+      {
+         
+         if(!alreadyRead8B)
+         {
+            bsb.reader().get_BinaryData(firstFour, 4);
+            if(firstFour!=MagicBytes_)
+            {
+               isEOF = true; 
+               break;
+            }
+            nextBlkSize = bsb.reader().get_uint32_t();
+            bytesReadSoFar_ += 8;
+         }
+
+         if(bsb.reader().getSizeRemaining() < nextBlkSize)
+         {
+            alreadyRead8B = true;
+            break;
+         }
+         alreadyRead8B = false;
+
+         BinaryRefReader brr(bsb.reader().getCurrPtr(), nextBlkSize);
+
+         addRawBlockToDB(brr);
+         dbUpdateSize_ += nextBlkSize;
+
+         if(dbUpdateSize_>UPDATE_BYTES_THRESH && iface_->isBatchOn(BLKDATA))
+         {
+            dbUpdateSize_ = 0;
+            iface_->commitBatch(BLKDATA);
+            iface_->startBatch(BLKDATA);
+         }
+
+         blocksReadSoFar_++;
+         bytesReadSoFar_ += nextBlkSize;
+         locInBlkFile += nextBlkSize + 8;
+         bsb.reader().advance(nextBlkSize);
+
+         // Don't read past the last header we processed (in case new 
+         // blocks were added since we processed the headers
+         if(fnum == numBlkFiles_-1 && locInBlkFile >= endOfLastBlockByte_)
+         {
+            breakbreak = true;
+            break;
+         }
+      }
+
+      // This is a hack of hacks, but I can't seem to pass this data 
+      // out through getLoadProgress* methods, because they don't 
+      // update properly (from the main python thread) when the BDM 
+      // is actively loading/scanning in a separate thread.
+      // We'll watch for this file from the python code.
+      if(armoryHomeDir_.size() > 0)
+         writeProgressFile(DB_BUILD_ADD_RAW, blkProgressFile_, "dumpRawBlocksToDB");
+
+      if(isEOF || breakbreak)
+         break;
+   }
+
+   if(iface_->isBatchOn(BLKDATA))
+      iface_->commitBatch(BLKDATA);
+}
+
+
 
 ////////////////////////////////////////////////////////////////////////////////
 void BlockDataManager_LevelDB::rescanDBForRegisteredTx(void)
@@ -3762,8 +3848,6 @@ void BlockDataManager_LevelDB::scanDBForRegisteredTx(uint32_t blk0,
    SCOPED_TIMER("scanDBForRegisteredTx");
    bytesReadSoFar_ = 0;
 
-   
-   string bfile = armoryHomeDir_ + string("/blkfiles.txt");
    bool doScanProgressThing = (blk1-blk0 > NUM_BLKS_IS_DIRTY);
    if(doScanProgressThing)
    {
@@ -3806,7 +3890,7 @@ void BlockDataManager_LevelDB::scanDBForRegisteredTx(uint32_t blk0,
       if(doScanProgressThing && armoryHomeDir_.size() > 0)
       {
          if((hgt < 120000 && hgt%10000 == 0) || (hgt > 120000 && hgt%1000==0))
-            writeProgressFile(DB_BUILD_SCAN, bfile, "ScanBlockchain");
+            writeProgressFile(DB_BUILD_SCAN, blkProgressFile_, "ScanBlockchain");
       }
    }
    TIMER_STOP("ScanBlockchain");

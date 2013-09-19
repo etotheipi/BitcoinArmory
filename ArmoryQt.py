@@ -2631,7 +2631,8 @@ class ArmoryMainWindow(QMainWindow):
 
       if doRescanNow == QMessageBox.Yes:
          LOGINFO('User requested rescan after wallet import')
-         TheBDM.startWalletRecoveryScan(newWlt) 
+         #TheBDM.startWalletRecoveryScan(newWlt) 
+         self.startRescanBlockchain()
          self.setDashboardDetails()
       else:
          LOGINFO('User aborted the wallet-import scan')
@@ -2696,7 +2697,8 @@ class ArmoryMainWindow(QMainWindow):
 
       if doRescanNow == QMessageBox.Yes:
          LOGINFO('User requested rescan after wallet restore')
-         TheBDM.startWalletRecoveryScan(newWallet) 
+         #TheBDM.startWalletRecoveryScan(newWallet) 
+         self.startRescanBlockchain()
          self.setDashboardDetails()
       else:
          LOGINFO('User aborted the wallet-recovery scan')
@@ -4452,7 +4454,7 @@ class ArmoryMainWindow(QMainWindow):
 
       sdmState = TheSDM.getSDMState()
       bdmState = TheBDM.getBDMState()
-      #print '(SDM, BDM) State = (%s, %s)' % (sdmState, bdmState)
+      print '(SDM, BDM) State = (%s, %s)' % (sdmState, bdmState)
             
 
       try:
@@ -4617,7 +4619,7 @@ class ArmoryMainWindow(QMainWindow):
                if didAffectUs:
                   LOGINFO('New Block contained a transaction relevant to us!')
                   self.walletListChanged()
-                  self.notifyOnSurpriseTx(self.currBlockNum-newBlks, \
+                  self.notifyOnSurpriseTx(self.currBlockNum-newBlocks, \
                                           self.currBlockNum+1)
       
                self.createCombinedLedger()
