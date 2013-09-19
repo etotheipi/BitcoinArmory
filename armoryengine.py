@@ -4543,6 +4543,7 @@ def determineSentToSelfAmt(le, wlt):
    amt = 0
    if TheBDM.isInitialized() and le.isSentToSelf():
       txref = TheBDM.getTxByHash(le.getTxHash())
+      print 'Txref: ', txref, str(txref)
       if not txref.isInitialized():
          return (0, 0)
       if txref.getNumTxOut()==1:
@@ -11933,7 +11934,6 @@ BDMINPUTTYPE  = enum('RegisterAddr', \
                      'AddrBookRequested', \
                      'BlockAtHeightRequested', \
                      'HeaderAtHeightRequested', \
-                     'StartScanRequested', \
                      'ForceRebuild', \
                      'RescanRequested', \
                      'WalletRecoveryScan', \
@@ -12312,21 +12312,10 @@ class BlockDataManagerThread(threading.Thread):
 
       self.ldbdir = ldbdir
 
-   #############################################################################
-   def stopAndRebuildDB(self, goOnline=True, wait=None):
-      expectOutput = False
-      if not wait==False and (self.alwaysBlock or wait==True):
-         expectOutput = True
-
-      rndID = int(random.uniform(0,100000000)) 
-      self.aboutToRescan = True
-
-      self.inputQueue.put([BDMINPUTTYPE.ForceRebuild, rndID, expectOutput])
-
-      return self.waitForOutputIfNecessary(expectOutput, rndID)
 
    #############################################################################
    def setOnlineMode(self, goOnline=True, wait=None):
+      LOGINFO('Setting online mode: %s (wait=%s)' % (str(goOnline), str(wait)))
       expectOutput = False
       if not wait==False and (self.alwaysBlock or wait==True):
          expectOutput = True
@@ -12376,25 +12365,6 @@ class BlockDataManagerThread(threading.Thread):
       return self.bdm.isDirty()
    
 
-   #############################################################################
-   def loadBlockchain(self, wait=None):
-      # self.aboutToRescan is set by the calling thread to make sure that 
-      # TheBDM.isScanning() doesn't return False immediately after the request
-      # is made.  The problem is that the request is put in to do a scan,
-      # and the calling thread checks TheBDM.isScanning() before this thread
-      # has a chance to modify the blkMode variable.  Now isScanning() also
-      # checks the aboutToRescan variable, too.
-
-      expectOutput = False
-      if not wait==False and (self.alwaysBlock or wait==True):
-         expectOutput = True
-
-      self.aboutToRescan = True
-
-      rndID = int(random.uniform(0,100000000)) 
-      self.inputQueue.put([BDMINPUTTYPE.StartScanRequested, rndID, expectOutput])
-      LOGINFO('Initial blockchain load requested')
-      return self.waitForOutputIfNecessary(expectOutput, rndID)
 
 
    #############################################################################
@@ -12473,7 +12443,7 @@ class BlockDataManagerThread(threading.Thread):
          return False
       if self.blkMode==BLOCKCHAINMODE.Offline:
          LOGERROR('Requested blockchain data while BDM is in offline mode.')
-         LOGERROR('Please start the BDM using TheBDM.loadBlockchain() before,')
+         LOGERROR('Please start the BDM using TheBDM.setOnlineMode() before,')
          LOGERROR('and then wait for it to complete, before requesting data.')
          return False
       if not self.bdm.isInitialized():
@@ -12787,6 +12757,8 @@ class BlockDataManagerThread(threading.Thread):
       never be a conflict.  
       """
 
+      LOGINFO('Called __startLoadBlockchain()')
+
       TimerStart('__startLoadBlockchain')
 
       if self.blkMode == BLOCKCHAINMODE.Rescanning:
@@ -12839,7 +12811,7 @@ class BlockDataManagerThread(threading.Thread):
       # Now we actually startup the BDM and run with it
       if CLI_OPTIONS.rebuild:
          self.bdm.doInitialSyncOnLoad_Rebuild()
-      if CLI_OPTIONS.rescan:
+      elif CLI_OPTIONS.rescan:
          self.bdm.doInitialSyncOnLoad_Rescan()
       else:
          self.bdm.doInitialSyncOnLoad()
@@ -13220,13 +13192,6 @@ class BlockDataManagerThread(threading.Thread):
                TimerStart('updateWltsAfterScan')
                self.__updateWalletsAfterScan()
                TimerStop('updateWltsAfterScan')
-
-            elif cmd == BDMINPUTTYPE.StartScanRequested:
-               LOGINFO('Start Initial BDM Load Requested')
-               
-               TimerStart('loadBlockchain')
-               self.__startLoadBlockchain()
-               TimerStop('loadBlockchain')
 
             elif cmd == BDMINPUTTYPE.RescanRequested:
                TimerStart('rescanBlockchain')
