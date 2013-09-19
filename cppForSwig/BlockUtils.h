@@ -779,9 +779,6 @@ public:
    void doInitialSyncOnLoad_Rescan(void);
    void doInitialSyncOnLoad_Rebuild(void);
 
-   uint32_t initializeAndBuildDatabases(ARMORY_DB_TYPE atype=ARMORY_DB_WHATEVER,
-                                        DB_PRUNE_TYPE  dtype=DB_PRUNE_WHATEVER);
-   uint32_t initializeAndBuildDatabases(uint32_t atype, uint32_t dtype);
    bool     addRawBlockToDB(BinaryRefReader & brr);
    void     updateBlkDataHeader(StoredHeader const & sbh);
 

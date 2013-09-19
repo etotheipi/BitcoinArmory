@@ -13170,11 +13170,6 @@ class DlgSimpleBackup(ArmoryDialog):
          of these events.   If you've ever forgotten a password or had
          a hardware failure, make a backup! """))
 
-      ### Test backup option
-      lblTest = QRichLabel( tr(""" 
-         Test a previously-made backup to make sure it works."""))
-      btnTest = QPushButton( tr('Test a Paper Backup'))
-
       ### Paper
       lblPaper = QRichLabel( tr(""" 
          Use a printer or pen-and-paper to write down your wallet "seed." """))
@@ -13689,6 +13684,7 @@ class DlgUniversalRestoreSelect(ArmoryDialog):
       self.rdoSingle  = QRadioButton(tr('Single-Sheet Backup (printed)'))
       self.rdoFragged = QRadioButton(tr('Fragmented Backup (incl. mix of paper and files)'))
       self.rdoDigital = QRadioButton(tr('Digital Backup'))
+      self.chkTest =    QCheckBox('This is a test recovery to make sure my backup works')
       btngrp = QButtonGroup(self)
       btngrp.addButton(self.rdoSingle)
       btngrp.addButton(self.rdoFragged)
@@ -13719,13 +13715,18 @@ class DlgUniversalRestoreSelect(ArmoryDialog):
 
 
    def clickedOkay(self):
+      ### Test backup option
+
+      if self.chkTest.isChecked():
+         LOGINFO('Executing recovery test')
+
       if self.rdoSingle.isChecked():
          self.accept()
          dlg = DlgRestoreSingle(self.parent, self.main)
          if dlg.exec_():
             self.main.addWalletToAppAndAskAboutRescan(dlg.newWallet)
             LOGINFO('Wallet Restore Complete!')
-            TheBDM.rescanBlockchain(wait=False)
+            TheBDM.main.startRescanBlockchain()
             
       elif self.rdoFragged.isChecked():
          self.accept()
@@ -13733,7 +13734,7 @@ class DlgUniversalRestoreSelect(ArmoryDialog):
          if dlg.exec_():
             self.main.addWalletToAppAndAskAboutRescan(dlg.newWallet)
             LOGINFO('Wallet Restore Complete!')
-            TheBDM.rescanBlockchain(wait=False)
+            TheBDM.main.startRescanBlockchain()
       elif self.rdoDigital.isChecked():
          self.main.execGetImportWltName()
          self.accept()
