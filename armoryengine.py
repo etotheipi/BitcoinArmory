@@ -14,7 +14,7 @@ from sys import argv
 from utilities.BinaryPacker import BinaryPacker
 from utilities.BinaryUnpacker import BinaryUnpacker
 from utilities.Timer import Timer, TimeThisFunction
-from utilities.ArmoryUtils import ARMORY_HOME_DIR, ARMORY_RPC_PORT, \
+from utilities.ArmoryUtils import ARMORY_HOME_DIR, LEVELDB_DIR, ARMORY_RPC_PORT, \
    toPreferred, OS_NAME, OS_VARIANT, BTC_HOME_DIR, getVersionString, \
    USER_HOME_DIR, ARMORY_LOG_FILE, LOGINFO, OS_WINDOWS, LOGWARN, OS_LINUX, RightNow, \
    LOGEXCEPT, LOGERROR, OS_MACOSX, NETWORKS, RightNowUTC, UINT32_MAX, hash256, \
@@ -29,7 +29,8 @@ from utilities.ArmoryUtils import ARMORY_HOME_DIR, ARMORY_RPC_PORT, \
    NETWORKENDIAN, unixTimeToFormatStr, LOGRAWDATA, isASCII, GIGABYTE, HOUR, toBytes, \
    toUnicode, enum, MT_WAIT_TIMEOUT_SEC, packVarInt, MAGIC_BYTES, CLI_OPTIONS, \
    CLI_ARGS, BITCOIN_PORT, ADDRBYTE, LOGCRIT, BITCOIN_RPC_PORT, GENESIS_BLOCK_HASH, \
-   GENESIS_TX_HASH, SETTINGS_PATH, getVersionInt, readVersionInt, readVersionString
+   GENESIS_TX_HASH, SETTINGS_PATH, getVersionInt, readVersionInt, readVersionString,\
+   Hash160ToScrAddr
 from utilities.BinaryPacker import UINT8, UINT16, UINT32, UINT64, INT8, INT16, \
    INT32, INT64, VAR_INT, VAR_STR, FLOAT, BINARY_CHUNK
 from utilities.BinaryUnpacker import UnpackerError
@@ -9079,7 +9080,8 @@ class SatoshiDaemonManager(object):
             LOGERROR('on XP systems):')
             LOGERROR('    %s', bitconf)
          else: 
-            username = win32com.win32api.GetUserName()
+            from win32com import win32api
+            username = win32api.get
             cmd_icacls = ['icacls',bitconf,'/inheritance:r','/grant:r', '%s:F' % username]
             icacls_out = subprocess_check_output(cmd_icacls, shell=True)
             LOGINFO('icacls returned: %s', icacls_out)
@@ -10340,19 +10342,6 @@ class BlockDataManagerThread(threading.Thread):
             # TODO: take into account the new phase info
             phases  = [float(row[0])  for row in tmtrx]
             currPhase = phases[-1]
-            startat = [float(row[1]) for row in tmtrx if float(row[0])==currPhase]
-            sofar   = [float(row[2]) for row in tmtrx if float(row[0])==currPhase]
-            total   = [float(row[3]) for row in tmtrx if float(row[0])==currPhase]
-            times   = [float(row[4]) for row in tmtrx if float(row[0])==currPhase]
-            
-            startRow = 0 if len(startat)<=10 else -10
-            todo = total[0] - startat[0]
-            pct0 = sofar[0]  / todo
-            pct1 = sofar[-1] / todo
-            t0,t1 = times[0], times[-1]
-            if (not t1>t0) or todo<0:
-               return [-1,-1,-1,-1]
-            tmtrx = [ line.split() for line in f.readlines() ] 
             phase1Tmtrx = [ line[1:] for line in tmtrx if line[0] == '1']
             if len(tmtrx) > len(phase1Tmtrx):
                curTmtrx = [ line[1:] for line in tmtrx if line[0] == '2']
@@ -10363,7 +10352,7 @@ class BlockDataManagerThread(threading.Thread):
             t0 = float(curTmtrx[0][2])
             t1 = float(curTmtrx[-1][2])
             if not t1>t0:
-               return [-1,-1,-1]
+               return [-1,-1,-1,-1]
             rate = (pct1-pct0) / (t1-t0) 
             # There are 2 phases
             # Phase 1 reliably represents 1/4 of the total computation time.
@@ -10374,7 +10363,7 @@ class BlockDataManagerThread(threading.Thread):
             if not self.lastPctLoad == totalPct:
                LOGINFO('Reading blockchain, pct complete: %0.1f', 100*pct1)
             self.lastPctLoad = pct1 
-            return [currPhase,pct1,rate,tleft]
+            return [currPhase,totalPct,totalRate,tleft]
       except:
          raise
          return [-1,-1,-1,-1]
@@ -11460,115 +11449,6 @@ def SaveTimingsCSV(fname):
                       'were triggered in the timed functions')
    print 'Saved timings to file: %s' % fname
 
-
-
-
-
-
-################################################################################
-# I ORIGINALLY UPDATED THE TIMER TO USE collections MODULE, but it turns out
-# that module is not available on many python versions.  So I'm reverting to 
-# the older version of the timers ... will update to the version below...
-# at some point...
-#  
-#  Keep track of lots of different timers:
-#
-#     Key:    timerName  
-#     Value:  [cumulTime, numStart, lastStart, isRunning]
-#
-
-"""
-import collections
-TimerMap = collections.OrderedDict()
-# Wanted to used namedtuple, but that would be immutable
-class TimerObj(object):
-   def __init__(self):
-      self.cumulTime = 0
-      self.callCount = 0
-      self.lastStart = 0
-      self.isRunning = False
-      
-
-################################################################################
-def TimerStart(timerName, nCall=1):
-   if not TimerMap.has_key(timerName):
-      TimerMap[timerName] = TimerObj()
-
-   timerEntry = TimerMap[timerName]
-   timerEntry.callCount += nCall
-   timerEntry.lastStart  = RightNow()
-   timerEntry.isRunning  = True
-
-################################################################################
-def TimerStop(timerName):
-   if not TimerMap.has_key(timerName):
-      LOGWARN('Requested stop timer that does not exist! (%s)' % timerName)
-      return
-
-   if not TimerMap[timerName].isRunning:
-      LOGWARN('Requested stop timer that is not running! (%s)' % timerName)
-      return
-
-   timerEntry = TimerMap[timerName]
-   timerEntry.cumulTime += RightNow() - timerEntry.lastStart
-   timerEntry.lastStart  = 0
-   timerEntry.isRunning  = False
-
-
-################################################################################
-def TimerReset(timerName):
-   if not TimerMap.has_key(timerName):
-      LOGERROR('Requested reset timer that does not exist! (%s)' % timerName)
-
-   # Even if it didn't exist, it will be created now
-   TimerMap[timerName] = TimerObj(0,0,0,False)
-
-
-################################################################################
-def ReadTimer(timerName):
-   if not TimerMap.has_key(timerName):
-      LOGERROR('Requested read timer that does not exist! (%s)' % timerName)
-      return
-
-   timerEntry = TimerMap[timerName]
-   return timerEntry.cumulTime + (RightNow() - timerEntry.lastStart)
-   
-
-def PrintTimings():
-   print 'Timings:  '.ljust(22), 
-   print 'nCall'.rjust(8),
-   print 'cumulTime'.rjust(12),
-   print 'avgTime'.rjust(12),
-   print 'ops/sec'.rjust(12)
-   print '-'*80
-   for tname,tobj in TimerMap.iteritems():
-      print ('%s' % tname).ljust(22), 
-      print ('%d' % tobj.callCount).rjust(8),
-      print ('%0.6f' % tobj.cumulTime).rjust(12),
-      avg = tobj.cumulTime/tobj.callCount
-      ops = tobj.callCount/tobj.cumulTime
-      print ('%0.6f' % avg).rjust(12),
-      print ('%0.2f' % ops).rjust(12)
-   print '-'*80
-      
-
-##
-def SaveTimingsCSV(fname):
-   f = open(fname, 'w')
-   f.write( 'TimerName,')
-   f.write( 'nCall,')
-   f.write( 'cumulTime,')
-   f.write( 'avgTime\n\n')
-   for tname,quad in TimerMap.iteritems():
-      f.write('"%s",' % tname)
-      f.write('%d,' % quad.callCount)
-      f.write('%0.6f,' % quad.cumulTime)
-      avg = quad.cumulTime/quad.callCount
-      f.write('%0.6f\n' % avg)
-   f.write('\n\nNote: timings may be incorrect if errors '
-                      'were triggered in the timed functions')
-   print 'Saved timings to file: %s' % fname
-"""
 def EstimateCumulativeBlockchainSize(blkNum):
    # I tried to make a "static" variable here so that 
    # the string wouldn't be parsed on every call, but 

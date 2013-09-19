@@ -30,7 +30,8 @@ parser.add_option("--settings",        dest="settingsPath",default='DEFAULT', ty
 parser.add_option("--datadir",         dest="datadir",     default='DEFAULT', type="str",          help="Change the directory that Armory calls home")
 parser.add_option("--satoshi-datadir", dest="satoshiHome", default='DEFAULT', type='str',          help="The Bitcoin-Qt/bitcoind home directory")
 parser.add_option("--satoshi-port",    dest="satoshiPort", default='DEFAULT', type="str",          help="For Bitcoin-Qt instances operating on a non-standard port")
-#parser.add_option("--bitcoind-path",   dest="bitcoindPath",default='DEFAULT', type="str",          help="Path to the location of bitcoind on your system")
+#parser.add_option("--bitcoind-path",   dest="bitcoindPath",default='DEFAULT', type="str",         help="Path to the location of bitcoind on your system")
+parser.add_option("--dbdir",           dest="leveldbDir",  default='DEFAULT', type='str',          help="Location to store blocks database (defaults to --datadir)")
 parser.add_option("--rpcport",         dest="rpcport",     default='DEFAULT', type="str",          help="RPC port for running armoryd.py")
 parser.add_option("--testnet",         dest="testnet",     default=False,     action="store_true", help="Use the testnet protocol")
 parser.add_option("--offline",         dest="offline",     default=False,     action="store_true", help="Force Armory to run in offline mode")
@@ -103,6 +104,8 @@ OS_VARIANT       = ''
 USER_HOME_DIR    = ''
 BTC_HOME_DIR     = ''
 ARMORY_HOME_DIR  = ''
+LEVELDB_DIR      = ''
+
 SUBDIR = 'testnet3' if USE_TESTNET else ''
 if OS_WINDOWS:
    OS_NAME         = 'Windows'
@@ -110,12 +113,18 @@ if OS_WINDOWS:
    USER_HOME_DIR   = os.getenv('APPDATA')
    BTC_HOME_DIR    = os.path.join(USER_HOME_DIR, 'Bitcoin', SUBDIR)
    ARMORY_HOME_DIR = os.path.join(USER_HOME_DIR, 'Armory', SUBDIR)
+   LEVELDB_DIR     = os.path.join(ARMORY_HOME_DIR, 'databases')
+   BLKFILE_DIR     = os.path.join(BTC_HOME_DIR, 'blocks')
+   BLKFILE_1stFILE = os.path.join(BLKFILE_DIR, 'blk00000.dat')
 elif OS_LINUX:
    OS_NAME         = 'Linux'
    OS_VARIANT      = platform.linux_distribution()
    USER_HOME_DIR   = os.getenv('HOME')
    BTC_HOME_DIR    = os.path.join(USER_HOME_DIR, '.bitcoin', SUBDIR)
    ARMORY_HOME_DIR = os.path.join(USER_HOME_DIR, '.armory', SUBDIR)
+   LEVELDB_DIR     = os.path.join(ARMORY_HOME_DIR, 'databases')
+   BLKFILE_DIR     = os.path.join(BTC_HOME_DIR, 'blocks')
+   BLKFILE_1stFILE = os.path.join(BLKFILE_DIR, 'blk00000.dat')
 elif OS_MACOSX:
    platform.mac_ver()
    OS_NAME         = 'MacOSX'
@@ -123,6 +132,9 @@ elif OS_MACOSX:
    USER_HOME_DIR   = os.path.expanduser('~/Library/Application Support')
    BTC_HOME_DIR    = os.path.join(USER_HOME_DIR, 'Bitcoin', SUBDIR)
    ARMORY_HOME_DIR = os.path.join(USER_HOME_DIR, 'Armory', SUBDIR)
+   LEVELDB_DIR     = os.path.join(ARMORY_HOME_DIR, 'databases')
+   BLKFILE_DIR     = os.path.join(BTC_HOME_DIR, 'blocks')
+   BLKFILE_1stFILE = os.path.join(BLKFILE_DIR, 'blk00000.dat')
 else:
    print '***Unknown operating system!'
    print '***Cannot determine default directory locations'
@@ -558,6 +570,35 @@ FORMAT_SYMBOLS = [ \
    ['%A', 'day of week (full)'], \
    ['%%', 'percent symbol'] ]
 
+# The database uses prefixes to identify type of address.  Until the new 
+# wallet format is created that supports more than just hash160 addresses
+# we have to explicitly add the prefix to any hash160 values that are being 
+# sent to any of the C++ utilities.  For instance, the BlockDataManager (BDM)
+# (C++ stuff) tracks regular hash160 addresses, P2SH, multisig, and all
+# non-standard scripts.  Any such "scrAddrs" (script-addresses) will eventually
+# be valid entities for tracking in a wallet.  Until then, all of our python
+# utilities all use just hash160 values, and we manually add the prefix 
+# before talking to the BDM.
+HASH160PREFIX  = '\x00'
+P2SHPREFIX     = '\x05'
+MSIGPREFIX     = '\xfe'
+NONSTDPREFIX   = '\xff'
+def CheckHash160(scrAddr):
+   if not len(scrAddr)==21:
+      raise BadAddressError, "Supplied scrAddr is not a Hash160 value!"
+   if not scrAddr[0] == HASH160PREFIX:
+      raise BadAddressError, "Supplied scrAddr is not a Hash160 value!"
+   return scrAddr[1:]
+
+def Hash160ToScrAddr(a160):
+   if not len(a160)==20:
+      LOGERROR('Invalid hash160 value!')
+   return HASH160PREFIX + a160
+
+def HexHash160ToScrAddr(a160):
+   if not len(a160)==40:
+      LOGERROR('Invalid hash160 value!')
+   return HASH160PREFIX + hex_to_binary(a160)
 
 # Some time methods (RightNow() return local unix timestamp)
 RightNow = time.time

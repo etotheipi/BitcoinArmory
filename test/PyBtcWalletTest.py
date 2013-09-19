@@ -5,8 +5,6 @@ Created on Aug 14, 2013
 '''
 import sys
 sys.argv.append('--nologging')
-sys.argv.append('--keypool')
-sys.argv.append('10')
 import unittest
 from utilities.ArmoryUtils import USE_TESTNET, convertKeyDataToAddress, hash256,\
    binary_to_hex, hex_to_binary, CLI_OPTIONS
@@ -77,8 +75,9 @@ class PyBtcWalletTest(unittest.TestCase):
       
       #############################################################################
       # (2)Testing unencrypted wallet import-address'
+      originalLength = len(wlt.linearAddr160List)
       wlt.importExternalAddressData(PRIVATE_KEY=privKey2)
-      self.assertEqual(len(wlt.linearAddr160List), 11)
+      self.assertEqual(len(wlt.linearAddr160List), originalLength+1)
       
       # (2) Re-reading wallet from file, compare the two wallets
       wlt2 = PyBtcWallet().readWalletFile(wlt.walletPath)
@@ -89,13 +88,13 @@ class PyBtcWalletTest(unittest.TestCase):
       # Addresses before delete:', len(wlt.linearAddr160List)
       toDelete160 = convertKeyDataToAddress(privKey2)
       wlt.deleteImportedAddress(toDelete160)
-      self.assertEqual(len(wlt.linearAddr160List), 10)
+      self.assertEqual(len(wlt.linearAddr160List), originalLength)
       
    
       # (2a) Reimporting address for remaining tests
       # Wallet size before reimport:',  os.path.getsize(wlt.walletPath)
       wlt.importExternalAddressData(PRIVATE_KEY=privKey2)
-      self.assertEqual(len(wlt.linearAddr160List), 11)
+      self.assertEqual(len(wlt.linearAddr160List), originalLength+1)
       
    
       # (2b)Testing ENCRYPTED wallet import-address
@@ -193,7 +192,7 @@ class PyBtcWalletTest(unittest.TestCase):
       wlt.lock()
       for i in range(10):
          wlt.getNextUnusedAddress()
-      self.assertEqual(len(wlt.addrMap), 23)
+      self.assertEqual(len(wlt.addrMap), CLI_OPTIONS.keypool+13)
       
       # (5) Re-reading wallet from file, compare the two wallets'
       wlt2 = PyBtcWallet().readWalletFile(wlt.getWalletPath())
@@ -215,7 +214,7 @@ class PyBtcWalletTest(unittest.TestCase):
       newaddr1 = wlt.getNextUnusedAddress()
       newaddr2 = wlt2.getNextUnusedAddress()   
       self.assertTrue(newaddr1.getAddr160() == newaddr2.getAddr160())
-      self.assertEqual(len(wlt2.addrMap), 44)
+      self.assertEqual(len(wlt2.addrMap), 3*CLI_OPTIONS.keypool+14)
    
       # (6) Re-reading wallet from file, compare the two wallets
       wlt3 = PyBtcWallet().readWalletFile('OnlineVersionOfEncryptedWallet.bin')
