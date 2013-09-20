@@ -2,7 +2,7 @@ def licenseText():
    return """
 ********************************************************************************
 *                                                                              *
-*   Armory -- Bitcoin Wallet Software                                          *
+*   Armory -- Advanced Bitcoin Wallet Software                                          *
 *                                                                              *
 *   Copyright (C) 2011-2013, Armory Technologies, Inc.                         *
 *                                                                              *

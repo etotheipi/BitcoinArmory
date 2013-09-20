@@ -2855,90 +2855,6 @@ class DlgVerifySweep(ArmoryDialog):
 
 
 
-#############################################################################
-class DlgImportWallet(ArmoryDialog):
-   def __init__(self, parent=None, main=None):
-      super(DlgImportWallet, self).__init__(parent, main)
-      self.setAttribute(Qt.WA_DeleteOnClose)
-
-      lblImportDescr = QLabel('Chose the wallet import source:')
-      self.btnImportFile  = QPushButton("Import Armory wallet from &file")
-      self.btnImportPaper = QPushButton("Restore from &paper backup")
-      self.btnMigrate     = QPushButton("Migrate wallet.dat (main Bitcoin App)")
-
-      self.btnImportFile.setMinimumWidth(300)
-
-      def restoreBackup():
-         DlgUniversalRestoreSelect(self, self.main).exec_()
-
-      self.connect( self.btnImportFile,  SIGNAL("clicked()"), self.acceptImport)
-      self.connect( self.btnImportPaper, SIGNAL('clicked()'), restoreBackup)
-      self.connect( self.btnMigrate,     SIGNAL('clicked()'), self.acceptMigrate)
-
-      ttip1 = self.main.createToolTipWidget( \
-                  'Import an existing Armory wallet, usually with a '
-                  '*.wallet extension.  Any wallet that you import will ' 
-                  'be copied into your settings directory, and maintained '
-                  'there.  The original wallet file will not be touched.')
-
-      ttip2 = self.main.createToolTipWidget( \
-                  'If you have previously made a paper backup of '
-                  'a wallet, you can manually enter the wallet '
-                  'data into Armory to recover the wallet.')
-
-      ttip3 = self.main.createToolTipWidget( \
-                  'Migrate all your wallet.dat addresses '
-                  'from the regular Bitcoin client to an Armory '
-                  'wallet.')
-
-      w,h = relaxedSizeStr(ttip1, '(?)') 
-      for ttip in (ttip1, ttip2):
-         ttip.setMaximumSize(w,h)
-         ttip.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
-
-
-      # Set up the layout
-      layout = QGridLayout()
-      layout.addWidget(lblImportDescr,      0,0, 1, 2)
-      layout.addWidget(self.btnImportFile,  1,0, 1, 2); layout.addWidget(ttip1, 1,2,1,1)
-      layout.addWidget(self.btnImportPaper, 2,0, 1, 2); layout.addWidget(ttip2, 2,2,1,1)
-      #layout.addWidget(self.btnMigrate,     3,0, 1, 2); layout.addWidget(ttip3, 3,2,1,1)
-
-      if self.main.usermode in (USERMODE.Advanced, USERMODE.Expert):
-         lbl = QRichLabel('You can manually add wallets to armory by copying them '
-                      'into your application directory then restarting Armory: '
-                      '\n\n%s' % ARMORY_HOME_DIR, doWrap=True)
-         lbl.setWordWrap(True)
-         layout.addWidget(lbl, 4,0, 1, 2); 
-
-      btnCancel = QPushButton('Cancel')
-      self.connect(btnCancel, SIGNAL('clicked()'), self.reject)
-      layout.addWidget(btnCancel, 6,0, 1,1);
-      
-      self.setMinimumWidth(400)
-
-      self.setLayout(layout)
-      self.setWindowTitle('Import Wallet')
-      
-
-   def acceptImport(self):
-      self.importType_file    = True
-      self.importType_paper   = False
-      self.importType_migrate = False
-      self.accept()
-
-      
-   def acceptPaper(self):
-      self.importType_file    = False
-      self.importType_paper   = True
-      self.importType_migrate = False
-      self.accept()
-      
-   def acceptMigrate(self):
-      self.importType_file    = False
-      self.importType_paper   = False
-      self.importType_migrate = True
-      self.accept()
 
 #############################################################################
 #### Migration no longer is supported -- not until the new wallet format
@@ -3808,6 +3724,7 @@ class DlgEULA(ArmoryDialog):
       txtLicense = QTextEdit()
       txtLicense.sizeHint = lambda: QSize(txtWidth, 14*txtHeight)
       txtLicense.setReadOnly(True)
+      txtLicense.setCurrentFont(GETFONT('Fixed',8))
 
       from LICENSE import licenseText
       txtLicense.setText(licenseText())
@@ -13639,16 +13556,16 @@ class DlgUniversalRestoreSelect(ArmoryDialog):
          <b><u>Restore Wallet from Backup</u></b>"""))
       lblDescr = QRichLabel( tr("""
          You can restore any kind of backup ever created by Armory using
-         one of the options below.  If you have a key list to import 
+         one of the options below.  If you have a list of private keys 
          you should open the target wallet and select "Import/Sweep 
-         Private Keys" to import them into that wallet."""))
+         Private Keys."  """))
 
       lblRestore = QRichLabel(tr("""I am restoring a..."""))
 
       self.rdoSingle  = QRadioButton(tr('Single-Sheet Backup (printed)'))
       self.rdoFragged = QRadioButton(tr('Fragmented Backup (incl. mix of paper and files)'))
-      self.rdoDigital = QRadioButton(tr('Digital Backup'))
-      self.chkTest =    QCheckBox('This is a test recovery to make sure my backup works')
+      self.rdoDigital = QRadioButton(tr('Import digital backup or watching-only wallet'))
+      self.chkTest =    QCheckBox(tr('This is a test recovery to make sure my backup works'))
       btngrp = QButtonGroup(self)
       btngrp.addButton(self.rdoSingle)
       btngrp.addButton(self.rdoFragged)
@@ -13673,6 +13590,8 @@ class DlgUniversalRestoreSelect(ArmoryDialog):
       layout.addWidget(self.rdoSingle)
       layout.addWidget(self.rdoFragged)
       layout.addWidget(self.rdoDigital)
+      layout.addWidget(HLINE())
+      layout.addWidget(self.chkTest)
       layout.addWidget(buttonBox)
       self.setLayout(layout)
       self.setMinimumWidth(450)
@@ -13690,7 +13609,7 @@ class DlgUniversalRestoreSelect(ArmoryDialog):
          if dlg.exec_():
             self.main.addWalletToAppAndAskAboutRescan(dlg.newWallet)
             LOGINFO('Wallet Restore Complete!')
-            self.main.startRescanBlockchain()
+            #self.main.startRescanBlockchain()
             #TheBDM.rescanBlockchain('AsNeeded', wait=False)
             
       elif self.rdoFragged.isChecked():
@@ -13699,7 +13618,7 @@ class DlgUniversalRestoreSelect(ArmoryDialog):
          if dlg.exec_():
             self.main.addWalletToAppAndAskAboutRescan(dlg.newWallet)
             LOGINFO('Wallet Restore Complete!')
-            TheBDM.main.startRescanBlockchain()
+            #TheBDM.main.startRescanBlockchain()
       elif self.rdoDigital.isChecked():
          self.main.execGetImportWltName()
          self.accept()

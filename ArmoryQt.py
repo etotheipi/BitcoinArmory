@@ -242,19 +242,16 @@ class ArmoryMainWindow(QMainWindow):
       self.ledgerView.customContextMenuRequested.connect(self.showContextMenuLedger)
 
       btnAddWallet  = QPushButton("Create Wallet")
-      btnImportWlt  = QPushButton("Import Wallet")
-      btnRestoreWlt = QPushButton("Restore Backup")
+      btnImportWlt  = QPushButton("Import or Restore Wallet")
       self.connect(btnAddWallet,  SIGNAL('clicked()'), self.createNewWallet)
       self.connect(btnImportWlt,  SIGNAL('clicked()'), self.execImportWallet)
-      self.connect(btnRestoreWlt, SIGNAL('clicked()'), self.execRestoreWlt)
 
       # Put the Wallet info into it's own little box
       lblAvail = QLabel("<b>Available Wallets:</b>")
       viewHeader = makeLayoutFrame('Horiz', [lblAvail, \
                                              'Stretch', \
                                              btnAddWallet, \
-                                             btnImportWlt, \
-                                             btnRestoreWlt ])
+                                             btnImportWlt, ])
       wltFrame = QFrame()
       wltFrame.setFrameStyle(QFrame.Box|QFrame.Sunken)
       wltLayout = QGridLayout()
@@ -568,18 +565,16 @@ class ArmoryMainWindow(QMainWindow):
          self.menusList[MENUS.Addresses].addAction(actSweepKey)
 
       actCreateNew    = self.createAction('&Create New Wallet',        self.createNewWallet)
-      actImportWlt    = self.createAction('&Import Armory Wallet File',      self.execGetImportWltName)
-      actRestorePaper = self.createAction('&Restore from Paper Backup', self.execRestorePaperBackup)
-      actAddressBook  = self.createAction('View &Address Book',         self.execAddressBook)
-      actRescanOnly   = self.createAction('Rescan Blockchain', self.forceRescanDB)
-      actRebuildAll   = self.createAction('Rescan with Database Rebuild', self.forceRebuildAndRescan)
+      actImportWlt    = self.createAction('&Import or Restore Wallet', self.execImportWallet)
+      actAddressBook  = self.createAction('View &Address Book',        self.execAddressBook)
+      #actRescanOnly   = self.createAction('Rescan Blockchain', self.forceRescanDB)
+      #actRebuildAll   = self.createAction('Rescan with Database Rebuild', self.forceRebuildAndRescan)
 
       self.menusList[MENUS.Wallets].addAction(actCreateNew)
       self.menusList[MENUS.Wallets].addAction(actImportWlt)
-      self.menusList[MENUS.Wallets].addAction(actRestorePaper)
       self.menusList[MENUS.Wallets].addSeparator()
-      self.menusList[MENUS.Wallets].addAction(actRescanOnly)
-      self.menusList[MENUS.Wallets].addAction(actRebuildAll)
+      #self.menusList[MENUS.Wallets].addAction(actRescanOnly)
+      #self.menusList[MENUS.Wallets].addAction(actRebuildAll)
 
       #self.menusList[MENUS.Wallets].addAction(actMigrateSatoshi)
       #self.menusList[MENUS.Wallets].addAction(actAddressBook)
@@ -2288,12 +2283,6 @@ class ArmoryMainWindow(QMainWindow):
 
 
 
-
-   #############################################################################
-   def execRestoreWlt(self):
-      DlgUniversalRestoreSelect(self, self).exec_()
-
-
    #############################################################################
    def createSweepAddrTx(self, a160ToSweepList, sweepTo160, forceZeroFee=False):
       """
@@ -2559,14 +2548,17 @@ class ArmoryMainWindow(QMainWindow):
             
    #############################################################################
    def execImportWallet(self):
-      dlg = DlgImportWallet(self, self)
-      if dlg.exec_():
-         if dlg.importType_file:
-            self.execGetImportWltName()
-         elif dlg.importType_paper:
-            self.execRestorePaperBackup()
-         elif dlg.importType_migrate:
-            self.execMigrateSatoshi()
+      sdm = TheSDM.getSDMState()
+      bdm = TheBDM.getBDMState()
+      if sdm in ['BitcoindInitializing','BitcoindSynchronizing'] or \
+         bdm in ['Scanning']:
+         QMessageBox.warning(self, tr('Scanning'), tr("""
+            Armory is currently in the middle of scanning the blockchain for
+            your existing wallets.  New wallets cannot be imported until this
+            operation is finished."""), QMessageBox.Ok)
+         return
+
+      DlgUniversalRestoreSelect(self, self).exec_()
 
 
    #############################################################################
@@ -2596,7 +2588,9 @@ class ArmoryMainWindow(QMainWindow):
       newWlt = PyBtcWallet().readWalletFile(newpath)
       newWlt.fillAddressPool()
       
+      self.addWalletToAppAndAskAboutRescan(newWlt)
 
+      """ I think the addWalletToAppAndAskAboutRescan replaces this...
       if TheBDM.getBDMState() in ('Uninitialized', 'Offline'):
          self.addWalletToApplication(newWlt, walletIsNew=False)
          return
@@ -2647,18 +2641,13 @@ class ArmoryMainWindow(QMainWindow):
          os.remove(thepathBackup)
          return
 
-      #self.addWalletToApplication(newWlt, walletIsNew=False)
+      self.addWalletToApplication(newWlt, walletIsNew=False)
       self.newWalletList.append([newWlt, False])
       LOGINFO('Import Complete!')
+      """
 
 
-   #############################################################################
-   def execRestorePaperBackup(self):
-      DlgUniversalRestoreSelect(self, self).exec_()
-      #dlgPaper = DlgImportPaperWallet(self, self)
-      #if dlgPaper.exec_():
-         #self.addWalletToAppAndAskAboutRescan(dlgPaper.newWallet)
-         #LOGINFO('Import Complete!')
+
 
    #############################################################################
    def addWalletToAppAndAskAboutRescan(self, newWallet):
@@ -2667,9 +2656,11 @@ class ArmoryMainWindow(QMainWindow):
       # If we are offline, then we can't assume there will ever be a 
       # rescan.  Just add the wallet to the application
       if TheBDM.getBDMState() in ('Uninitialized', 'Offline'):
+         TheBDM.registerWallet(newWallet.cppWallet)
          self.addWalletToApplication(newWallet, walletIsNew=False)
          return
          
+      """  TODO:  Temporarily removed recovery-rescan operations
       elif TheBDM.getBDMState()=='BlockchainReady':
          doRescanNow = QMessageBox.question(self, 'Rescan Needed', \
             'The wallet was recovered successfully, but cannot be displayed '
@@ -2682,7 +2673,6 @@ class ArmoryMainWindow(QMainWindow):
             '</b>  If you click "No" the scan will be aborted, and the wallet '
             'will not be added to Armory.', \
             QMessageBox.Yes | QMessageBox.No)
-      else:
          doRescanNow = QMessageBox.question(self, 'Rescan Needed', \
             'The wallet was recovered successfully, but cannot be displayed '
             'until a special kind of rescan is performed to find previous '
@@ -2694,10 +2684,35 @@ class ArmoryMainWindow(QMainWindow):
             'will not be added to Armory.  Restore the wallet again when you '
             'are able to wait for the recovery scan.', \
             QMessageBox.Yes | QMessageBox.No)
+      """
+
+      doRescanNow = QMessageBox.Cancel
+
+      if TheBDM.getBDMState()=='BlockchainReady':
+         doRescanNow = QMessageBox.question(self, tr('Rescan Needed'), \
+            tr("""The wallet was restored successfully but its balance 
+            cannot be displayed until the blockchain is rescanned. 
+            Armory will need to go into offline mode for 5-20 minutes. 
+            <br><br>
+            Would you like to do the scan now?  Clicking "No" will 
+            abort the restore/import operation."""), \
+            QMessageBox.Yes | QMessageBox.No)
+      else:
+         doRescanNow = QMessageBox.question(self, tr('Rescan Needed'), \
+            tr("""The wallet was restored successfully but its balance 
+            cannot be displayed until the blockchain is rescanned.  
+            However, Armory is currently in the middle of a rescan 
+            operation right now.  Would you like to start a new scan
+            as soon as this one is finished?
+            <br><br>
+            Clicking "No" will abort adding the wallet to Armory."""), \
+            QMessageBox.Yes | QMessageBox.No)
+      
 
       if doRescanNow == QMessageBox.Yes:
          LOGINFO('User requested rescan after wallet restore')
          #TheBDM.startWalletRecoveryScan(newWallet) 
+         TheBDM.registerWallet(newWallet.cppWallet)
          self.startRescanBlockchain()
          self.setDashboardDetails()
       else:
