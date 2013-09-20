@@ -53,6 +53,8 @@ class ArmoryMainWindow(QMainWindow):
 
       TimerStart('MainWindowInit')
 
+      self.bornOnTime = RightNow()
+
       # Load the settings file
       self.settingsPath = CLI_OPTIONS.settingsPath
       self.settings = SettingsFile(self.settingsPath)
@@ -4379,6 +4381,7 @@ class ArmoryMainWindow(QMainWindow):
 
    #############################################################################
    def checkSatoshiVersion(self):
+      timeAlive = long(RightNow()) - self.bornOnTime
       if not CLI_OPTIONS.skipVerCheck and \
              (long(RightNow())%900==0 or self.satoshiLatestVer==None):
          try:
@@ -4469,7 +4472,7 @@ class ArmoryMainWindow(QMainWindow):
 
       sdmState = TheSDM.getSDMState()
       bdmState = TheBDM.getBDMState()
-      print '(SDM, BDM) State = (%s, %s)' % (sdmState, bdmState)
+      #print '(SDM, BDM) State = (%s, %s)' % (sdmState, bdmState)
             
 
       try:

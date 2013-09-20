@@ -6740,7 +6740,7 @@ def HardcodedKeyMaskParams():
       '2510190115738341879307021540891499348841675092447614606680822648')
       
    paramMap['IV']    = SecureBinaryData( hash256(digits_pi)[:16] )
-   paramMap['SALT']  = SecureBinaryData( hash256(digits_pi) )
+   paramMap['SALT']  = SecureBinaryData( hash256(digits_e) )
    paramMap['KDFBYTES'] = long(16*MEGABYTE)
 
    def hardcodeCreateSecurePrintPassphrase(secret):

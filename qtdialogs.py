@@ -1379,8 +1379,10 @@ class DlgWalletDetails(ArmoryDialog):
 
 
    def execBackupDlg(self):
-      DlgSimpleBackup(self, self.main, self.wlt).exec_()
-      #DlgBackupCenter(self, self.main, self.wlt).exec_()
+      if self.main.usermode==USERMODE.Expert:
+         DlgBackupCenter(self, self.main, self.wlt).exec_()
+      else:
+         DlgSimpleBackup(self, self.main, self.wlt).exec_()
 
    def execPrintDlg(self):
       if self.wlt.isLocked:
@@ -13150,7 +13152,7 @@ class DlgFragBackup(ArmoryDialog):
       frmDescr = makeVertFrame([lblDescrTitle, lblDescr, HLINE(), self.lblBelowFrags], STYLE_RAISED)
 
       
-      self.maxM = 3 if not self.main.usermode==USERMODE.Expert else 8
+      self.maxM = 5 if not self.main.usermode==USERMODE.Expert else 8
       self.maxN = 6 if not self.main.usermode==USERMODE.Expert else 12
       self.currMinN = 2
       self.maxmaxN = 12
@@ -13573,6 +13575,9 @@ class DlgUniversalRestoreSelect(ArmoryDialog):
       btngrp.setExclusive(True)
 
       self.rdoSingle.setChecked(True)
+      self.connect(self.rdoSingle,  SIGNAL('clicked()'), self.clickedRadio)
+      self.connect(self.rdoFragged, SIGNAL('clicked()'), self.clickedRadio)
+      self.connect(self.rdoDigital, SIGNAL('clicked()'), self.clickedRadio)
       
       self.btnOkay   = QPushButton('Continue')
       self.btnCancel = QPushButton('Cancel')
@@ -13596,16 +13601,21 @@ class DlgUniversalRestoreSelect(ArmoryDialog):
       self.setLayout(layout)
       self.setMinimumWidth(450)
 
+   def clickedRadio(self):
+      if self.rdoDigital.isChecked():
+         self.chkTest.setChecked(False)
+         self.chkTest.setEnabled(False)
+      else:
+         self.chkTest.setEnabled(True)
 
    def clickedOkay(self):
       ### Test backup option
 
-      if self.chkTest.isChecked():
-         LOGINFO('Executing recovery test')
+      doTest = self.chkTest.isChecked()
 
       if self.rdoSingle.isChecked():
          self.accept()
-         dlg = DlgRestoreSingle(self.parent, self.main)
+         dlg = DlgRestoreSingle(self.parent, self.main, doTest)
          if dlg.exec_():
             self.main.addWalletToAppAndAskAboutRescan(dlg.newWallet)
             LOGINFO('Wallet Restore Complete!')
@@ -13614,7 +13624,7 @@ class DlgUniversalRestoreSelect(ArmoryDialog):
             
       elif self.rdoFragged.isChecked():
          self.accept()
-         dlg = DlgRestoreFragged(self.parent, self.main)
+         dlg = DlgRestoreFragged(self.parent, self.main, doTest)
          if dlg.exec_():
             self.main.addWalletToAppAndAskAboutRescan(dlg.newWallet)
             LOGINFO('Wallet Restore Complete!')
@@ -13628,18 +13638,31 @@ class DlgUniversalRestoreSelect(ArmoryDialog):
 ################################################################################
 class DlgRestoreSingle(ArmoryDialog):
    #############################################################################
-   def __init__(self, parent, main):
+   def __init__(self, parent, main, thisIsATest=False, expectWltID=None):
       super(DlgRestoreSingle, self).__init__(parent, main)
 
-      lblDescr = QRichLabel( tr("""
-         <b><u>Restore Wallet from Paper Backup</u></b>
+      self.thisIsATest = thisIsATest
+      self.testWltID   = expectWltID
+      headerStr = ''
+      if thisIsATest: 
+         lblDescr = QRichLabel( tr("""
+         <b><u><font color="blue" size="4">Test a Paper Backup</font></u></b>
          <br><br>
-         Use this form to restore your wallet from a single-sheet, printed backup.
-         If your backup includes extra pages with imported keys, please restore
-         the base wallet first, then double-click the restored wallet and select
-         "Import Private Keys" from the right-hand menu. <br><br>
-         If your backup consists of multiple "fragments," then cancel out of this
-         window and choose "Fragmented Backup" from the "Restore Wallet" menu."""))
+         Use this window to test a single-sheet paper backup.  If your 
+         backup includes imported keys, those will not be covered by this test.  """))
+      else:
+         lblDescr = QRichLabel( tr("""
+         <b><u>Restore a Wallet from Paper Backup</u></b>
+         <br><br>
+         Use this window to restore a single-sheet paper backup.
+         If your backup includes extra pages with 
+         imported keys, please restore the base wallet first, then 
+         double-click the restored wallet and select "Import Private 
+         Keys" from the right-hand menu. 
+         <br><br>
+         If your backup consists of multiple "fragments," then cancel 
+         out of this window and choose "Fragmented Backup" from the 
+         "Restore Wallet" menu."""))
          
 
       lblType = QRichLabel( tr("""<b>Backup Type:</b>"""), doWrap=False)
@@ -13686,7 +13709,9 @@ class DlgRestoreSingle(ArmoryDialog):
          layoutAllInp.addWidget(self.edtList[i], i+1, 1)
       frmAllInputs.setLayout(layoutAllInp)
 
-      self.btnAccept = QPushButton("Restore")
+      doItText = tr('Test Backup' if thisIsATest else 'Restore Wallet')
+
+      self.btnAccept = QPushButton(doItText)
       self.btnCancel = QPushButton("Cancel")
       self.connect(self.btnAccept, SIGNAL('clicked()'), self.verifyUserInput)
       self.connect(self.btnCancel, SIGNAL('clicked()'), self.reject)
@@ -13698,6 +13723,10 @@ class DlgRestoreSingle(ArmoryDialog):
       self.chkEncrypt.setChecked(True)
       bottomFrm = makeHorizFrame([self.chkEncrypt, buttonBox])
 
+      if thisIsATest:
+         self.chkEncrypt.setChecked(False)
+         self.chkEncrypt.setVisible(False)
+
       layout = QVBoxLayout()
       layout.addWidget(lblDescr)
       layout.addWidget(HLINE())
@@ -13707,7 +13736,10 @@ class DlgRestoreSingle(ArmoryDialog):
       self.setLayout(layout)
 
 
-      self.setWindowTitle('Restore Single-Sheet Backup')
+      if thisIsATest:
+         self.setWindowTitle('Test Single-Sheet Backup')
+      else:
+         self.setWindowTitle('Restore Single-Sheet Backup')
       self.setMinimumWidth(500)
       self.layout().setSizeConstraint(QLayout.SetFixedSize)
       self.changeType()
@@ -13814,6 +13846,14 @@ class DlgRestoreSingle(ArmoryDialog):
       first = root.extendAddressChain()
       newWltID = binary_to_base58((ADDRBYTE + first.getAddr160()[:5])[::-1])
 
+      # Stop here if this was just a test
+      if self.thisIsATest:
+         verifyRecoveryTestID(self, newWltID, self.testWltID)
+         return
+
+            
+
+
       if self.main.walletMap.has_key(newWltID):
          QMessageBox.question(self, 'Duplicate Wallet!', \
                'The data you entered is for a wallet with a ID: \n\n \t' +
@@ -13877,16 +13917,24 @@ class DlgRestoreSingle(ArmoryDialog):
 
 ################################################################################
 class DlgRestoreFragged(ArmoryDialog):
-   def __init__(self, parent, main):
+   def __init__(self, parent, main, thisIsATest=False, expectWltID=None):
       super(DlgRestoreFragged, self).__init__(parent, main)
 
+      self.thisIsATest = thisIsATest
+      self.testWltID = expectWltID
+      headerStr = ''
+      if thisIsATest: 
+         headerStr = '<font color="blue" size="4">Testing a Fragmented Backup</font>'
+      else:
+         headerStr = 'Restore Wallet from Fragments'
+
       lblDescr = QRichLabel( tr("""
-         <b><u>Restore Wallet from Fragments</u></b> <br><br> 
+         <b><u>%s</u></b> <br><br> 
          Use this form to enter all the fragments to be restored.  Fragments 
          can be stored on a mix of paper printouts, and saved files. 
          If any of the fragments require a SecurePrint\xe2\x84\xa2 code, 
          you will only have to enter it once, since that code is the same for
-         all fragments of any given wallet. """))
+         all fragments of any given wallet. """) % headerStr)
          #<br><br>
          #If you enter more fragments than are needed, a "Test" button will
          #appear that will allow you to test reconstructing your wallet 
@@ -13910,13 +13958,19 @@ class DlgRestoreFragged(ArmoryDialog):
       self.chkEncrypt.setChecked(True)
       frmAddRm = makeHorizFrame([self.chkEncrypt, 'Stretch', self.btnRmFrag, self.btnAddFrag])
 
+      if thisIsATest:
+         self.chkEncrypt.setChecked(False)
+         self.chkEncrypt.setVisible(False)
+
       self.fragDataMap = {}
       self.tableSize = 2
       self.wltType = UNKNOWN
       self.fragIDPrefix = UNKNOWN
 
+      doItText = tr('Test Backup' if thisIsATest else 'Restore from Fragments')
+
       btnExit = QPushButton(tr('Cancel'))
-      self.btnRestore = QPushButton(tr('Restore from Fragments'))
+      self.btnRestore = QPushButton(doItText)
       self.connect(btnExit, SIGNAL('clicked()'), self.reject)
       self.connect(self.btnRestore, SIGNAL('clicked()'), self.processFrags)
       frmBtns = makeHorizFrame([btnExit, 'Stretch', self.btnRestore])
@@ -14246,6 +14300,12 @@ class DlgRestoreFragged(ArmoryDialog):
       first = root.extendAddressChain()
       newWltID = binary_to_base58((ADDRBYTE + first.getAddr160()[:5])[::-1])
 
+      # If this is a test, then bail
+      if self.thisIsATest:
+         verifyRecoveryTestID(self, newWltID, self.testWltID)
+         return
+
+
       if self.main.walletMap.has_key(newWltID):
          QMessageBox.question(self, 'Duplicate Wallet!', \
                'The data you entered is for a wallet with a ID: \n\n \t' +
@@ -14304,6 +14364,68 @@ class DlgRestoreFragged(ArmoryDialog):
 
       # Will pop up a little "please wait..." window while filling addr pool
       DlgExecLongProcess(fillAddrPoolAndAccept, "Recovering wallet...", self, self.main).exec_()
+
+################################################################################
+def verifyRecoveryTestID(parent, computedWltID, expectedWltID=None):
+            
+   if expectedWltID==None:
+      # Testing an arbitrary paper backup
+      yesno = QMessageBox.question(parent, tr('Recovery Test'), tr(""" 
+         From the data you entered, Armory calculated the following 
+         wallet ID: <font color="blue"><b>%s</b></font>
+         <br><br>
+         Does this match the wallet ID on the backup you are 
+         testing?""") % computedWltID, QMessageBox.Yes | QMessageBox.No)
+
+      if yesno==QMessageBox.No:
+         QMessageBox.critical(parent, tr('Bad Backup!'), tr("""
+            If you are sure that you entered the backup information 
+            correctly, then it is <b>highly recommened you stop using 
+            this wallet!</b>  If this wallet currently holds any funds,
+            you should move the funds to a wallet that <u>does</u>
+            have a working backup.
+            <br><br>
+            All paper backups have exactly 9 columns of four letters 
+            each.  If your backup has less columns than this, it most
+            likely did not print correctly, though the QR code on the
+            page may still have the full information."""), QMessageBox.Ok)
+      elif yesno==QMessageBox.Yes:
+         MsgBoxCustom(MSGBOX.Good, tr('Backup is Good!'), tr("""
+            <b>Your backup has no errors in it!</b>
+            <br><br>
+            The wallet ID is computed from a combination of the root
+            private key, the "chaincode" and the first address derived
+            from those two pieces of data.  A matching wallet ID 
+            guarantees it will produce the same chain of addresses as
+            the original."""))
+   else:  # an expected wallet ID was supplied
+      if not computedWltID == expectedWltID:
+         QMessageBox.critical(parent, tr('Bad Backup!'), tr("""
+            If you are sure that you entered the backup information 
+            correctly, then it is <b>highly recommened you stop using 
+            this wallet!</b>  If this wallet currently holds any funds,
+            you should move the funds to a wallet that <u>does</u>
+            have a working backup.
+            <br><br>
+            All paper backups have exactly 9 columns of four letters 
+            each.  If your backup has less columns than this, it most
+            likely did not print correctly, though the QR code on the
+            page will still have the full information."""), QMessageBox.Ok)
+      elif yesno==QMessageBox.Yes:
+         MsgBoxCustom(MSGBOX.Good, tr('Backup is Good!'), tr("""
+            Your backup works correctly!  
+            <br><br>
+            The wallet ID computed from the data you entered matches 
+            the expected ID.  This confirms that the backup produces
+            the same sequence of private keys as the original wallet!
+            """))
+      
+            
+            
+            
+         
+   
+
 
 
 ################################################################################

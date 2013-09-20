@@ -2602,14 +2602,14 @@ uint32_t BlockDataManager_LevelDB::evalLowestBlockNextScan(void)
    SCOPED_TIMER("evalLowestBlockNextScan");
 
    uint32_t lowestBlk = UINT32_MAX;
-   map<HashString, RegisteredScrAddr>::iterator raIter;
-   for(raIter  = registeredScrAddrMap_.begin();
-       raIter != registeredScrAddrMap_.end();
-       raIter++)
+   map<HashString, RegisteredScrAddr>::iterator rsaIter;
+   for(rsaIter  = registeredScrAddrMap_.begin();
+       rsaIter != registeredScrAddrMap_.end();
+       rsaIter++)
    {
       // If we happen to have any imported addresses, this will set the
       // lowest block to 0, which will require a full rescan
-      lowestBlk = min(lowestBlk, raIter->second.alreadyScannedUpToBlk_);
+      lowestBlk = min(lowestBlk, rsaIter->second.alreadyScannedUpToBlk_);
    }
    return lowestBlk;
 }
@@ -2621,14 +2621,14 @@ uint32_t BlockDataManager_LevelDB::evalLowestScrAddrCreationBlock(void)
    SCOPED_TIMER("evalLowestAddressCreationBlock");
 
    uint32_t lowestBlk = UINT32_MAX;
-   map<HashString, RegisteredScrAddr>::iterator raIter;
-   for(raIter  = registeredScrAddrMap_.begin();
-       raIter != registeredScrAddrMap_.end();
-       raIter++)
+   map<HashString, RegisteredScrAddr>::iterator rsaIter;
+   for(rsaIter  = registeredScrAddrMap_.begin();
+       rsaIter != registeredScrAddrMap_.end();
+       rsaIter++)
    {
       // If we happen to have any imported addresses, this will set the
       // lowest block to 0, which will require a full rescan
-      lowestBlk = min(lowestBlk, raIter->second.blkCreated_);
+      lowestBlk = min(lowestBlk, rsaIter->second.blkCreated_);
    }
    return lowestBlk;
 }
@@ -2704,12 +2704,12 @@ uint32_t BlockDataManager_LevelDB::numBlocksToRescan( BtcWallet & wlt,
 ////////////////////////////////////////////////////////////////////////////////
 void BlockDataManager_LevelDB::updateRegisteredScrAddrs(uint32_t newTopBlk)
 {
-   map<HashString, RegisteredScrAddr>::iterator raIter;
-   for(raIter  = registeredScrAddrMap_.begin();
-       raIter != registeredScrAddrMap_.end();
-       raIter++)
+   map<HashString, RegisteredScrAddr>::iterator rsaIter;
+   for(rsaIter  = registeredScrAddrMap_.begin();
+       rsaIter != registeredScrAddrMap_.end();
+       rsaIter++)
    {
-      raIter->second.alreadyScannedUpToBlk_ = newTopBlk;
+      rsaIter->second.alreadyScannedUpToBlk_ = newTopBlk;
    }
    
 }
@@ -3742,8 +3742,8 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
       }
       else
       {
-         pair<uint32_t, uint32_t> blkLoc = findFileAndOffsetForHgt(startScanHgt_);
          startScanHgt_     = evalLowestBlockNextScan();
+         pair<uint32_t, uint32_t> blkLoc = findFileAndOffsetForHgt(startScanHgt_);
          startScanBlkFile_ = blkLoc.first;
          startScanOffset_  = blkLoc.second;
       }
