@@ -2937,19 +2937,41 @@ void BlockDataManager_LevelDB::writeProgressFile(DB_BUILD_PHASE phase,
    if(phase==DB_BUILD_HEADERS)
       return;
 
-   uint64_t startedAtByte_ = 0;
-   if(phase==DB_BUILD_ADD_RAW)
-      startedAtByte_ = blkFileCumul_[startRawBlkFile_]   + startRawOffset_;
-   else if(phase==DB_BUILD_SCAN)
-      startedAtByte_ = blkFileCumul_[startScanBlkFile_]  + startScanOffset_;
-   else if(phase==DB_BUILD_APPLY)
-      startedAtByte_ = blkFileCumul_[startApplyBlkFile_] + startApplyOffset_;
-      
+   uint64_t offset;
+   uint32_t height, blkfile;
 
+   if(phase==DB_BUILD_ADD_RAW)
+   {
+      height  = startRawBlkHgt_;
+      blkfile = startRawBlkFile_;
+      offset  = startRawOffset_;
+   }
+   else if(phase==DB_BUILD_SCAN)
+   {
+      height  = startScanHgt_;
+      blkfile = startScanBlkFile_;
+      offset  = startScanOffset_;
+   }
+   else if(phase==DB_BUILD_APPLY)
+   {
+      height  = startApplyHgt_;
+      blkfile = startApplyBlkFile_;
+      offset  = startApplyOffset_;
+   }
+   else
+   {
+      LOGERR << "What the heck build phase are we in: " << (uint32_t)phase;
+      return;
+   }
+
+   uint64_t startAtByte = 0;
+   if(height!=0)
+      startAtByte = blkFileCumul_[blkfile] + offset;
+      
    ofstream topblks(bfile.c_str(), ios::app);
    double t = TIMER_READ_SEC(timerName);
    topblks << (uint32_t)phase << " "
-           << startedAtByte_ << " " 
+           << startAtByte << " " 
            << bytesReadSoFar_ << " " 
            << totalBlockchainBytes_ << " " 
            << t << endl;
@@ -3622,15 +3644,15 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
 
    }
 
-   LOGINFO << startHeaderHgt_     << " HeadHgt    "
-           << startRawBlkHgt_     << " RawHgt     "
-           << startApplyHgt_      << " ApplyHgt   ";
-   LOGINFO << startHeaderBlkFile_ << " HeadBlkF   "
-           << startRawBlkFile_    << " RawBlkF    "
-           << startApplyBlkFile_  << " ApplyBlkF  ";
-   LOGINFO << startHeaderOffset_  << " HeadOffs   "
-           << startRawOffset_     << " RawOffs    "
-           << startApplyOffset_   << " ApplyOffs  ";
+   //LOGINFO << startHeaderHgt_     << " HeadHgt    "
+           //<< startRawBlkHgt_     << " RawHgt     "
+           //<< startApplyHgt_      << " ApplyHgt   ";
+   //LOGINFO << startHeaderBlkFile_ << " HeadBlkF   "
+           //<< startRawBlkFile_    << " RawBlkF    "
+           //<< startApplyBlkFile_  << " ApplyBlkF  ";
+   //LOGINFO << startHeaderOffset_  << " HeadOffs   "
+           //<< startRawOffset_     << " RawOffs    "
+           //<< startApplyOffset_   << " ApplyOffs  ";
 
 
    // Remove this file
@@ -3729,7 +3751,7 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
       LOGINFO << "Starting scan from block height: " << startScanHgt_;
       scanDBForRegisteredTx(startScanHgt_);
       LOGINFO << "Finished blockchain scan in " 
-              << TIMER_READ_SEC("scanDBForRegisteredTx") << " seconds";
+              << TIMER_READ_SEC("ScanBlockchain") << " seconds";
    }
 
    // If bare mode, we don't do

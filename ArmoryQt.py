@@ -1718,6 +1718,23 @@ class ArmoryMainWindow(QMainWindow):
       self.settings.set(settingName, val)
 
    #############################################################################
+   def startRescanBlockchain(self, forceFullScan=False):
+      if TheBDM.getBDMState() in ('Offline','Uninitialized'):
+         LOGWARN('Rescan requested but Armory is in offline mode')
+         return 
+
+      if TheBDM.getBDMState()=='Scanning':
+         LOGINFO('Queueing rescan after current scan completes.')
+      else:
+         LOGINFO('Starting blockchain rescan...')
+
+
+      # Start it in the background
+      TheBDM.rescanBlockchain('AsNeeded', wait=False)
+      self.needUpdateAfterScan = True
+      self.setDashboardDetails()
+
+   #############################################################################
    def forceRescanDB(self):
       self.needUpdateAfterScan = True
       self.lblDashModeScan.setText( 'Scanning Transaction History', \
@@ -1734,22 +1751,6 @@ class ArmoryMainWindow(QMainWindow):
       TheBDM.rescanBlockchain('ForceRebuild', wait=False)
       self.setDashboardDetails()
 
-   #############################################################################
-   def startRescanBlockchain(self, forceFullScan=False):
-      if TheBDM.getBDMState() in ('Offline','Uninitialized'):
-         LOGWARN('Rescan requested but Armory is in offline mode')
-         return 
-
-      if TheBDM.getBDMState()=='Scanning':
-         LOGINFO('Queueing rescan after current scan completes.')
-      else:
-         LOGINFO('Starting blockchain rescan...')
-
-
-      # Start it in the background
-      TheBDM.rescanBlockchain('AsNeeded', wait=False)
-      self.needUpdateAfterScan = True
-      self.setDashboardDetails()
 
 
 
@@ -2406,12 +2407,10 @@ class ArmoryMainWindow(QMainWindow):
             TheBDM.registerImportedScrAddr(Hash160ToScrAddr(addr.getAddr160()))
          self.sweepAfterScanList = pybtcaddrList
          self.sweepAfterScanTarg = targAddr160
-         TheBDM.startRescanBlockchain('AsNeeded', wait=False)
+         #TheBDM.rescanBlockchain('AsNeeded', wait=False)
+         self.startRescanBlockchain()
          self.setDashboardDetails()
          return True
-         #TheBDM.rescanBlockchain(wait=True)
-         #self.createCombinedLedger()
-         #self.walletModel.reset()
 
 
    #############################################################################
@@ -2631,7 +2630,8 @@ class ArmoryMainWindow(QMainWindow):
 
       if doRescanNow == QMessageBox.Yes:
          LOGINFO('User requested rescan after wallet import')
-         #TheBDM.startWalletRecoveryScan(newWlt) 
+         #TheBDM.startWalletRecoveryScan(newWlt)  # TODO: re-enable this later
+         #TheBDM.rescanBlockchain('AsNeeded', wait=False)
          self.startRescanBlockchain()
          self.setDashboardDetails()
       else:

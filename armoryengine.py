@@ -4543,7 +4543,6 @@ def determineSentToSelfAmt(le, wlt):
    amt = 0
    if TheBDM.isInitialized() and le.isSentToSelf():
       txref = TheBDM.getTxByHash(le.getTxHash())
-      print 'Txref: ', txref, str(txref)
       if not txref.isInitialized():
          return (0, 0)
       if txref.getNumTxOut()==1:
@@ -7129,6 +7128,13 @@ class PyBtcWallet(object):
          for rtx in txlist:
             print '\t', binary_to_hex(rtx.getTxHash(), BIGENDIAN)
          
+   #############################################################################
+   def hasAnyImported(self):
+      for a160,addr in self.addrMap.iteritems():
+         if addr.chainIndex == -2:
+            return True
+      return False
+
 
    #############################################################################
    def getBalance(self, balType="Spendable"):

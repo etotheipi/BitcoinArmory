@@ -1455,14 +1455,17 @@ class DlgWalletDetails(ArmoryDialog):
          #return
 
       if not self.main.getSettingOrSetDefault('DNAA_ImportWarning', False):
-         result = MsgBoxWithDNAA(MSGBOX.Warning, 'Import Address Warning', \
-                       'Armory supports importing of external '
-                       'addresses into your wallet, including encryption, '
-                       'but imported addresses <b>cannot</b> be protected/saved '
-                       'by a paper backups.'
-                       '<br><br>' 
-                       'Please use "Backup Individual Keys" from the wallet '
-                       'properties dialog to backup the imported keys.', None)
+         result = MsgBoxWithDNAA(MSGBOX.Warning, \
+            tr("""Imported Address Warning"""), tr("""
+            Armory supports importing of external private keys into your 
+            wallet but imported addresses are <u>not</u> automatically 
+            protected by your backups.  If you do not plan to use the 
+            address again, it is recommended that you "Sweep" the private 
+            key instead of importing it.
+            <br><br> 
+            Individual private keys, including imported ones, can be 
+            backed up using the "Export Key Lists" option in the wallet
+            backup window."""), None)
          self.main.writeSetting('DNAA_ImportWarning', result[1])
 
       # Now we are past the [potential] warning box.  Actually open
@@ -2188,41 +2191,6 @@ class DlgNewAddressDisp(ArmoryDialog):
 
 
          
-
-#############################################################################
-# Display a warning box about import backups, etc
-class DlgImportWarning(ArmoryDialog):
-   def __init__(self, parent=None, main=None):
-      super(DlgImportWarning, self).__init__(parent, main)
-      lblWarn = QLabel( 'Armory supports importing of external '
-            'addresses into your wallet, including encryption, '
-            'but imported addresses <b>cannot</b> be protected/saved '
-            'by a paper backups.  Watching-only wallets will include '
-            'imported addresses if the watching-only wallet was '
-            'created after the address was imported.')
-      lblWarn.setTextFormat(Qt.RichText)
-      lblWarn.setWordWrap(True)
-
-      lblWarnImg = QLabel()
-      lblWarnImg.setPixmap(QPixmap(':/MsgBox_warning48.png'))
-      lblWarnImg.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
-
-      self.chkDNAA = QCheckBox('Do not show this message again')
-      bbox = QDialogButtonBox( QDialogButtonBox.Ok )
-      self.connect(bbox, SIGNAL('accepted()'), self.acceptWarning)
-      layout = QGridLayout()
-      layout.addWidget(lblWarnImg,   0,0, 1,1)
-      layout.addWidget(lblWarn,      0,1, 1,1)
-      layout.addWidget(bbox,         1,0, 1,2)
-      layout.addWidget(self.chkDNAA, 2,0, 1,2)
-      self.setLayout(layout)
-      self.setWindowTitle('Warning')
-
-   def acceptWarning(self):
-      if self.chkDNAA.isChecked():
-         self.main.writeSetting('DNAA_ImportWarning', True)
-      self.accept()
-
 
 
 #############################################################################
@@ -11531,7 +11499,7 @@ class DlgRequestPayment(ArmoryDialog):
       layoutEntry.addWidget(self.edtAmount,                         i,1)
 
       i+=1
-      layoutEntry.addWidget(QRichLabel('<b>Message:</b>'),          i,0)
+      layoutEntry.addWidget(QRichLabel('<b>Label:</b>'),            i,0)
       layoutEntry.addWidget(self.edtMessage,                        i,1)
       layoutEntry.addWidget(ttipMessage,                            i,2)
       frmEntry.setLayout(layoutEntry)
@@ -12759,11 +12727,7 @@ class DlgBackupCenter(ArmoryDialog):
       wltID = wlt.uniqueIDB58
       wltName = wlt.labelName
 
-      self.hasImportedAddr = False
-      for a160,addr in self.wlt.addrMap.iteritems():
-         if addr.chainIndex == -2:
-            self.hasImportedAddr = True
-            break
+      self.hasImportedAddr = self.wlt.hasAnyImported()
 
       lblTitle = QRichLabel( tr("""
          <b>Backup Options for Wallet "%s" (%s)</b>""" % (wltName, wltID)))
@@ -13726,7 +13690,8 @@ class DlgUniversalRestoreSelect(ArmoryDialog):
          if dlg.exec_():
             self.main.addWalletToAppAndAskAboutRescan(dlg.newWallet)
             LOGINFO('Wallet Restore Complete!')
-            TheBDM.main.startRescanBlockchain()
+            self.main.startRescanBlockchain()
+            #TheBDM.rescanBlockchain('AsNeeded', wait=False)
             
       elif self.rdoFragged.isChecked():
          self.accept()
