@@ -3097,37 +3097,43 @@ class ArmoryMainWindow(QMainWindow):
          usually contains much less information than that. 
          <br><br>
          <b>No private key data is ever written to the log file</b>. 
-         All logged information is geared towards diagnosing 
-         problems you may encounter while you use Armory.    
          Some information about your wallets or balances may appear 
          in the log file, but only enough to help the Armory developers 
          track down bugs in the software.
          <br><br>
          Please do not send the log file to the Armory developers if you are not 
-         comfortable with the privacy implications. """) + extraStr, \
-         wCancel=True, yesStr='Export', noStr='Cancel')
+         comfortable with them seeing some of your addresses and transactions. 
+         """) + extraStr, wCancel=True, yesStr='Export', noStr='Cancel')
          
 
       if reply:
+      
+         def getLastXBytesOfFile(filename, nBytes=500*1024):
+            if not os.path.exists(filename):
+               LOGERROR('File does not exist!')
+               return ''
+
+            sz = os.path.getsize(filename)
+            with open(filename, 'rb') as fin:
+               if sz > nBytes:
+                  fin.seek(sz - nBytes)
+               return fin.read()
+
          # TODO: Interleave the C++ log and the python log.  That could be a lot of work!
          defaultFn = 'armorylog_%s.txt' % unixTimeToFormatStr(RightNow(), '%Y%m%d_%H%M')
          logfn = self.getFileSave(title='Export Log File', \
                                   ffilter=['Text Files (*.txt)'], \
                                   defaultFilename=defaultFn)
-         if len(str(logfn)) > 0:
-            shutil.copy(ARMORY_LOG_FILE, logfn)
-            cppLogFN = os.path.join(ARMORY_HOME_DIR, 'armorycpplog.txt')
-            sz = os.path.getsize(cppLogFN)
-            fin = open(cppLogFN, 'rb')
-            if sz > 500*1024:
-               skip = fin.read(sz - 500*1024)
-            toAppend = fin.read()
-            fin.close()
 
-            fout= open(os.path.join(logfn), 'ab')
-            fout.write(toAppend)
+         if len(unicode(logfn)) > 0:
+            pyFilename  = ARMORY_LOG_FILE
+            cppFilename = os.path.join(ARMORY_HOME_DIR, 'armorycpplog.txt')
+
+            fout = open(logfn, 'wb')
+            fout.write(getLastXBytesOfFile(pyFilename, 256*1024))
+            fout.write(getLastXBytesOfFile(cppFilename, 256*1024))
             fout.close()
-            
+
             LOGINFO('Log saved to %s', logfn)
 
    #############################################################################

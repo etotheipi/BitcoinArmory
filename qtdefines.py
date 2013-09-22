@@ -449,17 +449,15 @@ def MsgBoxCustom(wtype, title, msg, wCancel=False, yesStr=None, noStr=None):
          else:
             if not yesStr: yesStr = '&OK'
             if not noStr:  noStr = '&Cancel'
-            btnOk = QPushButton(yesStr)
-            self.connect(btnOk, SIGNAL('clicked()'), self.accept)
+            btnOk     = QPushButton(yesStr)
+            btnCancel = QPushButton(noStr)
+            self.connect(btnOk,     SIGNAL('clicked()'), self.accept)
+            self.connect(btnCancel, SIGNAL('clicked()'), self.reject)
             buttonbox.addButton(btnOk, QDialogButtonBox.AcceptRole)
-            if withCancel:
-               btnCancel = QPushButton(noStr)
-               self.connect(btnCancel, SIGNAL('clicked()'), self.reject)
+            if withCancel or noStr:
                buttonbox.addButton(btnCancel, QDialogButtonBox.RejectRole)
-            
 
          spacer = QSpacerItem(20, 10, QSizePolicy.Fixed, QSizePolicy.Expanding)
-
 
          layout = QGridLayout()
          layout.addItem(  spacer,         0,0, 1,2)
