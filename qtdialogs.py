@@ -8246,7 +8246,8 @@ class DlgPrintBackup(ArmoryDialog):
    fragments, with-or-without SecurePrint.  
    """
    def __init__(self, parent, main, wlt, printType='SingleSheet', \
-                                    fragMtrx=[], fragMtrxCrypt=[], fragData=[]):
+                                    fragMtrx=[], fragMtrxCrypt=[], fragData=[],
+                                    privKey=None, chaincode=None):
       super(DlgPrintBackup, self).__init__(parent, main)
 
 
@@ -8254,6 +8255,28 @@ class DlgPrintBackup(ArmoryDialog):
       self.binMask   = SecureBinaryData(0)
       self.binPriv   = wlt.addrMap['ROOT'].binPrivKey32_Plain.copy()
       self.binChain  = wlt.addrMap['ROOT'].chaincode.copy()
+      
+      # This badBackup stuff was implemented to avoid making backups if there is 
+      # an inconsistency in the data.  Yes, this is like a goto!
+      try:
+         if privKey:
+            if not chaincode:
+               raise KeyDataError
+            self.binPriv  = privKey.copy()
+            self.binChain = chaincode.copy()
+   
+         if self.binPriv.getSize() < 32:
+            raise KeyDataError
+   
+      except:
+         LOGEXCEPT("Problem with private key and/or chaincode.  Aborting.")
+         QMessageBox.critical(self, tr("Error Creating Backup"), tr("""
+            There was an error with the backup creator.  The operation is being
+            canceled to avoid making bad backups!"""), QMessageBox.Ok)
+         return
+      
+         
+      print 'PrivateKey: ', self.binPriv.toHexStr(), 'Chain: ', self.binChain.toHexStr()
       self.binImport = []
       self.fragMtrx  = fragMtrx
 
@@ -8292,6 +8315,7 @@ class DlgPrintBackup(ArmoryDialog):
 
       start = RightNow()
       self.randpass   = SECPRINT['FUNC_PWD'](self.binPriv + self.binChain)
+      print 'secret into func_pwd: ', (self.binPriv + self.binChain).toHexStr()
       self.binCrypt32 = SECPRINT['FUNC_KDF'](self.randpass)
       LOGINFO('Deriving SecurePrint code took %0.2f seconds' % (RightNow() - start))
 
@@ -8446,7 +8470,7 @@ class DlgPrintBackup(ArmoryDialog):
          elif self.comboPageNum.count() > 0:
             cmbPage = int(str(self.comboPageNum.currentText()))-1
 
-         self.createPrintScene('Fragmented',cmbPage)
+         self.createPrintScene('Fragmented Backup\xe2\x84\xa2',cmbPage)
       else:
          pgSelect = cmbPage if self.chkImportPrint.isChecked() else 1
          if pgSelect==1:
@@ -8619,7 +8643,7 @@ class DlgPrintBackup(ArmoryDialog):
       elif printType=='SingleSheetImported':
          bType = tr('Imported Keys ' + ssType)
       elif printType.lower().startswith('frag'):
-         bstr = tr('Fragmented Backup (%d-of-%d)') % (self.fragData['M'], self.fragData['N'])
+         bstr = tr('Fragmented Backup\xe2\x84\xa2 (%d-of-%d)') % (self.fragData['M'], self.fragData['N'])
          bType = bstr + ' ' + tr(ssType)
       
       if printType.startswith('SingleSheet'):
@@ -12662,7 +12686,7 @@ class DlgBackupCenter(ArmoryDialog):
       self.optPaperBackupOne  = QRadioButtonBackupCtr(self, \
                                     'Single-Sheet (Recommended)', self.OPTIONS.Paper1)
       self.optPaperBackupFrag = QRadioButtonBackupCtr(self, \
-                                    'Fragmented Backup (M-of-N)', self.OPTIONS.PaperN)
+                                    'Fragmented Backup\xe2\x84\xa2 (M-of-N)', self.OPTIONS.PaperN)
           
       self.optDigitalBackupTop   = QRadioButtonBackupCtr(self, \
                                     'Digital Backup', self.OPTIONS.DigPlain)
@@ -12905,7 +12929,7 @@ class DlgBackupCenter(ArmoryDialog):
             self.featuresImgs[self.FEATURES.Physical  ].setPixmap(_X_())
             self.lblDescrSelected.setText(txtPaper)
          elif index==self.OPTIONS.PaperN:
-            self.lblSelFeat.setText(tr('Fragmented Paper Backup'), bold=True)
+            self.lblSelFeat.setText(tr('Fragmented Paper\xe2\x84\xa2 Backup'), bold=True)
             self.featuresImgs[self.FEATURES.ProtGen   ].setPixmap(chk())
             self.featuresImgs[self.FEATURES.ProtImport].setPixmap(_X_())
             self.featuresImgs[self.FEATURES.LostPass  ].setPixmap(chk())
@@ -13135,7 +13159,7 @@ class DlgFragBackup(ArmoryDialog):
       self.binCrypt32 = None
 
       lblDescrTitle = QRichLabel( tr(""" 
-         <b>Create M-of-N Fragmented Backup: "%s" (%s)</b>""") % \
+         <b>Create M-of-N Fragmented Backup\xe2\x84\xa2: "%s" (%s)</b>""") % \
          (wlt.labelName, wlt.uniqueIDB58), doWrap=False)
       lblDescrTitle.setContentsMargins(5,5,5,5)
 
@@ -13211,9 +13235,11 @@ class DlgFragBackup(ArmoryDialog):
          other applications if you save a fragment to disk or USB device). 
          <u>You must keep the SecurePrint\xe2\x84\xa2 code with the backup!</u>"""))
       self.lblSecurePrint = QRichLabel(tr("""
-         <b><font color="%s"><u>IMPORTANT:</u>  You must keep the SecurePrint\xe2\x84\xa2
-         encryption code with your backup!  Your SecurePrint\xe2\x84\xa2 code is </font>
-         <font color="%s">%s</font><font color="%s">. All fragments for a given wallet use the 
+         <b><font color="%s"><u>IMPORTANT:</u>  You must keep the 
+         SecurePrint\xe2\x84\xa2 encryption code with your backup!  
+         Your SecurePrint\xe2\x84\xa2 code is </font> 
+         <font color="%s">%s</font><font color="%s">. 
+         All fragments for a given wallet use the 
          same code.</font>""") % \
          (htmlColor('TextWarn'), htmlColor('TextBlue'), self.randpass.toBinStr(), \
           htmlColor('TextWarn')))
@@ -13386,7 +13412,8 @@ class DlgFragBackup(ArmoryDialog):
       fragData['Range'] = zindex
       fragData['Secure'] = self.chkSecurePrint.isChecked()
       dlg = DlgPrintBackup(self, self.main, self.wlt, 'Fragments', \
-                              self.secureMtrx, self.secureMtrxCrypt, fragData)
+                              self.secureMtrx, self.secureMtrxCrypt, fragData, \
+                              self.secureRoot, self.secureChain)
       dlg.exec_()
 
    #############################################################################
@@ -13522,6 +13549,7 @@ class DlgFragBackup(ArmoryDialog):
       MASK = lambda x: SECPRINT['FUNC_MASK'](x, ekey=self.binCrypt32)
       if not self.randpass or not self.binCrypt32:
          self.randpass   = SECPRINT['FUNC_PWD'](self.secureRoot + self.secureChain)
+         print 'secureRC into func_pwd: ', (self.secureRoot + self.secureChain).toHexStr()
          self.binCrypt32 = SECPRINT['FUNC_KDF'](self.randpass)
       self.secureMtrxCrypt = []
       for sbdX,sbdY in self.secureMtrx:
@@ -13550,7 +13578,7 @@ class DlgFragBackup(ArmoryDialog):
 class DlgUniversalRestoreSelect(ArmoryDialog):
 
    #############################################################################
-   def __init__(self, parent, main):
+   def __init__(self, parent, main, defaultToTest=False):
       super(DlgUniversalRestoreSelect, self).__init__(parent, main)
 
 
@@ -13565,9 +13593,10 @@ class DlgUniversalRestoreSelect(ArmoryDialog):
       lblRestore = QRichLabel(tr("""I am restoring a..."""))
 
       self.rdoSingle  = QRadioButton(tr('Single-Sheet Backup (printed)'))
-      self.rdoFragged = QRadioButton(tr('Fragmented Backup (incl. mix of paper and files)'))
+      self.rdoFragged = QRadioButton(tr('Fragmented Backup\xe2\x84\xa2 (incl. mix of paper and files)'))
       self.rdoDigital = QRadioButton(tr('Import digital backup or watching-only wallet'))
       self.chkTest =    QCheckBox(tr('This is a test recovery to make sure my backup works'))
+      self.chkTest.setChecked(defaultToTest)
       btngrp = QButtonGroup(self)
       btngrp.addButton(self.rdoSingle)
       btngrp.addButton(self.rdoFragged)
@@ -13924,7 +13953,7 @@ class DlgRestoreFragged(ArmoryDialog):
       self.testWltID = expectWltID
       headerStr = ''
       if thisIsATest: 
-         headerStr = '<font color="blue" size="4">Testing a Fragmented Backup</font>'
+         headerStr = '<font color="blue" size="4">Testing a Fragmented Backup\xe2\x84\xa2</font>'
       else:
          headerStr = 'Restore Wallet from Fragments'
 
@@ -13934,11 +13963,7 @@ class DlgRestoreFragged(ArmoryDialog):
          can be stored on a mix of paper printouts, and saved files. 
          If any of the fragments require a SecurePrint\xe2\x84\xa2 code, 
          you will only have to enter it once, since that code is the same for
-         all fragments of any given wallet. """) % headerStr)
-         #<br><br>
-         #If you enter more fragments than are needed, a "Test" button will
-         #appear that will allow you to test reconstructing your wallet 
-         #from different subsets of the fragments."""))
+         all fragments of any given wallet. """ % headerStr))
 
       frmDescr = makeHorizFrame([lblDescr], STYLE_RAISED)
 
@@ -14213,6 +14238,10 @@ class DlgRestoreFragged(ArmoryDialog):
       if self.wltType==UNKNOWN:
          self.wltType = currType
       elif not self.wltType==currType:
+         QMessageBox.critical(self, tr('Mixed fragment types'), tr("""
+            You entered a fragment for a different wallet type.  Please check
+            that all fragments are for the same wallet, of the same version,
+            and require the same number of fragments."""), QMessageBox.Ok)
          LOGERROR('Mixing frag types!  How did that happen?')
          return
 
@@ -14221,8 +14250,22 @@ class DlgRestoreFragged(ArmoryDialog):
       if self.fragIDPrefix == UNKNOWN:
          self.fragIDPrefix = idBase58.split('-')[0]
       elif not self.fragIDPrefix == idBase58.split('-')[0]:
+         QMessageBox.critical(self, tr('Multiple Walletss'), tr("""
+            The fragment you just entered is actually for a different wallet
+            than the previous fragments you entered.  Please double-check that
+            all the fragments you are entering belong to the same wallet and
+            have the "number of needed fragments" (M-value, in M-of-N)."""), \
+            QMessageBox.Ok)
          LOGERROR('Mixing fragments of different wallets! %s', idBase58)
          return
+
+
+      if not self.verifyNonDuplicateFrag(fnum):
+         QMessageBox.critical(self, tr('Duplicate Fragment'), tr("""
+            You just input fragment #%d, but that fragment has already been
+            entered!""")%fnum, QMessageBox.Ok)
+         return
+      
 
       
       if currType=='0':
@@ -14236,9 +14279,21 @@ class DlgRestoreFragged(ArmoryDialog):
          Y = SecureBinaryData(''.join([fragData[i].toBinStr() for i in range(1,3)]))
          
       self.fragDataMap[tableIndex] = [fragData[0][:], X.copy(), Y.copy()]
+      
       X.destroy()
       Y.destroy()
       self.checkRestoreParams()
+
+   #############################################################################
+   def verifyNonDuplicateFrag(self, fnum):
+      for row,data in self.fragDataMap.iteritems():
+         rowFrag = ReadFragIDLineBin(data[0])[1]
+         if fnum==rowFrag:
+            return False 
+         
+      return True
+      
+      
 
    #############################################################################
    def processFrags(self):
@@ -14365,67 +14420,6 @@ class DlgRestoreFragged(ArmoryDialog):
       # Will pop up a little "please wait..." window while filling addr pool
       DlgExecLongProcess(fillAddrPoolAndAccept, "Recovering wallet...", self, self.main).exec_()
 
-################################################################################
-def verifyRecoveryTestID(parent, computedWltID, expectedWltID=None):
-            
-   if expectedWltID==None:
-      # Testing an arbitrary paper backup
-      yesno = QMessageBox.question(parent, tr('Recovery Test'), tr(""" 
-         From the data you entered, Armory calculated the following 
-         wallet ID: <font color="blue"><b>%s</b></font>
-         <br><br>
-         Does this match the wallet ID on the backup you are 
-         testing?""") % computedWltID, QMessageBox.Yes | QMessageBox.No)
-
-      if yesno==QMessageBox.No:
-         QMessageBox.critical(parent, tr('Bad Backup!'), tr("""
-            If you are sure that you entered the backup information 
-            correctly, then it is <b>highly recommened you stop using 
-            this wallet!</b>  If this wallet currently holds any funds,
-            you should move the funds to a wallet that <u>does</u>
-            have a working backup.
-            <br><br>
-            All paper backups have exactly 9 columns of four letters 
-            each.  If your backup has less columns than this, it most
-            likely did not print correctly, though the QR code on the
-            page may still have the full information."""), QMessageBox.Ok)
-      elif yesno==QMessageBox.Yes:
-         MsgBoxCustom(MSGBOX.Good, tr('Backup is Good!'), tr("""
-            <b>Your backup has no errors in it!</b>
-            <br><br>
-            The wallet ID is computed from a combination of the root
-            private key, the "chaincode" and the first address derived
-            from those two pieces of data.  A matching wallet ID 
-            guarantees it will produce the same chain of addresses as
-            the original."""))
-   else:  # an expected wallet ID was supplied
-      if not computedWltID == expectedWltID:
-         QMessageBox.critical(parent, tr('Bad Backup!'), tr("""
-            If you are sure that you entered the backup information 
-            correctly, then it is <b>highly recommened you stop using 
-            this wallet!</b>  If this wallet currently holds any funds,
-            you should move the funds to a wallet that <u>does</u>
-            have a working backup.
-            <br><br>
-            All paper backups have exactly 9 columns of four letters 
-            each.  If your backup has less columns than this, it most
-            likely did not print correctly, though the QR code on the
-            page will still have the full information."""), QMessageBox.Ok)
-      elif yesno==QMessageBox.Yes:
-         MsgBoxCustom(MSGBOX.Good, tr('Backup is Good!'), tr("""
-            Your backup works correctly!  
-            <br><br>
-            The wallet ID computed from the data you entered matches 
-            the expected ID.  This confirms that the backup produces
-            the same sequence of private keys as the original wallet!
-            """))
-      
-            
-            
-            
-         
-   
-
 
 
 ################################################################################
@@ -14538,9 +14532,10 @@ class DlgEnterOneFrag(ArmoryDialog):
    #############################################################################
    def changeType(self):
       sel = self.comboBackupType.currentIndex()
-      if   sel==0: visList = [1,1,1,1, 1,1,1,1, 0,0,0,0]
-      elif sel==1: visList = [0,0,0,0, 0,0,0,0, 1,1,1,1]
-      elif sel==2: visList = [0,0,0,0, 0,0,0,0, 1,1,0,0]
+      #                      |-- X --| |-- Y --| |-- F --|
+      if   sel==0: visList = [1,1,1,1,  1,1,1,1,  0,0,0,0]
+      elif sel==1: visList = [0,0,0,0,  0,0,0,0,  1,1,1,1]
+      elif sel==2: visList = [0,0,0,0,  0,0,0,0,  1,1,0,0]
       else:
          LOGERROR('What the heck backup type is selected?  %d', sel)
          return
@@ -14617,6 +14612,82 @@ class DlgEnterOneFrag(ArmoryDialog):
          self.accept()
       
 
+
+################################################################################
+def verifyRecoveryTestID(parent, computedWltID, expectedWltID=None):
+            
+   if expectedWltID==None:
+      # Testing an arbitrary paper backup
+      yesno = QMessageBox.question(parent, tr('Recovery Test'), tr(""" 
+         From the data you entered, Armory calculated the following 
+         wallet ID: <font color="blue"><b>%s</b></font>
+         <br><br>
+         Does this match the wallet ID on the backup you are 
+         testing?""") % computedWltID, QMessageBox.Yes | QMessageBox.No)
+
+      if yesno==QMessageBox.No:
+         QMessageBox.critical(parent, tr('Bad Backup!'), tr("""
+            If this is your only backup and you are sure that you entered 
+            the data
+            correctly, then it is <b>highly recommened you stop using 
+            this wallet!</b>  If this wallet currently holds any funds,
+            you should move the funds to a wallet that <u>does</u>
+            have a working backup.
+            <br><br>
+            All paper backups have exactly 9 columns of four letters 
+            each.  If your backup has less columns than this, it most
+            likely did not print correctly, though the QR code on the
+            page may still have the full information."""), QMessageBox.Ok)
+      elif yesno==QMessageBox.Yes:
+         MsgBoxCustom(MSGBOX.Good, tr('Backup is Good!'), tr("""
+            <b>Your backup works!</b>
+            <br><br>
+            The wallet ID is computed from a combination of the root
+            private key, the "chaincode" and the first address derived
+            from those two pieces of data.  A matching wallet ID 
+            guarantees it will produce the same chain of addresses as
+            the original."""))
+   else:  # an expected wallet ID was supplied
+      if not computedWltID == expectedWltID:
+         QMessageBox.critical(parent, tr('Bad Backup!'), tr("""
+            If you are sure that you entered the backup information 
+            correctly, then it is <b>highly recommened you stop using 
+            this wallet!</b>  If this wallet currently holds any funds,
+            you should move the funds to a wallet that <u>does</u>
+            have a working backup.
+            <br><br>
+            All paper backups have exactly 9 columns of four letters 
+            each.  If your backup has less columns than this, it most
+            likely did not print correctly, though the QR code on the
+            page will still have the full information."""), QMessageBox.Ok)
+      elif yesno==QMessageBox.Yes:
+         MsgBoxCustom(MSGBOX.Good, tr('Backup is Good!'), tr("""
+            Your backup works!  
+            <br><br>
+            The wallet ID computed from the data you entered matches 
+            the expected ID.  This confirms that the backup produces
+            the same sequence of private keys as the original wallet!
+            """))
+      
+            
+################################################################################
+def finishPrintingBackup(parent, btype=None):
+   openTestDlg = False
+   msg = tr("""
+         Please make sure that any printed backups you create  (excluding any "ID" lines) have <b>nine 
+         columns</b> of four letters each
+         each.  
+         If you just made a paper backup, it is important that you test it
+         to make sure that it was printed or copied correctly.  Most importantly,
+         """)
+
+   if btype==None:
+      QMessageBox.warning(parent, tr('Test Your Backup!'), tr("""
+      """))
+            
+            
+         
+   
 
 
 
