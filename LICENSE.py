@@ -1,28 +1,29 @@
 def licenseText():
    return """
 ********************************************************************************
-
-    Armory -- Bitcoin Client Software
-
-    Copyright (C) 2011-2013, Alan C. Reiner  <alan.reiner@gmail.com>
-
-    This program is free software: you can redistribute it and/or modify
-    it under the terms of the GNU Affero General Public License as
-    published by the Free Software Foundation, either version 3 of the
-    License, or (at your option) any later version.
-
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU Affero General Public License <http://www.gnu.org/licenses/>
-    for more details.
-
+*                                                                              *
+*   Armory -- Advanced Bitcoin Wallet Software                                          *
+*                                                                              *
+*   Copyright (C) 2011-2013, Armory Technologies, Inc.                         *
+*                                                                              *
+*   This program is free software: you can redistribute it and/or modify       *
+*   it under the terms of the GNU Affero General Public License as             *
+*   published by the Free Software Foundation, either version 3 of the         *
+*   License, or (at your option) any later version.                            *
+*                                                                              *
+*   This program is distributed in the hope that it will be useful,            *
+*   but WITHOUT ANY WARRANTY; without even the implied warranty of             *
+*   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the              *
+*   GNU Affero General Public License <http://www.gnu.org/licenses/>           *
+*   for more details.                                                          *
+*                                                                              *
 ********************************************************************************
-   
-    ***  If you wish to use this program or source code in a way not 
-         compliant with the AGPLv3, please contact me to work out an 
-         agreement for dual-licensing.   Contact information is at the top.
-
+*                                                                              *
+*   To use this software or source code in a way not compliant with the        *
+*   APGLv3, please contact us to discuss a dual-licensing agreement:           *
+*                                                                              *
+*                 licensing@bitcoinarmory.com                                  * 
+*                                                                              *
 ********************************************************************************
 
     This license applies to all works under this directory tree EXCEPT for:
@@ -31,6 +32,7 @@ def licenseText():
           cppForSwig/leveldb/*
           qtreactor4.py
           qrcodenative.py
+          jsonrpc/*
     
     Everything in the cryptopp directory is considered public domain according 
     to http://www.cryptopp.com/ and included with the source distribution 

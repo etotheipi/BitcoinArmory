@@ -1,9 +1,11 @@
 
-from armoryengine import *
-from sys import argv
+from sys import argv, path
 import os
 import time
 
+path.append('..')
+path.append('/usr/share/armory')
+from armoryengine import *
 
 if len(argv)<2:
    print '***USAGE: '
@@ -21,19 +23,58 @@ if not os.path.exists(walletPath):
 myEncryptedWlt = PyBtcWallet().readWalletFile(walletPath)
 
 
+def all_casings(input_string):
+   """
+   A useful method for producing a list of all casings of a given string
+   """
+   out = [''] 
+   if not input_string:
+      out.append('')
+   else:
+      first = input_string[:1]
+      if first.lower() == first.upper():
+         for sub_casing in all_casings(input_string[1:]):
+            out.append( first + sub_casing)
+      else:
+         for sub_casing in all_casings(input_string[1:]):
+            out.append( first.lower() + sub_casing)
+            out.append( first.upper() + sub_casing)
+   return out
+
+
+
+
 ################################################################################
 # Here is where I'm going to construct a list of a 100,000+ passwords to try.
+def generatePassphraseList():
+   seed = '1TfoP8bV5'
+   alphabet = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890'
+   passphraseList = []
 
-# Reads the scrabble dictionary file, strips whitespace, and converts to lowercase
-words = [line.strip().lower() for line in open('dictionary.txt','r').readlines()]
+   # First try all one-letter variations
+   for i in range(len(seed)):
+      for a in alphabet:
+         passphraseList.append( seed[:i] + a + seed[i+1:] )
 
-# Capitalize the first letter of each word, add the 56874
-passphraseList = [w[0].upper()+w[1:]+'56874' for w in words]
+   print 'There are %d passphrases different by 1 letter.' % len(passphraseList)
 
-totalTest = len(passphraseList)
+   # And try all two-letter variants of it
+   for i in range(len(seed)):
+      for j in range(i+1, len(seed)):
+         for ai in alphabet:
+            for aj in alphabet:
+               passphraseList.append( seed[:i] + ai + seed[i+1:j] + aj + seed[j+1:] )
+
+   print 'There are %d passphrases different by 2 letters.' % len(passphraseList)
+   return passphraseList
+
+
+plist = generatePassphraseList()
+
+totalTest = len(plist)
 startTime = RightNow()
 found = False
-for i,p in enumerate(passphraseList):
+for i,p in enumerate(plist):
    isValid = myEncryptedWlt.verifyPassphrase( SecureBinaryData(p) ) 
       
    if isValid:

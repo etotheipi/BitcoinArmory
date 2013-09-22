@@ -1,15 +1,14 @@
 ################################################################################
-#
-# Copyright (C) 2011-2013, Alan C. Reiner    <alan.reiner@gmail.com>
-# Distributed under the GNU Affero General Public License (AGPL v3)
-# See LICENSE or http://www.gnu.org/licenses/agpl.html
-#
+#                                                                              #
+# Copyright (C) 2011-2013, Armory Technologies, Inc.                           #
+# Distributed under the GNU Affero General Public License (AGPL v3)            #
+# See LICENSE or http://www.gnu.org/licenses/agpl.html                         #
+#                                                                              #
 ################################################################################
 from armoryengine import *
 from PyQt4.QtCore import *
 from PyQt4.QtGui  import *
 from armorycolors import Colors, htmlColor
-from qrcodenative import QRCode, QRErrorCorrectLevel
 from tempfile import mkstemp
 
 SETTINGS_PATH   = os.path.join(ARMORY_HOME_DIR, 'ArmorySettings.txt')
@@ -26,15 +25,52 @@ DASHBTNS        = enum('Close', 'Browse', 'Install', 'Instruct', 'Settings')
 STYLE_SUNKEN = QFrame.Box | QFrame.Sunken
 STYLE_RAISED = QFrame.Box | QFrame.Raised
 STYLE_PLAIN  = QFrame.Box | QFrame.Plain
+STYLE_STYLED = QFrame.StyledPanel | QFrame.Raised
 STYLE_NONE   = QFrame.NoFrame
 
 CHANGE_ADDR_DESCR_STRING = '[[ Change received ]]'
-
-# TODO: switch to checking master branch once this is out
 HTTP_VERSION_FILE = 'http://bitcoinarmory.com/versions.txt'
-#HTTP_VERSION_FILE = 'https://raw.github.com/etotheipi/BitcoinArmory/logger/versions.txt'
-#HTTP_VERSION_FILE = 'https://github.com/downloads/etotheipi/BitcoinArmory/versions.txt'
-#HTTP_VERSION_FILE = 'http://bitcoinarmory.com/wp-content/uploads/2012/07/versions.txt'
+
+
+################################################################################
+def tr(txt):
+   """
+   This is a common convention for implementing translations, where all 
+   translatable strings are put int the _(...) function, and that method 
+   does some fancy stuff to present the translation if needed. 
+
+   This is being implemented here, to not only do translations in the 
+   future, but also to clean up the typical text fields I use.  I've 
+   ended up with a program full of stuff like this:
+
+      myLabel = QRichLabel( \
+         'This text is split across mulitple lines '
+         'with a space after each one, and single '
+         'quotes on either side.')
+   
+   Instead it should really look like: 
+      
+      myLabel = QRichLabel( _('''
+         This text is split across mulitple lines 
+         and it will acquire a space after each line 
+         as well as include newlines because it's HTML
+         and uses <br>. ''' ))
+   """
+
+   txt = toUnicode(txt)
+   lines = [l.strip() for l in txt.split('\n')]
+   outText = (' '.join(lines)).strip()
+
+   # Eventually we do something cool with this transalate function.
+   TRANSLATE = lambda x: x
+
+   return TRANSLATE(outText)
+
+   
+
+
+################################################################################
+
 
 def HLINE(style=QFrame.Plain):
    qf = QFrame()
@@ -45,6 +81,7 @@ def VLINE(style=QFrame.Plain):
    qf = QFrame()
    qf.setFrameStyle(QFrame.VLine | style)
    return qf
+
 
 
 
@@ -277,6 +314,38 @@ class QMoneyLabel(QRichLabel):
          self.setText('%s' % valStr)
       self.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
 
+
+def setLayoutStretchRows(layout, *args):
+   for i,st in enumerate(args):
+      layout.setRowStretch(i, st)
+
+def setLayoutStretchCols(layout, *args):
+   for i,st in enumerate(args):
+      layout.setColumnStretch(i, st)
+
+# Use this for QHBoxLayout and QVBoxLayout, where you don't specify dimension
+def setLayoutStretch(layout, *args):
+   for i,st in enumerate(args):
+      layout.setStretch(i, st)
+
+################################################################################
+def QPixmapButton(img):
+   btn = QPushButton('')
+   px = QPixmap(img)
+   btn.setIcon( QIcon(px))
+   btn.setIconSize(px.rect().size())
+   return btn
+################################################################################
+def QAcceptButton():
+   return QPixmapButton('img/btnaccept.png')
+def QCancelButton():
+   return QPixmapButton('img/btncancel.png')
+def QBackButton():
+   return QPixmapButton('img/btnback.png')
+def QOkButton():
+   return QPixmapButton('img/btnok.png')
+def QDoneButton():
+   return QPixmapButton('img/btndone.png')
    
 
 ################################################################################
@@ -380,17 +449,15 @@ def MsgBoxCustom(wtype, title, msg, wCancel=False, yesStr=None, noStr=None):
          else:
             if not yesStr: yesStr = '&OK'
             if not noStr:  noStr = '&Cancel'
-            btnOk = QPushButton(yesStr)
-            self.connect(btnOk, SIGNAL('clicked()'), self.accept)
+            btnOk     = QPushButton(yesStr)
+            btnCancel = QPushButton(noStr)
+            self.connect(btnOk,     SIGNAL('clicked()'), self.accept)
+            self.connect(btnCancel, SIGNAL('clicked()'), self.reject)
             buttonbox.addButton(btnOk, QDialogButtonBox.AcceptRole)
-            if withCancel:
-               btnCancel = QPushButton(noStr)
-               self.connect(btnCancel, SIGNAL('clicked()'), self.reject)
+            if withCancel or noStr:
                buttonbox.addButton(btnCancel, QDialogButtonBox.RejectRole)
-            
 
          spacer = QSpacerItem(20, 10, QSizePolicy.Fixed, QSizePolicy.Expanding)
-
 
          layout = QGridLayout()
          layout.addItem(  spacer,         0,0, 1,2)
@@ -408,7 +475,8 @@ def MsgBoxCustom(wtype, title, msg, wCancel=False, yesStr=None, noStr=None):
 
 
 ################################################################################
-def MsgBoxWithDNAA(wtype, title, msg, dnaaMsg, wCancel=False, yesStr='Yes', noStr='No'):
+def MsgBoxWithDNAA(wtype, title, msg, dnaaMsg, wCancel=False, \
+                   yesStr='Yes', noStr='No', dnaaStartChk=False):
    """
    Creates a warning/question/critical dialog, but with a "Do not ask again"
    checkbox.  Will return a pair  (response, DNAA-is-checked)
@@ -442,6 +510,7 @@ def MsgBoxWithDNAA(wtype, title, msg, dnaaMsg, wCancel=False, yesStr='Yes', noSt
             msgIcon.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
    
          self.chkDnaa = QCheckBox(dmsg)
+         self.chkDnaa.setChecked(dnaaStartChk)
          lblMsg = QLabel(msg)
          lblMsg.setTextFormat(Qt.RichText)
          lblMsg.setWordWrap(True)
@@ -516,6 +585,11 @@ def makeLayoutFrame(dirStr, widgetList, style=QFrame.NoFrame):
          else:
             frmLine.setFrameStyle(QFrame.VLine | QFrame.Plain)
          frmLayout.addWidget(frmLine)
+      elif isinstance(w,str) and w.lower().startswith('strut'):
+         first = w.index('(')+1 
+         last  = w.index(')')
+         strutSz = int(w[first:last])
+         frmLayout.addStrut(strutSz)
       elif isinstance(w,QSpacerItem):
          frmLayout.addItem(w)
       else:
@@ -536,12 +610,16 @@ def makeHorizFrame(widgetList, style=QFrame.NoFrame):
    return makeLayoutFrame('Horiz', widgetList, style)
 
 
-def QImageLabel(imgfn, stretch='NoStretch'):
-   if not os.path.exists(imgfn):
-      raise FileExistsError, 'Image for QImageLabel does not exist!'
+def QImageLabel(imgfn, size=None, stretch='NoStretch'):
 
    lbl = QLabel()
-   lbl.setPixmap(QPixmap(imgfn))
+
+   if size==None:
+      px = QPixmap(imgfn)
+   else:
+      px = QPixmap(imgfn).scaled(*size)  # expect size=(W,H)
+
+   lbl.setPixmap(px)
    return lbl
    
 
@@ -601,8 +679,9 @@ class ArmoryDialog(QDialog):
          self.setWindowTitle('Armory - Bitcoin Wallet Management [TESTNET]')
          self.setWindowIcon(QIcon(':/armory_icon_green_32x32.png'))
       else:
-         self.setWindowTitle('Armory - Bitcoin Wallet Management [MAIN NETWORK]')
+         self.setWindowTitle('Armory - Bitcoin Wallet Management')
          self.setWindowIcon(QIcon(':/armory_icon_32x32.png'))
+
 
 
 
@@ -610,7 +689,7 @@ class ArmoryDialog(QDialog):
 ################################################################################
 class QRCodeWidget(QWidget):
 
-   def __init__(self, asciiToEncode='', prefSize=160, errLevel=QRErrorCorrectLevel.L, parent=None):
+   def __init__(self, asciiToEncode='', prefSize=160, errLevel='L', parent=None):
       super(QRCodeWidget, self).__init__()
 
       self.parent = parent
@@ -618,7 +697,7 @@ class QRCodeWidget(QWidget):
       self.setAsciiData(asciiToEncode, prefSize, errLevel, repaint=False)
       
 
-   def setAsciiData(self, newAscii, prefSize=160, errLevel=QRErrorCorrectLevel.L, repaint=True):
+   def setAsciiData(self, newAscii, prefSize=160, errLevel='L', repaint=True):
       if len(newAscii)==0:
          self.qrmtrx = [[0]]
          self.modCt  = 1
@@ -626,31 +705,7 @@ class QRCodeWidget(QWidget):
          return
 
       self.theData = newAscii
-      sz=3
-      success=False
-      while sz<20:
-         try:
-            self.qr = QRCode(sz, errLevel)
-            self.qr.addData(self.theData)
-            self.qr.make()
-            success=True
-            break
-         except TypeError:
-            sz += 1
-
-      if not success:
-         LOGERROR('Unsuccessful attempt to create QR code')
-         self.qrmtrx = [[0]]
-         return
-
-      self.qrmtrx = []
-      self.modCt = self.qr.getModuleCount()
-      for r in range(self.modCt):
-         tempList = [0]*self.modCt
-         for c in range(self.modCt):
-            tempList[c] = 1 if self.qr.isDark(r,c) else 0
-         self.qrmtrx.append(tempList)
-
+      self.qrmtrx, self.modCt = CreateQRMatrix(self.theData, errLevel)
       self.setPreferredSize(prefSize)
 
 
@@ -701,7 +756,7 @@ class QRCodeWidget(QWidget):
       qp.setBrush(QColor(255,255,255))
       for r in range(self.modCt):
          for c in range(self.modCt):
-            if not self.qrmtrx[c][r]:
+            if not self.qrmtrx[r][c]:
                qp.drawRect(*[a*self.pxScale for a in [r,c,1,1]])
 
       # Draw the black tiles
@@ -709,7 +764,7 @@ class QRCodeWidget(QWidget):
       qp.setBrush(QColor(0,0,0))
       for r in range(self.modCt):
          for c in range(self.modCt):
-            if self.qrmtrx[c][r]:
+            if self.qrmtrx[r][c]:
                qp.drawRect(*[a*self.pxScale for a in [r,c,1,1]])
 
 

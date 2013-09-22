@@ -292,11 +292,6 @@ def main():
                                                                              ['DebianPackage', 'OS-Linux32', 'Offline']], \
              ['_OfflineBundle_Ubuntu-10.04-64bit.tar.gz',     'Version %s Offline Bundle for Ubuntu 10.04-64bit', \
                                                                              ['DebianPackage', 'OS-Linux64', 'Offline']]]
-             # Actually, we can just include the hashes of the offline bundles in the sha256sums file
-             #['_OfflineBundle_Ubuntu_10.04_32bit.tar.gz.sig', 'Detached Signature for %s 32-bit offline bundle', \
-                                                                             #['DetachedSig', 'OS-Linux32', 'Offline']], \
-             #['_OfflineBundle_Ubuntu_10.04_64bit.tar.gz.sig', 'Detached Signature for %s 64-bit offline bundle', \
-                                                                             #['DetachedSig', 'OS-Linux64', 'Offline']], \
 
    urlSummList = []
    password = getpass.getpass('Enter your googlecode password: ')

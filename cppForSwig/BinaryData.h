@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////
 //                                                                            //
-//  Copyright (C) 2011-2013, Alan C. Reiner    <alan.reiner@gmail.com>        //
+//  Copyright(C) 2011-2013, Armory Technologies, Inc.                         //
 //  Distributed under the GNU Affero General Public License (AGPL v3)         //
 //  See LICENSE or http://www.gnu.org/licenses/agpl.html                      //
 //                                                                            //
@@ -11,14 +11,14 @@
 #include <stdio.h>
 #if defined(_MSC_VER) || defined(__MINGW32__)
    //#include <cstdint>
-   typedef          __int8  int8_t;
-   typedef          __int16 int16_t;
-   typedef          __int32 int32_t;
-   typedef          __int64 int64_t;
-   typedef unsigned __int8  uint8_t;
-   typedef unsigned __int16 uint16_t;
-   typedef unsigned __int32 uint32_t;
-   typedef unsigned __int64 uint64_t;
+   //typedef          __int8  int8_t;
+   //typedef          __int16 int16_t;
+   //typedef          __int32 int32_t;
+   //typedef          __int64 int64_t;
+   //typedef unsigned __int8  uint8_t;
+   //typedef unsigned __int16 uint16_t;
+   //typedef unsigned __int32 uint32_t;
+   //typedef unsigned __int64 uint64_t;
    #define INT8_MIN     ((int8_t)_I8_MIN)
    #define INT8_MAX     _I8_MAX
    #define INT16_MIN    ((int16_t)_I16_MIN)
@@ -49,9 +49,8 @@
       #define PAGEFLOOR(ptr,sz) ((void*)(((size_t)(ptr)) & (~(PAGESIZE-1))  ))
       #define PAGERANGE(ptr,sz) (  (((size_t)(ptr)+(sz)-1) | (PAGESIZE-1)) + 1 - PAGEFLOOR(ptr,sz)  )
    #endif
-   
-
 #endif
+
 
 #include <iostream>
 #include <vector>
@@ -61,15 +60,59 @@
 // We can remove these includes (Crypto++ ) if we remove the GenerateRandom()
 #include "cryptlib.h"
 #include "osrng.h"
+#include "log.h"
 
-#define DEFAULT_BUFFER_SIZE 64*1048576
+#define DEFAULT_BUFFER_SIZE 32*1048576
 
 #include "UniversalTimer.h"
 
 
+#define READHEX        BinaryData::CreateFromHex
+
+#define READ_UINT8_LE  BinaryData::StrToIntLE<uint8_t>
+#define READ_UINT16_LE BinaryData::StrToIntLE<uint16_t>
+#define READ_UINT32_LE BinaryData::StrToIntLE<uint32_t>
+#define READ_UINT64_LE BinaryData::StrToIntLE<uint64_t>
+
+#define READ_UINT8_BE  BinaryData::StrToIntBE<uint8_t>
+#define READ_UINT16_BE BinaryData::StrToIntBE<uint16_t>
+#define READ_UINT32_BE BinaryData::StrToIntBE<uint32_t>
+#define READ_UINT64_BE BinaryData::StrToIntBE<uint64_t>
+
+#define READ_UINT8_HEX_LE(A)  (READ_UINT8_LE(READHEX(A)))
+#define READ_UINT16_HEX_LE(A) (READ_UINT16_LE(READHEX(A)))
+#define READ_UINT32_HEX_LE(A) (READ_UINT32_LE(READHEX(A)))
+#define READ_UINT64_HEX_LE(A) (READ_UINT64_LE(READHEX(A)))
+
+#define READ_UINT8_HEX_BE(A)  (READ_UINT8_BE(READHEX(A)))
+#define READ_UINT16_HEX_BE(A) (READ_UINT16_BE(READHEX(A)))
+#define READ_UINT32_HEX_BE(A) (READ_UINT32_BE(READHEX(A)))
+#define READ_UINT64_HEX_BE(A) (READ_UINT64_BE(READHEX(A)))
+
+#define WRITE_UINT8_LE  BinaryData::IntToStrLE<uint8_t>
+#define WRITE_UINT16_LE BinaryData::IntToStrLE<uint16_t>
+#define WRITE_UINT32_LE BinaryData::IntToStrLE<uint32_t>
+#define WRITE_UINT64_LE BinaryData::IntToStrLE<uint64_t>
+
+#define WRITE_UINT8_BE  BinaryData::IntToStrBE<uint8_t>
+#define WRITE_UINT16_BE BinaryData::IntToStrBE<uint16_t>
+#define WRITE_UINT32_BE BinaryData::IntToStrBE<uint32_t>
+#define WRITE_UINT64_BE BinaryData::IntToStrBE<uint64_t>
+
+enum ENDIAN 
+{ 
+   LITTLEENDIAN, 
+   BIGENDIAN 
+};
+
+#define LE LITTLEENDIAN
+#define BE BIGENDIAN
+
 using namespace std;
 
 class BinaryDataRef;
+
+//template<typename T> class BitPacker;
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
@@ -80,7 +123,7 @@ public:
 
    /////////////////////////////////////////////////////////////////////////////
    BinaryData(void) : data_(0)                 {                         }
-   BinaryData(size_t sz)                       { alloc(sz);              }
+   explicit BinaryData(size_t sz)              { alloc(sz);              }
    BinaryData(uint8_t const * inData, size_t sz)      
                                                { copyFrom(inData, sz);   }
    BinaryData(uint8_t const * dstart, uint8_t const * dend ) 
@@ -90,6 +133,8 @@ public:
 
    BinaryData(BinaryDataRef const & bdRef);
    size_t getSize(void) const               { return data_.size(); }
+
+   bool isNull(void) { return (data_.size()==0);}
 
    /////////////////////////////////////////////////////////////////////////////
    uint8_t const * getPtr(void) const       
@@ -114,7 +159,6 @@ public:
    
    /////////////////////////////////////////////////////////////////////////////
    // We allocate space as necesssary
-   // TODO:  Got a problem when copying an empty/uninitialized BD object...
    void copyFrom(uint8_t const * start, uint8_t const * end) 
                   { copyFrom( start, (end-start)); }  // [start, end)
    void copyFrom(string const & str)                         
@@ -138,12 +182,25 @@ public:
    void copyTo(uint8_t* outData) const { memcpy( outData, &(data_[0]), getSize()); }
    void copyTo(uint8_t* outData, size_t sz) const { memcpy( outData, &(data_[0]), (size_t)sz); }
    void copyTo(uint8_t* outData, size_t offset, size_t sz) const { memcpy( outData, &(data_[offset]), (size_t)sz); }
+   void copyTo(BinaryData & bd) const 
+   {
+      bd.resize(data_.size());
+      memcpy( bd.getPtr(), &data_[0], data_.size());
+   }
 
    void fill(uint8_t ch) { if(getSize()>0) memset(getPtr(), ch, getSize()); }
                
-   uint8_t & operator[](size_t i)       { return data_[i]; }
-   uint8_t   operator[](size_t i) const { return data_[i]; } 
+   uint8_t & operator[](int32_t i)       { return (i<0 ? data_[getSize()+i] : data_[i]); }
+   uint8_t   operator[](int32_t i) const { return (i<0 ? data_[getSize()+i] : data_[i]); } 
 
+   /////////////////////////////////////////////////////////////////////////////
+   friend ostream& operator<<(ostream& os, BinaryData const & bd)
+   {
+      os << bd.toHexStr();
+      return os;
+   }
+  
+   
    /////////////////////////////////////////////////////////////////////////////
    BinaryData operator+(BinaryData const & bd2) const
    {
@@ -218,6 +275,17 @@ public:
          return data_[i] < bd2.data_[i];
       }
       return (getSize() < bd2.getSize());
+
+      // I thought memcmp would be faster... apparently not (20% slower)
+      //int32_t minLen = min(getSize(), bd2.getSize());
+      //int32_t cmp = memcmp(getPtr(), bd2.getPtr(), minLen);
+
+      //if(cmp < 0)
+         //return true;
+      //else if(cmp==0)
+         //return getSize()<bd2.getSize();
+      
+      //return false;
    }
 
    /////////////////////////////////////////////////////////////////////////////
@@ -225,10 +293,14 @@ public:
    {
       if(getSize() != bd2.getSize())
          return false;
-      for(unsigned int i=0; i<getSize(); i++)
-         if( data_[i] != bd2.data_[i] )
-            return false;
-      return true;
+
+      return (memcmp(getPtr(), bd2.getPtr(), getSize()) == 0);
+
+      // Why did I do this before?
+      //for(unsigned int i=0; i<getSize(); i++)
+         //if( data_[i] != bd2.data_[i] )
+            //return false;
+      //return true;
    }
 
    /////////////////////////////////////////////////////////////////////////////
@@ -258,12 +330,18 @@ public:
    void copyTo(string & str) { str.assign( (char const *)(&(data_[0])), getSize()); }
 
    /////////////////////////////////////////////////////////////////////////////
-   string toBinStr(void) const 
+   string toBinStr(bool bigEndian=false) const 
    { 
       if(getSize()==0)
          return string("");
 
-      return string((char const *)(&(data_[0])), getSize());
+      if(bigEndian)
+      {
+         BinaryData out = copySwapEndian();
+         return string((char const *)(out.getPtr()), getSize());
+      }
+      else
+         return string((char const *)(getPtr()), getSize());
    }
 
    char* toCharPtr(void) const  { return  (char*)(&(data_[0])); }
@@ -326,10 +404,97 @@ public:
       return string((char const *)(&(outStr[0])), 2*getSize());
    }
 
+   /////////////////////////////////////////////////////////////////////////////
    static BinaryData CreateFromHex(string const & str)
    {
       BinaryData out;
       out.createFromHex(str);
+      return out;
+   }
+
+
+   /////////////////////////////////////////////////////////////////////////////
+   // This is an architecture-agnostic way to serialize integers to little- or
+   // big-endian.  Bit-shift & mod will always return the lowest significant
+   // bytes, so we can put them into an array of bytes in the desired order.
+   template<typename INTTYPE>
+   static BinaryData IntToStrLE(INTTYPE val)
+   {
+      uint8_t const SZ = sizeof(INTTYPE);
+      BinaryData out(SZ);
+      for(uint8_t i=0; i<SZ; i++, val>>=8)
+         out[i] = val % 256;
+      return out;
+   }
+   
+   /////////////////////////////////////////////////////////////////////////////
+   template<typename INTTYPE>
+   static BinaryData IntToStrBE(INTTYPE val)
+   {
+      uint8_t const SZ = sizeof(INTTYPE);
+      BinaryData out(SZ);
+      for(uint8_t i=0; i<SZ; i++, val>>=8)
+         out[(SZ-1)-i] = val % 256;
+      return out;
+   }
+
+   /////////////////////////////////////////////////////////////////////////////
+   template<typename INTTYPE>
+   static INTTYPE StrToIntLE(BinaryData binstr)
+   {
+      uint8_t const SZ = sizeof(INTTYPE);
+      if(binstr.getSize() != SZ)
+      {
+         LOGERR << "StrToInt: strsz: " << binstr.getSize() << " intsz: " << SZ;
+         return (INTTYPE)0;
+      }
+      
+      INTTYPE out = 0;
+      for(uint8_t i=0; i<SZ; i++)
+         out |= ((INTTYPE)binstr[i]) << (8*i);
+
+      return out;
+   }
+
+   /////////////////////////////////////////////////////////////////////////////
+   template<typename INTTYPE>
+   static INTTYPE StrToIntBE(BinaryData binstr)
+   {
+      uint8_t const SZ = sizeof(INTTYPE);
+      if(binstr.getSize() != SZ)
+      {
+         LOGERR << "StrToInt: strsz: " << binstr.getSize() << " intsz: " << SZ;
+         return (INTTYPE)0;
+      }
+      
+      INTTYPE out = 0;
+      for(uint8_t i=0; i<SZ; i++)
+         out |= ((INTTYPE)binstr[i]) << (8*((SZ-1)-i));
+
+      return out;
+   }
+
+   /////////////////////////////////////////////////////////////////////////////
+   template<typename INTTYPE>
+   static INTTYPE StrToIntLE(uint8_t const * ptr)
+   {
+      INTTYPE out = 0;
+      for(uint8_t i=0; i<sizeof(INTTYPE); i++)
+         out |= ((INTTYPE)ptr[i]) << (8*i);
+
+      return out;
+   }
+
+   /////////////////////////////////////////////////////////////////////////////
+   template<typename INTTYPE>
+   static INTTYPE StrToIntBE(uint8_t const * ptr)
+   {
+      uint8_t const SZ = sizeof(INTTYPE);
+
+      INTTYPE out = 0;
+      for(uint8_t i=0; i<SZ; i++)
+         out |= ((INTTYPE)ptr[i]) << (8*((SZ-1)-i));
+
       return out;
    }
 
@@ -456,6 +621,7 @@ public:
    /////////////////////////////////////////////////////////////////////////////
    uint8_t const * getPtr(void) const       { return ptr_;    }
    size_t getSize(void) const               { return nBytes_; }
+   bool isNull(void) { return (ptr_==NULL);}
 
    /////////////////////////////////////////////////////////////////////////////
    void setRef(uint8_t const * inData, size_t sz)          
@@ -474,13 +640,15 @@ public:
    // UNSAFE -- you don't know if outData holds enough space for this
    void copyTo(uint8_t* outData) const { memcpy( outData, ptr_, (size_t)nBytes_); }
    void copyTo(uint8_t* outData, size_t sz) const { memcpy( outData, ptr_, (size_t)sz); }
-   void copyTo(uint8_t* outData, size_t offset, size_t sz) const { memcpy( outData, ptr_+offset, (size_t)sz); }
+   void copyTo(uint8_t* outData, size_t offset, size_t sz) const 
+                                    { memcpy( outData, ptr_+offset, (size_t)sz); }
    void copyTo(BinaryData & bd) const 
    {
       bd.resize(nBytes_);
       memcpy( bd.getPtr(), ptr_, (size_t)nBytes_);
    }
 
+   /////////////////////////////////////////////////////////////////////////////
    BinaryData copy(void) const 
    {
       BinaryData outData(nBytes_);
@@ -491,23 +659,45 @@ public:
    /////////////////////////////////////////////////////////////////////////////
    // These are always memory-safe
    void copyTo(string & str) { str.assign( (char const *)(ptr_), nBytes_); }
-   string toBinStr(void) const 
+
+   /////////////////////////////////////////////////////////////////////////////
+   friend ostream& operator<<(ostream& os, BinaryDataRef const & bd)
+   {
+      os << bd.toHexStr();
+      return os;
+   }
+
+   /////////////////////////////////////////////////////////////////////////////
+   string toBinStr(bool bigEndian=false) const 
    { 
       if(getSize()==0)
          return string("");
-      return string((char const *)(ptr_), nBytes_); 
+
+      if(bigEndian)
+      {
+         BinaryData out = copy();
+         return string((char const *)(out.swapEndian().getPtr()), nBytes_); 
+      }
+      else
+         return string((char const *)(ptr_), nBytes_); 
    }
+
+   
+   /////////////////////////////////////////////////////////////////////////////
    char* toCharPtr(void) const  { return  (char*)(ptr_); }
    unsigned char* toUCharPtr(void) const { return (unsigned char*)(ptr_); }
 
-   uint8_t const & operator[](size_t i) const      { return ptr_[i]; }
-   //uint8_t   operator[](size_t i) const { return ptr_[i]; } 
+   /////////////////////////////////////////////////////////////////////////////
+   uint8_t const & operator[](int32_t i) const { return (i<0 ? ptr_[nBytes_+i] : ptr_[i]); }
    bool isValid(void) const { return ptr_ != NULL; }
 
    /////////////////////////////////////////////////////////////////////////////
    int32_t find(BinaryDataRef const & matchStr, uint32_t startPos=0)
    {
       int32_t finalAnswer = -1;
+      if(matchStr.getSize()==0)
+         return startPos;
+
       for(int32_t i=startPos; i<=(int32_t)nBytes_-(int32_t)matchStr.nBytes_; i++)
       {
          if(matchStr.ptr_[0] != ptr_[i])
@@ -660,10 +850,12 @@ public:
       else if(ptr_ == bd2.ptr_)
          return true;
       
-      for(unsigned int i=0; i<nBytes_; i++)
-         if( ptr_[i] != bd2.ptr_[i] )
-            return false;
-      return true;
+      return (memcmp(getPtr(), bd2.getPtr(), getSize()) == 0);
+
+      //for(unsigned int i=0; i<nBytes_; i++)
+         //if( ptr_[i] != bd2.ptr_[i] )
+            //return false;
+      //return true;
    }
 
    /////////////////////////////////////////////////////////////////////////////
@@ -674,11 +866,18 @@ public:
       else if(ptr_ == bd2.getPtr())
          return true;
 
-      for(unsigned int i=0; i<nBytes_; i++)
-         if( ptr_[i] != bd2[i])
-            return false;
-      return true;
+      return (memcmp(getPtr(), bd2.getPtr(), getSize()) == 0);
+
+      //for(unsigned int i=0; i<nBytes_; i++)
+         //if( ptr_[i] != bd2[i])
+            //return false;
+      //return true;
    }
+
+   /////////////////////////////////////////////////////////////////////////////
+   bool operator!=(BinaryDataRef const & bd2) const { return !((*this)==bd2); }
+   bool operator!=(BinaryData    const & bd2) const { return !((*this)==bd2); }
+
 
    /////////////////////////////////////////////////////////////////////////////
    bool operator>(BinaryDataRef const & bd2) const
@@ -793,11 +992,29 @@ public:
    }
 
    /////////////////////////////////////////////////////////////////////////////
-   BinaryReader(BinaryData const & toRead) :
-      bdStr_(toRead),
-      pos_(0)
+   BinaryReader(BinaryData const & toRead) 
    {
-      // Nothing needed here
+      setNewData(toRead);
+   }
+
+   /////////////////////////////////////////////////////////////////////////////
+   BinaryReader(uint8_t* ptr, uint32_t nBytes)
+   {
+      setNewData(ptr, nBytes);
+   }
+
+   /////////////////////////////////////////////////////////////////////////////
+   void setNewData(BinaryData const & toRead)
+   {
+      bdStr_ = toRead;
+      pos_ = 0;
+   }
+
+   /////////////////////////////////////////////////////////////////////////////
+   void setNewData(uint8_t* ptr, uint32_t nBytes)
+   {
+      bdStr_ = BinaryData(ptr, nBytes);
+      pos_ = 0;
    }
 
    /////////////////////////////////////////////////////////////////////////////
@@ -826,7 +1043,7 @@ public:
 
 
    /////////////////////////////////////////////////////////////////////////////
-   uint8_t get_uint8_t(void)
+   uint8_t get_uint8_t(ENDIAN e=LE)
    {
       uint8_t outVal = bdStr_[pos_];
       pos_ += 1;
@@ -834,25 +1051,28 @@ public:
    }
 
    /////////////////////////////////////////////////////////////////////////////
-   uint16_t get_uint16_t(void)
+   uint16_t get_uint16_t(ENDIAN e=LE)
    {
-      uint16_t outVal = *(uint16_t*)(bdStr_.getPtr() + pos_);
+      uint16_t outVal = (e==LE ? READ_UINT16_LE(bdStr_.getPtr() + pos_) :
+                                 READ_UINT16_BE(bdStr_.getPtr() + pos_));
       pos_ += 2;
       return outVal;
    }
 
    /////////////////////////////////////////////////////////////////////////////
-   uint32_t get_uint32_t(void)
+   uint32_t get_uint32_t(ENDIAN e=LE)
    {
-      uint32_t outVal = *(uint32_t*)(bdStr_.getPtr() + pos_);
+      uint32_t outVal = (e==LE ? READ_UINT32_LE(bdStr_.getPtr() + pos_) :
+                                 READ_UINT32_BE(bdStr_.getPtr() + pos_));
       pos_ += 4;
       return outVal;
    }
 
    /////////////////////////////////////////////////////////////////////////////
-   uint64_t get_uint64_t(void)
+   uint64_t get_uint64_t(ENDIAN e=LE)
    {
-      uint64_t outVal = *(uint64_t*)(bdStr_.getPtr() + pos_);
+      uint64_t outVal = (e==LE ? READ_UINT64_LE(bdStr_.getPtr() + pos_) :
+                                 READ_UINT64_BE(bdStr_.getPtr() + pos_));
       pos_ += 8;
       return outVal;
    }
@@ -930,30 +1150,32 @@ public:
    }
 
    /////////////////////////////////////////////////////////////////////////////
-   BinaryRefReader(BinaryData const & toRead) :
-      bdRef_(toRead),
-      totalSize_(toRead.getSize()),
-      pos_(0)
-   {
-      // Nothing needed here
-   }
-
-   BinaryRefReader(BinaryDataRef const & toRead) :
-      bdRef_(toRead),
-      totalSize_(toRead.getSize()),
-      pos_(0)
-   {
-      // Nothing needed here
-   }
+   BinaryRefReader(BinaryData const & toRead)  { setNewData(toRead); }
+   BinaryRefReader(BinaryDataRef const & toRead)  { setNewData(toRead); }
 
    // Default to INF size -- leave it to the user to guarantee that he's
    // not reading past the end of rawPtr
-   BinaryRefReader(uint8_t const * rawPtr, uint32_t nBytes=UINT32_MAX) : 
-      bdRef_(rawPtr, nBytes),
-      totalSize_(nBytes),
-      pos_(0)
+   BinaryRefReader(uint8_t const * rawPtr, uint32_t nBytes=UINT32_MAX) 
    {
-      // Nothing needed here
+      setNewData(rawPtr, nBytes);
+   }
+
+
+   void setNewData(BinaryData const & toRead)
+   {
+      setNewData(toRead.getPtr(), toRead.getSize());
+   }
+
+   void setNewData(BinaryDataRef const & toRead)
+   {
+      setNewData(toRead.getPtr(), toRead.getSize());
+   }
+
+   void setNewData(uint8_t const * ptr, uint32_t nBytes=UINT32_MAX)
+   {
+      bdRef_ = BinaryDataRef(ptr, nBytes);
+      totalSize_ = nBytes;
+      pos_ = 0;
    }
 
    /////////////////////////////////////////////////////////////////////////////
@@ -966,8 +1188,10 @@ public:
    /////////////////////////////////////////////////////////////////////////////
    void rewind(uint32_t nBytes) 
    { 
+      uint32_t start = pos_;
       pos_ -= nBytes;  
-      pos_ = max(pos_, (uint32_t)0);
+      if(pos_ > start)
+         pos_ = (uint32_t)0;
    }
 
 
@@ -976,7 +1200,7 @@ public:
 
 
    /////////////////////////////////////////////////////////////////////////////
-   uint8_t get_uint8_t(void)
+   uint8_t get_uint8_t(ENDIAN e=LE)
    {
       uint8_t outVal = bdRef_[pos_];
       pos_ += 1;
@@ -984,25 +1208,28 @@ public:
    }
 
    /////////////////////////////////////////////////////////////////////////////
-   uint16_t get_uint16_t(void)
+   uint16_t get_uint16_t(ENDIAN e=LE)
    {
-      uint16_t outVal = *(uint16_t*)(bdRef_.getPtr() + pos_);
+      uint16_t  outVal = (e==LE ? READ_UINT16_LE(bdRef_.getPtr() + pos_) :
+                                  READ_UINT16_BE(bdRef_.getPtr() + pos_) );
       pos_ += 2;
       return outVal;
    }
 
    /////////////////////////////////////////////////////////////////////////////
-   uint32_t get_uint32_t(void)
+   uint32_t get_uint32_t(ENDIAN e=LE)
    {
-      uint32_t outVal = *(uint32_t*)(bdRef_.getPtr() + pos_);
+      uint32_t  outVal = (e==LE ? READ_UINT32_LE(bdRef_.getPtr() + pos_) :
+                                  READ_UINT32_BE(bdRef_.getPtr() + pos_) );
       pos_ += 4;
       return outVal;
    }
 
    /////////////////////////////////////////////////////////////////////////////
-   uint64_t get_uint64_t(void)
+   uint64_t get_uint64_t(ENDIAN e=LE)
    {
-      uint64_t outVal = *(uint64_t*)(bdRef_.getPtr() + pos_);
+      uint64_t  outVal = (e==LE ? READ_UINT64_LE(bdRef_.getPtr() + pos_) :
+                                  READ_UINT64_BE(bdRef_.getPtr() + pos_) );
       pos_ += 8;
       return outVal;
    }
@@ -1023,6 +1250,14 @@ public:
    }
 
    /////////////////////////////////////////////////////////////////////////////
+   BinaryData get_BinaryData(uint32_t nBytes)
+   {
+      BinaryData out;
+      get_BinaryData(out, nBytes);
+      return out;
+   }
+
+   /////////////////////////////////////////////////////////////////////////////
    void get_BinaryData(uint8_t* targPtr, uint32_t nBytes)
    {
       bdRef_.copyTo(targPtr, pos_, nBytes);
@@ -1039,12 +1274,120 @@ public:
    uint8_t const * exposeDataPtr(void)    { return bdRef_.getPtr(); }
    uint8_t const * getCurrPtr(void)       { return bdRef_.getPtr() + pos_; }
 
+   /////////////////////////////////////////////////////////////////////////////
+   BinaryDataRef getRawRef(void) { return bdRef_;   }
+
 private:
    BinaryDataRef bdRef_;
    uint32_t totalSize_;
    uint32_t pos_;
 
 };
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// This is only intended to be used for the four datatypes:
+//    uint8_t, uint16_t, uint32_t, uint64_t
+// Simplicity is what makes this so useful 
+template<typename DTYPE>
+class BitPacker
+{
+public:
+   BitPacker(void) : intVal_(0), bitsUsed_(0) {}
+
+
+   void putBits(DTYPE val, uint32_t bitWidth)
+   {
+      uint8_t const SZ = sizeof(DTYPE);
+      if(bitsUsed_ + bitWidth > SZ*8)
+         LOGERR << "Tried to put bits beyond end of bit field";
+
+      if(bitsUsed_==0 && bitWidth==SZ*8)
+      {
+         bitsUsed_ = SZ*8;
+         intVal_ = val;
+         return;
+      }
+
+      uint32_t shiftAmt = SZ*8 - (bitsUsed_ + bitWidth);
+      DTYPE mask = (DTYPE)((1ULL<<bitWidth) - 1);
+      intVal_ |= (val & mask) << shiftAmt;
+      bitsUsed_ += bitWidth;
+   }
+
+   void putBit(bool val)
+   {
+      DTYPE bit = (val ? 1 : 0);   
+      putBits(bit, 1);
+   }
+
+   uint32_t getBitsUsed(void) {return bitsUsed_;}
+
+   BinaryData getBinaryData(void) 
+               { return BinaryData::IntToStrBE<DTYPE>(intVal_); }
+
+   // Disabling this to avoid inadvertantly using it to write out 
+   // data in the wrong endianness.  (instead, always use getBinaryData
+   // or writeToStream
+   //DTYPE getValue(void)      { return intVal_; }
+   
+   void  reset(void)         { intVal_ = 0; bitsUsed_ = 0; }
+
+private:
+   DTYPE    intVal_; 
+   uint32_t bitsUsed_;
+
+};
+
+
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// This is only intended to be used for the four datatypes:
+//    uint8_t, uint16_t, uint32_t, uint64_t
+// Simplicity is what makes this so useful 
+template<typename DTYPE>
+class BitUnpacker
+{
+public:
+   BitUnpacker(void) {bitsRead_=0xffffffff;}
+   BitUnpacker(DTYPE valToRead) {setValue(valToRead);}
+   BitUnpacker(BinaryRefReader & brr)
+   {
+      BinaryData bytes = brr.get_BinaryData(sizeof(DTYPE));
+      setValue( BinaryData::StrToIntBE<DTYPE>(bytes) );
+   }
+
+   void setValue(DTYPE val)   { intVal_ = val; bitsRead_ = 0; }
+
+   DTYPE getBits(uint32_t bitWidth)
+   {
+      uint8_t const SZ = sizeof(DTYPE);
+      if(bitsRead_==0 && bitWidth==SZ*8)
+      {
+         bitsRead_ = bitWidth;
+         return intVal_;
+      }
+      uint32_t shiftAmt = SZ*8 - (bitsRead_ + bitWidth);
+      DTYPE mask = (DTYPE)((1ULL<<bitWidth) - 1);
+      bitsRead_ += bitWidth;
+      return ((intVal_ >> shiftAmt) & mask);
+   }
+
+   bool getBit(void)
+   {
+      return (getBits(1) > 0);
+   }
+
+   void reset(void) { intVal_ = 0; bitsRead_ = 0; }
+
+private:
+   DTYPE    intVal_; 
+   uint32_t bitsRead_;
+
+};
+
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
@@ -1067,15 +1410,29 @@ public:
 
 
    /////////////////////////////////////////////////////////////////////////////
-   void put_uint8_t (uint8_t  val) { theString_.append( val ); }
-   void put_uint16_t(uint16_t val) { theString_.append( (uint8_t*)(&val), 2); }
-   void put_uint32_t(uint32_t val) { theString_.append( (uint8_t*)(&val), 4); }
-   void put_uint64_t(uint64_t val) { theString_.append( (uint8_t*)(&val), 8); }
+   // These write data properly regardless of the architecture
+   void put_uint8_t (uint8_t  val, ENDIAN e=LE) { theString_.append( val ); }
 
-   //void put_int8_t  (  int8_t val) { theString_.append( val ); }
-   //void put_int16_t ( int16_t val) { theString_.append( (uint8_t*)(&val), 2); }
-   //void put_int32_t ( int32_t val) { theString_.append( (uint8_t*)(&val), 4); }
-   //void put_int64_t ( int64_t val) { theString_.append( (uint8_t*)(&val), 8); }
+   /////
+   void put_uint16_t(uint16_t val, ENDIAN e=LE) 
+   { 
+      BinaryData out = (e==LE ? WRITE_UINT16_LE(val) : WRITE_UINT16_BE(val));
+      theString_.append( out.getPtr(), 2); 
+   }
+
+   /////
+   void put_uint32_t(uint32_t val, ENDIAN e=LE) 
+   { 
+      BinaryData out = (e==LE ? WRITE_UINT32_LE(val) : WRITE_UINT32_BE(val));
+      theString_.append( out.getPtr(), 4); 
+   }
+
+   /////
+   void put_uint64_t(uint64_t val, ENDIAN e=LE) 
+   { 
+      BinaryData out = (e==LE ? WRITE_UINT64_LE(val) : WRITE_UINT64_BE(val));
+      theString_.append( out.getPtr(), 8); 
+   }
 
    /////////////////////////////////////////////////////////////////////////////
    uint8_t put_var_int(uint64_t val)
@@ -1128,11 +1485,14 @@ public:
    }
 
    /////////////////////////////////////////////////////////////////////////////
-   void put_BinaryData(uint8_t* targPtr, uint32_t nBytes)
+   void put_BinaryData(uint8_t const * targPtr, uint32_t nBytes)
    {
       theString_.append(targPtr, nBytes);
    }
 
+   /////////////////////////////////////////////////////////////////////////////
+   template<typename T>
+   void put_BitPacker(BitPacker<T> & bp) { put_BinaryData(bp.getBinaryData()); }
 
    /////////////////////////////////////////////////////////////////////////////
    BinaryData const & getData(void)
@@ -1140,11 +1500,44 @@ public:
       return theString_;
    }
 
+   /////////////////////////////////////////////////////////////////////////////
+   uint32_t getSize(void)
+   {
+      return theString_.getSize();
+   }
+
+   /////////////////////////////////////////////////////////////////////////////
+   BinaryDataRef getDataRef(void)
+   {
+      return theString_.getRef();
+   }
+
+   /////////////////////////////////////////////////////////////////////////////
+   string toString(void)
+   {
+      return theString_.toBinStr();
+   }
+
+   /////////////////////////////////////////////////////////////////////////////
+   string toHex(void)
+   {
+      return theString_.toHexStr();
+   }
+
+   
+   /////////////////////////////////////////////////////////////////////////////
+   void reset(void)
+   {
+      theString_.resize(0);
+   }
+
 private:
    BinaryData theString_;
 
 
 };
+
+
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////

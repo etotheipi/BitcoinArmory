@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////
 //                                                                            //
-//  Copyright (C) 2011-2013, Alan C. Reiner    <alan.reiner@gmail.com>        //
+//  Copyright(C) 2011-2013, Armory Technologies, Inc.                         //
 //  Distributed under the GNU Affero General Public License (AGPL v3)         //
 //  See LICENSE or http://www.gnu.org/licenses/agpl.html                      //
 //                                                                            //
@@ -259,7 +259,7 @@ SecureBinaryData KdfRomix::DeriveKey_OneIter(SecureBinaryData const & password)
       V64ptr = (uint64_t*)(frontOfLUT + HSZ*newIndex);
 
       // xor X with V, and store the result in X
-      for(int i=0; i<nXorOps; i++)
+      for(uint32_t i=0; i<nXorOps; i++)
          *(Y64ptr+i) = *(X64ptr+i) ^ *(V64ptr+i);
 
       // Hash the xor'd data to get the next index for lookup
