@@ -2602,6 +2602,7 @@ uint32_t BlockDataManager_LevelDB::evalLowestBlockNextScan(void)
    SCOPED_TIMER("evalLowestBlockNextScan");
 
    uint32_t lowestBlk = UINT32_MAX;
+   uint32_t i=0;
    map<HashString, RegisteredScrAddr>::iterator rsaIter;
    for(rsaIter  = registeredScrAddrMap_.begin();
        rsaIter != registeredScrAddrMap_.end();
@@ -2878,8 +2879,6 @@ void BlockDataManager_LevelDB::applyBlockRangeToDB(uint32_t blk0, uint32_t blk1)
       if(iface_->dbIterIsValid(BLKDATA))
          prevIterKey = iface_->getIterKeyCopy();
 
-      //cout << "********BEFORE*******" << endl;
-      //iface_->pprintBlkDataDB(BLKDATA);
       if(!doBatches)
          applyBlockToDB(hgt, dup); 
       else
@@ -2889,10 +2888,6 @@ void BlockDataManager_LevelDB::applyBlockRangeToDB(uint32_t blk0, uint32_t blk1)
             LOGINFO << "Flushing DB cache after this block: " << hgt;
          applyBlockToDB(hgt, dup, stxToModify, sshToModify, keysToDelete, commit);
       }
-
-      //cout << "********AFTER*******" << endl;
-      //iface_->pprintBlkDataDB(BLKDATA);
-      //cout << "********END*******" << endl;
 
       // If we had a valid iter position before applyBlockToDB, restore it
       if(prevIterKey.getSize() > 0)
@@ -3411,9 +3406,6 @@ bool BlockDataManager_LevelDB::processNewHeadersInBlkFiles(uint32_t fnumStart,
       LOGERR << "Did we shut down last time on an orphan block?";
    }
 
-   //topBlk = getTopBlockHeight();
-   //cout << "Top blk heights in RAM: " << topBlk;
-
    map<HashString, BlockHeader>::iterator iter;
    for(iter = headerMap_.begin(); iter != headerMap_.end(); iter++)
    {
@@ -3480,6 +3472,7 @@ void BlockDataManager_LevelDB::fetchAllRegisteredScrAddrData(
                                              BinaryData const & scrAddr)
 {
    vector<TxIOPair> hist = getHistoryForScrAddr(scrAddr);
+
    BinaryData txKey;
    StoredTx stx;
    TxRef txref;
@@ -3703,6 +3696,8 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
    if(initialLoad || forceRebuild)
    {
       LOGINFO << "Getting latest blocks from blk*.dat files";
+      LOGINFO << "Total blockchain bytes: " 
+              << BtcUtils::numToStrWCommas(totalBlockchainBytes_);
       TIMER_START("dumpRawBlocksToDB");
       for(uint32_t fnum=startRawBlkFile_; fnum<numBlkFiles_; fnum++)
       {
@@ -3960,8 +3955,14 @@ void BlockDataManager_LevelDB::deleteHistories(void)
 {
    SCOPED_TIMER("deleteHistories");
 
-   iface_->startBatch(BLKDATA);
    iface_->seekTo(BLKDATA, DB_PREFIX_SCRIPT, BinaryData(0));
+
+   if(!iface_->dbIterIsValid(BLKDATA, DB_PREFIX_SCRIPT))
+      return;
+
+   //////////
+   iface_->startBatch(BLKDATA);
+
    do 
    {
       BinaryData key = iface_->getIterKeyCopy();
@@ -3976,6 +3977,7 @@ void BlockDataManager_LevelDB::deleteHistories(void)
       
    } while(iface_->advanceIterAndRead(BLKDATA, DB_PREFIX_SCRIPT));
 
+   //////////
    iface_->commitBatch(BLKDATA);
 }
 
@@ -3987,6 +3989,7 @@ void BlockDataManager_LevelDB::shutdownSaveScrAddrHistories(void)
 
    iface_->startBatch(BLKDATA);
 
+   uint32_t i=0;
    set<BtcWallet*>::iterator wltIter;
    for(wltIter  = registeredWallets_.begin();
        wltIter != registeredWallets_.end();
@@ -4045,7 +4048,6 @@ uint32_t BlockDataManager_LevelDB::readBlkFileUpdate(void)
       filesize = (size_t)is.tellg();
    }
       
-
    uint32_t prevTopBlk = getTopBlockHeight()+1;
    uint64_t currBlkBytesToRead;
 
@@ -5323,13 +5325,8 @@ bool BlockDataManager_LevelDB::applyTxToBatchWriteData(
 
    Tx tx = thisSTX.getTxCopy();
 
-   //cout << "Tx block height: " 
-        //<< thisSTX.blockHeight_ << ":"
-        //<< thisSTX.txIndex_ << endl;
-
    // We never expect thisSTX to already be in the map (other tx in the map
    // may be affected/retrieved multiple times).  
-   //if(stxToModify.find(tx.getThisHash()) != stxToModify.end())
    if(KEY_IN_MAP(tx.getThisHash(), stxToModify))
       LOGERR << "How did we already add this tx?";
 
