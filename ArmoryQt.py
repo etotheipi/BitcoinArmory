@@ -4800,7 +4800,6 @@ class ArmoryMainWindow(QMainWindow):
             event.ignore()
       elif doClose or moc=='Close':
          self.doShutdown = True
-         TheBDM.execCleanShutdown(wait=False)
          self.sysTray.hide()
          self.closeForReal(event)
       else:
@@ -4819,6 +4818,13 @@ class ArmoryMainWindow(QMainWindow):
          self.writeSetting('MainGeometry',   str(self.saveGeometry().toHex()))
          self.writeSetting('MainWalletCols', saveTableView(self.walletsView))
          self.writeSetting('MainLedgerCols', saveTableView(self.ledgerView))
+
+         if TheBDM.getBDMState()=='Scanning':
+            LOGINFO('BDM state is scanning -- force shutdown BDM')
+            TheBDM.execCleanShutdown(wait=False)
+         else:
+            LOGINFO('BDM is safe for clean shutdown')
+            TheBDM.execCleanShutdown(wait=True)
 
          # This will do nothing if bitcoind isn't running.  
          TheSDM.stopBitcoind()

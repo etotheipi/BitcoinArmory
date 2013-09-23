@@ -7,7 +7,7 @@
 ################################################################################
 
 # Version Numbers 
-BTCARMORY_VERSION    = (0, 89, 99, 1)  # (Major, Minor, Bugfix, AutoIncrement) 
+BTCARMORY_VERSION    = (0, 89, 99, 3)  # (Major, Minor, Bugfix, AutoIncrement) 
 PYBTCWALLET_VERSION  = (1, 35,  0, 0)  # (Major, Minor, Bugfix, AutoIncrement)
 
 ARMORY_DONATION_ADDR = '1ArmoryXcfq7TnCSuZa9fQjRYwJ4bkRKfv'
@@ -919,7 +919,7 @@ UNINITIALIZED = None
 UNKNOWN       = -2
 MIN_TX_FEE    = 50000
 MIN_RELAY_TX_FEE = 10000
-MT_WAIT_TIMEOUT_SEC = 10;
+MT_WAIT_TIMEOUT_SEC = 20;
 
 UINT8_MAX  = 2**8-1
 UINT16_MAX = 2**16-1
@@ -1192,7 +1192,7 @@ def hex_to_int(h, endIn=LITTLEENDIAN):
    Convert hex-string to integer (or long).  Default behavior is to interpret
    hex string as little-endian
    """
-   hstr = h[:]  # copies data, no references
+   hstr = h.replace(' ','')  # copies data, no references
    if endIn==LITTLEENDIAN:
       hstr = hex_switchEndian(hstr)
    return( int(hstr, 16) )
@@ -1204,7 +1204,7 @@ def hex_to_binary(h, endIn=LITTLEENDIAN, endOut=LITTLEENDIAN):
    Converts hexadecimal to binary (in a python string).  Endianness is
    only switched if (endIn != endOut)
    """
-   bout = h[:]  # copies data, no references
+   bout = h.replace(' ','')  # copies data, no references
    if not endIn==endOut:
       bout = hex_switchEndian(bout)
    return bout.decode('hex_codec')
@@ -10888,15 +10888,17 @@ class SatoshiDaemonManager(object):
          possBaseDir = []
          home      = os.path.expanduser('~')
          desktop   = os.path.join(home, 'Desktop') 
-         dtopfiles = os.listdir(desktop)
-         for path in [os.path.join(desktop, fn) for fn in dtopfiles]:
-            if 'bitcoin' in path.lower() and path.lower().endswith('.lnk'):
-               import win32com.client
-               shell = win32com.client.Dispatch('WScript.Shell')
-               targ = shell.CreateShortCut(path).Targetpath
-               targDir = os.path.dirname(targ)
-               LOGINFO('Found Bitcoin-Qt link on desktop: %s', targDir)
-               possBaseDir.append( targDir )
+         
+         if os.path.exists(desktop):
+            dtopfiles = os.listdir(desktop)
+            for path in [os.path.join(desktop, fn) for fn in dtopfiles]:
+               if 'bitcoin' in path.lower() and path.lower().endswith('.lnk'):
+                  import win32com.client
+                  shell = win32com.client.Dispatch('WScript.Shell')
+                  targ = shell.CreateShortCut(path).Targetpath
+                  targDir = os.path.dirname(targ)
+                  LOGINFO('Found Bitcoin-Qt link on desktop: %s', targDir)
+                  possBaseDir.append( targDir )
          
          # Also look in default place in ProgramFiles dirs
          possBaseDir.append(os.getenv('PROGRAMFILES'))
@@ -12996,7 +12998,7 @@ class BlockDataManagerThread(threading.Thread):
 
    #############################################################################
    def __shutdown(self):
-      if self.blkMode == BLOCKCHAINMODE.Full:
+      if not self.blkMode == BLOCKCHAINMODE.Rescanning:
          self.bdm.shutdownSaveScrAddrHistories()
 
       self.__reset()
@@ -13313,7 +13315,7 @@ else:
 
    #if CLI_OPTIONS.doDebug or CLI_OPTIONS.netlog or CLI_OPTIONS.mtdebug:
    cppLogFile = os.path.join(ARMORY_HOME_DIR, 'armorycpplog.txt')
-   TheBDM.StartCppLogging(cppLogFile, 3)
+   TheBDM.StartCppLogging(cppLogFile, 4)
    TheBDM.EnableCppLogStdOut()
 
    # Also load the might-be-needed SatoshiDaemonManager

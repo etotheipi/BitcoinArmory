@@ -6914,7 +6914,12 @@ class DlgShowKeyList(ArmoryDialog):
       for addr in self.wlt.getLinearAddrList(withAddrPool=True):
          self.addrCopies.append(addr.copy())
       self.rootKeyCopy = self.wlt.addrMap['ROOT'].copy()
-         
+
+      backupVersion = '1.35a'
+      testChain = DeriveChaincodeFromRootKey(self.rootKeyCopy.binPrivKey32_Plain)
+      self.needChaincode = (not testChain == self.rootKeyCopy.chaincode)
+      if not self.needChaincode:
+         backupVersion = '1.35c'
 
       self.strDescrReg = ( \
          'The textbox below shows all keys that are part of this wallet, '
@@ -6979,10 +6984,12 @@ class DlgShowKeyList(ArmoryDialog):
       self.chkImportedOnly = QCheckBox('Imported Addresses Only')
       self.chkWithAddrPool = QCheckBox('Include Unused (Address Pool)')
       self.chkDispRootKey  = QCheckBox('Include Paper Backup Root')
+      self.chkOmitSpaces   = QCheckBox('Omit spaces in key data')
       self.chkDispRootKey.setChecked(True)
       self.connect(self.chkImportedOnly, SIGNAL('toggled(bool)'), self.rewriteList)
       self.connect(self.chkWithAddrPool, SIGNAL('toggled(bool)'), self.rewriteList)
       self.connect(self.chkDispRootKey,  SIGNAL('toggled(bool)'), self.rewriteList)
+      self.connect(self.chkOmitSpaces,   SIGNAL('toggled(bool)'), self.rewriteList)
       #self.chkCSV = QCheckBox('Display in CSV format')
 
       if not self.havePriv:
@@ -7025,6 +7032,8 @@ class DlgShowKeyList(ArmoryDialog):
       self.connect(btnCopyClip, SIGNAL('clicked()'), self.copyToClipboard)
       frmGoBack = makeLayoutFrame('Horiz', [btnGoBack, \
                                             'Stretch', \
+                                            self.chkOmitSpaces, \
+                                            'Stretch', \
                                             self.lblCopied, \
                                             btnCopyClip, \
                                             btnSaveFile])
@@ -7056,11 +7065,13 @@ class DlgShowKeyList(ArmoryDialog):
       """
       Write out all the wallet data
       """
+      whitespace = '' if self.chkOmitSpaces.isChecked() else ' '
+
       def fmtBin(s, nB=4, sw=False):
          h = binary_to_hex(s)
          if sw: 
             h = hex_switchEndian(h)
-         return ' '.join([h[i:i+nB] for i in range(0, len(h), nB)])
+         return whitespace.join([h[i:i+nB] for i in range(0, len(h), nB)])
 
       L = []
       L.append('Created:       ' + unixTimeToFormatStr(RightNow(), self.main.getPreferredDateFormat()))
@@ -7089,8 +7100,9 @@ class DlgShowKeyList(ArmoryDialog):
          L.append('')
          L.append('Root Key:     ' + ' '.join([binPriv0[i:i+4]  for i in range(0,36,4)]))
          L.append('              ' + ' '.join([binPriv1[i:i+4]  for i in range(0,36,4)]))
-         L.append('Chain Code:   ' + ' '.join([binChain0[i:i+4] for i in range(0,36,4)]))
-         L.append('              ' + ' '.join([binChain1[i:i+4] for i in range(0,36,4)]))
+         if self.needChaincode:
+            L.append('Chain Code:   ' + ' '.join([binChain0[i:i+4] for i in range(0,36,4)]))
+            L.append('              ' + ' '.join([binChain1[i:i+4] for i in range(0,36,4)]))
          L.append('-'*80)
          L.append('')
 
@@ -7124,24 +7136,24 @@ class DlgShowKeyList(ArmoryDialog):
                extraLbl = '   (Imported)'
 
          if self.chkList['AddrStr'   ].isChecked():  
-            L.append(                   addr.getAddrStr() + extraLbl)
+            L.append(addr.getAddrStr() + extraLbl)
          if self.chkList['PubKeyHash'].isChecked(): 
-            L.append(                  '   Hash160   : ' + fmtBin(addr.getAddr160()))
+            L.append('   Hash160   : ' + fmtBin(addr.getAddr160()))
          if self.chkList['PrivB58'   ].isChecked(): 
             pB58 = encodePrivKeyBase58(addr.binPrivKey32_Plain.toBinStr())
-            pB58Stretch = ' '.join([pB58[i:i+6] for i in range(0, len(pB58), 6)])
-            L.append(                  '   PrivBase58: ' + pB58Stretch)
+            pB58Stretch = whitespace.join([pB58[i:i+6] for i in range(0, len(pB58), 6)])
+            L.append('   PrivBase58: ' + pB58Stretch)
             self.havePriv = True
          if self.chkList['PrivCrypt' ].isChecked():  
-            L.append(                  '   PrivCrypt : ' + fmtBin(addr.binPrivKey32_Encr.toBinStr()))
+            L.append('   PrivCrypt : ' + fmtBin(addr.binPrivKey32_Encr.toBinStr()))
          if self.chkList['PrivHexBE' ].isChecked():  
-            L.append(                  '   PrivHexBE : ' + fmtBin(addr.binPrivKey32_Plain.toBinStr()))
+            L.append('   PrivHexBE : ' + fmtBin(addr.binPrivKey32_Plain.toBinStr()))
             self.havePriv = True
          if self.chkList['PubKey'    ].isChecked():  
-            L.append(                  '   PublicX   : ' + fmtBin(addr.binPublicKey65.toBinStr()[1:33 ]))
-            L.append(                  '   PublicY   : ' + fmtBin(addr.binPublicKey65.toBinStr()[  33:]))
+            L.append('   PublicX   : ' + fmtBin(addr.binPublicKey65.toBinStr()[1:33 ]))
+            L.append('   PublicY   : ' + fmtBin(addr.binPublicKey65.toBinStr()[  33:]))
          if self.chkList['ChainIndex'].isChecked(): 
-            L.append(                  '   ChainIndex: ' + str(addr.chainIndex))
+            L.append('   ChainIndex: ' + str(addr.chainIndex))
 
       self.txtBox.setText('\n'.join(L))
       if self.havePriv:
