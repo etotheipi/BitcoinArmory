@@ -13332,7 +13332,7 @@ else:
 
    #if CLI_OPTIONS.doDebug or CLI_OPTIONS.netlog or CLI_OPTIONS.mtdebug:
    cppLogFile = os.path.join(ARMORY_HOME_DIR, 'armorycpplog.txt')
-   TheBDM.StartCppLogging(cppLogFile, 4)
+   TheBDM.StartCppLogging(cppLogFile, 3)
    TheBDM.EnableCppLogStdOut()
 
    # Also load the might-be-needed SatoshiDaemonManager
