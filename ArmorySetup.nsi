@@ -5,12 +5,12 @@ Name "Bitcoin Armory"
 
 # General Symbol Definitions
 !define REGKEY "SOFTWARE\$(^Name)"
-!define VERSION 0.89.1.1.
 !define COMPANY "Armory Technologies Inc."
 !define URL http://bitcoinarmory.com/
 
 # Included files
 !include Sections.nsh
+!include CompilerArgs.nsi
 
 # Reserved Files
 ReserveFile "${NSISDIR}\Plugins\x86-ansi\StartMenu.dll"
@@ -25,7 +25,7 @@ Page custom StartMenuGroupSelect "" ": Start Menu Folder"
 Page instfiles
 
 # Installer attributes
-OutFile ArmorySetup.exe
+OutFile ArmorySetup-${VERSION}-beta_win32.exe
 InstallDir $PROGRAMFILES\Armory
 CRCCheck on
 XPStyle on
@@ -33,7 +33,7 @@ Icon img\armory48x48.ico
 ShowInstDetails show
 AutoCloseWindow true
 LicenseData LICENSE
-VIProductVersion 0.89.1.1
+VIProductVersion "${VERSION}"
 VIAddVersionKey ProductName "Bitcoin Armory"
 VIAddVersionKey ProductVersion "${VERSION}"
 VIAddVersionKey CompanyName "${COMPANY}"
