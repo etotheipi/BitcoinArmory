@@ -19,15 +19,26 @@
 #ifndef PORT_ATOMIC_POINTER_H_
 #define PORT_ATOMIC_POINTER_H_
 
+
 #include <stdint.h>
+
 #ifdef LEVELDB_CSTDATOMIC_PRESENT
-#include <cstdatomic>
+   //#include <cstdatomic>
+   // ***** ADDED BY AREINER FROM GOATPIG'S WINDOWS-PORT INSTRUCTIONS
+   #ifdef WIN32
+      #include <atomic>
+   #else
+      #include <cstdatomic>
+   #endif
+   // ***** ADDED BY AREINER FROM GOATPIG'S WINDOWS-PORT INSTRUCTIONS
 #endif
+
 #ifdef OS_WIN
-#include <windows.h>
+   #include <windows.h>
 #endif
+
 #ifdef OS_MACOSX
-#include <libkern/OSAtomic.h>
+   #include <libkern/OSAtomic.h>
 #endif
 
 #if defined(_M_X64) || defined(__x86_64__)

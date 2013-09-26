@@ -41,6 +41,12 @@
   #include <endian.h>
 #endif
 
+// ***** ADDED BY AREINER FROM GOATPIG'S WINDOWS-PORT INSTRUCTIONS
+#ifdef _MSC_VER
+   #include <win32_posix.h>
+#endif
+// ***** ADDED BY AREINER FROM GOATPIG'S WINDOWS-PORT INSTRUCTIONS
+
 #include <pthread.h>
 #ifdef SNAPPY
 #include <snappy.h>

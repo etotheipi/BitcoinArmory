@@ -16,6 +16,10 @@
 #include "leveldb/status.h"
 #include "leveldb/write_batch.h"
 
+// ***** ADDED BY AREINER FROM GOATPIG'S WINDOWS-PORT INSTRUCTIONS
+#define strdup _strdup
+// ***** ADDED BY AREINER FROM GOATPIG'S WINDOWS-PORT INSTRUCTIONS
+
 using leveldb::Cache;
 using leveldb::Comparator;
 using leveldb::CompressionType;
