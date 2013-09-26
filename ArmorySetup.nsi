@@ -8,18 +8,26 @@ Name "Bitcoin Armory"
 !define COMPANY "Armory Technologies Inc."
 !define URL http://bitcoinarmory.com/
 
+# MultiUser Symbol Definitions
+!define MULTIUSER_EXECUTIONLEVEL Highest
+!define MULTIUSER_INSTALLMODE_COMMANDLINE
+!define MULTIUSER_INSTALLMODE_INSTDIR Armory
+!define MULTIUSER_INSTALLMODE_INSTDIR_REGISTRY_KEY "${REGKEY}"
+!define MULTIUSER_INSTALLMODE_INSTDIR_REGISTRY_VALUE "Path"
+
 # MUI Symbol Definitions
 !define MUI_ICON img\armory48x48.ico
 !define MUI_FINISHPAGE_NOAUTOCLOSE
 !define MUI_STARTMENUPAGE_REGISTRY_ROOT HKLM
 !define MUI_STARTMENUPAGE_REGISTRY_KEY ${REGKEY}
 !define MUI_STARTMENUPAGE_REGISTRY_VALUENAME StartMenuGroup
-!define MUI_STARTMENUPAGE_DEFAULTFOLDER "Armory\"
+!define MUI_STARTMENUPAGE_DEFAULTFOLDER Armory
 !define MUI_FINISHPAGE_RUN $INSTDIR\ArmoryQt.exe
 !define MUI_UNICON img\armory48x48.ico
 !define MUI_UNFINISHPAGE_NOAUTOCLOSE
 
 # Included files
+!include MultiUser.nsh
 !include Sections.nsh
 !include MUI2.nsh
 !include CompilerArgs.nsi
@@ -96,6 +104,7 @@ ShowUninstDetails show
 
 Section -Main SEC0000
     SetOutPath $INSTDIR
+    RmDir /r $INSTDIR
     SetOverwrite on
     File /r ArmoryStandalone\*
     File ArmoryStandalone\ArmoryQt.exe
@@ -103,7 +112,7 @@ Section -Main SEC0000
     SetOutPath $DESKTOP
     CreateShortcut "$DESKTOP\Bitcoin Armory.lnk" $INSTDIR\ArmoryQt.exe
     !insertmacro CREATE_SMGROUP_SHORTCUT "Bitcoin Armory" "$INSTDIR\ArmoryQt.exe" ""
-    !insertmacro CREATE_SMGROUP_SHORTCUT "Bitcoin Armory (Offline)" "$INSTDIR\ArmoryQt.exe" "--offest"
+    !insertmacro CREATE_SMGROUP_SHORTCUT "Bitcoin Armory (Offline)" "$INSTDIR\ArmoryQt.exe" "--offline"
     !insertmacro CREATE_SMGROUP_SHORTCUT "Bitcoin Armory (testnet)" "$INSTDIR\ArmoryQt.exe" "--testnet"
     WriteRegStr HKLM "${REGKEY}\Components" Main 1
 SectionEnd
@@ -176,6 +185,7 @@ SectionEnd
 # Installer functions
 Function .onInit
     InitPluginsDir
+    !insertmacro MULTIUSER_INIT
 FunctionEnd
 
 Function CreateSMGroupShortcut
@@ -199,6 +209,7 @@ FunctionEnd
 Function un.onInit
     ReadRegStr $INSTDIR HKLM "${REGKEY}" Path
     !insertmacro MUI_STARTMENU_GETFOLDER Application $StartMenuGroup
+    !insertmacro MULTIUSER_UNINIT
     !insertmacro SELECT_UNSECTION Main ${UNSEC0000}
 FunctionEnd
 
