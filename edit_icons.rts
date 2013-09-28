@@ -47,69 +47,26 @@ Sub Main
   PEFileProxy.PostDebugString "The creation of a backup copy is disabled." 
   PEFileProxy.CreateBackUp = False 
 
-  '-------- Getting the original file timestamps (for demo purpose) --------------------
-  'To restore the original timestamps on the file after saving,
-  'we need to get the timestamps before performing any file operations.
 
-  SRCFILE = ".\ArmoryStandalone\ArmoryQt.exe"
-  PEFileProxy.PostDebugString ""
-  PEFileProxy.PostDebugString "Getting CreationTime, LastAccessTime and LastWriteTime for file '" & SRCFILE & "'..."
-  set fso = CreateObject("Scripting.FileSystemObject")
-  set f = fso.GetFile(SRCFILE)
-  DCR = f.DateCreated
-  DLM = f.DateLastModified
-  DLA = f.DateLastAccessed
-  PEFileProxy.PostDebugString "Created      : " & DCR
-  PEFileProxy.PostDebugString "Last Modified: " & DLM
-  PEFileProxy.PostDebugString "Last Accessed: " & DLA
-  PEFileProxy.PostDebugString ""
-  '--------------------------------------------------------------------------------------
-
+  SRCFILE = "..\..\ArmoryStandalone\ArmoryQt.exe"
   'Open file
   PEFileProxy.PostDebugString "Opening the file..."
   PEFileProxy.OpenFile SRCFILE
-  if (PEFileProxy.Terminated) then
-    'Issue a warning in case of error
-    PEFileProxy.PostDebugString "Opening this file produced a fatal error."
-  else
-    PEFileProxy.PostDebugString "File opened OK."
-    if (not PEFileProxy.HasResources) then
-      PEFileProxy.PostDebugString "The file contains no resources."
-    else
-      PEFileProxy.PostDebugString "The file contains resources."
 
-      'This specifies the default language      
-      LangID = 0
+  'This specifies the default language      
+  LangID = 0
 
-      PEFileProxy.PostDebugString "Changing/adding the main application icon..."
-      ResourcesProxy.ChangeIcon "", LangID, CREATE_IF_NOT_EXIST, REPLACE_IF_ITEM_EXISTS, ".\img\Armory48x48.ico"
+  PEFileProxy.PostDebugString "Changing/adding the main application icon..."
+  ResourcesProxy.ChangeIcon "", LangID, CREATE_IF_NOT_EXIST, REPLACE_IF_ITEM_EXISTS, "..\..\img\Armory48x48.ico"
 
-      'Build and output the Resource Tree to log to show the changes made to the resources
-      PEFileProxy.PostDebugString ""
-      PEFileProxy.PostDebugString "Resource Tree built by RTC:"
-      ResourcesProxy.ResourceTreeToLog
-      PEFileProxy.PostDebugString ""
+  'Save file
+  PEFileProxy.PostDebugString "Saving file..."
+  DESTFILE = "..\..\ArmoryStandalone\ArmoryQt.exe"
+  PEFileProxy.SaveAsNewImage DESTFILE
 
-      'Save file
-      PEFileProxy.PostDebugString "Saving file..."
-      DESTFILE = ".\ArmoryStandalone\ArmoryQt.exe"
-      PEFileProxy.SaveAsNewImage DESTFILE
+PEFileProxy.PostDebugString "Closing this file..."
+PEFileProxy.CloseFile
 
-  '--- Restoring the original file timestamps (CreationTime, LastAccess and LastWrite) --
-      PEFileProxy.PostDebugString ""
-      PEFileProxy.PostDebugString "Setting CreationTime, LastAccessTime and LastWriteTime for file '" & DESTFILE & "'..."
-      if not ScriptUnit.SetFileTime(DESTFILE, DCR, DLA, DLM) then
-       PEFileProxy.PostDebugString "Setting CreationTime, LastAccessTime and LastWriteTime failed for file '" & DESTFILE & "'."
-      else
-       PEFileProxy.PostDebugString "CreationTime, LastAccessTime and LastWriteTime for file '" & DESTFILE & "' set OK."
-      end if
-      PEFileProxy.PostDebugString ""
-  '--------------------------------------------------------------------------------------
-
-    end if
-    PEFileProxy.PostDebugString "Closing this file..."
-    PEFileProxy.CloseFile
-  end if
 end Sub
 
 
