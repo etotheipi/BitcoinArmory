@@ -21,3 +21,18 @@ _CppBlockUtils.*
 osxbuild/Armory.app
 osxbuild/env
 
+/ArmoryStandalone/*
+/cppForSwig/_exports/*
+/cppForSwig/BitcoinArmory.opensdf
+/cppForSwig/BitcoinArmory.sdf
+/cppForSwig/BitcoinArmory.v11.suo
+/cppForSwig/BitcoinArmory_CppTests/Debug/*
+/cppForSwig/BitcoinArmory_SwigDLL/*
+/cppForSwig/Debug/BitcoinArmory_CppTests.exe
+/cppForSwig/Debug/BitcoinArmory_CppTests.ilk
+/cppForSwig/Debug/BitcoinArmory_CppTests.pdb
+/cppForSwig/gtest/CppBlockUtilsTests_windows_stub.cpp
+/cppForSwig/leveldbwin/*
+/cppForSwig/libs/*
+/cppForSwig/Release/*
+/cppForSwig/swigwin/*
