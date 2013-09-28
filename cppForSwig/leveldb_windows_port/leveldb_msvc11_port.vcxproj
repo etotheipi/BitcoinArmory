@@ -1,0 +1,189 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{01CD1176-66F7-44AB-9E7B-8AEECC9915E8}</ProjectGuid>
+    <Keyword>Win32Proj</Keyword>
+    <RootNamespace>leveldb_msvc11_port</RootNamespace>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v110</PlatformToolset>
+    <CharacterSet>MultiByte</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v110</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>MultiByte</CharacterSet>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <LinkIncremental>true</LinkIncremental>
+    <OutDir>$(SolutionDir)libs\$(Platform)\</OutDir>
+    <TargetName>$(ProjectName)_d</TargetName>
+    <IntDir>$(SolutionDir)libs\IntermediateBuildFiles\$(Configuration).$(ProjectName)\</IntDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <LinkIncremental>false</LinkIncremental>
+    <OutDir>$(SolutionDir)libs\$(Platform)\</OutDir>
+    <IntDir>$(SolutionDir)libs\IntermediateBuildFiles\$(Configuration).$(ProjectName)\</IntDir>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <ClCompile>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>Disabled</Optimization>
+      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;LEVELDB_PLATFORM_POSIX;LEVELDB_CSTDATOMIC_PRESENT;NOMINMAX;WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>..\pthreads-w32-2-9-1-release\Pre-built.2\include;..\win32_posix;..\leveldb;..\leveldb\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+    </Link>
+    <Lib>
+      <AdditionalDependencies>pthreadVC2.lib</AdditionalDependencies>
+      <AdditionalLibraryDirectories>..\pthreads-w32-2-9-1-release\Pre-built.2\lib\x86;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+    </Lib>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <Optimization>MaxSpeed</Optimization>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;LEVELDB_PLATFORM_POSIX;LEVELDB_CSTDATOMIC_PRESENT;NOMINMAX;WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+      <AdditionalIncludeDirectories>..\pthreads-w32-2-9-1-release\Pre-built.2\include;.\win32_posix;..\leveldb;..\leveldb\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+      <AdditionalDependencies>pthreadVC2.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>..\pthreads-w32-2-9-1-release\Pre-built.2\lib\x86;..\pthreads-w32-2-9-1-release\Pre-built.2\dll\x86;$(SolutionDir)$(Platform)\libs;C:\WinDDK\7600.16385.1\lib\ATL\i386</AdditionalLibraryDirectories>
+    </Link>
+    <Lib>
+      <AdditionalDependencies>pthreadVC2.lib</AdditionalDependencies>
+    </Lib>
+    <Lib>
+      <AdditionalLibraryDirectories>..\pthreads-w32-2-9-1-release\Pre-built.2\lib\x86;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+    </Lib>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClCompile Include="..\leveldb\db\builder.cc" />
+    <ClCompile Include="..\leveldb\db\c.cc" />
+    <ClCompile Include="..\leveldb\db\dbformat.cc" />
+    <ClCompile Include="..\leveldb\db\db_bench.cc" />
+    <ClCompile Include="..\leveldb\db\db_impl.cc" />
+    <ClCompile Include="..\leveldb\db\db_iter.cc" />
+    <ClCompile Include="..\leveldb\db\filename.cc" />
+    <ClCompile Include="..\leveldb\db\log_reader.cc" />
+    <ClCompile Include="..\leveldb\db\log_writer.cc" />
+    <ClCompile Include="..\leveldb\db\memtable.cc" />
+    <ClCompile Include="..\leveldb\db\repair.cc" />
+    <ClCompile Include="..\leveldb\db\table_cache.cc" />
+    <ClCompile Include="..\leveldb\db\version_edit.cc" />
+    <ClCompile Include="..\leveldb\db\version_set.cc" />
+    <ClCompile Include="..\leveldb\db\write_batch.cc" />
+    <ClCompile Include="..\leveldb\port\port_posix.cc" />
+    <ClCompile Include="..\leveldb\table\block.cc" />
+    <ClCompile Include="..\leveldb\table\block_builder.cc" />
+    <ClCompile Include="..\leveldb\table\filter_block.cc" />
+    <ClCompile Include="..\leveldb\table\format.cc" />
+    <ClCompile Include="..\leveldb\table\iterator.cc" />
+    <ClCompile Include="..\leveldb\table\merger.cc" />
+    <ClCompile Include="..\leveldb\table\table.cc" />
+    <ClCompile Include="..\leveldb\table\table_builder.cc" />
+    <ClCompile Include="..\leveldb\table\two_level_iterator.cc" />
+    <ClCompile Include="..\leveldb\util\arena.cc" />
+    <ClCompile Include="..\leveldb\util\bloom.cc" />
+    <ClCompile Include="..\leveldb\util\cache.cc" />
+    <ClCompile Include="..\leveldb\util\coding.cc" />
+    <ClCompile Include="..\leveldb\util\comparator.cc" />
+    <ClCompile Include="..\leveldb\util\crc32c.cc" />
+    <ClCompile Include="..\leveldb\util\env.cc" />
+    <ClCompile Include="..\leveldb\util\env_posix.cc" />
+    <ClCompile Include="..\leveldb\util\filter_policy.cc" />
+    <ClCompile Include="..\leveldb\util\hash.cc" />
+    <ClCompile Include="..\leveldb\util\histogram.cc" />
+    <ClCompile Include="..\leveldb\util\logging.cc" />
+    <ClCompile Include="..\leveldb\util\options.cc" />
+    <ClCompile Include="..\leveldb\util\status.cc" />
+    <ClCompile Include="..\leveldb\util\testharness.cc" />
+    <ClCompile Include="..\leveldb\util\testutil.cc" />
+    <ClCompile Include="win32_posix\dirent_win32.c" />
+    <ClCompile Include="win32_posix\mman.cpp" />
+    <ClCompile Include="win32_posix\win32_posix.cc" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\leveldb\db\builder.h" />
+    <ClInclude Include="..\leveldb\db\dbformat.h" />
+    <ClInclude Include="..\leveldb\db\db_impl.h" />
+    <ClInclude Include="..\leveldb\db\db_iter.h" />
+    <ClInclude Include="..\leveldb\db\filename.h" />
+    <ClInclude Include="..\leveldb\db\log_format.h" />
+    <ClInclude Include="..\leveldb\db\log_reader.h" />
+    <ClInclude Include="..\leveldb\db\log_writer.h" />
+    <ClInclude Include="..\leveldb\db\memtable.h" />
+    <ClInclude Include="..\leveldb\db\skiplist.h" />
+    <ClInclude Include="..\leveldb\db\snapshot.h" />
+    <ClInclude Include="..\leveldb\db\table_cache.h" />
+    <ClInclude Include="..\leveldb\db\version_edit.h" />
+    <ClInclude Include="..\leveldb\db\version_set.h" />
+    <ClInclude Include="..\leveldb\db\write_batch_internal.h" />
+    <ClInclude Include="..\leveldb\port\atomic_pointer.h" />
+    <ClInclude Include="..\leveldb\port\port.h" />
+    <ClInclude Include="..\leveldb\port\port_example.h" />
+    <ClInclude Include="..\leveldb\port\port_posix.h" />
+    <ClInclude Include="..\leveldb\port\thread_annotations.h" />
+    <ClInclude Include="..\leveldb\port\win\stdint.h" />
+    <ClInclude Include="..\leveldb\table\block.h" />
+    <ClInclude Include="..\leveldb\table\block_builder.h" />
+    <ClInclude Include="..\leveldb\table\filter_block.h" />
+    <ClInclude Include="..\leveldb\table\format.h" />
+    <ClInclude Include="..\leveldb\table\iterator_wrapper.h" />
+    <ClInclude Include="..\leveldb\table\merger.h" />
+    <ClInclude Include="..\leveldb\table\two_level_iterator.h" />
+    <ClInclude Include="..\leveldb\util\arena.h" />
+    <ClInclude Include="..\leveldb\util\coding.h" />
+    <ClInclude Include="..\leveldb\util\crc32c.h" />
+    <ClInclude Include="..\leveldb\util\hash.h" />
+    <ClInclude Include="..\leveldb\util\histogram.h" />
+    <ClInclude Include="..\leveldb\util\logging.h" />
+    <ClInclude Include="..\leveldb\util\mutexlock.h" />
+    <ClInclude Include="..\leveldb\util\posix_logger.h" />
+    <ClInclude Include="..\leveldb\util\random.h" />
+    <ClInclude Include="..\leveldb\util\testharness.h" />
+    <ClInclude Include="..\leveldb\util\testutil.h" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>

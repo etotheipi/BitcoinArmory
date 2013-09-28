@@ -3594,14 +3594,7 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
             << (forceRebuild ? 1 : 0) << ","
             << (skipFetch ? 1 : 0) << ","
             << (initialLoad ? 1 : 0) << ")";
-   /*
-   map<BinaryData, RegisteredScrAddr>::iterator iter;
-   for(iter  = registeredScrAddrMap_.begin();
-       iter != registeredScrAddrMap_.end();
-       iter ++)
-      LOGINFO << "ScrAddr: " << iter->second.uniqueKey_.toHexStr().c_str()
-               << " " << iter->second.alreadyScannedUpToBlk_;
-   */
+
 
    // This will figure out where we should start reading headers, blocks,
    // and where we should start applying or scanning
@@ -3643,24 +3636,13 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
 
    }
 
-   //LOGINFO << startHeaderHgt_     << " HeadHgt    "
-           //<< startRawBlkHgt_     << " RawHgt     "
-           //<< startApplyHgt_      << " ApplyHgt   ";
-   //LOGINFO << startHeaderBlkFile_ << " HeadBlkF   "
-           //<< startRawBlkFile_    << " RawBlkF    "
-           //<< startApplyBlkFile_  << " ApplyBlkF  ";
-   //LOGINFO << startHeaderOffset_  << " HeadOffs   "
-           //<< startRawOffset_     << " RawOffs    "
-           //<< startApplyOffset_   << " ApplyOffs  ";
-
 
    // Remove this file
    if(BtcUtils::GetFileSize(blkProgressFile_) != FILE_DOES_NOT_EXIST)
       remove(blkProgressFile_.c_str());
    if(BtcUtils::GetFileSize(abortLoadFile_) != FILE_DOES_NOT_EXIST)
       remove(abortLoadFile_.c_str());
-
-
+   
    if(!initialLoad)
       detectAllBlkFiles(); // only need to spend time on this on the first call
 
@@ -3714,7 +3696,7 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
          // After that, the offset is always zero
          uint32_t startOffset = 0;
          if(fnum==startRawBlkFile_)
-            startOffset = startRawOffset_;
+            startOffset = (uint32_t)startRawOffset_;
       
          readRawBlocksInFile(fnum, startOffset);
       }
@@ -3818,7 +3800,7 @@ void BlockDataManager_LevelDB::readRawBlocksInFile(uint32_t fnum, uint32_t foffs
    is.seekg(foffset, ios::beg);
 
    BinaryStreamBuffer bsb;
-   bsb.attachAsStreamBuffer(is, filesize-foffset);
+   bsb.attachAsStreamBuffer(is, (uint32_t)filesize-foffset);
 
    bool alreadyRead8B = false;
    uint32_t nextBlkSize;
