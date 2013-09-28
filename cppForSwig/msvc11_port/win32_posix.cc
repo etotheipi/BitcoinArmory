@@ -83,44 +83,32 @@ int ftruncate_win32(int fd, off_t length)
 
 int access_win32(const char *path, int mode)
 {
-	if(path[0]=='/')
-	{
-		char *win32_path = posix_path_to_win32(path);
+	char *win32_path = posix_path_to_win32(path);
 
-		int i = _access(win32_path, mode);
-		free(win32_path);
+	int i = _access(win32_path, mode);
+	free(win32_path);
 	
-		return i;
-	}
-	else return _access(path, mode);
+	return i;
 }
 
 int unlink_win32(const char *path)
 {
-	if(path[0]=='/')
-	{
-		char *win32_path = posix_path_to_win32(path);
+	char *win32_path = posix_path_to_win32(path);
 
-		int i = _unlink(win32_path);
-		free(win32_path);
+	int i = _unlink(win32_path);
+	free(win32_path);
 
-		return i;
-	}
-	else return _unlink(path);
+	return i;
 }
 
 int open_win32(const char *path, int flag, int pmode)
 {
-	if(path[0]=='/')
-	{
-		char *win32_path = posix_path_to_win32(path);
+	char *win32_path = posix_path_to_win32(path);
 
-		int i = _open(win32_path, flag | _O_BINARY, pmode);
-		free(win32_path);
+	int i = _open(win32_path, flag | _O_BINARY, pmode);
+	free(win32_path);
 		
-		return i;
-	}
-	else return _open(path, flag | _O_BINARY, pmode);
+	return i;
 }
 
 int open_win32(const char *path, int flag)
@@ -129,9 +117,8 @@ int open_win32(const char *path, int flag)
 	annoying as you need to simulate calls to a single posix function that split into 2 different types of routine based on the input.
 
 	This how this shit will go:
-	1) try to _open the path
-	2) if it fails, check error, if it's complaining about the filename not existing check if it's a directory will GetFileAttributes
-	3) if it is, open it with create file and return that
+	1) Open the path with WinAPI call
+	2) Convert handle to file descriptor
 	***/
 	HANDLE fHandle;
 	DWORD desired_access = GENERIC_READ;
@@ -144,27 +131,15 @@ int open_win32(const char *path, int flag)
 		//if(flag && _O_TRUNC) opening |= TRUNCATE_EXISTING;
 	}
 
-	if(path[0]=='/')
+	char *win32_path = posix_path_to_win32(path);
+	if(GetFileAttributes(win32_path)==FILE_ATTRIBUTE_DIRECTORY) 
 	{
-		char *win32_path = posix_path_to_win32(path);
-		if(GetFileAttributes(win32_path)==FILE_ATTRIBUTE_DIRECTORY) 
-		{
-			attributes |= FILE_FLAG_BACKUP_SEMANTICS;
-			desired_access |= GENERIC_WRITE; //grant additional write access to folders, can't flush the folder without it
-		}
+		attributes |= FILE_FLAG_BACKUP_SEMANTICS;
+		desired_access |= GENERIC_WRITE; //grant additional write access to folders, can't flush the folder without it
+	}
 
-		fHandle = CreateFile(win32_path, desired_access, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, disposition, attributes, NULL);
-		free(win32_path);
-	}
-	else 
-	{
-		if(GetFileAttributes(path)==FILE_ATTRIBUTE_DIRECTORY) 
-		{
-			attributes |= FILE_FLAG_BACKUP_SEMANTICS;
-			desired_access |= GENERIC_WRITE;
-		}
-		fHandle = CreateFile(path, desired_access, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, disposition, attributes, NULL);
-	}
+	fHandle = CreateFile(win32_path, desired_access, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, disposition, attributes, NULL);
+	free(win32_path);
 
 	if(fHandle!=INVALID_HANDLE_VALUE)
 	{
@@ -176,17 +151,6 @@ int open_win32(const char *path, int flag)
 		_set_errno(EBADF);
 		return -1;
 	}
-
-	/*if(path[0]=='/')
-	{
-		char *win32_path = posix_path_to_win32(path);
-
-		int i = _open(win32_path, flag | _O_BINARY);
-		free(win32_path);
-		
-		return i;
-	}
-	else return _open(path, flag | _O_BINARY);*/
 }
 
 int mkdir_win32(const char *path, int mode)
@@ -199,16 +163,8 @@ int mkdir_win32(const char *path, int mode)
 	mkdir can only create a single directory per call. If there are several of them to create in the indicate path, you have to cut down the path name to every single unmade path.
 	***/
 
-	int l = strlen(path), s=0, i;
-	char *rm_path = (char*)malloc(l+2);
-	if(path[0]=='/')
-	{
-		rm_path[0] = '.';
-		strcpy(rm_path +1, path);
-		l++;
-	}
-	else strcpy(rm_path, path);
-
+	char *rm_path = posix_path_to_win32(path);
+	int l = strlen(rm_path), s=0, i=0;
 
 	while(s<l)
 	{
@@ -231,25 +187,31 @@ int mkdir_win32(const char *path, int mode)
 		s++;
 	}
 
-	i = _mkdir(rm_path); //last mkdir in case the the path name doesn't end with a '/'
+	i = _mkdir(rm_path); //last mkdir in case the path name doesn't end with a '/'
 
 	free(rm_path);
+		
+	if(i==-1) 
+	{
+		errno_t err;
+		_get_errno(&err);
+		if(err!=EEXIST)
+		{
+			return -1;
+		}
+	}
 	
-	return i;
+	return 0;
 }
 
 int rmdir_win32(const char *path)
 {
-	if(path[0]=='/')
-	{
-		char *win32_path = posix_path_to_win32(path);
+	char *win32_path = posix_path_to_win32(path);
 
-		int i = _rmdir(win32_path);
-		free(win32_path);
+	int i = _rmdir(win32_path);
+	free(win32_path);
 	
-		return i;
-	}
-	else return _rmdir(path);
+	return i;
 }
 
 int rename_win32(const char *oldname, const char *newname)
@@ -283,18 +245,14 @@ int stat_win32(const char *path, struct stat *Sin)
 	since #define doesn't discriminate between the function and the struct. However, now that stat (the function) has been defined to another name (stat_win32) we can redefine the
 	structure. However we can't simply use this #define before the sys/stat.h include since stat would then be redefined as a function, cancelling the whole process
 	***/
-	if(path[0]=='/')
-	{
-		char *path_win32 = (char*)malloc(strlen(path)+2);
-		path_win32[0] = '.';
-		strcpy(path_win32 +1, path);
+	char *path_win32 = (char*)malloc(strlen(path)+2);
+	path_win32[0] = '.';
+	strcpy(path_win32 +1, path);
 
-		int i = _stat(path_win32, (struct _stat64i32*)Sin);
-		free(path_win32);
+	int i = _stat(path_win32, (struct _stat64i32*)Sin);
+	free(path_win32);
 
-		return i;
-	}
-	else return _stat(path, (struct _stat64i32*)Sin);
+	return i;
 }
 
 FILE* fopen_win32(const char *path, const char *mode)
@@ -303,25 +261,14 @@ FILE* fopen_win32(const char *path, const char *mode)
 	strcpy(mode_win32, mode);
 	strcat(mode_win32, "b");
 	
-	if(path[0]=='/')
-	{
-		char *path_win32 = posix_path_to_win32(path);
+	char *path_win32 = posix_path_to_win32(path);
 
-		FILE *f;
-		f = _fsopen(path_win32, mode_win32, _SH_DENYNO);
+	FILE *f;
+	f = _fsopen(path_win32, mode_win32, _SH_DENYNO);
 
-		free(mode_win32);
-		free(path_win32);
-		return f;
-	}
-	else
-	{
-		FILE *f;
-		fopen_s(&f, path, mode_win32);
-
-		free(mode_win32);
-		return f;
-	}
+	free(mode_win32);
+	free(path_win32);
+	return f;
 }
 
 int fsync_win32(int fd)
@@ -427,10 +374,22 @@ char *posix_path_to_win32(const char *posix_path)
 	/*** As the name indicates, turns unix path convention to win32. The only necessary task is to turn all '/' directory delimiters into '\\' 
 	Don't forget to free the returned char* ***/
 
-	int l = strlen(posix_path) +1, i=0;
-	char *win32_path = (char*)malloc(l+1);
-	win32_path[0] = '.';
-	strcpy(win32_path +1, posix_path);
+	int l = strlen(posix_path), i=0;
+	char *win32_path = (char*)malloc(l+2);
+	
+	if(posix_path[0]=='\\' || posix_path[0]=='/')
+	{
+		win32_path[0] = '.';
+		strcpy(win32_path +1, posix_path);
+		l++;
+	}
+	else strcpy(win32_path, posix_path);
+
+	for(i=0; i<l; i++)
+	{
+		if(win32_path[i]=='\\') 
+			win32_path[i]='/';
+	}
 	
 	return win32_path;
 }

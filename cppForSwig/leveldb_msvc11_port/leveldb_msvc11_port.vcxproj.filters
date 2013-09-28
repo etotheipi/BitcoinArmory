@@ -144,6 +144,9 @@
     <ClCompile Include="..\msvc11_port\win32_posix.cc">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\leveldb\db\db_bench.cc">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\leveldb\table\block.h">
