@@ -8399,7 +8399,7 @@ class DlgPrintBackup(ArmoryDialog):
          "Root Key" and "Chaincode" by hand."""))
       self.lblSecurePrint = QRichLabel(tr("""
          <b><font color="%s"><u>IMPORTANT:</u>  You must write the SecurePrint\xe2\x84\xa2
-         encryption code on the printed backup!  Your SecurePrint\xe2\x84\xa2 code is </font>
+         encryption code on each printed backup page!  Your SecurePrint\xe2\x84\xa2 code is </font>
          <font color="%s">%s</font>.  <font color="%s">Your backup will not work
          if this code is lost!</font> """) % \
          (htmlColor('TextWarn'), htmlColor('TextBlue'), self.randpass.toBinStr(), \
@@ -8591,7 +8591,7 @@ class DlgPrintBackup(ArmoryDialog):
                <br><b>You must write your SecurePrint\xe2\x84\xa2 
                code on each sheet of paper you just printed!</b>  
                Write it in the red box in upper-right corner 
-               of the printed page. <br><br>SecurePrint\xe2\x84\xa2 code: 
+               of each printed page. <br><br>SecurePrint\xe2\x84\xa2 code: 
                <font color="%s" size=5><b>%s</b></font> <br><br>
                <b>NOTE: the above code <u>is</u> case-sensitive!</b>""") % \
                (htmlColor('TextBlue'),self.randpass.toBinStr()), \
@@ -13216,21 +13216,15 @@ class DlgFragBackup(ArmoryDialog):
       self.binCrypt32 = None
 
       lblDescrTitle = QRichLabel( tr(""" 
-         <b>Create M-of-N Fragmented Backup\xe2\x84\xa2: "%s" (%s)</b>""") % \
+         <b><u>Create M-of-N Fragmented Backup\xe2\x84\xa2</u> of "%s" (%s)</b>""") % \
          (wlt.labelName, wlt.uniqueIDB58), doWrap=False)
       lblDescrTitle.setContentsMargins(5,5,5,5)
 
-      lblDescr = QRichLabel( tr(""" 
-         Split your wallet into <b>N</b> secure "fragments," of which any
-         <b>M</b> of them can be used to restore your wallet. 
-         <a href="http://bitcoinarmory.com/fragmenting-your-backups/">Click here</a>
-         to read more about fragmented backups."""))
-      lblDescr .setOpenExternalLinks(True)
-      lblDescr.setContentsMargins(10,0,10,0)
-      self.lblBelowFrags = QRichLabel('')
-      self.lblBelowFrags.setContentsMargins(10,0,10,0)
+      self.lblAboveFrags = QRichLabel('')
+      self.lblAboveFrags.setContentsMargins(10,0,10,0)
 
-      frmDescr = makeVertFrame([lblDescrTitle, lblDescr, HLINE(), self.lblBelowFrags], STYLE_RAISED)
+      frmDescr = makeVertFrame([lblDescrTitle, self.lblAboveFrags], \
+                                                            STYLE_RAISED)
 
       
       self.maxM = 5 if not self.main.usermode==USERMODE.Expert else 8
@@ -13314,8 +13308,8 @@ class DlgFragBackup(ArmoryDialog):
       setLayoutStretch(dlgLayout, 0,1,0,0,0)
 
       self.setLayout(dlgLayout) 
-      self.setMinimumWidth(700)
-      self.setMinimumHeight(500)
+      self.setMinimumWidth(650)
+      self.setMinimumHeight(450)
       self.setWindowTitle('Create Backup Fragments')
 
 
@@ -13384,12 +13378,14 @@ class DlgFragBackup(ArmoryDialog):
       self.scrollArea.setWidget(frmScroll)
 
       BLUE = htmlColor('TextBlue')
-      self.lblBelowFrags.setText( tr("""
+      self.lblAboveFrags.setText( tr("""
          Any <font color="%s"><b>%d</b></font> of these 
              <font color="%s"><b>%d</b></font> 
          fragments are sufficient to restore your wallet, and each fragment 
          has the ID, <font color="%s"><b>%s</b></font>.  All fragments with the
-         same fragment ID are compatible with each other! """) % \
+         same fragment ID are compatible with each other! 
+         <a href="http://bitcoinarmory.com/fragmenting-your-backups/">Click 
+         here</a> to read more about fragmented backups.<br>""") % \
          (BLUE, M, BLUE, N, BLUE, self.fragPrefixStr) )
 
 

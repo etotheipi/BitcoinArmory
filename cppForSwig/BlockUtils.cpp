@@ -1903,12 +1903,7 @@ uint32_t BlockDataManager_LevelDB::findOffsetFirstUnrecognized(uint32_t fnum)
    
       // This is not an error, it just simply hit the padding
       if(magic!=MagicBytes_)  
-      {
-         LOGERR << "Magic bytes don't match.  This might just be end-of-file";
-         LOGERR << "File Bytes: " << magic.toHexStr().c_str();
-         LOGERR << "Expected  : " << MagicBytes_.toHexStr().c_str();
          break;
-      }
 
       is.read((char*)szstr.getPtr(), 4);
       uint32_t blksize = READ_UINT32_LE(szstr.getPtr());
@@ -2905,13 +2900,8 @@ void BlockDataManager_LevelDB::applyBlockRangeToDB(uint32_t blk0, uint32_t blk1)
       //        traversal.
       iface_->resetIterator(BLKDATA, true);
 
-      if(hgt%1000 == 0)
-      {
-         //UniversalTimer::instance().printCSV(cout,true);
-         UniversalTimer::instance().printCSV(string("timings.csv"));
-         writeProgressFile(DB_BUILD_APPLY, blkProgressFile_, "applyBlockRangeToDB");
-      }
-      
+      // Will write out about once every 5 sec
+      writeProgressFile(DB_BUILD_APPLY, blkProgressFile_, "applyBlockRangeToDB");
 
    } while(iface_->advanceToNextBlock(false));
 
@@ -2929,8 +2919,19 @@ void BlockDataManager_LevelDB::writeProgressFile(DB_BUILD_PHASE phase,
                                                     string bfile,
                                                     string timerName)
 {
-   if(phase==DB_BUILD_HEADERS)
+   // Nothing to write if we don't even have a home dir
+   if(armoryHomeDir_.size() == 0 || bfile.size() == 0)
       return;
+
+   time_t currTime;
+   time(&currTime);
+   int32_t diffTime = (int32_t)currTime - (int32_t)progressTimer_;
+
+   // Don't write out more than once every 5 sec
+   if(diffTime < 5)
+      return;
+   else
+      progressTimer_ = (uint32_t)currTime;
 
    uint64_t offset;
    uint32_t height, blkfile;
@@ -3580,6 +3581,11 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
    SCOPED_TIMER("buildAndScanDatabases");
    LOGINFO << "Number of registered addr: " << registeredScrAddrMap_.size();
 
+   // Will use this updating the GUI with progress bar
+   time_t t;
+   time(&t);
+   progressTimer_ = (uint32_t)t;
+
    if(!iface_->databasesAreOpen())
       initializeDBInterface(DBUtils.getArmoryDbType(), DBUtils.getDbPruneType());
       
@@ -3738,6 +3744,8 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
       else
       {
          startScanHgt_     = evalLowestBlockNextScan();
+         // Rewind 4 days, to rescan recent history in case problem last shutdown
+         startScanHgt_ = (startScanHgt_>576 ? startScanHgt_-576 : 0);
          pair<uint32_t, uint32_t> blkLoc = findFileAndOffsetForHgt(startScanHgt_);
          startScanBlkFile_ = blkLoc.first;
          startScanOffset_  = blkLoc.second;
@@ -3867,6 +3875,13 @@ void BlockDataManager_LevelDB::readRawBlocksInFile(uint32_t fnum, uint32_t foffs
          locInBlkFile += nextBlkSize + 8;
          bsb.reader().advance(nextBlkSize);
 
+         // This is a hack of hacks, but I can't seem to pass this data 
+         // out through getLoadProgress* methods, because they don't 
+         // update properly (from the main python thread) when the BDM 
+         // is actively loading/scanning in a separate thread.
+         // We'll watch for this file from the python code.
+         writeProgressFile(DB_BUILD_ADD_RAW, blkProgressFile_, "dumpRawBlocksToDB");
+
          // Don't read past the last header we processed (in case new 
          // blocks were added since we processed the headers
          if(fnum == numBlkFiles_-1 && locInBlkFile >= endOfLastBlockByte_)
@@ -3876,17 +3891,11 @@ void BlockDataManager_LevelDB::readRawBlocksInFile(uint32_t fnum, uint32_t foffs
          }
       }
 
-      // This is a hack of hacks, but I can't seem to pass this data 
-      // out through getLoadProgress* methods, because they don't 
-      // update properly (from the main python thread) when the BDM 
-      // is actively loading/scanning in a separate thread.
-      // We'll watch for this file from the python code.
-      if(armoryHomeDir_.size() > 0)
-         writeProgressFile(DB_BUILD_ADD_RAW, blkProgressFile_, "dumpRawBlocksToDB");
 
       if(isEOF || breakbreak)
          break;
    }
+   
 
    if(iface_->isBatchOn(BLKDATA))
       iface_->commitBatch(BLKDATA);
@@ -3940,11 +3949,8 @@ void BlockDataManager_LevelDB::scanDBForRegisteredTx(uint32_t blk0,
          registeredScrAddrScan_IterSafe(stx);
       }
 
-      if(doScanProgressThing && armoryHomeDir_.size() > 0)
-      {
-         if((hgt < 120000 && hgt%10000 == 0) || (hgt > 120000 && hgt%1000==0))
-            writeProgressFile(DB_BUILD_SCAN, blkProgressFile_, "ScanBlockchain");
-      }
+      // This will write out about once every 5 sec
+      writeProgressFile(DB_BUILD_SCAN, blkProgressFile_, "ScanBlockchain");
    }
    TIMER_STOP("ScanBlockchain");
 }
