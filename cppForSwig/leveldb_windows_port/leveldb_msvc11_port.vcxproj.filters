@@ -135,16 +135,16 @@
     <ClCompile Include="..\leveldb\port\port_posix.cc">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\msvc11_port\dirent_win32.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\msvc11_port\mman.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\msvc11_port\win32_posix.cc">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="..\leveldb\db\db_bench.cc">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="win32_posix\mman.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="win32_posix\win32_posix.cc">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="win32_posix\dirent_win32.c">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

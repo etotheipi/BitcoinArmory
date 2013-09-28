@@ -57,7 +57,7 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;LEVELDB_PLATFORM_POSIX;LEVELDB_CSTDATOMIC_PRESENT;NOMINMAX;WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>..\pthreads-w32-2-9-1-release\Pre-built.2\include;..\msvc11_port;..\leveldb;..\leveldb\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\pthreads-w32-2-9-1-release\Pre-built.2\include;..\win32_posix;..\leveldb;..\leveldb\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
     </ClCompile>
     <Link>
@@ -79,7 +79,7 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;LEVELDB_PLATFORM_POSIX;LEVELDB_CSTDATOMIC_PRESENT;NOMINMAX;WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
-      <AdditionalIncludeDirectories>..\pthreads-w32-2-9-1-release\Pre-built.2\include;..\msvc11_port;..\leveldb;..\leveldb\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\pthreads-w32-2-9-1-release\Pre-built.2\include;.\win32_posix;..\leveldb;..\leveldb\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -138,9 +138,9 @@
     <ClCompile Include="..\leveldb\util\status.cc" />
     <ClCompile Include="..\leveldb\util\testharness.cc" />
     <ClCompile Include="..\leveldb\util\testutil.cc" />
-    <ClCompile Include="..\msvc11_port\dirent_win32.c" />
-    <ClCompile Include="..\msvc11_port\mman.cpp" />
-    <ClCompile Include="..\msvc11_port\win32_posix.cc" />
+    <ClCompile Include="win32_posix\dirent_win32.c" />
+    <ClCompile Include="win32_posix\mman.cpp" />
+    <ClCompile Include="win32_posix\win32_posix.cc" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\leveldb\db\builder.h" />
