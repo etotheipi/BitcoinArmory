@@ -87,11 +87,7 @@
       <Command>..\swigwin\swig.exe -c++ -python -threads -classic -outdir ..\..\ -v ..\CppBlockUtils.i</Command>
     </PreBuildEvent>
     <PostBuildEvent>
-      <Command>copy ..\Release\BitcoinArmory_SwigDLL.dll ..\..\_CppBlockUtils.pyd
-C:\Python27\Lib\site-packages\PyQt4\pyrcc4.exe -o ..\..\qrc_img_resources.py ..\..\imgList.xml
-python ..\..\setup.py py2exe --includes sip,hashlib,json,twisted -d ..\..\ArmoryStandalone
-..\..\edit_icons.bat
-makensis.exe ..\..\ArmorySetup.nsi</Command>
+      <Command>..\..\build_installer.bat</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
