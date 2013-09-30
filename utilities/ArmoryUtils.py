@@ -93,11 +93,6 @@ OS_WINDOWS = 'win32'  in opsys.lower() or 'windows' in opsys.lower()
 OS_LINUX   = 'nix'    in opsys.lower() or 'nux'     in opsys.lower()
 OS_MACOSX  = 'darwin' in opsys.lower() or 'osx'     in opsys.lower()
 
-# Change the settings file to use
-#BITCOIND_PATH = None
-#if not CLI_OPTIONS.bitcoindPath.lower()=='default':
-   #BITCOIND_PATH = CLI_OPTIONS.bitcoindPath
-
 # Figure out the default directories for Satoshi client, and BicoinArmory
 OS_NAME          = ''
 OS_VARIANT       = ''
@@ -105,7 +100,6 @@ USER_HOME_DIR    = ''
 BTC_HOME_DIR     = ''
 ARMORY_HOME_DIR  = ''
 LEVELDB_DIR      = ''
-
 SUBDIR = 'testnet3' if USE_TESTNET else ''
 if OS_WINDOWS:
    OS_NAME         = 'Windows'
@@ -373,7 +367,6 @@ def toBytes(theStr, theEncoding=DEFAULT_ENCODING):
    else:
       LOGERROR('toBytes() not been defined for input: %s', str(type(theStr)))
 
-
 def toUnicode(theStr, theEncoding=DEFAULT_ENCODING):
    if isinstance(theStr, unicode):
       return theStr
@@ -389,7 +382,7 @@ def toPreferred(theStr):
 
 def lenBytes(theStr, theEncoding=DEFAULT_ENCODING):
    return len(toBytes(theStr, theEncoding))
-
+################################################################################
 
 rootLogger = logging.getLogger('')
 if CLI_OPTIONS.doDebug or CLI_OPTIONS.netlog or CLI_OPTIONS.mtdebug:
