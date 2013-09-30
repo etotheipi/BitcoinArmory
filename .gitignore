@@ -21,3 +21,11 @@ _CppBlockUtils.*
 osxbuild/Armory.app
 osxbuild/env
 
+
+ArmoryStandalone
+
+/cppForSwig
+/*.dll
+/qrc_img_resources.py
+/.project
+/*.pydevproject
