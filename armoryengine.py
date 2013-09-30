@@ -30,7 +30,7 @@ from utilities.ArmoryUtils import ARMORY_HOME_DIR, LEVELDB_DIR, ARMORY_RPC_PORT,
    toUnicode, enum, MT_WAIT_TIMEOUT_SEC, packVarInt, MAGIC_BYTES, CLI_OPTIONS, \
    CLI_ARGS, BITCOIN_PORT, ADDRBYTE, LOGCRIT, BITCOIN_RPC_PORT, GENESIS_BLOCK_HASH, \
    GENESIS_TX_HASH, SETTINGS_PATH, getVersionInt, readVersionInt, readVersionString,\
-   Hash160ToScrAddr
+   Hash160ToScrAddr, ARMORY_DB_BARE, DB_PRUNE_NONE
 from utilities.BinaryPacker import UINT8, UINT16, UINT32, UINT64, INT8, INT16, \
    INT32, INT64, VAR_INT, VAR_STR, FLOAT, BINARY_CHUNK
 from utilities.BinaryUnpacker import UnpackerError
@@ -8152,7 +8152,7 @@ class PayloadGetHeaders(object):
       else:
          ghData = BinaryUnpacker( toUnpack )
 
-      self.version = gbData.get(UINT32)
+      self.version = ghData.get(UINT32)
       nhash = ghData.get(VAR_INT)
       for i in range(nhash):
          self.hashList.append(ghData.get(BINARY_CHUNK, 32))

@@ -600,6 +600,10 @@ def HexHash160ToScrAddr(a160):
       LOGERROR('Invalid hash160 value!')
    return HASH160PREFIX + hex_to_binary(a160)
 
+# Some more constants that are needed to play nice with the C++ utilities
+ARMORY_DB_BARE, ARMORY_DB_LITE, ARMORY_DB_PARTIAL, ARMORY_DB_FULL, ARMORY_DB_SUPER = range(5)
+DB_PRUNE_ALL, DB_PRUNE_NONE = range(2)
+
 # Some time methods (RightNow() return local unix timestamp)
 RightNow = time.time
 def RightNowUTC():
