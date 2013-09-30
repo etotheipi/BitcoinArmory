@@ -1,0 +1,72 @@
+'------------------------------------------------------------------------------
+' Edit Icons: Replacing Icon Resource with Icon from .ICO File
+'------------------------------------------------------------------------------
+'
+' This sample VBScript code provides a real-world example that demonstrates
+' many of the features available in Resource Tuner Console. 
+'
+' This code shows how to modify icons in executables:
+'   - Replace the main icon with the new icons from an .ICO file (including  
+'     the 256x256 PNG-compressed Vista icon); 
+'   - Sort out the added icons in the right order; 
+'   - Add one more icon to the newly created Icon Group; 
+'   - Output the changes to the Resource Tree to a log file;
+'   - Restore the original timestamps on the file after saving (for demo purpose).
+'
+' To give you an idea of how this all works, we made this sample script and
+' test application. When you installed Resorce Tuner Console on your computer,
+' the setup program created the ".\Demo Scripts" folder under the RTC folder, with 
+' the test application "DemoApp1.exe" in the ".\Demo Scripts\Edit Icons\Src" folder. 
+'
+' This script is ready to run. Select EDIT_ICONS.BAT file to execute the script.
+'
+' The script will add or replace icons in DemoApp1.exe with icons from the .ico
+' files from the ".\Src" folder. 
+'
+' The resulting file will be created in the directory named ".\Release"
+' Check the log file "log.txt" to see the Resource Tree changed. 
+'
+' Demonstrates the following:
+'
+' - PEFileProxy.OpenFile
+' - PEFileProxy.Terminated
+' - PEFileProxy.HasResources
+' - PEFileProxy.CreateBackUp
+' - PEFileProxy.SaveAsNewImage
+' - PEFileProxy.PostDebugString
+' - PEFileProxy.UpdateCheckSum
+' - ResourcesProxy.ChangeIcon
+' - ResourcesProxy.ResourceTreeToLog
+' - ScriptUnit.SetFileTime
+'
+'---------------------------------------------------------------------------------------
+Sub Main
+  PEFileProxy.PostDebugString "Updating the checksum in the PE file header is enabled." 
+  PEFileProxy.UpdateCheckSum = True 
+
+  PEFileProxy.PostDebugString "The creation of a backup copy is disabled." 
+  PEFileProxy.CreateBackUp = False 
+
+
+  SRCFILE = "..\..\ArmoryStandalone\ArmoryQt.exe"
+  'Open file
+  PEFileProxy.PostDebugString "Opening the file..."
+  PEFileProxy.OpenFile SRCFILE
+
+  'This specifies the default language      
+  LangID = 0
+
+  PEFileProxy.PostDebugString "Changing/adding the main application icon..."
+  ResourcesProxy.ChangeIcon "", LangID, CREATE_IF_NOT_EXIST, REPLACE_IF_ITEM_EXISTS, "..\..\img\Armory48x48.ico"
+
+  'Save file
+  PEFileProxy.PostDebugString "Saving file..."
+  DESTFILE = "..\..\ArmoryStandalone\ArmoryQt.exe"
+  PEFileProxy.SaveAsNewImage DESTFILE
+
+PEFileProxy.PostDebugString "Closing this file..."
+PEFileProxy.CloseFile
+
+end Sub
+
+

@@ -1903,12 +1903,7 @@ uint32_t BlockDataManager_LevelDB::findOffsetFirstUnrecognized(uint32_t fnum)
    
       // This is not an error, it just simply hit the padding
       if(magic!=MagicBytes_)  
-      {
-         LOGERR << "Magic bytes don't match.  This might just be end-of-file";
-         LOGERR << "File Bytes: " << magic.toHexStr().c_str();
-         LOGERR << "Expected  : " << MagicBytes_.toHexStr().c_str();
          break;
-      }
 
       is.read((char*)szstr.getPtr(), 4);
       uint32_t blksize = READ_UINT32_LE(szstr.getPtr());
@@ -2602,14 +2597,15 @@ uint32_t BlockDataManager_LevelDB::evalLowestBlockNextScan(void)
    SCOPED_TIMER("evalLowestBlockNextScan");
 
    uint32_t lowestBlk = UINT32_MAX;
-   map<HashString, RegisteredScrAddr>::iterator raIter;
-   for(raIter  = registeredScrAddrMap_.begin();
-       raIter != registeredScrAddrMap_.end();
-       raIter++)
+   uint32_t i=0;
+   map<HashString, RegisteredScrAddr>::iterator rsaIter;
+   for(rsaIter  = registeredScrAddrMap_.begin();
+       rsaIter != registeredScrAddrMap_.end();
+       rsaIter++)
    {
       // If we happen to have any imported addresses, this will set the
       // lowest block to 0, which will require a full rescan
-      lowestBlk = min(lowestBlk, raIter->second.alreadyScannedUpToBlk_);
+      lowestBlk = min(lowestBlk, rsaIter->second.alreadyScannedUpToBlk_);
    }
    return lowestBlk;
 }
@@ -2621,14 +2617,14 @@ uint32_t BlockDataManager_LevelDB::evalLowestScrAddrCreationBlock(void)
    SCOPED_TIMER("evalLowestAddressCreationBlock");
 
    uint32_t lowestBlk = UINT32_MAX;
-   map<HashString, RegisteredScrAddr>::iterator raIter;
-   for(raIter  = registeredScrAddrMap_.begin();
-       raIter != registeredScrAddrMap_.end();
-       raIter++)
+   map<HashString, RegisteredScrAddr>::iterator rsaIter;
+   for(rsaIter  = registeredScrAddrMap_.begin();
+       rsaIter != registeredScrAddrMap_.end();
+       rsaIter++)
    {
       // If we happen to have any imported addresses, this will set the
       // lowest block to 0, which will require a full rescan
-      lowestBlk = min(lowestBlk, raIter->second.blkCreated_);
+      lowestBlk = min(lowestBlk, rsaIter->second.blkCreated_);
    }
    return lowestBlk;
 }
@@ -2704,12 +2700,12 @@ uint32_t BlockDataManager_LevelDB::numBlocksToRescan( BtcWallet & wlt,
 ////////////////////////////////////////////////////////////////////////////////
 void BlockDataManager_LevelDB::updateRegisteredScrAddrs(uint32_t newTopBlk)
 {
-   map<HashString, RegisteredScrAddr>::iterator raIter;
-   for(raIter  = registeredScrAddrMap_.begin();
-       raIter != registeredScrAddrMap_.end();
-       raIter++)
+   map<HashString, RegisteredScrAddr>::iterator rsaIter;
+   for(rsaIter  = registeredScrAddrMap_.begin();
+       rsaIter != registeredScrAddrMap_.end();
+       rsaIter++)
    {
-      raIter->second.alreadyScannedUpToBlk_ = newTopBlk;
+      rsaIter->second.alreadyScannedUpToBlk_ = newTopBlk;
    }
    
 }
@@ -2878,8 +2874,6 @@ void BlockDataManager_LevelDB::applyBlockRangeToDB(uint32_t blk0, uint32_t blk1)
       if(iface_->dbIterIsValid(BLKDATA))
          prevIterKey = iface_->getIterKeyCopy();
 
-      //cout << "********BEFORE*******" << endl;
-      //iface_->pprintBlkDataDB(BLKDATA);
       if(!doBatches)
          applyBlockToDB(hgt, dup); 
       else
@@ -2889,10 +2883,6 @@ void BlockDataManager_LevelDB::applyBlockRangeToDB(uint32_t blk0, uint32_t blk1)
             LOGINFO << "Flushing DB cache after this block: " << hgt;
          applyBlockToDB(hgt, dup, stxToModify, sshToModify, keysToDelete, commit);
       }
-
-      //cout << "********AFTER*******" << endl;
-      //iface_->pprintBlkDataDB(BLKDATA);
-      //cout << "********END*******" << endl;
 
       // If we had a valid iter position before applyBlockToDB, restore it
       if(prevIterKey.getSize() > 0)
@@ -2910,13 +2900,8 @@ void BlockDataManager_LevelDB::applyBlockRangeToDB(uint32_t blk0, uint32_t blk1)
       //        traversal.
       iface_->resetIterator(BLKDATA, true);
 
-      if(hgt%1000 == 0)
-      {
-         //UniversalTimer::instance().printCSV(cout,true);
-         UniversalTimer::instance().printCSV(string("timings.csv"));
-         writeProgressFile(DB_BUILD_APPLY, blkProgressFile_, "applyBlockRangeToDB");
-      }
-      
+      // Will write out about once every 5 sec
+      writeProgressFile(DB_BUILD_APPLY, blkProgressFile_, "applyBlockRangeToDB");
 
    } while(iface_->advanceToNextBlock(false));
 
@@ -2934,22 +2919,55 @@ void BlockDataManager_LevelDB::writeProgressFile(DB_BUILD_PHASE phase,
                                                     string bfile,
                                                     string timerName)
 {
-   if(phase==DB_BUILD_HEADERS)
+   // Nothing to write if we don't even have a home dir
+   if(armoryHomeDir_.size() == 0 || bfile.size() == 0)
       return;
 
-   uint64_t startedAtByte_ = 0;
-   if(phase==DB_BUILD_ADD_RAW)
-      startedAtByte_ = blkFileCumul_[startRawBlkFile_]   + startRawOffset_;
-   else if(phase==DB_BUILD_SCAN)
-      startedAtByte_ = blkFileCumul_[startScanBlkFile_]  + startScanOffset_;
-   else if(phase==DB_BUILD_APPLY)
-      startedAtByte_ = blkFileCumul_[startApplyBlkFile_] + startApplyOffset_;
-      
+   time_t currTime;
+   time(&currTime);
+   int32_t diffTime = (int32_t)currTime - (int32_t)progressTimer_;
 
+   // Don't write out more than once every 5 sec
+   if(diffTime < 5)
+      return;
+   else
+      progressTimer_ = (uint32_t)currTime;
+
+   uint64_t offset;
+   uint32_t height, blkfile;
+
+   if(phase==DB_BUILD_ADD_RAW)
+   {
+      height  = startRawBlkHgt_;
+      blkfile = startRawBlkFile_;
+      offset  = startRawOffset_;
+   }
+   else if(phase==DB_BUILD_SCAN)
+   {
+      height  = startScanHgt_;
+      blkfile = startScanBlkFile_;
+      offset  = startScanOffset_;
+   }
+   else if(phase==DB_BUILD_APPLY)
+   {
+      height  = startApplyHgt_;
+      blkfile = startApplyBlkFile_;
+      offset  = startApplyOffset_;
+   }
+   else
+   {
+      LOGERR << "What the heck build phase are we in: " << (uint32_t)phase;
+      return;
+   }
+
+   uint64_t startAtByte = 0;
+   if(height!=0)
+      startAtByte = blkFileCumul_[blkfile] + offset;
+      
    ofstream topblks(bfile.c_str(), ios::app);
    double t = TIMER_READ_SEC(timerName);
    topblks << (uint32_t)phase << " "
-           << startedAtByte_ << " " 
+           << startAtByte << " " 
            << bytesReadSoFar_ << " " 
            << totalBlockchainBytes_ << " " 
            << t << endl;
@@ -3389,9 +3407,6 @@ bool BlockDataManager_LevelDB::processNewHeadersInBlkFiles(uint32_t fnumStart,
       LOGERR << "Did we shut down last time on an orphan block?";
    }
 
-   //topBlk = getTopBlockHeight();
-   //cout << "Top blk heights in RAM: " << topBlk;
-
    map<HashString, BlockHeader>::iterator iter;
    for(iter = headerMap_.begin(); iter != headerMap_.end(); iter++)
    {
@@ -3458,6 +3473,7 @@ void BlockDataManager_LevelDB::fetchAllRegisteredScrAddrData(
                                              BinaryData const & scrAddr)
 {
    vector<TxIOPair> hist = getHistoryForScrAddr(scrAddr);
+
    BinaryData txKey;
    StoredTx stx;
    TxRef txref;
@@ -3565,6 +3581,11 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
    SCOPED_TIMER("buildAndScanDatabases");
    LOGINFO << "Number of registered addr: " << registeredScrAddrMap_.size();
 
+   // Will use this updating the GUI with progress bar
+   time_t t;
+   time(&t);
+   progressTimer_ = (uint32_t)t;
+
    if(!iface_->databasesAreOpen())
       initializeDBInterface(DBUtils.getArmoryDbType(), DBUtils.getDbPruneType());
       
@@ -3573,14 +3594,7 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
             << (forceRebuild ? 1 : 0) << ","
             << (skipFetch ? 1 : 0) << ","
             << (initialLoad ? 1 : 0) << ")";
-   /*
-   map<BinaryData, RegisteredScrAddr>::iterator iter;
-   for(iter  = registeredScrAddrMap_.begin();
-       iter != registeredScrAddrMap_.end();
-       iter ++)
-      LOGINFO << "ScrAddr: " << iter->second.uniqueKey_.toHexStr().c_str()
-               << " " << iter->second.alreadyScannedUpToBlk_;
-   */
+
 
    // This will figure out where we should start reading headers, blocks,
    // and where we should start applying or scanning
@@ -3622,24 +3636,13 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
 
    }
 
-   LOGINFO << startHeaderHgt_     << " HeadHgt    "
-           << startRawBlkHgt_     << " RawHgt     "
-           << startApplyHgt_      << " ApplyHgt   ";
-   LOGINFO << startHeaderBlkFile_ << " HeadBlkF   "
-           << startRawBlkFile_    << " RawBlkF    "
-           << startApplyBlkFile_  << " ApplyBlkF  ";
-   LOGINFO << startHeaderOffset_  << " HeadOffs   "
-           << startRawOffset_     << " RawOffs    "
-           << startApplyOffset_   << " ApplyOffs  ";
-
 
    // Remove this file
    if(BtcUtils::GetFileSize(blkProgressFile_) != FILE_DOES_NOT_EXIST)
       remove(blkProgressFile_.c_str());
    if(BtcUtils::GetFileSize(abortLoadFile_) != FILE_DOES_NOT_EXIST)
       remove(abortLoadFile_.c_str());
-
-
+   
    if(!initialLoad)
       detectAllBlkFiles(); // only need to spend time on this on the first call
 
@@ -3681,6 +3684,8 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
    if(initialLoad || forceRebuild)
    {
       LOGINFO << "Getting latest blocks from blk*.dat files";
+      LOGINFO << "Total blockchain bytes: " 
+              << BtcUtils::numToStrWCommas(totalBlockchainBytes_);
       TIMER_START("dumpRawBlocksToDB");
       for(uint32_t fnum=startRawBlkFile_; fnum<numBlkFiles_; fnum++)
       {
@@ -3691,7 +3696,7 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
          // After that, the offset is always zero
          uint32_t startOffset = 0;
          if(fnum==startRawBlkFile_)
-            startOffset = startRawOffset_;
+            startOffset = (uint32_t)startRawOffset_;
       
          readRawBlocksInFile(fnum, startOffset);
       }
@@ -3720,8 +3725,10 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
       }
       else
       {
-         pair<uint32_t, uint32_t> blkLoc = findFileAndOffsetForHgt(startScanHgt_);
          startScanHgt_     = evalLowestBlockNextScan();
+         // Rewind 4 days, to rescan recent history in case problem last shutdown
+         startScanHgt_ = (startScanHgt_>576 ? startScanHgt_-576 : 0);
+         pair<uint32_t, uint32_t> blkLoc = findFileAndOffsetForHgt(startScanHgt_);
          startScanBlkFile_ = blkLoc.first;
          startScanOffset_  = blkLoc.second;
       }
@@ -3729,7 +3736,7 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
       LOGINFO << "Starting scan from block height: " << startScanHgt_;
       scanDBForRegisteredTx(startScanHgt_);
       LOGINFO << "Finished blockchain scan in " 
-              << TIMER_READ_SEC("scanDBForRegisteredTx") << " seconds";
+              << TIMER_READ_SEC("ScanBlockchain") << " seconds";
    }
 
    // If bare mode, we don't do
@@ -3793,7 +3800,7 @@ void BlockDataManager_LevelDB::readRawBlocksInFile(uint32_t fnum, uint32_t foffs
    is.seekg(foffset, ios::beg);
 
    BinaryStreamBuffer bsb;
-   bsb.attachAsStreamBuffer(is, filesize-foffset);
+   bsb.attachAsStreamBuffer(is, (uint32_t)filesize-foffset);
 
    bool alreadyRead8B = false;
    uint32_t nextBlkSize;
@@ -3850,6 +3857,13 @@ void BlockDataManager_LevelDB::readRawBlocksInFile(uint32_t fnum, uint32_t foffs
          locInBlkFile += nextBlkSize + 8;
          bsb.reader().advance(nextBlkSize);
 
+         // This is a hack of hacks, but I can't seem to pass this data 
+         // out through getLoadProgress* methods, because they don't 
+         // update properly (from the main python thread) when the BDM 
+         // is actively loading/scanning in a separate thread.
+         // We'll watch for this file from the python code.
+         writeProgressFile(DB_BUILD_ADD_RAW, blkProgressFile_, "dumpRawBlocksToDB");
+
          // Don't read past the last header we processed (in case new 
          // blocks were added since we processed the headers
          if(fnum == numBlkFiles_-1 && locInBlkFile >= endOfLastBlockByte_)
@@ -3859,17 +3873,11 @@ void BlockDataManager_LevelDB::readRawBlocksInFile(uint32_t fnum, uint32_t foffs
          }
       }
 
-      // This is a hack of hacks, but I can't seem to pass this data 
-      // out through getLoadProgress* methods, because they don't 
-      // update properly (from the main python thread) when the BDM 
-      // is actively loading/scanning in a separate thread.
-      // We'll watch for this file from the python code.
-      if(armoryHomeDir_.size() > 0)
-         writeProgressFile(DB_BUILD_ADD_RAW, blkProgressFile_, "dumpRawBlocksToDB");
 
       if(isEOF || breakbreak)
          break;
    }
+   
 
    if(iface_->isBatchOn(BLKDATA))
       iface_->commitBatch(BLKDATA);
@@ -3923,11 +3931,8 @@ void BlockDataManager_LevelDB::scanDBForRegisteredTx(uint32_t blk0,
          registeredScrAddrScan_IterSafe(stx);
       }
 
-      if(doScanProgressThing && armoryHomeDir_.size() > 0)
-      {
-         if((hgt < 120000 && hgt%10000 == 0) || (hgt > 120000 && hgt%1000==0))
-            writeProgressFile(DB_BUILD_SCAN, blkProgressFile_, "ScanBlockchain");
-      }
+      // This will write out about once every 5 sec
+      writeProgressFile(DB_BUILD_SCAN, blkProgressFile_, "ScanBlockchain");
    }
    TIMER_STOP("ScanBlockchain");
 }
@@ -3938,8 +3943,14 @@ void BlockDataManager_LevelDB::deleteHistories(void)
 {
    SCOPED_TIMER("deleteHistories");
 
-   iface_->startBatch(BLKDATA);
    iface_->seekTo(BLKDATA, DB_PREFIX_SCRIPT, BinaryData(0));
+
+   if(!iface_->dbIterIsValid(BLKDATA, DB_PREFIX_SCRIPT))
+      return;
+
+   //////////
+   iface_->startBatch(BLKDATA);
+
    do 
    {
       BinaryData key = iface_->getIterKeyCopy();
@@ -3954,6 +3965,7 @@ void BlockDataManager_LevelDB::deleteHistories(void)
       
    } while(iface_->advanceIterAndRead(BLKDATA, DB_PREFIX_SCRIPT));
 
+   //////////
    iface_->commitBatch(BLKDATA);
 }
 
@@ -3965,6 +3977,7 @@ void BlockDataManager_LevelDB::shutdownSaveScrAddrHistories(void)
 
    iface_->startBatch(BLKDATA);
 
+   uint32_t i=0;
    set<BtcWallet*>::iterator wltIter;
    for(wltIter  = registeredWallets_.begin();
        wltIter != registeredWallets_.end();
@@ -4023,7 +4036,6 @@ uint32_t BlockDataManager_LevelDB::readBlkFileUpdate(void)
       filesize = (size_t)is.tellg();
    }
       
-
    uint32_t prevTopBlk = getTopBlockHeight()+1;
    uint64_t currBlkBytesToRead;
 
@@ -5301,13 +5313,8 @@ bool BlockDataManager_LevelDB::applyTxToBatchWriteData(
 
    Tx tx = thisSTX.getTxCopy();
 
-   //cout << "Tx block height: " 
-        //<< thisSTX.blockHeight_ << ":"
-        //<< thisSTX.txIndex_ << endl;
-
    // We never expect thisSTX to already be in the map (other tx in the map
    // may be affected/retrieved multiple times).  
-   //if(stxToModify.find(tx.getThisHash()) != stxToModify.end())
    if(KEY_IN_MAP(tx.getThisHash(), stxToModify))
       LOGERR << "How did we already add this tx?";
 

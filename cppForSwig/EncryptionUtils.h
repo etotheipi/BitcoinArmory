@@ -101,7 +101,7 @@
 // But as a safety check, we should probably put a cap
 // on how much memory the KDF can use -- 32 MB is good
 // If a KDF uses 32 MB of memory, it is undeniably easier
-// to computer on a CPU than a GPU.
+// to compute on a CPU than a GPU.
 #define DEFAULT_KDF_MAX_MEMORY 32*1024*1024
 
 using namespace std;
@@ -109,18 +109,18 @@ using namespace std;
 
 // Use this to avoid "using namespace CryptoPP" (which confuses SWIG)
 // and also so it's easy to switch the AES MODE or PRNG, in one place
-#define UNSIGNED     ((CryptoPP::Integer::Signedness)(0))
+#define UNSIGNED   ((CryptoPP::Integer::Signedness)(0))
 #define BTC_AES      CryptoPP::AES
 #define BTC_CFB_MODE CryptoPP::CFB_Mode
 #define BTC_CBC_MODE CryptoPP::CBC_Mode
-#define BTC_PRNG     CryptoPP::AutoSeededRandomPool
+#define BTC_PRNG     CryptoPP::AutoSeededX917RNG<CryptoPP::AES>
 
 #define BTC_ECPOINT  CryptoPP::ECP::Point
-#define BTC_ECDSA    CryptoPP::ECDSA< CryptoPP::ECP, CryptoPP::SHA256 >
-#define BTC_PRIVKEY  CryptoPP::ECDSA< CryptoPP::ECP, CryptoPP::SHA256 >::PrivateKey
-#define BTC_PUBKEY   CryptoPP::ECDSA< CryptoPP::ECP, CryptoPP::SHA256 >::PublicKey
-#define BTC_SIGNER   CryptoPP::ECDSA< CryptoPP::ECP, CryptoPP::SHA256 >::Signer 
-#define BTC_VERIFIER CryptoPP::ECDSA< CryptoPP::ECP, CryptoPP::SHA256 >::Verifier
+#define BTC_ECDSA    CryptoPP::ECDSA<CryptoPP::ECP, CryptoPP::SHA256>
+#define BTC_PRIVKEY  CryptoPP::ECDSA<CryptoPP::ECP, CryptoPP::SHA256>::PrivateKey
+#define BTC_PUBKEY   CryptoPP::ECDSA<CryptoPP::ECP, CryptoPP::SHA256>::PublicKey
+#define BTC_SIGNER   CryptoPP::ECDSA<CryptoPP::ECP, CryptoPP::SHA256>::Signer 
+#define BTC_VERIFIER CryptoPP::ECDSA<CryptoPP::ECP, CryptoPP::SHA256>::Verifier
 
 
 ////////////////////////////////////////////////////////////////////////////////

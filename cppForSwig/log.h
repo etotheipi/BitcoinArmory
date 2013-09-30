@@ -56,6 +56,7 @@
 #define __LOG_H__
 
 #include <sstream>
+#include <ctime>
 #include <string>
 #include <fstream>
 #include <iostream>
@@ -365,7 +366,9 @@ inline string NowTime()
 
 inline unsigned long long int NowTimeInt(void)
 {
-   return 0;
+   time_t t;
+   time(&t);
+   return (unsigned long long int)t;
 }
 
 #else

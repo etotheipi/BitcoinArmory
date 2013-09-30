@@ -60,7 +60,7 @@ import traceback
 import types
 
 # Version Numbers 
-BTCARMORY_VERSION    = (0, 89, 98, 0)  # (Major, Minor, Bugfix, AutoIncrement) 
+BTCARMORY_VERSION    = (0, 89, 99, 5)  # (Major, Minor, Bugfix, AutoIncrement) 
 PYBTCWALLET_VERSION  = (1, 35,  0, 0)  # (Major, Minor, Bugfix, AutoIncrement)
 
 ARMORY_DONATION_ADDR = '1ArmoryXcfq7TnCSuZa9fQjRYwJ4bkRKfv'
@@ -125,12 +125,14 @@ if not CLI_OPTIONS.datadir.lower()=='default':
       ARMORY_HOME_DIR = CLI_OPTIONS.datadir
 
 # Same for the directory that holds the LevelDB databases
+LEVELDB_DIR     = os.path.join(ARMORY_HOME_DIR, 'databases')
 if not CLI_OPTIONS.leveldbDir.lower()=='default':
-   if not os.path.exists(CLI_OPTIONS.datadir):
+   if not os.path.exists(CLI_OPTIONS.leveldbDir):
       print 'Directory "%s" does not exist!  Using default!' % \
                                                 CLI_OPTIONS.leveldbDir
+      os.makedirs(CLI_OPTIONS.leveldbDir)
    else:
-      LEVELDB_DIR  = CLI_OPTIONS.datadir
+      LEVELDB_DIR  = CLI_OPTIONS.leveldbDir
 
 
 
@@ -171,6 +173,7 @@ if sys.argv[0]=='ArmoryQt.py':
    print '   User home-directory   :', USER_HOME_DIR
    print '   Satoshi BTC directory :', BTC_HOME_DIR
    print '   Armory home dir       :', ARMORY_HOME_DIR
+   print '   LevelDB directory     :', LEVELDB_DIR
    print '   Armory settings file  :', SETTINGS_PATH
    print '   Armory log file       :', ARMORY_LOG_FILE
 
@@ -360,6 +363,7 @@ def GetSystemDetails():
 
    CPU,COR,X64,MEM = range(4)
    sysParam = [None,None,None,None]
+   out.CpuStr = 'UNKNOWN'
    if OS_LINUX:
       # Get total RAM
       freeStr = subprocess_check_output('free -m', shell=True)
@@ -4877,7 +4881,7 @@ def HardcodedKeyMaskParams():
       '2510190115738341879307021540891499348841675092447614606680822648')
       
    paramMap['IV']    = SecureBinaryData( hash256(digits_pi)[:16] )
-   paramMap['SALT']  = SecureBinaryData( hash256(digits_pi) )
+   paramMap['SALT']  = SecureBinaryData( hash256(digits_e) )
    paramMap['KDFBYTES'] = long(16*MEGABYTE)
 
    def hardcodeCreateSecurePrintPassphrase(secret):
@@ -5244,6 +5248,13 @@ class PyBtcWallet(object):
          for rtx in txlist:
             print '\t', binary_to_hex(rtx.getTxHash(), BIGENDIAN)
          
+   #############################################################################
+   def hasAnyImported(self):
+      for a160,addr in self.addrMap.iteritems():
+         if addr.chainIndex == -2:
+            return True
+      return False
+
 
    #############################################################################
    def getBalance(self, balType="Spendable"):
@@ -8921,12 +8932,14 @@ class SatoshiDaemonManager(object):
    #############################################################################
    def setupSDM(self, pathToBitcoindExe=None, satoshiHome=BTC_HOME_DIR, \
                       extraExeSearch=[], createHomeIfDNE=True):
+      LOGDEBUG('Exec setupSDM')
       self.failedFindExe = False
       self.failedFindHome = False
       # If we are supplied a path, then ignore the extra exe search paths
       if pathToBitcoindExe==None:
          pathToBitcoindExe = self.findBitcoind(extraExeSearch)
          if len(pathToBitcoindExe)==0:
+            LOGDEBUG('Failed to find bitcoind')
             self.failedFindExe = True
          else:
             LOGINFO('Found bitcoind in the following places:')
@@ -8936,14 +8949,17 @@ class SatoshiDaemonManager(object):
             LOGINFO('Using: %s', pathToBitcoindExe)
 
             if not os.path.exists(pathToBitcoindExe):
+               LOGINFO('Somehow failed to find exe even after finding it...?')
                self.failedFindExe = True
 
       self.executable = pathToBitcoindExe
 
       if not os.path.exists(satoshiHome):
          if createHomeIfDNE:
+            LOGINFO('Making satoshi home dir')
             os.makedirs(satoshiHome)
          else:
+            LOGINFO('No home dir, makedir not requested')
             self.failedFindHome = True
 
       if self.failedFindExe:  raise self.BitcoindError, 'bitcoind not found'
@@ -8989,15 +9005,17 @@ class SatoshiDaemonManager(object):
          possBaseDir = []
          home      = os.path.expanduser('~')
          desktop   = os.path.join(home, 'Desktop') 
-         dtopfiles = os.listdir(desktop)
-         for path in [os.path.join(desktop, fn) for fn in dtopfiles]:
-            if 'bitcoin' in path.lower() and path.lower().endswith('.lnk'):
-               import win32com.client
-               shell = win32com.client.Dispatch('WScript.Shell')
-               targ = shell.CreateShortCut(path).Targetpath
-               targDir = os.path.dirname(targ)
-               LOGINFO('Found Bitcoin-Qt link on desktop: %s', targDir)
-               possBaseDir.append( targDir )
+         
+         if os.path.exists(desktop):
+            dtopfiles = os.listdir(desktop)
+            for path in [os.path.join(desktop, fn) for fn in dtopfiles]:
+               if 'bitcoin' in path.lower() and path.lower().endswith('.lnk'):
+                  import win32com.client
+                  shell = win32com.client.Dispatch('WScript.Shell')
+                  targ = shell.CreateShortCut(path).Targetpath
+                  targDir = os.path.dirname(targ)
+                  LOGINFO('Found Bitcoin-Qt link on desktop: %s', targDir)
+                  possBaseDir.append( targDir )
          
          # Also look in default place in ProgramFiles dirs
          possBaseDir.append(os.getenv('PROGRAMFILES'))
@@ -9080,6 +9098,7 @@ class SatoshiDaemonManager(object):
    
    #############################################################################
    def readBitcoinConf(self, makeIfDNE=False):
+      LOGINFO('Reading bitcoin.conf file')
       bitconf = os.path.join( self.satoshiHome, 'bitcoin.conf' )
       if not os.path.exists(bitconf):
          if not makeIfDNE:
@@ -9098,12 +9117,12 @@ class SatoshiDaemonManager(object):
             LOGERROR('on XP systems):')
             LOGERROR('    %s', bitconf)
          else: 
-            from win32com import win32api
-            username = win32api.get
+            LOGINFO('Setting permissions on bitcoin.conf')
             cmd_icacls = ['icacls',bitconf,'/inheritance:r','/grant:r', '%s:F' % username]
             icacls_out = subprocess_check_output(cmd_icacls, shell=True)
             LOGINFO('icacls returned: %s', icacls_out)
       else:
+         LOGINFO('Setting permissions on bitcoin.conf')
          os.chmod(bitconf, stat.S_IRUSR | stat.S_IWUSR)
                
             
@@ -9126,12 +9145,14 @@ class SatoshiDaemonManager(object):
 
       # We must have a username and password.  If not, append to file
       if not self.bitconf.has_key('rpcuser'):
+         LOGDEBUG('No rpcuser: creating one')
          with open(bitconf,'a') as f:
             f.write('\n')
             f.write('rpcuser=generated_by_armory\n')
             self.bitconf['rpcuser'] = 'generated_by_armory'
 
       if not self.bitconf.has_key('rpcpassword'):
+         LOGDEBUG('No rpcpassword: creating one')
          with open(bitconf,'a') as f:
             randBase58 = SecureBinaryData().GenerateRandom(32).toBinStr()
             randBase58 = binary_to_base58(randBase58)
@@ -9165,8 +9186,6 @@ class SatoshiDaemonManager(object):
       if not os.path.exists(self.executable):
          raise self.BitcoindError, 'Could not find bitcoind'
    
-
-      
 
       pargs = [self.executable]
       pargs.append('-datadir=%s' % self.satoshiHome)
@@ -9239,6 +9258,7 @@ class SatoshiDaemonManager(object):
          return False
       else:
          if not self.bitcoind.poll()==None:
+            LOGDEBUG('Bitcoind is no more')
             if self.btcOut==None:
                self.btcOut, self.btcErr = self.bitcoind.communicate()
                LOGWARN('bitcoind exited, bitcoind STDOUT:')
@@ -9283,6 +9303,7 @@ class SatoshiDaemonManager(object):
       # we will keep "initializing"
       if state=='BitcoindNotAvailable':
          if 'BitcoindInitializing' in self.circBufferState:
+            LOGWARN('Overriding not-available message. This should happen 0-5 times')
             return 'BitcoindInitializing'
       
       return state
@@ -9355,6 +9376,7 @@ class SatoshiDaemonManager(object):
    #############################################################################
    def createProxy(self, forceNew=False):
       if self.proxy==None or forceNew:
+         LOGDEBUG('Creating proxy')
          usr,pas,hst,prt = [self.bitconf[k] for k in ['rpcuser','rpcpassword',\
                                                       'host', 'rpcport']]
          pstr = 'http://%s:%s@%s:%d' % (usr,pas,hst,prt)
@@ -9371,6 +9393,7 @@ class SatoshiDaemonManager(object):
          numblks = self.proxy.getinfo()['blocks']
          blkhash = self.proxy.getblockhash(numblks) 
          toptime = self.proxy.getblock(blkhash)['time']
+         LOGDEBUG('RPC Call: numBlks=%d, toptime=%d', numblks, toptime)
          # Only overwrite once all outputs are retrieved
          self.lastTopBlockInfo['numblks'] = numblks
          self.lastTopBlockInfo['tophash'] = blkhash
@@ -9393,14 +9416,18 @@ class SatoshiDaemonManager(object):
 
       except ValueError:
          # I believe this happens when you used the wrong password
+         LOGEXCEPT('ValueError in bkgd req top blk')
          self.lastTopBlockInfo['error'] = 'ValueError'
       except authproxy.JSONRPCException:
          # This seems to happen when bitcoind is overwhelmed... not quite ready 
+         LOGDEBUG('generic jsonrpc exception')
          self.lastTopBlockInfo['error'] = 'JsonRpcException'
       except socket.error:
          # Connection isn't available... is bitcoind not running anymore?
+         LOGDEBUG('generic socket error')
          self.lastTopBlockInfo['error'] = 'SocketError'
       except:
+         LOGEXCEPT('generic error')
          self.lastTopBlockInfo['error'] = 'UnknownError'
          raise
       finally:
@@ -10040,7 +10067,6 @@ BDMINPUTTYPE  = enum('RegisterAddr', \
                      'AddrBookRequested', \
                      'BlockAtHeightRequested', \
                      'HeaderAtHeightRequested', \
-                     'StartScanRequested', \
                      'ForceRebuild', \
                      'RescanRequested', \
                      'WalletRecoveryScan', \
@@ -10422,21 +10448,10 @@ class BlockDataManagerThread(threading.Thread):
 
       self.ldbdir = ldbdir
 
-   #############################################################################
-   def stopAndRebuildDB(self, goOnline=True, wait=None):
-      expectOutput = False
-      if not wait==False and (self.alwaysBlock or wait==True):
-         expectOutput = True
-
-      rndID = int(random.uniform(0,100000000)) 
-      self.aboutToRescan = True
-
-      self.inputQueue.put([BDMINPUTTYPE.ForceRebuild, rndID, expectOutput])
-
-      return self.waitForOutputIfNecessary(expectOutput, rndID)
 
    #############################################################################
    def setOnlineMode(self, goOnline=True, wait=None):
+      LOGINFO('Setting online mode: %s (wait=%s)' % (str(goOnline), str(wait)))
       expectOutput = False
       if not wait==False and (self.alwaysBlock or wait==True):
          expectOutput = True
@@ -10486,25 +10501,6 @@ class BlockDataManagerThread(threading.Thread):
       return self.bdm.isDirty()
    
 
-   #############################################################################
-   def loadBlockchain(self, wait=None):
-      # self.aboutToRescan is set by the calling thread to make sure that 
-      # TheBDM.isScanning() doesn't return False immediately after the request
-      # is made.  The problem is that the request is put in to do a scan,
-      # and the calling thread checks TheBDM.isScanning() before this thread
-      # has a chance to modify the blkMode variable.  Now isScanning() also
-      # checks the aboutToRescan variable, too.
-
-      expectOutput = False
-      if not wait==False and (self.alwaysBlock or wait==True):
-         expectOutput = True
-
-      self.aboutToRescan = True
-
-      rndID = int(random.uniform(0,100000000)) 
-      self.inputQueue.put([BDMINPUTTYPE.StartScanRequested, rndID, expectOutput])
-      LOGINFO('Initial blockchain load requested')
-      return self.waitForOutputIfNecessary(expectOutput, rndID)
 
 
    #############################################################################
@@ -10583,7 +10579,7 @@ class BlockDataManagerThread(threading.Thread):
          return False
       if self.blkMode==BLOCKCHAINMODE.Offline:
          LOGERROR('Requested blockchain data while BDM is in offline mode.')
-         LOGERROR('Please start the BDM using TheBDM.loadBlockchain() before,')
+         LOGERROR('Please start the BDM using TheBDM.setOnlineMode() before,')
          LOGERROR('and then wait for it to complete, before requesting data.')
          return False
       if not self.bdm.isInitialized():
@@ -10935,7 +10931,7 @@ class BlockDataManagerThread(threading.Thread):
 
       self.bdm.SetDatabaseModes(ARMORY_DB_BARE, DB_PRUNE_NONE);
       self.bdm.SetHomeDirLocation(ARMORY_HOME_DIR)
-      self.bdm.SetBlkFileLocation(blkdir)
+      self.bdm.SetBlkFileLocation(str(blkdir))
       self.bdm.SetLevelDBLocation(self.ldbdir)
       self.bdm.SetBtcNetworkParams( GENESIS_BLOCK_HASH, \
                                     GENESIS_TX_HASH,    \
@@ -10947,7 +10943,7 @@ class BlockDataManagerThread(threading.Thread):
       # Now we actually startup the BDM and run with it
       if CLI_OPTIONS.rebuild:
          self.bdm.doInitialSyncOnLoad_Rebuild()
-      if CLI_OPTIONS.rescan:
+      elif CLI_OPTIONS.rescan:
          self.bdm.doInitialSyncOnLoad_Rescan()
       else:
          self.bdm.doInitialSyncOnLoad()
@@ -11125,7 +11121,7 @@ class BlockDataManagerThread(threading.Thread):
 
    #############################################################################
    def __shutdown(self):
-      if self.blkMode == BLOCKCHAINMODE.Full:
+      if not self.blkMode == BLOCKCHAINMODE.Rescanning:
          self.bdm.shutdownSaveScrAddrHistories()
 
       self.__reset()
@@ -11327,11 +11323,6 @@ class BlockDataManagerThread(threading.Thread):
                                              
             elif cmd == BDMINPUTTYPE.UpdateWallets:
                self.__updateWalletsAfterScan()
-
-            elif cmd == BDMINPUTTYPE.StartScanRequested:
-               LOGINFO('Start Initial BDM Load Requested')
-               
-               self.__startLoadBlockchain()
 
             elif cmd == BDMINPUTTYPE.RescanRequested:
                scanType = inputTuple[3]
@@ -11541,6 +11532,7 @@ def EstimateCumulativeBlockchainSize(blkNum):
          227808 6652067986
          228534 6778529822
          257568 10838081536 
+         259542 11106516992
       """
    strList = [line.strip().split() for line in blksizefile.strip().split('\n')]
    BLK_SIZE_LIST = [[int(x[0]), int(x[1])] for x in strList]

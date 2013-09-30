@@ -73,7 +73,7 @@ SecureBinaryData SecureBinaryData::copySwapEndian(size_t pos1, size_t pos2) cons
 /////////////////////////////////////////////////////////////////////////////
 SecureBinaryData SecureBinaryData::GenerateRandom(uint32_t numBytes)
 {
-   static CryptoPP::AutoSeededRandomPool prng;
+   static BTC_PRNG prng;
    SecureBinaryData randData(numBytes);
    prng.GenerateBlock(randData.getPtr(), numBytes);
    return randData;  
@@ -644,7 +644,7 @@ bool CryptoECDSA::VerifyData(SecureBinaryData const & binMessage,
 
 
    static CryptoPP::SHA256  sha256;
-   static CryptoPP::AutoSeededRandomPool prng;
+   static BTC_PRNG prng;
 
    assert(cppPubKey.Validate(prng, 3));
 

@@ -535,6 +535,7 @@ private:
    // in order to work while TheBDM is scanning
    string                             blkProgressFile_;
    string                             abortLoadFile_;
+   uint32_t                           progressTimer_;
 
    // On DB initialization, we start processing here
    uint32_t                           startHeaderHgt_;
