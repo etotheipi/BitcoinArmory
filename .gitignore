@@ -29,3 +29,6 @@ ArmoryStandalone
 /qrc_img_resources.py
 /.project
 /*.pydevproject
+
+/CompilerArgs.nsi
+/*.exe
