@@ -1,6 +1,12 @@
+include ../config.mk
+
 COMPILER = g++ 
-#COMPILER_OPTS = -c -g -Wall -fPIC 
+
+ifdef DEBUG
+COMPILER_OPTS = -c -g -Wall -fPIC 
+else
 COMPILER_OPTS = -c -O2 -pipe -fPIC 
+endif
 
 #**************************************************************************
 LINKER = g++ 
@@ -20,7 +26,7 @@ ifeq ($(UNAME), Darwin)
    # This configuration assumes you have setup your 10.X.X system like
    # Red Emerald in this thread: 
    #    https://bitcointalk.org/index.php?topic=73648.msg976015#msg976015
-	# The makefile updates he shows are already tied into this if/else branch
+   # The makefile updates he shows are already tied into this if/else branch
    PYVER 		 += `python -c 'import sys; print str(sys.version_info[0]) + "." + str(sys.version_info[1])'`
    SWIG_INC     += -I"/usr/include/python$(PYVER)"
    STATICPYTHON +=   "/usr/lib/python$(PYVER)/config/libpython$(PYVER).a"
@@ -37,7 +43,7 @@ endif
 #**************************************************************************
 all :
 	make BlockUtilsTest.out
-	
+
 swig : $(OBJS) CppBlockUtils_wrap.o
 	g++ -shared -fPIC $(LIBRARY_OPTS) $(OBJS) $(STATICPYTHON) CppBlockUtils_wrap.o -o ../_CppBlockUtils.so
 	pyrcc4 -o ../qrc_img_resources.py ../imgList.xml
@@ -92,7 +98,6 @@ CppBlockUtils_wrap.o: log.h BlockUtils.h  BinaryData.h UniversalTimer.h CppBlock
 clean:
 	touch CppBlockUtils.i
 	rm -f *.o *.out 
-	#cd cryptopp; make clean;
-	
+        #cd cryptopp; make clean;
 
 
