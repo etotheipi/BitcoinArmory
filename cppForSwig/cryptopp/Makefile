@@ -1,5 +1,11 @@
+include ../../config.mk
+
+ifdef DEBUG
+CXXFLAGS = -g
+else
 CXXFLAGS = -DNDEBUG -g -O2
-#CXXFLAGS = -g
+endif
+
 # -fPIC is supported. Please report any breakage of -fPIC as a bug.
 CXXFLAGS += -fPIC
 # the following options reduce code size, but breaks link or makes link very slow on some systems
