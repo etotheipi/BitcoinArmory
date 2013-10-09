@@ -17,7 +17,9 @@
 #include "leveldb/write_batch.h"
 
 // ***** ADDED BY AREINER FROM GOATPIG'S WINDOWS-PORT INSTRUCTIONS
+#if defined(_WIN64) | defined(_WIN32)
 #define strdup _strdup
+#endif
 // ***** ADDED BY AREINER FROM GOATPIG'S WINDOWS-PORT INSTRUCTIONS
 
 using leveldb::Cache;
