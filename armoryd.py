@@ -97,7 +97,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
    
    #############################################################################
    def jsonrpc_backupwallet(self):
-      return TheSDM.callJSON("backupwallet", *args)
+      return TheSDM.callJSON("backupwallet")
 
    #############################################################################
    def jsonrpc_decoderawtransaction(self, *args):

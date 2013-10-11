@@ -9118,6 +9118,9 @@ class SatoshiDaemonManager(object):
             LOGERROR('    %s', bitconf)
          else: 
             LOGINFO('Setting permissions on bitcoin.conf')
+            import win32api
+            username = win32api.GetUserName()
+            LOGINFO('Setting permissions on bitcoin.conf')
             cmd_icacls = ['icacls',bitconf,'/inheritance:r','/grant:r', '%s:F' % username]
             icacls_out = subprocess_check_output(cmd_icacls, shell=True)
             LOGINFO('icacls returned: %s', icacls_out)
