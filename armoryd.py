@@ -88,69 +88,17 @@ class UnrecognizedCommand(Exception): pass
 class NotEnoughCoinsError(object): pass
 class CoinSelectError(object): pass
 
-
 class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
    #############################################################################
    def __init__(self, wallet):
       self.wallet = wallet
+      
+   #############################################################################
+   def jsonrpc_backupwallet(self, backupFilePath=None):
+      self.wallet.backupWalletFile(backupFilePath)
    
-   #############################################################################
-   def jsonrpc_backupwallet(self):
-      return TheSDM.callJSON("backupwallet")
-
-   #############################################################################
-   def jsonrpc_decoderawtransaction(self, *args):
-      return TheSDM.callJSON("decoderawtransactions", *args)
-
-   #############################################################################
-   def jsonrpc_dumpprivkey(self, *args):
-      return TheSDM.callJSON("dumpprivkey", *args)
-
-   #############################################################################
-   def jsonrpc_encryptwallet(self, *args):
-            return TheSDM.callJSON("encryptwallet", *args)
-
-   #############################################################################
-   def jsonrpc_getrawtransaction(self, *args):
-            return TheSDM.callJSON("getrawtransaction", *args)
-
-   #############################################################################
-   def jsonrpc_gettxout(self, *args):
-      return TheSDM.callJSON("gettxout", *args)
-
-   #############################################################################
-   def jsonrpc_importprivkey(self, *args):
-      return TheSDM.callJSON("importprivkey", *args)
-
-   #############################################################################
-   def jsonrpc_sendfrom(self, *args):
-      return TheSDM.callJSON("sendfrom", *args)
-
-   #############################################################################
-   def jsonrpc_listunspent(self, *args):
-      return TheSDM.callJSON("listunspent", *args)
-
-   #############################################################################
-   def jsonrpc_settxfee(self, *args):
-      return TheSDM.callJSON("settxfee", *args)
-
-   #############################################################################
-   def jsonrpc_signmessage(self, *args):
-      return TheSDM.callJSON("signmessage", *args)
-
-   #############################################################################
-   def jsonrpc_verifymessage(self, *args):
-      return TheSDM.callJSON("verifymessage", *args)
-
-   #############################################################################
-   def jsonrpc_walletlock(self, *args):
-      return TheSDM.callJSON("walletlock", *args)
-
-   #############################################################################
-   def jsonrpc_walletpassphrase(self, *args):
-      return TheSDM.callJSON("walletpassphrase", *args)
-
+   
    #############################################################################
    def jsonrpc_getnewaddress(self):
       addr = self.wallet.getNextUnusedAddress()
@@ -751,9 +699,6 @@ class Armory_Daemon(object):
    #############################################################################
    def start(self):
       LOGINFO('Server started...')
-      TheSDM.setupSDM()
-      if not TheSDM.isRunningBitcoind():
-         TheSDM.startBitcoind()
       if(not TheBDM.getBDMState()=='Offline'):
          TheBDM.registerWallet(self.wallet)
          TheBDM.setBlocking(False)

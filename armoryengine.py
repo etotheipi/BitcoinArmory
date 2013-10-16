@@ -5455,7 +5455,12 @@ class PyBtcWallet(object):
    #def deriveChildPublicKey(self, i):
       #newKey = HDWalletCrypto().ChildKeyDeriv(self.getExtendedPublicKey(), i)
       #newAddr = PyBtcAddress().createFromExtendedPublicKey(newKey)
-      
+   
+   #############################################################################
+   # Copy the wallet file to backup
+   def backupWalletFile(self, backupPath = None):
+      walletFileBackup = self.getWalletPath('backup') if backupPath == None else backupPath
+      shutil.copy(self.walletPath, walletFileBackup)
 
    #############################################################################
    #  THIS WAS CREATED ORIGINALLY TO SUPPORT BITSAFE INTEGRATION INTO ARMORY
