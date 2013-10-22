@@ -7,7 +7,7 @@
 ################################################################################
 
 # Version Numbers 
-BTCARMORY_VERSION    = (0, 89, 99, 5)  # (Major, Minor, Bugfix, AutoIncrement) 
+BTCARMORY_VERSION    = (0, 89, 99, 6)  # (Major, Minor, Bugfix, AutoIncrement) 
 PYBTCWALLET_VERSION  = (1, 35,  0, 0)  # (Major, Minor, Bugfix, AutoIncrement)
 
 ARMORY_DONATION_ADDR = '1ArmoryXcfq7TnCSuZa9fQjRYwJ4bkRKfv'
@@ -11284,7 +11284,7 @@ class SatoshiDaemonManager(object):
          numblks = self.proxy.getinfo()['blocks']
          blkhash = self.proxy.getblockhash(numblks) 
          toptime = self.proxy.getblock(blkhash)['time']
-         LOGDEBUG('RPC Call: numBlks=%d, toptime=%d', numblks, toptime)
+         #LOGDEBUG('RPC Call: numBlks=%d, toptime=%d', numblks, toptime)
          # Only overwrite once all outputs are retrieved
          self.lastTopBlockInfo['numblks'] = numblks
          self.lastTopBlockInfo['tophash'] = blkhash

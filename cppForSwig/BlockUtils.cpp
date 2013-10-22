@@ -4808,7 +4808,6 @@ double BlockDataManager_LevelDB::traceChainDown(BlockHeader & bhpStart)
       blkIdx++;
 
       iter = headerMap_.find(thisPtr->getPrevHash());
-      //if( iter != headerMap_.end() )
       if(ITER_IN_MAP(iter, headerMap_))
          thisPtr = &(iter->second);
       else
@@ -4843,6 +4842,11 @@ double BlockDataManager_LevelDB::traceChainDown(BlockHeader & bhpStart)
 
 
 /////////////////////////////////////////////////////////////////////////////
+// In practice, orphan chains shouldn't ever happen.  It means that there's
+// a block in our database that doesn't trace down to the genesis block. 
+// Currently, we get our blocks from Bitcoin-Qt/bitcoind which is incapable
+// of passing such blocks to us (or putting them in the blk*.dat files), so
+// if this function gets called, it's most likely in error.
 void BlockDataManager_LevelDB::markOrphanChain(BlockHeader & bhpStart)
 {
    // TODO:  This method was written 18 months ago, and appeared to have 
@@ -4854,7 +4858,6 @@ void BlockDataManager_LevelDB::markOrphanChain(BlockHeader & bhpStart)
    map<HashString, BlockHeader>::iterator iter;
    iter = headerMap_.find(bhpStart.getThisHash());
    HashStringRef lastHeadHash;
-   //while( iter != headerMap_.end() )
    while( ITER_IN_MAP(iter, headerMap_) )
    {
       // I don't see how it's possible to have a header that used to be 
