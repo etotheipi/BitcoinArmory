@@ -254,11 +254,11 @@ void InterfaceToLDB::closeDatabases(void)
          batches_[db] = NULL;
       }
 
-      if( iters_[db] != NULL )
-      {
-         delete iters_[db];
-         iters_[db] = NULL;
-      }
+      //if( iters_[db] != NULL )
+      //{
+         //delete iters_[db];
+         //iters_[db] = NULL;
+      //}
 
       //if(dbFilterPolicy_[db] != NULL)
       //{
