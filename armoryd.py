@@ -90,6 +90,7 @@ class WalletUnlockNeeded(Exception): pass
 class InvalidBitcoinAddress(Exception): pass
 class PrivateKeyNotFound(Exception): pass
 
+
 NOT_IMPLEMENTED = '--Not Implemented--'
 
 class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
@@ -101,7 +102,14 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
    #############################################################################
    def jsonrpc_backupwallet(self, backupFilePath):
       self.wallet.backupWalletFile(backupFilePath)
-   
+      
+   #############################################################################
+   def jsonrpc_encryptwallet(self, passphrase):
+      if self.wallet.isLocked:
+         raise WalletUnlockNeeded
+      self.wallet.changeWalletEncryption( securePassphrase=SecureBinaryData(passphrase) )
+      self.wallet.lock()
+       
    #############################################################################
 
    def getTxOutScriptType(self, pyTx, n):

@@ -32,6 +32,9 @@ TEST_RAW_TX = '01000000081fa335f8aa332693c7bf77c960ac1eb86c50a5f60d8dc6892d4'+\
               '00000000000000ffffffff3a4c3754686973206973206120636f6d6d656e7'+\
               '420617474616368656420746f2061207472616e73616374696f6e206f6e20'+\
               '6d61696e6e65742e7500000000'
+
+TEST_PASSPHRASE = 'abcde'
+              
 class ArmoryDTest(unittest.TestCase):      
    def removeFileList(self, fileList):
       for f in fileList:
@@ -82,8 +85,6 @@ class ArmoryDTest(unittest.TestCase):
       
    def testDecoderawtransaction(self):
       actualDD = self.jsonServer.jsonrpc_decoderawtransaction(TEST_RAW_TX)
-      print actualDD
-      print actualDD['locktime']
       # Test specific values pulled from bitcoin daemon's output for the test raw TX
       self.assertEqual(actualDD['locktime'], 0)
       self.assertEqual(actualDD['version'], 1)
@@ -131,6 +132,15 @@ class ArmoryDTest(unittest.TestCase):
       self.wlt.lock()
       self.assertRaises(WalletUnlockNeeded, self.jsonServer.jsonrpc_dumpprivkey, addr58)
 
+   def testEncryptwallet(self):
+      kdfParams = self.wlt.computeSystemSpecificKdfParams(0.1)
+      self.wlt.changeKdfParams(*kdfParams)
+      self.jsonServer.jsonrpc_encryptwallet(TEST_PASSPHRASE)
+      self.assertTrue(self.wlt.isLocked)
+      
+      # Verify that a locked wallet Raises WalletUnlockNeeded Exception
+      self.assertRaises(WalletUnlockNeeded, self.jsonServer.jsonrpc_encryptwallet, TEST_PASSPHRASE)
+      
 
 if __name__ == "__main__":
     #import sys;sys.argv = ['', 'Test.testName']
