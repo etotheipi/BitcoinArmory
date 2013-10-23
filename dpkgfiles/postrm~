@@ -1,5 +1,4 @@
 #! /bin/bash
-set -e
 xdg-desktop-menu  uninstall /usr/share/applications/armory.desktop
 xdg-desktop-menu  uninstall /usr/share/applications/armorytestnet.desktop
 xdg-desktop-menu  uninstall /usr/share/applications/armoryoffline.desktop
