@@ -58,6 +58,7 @@ import socket
 # Some non-twisted json imports from jgarzik's code and his UniversalEncoder
 import json
 from   jsonrpc import ServiceProxy
+from utilities.ArmoryUtils import base58_to_binary
 class UniversalEncoder(json.JSONEncoder):
     def default(self, obj):
         if isinstance(obj, decimal.Decimal):
@@ -83,10 +84,13 @@ class UnrecognizedCommand(Exception): pass
 
 ################################################################################
 ################################################################################
+class NotEnoughCoinsError(Exception): pass
+class CoinSelectError(Exception): pass
+class WalletUnlockNeeded(Exception): pass
+class InvalidBitcoinAddress(Exception): pass
+class PrivateKeyNotFound(Exception): pass
 
-
-class NotEnoughCoinsError(object): pass
-class CoinSelectError(object): pass
+NOT_IMPLEMENTED = '--Not Implemented--'
 
 class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
@@ -95,15 +99,70 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       self.wallet = wallet
       
    #############################################################################
-   def jsonrpc_backupwallet(self, backupFilePath=None):
+   def jsonrpc_backupwallet(self, backupFilePath):
       self.wallet.backupWalletFile(backupFilePath)
    
-   
+   #############################################################################
+
+   def getTxOutScriptType(self, pyTx, n):
+      if len(pyTx.outputs[n].binScript) > 0: 
+         typeNumber = getTxOutScriptType(pyTx.outputs[n].binScript)
+         scriptType = 'pubkeyhash' if typeNumber == TXOUT_SCRIPT_STANDARD else \
+                      'multisig' if typeNumber == TXOUT_SCRIPT_MULTISIG else \
+                      'coinbase' if typeNumber == TXOUT_SCRIPT_COINBASE else \
+                      'nonstandard'
+      else:
+         scriptType = 'nonstandard'
+      return scriptType
+
+   def jsonrpc_decoderawtransaction(self, hexString):
+      pyTx = PyTx().unserialize(hex_to_binary(hexString))
+      result = {\
+                'txid' : pyTx.getHashHex(BIGENDIAN),
+                'version' : pyTx.version,
+                'locktime' : pyTx.lockTime,
+                'vin' : [{ \
+                         'txid' : binary_to_hex(txIn.outpoint.txHash, BIGENDIAN),
+                         'vout' : txIn.outpoint.txOutIndex,
+                         'scriptSig' : { \
+                                        'asm' : NOT_IMPLEMENTED,
+                                        'hex' : binary_to_hex(txIn.binScript)},
+                         'sequence' : txIn.intSeq}  for txIn in pyTx.inputs],
+                'vout' : [{ \
+                           'value' : AmountToJSON(pyTx.outputs[n].value),
+                           'n' : n,
+                           'scriptPubKey' : { \
+                                             'asm' : NOT_IMPLEMENTED,
+                                             'hex' : binary_to_hex(pyTx.outputs[n].binScript, BIGENDIAN),
+                                             'reqSigs' : NOT_IMPLEMENTED,
+                                             'type' : self.getTxOutScriptType(pyTx, n),
+                                             'addresses' : NOT_IMPLEMENTED
+                                             }
+                           } for n in range(len(pyTx.outputs))]
+                
+                }
+      return result
+
    #############################################################################
    def jsonrpc_getnewaddress(self):
       addr = self.wallet.getNextUnusedAddress()
       return addr.getAddrStr()
 
+   #############################################################################
+   def jsonrpc_dumpprivkey(self, addr58):
+      # Cannot dump the private key for a locked wallet
+      if self.wallet.isLocked:
+         raise WalletUnlockNeeded
+      # The first byte must be the correct net byte, and the
+      # last 4 bytes must be the correct checksum
+      if not checkAddrStrValid(addr58):
+         raise InvalidBitcoinAddress
+      addr160 = addrStr_to_hash160(addr58)
+      pyBtcAddress = self.wallet.getAddrByHash160(addr160)
+      if pyBtcAddress == None:
+         raise PrivateKeyNotFound
+      return pyBtcAddress.serializePlainPrivateKey()
+            
    #############################################################################
    def jsonrpc_getwalletinfo(self):
       wltInfo = { \
@@ -115,7 +174,6 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
                   'highestusedindex': self.wallet.highestUsedChainIndex
                }
       return wltInfo
-
 
    #############################################################################
    def jsonrpc_getbalance(self, baltype='spendable'):
@@ -900,9 +958,7 @@ newaddress = access.getnewaddress()
 
 
 
-#if __name__ == "__main__":
-if True:
-
+if __name__ == "__main__":
    rpc_server = Armory_Daemon()
    rpc_server.start()
 

@@ -68,7 +68,7 @@ class PyBtcWalletTest(unittest.TestCase):
       self.assertTrue(os.path.exists(self.fileB))
 
    # Remove wallet files, need fresh dir for this test
-   def aaaPyBtcWallet(self):
+   def testPyBtcWallet(self):
 
       self.wlt.addrPoolSize = 5
       # No block chain loaded so this should return -1
