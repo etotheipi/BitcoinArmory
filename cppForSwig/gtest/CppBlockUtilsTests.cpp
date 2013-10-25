@@ -11,6 +11,7 @@
 #include "../PartialMerkle.h"
 #include "../leveldb_wrapper.h"
 #include "../BlockUtils.h"
+#include <win32_posix.h>
 
 #define READHEX BinaryData::CreateFromHex
 #define TheBDM BlockDataManager_LevelDB::GetInstance()
@@ -4358,17 +4359,6 @@ TEST_F(StoredBlockObjTest, SScriptHistoryMarkSpent)
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
-#if defined(_MSC_VER) || defined(__MINGW32__)
-class LevelDBTest : public ::testing::Test
-{
-protected:
-   virtual void SetUp(void) 
-   {
-      Log::ERR() << "Have not implemented LevelDB tests in Windows!";
-      azjc#ksl_Induce_Compile_Error_klnvjkl;
-   }
-};
-#else
 class LevelDBTest : public ::testing::Test
 {
 protected:
@@ -4715,7 +4705,6 @@ protected:
    BinaryData rawTxOut1_;
 
 };
-#endif
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -5897,9 +5886,7 @@ protected:
 
 
 
-#if defined(_MSC_VER) || defined(__MINGW32__)
-   compile_error_fixme_what_to_do_in_windows;
-#else
+#if ! defined(_MSC_VER) && ! defined(__MINGW32__)
 
    /////////////////////////////////////////////////////////////////////////////
    void rmdir(string src)
@@ -6434,9 +6421,7 @@ protected:
 
 
 
-#if defined(_MSC_VER) || defined(__MINGW32__)
-   compile_error_fixme_what_to_do_in_windows;
-#else
+#if ! defined(_MSC_VER) && ! defined(__MINGW32__)
 
    /////////////////////////////////////////////////////////////////////////////
    void rmdir(string src)
@@ -6884,9 +6869,7 @@ protected:
 
 
 
-#if defined(_MSC_VER) || defined(__MINGW32__)
-   compile_error_fixme_what_to_do_in_windows;
-#else
+#if ! defined(_MSC_VER) && ! defined(__MINGW32__)
 
    /////////////////////////////////////////////////////////////////////////////
    void rmdir(string src)

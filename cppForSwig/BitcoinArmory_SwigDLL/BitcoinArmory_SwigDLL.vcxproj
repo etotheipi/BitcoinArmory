@@ -28,13 +28,13 @@
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
     <PlatformToolset>v110</PlatformToolset>
-    <CharacterSet>Unicode</CharacterSet>
+    <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
     <PlatformToolset>v110</PlatformToolset>
-    <CharacterSet>Unicode</CharacterSet>
+    <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
@@ -185,7 +185,7 @@ C:\Python27_64\Lib\site-packages\PyQt4\pyrcc4.exe -o ..\..\qrc_img_resources.py 
       <Command>..\swigwin\swig.exe -c++ -python -threads -classic -outdir ..\..\ -v ..\CppBlockUtils.i</Command>
     </PreBuildEvent>
     <PostBuildEvent>
-      <Command>..\..\build_installer.bat</Command>
+      <Command>..\..\build_installer_64.bat</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
