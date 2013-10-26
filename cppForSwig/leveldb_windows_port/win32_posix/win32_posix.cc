@@ -382,9 +382,7 @@ int stat_win32(const char *path, struct stat *Sin)
 	since #define doesn't discriminate between the function and the struct. However, now that stat (the function) has been defined to another name (stat_win32) we can redefine the
 	structure. However we can't simply use this #define before the sys/stat.h include since stat would then be redefined as a function, cancelling the whole process
 	***/
-	char *path_win32 = (char*)malloc(strlen(path)+2);
-	path_win32[0] = '.';
-	strcpy(path_win32 +1, path);
+	char *path_win32 = posix_path_to_win32(path);
 
 	int i = _stat(path_win32, (struct _stat64i32*)Sin);
 	free(path_win32);
@@ -508,8 +506,8 @@ int fcntl_win32(int fd, unsigned int command, flock *f)
 
 char *posix_path_to_win32(const char *posix_path)
 {
-	/*** As the name indicates, turns unix path convention to win32. The only necessary task is to turn all '/' directory delimiters into '\\' 
-	Don't forget to free the returned char* ***/
+	/*** appends . to the begining of the filename if it starts by a \\ or / 
+	make sure only one type of slash is used on the file name***/
 
 	int l = strlen(posix_path), i=0;
 	char *win32_path = (char*)malloc(l+2);
