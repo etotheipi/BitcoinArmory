@@ -4568,7 +4568,9 @@ protected:
    virtual void TearDown(void)
    {
       // This seem to be the best way to remove a dir tree in C++ (in Linux)
-      system("rm -rf ./ldbtestdir/level*");
+		iface_->closeDatabases();
+		iface_=0;
+      rmdir("./ldbtestdir/level*");
    }
 
    /////
@@ -5872,6 +5874,8 @@ protected:
    /////////////////////////////////////////////////////////////////////////////
    virtual void TearDown(void)
    {
+      BlockDataManager_LevelDB::DestroyInstance();
+
       rmdir(blkdir_);
       rmdir(homedir_);
 
@@ -5880,7 +5884,6 @@ protected:
       rmdir(delstr);
       delete[] delstr;
 
-      BlockDataManager_LevelDB::DestroyInstance();
       LOGENABLESTDOUT();
    }
 
@@ -6407,7 +6410,9 @@ protected:
    /////////////////////////////////////////////////////////////////////////////
    virtual void TearDown(void)
    {
-      rmdir(blkdir_);
+      BlockDataManager_LevelDB::DestroyInstance();
+     
+	  rmdir(blkdir_);
       rmdir(homedir_);
 
       char* delstr = new char[4096];
@@ -6415,7 +6420,6 @@ protected:
       rmdir(delstr);
       delete[] delstr;
 
-      BlockDataManager_LevelDB::DestroyInstance();
       LOGENABLESTDOUT();
    }
 
@@ -6855,7 +6859,9 @@ protected:
    /////////////////////////////////////////////////////////////////////////////
    virtual void TearDown(void)
    {
-      rmdir(blkdir_);
+      BlockDataManager_LevelDB::DestroyInstance();
+     
+	  rmdir(blkdir_);
       rmdir(homedir_);
 
       char* delstr = new char[4096];
@@ -6863,7 +6869,6 @@ protected:
       rmdir(delstr);
       delete[] delstr;
 
-      BlockDataManager_LevelDB::DestroyInstance();
       LOGENABLESTDOUT();
    }
 
