@@ -68,7 +68,7 @@
     <ClCompile Include="..\UniversalTimer.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\gtest\CppBlockUtilsTests_windows_stub.cpp">
+    <ClCompile Include="..\gtest\CppBlockUtilsTests.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

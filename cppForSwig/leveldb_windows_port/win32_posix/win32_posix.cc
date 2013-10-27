@@ -204,14 +204,151 @@ int mkdir_win32(const char *path, int mode)
 	return 0;
 }
 
-int rmdir_win32(const char *path)
+int mkdir_win32(std::string st_in)
 {
-	char *win32_path = posix_path_to_win32(path);
+	const char *ch_in = st_in.c_str();
+	return mkdir_win32(ch_in, 0);
+}
 
-	int i = _rmdir(win32_path);
-	free(win32_path);
+int rmdir_resovled(char *win32_path)
+{
+	/***This function only takes resolved paths, please go through rmdir_win32 instead
+	
+	In windows you have to first empty a directory before you get to delete it.
+	***/
+	
+	int i=0;
+
+	i = RemoveDirectory(win32_path);
+	if(!i)
+	{
+		DWORD lasterror = GetLastError();
+		if(lasterror==ERROR_DIR_NOT_EMPTY) //directory isn't empty
+		{
+			DIR *dempty = opendir(win32_path);
+			if(dempty)
+			{
+				char *filepath = (char*)malloc(MAX_PATH);
+				strcpy(filepath, win32_path);
+				int fpl = strlen(win32_path);
+				if(win32_path[fpl-1]!='/') 
+				{
+					filepath[fpl++] = '/';
+					filepath[fpl] = 0;
+				}
+
+				dirent *killfile=0;
+				while((killfile = readdir(dempty)))
+				{
+					if(strcmp(killfile->d_name, ".") && strcmp(killfile->d_name, "..")) //skip all . and .. returned by dirent
+					{
+						strcpy(filepath +fpl, killfile->d_name);
+						if(GetFileAttributes(filepath)==FILE_ATTRIBUTE_DIRECTORY) //check path is a folder
+							rmdir_resovled(filepath); //if it's a folder, call rmdir on it
+						else
+							_unlink(filepath); //else delete the file
+					}
+				}
+				free(filepath);
+			}
+			closedir(dempty);
+
+			i = RemoveDirectory(win32_path);
+			if(!i)
+			{
+				_set_errno(EBADF);
+				i=-1;
+			}
+			else i=0;
+		}
+		else
+		{
+			_set_errno(EBADF);
+			i=-1;
+		}
+	}
+	else i=0;
 	
 	return i;
+}
+
+int rmdir_win32(const char *path)
+{
+	/*** handles wild cards then calls rmdir_resolved with resolved path
+	if a wildcard is encountered, only the subfolders matching the wildcard will be deleted, not the files within the origin folder
+	***/
+	
+	int i=0;
+	char *win32_path = posix_path_to_win32(path);
+	if(win32_path[strlen(win32_path)-1]=='*') //wildcard handling
+	{
+		//get wild card
+		char *wildcard = (char*)malloc(MAX_PATH);
+		memset(wildcard, 0, MAX_PATH);
+		int l = strlen(win32_path), s=l-2; //-2 for the *
+		int wildcard_length=0;
+
+		while(s)
+		{
+			if(win32_path[s]=='/')
+			{
+				wildcard_length = l-1 -s-1;
+				memcpy(wildcard, win32_path +s+1, wildcard_length);
+				wildcard[wildcard_length] = 0;
+				
+				win32_path[s+1]=0; //take wildcard away from origin path
+
+				break;
+			}
+
+			s--;
+		}
+
+		char *delpath = (char*)malloc(MAX_PATH);
+		char *checkwc = (char*)malloc(MAX_PATH);
+		strcpy(delpath, win32_path);
+		int dpl = strlen(win32_path);
+
+		//find all directories in path
+		DIR* dirrm = opendir(win32_path);
+		if(dirrm)
+		{
+			dirent *dirp = 0; 
+			while((dirp=readdir(dirrm)))
+			{
+				if(strcmp(dirp->d_name, ".") && strcmp(dirp->d_name, "..")) //skip all . and .. returned by dirent
+				{
+					strcpy(delpath +dpl, dirp->d_name);
+					if(GetFileAttributes(delpath)==FILE_ATTRIBUTE_DIRECTORY) //check path is a folder
+					{
+						//check path against wildcard
+						strcpy(checkwc, dirp->d_name);
+						checkwc[wildcard_length] = 0;
+
+						if(!strcmp(checkwc, wildcard)) //wild card matches
+						{
+							i |= rmdir_resovled(delpath);
+						}
+					}
+				}
+			}
+		}
+
+		closedir(dirrm);
+		free(delpath);
+		free(wildcard);
+		free(checkwc);
+	}
+	else i = rmdir_resovled(win32_path);
+
+	free(win32_path);
+	return i;
+}
+
+int rmdir_win32(std::string st_in)
+{
+	const char *ch_in = st_in.c_str();
+	return rmdir_win32(ch_in);
 }
 
 int rename_win32(const char *oldname, const char *newname)
@@ -245,9 +382,7 @@ int stat_win32(const char *path, struct stat *Sin)
 	since #define doesn't discriminate between the function and the struct. However, now that stat (the function) has been defined to another name (stat_win32) we can redefine the
 	structure. However we can't simply use this #define before the sys/stat.h include since stat would then be redefined as a function, cancelling the whole process
 	***/
-	char *path_win32 = (char*)malloc(strlen(path)+2);
-	path_win32[0] = '.';
-	strcpy(path_win32 +1, path);
+	char *path_win32 = posix_path_to_win32(path);
 
 	int i = _stat(path_win32, (struct _stat64i32*)Sin);
 	free(path_win32);
@@ -371,8 +506,8 @@ int fcntl_win32(int fd, unsigned int command, flock *f)
 
 char *posix_path_to_win32(const char *posix_path)
 {
-	/*** As the name indicates, turns unix path convention to win32. The only necessary task is to turn all '/' directory delimiters into '\\' 
-	Don't forget to free the returned char* ***/
+	/*** appends . to the begining of the filename if it starts by a \\ or / 
+	make sure only one type of slash is used on the file name***/
 
 	int l = strlen(posix_path), i=0;
 	char *win32_path = (char*)malloc(l+2);

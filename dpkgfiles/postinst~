@@ -37,7 +37,7 @@ def createDesktopFile(name, idstr, arglist, toDir=''):
    deskfile.write('GenericName=Bitcoin Client\n')
    deskfile.write('Comment=Full-featured Bitcoin wallet management application\n')
    deskfile.write('Categories=Qt;Network;\n')
-   deskfile.write('Exec=python /usr/lib/armory/ArmoryQt.py')
+   deskfile.write('Exec=python /usr/share/armory/ArmoryQt.py')
    for a in arglist:
       deskfile.write(' --%s' % a)
    if perm_app_register:

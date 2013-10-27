@@ -242,6 +242,12 @@ void InterfaceToLDB::closeDatabases(void)
    SCOPED_TIMER("closeDatabases");
    for(uint32_t db=0; db<DB_COUNT; db++)
    {
+	  if( iters_[db] != NULL )
+	  {
+		  delete iters_[db];
+		  iters_[db] = NULL;
+	  }
+
       if( dbs_[db] != NULL)
       {
          delete dbs_[db];
@@ -735,7 +741,8 @@ void InterfaceToLDB::resetIterator(DB_SELECT db, bool seekToPrevKey)
    SCOPED_TIMER("resetIterator");
    // This may be very slow, so you should only do it when you're sure it's
    // necessary.  You might just 
-   BinaryData key = currReadKey_.getRawRef().copy();
+   BinaryData key;
+   if(seekToPrevKey) key = currReadKey_.getRawRef().copy();
    if(iters_[db] != NULL)
       delete iters_[db];
 
@@ -2461,6 +2468,13 @@ KVLIST InterfaceToLDB::getAllDatabaseEntries(DB_SELECT db)
 
    KVLIST outList;
    outList.reserve(100);
+
+   	if(iters_[db]) 
+	{
+	   delete iters_[db];
+	   iters_[db] = NULL;
+	}
+
 
    iters_[db] = dbs_[db]->NewIterator(leveldb::ReadOptions());
    iters_[db]->SeekToFirst();
