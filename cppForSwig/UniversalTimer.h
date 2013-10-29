@@ -66,11 +66,11 @@
 #define TIMER_READ_SEC(NAME) UniversalTimer::instance().read(NAME)
 
 // STARTS A TIMER THAT STOPS WHEN IT GOES OUT OF SCOPE
-#ifdef _DEBUG
-   #define SCOPED_TIMER(NAME) TimerToken TimerWillStopOnDestruct(NAME)
-#else
+//#ifdef _DEBUG
+   //#define SCOPED_TIMER(NAME) TimerToken TimerWillStopOnDestruct(NAME)
+//#else
    #define SCOPED_TIMER(NAME) 
-#endif
+//#endif
 
 using namespace std;
 

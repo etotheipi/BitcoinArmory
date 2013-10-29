@@ -242,16 +242,10 @@ void InterfaceToLDB::closeDatabases(void)
    SCOPED_TIMER("closeDatabases");
    for(uint32_t db=0; db<DB_COUNT; db++)
    {
-	  if( iters_[db] != NULL )
-	  {
-		  delete iters_[db];
-		  iters_[db] = NULL;
-	  }
-
-      if( dbs_[db] != NULL)
+      if( iters_[db] != NULL )
       {
-         delete dbs_[db];
-         dbs_[db] = NULL;
+         delete iters_[db];
+         iters_[db] = NULL;
       }
       
       if( batches_[db] != NULL )
@@ -260,17 +254,12 @@ void InterfaceToLDB::closeDatabases(void)
          batches_[db] = NULL;
       }
 
-      //if( iters_[db] != NULL )
-      //{
-         //delete iters_[db];
-         //iters_[db] = NULL;
-      //}
+      if( dbs_[db] != NULL)
+      {
+         delete dbs_[db];
+         dbs_[db] = NULL;
+      }
 
-      //if(dbFilterPolicy_[db] != NULL)
-      //{
-         //delete dbFilterPolicy_[db];
-         //dbFilterPolicy_[db] = NULL;
-      //}
    }
    dbIsOpen_ = false;
 
@@ -346,14 +335,20 @@ void InterfaceToLDB::commitBatch(DB_SELECT db)
    batchStarts_[db] -= 1;
 
    if(batchStarts_[db] == 0)
-   {
+   { 
+
       if(batches_[db] == NULL)
       {
          LOGERR << "Trying to commitBatch but we don't have one";
          return;
       }
 
-      dbs_[db]->Write(leveldb::WriteOptions(), batches_[db]);
+      if(dbs_[db] != NULL)
+         dbs_[db]->Write(leveldb::WriteOptions(), batches_[db]);
+      else
+         LOGWARN << "Attempted to commitBatch but dbs_ is NULL.  Skipping";
+
+      // Even if the dbs_[db] is NULL, we still want to clear the batched data
       batches_[db]->Clear();
       delete batches_[db];
       batches_[db] = NULL;
@@ -937,6 +932,7 @@ uint64_t InterfaceToLDB::getBalanceForScrAddr(BinaryDataRef scrAddr, bool withMu
       for(iter = utxoList.begin(); iter != utxoList.end(); iter++)
          if(iter->second.isMultisigRef())
             total += iter->second.getValue();
+      return total;
    }
 }
 
@@ -2469,11 +2465,11 @@ KVLIST InterfaceToLDB::getAllDatabaseEntries(DB_SELECT db)
    KVLIST outList;
    outList.reserve(100);
 
-   	if(iters_[db]) 
-	{
-	   delete iters_[db];
-	   iters_[db] = NULL;
-	}
+   if(iters_[db]) 
+   {
+      delete iters_[db];
+      iters_[db] = NULL;
+   }
 
 
    iters_[db] = dbs_[db]->NewIterator(leveldb::ReadOptions());
