@@ -3764,7 +3764,9 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
 
    #ifdef _DEBUG
       //UniversalTimer::instance().printCSV(cout,true);
+	#ifdef _DEBUG_FULL_VERBOSE
       UniversalTimer::instance().printCSV(string("timings.csv"));
+	#endif
    #endif
 
    /*
@@ -4228,7 +4230,9 @@ uint32_t BlockDataManager_LevelDB::readBlkFileUpdate(void)
 
    #ifdef _DEBUG
       //UniversalTimer::instance().printCSV(cout,true);
-      UniversalTimer::instance().printCSV(string("timings.csv"));
+	#ifdef _DEBUG_FULL_VERBOSE 
+			UniversalTimer::instance().printCSV(string("timings.csv"));
+	#endif
    #endif
 
    return nBlkRead;
