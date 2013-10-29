@@ -473,6 +473,25 @@ def getCurrTimeAndBlock():
    else:
       return (time0, UINT32_MAX)
 
+def createSigScript(rBin, sBin):
+
+
+   # Remove all leading zero-bytes
+   while rBin[0]=='\x00':
+      rBin = rBin[1:]
+   while sBin[0]=='\x00':
+      sBin = sBin[1:]
+
+   if binary_to_int(rBin[0])&128>0:  rBin = '\x00'+rBin
+   if binary_to_int(sBin[0])&128>0:  sBin = '\x00'+sBin
+   rSize  = int_to_binary(len(rBin))
+   sSize  = int_to_binary(len(sBin))
+   rsSize = int_to_binary(len(rBin) + len(sBin) + 4)
+   sigScript = '\x30' + rsSize + \
+            '\x02' + rSize + rBin + \
+            '\x02' + sSize + sBin
+   return sigScript
+
 ################################################################################
 class PyBtcAddress(object):
    """
@@ -1031,27 +1050,11 @@ class PyBtcAddress(object):
          secureMsg = SecureBinaryData(binMsg)
          sig = CryptoECDSA().SignData(secureMsg, self.binPrivKey32_Plain)
          sigstr = sig.toBinStr()
-         # We add an extra 0 byte to the beginning of each value to guarantee
-         # that they are interpretted as unsigned integers.  Not always necessary
-         # but it doesn't hurt to always do it.
+
          rBin   = sigstr[:32 ]
          sBin   = sigstr[ 32:]
+         return createSigScript(rBin, sBin)
 
-         # Remove all leading zero-bytes
-         while rBin[0]=='\x00':
-            rBin = rBin[1:]
-         while sBin[0]=='\x00':
-            sBin = sBin[1:]
-
-         if binary_to_int(rBin[0])&128>0:  rBin = '\x00'+rBin
-         if binary_to_int(sBin[0])&128>0:  sBin = '\x00'+sBin
-         rSize  = int_to_binary(len(rBin))
-         sSize  = int_to_binary(len(sBin))
-         rsSize = int_to_binary(len(rBin) + len(sBin) + 4)
-         sigScr = '\x30' + rsSize + \
-                  '\x02' + rSize + rBin + \
-                  '\x02' + sSize + sBin
-         return sigScr
       except:
          LOGERROR('Failed signature generation')
       finally:
@@ -2256,6 +2259,19 @@ class PyTxIn(BlockComponent):
          print indstr + indent + 'Sender:    ', hash160_to_addrStr(inAddr160)
       print indstr + indent + 'Seq:       ', self.intSeq
 
+   def minimizeDERSignaturePadding(self):
+      rsLen = binary_to_int(self.binScript[2:3])
+      rLen = binary_to_int(self.binScript[4:5])
+      rBin = self.binScript[5:5+rLen]
+      sLen = binary_to_int(self.binScript[6+rLen:7+rLen])
+      sBin = self.binScript[7+rLen:7+rLen+sLen]
+      sigScript = createSigScript(rBin, sBin)
+      newBinScript = self.binScript[:1] + sigScript + self.binScript[3+rsLen:]
+      paddingRemoved = newBinScript != self.binScript
+      newTxIn = self.copy()
+      newTxIn.binScript = newBinScript
+      return paddingRemoved, newTxIn
+   
 
 #####
 class PyTxOut(BlockComponent):
@@ -2346,6 +2362,20 @@ class PyTx(BlockComponent):
       self.thisHash = hash256(self.serialize())
       return self
 
+   def minimizeDERSignaturePadding(self):
+      paddingRemoved = False
+      newTx = self.copy()
+      newTx.inputs = []
+      for txIn in self.inputs:
+         paddingRemovedFromTxIn, newTxIn  = txIn.minimizeDERSignaturePadding() 
+         if paddingRemovedFromTxIn:
+            paddingRemoved = True
+            newTx.inputs.append(newTxIn)
+         else:
+            newTx.inputs.append(txIn)
+            
+      return paddingRemoved, newTx
+         
    def getHash(self):
       return hash256(self.serialize())
 

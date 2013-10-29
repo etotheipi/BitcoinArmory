@@ -85,6 +85,17 @@ class PyTXTest(unittest.TestCase):
       pass
    
    
+   def testMinimizeDERSignaturePadding(self):
+      tx1  = PyTx().unserialize(tx1raw)
+      paddingMinimized1, newTx1 = tx1.minimizeDERSignaturePadding()
+      self.assertEqual(tx1.inputs[0].binScript, newTx1.inputs[0].binScript)
+      self.assertFalse(paddingMinimized1)
+      tx2  = PyTx().unserialize(tx2raw)
+      paddingMinimized2, newTx2 = tx2.minimizeDERSignaturePadding()
+      self.assertEqual(len(tx2.inputs[0].binScript)-2, len(newTx2.inputs[0].binScript))
+      self.assertTrue(paddingMinimized2)
+      
+      
    def testSerializeUnserialize(self):
       tx1 = PyTx().unserialize(tx1raw)
       tx2 = PyTx().unserialize(BinaryUnpacker(tx2raw))
@@ -226,8 +237,7 @@ class PyTXTest(unittest.TestCase):
       testBlkComp =  TestBlockComponent()
       self.assertRaises(NotImplementedError, testBlkComp.serialize)  
       self.assertRaises(NotImplementedError, testBlkComp.unserialize)  
-
-         
+   
    # TODO:  Add some tests for the OP_CHECKMULTISIG support in TxDP
    
    
