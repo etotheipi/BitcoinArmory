@@ -5118,6 +5118,9 @@ void BlockDataManager_LevelDB::rescanWalletZeroConf(BtcWallet & wlt)
        iter++)
    {
 
+      if(iter->getSize() == 0)
+         continue;
+
       BtcUtils::getHash256(*iter, txHash);
       ZeroConfData & zcd = zeroConfMap_[txHash];
 
