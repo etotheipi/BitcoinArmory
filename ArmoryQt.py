@@ -1558,7 +1558,7 @@ class ArmoryMainWindow(QMainWindow):
       for f in os.listdir(ARMORY_HOME_DIR):
          fullPath = os.path.join(ARMORY_HOME_DIR, f)
          if os.path.isfile(fullPath) and not fullPath.endswith('backup.wallet'):
-            openfile = open(fullPath, 'r')
+            openfile = open(fullPath, 'rb')
             first8 = openfile.read(8) 
             openfile.close()
             if first8=='\xbaWALLET\x00':
@@ -1824,7 +1824,7 @@ class ArmoryMainWindow(QMainWindow):
       if not os.path.exists(mempoolname): 
          return
 
-      memfile = open(mempoolname, 'r')
+      memfile = open(mempoolname, 'rb')
       memdata = memfile.read()
       memfile.close()
 
