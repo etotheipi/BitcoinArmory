@@ -1,45 +1,42 @@
 COMPILER = g++ 
 #COMPILER_OPTS = -c -g -Wall -fPIC 
 COMPILER_OPTS = -c -O2 -pipe -fPIC 
+LDFLAGS:=$(shell dpkg-buildflags --get LDFLAGS)
+CPPFLAGS:=$(shell dpkg-buildflags --get CPPFLAGS)
 
 #**************************************************************************
 LINKER = g++ 
 OBJS = UniversalTimer.o BinaryData.o leveldb_wrapper.o StoredBlockObj.o BtcUtils.o BlockObj.o BlockUtils.o EncryptionUtils.o libcryptopp.a libleveldb.a
 
+# This is a script created by goatpig which detects where the python 
+# dependencies are and writes them to the pypaths.txt file. It defines :
+# 		$(PYTHON_LIB) 
+# 		$(PYVER) 
+# 		$(PYTHON_INCLUDE)
+# If this makefile doesn't work for you, you should manually modify
+# pypaths.txt to define those three variables, and then comment out 
+# DO_EXEC_WHEREISPY line (to prevent the script from attempting to run
+# and overwriting the manual values).
+DO_EXEC_WHEREISPY := $(shell ./whereispy.sh)
 
-DEPSDIR ?= /usr
+include ./pypaths.txt
 
 INCLUDE_OPTS += -Icryptopp -Ileveldb/include -DUSE_CRYPTOPP -D__STDC_LIMIT_MACROS 
-LIBRARY_OPTS += -lpthread -Lleveldb -L/usr/lib/python2.7/config-x86_64-linux-gnu/ -lpython2.7
+LIBRARY_OPTS += -lpthread -Lleveldb -L$(PYTHON_LIB) -l$(PYVER)
 SWIG_OPTS    += -c++ -python -classic -threads
 
 
 UNAME := $(shell uname)
 
-ifeq ($(UNAME), Darwin)
-   # This configuration assumes you have setup your 10.X.X system like
-   # Red Emerald in this thread: 
-   #    https://bitcointalk.org/index.php?topic=73648.msg976015#msg976015
-	# The makefile updates he shows are already tied into this if/else branch
-   PYVER 		 += `python -c 'import sys; print str(sys.version_info[0]) + "." + str(sys.version_info[1])'`
-   SWIG_INC     += -I"/usr/include/python$(PYVER)"
-   STATICPYTHON +=   "/usr/lib/python$(PYVER)/config/libpython$(PYVER).a"
-else
-   PYVER 		 += `python2 -c 'import sys; print str(sys.version_info[0]) + "." + str(sys.version_info[1])'`
-   SWIG_INC     += -I"$(DEPSDIR)/include/python$(PYVER)"
-   #STATICPYTHON +=   "$(DEPSDIR)/lib/libpython$(PYVER).a"
-   STATICPYTHON =
-
-
-endif
-
+   SWIG_INC     += -I"$(PYTHON_INCLUDE)"
+   STATICPYTHON += "$(PYTHON_LIB)"
 
 #**************************************************************************
 all :
 	make BlockUtilsTest.out
 	
 swig : $(OBJS) CppBlockUtils_wrap.o
-	g++ -shared -fPIC $(LIBRARY_OPTS) $(OBJS) $(STATICPYTHON) CppBlockUtils_wrap.o -o ../_CppBlockUtils.so
+	g++ -shared -fPIC $(LIBRARY_OPTS) $(OBJS) $(STATICPYTHON) $(CPPFLAGS) $(LDFLAGS) CppBlockUtils_wrap.o -o ../_CppBlockUtils.so
 	pyrcc4 -o ../qrc_img_resources.py ../imgList.xml
 
 BlockUtilsTest.out : $(OBJS) BlockUtilsTest.cpp
@@ -92,7 +89,8 @@ CppBlockUtils_wrap.o: log.h BlockUtils.h  BinaryData.h UniversalTimer.h CppBlock
 clean:
 	touch CppBlockUtils.i
 	rm -f *.o *.out 
-	#cd cryptopp; make clean;
+	rm pypaths.txt
+	cd cryptopp; make clean;
 	
 
 

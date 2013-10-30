@@ -55,6 +55,7 @@ with open('armoryengine.py') as f:
 
 
 pkgdir = 'armory-%s' % (vstr,)
+pkgdir_ = 'armory_%s' % (vstr,)
 
 if not vstr:
    print '***ERROR: Could not deduce version from armoryengine.py. '
@@ -73,6 +74,7 @@ execAndWait('make clean')
 cd('..')
 execAndWait('rm -rf %s' % pkgdir)
 execAndWait('rm -f %s*' % pkgdir)
+execAndWait('rm -f %s*' % pkgdir_)
 shutil.copytree(origDir, pkgdir)
 execAndWait('tar -zcf %s.tar.gz %s' % (pkgdir, pkgdir))
 cd(pkgdir)

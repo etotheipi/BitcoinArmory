@@ -164,7 +164,10 @@ public:
    void copyTo(BinaryData & bd) const 
    {
       bd.resize(data_.size());
-      memcpy( bd.getPtr(), &data_[0], data_.size());
+#ifdef _MSC_VER 
+	  if(data_.size())
+#endif
+	  memcpy( bd.getPtr(), &data_[0], data_.size());
    }
 
    void fill(uint8_t ch) { if(getSize()>0) memset(getPtr(), ch, getSize()); }
@@ -306,7 +309,12 @@ public:
 
    /////////////////////////////////////////////////////////////////////////////
    // These are always memory-safe
-   void copyTo(string & str) { str.assign( (char const *)(&(data_[0])), getSize()); }
+   void copyTo(string & str) { 
+#ifdef _MSC_VER
+	if(getSize())
+#endif
+	   str.assign( (char const *)(&(data_[0])), getSize()); 
+   }
 
    /////////////////////////////////////////////////////////////////////////////
    string toBinStr(bool bigEndian=false) const 

@@ -102,6 +102,16 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
    #############################################################################
    def jsonrpc_backupwallet(self, backupFilePath):
       self.wallet.backupWalletFile(backupFilePath)
+   
+   #############################################################################
+   def jsonrpc_getrawtransaction(self, txHash):
+      info = self.jsonrpc_getinfo()
+      print info
+      txCpp = TheBDM.getTxByHash(hex_to_binary(txHash))
+      pyTx = PyTx().unserialize(txCpp.serialize())
+      rawTx = pyTx.serialize()
+      return rawTx
+      
       
    #############################################################################
    def jsonrpc_encryptwallet(self, passphrase):

@@ -748,6 +748,10 @@ class DlgChangePassphrase(ArmoryDialog):
       p2 = self.edtPasswd2.text()
       goodColor = htmlColor('TextGreen')
       badColor  = htmlColor('TextRed')
+      if not isASCII(unicode(p1)) or \
+         not isASCII(unicode(p2)):
+         self.lblMatches.setText('<font color=%s><b>Passphrase is non-ASCII!</b></font>' % badColor)
+         return False
       if not p1==p2:
          self.lblMatches.setText('<font color=%s><b>Passphrases do not match!</b></font>' % badColor)
          return False

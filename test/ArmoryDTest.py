@@ -15,7 +15,7 @@ from utilities.ArmoryUtils import hex_to_binary, binary_to_base58,\
 from armoryd import Armory_Json_Rpc_Server, PrivateKeyNotFound,\
    InvalidBitcoinAddress, WalletUnlockNeeded
 
-TEST_RAW_TX = '01000000081fa335f8aa332693c7bf77c960ac1eb86c50a5f60d8dc6892d4'+\
+RAW_TX1     = '01000000081fa335f8aa332693c7bf77c960ac1eb86c50a5f60d8dc6892d4'+\
               '3f89473dc50e4b104000000ffffffff4be787d4a6009ba04534c9b42af46e'+\
               '5442744804e6050ad08e58804ef8f067882601000000ffffffffa20b1cdd9'+\
               '232e335f6200f7d2623d2789a0847dc53faa79387ffab38271307be650400'+\
@@ -32,8 +32,19 @@ TEST_RAW_TX = '01000000081fa335f8aa332693c7bf77c960ac1eb86c50a5f60d8dc6892d4'+\
               '00000000000000ffffffff3a4c3754686973206973206120636f6d6d656e7'+\
               '420617474616368656420746f2061207472616e73616374696f6e206f6e20'+\
               '6d61696e6e65742e7500000000'
+              
+RAW_TX2     = '00006c493046022100d43c4e239fc8bf31dbf14f9c71301cf985865b11c92'+\
+              'f5a0963f2c0382f1aefc4022100b6fdb3b1fb00aa8a62fbec3cda2d353981'+\
+              '7adc34bc28f761f929346920278c710121023a9ea0a00446698198523b904'+\
+              '97d6e1fe58548eaccc3898a88904c675c311bfcffffffff0200d8ee730100'+\
+              '00001976a914ecf3738156325a0e90339ce2f7c1d6ae87cf9b9188ac00ab9'+\
+              '041000000001976a914a4a6b6a83aae2744dd10a8d055d9fb75383cd9d488'+\
+              'ac00000000'
 
-TEST_PASSPHRASE = 'abcde'
+TX_ID1      = '0100000001a89fac4240e955a3d0860fb89f0842f0d5f5ae8af2c81434638'+\
+              '55ae95c6404430000'
+
+PASSPHRASE1 = 'abcde'
               
 class ArmoryDTest(unittest.TestCase):      
    def removeFileList(self, fileList):
@@ -70,6 +81,9 @@ class ArmoryDTest(unittest.TestCase):
    def tearDown(self):
       self.removeFileList([self.fileA, self.fileB, self.fileAupd, self.fileBupd])
       
+   def testGetrawtransaction(self):
+      actualRawTx = self.jsonServer.jsonrpc_getrawtransaction(TX_ID1)
+      self.assertEqual(actualRawTx, RAW_TX2)
 
    def testBackupWallet(self):
       backupTestPath = os.path.join(ARMORY_HOME_DIR, 'armory_%s_.wallet.backup.test' % self.wltID)
@@ -84,7 +98,7 @@ class ArmoryDTest(unittest.TestCase):
       self.assertTrue(os.path.exists(self.fileB))
       
    def testDecoderawtransaction(self):
-      actualDD = self.jsonServer.jsonrpc_decoderawtransaction(TEST_RAW_TX)
+      actualDD = self.jsonServer.jsonrpc_decoderawtransaction(RAW_TX1)
       # Test specific values pulled from bitcoin daemon's output for the test raw TX
       self.assertEqual(actualDD['locktime'], 0)
       self.assertEqual(actualDD['version'], 1)

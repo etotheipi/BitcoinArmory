@@ -3,6 +3,8 @@ Created on Aug 26, 2013
 
 @author: Andy
 '''
+import sys
+sys.argv.append('--nologging')
 from extras.findpass import UnknownCaseSeg, MaxResultsExceeded, KnownSeg, \
    UnknownSeg, PwdSeg, PasswordFinder, WalletNotFound
 import unittest
@@ -67,7 +69,7 @@ class Test(unittest.TestCase):
 
    def testPasswordFinder(self):
       # Name of wallet is the password followed by '.wallet'
-      passwordFinder = PasswordFinder('FakeWallet123.wallet')
+      passwordFinder = PasswordFinder(walletPath='FakeWallet123.wallet')
       self.assertTrue(passwordFinder.wallet.isLocked)
       theExpectedResultGenerator = expectedResultGenerator(expectedResult1)
       for i, result in enumerate(passwordFinder.passwordGenerator(segList1, segOrdList1)):

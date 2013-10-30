@@ -289,7 +289,8 @@ public:
                         duplicateID_(UINT8_MAX), 
                         merkle_(0), 
                         isMainBranch_(false),
-                        blockAppliedToDB_(false) {}
+                        blockAppliedToDB_(false), 
+						merkleIsPartial_(false) {}
                            
 
    bool isInitialized(void) const {return dataCopy_.getSize() > 0;}
