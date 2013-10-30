@@ -1,6 +1,8 @@
 COMPILER = g++ 
-COMPILER_OPTS = -c -g -Wall -fPIC 
-#COMPILER_OPTS = -c -O2 -pipe -fPIC 
+#COMPILER_OPTS = -c -g -Wall -fPIC 
+COMPILER_OPTS = -c -O2 -pipe -fPIC 
+LDFLAGS:=$(shell dpkg-buildflags --get LDFLAGS)
+CPPFLAGS:=$(shell dpkg-buildflags --get CPPFLAGS)
 
 #**************************************************************************
 LINKER = g++ 
@@ -34,7 +36,7 @@ all :
 	make BlockUtilsTest.out
 	
 swig : $(OBJS) CppBlockUtils_wrap.o
-	g++ -shared -fPIC $(LIBRARY_OPTS) $(OBJS) $(STATICPYTHON) CppBlockUtils_wrap.o -o ../_CppBlockUtils.so
+	g++ -shared -fPIC $(LIBRARY_OPTS) $(OBJS) $(STATICPYTHON) $(CPPFLAGS) $(LDFLAGS) CppBlockUtils_wrap.o -o ../_CppBlockUtils.so
 	pyrcc4 -o ../qrc_img_resources.py ../imgList.xml
 
 BlockUtilsTest.out : $(OBJS) BlockUtilsTest.cpp

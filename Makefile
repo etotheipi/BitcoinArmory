@@ -11,12 +11,12 @@ clean :
 
 install :
 	mkdir -p $(DESTDIR)/usr/share/armory/img
-	mkdir -p $(DESTDIR)/usr/share/armory/extras
-	mkdir -p $(DESTDIR)/usr/share/armory/jsonrpc
-	cp *.py *.so README LICENSE $(DESTDIR)/usr/share/armory/
+	mkdir -p $(DESTDIR)/usr/lib/armory/extras
+	mkdir -p $(DESTDIR)/usr/lib/armory/jsonrpc
+	cp *.py *.so README $(DESTDIR)/usr/lib/armory/
 	cp img/* $(DESTDIR)/usr/share/armory/img
-	cp extras/*.py $(DESTDIR)/usr/share/armory/extras
-	cp jsonrpc/*.py $(DESTDIR)/usr/share/armory/jsonrpc
+	cp extras/*.py $(DESTDIR)/usr/lib/armory/extras
+	cp jsonrpc/*.py $(DESTDIR)/usr/lib/armory/jsonrpc
 	mkdir -p $(DESTDIR)/usr/share/applications
 	cp dpkgfiles/armory*.desktop $(DESTDIR)/usr/share/applications/
 

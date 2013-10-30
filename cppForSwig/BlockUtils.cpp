@@ -3763,8 +3763,10 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
    purgeZeroConfPool();
 
    #ifdef _DEBUG
-      //UniversalTimer::instance().printCSV(cout,true);
       UniversalTimer::instance().printCSV(string("timings.csv"));
+      #ifdef _DEBUG_FULL_VERBOSE
+         UniversalTimer::instance().printCSV(cout,true);
+      #endif
    #endif
 
    /*
@@ -4227,8 +4229,10 @@ uint32_t BlockDataManager_LevelDB::readBlkFileUpdate(void)
    }
 
    #ifdef _DEBUG
-      //UniversalTimer::instance().printCSV(cout,true);
-      UniversalTimer::instance().printCSV(string("timings.csv"));
+	   UniversalTimer::instance().printCSV(string("timings.csv"));
+	   #ifdef _DEBUG_FULL_VERBOSE 
+         UniversalTimer::instance().printCSV(cout,true);
+	   #endif
    #endif
 
    return nBlkRead;
@@ -4446,7 +4450,7 @@ vector<bool> BlockDataManager_LevelDB::addNewBlockData(
    bhInsResult = headerMap_.insert(bhInputPair);
    BlockHeader * bhptr = &(bhInsResult.first->second);
    if(!bhInsResult.second)
-      *bhptr = bhInsResult.first->second; // overwrite it even if insert fails
+      *bhptr = bhInputPair.second; // overwrite it even if insert fails
 
    // Finally, let's re-assess the state of the blockchain with the new data
    // Check the lastBlockWasReorg_ variable to see if there was a reorg
