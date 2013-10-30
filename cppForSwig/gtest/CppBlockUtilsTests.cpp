@@ -1,7 +1,7 @@
 #include <limits.h>
 #include <iostream>
 #include <stdlib.h>
-#include "gtest/gtest.h"
+#include "gtest.h"
 
 #include "../log.h"
 #include "../BinaryData.h"
@@ -11,6 +11,10 @@
 #include "../PartialMerkle.h"
 #include "../leveldb_wrapper.h"
 #include "../BlockUtils.h"
+
+#ifdef _MSC_VER
+   #include "win32_posix.h"
+#endif
 
 #define READHEX BinaryData::CreateFromHex
 #define TheBDM BlockDataManager_LevelDB::GetInstance()
@@ -4358,17 +4362,6 @@ TEST_F(StoredBlockObjTest, SScriptHistoryMarkSpent)
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
-#if defined(_MSC_VER) || defined(__MINGW32__)
-class LevelDBTest : public ::testing::Test
-{
-protected:
-   virtual void SetUp(void) 
-   {
-      Log::ERR() << "Have not implemented LevelDB tests in Windows!";
-      azjc#ksl_Induce_Compile_Error_klnvjkl;
-   }
-};
-#else
 class LevelDBTest : public ::testing::Test
 {
 protected:
@@ -4578,7 +4571,9 @@ protected:
    virtual void TearDown(void)
    {
       // This seem to be the best way to remove a dir tree in C++ (in Linux)
-      system("rm -rf ./ldbtestdir/level*");
+      iface_->closeDatabases();
+      iface_=0;
+      rmdir("./ldbtestdir/level*");
    }
 
    /////
@@ -4715,7 +4710,6 @@ protected:
    BinaryData rawTxOut1_;
 
 };
-#endif
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -5883,6 +5877,8 @@ protected:
    /////////////////////////////////////////////////////////////////////////////
    virtual void TearDown(void)
    {
+      BlockDataManager_LevelDB::DestroyInstance();
+
       rmdir(blkdir_);
       rmdir(homedir_);
 
@@ -5891,15 +5887,12 @@ protected:
       rmdir(delstr);
       delete[] delstr;
 
-      BlockDataManager_LevelDB::DestroyInstance();
       LOGENABLESTDOUT();
    }
 
 
 
-#if defined(_MSC_VER) || defined(__MINGW32__)
-   compile_error_fixme_what_to_do_in_windows;
-#else
+#if ! defined(_MSC_VER) && ! defined(__MINGW32__)
 
    /////////////////////////////////////////////////////////////////////////////
    void rmdir(string src)
@@ -6420,7 +6413,9 @@ protected:
    /////////////////////////////////////////////////////////////////////////////
    virtual void TearDown(void)
    {
-      rmdir(blkdir_);
+      BlockDataManager_LevelDB::DestroyInstance();
+     
+     rmdir(blkdir_);
       rmdir(homedir_);
 
       char* delstr = new char[4096];
@@ -6428,15 +6423,12 @@ protected:
       rmdir(delstr);
       delete[] delstr;
 
-      BlockDataManager_LevelDB::DestroyInstance();
       LOGENABLESTDOUT();
    }
 
 
 
-#if defined(_MSC_VER) || defined(__MINGW32__)
-   compile_error_fixme_what_to_do_in_windows;
-#else
+#if ! defined(_MSC_VER) && ! defined(__MINGW32__)
 
    /////////////////////////////////////////////////////////////////////////////
    void rmdir(string src)
@@ -6870,6 +6862,8 @@ protected:
    /////////////////////////////////////////////////////////////////////////////
    virtual void TearDown(void)
    {
+      BlockDataManager_LevelDB::DestroyInstance();
+     
       rmdir(blkdir_);
       rmdir(homedir_);
 
@@ -6878,15 +6872,12 @@ protected:
       rmdir(delstr);
       delete[] delstr;
 
-      BlockDataManager_LevelDB::DestroyInstance();
       LOGENABLESTDOUT();
    }
 
 
 
-#if defined(_MSC_VER) || defined(__MINGW32__)
-   compile_error_fixme_what_to_do_in_windows;
-#else
+#if ! defined(_MSC_VER) && ! defined(__MINGW32__)
 
    /////////////////////////////////////////////////////////////////////////////
    void rmdir(string src)
