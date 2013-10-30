@@ -74,6 +74,10 @@ parser.add_option("--mtdebug",         dest="mtdebug",     default=False,     ac
 parser.add_option("--skip-online-check", dest="forceOnline", default=False,   action="store_true", help="Go into online mode, even if internet connection isn't detected")
 parser.add_option("--skip-version-check", dest="skipVerCheck", default=False, action="store_true", help="Do not contact bitcoinarmory.com to check for new versions")
 parser.add_option("--keypool",         dest="keypool",     default=100, type="int",                help="Default number of addresses to lookahead in Armory wallets")
+parser.add_option("--port", dest="port", default=None, type="int", help="Unit Test Argument - Do not consume")
+parser.add_option("--verbosity", dest="verbosity", default=None, type="int", help="Unit Test Argument - Do not consume")
+parser.add_option("--coverage_output_dir", dest="coverageOutputDir", default=None, type="str", help="Unit Test Argument - Do not consume")
+parser.add_option("--coverage_include", dest="coverageInclude", default=None, type="str", help="Unit Test Argument - Do not consume")
 parser.add_option("--rebuild",         dest="rebuild",     default=False,     action="store_true", help="Rebuild blockchain database and rescan")
 parser.add_option("--rescan",          dest="rescan",      default=False,     action="store_true", help="Rescan existing blockchain DB")
 
@@ -11079,9 +11083,11 @@ class SatoshiDaemonManager(object):
    
 
       pargs = [self.executable]
-      pargs.append('-datadir=%s' % self.satoshiHome)
       if USE_TESTNET:
+         pargs.append('-datadir=%s' % self.satoshiHome.rstrip('/testnet3/') )
          pargs.append('-testnet')
+      else:
+         pargs.append('-datadir=%s' % self.satoshiHome)
 
       try:
          # Don't want some strange error in this size-check to abort loading
