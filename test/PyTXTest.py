@@ -31,8 +31,38 @@ tx2raw = hex_to_binary( \
    '0000001976a9141b00a2f6899335366f04b277e19d777559c35bc888ac40aeeb'
    '02000000001976a9140e0aec36fe2545fb31a41164fb6954adcd96b34288ac00000000')
 
+multiTx1raw = hex_to_binary( \
+   '0100000004a14fd232f045f0c9f28c6848a22fee393152e901eaa61a9f18438b3ba05c6035010000008a47304402201b19808aa145dbebf775ed11a15d763eaa2'
+   'b5df92b20f9835f62c72404918b1b02205aea3e816ac6ac7545254b9c34a00c37f20024793bbe0a64958934343f3c577b014104c0f3d0a4920bb6825769dd6ae1'
+   'e36b0ac36581639d605241cdd548c4ef5d46cda5ac21723d478041a63118f192fdb730c4cf76106789824cd68879a7afeb5288ffffffffa14fd232f045f0c9f28'
+   'c6848a22fee393152e901eaa61a9f18438b3ba05c6035000000008b4830450220796307d9787b892c8b1ada8511d99e855ea3099e1a76ce0f7aa783ed352a6e59'
+   '022100fc38d05d7dfbe51e28c36d854dd0dcc938d60a3e406573c3dc39253694d14a12014104630aaf9d5c8d757cb5759428d4075911a2b2ff13dd7208ad7ea1d'
+   '1682738a7138be93ee526c9d774e0dea03fa2a5fbb68043259ddfb942c0763f9b636b40c43fffffffffa14fd232f045f0c9f28c6848a22fee393152e901eaa61a'
+   '9f18438b3ba05c6035020000008c493046022100cb423b63197ef3cdbfaed69f61aac59755f0025bd6d7a9d3c78024d897ebcf94022100f3ad14804a3c8042387'
+   'eca9b9053abe99e12651a795cae7f546b08e1c08c6464014104649694df12dcd7fdb5a8c54c376b904bd7337891d865b8d306beb5d2e5d8fdf2a537d6f9df65ff'
+   '44eb0b6042ebfdf9e338bff7f4afacb359dd6c71aea7b9b92dffffffffa14fd232f045f0c9f28c6848a22fee393152e901eaa61a9f18438b3ba05c60350300000'
+   '08b483045022100fb9f4ddc68497a266362d489abf05184909a2b99aa64803061c88597b725877802207f39cf5a90a305aee45f365cf9e2d258e37cab4da6c123'
+   'aa287635cd1fd40dd001410438252055130f3dd242201684931550c4065efc1b87c48192f75868f747e2a9df9a700fed7e90068bd395c58680bd593780c8119e7'
+   '981dae08c345588f120fcb4ffffffff02e069f902000000001976a914ad00cf2b893e132c33a79a22ae938d6309c780a488ac80f0fa02000000001976a9143155'
+   '18b646ea65ad148ee1e2f0360233617447e288ac00000000')
+
+multiTx2raw = hex_to_binary( \
+   '0100000004a14fd232f045f0c9f28c6848a22fee393152e901eaa61a9f18438b3ba05c6035010000008a47304402201b19808aa145dbebf775ed11a15d763eaa2'
+   'b5df92b20f9835f62c72404918b1b02205aea3e816ac6ac7545254b9c34a00c37f20024793bbe0a64958934343f3c577b014104c0f3d0a4920bb6825769dd6ae1'
+   'e36b0ac36581639d605241cdd548c4ef5d46cda5ac21723d478041a63118f192fdb730c4cf76106789824cd68879a7afeb5288ffffffffa14fd232f045f0c9f28'
+   'c6848a22fee393152e901eaa61a9f18438b3ba05c6035000000008b4830450220796307d9787b892c8b1ada8511d99e855ea3099e1a76ce0f7aa783ed352a6e59'
+   '022100fc38d05d7dfbe51e28c36d854dd0dcc938d60a3e406573c3dc39253694d14a12014104630aaf9d5c8d757cb5759428d4075911a2b2ff13dd7208ad7ea1d'
+   '1682738a7138be93ee526c9d774e0dea03fa2a5fbb68043259ddfb942c0763f9b636b40c43fffffffffa14fd232f045f0c9f28c6848a22fee393152e901eaa61a'
+   '9f18438b3ba05c6035020000008c493046022100cb423b63197ef3cdbfaed69f61aac59755f0025bd6d7a9d3c78024d897ebcf94022100f3ad14804a3c8042387'
+   'eca9b9053abe99e12651a795cae7f546b08e1c08c6464014104649694df12dcd7fdb5a8c54c376b904bd7337891d865b8d306beb5d2e5d8fdf2a537d6f9df65ff'
+   '44eb0b6042ebfdf9e338bff7f4afacb359dd6c71aea7b9b92dffffffffa14fd232f045f0c9f28c6848a22fee393152e901eaa61a9f18438b3ba05c60350300000'
+   '08c49304602220000fb9f4ddc68497a266362d489abf05184909a2b99aa64803061c88597b725877802207f39cf5a90a305aee45f365cf9e2d258e37cab4da6c123'
+   'aa287635cd1fd40dd001410438252055130f3dd242201684931550c4065efc1b87c48192f75868f747e2a9df9a700fed7e90068bd395c58680bd593780c8119e7'
+   '981dae08c345588f120fcb4ffffffff02e069f902000000001976a914ad00cf2b893e132c33a79a22ae938d6309c780a488ac80f0fa02000000001976a9143155'
+   '18b646ea65ad148ee1e2f0360233617447e288ac00000000')
+
    # Here's a full block, which we should be able to parse and process
-hexBlock = (
+hexBlock = ( \
     '01000000eb10c9a996a2340a4d74eaab41421ed8664aa49d18538bab59010000000000005a2f06efa9f2bd804f17877537f2080030cadbfa1eb50e02338117cc'
     '604d91b9b7541a4ecfbb0a1a64f1ade70301000000010000000000000000000000000000000000000000000000000000000000000000ffffffff0804cfbb0a1a'
     '02360affffffff0100f2052a01000000434104c2239c4eedb3beb26785753463be3ec62b82f6acd62efb65f452f8806f2ede0b338e31d1f69b1ce449558d7061'
@@ -86,12 +116,30 @@ class PyTXTest(unittest.TestCase):
    
    
    def testMinimizeDERSignaturePadding(self):
+      multiTx1  = PyTx().unserialize(multiTx1raw)
+      paddingMinimizedMulti1, newTxMulti1 = multiTx1.minimizeDERSignaturePadding()
+      self.assertEqual(multiTx1.inputs[0].binScript, newTxMulti1.inputs[0].binScript)
+      self.assertEqual(multiTx1.inputs[1].binScript, newTxMulti1.inputs[1].binScript)
+      self.assertEqual(multiTx1.inputs[2].binScript, newTxMulti1.inputs[2].binScript)
+      self.assertEqual(multiTx1.inputs[3].binScript, newTxMulti1.inputs[3].binScript)
+      self.assertFalse(paddingMinimizedMulti1)
+      
+      multiTx2  = PyTx().unserialize(multiTx2raw)
+      paddingMinimizedMulti2, newTxMulti2 = multiTx2.minimizeDERSignaturePadding()
+      self.assertEqual(multiTx2.inputs[0].binScript, newTxMulti2.inputs[0].binScript)
+      self.assertEqual(multiTx2.inputs[1].binScript, newTxMulti2.inputs[1].binScript)
+      self.assertEqual(multiTx2.inputs[2].binScript, newTxMulti2.inputs[2].binScript)
+      # Added 1 extra byte of padding
+      self.assertEqual(len(multiTx2.inputs[3].binScript)-1, len(newTxMulti2.inputs[3].binScript))
+      self.assertTrue(paddingMinimizedMulti2)
+      
       tx1  = PyTx().unserialize(tx1raw)
       paddingMinimized1, newTx1 = tx1.minimizeDERSignaturePadding()
       self.assertEqual(tx1.inputs[0].binScript, newTx1.inputs[0].binScript)
       self.assertFalse(paddingMinimized1)
       tx2  = PyTx().unserialize(tx2raw)
       paddingMinimized2, newTx2 = tx2.minimizeDERSignaturePadding()
+      # Old tx had 2 extra bytes of padding one each on the r and s
       self.assertEqual(len(tx2.inputs[0].binScript)-2, len(newTx2.inputs[0].binScript))
       self.assertTrue(paddingMinimized2)
       

@@ -30,7 +30,7 @@ from utilities.ArmoryUtils import ARMORY_HOME_DIR, LEVELDB_DIR, ARMORY_RPC_PORT,
    toUnicode, enum, MT_WAIT_TIMEOUT_SEC, packVarInt, MAGIC_BYTES, CLI_OPTIONS, \
    CLI_ARGS, BITCOIN_PORT, ADDRBYTE, LOGCRIT, BITCOIN_RPC_PORT, GENESIS_BLOCK_HASH, \
    GENESIS_TX_HASH, SETTINGS_PATH, getVersionInt, readVersionInt, readVersionString,\
-   Hash160ToScrAddr, ARMORY_DB_BARE, DB_PRUNE_NONE
+   Hash160ToScrAddr, ARMORY_DB_BARE, DB_PRUNE_NONE, CheckHash160
 from utilities.BinaryPacker import UINT8, UINT16, UINT32, UINT64, INT8, INT16, \
    INT32, INT64, VAR_INT, VAR_STR, FLOAT, BINARY_CHUNK
 from utilities.BinaryUnpacker import UnpackerError
@@ -491,6 +491,41 @@ def createSigScript(rBin, sBin):
             '\x02' + rSize + rBin + \
             '\x02' + sSize + sBin
    return sigScript
+
+################################################################################
+from qrcodenative import QRCode, QRErrorCorrectLevel
+def CreateQRMatrix(dataToEncode, errLevel='L'):
+   sz=3
+   success=False
+   qrmtrx = [[]]
+   while sz<20:
+      try:
+         errCorrectEnum = getattr(QRErrorCorrectLevel, errLevel.upper())
+         qr = QRCode(sz, errCorrectEnum)
+         qr.addData(dataToEncode)
+         qr.make()
+         success=True
+         break
+      except TypeError:
+         sz += 1
+
+   if not success:
+      LOGERROR('Unsuccessful attempt to create QR code')
+      LOGERROR('Data to encode: (Length: %s, isAscii: %s)', \
+                     len(dataToEncode), isASCII(dataToEncode))
+      return [[0]], 1
+
+   qrmtrx = []
+   modCt = qr.getModuleCount()
+   for r in range(modCt):
+      tempList = [0]*modCt
+      for c in range(modCt):
+         # The matrix is transposed by default, from what we normally expect
+         tempList[c] = 1 if qr.isDark(c,r) else 0
+      qrmtrx.append(tempList)
+   
+   return [qrmtrx, modCt]
+
 
 ################################################################################
 class PyBtcAddress(object):
@@ -2259,6 +2294,10 @@ class PyTxIn(BlockComponent):
          print indstr + indent + 'Sender:    ', hash160_to_addrStr(inAddr160)
       print indstr + indent + 'Seq:       ', self.intSeq
 
+   # Before broadcasting a transaction make sure that the script is canonical
+   # This TX could have been signed by an older version of the software.
+   # Either on the offline Armory installation which may not have been upgraded
+   # or on a previous installation of Armory on this computer.
    def minimizeDERSignaturePadding(self):
       rsLen = binary_to_int(self.binScript[2:3])
       rLen = binary_to_int(self.binScript[4:5])
@@ -2266,7 +2305,7 @@ class PyTxIn(BlockComponent):
       sLen = binary_to_int(self.binScript[6+rLen:7+rLen])
       sBin = self.binScript[7+rLen:7+rLen+sLen]
       sigScript = createSigScript(rBin, sBin)
-      newBinScript = self.binScript[:1] + sigScript + self.binScript[3+rsLen:]
+      newBinScript = int_to_binary(len(sigScript)+1) + sigScript + self.binScript[3+rsLen:]
       paddingRemoved = newBinScript != self.binScript
       newTxIn = self.copy()
       newTxIn.binScript = newBinScript
@@ -2361,7 +2400,11 @@ class PyTx(BlockComponent):
       self.nBytes = endPos - startPos
       self.thisHash = hash256(self.serialize())
       return self
-
+   
+   # Before broadcasting a transaction make sure that the script is canonical
+   # This TX could have been signed by an older version of the software.
+   # Either on the offline Armory installation which may not have been upgraded
+   # or on a previous installation of Armory on this computer.
    def minimizeDERSignaturePadding(self):
       paddingRemoved = False
       newTx = self.copy()
@@ -2374,7 +2417,7 @@ class PyTx(BlockComponent):
          else:
             newTx.inputs.append(txIn)
             
-      return paddingRemoved, newTx
+      return paddingRemoved, newTx.copy()
          
    def getHash(self):
       return hash256(self.serialize())
@@ -9226,10 +9269,12 @@ class SatoshiDaemonManager(object):
    
 
       pargs = [self.executable]
-      pargs.append('-datadir=%s' % self.satoshiHome)
-      if USE_TESTNET:
-         pargs.append('-testnet')
 
+      if USE_TESTNET:
+         pargs.append('-datadir=%s' % self.satoshiHome.rstrip('/testnet3/') )
+         pargs.append('-testnet')
+      else:
+         pargs.append('-datadir=%s' % self.satoshiHome)
       try:
          # Don't want some strange error in this size-check to abort loading
          blocksdir = os.path.join(self.satoshiHome, 'blocks')
@@ -9431,7 +9476,7 @@ class SatoshiDaemonManager(object):
          numblks = self.proxy.getinfo()['blocks']
          blkhash = self.proxy.getblockhash(numblks) 
          toptime = self.proxy.getblock(blkhash)['time']
-         LOGDEBUG('RPC Call: numBlks=%d, toptime=%d', numblks, toptime)
+
          # Only overwrite once all outputs are retrieved
          self.lastTopBlockInfo['numblks'] = numblks
          self.lastTopBlockInfo['tophash'] = blkhash
