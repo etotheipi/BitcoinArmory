@@ -141,7 +141,9 @@ public:
    { 
       timerName_ = name; 
       UniversalTimer::instance().start(timerName_);
-      LOGDEBUG3 << "Executing " << timerName_.c_str();
+#ifdef _DEBUG_FULL_VERBOSE
+	  LOGDEBUG3 << "Executing " << timerName_.c_str();
+#endif
    }
 
 
@@ -149,8 +151,10 @@ public:
    { 
       UniversalTimer::instance().stop(timerName_);
       lastTiming_ = UniversalTimer::instance().read(timerName_);
-      LOGDEBUG3 << "Finishing " << timerName_.c_str()
+#ifdef _DEBUG_FULL_VERBOSE
+	  LOGDEBUG3 << "Finishing " << timerName_.c_str()
                 << "(" << lastTiming_*1000.0 << " ms)";
+#endif
    }
 
 private: 
