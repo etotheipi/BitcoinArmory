@@ -805,14 +805,28 @@ class ArmoryMainWindow(QMainWindow):
       if OS_WINDOWS:
          # Check for existing registration (user first, then root, if necessary)
          action = 'DoNothing'
+         modulepathname = '"'
+         if getattr(sys, 'frozen', False):
+             app_dir = os.path.dirname(sys.executable)
+             app_path = os.path.join(app_dir, sys.executable)
+         elif __file__:
+             return #running from a .py script, not gonna register URI on Windows
+
+         modulepathname += app_path + '" %1'
+         LOGWARN("running from: %s, key: %s", app_path, modulepathname)
+         
+
          rootKey = 'bitcoin\\shell\\open\\command'
          try:
             userKey = 'Software\\Classes\\' + rootKey
             registryKey = OpenKey(HKEY_CURRENT_USER, userKey, 0, KEY_READ)
             val,code = QueryValueEx(registryKey, '')
-            if 'armory.exe' in val.lower():
-               LOGINFO('Armory already registered for current user.  Done!')
-               return
+            if 'armory' in val.lower():
+               if val.lower()==modulepathname.lower():
+                  LOGINFO('Armory already registered for current user.  Done!')
+                  return
+               else:
+                  action = 'DoIt' #armory is registered, but to another path
             else:
                # Already set to something (at least created, which is enough)
                action = 'AskUser'
@@ -821,7 +835,7 @@ class ArmoryMainWindow(QMainWindow):
             try:
                registryKey = OpenKey(HKEY_CLASSES_ROOT, rootKey, 0, KEY_READ)
                val,code = QueryValueEx(registryKey, '')
-               if 'armory.exe' in val.lower():
+               if 'armory' in val.lower():
                   LOGINFO('Armory already registered at admin level.  Done!')
                   return
                else:
@@ -860,16 +874,16 @@ class ArmoryMainWindow(QMainWindow):
          # Finally, do it if we're supposed to!
          LOGINFO('URL-register action: %s', action)
          if action=='DoIt':
+ 
             LOGINFO('Registering Armory  for current user')
-            x86str = '' if platform.architecture()[0][:2]=='32' else ' (x86)'
-            baseDir = 'C:\\Program Files%s\\Armory\\Armory Bitcoin Client' % x86str
+            baseDir = app_dir
             regKeys = []
             regKeys.append(['Software\\Classes\\bitcoin', '', 'URL:bitcoin Protocol'])
             regKeys.append(['Software\\Classes\\bitcoin', 'URL Protocol', ""])
             regKeys.append(['Software\\Classes\\bitcoin\\shell', '', None])
             regKeys.append(['Software\\Classes\\bitcoin\\shell\\open', '',  None])
             regKeys.append(['Software\\Classes\\bitcoin\\shell\\open\\command',  '', \
-                           '"%s\\Armory.exe" %%1' % baseDir])
+                           modulepathname])
             regKeys.append(['Software\\Classes\\bitcoin\\DefaultIcon', '',  \
                            '"%s\\armory48x48.ico"' % baseDir])
 
@@ -880,7 +894,7 @@ class ArmoryMainWindow(QMainWindow):
                SetValueEx(registryKey, name, 0, REG_SZ, val)
                CloseKey(registryKey)
 
-         
+            LOGWARN('app dir: %s', app_dir)
          
 
 
@@ -1824,7 +1838,7 @@ class ArmoryMainWindow(QMainWindow):
       if not os.path.exists(mempoolname): 
          return
 
-      memfile = open(mempoolname, 'r')
+      memfile = open(mempoolname, 'rb')
       memdata = memfile.read()
       memfile.close()
 
