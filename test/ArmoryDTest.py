@@ -12,7 +12,7 @@ import os
 from armoryengine import ARMORY_HOME_DIR, PyBtcWallet, TheBDM, PyTx
 from CppBlockUtils import SecureBinaryData, CryptoECDSA
 from utilities.ArmoryUtils import hex_to_binary, binary_to_base58,\
-   convertKeyDataToAddress, hash160_to_addrStr, binary_to_hex
+   convertKeyDataToAddress, hash160_to_addrStr, ph, binary_to_hex
 from armoryd import Armory_Json_Rpc_Server, PrivateKeyNotFound,\
    InvalidBitcoinAddress, WalletUnlockNeeded, Armory_Daemon
 
@@ -42,10 +42,12 @@ RAW_TX2     = '00006c493046022100d43c4e239fc8bf31dbf14f9c71301cf985865b11c92'+\
               '041000000001976a914a4a6b6a83aae2744dd10a8d055d9fb75383cd9d488'+\
               'ac00000000'
 
-TX_ID1      = 'e0dc8e3d3654c5bfeb1eb077f835179395ee82d623b0c0d3c7074fc2d4c0706f'
+TX_ID1      =  'e0dc8e3d3654c5bfeb1eb077f835179395ee82d623b0c0d3c7074fc2d4c0706f'
+TX_ID1_OUTPUT0_VALUE = 63000
+TX_ID1_OUTPUT1_VALUE = 139367000
 
 PASSPHRASE1 = 'abcde'
-              
+
 class ArmoryDTest(unittest.TestCase):      
    def removeFileList(self, fileList):
       for f in fileList:
@@ -91,8 +93,15 @@ class ArmoryDTest(unittest.TestCase):
    def tearDown(self):
       self.removeFileList([self.fileA, self.fileB, self.fileAupd, self.fileBupd])
       
+   def testGettxout(self):
+      txOut = self.jsonServer.jsonrpc_gettxout(TX_ID1, 0)
+      self.assertEquals(TX_ID1_OUTPUT0_VALUE, txOut.value)
+      txOut = self.jsonServer.jsonrpc_gettxout(TX_ID1, 1)
+      self.assertEquals(TX_ID1_OUTPUT1_VALUE, txOut.value)
+
+      
    def testGetrawtransaction(self):
-      actualRawTx = self.jsonServer.jsonrpc_getrawtransaction(hex_to_binary(TX_ID1))
+      actualRawTx = self.jsonServer.jsonrpc_getrawtransaction(TX_ID1)
       pyTx = PyTx().unserialize(actualRawTx)
       self.assertEquals(TX_ID1, binary_to_hex(pyTx.getHash()))
 

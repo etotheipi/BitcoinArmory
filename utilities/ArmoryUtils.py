@@ -759,6 +759,9 @@ def binary_to_hex(b, endOut=LITTLEENDIAN, endIn=LITTLEENDIAN):
       hout = hex_switchEndian(hout)
    return hout
 
+##### Shorthand combo of prettyHex and binary_to_hex intended for use in debugging
+def ph(binaryInput):
+   return prettyHex(binary_to_hex(binaryInput))
 
 ##### INT/BINARYSTR #####
 def int_to_binary(i, widthBytes=0, endOut=LITTLEENDIAN):

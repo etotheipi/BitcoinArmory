@@ -106,7 +106,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
    #############################################################################
    def jsonrpc_getrawtransaction(self, txHash):
       rawTx = None
-      cppTx = TheBDM.getTxByHash(txHash)
+      cppTx = TheBDM.getTxByHash(hex_to_binary(txHash))
       if cppTx.isInitialized():
          txBinary = cppTx.serialize()
          pyTx = PyTx().unserialize(txBinary)
@@ -114,8 +114,22 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       else:    
          LOGERROR('Tx hash not recognized by TheBDM: %s' % binary_to_hex(txHash))
       return rawTx
-      
-      
+   
+   #############################################################################
+   def jsonrpc_gettxout(self, txHash, n):
+      txOut = None
+      cppTx = TheBDM.getTxByHash(hex_to_binary(txHash))
+      if cppTx.isInitialized():
+         txBinary = cppTx.serialize()
+         pyTx = PyTx().unserialize(txBinary)
+         if n < len(pyTx.outputs):
+            txOut = pyTx.outputs[n]
+         else:
+            LOGERROR('Tx no output #: %s' % n)
+      else:    
+         LOGERROR('Tx hash not recognized by TheBDM: %s' % binary_to_hex(txHash))
+      return txOut
+   
    #############################################################################
    def jsonrpc_encryptwallet(self, passphrase):
       if self.wallet.isLocked:
