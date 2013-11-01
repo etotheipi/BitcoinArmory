@@ -4,16 +4,17 @@ Created on Oct 8, 2013
 @author: Andy
 '''
 import sys
+import time
 sys.argv.append('--nologging')
 sys.argv.append('--testnet')
 import unittest
 import os
-from armoryengine import ARMORY_HOME_DIR, PyBtcWallet
+from armoryengine import ARMORY_HOME_DIR, PyBtcWallet, TheBDM, PyTx
 from CppBlockUtils import SecureBinaryData, CryptoECDSA
 from utilities.ArmoryUtils import hex_to_binary, binary_to_base58,\
    convertKeyDataToAddress, hash160_to_addrStr, binary_to_hex
 from armoryd import Armory_Json_Rpc_Server, PrivateKeyNotFound,\
-   InvalidBitcoinAddress, WalletUnlockNeeded
+   InvalidBitcoinAddress, WalletUnlockNeeded, Armory_Daemon
 
 RAW_TX1     = '01000000081fa335f8aa332693c7bf77c960ac1eb86c50a5f60d8dc6892d4'+\
               '3f89473dc50e4b104000000ffffffff4be787d4a6009ba04534c9b42af46e'+\
@@ -41,8 +42,7 @@ RAW_TX2     = '00006c493046022100d43c4e239fc8bf31dbf14f9c71301cf985865b11c92'+\
               '041000000001976a914a4a6b6a83aae2744dd10a8d055d9fb75383cd9d488'+\
               'ac00000000'
 
-TX_ID1      = '0100000001a89fac4240e955a3d0860fb89f0842f0d5f5ae8af2c81434638'+\
-              '55ae95c6404430000'
+TX_ID1      = 'e0dc8e3d3654c5bfeb1eb077f835179395ee82d623b0c0d3c7074fc2d4c0706f'
 
 PASSPHRASE1 = 'abcde'
               
@@ -52,6 +52,15 @@ class ArmoryDTest(unittest.TestCase):
          if os.path.exists(f):
             os.remove(f)
             
+   @classmethod
+   def setUpClass(self):
+      # This is not a UI so no need to worry about the main thread being blocked.
+      # Any UI that uses this Daemon can put the call to the Daemon on it's own thread.
+      TheBDM.setBlocking(True)
+      TheBDM.setOnlineMode(True)
+      while not TheBDM.getBDMState()=='BlockchainReady':
+         time.sleep(2)
+
    def setUp(self):
       self.shortlabel = 'TestWallet1'
       self.wltID = '3VB8XSoY'
@@ -71,19 +80,21 @@ class ArmoryDTest(unittest.TestCase):
       self.passphrase  = SecureBinaryData('A self.passphrase')
       self.passphrase2 = SecureBinaryData('A new self.passphrase')
       
-      self.wlt = PyBtcWallet().createNewWallet(withEncrypt=False, \
+      self.wallet = PyBtcWallet().createNewWallet(withEncrypt=False, \
                                           plainRootKey=self.privKey, \
                                           chaincode=self.chainstr,   \
                                           IV=theIV, \
                                           shortLabel=self.shortlabel)
-      self.jsonServer = Armory_Json_Rpc_Server(self.wlt)
+      self.jsonServer = Armory_Json_Rpc_Server(self.wallet)
+      TheBDM.registerWallet(self.wallet)
       
    def tearDown(self):
       self.removeFileList([self.fileA, self.fileB, self.fileAupd, self.fileBupd])
       
    def testGetrawtransaction(self):
-      actualRawTx = self.jsonServer.jsonrpc_getrawtransaction(TX_ID1)
-      self.assertEqual(actualRawTx, RAW_TX2)
+      actualRawTx = self.jsonServer.jsonrpc_getrawtransaction(hex_to_binary(TX_ID1))
+      pyTx = PyTx().unserialize(actualRawTx)
+      self.assertEquals(TX_ID1, binary_to_hex(pyTx.getHash()))
 
    def testBackupWallet(self):
       backupTestPath = os.path.join(ARMORY_HOME_DIR, 'armory_%s_.wallet.backup.test' % self.wltID)
@@ -94,7 +105,7 @@ class ArmoryDTest(unittest.TestCase):
       self.addCleanup(self.removeFileList, backupFileList)
       self.jsonServer.jsonrpc_backupwallet(backupTestPath)
       self.assertTrue(os.path.exists(backupTestPath))
-      self.wlt.backupWalletFile()
+      self.wallet.backupWalletFile()
       self.assertTrue(os.path.exists(self.fileB))
       
    def testDecoderawtransaction(self):
@@ -133,27 +144,27 @@ class ArmoryDTest(unittest.TestCase):
       self.assertRaises(PrivateKeyNotFound, self.jsonServer.jsonrpc_dumpprivkey, addr58)
       
       # verify that the first private key can be found
-      firstHash160 = self.wlt.getNextUnusedAddress().getAddr160()
+      firstHash160 = self.wallet.getNextUnusedAddress().getAddr160()
       firstAddr58 = hash160_to_addrStr(firstHash160)
       actualPrivateKey = self.jsonServer.jsonrpc_dumpprivkey(firstAddr58)
-      expectedPrivateKey = self.wlt.getAddrByHash160(firstHash160).serializePlainPrivateKey()
+      expectedPrivateKey = self.wallet.getAddrByHash160(firstHash160).serializePlainPrivateKey()
       self.assertEqual(actualPrivateKey, expectedPrivateKey)
       
       # Verify that a locked wallet Raises WalletUnlockNeeded Exception
-      kdfParams = self.wlt.computeSystemSpecificKdfParams(0.1)
-      self.wlt.changeKdfParams(*kdfParams)
-      self.wlt.changeWalletEncryption( securePassphrase=self.passphrase )
-      self.wlt.lock()
+      kdfParams = self.wallet.computeSystemSpecificKdfParams(0.1)
+      self.wallet.changeKdfParams(*kdfParams)
+      self.wallet.changeWalletEncryption( securePassphrase=self.passphrase )
+      self.wallet.lock()
       self.assertRaises(WalletUnlockNeeded, self.jsonServer.jsonrpc_dumpprivkey, addr58)
 
    def testEncryptwallet(self):
-      kdfParams = self.wlt.computeSystemSpecificKdfParams(0.1)
-      self.wlt.changeKdfParams(*kdfParams)
-      self.jsonServer.jsonrpc_encryptwallet(TEST_PASSPHRASE)
-      self.assertTrue(self.wlt.isLocked)
+      kdfParams = self.wallet.computeSystemSpecificKdfParams(0.1)
+      self.wallet.changeKdfParams(*kdfParams)
+      self.jsonServer.jsonrpc_encryptwallet(PASSPHRASE1)
+      self.assertTrue(self.wallet.isLocked)
       
       # Verify that a locked wallet Raises WalletUnlockNeeded Exception
-      self.assertRaises(WalletUnlockNeeded, self.jsonServer.jsonrpc_encryptwallet, TEST_PASSPHRASE)
+      self.assertRaises(WalletUnlockNeeded, self.jsonServer.jsonrpc_encryptwallet, PASSPHRASE1)
       
 
 if __name__ == "__main__":

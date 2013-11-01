@@ -105,11 +105,14 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
    
    #############################################################################
    def jsonrpc_getrawtransaction(self, txHash):
-      info = self.jsonrpc_getinfo()
-      print info
-      txCpp = TheBDM.getTxByHash(hex_to_binary(txHash))
-      pyTx = PyTx().unserialize(txCpp.serialize())
-      rawTx = pyTx.serialize()
+      rawTx = None
+      cppTx = TheBDM.getTxByHash(txHash)
+      if cppTx.isInitialized():
+         txBinary = cppTx.serialize()
+         pyTx = PyTx().unserialize(txBinary)
+         rawTx = pyTx.serialize()
+      else:    
+         LOGERROR('Tx hash not recognized by TheBDM: %s' % binary_to_hex(txHash))
       return rawTx
       
       
@@ -523,11 +526,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
             final_tx_list.append(tx_info)
 
       return final_tx_list
-
-
-
-
-   
+ 
    #############################################################################
    def jsonrpc_getinfo(self):
       isReady = TheBDM.getBDMState() == 'BlockchainReady'
@@ -774,10 +773,12 @@ class Armory_Daemon(object):
 
    #############################################################################
    def start(self):
+      # This is not a UI so no need to worry about the main thread being blocked.
+      # Any UI that uses this Daemon can put the call to the Daemon on it's own thread.
+      TheBDM.setBlocking(True)
       LOGINFO('Server started...')
       if(not TheBDM.getBDMState()=='Offline'):
          TheBDM.registerWallet(self.wallet)
-         TheBDM.setBlocking(False)
          TheBDM.setOnlineMode(True)
 
          LOGINFO('Blockchain loading')
@@ -804,7 +805,6 @@ class Armory_Daemon(object):
                         func_newTx       = self.execOnNewTx, \
                         func_newBlock    = self.execOnNewBlock)
          reactor.connectTCP('127.0.0.1', BITCOIN_PORT, self.NetworkingFactory)
-
       reactor.run()
 
 
