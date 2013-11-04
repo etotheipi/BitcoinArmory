@@ -47,6 +47,7 @@ TX_ID1_OUTPUT0_VALUE = 63000
 TX_ID1_OUTPUT1_VALUE = 139367000
 
 PASSPHRASE1 = 'abcde'
+UNLOCK_TIMEOUT = 5
 
 class ArmoryDTest(unittest.TestCase):      
    def removeFileList(self, fileList):
@@ -92,13 +93,30 @@ class ArmoryDTest(unittest.TestCase):
       
    def tearDown(self):
       self.removeFileList([self.fileA, self.fileB, self.fileAupd, self.fileBupd])
+   
+
+   # Can't test with actual transactions in this environment. See ARMORY-34.
+   # This wallet has no txs
+   def testListunspent(self):
+      actualResult = self.jsonServer.jsonrpc_listunspent()
+      self.assertEqual(actualResult, [])
+      
+   def testImportprivkey(self):
+      originalLength = len(self.wallet.linearAddr160List)
+      self.jsonServer.jsonrpc_importprivkey(self.privKey2)
+      self.assertEqual(len(self.wallet.linearAddr160List), originalLength+1)
       
    def testGettxout(self):
       txOut = self.jsonServer.jsonrpc_gettxout(TX_ID1, 0)
       self.assertEquals(TX_ID1_OUTPUT0_VALUE, txOut.value)
       txOut = self.jsonServer.jsonrpc_gettxout(TX_ID1, 1)
       self.assertEquals(TX_ID1_OUTPUT1_VALUE, txOut.value)
-
+         
+   # Cannot unit test actual balances. Only verify that getreceivedbyaddress return a 0 result.
+   def testGetreceivedbyaddress(self):
+      testAddr = binary_to_base58(self.wallet.getNextUnusedAddress().binPublicKey65.toBinStr())
+      result = self.jsonServer.jsonrpc_getreceivedbyaddress(testAddr)
+      self.assertEqual(result, 0)
       
    def testGetrawtransaction(self):
       actualRawTx = self.jsonServer.jsonrpc_getrawtransaction(TX_ID1)
@@ -175,7 +193,18 @@ class ArmoryDTest(unittest.TestCase):
       # Verify that a locked wallet Raises WalletUnlockNeeded Exception
       self.assertRaises(WalletUnlockNeeded, self.jsonServer.jsonrpc_encryptwallet, PASSPHRASE1)
       
-
+   def testUnlockwallet(self):
+      kdfParams = self.wallet.computeSystemSpecificKdfParams(0.1)
+      self.wallet.changeKdfParams(*kdfParams)
+      self.jsonServer.jsonrpc_encryptwallet(PASSPHRASE1)
+      self.assertTrue(self.wallet.isLocked)
+      self.jsonServer.jsonrpc_unlockwallet(PASSPHRASE1, UNLOCK_TIMEOUT)
+      self.assertFalse(self.wallet.isLocked)
+      time.sleep(UNLOCK_TIMEOUT+1)
+      self.wallet.checkWalletLockTimeout()
+      self.assertTrue(self.wallet.isLocked)
+      
+   
 if __name__ == "__main__":
     #import sys;sys.argv = ['', 'Test.testName']
     unittest.main()

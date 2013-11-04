@@ -102,7 +102,17 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
    #############################################################################
    def jsonrpc_backupwallet(self, backupFilePath):
       self.wallet.backupWalletFile(backupFilePath)
-   
+
+   #############################################################################
+   def jsonrpc_listunspent(self):
+      utxoList = self.wallet.getTxOutList('unspent')
+      result = [u.serialize() for u in utxoList]
+      return result
+         
+   #############################################################################
+   def jsonrpc_importprivkey(self, privkey):
+      self.wallet.importExternalAddressData(PRIVATE_KEY=privkey)
+
    #############################################################################
    def jsonrpc_getrawtransaction(self, txHash):
       rawTx = None
@@ -136,7 +146,12 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
          raise WalletUnlockNeeded
       self.wallet.changeWalletEncryption( securePassphrase=SecureBinaryData(passphrase) )
       self.wallet.lock()
-       
+      
+   #############################################################################
+   def jsonrpc_unlockwallet(self, passphrase, timeout):
+      self.wallet.unlock( securePassphrase=SecureBinaryData(passphrase),
+                            tempKeyLifetime=timeout)
+
    #############################################################################
 
    def getTxOutScriptType(self, pyTx, n):
