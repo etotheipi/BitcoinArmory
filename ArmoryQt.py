@@ -779,7 +779,11 @@ class ArmoryMainWindow(QMainWindow):
 	
 	for rdfs in out.split('\n'):
 		if rdfs:
-			FFrdf = open(rdfs, 'r+')
+			try:
+				FFrdf = open(rdfs, 'r+')
+			except:
+				continue
+
 			ct = FFrdf.readlines()
 			rdfsch=-1
 			rdfsc=-1
@@ -810,15 +814,15 @@ class ArmoryMainWindow(QMainWindow):
 
 			if rdfsc == -1:
 				FFrdf.write(' <RDF:Description RDF:about=\"urn:scheme:bitcoin\"\n')
-		           	FFrdf.write('                  NC:value=\"bitcoin\">\n')
+			   	FFrdf.write('                  NC:value=\"bitcoin\">\n')
 	    			FFrdf.write('    <NC:handlerProp RDF:resource=\"urn:scheme:handler:bitcoin\"/>\n')
 	  			FFrdf.write(' </RDF:Description>\n')
 				i+=1
 		
 			if rdfea == -1:
 				FFrdf.write(' <RDF:Description RDF:about=\"urn:scheme:externalApplication:bitcoin\"\n')
-		           	FFrdf.write('                  NC:prettyName=\"xdg-open\"\n')
-		        	FFrdf.write('                  NC:path=\"/usr/bin/xdg-open\" />\n')					
+			   	FFrdf.write('                  NC:prettyName=\"xdg-open\"\n')
+				FFrdf.write('                  NC:path=\"/usr/bin/xdg-open\" />\n')					
 				i+=1
 
 			if i != 0:
