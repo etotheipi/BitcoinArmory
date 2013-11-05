@@ -1,3 +1,4 @@
+#! /usr/bin/python
 ################################################################################
 #                                                                              #
 # Copyright (C) 2011-2013, Armory Technologies, Inc.                           #
@@ -766,6 +767,64 @@ class ArmoryMainWindow(QMainWindow):
       self.notifyQueue = []
       self.notifyBlockedUntil = 0
 
+   #############################################################################
+   def registerBitcoinWithFF(self):
+	#the 3 nodes needed to add to register bitcoin as a protocol in FF	
+	rdfschemehandler = 'about=\"urn:scheme:handler:bitcoin\"'
+	rdfscheme = 'about=\"urn:scheme:bitcoin\"'
+	rdfexternalApp = 'about=\"urn:scheme:externalApplication:bitcoin\"'
+
+	#find mimeTypes.rdf file
+	out,err = execAndWait('find /home/ -type f -name \"mimeTypes.rdf\"')
+	
+	for rdfs in out.split('\n'):
+		if rdfs:
+			FFrdf = open(rdfs, 'r+')
+			ct = FFrdf.readlines()
+			rdfsch=-1
+			rdfsc=-1
+			rdfea=-1
+			i=0
+			#look for the nodes
+			for line in ct:
+				if rdfschemehandler in line:
+					rdfsch=i
+				elif rdfscheme in line:
+					rdfsc=i
+				elif rdfexternalApp in line:			
+					rdfea=i
+				i+=1
+
+			#seek to end of file
+			FFrdf.seek(-11, 2)
+			i=0;		
+
+			#add the missing nodes
+			if rdfsch == -1:
+				FFrdf.write(' <RDF:Description RDF:about=\"urn:scheme:handler:bitcoin\"\n')
+				FFrdf.write('                  NC:alwaysAsk=\"false\">\n')
+				FFrdf.write('    <NC:externalApplication RDF:resource=\"urn:scheme:externalApplication:bitcoin\"/>\n')
+				FFrdf.write('    <NC:possibleApplication RDF:resource=\"urn:handler:local:/usr/bin/xdg-open\"/>\n')
+				FFrdf.write(' </RDF:Description>\n')
+				i+=1
+
+			if rdfsc == -1:
+				FFrdf.write(' <RDF:Description RDF:about=\"urn:scheme:bitcoin\"\n')
+		           	FFrdf.write('                  NC:value=\"bitcoin\">\n')
+	    			FFrdf.write('    <NC:handlerProp RDF:resource=\"urn:scheme:handler:bitcoin\"/>\n')
+	  			FFrdf.write(' </RDF:Description>\n')
+				i+=1
+		
+			if rdfea == -1:
+				FFrdf.write(' <RDF:Description RDF:about=\"urn:scheme:externalApplication:bitcoin\"\n')
+		           	FFrdf.write('                  NC:prettyName=\"xdg-open\"\n')
+		        	FFrdf.write('                  NC:path=\"/usr/bin/xdg-open\" />\n')					
+				i+=1
+
+			if i != 0:
+				FFrdf.write('</RDF:RDF>\n')
+
+			FFrdf.close()
 
    #############################################################################
    def setupUriRegistration(self, justDoIt=False):
@@ -779,18 +838,24 @@ class ArmoryMainWindow(QMainWindow):
 
       if OS_LINUX:
          out,err = execAndWait('gconftool-2 --get /desktop/gnome/url-handlers/bitcoin/command')
-      
+	 out2,err = execAndWait('xdg-mime query default x-scheme-handler/bitcoin')
+	 
+	 #check FF protocol association
+	 checkFF_thread = threading.Thread(target=self.registerBitcoinWithFF)
+	 checkFF_thread.start()
+
          def setAsDefault():
             LOGINFO('Setting up Armory as default URI handler...')
-            execAndWait('gconftool-2 -t string -s /desktop/gnome/url-handlers/bitcoin/command "python /usr/share/armory/ArmoryQt.py \"%s\""')
+            execAndWait('gconftool-2 -t string -s /desktop/gnome/url-handlers/bitcoin/command "python /usr/lib/armory/ArmoryQt.py \"%s\""')
             execAndWait('gconftool-2 -s /desktop/gnome/url-handlers/bitcoin/needs_terminal false -t bool')
             execAndWait('gconftool-2 -t bool -s /desktop/gnome/url-handlers/bitcoin/enabled true')
+	    execAndWait('xdg-mime default armory.desktop x-scheme-handler/bitcoin')
 
 
-         if 'no value' in out.lower() or 'no value' in err.lower():
+         if ('no value' in out.lower() or 'no value' in err.lower()) and not 'armory.desktop' in out2.lower():
             # Silently add Armory if it's never been set before
             setAsDefault()
-         elif not 'armory' in out.lower() and not isFirstLoad:
+         elif (not 'armory' in out.lower() or not 'armory.desktop' in out2.lower()) and not isFirstLoad:
             # If another application has it, ask for permission to change it
             if not self.getSettingOrSetDefault('DNAA_DefaultApp', False):
                reply = MsgBoxWithDNAA(MSGBOX.Question, 'Default URL Handler', \
