@@ -1163,7 +1163,6 @@ class PyBtcAddress(object):
       next time the user unlocks their wallet.  Thus, we have to save off the
       data they will need to create the key, to be applied on next unlock.
       """
-      LOGDEBUG('Extending address chain')
       if not self.chaincode.getSize() == 32:
          raise KeyDataError, 'No chaincode has been defined to extend chain'
 
