@@ -273,6 +273,7 @@ else:
 SETTINGS_PATH   = CLI_OPTIONS.settingsPath
 
 
+
 # If this is the first Armory has been run, create directories
 if ARMORY_HOME_DIR and not os.path.exists(ARMORY_HOME_DIR):
    os.makedirs(ARMORY_HOME_DIR)
@@ -589,6 +590,23 @@ elif CLI_OPTIONS.logcpp:
    os.dup2(cpplogfile.fileno(), sys.stderr.fileno())
 """
    
+
+fileRebuild = os.path.join(ARMORY_HOME_DIR, 'rebuild.txt')
+fileRescan  = os.path.join(ARMORY_HOME_DIR, 'rescan.txt')
+if os.path.exists(fileRebuild):
+   LOGINFO('Found %s, will destroy and rebuild databases' % fileRebuild)
+   os.remove(fileRebuild)
+   if os.path.exists(fileRescan):
+      os.remove(fileRescan)
+      
+   CLI_OPTIONS.rebuild = True
+elif os.path.exists(fileRescan):
+   LOGINFO('Found %s, will throw out saved history, rescan' % fileRescan)
+   os.remove(fileRescan)
+   if os.path.exists(fileRebuild):
+      os.remove(fileRebuild)
+   CLI_OPTIONS.rescan = True
+
 
 def logexcept_override(type, value, tback):
    import traceback

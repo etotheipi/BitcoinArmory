@@ -1347,7 +1347,7 @@ class DlgWalletDetails(ArmoryDialog):
       
 
    def getNewAddress(self):
-      if showWatchOnlyRecvWarningIfNecessary(self.wlt, self.main):
+      if showRecvCoinsWarningIfNecessary(self.wlt, self.main):
          DlgNewAddressDisp(self.wlt, self, self.main).exec_()
       self.wltAddrView.reset()
        
@@ -1859,7 +1859,18 @@ class DlgWalletDetails(ArmoryDialog):
          self.setWindowTitle('Set Wallet Owner')
 
 
-def showWatchOnlyRecvWarningIfNecessary(wlt, main):
+def showRecvCoinsWarningIfNecessary(wlt, main):
+
+   if main.getSettingOrSetDefault("SyncSuccessCount", 0) < 1:
+      result = QMessageBox.warning(main, tr('Careful!'), tr("""
+         Armory is not online yet, and will eventually need to be online to 
+         access any funds sent to your wallet.  Please <u><b>do not</b></u>
+         receive Bitcoins to your Armory wallets until you have successfully 
+         gotten online <i>at least one time</i>.
+         <br><br>
+         Do you wish to continue?"""), QMessageBox.Cancel | QMessageBox.Ok)
+      if not result==QMessageBox.Ok:
+         return False
 
    wlttype = determineWalletType(wlt, main)[0]
    notMyWallet   = (wlttype==WLTTYPES.WatchOnly)
