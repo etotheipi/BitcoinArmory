@@ -4573,7 +4573,12 @@ protected:
       // This seem to be the best way to remove a dir tree in C++ (in Linux)
       iface_->closeDatabases();
       iface_=0;
-      rmdir("./ldbtestdir/level*");
+	  
+	  #ifdef _MSC_VER
+		rmdir("./ldbtestdir/level*");
+	  #else
+		system("rm -rf ./ldbtestdir/level*");
+	  #endif
    }
 
    /////

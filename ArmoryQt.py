@@ -1,3 +1,4 @@
+#! /usr/bin/python
 ################################################################################
 #                                                                              #
 # Copyright (C) 2011-2013, Armory Technologies, Inc.                           #
@@ -766,6 +767,68 @@ class ArmoryMainWindow(QMainWindow):
       self.notifyQueue = []
       self.notifyBlockedUntil = 0
 
+   #############################################################################
+   def registerBitcoinWithFF(self):
+	#the 3 nodes needed to add to register bitcoin as a protocol in FF	
+	rdfschemehandler = 'about=\"urn:scheme:handler:bitcoin\"'
+	rdfscheme = 'about=\"urn:scheme:bitcoin\"'
+	rdfexternalApp = 'about=\"urn:scheme:externalApplication:bitcoin\"'
+
+	#find mimeTypes.rdf file
+	out,err = execAndWait('find /home/ -type f -name \"mimeTypes.rdf\"')
+	
+	for rdfs in out.split('\n'):
+		if rdfs:
+			try:
+				FFrdf = open(rdfs, 'r+')
+			except:
+				continue
+
+			ct = FFrdf.readlines()
+			rdfsch=-1
+			rdfsc=-1
+			rdfea=-1
+			i=0
+			#look for the nodes
+			for line in ct:
+				if rdfschemehandler in line:
+					rdfsch=i
+				elif rdfscheme in line:
+					rdfsc=i
+				elif rdfexternalApp in line:			
+					rdfea=i
+				i+=1
+
+			#seek to end of file
+			FFrdf.seek(-11, 2)
+			i=0;		
+
+			#add the missing nodes
+			if rdfsch == -1:
+				FFrdf.write(' <RDF:Description RDF:about=\"urn:scheme:handler:bitcoin\"\n')
+				FFrdf.write('                  NC:alwaysAsk=\"false\">\n')
+				FFrdf.write('    <NC:externalApplication RDF:resource=\"urn:scheme:externalApplication:bitcoin\"/>\n')
+				FFrdf.write('    <NC:possibleApplication RDF:resource=\"urn:handler:local:/usr/bin/xdg-open\"/>\n')
+				FFrdf.write(' </RDF:Description>\n')
+				i+=1
+
+			if rdfsc == -1:
+				FFrdf.write(' <RDF:Description RDF:about=\"urn:scheme:bitcoin\"\n')
+			   	FFrdf.write('                  NC:value=\"bitcoin\">\n')
+	    			FFrdf.write('    <NC:handlerProp RDF:resource=\"urn:scheme:handler:bitcoin\"/>\n')
+	  			FFrdf.write(' </RDF:Description>\n')
+				i+=1
+		
+			if rdfea == -1:
+				FFrdf.write(' <RDF:Description RDF:about=\"urn:scheme:externalApplication:bitcoin\"\n')
+			   	FFrdf.write('                  NC:prettyName=\"xdg-open\"\n')
+				FFrdf.write('                  NC:path=\"/usr/bin/xdg-open\" />\n')					
+				i+=1
+
+			if i != 0:
+				FFrdf.write('</RDF:RDF>\n')
+
+			FFrdf.close()
 
    #############################################################################
    def setupUriRegistration(self, justDoIt=False):
@@ -779,18 +842,24 @@ class ArmoryMainWindow(QMainWindow):
 
       if OS_LINUX:
          out,err = execAndWait('gconftool-2 --get /desktop/gnome/url-handlers/bitcoin/command')
-      
+	 out2,err = execAndWait('xdg-mime query default x-scheme-handler/bitcoin')
+	 
+	 #check FF protocol association
+	 checkFF_thread = threading.Thread(target=self.registerBitcoinWithFF)
+	 checkFF_thread.start()
+
          def setAsDefault():
             LOGINFO('Setting up Armory as default URI handler...')
-            execAndWait('gconftool-2 -t string -s /desktop/gnome/url-handlers/bitcoin/command "python /usr/share/armory/ArmoryQt.py \"%s\""')
+            execAndWait('gconftool-2 -t string -s /desktop/gnome/url-handlers/bitcoin/command "python /usr/lib/armory/ArmoryQt.py \"%s\""')
             execAndWait('gconftool-2 -s /desktop/gnome/url-handlers/bitcoin/needs_terminal false -t bool')
             execAndWait('gconftool-2 -t bool -s /desktop/gnome/url-handlers/bitcoin/enabled true')
+	    execAndWait('xdg-mime default armory.desktop x-scheme-handler/bitcoin')
 
 
-         if 'no value' in out.lower() or 'no value' in err.lower():
+         if ('no value' in out.lower() or 'no value' in err.lower()) and not 'armory.desktop' in out2.lower():
             # Silently add Armory if it's never been set before
             setAsDefault()
-         elif not 'armory' in out.lower() and not isFirstLoad:
+         elif (not 'armory' in out.lower() or not 'armory.desktop' in out2.lower()) and not isFirstLoad:
             # If another application has it, ask for permission to change it
             if not self.getSettingOrSetDefault('DNAA_DefaultApp', False):
                reply = MsgBoxWithDNAA(MSGBOX.Question, 'Default URL Handler', \
@@ -805,14 +874,28 @@ class ArmoryMainWindow(QMainWindow):
       if OS_WINDOWS:
          # Check for existing registration (user first, then root, if necessary)
          action = 'DoNothing'
+         modulepathname = '"'
+         if getattr(sys, 'frozen', False):
+             app_dir = os.path.dirname(sys.executable)
+             app_path = os.path.join(app_dir, sys.executable)
+         elif __file__:
+             return #running from a .py script, not gonna register URI on Windows
+
+         modulepathname += app_path + '" %1'
+         LOGWARN("running from: %s, key: %s", app_path, modulepathname)
+         
+
          rootKey = 'bitcoin\\shell\\open\\command'
          try:
             userKey = 'Software\\Classes\\' + rootKey
             registryKey = OpenKey(HKEY_CURRENT_USER, userKey, 0, KEY_READ)
             val,code = QueryValueEx(registryKey, '')
-            if 'armory.exe' in val.lower():
-               LOGINFO('Armory already registered for current user.  Done!')
-               return
+            if 'armory' in val.lower():
+               if val.lower()==modulepathname.lower():
+                  LOGINFO('Armory already registered for current user.  Done!')
+                  return
+               else:
+                  action = 'DoIt' #armory is registered, but to another path
             else:
                # Already set to something (at least created, which is enough)
                action = 'AskUser'
@@ -821,7 +904,7 @@ class ArmoryMainWindow(QMainWindow):
             try:
                registryKey = OpenKey(HKEY_CLASSES_ROOT, rootKey, 0, KEY_READ)
                val,code = QueryValueEx(registryKey, '')
-               if 'armory.exe' in val.lower():
+               if 'armory' in val.lower():
                   LOGINFO('Armory already registered at admin level.  Done!')
                   return
                else:
@@ -860,16 +943,16 @@ class ArmoryMainWindow(QMainWindow):
          # Finally, do it if we're supposed to!
          LOGINFO('URL-register action: %s', action)
          if action=='DoIt':
+ 
             LOGINFO('Registering Armory  for current user')
-            x86str = '' if platform.architecture()[0][:2]=='32' else ' (x86)'
-            baseDir = 'C:\\Program Files%s\\Armory\\Armory Bitcoin Client' % x86str
+            baseDir = app_dir
             regKeys = []
             regKeys.append(['Software\\Classes\\bitcoin', '', 'URL:bitcoin Protocol'])
             regKeys.append(['Software\\Classes\\bitcoin', 'URL Protocol', ""])
             regKeys.append(['Software\\Classes\\bitcoin\\shell', '', None])
             regKeys.append(['Software\\Classes\\bitcoin\\shell\\open', '',  None])
             regKeys.append(['Software\\Classes\\bitcoin\\shell\\open\\command',  '', \
-                           '"%s\\Armory.exe" %%1' % baseDir])
+                           modulepathname])
             regKeys.append(['Software\\Classes\\bitcoin\\DefaultIcon', '',  \
                            '"%s\\armory48x48.ico"' % baseDir])
 
@@ -880,7 +963,7 @@ class ArmoryMainWindow(QMainWindow):
                SetValueEx(registryKey, name, 0, REG_SZ, val)
                CloseKey(registryKey)
 
-         
+            LOGWARN('app dir: %s', app_dir)
          
 
 
@@ -1824,7 +1907,7 @@ class ArmoryMainWindow(QMainWindow):
       if not os.path.exists(mempoolname): 
          return
 
-      memfile = open(mempoolname, 'r')
+      memfile = open(mempoolname, 'rb')
       memdata = memfile.read()
       memfile.close()
 
