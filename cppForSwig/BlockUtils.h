@@ -570,6 +570,8 @@ private:
    set<HashString>                    txJustInvalidated_;
    set<HashString>                    txJustAffected_;
 
+   bool                               corruptHeadersDB_;
+
    // Store info on orphan chains
    vector<BlockHeader*>               previouslyValidBlockHeaderPtrs_;
    vector<BlockHeader*>               orphanChainStartBlocks_;

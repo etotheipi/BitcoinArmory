@@ -236,6 +236,39 @@ bool InterfaceToLDB::openDatabases(string basedir,
 
 
 /////////////////////////////////////////////////////////////////////////////
+void InterfaceToLDB::nukeHeadersDB(void)
+{
+   SCOPED_TIMER("nukeHeadersDB");
+   LOGINFO << "Destroying headers DB, to be rebuilt.";
+   seekTo(HEADERS, DB_PREFIX_HEADHASH, BinaryData(0));
+   leveldb::Iterator* iter = iters_[HEADERS];
+   startBatch(HEADERS);
+
+   do
+   {
+      if(!iter->Valid())
+         break;
+
+      batches_[HEADERS]->Delete(iter->key());
+
+   } while(advanceIterAndRead(iter));
+
+   commitBatch(HEADERS);
+
+   
+   StoredDBInfo sdbi;
+   sdbi.magic_      = magicBytes_;
+   sdbi.topBlkHgt_  = 0;
+   sdbi.topBlkHash_ = genesisBlkHash_;
+   putStoredDBInfo(HEADERS, sdbi);
+
+   validDupByHeight_.clear();
+   validDupByHeight_.resize(0);
+   validDupByHeight_.reserve(300000);
+}
+
+
+/////////////////////////////////////////////////////////////////////////////
 // DBs don't really need to be closed.  Just delete them
 void InterfaceToLDB::closeDatabases(void)
 {
