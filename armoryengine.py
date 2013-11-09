@@ -7,7 +7,7 @@
 ################################################################################
 
 # Version Numbers 
-BTCARMORY_VERSION    = (0, 89, 99, 8)  # (Major, Minor, Bugfix, AutoIncrement) 
+BTCARMORY_VERSION    = (0, 89, 99, 11)  # (Major, Minor, Bugfix, AutoIncrement) 
 PYBTCWALLET_VERSION  = (1, 35,  0, 0)  # (Major, Minor, Bugfix, AutoIncrement)
 
 ARMORY_DONATION_ADDR = '1ArmoryXcfq7TnCSuZa9fQjRYwJ4bkRKfv'
@@ -11883,17 +11883,21 @@ class SettingsFile(object):
 
 class PyBackgroundThread(threading.Thread):
    """
-   Define a thread object that will execute a preparatory function
-   (blocking), and then a long processing thread followed by something
-   to do when it's done (both non-blocking).  After the 3 methods and 
-   their arguments are set, use obj.start() to kick it off.
+   Wraps a function in a threading.Thread object which will run
+   that function in a separate thread.  Calling self.start() will
+   return immediately, but will start running that function in 
+   separate thread.  You can check its progress later by using 
+   self.isRunning() or self.isFinished().  If the function returns
+   a value, use self.getOutput().  Use self.getElapsedSeconds() 
+   to find out how long it took.
    """
    
    def __init__(self, *args, **kwargs):
       threading.Thread.__init__(self)
 
-      self.preFunc  = lambda: ()
-      self.postFunc = lambda: ()
+      self.output     = None
+      self.startedAt  = UNINITIALIZED
+      self.finishedAt = UNINITIALIZED
 
       if len(args)==0:
          self.func  = lambda: ()
@@ -11904,35 +11908,77 @@ class PyBackgroundThread(threading.Thread):
          else:
             self.setThreadFunction(args[0], *args[1:], **kwargs)
 
-   def setPreThreadFunction(self, prefunc, *args, **kwargs):
-      def preFuncPartial():
-         prefunc(*args, **kwargs)
-      self.preFunc = preFuncPartial
-
    def setThreadFunction(self, thefunc, *args, **kwargs):
       def funcPartial():
-         thefunc(*args, **kwargs)
+         return thefunc(*args, **kwargs)
       self.func = funcPartial
 
-   def setPostThreadFunction(self, postfunc, *args, **kwargs):
-      def postFuncPartial():
-         postfunc(*args, **kwargs)
-      self.postFunc = postFuncPartial
+   def isFinished(self):
+      return not (self.finishedAt==UNINITIALIZED)
 
+   def isStarted(self):
+      return not (self.startedAt==UNINITIALIZED)
 
-   def run(self):
-      #LOGDEBUG('Executing thread.run()...')
-      self.func()
-      self.postFunc()
+   def isRunning(self):
+      return (self.isStarted() and not self.isFinished())
+
+   def getElapsedSeconds(self):
+      if not self.isFinished():
+         LOGERROR('Thread is not finished yet!')
+         return None
+      else:
+         return self.finishedAt - self.startedAt
+
+   def getOutput(self):
+      if not self.isFinished():
+         if self.isRunning():
+            LOGERROR('Cannot get output while thread is running')
+         else:
+            LOGERROR('Thread was never .start()ed')
+         return None
+
+      return self.output
+
 
    def start(self):
-      #LOGDEBUG('Executing thread.start()...')
       # The prefunc is blocking.  Probably preparing something
       # that needs to be in place before we start the thread
-      self.preFunc()
+      self.startedAt = RightNow()
       super(PyBackgroundThread, self).start()
 
+   def run(self):
+      # This should not be called manually.  Only call start()
+      self.output     = self.func()
+      self.finishedAt = RightNow()
       
+   def reset(self):
+      self.output = None
+      self.startedAt  = UNINITIALIZED
+      self.finishedAt = UNINITIALIZED
+
+   def restart(self):
+      self.reset()
+      self.start()
+
+
+# Define a decorator that allows the function to be called asynchronously
+def AllowAsync(func):
+   def wrappedFunc(*args, **kwargs):
+
+      if not 'async' in kwargs or not kwargs['async']==True:
+         # Run the function normally
+         if 'async' in kwargs:
+            del kwargs['async']
+         return func(*args, **kwargs)
+      else:
+         # Run the function as a background thread
+         del kwargs['async']
+         thr = PyBackgroundThread(func, *args, **kwargs)
+         thr.start()
+         return thr
+
+   return wrappedFunc
+         
 
 
 

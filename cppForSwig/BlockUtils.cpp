@@ -5473,7 +5473,7 @@ bool BlockDataManager_LevelDB::addRawBlockToDB(BinaryRefReader & brr)
    BinaryDataRef first4 = brr.get_BinaryDataRef(4);
    
    // Skip magic bytes and block sz if exist, put ptr at beginning of header
-   if(first4 == READHEX("f9beb4d9"))
+   if(first4 == MagicBytes_)
       brr.advance(4);
    else
       brr.rewind(4);
