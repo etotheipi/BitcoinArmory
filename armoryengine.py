@@ -7,7 +7,7 @@
 ################################################################################
 
 # Version Numbers 
-BTCARMORY_VERSION    = (0, 89, 99, 11)  # (Major, Minor, Bugfix, AutoIncrement) 
+BTCARMORY_VERSION    = (0, 89, 99, 10)  # (Major, Minor, Bugfix, AutoIncrement) 
 PYBTCWALLET_VERSION  = (1, 35,  0, 0)  # (Major, Minor, Bugfix, AutoIncrement)
 
 ARMORY_DONATION_ADDR = '1ArmoryXcfq7TnCSuZa9fQjRYwJ4bkRKfv'
@@ -74,6 +74,10 @@ parser.add_option("--mtdebug",         dest="mtdebug",     default=False,     ac
 parser.add_option("--skip-online-check", dest="forceOnline", default=False,   action="store_true", help="Go into online mode, even if internet connection isn't detected")
 parser.add_option("--skip-version-check", dest="skipVerCheck", default=False, action="store_true", help="Do not contact bitcoinarmory.com to check for new versions")
 parser.add_option("--keypool",         dest="keypool",     default=100, type="int",                help="Default number of addresses to lookahead in Armory wallets")
+parser.add_option("--port", dest="port", default=None, type="int", help="Unit Test Argument - Do not consume")
+parser.add_option("--verbosity", dest="verbosity", default=None, type="int", help="Unit Test Argument - Do not consume")
+parser.add_option("--coverage_output_dir", dest="coverageOutputDir", default=None, type="str", help="Unit Test Argument - Do not consume")
+parser.add_option("--coverage_include", dest="coverageInclude", default=None, type="str", help="Unit Test Argument - Do not consume")
 parser.add_option("--rebuild",         dest="rebuild",     default=False,     action="store_true", help="Rebuild blockchain database and rescan")
 parser.add_option("--rescan",          dest="rescan",      default=False,     action="store_true", help="Rescan existing blockchain DB")
 
@@ -2255,7 +2259,23 @@ def createBitcoinURI(addr, amt=None, msg=None):
 
    return uriStr
 
+################################################################################
+def createSigScript(rBin, sBin):
+   # Remove all leading zero-bytes
+   while rBin[0]=='\x00':
+      rBin = rBin[1:]
+   while sBin[0]=='\x00':
+      sBin = sBin[1:]
 
+   if binary_to_int(rBin[0])&128>0:  rBin = '\x00'+rBin
+   if binary_to_int(sBin[0])&128>0:  sBin = '\x00'+sBin
+   rSize  = int_to_binary(len(rBin))
+   sSize  = int_to_binary(len(sBin))
+   rsSize = int_to_binary(len(rBin) + len(sBin) + 4)
+   sigScript = '\x30' + rsSize + \
+            '\x02' + rSize + rBin + \
+            '\x02' + sSize + sBin
+   return sigScript
 
 ################################################################################
 class PyBtcAddress(object):
@@ -2787,8 +2807,6 @@ class PyBtcAddress(object):
    def checkPubPrivKeyMatch(self, securePriv, securePub):
       CryptoECDSA().CheckPubPrivKeyMatch(securePriv, securePub)
 
-
-
    #############################################################################
    def generateDERSignature(self, binMsg, secureKdfOutput=None):
       """
@@ -2821,22 +2839,7 @@ class PyBtcAddress(object):
          # but it doesn't hurt to always do it.
          rBin   = sigstr[:32 ]
          sBin   = sigstr[ 32:]
-
-         # Remove all leading zero-bytes
-         while rBin[0]=='\x00':
-            rBin = rBin[1:]
-         while sBin[0]=='\x00':
-            sBin = sBin[1:]
-
-         if binary_to_int(rBin[0])&128>0:  rBin = '\x00'+rBin
-         if binary_to_int(sBin[0])&128>0:  sBin = '\x00'+sBin
-         rSize  = int_to_binary(len(rBin))
-         sSize  = int_to_binary(len(sBin))
-         rsSize = int_to_binary(len(rBin) + len(sBin) + 4)
-         sigScr = '\x30' + rsSize + \
-                  '\x02' + rSize + rBin + \
-                  '\x02' + sSize + sBin
-         return sigScr
+         return createSigScript(rBin, sBin)
       except:
          LOGERROR('Failed signature generation')
       finally:
@@ -4054,6 +4057,22 @@ class PyTxIn(object):
          print indstr + indent + 'Sender:    ', hash160_to_addrStr(inAddr160)
       print indstr + indent + 'Seq:       ', self.intSeq
 
+   # Before broadcasting a transaction make sure that the script is canonical
+   # This TX could have been signed by an older version of the software.
+   # Either on the offline Armory installation which may not have been upgraded
+   # or on a previous installation of Armory on this computer.
+   def minimizeDERSignaturePadding(self):
+      rsLen = binary_to_int(self.binScript[2:3])
+      rLen = binary_to_int(self.binScript[4:5])
+      rBin = self.binScript[5:5+rLen]
+      sLen = binary_to_int(self.binScript[6+rLen:7+rLen])
+      sBin = self.binScript[7+rLen:7+rLen+sLen]
+      sigScript = createSigScript(rBin, sBin)
+      newBinScript = int_to_binary(len(sigScript)+1) + sigScript + self.binScript[3+rsLen:]
+      paddingRemoved = newBinScript != self.binScript
+      newTxIn = self.copy()
+      newTxIn.binScript = newBinScript
+      return paddingRemoved, newTxIn
 
 #####
 class PyTxOut(object):
@@ -4158,6 +4177,23 @@ class PyTx(object):
 
    def copy(self):
       return PyTx().unserialize(self.serialize())
+
+   # Before broadcasting a transaction make sure that the script is canonical
+   # This TX could have been signed by an older version of the software.
+   # Either on the offline Armory installation which may not have been upgraded
+   # or on a previous installation of Armory on this computer.
+   def minimizeDERSignaturePadding(self):
+      paddingRemoved = False
+      newTx = self.copy()
+      newTx.inputs = []
+      for txIn in self.inputs:
+         paddingRemovedFromTxIn, newTxIn  = txIn.minimizeDERSignaturePadding() 
+         if paddingRemovedFromTxIn:
+            paddingRemoved = True
+            newTx.inputs.append(newTxIn)
+         else:
+            newTx.inputs.append(txIn)            
+      return paddingRemoved, newTx.copy()
 
    def getHash(self):
       return hash256(self.serialize())
@@ -11079,9 +11115,11 @@ class SatoshiDaemonManager(object):
    
 
       pargs = [self.executable]
-      pargs.append('-datadir=%s' % self.satoshiHome)
       if USE_TESTNET:
+         pargs.append('-datadir=%s' % self.satoshiHome.rstrip('/testnet3/') )
          pargs.append('-testnet')
+      else:
+         pargs.append('-datadir=%s' % self.satoshiHome)
 
       try:
          # Don't want some strange error in this size-check to abort loading
