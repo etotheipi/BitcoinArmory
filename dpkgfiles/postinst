@@ -19,8 +19,8 @@ try:
    # No reason to fail installation just because we don't recognize the OS
    dist,version,ID = platform.linux_distribution()
    major,minor = [int(v) for v in version.split('.')][:2]
-   if dist=='Ubuntu' and ((major,minor)==(10,10) or major>=11):
-      perm_app_register = True
+   #if dist=='Ubuntu' and ((major,minor)==(10,10) or major>=11):
+   perm_app_register = True
 except:
    pass
 

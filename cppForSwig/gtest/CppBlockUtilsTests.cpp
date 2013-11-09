@@ -4572,8 +4572,13 @@ protected:
    {
       // This seem to be the best way to remove a dir tree in C++ (in Linux)
       iface_->closeDatabases();
-      iface_=0;
-      rmdir("./ldbtestdir/level*");
+      iface_ = NULL;
+
+      #ifdef _MSC_VER
+         rmdir("./ldbtestdir/level*");
+      #else
+         system("rm -rf ./ldbtestdir/level*");
+      #endif
    }
 
    /////
@@ -7257,7 +7262,7 @@ GTEST_API_ int main(int argc, char **argv)
    std::cout << "Running main() from gtest_main.cc\n";
 
    // Setup the log file 
-   STARTLOGGING("cppTestsLog.txt", LogLvlDebug3);
+   STARTLOGGING("cppTestsLog.txt", LogLvlDebug2);
    //LOGDISABLESTDOUT();
 
    testing::InitGoogleTest(&argc, argv);
@@ -7268,9 +7273,5 @@ GTEST_API_ int main(int argc, char **argv)
 
    return exitCode;
 }
-
-
-
-
 
 
