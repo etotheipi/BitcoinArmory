@@ -26,8 +26,8 @@ ifeq ($(UNAME), Darwin)
    # Red Emerald in this thread: 
    #    https://bitcointalk.org/index.php?topic=73648.msg976015#msg976015
 	# The makefile updates he shows are already tied into this if/else branch
-   SWIG_INC     += -I"/usr/include/python$(PYVER)"
-   STATICPYTHON +=   "/usr/lib/python$(PYVER)/config/libpython$(PYVER).a"
+   SWIG_INC      += `python-config --includes`
+   STATICPYTHON  += -F `brew --prefix`/opt/python/Frameworks -framework Python
 else
    SWIG_INC     += -I"$(DEPSDIR)/include/python$(PYVER)"
 	# Comment this .a file for 13.04
