@@ -93,7 +93,7 @@ class AllWalletsDispModel(QAbstractTableModel):
 
 
    def headerData(self, section, orientation, role=Qt.DisplayRole):
-      colLabels = ['ID', 'Name', 'Security', 'Balance']
+      colLabels = ['ID', 'Wallet Name', 'Security', 'Balance']
       if role==Qt.DisplayRole:
          if orientation==Qt.Horizontal:
             return QVariant( colLabels[section])

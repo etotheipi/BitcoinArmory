@@ -2020,6 +2020,69 @@ def ReconstructSecret(fragments, needed, nbytes):
    return int_to_binary(outvect[0], nbytes, BIGENDIAN)
          
 
+################################################################################
+def createTestingSubsets( fragIndices, M, maxTestCount=20):
+   """
+   Returns (IsRandomized, listOfTuplesOfSizeM)
+   """
+   numIdx = len(fragIndices)
+
+   if M>numIdx:
+      LOGERROR('Insufficent number of fragments')
+      raise KeyDataError
+   elif M==numIdx:
+      LOGINFO('Fragments supplied == needed.  One subset to test (%s-of-N)' % M)
+      return ( False, [tuple(fragIndices)] )
+   else:
+      LOGINFO('Test reconstruct %s-of-N, with %s fragments' % (M, numIdx))
+      subs = []
+   
+      # Compute the number of possible subsets.  This is stable because we
+      # shouldn't ever have more than 12 fragments
+      fact = math.factorial
+      numCombo = fact(numIdx) / ( fact(M) * fact(numIdx-M) )
+
+      if numCombo <= maxTestCount:
+         LOGINFO('Testing all %s combinations...' % numCombo)
+         for x in xrange(2**numIdx):
+            bits = int_to_bitset(x)
+            if not bits.count('1') == M:
+               continue
+
+            subs.append(tuple([fragIndices[i] for i,b in enumerate(bits) if b=='1']))
+
+         return (False, sorted(subs))
+      else:
+         LOGINFO('#Subsets > %s, will need to randomize' % maxTestCount)
+         usedSubsets = set()
+         while len(subs) < maxTestCount:
+            sample = tuple(sorted(random.sample(fragIndices, M)))
+            if not sample in usedSubsets:
+               usedSubsets.add(sample)
+               subs.append(sample)
+
+         return (True, sorted(subs))
+
+
+################################################################################
+def testReconstructSecrets(fragMap, M, maxTestCount=20):
+
+   fragKeys = [k for k in fragMap.iterkeys()]
+   isRandom, subs = createTestingSubsets(fragKeys, M, maxTestCount)
+   nBytes = len(fragMap[fragKeys[0]][1])
+   LOGINFO('Testing %d-byte fragments' % nBytes)
+
+   testResults = []
+   for subset in subs:
+      fragSubset = [fragMap[i][:] for i in subset] 
+      
+      recon = ReconstructSecret(fragSubset, M, nBytes)
+      testResults.append((subset, recon))
+
+   return isRandom, testResults
+         
+   
+
 
    
 ################################################################################
