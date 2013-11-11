@@ -1861,12 +1861,16 @@ class DlgWalletDetails(ArmoryDialog):
 
 def showRecvCoinsWarningIfNecessary(wlt, main):
 
-   if main.getSettingOrSetDefault("SyncSuccessCount", 0) < 1:
+   numTimesOnline = main.getSettingOrSetDefault("SyncSuccessCount", 0)
+   if numTimesOnline < 1 and not TheBDM.getBDMState()=='Offline':
       result = QMessageBox.warning(main, tr('Careful!'), tr("""
          Armory is not online yet, and will eventually need to be online to 
          access any funds sent to your wallet.  Please <u><b>do not</b></u>
          receive Bitcoins to your Armory wallets until you have successfully 
          gotten online <i>at least one time</i>.
+         <br><br>
+         Armory is still beta software, and some users report difficulty
+         ever getting online.  
          <br><br>
          Do you wish to continue?"""), QMessageBox.Cancel | QMessageBox.Ok)
       if not result==QMessageBox.Ok:

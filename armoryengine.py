@@ -7,7 +7,7 @@
 ################################################################################
 
 # Version Numbers 
-BTCARMORY_VERSION    = (0, 89, 99, 10)  # (Major, Minor, Bugfix, AutoIncrement) 
+BTCARMORY_VERSION    = (0, 89, 99, 11)  # (Major, Minor, Bugfix, AutoIncrement) 
 PYBTCWALLET_VERSION  = (1, 35,  0, 0)  # (Major, Minor, Bugfix, AutoIncrement)
 
 ARMORY_DONATION_ADDR = '1ArmoryXcfq7TnCSuZa9fQjRYwJ4bkRKfv'
@@ -12377,7 +12377,6 @@ class BlockDataManagerThread(threading.Thread):
       try:
          with open(bfile,'r') as f:
             tmtrx = [line.split() for line in f.readlines() if len(line.strip())>0]
-            # TODO: take into account the new phase info
             phases  = [float(row[0])  for row in tmtrx]
             currPhase = phases[-1]
             startat = [float(row[1]) for row in tmtrx if float(row[0])==currPhase]
@@ -12394,10 +12393,11 @@ class BlockDataManagerThread(threading.Thread):
                return [-1,-1,-1,-1]
             rate = (pct1-pct0) / (t1-t0) 
             tleft = (1-pct1)/rate
+            totalPct = (startat[-1] + sofar[-1]) / total[-1]
             if not self.lastPctLoad == pct1:
-               LOGINFO('Reading blockchain, pct complete: %0.1f', 100*pct1)
-            self.lastPctLoad = pct1 
-            return [currPhase,pct1,rate,tleft]
+               LOGINFO('Reading blockchain, pct complete: %0.1f', 100*totalPct)
+            self.lastPctLoad = totalPct 
+            return [currPhase,totalPct,rate,tleft]
       except:
          raise
          return [-1,-1,-1,-1]
