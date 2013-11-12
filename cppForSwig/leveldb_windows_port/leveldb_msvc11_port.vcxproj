@@ -340,7 +340,7 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;LEVELDB_PLATFORM_POSIX;LEVELDB_CSTDATOMIC_PRESENT;NOMINMAX;WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
-      <AdditionalIncludeDirectories>..\pthreads-w32-2-9-1-release\Pre-built.2\include;.\win32_posix;..\leveldb;..\leveldb\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.\win32_posix;..\leveldb;..\leveldb\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -351,10 +351,11 @@
       <AdditionalLibraryDirectories>..\pthreads-w32-2-9-1-release\Pre-built.2\lib\x86;..\pthreads-w32-2-9-1-release\Pre-built.2\dll\x86;$(SolutionDir)$(Platform)\libs;C:\WinDDK\7600.16385.1\lib\ATL\i386</AdditionalLibraryDirectories>
     </Link>
     <Lib>
-      <AdditionalDependencies>pthreadVC2.lib</AdditionalDependencies>
+      <AdditionalDependencies>
+      </AdditionalDependencies>
     </Lib>
     <Lib>
-      <AdditionalLibraryDirectories>..\pthreads-w32-2-9-1-release\Pre-built.2\lib\x64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Lib>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='WinXP_32|x64'">
@@ -442,9 +443,9 @@
     <ClCompile Include="..\leveldb\util\status.cc" />
     <ClCompile Include="..\leveldb\util\testharness.cc" />
     <ClCompile Include="..\leveldb\util\testutil.cc" />
-    <ClCompile Include="pthread_win32port.cpp" />
     <ClCompile Include="win32_posix\dirent_win32.c" />
     <ClCompile Include="win32_posix\mman.cpp" />
+    <ClCompile Include="win32_posix\pthread_win32port.cpp" />
     <ClCompile Include="win32_posix\win32_posix.cc" />
   </ItemGroup>
   <ItemGroup>
