@@ -2066,7 +2066,10 @@ def createTestingSubsets( fragIndices, M, maxTestCount=20):
 
 ################################################################################
 def testReconstructSecrets(fragMap, M, maxTestCount=20):
-
+   # If fragMap has X elements, then it will test all X-choose-M subsets of
+   # the fragMap and return the restored secret for each one.  If there's more
+   # subsets than maxTestCount, then just do a random sampling of the possible
+   # subsets
    fragKeys = [k for k in fragMap.iterkeys()]
    isRandom, subs = createTestingSubsets(fragKeys, M, maxTestCount)
    nBytes = len(fragMap[fragKeys[0]][1])
@@ -3516,6 +3519,15 @@ class PyBtcAddress(object):
          print indent + 'PrivKeyCiphr(BE) :', pp(SecureBinaryData())
       if self.createPrivKeyNextUnlock:
          print indent + '           ***** :', 'PrivKeys available on next unlock'
+
+
+#############################################################################
+def calcWalletIDFromRoot(root, chain):
+   """ Helper method for computing a wallet ID """
+   root  = PyBtcAddress().createFromPlainKeyData(SecureBinaryData(root))
+   root.chaincode = SecureBinaryData(chain)
+   first = root.extendAddressChain()
+   return binary_to_base58((ADDRBYTE + first.getAddr160()[:5])[::-1])
 
 
 
@@ -7726,6 +7738,10 @@ class PyBtcWallet(object):
       if self.useEncryption:
          self.lock()
       return self
+
+
+      
+
 
    #############################################################################
    def advanceHighestIndex(self, ct=1):

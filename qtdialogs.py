@@ -13884,11 +13884,11 @@ class DlgRestoreSingle(ArmoryDialog):
             hasError=True
             
          if hasError:
-            reply = QMessageBox.critical(self, tr('Verify Wallet ID'), tr("""
+            reply = QMessageBox.critical(self, tr('Invalid Data'), tr("""
                There is an error in the data you entered that could not be 
                fixed automatically.  Please double-check that you entered the 
                text exactly as it appears on the wallet-backup page.  <br><br>
-               The error occured on <font color="%s">line #%d</font>.""") % i, \
+               The error occured on <font color="red">line #%d</font>.""") % i, \
                QMessageBox.Ok)
             LOGERROR('Error in wallet restore field')
             self.prfxList[i].setText('<font color="red">'+str(self.prfxList[i].text())+'</font>')
@@ -14023,17 +14023,26 @@ class DlgRestoreFragged(ArmoryDialog):
       self.testWltID = expectWltID
       headerStr = ''
       if thisIsATest: 
-         headerStr = '<font color="blue" size="4">Testing a Fragmented Backup\xe2\x84\xa2</font>'
+         headerStr = tr("""<font color="blue" size="4">Testing a 
+                     Fragmented Backup\xe2\x84\xa2</font>""")
       else:
-         headerStr = 'Restore Wallet from Fragments'
+         headerStr = tr('Restore Wallet from Fragments')
 
-      lblDescr = QRichLabel( tr("""
+      descr = tr("""
          <b><u>%s</u></b> <br><br> 
          Use this form to enter all the fragments to be restored.  Fragments 
          can be stored on a mix of paper printouts, and saved files. 
          If any of the fragments require a SecurePrint\xe2\x84\xa2 code, 
          you will only have to enter it once, since that code is the same for
-         all fragments of any given wallet. """ % headerStr))
+         all fragments of any given wallet. """) % headerStr 
+
+      if self.thisIsATest:
+         descr += tr(""" <br><br>
+            <b>For testing purposes, you may enter more fragments than needed
+            and Armory will test all subsets of the entered fragments to verify
+            that each one still recovers the wallet successfully.</b>""")
+
+      lblDescr = QRichLabel( descr )
 
       frmDescr = makeHorizFrame([lblDescr], STYLE_RAISED)
 
@@ -14181,14 +14190,14 @@ class DlgRestoreFragged(ArmoryDialog):
    def dataEnter(self, fnum):
       dlg = DlgEnterOneFrag(self, self.main, self.fragsDone, self.wltType)
       if dlg.exec_():
-         print 'Good data from enter_one_frag exec!', fnum
+         LOGINFO('Good data from enter_one_frag exec! %d', fnum)
          self.addFragToTable(fnum, dlg.fragData)
          self.makeFragInputTable()
 
 
    #############################################################################
    def dataLoad(self, fnum):
-      print 'Loading data for entry,', fnum
+      LOGINFO('Loading data for entry, %d', fnum)
       toLoad = unicode(self.main.getFileLoad(tr('Load Fragment File'), \
                                     [tr('Wallet Fragments (*.frag)')]))
 
@@ -14376,8 +14385,9 @@ class DlgRestoreFragged(ArmoryDialog):
             QMessageBox.critical(self, tr('Invalid Code'), tr("""
                You didn't enter a full SecurePrint\xe2\x84\xa2 code.  This
                code is needed to decrypt your backup.  If this backup is 
-               actually unencrypted and there is no code, then choose the
-               appropriate backup type from the drop-down box"""), QMessageBox.Ok)
+               actually unencrypted and there is no code, then choose the 
+               correct "Unencrypted" option from the version drop-down 
+               box."""), QMessageBox.Ok)
             return
          if not SECPRINT['FUNC_CHKPWD'](pwd):
             QMessageBox.critical(self, tr('Bad Encryption Code'), tr("""
@@ -14387,26 +14397,32 @@ class DlgRestoreFragged(ArmoryDialog):
             return
          maskKey = SECPRINT['FUNC_KDF'](pwd)
 
-      #self.fragDataMap[tableIndex] = [fragData[0][:], X.copy(), Y.copy()]
       fragMtrx,M = [], -1
       for row,trip in self.fragDataMap.iteritems():
          M,fnum,wltID,doMask,fid = ReadFragIDLineBin(trip[0])
          X,Y = trip[1],trip[2]
          if doMask:
-            print 'Row %d needs unmasking' % row
+            LOGINFO('Row %d needs unmasking' % row)
             Y = SECPRINT['FUNC_UNMASK'](Y, ekey=maskKey)
          else:
-            print 'Row %d is already unencrypted' % row
+            LOGINFO('Row %d is already unencrypted' % row)
          fragMtrx.append( [X.toBinStr(), Y.toBinStr()])
                   
       typeToBytes = {'0': 64, '1.35a': 64, '1.35c': 32}
       nBytes = typeToBytes[self.wltType]
+
+
+      if self.thisIsATest and len(fragMtrx)>M:
+         self.testFragSubsets(fragMtrx, M)
+         return
+
+
       SECRET = ReconstructSecret(fragMtrx, M, nBytes)
       for i in range(len(fragMtrx)):
          fragMtrx[i] = []
  
-      print 'Final length of frag mtrx:', len(fragMtrx)
-      print 'Final length of secret:   ', len(SECRET)
+      LOGINFO( 'Final length of frag mtrx: %d', len(fragMtrx))
+      LOGINFO( 'Final length of secret:    %d', len(SECRET))
 
       priv,chain = '',''
       if len(SECRET)==64:
@@ -14441,12 +14457,12 @@ class DlgRestoreFragged(ArmoryDialog):
          
       
       
-      reply = QMessageBox.question(self, 'Verify Wallet ID', \
-               'The data you entered corresponds to a wallet with a wallet ID: \n\n \t' +
-               newWltID + '\n\nDoes this ID match the "Wallet Unique ID" ' 
-               'printed on your paper backup?  If not, click "No" and reenter '
-               'key and chain-code data again.', \
-               QMessageBox.Yes | QMessageBox.No)
+      reply = QMessageBox.question(self, tr('Verify Wallet ID'), tr("""
+         The data you entered corresponds to a wallet with a wallet 
+         ID: \n\n \t'""") + newWltID + tr(""" \n\nDoes this ID 
+         match the "Wallet Unique ID" printed on your paper backup?  
+         If not, click "No" and reenter key and chain-code data 
+         again."""), QMessageBox.Yes | QMessageBox.No)
       if reply==QMessageBox.No:
          return
 
@@ -14457,10 +14473,10 @@ class DlgRestoreFragged(ArmoryDialog):
          if dlgPasswd.exec_():
             passwd = SecureBinaryData(str(dlgPasswd.edtPasswd1.text()))
          else:
-            QMessageBox.critical(self, 'Cannot Encrypt', \
-               'You requested your restored wallet be encrypted, but no '
-               'valid passphrase was supplied.  Aborting wallet recovery.', \
-               QMessageBox.Ok)
+            QMessageBox.critical(self, tr('Cannot Encrypt'), tr("""
+               You requested your restored wallet be encrypted, but no 
+               valid passphrase was supplied.  Aborting wallet 
+               recovery."""), QMessageBox.Ok)
             return
 
       if passwd:
@@ -14488,7 +14504,126 @@ class DlgRestoreFragged(ArmoryDialog):
          self.accept()
 
       # Will pop up a little "please wait..." window while filling addr pool
-      DlgExecLongProcess(fillAddrPoolAndAccept, "Recovering wallet...", self, self.main).exec_()
+      DlgExecLongProcess(fillAddrPoolAndAccept, \
+                         tr("Recovering wallet..."), \
+                         self, self.main).exec_()
+
+
+   #############################################################################
+   def testFragSubsets(self, fragMtrx, M):
+      # If the user entered multiple fragments
+      fragMap = {}
+      for x,y in fragMtrx:
+         fragMap[binary_to_int(x,BIGENDIAN)-1] = [x,y]
+      typeToBytes = {'0': 64, '1.35a': 64, '1.35c': 32}
+         
+      isRandom, results = testReconstructSecrets(fragMap, M, 100)
+      def privAndChainFromRow(secret):
+         priv,chain = None,None
+         if len(secret)==64:
+            priv  = SecureBinaryData(secret[:32 ])
+            chain = SecureBinaryData(secret[ 32:])
+            return (priv,chain)
+         elif len(secret)==32:
+            priv  = SecureBinaryData(secret)
+            chain = DeriveChaincodeFromRootKey(priv)
+            return (priv,chain)
+         else:
+            LOGERROR('Root secret is %s bytes ?!' % len(secret))
+            raise KeyDataError
+
+      results = [(row[0], privAndChainFromRow(row[1])) for row in results]
+      subsAndIDs = [(row[0], calcWalletIDFromRoot(*row[1])) for row in results]
+
+      DlgShowTestResults(self, isRandom, subsAndIDs, \
+                                 M, len(fragMtrx), self.testWltID).exec_()
+
+
+##########################################################################
+class DlgShowTestResults(ArmoryDialog):
+   #######################################################################
+   def __init__(self, parent, isRandom, subsAndIDs, M, nFrag, expectID):
+      super(DlgShowTestResults, self).__init__(parent, parent.main)
+
+      accumSet = set()
+      for sub,ID in subsAndIDs:
+         accumSet.add(ID)
+
+      allEqual   = (len(accumSet)==1)
+      allCorrect = True
+      testID = expectID
+      if not testID:
+         testID = subsAndIDs[0][1]
+
+      allCorrect = testID == subsAndIDs[0][1]
+
+      descr = ''
+      nSubs = len(subsAndIDs)
+      fact = lambda x: math.factorial(x)
+      total = fact(nFrag) / (fact(M) * fact(nFrag-M))
+      if isRandom:
+         descr = tr("""
+            The total number of fragment subsets (%d) is too high
+            to test and display.  Instead, %d subsets were tested
+            at random.  The results are below """) % (total, nSubs)
+      else:
+         descr = tr("""
+            For the fragments you entered, there are a total of 
+            %d possible subsets that can restore your wallet.  
+            The test results for all subsets are shown below""") % total
+
+      lblDescr = QRichLabel(descr)
+      
+      lblWltIDDescr = QRichLabel( tr("""
+         The wallet ID is computed from the first
+         address in your wallet based on the root key data (and the
+         "chain code").  Therefore, a matching wallet ID proves that 
+         the wallet will produce identical addresses."""))
+
+      
+      frmResults = QFrame()
+      layout = QGridLayout()
+      row=0
+      for sub,ID in subsAndIDs:
+         subStrs = [str(s) for s in sub]
+         subText = ', '.join(subStrs[:-1]) 
+         dispTxt = tr("""
+            Fragments <b>%s</b> and <b>%s</b> produce a 
+            wallet with ID "<b>%s</b>" """) % (subText, subStrs[-1], ID)
+
+         chk = lambda: QPixmap(':/checkmark32.png').scaled(20,20)
+         _X_ = lambda: QPixmap(':/red_X.png').scaled(16,16)
+
+         lblTxt = QRichLabel(dispTxt)
+         lblTxt.setWordWrap(False)
+         lblPix = QLabel('')
+         lblPix.setPixmap(chk() if ID==testID else _X_())
+         layout.addWidget( lblTxt, row, 0)
+         layout.addWidget( lblPix, row, 1)
+         row += 1
+
+      
+
+      scrollResults = QScrollArea()
+      frmResults = QFrame()
+      frmResults.setLayout(layout)
+      scrollResults.setWidget(frmResults)
+
+      btnOkay = QPushButton('Ok')
+      buttonBox = QDialogButtonBox()
+      buttonBox.addButton(btnOkay, QDialogButtonBox.AcceptRole)
+      self.connect(btnOkay, SIGNAL('clicked()'), self.accept)
+
+      mainLayout = QVBoxLayout()
+      mainLayout.addWidget(lblDescr)
+      mainLayout.addWidget(scrollResults)
+      mainLayout.addWidget(lblWltIDDescr)
+      mainLayout.addWidget(buttonBox)
+      self.setLayout(mainLayout) 
+
+      self.setWindowTitle('Fragment Test Results')
+      self.setMinimumWidth(500)
+
 
 
 
@@ -14703,9 +14838,9 @@ def verifyRecoveryTestID(parent, computedWltID, expectedWltID=None):
             this wallet!</b>  If this wallet currently holds any funds,
             you should move the funds to a wallet that <u>does</u>
             have a working backup.
-            <br><br>
-            <br><br>
-            Wallet ID of the data you entered: %s <br> """), QMessageBox.Ok)
+            <br><br> <br><br>
+            Wallet ID of the data you entered: %s <br> """) % computedWltID, \
+            QMessageBox.Ok)
       elif yesno==QMessageBox.Yes:
          MsgBoxCustom(MSGBOX.Good, tr('Backup is Good!'), tr("""
             <b>Your backup works!</b>
