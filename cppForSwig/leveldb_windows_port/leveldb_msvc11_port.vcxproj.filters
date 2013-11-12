@@ -147,6 +147,9 @@
     <ClCompile Include="win32_posix\dirent_win32.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="win32_posix\pthread_win32port.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\leveldb\table\block.h">
