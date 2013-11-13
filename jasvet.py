@@ -26,6 +26,15 @@ _a = 0x0000000000000000000000000000000000000000000000000000000000000000L
 _Gx = 0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798L
 _Gy = 0x483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8L
 
+BEGIN_MARKER = '-----BEGIN '
+END_MARKER = '-----END '
+DASHX5 = '-----'
+RN = '\r\n'
+BEGIN_SIGNED_MESSAGE_MARKER = '-----BEGIN SIGNED BITCOIN MESSAGE-----\r\n\r\n'
+BITCOIN_SIG_TYPE = 'BITCOIN SIGNATURE'
+BITCOIN_SIG_MSG_TYPE = 'BITCOIN SIGNED MESSAGE'
+class UnknownSigBlockType(Exception): pass
+   
 def randomk():  #better make it stronger
    # return CppBlockUtils.SecureBinaryData.GenerateRandom(32)
    rk=0
@@ -447,8 +456,7 @@ def verify_message_Bitcoin(address, signature, message, pureECDSASigning=False):
    Q = inv_r * ( R*s + G*minus_e )
    public_key = Public_key(G, Q, compressed)
    addr = public_key_to_bc_address(public_key.ser(), networkversion)
-   if address != addr:
-      raise Exception("vmB","Bad address. Signing: %s, received: %s"%(addr,address))
+   return address == addr
 
 def sign_message(secret, message, pureECDSASigning=False):
    if len(secret) == 32:
@@ -485,8 +493,8 @@ def sign_message_Bitcoin(secret, msg, pureECDSASigning=False):
          hb+=4
       sign=base64.b64encode(chr(hb)+sig.ser())
       try:
-         verify_message_Bitcoin(addr, sign, msg, pureECDSASigning)
-         return {'address':addr, 'b64-signature':sign, 'signature':chr(hb)+sig.ser(), 'message':msg}
+         if verify_message_Bitcoin(addr, sign, msg, pureECDSASigning):
+            return {'address':addr, 'b64-signature':sign, 'signature':chr(hb)+sig.ser(), 'message':msg}
       except Exception as e:
 #         print e.args
          pass
@@ -538,12 +546,24 @@ def chunks(t, n):
    return [t[i:i+n] for i in range(0, len(t), n)]
 
 def ASCIIArmory(block, name):
-   r='-----BEGIN '+name+'-----\r\n'
-   r+='\r\n'.join(chunks(base64.b64encode(block), 64))+'\r\n='
-   r+=base64.b64encode(crc24(block))+'\r\n'
-   r+='-----END '+name+'-----'
+
+   r=BEGIN_MARKER+name+DASHX5+RN
+   r+=RN.join(chunks(base64.b64encode(block), 64))+RN+'='
+   r+=base64.b64encode(crc24(block))+RN
+
+   r+=END_MARKER+name+DASHX5
    return r
 
+# TODO: finish this. Code in progress.
+def readSigBlock(r):
+   name, remainder = r.split(BEGIN_MARKER)[1].split(DASHX5+RN)
+   if name == BITCOIN_SIG_MSG_TYPE:
+      pass
+   elif name == BITCOIN_SIG_TYPE:
+      pass
+   else:
+      raise UnknownSigBlockType()
+   return name, remainder
 
 #==============================================
 
@@ -555,16 +575,14 @@ def ASv0(privkey, msg):
 
 def ASv1CS(privkey, msg):
    sig=ASv0(privkey, msg)
-   r='-----BEGIN SIGNED BITCOIN MESSAGE-----\r\n\r\n'
-   r+=FormatText(msg, False)+'\r\n'
-   r+=ASCIIArmory(sig['signature'], 'BITCOIN SIGNATURE')
+   r=BEGIN_SIGNED_MESSAGE_MARKER
+   r+=FormatText(msg, False)+RN
+   r+=ASCIIArmory(sig['signature'], BITCOIN_SIG_TYPE)
    return r
 
 def ASv1B64(privkey, msg):
    sig=ASv0(privkey, msg)
-   return ASCIIArmory(sig['signature']+sig['message'], 'BITCOIN SIGNED MESSAGE')
-
-
+   return ASCIIArmory(sig['signature']+sig['message'], BITCOIN_SIG_MSG_TYPE)
 
 #==============================================
 
@@ -583,10 +601,15 @@ if __name__=='__main__':
    text5='Hello world!'
 
    FTVerbose=True
+
+   sv1B64 = ASv1B64(pvk1, text1)
+   print sv1B64
+   print
+   print readSigBlock(sv1B64)
+   print
    sv0=ASv0(pvk1, text1)
    print sv0
    verifySignature(sv0['address'], sv0['b64-signature'], sv0['message'])
-   print
    print ASv1B64(pvk1, text1)
    print
    print ASv1CS(pvk1, text1)

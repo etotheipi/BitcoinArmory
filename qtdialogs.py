@@ -10151,7 +10151,8 @@ class DlgAddressBook(ArmoryDialog):
    def __init__(self, parent, main, putResultInWidget=None, \
                                     defaultWltID=None, \
                                     actionStr='Select', \
-                                    selectExistingOnly=False):
+                                    selectExistingOnly=False,\
+                                    selectMineOnly=False):
       super(DlgAddressBook, self).__init__(parent, main)
 
       self.target = putResultInWidget
@@ -10206,7 +10207,6 @@ class DlgAddressBook(ArmoryDialog):
       self.setAddrBookTxModel(defaultWltID)
       self.connect(self.addrBookTxView, SIGNAL('doubleClicked(QModelIndex)'), \
                    self.dblClickAddressTx)
-
       self.addrBookTxView.setContextMenuPolicy(Qt.CustomContextMenu)
       self.addrBookTxView.customContextMenuRequested.connect(self.showContextMenuTx)
 
@@ -10224,7 +10224,8 @@ class DlgAddressBook(ArmoryDialog):
 
       self.tabWidget = QTabWidget()
       self.tabWidget.addTab(self.addrBookRxView, 'Receiving (Mine)')
-      self.tabWidget.addTab(self.addrBookTxView, 'Sending (Other\'s)')
+      if not selectMineOnly:
+         self.tabWidget.addTab(self.addrBookTxView, 'Sending (Other\'s)')
       self.tabWidget.setCurrentIndex(0)
       
 
@@ -10302,7 +10303,7 @@ class DlgAddressBook(ArmoryDialog):
          restoreTableView(self.wltDispView, wltgeom)
       if len(rxgeom)>0:
          restoreTableView(self.addrBookRxView, rxgeom)
-      if len(txgeom)>0:
+      if len(txgeom)>0 and not selectMineOnly:
          restoreTableView(self.addrBookTxView, txgeom)
 
    #############################################################################
@@ -10529,7 +10530,7 @@ class DlgAddressBook(ArmoryDialog):
 
 
 ################################################################################
-def createAddrBookButton(parent, targWidget, defaultWlt, actionStr="Select", selectExistingOnly=False):
+def createAddrBookButton(parent, targWidget, defaultWlt, actionStr="Select", selectExistingOnly=False, selectMineOnly=False):
    btn = QPushButton('')
    ico = QIcon(QPixmap(':/addr_book_icon.png'))
    btn.setIcon(ico)
@@ -10538,7 +10539,7 @@ def createAddrBookButton(parent, targWidget, defaultWlt, actionStr="Select", sel
          QMessageBox.warning(parent, 'No wallets!', 'You have no wallets so '
             'there is no address book to display.', QMessageBox.Ok)
          return
-      dlg = DlgAddressBook(parent, parent.main, targWidget,  defaultWlt, actionStr, selectExistingOnly)
+      dlg = DlgAddressBook(parent, parent.main, targWidget,  defaultWlt, actionStr, selectExistingOnly, selectMineOnly)
       dlg.exec_()
 
    btn.setMaximumWidth(24)

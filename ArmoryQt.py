@@ -38,7 +38,7 @@ import qrc_img_resources
 # All the twisted/networking functionality
 from twisted.internet.protocol import Protocol, ClientFactory
 from twisted.internet.defer import Deferred
-from dialogs.toolsDialogs import MessageSigningDialog
+from dialogs.toolsDialogs import MessageSigningVerificationDialog
 
 if OS_WINDOWS:
    from _winreg import *
@@ -541,9 +541,9 @@ class ArmoryMainWindow(QMainWindow):
 
       
       def openMsgSigning():
-         MessageSigningDialog(self,self, 0).exec_()
+         MessageSigningVerificationDialog(self,self).exec_()
 
-      actOpenSigner = self.createAction('&Message Signing', openMsgSigning)
+      actOpenSigner = self.createAction('&Message Signing/Verification', openMsgSigning)
       actOpenTools  = self.createAction('&EC Calculator',   lambda: DlgECDSACalc(self,self, 1).exec_())
 
       self.menusList[MENUS.Tools].addAction(actOpenSigner)
