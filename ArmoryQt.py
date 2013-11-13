@@ -1,3 +1,4 @@
+#! /usr/bin/python
 ################################################################################
 #                                                                              #
 # Copyright (C) 2011-2013, Armory Technologies, Inc.                           #
@@ -589,9 +590,17 @@ class ArmoryMainWindow(QMainWindow):
       actAboutWindow  = self.createAction('About Armory', execAbout)
       actVersionCheck = self.createAction('Armory Version...', execVersion)
       actFactoryReset = self.createAction('Revert All Settings', self.factoryReset)
+      actClearMemPool = self.createAction('Clear All Unconfirmed', self.clearMemoryPool)
+      actRescanDB     = self.createAction('Rescan Databases', self.rescanNextLoad)
+      actRebuildDB    = self.createAction('Rebuild and Rescan Databases', self.rebuildNextLoad)
+
       self.menusList[MENUS.Help].addAction(actAboutWindow)
       self.menusList[MENUS.Help].addAction(actVersionCheck)
       self.menusList[MENUS.Help].addAction(actFactoryReset)
+      self.menusList[MENUS.Help].addSeparator()
+      self.menusList[MENUS.Help].addAction(actClearMemPool)
+      self.menusList[MENUS.Help].addAction(actRescanDB)
+      self.menusList[MENUS.Help].addAction(actRebuildDB)
 
       # Restore any main-window geometry saved in the settings file
       hexgeom   = self.settings.get('MainGeometry')
@@ -636,6 +645,42 @@ class ArmoryMainWindow(QMainWindow):
          self.doHardReset = True
          self.closeForReal()
          
+   ####################################################
+   def clearMemoryPool(self):
+      touchFile( os.path.join(ARMORY_HOME_DIR, 'clearmempool.txt') )
+      msg = tr("""
+         The next time you restart Armory, all unconfirmed transactions will
+         be cleared allowing you to retry any stuck transactions.""")
+      if not self.getSettingOrSetDefault('ManageSatoshi', True):
+         msg += tr("""
+         <br><br>Make sure you also restart Bitcoin-Qt 
+         (or bitcoind) and let it synchronize again before you restart 
+         Armory.  Doing so will clear its memory pool, as well""")
+      QMessageBox.information(self, tr('Memory Pool'), msg, QMessageBox.Ok)
+
+   ####################################################
+   def rescanNextLoad(self):
+      reply = QMessageBox.warning(self, tr('Queue Rescan?'), tr("""
+         The next time you restart Armory, it will rescan the blockchain
+         database, and reconstruct your wallet histories from scratch.  
+         The rescan will take 10-60 minutes depending on your system.
+         <br><br>
+         Do you wish to force a rescan on the next Armory restart?"""), \
+         QMessageBox.Yes | QMessageBox.No)
+      if reply==QMessageBox.Yes:
+         touchFile( os.path.join(ARMORY_HOME_DIR, 'rescan.txt') )
+
+   ####################################################
+   def rebuildNextLoad(self):
+      reply = QMessageBox.warning(self, tr('Queue Rebuild?'), tr("""
+         The next time you restart Armory, it will rebuild and rescan 
+         the entire blockchain database.  This operation can take between 
+         30 minutes and 4 hours depending on you system speed.
+         <br><br>
+         Do you wish to force a rebuild on the next Armory restart?"""), \
+         QMessageBox.Yes | QMessageBox.No)
+      if reply==QMessageBox.Yes:
+         touchFile( os.path.join(ARMORY_HOME_DIR, 'rebuild.txt') )
 
    ####################################################
    def loadFailedManyTimesFunc(self, nFail):
@@ -766,6 +811,70 @@ class ArmoryMainWindow(QMainWindow):
       self.notifyQueue = []
       self.notifyBlockedUntil = 0
 
+   #############################################################################
+   @AllowAsync
+   def registerBitcoinWithFF(self):
+      #the 3 nodes needed to add to register bitcoin as a protocol in FF   
+      rdfschemehandler = 'about=\"urn:scheme:handler:bitcoin\"'
+      rdfscheme = 'about=\"urn:scheme:bitcoin\"'
+      rdfexternalApp = 'about=\"urn:scheme:externalApplication:bitcoin\"'
+
+      #find mimeTypes.rdf file
+      home = os.getenv('HOME')
+      out,err = execAndWait('find %s -type f -name \"mimeTypes.rdf\"' % home)
+   
+      for rdfs in out.split('\n'):
+         if rdfs:
+            try:
+               FFrdf = open(rdfs, 'r+')
+            except:
+               continue
+
+            ct = FFrdf.readlines()
+            rdfsch=-1
+            rdfsc=-1
+            rdfea=-1
+            i=0
+            #look for the nodes
+            for line in ct:
+               if rdfschemehandler in line:
+                  rdfsch=i
+               elif rdfscheme in line:
+                  rdfsc=i
+               elif rdfexternalApp in line:         
+                  rdfea=i
+               i+=1
+
+            #seek to end of file
+            FFrdf.seek(-11, 2)
+            i=0;      
+
+            #add the missing nodes
+            if rdfsch == -1:
+               FFrdf.write(' <RDF:Description RDF:about=\"urn:scheme:handler:bitcoin\"\n')
+               FFrdf.write('                  NC:alwaysAsk=\"false\">\n')
+               FFrdf.write('    <NC:externalApplication RDF:resource=\"urn:scheme:externalApplication:bitcoin\"/>\n')
+               FFrdf.write('    <NC:possibleApplication RDF:resource=\"urn:handler:local:/usr/bin/xdg-open\"/>\n')
+               FFrdf.write(' </RDF:Description>\n')
+               i+=1
+   
+            if rdfsc == -1:
+               FFrdf.write(' <RDF:Description RDF:about=\"urn:scheme:bitcoin\"\n')
+               FFrdf.write('                  NC:value=\"bitcoin\">\n')
+               FFrdf.write('    <NC:handlerProp RDF:resource=\"urn:scheme:handler:bitcoin\"/>\n')
+               FFrdf.write(' </RDF:Description>\n')
+               i+=1
+         
+            if rdfea == -1:
+               FFrdf.write(' <RDF:Description RDF:about=\"urn:scheme:externalApplication:bitcoin\"\n')
+               FFrdf.write('                  NC:prettyName=\"xdg-open\"\n')
+               FFrdf.write('                  NC:path=\"/usr/bin/xdg-open\" />\n')               
+               i+=1
+   
+            if i != 0:
+               FFrdf.write('</RDF:RDF>\n')
+   
+            FFrdf.close()
 
    #############################################################################
    def setupUriRegistration(self, justDoIt=False):
@@ -779,18 +888,25 @@ class ArmoryMainWindow(QMainWindow):
 
       if OS_LINUX:
          out,err = execAndWait('gconftool-2 --get /desktop/gnome/url-handlers/bitcoin/command')
-      
+         out2,err = execAndWait('xdg-mime query default x-scheme-handler/bitcoin')
+    
+         #check FF protocol association
+         #checkFF_thread = threading.Thread(target=self.registerBitcoinWithFF)
+         #checkFF_thread.start()
+         self.registerBitcoinWithFF(async=True)
+
          def setAsDefault():
             LOGINFO('Setting up Armory as default URI handler...')
-            execAndWait('gconftool-2 -t string -s /desktop/gnome/url-handlers/bitcoin/command "python /usr/share/armory/ArmoryQt.py \"%s\""')
+            execAndWait('gconftool-2 -t string -s /desktop/gnome/url-handlers/bitcoin/command "python /usr/lib/armory/ArmoryQt.py \"%s\""')
             execAndWait('gconftool-2 -s /desktop/gnome/url-handlers/bitcoin/needs_terminal false -t bool')
             execAndWait('gconftool-2 -t bool -s /desktop/gnome/url-handlers/bitcoin/enabled true')
+            execAndWait('xdg-mime default armory.desktop x-scheme-handler/bitcoin')
 
 
-         if 'no value' in out.lower() or 'no value' in err.lower():
+         if ('no value' in out.lower() or 'no value' in err.lower()) and not 'armory.desktop' in out2.lower():
             # Silently add Armory if it's never been set before
             setAsDefault()
-         elif not 'armory' in out.lower() and not isFirstLoad:
+         elif (not 'armory' in out.lower() or not 'armory.desktop' in out2.lower()) and not isFirstLoad:
             # If another application has it, ask for permission to change it
             if not self.getSettingOrSetDefault('DNAA_DefaultApp', False):
                reply = MsgBoxWithDNAA(MSGBOX.Question, 'Default URL Handler', \
@@ -802,17 +918,31 @@ class ArmoryMainWindow(QMainWindow):
                if reply[1]==True:
                   self.writeSetting('DNAA_DefaultApp', True)
 
-      if OS_WINDOWS:
+      elif OS_WINDOWS:
          # Check for existing registration (user first, then root, if necessary)
          action = 'DoNothing'
+         modulepathname = '"'
+         if getattr(sys, 'frozen', False):
+             app_dir = os.path.dirname(sys.executable)
+             app_path = os.path.join(app_dir, sys.executable)
+         elif __file__:
+             return #running from a .py script, not gonna register URI on Windows
+
+         modulepathname += app_path + '" %1'
+         LOGWARN("running from: %s, key: %s", app_path, modulepathname)
+         
+
          rootKey = 'bitcoin\\shell\\open\\command'
          try:
             userKey = 'Software\\Classes\\' + rootKey
             registryKey = OpenKey(HKEY_CURRENT_USER, userKey, 0, KEY_READ)
             val,code = QueryValueEx(registryKey, '')
-            if 'armory.exe' in val.lower():
-               LOGINFO('Armory already registered for current user.  Done!')
-               return
+            if 'armory' in val.lower():
+               if val.lower()==modulepathname.lower():
+                  LOGINFO('Armory already registered for current user.  Done!')
+                  return
+               else:
+                  action = 'DoIt' #armory is registered, but to another path
             else:
                # Already set to something (at least created, which is enough)
                action = 'AskUser'
@@ -821,7 +951,7 @@ class ArmoryMainWindow(QMainWindow):
             try:
                registryKey = OpenKey(HKEY_CLASSES_ROOT, rootKey, 0, KEY_READ)
                val,code = QueryValueEx(registryKey, '')
-               if 'armory.exe' in val.lower():
+               if 'armory' in val.lower():
                   LOGINFO('Armory already registered at admin level.  Done!')
                   return
                else:
@@ -860,16 +990,16 @@ class ArmoryMainWindow(QMainWindow):
          # Finally, do it if we're supposed to!
          LOGINFO('URL-register action: %s', action)
          if action=='DoIt':
+ 
             LOGINFO('Registering Armory  for current user')
-            x86str = '' if platform.architecture()[0][:2]=='32' else ' (x86)'
-            baseDir = 'C:\\Program Files%s\\Armory\\Armory Bitcoin Client' % x86str
+            baseDir = app_dir
             regKeys = []
             regKeys.append(['Software\\Classes\\bitcoin', '', 'URL:bitcoin Protocol'])
             regKeys.append(['Software\\Classes\\bitcoin', 'URL Protocol', ""])
             regKeys.append(['Software\\Classes\\bitcoin\\shell', '', None])
             regKeys.append(['Software\\Classes\\bitcoin\\shell\\open', '',  None])
             regKeys.append(['Software\\Classes\\bitcoin\\shell\\open\\command',  '', \
-                           '"%s\\Armory.exe" %%1' % baseDir])
+                           modulepathname])
             regKeys.append(['Software\\Classes\\bitcoin\\DefaultIcon', '',  \
                            '"%s\\armory48x48.ico"' % baseDir])
 
@@ -880,7 +1010,7 @@ class ArmoryMainWindow(QMainWindow):
                SetValueEx(registryKey, name, 0, REG_SZ, val)
                CloseKey(registryKey)
 
-         
+            LOGWARN('app dir: %s', app_dir)
          
 
 
@@ -1558,7 +1688,7 @@ class ArmoryMainWindow(QMainWindow):
       for f in os.listdir(ARMORY_HOME_DIR):
          fullPath = os.path.join(ARMORY_HOME_DIR, f)
          if os.path.isfile(fullPath) and not fullPath.endswith('backup.wallet'):
-            openfile = open(fullPath, 'r')
+            openfile = open(fullPath, 'rb')
             first8 = openfile.read(8) 
             openfile.close()
             if first8=='\xbaWALLET\x00':
@@ -1767,8 +1897,15 @@ class ArmoryMainWindow(QMainWindow):
          self.currBlockNum = TheBDM.getTopBlockHeight()
          self.setDashboardDetails()
          if not self.memPoolInit:
-            mempoolfile = os.path.join(ARMORY_HOME_DIR,'mempool.bin')
-            self.checkMemoryPoolCorruption(mempoolfile)
+            mempoolfile   = os.path.join(ARMORY_HOME_DIR,'mempool.bin')
+            clearpoolfile = os.path.join(ARMORY_HOME_DIR,'clearmempool.txt')
+            if os.path.exists(clearpoolfile):
+               LOGINFO('clearmempool.txt found.  Clearing memory pool')
+               os.remove(clearpoolfile)
+               if os.path.exists(mempoolfile):
+                  os.remove(mempoolfile)
+            else: 
+               self.checkMemoryPoolCorruption(mempoolfile)
             TheBDM.enableZeroConf(mempoolfile)
             self.memPoolInit = True
 
@@ -1791,6 +1928,9 @@ class ArmoryMainWindow(QMainWindow):
                '<font color=%s>Connected (%s blocks)</font> ' % 
                (htmlColor('TextGreen'), self.currBlockNum))
          self.blkReceived  = self.getSettingOrSetDefault('LastBlkRecvTime', 0)
+
+         currSyncSuccess = self.getSettingOrSetDefault("SyncSuccessCount", 0)
+         self.writeSetting('SyncSuccessCount', min(currSyncSuccess+1, 10))
 
          if self.getSettingOrSetDefault('NotifyBlkFinish',True):
             reply,remember = MsgBoxWithDNAA(MSGBOX.Info, \
@@ -1824,7 +1964,7 @@ class ArmoryMainWindow(QMainWindow):
       if not os.path.exists(mempoolname): 
          return
 
-      memfile = open(mempoolname, 'r')
+      memfile = open(mempoolname, 'rb')
       memdata = memfile.read()
       memfile.close()
 
@@ -3066,7 +3206,7 @@ class ArmoryMainWindow(QMainWindow):
       if selectionMade:
          wlt = self.walletMap[wltID]
          wlttype = determineWalletType(wlt, self)[0]
-         if showWatchOnlyRecvWarningIfNecessary(wlt, self):
+         if showRecvCoinsWarningIfNecessary(wlt, self):
             DlgNewAddressDisp(wlt, self, self).exec_()
 
 
@@ -4406,7 +4546,7 @@ class ArmoryMainWindow(QMainWindow):
    def checkSatoshiVersion(self):
       timeAlive = long(RightNow()) - self.bornOnTime
       if not CLI_OPTIONS.skipVerCheck and \
-             (long(RightNow())%900==0 or self.satoshiLatestVer==None):
+             (timeAlive%900==0 or self.satoshiLatestVer==None):
          try:
             # Will eventually make a specially-signed file just for this
             # kind of information.  For now, it's all in the versions.txt
@@ -4903,9 +5043,11 @@ def checkForAlreadyOpen():
    LOGDEBUG('Checking for already open socket...')
    try:
       sock = socket.create_connection(('127.0.0.1',CLI_OPTIONS.interport), 0.1);
+      # If we got here (no error), there's already another Armory open
 
-      # If we got here, there's already another Armory open!
-      checkForAlreadyOpenError()
+      if OS_WINDOWS:
+         # Windows can be tricky, sometimes holds sockets even after closing
+         checkForAlreadyOpenError()
 
       LOGERROR('Socket already in use.  Sending CLI args to existing proc.')
       if CLI_ARGS:
@@ -4923,9 +5065,8 @@ def checkForAlreadyOpen():
 ############################################
 def checkForAlreadyOpenError():
    LOGINFO('Already open error checking')
-   # Sometimes in Windows, Armory actually isn't open
-   import psutil
-   import signal
+   # Sometimes in Windows, Armory actually isn't open, because it holds 
+   # onto the socket even after it's closed.
    armoryExists = []
    bitcoindExists = []
    aexe = os.path.basename(sys.argv[0])
@@ -4936,7 +5077,8 @@ def checkForAlreadyOpenError():
          armoryExists.append(proc.pid)
       if bexe in proc.name:
          LOGINFO('Found bitcoind PID: %d', proc.pid)
-         bitcoindExists.append(proc.pid)
+         if ('testnet' in proc.name) == USE_TESTNET:
+            bitcoindExists.append(proc.pid)
 
    if len(armoryExists)>0:
       LOGINFO('Not an error!  Armory really is open')

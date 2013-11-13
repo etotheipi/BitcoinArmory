@@ -221,6 +221,8 @@ public:
                       ARMORY_DB_TYPE     dbtype=ARMORY_DB_WHATEVER,
                       DB_PRUNE_TYPE      pruneType=DB_PRUNE_WHATEVER);
 
+   /////////////////////////////////////////////////////////////////////////////
+   void nukeHeadersDB(void);
    
    /////////////////////////////////////////////////////////////////////////////
    void closeDatabases(void);

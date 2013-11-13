@@ -7,7 +7,7 @@
 ################################################################################
 
 # Version Numbers 
-BTCARMORY_VERSION    = (0, 89, 99, 9)  # (Major, Minor, Bugfix, AutoIncrement) 
+BTCARMORY_VERSION    = (0, 89, 99, 12)  # (Major, Minor, Bugfix, AutoIncrement) 
 PYBTCWALLET_VERSION  = (1, 35,  0, 0)  # (Major, Minor, Bugfix, AutoIncrement)
 
 ARMORY_DONATION_ADDR = '1ArmoryXcfq7TnCSuZa9fQjRYwJ4bkRKfv'
@@ -271,6 +271,7 @@ else:
    CLI_OPTIONS.logFile = os.path.join(ARMORY_HOME_DIR, '%s.log.txt' % basename)
 
 SETTINGS_PATH   = CLI_OPTIONS.settingsPath
+
 
 
 # If this is the first Armory has been run, create directories
@@ -589,6 +590,23 @@ elif CLI_OPTIONS.logcpp:
    os.dup2(cpplogfile.fileno(), sys.stderr.fileno())
 """
    
+
+fileRebuild = os.path.join(ARMORY_HOME_DIR, 'rebuild.txt')
+fileRescan  = os.path.join(ARMORY_HOME_DIR, 'rescan.txt')
+if os.path.exists(fileRebuild):
+   LOGINFO('Found %s, will destroy and rebuild databases' % fileRebuild)
+   os.remove(fileRebuild)
+   if os.path.exists(fileRescan):
+      os.remove(fileRescan)
+      
+   CLI_OPTIONS.rebuild = True
+elif os.path.exists(fileRescan):
+   LOGINFO('Found %s, will throw out saved history, rescan' % fileRescan)
+   os.remove(fileRescan)
+   if os.path.exists(fileRebuild):
+      os.remove(fileRebuild)
+   CLI_OPTIONS.rescan = True
+
 
 def logexcept_override(type, value, tback):
    import traceback
@@ -2001,6 +2019,72 @@ def ReconstructSecret(fragments, needed, nbytes):
    outvect = ff.mtrxmultvect(minv,v)
    return int_to_binary(outvect[0], nbytes, BIGENDIAN)
          
+
+################################################################################
+def createTestingSubsets( fragIndices, M, maxTestCount=20):
+   """
+   Returns (IsRandomized, listOfTuplesOfSizeM)
+   """
+   numIdx = len(fragIndices)
+
+   if M>numIdx:
+      LOGERROR('Insufficent number of fragments')
+      raise KeyDataError
+   elif M==numIdx:
+      LOGINFO('Fragments supplied == needed.  One subset to test (%s-of-N)' % M)
+      return ( False, [tuple(fragIndices)] )
+   else:
+      LOGINFO('Test reconstruct %s-of-N, with %s fragments' % (M, numIdx))
+      subs = []
+   
+      # Compute the number of possible subsets.  This is stable because we
+      # shouldn't ever have more than 12 fragments
+      fact = math.factorial
+      numCombo = fact(numIdx) / ( fact(M) * fact(numIdx-M) )
+
+      if numCombo <= maxTestCount:
+         LOGINFO('Testing all %s combinations...' % numCombo)
+         for x in xrange(2**numIdx):
+            bits = int_to_bitset(x)
+            if not bits.count('1') == M:
+               continue
+
+            subs.append(tuple([fragIndices[i] for i,b in enumerate(bits) if b=='1']))
+
+         return (False, sorted(subs))
+      else:
+         LOGINFO('#Subsets > %s, will need to randomize' % maxTestCount)
+         usedSubsets = set()
+         while len(subs) < maxTestCount:
+            sample = tuple(sorted(random.sample(fragIndices, M)))
+            if not sample in usedSubsets:
+               usedSubsets.add(sample)
+               subs.append(sample)
+
+         return (True, sorted(subs))
+
+
+################################################################################
+def testReconstructSecrets(fragMap, M, maxTestCount=20):
+   # If fragMap has X elements, then it will test all X-choose-M subsets of
+   # the fragMap and return the restored secret for each one.  If there's more
+   # subsets than maxTestCount, then just do a random sampling of the possible
+   # subsets
+   fragKeys = [k for k in fragMap.iterkeys()]
+   isRandom, subs = createTestingSubsets(fragKeys, M, maxTestCount)
+   nBytes = len(fragMap[fragKeys[0]][1])
+   LOGINFO('Testing %d-byte fragments' % nBytes)
+
+   testResults = []
+   for subset in subs:
+      fragSubset = [fragMap[i][:] for i in subset] 
+      
+      recon = ReconstructSecret(fragSubset, M, nBytes)
+      testResults.append((subset, recon))
+
+   return isRandom, testResults
+         
+   
 
 
    
@@ -3435,6 +3519,15 @@ class PyBtcAddress(object):
          print indent + 'PrivKeyCiphr(BE) :', pp(SecureBinaryData())
       if self.createPrivKeyNextUnlock:
          print indent + '           ***** :', 'PrivKeys available on next unlock'
+
+
+#############################################################################
+def calcWalletIDFromRoot(root, chain):
+   """ Helper method for computing a wallet ID """
+   root  = PyBtcAddress().createFromPlainKeyData(SecureBinaryData(root))
+   root.chaincode = SecureBinaryData(chain)
+   first = root.extendAddressChain()
+   return binary_to_base58((ADDRBYTE + first.getAddr160()[:5])[::-1])
 
 
 
@@ -7645,6 +7738,10 @@ class PyBtcWallet(object):
       if self.useEncryption:
          self.lock()
       return self
+
+
+      
+
 
    #############################################################################
    def advanceHighestIndex(self, ct=1):
@@ -11921,17 +12018,21 @@ class SettingsFile(object):
 
 class PyBackgroundThread(threading.Thread):
    """
-   Define a thread object that will execute a preparatory function
-   (blocking), and then a long processing thread followed by something
-   to do when it's done (both non-blocking).  After the 3 methods and 
-   their arguments are set, use obj.start() to kick it off.
+   Wraps a function in a threading.Thread object which will run
+   that function in a separate thread.  Calling self.start() will
+   return immediately, but will start running that function in 
+   separate thread.  You can check its progress later by using 
+   self.isRunning() or self.isFinished().  If the function returns
+   a value, use self.getOutput().  Use self.getElapsedSeconds() 
+   to find out how long it took.
    """
    
    def __init__(self, *args, **kwargs):
       threading.Thread.__init__(self)
 
-      self.preFunc  = lambda: ()
-      self.postFunc = lambda: ()
+      self.output     = None
+      self.startedAt  = UNINITIALIZED
+      self.finishedAt = UNINITIALIZED
 
       if len(args)==0:
          self.func  = lambda: ()
@@ -11942,35 +12043,77 @@ class PyBackgroundThread(threading.Thread):
          else:
             self.setThreadFunction(args[0], *args[1:], **kwargs)
 
-   def setPreThreadFunction(self, prefunc, *args, **kwargs):
-      def preFuncPartial():
-         prefunc(*args, **kwargs)
-      self.preFunc = preFuncPartial
-
    def setThreadFunction(self, thefunc, *args, **kwargs):
       def funcPartial():
-         thefunc(*args, **kwargs)
+         return thefunc(*args, **kwargs)
       self.func = funcPartial
 
-   def setPostThreadFunction(self, postfunc, *args, **kwargs):
-      def postFuncPartial():
-         postfunc(*args, **kwargs)
-      self.postFunc = postFuncPartial
+   def isFinished(self):
+      return not (self.finishedAt==UNINITIALIZED)
 
+   def isStarted(self):
+      return not (self.startedAt==UNINITIALIZED)
 
-   def run(self):
-      #LOGDEBUG('Executing thread.run()...')
-      self.func()
-      self.postFunc()
+   def isRunning(self):
+      return (self.isStarted() and not self.isFinished())
+
+   def getElapsedSeconds(self):
+      if not self.isFinished():
+         LOGERROR('Thread is not finished yet!')
+         return None
+      else:
+         return self.finishedAt - self.startedAt
+
+   def getOutput(self):
+      if not self.isFinished():
+         if self.isRunning():
+            LOGERROR('Cannot get output while thread is running')
+         else:
+            LOGERROR('Thread was never .start()ed')
+         return None
+
+      return self.output
+
 
    def start(self):
-      #LOGDEBUG('Executing thread.start()...')
       # The prefunc is blocking.  Probably preparing something
       # that needs to be in place before we start the thread
-      self.preFunc()
+      self.startedAt = RightNow()
       super(PyBackgroundThread, self).start()
 
+   def run(self):
+      # This should not be called manually.  Only call start()
+      self.output     = self.func()
+      self.finishedAt = RightNow()
       
+   def reset(self):
+      self.output = None
+      self.startedAt  = UNINITIALIZED
+      self.finishedAt = UNINITIALIZED
+
+   def restart(self):
+      self.reset()
+      self.start()
+
+
+# Define a decorator that allows the function to be called asynchronously
+def AllowAsync(func):
+   def wrappedFunc(*args, **kwargs):
+
+      if not 'async' in kwargs or not kwargs['async']==True:
+         # Run the function normally
+         if 'async' in kwargs:
+            del kwargs['async']
+         return func(*args, **kwargs)
+      else:
+         # Run the function as a background thread
+         del kwargs['async']
+         thr = PyBackgroundThread(func, *args, **kwargs)
+         thr.start()
+         return thr
+
+   return wrappedFunc
+         
 
 
 
@@ -12313,7 +12456,6 @@ class BlockDataManagerThread(threading.Thread):
       try:
          with open(bfile,'r') as f:
             tmtrx = [line.split() for line in f.readlines() if len(line.strip())>0]
-            # TODO: take into account the new phase info
             phases  = [float(row[0])  for row in tmtrx]
             currPhase = phases[-1]
             startat = [float(row[1]) for row in tmtrx if float(row[0])==currPhase]
@@ -12330,10 +12472,11 @@ class BlockDataManagerThread(threading.Thread):
                return [-1,-1,-1,-1]
             rate = (pct1-pct0) / (t1-t0) 
             tleft = (1-pct1)/rate
+            totalPct = (startat[-1] + sofar[-1]) / total[-1]
             if not self.lastPctLoad == pct1:
-               LOGINFO('Reading blockchain, pct complete: %0.1f', 100*pct1)
-            self.lastPctLoad = pct1 
-            return [currPhase,pct1,rate,tleft]
+               LOGINFO('Reading blockchain, pct complete: %0.1f', 100*totalPct)
+            self.lastPctLoad = totalPct 
+            return [currPhase,totalPct,rate,tleft]
       except:
          raise
          return [-1,-1,-1,-1]
