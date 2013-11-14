@@ -39,7 +39,7 @@ import qrc_img_resources
 # All the twisted/networking functionality
 from twisted.internet.protocol import Protocol, ClientFactory
 from twisted.internet.defer import Deferred
-
+from dialogs.toolsDialogs import MessageSigningVerificationDialog
 
 if OS_WINDOWS:
    from _winreg import *
@@ -541,17 +541,10 @@ class ArmoryMainWindow(QMainWindow):
          self.usermode = USERMODE.Expert               
          actSetModeDev.setChecked(True)
 
-      
       def openMsgSigning():
-         QMessageBox.warning(self, tr('Message Signing'), tr("""
-            The message signing capability in Armory is currently not 
-            compatible with any other apps.  Until a new signing system 
-            is integrated, the following window will only be useful
-            if the person verifying the message is also using 
-            Armory."""), QMessageBox.Ok)
-         DlgECDSACalc(self,self, 0).exec_()
+         MessageSigningVerificationDialog(self,self).exec_()
 
-      actOpenSigner = self.createAction('&Message Signing', openMsgSigning)
+      actOpenSigner = self.createAction('&Message Signing/Verification', openMsgSigning)
       actOpenTools  = self.createAction('&EC Calculator',   lambda: DlgECDSACalc(self,self, 1).exec_())
 
       self.menusList[MENUS.Tools].addAction(actOpenSigner)
