@@ -23,7 +23,7 @@ class MessageSigningVerificationDialog(ArmoryDialog):
       layout = QVBoxLayout()
       self.setWindowTitle("Message Signing/Verification")
       self.setWindowIcon(QIcon( self.main.iconfile))
-      self.setMinimumWidth(800)
+      self.setMinimumWidth(600)
       
       tabbedPanel = QTabWidget()
       messageSigningTab = MessageSigningWidget(parent, main)
@@ -34,7 +34,7 @@ class MessageSigningVerificationDialog(ArmoryDialog):
       # tabbedPanel.addTab(signedMsgBlockVerificationTab, "Verify Signed Message Block")
       layout.addWidget(tabbedPanel)
       
-      self.goBackButton = QPushButton("<<< Go Back")
+      self.goBackButton = QPushButton("Done")
       actionButtonBox = QDialogButtonBox()
       actionButtonBox.addButton(self.goBackButton, QDialogButtonBox.RejectRole)
       layout.addWidget(actionButtonBox)
@@ -259,7 +259,7 @@ class BareSignatureVerificationWidget(SignatureVerificationWidget):
       messageString = str(self.messageTextEdit.toPlainText())
       try:
          addrB58 = verifySignature(str(self.signatureTextEdit.toPlainText()), \
-                         messageString, ord(ADDRBYTE))
+                         messageString, 'v0', ord(ADDRBYTE))
          if addrB58 == str(self.addressLineEdit.text()):
             self.displayVerifiedBox(addrB58, messageString)
          else:
@@ -287,7 +287,7 @@ class SignedMessageBlockVerificationWidget(SignatureVerificationWidget):
    def verifySignature(self):
       try:
          sig, msg = readSigBlock(str(self.signedMessageBlockTextEdit.toPlainText()))
-         addrB58 = verifySignature(sig, msg, ord(ADDRBYTE) )
+         addrB58 = verifySignature(sig, msg, 'v1', ord(ADDRBYTE) )
          self.displayVerifiedBox(addrB58, msg)
       except:   
          self.displayInvalidSignatureMessage()

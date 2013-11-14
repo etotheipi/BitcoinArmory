@@ -7,7 +7,7 @@
 ################################################################################
 
 # Version Numbers 
-BTCARMORY_VERSION    = (0, 89, 99, 13)  # (Major, Minor, Bugfix, AutoIncrement) 
+BTCARMORY_VERSION    = (0, 89, 99, 14)  # (Major, Minor, Bugfix, AutoIncrement) 
 PYBTCWALLET_VERSION  = (1, 35,  0, 0)  # (Major, Minor, Bugfix, AutoIncrement)
 
 ARMORY_DONATION_ADDR = '1ArmoryXcfq7TnCSuZa9fQjRYwJ4bkRKfv'
@@ -13528,7 +13528,7 @@ else:
       LOGINFO('Overriding max files via command-line arg')
       TheBDM.setMaxOpenFiles( CLI_OPTIONS.maxOpenFiles )
 
-   LOGINFO('LevelDB max-open-files is %d', TheBDM.getMaxOpenFiles())
+   #LOGINFO('LevelDB max-open-files is %d', TheBDM.getMaxOpenFiles())
 
    # Also load the might-be-needed SatoshiDaemonManager
    TheSDM = SatoshiDaemonManager()

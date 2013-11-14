@@ -603,21 +603,24 @@ def readSigBlock(r):
 
 #==============================================
 
-def verifySignature(b64sig, msg, networkVersionNumber=0):
-   return verify_message_Bitcoin(b64sig, FormatText(msg, True), networkVersionNumber = networkVersionNumber)
+def verifySignature(b64sig, msg, signVer='v0', networkVersionNumber=0):
+   # If version 1, apply RFC2440 formatting rules to the message
+   if signVer=='v1':
+      msg = FormatText(msg, True)
+   return verify_message_Bitcoin(b64sig, msg, networkVersionNumber = networkVersionNumber)
 
 def ASv0(privkey, msg):
-   return sign_message_Bitcoin(privkey, FormatText(msg, True))
+   return sign_message_Bitcoin(privkey, msg)
 
 def ASv1CS(privkey, msg):
-   sig=ASv0(privkey, msg)
+   sig=ASv0(privkey, FormatText(msg))
    r=BEGIN_MARKER+CLEARSIGN_MSG_TYPE_MARKER+DASHX5+RN+RN
    r+=FormatText(msg, False)+RN
    r+=ASCIIArmory(sig['signature'], BITCOIN_SIG_TYPE_MARKER)
    return r
 
 def ASv1B64(privkey, msg):
-   sig=ASv0(privkey, msg)
+   sig=ASv0(privkey, FormatText(msg))
    return ASCIIArmory(sig['signature']+sig['message'], BASE64_MSG_TYPE_MARKER)
 
 #==============================================
@@ -640,7 +643,7 @@ if __name__=='__main__':
 
    sv0=ASv0(pvk1, text1)
    print sv0
-   print verifySignature(sv0['b64-signature'], sv0['message'])
+   print verifySignature(sv0['b64-signature'], sv0['message'], signVer='v0')
    print ASv1B64(pvk1, text1)
    print
    print ASv1CS(pvk1, text1)
