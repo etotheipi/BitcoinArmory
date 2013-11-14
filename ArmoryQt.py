@@ -5043,9 +5043,11 @@ def checkForAlreadyOpen():
    LOGDEBUG('Checking for already open socket...')
    try:
       sock = socket.create_connection(('127.0.0.1',CLI_OPTIONS.interport), 0.1);
+      # If we got here (no error), there's already another Armory open
 
-      # If we got here, there's already another Armory open!
-      checkForAlreadyOpenError()
+      if OS_WINDOWS:
+         # Windows can be tricky, sometimes holds sockets even after closing
+         checkForAlreadyOpenError()
 
       LOGERROR('Socket already in use.  Sending CLI args to existing proc.')
       if CLI_ARGS:
@@ -5063,9 +5065,8 @@ def checkForAlreadyOpen():
 ############################################
 def checkForAlreadyOpenError():
    LOGINFO('Already open error checking')
-   # Sometimes in Windows, Armory actually isn't open
-   import psutil
-   import signal
+   # Sometimes in Windows, Armory actually isn't open, because it holds 
+   # onto the socket even after it's closed.
    armoryExists = []
    bitcoindExists = []
    aexe = os.path.basename(sys.argv[0])
@@ -5076,7 +5077,8 @@ def checkForAlreadyOpenError():
          armoryExists.append(proc.pid)
       if bexe in proc.name:
          LOGINFO('Found bitcoind PID: %d', proc.pid)
-         bitcoindExists.append(proc.pid)
+         if ('testnet' in proc.name) == USE_TESTNET:
+            bitcoindExists.append(proc.pid)
 
    if len(armoryExists)>0:
       LOGINFO('Not an error!  Armory really is open')

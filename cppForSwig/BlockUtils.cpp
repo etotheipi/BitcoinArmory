@@ -1773,7 +1773,6 @@ bool BlockDataManager_LevelDB::detectCurrentSyncState(
       startApplyHgt_      = 0;
       startApplyBlkFile_  = 0;
       startApplyOffset_   = 0;
-      //iface_->nukeHeadersDB();
       headerMap_.clear();
       headersByHeight_.clear();
       topBlockPtr_ = NULL;
@@ -4244,6 +4243,9 @@ uint32_t BlockDataManager_LevelDB::readBlkFileUpdate(void)
 
    // If the blk file split, switch to tracking it
    LOGINFO << "Added new blocks to memory pool: " << nBlkRead;
+
+   // If we pull non-zero amount of data from next block file...there 
+   // was a blkfile split!
    if(nextBlkBytesToRead>0)
    {
       numBlkFiles_ += 1;

@@ -7,7 +7,7 @@
 ################################################################################
 
 # Version Numbers 
-BTCARMORY_VERSION    = (0, 89, 99, 10)  # (Major, Minor, Bugfix, AutoIncrement) 
+BTCARMORY_VERSION    = (0, 89, 99, 13)  # (Major, Minor, Bugfix, AutoIncrement) 
 PYBTCWALLET_VERSION  = (1, 35,  0, 0)  # (Major, Minor, Bugfix, AutoIncrement)
 
 ARMORY_DONATION_ADDR = '1ArmoryXcfq7TnCSuZa9fQjRYwJ4bkRKfv'
@@ -59,7 +59,6 @@ parser.add_option("--settings",        dest="settingsPath",default='DEFAULT', ty
 parser.add_option("--datadir",         dest="datadir",     default='DEFAULT', type="str",          help="Change the directory that Armory calls home")
 parser.add_option("--satoshi-datadir", dest="satoshiHome", default='DEFAULT', type='str',          help="The Bitcoin-Qt/bitcoind home directory")
 parser.add_option("--satoshi-port",    dest="satoshiPort", default='DEFAULT', type="str",          help="For Bitcoin-Qt instances operating on a non-standard port")
-#parser.add_option("--bitcoind-path",   dest="bitcoindPath",default='DEFAULT', type="str",          help="Path to the location of bitcoind on your system")
 parser.add_option("--dbdir",           dest="leveldbDir",  default='DEFAULT', type='str',          help="Location to store blocks database (defaults to --datadir)")
 parser.add_option("--rpcport",         dest="rpcport",     default='DEFAULT', type="str",          help="RPC port for running armoryd.py")
 parser.add_option("--testnet",         dest="testnet",     default=False,     action="store_true", help="Use the testnet protocol")
@@ -74,13 +73,15 @@ parser.add_option("--mtdebug",         dest="mtdebug",     default=False,     ac
 parser.add_option("--skip-online-check", dest="forceOnline", default=False,   action="store_true", help="Go into online mode, even if internet connection isn't detected")
 parser.add_option("--skip-version-check", dest="skipVerCheck", default=False, action="store_true", help="Do not contact bitcoinarmory.com to check for new versions")
 parser.add_option("--keypool",         dest="keypool",     default=100, type="int",                help="Default number of addresses to lookahead in Armory wallets")
+parser.add_option("--rebuild",         dest="rebuild",     default=False,     action="store_true", help="Rebuild blockchain database and rescan")
+parser.add_option("--rescan",          dest="rescan",      default=False,     action="store_true", help="Rescan existing blockchain DB")
+parser.add_option("--maxfiles",        dest="maxOpenFiles",default=0,         type="int",          help="Set maximum allowed open files for LevelDB databases")
+
+# These are arguments passed by running unit-tests that need to be handled
 parser.add_option("--port", dest="port", default=None, type="int", help="Unit Test Argument - Do not consume")
 parser.add_option("--verbosity", dest="verbosity", default=None, type="int", help="Unit Test Argument - Do not consume")
 parser.add_option("--coverage_output_dir", dest="coverageOutputDir", default=None, type="str", help="Unit Test Argument - Do not consume")
 parser.add_option("--coverage_include", dest="coverageInclude", default=None, type="str", help="Unit Test Argument - Do not consume")
-parser.add_option("--rebuild",         dest="rebuild",     default=False,     action="store_true", help="Rebuild blockchain database and rescan")
-parser.add_option("--rescan",          dest="rescan",      default=False,     action="store_true", help="Rescan existing blockchain DB")
-
 
 ################################################################################
 # We need to have some methods for casting ASCII<->Unicode<->Preferred
@@ -2021,6 +2022,72 @@ def ReconstructSecret(fragments, needed, nbytes):
    return int_to_binary(outvect[0], nbytes, BIGENDIAN)
          
 
+################################################################################
+def createTestingSubsets( fragIndices, M, maxTestCount=20):
+   """
+   Returns (IsRandomized, listOfTuplesOfSizeM)
+   """
+   numIdx = len(fragIndices)
+
+   if M>numIdx:
+      LOGERROR('Insufficent number of fragments')
+      raise KeyDataError
+   elif M==numIdx:
+      LOGINFO('Fragments supplied == needed.  One subset to test (%s-of-N)' % M)
+      return ( False, [tuple(fragIndices)] )
+   else:
+      LOGINFO('Test reconstruct %s-of-N, with %s fragments' % (M, numIdx))
+      subs = []
+   
+      # Compute the number of possible subsets.  This is stable because we
+      # shouldn't ever have more than 12 fragments
+      fact = math.factorial
+      numCombo = fact(numIdx) / ( fact(M) * fact(numIdx-M) )
+
+      if numCombo <= maxTestCount:
+         LOGINFO('Testing all %s combinations...' % numCombo)
+         for x in xrange(2**numIdx):
+            bits = int_to_bitset(x)
+            if not bits.count('1') == M:
+               continue
+
+            subs.append(tuple([fragIndices[i] for i,b in enumerate(bits) if b=='1']))
+
+         return (False, sorted(subs))
+      else:
+         LOGINFO('#Subsets > %s, will need to randomize' % maxTestCount)
+         usedSubsets = set()
+         while len(subs) < maxTestCount:
+            sample = tuple(sorted(random.sample(fragIndices, M)))
+            if not sample in usedSubsets:
+               usedSubsets.add(sample)
+               subs.append(sample)
+
+         return (True, sorted(subs))
+
+
+################################################################################
+def testReconstructSecrets(fragMap, M, maxTestCount=20):
+   # If fragMap has X elements, then it will test all X-choose-M subsets of
+   # the fragMap and return the restored secret for each one.  If there's more
+   # subsets than maxTestCount, then just do a random sampling of the possible
+   # subsets
+   fragKeys = [k for k in fragMap.iterkeys()]
+   isRandom, subs = createTestingSubsets(fragKeys, M, maxTestCount)
+   nBytes = len(fragMap[fragKeys[0]][1])
+   LOGINFO('Testing %d-byte fragments' % nBytes)
+
+   testResults = []
+   for subset in subs:
+      fragSubset = [fragMap[i][:] for i in subset] 
+      
+      recon = ReconstructSecret(fragSubset, M, nBytes)
+      testResults.append((subset, recon))
+
+   return isRandom, testResults
+         
+   
+
 
    
 ################################################################################
@@ -3454,6 +3521,15 @@ class PyBtcAddress(object):
          print indent + 'PrivKeyCiphr(BE) :', pp(SecureBinaryData())
       if self.createPrivKeyNextUnlock:
          print indent + '           ***** :', 'PrivKeys available on next unlock'
+
+
+#############################################################################
+def calcWalletIDFromRoot(root, chain):
+   """ Helper method for computing a wallet ID """
+   root  = PyBtcAddress().createFromPlainKeyData(SecureBinaryData(root))
+   root.chaincode = SecureBinaryData(chain)
+   first = root.extendAddressChain()
+   return binary_to_base58((ADDRBYTE + first.getAddr160()[:5])[::-1])
 
 
 
@@ -7664,6 +7740,10 @@ class PyBtcWallet(object):
       if self.useEncryption:
          self.lock()
       return self
+
+
+      
+
 
    #############################################################################
    def advanceHighestIndex(self, ct=1):
@@ -12378,7 +12458,6 @@ class BlockDataManagerThread(threading.Thread):
       try:
          with open(bfile,'r') as f:
             tmtrx = [line.split() for line in f.readlines() if len(line.strip())>0]
-            # TODO: take into account the new phase info
             phases  = [float(row[0])  for row in tmtrx]
             currPhase = phases[-1]
             startat = [float(row[1]) for row in tmtrx if float(row[0])==currPhase]
@@ -12395,10 +12474,11 @@ class BlockDataManagerThread(threading.Thread):
                return [-1,-1,-1,-1]
             rate = (pct1-pct0) / (t1-t0) 
             tleft = (1-pct1)/rate
+            totalPct = (startat[-1] + sofar[-1]) / total[-1]
             if not self.lastPctLoad == pct1:
-               LOGINFO('Reading blockchain, pct complete: %0.1f', 100*pct1)
-            self.lastPctLoad = pct1 
-            return [currPhase,pct1,rate,tleft]
+               LOGINFO('Reading blockchain, pct complete: %0.1f', 100*totalPct)
+            self.lastPctLoad = totalPct 
+            return [currPhase,totalPct,rate,tleft]
       except:
          raise
          return [-1,-1,-1,-1]
@@ -13437,6 +13517,19 @@ else:
    cppLogFile = os.path.join(ARMORY_HOME_DIR, 'armorycpplog.txt')
    TheBDM.StartCppLogging(cppLogFile, 3)
    TheBDM.EnableCppLogStdOut()
+
+   # 32-bit linux has an issue with max open files.  Rather than modifying
+   # the system, we can tell LevelDB to take it easy with max files to open
+   if OS_LINUX and not SystemSpecs.IsX64:
+      LOGINFO('Lowering max-open-files parameter in LevelDB for 32-bit linux')
+      TheBDM.setMaxOpenFiles(75)
+
+   # Override the above if they explicitly specify it as CLI arg
+   if CLI_OPTIONS.maxOpenFiles > 0:
+      LOGINFO('Overriding max files via command-line arg')
+      TheBDM.setMaxOpenFiles( CLI_OPTIONS.maxOpenFiles )
+
+   LOGINFO('LevelDB max-open-files is %d', TheBDM.getMaxOpenFiles())
 
    # Also load the might-be-needed SatoshiDaemonManager
    TheSDM = SatoshiDaemonManager()
