@@ -1,0 +1,31 @@
+This directory was prepared by forum user, "picobit", and reviewed 
+by the ATI team.  These notes describe what had to be done on a fresh
+install of OSX 10.9 in order to get build-app.py working.
+
+(1) Install xcode from the Apple store (free)
+
+(2) From within xcode, install the command-line utilities
+    "Xcode" --> "Preferences" --> "Downloads"
+
+(3) You may also have to run "xcode-select --install" from the terminal.
+    You will have to click through an EULA and a few other dialogs.
+
+(4) From Red Emerald's preparation steps for compiling Armory on Mac
+    (https://gist.github.com/WyseNynja/4200620), execute the following
+    to install and update brew:
+
+       $ ruby -e "$(curl -fsSkL raw.github.com/mxcl/homebrew/go)"
+       $ touch ~/.bashrc
+       $ echo "export CFLAGS=\"-arch x86_64\"" >> ~/.bashrc
+       $ echo "export ARCHFLAGS=\"-arch x86_64\"" >> ~/.bashrc
+       $ source ~/.bashrc
+       $ brew update
+       $ brew doctor
+
+(5) Execute "brew install swig"
+
+(6) Open cppForSwig/Makefile and comment out the DO_EXEC_WHEREISPY 
+    line (around line 20).  I tried to branch around it, but it 
+    didn't work for some reason.	
+
+(7) "cd" into the osx_picobit directory, and "python build-app.py"

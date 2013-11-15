@@ -781,9 +781,10 @@ def GetSystemDetails():
       ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(stat))
       out.Memory = stat.ullTotalPhys/1024.
       out.CpuStr = platform.processor()
-   else:
-      out.CpuStr = 'Unknown'
-      raise OSError, "Can't get system specs in OSX"
+   elif OS_MACOSX:
+      memsizeStr = subprocess_check_output('sysctl hw.memsize', shell=True)
+      out.Memory = int(memsizeStr.split(": ")[1]) / 1024
+      out.CpuStr = subprocess_check_output('sysctl -n machdep.cpu.brand_string', shell=True)
 
    out.NumCores = multiprocessing.cpu_count()
    out.IsX64 = platform.architecture()[0].startswith('64')
