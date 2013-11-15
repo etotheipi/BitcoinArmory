@@ -9597,12 +9597,21 @@ class DlgECDSACalc(ArmoryDialog):
       frmPP.setFrameStyle(STYLE_SUNKEN)
       frmPP.setLayout(ppLayout)
 
+      gxstr = '79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798'
+      gystr = '483ADA7726A3C4655DA4FBFC0E1108A8FD17B448A68554199C47D08FFB10D4B8'
       
-      lblDescr = QRichLabel( \
-         'Use this form to perform Bitcoin elliptic curve calculations.  All '
-         'operations are performed on the secp256k1 elliptic curve, which is '
-         'the one used for Bitcoin. '
-         'Supply all values as 32-byte, big-endian, hex-encoded integers.')
+      lblDescr = QRichLabel( tr("""
+         Use this form to perform Bitcoin elliptic curve calculations.  All 
+         operations are performed on the secp256k1 elliptic curve, which is 
+         the one used for Bitcoin. 
+         Supply all values as 32-byte, big-endian, hex-encoded integers. 
+         <br><br>
+         The following is the secp256k1 generator point coordinates (G): <br>
+            <b>G</b><sub>x</sub>: %s <br>
+            <b>G</b><sub>y</sub>: %s""") % (gxstr, gystr))
+
+      lblDescr.setTextInteractionFlags(Qt.TextSelectableByMouse | \
+                                       Qt.TextSelectableByKeyboard)
 
       btnClear = QPushButton('Clear')
       btnClear.setMaximumWidth(2*relaxedSizeStr(btnClear, 'Clear')[0])
