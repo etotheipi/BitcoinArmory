@@ -1,0 +1,11 @@
+To build for WinXP, the projects need to be set to use the msvc100 toolset (in properties>configurations>general)
+
+Once you do this, you can't edit the projects with msvs11 anymore, you'll have to open the individual projects with msvc10 to perform any changes, so make sure you have set the projects properly before swapping to the 100 toolset.
+
+In the leveldb project, you have to modify the following global defines:
+
+1) LEVELDB_CSTDATOMIC_PRESENT has to be changed to LEVELDB_HAVE_MEMORY_BARRIER
+
+2) Do not define USE_CONDVAR
+
+Once the SwigDLL is built, it simply has to be put in the frozen exe folder to run. Setting up the installer to copy this DLL over in WinXP would finalize the deployment smoothly
