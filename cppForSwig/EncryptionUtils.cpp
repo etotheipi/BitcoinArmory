@@ -938,6 +938,281 @@ SecureBinaryData CryptoECDSA::UncompressPoint(SecureBinaryData const & pubKey33)
 
 
 
+////////////////////////////////////////////////////////////////////////////////
+BinaryData ExtendedKey::getHash160(void) const
+{
+   if(hasPub())
+      return BtcUtils::getHash160(getPub().getPtr(), getPub().getSize());
+   else
+      return BinaryData(0);
+   
+}
+
+////////////////////////////////////////////////////////////////////////////////
+uint32_t ExtendedKey::getIndex(void) const
+{
+   if(indicesList_.size() == 0)
+      return UINT32_MAX;
+   
+   list<uint32_t>::const_iterator iter = indicesList_.end();
+   iter--;
+   return *iter;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+vector<uint32_t> ExtendedKey::getIndicesVect(void) const
+{
+   list<uint32_t>::const_iterator iter;
+   vector<uint32_t> out(indicesList_.size());
+   uint32_t index = 0;
+   for(iter=indicesList_.begin(); iter!=indicesList_.end(); iter++)
+   {
+      out[index] = *iter;
+      index++;
+   }
+   return out;
+}
+      
+////////////////////////////////////////////////////////////////////////////////
+ExtendedKey::ExtendedKey(SecureBinaryData const & pr, 
+                         SecureBinaryData const & pb, 
+                         SecureBinaryData const & ch,
+                         SecureBinaryData const & par160,
+                         list<uint32_t> parentTreeIdx) :
+   privKey_(pr),
+   pubKey_(pb),
+   chain_(ch),
+   parent160_(par160),
+   indicesList_(parentTreeIdx)
+{
+   assert(privKey_.getSize()==0 || privKey_.getSize()==32);
+   assert(pubKey_.getSize()==33 || pubKey_.getSize()==65);
+   assert(chain_.getSize()==32);
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+ExtendedKey::ExtendedKey(BinaryData const & pub, 
+                         BinaryData const & chn,
+                         BinaryData const & par160,
+                         list<uint32_t> parentTreeIdx) :
+   privKey_(0),
+   pubKey_(pub),
+   chain_(chn),
+   parent160_(par160),
+   indicesList_(parentTreeIdx)
+{
+   assert(pubKey_.getSize()==33 || pubKey_.getSize()==65);
+   assert(chain_.getSize()==32);
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+// Should be static, but would prevent SWIG from using it.
+ExtendedKey ExtendedKey::CreateFromPrivate( 
+                               SecureBinaryData const & priv, 
+                               SecureBinaryData const & chain,
+                               SecureBinaryData const & parent160,
+                               list<uint32_t> parentTreeIdx)
+{
+   ExtendedKey ek;
+   ek.privKey_ = priv.copy();
+   ek.pubKey_ = CryptoECDSA().ComputePublicKey(ek.privKey_, true);
+   ek.chain_ = chain.copy();
+   ek.parent160_ = parent160.copy();
+   ek.indicesList_ = parentTreeIdx;
+   return ek;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+// Should be static, but would prevent SWIG from using it.
+ExtendedKey ExtendedKey::CreateFromPublic( 
+                              SecureBinaryData const & pub, 
+                              SecureBinaryData const & chain,
+                              SecureBinaryData const & parent160,
+                              list<uint32_t> parentTreeIdx)
+{
+   ExtendedKey ek;
+   ek.privKey_ = SecureBinaryData(0);
+   ek.pubKey_ = pub.copy();
+   ek.chain_ = chain.copy();
+   ek.parent160_ = parent160.copy();
+   ek.indicesList_ = parentTreeIdx;
+   return ek;
+}
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+void ExtendedKey::deletePrivateKey(void)
+{
+   privKey_.destroy(); 
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+ExtendedKey ExtendedKey::makePublicCopy(void)
+{
+   ExtendedKey ekout = copy();
+   ekout.deletePrivateKey();
+   return ekout;
+}
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+// Strictly speaking, this isn't necessary, but I want a method in python/SWIG
+// that guarantees I'm getting a copy, not a reference
+ExtendedKey ExtendedKey::copy(void) const
+{
+   return ExtendedKey(privKey_, pubKey_, chain_, parent160_, indicesList_);
+}
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+void ExtendedKey::debugPrint(void) const
+{
+   cout << "Indices:        " << getIndexListString() << endl;
+   cout << "Fingerprint:    Self: " << getFingerprint().toHexStr()
+        << " Parent: " << getParentHash160().toHexStr() << endl;
+   cout << "Private Key:    " << privKey_.toHexStr() << endl;
+   cout << "Public Key:   "   << CryptoECDSA().CompressPoint(pubKey_).toHexStr() << endl;
+   cout << "Chain Code:     " << chain_.toHexStr() << endl;
+   cout << "Hash160:        " << getHash160().toHexStr() << endl << endl;
+}
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+string ExtendedKey::getIndexListString(string prefix) const
+{
+   stringstream ss;
+   ss << prefix;
+   vector<uint32_t> indexList = getIndicesVect();
+   for(uint32_t i=0; i<indexList.size(); i++)
+      ss << "/" << indexList[i]; 
+   return ss.str();
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+SecureBinaryData ExtendedKey::getPubCompressed(void) const
+{
+   return CryptoECDSA().CompressPoint(pubKey_);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+SecureBinaryData ExtendedKey::getPubUncompressed(void) const
+{
+   return CryptoECDSA().UncompressPoint(pubKey_);
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+SecureBinaryData HDWalletCrypto::HMAC_SHA512(SecureBinaryData key, 
+                                             SecureBinaryData msg)
+{
+   static uint32_t const BLOCKSIZE  = 128;
+
+   // Reduce large keys via hash-function
+   if(key.getSize() > BLOCKSIZE)
+      key = BtcUtils::getSHA512(key);
+
+
+   // Zero-pad smaller keys
+   if(key.getSize() < BLOCKSIZE)
+   {
+      BinaryData zeros = BinaryData(BLOCKSIZE - key.getSize());
+      zeros.fill(0x00);
+      key.append(zeros);
+   }
+
+
+   SecureBinaryData i_key_pad = SecureBinaryData().XOR( key, 0x36 );
+   SecureBinaryData o_key_pad = SecureBinaryData().XOR( key, 0x5c );
+
+
+   // Inner hash operation
+   i_key_pad.append(msg);
+   i_key_pad = BtcUtils::getSHA512(i_key_pad);
+
+
+   // Outer hash operation
+   o_key_pad.append(i_key_pad);
+   o_key_pad = BtcUtils::getSHA512(o_key_pad);
+   
+
+   return o_key_pad;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+// In the HDWallet gist by Pieter, CKD takes two inputs:
+//    1.  Extended Key  (priv/pub key, chaincode)
+//    2.  Index n
+//
+// The ExtendedKey class accommodates full private-included ExtendedKey objects
+// or public-key-only.  You can pass in either one here, and it will derive the
+// child for whatever key data is there.
+//
+ExtendedKey HDWalletCrypto::ChildKeyDeriv(ExtendedKey const & extKey, uint32_t n)
+{
+
+   // Pad the integer to 4-bytes
+   SecureBinaryData binaryN = BtcUtils::uint32ToBinaryBE(n);
+
+   // Can't compute a child with no parent!
+   assert(extKey.isInitialized());
+
+   // Make a copy of the public key, make sure it's compressed
+   SecureBinaryData comprKey = CryptoECDSA().CompressPoint(extKey.getPub());
+
+   // Append the four-byte index number to the compressed public key
+   comprKey.append(binaryN);
+
+   // Apply HMAC to get the child pieces
+   SecureBinaryData I = HMAC_SHA512(extKey.getChain(), comprKey);
+
+   // Split the HMAC into the two pieces.
+   SecureBinaryData I_left ( I.getPtr(),     32 );
+   SecureBinaryData I_right( I.getPtr()+32,  32 );
+
+   SecureBinaryData newKey;
+   SecureBinaryData parFinger = extKey.getFingerprint();
+
+   // Index list is an array of n-values needed to get from the master node to
+   // this one.  The new keys should have an index list one bigger. 
+   list<uint32_t> idxList = extKey.getIndicesList();
+   idxList.push_back(n);
+
+   if(extKey.hasPriv())
+   {
+      // This computes the private key, and lets ExtendedKey compute pub
+      newKey = SecureBinaryData(CryptoECDSA().ECMultiplyScalars(I_left, extKey.getPriv()));
+      return ExtendedKey().CreateFromPrivate(newKey, I_right, parFinger, idxList);
+   }
+   else
+   {
+      // Compress the output if the we received compressed input
+      newKey = SecureBinaryData(CryptoECDSA().ECMultiplyPoint(I_left, extKey.getPub()));
+      return ExtendedKey().CreateFromPublic(newKey, I_right, parFinger, idxList);
+   }
+}
+
+
+
+ExtendedKey HDWalletCrypto::ConvertSeedToMasterKey(SecureBinaryData const & seed)
+{
+   SecureBinaryData constKey = SecureBinaryData("Bitcoin seed");
+   SecureBinaryData bytes64 = HMAC_SHA512(constKey, seed);
+
+   SecureBinaryData KLeft (bytes64.getPtr(),    32);
+   SecureBinaryData KRight(bytes64.getPtr()+32, 32);
+   return ExtendedKey().CreateFromPrivate(KLeft, KRight);
+}
 
 
 
