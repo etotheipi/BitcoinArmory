@@ -149,11 +149,12 @@ int pthread_once(pthread_once_t *once, void (*func)(void))
 	}*/
 
 
-	while(*once<1)
+	while(*once!=1)
 	{
-		if(_InterlockedIncrement(once)==1)
+		if(!InterlockedCompareExchange(once, 2, 0))
 		{
 			func();
+			*once=1;
 			return 0;
 		}
 	}
