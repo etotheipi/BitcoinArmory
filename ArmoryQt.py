@@ -545,7 +545,8 @@ class ArmoryMainWindow(QMainWindow):
          MessageSigningVerificationDialog(self,self).exec_()
 
       actOpenSigner = self.createAction('&Message Signing/Verification', openMsgSigning)
-      actOpenTools  = self.createAction('&EC Calculator',   lambda: DlgECDSACalc(self,self, 1).exec_())
+      if currmode=='Expert':
+         actOpenTools  = self.createAction('&EC Calculator',   lambda: DlgECDSACalc(self,self, 1).exec_())
 
       self.menusList[MENUS.Tools].addAction(actOpenSigner)
       if currmode=='Expert':
