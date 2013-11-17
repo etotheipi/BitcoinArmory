@@ -124,36 +124,11 @@ int pthread_cond_destroy(pthread_cond_t *cond)
 
 int pthread_once(pthread_once_t *once, void (*func)(void))
 {
-	/*long state = *once;
-
-	_ReadWriteBarrier();
-	
-	while (state != 1)
-	{
-		if (!state)
-		{
-			if (!InterlockedCompareExchange(once, 2, 0))
-			{
-				func();
-				*once = 1;
-				
-				return 0;
-			}
-		}
-		
-		YieldProcessor();
-		
-		_ReadWriteBarrier();
-		
-		state = *once;
-	}*/
-
-
 	while(*once!=1)
 	{
 		if(!InterlockedCompareExchange(once, 2, 0))
 		{
-			func();
+			if(*once==2) func(); //consume once to prevent reordering
 			*once=1;
 			return 0;
 		}
