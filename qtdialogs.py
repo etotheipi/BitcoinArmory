@@ -13165,10 +13165,7 @@ class DlgRestoreSingle(ArmoryDialog):
       self.prfxList = [QLabel(tr('Root Key:')), QLabel(''), QLabel(tr('Chaincode:')), QLabel('')]
       
       inpMask = '<AAAA\ AAAA\ AAAA\ AAAA\ \ AAAA\ AAAA\ AAAA\ AAAA\ \ AAAA!'
-      self.edtList = [MaskedInputLineEdit(inpMask),\
-                      MaskedInputLineEdit(inpMask),\
-                      MaskedInputLineEdit(inpMask),\
-                      MaskedInputLineEdit(inpMask)]
+      self.edtList = [MaskedInputLineEdit(inpMask) for i in range(4)]
       
 
       self.frmSP = makeHorizFrame(['Stretch', self.lblSP, self.edtSP])
@@ -14058,18 +14055,7 @@ class DlgEnterOneFrag(ArmoryDialog):
                        'F1:','F2:','F3:','F4:']
       self.prfxList = [QLabel(p) for p in self.prfxList]
       inpMask   = '<AAAA\ AAAA\ AAAA\ AAAA\ \ AAAA\ AAAA\ AAAA\ AAAA\ \ AAAA!'
-      self.edtList = [MaskedInputLineEdit(inpMask),\
-                      MaskedInputLineEdit(inpMask),\
-                      MaskedInputLineEdit(inpMask),\
-                      MaskedInputLineEdit(inpMask),\
-                      MaskedInputLineEdit(inpMask),\
-                      MaskedInputLineEdit(inpMask),\
-                      MaskedInputLineEdit(inpMask),\
-                      MaskedInputLineEdit(inpMask),\
-                      MaskedInputLineEdit(inpMask),\
-                      MaskedInputLineEdit(inpMask),\
-                      MaskedInputLineEdit(inpMask),\
-                      MaskedInputLineEdit(inpMask)]
+      self.edtList = [MaskedInputLineEdit(inpMask) for i in range(12)]
 
       inpMaskID = '<HHHH\ HHHH\ HHHH\ HHHH!'
       self.lblID = QRichLabel('ID:')
