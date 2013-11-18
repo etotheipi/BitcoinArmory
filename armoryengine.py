@@ -7,7 +7,7 @@
 ################################################################################
 
 # Version Numbers 
-BTCARMORY_VERSION    = (0, 89, 99, 14)  # (Major, Minor, Bugfix, AutoIncrement) 
+BTCARMORY_VERSION    = (0, 89, 99, 15)  # (Major, Minor, Bugfix, AutoIncrement) 
 PYBTCWALLET_VERSION  = (1, 35,  0, 0)  # (Major, Minor, Bugfix, AutoIncrement)
 
 ARMORY_DONATION_ADDR = '1ArmoryXcfq7TnCSuZa9fQjRYwJ4bkRKfv'
@@ -942,7 +942,7 @@ ONE_BTC       = long(100000000)
 CENT          = long(1000000)
 UNINITIALIZED = None
 UNKNOWN       = -2
-MIN_TX_FEE    = 50000
+MIN_TX_FEE    = 10000
 MIN_RELAY_TX_FEE = 10000
 MT_WAIT_TIMEOUT_SEC = 20;
 

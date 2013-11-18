@@ -30,8 +30,8 @@ class MessageSigningVerificationDialog(ArmoryDialog):
       bareSignatureVerificationTab = BareSignatureVerificationWidget(parent, main)
       signedMsgBlockVerificationTab = SignedMessageBlockVerificationWidget(parent, main)
       tabbedPanel.addTab(messageSigningTab, "Sign Message")
-      tabbedPanel.addTab(bareSignatureVerificationTab, "Verify Signature")
-      # tabbedPanel.addTab(signedMsgBlockVerificationTab, "Verify Signed Message Block")
+      tabbedPanel.addTab(bareSignatureVerificationTab, "Verify Bare Signature")
+      tabbedPanel.addTab(signedMsgBlockVerificationTab, "Verify Signed Message Block")
       layout.addWidget(tabbedPanel)
       
       self.goBackButton = QPushButton("Done")
@@ -78,10 +78,12 @@ class MessageSigningWidget(QWidget):
       
       # Create a row with just a sign message button
       
-      self.bareSigButton = QPushButton('Sign Message')
-      # self.base64SigButton = QPushButton('Base64 Signature')
-      # self.clearSigButton = QPushButton('Clearsign Signature')
-      sigButtonFrame = makeHorizFrame([self.bareSigButton,
+      self.bareSigButton = QPushButton('Bare Signature (Bitcoin-Qt Compatible)')
+      self.base64SigButton = QPushButton('Base64 Signature')
+      self.clearSigButton = QPushButton('Clearsign Signature')
+      sigButtonFrame = makeHorizFrame([self.bareSigButton,\
+                                        self.base64SigButton,\
+                                        self.clearSigButton,\
                                         'Stretch'])
       signMessageLayout.addWidget(sigButtonFrame,  2, 1, 1, 3)
       
@@ -101,10 +103,10 @@ class MessageSigningWidget(QWidget):
       self.setLayout(signMessageLayout)
       self.connect(self.bareSigButton, SIGNAL('clicked()'), \
                    self.bareSignMessage)
-      # self.connect(self.base64SigButton, SIGNAL('clicked()'), \
-      #              self.base64SignMessage)
-      # self.connect(self.clearSigButton, SIGNAL('clicked()'), \
-      #              self.clearSignMessage)
+      self.connect(self.base64SigButton, SIGNAL('clicked()'), \
+                    self.base64SignMessage)
+      self.connect(self.clearSigButton, SIGNAL('clicked()'), \
+                    self.clearSignMessage)
       self.connect(self.copySignatureButton, SIGNAL('clicked()'), \
                    self.copySignature)
       self.connect(self.clearFieldsButton, SIGNAL('clicked()'), \
@@ -137,7 +139,8 @@ class MessageSigningWidget(QWidget):
             else:
                QMessageBox.warning(self, 'Private Key Not Known', 'The private key is not known for this address.', QMessageBox.Ok)         
          except:
-            QMessageBox.warning(self, 'Invalid Address', 'The signing address is invalid.', QMessageBox.Ok)    
+            QMessageBox.warning(self, 'Invalid Address', 'The signing address is invalid.', QMessageBox.Ok)
+            raise
    
    def base64SignMessage(self):
       messageText = str(self.messageTextEdit.toPlainText())
@@ -153,6 +156,7 @@ class MessageSigningWidget(QWidget):
                QMessageBox.warning(self, 'Private Key Not Known', 'The private key is not known for this address.', QMessageBox.Ok)
          except:
             QMessageBox.warning(self, 'Invalid Address', 'The signing address is invalid.', QMessageBox.Ok)
+            raise
    
    def clearSignMessage(self):
       messageText = str(self.messageTextEdit.toPlainText())
@@ -161,13 +165,14 @@ class MessageSigningWidget(QWidget):
       else:
          try:
             privateKey = self.getPrivateKeyFromAddrInput()
-            if privateKey:
-               signature = ASv1CS(privateKey, messageText)
-               self.signatureDisplay.setPlainText(signature)
-            else:
-               QMessageBox.warning(self, 'Private Key Not Known', 'The private key is not known for this address.', QMessageBox.Ok)
          except:
             QMessageBox.warning(self, 'Invalid Address', 'The signing address is invalid.', QMessageBox.Ok)
+            raise
+         if privateKey:
+            signature = ASv1CS(privateKey, messageText)
+            self.signatureDisplay.setPlainText(signature)
+         else:
+            QMessageBox.warning(self, 'Private Key Not Known', 'The private key is not known for this address.', QMessageBox.Ok)
 
    def copySignature(self):
       clipb = QApplication.clipboard()
@@ -266,6 +271,7 @@ class BareSignatureVerificationWidget(SignatureVerificationWidget):
             self.displayInvalidSignatureMessage()
       except:   
          self.displayInvalidSignatureMessage()
+         raise
 
          
    def clearFields(self):
@@ -284,11 +290,26 @@ class SignedMessageBlockVerificationWidget(SignatureVerificationWidget):
       self.signMessageLayout.addWidget(signatureLabel,         0, 0)
       self.signMessageLayout.addWidget(self.signedMessageBlockTextEdit,  0, 1)
 
+      # Create a message in Row 1
+      messageLabel = QLabel("Message:")
+      self.messageTextEdit = QTextEdit()
+      self.messageTextEdit.setAcceptRichText(False)
+      self.messageTextEdit.setReadOnly(True)
+      self.signMessageLayout.addWidget(messageLabel,          1, 0)
+      self.signMessageLayout.addWidget(self.messageTextEdit,  1, 1, 1, 2)
+      
+      
    def verifySignature(self):
       try:
          sig, msg = readSigBlock(str(self.signedMessageBlockTextEdit.toPlainText()))
          addrB58 = verifySignature(sig, msg, 'v1', ord(ADDRBYTE) )
          self.displayVerifiedBox(addrB58, msg)
+         self.messageTextEdit.setPlainText(msg)
       except:   
          self.displayInvalidSignatureMessage()
+         raise
          
+   def clearFields(self):
+      super(SignedMessageBlockVerificationWidget, self).clearFields()
+      self.signedMessageBlockTextEdit.setPlainText('')
+      self.messageTextEdit.setPlainText('')

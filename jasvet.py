@@ -31,9 +31,12 @@ BEGIN_MARKER = '-----BEGIN '
 END_MARKER = '-----END '
 DASHX5 = '-----'
 RN = '\r\n'
+RNRN = '\r\n\r\n'
 CLEARSIGN_MSG_TYPE_MARKER = 'BITCOIN SIGNED MESSAGE'
 BITCOIN_SIG_TYPE_MARKER = 'BITCOIN SIGNATURE'
 BASE64_MSG_TYPE_MARKER = 'BITCOIN MESSAGE'
+BITCOIN_ARMORY_COMMENT = 'Comment: Signed by Bitcoin Armory v' +\
+   getVersionString(BTCARMORY_VERSION, 3)
 class UnknownSigBlockType(Exception): pass
    
 def randomk():  #better make it stronger
@@ -522,7 +525,7 @@ def sign_message_Bitcoin(secret, msg, pureECDSASigning=False):
 
    raise Exception("smB","Unable to construct recoverable key")
 
-def FormatText(t, sigctx, verbose=False):   #sigctx: False=what is displayed, True=what is signed
+def FormatText(t, sigctx=False, verbose=False):   #sigctx: False=what is displayed, True=what is signed
    r=''
    te=t.split('\n')
    for l in te:
@@ -566,9 +569,12 @@ def crc24(m):
 def chunks(t, n):
    return [t[i:i+n] for i in range(0, len(t), n)]
 
-def ASCIIArmory(block, name):
+def ASCIIArmory(block, name, addComment=False):
 
    r=BEGIN_MARKER+name+DASHX5+RN
+   if addComment:
+      r+= BITCOIN_ARMORY_COMMENT
+   r+=RNRN
    r+=RN.join(chunks(base64.b64encode(block), 64))+RN+'='
    r+=base64.b64encode(crc24(block))+RN
 
@@ -577,19 +583,31 @@ def ASCIIArmory(block, name):
 
 def readSigBlock(r):
    # Take the name off of the end because the BEGIN markers are confusing
+   r = FormatText(r, True)
    name = r.split(BEGIN_MARKER)[1].split(DASHX5)[0]
    if name == BASE64_MSG_TYPE_MARKER:
       encoded,crc = r.split(BEGIN_MARKER)[1].split(END_MARKER)[0].split(DASHX5)[1].strip().split('\n=')
       crc = crc.strip()
-      encoded = ''.join(encoded.split('\n'))
-      encoded = ''.join(encoded.split('\r'))
+      # Always starts with a blank line (\r\n\r\n) chop that off with the comment oand process the rest
+      encoded = encoded.split(RNRN)[1]
+      # Combines 64 byte chunks that are separated by \r\n
+      encoded = ''.join(encoded.split(RN))
+      # decode the message.
       decoded = base64.b64decode(encoded)
+      # Check sum of decoded messgae
       if base64.b64decode(crc) != crc24(decoded):
          raise ChecksumError
+      # The signature is followed by the message and the whole thing is encoded
+      # The message always starts at 65 because the signature is 65 bytes.
       signature = base64.b64encode(decoded[:65])
       msg = decoded[65:]
    elif name == CLEARSIGN_MSG_TYPE_MARKER:
-      msg = FormatText(r.split(BEGIN_MARKER)[1].split(DASHX5)[1])
+      # Always starts with a blank line (\r\n\r\n) chop that off with the comment oand process the rest
+      # For Clearsign the message is unencoded since the message could include the \r\n\r\n we only ignore
+      # the first and combine the rest.
+      msg = RNRN.join(r.split(RNRN)[1:])
+      msg = msg.split(RN+DASHX5)[0]
+      # Only the signature is encoded, use the original r to pull out the encoded signature
       encoded =  r.split(BEGIN_MARKER)[2].split(DASHX5)[1].split(BITCOIN_SIG_TYPE_MARKER)[0]
       encoded, crc = encoded.split('\n=')
       encoded = ''.join(encoded.split('\n'))
@@ -614,14 +632,14 @@ def ASv0(privkey, msg):
 
 def ASv1CS(privkey, msg):
    sig=ASv0(privkey, FormatText(msg))
-   r=BEGIN_MARKER+CLEARSIGN_MSG_TYPE_MARKER+DASHX5+RN+RN
-   r+=FormatText(msg, False)+RN
+   r=BEGIN_MARKER+CLEARSIGN_MSG_TYPE_MARKER+DASHX5+RN+BITCOIN_ARMORY_COMMENT+RNRN
+   r+=FormatText(msg)+RN
    r+=ASCIIArmory(sig['signature'], BITCOIN_SIG_TYPE_MARKER)
    return r
 
 def ASv1B64(privkey, msg):
    sig=ASv0(privkey, FormatText(msg))
-   return ASCIIArmory(sig['signature']+sig['message'], BASE64_MSG_TYPE_MARKER)
+   return ASCIIArmory(sig['signature']+sig['message'], BASE64_MSG_TYPE_MARKER, True)
 
 #==============================================
 
