@@ -588,16 +588,26 @@ def readSigBlock(r):
    if name == BASE64_MSG_TYPE_MARKER:
       encoded,crc = r.split(BEGIN_MARKER)[1].split(END_MARKER)[0].split(DASHX5)[1].strip().split('\n=')
       crc = crc.strip()
+      # Always starts with a blank line (\r\n\r\n) chop that off with the comment oand process the rest
       encoded = encoded.split(RNRN)[1]
+      # Combines 64 byte chunks that are separated by \r\n
       encoded = ''.join(encoded.split(RN))
+      # decode the message.
       decoded = base64.b64decode(encoded)
+      # Check sum of decoded messgae
       if base64.b64decode(crc) != crc24(decoded):
          raise ChecksumError
+      # The signature is followed by the message and the whole thing is encoded
+      # The message always starts at 65 because the signature is 65 bytes.
       signature = base64.b64encode(decoded[:65])
       msg = decoded[65:]
    elif name == CLEARSIGN_MSG_TYPE_MARKER:
+      # Always starts with a blank line (\r\n\r\n) chop that off with the comment oand process the rest
+      # For Clearsign the message is unencoded since the message could include the \r\n\r\n we only ignore
+      # the first and combine the rest.
       msg = RNRN.join(r.split(RNRN)[1:])
       msg = msg.split(RN+DASHX5)[0]
+      # Only the signature is encoded, use the original r to pull out the encoded signature
       encoded =  r.split(BEGIN_MARKER)[2].split(DASHX5)[1].split(BITCOIN_SIG_TYPE_MARKER)[0]
       encoded, crc = encoded.split('\n=')
       encoded = ''.join(encoded.split('\n'))

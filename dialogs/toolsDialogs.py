@@ -139,7 +139,8 @@ class MessageSigningWidget(QWidget):
             else:
                QMessageBox.warning(self, 'Private Key Not Known', 'The private key is not known for this address.', QMessageBox.Ok)         
          except:
-            QMessageBox.warning(self, 'Invalid Address', 'The signing address is invalid.', QMessageBox.Ok)    
+            QMessageBox.warning(self, 'Invalid Address', 'The signing address is invalid.', QMessageBox.Ok)
+            raise
    
    def base64SignMessage(self):
       messageText = str(self.messageTextEdit.toPlainText())
@@ -155,6 +156,7 @@ class MessageSigningWidget(QWidget):
                QMessageBox.warning(self, 'Private Key Not Known', 'The private key is not known for this address.', QMessageBox.Ok)
          except:
             QMessageBox.warning(self, 'Invalid Address', 'The signing address is invalid.', QMessageBox.Ok)
+            raise
    
    def clearSignMessage(self):
       messageText = str(self.messageTextEdit.toPlainText())
@@ -165,7 +167,7 @@ class MessageSigningWidget(QWidget):
             privateKey = self.getPrivateKeyFromAddrInput()
          except:
             QMessageBox.warning(self, 'Invalid Address', 'The signing address is invalid.', QMessageBox.Ok)
-            return
+            raise
          if privateKey:
             signature = ASv1CS(privateKey, messageText)
             self.signatureDisplay.setPlainText(signature)
@@ -269,6 +271,7 @@ class BareSignatureVerificationWidget(SignatureVerificationWidget):
             self.displayInvalidSignatureMessage()
       except:   
          self.displayInvalidSignatureMessage()
+         raise
 
          
    def clearFields(self):
@@ -304,6 +307,7 @@ class SignedMessageBlockVerificationWidget(SignatureVerificationWidget):
          self.messageTextEdit.setPlainText(msg)
       except:   
          self.displayInvalidSignatureMessage()
+         raise
          
    def clearFields(self):
       super(SignedMessageBlockVerificationWidget, self).clearFields()
