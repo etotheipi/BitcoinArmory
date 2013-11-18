@@ -13096,6 +13096,24 @@ class DlgUniversalRestoreSelect(ArmoryDialog):
          self.accept()
 
 
+################################################################################
+# Create a special QLineEdit with a masked input
+# Forces the cursor to start at position 0 whenever there is no input
+class MaskedInputLineEdit(QLineEdit):
+   
+   def __init__(self, inputMask):
+      super(MaskedInputLineEdit, self).__init__()
+      self.setInputMask(inputMask)
+      fixFont = GETFONT('Fix', 9)
+      self.setFont(fixFont)
+      self.setMinimumWidth( tightSizeStr(fixFont, inputMask)[0]+10)
+      self.connect(self, SIGNAL('cursorPositionChanged(int,int)'), self.controlCursor)
+      
+   def controlCursor(self, oldpos, newpos):
+      if newpos != 0 and len(str(self.text()).strip())==0:
+         self.setCursorPosition(0)
+         self.setFocus()
+
 
 ################################################################################
 class DlgRestoreSingle(ArmoryDialog):
@@ -13142,18 +13160,15 @@ class DlgRestoreSingle(ArmoryDialog):
       self.connect(self.comboBackupType, SIGNAL('activated(int)'), self.changeType)
       frmCombo = makeHorizFrame([lblType, 'Space(20)', self.comboBackupType, 'Stretch'])
 
-
-
-      class QLE(QLineEdit):
-         def focusInEvent(self, event):
-            self.setFocus()
-
       self.lblSP = QRichLabel(tr('SecurePrint\xe2\x84\xa2 Code:'), doWrap=False)
       self.edtSP = QLineEdit()
       self.prfxList = [QLabel(tr('Root Key:')), QLabel(''), QLabel(tr('Chaincode:')), QLabel('')]
-      self.edtList = [QLE(), QLE(), QLE(), QLE()]
-
+      
       inpMask = '<AAAA\ AAAA\ AAAA\ AAAA\ \ AAAA\ AAAA\ AAAA\ AAAA\ \ AAAA!'
+      self.edtList = [MaskedInputLineEdit(inpMask),\
+                      MaskedInputLineEdit(inpMask),\
+                      MaskedInputLineEdit(inpMask),\
+                      MaskedInputLineEdit(inpMask)]
       
 
       self.frmSP = makeHorizFrame(['Stretch', self.lblSP, self.edtSP])
@@ -13163,10 +13178,6 @@ class DlgRestoreSingle(ArmoryDialog):
       layoutAllInp = QGridLayout()
       layoutAllInp.addWidget( self.frmSP,  0,0, 1,2)
       for i in range(4):
-         fixFont = GETFONT('Fix', 9)
-         self.edtList[i].setInputMask(inpMask)
-         self.edtList[i].setFont(fixFont)
-         self.edtList[i].setMinimumWidth( tightSizeStr(fixFont, inpMask)[0]+10)
          layoutAllInp.addWidget(self.prfxList[i], i+1, 0)
          layoutAllInp.addWidget(self.edtList[i], i+1, 1)
       frmAllInputs.setLayout(layoutAllInp)
@@ -13205,8 +13216,7 @@ class DlgRestoreSingle(ArmoryDialog):
       self.setMinimumWidth(500)
       self.layout().setSizeConstraint(QLayout.SetFixedSize)
       self.changeType()
-      
-      
+               
    #############################################################################
    def changeType(self):
       sel = self.comboBackupType.currentIndex()
@@ -14047,19 +14057,23 @@ class DlgEnterOneFrag(ArmoryDialog):
                        'y1:','y2:','y3:','y4:', \
                        'F1:','F2:','F3:','F4:']
       self.prfxList = [QLabel(p) for p in self.prfxList]
-      self.edtList = [QLineEdit(), QLineEdit(), QLineEdit(), QLineEdit(), \
-                      QLineEdit(), QLineEdit(), QLineEdit(), QLineEdit(), \
-                      QLineEdit(), QLineEdit(), QLineEdit(), QLineEdit()]
+      inpMask   = '<AAAA\ AAAA\ AAAA\ AAAA\ \ AAAA\ AAAA\ AAAA\ AAAA\ \ AAAA!'
+      self.edtList = [MaskedInputLineEdit(inpMask),\
+                      MaskedInputLineEdit(inpMask),\
+                      MaskedInputLineEdit(inpMask),\
+                      MaskedInputLineEdit(inpMask),\
+                      MaskedInputLineEdit(inpMask),\
+                      MaskedInputLineEdit(inpMask),\
+                      MaskedInputLineEdit(inpMask),\
+                      MaskedInputLineEdit(inpMask),\
+                      MaskedInputLineEdit(inpMask),\
+                      MaskedInputLineEdit(inpMask),\
+                      MaskedInputLineEdit(inpMask),\
+                      MaskedInputLineEdit(inpMask)]
 
       inpMaskID = '<HHHH\ HHHH\ HHHH\ HHHH!'
-      inpMask   = '<AAAA\ AAAA\ AAAA\ AAAA\ \ AAAA\ AAAA\ AAAA\ AAAA\ \ AAAA!'
-
-      fixFont = GETFONT('Fix', 9)
       self.lblID = QRichLabel('ID:')
-      self.edtID = QLineEdit()
-      self.edtID.setInputMask(inpMaskID)
-      self.edtID.setFont(fixFont)
-      #self.edtID.setMaximumWidth(tightSizeStr(fixFont, inpMaskID)[0]+10)
+      self.edtID = MaskedInputLineEdit(inpMaskID)
 
       frmAllInputs = QFrame()
       frmAllInputs.setFrameStyle(STYLE_RAISED)
@@ -14067,9 +14081,6 @@ class DlgEnterOneFrag(ArmoryDialog):
       layoutAllInp.addWidget( self.lblID,  0,0, 1,1)
       layoutAllInp.addWidget( self.edtID,  0,1, 1,1)
       for i in range(12):
-         self.edtList[i].setInputMask(inpMask)
-         self.edtList[i].setFont(fixFont)
-         self.edtList[i].setMinimumWidth(tightSizeStr(fixFont, inpMask)[0]+10)
          layoutAllInp.addWidget(self.prfxList[i], i+1,0, 1,2)
          layoutAllInp.addWidget(self.edtList[i],  i+1,1, 1,2)
       frmAllInputs.setLayout(layoutAllInp)
