@@ -1353,7 +1353,7 @@ class DlgWalletDetails(ArmoryDialog):
       
 
    def getNewAddress(self):
-      if showWatchOnlyRecvWarningIfNecessary(self.wlt, self.main):
+      if showRecvCoinsWarningIfNecessary(self.wlt, self.main):
          DlgNewAddressDisp(self.wlt, self, self.main).exec_()
       self.wltAddrView.reset()
        
@@ -1868,7 +1868,22 @@ class DlgWalletDetails(ArmoryDialog):
          self.setWindowTitle('Set Wallet Owner')
 
 
-def showWatchOnlyRecvWarningIfNecessary(wlt, main):
+def showRecvCoinsWarningIfNecessary(wlt, main):
+
+   numTimesOnline = main.getSettingOrSetDefault("SyncSuccessCount", 0)
+   if numTimesOnline < 1 and not TheBDM.getBDMState()=='Offline':
+      result = QMessageBox.warning(main, tr('Careful!'), tr("""
+         Armory is not online yet, and will eventually need to be online to 
+         access any funds sent to your wallet.  Please <u><b>do not</b></u>
+         receive Bitcoins to your Armory wallets until you have successfully 
+         gotten online <i>at least one time</i>.
+         <br><br>
+         Armory is still beta software, and some users report difficulty
+         ever getting online.  
+         <br><br>
+         Do you wish to continue?"""), QMessageBox.Cancel | QMessageBox.Ok)
+      if not result==QMessageBox.Ok:
+         return False
 
    wlttype = determineWalletType(wlt, main)[0]
    notMyWallet   = (wlttype==WLTTYPES.WatchOnly)
@@ -2055,7 +2070,7 @@ class DlgNewAddressDisp(ArmoryDialog):
       offlineWallet = (wlttype==WLTTYPES.Offline)
 
       lblDescr = QLabel( \
-            'The following address can be used to to receive bitcoins:')
+            'The following address can be used to receive bitcoins:')
       self.edtNewAddr = QLineEdit()
       self.edtNewAddr.setReadOnly(True)
       self.edtNewAddr.setText(addrStr)
@@ -5404,7 +5419,7 @@ class DlgSendBitcoins(ArmoryDialog):
          return False
       except:
          QMessageBox.critical(self, 'Invalid Fee String', \
-            'The fee you specified is invalid.  A standard fee is 0.0005 BTC, '
+            'The fee you specified is invalid.  A standard fee is 0.0001 BTC, '
             'though some transactions may succeed with zero fee.', QMessageBox.Ok)
          LOGERROR('Invalid fee specified: "%s"', feeStr)
          return False
@@ -9224,216 +9239,8 @@ class DlgECDSACalc(ArmoryDialog):
 
       dispFont = GETFONT('Var', 8) 
       w,h = tightSizeNChar(dispFont, 40)
-      
-      self.tabWidget = QTabWidget()
    
-      ##########################################################################
-      ##########################################################################
-      # TAB:  Key/ECDSA Calcs
-      ##########################################################################
-      ##########################################################################
-      tabKeys   = QWidget()
-      self.lblPrivType = QRichLabel('', vAlign=Qt.AlignTop)
-      self.txtPriv = QLineEdit()
-      self.txtPrvR = QLineEdit()
-      self.txtPubF = QLineEdit()
-      self.txtPubX = QLineEdit()
-      self.txtPubY = QLineEdit()
-      self.txtHash = QLineEdit()
-      self.txtAddr = QLineEdit()
-      
-      self.keyTxtIndex = enum('PRIV','PRVR',"PUBF","PUBX","PUBY","HASH","ADDR")
-      self.keyTxtList = [self.txtPriv, self.txtPrvR, self.txtPubF, self.txtPubX, \
-                         self.txtPubY, self.txtHash, self.txtAddr]
-      
-   
-      self.returnPressedFirst = False
 
-      for i,txt in enumerate(self.keyTxtList):
-         w,h = tightSizeNChar(dispFont, 70)
-         txt.setMinimumWidth(w)
-         txt.setMinimumHeight(1.2*h)
-         txt.sizeHint = lambda: QSize(400, 1.2*h)
-         txt.setFont(dispFont)
-         self.connect(txt, SIGNAL('returnPressed()'), self.keyWaterfall)
-
-
-      self.connect(self.txtPriv, SIGNAL('textEdited(QString)'), \
-                              lambda: self.keyTextEdited(self.keyTxtIndex.PRIV))
-      self.connect(self.txtPrvR, SIGNAL('textEdited(QString)'), \
-                              lambda: self.keyTextEdited(self.keyTxtIndex.PRVR))
-      self.connect(self.txtPubF, SIGNAL('textEdited(QString)'), \
-                              lambda: self.keyTextEdited(self.keyTxtIndex.PUBF))
-      self.connect(self.txtPubX, SIGNAL('textEdited(QString)'), \
-                              lambda: self.keyTextEdited([self.keyTxtIndex.PUBX, \
-                                                          self.keyTxtIndex.PUBY]))
-      self.connect(self.txtPubY, SIGNAL('textEdited(QString)'), \
-                              lambda: self.keyTextEdited([self.keyTxtIndex.PUBX, \
-                                                          self.keyTxtIndex.PUBY]))
-      self.connect(self.txtHash, SIGNAL('textEdited(QString)'), \
-                              lambda: self.keyTextEdited(self.keyTxtIndex.HASH))
-      self.connect(self.txtAddr, SIGNAL('textEdited(QString)'), \
-                              lambda: self.keyTextEdited(self.keyTxtIndex.ADDR))
-
-      
-      self.txtMsg = QTextEdit()
-      self.txtSig = QTextEdit()
-      for txt in (self.txtMsg, self.txtSig):
-         txt.setMinimumWidth(int(2*w/3))
-         txt.setMinimumHeight(2.2*h)
-         txt.sizeHint = lambda: QSize(400, 2.2*h)
-
-      self.connect(self.txtMsg, SIGNAL('textChanged()'), self.msgTextChanged)
-      self.connect(self.txtSig, SIGNAL('textChanged()'), self.msgTextChanged)
-                       
-
-      btnSwitchEnd = QPushButton('Switch Endian')
-      self.connect(btnSwitchEnd, SIGNAL('clicked()'), self.privSwitch)
-
-
-      ttipPrvR = self.main.createToolTipWidget( \
-         'Any standard encoding of a private key:  raw hex, base58, with or '
-         'without checksums, and mini-private-key format. '
-         'This includes VanityGen addresses and Casascius physical Bitcoin '
-         'private keys.')
-      ttipPriv = self.main.createToolTipWidget( \
-         'The raw hexadecimal private key.  This is exactly 32 bytes, which '
-         'is 64 hex characters.  Any other forms of private key should be '
-         'entered in the "Encoded Private Key" box.')
-      ttipPubF = self.main.createToolTipWidget( \
-         'The full 65-byte public key in hexadecimal.  It consists '
-         'of a "04" byte, followed by the 32-byte X-value, then the 32-byte '
-         'Y-value.')
-      ttipPubXY = self.main.createToolTipWidget( \
-         'X- and Y-coordinates of the public key.  Each value is 32 bytes (64 hex chars).')
-      ttipHash = self.main.createToolTipWidget( \
-         'Raw hash160 of the [65-byte] public key.  It is 20 bytes (40 hex chars).')
-      ttipAddr = self.main.createToolTipWidget( \
-         'Standard Bitcoin address expressed in Base58')
-
-
-      btnAbk = createAddrBookButton(self, self.txtAddr, None, 'Select', True)
-
-      headPrvR  = makeHorizFrame([QLabel('Encoded Private Key'), ttipPrvR, 'Stretch'])
-      headPriv  = makeHorizFrame([QLabel('Raw Private Key'), ttipPriv, 'Stretch'])
-      headPubF  = makeHorizFrame([QLabel('Full Public Key'), ttipPubF, 'Stretch'])
-      headPubXY = makeHorizFrame([QLabel('Raw Public Key (x,y)'), ttipPubXY, 'Stretch'])
-      headHash  = makeHorizFrame([QLabel('Public Key Hash160'), ttipHash, 'Stretch'])
-      headAddr  = makeHorizFrame([btnAbk, QLabel('Bitcoin Address'), ttipAddr, 'Stretch'])
-      
-      keyDataLayout = QGridLayout()
-      keyDataLayout.addWidget(headPrvR,                      0,0,  1,1)
-      keyDataLayout.addWidget(self.txtPrvR,                  1,0,  1,1)
-      keyDataLayout.addWidget(self.lblPrivType,              2,0,  1,1)
-
-      keyDataLayout.addWidget(QLabel('or'),                  1,1,  1,1)
-
-      keyDataLayout.addWidget(headPriv,                      0,2,  1,1)
-      keyDataLayout.addWidget(self.txtPriv,                  1,2,  1,1)
-      keyDataLayout.addWidget(makeHorizFrame(['Stretch', btnSwitchEnd]), \
-                                                             2,2,  1,1)
-
-      keyDataLayout.addWidget(HLINE(QFrame.Sunken),          3,0,  1,3)
-
-      keyDataLayout.addWidget(headPubF,                      4,0,  1,1)
-      keyDataLayout.addWidget(self.txtPubF,                  5,0,  1,1)
-
-      keyDataLayout.addWidget(QLabel('or'),                  5,1,  1,1)
-
-      keyDataLayout.addWidget(headPubXY,                     4,2,  1,1)
-      keyDataLayout.addWidget(self.txtPubX,                  5,2,  1,1)
-      keyDataLayout.addWidget(self.txtPubY,                  6,2,  1,1)
-
-      keyDataLayout.addWidget(HLINE(QFrame.Sunken),          7,0,  1,3)
-
-      keyDataLayout.addWidget(headAddr,                      8,0,  1,1)
-      keyDataLayout.addWidget(self.txtAddr,                  9,0,  1,1)
-
-      keyDataLayout.addWidget(QLabel('or'),                  9,1,  1,1)
-
-      keyDataLayout.addWidget(headHash,                      8,2,  1,1)
-      keyDataLayout.addWidget(self.txtHash,                  9,2,  1,1)
-
-      keyDataFrame = QFrame()
-      keyDataFrame.setFrameStyle(QFrame.Box)
-      keyDataFrame.setLayout(keyDataLayout)
-
-
-
-      self.lblTopLeft  = QRichLabel('Key Data Calculator', doWrap=False)
-      self.lblTopMid   = QRichLabel('', doWrap=False)
-      self.btnWltData  = QPushButton('Get Keys From Wallet')
-      self.btnClearFrm = QPushButton('Clear')
-      self.btnCalcKeys = QPushButton('Calculate')
-      #self.btnClearFrm.setEnabled(False)
-      #self.btnCalcKeys.setEnabled(False)
-      self.btnWltData.setEnabled(False)
-      self.connect(self.btnWltData,  SIGNAL('clicked()'), self.getOtherData)
-      self.connect(self.btnClearFrm, SIGNAL('clicked()'), self.clearFormData)
-      self.connect(self.btnCalcKeys, SIGNAL('clicked()'), self.keyWaterfall)
-
-
-      topHeaderRow = makeHorizFrame([self.lblTopLeft, \
-                                     'Stretch', \
-                                     self.lblTopMid, \
-                                     self.btnWltData, \
-                                     self.btnClearFrm, \
-                                     self.btnCalcKeys])
-      tabKeysTopFrm = makeVertFrame( [topHeaderRow, keyDataFrame])
-            
-
-      self.btnSignMsg = QPushButton('Sign Message')
-      self.btnInsDate = QPushButton('Insert Date')
-      self.btnInsRnd  = QPushButton('Insert Random')
-      self.btnVerify  = QPushButton('Verify Signature')
-      self.btnMakeBlk = QPushButton('Create Signature Block')
-      self.btnReadBlk = QPushButton('Import Signature Block')
-      #self.btnSignMsg.setEnabled(False)
-      #self.btnVerify.setEnabled(False)
-      self.lblSigResult = QRichLabel('')
-
-      self.connect(self.btnSignMsg,  SIGNAL('clicked()'), self.signMsg)
-      self.connect(self.btnVerify,   SIGNAL('clicked()'), self.verifyMsg)
-      self.connect(self.btnInsDate,  SIGNAL('clicked()'), self.insDate)
-      self.connect(self.btnInsRnd,   SIGNAL('clicked()'), self.insRnd)
-
-      self.connect(self.btnMakeBlk,   SIGNAL('clicked()'), self.makeBlk)
-      self.connect(self.btnReadBlk,   SIGNAL('clicked()'), self.readBlk)
-
-      ttipMsg = self.main.createToolTipWidget( \
-         'A message to be signed or verified by the key data above. '
-         'Or create a random "nonce" to give to someone to sign.')
-      ttipSig = self.main.createToolTipWidget( \
-         'The output of signing the message above will be put here, or you '
-         'can copy in a signature of the above message, and check that it '
-         'is valid against the public key on the left (if present).')
-
-      msgBoxHead = makeHorizFrame([QRichLabel('Message'), ttipMsg, 'Stretch', \
-                                     self.btnInsRnd, self.btnInsDate, self.btnSignMsg])
-      sigBoxHead = makeHorizFrame([QRichLabel('Signature'), ttipSig, 'Stretch', \
-                                                      self.lblSigResult, self.btnVerify])
-      self.lblCopied = QRichLabel('')
-      btmFrm = makeHorizFrame(['Stretch', self.lblCopied, self.btnMakeBlk, self.btnReadBlk])
-      tabKeysBtmFrmLayout = QGridLayout()
-      tabKeysBtmFrmLayout.addWidget( msgBoxHead,   0,0)
-      tabKeysBtmFrmLayout.addWidget( sigBoxHead,   0,1)
-      tabKeysBtmFrmLayout.addWidget( self.txtMsg,  1,0)
-      tabKeysBtmFrmLayout.addWidget( self.txtSig,  1,1)
-      tabKeysBtmFrmLayout.addWidget( btmFrm,       2,0, 1,2)
-      tabKeysBtmFrm = QFrame()
-      tabKeysBtmFrm.setFrameStyle(QFrame.Box)
-      tabKeysBtmFrm.setLayout(tabKeysBtmFrmLayout)
-                           
-
-      btnBack = QPushButton('<<< Go Back')
-      self.connect(btnBack, SIGNAL('clicked()'), self.accept)
-      frmBack = makeHorizFrame([btnBack, 'Stretch'])
-
-      dlgLayout = QHBoxLayout()
-      dlgLayout.addWidget( makeVertFrame( [tabKeysTopFrm, tabKeysBtmFrm, frmBack] ) )
-      #dlgLayout.addWidget( HLINE() )
-      tabKeys.setLayout(dlgLayout)
-      self.tabWidget.addTab(tabKeys, 'Keys')
 
       ##########################################################################
       ##########################################################################
@@ -9441,7 +9248,7 @@ class DlgECDSACalc(ArmoryDialog):
       ##########################################################################
       ##########################################################################
       # STUB: I'll probably finish implementing this eventually....
-      tabEcc = QWidget()
+      eccWidget = QWidget()
 
       tabEccLayout = QGridLayout()
       self.txtScalarScalarA = QLineEdit()
@@ -9515,8 +9322,6 @@ class DlgECDSACalc(ArmoryDialog):
 
       ssLayout.addWidget(makeHorizFrame(['Stretch', self.btnCalcSS, 'Stretch']), \
                                                   2,0,   1,3)
-      #ssLayout.addWidget(makeHorizFrame(['Stretch', imgDown, 'Stretch']), \
-                                                  #3,0,   1,3)
       ssLayout.addWidget(makeHorizFrame(['Stretch', sslblC, self.txtScalarScalarC, 'Stretch']), \
                                                   3,0,   1,3)
       ssLayout.setVerticalSpacing(1)
@@ -9544,10 +9349,6 @@ class DlgECDSACalc(ArmoryDialog):
 
       spLayout.addWidget(makeHorizFrame(['Stretch', self.btnCalcSP, 'Stretch']), \
                                                   3,0,   1,3)
-      #spLayout.addWidget(makeHorizFrame(['Stretch', imgDown, 'Stretch']), \
-                                                  #4,0,   1,3)
-      #spLayout.addWidget(makeHorizFrame(['Stretch', splblC, 'Stretch']), \
-                                                  #5,0,   1,3)
       spLayout.addWidget(makeHorizFrame(['Stretch', splblCx, self.txtScalarPtC_x, 'Stretch']), \
                                                   4,0,   1,3)
       spLayout.addWidget(makeHorizFrame(['Stretch', splblCy, self.txtScalarPtC_y, 'Stretch']), \
@@ -9578,10 +9379,6 @@ class DlgECDSACalc(ArmoryDialog):
       ppLayout.addWidget(self.txtPtPtB_y,         2,2,    1,1)
       ppLayout.addWidget(makeHorizFrame(['Stretch', self.btnCalcPP, 'Stretch']), \
                                                   3,0,   1,3)
-      #ppLayout.addWidget(makeHorizFrame(['Stretch', imgDown, 'Stretch']), \
-                                                  #4,0,   1,3)
-      #ppLayout.addWidget(makeHorizFrame(['Stretch', pplblC, 'Stretch']), \
-                                                  #5,0,   1,3)
       ppLayout.addWidget(makeHorizFrame(['Stretch', pplblCx, self.txtPtPtC_x, 'Stretch']), \
                                                   4,0,   1,3)
       ppLayout.addWidget(makeHorizFrame(['Stretch', pplblCy, self.txtPtPtC_y, 'Stretch']), \
@@ -9602,446 +9399,25 @@ class DlgECDSACalc(ArmoryDialog):
       btnClear.setMaximumWidth(2*relaxedSizeStr(btnClear, 'Clear')[0])
       self.connect(btnClear, SIGNAL('clicked()'), self.eccClear)
 
+      btnBack = QPushButton('<<< Go Back')
+      self.connect(btnBack, SIGNAL('clicked()'), self.accept)
+      frmBack = makeHorizFrame([btnBack, 'Stretch'])
 
       eccLayout = QVBoxLayout()
       eccLayout.addWidget(makeHorizFrame([lblDescr, btnClear]))
       eccLayout.addWidget(frmSS)
       eccLayout.addWidget(frmSP)
-      eccLayout.addWidget(frmPP)
-      tabEcc.setLayout(eccLayout)
-      self.tabWidget.addTab(tabEcc, 'Elliptic Curve')
+      eccLayout.addWidget(frmBack)
 
+      eccWidget.setLayout(eccLayout)
 
       calcLayout = QHBoxLayout() 
-      calcLayout.addWidget(self.tabWidget)
+      calcLayout.addWidget(eccWidget)
       self.setLayout(calcLayout)
-
-      self.tabWidget.setCurrentIndex(tabStart)
    
       self.setWindowTitle('ECDSA Calculator')
       self.setWindowIcon(QIcon( self.main.iconfile))
 
-
-
-   #############################################################################
-   def keyTextEdited(self, txtIndex):
-      notEmpty = not self.formIsEmpty()
-      #self.btnClearFrm.setEnabled(notEmpty)
-      #self.btnCalcKeys.setEnabled(notEmpty)
-      #self.btnSignMsg.setEnabled(notEmpty)
-      #self.btnVerify.setEnabled(notEmpty)
-
-      if not isinstance(txtIndex, (list,tuple)):
-         txtIndex = [txtIndex]
-
-      for i,txt in enumerate(self.keyTxtList):
-         if not i in txtIndex:
-            txt.setText('') 
-
-   #############################################################################
-   def msgTextChanged(self):
-      """ 
-      Yes, I intended to use text 'changed', instead of 'edited' here.
-      Because I don't care how the text was modified, it's going to break
-      the signature.
-      """
-      self.lblSigResult.setText('')
-
-
-   #############################################################################
-   def formIsEmpty(self):
-      totalEmpty = [0 if len(str(a.text()))>0 else 1 for a in self.keyTxtList]
-      allEmpty = not sum(totalEmpty)!=0 
-      #self.btnSignMsg.setEnabled(not allEmpty)
-      return allEmpty
-
-   #############################################################################
-   def keyWaterfall(self):
-      self.returnPressedFirst = True
-      try:
-         prvrStr =               str(self.txtPrvR.text()).replace(' ','')
-         privBin = hex_to_binary(str(self.txtPriv.text()).replace(' ',''))
-         pubxBin = hex_to_binary(str(self.txtPubX.text()).replace(' ',''))
-         pubyBin = hex_to_binary(str(self.txtPubY.text()).replace(' ',''))
-         pubfBin = hex_to_binary(str(self.txtPubF.text()).replace(' ',''))
-         addrB58 =               str(self.txtAddr.text()).replace(' ','')
-         a160Bin = hex_to_binary(str(self.txtHash.text()).replace(' ',''))
-
-      except:
-         QMessageBox.critical(self, 'Invalid Entry', \
-            'You entered invalid data!', QMessageBox.Ok)
-         return
-
-      self.lblPrivType.setText('')
-      if len(prvrStr)>0:
-         try:
-            privBin, keytype = parsePrivateKeyData(prvrStr)
-            self.txtPriv.setText( binary_to_hex(privBin))
-            self.lblPrivType.setText('<font color="green">' + keytype + '</font>')
-         except:
-            QMessageBox.critical(self, 'Invalid Private Key Data', \
-               'Private Key data is not recognized!', QMessageBox.Ok)
-            raise
-            return
-      elif len(privBin)>0:
-         try:
-            privB58 = encodePrivKeyBase58(privBin)
-            typestr = parsePrivateKeyData(privB58)[1]
-            self.txtPrvR.setText(privB58)
-            self.lblPrivType.setText('<font color="green">' + typestr + '</font>')
-         except:
-            QMessageBox.critical(self, 'Invalid Private Key Data', \
-               'Private Key data is not recognized!', QMessageBox.Ok)
-            raise
-            return
-     
-      if len(privBin)>0:
-         pub = CryptoECDSA().ComputePublicKey(SecureBinaryData(privBin))
-         pubfBin = pub.toBinStr()
-         self.txtPubF.setText(binary_to_hex(pubfBin))
-
-     
-      if len(pubfBin)>0:
-         try:
-            pubxBin = pubfBin[1:1+32]
-            pubyBin = pubfBin[  1+32:1+32+32]
-            self.txtPubX.setText(binary_to_hex(pubxBin))
-            self.txtPubY.setText(binary_to_hex(pubyBin))
-            a160Bin = hash160(pubfBin)
-            self.txtHash.setText(binary_to_hex(a160Bin))
-         except:
-            QMessageBox.critical(self, 'Invalid Public Key Data', \
-               'Public Key data is not recognized!', QMessageBox.Ok)
-            raise
-            return
-      elif len(pubxBin)>0 and len(pubyBin)>0:
-         try:
-            pubfBin = '\x04' + pubxBin + pubyBin
-            self.txtPubF.setText(binary_to_hex(pubfBin))
-            a160Bin = hash160(pubfBin)
-            self.txtHash.setText(binary_to_hex(a160Bin))
-         except:
-            QMessageBox.critical(self, 'Invalid Public Key Data', \
-               'Public Key data is not recognized!', QMessageBox.Ok)
-            raise
-            return
-
-      if len(a160Bin)>0:
-         try:
-            addrB58 = hash160_to_addrStr(a160Bin)
-            self.txtAddr.setText(addrB58)
-         except:
-            QMessageBox.critical(self, 'Invalid Address Data', \
-               'Address data is not recognized!', QMessageBox.Ok)
-            return
-      elif len(addrB58)>0:
-         try:
-            raw25byte = base58_to_binary(addrB58)
-            if len(raw25byte)!=25:
-               QMessageBox.critical(self, 'Invalid Address', \
-               'The Bitcoin address supplied is invalid.', QMessageBox.Ok)
-               return
-            data,chk = raw25byte[:21], raw25byte[21:]
-            fixedData = verifyChecksum(data,chk)
-            if fixedData!=data:
-               if len(fixedData)==0:
-                  QMessageBox.critical(self, 'Invalid Address', \
-                  'The Bitcoin address has an error in it.  Please double-check '
-                  'that it was entered properly.', QMessageBox.Ok)
-                  return
-            self.txtAddr.setText(hash160_to_addrStr(fixedData[1:]))
-               
-            a160Bin = addrStr_to_hash160(addrB58)
-            self.txtHash.setText(binary_to_hex(a160Bin))
-         except:
-            QMessageBox.critical(self, 'Invalid Address Data', \
-               'Address data is not recognized!', QMessageBox.Ok)
-            return
-
-      #self.btnSignMsg.setEnabled( len(privBin)>0 )
-      #self.btnVerify.setEnabled( len(pubfBin)>0 )
-
-      for txt in self.keyTxtList:
-         txt.setCursorPosition(0)
-
-      self.checkIfAddrIsOurs(a160Bin)
-         
-            
-
-   #############################################################################
-   def checkIfAddrIsOurs(self, addr160):
-      wltID = self.main.getWalletForAddr160(addr160)
-      if wltID=='':
-         self.lblTopMid.setText('')
-         self.btnWltData.setEnabled(False)
-      else:
-         self.lblTopMid.setText('<font color="green">This key is in one of your wallets</font>')
-         self.btnWltData.setEnabled(True)
-      return wltID
-      
-
-   #############################################################################
-   def getOtherData(self):
-      ''' Look in your wallets for the address, fill in pub/priv keys '''
-
-      # It seems that somehow the "Get Keys" button is automatically linked to
-      # the form's returnPressed signal.  I have tried to disable this, but I
-      # can't figure out how!  So instead, I have to put in this stupid hack
-      # to prevent this action from being triggered prematurely
-      if self.returnPressedFirst:
-         self.returnPressedFirst=False
-         return
-
-      a160Bin = hex_to_binary(str(self.txtHash.text()).replace(' ',''))
-      wltID = self.checkIfAddrIsOurs(a160Bin)
-      if wltID!='':
-         havePriv = True
-         # This address is ours, get the priv key and fill in everything else
-         wlt = self.main.walletMap[wltID]
-         if wlt.useEncryption and wlt.isLocked:
-            dlg = DlgUnlockWallet(wlt, self, self.main, 'Encrypt New Address')
-            if not dlg.exec_():
-               reply = QMessageBox.critical(self, 'Wallet is locked',
-                  'Could not unlock wallet, so private key data could not '
-                  'be acquired.', QMessageBox.Ok)
-               havePriv = False
-         
-         addr = self.main.walletMap[wltID].getAddrByHash160(a160Bin)
-         if havePriv:
-            hexPriv = addr.binPrivKey32_Plain.toHexStr()
-            self.clearFormData()
-            self.txtPriv.setText(hexPriv)
-            self.keyWaterfall()
-         else:
-            hexPub = addr.binPublicKey65.toHexStr()
-            self.clearFormData()
-            self.txtPubF.setText(hexPub)
-            self.keyWaterfall()
-
-
-   #############################################################################
-   def clearFormData(self):
-      for wdgt in self.keyTxtList:
-         wdgt.setText('')
-      self.lblPrivType.setText('')
-      self.lblTopMid.setText('')
-      self.btnWltData.setEnabled(False)
-
-   #############################################################################
-   def privSwitch(self):
-      privHex = str(self.txtPriv.text()).strip().replace(' ','')
-      if len(privHex)>0:
-         self.txtPriv.setText(hex_switchEndian(privHex))
-      self.keyTextEdited(0)
-      
-   #############################################################################
-   def insRnd(self):
-      rnd = SecureBinaryData().GenerateRandom(8)
-      currtxt = self.readMsg()
-      if not currtxt.endswith(' ') and not len(currtxt)==0:
-         currtxt += ' '
-      self.txtMsg.setText(currtxt + rnd.toHexStr())
-      
-   #############################################################################
-   def insDate(self):
-      currtxt = self.readMsg()
-      if not currtxt.endswith(' ') and not len(currtxt)==0:
-         currtxt += ' '
-      self.txtMsg.setText(currtxt + unixTimeToFormatStr(RightNow()))
-
-   #############################################################################
-   def signMsg(self):
-      self.keyWaterfall()
-
-      strMsg  = self.readMsg()
-      if len(strMsg)==0:
-         QMessageBox.critical(self, 'Nothing to Sign!', \
-           'There is no message to sign!', QMessageBox.Ok)
-         return
-
-      a160Bin = hex_to_binary(str(self.txtHash.text()).replace(' ',''))
-      if len(a160Bin)<20:
-         QMessageBox.critical(self, 'Input Error', 'You did not specify an '
-            'address or private key to be used for signing', QMessageBox.Ok)
-         return
-         
-      wltID = self.checkIfAddrIsOurs(a160Bin)
-      haveWltPriv = (wltID!='')
-
-      try:
-         binPriv = SecureBinaryData(hex_to_binary(str(self.txtPriv.text()).strip().replace(' ','')))
-         haveRawPriv = (binPriv.getSize()==32)
-      except:
-         haveRawPriv = False
-         if not haveWltPriv:
-            QMessageBox.critical(self, 'Input Error', \
-               'There was an error parsing the private key.', QMessageBox.Ok)
-            return
-
-      
-      
-
-
-      if not haveRawPriv:
-         wlt = self.main.walletMap[wltID]
-         if wlt.useEncryption and wlt.isLocked:
-            dlg = DlgUnlockWallet(wlt, self, self.main, 'Encrypt New Address')
-            if not dlg.exec_():
-               reply = QMessageBox.critical(self, 'Wallet is locked',
-                  'Could not unlock wallet, so private key data could not '
-                  'be acquired.', QMessageBox.Ok)
-               return
-         binPriv = SecureBinaryData(wlt.addrMap[a160Bin].binPrivKey32_Plain)
-            
-
-      # TODO:  Fill in public key
-      pubKey = CryptoECDSA().ComputePublicKey(binPriv)
-      pubKeyHex = pubKey.toHexStr()
-      self.txtPubF.setText(pubKeyHex);
-      self.txtPubX.setText(pubKeyHex[2:2+64        ]);
-      self.txtPubY.setText(pubKeyHex[  2+64:2+64+64]);
-
-      modMsg = 'Bitcoin Signed Message:\n' + strMsg
-      sig = CryptoECDSA().SignData(SecureBinaryData(modMsg), \
-                                   binPriv)
-      self.txtSig.setText(sig.toHexStr())
-
-
-   #############################################################################
-   def verifyMsg(self):
-      self.keyWaterfall()
-      try:
-         binPub = hex_to_binary(str(self.txtPubF.text()).strip().replace(' ',''))
-         addrB58 = hash160_to_addrStr(hash160(binPub))
-      except:
-         QMessageBox.critical(self, 'Input Error', \
-           'There was an error parsing the public key.', QMessageBox.Ok)
-         return
-
-      try:
-         binSig = hex_to_binary(str(self.txtSig.toPlainText()).strip().replace(' ',''))
-      except:
-         QMessageBox.critical(self, 'Input Error', \
-           'The signature data is not recognized.', QMessageBox.Ok)
-         return
-
-      strMsg = self.readMsg()
-         
-         
-      if len(binPub)!=65:
-         QMessageBox.critical(self, 'Invalid Public Key!', \
-           'Cannot verify a message without a valid public key.', QMessageBox.Ok)
-         return
-      if len(binSig)==0:
-         QMessageBox.critical(self, 'No Signature!', \
-           'There is no signature to verify', QMessageBox.Ok)
-         return
-      if len(strMsg)==0:
-         QMessageBox.critical(self, 'Nothing to Verify!', \
-           'Need the original message in order to verify the signature.', QMessageBox.Ok)
-         return
-
-      modMsg = 'Bitcoin Signed Message:\n' + strMsg
-      isValid = CryptoECDSA().VerifyData(SecureBinaryData(modMsg), \
-                                         SecureBinaryData(binSig), \
-                                         SecureBinaryData(binPub))
-
-      if isValid:
-         MsgBoxCustom(MSGBOX.Good, 'Verified!', \
-            'The owner of the following Bitcoin address...'
-            '<br><br>'
-            '<b>%s</b>'
-            '<br><br>'
-            '...has digitally signed the following message:'
-            '<br><br>'
-            '<i><b>"%s"</b></i>'
-            '<br><br>'
-            'The supplied signature <b>is valid</b>!' % (addrB58, strMsg))
-         self.lblSigResult.setText('<font color="green">Valid Signature!</font>')
-      else:
-         MsgBoxCustom(MSGBOX.Error, 'Invalid Signature!', \
-                                    'The supplied signature <b>is not valid</b>!')
-         self.lblSigResult.setText('<font color="red">Invalid Signature!</font>')
-
-   ############################################################################
-   def readMsg(self):
-      msg = str(self.txtMsg.toPlainText())
-      msg = msg.replace('\n',' ')
-      msg = msg.replace('"','\'')
-      msg = msg.strip()
-      return msg
-
-   ############################################################################
-   def makeBlk(self):
-      try:
-         pubfBin = hex_to_binary(str(self.txtPubF.text()).replace(' ',''))
-      except:
-         QMessageBox.critical(self, 'Public Key Error!', \
-           'The public key is invalid.', QMessageBox.Ok)
-         
-      try:
-         sigBin  = hex_to_binary(str(self.txtSig.toPlainText()).replace(' ',''))
-      except:
-         QMessageBox.critical(self, 'Signature Error', \
-           'The signature is in an unrecognized format', QMessageBox.Ok)
-
-      addrB58 = str(self.txtAddr.text()).replace(' ','')
-      rawMsg  = self.readMsg()
-
-      txt = makeSigBlock(addrB58, rawMsg, pubfBin, sigBin)
-      clipb = QApplication.clipboard()
-      clipb.clear()
-      clipb.setText(txt)
-      self.lblCopied.setText('Copied to clipboard!')
-
-   ############################################################################
-   def readBlk(self):
-      """ Create a very simple dialog for entering a signature block """
-      class DlgEnterSigBlock(ArmoryDialog):
-         def __init__(self, parent, main):
-            super(DlgEnterSigBlock, self).__init__(parent)
-
-            self.txt = ''
-            lbl = QRichLabel('Copy a signature block into the text box below')
-            self.txtbox = QTextEdit()
-            fnt = GETFONT('Fixed', 8)
-            self.txtbox.setFont(fnt)
-            w,h = tightSizeNChar(fnt, 70)
-            self.txtbox.setMinimumWidth(w)
-            self.txtbox.setMinimumHeight(6.2*h)
-            btnOkay   = QPushButton('OK')
-            btnCancel = QPushButton('Cancel')
-            self.connect(btnOkay,   SIGNAL('clicked()'), self.pressOkay)
-            self.connect(btnCancel, SIGNAL('clicked()'), self.pressCancel)
-            bbox = QDialogButtonBox()
-            bbox.addButton(btnOkay,   QDialogButtonBox.AcceptRole)
-            bbox.addButton(btnCancel, QDialogButtonBox.RejectRole)
-
-            layout = QVBoxLayout()
-            layout.addWidget(lbl)
-            layout.addWidget(self.txtbox)
-            layout.addWidget(bbox)
-            self.setLayout(layout)
-            self.setWindowTitle('Import Signature Block')
-            self.setWindowIcon(QIcon(main.iconfile))
-
-         def pressOkay(self):
-            self.txt = str(self.txtbox.toPlainText())
-            self.accept()
-         
-         def pressCancel(self):
-            self.reject()
-
-      dlg = DlgEnterSigBlock(self,self.main)
-      if dlg.exec_():
-         addr,s,pub,sig = readSigBlock(self, dlg.txt)
-         self.txtPubF.setText(binary_to_hex(pub))
-         self.txtSig.setText(binary_to_hex(sig))
-         self.txtAddr.setText(addr)
-         self.txtMsg.setText(s)
-         self.keyWaterfall()
-         self.verifyMsg()
-         
 
    #############################################################################
    def getBinary(self, widget, name):
@@ -13728,6 +13104,23 @@ class DlgUniversalRestoreSelect(ArmoryDialog):
          self.accept()
 
 
+################################################################################
+# Create a special QLineEdit with a masked input
+# Forces the cursor to start at position 0 whenever there is no input
+class MaskedInputLineEdit(QLineEdit):
+   
+   def __init__(self, inputMask):
+      super(MaskedInputLineEdit, self).__init__()
+      self.setInputMask(inputMask)
+      fixFont = GETFONT('Fix', 9)
+      self.setFont(fixFont)
+      self.setMinimumWidth( tightSizeStr(fixFont, inputMask)[0]+10)
+      self.connect(self, SIGNAL('cursorPositionChanged(int,int)'), self.controlCursor)
+      
+   def controlCursor(self, oldpos, newpos):
+      if newpos != 0 and len(str(self.text()).strip())==0:
+         self.setCursorPosition(0)
+
 
 ################################################################################
 class DlgRestoreSingle(ArmoryDialog):
@@ -13768,24 +13161,18 @@ class DlgRestoreSingle(ArmoryDialog):
       self.comboBackupType.addItem( tr('Version 1.35a (with SecurePrint\xe2\x84\xa2)'))
       self.comboBackupType.addItem( tr('Version 1.35c (Unencrypted)'))
       self.comboBackupType.addItem( tr('Version 1.35c (with SecurePrint\xe2\x84\xa2)'))
-      self.comboBackupType.setCurrentIndex(0)
+      self.comboBackupType.setCurrentIndex(3)
             
 
       self.connect(self.comboBackupType, SIGNAL('activated(int)'), self.changeType)
       frmCombo = makeHorizFrame([lblType, 'Space(20)', self.comboBackupType, 'Stretch'])
 
-
-
-      class QLE(QLineEdit):
-         def focusInEvent(self, event):
-            self.setFocus()
-
       self.lblSP = QRichLabel(tr('SecurePrint\xe2\x84\xa2 Code:'), doWrap=False)
       self.edtSP = QLineEdit()
       self.prfxList = [QLabel(tr('Root Key:')), QLabel(''), QLabel(tr('Chaincode:')), QLabel('')]
-      self.edtList = [QLE(), QLE(), QLE(), QLE()]
-
+      
       inpMask = '<AAAA\ AAAA\ AAAA\ AAAA\ \ AAAA\ AAAA\ AAAA\ AAAA\ \ AAAA!'
+      self.edtList = [MaskedInputLineEdit(inpMask) for i in range(4)]
       
 
       self.frmSP = makeHorizFrame(['Stretch', self.lblSP, self.edtSP])
@@ -13795,10 +13182,6 @@ class DlgRestoreSingle(ArmoryDialog):
       layoutAllInp = QGridLayout()
       layoutAllInp.addWidget( self.frmSP,  0,0, 1,2)
       for i in range(4):
-         fixFont = GETFONT('Fix', 9)
-         self.edtList[i].setInputMask(inpMask)
-         self.edtList[i].setFont(fixFont)
-         self.edtList[i].setMinimumWidth( tightSizeStr(fixFont, inpMask)[0]+10)
          layoutAllInp.addWidget(self.prfxList[i], i+1, 0)
          layoutAllInp.addWidget(self.edtList[i], i+1, 1)
       frmAllInputs.setLayout(layoutAllInp)
@@ -13837,8 +13220,7 @@ class DlgRestoreSingle(ArmoryDialog):
       self.setMinimumWidth(500)
       self.layout().setSizeConstraint(QLayout.SetFixedSize)
       self.changeType()
-      
-      
+               
    #############################################################################
    def changeType(self):
       sel = self.comboBackupType.currentIndex()
@@ -13879,11 +13261,11 @@ class DlgRestoreSingle(ArmoryDialog):
             hasError=True
             
          if hasError:
-            reply = QMessageBox.critical(self, tr('Verify Wallet ID'), tr("""
+            reply = QMessageBox.critical(self, tr('Invalid Data'), tr("""
                There is an error in the data you entered that could not be 
                fixed automatically.  Please double-check that you entered the 
                text exactly as it appears on the wallet-backup page.  <br><br>
-               The error occured on <font color="%s">line #%d</font>.""") % i, \
+               The error occured on <font color="red">line #%d</font>.""") % i, \
                QMessageBox.Ok)
             LOGERROR('Error in wallet restore field')
             self.prfxList[i].setText('<font color="red">'+str(self.prfxList[i].text())+'</font>')
@@ -14018,17 +13400,26 @@ class DlgRestoreFragged(ArmoryDialog):
       self.testWltID = expectWltID
       headerStr = ''
       if thisIsATest: 
-         headerStr = '<font color="blue" size="4">Testing a Fragmented Backup\xe2\x84\xa2</font>'
+         headerStr = tr("""<font color="blue" size="4">Testing a 
+                     Fragmented Backup\xe2\x84\xa2</font>""")
       else:
-         headerStr = 'Restore Wallet from Fragments'
+         headerStr = tr('Restore Wallet from Fragments')
 
-      lblDescr = QRichLabel( tr("""
+      descr = tr("""
          <b><u>%s</u></b> <br><br> 
          Use this form to enter all the fragments to be restored.  Fragments 
          can be stored on a mix of paper printouts, and saved files. 
          If any of the fragments require a SecurePrint\xe2\x84\xa2 code, 
          you will only have to enter it once, since that code is the same for
-         all fragments of any given wallet. """ % headerStr))
+         all fragments of any given wallet. """) % headerStr 
+
+      if self.thisIsATest:
+         descr += tr(""" <br><br>
+            <b>For testing purposes, you may enter more fragments than needed
+            and Armory will test all subsets of the entered fragments to verify
+            that each one still recovers the wallet successfully.</b>""")
+
+      lblDescr = QRichLabel( descr )
 
       frmDescr = makeHorizFrame([lblDescr], STYLE_RAISED)
 
@@ -14176,14 +13567,14 @@ class DlgRestoreFragged(ArmoryDialog):
    def dataEnter(self, fnum):
       dlg = DlgEnterOneFrag(self, self.main, self.fragsDone, self.wltType)
       if dlg.exec_():
-         print 'Good data from enter_one_frag exec!', fnum
+         LOGINFO('Good data from enter_one_frag exec! %d', fnum)
          self.addFragToTable(fnum, dlg.fragData)
          self.makeFragInputTable()
 
 
    #############################################################################
    def dataLoad(self, fnum):
-      print 'Loading data for entry,', fnum
+      LOGINFO('Loading data for entry, %d', fnum)
       toLoad = unicode(self.main.getFileLoad(tr('Load Fragment File'), \
                                     [tr('Wallet Fragments (*.frag)')]))
 
@@ -14371,8 +13762,9 @@ class DlgRestoreFragged(ArmoryDialog):
             QMessageBox.critical(self, tr('Invalid Code'), tr("""
                You didn't enter a full SecurePrint\xe2\x84\xa2 code.  This
                code is needed to decrypt your backup.  If this backup is 
-               actually unencrypted and there is no code, then choose the
-               appropriate backup type from the drop-down box"""), QMessageBox.Ok)
+               actually unencrypted and there is no code, then choose the 
+               correct "Unencrypted" option from the version drop-down 
+               box."""), QMessageBox.Ok)
             return
          if not SECPRINT['FUNC_CHKPWD'](pwd):
             QMessageBox.critical(self, tr('Bad Encryption Code'), tr("""
@@ -14382,26 +13774,32 @@ class DlgRestoreFragged(ArmoryDialog):
             return
          maskKey = SECPRINT['FUNC_KDF'](pwd)
 
-      #self.fragDataMap[tableIndex] = [fragData[0][:], X.copy(), Y.copy()]
       fragMtrx,M = [], -1
       for row,trip in self.fragDataMap.iteritems():
          M,fnum,wltID,doMask,fid = ReadFragIDLineBin(trip[0])
          X,Y = trip[1],trip[2]
          if doMask:
-            print 'Row %d needs unmasking' % row
+            LOGINFO('Row %d needs unmasking' % row)
             Y = SECPRINT['FUNC_UNMASK'](Y, ekey=maskKey)
          else:
-            print 'Row %d is already unencrypted' % row
+            LOGINFO('Row %d is already unencrypted' % row)
          fragMtrx.append( [X.toBinStr(), Y.toBinStr()])
                   
       typeToBytes = {'0': 64, '1.35a': 64, '1.35c': 32}
       nBytes = typeToBytes[self.wltType]
+
+
+      if self.thisIsATest and len(fragMtrx)>M:
+         self.testFragSubsets(fragMtrx, M)
+         return
+
+
       SECRET = ReconstructSecret(fragMtrx, M, nBytes)
       for i in range(len(fragMtrx)):
          fragMtrx[i] = []
  
-      print 'Final length of frag mtrx:', len(fragMtrx)
-      print 'Final length of secret:   ', len(SECRET)
+      LOGINFO( 'Final length of frag mtrx: %d', len(fragMtrx))
+      LOGINFO( 'Final length of secret:    %d', len(SECRET))
 
       priv,chain = '',''
       if len(SECRET)==64:
@@ -14436,12 +13834,12 @@ class DlgRestoreFragged(ArmoryDialog):
          
       
       
-      reply = QMessageBox.question(self, 'Verify Wallet ID', \
-               'The data you entered corresponds to a wallet with a wallet ID: \n\n \t' +
-               newWltID + '\n\nDoes this ID match the "Wallet Unique ID" ' 
-               'printed on your paper backup?  If not, click "No" and reenter '
-               'key and chain-code data again.', \
-               QMessageBox.Yes | QMessageBox.No)
+      reply = QMessageBox.question(self, tr('Verify Wallet ID'), tr("""
+         The data you entered corresponds to a wallet with a wallet 
+         ID: \n\n \t'""") + newWltID + tr(""" \n\nDoes this ID 
+         match the "Wallet Unique ID" printed on your paper backup?  
+         If not, click "No" and reenter key and chain-code data 
+         again."""), QMessageBox.Yes | QMessageBox.No)
       if reply==QMessageBox.No:
          return
 
@@ -14452,10 +13850,10 @@ class DlgRestoreFragged(ArmoryDialog):
          if dlgPasswd.exec_():
             passwd = SecureBinaryData(str(dlgPasswd.edtPasswd1.text()))
          else:
-            QMessageBox.critical(self, 'Cannot Encrypt', \
-               'You requested your restored wallet be encrypted, but no '
-               'valid passphrase was supplied.  Aborting wallet recovery.', \
-               QMessageBox.Ok)
+            QMessageBox.critical(self, tr('Cannot Encrypt'), tr("""
+               You requested your restored wallet be encrypted, but no 
+               valid passphrase was supplied.  Aborting wallet 
+               recovery."""), QMessageBox.Ok)
             return
 
       if passwd:
@@ -14483,7 +13881,126 @@ class DlgRestoreFragged(ArmoryDialog):
          self.accept()
 
       # Will pop up a little "please wait..." window while filling addr pool
-      DlgExecLongProcess(fillAddrPoolAndAccept, "Recovering wallet...", self, self.main).exec_()
+      DlgExecLongProcess(fillAddrPoolAndAccept, \
+                         tr("Recovering wallet..."), \
+                         self, self.main).exec_()
+
+
+   #############################################################################
+   def testFragSubsets(self, fragMtrx, M):
+      # If the user entered multiple fragments
+      fragMap = {}
+      for x,y in fragMtrx:
+         fragMap[binary_to_int(x,BIGENDIAN)-1] = [x,y]
+      typeToBytes = {'0': 64, '1.35a': 64, '1.35c': 32}
+         
+      isRandom, results = testReconstructSecrets(fragMap, M, 100)
+      def privAndChainFromRow(secret):
+         priv,chain = None,None
+         if len(secret)==64:
+            priv  = SecureBinaryData(secret[:32 ])
+            chain = SecureBinaryData(secret[ 32:])
+            return (priv,chain)
+         elif len(secret)==32:
+            priv  = SecureBinaryData(secret)
+            chain = DeriveChaincodeFromRootKey(priv)
+            return (priv,chain)
+         else:
+            LOGERROR('Root secret is %s bytes ?!' % len(secret))
+            raise KeyDataError
+
+      results = [(row[0], privAndChainFromRow(row[1])) for row in results]
+      subsAndIDs = [(row[0], calcWalletIDFromRoot(*row[1])) for row in results]
+
+      DlgShowTestResults(self, isRandom, subsAndIDs, \
+                                 M, len(fragMtrx), self.testWltID).exec_()
+
+
+##########################################################################
+class DlgShowTestResults(ArmoryDialog):
+   #######################################################################
+   def __init__(self, parent, isRandom, subsAndIDs, M, nFrag, expectID):
+      super(DlgShowTestResults, self).__init__(parent, parent.main)
+
+      accumSet = set()
+      for sub,ID in subsAndIDs:
+         accumSet.add(ID)
+
+      allEqual   = (len(accumSet)==1)
+      allCorrect = True
+      testID = expectID
+      if not testID:
+         testID = subsAndIDs[0][1]
+
+      allCorrect = testID == subsAndIDs[0][1]
+
+      descr = ''
+      nSubs = len(subsAndIDs)
+      fact = lambda x: math.factorial(x)
+      total = fact(nFrag) / (fact(M) * fact(nFrag-M))
+      if isRandom:
+         descr = tr("""
+            The total number of fragment subsets (%d) is too high
+            to test and display.  Instead, %d subsets were tested
+            at random.  The results are below """) % (total, nSubs)
+      else:
+         descr = tr("""
+            For the fragments you entered, there are a total of 
+            %d possible subsets that can restore your wallet.  
+            The test results for all subsets are shown below""") % total
+
+      lblDescr = QRichLabel(descr)
+      
+      lblWltIDDescr = QRichLabel( tr("""
+         The wallet ID is computed from the first
+         address in your wallet based on the root key data (and the
+         "chain code").  Therefore, a matching wallet ID proves that 
+         the wallet will produce identical addresses."""))
+
+      
+      frmResults = QFrame()
+      layout = QGridLayout()
+      row=0
+      for sub,ID in subsAndIDs:
+         subStrs = [str(s) for s in sub]
+         subText = ', '.join(subStrs[:-1]) 
+         dispTxt = tr("""
+            Fragments <b>%s</b> and <b>%s</b> produce a 
+            wallet with ID "<b>%s</b>" """) % (subText, subStrs[-1], ID)
+
+         chk = lambda: QPixmap(':/checkmark32.png').scaled(20,20)
+         _X_ = lambda: QPixmap(':/red_X.png').scaled(16,16)
+
+         lblTxt = QRichLabel(dispTxt)
+         lblTxt.setWordWrap(False)
+         lblPix = QLabel('')
+         lblPix.setPixmap(chk() if ID==testID else _X_())
+         layout.addWidget( lblTxt, row, 0)
+         layout.addWidget( lblPix, row, 1)
+         row += 1
+
+      
+
+      scrollResults = QScrollArea()
+      frmResults = QFrame()
+      frmResults.setLayout(layout)
+      scrollResults.setWidget(frmResults)
+
+      btnOkay = QPushButton('Ok')
+      buttonBox = QDialogButtonBox()
+      buttonBox.addButton(btnOkay, QDialogButtonBox.AcceptRole)
+      self.connect(btnOkay, SIGNAL('clicked()'), self.accept)
+
+      mainLayout = QVBoxLayout()
+      mainLayout.addWidget(lblDescr)
+      mainLayout.addWidget(scrollResults)
+      mainLayout.addWidget(lblWltIDDescr)
+      mainLayout.addWidget(buttonBox)
+      self.setLayout(mainLayout) 
+
+      self.setWindowTitle('Fragment Test Results')
+      self.setMinimumWidth(500)
+
 
 
 
@@ -14544,19 +14061,12 @@ class DlgEnterOneFrag(ArmoryDialog):
                        'y1:','y2:','y3:','y4:', \
                        'F1:','F2:','F3:','F4:']
       self.prfxList = [QLabel(p) for p in self.prfxList]
-      self.edtList = [QLineEdit(), QLineEdit(), QLineEdit(), QLineEdit(), \
-                      QLineEdit(), QLineEdit(), QLineEdit(), QLineEdit(), \
-                      QLineEdit(), QLineEdit(), QLineEdit(), QLineEdit()]
+      inpMask   = '<AAAA\ AAAA\ AAAA\ AAAA\ \ AAAA\ AAAA\ AAAA\ AAAA\ \ AAAA!'
+      self.edtList = [MaskedInputLineEdit(inpMask) for i in range(12)]
 
       inpMaskID = '<HHHH\ HHHH\ HHHH\ HHHH!'
-      inpMask   = '<AAAA\ AAAA\ AAAA\ AAAA\ \ AAAA\ AAAA\ AAAA\ AAAA\ \ AAAA!'
-
-      fixFont = GETFONT('Fix', 9)
       self.lblID = QRichLabel('ID:')
-      self.edtID = QLineEdit()
-      self.edtID.setInputMask(inpMaskID)
-      self.edtID.setFont(fixFont)
-      #self.edtID.setMaximumWidth(tightSizeStr(fixFont, inpMaskID)[0]+10)
+      self.edtID = MaskedInputLineEdit(inpMaskID)
 
       frmAllInputs = QFrame()
       frmAllInputs.setFrameStyle(STYLE_RAISED)
@@ -14564,9 +14074,6 @@ class DlgEnterOneFrag(ArmoryDialog):
       layoutAllInp.addWidget( self.lblID,  0,0, 1,1)
       layoutAllInp.addWidget( self.edtID,  0,1, 1,1)
       for i in range(12):
-         self.edtList[i].setInputMask(inpMask)
-         self.edtList[i].setFont(fixFont)
-         self.edtList[i].setMinimumWidth(tightSizeStr(fixFont, inpMask)[0]+10)
          layoutAllInp.addWidget(self.prfxList[i], i+1,0, 1,2)
          layoutAllInp.addWidget(self.edtList[i],  i+1,1, 1,2)
       frmAllInputs.setLayout(layoutAllInp)
@@ -14698,9 +14205,9 @@ def verifyRecoveryTestID(parent, computedWltID, expectedWltID=None):
             this wallet!</b>  If this wallet currently holds any funds,
             you should move the funds to a wallet that <u>does</u>
             have a working backup.
-            <br><br>
-            <br><br>
-            Wallet ID of the data you entered: %s <br> """), QMessageBox.Ok)
+            <br><br> <br><br>
+            Wallet ID of the data you entered: %s <br> """) % computedWltID, \
+            QMessageBox.Ok)
       elif yesno==QMessageBox.Yes:
          MsgBoxCustom(MSGBOX.Good, tr('Backup is Good!'), tr("""
             <b>Your backup works!</b>

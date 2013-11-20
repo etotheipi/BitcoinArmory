@@ -14,10 +14,11 @@ import hashlib
 import random
 import base64
 import CppBlockUtils
-
+import armoryengine
+from armoryengine import *
 FTVerbose=False
 
-version='0.0.2'
+version='0.1.0'
 
 _p = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2FL
 _r = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141L
@@ -30,9 +31,12 @@ BEGIN_MARKER = '-----BEGIN '
 END_MARKER = '-----END '
 DASHX5 = '-----'
 RN = '\r\n'
-BEGIN_SIGNED_MESSAGE_MARKER = '-----BEGIN SIGNED BITCOIN MESSAGE-----\r\n\r\n'
-BITCOIN_SIG_TYPE = 'BITCOIN SIGNATURE'
-BITCOIN_SIG_MSG_TYPE = 'BITCOIN SIGNED MESSAGE'
+RNRN = '\r\n\r\n'
+CLEARSIGN_MSG_TYPE_MARKER = 'BITCOIN SIGNED MESSAGE'
+BITCOIN_SIG_TYPE_MARKER = 'BITCOIN SIGNATURE'
+BASE64_MSG_TYPE_MARKER = 'BITCOIN MESSAGE'
+BITCOIN_ARMORY_COMMENT = 'Comment: Signed by Bitcoin Armory v' +\
+   getVersionString(BTCARMORY_VERSION, 3)
 class UnknownSigBlockType(Exception): pass
    
 def randomk():  #better make it stronger
@@ -170,7 +174,7 @@ def i2d_ECPrivateKey(pkey, compressed=False):#, crypted=True):
          '022100' + \
          '%064x' % _r + \
          '020101a144034200'
-
+         
    return key.decode('hex') + i2o_ECPublicKey(pkey, compressed)
 
 def i2o_ECPublicKey(pkey, compressed=False):
@@ -401,8 +405,28 @@ class EC_KEY(object):
       self.privkey = Private_key( self.pubkey, secret )
       self.secret = secret
 
+def decbin(d, l=0, rev=False):
+   if l==0:
+      a="%x"%d
+      if len(a)%2: a='0'+a
+   else:
+      a=("%0"+str(2*l)+"x")%d
+   a=a.decode('hex')
+   if rev:
+      a=a[::-1]
+   return a
+
+def decvi(d):
+   if d<0xfd:
+      return decbin(d)
+   elif d<0xffff:
+      return '\xfd'+decbin(d,2,True)
+   elif d<0xffffffff:
+      return '\xfe'+decbin(d,4,True)
+   return '\xff'+decbin(d,8,True)
+
 def format_msg_to_sign(msg):
-   return "\x18Bitcoin Signed Message:\n"+chr(len(msg))+msg  #todo: check 18
+   return "\x18Bitcoin Signed Message:\n"+decvi(len(msg))+msg
 
 def sqrt_mod(a, p):
    return pow(a, (p+1)/4, p)
@@ -415,8 +439,7 @@ randrange = random.SystemRandom().randrange
 
 # Signing/verifying
 
-def verify_message_Bitcoin(address, signature, message, pureECDSASigning=False):
-   networkversion=str_to_long(b58decode(address, None)) >> (8*24)
+def verify_message_Bitcoin(signature, message, pureECDSASigning=False, networkVersionNumber=0):
    msg=message
    if not pureECDSASigning:
       msg=Hash(format_msg_to_sign(message))
@@ -455,8 +478,8 @@ def verify_message_Bitcoin(address, signature, message, pureECDSASigning=False):
    inv_r = inverse_mod(r,order)
    Q = inv_r * ( R*s + G*minus_e )
    public_key = Public_key(G, Q, compressed)
-   addr = public_key_to_bc_address(public_key.ser(), networkversion)
-   return address == addr
+   addr = public_key_to_bc_address(public_key.ser(), networkVersionNumber)
+   return addr
 
 def sign_message(secret, message, pureECDSASigning=False):
    if len(secret) == 32:
@@ -493,7 +516,8 @@ def sign_message_Bitcoin(secret, msg, pureECDSASigning=False):
          hb+=4
       sign=base64.b64encode(chr(hb)+sig.ser())
       try:
-         if verify_message_Bitcoin(addr, sign, msg, pureECDSASigning):
+         networkVersionNumber = str_to_long(b58decode(addr, None)) >> (8*24)
+         if addr == verify_message_Bitcoin(sign, msg, pureECDSASigning, networkVersionNumber):
             return {'address':addr, 'b64-signature':sign, 'signature':chr(hb)+sig.ser(), 'message':msg}
       except Exception as e:
 #         print e.args
@@ -501,7 +525,7 @@ def sign_message_Bitcoin(secret, msg, pureECDSASigning=False):
 
    raise Exception("smB","Unable to construct recoverable key")
 
-def FormatText(t, sigctx, verbose=False):   #sigctx: False=what is displayed, True=what is signed
+def FormatText(t, sigctx=False, verbose=False):   #sigctx: False=what is displayed, True=what is signed
    r=''
    te=t.split('\n')
    for l in te:
@@ -545,44 +569,77 @@ def crc24(m):
 def chunks(t, n):
    return [t[i:i+n] for i in range(0, len(t), n)]
 
-def ASCIIArmory(block, name):
+def ASCIIArmory(block, name, addComment=False):
 
    r=BEGIN_MARKER+name+DASHX5+RN
+   if addComment:
+      r+= BITCOIN_ARMORY_COMMENT
+   r+=RNRN
    r+=RN.join(chunks(base64.b64encode(block), 64))+RN+'='
    r+=base64.b64encode(crc24(block))+RN
 
    r+=END_MARKER+name+DASHX5
    return r
 
-# TODO: finish this. Code in progress.
 def readSigBlock(r):
-   name, remainder = r.split(BEGIN_MARKER)[1].split(DASHX5+RN)
-   if name == BITCOIN_SIG_MSG_TYPE:
-      pass
-   elif name == BITCOIN_SIG_TYPE:
-      pass
+   # Take the name off of the end because the BEGIN markers are confusing
+   r = FormatText(r, True)
+   name = r.split(BEGIN_MARKER)[1].split(DASHX5)[0]
+   if name == BASE64_MSG_TYPE_MARKER:
+      encoded,crc = r.split(BEGIN_MARKER)[1].split(END_MARKER)[0].split(DASHX5)[1].strip().split('\n=')
+      crc = crc.strip()
+      # Always starts with a blank line (\r\n\r\n) chop that off with the comment oand process the rest
+      encoded = encoded.split(RNRN)[1]
+      # Combines 64 byte chunks that are separated by \r\n
+      encoded = ''.join(encoded.split(RN))
+      # decode the message.
+      decoded = base64.b64decode(encoded)
+      # Check sum of decoded messgae
+      if base64.b64decode(crc) != crc24(decoded):
+         raise ChecksumError
+      # The signature is followed by the message and the whole thing is encoded
+      # The message always starts at 65 because the signature is 65 bytes.
+      signature = base64.b64encode(decoded[:65])
+      msg = decoded[65:]
+   elif name == CLEARSIGN_MSG_TYPE_MARKER:
+      # Always starts with a blank line (\r\n\r\n) chop that off with the comment oand process the rest
+      # For Clearsign the message is unencoded since the message could include the \r\n\r\n we only ignore
+      # the first and combine the rest.
+      msg = RNRN.join(r.split(RNRN)[1:])
+      msg = msg.split(RN+DASHX5)[0]
+      # Only the signature is encoded, use the original r to pull out the encoded signature
+      encoded =  r.split(BEGIN_MARKER)[2].split(DASHX5)[1].split(BITCOIN_SIG_TYPE_MARKER)[0]
+      encoded, crc = encoded.split('\n=')
+      encoded = ''.join(encoded.split('\n'))
+      signature = ''.join(encoded.split('\r'))
+      crc = crc.strip()
+      if base64.b64decode(crc) != crc24(base64.b64decode(signature)):
+         raise ChecksumError
    else:
       raise UnknownSigBlockType()
-   return name, remainder
+   return signature, msg
 
 #==============================================
 
-def verifySignature(addr, b64sig, msg):
-   return verify_message_Bitcoin(addr, b64sig, FormatText(msg, True))
+def verifySignature(b64sig, msg, signVer='v0', networkVersionNumber=0):
+   # If version 1, apply RFC2440 formatting rules to the message
+   if signVer=='v1':
+      msg = FormatText(msg, True)
+   return verify_message_Bitcoin(b64sig, msg, networkVersionNumber = networkVersionNumber)
 
 def ASv0(privkey, msg):
-   return sign_message_Bitcoin(privkey, FormatText(msg, True))
+   return sign_message_Bitcoin(privkey, msg)
 
 def ASv1CS(privkey, msg):
-   sig=ASv0(privkey, msg)
-   r=BEGIN_SIGNED_MESSAGE_MARKER
-   r+=FormatText(msg, False)+RN
-   r+=ASCIIArmory(sig['signature'], BITCOIN_SIG_TYPE)
+   sig=ASv0(privkey, FormatText(msg))
+   r=BEGIN_MARKER+CLEARSIGN_MSG_TYPE_MARKER+DASHX5+RN+BITCOIN_ARMORY_COMMENT+RNRN
+   r+=FormatText(msg)+RN
+   r+=ASCIIArmory(sig['signature'], BITCOIN_SIG_TYPE_MARKER)
    return r
 
 def ASv1B64(privkey, msg):
-   sig=ASv0(privkey, msg)
-   return ASCIIArmory(sig['signature']+sig['message'], BITCOIN_SIG_MSG_TYPE)
+   sig=ASv0(privkey, FormatText(msg))
+   return ASCIIArmory(sig['signature']+sig['message'], BASE64_MSG_TYPE_MARKER, True)
 
 #==============================================
 
@@ -602,14 +659,9 @@ if __name__=='__main__':
 
    FTVerbose=True
 
-   sv1B64 = ASv1B64(pvk1, text1)
-   print sv1B64
-   print
-   print readSigBlock(sv1B64)
-   print
    sv0=ASv0(pvk1, text1)
    print sv0
-   verifySignature(sv0['address'], sv0['b64-signature'], sv0['message'])
+   print verifySignature(sv0['b64-signature'], sv0['message'], signVer='v0')
    print ASv1B64(pvk1, text1)
    print
    print ASv1CS(pvk1, text1)

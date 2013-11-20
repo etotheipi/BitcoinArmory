@@ -570,6 +570,8 @@ private:
    set<HashString>                    txJustInvalidated_;
    set<HashString>                    txJustAffected_;
 
+   bool                               corruptHeadersDB_;
+
    // Store info on orphan chains
    vector<BlockHeader*>               previouslyValidBlockHeaderPtrs_;
    vector<BlockHeader*>               orphanChainStartBlocks_;
@@ -979,6 +981,10 @@ public:
 
    void findSSHEntriesToDelete( map<BinaryData, StoredScriptHistory> & sshMap,
                                 set<BinaryData> & keysToDelete);
+
+
+   void     setMaxOpenFiles(uint32_t n) {iface_->setMaxOpenFiles(n);}
+   uint32_t getMaxOpenFiles(void)       {return iface_->getMaxOpenFiles();}
 
    // Simple wrapper around the logger so that they are easy to access from SWIG
    void StartCppLogging(string fname, int lvl) { STARTLOGGING(fname, (LogLevel)lvl); }

@@ -86,6 +86,8 @@ void InterfaceToLDB::init()
       batchStarts_[i] = 0;
       //dbFilterPolicy_[i] = NULL;
    }
+
+   maxOpenFiles_ = 0;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -122,6 +124,7 @@ bool InterfaceToLDB::openDatabases(string basedir,
                                    DB_PRUNE_TYPE      pruneType)
 {
    SCOPED_TIMER("openDatabases");
+   LOGINFO << "Opening databases...";
 
    baseDir_ = basedir;
 
@@ -160,6 +163,13 @@ bool InterfaceToLDB::openDatabases(string basedir,
       leveldb::Options opts;
       opts.create_if_missing = true;
       opts.compression = leveldb::kNoCompression;
+
+      if(maxOpenFiles_ != 0)
+      {
+         LOGINFO << "Using custom max_open_files option: " << maxOpenFiles_;
+         opts.max_open_files = maxOpenFiles_;
+      }
+
       //opts.block_cache = leveldb::NewLRUCache(100 * 1048576);
       //dbFilterPolicy_[db] = leveldb::NewBloomFilterPolicy(10);
       //opts.filter_policy = leveldb::NewBloomFilterPolicy(10);
@@ -232,6 +242,39 @@ bool InterfaceToLDB::openDatabases(string basedir,
    dbIsOpen_ = true;
 
    return true;
+}
+
+
+/////////////////////////////////////////////////////////////////////////////
+void InterfaceToLDB::nukeHeadersDB(void)
+{
+   SCOPED_TIMER("nukeHeadersDB");
+   LOGINFO << "Destroying headers DB, to be rebuilt.";
+   seekTo(HEADERS, DB_PREFIX_HEADHASH, BinaryData(0));
+   leveldb::Iterator* iter = iters_[HEADERS];
+   startBatch(HEADERS);
+
+   do
+   {
+      if(!iter->Valid())
+         break;
+
+      batches_[HEADERS]->Delete(iter->key());
+
+   } while(advanceIterAndRead(iter));
+
+   commitBatch(HEADERS);
+
+   
+   StoredDBInfo sdbi;
+   sdbi.magic_      = magicBytes_;
+   sdbi.topBlkHgt_  = 0;
+   sdbi.topBlkHash_ = genesisBlkHash_;
+   putStoredDBInfo(HEADERS, sdbi);
+
+   validDupByHeight_.clear();
+   validDupByHeight_.resize(0);
+   validDupByHeight_.reserve(300000);
 }
 
 

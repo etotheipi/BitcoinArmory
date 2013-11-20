@@ -221,6 +221,8 @@ public:
                       ARMORY_DB_TYPE     dbtype=ARMORY_DB_WHATEVER,
                       DB_PRUNE_TYPE      pruneType=DB_PRUNE_WHATEVER);
 
+   /////////////////////////////////////////////////////////////////////////////
+   void nukeHeadersDB(void);
    
    /////////////////////////////////////////////////////////////////////////////
    void closeDatabases(void);
@@ -556,6 +558,9 @@ public:
    /////////////////////////////////////////////////////////////////////////////
    bool checkStatus(leveldb::Status stat, bool warn=true);
 
+   void     setMaxOpenFiles(uint32_t n) {  maxOpenFiles_ = n;   }
+   uint32_t getMaxOpenFiles(void)       { return maxOpenFiles_; }
+
 
    KVLIST getAllDatabaseEntries(DB_SELECT db);
    void   printAllDatabaseEntries(DB_SELECT db);
@@ -601,6 +606,8 @@ private:
    uint32_t             lowestScannedUpTo_;
 
    leveldb::Status      lastStatus_;
+
+   uint32_t             maxOpenFiles_;
 
    // In this case, a address is any TxOut script, which is usually
    // just a 25-byte script.  But this generically captures all types

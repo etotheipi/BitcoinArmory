@@ -1689,6 +1689,10 @@ bool BlockDataManager_LevelDB::detectCurrentSyncState(
                                           bool forceRebuild,
                                           bool initialLoad)
 {
+   // Make sure we detected all the available blk files
+   detectAllBlkFiles();
+   vector<BinaryData> firstHashes = getFirstHashOfEachBlkFile();
+   LOGINFO << "Total blk*.dat files:                 " << numBlkFiles_;
 
    if(!iface_->databasesAreOpen())
    {
@@ -1713,7 +1717,7 @@ bool BlockDataManager_LevelDB::detectCurrentSyncState(
    if(startHeaderHgt_ == 0 || forceRebuild)
    {
       if(forceRebuild)
-         LOGINFO << "Ignore existing sync state, rebuilding database";
+         LOGINFO << "Ignore existing sync state, rebuilding databases";
 
       startHeaderHgt_     = 0;
       startHeaderBlkFile_ = 0;
@@ -1734,10 +1738,10 @@ bool BlockDataManager_LevelDB::detectCurrentSyncState(
    // This fetches the header data from the DB
    if(!initialLoad)
    {
-      // If this isn't the initial load, 
+      // If this isn't the initial load, we assume everything is sync'd
       startHeaderBlkFile_= numBlkFiles_ - 1;
       startHeaderOffset_ = endOfLastBlockByte_;
-      startRawBlkHgt_    = startHeaderHgt_;
+      startRawBlkHgt_    = startHeaderHgt_;  
       startRawBlkFile_   = numBlkFiles_ - 1;
       startRawOffset_    = endOfLastBlockByte_;
       startApplyHgt_     = startHeaderHgt_;
@@ -1750,43 +1754,65 @@ bool BlockDataManager_LevelDB::detectCurrentSyncState(
    headerMap_.clear();
    iface_->readAllHeaders(headerMap_, sbhMap);
 
+
    // Organize them into the longest chain
    organizeChain(true);  // true ~ force rebuild
 
-   // Now go through the linear list of main-chain headers, mark valid
-   for(uint32_t i=0; i<headersByHeight_.size(); i++)
+
+   // If the headers DB ended up corrupted (triggered by organizeChain), 
+   // then nuke and rebuild the headers
+   if(corruptHeadersDB_)
    {
-      BinaryDataRef headHash = headersByHeight_[i]->getThisHashRef();
-      StoredHeader & sbh = sbhMap[headHash];
-      sbh.isMainBranch_ = true;
-      iface_->setValidDupIDForHeight(sbh.blockHeight_, sbh.duplicateID_);
+      LOGERR << "Corrupted headers DB!";
+      startHeaderHgt_     = 0;
+      startHeaderBlkFile_ = 0;
+      startHeaderOffset_  = 0;
+      startRawBlkHgt_     = 0;
+      startRawBlkFile_    = 0;
+      startRawOffset_     = 0;
+      startApplyHgt_      = 0;
+      startApplyBlkFile_  = 0;
+      startApplyOffset_   = 0;
+      headerMap_.clear();
+      headersByHeight_.clear();
+      topBlockPtr_ = NULL;
+      prevTopBlockPtr_ = NULL;
+      corruptHeadersDB_ = false;
+      lastTopBlock_ = UINT32_MAX;
+      genBlockPtr_ = NULL;
+      return true;
+   }
+   else
+   {
+      // Now go through the linear list of main-chain headers, mark valid
+      for(uint32_t i=0; i<headersByHeight_.size(); i++)
+      {
+         BinaryDataRef headHash = headersByHeight_[i]->getThisHashRef();
+         StoredHeader & sbh = sbhMap[headHash];
+         sbh.isMainBranch_ = true;
+         iface_->setValidDupIDForHeight(sbh.blockHeight_, sbh.duplicateID_);
+      }
+
+      // startHeaderBlkFile_/Offset_ is where we were before the last shutdown
+      for(startHeaderBlkFile_ = 0; 
+         startHeaderBlkFile_ < firstHashes.size(); 
+         startHeaderBlkFile_++)
+      {
+         // hasHeaderWithHash is probing the RAM block headers we just organized
+         if(!hasHeaderWithHash(firstHashes[startHeaderBlkFile_]))
+            break;
+      }
+
+      // If no new blkfiles since last load, the above loop ends w/o "break"
+      // If it's zero, then we don't have anything, start at zero
+      // If new blk file, then startHeaderBlkFile_ is at the first blk file
+      // with an unrecognized hash... we must've left off in the prev blkfile
+      if(startHeaderBlkFile_ > 0)
+         startHeaderBlkFile_--;
+
+      startHeaderOffset_ = findOffsetFirstUnrecognized(startHeaderBlkFile_);
    }
 
-
-   // Make sure we detected all the available blk files
-   detectAllBlkFiles();
-   LOGINFO << "Total blk*.dat files:                 " << numBlkFiles_;
-
-   // startHeaderBlkFile_/Offset_ is where we were before the last shutdown
-   vector<BinaryData> firstHashes = getFirstHashOfEachBlkFile();
-   for(startHeaderBlkFile_ = 0; 
-       startHeaderBlkFile_ < firstHashes.size(); 
-       startHeaderBlkFile_++)
-   {
-      // hasHeaderWithHash is probing the RAM block headers we just organized
-      if(!hasHeaderWithHash(firstHashes[startHeaderBlkFile_]))
-         break;
-   }
-
-   // If no new blkfiles since last load, the above loop ends w/o "break"
-   // If it's zero, then we don't have anything, start at zero
-   // If new blk file, then startHeaderBlkFile_ is at the first blk file
-   // with an unrecognized hash... we must've left off in the prev blkfile
-   if(startHeaderBlkFile_ > 0)
-      startHeaderBlkFile_--;
-
-
-   startHeaderOffset_ = findOffsetFirstUnrecognized(startHeaderBlkFile_);
    LOGINFO << "First unrecognized hash file:       " << startHeaderBlkFile_;
    LOGINFO << "Offset of first unrecog block:      " << startHeaderOffset_;
 
@@ -1809,15 +1835,9 @@ bool BlockDataManager_LevelDB::detectCurrentSyncState(
    }
 
 
-   //if(replayNBytes>0)
-   //{
-      //LOGERR << "TODO: implement block replay ... no replay will be used now";
-      //return true;
-   //}
-
+   // If we're content here, just return
    return true;
 
-   // If we're content here, just return
    /*
 
    // If we want to replay some blocks, we need to adjust startScanBlkFile_
@@ -2252,6 +2272,7 @@ void BlockDataManager_LevelDB::Reset(void)
    filesReadSoFar_ = 0;
 
    isInitialized_ = false;
+   corruptHeadersDB_ = false;
 
    // Clear out any of the registered tx data we have collected so far.
    // Doesn't take any time to recollect if it we have to rescan, anyway.
@@ -3600,8 +3621,8 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
    // and where we should start applying or scanning
    detectCurrentSyncState(forceRebuild, initialLoad);
 
-   // If we're going to rebuild, might as well destroy the DB for god measure
-   if(forceRebuild || startHeaderHgt_==0)
+   // If we're going to rebuild, might as well destroy the DB for good measure
+   if(forceRebuild || (startHeaderHgt_==0 && startRawBlkHgt_==0))
    {
       LOGINFO << "Clearing databases for clean build";
       forceRebuild = true;
@@ -4222,6 +4243,9 @@ uint32_t BlockDataManager_LevelDB::readBlkFileUpdate(void)
 
    // If the blk file split, switch to tracking it
    LOGINFO << "Added new blocks to memory pool: " << nBlkRead;
+
+   // If we pull non-zero amount of data from next block file...there 
+   // was a blkfile split!
    if(nextBlkBytesToRead>0)
    {
       numBlkFiles_ += 1;
@@ -4716,6 +4740,12 @@ bool BlockDataManager_LevelDB::organizeChain(bool forceRebuild)
       //     hash ptrs, as we don't know if this is the main branch)
       //     Method returns instantly if block is already "solved"
       double thisDiffSum = traceChainDown(iter->second);
+
+      // If we hit orphans, we flag headers DB corruption
+      if(corruptHeadersDB_)
+         return false;
+
+
       
       // Determine if this is the top block.  If it's the same diffsum
       // as the prev top block, don't do anything
@@ -4731,6 +4761,7 @@ bool BlockDataManager_LevelDB::organizeChain(bool forceRebuild)
    bool prevChainStillValid = (topBlockPtr_ == prevTopBlockPtr_);
    topBlockPtr_->nextHash_ = BtcUtils::EmptyHash_;
    BlockHeader* thisHeaderPtr = topBlockPtr_;
+   //headersByHeight_.reserve(topBlockPtr_->getBlockHeight()+32768);
    headersByHeight_.resize(topBlockPtr_->getBlockHeight()+1);
    while( !thisHeaderPtr->isFinishedCalc_ )
    {
@@ -4816,6 +4847,14 @@ double BlockDataManager_LevelDB::traceChainDown(BlockHeader & bhpStart)
          thisPtr = &(iter->second);
       else
       {
+         // Under some circumstances, the headers DB is not getting written
+         // properly and triggering this code due to missing headers.  For 
+         // now, we simply avoid this condition by flagging the headers DB
+         // to be rebuilt.  The bug probably has to do with batching of
+         // header data.
+         corruptHeadersDB_ = true;
+         return 0.0;
+         
          // We didn't hit a known block, but we don't have this block's
          // ancestor in the memory pool, so this is an orphan chain...
          // at least temporarily
@@ -5473,7 +5512,7 @@ bool BlockDataManager_LevelDB::addRawBlockToDB(BinaryRefReader & brr)
    BinaryDataRef first4 = brr.get_BinaryDataRef(4);
    
    // Skip magic bytes and block sz if exist, put ptr at beginning of header
-   if(first4 == READHEX("f9beb4d9"))
+   if(first4 == MagicBytes_)
       brr.advance(4);
    else
       brr.rewind(4);

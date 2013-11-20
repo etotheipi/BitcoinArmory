@@ -13,15 +13,9 @@ LE = LITTLEENDIAN
 BE = BIGENDIAN
 
 
-<<<<<<< HEAD:not_very_good_tests.py
-Test_BasicUtils       = True
-Test_PyBlockUtils     = True
-Test_CppBlockUtils    = True
-=======
 Test_BasicUtils       = False
 Test_PyBlockUtils     = False
 Test_CppBlockUtils    = False
->>>>>>> backupcenter:unittest.py
 Test_SimpleAddress    = False
 Test_MultiSigTx       = False
 Test_TxSimpleCreate   = False
@@ -2359,10 +2353,12 @@ if Test_FiniteField:
    testSecret('00000002', 4,7, 4)
    testSecret('00000002', 5,9, 4)
    testSecret('00000002', 6,10, 4)
+   testSecret('00000002', 8,12, 4)
    testSecret('12afc83f', 6,20, 4)
 
    testSecret('9f'*16, 2,4, 16)
    testSecret('9f'*16, 5,5, 16)
+   testSecret('9f'*16, 8,12, 16)
 
 
    
