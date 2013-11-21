@@ -49,8 +49,6 @@ class Test(unittest.TestCase):
    def subtestAllFragmentedBackups(self, secret, m, n):
       fragmentMap = splitSecretToFragmentMap(SplitSecret(secret, m, n))
       for combinationMap in self.getNextCombination(fragmentMap, m):
-         print c2s(combinationMap)
-         print
          fragmentList = [value for value in combinationMap.itervalues()]
          reconSecret = ReconstructSecret(fragmentList, m, len(secret))
          self.assertEqual(reconSecret, secret)
@@ -59,7 +57,9 @@ class Test(unittest.TestCase):
    def testFragmentedBackup(self):
 
       self.subtestAllFragmentedBackups(SECRET, 2, 3)
+      self.subtestAllFragmentedBackups(SECRET, 2, 3)
       self.subtestAllFragmentedBackups(SECRET, 5, 7)
+      self.subtestAllFragmentedBackups(SECRET, 8, 9)
       self.subtestAllFragmentedBackups(SECRET, 2, 12)
 
       # Secret Too big test
@@ -75,6 +75,12 @@ class Test(unittest.TestCase):
       # Too few pieces needed
       fragmentList = SplitSecret(SECRET, 1, 12)
       self.assertEqual(len(fragmentList), 0)
+      
+      # Test Reconstuction failures
+      fragmentList = SplitSecret(SECRET, 3, 5)
+      reconSecret = ReconstructSecret(fragmentList[:2], 2, len(SECRET))
+      self.assertNotEqual(reconSecret, SECRET)
+
       
 if __name__ == "__main__":
    unittest.main()
