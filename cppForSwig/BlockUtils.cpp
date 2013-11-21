@@ -1289,7 +1289,7 @@ void BtcWallet::scanNonStdTx(uint32_t blknum,
       LOGERR << "        an address in your wallet.  There is no way";
       LOGERR << "        for this program to determine if you can";
       LOGERR << "        spend these BTC or not.  Please email the";
-      LOGERR << "        following information to etotheipi@gmail.com";
+      LOGERR << "        following information to support@bitcoinarmory.com";
       LOGERR << "        for help identifying the transaction and how";
       LOGERR << "        to spend it:";
       LOGERR << "   Block Number: " << blknum;

@@ -876,9 +876,6 @@ class ArmoryMainWindow(QMainWindow):
       Setup Armory as the default application for handling bitcoin: links
       """
       LOGINFO('setupUriRegistration')
-      # Don't bother the user on the first load with it if verification is 
-      # needed.  They have enough to worry about with this weird new program.
-      isFirstLoad = self.getSettingOrSetDefault('First_Load', True)
 
       if OS_LINUX:
          out,err = execAndWait('gconftool-2 --get /desktop/gnome/url-handlers/bitcoin/command')
@@ -900,8 +897,10 @@ class ArmoryMainWindow(QMainWindow):
          if ('no value' in out.lower() or 'no value' in err.lower()) and not 'armory.desktop' in out2.lower():
             # Silently add Armory if it's never been set before
             setAsDefault()
-         elif (not 'armory' in out.lower() or not 'armory.desktop' in out2.lower()) and not isFirstLoad:
+         elif (not 'armory' in out.lower() or not 'armory.desktop' in out2.lower()) and not self.firstLoad:
             # If another application has it, ask for permission to change it
+            # Don't bother the user on the first load with it if verification is 
+            # needed.  They have enough to worry about with this weird new program...
             if not self.getSettingOrSetDefault('DNAA_DefaultApp', False):
                reply = MsgBoxWithDNAA(MSGBOX.Question, 'Default URL Handler', \
                   'Armory is not set as your default application for handling '
@@ -963,8 +962,10 @@ class ArmoryMainWindow(QMainWindow):
          elif dontAsk and dontAskDefault:
             LOGINFO('URL-register: user wants to do it by default')
             action = 'DoIt'
-         elif action=='AskUser' and not isFirstLoad and not dontAsk:
+         elif action=='AskUser' and not self.firstLoad and not dontAsk:
             # If another application has it, ask for permission to change it
+            # Don't bother the user on the first load with it if verification is 
+            # needed.  They have enough to worry about with this weird new program...
             reply = MsgBoxWithDNAA(MSGBOX.Question, 'Default URL Handler', \
                'Armory is not set as your default application for handling '
                '"bitcoin:" links.  Would you like to use Armory as the '
@@ -4320,8 +4321,8 @@ class ArmoryMainWindow(QMainWindow):
                      'Try reinstalling the Bitcoin '
                      'software then restart Armory.  If you continue to have '
                      'problems, please contact Armory\'s core developer at '
-                     '<a href="mailto:alan.reiner@gmail.com?Subject=Bitcoind%20Crash"'
-                     '>alan.reiner@gmail.com</a>.')
+                     '<a href="mailto:support@bitcoinarmory.com?Subject=Bitcoind%20Crash"'
+                     '>support@bitcoinarmory.com</a>.')
                   setBtnRowVisible(DASHBTNS.Settings, True)
                   setBtnRowVisible(DASHBTNS.Install, True)
                   LOGINFO('Dashboard switched to auto-BtcdCrashed')
