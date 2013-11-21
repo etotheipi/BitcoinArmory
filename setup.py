@@ -3,7 +3,10 @@ from distutils.core import setup
 import py2exe
 
 
-setup( windows = ['../../ArmoryQt.py'] )
-   #options = {'py2exe': {'bundle_files': 1}}, \
-   #zipfile = None )
+opts = {"py2exe":{
+    "dll_excludes":["MSWSOCK.dll", "IPHLPAPI.dll", "MSWSOCK.dll", "WINNSI.dll", "WTSAPI32.dll"]
+    }}
+
+setup( options = opts, windows = ['../../ArmoryQt.py'])
+
 
