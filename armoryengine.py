@@ -6022,7 +6022,7 @@ def getSelectCoinsScores(utxoSelectList, targetOutVal, minFee):
    haveDustOutputs = (0<totalChange<CENT or targetOutVal<CENT)
    if ((not haveDustOutputs) and \
        dPriority >= priorityThresh and \
-       numBytes <= 3500):
+       numBytes <= 10000):
       isFreeAllowed = 1
 
 

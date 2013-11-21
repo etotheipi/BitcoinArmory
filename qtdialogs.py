@@ -5410,7 +5410,7 @@ class DlgSendBitcoins(ArmoryDialog):
          return False
       except:
          QMessageBox.critical(self, 'Invalid Fee String', \
-            'The fee you specified is invalid.  A standard fee is 0.0005 BTC, '
+            'The fee you specified is invalid.  A standard fee is 0.0001 BTC, '
             'though some transactions may succeed with zero fee.', QMessageBox.Ok)
          LOGERROR('Invalid fee specified: "%s"', feeStr)
          return False
@@ -13112,7 +13112,6 @@ class MaskedInputLineEdit(QLineEdit):
    def controlCursor(self, oldpos, newpos):
       if newpos != 0 and len(str(self.text()).strip())==0:
          self.setCursorPosition(0)
-         self.setFocus()
 
 
 ################################################################################
@@ -13154,7 +13153,7 @@ class DlgRestoreSingle(ArmoryDialog):
       self.comboBackupType.addItem( tr('Version 1.35a (with SecurePrint\xe2\x84\xa2)'))
       self.comboBackupType.addItem( tr('Version 1.35c (Unencrypted)'))
       self.comboBackupType.addItem( tr('Version 1.35c (with SecurePrint\xe2\x84\xa2)'))
-      self.comboBackupType.setCurrentIndex(0)
+      self.comboBackupType.setCurrentIndex(3)
             
 
       self.connect(self.comboBackupType, SIGNAL('activated(int)'), self.changeType)
