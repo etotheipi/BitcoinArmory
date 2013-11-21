@@ -58,8 +58,9 @@ class Test(unittest.TestCase):
 
       self.subtestAllFragmentedBackups(SECRET, 2, 3)
       self.subtestAllFragmentedBackups(SECRET, 2, 3)
+      self.subtestAllFragmentedBackups(SECRET, 3, 4)
       self.subtestAllFragmentedBackups(SECRET, 5, 7)
-      self.subtestAllFragmentedBackups(SECRET, 8, 9)
+      self.subtestAllFragmentedBackups(SECRET, 8, 8)
       self.subtestAllFragmentedBackups(SECRET, 2, 12)
 
       # Secret Too big test
