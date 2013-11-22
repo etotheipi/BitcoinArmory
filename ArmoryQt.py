@@ -4721,7 +4721,7 @@ class ArmoryMainWindow(QMainWindow):
             self.detectNotSyncQ.insert(0, newBlocks)
             self.detectNotSyncQ.pop()
             blksInLast5sec = sum(self.detectNotSyncQ)
-            if( blksInLast5sec>10 ):
+            if( blksInLast5sec>20 ):
                LOGERROR('Detected Bitcoin-Qt/bitcoind not synchronized')
                LOGERROR('New blocks added in last 5 sec: %d', blksInLast5sec)
                if self.noSyncWarnYet:
