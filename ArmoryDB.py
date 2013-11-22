@@ -18,9 +18,13 @@
 import leveldb
 from armoryengine import *
 import struct
+import os
 
-dbheaders_path = '/home/goat/.armory/databases/leveldb_headers'
-dbblkdata_path = '/home/goat/.armory/databases/leveldb_blkdata'
+#dbheaders_path = '/home/goat/.armory/databases/leveldb_headers'
+#dbblkdata_path = '/home/goat/.armory/databases/leveldb_blkdata'
+
+dbheaders_path = os.path.join(ARMORY_HOME_DIR, 'databases', 'leveldb_headers')
+dbblkdata_path = os.path.join(ARMORY_HOME_DIR, 'databases', 'leveldb_blkdata')
 
 ########################################################################################################
 # front end class, implements the db parsing and querying methods.

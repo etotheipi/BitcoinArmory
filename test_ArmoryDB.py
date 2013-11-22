@@ -20,7 +20,7 @@ rt = thedb.headersDBHasBlockHash(blkhash)
 if (rt==False):
    print 'another fetch failure'
 else:
-   print 'Tru'
+   print True
 
 rt = thedb.getDBStatus()
 print 'top block in dbheaders: %d' % (rt.TopBlockInHeadersDB)
