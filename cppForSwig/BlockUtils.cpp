@@ -1289,7 +1289,7 @@ void BtcWallet::scanNonStdTx(uint32_t blknum,
       LOGERR << "        an address in your wallet.  There is no way";
       LOGERR << "        for this program to determine if you can";
       LOGERR << "        spend these BTC or not.  Please email the";
-      LOGERR << "        following information to etotheipi@gmail.com";
+      LOGERR << "        following information to support@bitcoinarmory.com";
       LOGERR << "        for help identifying the transaction and how";
       LOGERR << "        to spend it:";
       LOGERR << "   Block Number: " << blknum;
@@ -3506,6 +3506,7 @@ void BlockDataManager_LevelDB::fetchAllRegisteredScrAddrData(
       iface_->getStoredTx(stx, txref.getDBKey());
       regTx = RegisteredTx(txref, stx.thisHash_, stx.blockHeight_, stx.txIndex_);
       insertRegisteredTxIfNew(regTx);
+      registeredOutPoints_.insert(hist[i].getOutPoint());
 
       txref = hist[i].getTxRefOfInput();
       if(txref.isNull())
@@ -3797,6 +3798,7 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
       LOGINFO << "ScrAddr: " << iter->second.uniqueKey_.toHexStr().c_str()
                << " " << iter->second.alreadyScannedUpToBlk_;
    */
+
 }
 
 
@@ -3950,7 +3952,6 @@ void BlockDataManager_LevelDB::scanDBForRegisteredTx(uint32_t blk0,
           iter++)
       {
          StoredTx & stx = iter->second;
-         Tx tx = stx.getTxCopy();
          registeredScrAddrScan_IterSafe(stx);
       }
 
@@ -4258,6 +4259,7 @@ uint32_t BlockDataManager_LevelDB::readBlkFileUpdate(void)
          UniversalTimer::instance().printCSV(cout,true);
 	   #endif
    #endif
+
 
    return nBlkRead;
 

@@ -5410,7 +5410,7 @@ class DlgSendBitcoins(ArmoryDialog):
          return False
       except:
          QMessageBox.critical(self, 'Invalid Fee String', \
-            'The fee you specified is invalid.  A standard fee is 0.0005 BTC, '
+            'The fee you specified is invalid.  A standard fee is 0.0001 BTC, '
             'though some transactions may succeed with zero fee.', QMessageBox.Ok)
          LOGERROR('Invalid fee specified: "%s"', feeStr)
          return False
@@ -13121,7 +13121,6 @@ class MaskedInputLineEdit(QLineEdit):
    def controlCursor(self, oldpos, newpos):
       if newpos != 0 and len(str(self.text()).strip())==0:
          self.setCursorPosition(0)
-         self.setFocus()
 
 
 ################################################################################
@@ -13163,7 +13162,7 @@ class DlgRestoreSingle(ArmoryDialog):
       self.comboBackupType.addItem( tr('Version 1.35a (with SecurePrint\xe2\x84\xa2)'))
       self.comboBackupType.addItem( tr('Version 1.35c (Unencrypted)'))
       self.comboBackupType.addItem( tr('Version 1.35c (with SecurePrint\xe2\x84\xa2)'))
-      self.comboBackupType.setCurrentIndex(0)
+      self.comboBackupType.setCurrentIndex(3)
             
 
       self.connect(self.comboBackupType, SIGNAL('activated(int)'), self.changeType)
@@ -14202,8 +14201,7 @@ def verifyRecoveryTestID(parent, computedWltID, expectedWltID=None):
       if yesno==QMessageBox.No:
          QMessageBox.critical(parent, tr('Bad Backup!'), tr("""
             If this is your only backup and you are sure that you entered 
-            the data
-            correctly, then it is <b>highly recommened you stop using 
+            the data correctly, then it is <b>highly recommened you stop using 
             this wallet!</b>  If this wallet currently holds any funds,
             you should move the funds to a wallet that <u>does</u>
             have a working backup.

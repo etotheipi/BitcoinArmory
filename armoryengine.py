@@ -7,7 +7,7 @@
 ################################################################################
 
 # Version Numbers 
-BTCARMORY_VERSION    = (0, 89, 99, 15)  # (Major, Minor, Bugfix, AutoIncrement) 
+BTCARMORY_VERSION    = (0, 89, 99, 16)  # (Major, Minor, Bugfix, AutoIncrement) 
 PYBTCWALLET_VERSION  = (1, 35,  0, 0)  # (Major, Minor, Bugfix, AutoIncrement)
 
 ARMORY_DONATION_ADDR = '1ArmoryXcfq7TnCSuZa9fQjRYwJ4bkRKfv'
@@ -6022,7 +6022,7 @@ def getSelectCoinsScores(utxoSelectList, targetOutVal, minFee):
    haveDustOutputs = (0<totalChange<CENT or targetOutVal<CENT)
    if ((not haveDustOutputs) and \
        dPriority >= priorityThresh and \
-       numBytes <= 3500):
+       numBytes <= 10000):
       isFreeAllowed = 1
 
 
