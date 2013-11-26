@@ -72,6 +72,7 @@ class MessageSigningWidget(QWidget):
       messageLabel = QLabel("Message to sign:")
       self.messageTextEdit = QTextEdit()
       self.messageTextEdit.setAcceptRichText(False)
+      self.messageTextEdit.setStyleSheet("font: 9pt \"Courier\";")
       signMessageLayout.addWidget(messageLabel,          1, 0)
       signMessageLayout.addWidget(self.messageTextEdit,  1, 1, 1, 2)
       
@@ -91,6 +92,7 @@ class MessageSigningWidget(QWidget):
       signatureLabel = QLabel('Message Signature:')
       self.signatureDisplay = QTextEdit()
       self.signatureDisplay.setReadOnly(True)
+      self.signatureDisplay.setStyleSheet("font: 9pt \"Courier\"; background-color: #bbbbbb;")
       signMessageLayout.addWidget(signatureLabel,         3, 0)
       signMessageLayout.addWidget(self.signatureDisplay,  3, 1, 1, 2)
 
@@ -215,18 +217,28 @@ class SignatureVerificationWidget(QWidget):
       self.lblSigResult.setText('')
       
    def displayVerifiedBox(self, addrB58, messageString):
+      # TODO: Fix some hardcoded colors using armorycolors.py instead
       if addrB58:
-         MsgBoxCustom(MSGBOX.Good, 'Verified!', \
-            'The owner of the following Bitcoin address...'
-            '<br><br>'
-            '<b>%s</b>'
-            '<br><br>'
-            '...has digitally signed the following message:'
-            '<br><br>'
-            '<i><b>"%s"</b></i>'
-            '<br><br>'
-            'The supplied signature <b>is valid</b>!' % (addrB58, messageString.replace('\r\n','<br>').replace('\n','<br>')))
-         self.lblSigResult.setText('<font color="green">Valid Signature!</font>')
+         msg = messageString.replace('\r\n','\n')
+         msg = '   ' + '<br>   '.join(msg.split('\n'))
+         MsgBoxCustom(MSGBOX.Good, tr('Verified!'), tr(""" 
+            The owner of the following Bitcoin address...
+            <br>
+            <blockquote>
+            <font face="Courier" size=4 color="#000060"><b>%s</b></font>
+            </blockquote>
+            <br>
+            ...has produced a <b><u>valid</u></b> signature for 
+            the following message:<br>
+            <hr>
+            <blockquote>
+            <font face="Courier" color="#000060"><b>%s</b></font>
+            </blockquote>
+            <hr><br>
+            <b>Please</b> make sure that the address above (%s...) matches the exact address 
+            you were expecting.  A valid signature is meaningless unless it is made
+            from a recognized address!""") % (addrB58, msg, addrB58[:10]))
+         self.lblSigResult.setText('<font color="green">Valid Signature by %s!</font>' % addrB58)
       else:
          self.displayInvalidSignatureMessage()
 
@@ -252,11 +264,13 @@ class BareSignatureVerificationWidget(SignatureVerificationWidget):
       messageLabel = QLabel("Signed Message:")
       self.messageTextEdit = QTextEdit()
       self.messageTextEdit.setAcceptRichText(False)
+      self.messageTextEdit.setStyleSheet("font: 9pt \"Courier\";")
       self.signMessageLayout.addWidget(messageLabel,          1, 0)
       self.signMessageLayout.addWidget(self.messageTextEdit,  1, 1)
       # Create a Signature display
       signatureLabel = QLabel('Signature:')
       self.signatureTextEdit = QTextEdit()
+      self.signatureTextEdit.setStyleSheet("font: 9pt \"Courier\"; background-color: #bbbbbb")
       self.signMessageLayout.addWidget(signatureLabel,         2, 0)
       self.signMessageLayout.addWidget(self.signatureTextEdit,  2, 1)
       
@@ -287,6 +301,7 @@ class SignedMessageBlockVerificationWidget(SignatureVerificationWidget):
       # Create a Signature display
       signatureLabel = QLabel('Signed Message Block:')
       self.signedMessageBlockTextEdit = QTextEdit()
+      self.signedMessageBlockTextEdit.setStyleSheet("font: 9pt \"Courier\";")
       self.signMessageLayout.addWidget(signatureLabel,         0, 0)
       self.signMessageLayout.addWidget(self.signedMessageBlockTextEdit,  0, 1)
 
@@ -295,6 +310,7 @@ class SignedMessageBlockVerificationWidget(SignatureVerificationWidget):
       self.messageTextEdit = QTextEdit()
       self.messageTextEdit.setAcceptRichText(False)
       self.messageTextEdit.setReadOnly(True)
+      self.messageTextEdit.setStyleSheet("font: 9pt \"Courier\"; background-color: #bbbbbb;")
       self.signMessageLayout.addWidget(messageLabel,          1, 0)
       self.signMessageLayout.addWidget(self.messageTextEdit,  1, 1, 1, 2)
       

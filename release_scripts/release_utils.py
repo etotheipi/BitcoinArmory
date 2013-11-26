@@ -87,7 +87,7 @@ def parseInstallerName(fn, ignoreExt=False):
             except Exception as e:
                pass
 
-            if 'amd64' in pc or 'win64' in pc:
+            if 'amd64' in pc or 'win64' in pc or '64bit' in pc:
                bits = 64
                
          return osStr,subOS,bits,armVerInt,armVerStr

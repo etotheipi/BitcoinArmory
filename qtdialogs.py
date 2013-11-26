@@ -3826,8 +3826,7 @@ class DlgIntroMessage(ArmoryDialog):
          'for loss of bitcoins resulting from the use of this software!'
          '<br><br>'
          'For more info about Armory, and Bitcoin itself, see '
-         '<a href="https://'
-         'bitcoinarmory.com/index.php/frequently-asked-questions">frequently '
+         '<a href="https://bitcoinarmory.com/faqs">frequently '
          'asked questions</a>.')
       lblDescr.setOpenExternalLinks(True)
       
@@ -11165,8 +11164,8 @@ class DlgVersionNotify(ArmoryDialog):
             '<br><br>'
             'When they become available, you can find and download new '
             'versions of Armory from:<br><br> '
-            '<a href="https://bitcoinarmory.com/index.php/get-armory">'
-            'https://bitcoinarmory.com/get-armory</a> ' % self.myVersionStr)
+            '<a href="https://bitcoinarmory.com/download/">'
+            'https://bitcoinarmory.com/download</a> ' % self.myVersionStr)
             
       else:
          lblDescr = QRichLabel( \
@@ -11177,8 +11176,8 @@ class DlgVersionNotify(ArmoryDialog):
             '<b>Lastest Version</b>: %s'
             '<br><br>'
             'Please visit the '
-            '<a href="https://bitcoinarmory.com/get-armory">Armory '
-            'download page</a> (https://bitcoinarmory.com/get-armory) '
+            '<a href="https://bitcoinarmory.com/download">Armory '
+            'download page</a> (https://bitcoinarmory.com/download) '
             'to get the most recent version. '
             '<b>All your wallets and settings will remain untouched when you '
             'reinstall Armory.</b>' % (self.myVersionStr, self.latestVerStr))
@@ -12775,8 +12774,8 @@ class DlgFragBackup(ArmoryDialog):
          fragments are sufficient to restore your wallet, and each fragment 
          has the ID, <font color="%s"><b>%s</b></font>.  All fragments with the
          same fragment ID are compatible with each other! 
-         <a href="http://bitcoinarmory.com/fragmenting-your-backups/">Click 
-         here</a> to read more about fragmented backups.<br>""") % \
+         <a href="https://bitcoinarmory.com/armory-backups-are-forever/">Click 
+         here</a> to read more about our backup system.<br>""") % \
          (BLUE, M, BLUE, N, BLUE, self.fragPrefixStr) )
 
 

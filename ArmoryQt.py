@@ -21,6 +21,7 @@ import socket
 import subprocess
 import psutil
 import signal
+import webbrowser
 from datetime import datetime
 
 # PyQt4 Imports
@@ -581,7 +582,9 @@ class ArmoryMainWindow(QMainWindow):
 
       execAbout   = lambda: DlgHelpAbout(self).exec_()
       execVersion = lambda: self.checkForLatestVersion(wasRequested=True)
+      execTrouble = lambda: webbrowser.open('https://bitcoinarmory.com/troubleshooting/')
       actAboutWindow  = self.createAction('About Armory', execAbout)
+      actTroubleshoot = self.createAction('Troubleshooting Armory', execTrouble)
       actVersionCheck = self.createAction('Armory Version...', execVersion)
       actFactoryReset = self.createAction('Revert All Settings', self.factoryReset)
       actClearMemPool = self.createAction('Clear All Unconfirmed', self.clearMemoryPool)
@@ -589,6 +592,7 @@ class ArmoryMainWindow(QMainWindow):
       actRebuildDB    = self.createAction('Rebuild and Rescan Databases', self.rebuildNextLoad)
 
       self.menusList[MENUS.Help].addAction(actAboutWindow)
+      self.menusList[MENUS.Help].addAction(actTroubleshoot)
       self.menusList[MENUS.Help].addAction(actVersionCheck)
       self.menusList[MENUS.Help].addAction(actFactoryReset)
       self.menusList[MENUS.Help].addSeparator()
@@ -3023,7 +3027,6 @@ class ArmoryMainWindow(QMainWindow):
          self.showLedgerTx()
       elif action==actViewBlkChn:
          try:
-            import webbrowser
             webbrowser.open(blkchnURL)
          except: 
             LOGEXCEPT('Failed to open webbrowser')
@@ -3456,13 +3459,11 @@ class ArmoryMainWindow(QMainWindow):
 
       #####
       def openBitcoinOrg(): 
-         import webbrowser
          webbrowser.open('http://www.bitcoin.org/en/download')
 
 
       #####
       def openInstruct():
-         import webbrowser
          if OS_WINDOWS:
             webbrowser.open('https://www.bitcoinarmory.com/install-windows/')
          elif OS_LINUX:
@@ -3607,7 +3608,6 @@ class ArmoryMainWindow(QMainWindow):
                'Armory has an internet connection but no way to verify '
                'the authenticity of the downloaded files.  You should '
                'download the installer yourself.')
-            import webbrowser
             webbrowser.open('http://www.bitcoin.org/en/download')
             return
             
@@ -3624,7 +3624,6 @@ class ArmoryMainWindow(QMainWindow):
             QMessageBox.critical(self, 'Download Failed', \
                'The download failed.  Please visit www.bitcoin.org '
                'to download and install Bitcoin-Qt manually.', QMessageBox.Ok)
-            import webbrowser
             webbrowser.open('http://www.bitcoin.org/en/download')
             return
          
@@ -3840,29 +3839,30 @@ class ArmoryMainWindow(QMainWindow):
 
       # A few states don't care which mgmtMode you are in...
       if state == 'NewUserInfo':
-         return ( \
-         'For more information about Armory, and even Bitcoin itself, you '
-         'should visit the <a href="https://bitcoinarmory.com/index.php/fr'
-         'equently-asked-questions">frequently asked questions page</a>.  If '
-         'you are experiencing problems using this software, please visit the '
-         '<a href="https://bitcoinarmory.com/troubleshooting-armory/">Armory '
-         'troubleshooting webpage</a>.  It will be updated frequently with '
-         'solutions to common problems. '
-         '<br><br>'
-         '<b><u>IMPORTANT:</u></b> Make a backup of your wallet(s)!  Paper '
-         'backups protect you <i>forever</i> against forgotten passwords, '
-         'hard-drive failure, and make it easy for your family to recover '
-         'your funds if something terrible happens to you.  <i>Each wallet '
-         'only needs to be backed up once, ever!</i>  Without it, you are at '
-         'risk of losing all of your Bitcoins!  For more information, '
-         'visit the <a href="https://bitcoinarmory.com/">Armory Backups'
-         '</a> page.'
-         '<br><br>'
-         'To learn about improving your security through the use of offline '
-         'wallets, visit the <a href="https://bitcoinarmory.com/armory-quick-'
-         'start-guide/">Armory Quick Start Guide</a>, and the <a href="https:'
-         '//bitcoinarmory.com/using-offline-wallets-in-armory/">Offline '
-         'Wallet Tutorial</a>.<br><br>')
+         return tr("""
+         For more information about Armory, and even Bitcoin itself, you should 
+         visit the <a href="https://bitcoinarmory.com/faqs/">frequently 
+         asked questions page</a>.  If 
+         you are experiencing problems using this software, please visit the 
+         <a href="https://bitcoinarmory.com/troubleshooting/">Armory 
+         troubleshooting webpage</a>.  It will be updated frequently with 
+         solutions to common problems. 
+         <br><br>
+         <b><u>IMPORTANT:</u></b> Make a backup of your wallet(s)!  Paper 
+         backups protect you <i>forever</i> against forgotten passwords, 
+         hard-drive failure, and make it easy for your family to recover 
+         your funds if something terrible happens to you.  <i>Each wallet 
+         only needs to be backed up once, ever!</i>  Without it, you are at 
+         risk of losing all of your Bitcoins!  For more information, 
+         visit the <a href="https://bitcoinarmory.com/armory-backups-are-forever/">Armory 
+         Backups page</a>.
+         <br><br>
+         To learn about improving your security through the use of offline 
+         wallets, visit the 
+         <a href="https://bitcoinarmory.com/using-our-wallet">Armory 
+         Quick Start Guide</a>, and the 
+         <a href="https://bitcoinarmory.com/using-our-wallet/#offlinewallet">Offline 
+         Wallet Tutorial</a>.<br><br> """)
       elif state == 'OnlineFull1':
          return ( \
          '<p><b>You now have access to all the features Armory has to offer!</b><br>'
@@ -3966,9 +3966,9 @@ class ArmoryMainWindow(QMainWindow):
             'If you are new to Armory and/or Bitcoin-Qt, '
             'please visit the Armory '
             'webpage for more information.  Start at '
-            '<a href="https://bitcoinarmory.com/index.php/armory-and-bitcoin-qt">'
+            '<a href="https://bitcoinarmory.com/armory-and-bitcoin-qt">'
             'Why Armory needs Bitcoin-Qt</a> or go straight to our <a '
-            'href="https://bitcoinarmory.com/index.php/frequently-asked-questions">'
+            'href="https://bitcoinarmory.com/faqs/">'
             'frequently asked questions</a> page for more general information.  '
             'If you already know what you\'re doing and simply need '
             'to fetch the latest version of Bitcoin-Qt, you can download it from '
@@ -4994,6 +4994,8 @@ class ArmoryMainWindow(QMainWindow):
 
       try:
          if self.doHardReset:
+            rebuildFile = os.path.join(ARMORY_HOME_DIR, 'rebuild.txt')
+            touchFile(rebuildFile)
             os.remove(self.settingsPath) 
             mempoolfile = os.path.join(ARMORY_HOME_DIR, 'mempool.bin')
             if os.path.exists(mempoolfile):
