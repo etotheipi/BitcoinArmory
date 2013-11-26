@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////
 //                                                                            //
-//  Copyright (C) 2011-2013, Alan C. Reiner    <alan.reiner@gmail.com>        //
+//  Copyright(C) 2011-2013, Armory Technologies, Inc.                         //
 //  Distributed under the GNU Affero General Public License (AGPL v3)         //
 //  See LICENSE or http://www.gnu.org/licenses/agpl.html                      //
 //                                                                            //
@@ -31,130 +31,60 @@
 #include "BinaryData.h"
 #include "BtcUtils.h"
 #include "BlockObj.h"
+#include "StoredBlockObj.h"
+#include "leveldb_wrapper.h"
 
 #include "cryptlib.h"
 #include "sha.h"
 #include "UniversalTimer.h"
+#include "leveldb/db.h"
 
 
+#define NUM_BLKS_BATCH_THRESH 30
+#define UPDATE_BYTES_SSH      25
+#define UPDATE_BYTES_SUBSSH   75
+#define UPDATE_BYTES_THRESH   96*1024*1024
 
-#define TX_0_UNCONFIRMED    0 
-#define TX_NOT_EXIST       -1
-#define TX_OFF_MAIN_BRANCH -2
-
-#define NBLOCKS_REGARDED_AS_RESCAN 144
-
-#define MIN_CONFIRMATIONS   6
-#define COINBASE_MATURITY 120
-
+#define NUM_BLKS_IS_DIRTY 2016
 using namespace std;
 
-class BlockDataManager_FileRefs;
+class BlockDataManager_LevelDB;
 
-
-
-////////////////////////////////////////////////////////////////////////////////
-// TxIOPair
-//
-// This makes a lot of sense, despite the added complexity.  No TxIn exists
-// unless there was a TxOut, and they both have the same value, so we will
-// store them together here.
-//
-// This will provide the future benefit of easily determining what Tx data
-// can be pruned.  If a TxIOPair has both TxIn and TxOut, then the value 
-// was received and spent, contributes zero to our balance, and can effectively
-// ignored.  For now we will maintain them, but in the future we may decide
-// to just start removing TxIOPairs after they are spent...
-//
-//
-class TxIOPair
+typedef enum
 {
-public:
-   //////////////////////////////////////////////////////////////////////////////
-   // TODO:  since we tend not to track TxIn/TxOuts but make them on the fly,
-   //        we should probably do that here, too.  I designed this before I
-   //        realized that these copies will fall out of sync on a reorg
-   TxIOPair(void);
-   TxIOPair(uint64_t  amount);
-   TxIOPair(TxRef* txPtrO, uint32_t txoutIndex);
-   TxIOPair(TxRef* txPtrO, uint32_t txoutIndex, TxRef* txPtrI, uint32_t txinIndex);
-
-   // Lots of accessors
-   bool      hasTxOut(void) const   { return (txPtrOfOutput_   != NULL); }
-   bool      hasTxIn(void) const    { return (txPtrOfInput_    != NULL); }
-   bool      hasTxOutInMain(void) const;
-   bool      hasTxInInMain(void) const;
-   bool      hasTxOutZC(void) const;
-   bool      hasTxInZC(void) const;
-   bool      hasValue(void) const   { return (amount_!=0); }
-   uint64_t  getValue(void) const   { return  amount_;}
-
-   //////////////////////////////////////////////////////////////////////////////
-   TxOut     getTxOut(void) const;   
-   TxIn      getTxIn(void) const;   
-   TxOut     getTxOutZC(void) const {return txOfOutputZC_->getTxOut(indexOfOutputZC_);}
-   TxIn      getTxInZC(void) const  {return txOfInputZC_->getTxIn(indexOfInputZC_);}
-   TxRef&    getTxRefOfOutput(void) const { return *txPtrOfOutput_; }
-   TxRef&    getTxRefOfInput(void) const  { return *txPtrOfInput_;  }
-   OutPoint  getOutPoint(void) { return OutPoint(getTxHashOfOutput(),indexOfOutput_);}
-
-   pair<bool,bool> reassessValidity(void);
-   bool  isTxOutFromSelf(void)  { return isTxOutFromSelf_; }
-   void setTxOutFromSelf(bool isTrue=true) { isTxOutFromSelf_ = isTrue; }
-   bool  isFromCoinbase(void) { return isFromCoinbase_; }
-   void setFromCoinbase(bool isTrue=true) { isFromCoinbase_ = isTrue; }
+  ADD_BLOCK_SUCCEEDED,
+  ADD_BLOCK_NEW_TOP_BLOCK,
+  ADD_BLOCK_CAUSED_REORG,
+} ADD_BLOCK_RESULT_INDEX;
 
 
-   //////////////////////////////////////////////////////////////////////////////
-   BinaryData    getTxHashOfInput(void);
-   BinaryData    getTxHashOfOutput(void);
+typedef enum
+{
+  TX_DNE,
+  TX_ZEROCONF,
+  TX_IN_BLOCKCHAIN
+} TX_AVAILABILITY;
 
-   bool setTxIn   (TxRef* txref, uint32_t index);
-   bool setTxOut  (TxRef* txref, uint32_t index);
-   bool setTxInZC (Tx*    tx,    uint32_t index);
-   bool setTxOutZC(Tx*    tx,    uint32_t index);
 
-   //////////////////////////////////////////////////////////////////////////////
-   bool isSourceUnknown(void) { return ( !hasTxOut() &&  hasTxIn() ); }
-   bool isStandardTxOutScript(void);
-
-   bool isSpent(void);
-   bool isUnspent(void);
-   bool isSpendable(uint32_t currBlk=0);
-   bool isMineButUnconfirmed(uint32_t currBlk);
-   void clearZCFields(void);
-
-   void pprintOneLine(void);
-
-private:
-   uint64_t  amount_;
-   TxRef*    txPtrOfOutput_;
-   uint32_t  indexOfOutput_;
-   TxRef*    txPtrOfInput_;
-   uint32_t  indexOfInput_;
-
-   // Zero-conf data isn't on disk, yet, so can't use TxRef
-   Tx *      txOfOutputZC_;
-   uint32_t  indexOfOutputZC_;
-   Tx *      txOfInputZC_;
-   uint32_t  indexOfInputZC_;
-
-   bool      isTxOutFromSelf_;
-   bool      isFromCoinbase_;
-};
-
+typedef enum
+{
+  DB_BUILD_HEADERS,
+  DB_BUILD_ADD_RAW,
+  DB_BUILD_APPLY,
+  DB_BUILD_SCAN
+} DB_BUILD_PHASE;
 
 ////////////////////////////////////////////////////////////////////////////////
 //
 // LedgerEntry  
 //
-// LedgerEntry class is used for bother BtcAddresses and BtcWallets.  Members
+// LedgerEntry class is used for bother ScrAddresses and BtcWallets.  Members
 // have slightly different meanings (or irrelevant) depending which one it's
 // used with.
 //
-//  BtcAddress -- Each entry corresponds to ONE TxIn OR ONE TxOut
+//  Address -- Each entry corresponds to ONE TxIn OR ONE TxOut
 //
-//    addr20_    -  useless - just repeating this address
+//    scrAddr_    -  useless - just repeating this address
 //    value_     -  net debit/credit on addr balance, in Satoshis (1e-8 BTC)
 //    blockNum_  -  block height of the tx in which this txin/out was included
 //    txHash_    -  hash of the tx in which this txin/txout was included
@@ -168,7 +98,7 @@ private:
 //
 //  BtcWallet -- Each entry corresponds to ONE WHOLE TRANSACTION
 //
-//    addr20_    -  useless - originally had a purpose, but lost it
+//    scrAddr_    -  useless - originally had a purpose, but lost it
 //    value_     -  total debit/credit on WALLET balance, in Satoshis (1e-8 BTC)
 //    blockNum_  -  block height of the block in which this tx was included
 //    txHash_    -  hash of this tx 
@@ -183,7 +113,7 @@ class LedgerEntry
 {
 public:
    LedgerEntry(void) :
-      addr20_(0),
+      scrAddr_(0),
       value_(0),
       blockNum_(UINT32_MAX),
       txHash_(BtcUtils::EmptyHash_),
@@ -194,16 +124,16 @@ public:
       isSentToSelf_(false),
       isChangeBack_(false) {}
 
-   LedgerEntry(BinaryData const & addr20,
+   LedgerEntry(BinaryData const & scraddr,
                int64_t val, 
                uint32_t blkNum, 
                BinaryData const & txhash, 
                uint32_t idx,
-               uint64_t txtime=0,
+               uint32_t txtime=0,
                bool isCoinbase=false,
                bool isToSelf=false,
                bool isChange=false) :
-      addr20_(addr20),
+      scrAddr_(scraddr),
       value_(val),
       blockNum_(blkNum),
       txHash_(txhash),
@@ -214,7 +144,7 @@ public:
       isSentToSelf_(isToSelf),
       isChangeBack_(isChange) {}
 
-   BinaryData const &  getAddrStr20(void) const { return addr20_;        }
+   BinaryData const &  getScrAddr(void) const   { return scrAddr_;       }
    int64_t             getValue(void) const     { return value_;         }
    uint32_t            getBlockNum(void) const  { return blockNum_;      }
    BinaryData const &  getTxHash(void) const    { return txHash_;        }
@@ -225,7 +155,9 @@ public:
    bool                isSentToSelf(void) const { return isSentToSelf_;  }
    bool                isChangeBack(void) const { return isChangeBack_;  }
 
-   void setAddr20(BinaryData const & bd) { addr20_.copyFrom(bd); }
+   SCRIPT_PREFIX getScriptType(void) const {return (SCRIPT_PREFIX)scrAddr_[0];}
+
+   void setScrAddr(BinaryData const & bd) { scrAddr_.copyFrom(bd); }
    void setValid(bool b=true) { isValid_ = b; }
    void changeBlkNum(uint32_t newHgt) {blockNum_ = newHgt; }
       
@@ -238,12 +170,12 @@ public:
 private:
    
 
-   BinaryData       addr20_;
+   BinaryData       scrAddr_;
    int64_t          value_;
    uint32_t         blockNum_;
    BinaryData       txHash_;
    uint32_t         index_;  // either a tx index, txout index or txin index
-   uint64_t         txTime_;
+   uint32_t         txTime_;
    bool             isValid_;
    bool             isCoinbase_;
    bool             isSentToSelf_;
@@ -254,67 +186,6 @@ private:
 }; 
 
 
-////////////////////////////////////////////////////////////////////////////////
-// We're going to need to be able to sort our list of registered transactions,
-// so I decided to make a new class to support it, with a native operator<().
-//
-// I debated calling this class "SortableTx"
-class RegisteredTx
-{
-public:
-   TxRef *       txrefPtr_;  // Not necessary for sorting, but useful
-   BinaryData    txHash_;
-   uint32_t      blkNum_;
-   uint32_t      txIndex_;
-
-
-   TxRef *    getTxRefPtr()  { return txrefPtr_; }
-   Tx         getTxCopy()    { return txrefPtr_->getTxCopy(); }
-   BinaryData getTxHash()    { return txHash_; }
-   uint32_t   getBlkNum()    { return blkNum_; }
-   uint32_t   getTxIndex()   { return txIndex_; }
-
-   RegisteredTx(void) :
-         txrefPtr_(NULL),
-         txHash_(""),
-         blkNum_(UINT32_MAX),
-         txIndex_(UINT32_MAX) { }
-
-   RegisteredTx(BinaryData const & txHash, uint32_t blkNum, uint32_t txIndex) :
-         txrefPtr_(NULL),
-         txHash_(txHash),
-         blkNum_(blkNum),
-         txIndex_(txIndex) { }
-
-   RegisteredTx(TxRef* txptr, BinaryData const & txHash, uint32_t blkNum, uint32_t txIndex) :
-         txrefPtr_(txptr),
-         txHash_(txHash),
-         blkNum_(blkNum),
-         txIndex_(txIndex) { }
-
-   RegisteredTx(TxRef & txref) :
-         txrefPtr_(&txref),
-         txHash_(txref.getThisHash()),
-         blkNum_(txref.getBlockHeight()),
-         txIndex_(txref.getBlockTxIndex()) { }
-
-   RegisteredTx(Tx & tx) :
-         txrefPtr_(tx.getTxRefPtr()),
-         txHash_(tx.getThisHash()),
-         blkNum_(tx.getBlockHeight()),
-         txIndex_(tx.getBlockTxIndex()) { }
-
-   bool operator<(RegisteredTx const & rt2) const 
-   {
-      if( blkNum_ < rt2.blkNum_ )
-         return true;
-      else if( rt2.blkNum_ < blkNum_ )
-         return false;
-      else
-         return (txIndex_<rt2.txIndex_);
-   }
-};
-
 
 ////////////////////////////////////////////////////////////////////////////////
 class AddressBookEntry
@@ -322,10 +193,10 @@ class AddressBookEntry
 public:
 
    /////
-   AddressBookEntry(void) : addr160_(BtcUtils::EmptyHash_) { txList_.clear(); }
-   AddressBookEntry(BinaryData a160) : addr160_(a160) { txList_.clear(); }
+   AddressBookEntry(void) : scrAddr_(BtcUtils::EmptyHash_) { txList_.clear(); }
+   explicit AddressBookEntry(BinaryData scraddr) : scrAddr_(scraddr) { txList_.clear(); }
    void addTx(Tx & tx) { txList_.push_back( RegisteredTx(tx) ); }
-   BinaryData getAddr160(void) { return addr160_; }
+   BinaryData getScrAddr(void) { return scrAddr_; }
 
    /////
    vector<RegisteredTx> getTxList(void)
@@ -339,13 +210,13 @@ public:
    {
       // If one of the entries has no tx (this shouldn't happen), sort by hash
       if( txList_.size()==0 || abe2.txList_.size()==0)
-         return addr160_ < abe2.addr160_;
+         return scrAddr_ < abe2.scrAddr_;
 
       return (txList_[0] < abe2.txList_[0]);
    }
 
 private:
-   BinaryData addr160_;
+   BinaryData scrAddr_;
    vector<RegisteredTx> txList_;
 };
 
@@ -354,40 +225,53 @@ class BtcWallet;
 
 ////////////////////////////////////////////////////////////////////////////////
 //
-// BtcAddress  
+// ScrAddrObj  
 //
 // This class is only for scanning the blockchain (information only).  It has
 // no need to keep track of the public and private keys of various addresses,
 // which is done by the python code leveraging this class.
 //
+// I call these as "scraddresses".  In most contexts, it represents an
+// "address" that people use to send coins per-to-person, but it could actually
+// represent any kind of TxOut script.  Multisig, P2SH, or any non-standard,
+// unusual, escrow, whatever "address."  While it might be more technically
+// correct to just call this class "Script" or "TxOutScript", I felt like 
+// "address" is a term that will always exist in the Bitcoin ecosystem, and 
+// frequently used even when not preferred.
+//
+// Similarly, we refer to the member variable scraddr_ as a "scradder".  It
+// is actually a reduction of the TxOut script to a form that is identical
+// regardless of whether pay-to-pubkey or pay-to-pubkey-hash is used. 
+//
+//
 ////////////////////////////////////////////////////////////////////////////////
-class BtcAddress
+class ScrAddrObj
 {
    friend class BtcWallet;
 public:
 
-   BtcAddress(void) : 
-      address20_(0), firstBlockNum_(0), firstTimestamp_(0), 
+   ScrAddrObj(void) : 
+      scrAddr_(0), firstBlockNum_(0), firstTimestamp_(0), 
       lastBlockNum_(0), lastTimestamp_(0), 
       relevantTxIOPtrs_(0), ledger_(0) {}
 
-   BtcAddress(BinaryData    addr, 
+   ScrAddrObj(BinaryData    addr, 
               uint32_t      firstBlockNum  = UINT32_MAX,
               uint32_t      firstTimestamp = UINT32_MAX,
               uint32_t      lastBlockNum   = 0,
               uint32_t      lastTimestamp  = 0);
    
-   BinaryData const &  getAddrStr20(void) const  {return address20_;      }
-   uint32_t       getFirstBlockNum(void) const   {return firstBlockNum_;  }
-   uint32_t       getFirstTimestamp(void) const  {return firstTimestamp_; }
-   uint32_t       getLastBlockNum(void)          {return lastBlockNum_;   }
-   uint32_t       getLastTimestamp(void)         {return lastTimestamp_;  }
+   BinaryData const &  getScrAddr(void) const    {return scrAddr_;       }
+   uint32_t       getFirstBlockNum(void) const   {return firstBlockNum_; }
+   uint32_t       getFirstTimestamp(void) const  {return firstTimestamp_;}
+   uint32_t       getLastBlockNum(void)          {return lastBlockNum_;  }
+   uint32_t       getLastTimestamp(void)         {return lastTimestamp_; }
    void           setFirstBlockNum(uint32_t b)   { firstBlockNum_  = b; }
    void           setFirstTimestamp(uint32_t t)  { firstTimestamp_ = t; }
    void           setLastBlockNum(uint32_t b)    { lastBlockNum_   = b; }
    void           setLastTimestamp(uint32_t t)   { lastTimestamp_  = t; }
 
-   void           setAddrStr20(BinaryData bd)    { address20_.copyFrom(bd);}
+   void           setScrAddr(BinaryData bd)    { scrAddr_.copyFrom(bd);}
 
    void     sortLedger(void);
    uint32_t removeInvalidEntries(void);
@@ -415,17 +299,19 @@ public:
    void addLedgerEntry(LedgerEntry const & le, bool isZeroConf=false); 
 
    void pprintLedger(void);
-
    void clearBlkData(void);
 
    
 
 private:
-   BinaryData address20_;
-   uint32_t   firstBlockNum_;
-   uint32_t   firstTimestamp_;
-   uint32_t   lastBlockNum_;
-   uint32_t   lastTimestamp_;
+   BinaryData     scrAddr_; // this includes the prefix byte!
+   uint32_t       firstBlockNum_;
+   uint32_t       firstTimestamp_;
+   uint32_t       lastBlockNum_;
+   uint32_t       lastTimestamp_;
+
+   // If any multisig scripts that include this address, we'll track them
+   bool           hasMultisigEntries_;
 
    // Each address will store a list of pointers to its transactions
    vector<TxIOPair*>     relevantTxIOPtrs_;
@@ -433,6 +319,8 @@ private:
    vector<LedgerEntry>   ledger_;
    vector<LedgerEntry>   ledgerZC_;
 
+   // Used to be part of the RegisteredScrAddr class
+   uint32_t alreadyScannedUpToBlk_;
 };
 
 
@@ -447,13 +335,14 @@ class BtcWallet
 {
 public:
    BtcWallet(void) : bdmPtr_(NULL) {}
+   explicit BtcWallet(BlockDataManager_LevelDB* bdm) : bdmPtr_(bdm) {}
    ~BtcWallet(void);
 
    /////////////////////////////////////////////////////////////////////////////
-   // addAddress when blockchain rescan req'd, addNewAddress for just-created
-   void addNewAddress(BinaryData addr);
-   void addAddress(BtcAddress const & newAddr);
-   void addAddress(BinaryData    addr, 
+   // addScrAddr when blockchain rescan req'd, addNewScrAddr for just-created
+   void addNewScrAddress(BinaryData addr);
+   void addScrAddress(ScrAddrObj const & newAddr);
+   void addScrAddress(BinaryData    addr, 
                    uint32_t      firstTimestamp = 0,
                    uint32_t      firstBlockNum  = 0,
                    uint32_t      lastTimestamp  = 0,
@@ -462,46 +351,50 @@ public:
    // SWIG has some serious problems with typemaps and variable arg lists
    // Here I just create some extra functions that sidestep all the problems
    // but it would be nice to figure out "typemap typecheck" in SWIG...
-   void addAddress_BtcAddress_(BtcAddress const & newAddr);
+   void addScrAddress_ScrAddrObj_(ScrAddrObj const & newAddr);
 
    // Adds a new address that is assumed to be imported, and thus will
    // require a blockchain scan
-   void addAddress_1_(BinaryData    addr);
+   void addScrAddress_1_(BinaryData addr);
 
    // Adds a new address that we claim has never been seen until thos moment,
    // and thus there's no point in doing a blockchain rescan.
-   void addNewAddress_1_(BinaryData    addr) {addNewAddress(addr);}
+   void addNewScrAddress_1_(BinaryData addr) {addNewScrAddress(addr);}
 
    // Blockchain rescan will depend on the firstBlockNum input
-   void addAddress_3_(BinaryData    addr, 
+   void addScrAddress_3_(BinaryData    addr, 
                       uint32_t      firstTimestamp,
                       uint32_t      firstBlockNum);
 
    // Blockchain rescan will depend on the firstBlockNum input
-   void addAddress_5_(BinaryData    addr, 
+   void addScrAddress_5_(BinaryData    addr, 
                       uint32_t      firstTimestamp,
                       uint32_t      firstBlockNum,
                       uint32_t      lastTimestamp,
                       uint32_t      lastBlockNum);
 
-   bool hasAddr(BinaryData const & addr20);
+   bool hasScrAddress(BinaryData const & scrAddr);
 
 
    // Scan a Tx for our TxIns/TxOuts.  Override default blk vals if you think
-   // you will save time by not checking addresses that are much newr than
+   // you will save time by not checking addresses that are much newer than
    // the block
-   pair<bool,bool> isMineBulkFilter( Tx & tx );
+   pair<bool,bool> isMineBulkFilter( Tx & tx,   
+                                     bool withMultiSig=false);
+   pair<bool,bool> isMineBulkFilter( Tx & tx, 
+                                     map<OutPoint, TxIOPair> & txiomap,
+                                     bool withMultiSig=false);
 
-   void       scanTx(Tx & tx, 
-                     uint32_t txIndex = UINT32_MAX,
-                     uint32_t blktime = UINT32_MAX,
-                     uint32_t blknum  = UINT32_MAX);
+   void scanTx(Tx & tx, 
+               uint32_t txIndex = UINT32_MAX,
+               uint32_t blktime = UINT32_MAX,
+               uint32_t blknum  = UINT32_MAX);
 
-   void       scanNonStdTx(uint32_t    blknum, 
-                           uint32_t    txidx, 
-                           Tx &        txref,
-                           uint32_t    txoutidx,
-                           BtcAddress& addr);
+   void scanNonStdTx(uint32_t    blknum, 
+                     uint32_t    txidx, 
+                     Tx &        txref,
+                     uint32_t    txoutidx,
+                     ScrAddrObj& addr);
 
    LedgerEntry calcLedgerEntryForTx(Tx & tx);
    LedgerEntry calcLedgerEntryForTx(TxRef & txref);
@@ -520,15 +413,15 @@ public:
    void clearZeroConfPool(void);
 
    
-   uint32_t     getNumAddr(void) const {return addrMap_.size();}
-   BtcAddress & getAddrByIndex(uint32_t i) { return *(addrPtrVect_[i]); }
-   BtcAddress & getAddrByHash160(BinaryData const & a) { return addrMap_[a];}
+   uint32_t     getNumScrAddr(void) const {return scrAddrMap_.size();}
+   ScrAddrObj & getScrAddrObjByIndex(uint32_t i) { return *(scrAddrPtrs_[i]); }
+   ScrAddrObj & getScrAddrObjByKey(BinaryData const & a) { return scrAddrMap_[a];}
 
    void     sortLedger(void);
    uint32_t removeInvalidEntries(void);
 
-   vector<LedgerEntry> &     getZeroConfLedger(BinaryData const * addr160=NULL);
-   vector<LedgerEntry> &     getTxLedger(BinaryData const * addr160=NULL); 
+   vector<LedgerEntry> &     getZeroConfLedger(BinaryData const * scrAddr=NULL);
+   vector<LedgerEntry> &     getTxLedger(BinaryData const * scrAddr=NULL); 
    map<OutPoint, TxIOPair> & getTxIOMap(void)    {return txioMap_;}
    map<OutPoint, TxIOPair> & getNonStdTxIO(void) {return nonStdTxioMap_;}
 
@@ -537,7 +430,7 @@ public:
    void pprintLedger(void);
    void pprintAlot(uint32_t topBlk=0, bool withAddr=false);
 
-   void setBdmPtr(BlockDataManager_FileRefs * bdmptr) {bdmPtr_=bdmptr;}
+   void setBdmPtr(BlockDataManager_LevelDB * bdmptr) {bdmPtr_=bdmptr;}
    void clearBlkData(void);
    
    vector<AddressBookEntry> createAddressBook(void);
@@ -545,10 +438,9 @@ public:
    vector<LedgerEntry> & getEmptyLedger(void) { EmptyLedger_.clear(); return EmptyLedger_;}
 
 private:
-   vector<BtcAddress*>          addrPtrVect_;
-   map<HashString, BtcAddress>  addrMap_;
+   vector<ScrAddrObj*>          scrAddrPtrs_;
+   map<BinaryData, ScrAddrObj>  scrAddrMap_;
    map<OutPoint, TxIOPair>      txioMap_;
-
 
    vector<LedgerEntry>          ledgerAllAddr_;  
    vector<LedgerEntry>          ledgerAllAddrZC_;  
@@ -557,8 +449,10 @@ private:
    map<OutPoint, TxIOPair>      nonStdTxioMap_;
    set<OutPoint>                nonStdUnspentOutPoints_;
 
-   BlockDataManager_FileRefs*       bdmPtr_;
-   static vector<LedgerEntry> EmptyLedger_;
+   BlockDataManager_LevelDB*    bdmPtr_;
+   static vector<LedgerEntry>   EmptyLedger_; // just a null-reference object
+
+
 };
 
 
@@ -567,94 +461,32 @@ private:
 struct ZeroConfData
 {
    Tx            txobj_;   
-   uint64_t      txtime_;
+   uint32_t      txtime_;
    list<BinaryData>::iterator iter_;
 };
 
 
 
 ////////////////////////////////////////////////////////////////////////////////
-// BDM is now tracking "registered" addresses and wallets during each of its
-// normal scanning operations.  
-class RegisteredAddress
-{
-public:
-   RegisteredAddress(HashString  a160=HashString(0),
-                     uint32_t    blkCreated=0) :
-         addr160_(a160),
-         blkCreated_(blkCreated),
-         alreadyScannedUpToBlk_(blkCreated) { }
-
-
-   RegisteredAddress(BtcAddress const & addrObj, int32_t blkCreated=-1)
-   {
-      addr160_ = addrObj.getAddrStr20();
-
-      if(blkCreated<0)
-         blkCreated = addrObj.getFirstBlockNum();
-
-      blkCreated_            = blkCreated;
-      alreadyScannedUpToBlk_ = blkCreated;
-   }
-
-
-   HashString    addr160_;
-   uint32_t      blkCreated_;
-   uint32_t      alreadyScannedUpToBlk_;
-
-   bool operator==(RegisteredAddress const & ra2) const { return addr160_ == ra2.addr160_;}
-   bool operator< (RegisteredAddress const & ra2) const { return addr160_ <  ra2.addr160_;}
-   bool operator> (RegisteredAddress const & ra2) const { return addr160_ >  ra2.addr160_;}
-};
-
-
-
-
-
-
+// A somewhat convenient way to store and pass around block-update data but I 
+// never actually used it on the .cpp side.
+//struct BlockWriteBatchData
+//{
+   //map<BinaryData, StoredTx>              stxToModify;
+   //map<BinaryData, StoredScriptHistory>   sshToModify;
+   //set<BinaryData>                        keysToDelete;
+//}
 
 
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
-//
-// The goal of this class is to create a memory pool in RAM that looks exactly
-// the same as the block-headers storage on disk.  There is no serialization
-// or unserialization, we just copy back and forth between disk and RAM, and 
-// we're done.  So it should be about as fast as theoretically possible, you 
-// are limited only by your disk I/O speed.
-//
-// This is more of a simple test, which will later be applied to the entire
-// blockchain.  If it works as expected, then this will potentially be useful
-// for the official BTC client which seems to have some speed problems at 
-// startup and shutdown.
 //
 // This class is a singleton -- there can only ever be one, accessed through
 // the static method GetInstance().  This method gets the single instantiation
 // of the BDM class, and then its public members can be used to access the 
 // block data that is sitting in memory.
 //
-typedef enum
-{
-   BDM_MODE_FULL_BLOCKCHAIN,
-   BDM_MODE_LIGHT_STORAGE,
-   BDM_MODE_NO_STORAGE,
-   BDM_MODE_COUNT
-}  BDM_MODE;
-
-
-typedef enum
-{
-  ADD_BLOCK_SUCCEEDED,
-  ADD_BLOCK_NEW_TOP_BLOCK,
-  ADD_BLOCK_CAUSED_REORG,
-} ADD_BLOCK_RESULT_INDEX;
-
-
-
-class BlockDataManager_FileRefs;
-
-
 
 
 
@@ -662,23 +494,21 @@ class BlockDataManager_FileRefs;
 //
 // BlockDataManager is a SINGLETON:  only one is ever created.  
 //
-// Access it via BlockDataManager_FileRefs::GetInstance();
+// Access it via BlockDataManager_LevelDB::GetInstance();
 //
 ////////////////////////////////////////////////////////////////////////////////
-class BlockDataManager_FileRefs
+class BlockDataManager_LevelDB
 {
 private:
+   
+ 
+   bool checkLdbStatus(leveldb::Status stat);
 
-   // Store the full BlockHeaders in this map.  Store TxRefs in another map
-   map<HashString, BlockHeader>       headerMap_;
 
-   // We index Tx in a multimap, indexed by first X bytes of the hash
-   // If we need to get a tx by hash, get list of all of the ones with the
-   // matching prefix, and then compute hashes to find it.
-   // Saves a ton of space relative at the expense of search time
-   multimap<HashString, TxRef>        txHintMap_;
-   map<HashString, Tx>                selectedTxMap_;
+   map<HashString, BlockHeader> headerMap_;
 
+   // This is our permanent link to the two databases used
+   static InterfaceToLDB* iface_;
    
    // Need a separate memory pool just for zero-confirmation transactions
    // We need the second map to make sure we can find the data to remove
@@ -689,13 +519,43 @@ private:
    string                             zcFilename_;
 
    // This is for detecting external changes made to the blk0001.dat file
+   bool                               isNetParamsSet_;
+   bool                               isBlkParamsSet_;
+   bool                               isLevelDBSet_;
    string                             armoryHomeDir_;
+   string                             leveldbDir_;
    string                             blkFileDir_;
-   uint32_t                           blkFileDigits_;
-   uint32_t                           blkFileStart_;
    vector<string>                     blkFileList_;
-   uint64_t                           numBlkFiles_;
-   uint64_t                           endOfPrevLastBlock_;
+   vector<uint64_t>                   blkFileSizes_; // bytes before this blk
+   vector<uint64_t>                   blkFileCumul_;
+   uint32_t                           numBlkFiles_;
+   uint64_t                           endOfLastBlockByte_;
+
+   // These files are for signaling to python code, which had to be hacked 
+   // in order to work while TheBDM is scanning
+   string                             blkProgressFile_;
+   string                             abortLoadFile_;
+   uint32_t                           progressTimer_;
+
+   // On DB initialization, we start processing here
+   uint32_t                           startHeaderHgt_;
+   uint32_t                           startRawBlkHgt_;
+   uint32_t                           startScanHgt_;
+   uint32_t                           startApplyHgt_;
+
+   // The following blkfile and offsets correspond to the above heights
+   uint32_t                           startHeaderBlkFile_;
+   uint64_t                           startHeaderOffset_;
+   uint32_t                           startRawBlkFile_;
+   uint64_t                           startRawOffset_;
+   uint32_t                           startScanBlkFile_;
+   uint64_t                           startScanOffset_;
+   uint32_t                           startApplyBlkFile_;
+   uint64_t                           startApplyOffset_;
+
+   // Used to estimate how much data is queued to be written to DB
+   uint64_t                           dbUpdateSize_;
+   bool                               requestRescan_;
 
    // These should be set after the blockchain is organized
    deque<BlockHeader*>                headersByHeight_;
@@ -710,11 +570,13 @@ private:
    set<HashString>                    txJustInvalidated_;
    set<HashString>                    txJustAffected_;
 
+   bool                               corruptHeadersDB_;
+
    // Store info on orphan chains
    vector<BlockHeader*>               previouslyValidBlockHeaderPtrs_;
    vector<BlockHeader*>               orphanChainStartBlocks_;
 
-   static BlockDataManager_FileRefs*  theOnlyBDM_;
+   static BlockDataManager_LevelDB*   theOnlyBDM_;
    static bool                        bdmCreatedYet_;
    bool                               isInitialized_;
 
@@ -733,34 +595,75 @@ private:
    uint16_t filesReadSoFar_;
 
 
-   // We will now "register" all wallets and addresses, so that the BDM knows
-   // what addresses to look for in its first scan
+   // If the BDM is not in super-node mode, then it will be specifically tracking
+   // a set of addresses & wallets.  We register those addresses and wallets so
+   // that we know what TxOuts to track as we process blockchain data.  And when
+   // it may be necessary to do rescans.
+   //
+   // If instead we ARE in ARMORY_DB_SUPER (not implemented yet, as of this
+   // comment being written), then we don't have anything to track -- the DB
+   // will automatically update for all addresses, period.  And we'd best not 
+   // track those in RAM (maybe on a huge server...?)
    set<BtcWallet*>                    registeredWallets_;
-   map<HashString, RegisteredAddress> registeredAddrMap_;
+   map<BinaryData, RegisteredScrAddr> registeredScrAddrMap_;
    list<RegisteredTx>                 registeredTxList_;
    set<HashString>                    registeredTxSet_;
    set<OutPoint>                      registeredOutPoints_;
-   uint32_t                           allRegAddrScannedUpToBlk_; // one past top
+   uint32_t                           allScannedUpToBlk_; // one past top
 
+   // TODO: We eventually want to maintain some kind of master TxIO map, instead
+   // of storing them in the individual wallets.  With the new DB, it makes more
+   // sense to do this, and it will become easier to compute total balance when
+   // multiple wallets share the same addresses
+   //map<OutPoint,   TxIOPair>          txioMap_;
 
 private:
    // Set the constructor to private so that only one can ever be created
-   BlockDataManager_FileRefs(void);
+   BlockDataManager_LevelDB(void);
+   ~BlockDataManager_LevelDB(void);
 
 public:
 
-   static BlockDataManager_FileRefs & GetInstance(void);
+   static BlockDataManager_LevelDB & GetInstance(void);
+   static void DestroyInstance(void);
    bool isInitialized(void) const { return isInitialized_;}
 
+   void SetDatabaseModes(ARMORY_DB_TYPE atype, DB_PRUNE_TYPE dtype)
+             { DBUtils.setArmoryDbType(atype); DBUtils.setDbPruneType(dtype);}
+   void SetDatabaseModes(int atype, int dtype)
+             { DBUtils.setArmoryDbType((ARMORY_DB_TYPE)atype); 
+               DBUtils.setDbPruneType((DB_PRUNE_TYPE)dtype);}
+   void SelectNetwork(string netName);
    void SetHomeDirLocation(string homeDir);
-   void SetBlkFileLocation(string   blkdir,
-                           uint32_t blkdigits,
-                           uint32_t blkstartidx);
+   bool SetBlkFileLocation(string blkdir);
+   void SetLevelDBLocation(string ldbdir);
    void SetBtcNetworkParams( BinaryData const & GenHash,
                              BinaryData const & GenTxHash,
                              BinaryData const & MagicBytes);
-   void SelectNetwork(string netName);
 
+   void SetRescanNextLoad(bool b=true) { requestRescan_=b; }
+
+   //////////////////////////////////////////////////////////////////////////
+   // This method opens the databases, and figures out up to what block each
+   // of them is sync'd to.  Then it figures out where that corresponds in
+   // the blk*.dat files, so that it can pick up where it left off.  You can 
+   // use the last argument to specify an approximate amount of blocks 
+   // (specified in bytes) that you would like to replay:  i.e. if 10 MB,
+   // lastBlkFileNum_ and endOfLastBlockByte_ variables will be set to
+   // the first block that is approximately 10 MB behind your latest block.
+   // Then you can pick up from there and let the DB clean up any mess that
+   // was left from an unclean shutdown.
+   bool initializeDBInterface(ARMORY_DB_TYPE dbt = ARMORY_DB_WHATEVER,
+                              DB_PRUNE_TYPE prt = DB_PRUNE_WHATEVER);
+
+
+   // This figures out where we should start loading headers/rawblocks/scanning
+   // The replay argument has been temporarily disable since it's not currently
+   // being used, and was causing problems instead.
+   bool detectCurrentSyncState(bool rebuild, bool initialLoad);
+
+   /////////////////////////////////////////////////////////////////////////////
+   // Get the parameters of the network as they've been set
    BinaryData getGenesisHash(void)   { return GenesisHash_;   }
    BinaryData getGenesisTxHash(void) { return GenesisTxHash_; }
    BinaryData getMagicBytes(void)    { return MagicBytes_;    }
@@ -769,35 +672,38 @@ public:
    // These don't actually work while scanning in another thread!? 
    // The getLoadProgress* methods don't seem to update until after scan done
    uint64_t getTotalBlockchainBytes(void) const {return totalBlockchainBytes_;}
-   uint16_t getTotalBlkFiles(void)        const {return numBlkFiles_;}
+   uint32_t getTotalBlkFiles(void)        const {return numBlkFiles_;}
    uint64_t getLoadProgressBytes(void)    const {return bytesReadSoFar_;}
    uint32_t getLoadProgressBlocks(void)   const {return blocksReadSoFar_;}
    uint16_t getLoadProgressFiles(void)    const {return filesReadSoFar_;}
 
+   uint32_t getTopBlockHeightInDB(DB_SELECT db);
+   uint32_t getAppliedToHeightInDB(void);
+   vector<BinaryData> getFirstHashOfEachBlkFile(void) const;
+   uint32_t findOffsetFirstUnrecognized(uint32_t fnum);
+   uint32_t findFirstBlkApproxOffset(uint32_t fnum, uint32_t offset) const;
+   uint32_t findFirstUnappliedBlock(void);
+   pair<uint32_t, uint32_t> findFileAndOffsetForHgt(
+               uint32_t hgt, vector<BinaryData>* firstHashOfEachBlkFile=NULL);
+
    /////////////////////////////////////////////////////////////////////////////
    void Reset(void);
    int32_t          getNumConfirmations(BinaryData txHash);
-   BlockHeader &    getTopBlockHeader(void) ;
+   BlockHeader &    getTopBlockHeader(void);
    BlockHeader &    getGenesisBlock(void) ;
    BlockHeader *    getHeaderByHeight(int index);
    BlockHeader *    getHeaderByHash(BinaryData const & blkHash);
    string           getBlockfilePath(void) {return blkFileDir_;}
 
-   TxRef *          getTxRefPtrByHash(BinaryData const & txHash);
+   TxRef            getTxRefByHash(BinaryData const & txHash);
    Tx               getTxByHash(BinaryData const & txHash);
 
-   //////////////////////////////////////////////////////////////////////////
-   // Returns a pointer to the TxRef as it resides in the multimap node
-   // There should only ever be exactly one copy
-   TxRef *          insertTxRef(HashString const & txHash,
-                                FileDataPtr & fdp,
-                                BlockHeader * bhptr=NULL);
+   uint32_t         getTopBlockHeight(void) {return getTopBlockHeader().getBlockHeight();}
+   BinaryData       getTopBlockHash(void)   {return getTopBlockHeader().getThisHash();}
 
-   uint32_t getTopBlockHeight(void) {return getTopBlockHeader().getBlockHeight();}
+   bool isDirty(uint32_t numBlockToBeConsideredDirty=NUM_BLKS_IS_DIRTY) const; 
 
-   bool isDirty(uint32_t numBlockToBeConsideredDirty=2016) const; 
-
-   uint32_t getNumTx(void) { return txHintMap_.size(); }
+   //uint32_t getNumTx(void) { return txHintMap_.size(); }
    uint32_t getNumHeaders(void) { return headerMap_.size(); }
 
    /////////////////////////////////////////////////////////////////////////////
@@ -809,70 +715,153 @@ public:
    // it goes, and does a full [re-]scan of the blockchain only if necessary.
    bool     registerWallet(BtcWallet* wallet, bool wltIsNew=false);
    void     unregisterWallet(BtcWallet* wlt) {registeredWallets_.erase(wlt);}
-   bool     registerAddress(HashString addr160, bool isNew, uint32_t blk0);
-   bool     registerNewAddress(HashString addr160);
-   bool     registerImportedAddress(HashString addr160, uint32_t createBlk=0);
-   bool     unregisterAddress(HashString addr160);
+
+   bool     registerScrAddr(BinaryData scraddr, bool isNew, uint32_t blk0);
+   bool     registerNewScrAddr(BinaryData scraddr);
+   bool     registerImportedScrAddr(HashString scrAddr, uint32_t createBlk=0);
+   bool     unregisterScrAddr(HashString scrAddr);
+
    uint32_t evalLowestBlockNextScan(void);
-   uint32_t evalLowestAddressCreationBlock(void);
+   uint32_t evalLowestScrAddrCreationBlock(void);
    bool     evalRescanIsRequired(void);
    uint32_t numBlocksToRescan(BtcWallet & wlt, uint32_t topBlk=UINT32_MAX);
-   void     updateRegisteredAddresses(uint32_t newTopBlk);
+   void     updateRegisteredScrAddrs(uint32_t newTopBlk);
 
    bool     walletIsRegistered(BtcWallet & wlt);
-   bool     addressIsRegistered(HashString addr160);
+   bool     scrAddrIsRegistered(HashString scrAddr);
    void     insertRegisteredTxIfNew(HashString txHash);
-   void     registeredAddrScan( Tx & theTx );
-   void     registeredAddrScan( uint8_t const * txptr,
-                                uint32_t txSize=0,
-                                vector<uint32_t> * txInOffsets=NULL,
-                                vector<uint32_t> * txOutOffsets=NULL);
+   void     insertRegisteredTxIfNew(RegisteredTx & regTx);
+   void     insertRegisteredTxIfNew(TxRef const & txref,
+                                    BinaryDataRef txHash,
+                                    uint32_t hgt,
+                                    uint16_t txIndex);
+   bool     removeRegisteredTx(BinaryData const & txHash);
+
+   void     registeredScrAddrScan( Tx & theTx );
+   void     registeredScrAddrScan( uint8_t const * txptr,
+                                   uint32_t txSize=0,
+                                   vector<uint32_t> * txInOffsets=NULL,
+                                   vector<uint32_t> * txOutOffsets=NULL);
+   void     registeredScrAddrScan_IterSafe( 
+                                   StoredTx & stx,
+                                   vector<uint32_t> * txInOffsets=NULL,
+                                   vector<uint32_t> * txOutOffsets=NULL);
    void     resetRegisteredWallets(void);
    void     pprintRegisteredWallets(void);
 
+
+   BtcWallet* createNewWallet(void);
+
    // Parsing requires the data TO ALREADY BE IN ITS PERMANENT MEMORY LOCATION
    // Pass in a wallet if you want to update the initialScanTxHashes_/OutPoints_
-   bool     parseNewBlock(BinaryRefReader & rawBlockDataReader,
-                          uint32_t fileIndex,
-                          uint32_t thisHeaderOffset,
-                          uint32_t blockSize);
+   //bool     parseNewBlock(BinaryRefReader & rawBlockDataReader,
+                          //uint32_t fileIndex,
+                          //uint32_t thisHeaderOffset,
+                          //uint32_t blockSize);
                      
 
+   //
 
-   // Does a full scan!
-   uint32_t parseEntireBlockchain(uint32_t cacheSz=DEFAULT_CACHE_SIZE);
+   // These are the high-level methods for reading block files, and indexing
+   // the blockfile data.
+   bool     extractHeadersInBlkFile(uint32_t fnum, uint64_t offset=0);
+   uint32_t detectAllBlkFiles(void);
+   bool     processNewHeadersInBlkFiles(uint32_t fnumStart=0, uint64_t offset=0);
+   //bool     processHeadersInFile(string filename);
+   void     destroyAndResetDatabases(void);
+   void     buildAndScanDatabases(bool forceRescan=false, 
+                                  bool forceRebuild=false, 
+                                  bool skipFetch=false,
+                                  bool initialLoad=false);
+   void readRawBlocksInFile(uint32_t blkFileNum, uint32_t offset);
+   // These are wrappers around "buildAndScanDatabases"
+   void doRebuildDatabases(void);
+   void doFullRescanRegardlessOfSync(void);
+   void doSyncIfNeeded(void);
+   void doInitialSyncOnLoad(void);
+   void doInitialSyncOnLoad_Rescan(void);
+   void doInitialSyncOnLoad_Rebuild(void);
+
+   bool     addRawBlockToDB(BinaryRefReader & brr);
+   void     updateBlkDataHeader(StoredHeader const & sbh);
+
+   // On the first pass through the blockchain data, we only write the raw
+   // blocks to do the DB.  We don't "apply" them (marking TxOuts spent and
+   // updating StoredScriptHistory objects).  When we know the longest chain,
+   // we do apply them.
+   bool applyBlockToDB(uint32_t hgt, uint8_t dup);
+   bool applyBlockToDB(StoredHeader & sbh);
+   bool applyBlockToDB( 
+         StoredHeader & sbh,
+         map<BinaryData, StoredTx> &            stxToModify,
+         map<BinaryData, StoredScriptHistory> & sshToModify,
+         set<BinaryData> &                      keysToDelete,
+         bool                                   applyWhenDone=true);
+   bool applyBlockToDB(
+         uint32_t hgt, 
+         uint8_t dup,
+         map<BinaryData, StoredTx> &            stxToModify,
+         map<BinaryData, StoredScriptHistory> & sshToModify,
+         set<BinaryData> &                      keysToDelete,
+         bool                                   applyWhenDone=true);
+
+   void applyBlockRangeToDB(uint32_t blk0=0, uint32_t blk1=UINT32_MAX);
+
+   // When we reorg, we have to undo blocks that have been applied.
+   bool createUndoDataFromBlock(uint32_t hgt, uint8_t dup, StoredUndoData & sud);
+   bool undoBlockFromDB(StoredUndoData & sud);
 
    // When we add new block data, we will need to store/copy it to its
    // permanent memory location before parsing it.
    // These methods return (blockAddSucceeded, newBlockIsTop, didCauseReorg)
-   vector<bool>     addNewBlockData(   BinaryRefReader & brrRawBlock,
-                                       uint32_t        fileIndex,
-                                       uint32_t        thisHeaderOffset,
-                                       uint32_t        blockSize);
+   uint32_t       readBlkFileUpdate(void);
+   vector<bool> addNewBlockData(BinaryRefReader & brrRawBlock, 
+                                uint32_t fileIndex0Idx,
+                                uint32_t thisHeaderOffset,
+                                uint32_t blockSize);
+   void reassessAfterReorg(BlockHeader* oldTopPtr,
+                           BlockHeader* newTopPtr,
+                           BlockHeader* branchPtr );
 
-   void             reassessAfterReorg(BlockHeader* oldTopPtr,
-                                       BlockHeader* newTopPtr,
-                                       BlockHeader* branchPtr );
 
-   int  hasTxWithHash(BinaryData const & txhash);
-   bool hasHeaderWithHash(BinaryData const & txhash) const;
+   void deleteHistories(void);
+   void shutdownSaveScrAddrHistories(void);
+
+   void fetchAllRegisteredScrAddrData(void);
+   void fetchAllRegisteredScrAddrData(BtcWallet & myWlt);
+   void fetchAllRegisteredScrAddrData(
+                              map<BinaryData, RegisteredScrAddr> & addrMap);
+   void fetchAllRegisteredScrAddrData(BinaryData const & scrAddr);
+
+   // Check for availability of data with a given hash
+   TX_AVAILABILITY getTxHashAvail(BinaryDataRef txhash);
+   bool hasTxWithHash(BinaryData const & txhash);
+   bool hasTxWithHashInDB(BinaryData const & txhash);
+   bool hasHeaderWithHash(BinaryData const & headHash) const;
 
    uint32_t getNumBlocks(void) const { return headerMap_.size(); }
-   uint32_t getNumTx(void) const { return txHintMap_.size(); }
+   //uint32_t getNumTx(void) const { return txHintMap_.size(); }
 
    vector<BlockHeader*> getHeadersNotOnMainChain(void);
 
-   vector<BlockHeader*>    prefixSearchHeaders(BinaryData const & searchStr);
-   vector<TxRef*>          prefixSearchTx     (BinaryData const & searchStr);
-   vector<BinaryData>      prefixSearchAddress(BinaryData const & searchStr);
+   //vector<BlockHeader*>    prefixSearchHeaders(BinaryData const & searchStr);
+   //vector<TxRef*>          prefixSearchTx     (BinaryData const & searchStr);
+   //vector<BinaryData>      prefixSearchAddress(BinaryData const & searchStr);
+
+   bool addHeadersFirst(BinaryDataRef rawHeader);
+   bool addHeadersFirst(vector<StoredHeader> const & headVect);
 
    // Traverse the blockchain and update the wallet[s] with the relevant Tx data
    // See comments above the scanBlockchainForTx in the .cpp, for more info
+   // NOTE: THIS ASSUMES THAT registeredTxSet_/List_ is already populated!
    void scanBlockchainForTx(BtcWallet & myWallet,
                             uint32_t startBlknum=0,
-                            uint32_t endBlknum=UINT32_MAX);
+                            uint32_t endBlknum=UINT32_MAX,
+                            bool fetchFirst=true);
 
-   void rescanBlocks(uint32_t blk0=0, uint32_t blk1=UINT32_MAX);
+   void writeProgressFile(DB_BUILD_PHASE phase, 
+                          string bfile, 
+                          string timerName);
 
    // This will only be used by the above method, probably wouldn't be called
    // directly from any other code
@@ -880,18 +869,23 @@ public:
                                    uint32_t blkStart=0,
                                    uint32_t blkEnd=UINT32_MAX);
 
+   void scanDBForRegisteredTx(uint32_t blk0=0, uint32_t blk1=UINT32_MAX);
 
  
-   uint32_t       readBlkFileUpdate(void);
-   bool           verifyBlkFileIntegrity(void);
-   //vector<TxRef*> findAllNonStdTx(void);
-   
+   /////////////////////////////////////////////////////////////////////////////
+   // With the blockchain in supernode mode, we can just query address balances
+   // and UTXO sets directly.  These will fail if not supernode mode
+   uint64_t             getDBBalanceForHash160(BinaryDataRef addr160);
+   uint64_t             getDBReceivedForHash160(BinaryDataRef addr160);
+   vector<UnspentTxOut> getUTXOVectForHash160(BinaryDataRef addr160);
+   vector<TxIOPair>     getHistoryForScrAddr(BinaryDataRef uniqKey, 
+                                             bool withMultiSig=false);
 
    // For zero-confirmation tx-handling
    void enableZeroConf(string);
    void disableZeroConf(string);
    void readZeroConfFile(string);
-   bool addNewZeroConfTx(BinaryData const & rawTx, uint64_t txtime, bool writeToFile);
+   bool addNewZeroConfTx(BinaryData const & rawTx, uint32_t txtime, bool writeToFile);
    void purgeZeroConfPool(void);
    void pprintZeroConfPool(void);
    void rewriteZeroConfFile(void);
@@ -920,28 +914,93 @@ public:
    // We're going to need the BDM's help to get the sender for a TxIn since it
    // sometimes requires going and finding the TxOut from the distant past
    TxOut      getPrevTxOut(TxIn & txin);
-   BinaryData getSenderAddr20(TxIn & txin);
+   Tx         getPrevTx(TxIn & txin);
+   BinaryData getSenderScrAddr(TxIn & txin);
    int64_t    getSentValue(TxIn & txin);
 
+   /////////////////////////////////////////////////////////////////////////////
+   // We used to have a method in TxRef class to do this, because all TxRefs 
+   // had pointers to their parent header object.  Now, TxRefs are much more
+   // isolated, so we have to ask the BDM to help us find the correct header
+   // (which is considerably easier with the DB design that indexes everything
+   // by block height...
+   BlockHeader* getHeaderPtrForTxRef(TxRef txr);
+   BlockHeader* getHeaderPtrForTx(Tx & txObj);
 
    /////////////////////////////////////////////////////////////////////////////
    // A couple random methods to expose internal data structures for testing.
    // These methods should not be used for nominal operation.
-   multimap<HashString, TxRef> &  getTxHintMapRef(void) { return txHintMap_; }
+   //multimap<HashString, TxRef> &  getTxHintMapRef(void) { return txHintMap_; }
    map<HashString, BlockHeader> & getHeaderMapRef(void) { return headerMap_; }
    deque<BlockHeader*> &          getHeadersByHeightRef(void) { return headersByHeight_;}
 
-private:
+// These things should probably be private, but they also need to be test-able,
+// and googletest apparently cannot access private methods without polluting 
+// this class with gtest code
+//private: 
+
+   void pprintSSHInfoAboutHash160(BinaryData const & a160);
 
    /////////////////////////////////////////////////////////////////////////////
+   // Update/organize the headers map (figure out longest chain, mark orphans)
    // Start from a node, trace down to the highest solved block, accumulate
    // difficulties and difficultySum values.  Return the difficultySum of 
    // this block.
    double traceChainDown(BlockHeader & bhpStart);
    void   markOrphanChain(BlockHeader & bhpStart);
 
+   /////////////////////////////////////////////////////////////////////////////
+   // Helper methods for updating the DB
+   bool applyTxToBatchWriteData(
+                        StoredTx &                             thisSTX,
+                        map<BinaryData, StoredTx> &            stxToModify,
+                        map<BinaryData, StoredScriptHistory> & sshToModify,
+                        set<BinaryData> &                      keysToDelete,
+                        StoredUndoData *                       sud);
 
-   
+   void applyModsToDB(  map<BinaryData, StoredTx> &            stxToModify,
+                        map<BinaryData, StoredScriptHistory> & sshToModify,
+                        set<BinaryData> &                      keysToDelete);
+
+
+   /////////////////////////////////////////////////////////////////////////////
+   StoredScriptHistory* makeSureSSHInMap(    
+                               BinaryDataRef uniqKey,
+                               BinaryDataRef hgtX,
+                               map<BinaryData, StoredScriptHistory> & sshMap,
+                               bool createIfDNE=true);
+
+   StoredTx* makeSureSTXInMap( BinaryDataRef txHash,
+                               map<BinaryData, StoredTx> & stxMap);
+
+   StoredTx* makeSureSTXInMap( uint32_t      height,
+                               uint8_t       dupID,
+                               uint16_t      txIndex,
+                               BinaryDataRef txHash,
+                               map<BinaryData, StoredTx> & stxMap);
+
+   void findSSHEntriesToDelete( map<BinaryData, StoredScriptHistory> & sshMap,
+                                set<BinaryData> & keysToDelete);
+
+
+   void     setMaxOpenFiles(uint32_t n) {iface_->setMaxOpenFiles(n);}
+   uint32_t getMaxOpenFiles(void)       {return iface_->getMaxOpenFiles();}
+
+   // Simple wrapper around the logger so that they are easy to access from SWIG
+   void StartCppLogging(string fname, int lvl) { STARTLOGGING(fname, (LogLevel)lvl); }
+   void ChangeCppLogLevel(int lvl) { SETLOGLEVEL((LogLevel)lvl); }
+   void DisableCppLogging(void) { SETLOGLEVEL(LogLvlDisabled); }
+   void EnableCppLogStdOut(void) { LOGENABLESTDOUT(); }
+   void DisableCppLogStdOut(void) { LOGDISABLESTDOUT(); }
+
+   ////////////////////////////////////////////////////////////////////////////////
+   void debugPrintDatabases(void) { iface_->pprintBlkDataDB(BLKDATA); }
+
+   /////////////////////////////////////////////////////////////////////////////
+   // We may use this to trigger flushing the queued DB updates
+   //bool estimateDBUpdateSize(
+                        //map<BinaryData, StoredTx> &            stxToModify,
+                        //map<BinaryData, StoredScriptHistory> & sshToModify);
 };
 
 
@@ -956,12 +1015,12 @@ private:
 class BlockDataManager
 {
 public:
-   BlockDataManager(void) { bdm_ = &(BlockDataManager_FileRefs::GetInstance());}
+   BlockDataManager(void) { bdm_ = &(BlockDataManager_LevelDB::GetInstance());}
    
-   BlockDataManager_FileRefs & getBDM(void) { return *bdm_; }
+   BlockDataManager_LevelDB & getBDM(void) { return *bdm_; }
 
 private:
-   BlockDataManager_FileRefs* bdm_;
+   BlockDataManager_LevelDB* bdm_;
 };
 
 

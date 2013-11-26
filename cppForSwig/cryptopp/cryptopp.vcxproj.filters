@@ -36,15 +36,6 @@
     <ClCompile Include="twofish.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="validat1.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="validat2.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="validat3.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="vmac.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -264,12 +255,6 @@
     <ClCompile Include="luc.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="mars.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="marss.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="md2.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -301,9 +286,6 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="osrng.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="panama.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="pch.cpp">
@@ -340,9 +322,6 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="rdtables.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="regtest.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="rijndael.cpp">
@@ -596,9 +575,6 @@
     <ClInclude Include="luc.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="mars.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="md2.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -645,9 +621,6 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="osrng.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="panama.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="pch.h">
@@ -815,5 +788,13 @@
     <ClInclude Include="zlib.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="x64dll.asm">
+      <Filter>Source Files</Filter>
+    </CustomBuild>
+    <CustomBuild Include="x64masm.asm">
+      <Filter>Source Files</Filter>
+    </CustomBuild>
   </ItemGroup>
 </Project>

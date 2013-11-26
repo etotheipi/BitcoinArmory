@@ -14,15 +14,7 @@ def execAndWait(cli_str):
 # Ubuntu 10.10+ has issues with the regular gconftool-2 commands
 # for registering URL handlers.  Need a different solution, but 
 # it's a permanent one.
-perm_app_register = False
-try:
-   # No reason to fail installation just because we don't recognize the OS
-   dist,version,ID = platform.linux_distribution()
-   major,minor = [int(v) for v in version.split('.')][:2]
-   if dist=='Ubuntu' and ((major,minor)==(10,10) or major>=11):
-      perm_app_register = True
-except:
-   pass
+perm_app_register = True
 
 
 def createDesktopFile(name, idstr, arglist, toDir=''):
@@ -37,7 +29,7 @@ def createDesktopFile(name, idstr, arglist, toDir=''):
    deskfile.write('GenericName=Bitcoin Client\n')
    deskfile.write('Comment=Full-featured Bitcoin wallet management application\n')
    deskfile.write('Categories=Qt;Network;\n')
-   deskfile.write('Exec=python /usr/share/armory/ArmoryQt.py')
+   deskfile.write('Exec=python /usr/lib/armory/ArmoryQt.py')
    for a in arglist:
       deskfile.write(' --%s' % a)
    if perm_app_register:
@@ -46,8 +38,7 @@ def createDesktopFile(name, idstr, arglist, toDir=''):
    deskfile.write('Icon=armory%sicon\n' % idstr)
    deskfile.write('StartupNotify=false\n')
    deskfile.write('Terminal=false\n')
-   if name=='' and perm_app_register:
-      deskfile.write('MimeType=x-scheme-handler/bitcoin\n')
+   deskfile.write('MimeType=x-scheme-handler/bitcoin\n')
    deskfile.close()
 
 

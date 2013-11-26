@@ -1,30 +1,19 @@
 ################################################################################
-#
-# Copyright (C) 2011-2013, Alan C. Reiner    <alan.reiner@gmail.com>
-# Distributed under the GNU Affero General Public License (AGPL v3)
-# See LICENSE or http://www.gnu.org/licenses/agpl.html
-#
-# Original copyright transferred from from Ian Coleman (2012)
-# Special thanks to Ian Coleman who created the original incarnation of
-# this file and then transferred the rights to me so I could integrate it
-# into the Armory project.  And even more thanks to him for his advice
-# on upgrading its security features and other capabilities.
-#
+#                                                                              #
+# Copyright (C) 2011-2013, Armory Technologies, Inc.                           #
+# Distributed under the GNU Affero General Public License (AGPL v3)            #
+# See LICENSE or http://www.gnu.org/licenses/agpl.html                         #
+#                                                                              #
+################################################################################
+#                                                                              #
+# Original copyright transferred from from Ian Coleman (2012)                  #
+# Special thanks to Ian Coleman who created the original incarnation of        #
+# this file and then transferred the rights to me so I could integrate it      #
+# into the Armory project.  And even more thanks to him for his advice         #
+# on upgrading its security features and other capabilities.                   #
+#                                                                              #
 ################################################################################
 
-
-      #####
-   #####
-#####
-#
-# As OF 10 Jan, 2013, this code does not work reliably.  Please do not use this
-# until this message disappears from a future release.
-# (To be fair, getting new addresses and balances APPEAR to work, but
-#  listtransactions
-#
-#####
-   #####
-      #####
 
 
 #####

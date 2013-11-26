@@ -1,0 +1,5 @@
+# This file is mainly just to give git an excuse commit this otherwise-empty dir
+# It also guarantees that no other files from this dir are ever committed
+*
+# Except this file
+!.gitignore

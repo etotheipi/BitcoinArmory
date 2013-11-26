@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////
 //                                                                            //
-//  Copyright (C) 2011-2013, Alan C. Reiner    <alan.reiner@gmail.com>        //
+//  Copyright(C) 2011-2013, Armory Technologies, Inc.                         //
 //  Distributed under the GNU Affero General Public License (AGPL v3)         //
 //  See LICENSE or http://www.gnu.org/licenses/agpl.html                      //
 //                                                                            //
@@ -73,7 +73,7 @@ SecureBinaryData SecureBinaryData::copySwapEndian(size_t pos1, size_t pos2) cons
 /////////////////////////////////////////////////////////////////////////////
 SecureBinaryData SecureBinaryData::GenerateRandom(uint32_t numBytes)
 {
-   static CryptoPP::AutoSeededRandomPool prng;
+   static BTC_PRNG prng;
    SecureBinaryData randData(numBytes);
    prng.GenerateBlock(randData.getPtr(), numBytes);
    return randData;  
@@ -259,7 +259,7 @@ SecureBinaryData KdfRomix::DeriveKey_OneIter(SecureBinaryData const & password)
       V64ptr = (uint64_t*)(frontOfLUT + HSZ*newIndex);
 
       // xor X with V, and store the result in X
-      for(int i=0; i<nXorOps; i++)
+      for(uint32_t i=0; i<nXorOps; i++)
          *(Y64ptr+i) = *(X64ptr+i) ^ *(V64ptr+i);
 
       // Hash the xor'd data to get the next index for lookup
@@ -644,7 +644,7 @@ bool CryptoECDSA::VerifyData(SecureBinaryData const & binMessage,
 
 
    static CryptoPP::SHA256  sha256;
-   static CryptoPP::AutoSeededRandomPool prng;
+   static BTC_PRNG prng;
 
    assert(cppPubKey.Validate(prng, 3));
 

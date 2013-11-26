@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////
 //                                                                            //
-//  Copyright (C) 2011-2013, Alan C. Reiner    <alan.reiner@gmail.com>        //
+//  Copyright(C) 2011-2013, Armory Technologies, Inc.                         //
 //  Distributed under the GNU Affero General Public License (AGPL v3)         //
 //  See LICENSE or http://www.gnu.org/licenses/agpl.html                      //
 //                                                                            //
@@ -15,6 +15,7 @@
 #include "BinaryData.h"
 #include "BtcUtils.h"
 #include "BlockObj.h"
+#include "leveldb_wrapper.h"
 
 
 
@@ -32,9 +33,8 @@ void BlockHeader::unserialize(uint8_t const * ptr)
    difficultySum_ = -1;
    isMainBranch_ = false;
    isOrphan_ = true;
-   isFinishedCalc_ = false;
-   isOnDiskYet_ = false;
-   txPtrList_ = vector<TxRef*>(0);
+   //txPtrList_ = vector<TxRef*>(0);
+   numTx_ = UINT32_MAX;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -49,71 +49,7 @@ void BlockHeader::unserialize(BinaryRefReader & brr)
    unserialize(brr.get_BinaryDataRef(HEADER_SIZE)); 
 }
 
-////////////////////////////////////////////////////////////////////////////////
-BinaryData BlockHeader::serializeWholeBlock(BinaryData const & magic, 
-                                            bool withLead8Bytes) const
-{
-   BinaryWriter serializedBlock;
-   uint32_t blksize = getBlockSize();
-   if(withLead8Bytes)
-   {
-      serializedBlock.reserve(blksize + 8);
-      serializedBlock.put_BinaryData(magic);
-      serializedBlock.put_uint32_t(blksize);
-   }
-   else
-      serializedBlock.reserve(blksize);
 
-   serializedBlock.put_BinaryData(dataCopy_);
-   serializedBlock.put_var_int(getNumTx());
-   for(uint32_t i=0; i<getNumTx(); i++)
-      serializedBlock.put_BinaryData(txPtrList_[i]->serialize());
-
-   return serializedBlock.getData();
-   
-}
-
-
-
-////////////////////////////////////////////////////////////////////////////////
-vector<BinaryData> BlockHeader::getTxHashList(void)
-{
-   vector<BinaryData> vectOut(getNumTx());
-   for(uint32_t i=0; i<getNumTx(); i++)
-      vectOut[i] = txPtrList_[i]->getThisHash();
-
-   return vectOut;
-}
-////////////////////////////////////////////////////////////////////////////////
-BinaryData BlockHeader::calcMerkleRoot(vector<BinaryData>* treeOut) 
-{
-   if(treeOut == NULL)
-      return BtcUtils::calculateMerkleRoot( getTxHashList() );
-   else
-   {
-      *treeOut = BtcUtils::calculateMerkleTree( getTxHashList() );
-      return (*treeOut)[treeOut->size()-1];
-   }
-}
-
-////////////////////////////////////////////////////////////////////////////////
-bool BlockHeader::verifyMerkleRoot(void)
-{
-   return (calcMerkleRoot() == getMerkleRoot());
-
-}
-
-////////////////////////////////////////////////////////////////////////////////
-bool BlockHeader::verifyIntegrity(void)
-{
-   // Calculate the merkle root, and compare to the one already stored in header
-   bool merkleIsGood = (calcMerkleRoot() == getMerkleRoot());
-
-   // Check that the last four bytes of the hash are zeros
-   BinaryData fourzerobytes = BtcUtils::EmptyHash_.getSliceCopy(0,4);
-   bool headerIsGood = (thisHash_.getSliceCopy(28,4) == fourzerobytes);
-   return (merkleIsGood && headerIsGood);
-}
 
 
 /////////////////////////////////////////////////////////////////////////////
@@ -148,12 +84,7 @@ void BlockHeader::pprintAlot(ostream & os)
    cout << "PrvHash:  " << getPrevHash().toHexStr(false) << endl;
    cout << "this*:    " << this << endl;
    cout << "TotSize:  " << getBlockSize() << endl;
-   vector<TxRef*> txlist = getTxRefPtrList();
-   vector<BinaryData> hashlist = getTxHashList();
-   cout << "Number of Tx:  " << txlist.size() << ", " << hashlist.size() << endl;
-   for(uint32_t i=0; i<txlist.size(); i++)
-      txlist[i]->getTxCopy().pprintAlot();
-
+   cout << "Tx Count: " << numTx_ << endl;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -190,25 +121,6 @@ uint32_t BlockHeader::findNonce(void)
 
 
 
-// Returns the size of the header + numTx + tx[i], no leading bytes
-uint32_t BlockHeader::getBlockSize(void) const
-{
-   uint32_t nBytes = HEADER_SIZE; 
-   uint32_t nTx = txPtrList_.size();
-   for(uint32_t i=0; i<nTx; i++)
-   {
-      if(txPtrList_[i] == NULL)
-         return 0;
-      else
-         nBytes += txPtrList_[i]->getSize();
-   }
-
-   // Add in a couple bytes for the var_int
-   // Use a fake BinaryWriter to write it out which returns the size
-   nBytes += BinaryWriter().put_var_int(nTx);
-   return nBytes;
-}
-
 
 /////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////
@@ -230,13 +142,13 @@ bool OutPoint::operator==(OutPoint const & op2) const
    return (txHash_ == op2.txHash_ && txOutIndex_ == op2.txOutIndex_);
 }
 
-void OutPoint::serialize(BinaryWriter & bw)
+void OutPoint::serialize(BinaryWriter & bw) const
 {
    bw.put_BinaryData(txHash_);
    bw.put_uint32_t(txOutIndex_);
 }
 
-BinaryData OutPoint::serialize(void)
+BinaryData OutPoint::serialize(void) const
 {
    BinaryWriter bw(36);
    serialize(bw);
@@ -246,7 +158,7 @@ BinaryData OutPoint::serialize(void)
 void OutPoint::unserialize(uint8_t const * ptr)
 {
    txHash_.copyFrom(ptr, 32);
-   txOutIndex_ = *(uint32_t*)(ptr+32);
+   txOutIndex_ = READ_UINT32_LE(ptr+32);
 }
 void OutPoint::unserialize(BinaryReader & br)
 {
@@ -303,14 +215,12 @@ BinaryDataRef TxIn::getScriptRef(void) const
 }
 
 
-/////////////////////////////////////////////////////////////////////////////
-bool TxIn::isCoinbase(void) const
-{
-   return (scriptType_ == TXIN_SCRIPT_COINBASE);
-}
 
 /////////////////////////////////////////////////////////////////////////////
-void TxIn::unserialize(uint8_t const * ptr, uint32_t nbytes, TxRef* parent, int32_t idx)
+void TxIn::unserialize(uint8_t const * ptr, 
+                       uint32_t        nbytes, 
+                       TxRef           parent, 
+                       uint32_t        idx)
 {
    parentTx_ = parent;
    index_ = idx;
@@ -321,23 +231,38 @@ void TxIn::unserialize(uint8_t const * ptr, uint32_t nbytes, TxRef* parent, int3
 
    scriptType_ = BtcUtils::getTxInScriptType(getScriptRef(),
                                              BinaryDataRef(getPtr(),32));
+
+   if(!parentTx_.isInitialized())
+   {
+      parentHeight_ = UINT32_MAX;
+      parentHash_   = BinaryData(0);
+   }
 }
 
 /////////////////////////////////////////////////////////////////////////////
-void TxIn::unserialize(BinaryRefReader & brr, uint32_t nbytes, TxRef* parent, int32_t idx)
+void TxIn::unserialize(BinaryRefReader & brr, 
+                       uint32_t nbytes,
+                       TxRef parent, 
+                       uint32_t idx)
 {
    unserialize(brr.getCurrPtr(), nbytes, parent, idx);
    brr.advance(getSize());
 }
 
 /////////////////////////////////////////////////////////////////////////////
-void TxIn::unserialize(BinaryData const & str, uint32_t nbytes, TxRef* parent, int32_t idx)
+void TxIn::unserialize(BinaryData const & str,
+                       uint32_t nbytes,
+                       TxRef parent,
+                       uint32_t idx)
 {
    unserialize(str.getPtr(), nbytes, parent, idx);
 }
 
 /////////////////////////////////////////////////////////////////////////////
-void TxIn::unserialize(BinaryDataRef const & str, uint32_t nbytes, TxRef* parent, int32_t idx)
+void TxIn::unserialize(BinaryDataRef str,
+                       uint32_t nbytes,
+                       TxRef parent,
+                       uint32_t idx)
 {
    unserialize(str.getPtr(), nbytes, parent, idx);
 }
@@ -347,44 +272,43 @@ void TxIn::unserialize(BinaryDataRef const & str, uint32_t nbytes, TxRef* parent
 // Not all TxIns have this information.  Have to go to the Outpoint and get
 // the corresponding TxOut to find the sender.  In the case the sender is
 // not available, return false and don't write the output
-bool TxIn::getSenderAddrIfAvailable(BinaryData & addrTarget) const
+bool TxIn::getSenderScrAddrIfAvail(BinaryData & addrTarget) const
 {
-   if(scriptType_ != TXIN_SCRIPT_STANDARD)
+   if(scriptType_ == TXIN_SCRIPT_NONSTANDARD ||
+      scriptType_ == TXIN_SCRIPT_COINBASE)
+   {
+      addrTarget = BtcUtils::BadAddress_;
       return false;
+   }
    
-   BinaryData pubkey65 = getScript().getSliceCopy(-65, 65);
-   addrTarget = BtcUtils::getHash160(pubkey65);
+   addrTarget = BtcUtils::getTxInAddrFromType(getScript(), scriptType_);
    return true;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-BinaryData TxIn::getSenderAddrIfAvailable(void) const
+BinaryData TxIn::getSenderScrAddrIfAvail(void) const
 {
-   BinaryData addrTarget(0);
-   if(scriptType_ == TXIN_SCRIPT_STANDARD)
-   {
-      BinaryData pubkey65 = getScriptRef().getSliceCopy(-65, 65);
-      addrTarget = BtcUtils::getHash160(pubkey65);
-   }
+   BinaryData addrTarget(20);
+   getSenderScrAddrIfAvail(addrTarget);
    return addrTarget;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 BinaryData TxIn::getParentHash(void)
 {
-   if(parentTx_==NULL)
+   if(!parentTx_.isInitialized())
       return parentHash_;
    else
-      return parentTx_->getThisHash();
+      return parentTx_.getThisHash();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 uint32_t TxIn::getParentHeight(void)
 {
-   if(parentTx_==NULL)
+   if(!parentTx_.isInitialized())
       return parentHeight_;
    else
-      return parentTx_->getBlockHeight();
+      return parentTx_.getBlockHeight();
 }
 
 
@@ -399,13 +323,15 @@ void TxIn::pprint(ostream & os, int nIndent, bool pBigendian) const
    os << indent << "   Type:    ";
    switch(scriptType_)
    {
-      case TXIN_SCRIPT_STANDARD: os << "STANDARD" << endl; break;
-      case TXIN_SCRIPT_COINBASE: os << "COINBASE" << endl; break;
-      case TXIN_SCRIPT_SPENDCB : os << "SPEND CB" << endl; break;
-      case TXIN_SCRIPT_UNKNOWN : os << "UNKNOWN " << endl; break;
+      case TXIN_SCRIPT_STDUNCOMPR:  os << "UncomprKey" << endl; break;
+      case TXIN_SCRIPT_STDCOMPR:    os << "ComprKey" << endl; break;
+      case TXIN_SCRIPT_COINBASE:    os << "Coinbase" << endl; break;
+      case TXIN_SCRIPT_SPENDPUBKEY: os << "SpendPubKey" << endl; break;
+      case TXIN_SCRIPT_SPENDP2SH:   os << "SpendP2sh" << endl; break;
+      case TXIN_SCRIPT_NONSTANDARD: os << "UNKNOWN " << endl; break;
    }
    os << indent << "   Bytes:   " << getSize() << endl;
-   os << indent << "   Sender:  " << getSenderAddrIfAvailable().toHexStr() << endl;
+   os << indent << "   Sender:  " << getSenderScrAddrIfAvail().toHexStr() << endl;
 }
 
 
@@ -431,7 +357,10 @@ BinaryDataRef TxOut::getScriptRef(void)
 
 
 /////////////////////////////////////////////////////////////////////////////
-void TxOut::unserialize(uint8_t const * ptr, uint32_t nbytes, TxRef* parent, int32_t idx)
+void TxOut::unserialize( uint8_t const * ptr,
+                         uint32_t nbytes,
+                         TxRef parent,
+                         uint32_t idx)
 {
    parentTx_ = parent;
    index_ = idx;
@@ -441,23 +370,38 @@ void TxOut::unserialize(uint8_t const * ptr, uint32_t nbytes, TxRef* parent, int
    scriptOffset_ = 8 + BtcUtils::readVarIntLength(getPtr()+8);
    BinaryDataRef scriptRef(dataCopy_.getPtr()+scriptOffset_, getScriptSize());
    scriptType_ = BtcUtils::getTxOutScriptType(scriptRef);
-   recipientBinAddr20_ = BtcUtils::getTxOutRecipientAddr(scriptRef, scriptType_);
+   uniqueScrAddr_ = BtcUtils::getTxOutScrAddr(scriptRef);
+
+   if(!parentTx_.isInitialized())
+   {
+      parentHeight_ = UINT32_MAX;
+      parentHash_   = BinaryData(0);
+   }
 }
 
 /////////////////////////////////////////////////////////////////////////////
-void TxOut::unserialize(BinaryData const & str, uint32_t nbytes, TxRef* parent, int32_t idx)
+void TxOut::unserialize( BinaryData const & str,
+                         uint32_t nbytes,
+                         TxRef  parent,
+                         uint32_t idx)
 {
    unserialize(str.getPtr(), nbytes, parent, idx);
 }
 
 /////////////////////////////////////////////////////////////////////////////
-void TxOut::unserialize(BinaryDataRef const & str, uint32_t nbytes, TxRef* parent, int32_t idx)
+void TxOut::unserialize( BinaryDataRef const & str,
+                         uint32_t nbytes,
+                         TxRef  parent,
+                         uint32_t idx)
 {
    unserialize(str.getPtr(), nbytes, parent, idx);
 }
 
 /////////////////////////////////////////////////////////////////////////////
-void TxOut::unserialize(BinaryRefReader & brr, uint32_t nbytes, TxRef* parent, int32_t idx)
+void TxOut::unserialize( BinaryRefReader & brr,
+                         uint32_t nbytes,
+                         TxRef  parent,
+                         uint32_t idx)
 {
    unserialize( brr.getCurrPtr(), nbytes, parent, idx );
    brr.advance(getSize());
@@ -466,19 +410,19 @@ void TxOut::unserialize(BinaryRefReader & brr, uint32_t nbytes, TxRef* parent, i
 ////////////////////////////////////////////////////////////////////////////////
 BinaryData TxOut::getParentHash(void)
 {
-   if(parentTx_==NULL)
+   if(!parentTx_.isInitialized())
       return parentHash_;
    else
-      return parentTx_->getThisHash();
+      return parentTx_.getThisHash();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 uint32_t   TxOut::getParentHeight(void)
 {
-   if(parentTx_==NULL)
+   if(!parentTx_.isInitialized())
       return parentHeight_;
    else
-      return parentTx_->getBlockHeight();
+      return parentTx_.getBlockHeight();
 
 }
 
@@ -494,12 +438,14 @@ void TxOut::pprint(ostream & os, int nIndent, bool pBigendian)
    os << indent << "   Type:   ";
    switch(scriptType_)
    {
-   case TXOUT_SCRIPT_STANDARD: os << "STANDARD" << endl; break;
-   case TXOUT_SCRIPT_COINBASE: os << "COINBASE" << endl; break;
-   case TXOUT_SCRIPT_UNKNOWN : os << "UNKNOWN " << endl; break;
+   case TXOUT_SCRIPT_STDHASH160:  os << "StdHash160" << endl; break;
+   case TXOUT_SCRIPT_STDPUBKEY65: os << "StdPubKey65" << endl; break;
+   case TXOUT_SCRIPT_STDPUBKEY33: os << "StdPubKey65" << endl; break;
+   case TXOUT_SCRIPT_P2SH:        os << "Pay2ScrHash" << endl; break;
+   case TXOUT_SCRIPT_NONSTANDARD: os << "UNKNOWN " << endl; break;
    }
    os << indent << "   Recip:  " 
-                << recipientBinAddr20_.toHexStr(pBigendian).c_str() 
+                << uniqueScrAddr_.toHexStr(pBigendian).c_str() 
                 << (pBigendian ? " (BE)" : " (LE)") << endl;
    os << indent << "   Value:  " << getValue() << endl;
 }
@@ -513,39 +459,33 @@ void TxOut::pprint(ostream & os, int nIndent, bool pBigendian)
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 
-Tx::Tx(TxRef* txref)
+Tx::Tx(TxRef  txref)
 {
-   if(txref != NULL)
-   {
-      unserialize(txref->getBlkFilePtr().getUnsafeDataPtr());
-      headerPtr_ = txref->getHeaderPtr();
-   }
-   txRefPtr_ = txref;
 }
 
 /////////////////////////////////////////////////////////////////////////////
 void Tx::unserialize(uint8_t const * ptr)
 {
-   uint32_t numBytes = BtcUtils::TxCalcLength(ptr, &offsetsTxIn_, &offsetsTxOut_);
-   dataCopy_.copyFrom(ptr, numBytes);
-   BtcUtils::getHash256(ptr, numBytes, thisHash_);
+   uint32_t nBytes = BtcUtils::TxCalcLength(ptr, &offsetsTxIn_, &offsetsTxOut_);
+   dataCopy_.copyFrom(ptr, nBytes);
+   BtcUtils::getHash256(ptr, nBytes, thisHash_);
 
    uint32_t numTxOut = offsetsTxOut_.size()-1;
-   version_  = *(uint32_t*)(ptr);
-   lockTime_ = *(uint32_t*)(ptr + offsetsTxOut_[numTxOut]);
+   version_  = READ_UINT32_LE(ptr);
+   lockTime_ = READ_UINT32_LE(ptr + offsetsTxOut_[numTxOut]);
 
    isInitialized_ = true;
-   headerPtr_ = NULL;
-   txRefPtr_ = NULL;
+   //headerPtr_ = NULL;
 }
+
 
 /////////////////////////////////////////////////////////////////////////////
 bool Tx::isMainBranch(void) const
 {
-   if(headerPtr_==NULL || !headerPtr_->isMainBranch())
+   if(txRefObj_.isNull())
       return false;
    else
-      return true;   
+      return txRefObj_.isMainBranch();
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -567,28 +507,17 @@ uint64_t Tx::getSumOfOutputs(void)
 {
    uint64_t sumVal = 0;
    for(uint32_t i=0; i<getNumTxOut(); i++)
-      sumVal += getTxOut(i).getValue();
+      sumVal += getTxOutCopy(i).getValue();
 
    return sumVal;
 }
 
 
 /////////////////////////////////////////////////////////////////////////////
-BinaryData Tx::getRecipientForTxOut(uint32_t txOutIndex) 
+BinaryData Tx::getScrAddrForTxOut(uint32_t txOutIndex) 
 {
-   TxOut txout = getTxOut(txOutIndex);
-   if(txout.getScriptType() == TXOUT_SCRIPT_STANDARD ||
-      txout.getScriptType() == TXOUT_SCRIPT_COINBASE)
-   {
-      return txout.getRecipientAddr();
-   }
-   else
-   {
-      // TODO:  We may actually want to have another branch for P2SH
-      //        and pass out the P2SH script hash
-      return BinaryData("");
-   }
-
+   TxOut txout = getTxOutCopy(txOutIndex);
+   return BtcUtils::getTxOutScrAddr(txout.getScript());
 }
 
 
@@ -596,16 +525,16 @@ BinaryData Tx::getRecipientForTxOut(uint32_t txOutIndex)
 // This is not a pointer to persistent object, this method actually CREATES
 // the TxIn.   But it's fast and doesn't hold a lot of post-construction
 // information, so it can probably just be computed on the fly
-TxIn Tx::getTxIn(int i)
+TxIn Tx::getTxInCopy(int i)
 {
    assert(isInitialized());
    uint32_t txinSize = offsetsTxIn_[i+1] - offsetsTxIn_[i];
-   TxIn out(dataCopy_.getPtr()+offsetsTxIn_[i], txinSize, getTxRefPtr(), i);
+   TxIn out(dataCopy_.getPtr()+offsetsTxIn_[i], txinSize, txRefObj_, i);
    
-   if(getTxRefPtr()==NULL)
+   if(txRefObj_.isInitialized())
    {
       out.setParentHash(getThisHash());
-      out.setParentHeight(UINT32_MAX);
+      out.setParentHeight(txRefObj_.getBlockHeight());
    }
    return out;
 }
@@ -614,52 +543,20 @@ TxIn Tx::getTxIn(int i)
 // This is not a pointer to persistent object, this method actually CREATES
 // the TxOut.   But it's fast and doesn't hold a lot of post-construction
 // information, so it can probably just be computed on the fly
-TxOut Tx::getTxOut(int i)
+TxOut Tx::getTxOutCopy(int i)
 {
    assert(isInitialized());
    uint32_t txoutSize = offsetsTxOut_[i+1] - offsetsTxOut_[i];
-   TxOut out(dataCopy_.getPtr()+offsetsTxOut_[i], txoutSize, getTxRefPtr(), i);
+   TxOut out(dataCopy_.getPtr()+offsetsTxOut_[i], txoutSize, txRefObj_, i);
    
-   if(getTxRefPtr()==NULL)
+   if(txRefObj_.isInitialized())
    {
       out.setParentHash(getThisHash());
-      out.setParentHeight(UINT32_MAX);
+      out.setParentHeight(txRefObj_.getBlockHeight());
    }
    return out;
 }
 
-
-/////////////////////////////////////////////////////////////////////////////
-uint32_t Tx::getBlockTimestamp(void)
-{
-   if(headerPtr_!=NULL)
-      return headerPtr_->getTimestamp();
-   return UINT32_MAX;
-}
-
-/////////////////////////////////////////////////////////////////////////////
-uint32_t Tx::getBlockHeight(void)
-{
-   if(headerPtr_!=NULL && headerPtr_->isMainBranch())
-      return headerPtr_->getBlockHeight();
-   return UINT32_MAX;
-}
-
-
-/////////////////////////////////////////////////////////////////////////////
-// We have the Tx, but we don't know its index... gotta get Tx list from
-// header and try to match up
-uint32_t Tx::getBlockTxIndex(void)
-{
-   if(headerPtr_ == NULL)
-      return UINT32_MAX;
-
-   vector<TxRef*> txlist = headerPtr_->getTxRefPtrList();
-   for(uint32_t i=0; i<txlist.size(); i++)
-      if( txlist[i]->getThisHash() == getThisHash() )
-         return i;
-   return UINT32_MAX;
-}
 
 /////////////////////////////////////////////////////////////////////////////
 void Tx::pprint(ostream & os, int nIndent, bool pBigendian) 
@@ -670,20 +567,20 @@ void Tx::pprint(ostream & os, int nIndent, bool pBigendian)
     
    os << indent << "Tx:   " << thisHash_.toHexStr(pBigendian) 
                 << (pBigendian ? " (BE)" : " (LE)") << endl;
-   if( headerPtr_==NULL)
+   if( txRefObj_.isNull())
       os << indent << "   Blk:  <NOT PART OF A BLOCK YET>" << endl;
    else
-      os << indent << "   Blk:         " << headerPtr_->getBlockHeight() << endl;
+      os << indent << "   Blk:         " << getBlockHeight() << endl;
 
    os << indent << "   TxSize:      " << getSize() << " bytes" << endl;
    os << indent << "   NumInputs:   " << getNumTxIn() << endl;
    os << indent << "   NumOutputs:  " << getNumTxOut() << endl;
    os << endl;
    for(uint32_t i=0; i<getNumTxIn(); i++)
-      getTxIn(i).pprint(os, nIndent+1, pBigendian);
+      getTxInCopy(i).pprint(os, nIndent+1, pBigendian);
    os << endl;
    for(uint32_t i=0; i<getNumTxOut(); i++)
-      getTxOut(i).pprint(os, nIndent+1, pBigendian);
+      getTxOutCopy(i).pprint(os, nIndent+1, pBigendian);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -694,17 +591,17 @@ void Tx::pprint(ostream & os, int nIndent, bool pBigendian)
 void Tx::pprintAlot(ostream & os)
 {
    cout << "Tx hash:   " << thisHash_.toHexStr(true) << endl;
-   if(headerPtr_!=NULL)
+   if(!txRefObj_.isNull())
    {
-      cout << "HeaderNum: " << headerPtr_->getBlockHeight() << endl;
-      cout << "HeadHash:  " << headerPtr_->getThisHash().toHexStr(true) << endl;
+      cout << "HeaderNum: " << getBlockHeight() << endl;
+      cout << "HeadHash:  " << getBlockHash().toHexStr(true) << endl;
    }
 
    cout << endl << "NumTxIn:   " << getNumTxIn() << endl;
    for(uint32_t i=0; i<getNumTxIn(); i++)
    {
-      TxIn txin = getTxIn(i);
-      cout << "   TxIn: " << i <<  "   ParentPtr: " << txin.getParentTxPtr() << endl;
+      TxIn txin = getTxInCopy(i);
+      cout << "   TxIn: " << i << endl;
       cout << "      Siz:  " << txin.getSize() << endl;
       cout << "      Scr:  " << txin.getScriptSize() << "  Type: " 
                         << (int)txin.getScriptType() << endl;
@@ -716,8 +613,8 @@ void Tx::pprintAlot(ostream & os)
    cout << endl <<  "NumTxOut:   " << getNumTxOut() << endl;
    for(uint32_t i=0; i<getNumTxOut(); i++)
    {
-      TxOut txout = getTxOut(i);
-      cout << "   TxOut: " << i <<  "   ParentPtr: " << txout.getParentTxPtr() << endl;
+      TxOut txout = getTxOutCopy(i);
+      cout << "   TxOut: " << i << endl;
       cout << "      Siz:  " << txout.getSize() << endl;
       cout << "      Scr:  " << txout.getScriptSize() << "  Type: " 
                         << (int)txout.getScriptType() << endl;
@@ -729,63 +626,110 @@ void Tx::pprintAlot(ostream & os)
 
 
 /////////////////////////////////////////////////////////////////////////////
+BinaryData TxRef::serialize(void) const 
+{ 
+   if(!isBound())
+      return BinaryData(0);
+
+   return dbIface_->getFullTxCopy(dbKey6B_).serialize();
+}
+
+
+/////////////////////////////////////////////////////////////////////////////
 Tx TxRef::getTxCopy(void) const
 {
-   // It seems unnecessary to have to make this method non-const, but also
-   // unnecessary to require (TxRef const *) for the tx copy...
-   // I've never used const_cast before, but it seems appropriate here...
-   Tx out(blkFilePtr_.getUnsafeDataPtr());
-   out.setTxRefPtr(const_cast<TxRef*>(this));
-   out.setHeaderPtr(headerPtr_);
-   return out;
+   if(!isBound())
+      return Tx();
+
+   return dbIface_->getFullTxCopy(dbKey6B_);
 }
 
 /////////////////////////////////////////////////////////////////////////////
 bool TxRef::isMainBranch(void) const
 {
-   if(headerPtr_==NULL || !headerPtr_->isMainBranch())
+   if(dbKey6B_.getSize() != 6)
       return false;
    else
-      return true;   
+   {
+      if(!isBound())
+         return false;
+
+      uint8_t dup8 = dbIface_->getValidDupIDForHeight(getBlockHeight());
+      return (getDuplicateID() == dup8);
+   }
 }
 
 /////////////////////////////////////////////////////////////////////////////
 BinaryData TxRef::getThisHash(void) const
 {
-   uint8_t* tempPtr = blkFilePtr_.getUnsafeDataPtr();
-   return BtcUtils::getHash256(tempPtr, blkFilePtr_.getNumBytes());
-}
+   if(!isBound())
+      return BinaryData(0);
 
+   return dbIface_->getTxHashForLdbKey(dbKey6B_);
+}
 
 /////////////////////////////////////////////////////////////////////////////
-uint32_t TxRef::getBlockTimestamp(void) const
+void TxRef::setRef(BinaryDataRef bdr, InterfaceToLDB* iface)
 {
-   if(headerPtr_!=NULL)
-      return headerPtr_->getTimestamp();
-   return UINT32_MAX;
+   dbKey6B_ = bdr.copy();
+   dbIface_ = iface;
+   if(iface==NULL)
+      dbIface_ = LevelDBWrapper().GetInterfacePtr();
 }
+
+/////////////////////////////////////////////////////////////////////////////
+uint32_t TxRef::getBlockTimestamp(void)
+{
+   static StoredHeader sbh;
+
+   if(dbIface_!=NULL && dbKey6B_.getSize() == 6)
+   {
+      dbIface_->getStoredHeader(sbh, getBlockHeight(), getDuplicateID(), false);
+      return READ_UINT32_BE(sbh.dataCopy_.getPtr()+68);
+   }
+   else
+      return UINT32_MAX;
+}
+
+/////////////////////////////////////////////////////////////////////////////
+BinaryData TxRef::getBlockHash(void) const
+{
+   static StoredHeader sbh;
+   if(dbIface_!=NULL && dbKey6B_.getSize() == 6)
+   {
+      dbIface_->getStoredHeader(sbh, getBlockHeight(), getDuplicateID(), false);
+      return sbh.thisHash_;
+   }
+   else
+      return BtcUtils::EmptyHash_;
+}
+
 
 /////////////////////////////////////////////////////////////////////////////
 uint32_t TxRef::getBlockHeight(void) const
 {
-   if(headerPtr_!=NULL && headerPtr_->isMainBranch())
-         return headerPtr_->getBlockHeight();
-   return UINT32_MAX;
+   if(dbKey6B_.getSize() == 6)
+      return DBUtils.hgtxToHeight(dbKey6B_.getSliceCopy(0,4));
+   else
+      return UINT32_MAX;
 }
 
 /////////////////////////////////////////////////////////////////////////////
-// We have the TxRef, but we don't know its index... gotta get Tx list from
-// header and try to match up
-uint32_t TxRef::getBlockTxIndex(void) const
+uint8_t TxRef::getDuplicateID(void) const
 {
-   if(headerPtr_ == NULL)
-      return UINT32_MAX;
+   if(dbKey6B_.getSize() == 6)
+      return DBUtils.hgtxToDupID(dbKey6B_.getSliceCopy(0,4));
+   else
+      return UINT8_MAX;
+}
 
-   vector<TxRef*> txlist = headerPtr_->getTxRefPtrList();
-   for(uint32_t i=0; i<txlist.size(); i++)
-      if( txlist[i] == this )
-         return i;
-   return UINT32_MAX;
+/////////////////////////////////////////////////////////////////////////////
+uint16_t TxRef::getBlockTxIndex(void) const
+{
+   if(dbKey6B_.getSize() == 6)
+      return READ_UINT16_BE(dbKey6B_.getPtr() + 4);
+   else
+      return UINT16_MAX;
 }
 
 
@@ -796,13 +740,359 @@ void TxRef::pprint(ostream & os, int nIndent) const
    os << "   Hash:      " << getThisHash().toHexStr() << endl;
    os << "   Height:    " << getBlockHeight() << endl;
    os << "   BlkIndex:  " << getBlockTxIndex() << endl;
-   os << "   FileIdx:   " << blkFilePtr_.getFileIndex() << endl;
-   os << "   FileStart: " << blkFilePtr_.getStartByte() << endl;
-   os << "   NumBytes:  " << blkFilePtr_.getNumBytes() << endl;
+   //os << "   FileIdx:   " << blkFilePtr_.getFileIndex() << endl;
+   //os << "   FileStart: " << blkFilePtr_.getStartByte() << endl;
+   //os << "   NumBytes:  " << blkFilePtr_.getNumBytes() << endl;
    os << "   ----- " << endl;
    os << "   Read from disk, full tx-info: " << endl;
    getTxCopy().pprint(os, nIndent+1); 
 }
+
+
+////////////////////////////////////////////////////////////////////////////////
+TxIn  TxRef::getTxInCopy(uint32_t i)  
+{
+   return dbIface_->getTxInCopy( dbKey6B_, i);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+TxOut TxRef::getTxOutCopy(uint32_t i) 
+{
+   return dbIface_->getTxOutCopy(dbKey6B_, i);
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+//
+// TxIOPair Methods
+//
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+
+//////////////////////////////////////////////////////////////////////////////
+TxIOPair::TxIOPair(void) : 
+   amount_(0),
+   indexOfOutput_(0),
+   indexOfInput_(0),
+   txOfOutputZC_(NULL),
+   indexOfOutputZC_(0),
+   txOfInputZC_(NULL),
+   indexOfInputZC_(0),
+   isTxOutFromSelf_(false),
+   isFromCoinbase_(false),
+   isMultisig_(false) {}
+
+//////////////////////////////////////////////////////////////////////////////
+TxIOPair::TxIOPair(uint64_t  amount) :
+   amount_(amount),
+   indexOfOutput_(0),
+   indexOfInput_(0),
+   txOfOutputZC_(NULL),
+   indexOfOutputZC_(0),
+   txOfInputZC_(NULL),
+   indexOfInputZC_(0) ,
+   isTxOutFromSelf_(false),
+   isFromCoinbase_(false),
+   isMultisig_(false) {}
+
+//////////////////////////////////////////////////////////////////////////////
+TxIOPair::TxIOPair(TxRef txPtrO, uint32_t txoutIndex) :
+   amount_(0),
+   indexOfInput_(0) ,
+   txOfOutputZC_(NULL),
+   indexOfOutputZC_(0),
+   txOfInputZC_(NULL),
+   indexOfInputZC_(0),
+   isTxOutFromSelf_(false),
+   isFromCoinbase_(false),
+   isMultisig_(false)
+{ 
+   setTxOut(txPtrO, txoutIndex);
+}
+
+//////////////////////////////////////////////////////////////////////////////
+TxIOPair::TxIOPair(TxRef     txPtrO,
+                   uint32_t  txoutIndex,
+                   TxRef     txPtrI, 
+                   uint32_t  txinIndex) :
+   amount_(0),
+   txOfOutputZC_(NULL),
+   indexOfOutputZC_(0),
+   txOfInputZC_(NULL),
+   indexOfInputZC_(0),
+   isTxOutFromSelf_(false),
+   isFromCoinbase_(false),
+   isMultisig_(false)
+{ 
+   setTxOut(txPtrO, txoutIndex);
+   setTxIn (txPtrI, txinIndex );
+}
+
+//////////////////////////////////////////////////////////////////////////////
+TxIOPair::TxIOPair(BinaryData txOutKey8B, uint64_t val) :
+   amount_(val),
+   indexOfOutput_(0),
+   indexOfInput_(0),
+   txOfOutputZC_(NULL),
+   indexOfOutputZC_(0),
+   txOfInputZC_(NULL),
+   indexOfInputZC_(0),
+   isTxOutFromSelf_(false),
+   isFromCoinbase_(false),
+   isMultisig_(false)
+{
+   setTxOut(txOutKey8B);
+}
+
+//////////////////////////////////////////////////////////////////////////////
+HashString TxIOPair::getTxHashOfOutput(void)
+{
+   if(!hasTxOut())
+      return BtcUtils::EmptyHash_;
+   else if(txRefOfOutput_.isInitialized())
+      return txRefOfOutput_.getThisHash();
+   else
+      return BinaryData(0);
+}
+
+//////////////////////////////////////////////////////////////////////////////
+HashString TxIOPair::getTxHashOfInput(void)
+{
+   if(!hasTxIn())
+      return BtcUtils::EmptyHash_;
+   else if(txRefOfInput_.isInitialized())
+      return txRefOfInput_.getThisHash();
+   else
+      return BinaryData(0);
+}
+
+
+//////////////////////////////////////////////////////////////////////////////
+TxOut TxIOPair::getTxOutCopy(void) 
+{
+   // I actually want this to segfault when there is no TxOut... 
+   // we should't ever be trying to access it without checking it 
+   // first in the calling code (hasTxOut/hasTxOutZC)
+   if(hasTxOut())
+      return txRefOfOutput_.getTxOutCopy(indexOfOutput_);
+   else
+      return getTxOutZC();
+}
+
+
+//////////////////////////////////////////////////////////////////////////////
+TxIn TxIOPair::getTxInCopy(void) 
+{
+   // I actually want this to segfault when there is no TxIn... 
+   // we should't ever be trying to access it without checking it 
+   // first in the calling code (hasTxIn/hasTxInZC)
+   if(hasTxIn())
+      return txRefOfInput_.getTxInCopy(indexOfInput_);
+   else
+      return getTxInZC();
+}
+
+//////////////////////////////////////////////////////////////////////////////
+bool TxIOPair::setTxIn(TxRef  txref, uint32_t index)
+{ 
+   txRefOfInput_  = txref;
+   indexOfInput_  = index;
+   txOfInputZC_   = NULL;
+   indexOfInputZC_= 0;
+
+   return true;
+}
+
+//////////////////////////////////////////////////////////////////////////////
+bool TxIOPair::setTxIn(BinaryData dbKey8B)
+{
+   BinaryRefReader brr(dbKey8B);
+   BinaryDataRef txKey6B = brr.get_BinaryDataRef(6);
+   uint16_t      txInIdx = brr.get_uint16_t(BIGENDIAN);
+   return setTxIn(TxRef(txKey6B), (uint32_t)txInIdx);
+}
+
+//////////////////////////////////////////////////////////////////////////////
+bool TxIOPair::setTxOut(BinaryData dbKey8B)
+{
+   BinaryRefReader brr(dbKey8B);
+   BinaryDataRef txKey6B  = brr.get_BinaryDataRef(6);
+   uint16_t      txOutIdx = brr.get_uint16_t(BIGENDIAN);
+   return setTxOut(TxRef(txKey6B), (uint32_t)txOutIdx);
+}
+
+//////////////////////////////////////////////////////////////////////////////
+bool TxIOPair::setTxInZC(Tx* tx, uint32_t index)
+{ 
+   if(hasTxInInMain() || hasTxInZC())
+      return false;
+   else
+   {
+      txRefOfInput_    = TxRef();
+      indexOfInput_    = 0;
+      txOfInputZC_     = tx;
+      indexOfInputZC_  = index;
+   }
+
+   return true;
+}
+
+//////////////////////////////////////////////////////////////////////////////
+bool TxIOPair::setTxOut(TxRef txref, uint32_t index)
+{
+   txRefOfOutput_   = txref; 
+   indexOfOutput_   = index;
+   txOfOutputZC_    = NULL;
+   indexOfOutputZC_ = 0;
+   return true;
+}
+
+//////////////////////////////////////////////////////////////////////////////
+bool TxIOPair::setTxOutZC(Tx* tx, uint32_t index)
+{
+   if(hasTxOutInMain() || hasTxOutZC())
+      return false;
+   else
+   {
+      txRefOfOutput_   = TxRef();
+      indexOfOutput_   = 0;
+      txOfOutputZC_    = tx;
+      indexOfOutputZC_ = index;
+   }
+   return true;
+}
+
+//////////////////////////////////////////////////////////////////////////////
+bool TxIOPair::isStandardTxOutScript(void) 
+{ 
+   if(hasTxOut()) 
+      return getTxOutCopy().isStandard();
+   return false;
+}
+
+//////////////////////////////////////////////////////////////////////////////
+pair<bool,bool> TxIOPair::reassessValidity(void)
+{
+   pair<bool,bool> result;
+   result.first  = hasTxOutInMain();
+   result.second = hasTxInInMain();
+   return result;
+}
+
+
+//////////////////////////////////////////////////////////////////////////////
+bool TxIOPair::isSpent(void)
+{ 
+   // Not sure whether we should verify hasTxOut.  It wouldn't make much 
+   // sense to have TxIn but not TxOut, but there might be a preferred 
+   // behavior in such awkward circumstances
+   return (hasTxInInMain() || hasTxInZC());
+}
+
+
+//////////////////////////////////////////////////////////////////////////////
+bool TxIOPair::isUnspent(void)
+{ 
+   return ( (hasTxOutInMain() || hasTxOutZC()) && !isSpent());
+
+}
+
+//////////////////////////////////////////////////////////////////////////////
+bool TxIOPair::isSpendable(uint32_t currBlk)
+{ 
+   // Spendable TxOuts are ones with at least 1 confirmation, or zero-conf
+   // TxOuts that were sent-to-self.  Obviously, they should be unspent, too
+   if( hasTxInInMain() || hasTxInZC() )
+      return false;
+   
+   if( hasTxOutInMain() )
+   {
+      uint32_t nConf = currBlk - txRefOfOutput_.getBlockHeight() + 1;
+      if(isFromCoinbase_ && nConf<=COINBASE_MATURITY)
+         return false;
+      else
+         return true;
+   }
+
+   if( hasTxOutZC() && isTxOutFromSelf() )
+      return true;
+
+   return false;
+}
+
+//////////////////////////////////////////////////////////////////////////////
+bool TxIOPair::isMineButUnconfirmed(uint32_t currBlk)
+{
+   // All TxOuts that were from our own transactions are always confirmed
+   if(isTxOutFromSelf())
+      return false;   
+
+   if( (hasTxIn() && txRefOfInput_.isMainBranch()) || hasTxInZC() )
+      return false;
+
+   if(hasTxOutInMain())
+   {
+      uint32_t nConf = currBlk - txRefOfOutput_.getBlockHeight() + 1;
+      if(isFromCoinbase_)
+         return (nConf<COINBASE_MATURITY);
+      else 
+         return (nConf<MIN_CONFIRMATIONS);
+   }
+
+   else if( hasTxOutZC() && !isTxOutFromSelf() )
+      return true;
+
+
+   return false;
+}
+
+bool TxIOPair::hasTxOutInMain(void) const
+{
+   return (hasTxOut() && txRefOfOutput_.isMainBranch());
+}
+
+bool TxIOPair::hasTxInInMain(void) const
+{
+   return (hasTxIn() && txRefOfInput_.isMainBranch());
+}
+
+bool TxIOPair::hasTxOutZC(void) const
+{ 
+   return (txOfOutputZC_!=NULL && txOfOutputZC_->isInitialized()); 
+}
+
+bool TxIOPair::hasTxInZC(void) const
+{ 
+   return (txOfInputZC_!=NULL && txOfInputZC_->isInitialized());
+}
+
+void TxIOPair::clearZCFields(void)
+{
+   txOfOutputZC_ = NULL;
+   txOfInputZC_  = NULL;
+   indexOfOutputZC_ = 0;
+   indexOfInputZC_  = 0;
+   //isTxOutFromSelf_ = false;
+}
+
+
+void TxIOPair::pprintOneLine(void)
+{
+   printf("   Val:(%0.3f)\t  (STS, O,I, Omb,Imb, Oz,Iz)  %d  %d%d %d%d %d%d\n", 
+           (double)getValue()/1e8,
+           (isTxOutFromSelf() ? 1 : 0),
+           (hasTxOut() ? 1 : 0),
+           (hasTxIn() ? 1 : 0),
+           (hasTxOutInMain() ? 1 : 0),
+           (hasTxInInMain() ? 1 : 0),
+           (hasTxOutZC() ? 1 : 0),
+           (hasTxInZC() ? 1 : 0));
+
+}
+
+
+
 
 
 
@@ -822,13 +1112,14 @@ UnspentTxOut::UnspentTxOut(void) :
    txHeight_(0),
    value_(0),
    script_(BinaryData(0)),
-   numConfirm_(0)
+   numConfirm_(0),
+   isMultisigRef_(false)
 {
    // Nothing to do here
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void UnspentTxOut::init(TxOut & txout, uint32_t blkNum)
+void UnspentTxOut::init(TxOut & txout, uint32_t blkNum, bool isMulti)
 {
    txHash_     = txout.getParentHash();
    txOutIndex_ = txout.getIndex();
@@ -836,12 +1127,13 @@ void UnspentTxOut::init(TxOut & txout, uint32_t blkNum)
    value_      = txout.getValue();
    script_     = txout.getScript();
    updateNumConfirm(blkNum);
+   isMultisigRef_ = isMulti;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-BinaryData UnspentTxOut::getRecipientAddr(void) const
+BinaryData UnspentTxOut::getRecipientScrAddr(void) const
 {
-   return BtcUtils::getTxOutRecipientAddr(getScript());
+   return BtcUtils::getTxOutScrAddr(getScript());
 }
 
 
@@ -859,8 +1151,8 @@ uint32_t UnspentTxOut::updateNumConfirm(uint32_t currBlkNum)
 bool UnspentTxOut::CompareNaive(UnspentTxOut const & uto1, 
                                 UnspentTxOut const & uto2)
 {
-   float val1 = uto1.getValue();
-   float val2 = uto2.getValue();
+   float val1 = (float)uto1.getValue();
+   float val2 = (float)uto2.getValue();
    return (val1*uto1.numConfirm_ < val2*uto2.numConfirm_);
 }
 
@@ -913,15 +1205,31 @@ void UnspentTxOut::pprintOneLine(uint32_t currBlk)
 {
    updateNumConfirm(currBlk);
    printf(" Tx:%s:%02d   BTC:%0.3f   nConf:%04d\n",
-                      txHash_.getSliceCopy(0,8).toHexStr().c_str(),
-                      txOutIndex_,
-                      value_/1e8,
-                      numConfirm_);
+             txHash_.copySwapEndian().getSliceCopy(0,8).toHexStr().c_str(),
+             txOutIndex_,
+             value_/1e8,
+             numConfirm_);
 }
 
 
 
 
+
+////////////////////////////////////////////////////////////////////////////////
+/*
+RegisteredScrAddr::RegisteredScrAddr(BtcAddress const & addrObj, 
+                                     int32_t blkCreated)
+{
+   uniqueKey_ = addrObj.getAddrStr20();
+   addrType_ = 0x00;
+
+   if(blkCreated<0)
+      blkCreated = addrObj.getFirstBlockNum();
+
+   blkCreated_            = blkCreated;
+   alreadyScannedUpToBlk_ = blkCreated;
+}
+*/
 
 
 

@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////
 //                                                                            //
-//  Copyright (C) 2011-2013, Alan C. Reiner    <alan.reiner@gmail.com>        //
+//  Copyright(C) 2011-2013, Armory Technologies, Inc.                         //
 //  Distributed under the GNU Affero General Public License (AGPL v3)         //
 //  See LICENSE or http://www.gnu.org/licenses/agpl.html                      //
 //                                                                            //
@@ -57,6 +57,9 @@ BinaryData & BinaryData::append(uint8_t const * str, uint32_t sz)
 int32_t BinaryData::find(BinaryDataRef const & matchStr, uint32_t startPos)
 {
    int32_t finalAnswer = -1;
+   if(matchStr.getSize()==0)
+      return startPos;
+
    for(int32_t i=startPos; i<=(int32_t)getSize()-(int32_t)matchStr.getSize(); i++)
    {
       if(matchStr[0] != data_[i])
@@ -213,12 +216,9 @@ bool BinaryData::operator==(BinaryDataRef const & bd2) const
 {
    if(getSize() != bd2.getSize())
       return false;
-   for(unsigned int i=0; i<getSize(); i++)
-      if( data_[i] != bd2[i])
-         return false;
-   return true;
-}
 
+   return (memcmp(getPtr(), bd2.getPtr(), getSize()) == 0);
+}
 
 
 
