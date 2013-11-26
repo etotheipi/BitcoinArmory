@@ -2251,7 +2251,6 @@ class PyTxIn(BlockComponent):
       self.outpoint   = UNINITIALIZED
       self.binScript  = UNINITIALIZED
       self.intSeq     = 2**32-1
-      self.isCoinbase = UNKNOWN
 
    def unserialize(self, toUnpack):
       if isinstance(toUnpack, BinaryUnpacker):

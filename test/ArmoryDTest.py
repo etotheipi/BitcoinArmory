@@ -33,16 +33,9 @@ RAW_TX1     = '01000000081fa335f8aa332693c7bf77c960ac1eb86c50a5f60d8dc6892d4'+\
               '00000000000000ffffffff3a4c3754686973206973206120636f6d6d656e7'+\
               '420617474616368656420746f2061207472616e73616374696f6e206f6e20'+\
               '6d61696e6e65742e7500000000'
-              
-RAW_TX2     = '00006c493046022100d43c4e239fc8bf31dbf14f9c71301cf985865b11c92'+\
-              'f5a0963f2c0382f1aefc4022100b6fdb3b1fb00aa8a62fbec3cda2d353981'+\
-              '7adc34bc28f761f929346920278c710121023a9ea0a00446698198523b904'+\
-              '97d6e1fe58548eaccc3898a88904c675c311bfcffffffff0200d8ee730100'+\
-              '00001976a914ecf3738156325a0e90339ce2f7c1d6ae87cf9b9188ac00ab9'+\
-              '041000000001976a914a4a6b6a83aae2744dd10a8d055d9fb75383cd9d488'+\
-              'ac00000000'
 
 TX_ID1      =  'e0dc8e3d3654c5bfeb1eb077f835179395ee82d623b0c0d3c7074fc2d4c0706f'
+
 TX_ID1_OUTPUT0_VALUE = 63000
 TX_ID1_OUTPUT1_VALUE = 139367000
 
@@ -120,7 +113,7 @@ class ArmoryDTest(unittest.TestCase):
       
    def testGetrawtransaction(self):
       actualRawTx = self.jsonServer.jsonrpc_getrawtransaction(TX_ID1)
-      pyTx = PyTx().unserialize(actualRawTx)
+      pyTx = PyTx().unserialize(hex_to_binary(actualRawTx))
       self.assertEquals(TX_ID1, binary_to_hex(pyTx.getHash()))
 
    def testBackupWallet(self):
@@ -136,26 +129,27 @@ class ArmoryDTest(unittest.TestCase):
       self.assertTrue(os.path.exists(self.fileB))
       
    def testDecoderawtransaction(self):
+      print RAW_TX1
       actualDD = self.jsonServer.jsonrpc_decoderawtransaction(RAW_TX1)
       # Test specific values pulled from bitcoin daemon's output for the test raw TX
       self.assertEqual(actualDD['locktime'], 0)
       self.assertEqual(actualDD['version'], 1)
       self.assertEqual(actualDD['vin'][0]['sequence'], 4294967295L)
       self.assertEqual(actualDD['vin'][0]['scriptSig']['hex'], '')
-      # self.assertEqual(actualDD['vin'][0]['scriptSig']['asm'], '') - NOT IMPLEMENTED
+      self.assertEqual(actualDD['vin'][0]['scriptSig']['asm'], '')
       self.assertEqual(actualDD['vin'][0]['vout'], 1201)
       self.assertEqual(actualDD['vin'][0]['txid'], 'e450dc7394f8432d89c68d0df6a5506cb81eac60c977bfc7932633aaf835a31f')
       self.assertEqual(actualDD['vin'][1]['vout'], 294)
       self.assertEqual(actualDD['vin'][1]['txid'], '8867f0f84e80588ed00a05e604487442546ef42ab4c93445a09b00a6d487e74b')
       self.assertEqual(actualDD['vout'][0]['value'], 0.0001944)
       self.assertEqual(actualDD['vout'][0]['n'], 0)
-      # self.assertEqual(actualDD['vout'][0]['scriptPubKey']['reqSigs'], 1) - NOT IMPLEMENTED
-      self.assertEqual(actualDD['vout'][0]['scriptPubKey']['hex'], 'ac8897c7f8fad00931f5e5db239202aaf8c10fec17be14a976')
-      # self.assertEqual(actualDD['vout'][0]['scriptPubKey']['addresses'], ['mxr5Le3bt7dfbFqmpK6saUYPt5xtcDB7Yw']) - NOT IMPLEMENTED
-      # self.assertEqual(actualDD['vout'][0]['scriptPubKey']['asm'], 'OP_DUP OP_HASH160 be17ec0fc1f8aa029223dbe5f53109d0faf8c797 OP_EQUALVERIFY OP_CHECKSIG') - NOT IMPLEMENTED
-      self.assertEqual(actualDD['vout'][0]['scriptPubKey']['type'], 'pubkeyhash')
-      self.assertEqual(actualDD['vout'][1]['scriptPubKey']['type'], 'pubkeyhash')
-      self.assertEqual(actualDD['vout'][2]['scriptPubKey']['type'], 'nonstandard')
+      self.assertEqual(actualDD['vout'][0]['scriptPubKey']['reqSigs'], 1)
+      self.assertEqual(actualDD['vout'][0]['scriptPubKey']['hex'], '76a914be17ec0fc1f8aa029223dbe5f53109d0faf8c79788ac')
+      self.assertEqual(actualDD['vout'][0]['scriptPubKey']['addresses'], ['mxr5Le3bt7dfbFqmpK6saUYPt5xtcDB7Yw'])
+      self.assertEqual(actualDD['vout'][0]['scriptPubKey']['asm'], 'OP_DUP OP_HASH160 [PUSHDATA -- 20 BYTES:] be17ec0fc1f8aa029223dbe5f53109d0faf8c797 OP_EQUALVERIFY OP_CHECKSIG')
+      self.assertEqual(actualDD['vout'][0]['scriptPubKey']['type'][0], 'pubkeyhash')
+      self.assertEqual(actualDD['vout'][1]['scriptPubKey']['type'][0], 'pubkeyhash')
+      self.assertEqual(actualDD['vout'][2]['scriptPubKey']['type'][0], 'nonstandard')
       
       
    def testDumpprivkey(self):

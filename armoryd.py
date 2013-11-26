@@ -58,7 +58,7 @@ import socket
 # Some non-twisted json imports from jgarzik's code and his UniversalEncoder
 import json
 from   jsonrpc import ServiceProxy
-from utilities.ArmoryUtils import base58_to_binary
+from utilities.ArmoryUtils import base58_to_binary, binary_to_base58
 class UniversalEncoder(json.JSONEncoder):
     def default(self, obj):
         if isinstance(obj, decimal.Decimal):
@@ -114,16 +114,23 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       self.wallet.importExternalAddressData(PRIVATE_KEY=privkey)
 
    #############################################################################
-   def jsonrpc_getrawtransaction(self, txHash):
+   def jsonrpc_getrawtransaction(self, txHash, verbose=0):
       rawTx = None
       cppTx = TheBDM.getTxByHash(hex_to_binary(txHash))
       if cppTx.isInitialized():
          txBinary = cppTx.serialize()
          pyTx = PyTx().unserialize(txBinary)
-         rawTx = pyTx.serialize()
+         rawTx = binary_to_hex(pyTx.serialize())
+         if verbose:
+            result = self.jsonrpc_decoderawtransaction(rawTx)
+            result['hex'] = rawTx
+         else:
+            result = rawTx
       else:    
          LOGERROR('Tx hash not recognized by TheBDM: %s' % binary_to_hex(txHash))
-      return rawTx
+         result = None
+
+      return result
    
    #############################################################################
    def jsonrpc_gettxout(self, txHash, n):
@@ -154,9 +161,9 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
    #############################################################################
 
-   def getTxOutScriptType(self, pyTx, n):
-      if len(pyTx.outputs[n].binScript) > 0: 
-         typeNumber = getTxOutScriptType(pyTx.outputs[n].binScript)
+   def getTxOutScriptType(self, binScript):
+      if len(binScript) > 0: 
+         typeNumber = getTxOutScriptType(binScript)
          scriptType = 'pubkeyhash' if typeNumber == TXOUT_SCRIPT_STANDARD else \
                       'multisig' if typeNumber == TXOUT_SCRIPT_MULTISIG else \
                       'coinbase' if typeNumber == TXOUT_SCRIPT_COINBASE else \
@@ -164,6 +171,19 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       else:
          scriptType = 'nonstandard'
       return scriptType
+   
+   def getScriptPubKey(self, txOut):
+      opStringList = convertScriptToOpStrings(txOut.binScript)
+      scriptType = self.getTxOutScriptType(txOut.binScript),
+      multiSigType, addr160List, pub65List = getTxOutMultiSigInfo(txOut.binScript)
+      addr160List = [hash160_to_addrStr(binStr) for binStr in addr160List]
+      reqSigs = opnames.index(opStringList[0])-OP_1+1 if len(addr160List) > 1 else 1
+      return { 'asm' : ' '.join(convertScriptToOpStrings(txOut.binScript)),
+                  'hex' : binary_to_hex(txOut.binScript),
+                  'reqSigs' : reqSigs,
+                  'type' : scriptType,
+                  'addresses' : addr160List
+                  }
 
    def jsonrpc_decoderawtransaction(self, hexString):
       pyTx = PyTx().unserialize(hex_to_binary(hexString))
@@ -175,19 +195,17 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
                          'txid' : binary_to_hex(txIn.outpoint.txHash, BIGENDIAN),
                          'vout' : txIn.outpoint.txOutIndex,
                          'scriptSig' : { \
-                                        'asm' : NOT_IMPLEMENTED,
+                                        'asm' : binary_to_hex(txIn.binScript[1:]),
                                         'hex' : binary_to_hex(txIn.binScript)},
-                         'sequence' : txIn.intSeq}  for txIn in pyTx.inputs],
+                         'sequence' : txIn.intSeq} if not getTxInScriptType(txIn) == TXIN_SCRIPT_COINBASE else
+                                       {\
+                                        'coinbase' : binary_to_hex(txIn.binScript),
+                                        'sequence' : txIn.intSeq
+                                        }  for txIn in pyTx.inputs],
                 'vout' : [{ \
                            'value' : AmountToJSON(pyTx.outputs[n].value),
                            'n' : n,
-                           'scriptPubKey' : { \
-                                             'asm' : NOT_IMPLEMENTED,
-                                             'hex' : binary_to_hex(pyTx.outputs[n].binScript, BIGENDIAN),
-                                             'reqSigs' : NOT_IMPLEMENTED,
-                                             'type' : self.getTxOutScriptType(pyTx, n),
-                                             'addresses' : NOT_IMPLEMENTED
-                                             }
+                           'scriptPubKey' : self.getScriptPubKey(pyTx.outputs[n])
                            } for n in range(len(pyTx.outputs))]
                 
                 }
