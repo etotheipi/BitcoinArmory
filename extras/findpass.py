@@ -1,13 +1,13 @@
 '''
 Created on Aug 30, 2013
 
-@author: Andy Ofiesh
+@author: Andy
 '''
-import sys
-sys.argv.append('--nologging')
-from sys import path, argv
+from sys import path
 import os
-from armoryengine import PyBtcWallet, RightNow
+
+from armoryengine import PyBtcWallet
+from utilities.ArmoryUtils import RightNow
 from CppBlockUtils import SecureBinaryData
 from operator import add, mul
 # Give an upper limit for any method to return
@@ -135,14 +135,14 @@ class PasswordFinder(object):
          yield ''
          
    # Generates passwords from segs in segList
-   #     Example Input: [['Andy','b','c'],['1','2'],['!']]
+   #     Example Input: [['a','b','c'],['1','2'],['!']]
    # The segOrdList contains a list of ordered 
    # permutations of the segList:
    #     Example Input: [[0,1,2],[2,0,1,],[0,1]]
    # Yields one password at a time until all permutations are exhausted
-   #     Example: Andy1!, Andy2!, b1!, b2!, c1!, c2!,
-   #              !Andy1, !Andy2, !b1, !b2, !c1, !c2,
-   #              Andy1, Andy2, b1, b2, c1, c2
+   #     Example: a1!, a2!, b1!, b2!, c1!, c2!,
+   #              !a1, !a2, !b1, !b2, !c1, !c2,
+   #              a1, a2, b1, b2, c1, c2
    # The above example is a test case found in test/FindPassTest.py
    def passwordGenerator(self, segList, segOrdList):
       for segOrd in segOrdList:
@@ -187,64 +187,10 @@ class PasswordFinder(object):
          print 'Sorry, none of the provided passphrases were correct :('
          print ''
       return result
-
-# Print help mess if less than 3 args:
-#  arg[0] = script path
-#  arg[1] = wallet path provided on command line
-#  arg[2] = --nologging flag appended at beginning of script
-if len(argv)<3:
+'''
+if len(argv)<2:
    print '***USAGE: '
    print '    %s /path/to/wallet/file.wallet' % argv[0]
    exit(0)
-passwordFinder = PasswordFinder(walletPath=argv[1])
-
-############################################################
-# User Specific Code is below. Only modify after this line
-############################################################
-
-
-# Here are all of the segment types that could possibly appear in the password
-# Use KnownSeg if you know the exact characters that make up a segment
-# Use UnknownCaseSeg if you know the characters but not the case of the letters (a-z)
-# Use UnknownSeg when you know what characters are in the segment,
-#         but not the order nor the exact length
-
-# This example below is based on this scenario:
-# I know that my password begins with hello, not sure if it's capitalized or not
-# I always put some numbers at the end either an old address or birthday
-# I never use 0 because I get it confused with the letter O
-
-segment0 = UnknownCaseSeg("h")          # Not sure of the case of the first letter
-segment1 = KnownSeg("ello")             # definitely starts with hello
-segment2 = UnknownSeg("123456789",minLen=2,maxLen=3)  # former address 2 or 3 no zeros
-segment3 = KnownSeg("5/9/71")           # My birthday
-segment4 = KnownSeg("11/30/46")         # mom's birthday
-
-# I hope your passwords are better than mine ;)
-
-segmentList = [segment0.getSegList(),
-               segment1.getSegList(),
-               segment2.getSegList(),
-               segment3.getSegList(),
-               segment4.getSegList()]
-
-# Specify all of the combinations of segments to search
-# in this example there are 5 possible segments enumerated from 0 to 4
-segmentOrderList = [[0,1],     # maybe I got lazy and just used hello
-                    [0,1,2],   # hello then an old address
-                    [0,1,3],   # hello + my birtday
-                    [0,1,4]]   # hello + mom's birthday
-
-passwordFinder.searchForPassword(segmentList, segmentOrderList)
-
-# To run this script first download it and save it in the base directory of
-# Armory repository from git. On my computer it is at C:\Users\Andy\BitcoinArmory
-# Open a command line and go to the above folder and execute:
-# python findpass.py <path to your wallet file> 
-# On my computer I would run:
-# python findpass.py C:\Users\Andy\AppData\Roaming\Armory\armory_dUSL3JyD_.wallet
-# or I might just move the wallet file to the same directory and just type:
-# python findpass.py armory_dUSL3JyD_.wallet
-
-
-
+passwordFinder = PasswordFinder(argv[1])
+'''

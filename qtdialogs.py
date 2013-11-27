@@ -18,6 +18,7 @@ from armoryengine import *
 from armorymodels import *
 from armorycolors import Colors, htmlColor
 import qrc_img_resources
+from extras.findpass import PasswordFinder
 
 MIN_PASSWD_WIDTH = lambda obj: tightSizeStr(obj, '*'*16)[0]
 
@@ -952,6 +953,7 @@ class DlgWalletDetails(ArmoryDialog):
       lbtnForkWlt = QLabelButton('Create Watching-Only Copy')
       lbtnBackups = QLabelButton('<b>Backup This Wallet</b>')
       lbtnRemove  = QLabelButton('Delete/Remove Wallet')
+      lbtnRecover  = QLabelButton('Recover Password Wallet')
 
       #LOGERROR('remove me!')
       #fnfrag = lambda: DlgFragBackup(self, self.main, self.wlt).exec_()
@@ -965,6 +967,7 @@ class DlgWalletDetails(ArmoryDialog):
       self.connect(lbtnImportA, SIGNAL('clicked()'), self.execImportAddress)
       self.connect(lbtnDeleteA, SIGNAL('clicked()'), self.execDeleteAddress)
       self.connect(lbtnForkWlt, SIGNAL('clicked()'), self.forkOnlineWallet)
+      self.connect(lbtnRecover, SIGNAL('clicked()'), self.recoverPwd)
 
       lbtnSendBtc.setToolTip('<u></u>Send bitcoins to other users, or transfer '
                              'between wallets')
@@ -992,6 +995,8 @@ class DlgWalletDetails(ArmoryDialog):
       lbtnRemove.setToolTip('<u></u>Permanently delete this wallet, or just delete '
                             'the private keys to convert it to a watching-only '
                             'wallet.')
+      lbtnRecover.setToolTip('<u></u>Attempt to recover a lost password using '
+                            'details that you remember.')
       if not self.wlt.watchingOnly:
          lbtnChangeCrypto.setToolTip('<u></u>Add/Remove/Change wallet encryption settings.')
 
@@ -1017,6 +1022,8 @@ class DlgWalletDetails(ArmoryDialog):
       if hasPriv:           optLayout.addWidget(lbtnBackups)
       if hasPriv and adv:   optLayout.addWidget(lbtnForkWlt)
       if True:              optLayout.addWidget(lbtnRemove)
+      #if True:              optLayout.addWidget(lbtnRecover)
+      # Not sure yet that we want to include the password finer in here
 
       if hasPriv and adv:  optLayout.addWidget(createVBoxSeparator())
 
@@ -1513,7 +1520,10 @@ class DlgWalletDetails(ArmoryDialog):
       self.wlt.forkOnlineWallet(saveLoc, self.wlt.labelName, \
                              '(Watching-Only) ' + self.wlt.labelDescr)
    
-         
+      
+   def recoverPwd(self):
+      passwordFinder = PasswordFinder(wallet = self.wlt)
+            
          
 
 
@@ -9582,7 +9592,6 @@ class DlgAddressBook(ArmoryDialog):
       self.setAddrBookTxModel(defaultWltID)
       self.connect(self.addrBookTxView, SIGNAL('doubleClicked(QModelIndex)'), \
                    self.dblClickAddressTx)
-
       self.addrBookTxView.setContextMenuPolicy(Qt.CustomContextMenu)
       self.addrBookTxView.customContextMenuRequested.connect(self.showContextMenuTx)
 

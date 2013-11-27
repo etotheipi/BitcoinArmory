@@ -370,6 +370,7 @@ inline unsigned long long int NowTimeInt(void)
    time(&t);
    return (unsigned long long int)t;
 }
+
 #else
 
 #include <sys/time.h>
