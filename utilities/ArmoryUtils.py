@@ -24,6 +24,7 @@ import platform
 import sys
 import time
 import traceback
+import threading
 
 parser = optparse.OptionParser(usage="%prog [options]\n")
 parser.add_option("--settings",        dest="settingsPath",default='DEFAULT', type="str",          help="load Armory with a specific settings file")
