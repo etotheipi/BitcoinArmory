@@ -5,19 +5,43 @@
 # See LICENSE or http://www.gnu.org/licenses/agpl.html                         #
 #                                                                              #
 ################################################################################
-from CppBlockUtils import KdfRomix, CryptoECDSA, CryptoAES, SecureBinaryData
+import Queue
+import ast
+import copy
 from datetime import datetime
-from jsonrpc import ServiceProxy, authproxy
+import hashlib
+import inspect
+import locale
+import logging
+import logging.handlers
+import math
+import multiprocessing
+import os
+import platform
+import platform
+import random
+import shutil
+import signal
+import socket
+import stat
+import string
 from struct import pack, unpack
 from subprocess import Popen, PIPE
 from sys import argv
-from utilities.BinaryPacker import BinaryPacker
-from utilities.BinaryUnpacker import BinaryUnpacker
-from utilities.Timer import Timer, TimeThisFunction
+import sys
+import threading
+import time
+import traceback
+import types
+
+import psutil
+
+from CppBlockUtils import KdfRomix, CryptoECDSA, CryptoAES, SecureBinaryData
+from jsonrpc import ServiceProxy, authproxy
 from utilities.ArmoryUtils import ARMORY_HOME_DIR, LEVELDB_DIR, ARMORY_RPC_PORT, \
-   toPreferred, OS_NAME, OS_VARIANT, BTC_HOME_DIR, getVersionString, \
-   USER_HOME_DIR, ARMORY_LOG_FILE, LOGINFO, OS_WINDOWS, LOGWARN, OS_LINUX, RightNow, \
-   LOGEXCEPT, LOGERROR, OS_MACOSX, NETWORKS, RightNowUTC, UINT32_MAX, hash256, \
+   toPreferred, OS_NAME, OS_VARIANT, BTC_HOME_DIR, getVersionString, USER_HOME_DIR, \
+   ARMORY_LOG_FILE, LOGINFO, OS_WINDOWS, LOGWARN, OS_LINUX, RightNow, LOGEXCEPT, \
+   LOGERROR, OS_MACOSX, NETWORKS, RightNowUTC, UINT32_MAX, hash256, \
    binary_to_base58, KeyDataError, convertKeyDataToAddress, verifyChecksum, \
    binary_to_int, int_to_binary, LOGDEBUG, computeChecksum, bitset_to_int, \
    int_to_bitset, hash160_to_addrStr, BIGENDIAN, BadAddressError, checkAddrStrValid, \
@@ -29,35 +53,18 @@ from utilities.ArmoryUtils import ARMORY_HOME_DIR, LEVELDB_DIR, ARMORY_RPC_PORT,
    NETWORKENDIAN, unixTimeToFormatStr, LOGRAWDATA, isASCII, GIGABYTE, HOUR, toBytes, \
    toUnicode, enum, MT_WAIT_TIMEOUT_SEC, packVarInt, MAGIC_BYTES, CLI_OPTIONS, \
    CLI_ARGS, BITCOIN_PORT, ADDRBYTE, LOGCRIT, BITCOIN_RPC_PORT, GENESIS_BLOCK_HASH, \
-   GENESIS_TX_HASH, SETTINGS_PATH, getVersionInt, readVersionInt, readVersionString,\
-   Hash160ToScrAddr, ARMORY_DB_BARE, DB_PRUNE_NONE, CheckHash160
-from utilities.BinaryPacker import UINT8, UINT16, UINT32, UINT64, INT8, INT16, \
-   INT32, INT64, VAR_INT, VAR_STR, FLOAT, BINARY_CHUNK
-from utilities.BinaryUnpacker import UnpackerError
-import Queue
-import ast
-import copy
-import hashlib
-import inspect
-import locale
-import logging
-import logging.handlers
-import math
-import multiprocessing
-import os
-import platform
-import psutil
-import random
-import shutil
-import signal
-import socket
-import stat
-import string
-import sys
-import threading
-import time
-import traceback
-import types
+   GENESIS_TX_HASH, SETTINGS_PATH, getVersionInt, readVersionInt, readVersionString, \
+   Hash160ToScrAddr, ARMORY_DB_BARE, DB_PRUNE_NONE, CheckHash160, HMAC256, \
+   ChecksumError, WalletLockError, createSigScript, UnserializeError, \
+   UnitializedBlockDataError, VerifyScriptError, BlockchainUnavailableError, \
+   SignatureError, NetworkIDError, MEGABYTE, HMAC512, base58_to_binary, \
+   EncryptionError, WalletAddressError, PassphraseError, \
+   FileExistsError, InterruptTestError, ConnectionError, PyBackgroundThread
+from utilities.BinaryPacker import BinaryPacker, UINT8, UINT16, UINT32, UINT64, \
+   INT8, INT16, INT32, INT64, VAR_INT, VAR_STR, FLOAT, BINARY_CHUNK
+from utilities.BinaryUnpacker import BinaryUnpacker, UnpackerError
+from utilities.Timer import Timer, TimeThisFunction
+
 
 # Version Numbers 
 BTCARMORY_VERSION    = (0, 90,  0, 0)  # (Major, Minor, Bugfix, AutoIncrement) 
@@ -102,7 +109,6 @@ except:
 
 
 # Get the host operating system
-import platform
 opsys = platform.system()
 OS_WINDOWS = 'win32'  in opsys.lower() or 'windows' in opsys.lower()
 OS_LINUX   = 'nix'    in opsys.lower() or 'nux'     in opsys.lower()
@@ -247,6 +253,12 @@ if sys.argv[0]=='ArmoryQt.py':
    print '   Armory log file       :', ARMORY_LOG_FILE
 
 
+def getCurrTimeAndBlock():
+   time0 = long(RightNowUTC())
+   if TheBDM.getBDMState()=='BlockchainReady':
+      return (time0, TheBDM.getTopBlockHeight())
+   else:
+      return (time0, UINT32_MAX)
 
 ################################################################################
 def launchProcess(cmd, useStartInfo=True, *args, **kwargs):

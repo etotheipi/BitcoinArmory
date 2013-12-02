@@ -48,6 +48,7 @@ parser.add_option("--skip-version-check", dest="skipVerCheck", default=False, ac
 parser.add_option("--keypool",         dest="keypool",     default=100, type="int",                help="Default number of addresses to lookahead in Armory wallets")
 parser.add_option("--rebuild",         dest="rebuild",     default=False,     action="store_true", help="Rebuild blockchain database and rescan")
 parser.add_option("--rescan",          dest="rescan",      default=False,     action="store_true", help="Rescan existing blockchain DB")
+parser.add_option("--maxfiles",        dest="maxOpenFiles",default=0,         type="int",          help="Set maximum allowed open files for LevelDB databases")
 
 # These are arguments passed by running unit-tests that need to be handled
 parser.add_option("--port", dest="port", default=None, type="int", help="Unit Test Argument - Do not consume")
@@ -651,16 +652,6 @@ DB_PRUNE_ALL, DB_PRUNE_NONE = range(2)
 RightNow = time.time
 def RightNowUTC():
    return time.mktime(time.gmtime(RightNow()))
-
-
-def getCurrTimeAndBlock():
-   time0 = long(RightNowUTC())
-   if TheBDM.getBDMState()=='BlockchainReady':
-      return (time0, TheBDM.getTopBlockHeight())
-   else:
-      return (time0, UINT32_MAX)
-
-
 
 # Define all the hashing functions we're going to need.  We don't actually
 # use any of the first three directly (sha1, sha256, ripemd160), we only

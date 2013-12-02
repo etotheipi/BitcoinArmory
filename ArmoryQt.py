@@ -932,9 +932,9 @@ class ArmoryMainWindow(QMainWindow):
             val,code = QueryValueEx(registryKey, '')
             if 'armory' in val.lower():
                if val.lower()==modulepathname.lower():
-               LOGINFO('Armory already registered for current user.  Done!')
-               return
-            else:
+                  LOGINFO('Armory already registered for current user.  Done!')
+                  return
+               else:
                   action = 'DoIt' #armory is registered, but to another path
             else:
                # Already set to something (at least created, which is enough)
@@ -1906,7 +1906,7 @@ class ArmoryMainWindow(QMainWindow):
                if os.path.exists(mempoolfile):
                   os.remove(mempoolfile)
             else: 
-            self.checkMemoryPoolCorruption(mempoolfile)
+               self.checkMemoryPoolCorruption(mempoolfile)
             TheBDM.enableZeroConf(mempoolfile)
             self.memPoolInit = True
 
@@ -5005,7 +5005,7 @@ def checkForAlreadyOpen():
 
       if OS_WINDOWS:
          # Windows can be tricky, sometimes holds sockets even after closing
-      checkForAlreadyOpenError()
+         checkForAlreadyOpenError()
 
       LOGERROR('Socket already in use.  Sending CLI args to existing proc.')
       if CLI_ARGS:
@@ -5036,7 +5036,7 @@ def checkForAlreadyOpenError():
       if bexe in proc.name:
          LOGINFO('Found bitcoind PID: %d', proc.pid)
          if ('testnet' in proc.name) == USE_TESTNET:
-         bitcoindExists.append(proc.pid)
+            bitcoindExists.append(proc.pid)
 
    if len(armoryExists)>0:
       LOGINFO('Not an error!  Armory really is open')
