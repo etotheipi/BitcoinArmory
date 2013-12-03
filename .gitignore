@@ -35,3 +35,5 @@ cppForSwig
 /qrc_img_resources.py
 /.project
 /.pydevproject
+/.settings
+/*.wallet
