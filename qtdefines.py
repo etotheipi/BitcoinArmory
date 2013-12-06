@@ -5,12 +5,16 @@
 # See LICENSE or http://www.gnu.org/licenses/agpl.html                         #
 #                                                                              #
 ################################################################################
-from utilities.ArmoryUtils import *
-from armoryengine import *
-from PyQt4.QtCore import *
-from PyQt4.QtGui  import *
-from armorycolors import Colors, htmlColor
+import struct
 from tempfile import mkstemp
+
+from PyQt4.QtCore import *
+from PyQt4.QtGui import *
+
+from armorycolors import Colors, htmlColor
+from armoryengine.ArmoryUtils import *
+from armoryengine.BinaryUnpacker import BinaryUnpacker
+
 
 SETTINGS_PATH   = os.path.join(ARMORY_HOME_DIR, 'ArmorySettings.txt')
 USERMODE        = enum('Standard', 'Advanced', 'Expert')

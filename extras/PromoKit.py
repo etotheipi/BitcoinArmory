@@ -7,18 +7,29 @@
 ################################################################################
 
 from getpass import getpass
+import os
 import sys
+import time
+
+from PyQt4.QtGui import *
+from pywin.scintilla import view
+
+from CppBlockUtils import SecureBinaryData
+from armoryengine import *
+from armoryengine.ArmoryUtils import makeSixteenBytesEasy, NegativeValueError, \
+   WalletAddressError, MIN_RELAY_TX_FEE, LOGINFO
+from armoryengine.BDM import TheBDM
+from armoryengine.CoinSelection import calcMinSuggestedFees, PySelectCoins
+from armoryengine.Transaction import PyTxDistProposal
+from qtdefines import GETFONT, tr
+from qtdialogs import SimplePrintableGraphicsScene
+
+
 # Must move and clear the Args list before importing anything
 # Otherwise it will process the args for this script.
 promoKitArgList = sys.argv
 # Clear and add --testnet unless you are running this on main net
 sys.argv = sys.argv[:1]
-from armoryengine import *
-from pywin.scintilla import view
-from PyQt4.QtGui import *
-from qtdefines import GETFONT, tr
-from qtdialogs import SimplePrintableGraphicsScene
-from utilities.ArmoryUtils import makeSixteenBytesEasy, NegativeValueError
    
 sys.path.append('..')
 sys.path.append('.')
@@ -213,7 +224,8 @@ def distributeBtc(masterWallet, amount, sendingAddrList):
       print '\nSigned transaction to be broadcast using Armory "offline transactions"...'
       print txdp.serializeAscii()
    finally:
-      TheBDM.execCleanShutdown()
+      TheBDM.Reset()
+      TheBDM.execCleanShutdown(wait=False)
    return pytx
 
 def setupTheBDM():
@@ -275,9 +287,9 @@ pytx = distributeBtc(masterWallet, 10000, masterWallet.getLinearAddrList(withImp
 
 # Show help whenever the args are not correct
 def printHelp():
-   print 'USAGE: %s --create <master wallet file path> <number of promo wallets> <addrs per promo wallet> <promo wallet label>' % argv[0]
-   print '   or: %s --distribute <master wallet file path> <satoshis per addr>' % argv[0]
-   print '   or: %s --sweep <master wallet file path>' % argv[0]
+   print 'USAGE: %s --create <master wallet file path> <number of promo wallets> <addrs per promo wallet> <promo wallet label>' % sys.argv[0]
+   print '   or: %s --distribute <master wallet file path> <satoshis per addr>' % sys.argv[0]
+   print '   or: %s --sweep <master wallet file path>' % sys.argv[0]
    exit(0)
    
 # Main execution path

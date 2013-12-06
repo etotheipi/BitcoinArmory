@@ -14,7 +14,7 @@ from jasvet import ASv0, ASv1B64, ASv1CS, verifySignature, readSigBlock
 from qtdefines import *
 from qtdialogs import MIN_PASSWD_WIDTH, DlgPasswd3, createAddrBookButton,\
    DlgUnlockWallet
-from armoryengine import isASCII
+from armoryengine.ArmoryUtils import isASCII
 
 class MessageSigningVerificationDialog(ArmoryDialog):
 

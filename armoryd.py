@@ -40,25 +40,43 @@
 # https://bitcointalk.org/index.php?topic=92496.0
 #####
 
-from twisted.internet import reactor
-from twisted.web import server
-from txjsonrpc.web import jsonrpc
-from txjsonrpc.auth import wrapResource
-from twisted.cred.checkers import FilePasswordDB
-
-from armoryengine import *
-
 import datetime
 import decimal
+import json
 import os
+import random
+import socket
 import sys
 import time
-import socket
+
+from twisted.cred.checkers import FilePasswordDB
+from twisted.internet import reactor
+from twisted.web import server
+from txjsonrpc.auth import wrapResource
+from txjsonrpc.web import jsonrpc
+
+from CppBlockUtils import SecureBinaryData
+from armoryengine.ArmoryUtils import ARMORY_HOME_DIR, hex_to_binary, \
+   binary_to_hex, LOGERROR, hash160_to_addrStr, BIGENDIAN, checkAddrStrValid, \
+   addrStr_to_hash160, CLI_OPTIONS, getVersionInt, BTCARMORY_VERSION, \
+   PYBTCWALLET_VERSION, USE_TESTNET, CLI_ARGS, LOGINFO, ARMORY_RPC_PORT, coin2str, \
+   BITCOIN_PORT, RightNow, base58_to_binary, binary_to_base58
+from armoryengine.BDM import TheBDM
+from armoryengine.BinaryPacker import UINT64
+from armoryengine.BinaryUnpacker import BinaryUnpacker
+from armoryengine.Block import PyBlockHeader
+from armoryengine.CoinSelection import PySelectCoins, calcMinSuggestedFees
+from armoryengine.Networking import ArmoryClientFactory
+from armoryengine.PyBtcWallet import BLOCKCHAIN_READONLY, PyBtcWallet
+from armoryengine.Script import convertScriptToOpStrings
+from armoryengine.Transaction import PyTx, getTxOutScriptType, \
+   TXOUT_SCRIPT_STANDARD, TXOUT_SCRIPT_MULTISIG, TXOUT_SCRIPT_COINBASE, \
+   getTxOutMultiSigInfo, opnames, OP_1, getTxInScriptType, TXIN_SCRIPT_COINBASE, \
+   getFeeForTx, determineSentToSelfAmt, PyTxDistProposal
+from jsonrpc import ServiceProxy
+
 
 # Some non-twisted json imports from jgarzik's code and his UniversalEncoder
-import json
-from   jsonrpc import ServiceProxy
-from utilities.ArmoryUtils import base58_to_binary, binary_to_base58
 class UniversalEncoder(json.JSONEncoder):
     def default(self, obj):
         if isinstance(obj, decimal.Decimal):
@@ -993,8 +1011,8 @@ class Armory_Daemon(object):
                for blknum in range(prevTopBlock+1, self.latestBlockNum+1):
                   cppHeader = TheBDM.getHeaderByHeight(blknum)
                   txHashToPy = lambda h: PyTx().unserialize(TheBDM.getTxByHash(h).serialize())
-                  pyHeader = PyBlockHeader().unserialize(header.serialize())
-                  pyTxList = [txHashToPy(hsh) for hsh in header.getTxHashList()]
+                  pyHeader = PyBlockHeader().unserialize(cppHeader.serialize())
+                  pyTxList = [txHashToPy(hsh) for hsh in cppHeader.getTxHashList()]
                   for blockFunc in self.newBlockFunctions:
                      blockFunc(pyHeader, pyTxList)
 

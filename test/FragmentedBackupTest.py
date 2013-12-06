@@ -6,7 +6,7 @@
 #                                                                              #
 ################################################################################
 import sys
-from utilities.ArmoryUtils import SplitSecret, binary_to_hex, ReconstructSecret,\
+from armoryengine.ArmoryUtils import SplitSecret, binary_to_hex, ReconstructSecret,\
    FiniteFieldError
 import itertools
 sys.argv.append('--nologging')

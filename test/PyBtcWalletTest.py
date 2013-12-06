@@ -3,16 +3,20 @@ Created on Aug 14, 2013
 
 @author: Andy
 '''
-import sys
-import shutil
-sys.argv.append('--nologging')
-import unittest
-from utilities.ArmoryUtils import USE_TESTNET, convertKeyDataToAddress, hash256,\
-   binary_to_hex, hex_to_binary, CLI_OPTIONS
-from armoryengine import ARMORY_HOME_DIR, PyBtcWallet, WalletAddressError,\
-   InterruptTestError, BLOCKCHAIN_READONLY, WalletLockError
 import os
+import shutil
+import sys
+import unittest
+
 from CppBlockUtils import SecureBinaryData
+from armoryengine.ArmoryUtils import USE_TESTNET, convertKeyDataToAddress, \
+   hash256, binary_to_hex, hex_to_binary, CLI_OPTIONS, ARMORY_HOME_DIR, \
+   WalletLockError, InterruptTestError
+from armoryengine.PyBtcWallet import PyBtcWallet
+
+
+sys.argv.append('--nologging')
+
 
 WALLET_ROOT_ADDR = '5da74ed60a43a7ff11f0ba56cb0192b03518cc56'
 NEW_UNUSED_ADDR = 'fb80e6fd042fa24178b897a6a70e1ae7eb56a20a'
@@ -92,7 +96,7 @@ class PyBtcWalletTest(unittest.TestCase):
       #############################################################################
       # (2)Testing unencrypted wallet import-address'
       originalLength = len(self.wlt.linearAddr160List)
-      self.wlt.importExternalAddressData(PRIVATE_KEY=self.privKey2)
+      self.wlt.importExternalAddressData(privKey=self.privKey2)
       self.assertEqual(len(self.wlt.linearAddr160List), originalLength+1)
       
       # (2) Re-reading wallet from file, compare the two wallets
@@ -109,7 +113,7 @@ class PyBtcWalletTest(unittest.TestCase):
    
       # (2a) Reimporting address for remaining tests
       # Wallet size before reimport:',  os.path.getsize(self.wlt.walletPath)
-      self.wlt.importExternalAddressData(PRIVATE_KEY=self.privKey2)
+      self.wlt.importExternalAddressData(privKey=self.privKey2)
       self.assertEqual(len(self.wlt.linearAddr160List), originalLength+1)
       
    
@@ -127,12 +131,12 @@ class PyBtcWalletTest(unittest.TestCase):
                                           shortLabel=self.shortlabel)
       
       #  We should have thrown an error about importing into a  locked wallet...
-      self.assertRaises(WalletLockError, wltE.importExternalAddressData, PRIVATE_KEY=self.privKey2)
+      self.assertRaises(WalletLockError, wltE.importExternalAddressData, privKey=self.privKey2)
 
 
    
       wltE.unlock(securePassphrase=self.passphrase2)
-      wltE.importExternalAddressData(PRIVATE_KEY=self.privKey2)
+      wltE.importExternalAddressData(privKey=self.privKey2)
    
       # (2b) Re-reading wallet from file, compare the two wallets
       wlt2 = PyBtcWallet().readWalletFile(wltE.walletPath)

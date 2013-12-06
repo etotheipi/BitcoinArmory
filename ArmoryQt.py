@@ -7,41 +7,62 @@
 #                                                                              #
 ################################################################################
 
+from datetime import datetime
 import hashlib
-import random
-import time
-import os
-import sys
-import shutil
+import logging
 import math
-import threading
+import os
 import platform
-import traceback
+import random
+import shutil
+import signal
 import socket
 import subprocess
-import psutil
-import signal
+import sys
+import threading
+import time
+import traceback
 import webbrowser
-from datetime import datetime
 
-# PyQt4 Imports
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *
-
-# Over 20,000 lines of python to help us out
-from armoryengine import *
-from armorymodels import *
-from qtdialogs    import *
-from qtdefines    import *
-from armorycolors import Colors, htmlColor, QAPP
-
-import qrc_img_resources
-
-# All the twisted/networking functionality
-from twisted.internet.protocol import Protocol, ClientFactory
+import psutil
 from twisted.internet.defer import Deferred
-from dialogs.toolsDialogs import MessageSigningVerificationDialog
+from twisted.internet.protocol import Protocol, ClientFactory
 
+from armorycolors import Colors, htmlColor, QAPP
+from armoryengine.ArmoryUtils import OS_WINDOWS, RightNow, CLI_OPTIONS, \
+   SettingsFile, LOGINFO, USE_TESTNET, getVersionString, BTCARMORY_VERSION, LOGWARN, \
+   OS_MACOSX, enum, CLI_ARGS, ARMORY_HOME_DIR, LOGERROR, LOGDEBUG, AllowAsync, \
+   execAndWait, OS_LINUX, binary_to_hex, DEFAULT_DATE_FORMAT, hex_to_binary, \
+   unixTimeToFormatStr, getVersionInt, readVersionString, ECDSA_Error, LOGEXCEPT, \
+   BTC_HOME_DIR, BITCOIN_PORT, parseBitcoinURI, checkAddrType, base58_to_binary, \
+   ADDRBYTE, NETWORKS, coin2str, addrStr_to_hash160, WalletExistsError, \
+   CheckHash160, Hash160ToScrAddr, LOGRAWDATA, LOGPPRINT, BIGENDIAN, \
+   hex_switchEndian, ARMORY_LOG_FILE, OS_VARIANT, killProcess, \
+   EstimateCumulativeBlockchainSize, secondsToHumanTime, MINUTE, HOUR, BLKFILE_DIR, \
+   hash160_to_addrStr, touchFile
+from armoryengine.BinaryUnpacker import UINT64
+from armoryengine.BDM import *
+from armoryengine.CoinSelection import sumTxOutList, calcMinSuggestedFees
+from armoryengine.Networking import FakeClientFactory, ArmoryClientFactory, \
+   PyMessage, MSG_INV_TX
+from armoryengine.PyBtcWallet import BLOCKCHAIN_READONLY
+from armoryengine.SDM import extractSignedDataFromVersionsDotTxt, parseLinkList, \
+   satoshiIsAvailable
+from armoryengine.Timer import TimeThisFunction
+from armoryengine.Transaction import PyTx, determineSentToSelfAmt, \
+   getUnspentTxOutsForAddr160List, PyCreateAndSignTx
+from armorymodels import *
+from dialogs.toolsDialogs import MessageSigningVerificationDialog
+import qrc_img_resources
+from qtdefines import *
+from qtdialogs import *
+
+
+# PyQt4 Imports
+# Over 20,000 lines of python to help us out
+# All the twisted/networking functionality
 if OS_WINDOWS:
    from _winreg import *
 
@@ -2860,32 +2881,6 @@ class ArmoryMainWindow(QMainWindow):
         hard drive.  This feature is intended for saving to a USB key or
         other removable media."""), QMessageBox.Ok | QMessageBox.Cancel)
       return (reply==QMessageBox.Ok)
-   
-   
-   
-   #############################################################################
-   def execMigrateSatoshi(self):
-      reply = MsgBoxCustom(MSGBOX.Question, 'Wallet Version Warning', \
-           'This wallet migration tool only works with regular Bitcoin wallets '
-           'produced using version 0.5.X and earlier.  '
-           'You can determine the version by '
-           'opening the regular Bitcoin client, then choosing "Help"'
-           '-->"About Bitcoin-Qt" from the main menu.  '
-           '<br><br>'
-           '<b>If you have used your wallet with any version of the regular '
-           'Bitcoin client 0.6.0 or higher, this tool <u>will fail</u></b>.  '
-           'In fact, it is highly recommended that you do not even attempt '
-           'to use the tool on such wallets until it is officially supported '
-           'by Armory.'
-           '<br><br>'
-           'Has your wallet ever been opened in the 0.6.0+ Bitcoin-Qt client?', \
-           yesStr='Yes, Abort!', noStr='No, Carry On!')
-            
-      if reply:
-         return
-
-      DlgMigrateSatoshiWallet(self, self).exec_()
-
 
 
    #############################################################################
@@ -4945,10 +4940,6 @@ class ArmoryMainWindow(QMainWindow):
 
          # This will do nothing if bitcoind isn't running.  
          TheSDM.stopBitcoind()
-
-         # Mostly for my own use, I'm curious how fast various things run
-         if CLI_OPTIONS.doDebug:
-            SaveTimingsCSV( os.path.join(ARMORY_HOME_DIR, 'timings.csv') )
       except:
          # Don't want a strange error here interrupt shutdown 
          LOGEXCEPT('Strange error during shutdown')

@@ -4,12 +4,20 @@ Created on Aug 4, 2013
 @author: Andy
 '''
 import sys
-sys.argv.append('--nologging')
 import unittest
-from armoryengine import hex_to_binary, PyTx, BinaryUnpacker, PyBlock,\
-   binary_to_hex, hex_to_int, PyBtcAddress, PyCreateAndSignTx, PyTxIn,\
-   PyOutPoint, PyTxOut, ONE_BTC, PyScriptProcessor, getTxOutMultiSigInfo,\
-   prettyHex, BlockComponent, TXOUT_SCRIPT_STANDARD
+
+from armoryengine.ArmoryUtils import hex_to_binary, binary_to_hex, hex_to_int, \
+   ONE_BTC
+from armoryengine.BinaryUnpacker import BinaryUnpacker
+from armoryengine.Block import PyBlock
+from armoryengine.PyBtcAddress import PyBtcAddress
+from armoryengine.Script import PyScriptProcessor
+from armoryengine.Transaction import PyTx, PyTxIn, PyOutPoint, PyTxOut, \
+   TXOUT_SCRIPT_STANDARD, PyCreateAndSignTx, getTxOutMultiSigInfo, BlockComponent
+
+
+sys.argv.append('--nologging')
+
 
 # Unserialize an reserialize
 tx1raw = hex_to_binary( \
