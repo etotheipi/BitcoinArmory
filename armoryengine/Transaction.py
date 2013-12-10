@@ -19,9 +19,6 @@ from armoryengine.ArmoryUtils import int_to_binary, convertKeyDataToAddress, \
 from armoryengine.BinaryPacker import UINT8, BINARY_CHUNK, UINT16, UINT32, \
    BinaryPacker, VAR_INT, UINT64
 from armoryengine.BinaryUnpacker import BinaryUnpacker
-from armoryengine.CoinSelection import pprintUnspentTxOutList, sumTxOutList
-from armoryengine.Script import PyScriptProcessor, pprintScript
-
 
 ################################################################################
 # Identify all the codes/strings that are needed for dealing with scripts
@@ -1634,3 +1631,5 @@ def pprintLedgerEntry(le, indent=''):
 # Putting this at the end because of the circular dependency
 from armoryengine.BDM import TheBDM
 from armoryengine.PyBtcAddress import PyBtcAddress
+from armoryengine.CoinSelection import pprintUnspentTxOutList, sumTxOutList
+from armoryengine.Script import PyScriptProcessor, pprintScript
