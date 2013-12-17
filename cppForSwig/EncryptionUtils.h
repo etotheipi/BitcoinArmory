@@ -96,6 +96,17 @@
      (((((size_t)(a)) + (b) - 1) | ((PAGESIZE) - 1)) + 1) - (((size_t)(a)) & (~((PAGESIZE) - 1))))
 #endif
 
+using namespace std;
+
+#define WRITE_UINT8_SLE  SecureBinaryData::IntToStrSLE<uint8_t>
+#define WRITE_UINT16_SLE SecureBinaryData::IntToStrSLE<uint16_t>
+#define WRITE_UINT32_SLE SecureBinaryData::IntToStrSLE<uint32_t>
+#define WRITE_UINT64_SLE SecureBinaryData::IntToStrSLE<uint64_t>
+
+#define WRITE_UINT8_SBE  SecureBinaryData::IntToStrSBE<uint8_t>
+#define WRITE_UINT16_SBE SecureBinaryData::IntToStrSBE<uint16_t>
+#define WRITE_UINT32_SBE SecureBinaryData::IntToStrSBE<uint32_t>
+#define WRITE_UINT64_SBE SecureBinaryData::IntToStrSBE<uint64_t>
 
 // We will look for a high memory value to use in the KDF
 // But as a safety check, we should probably put a cap
@@ -104,7 +115,35 @@
 // to compute on a CPU than a GPU.
 #define DEFAULT_KDF_MAX_MEMORY 32*1024*1024
 
-using namespace std;
+// Highly deterministic wallet - HMAC-512 key (see BIP32)
+#define DETWALLETKEYHEX "426974636f696e2073656564"
+#define SECP256K1_ORDER_HEX "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141"
+#define SECP256K1_FP "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F"
+#define SECP256K1_A "0000000000000000000000000000000000000000000000000000000000000000"
+#define SECP256K1_B "0000000000000000000000000000000000000000000000000000000000000007"
+#define SECP256K1_G "0479BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798483ADA7726A3C4655DA4FBFC0E1108A8FD17B448A68554199C47D08FFB10D4B8"
+
+#define PRIKEYSIZE 33
+#define PUBKEYSIZE 65
+#define EXTKEYSIZE 78
+
+// Version bytes. Are these found elsewhere in the code?
+#define MAIN_PUB 76067358
+#define MAIN_PRV 76066276
+#define TEST_PUB 70617039
+#define TEST_PRV 70615956
+#define MAIN_PUB_HEX 0x0488B21E
+#define MAIN_PRV_HEX 0x0488ADE4
+#define TEST_PUB_HEX 0x043587CF
+#define TEST_PRV_HEX 0x04358394
+
+
+// Values for test vectors. Migrate in time!
+#define BIP32_MASTER_MSG_HEX "000102030405060708090a0b0c0d0e0f"
+#define BIP32_MASTER_ID_HEX "3442193e1bb70916e914552172cd4e2dbc9df811"
+#define BIP32_MASTER_PRVKEY_HEX "e8f32e723decf4051aefac8e2c93c9c5b214313817cdb01a1494b917c8436b35"
+#define BIP32_MASTER_PUBKEY_COMP_HEX "0339a36013301597daef41fbe593a02cc513d0b55527ec2df1050e2e8ff49c85c2"
+#define BIP32_MASTER_CC_HEX "873dff81c02f525623fd1fe5167eac3a55a049de3d314bb42ee227ffed37d508"
 
 
 // Use this to avoid "using namespace CryptoPP" (which confuses SWIG)
@@ -134,7 +173,7 @@ class SecureBinaryData : public BinaryData
 {
 public:
    // We want regular BinaryData, but page-locked and secure destruction
-   SecureBinaryData(void) : BinaryData() 
+   SecureBinaryData() : BinaryData() 
                    { lockData(); }
    SecureBinaryData(uint32_t sz) : BinaryData(sz) 
                    { lockData(); }
@@ -149,52 +188,54 @@ public:
    SecureBinaryData(BinaryDataRef const & bdRef) : BinaryData(bdRef)
                    { lockData(); }
 
-   ~SecureBinaryData(void) { destroy(); }
+   ~SecureBinaryData() { destroy(); }
 
    // These methods are definitely inherited, but SWIG needs them here if they
    // are to be used from python
-   uint8_t const *   getPtr(void)  const { return BinaryData::getPtr();  }
-   uint8_t       *   getPtr(void)        { return BinaryData::getPtr();  }
-   size_t            getSize(void) const { return BinaryData::getSize(); }
-   SecureBinaryData  copy(void)    const { return SecureBinaryData(getPtr(), getSize());}
+   uint8_t const *   getPtr()  const { return BinaryData::getPtr();  }
+   uint8_t       *   getPtr()        { return BinaryData::getPtr();  }
+   size_t            getSize() const { return BinaryData::getSize(); }
+   SecureBinaryData  copy()    const { return SecureBinaryData(getPtr(), getSize());}
    
    string toHexStr(bool BE=false) const { return BinaryData::toHexStr(BE);}
-   string toBinStr(void) const          { return BinaryData::toBinStr();  }
+   string toBinStr() const          { return BinaryData::toBinStr();  }
 
    SecureBinaryData(SecureBinaryData const & sbd2) : 
            BinaryData(sbd2.getPtr(), sbd2.getSize()) { lockData(); }
 
+   SecureBinaryData XOR(SecureBinaryData xorKey, uint8_t xorValue);
 
    void resize(size_t sz)  { BinaryData::resize(sz);  lockData(); }
    void reserve(size_t sz) { BinaryData::reserve(sz); lockData(); }
 
 
-   BinaryData    getRawCopy(void) const { return BinaryData(getPtr(), getSize()); }
-   BinaryDataRef getRawRef(void)  { return BinaryDataRef(getPtr(), getSize()); }
+   BinaryData    getRawCopy() const { return BinaryData(getPtr(), getSize()); }
+   BinaryDataRef getRawRef()  { return BinaryDataRef(getPtr(), getSize()); }
 
    SecureBinaryData copySwapEndian(size_t pos1=0, size_t pos2=0) const;
 
-   SecureBinaryData & append(SecureBinaryData & sbd2) ;
+   SecureBinaryData& append(SecureBinaryData & sbd2);
+   SecureBinaryData& append(uint8_t byte);
    SecureBinaryData & operator=(SecureBinaryData const & sbd2);
    SecureBinaryData   operator+(SecureBinaryData & sbd2) const;
    //uint8_t const & operator[](size_t i) const {return BinaryData::operator[](i);}
    bool operator==(SecureBinaryData const & sbd2) const;
 
-   BinaryData getHash256(void) const { return BtcUtils::getHash256(getPtr(), (uint32_t)getSize()); }
-   BinaryData getHash160(void) const { return BtcUtils::getHash160(getPtr(), (uint32_t)getSize()); }
+   BinaryData getHash256() const { return BtcUtils::getHash256(getPtr(), (uint32_t)getSize()); }
+   BinaryData getHash160() const { return BtcUtils::getHash160(getPtr(), (uint32_t)getSize()); }
 
    // This would be a static method, as would be appropriate, except SWIG won't
    // play nice with static methods.  Instead, we will just use 
    // SecureBinaryData().GenerateRandom(32), etc
    SecureBinaryData GenerateRandom(uint32_t numBytes);
 
-   void lockData(void)
+   void lockData()
    {
       if(getSize() > 0)
          mlock(getPtr(), getSize());
    }
 
-   void destroy(void)
+   void destroy()
    {
       if(getSize() > 0)
       {
@@ -204,9 +245,68 @@ public:
       resize(0);
    }
 
+   /////////////////////////////////////////////////////////////////////////////
+   // This is an architecture-agnostic way to serialize integers to little- or
+   // big-endian.  Bit-shift & mod will always return the lowest significant
+   // bytes, so we can put them into an array of bytes in the desired order.
+   template<typename INTTYPE>
+   static SecureBinaryData IntToStrSLE(INTTYPE val)
+   {
+      uint8_t const SZ = sizeof(INTTYPE);
+      SecureBinaryData out(SZ);
+      for(uint8_t i=0; i<SZ; i++, val>>=8)
+         out[i] = val % 256;
+      return out;
+   }
+   
+   /////////////////////////////////////////////////////////////////////////////
+   template<typename INTTYPE>
+   static SecureBinaryData IntToStrSBE(INTTYPE val)
+   {
+      uint8_t const SZ = sizeof(INTTYPE);
+      SecureBinaryData out(SZ);
+      for(uint8_t i=0; i<SZ; i++, val>>=8)
+         out[(SZ-1)-i] = val % 256;
+      return out;
+   }
 };
 
 
+   /////////////////////////////////////////////////////////////////////////////
+   template<typename INTTYPE>
+   static INTTYPE StrToIntSLE(SecureBinaryData binstr)
+   {
+      uint8_t const SZ = sizeof(INTTYPE);
+      if(binstr.getSize() != SZ)
+      {
+         LOGERR << "StrToInt: strsz: " << binstr.getSize() << " intsz: " << SZ;
+         return (INTTYPE)0;
+      }
+      
+      INTTYPE out = 0;
+      for(uint8_t i=0; i<SZ; i++)
+         out |= ((INTTYPE)binstr[i]) << (8*i);
+
+      return out;
+   }
+
+   /////////////////////////////////////////////////////////////////////////////
+   template<typename INTTYPE>
+   static INTTYPE StrToIntSBE(SecureBinaryData binstr)
+   {
+      uint8_t const SZ = sizeof(INTTYPE);
+      if(binstr.getSize() != SZ)
+      {
+         LOGERR << "StrToInt: strsz: " << binstr.getSize() << " intsz: " << SZ;
+         return (INTTYPE)0;
+      }
+      
+      INTTYPE out = 0;
+      for(uint8_t i=0; i<SZ; i++)
+         out |= ((INTTYPE)binstr[i]) << (8*((SZ-1)-i));
+
+      return out;
+   }
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -221,7 +321,7 @@ class KdfRomix
 public:
 
    /////////////////////////////////////////////////////////////////////////////
-   KdfRomix(void);
+   KdfRomix();
 
    /////////////////////////////////////////////////////////////////////////////
    KdfRomix(uint32_t memReqts, uint32_t numIter, SecureBinaryData salt);
@@ -229,16 +329,16 @@ public:
 
    /////////////////////////////////////////////////////////////////////////////
    // Default max-memory reqt will 
-   void computeKdfParams(double   targetComputeSec=0.25, 
+   void computeKdfParams(double   targetComputeSec=0.25,
                          uint32_t maxMemReqtsBytes=DEFAULT_KDF_MAX_MEMORY);
 
    /////////////////////////////////////////////////////////////////////////////
-   void usePrecomputedKdfParams(uint32_t memReqts, 
-                                uint32_t numIter, 
+   void usePrecomputedKdfParams(uint32_t memReqts,
+                                uint32_t numIter,
                                 SecureBinaryData salt);
 
    /////////////////////////////////////////////////////////////////////////////
-   void printKdfParams(void);
+   void printKdfParams();
 
    /////////////////////////////////////////////////////////////////////////////
    SecureBinaryData DeriveKey_OneIter(SecureBinaryData const & password);
@@ -247,10 +347,10 @@ public:
    SecureBinaryData DeriveKey(SecureBinaryData const & password);
 
    /////////////////////////////////////////////////////////////////////////////
-   string       getHashFunctionName(void) const { return hashFunctionName_; }
-   uint32_t     getMemoryReqtBytes(void) const  { return memoryReqtBytes_; }
-   uint32_t     getNumIterations(void) const    { return numIterations_; }
-   SecureBinaryData   getSalt(void) const       { return salt_; }
+   string       getHashFunctionName() const { return hashFunctionName_; }
+   uint32_t     getMemoryReqtBytes() const  { return memoryReqtBytes_; }
+   uint32_t     getNumIterations() const    { return numIterations_; }
+   SecureBinaryData   getSalt() const       { return salt_; }
    
 private:
 
@@ -275,7 +375,7 @@ private:
 class CryptoAES
 {
 public:
-   CryptoAES(void) {}
+   CryptoAES() {}
 
    /////////////////////////////////////////////////////////////////////////////
    SecureBinaryData EncryptCFB(SecureBinaryData & data, 
@@ -299,9 +399,6 @@ public:
 };
 
 
-
-
-
 ////////////////////////////////////////////////////////////////////////////////
 // Create a C++ interface to the Crypto++ ECDSA ops:  should be more secure
 // and much faster than the pure-python methods created by Lis
@@ -311,10 +408,10 @@ public:
 class CryptoECDSA
 {
 public:
-   CryptoECDSA(void) {}
+   CryptoECDSA() {}
 
    /////////////////////////////////////////////////////////////////////////////
-   static BTC_PRIVKEY CreateNewPrivateKey(void);
+   static BTC_PRIVKEY CreateNewPrivateKey();
 
    /////////////////////////////////////////////////////////////////////////////
    static BTC_PRIVKEY ParsePrivateKey(SecureBinaryData const & privKeyData);
@@ -346,7 +443,6 @@ public:
                                     BTC_PRIVKEY const & cppPrivKey);
    
    
-   
    /////////////////////////////////////////////////////////////////////////////
    // For signing and verification, pass in original, UN-HASHED binary string
    static bool VerifyData(SecureBinaryData const & binMessage, 
@@ -355,7 +451,7 @@ public:
 
    /////////////////////////////////////////////////////////////////////////////
    // For doing direct raw ECPoint operations... need the ECP object
-   static CryptoPP::ECP & Get_secp256k1_ECP(void);
+   static CryptoPP::ECP & Get_secp256k1_ECP();
 
 
    /////////////////////////////////////////////////////////////////////////////
@@ -364,7 +460,7 @@ public:
    // SWIG to take BTC_PUBKEY and BTC_PRIVKEY
 
    /////////////////////////////////////////////////////////////////////////////
-   SecureBinaryData GenerateNewPrivateKey(void);
+   SecureBinaryData GenerateNewPrivateKey();
    
    /////////////////////////////////////////////////////////////////////////////
    SecureBinaryData ComputePublicKey(SecureBinaryData const & cppPrivKey);
@@ -394,15 +490,14 @@ public:
    //           (there's no reason to believe it's insecure, but it doesn't
    //           hurt to add some extra entropy/non-linearity to the chain
    //           generation process)
-   SecureBinaryData ComputeChainedPrivateKey(
-                     SecureBinaryData const & binPrivKey,
-                     SecureBinaryData const & chainCode,
-                     SecureBinaryData binPubKey=SecureBinaryData());
+//   SecureBinaryData ComputeChainedPrivateKey(SecureBinaryData const & binPrivKey,
+//                                             SecureBinaryData const & chainCode,
+//                                 SecureBinaryData binPubKey=SecureBinaryData());
                                
    /////////////////////////////////////////////////////////////////////////////
    // Deterministically generate new private key using a chaincode
-   SecureBinaryData ComputeChainedPublicKey(SecureBinaryData const & binPubKey,
-                                            SecureBinaryData const & chainCode);
+//   SecureBinaryData ComputeChainedPublicKey(SecureBinaryData const & binPubKey,
+//                                            SecureBinaryData const & chainCode);
 
 
    /////////////////////////////////////////////////////////////////////////////
@@ -414,14 +509,16 @@ public:
    BinaryData ECMultiplyScalars(BinaryData const & A, 
                                 BinaryData const & B);
 
-   BinaryData ECMultiplyPoint(BinaryData const & A, 
-                              BinaryData const & Bx,
-                              BinaryData const & By);
+   bool ECMultiplyPoint(BinaryData const & A, 
+                        BinaryData const & Bx,
+                        BinaryData const & By,
+                        BinaryData& multResult);
 
-   BinaryData ECAddPoints(BinaryData const & Ax, 
-                          BinaryData const & Ay,
-                          BinaryData const & Bx,
-                          BinaryData const & By);
+   bool ECAddPoints(BinaryData const & Ax, 
+                    BinaryData const & Ay,
+                    BinaryData const & Bx,
+                    BinaryData const & By,
+                    BinaryData& addResult);
 
    BinaryData ECInverse(BinaryData const & Ax, 
                         BinaryData const & Ay);
@@ -436,117 +533,151 @@ public:
 ////////////////////////////////////////////////////////////////////////////////
 // Extended keys should never hold encrypted keys.  We maintain encryption 
 // details outside this class, and don't want to mistakenly believe that an
-// ExtendedKey object has a priv key if it doesn't
+// ExtendedKey object has a priv key if it doesn't.
+// Note that the class has two keys: a "primary" key and a public key. The
+// primary key will be private if a private key is desired, and the public key
+// will be its match. If we're deriving a public key, both keys will match and
+// be public. In either case, the primary key will be 33 bytes, meaning it'll be
+// compressed if it's public. The public key will be 65 bytes (uncompressed).
 class ExtendedKey
 {
 public:
+   ExtendedKey() : key_(0), pubKey_(0), chainCode_(0), version(TEST_PUB),
+                   depth(0), parentFP(0), childNum(0), validKey(false) {}
 
-   ExtendedKey(void) : privKey_(0), pubKey_(0), chain_(0) {}
-                       
-      
+   // Constructor that requires an incoming key (pub or pri), chain code, parent
+   // fingerprint, position in the chain, and a boolean indicating if the key's
+   // public or private.
+   ExtendedKey(SecureBinaryData const & key,
+               SecureBinaryData const & ch,
+               SecureBinaryData const & parFP,
+               list<uint32_t> parentTreeIdx,
+               uint32_t inVer,
+               uint8_t inDepth,
+               uint32_t inChildNum,
+               bool keyIsPub);
+
+   // Constructor that requires private & public keys, and the chain code.
    ExtendedKey(SecureBinaryData const & pr, 
                SecureBinaryData const & pb, 
                SecureBinaryData const & ch,
-               SecureBinaryData const & parfp=SecureBinaryData(),
-               list<uint32_t> parentTreeIdx=list<uint32_t>());
+               SecureBinaryData const & parFP,
+               list<uint32_t> parentTreeIdx,
+               uint32_t inVer,
+               uint8_t inDepth,
+               uint32_t inChildNum);
 
-   ExtendedKey(BinaryData const & pub, 
-               BinaryData const & chn,
-               BinaryData const & parfp=SecureBinaryData(),
-               list<uint32_t> parentTreeIdx=list<uint32_t>());
+   // Constructor that requires a private key and chain code.
+   ExtendedKey(SecureBinaryData const & key,
+               SecureBinaryData const & ch);
 
-
+   // Function creating an ExtendedKey from a given public or private key.
    // Should be static, but would prevent SWIG from using it.
-   ExtendedKey CreateFromPrivate( SecureBinaryData const & priv, 
-                                  SecureBinaryData const & chain,
-                                  SecureBinaryData const & parentFP=SecureBinaryData(),
-                                  list<uint32_t> parentTreeIdx=list<uint32_t>());
+   ExtendedKey CreateChildKey(SecureBinaryData const & key,
+                              SecureBinaryData const & chain,
+                              SecureBinaryData const & parentFP,
+                              uint32_t n,
+                              bool isKeyPub);
 
-   // Should be static, but would prevent SWIG from using it.
-   ExtendedKey CreateFromPublic( SecureBinaryData const & pub, 
-                                 SecureBinaryData const & chain,
-                                 SecureBinaryData const & parentFP=SecureBinaryData(),
-                                 list<uint32_t> parentTreeIdx=list<uint32_t>());
+   void destroy();
+   void deletePrivateKey();
+   ExtendedKey makePublicCopy();
 
-   
-   void destroy(void);
-   void deletePrivateKey(void);
-   ExtendedKey makePublicCopy(void);
+   const bool isPub() const;
+   const bool isPrv() const;
+   bool hasChainCode() const   { return (chainCode_.getSize() > 0); }
+   bool isInitialized() const  { return validKey; }
 
-   bool hasPriv(void) const        {return ( privKey_.getSize() > 0 );}
-   bool hasPub(void) const         {return (  pubKey_.getSize() > 0 );}
-   bool hasChain(void) const       {return (   chain_.getSize() > 0 );}
-   bool isInitialized(void) const  {return hasPub(); }
+   SecureBinaryData const & getKey() const   { return key_; }
+   SecureBinaryData const & getPub() const    { return pubKey_; }
+   SecureBinaryData const & getChainCode() const  { return chainCode_; }
+   const SecureBinaryData getExtKeySer();
+   list<uint32_t>           getIndicesList() const { return indicesList_; }
+   vector<uint32_t>         getIndicesVect() const;
+   const SecureBinaryData   getFingerprint() const;
+   SecureBinaryData const & getParentFP() const { return parentFP; }
 
-   SecureBinaryData const & getPriv(void) const   {return privKey_;}
-   SecureBinaryData const & getPub(void) const    {return pubKey_;}
-   SecureBinaryData const & getChain(void) const  {return chain_;}
-   list<uint32_t>           getIndicesList(void) const { return indicesList_; }
-   SecureBinaryData         getFingerprint(void) const;
-   SecureBinaryData const & getParentHash160(void) const { return parent160_;}
+   BinaryData               getHash160() const;
+   uint32_t                 getDepth() const  { return indicesList_.size(); }
+   ExtendedKey              copy() const;
 
-   BinaryData               getHash160(void) const;
-   uint32_t                 getDepth(void) const  {return indicesList_.size();}
-   uint32_t                 getIndex(void) const;
-   vector<uint32_t>         getIndicesVect(void) const;
-   ExtendedKey              copy(void) const;
+   SecureBinaryData getPubCompressed() const;
 
-   SecureBinaryData getPubCompressed(void) const;
-   SecureBinaryData getPubUncompressed(void) const;
+   void debugPrint();
 
-   void debugPrint(void) const;
+   uint32_t                 getIndex() const;
+   const string getIndexListString(const string prefix="M");
 
-   string getIndexListString(string prefix="M") const;
+   // Used only for Google testing purposes? Probably not needed in final code.
+   uint32_t getVersion() { return version; }
+   uint8_t getDepth() { return depth; }
+   uint32_t getChildNum() { return childNum; }
 
 private:
-   SecureBinaryData privKey_;
-   SecureBinaryData pubKey_;
-   SecureBinaryData chain_;
+   void updatePubKey();
 
-   // Because we can't always rely on parent pointers, we will just 
-   list<uint32_t> indicesList_;
-   SecureBinaryData parent160_;
+   // Due to Crypto++ handling, these will be big/network endian.
+   SecureBinaryData key_; // 33 bytes: (0x00 + prv key) or compressed pub key.
+   SecureBinaryData pubKey_;  // 65 bytes - Key is uncompressed.
+   SecureBinaryData chainCode_; // 32 bytes.
 
+   list<uint32_t> indicesList_; // Shows where in the chain we are.
+//   SecureBinaryData parent160_; // Hash160 value of the parent. Not used for now.
 
+   uint32_t version;
+   uint8_t depth;
+   SecureBinaryData parentFP;
+   uint32_t childNum; // If MSB is set, this key's the result of prv derivation.
+   bool validKey;
 };
 
 
-
+// NOT USED FOR NOW.
 ////////////////////////////////////////////////////////////////////////////////
-typedef enum{
+typedef enum {
    HDW_CHAIN_EXTERNAL=0,
    HDW_CHAIN_INTERNAL=1,
 }  HDW_CHAIN_TYPE;
-
 
 
 ////////////////////////////////////////////////////////////////////////////////
 class HDWalletCrypto
 {
 public:
-   HDWalletCrypto(void) {}
+   HDWalletCrypto() {}
 
+   // Perform an HMAC-SHA512 hash.
    SecureBinaryData HMAC_SHA512(SecureBinaryData key, 
                                 SecureBinaryData msg);
 
-   ExtendedKey ChildKeyDeriv(ExtendedKey const & extKey,
+   // Derive a child key from an incoming key (pub or pri).
+   ExtendedKey childKeyDeriv(ExtendedKey const & extPar,
                              uint32_t n);
 
+   // Use a seed to create a master key.
    ExtendedKey ConvertSeedToMasterKey(SecureBinaryData const & seed);
+
+   ~HDWalletCrypto();
+
+private:
 };
 
+
+////////////////////////////////////////////////////////////////////////////////
+class HDWalletCryptoSeed {
+public:
+   HDWalletCryptoSeed() {}
+   HDWalletCryptoSeed(const SecureBinaryData& rngData);
+
+   const SecureBinaryData& getMasterKey() {
+      return masterKey;
+   }
+   const SecureBinaryData& getMasterChainCode() {
+      return masterChainCode;
+   }
+
+private:
+   SecureBinaryData masterKey;       // 33 bytes (0x00 + 32 byte HMAC output)
+   SecureBinaryData masterChainCode; // 32 bytes
+};
 #endif
-
-
-
-
-
-
-
-
-
-
-
-
-
-
