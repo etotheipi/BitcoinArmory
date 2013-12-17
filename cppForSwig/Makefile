@@ -17,7 +17,7 @@ OBJS = UniversalTimer.o BinaryData.o leveldb_wrapper.o StoredBlockObj.o BtcUtils
 # pypaths.txt to define those three variables, and then comment out 
 # DO_EXEC_WHEREISPY line (to prevent the script from attempting to run
 # and overwriting the manual values).
-DO_EXEC_WHEREISPY := $(shell ./whereispy.sh)
+#DO_EXEC_WHEREISPY := $(shell ./whereispy.sh)
 
 include ./pypaths.txt
 

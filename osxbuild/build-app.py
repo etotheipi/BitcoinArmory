@@ -16,10 +16,9 @@ from subprocess import Popen, PIPE
 # Set some constants up front
 LOGFILE    = 'build-app.log.txt'
 LOGPATH    = path.abspath( path.join(os.getcwd(), LOGFILE))
-APPNAME    = 'Armory.app'
 ARMORYDIR  = '..'
 WORKDIR    = path.join(os.getcwd(), 'workspace')
-APPDIR     = path.join('.', APPNAME) # actually make it local
+APPDIR     = path.join(WORKDIR, 'Armory.app') # actually make it local
 DLDIR      = path.join(WORKDIR, 'downloads')
 UNPACKDIR  = path.join(WORKDIR, 'unpackandbuild')
 INSTALLDIR = path.join(WORKDIR, 'install')
@@ -95,6 +94,7 @@ def logprint(s):
    with open(LOGFILE,'a') as f:
       f.write(s if s.endswith('\n') else s+'\n')
 
+
 ################################################################################
 """
 # While this worked well to capture the output, buffering made it impossible
@@ -124,14 +124,20 @@ def execAndWait(syscmd, cwd=None):
 def execAndWait(syscmd, cwd=None):
    try:
       syscmd += ' 2>&1 | tee -a %s' % LOGPATH
+      logprint('*'*80)
       logprint('Executing: "%s"' % syscmd)
+      logprint('Executing from: "%s"' % (os.getcwd() if cwd is None else cwd))
       proc = Popen(syscmd, shell=True, cwd=cwd)
       while proc.poll() == None:
          time.sleep(0.25)
+      logprint('Finished executing: "%s"' % syscmd)
+      logprint('Finished executing from: "%s"' % (os.getcwd() if cwd is None else cwd))
+   logprint('*'*80)
    except Exception as e:
       logprint('\n' + '-'*80)
       logprint('ERROR: %s' % str(e))
       logprint('-'*80 + '\n')
+
 
 
       
@@ -406,7 +412,7 @@ def compile_python():
    # make install
    srcDir = path.join(INSTALLDIR, 'Build Applet.app/Contents/MacOS/Python')
    dstDir = path.join(APPDIR, 'Contents/MacOS')
-   execAndWait('make install PYTHONAPPSDIR=%s ' % INSTALLDIR, cwd=bldPath)
+   execAndWait('make install PYTHONAPPSDIR=%s' % INSTALLDIR, cwd=bldPath)
    execAndWait('cp -p "%s" %s' % (srcDir, dstDir), cwd=bldPath)
 
    # Update $PATH var
@@ -443,7 +449,7 @@ def install_libpng():
       logprint('libpng already installed.')
    else:
       pngDir = unpack(tarfilesToDL['libpng'])
-      src = path.join(pngDir, 'libpng/1.5.14/lib', dylib)
+      src = path.join(pngDir, '1.5.14/lib', dylib)
       copyfile(src, target)
 
 
@@ -475,9 +481,9 @@ def compile_qt():
       logprint('Unpacking qt repo from tarfile')
       logprint('Remove qt4_git_repo.tar.gz to re-clone HEAD')
       gitdir = unpack(tarfilesToDL['Qt-git'])
-   elif not path.exists(qtTarFile):
+   elif not path.exists(qtTarFileDL):
       logprint('Tarring downloaded repo for future use')
-      execAndWait('tar -zcf qt4_git_repo.tar.gz qt', cwd=qtBuildDir)
+      execAndWait('tar -zcf qt4_git_repo.tar.gz qt', cwd=DLDIR)
       movepath(qtTarFileBld, qtTarFileDL)
 
       #unpack(tarfilesToDL['Qt'])
@@ -683,7 +689,6 @@ def remove_python_files(top):
                n_py_rem += 1
             else:
                n_py_kept += 1
-   logprint("Removed %i .pyo files." % (n_pyo,))
    logprint("Removes %i .py files (kept %i)." % (n_py_rem, n_py_kept))
       
 
