@@ -209,18 +209,15 @@ passwordFinder = PasswordFinder(walletPath=argv[1])
 # Use UnknownSeg when you know what characters are in the segment,
 #         but not the order nor the exact length
 
-# This example below is based on this scenario:
+# The example below is based on this scenario:
 # I know that my password begins with hello, not sure if it's capitalized or not
 # I always put some numbers at the end either an old address or birthday
-# I never use 0 because I get it confused with the letter O
 
 segment0 = UnknownCaseSeg("h")          # Not sure of the case of the first letter
 segment1 = KnownSeg("ello")             # definitely starts with hello
-segment2 = UnknownSeg("123456789",minLen=2,maxLen=3)  # former address 2 or 3 no zeros
+segment2 = UnknownSeg("1234567890",minLen=2,maxLen=3)  # former address 2 or 3 digits
 segment3 = KnownSeg("5/9/71")           # My birthday
 segment4 = KnownSeg("11/30/46")         # mom's birthday
-
-# I hope your passwords are better than mine ;)
 
 segmentList = [segment0.getSegList(),
                segment1.getSegList(),
@@ -232,18 +229,26 @@ segmentList = [segment0.getSegList(),
 # in this example there are 5 possible segments enumerated from 0 to 4
 segmentOrderList = [[0,1],     # maybe I got lazy and just used hello
                     [0,1,2],   # hello then an old address
+                    [2,0,1],   # old address then hello
                     [0,1,3],   # hello + my birtday
                     [0,1,4]]   # hello + mom's birthday
 
 passwordFinder.searchForPassword(segmentList, segmentOrderList)
 
 # To run this script first download it and save it in the base directory of
-# Armory repository from git. On my computer it is at C:\Users\Andy\BitcoinArmory
+# Armory repository from git. For example mine is at C:\Users\Andy\BitcoinArmory
+# You can clone the repository from here https://github.com/etotheipi/BitcoinArmory
+# The latest version of this file can be found in the extras directory in the repo.
+#
+# You also need to copy _CppBlockUtils.pyd and CppBlockUtils.py from the library.zip
+# file in your Armory installation directory. For example mine is at:
+# C:\Program Files (x86)\Armory\library.zip
+#
 # Open a command line and go to the above folder and execute:
 # python findpass.py <path to your wallet file> 
 # On my computer I would run:
 # python findpass.py C:\Users\Andy\AppData\Roaming\Armory\armory_dUSL3JyD_.wallet
-# or I might just move the wallet file to the same directory and just type:
+# or I might move the wallet file to the same directory and just type:
 # python findpass.py armory_dUSL3JyD_.wallet
 
 
