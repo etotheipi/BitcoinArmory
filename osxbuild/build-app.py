@@ -8,6 +8,7 @@ import hashlib
 import shutil
 import glob
 import time
+import datetime
 import optparse
 import tarfile
 
@@ -26,10 +27,13 @@ PYPREFIX   = path.join(APPDIR, 'Contents/Frameworks/Python.framework/Versions/2.
 PYSITEPKGS = path.join(PYPREFIX, 'lib/python2.7/site-packages')
 MAKEFLAGS  = '-j4'
 
+QTBUILTFLAG = path.join(UNPACKDIR, 'qt/qt_install_success.txt')
+
 #pypath_txt_template=""" PYTHON_INCLUDE=%s/include/python2.7/ PYTHON_LIB=%s/lib/python2.7/config/libpython2.7.a PYVER=python2.7 """
-pypathData  = 'PYTHON_INCLUDE=%s/include/python2.7/' % PYPREFIX
-pypathData += 'PYTHON_LIB=%s/lib/python2.7/config/libpython2.7.a' % PYPREFIX
-pypathData += 'PYVER=python2.7'
+pypathData  =   'PYTHON_INCLUDE=%s/include/python2.7/' % PYPREFIX
+pypathData += '\nPYTHON_LIB=%s/lib/python2.7/config/libpython2.7.a' % PYPREFIX
+pypathData += '\nPYTHON_LIB_DIR=%s/lib/python2.7/config/' % PYPREFIX
+pypathData += '\nPYVER=python2.7'
 
 
 # If no arguments specified, then do the minimal amount of work necessary
@@ -121,10 +125,19 @@ def execAndWait(syscmd, cwd=None):
       return [out,err]
 """
 
+################################################################################
+def getRightNowStr():
+   dateFmt = '%Y-%b-%d %I:%M%p'
+   dtobj = datetime.datetime.fromtimestamp(time.time())
+   dtstr = u'' + dtobj.strftime(dateFmt).decode('utf-8')
+   return dtstr[:-2] + dtstr[-2:].lower()
+
+################################################################################
 def execAndWait(syscmd, cwd=None):
    try:
       syscmd += ' 2>&1 | tee -a %s' % LOGPATH
       logprint('*'*80)
+      logprint(getRightNowStr())
       logprint('Executing: "%s"' % syscmd)
       logprint('Executing from: "%s"' % (os.getcwd() if cwd is None else cwd))
       proc = Popen(syscmd, shell=True, cwd=cwd)
@@ -132,7 +145,7 @@ def execAndWait(syscmd, cwd=None):
          time.sleep(0.25)
       logprint('Finished executing: "%s"' % syscmd)
       logprint('Finished executing from: "%s"' % (os.getcwd() if cwd is None else cwd))
-   logprint('*'*80)
+      logprint('*'*80)
    except Exception as e:
       logprint('\n' + '-'*80)
       logprint('ERROR: %s' % str(e))
@@ -269,7 +282,7 @@ def downloadPkg(pkgname, fname, url, ID, toDir=DLDIR):
       clonename = '.'.join(url.split('/')[-1].split('.')[:-1])
       clonedir = path.join(toDir, clonename) 
       branch = ID[:]  # the ID value is actually the branch name
-      if path.exists(clonedir):
+      if path.exists(clonedir) or path.exists(path.join(DLDIR,fname)):
          doDL=False
    elif path.exists(myfile):
       if check_sha(myfile, ID):
@@ -463,8 +476,7 @@ def compile_qt():
    qtDLDir    = path.join(DLDIR, 'qt')
    qtBuildDir = path.join(UNPACKDIR, 'qt')
    qtInstDir  = path.join(INSTALLDIR, 'qt')
-   qtTarFileDL   = path.join(UNPACKDIR, 'qt4_git_repo.tar.gz')
-   qtTarFileBld  = path.join(DLDIR, 'qt4_git_repo.tar.gz')
+   qtTarFile   = path.join(DLDIR, 'qt4_git_repo.tar.gz')
 
    # If we did a fresh download, it's already uncompressed in DLDir.  Move it
    # to where it should be in the UNPACKDIR
@@ -474,26 +486,26 @@ def compile_qt():
       movepath(qtDLDir, qtBuildDir)
 
 
-   # If 
+   # If it's not in the bld dir, unpack it from the tar file
+   # If it's not in the tar file, either, we have a problem.  
    if not path.exists(qtBuildDir):
-      if not path.exists(qtTarFileDL):
+      if not path.exists(qtTarFile):
          raise RuntimeError('*** ERROR: No cloned repo and no tar file...? ***')
       logprint('Unpacking qt repo from tarfile')
       logprint('Remove qt4_git_repo.tar.gz to re-clone HEAD')
       gitdir = unpack(tarfilesToDL['Qt-git'])
-   elif not path.exists(qtTarFileDL):
+   elif not path.exists(qtTarFile):
       logprint('Tarring downloaded repo for future use')
-      execAndWait('tar -zcf qt4_git_repo.tar.gz qt', cwd=DLDIR)
-      movepath(qtTarFileBld, qtTarFileDL)
+      execAndWait('tar -zcf %s qt' % qtTarFile, cwd=UNPACKDIR)
 
-      #unpack(tarfilesToDL['Qt'])
-      webkita = tarfilesToDL['Webkit-for-Qt']
-      src = path.join(DLDIR, webkita)
-      dst = path.join(qtBuildDir, 'src/3rdparty/webkit/WebKitLibraries', webkita)
-      copyfile(src, dst)
-      #for patch in ['Qt-p1', 'Qt-p2', 'Qt-p3']:
-      #   execAndWait('patch -p1 < ../../downloads/' + tarfilesToDL[patch], cwd=qtBuildDir)
-      execAndWait('patch -p1 < ../../../qt-maverick-stability.patch', cwd=qtBuildDir)
+   # Webkit-for-Qt is not a tar archive, it's actually just a single .a file
+   webkita = tarfilesToDL['Webkit-for-Qt']
+   src = path.join(DLDIR, webkita)
+   dst = path.join(qtBuildDir, 'src/3rdparty/webkit/WebKitLibraries', webkita)
+   copyfile(src, dst)
+   #for patch in ['Qt-p1', 'Qt-p2', 'Qt-p3']:
+   #   execAndWait('patch -p1 < ../../downloads/' + tarfilesToDL[patch], cwd=qtBuildDir)
+   execAndWait('patch -p1 < ../../../qt-maverick-stability.patch', cwd=qtBuildDir)
 
    ##### Configure
    command  = './configure -prefix "%s" -system-zlib -confirm-license -opensource ' 
@@ -506,37 +518,9 @@ def compile_qt():
    execAndWait('make %s' % MAKEFLAGS, cwd=qtBuildDir)
 
    ##### Make Install
-   execAndWait('make install', cwd=qtBuildDir)
+   # This will actually happen outside this function, since the INSTALLDIR
+   # Gets wiped every build
 
-   newcwd = path.join(APPDIR, 'Contents/Frameworks')
-   #os.chdir(path.join(APPDIR, 'Contents/Frameworks'))
-   for f in ['QtCore', 'QtGui', 'QtXml']:
-      src = path.join(qtInstDir, 'lib', f+'.framework')
-      dst = path.join(APPDIR, 'Contents/Frameworks', f+'.framework')
-      if path.exists(dst):
-         removetree(dst)
-      copytree(src, dst)
-
-   #os.chdir(olddir)
-   qtBinDir = path.join(APPDIR, 'qt/bin')
-   fname = path.join(qtBinDir, 'qt.conf')
-   with open(fname, 'w') as f:
-      f.write('[Paths]\nPrefix = %s' % qtdir)
-
-   # Put Qt stuff on the path
-   os.environ['PATH'] = '%s:%s' % (qtBinDir, os.environ['PATH'])
-
-   try:
-      old = ':'+os.environ['DYLD_FRAMEWORK_PATH']
-   except KeyError:
-      old = ''
-
-   os.environ['DYLD_FRAMEWORK_PATH'] = '%s:%s' % (path.join(APPDIR, 'Contents/Frameworks'), old)
-   os.environ['QTDIR'] = qtdir
-   os.environ['QMAKESPEC'] = path.join(os.environ['QTDIR'], 'mkspecs/macx-g++')
-   logprint('All the following ENV vars are now set:')
-   for var in ['PATH','DYLD_FRAMEWORK_PATH', 'QTDIR', 'QMAKESPEC']:
-      logprint('   %s: \n      %s' % (var, os.environ[var]))
 
 
 
@@ -545,10 +529,48 @@ def install_qt():
    if CLIOPTS.precompiledQt:
       logprint('Unpacking precompiled Qt.')
       qtdir = unpack(tarfilesToDL['Qt'])
-      # not sure what else to do with precompiled version, yet
+      raise RuntimeError('Using precompiled Qt is not supported, yet')
    else:
-      compile_qt()
+      if not path.exists(QTBUILTFLAG):
+         compile_qt()
+         execAndWait('touch %s' % QTBUILTFLAG)
+      else:
+         logprint('QT already compiled.  Skipping compile step.')
       
+      # Even if it's already built, we'll always "make install" and then
+      # set a bunch of environment variables (INSTALLDIR is wiped on every
+      # Run of this script, so all "make install" steps need to be re-run
+      qtInstDir  = path.join(INSTALLDIR, 'qt')
+      qtBinDir = path.join(qtInstDir, 'bin')
+      qtBuildDir = path.join(UNPACKDIR, 'qt')
+
+      qtconf = path.join(qtBinDir, 'qt.conf')
+      execAndWait('make install', cwd=qtBuildDir)
+
+      newcwd = path.join(APPDIR, 'Contents/Frameworks')
+      for mod in ['QtCore', 'QtGui', 'QtXml']:
+         src = path.join(qtInstDir, 'lib', mod+'.framework')
+         dst = path.join(APPDIR, 'Contents/Frameworks', mod+'.framework')
+         if path.exists(dst):
+            removetree(dst)
+         copytree(src, dst)
+
+      with open(qtconf, 'w') as f:
+         f.write('[Paths]\nPrefix = %s' % qtInstDir)
+   
+      try:
+         old = ':'+os.environ['DYLD_FRAMEWORK_PATH']
+      except KeyError:
+         old = ''
+   
+      frmpath = path.join(APPDIR, 'Contents/Frameworks')
+      os.environ['PATH'] = '%s:%s' % (qtBinDir, os.environ['PATH'])
+      os.environ['DYLD_FRAMEWORK_PATH'] = '%s:%s' % (frmpath, old)
+      os.environ['QTDIR'] = qtInstDir
+      os.environ['QMAKESPEC'] = path.join(os.environ['QTDIR'], 'mkspecs/macx-g++')
+      logprint('All the following ENV vars are now set:')
+      for var in ['PATH','DYLD_FRAMEWORK_PATH', 'QTDIR', 'QMAKESPEC']:
+         logprint('   %s: \n      %s' % (var, os.environ[var]))
       
       
       
@@ -569,21 +591,27 @@ def compile_sip():
       command += ' --incdir="%s/include"' % PYPREFIX
       command += ' --sipdir="%s/share/sip"' % PYPREFIX
       execAndWait(command, cwd=sipPath)
-      system('make', cwd=sipPath)
-      system('make install', cwd=sipPath)
+      execAndWait('make', cwd=sipPath)
+
+   # Must run "make install" again even if it was previously built (since
+   # the APPDIR and INSTALLDIR are wiped every time the script is run)
+   execAndWait('make install', cwd=sipPath)
       
 ################################################################################
 def compile_pyqt():
-   logprint('Install pyqt (needed by pyqt).')
+   logprint('Install PyQt4')
    if path.exists(path.join(PYSITEPKGS, 'PyQt4')):
       logprint('Pyqt is already installed.')
    else:
       pyqtPath = unpack(tarfilesToDL['pyqt'])
-      #os.chdir('build/PyQt-mac-gpl-4.10.1')
       incDir = path.join(PYPREFIX, 'include')
       execAndWait('python ./configure-ng.py --confirm-license --sip-incdir="%s"' % incDir, cwd=pyqtPath)
       execAndWait('make %s' % MAKEFLAGS, cwd=pyqtPath)
-      execAndWait('make install', cwd=pyqtPath)
+
+   # Need to add pyrcc4 to the PATH
+   execAndWait('make install', cwd=pyqtPath)
+   pyrccPath = path.join(UNPACKDIR, 'PyQt-mac-gpl-4.10.1/pyrcc')
+   os.environ['PATH'] = '%s:%s' % (pyrccPath, os.environ['PATH'])
 
 ################################################################################
 '''
@@ -597,7 +625,7 @@ def pip_install(package, lookfor):
       print package, "already installed"
    else: 
       print "Installing %s using pip." % (package,)
-      system("pip install %s > pip-%s.log 2>&1" % (package, package))
+      execAndWait("pip install %s > pip-%s.log 2>&1" % (package, package))
 '''
 
 ################################################################################
@@ -628,7 +656,7 @@ def compile_armory():
    logprint('Compiling and installing Armory')
    # Always compile - even if already in app
    #os.chdir('..') # Leave workspace directory.
-   pypathpath = path.join('cppForSwig/pypaths.txt')
+   pypathpath = path.join(ARMORYDIR, 'cppForSwig/pypaths.txt')
    logprint('Writing ' + pypathpath)
    with open(pypathpath, 'w') as f:
       f.write(pypathData)
@@ -648,7 +676,7 @@ def make_ressources():
    icnsRes  = path.join(cont,  'Resources/Icon.icns')
    copyfile('Info.plist', cont)
    copyfile(icnsArm, icnsRes)
-   #system("cd '%s' && cp ../MacOS/py/usr/share/armory/img/armory_icon_fullres.icns Icon.icns" % (res,))
+   #execAndWait("cd '%s' && cp ../MacOS/py/usr/share/armory/img/armory_icon_fullres.icns Icon.icns" % (res,))
    
 ################################################################################
 def cleanup_app():
@@ -668,7 +696,7 @@ def show_app_size():
    "Show the size of the app."
    logprint("Size of application: ")
    sys.stdout.flush()
-   out,err = execAndWait('du -hs "%s"' % APPDIR)
+   execAndWait('du -hs "%s"' % APPDIR)
    
 
 ################################################################################
@@ -706,9 +734,7 @@ def delete_prev_data(opts):
          if path.exists(makefile):
             execAndWait('make clean', cwd=prevQtDir)
             removefile(makefile)
-         removefile(path.join(prevQtDir, 'configured-success.txt'))
-         removefile(path.join(prevQtDir, 'make-success.txt'))
-         removefile(path.join(prevQtDir, 'make-install-success.txt'))
+         removefile(QTBUILTFLAG)
       
    
    # Always remove previously-built application files

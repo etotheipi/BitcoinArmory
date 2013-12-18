@@ -1,8 +1,10 @@
 COMPILER = g++ 
 #COMPILER_OPTS = -c -g -Wall -fPIC 
 COMPILER_OPTS = -c -O2 -pipe -fPIC 
-LDFLAGS:=$(shell dpkg-buildflags --get LDFLAGS)
-CPPFLAGS:=$(shell dpkg-buildflags --get CPPFLAGS)
+#LDFLAGS:=$(shell dpkg-buildflags --get LDFLAGS)
+#CPPFLAGS:=$(shell dpkg-buildflags --get CPPFLAGS)
+LDFLAGS=
+CPPFLAGS=
 
 #**************************************************************************
 LINKER = g++ 
@@ -11,6 +13,7 @@ OBJS = UniversalTimer.o BinaryData.o leveldb_wrapper.o StoredBlockObj.o BtcUtils
 # This is a script created by goatpig which detects where the python 
 # dependencies are and writes them to the pypaths.txt file. It defines :
 # 		$(PYTHON_LIB) 
+# 		$(PYTHON_LIB_DIR) 
 # 		$(PYVER) 
 # 		$(PYTHON_INCLUDE)
 # If this makefile doesn't work for you, you should manually modify
@@ -22,14 +25,15 @@ OBJS = UniversalTimer.o BinaryData.o leveldb_wrapper.o StoredBlockObj.o BtcUtils
 include ./pypaths.txt
 
 INCLUDE_OPTS += -Icryptopp -Ileveldb/include -DUSE_CRYPTOPP -D__STDC_LIMIT_MACROS 
-LIBRARY_OPTS += -lpthread -Lleveldb -L$(PYTHON_LIB) -l$(PYVER)
+LIBRARY_OPTS += -lpthread -Lleveldb -L$(PYTHON_LIB_DIR) -l$(PYVER)
 SWIG_OPTS    += -c++ -python -classic -threads
 
 
 UNAME := $(shell uname)
 
-   SWIG_INC     += -I"$(PYTHON_INCLUDE)"
-   STATICPYTHON += "$(PYTHON_LIB)"
+SWIG_INC     += -I"$(PYTHON_INCLUDE)"
+STATICPYTHON += "$(PYTHON_LIB)"
+
 
 #**************************************************************************
 all :
