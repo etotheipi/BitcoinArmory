@@ -9,13 +9,17 @@
 from getpass import getpass
 import os
 import sys
+# Must move and clear the Args list before importing anything
+# Otherwise it will process the args for this script.
+promoKitArgList = sys.argv
+# Clear and add --testnet unless you are running this on main net
+sys.argv = sys.argv[:1]
 import time
 
 from PyQt4.QtGui import *
 from pywin.scintilla import view
-
+from armoryengine.PyBtcWallet import PyBtcWallet
 from CppBlockUtils import SecureBinaryData
-from armoryengine import *
 from armoryengine.ArmoryUtils import makeSixteenBytesEasy, NegativeValueError, \
    WalletAddressError, MIN_RELAY_TX_FEE, LOGINFO
 from armoryengine.BDM import TheBDM
@@ -25,11 +29,7 @@ from qtdefines import GETFONT, tr
 from qtdialogs import SimplePrintableGraphicsScene
 
 
-# Must move and clear the Args list before importing anything
-# Otherwise it will process the args for this script.
-promoKitArgList = sys.argv
-# Clear and add --testnet unless you are running this on main net
-sys.argv = sys.argv[:1]
+
    
 sys.path.append('..')
 sys.path.append('.')
@@ -224,8 +224,7 @@ def distributeBtc(masterWallet, amount, sendingAddrList):
       print '\nSigned transaction to be broadcast using Armory "offline transactions"...'
       print txdp.serializeAscii()
    finally:
-      TheBDM.Reset()
-      TheBDM.execCleanShutdown(wait=False)
+      TheBDM.execCleanShutdown()
    return pytx
 
 def setupTheBDM():
@@ -316,7 +315,7 @@ if operation == '--create':
       masterWallet = importAddrsToMasterWallet( \
             masterWallet, walletList, addrsPerWallet, "Master Promo Wallet", )
       # Didn't want to fit these into the argument list. Need to edit based on event
-      printWalletList(walletList, "0.002 bitcoins", "January 1st, 2014")
+      printWalletList(walletList, "some amount of bitcoin. ", "January 1st, 2014")
 elif operation == '--distribute':
    if len(promoKitArgList)<4:
       printHelp()
