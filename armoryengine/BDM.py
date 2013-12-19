@@ -12,7 +12,7 @@ import threading
 import traceback
 
 from armoryengine.ArmoryUtils import *
-from armoryengine.SDM import SatoshiDaemonManager
+from SDM import SatoshiDaemonManager
 from armoryengine.Timer import TimeThisFunction
 import CppBlockUtils as Cpp
 

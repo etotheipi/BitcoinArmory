@@ -27,7 +27,7 @@ from armoryengine.CoinSelection import pprintUnspentTxOutList, PySelectCoins, \
 from armoryengine.Networking import quad_to_str, quad_to_binary, binary_to_quad, \
    str_to_quad, PyMessage, ArmoryClientFactory
 from armoryengine.PyBtcWallet import BLOCKCHAIN_READONLY
-from armoryengine.SDM import satoshiIsAvailable, SatoshiDaemonManager
+from SDM import satoshiIsAvailable, SatoshiDaemonManager
 from armoryengine.Script import PyScriptProcessor
 from armoryengine.Transaction import PyTx, pprintLedgerEntry, PyTxIn, PyOutPoint, \
    PyTxOut, PyCreateAndSignTx, getTxOutMultiSigInfo, PyTxDistProposal

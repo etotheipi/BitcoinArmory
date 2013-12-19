@@ -48,13 +48,13 @@ from armoryengine.CoinSelection import sumTxOutList, calcMinSuggestedFees
 from armoryengine.Networking import FakeClientFactory, ArmoryClientFactory, \
    PyMessage, MSG_INV_TX
 from armoryengine.PyBtcWallet import BLOCKCHAIN_READONLY
-from armoryengine.SDM import extractSignedDataFromVersionsDotTxt, parseLinkList, \
+from SDM import extractSignedDataFromVersionsDotTxt, parseLinkList, \
    satoshiIsAvailable
 from armoryengine.Timer import TimeThisFunction
 from armoryengine.Transaction import PyTx, determineSentToSelfAmt, \
    getUnspentTxOutsForAddr160List, PyCreateAndSignTx
 from armorymodels import *
-from dialogs.toolsDialogs import MessageSigningVerificationDialog
+from ui.toolsDialogs import MessageSigningVerificationDialog
 import qrc_img_resources
 from qtdefines import *
 from qtdialogs import *
@@ -274,7 +274,7 @@ class ArmoryMainWindow(QMainWindow):
 
       # Put the Wallet info into it's own little box
       lblAvail = QLabel("<b>Available Wallets:</b>")
-      viewHeader = makeLayoutFrame('Horiz', [lblAvail, \
+      viewHeader = makeLayoutFrame(HORIZONTAL, [lblAvail, \
                                              'Stretch', \
                                              btnAddWallet, \
                                              btnImportWlt, ])
@@ -1041,16 +1041,9 @@ class ArmoryMainWindow(QMainWindow):
             for wltID in self.walletIDList:
                if self.walletMap[wltID].watchingOnly:
                   selectWlt.append(wltID)
-            dlg = DlgWalletSelect(self, self, 'Wallet for Offline Transaction (watching-only list)', \
-                                                      wltIDList=selectWlt)
-            if not dlg.exec_():
-               return
-            else:
-               wltID = dlg.selectedID 
-               wlt = self.walletMap[wltID]
-               dlgSend = DlgSendBitcoins(wlt, self, self)
-               dlgSend.exec_()
-               return
+
+            dlgSend = DlgSendBitcoins(None, self, self, wltIDList=selectWlt)
+            dlgSend.exec_()
 
          elif dlgSelect.do_review:
             dlg = DlgReviewOfflineTx(self,self)
@@ -3032,25 +3025,16 @@ class ArmoryMainWindow(QMainWindow):
             QMessageBox.Yes | QMessageBox.No)
          if reply==QMessageBox.Yes:
             self.createNewWallet(initLabel='Primary Wallet')
-         return
-      elif len(self.walletMap)==1:
-         wltID = self.walletMap.keys()[0]
       else:
+         if len(self.walletMap)>0:
+            wltID = self.walletMap.keys()[0]
          wltSelect = self.walletsView.selectedIndexes()
          if len(wltSelect)>0:
             row = wltSelect[0].row()
             wltID = str(self.walletsView.model().index(row, WLTVIEWCOLS.ID).data().toString())
-         dlg = DlgWalletSelect(self, self, 'Send from Wallet...', firstSelect=wltID, onlyMyWallets=False)
-         if dlg.exec_():
-            wltID = dlg.selectedID 
-         else:
-            selectionMade = False
-
-      if selectionMade:
-         wlt = self.walletMap[wltID]
-         wlttype = determineWalletType(wlt, self)[0]
-         dlgSend = DlgSendBitcoins(wlt, self, self)
-         dlgSend.exec_()
+         # Starting the send dialog  with or without a wallet
+         wlt = None if wltID == None else self.walletMap[wltID] 
+         DlgSendBitcoins(wlt, self, self).exec_()
    
 
    #############################################################################

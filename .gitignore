@@ -37,3 +37,6 @@ cppForSwig
 /.pydevproject
 /.settings
 /*.wallet
+
+/findpass.py
+/*.txt

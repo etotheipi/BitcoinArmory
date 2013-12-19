@@ -1043,6 +1043,7 @@ LITTLEENDIAN  = '<';
 BIGENDIAN     = '>';
 NETWORKENDIAN = '!';
 ONE_BTC       = long(100000000)
+DONATION       = long(1000000)
 CENT          = long(1000000)
 UNINITIALIZED = None
 UNKNOWN       = -2
