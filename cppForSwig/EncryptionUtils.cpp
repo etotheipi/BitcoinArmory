@@ -104,10 +104,19 @@ SecureBinaryData SecureBinaryData::XOR(SecureBinaryData xorKey,
    xorOut.copyFrom(xorKey.getPtr(), xorKey.getSize());
    size_t xorSize = xorOut.getSize();
    for(size_t x = 0; x < xorSize; ++x) {
-      xorOut[x] = xorOut[x] ^ xorValue;
+      xorOut[x] ^= xorValue;
    }
 
    return xorOut;
+}
+
+
+/////////////////////////////////////////////////////////////////////////////
+static SecureBinaryData CreateFromHex(string const & str)
+{
+   SecureBinaryData out;
+   out.createFromHex(str);
+   return out;
 }
 
 
@@ -907,9 +916,12 @@ CryptoPP::ECP& CryptoECDSA::Get_secp256k1_ECP()
    static CryptoPP::ECP theECP;
    if(firstRun) 
    {
-      BinaryData N = BinaryData::CreateFromHex(SECP256K1_FP);
-      BinaryData a = BinaryData::CreateFromHex(SECP256K1_A);
-      BinaryData b = BinaryData::CreateFromHex(SECP256K1_B);
+      BinaryData N = BinaryData::CreateFromHex(
+            "fffffffffffffffffffffffffffffffffffffffffffffffffffffffefffffc2f");
+      BinaryData a = BinaryData::CreateFromHex(
+            "0000000000000000000000000000000000000000000000000000000000000000");
+      BinaryData b = BinaryData::CreateFromHex(
+            "0000000000000000000000000000000000000000000000000000000000000007");
 
       CryptoPP::Integer intN, inta, intb;
 
@@ -930,7 +942,8 @@ BinaryData CryptoECDSA::ECMultiplyScalars(BinaryData const & A,
                                           BinaryData const & B)
 {
    // Hardcode the order of the secp256k1 EC group
-   static BinaryData N = BinaryData::CreateFromHex(SECP256K1_ORDER_HEX);
+   static BinaryData N = BinaryData::CreateFromHex(
+             "fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141");
 
    CryptoPP::Integer intA, intB, intC, intN;
    intA.Decode(A.getPtr(), A.getSize(), UNSIGNED);
@@ -942,6 +955,7 @@ BinaryData CryptoECDSA::ECMultiplyScalars(BinaryData const & A,
    intC.Encode(C.getPtr(), 32, UNSIGNED);
    return C;
 }
+
 
 // Function that multiplies an incoming scalar by the secp256k1 generator and
 // adds the result to incoming point (X/Y coordinates).
@@ -961,7 +975,8 @@ bool CryptoECDSA::ECMultiplyPoint(BinaryData const & A,
    // We can't proceed if we're at infinity, even if the likelihood is LOW!!!
    // From X9.62 D.3.2?
    intA.Decode( A.getPtr(),  A.getSize(),  UNSIGNED);
-   BinaryData curveOrd = BinaryData::CreateFromHex(SECP256K1_ORDER_HEX);
+   BinaryData curveOrd = BinaryData::CreateFromHex(
+            "fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141");
    intCurveOrd.Decode(curveOrd.getPtr(), curveOrd.getSize(), UNSIGNED);
    BinaryData Cbd(64);
    if(intA % intCurveOrd == 0) {
@@ -970,20 +985,21 @@ bool CryptoECDSA::ECMultiplyPoint(BinaryData const & A,
       validResult = false;
    }
    else {
-   multResult.clear();
-   multResult = BinaryData(64);
-   intBx.Decode(Bx.getPtr(), Bx.getSize(), UNSIGNED);
-   intBy.Decode(By.getPtr(), By.getSize(), UNSIGNED);
+      multResult.clear();
+      multResult = BinaryData(64);
+      intBx.Decode(Bx.getPtr(), Bx.getSize(), UNSIGNED);
+      intBy.Decode(By.getPtr(), By.getSize(), UNSIGNED);
 
-   BTC_ECPOINT B(intBx, intBy);
-   BTC_ECPOINT C = ecp.ScalarMultiply(B, intA);
+      BTC_ECPOINT B(intBx, intBy);
+      BTC_ECPOINT C = ecp.ScalarMultiply(B, intA);
 
-   C.x.Encode(multResult.getPtr(),    32, UNSIGNED);
-   C.y.Encode(multResult.getPtr()+32, 32, UNSIGNED);
+      C.x.Encode(multResult.getPtr(),    32, UNSIGNED);
+      C.y.Encode(multResult.getPtr()+32, 32, UNSIGNED);
    }
 
    return validResult;
 }
+
 
 // Function that adds two points (X/Y coordinates) together, modulo the
 // secp256k1 order.
@@ -1005,7 +1021,8 @@ bool CryptoECDSA::ECAddPoints(BinaryData const & Ax,
    intAy.Decode(Ay.getPtr(), Ay.getSize(), UNSIGNED);
    intBx.Decode(Bx.getPtr(), Bx.getSize(), UNSIGNED);
    intBy.Decode(By.getPtr(), By.getSize(), UNSIGNED);
-   BinaryData fp = BinaryData::CreateFromHex(SECP256K1_FP);
+   BinaryData fp = BinaryData::CreateFromHex(
+            "fffffffffffffffffffffffffffffffffffffffffffffffffffffffefffffc2f");
    intFP.Decode(fp.getPtr(), fp.getSize(), UNSIGNED);
 
    // Let's make sure we're not at infinity. This should be from X9.62 B.3.
@@ -1029,7 +1046,9 @@ bool CryptoECDSA::ECAddPoints(BinaryData const & Ax,
    return validResult;
 }
 
-// Function that takes an incoming point (X/Y coords) and returns the inverse.
+// Function that takes an incoming point (X/Y coords) on the secp256k1 curve and
+// returns the inverse. (The inverse is the original X coordinate and the
+// inverted Y coordinate (i.e., the bits are flipped).
 ////////////////////////////////////////////////////////////////////////////////
 BinaryData CryptoECDSA::ECInverse(BinaryData const & Ax, 
                                   BinaryData const & Ay)
@@ -1050,6 +1069,7 @@ BinaryData CryptoECDSA::ECInverse(BinaryData const & Ax,
 
    return Cbd;
 }
+
 
 // Function that takes an incoming 65 byte public key and returns a 33 byte
 // compressed version.
@@ -1093,10 +1113,10 @@ const bool ExtendedKey::isPrv() const {
 
 
 // Function that returns the 4-byte fingerprint of the ExtendedKey. This is the
-// first 4 bytes of the Hash160 of the uncompressed public key.
+// first 4 bytes of the Hash160 of the compressed public key.
 const SecureBinaryData ExtendedKey::getFingerprint() const {
-   SecureBinaryData myHash = BtcUtils::getHash160(pubKey_.getPtr(),
-                                                  pubKey_.getSize());
+   SecureBinaryData compressedPubKey = CryptoECDSA().CompressPoint(pubKey_);
+   SecureBinaryData myHash = compressedPubKey.getHash160();
    return myHash.getSliceRef(0, 4);
 }
 
@@ -1160,7 +1180,7 @@ ExtendedKey::ExtendedKey(SecureBinaryData const & key,
    updatePubKey();
    version = PRVVER;
    depth = 0;
-   parentFP = 0;
+   parentFP = SecureBinaryData::CreateFromHex("00000000");
    childNum = 0;
    indicesList_.push_back(0);
    validKey = true;
@@ -1248,7 +1268,6 @@ ExtendedKey::ExtendedKey(SecureBinaryData const & pr,
 // RETURN: A completed ExtendedKey object.
 ////////////////////////////////////////////////////////////////////////////////
 // Should be static, but would prevent SWIG from using it.
-//ExtendedKey ExtendedKey::CreateFromPrivate(SecureBinaryData const & priv,
 ExtendedKey ExtendedKey::CreateChildKey(SecureBinaryData const & key,
                                         SecureBinaryData const & chain,
                                         SecureBinaryData const & parentFP,
@@ -1340,9 +1359,8 @@ void ExtendedKey::updatePubKey() {
    // If primary key is private, derive the uncompressed private key. If public,
    // just save an uncompressed copy.
    if(isPrv()) {
-      BTC_PRIVKEY tmpA = CryptoECDSA().ParsePrivateKey(key_.getSliceRef(1, 32));
-      BTC_PUBKEY tmpB = CryptoECDSA().ComputePublicKey(tmpA);
-      pubKey_ = CryptoECDSA().SerializePublicKey(tmpB);
+      SecureBinaryData inPrvKey = key_.getSliceRef(1, 32);
+      pubKey_ = CryptoECDSA().ComputePublicKey(inPrvKey);
    }
    else {
       pubKey_ = CryptoECDSA().UncompressPoint(pubKey_);
@@ -1354,17 +1372,18 @@ void ExtendedKey::updatePubKey() {
 // If the ExtendedKey isn't valid yet, return an empty 78 byte buffer.
 // Format is version/depth/parentFP/childNum/chainCode/key.
 const SecureBinaryData ExtendedKey::getExtKeySer() {
-   SecureBinaryData outKey(EXTKEYSIZE);
+//   SecureBinaryData outKey(EXTKEYSIZE);
+   SecureBinaryData outKey;
    if(!validKey) {
       outKey.fill(0x00);
    }
    else {
-      SecureBinaryData tmpVal = WRITE_UINT32_SBE(version);
+      SecureBinaryData tmpVal = WRITE_UINT32_BE(version);
       outKey.append(tmpVal);
-      tmpVal = WRITE_UINT8_SBE(depth);
+      tmpVal = WRITE_UINT8_BE(depth);
       outKey.append(tmpVal);
       outKey.append(parentFP);
-      tmpVal = WRITE_UINT32_SBE(childNum);
+      tmpVal = WRITE_UINT32_BE(childNum);
       outKey.append(tmpVal);
       outKey.append(chainCode_);
       outKey.append(key_);
@@ -1382,7 +1401,7 @@ const SecureBinaryData ExtendedKey::getExtKeySer() {
 // OUTPUT: None
 // RETURN: None
 HDWalletCryptoSeed::HDWalletCryptoSeed(const SecureBinaryData& rngData) {
-   SecureBinaryData hmacKey(DETWALLETKEYHEX);
+   SecureBinaryData hmacKey = SecureBinaryData::CreateFromHex("426974636f696e2073656564");
    SecureBinaryData hVal = HDWalletCrypto().HMAC_SHA512(hmacKey, rngData);
    SecureBinaryData hValLeft = hVal.getSliceRef(0, 32);
    masterKey.append(0x00);
@@ -1415,13 +1434,16 @@ SecureBinaryData HDWalletCrypto::HMAC_SHA512(SecureBinaryData key,
 
    // Inner hash operation
    i_key_pad.append(msg);
-   i_key_pad = BtcUtils::getHash512(i_key_pad);
+   SecureBinaryData x;
+   BtcUtils::getHash512(i_key_pad.getPtr(), i_key_pad.getSize(), x);
 
    // Outer hash operation
-   o_key_pad.append(i_key_pad);
-   o_key_pad = BtcUtils::getHash512(o_key_pad);
+   SecureBinaryData s(x);
+   o_key_pad.append(s);
+   SecureBinaryData y;
+   BtcUtils::getHash512(o_key_pad.getPtr(), o_key_pad.getSize(), y);
 
-   return o_key_pad;
+   return y;
 }
 
 
@@ -1473,7 +1495,7 @@ ExtendedKey HDWalletCrypto::childKeyDeriv(ExtendedKey const & extPar, uint32_t n
       CryptoPP::Integer intLeft;
       CryptoPP::Integer ecOrder;
       SecureBinaryData CURVE_ORDER_BE = SecureBinaryData().CreateFromHex(
-                                                           SECP256K1_ORDER_HEX);
+            "fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141");
       ecOrder.Decode(CURVE_ORDER_BE.getPtr(), CURVE_ORDER_BE.getSize(),
                      UNSIGNED);
       intLeft.Decode(leftHMAC.getPtr(), leftHMAC.getSize(), UNSIGNED);

@@ -11,6 +11,7 @@
 #include "../PartialMerkle.h"
 #include "../leveldb_wrapper.h"
 #include "../BlockUtils.h"
+#include "../EncryptionUtils.h"
 
 #ifdef _MSC_VER
    #include "win32_posix.h"
@@ -7013,6 +7014,338 @@ TEST_F(BlockUtilsWithWalletTest, PostRegisterScrAddr)
    balanceDB  = iface_->getBalanceForScrAddr(scrAddrD_);
    EXPECT_EQ(balanceWlt,    0*COIN);  // D is not part of the wallet
    EXPECT_EQ(balanceDB,   100*COIN);
+}
+
+
+// Comments need to be added....
+// Most of this data is from the BIP32 test vectors.
+class TestCryptoECDSA : public ::testing::Test
+{
+protected:
+   /////////////////////////////////////////////////////////////////////////////
+   virtual void SetUp(void) 
+   {
+      verifyX = READHEX("39a36013301597daef41fbe593a02cc513d0b55527ec2df1050e2e8ff49c85c2");
+      verifyY = READHEX("3cbe7ded0e7ce6a594896b8f62888fdbc5c8821305e2ea42bf01e37300116281");
+
+      multScalarA = READHEX("79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798");
+      multScalarB = READHEX("483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8");
+      multRes = READHEX("805714a252d0c0b58910907e85b5b801fff610a36bdf46847a4bf5d9ae2d10ed");
+
+      multScalar = READHEX("04bfb2dd60fa8921c2a4085ec15507a921f49cdc839f27f0f280e9c1495d44b5");
+      multPointX = READHEX("79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798");
+      multPointY = READHEX("483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8");
+      multPointRes = READHEX("7f8bd85f90169a606b0b4323c70e5a12e8a89cbc76647b6ed6a39b4b53825214c590a32f111f857573cf8f2c85d969815e4dd35ae0dc9c7e868195c309b8bada");
+
+      addAX = READHEX("79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798");
+      addAY = READHEX("483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8");
+      addBX = READHEX("5a784662a4a20a65bf6aab9ae98a6c068a81c52e4b032c0fb5400c706cfccc56");
+      addBY = READHEX("7f717885be239daadce76b568958305183ad616ff74ed4dc219a74c26d35f839");
+      addRes = READHEX("fe2f7c8109d9ae628856d51a02ab25300a8757e088fc336d75cb8dc4cc2ce3339013be71e57c3abeee6ad158646df81d92f8c0778f88100eeb61535f9ff9776d");
+
+      invAX = READHEX("79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798");
+      invAY = READHEX("483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8");
+      invRes = READHEX("79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798b7c52588d95c3b9aa25b0403f1eef75702e84bb7597aabe663b82f6f04ef2777");
+
+      compPointPrv1 = READHEX("000f479245fb19a38a1954c5c7c0ebab2f9bdfd96a17563ef28a6a4b1a2a764ef4");
+      compPointPub1    = READHEX("02e8445082a72f29b75ca48748a914df60622a609cacfce8ed0e35804560741d29");
+      uncompPointPub1  = READHEX("04e8445082a72f29b75ca48748a914df60622a609cacfce8ed0e35804560741d292728ad8d58a140050c1016e21f285636a580f4d2711b7fac3957a594ddf416a0");
+
+      compPointPrv2 = READHEX("00e8f32e723decf4051aefac8e2c93c9c5b214313817cdb01a1494b917c8436b35");
+      compPointPub2    = READHEX("0339a36013301597daef41fbe593a02cc513d0b55527ec2df1050e2e8ff49c85c2");
+      uncompPointPub2 = READHEX("0439a36013301597daef41fbe593a02cc513d0b55527ec2df1050e2e8ff49c85c23cbe7ded0e7ce6a594896b8f62888fdbc5c8821305e2ea42bf01e37300116281");
+
+      LOGDISABLESTDOUT();
+   }
+
+
+   /////////////////////////////////////////////////////////////////////////////
+   virtual void TearDown(void)
+   {
+   }
+
+
+   SecureBinaryData verifyX;
+   SecureBinaryData verifyY;
+
+   SecureBinaryData multScalarA;
+   SecureBinaryData multScalarB;
+   SecureBinaryData multRes;
+
+   SecureBinaryData multScalar;
+   SecureBinaryData multPointX;
+   SecureBinaryData multPointY;
+   SecureBinaryData multPointRes;
+
+   SecureBinaryData addAX;
+   SecureBinaryData addAY;
+   SecureBinaryData addBX;
+   SecureBinaryData addBY;
+   SecureBinaryData addRes;
+
+   SecureBinaryData invAX;
+   SecureBinaryData invAY;
+   SecureBinaryData invRes;
+
+   SecureBinaryData compPointPrv1;
+   SecureBinaryData uncompPointPub1;
+   SecureBinaryData compPointPub1;
+   SecureBinaryData compPointPrv2;
+   SecureBinaryData uncompPointPub2;
+   SecureBinaryData compPointPub2;
+};
+
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(TestCryptoECDSA, VerifySECP256K1Point)
+{
+   EXPECT_TRUE(CryptoECDSA().ECVerifyPoint(verifyX, verifyY));
+}
+
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(TestCryptoECDSA, SECP256K1MultScalars)
+{
+   SecureBinaryData testRes = CryptoECDSA().ECMultiplyScalars(multScalarA,
+                                                              multScalarB);
+   EXPECT_EQ(multRes, testRes);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(TestCryptoECDSA, SECP256K1MultPoint)
+{
+   SecureBinaryData testVal;
+   bool testRes = CryptoECDSA().ECMultiplyPoint(multScalar,
+                                                multPointX,
+                                                multPointY,
+                                                testVal);
+   EXPECT_TRUE(testRes);
+   EXPECT_EQ(multPointRes, testVal);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(TestCryptoECDSA, SECP256K1AddPoints)
+{
+   SecureBinaryData testVal;
+   bool testRes = CryptoECDSA().ECAddPoints(addAX,
+                                            addAY,
+                                            addBX,
+                                            addBY,
+                                            testVal);
+   EXPECT_TRUE(testRes);
+   EXPECT_EQ(addRes, testVal);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(TestCryptoECDSA, SECP256K1PointInverse)
+{
+   SecureBinaryData testVal = CryptoECDSA().ECInverse(invAX,
+                                                      invAY);
+   EXPECT_EQ(invRes, testVal);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(TestCryptoECDSA, KeyCompression)
+{
+   SecureBinaryData compressedPt1 = CryptoECDSA().CompressPoint(uncompPointPub1);
+   SecureBinaryData compressedPt2 = CryptoECDSA().CompressPoint(uncompPointPub2);
+   SecureBinaryData uncompressedPt1 = CryptoECDSA().UncompressPoint(compPointPub1);
+   SecureBinaryData uncompressedPt2 = CryptoECDSA().UncompressPoint(compPointPub2);
+
+   EXPECT_EQ(compressedPt1, compressedPt1);
+   EXPECT_EQ(compressedPt2, compressedPt2);
+   EXPECT_EQ(uncompressedPt1, uncompressedPt1);
+   EXPECT_EQ(uncompressedPt2, uncompressedPt2);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(TestCryptoECDSA, KeyComputation)
+{
+   SecureBinaryData prvKey1 = compPointPrv1.getSliceRef(1, 32);
+   SecureBinaryData prvKey2 = compPointPrv2.getSliceRef(1, 32);
+   SecureBinaryData calcPubKey1 = CryptoECDSA().ComputePublicKey(prvKey1);
+   SecureBinaryData calcPubKey2 = CryptoECDSA().ComputePublicKey(prvKey2);
+
+   EXPECT_EQ(uncompPointPub1, calcPubKey1);
+   EXPECT_EQ(uncompPointPub2, calcPubKey2);
+}
+
+
+class TestExtendedKey : public ::testing::Test
+{
+protected:
+   /////////////////////////////////////////////////////////////////////////////
+   virtual void SetUp(void) 
+   {
+      if(1) {
+         verPub       = 76067358; // 0x0488B21E
+         verPri       = 76066276; // 0x0488ADE4
+      }
+      else {
+         verPub       = 70617039; // 0x043587CF
+         verPri       = 70615956; // 0x04358394
+      }
+      seedParFP       = READHEX("00000000");
+
+      seedKey1        = READHEX("00e8f32e723decf4051aefac8e2c93c9c5b214313817cdb01a1494b917c8436b35");
+      seedCC1         = READHEX("873dff81c02f525623fd1fe5167eac3a55a049de3d314bb42ee227ffed37d508");
+      seedPubKey1     = READHEX("0439a36013301597daef41fbe593a02cc513d0b55527ec2df1050e2e8ff49c85c23cbe7ded0e7ce6a594896b8f62888fdbc5c8821305e2ea42bf01e37300116281");
+      seedCompPubKey1 = READHEX("0339a36013301597daef41fbe593a02cc513d0b55527ec2df1050e2e8ff49c85c2");
+      seedExtSerPrv1  = READHEX("0488ade4000000000000000000873dff81c02f525623fd1fe5167eac3a55a049de3d314bb42ee227ffed37d50800e8f32e723decf4051aefac8e2c93c9c5b214313817cdb01a1494b917c8436b35");
+      seedExtSerPub1  = READHEX("0488b21e000000000000000000873dff81c02f525623fd1fe5167eac3a55a049de3d314bb42ee227ffed37d5080339a36013301597daef41fbe593a02cc513d0b55527ec2df1050e2e8ff49c85c2");
+      seedFP1         = READHEX("3442193e");
+
+      seedKey2        = READHEX("004b03d6fc340455b363f51020ad3ecca4f0850280cf436c70c727923f6db46c3e");
+      seedCC2         = READHEX("60499f801b896d83179a4374aeb7822aaeaceaa0db1f85ee3e904c4defbd9689");
+      seedPubKey2     = READHEX("04cbcaa9c98c877a26977d00825c956a238e8dddfbd322cce4f74b0b5bd6ace4a77bd3305d363c26f82c1e41c667e4b3561c06c60a2104d2b548e6dd059056aa51");
+      seedCompPubKey2 = READHEX("03cbcaa9c98c877a26977d00825c956a238e8dddfbd322cce4f74b0b5bd6ace4a7");
+      seedExtSerPrv2  = READHEX("0488ade400000000000000000060499f801b896d83179a4374aeb7822aaeaceaa0db1f85ee3e904c4defbd9689004b03d6fc340455b363f51020ad3ecca4f0850280cf436c70c727923f6db46c3e");
+      seedExtSerPub2  = READHEX("0488b21e00000000000000000060499f801b896d83179a4374aeb7822aaeaceaa0db1f85ee3e904c4defbd968903cbcaa9c98c877a26977d00825c956a238e8dddfbd322cce4f74b0b5bd6ace4a7");
+      seedFP2         = READHEX("bd16bee5");
+
+      LOGDISABLESTDOUT();
+   }
+
+
+   /////////////////////////////////////////////////////////////////////////////
+   virtual void TearDown(void)
+   {
+   }
+
+   SecureBinaryData seedParFP;
+   uint32_t verPub;
+   uint32_t verPri;
+
+   SecureBinaryData seedKey1;
+   SecureBinaryData seedCC1;
+   SecureBinaryData seedPubKey1;
+   SecureBinaryData seedCompPubKey1;
+   SecureBinaryData seedExtSerPrv1;
+   SecureBinaryData seedExtSerPub1;
+   SecureBinaryData seedFP1;
+
+   SecureBinaryData seedKey2;
+   SecureBinaryData seedCC2;
+   SecureBinaryData seedPubKey2;
+   SecureBinaryData seedCompPubKey2;
+   SecureBinaryData seedExtSerPrv2;
+   SecureBinaryData seedExtSerPub2;
+   SecureBinaryData seedFP2;
+};
+
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(TestExtendedKey, BuildEK1)
+{
+   ExtendedKey masterKey1(seedKey1, seedCC1);
+   SecureBinaryData retKey1       = masterKey1.getKey();
+   SecureBinaryData retPubKey1    = masterKey1.getPub();
+   SecureBinaryData retChainCode1 = masterKey1.getChainCode();
+   SecureBinaryData testExtSer1   = masterKey1.getExtKeySer();
+   SecureBinaryData testFP1       = masterKey1.getFingerprint();
+   SecureBinaryData testParFP1    = masterKey1.getParentFP();
+   uint32_t testIndex1            = masterKey1.getIndex();
+   SecureBinaryData testCompPub1  = masterKey1.getPubCompressed();
+   uint32_t testVer1              = masterKey1.getVersion();
+   uint8_t testDepth1             = masterKey1.getDepth();
+   uint32_t testChildNum1         = masterKey1.getChildNum();
+
+   EXPECT_TRUE(masterKey1.isInitialized());
+   EXPECT_TRUE(masterKey1.hasChainCode());
+   EXPECT_TRUE(masterKey1.isPrv());
+   EXPECT_FALSE(masterKey1.isPub());
+   EXPECT_EQ(retKey1, seedKey1);
+   EXPECT_EQ(retPubKey1, seedPubKey1);
+   EXPECT_EQ(retChainCode1, seedCC1);
+   EXPECT_EQ(testExtSer1, seedExtSerPrv1);
+   EXPECT_EQ(testFP1, seedFP1);
+   EXPECT_EQ(testParFP1, seedParFP);
+   EXPECT_EQ(testCompPub1, seedCompPubKey1);
+   EXPECT_EQ(testIndex1, 0);
+   EXPECT_EQ(testVer1, verPri);
+   EXPECT_EQ(testDepth1, 0);
+   EXPECT_EQ(testChildNum1, 0);
+
+   ExtendedKey masterKey2(seedKey2, seedCC2);
+   SecureBinaryData retKey2       = masterKey2.getKey();
+   SecureBinaryData retPubKey2    = masterKey2.getPub();
+   SecureBinaryData retChainCode2 = masterKey2.getChainCode();
+   SecureBinaryData testExtSer2   = masterKey2.getExtKeySer();
+   SecureBinaryData testFP2       = masterKey2.getFingerprint();
+   SecureBinaryData testParFP2    = masterKey2.getParentFP();
+   uint32_t testIndex2            = masterKey2.getIndex();
+   SecureBinaryData testCompPub2  = masterKey2.getPubCompressed();
+   uint32_t testVer2              = masterKey2.getVersion();
+   uint8_t testDepth2             = masterKey2.getDepth();
+   uint32_t testChildNum2         = masterKey2.getChildNum();
+
+   EXPECT_TRUE(masterKey2.isInitialized());
+   EXPECT_TRUE(masterKey2.hasChainCode());
+   EXPECT_TRUE(masterKey2.isPrv());
+   EXPECT_FALSE(masterKey2.isPub());
+   EXPECT_EQ(retKey2, seedKey2);
+   EXPECT_EQ(retPubKey2, seedPubKey2);
+   EXPECT_EQ(retChainCode2, seedCC2);
+   EXPECT_EQ(testExtSer2, seedExtSerPrv2);
+   EXPECT_EQ(testFP2, seedFP2);
+   EXPECT_EQ(testParFP2, seedParFP);
+   EXPECT_EQ(testCompPub2, seedCompPubKey2);
+   EXPECT_EQ(testIndex2, 0);
+   EXPECT_EQ(testVer2, verPri);
+   EXPECT_EQ(testDepth2, 0);
+   EXPECT_EQ(testChildNum2, 0);
+
+   // Can't get a standalone object from the default constructor. Not sure why.
+   EXPECT_FALSE(ExtendedKey().isInitialized());
+}
+
+
+class TestHDWalletCryptoSeed : public ::testing::Test
+{
+protected:
+   /////////////////////////////////////////////////////////////////////////////
+   virtual void SetUp(void) 
+   {
+      seedInput1      = READHEX("000102030405060708090a0b0c0d0e0f");
+      seedKey1        = READHEX("00e8f32e723decf4051aefac8e2c93c9c5b214313817cdb01a1494b917c8436b35");
+      seedCompPubKey1 = READHEX("0339a36013301597daef41fbe593a02cc513d0b55527ec2df1050e2e8ff49c85c2");
+      seedCC1         = READHEX("873dff81c02f525623fd1fe5167eac3a55a049de3d314bb42ee227ffed37d508");
+
+      seedInput2      = READHEX("fffcf9f6f3f0edeae7e4e1dedbd8d5d2cfccc9c6c3c0bdbab7b4b1aeaba8a5a29f9c999693908d8a8784817e7b7875726f6c696663605d5a5754514e4b484542");
+      seedKey2        = READHEX("004b03d6fc340455b363f51020ad3ecca4f0850280cf436c70c727923f6db46c3e");
+      seedCompPubKey2 = READHEX("03cbcaa9c98c877a26977d00825c956a238e8dddfbd322cce4f74b0b5bd6ace4a7");
+      seedCC2         = READHEX("60499f801b896d83179a4374aeb7822aaeaceaa0db1f85ee3e904c4defbd9689");
+
+      LOGDISABLESTDOUT();
+   }
+
+   /////////////////////////////////////////////////////////////////////////////
+   virtual void TearDown(void)
+   {
+   }
+
+   SecureBinaryData seedInput1;
+   SecureBinaryData seedKey1;
+   SecureBinaryData seedCC1;
+   SecureBinaryData seedCompPubKey1;
+
+   SecureBinaryData seedInput2;
+   SecureBinaryData seedKey2;
+   SecureBinaryData seedCC2;
+   SecureBinaryData seedCompPubKey2;
+};
+
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(TestHDWalletCryptoSeed, BuildSeed)
+{
+   HDWalletCryptoSeed testSeed1  = HDWalletCryptoSeed(seedInput1);
+   SecureBinaryData testSeedKey1 = testSeed1.getMasterKey();
+   SecureBinaryData testSeedCC1  = testSeed1.getMasterChainCode();
+   EXPECT_EQ(testSeedKey1, seedKey1);
+   EXPECT_EQ(testSeedCC1, seedCC1);
+
+   HDWalletCryptoSeed testSeed2  = HDWalletCryptoSeed(seedInput2);
+   SecureBinaryData testSeedKey2 = testSeed2.getMasterKey();
+   SecureBinaryData testSeedCC2  = testSeed2.getMasterChainCode();
+   EXPECT_EQ(testSeedKey2, seedKey2);
+   EXPECT_EQ(testSeedCC2, seedCC2);
 }
 
 ////////////////////////////////////////////////////////////////////////////////

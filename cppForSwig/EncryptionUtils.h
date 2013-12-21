@@ -98,16 +98,6 @@
 
 using namespace std;
 
-#define WRITE_UINT8_SLE  SecureBinaryData::IntToStrSLE<uint8_t>
-#define WRITE_UINT16_SLE SecureBinaryData::IntToStrSLE<uint16_t>
-#define WRITE_UINT32_SLE SecureBinaryData::IntToStrSLE<uint32_t>
-#define WRITE_UINT64_SLE SecureBinaryData::IntToStrSLE<uint64_t>
-
-#define WRITE_UINT8_SBE  SecureBinaryData::IntToStrSBE<uint8_t>
-#define WRITE_UINT16_SBE SecureBinaryData::IntToStrSBE<uint16_t>
-#define WRITE_UINT32_SBE SecureBinaryData::IntToStrSBE<uint32_t>
-#define WRITE_UINT64_SBE SecureBinaryData::IntToStrSBE<uint64_t>
-
 // We will look for a high memory value to use in the KDF
 // But as a safety check, we should probably put a cap
 // on how much memory the KDF can use -- 32 MB is good
@@ -116,12 +106,12 @@ using namespace std;
 #define DEFAULT_KDF_MAX_MEMORY 32*1024*1024
 
 // Highly deterministic wallet - HMAC-512 key (see BIP32)
-#define DETWALLETKEYHEX "426974636f696e2073656564"
-#define SECP256K1_ORDER_HEX "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141"
-#define SECP256K1_FP "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F"
+/*#define DETWALLETKEYHEX "426974636f696e2073656564"
+#define SECP256K1_ORDER_HEX "fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141"
+#define SECP256K1_FP "fffffffffffffffffffffffffffffffffffffffffffffffffffffffefffffc2f"
 #define SECP256K1_A "0000000000000000000000000000000000000000000000000000000000000000"
 #define SECP256K1_B "0000000000000000000000000000000000000000000000000000000000000007"
-#define SECP256K1_G "0479BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798483ADA7726A3C4655DA4FBFC0E1108A8FD17B448A68554199C47D08FFB10D4B8"
+#define SECP256K1_G "0479be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8"*/
 
 #define PRIKEYSIZE 33
 #define PUBKEYSIZE 65
@@ -132,18 +122,17 @@ using namespace std;
 #define MAIN_PRV 76066276
 #define TEST_PUB 70617039
 #define TEST_PRV 70615956
-#define MAIN_PUB_HEX 0x0488B21E
-#define MAIN_PRV_HEX 0x0488ADE4
-#define TEST_PUB_HEX 0x043587CF
-#define TEST_PRV_HEX 0x04358394
-
+/*#define MAIN_PUB_HEX 0x0488b21e
+#define MAIN_PRV_HEX 0x0488ade4
+#define TEST_PUB_HEX 0x043587cf
+#define TEST_PRV_HEX 0x04358394*/
 
 // Values for test vectors. Migrate in time!
-#define BIP32_MASTER_MSG_HEX "000102030405060708090a0b0c0d0e0f"
+/*#define BIP32_MASTER_MSG_HEX "000102030405060708090a0b0c0d0e0f"
 #define BIP32_MASTER_ID_HEX "3442193e1bb70916e914552172cd4e2dbc9df811"
 #define BIP32_MASTER_PRVKEY_HEX "e8f32e723decf4051aefac8e2c93c9c5b214313817cdb01a1494b917c8436b35"
 #define BIP32_MASTER_PUBKEY_COMP_HEX "0339a36013301597daef41fbe593a02cc513d0b55527ec2df1050e2e8ff49c85c2"
-#define BIP32_MASTER_CC_HEX "873dff81c02f525623fd1fe5167eac3a55a049de3d314bb42ee227ffed37d508"
+#define BIP32_MASTER_CC_HEX "873dff81c02f525623fd1fe5167eac3a55a049de3d314bb42ee227ffed37d508"*/
 
 
 // Use this to avoid "using namespace CryptoPP" (which confuses SWIG)
@@ -245,68 +234,7 @@ public:
       resize(0);
    }
 
-   /////////////////////////////////////////////////////////////////////////////
-   // This is an architecture-agnostic way to serialize integers to little- or
-   // big-endian.  Bit-shift & mod will always return the lowest significant
-   // bytes, so we can put them into an array of bytes in the desired order.
-   template<typename INTTYPE>
-   static SecureBinaryData IntToStrSLE(INTTYPE val)
-   {
-      uint8_t const SZ = sizeof(INTTYPE);
-      SecureBinaryData out(SZ);
-      for(uint8_t i=0; i<SZ; i++, val>>=8)
-         out[i] = val % 256;
-      return out;
-   }
-   
-   /////////////////////////////////////////////////////////////////////////////
-   template<typename INTTYPE>
-   static SecureBinaryData IntToStrSBE(INTTYPE val)
-   {
-      uint8_t const SZ = sizeof(INTTYPE);
-      SecureBinaryData out(SZ);
-      for(uint8_t i=0; i<SZ; i++, val>>=8)
-         out[(SZ-1)-i] = val % 256;
-      return out;
-   }
 };
-
-
-   /////////////////////////////////////////////////////////////////////////////
-   template<typename INTTYPE>
-   static INTTYPE StrToIntSLE(SecureBinaryData binstr)
-   {
-      uint8_t const SZ = sizeof(INTTYPE);
-      if(binstr.getSize() != SZ)
-      {
-         LOGERR << "StrToInt: strsz: " << binstr.getSize() << " intsz: " << SZ;
-         return (INTTYPE)0;
-      }
-      
-      INTTYPE out = 0;
-      for(uint8_t i=0; i<SZ; i++)
-         out |= ((INTTYPE)binstr[i]) << (8*i);
-
-      return out;
-   }
-
-   /////////////////////////////////////////////////////////////////////////////
-   template<typename INTTYPE>
-   static INTTYPE StrToIntSBE(SecureBinaryData binstr)
-   {
-      uint8_t const SZ = sizeof(INTTYPE);
-      if(binstr.getSize() != SZ)
-      {
-         LOGERR << "StrToInt: strsz: " << binstr.getSize() << " intsz: " << SZ;
-         return (INTTYPE)0;
-      }
-      
-      INTTYPE out = 0;
-      for(uint8_t i=0; i<SZ; i++)
-         out |= ((INTTYPE)binstr[i]) << (8*((SZ-1)-i));
-
-      return out;
-   }
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -520,7 +448,7 @@ public:
                     BinaryData const & By,
                     BinaryData& addResult);
 
-   BinaryData ECInverse(BinaryData const & Ax, 
+   BinaryData ECInverse(BinaryData const & Ax,
                         BinaryData const & Ay);
 
    /////////////////////////////////////////////////////////////////////////////
@@ -598,7 +526,7 @@ public:
    SecureBinaryData const & getParentFP() const { return parentFP; }
 
    BinaryData               getHash160() const;
-   uint32_t                 getDepth() const  { return indicesList_.size(); }
+//   uint32_t                 getDepth() const  { return indicesList_.size(); }
    ExtendedKey              copy() const;
 
    SecureBinaryData getPubCompressed() const;

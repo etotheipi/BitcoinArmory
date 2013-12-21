@@ -510,7 +510,6 @@ public:
          hashOutput.resize(64);
 
       sha512_.CalculateDigest(hashOutput.getPtr(), strToHash, nBytes);
-      sha512_.CalculateDigest(hashOutput.getPtr(), hashOutput.getPtr(), 64);
    }
 
    /////////////////////////////////////////////////////////////////////////////
@@ -522,7 +521,6 @@ public:
       static CryptoPP::SHA512 sha512_;
 
       sha512_.CalculateDigest(hashOutput.getPtr(), strToHash, nBytes);
-      sha512_.CalculateDigest(hashOutput.getPtr(), hashOutput.getPtr(), 64);
    }
 
    /////////////////////////////////////////////////////////////////////////////
@@ -533,7 +531,6 @@ public:
 
       BinaryData hashOutput(64);
       sha512_.CalculateDigest(hashOutput.getPtr(), strToHash, nBytes);
-      sha512_.CalculateDigest(hashOutput.getPtr(), hashOutput.getPtr(), 64);
       return hashOutput;
    }
 
