@@ -499,13 +499,15 @@ public:
    ExtendedKey(SecureBinaryData const & key,
                SecureBinaryData const & ch);
 
-   // Function creating an ExtendedKey from a given public or private key.
+   // Function creating an ExtendedKey child from a given public or private key.
    // Should be static, but would prevent SWIG from using it.
-   ExtendedKey CreateChildKey(SecureBinaryData const & key,
+/*   ExtendedKey CreateChildKey(SecureBinaryData const & key,
                               SecureBinaryData const & chain,
-                              SecureBinaryData const & parentFP,
+                              SecureBinaryData const & parFP,
                               uint32_t n,
-                              bool isKeyPub);
+                              uint32_t keyVer,
+                              list<uint32_t> treeIdx,
+                              bool isKeyPub);*/
 
    void destroy();
    void deletePrivateKey();
@@ -523,10 +525,10 @@ public:
    list<uint32_t>           getIndicesList() const { return indicesList_; }
    vector<uint32_t>         getIndicesVect() const;
    const SecureBinaryData   getFingerprint() const;
+   const SecureBinaryData   getIdentifier() const;
    SecureBinaryData const & getParentFP() const { return parentFP; }
 
    BinaryData               getHash160() const;
-//   uint32_t                 getDepth() const  { return indicesList_.size(); }
    ExtendedKey              copy() const;
 
    SecureBinaryData getPubCompressed() const;
@@ -534,11 +536,11 @@ public:
    void debugPrint();
 
    uint32_t                 getIndex() const;
+   // Used only for Google testing purposes? Probably not needed in final code.
    const string getIndexListString(const string prefix="M");
 
-   // Used only for Google testing purposes? Probably not needed in final code.
-   uint32_t getVersion() { return version; }
-   uint8_t getDepth() { return depth; }
+   const uint32_t getVersion() const { return version; }
+   const uint8_t getDepth() const { return depth; }
    uint32_t getChildNum() { return childNum; }
 
 private:
@@ -550,7 +552,7 @@ private:
    SecureBinaryData chainCode_; // 32 bytes.
 
    list<uint32_t> indicesList_; // Shows where in the chain we are.
-//   SecureBinaryData parent160_; // Hash160 value of the parent. Not used for now.
+//   SecureBinaryData parent160_; // Hash160 parent ID. Not used for now.
 
    uint32_t version;
    uint8_t depth;

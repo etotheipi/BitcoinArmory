@@ -24,8 +24,9 @@
 #define PRVVER MAIN_PRV
 #endif
 
-inline uint32_t childPos(uint32_t pos) { return 0x7fffffff | pos; }
-inline bool usePrvDer(uint32_t pos) { return 0x80000000 & pos; }
+inline bool usePrvDer(uint32_t inChildNumber) {
+   return ((0x80000000 & inChildNumber) == 0x80000000);
+}
 
 /////////////////////////////////////////////////////////////////////////////
 // We have to explicitly re-define some of these methods...
@@ -1121,6 +1122,14 @@ const SecureBinaryData ExtendedKey::getFingerprint() const {
 }
 
 
+// Function that returns the 20-byte identifier of the ExtendedKey. This is the
+// Hash160 of the compressed public key.
+const SecureBinaryData ExtendedKey::getIdentifier() const {
+   SecureBinaryData compressedPubKey = CryptoECDSA().CompressPoint(pubKey_);
+   return compressedPubKey.getHash160();
+}
+
+
 // Function that performs a Hash160 (SHA256, then RIPEMD160) on the uncompressed
 // public key.
 // INPUT:  None
@@ -1132,18 +1141,21 @@ BinaryData ExtendedKey::getHash160() const
    return BtcUtils::getHash160(pubKey_.getPtr(), pubKey_.getSize());
 }
 
-// Get the key's current index. Will be UINT32_MAX if it's the master key.
+
+// Get the key's current index. Will be 0 if it's the master key.
 ////////////////////////////////////////////////////////////////////////////////
 uint32_t ExtendedKey::getIndex() const
 {
-   // If we get this, we're the master key.
-   if(indicesList_.size() == 0) {
-      return UINT32_MAX;
+   uint32_t retVal = 0;
+
+   // If the indices list is empty, we're the master key.
+   if(indicesList_.size() != 0) {
+      list<uint32_t>::const_iterator iter = indicesList_.end();
+      --iter;
+      retVal = *iter;
    }
-   
-   list<uint32_t>::const_iterator iter = indicesList_.end();
-   --iter;
-   return *iter;
+
+   return retVal;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1182,7 +1194,6 @@ ExtendedKey::ExtendedKey(SecureBinaryData const & key,
    depth = 0;
    parentFP = SecureBinaryData::CreateFromHex("00000000");
    childNum = 0;
-   indicesList_.push_back(0);
    validKey = true;
 }
 
@@ -1203,13 +1214,18 @@ ExtendedKey::ExtendedKey(SecureBinaryData const & key,
                          uint8_t inDepth,
                          uint32_t inChildNum,
                          bool keyIsPub) :
-   chainCode_(ch), version(netVer), depth(inDepth), childNum(inChildNum)
+   chainCode_(ch),
+   version(netVer),
+   depth(inDepth),
+   childNum(inChildNum),
+   indicesList_(parentTreeIdx)
 {
    assert(key.getSize() == 33 || key.getSize() == 65);
    assert(ch.getSize() == 32);
-   assert(parFP.getSize() == 20);
+   assert(parFP.getSize() == 4);
 
    parentFP = parFP.getSliceRef(0, 4);
+   indicesList_.push_back(inChildNum);
    //
    if(keyIsPub) {
       key_ = CryptoECDSA().CompressPoint(key);
@@ -1221,6 +1237,8 @@ ExtendedKey::ExtendedKey(SecureBinaryData const & key,
       BTC_PUBKEY tmpB = CryptoECDSA().ComputePublicKey(tmpA);
       pubKey_ = CryptoECDSA().SerializePublicKey(tmpB);
    }
+
+   validKey = true;
 }
 
 
@@ -1260,25 +1278,30 @@ ExtendedKey::ExtendedKey(SecureBinaryData const & pr,
 }
 
 
-// Function used to actually build the ExtendedKey parent's child. Must (FINISH)
-// INPUT:  Incoming private (33 bytes) key.
+// Function used to actually build an ExtendedKey child. Not used right now.
+// INPUT:  Incoming parent private (33 bytes) key.
 //         Chain code (32 bytes)
 //         Hash160 of the parent (20 bytes)
+//         The branch position. (uint32_t)
+//         The key version. (uint32_t)
+//         The tree index. (list<uint32_t>)
+//         Boolean indiciating if the incoming key is public (T) or private (F).
 // OUTPUT: None
 // RETURN: A completed ExtendedKey object.
 ////////////////////////////////////////////////////////////////////////////////
 // Should be static, but would prevent SWIG from using it.
-ExtendedKey ExtendedKey::CreateChildKey(SecureBinaryData const & key,
+/*ExtendedKey ExtendedKey::CreateChildKey(SecureBinaryData const & key,
                                         SecureBinaryData const & chain,
-                                        SecureBinaryData const & parentFP,
+                                        SecureBinaryData const & parFP,
                                         uint32_t n,
+                                        uint32_t keyVer,
+                                        list<uint32_t> treeIdx
                                         bool isKeyPub)
 
 {
-   ExtendedKey ek(key, chain, parentFP, indicesList_, version, depth + 1, n,
-                  isKeyPub);
+   ExtendedKey ek(key, chain, parFP, treeIdx, keyVer, depth + 1, n, isKeyPub);
    return ek;
-}
+}*/
 
 
 // Delete the private key and replace it with the public key.
@@ -1375,7 +1398,7 @@ const SecureBinaryData ExtendedKey::getExtKeySer() {
 //   SecureBinaryData outKey(EXTKEYSIZE);
    SecureBinaryData outKey;
    if(!validKey) {
-      outKey.fill(0x00);
+      outKey.append(0x00);
    }
    else {
       SecureBinaryData tmpVal = WRITE_UINT32_BE(version);
@@ -1456,7 +1479,8 @@ SecureBinaryData HDWalletCrypto::HMAC_SHA512(SecureBinaryData key,
 // or public-key-only.  You can pass in either one here, and it will derive the
 // child for whatever key data is there.
 //
-ExtendedKey HDWalletCrypto::childKeyDeriv(ExtendedKey const & extPar, uint32_t n)
+ExtendedKey HDWalletCrypto::childKeyDeriv(ExtendedKey const & extPar,
+                                          uint32_t n)
 {
    // Can't compute a child with no parent!
    assert(extPar.isInitialized());
@@ -1555,9 +1579,9 @@ ExtendedKey HDWalletCrypto::childKeyDeriv(ExtendedKey const & extPar, uint32_t n
       }
 
       // Create and return the child.
-      derivKey = ExtendedKey().CreateChildKey(childKey, rightHMAC,
-                                              extPar.getFingerprint(), n,
-                                              keyIsPub);
+      derivKey = ExtendedKey(childKey, rightHMAC, extPar.getFingerprint(),
+                             extPar.getIndicesList(), extPar.getVersion(),
+                             (extPar.getDepth() + 1), n, keyIsPub);
    }
    return derivKey;
 }
