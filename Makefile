@@ -2,10 +2,10 @@
 # I am just calling them, here.
 
 all :
-	cd cppForSwig; make swig
+	$(MAKE) -C cppForSwig swig
 
 clean :
-	cd cppForSwig; make clean
+	$(MAKE) -C cppForSwig clean
 	rm -rf osxbuild/Armory.app
 	rm -rf osxbuild/env
 
