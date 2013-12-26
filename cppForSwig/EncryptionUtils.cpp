@@ -16,6 +16,7 @@
 
 #define CRYPTO_DEBUG false
 
+// Determines if BIP32 key versions will be main or test. For now, force main.
 #if 0
 #define PUBVER TEST_PUB
 #define PRVVER TEST_PRV
@@ -24,6 +25,8 @@
 #define PRVVER MAIN_PRV
 #endif
 
+// Function that takes an incoming child number and determines if the BIP32
+// child key will use private or public key derivation.
 inline bool usePrvDer(uint32_t inChildNumber) {
    return ((0x80000000 & inChildNumber) == 0x80000000);
 }
@@ -99,25 +102,39 @@ SecureBinaryData SecureBinaryData::GenerateRandom(uint32_t numBytes)
 }
 
 /////////////////////////////////////////////////////////////////////////////
-SecureBinaryData SecureBinaryData::XOR(SecureBinaryData xorKey,
-                                       uint8_t xorValue) {
-   SecureBinaryData xorOut;
-   xorOut.copyFrom(xorKey.getPtr(), xorKey.getSize());
-   size_t xorSize = xorOut.getSize();
-   for(size_t x = 0; x < xorSize; ++x) {
-      xorOut[x] ^= xorValue;
-   }
-
-   return xorOut;
-}
-
-
-/////////////////////////////////////////////////////////////////////////////
 static SecureBinaryData CreateFromHex(string const & str)
 {
    SecureBinaryData out;
    out.createFromHex(str);
    return out;
+}
+
+
+// XOR every byte of the current SecureBinaryData with a given value and return
+// the result.
+/////////////////////////////////////////////////////////////////////////////
+SecureBinaryData SecureBinaryData::XOR(uint8_t xorValue) {
+   SecureBinaryData out = BinaryData::XOR(xorValue);
+   out.lockData();
+   return out;
+}
+
+
+// Get the Hash256 of the SecureBinaryData obj.
+/////////////////////////////////////////////////////////////////////////////
+SecureBinaryData SecureBinaryData::getHash256() const {
+   SecureBinaryData rVal = BtcUtils::getHash256(getPtr(), (uint32_t)getSize());
+   rVal.lockData();
+   return rVal;
+}
+
+
+// Get the Hash160 of the SecureBinaryData obj.
+/////////////////////////////////////////////////////////////////////////////
+SecureBinaryData SecureBinaryData::getHash160() const {
+   SecureBinaryData rVal = BtcUtils::getHash160(getPtr(), (uint32_t)getSize());
+   rVal.lockData();
+   return rVal;
 }
 
 
@@ -943,14 +960,14 @@ BinaryData CryptoECDSA::ECMultiplyScalars(BinaryData const & A,
                                           BinaryData const & B)
 {
    // Hardcode the order of the secp256k1 EC group
-   static BinaryData N = BinaryData::CreateFromHex(
+   static BinaryData curveOrd = BinaryData::CreateFromHex(
              "fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141");
 
-   CryptoPP::Integer intA, intB, intC, intN;
+   CryptoPP::Integer intA, intB, intC, intCurveOrd;
    intA.Decode(A.getPtr(), A.getSize(), UNSIGNED);
    intB.Decode(B.getPtr(), B.getSize(), UNSIGNED);
-   intN.Decode(N.getPtr(), N.getSize(), UNSIGNED);
-   intC = a_times_b_mod_c(intA, intB, intN);
+   intCurveOrd.Decode(curveOrd.getPtr(), curveOrd.getSize(), UNSIGNED);
+   intC = a_times_b_mod_c(intA, intB, intCurveOrd);
 
    BinaryData C(32);
    intC.Encode(C.getPtr(), 32, UNSIGNED);
@@ -970,17 +987,17 @@ bool CryptoECDSA::ECMultiplyPoint(BinaryData const & A,
                                   BinaryData& multResult)
 {
    CryptoPP::ECP ecp = Get_secp256k1_ECP();
-   CryptoPP::Integer intA, intBx, intBy, intCx, intCy, intCurveOrd;
+   CryptoPP::Integer intA, intBx, intBy, intCx, intCy, intCurveOrder;
    bool validResult = true;
 
    // We can't proceed if we're at infinity, even if the likelihood is LOW!!!
    // From X9.62 D.3.2?
    intA.Decode( A.getPtr(),  A.getSize(),  UNSIGNED);
-   BinaryData curveOrd = BinaryData::CreateFromHex(
+   BinaryData curveOrder = BinaryData::CreateFromHex(
             "fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141");
-   intCurveOrd.Decode(curveOrd.getPtr(), curveOrd.getSize(), UNSIGNED);
+   intCurveOrder.Decode(curveOrder.getPtr(), curveOrder.getSize(), UNSIGNED);
    BinaryData Cbd(64);
-   if(intA % intCurveOrd == 0) {
+   if(intA % intCurveOrder == 0) {
       multResult.clear();
       multResult.append(0x00);
       validResult = false;
@@ -1003,7 +1020,7 @@ bool CryptoECDSA::ECMultiplyPoint(BinaryData const & A,
 
 
 // Function that adds two points (X/Y coordinates) together, modulo the
-// secp256k1 order.
+// secp256k1 finite field (Fp).
 // INPUT:  X & Y coordinates for points A & B.
 // OUTPUT: The addition result. If the result is at infinity, this is set to 0.
 // RETURN: True if a valid result, false if at infinity (incredibly unlikely)
@@ -1144,7 +1161,7 @@ BinaryData ExtendedKey::getHash160() const
 
 // Get the key's current index. Will be 0 if it's the master key.
 ////////////////////////////////////////////////////////////////////////////////
-uint32_t ExtendedKey::getIndex() const
+uint32_t ExtendedKey::getChildNum() const
 {
    uint32_t retVal = 0;
 
@@ -1191,9 +1208,7 @@ ExtendedKey::ExtendedKey(SecureBinaryData const & key,
    chainCode_ = ch;
    updatePubKey();
    version = PRVVER;
-   depth = 0;
    parentFP = SecureBinaryData::CreateFromHex("00000000");
-   childNum = 0;
    validKey = true;
 }
 
@@ -1204,20 +1219,17 @@ ExtendedKey::ExtendedKey(SecureBinaryData const & key,
 //         Hash160 of the parent (20 bytes)
 //         Bool indicating if the incoming key is pub (true) or prv (false).
 // OUTPUT: None
-// RETURN: A completed ExtendedKey object. (DOUBLE CHECK!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!)
+// RETURN: A completed ExtendedKey object.
 ////////////////////////////////////////////////////////////////////////////////
 ExtendedKey::ExtendedKey(SecureBinaryData const & key,
                          SecureBinaryData const & ch,
                          SecureBinaryData const & parFP,
                          list<uint32_t> parentTreeIdx,
                          uint32_t netVer,
-                         uint8_t inDepth,
                          uint32_t inChildNum,
                          bool keyIsPub) :
    chainCode_(ch),
    version(netVer),
-   depth(inDepth),
-   childNum(inChildNum),
    indicesList_(parentTreeIdx)
 {
    assert(key.getSize() == 33 || key.getSize() == 65);
@@ -1259,49 +1271,21 @@ ExtendedKey::ExtendedKey(SecureBinaryData const & pr,
                          SecureBinaryData const & parFP,
                          list<uint32_t> parentTreeIdx,
                          uint32_t inVer,
-                         uint8_t inDepth,
                          uint32_t inChildNum) :
    key_(pr),
    pubKey_(pb),
    chainCode_(ch),
    indicesList_(parentTreeIdx),
    parentFP(parFP),
-   version(inVer),
-   depth(inDepth),
-   childNum(inChildNum)
+   version(inVer)
 {
    assert(key_.getSize() == 0 || key_.getSize() == 33);
    assert(pubKey_.getSize() == 65);
    assert(chainCode_.getSize() == 32);
    parentFP = parFP.getSliceRef(0, 4);
+   indicesList_.push_back(inChildNum);
    validKey = true;
 }
-
-
-// Function used to actually build an ExtendedKey child. Not used right now.
-// INPUT:  Incoming parent private (33 bytes) key.
-//         Chain code (32 bytes)
-//         Hash160 of the parent (20 bytes)
-//         The branch position. (uint32_t)
-//         The key version. (uint32_t)
-//         The tree index. (list<uint32_t>)
-//         Boolean indiciating if the incoming key is public (T) or private (F).
-// OUTPUT: None
-// RETURN: A completed ExtendedKey object.
-////////////////////////////////////////////////////////////////////////////////
-// Should be static, but would prevent SWIG from using it.
-/*ExtendedKey ExtendedKey::CreateChildKey(SecureBinaryData const & key,
-                                        SecureBinaryData const & chain,
-                                        SecureBinaryData const & parFP,
-                                        uint32_t n,
-                                        uint32_t keyVer,
-                                        list<uint32_t> treeIdx
-                                        bool isKeyPub)
-
-{
-   ExtendedKey ek(key, chain, parFP, treeIdx, keyVer, depth + 1, n, isKeyPub);
-   return ek;
-}*/
 
 
 // Delete the private key and replace it with the public key.
@@ -1336,21 +1320,21 @@ void ExtendedKey::destroy() {}
 ExtendedKey ExtendedKey::copy() const
 {
    return ExtendedKey(key_, pubKey_, chainCode_, parentFP, indicesList_,
-                      version, depth, childNum);
+                      version, getChildNum());
 }
 
 
 ////////////////////////////////////////////////////////////////////////////////
 void ExtendedKey::debugPrint()
 {
-   cout << "Indices:        " << getIndexListString() << endl;
-   cout << "Fingerprint:    Self: " << getFingerprint().toHexStr()
-        << " Parent: " << getParentFP().toHexStr() << endl;
-   cout << "Private Key:    " << key_.toHexStr() << endl;
-   cout << "Public Key Comp: "   << CryptoECDSA().CompressPoint(pubKey_).toHexStr() << endl;
-   cout << "Public Key:   "   << pubKey_.toHexStr() << endl;
-   cout << "Chain Code:     " << chainCode_.toHexStr() << endl;
-   cout << "Hash160:        " << getHash160().toHexStr() << endl << endl;
+   cout << "Indices:              " << getIndexListString() << endl;
+   cout << "Fingerprint (Self):   " << getFingerprint().toHexStr() << endl;
+   cout << "Fingerprint (Parent): " << getParentFP().toHexStr() << endl;
+   cout << "Private Key:          " << key_.toHexStr() << endl;
+   cout << "Public Key Comp:      " << CryptoECDSA().CompressPoint(pubKey_).toHexStr() << endl;
+   cout << "Public Key:           " << pubKey_.toHexStr() << endl;
+   cout << "Chain Code:           " << chainCode_.toHexStr() << endl;
+   cout << "Hash160:              " << getHash160().toHexStr() << endl << endl;
 }
 
 
@@ -1360,11 +1344,17 @@ const string ExtendedKey::getIndexListString(const string prefix)
    stringstream ss;
    ss << prefix;
    vector<uint32_t> indexList = getIndicesVect();
+
+   // Loops through index list. If empty, key is a master key or is invalid.
    for(uint32_t i=0; i<indexList.size(); ++i) {
-      ss << "/" << indexList[i];
-/*      if(isPrv()) {   // COME BACK TO ME. YOU SHOULD BE RUNNING THIS THROUGH THE TOP FUNCT TO SEE IF IT'S PUB/PRV DER.
-         ss << "'";
-      }*/
+      ss << "/";
+      if(usePrvDer(indexList[i])) {
+         ss << "Prv(";
+      }
+      else {
+         ss << "Pub(";
+      }
+      ss << indexList[i] << ")";
    }
    return ss.str();
 }
@@ -1395,7 +1385,6 @@ void ExtendedKey::updatePubKey() {
 // If the ExtendedKey isn't valid yet, return an empty 78 byte buffer.
 // Format is version/depth/parentFP/childNum/chainCode/key.
 const SecureBinaryData ExtendedKey::getExtKeySer() {
-//   SecureBinaryData outKey(EXTKEYSIZE);
    SecureBinaryData outKey;
    if(!validKey) {
       outKey.append(0x00);
@@ -1403,16 +1392,22 @@ const SecureBinaryData ExtendedKey::getExtKeySer() {
    else {
       SecureBinaryData tmpVal = WRITE_UINT32_BE(version);
       outKey.append(tmpVal);
-      tmpVal = WRITE_UINT8_BE(depth);
+      tmpVal = WRITE_UINT8_BE(getDepth());
       outKey.append(tmpVal);
       outKey.append(parentFP);
-      tmpVal = WRITE_UINT32_BE(childNum);
+      tmpVal = WRITE_UINT32_BE(getChildNum());
       outKey.append(tmpVal);
       outKey.append(chainCode_);
       outKey.append(key_);
    }
 
    return outKey;
+}
+
+
+// Function indicating if an ExtendedKey is a master key.
+const bool ExtendedKey::isMaster() const {
+   return (indicesList_.size() == 0 && validKey);
 }
 
 
@@ -1452,41 +1447,40 @@ SecureBinaryData HDWalletCrypto::HMAC_SHA512(SecureBinaryData key,
       key.append(zeros);
    }
 
-   SecureBinaryData i_key_pad = SecureBinaryData().XOR( key, 0x36 );
-   SecureBinaryData o_key_pad = SecureBinaryData().XOR( key, 0x5c );
+   SecureBinaryData i_key_pad = key.XOR(0x36);
+   SecureBinaryData o_key_pad = key.XOR(0x5c);
 
    // Inner hash operation
    i_key_pad.append(msg);
-   SecureBinaryData x;
-   BtcUtils::getHash512(i_key_pad.getPtr(), i_key_pad.getSize(), x);
+   SecureBinaryData innerHash;
+   BtcUtils::getHash512(i_key_pad.getPtr(), i_key_pad.getSize(), innerHash);
 
    // Outer hash operation
-   SecureBinaryData s(x);
-   o_key_pad.append(s);
-   SecureBinaryData y;
-   BtcUtils::getHash512(o_key_pad.getPtr(), o_key_pad.getSize(), y);
+   o_key_pad.append(innerHash);
+   SecureBinaryData outerHash;
+   BtcUtils::getHash512(o_key_pad.getPtr(), o_key_pad.getSize(), outerHash);
 
-   return y;
+   return outerHash;
 }
 
 
 ////////////////////////////////////////////////////////////////////////////////
 // In the HDWallet gist by Pieter, CKD takes two inputs:
 //    1.  Extended Key  (priv/pub key, chaincode)
-//    2.  Child number n
+//    2.  Child number
 //
 // The ExtendedKey class accommodates full private-included ExtendedKey objects
 // or public-key-only.  You can pass in either one here, and it will derive the
 // child for whatever key data is there.
 //
 ExtendedKey HDWalletCrypto::childKeyDeriv(ExtendedKey const & extPar,
-                                          uint32_t n)
+                                          uint32_t childNum)
 {
    // Can't compute a child with no parent!
    assert(extPar.isInitialized());
 
    ExtendedKey derivKey;
-   if(extPar.isPub() && usePrvDer(n)) {
+   if(extPar.isPub() && usePrvDer(childNum)) {
       //ERROR/////////////////////////////////////////////!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
    }
    else {
@@ -1497,12 +1491,12 @@ ExtendedKey HDWalletCrypto::childKeyDeriv(ExtendedKey const & extPar,
       // Prv par/Pub der - Compressed pub par key | Incoming position
       // Pub par/Prv der - NOT VALID  (Already handled above)
       // Pub par/Pub der - Compressed pub par key | Incoming position
-      SecureBinaryData binaryN = WRITE_UINT32_BE(n);
+      SecureBinaryData binaryN = WRITE_UINT32_BE(childNum);
       SecureBinaryData hashData;
 
-      if(usePrvDer(n)) {
-         SecureBinaryData k = extPar.getKey();
-         hashData.append(k);
+      if(usePrvDer(childNum)) {
+         SecureBinaryData pKey = extPar.getKey();
+         hashData.append(pKey);
       }
       else {
          SecureBinaryData cp = CryptoECDSA().CompressPoint(extPar.getPub());
@@ -1515,7 +1509,7 @@ ExtendedKey HDWalletCrypto::childKeyDeriv(ExtendedKey const & extPar,
       SecureBinaryData leftHMAC = hVal.getSliceRef(0, 32);
       SecureBinaryData rightHMAC = hVal.getSliceRef(32, 32);
 
-      // Is our new key valid? (Virtually impossible to fail, but just in case....)
+      // Is our new key valid? (Almost impossible to fail, but just in case....)
       CryptoPP::Integer intLeft;
       CryptoPP::Integer ecOrder;
       SecureBinaryData CURVE_ORDER_BE = SecureBinaryData().CreateFromHex(
@@ -1528,8 +1522,8 @@ ExtendedKey HDWalletCrypto::childKeyDeriv(ExtendedKey const & extPar,
       }
 
       // Now, let's build the key and chain code. The process depends on if the
-      // parent is public or private. (The child will share the parents' status.)
-      // PRV: Key = (1st 32 bytes of HMAC-SHA512 + Par prv key) % secp256k1 order
+      // parent is public or private. (Child will share the parents' status.)
+      // PRV: Key = (1st 32 bytes of HMAC-SHA512 + Par prv key) % secp256k1 ord
       //      Chain code = 2nd 32 bytes of HMAC-512
       // PUB: Key = (1st 32 bytes of HMAC-SHA512 * secp256k1 gen) + par pub key
       //      Chain code = 2nd 32 bytes of HMAC-512
@@ -1581,7 +1575,7 @@ ExtendedKey HDWalletCrypto::childKeyDeriv(ExtendedKey const & extPar,
       // Create and return the child.
       derivKey = ExtendedKey(childKey, rightHMAC, extPar.getFingerprint(),
                              extPar.getIndicesList(), extPar.getVersion(),
-                             (extPar.getDepth() + 1), n, keyIsPub);
+                             childNum, keyIsPub);
    }
    return derivKey;
 }

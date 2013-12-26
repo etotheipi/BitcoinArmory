@@ -106,7 +106,7 @@ using namespace std;
 #define DEFAULT_KDF_MAX_MEMORY 32*1024*1024
 
 // Highly deterministic wallet - HMAC-512 key (see BIP32)
-/*#define DETWALLETKEYHEX "426974636f696e2073656564"
+/*#define DETWALLETKEYHEX "426974636f696e2073656564" // "Bitcoin seed"
 #define SECP256K1_ORDER_HEX "fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141"
 #define SECP256K1_FP "fffffffffffffffffffffffffffffffffffffffffffffffffffffffefffffc2f"
 #define SECP256K1_A "0000000000000000000000000000000000000000000000000000000000000000"
@@ -117,23 +117,11 @@ using namespace std;
 #define PUBKEYSIZE 65
 #define EXTKEYSIZE 78
 
-// Version bytes. Are these found elsewhere in the code?
-#define MAIN_PUB 76067358
-#define MAIN_PRV 76066276
-#define TEST_PUB 70617039
-#define TEST_PRV 70615956
-/*#define MAIN_PUB_HEX 0x0488b21e
-#define MAIN_PRV_HEX 0x0488ade4
-#define TEST_PUB_HEX 0x043587cf
-#define TEST_PRV_HEX 0x04358394*/
-
-// Values for test vectors. Migrate in time!
-/*#define BIP32_MASTER_MSG_HEX "000102030405060708090a0b0c0d0e0f"
-#define BIP32_MASTER_ID_HEX "3442193e1bb70916e914552172cd4e2dbc9df811"
-#define BIP32_MASTER_PRVKEY_HEX "e8f32e723decf4051aefac8e2c93c9c5b214313817cdb01a1494b917c8436b35"
-#define BIP32_MASTER_PUBKEY_COMP_HEX "0339a36013301597daef41fbe593a02cc513d0b55527ec2df1050e2e8ff49c85c2"
-#define BIP32_MASTER_CC_HEX "873dff81c02f525623fd1fe5167eac3a55a049de3d314bb42ee227ffed37d508"*/
-
+// BIP32 version bytes.
+#define MAIN_PUB 76067358 // 0x0488b21e
+#define MAIN_PRV 76066276 // 0x0488ade4
+#define TEST_PUB 70617039 // 0x043587cf
+#define TEST_PRV 70615956 // 0x04358394
 
 // Use this to avoid "using namespace CryptoPP" (which confuses SWIG)
 // and also so it's easy to switch the AES MODE or PRNG, in one place
@@ -184,19 +172,19 @@ public:
    uint8_t const *   getPtr()  const { return BinaryData::getPtr();  }
    uint8_t       *   getPtr()        { return BinaryData::getPtr();  }
    size_t            getSize() const { return BinaryData::getSize(); }
-   SecureBinaryData  copy()    const { return SecureBinaryData(getPtr(), getSize());}
+   SecureBinaryData  copy()    const { return SecureBinaryData(getPtr(),
+                                                               getSize()); }
    
-   string toHexStr(bool BE=false) const { return BinaryData::toHexStr(BE);}
+   string toHexStr(bool BE=false) const { return BinaryData::toHexStr(BE); }
    string toBinStr() const          { return BinaryData::toBinStr();  }
 
    SecureBinaryData(SecureBinaryData const & sbd2) : 
            BinaryData(sbd2.getPtr(), sbd2.getSize()) { lockData(); }
 
-   SecureBinaryData XOR(SecureBinaryData xorKey, uint8_t xorValue);
-
    void resize(size_t sz)  { BinaryData::resize(sz);  lockData(); }
    void reserve(size_t sz) { BinaryData::reserve(sz); lockData(); }
 
+   SecureBinaryData XOR(uint8_t xorValue);
 
    BinaryData    getRawCopy() const { return BinaryData(getPtr(), getSize()); }
    BinaryDataRef getRawRef()  { return BinaryDataRef(getPtr(), getSize()); }
@@ -210,8 +198,8 @@ public:
    //uint8_t const & operator[](size_t i) const {return BinaryData::operator[](i);}
    bool operator==(SecureBinaryData const & sbd2) const;
 
-   BinaryData getHash256() const { return BtcUtils::getHash256(getPtr(), (uint32_t)getSize()); }
-   BinaryData getHash160() const { return BtcUtils::getHash160(getPtr(), (uint32_t)getSize()); }
+   SecureBinaryData getHash256() const;
+   SecureBinaryData getHash160() const;
 
    // This would be a static method, as would be appropriate, except SWIG won't
    // play nice with static methods.  Instead, we will just use 
@@ -233,7 +221,6 @@ public:
       }
       resize(0);
    }
-
 };
 
 
@@ -471,7 +458,7 @@ class ExtendedKey
 {
 public:
    ExtendedKey() : key_(0), pubKey_(0), chainCode_(0), version(TEST_PUB),
-                   depth(0), parentFP(0), childNum(0), validKey(false) {}
+                   parentFP(0), validKey(false) {}
 
    // Constructor that requires an incoming key (pub or pri), chain code, parent
    // fingerprint, position in the chain, and a boolean indicating if the key's
@@ -481,7 +468,6 @@ public:
                SecureBinaryData const & parFP,
                list<uint32_t> parentTreeIdx,
                uint32_t inVer,
-               uint8_t inDepth,
                uint32_t inChildNum,
                bool keyIsPub);
 
@@ -492,22 +478,11 @@ public:
                SecureBinaryData const & parFP,
                list<uint32_t> parentTreeIdx,
                uint32_t inVer,
-               uint8_t inDepth,
                uint32_t inChildNum);
 
    // Constructor that requires a private key and chain code.
    ExtendedKey(SecureBinaryData const & key,
                SecureBinaryData const & ch);
-
-   // Function creating an ExtendedKey child from a given public or private key.
-   // Should be static, but would prevent SWIG from using it.
-/*   ExtendedKey CreateChildKey(SecureBinaryData const & key,
-                              SecureBinaryData const & chain,
-                              SecureBinaryData const & parFP,
-                              uint32_t n,
-                              uint32_t keyVer,
-                              list<uint32_t> treeIdx,
-                              bool isKeyPub);*/
 
    void destroy();
    void deletePrivateKey();
@@ -515,6 +490,7 @@ public:
 
    const bool isPub() const;
    const bool isPrv() const;
+   const bool isMaster() const;
    bool hasChainCode() const   { return (chainCode_.getSize() > 0); }
    bool isInitialized() const  { return validKey; }
 
@@ -535,13 +511,11 @@ public:
 
    void debugPrint();
 
-   uint32_t                 getIndex() const;
-   // Used only for Google testing purposes? Probably not needed in final code.
+   uint32_t                 getChildNum() const;
    const string getIndexListString(const string prefix="M");
 
    const uint32_t getVersion() const { return version; }
-   const uint8_t getDepth() const { return depth; }
-   uint32_t getChildNum() { return childNum; }
+   const uint8_t getDepth() const { return (uint8_t)indicesList_.size(); }
 
 private:
    void updatePubKey();
@@ -552,12 +526,10 @@ private:
    SecureBinaryData chainCode_; // 32 bytes.
 
    list<uint32_t> indicesList_; // Shows where in the chain we are.
-//   SecureBinaryData parent160_; // Hash160 parent ID. Not used for now.
+                                // Empty if key is master or invalid.
 
    uint32_t version;
-   uint8_t depth;
    SecureBinaryData parentFP;
-   uint32_t childNum; // If MSB is set, this key's the result of prv derivation.
    bool validKey;
 };
 
@@ -582,7 +554,7 @@ public:
 
    // Derive a child key from an incoming key (pub or pri).
    ExtendedKey childKeyDeriv(ExtendedKey const & extPar,
-                             uint32_t n);
+                             uint32_t childNum);
 
    // Use a seed to create a master key.
    ExtendedKey ConvertSeedToMasterKey(SecureBinaryData const & seed);
