@@ -842,6 +842,7 @@ public:
    uint32_t getNumBlocks(void) const { return headerMap_.size(); }
    //uint32_t getNumTx(void) const { return txHintMap_.size(); }
    StoredHeader getMainBlockFromDB(uint32_t hgt);
+   uint8_t      getMainDupFromDB(uint32_t hgt);
    StoredHeader getBlockFromDB(uint32_t hgt, uint8_t dup);
 
    vector<BlockHeader*> getHeadersNotOnMainChain(void);

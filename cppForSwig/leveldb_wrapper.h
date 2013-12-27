@@ -31,6 +31,7 @@
 
 #define STD_READ_OPTS       leveldb::ReadOptions()
 #define STD_WRITE_OPTS      leveldb::WriteOptions()
+#define LDBITER             leveldb::Iterator*
 
 #define KVLIST vector<pair<BinaryData,BinaryData> > 
 
@@ -160,6 +161,68 @@ class StoredScriptHistory;
 //          
 
 
+////////////////////////////////////////////////////////////////////////////////
+class LDBIter
+{
+public: 
+
+   LDBIter(void) { db_=NULL; iter_=NULL; isDirty_=true;}
+   LDBIter(leveldb::DB* dbptr);
+   ~LDBIter(void) { destroy(); }
+   void destroy(void) { delete iter_; iter_ = NULL; db_ = NULL; }
+
+   bool isNull(void) { return iter_==NULL; }
+   bool isValid(void) { return (!isNull() && iter_->Valid()); }
+   bool isValid(DB_PREFIX dbpref);
+
+   bool readIterData(void);
+
+   bool advance(void);
+   bool advance(DB_PREFIX prefix);
+   bool advanceAndRead(void);
+   bool advanceAndRead(DB_PREFIX prefix);
+
+   BinaryData       getKey(void) ;
+   BinaryData       getValue(void) ;
+   BinaryDataRef    getKeyRef(void) ;
+   BinaryDataRef    getValueRef(void) ;
+   BinaryRefReader& getKeyReader(void) ;
+   BinaryRefReader& getValueReader(void) ;
+
+    getValueReader(void) ;
+
+   bool seekTo(BinaryDataRef key);
+   bool seekTo(DB_PREFIX pref, BinaryDataRef key);
+   bool seekToFirst(void);
+
+   bool checkKeyExact(BinaryDataRef key);
+   bool checkKeyExact(DB_PREFIX prefix, BinaryDataRef key);
+   bool checkKeyStartsWith(BinaryDataRef key);
+   bool checkKeyStartsWith(DB_PREFIX prefix, BinaryDataRef key);
+
+   void resetReaders(void){currKey_.resetPosition();currValue_.resetPosition();}
+
+   leveldb::Slice binaryDataToSlice(BinaryData const & bd) 
+         {return leveldb::Slice((char*)bd.getPtr(), bd.getSize());}
+   leveldb::Slice binaryDataRefToSlice(BinaryDataRef const & bdr)
+         {return leveldb::Slice((char*)bdr.getPtr(), bdr.getSize());}
+
+private:
+
+
+   leveldb::DB* db_;
+   leveldb::iterator* iter_;
+
+   BinaryRefReader  currKey_;
+   BinaryRefReader  currValue_;
+   bool isDirty_;
+   
+   
+}
+
+
+
+////////////////////////////////////////////////////////////////////////////////
 class InterfaceToLDB
 {
 private:
@@ -173,15 +236,12 @@ private:
 
    /////////////////////////////////////////////////////////////////////////////
    // NOTE:  These ref readers become invalid as soon as the iterator is moved!
-   void iteratorToRefReaders( leveldb::Iterator* it, 
-                              BinaryRefReader & brrKey,
-                              BinaryRefReader & brrValue);
+   //void iteratorToRefReaders( leveldb::Iterator* it, 
+                              //BinaryRefReader & brrKey,
+                              //BinaryRefReader & brrValue);
 
-
+   LDBIter getIterator(DB_SELECT db) { return LDBIter(dbs_[db]); }
    
-
-   /////////////////////////////////////////////////////////////////////////////
-   void deleteIterator(DB_SELECT db);
 
    /////////////////////////////////////////////////////////////////////////////
    // These four sliceTo* methods make copies, and thus safe to use even after
@@ -199,9 +259,6 @@ private:
    BinaryRefReader sliceToBinaryRefReader(leveldb::Slice slice);
 
 
-   /////////////////////////////////////////////////////////////////////////////
-   void resetIterReaders(void) 
-               { currReadKey_.resetPosition(); currReadValue_.resetPosition(); }
 public:
 
    /////////////////////////////////////////////////////////////////////////////
@@ -268,9 +325,6 @@ public:
    // call.  These are convenience methods which basically just save us 
    BinaryRefReader getValueReader(DB_SELECT db, BinaryDataRef keyWithPrefix);
    BinaryRefReader getValueReader(DB_SELECT db, DB_PREFIX prefix, BinaryDataRef key);
-
-   BinaryData getIterKeyCopy(void)   { return currReadKey_.getRawRef().copy();}
-   BinaryData getIterValueCopy(void) { return currReadValue_.getRawRef().copy();}
 
 
    BinaryData getHashForDBKey(BinaryData dbkey);
@@ -582,7 +636,7 @@ private:
    ARMORY_DB_TYPE       armoryDbType_;
    DB_PRUNE_TYPE        dbPruneType_;
 
-   leveldb::Iterator*     iters_[2];
+   //leveldb::Iterator*     iters_[2];
    leveldb::WriteBatch*   batches_[2];
    leveldb::DB*           dbs_[2];  
    string                 dbPaths_[2];
@@ -597,10 +651,10 @@ private:
 
    vector<uint8_t>      validDupByHeight_;
 
-   BinaryRefReader      currReadKey_;
-   BinaryRefReader      currReadValue_;;
+   //BinaryRefReader      currReadKey_;
+   //BinaryRefReader      currReadValue_;;
+   //string               lastGetValue_;
    
-   string               lastGetValue_;
    bool                 dbIsOpen_;
 
    uint32_t             lowestScannedUpTo_;

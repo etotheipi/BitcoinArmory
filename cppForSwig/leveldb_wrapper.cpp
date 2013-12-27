@@ -20,6 +20,208 @@
 
 vector<InterfaceToLDB*> LevelDBWrapper::ifaceVect_(0);
 
+
+
+////////////////////////////////////////////////////////////////////////////////
+LDBIter::LDBIter(leveldb::DB* dbptr) 
+{ 
+   db_ = dbptr; 
+   iter_ = db_->NewIterator(leveldb::ReadOptions());
+   isDirty_ = true;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+bool LDBIter::isValid(DB_PREFIX dbpref)
+{
+   if(!isValid() || iter_->key().size() == 0)
+      return false;
+   return iter_->key()[0] == (char)dbpref;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+bool LDBIter::advance(void)
+{
+   iter_->Next();
+   isDirty_ = true;
+   return isValid();
+}
+
+////////////////////////////////////////////////////////////////////////////////
+bool LDBIter::advance(DB_PREFIX prefix)
+{
+   iter_->Next();
+   isDirty_ = true;
+   return isValid(prefix);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+bool LDBIter::readIterData(void)
+{
+   if(!isValid())
+   {
+      isDirty_ = true;
+      return false;
+   }
+
+   currKey_.setNewData(iter_->key().data, iter_->key().size())
+   currValue_.setNewData(iter_->value().data, iter_->value().size())
+   isDirty_ = false;
+   return true;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+bool LDBIter::advanceAndRead(void)
+{
+   if(!advance())
+      return false; 
+   return readIterData(); 
+}
+
+////////////////////////////////////////////////////////////////////////////////
+bool LDBIter::advanceAndRead(DB_PREFIX prefix)
+{
+   if(!advance(prefix))
+      return false; 
+   return readIterData(); 
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+BinaryData LDBIter::getKey(void) 
+{ 
+   if(isDirty_)
+   {
+      LOGERR << "Returning dirty key ref";
+      return BinaryData(0);
+   }
+   return currKey_.getRawRef().copy();
+}
+   
+////////////////////////////////////////////////////////////////////////////////
+BinaryData LDBIter::getValue(void) 
+{ 
+   if(isDirty_)
+   {
+      LOGERR << "Returning dirty value ref";
+      return BinaryData(0);
+   }
+   return currValue_.getRawRef().copy();
+}
+
+////////////////////////////////////////////////////////////////////////////////
+BinaryDataRef LDBIter::getKeyRef(void) 
+{ 
+   if(isDirty_)
+   {
+      LOGERR << "Returning dirty key ref";
+      return BinaryDataRef();
+   }
+   return currKey_.getRawRef();
+}
+   
+////////////////////////////////////////////////////////////////////////////////
+BinaryDataRef LDBIter::getValueRef(void) 
+{ 
+   if(isDirty_)
+   {
+      LOGERR << "Returning dirty value ref";
+      return BinaryDataRef();
+   }
+   return currValue_.getRawRef();
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+BinaryRefReader& LDBIter::getKeyReader(void) 
+{ 
+   if(isDirty_)
+      LOGERR << "Returning dirty key reader";
+   return currKey_; 
+}
+
+////////////////////////////////////////////////////////////////////////////////
+BinaryRefReader& LDBIter::getValueReader(void) 
+{ 
+   if(isDirty_)
+      LOGERR << "Returning dirty value reader";
+   return currValue_; 
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+bool LDBIter::seekTo(BinaryDataRef key)
+{
+   if(isNull())
+      return false;
+   iter_->Seek(binaryDataRefToSlice(key))
+   return readIterData();
+}
+
+////////////////////////////////////////////////////////////////////////////////
+bool LDBIter::seekTo(DB_PREFIX pref, BinaryDataRef key)
+{
+   BinaryWriter bw(key.getSize() + 1);
+   bw.put_uint8_t((uint8_t)prefix);
+   bw.put_BinaryData(key);
+   return seekTo(db, bw.getDataRef());
+}
+
+////////////////////////////////////////////////////////////////////////////////
+bool LDBIter::seekToFirst(void)
+{
+   if(isNull())
+      return false;
+   iter_->SeekToFirst();
+   return true;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+bool LDBIter::checkKeyExact(BinaryDataRef key)
+{
+   if(isDirty_ && !readIterData())
+      return false;
+
+   return (key==currKey_.getDataRef());
+}
+
+////////////////////////////////////////////////////////////////////////////////
+bool LDBIter::checkKeyExact(DB_PREFIX prefix, BinaryDataRef key)
+{
+   BinaryWriter bw(key.getSize() + 1);
+   bw.put_uint8_t((uint8_t)prefix);
+   bw.put_BinaryData(key);
+   if(isDirty_ && !readIterData())
+      return false;
+
+   return (bw.getDataRef()==currKey_.getDataRef());
+}
+
+////////////////////////////////////////////////////////////////////////////////
+bool LDBIter::checkKeyStartsWith(BinaryDataRef key)
+{
+   if(isDirty_ && !readIterData())
+      return false;
+
+   return (currKey_.getDataRef().startsWith(key));
+}
+
+////////////////////////////////////////////////////////////////////////////////
+bool LDBIter::checkKeyStartsWith(DB_PREFIX prefix, BinaryDataRef key)
+{
+   BinaryWriter bw(key.getSize() + 1);
+   bw.put_uint8_t((uint8_t)prefix);
+   bw.put_BinaryData(key);
+   if(isDirty_ && !readIterData())
+      return false;
+
+   return (currKey_.getDataRef().startsWith(bw.getDataRef()));
+}
+
+
+
+
 ////////////////////////////////////////////////////////////////////////////////
 bool InterfaceToLDB::checkStatus(leveldb::Status stat, bool warn)
 {
@@ -79,7 +281,6 @@ void InterfaceToLDB::init()
    dbIsOpen_ = false;
    for(uint8_t i=0; i<DB_COUNT; i++)
    {
-      iters_[i] = NULL;
       batches_[i] = NULL;
       dbs_[i] = NULL;
       dbPaths_[i] = string("");
@@ -182,7 +383,6 @@ bool InterfaceToLDB::openDatabases(string basedir,
       //LOGINFO << "LDB HEADERS: " << dbPaths_[HEADERS].c_str();
 
       // Create an iterator that we'll use for ust about all DB seek ops
-      iters_[db] = dbs_[db]->NewIterator(leveldb::ReadOptions());
       batches_[db] = NULL;
       batchStarts_[db] = 0;
 
@@ -250,18 +450,15 @@ void InterfaceToLDB::nukeHeadersDB(void)
 {
    SCOPED_TIMER("nukeHeadersDB");
    LOGINFO << "Destroying headers DB, to be rebuilt.";
-   seekTo(HEADERS, DB_PREFIX_HEADHASH, BinaryData(0));
-   leveldb::Iterator* iter = iters_[HEADERS];
+   iter = getIterator(HEADERS);
+   iter->seekToFirst();
    startBatch(HEADERS);
 
-   do
+   while(iter.isValid())
    {
-      if(!iter->Valid())
-         break;
-
-      batches_[HEADERS]->Delete(iter->key());
-
-   } while(advanceIterAndRead(iter));
+      batches_[HEADERS]->Delete(binaryDataRefToSlice(iter.getKeyRef()));
+      iter.advanceAndRead();
+   }
 
    commitBatch(HEADERS);
 
@@ -285,11 +482,6 @@ void InterfaceToLDB::closeDatabases(void)
    SCOPED_TIMER("closeDatabases");
    for(uint32_t db=0; db<DB_COUNT; db++)
    {
-      if( iters_[db] != NULL )
-      {
-         delete iters_[db];
-         iters_[db] = NULL;
-      }
       
       if( batches_[db] != NULL )
       {
@@ -673,59 +865,6 @@ bool InterfaceToLDB::advanceToNextBlock(bool skip)
 }
 
 
-/////////////////////////////////////////////////////////////////////////////
-bool InterfaceToLDB::dbIterIsValid(DB_SELECT db, DB_PREFIX prefix)
-{
-   bool anyPrefixIsOkay = (prefix==DB_PREFIX_COUNT);
-
-   if(!iters_[db]->Valid())
-      return false;
-
-   if(currReadKey_.getSize() == 0)
-   {
-      LOGERR << "Iter is valid but somehow key is zero length...?";
-      return false;
-   }
-
-   if(anyPrefixIsOkay)
-      return true;
-
-   if(currReadKey_.getRawRef()[0] != (uint8_t)prefix)
-      return false;
-
-   return true;
-}
-
-
-/////////////////////////////////////////////////////////////////////////////
-// If we are seeking into the HEADERS DB, then ignore prefix
-bool InterfaceToLDB::seekTo(DB_SELECT db, BinaryDataRef key)
-{
-   if(iterIsDirty_[db])
-      resetIterator(db);
-
-   iters_[db]->Seek(binaryDataRefToSlice(key));
-   if(!iters_[db]->Valid())
-      return false;
-
-   iteratorToRefReaders(iters_[db], currReadKey_, currReadValue_);
-   bool isMatch = (currReadKey_.getRawRef()==key);
-   return isMatch;
-}
-
-/////////////////////////////////////////////////////////////////////////////
-// If we are seeking into the HEADERS DB, then ignore prefix
-bool InterfaceToLDB::seekTo(DB_SELECT db,
-                            DB_PREFIX prefix, 
-                            BinaryDataRef key)
-{
-   BinaryWriter bw(key.getSize() + 1);
-   bw.put_uint8_t((uint8_t)prefix);
-   bw.put_BinaryData(key);
-   return seekTo(db, bw.getData());
-}
-
-
 ////////////////////////////////////////////////////////////////////////////////
 // We frequently have a Tx hash and need to determine the Hgt/Dup/Index of it.
 // And frequently when we do, we plan to read the tx right afterwards, so we
@@ -760,46 +899,6 @@ bool InterfaceToLDB::seekToTxByHash(BinaryDataRef txHash)
    return false;
 }
 
-
-
-/////////////////////////////////////////////////////////////////////////////
-void InterfaceToLDB::deleteIterator(DB_SELECT db)
-{
-   if(iters_[db] != NULL)
-      delete iters_[db];
-
-   iters_[db] = NULL;
-   iterIsDirty_[db] = false;
-}
-
-
-/////////////////////////////////////////////////////////////////////////////
-void InterfaceToLDB::resetIterator(DB_SELECT db, bool seekToPrevKey)
-{
-   SCOPED_TIMER("resetIterator");
-   // This may be very slow, so you should only do it when you're sure it's
-   // necessary.  You might just 
-   BinaryData key;
-   if(seekToPrevKey) key = currReadKey_.getRawRef().copy();
-   if(iters_[db] != NULL)
-      delete iters_[db];
-
-   iters_[db] = dbs_[db]->NewIterator(leveldb::ReadOptions());
-   iterIsDirty_[db] = false;
-   
-   if(seekToPrevKey)
-      seekTo(db, key);
-}
-
-/////////////////////////////////////////////////////////////////////////////
-// Returns refs to key and value that become invalid when iterator is moved
-void InterfaceToLDB::iteratorToRefReaders( leveldb::Iterator* it, 
-                                               BinaryRefReader & brrKey,
-                                               BinaryRefReader & brrValue)
-{
-   brrKey.setNewData((uint8_t*)(it->key().data()), it->key().size());      
-   brrValue.setNewData((uint8_t*)(it->value().data()), it->value().size());      
-}
 
 
 

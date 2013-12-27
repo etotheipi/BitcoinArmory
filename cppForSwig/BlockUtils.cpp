@@ -3931,6 +3931,11 @@ StoredHeader BlockDataManager_LevelDB::getBlockFromDB(uint32_t hgt, uint8_t dup)
 
 }
 
+////////////////////////////////////////////////////////////////////////////////
+uint8_t BlockDataManager_LevelDB::getMainDupFromDB(uint32_t hgt)
+{
+   return iface_->getValidDupIDForHeight(hgt);
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 StoredHeader BlockDataManager_LevelDB::getMainBlockFromDB(uint32_t hgt)
