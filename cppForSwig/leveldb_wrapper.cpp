@@ -168,6 +168,45 @@ bool LDBIter::seekTo(DB_PREFIX pref, BinaryDataRef key)
    return seekTo(db, bw.getDataRef());
 }
 
+
+////////////////////////////////////////////////////////////////////////////////
+bool LDBIter::seekToExact(BinaryDataRef key)
+{
+   if(!seekTo(key))
+      return false;
+
+   return checkKeyExact(key);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+bool LDBIter::seekToExact(DB_PREFIX pref, BinaryDataRef key)
+{
+   if(!seekTo(pref, key))
+      return false;
+
+   return checkKeyExact(pref, key);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+bool LDBIter::seekToStartsWith(BinaryDataRef key)
+{
+   if(!seekTo(key))
+      return false;
+
+   return checkKeyStartsWith(key);
+
+}
+
+////////////////////////////////////////////////////////////////////////////////
+bool LDBIter::seekToStartsWith(DB_PREFIX pref, BinaryDataRef key)
+{
+   if(!seekTo(pref, key))
+      return false;
+
+   return checkKeyStartsWith(pref, key);
+}
+
+
 ////////////////////////////////////////////////////////////////////////////////
 bool LDBIter::seekToFirst(void)
 {
@@ -213,10 +252,7 @@ bool LDBIter::checkKeyStartsWith(DB_PREFIX prefix, BinaryDataRef key)
    BinaryWriter bw(key.getSize() + 1);
    bw.put_uint8_t((uint8_t)prefix);
    bw.put_BinaryData(key);
-   if(isDirty_ && !readIterData())
-      return false;
-
-   return (currKey_.getDataRef().startsWith(bw.getDataRef()));
+   return checkKeyStartsWith(bw.getDataRef())
 }
 
 
@@ -235,6 +271,11 @@ bool InterfaceToLDB::checkStatus(leveldb::Status stat, bool warn)
    return false;
 }
 
+////////////////////////////////////////////////////////////////////////////////
+bool InterfaceToLDB::checkPrefixByte(LDBIter & iter, DB_PREFIX pref, bool rewind)
+{ 
+   return DBUtils.checkPrefixByte(iter.getKeyReader(), pref, rewind);
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 BinaryData InterfaceToLDB::sliceToBinaryData(leveldb::Slice slice)
@@ -450,14 +491,14 @@ void InterfaceToLDB::nukeHeadersDB(void)
 {
    SCOPED_TIMER("nukeHeadersDB");
    LOGINFO << "Destroying headers DB, to be rebuilt.";
-   iter = getIterator(HEADERS);
-   iter->seekToFirst();
+   ldbIter = getIterator(HEADERS);
+   ldbIter->seekToFirst();
    startBatch(HEADERS);
 
-   while(iter.isValid())
+   while(ldbIter.isValid())
    {
-      batches_[HEADERS]->Delete(binaryDataRefToSlice(iter.getKeyRef()));
-      iter.advanceAndRead();
+      batches_[HEADERS]->Delete(binaryDataRefToSlice(ldbIter.getKeyRef()));
+      ldbIter.advanceAndRead();
    }
 
    commitBatch(HEADERS);
@@ -482,7 +523,6 @@ void InterfaceToLDB::closeDatabases(void)
    SCOPED_TIMER("closeDatabases");
    for(uint32_t db=0; db<DB_COUNT; db++)
    {
-      
       if( batches_[db] != NULL )
       {
          delete batches_[db];
@@ -632,8 +672,7 @@ BinaryData InterfaceToLDB::getValue(DB_SELECT db,
 // Get value using BinaryDataRef object.  The data from the get* call is 
 // actually copied to a member variable, and thus the refs are valid only 
 // until the next get* call.
-BinaryDataRef InterfaceToLDB::getValueRef(DB_SELECT db, 
-                                                     BinaryDataRef key)
+BinaryDataRef InterfaceToLDB::getValueRef(DB_SELECT db, BinaryDataRef key)
 {
    leveldb::Slice ldbKey = binaryDataRefToSlice(key);
    leveldb::Status stat = dbs_[db]->Get(STD_READ_OPTS, ldbKey, &lastGetValue_);
@@ -838,27 +877,24 @@ bool InterfaceToLDB::startBlkDataIteration(DB_PREFIX prefix)
 // the iterator already on the next desired block.  So our "advance" op may
 // have finished before it started.  Alternatively, we may be on this block 
 // because we checked it and decide we don't care, so we want to skip it.
-bool InterfaceToLDB::advanceToNextBlock(bool skip)
+bool InterfaceToLDB::advanceToNextBlock(LDBIter & ldbIter, bool skip)
 {
    char prefix = DB_PREFIX_TXDATA;
-
-   leveldb::Iterator* it = iters_[BLKDATA];
    BinaryData key;
    while(1) 
    {
       if(skip) 
-         it->Next();
+         ldbIter.advanceAndRead();
 
-      if( !it->Valid() || it->key()[0] != (char)DB_PREFIX_TXDATA)
+      //if( !it->Valid() || it->key()[0] != (char)DB_PREFIX_TXDATA)
+      if(!ldbIter.isValid(DB_PREFIX_TXDATA))
          return false;
-      else if( it->key().size() == 5)
-      {
-         iteratorToRefReaders(it, currReadKey_, currReadValue_);
+      else if(ldbIter.getKeyRef().getSize() == 5)
          return true;
-      }
 
       if(!skip) 
-         it->Next();
+         ldbIter.advanceAndRead();
+         
    } 
    LOGERR << "we should never get here...";
    return false;
@@ -869,7 +905,7 @@ bool InterfaceToLDB::advanceToNextBlock(bool skip)
 // We frequently have a Tx hash and need to determine the Hgt/Dup/Index of it.
 // And frequently when we do, we plan to read the tx right afterwards, so we
 // should leave the itereator there.
-bool InterfaceToLDB::seekToTxByHash(BinaryDataRef txHash)
+bool InterfaceToLDB::seekToTxByHash(LDBIter & ldbIter, BinaryDataRef txHash)
 {
    SCOPED_TIMER("seekToTxByHash");
    StoredTxHints sths = getHintsForTxHash(txHash);
@@ -877,25 +913,25 @@ bool InterfaceToLDB::seekToTxByHash(BinaryDataRef txHash)
    for(uint32_t i=0; i<sths.getNumHints(); i++)
    {
       BinaryDataRef hint = sths.getHint(i);
-      seekTo(BLKDATA, DB_PREFIX_TXDATA, hint);
+      ldbIter.seekTo(DB_PREFIX_TXDATA, hint);
       
       // We don't actually know for sure whether the seekTo() found a Tx or TxOut
-      if(hint != currReadKey_.getRawRef().getSliceRef(1,6))
+      if(hint != ldbIter.getKeyRef().getSliceRef(1,6))
       {
          //LOGERR << "TxHint referenced a BLKDATA tx that doesn't exist";
          continue;
       }
 
-      currReadValue_.advance(2);  // skip flags
-      if(currReadValue_.get_BinaryDataRef(32) == txHash)
+      ldbIter.getValueReader().advance(2);  // skip flags
+      if(ldbIter.getValueReader().get_BinaryDataRef(32) == txHash)
       {
-         resetIterReaders();
+         ldbIter.resetReaders();
          return true;
       }
    }
 
    //LOGERR << "No tx in DB with hash: " << txHash.toHexStr();
-   resetIterReaders();
+   ldbIter.resetReaders();
    return false;
 }
 
@@ -905,16 +941,17 @@ bool InterfaceToLDB::seekToTxByHash(BinaryDataRef txHash)
 
 
 /////////////////////////////////////////////////////////////////////////////
-bool InterfaceToLDB::readStoredScriptHistoryAtIter(StoredScriptHistory & ssh)
+bool InterfaceToLDB::readStoredScriptHistoryAtIter(LDBIter & ldbIter,
+                                                   StoredScriptHistory & ssh)
 {
    SCOPED_TIMER("readStoredScriptHistoryAtIter");
-   resetIterReaders();
 
-   checkPrefixByte(DB_PREFIX_SCRIPT);
+   ldbIter.resetReaders();
+   checkPrefixByte(ldbIter, DB_PREFIX_SCRIPT);
 
-   BinaryDataRef sshKey = currReadKey_.getRawRef();
+   BinaryDataRef sshKey = ldbIter.getKeyRef();
    ssh.unserializeDBKey(sshKey, true);
-   ssh.unserializeDBValue(currReadValue_);
+   ssh.unserializeDBValue(ldbIter.getValueReader());
 
    if(!ssh.useMultipleEntries_)
       return true;
@@ -922,10 +959,8 @@ bool InterfaceToLDB::readStoredScriptHistoryAtIter(StoredScriptHistory & ssh)
    if(ssh.totalTxioCount_ == 0)
       LOGWARN << "How did we end up with zero Txios in an SSH?";
       
-
    // If for some reason we hit the end of the DB without any tx, bail
-   bool iterValid = advanceIterAndRead(BLKDATA, DB_PREFIX_SCRIPT);
-   if(!iterValid)
+   if( !ldbIter.advanceAndRead(DB_PREFIX_SCRIPT))
    {
       LOGERR << "No sub-SSH entries after the SSH";
       return false;  
@@ -934,21 +969,20 @@ bool InterfaceToLDB::readStoredScriptHistoryAtIter(StoredScriptHistory & ssh)
    // Now start iterating over the sub histories
    map<BinaryData, StoredSubHistory>::iterator iter;
    uint32_t numTxioRead = 0;
-   while(iters_[BLKDATA]->Valid())
+   do
    {
-      uint32_t sz = currReadKey_.getSize();
-      BinaryDataRef keyNoPrefix= currReadKey_.getRawRef().getSliceRef(1,sz-1);
+      uint32_t sz = ldbIter.getKeyRef().getSize();
+      BinaryDataRef keyNoPrefix= ldbIter.getKeyRef().getSliceRef(1,sz-1);
       if(!keyNoPrefix.startsWith(ssh.uniqueKey_))
          break;
 
       pair<BinaryData, StoredSubHistory> keyValPair;
       keyValPair.first = keyNoPrefix.getSliceCopy(sz-5, 4);
-      keyValPair.second.unserializeDBKey(currReadKey_.getRawRef());
-      keyValPair.second.unserializeDBValue(currReadValue_);
+      keyValPair.second.unserializeDBKey(ldbIter.getKeyRef());
+      keyValPair.second.unserializeDBValue(ldbIter.getValueReader());
       iter = ssh.subHistMap_.insert(keyValPair).first;
       numTxioRead += iter->second.txioSet_.size(); 
-      advanceIterAndRead(BLKDATA, DB_PREFIX_SCRIPT);
-   } 
+   } while( ldbIter.advanceAndRead(DB_PREFIX_SCRIPT) );
 
    if(numTxioRead != ssh.totalTxioCount_)
    {
@@ -990,14 +1024,17 @@ void InterfaceToLDB::putStoredScriptHistory( StoredScriptHistory & ssh)
 void InterfaceToLDB::getStoredScriptHistorySummary( StoredScriptHistory & ssh,
                                                     BinaryDataRef scrAddrStr)
 {
-   bool foundMatch = seekTo(BLKDATA, DB_PREFIX_SCRIPT, scrAddrStr);
-   if(!foundMatch)
+   LDBIter ldbIter = getIterator(BLKDATA);
+   bool seekTrue = ldbIter.seekTo(DB_PREFIX_SCRIPT, scrAddrStr);
+
+   if(!ldbIter.seekToExact(DB_PREFIX_SCRIPT, scrAddrStr))
    {
       ssh.uniqueKey_.resize(0);
       return;
    }
-   ssh.unserializeDBKey(currReadKey_.getRawRef());
-   ssh.unserializeDBValue(currReadValue_.getRawRef());
+
+   ssh.unserializeDBKey(ldbIter.getKeyRef());
+   ssh.unserializeDBValue(ldbIter.getValueRef());
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1005,15 +1042,14 @@ void InterfaceToLDB::getStoredScriptHistory( StoredScriptHistory & ssh,
                                              BinaryDataRef scrAddrStr)
 {
    SCOPED_TIMER("getStoredScriptHistory");
-   seekTo(BLKDATA, DB_PREFIX_SCRIPT, scrAddrStr);
-   uint32_t sz = currReadKey_.getSize();
-   if(currReadKey_.getRawRef().getSliceRef(1,sz-1) != scrAddrStr)
+   LDBIter ldbIter = getIterator(BLKDATA);
+   if(!ldbIter.seekToExact(DB_PREFIX_SCRIPT, scrAddrStr))
    {
       ssh.uniqueKey_.resize(0);
       return;
    }
 
-   readStoredScriptHistoryAtIter(ssh);
+   readStoredScriptHistoryAtIter(ldbIter, ssh);
 }
 
 
@@ -1126,35 +1162,6 @@ bool InterfaceToLDB::getFullUTXOMapForSSH(
 
 
 
-/////////////////////////////////////////////////////////////////////////////
-bool InterfaceToLDB::advanceIterAndRead(leveldb::Iterator* iter)
-{
-   if(!iter->Valid())
-      return false; 
-
-   iter->Next();
-   if(!iter->Valid())
-      return false;
-
-   iteratorToRefReaders(iter, currReadKey_, currReadValue_);
-   return true;
-}
-
-/////////////////////////////////////////////////////////////////////////////
-bool InterfaceToLDB::advanceIterAndRead(DB_SELECT db, DB_PREFIX prefix)
-{
-   if(iterIsDirty_[db])
-      LOGERR << "DB has been changed since this iterator was created";
-
-   if(!iters_[db]->Valid())
-      return false; 
-
-   if(advanceIterAndRead(iters_[db]))
-      return checkPrefixByte(prefix, true);
-   else 
-      return false;
-}
-
 
 ////////////////////////////////////////////////////////////////////////////////
 // We must guarantee that we don't overwrite data if 
@@ -1201,9 +1208,8 @@ void InterfaceToLDB::addRegisteredScript(BinaryDataRef rawScript,
 void InterfaceToLDB::readAllHeaders(map<HashString, BlockHeader> & headerMap,
                                     map<HashString, StoredHeader> & storedMap)
 {
-   seekTo(HEADERS, DB_PREFIX_HEADHASH, BinaryData(0));
-   if(!iters_[HEADERS]->Valid() ||
-      currReadKey_.get_uint8_t() != (uint8_t)DB_PREFIX_HEADHASH)
+   LDBIter ldbIter = getIterator(HEADERS);
+   if(!ldbIter.seekToStartsWith(DB_PREFIX_HEADHASH, BinaryData(0)))
    {
       LOGWARN << "No headers in DB yet!";
       return;
@@ -1214,18 +1220,18 @@ void InterfaceToLDB::readAllHeaders(map<HashString, BlockHeader> & headerMap,
    BlockHeader  regHead;
    do
    {
-      resetIterReaders();
-      checkPrefixByte(DB_PREFIX_HEADHASH);
+      ldbIter.resetReaders();
+      checkPrefixByte(ldbIter, DB_PREFIX_HEADHASH);
    
-      if(currReadKey_.getSizeRemaining() != 32)
+      if(ldbIter.getKeyReader().getSizeRemaining() != 32)
       {
          LOGERR << "How did we get header hash not 32 bytes?";
          continue;
       }
 
-      currReadKey_.get_BinaryData(sbh.thisHash_, 32);
+      ldbIter.getKeyReader().get_BinaryData(sbh.thisHash_, 32);
 
-      sbh.unserializeDBValue(HEADERS, currReadValue_);
+      sbh.unserializeDBValue(HEADERS, ldbIter.getValueRef());
       regHead.unserialize(sbh.dataCopy_);
 
       headerMap[sbh.thisHash_] = regHead;
@@ -1550,8 +1556,9 @@ bool InterfaceToLDB::getStoredHeader( StoredHeader & sbh,
    {
       //////
       // Do the iterator thing because we're going to traverse the whole block
-      bool isInDB = seekTo(BLKDATA, DBUtils.getBlkDataKey(blockHgt, blockDup));
-      if(!isInDB)
+      LDBIter ldbIter = getIterator(BLKDATA);
+      bool isInDB = 
+      if(!ldbIter.seekToExact(DBUtils.getBlkDataKey(blockHgt, blockDup)))
       {
          LOGERR << "Header heigh&dup is not in BLKDATA DB";
          LOGERR << "("<<blockHgt<<", "<<blockDup<<")";
@@ -1559,7 +1566,7 @@ bool InterfaceToLDB::getStoredHeader( StoredHeader & sbh,
       }
 
       // Now we read the whole block, not just the header
-      bool success = readStoredBlockAtIter(sbh);
+      bool success = readStoredBlockAtIter(ldbIter, sbh);
       sbh.isMainBranch_ = (blockDup == getValidDupIDForHeight(blockHgt));
       return success; 
    }
@@ -1710,39 +1717,38 @@ void InterfaceToLDB::updatePreferredTxHint( BinaryDataRef hashOrPrefix,
 
 ////////////////////////////////////////////////////////////////////////////////
 // We assume we have a valid iterator left at the header entry for this block
-bool InterfaceToLDB::readStoredBlockAtIter(StoredHeader & sbh)
+bool InterfaceToLDB::readStoredBlockAtIter(LDBIter & ldbIter, StoredHeader & sbh)
 {
    SCOPED_TIMER("readStoredBlockAtIter");
 
-   resetIterReaders();
-   BinaryData blkDataKey(currReadKey_.getCurrPtr(), 5);
+   ldbIter.resetReaders();
+   BinaryData blkDataKey(ldbIter.getKeyReader().getCurrPtr(), 5);
 
-   BLKDATA_TYPE bdtype = DBUtils.readBlkDataKey(currReadKey_,
+   BLKDATA_TYPE bdtype = DBUtils.readBlkDataKey(ldbIter.getKeyReader(),
                                                 sbh.blockHeight_,
                                                 sbh.duplicateID_);
 
    
    // Grab the header first, then iterate over 
-   sbh.unserializeDBValue(BLKDATA, currReadValue_, false);
+   sbh.unserializeDBValue(BLKDATA, ldbIter.getValueRef(), false);
    sbh.isMainBranch_ = (sbh.duplicateID_==getValidDupIDForHeight(sbh.blockHeight_));
 
    // If for some reason we hit the end of the DB without any tx, bail
-   bool iterValid = advanceIterAndRead(BLKDATA, DB_PREFIX_TXDATA);
-   if(!iterValid)
-      return true;  // this isn't an error, it's an block w/o any StoredTx
+   //if(!ldbIter.advanceAndRead(DB_PREFIX_TXDATA)
+      //return true;  // this isn't an error, it's an block w/o any StoredTx
 
    // Now start iterating over the tx data
    uint32_t tempHgt;
    uint8_t  tempDup;
    uint16_t currIdx;
-   while(iters_[BLKDATA]->Valid())
+   while(ldbIter.advanceAndRead(DB_PREFIX_TXDATA))
    {
-      if(!currReadKey_.getRawRef().startsWith(blkDataKey))
+      if(!ldbIter.checkKeyStartsWith(blkDataKey))
          break;
 
       // We can't just read the the tx, because we have to guarantee 
       // there's a place for it in the sbh.stxMap_
-      BLKDATA_TYPE bdtype = DBUtils.readBlkDataKey(currReadKey_, 
+      BLKDATA_TYPE bdtype = DBUtils.readBlkDataKey(ldbIter.getKeyReader(), 
                                                    tempHgt, 
                                                    tempDup,
                                                    currIdx);
@@ -1758,7 +1764,8 @@ bool InterfaceToLDB::readStoredBlockAtIter(StoredHeader & sbh)
       if(KEY_NOT_IN_MAP(currIdx, sbh.stxMap_))
          sbh.stxMap_[currIdx] = StoredTx();
 
-      readStoredTxAtIter(sbh.blockHeight_, 
+      readStoredTxAtIter(ldbIter,
+                         sbh.blockHeight_, 
                          sbh.duplicateID_, 
                          sbh.stxMap_[currIdx]);
    } 
@@ -1770,7 +1777,8 @@ bool InterfaceToLDB::readStoredBlockAtIter(StoredHeader & sbh)
 // We assume we have a valid iterator left at the beginning of (potentially) a 
 // transaction in this block.  It's okay if it starts at at TxOut entry (in 
 // some instances we may not have a Tx entry, but only the TxOuts).
-bool InterfaceToLDB::readStoredTxAtIter( uint32_t height,
+bool InterfaceToLDB::readStoredTxAtIter( LDBIter & ldbIter,
+                                         uint32_t height,
                                          uint8_t  dupID,
                                          StoredTx & stx)
 {
@@ -1778,8 +1786,8 @@ bool InterfaceToLDB::readStoredTxAtIter( uint32_t height,
    BinaryData blkPrefix = DBUtils.getBlkDataKey(height, dupID);
 
    // Make sure that we are still within the desired block (but beyond header)
-   resetIterReaders();
-   BinaryDataRef key = currReadKey_.getRawRef();
+   ldbIter.resetReaders();
+   BinaryDataRef key = ldbIter.getKeyRef();
    if(!key.startsWith(blkPrefix) || key.getSize() < 7)
       return false;
 
@@ -1787,7 +1795,7 @@ bool InterfaceToLDB::readStoredTxAtIter( uint32_t height,
    uint32_t storedHgt;
    uint8_t  storedDup;
    uint16_t storedIdx;
-   DBUtils.readBlkDataKey(currReadKey_, storedHgt, storedDup, storedIdx);
+   DBUtils.readBlkDataKey(ldbIter.getKeyReader(), storedHgt, storedDup, storedIdx);
 
    if(storedHgt != height || storedDup != dupID)
       return false;
@@ -1808,16 +1816,16 @@ bool InterfaceToLDB::readStoredTxAtIter( uint32_t height,
    // Reset the key again, and then cycle through entries until no longer
    // on an entry with the correct prefix.  Use do-while because we've 
    // already verified the iterator is at a valid tx entry
-   resetIterReaders();
+   ldbIter.resetReaders();
    do
    {
       // Stop if key doesn't start with [PREFIX | HGT | DUP | TXIDX]
-      if(!currReadKey_.getRawRef().startsWith(txPrefix))
+      if(!ldbIter.checkKeyStartsWith(txPrefix))
          break;
 
       // Read the prefix, height and dup 
       uint16_t txOutIdx;
-      BLKDATA_TYPE bdtype = DBUtils.readBlkDataKey(currReadKey_,
+      BLKDATA_TYPE bdtype = DBUtils.readBlkDataKey(ldbIter.getKeyReader(),
                                            stx.blockHeight_,
                                            stx.duplicateID_,
                                            stx.txIndex_,
@@ -1827,14 +1835,14 @@ bool InterfaceToLDB::readStoredTxAtIter( uint32_t height,
       if(bdtype == BLKDATA_TX)
       {
          // Get everything else from the iter value
-         stx.unserializeDBValue(currReadValue_);
+         stx.unserializeDBValue(ldbIter.getValueRef());
          nbytes += stx.dataCopy_.getSize();
       }
       else if(bdtype == BLKDATA_TXOUT)
       {
          stx.stxoMap_[txOutIdx] = StoredTxOut();
          StoredTxOut & stxo = stx.stxoMap_[txOutIdx];
-         readStoredTxOutAtIter(height, dupID, stx.txIndex_, stxo);
+         readStoredTxOutAtIter(ldbIter, height, dupID, stx.txIndex_, stxo);
          stxo.parentHash_ = stx.thisHash_;
          stxo.txVersion_  = stx.version_;
          nbytes += stxo.dataCopy_.getSize();
@@ -1844,7 +1852,7 @@ bool InterfaceToLDB::readStoredTxAtIter( uint32_t height,
          LOGERR << "Unexpected BLKDATA entry while iterating";
          return false;
       }
-   } while(advanceIterAndRead(BLKDATA, DB_PREFIX_TXDATA));
+   } while(ldbIter.advanceAndRead(DB_PREFIX_TXDATA));
 
    // If have the correct size, save it, otherwise ignore the computation
    stx.numBytes_ = stx.haveAllTxOut() ? nbytes : UINT32_MAX;
@@ -1855,22 +1863,24 @@ bool InterfaceToLDB::readStoredTxAtIter( uint32_t height,
 
 ////////////////////////////////////////////////////////////////////////////////
 bool InterfaceToLDB::readStoredTxOutAtIter(
+                                       LDBIter & ldbIter, 
                                        uint32_t height,
                                        uint8_t  dupID,
                                        uint16_t txIndex,
                                        StoredTxOut & stxo)
 {
-   if(currReadKey_.getSize() < 9)
+   if(ldbIter.getKeyRef().getSize() < 9)
       return false;
 
-   currReadKey_.resetPosition();
+   ldbIter.resetReaders();
 
    // Check that we are at a tx with the correct height & dup & txIndex
    uint32_t keyHgt;
    uint8_t  keyDup;
    uint16_t keyTxIdx;
    uint16_t keyTxOutIdx;
-   DBUtils.readBlkDataKey(currReadKey_, keyHgt, keyDup, keyTxIdx, keyTxOutIdx);
+   DBUtils.readBlkDataKey(ldbIter.getKeyReader(), 
+                          keyHgt, keyDup, keyTxIdx, keyTxOutIdx);
 
    if(keyHgt != height || keyDup != dupID || keyTxIdx != txIndex)
       return false;
@@ -1880,7 +1890,7 @@ bool InterfaceToLDB::readStoredTxOutAtIter(
    stxo.txIndex_     = txIndex;
    stxo.txOutIndex_  = keyTxOutIdx;
 
-   stxo.unserializeDBValue(currReadValue_);
+   stxo.unserializeDBValue(ldbIter.getValueRef());
 
    return true;
 }
@@ -1896,7 +1906,8 @@ Tx InterfaceToLDB::getFullTxCopy( BinaryData ldbKey6B )
       return Tx();
    }
     
-   if(!seekTo(BLKDATA, DB_PREFIX_TXDATA, ldbKey6B))
+   LDBIter ldbIter = getIterator(BLKDATA);
+   if(!ldbIter.seekToStartsWith(DB_PREFIX_TXDATA, ldbKey6B))
    {
       LOGERR << "TxRef key does not exist in BLKDATA DB";
       return Tx();
@@ -1904,7 +1915,10 @@ Tx InterfaceToLDB::getFullTxCopy( BinaryData ldbKey6B )
 
    BinaryData hgtx = ldbKey6B.getSliceCopy(0,4);
    StoredTx stx;
-   readStoredTxAtIter( DBUtils.hgtxToHeight(hgtx), DBUtils.hgtxToDupID(hgtx), stx);
+   readStoredTxAtIter( ldbIter,
+                       DBUtils.hgtxToHeight(hgtx), 
+                       DBUtils.hgtxToDupID(hgtx), 
+                       stx);
 
    if(!stx.haveAllTxOut())
    {
@@ -2132,7 +2146,7 @@ bool InterfaceToLDB::getStoredTx_byHash( StoredTx & stx,
       BinaryDataRef hint = brrHints.get_BinaryDataRef(6);
       seekTo(BLKDATA, DB_PREFIX_TXDATA, hint);
 
-      BLKDATA_TYPE bdtype = DBUtils.readBlkDataKey(currReadKey_, height, dup, txIdx);
+      BLKDATA_TYPE bdtype = DBUtils.readBlkDataKey(ldbIter.getKeyReader(), height, dup, txIdx);
       
       // We don't actually know for sure whether the seekTo() found 
       BinaryData key6 = DBUtils.getBlkDataKeyNoPrefix(height, dup, txIdx);
@@ -2144,10 +2158,10 @@ bool InterfaceToLDB::getStoredTx_byHash( StoredTx & stx,
          continue;
       }
 
-      currReadValue_.advance(2);  // skip flags
-      if(currReadValue_.get_BinaryDataRef(32) == txHash)
+      ldbIter.getValueReader().advance(2);  // skip flags
+      if(ldbIter.getValueReader().get_BinaryDataRef(32) == txHash)
       {
-         resetIterReaders();
+         ldbIter.resetReaders();
          return readStoredTxAtIter(height, dup, stx);
       }
    }
@@ -2215,12 +2229,12 @@ bool InterfaceToLDB::getStoredTx( StoredTx & stx,
       while(advanceIterAndRead(BLKDATA, DB_PREFIX_TXDATA))
       {
          // If the iter key doesn't start with [PREFIX | HGT | DUP], we're done
-         if(!currReadKey_.getRawRef().startsWith(blkDataKey))
+         if(!ldbIter.checkKeyStartsWith(blkDataKey))
             break;
 
          
          uint16_t currTxOutIdx;
-         BLKDATA_TYPE bdtype = DBUtils.readBlkDataKey(currReadKey_,
+         BLKDATA_TYPE bdtype = DBUtils.readBlkDataKey(ldbIter.getKeyReader(),
                                               stx.blockHeight_,
                                               stx.duplicateID_,
                                               stx.txIndex_,
@@ -2228,7 +2242,7 @@ bool InterfaceToLDB::getStoredTx( StoredTx & stx,
    
          if(bdtype == BLKDATA_TX)
          {
-            stx.unserializeDBValue(currReadValue_);
+            stx.unserializeDBValue(ldbIter.getValueRef());
          }
          else if(bdtype == BLKDATA_TXOUT)
          {
@@ -2239,7 +2253,7 @@ bool InterfaceToLDB::getStoredTx( StoredTx & stx,
             stxo.duplicateID_  = dupID;
             stxo.txIndex_     = txIndex;
             stxo.txOutIndex_  = currTxOutIdx;
-            stxo.unserializeDBValue(currReadValue_);
+            stxo.unserializeDBValue(ldbIter.getValueRef());
          }
          else
          {
@@ -2445,8 +2459,8 @@ TxRef InterfaceToLDB::getTxRef( BinaryDataRef txHash )
 {
    if(seekToTxByHash(txHash))
    {
-      currReadKey_.advance(1);
-      return TxRef(currReadKey_.get_BinaryDataRef(6), this);
+      ldbIter.getKeyReader().advance(1);
+      return TxRef(ldbIter.getKeyReader().get_BinaryDataRef(6), this);
    }
    
    return TxRef();
@@ -2599,33 +2613,18 @@ KVLIST InterfaceToLDB::getAllDatabaseEntries(DB_SELECT db)
    if(!databasesAreOpen())
       return KVLIST();
 
-   bool restoreIterAtEnd = iters_[db]->Valid();
-   BinaryData prevIterLoc;
-   if(restoreIterAtEnd)
-      prevIterLoc = sliceToBinaryData(iters_[db]->key());
-
    KVLIST outList;
    outList.reserve(100);
 
-   if(iters_[db]) 
-   {
-      delete iters_[db];
-      iters_[db] = NULL;
-   }
-
-
-   iters_[db] = dbs_[db]->NewIterator(leveldb::ReadOptions());
-   iters_[db]->SeekToFirst();
-   for (; iters_[db]->Valid(); iters_[db]->Next())
+   LDBIter ldbIter = getIterator(db);
+   ldbIter.seekToFirst();
+   for (ldbIter.seekToFirst(); ldbIter.isValid(); ldbIter.advanceIterAndRead())
    {
       size_t last = outList.size();
       outList.push_back( pair<BinaryData, BinaryData>() );
-      sliceToBinaryData(iters_[db]->key(),   outList[last].first);
-      sliceToBinaryData(iters_[db]->value(), outList[last].second);
+      outList[last].first  = ldbIter.getKey();
+      outList[last].second = ldbIter.getValue();
    }
-
-   if(restoreIterAtEnd)
-      seekTo(db, prevIterLoc);
 
    return outList;
 }
@@ -2635,11 +2634,6 @@ KVLIST InterfaceToLDB::getAllDatabaseEntries(DB_SELECT db)
 void InterfaceToLDB::printAllDatabaseEntries(DB_SELECT db)
 {
    SCOPED_TIMER("printAllDatabaseEntries");
-
-   bool restoreIterAtEnd = iters_[db]->Valid();
-   BinaryData prevIterLoc;
-   if(restoreIterAtEnd)
-      prevIterLoc = sliceToBinaryData(iters_[db]->key());
 
    cout << "Printing DB entries... (DB=" << db << ")" << endl;
    KVLIST dbList = getAllDatabaseEntries(db);
@@ -2654,9 +2648,6 @@ void InterfaceToLDB::printAllDatabaseEntries(DB_SELECT db)
       cout << "   \"" << dbList[i].first.toHexStr() << "\"  ";
       cout << "   \"" << dbList[i].second.toHexStr() << "\"  " << endl;
    }
-
-   if(restoreIterAtEnd)
-      seekTo(db, prevIterLoc);
 }
 
 #define PPRINTENTRY(TYPE, IND) \
@@ -2677,11 +2668,6 @@ void InterfaceToLDB::pprintBlkDataDB(uint32_t indent)
 {
    SCOPED_TIMER("pprintBlkDataDB");
    DB_SELECT db = BLKDATA;
-
-   bool restoreIterAtEnd = iters_[db]->Valid();
-   BinaryData prevIterLoc;
-   if(restoreIterAtEnd)
-      prevIterLoc = sliceToBinaryData(iters_[db]->key());
 
    cout << "Pretty-printing BLKDATA DB" << endl;
    KVLIST dbList = getAllDatabaseEntries(db);
@@ -2751,8 +2737,6 @@ void InterfaceToLDB::pprintBlkDataDB(uint32_t indent)
          
    }
 
-   if(restoreIterAtEnd)
-      seekTo(db, prevIterLoc);
    
 }
 

@@ -2855,7 +2855,9 @@ void BlockDataManager_LevelDB::applyBlockRangeToDB(uint32_t blk0, uint32_t blk1)
 
    BinaryData startKey = DBUtils.getBlkDataKey(blk0, 0);
    BinaryData endKey   = DBUtils.getBlkDataKey(blk1, 0);
-   iface_->seekTo(BLKDATA, startKey);
+
+   LDBIter ldbIter = iface_->getIterator(BLKDATA);
+   ldbIter->seekTo(startKey);
 
    // Start scanning and timer
    //bool doBatches = (blk1-blk0 > NUM_BLKS_BATCH_THRESH);
@@ -2870,7 +2872,7 @@ void BlockDataManager_LevelDB::applyBlockRangeToDB(uint32_t blk0, uint32_t blk1)
    {
       
       StoredHeader sbh;
-      iface_->readStoredBlockAtIter(sbh);
+      iface_->readStoredBlockAtIter(ldbIter, sbh);
       hgt = sbh.blockHeight_;
       dup = sbh.duplicateID_;
       if(blk0 > hgt || hgt >= blk1)
@@ -2891,10 +2893,6 @@ void BlockDataManager_LevelDB::applyBlockRangeToDB(uint32_t blk0, uint32_t blk1)
       // to have each method create its own iterator... TODO:  profile/test
       // this idea.  For now we will just save the current DB key, and 
       // re-seek to it afterwards.
-      BinaryData prevIterKey(0);
-      if(iface_->dbIterIsValid(BLKDATA))
-         prevIterKey = iface_->getIterKeyCopy();
-
       if(!doBatches)
          applyBlockToDB(hgt, dup); 
       else
@@ -2905,26 +2903,12 @@ void BlockDataManager_LevelDB::applyBlockRangeToDB(uint32_t blk0, uint32_t blk1)
          applyBlockToDB(hgt, dup, stxToModify, sshToModify, keysToDelete, commit);
       }
 
-      // If we had a valid iter position before applyBlockToDB, restore it
-      if(prevIterKey.getSize() > 0)
-         iface_->seekTo(BLKDATA, prevIterKey);
-
-
       bytesReadSoFar_ += sbh.numBytes_;
-
-      // TODO:  Check whether this is needed and if there is a performance
-      //        improvement to removing it.  For now, I'm including to be
-      //        absolutely sure that the DB updates properly (not reading
-      //        from an iterator that was created before the DB was last 
-      //        updated).  But it may slow down the process considerably,
-      //        since LevelDB has optimized the hell out of key-order 
-      //        traversal.
-      iface_->resetIterator(BLKDATA, true);
 
       // Will write out about once every 5 sec
       writeProgressFile(DB_BUILD_APPLY, blkProgressFile_, "applyBlockRangeToDB");
 
-   } while(iface_->advanceToNextBlock(false));
+   } while(iface_->advanceToNextBlock(ldbIter, false));
 
 
    // If we're batching, we probably haven't commited the last batch.  Hgt 
@@ -4002,9 +3986,9 @@ void BlockDataManager_LevelDB::deleteHistories(void)
 {
    SCOPED_TIMER("deleteHistories");
 
-   iface_->seekTo(BLKDATA, DB_PREFIX_SCRIPT, BinaryData(0));
+   LDBIter ldbIter = iface_->getIterator(BLKDATA);
 
-   if(!iface_->dbIterIsValid(BLKDATA, DB_PREFIX_SCRIPT))
+   if(!iface_->seekToStartsWith(ldbIter, DB_PREFIX_SCRIPT, BinaryData(0)))
       return;
 
    //////////
@@ -4012,7 +3996,7 @@ void BlockDataManager_LevelDB::deleteHistories(void)
 
    do 
    {
-      BinaryData key = iface_->getIterKeyCopy();
+      BinaryData key = ldbIter.getKey();
 
       if(key.getSize() == 0)
          break;
@@ -4022,7 +4006,7 @@ void BlockDataManager_LevelDB::deleteHistories(void)
 
       iface_->deleteValue(BLKDATA, key);
       
-   } while(iface_->advanceIterAndRead(BLKDATA, DB_PREFIX_SCRIPT));
+   } while(iface_->advanceIterAndRead(ldbIter, DB_PREFIX_SCRIPT));
 
    //////////
    iface_->commitBatch(BLKDATA);

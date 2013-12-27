@@ -31,7 +31,6 @@
 
 #define STD_READ_OPTS       leveldb::ReadOptions()
 #define STD_WRITE_OPTS      leveldb::WriteOptions()
-#define LDBITER             leveldb::Iterator*
 
 #define KVLIST vector<pair<BinaryData,BinaryData> > 
 
@@ -144,12 +143,6 @@ class StoredScriptHistory;
 //         understand how to use it safely.  Only use getValue() unless there
 //         is reason to believe that the optimization is needed.
 //
-//         Similarly, when using the seek/start/advance iterator methods, 
-//         keep in mind that various submethods you call may move the 
-//         iterator out from under you.  To be safe from this issue, it is
-//         best to copy the data behind currReadKey_ and currReadValue_ 
-//         after you move the iterator.
-//
 //
 //
 // NOTE 2: Batch writing operations are smoothed so that multiple, nested
@@ -169,7 +162,7 @@ public:
    LDBIter(void) { db_=NULL; iter_=NULL; isDirty_=true;}
    LDBIter(leveldb::DB* dbptr);
    ~LDBIter(void) { destroy(); }
-   void destroy(void) { delete iter_; iter_ = NULL; db_ = NULL; }
+   void destroy(void) {if(iter_!=NULL) delete iter_; iter_ = NULL; db_ = NULL;}
 
    bool isNull(void) { return iter_==NULL; }
    bool isValid(void) { return (!isNull() && iter_->Valid()); }
@@ -189,12 +182,17 @@ public:
    BinaryRefReader& getKeyReader(void) ;
    BinaryRefReader& getValueReader(void) ;
 
-    getValueReader(void) ;
-
+   // All the seekTo* methods do the exact same thing, the variant simply 
+   // determines the meaning of the return true/false value.
    bool seekTo(BinaryDataRef key);
    bool seekTo(DB_PREFIX pref, BinaryDataRef key);
+   bool seekToExact(BinaryDataRef key);
+   bool seekToExact(DB_PREFIX pref, BinaryDataRef key);
+   bool seekToStartsWith(BinaryDataRef key);
+   bool seekToStartsWith(DB_PREFIX pref, BinaryDataRef key);
    bool seekToFirst(void);
 
+   // Return true if the iterator is currently on valid data, with key match
    bool checkKeyExact(BinaryDataRef key);
    bool checkKeyExact(DB_PREFIX prefix, BinaryDataRef key);
    bool checkKeyStartsWith(BinaryDataRef key);
@@ -359,8 +357,7 @@ public:
    // the iterator already on the next desired block.  So our "advance" op may
    // have finished before it started.  Alternatively, we may be on this block 
    // because we checked it and decide we don't care, so we want to skip it.
-   bool advanceToNextBlock(bool skip=false);
-   bool advanceIterAndRead(leveldb::Iterator* iter);
+   bool advanceToNextBlock(LDBIter& iter, bool skip=false);
    bool advanceIterAndRead(DB_SELECT, DB_PREFIX);
 
    bool dbIterIsValid(DB_SELECT db, DB_PREFIX prefix=DB_PREFIX_COUNT);
@@ -552,14 +549,22 @@ public:
    // Some methods to grab data at the current iterator location.  Return
    // false if reading fails (maybe because we were expecting to find the
    // specified DB entry type, but the prefix byte indicated something else
-   bool readStoredBlockAtIter(StoredHeader & sbh);
+   bool readStoredBlockAtIter(LDBIter & iter, 
+                              StoredHeader & sbh);
 
-   bool readStoredTxAtIter(uint32_t height, uint8_t dupID, StoredTx & stx);
+   bool readStoredTxAtIter(LDBIter & iter, 
+                           uint32_t height, 
+                           uint8_t dupID, 
+                           StoredTx & stx);
 
-   bool readStoredTxOutAtIter(uint32_t height, uint8_t  dupID, uint16_t txIndex,
-                                                            StoredTxOut & stxo);
+   bool readStoredTxOutAtIter(LDBIter & iter, 
+                              uint32_t height, 
+                              uint8_t  dupID, 
+                              uint16_t txIndex,
+                              StoredTxOut & stxo);
 
-   bool readStoredScriptHistoryAtIter( StoredScriptHistory & ssh);
+   bool readStoredScriptHistoryAtIter(LDBIter & iter, 
+                                      StoredScriptHistory & ssh);
 
 
    // TxRefs are much simpler with LDB than the previous FileDataPtr construct
@@ -605,9 +610,6 @@ public:
                                 StoredUndoData & sud);
 
 
-   /////////////////////////////////////////////////////////////////////////////
-   inline bool checkPrefixByte(DB_PREFIX prefix, bool rewindWhenDone=false)
-         { return DBUtils.checkPrefixByte(currReadKey_, prefix, rewindWhenDone); }
 
    /////////////////////////////////////////////////////////////////////////////
    bool checkStatus(leveldb::Status stat, bool warn=true);
