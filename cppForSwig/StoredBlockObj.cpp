@@ -200,6 +200,24 @@ void StoredHeader::createFromBlockHeader(BlockHeader & bh)
    isMainBranch_ = bh.isMainBranch();
 }
 
+////////////////////////////////////////////////////////////////////////////////
+Tx StoredHeader::getTxCopy(uint16_t i)
+{ 
+   if(KEY_IN_MAP(i, stxMap_))
+      return stxMap_[i].getTxCopy();
+   else
+      return Tx();
+}
+
+////////////////////////////////////////////////////////////////////////////////
+BinaryData StoredHeader::getSerializedTx(uint16_t i)
+{ 
+   if(KEY_IN_MAP(i, stxMap_))
+      return stxMap_[i].getSerializedTx();
+   else
+      return BinaryData(0);
+}
+
 /////////////////////////////////////////////////////////////////////////////
 void StoredHeader::unserialize(BinaryData const & header80B)
 {
@@ -2556,6 +2574,23 @@ BinaryData StoredHeadHgtList::getDBKey(bool withPrefix) const
    bw.put_uint32_t(height_, BIGENDIAN);
    return bw.getData();
 
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void StoredHeadHgtList::unserializeDBKey(BinaryDataRef key)
+{
+   BinaryRefReader brr(key);
+   if(key.getSize() == 5)
+   {
+      uint8_t prefix = brr.get_uint8_t();
+      if(prefix != DB_PREFIX_HEADHGT)  
+      {
+         LOGERR << "Unserialized HEADHGT key but wrong prefix";
+         return;
+      }
+   }
+
+   height_ = brr.get_uint32_t(BIGENDIAN);
 }
 
 

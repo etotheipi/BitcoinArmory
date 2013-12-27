@@ -73,7 +73,7 @@ SecureBinaryData SecureBinaryData::copySwapEndian(size_t pos1, size_t pos2) cons
 /////////////////////////////////////////////////////////////////////////////
 SecureBinaryData SecureBinaryData::GenerateRandom(uint32_t numBytes)
 {
-   static BTC_PRNG prng;
+   BTC_PRNG prng;
    SecureBinaryData randData(numBytes);
    prng.GenerateBlock(randData.getPtr(), numBytes);
    return randData;  
@@ -202,7 +202,7 @@ void KdfRomix::printKdfParams(void)
 /////////////////////////////////////////////////////////////////////////////
 SecureBinaryData KdfRomix::DeriveKey_OneIter(SecureBinaryData const & password)
 {
-   static CryptoPP::SHA512 sha512;
+   CryptoPP::SHA512 sha512;
 
    // Concatenate the salt/IV to the password
    SecureBinaryData saltedPassword = password + salt_; 
@@ -464,7 +464,7 @@ BTC_PUBKEY CryptoECDSA::ParsePublicKey(SecureBinaryData const & pubKeyX32B,
    cppPubKey.Initialize(CryptoPP::ASN1::secp256k1(), publicPoint);
 
    // Validate the public key -- not sure why this needs a PRNG
-   static BTC_PRNG prng;
+   BTC_PRNG prng;
    assert(cppPubKey.Validate(prng, 3));
 
    return cppPubKey;
@@ -509,7 +509,7 @@ BTC_PUBKEY CryptoECDSA::ComputePublicKey(BTC_PRIVKEY const & cppPrivKey)
    cppPrivKey.MakePublicKey(cppPubKey);
 
    // Validate the public key -- not sure why this needs a prng...
-   static BTC_PRNG prng;
+   BTC_PRNG prng;
    assert(cppPubKey.Validate(prng, 3));
    assert(cppPubKey.Validate(prng, 3));
 
@@ -573,7 +573,7 @@ bool CryptoECDSA::VerifyPublicKeyValid(SecureBinaryData const & pubKey65)
    cppPubKey.Initialize(CryptoPP::ASN1::secp256k1(), publicPoint);
 
    // Validate the public key -- not sure why this needs a PRNG
-   static BTC_PRNG prng;
+   BTC_PRNG prng;
    return cppPubKey.Validate(prng, 3);
 }
 
@@ -599,8 +599,8 @@ SecureBinaryData CryptoECDSA::SignData(SecureBinaryData const & binToSign,
    // We trick the Crypto++ ECDSA module by passing it a single-hashed
    // message, it will do the second hash before it signs it.  This is 
    // exactly what we need.
-   static CryptoPP::SHA256  sha256;
-   static BTC_PRNG prng;
+   CryptoPP::SHA256  sha256;
+   BTC_PRNG prng;
 
    // Execute the first sha256 op -- the signer will do the other one
    SecureBinaryData hashVal(32);
@@ -643,8 +643,8 @@ bool CryptoECDSA::VerifyData(SecureBinaryData const & binMessage,
 {
 
 
-   static CryptoPP::SHA256  sha256;
-   static BTC_PRNG prng;
+   CryptoPP::SHA256  sha256;
+   BTC_PRNG prng;
 
    assert(cppPubKey.Validate(prng, 3));
 
@@ -789,7 +789,7 @@ bool CryptoECDSA::ECVerifyPoint(BinaryData const & x,
    cppPubKey.Initialize(CryptoPP::ASN1::secp256k1(), publicPoint);
 
    // Validate the public key -- not sure why this needs a PRNG
-   static BTC_PRNG prng;
+   BTC_PRNG prng;
    return cppPubKey.Validate(prng, 3);
 }
 
@@ -798,7 +798,7 @@ bool CryptoECDSA::ECVerifyPoint(BinaryData const & x,
 CryptoPP::ECP& CryptoECDSA::Get_secp256k1_ECP(void)
 {
    static bool firstRun = true;
-   static CryptoPP::ECP theECP;
+   CryptoPP::ECP theECP;
    if(firstRun) 
    {
       BinaryData N = BinaryData::CreateFromHex(

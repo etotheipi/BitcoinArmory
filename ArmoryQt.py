@@ -4476,7 +4476,7 @@ class ArmoryMainWindow(QMainWindow):
    def checkSatoshiVersion(self):
       timeAlive = long(RightNow()) - self.bornOnTime
       if not CLI_OPTIONS.skipVerCheck and \
-             (timeAlive%900==0 or self.satoshiLatestVer==None):
+             (timeAlive%3600==0 or self.satoshiLatestVer==None):
          try:
             # Will eventually make a specially-signed file just for this
             # kind of information.  For now, it's all in the versions.txt

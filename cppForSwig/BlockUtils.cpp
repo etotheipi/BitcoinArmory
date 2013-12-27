@@ -3909,6 +3909,36 @@ void BlockDataManager_LevelDB::readRawBlocksInFile(uint32_t fnum, uint32_t foffs
 }
 
 
+////////////////////////////////////////////////////////////////////////////////
+StoredHeader BlockDataManager_LevelDB::getBlockFromDB(uint32_t hgt, uint8_t dup)
+{
+   StoredHeader nullSBH;
+   StoredHeader returnSBH;
+
+   BinaryData firstKey = DBUtils.getBlkDataKey(hgt, dup);
+   iface_->seekTo(BLKDATA, firstKey);
+
+   if(!iface_->dbIterIsValid(BLKDATA, DB_PREFIX_TXDATA))
+      return nullSBH;
+
+   // Get the full block from the DB
+   iface_->readStoredBlockAtIter(returnSBH);
+
+   if(returnSBH.blockHeight_ != hgt || returnSBH.duplicateID_ != dup)
+      return nullSBH;
+
+   return returnSBH;
+
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+StoredHeader BlockDataManager_LevelDB::getMainBlockFromDB(uint32_t hgt)
+{
+   uint8_t dupMain = iface_->getValidDupIDForHeight(hgt);
+   return getBlockFromDB(hgt, dupMain);
+}
+
 
 ////////////////////////////////////////////////////////////////////////////////
 void BlockDataManager_LevelDB::scanDBForRegisteredTx(uint32_t blk0,
