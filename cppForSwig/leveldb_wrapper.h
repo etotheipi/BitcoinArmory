@@ -189,6 +189,7 @@ public:
    bool seekToExact(BinaryDataRef key);
    bool seekToExact(DB_PREFIX pref, BinaryDataRef key);
    bool seekToStartsWith(BinaryDataRef key);
+   bool seekToStartsWith(DB_PREFIX prefix);
    bool seekToStartsWith(DB_PREFIX pref, BinaryDataRef key);
    bool seekToFirst(void);
 
@@ -197,6 +198,8 @@ public:
    bool checkKeyExact(DB_PREFIX prefix, BinaryDataRef key);
    bool checkKeyStartsWith(BinaryDataRef key);
    bool checkKeyStartsWith(DB_PREFIX prefix, BinaryDataRef key);
+
+   bool verifyPrefix(DB_PREFIX prefix, bool advanceReader=true);
 
    void resetReaders(void){currKey_.resetPosition();currValue_.resetPosition();}
 
@@ -209,14 +212,14 @@ private:
 
 
    leveldb::DB* db_;
-   leveldb::iterator* iter_;
+   leveldb::Iterator* iter_;
 
    BinaryRefReader  currKey_;
    BinaryRefReader  currValue_;
    bool isDirty_;
    
    
-}
+};
 
 
 
@@ -232,14 +235,6 @@ private:
          {return leveldb::Slice((char*)bdr.getPtr(), bdr.getSize());}
 
 
-   /////////////////////////////////////////////////////////////////////////////
-   // NOTE:  These ref readers become invalid as soon as the iterator is moved!
-   //void iteratorToRefReaders( leveldb::Iterator* it, 
-                              //BinaryRefReader & brrKey,
-                              //BinaryRefReader & brrValue);
-
-   LDBIter getIterator(DB_SELECT db) { return LDBIter(dbs_[db]); }
-   
 
    /////////////////////////////////////////////////////////////////////////////
    // These four sliceTo* methods make copies, and thus safe to use even after
@@ -295,7 +290,8 @@ public:
    uint32_t   getTopBlockHeight(DB_SELECT db);
    
    /////////////////////////////////////////////////////////////////////////////
-   void resetIterator(DB_SELECT db, bool seekToPrevKey=false);
+   LDBIter getIterator(DB_SELECT db) { return LDBIter(dbs_[db]); }
+   
 
    /////////////////////////////////////////////////////////////////////////////
    // Get value using pre-created slice
@@ -349,7 +345,7 @@ public:
                BinaryDataRef key);
 
    // Move the iterator to the first entry >= txHash
-   bool seekToTxByHash(BinaryDataRef txHash);
+   bool seekToTxByHash(LDBIter & ldbIter, BinaryDataRef txHash);
 
 
    /////////////////////////////////////////////////////////////////////////////
@@ -357,7 +353,7 @@ public:
    // the iterator already on the next desired block.  So our "advance" op may
    // have finished before it started.  Alternatively, we may be on this block 
    // because we checked it and decide we don't care, so we want to skip it.
-   bool advanceToNextBlock(LDBIter& iter, bool skip=false);
+   bool advanceToNextBlock(LDBIter & iter, bool skip=false);
    bool advanceIterAndRead(DB_SELECT, DB_PREFIX);
 
    bool dbIterIsValid(DB_SELECT db, DB_PREFIX prefix=DB_PREFIX_COUNT);
@@ -379,7 +375,7 @@ public:
    
 
    /////////////////////////////////////////////////////////////////////////////
-   bool startBlkDataIteration(DB_PREFIX prefix);
+   bool startBlkDataIteration(LDBIter & iter, DB_PREFIX prefix);
 
 
    /////////////////////////////////////////////////////////////////////////////
@@ -655,7 +651,7 @@ private:
 
    //BinaryRefReader      currReadKey_;
    //BinaryRefReader      currReadValue_;;
-   //string               lastGetValue_;
+   string               lastGetValue_;
    
    bool                 dbIsOpen_;
 

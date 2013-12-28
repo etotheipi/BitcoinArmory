@@ -2857,7 +2857,7 @@ void BlockDataManager_LevelDB::applyBlockRangeToDB(uint32_t blk0, uint32_t blk1)
    BinaryData endKey   = DBUtils.getBlkDataKey(blk1, 0);
 
    LDBIter ldbIter = iface_->getIterator(BLKDATA);
-   ldbIter->seekTo(startKey);
+   ldbIter.seekTo(startKey);
 
    // Start scanning and timer
    //bool doBatches = (blk1-blk0 > NUM_BLKS_BATCH_THRESH);
@@ -2868,6 +2868,7 @@ void BlockDataManager_LevelDB::applyBlockRangeToDB(uint32_t blk0, uint32_t blk1)
 
    uint32_t hgt;
    uint8_t  dup;
+
    do
    {
       
@@ -3899,14 +3900,14 @@ StoredHeader BlockDataManager_LevelDB::getBlockFromDB(uint32_t hgt, uint8_t dup)
    StoredHeader nullSBH;
    StoredHeader returnSBH;
 
+   LDBIter ldbIter = iface_->getIterator(BLKDATA);
    BinaryData firstKey = DBUtils.getBlkDataKey(hgt, dup);
-   iface_->seekTo(BLKDATA, firstKey);
 
-   if(!iface_->dbIterIsValid(BLKDATA, DB_PREFIX_TXDATA))
+   if(!ldbIter.seekToExact(firstKey))
       return nullSBH;
 
    // Get the full block from the DB
-   iface_->readStoredBlockAtIter(returnSBH);
+   iface_->readStoredBlockAtIter(ldbIter, returnSBH);
 
    if(returnSBH.blockHeight_ != hgt || returnSBH.duplicateID_ != dup)
       return nullSBH;
@@ -3943,15 +3944,16 @@ void BlockDataManager_LevelDB::scanDBForRegisteredTx(uint32_t blk0,
          //remove(bfile.c_str());
    }
 
+   LDBIter ldbIter = iface_->getIterator(BLKDATA);
    BinaryData firstKey = DBUtils.getBlkDataKey(blk0, 0);
-   iface_->seekTo(BLKDATA, firstKey);
+   ldbIter.seekTo(firstKey);
 
    TIMER_START("ScanBlockchain");
-   while(iface_->dbIterIsValid(BLKDATA, DB_PREFIX_TXDATA))
+   while(ldbIter.isValid(DB_PREFIX_TXDATA))
    {
       // Get the full block from the DB
       StoredHeader sbh;
-      iface_->readStoredBlockAtIter(sbh);
+      iface_->readStoredBlockAtIter(ldbIter, sbh);
       bytesReadSoFar_ += sbh.numBytes_;
 
       uint32_t hgt     = sbh.blockHeight_;
@@ -3988,7 +3990,7 @@ void BlockDataManager_LevelDB::deleteHistories(void)
 
    LDBIter ldbIter = iface_->getIterator(BLKDATA);
 
-   if(!iface_->seekToStartsWith(ldbIter, DB_PREFIX_SCRIPT, BinaryData(0)))
+   if(!ldbIter.seekToStartsWith(DB_PREFIX_SCRIPT, BinaryData(0)))
       return;
 
    //////////
@@ -4006,7 +4008,7 @@ void BlockDataManager_LevelDB::deleteHistories(void)
 
       iface_->deleteValue(BLKDATA, key);
       
-   } while(iface_->advanceIterAndRead(ldbIter, DB_PREFIX_SCRIPT));
+   } while(ldbIter.advanceAndRead(DB_PREFIX_SCRIPT));
 
    //////////
    iface_->commitBatch(BLKDATA);
