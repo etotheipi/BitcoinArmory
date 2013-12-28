@@ -64,7 +64,7 @@ from armoryengine.ArmoryUtils import ARMORY_HOME_DIR, hex_to_binary, \
 from armoryengine.BDM import TheBDM
 from armoryengine.BinaryPacker import UINT64
 from armoryengine.BinaryUnpacker import BinaryUnpacker
-from armoryengine.Block import PyBlockHeader
+from armoryengine.Block import PyBlockHeader, PyBlock
 from armoryengine.CoinSelection import PySelectCoins, calcMinSuggestedFees
 from armoryengine.Networking import ArmoryClientFactory
 from armoryengine.PyBtcWallet import BLOCKCHAIN_READONLY, PyBtcWallet
@@ -72,8 +72,10 @@ from armoryengine.Script import convertScriptToOpStrings
 from armoryengine.Transaction import PyTx, getTxOutScriptType, \
    TXOUT_SCRIPT_STANDARD, TXOUT_SCRIPT_MULTISIG, TXOUT_SCRIPT_COINBASE, \
    getTxOutMultiSigInfo, opnames, OP_1, getTxInScriptType, TXIN_SCRIPT_COINBASE, \
-   getFeeForTx, determineSentToSelfAmt, PyTxDistProposal
+   getFeeForTx, determineSentToSelfAmt, PyTxDistProposal,\
+   TxInScriptExtractAddr160IfAvail
 from jsonrpc import ServiceProxy
+from armoryengine.Decorators import EmailOutput
 
 
 # Some non-twisted json imports from jgarzik's code and his UniversalEncoder
@@ -116,6 +118,9 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
    #############################################################################
    def __init__(self, wallet):
       self.wallet = wallet
+      # Used with wallet notification code 
+      self.chainDictionary = {}
+      self.walletNotificationEmail = None
       
    #############################################################################
    def jsonrpc_backupwallet(self, backupFilePath):
@@ -767,6 +772,43 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       return txdp.serializeAscii()
 
 
+   ################################################################################
+   # For each transaction that triggers a notification:
+   #  List the inputs, and output, indicate the one we are watching, displays balance data
+   # Includes chain identifier and chain index
+   #
+   # Example usage:
+   # started the daemon with these arguments: --testnet armory_286jcNJRc_.wallet
+   # Then I called the daemon with: --testnet watchwallet "n2p9xCvtsdHJPtEWx2EUABSy2nox4zhHPo" 0 1
+   # Pass in an optional "Chain Dictionary" keyed by public addr and values are (chain, index)
+   def jsonrpc_watchwallet(self, watchAddr=None, chain=None, index=None, email=None):
+      if watchAddr:
+         self.chainDictionary[watchAddr] = (chain, index)
+      if email:
+         self.walletNotificationEmail = email
+      
+      @EmailOutput
+      def reportTxFromAddrInNewBlock(pyHeader, pyTxList):
+         result = ''
+         for pyTx in pyTxList:
+            for pyTxIn in pyTx.inputs:
+               sendingAddrHash = TxInScriptExtractAddr160IfAvail(pyTxIn)
+               if len(sendingAddrHash) > 0:
+                  sendingAddrStr = hash160_to_addrStr(sendingAddrHash)
+                  if self.wallet.addrMap.has_key(sendingAddrHash):
+                     sendingAddr = self.wallet.addrMap[sendingAddrHash]
+                     if sendingAddrStr in self.chainDictionary:
+                        result = ''.join([result, "\nChain: " + self.chainDictionary[sendingAddrStr][0]])
+                        result = ''.join([result, "   Index: " + self.chainDictionary[sendingAddrStr][1]])
+                     # print the meta data
+                     result = ''.join([result, '\n', sendingAddr.toString()])
+                     result = ''.join([result, '\n', pyTx.toString()])
+         return result
+
+      if not rpc_server.isWatchingWallet:
+         rpc_server.newBlockFunctions.append(reportTxFromAddrInNewBlock)
+         rpc_server.isWatchingWallet = True
+         
 ################################################################################
 ################################################################################
 class Armory_Daemon(object):
@@ -800,6 +842,7 @@ class Armory_Daemon(object):
       # ...otherwise, setup the server
       self.newTxFunctions = []
       self.newBlockFunctions = []
+      self.isWatchingWallet = False
       self.heartbeatFunctions = []
 
       # The only argument that armoryd.py takes is the wallet to serve
@@ -924,7 +967,7 @@ class Armory_Daemon(object):
       TheBDM.addNewZeroConfTx(pytxObj.serialize(), long(RightNow()), True)
       TheBDM.rescanWalletZeroConf(self.wallet.cppWallet)
 
-      # Add anything else you'd like to do on a new block
+      # Add anything else you'd like to do on a new transaction
       # 
       for txFunc in self.newTxFunctions:
          txFunc(pytxObj)
@@ -1010,9 +1053,11 @@ class Armory_Daemon(object):
                # blocks on the main chain, not the invalid ones
                for blknum in range(prevTopBlock+1, self.latestBlockNum+1):
                   cppHeader = TheBDM.getHeaderByHeight(blknum)
-                  txHashToPy = lambda h: PyTx().unserialize(TheBDM.getTxByHash(h).serialize())
                   pyHeader = PyBlockHeader().unserialize(cppHeader.serialize())
-                  pyTxList = [txHashToPy(hsh) for hsh in cppHeader.getTxHashList()]
+                  
+                  cppBlock = TheBDM.getMainBlockFromDB(blknum)
+                  pyTxList = [PyTx().unserialize(cppBlock.getSerializedTx(i)) for
+                                 i in range(cppBlock.getNumTx())]
                   for blockFunc in self.newBlockFunctions:
                      blockFunc(pyHeader, pyTxList)
 

@@ -1183,6 +1183,43 @@ class PyBtcAddress(object):
       if self.createPrivKeyNextUnlock:
          print indent + '           ***** :', 'PrivKeys available on next unlock'
 
+   def toString(self, withPrivKey=True, indent=''):
+      def pp(x, nchar=1000):
+         if x.getSize()==0:
+            return '--'*32
+         else:
+            return x.toHexStr()[:nchar]
+      result = ''.join([indent + 'BTC Address      :', self.getAddrStr()])
+      result = ''.join([result, '\n', indent + 'Hash160[BE]      :', binary_to_hex(self.getAddr160())])
+      result = ''.join([result, '\n',  indent + 'Wallet Location  :', str(self.walletByteLoc)])
+      result = ''.join([result, '\n',  indent + 'Chained Address  :', str(self.chainIndex >= -1)])
+      result = ''.join([result, '\n',  indent + 'Have (priv,pub)  : (%s,%s)' % \
+                     (str(self.hasPrivKey()), str(self.hasPubKey()))])
+      result = ''.join([result, '\n',   indent + 'First/Last Time  : (%s,%s)' % \
+                     (str(self.timeRange[0]), str(self.timeRange[1]))])
+      result = ''.join([result, '\n',   indent + 'First/Last Block : (%s,%s)' % \
+                     (str(self.blkRange[0]), str(self.blkRange[1]))])
+      if self.hasPubKey():
+         result = ''.join([result, '\n',   indent + 'PubKeyX(BE)      :', \
+                        binary_to_hex(self.binPublicKey65.toBinStr()[1:33 ])])
+         result = ''.join([result, '\n',   indent + 'PubKeyY(BE)      :', \
+                        binary_to_hex(self.binPublicKey65.toBinStr()[  33:])])
+      result = ''.join([result, '\n',   indent + 'Encryption parameters:'])
+      result = ''.join([result, '\n',   indent + '   UseEncryption :', str(self.useEncryption)])
+      result = ''.join([result, '\n',   indent + '   IsLocked      :', str(self.isLocked)])
+      result = ''.join([result, '\n',   indent + '   KeyChanged    :', str(self.keyChanged)])
+      result = ''.join([result, '\n',   indent + '   ChainIndex    :', str(self.chainIndex)])
+      result = ''.join([result, '\n',   indent + '   Chaincode     :', pp(self.chaincode)])
+      result = ''.join([result, '\n',   indent + '   InitVector    :', pp(self.binInitVect16)])
+      if withPrivKey and self.hasPrivKey():
+         result = ''.join([result, '\n',   indent + 'PrivKeyPlain(BE) :', pp(self.binPrivKey32_Plain)])
+         result = ''.join([result, '\n',   indent + 'PrivKeyCiphr(BE) :', pp(self.binPrivKey32_Encr)])
+      else:
+         result = ''.join([result, '\n',   indent + 'PrivKeyPlain(BE) :', pp(SecureBinaryData())])
+         result = ''.join([result, '\n',   indent + 'PrivKeyCiphr(BE) :', pp(SecureBinaryData())])
+      if self.createPrivKeyNextUnlock:
+         result = ''.join([result, '\n',   indent + '           ***** :', 'PrivKeys available on next unlock'])
+      return result
 
 # Put the import at the end to avoid circular reference problem
 from armoryengine.BDM import *

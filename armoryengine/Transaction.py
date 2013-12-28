@@ -571,6 +571,7 @@ class PyOutPoint(BlockComponent):
                   '(BE)' if endian==BIGENDIAN else '(LE)'
       print indstr + indent + 'TxOutIndex:', self.txOutIndex
 
+      
 #####
 class PyTxIn(BlockComponent):
    def __init__(self):
@@ -616,6 +617,21 @@ class PyTxIn(BlockComponent):
       if len(inAddr160)>0:
          print indstr + indent + 'Sender:    ', hash160_to_addrStr(inAddr160)
       print indstr + indent + 'Seq:       ', self.intSeq
+      
+   def toString(self, nIndent=0, endian=BIGENDIAN):
+      indstr = indent*nIndent
+      result = indstr + 'PyTxIn:'
+      result = ''.join([result, '\n',  indstr + indent + 'PrevTxHash:', \
+                  binary_to_hex(self.outpoint.txHash, endian), \
+                      '(BE)' if endian==BIGENDIAN else '(LE)'])
+      result = ''.join([result, '\n',  indstr + indent + 'TxOutIndex:', str(self.outpoint.txOutIndex)])
+      result = ''.join([result, '\n',  indstr + indent + 'Script:    ', \
+                  '('+binary_to_hex(self.binScript)[:64]+')'])
+      inAddr160 = TxInScriptExtractAddr160IfAvail(self)
+      if len(inAddr160)>0:
+         result = ''.join([result, '\n',  indstr + indent + 'Sender:    ', hash160_to_addrStr(inAddr160)])
+      result = ''.join([result, '\n',  indstr + indent + 'Seq:       ', str(self.intSeq)])
+      return result
 
    # Before broadcasting a transaction make sure that the script is canonical
    # This TX could have been signed by an older version of the software.
@@ -680,6 +696,20 @@ class PyTxOut(BlockComponent):
       else:
          print indstr + indent + 'Script:   <Non-standard script!>'
 
+   def toString(self, nIndent=0, endian=BIGENDIAN):
+      indstr = indent*nIndent
+      result = indstr + 'TxOut:'
+      result = ''.join([result, '\n',   indstr + indent + 'Value:   ', str(self.value), '(', str(float(self.value) / ONE_BTC), ')'])
+      txoutType = getTxOutScriptType(self.binScript)
+      if txoutType == TXOUT_SCRIPT_COINBASE:
+         result = ''.join([result, '\n',   indstr + indent + 'Script:   PubKey(%s) OP_CHECKSIG' % \
+                              (TxOutScriptExtractAddrStr(self.binScript))])
+      elif txoutType == TXOUT_SCRIPT_STANDARD:
+         result = ''.join([result, '\n',   indstr + indent + 'Script:   OP_DUP OP_HASH (%s) OP_EQUAL OP_CHECKSIG' % \
+                              (TxOutScriptExtractAddrStr(self.binScript))])
+      else:
+         result = ''.join([result, '\n',   indstr + indent + 'Script:   <Non-standard script!>'])
+      return result 
 #####
 class PyTx(BlockComponent):
    def __init__(self):
@@ -796,7 +826,24 @@ class PyTx(BlockComponent):
       print indstr + indent + 'Outputs: '
       for out in self.outputs:
          out.pprint(nIndent+2, endian=endian)
-
+         
+   def toString(self, nIndent=0, endian=BIGENDIAN):
+      indstr = indent*nIndent
+      result = indstr + 'Transaction:'
+      result = ''.join([result, '\n',  indstr + indent + 'TxHash:   ', self.getHashHex(endian), \
+                                    '(BE)' if endian==BIGENDIAN else '(LE)'])
+      result = ''.join([result, '\n',   indstr + indent + 'Version:  ', str(self.version)])
+      result = ''.join([result, '\n',   indstr + indent + 'nInputs:  ', str(len(self.inputs))])
+      result = ''.join([result, '\n',   indstr + indent + 'nOutputs: ', str(len(self.outputs))])
+      result = ''.join([result, '\n',   indstr + indent + 'LockTime: ', str(self.lockTime)])
+      result = ''.join([result, '\n',   indstr + indent + 'Inputs: '])
+      for inp in self.inputs:
+         result = ''.join([result, '\n',   inp.toString(nIndent+2, endian=endian)])
+      print indstr + indent + 'Outputs: '
+      for out in self.outputs:
+         result = ''.join([result, '\n',  out.toString(nIndent+2, endian=endian)])
+      return result
+         
    def fetchCpp(self):
       """ Use the info in this PyTx to get the C++ version from TheBDM """
       return TheBDM.getTxByHash(self.getHash())

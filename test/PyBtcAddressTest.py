@@ -63,6 +63,9 @@ class PyBtcAddressTest(unittest.TestCase):
       testAddr4 = PyBtcAddress().createFromPlainKeyData(PRIVATE_KEY, ADDRESS_20, publicKey65=PUBLIC_KEY, skipCheck=True)
       testAddr5 = PyBtcAddress().createFromPlainKeyData(PRIVATE_KEY, ADDRESS_20, skipPubCompute=True)
       
+      testString = testAddr1.toString()
+      self.assertTrue(len(testString) > 0)
+
       testAddr = PyBtcAddress().createFromPlainKeyData(PRIVATE_KEY, ADDRESS_20, publicKey65=PUBLIC_KEY)
       serializedAddr1 = testAddr.serialize()
       retestAddr = PyBtcAddress().unserialize(serializedAddr1)
