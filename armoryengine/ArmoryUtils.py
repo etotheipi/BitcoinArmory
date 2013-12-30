@@ -698,9 +698,13 @@ fileRescan  = os.path.join(ARMORY_HOME_DIR, 'rescan.txt')
 if os.path.exists(fileRebuild):
    LOGINFO('Found %s, will destroy and rebuild databases' % fileRebuild)
    os.remove(fileRebuild)
+
    if os.path.exists(fileRescan):
       os.remove(fileRescan)
-      
+
+   if os.path.exists(LEVELDB_DIR):
+      shutil.rmtree(LEVELDB_DIR)
+
    CLI_OPTIONS.rebuild = True
 elif os.path.exists(fileRescan):
    LOGINFO('Found %s, will throw out saved history, rescan' % fileRescan)

@@ -165,7 +165,10 @@ bool LDBIter::seekTo(DB_PREFIX pref, BinaryDataRef key)
    BinaryWriter bw(key.getSize() + 1);
    bw.put_uint8_t((uint8_t)pref);
    bw.put_BinaryData(key);
-   return seekTo(bw.getDataRef());
+   bool didSucceed = seekTo(bw.getDataRef());
+   if(didSucceed)
+      readIterData();
+   return didSucceed;
 }
 
 
@@ -225,6 +228,7 @@ bool LDBIter::seekToFirst(void)
    if(isNull())
       return false;
    iter_->SeekToFirst();
+   readIterData();
    return true;
 }
 
@@ -1760,10 +1764,9 @@ bool InterfaceToLDB::readStoredBlockAtIter(LDBIter & ldbIter, StoredHeader & sbh
    uint32_t tempHgt;
    uint8_t  tempDup;
    uint16_t currIdx;
-   while(ldbIter.advanceAndRead(DB_PREFIX_TXDATA))
+   ldbIter.advanceAndRead();
+   while(ldbIter.checkKeyStartsWith(blkDataKey))
    {
-      if(!ldbIter.checkKeyStartsWith(blkDataKey))
-         break;
 
       // We can't just read the the tx, because we have to guarantee 
       // there's a place for it in the sbh.stxMap_
@@ -1810,6 +1813,7 @@ bool InterfaceToLDB::readStoredTxAtIter( LDBIter & ldbIter,
    if(!key.startsWith(blkPrefix) || key.getSize() < 7)
       return false;
 
+
    // Check that we are at a tx with the correct height & dup
    uint32_t storedHgt;
    uint8_t  storedDup;
@@ -1818,6 +1822,7 @@ bool InterfaceToLDB::readStoredTxAtIter( LDBIter & ldbIter,
 
    if(storedHgt != height || storedDup != dupID)
       return false;
+
 
    // Make sure the stx has correct height/dup/idx
    stx.blockHeight_ = storedHgt;
@@ -1838,9 +1843,12 @@ bool InterfaceToLDB::readStoredTxAtIter( LDBIter & ldbIter,
    ldbIter.resetReaders();
    do
    {
+
+
       // Stop if key doesn't start with [PREFIX | HGT | DUP | TXIDX]
       if(!ldbIter.checkKeyStartsWith(txPrefix))
          break;
+
 
       // Read the prefix, height and dup 
       uint16_t txOutIdx;
@@ -1871,7 +1879,9 @@ bool InterfaceToLDB::readStoredTxAtIter( LDBIter & ldbIter,
          LOGERR << "Unexpected BLKDATA entry while iterating";
          return false;
       }
+
    } while(ldbIter.advanceAndRead(DB_PREFIX_TXDATA));
+
 
    // If have the correct size, save it, otherwise ignore the computation
    stx.numBytes_ = stx.haveAllTxOut() ? nbytes : UINT32_MAX;
@@ -2252,45 +2262,7 @@ bool InterfaceToLDB::getStoredTx( StoredTx & stx,
 
       return readStoredTxAtIter(ldbIter, blockHeight, dupID, stx);
 
-      /*
-      while(advanceIterAndRead(BLKDATA, DB_PREFIX_TXDATA))
-      {
-         // If the iter key doesn't start with [PREFIX | HGT | DUP], we're done
-         if(!ldbIter.checkKeyStartsWith(blkDataKey))
-            break;
-
-         
-         uint16_t currTxOutIdx;
-         BLKDATA_TYPE bdtype = DBUtils.readBlkDataKey(ldbIter.getKeyReader(),
-                                              stx.blockHeight_,
-                                              stx.duplicateID_,
-                                              stx.txIndex_,
-                                              currTxOutIdx);
-   
-         if(bdtype == BLKDATA_TX)
-         {
-            stx.unserializeDBValue(ldbIter.getValueRef());
-         }
-         else if(bdtype == BLKDATA_TXOUT)
-         {
-            stx.stxoMap_[currTxOutIdx] = StoredTxOut();
-            StoredTxOut & stxo = stx.stxoMap_[currTxOutIdx];
-
-            stxo.blockHeight_ = blockHeight;
-            stxo.duplicateID_  = dupID;
-            stxo.txIndex_     = txIndex;
-            stxo.txOutIndex_  = currTxOutIdx;
-            stxo.unserializeDBValue(ldbIter.getValueRef());
-         }
-         else
-         {
-            LOGERR << "Unexpected BLKDATA entry while iterating";
-            return false;
-         }
-      } // while(advanceIter)
-      */
-
-   } // fetch header & txs
+   } 
 
    return true;
 }
