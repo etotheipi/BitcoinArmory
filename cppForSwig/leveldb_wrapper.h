@@ -34,6 +34,12 @@
 
 #define KVLIST vector<pair<BinaryData,BinaryData> > 
 
+#define DEFAULT_LDB_BLOCK_SIZE 8*1024*1024
+
+// Use this to create iterators that are intended for bulk scanning
+// It's actually that the ReadOptions::fill_cache arg needs to be false
+#define BULK_SCAN false
+
 class BlockHeader;
 class Tx;
 class TxIn;
@@ -159,8 +165,9 @@ class LDBIter
 {
 public: 
 
+   // fill_cache argument should be false for large bulk scans
    LDBIter(void) { db_=NULL; iter_=NULL; isDirty_=true;}
-   LDBIter(leveldb::DB* dbptr);
+   LDBIter(leveldb::DB* dbptr, bool fill_cache=true);
    ~LDBIter(void) { destroy(); }
    void destroy(void) {if(iter_!=NULL) delete iter_; iter_ = NULL; db_ = NULL;}
 
@@ -290,7 +297,8 @@ public:
    uint32_t   getTopBlockHeight(DB_SELECT db);
    
    /////////////////////////////////////////////////////////////////////////////
-   LDBIter getIterator(DB_SELECT db) { return LDBIter(dbs_[db]); }
+   LDBIter getIterator(DB_SELECT db, bool fill_cache=true) 
+                                    { return LDBIter(dbs_[db], fill_cache); }
    
 
    /////////////////////////////////////////////////////////////////////////////

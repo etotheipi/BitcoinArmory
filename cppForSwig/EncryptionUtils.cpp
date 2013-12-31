@@ -795,28 +795,34 @@ bool CryptoECDSA::ECVerifyPoint(BinaryData const & x,
 
 
 ////////////////////////////////////////////////////////////////////////////////
-CryptoPP::ECP& CryptoECDSA::Get_secp256k1_ECP(void)
+CryptoPP::ECP CryptoECDSA::Get_secp256k1_ECP(void)
 {
    static bool firstRun = true;
-   CryptoPP::ECP theECP;
-   if(firstRun) 
-   {
-      BinaryData N = BinaryData::CreateFromHex(
-            "fffffffffffffffffffffffffffffffffffffffffffffffffffffffefffffc2f");
-      BinaryData a = BinaryData::CreateFromHex(
-            "0000000000000000000000000000000000000000000000000000000000000000");
-      BinaryData b = BinaryData::CreateFromHex(
-           "0000000000000000000000000000000000000000000000000000000000000007");
+   static CryptoPP::Integer intN;
+   static CryptoPP::Integer inta;
+   static CryptoPP::Integer intb;
 
-      CryptoPP::Integer intN, inta, intb;
+   static BinaryData N;
+   static BinaryData a;
+   static BinaryData b;
+
+   if(firstRun)
+   {
+      firstRun = false;
+      N = BinaryData::CreateFromHex(
+            "fffffffffffffffffffffffffffffffffffffffffffffffffffffffefffffc2f");
+      a = BinaryData::CreateFromHex(
+            "0000000000000000000000000000000000000000000000000000000000000000");
+      b = BinaryData::CreateFromHex(
+            "0000000000000000000000000000000000000000000000000000000000000007");
 
       intN.Decode( N.getPtr(),  N.getSize(),  UNSIGNED);
       inta.Decode( a.getPtr(),  a.getSize(),  UNSIGNED);
       intb.Decode( b.getPtr(),  b.getSize(),  UNSIGNED);
-  
-      theECP = CryptoPP::ECP(intN, inta, intb);
    }
-   return theECP;
+
+   
+   return CryptoPP::ECP(intN, inta, intb);
 }
 
 
@@ -896,7 +902,7 @@ BinaryData CryptoECDSA::ECInverse(BinaryData const & Ax,
                                   BinaryData const & Ay)
                                   
 {
-   CryptoPP::ECP & ecp = Get_secp256k1_ECP();
+   CryptoPP::ECP ecp = Get_secp256k1_ECP();
    CryptoPP::Integer intAx, intAy, intCx, intCy;
 
    intAx.Decode(Ax.getPtr(), Ax.getSize(), UNSIGNED);
@@ -916,7 +922,7 @@ BinaryData CryptoECDSA::ECInverse(BinaryData const & Ax,
 ////////////////////////////////////////////////////////////////////////////////
 SecureBinaryData CryptoECDSA::CompressPoint(SecureBinaryData const & pubKey65)
 {
-   CryptoPP::ECP & ecp = Get_secp256k1_ECP();
+   CryptoPP::ECP ecp = Get_secp256k1_ECP();
    BTC_ECPOINT ptPub;
    ecp.DecodePoint(ptPub, (byte*)pubKey65.getPtr(), 65);
    SecureBinaryData ptCompressed(33);
@@ -927,7 +933,7 @@ SecureBinaryData CryptoECDSA::CompressPoint(SecureBinaryData const & pubKey65)
 ////////////////////////////////////////////////////////////////////////////////
 SecureBinaryData CryptoECDSA::UncompressPoint(SecureBinaryData const & pubKey33)
 {
-   CryptoPP::ECP & ecp = Get_secp256k1_ECP();
+   CryptoPP::ECP ecp = Get_secp256k1_ECP();
    BTC_ECPOINT ptPub;
    ecp.DecodePoint(ptPub, (byte*)pubKey33.getPtr(), 33);
    SecureBinaryData ptUncompressed(65);

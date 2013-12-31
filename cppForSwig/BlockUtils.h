@@ -46,6 +46,7 @@
 #define UPDATE_BYTES_THRESH   96*1024*1024
 
 #define NUM_BLKS_IS_DIRTY 2016
+
 using namespace std;
 
 class BlockDataManager_LevelDB;

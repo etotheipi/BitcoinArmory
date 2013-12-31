@@ -3944,7 +3944,7 @@ void BlockDataManager_LevelDB::scanDBForRegisteredTx(uint32_t blk0,
          //remove(bfile.c_str());
    }
 
-   LDBIter ldbIter = iface_->getIterator(BLKDATA);
+   LDBIter ldbIter = iface_->getIterator(BLKDATA, BULK_SCAN);
    BinaryData firstKey = DBUtils.getBlkDataKey(blk0, 0);
    ldbIter.seekTo(firstKey);
 

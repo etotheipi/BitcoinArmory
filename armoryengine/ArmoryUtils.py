@@ -31,6 +31,7 @@ import sys
 import threading
 import time
 import traceback
+import shutil
 
 from psutil import Popen
 import psutil
@@ -702,9 +703,6 @@ if os.path.exists(fileRebuild):
    if os.path.exists(fileRescan):
       os.remove(fileRescan)
 
-   if os.path.exists(LEVELDB_DIR):
-      shutil.rmtree(LEVELDB_DIR)
-
    CLI_OPTIONS.rebuild = True
 elif os.path.exists(fileRescan):
    LOGINFO('Found %s, will throw out saved history, rescan' % fileRescan)
@@ -712,6 +710,12 @@ elif os.path.exists(fileRescan):
    if os.path.exists(fileRebuild):
       os.remove(fileRebuild)
    CLI_OPTIONS.rescan = True
+
+
+if CLI_OPTIONS.rebuild and os.path.exists(LEVELDB_DIR):
+   shutil.rmtree(LEVELDB_DIR)
+
+   
 
 ################################################################################
 # Load the C++ utilites here

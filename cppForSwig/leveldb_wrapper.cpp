@@ -23,12 +23,15 @@ vector<InterfaceToLDB*> LevelDBWrapper::ifaceVect_(0);
 
 
 ////////////////////////////////////////////////////////////////////////////////
-LDBIter::LDBIter(leveldb::DB* dbptr) 
+LDBIter::LDBIter(leveldb::DB* dbptr, bool fill_cache) 
 { 
    db_ = dbptr; 
-   iter_ = db_->NewIterator(leveldb::ReadOptions());
+   leveldb::ReadOptions readopts;
+   readopts.fill_cache = fill_cache;
+   iter_ = db_->NewIterator(readopts);
    isDirty_ = true;
 }
+
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -430,6 +433,7 @@ bool InterfaceToLDB::openDatabases(string basedir,
       DB_SELECT CURRDB = (DB_SELECT)db;
       leveldb::Options opts;
       opts.create_if_missing = true;
+      opts.block_size = DEFAULT_LDB_BLOCK_SIZE;
       opts.compression = leveldb::kNoCompression;
 
       if(maxOpenFiles_ != 0)
