@@ -2728,6 +2728,14 @@ void BlockDataManager_LevelDB::updateRegisteredScrAddrs(uint32_t newTopBlk)
    {
       rsaIter->second.alreadyScannedUpToBlk_ = newTopBlk;
    }
+
+   // Save the results of the last scan if
+   if(DBUtils.getArmoryDbType() == ARMORY_DB_BARE)
+   {
+      deleteHistories();
+      if(newTopBlk>0)
+         saveScrAddrHistories(); 
+   }
    
 }
 
@@ -3622,6 +3630,7 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
    {
       LOGINFO << "Resetting wallets for rescan";
       skipFetch = true;
+      deleteHistories();
       resetRegisteredWallets();
    }
 
@@ -3632,6 +3641,7 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
       fetchAllRegisteredScrAddrData();
    }
 
+   /* Removed to try out keeping the history at all times
    if(initialLoad && DBUtils.getArmoryDbType() != ARMORY_DB_SUPER)
    {
       // We always delete the histories, regardless of whether we read them or
@@ -3640,8 +3650,8 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
       // the fetch call (at the top) getting nothing out of the database
       if(initialLoad)
          deleteHistories();
-
    }
+   */
 
 
    // Remove this file
@@ -4018,7 +4028,9 @@ void BlockDataManager_LevelDB::deleteHistories(void)
 ////////////////////////////////////////////////////////////////////////////////
 void BlockDataManager_LevelDB::saveScrAddrHistories(void)
 {
-   LOGINFO << "Saving wallet history for next load";
+   LOGINFO << "Saving wallet history to DB";
+
+   deleteHistories();
 
    iface_->startBatch(BLKDATA);
 
@@ -4036,6 +4048,7 @@ void BlockDataManager_LevelDB::saveScrAddrHistories(void)
          if(KEY_NOT_IN_MAP(uniqKey, registeredScrAddrMap_))
          {
             LOGERR << "How does the wallet have a non-registered ScrAddr?";
+            LOGERR << uniqKey.toHexStr().c_str();
             continue;
          }
 
