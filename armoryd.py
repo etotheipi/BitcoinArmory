@@ -60,7 +60,7 @@ from armoryengine.ArmoryUtils import ARMORY_HOME_DIR, hex_to_binary, \
    binary_to_hex, LOGERROR, hash160_to_addrStr, BIGENDIAN, checkAddrStrValid, \
    addrStr_to_hash160, CLI_OPTIONS, getVersionInt, BTCARMORY_VERSION, \
    PYBTCWALLET_VERSION, USE_TESTNET, CLI_ARGS, LOGINFO, ARMORY_RPC_PORT, coin2str, \
-   BITCOIN_PORT, RightNow, base58_to_binary, binary_to_base58
+   BITCOIN_PORT, RightNow, base58_to_binary, binary_to_base58, CheckHash160
 from armoryengine.BDM import TheBDM
 from armoryengine.BinaryPacker import UINT64
 from armoryengine.BinaryUnpacker import BinaryUnpacker
@@ -325,8 +325,9 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
          if not cppTx.isInitialized():
             LOGERROR('Tx hash not recognized by TheBDM: %s' % txHashHex)
 
-         cppHead = cppTx.getHeaderPtr()
-         if not cppHead.isInitialized:
+         #cppHead = cppTx.getHeaderPtr()
+         cppHead = TheBDM.getHeaderPtrForTx(cppTx)
+         if not cppHead.isInitialized():
             LOGERROR('Header pointer is not available!')
             headHashBin = ''
             headHashHex = ''
@@ -340,7 +341,8 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
          netCoins = le.getValue()
          feeCoins = getFeeForTx(txHashBin)
       
-         allRecips = [cppTx.getTxOut(i).getRecipientAddr() for i in range(cppTx.getNumTxOut())]
+         scrAddrs = [cppTx.getTxOutCopy(i).getScrAddressStr() for i in range(cppTx.getNumTxOut())]
+         allRecips = [CheckHash160(r) for r in scrAddrs]
          first160 = ''
          if cppTx.getNumTxOut()==1:
             first160 = allRecips[0]
@@ -391,8 +393,8 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
          myinputs,  otherinputs = [],[]
          for iin in range(cppTx.getNumTxIn()):
-            sender = TheBDM.getSenderAddr20(cppTx.getTxIn(iin))
-            val    = TheBDM.getSentValue(cppTx.getTxIn(iin))
+            sender = CheckHash160(TheBDM.getSenderScrAddr(cppTx.getTxInCopy(iin)))
+            val    = TheBDM.getSentValue(cppTx.getTxInCopy(iin))
             addTo  = (myinputs if self.wallet.hasAddr(sender) else otherinputs)
             addTo.append( {'address': hash160_to_addrStr(sender), \
                            'amount':  AmountToJSON(val)} )
@@ -400,8 +402,8 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
          myoutputs, otheroutputs = [], []
          for iout in range(cppTx.getNumTxOut()):
-            recip = cppTx.getTxOut(iout).getRecipientAddr();
-            val   = cppTx.getTxOut(iout).getValue();
+            recip = CheckHash160(cppTx.getTxOutCopy(iout).getScrAddressStr())
+            val   = cppTx.getTxOutCopy(iout).getValue();
             addTo = (myoutputs if self.wallet.hasAddr(recip) else otheroutputs)
             addTo.append( {'address': hash160_to_addrStr(recip), \
                            'amount':  AmountToJSON(val)} )
@@ -465,7 +467,8 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
          if not cppTx.isInitialized():
             LOGERROR('Tx hash not recognized by TheBDM: %s' % txHashHex)
 
-         cppHead = cppTx.getHeaderPtr()
+         #cppHead = cppTx.getHeaderPtr()
+         cppHead = TheBDM.getHeaderPtrForTx(cppTx)
          if not cppHead.isInitialized:
             LOGERROR('Header pointer is not available!')
 
@@ -483,15 +486,15 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
          # are receives
          recipVals = []
          for iout in range(cppTx.getNumTxOut()):
-            recip = cppTx.getTxOut(iout).getRecipientAddr()
-            val   = cppTx.getTxOut(iout).getValue()
+            recip = CheckHash160(cppTx.getTxOutCopy(iout).getScrAddressStr())
+            val   = cppTx.getTxOutCopy(iout).getValue()
             recipVals.append([recip,val])
             
 
 
          if cppTx.getNumTxOut()==1:
             changeAddr160 = ""
-            targAddr160 = cppTx.getTxOut(0).getRecipientAddr()
+            targAddr160 = checkHash160(cppTx.getTxOutCopy(0).getScrAddressStr())
          elif isToSelf:
             selfamt,changeIdx = determineSentToSelfAmt(le, self.wallet)
             if changeIdx==-1:
@@ -666,7 +669,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       inputvalues = []
       outputvalues = []
       for i in range(tx.getNumTxIn()): 
-         op = tx.getTxIn(i).getOutPoint()
+         op = tx.getTxInCopy(i).getOutPoint()
          prevtx = TheBDM.getTxByHash(op.getTxHash())
          if not prevtx.isInitialized():
             haveAllInputs = False
@@ -677,9 +680,9 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
                                'fromtxindex': op.getTxOutIndex()})
                                
          else:
-            txout = prevtx.getTxOut(op.getTxOutIndex())
+            txout = prevtx.getTxOutCopy(op.getTxOutIndex())
             inputvalues.append(txout.getValue())
-            recip160 = txout.getRecipientAddr()
+            recip160 = CheckHash160(txout.getScrAddressStr())
             txindata.append( { 'address': hash160_to_addrStr(recip160),
                                'value':   AmountToJSON(txout.getValue()),
                                'ismine':   self.wallet.hasAddr(recip160),
@@ -688,10 +691,11 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
       txoutdata = []
       for i in range(tx.getNumTxOut()): 
-         txout = tx.getTxOut(i)
+         txout = tx.getTxOutCopy(i)
+         a160 = CheckHash160(txout.getScrAddressStr())
          txoutdata.append( { 'value': AmountToJSON(txout.getValue()),
-                             'ismine':   self.wallet.hasAddr(txout.getRecipientAddr()),
-                             'address': hash160_to_addrStr(txout.getRecipientAddr())})
+                             'ismine':  self.wallet.hasAddr(a160),
+                             'address': hash160_to_addrStr(a160)})
          outputvalues.append(txout.getValue())
 
       fee = sum(inputvalues)-sum(outputvalues)

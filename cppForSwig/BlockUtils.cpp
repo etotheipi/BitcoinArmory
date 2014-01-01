@@ -4016,7 +4016,7 @@ void BlockDataManager_LevelDB::deleteHistories(void)
 
 
 ////////////////////////////////////////////////////////////////////////////////
-void BlockDataManager_LevelDB::shutdownSaveScrAddrHistories(void)
+void BlockDataManager_LevelDB::saveScrAddrHistories(void)
 {
    LOGINFO << "Saving wallet history for next load";
 

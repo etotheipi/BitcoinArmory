@@ -826,7 +826,7 @@ public:
 
 
    void deleteHistories(void);
-   void shutdownSaveScrAddrHistories(void);
+   void saveScrAddrHistories(void);
 
    void fetchAllRegisteredScrAddrData(void);
    void fetchAllRegisteredScrAddrData(BtcWallet & myWlt);
