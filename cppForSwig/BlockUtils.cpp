@@ -2728,15 +2728,6 @@ void BlockDataManager_LevelDB::updateRegisteredScrAddrs(uint32_t newTopBlk)
    {
       rsaIter->second.alreadyScannedUpToBlk_ = newTopBlk;
    }
-
-   // Save the results of the last scan if
-   if(DBUtils.getArmoryDbType() == ARMORY_DB_BARE)
-   {
-      deleteHistories();
-      if(newTopBlk>0)
-         saveScrAddrHistories(); 
-   }
-   
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -3641,17 +3632,6 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
       fetchAllRegisteredScrAddrData();
    }
 
-   /* Removed to try out keeping the history at all times
-   if(initialLoad && DBUtils.getArmoryDbType() != ARMORY_DB_SUPER)
-   {
-      // We always delete the histories, regardless of whether we read them or
-      // not.  We only save them on a clean shutdown, so we know they are 
-      // consistent.  Unclean shutdowns/kills will force a rescan simply by
-      // the fetch call (at the top) getting nothing out of the database
-      if(initialLoad)
-         deleteHistories();
-   }
-   */
 
 
    // Remove this file
@@ -4030,7 +4010,12 @@ void BlockDataManager_LevelDB::saveScrAddrHistories(void)
 {
    LOGINFO << "Saving wallet history to DB";
 
-   deleteHistories();
+   if(DBUtils.getArmoryDbType() != ARMORY_DB_BARE)
+   {
+      LOGERR << "Should only use saveScrAddrHistories in ARMORY_DB_BARE mode";
+      LOGERR << "Aborting save operation.";
+      return;
+   }
 
    iface_->startBatch(BLKDATA);
 
@@ -4293,7 +4278,6 @@ uint32_t BlockDataManager_LevelDB::readBlkFileUpdate(void)
          UniversalTimer::instance().printCSV(cout,true);
 	   #endif
    #endif
-
 
    return nBlkRead;
 
