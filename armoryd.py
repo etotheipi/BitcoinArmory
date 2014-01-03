@@ -765,7 +765,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
    #
    # Example usage:
    # started the daemon with these arguments: --testnet armory_286jcNJRc_.wallet
-   # Then I called the daemon with: --testnet watchwallet "n2p9xCvtsdHJPtEWx2EUABSy2nox4zhHPo" 0 1
+   # Then I called the daemon with: --testnet watchwallet <email args> "n2p9xCvtsdHJPtEWx2EUABSy2nox4zhHPo" 0 1
    # Pass in an optional "Chain Dictionary" keyed by public addr and values are (chain, index)
    def jsonrpc_watchwallet(self, send_from=None, password=None, send_to=None, subject=None, watchAddr=None, chain=None, index=None):
       if watchAddr:
