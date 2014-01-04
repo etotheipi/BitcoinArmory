@@ -379,7 +379,7 @@ void BtcWallet::addScrAddress_5_(HashString    scrAddr,
 }
 
 /////////////////////////////////////////////////////////////////////////////
-bool BtcWallet::hasScrAddress(HashString const & scrAddr)
+bool BtcWallet::hasScrAddress(HashString const & scrAddr) const
 {
    //return scrAddrMap_.find(scrAddr) != scrAddrMap_.end();
    return KEY_IN_MAP(scrAddr, scrAddrMap_);
@@ -388,7 +388,7 @@ bool BtcWallet::hasScrAddress(HashString const & scrAddr)
 
 /////////////////////////////////////////////////////////////////////////////
 pair<bool,bool> BtcWallet::isMineBulkFilter(Tx & tx, 
-                                            bool withMultiSig)
+                                            bool withMultiSig) const
 {
    return isMineBulkFilter(tx, txioMap_, withMultiSig);
 }
@@ -396,9 +396,10 @@ pair<bool,bool> BtcWallet::isMineBulkFilter(Tx & tx,
 /////////////////////////////////////////////////////////////////////////////
 // Determine, as fast as possible, whether this tx is relevant to us
 // Return  <IsOurs, InputIsOurs>
-pair<bool,bool> BtcWallet::isMineBulkFilter(Tx & tx, 
-                                            map<OutPoint, TxIOPair> & txiomap,
-                                            bool withMultiSig)
+pair<bool,bool> BtcWallet::isMineBulkFilter(
+                                 Tx & tx, 
+                                 map<OutPoint, TxIOPair> const & txiomap,
+                                 bool withMultiSig) const
 {
    // Since 99.999%+ of all transactions are not ours, let's do the 
    // fastest bulk filter possible, even though it will add 
@@ -2221,7 +2222,8 @@ void BlockDataManager_LevelDB::Reset(void)
 
    zeroConfRawTxList_.clear();
    zeroConfMap_.clear();
-   zcEnabled_ = false;
+   zcEnabled_  = false;
+   zcLiteMode_ = false;
    zcFilename_ = "";
 
    isNetParamsSet_ = false;
@@ -5025,14 +5027,17 @@ BlockHeader* BlockDataManager_LevelDB::getHeaderPtrForTx(Tx & txObj)
 ////////////////////////////////////////////////////////////////////////////////
 // Methods for handling zero-confirmation transactions
 ////////////////////////////////////////////////////////////////////////////////
-void BlockDataManager_LevelDB::enableZeroConf(string zcFilename)
+void BlockDataManager_LevelDB::enableZeroConf(string zcFilename, bool zcLite)
 {
    SCOPED_TIMER("enableZeroConf");
-   zcEnabled_  = true; 
+   LOGINFO << "Enabling zero-conf tracking " << (zcLite ? "(lite)" : "");
    zcFilename_ = zcFilename;
+   zcEnabled_  = true; 
+   zcLiteMode_ = zcLite;
 
    readZeroConfFile(zcFilename_); // does nothing if DNE
 }
+
 
 ////////////////////////////////////////////////////////////////////////////////
 void BlockDataManager_LevelDB::readZeroConfFile(string zcFilename)
@@ -5061,7 +5066,7 @@ void BlockDataManager_LevelDB::readZeroConfFile(string zcFilename)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void BlockDataManager_LevelDB::disableZeroConf(string zcFilename)
+void BlockDataManager_LevelDB::disableZeroConf(void)
 {
    SCOPED_TIMER("disableZeroConf");
    zcEnabled_  = false; 
@@ -5074,21 +5079,35 @@ bool BlockDataManager_LevelDB::addNewZeroConfTx(BinaryData const & rawTx,
                                                 bool writeToFile)
 {
    SCOPED_TIMER("addNewZeroConfTx");
-   // TODO:  We should do some kind of verification check on this tx
-   //        to make sure it's potentially valid.  Right now, it doesn't 
-   //        matter, because the Satoshi client is sitting between
-   //        us and the network and doing the checking for us.
 
    if(txtime==0)
       txtime = (uint32_t)time(NULL);
 
    HashString txHash = BtcUtils::getHash256(rawTx);
-    
+
    // If this is already in the zero-conf map or in the blockchain, ignore it
-   //if(KEY_IN_MAP(txHash, zeroConfMap_) || !getTxRefByHash(txHash).isNull())
    if(hasTxWithHash(txHash))
       return false;
-   
+
+
+   // In zero-conf-lite-mode, we only actually add the ZC if it's related
+   // to one of our registered wallets.  
+   if(zcLiteMode_)
+   {
+      // The bulk filter
+      Tx txObj(rawTx);
+
+      bool isOurs = false;
+      set<BtcWallet*>::iterator wltIter;
+      for(wltIter  = registeredWallets_.begin();
+          wltIter != registeredWallets_.end();
+          wltIter++)
+      {
+         // The bulk filter returns pair<isRelatedToUs, inputIsOurs>
+         isOurs = isOurs || (*wltIter)->isMineBulkFilter(txObj).first;
+      }
+   }
+    
    
    zeroConfMap_[txHash] = ZeroConfData();
    ZeroConfData & zc = zeroConfMap_[txHash];

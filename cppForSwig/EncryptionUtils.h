@@ -395,14 +395,17 @@ public:
    //           hurt to add some extra entropy/non-linearity to the chain
    //           generation process)
    SecureBinaryData ComputeChainedPrivateKey(
-                     SecureBinaryData const & binPrivKey,
-                     SecureBinaryData const & chainCode,
-                     SecureBinaryData binPubKey=SecureBinaryData());
+                           SecureBinaryData const & binPrivKey,
+                           SecureBinaryData const & chainCode,
+                           SecureBinaryData binPubKey=SecureBinaryData(),
+                           SecureBinaryData* computedMultiplier=NULL);
                                
    /////////////////////////////////////////////////////////////////////////////
    // Deterministically generate new private key using a chaincode
-   SecureBinaryData ComputeChainedPublicKey(SecureBinaryData const & binPubKey,
-                                            SecureBinaryData const & chainCode);
+   SecureBinaryData ComputeChainedPublicKey(
+                           SecureBinaryData const & binPubKey,
+                           SecureBinaryData const & chainCode,
+                           SecureBinaryData* multiplierOut=NULL);
 
 
    /////////////////////////////////////////////////////////////////////////////

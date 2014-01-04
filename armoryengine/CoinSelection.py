@@ -680,6 +680,7 @@ def PySelectCoins(unspentTxOutInfo, targetOutVal, minFee=0, numRand=10, margin=C
    return finalSelection
 
 
+################################################################################
 def calcMinSuggestedFees(selectCoinsResult, targetOutVal, preSelectedFee):
    """
    Returns two fee options:  one for relay, one for include-in-block.

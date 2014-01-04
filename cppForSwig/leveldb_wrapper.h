@@ -34,7 +34,7 @@
 
 #define KVLIST vector<pair<BinaryData,BinaryData> > 
 
-#define DEFAULT_LDB_BLOCK_SIZE 8*1024*1024
+#define DEFAULT_LDB_BLOCK_SIZE 8*1024
 
 // Use this to create iterators that are intended for bulk scanning
 // It's actually that the ReadOptions::fill_cache arg needs to be false
@@ -620,6 +620,8 @@ public:
 
    void     setMaxOpenFiles(uint32_t n) {  maxOpenFiles_ = n;   }
    uint32_t getMaxOpenFiles(void)       { return maxOpenFiles_; }
+   void     setLdbBlockSize(uint32_t sz){ ldbBlockSize_ = sz;   }
+   uint32_t getLdbBlockSize(void)       { return ldbBlockSize_; }
 
 
    KVLIST getAllDatabaseEntries(DB_SELECT db);
@@ -662,6 +664,7 @@ private:
    string               lastGetValue_;
    
    bool                 dbIsOpen_;
+   uint32_t             ldbBlockSize_;
 
    uint32_t             lowestScannedUpTo_;
 

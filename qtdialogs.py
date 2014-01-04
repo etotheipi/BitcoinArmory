@@ -15,16 +15,8 @@ import time
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *
 
+from armoryengine.ALL import *
 from armorycolors import Colors, htmlColor
-from armoryengine.BDM import TheSDM
-from armoryengine.CoinSelection import PySelectCoins, calcMinSuggestedFees, \
-   PyUnspentTxOut
-from armoryengine.PyBtcAddress import PyBtcAddress, calcWalletIDFromRoot
-from armoryengine.PyBtcWallet import BLOCKCHAIN_READONLY, PyBtcWallet
-from armoryengine.Script import convertScriptToOpStrings
-from armoryengine.Transaction import PyTxDistProposal, TXOUT_SCRIPT_COINBASE, \
-   TXOUT_SCRIPT_STANDARD, PyTxIn, TxInScriptExtractAddr160IfAvail, \
-   TxOutScriptExtractAddr160, determineSentToSelfAmt, getFeeForTx
 from armorymodels import *
 import qrc_img_resources
 from qtdefines import *
@@ -4953,6 +4945,11 @@ class DlgSendBitcoins(ArmoryDialog):
             'SelectCoins returned a list of size zero.  This is problematic '
             'and probably not your fault.', QMessageBox.Ok)
          return
+
+      #canBeFree   = (minFeeRec[1] == 0)
+      #feeIs50xMin = (fee >= minFeeRec[1]*50)
+      #maxPossible = MIN_TX_FEE * 100 # 100 kB transaction
+      #if ((minFeeRec[1] > 0) and (fee > minFeeRec[1]*100)) or (fee > 0.1*ONE_BTC):
          
 
       # ## IF we got here, everything is good to go...

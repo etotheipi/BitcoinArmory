@@ -65,6 +65,7 @@ parser.add_option("--keypool",         dest="keypool",     default=100, type="in
 parser.add_option("--rebuild",         dest="rebuild",     default=False,     action="store_true", help="Rebuild blockchain database and rescan")
 parser.add_option("--rescan",          dest="rescan",      default=False,     action="store_true", help="Rescan existing blockchain DB")
 parser.add_option("--maxfiles",        dest="maxOpenFiles",default=0,         type="int",          help="Set maximum allowed open files for LevelDB databases")
+#parser.add_option("--rebuildwithblocksize", dest="newBlockSize",default='32kB', type="str",          help="Rebuild databases with new blocksize")
 
 # These are arguments passed by running unit-tests that need to be handled
 parser.add_option("--port", dest="port", default=None, type="int", help="Unit Test Argument - Do not consume")
@@ -713,7 +714,9 @@ elif os.path.exists(fileRescan):
 
 
 if CLI_OPTIONS.rebuild and os.path.exists(LEVELDB_DIR):
+   LOGINFO('Found existing databases dir; removing before rebuild')
    shutil.rmtree(LEVELDB_DIR)
+   os.mkdir(LEVELDB_DIR)
 
    
 

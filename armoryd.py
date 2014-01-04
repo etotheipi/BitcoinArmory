@@ -122,7 +122,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
    #############################################################################
    def jsonrpc_getrawtransaction(self, txHash, verbose=0):
       rawTx = None
-      cppTx = TheBDM.getTxByHash(hex_to_binary(txHash))
+      cppTx = TheBDM.getTxByHash(hex_to_binary(txHash, BIGENDIAN))
       if cppTx.isInitialized():
          txBinary = cppTx.serialize()
          pyTx = PyTx().unserialize(txBinary)

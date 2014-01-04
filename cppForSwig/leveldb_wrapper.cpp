@@ -359,6 +359,7 @@ void InterfaceToLDB::init()
    }
 
    maxOpenFiles_ = 0;
+   ldbBlockSize_ = DEFAULT_LDB_BLOCK_SIZE; 
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -433,14 +434,16 @@ bool InterfaceToLDB::openDatabases(string basedir,
       DB_SELECT CURRDB = (DB_SELECT)db;
       leveldb::Options opts;
       opts.create_if_missing = true;
-      opts.block_size = DEFAULT_LDB_BLOCK_SIZE;
+      opts.block_size = ldbBlockSize_;
       opts.compression = leveldb::kNoCompression;
 
       if(maxOpenFiles_ != 0)
       {
-         LOGINFO << "Using custom max_open_files option: " << maxOpenFiles_;
          opts.max_open_files = maxOpenFiles_;
+         LOGINFO << "Using max_open_files = " << maxOpenFiles_;
       }
+
+      LOGINFO << "Using LDB block_size = " << ldbBlockSize_ << " bytes";
 
       //opts.block_cache = leveldb::NewLRUCache(100 * 1048576);
       //dbFilterPolicy_[db] = leveldb::NewBloomFilterPolicy(10);

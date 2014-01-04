@@ -6,6 +6,7 @@
 //                                                                            //
 ////////////////////////////////////////////////////////////////////////////////
 #include "EncryptionUtils.h"
+#include "log.h"
 #include "integer.h"
 #include "oids.h"
 
@@ -672,7 +673,8 @@ bool CryptoECDSA::VerifyData(SecureBinaryData const & binMessage,
 SecureBinaryData CryptoECDSA::ComputeChainedPrivateKey(
                                  SecureBinaryData const & binPrivKey,
                                  SecureBinaryData const & chainCode,
-                                 SecureBinaryData binPubKey)
+                                 SecureBinaryData binPubKey,
+                                 SecureBinaryData* multiplierOut)
 {
    if(CRYPTO_DEBUG)
    {
@@ -688,12 +690,12 @@ SecureBinaryData CryptoECDSA::ComputeChainedPrivateKey(
 
    if( binPrivKey.getSize() != 32 || chainCode.getSize() != 32)
    {
-      cerr << "***ERROR:  Invalid private key or chaincode (both must be 32B)";
-      cerr << endl;
-      cerr << "BinPrivKey: " << binPrivKey.getSize() << endl;
-      cerr << "BinPrivKey: " << binPrivKey.toHexStr() << endl;
-      cerr << "BinChain  : " << chainCode.getSize() << endl;
-      cerr << "BinChain  : " << chainCode.toHexStr() << endl;
+      LOGERR << "***ERROR:  Invalid private key or chaincode (both must be 32B)";
+      LOGERR << "BinPrivKey: " << binPrivKey.getSize();
+      LOGERR << "BinPrivKey: (not logged for security)";
+      //LOGERR << "BinPrivKey: " << binPrivKey.toHexStr();
+      LOGERR << "BinChain  : " << chainCode.getSize();
+      LOGERR << "BinChain  : " << chainCode.toHexStr();
    }
 
    // Adding extra entropy to chaincode by xor'ing with hash256 of pubkey
@@ -709,13 +711,14 @@ SecureBinaryData CryptoECDSA::ComputeChainedPrivateKey(
                            *(uint32_t*)(chainOrig.getPtr()+offset);
    }
 
+
    // Hard-code the order of the group
    static SecureBinaryData SECP256K1_ORDER_BE = SecureBinaryData().CreateFromHex(
            "fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141");
    
-   CryptoPP::Integer chaincode, origPrivExp, ecOrder;
+   CryptoPP::Integer mult, origPrivExp, ecOrder;
    // A 
-   chaincode.Decode(chainXor.getPtr(), chainXor.getSize(), UNSIGNED);
+   mult.Decode(chainXor.getPtr(), chainXor.getSize(), UNSIGNED);
    // B 
    origPrivExp.Decode(binPrivKey.getPtr(), binPrivKey.getSize(), UNSIGNED);
    // C
@@ -723,11 +726,22 @@ SecureBinaryData CryptoECDSA::ComputeChainedPrivateKey(
 
    // A*B mod C will get us a new private key exponent
    CryptoPP::Integer newPrivExponent = 
-                  a_times_b_mod_c(chaincode, origPrivExp, ecOrder);
+                  a_times_b_mod_c(mult, origPrivExp, ecOrder);
 
    // Convert new private exponent to big-endian binary string 
    SecureBinaryData newPrivData(32);
    newPrivExponent.Encode(newPrivData.getPtr(), newPrivData.getSize(), UNSIGNED);
+
+   if(multiplierOut != NULL)
+   {
+      (*multiplierOut) = SecureBinaryData(chainXor);
+      LOGINFO << "Computed new chained private key using:";
+      LOGINFO << "   Public key: " << binPubKey.toHexStr().c_str();
+      LOGINFO << "   PubKeyHash: " << chainMod.toHexStr().c_str();
+      LOGINFO << "   Chaincode:  " << chainOrig.toHexStr().c_str();
+      LOGINFO << "   Multiplier: " << multiplierOut->toHexStr().c_str();
+   }
+
    return newPrivData;
 }
                             
@@ -735,7 +749,8 @@ SecureBinaryData CryptoECDSA::ComputeChainedPrivateKey(
 // Deterministically generate new public key using a chaincode
 SecureBinaryData CryptoECDSA::ComputeChainedPublicKey(
                                 SecureBinaryData const & binPubKey,
-                                SecureBinaryData const & chainCode)
+                                SecureBinaryData const & chainCode,
+                                SecureBinaryData* multiplierOut)
 {
    if(CRYPTO_DEBUG)
    {
@@ -760,15 +775,26 @@ SecureBinaryData CryptoECDSA::ComputeChainedPublicKey(
    }
 
    // Parse the chaincode as a big-endian integer
-   CryptoPP::Integer chaincode;
-   chaincode.Decode(chainXor.getPtr(), chainXor.getSize(), UNSIGNED);
+   CryptoPP::Integer mult;
+   mult.Decode(chainXor.getPtr(), chainXor.getSize(), UNSIGNED);
 
    // "new" init as "old", to make sure it's initialized on the correct curve
    BTC_PUBKEY oldPubKey = ParsePublicKey(binPubKey); 
    BTC_PUBKEY newPubKey = ParsePublicKey(binPubKey);
 
    // Let Crypto++ do the EC math for us, serialize the new public key
-   newPubKey.SetPublicElement( oldPubKey.ExponentiatePublicElement(chaincode) );
+   newPubKey.SetPublicElement( oldPubKey.ExponentiatePublicElement(mult) );
+
+   if(multiplierOut != NULL)
+   {
+      (*multiplierOut) = SecureBinaryData(chainXor);
+      LOGINFO << "Computed new chained private key using:";
+      LOGINFO << "   Public key: " << binPubKey.toHexStr().c_str();
+      LOGINFO << "   PubKeyHash: " << chainMod.toHexStr().c_str();
+      LOGINFO << "   Chaincode:  " << chainOrig.toHexStr().c_str();
+      LOGINFO << "   Multiplier: " << multiplierOut->toHexStr().c_str();
+   }
+
    return CryptoECDSA::SerializePublicKey(newPubKey);
 }
 
