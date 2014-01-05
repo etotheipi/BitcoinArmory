@@ -22,8 +22,9 @@ from email.MIMEBase import MIMEBase
 from email.MIMEText import MIMEText
 from email.Utils import COMMASPACE, formatdate
 from email import Encoders
+import functools
 
-def send_email(send_from, send_to, subject, text):
+def send_email(send_from, password, send_to, subject, text):
    if not type(send_to) == list:
       raise AssertionError
    msg = MIMEMultipart()
@@ -36,18 +37,22 @@ def send_email(send_from, send_to, subject, text):
    mailServer.ehlo()
    mailServer.starttls()
    mailServer.ehlo()
-   mailServer.login('armorynotify@gmail.com', 'Notification')
+   mailServer.login(send_from, password)
    mailServer.sendmail(send_from, send_to, msg.as_string())
    mailServer.close()
 
-def EmailOutput(func, send_from='armorynotify@gmail.com',
-                 send_to=['andy@bitcoinarmory.com'], subject='Armory Output'):
-   def inner(*args, **kwargs):
-      ret = func(*args, **kwargs)
-      if ret:
-         send_email(send_from, send_to, subject, ret)
-      return ret
-   return inner
+# Following this pattern to allow arguments to be passed to this decorator:
+# http://stackoverflow.com/questions/10176226/how-to-pass-extra-arguments-to-python-decorator
+def EmailOutput(send_from, password, send_to, subject='Armory Output'):
+   def ActualEmailOutputDecorator(func):
+      @functools.wraps(func)
+      def wrapper(*args, **kwargs):
+         ret = func(*args, **kwargs)
+         if ret and send_from and password and send_to:
+            send_email(send_from, password, send_to, subject, ret)
+         return ret
+      return wrapper
+   return ActualEmailOutputDecorator
 
 
 

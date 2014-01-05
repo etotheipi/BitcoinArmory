@@ -103,7 +103,6 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       self.wallet = wallet
       # Used with wallet notification code 
       self.chainDictionary = {}
-      self.walletNotificationEmail = None
       
    #############################################################################
    def jsonrpc_backupwallet(self, backupFilePath):
@@ -766,15 +765,13 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
    #
    # Example usage:
    # started the daemon with these arguments: --testnet armory_286jcNJRc_.wallet
-   # Then I called the daemon with: --testnet watchwallet "n2p9xCvtsdHJPtEWx2EUABSy2nox4zhHPo" 0 1
+   # Then I called the daemon with: --testnet watchwallet <email args> "n2p9xCvtsdHJPtEWx2EUABSy2nox4zhHPo" 0 1
    # Pass in an optional "Chain Dictionary" keyed by public addr and values are (chain, index)
-   def jsonrpc_watchwallet(self, watchAddr=None, chain=None, index=None, email=None):
+   def jsonrpc_watchwallet(self, send_from=None, password=None, send_to=None, subject=None, watchAddr=None, chain=None, index=None):
       if watchAddr:
          self.chainDictionary[watchAddr] = (chain, index)
-      if email:
-         self.walletNotificationEmail = email
       
-      @EmailOutput
+      @EmailOutput(send_from, password, [send_to], subject)
       def reportTxFromAddrInNewBlock(pyHeader, pyTxList):
          result = ''
          for pyTx in pyTxList:
@@ -792,9 +789,10 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
                      result = ''.join([result, '\n', pyTx.toString()])
          return result
 
-      if not rpc_server.isWatchingWallet:
-         rpc_server.newBlockFunctions.append(reportTxFromAddrInNewBlock)
-         rpc_server.isWatchingWallet = True
+      # TODO: Need stop assuming that this is the only method using newBlockFunctions
+      # Remove existing newBlockFunction to allow user to change the email args
+      rpc_server.newBlockFunctions = []
+      rpc_server.newBlockFunctions.append(reportTxFromAddrInNewBlock)
          
 ################################################################################
 ################################################################################
@@ -829,7 +827,6 @@ class Armory_Daemon(object):
       # ...otherwise, setup the server
       self.newTxFunctions = []
       self.newBlockFunctions = []
-      self.isWatchingWallet = False
       self.heartbeatFunctions = []
 
       # The only argument that armoryd.py takes is the wallet to serve

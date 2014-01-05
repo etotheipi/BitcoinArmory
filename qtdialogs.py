@@ -4227,7 +4227,6 @@ class DlgWalletSelect(ArmoryDialog):
                              wltIDList=None, atLeast=0):
       super(DlgWalletSelect, self).__init__(parent, main)
 
-      self.lstWallets = QListWidget()
       self.balAtLeast = atLeast
       
       if self.main and len(self.main.walletMap) == 0:
@@ -4537,6 +4536,7 @@ class DlgSendBitcoins(ArmoryDialog):
       self.makeRecipFrame(1)
       self.setWindowTitle('Send Bitcoins')
       self.setMinimumHeight(self.maxHeight * 20)
+      self.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Preferred)
 
       loadCount = self.main.settings.get('Load_Count')
       alreadyDonated = self.main.getSettingOrSetDefault('DonateAlready', False)

@@ -32,7 +32,7 @@ class SelectWalletFrame(ArmoryFrame):
                              selectWltCallback=None):
       super(SelectWalletFrame, self).__init__(parent, main)
 
-      self.lstWallets = QListWidget()
+      self.walletComboBox = QComboBox()
       self.balAtLeast = atLeast
       self.selectWltCallback = selectWltCallback
 
@@ -43,35 +43,27 @@ class SelectWalletFrame(ArmoryFrame):
          self.accept()
          return
       
-      if wltIDList == None:
-         wltIDList = list(self.main.walletIDList)
-
-      self.rowList = []
+      self.wltIDList = wltIDList if not wltIDList == None else list(self.main.walletIDList)
       
-      selectedRow = 0
+      selectedWltIndex = 0
       self.selectedID = None
-      nrows = 0
-      if len(wltIDList) > 0:
-         self.selectedID = wltIDList[0]
-         for r, wltID in enumerate(wltIDList):
+      wltItems = 0
+      if len(self.wltIDList) > 0:
+         self.selectedID = self.wltIDList[0]
+         for wltID in self.wltIDList:
             wlt = self.main.walletMap[wltID]
-            wlttype = determineWalletType(self.main.walletMap[wltID], self.main)[0]
+            wlttype = determineWalletType(wlt, self.main)[0]
             if onlyMyWallets and wlttype == WLTTYPES.WatchOnly:
                continue
-            self.lstWallets.addItem(QListWidgetItem(wlt.labelName))
-            self.rowList.append([wltID])
+            self.walletComboBox.addItem(wlt.labelName)
          
             if wltID == firstSelect:
-               selectedRow = nrows
+               selectedWltIndex = wltItems
                self.selectedID = wltID
-            nrows += 1
+            wltItems += 1
             
-         self.lstWallets.setCurrentRow(selectedRow)
-      self.connect(self.lstWallets, SIGNAL('currentRowChanged(int)'), self.showWalletInfo)
-      self.connect(self.lstWallets, SIGNAL('itemDoubleClicked(QListWidgetItem *)'), self.dblclick)
-      self.lstWallets.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-      self.lstWallets.setMaximumHeight(120)
-      self.lstWallets.autoFillBackground()
+         self.walletComboBox.setCurrentIndex(selectedWltIndex)
+      self.connect(self.walletComboBox, SIGNAL('currentIndexChanged(int)'), self.showWalletInfo)
 
       # Start the layout
       layout =  QVBoxLayout() 
@@ -94,8 +86,10 @@ class SelectWalletFrame(ArmoryFrame):
 
       self.dispBal.setTextFormat(Qt.RichText)
       
-      frm = QFrame()
-      frm.setFrameStyle(STYLE_SUNKEN)
+      wltInfoFrame = QFrame()
+      wltInfoFrame.setFrameStyle(STYLE_SUNKEN)
+      wltInfoFrame.setMaximumWidth(350)
+      wltInfoFrame.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
       frmLayout = QGridLayout()
       for i in range(len(lbls)):
          frmLayout.addWidget(lbls[i], i, 0, 1, 1)
@@ -110,13 +104,13 @@ class SelectWalletFrame(ArmoryFrame):
       frmLayout.addWidget(self.dispDescr, 2, 2, 1, 1)
       frmLayout.addWidget(self.dispBal, 3, 2, 1, 1)
       frmLayout.addItem(QSpacerItem(20, 10, QSizePolicy.Fixed, QSizePolicy.Expanding), 0, 1, 3, 1)
-      frm.setLayout(frmLayout)
-      layout.addWidget(makeLayoutFrame(layoutDirection, [self.lstWallets, frm]) )
+      wltInfoFrame.setLayout(frmLayout)
+      layout.addWidget(makeLayoutFrame(layoutDirection, [self.walletComboBox, wltInfoFrame]) )
       self.setLayout(layout)
 
    def showWalletInfo(self, i=0):
-      currRow = self.lstWallets.currentRow()
-      wltID = self.rowList[currRow][0]
+      currentWltIndex = self.walletComboBox.currentIndex()
+      wltID = self.wltIDList[currentWltIndex]
       wlt = self.main.walletMap[wltID]
       self.dispID.setText(wltID)
       self.dispName.setText(wlt.labelName)
@@ -135,12 +129,6 @@ class SelectWalletFrame(ArmoryFrame):
       if self.selectWltCallback:
          self.selectWltCallback(wlt)
 
-   def dblclick(self, *args):
-      currRow = self.lstWallets.currentRow()
-      wltID = self.rowList[currRow][0]
-      wlt = self.main.walletMap[wltID]
-      self.selectedID = wltID
-      self.selectWltCallback(wlt, isDoubleClick=True)
 
    #############################################################################
    def setWalletSummary(self):
