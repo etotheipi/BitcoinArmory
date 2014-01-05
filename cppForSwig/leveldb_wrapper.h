@@ -34,7 +34,7 @@
 
 #define KVLIST vector<pair<BinaryData,BinaryData> > 
 
-#define DEFAULT_LDB_BLOCK_SIZE 8*1024
+#define DEFAULT_LDB_BLOCK_SIZE 32*1024
 
 // Use this to create iterators that are intended for bulk scanning
 // It's actually that the ReadOptions::fill_cache arg needs to be false

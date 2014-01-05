@@ -5106,6 +5106,9 @@ bool BlockDataManager_LevelDB::addNewZeroConfTx(BinaryData const & rawTx,
          // The bulk filter returns pair<isRelatedToUs, inputIsOurs>
          isOurs = isOurs || (*wltIter)->isMineBulkFilter(txObj).first;
       }
+
+      if(!isOurs)
+         return false;
    }
     
    

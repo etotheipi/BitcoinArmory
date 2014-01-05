@@ -1100,9 +1100,8 @@ class BlockDataManagerThread(threading.Thread):
 
    #############################################################################
    def __shutdown(self):
-      # We now save the histories after every block, not just on shutdown
-      #if not self.blkMode == BLOCKCHAINMODE.Rescanning:
-         #self.bdm.shutdownSaveScrAddrHistories()
+      if not self.blkMode == BLOCKCHAINMODE.Rescanning:
+         self.bdm.saveScrAddrHistories()
 
       self.__reset()
       self.blkMode = BLOCKCHAINMODE.Offline
@@ -1405,7 +1404,7 @@ else:
 
    #if CLI_OPTIONS.doDebug or CLI_OPTIONS.netlog or CLI_OPTIONS.mtdebug:
    cppLogFile = os.path.join(ARMORY_HOME_DIR, 'armorycpplog.txt')
-   TheBDM.StartCppLogging(cppLogFile, 3)
+   TheBDM.StartCppLogging(cppLogFile, 4)
    TheBDM.EnableCppLogStdOut()
 
    # 32-bit linux has an issue with max open files.  Rather than modifying

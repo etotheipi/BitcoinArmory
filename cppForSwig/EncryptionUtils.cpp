@@ -733,14 +733,13 @@ SecureBinaryData CryptoECDSA::ComputeChainedPrivateKey(
    newPrivExponent.Encode(newPrivData.getPtr(), newPrivData.getSize(), UNSIGNED);
 
    if(multiplierOut != NULL)
-   {
       (*multiplierOut) = SecureBinaryData(chainXor);
-      LOGINFO << "Computed new chained private key using:";
-      LOGINFO << "   Public key: " << binPubKey.toHexStr().c_str();
-      LOGINFO << "   PubKeyHash: " << chainMod.toHexStr().c_str();
-      LOGINFO << "   Chaincode:  " << chainOrig.toHexStr().c_str();
-      LOGINFO << "   Multiplier: " << multiplierOut->toHexStr().c_str();
-   }
+
+   //LOGINFO << "Computed new chained private key using:";
+   //LOGINFO << "   Public key: " << binPubKey.toHexStr().c_str();
+   //LOGINFO << "   PubKeyHash: " << chainMod.toHexStr().c_str();
+   //LOGINFO << "   Chaincode:  " << chainOrig.toHexStr().c_str();
+   //LOGINFO << "   Multiplier: " << chainXor.toHexStr().c_str();
 
    return newPrivData;
 }
@@ -786,14 +785,13 @@ SecureBinaryData CryptoECDSA::ComputeChainedPublicKey(
    newPubKey.SetPublicElement( oldPubKey.ExponentiatePublicElement(mult) );
 
    if(multiplierOut != NULL)
-   {
       (*multiplierOut) = SecureBinaryData(chainXor);
-      LOGINFO << "Computed new chained private key using:";
-      LOGINFO << "   Public key: " << binPubKey.toHexStr().c_str();
-      LOGINFO << "   PubKeyHash: " << chainMod.toHexStr().c_str();
-      LOGINFO << "   Chaincode:  " << chainOrig.toHexStr().c_str();
-      LOGINFO << "   Multiplier: " << multiplierOut->toHexStr().c_str();
-   }
+
+   //LOGINFO << "Computed new chained public key using:";
+   //LOGINFO << "   Public key: " << binPubKey.toHexStr().c_str();
+   //LOGINFO << "   PubKeyHash: " << chainMod.toHexStr().c_str();
+   //LOGINFO << "   Chaincode:  " << chainOrig.toHexStr().c_str();
+   //LOGINFO << "   Multiplier: " << chainXor.toHexStr().c_str();
 
    return CryptoECDSA::SerializePublicKey(newPubKey);
 }
