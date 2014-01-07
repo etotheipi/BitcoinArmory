@@ -405,7 +405,10 @@ class SatoshiDaemonManager(object):
       pargs = [self.executable]
 
       if USE_TESTNET:
-         pargs.append('-datadir=%s' % self.satoshiHome.rstrip('/testnet3/') )
+         dataDir = self.satoshiHome
+         if os.path.basename(dataDir) == "testnet3":
+            dataDir = os.path.abspath(self.satoshiHome + "/..")
+         pargs.append('-datadir=%s' % dataDir)
          pargs.append('-testnet')
       else:
          pargs.append('-datadir=%s' % self.satoshiHome)
