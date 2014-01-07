@@ -312,7 +312,12 @@ class SatoshiDaemonManager(object):
    #############################################################################
    def readBitcoinConf(self, makeIfDNE=False):
       LOGINFO('Reading bitcoin.conf file')
-      bitconf = os.path.join( self.satoshiHome, 'bitcoin.conf' )
+
+      if USE_TESTNET:
+         bitconf = os.path.abspath(self.satoshiHome + "/../bitcoin.conf")
+      else:
+         bitconf = os.path.join(self.satoshiHome, 'bitcoin.conf' )
+
       if not os.path.exists(bitconf):
          if not makeIfDNE:
             raise self.BitcoinDotConfError, 'Could not find bitcoin.conf'
