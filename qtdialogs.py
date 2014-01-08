@@ -20,7 +20,6 @@ from armorycolors import Colors, htmlColor
 from armorymodels import *
 import qrc_img_resources
 from qtdefines import *
-from ui.Frames import SelectWalletFrame
 
 
 MIN_PASSWD_WIDTH = lambda obj: tightSizeStr(obj, '*' * 16)[0]
@@ -4242,7 +4241,7 @@ class DlgWalletSelect(ArmoryDialog):
       # Start the layout
       layout = QVBoxLayout()
       layout.addWidget(SelectWalletFrame(self, main, firstSelect, onlyMyWallets, \
-                  wltIDList, atLeast, HORIZONTAL, self.selectWallet))
+                  wltIDList, atLeast, self.selectWallet))
 
       buttonBox = QDialogButtonBox()
       btnAccept = QPushButton('OK')
@@ -4394,23 +4393,26 @@ class DlgSendBitcoins(ArmoryDialog):
       # Created a standard wallet chooser frame. Pass the call back method
       # for when the user selects a wallet.
       self.walletSelector = SelectWalletFrame(parent, main, self.wltID,\
-                  wltIDList=self.wltIDList, \
-                  layoutDirection = VERTICAL, selectWltCallback=self.setWallet)
+                  wltIDList=self.wltIDList, selectWltCallback=self.setWallet,\
+                  coinControlCallback=self.coinControlUpdate if\
+                  self.main.usermode == USERMODE.Expert else None )
 
       self.ttipUnsigned = self.main.createToolTipWidget(\
                'After clicking this button, you will be given directions for '
                'completing this transaction.')
+      self.btnUnsigned = QPushButton('Create Unsigned Transaction')
+      self.connect(self.btnUnsigned, SIGNAL(CLICKED), self.createOfflineTxDPAndDisplay)
 
 
+      frmUnsigned = makeHorizFrame([self.btnUnsigned, self.ttipUnsigned])
       self.btnSend = QPushButton('Send!')
       self.connect(self.btnSend, SIGNAL(CLICKED), self.createTxAndBroadcast)
-      txFrm = makeLayoutFrame(HORIZONTAL, [QLabel('Transaction Fee:'), \
+      txFrm = makeLayoutFrame(HORIZONTAL, [QLabel('Fee:'), \
                                        self.edtFeeAmt, \
                                        feetip, \
                                        STRETCH, \
+                                       frmUnsigned,
                                        self.btnSend])
-      self.btnUnsigned = QPushButton('Create Unsigned Transaction')
-      self.connect(self.btnUnsigned, SIGNAL(CLICKED), self.createOfflineTxDPAndDisplay)
 
 
 
@@ -4438,21 +4440,12 @@ class DlgSendBitcoins(ArmoryDialog):
          fromFrameList.append(frmDonate)
       
       if not self.main.usermode == USERMODE.Standard:
-         frmUnsigned = makeHorizFrame([self.btnUnsigned, self.ttipUnsigned])
          frmEnterURI = makeHorizFrame([btnEnterURI, ttipEnterURI])
-         fromFrameList.append(frmUnsigned)
          fromFrameList.append(frmEnterURI)
       
       ########################################################################
       # In Expert usermode, allow the user to modify source addresses
-      if self.main.usermode == USERMODE.Expert:
-                  
-         self.lblCoinCtrl = QRichLabel('Source:  All addresses')
-         self.btnCoinCtrl = QPushButton('Coin Control')
-         self.connect(self.btnCoinCtrl, SIGNAL(CLICKED), self.doCoinCtrl)
-         frmCoinControl = makeHorizFrame([self.lblCoinCtrl, self.btnCoinCtrl],)
-         fromFrameList.append(frmCoinControl)
-         
+      if self.main.usermode == USERMODE.Expert:         
          self.chkDefaultChangeAddr = QCheckBox('Use an existing address for change')
          self.radioFeedback = QRadioButton('Send change to first input address')
          self.radioSpecify = QRadioButton('Specify a change address')
@@ -4581,8 +4574,18 @@ class DlgSendBitcoins(ArmoryDialog):
       if len(hexgeom) > 0:
          geom = QByteArray.fromHex(hexgeom)
          self.restoreGeometry(geom)
-      # Set the wallet in the wallet chooser frame, and it will call back to setWallet.
-      self.walletSelector.showWalletInfo()
+      # Set the wallet in the wallet selector and let all of display components
+      # react to it. This is at the end so that we can be sure that all of the
+      # components that react to setting the wallet exist.
+      self.walletSelector.updateOnWalletChange()
+      
+   #############################################################################
+   # Update the available source address list and balance based on results from
+   # coin control. This callback is now necessary because coin control was moved
+   # to the Select Wallet Frame
+   def coinControlUpdate(self, sourceAddrList, altBalance):
+      self.sourceAddrList = sourceAddrList
+      self.altBalance = altBalance
       
    #############################################################################
    def toggleSpecify(self, b):
@@ -4612,15 +4615,13 @@ class DlgSendBitcoins(ArmoryDialog):
       if not TheBDM.getBDMState() == 'BlockchainReady':
          self.lblSummaryBal.setText('(available when online)', color='DisableFG')
       else:
+         self.btnSend.setEnabled(not self.wlt.watchingOnly)
          if self.wlt.watchingOnly:
             self.btnSend.setToolTip('This is a watching-only wallet! '
                                'You cannot use it to send bitcoins!')
-            self.btnSend.setEnabled(False)
             self.btnUnsigned.setDefault(True)
-            self.btnUnsigned.setEnabled(True)
          else:
             self.btnSend.setDefault(True)
-            self.btnSend.setEnabled(True)
             self.btnSend.setToolTip('Click to send bitcoins!')
       if self.main.usermode == USERMODE.Expert:
          # Pre-set values based on settings
@@ -5307,26 +5308,7 @@ class DlgSendBitcoins(ArmoryDialog):
       self.scrollRecipArea.setWidget(frmRecip)
 
 
-   #############################################################################
-   def doCoinCtrl(self):
-      
-      dlgcc = DlgCoinControl(self, self.main, self.wlt, self.sourceAddrList)
-      if dlgcc.exec_():
-         self.sourceAddrList = [x[0] for x in dlgcc.coinControlList]
-         self.altBalance = sum([x[1] for x in dlgcc.coinControlList])
-      
-         nAddr = len(self.sourceAddrList)
-         if self.altBalance == self.wlt.getBalance('Spendable'):
-            self.lblCoinCtrl.setText('Source: All addresses')
-            self.sourceAddrList = None
-            self.altBalance = None
-         elif nAddr == 0:
-            self.lblCoinCtrl.setText('Source: None selected')
-         elif nAddr == 1:
-            aStr = hash160_to_addrStr(self.sourceAddrList[0])
-            self.lblCoinCtrl.setText('Source: %s...' % aStr[:12])
-         elif nAddr > 1:
-            self.lblCoinCtrl.setText('Source: %d addresses' % nAddr)
+
 
 ################################################################################
 class DlgOfflineTxCreated(ArmoryDialog):
@@ -13651,11 +13633,10 @@ def finishPrintingBackup(parent, btype=None):
    if btype == None:
       QMessageBox.warning(parent, tr('Test Your Backup!'), tr("""
       """))
-            
-            
-         
-   
 
+# Need to put circular imports at the end of the script to avoid an import deadlock
+# DlgWalletSelect uses SelectWalletFrame which uses DlgCoinControl
+from ui.Frames import SelectWalletFrame
 
 
 
