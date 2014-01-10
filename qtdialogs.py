@@ -4886,72 +4886,60 @@ class DlgSendBitcoins(ArmoryDialog):
             'You just tried to send %s BTC, including fee, but you only '
             'have %s BTC with this coin control selection!' % (valTry, valMax), QMessageBox.Ok)
          return False
-      
-
-      # Get unspent outs for this wallet:
-      utxoList = self.getUsableTxOutList()
-      utxoSelect = PySelectCoins(utxoList, totalSend, fee)
-
-
-
-      # TODO:  I should use a while loop/iteration to make sure that the fee
-      #        change does not actually induce another, higher fee (which 
-      #        is extraordinarily unlikely... I even set up the SelectCoins 
-      #        algorithm to try to leave some room in the tx so that the fee
-      #        will not change the I/Os).   Despite this, I will concede 
-      #        the extremely rare situation where this would happen, I think 
-      #        it will be okay to send a slightly sub-standard fee.  
-      minFeeRec = calcMinSuggestedFees(utxoSelect, totalSend, fee)
-      if fee < minFeeRec[1]:
-
-         overrideMin = self.main.getSettingOrSetDefault('OverrideMinFee', False)
-         if totalSend + minFeeRec[1] > bal:
+      # iteratively calculate the minimum fee by first trying the user selected fee
+      # then on each iteration set the feeTry to the minFee, and see if the new feeTry
+      # can cover the original amount plus the new minfee
+      # This loop will rarely iterate. It will only iterate when there is enough dust in utxoList so that
+      # each fee increase causes enough dust to be used to increase the fee yet again.
+      # Also, for the loop to iterate, the totalSend + fee must be close to the bal,
+      # but not go over when the min fee is increased If it does go over, it will exit the loop on the
+      # last condition,and give the user an insufficient balance warning.
+      minFee = None
+      utxoSelect = []
+      feeTry = fee
+      while minFee == None or (feeTry < minFee and totalSend + minFee <= bal):
+         if minFee:
+            feeTry = minFee
+         utxoList = self.getUsableTxOutList()
+         utxoSelect = PySelectCoins(utxoList, totalSend, feeTry)
+         minFee = calcMinSuggestedFees(utxoSelect, totalSend, feeTry)[1]
+      if fee < minFee:
+         if totalSend + minFee > bal:
             # Need to adjust this based on overrideMin flag
-            self.edtFeeAmt.setText(coin2str(minFeeRec[1], maxZeros=1).strip())
+            self.edtFeeAmt.setText(coin2str(minFee, maxZeros=1).strip())
             QMessageBox.warning(self, 'Insufficient Balance', \
-               'You have specified a valid amount to send, but the required '
-               'transaction fee causes this transaction to exceed your balance.  '
+               'The required transaction fee causes this transaction to exceed your balance.  '
                'In order to send this transaction, you will be required to '
-               'pay a fee of <b>' + coin2str(minFeeRec[1], maxZeros=0).strip() + ' BTC</b>.  '
+               'pay a fee of <b>' + coin2str(minFee, maxZeros=0).strip() + ' BTC</b>.  '
                '<br><br>'
                'Please go back and adjust the value of your transaction, not '
-               'to exceed a total of <b>' + coin2str(bal - minFeeRec[1], maxZeros=0).strip() + 
+               'to exceed a total of <b>' + coin2str(bal - minFee, maxZeros=0).strip() + 
                ' BTC</b> (the necessary fee has been entered into the form, so you '
                'can use the "MAX" button to enter the remaining balance for a '
                'recipient).', QMessageBox.Ok)
             return
-                        
-
-         extraMsg = ''
          feeStr = coin2str(fee, maxZeros=0).strip()
-         minRecStr = coin2str(minFeeRec[1], maxZeros=0).strip()
-
+         minFeeStr = coin2str(minFee, maxZeros=0).strip()
+   
          msgBtns = QMessageBox.Yes | QMessageBox.Cancel
-
+   
          reply = QMessageBox.warning(self, 'Insufficient Fee', \
             'The fee you have specified (%s BTC) is insufficient for the size '
             'and priority of your transaction.  You must include at least '
             '%s BTC to send this transaction.  \n\nDo you agree to the fee of %s BTC?  ' % \
-            (feeStr, minRecStr, minRecStr), msgBtns)
+            (feeStr, minFeeStr, minFeeStr), msgBtns)
          if reply == QMessageBox.Cancel:
             return False
          if reply == QMessageBox.No:
             pass
          elif reply == QMessageBox.Yes:
-            fee = long(minFeeRec[1])
-            utxoSelect = PySelectCoins(utxoSelect, totalSend, fee)
+            fee = long(minFee)
       
       if len(utxoSelect) == 0:
          QMessageBox.critical(self, 'Coin Selection Error', \
             'SelectCoins returned a list of size zero.  This is problematic '
             'and probably not your fault.', QMessageBox.Ok)
          return
-
-      #canBeFree   = (minFeeRec[1] == 0)
-      #feeIs50xMin = (fee >= minFeeRec[1]*50)
-      #maxPossible = MIN_TX_FEE * 100 # 100 kB transaction
-      #if ((minFeeRec[1] > 0) and (fee > minFeeRec[1]*100)) or (fee > 0.1*ONE_BTC):
-         
 
       # ## IF we got here, everything is good to go...
       #   Just need to get a change address and then construct the tx
