@@ -188,7 +188,7 @@ class LedgerDispModelSimple(QAbstractTableModel):
          #if self.index(index.row(),COL.DoubleSpend).data().toBool():
          if rowData[COL.DoubleSpend]:
             return QVariant(Colors.TextRed)
-         if nConf <= 2:
+         if nConf < 2:
             return QVariant(Colors.TextNoConfirm)
          elif nConf <= 4:
             return QVariant(Colors.TextSomeConfirm)

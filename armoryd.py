@@ -440,7 +440,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
       txSet = set([])
 
-      for i in range(sz):
+      for i in range(lower,upper):
 
          le = ledgerEntries[i]
          txHashBin = le.getTxHash()

@@ -870,6 +870,86 @@ class PyTx(BlockComponent):
       print binary_to_hex(bu.get(BINARY_CHUNK, 4))
 
 
+
+################################################################################
+# Convert a 20-byte hash to a "pay-to-public-key-hash" script to be inserted
+# into a TxOut script
+def hash160_to_p2pkhash_script(binStr20):
+   if not len(binStr20)==20:
+      raise InvalidHashError('Tried to convert non-20-byte str to p2pkh script')
+
+   outScript = ''.join([  getOpCode('OP_DUP'        ), \
+                          getOpCode('OP_HASH160'    ), \
+                          '\x14',                      \
+                          binStr20,
+                          getOpCode('OP_EQUALVERIFY'), \
+                          getOpCode('OP_CHECKSIG'   )])
+   return outScript
+
+
+################################################################################
+# Convert a 20-byte hash to a "pay-to-script-hash" script to be inserted
+# into a TxOut script
+def hash160_to_p2sh_script(binStr20):
+   if not len(binStr20)==20:
+      raise InvalidHashError('Tried to convert non-20-byte str to p2sh script')
+
+   outScript = ''.join([  getOpCode('OP_HASH160'), \
+                          '\x14',                      \
+                          binStr20,
+                          getOpCode('OP_EQUAL')])
+   return outScript
+
+################################################################################
+# Convert an arbitrary script into a P2SH script
+def script_to_p2sh_script(binScript):
+   scriptHash = hash160(binScript)
+   return hash160_to_p2sh_script(scriptHash)
+
+
+################################################################################
+# Convert a 33-byte or 65-byte hash to a "pay-to-pubkey" script to be inserted
+# into a TxOut script
+def pubkey_to_p2pk_script(binStr33or65):
+   
+   if not len(binStr33or65) in [33, 65]:
+      raise KeyDataError('Invalid public key supplied to p2pk script')
+
+   lenByte = int_to_binary(len(binStr33or65), widthBytes=1)
+   outScript =  ''.join([  lenByte,
+                           binStr33or65,
+                           getOpCode('OP_CHECKSIG')])
+   return outScript
+
+
+################################################################################
+# Convert a list of public keys to an OP_CHECKMULTISIG script.  There will be 
+# use cases where we require the keys to be sorted lexicographically, so we 
+# will do that by default.  If you require a different order, pre-sort them 
+# and pass withSort=False.
+def pubkeylist_to_multisig_script(pkList, M, withSort=True):
+
+   if sum([  (0 if len(pk) in [33,65] else 1)   for pk in pkList]) > 0:
+      raise KeyDataError('Not all strings in pkList are 33 or 65 bytes!')
+
+   opM = getOpCode('OP_%d' % M)
+   opN = getOpCode('OP_%d' % len(pkList))
+
+   newPkList = pkList[:] # copy
+   if withSort:
+      newPkList = sorted(pkList)
+
+   outScript = opM
+   for pk in newPkList:
+      outScript += int_to_binary(len(pk), widthBytes=1)   
+      outScript += pk
+   outScript += opN
+   outScript += getOpCode('OP_CHECKMULTISIG')
+
+   return outScript
+
+
+
 ################################################################################
 ################################################################################
 # This class can be used for both multi-signature tx collection, as well as
@@ -1066,12 +1146,14 @@ class PyTxDistProposal(object):
             txout.binScript = recipObj
          else:
             # Construct a std TxOut from addr160 str
-            txout.binScript = ''.join([  getOpCode('OP_DUP'        ), \
-                                         getOpCode('OP_HASH160'    ), \
-                                         '\x14',                      \
-                                         recipObj,
-                                         getOpCode('OP_EQUALVERIFY'), \
-                                         getOpCode('OP_CHECKSIG'   )])
+            txout.binScript = hash160_to_p2pkhash_script(recipObj)
+            #txout.binScript = ''.join([  getOpCode('OP_DUP'        ), \
+                                         #getOpCode('OP_HASH160'    ), \
+                                         #'\x14',                      \
+                                         #recipObj,
+                                         #getOpCode('OP_EQUALVERIFY'), \
+                                         #getOpCode('OP_CHECKSIG'   )])
+
          thePyTx.outputs.append(txout)
 
       # Prepare the inputs based on the utxo objects
@@ -1464,16 +1546,18 @@ def PyCreateAndSignTx(srcTxOuts, dstAddrsVals):
       txout.value = dstAddrsVals[i][1]
       dstAddr     = dstAddrsVals[i][0]
       if(coinbaseTx):
-         txout.binScript = ''.join([  '\x41',                      \
-                                      dstAddr.binPublicKey65.toBinStr(),  \
-                                      getOpCode('OP_CHECKSIG'   )])
+         txout.binScript = pubkey_to_p2pk_script(dst.binPublicKey65.toBinStr())
+         #txout.binScript = ''.join([  '\x41',                      \
+                                      #dstAddr.binPublicKey65.toBinStr(),  \
+                                      #getOpCode('OP_CHECKSIG'   )])
       else:
-         txout.binScript = ''.join([  getOpCode('OP_DUP'        ), \
-                                      getOpCode('OP_HASH160'    ), \
-                                      '\x14',                      \
-                                      dstAddr.getAddr160(),        \
-                                      getOpCode('OP_EQUALVERIFY'), \
-                                      getOpCode('OP_CHECKSIG'   )])
+         txout.binScript = hash160_to_p2pkhash_script(dst.getAddr160())
+         #txout.binScript = ''.join([  getOpCode('OP_DUP'        ), \
+                                      #getOpCode('OP_HASH160'    ), \
+                                      #'\x14',                      \
+                                      #dstAddr.getAddr160(),        \
+                                      #getOpCode('OP_EQUALVERIFY'), \
+                                      #getOpCode('OP_CHECKSIG'   )])
 
       newTx.outputs.append(txout)
 

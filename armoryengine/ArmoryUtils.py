@@ -1425,6 +1425,8 @@ def addrStr_is_p2sh(b58Str):
    binStr = base58_to_binary(b58Str)
    if not len(binStr)==25:
       return False
+   if not hash256(binStr[:21])[:4] == binStr[-4:]:
+      return False
    return (binStr[0] == P2SHBYTE)
 
 ################################################################################
