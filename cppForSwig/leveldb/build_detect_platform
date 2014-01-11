@@ -131,6 +131,16 @@ case "$TARGET_OS" in
         # man ld: +h internal_name
         PLATFORM_SHARED_LDFLAGS="-shared -Wl,+h -Wl,"
         ;;
+    IOS)
+        PLATFORM=IOS
+        COMMON_FLAGS="$MEMCMP_FLAG -DOS_MACOSX"
+        [ -z "$INSTALL_PATH" ] && INSTALL_PATH=`pwd`
+        PORT_FILE=port/port_posix.cc
+        PLATFORM_SHARED_EXT=
+        PLATFORM_SHARED_LDFLAGS=
+        PLATFORM_SHARED_CFLAGS=
+        PLATFORM_SHARED_VERSIONED=
+        ;;
     *)
         echo "Unknown platform!" >&2
         exit 1
@@ -173,6 +183,16 @@ EOF
         COMMON_FLAGS="$COMMON_FLAGS -DLEVELDB_PLATFORM_POSIX"
     fi
 
+    # Test whether Snappy library is installed
+    # http://code.google.com/p/snappy/
+    $CXX $CXXFLAGS -x c++ - -o $CXXOUTPUT 2>/dev/null  <<EOF
+      #include <snappy.h>
+      int main() {}
+EOF
+    if [ "$?" = 0 ]; then
+        COMMON_FLAGS="$COMMON_FLAGS -DSNAPPY"
+        PLATFORM_LIBS="$PLATFORM_LIBS -lsnappy"
+    fi
 
     # Test whether tcmalloc is available
     $CXX $CXXFLAGS -x c++ - -o $CXXOUTPUT -ltcmalloc 2>/dev/null  <<EOF

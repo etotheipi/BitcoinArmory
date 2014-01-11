@@ -31,7 +31,6 @@ import sys
 import threading
 import time
 import traceback
-import shutil
 
 from psutil import Popen
 import psutil
@@ -65,7 +64,6 @@ parser.add_option("--keypool",         dest="keypool",     default=100, type="in
 parser.add_option("--rebuild",         dest="rebuild",     default=False,     action="store_true", help="Rebuild blockchain database and rescan")
 parser.add_option("--rescan",          dest="rescan",      default=False,     action="store_true", help="Rescan existing blockchain DB")
 parser.add_option("--maxfiles",        dest="maxOpenFiles",default=0,         type="int",          help="Set maximum allowed open files for LevelDB databases")
-#parser.add_option("--rebuildwithblocksize", dest="newBlockSize",default='32kB', type="str",          help="Rebuild databases with new blocksize")
 
 # These are arguments passed by running unit-tests that need to be handled
 parser.add_option("--port", dest="port", default=None, type="int", help="Unit Test Argument - Do not consume")
@@ -103,6 +101,45 @@ class ShouldNotGetHereError(Exception): pass
 class BadInputError(Exception): pass
 class TxdpError(Exception): pass
 
+# Get the host operating system
+opsys = platform.system()
+OS_WINDOWS = 'win32'  in opsys.lower() or 'windows' in opsys.lower()
+OS_LINUX   = 'nix'    in opsys.lower() or 'nux'     in opsys.lower()
+OS_MACOSX  = 'darwin' in opsys.lower() or 'osx'     in opsys.lower()
+
+#Windows only: grab cli args as utf-16, convert to utf-8
+if OS_WINDOWS:
+   def win32_unicode_argv():
+      """
+      Uses shell32.GetCommandLineArgvW to get sys.argv as a list of Unicode
+      strings.
+   
+      Versions 2.x of Python don't support Unicode in sys.argv on
+      Windows, with the underlying Windows API instead replacing multi-byte
+      characters with '?'.
+      """
+   
+      from ctypes import POINTER, byref, cdll, c_int, windll
+      from ctypes.wintypes import LPCWSTR, LPWSTR
+   
+      GetCommandLineW = cdll.kernel32.GetCommandLineW
+      GetCommandLineW.argtypes = []
+      GetCommandLineW.restype = LPCWSTR
+   
+      CommandLineToArgvW = windll.shell32.CommandLineToArgvW
+      CommandLineToArgvW.argtypes = [LPCWSTR, POINTER(c_int)]
+      CommandLineToArgvW.restype = POINTER(LPWSTR)
+   
+      cmd = GetCommandLineW()
+      argc = c_int(0)
+      uargv = CommandLineToArgvW(cmd, byref(argc))
+      if argc.value > 0:
+         # Remove Python executable and commands if present
+         start = argc.value - len(sys.argv)
+         return [uargv[i].encode('utf8') for i in
+            xrange(start, argc.value)]
+   
+   sys.argv = win32_unicode_argv()
 
 CLI_OPTIONS = None
 CLI_ARGS = None
@@ -115,11 +152,6 @@ USE_TESTNET = CLI_OPTIONS.testnet
 if CLI_OPTIONS.interport < 0:
    CLI_OPTIONS.interport = 8223 + (1 if USE_TESTNET else 0)
 
-# Get the host operating system
-opsys = platform.system()
-OS_WINDOWS = 'win32'  in opsys.lower() or 'windows' in opsys.lower()
-OS_LINUX   = 'nix'    in opsys.lower() or 'nux'     in opsys.lower()
-OS_MACOSX  = 'darwin' in opsys.lower() or 'osx'     in opsys.lower()
 
 # Figure out the default directories for Satoshi client, and BicoinArmory
 OS_NAME          = ''
@@ -174,7 +206,7 @@ SETTINGS_PATH   = CLI_OPTIONS.settingsPath
 ARMORY_LOG_FILE = CLI_OPTIONS.logFile
 
 # Version Numbers 
-BTCARMORY_VERSION    = (0, 90,  1, 0)  # (Major, Minor, Bugfix, AutoIncrement) 
+BTCARMORY_VERSION    = (0, 90,  0, 0)  # (Major, Minor, Bugfix, AutoIncrement) 
 PYBTCWALLET_VERSION  = (1, 35,  0, 0)  # (Major, Minor, Bugfix, AutoIncrement)
 
 ARMORY_DONATION_ADDR = '1ArmoryXcfq7TnCSuZa9fQjRYwJ4bkRKfv'
@@ -700,10 +732,9 @@ fileRescan  = os.path.join(ARMORY_HOME_DIR, 'rescan.txt')
 if os.path.exists(fileRebuild):
    LOGINFO('Found %s, will destroy and rebuild databases' % fileRebuild)
    os.remove(fileRebuild)
-
    if os.path.exists(fileRescan):
       os.remove(fileRescan)
-
+      
    CLI_OPTIONS.rebuild = True
 elif os.path.exists(fileRescan):
    LOGINFO('Found %s, will throw out saved history, rescan' % fileRescan)
@@ -711,14 +742,6 @@ elif os.path.exists(fileRescan):
    if os.path.exists(fileRebuild):
       os.remove(fileRebuild)
    CLI_OPTIONS.rescan = True
-
-
-if CLI_OPTIONS.rebuild and os.path.exists(LEVELDB_DIR):
-   LOGINFO('Found existing databases dir; removing before rebuild')
-   shutil.rmtree(LEVELDB_DIR)
-   os.mkdir(LEVELDB_DIR)
-
-   
 
 ################################################################################
 # Load the C++ utilites here
@@ -1054,7 +1077,7 @@ LITTLEENDIAN  = '<';
 BIGENDIAN     = '>';
 NETWORKENDIAN = '!';
 ONE_BTC       = long(100000000)
-DONATION       = long(5000000)
+DONATION       = long(1000000)
 CENT          = long(1000000)
 UNINITIALIZED = None
 UNKNOWN       = -2
