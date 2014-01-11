@@ -13,7 +13,6 @@ from PyQt4.Qt import *
 from armoryengine.BDM import TheBDM
 from armoryengine.ArmoryUtils import coin2str
 
-################################################################################
 class ArmoryFrame(QFrame):
    def __init__(self, parent=None, main=None):
       super(ArmoryFrame, self).__init__(parent)
@@ -25,12 +24,15 @@ class ArmoryFrame(QFrame):
       self.parent.accpet()
       return
 
-
+# This class has all of the select wallet display and control functionality for
+# selecting a wallet, and doing coin control. It can be dropped into any dialog
+# and will interface with the dialog with select wlt and coin control callbacks.
 class SelectWalletFrame(ArmoryFrame):
    def __init__(self, parent=None, main=None, firstSelect=None, onlyMyWallets=False, \
-                             wltIDList=None, atLeast=0, layoutDirection=HORIZONTAL, \
-                             selectWltCallback=None):
+                             wltIDList=None, atLeast=0, \
+                             selectWltCallback=None, coinControlCallback=None):
       super(SelectWalletFrame, self).__init__(parent, main)
+      self.coinControlCallback = coinControlCallback
 
       self.walletComboBox = QComboBox()
       self.balAtLeast = atLeast
@@ -63,7 +65,7 @@ class SelectWalletFrame(ArmoryFrame):
             wltItems += 1
             
          self.walletComboBox.setCurrentIndex(selectedWltIndex)
-      self.connect(self.walletComboBox, SIGNAL('currentIndexChanged(int)'), self.showWalletInfo)
+      self.connect(self.walletComboBox, SIGNAL('currentIndexChanged(int)'), self.updateOnWalletChange)
 
       # Start the layout
       layout =  QVBoxLayout() 
@@ -80,6 +82,7 @@ class SelectWalletFrame(ArmoryFrame):
          
       self.dispID = QRichLabel('')
       self.dispName = QRichLabel('')
+      self.dispName.setWordWrap(True)
       self.dispDescr = QRichLabel('')
       self.dispDescr.setWordWrap(True)
       self.dispBal = QMoneyLabel(0)
@@ -88,7 +91,7 @@ class SelectWalletFrame(ArmoryFrame):
       
       wltInfoFrame = QFrame()
       wltInfoFrame.setFrameStyle(STYLE_SUNKEN)
-      wltInfoFrame.setMaximumWidth(350)
+      wltInfoFrame.setMaximumWidth(380)
       wltInfoFrame.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
       frmLayout = QGridLayout()
       for i in range(len(lbls)):
@@ -103,15 +106,43 @@ class SelectWalletFrame(ArmoryFrame):
       frmLayout.addWidget(self.dispName, 1, 2, 1, 1)
       frmLayout.addWidget(self.dispDescr, 2, 2, 1, 1)
       frmLayout.addWidget(self.dispBal, 3, 2, 1, 1)
-      frmLayout.addItem(QSpacerItem(20, 10, QSizePolicy.Fixed, QSizePolicy.Expanding), 0, 1, 3, 1)
+      if coinControlCallback:
+         self.lblCoinCtrl = QRichLabel('Source: All addresses', doWrap=False)
+         frmLayout.addWidget(self.lblCoinCtrl, 4, 2, 1, 1)
+         self.btnCoinCtrl = QPushButton('Coin Control')
+         self.connect(self.btnCoinCtrl, SIGNAL(CLICKED), self.doCoinCtrl)
+         frmLayout.addWidget(self.btnCoinCtrl, 4, 0, 1, 2)
+      frmLayout.addItem(QSpacerItem(20, 10, QSizePolicy.Fixed, QSizePolicy.Expanding), 0, 1, 4, 1)
       wltInfoFrame.setLayout(frmLayout)
-      layout.addWidget(makeLayoutFrame(layoutDirection, [self.walletComboBox, wltInfoFrame]) )
+      layout.addWidget(makeLayoutFrame(VERTICAL, [self.walletComboBox, wltInfoFrame]) )
       self.setLayout(layout)
 
-   def showWalletInfo(self, i=0):
+   def doCoinCtrl(self):
+      wlt = self.main.walletMap[self.wltIDList[self.walletComboBox.currentIndex()]]
+      dlgcc = DlgCoinControl(self, self.main, wlt, self.sourceAddrList)
+      if dlgcc.exec_():
+         self.sourceAddrList = [x[0] for x in dlgcc.coinControlList]
+         self.altBalance = sum([x[1] for x in dlgcc.coinControlList])
+      
+         nAddr = len(self.sourceAddrList)
+         if self.altBalance == wlt.getBalance('Spendable'):
+            self.lblCoinCtrl.setText('Source: All addresses')
+            self.sourceAddrList = None
+            self.altBalance = None
+         elif nAddr == 0:
+            self.lblCoinCtrl.setText('Source: None selected')
+         elif nAddr == 1:
+            aStr = hash160_to_addrStr(self.sourceAddrList[0])
+            self.lblCoinCtrl.setText('Source: %s...' % aStr[:12])
+         elif nAddr > 1:
+            self.lblCoinCtrl.setText('Source: %d addresses' % nAddr)
+         self.updateOnCoinControl()
+         
+   def updateOnWalletChange(self):
       currentWltIndex = self.walletComboBox.currentIndex()
       wltID = self.wltIDList[currentWltIndex]
       wlt = self.main.walletMap[wltID]
+            
       self.dispID.setText(wltID)
       self.dispName.setText(wlt.labelName)
       self.dispDescr.setText(wlt.labelDescr)
@@ -128,28 +159,44 @@ class SelectWalletFrame(ArmoryFrame):
             self.dispBal.setText('<b>' + balStr + '</b>')     
       if self.selectWltCallback:
          self.selectWltCallback(wlt)
-
-
-   #############################################################################
-   def setWalletSummary(self):
+      self.repaint()
+      # Reset the coin control variables after a new wallet is selected
+      if self.coinControlCallback:
+         self.altBalance = None
+         self.sourceAddrList = None
+         self.btnCoinCtrl.setEnabled(wlt.getBalance('Spendable')>0)
+         self.lblCoinCtrl.setText('Source: All addresses' if wlt.getBalance('Spendable')>0 else\
+                                  'Source: 0 addresses' )
+         self.updateOnCoinControl()
+      
+   def updateOnCoinControl(self):
       useAllAddr = (self.altBalance == None)
-      fullBal = self.wlt.getBalance('Spendable')
+      wlt = self.main.walletMap[self.wltIDList[self.walletComboBox.currentIndex()]]
+      fullBal = wlt.getBalance('Spendable')
       if useAllAddr:
-         self.lblSummaryID.setText(self.wlt.uniqueIDB58)
-         self.lblSummaryName.setText(self.wlt.labelName)
-         self.lblSummaryDescr.setText(self.wlt.labelDescr)
+         self.dispID.setText(wlt.uniqueIDB58)
+         self.dispName.setText(wlt.labelName)
+         self.dispDescr.setText(wlt.labelDescr)
          if fullBal == 0:
-            self.lblSummaryBal.setText('0.0', color='TextRed', bold=True)
+            self.dispBal.setText('0.0', color='TextRed', bold=True)
          else:
-            self.lblSummaryBal.setValueText(fullBal, wBold=True)
+            self.dispBal.setValueText(fullBal, wBold=True)
       else:
-         self.lblSummaryID.setText(self.wlt.uniqueIDB58 + '*')
-         self.lblSummaryName.setText(self.wlt.labelName + '*')
-         self.lblSummaryDescr.setText('*Coin Control Subset*', color='TextBlue', bold=True)
-         self.lblSummaryBal.setText(coin2str(self.altBalance, maxZeros=0), color='TextBlue')
-         rawValTxt = str(self.lblSummaryBal.text())
-         self.lblSummaryBal.setText(rawValTxt + ' <font color="%s">(of %s)</font>' % \
+         self.dispID.setText(wlt.uniqueIDB58 + '*')
+         self.dispName.setText(wlt.labelName + '*')
+         self.dispDescr.setText('*Coin Control Subset*', color='TextBlue', bold=True)
+         self.dispBal.setText(coin2str(self.altBalance, maxZeros=0), color='TextBlue')
+         rawValTxt = str(self.dispBal.text())
+         self.dispBal.setText(rawValTxt + ' <font color="%s">(of %s)</font>' % \
                                     (htmlColor('DisableFG'), coin2str(fullBal, maxZeros=0)))
 
       if not TheBDM.getBDMState() == 'BlockchainReady':
-         self.lblSummaryBal.setText('(available when online)', color='DisableFG')
+         self.dispBal.setText('(available when online)', color='DisableFG')
+      self.repaint()
+      if self.coinControlCallback:
+         self.coinControlCallback(self.sourceAddrList, self.altBalance)
+         
+         
+# Need to put circular imports at the end of the script to avoid an import deadlock
+# DlgWalletSelect uses SelectWalletFrame which uses DlgCoinControl
+from qtdialogs import CLICKED, DlgCoinControl

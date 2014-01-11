@@ -253,6 +253,8 @@ class QRichLabel(QLabel):
       self.setWordWrap(doWrap)
       self.setAlignment(hAlign | vAlign)
       self.setText(txt, **kwargs)
+      # Fixes a problem with QLabel resizing based on content
+      self.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.MinimumExpanding)
 
    def setText(self, text, color=None, size=None, bold=None, italic=None):
       text = unicode(text)
