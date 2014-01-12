@@ -37,6 +37,7 @@ from ui.toolsDialogs import MessageSigningVerificationDialog
 import qrc_img_resources
 from qtdefines import *
 from qtdialogs import *
+from ui.Wizards import WalletWizard
 
 
 # PyQt4 Imports
@@ -246,8 +247,10 @@ class ArmoryMainWindow(QMainWindow):
       self.ledgerView.setContextMenuPolicy(Qt.CustomContextMenu)
       self.ledgerView.customContextMenuRequested.connect(self.showContextMenuLedger)
 
+      btnAddWalletWiz  = QPushButton("Create Wallet Wizard")
       btnAddWallet  = QPushButton("Create Wallet")
       btnImportWlt  = QPushButton("Import or Restore Wallet")
+      self.connect(btnAddWalletWiz,  SIGNAL('clicked()'), self.startWalletWizard)
       self.connect(btnAddWallet,  SIGNAL('clicked()'), self.createNewWallet)
       self.connect(btnImportWlt,  SIGNAL('clicked()'), self.execImportWallet)
 
@@ -255,6 +258,7 @@ class ArmoryMainWindow(QMainWindow):
       lblAvail = QLabel("<b>Available Wallets:</b>")
       viewHeader = makeLayoutFrame(HORIZONTAL, [lblAvail, \
                                              'Stretch', \
+                                             btnAddWalletWiz, \
                                              btnAddWallet, \
                                              btnImportWlt, ])
       wltFrame = QFrame()
@@ -494,18 +498,18 @@ class ArmoryMainWindow(QMainWindow):
          else:
             DlgExportTxHistory(self,self).exec_()
             
-
       actExportTx    = self.createAction('&Export Transactions', exportTx)
       actSettings    = self.createAction('&Settings', self.openSettings)
       actMinimApp    = self.createAction('&Minimize Armory', self.minimizeArmory)
       actExportLog   = self.createAction('Export &Log File', self.exportLogFile)
       actCloseApp    = self.createAction('&Quit Armory', self.closeForReal)
+      walletWizard = self.createAction('&Wallet Wizard', self.startWalletWizard )
       self.menusList[MENUS.File].addAction(actExportTx)
       self.menusList[MENUS.File].addAction(actSettings)
       self.menusList[MENUS.File].addAction(actMinimApp)
       self.menusList[MENUS.File].addAction(actExportLog)
       self.menusList[MENUS.File].addAction(actCloseApp)
-
+      self.menusList[MENUS.File].addAction(walletWizard)
       
       def chngStd(b): 
          if b: self.setUserMode(USERMODE.Standard)
@@ -3147,6 +3151,11 @@ class ArmoryMainWindow(QMainWindow):
       LOGDEBUG('Minimizing Armory')
       self.hide()
       self.sysTray.show()
+      
+   #############################################################################
+   def startWalletWizard(self):
+      walletWizard = WalletWizard(self)
+      walletWizard.show()
 
    #############################################################################
    def exportLogFile(self):

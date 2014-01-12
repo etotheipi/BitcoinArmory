@@ -4240,6 +4240,7 @@ class DlgWalletSelect(ArmoryDialog):
 
       # Start the layout
       layout = QVBoxLayout()
+      # Expect to set selectedId
       layout.addWidget(SelectWalletFrame(self, main, firstSelect, onlyMyWallets, \
                   wltIDList, atLeast, self.selectWallet))
 
