@@ -31,28 +31,7 @@ from twisted.internet.defer import Deferred
 from twisted.internet.protocol import Protocol, ClientFactory
 
 from armorycolors import Colors, htmlColor, QAPP
-from armoryengine.ArmoryUtils import OS_WINDOWS, RightNow, CLI_OPTIONS, \
-   SettingsFile, LOGINFO, USE_TESTNET, getVersionString, BTCARMORY_VERSION, LOGWARN, \
-   OS_MACOSX, enum, CLI_ARGS, ARMORY_HOME_DIR, LOGERROR, LOGDEBUG, AllowAsync, \
-   execAndWait, OS_LINUX, binary_to_hex, DEFAULT_DATE_FORMAT, hex_to_binary, \
-   unixTimeToFormatStr, getVersionInt, readVersionString, ECDSA_Error, LOGEXCEPT, \
-   BTC_HOME_DIR, BITCOIN_PORT, parseBitcoinURI, checkAddrType, base58_to_binary, \
-   ADDRBYTE, NETWORKS, coin2str, addrStr_to_hash160, WalletExistsError, \
-   CheckHash160, Hash160ToScrAddr, LOGRAWDATA, LOGPPRINT, BIGENDIAN, \
-   hex_switchEndian, ARMORY_LOG_FILE, OS_VARIANT, killProcess, \
-   EstimateCumulativeBlockchainSize, secondsToHumanTime, MINUTE, HOUR, BLKFILE_DIR, \
-   hash160_to_addrStr, touchFile
-from armoryengine.BinaryUnpacker import UINT64
-from armoryengine.BDM import *
-from armoryengine.CoinSelection import sumTxOutList, calcMinSuggestedFees
-from armoryengine.Networking import FakeClientFactory, ArmoryClientFactory, \
-   PyMessage, MSG_INV_TX
-from armoryengine.PyBtcWallet import BLOCKCHAIN_READONLY
-from SDM import extractSignedDataFromVersionsDotTxt, parseLinkList, \
-   satoshiIsAvailable
-from armoryengine.Timer import TimeThisFunction
-from armoryengine.Transaction import PyTx, determineSentToSelfAmt, \
-   getUnspentTxOutsForAddr160List, PyCreateAndSignTx
+from armoryengine.ALL import *
 from armorymodels import *
 from ui.toolsDialogs import MessageSigningVerificationDialog
 import qrc_img_resources
@@ -124,8 +103,8 @@ class ArmoryMainWindow(QMainWindow):
       self.latestVer = {}
 
       #delayed URI parsing dict
-      self.delayedURI = {}
-      self.delayedURI['qLen'] = 0
+      self.delayedURIData = {}
+      self.delayedURIData['qLen'] = 0
 
       #Setup the signal to spawn progress dialogs from the main thread
       self.connect(self, SIGNAL('initTrigger') , self.initTrigger)
@@ -1646,10 +1625,10 @@ class ArmoryMainWindow(QMainWindow):
          return
       elif not TheBDM.getBDMState()=='BlockchainReady':
          #BDM isnt ready yet, saved URI strings in the delayed URIDict to call later through finishLoadBlockChain
-         qLen = self.delayedURIDict['qLen']
-         self.delayedURIDict[qLen] = uriStr
+         qLen = self.delayedURIData['qLen']
+         self.delayedURIData[qLen] = uriStr
          qLen = qLen +1
-         self.delayedURIDict['qLen'] = qLen
+         self.delayedURIData['qLen'] = qLen
          return
 
       uriDict = self.parseUriLink(uriStr, 'click')
@@ -1986,12 +1965,12 @@ class ArmoryMainWindow(QMainWindow):
       self.setDashboardDetails()
       self.walletModel.reset()
 
-      qLen = self.delayedURIDict['qLen']
+      qLen = self.delayedURIData['qLen']
       if qLen > 0:
          #delayed URI parses, feed them back to the uri parser now
          for i in range(0, qLen):
-            uriStr = self.delayedURI[qLen-i-1]
-            self.delayedURI['qLen'] = qLen -i -1
+            uriStr = self.delayedURIData[qLen-i-1]
+            self.delayedURIData['qLen'] = qLen -i -1
             self.uriLinkClicked(uriStr)
 
    #############################################################################
@@ -2268,7 +2247,9 @@ class ArmoryMainWindow(QMainWindow):
       dialog = DlgSetComment(currComment, 'Address', self, self)
       if dialog.exec_():
          newComment = str(dialog.edtComment.text())
-         addr160 = addrStr_to_hash160(addrStr)
+         atype, addr160 = addrStr_to_hash160(addrStr)
+         if atype==P2SHBYTE:
+            LOGWARN('Setting comment for P2SH address: %s' % addrStr)
          wlt.setComment(addr160, newComment)
 
 

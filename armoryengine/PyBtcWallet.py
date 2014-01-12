@@ -10,21 +10,10 @@ import shutil
 
 from CppBlockUtils import SecureBinaryData, KdfRomix, CryptoAES, CryptoECDSA
 import CppBlockUtils as Cpp
-from armoryengine.ArmoryUtils import MAGIC_BYTES, PYBTCWALLET_VERSION, \
-   USE_TESTNET, CLI_OPTIONS, getVersionInt, getVersionString, LOGWARN, LOGERROR, \
-   hash160_to_addrStr, binary_to_hex, BIGENDIAN, UINT32_MAX, Hash160ToScrAddr, \
-   isLikelyDataType, DATATYPE, addrStr_to_hash160, RightNow, hex_to_binary, \
-   ADDRBYTE, binary_to_base58, ARMORY_HOME_DIR, LOGINFO, EncryptionError, \
-   DeriveChaincodeFromRootKey, int_to_binary, WalletAddressError, computeChecksum, \
-   verifyChecksum, UnserializeError, WalletLockError, PassphraseError, CheckHash160, \
-   bitset_to_int, int_to_bitset, readVersionInt, BLOCKCHAINS, NETWORKS, \
-   FileExistsError, KeyDataError, LOGEXCEPT, InterruptTestError, LOGDEBUG, \
-   convertKeyDataToAddress, prettyHex, pprintDiff, touchFile
-from armoryengine.BinaryPacker import BinaryPacker, UINT8, BINARY_CHUNK, UINT16, \
-   UINT32, VAR_INT, UINT64, INT64
-from armoryengine.BinaryUnpacker import BinaryUnpacker
-from armoryengine.Timer import TimeThisFunction
-from armoryengine.ArmoryUtils import AllowAsync
+from armoryengine.ArmoryUtils import *
+from armoryengine.BinaryPacker import *
+from armoryengine.BinaryUnpacker import *
+from armoryengine.Timer import *
 
 
 BLOCKCHAIN_READONLY   = 0
@@ -507,7 +496,7 @@ class PyBtcWallet(object):
          if len(addrData) == 20:
             return self.addrMap.has_key(addrData)
          elif isLikelyDataType(addrData)==DATATYPE.Base58:
-            return self.addrMap.has_key(addrStr_to_hash160(addrData))
+            return self.addrMap.has_key(addrStr_to_hash160(addrData)[1])
          else:
             return False
       elif isinstance(addrData, PyBtcAddress):

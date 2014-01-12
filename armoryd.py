@@ -230,7 +230,11 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       # last 4 bytes must be the correct checksum
       if not checkAddrStrValid(addr58):
          raise InvalidBitcoinAddress
-      addr160 = addrStr_to_hash160(addr58)
+
+      atype, addr160 = addrStr_to_hash160(addr58)
+      if atype==P2SHBYTE:
+         raise P2SHNotSupportedError
+
       pyBtcAddress = self.wallet.getAddrByHash160(addr160)
       if pyBtcAddress == None:
          raise PrivateKeyNotFound
@@ -262,7 +266,10 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       if CLI_OPTIONS.offline:
          raise ValueError('Cannot get received amount when offline')
       # Only gets correct amount for addresses in the wallet, otherwise 0
-      addr160 = addrStr_to_hash160(address)
+      atype, addr160 = addrStr_to_hash160(address)
+      if atype==P2SHBYTE:
+         raise P2SHNotSupportedError
+
       txs = self.wallet.getAddrTxLedger(addr160)
       balance = sum([x.getValue() for x in txs if x.getValue() > 0])
       return AmountToJSON(balance)
@@ -271,7 +278,10 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
    def jsonrpc_sendtoaddress(self, bitcoinaddress, amount):
       if CLI_OPTIONS.offline:
          raise ValueError('Cannot create transactions when offline')
-      addr160 = addrStr_to_hash160(bitcoinaddress)
+      atype, addr160 = addrStr_to_hash160(bitcoinaddress)
+      if atype==P2SHBYTE:
+         raise P2SHNotSupportedError
+
       amtCoin = JSONtoAmount(amount)
       return self.create_unsigned_transaction([[addr160, amtCoin]])
 
@@ -283,7 +293,11 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       recipvalpairs = []
       for a in args:
          r,v = a.split(':')
-         recipvalpairs.append([addrStr_to_hash160(r), JSONtoAmount(v)])
+         #recipvalpairs.append([addrStr_to_hash160(r), JSONtoAmount(v)])
+         atype, addr160 = addrStr_to_hash160(r)
+         if atype==P2SHBYTE:
+            raise P2SHNotSupportedError
+         recipvalpairs.append([addr160, JSONtoAmount(v)])
 
       return self.create_unsigned_transaction(recipvalpairs)
 

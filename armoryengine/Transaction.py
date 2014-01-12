@@ -9,16 +9,9 @@ import logging
 import os
 
 import CppBlockUtils as Cpp
-from armoryengine.ArmoryUtils import int_to_binary, convertKeyDataToAddress, \
-   hex_to_binary, hash160_to_addrStr, EmptyHash, binary_to_int, binary_to_hex, \
-   hash160, UnserializeError, BIGENDIAN, UNINITIALIZED, createSigScript, ONE_BTC, \
-   hash256, LITTLEENDIAN, LOGERROR, binary_to_base58, BlockchainUnavailableError, \
-   InvalidHashError, SignatureError, LOGWARN, LOGDEBUG, MAGIC_BYTES, int_to_hex, \
-   coin2str, LOGPPRINT, NetworkIDError, BLOCKCHAINS, str2coin, hex_to_int, \
-   BadAddressError, CheckHash160, Hash160ToScrAddr, TxdpError, indent
-from armoryengine.BinaryPacker import UINT8, BINARY_CHUNK, UINT16, UINT32, \
-   BinaryPacker, VAR_INT, UINT64
-from armoryengine.BinaryUnpacker import BinaryUnpacker
+from armoryengine.ArmoryUtils import *
+from armoryengine.BinaryPacker import *
+from armoryengine.BinaryUnpacker import *
 
 ################################################################################
 # Identify all the codes/strings that are needed for dealing with scripts

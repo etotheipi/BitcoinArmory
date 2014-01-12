@@ -115,7 +115,9 @@ class MessageSigningWidget(QWidget):
                    self.clearFields)
       
    def getPrivateKeyFromAddrInput(self):
-      addr160 = addrStr_to_hash160(str(self.addressLineEdit.text()))
+      atype, addr160 = addrStr_to_hash160(str(self.addressLineEdit.text()))
+      if atype==P2SHBYTE:
+         LOGWARN('P2SH address requested')
       walletId = self.main.getWalletForAddr160(addr160)
       wallet = self.main.walletMap[walletId]
       if wallet.useEncryption and wallet.isLocked:

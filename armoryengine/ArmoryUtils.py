@@ -100,6 +100,7 @@ class BitcoindError(Exception): pass
 class ShouldNotGetHereError(Exception): pass
 class BadInputError(Exception): pass
 class TxdpError(Exception): pass
+class P2SHNotSupportedError(Exception): pass
 
 # Get the host operating system
 opsys = platform.system()
@@ -1077,7 +1078,7 @@ LITTLEENDIAN  = '<';
 BIGENDIAN     = '>';
 NETWORKENDIAN = '!';
 ONE_BTC       = long(100000000)
-DONATION       = long(1000000)
+DONATION      = long(10000000)
 CENT          = long(1000000)
 UNINITIALIZED = None
 UNKNOWN       = -2
@@ -1434,12 +1435,24 @@ def base58_to_binary(addr):
 
 
 ################################################################################
-def hash160_to_addrStr(binStr, isP2SH=False):
+def hash160_to_addrStr(binStr):
    """
    Converts the 20-byte pubKeyHash to 25-byte binary Bitcoin address
    which includes the network byte (prefix) and 4-byte checksum (suffix)
    """
-   addr21 = (P2SHBYTE if isP2SH else ADDRBYTE) + binStr
+   if not len(binStr) == 20:
+      raise InvalidHashError('Input string is %d bytes' % len(binStr))
+
+   addr21 = ADDRBYTE + binStr
+   addr25 = addr21 + hash256(addr21)[:4]
+   return binary_to_base58(addr25);
+
+################################################################################
+def hash160_to_p2shStr(binStr):
+   if not len(binStr) == 20:
+      raise InvalidHashError('Input string is %d bytes' % len(binStr))
+
+   addr21 = P2SHBYTE + binStr
    addr25 = addr21 + hash256(addr21)[:4]
    return binary_to_base58(addr25);
 
@@ -1448,13 +1461,28 @@ def addrStr_is_p2sh(b58Str):
    binStr = base58_to_binary(b58Str)
    if not len(binStr)==25:
       return False
+
    if not hash256(binStr[:21])[:4] == binStr[-4:]:
       return False
+
    return (binStr[0] == P2SHBYTE)
 
 ################################################################################
+# As of version 0.90.1, this returns the prefix byte with the hash160.  This is
+# because we need to handle/distinguish regular addresses from P2SH.  All code
+# using this method must be updated to expect 2 outputs and check the prefix.
 def addrStr_to_hash160(b58Str):
-   return base58_to_binary(b58Str)[1:-4]
+   binStr = base58_to_binary(b58Str)
+   if not len(binStr) == 25:
+      raise BadAddressError('Address string is %d bytes' % len(binStr))
+
+   if not hash256(binStr[:21])[:4] == binStr[-4:]:
+      raise ChecksumError('Address string has invalid checksum')
+
+   if not binStr[0] in (ADDRBYTE, P2SHBYTE):
+      raise BadAddressError('Unknown addr prefix: %s' % binary_to_hex(binStr[0]))
+
+   return (binStr[0], binStr[1:-4])
 
 
 ###### Typing-friendly Base16 #####

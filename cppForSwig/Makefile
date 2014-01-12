@@ -7,8 +7,8 @@ ifeq ($(DO_EXEC_DISTRO),debian)
 LDFLAGS:=$(shell dpkg-buildflags --get LDFLAGS)
 CPPFLAGS:=$(shell dpkg-buildflags --get CPPFLAGS)
 else
-LDFLAGS:=''
-CPPFLAGS:=''
+LDFLAGS:=
+CPPFLAGS:=
 endif 
 
 #**************************************************************************

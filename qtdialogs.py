@@ -16,20 +16,13 @@ from PyQt4.QtCore import *
 from PyQt4.QtGui import *
 
 from armorycolors import Colors, htmlColor
-from armoryengine.BDM import TheSDM
-from armoryengine.CoinSelection import PySelectCoins, calcMinSuggestedFees, \
-   PyUnspentTxOut
-from armoryengine.PyBtcAddress import PyBtcAddress, calcWalletIDFromRoot
-from armoryengine.PyBtcWallet import BLOCKCHAIN_READONLY, PyBtcWallet
-from armoryengine.Script import convertScriptToOpStrings
-from armoryengine.Transaction import PyTxDistProposal, TXOUT_SCRIPT_COINBASE, \
-   TXOUT_SCRIPT_STANDARD, PyTxIn, TxInScriptExtractAddr160IfAvail, \
-   TxOutScriptExtractAddr160, determineSentToSelfAmt, getFeeForTx
+from armoryengine.ALL import *
 from armorymodels import *
 import qrc_img_resources
 from qtdefines import *
-from ui.Frames import SelectWalletFrame
 
+# This is a circular import, relocated to the end of the file
+#from ui.Frames import SelectWalletFrame
 
 MIN_PASSWD_WIDTH = lambda obj: tightSizeStr(obj, '*' * 16)[0]
 STRETCH = 'Stretch'
@@ -1293,7 +1286,7 @@ class DlgWalletDetails(ArmoryDialog):
          DlgRequestPayment(self, self.main, addr).exec_()
          return
       elif dev and action == actionCopyHash160:
-         s = binary_to_hex(addrStr_to_hash160(addr))
+         s = binary_to_hex(addrStr_to_hash160(addr)[1])
       elif action == actionCopyComment:
          s = self.wltAddrView.model().index(idx.row(), ADDRESSCOLS.Comment).data().toString()
       elif action == actionCopyBalance:
@@ -1312,7 +1305,11 @@ class DlgWalletDetails(ArmoryDialog):
          self.main.updateAddressCommentFromView(self.wltAddrView, self.wlt)
       else:
          addrStr = str(index.model().index(index.row(), ADDRESSCOLS.Address).data().toString())
-         dlg = DlgAddressInfo(self.wlt, addrStr_to_hash160(addrStr), self, self.main)
+         atype, addr160 = addrStr_to_hash160(addrStr)
+         if atype==P2SHBYTE:
+            raise P2SHNotSupportedError
+
+         dlg = DlgAddressInfo(self.wlt, addr160, self, self.main)
          dlg.exec_()
 
 
@@ -1457,7 +1454,10 @@ class DlgWalletDetails(ArmoryDialog):
 
       row = selectedList[0].row()
       addrStr = str(self.wltAddrView.model().index(row, ADDRESSCOLS.Address).data().toString())
-      addr160 = addrStr_to_hash160(addrStr)
+      atype, addr160 = addrStr_to_hash160(addrStr)
+      if atype==P2SHBYTE:
+         LOGWARN('Deleting P2SH address: %s' % addrStr)
+
       if self.wlt.addrMap[addr160].chainIndex == -2:
          dlg = DlgRemoveAddress(self.wlt, addr160, self, self.main)
          dlg.exec_()
@@ -4437,10 +4437,6 @@ class DlgSendBitcoins(ArmoryDialog):
       self.connect(btnEnterURI, SIGNAL("clicked()"), self.clickEnterURI)
       fromFrameList = [self.walletSelector]
       if not USE_TESTNET:
-         def addDonation():
-            self.addOneRecipient(ARMORY_DONATION_ADDR, DONATION, \
-               'Donation to Armory Developers.  Thank you for your generosity!', \
-               label='Armory Donation Address')
          btnDonate = QPushButton("Donate to Armory Developers!")
          ttipDonate = self.main.createToolTipWidget(\
             'Making this software was a lot of work.  You can give back '
@@ -4560,7 +4556,7 @@ class DlgSendBitcoins(ArmoryDialog):
 
       if prefill:
          get = lambda s: prefill[s] if prefill.has_key(s) else ''
-         addr160 = addrStr_to_hash160(get('address'))
+         atype, addr160 = addrStr_to_hash160(get('address'))
          amount = get('amount')
          message = get('message')
          label = get('label')
@@ -8517,7 +8513,7 @@ def readSigBlock(parent, fullPacket):
 
 
    pubkeyhash = hash160(pubkey)
-   if not pubkeyhash == addrStr_to_hash160(addrB58):
+   if not pubkeyhash == addrStr_to_hash160(addrB58)[1]:
       QMessageBox.critical(parent, 'Address Mismatch', \
          '!!! The address included in the signature block does not '
          'match the supplied public key!  This should never happen, '
@@ -9217,7 +9213,7 @@ class DlgAddressBook(ArmoryDialog):
       dialog = DlgSetComment(self.selectedCmmt, 'Address', self, self.main)
       if dialog.exec_():
          newComment = str(dialog.edtComment.text())
-         addr160 = addrStr_to_hash160(self.selectedAddr)
+         addr160 = addrStr_to_hash160(self.selectedAddr)[1]
          wlt.setComment(addr160, newComment)
 
    #############################################################################
@@ -9231,7 +9227,7 @@ class DlgAddressBook(ArmoryDialog):
       dialog = DlgSetComment(self.selectedCmmt, 'Address', self, self.main)
       if dialog.exec_():
          newComment = str(dialog.edtComment.text())
-         addr160 = addrStr_to_hash160(self.selectedAddr)
+         addr160 = addrStr_to_hash160(self.selectedAddr)[1]
          wlt.setComment(addr160, newComment)
 
    #############################################################################
@@ -9267,7 +9263,10 @@ class DlgAddressBook(ArmoryDialog):
          s = self.addrBookTxView.model().index(idx.row(), ADDRBOOKCOLS.Address).data().toString()
       elif dev and action == actionCopyHash160:
          s = str(self.addrBookTxView.model().index(idx.row(), ADDRBOOKCOLS.Address).data().toString())
-         s = binary_to_hex(addrStr_to_hash160(s))
+         atype, addr160 = addrStr_to_hash160(s)
+         if atype==P2SHBYTE:
+            LOGWARN('Copying Hash160 of P2SH address: %s' % s)
+         s = binary_to_hex(addr160)
       elif action == actionCopyComment:
          s = self.addrBookTxView.model().index(idx.row(), ADDRBOOKCOLS.Comment).data().toString()
       else:
@@ -9295,7 +9294,10 @@ class DlgAddressBook(ArmoryDialog):
          s = self.addrBookRxView.model().index(idx.row(), ADDRESSCOLS.Address).data().toString()
       elif dev and action == actionCopyHash160:
          s = str(self.addrBookRxView.model().index(idx.row(), ADDRESSCOLS.Address).data().toString())
-         s = binary_to_hex(addrStr_to_hash160(s))
+         atype, addr160 = addrStr_to_hash160(s)
+         if atype==P2SHBYTE:
+            LOGWARN('Copying Hash160 of P2SH address: %s' % s)
+         s = binary_to_hex(addr160)
       elif action == actionCopyComment:
          s = self.addrBookRxView.model().index(idx.row(), ADDRESSCOLS.Comment).data().toString()
       else:
@@ -10812,7 +10814,10 @@ class DlgCoinControl(ArmoryDialog):
       totalBal = 0
       for dispList in self.dispTable:
          if dispList[0].isChecked():
-            a160 = addrStr_to_hash160(str(dispList[0].text()))
+            atype, a160 = addrStr_to_hash160(str(dispList[0].text()))
+            if atype==P2SHBYTE:
+               raise P2SHNotSupportedError
+
             totalBal += self.wlt.getAddrBalance(a160)
          else:
             self.chkSelectAll.setChecked(False)
@@ -10825,7 +10830,10 @@ class DlgCoinControl(ArmoryDialog):
       self.coinControlList = []
       for dispList in self.dispTable:
          if dispList[0].isChecked():
-            a160 = addrStr_to_hash160(str(dispList[0].text()))
+            atype, a160 = addrStr_to_hash160(str(dispList[0].text()))
+            if atype==P2SHBYTE:
+               raise P2SHNotSupportedError
+
             bal = self.wlt.getAddrBalance(a160)
             self.coinControlList.append([a160, bal])
 
@@ -14028,6 +14036,7 @@ class DlgProgress(ArmoryDialog):
 
 
 
-
+# Put circular imports at the end
+from ui.Frames import SelectWalletFrame
 
 
