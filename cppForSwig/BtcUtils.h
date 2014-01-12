@@ -501,6 +501,71 @@ public:
    }
 
    /////////////////////////////////////////////////////////////////////////////
+   static void getHash512(uint8_t const * strToHash,
+                          uint32_t        nBytes,
+                          BinaryData &    hashOutput)
+   {
+      static CryptoPP::SHA512 sha512_;
+      if(hashOutput.getSize() != 64)
+         hashOutput.resize(64);
+
+      sha512_.CalculateDigest(hashOutput.getPtr(), strToHash, nBytes);
+   }
+
+   /////////////////////////////////////////////////////////////////////////////
+   static void getHash512_NoSafetyCheck(
+                          uint8_t const * strToHash,
+                          uint32_t        nBytes,
+                          BinaryData &    hashOutput)
+   {
+      static CryptoPP::SHA512 sha512_;
+
+      sha512_.CalculateDigest(hashOutput.getPtr(), strToHash, nBytes);
+   }
+
+   /////////////////////////////////////////////////////////////////////////////
+   static BinaryData getHash512(uint8_t const * strToHash,
+                                uint32_t        nBytes)
+   {
+      static CryptoPP::SHA512 sha512_;
+
+      BinaryData hashOutput(64);
+      sha512_.CalculateDigest(hashOutput.getPtr(), strToHash, nBytes);
+      return hashOutput;
+   }
+
+   /////////////////////////////////////////////////////////////////////////////
+   static void getHash512(BinaryData const & strToHash, 
+                          BinaryData &       hashOutput)
+   {
+      getHash512(strToHash.getPtr(), strToHash.getSize(), hashOutput);
+   }
+
+   /////////////////////////////////////////////////////////////////////////////
+   static void getHash512(BinaryDataRef strToHash, 
+                          BinaryData &  hashOutput)
+   {
+      getHash512(strToHash.getPtr(), strToHash.getSize(), hashOutput);
+   }
+
+   /////////////////////////////////////////////////////////////////////////////
+   static BinaryData getHash512(BinaryData const & strToHash)
+   {
+      BinaryData hashOutput(64);
+      getHash512(strToHash.getPtr(), strToHash.getSize(), hashOutput);
+      return hashOutput;
+   }
+
+
+   /////////////////////////////////////////////////////////////////////////////
+   static BinaryData getHash512(BinaryDataRef strToHash)
+   {
+      BinaryData hashOutput(64);
+      getHash512(strToHash.getPtr(), strToHash.getSize(), hashOutput);
+      return hashOutput;
+   }
+
+   /////////////////////////////////////////////////////////////////////////////
    static void getHash160(uint8_t const * strToHash,
                           uint32_t        nBytes,
                           BinaryData &    hashOutput)

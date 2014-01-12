@@ -3,11 +3,9 @@ COMPILER = g++
 COMPILER_OPTS = -c -O2 -pipe -fPIC 
 LDFLAGS:=$(shell dpkg-buildflags --get LDFLAGS)
 CPPFLAGS:=$(shell dpkg-buildflags --get CPPFLAGS)
-
 #**************************************************************************
 LINKER = g++ 
 OBJS = UniversalTimer.o BinaryData.o leveldb_wrapper.o StoredBlockObj.o BtcUtils.o BlockObj.o BlockUtils.o EncryptionUtils.o libcryptopp.a libleveldb.a
-
 # This is a script created by goatpig which detects where the python 
 # dependencies are and writes them to the pypaths.txt file. It defines :
 # 		$(PYTHON_LIB) 
@@ -17,7 +15,10 @@ OBJS = UniversalTimer.o BinaryData.o leveldb_wrapper.o StoredBlockObj.o BtcUtils
 # pypaths.txt to define those three variables, and then comment out 
 # DO_EXEC_WHEREISPY line (to prevent the script from attempting to run
 # and overwriting the manual values).
-DO_EXEC_WHEREISPY := $(shell ./whereispy.sh)
+ifeq ($(wildcard ./pypaths.txt),)
+$(info Setting Python environment variables)
+	DO_EXEC_WHEREISPY := $(shell ./whereispy.sh)
+endif
 
 include ./pypaths.txt
 

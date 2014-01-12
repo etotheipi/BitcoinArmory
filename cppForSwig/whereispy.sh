@@ -2,9 +2,9 @@
 
 whereispy=`whereis "python"`
 
-echo
-echo "looking for python paths..."
-echo
+echo 1>&2
+echo 1>&2 "looking for python paths..."
+echo 1>&2
 
 v27="2.7"
 v26="2.6"
@@ -84,15 +84,16 @@ done
 failed="1"
 if [[ "$apath" ]]; then
 	failed=""
-	echo
-	echo "found matching .a lib and include folder =)"
+	echo 1>&2
+	echo 1>&2 "found matching .a lib and include folder =)"
 	echo "PYTHON_INCLUDE=$hpath
 PYTHON_LIB=$apath
 PYVER=python$pythonver" > ./pypaths.txt
 elif [[ "$sopath" ]]; then
 	echo
 	while [ 1 ]; do	
-		echo -n "Counldn't find static libpython (.a). Found the .so however. Would you like to build with it? [y/n]"
+		# Send stdout to stderr to make text visible from a Makefile.
+		echo -n 1>&2 "Couldn't find static libpython (.a). Found the .so instead. Would you like to build with it? [y/n]"
 		read ans
 		if [ "$ans" == "n" ]; then
 			break;
@@ -111,16 +112,16 @@ echo "PYTHON_INCLUDE=
 PYTHON_LIB=
 PYVER=" > ./pypaths.txt
 
-echo
-echo "Couldn't find matching versions of python and libpython ='("
-echo "At this point the configure file will abort. To make Armory, you need to manually enter your python paths in ./pypaths.txt:"
-echo
-echo "	'PYTHON_INCLUDE' is the path to the include python folder"
-echo "	'PYTHON_LIB' is the path to the matching libpython .a or .so file"
-echo "	'PYVER' is the the python version used (i.e. python2.6 or python2.7)"
-echo
-echo "Once you have filled these, run make from the cppForSwig folder"
-echo "Aborting build"
-echo
+echo 1>&2
+echo 1>&2 "Couldn't find matching versions of python and libpython ='("
+echo 1>&2 "At this point the configure file will abort. To make Armory, you need to manually enter your python paths in ./pypaths.txt:"
+echo 1>&2
+echo 1>&2 "	'PYTHON_INCLUDE' is the path to the include python folder"
+echo 1>&2 "	'PYTHON_LIB' is the path to the matching libpython .a or .so file"
+echo 1>&2 "	'PYVER' is the the python version used (i.e. python2.6 or python2.7)"
+echo 1>&2
+echo 1>&2 "Once you have filled these, run make from the cppForSwig folder"
+echo 1>&2 "Aborting build"
+echo 1>&2
 exit
 fi
