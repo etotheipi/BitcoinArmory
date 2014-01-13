@@ -489,7 +489,7 @@ class PyBtcWalletRecovery(object):
 
       #verify chainIndex 0 was derived from the root address
       firstAddr = rootAddr.extendAddressChain(toRecover.kdfKey)
-      if firstAddr.addrStr20 != addrDict[0].addrStr20:
+      if firstAddr.addrStr20 != addrDict[0][0].addrStr20:
          self.rawError.append('   chainIndex 0 was not derived from the root address')
 
       rootAddr.binPrivKey32_Plain.destroy()

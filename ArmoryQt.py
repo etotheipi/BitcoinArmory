@@ -931,9 +931,17 @@ class ArmoryMainWindow(QMainWindow):
          elif __file__:
              return #running from a .py script, not gonna register URI on Windows
 
-         modulepathname += app_path + '" %1'
-         LOGWARN("running from: %s, key: %s", app_path, modulepathname)
+         #justDoIt = True
+         import ctypes
+         GetModuleFileNameW = ctypes.windll.kernel32.GetModuleFileNameW
+         GetModuleFileNameW.restype = ctypes.c_int
+         app_path = ctypes.create_string_buffer(1024)
+         rtlength = ctypes.c_int()
+         rtlength = GetModuleFileNameW(None, ctypes.byref(app_path), 1024)
+         passstr = str(app_path.raw)
 
+         modulepathname += unicode(passstr[0:(rtlength*2)], encoding='utf16') + u'" %1'
+         #LOGWARN("running from: %s, key: %s", app_path, modulepathname)
 
          rootKey = 'bitcoin\\shell\\open\\command'
          try:
@@ -997,16 +1005,12 @@ class ArmoryMainWindow(QMainWindow):
          if action=='DoIt':
 
             LOGINFO('Registering Armory  for current user')
-            baseDir = app_dir
+            baseDir = os.path.dirname(unicode(passstr[0:(rtlength*2)], encoding='utf16'))
             regKeys = []
             regKeys.append(['Software\\Classes\\bitcoin', '', 'URL:bitcoin Protocol'])
             regKeys.append(['Software\\Classes\\bitcoin', 'URL Protocol', ""])
             regKeys.append(['Software\\Classes\\bitcoin\\shell', '', None])
             regKeys.append(['Software\\Classes\\bitcoin\\shell\\open', '',  None])
-            regKeys.append(['Software\\Classes\\bitcoin\\shell\\open\\command',  '', \
-                           modulepathname])
-            regKeys.append(['Software\\Classes\\bitcoin\\DefaultIcon', '',  \
-                           '"%s\\armory48x48.ico"' % baseDir])
 
             for key,name,val in regKeys:
                dkey = '%s\\%s' % (key,name)
@@ -1015,7 +1019,20 @@ class ArmoryMainWindow(QMainWindow):
                SetValueEx(registryKey, name, 0, REG_SZ, val)
                CloseKey(registryKey)
 
-            LOGWARN('app dir: %s', app_dir)
+            regKeysU = []
+            regKeysU.append(['Software\\Classes\\bitcoin\\shell\\open\\command',  '', \
+                           modulepathname])
+            regKeysU.append(['Software\\Classes\\bitcoin\\DefaultIcon', '',  \
+                          '"%s\\armory48x48.ico"' % baseDir])
+            for key,name,val in regKeysU:
+               dkey = '%s\\%s' % (key,name)
+               LOGINFO('\tWriting key: [HKEY_CURRENT_USER\\] ' + dkey)
+               registryKey = CreateKey(HKEY_CURRENT_USER, key)
+               hKey = ctypes.c_int(registryKey.handle)
+               ctypes.windll.Advapi32.RegSetValueExW(hKey, None, 0, REG_SZ, val, (len(val)+1)*2)
+               #SetValueEx(registryKey, val, 0, REG_SZ, val)
+               CloseKey(registryKey)
+            #LOGWARN('app dir: %s', app_dir)
 
 
 

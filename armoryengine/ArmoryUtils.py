@@ -1036,7 +1036,10 @@ def toUnicode(theStr, theEncoding=DEFAULT_ENCODING):
 
 
 def toPreferred(theStr):
-   return toUnicode(theStr).encode(locale.getpreferredencoding())
+   if OS_WINDOWS:
+      return theStr.encode('utf-8')
+   else:
+      return toUnicode(theStr).encode(locale.getpreferredencoding())
 
 
 def lenBytes(theStr, theEncoding=DEFAULT_ENCODING):

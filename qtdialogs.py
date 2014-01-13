@@ -4911,7 +4911,7 @@ class DlgSendBitcoins(ArmoryDialog):
       while minFee == None or (feeTry < minFee and totalSend + minFee <= bal):
          if minFee:
             feeTry = minFee
-      utxoList = self.getUsableTxOutList()
+         utxoList = self.getUsableTxOutList()
          utxoSelect = PySelectCoins(utxoList, totalSend, feeTry)
          minFee = calcMinSuggestedFees(utxoSelect, totalSend, feeTry)[1]
       if fee < minFee:

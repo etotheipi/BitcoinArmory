@@ -61,7 +61,7 @@
 #include <fstream>
 #include <iostream>
 #include <stdio.h>
-#include "OS_PathTranslate.h"
+#include "OS_TranslatePath.h"
 
 #define FILEANDLINE "(" << __FILE__ << ":" << __LINE__ << ") "
 #define LOGERR    (LoggerObj(LogLvlError ).getLogStream() << FILEANDLINE )
