@@ -919,6 +919,8 @@ class BlockDataManagerThread(threading.Thread):
       # The above op populates the BDM with all relevent tx, but those tx
       # still need to be scanned to collect the wallet ledger and UTXO sets
       self.bdm.scanBlockchainForTx(self.masterCppWallet)
+      self.bdm.saveScrAddrHistories()
+
       
    #############################################################################
    @TimeThisFunction
@@ -967,6 +969,7 @@ class BlockDataManagerThread(threading.Thread):
          self.blkMode = BLOCKCHAINMODE.Rescanning
 
       self.bdm.scanBlockchainForTx(self.masterCppWallet)
+      self.bdm.saveScrAddrHistories()
 
 
    #############################################################################
@@ -1031,6 +1034,11 @@ class BlockDataManagerThread(threading.Thread):
 
       self.blkMode = BLOCKCHAINMODE.LiteScanning
       nblk = self.bdm.readBlkFileUpdate() 
+
+      # On new blocks, re-save the histories
+      if nblk > 0:
+         self.bdm.saveScrAddrHistories()
+
       return nblk
          
 
@@ -1084,6 +1092,9 @@ class BlockDataManagerThread(threading.Thread):
          #self.bdm.scanRegisteredTxForWallet(cppWlt)
          self.bdm.scanBlockchainForTx(cppWlt)
 
+      # At this point all wallets should be 100% up-to-date, save the histories
+      # to be reloaded next time
+      self.bdm.saveScrAddrHistories()
 
 
 
@@ -1393,7 +1404,7 @@ else:
 
    #if CLI_OPTIONS.doDebug or CLI_OPTIONS.netlog or CLI_OPTIONS.mtdebug:
    cppLogFile = os.path.join(ARMORY_HOME_DIR, 'armorycpplog.txt')
-   TheBDM.StartCppLogging(cppLogFile, 3)
+   TheBDM.StartCppLogging(cppLogFile, 4)
    TheBDM.EnableCppLogStdOut()
 
    # 32-bit linux has an issue with max open files.  Rather than modifying
