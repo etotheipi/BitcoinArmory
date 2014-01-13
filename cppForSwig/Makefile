@@ -7,8 +7,8 @@ ifeq ($(DO_EXEC_DISTRO),debian)
 LDFLAGS:=$(shell dpkg-buildflags --get LDFLAGS)
 CPPFLAGS:=$(shell dpkg-buildflags --get CPPFLAGS)
 else
-LDFLAGS:=''
-CPPFLAGS:=''
+LDFLAGS:=
+CPPFLAGS:=
 endif 
 
 #**************************************************************************
@@ -43,7 +43,7 @@ all :
 	make BlockUtilsTest.out
 	
 swig : $(OBJS) CppBlockUtils_wrap.o
-	g++ -shared -fPIC $(LIBRARY_OPTS) $(OBJS) $(STATICPYTHON) $(CPPFLAGS) $(LDFLAGS) CppBlockUtils_wrap.o -o ../_CppBlockUtils.so
+	$(LINKER) -shared -fPIC $(LIBRARY_OPTS) $(OBJS) $(STATICPYTHON) $(CPPFLAGS) $(LDFLAGS) CppBlockUtils_wrap.o -o ../_CppBlockUtils.so
 	pyrcc4 -o ../qrc_img_resources.py ../imgList.xml
 
 BlockUtilsTest.out : $(OBJS) BlockUtilsTest.cpp

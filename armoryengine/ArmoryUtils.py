@@ -31,6 +31,7 @@ import sys
 import threading
 import time
 import traceback
+import shutil
 
 from psutil import Popen
 import psutil
@@ -64,6 +65,7 @@ parser.add_option("--keypool",         dest="keypool",     default=100, type="in
 parser.add_option("--rebuild",         dest="rebuild",     default=False,     action="store_true", help="Rebuild blockchain database and rescan")
 parser.add_option("--rescan",          dest="rescan",      default=False,     action="store_true", help="Rescan existing blockchain DB")
 parser.add_option("--maxfiles",        dest="maxOpenFiles",default=0,         type="int",          help="Set maximum allowed open files for LevelDB databases")
+#parser.add_option("--rebuildwithblocksize", dest="newBlockSize",default='32kB', type="str",          help="Rebuild databases with new blocksize")
 
 # These are arguments passed by running unit-tests that need to be handled
 parser.add_option("--port", dest="port", default=None, type="int", help="Unit Test Argument - Do not consume")
@@ -206,7 +208,7 @@ SETTINGS_PATH   = CLI_OPTIONS.settingsPath
 ARMORY_LOG_FILE = CLI_OPTIONS.logFile
 
 # Version Numbers 
-BTCARMORY_VERSION    = (0, 90,  0, 0)  # (Major, Minor, Bugfix, AutoIncrement) 
+BTCARMORY_VERSION    = (0, 90,  1, 0)  # (Major, Minor, Bugfix, AutoIncrement) 
 PYBTCWALLET_VERSION  = (1, 35,  0, 0)  # (Major, Minor, Bugfix, AutoIncrement)
 
 ARMORY_DONATION_ADDR = '1ArmoryXcfq7TnCSuZa9fQjRYwJ4bkRKfv'
@@ -732,9 +734,10 @@ fileRescan  = os.path.join(ARMORY_HOME_DIR, 'rescan.txt')
 if os.path.exists(fileRebuild):
    LOGINFO('Found %s, will destroy and rebuild databases' % fileRebuild)
    os.remove(fileRebuild)
+
    if os.path.exists(fileRescan):
       os.remove(fileRescan)
-      
+
    CLI_OPTIONS.rebuild = True
 elif os.path.exists(fileRescan):
    LOGINFO('Found %s, will throw out saved history, rescan' % fileRescan)
@@ -742,6 +745,14 @@ elif os.path.exists(fileRescan):
    if os.path.exists(fileRebuild):
       os.remove(fileRebuild)
    CLI_OPTIONS.rescan = True
+
+
+if CLI_OPTIONS.rebuild and os.path.exists(LEVELDB_DIR):
+   LOGINFO('Found existing databases dir; removing before rebuild')
+   shutil.rmtree(LEVELDB_DIR)
+   os.mkdir(LEVELDB_DIR)
+
+   
 
 ################################################################################
 # Load the C++ utilites here
@@ -1077,7 +1088,7 @@ LITTLEENDIAN  = '<';
 BIGENDIAN     = '>';
 NETWORKENDIAN = '!';
 ONE_BTC       = long(100000000)
-DONATION       = long(1000000)
+DONATION       = long(5000000)
 CENT          = long(1000000)
 UNINITIALIZED = None
 UNKNOWN       = -2

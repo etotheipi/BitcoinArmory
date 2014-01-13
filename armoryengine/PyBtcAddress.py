@@ -392,6 +392,92 @@ class PyBtcAddress(object):
       return self
 
 
+   
+   #############################################################################
+   def safeExtendPrivateKey(self, privKey, chn, pubKey=None):
+      # We do this computation twice, in case one is somehow corrupted
+      # (Must be ultra paranoid with computing keys)
+      logMult1 = SecureBinaryData()
+      logMult2 = SecureBinaryData()
+   
+      # Can provide a pre-computed public key to skip that part of the compute
+      if pubKey is None:
+         pubKey = SecureBinaryData(0)
+
+      newPriv1 = CryptoECDSA().ComputeChainedPrivateKey(privKey, chn, pubKey, logMult1)
+      newPriv2 = CryptoECDSA().ComputeChainedPrivateKey(privKey, chn, pubKey, logMult2)
+
+
+      if newPriv1==newPriv2:
+         newPriv2.destroy()
+         LOGINFO('Computed chained key with multiplier: ' + logMult1.toHexStr())
+         return newPriv1
+      else:
+         LOGCRIT('Chaining failed!  Computed keys are different!')
+         LOGCRIT('Recomputing chained key 3 times; bail if they do not match')
+         newPriv1.destroy()
+         newPriv2.destroy()
+         logMult3 = SecureBinaryData()
+         newPriv1 = CryptoECDSA().ComputeChainedPrivateKey(privKey, chn, pubKey, logMult1)
+         newPriv2 = CryptoECDSA().ComputeChainedPrivateKey(privKey, chn, pubKey, logMult2)
+         newPriv3 = CryptoECDSA().ComputeChainedPrivateKey(privKey, chn, pubKey, logMult3)
+         LOGCRIT('   Multiplier1: ' + logMult1.toHexStr())
+         LOGCRIT('   Multiplier2: ' + logMult2.toHexStr())
+         LOGCRIT('   Multiplier3: ' + logMult3.toHexStr())
+
+         if newPriv1==newPriv2 and newPriv1==newPriv3:
+            newPriv2.destroy()
+            newPriv3.destroy()
+            return newPriv1
+         else:
+            LOGCRIT('Chaining failed again!  Returning empty private key.')
+            newPriv1.destroy()
+            newPriv2.destroy()
+            newPriv3.destroy()
+            # This should crash just about any process that would try to use it
+            # without checking for empty private key. 
+            return SecureBinaryData(0)
+      
+
+   #############################################################################
+   def safeExtendPublicKey(self, pubKey, chn):
+      # We do this computation twice, in case one is somehow corrupted
+      # (Must be ultra paranoid with computing keys)
+      logMult1 = SecureBinaryData()
+      logMult2 = SecureBinaryData()
+      newPub1 = CryptoECDSA().ComputeChainedPublicKey(pubKey, chn, logMult1)
+      newPub2 = CryptoECDSA().ComputeChainedPublicKey(pubKey, chn, logMult2)
+
+      if newPub1==newPub2:
+         newPub2.destroy()
+         LOGINFO('Computed chained key with multiplier: ' + logMult1.toHexStr())
+         return newPub1
+      else:
+         LOGCRIT('Chaining failed!  Computed keys are different!')
+         LOGCRIT('Recomputing chained key 3 times; bail if they do not match')
+         newPub1.destroy()
+         newPub2.destroy()
+         logMult3 = SecureBinaryData()
+         newPub1 = CryptoECDSA().ComputeChainedPublicKey(pubKey, chn, logMult1)
+         newPub2 = CryptoECDSA().ComputeChainedPublicKey(pubKey, chn, logMult2)
+         newPub3 = CryptoECDSA().ComputeChainedPublicKey(pubKey, chn, logMult3)
+         LOGCRIT('   Multiplier1: ' + logMult1.toHexStr())
+         LOGCRIT('   Multiplier2: ' + logMult2.toHexStr())
+         LOGCRIT('   Multiplier3: ' + logMult3.toHexStr())
+
+         if newPub1==newPub2 and newPub1==newPub3:
+            newPub2.destroy()
+            newPub3.destroy()
+            return newPub1
+         else:
+            LOGCRIT('Chaining failed again!  Returning empty public key.')
+            newPub1.destroy()
+            newPub2.destroy()
+            newPub3.destroy()
+            # This should crash just about any process that would try to use it
+            # without checking for empty public key. 
+            return SecureBinaryData(0)
+
    #############################################################################
    def lock(self, secureKdfOutput=None, generateIVIfNecessary=False):
       # We don't want to destroy the private key if it's not supposed to be
@@ -461,7 +547,11 @@ class PyBtcAddress(object):
                                      self.createPrivKeyNextUnlock_IVandKey[0])
 
          for i in range(self.createPrivKeyNextUnlock_ChainDepth):
-            self.binPrivKey32_Plain = CryptoECDSA().ComputeChainedPrivateKey( \
+            #self.binPrivKey32_Plain = CryptoECDSA().ComputeChainedPrivateKey( \
+                                         #self.binPrivKey32_Plain, \
+                                         #self.chaincode)
+
+            self.binPrivKey32_Plain = self.safeExtendPrivateKey( \
                                          self.binPrivKey32_Plain, \
                                          self.chaincode)
 
@@ -682,14 +772,22 @@ class PyBtcAddress(object):
             newIV = SecureBinaryData().GenerateRandom(16)
 
          if self.hasPubKey():
-            newPriv = CryptoECDSA().ComputeChainedPrivateKey( \
+            #newPriv = CryptoECDSA().ComputeChainedPrivateKey( \
+                                    #self.binPrivKey32_Plain, \
+                                    #self.chaincode, \
+                                    #self.binPublicKey65)
+            newPriv = self.safeExtendPrivateKey( \
                                     self.binPrivKey32_Plain, \
                                     self.chaincode, \
                                     self.binPublicKey65)
          else:
-            newPriv = CryptoECDSA().ComputeChainedPrivateKey( \
+            #newPriv = CryptoECDSA().ComputeChainedPrivateKey( \
+                                    #self.binPrivKey32_Plain, \
+                                    #self.chaincode)
+            newPriv = self.safeExtendPrivateKey( \
                                     self.binPrivKey32_Plain, \
                                     self.chaincode)
+
          newPub  = CryptoECDSA().ComputePublicKey(newPriv)
          newAddr160 = newPub.getHash160()
          newAddr.createFromPlainKeyData(newPriv, newAddr160, \
@@ -712,8 +810,12 @@ class PyBtcAddress(object):
          # We are extending the address based solely on its public key
          if not self.hasPubKey():
             raise KeyDataError, 'No public key available to extend chain'
-         newAddr.binPublicKey65 = CryptoECDSA().ComputeChainedPublicKey( \
+
+         #newAddr.binPublicKey65 = CryptoECDSA().ComputeChainedPublicKey( \
+                                    #self.binPublicKey65, self.chaincode)
+         newAddr.binPublicKey65 = self.safeExtendPublicKey( \
                                     self.binPublicKey65, self.chaincode)
+
          newAddr.addrStr20 = newAddr.binPublicKey65.getHash160()
          newAddr.useEncryption = self.useEncryption
          newAddr.isInitialized = True
@@ -905,7 +1007,7 @@ class PyBtcAddress(object):
          TheBDM.scanBlockchainForTx(cppWlt, wait=True)
 
          utxoList = cppWlt.getUnspentTxOutList()
-         bal = cppWlt.getSpendableBalance(-1)
+         bal = cppWlt.getSpendableBalance()
          return (bal, utxoList)
       else:
          return (-1, [])
@@ -1183,6 +1285,43 @@ class PyBtcAddress(object):
       if self.createPrivKeyNextUnlock:
          print indent + '           ***** :', 'PrivKeys available on next unlock'
 
+   def toString(self, withPrivKey=True, indent=''):
+      def pp(x, nchar=1000):
+         if x.getSize()==0:
+            return '--'*32
+         else:
+            return x.toHexStr()[:nchar]
+      result = ''.join([indent + 'BTC Address      :', self.getAddrStr()])
+      result = ''.join([result, '\n', indent + 'Hash160[BE]      :', binary_to_hex(self.getAddr160())])
+      result = ''.join([result, '\n',  indent + 'Wallet Location  :', str(self.walletByteLoc)])
+      result = ''.join([result, '\n',  indent + 'Chained Address  :', str(self.chainIndex >= -1)])
+      result = ''.join([result, '\n',  indent + 'Have (priv,pub)  : (%s,%s)' % \
+                     (str(self.hasPrivKey()), str(self.hasPubKey()))])
+      result = ''.join([result, '\n',   indent + 'First/Last Time  : (%s,%s)' % \
+                     (str(self.timeRange[0]), str(self.timeRange[1]))])
+      result = ''.join([result, '\n',   indent + 'First/Last Block : (%s,%s)' % \
+                     (str(self.blkRange[0]), str(self.blkRange[1]))])
+      if self.hasPubKey():
+         result = ''.join([result, '\n',   indent + 'PubKeyX(BE)      :', \
+                        binary_to_hex(self.binPublicKey65.toBinStr()[1:33 ])])
+         result = ''.join([result, '\n',   indent + 'PubKeyY(BE)      :', \
+                        binary_to_hex(self.binPublicKey65.toBinStr()[  33:])])
+      result = ''.join([result, '\n',   indent + 'Encryption parameters:'])
+      result = ''.join([result, '\n',   indent + '   UseEncryption :', str(self.useEncryption)])
+      result = ''.join([result, '\n',   indent + '   IsLocked      :', str(self.isLocked)])
+      result = ''.join([result, '\n',   indent + '   KeyChanged    :', str(self.keyChanged)])
+      result = ''.join([result, '\n',   indent + '   ChainIndex    :', str(self.chainIndex)])
+      result = ''.join([result, '\n',   indent + '   Chaincode     :', pp(self.chaincode)])
+      result = ''.join([result, '\n',   indent + '   InitVector    :', pp(self.binInitVect16)])
+      if withPrivKey and self.hasPrivKey():
+         result = ''.join([result, '\n',   indent + 'PrivKeyPlain(BE) :', pp(self.binPrivKey32_Plain)])
+         result = ''.join([result, '\n',   indent + 'PrivKeyCiphr(BE) :', pp(self.binPrivKey32_Encr)])
+      else:
+         result = ''.join([result, '\n',   indent + 'PrivKeyPlain(BE) :', pp(SecureBinaryData())])
+         result = ''.join([result, '\n',   indent + 'PrivKeyCiphr(BE) :', pp(SecureBinaryData())])
+      if self.createPrivKeyNextUnlock:
+         result = ''.join([result, '\n',   indent + '           ***** :', 'PrivKeys available on next unlock'])
+      return result
 
 # Put the import at the end to avoid circular reference problem
 from armoryengine.BDM import *
