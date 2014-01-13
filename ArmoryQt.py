@@ -87,8 +87,6 @@ class ArmoryMainWindow(QMainWindow):
       self.newZeroConfSinceLastUpdate = []
       self.lastBDMState = ['Uninitialized', None]
       self.lastSDMState = 'Uninitialized'
-      self.detectNotSyncQ = [0,0,0,0,0]
-      self.noSyncWarnYet = True
       self.doHardReset = False
       self.doShutdown = False
       self.downloadDict = {}
@@ -101,6 +99,8 @@ class ArmoryMainWindow(QMainWindow):
       self.satoshiExeSearchPath = None
       self.initSyncCircBuff = []
       self.latestVer = {}
+      self.firstVersionCheck = True
+      self.lastVersionsTxtHash = ''
 
       #delayed URI parsing dict
       self.delayedURIData = {}
@@ -1195,7 +1195,8 @@ class ArmoryMainWindow(QMainWindow):
    def checkForLatestVersion(self, wasRequested=False):
       LOGDEBUG('checkForLatestVersion')
       # Download latest versions.txt file, accumulate changelog
-      if CLI_OPTIONS.skipVerCheck:
+      skipChk = self.getSettingOrSetDefault('SkipVersionCheck', False)
+      if CLI_OPTIONS.skipVerCheck or skipChk:
          return
 
       optChkVer = self.getSettingOrSetDefault('CheckVersion', 'Always')
@@ -1215,8 +1216,11 @@ class ArmoryMainWindow(QMainWindow):
       try:
          import urllib2
          import socket
+         downloadURL = getVersionURL(self.firstVersionCheck)
+         LOGINFO('Checking version URL: %s' % downloadURL)
+         self.firstVersionCheck = False
          socket.setdefaulttimeout(CLI_OPTIONS.nettimeout)
-         versionLines = urllib2.urlopen(HTTP_VERSION_FILE, timeout=CLI_OPTIONS.nettimeout)
+         versionLines = urllib2.urlopen(downloadURL, timeout=CLI_OPTIONS.nettimeout)
          versionLines = versionLines.readlines()
       except ImportError:
          LOGERROR('No module urllib2 -- cannot get latest version')
@@ -1228,7 +1232,7 @@ class ArmoryMainWindow(QMainWindow):
               'Please check www.bitcoinarmory.com for the latest version '
               'information.', QMessageBox.Ok)
          LOGERROR('Could not access latest Armory version information')
-         LOGERROR('Tried: %s', HTTP_VERSION_FILE)
+         LOGERROR('Tried: %s', downloadURL)
          return
 
 
@@ -4687,28 +4691,8 @@ class ArmoryMainWindow(QMainWindow):
             newBlocks = TheBDM.readBlkFileUpdate(wait=True)
             self.currBlockNum = TheBDM.getTopBlockHeight()
 
-            #####
-            # If we are getting lots of blocks, very rapidly, issue a warning
-            # We look at a rolling sum of the last 5 heartbeat updates (5s)
             if not newBlocks:
                newBlocks = 0
-            self.detectNotSyncQ.insert(0, newBlocks)
-            self.detectNotSyncQ.pop()
-            blksInLast5sec = sum(self.detectNotSyncQ)
-            if( blksInLast5sec>20 ):
-               LOGERROR('Detected Bitcoin-Qt/bitcoind not synchronized')
-               LOGERROR('New blocks added in last 5 sec: %d', blksInLast5sec)
-               if self.noSyncWarnYet:
-                  self.noSyncWarnYet = False
-                  QMessageBox.warning(self,'Bitcoin-Qt is not synchronized', \
-                     'Armory has detected that Bitcoin-Qt is not synchronized '
-                     'with the bitcoin network yet, and Armory <b>may</b> not '
-                     'work properly.  If you experience any unusual behavior, it is '
-                     'recommended that you close Armory and only restart it '
-                     'when you see the green checkmark in the bottom-right '
-                     'corner of the Bitcoin-Qt window.', QMessageBox.Ok)
-               return
-
 
 
             # If we have new zero-conf transactions, scan them and update ledger

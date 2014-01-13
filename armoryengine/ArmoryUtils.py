@@ -207,7 +207,7 @@ SETTINGS_PATH   = CLI_OPTIONS.settingsPath
 ARMORY_LOG_FILE = CLI_OPTIONS.logFile
 
 # Version Numbers 
-BTCARMORY_VERSION    = (0, 90,  0, 0)  # (Major, Minor, Bugfix, AutoIncrement) 
+BTCARMORY_VERSION    = (0, 90,  2, 0)  # (Major, Minor, Bugfix, AutoIncrement) 
 PYBTCWALLET_VERSION  = (1, 35,  0, 0)  # (Major, Minor, Bugfix, AutoIncrement)
 
 ARMORY_DONATION_ADDR = '1ArmoryXcfq7TnCSuZa9fQjRYwJ4bkRKfv'
@@ -237,39 +237,7 @@ NETWORKS = {}
 NETWORKS['\x00'] = "Main Network"
 NETWORKS['\x6f'] = "Test Network"
 NETWORKS['\x34'] = "Namecoin Network"
-# Figure out the default directories for Satoshi client, and BicoinArmory
-OS_NAME          = ''
-OS_VARIANT       = ''
-USER_HOME_DIR    = ''
-BTC_HOME_DIR     = ''
-ARMORY_HOME_DIR  = ''
-LEVELDB_DIR      = ''
-SUBDIR = 'testnet3' if USE_TESTNET else ''
-if OS_WINDOWS:
-   OS_NAME         = 'Windows'
-   OS_VARIANT      = platform.win32_ver()
-   USER_HOME_DIR   = os.getenv('APPDATA')
-   BTC_HOME_DIR    = os.path.join(USER_HOME_DIR, 'Bitcoin', SUBDIR)
-   ARMORY_HOME_DIR = os.path.join(USER_HOME_DIR, 'Armory', SUBDIR)
-   BLKFILE_DIR     = os.path.join(BTC_HOME_DIR, 'blocks')
-elif OS_LINUX:
-   OS_NAME         = 'Linux'
-   OS_VARIANT      = platform.linux_distribution()
-   USER_HOME_DIR   = os.getenv('HOME')
-   BTC_HOME_DIR    = os.path.join(USER_HOME_DIR, '.bitcoin', SUBDIR)
-   ARMORY_HOME_DIR = os.path.join(USER_HOME_DIR, '.armory', SUBDIR)
-   BLKFILE_DIR     = os.path.join(BTC_HOME_DIR, 'blocks')
-elif OS_MACOSX:
-   platform.mac_ver()
-   OS_NAME         = 'MacOSX'
-   OS_VARIANT      = platform.mac_ver()
-   USER_HOME_DIR   = os.path.expanduser('~/Library/Application Support')
-   BTC_HOME_DIR    = os.path.join(USER_HOME_DIR, 'Bitcoin', SUBDIR)
-   ARMORY_HOME_DIR = os.path.join(USER_HOME_DIR, 'Armory', SUBDIR)
-   BLKFILE_DIR     = os.path.join(BTC_HOME_DIR, 'blocks')
-else:
-   print '***Unknown operating system!'
-   print '***Cannot determine default directory locations'
+
 
 # Version Handling Code
 def getVersionString(vquad, numPieces=4):

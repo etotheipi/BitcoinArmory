@@ -9433,11 +9433,16 @@ class DlgSettings(ArmoryDialog):
       # bitcoind-management settings
       ##########################################################################
 
-      self.chkSkipOnlineCheck = QCheckBox('Skip online check on startup (assume '
-         'internet is available, do not check)')
-      settingSkipCheck = self.main.getSettingOrSetDefault('SkipOnlineCheck', False)
-      self.chkSkipOnlineCheck.setChecked(settingSkipCheck)
+      # We check for internet connection on each startup.  
+      self.chkSkipOnlineCheck = QCheckBox('Skip online check on startup '
+         '(assume internet is available, do not check)')
+      skipOnlineChk = self.main.getSettingOrSetDefault('SkipOnlineCheck', False)
+      self.chkSkipOnlineCheck.setChecked(skipOnlineChk)
 
+      self.chkSkipVersionCheck = QCheckBox('Skip periodic version queries '
+         'to Armory server')
+      skipVerChk = self.main.getSettingOrSetDefault('SkipVersionCheck', False)
+      self.chkSkipVersionCheck.setChecked(skipVerChk)
 
       lblDefaultUriTitle = QRichLabel('<b>Set Armory as default URL handler</b>')
       lblDefaultURI = QRichLabel(
@@ -9653,6 +9658,9 @@ class DlgSettings(ArmoryDialog):
       frmLayout.addWidget(self.chkSkipOnlineCheck, i, 0, 1, 3)
 
       i += 1
+      frmLayout.addWidget(self.chkSkipVersionCheck, i, 0, 1, 3)
+
+      i += 1
       frmLayout.addWidget(HLINE(), i, 0, 1, 3)
 
       i += 1
@@ -9805,6 +9813,7 @@ class DlgSettings(ArmoryDialog):
 
 
       self.main.writeSetting('SkipOnlineCheck', self.chkSkipOnlineCheck.isChecked())
+      self.main.writeSetting('SkipVersionCheck', self.chkSkipVersionCheck.isChecked())
 
 
 

@@ -1090,7 +1090,7 @@ class BlockDataManagerThread(threading.Thread):
    #############################################################################
    def __shutdown(self):
       if not self.blkMode == BLOCKCHAINMODE.Rescanning:
-         self.bdm.shutdownSaveScrAddrHistories()
+         self.bdm.saveScrAddrHistories()
 
       self.__reset()
       self.blkMode = BLOCKCHAINMODE.Offline
