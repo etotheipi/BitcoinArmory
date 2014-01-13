@@ -9,13 +9,16 @@
 #
 # Licence: Public domain or CC0
 
-import time
+import base64
 import hashlib
 import random
-import base64
+import time
+
 import CppBlockUtils
-import armoryengine
-from armoryengine import *
+from armoryengine.ArmoryUtils import getVersionString, BTCARMORY_VERSION, \
+   ChecksumError
+
+
 FTVerbose=False
 
 version='0.1.0'

@@ -5,12 +5,16 @@
 # See LICENSE or http://www.gnu.org/licenses/agpl.html                         #
 #                                                                              #
 ################################################################################
-from utilities.ArmoryUtils import *
-from armoryengine import *
-from PyQt4.QtCore import *
-from PyQt4.QtGui  import *
-from armorycolors import Colors, htmlColor
+import struct
 from tempfile import mkstemp
+
+from PyQt4.QtCore import *
+from PyQt4.QtGui import *
+
+from armorycolors import Colors, htmlColor
+from armoryengine.ArmoryUtils import *
+from armoryengine.BinaryUnpacker import *
+
 
 SETTINGS_PATH   = os.path.join(ARMORY_HOME_DIR, 'ArmorySettings.txt')
 USERMODE        = enum('Standard', 'Advanced', 'Expert')
@@ -28,7 +32,8 @@ STYLE_RAISED = QFrame.Box | QFrame.Raised
 STYLE_PLAIN  = QFrame.Box | QFrame.Plain
 STYLE_STYLED = QFrame.StyledPanel | QFrame.Raised
 STYLE_NONE   = QFrame.NoFrame
-
+VERTICAL = 'vertical'
+HORIZONTAL = 'horizontal'
 CHANGE_ADDR_DESCR_STRING = '[[ Change received ]]'
 HTTP_VERSION_FILE = 'http://bitcoinarmory.com/versions.txt'
 
@@ -248,6 +253,8 @@ class QRichLabel(QLabel):
       self.setWordWrap(doWrap)
       self.setAlignment(hAlign | vAlign)
       self.setText(txt, **kwargs)
+      # Fixes a problem with QLabel resizing based on content
+      self.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.MinimumExpanding)
 
    def setText(self, text, color=None, size=None, bold=None, italic=None):
       text = unicode(text)
@@ -383,22 +390,6 @@ class QLabelButton(QLabel):
       ssStr = "QLabel { background-color : %s }" % htmlColor('LBtnNormalBG')
       self.setStyleSheet(ssStr)
 
-
-################################################################################
-def createToolTipObject(tiptext, iconSz=2):
-   """
-   The <u></u> is to signal to Qt that it should be interpretted as HTML/Rich 
-   text even if no HTML tags are used.  This appears to be necessary for Qt 
-   to wrap the tooltip text
-   """
-   fgColor = htmlColor('ToolTipQ')
-   lbl = QLabel('<font size=%d color=%s>(?)</font>' % (iconSz, fgColor))
-   lbl.setToolTip('<u></u>' + tiptext)
-   lbl.setMaximumWidth(relaxedSizeStr(lbl, '(?)')[0])
-   lbl.connect(lbl, SIGNAL('clicked()'), lambda: printlbl)
-   return lbl
-
-   
 ################################################################################
 def MsgBoxCustom(wtype, title, msg, wCancel=False, yesStr=None, noStr=None): 
    """
@@ -565,7 +556,7 @@ def makeLayoutFrame(dirStr, widgetList, style=QFrame.NoFrame):
    frm.setFrameStyle(style)
 
    frmLayout = QHBoxLayout()
-   if dirStr.lower().startswith('vert'):
+   if dirStr.lower().startswith(VERTICAL):
       frmLayout = QVBoxLayout()
       
    for w in widgetList:
@@ -576,12 +567,12 @@ def makeLayoutFrame(dirStr, widgetList, style=QFrame.NoFrame):
          first = w.index('(')+1 
          last  = w.index(')')
          wid,hgt = int(w[first:last]), 1
-         if dirStr.lower().startswith('vert'):
+         if dirStr.lower().startswith(VERTICAL):
             wid,hgt = hgt,wid
          frmLayout.addItem( QSpacerItem(wid,hgt) )
       elif isinstance(w,str) and w.lower().startswith('line'):
          frmLine = QFrame()
-         if dirStr.lower().startswith('vert'):
+         if dirStr.lower().startswith(VERTICAL):
             frmLine.setFrameStyle(QFrame.HLine | QFrame.Plain)
          else:
             frmLine.setFrameStyle(QFrame.VLine | QFrame.Plain)
@@ -602,13 +593,13 @@ def makeLayoutFrame(dirStr, widgetList, style=QFrame.NoFrame):
    
 
 def addFrame(widget, style=STYLE_SUNKEN):
-   return makeLayoutFrame('Horiz', [widget], style)
+   return makeLayoutFrame(HORIZONTAL, [widget], style)
    
 def makeVertFrame(widgetList, style=QFrame.NoFrame):
-   return makeLayoutFrame('Vert', widgetList, style)
+   return makeLayoutFrame(VERTICAL, widgetList, style)
 
 def makeHorizFrame(widgetList, style=QFrame.NoFrame):
-   return makeLayoutFrame('Horiz', widgetList, style)
+   return makeLayoutFrame(HORIZONTAL, widgetList, style)
 
 
 def QImageLabel(imgfn, size=None, stretch='NoStretch'):

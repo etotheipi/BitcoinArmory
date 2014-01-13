@@ -6276,6 +6276,288 @@ TEST_F(BlockUtilsBare, Load5Blocks_ScanWhatIsNeeded)
    EXPECT_EQ(scrobj->getFullBalance(),100*COIN);
 }
 
+
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+class FullScanTest : public ::testing::Test
+{
+protected:
+
+   /////////////////////////////////////////////////////////////////////////////
+   virtual void SetUp(void) 
+   {
+      LOGDISABLESTDOUT();
+      //iface_ = LevelDBWrapper::GetInterfacePtr();
+      magic_ = READHEX(MAINNET_MAGIC_BYTES);
+      ghash_ = READHEX(MAINNET_GENESIS_HASH_HEX);
+      gentx_ = READHEX(MAINNET_GENESIS_TX_HASH_HEX);
+      zeros_ = READHEX("00000000");
+      //DBUtils.setArmoryDbType(ARMORY_DB_BARE);
+      //DBUtils.setDbPruneType(DB_PRUNE_NONE);
+
+      blkdatadir_ = string("./databases/leveldb_blkdata");
+   }
+
+   /////
+   virtual void TearDown(void)
+   {
+      // This seem to be the best way to remove a dir tree in C++ (in Linux)
+      //iface_->closeDatabases();
+      iface_ = NULL;
+
+   }
+
+   leveldb::Slice binaryDataToSlice(BinaryData const & bd) 
+         {return leveldb::Slice((char*)bd.getPtr(), bd.getSize());}
+   leveldb::Slice binaryDataRefToSlice(BinaryDataRef const & bdr)
+         {return leveldb::Slice((char*)bdr.getPtr(), bdr.getSize());}
+
+   BinaryRefReader sliceToRefReader(leveldb::Slice slice)
+         { return BinaryRefReader( (uint8_t*)(slice.data()), slice.size()); }
+
+   InterfaceToLDB* iface_;
+   BinaryData magic_;
+   BinaryData ghash_;
+   BinaryData gentx_;
+   BinaryData zeros_;
+   string blkdatadir_;
+   BinaryRefReader currKey_;
+   BinaryRefReader currVal_;
+
+};
+
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(FullScanTest, DISABLED_TestSuperRaw)
+{
+
+
+   leveldb::Options opts;
+   opts.compression = leveldb::kNoCompression;
+   //opts.block_cache = leveldb::NewLRUCache(2048 * 1024 * 1024);   
+   leveldb::DB* dbptr;
+   leveldb::Status stat = leveldb::DB::Open(opts, blkdatadir_, &dbptr);
+   
+   if(!stat.ok())
+      cout << "Error opening DB: " << stat.ToString() << endl;
+
+   leveldb::ReadOptions readopts;
+   readopts.fill_cache = false;
+   //cout << "fill_cache = true (bad)" << endl;
+   cout << "fill_cache = false (good)" << endl;
+   leveldb::Iterator* iter = dbptr->NewIterator(readopts);
+
+
+   BinaryData firstKeyBD = DBUtils.getBlkDataKey(0,0);
+   leveldb::Slice firstKey = binaryDataToSlice(firstKeyBD);
+   iter->Seek(firstKey);
+
+   uint32_t hgt;
+   uint8_t  dup;
+   uint16_t txi;
+   uint16_t txo;
+   BLKDATA_TYPE bdtype;
+   BinaryData pref = WRITE_UINT8_LE((uint8_t)DB_PREFIX_TXDATA);
+
+   // This scraddr should have 8 tx
+   BinaryData scraddr = WRITE_UINT8_LE((uint8_t)TXOUT_SCRIPT_STDHASH160);
+   scraddr = scraddr + READHEX("33da2736b16558c9569cc226d4b349ce1aacf649");
+      
+
+   vector<OutPoint> opList;
+
+   BinaryData currTxHash(32);
+   while(iter->Valid())
+   {
+      currKey_.setNewData((uint8_t*)iter->key().data(), iter->key().size());
+      currVal_.setNewData((uint8_t*)iter->value().data(), iter->value().size());
+
+      if(!currKey_.getRawRef().startsWith(pref))
+         break;
+
+      bdtype = DBUtils.readBlkDataKey(currKey_, hgt, dup, txi, txo);      
+
+      if(bdtype==BLKDATA_HEADER)
+      {
+         // Need to do a little reading&processing to make sure it is actually pulling dat afrom disk
+         currVal_.advance(4);
+         BinaryData hhash = currVal_.get_BinaryData(80);
+         if(hhash.startsWith(zeros_))
+            cout << "Starts with four zeros!" << endl;
+      }
+      else if(bdtype==BLKDATA_TX)
+      {
+         currVal_.advance(2);
+         currTxHash = currVal_.get_BinaryData(32);
+      }
+      else if(bdtype==BLKDATA_TXOUT)
+      {
+         currVal_.advance(2);
+
+         TxOut txout;
+         txout.unserialize(currVal_);
+         if(txout.getScrAddressStr() == scraddr)
+         {
+            cout << "Found a txout!" << endl;
+            opList.push_back(OutPoint(currTxHash, txo));
+         }
+      }
+      else if(bdtype==NOT_BLKDATA)
+         break;
+
+      iter->Next();
+   }
+
+   for(uint32_t o=0; o<opList.size(); o++)
+   {
+      cout << o << ": " << opList[o].getTxHash().toHexStr().c_str()
+                << ":" << opList[o].getTxOutIndex() << endl;
+   }
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(FullScanTest, DISABLED_CreateSuperRawDB)
+{
+   string dbdir("./rawdbdir");
+   
+   leveldb::Options opts;
+   opts.compression = leveldb::kNoCompression;
+   opts.create_if_missing = true;
+   opts.block_size = 8*1024*1024;
+   leveldb::DB* dbptr;
+   leveldb::Status stat = leveldb::DB::Open(opts, dbdir, &dbptr);
+   
+   if(!stat.ok())
+      cout << "Error opening DB: " << stat.ToString() << endl;
+
+   //leveldb::Iterator* iter = dbptr->NewIterator(leveldb::ReadOptions());
+   uint32_t i=0;
+   uint32_t nblk=0;
+   uint64_t lastWrite=0;
+   uint64_t writeBytes=0;
+   string fname = BtcUtils::getBlkFilename("/home/alan/.bitcoin/blocks", i);
+   
+   BinaryData magic(4), nbytes(4);
+   BinaryData expectedMagicBytes = READHEX(MAINNET_MAGIC_BYTES);
+
+   leveldb::WriteBatch* writebatch = new leveldb::WriteBatch;
+   
+   while(BtcUtils::GetFileSize(fname) != FILE_DOES_NOT_EXIST)
+   {
+      cout << "Opening: " << fname.c_str() << "(" << BtcUtils::GetFileSize(fname) << ")" << endl;
+      ifstream is(fname.c_str(), ios::in | ios::binary);
+
+      while(!is.eof())
+      {
+         // Magic bytes
+         is.read((char*)magic.getPtr(), 4);
+         if(magic != expectedMagicBytes)
+            break;         
+
+         // Number of bytes in block
+         is.read((char*)nbytes.getPtr(), 4);
+         uint32_t blkBytes = READ_UINT32_LE(nbytes.getPtr());
+
+         // Reading
+         cout << nblk << " Reading " << blkBytes << " bytes in block; ";
+         BinaryReader br(blkBytes);
+         is.read((char*)br.exposeDataPtr(), blkBytes);
+
+         br.advance(80);
+         uint32_t numTx = (uint32_t)br.get_var_int();
+         cout << "Number of tx in block: " << numTx << endl;
+         for(uint32_t tx=0; tx<numTx; tx++)
+         {
+            uint32_t txSize = BtcUtils::TxCalcLength(br.getCurrPtr());
+            BinaryData rawTx, txHash;
+            br.get_BinaryData(rawTx, txSize);
+            BtcUtils::getHash256(rawTx, txHash);
+            leveldb::Slice ldbKey((char*)txHash.getPtr(), 32);
+            leveldb::Slice ldbVal((char*)rawTx.getPtr(), txSize);
+         
+            writeBytes += (uint64_t)txSize;
+            writebatch->Put(ldbKey, ldbVal);
+
+         }
+
+         if(writeBytes - lastWrite > 1024*1024*1024)
+         {
+            lastWrite = writeBytes;
+            dbptr->Write(leveldb::WriteOptions(), writebatch);
+            writebatch->Clear();
+         }
+         nblk++;
+   
+      }
+
+
+      i++;
+      fname = BtcUtils::getBlkFilename("/home/alan/.bitcoin/blocks", i);
+
+   }
+
+   dbptr->Write(leveldb::WriteOptions(), writebatch);
+   writebatch->Clear();
+   delete writebatch;
+   delete dbptr;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(FullScanTest, ReadSuperRawDB)
+{
+   string dbdir("./rawdbdir");
+   BinaryData scraddr = WRITE_UINT8_LE((uint8_t)TXOUT_SCRIPT_STDHASH160);
+   scraddr = scraddr + READHEX("33da2736b16558c9569cc226d4b349ce1aacf649");
+   
+   leveldb::Options opts;
+   opts.compression = leveldb::kNoCompression;
+   opts.block_cache = leveldb::NewLRUCache(2048 * 1024 * 1024);   
+   opts.block_size = 8*1024*1024;
+   leveldb::DB* dbptr;
+   leveldb::Status stat = leveldb::DB::Open(opts, dbdir, &dbptr);
+   
+   if(!stat.ok())
+      cout << "Error opening DB: " << stat.ToString() << endl;
+   
+   leveldb::ReadOptions readopts;
+   readopts.fill_cache = false;
+   leveldb::Iterator* iter = dbptr->NewIterator(readopts);
+   iter->SeekToFirst();
+
+   vector<uint32_t> txinOffsets, txoutOffsets;
+   while(iter->Valid())
+   {
+      currKey_.setNewData((uint8_t*)iter->key().data(), iter->key().size());
+      currVal_.setNewData((uint8_t*)iter->value().data(), iter->value().size());
+
+      uint8_t const * txPtr = currVal_.exposeDataPtr();
+      BtcUtils::TxCalcLength(txPtr, &txinOffsets, &txoutOffsets);
+
+      for(uint32_t txo=0; txo<txoutOffsets.size()-1; txo++)
+      {
+         uint32_t start = txoutOffsets[txo];
+         uint32_t sz    = txoutOffsets[txo+1] - start;
+         BinaryDataRef txoRef(txPtr+start, sz);
+         TxOut txout;
+         txout.unserialize(txoRef);
+         if(txout.getScrAddressStr() == scraddr)
+         {
+            cout << "Found a txout!" << endl;
+         }
+      }
+
+      iter->Next();
+   }
+   
+   cout << "Done!" << endl;
+
+}
+
+
+
+
+
 class LoadTestnetBareTest : public ::testing::Test
 {
 protected:
@@ -6420,7 +6702,7 @@ protected:
    {
       BlockDataManager_LevelDB::DestroyInstance();
      
-     rmdir(blkdir_);
+      rmdir(blkdir_);
       rmdir(homedir_);
 
       char* delstr = new char[4096];

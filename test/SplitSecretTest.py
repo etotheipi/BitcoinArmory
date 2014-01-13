@@ -3,12 +3,15 @@ Created on Aug 4, 2013
 
 @author: Andy
 '''
-import sys
-sys.argv.append('--nologging')
 from random import shuffle
-from utilities.ArmoryUtils import FiniteField, FiniteFieldError, SplitSecret, \
-   hex_to_binary, RightNow, binary_to_hex, ReconstructSecret
+import sys
 import unittest
+
+from armoryengine.ArmoryUtils import FiniteField, FiniteFieldError, SplitSecret, \
+   hex_to_binary, RightNow, binary_to_hex, ReconstructSecret
+
+
+sys.argv.append('--nologging')
 sys.argv.append('--nologging')
 
 TEST_A = 200

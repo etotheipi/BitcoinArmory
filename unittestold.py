@@ -5,9 +5,34 @@
 # See LICENSE or http://www.gnu.org/licenses/agpl.html
 #
 ################################################################################
-from armoryengine import *
+import os
+import shutil
+import time
+
+from CppBlockUtils import SecureBinaryData, CryptoECDSA, CryptoAES
 import CppBlockUtils as Cpp
-import armoryengine 
+from armoryengine import *
+from armoryengine.ArmoryUtils import LITTLEENDIAN, BIGENDIAN, hex_to_binary, \
+   hash256, coin2str, coin2str_approx, str2coin, binary_to_hex, USE_TESTNET, \
+   hash160_to_addrStr, checkAddrStrValid, int_to_binary, BITCOIN_PORT, hex_to_int, \
+   ONE_BTC, ARMORY_HOME_DIR, convertKeyDataToAddress, InterruptTestError, \
+   addrStr_to_hash160, pprintHex, SettingsFile, uriReservedToPercent, \
+   uriPercentToReserved, parseBitcoinURI, RightNow, PyBackgroundThread, \
+   BTC_HOME_DIR, FiniteField, SplitSecret, ReconstructSecret, \
+   EstimateCumulativeBlockchainSize, bytesToHumanSize, unixTimeToFormatStr
+from armoryengine.BDM import TheBDM
+from armoryengine.Block import PyBlock
+from armoryengine.CoinSelection import pprintUnspentTxOutList, PySelectCoins, \
+   calcMinSuggestedFees, sumTxOutList, PyUnspentTxOut
+from armoryengine.Networking import quad_to_str, quad_to_binary, binary_to_quad, \
+   str_to_quad, PyMessage, ArmoryClientFactory
+from armoryengine.PyBtcWallet import BLOCKCHAIN_READONLY
+from SDM import satoshiIsAvailable, SatoshiDaemonManager
+from armoryengine.Script import PyScriptProcessor
+from armoryengine.Transaction import PyTx, pprintLedgerEntry, PyTxIn, PyOutPoint, \
+   PyTxOut, PyCreateAndSignTx, getTxOutMultiSigInfo, PyTxDistProposal
+import armoryengine.ArmoryUtils
+
 
 LE = LITTLEENDIAN
 BE = BIGENDIAN
@@ -59,7 +84,7 @@ def testFunction( fnName, expectedOutput, *args, **kwargs):
    Provide a function name, inputs and some known outputs
    Prints a pass/fail string if the outputs match
    """
-   fn = getattr(armoryengine, fnName)
+   fn = getattr(armoryengine.ArmoryUtils, fnName)
    actualOutput = fn(*args,**kwargs)
    testPassed = (expectedOutput == actualOutput)
    passStr = '____PASS____' if testPassed else '***FAIL***'
@@ -2244,35 +2269,6 @@ if Test_Timers:
    print '***********************************************************************'
    
    n=100000
-
-   TimerStart('Coin2Str10000x1')
-   for i in xrange(n):
-      j = coin2str(10002300000, maxZeros=2)
-   TimerStop('Coin2Str10000x1')
-
-
-   for i in xrange(n):
-      TimerStart('Coin2Str1x10000')
-      j = coin2str(10002300000, maxZeros=2)
-      TimerStop('Coin2Str1x10000')
-
-
-   TimerStart('LoopOnly')
-   for i in xrange(n):
-      pass
-   TimerStop('LoopOnly')
-
-   TimerStart('StartStopCycle')
-   for i in xrange(n):
-      TimerStart('MetaTimer')
-      TimerStop('MetaTimer')
-   TimerStop('StartStopCycle')
-
-   print ''
-   PrintTimings()
-   SaveTimingsCSV('testtimings.csv')
-   print ''
-
 
 if Test_FiniteField:
    print '***********************************************************************'

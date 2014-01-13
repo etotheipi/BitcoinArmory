@@ -12,7 +12,7 @@
 # Orig Date:  20 November, 2011
 #
 ################################################################################
-from utilities.ArmoryUtils import LITTLEENDIAN, int_to_binary, packVarInt
+from armoryengine.ArmoryUtils import LITTLEENDIAN, int_to_binary, packVarInt
 UINT8, UINT16, UINT32, UINT64, INT8, INT16, INT32, INT64, VAR_INT, VAR_STR, FLOAT, BINARY_CHUNK = range(12)
 from struct import pack, unpack
 

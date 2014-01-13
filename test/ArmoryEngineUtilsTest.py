@@ -3,20 +3,25 @@ Created on Jul 29, 2013
 
 @author: Andy
 '''
-import sys
-sys.argv.append('--nologging')
-from random import shuffle
-from utilities.ArmoryUtils import isASCII, toBytes, toUnicode, toPreferred, \
-   lenBytes, BIGENDIAN, hex_to_binary, LITTLEENDIAN, hash256, NegativeValueError, \
-   TooMuchPrecisionError, hex_switchEndian, str2coin
-from utilities.BinaryPacker import BinaryPacker, UINT8, UINT16, UINT32, UINT64, \
-   INT8, INT16, INT32, INT64, VAR_INT, VAR_STR, FLOAT, BINARY_CHUNK, PackerError
-from utilities.BinaryUnpacker import BinaryUnpacker, UnpackerError
 import hashlib
 import locale
+from random import shuffle
+import sys
 import time
 import unittest
-import utilities.ArmoryUtils
+
+from armoryengine.ArmoryUtils import isASCII, toBytes, toUnicode, toPreferred, \
+   lenBytes, BIGENDIAN, hex_to_binary, LITTLEENDIAN, hash256, str2coin, \
+   NegativeValueError, TooMuchPrecisionError
+from armoryengine.BinaryPacker import BinaryPacker, UINT8, UINT16, UINT32, \
+   UINT64, INT8, INT16, INT32, INT64, VAR_INT, VAR_STR, FLOAT, BINARY_CHUNK, \
+   PackerError
+from armoryengine.BinaryUnpacker import BinaryUnpacker, UnpackerError
+import armoryengine.ArmoryUtils
+from armoryengine import ArmoryUtils
+
+
+sys.argv.append('--nologging')
 
 UNICODE_STRING = u'unicode string'  
 NON_ASCII_STRING = '\xff\x00 Non-ASCII string \xff\x00'
@@ -165,7 +170,7 @@ class ArmoryEngineTest(unittest.TestCase):
       Provide a function name, inputs and some known outputs
       Prints a pass/fail string if the outputs match
       """
-      fn = getattr(utilities.ArmoryUtils, fnName)
+      fn = getattr(ArmoryUtils, fnName)
       actualOutput = fn(*args,**kwargs)
       self.assertAlmostEqual(expectedOutput, actualOutput, 4, \
          '\n\t' + '___Inputs___:' + str(args) + '\n\t' + '___ExpOut___:' + \

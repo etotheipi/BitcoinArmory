@@ -6,18 +6,28 @@
 #                                                                              #
 ################################################################################
 
+from os import path
 import os
 import platform
 import sys
-from os import path
+
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *
+
+from CppBlockUtils import *
+from armorycolors import Colors, htmlColor
+from armoryengine.BDM import TheBDM
+from armoryengine.Timer import TimeThisFunction
+from armoryengine.Transaction import PyTxDistProposal, getTxInScriptType, \
+   TXIN_TYPE_NAMES, TXIN_SCRIPT_STANDARD, TxInScriptExtractAddr160IfAvail, \
+   TxOutScriptExtractAddr160, getTxOutScriptType, TXOUT_TYPE_NAMES, \
+   getTxOutMultiSigInfo, TXOUT_SCRIPT_STANDARD, TxOutScriptExtractAddrStr, \
+   TXOUT_SCRIPT_COINBASE, TXOUT_SCRIPT_UNKNOWN, TXOUT_SCRIPT_OP_EVAL
+from qtdefines import *
+
+
 sys.path.append('..')
 sys.path.append('../cppForSwig')
-from armoryengine import *
-from CppBlockUtils import *
-from qtdefines import *
-from armorycolors import Colors, htmlColor
 
 
 
@@ -178,7 +188,7 @@ class LedgerDispModelSimple(QAbstractTableModel):
          #if self.index(index.row(),COL.DoubleSpend).data().toBool():
          if rowData[COL.DoubleSpend]:
             return QVariant(Colors.TextRed)
-         if nConf <= 2:
+         if nConf < 2:
             return QVariant(Colors.TextNoConfirm)
          elif nConf <= 4:
             return QVariant(Colors.TextSomeConfirm)
@@ -619,7 +629,7 @@ class TxInDispModel(QAbstractTableModel):
             if scrType in (TXIN_SCRIPT_STANDARD,):
                recipAddr = TxInScriptExtractAddr160IfAvail(txin)
                if main:
-                  wltID = self.main.getWalletForAddr160(recip)
+                  wltID = self.main.getWalletForAddr160(recipAddr)
             self.dispTable[-1].append(wltID)
             self.dispTable[-1].append(recipAddr)
             self.dispTable[-1].append('<Unknown>')

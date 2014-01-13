@@ -4,12 +4,15 @@ Created on Aug 6, 2013
 @author: Andy
 '''
 import sys
-sys.argv.append('--nologging')
-from CppBlockUtils import CryptoECDSA, SecureBinaryData
-from armoryengine import PyBtcAddress, UnserializeError, PyScriptProcessor
-from utilities.ArmoryUtils import hex_to_binary, RightNow, int_to_binary,\
-   checkAddrStrValid, hash256
 import unittest
+
+from CppBlockUtils import CryptoECDSA, SecureBinaryData
+from armoryengine.ArmoryUtils import hex_to_binary, RightNow, int_to_binary, \
+   checkAddrStrValid, hash256, UnserializeError
+from armoryengine.PyBtcAddress import PyBtcAddress
+
+
+sys.argv.append('--nologging')
 
 INIT_VECTOR = '77'*16
 TEST_ADDR1_PRIV_KEY_ENCR1 = '500c41607d79c766859e6d9726ef1ea0fdf095922f3324454f6c4c34abcb23a5'
@@ -60,6 +63,9 @@ class PyBtcAddressTest(unittest.TestCase):
       testAddr4 = PyBtcAddress().createFromPlainKeyData(PRIVATE_KEY, ADDRESS_20, publicKey65=PUBLIC_KEY, skipCheck=True)
       testAddr5 = PyBtcAddress().createFromPlainKeyData(PRIVATE_KEY, ADDRESS_20, skipPubCompute=True)
       
+      testString = testAddr1.toString()
+      self.assertTrue(len(testString) > 0)
+
       testAddr = PyBtcAddress().createFromPlainKeyData(PRIVATE_KEY, ADDRESS_20, publicKey65=PUBLIC_KEY)
       serializedAddr1 = testAddr.serialize()
       retestAddr = PyBtcAddress().unserialize(serializedAddr1)

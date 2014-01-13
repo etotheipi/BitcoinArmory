@@ -12,19 +12,34 @@
 # Orig Date:  20 November, 2011
 #
 ################################################################################
+import ast
 from datetime import datetime
-from struct import pack, unpack
 import hashlib
+import inspect
 import locale
 import logging
 import math
+import multiprocessing
 import optparse
 import os
 import platform
+import random
+import signal
+from struct import pack, unpack
+from subprocess import PIPE
 import sys
+import threading
 import time
 import traceback
-import threading
+
+from psutil import Popen
+import psutil
+
+from CppBlockUtils import KdfRomix, CryptoAES
+from qrcodenative import QRCode, QRErrorCorrectLevel
+
+
+indent = ' '*3
 
 parser = optparse.OptionParser(usage="%prog [options]\n")
 parser.add_option("--settings",        dest="settingsPath",default='DEFAULT', type="str",          help="load Armory with a specific settings file")
@@ -62,8 +77,6 @@ class BadAddressError(Exception): pass
 class VerifyScriptError(Exception): pass
 class FileExistsError(Exception): pass
 class ECDSA_Error(Exception): pass
-class PackerError(Exception): pass
-class UnpackerError(Exception): pass
 class UnitializedBlockDataError(Exception): pass
 class WalletLockError(Exception): pass
 class SignatureError(Exception): pass
@@ -86,8 +99,51 @@ class FiniteFieldError(Exception): pass
 class BitcoindError(Exception): pass
 class ShouldNotGetHereError(Exception): pass
 class BadInputError(Exception): pass
+class TxdpError(Exception): pass
+class P2SHNotSupportedError(Exception): pass
 
+# Get the host operating system
+opsys = platform.system()
+OS_WINDOWS = 'win32'  in opsys.lower() or 'windows' in opsys.lower()
+OS_LINUX   = 'nix'    in opsys.lower() or 'nux'     in opsys.lower()
+OS_MACOSX  = 'darwin' in opsys.lower() or 'osx'     in opsys.lower()
 
+#Windows only: grab cli args as utf-16, convert to utf-8
+if OS_WINDOWS:
+   def win32_unicode_argv():
+      """
+      Uses shell32.GetCommandLineArgvW to get sys.argv as a list of Unicode
+      strings.
+   
+      Versions 2.x of Python don't support Unicode in sys.argv on
+      Windows, with the underlying Windows API instead replacing multi-byte
+      characters with '?'.
+      """
+   
+      from ctypes import POINTER, byref, cdll, c_int, windll
+      from ctypes.wintypes import LPCWSTR, LPWSTR
+   
+      GetCommandLineW = cdll.kernel32.GetCommandLineW
+      GetCommandLineW.argtypes = []
+      GetCommandLineW.restype = LPCWSTR
+   
+      CommandLineToArgvW = windll.shell32.CommandLineToArgvW
+      CommandLineToArgvW.argtypes = [LPCWSTR, POINTER(c_int)]
+      CommandLineToArgvW.restype = POINTER(LPWSTR)
+   
+      cmd = GetCommandLineW()
+      argc = c_int(0)
+      uargv = CommandLineToArgvW(cmd, byref(argc))
+      if argc.value > 0:
+         # Remove Python executable and commands if present
+         start = argc.value - len(sys.argv)
+         return [uargv[i].encode('utf8') for i in
+            xrange(start, argc.value)]
+   
+   sys.argv = win32_unicode_argv()
+
+CLI_OPTIONS = None
+CLI_ARGS = None
 (CLI_OPTIONS, CLI_ARGS) = parser.parse_args()
 
 # Use CLI args to determine testnet or not
@@ -97,11 +153,6 @@ USE_TESTNET = CLI_OPTIONS.testnet
 if CLI_OPTIONS.interport < 0:
    CLI_OPTIONS.interport = 8223 + (1 if USE_TESTNET else 0)
 
-# Get the host operating system
-opsys = platform.system()
-OS_WINDOWS = 'win32'  in opsys.lower() or 'windows' in opsys.lower()
-OS_LINUX   = 'nix'    in opsys.lower() or 'nux'     in opsys.lower()
-OS_MACOSX  = 'darwin' in opsys.lower() or 'osx'     in opsys.lower()
 
 # Figure out the default directories for Satoshi client, and BicoinArmory
 OS_NAME          = ''
@@ -154,6 +205,337 @@ if CLI_OPTIONS.logFile.lower()=='default':
 
 SETTINGS_PATH   = CLI_OPTIONS.settingsPath
 ARMORY_LOG_FILE = CLI_OPTIONS.logFile
+
+# Version Numbers 
+BTCARMORY_VERSION    = (0, 90,  0, 0)  # (Major, Minor, Bugfix, AutoIncrement) 
+PYBTCWALLET_VERSION  = (1, 35,  0, 0)  # (Major, Minor, Bugfix, AutoIncrement)
+
+ARMORY_DONATION_ADDR = '1ArmoryXcfq7TnCSuZa9fQjRYwJ4bkRKfv'
+ARMORY_DONATION_PUBKEY = ( '04' 
+      '11d14f8498d11c33d08b0cd7b312fb2e6fc9aebd479f8e9ab62b5333b2c395c5'
+      'f7437cab5633b5894c4a5c2132716bc36b7571cbe492a7222442b75df75b9a84')
+ARMORY_INFO_SIGN_ADDR = '1NWvhByxfTXPYNT4zMBmEY3VL8QJQtQoei'
+ARMORY_INFO_SIGN_PUBLICKEY = ('04'
+      'af4abc4b24ef57547dd13a1110e331645f2ad2b99dfe1189abb40a5b24e4ebd8'
+      'de0c1c372cc46bbee0ce3d1d49312e416a1fa9c7bb3e32a7eb3867d1c6d1f715')
+SATOSHI_PUBLIC_KEY = ( '04'
+      'fc9702847840aaf195de8442ebecedf5b095cdbb9bc716bda9110971b28a49e0'
+      'ead8564ff0db22209e0374782c093bb899692d524e9d6a6956e7c5ecbcd68284')
+
+# Get the host operating system
+opsys = platform.system()
+OS_WINDOWS = 'win32'  in opsys.lower() or 'windows' in opsys.lower()
+OS_LINUX   = 'nix'    in opsys.lower() or 'nux'     in opsys.lower()
+OS_MACOSX  = 'darwin' in opsys.lower() or 'osx'     in opsys.lower()
+
+BLOCKCHAINS = {}
+BLOCKCHAINS['\xf9\xbe\xb4\xd9'] = "Main Network"
+BLOCKCHAINS['\xfa\xbf\xb5\xda'] = "Old Test Network"
+BLOCKCHAINS['\x0b\x11\x09\x07'] = "Test Network (testnet3)"
+
+NETWORKS = {}
+NETWORKS['\x00'] = "Main Network"
+NETWORKS['\x6f'] = "Test Network"
+NETWORKS['\x34'] = "Namecoin Network"
+# Figure out the default directories for Satoshi client, and BicoinArmory
+OS_NAME          = ''
+OS_VARIANT       = ''
+USER_HOME_DIR    = ''
+BTC_HOME_DIR     = ''
+ARMORY_HOME_DIR  = ''
+LEVELDB_DIR      = ''
+SUBDIR = 'testnet3' if USE_TESTNET else ''
+if OS_WINDOWS:
+   OS_NAME         = 'Windows'
+   OS_VARIANT      = platform.win32_ver()
+   USER_HOME_DIR   = os.getenv('APPDATA')
+   BTC_HOME_DIR    = os.path.join(USER_HOME_DIR, 'Bitcoin', SUBDIR)
+   ARMORY_HOME_DIR = os.path.join(USER_HOME_DIR, 'Armory', SUBDIR)
+   BLKFILE_DIR     = os.path.join(BTC_HOME_DIR, 'blocks')
+elif OS_LINUX:
+   OS_NAME         = 'Linux'
+   OS_VARIANT      = platform.linux_distribution()
+   USER_HOME_DIR   = os.getenv('HOME')
+   BTC_HOME_DIR    = os.path.join(USER_HOME_DIR, '.bitcoin', SUBDIR)
+   ARMORY_HOME_DIR = os.path.join(USER_HOME_DIR, '.armory', SUBDIR)
+   BLKFILE_DIR     = os.path.join(BTC_HOME_DIR, 'blocks')
+elif OS_MACOSX:
+   platform.mac_ver()
+   OS_NAME         = 'MacOSX'
+   OS_VARIANT      = platform.mac_ver()
+   USER_HOME_DIR   = os.path.expanduser('~/Library/Application Support')
+   BTC_HOME_DIR    = os.path.join(USER_HOME_DIR, 'Bitcoin', SUBDIR)
+   ARMORY_HOME_DIR = os.path.join(USER_HOME_DIR, 'Armory', SUBDIR)
+   BLKFILE_DIR     = os.path.join(BTC_HOME_DIR, 'blocks')
+else:
+   print '***Unknown operating system!'
+   print '***Cannot determine default directory locations'
+
+# Version Handling Code
+def getVersionString(vquad, numPieces=4):
+   vstr = '%d.%02d' % vquad[:2]
+   if (vquad[2] > 0 or vquad[3] > 0) and numPieces>2:
+      vstr += '.%d' % vquad[2]
+   if vquad[3] > 0 and numPieces>3:
+      vstr += '.%d' % vquad[3]
+   return vstr
+
+def getVersionInt(vquad, numPieces=4):
+   vint  = int(vquad[0] * 1e7)
+   vint += int(vquad[1] * 1e5)
+   if numPieces>2:
+      vint += int(vquad[2] * 1e3)
+   if numPieces>3:
+      vint += int(vquad[3])
+   return vint
+
+def readVersionString(verStr):
+   verList = [int(piece) for piece in verStr.split('.')]
+   while len(verList)<4:
+      verList.append(0)
+   return tuple(verList)
+
+def readVersionInt(verInt):
+   verStr = str(verInt).rjust(10,'0')
+   verList = []
+   verList.append( int(verStr[       -3:]) )
+   verList.append( int(verStr[    -5:-3 ]) )
+   verList.append( int(verStr[ -7:-5    ]) )
+   verList.append( int(verStr[:-7       ]) )
+   return tuple(verList[::-1])
+# Allow user to override default bitcoin-qt/bitcoind home directory
+if not CLI_OPTIONS.satoshiHome.lower()=='default':
+   success = True
+   if USE_TESTNET:
+      testnetTry = os.path.join(CLI_OPTIONS.satoshiHome, 'testnet3')
+      if os.path.exists(testnetTry):
+         CLI_OPTIONS.satoshiHome = testnetTry
+
+   if not os.path.exists(CLI_OPTIONS.satoshiHome):
+      print 'Directory "%s" does not exist!  Using default!' % \
+                                                CLI_OPTIONS.satoshiHome
+   else:
+      BTC_HOME_DIR = CLI_OPTIONS.satoshiHome
+
+
+
+# Allow user to override default Armory home directory
+if not CLI_OPTIONS.datadir.lower()=='default':
+   if not os.path.exists(CLI_OPTIONS.datadir):
+      print 'Directory "%s" does not exist!  Using default!' % \
+                                                CLI_OPTIONS.datadir
+   else:
+      ARMORY_HOME_DIR = CLI_OPTIONS.datadir
+
+# Same for the directory that holds the LevelDB databases
+LEVELDB_DIR     = os.path.join(ARMORY_HOME_DIR, 'databases')
+if not CLI_OPTIONS.leveldbDir.lower()=='default':
+   if not os.path.exists(CLI_OPTIONS.leveldbDir):
+      print 'Directory "%s" does not exist!  Using default!' % \
+                                                CLI_OPTIONS.leveldbDir
+      os.makedirs(CLI_OPTIONS.leveldbDir)
+   else:
+      LEVELDB_DIR  = CLI_OPTIONS.leveldbDir
+
+
+# Change the settings file to use
+if CLI_OPTIONS.settingsPath.lower()=='default':
+   CLI_OPTIONS.settingsPath = os.path.join(ARMORY_HOME_DIR, 'ArmorySettings.txt')
+
+# Change the log file to use
+ARMORY_LOG_FILE = os.path.join(ARMORY_HOME_DIR, 'armorylog.txt')
+ARMCPP_LOG_FILE = os.path.join(ARMORY_HOME_DIR, 'armorycpplog.txt')
+if not sys.argv[0] in ['ArmoryQt.py', 'ArmoryQt.exe', 'Armory.exe']:
+   basename = os.path.basename(sys.argv[0])
+   CLI_OPTIONS.logFile = os.path.join(ARMORY_HOME_DIR, '%s.log.txt' % basename)
+
+SETTINGS_PATH   = CLI_OPTIONS.settingsPath
+
+
+# If this is the first Armory has been run, create directories
+if ARMORY_HOME_DIR and not os.path.exists(ARMORY_HOME_DIR):
+   os.makedirs(ARMORY_HOME_DIR)
+
+
+if not os.path.exists(LEVELDB_DIR):
+   os.makedirs(LEVELDB_DIR)
+
+SETTINGS_PATH   = CLI_OPTIONS.settingsPath
+
+# If this is the first Armory has been run, create directories
+if ARMORY_HOME_DIR and not os.path.exists(ARMORY_HOME_DIR):
+   os.makedirs(ARMORY_HOME_DIR)
+
+
+if not os.path.exists(LEVELDB_DIR):
+   os.makedirs(LEVELDB_DIR)
+
+
+##### MAIN NETWORK IS DEFAULT #####
+if not USE_TESTNET:
+   # TODO:  The testnet genesis tx hash can't be the same...?
+   BITCOIN_PORT = 8333
+   BITCOIN_RPC_PORT = 8332
+   ARMORY_RPC_PORT = 8225
+   MAGIC_BYTES = '\xf9\xbe\xb4\xd9'
+   GENESIS_BLOCK_HASH_HEX  = '6fe28c0ab6f1b372c1a6a246ae63f74f931e8365e15a089c68d6190000000000'
+   GENESIS_BLOCK_HASH      = 'o\xe2\x8c\n\xb6\xf1\xb3r\xc1\xa6\xa2F\xaec\xf7O\x93\x1e\x83e\xe1Z\x08\x9ch\xd6\x19\x00\x00\x00\x00\x00'
+   GENESIS_TX_HASH_HEX     = '3ba3edfd7a7b12b27ac72c3e67768f617fc81bc3888a51323a9fb8aa4b1e5e4a'
+   GENESIS_TX_HASH         = ';\xa3\xed\xfdz{\x12\xb2z\xc7,>gv\x8fa\x7f\xc8\x1b\xc3\x88\x8aQ2:\x9f\xb8\xaaK\x1e^J'
+   ADDRBYTE = '\x00'
+   P2SHBYTE = '\x05'
+   PRIVKEYBYTE = '\x80'
+else:
+   BITCOIN_PORT = 18333
+   BITCOIN_RPC_PORT = 18332
+   ARMORY_RPC_PORT     = 18225
+   MAGIC_BYTES  = '\x0b\x11\x09\x07'
+   GENESIS_BLOCK_HASH_HEX  = '43497fd7f826957108f4a30fd9cec3aeba79972084e90ead01ea330900000000'
+   GENESIS_BLOCK_HASH      = 'CI\x7f\xd7\xf8&\x95q\x08\xf4\xa3\x0f\xd9\xce\xc3\xae\xbay\x97 \x84\xe9\x0e\xad\x01\xea3\t\x00\x00\x00\x00'
+   GENESIS_TX_HASH_HEX     = '3ba3edfd7a7b12b27ac72c3e67768f617fc81bc3888a51323a9fb8aa4b1e5e4a'
+   GENESIS_TX_HASH         = ';\xa3\xed\xfdz{\x12\xb2z\xc7,>gv\x8fa\x7f\xc8\x1b\xc3\x88\x8aQ2:\x9f\xb8\xaaK\x1e^J'
+   ADDRBYTE = '\x6f'
+   P2SHBYTE = '\xc4'
+   PRIVKEYBYTE = '\xef'
+
+if not CLI_OPTIONS.satoshiPort == 'DEFAULT':
+   try:
+      BITCOIN_PORT = int(CLI_OPTIONS.satoshiPort)
+   except:
+      raise TypeError, 'Invalid port for Bitcoin-Qt, using ' + str(BITCOIN_PORT)
+
+
+if not CLI_OPTIONS.rpcport == 'DEFAULT':
+   try:
+      ARMORY_RPC_PORT = int(CLI_OPTIONS.rpcport)
+   except:
+      raise TypeError, 'Invalid RPC port for armoryd ' + str(ARMORY_RPC_PORT)
+if sys.argv[0]=='ArmoryQt.py':
+   print '********************************************************************************'
+   print 'Loading Armory Engine:'
+   print '   Armory Version:      ', getVersionString(BTCARMORY_VERSION)
+   print '   PyBtcWallet  Version:', getVersionString(PYBTCWALLET_VERSION)
+   print 'Detected Operating system:', OS_NAME
+   print '   OS Variant            :', OS_VARIANT
+   print '   User home-directory   :', USER_HOME_DIR
+   print '   Satoshi BTC directory :', BTC_HOME_DIR
+   print '   Armory home dir       :', ARMORY_HOME_DIR
+   print '   LevelDB directory     :', LEVELDB_DIR
+   print '   Armory settings file  :', SETTINGS_PATH
+   print '   Armory log file       :', ARMORY_LOG_FILE
+
+
+
+################################################################################
+def launchProcess(cmd, useStartInfo=True, *args, **kwargs):
+   LOGINFO('Executing popen: %s', str(cmd))
+   if not OS_WINDOWS:
+      from subprocess import Popen, PIPE
+      return Popen(cmd, stdin=PIPE, stdout=PIPE, stderr=PIPE, *args, **kwargs)
+   else:
+      from subprocess import Popen, PIPE, STARTUPINFO, STARTF_USESHOWWINDOW
+      # Need lots of complicated stuff to accommodate quirks with Windows
+      if isinstance(cmd, basestring):
+         cmd2 = toPreferred(cmd)
+      else:
+         cmd2 = [toPreferred(c) for c in cmd]
+
+      if useStartInfo:
+         startinfo = STARTUPINFO()
+         startinfo.dwFlags |= STARTF_USESHOWWINDOW
+         return Popen(cmd2, \
+                     *args, \
+                     stdin=PIPE, \
+                     stdout=PIPE, \
+                     stderr=PIPE, \
+                     startupinfo=startinfo, \
+                     **kwargs)
+      else:
+         return Popen(cmd2, \
+                     *args, \
+                     stdin=PIPE, \
+                     stdout=PIPE, \
+                     stderr=PIPE, \
+                     **kwargs)
+
+
+################################################################################
+def killProcess(pid, sig='default'):
+   # I had to do this, because killing a process in Windows has issues 
+   # when using py2exe (yes, os.kill does not work, for the same reason 
+   # I had to pass stdin/stdout/stderr everywhere...
+   LOGWARN('Killing process pid=%d', pid)
+   if not OS_WINDOWS:
+      import os
+      sig = signal.SIGKILL if sig=='default' else sig
+      os.kill(pid, sig)
+   else:
+      import sys, os.path, ctypes, ctypes.wintypes
+      k32 = ctypes.WinDLL('kernel32.dll')
+      k32.OpenProcess.restype = ctypes.wintypes.HANDLE
+      k32.TerminateProcess.restype = ctypes.wintypes.BOOL
+      hProcess = k32.OpenProcess(1, False, pid)
+      k32.TerminateProcess(hProcess, 1)
+      k32.CloseHandle(hProcess)
+         
+           
+
+################################################################################
+def subprocess_check_output(*popenargs, **kwargs):
+   """
+   Run command with arguments and return its output as a byte string.
+   Backported from Python 2.7, because it's stupid useful, short, and
+   won't exist on systems using Python 2.6 or earlier
+   """
+   from subprocess import CalledProcessError
+   process = launchProcess(*popenargs, **kwargs)
+   output, unused_err = process.communicate()
+   retcode = process.poll()
+   if retcode:
+      cmd = kwargs.get("args")
+      if cmd is None:
+         cmd = popenargs[0]
+      error = CalledProcessError(retcode, cmd)
+      error.output = output
+      raise error
+   return output
+
+
+################################################################################
+def killProcessTree(pid):
+   # In this case, Windows is easier because we know it has the get_children
+   # call, because have bundled a recent version of psutil.  Linux, however,
+   # does not have that function call in earlier versions.
+   if not OS_LINUX:
+      for child in psutil.Process(pid).get_children():
+         killProcess(child.pid)
+   else:
+      proc = Popen("ps -o pid --ppid %d --noheaders" % pid, shell=True, stdout=PIPE)
+      out,err = proc.communicate()
+      for pid_str in out.split("\n")[:-1]:
+         killProcess(int(pid_str))
+
+
+################################################################################
+# Similar to subprocess_check_output, but used for long-running commands
+def execAndWait(cli_str, timeout=0, useStartInfo=True):
+   """ 
+   There may actually still be references to this function where check_output
+   would've been more appropriate.  But I didn't know about check_output at 
+   the time...
+   """
+
+   process = launchProcess(cli_str, shell=True, useStartInfo=useStartInfo)
+   pid = process.pid
+   start = RightNow()
+   while process.poll() == None:
+      time.sleep(0.1)
+      if timeout>0 and (RightNow() - start)>timeout:
+         print 'Process exceeded timeout, killing it'
+         killProcess(pid)
+   out,err = process.communicate()
+   return [out,err]
+
 
 
 
@@ -345,39 +727,167 @@ def logexcept_override(type, value, tback):
 sys.excepthook = logexcept_override
 
 
+# If there is a rebuild or rescan flag, let's do the right thing.
+fileRebuild = os.path.join(ARMORY_HOME_DIR, 'rebuild.txt')
+fileRescan  = os.path.join(ARMORY_HOME_DIR, 'rescan.txt')
+if os.path.exists(fileRebuild):
+   LOGINFO('Found %s, will destroy and rebuild databases' % fileRebuild)
+   os.remove(fileRebuild)
+   if os.path.exists(fileRescan):
+      os.remove(fileRescan)
+      
+   CLI_OPTIONS.rebuild = True
+elif os.path.exists(fileRescan):
+   LOGINFO('Found %s, will throw out saved history, rescan' % fileRescan)
+   os.remove(fileRescan)
+   if os.path.exists(fileRebuild):
+      os.remove(fileRebuild)
+   CLI_OPTIONS.rescan = True
 
-# Version Handling Code
-def getVersionString(vquad, numPieces=4):
-   vstr = '%d.%02d' % vquad[:2]
-   if (vquad[2] > 0 or vquad[3] > 0) and numPieces>2:
-      vstr += '.%d' % vquad[2]
-   if vquad[3] > 0 and numPieces>3:
-      vstr += '.%d' % vquad[3]
-   return vstr
+################################################################################
+# Load the C++ utilites here
+#
+#    The SWIG/C++ block utilities give us access to the blockchain, fast ECDSA
+#    operations, and general encryption/secure-binary containers
+################################################################################
+try:
+   import CppBlockUtils as Cpp
+   from CppBlockUtils import CryptoECDSA, SecureBinaryData
+   LOGINFO('C++ block utilities loaded successfully')
+except:
+   LOGCRIT('C++ block utilities not available.')
+   LOGCRIT('   Make sure that you have the SWIG-compiled modules')
+   LOGCRIT('   in the current directory (or added to the PATH)')
+   LOGCRIT('   Specifically, you need:')
+   LOGCRIT('       CppBlockUtils.py     and')
+   if OS_LINUX or OS_MACOSX:
+      LOGCRIT('       _CppBlockUtils.so')
+   elif OS_WINDOWS:
+      LOGCRIT('       _CppBlockUtils.pyd')
+   else:
+      LOGCRIT('\n\n... UNKNOWN operating system')
+   raise
 
-def getVersionInt(vquad, numPieces=4):
-   vint  = int(vquad[0] * 1e7)
-   vint += int(vquad[1] * 1e5)
-   if numPieces>2:
-      vint += int(vquad[2] * 1e3)
-   if numPieces>3:
-      vint += int(vquad[3])
-   return vint
+################################################################################
+# Get system details for logging purposes
+class DumbStruct(object): pass
+def GetSystemDetails():
+   """Checks memory of a given system"""
+ 
+   out = DumbStruct()
 
-def readVersionString(verStr):
-   verList = [int(piece) for piece in verStr.split('.')]
-   while len(verList)<4:
-      verList.append(0)
-   return tuple(verList)
+   CPU,COR,X64,MEM = range(4)
+   sysParam = [None,None,None,None]
+   out.CpuStr = 'UNKNOWN'
+   if OS_LINUX:
+      # Get total RAM
+      freeStr = subprocess_check_output('free -m', shell=True)
+      totalMemory = freeStr.split('\n')[1].split()[1]
+      out.Memory = int(totalMemory) * 1024
 
-def readVersionInt(verInt):
-   verStr = str(verInt).rjust(10,'0')
-   verList = []
-   verList.append( int(verStr[       -3:]) )
-   verList.append( int(verStr[    -5:-3 ]) )
-   verList.append( int(verStr[ -7:-5    ]) )
-   verList.append( int(verStr[:-7       ]) )
-   return tuple(verList[::-1])
+      # Get CPU name
+      out.CpuStr = 'Unknown'
+      cpuinfo = subprocess_check_output(['cat','/proc/cpuinfo'])
+      for line in cpuinfo.split('\n'):
+         if line.strip().lower().startswith('model name'):
+            out.CpuStr = line.split(':')[1].strip()
+            break
+
+
+   elif OS_WINDOWS:
+      import ctypes
+      class MEMORYSTATUSEX(ctypes.Structure):
+         _fields_ = [
+            ("dwLength", ctypes.c_ulong),
+            ("dwMemoryLoad", ctypes.c_ulong),
+            ("ullTotalPhys", ctypes.c_ulonglong),
+            ("ullAvailPhys", ctypes.c_ulonglong),
+            ("ullTotalPageFile", ctypes.c_ulonglong),
+            ("ullAvailPageFile", ctypes.c_ulonglong),
+            ("ullTotalVirtual", ctypes.c_ulonglong),
+            ("ullAvailVirtual", ctypes.c_ulonglong),
+            ("sullAvailExtendedVirtual", ctypes.c_ulonglong),
+         ]
+         def __init__(self):
+            # have to initialize this to the size of MEMORYSTATUSEX
+            self.dwLength = ctypes.sizeof(self)
+            super(MEMORYSTATUSEX, self).__init__()
+      
+      stat = MEMORYSTATUSEX()
+      ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(stat))
+      out.Memory = stat.ullTotalPhys/1024.
+      out.CpuStr = platform.processor()
+   elif OS_MACOSX:
+      memsizeStr = subprocess_check_output('sysctl hw.memsize', shell=True)
+      out.Memory = int(memsizeStr.split(": ")[1]) / 1024
+      out.CpuStr = subprocess_check_output('sysctl -n machdep.cpu.brand_string', shell=True)
+   else:
+      out.CpuStr = 'Unknown'
+      raise OSError, "Can't get system specs in: %s" % platform.system()
+
+   out.NumCores = multiprocessing.cpu_count()
+   out.IsX64 = platform.architecture()[0].startswith('64')
+   out.Memory = out.Memory / (1024*1024.)
+   return out
+
+SystemSpecs = None
+try:
+   SystemSpecs = GetSystemDetails()
+except:
+   LOGEXCEPT('Error getting system details:')
+   LOGERROR('Skipping.')
+   SystemSpecs = DumbStruct()
+   SystemSpecs.Memory   = -1
+   SystemSpecs.CpuStr   = 'Unknown'
+   SystemSpecs.NumCores = -1
+   SystemSpecs.IsX64    = 'Unknown'
+   
+
+LOGINFO('')
+LOGINFO('')
+LOGINFO('')
+LOGINFO('************************************************************')
+LOGINFO('Invoked: ' + ' '.join(sys.argv))
+LOGINFO('************************************************************')
+LOGINFO('Loading Armory Engine:')
+LOGINFO('   Armory Version        : ' + getVersionString(BTCARMORY_VERSION))
+LOGINFO('   PyBtcWallet  Version  : ' + getVersionString(PYBTCWALLET_VERSION))
+LOGINFO('Detected Operating system: ' + OS_NAME)
+LOGINFO('   OS Variant            : ' + (str(OS_VARIANT) if OS_MACOSX else '-'.join(OS_VARIANT)))
+LOGINFO('   User home-directory   : ' + USER_HOME_DIR)
+LOGINFO('   Satoshi BTC directory : ' + BTC_HOME_DIR)
+LOGINFO('   Armory home dir       : ' + ARMORY_HOME_DIR)
+LOGINFO('Detected System Specs    : ')
+LOGINFO('   Total Available RAM   : %0.2f GB', SystemSpecs.Memory)
+LOGINFO('   CPU ID string         : ' + SystemSpecs.CpuStr)
+LOGINFO('   Number of CPU cores   : %d cores', SystemSpecs.NumCores)
+LOGINFO('   System is 64-bit      : ' + str(SystemSpecs.IsX64))
+LOGINFO('   Preferred Encoding    : ' + locale.getpreferredencoding())
+LOGINFO('')
+LOGINFO('Network Name: ' + NETWORKS[ADDRBYTE])
+LOGINFO('Satoshi Port: %d', BITCOIN_PORT)
+LOGINFO('Named options/arguments to armoryengine.py:')
+for key,val in ast.literal_eval(str(CLI_OPTIONS)).iteritems():
+   LOGINFO('    %-16s: %s', key,val)
+LOGINFO('Other arguments:')
+for val in CLI_ARGS:
+   LOGINFO('    %s', val)
+LOGINFO('************************************************************')
+
+
+def GetExecDir():
+   """
+   Return the path from where armoryengine was imported.  Inspect method
+   expects a function or module name, it can actually inspect its own
+   name...
+   """
+   srcfile = inspect.getsourcefile(GetExecDir)
+   srcpath = os.path.dirname(srcfile)
+   srcpath = os.path.abspath(srcpath)
+   return srcpath
+
+
+
 
 def coin2str(nSatoshi, ndec=8, rJust=True, maxZeros=8):
    """
@@ -568,6 +1078,7 @@ LITTLEENDIAN  = '<';
 BIGENDIAN     = '>';
 NETWORKENDIAN = '!';
 ONE_BTC       = long(100000000)
+DONATION      = long(10000000)
 CENT          = long(1000000)
 UNINITIALIZED = None
 UNKNOWN       = -2
@@ -644,8 +1155,13 @@ def HexHash160ToScrAddr(a160):
    return HASH160PREFIX + hex_to_binary(a160)
 
 # Some more constants that are needed to play nice with the C++ utilities
-ARMORY_DB_BARE, ARMORY_DB_LITE, ARMORY_DB_PARTIAL, ARMORY_DB_FULL, ARMORY_DB_SUPER = range(5)
-DB_PRUNE_ALL, DB_PRUNE_NONE = range(2)
+ARMORY_DB_BARE = 0
+ARMORY_DB_LITE = 1
+ARMORY_DB_PARTIAL = 2
+ARMORY_DB_FULL = 3
+ARMORY_DB_SUPER = 4
+DB_PRUNE_ALL = 0
+DB_PRUNE_NONE = 1
 
 
 # Some time methods (RightNow() return local unix timestamp)
@@ -918,69 +1434,25 @@ def base58_to_binary(addr):
 
 
 
-##### MAIN NETWORK IS DEFAULT #####
-if not USE_TESTNET:
-   # TODO:  The testnet genesis tx hash can't be the same...?
-   BITCOIN_PORT = 8333
-   BITCOIN_RPC_PORT = 8332
-   ARMORY_RPC_PORT = 8225
-   MAGIC_BYTES = '\xf9\xbe\xb4\xd9'
-   GENESIS_BLOCK_HASH_HEX  = '6fe28c0ab6f1b372c1a6a246ae63f74f931e8365e15a089c68d6190000000000'
-   GENESIS_BLOCK_HASH      = 'o\xe2\x8c\n\xb6\xf1\xb3r\xc1\xa6\xa2F\xaec\xf7O\x93\x1e\x83e\xe1Z\x08\x9ch\xd6\x19\x00\x00\x00\x00\x00'
-   GENESIS_TX_HASH_HEX     = '3ba3edfd7a7b12b27ac72c3e67768f617fc81bc3888a51323a9fb8aa4b1e5e4a'
-   GENESIS_TX_HASH         = ';\xa3\xed\xfdz{\x12\xb2z\xc7,>gv\x8fa\x7f\xc8\x1b\xc3\x88\x8aQ2:\x9f\xb8\xaaK\x1e^J'
-   ADDRBYTE = '\x00'
-   P2SHBYTE = '\x05'
-   PRIVKEYBYTE = '\x80'
-else:
-   BITCOIN_PORT = 18333
-   BITCOIN_RPC_PORT = 18332
-   ARMORY_RPC_PORT     = 18225
-   MAGIC_BYTES  = '\x0b\x11\x09\x07'
-   GENESIS_BLOCK_HASH_HEX  = '43497fd7f826957108f4a30fd9cec3aeba79972084e90ead01ea330900000000'
-   GENESIS_BLOCK_HASH      = 'CI\x7f\xd7\xf8&\x95q\x08\xf4\xa3\x0f\xd9\xce\xc3\xae\xbay\x97 \x84\xe9\x0e\xad\x01\xea3\t\x00\x00\x00\x00'
-   GENESIS_TX_HASH_HEX     = '3ba3edfd7a7b12b27ac72c3e67768f617fc81bc3888a51323a9fb8aa4b1e5e4a'
-   GENESIS_TX_HASH         = ';\xa3\xed\xfdz{\x12\xb2z\xc7,>gv\x8fa\x7f\xc8\x1b\xc3\x88\x8aQ2:\x9f\xb8\xaaK\x1e^J'
-   ADDRBYTE = '\x6f'
-   P2SHBYTE = '\xc4'
-   PRIVKEYBYTE = '\xef'
-
-if not CLI_OPTIONS.satoshiPort == 'DEFAULT':
-   try:
-      BITCOIN_PORT = int(CLI_OPTIONS.satoshiPort)
-   except:
-      raise TypeError, 'Invalid port for Bitcoin-Qt, using ' + str(BITCOIN_PORT)
-
-
-if not CLI_OPTIONS.rpcport == 'DEFAULT':
-   try:
-      ARMORY_RPC_PORT = int(CLI_OPTIONS.rpcport)
-   except:
-      raise TypeError, 'Invalid RPC port for armoryd ' + str(ARMORY_RPC_PORT)
-
-
-BLOCKCHAINS = {}
-BLOCKCHAINS['\xf9\xbe\xb4\xd9'] = "Main Network"
-BLOCKCHAINS['\xfa\xbf\xb5\xda'] = "Old Test Network"
-BLOCKCHAINS['\x0b\x11\x09\x07'] = "Test Network (testnet3)"
-
-NETWORKS = {}
-NETWORKS['\x00'] = "Main Network"
-NETWORKS['\x6f'] = "Test Network"
-NETWORKS['\x34'] = "Namecoin Network"
-
-
-
-
-
-
 ################################################################################
-def hash160_to_addrStr(binStr, isP2SH=False):
+def hash160_to_addrStr(binStr):
    """
    Converts the 20-byte pubKeyHash to 25-byte binary Bitcoin address
    which includes the network byte (prefix) and 4-byte checksum (suffix)
    """
-   addr21 = (P2SHBYTE if isP2SH else ADDRBYTE) + binStr
+   if not len(binStr) == 20:
+      raise InvalidHashError('Input string is %d bytes' % len(binStr))
+
+   addr21 = ADDRBYTE + binStr
+   addr25 = addr21 + hash256(addr21)[:4]
+   return binary_to_base58(addr25);
+
+################################################################################
+def hash160_to_p2shStr(binStr):
+   if not len(binStr) == 20:
+      raise InvalidHashError('Input string is %d bytes' % len(binStr))
+
+   addr21 = P2SHBYTE + binStr
    addr25 = addr21 + hash256(addr21)[:4]
    return binary_to_base58(addr25);
 
@@ -989,11 +1461,28 @@ def addrStr_is_p2sh(b58Str):
    binStr = base58_to_binary(b58Str)
    if not len(binStr)==25:
       return False
+
+   if not hash256(binStr[:21])[:4] == binStr[-4:]:
+      return False
+
    return (binStr[0] == P2SHBYTE)
 
 ################################################################################
+# As of version 0.90.1, this returns the prefix byte with the hash160.  This is
+# because we need to handle/distinguish regular addresses from P2SH.  All code
+# using this method must be updated to expect 2 outputs and check the prefix.
 def addrStr_to_hash160(b58Str):
-   return base58_to_binary(b58Str)[1:-4]
+   binStr = base58_to_binary(b58Str)
+   if not len(binStr) == 25:
+      raise BadAddressError('Address string is %d bytes' % len(binStr))
+
+   if not hash256(binStr[:21])[:4] == binStr[-4:]:
+      raise ChecksumError('Address string has invalid checksum')
+
+   if not binStr[0] in (ADDRBYTE, P2SHBYTE):
+      raise BadAddressError('Unknown addr prefix: %s' % binary_to_hex(binStr[0]))
+
+   return (binStr[0], binStr[1:-4])
 
 
 ###### Typing-friendly Base16 #####
@@ -1224,7 +1713,6 @@ def difficulty_to_binaryBits(i):
    pass
 
 ################################################################################
-from qrcodenative import QRCode, QRErrorCorrectLevel
 def CreateQRMatrix(dataToEncode, errLevel='L'):
    sz=3
    success=False
@@ -1805,16 +2293,6 @@ def createSigScript(rBin, sBin):
 
 
 
-#############################################################################
-def calcWalletIDFromRoot(root, chain):
-   """ Helper method for computing a wallet ID """
-   root  = PyBtcAddress().createFromPlainKeyData(SecureBinaryData(root))
-   root.chaincode = SecureBinaryData(chain)
-   first = root.extendAddressChain()
-   return binary_to_base58((ADDRBYTE + first.getAddr160()[:5])[::-1])
-
-
-
 
 
 ################################################################################
@@ -2007,4 +2485,267 @@ def EstimateCumulativeBlockchainSize(blkNum):
       rate = float(dend - dend2) / float(bend - bend2)  # bytes per block
       extraOnTop = (blkNum - bend) * rate
       return dend+extraOnTop
+   
+
+
+#############################################################################
+def DeriveChaincodeFromRootKey(sbdPrivKey):
+   return SecureBinaryData( HMAC256( sbdPrivKey.getHash256(), \
+                                     'Derive Chaincode from Root Key'))
+
+
+################################################################################
+def HardcodedKeyMaskParams():
+   paramMap = {}
+
+   # Nothing up my sleeve!  Need some hardcoded random numbers to use for
+   # encryption IV and salt.  Using the first 256 digits of Pi for the 
+   # the IV, and first 256 digits of e for the salt (hashed)
+   digits_pi = ( \
+      'ARMORY_ENCRYPTION_INITIALIZATION_VECTOR_'
+      '1415926535897932384626433832795028841971693993751058209749445923'
+      '0781640628620899862803482534211706798214808651328230664709384460'
+      '9550582231725359408128481117450284102701938521105559644622948954'
+      '9303819644288109756659334461284756482337867831652712019091456485')
+   digits_e = ( \
+      'ARMORY_KEY_DERIVATION_FUNCTION_SALT_'
+      '7182818284590452353602874713526624977572470936999595749669676277'
+      '2407663035354759457138217852516642742746639193200305992181741359'
+      '6629043572900334295260595630738132328627943490763233829880753195'
+      '2510190115738341879307021540891499348841675092447614606680822648')
       
+   paramMap['IV']    = SecureBinaryData( hash256(digits_pi)[:16] )
+   paramMap['SALT']  = SecureBinaryData( hash256(digits_e) )
+   paramMap['KDFBYTES'] = long(16*MEGABYTE)
+
+   def hardcodeCreateSecurePrintPassphrase(secret):
+      if isinstance(secret, basestring):
+         secret = SecureBinaryData(secret)
+      bin7 = HMAC512(secret.getHash256(), paramMap['SALT'].toBinStr())[:7]
+      out,bin7 = SecureBinaryData(binary_to_base58(bin7 + hash256(bin7)[0])), None
+      return out 
+
+   def hardcodeCheckPassphrase(passphrase):
+      if isinstance(passphrase, basestring):
+         pwd = base58_to_binary(passphrase)
+      else:
+         pwd = base58_to_binary(passphrase.toBinStr())
+
+      isgood,pwd = (hash256(pwd[:7])[0] == pwd[-1]), None
+      return isgood
+
+   def hardcodeApplyKdf(secret):
+      if isinstance(secret, basestring):
+         secret = SecureBinaryData(secret)
+      kdf = KdfRomix() 
+      kdf.usePrecomputedKdfParams(paramMap['KDFBYTES'], 1, paramMap['SALT'])
+      return kdf.DeriveKey(secret)
+
+   def hardcodeMask(secret, passphrase=None, ekey=None):
+      if not ekey:
+         ekey = hardcodeApplyKdf(passphrase)
+      return CryptoAES().EncryptCBC(secret, ekey, paramMap['IV'])
+
+   def hardcodeUnmask(secret, passphrase=None, ekey=None):
+      if not ekey:
+         ekey = applyKdf(passphrase)
+      return CryptoAES().DecryptCBC(secret, ekey, paramMap['IV'])
+
+   paramMap['FUNC_PWD']    = hardcodeCreateSecurePrintPassphrase
+   paramMap['FUNC_KDF']    = hardcodeApplyKdf
+   paramMap['FUNC_MASK']   = hardcodeMask
+   paramMap['FUNC_UNMASK'] = hardcodeUnmask
+   paramMap['FUNC_CHKPWD'] = hardcodeCheckPassphrase
+   return paramMap
+
+
+
+
+################################################################################
+################################################################################
+class SettingsFile(object):
+   """
+   This class could be replaced by the built-in QSettings in PyQt, except
+   that older versions of PyQt do not support the QSettings (or at least
+   I never figured it out).  Easy enough to do it here
+
+   All settings must populated with a simple datatype -- non-simple 
+   datatypes should be broken down into pieces that are simple:  numbers 
+   and strings, or lists/tuples of them.
+
+   Will write all the settings to file.  Each line will look like:
+         SingleValueSetting1 | 3824.8 
+         SingleValueSetting2 | this is a string
+         Tuple Or List Obj 1 | 12 $ 43 $ 13 $ 33
+         Tuple Or List Obj 2 | str1 $ another str
+   """
+
+   #############################################################################
+   def __init__(self, path=None):
+      self.settingsPath = path
+      self.settingsMap = {}
+      if not path:
+         self.settingsPath = os.path.join(ARMORY_HOME_DIR, 'ArmorySettings.txt') 
+
+      LOGINFO('Using settings file: %s', self.settingsPath)
+      if os.path.exists(self.settingsPath):
+         self.loadSettingsFile(path)
+
+
+
+   #############################################################################
+   def pprint(self, nIndent=0):
+      indstr = indent*nIndent
+      print indstr + 'Settings:'
+      for k,v in self.settingsMap.iteritems():
+         print indstr + indent + k.ljust(15), v
+
+
+   #############################################################################
+   def hasSetting(self, name):
+      return self.settingsMap.has_key(name)
+   
+   #############################################################################
+   def set(self, name, value):
+      if isinstance(value, tuple):
+         self.settingsMap[name] = list(value)
+      else:
+         self.settingsMap[name] = value
+      self.writeSettingsFile()
+
+   #############################################################################
+   def extend(self, name, value):
+      """ Adds/converts setting to list, appends value to the end of it """
+      if not self.settingsMap.has_key(name):
+         if isinstance(value, list):
+            self.set(name, value)
+         else:
+            self.set(name, [value])
+      else:
+         origVal = self.get(name, expectList=True)
+         if isinstance(value, list):
+            origVal.extend(value)
+         else:
+            origVal.append(value)
+         self.settingsMap[name] = origVal
+      self.writeSettingsFile()
+
+   #############################################################################
+   def get(self, name, expectList=False):
+      if not self.hasSetting(name) or self.settingsMap[name]=='':
+         return ([] if expectList else '')
+      else:
+         val = self.settingsMap[name]
+         if expectList:
+            if isinstance(val, list):
+               return val
+            else:
+               return [val]
+         else:
+            return val
+
+   #############################################################################
+   def getAllSettings(self):
+      return self.settingsMap
+
+   #############################################################################
+   def getSettingOrSetDefault(self, name, defaultVal, expectList=False):
+      output = defaultVal
+      if self.hasSetting(name):
+         output = self.get(name)
+      else:
+         self.set(name, defaultVal)
+
+      return output
+
+
+
+   #############################################################################
+   def delete(self, name):
+      if self.hasSetting(name):
+         del self.settingsMap[name]
+      self.writeSettingsFile()
+
+   #############################################################################
+   def writeSettingsFile(self, path=None):
+      if not path:
+         path = self.settingsPath
+      f = open(path, 'w')
+      for key,val in self.settingsMap.iteritems():
+         try:
+            # Skip anything that throws an exception
+            valStr = '' 
+            if   isinstance(val, basestring):
+               valStr = val 
+            elif isinstance(val, int) or \
+                 isinstance(val, float) or \
+                 isinstance(val, long):
+               valStr = str(val)
+            elif isinstance(val, list) or \
+                 isinstance(val, tuple):
+               valStr = ' $  '.join([str(v) for v in val])
+            f.write(key.ljust(36))
+            f.write(' | ')
+            f.write(toBytes(valStr))
+            f.write('\n')
+         except:
+            LOGEXCEPT('Invalid entry in SettingsFile... skipping')
+      f.close()
+      
+
+   #############################################################################
+   def loadSettingsFile(self, path=None):
+      if not path:
+         path = self.settingsPath
+
+      if not os.path.exists(path):
+         raise FileExistsError, 'Settings file DNE:', path
+
+      f = open(path, 'rb')
+      sdata = f.read()
+      f.close()
+
+      # Automatically convert settings to numeric if possible
+      def castVal(v):
+         v = v.strip()
+         a,b = v.isdigit(), v.replace('.','').isdigit()
+         if a:   
+            return int(v)
+         elif b: 
+            return float(v)
+         else:   
+            if v.lower()=='true':
+               return True
+            elif v.lower()=='false':
+               return False
+            else:
+               return toUnicode(v)
+         
+
+      sdata = [line.strip() for line in sdata.split('\n')]
+      for line in sdata:
+         if len(line.strip())==0:
+            continue
+
+         try:
+            key,vals = line.split('|')
+            valList = [castVal(v) for v in vals.split('$')]
+            if len(valList)==1:
+               self.settingsMap[key.strip()] = valList[0]
+            else:
+               self.settingsMap[key.strip()] = valList
+         except:
+            LOGEXCEPT('Invalid setting in %s (skipping...)', path)
+
+
+      
+# Random method for creating
+def touchFile(fname):
+   try:
+      os.utime(fname, None)
+   except:
+      f = open(fname, 'a')
+      f.flush()
+      os.fsync(f.fileno())
+      f.close()
+

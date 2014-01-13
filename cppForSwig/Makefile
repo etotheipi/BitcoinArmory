@@ -1,11 +1,18 @@
-COMPILER = g++ 
+COMPILER = $(CXX)
 #COMPILER_OPTS = -c -g -Wall -fPIC 
-COMPILER_OPTS = -c -O2 -pipe -fPIC 
+COMPILER_OPTS = -c -O2 -pipe -fPIC
+
+DO_EXEC_DISTRO := $(shell ./get_distro.sh)
+ifeq ($(DO_EXEC_DISTRO),debian) 
 LDFLAGS:=$(shell dpkg-buildflags --get LDFLAGS)
 CPPFLAGS:=$(shell dpkg-buildflags --get CPPFLAGS)
+else
+LDFLAGS:=
+CPPFLAGS:=
+endif 
 
 #**************************************************************************
-LINKER = g++ 
+LINKER = $(CXX)
 OBJS = UniversalTimer.o BinaryData.o leveldb_wrapper.o StoredBlockObj.o BtcUtils.o BlockObj.o BlockUtils.o EncryptionUtils.o libcryptopp.a libleveldb.a
 
 # This is a script created by goatpig which detects where the python 
@@ -22,7 +29,7 @@ DO_EXEC_WHEREISPY := $(shell ./whereispy.sh)
 include ./pypaths.txt
 
 INCLUDE_OPTS += -Icryptopp -Ileveldb/include -DUSE_CRYPTOPP -D__STDC_LIMIT_MACROS 
-LIBRARY_OPTS += -lpthread -Lleveldb -L$(PYTHON_LIB) -l$(PYVER)
+LIBRARY_OPTS += -lpthread -Lleveldb -L$(PYTHON_LIB)
 SWIG_OPTS    += -c++ -python -classic -threads
 
 
@@ -91,6 +98,7 @@ clean:
 	rm -f *.o *.out 
 	rm pypaths.txt
 	cd cryptopp; make clean;
+	cd leveldb; make clean;
 	
 
 

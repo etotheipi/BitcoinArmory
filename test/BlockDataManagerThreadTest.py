@@ -4,9 +4,9 @@ Created on Jul 29, 2013
 @author: Andy
 '''
 import sys
+from armoryengine.BDM import BlockDataManagerThread
 sys.argv.append('--nologging')
 import unittest
-from armoryengine import BlockDataManagerThread
 
 class BlockDataManagerThreadTest(unittest.TestCase):
 

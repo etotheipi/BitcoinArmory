@@ -12,6 +12,10 @@
 // of what the new port_<platform>.h file must provide.
 #if defined(LEVELDB_PLATFORM_POSIX)
 #  include "port/port_posix.h"
+#ifdef _MSC_VER
+	#include <win32_posix.h>
+	#define fileno _fileno
+#endif
 #elif defined(LEVELDB_PLATFORM_CHROMIUM)
 #  include "port/port_chromium.h"
 #endif

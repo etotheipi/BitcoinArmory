@@ -90,20 +90,12 @@ if [[ "$apath" ]]; then
 PYTHON_LIB=$apath
 PYVER=python$pythonver" > ./pypaths.txt
 elif [[ "$sopath" ]]; then
+	failed=""
 	echo
-	while [ 1 ]; do	
-		echo -n "Counldn't find static libpython (.a). Found the .so however. Would you like to build with it? [y/n]"
-		read ans
-		if [ "$ans" == "n" ]; then
-			break;
-		elif [ "$ans" == "y" ]; then
-			failed=""
-			echo "PYTHON_INCLUDE=$hpath
+	echo "found matching .so lib and include folder =)"
+	echo "PYTHON_INCLUDE=$hpath	
 PYTHON_LIB=$sopath
 PYVER=python$pythonver" > ./pypaths.txt			
-			break;
-		fi
-	done
 fi
 
 if [[ $failed == "1" ]]; then

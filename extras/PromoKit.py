@@ -7,35 +7,48 @@
 ################################################################################
 
 from getpass import getpass
+import os
 import sys
+# Must move and clear the Args list before importing anything
+# Otherwise it will process the args for this script.
+promoKitArgList = sys.argv
+# Clear and add --testnet unless you are running this on main net
+sys.argv = sys.argv[:1]
+import time
 
-from pywin.scintilla import view
 from PyQt4.QtGui import *
-
-from armorycolors import htmlColor, Colors
-from armoryengine import *
+from pywin.scintilla import view
+from armoryengine.PyBtcWallet import PyBtcWallet
+from CppBlockUtils import SecureBinaryData
+from armoryengine.ArmoryUtils import makeSixteenBytesEasy, NegativeValueError, \
+   WalletAddressError, MIN_RELAY_TX_FEE, LOGINFO
+from armoryengine.BDM import TheBDM
+from armoryengine.CoinSelection import calcMinSuggestedFees, PySelectCoins
+from armoryengine.Transaction import PyTxDistProposal
 from qtdefines import GETFONT, tr
 from qtdialogs import SimplePrintableGraphicsScene
-from utilities.ArmoryUtils import encodePrivKeyBase58, ComputeFragIDLineHex, \
-   makeSixteenBytesEasy, pprintHex
 
 
+
+   
 sys.path.append('..')
 sys.path.append('.')
-   
 
-def createWalletList(n, nameString, descriptionString):
+
+# Generates a list of new promo wallets
+def createWalletList(n, nameString):
    walletList = []
    for i in range(n):
       name = "%s #%d" % (nameString, i)
       newWallet = PyBtcWallet().createNewWallet( \
                                            withEncrypt=False, \
                                            shortLabel=name, \
-                                           longLabel=descriptionString, \
+                                           longLabel=name, \
                                            doRegisterWithBDM=False)
       walletList.append(newWallet)
    return walletList
 
+# Pulled from qtdialogs. Assumes single sheet 1.35c backups
 def createPrintScene(wallet, amountString, expiresString):
    
    scene = SimplePrintableGraphicsScene(None, None)
@@ -136,15 +149,16 @@ def createPrintScene(wallet, amountString, expiresString):
    scene.drawText(tr(""" 
          <font color="#aa0000"><b>CONGRATULATIONS:</b></font> You have received a Bitcoin Armory
          promotional wallet containing %s You may collect this money by installing Bitcoin Armory
-         from the website shown above. After you install the software sweep the contents to a new
+         from the website shown above. After you install the software move the funds to a new
          wallet or any address that you own. Do not deposit any bitcoins to this wallet. You
-         don't know where this paper has been! You have until %s to sweep the contents. After
-         this date we will sweep this wallet to recover all unclaimed bitcoins.""" %
+         don't know where this paper has been! You have until %s to claim your bitcoins. After
+         this date we will remove all remaining bitcoins from this wallet.""" %
          (amountString, expiresString)), GETFONT('Var', 11), wrapWidth=wrap)
       
    scene.newLine(extra_dy=25)
    return scene
-   
+
+# This function will display a print dialog. It may hide behind other windows
 def printWalletList(walletList, amountString, expiresString):
    printer = QPrinter(QPrinter.HighResolution)
    printer.setPageSize(QPrinter.Letter)
@@ -159,5 +173,156 @@ def printWalletList(walletList, amountString, expiresString):
             printer.newPage()
       painter.end()
 
-walletList = createWalletList(12, 'Inside Bitcoin 2013 -- ', 'Inside Bitcoins Las Vegas 2013 Promotional Wallet')
+# Assumes a secure wallet has been created and is provided. There should not be any
+# imported addresses in this wallet. It is assumed that all of this wallet's imported 
+# addresses are about to be imported in this function
+def importAddrsToMasterWallet(masterWallet, walletList, addrsPerWallet, masterWalletName):
+   masterWallet.unlock(securePassphrase = SecureBinaryData(getpass('Enter your secret string:')))
+   for wallet in walletList:
+      for i in range(addrsPerWallet):
+         addr = wallet.getNextUnusedAddress()
+         masterWallet.importExternalAddressData(privKey = addr.binPrivKey32_Plain,
+                                                pubKey = addr.binPublicKey65)
+   return masterWallet
+
+# Distribute amount to each imported address in the wallet.
+def distributeBtc(masterWallet, amount, sendingAddrList):
+   pytx = None
+   setupTheBDM()
+   try:
+      recipValuePairs = []
+      utxoList = []
+      for sendingAddr in sendingAddrList:
+         addr160 = sendingAddr.getAddr160()
+         # Make sure the sending addresses are in the masterWallet
+         if not masterWallet.hasAddr(addr160):
+            raise WalletAddressError, 'Address is not in wallet! [%s]' % sendingAddr.getAddrStr()
+         utxoList.extend(masterWallet.getAddrTxOutList(addr160))
+   
+      # get total value   
+      totalAvailable = sum([u.getValue() for u in utxoList])
+      for importedAddr in masterWallet.getLinearAddrList():
+         if importedAddr.chainIndex<0:
+            recipValuePairs.append((importedAddr.getAddr160(),amount))
+      totalSpend = len(recipValuePairs)*amount
+      fee = calcMinSuggestedFees(utxoList, totalSpend, MIN_RELAY_TX_FEE)[1]
+      totalChange = totalAvailable - (totalSpend + fee)
+      # Get the necessary utxo list
+      selectedUtxoList = PySelectCoins(utxoList, totalSpend, fee)
+      # Make sure there are funds to cover the transaction.
+      if totalChange < 0:
+         print '***ERROR: you are trying to spend more than your balance!'
+         raise NegativeValueError
+      recipValuePairs.append((masterWallet.getNextUnusedAddress().getAddr160(), totalChange ))
+      txdp = PyTxDistProposal().createFromTxOutSelection(selectedUtxoList, recipValuePairs)
+      
+      masterWallet.unlock(securePassphrase = SecureBinaryData(getpass('Enter your secret string:')))
+      # Sign and prepare the final transaction for broadcast
+      masterWallet.signTxDistProposal(txdp)
+      pytx = txdp.prepareFinalTx()
+   
+      print '\nSigned transaction to be broadcast using Armory "offline transactions"...'
+      print txdp.serializeAscii()
+   finally:
+      TheBDM.execCleanShutdown()
+   return pytx
+
+def setupTheBDM():
+   TheBDM.setBlocking(True)
+   if not TheBDM.isInitialized():
+      TheBDM.registerWallet(masterWallet)
+      TheBDM.setOnlineMode(True)
+      # Only executed on the first call if blockchain not loaded yet.
+      LOGINFO('Blockchain loading')
+      while not TheBDM.getBDMState()=='BlockchainReady':
+         LOGINFO('Blockchain Not Ready Yet %s' % TheBDM.getBDMState())
+         time.sleep(2)
+# Sweep all of the funds from the imported addrs back to a
+# new addrin the master wallet
+def sweepImportedAddrs(masterWallet):
+   setupTheBDM()
+   recipValuePairs = []
+   utxoList = []
+   for importedAddr in masterWallet.getLinearAddrList():
+      if importedAddr.chainIndex<0:
+         addr160 = importedAddr.getAddr160()
+         utxoList.extend(masterWallet.getAddrTxOutList(addr160))
+
+   # get total value   
+   totalAvailable = sum([u.getValue() for u in utxoList])
+   fee = calcMinSuggestedFees(utxoList, totalAvailable, MIN_RELAY_TX_FEE)[1]
+   totalSpend = totalAvailable - fee
+   if totalSpend<0:
+      print '***ERROR: The fees are greater than the funds being swept!'
+      raise NegativeValueError
+   recipValuePairs.append((masterWallet.getNextUnusedAddress().getAddr160(), totalSpend ))
+   txdp = PyTxDistProposal().createFromTxOutSelection(utxoList, recipValuePairs)
+   
+   masterWallet.unlock(securePassphrase = SecureBinaryData(getpass('Enter your secret string:')))
+   # Sign and prepare the final transaction for broadcast
+   masterWallet.signTxDistProposal(txdp)
+   pytx = txdp.prepareFinalTx()
+
+   print '\nSigned transaction to be broadcast using Armory "offline transactions"...'
+   print txdp.serializeAscii()
+   return pytx
+
+
+# Example execution generates 3 promo wallets and imports 2 address each to 
+# a master wallet that is provided
+'''
+walletList = createWalletList(3, 'Inside Bitcoin 2013 -- ', 'Inside Bitcoins Las Vegas 2013 Promotional Wallet')
+masterWallet = importAddrsToMasterWallet( \
+   'C:\\Users\\Andy\\AppData\\Roaming\\Armory\\testnet3\\armory_2hzEdtr9c_.wallet',\
+    walletList, 2, "Master Promo Wallet", )
 printWalletList(walletList, "who knows how many bitcoins!?", "January 1st, 2014")
+'''
+
+# Example execution distribute .0001 Btc to each imported address in a master wallet
+'''
+masterWallet = PyBtcWallet().readWalletFile('C:\\Users\\Andy\\AppData\\Roaming\\Armory\\testnet3\\armory_2hzEdtr9c_.wallet', False, False)
+pytx = distributeBtc(masterWallet, 10000, masterWallet.getLinearAddrList(withImported=False))
+'''
+
+# Show help whenever the args are not correct
+def printHelp():
+   print 'USAGE: %s --create <master wallet file path> <number of promo wallets> <addrs per promo wallet> <promo wallet label>' % sys.argv[0]
+   print '   or: %s --distribute <master wallet file path> <satoshis per addr>' % sys.argv[0]
+   print '   or: %s --sweep <master wallet file path>' % sys.argv[0]
+   exit(0)
+   
+# Main execution path
+# Do not ever access the same wallet file from two different processes at the same time
+print '\n'
+raw_input('PLEASE CLOSE ARMORY BEFORE RUNNING THIS SCRIPT!  (press enter to continue)\n')
+
+if len(promoKitArgList)<3:
+   printHelp()
+
+operation = promoKitArgList[1]
+walletFile = promoKitArgList[2]
+if not os.path.exists(walletFile):
+   print 'Wallet file was not found: %s' % walletFile
+masterWallet = PyBtcWallet().readWalletFile(walletFile, False, False)
+if operation == '--create':
+   if len(promoKitArgList)<6:
+      printHelp()
+   else:
+      numWallets = int(promoKitArgList[3])
+      addrsPerWallet = int(promoKitArgList[4])
+      walletLabel = promoKitArgList[5]
+      walletList = createWalletList(numWallets, walletLabel)
+      masterWallet = importAddrsToMasterWallet( \
+            masterWallet, walletList, addrsPerWallet, "Master Promo Wallet", )
+      # Didn't want to fit these into the argument list. Need to edit based on event
+      printWalletList(walletList, "some amount of bitcoin. ", "January 1st, 2014")
+elif operation == '--distribute':
+   if len(promoKitArgList)<4:
+      printHelp()
+   else:
+      amountPerAddr = int(promoKitArgList[3])
+      distributeBtc(masterWallet, amountPerAddr, masterWallet.getLinearAddrList(withImported=False))
+elif operation == '--sweep':
+      sweepImportedAddrs(masterWallet)
+else:
+   printHelp()

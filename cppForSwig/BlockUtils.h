@@ -46,6 +46,7 @@
 #define UPDATE_BYTES_THRESH   96*1024*1024
 
 #define NUM_BLKS_IS_DIRTY 2016
+
 using namespace std;
 
 class BlockDataManager_LevelDB;
@@ -373,17 +374,17 @@ public:
                       uint32_t      lastTimestamp,
                       uint32_t      lastBlockNum);
 
-   bool hasScrAddress(BinaryData const & scrAddr);
+   bool hasScrAddress(BinaryData const & scrAddr) const;
 
 
    // Scan a Tx for our TxIns/TxOuts.  Override default blk vals if you think
    // you will save time by not checking addresses that are much newer than
    // the block
    pair<bool,bool> isMineBulkFilter( Tx & tx,   
-                                     bool withMultiSig=false);
+                                     bool withMultiSig=false) const;
    pair<bool,bool> isMineBulkFilter( Tx & tx, 
-                                     map<OutPoint, TxIOPair> & txiomap,
-                                     bool withMultiSig=false);
+                                     map<OutPoint, TxIOPair> const & txiomap,
+                                     bool withMultiSig=false) const;
 
    void scanTx(Tx & tx, 
                uint32_t txIndex = UINT32_MAX,
@@ -516,6 +517,7 @@ private:
    list<BinaryData>                   zeroConfRawTxList_;
    map<HashString, ZeroConfData>      zeroConfMap_;
    bool                               zcEnabled_;
+   bool                               zcLiteMode_;
    string                             zcFilename_;
 
    // This is for detecting external changes made to the blk0001.dat file
@@ -825,7 +827,7 @@ public:
 
 
    void deleteHistories(void);
-   void shutdownSaveScrAddrHistories(void);
+   void saveScrAddrHistories(void);
 
    void fetchAllRegisteredScrAddrData(void);
    void fetchAllRegisteredScrAddrData(BtcWallet & myWlt);
@@ -841,12 +843,11 @@ public:
 
    uint32_t getNumBlocks(void) const { return headerMap_.size(); }
    //uint32_t getNumTx(void) const { return txHintMap_.size(); }
+   StoredHeader getMainBlockFromDB(uint32_t hgt);
+   uint8_t      getMainDupFromDB(uint32_t hgt);
+   StoredHeader getBlockFromDB(uint32_t hgt, uint8_t dup);
 
    vector<BlockHeader*> getHeadersNotOnMainChain(void);
-
-   //vector<BlockHeader*>    prefixSearchHeaders(BinaryData const & searchStr);
-   //vector<TxRef*>          prefixSearchTx     (BinaryData const & searchStr);
-   //vector<BinaryData>      prefixSearchAddress(BinaryData const & searchStr);
 
    bool addHeadersFirst(BinaryDataRef rawHeader);
    bool addHeadersFirst(vector<StoredHeader> const & headVect);
@@ -882,9 +883,9 @@ public:
                                              bool withMultiSig=false);
 
    // For zero-confirmation tx-handling
-   void enableZeroConf(string);
-   void disableZeroConf(string);
-   void readZeroConfFile(string);
+   void enableZeroConf(string filename, bool zcLite=true);
+   void disableZeroConf(void);
+   void readZeroConfFile(string filename);
    bool addNewZeroConfTx(BinaryData const & rawTx, uint32_t txtime, bool writeToFile);
    void purgeZeroConfPool(void);
    void pprintZeroConfPool(void);
@@ -985,6 +986,8 @@ public:
 
    void     setMaxOpenFiles(uint32_t n) {iface_->setMaxOpenFiles(n);}
    uint32_t getMaxOpenFiles(void)       {return iface_->getMaxOpenFiles();}
+   void     setLdbBlockSize(uint32_t sz){iface_->setLdbBlockSize(sz);}
+   uint32_t getLdbBlockSize(void)       {return iface_->getLdbBlockSize();}
 
    // Simple wrapper around the logger so that they are easy to access from SWIG
    void StartCppLogging(string fname, int lvl) { STARTLOGGING(fname, (LogLevel)lvl); }

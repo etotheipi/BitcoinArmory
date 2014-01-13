@@ -355,7 +355,7 @@ public:
 
    /////////////////////////////////////////////////////////////////////////////
    // For doing direct raw ECPoint operations... need the ECP object
-   static CryptoPP::ECP & Get_secp256k1_ECP(void);
+   static CryptoPP::ECP Get_secp256k1_ECP(void);
 
 
    /////////////////////////////////////////////////////////////////////////////
@@ -395,14 +395,17 @@ public:
    //           hurt to add some extra entropy/non-linearity to the chain
    //           generation process)
    SecureBinaryData ComputeChainedPrivateKey(
-                     SecureBinaryData const & binPrivKey,
-                     SecureBinaryData const & chainCode,
-                     SecureBinaryData binPubKey=SecureBinaryData());
+                           SecureBinaryData const & binPrivKey,
+                           SecureBinaryData const & chainCode,
+                           SecureBinaryData binPubKey=SecureBinaryData(),
+                           SecureBinaryData* computedMultiplier=NULL);
                                
    /////////////////////////////////////////////////////////////////////////////
    // Deterministically generate new private key using a chaincode
-   SecureBinaryData ComputeChainedPublicKey(SecureBinaryData const & binPubKey,
-                                            SecureBinaryData const & chainCode);
+   SecureBinaryData ComputeChainedPublicKey(
+                           SecureBinaryData const & binPubKey,
+                           SecureBinaryData const & chainCode,
+                           SecureBinaryData* multiplierOut=NULL);
 
 
    /////////////////////////////////////////////////////////////////////////////

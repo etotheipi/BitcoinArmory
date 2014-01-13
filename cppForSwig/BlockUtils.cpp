@@ -379,7 +379,7 @@ void BtcWallet::addScrAddress_5_(HashString    scrAddr,
 }
 
 /////////////////////////////////////////////////////////////////////////////
-bool BtcWallet::hasScrAddress(HashString const & scrAddr)
+bool BtcWallet::hasScrAddress(HashString const & scrAddr) const
 {
    //return scrAddrMap_.find(scrAddr) != scrAddrMap_.end();
    return KEY_IN_MAP(scrAddr, scrAddrMap_);
@@ -388,7 +388,7 @@ bool BtcWallet::hasScrAddress(HashString const & scrAddr)
 
 /////////////////////////////////////////////////////////////////////////////
 pair<bool,bool> BtcWallet::isMineBulkFilter(Tx & tx, 
-                                            bool withMultiSig)
+                                            bool withMultiSig) const
 {
    return isMineBulkFilter(tx, txioMap_, withMultiSig);
 }
@@ -396,9 +396,10 @@ pair<bool,bool> BtcWallet::isMineBulkFilter(Tx & tx,
 /////////////////////////////////////////////////////////////////////////////
 // Determine, as fast as possible, whether this tx is relevant to us
 // Return  <IsOurs, InputIsOurs>
-pair<bool,bool> BtcWallet::isMineBulkFilter(Tx & tx, 
-                                            map<OutPoint, TxIOPair> & txiomap,
-                                            bool withMultiSig)
+pair<bool,bool> BtcWallet::isMineBulkFilter(
+                                 Tx & tx, 
+                                 map<OutPoint, TxIOPair> const & txiomap,
+                                 bool withMultiSig) const
 {
    // Since 99.999%+ of all transactions are not ours, let's do the 
    // fastest bulk filter possible, even though it will add 
@@ -2221,7 +2222,8 @@ void BlockDataManager_LevelDB::Reset(void)
 
    zeroConfRawTxList_.clear();
    zeroConfMap_.clear();
-   zcEnabled_ = false;
+   zcEnabled_  = false;
+   zcLiteMode_ = false;
    zcFilename_ = "";
 
    isNetParamsSet_ = false;
@@ -2728,7 +2730,6 @@ void BlockDataManager_LevelDB::updateRegisteredScrAddrs(uint32_t newTopBlk)
    {
       rsaIter->second.alreadyScannedUpToBlk_ = newTopBlk;
    }
-   
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -2855,7 +2856,9 @@ void BlockDataManager_LevelDB::applyBlockRangeToDB(uint32_t blk0, uint32_t blk1)
 
    BinaryData startKey = DBUtils.getBlkDataKey(blk0, 0);
    BinaryData endKey   = DBUtils.getBlkDataKey(blk1, 0);
-   iface_->seekTo(BLKDATA, startKey);
+
+   LDBIter ldbIter = iface_->getIterator(BLKDATA);
+   ldbIter.seekTo(startKey);
 
    // Start scanning and timer
    //bool doBatches = (blk1-blk0 > NUM_BLKS_BATCH_THRESH);
@@ -2866,11 +2869,12 @@ void BlockDataManager_LevelDB::applyBlockRangeToDB(uint32_t blk0, uint32_t blk1)
 
    uint32_t hgt;
    uint8_t  dup;
+
    do
    {
       
       StoredHeader sbh;
-      iface_->readStoredBlockAtIter(sbh);
+      iface_->readStoredBlockAtIter(ldbIter, sbh);
       hgt = sbh.blockHeight_;
       dup = sbh.duplicateID_;
       if(blk0 > hgt || hgt >= blk1)
@@ -2891,10 +2895,6 @@ void BlockDataManager_LevelDB::applyBlockRangeToDB(uint32_t blk0, uint32_t blk1)
       // to have each method create its own iterator... TODO:  profile/test
       // this idea.  For now we will just save the current DB key, and 
       // re-seek to it afterwards.
-      BinaryData prevIterKey(0);
-      if(iface_->dbIterIsValid(BLKDATA))
-         prevIterKey = iface_->getIterKeyCopy();
-
       if(!doBatches)
          applyBlockToDB(hgt, dup); 
       else
@@ -2905,26 +2905,12 @@ void BlockDataManager_LevelDB::applyBlockRangeToDB(uint32_t blk0, uint32_t blk1)
          applyBlockToDB(hgt, dup, stxToModify, sshToModify, keysToDelete, commit);
       }
 
-      // If we had a valid iter position before applyBlockToDB, restore it
-      if(prevIterKey.getSize() > 0)
-         iface_->seekTo(BLKDATA, prevIterKey);
-
-
       bytesReadSoFar_ += sbh.numBytes_;
-
-      // TODO:  Check whether this is needed and if there is a performance
-      //        improvement to removing it.  For now, I'm including to be
-      //        absolutely sure that the DB updates properly (not reading
-      //        from an iterator that was created before the DB was last 
-      //        updated).  But it may slow down the process considerably,
-      //        since LevelDB has optimized the hell out of key-order 
-      //        traversal.
-      iface_->resetIterator(BLKDATA, true);
 
       // Will write out about once every 5 sec
       writeProgressFile(DB_BUILD_APPLY, blkProgressFile_, "applyBlockRangeToDB");
 
-   } while(iface_->advanceToNextBlock(false));
+   } while(iface_->advanceToNextBlock(ldbIter, false));
 
 
    // If we're batching, we probably haven't commited the last batch.  Hgt 
@@ -3637,6 +3623,7 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
    {
       LOGINFO << "Resetting wallets for rescan";
       skipFetch = true;
+      deleteHistories();
       resetRegisteredWallets();
    }
 
@@ -3647,16 +3634,6 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
       fetchAllRegisteredScrAddrData();
    }
 
-   if(initialLoad && DBUtils.getArmoryDbType() != ARMORY_DB_SUPER)
-   {
-      // We always delete the histories, regardless of whether we read them or
-      // not.  We only save them on a clean shutdown, so we know they are 
-      // consistent.  Unclean shutdowns/kills will force a rescan simply by
-      // the fetch call (at the top) getting nothing out of the database
-      if(initialLoad)
-         deleteHistories();
-
-   }
 
 
    // Remove this file
@@ -3909,6 +3886,41 @@ void BlockDataManager_LevelDB::readRawBlocksInFile(uint32_t fnum, uint32_t foffs
 }
 
 
+////////////////////////////////////////////////////////////////////////////////
+StoredHeader BlockDataManager_LevelDB::getBlockFromDB(uint32_t hgt, uint8_t dup)
+{
+   StoredHeader nullSBH;
+   StoredHeader returnSBH;
+
+   LDBIter ldbIter = iface_->getIterator(BLKDATA);
+   BinaryData firstKey = DBUtils.getBlkDataKey(hgt, dup);
+
+   if(!ldbIter.seekToExact(firstKey))
+      return nullSBH;
+
+   // Get the full block from the DB
+   iface_->readStoredBlockAtIter(ldbIter, returnSBH);
+
+   if(returnSBH.blockHeight_ != hgt || returnSBH.duplicateID_ != dup)
+      return nullSBH;
+
+   return returnSBH;
+
+}
+
+////////////////////////////////////////////////////////////////////////////////
+uint8_t BlockDataManager_LevelDB::getMainDupFromDB(uint32_t hgt)
+{
+   return iface_->getValidDupIDForHeight(hgt);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+StoredHeader BlockDataManager_LevelDB::getMainBlockFromDB(uint32_t hgt)
+{
+   uint8_t dupMain = iface_->getValidDupIDForHeight(hgt);
+   return getBlockFromDB(hgt, dupMain);
+}
+
 
 ////////////////////////////////////////////////////////////////////////////////
 void BlockDataManager_LevelDB::scanDBForRegisteredTx(uint32_t blk0,
@@ -3924,15 +3936,16 @@ void BlockDataManager_LevelDB::scanDBForRegisteredTx(uint32_t blk0,
          //remove(bfile.c_str());
    }
 
+   LDBIter ldbIter = iface_->getIterator(BLKDATA, BULK_SCAN);
    BinaryData firstKey = DBUtils.getBlkDataKey(blk0, 0);
-   iface_->seekTo(BLKDATA, firstKey);
+   ldbIter.seekTo(firstKey);
 
    TIMER_START("ScanBlockchain");
-   while(iface_->dbIterIsValid(BLKDATA, DB_PREFIX_TXDATA))
+   while(ldbIter.isValid(DB_PREFIX_TXDATA))
    {
       // Get the full block from the DB
       StoredHeader sbh;
-      iface_->readStoredBlockAtIter(sbh);
+      iface_->readStoredBlockAtIter(ldbIter, sbh);
       bytesReadSoFar_ += sbh.numBytes_;
 
       uint32_t hgt     = sbh.blockHeight_;
@@ -3967,9 +3980,9 @@ void BlockDataManager_LevelDB::deleteHistories(void)
 {
    SCOPED_TIMER("deleteHistories");
 
-   iface_->seekTo(BLKDATA, DB_PREFIX_SCRIPT, BinaryData(0));
+   LDBIter ldbIter = iface_->getIterator(BLKDATA);
 
-   if(!iface_->dbIterIsValid(BLKDATA, DB_PREFIX_SCRIPT))
+   if(!ldbIter.seekToStartsWith(DB_PREFIX_SCRIPT, BinaryData(0)))
       return;
 
    //////////
@@ -3977,7 +3990,7 @@ void BlockDataManager_LevelDB::deleteHistories(void)
 
    do 
    {
-      BinaryData key = iface_->getIterKeyCopy();
+      BinaryData key = ldbIter.getKey();
 
       if(key.getSize() == 0)
          break;
@@ -3987,7 +4000,7 @@ void BlockDataManager_LevelDB::deleteHistories(void)
 
       iface_->deleteValue(BLKDATA, key);
       
-   } while(iface_->advanceIterAndRead(BLKDATA, DB_PREFIX_SCRIPT));
+   } while(ldbIter.advanceAndRead(DB_PREFIX_SCRIPT));
 
    //////////
    iface_->commitBatch(BLKDATA);
@@ -3995,9 +4008,16 @@ void BlockDataManager_LevelDB::deleteHistories(void)
 
 
 ////////////////////////////////////////////////////////////////////////////////
-void BlockDataManager_LevelDB::shutdownSaveScrAddrHistories(void)
+void BlockDataManager_LevelDB::saveScrAddrHistories(void)
 {
-   LOGINFO << "Saving wallet history for next load";
+   LOGINFO << "Saving wallet history to DB";
+
+   if(DBUtils.getArmoryDbType() != ARMORY_DB_BARE)
+   {
+      LOGERR << "Should only use saveScrAddrHistories in ARMORY_DB_BARE mode";
+      LOGERR << "Aborting save operation.";
+      return;
+   }
 
    iface_->startBatch(BLKDATA);
 
@@ -4015,6 +4035,7 @@ void BlockDataManager_LevelDB::shutdownSaveScrAddrHistories(void)
          if(KEY_NOT_IN_MAP(uniqKey, registeredScrAddrMap_))
          {
             LOGERR << "How does the wallet have a non-registered ScrAddr?";
+            LOGERR << uniqKey.toHexStr().c_str();
             continue;
          }
 
@@ -4259,7 +4280,6 @@ uint32_t BlockDataManager_LevelDB::readBlkFileUpdate(void)
          UniversalTimer::instance().printCSV(cout,true);
 	   #endif
    #endif
-
 
    return nBlkRead;
 
@@ -5007,14 +5027,17 @@ BlockHeader* BlockDataManager_LevelDB::getHeaderPtrForTx(Tx & txObj)
 ////////////////////////////////////////////////////////////////////////////////
 // Methods for handling zero-confirmation transactions
 ////////////////////////////////////////////////////////////////////////////////
-void BlockDataManager_LevelDB::enableZeroConf(string zcFilename)
+void BlockDataManager_LevelDB::enableZeroConf(string zcFilename, bool zcLite)
 {
    SCOPED_TIMER("enableZeroConf");
-   zcEnabled_  = true; 
+   LOGINFO << "Enabling zero-conf tracking " << (zcLite ? "(lite)" : "");
    zcFilename_ = zcFilename;
+   zcEnabled_  = true; 
+   zcLiteMode_ = zcLite;
 
    readZeroConfFile(zcFilename_); // does nothing if DNE
 }
+
 
 ////////////////////////////////////////////////////////////////////////////////
 void BlockDataManager_LevelDB::readZeroConfFile(string zcFilename)
@@ -5043,7 +5066,7 @@ void BlockDataManager_LevelDB::readZeroConfFile(string zcFilename)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void BlockDataManager_LevelDB::disableZeroConf(string zcFilename)
+void BlockDataManager_LevelDB::disableZeroConf(void)
 {
    SCOPED_TIMER("disableZeroConf");
    zcEnabled_  = false; 
@@ -5056,21 +5079,38 @@ bool BlockDataManager_LevelDB::addNewZeroConfTx(BinaryData const & rawTx,
                                                 bool writeToFile)
 {
    SCOPED_TIMER("addNewZeroConfTx");
-   // TODO:  We should do some kind of verification check on this tx
-   //        to make sure it's potentially valid.  Right now, it doesn't 
-   //        matter, because the Satoshi client is sitting between
-   //        us and the network and doing the checking for us.
 
    if(txtime==0)
       txtime = (uint32_t)time(NULL);
 
    HashString txHash = BtcUtils::getHash256(rawTx);
-    
+
    // If this is already in the zero-conf map or in the blockchain, ignore it
-   //if(KEY_IN_MAP(txHash, zeroConfMap_) || !getTxRefByHash(txHash).isNull())
    if(hasTxWithHash(txHash))
       return false;
-   
+
+
+   // In zero-conf-lite-mode, we only actually add the ZC if it's related
+   // to one of our registered wallets.  
+   if(zcLiteMode_)
+   {
+      // The bulk filter
+      Tx txObj(rawTx);
+
+      bool isOurs = false;
+      set<BtcWallet*>::iterator wltIter;
+      for(wltIter  = registeredWallets_.begin();
+          wltIter != registeredWallets_.end();
+          wltIter++)
+      {
+         // The bulk filter returns pair<isRelatedToUs, inputIsOurs>
+         isOurs = isOurs || (*wltIter)->isMineBulkFilter(txObj).first;
+      }
+
+      if(!isOurs)
+         return false;
+   }
+    
    
    zeroConfMap_[txHash] = ZeroConfData();
    ZeroConfData & zc = zeroConfMap_[txHash];
