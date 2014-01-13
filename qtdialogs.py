@@ -15,8 +15,8 @@ import time
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *
 
-from armorycolors import Colors, htmlColor
 from armoryengine.ALL import *
+from armorycolors import Colors, htmlColor
 from armorymodels import *
 import qrc_img_resources
 from qtdefines import *
@@ -289,12 +289,13 @@ class DlgUnlockWallet(ArmoryDialog):
       try:
          self.wlt.unlock(securePassphrase=self.securePassphrase)
 
-         if self.returnPassphrase == False: self.edtPasswd.setText('')
-         else: self.wlt.lock() #if we are trying to recover the plain passphrase, make sure the wallet is locked
+         if self.returnPassphrase == False: 
+			self.edtPasswd.setText('')
+         else: 
+			self.wlt.lock() #if we are trying to recover the plain passphrase, make sure the wallet is locked
 
          self.securePassphrase.destroy()
          self.accept()
-
       except PassphraseError:
          QMessageBox.critical(self, 'Invalid Passphrase', \
            'That passphrase is not correct!', QMessageBox.Ok)
@@ -4240,7 +4241,6 @@ class DlgWalletSelect(ArmoryDialog):
                              wltIDList=None, atLeast=0):
       super(DlgWalletSelect, self).__init__(parent, main)
 
-      self.lstWallets = QListWidget()
       self.balAtLeast = atLeast
 
       if self.main and len(self.main.walletMap) == 0:
@@ -4256,7 +4256,7 @@ class DlgWalletSelect(ArmoryDialog):
       # Start the layout
       layout = QVBoxLayout()
       layout.addWidget(SelectWalletFrame(self, main, firstSelect, onlyMyWallets, \
-                  wltIDList, atLeast, HORIZONTAL, self.selectWallet))
+                  wltIDList, atLeast, self.selectWallet))
 
       buttonBox = QDialogButtonBox()
       btnAccept = QPushButton('OK')
@@ -4408,23 +4408,26 @@ class DlgSendBitcoins(ArmoryDialog):
       # Created a standard wallet chooser frame. Pass the call back method
       # for when the user selects a wallet.
       self.walletSelector = SelectWalletFrame(parent, main, self.wltID,\
-                  wltIDList=self.wltIDList, \
-                  layoutDirection = VERTICAL, selectWltCallback=self.setWallet)
+                  wltIDList=self.wltIDList, selectWltCallback=self.setWallet,\
+                  coinControlCallback=self.coinControlUpdate if\
+                  self.main.usermode == USERMODE.Expert else None )
 
       self.ttipUnsigned = self.main.createToolTipWidget(\
                'After clicking this button, you will be given directions for '
                'completing this transaction.')
+      self.btnUnsigned = QPushButton('Create Unsigned Transaction')
+      self.connect(self.btnUnsigned, SIGNAL(CLICKED), self.createOfflineTxDPAndDisplay)
 
 
+      frmUnsigned = makeHorizFrame([self.btnUnsigned, self.ttipUnsigned])
       self.btnSend = QPushButton('Send!')
       self.connect(self.btnSend, SIGNAL(CLICKED), self.createTxAndBroadcast)
-      txFrm = makeLayoutFrame(HORIZONTAL, [QLabel('Transaction Fee:'), \
+      txFrm = makeLayoutFrame(HORIZONTAL, [QLabel('Fee:'), \
                                        self.edtFeeAmt, \
                                        feetip, \
                                        STRETCH, \
+                                       frmUnsigned,
                                        self.btnSend])
-      self.btnUnsigned = QPushButton('Create Unsigned Transaction')
-      self.connect(self.btnUnsigned, SIGNAL(CLICKED), self.createOfflineTxDPAndDisplay)
 
 
 
@@ -4448,21 +4451,12 @@ class DlgSendBitcoins(ArmoryDialog):
          fromFrameList.append(frmDonate)
 
       if not self.main.usermode == USERMODE.Standard:
-         frmUnsigned = makeHorizFrame([self.btnUnsigned, self.ttipUnsigned])
          frmEnterURI = makeHorizFrame([btnEnterURI, ttipEnterURI])
-         fromFrameList.append(frmUnsigned)
          fromFrameList.append(frmEnterURI)
 
       ########################################################################
       # In Expert usermode, allow the user to modify source addresses
       if self.main.usermode == USERMODE.Expert:
-
-         self.lblCoinCtrl = QRichLabel('Source:  All addresses')
-         self.btnCoinCtrl = QPushButton('Coin Control')
-         self.connect(self.btnCoinCtrl, SIGNAL(CLICKED), self.doCoinCtrl)
-         frmCoinControl = makeHorizFrame([self.lblCoinCtrl, self.btnCoinCtrl],)
-         fromFrameList.append(frmCoinControl)
-
          self.chkDefaultChangeAddr = QCheckBox('Use an existing address for change')
          self.radioFeedback = QRadioButton('Send change to first input address')
          self.radioSpecify = QRadioButton('Specify a change address')
@@ -4546,6 +4540,7 @@ class DlgSendBitcoins(ArmoryDialog):
       self.makeRecipFrame(1)
       self.setWindowTitle('Send Bitcoins')
       self.setMinimumHeight(self.maxHeight * 20)
+      self.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Preferred)
 
       loadCount = self.main.settings.get('Load_Count')
       alreadyDonated = self.main.getSettingOrSetDefault('DonateAlready', False)
@@ -4590,9 +4585,19 @@ class DlgSendBitcoins(ArmoryDialog):
       if len(hexgeom) > 0:
          geom = QByteArray.fromHex(hexgeom)
          self.restoreGeometry(geom)
-      # Set the wallet in the wallet chooser frame, and it will call back to setWallet.
-      self.walletSelector.showWalletInfo()
+      # Set the wallet in the wallet selector and let all of display components
+      # react to it. This is at the end so that we can be sure that all of the
+      # components that react to setting the wallet exist.
+      self.walletSelector.updateOnWalletChange()
 
+   #############################################################################
+   # Update the available source address list and balance based on results from
+   # coin control. This callback is now necessary because coin control was moved
+   # to the Select Wallet Frame
+   def coinControlUpdate(self, sourceAddrList, altBalance):
+      self.sourceAddrList = sourceAddrList
+      self.altBalance = altBalance
+      
    #############################################################################
    def toggleSpecify(self, b):
       self.lblChangeAddr.setVisible(b)
@@ -4621,15 +4626,13 @@ class DlgSendBitcoins(ArmoryDialog):
       if not TheBDM.getBDMState() == 'BlockchainReady':
          self.lblSummaryBal.setText('(available when online)', color='DisableFG')
       else:
+         self.btnSend.setEnabled(not self.wlt.watchingOnly)
          if self.wlt.watchingOnly:
             self.btnSend.setToolTip('This is a watching-only wallet! '
                                'You cannot use it to send bitcoins!')
-            self.btnSend.setEnabled(False)
             self.btnUnsigned.setDefault(True)
-            self.btnUnsigned.setEnabled(True)
          else:
             self.btnSend.setDefault(True)
-            self.btnSend.setEnabled(True)
             self.btnSend.setToolTip('Click to send bitcoins!')
       if self.main.usermode == USERMODE.Expert:
          # Pre-set values based on settings
@@ -4894,45 +4897,40 @@ class DlgSendBitcoins(ArmoryDialog):
             'You just tried to send %s BTC, including fee, but you only '
             'have %s BTC with this coin control selection!' % (valTry, valMax), QMessageBox.Ok)
          return False
-
-
-      # Get unspent outs for this wallet:
+      # iteratively calculate the minimum fee by first trying the user selected fee
+      # then on each iteration set the feeTry to the minFee, and see if the new feeTry
+      # can cover the original amount plus the new minfee
+      # This loop will rarely iterate. It will only iterate when there is enough dust in utxoList so that
+      # each fee increase causes enough dust to be used to increase the fee yet again.
+      # Also, for the loop to iterate, the totalSend + fee must be close to the bal,
+      # but not go over when the min fee is increased If it does go over, it will exit the loop on the
+      # last condition,and give the user an insufficient balance warning.
+      minFee = None
+      utxoSelect = []
+      feeTry = fee
+      while minFee == None or (feeTry < minFee and totalSend + minFee <= bal):
+         if minFee:
+            feeTry = minFee
       utxoList = self.getUsableTxOutList()
-      utxoSelect = PySelectCoins(utxoList, totalSend, fee)
-
-
-
-      # TODO:  I should use a while loop/iteration to make sure that the fee
-      #        change does not actually induce another, higher fee (which
-      #        is extraordinarily unlikely... I even set up the SelectCoins
-      #        algorithm to try to leave some room in the tx so that the fee
-      #        will not change the I/Os).   Despite this, I will concede
-      #        the extremely rare situation where this would happen, I think
-      #        it will be okay to send a slightly sub-standard fee.
-      minFeeRec = calcMinSuggestedFees(utxoSelect, totalSend, fee)
-      if fee < minFeeRec[1]:
-
-         overrideMin = self.main.getSettingOrSetDefault('OverrideMinFee', False)
-         if totalSend + minFeeRec[1] > bal:
+         utxoSelect = PySelectCoins(utxoList, totalSend, feeTry)
+         minFee = calcMinSuggestedFees(utxoSelect, totalSend, feeTry)[1]
+      if fee < minFee:
+         if totalSend + minFee > bal:
             # Need to adjust this based on overrideMin flag
-            self.edtFeeAmt.setText(coin2str(minFeeRec[1], maxZeros=1).strip())
+            self.edtFeeAmt.setText(coin2str(minFee, maxZeros=1).strip())
             QMessageBox.warning(self, 'Insufficient Balance', \
-               'You have specified a valid amount to send, but the required '
-               'transaction fee causes this transaction to exceed your balance.  '
+               'The required transaction fee causes this transaction to exceed your balance.  '
                'In order to send this transaction, you will be required to '
-               'pay a fee of <b>' + coin2str(minFeeRec[1], maxZeros=0).strip() + ' BTC</b>.  '
+               'pay a fee of <b>' + coin2str(minFee, maxZeros=0).strip() + ' BTC</b>.  '
                '<br><br>'
                'Please go back and adjust the value of your transaction, not '
-               'to exceed a total of <b>' + coin2str(bal - minFeeRec[1], maxZeros=0).strip() +
+               'to exceed a total of <b>' + coin2str(bal - minFee, maxZeros=0).strip() + 
                ' BTC</b> (the necessary fee has been entered into the form, so you '
                'can use the "MAX" button to enter the remaining balance for a '
                'recipient).', QMessageBox.Ok)
             return
-
-
-         extraMsg = ''
          feeStr = coin2str(fee, maxZeros=0).strip()
-         minRecStr = coin2str(minFeeRec[1], maxZeros=0).strip()
+         minFeeStr = coin2str(minFee, maxZeros=0).strip()
 
          msgBtns = QMessageBox.Yes | QMessageBox.Cancel
 
@@ -4940,21 +4938,19 @@ class DlgSendBitcoins(ArmoryDialog):
             'The fee you have specified (%s BTC) is insufficient for the size '
             'and priority of your transaction.  You must include at least '
             '%s BTC to send this transaction.  \n\nDo you agree to the fee of %s BTC?  ' % \
-            (feeStr, minRecStr, minRecStr), msgBtns)
+            (feeStr, minFeeStr, minFeeStr), msgBtns)
          if reply == QMessageBox.Cancel:
             return False
          if reply == QMessageBox.No:
             pass
          elif reply == QMessageBox.Yes:
-            fee = long(minFeeRec[1])
-            utxoSelect = PySelectCoins(utxoSelect, totalSend, fee)
+            fee = long(minFee)
 
       if len(utxoSelect) == 0:
          QMessageBox.critical(self, 'Coin Selection Error', \
             'SelectCoins returned a list of size zero.  This is problematic '
             'and probably not your fault.', QMessageBox.Ok)
          return
-
 
       # ## IF we got here, everything is good to go...
       #   Just need to get a change address and then construct the tx
@@ -5311,26 +5307,7 @@ class DlgSendBitcoins(ArmoryDialog):
       self.scrollRecipArea.setWidget(frmRecip)
 
 
-   #############################################################################
-   def doCoinCtrl(self):
 
-      dlgcc = DlgCoinControl(self, self.main, self.wlt, self.sourceAddrList)
-      if dlgcc.exec_():
-         self.sourceAddrList = [x[0] for x in dlgcc.coinControlList]
-         self.altBalance = sum([x[1] for x in dlgcc.coinControlList])
-
-         nAddr = len(self.sourceAddrList)
-         if self.altBalance == self.wlt.getBalance('Spendable'):
-            self.lblCoinCtrl.setText('Source: All addresses')
-            self.sourceAddrList = None
-            self.altBalance = None
-         elif nAddr == 0:
-            self.lblCoinCtrl.setText('Source: None selected')
-         elif nAddr == 1:
-            aStr = hash160_to_addrStr(self.sourceAddrList[0])
-            self.lblCoinCtrl.setText('Source: %s...' % aStr[:12])
-         elif nAddr > 1:
-            self.lblCoinCtrl.setText('Source: %d addresses' % nAddr)
 
 ################################################################################
 class DlgOfflineTxCreated(ArmoryDialog):
@@ -12817,6 +12794,7 @@ class DlgRestoreSingle(ArmoryDialog):
          self.newWallet = PyBtcWallet().readWalletFile(dlgOwnWlt.wltPath)
       self.accept()
 
+
 ################################################################################
 class DlgRestoreFragged(ArmoryDialog):
    def __init__(self, parent, main, thisIsATest=False, expectWltID=None):
@@ -13276,10 +13254,10 @@ class DlgRestoreFragged(ArmoryDialog):
          if dlgPasswd.exec_():
             passwd = SecureBinaryData(str(dlgPasswd.edtPasswd1.text()))
          else:
-            QMessageBox.critical(self, 'Cannot Encrypt', \
-               'You requested your restored wallet be encrypted, but no '
-               'valid passphrase was supplied.  Aborting wallet recovery.', \
-               QMessageBox.Ok)
+            QMessageBox.critical(self, tr('Cannot Encrypt'), tr("""
+               You requested your restored wallet be encrypted, but no 
+               valid passphrase was supplied.  Aborting wallet 
+               recovery."""), QMessageBox.Ok)
             return
 
       shortl = ''
@@ -13318,7 +13296,9 @@ class DlgRestoreFragged(ArmoryDialog):
          self.newWallet.fillAddressPool(numPool=nP)
 
       # Will pop up a little "please wait..." window while filling addr pool
-      DlgExecLongProcess(fillAddrPoolAndAccept, "Recovering wallet...", self, self.main).exec_()
+      DlgExecLongProcess(fillAddrPoolAndAccept, \
+                         tr("Recovering wallet..."), \
+                         self, self.main).exec_()
 
       if dlgOwnWlt is not None:
          if dlgOwnWlt.Meta is not None:
@@ -13703,6 +13683,10 @@ def finishPrintingBackup(parent, btype=None):
    if btype == None:
       QMessageBox.warning(parent, tr('Test Your Backup!'), tr("""
       """))
+
+# Need to put circular imports at the end of the script to avoid an import deadlock
+# DlgWalletSelect uses SelectWalletFrame which uses DlgCoinControl
+from ui.Frames import SelectWalletFrame
 
 ################################################################################
 class DlgReplaceWallet(ArmoryDialog):

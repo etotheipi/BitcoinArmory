@@ -23,15 +23,15 @@ import threading
 import time
 import traceback
 import webbrowser
+import psutil
 
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *
-import psutil
 from twisted.internet.defer import Deferred
 from twisted.internet.protocol import Protocol, ClientFactory
 
-from armorycolors import Colors, htmlColor, QAPP
 from armoryengine.ALL import *
+from armorycolors import Colors, htmlColor, QAPP
 from armorymodels import *
 from ui.toolsDialogs import MessageSigningVerificationDialog
 import qrc_img_resources
@@ -4488,7 +4488,7 @@ class ArmoryMainWindow(QMainWindow):
    def checkSatoshiVersion(self):
       timeAlive = long(RightNow()) - self.bornOnTime
       if not CLI_OPTIONS.skipVerCheck and \
-             (timeAlive%900==0 or self.satoshiLatestVer==None):
+             (timeAlive%3600==0 or self.satoshiLatestVer==None):
          try:
             # Will eventually make a specially-signed file just for this
             # kind of information.  For now, it's all in the versions.txt
@@ -4959,6 +4959,8 @@ class ArmoryMainWindow(QMainWindow):
       reactor.stop()
       if event:
          event.accept()
+
+      
 
    #############################################################################
    def spawnTrigger(self, toSpawn):

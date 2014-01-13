@@ -85,7 +85,7 @@ class PyBtcWallet(object):
    binUniqueID -- (6)   first 5 bytes of first address in wallet
                         (rootAddr25Bytes[:5][::-1]), reversed
                         This is not intended to look like the root addr str
-                        and is reversed to avoid having all wallet IDs start
+                        and is reversed to avoid having all wallet IDs start 
                         with the same characters (since the network byte is front)
    create date -- (8)   unix timestamp of when this wallet was created
                         (actually, the earliest creation date of any addr
@@ -129,7 +129,7 @@ class PyBtcWallet(object):
    We do this by copying the wallet file, and creating a walletUpdateFailed
    file.  We then modify the original, verify its integrity, and then delete
    the walletUpdateFailed file.  Then we create a backupUpdateFailed flag,
-   do the identical update on the backup file, and delete the failed flag.
+   do the identical update on the backup file, and delete the failed flag. 
    This guaranatees that no matter which nanosecond the power goes out,
    there will be an uncorrupted wallet and we know which one it is.
 
@@ -196,7 +196,7 @@ class PyBtcWallet(object):
       self.uniqueIDB58 = ''   # Base58 version of reversed-uniqueIDBin
       self.lastComputedChainAddr160  = ''
       self.lastComputedChainIndex = 0
-      self.highestUsedChainIndex  = 0
+      self.highestUsedChainIndex  = 0 
 
       # All PyBtcAddress serializations are exact same size, figure it out now
       self.pybtcaddrSize = len(PyBtcAddress().serialize())
@@ -204,7 +204,7 @@ class PyBtcWallet(object):
 
       # All BDM calls by default go on the multi-thread-queue.  But if the BDM
       # is the one calling the PyBtcWallet methods, it will deadlock if it uses
-      # the queue.  Therefore, the BDM will set this flag before making any
+      # the queue.  Therefore, the BDM will set this flag before making any 
       # calls, which will tell PyBtcWallet to use __direct methods.
       self.calledFromBDM = False
 
@@ -260,7 +260,7 @@ class PyBtcWallet(object):
       be rescanned, then call TheBDM.rescanBlockchain or TheBDM.loadBlockchain
 
       If this method is called from the BDM itself, calledFromBDM will signal
-      to use the BDM methods directly, not the queue.  This will deadlock
+      to use the BDM methods directly, not the queue.  This will deadlock 
       otherwise.
       """
       if TheBDM.getBDMState() in ('Offline', 'Uninitialized'):
@@ -272,7 +272,7 @@ class PyBtcWallet(object):
             startBlk = self.lastSyncBlockNum + 1
 
          # calledFromBDM means that ultimately the BDM itself called this
-         # method and is blocking waiting for it.  So we can't use the
+         # method and is blocking waiting for it.  So we can't use the 
          # BDM-thread queue, must call its methods directly
          if self.calledFromBDM:
             TheBDM.scanBlockchainForTx_bdm_direct(self.cppWallet, startBlk)
@@ -289,7 +289,7 @@ class PyBtcWallet(object):
    def syncWithBlockchainLite(self, startBlk=None):
       """
       This is just like a regular sync, but it won't rescan the whole blockchain
-      if the wallet is dirty -- if addresses were imported recently, it will
+      if the wallet is dirty -- if addresses were imported recently, it will 
       still only scan what the blockchain picked up on the last scan.  Use the
       non-lite version to allow a full scan.
       """
@@ -303,7 +303,7 @@ class PyBtcWallet(object):
             startBlk = self.lastSyncBlockNum + 1
 
          # calledFromBDM means that ultimately the BDM itself called this
-         # method and is blocking waiting for it.  So we can't use the
+         # method and is blocking waiting for it.  So we can't use the 
          # BDM-thread queue, must call its methods directly
          if self.calledFromBDM:
             TheBDM.scanRegisteredTxForWallet_bdm_direct(self.cppWallet, startBlk)
@@ -321,7 +321,7 @@ class PyBtcWallet(object):
       if len(comment)>0:
          return comment
 
-      # SWIG BUG!
+      # SWIG BUG! 
       # http://sourceforge.net/tracker/?func=detail&atid=101645&aid=3403085&group_id=1645
       # Apparently, using the -threads option when compiling the swig module
       # causes the "for i in vector<...>:" mechanic to sometimes throw seg faults!
@@ -332,7 +332,7 @@ class PyBtcWallet(object):
             return comment
 
       return ''
-
+      
    #############################################################################
    def getCommentForTxList(self, a160, txhashList):
       comment = self.getComment(a160)
@@ -355,7 +355,7 @@ class PyBtcWallet(object):
          print len(txlist)
          for rtx in txlist:
             print '\t', binary_to_hex(rtx.getTxHash(), BIGENDIAN)
-
+         
    #############################################################################
    def hasAnyImported(self):
       for a160,addr in self.addrMap.iteritems():
@@ -398,7 +398,7 @@ class PyBtcWallet(object):
 
    #############################################################################
    def getTxLedger(self, ledgType='Full'):
-      """
+      """ 
       Gets the ledger entries for the entire wallet, from C++/SWIG data structs
       """
       if not TheBDM.getBDMState()=='BlockchainReady' and not self.calledFromBDM:
@@ -423,7 +423,7 @@ class PyBtcWallet(object):
 
    #############################################################################
    def getAddrTxLedger(self, addr160, ledgType='Full'):
-      """
+      """ 
       Gets the ledger entries for the entire wallet, from C++/SWIG data structs
       """
       if (not TheBDM.getBDMState()=='BlockchainReady' and not self.calledFromBDM) or \
@@ -539,7 +539,7 @@ class PyBtcWallet(object):
       """
       self.defaultKeyLifetime = lifetimeInSec
 
-
+   
    #############################################################################
    #  THIS WAS CREATED ORIGINALLY TO SUPPORT BITSAFE INTEGRATION INTO ARMORY
    #  But it's also a good first step into general BIP 32 support
@@ -563,7 +563,7 @@ class PyBtcWallet(object):
    #def deriveChildPublicKey(self, i):
       #newKey = HDWalletCrypto().ChildKeyDeriv(self.getExtendedPublicKey(), i)
       #newAddr = PyBtcAddress().createFromExtendedPublicKey(newKey)
-
+   
    #############################################################################
    # Copy the wallet file to backup
    def backupWalletFile(self, backupPath = None):
@@ -581,7 +581,7 @@ class PyBtcWallet(object):
       pubkey = SecureBinaryData(hex_to_binary(masterHex[p0:p0+130]))
       c0 = masterHex.index('1220') + 4
       chain = SecureBinaryData(hex_to_binary(masterHex[c0:c0+64]))
-
+      
       # Create the root address object
       rootAddr = PyBtcAddress().createFromPublicKeyData( pubkey )
       rootAddr.markAsRootAddr(chain)
@@ -636,8 +636,8 @@ class PyBtcWallet(object):
       fileData.put(BINARY_CHUNK, '\x00' + first160 + firstAddr.serialize())
 
 
-      # Store the current localtime and blocknumber.  Block number is always
-      # accurate if available, but time may not be exactly right.  Whenever
+      # Store the current localtime and blocknumber.  Block number is always 
+      # accurate if available, but time may not be exactly right.  Whenever 
       # basing anything on time, please assume that it is up to one day off!
       time0,blk0 = getCurrTimeAndBlock() if isActuallyNew else (0,0)
 
@@ -664,9 +664,9 @@ class PyBtcWallet(object):
 
       return self
 
+      
 
-
-
+   
    #############################################################################
    def createNewWallet(self, newWalletFilePath=None, \
                              plainRootKey=None, chaincode=None, \
@@ -701,7 +701,7 @@ class PyBtcWallet(object):
       DO NOT CALL THIS FROM BDM METHOD.  IT MAY DEADLOCK.
       """
 
-
+      
       if self.calledFromBDM:
          LOGERROR('Called createNewWallet() from BDM method!')
          LOGERROR('Don\'t do this!')
@@ -740,11 +740,11 @@ class PyBtcWallet(object):
          #chaincode = SecureBinaryData().GenerateRandom(32)
          # For wallet 1.35a, derive chaincode deterministically from root key
          # The root key already has 256 bits of entropy which is excessive,
-         # anyway.  And my original reason for having the chaincode random is
+         # anyway.  And my original reason for having the chaincode random is 
          # no longer valid.
          chaincode = DeriveChaincodeFromRootKey(plainRootKey)
-
-
+            
+                             
 
       # Create the root address object
       rootAddr = PyBtcAddress().createFromPlainKeyData( \
@@ -803,8 +803,8 @@ class PyBtcWallet(object):
       fileData.put(BINARY_CHUNK, '\x00' + first160 + firstAddr.serialize())
 
 
-      # Store the current localtime and blocknumber.  Block number is always
-      # accurate if available, but time may not be exactly right.  Whenever
+      # Store the current localtime and blocknumber.  Block number is always 
+      # accurate if available, but time may not be exactly right.  Whenever 
       # basing anything on time, please assume that it is up to one day off!
       time0,blk0 = getCurrTimeAndBlock() if isActuallyNew else (0,0)
 
@@ -850,7 +850,7 @@ class PyBtcWallet(object):
       self.walletFileSafeUpdate( [[WLT_UPDATE_MODIFY, self.offsetTopUsed, \
                     int_to_binary(self.highestUsedChainIndex, widthBytes=8)]])
       self.fillAddressPool()
-
+      
    #############################################################################
    def rewindHighestIndex(self, ct=1):
       self.advanceHighestIndex(-ct)
@@ -884,7 +884,7 @@ class PyBtcWallet(object):
       """
       Use this to extend the chain beyond the last-computed address.
 
-      We will usually be computing the next address from the tip of the
+      We will usually be computing the next address from the tip of the 
       chain, but I suppose someone messing with the file format may
       leave gaps in the chain requiring some to be generated in the middle
       (then we can use the addr160 arg to specify which address to extend)
@@ -912,7 +912,7 @@ class PyBtcWallet(object):
                                    time0,blk0,time0,blk0)
 
       # For recovery rescans, this method will be called directly by
-      # the BDM, which may cause a deadlock if we go through the
+      # the BDM, which may cause a deadlock if we go through the 
       # thread queue.  The calledFromBDM is "permission" to access the
       # BDM private methods directly
       if doRegister:
@@ -924,6 +924,7 @@ class PyBtcWallet(object):
             TheBDM.registerScrAddr(Hash160ToScrAddr(new160), isFresh=isActuallyNew)
 
       return new160
+      
 
    #############################################################################
    def fillAddressPool(self, numPool=None, isActuallyNew=True, doRegister=True, GUI=True):
@@ -952,9 +953,9 @@ class PyBtcWallet(object):
       """
       Usually, when we fill the address pool, we are generating addresses
       for the first time, and thus there is no chance it's ever seen the
-      blockchain.  However, this method is also used for recovery/import
+      blockchain.  However, this method is also used for recovery/import 
       of wallets, where the address pool has addresses that probably have
-      transactions already in the blockchain.
+      transactions already in the blockchain.  
       """
       if not numPool:
          numPool = self.addrPoolSize
@@ -984,27 +985,27 @@ class PyBtcWallet(object):
 
    #############################################################################
    def getHighestUsedIndex(self):
-      """
+      """ 
       This only retrieves the stored value, but it may not be correct if,
       for instance, the wallet was just imported but has been used before.
       """
       return self.highestUsedChainIndex
 
-
+          
    #############################################################################
    def getHighestComputedIndex(self):
-      """
+      """ 
       This only retrieves the stored value, but it may not be correct if,
       for instance, the wallet was just imported but has been used before.
       """
       return self.lastComputedChainIndex
+      
 
-
-
+         
    #############################################################################
    def detectHighestUsedIndex(self, writeResultToWallet=False, fullscan=False):
       """
-      This method is used to find the highestUsedChainIndex value of the
+      This method is used to find the highestUsedChainIndex value of the 
       wallet WITHIN its address pool.  It will NOT extend its address pool
       in this search, because it is assumed that the wallet couldn't have
       used any addresses it had not calculated yet.
@@ -1016,7 +1017,7 @@ class PyBtcWallet(object):
             self.freshImportFindHighestIndex()
 
       which will actually extend the address pool as necessary to find the
-      highest address used.
+      highest address used.      
       """
       if not TheBDM.getBDMState()=='BlockchainReady' and not self.calledFromBDM:
          LOGERROR('Cannot detect any usage information without the blockchain')
@@ -1026,10 +1027,10 @@ class PyBtcWallet(object):
       self.doBlockchainSync = BLOCKCHAIN_READONLY
       if fullscan:
          # Will initiate rescan if wallet is dirty
-         self.syncWithBlockchain(0)
+         self.syncWithBlockchain(0)  
       else:
          # Will only use data already scanned, even if wallet is dirty
-         self.syncWithBlockchainLite(0)
+         self.syncWithBlockchainLite(0)  
       self.doBlockchainSync = oldSync
 
       highestIndex = max(self.highestUsedChainIndex, 0)
@@ -1046,13 +1047,13 @@ class PyBtcWallet(object):
 
       return highestIndex
 
-
+         
 
 
    #############################################################################
    @TimeThisFunction
    def freshImportFindHighestIndex(self, stepSize=None):
-      """
+      """ 
       This is much like detectHighestUsedIndex, except this will extend the
       address pool as necessary.  It assumes that you have a fresh wallet
       that has been used before, but was deleted and restored from its root
@@ -1060,9 +1061,9 @@ class PyBtcWallet(object):
       were used.
 
       If this was an exceptionally active wallet, it's possible that we
-      may need to manually increase the step size to be sure we find
+      may need to manually increase the step size to be sure we find  
       everything.  In fact, there is no way to tell FOR SURE what is the
-      last addressed used: one must make an assumption that the wallet
+      last addressed used: one must make an assumption that the wallet 
       never calculated more than X addresses without receiving a payment...
       """
       if not stepSize:
@@ -1082,7 +1083,7 @@ class PyBtcWallet(object):
          nWhile += 1
          if nWhile>10000:
             raise WalletAddressError, 'Escaping inf loop in freshImport...'
-
+            
 
       self.addrPoolSize = oldPoolSize
       return topUsed
@@ -1110,7 +1111,7 @@ class PyBtcWallet(object):
 
       newFile.close()
 
-
+   
    #############################################################################
    def makeUnencryptedWalletCopy(self, newPath, securePassphrase=None):
 
@@ -1129,20 +1130,20 @@ class PyBtcWallet(object):
       newWlt.unlock(self.kdfKey)
       newWlt.changeWalletEncryption(None)
 
-
+      
       walletFileBackup = newWlt.getWalletPath('backup')
       if os.path.exists(walletFileBackup):
          LOGINFO('New wallet created, deleting backup file')
          os.remove(walletFileBackup)
       return True
-
-
+      
+      
    #############################################################################
    def makeEncryptedWalletCopy(self, newPath, securePassphrase=None):
       """
-      Unlike the previous method, I can't just copy it if it's unencrypted,
-      because the target device probably shouldn't be exposed to the
-      unencrypted wallet.  So for that case, we will encrypt the wallet
+      Unlike the previous method, I can't just copy it if it's unencrypted, 
+      because the target device probably shouldn't be exposed to the 
+      unencrypted wallet.  So for that case, we will encrypt the wallet 
       in place, copy, then remove the encryption.
       """
 
@@ -1150,7 +1151,7 @@ class PyBtcWallet(object):
          # Encrypted->Encrypted:  Easy!
          self.writeFreshWalletFile(newPath)
          return True
-
+         
       if not securePassphrase:
          LOGERROR("Tried to make encrypted copy, but no passphrase supplied")
          return False
@@ -1159,7 +1160,7 @@ class PyBtcWallet(object):
       (mem,nIter,salt) = self.computeSystemSpecificKdfParams(0.25)
       self.changeKdfParams(mem, nIter, salt)
       self.changeWalletEncryption(securePassphrase=securePassphrase)
-
+   
       # Write the encrypted wallet to the target directory
       self.writeFreshWalletFile(newPath)
 
@@ -1167,9 +1168,9 @@ class PyBtcWallet(object):
       self.unlock(securePassphrase=securePassphrase)
       self.changeWalletEncryption(None)
       return True
+   
 
-
-
+      
 
 
    #############################################################################
@@ -1231,7 +1232,7 @@ class PyBtcWallet(object):
       On the other hand, if you don't want this to be a permanent upgrade,
       this could potentially be used to maintain a watching only wallet on your
       harddrive, and actually plug in your plaintext root key instead of an
-      encryption password whenever you want sign transactions.
+      encryption password whenever you want sign transactions. 
       """
       pass
 
@@ -1470,6 +1471,7 @@ class PyBtcWallet(object):
       else:
          self.changeWalletEncryption_(secureKdfOutput, securePassphrase, extraFileUpdates, kdfObj)
 
+
    #############################################################################
    @AllowAsync
    def changeWalletEncryption_(self, secureKdfOutput=None, \
@@ -1565,9 +1567,10 @@ class PyBtcWallet(object):
             walletUpdateInfo.append( \
                [WLT_UPDATE_MODIFY, addr.walletByteLoc, newAddrMap[addr160].serialize()])
 
+
          # Try to update the wallet file with the new encrypted key data
          updateSuccess = self.walletFileSafeUpdate( walletUpdateInfo )
-                             
+
          if updateSuccess:
             # Finally give the new data to the user
             for addr160,addr in newAddrMap.iteritems():
@@ -1589,7 +1592,6 @@ class PyBtcWallet(object):
          if newKdfKey: newKdfKey.destroy()
          if oldKdfKey: oldKdfKey.destroy()
          if DlgPrg is not None: DlgPrg.Kill()
-
 
 
 
@@ -1652,7 +1654,7 @@ class PyBtcWallet(object):
       dtype = WLT_DATATYPE_ADDRCOMMENT
       if len(hashVal)>20:
          dtype = WLT_DATATYPE_TXCOMMENT
-
+         
       updEntry.append([WLT_UPDATE_ADD, dtype, hashVal, newComment])
       newCommentLoc = self.walletFileSafeUpdate(updEntry)
       self.commentsMap[hashVal] = newComment
@@ -1666,7 +1668,7 @@ class PyBtcWallet(object):
    def getAddrCommentIfAvail(self, txHash):
       if not TheBDM.getBDMState()=='BlockchainReady':
          return self.getComment(txHash)
-
+         
       # If we haven't extracted relevant addresses for this tx, yet -- do it
       if not self.txAddrMap.has_key(txHash):
          self.txAddrMap[txHash] = []
@@ -1677,11 +1679,11 @@ class PyBtcWallet(object):
                   a160 = CheckHash160(tx.getScrAddrForTxOut(i))
                   if self.hasAddr(a160):
                      self.txAddrMap[txHash].append(a160)
-               except:
+               except: 
                   LOGERROR("Unrecognized scraddr: " + binary_to_hex(tx.getScrAddrForTxOut(i)))
-
-
-
+               
+     
+            
 
       addrComments = []
       for a160 in self.txAddrMap[txHash]:
@@ -1690,10 +1692,10 @@ class PyBtcWallet(object):
 
       return '; '.join(addrComments)
 
-
+                  
    #############################################################################
    def getCommentForLE(self, le):
-      # Smart comments for LedgerEntry objects:  get any direct comments ...
+      # Smart comments for LedgerEntry objects:  get any direct comments ... 
       # if none, then grab the one for any associated addresses.
       txHash = le.getTxHash()
       if self.commentsMap.has_key(txHash):
@@ -1709,7 +1711,7 @@ class PyBtcWallet(object):
 
 
 
-
+   
    #############################################################################
    def setWalletLabels(self, lshort, llong=''):
       self.labelName = lshort
@@ -1785,7 +1787,7 @@ class PyBtcWallet(object):
       self.offsetLabelDescr = binPacker.getSize() - startByte
       binPacker.put(BINARY_CHUNK, self.labelDescr,  width=256)
 
-      # Highest used address:
+      # Highest used address: 
       self.offsetTopUsed = binPacker.getSize() - startByte
       binPacker.put(INT64, self.highestUsedChainIndex)
 
@@ -1865,7 +1867,7 @@ class PyBtcWallet(object):
 
       # Read address-chain root address data
       self.offsetRootAddr  = binUnpacker.getPosition()
-
+      
 
       rawAddrData = binUnpacker.get(BINARY_CHUNK, self.pybtcaddrSize)
       self.addrMap['ROOT'] = PyBtcAddress().unserialize(rawAddrData)
@@ -1910,7 +1912,7 @@ class PyBtcWallet(object):
       elif dtype==WLT_DATATYPE_DELETED:
          deletedLen = binUnpacker.get(UINT16)
          binUnpacker.advance(deletedLen)
-
+         
 
       return (dtype, hashVal, binData)
 
@@ -1994,7 +1996,7 @@ class PyBtcWallet(object):
 
    #############################################################################
    def walletFileSafeUpdate(self, updateList):
-
+            
       """
       The input "toAddDataList" should be a list of triplets, such as:
       [
@@ -2246,7 +2248,7 @@ class PyBtcWallet(object):
          [  \x04  |  <2-byte length>  | \x00\x00\x00... ]
       So we need to construct a wallet-update vector to modify the data
       starting at the first byte, replace it with 0x04, specifies how many
-      bytes are in the deleted entry, and then actually overwrite those
+      bytes are in the deleted entry, and then actually overwrite those 
       bytes with 0s
       """
 
@@ -2269,7 +2271,7 @@ class PyBtcWallet(object):
       #             the wallet from file
       wltPath = self.walletPath
       self.readWalletFile(wltPath, doScanNow=True)
-
+      
 
    #############################################################################
    def importExternalAddressData(self, privKey=None, privChk=None, \
@@ -2352,11 +2354,11 @@ class PyBtcWallet(object):
          #raise ECDSA_Error, 'Supplied address hash does not match key data!'
 
       addr20 = computedAddr20
-
+      
       if self.addrMap.has_key(addr20):
          return None
 
-      # If a private key is supplied and this wallet is encrypted&locked, then
+      # If a private key is supplied and this wallet is encrypted&locked, then 
       # we have no way to secure the private key without unlocking the wallet.
       if self.useEncryption and privKey and not self.kdfKey:
          raise WalletLockError, 'Cannot import private key when wallet is locked!'
@@ -2401,7 +2403,7 @@ class PyBtcWallet(object):
 
       # The following line MAY deadlock if this method is called from the BDM
       # thread.  Do not write any BDM methods that calls this method!
-      TheBDM.registerImportedScrAddr(Hash160ToScrAddr(newAddr160),
+      TheBDM.registerImportedScrAddr(Hash160ToScrAddr(newAddr160), 
                                      firstTime, firstBlk, lastTime,  lastBlk)
 
 
@@ -2438,7 +2440,7 @@ class PyBtcWallet(object):
       """
 
       """
-      STUB: (AGAIN) I just can't make this work out to be as stupid-proof
+      STUB: (AGAIN) I just can't make this work out to be as stupid-proof 
             as I originally planned.  I'll have to put it on hold.
       self.__init__()
 
@@ -2469,7 +2471,7 @@ class PyBtcWallet(object):
                         'Priv_Hex_33_Compressed')
 
       DTYPES = enum('Unknown', 'Hash160', 'PubKey', 'PrivKey', 'Byte32', 'Byte33')
-
+      
 
       lastAddr = None
       lastPubK = None
@@ -2501,7 +2503,7 @@ class PyBtcWallet(object):
             binData = base58_to_binary(theStr)
             sz = len(binData)
 
-
+            
          if isHex and sz==40:
          elif isHex and sz==50:
             dataAndType = [DTYPES.Hash160, hex_to_binary(theStr)[1:21]]
@@ -2512,8 +2514,8 @@ class PyBtcWallet(object):
          elif isHex is sz==128:
             dataAndType = [DTYPES.PubKey, '\x04'+hex_to_binary(theStr)]
          elif isHex is sz==128:
-
-
+            
+             
 
          potentialKey = SecureBinaryData('\x04' + piece)
          isValid = CryptoECDSA().VerifyPublicKeyValid(potentialKey)
@@ -2526,7 +2528,7 @@ class PyBtcWallet(object):
 
    #############################################################################
    def checkIfRescanRequired(self):
-      """
+      """ 
       Returns true is we have to go back to disk/mmap and rescan more than two
       weeks worth of blocks
 
@@ -2558,7 +2560,7 @@ class PyBtcWallet(object):
       wltAddr = []
       for index,txin in enumerate(txdp.pytxObj.inputs):
          scriptType = getTxOutScriptType(txdp.txOutScripts[index])
-
+         
          if scriptType in (TXOUT_SCRIPT_STANDARD, TXOUT_SCRIPT_COINBASE):
             addr160 = TxOutScriptExtractAddr160(txdp.txOutScripts[index])
             if self.hasAddr(addr160) and self.addrMap[addr160].hasPrivKey():
@@ -2570,7 +2572,7 @@ class PyBtcWallet(object):
                if self.hasAddr(addr) and self.addrMap[addr].hasPrivKey():
                   wltAddr.append( (self.addrMap[addr], index, addrIdx) )
                   break
-
+                  
 
       # WltAddr now contains a list of every input we can sign for, and the
       # PyBtcAddress object that can be used to sign it.  Let's do it.
@@ -2579,7 +2581,7 @@ class PyBtcWallet(object):
       LOGDEBUG('Number of inputs that you can sign for: %d', numMyAddr)
 
 
-      # Unlock the wallet if necessary, sign inputs
+      # Unlock the wallet if necessary, sign inputs 
       maxChainIndex = -1
       for addrObj,idx, sigIdx in wltAddr:
          maxChainIndex = max(maxChainIndex, addrObj.chainIndex)
@@ -2625,13 +2627,15 @@ class PyBtcWallet(object):
          else:
             LOGERROR('Unknown txOut script type')
 
-
-      prevHighestIndex = self.highestUsedChainIndex
+      
+      prevHighestIndex = self.highestUsedChainIndex  
       if prevHighestIndex<maxChainIndex:
          self.advanceHighestIndex(maxChainIndex-prevHighestIndex)
          self.fillAddressPool()
-
+      
       return txdp
+
+
 
    #############################################################################
    def unlock(self, secureKdfOutput=None, \
@@ -2723,6 +2727,7 @@ class PyBtcWallet(object):
          if addrObj.chainIndex > -1: addrObjPrev = addrObj
 
          if needToSaveAddrAfterUnlock:
+            updateLoc = addrObj.walletByteLoc 
             self.walletFileSafeUpdate( [[WLT_UPDATE_MODIFY, addrObj.walletByteLoc, \
                                                 addrObj.serialize()]])
 
@@ -2786,10 +2791,9 @@ class PyBtcWallet(object):
       # WalletLockError, and the caller can get the passphrase from the user,
       # unlock the wallet, then try locking again.
       # NOTE: If we don't have kdfKey, it is set to None, which is the default
-      #       input for PyBtcAddress::lock for "I don't have it".  In most
-      #       cases, it is actually possible to lock the wallet without the
+      #       input for PyBtcAddress::lock for "I don't have it".  In most 
+      #       cases, it is actually possible to lock the wallet without the 
       #       kdfKey because we saved the encrypted versions before unlocking
-      
       LOGDEBUG('Attempting to lock wallet: %s', self.uniqueIDB58)
       i=1
       try:
@@ -2814,6 +2818,7 @@ class PyBtcWallet(object):
       LOGDEBUG('Wallet locked: %s', self.uniqueIDB58)
       
       if dlgPrg is not None: dlgPrg.Kill()
+
 
    #############################################################################
    def getAddrListSortedByChainIndex(self, withRoot=False):
@@ -2840,8 +2845,8 @@ class PyBtcWallet(object):
 
    #############################################################################
    def getLinearAddrList(self, withImported=True, withAddrPool=False):
-      """
-      Retrieves a list of addresses, by hash, in the order they
+      """ 
+      Retrieves a list of addresses, by hash, in the order they 
       appear in the wallet file.  Can ignore the imported addresses
       to get only chained addresses, if necessary.
 
@@ -2855,14 +2860,14 @@ class PyBtcWallet(object):
             # Either we want imported addresses, or this isn't one
             if (withAddrPool or addr.chainIndex<=self.highestUsedChainIndex):
                addrList.append(addr)
-
+         
       return addrList
-
+      
 
    #############################################################################
    def getAddress160ByChainIndex(self, desiredIdx):
       """
-      It should be safe to assume that if the index is less than the highest
+      It should be safe to assume that if the index is less than the highest 
       computed, it will be in the chainIndexMap, but I don't like making such
       assumptions.  Perhaps something went wrong with the wallet, or it was
       manually reconstructed and has holes in the chain.  We will regenerate
@@ -2874,7 +2879,7 @@ class PyBtcWallet(object):
          # that a bug may lead to generation of billions of addresses, which
          # would saturate the system's resources and fill the HDD.
          raise WalletAddressError, 'Chain index is out of range'
-
+         
 
       if self.chainIndexMap.has_key(desiredIdx):
          return self.chainIndexMap[desiredIdx]
@@ -2885,7 +2890,7 @@ class PyBtcWallet(object):
          for idx,addr160 in self.chainIndexMap.iteritems():
             if closestIdx<idx<=desiredIdx:
                closestIdx = idx
-
+               
          gap = desiredIdx - closestIdx
          extend160 = self.chainIndexMap[closestIdx]
          for i in range(gap+1):
@@ -2900,7 +2905,7 @@ class PyBtcWallet(object):
       print indent + '   useEncrypt:', self.useEncryption
       print indent + '   watchOnly :', self.watchingOnly
       print indent + '   isLocked  :', self.isLocked
-      print indent + '   ShortLabel:', self.labelName
+      print indent + '   ShortLabel:', self.labelName 
       print indent + '   LongLabel :', self.labelDescr
       print ''
       print indent + 'Root key:', self.addrMap['ROOT'].getAddrStr(),
@@ -2953,7 +2958,7 @@ class PyBtcWallet(object):
          return False
 
       return isEqualTo
-
+   
 # Putting this at the end because of the circular dependency
 from armoryengine.BDM import TheBDM, getCurrTimeAndBlock
 from armoryengine.PyBtcAddress import PyBtcAddress
