@@ -2040,35 +2040,38 @@ def ReadFragIDLineHex(hexLine):
 
 
 
-
-
-# We can identify an address string by its first byte upon conversion
-# back to binary.  Return -1 if checksum doesn't match
+################################################################################
 def checkAddrType(addrBin):
    """ Gets the network byte of the address.  Returns -1 if chksum fails """
    first21, chk4 = addrBin[:-4], addrBin[-4:]
    chkBytes = hash256(first21)
-   if chkBytes[:4] == chk4:
-      return addrBin[0]
-   else:
-      return -1
+   return addrBin[0] if (chkBytes[:4] == chk4) else -1
 
-# Check validity of a BTC address in its binary form, as would
-# be found inside a pkScript.  Usually about 24 bytes
-def checkAddrBinValid(addrBin, netbyte=ADDRBYTE):
+################################################################################
+def checkAddrBinValid(addrBin, validPrefixes=None):
    """
    Checks whether this address is valid for the given network
    (set at the top of pybtcengine.py)
    """
-   return checkAddrType(addrBin) == netbyte
+   if validPrefixes is None:
+      validPrefixes = [ADDRBYTE, P2SHBYTE]
 
-# Check validity of a BTC address in Base58 form
+   if not isinstance(validPrefixes, list):
+      validPrefixes = [validPrefixes]
+
+   return (checkAddrType(addrBin) in validPrefixes)
+
+
+
+################################################################################
 def checkAddrStrValid(addrStr):
    """ Check that a Base58 address-string is valid on this network """
    return checkAddrBinValid(base58_to_binary(addrStr))
 
 
+################################################################################
 def convertKeyDataToAddress(privKey=None, pubKey=None):
+   """ Returns a hash160 value """
    if not privKey and not pubKey:
       raise BadAddressError, 'No key data supplied for conversion'
    elif privKey:

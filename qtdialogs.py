@@ -4768,7 +4768,7 @@ class DlgSendBitcoins(ArmoryDialog):
       self.widgetTable[idx][col].setAutoFillBackground(True);
       try:
          addrtext = str(self.widgetTable[idx][self.COLS.Addr].text())
-         wid = self.main.getWalletForAddr160(addrStr_to_hash160(addrtext))
+         wid = self.main.getWalletForAddr160(addrStr_to_hash160(addrtext)[1])
          if wid:
             wlt = self.main.walletMap[wid]
             dispStr = '%s (%s)' % (wlt.labelName, wlt.uniqueIDB58)
@@ -4793,17 +4793,17 @@ class DlgSendBitcoins(ArmoryDialog):
          addrIsValid = False
          try:
             addrBytes.append(checkAddrType(base58_to_binary(addrStr)))
-            addrIsValid = (addrBytes[i] == ADDRBYTE)
+            addrIsValid = checkAddrStrValid(addrStr)
          except ValueError:
             addrBytes.append(-1)
-
 
          if not addrIsValid:
             self.freeOfErrors = False
             self.updateAddrField(i, COLS.Addr, Colors.SlightRed)
 
+      prefixInvalid = lambda b: (b==-1) or (not b in [ADDRBYTE,P2SHBYTE])
 
-      numChkFail = sum([1 if b == -1 or b != ADDRBYTE else 0 for b in addrBytes])
+      numChkFail = sum([1 if prefixInvalid(b) else 0 for b in addrBytes])
       if not self.freeOfErrors:
          QMessageBox.critical(self, 'Invalid Address', \
            'You have entered %d invalid addresses.  The errors have been '
@@ -4811,14 +4811,14 @@ class DlgSendBitcoins(ArmoryDialog):
            QMessageBox.Ok)
 
          for i in range(len(self.widgetTable)):
-            if addrBytes[i] != -1 and addrBytes[i] != ADDRBYTE:
+            if prefixInvalid(addrBytes[i]):
                net = 'Unknown Network'
                if NETWORKS.has_key(addrBytes[i]):
                   net = NETWORKS[addrBytes[i]]
                QMessageBox.warning(self, 'Wrong Network!', \
                   'Address %d is for the wrong network!  You are on the <b>%s</b> '
                   'and the address you supplied is for the the '
-                  '<b>%s</b>!' % (i + 1, NETWORKS[ADDRBYTE], net), QMessageBox.Ok)
+                  '<b>%s</b>!' % (i+1, NETWORKS[ADDRBYTE], net), QMessageBox.Ok)
          return False
 
 
@@ -4859,7 +4859,13 @@ class DlgSendBitcoins(ArmoryDialog):
             return False
 
          totalSend += value
-         recip160 = addrStr_to_hash160(recipStr)
+         atype, recip160 = addrStr_to_hash160(recipStr)
+         if atype==P2SHBYTE:
+            QMessageBox.critical(self, tr('P2SH Not Supported'), tr("""
+               Address %d is a P2SH address (BIP 16).  Armory does not yet
+               support sending to P2SH addresses.""") % (i+1), QMessageBox.Ok)
+            raise P2SHNotSupportedError('Tried to send to P2SH addr')
+
          recipValuePairs.append((recip160, value))
          self.comments.append(str(self.widgetTable[i][COLS.Comm].text()))
 
@@ -4897,7 +4903,8 @@ class DlgSendBitcoins(ArmoryDialog):
             'You just tried to send %s BTC, including fee, but you only '
             'have %s BTC with this coin control selection!' % (valTry, valMax), QMessageBox.Ok)
          return False
-      # iteratively calculate the minimum fee by first trying the user selected fee
+
+      # Iteratively calculate the minimum fee by first trying the user selected fee
       # then on each iteration set the feeTry to the minFee, and see if the new feeTry
       # can cover the original amount plus the new minfee
       # This loop will rarely iterate. It will only iterate when there is enough dust in utxoList so that
@@ -4914,6 +4921,7 @@ class DlgSendBitcoins(ArmoryDialog):
          utxoList = self.getUsableTxOutList()
          utxoSelect = PySelectCoins(utxoList, totalSend, feeTry)
          minFee = calcMinSuggestedFees(utxoSelect, totalSend, feeTry)[1]
+
       if fee < minFee:
          if totalSend + minFee > bal:
             # Need to adjust this based on overrideMin flag
@@ -4967,7 +4975,8 @@ class DlgSendBitcoins(ArmoryDialog):
             return
          recipValuePairs.append([self.change160, totalChange])
       else:
-         if self.main.usermode == USERMODE.Expert and self.chkDefaultChangeAddr.isChecked():
+         if self.main.usermode == USERMODE.Expert and \
+            self.chkDefaultChangeAddr.isChecked():
             self.selectedBehavior = 'NoChange'
 
       # Anonymize the outputs
@@ -5027,7 +5036,9 @@ class DlgSendBitcoins(ArmoryDialog):
                      'You specified an invalid change address '
                      'for this transcation.', QMessageBox.Ok)
                   return '', False
-               changeAddr160 = addrStr_to_hash160(addrStr)
+               atype, changeAddr160 = addrStr_to_hash160(addrStr)
+               if atype==P2SHBYTE:
+                  raise P2SHNotSupportedError('Tried to use P2SH change addr')
                self.selectedBehavior = 'Specify'
 
       if self.main.usermode == USERMODE.Expert and self.chkRememberChng.isChecked():
