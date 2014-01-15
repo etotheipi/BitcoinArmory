@@ -931,6 +931,19 @@ public:
       }
    }
 
+   /////////////////////////////////////////////////////////////////////////////
+   // This is basically just for SWIG to access via python
+   static BinaryData getScrAddrForScript(BinaryData const & script)
+   {
+      return getTxOutScrAddr(script.getRef());
+   }
+
+   /////////////////////////////////////////////////////////////////////////////
+   // This is basically just for SWIG to access via python
+   static uint32_t getTxOutScriptTypeInt(BinaryData const & script)
+   {
+      return (uint32_t)getTxOutScriptType(script.getRef());
+   }
 
    /////////////////////////////////////////////////////////////////////////////
    static bool isMultisigScript(BinaryDataRef script)

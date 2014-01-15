@@ -41,7 +41,7 @@ HTTP_VERSION_FILE = 'https://bitcoinarmory.com/versions.txt'
 
 
 ################################################################################
-def tr(txt):
+def tr(txt, replList=None, pluralList=None):
    """
    This is a common convention for implementing translations, where all 
    translatable strings are put int the _(...) function, and that method 
@@ -58,22 +58,39 @@ def tr(txt):
    
    Instead it should really look like: 
       
-      myLabel = QRichLabel( _('''
+      myLabel = QRichLabel( tr('''
          This text is split across mulitple lines 
          and it will acquire a space after each line 
          as well as include newlines because it's HTML
          and uses <br>. ''' ))
+
+   Added easy plural handling:
+
+      Just add an extra argument to specify a variable on which plurality
+      should be chosen, and then decorate your text with 
+
+         @{singular|plural}@
+   
+   For instance:
+
+      tr('The @{cat|cats}@ danced.  @{It was|They were}@ happy.', nCat)
+      tr('The @{cat|%d cats}@ danced.  @{It was|They were}@ happy.'%nCat, nCat)
+      tr('The @{cat|cats}@ attacked the @{dog|dogs}@', nCat, nDog)
+
+   This should work well for 
    """
 
    txt = toUnicode(txt)
    lines = [l.strip() for l in txt.split('\n')]
-   outText = (' '.join(lines)).strip()
+   txt = (' '.join(lines)).strip()
 
    # Eventually we do something cool with this transalate function.
+   # It will be defined elsewhere, but for now stubbed with identity fn
    TRANSLATE = lambda x: x
 
-   return TRANSLATE(outText)
+   txt = TRANSLATE(txt)
 
+   return formatStrWithPlural(replList, pluralList)
    
 
 

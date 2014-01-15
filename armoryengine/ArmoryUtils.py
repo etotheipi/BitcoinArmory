@@ -237,7 +237,9 @@ BLOCKCHAINS['\x0b\x11\x09\x07'] = "Test Network (testnet3)"
 
 NETWORKS = {}
 NETWORKS['\x00'] = "Main Network"
+NETWORKS['\x05'] = "Main Network"
 NETWORKS['\x6f'] = "Test Network"
+NETWORKS['\xc4'] = "Test Network"
 NETWORKS['\x34'] = "Namecoin Network"
 
 
@@ -942,6 +944,222 @@ def str2coin(theStr, negAllowed=True, maxDec=8, roundHighPrec=True):
          raise NegativeValueError
       fullInt = (int(lhs + rhs[:9].ljust(9,'0')) + 5) / 10
       return fullInt*(-1 if isNeg else 1)
+
+
+
+################################################################################
+def replacePlurals(txt, *args):
+   """
+   Use this like regular string formatting, but with pairs of strings:
+
+      replacePlurals("I have @{one cat|%d cats}@. @{It is|They are}@ cute!", nCat)
+
+   Then you can supply a single number which will select all supplied pairs.
+    or one number per @{|}@ object.  If you use with format
+   strings (such as above, with "%d") make sure to replace those strings FIRST,
+   then call this function.  Otherwise the %d will disappear depending on the
+   plurality and cause an error.  Hence why I made the function below: 
+      formatWithPlurals
+   """
+   if len(args)==0:
+      if ('@{' in txt) and ('}@' in txt):
+         raise IndexError('Not enough arguments for plural formatting')
+      return txt
+
+   argList = list(args[::-1])
+   n = argList[0]
+   nRepl = 0
+   while '@{' in txt:
+      idx0 = txt.find('@{')
+      idx1 = txt.find('}@')+2
+      sep = txt.find('|', idx0)
+      if idx1==1 or sep==-1:
+         raise TypeError('Invalid replacement format')
+
+      strOne     = txt[idx0+2:sep]
+      strMany    = txt[sep+1:idx1-2]
+      strReplace = txt[idx0:idx1]
+
+      if not len(args) == 1:
+         try:
+            n = argList.pop()
+         except IndexError:
+            raise IndexError('Not enough arguments for plural formatting')
+
+      txt = txt.replace(strReplace, strOne if n==1 else strMany)
+      nRepl += 1
+
+   if (len(args)>1 and len(argList)>0) or (nRepl < len(args)):
+      raise TypeError('Too many arguments supplied for plural formatting')
+      
+   return txt
+
+
+
+################################################################################
+def formatWithPlurals(txt, replList=None, pluralList=None):
+   """
+   Where you would normally supply X extra arguments for either regular string
+   formatting or the plural function, you will instead supply a X-element list
+   for each one (actually, the two lists are likely to be different sizes).   
+   """
+   # Do the string formatting/replacement first, since the post-pluralized
+   # string may remove some of the replacement objects (i.e. if you have
+   # "The @{cat|%d cats}@ danced", the %d won't be there if the singular 
+   # is chosen and replaced before applying the string formatting objects).
+   if replList is not None:
+      if not isinstance(replList, (list,tuple)):
+         replList = [replList]
+      txt = txt % tuple(replList)
+
+   if pluralList is not None:
+      if not isinstance(pluralList, (list,tuple)):
+         pluralList = [pluralList]
+      txt = replacePlurals(txt, *pluralList)
+
+   return txt
+
+
+################################################################################
+# A bunch of convenience methods for converting between:
+#  -- Raw binary scripts (as seen in the blockchain)
+#  -- Address strings (exchanged between people for paying each other)
+#  -- ScrAddr strings (A unique identifier used by the DB)
+################################################################################
+
+################################################################################
+# Convert a 20-byte hash to a "pay-to-public-key-hash" script to be inserted
+# into a TxOut script
+def hash160_to_p2pkhash_script(binStr20):
+   if not len(binStr20)==20:
+      raise InvalidHashError('Tried to convert non-20-byte str to p2pkh script')
+
+   from Transaction import getOpCode
+   outScript = ''.join([  getOpCode('OP_DUP'        ), \
+                          getOpCode('OP_HASH160'    ), \
+                          '\x14',                      \
+                          binStr20,
+                          getOpCode('OP_EQUALVERIFY'), \
+                          getOpCode('OP_CHECKSIG'   )])
+   return outScript
+
+
+################################################################################
+# Convert a 20-byte hash to a "pay-to-script-hash" script to be inserted
+# into a TxOut script
+def hash160_to_p2sh_script(binStr20):
+   if not len(binStr20)==20:
+      raise InvalidHashError('Tried to convert non-20-byte str to p2sh script')
+
+   from Transaction import getOpCode
+   outScript = ''.join([  getOpCode('OP_HASH160'), \
+                          '\x14',                      \
+                          binStr20,
+                          getOpCode('OP_EQUAL')])
+   return outScript
+
+################################################################################
+# Convert an arbitrary script into a P2SH script
+def script_to_p2sh_script(binScript):
+   scriptHash = hash160(binScript)
+   return hash160_to_p2sh_script(scriptHash)
+
+
+################################################################################
+# Convert a 33-byte or 65-byte hash to a "pay-to-pubkey" script to be inserted
+# into a TxOut script
+def pubkey_to_p2pk_script(binStr33or65):
+   
+   if not len(binStr33or65) in [33, 65]:
+      raise KeyDataError('Invalid public key supplied to p2pk script')
+
+   from Transaction import getOpCode
+   lenByte = int_to_binary(len(binStr33or65), widthBytes=1)
+   outScript =  ''.join([  lenByte,
+                           binStr33or65,
+                           getOpCode('OP_CHECKSIG')])
+   return outScript
+
+
+################################################################################
+# Convert a list of public keys to an OP_CHECKMULTISIG script.  There will be 
+# use cases where we require the keys to be sorted lexicographically, so we 
+# will do that by default.  If you require a different order, pre-sort them 
+# and pass withSort=False.
+def pubkeylist_to_multisig_script(pkList, M, withSort=True):
+
+   if sum([  (0 if len(pk) in [33,65] else 1)   for pk in pkList]) > 0:
+      raise KeyDataError('Not all strings in pkList are 33 or 65 bytes!')
+
+   from Transaction import getOpCode
+   opM = getOpCode('OP_%d' % M)
+   opN = getOpCode('OP_%d' % len(pkList))
+
+   newPkList = pkList[:] # copy
+   if withSort:
+      newPkList = sorted(pkList)
+
+   outScript = opM
+   for pk in newPkList:
+      outScript += int_to_binary(len(pk), widthBytes=1)   
+      outScript += pk
+   outScript += opN
+   outScript += getOpCode('OP_CHECKMULTISIG')
+
+   return outScript
+
+################################################################################
+def scrAddr_to_script(scraddr):
+   """ Convert a scrAddr string (used by BDM) to the correct TxOut script """
+   if len(scraddr)==0:
+      raise BadAddressError('Empty scraddr')
+
+   prefix = scraddr[0]
+   if not prefix in ['\x00', '\x05', '\xfe', '\xff'] or not len(scraddr)==21:
+      LOGERROR('Bad scraddr: "%s"' % binary_to_hex(scraddr))
+      raise BadAddressError('Invalid ScrAddress')
+
+   if prefix=='\x00':
+      return hash160_to_p2pkhash_script(scraddr[1:])
+   elif prefix=='\x05':
+      return hash160_to_p2sh_script(scraddr[1:])
+   else:
+      LOGERROR('Unsupported scraddr type: "%s"' % binary_to_hex(scraddr))
+      raise BadAddressError('Can only convert P2PKH and P2SH scripts')
+
+
+################################################################################
+def script_to_scrAddr(binScript):
+   """ Convert a binary script to scrAddr string (used by BDM) """
+   return Cpp.BtcUtils().getScrAddrForScript(binScript)
+
+################################################################################
+def scrAddr_to_addrStr(scrAddr):
+   if len(scrAddr)==0:
+      raise BadAddressError('Empty scrAddr')
+
+   prefix = scrAddr[0]
+   if not prefix in ['\x00', '\x05', '\xfe', '\xff'] or not len(scrAddr)==21:
+      LOGERROR('Bad scrAddr: "%s"' % binary_to_hex(scrAddr))
+      raise BadAddressError('Invalid ScrAddress')
+
+   if prefix=='\x00':
+      return hash160_to_addrStr(scrAddr[1:])
+   elif prefix=='\x05':
+      return hash160_to_p2shStr(scrAddr[1:])
+   else:
+      LOGERROR('Unsupported scrAddr type: "%s"' % binary_to_hex(scrAddr))
+      raise BadAddressError('Can only convert P2PKH and P2SH scripts')
+
+
+################################################################################
+def addrStr_to_scrAddr(addrStr):
+   addrBin = base58_to_binary(addrStr)
+   if not checkAddrBinValid(addrBin):
+      BadAddressError('Invalid address: "%s"' % addrStr)
+   return addrBin[:21] 
+
+
 
 
 ################################################################################
@@ -2300,6 +2518,7 @@ class PyBackgroundThread(threading.Thread):
       self.output     = None
       self.startedAt  = UNINITIALIZED
       self.finishedAt = UNINITIALIZED
+      self.errorThrown = None
 
       if len(args)==0:
          self.func  = lambda: ()
@@ -2341,6 +2560,24 @@ class PyBackgroundThread(threading.Thread):
 
       return self.output
 
+   def didThrowError(self):
+      return (self.errorThrown is not None)
+
+   def raiseLastError(self):
+      if self.errorThrown is None:
+         return 
+      raise self.errorThrown
+
+   def getErrorType(self):
+      if self.errorThrown is None:
+         return None
+      return type(self.errorThrown)
+
+   def getErrorMsg(self):
+      if self.errorThrown is None:
+         return ''
+      return self.errorThrown.args[0]
+
 
    def start(self):
       # The prefunc is blocking.  Probably preparing something
@@ -2350,13 +2587,17 @@ class PyBackgroundThread(threading.Thread):
 
    def run(self):
       # This should not be called manually.  Only call start()
-      self.output     = self.func()
+      try:
+         self.output = self.func()
+      except Exception as e:
+         self.errorThrown = e
       self.finishedAt = RightNow()
       
    def reset(self):
       self.output = None
       self.startedAt  = UNINITIALIZED
       self.finishedAt = UNINITIALIZED
+      self.errorThrown = None
 
    def restart(self):
       self.reset()
@@ -2366,7 +2607,6 @@ class PyBackgroundThread(threading.Thread):
 # Define a decorator that allows the function to be called asynchronously
 def AllowAsync(func):
    def wrappedFunc(*args, **kwargs):
-
       if not 'async' in kwargs or not kwargs['async']==True:
          # Run the function normally
          if 'async' in kwargs:

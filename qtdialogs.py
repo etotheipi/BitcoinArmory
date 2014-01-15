@@ -3825,6 +3825,7 @@ class DlgSetComment(ArmoryDialog):
 
 
 
+################################################################################
 class DlgRemoveWallet(ArmoryDialog):
    def __init__(self, wlt, parent=None, main=None):
       super(DlgRemoveWallet, self).__init__(parent, main)
@@ -4110,6 +4111,7 @@ class DlgRemoveWallet(ArmoryDialog):
             self.reject()
 
 
+################################################################################
 class DlgRemoveAddress(ArmoryDialog):
    def __init__(self, wlt, addr160, parent=None, main=None):
       super(DlgRemoveAddress, self).__init__(parent, main)
@@ -4235,6 +4237,7 @@ class DlgRemoveAddress(ArmoryDialog):
 
 
 
+################################################################################
 class DlgWalletSelect(ArmoryDialog):
    def __init__(self, parent=None, main=None, title='Select Wallet:', \
                              descr='', firstSelect=None, onlyMyWallets=False, \
@@ -4278,9 +4281,11 @@ class DlgWalletSelect(ArmoryDialog):
       if isDoubleClick:
          self.accept()
 
+
+################################################################################
 class DlgConfirmSend(ArmoryDialog):
 
-   def __init__(self, wlt, recipValPairs, fee, parent=None, main=None, sendNow=False, changeBehave=None):
+   def __init__(self, wlt, scraddrValuePairs, fee, parent=None, main=None, sendNow=False, changeBehave=None):
       super(DlgConfirmSend, self).__init__(parent, main)
 
       self.wlt = wlt
@@ -4292,7 +4297,7 @@ class DlgConfirmSend(ArmoryDialog):
       lblInfoImg.setPixmap(QPixmap(':/MsgBox_info48.png'))
       lblInfoImg.setAlignment(Qt.AlignHCenter | Qt.AlignTop)
 
-      totalSend = sum([rv[1] for rv in recipValPairs]) + fee
+      totalSend = sum([rv[1] for rv in scraddrValuePairs]) + fee
       sumStr = coin2str(totalSend, maxZeros=1)
 
       lblMsg = QRichLabel(
@@ -4303,8 +4308,8 @@ class DlgConfirmSend(ArmoryDialog):
       recipLbls = []
       ffixBold = GETFONT('Fixed')
       ffixBold.setWeight(QFont.Bold)
-      for rv in recipValPairs:
-         addrPrint = (hash160_to_addrStr(rv[0]) + ' : ').ljust(37)
+      for rv in scraddrValuePairs:
+         addrPrint = (scrAddr_to_addrStr(rv[0]) + ' : ').ljust(37)
          recipLbls.append(QLabel(addrPrint + coin2str(rv[1], rJust=True, maxZeros=4)))
          recipLbls[-1].setFont(ffixBold)
 
@@ -4332,13 +4337,17 @@ class DlgConfirmSend(ArmoryDialog):
       # Acknowledge if the user has selected a non-std change location
       lblSpecialChange = QRichLabel('')
       if self.main.usermode == USERMODE.Expert and changeBehave:
-         chngAddr160 = changeBehave[0]
-         chngAddrStr = hash160_to_addrStr(chngAddr160)
+         chngScrAddr = changeBehave[0]
+         chngAddrStr = scrAddr_to_addrStr(chngScrAddr)
+         atype, chngAddr160 = addrStr_to_hash160(chngAddrStr)[1]
+         if atype == P2SHBYTE:
+            LOGWARN('P2SH Change address received')
+
          chngBehaveStr = changeBehave[1]
          if chngBehaveStr == 'Feedback':
             lblSpecialChange.setText('*Change will be sent back to first input address')
          elif chngBehaveStr == 'Specify':
-            wltID = self.main.getWalletForAddr160(changeBehave[0])
+            wltID = self.main.getWalletForAddr160(chngAddr160)
             msg = '*Change will be sent to %s...' % chngAddrStr[:12]
             if wltID:
                msg += ' (Wallet: %s)' % wltID
@@ -4689,14 +4698,14 @@ class DlgSendBitcoins(ArmoryDialog):
    #############################################################################
    def createOfflineTxDPAndDisplay(self):
       self.txValues = []
-      self.origRVPairs = []
+      self.origSVPairs = []
       self.comments = []
       txdp = self.validateInputsGetTxDP()
       if not txdp:
          return
 
       changePair = (self.change160, self.selectedBehavior)
-      dlg = DlgConfirmSend(self.wlt, self.origRVPairs, self.txValues[1], self, \
+      dlg = DlgConfirmSend(self.wlt, self.origSVPairs, self.txValues[1], self, \
                                                    self.main, False, changePair)
       if dlg.exec_():
          dlg = DlgOfflineTxCreated(self.wlt, txdp, self, self.main)
@@ -4708,7 +4717,7 @@ class DlgSendBitcoins(ArmoryDialog):
    #############################################################################
    def createTxAndBroadcast(self):
       self.txValues = []
-      self.origRVPairs = []
+      self.origSVPairs = []
       self.comments = []
       txdp = self.validateInputsGetTxDP()
       if not txdp:
@@ -4721,7 +4730,7 @@ class DlgSendBitcoins(ArmoryDialog):
 
 
       changePair = (self.change160, self.selectedBehavior)
-      dlg = DlgConfirmSend(self.wlt, self.origRVPairs, self.txValues[1], self, \
+      dlg = DlgConfirmSend(self.wlt, self.origSVPairs, self.txValues[1], self, \
                                                    self.main, True, changePair)
       if dlg.exec_():
          try:
@@ -4739,7 +4748,7 @@ class DlgSendBitcoins(ArmoryDialog):
                commentStr = self.comments[0]
             else:
                for i in range(len(self.comments)):
-                  amt = self.origRVPairs[i][1]
+                  amt = self.origSVPairs[i][1]
                   if len(self.comments[i].strip()) > 0:
                      commentStr += '%s (%s);  ' % (self.comments[i], coin2str_approx(amt).strip())
 
@@ -4785,45 +4794,50 @@ class DlgSendBitcoins(ArmoryDialog):
    def validateInputsGetTxDP(self):
       COLS = self.COLS
       self.freeOfErrors = True
-      addrBytes = []
+      scrAddrs = []
+      addrList = []
       for i in range(len(self.widgetTable)):
          # Verify validity of address strings
          addrStr = str(self.widgetTable[i][COLS.Addr].text()).strip()
-         self.widgetTable[i][COLS.Addr].setText(addrStr)  # overwrite w/ stripped
-         addrIsValid = False
+         self.widgetTable[i][COLS.Addr].setText(addrStr) # overwrite w/ stripped
+         addrIsValid = True
+         addrList.append(addrStr)
          try:
-            addrBytes.append(checkAddrType(base58_to_binary(addrStr)))
-            addrIsValid = checkAddrStrValid(addrStr)
-         except ValueError:
-            addrBytes.append(-1)
-
-         if not addrIsValid:
+            # The addrStr_to_scrAddr method fails if not reg Addr, or P2SH
+            scrAddrs.append(addrStr_to_scrAddr(addrStr))
+         except:
+            addrIsValid = False
+            scrAddrs.append('')
             self.freeOfErrors = False
             self.updateAddrField(i, COLS.Addr, Colors.SlightRed)
 
-      prefixInvalid = lambda b: (b==-1) or (not b in [ADDRBYTE,P2SHBYTE])
 
-      numChkFail = sum([1 if prefixInvalid(b) else 0 for b in addrBytes])
+      numChkFail = sum([1 if len(b[0])==0 else 0 for b in scrAddrs])
       if not self.freeOfErrors:
-         QMessageBox.critical(self, 'Invalid Address', \
-           'You have entered %d invalid addresses.  The errors have been '
-           'highlighted on the entry screen.' % (numChkFail), \
-           QMessageBox.Ok)
+         QMessageBox.critical(self, tr('Invalid Address'), tr("""
+           You have entered %d invalid @{address|addresses}@.  
+           The @{error has|errors have}@ been highlighted on the 
+           entry screen.""", numChkFail, numChkFail), QMessageBox.Ok)
 
          for i in range(len(self.widgetTable)):
-            if prefixInvalid(addrBytes[i]):
-               net = 'Unknown Network'
-               if NETWORKS.has_key(addrBytes[i]):
-                  net = NETWORKS[addrBytes[i]]
-               QMessageBox.warning(self, 'Wrong Network!', \
-                  'Address %d is for the wrong network!  You are on the <b>%s</b> '
-                  'and the address you supplied is for the the '
-                  '<b>%s</b>!' % (i+1, NETWORKS[ADDRBYTE], net), QMessageBox.Ok)
+            try:
+               atype, a160 = addrStr_to_hash160(addrList[i]) 
+               if atype == -1 or not atype in [ADDRBYTE,P2SHBYTE]:
+                  net = 'Unknown Network'
+                  if NETWORKS.has_key(addrList[i][0]):
+                     net = NETWORKS[addrList[i][0]]
+                  QMessageBox.warning(self, tr('Wrong Network!'), tr("""
+                     Address %d is for the wrong network!  You are on the <b>%s</b>
+                     and the address you supplied is for the the <b>%s</b>!""") % \
+                     (i+1, NETWORKS[ADDRBYTE], net), QMessageBox.Ok)
+            except:
+               pass
+
          return False
 
 
       # Construct recipValuePairs and check that all metrics check out
-      recipValuePairs = []
+      scraddrValuePairs = []
       totalSend = 0
       for i in range(len(self.widgetTable)):
          try:
@@ -4859,14 +4873,9 @@ class DlgSendBitcoins(ArmoryDialog):
             return False
 
          totalSend += value
-         atype, recip160 = addrStr_to_hash160(recipStr)
-         if atype==P2SHBYTE:
-            QMessageBox.critical(self, tr('P2SH Not Supported'), tr("""
-               Address %d is a P2SH address (BIP 16).  Armory does not yet
-               support sending to P2SH addresses.""") % (i+1), QMessageBox.Ok)
-            raise P2SHNotSupportedError('Tried to send to P2SH addr')
+         scraddr = addrStr_to_scrAddr(recipStr)
 
-         recipValuePairs.append((recip160, value))
+         scraddrValuePairs.append((scraddr, value))
          self.comments.append(str(self.widgetTable[i][COLS.Comm].text()))
 
       try:
@@ -4965,7 +4974,7 @@ class DlgSendBitcoins(ArmoryDialog):
       totalTxSelect = sum([u.getValue() for u in utxoSelect])
       totalChange = totalTxSelect - (totalSend + fee)
 
-      self.origRVPairs = list(recipValuePairs)
+      self.origSVPairs = list(scraddrValuePairs)
       self.change160 = ''
       self.selectedBehavior = ''
       if totalChange > 0:
@@ -4973,7 +4982,7 @@ class DlgSendBitcoins(ArmoryDialog):
          LOGINFO('Change address behavior: %s', self.selectedBehavior)
          if not self.change160:
             return
-         recipValuePairs.append([self.change160, totalChange])
+         scraddrValuePairs.append([self.change160, totalChange])
       else:
          if self.main.usermode == USERMODE.Expert and \
             self.chkDefaultChangeAddr.isChecked():
@@ -6130,7 +6139,7 @@ class DlgReviewOfflineTx(ArmoryDialog):
       # sending a regular (online) transaction.  But the DlgConfirmSend was
       # not really designed
       # self.txValues = [totalSend, fee, totalChange]
-      # self.origRVPairs = list(recipValuePairs)
+      # self.origSVPairs = list(recipValuePairs)
       txdp = self.txdpObj
       rvpairsOther = []
       rvpairsMine = []
@@ -12681,11 +12690,11 @@ class DlgRestoreSingle(ArmoryDialog):
 
       if nError > 0:
          pluralStr = 'error' if nError == 1 else 'errors'
-         QMessageBox.question(self, 'Errors Corrected!', \
-            'Detected ' + str(nError) + ' ' + pluralStr + ' '
-            'in the data you entered.  Armory attempted to fix the ' +
-            pluralStr + ' but it is not always right.  Be sure '
-            'to verify the "Wallet Unique ID" closely on the next window.', \
+         QMessageBox.question(self, tr('Errors Corrected'), tr("""
+            Detected %d @{error|errors}@ in the data you entered.  
+            Armory attempted to fix the @{error|errors}@ but it is not 
+            always right.  Be sure to verify the "Wallet Unique ID" 
+            closely on the next window.""", nError, nError), \
             QMessageBox.Ok)
 
       privKey = SecureBinaryData(''.join(inputLines[:2]))
