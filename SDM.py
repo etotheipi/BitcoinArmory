@@ -217,6 +217,10 @@ class SatoshiDaemonManager(object):
       searchPaths = list(extraSearchPaths)  # create a copy
 
       if OS_WINDOWS:
+         # Making sure the search path argument comes with /daemon and /Bitcoin on Windows
+         searchPaths.extend([os.path.join(searchPaths[0], 'daemon')])
+         searchPaths.extend([os.path.join(searchPaths[0], 'Bitcoin')])
+                  
          # First check desktop for links
          possBaseDir = []
          home      = os.path.expanduser('~')

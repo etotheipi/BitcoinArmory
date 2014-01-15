@@ -88,8 +88,6 @@ class ArmoryMainWindow(QMainWindow):
       self.newZeroConfSinceLastUpdate = []
       self.lastBDMState = ['Uninitialized', None]
       self.lastSDMState = 'Uninitialized'
-      self.detectNotSyncQ = [0,0,0,0,0]
-      self.noSyncWarnYet = True
       self.doHardReset = False
       self.doShutdown = False
       self.downloadDict = {}
@@ -102,7 +100,16 @@ class ArmoryMainWindow(QMainWindow):
       self.satoshiExeSearchPath = None
       self.initSyncCircBuff = []
       self.latestVer = {}
+      self.firstVersionCheck = True
+      self.lastVersionsTxtHash = ''
 
+      #delayed URI parsing dict
+      self.delayedURIData = {}
+      self.delayedURIData['qLen'] = 0
+
+      #Setup the signal to spawn progress dialogs from the main thread
+      self.connect(self, SIGNAL('initTrigger') , self.initTrigger)
+      self.connect(self, SIGNAL('spawnTrigger'), self.spawnTrigger)
 
       # We want to determine whether the user just upgraded to a new version
       self.firstLoadNewVersion = False
@@ -499,19 +506,19 @@ class ArmoryMainWindow(QMainWindow):
          else:
             DlgExportTxHistory(self,self).exec_()
             
+
       actExportTx    = self.createAction('&Export Transactions', exportTx)
       actSettings    = self.createAction('&Settings', self.openSettings)
       actMinimApp    = self.createAction('&Minimize Armory', self.minimizeArmory)
       actExportLog   = self.createAction('Export &Log File', self.exportLogFile)
       actCloseApp    = self.createAction('&Quit Armory', self.closeForReal)
-      walletWizard = self.createAction('&Wallet Wizard', self.startWalletWizard )
       self.menusList[MENUS.File].addAction(actExportTx)
       self.menusList[MENUS.File].addAction(actSettings)
       self.menusList[MENUS.File].addAction(actMinimApp)
       self.menusList[MENUS.File].addAction(actExportLog)
       self.menusList[MENUS.File].addAction(actCloseApp)
-      self.menusList[MENUS.File].addAction(walletWizard)
       
+
       def chngStd(b): 
          if b: self.setUserMode(USERMODE.Standard)
       def chngAdv(b): 
@@ -571,12 +578,15 @@ class ArmoryMainWindow(QMainWindow):
       actCreateNew    = self.createAction('&Create New Wallet',        self.createNewWallet)
       actImportWlt    = self.createAction('&Import or Restore Wallet', self.execImportWallet)
       actAddressBook  = self.createAction('View &Address Book',        self.execAddressBook)
+
+      actRecoverWlt   = self.createAction('Recover Damaged Wallet',    self.RecoverWallet)
       #actRescanOnly   = self.createAction('Rescan Blockchain', self.forceRescanDB)
       #actRebuildAll   = self.createAction('Rescan with Database Rebuild', self.forceRebuildAndRescan)
 
       self.menusList[MENUS.Wallets].addAction(actCreateNew)
       self.menusList[MENUS.Wallets].addAction(actImportWlt)
       self.menusList[MENUS.Wallets].addSeparator()
+      self.menusList[MENUS.Wallets].addAction(actRecoverWlt)
       #self.menusList[MENUS.Wallets].addAction(actRescanOnly)
       #self.menusList[MENUS.Wallets].addAction(actRebuildAll)
 
@@ -926,9 +936,17 @@ class ArmoryMainWindow(QMainWindow):
          elif __file__:
              return #running from a .py script, not gonna register URI on Windows
 
-         modulepathname += app_path + '" %1'
-         LOGWARN("running from: %s, key: %s", app_path, modulepathname)
+         #justDoIt = True
+         import ctypes
+         GetModuleFileNameW = ctypes.windll.kernel32.GetModuleFileNameW
+         GetModuleFileNameW.restype = ctypes.c_int
+         app_path = ctypes.create_string_buffer(1024)
+         rtlength = ctypes.c_int()
+         rtlength = GetModuleFileNameW(None, ctypes.byref(app_path), 1024)
+         passstr = str(app_path.raw)
          
+         modulepathname += unicode(passstr[0:(rtlength*2)], encoding='utf16') + u'" %1'
+         #LOGWARN("running from: %s, key: %s", app_path, modulepathname)
 
          rootKey = 'bitcoin\\shell\\open\\command'
          try:
@@ -992,16 +1010,12 @@ class ArmoryMainWindow(QMainWindow):
          if action=='DoIt':
  
             LOGINFO('Registering Armory  for current user')
-            baseDir = app_dir
+            baseDir = os.path.dirname(unicode(passstr[0:(rtlength*2)], encoding='utf16'))
             regKeys = []
             regKeys.append(['Software\\Classes\\bitcoin', '', 'URL:bitcoin Protocol'])
             regKeys.append(['Software\\Classes\\bitcoin', 'URL Protocol', ""])
             regKeys.append(['Software\\Classes\\bitcoin\\shell', '', None])
             regKeys.append(['Software\\Classes\\bitcoin\\shell\\open', '',  None])
-            regKeys.append(['Software\\Classes\\bitcoin\\shell\\open\\command',  '', \
-                           modulepathname])
-            regKeys.append(['Software\\Classes\\bitcoin\\DefaultIcon', '',  \
-                           '"%s\\armory48x48.ico"' % baseDir])
 
             for key,name,val in regKeys:
                dkey = '%s\\%s' % (key,name)
@@ -1010,7 +1024,20 @@ class ArmoryMainWindow(QMainWindow):
                SetValueEx(registryKey, name, 0, REG_SZ, val)
                CloseKey(registryKey)
 
-            LOGWARN('app dir: %s', app_dir)
+            regKeysU = []
+            regKeysU.append(['Software\\Classes\\bitcoin\\shell\\open\\command',  '', \
+                           modulepathname])
+            regKeysU.append(['Software\\Classes\\bitcoin\\DefaultIcon', '',  \
+                          '"%s\\armory48x48.ico"' % baseDir])
+            for key,name,val in regKeysU:
+               dkey = '%s\\%s' % (key,name)
+               LOGINFO('\tWriting key: [HKEY_CURRENT_USER\\] ' + dkey)
+               registryKey = CreateKey(HKEY_CURRENT_USER, key)
+               hKey = ctypes.c_int(registryKey.handle)
+               ctypes.windll.Advapi32.RegSetValueExW(hKey, None, 0, REG_SZ, val, (len(val)+1)*2)
+               #SetValueEx(registryKey, val, 0, REG_SZ, val)
+               CloseKey(registryKey)
+            #LOGWARN('app dir: %s', app_dir)
          
          
 
@@ -1190,7 +1217,8 @@ class ArmoryMainWindow(QMainWindow):
    def checkForLatestVersion(self, wasRequested=False):
       LOGDEBUG('checkForLatestVersion')
       # Download latest versions.txt file, accumulate changelog
-      if CLI_OPTIONS.skipVerCheck:
+      skipChk = self.getSettingOrSetDefault('SkipVersionCheck', False)
+      if CLI_OPTIONS.skipVerCheck or skipChk:
          return
 
       optChkVer = self.getSettingOrSetDefault('CheckVersion', 'Always')
@@ -1210,8 +1238,11 @@ class ArmoryMainWindow(QMainWindow):
       try:
          import urllib2
          import socket
+         downloadURL = getVersionURL(self.firstVersionCheck)
+         LOGINFO('Checking version URL: %s' % downloadURL)
+         self.firstVersionCheck = False
          socket.setdefaulttimeout(CLI_OPTIONS.nettimeout)
-         versionLines = urllib2.urlopen(HTTP_VERSION_FILE, timeout=CLI_OPTIONS.nettimeout)
+         versionLines = urllib2.urlopen(downloadURL, timeout=CLI_OPTIONS.nettimeout)
          versionLines = versionLines.readlines()
       except ImportError:
          LOGERROR('No module urllib2 -- cannot get latest version')
@@ -1223,7 +1254,7 @@ class ArmoryMainWindow(QMainWindow):
               'Please check www.bitcoinarmory.com for the latest version '
               'information.', QMessageBox.Ok)
          LOGERROR('Could not access latest Armory version information')
-         LOGERROR('Tried: %s', HTTP_VERSION_FILE)
+         LOGERROR('Tried: %s', downloadURL)
          return
       
 
@@ -1611,12 +1642,19 @@ class ArmoryMainWindow(QMainWindow):
    #############################################################################
    def uriLinkClicked(self, uriStr):
       LOGINFO('uriLinkClicked')
-      if not TheBDM.getBDMState()=='BlockchainReady':
+      if TheBDM.getBDMState()=='Offline':
          QMessageBox.warning(self, 'Offline', \
             'You just clicked on a "bitcoin:" link, but Armory is offline ' 
             'and cannot send transactions.  Please click the link '
             'again when Armory is online.', \
             QMessageBox.Ok)
+         return
+      elif not TheBDM.getBDMState()=='BlockchainReady':
+         #BDM isnt ready yet, saved URI strings in the delayed URIDict to call later through finishLoadBlockChain
+         qLen = self.delayedURIData['qLen']
+         self.delayedURIData[qLen] = uriStr
+         qLen = qLen +1
+         self.delayedURIData['qLen'] = qLen
          return
 
       uriDict = self.parseUriLink(uriStr, 'click')
@@ -1717,6 +1755,7 @@ class ArmoryMainWindow(QMainWindow):
                # Maintain some linear lists of wallet info
                self.walletIDSet.add(wltID)
                self.walletIDList.append(wltID)
+               wltLoad.mainWnd = self
          except:
             LOGEXCEPT( '***WARNING: Wallet could not be loaded: %s (skipping)', fpath)
             raise
@@ -1951,6 +1990,14 @@ class ArmoryMainWindow(QMainWindow):
       # This will force the table to refresh with new data
       self.setDashboardDetails()
       self.walletModel.reset()
+
+      qLen = self.delayedURIData['qLen']
+      if qLen > 0:
+         #delayed URI parses, feed them back to the uri parser now
+         for i in range(0, qLen):
+            uriStr = self.delayedURIData[qLen-i-1]
+            self.delayedURIData['qLen'] = qLen -i -1
+            self.uriLinkClicked(uriStr)
 
    #############################################################################
    def checkMemoryPoolCorruption(self, mempoolname):
@@ -2226,7 +2273,9 @@ class ArmoryMainWindow(QMainWindow):
       dialog = DlgSetComment(currComment, 'Address', self, self)
       if dialog.exec_():
          newComment = str(dialog.edtComment.text())
-         addr160 = addrStr_to_hash160(addrStr)
+         atype, addr160 = addrStr_to_hash160(addrStr)
+         if atype==P2SHBYTE:
+            LOGWARN('Setting comment for P2SH address: %s' % addrStr)
          wlt.setComment(addr160, newComment)
 
 
@@ -2289,6 +2338,7 @@ class ArmoryMainWindow(QMainWindow):
       ledger = []
       wlt = self.walletMap[newWltID]
       self.walletListChanged()
+      self.mainWnd = self
 
       
    #############################################################################
@@ -2384,6 +2434,10 @@ class ArmoryMainWindow(QMainWindow):
          OpenPaperBackupWindow('Single', self, self, newWallet, \
             tr("Create Paper Backup"))
 
+   #############################################################################
+   def RecoverWallet(self):
+      from armoryengine.PyBtcWalletRecovery import PyBtcWalletRecovery
+      PyBtcWalletRecovery().UIRecoverWallet(self)
 
 
    #############################################################################
@@ -4664,30 +4718,10 @@ class ArmoryMainWindow(QMainWindow):
             newBlocks = TheBDM.readBlkFileUpdate(wait=True)
             self.currBlockNum = TheBDM.getTopBlockHeight()
 
-            #####
-            # If we are getting lots of blocks, very rapidly, issue a warning
-            # We look at a rolling sum of the last 5 heartbeat updates (5s)
             if not newBlocks:
                newBlocks = 0
-            self.detectNotSyncQ.insert(0, newBlocks)
-            self.detectNotSyncQ.pop()
-            blksInLast5sec = sum(self.detectNotSyncQ)
-            if( blksInLast5sec>20 ):
-               LOGERROR('Detected Bitcoin-Qt/bitcoind not synchronized')
-               LOGERROR('New blocks added in last 5 sec: %d', blksInLast5sec)
-               if self.noSyncWarnYet:
-                  self.noSyncWarnYet = False
-                  QMessageBox.warning(self,'Bitcoin-Qt is not synchronized', \
-                     'Armory has detected that Bitcoin-Qt is not synchronized '
-                     'with the bitcoin network yet, and Armory <b>may</b> not '
-                     'work properly.  If you experience any unusual behavior, it is '
-                     'recommended that you close Armory and only restart it '
-                     'when you see the green checkmark in the bottom-right '
-                     'corner of the Bitcoin-Qt window.', QMessageBox.Ok)
-               return
             
          
-   
             # If we have new zero-conf transactions, scan them and update ledger
             if len(self.newZeroConfSinceLastUpdate)>0:
                self.newZeroConfSinceLastUpdate.reverse()
@@ -4938,6 +4972,21 @@ class ArmoryMainWindow(QMainWindow):
          event.accept()
       
       
+
+   #############################################################################
+   def spawnTrigger(self, toSpawn):
+      if isinstance(toSpawn, DlgProgress):
+         toSpawn.thread_lock.acquire()
+         toSpawn.status = 0
+         toSpawn.exec_()
+         toSpawn.thread_lock.release()
+
+      toSpawn.status = 0
+
+   def initTrigger(self, toInit):
+      if isinstance(toInit, DlgProgress):
+         toInit.setup(self)
+         toInit.status = 1
 
 ############################################
 class ArmoryInstanceListener(Protocol):

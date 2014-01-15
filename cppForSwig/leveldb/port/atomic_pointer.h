@@ -19,26 +19,15 @@
 #ifndef PORT_ATOMIC_POINTER_H_
 #define PORT_ATOMIC_POINTER_H_
 
-
 #include <stdint.h>
-
 #ifdef LEVELDB_CSTDATOMIC_PRESENT
-   //#include <cstdatomic>
-   // ***** ADDED BY AREINER FROM GOATPIG'S WINDOWS-PORT INSTRUCTIONS
-   #ifdef WIN32
-      #include <atomic>
-   #else
-      #include <cstdatomic>
-   #endif
-   // ***** ADDED BY AREINER FROM GOATPIG'S WINDOWS-PORT INSTRUCTIONS
+#include <cstdatomic>
 #endif
-
 #ifdef OS_WIN
-   #include <windows.h>
+#include <windows.h>
 #endif
-
 #ifdef OS_MACOSX
-   #include <libkern/OSAtomic.h>
+#include <libkern/OSAtomic.h>
 #endif
 
 #if defined(_M_X64) || defined(__x86_64__)
@@ -61,6 +50,13 @@ namespace port {
 // http://msdn.microsoft.com/en-us/library/ms684208(v=vs.85).aspx
 #define LEVELDB_HAVE_MEMORY_BARRIER
 
+// Mac OS
+#elif defined(OS_MACOSX)
+inline void MemoryBarrier() {
+  OSMemoryBarrier();
+}
+#define LEVELDB_HAVE_MEMORY_BARRIER
+
 // Gcc on x86
 #elif defined(ARCH_CPU_X86_FAMILY) && defined(__GNUC__)
 inline void MemoryBarrier() {
@@ -76,13 +72,6 @@ inline void MemoryBarrier() {
   // See http://gcc.gnu.org/ml/gcc/2003-04/msg01180.html for a discussion on
   // this idiom. Also see http://en.wikipedia.org/wiki/Memory_ordering.
   asm volatile("" : : : "memory");
-}
-#define LEVELDB_HAVE_MEMORY_BARRIER
-
-// Mac OS
-#elif defined(OS_MACOSX)
-inline void MemoryBarrier() {
-  OSMemoryBarrier();
 }
 #define LEVELDB_HAVE_MEMORY_BARRIER
 

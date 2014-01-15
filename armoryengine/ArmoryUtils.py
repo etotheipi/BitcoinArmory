@@ -102,7 +102,47 @@ class BitcoindError(Exception): pass
 class ShouldNotGetHereError(Exception): pass
 class BadInputError(Exception): pass
 class TxdpError(Exception): pass
+class P2SHNotSupportedError(Exception): pass
 
+# Get the host operating system
+opsys = platform.system()
+OS_WINDOWS = 'win32'  in opsys.lower() or 'windows' in opsys.lower()
+OS_LINUX   = 'nix'    in opsys.lower() or 'nux'     in opsys.lower()
+OS_MACOSX  = 'darwin' in opsys.lower() or 'osx'     in opsys.lower()
+
+#Windows only: grab cli args as utf-16, convert to utf-8
+if OS_WINDOWS:
+   def win32_unicode_argv():
+      """
+      Uses shell32.GetCommandLineArgvW to get sys.argv as a list of Unicode
+      strings.
+   
+      Versions 2.x of Python don't support Unicode in sys.argv on
+      Windows, with the underlying Windows API instead replacing multi-byte
+      characters with '?'.
+      """
+   
+      from ctypes import POINTER, byref, cdll, c_int, windll
+      from ctypes.wintypes import LPCWSTR, LPWSTR
+   
+      GetCommandLineW = cdll.kernel32.GetCommandLineW
+      GetCommandLineW.argtypes = []
+      GetCommandLineW.restype = LPCWSTR
+   
+      CommandLineToArgvW = windll.shell32.CommandLineToArgvW
+      CommandLineToArgvW.argtypes = [LPCWSTR, POINTER(c_int)]
+      CommandLineToArgvW.restype = POINTER(LPWSTR)
+   
+      cmd = GetCommandLineW()
+      argc = c_int(0)
+      uargv = CommandLineToArgvW(cmd, byref(argc))
+      if argc.value > 0:
+         # Remove Python executable and commands if present
+         start = argc.value - len(sys.argv)
+         return [uargv[i].encode('utf8') for i in
+            xrange(start, argc.value)]
+   
+   sys.argv = win32_unicode_argv()
 
 CLI_OPTIONS = None
 CLI_ARGS = None
@@ -115,11 +155,6 @@ USE_TESTNET = CLI_OPTIONS.testnet
 if CLI_OPTIONS.interport < 0:
    CLI_OPTIONS.interport = 8223 + (1 if USE_TESTNET else 0)
 
-# Get the host operating system
-opsys = platform.system()
-OS_WINDOWS = 'win32'  in opsys.lower() or 'windows' in opsys.lower()
-OS_LINUX   = 'nix'    in opsys.lower() or 'nux'     in opsys.lower()
-OS_MACOSX  = 'darwin' in opsys.lower() or 'osx'     in opsys.lower()
 
 # Figure out the default directories for Satoshi client, and BicoinArmory
 OS_NAME          = ''
@@ -174,7 +209,7 @@ SETTINGS_PATH   = CLI_OPTIONS.settingsPath
 ARMORY_LOG_FILE = CLI_OPTIONS.logFile
 
 # Version Numbers 
-BTCARMORY_VERSION    = (0, 90,  1, 0)  # (Major, Minor, Bugfix, AutoIncrement) 
+BTCARMORY_VERSION    = (0, 90,  3, 0)  # (Major, Minor, Bugfix, AutoIncrement) 
 PYBTCWALLET_VERSION  = (1, 35,  0, 0)  # (Major, Minor, Bugfix, AutoIncrement)
 
 ARMORY_DONATION_ADDR = '1ArmoryXcfq7TnCSuZa9fQjRYwJ4bkRKfv'
@@ -204,39 +239,7 @@ NETWORKS = {}
 NETWORKS['\x00'] = "Main Network"
 NETWORKS['\x6f'] = "Test Network"
 NETWORKS['\x34'] = "Namecoin Network"
-# Figure out the default directories for Satoshi client, and BicoinArmory
-OS_NAME          = ''
-OS_VARIANT       = ''
-USER_HOME_DIR    = ''
-BTC_HOME_DIR     = ''
-ARMORY_HOME_DIR  = ''
-LEVELDB_DIR      = ''
-SUBDIR = 'testnet3' if USE_TESTNET else ''
-if OS_WINDOWS:
-   OS_NAME         = 'Windows'
-   OS_VARIANT      = platform.win32_ver()
-   USER_HOME_DIR   = os.getenv('APPDATA')
-   BTC_HOME_DIR    = os.path.join(USER_HOME_DIR, 'Bitcoin', SUBDIR)
-   ARMORY_HOME_DIR = os.path.join(USER_HOME_DIR, 'Armory', SUBDIR)
-   BLKFILE_DIR     = os.path.join(BTC_HOME_DIR, 'blocks')
-elif OS_LINUX:
-   OS_NAME         = 'Linux'
-   OS_VARIANT      = platform.linux_distribution()
-   USER_HOME_DIR   = os.getenv('HOME')
-   BTC_HOME_DIR    = os.path.join(USER_HOME_DIR, '.bitcoin', SUBDIR)
-   ARMORY_HOME_DIR = os.path.join(USER_HOME_DIR, '.armory', SUBDIR)
-   BLKFILE_DIR     = os.path.join(BTC_HOME_DIR, 'blocks')
-elif OS_MACOSX:
-   platform.mac_ver()
-   OS_NAME         = 'MacOSX'
-   OS_VARIANT      = platform.mac_ver()
-   USER_HOME_DIR   = os.path.expanduser('~/Library/Application Support')
-   BTC_HOME_DIR    = os.path.join(USER_HOME_DIR, 'Bitcoin', SUBDIR)
-   ARMORY_HOME_DIR = os.path.join(USER_HOME_DIR, 'Armory', SUBDIR)
-   BLKFILE_DIR     = os.path.join(BTC_HOME_DIR, 'blocks')
-else:
-   print '***Unknown operating system!'
-   print '***Cannot determine default directory locations'
+
 
 # Version Handling Code
 def getVersionString(vquad, numPieces=4):
@@ -703,7 +706,7 @@ if os.path.exists(fileRebuild):
 
    if os.path.exists(fileRescan):
       os.remove(fileRescan)
-
+      
    CLI_OPTIONS.rebuild = True
 elif os.path.exists(fileRescan):
    LOGINFO('Found %s, will throw out saved history, rescan' % fileRescan)
@@ -1001,7 +1004,10 @@ def toUnicode(theStr, theEncoding=DEFAULT_ENCODING):
 
 
 def toPreferred(theStr):
-   return toUnicode(theStr).encode(locale.getpreferredencoding())
+   if OS_WINDOWS:
+      return theStr.encode('utf-8')
+   else:
+      return toUnicode(theStr).encode(locale.getpreferredencoding())
 
 
 def lenBytes(theStr, theEncoding=DEFAULT_ENCODING):
@@ -1411,12 +1417,26 @@ def base58_to_binary(addr):
 
 
 ################################################################################
-def hash160_to_addrStr(binStr, isP2SH=False):
+
+def hash160_to_addrStr(binStr):
    """
    Converts the 20-byte pubKeyHash to 25-byte binary Bitcoin address
    which includes the network byte (prefix) and 4-byte checksum (suffix)
    """
-   addr21 = (P2SHBYTE if isP2SH else ADDRBYTE) + binStr
+
+   if not len(binStr) == 20:
+      raise InvalidHashError('Input string is %d bytes' % len(binStr))
+
+   addr21 = ADDRBYTE + binStr
+   addr25 = addr21 + hash256(addr21)[:4]
+   return binary_to_base58(addr25);
+
+################################################################################
+def hash160_to_p2shStr(binStr):
+   if not len(binStr) == 20:
+      raise InvalidHashError('Input string is %d bytes' % len(binStr))
+
+   addr21 = P2SHBYTE + binStr
    addr25 = addr21 + hash256(addr21)[:4]
    return binary_to_base58(addr25);
 
@@ -1425,11 +1445,28 @@ def addrStr_is_p2sh(b58Str):
    binStr = base58_to_binary(b58Str)
    if not len(binStr)==25:
       return False
+
+   if not hash256(binStr[:21])[:4] == binStr[-4:]:
+      return False
+
    return (binStr[0] == P2SHBYTE)
 
 ################################################################################
+# As of version 0.90.1, this returns the prefix byte with the hash160.  This is
+# because we need to handle/distinguish regular addresses from P2SH.  All code
+# using this method must be updated to expect 2 outputs and check the prefix.
 def addrStr_to_hash160(b58Str):
-   return base58_to_binary(b58Str)[1:-4]
+   binStr = base58_to_binary(b58Str)
+   if not len(binStr) == 25:
+      raise BadAddressError('Address string is %d bytes' % len(binStr))
+
+   if not hash256(binStr[:21])[:4] == binStr[-4:]:
+      raise ChecksumError('Address string has invalid checksum')
+
+   if not binStr[0] in (ADDRBYTE, P2SHBYTE):
+      raise BadAddressError('Unknown addr prefix: %s' % binary_to_hex(binStr[0]))
+
+   return (binStr[0], binStr[1:-4])
 
 
 ###### Typing-friendly Base16 #####
@@ -2003,35 +2040,38 @@ def ReadFragIDLineHex(hexLine):
 
 
 
-
-
-# We can identify an address string by its first byte upon conversion
-# back to binary.  Return -1 if checksum doesn't match
+################################################################################
 def checkAddrType(addrBin):
    """ Gets the network byte of the address.  Returns -1 if chksum fails """
    first21, chk4 = addrBin[:-4], addrBin[-4:]
    chkBytes = hash256(first21)
-   if chkBytes[:4] == chk4:
-      return addrBin[0]
-   else:
-      return -1
+   return addrBin[0] if (chkBytes[:4] == chk4) else -1
 
-# Check validity of a BTC address in its binary form, as would
-# be found inside a pkScript.  Usually about 24 bytes
-def checkAddrBinValid(addrBin, netbyte=ADDRBYTE):
+################################################################################
+def checkAddrBinValid(addrBin, validPrefixes=None):
    """
    Checks whether this address is valid for the given network
    (set at the top of pybtcengine.py)
    """
-   return checkAddrType(addrBin) == netbyte
+   if validPrefixes is None:
+      validPrefixes = [ADDRBYTE, P2SHBYTE]
 
-# Check validity of a BTC address in Base58 form
+   if not isinstance(validPrefixes, list):
+      validPrefixes = [validPrefixes]
+
+   return (checkAddrType(addrBin) in validPrefixes)
+
+
+
+################################################################################
 def checkAddrStrValid(addrStr):
    """ Check that a Base58 address-string is valid on this network """
    return checkAddrBinValid(base58_to_binary(addrStr))
 
 
+################################################################################
 def convertKeyDataToAddress(privKey=None, pubKey=None):
+   """ Returns a hash160 value """
    if not privKey and not pubKey:
       raise BadAddressError, 'No key data supplied for conversion'
    elif privKey:

@@ -61,6 +61,7 @@
 #include <fstream>
 #include <iostream>
 #include <stdio.h>
+#include "OS_TranslatePath.h"
 
 #define FILEANDLINE "(" << __FILE__ << ":" << __LINE__ << ") "
 #define LOGERR    (LoggerObj(LogLvlError ).getLogStream() << FILEANDLINE )
@@ -136,7 +137,7 @@ public:
    
    void truncateFile(string logfile, unsigned long long int maxSizeInBytes)
    {
-      ifstream is(logfile.c_str(), ios::in|ios::binary);
+      ifstream is(OS_TranslatePath(logfile.c_str()), ios::in|ios::binary);
 
       // If file does not exist, nothing to do
       if(!is.is_open())
@@ -155,7 +156,7 @@ public:
       else
       {
          // Otherwise, seek to <maxSize> before end of log file
-         ifstream is(logfile.c_str(), ios::in|ios::binary);
+         ifstream is(OS_TranslatePath(logfile.c_str()), ios::in|ios::binary);
          is.seekg(fsize - maxSizeInBytes);
 
          // Allocate buffer to hold the rest of the file (about maxSizeInBytes)
@@ -166,7 +167,7 @@ public:
          
          // Create temporary file and dump the bytes there
          string tempfile = logfile + string("temp");
-         ofstream os(tempfile.c_str(), ios::out|ios::binary);
+         ofstream os(OS_TranslatePath(tempfile.c_str()), ios::out|ios::binary);
          os.write(lastBytes, bytesToCopy);
          os.close();
          delete[] lastBytes;

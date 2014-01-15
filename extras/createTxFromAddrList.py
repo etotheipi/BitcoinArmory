@@ -40,7 +40,10 @@ def createTxFromAddrList(walletObj, addrList, recipAmtPairList, \
 
    # Check that all addresses are actually in the specified wallet
    for addr in addrList:
-      addr160 = addrStr_to_hash160(addr)
+      atype, addr160 = addrStr_to_hash160(addr)
+      if atype==P2SHBYTE:
+         raise P2SHNotSupportedError
+
       if not walletObj.hasAddr(addr160):
          raise WalletAddressError, 'Address is not in wallet! [%s]' % addr
    
@@ -57,7 +60,10 @@ def createTxFromAddrList(walletObj, addrList, recipAmtPairList, \
    # consequence of mixing C++ code with python via SWIG...
    utxoList = []
    for addr in addrList:
-      addr160 = addrStr_to_hash160(addr)
+      atype, addr160 = addrStr_to_hash160(addr)
+      if atype==P2SHBYTE:
+         raise P2SHNotSupportedError
+
       unspentTxOuts = walletObj.getAddrTxOutList(addr160, 'Spendable')
       utxoList.extend(unspentTxOuts[:])
    
@@ -98,7 +104,13 @@ def createTxFromAddrList(walletObj, addrList, recipAmtPairList, \
       selectedUtxoList = PySelectCoins(utxoList, totalSpend, fee)
 
    # Convert address strings to Hash160 values (and make a copy, too)
-   recip160List = [(addrStr_to_hash160(pair[0]), pair[1]) for pair in recipList]
+   def extractHash160(astr):
+      atype, addr160 = addrStr_to_hash160(astr)
+      if atype==P2SHBYTE:
+         raise P2SHNotSupportedError
+      return addr160
+
+   recip160List = [(extractHash160(pair[0]), pair[1]) for pair in recipList]
 
    # Add a change output if necessary
    totalSelect = sumTxOutList(selectedUtxoList) 
@@ -110,7 +122,7 @@ def createTxFromAddrList(walletObj, addrList, recipAmtPairList, \
       # Need to add a change output, get from wallet if necessary
       if not changeAddr:
          changeAddr = walletObj.getNextUnusedAddress().getAddrStr()
-      recip160List.append( (addrStr_to_hash160(changeAddr), totalChange) )
+      recip160List.append( (extractHash160(changeAddr), totalChange) )
 
    print 'Creating Distribution Proposal (just an unsigned transaction)...'
    print [(hash160_to_addrStr(r),coin2str(v)) for r,v in recip160List]
