@@ -13,6 +13,13 @@ from PyQt4.Qt import *
 from armoryengine.BDM import TheBDM
 from armoryengine.ArmoryUtils import coin2str
 
+# This class is intended to be an abstract frame class that
+# will hold all of the functionality that is common to all 
+# Frames used in Armory. 
+# The Frames that extend this class should contain all of the
+# display and control components for some screen used in Armory
+# Putting this content in a frame allows it to be used on it's own
+# in a dialog or as a component in a larger frame.
 class ArmoryFrame(QFrame):
    def __init__(self, parent=None, main=None):
       super(ArmoryFrame, self).__init__(parent)
@@ -21,7 +28,7 @@ class ArmoryFrame(QFrame):
       self.main   = main
 
    def accept(self):
-      self.parent.accpet()
+      self.parent.accept()
       return
 
 # This class has all of the select wallet display and control functionality for
@@ -195,12 +202,12 @@ class SelectWalletFrame(ArmoryFrame):
       self.repaint()
       if self.coinControlCallback:
          self.coinControlCallback(self.sourceAddrList, self.altBalance)
-         
 
-class NewWalletLayout(QGridLayout):
+
+class NewWalletFrame(QFrame):
 
    def __init__(self, mainScreen = None, initLabel=''):
-      super(NewWalletLayout, self).__init__()
+      super(QFrame, self).__init__()
       # Options for creating a new wallet
       lblDlgDescr = QLabel('Create a new wallet for managing your funds.\n'
                            'The name and description can be changed at any time.')
@@ -311,24 +318,29 @@ class NewWalletLayout(QGridLayout):
       self.btnAdvCrypto = QPushButton("Adv. Encrypt Options>>>")
       self.btnAdvCrypto.setCheckable(True)
  
-      
-      self.addWidget(lblDlgDescr,        1, 0, 1, 2)
-      self.addWidget(lblName,            2, 0, 1, 1)
-      self.addWidget(self.edtName,       2, 1, 1, 2)
-      self.addWidget(lblDescr,           3, 0, 1, 2)
-      self.addWidget(self.edtDescr,      3, 1, 2, 2)
-      self.addWidget(self.chkUseCrypto,  5, 0, 1, 1)
-      self.addWidget(usecryptoTooltip,   5, 1, 1, 1)
-      self.addWidget(self.chkPrintPaper, 6, 0, 1, 1)
-      self.addWidget(paperBackupTooltip, 6, 1, 1, 1)
-      self.addWidget(self.cryptoFrame,   8, 0, 3, 3)
+      frameLayout = QGridLayout()
+      frameLayout.addWidget(lblDlgDescr,        1, 0, 1, 2)
+      frameLayout.addWidget(lblName,            2, 0, 1, 1)
+      frameLayout.addWidget(self.edtName,       2, 1, 1, 2)
+      frameLayout.addWidget(lblDescr,           3, 0, 1, 2)
+      frameLayout.addWidget(self.edtDescr,      3, 1, 2, 2)
+      frameLayout.addWidget(self.chkUseCrypto,  5, 0, 1, 1)
+      frameLayout.addWidget(usecryptoTooltip,   5, 1, 1, 1)
+      frameLayout.addWidget(self.chkPrintPaper, 6, 0, 1, 1)
+      frameLayout.addWidget(paperBackupTooltip, 6, 1, 1, 1)
+      frameLayout.addWidget(self.cryptoFrame,   8, 0, 3, 3)
    
 
-      self.setVerticalSpacing(5)
-      self.setSizeConstraint(QLayout.SetFixedSize)
+      frameLayout.setVerticalSpacing(5)
+      frameLayout.setSizeConstraint(QLayout.SetFixedSize)
+      self.setLayout(frameLayout)
 
       self.connect(self.chkUseCrypto, SIGNAL("clicked()"), \
                    self.cryptoFrame,  SLOT("setEnabled(bool)"))
+
+
+
+
          
 # Need to put circular imports at the end of the script to avoid an import deadlock
 # DlgWalletSelect uses SelectWalletFrame which uses DlgCoinControl

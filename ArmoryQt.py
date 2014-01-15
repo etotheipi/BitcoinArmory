@@ -248,6 +248,7 @@ class ArmoryMainWindow(QMainWindow):
       self.ledgerView.customContextMenuRequested.connect(self.showContextMenuLedger)
 
       btnAddWalletWiz  = QPushButton("Create Wallet Wizard")
+      btnAddWalletWiz.setVisible(False)
       btnAddWallet  = QPushButton("Create Wallet")
       btnImportWlt  = QPushButton("Import or Restore Wallet")
       self.connect(btnAddWalletWiz,  SIGNAL('clicked()'), self.startWalletWizard)
@@ -3155,7 +3156,7 @@ class ArmoryMainWindow(QMainWindow):
    #############################################################################
    def startWalletWizard(self):
       walletWizard = WalletWizard(self)
-      walletWizard.show()
+      walletWizard.exec_()
 
    #############################################################################
    def exportLogFile(self):

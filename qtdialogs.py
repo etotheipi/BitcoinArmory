@@ -4226,6 +4226,7 @@ class DlgWalletSelect(ArmoryDialog):
                              wltIDList=None, atLeast=0):
       super(DlgWalletSelect, self).__init__(parent, main)
 
+
       self.balAtLeast = atLeast
       
       if self.main and len(self.main.walletMap) == 0:
@@ -4241,9 +4242,10 @@ class DlgWalletSelect(ArmoryDialog):
       # Start the layout
       layout = QVBoxLayout()
       # Expect to set selectedId
-      layout.addWidget(SelectWalletFrame(self, main, firstSelect, onlyMyWallets, \
-                  wltIDList, atLeast, self.selectWallet))
-
+      wltFrame = SelectWalletFrame(self, main, firstSelect, onlyMyWallets, 
+         wltIDList, atLeast, self.selectWallet)
+      layout.addWidget(wltFrame)
+      self.selectedID = wltFrame.selectedID
       buttonBox = QDialogButtonBox()
       btnAccept = QPushButton('OK')
       btnCancel = QPushButton('Cancel')
