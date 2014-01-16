@@ -214,7 +214,12 @@ def distributeBtc(masterWallet, amount, sendingAddrList):
          print '***ERROR: you are trying to spend more than your balance!'
          raise NegativeValueError
       recipValuePairs.append((masterWallet.getNextUnusedAddress().getAddr160(), totalChange ))
-      txdp = PyTxDistProposal().createFromTxOutSelection(selectedUtxoList, recipValuePairs)
+
+      # ACR:  To support P2SH in general, had to change createFromTxOutSelection
+      #       to take full scripts, not just hash160 values.  Convert the list
+      #       before passing it in
+      scrPairs = [[hash160_to_p2pkhash_script(r), v] for r,v in recipValuePairs]
+      txdp = PyTxDistProposal().createFromTxOutSelection(selectedUtxoList, scrPairs)
       
       masterWallet.unlock(securePassphrase = SecureBinaryData(getpass('Enter your secret string:')))
       # Sign and prepare the final transaction for broadcast
@@ -256,7 +261,12 @@ def sweepImportedAddrs(masterWallet):
       print '***ERROR: The fees are greater than the funds being swept!'
       raise NegativeValueError
    recipValuePairs.append((masterWallet.getNextUnusedAddress().getAddr160(), totalSpend ))
-   txdp = PyTxDistProposal().createFromTxOutSelection(utxoList, recipValuePairs)
+
+   # ACR:  To support P2SH in general, had to change createFromTxOutSelection
+   #       to take full scripts, not just hash160 values.  Convert the list
+   #       before passing it in
+   scrPairs = [[hash160_to_p2pkhash_script(r), v] for r,v in recipValuePairs]
+   txdp = PyTxDistProposal().createFromTxOutSelection(utxoList, scrPairs)
    
    masterWallet.unlock(securePassphrase = SecureBinaryData(getpass('Enter your secret string:')))
    # Sign and prepare the final transaction for broadcast

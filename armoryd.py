@@ -278,28 +278,21 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
    def jsonrpc_sendtoaddress(self, bitcoinaddress, amount):
       if CLI_OPTIONS.offline:
          raise ValueError('Cannot create transactions when offline')
-      atype, addr160 = addrStr_to_hash160(bitcoinaddress)
-      if atype==P2SHBYTE:
-         raise P2SHNotSupportedError
-
+      scraddr = addrStr_to_scrAddr(bitcoinaddress)
       amtCoin = JSONtoAmount(amount)
-      return self.create_unsigned_transaction([[addr160, amtCoin]])
+      return self.create_unsigned_transaction([[scraddr, amtCoin]])
 
    #############################################################################
    def jsonrpc_sendmany(self, *args):
       if CLI_OPTIONS.offline:
          raise ValueError('Cannot create transactions when offline')
 
-      recipvalpairs = []
+      scraddrValuePairs = []
       for a in args:
          r,v = a.split(':')
-         #recipvalpairs.append([addrStr_to_hash160(r), JSONtoAmount(v)])
-         atype, addr160 = addrStr_to_hash160(r)
-         if atype==P2SHBYTE:
-            raise P2SHNotSupportedError
-         recipvalpairs.append([addr160, JSONtoAmount(v)])
+         scraddrValuePairs.append([addrStr_to_scrAddr(r), JSONtoAmount(v)])
 
-      return self.create_unsigned_transaction(recipvalpairs)
+      return self.create_unsigned_transaction(scraddrValuePairs)
 
 
    #############################################################################
@@ -738,11 +731,11 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
    #############################################################################
    # https://bitcointalk.org/index.php?topic=92496.msg1126310#msg1126310
-   def create_unsigned_transaction(self, recipValPairs):
+   def create_unsigned_transaction(self, scraddrValuePairs):
       # Get unspent TxOutList and select the coins
       #addr160_recipient = addrStr_to_hash160(bitcoinaddress_str)
 
-      totalSend = long( sum([rv[1] for rv in recipValPairs]) )
+      totalSend = long( sum([rv[1] for rv in scraddrValuePairs]) )
       fee = 0
 
       spendBal = self.wallet.getBalance('Spendable')
@@ -762,9 +755,10 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       totalSelected = sum([u.getValue() for u in utxoSelect])
       totalChange = totalSelected - (totalSend  + fee)
 
-      outputPairs = recipValPairs
+      outputPairs = scraddrValuePairs[:]
       if totalChange > 0:
-         outputPairs.append( [self.wallet.getNextUnusedAddress().getAddr160(), totalChange] )
+         nextAddr = self.wallet.getNextUnusedAddress().getAddrStr()
+         outputPairs.append( [addrStr_to_scrAddr(nextAddr), totalChange] )
 
       random.shuffle(outputPairs)
       txdp = PyTxDistProposal().createFromTxOutSelection(utxoSelect, outputPairs)

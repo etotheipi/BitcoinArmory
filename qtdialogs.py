@@ -4704,7 +4704,7 @@ class DlgSendBitcoins(ArmoryDialog):
       if not txdp:
          return
 
-      changePair = (self.change160, self.selectedBehavior)
+      changePair = (self.changeScrAddr, self.selectedBehavior)
       dlg = DlgConfirmSend(self.wlt, self.origSVPairs, self.txValues[1], self, \
                                                    self.main, False, changePair)
       if dlg.exec_():
@@ -4729,7 +4729,7 @@ class DlgSendBitcoins(ArmoryDialog):
             QMessageBox.Ok)
 
 
-      changePair = (self.change160, self.selectedBehavior)
+      changePair = (self.changeScrAddr, self.selectedBehavior)
       dlg = DlgConfirmSend(self.wlt, self.origSVPairs, self.txValues[1], self, \
                                                    self.main, True, changePair)
       if dlg.exec_():
@@ -4974,24 +4974,28 @@ class DlgSendBitcoins(ArmoryDialog):
       totalTxSelect = sum([u.getValue() for u in utxoSelect])
       totalChange = totalTxSelect - (totalSend + fee)
 
-      self.origSVPairs = list(scraddrValuePairs)
-      self.change160 = ''
+      self.origSVPairs = list(scraddrValuePairs) # copy
+      self.changeScrAddr = ''
       self.selectedBehavior = ''
       if totalChange > 0:
-         self.change160 = self.determineChangeAddr(utxoSelect)
+         self.changeScrAddr = self.determineChangeAddr(utxoSelect)
          LOGINFO('Change address behavior: %s', self.selectedBehavior)
-         if not self.change160:
+         if not self.changeScrAddr:
             return
-         scraddrValuePairs.append([self.change160, totalChange])
+         scraddrValuePairs.append([self.changeScrAddr, totalChange])
       else:
          if self.main.usermode == USERMODE.Expert and \
             self.chkDefaultChangeAddr.isChecked():
             self.selectedBehavior = 'NoChange'
 
       # Anonymize the outputs
-      random.shuffle(recipValuePairs)
-      txdp = PyTxDistProposal().createFromTxOutSelection(utxoSelect, \
-                                                          recipValuePairs)
+      random.shuffle(scraddrValuePairs)
+
+      # Convert all scrAddrs to scripts for creation
+      recipPairs = [[scrAddr_to_script(s),v] for s,v in scraddrValuePairs]
+
+      # Now create the unsigned TxDP
+      txdp = PyTxDistProposal().createFromTxOutSelection(utxoSelect, recipPairs)
 
       self.txValues = [totalSend, fee, totalChange]
       return txdp
@@ -5022,32 +5026,38 @@ class DlgSendBitcoins(ArmoryDialog):
 
    #############################################################################
    def determineChangeAddr(self, utxoList):
+      changeAddrStr = ''
       changeAddr160 = ''
+      changeScrAddr = ''
       self.selectedBehavior = 'NewAddr'
       addrStr = ''
       if not self.main.usermode == USERMODE.Expert:
-         changeAddr160 = self.wlt.getNextUnusedAddress().getAddr160()
+         changeAddrStr = self.wlt.getNextUnusedAddress().getAddrStr()
+         changeAddr160 = addrStr_to_hash160(changeAddrStr)[1]
+         changeScrAddr = addrStr_to_scrAddr(changeAddrStr)
          self.wlt.setComment(changeAddr160, CHANGE_ADDR_DESCR_STRING)
       else:
          if not self.chkDefaultChangeAddr.isChecked():
-            changeAddr160 = self.wlt.getNextUnusedAddress().getAddr160()
+            changeAddrStr = self.wlt.getNextUnusedAddress().getAddrStr()
+            changeAddr160 = addrStr_to_hash160(changeAddrStr)[1]
+            changeScrAddr = addrStr_to_scrAddr(changeAddrStr)
             self.wlt.setComment(changeAddr160, CHANGE_ADDR_DESCR_STRING)
             # If generate new address, remove previously-remembered behavior
             self.main.setWltSetting(self.wltID, 'ChangeBehavior', self.selectedBehavior)
          else:
             if self.radioFeedback.isChecked():
-               changeAddr160 = CheckHash160(utxoList[0].getRecipientScrAddr())
+               changeScrAddr = utxoList[0].getRecipientScrAddr()
                self.selectedBehavior = 'Feedback'
             elif self.radioSpecify.isChecked():
                addrStr = str(self.edtChangeAddr.text()).strip()
                if not checkAddrStrValid(addrStr):
-                  QMessageBox.warning(self, 'Invalid Address', \
-                     'You specified an invalid change address '
-                     'for this transcation.', QMessageBox.Ok)
+                  QMessageBox.warning(self, tr('Invalid Address'), tr("""
+                     You specified an invalid change address for this 
+                     transcation."""), QMessageBox.Ok)
                   return '', False
-               atype, changeAddr160 = addrStr_to_hash160(addrStr)
-               if atype==P2SHBYTE:
-                  raise P2SHNotSupportedError('Tried to use P2SH change addr')
+               changeScrAddr = addrStr_to_scrAddr(addrStr)
+               if addrStr_to_hash160(addrStr)[0]==P2SHBYTE:
+                  LOGWARN('P2SH address used in change output')
                self.selectedBehavior = 'Specify'
 
       if self.main.usermode == USERMODE.Expert and self.chkRememberChng.isChecked():
@@ -5057,7 +5067,7 @@ class DlgSendBitcoins(ArmoryDialog):
       else:
          self.main.setWltSetting(self.wltID, 'ChangeBehavior', 'NewAddr')
 
-      return changeAddr160
+      return changeScrAddr
 
 
 

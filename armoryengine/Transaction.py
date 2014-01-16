@@ -1028,7 +1028,7 @@ class PyTxDistProposal(object):
 
 
    #############################################################################
-   def createFromTxOutSelection(self, utxoSelection, recip160ValPairs, txMap={}):
+   def createFromTxOutSelection(self, utxoSelection, scriptValuePairs, txMap={}):
       """
       This creates a TxDP for a standard transaction from a list of inputs and 
       a list of recipient-value-pairs.  
@@ -1038,10 +1038,23 @@ class PyTxDistProposal(object):
              anything, including a multi-signature transaction
       """
 
-      pprintUnspentTxOutList(utxoSelection)
-      #print sumTxOutList(utxoSelection)
-      #print sum([a[1] for a in recip160ValPairs])
-      assert(sumTxOutList(utxoSelection) >= sum([a[1] for a in recip160ValPairs]))
+      for scr,val in scrAddrValuePairs:
+         if len(scr)==20:
+            raise BadAddressError( tr("""
+               createFromTxOutSelection() has changed to take (script, value)
+               pairs instead of (hash160, value) pairs.  This is because we
+               need this function to be able to send to any arbitrary script,
+               not just pay2pubkeyhash scripts.  Especially for P2SH support.
+               This method will check that it is either reg, P2SH or multisig
+               before continuing.  Modify this function to allow more script
+               types to be handled."""))
+      
+
+      totalUtxoSum = sumTxOutList(utxoSelection)
+      totalOutputSum = sum([a[1] for a in scriptValuePairs])
+      if not totalUtxoSum >= totalOutputSum:
+         raise TxdpError('More outputs than inputs!')
+         
       thePyTx = PyTx()
       thePyTx.version = 1
       thePyTx.lockTime = 0
@@ -1049,28 +1062,24 @@ class PyTxDistProposal(object):
       thePyTx.outputs = []
 
       # We can prepare the outputs, first
-      for recipObj,value in recip160ValPairs:
+      for script,value in scriptValuePairs:
          txout = PyTxOut()
          txout.value = long(value)
 
          # Assume recipObj is either a PBA or a string
-         if isinstance(recipObj, PyBtcAddress):
-            recipObj = recipObj.getAddr160()
+         if isinstance(scrAddr, PyBtcAddress):
+            LOGERROR("Didn't know any func was still using this conditional")
+            #scrAddr = addrStr_to_scrAddr(scrAddr.getAddrStr())
+            #scrAddr = 
 
-         # Now recipObj is def a string
-         if len(recipObj)!=20:
-            # If not an address, it's a full script
-            txout.binScript = recipObj
-         else:
-            # Construct a std TxOut from addr160 str
-            txout.binScript = hash160_to_p2pkhash_script(recipObj)
-            #txout.binScript = ''.join([  getOpCode('OP_DUP'        ), \
-                                         #getOpCode('OP_HASH160'    ), \
-                                         #'\x14',                      \
-                                         #recipObj,
-                                         #getOpCode('OP_EQUALVERIFY'), \
-                                         #getOpCode('OP_CHECKSIG'   )])
 
+         intType = Cpp.BtcUtils().getTxOutScriptTypeInt(script)
+         if intType==CPP_TXOUT_NONSTANDARD:
+            LOGERROR('Only standard script types are valid for this call')
+            LOGERROR('Script: ' + binary_to_hex(script))
+            raise BadAddressError('Invalid script for tx creation')
+
+         txout.binScript = script[:]
          thePyTx.outputs.append(txout)
 
       # Prepare the inputs based on the utxo objects

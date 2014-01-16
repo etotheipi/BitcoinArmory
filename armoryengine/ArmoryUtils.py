@@ -370,6 +370,23 @@ else:
    P2SHBYTE = '\xc4'
    PRIVKEYBYTE = '\xef'
 
+# These are the same regardless of network
+# They are the way data is stored in the database which is network agnostic
+SCRADDR_P2PKH_BYTE    = '\x00'
+SCRADDR_P2SH_BYTE     = '\x05'
+SCRADDR_MULTISIG_BYTE = '\xfe'
+SCRADDR_NONSTD_BYTE   = '\xff'
+SCRADDR_BYTE_LIST     = [SCRADDR_P2PKH_BYTE, SCRADDR_P2SH_BYTE, \
+                         SCRADDR_MULTISIG_BYTE, SCRADDR_NONSTD_BYTE]
+
+# Copied from cppForSwig/BtcUtils.h::getTxOutScriptTypeInt(script)
+CPP_TXOUT_STDHASH160   = 0
+CPP_TXOUT_STDPUBKEY65  = 1
+CPP_TXOUT_STDPUBKEY33  = 2
+CPP_TXOUT_MULTISIG     = 3
+CPP_TXOUT_P2SH         = 4
+CPP_TXOUT_NONSTANDARD  = 5
+
 if not CLI_OPTIONS.satoshiPort == 'DEFAULT':
    try:
       BITCOIN_PORT = int(CLI_OPTIONS.satoshiPort)
@@ -1086,6 +1103,12 @@ def pubkey_to_p2pk_script(binStr33or65):
 # use cases where we require the keys to be sorted lexicographically, so we 
 # will do that by default.  If you require a different order, pre-sort them 
 # and pass withSort=False.
+# 
+# NOTE:  About the hardcoded bytes in here:
+#        I made a mistake when making the databases, and hardcoded the 
+#        mainnet addrByte and P2SH bytes into DB format.  This means that
+#        that any ScrAddr object will use the mainnet prefix bytes, despite
+#        being in testnet.  I will at some point fix this.
 def pubkeylist_to_multisig_script(pkList, M, withSort=True):
 
    if sum([  (0 if len(pk) in [33,65] else 1)   for pk in pkList]) > 0:
@@ -1115,13 +1138,13 @@ def scrAddr_to_script(scraddr):
       raise BadAddressError('Empty scraddr')
 
    prefix = scraddr[0]
-   if not prefix in ['\x00', '\x05', '\xfe', '\xff'] or not len(scraddr)==21:
+   if not prefix in SCRADDR_BYTE_LIST or not len(scraddr)==21:
       LOGERROR('Bad scraddr: "%s"' % binary_to_hex(scraddr))
       raise BadAddressError('Invalid ScrAddress')
 
-   if prefix=='\x00':
+   if prefix==SCRADDR_P2PKH_BYTE:
       return hash160_to_p2pkhash_script(scraddr[1:])
-   elif prefix=='\x05':
+   elif prefix==SCRADDR_P2SH_BYTE:
       return hash160_to_p2sh_script(scraddr[1:])
    else:
       LOGERROR('Unsupported scraddr type: "%s"' % binary_to_hex(scraddr))
@@ -1139,13 +1162,13 @@ def scrAddr_to_addrStr(scrAddr):
       raise BadAddressError('Empty scrAddr')
 
    prefix = scrAddr[0]
-   if not prefix in ['\x00', '\x05', '\xfe', '\xff'] or not len(scrAddr)==21:
+   if not prefix in SCRADDR_BYTE_LIST or not len(scrAddr)==21:
       LOGERROR('Bad scrAddr: "%s"' % binary_to_hex(scrAddr))
       raise BadAddressError('Invalid ScrAddress')
 
-   if prefix=='\x00':
+   if prefix==SCRADDR_P2PKH_BYTE:
       return hash160_to_addrStr(scrAddr[1:])
-   elif prefix=='\x05':
+   elif prefix==SCRADDR_P2SH_BYTE:
       return hash160_to_p2shStr(scrAddr[1:])
    else:
       LOGERROR('Unsupported scrAddr type: "%s"' % binary_to_hex(scrAddr))
@@ -1635,7 +1658,6 @@ def base58_to_binary(addr):
 
 
 ################################################################################
-
 def hash160_to_addrStr(binStr):
    """
    Converts the 20-byte pubKeyHash to 25-byte binary Bitcoin address
