@@ -46,7 +46,7 @@ for i in $whereispy; do
 			#whereis may not have found a lib but find can still land one
 			if [ -z $possiblea ] || [ -z $possibleso ]; then
 				pyroot=${i%/*}
-				extralib=`find $pyroot | grep "libpython"$pyv`
+				extralib=`find $pyroot 2> /dev/null | grep "libpython"$pyv`
 				for t in $extralib; do
 					if echo "$t" | grep -q "$pyv.a"; then
 						possiblea=$t
@@ -91,19 +91,11 @@ PYTHON_LIB=$apath
 PYVER=python$pythonver" > ./pypaths.txt
 elif [[ "$sopath" ]]; then
 	echo
-	while [ 1 ]; do	
-		echo -n "Counldn't find static libpython (.a). Found the .so however. Would you like to build with it? [y/n]"
-		read ans
-		if [ "$ans" == "n" ]; then
-			break;
-		elif [ "$ans" == "y" ]; then
-			failed=""
-			echo "PYTHON_INCLUDE=$hpath
+	echo -n "Couldn't find static libpython (.a). Found the .so however. Continuing, but this is not a recommend configuration" 1>&2
+	failed=""
+	echo "PYTHON_INCLUDE=$hpath
 PYTHON_LIB=$sopath
 PYVER=python$pythonver" > ./pypaths.txt			
-			break;
-		fi
-	done
 fi
 
 if [[ $failed == "1" ]]; then
