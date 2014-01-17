@@ -4297,7 +4297,7 @@ class DlgConfirmSend(ArmoryDialog):
       lblInfoImg.setPixmap(QPixmap(':/MsgBox_info48.png'))
       lblInfoImg.setAlignment(Qt.AlignHCenter | Qt.AlignTop)
 
-      totalSend = sum([rv[1] for rv in scraddrValuePairs]) + fee
+      totalSend = sum([sv[1] for sv in scraddrValuePairs]) + fee
       sumStr = coin2str(totalSend, maxZeros=1)
 
       lblMsg = QRichLabel(
@@ -4308,9 +4308,9 @@ class DlgConfirmSend(ArmoryDialog):
       recipLbls = []
       ffixBold = GETFONT('Fixed')
       ffixBold.setWeight(QFont.Bold)
-      for rv in scraddrValuePairs:
-         addrPrint = (scrAddr_to_addrStr(rv[0]) + ' : ').ljust(37)
-         recipLbls.append(QLabel(addrPrint + coin2str(rv[1], rJust=True, maxZeros=4)))
+      for sv in scraddrValuePairs:
+         addrPrint = (scrAddr_to_addrStr(sv[0]) + ' : ').ljust(37)
+         recipLbls.append(QLabel(addrPrint + coin2str(sv[1], rJust=True, maxZeros=4)))
          recipLbls[-1].setFont(ffixBold)
 
 
@@ -4339,7 +4339,7 @@ class DlgConfirmSend(ArmoryDialog):
       if self.main.usermode == USERMODE.Expert and changeBehave:
          chngScrAddr = changeBehave[0]
          chngAddrStr = scrAddr_to_addrStr(chngScrAddr)
-         atype, chngAddr160 = addrStr_to_hash160(chngAddrStr)[1]
+         atype, chngAddr160 = addrStr_to_hash160(chngAddrStr)
          if atype == P2SHBYTE:
             LOGWARN('P2SH Change address received')
 
@@ -4812,7 +4812,7 @@ class DlgSendBitcoins(ArmoryDialog):
             self.updateAddrField(i, COLS.Addr, Colors.SlightRed)
 
 
-      numChkFail = sum([1 if len(b[0])==0 else 0 for b in scrAddrs])
+      numChkFail = sum([1 if len(b)==0 else 0 for b in scrAddrs])
       if not self.freeOfErrors:
          QMessageBox.critical(self, tr('Invalid Address'), tr("""
            You have entered %d invalid @{address|addresses}@.  
@@ -6148,22 +6148,22 @@ class DlgReviewOfflineTx(ArmoryDialog):
       # We should provide the same confirmation dialog here, as we do when
       # sending a regular (online) transaction.  But the DlgConfirmSend was
       # not really designed
-      # self.txValues = [totalSend, fee, totalChange]
-      # self.origSVPairs = list(recipValuePairs)
       txdp = self.txdpObj
       rvpairsOther = []
       rvpairsMine = []
       outInfo = txdp.pytxObj.makeRecipientsList()
       theFee = sum(txdp.inputValues) - sum([info[1] for info in outInfo])
       for info in outInfo:
-         if not info[0] in (TXOUT_SCRIPT_COINBASE, TXOUT_SCRIPT_STANDARD):
+         if not info[0] in CPP_TXOUT_WITH_ADDRSTR:
             rvpairsOther.append(['Non-Standard Output', info[1]])
             continue
 
-         if self.wlt.hasAddr(info[2]):
-            rvpairsMine.append([info[2], info[1]])
+         addrStr = script_to_addrStr(info[2])
+         scrAddr = script_to_scrAddr(info[2])
+         if self.wlt.hasAddr(addrStr):
+            rvpairsMine.append([scrAddr, info[1]])
          else:
-            rvpairsOther.append([info[2], info[1]])
+            rvpairsOther.append([scrAddr, info[1]])
 
 
       if len(rvpairsMine) == 0 and len(rvpairsOther) > 1:
@@ -6767,6 +6767,7 @@ def extractTxInfo(pytx, rcvTime=None):
       sumTxIn = None
    return [txHash, txOutToList, sumTxOut, txinFromList, sumTxIn, txTime, txBlk, txIdx]
 
+################################################################################
 class DlgDispTxInfo(ArmoryDialog):
    def __init__(self, pytx, wlt=None, parent=None, main=None, mode=None, \
                              precomputeIdxGray=None, precomputeAmt=None, txtime=None):
@@ -6808,19 +6809,21 @@ class DlgDispTxInfo(ArmoryDialog):
       txAmt = data[FIELDS.SumOut]
 
       # Collect our own outputs only, and ID non-std tx
-      rvPairSelf = []
-      rvPairOther = []
+      svPairSelf = []
+      svPairOther = []
       indicesSelf = []
       indicesOther = []
       indicesMakeGray = []
       idx = 0
-      for scrType, amt, recip in data[FIELDS.OutList]:
-         if scrType in (TXOUT_SCRIPT_STANDARD, TXOUT_SCRIPT_COINBASE):
-            if haveWallet and wlt.hasAddr(recip):
-               rvPairSelf.append([recip, amt])
+      for scrType, amt, script in data[FIELDS.OutList]:
+         if scrType in CPP_TXOUT_WITH_ADDRSTR:
+            addrStr = script_to_addrStr(script)
+            scrAddr = script_to_scrAddr(script)
+            if haveWallet and wlt.hasAddr(addrStr):
+               svPairSelf.append([scrAddr, amt])
                indicesSelf.append(idx)
             else:
-               rvPairOther.append([recip, amt])
+               svPairOther.append([scrAddr, amt])
                indicesOther.append(idx)
          else:
             # This isn't actually true:  P2Pool outputs get flagged as non-std...
@@ -6829,7 +6832,7 @@ class DlgDispTxInfo(ArmoryDialog):
 
       txdir = None
       changeIndex = None
-      rvPairDisp = None
+      svPairDisp = None
       if haveBDM and haveWallet and data[FIELDS.SumOut] and data[FIELDS.SumIn]:
          fee = data[FIELDS.SumOut] - data[FIELDS.SumIn]
          ldgr = wlt.getTxLedger()
@@ -6842,26 +6845,28 @@ class DlgDispTxInfo(ArmoryDialog):
                # more useful information... like ignoring change outputs,
                if le.isSentToSelf():
                   txdir = 'Sent-to-Self'
-                  rvPairDisp = []
+                  svPairDisp = []
                   if len(self.pytx.outputs):
                      txAmt = fee
                      triplet = data[FIELDS.OutList][0]
-                     rvPairDisp.append([triplet[2], triplet[1]])
+                     scrAddr = script_to_scrAddr(triplet[2])
+                     svPairDisp.append([scrAddr, triplet[1]])
                   else:
                      txAmt, changeIndex = determineSentToSelfAmt(le, wlt)
                      for i, triplet in enumerate(data[FIELDS.OutList]):
                         if not i == changeIndex:
-                           rvPairDisp.append([triplet[2], triplet[1]])
+                           scrAddr = script_to_scrAddr(triplet[2])
+                           svPairDisp.append([scrAddr, triplet[1]])
                         else:
                            indicesMakeGray.append(i)
                else:
                   if le.getValue() > 0:
                      txdir = 'Received'
-                     rvPairDisp = rvPairSelf
+                     svPairDisp = svPairSelf
                      indicesMakeGray.extend(indicesOther)
                   if le.getValue() < 0:
                      txdir = 'Sent'
-                     rvPairDisp = rvPairOther
+                     svPairDisp = svPairOther
                      indicesMakeGray.extend(indicesSelf)
                break
 
@@ -7014,7 +7019,7 @@ class DlgDispTxInfo(ArmoryDialog):
 
 
 
-      if rvPairDisp == None and precomputeAmt == None:
+      if svPairDisp == None and precomputeAmt == None:
          # Couldn't determine recip/change outputs
          lbls.append([])
          lbls[-1].append(self.main.createToolTipWidget(
@@ -7073,9 +7078,9 @@ class DlgDispTxInfo(ArmoryDialog):
       # Show the list of recipients, if possible
       numShow = 3
       rlbls = []
-      if not rvPairDisp == None:
-         numRV = len(rvPairDisp)
-         for i, rv in enumerate(rvPairDisp):
+      if svPairDisp is not None:
+         numRV = len(svPairDisp)
+         for i, sv in enumerate(svPairDisp):
             rlbls.append([])
             if i == 0:
                rlbls[-1].append(self.main.createToolTipWidget(
@@ -7087,9 +7092,10 @@ class DlgDispTxInfo(ArmoryDialog):
                rlbls[-1].append(QLabel('Recipients:'))
             else:
                rlbls[-1].extend([QLabel(), QLabel()])
-            rlbls[-1].append(QLabel(hash160_to_addrStr(rv[0])))
+
+            rlbls[-1].append(QLabel(scrAddr_to_addrStr(sv[0])))
             if numRV > 1:
-               rlbls[-1].append(QLabel(coin2str(rv[1], maxZeros=1) + '  BTC'))
+               rlbls[-1].append(QLabel(coin2str(sv[1], maxZeros=1) + '  BTC'))
             else:
                rlbls[-1].append(QLabel(''))
             ffixBold = GETFONT('Fixed', 10)
@@ -7310,17 +7316,26 @@ class DlgDispTxInfo(ArmoryDialog):
 
 
       if hexScript:
+         binScript = hex_to_binary(hexScript)
+         addrStr = None
+         scrType = BtcUtils().getTxOutScriptTypeInt(binScript)
+         if scrType in CPP_TXOUT_WITH_ADDRSTR:
+            addrStr = script_to_addrStr(binScript)
+
          oplist = convertScriptToOpStrings(hex_to_binary(hexScript))
          opprint = []
+         prevOpIsPushData = False
          for op in oplist:
-            if len(op) == 40 and not '[' in op:
-               opprint.append(op + ' <font color="gray">(%s)</font>' % \
-                                       hash160_to_addrStr(hex_to_binary(op)))
-            elif len(op) == 130 and not '[' in op:
-               opprint.append(op + ' <font color="gray">(%s)</font>' % \
-                               hash160_to_addrStr(hash160(hex_to_binary(op))))
-            else:
+            
+            if addrStr is None or not prevOpIsPushData:
                opprint.append(op)
+            else:
+               opprint.append(op + ' <font color="gray">(%s)</font>' % addrStr)
+               prevOpIsPushData = False
+
+            if 'pushdata' in op.lower():
+               prevOpIsPushData = True
+
          lblScript = QRichLabel('')
          lblScript.setText('<b>Script:</b><br><br>' + '<br>'.join(opprint))
          lblScript.setWordWrap(False)

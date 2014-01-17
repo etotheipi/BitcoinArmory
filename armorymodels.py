@@ -15,14 +15,7 @@ from PyQt4.QtCore import *
 from PyQt4.QtGui import *
 
 from CppBlockUtils import *
-from armorycolors import Colors, htmlColor
-from armoryengine.BDM import TheBDM
-from armoryengine.Timer import TimeThisFunction
-from armoryengine.Transaction import PyTxDistProposal, getTxInScriptType, \
-   TXIN_TYPE_NAMES, TXIN_SCRIPT_STANDARD, TxInScriptExtractAddr160IfAvail, \
-   TxOutScriptExtractAddr160, getTxOutScriptType, TXOUT_TYPE_NAMES, \
-   getTxOutMultiSigInfo, TXOUT_SCRIPT_STANDARD, TxOutScriptExtractAddrStr, \
-   TXOUT_SCRIPT_COINBASE, TXOUT_SCRIPT_UNKNOWN, TXOUT_SCRIPT_OP_EVAL
+from armoryengine.ALL import *
 from qtdefines import *
 
 
@@ -733,31 +726,26 @@ class TxOutDispModel(QAbstractTableModel):
       COLS = TXOUTCOLS
       row,col = index.row(), index.column()
       txout = self.txOutList[row]
-      stype = getTxOutScriptType(txout.binScript)
-      stypeStr = TXOUT_TYPE_NAMES[stype]
+      #stype = getTxOutScriptType(txout.binScript)
+      #stypeStr = TXOUT_TYPE_NAMES[stype]
+      stype = BtcUtils().getTxOutScriptTypeInt(txout.binScript)
+      stypeStr = CPP_TXOUT_SCRIPT_NAMES[stype]
       wltID = self.wltIDList[row]
       if stype==TXOUT_SCRIPT_MULTISIG:
          mstype = getTxOutMultiSigInfo(txout.binScript)[0]
-         stypeStr = 'Multi-Signature (%d-of-%d)' % mstype
+         stypeStr = 'MultiSig(%d-of-%d)' % mstype
       if role==Qt.DisplayRole:
          if col==COLS.WltID:   return QVariant(wltID)
          if col==COLS.ScrType: return QVariant(stypeStr)
          if col==COLS.Script:  return QVariant(binary_to_hex(txout.binScript))
-         if stype==TXOUT_SCRIPT_STANDARD:
-            if col==COLS.Recip:   return QVariant(TxOutScriptExtractAddrStr(txout.binScript))
-            if col==COLS.Btc:     return QVariant(coin2str(txout.getValue(),maxZeros=2))
-         if stype==TXOUT_SCRIPT_COINBASE:
-            if col==COLS.Recip:   return QVariant(TxOutScriptExtractAddrStr(txout.binScript))
-            if col==COLS.Btc:     return QVariant(coin2str(txout.getValue(),maxZeros=2))
-         if stype==TXOUT_SCRIPT_MULTISIG:
-            if col==COLS.Recip:   return QVariant('[[Multiple]]')
-            if col==COLS.Btc:     return QVariant(coin2str(txout.getValue(),maxZeros=2))
-         if stype==TXOUT_SCRIPT_UNKNOWN:
-            if col==COLS.Recip:   return QVariant('[[Non-Standard]]')
-            if col==COLS.Btc:     return QVariant(coin2str(txout.getValue(),maxZeros=2))
-         if stype==TXOUT_SCRIPT_OP_EVAL:
-            if col==COLS.Recip:   return QVariant('[[OP-EVAL]]')
-            if col==COLS.Btc:     return QVariant(coin2str(txout.getValue(),maxZeros=2))
+         if col==COLS.Btc:     return QVariant(coin2str(txout.getValue(),maxZeros=2))
+         if col==COLS.Recip:   
+            if stype in CPP_TXOUT_WITH_ADDRSTR:
+               return QVariant(script_to_addrStr(txout.binScript))
+            elif stype==TXOUT_SCRIPT_MULTISIG:
+               return QVariant('[[Multiple]]')
+            elif stype==TXOUT_SCRIPT_UNKNOWN:
+               return QVariant('[[Non-Standard]]')
       elif role==Qt.TextAlignmentRole:
          if col==COLS.Recip:   return QVariant(int(Qt.AlignLeft | Qt.AlignVCenter))
          if col==COLS.Btc:     return QVariant(int(Qt.AlignRight | Qt.AlignVCenter))

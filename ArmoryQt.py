@@ -4136,6 +4136,7 @@ class ArmoryMainWindow(QMainWindow):
 
       sdmState = TheSDM.getSDMState()
       bdmState = TheBDM.getBDMState()
+      descr  = ''
       descr1 = ''
       descr2 = ''
 

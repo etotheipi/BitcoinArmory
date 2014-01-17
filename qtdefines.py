@@ -90,7 +90,7 @@ def tr(txt, replList=None, pluralList=None):
 
    txt = TRANSLATE(txt)
 
-   return formatStrWithPlural(replList, pluralList)
+   return formatWithPlurals(txt, replList, pluralList)
    
 
 

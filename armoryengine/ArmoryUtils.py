@@ -387,6 +387,21 @@ CPP_TXOUT_MULTISIG     = 3
 CPP_TXOUT_P2SH         = 4
 CPP_TXOUT_NONSTANDARD  = 5
 
+CPP_TXOUT_SCRIPT_NAMES = ['']*6
+CPP_TXOUT_SCRIPT_NAMES[CPP_TXOUT_STDHASH160]  = 'Standard (PKH)'
+CPP_TXOUT_SCRIPT_NAMES[CPP_TXOUT_STDPUBKEY65] = 'Standard (PK65)'
+CPP_TXOUT_SCRIPT_NAMES[CPP_TXOUT_STDPUBKEY33] = 'Standard (PK33)'
+CPP_TXOUT_SCRIPT_NAMES[CPP_TXOUT_MULTISIG]    = 'Multi-Signature'
+CPP_TXOUT_SCRIPT_NAMES[CPP_TXOUT_P2SH]        = 'Standard (P2SH)'
+CPP_TXOUT_SCRIPT_NAMES[CPP_TXOUT_NONSTANDARD] = 'Non-Standard'
+CPP_TXOUT_WITH_ADDRSTR = [CPP_TXOUT_STDHASH160, \
+                          CPP_TXOUT_STDPUBKEY65,
+                          CPP_TXOUT_STDPUBKEY33,
+                          CPP_TXOUT_P2SH]
+         
+
+
+################################################################################
 if not CLI_OPTIONS.satoshiPort == 'DEFAULT':
    try:
       BITCOIN_PORT = int(CLI_OPTIONS.satoshiPort)
@@ -1157,6 +1172,11 @@ def script_to_scrAddr(binScript):
    return Cpp.BtcUtils().getScrAddrForScript(binScript)
 
 ################################################################################
+def script_to_addrStr(binScript):
+   """ Convert a binary script to scrAddr string (used by BDM) """
+   return scrAddr_to_addrStr(script_to_scrAddr(binScript))
+
+################################################################################
 def scrAddr_to_addrStr(scrAddr):
    if len(scrAddr)==0:
       raise BadAddressError('Empty scrAddr')
@@ -1177,10 +1197,21 @@ def scrAddr_to_addrStr(scrAddr):
 
 ################################################################################
 def addrStr_to_scrAddr(addrStr):
-   addrBin = base58_to_binary(addrStr)
-   if not checkAddrBinValid(addrBin):
+   if not checkAddrStrValid(addrStr):
       BadAddressError('Invalid address: "%s"' % addrStr)
-   return addrBin[:21] 
+
+   # Okay this doesn't work because of the issue outlined before, where the 
+   # SCRADDR prefixes don't match the ADDRSTR prefixes.  Whoops 
+   #return addrBin[:21] 
+   
+   atype, a160 = addrStr_to_hash160(addrStr)
+   if atype==ADDRBYTE:
+      return SCRADDR_P2PKH_BYTE + a160
+   elif atype==P2SHBYTE:
+      return SCRADDR_P2SH_BYTE + a160
+   else:
+      BadAddressError('Invalid address: "%s"' % addrStr)
+
 
 
 

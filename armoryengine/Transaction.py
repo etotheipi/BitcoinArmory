@@ -775,7 +775,7 @@ class PyTx(BlockComponent):
       """ 
       Make a list of lists, each one containing information about 
       an output in this tx.  Usually contains
-         [ScriptType, Value, Addr160]
+         [ScriptType, Value, Script]
       May include more information if any of the scripts are multi-sig,
       such as public keys and multi-sig type (M-of-N)
       """
@@ -783,24 +783,18 @@ class PyTx(BlockComponent):
       for txout in self.outputs:
          recipInfoList.append([])
 
-         scrType = getTxOutScriptType(txout.binScript)
+         #scrType = getTxOutScriptType(txout.binScript)
+         scrType = Cpp.BtcUtils().getTxOutScriptTypeInt(txout.binScript)
          recipInfoList[-1].append(scrType)
          recipInfoList[-1].append(txout.value)
-         if scrType in (TXOUT_SCRIPT_STANDARD, TXOUT_SCRIPT_COINBASE):
-            recipInfoList[-1].append(TxOutScriptExtractAddr160(txout.binScript))
-         elif scrType in (TXOUT_SCRIPT_MULTISIG,):
+         recipInfoList[-1].append(txout.binScript)
+         #if scrType in [TXOUT_SCRIPT_STANDARD, TXOUT_SCRIPT_COINBASE):
+         if scrType == CPP_TXOUT_MULTISIG:
             mstype, addr160s, pubs = getTxOutMultiSigInfo(txout.binScript)
             recipInfoList[-1].append(addr160s)
             recipInfoList[-1].append(pubs)
             recipInfoList[-1].append(mstype[0]) # this is M (from M-of-N)
-         elif scrType in (TXOUT_SCRIPT_OP_EVAL,):
-            LOGERROR('OP_EVAL doesn\'t exist anymore.  How did we get here?')
-            recipInfoList[-1].append(txout.binScript)
-         elif scrType in (TXOUT_SCRIPT_UNKNOWN,):
-            LOGERROR('Unknown TxOut type')
-            recipInfoList[-1].append(txout.binScript)
-         else:
-            LOGERROR('Unrecognized txout script that isn\'t TXOUT_SCRIPT_UNKNOWN...?')
+
       return recipInfoList
 
 
@@ -1038,7 +1032,7 @@ class PyTxDistProposal(object):
              anything, including a multi-signature transaction
       """
 
-      for scr,val in scrAddrValuePairs:
+      for scr,val in scriptValuePairs:
          if len(scr)==20:
             raise BadAddressError( tr("""
                createFromTxOutSelection() has changed to take (script, value)
@@ -1067,7 +1061,7 @@ class PyTxDistProposal(object):
          txout.value = long(value)
 
          # Assume recipObj is either a PBA or a string
-         if isinstance(scrAddr, PyBtcAddress):
+         if isinstance(script, PyBtcAddress):
             LOGERROR("Didn't know any func was still using this conditional")
             #scrAddr = addrStr_to_scrAddr(scrAddr.getAddrStr())
             #scrAddr = 
