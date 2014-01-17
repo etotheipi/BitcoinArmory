@@ -20,6 +20,7 @@ from armorycolors import Colors, htmlColor
 from armorymodels import *
 import qrc_img_resources
 from qtdefines import *
+from armoryengine.PyBtcAddress import calcWalletIDFromRoot
 
 # This is a circular import, relocated to the end of the file
 #from ui.Frames import SelectWalletFrame
@@ -27,7 +28,13 @@ from qtdefines import *
 MIN_PASSWD_WIDTH = lambda obj: tightSizeStr(obj, '*' * 16)[0]
 STRETCH = 'Stretch'
 CLICKED = 'clicked()'
-
+BACKUP_TYPE_135A = '1.35a'
+BACKUP_TYPE_135C = '1.35c'
+BACKUP_TYPE_0_TEXT = tr('Version 0  (from script, 9 lines)')
+BACKUP_TYPE_135a_TEXT = tr('Version 1.35a (5 lines Unencrypted)')
+BACKUP_TYPE_135a_SP_TEXT = tr('Version 1.35a (5 lines SecurePrint\xe2\x84\xa2)')
+BACKUP_TYPE_135c_TEXT = tr('Version 1.35c (3 lines Unencrypted)')
+BACKUP_TYPE_135c_SP_TEXT = tr('Version 1.35c (3 lines SecurePrint\xe2\x84\xa2)')
 ################################################################################
 class DlgUnlockWallet(ArmoryDialog):
    def __init__(self, wlt, parent=None, main=None, unlockMsg='Unlock Wallet', \
@@ -6348,11 +6355,11 @@ class DlgShowKeyList(ArmoryDialog):
          self.addrCopies.append(addr.copy())
       self.rootKeyCopy = self.wlt.addrMap['ROOT'].copy()
 
-      backupVersion = '1.35a'
+      backupVersion = BACKUP_TYPE_135A
       testChain = DeriveChaincodeFromRootKey(self.rootKeyCopy.binPrivKey32_Plain)
       self.needChaincode = (not testChain == self.rootKeyCopy.chaincode)
       if not self.needChaincode:
-         backupVersion = '1.35c'
+         backupVersion = BACKUP_TYPE_135C
 
       self.strDescrReg = (\
          'The textbox below shows all keys that are part of this wallet, '
@@ -12435,8 +12442,7 @@ class DlgUniversalRestoreSelect(ArmoryDialog):
 
       lblDescrTitle = QRichLabel(tr("""
          <b><u>Restore Wallet from Backup</u></b>"""))
-      lblDescr = QRichLabel(tr("""
-         You can restore any kind of backup ever created by Armory using
+      lblDescr = QRichLabel(tr("""You can restore any kind of backup ever created by Armory using
          one of the options below.  If you have a list of private keys
          you should open the target wallet and select "Import/Sweep
          Private Keys."  """))
@@ -12566,30 +12572,30 @@ class DlgRestoreSingle(ArmoryDialog):
       self.comboBackupType = QComboBox()
       self.comboBackupType.clear()
       self.comboBackupType.addItem(tr('Version 1.35'))
-      self.comboBackupType.addItem(tr('Version 1.35a (Unencrypted)'))
-      self.comboBackupType.addItem(tr('Version 1.35a (with SecurePrint\xe2\x84\xa2)'))
-      self.comboBackupType.addItem(tr('Version 1.35c (Unencrypted)'))
-      self.comboBackupType.addItem(tr('Version 1.35c (with SecurePrint\xe2\x84\xa2)'))
+      self.comboBackupType.addItem(tr('Version 1.35a (4 lines Unencrypted)'))
+      self.comboBackupType.addItem(tr('Version 1.35a (4 lines SecurePrint\xe2\x84\xa2)'))
+      self.comboBackupType.addItem(tr('Version 1.35c (2 lines Unencrypted)'))
+      self.comboBackupType.addItem(tr('Version 1.35c (2 lines SecurePrint\xe2\x84\xa2)'))
       self.comboBackupType.setCurrentIndex(3)
 
 
       self.connect(self.comboBackupType, SIGNAL('activated(int)'), self.changeType)
       frmCombo = makeHorizFrame([lblType, 'Space(20)', self.comboBackupType, STRETCH])
 
-      self.lblSP = QRichLabel(tr('SecurePrint\xe2\x84\xa2 Code:'), doWrap=False)
-      self.edtSP = QLineEdit()
+      self.lblSP = QRichLabel(tr('SecurePrint\xe2\x84\xa2 Code:'), doWrap=False) 
+      self.editSecurePrint = QLineEdit()                                                   
       self.prfxList = [QLabel(tr('Root Key:')), QLabel(''), QLabel(tr('Chaincode:')), QLabel('')]
 
       inpMask = '<AAAA\ AAAA\ AAAA\ AAAA\ \ AAAA\ AAAA\ AAAA\ AAAA\ \ AAAA!'
       self.edtList = [MaskedInputLineEdit(inpMask) for i in range(4)]
 
 
-      self.frmSP = makeHorizFrame([STRETCH, self.lblSP, self.edtSP])
+      self.frmSP = makeHorizFrame([STRETCH, self.lblSP, self.editSecurePrint])   
 
       frmAllInputs = QFrame()
       frmAllInputs.setFrameStyle(STYLE_RAISED)
       layoutAllInp = QGridLayout()
-      layoutAllInp.addWidget(self.frmSP, 0, 0, 1, 2)
+      layoutAllInp.addWidget(self.frmSP, 0, 0, 1, 2)                   
       for i in range(4):
          layoutAllInp.addWidget(self.prfxList[i], i + 1, 0)
          layoutAllInp.addWidget(self.edtList[i], i + 1, 1)
@@ -12696,11 +12702,11 @@ class DlgRestoreSingle(ArmoryDialog):
          chain = SecureBinaryData(''.join(inputLines[2:]))
 
 
-
+      
       if self.doMask:
          # Prepare the key mask parameters
          SECPRINT = HardcodedKeyMaskParams()
-         pwd = str(self.edtSP.text()).strip()
+         pwd = str(self.editSecurePrint.text()).strip()
          if len(pwd) < 9:
             QMessageBox.critical(self, 'Invalid Code', tr("""
                You didn't enter a full SecurePrint\xe2\x84\xa2 code.  This
@@ -12874,7 +12880,7 @@ class DlgRestoreFragged(ArmoryDialog):
       self.tableSize = 2
       self.wltType = UNKNOWN
       self.fragIDPrefix = UNKNOWN
-
+      
       doItText = tr('Test Backup' if thisIsATest else 'Restore from Fragments')
 
       btnExit = QPushButton(tr('Cancel'))
@@ -12887,15 +12893,17 @@ class DlgRestoreFragged(ArmoryDialog):
       self.lblSecureStr = QRichLabel(tr('SecurePrint\xe2\x84\xa2 Code:'), \
                                      hAlign=Qt.AlignHCenter, \
                                      color='TextWarn')
-      self.edtSecureStr = QLineEdit()
+      self.displaySecureString = QLineEdit()
       self.imgPie = QRichLabel('', hAlign=Qt.AlignHCenter)
       self.lblReqd = QRichLabel('', hAlign=Qt.AlignHCenter)
       self.lblWltID = QRichLabel('', doWrap=False, hAlign=Qt.AlignHCenter)
       self.lblFragID = QRichLabel('', doWrap=False, hAlign=Qt.AlignHCenter)
       self.lblSecureStr.setVisible(False)
-      self.edtSecureStr.setVisible(False)
-      self.edtSecureStr.setMaximumWidth(relaxedSizeNChar(self.edtSecureStr, 16)[0])
-      frmSecPair = makeVertFrame([self.lblSecureStr, self.edtSecureStr])
+      self.displaySecureString.setVisible(False)
+      self.displaySecureString.setMaximumWidth(relaxedSizeNChar(self.displaySecureString, 16)[0])
+      # The Secure String is now edited in DlgEnterOneFrag, It is only displayed here
+      self.displaySecureString.setEnabled(False)
+      frmSecPair = makeVertFrame([self.lblSecureStr, self.displaySecureString])
       frmSecCtr = makeHorizFrame([STRETCH, frmSecPair, STRETCH])
 
       frmWltInfo = makeVertFrame([STRETCH,
@@ -12992,9 +13000,10 @@ class DlgRestoreFragged(ArmoryDialog):
 
    #############################################################################
    def dataEnter(self, fnum):
-      dlg = DlgEnterOneFrag(self, self.main, self.fragsDone, self.wltType)
+      dlg = DlgEnterOneFrag(self, self.main, self.fragsDone, self.wltType, self.displaySecureString.text())
       if dlg.exec_():
          LOGINFO('Good data from enter_one_frag exec! %d', fnum)
+         self.displaySecureString.setText(dlg.editSecurePrint.text())
          self.addFragToTable(fnum, dlg.fragData)
          self.makeFragInputTable()
 
@@ -13041,6 +13050,7 @@ class DlgRestoreFragged(ArmoryDialog):
       fragData.append(hex_to_binary(fragMap['id']))
       for c in cList:
          for n in nList:
+            mapKey = c + n
             rawBin, err = readSixteenEasyBytes(fragMap[c + n])
             if err == 'Error_2+':
                QMessageBox.critical(self, tr('Fragment Error'), tr("""
@@ -13051,7 +13061,6 @@ class DlgRestoreFragged(ArmoryDialog):
             fragData.append(SecureBinaryData(rawBin))
             rawBin = None
 
-      M, findex, wltIDBin, doMask, idBase58 = ReadFragIDLineBin(fragMap['id'])
       self.addFragToTable(fnum, fragData)
       self.makeFragInputTable()
 
@@ -13091,9 +13100,11 @@ class DlgRestoreFragged(ArmoryDialog):
          if doMask:
             anyMask = True
             break
-
+      # If all of the rows with a Mask have been removed clear the securePrintCode
+      if  not anyMask:
+         self.displaySecureString.setText('')
       self.lblSecureStr.setVisible(anyMask)
-      self.edtSecureStr.setVisible(anyMask)
+      self.displaySecureString.setVisible(anyMask)
 
       if not showRightFrm:
          self.fragIDPrefix = UNKNOWN
@@ -13111,9 +13122,9 @@ class DlgRestoreFragged(ArmoryDialog):
       if len(fragData) == 9:
          currType = '0'
       elif len(fragData) == 5:
-         currType = '1.35a'
+         currType = BACKUP_TYPE_135A
       elif len(fragData) == 3:
-         currType = '1.35c'
+         currType = BACKUP_TYPE_135C
       else:
          LOGERROR('How\'d we get fragData of size: %d', len(fragData))
          return
@@ -13154,10 +13165,10 @@ class DlgRestoreFragged(ArmoryDialog):
       if currType == '0':
          X = SecureBinaryData(''.join([fragData[i].toBinStr() for i in range(1, 5)]))
          Y = SecureBinaryData(''.join([fragData[i].toBinStr() for i in range(5, 9)]))
-      elif currType == '1.35a':
+      elif currType == BACKUP_TYPE_135A:
          X = SecureBinaryData(int_to_binary(fnum + 1, widthBytes=64, endOut=BIGENDIAN))
          Y = SecureBinaryData(''.join([fragData[i].toBinStr() for i in range(1, 5)]))
-      elif currType == '1.35c':
+      elif currType == BACKUP_TYPE_135C:
          X = SecureBinaryData(int_to_binary(fnum + 1, widthBytes=32, endOut=BIGENDIAN))
          Y = SecureBinaryData(''.join([fragData[i].toBinStr() for i in range(1, 3)]))
 
@@ -13183,22 +13194,8 @@ class DlgRestoreFragged(ArmoryDialog):
 
       SECPRINT = HardcodedKeyMaskParams()
       pwd, ekey = '', ''
-      if self.edtSecureStr.isVisible():
-         pwd = str(self.edtSecureStr.text()).strip()
-         if len(pwd) < 9:
-            QMessageBox.critical(self, tr('Invalid Code'), tr("""
-               You didn't enter a full SecurePrint\xe2\x84\xa2 code.  This
-               code is needed to decrypt your backup.  If this backup is
-               actually unencrypted and there is no code, then choose the
-               correct "Unencrypted" option from the version drop-down
-               box."""), QMessageBox.Ok)
-            return
-         if not SECPRINT['FUNC_CHKPWD'](pwd):
-            QMessageBox.critical(self, tr('Bad Encryption Code'), tr("""
-               The SecurePrint\xe2\x84\xa2 code you entered has an error
-               in it.  Note that the code is case-sensitive.  Please verify
-               you entered it correctly and try again."""), QMessageBox.Ok)
-            return
+      if self.displaySecureString.isVisible():
+         pwd = str(self.displaySecureString.text()).strip()
          maskKey = SECPRINT['FUNC_KDF'](pwd)
 
       fragMtrx, M = [], -1
@@ -13212,7 +13209,7 @@ class DlgRestoreFragged(ArmoryDialog):
             LOGINFO('Row %d is already unencrypted' % row)
          fragMtrx.append([X.toBinStr(), Y.toBinStr()])
 
-      typeToBytes = {'0': 64, '1.35a': 64, '1.35c': 32}
+      typeToBytes = {'0': 64, BACKUP_TYPE_135A: 64, BACKUP_TYPE_135C: 32}
       nBytes = typeToBytes[self.wltType]
 
 
@@ -13340,7 +13337,7 @@ class DlgRestoreFragged(ArmoryDialog):
       fragMap = {}
       for x, y in fragMtrx:
          fragMap[binary_to_int(x, BIGENDIAN) - 1] = [x, y]
-      typeToBytes = {'0': 64, '1.35a': 64, '1.35c': 32}
+      typeToBytes = {'0': 64, BACKUP_TYPE_135A: 64, BACKUP_TYPE_135C: 32}
 
       isRandom, results = testReconstructSecrets(fragMap, M, 100)
       def privAndChainFromRow(secret):
@@ -13456,12 +13453,9 @@ class DlgShowTestResults(ArmoryDialog):
 class DlgEnterOneFrag(ArmoryDialog):
 
    #############################################################################
-   def __init__(self, parent, main, fragList=[], wltType=UNKNOWN):
+   def __init__(self, parent, main, fragList=[], wltType=UNKNOWN, securePrintCode=None):
       super(DlgEnterOneFrag, self).__init__(parent, main)
-
-
       self.fragData = []
-
       BLUE = htmlColor('TextBlue')
       already = ''
       if len(fragList) > 0:
@@ -13477,29 +13471,41 @@ class DlgEnterOneFrag(ArmoryDialog):
          previous window, and it will be applied to all fragments that
          require it.""") % already)
 
-
-
-
       self.comboBackupType = QComboBox()
       self.comboBackupType.clear()
-      self.comboBackupType.addItem(tr('Version 0  (from script, 9 lines)'))
-      self.comboBackupType.addItem(tr('Version 1.35a  (5 lines)'))
-      self.comboBackupType.addItem(tr('Version 1.35c  (3 lines)'))
-
+      self.comboBackupType.addItem(BACKUP_TYPE_0_TEXT)
+      self.comboBackupType.addItem(BACKUP_TYPE_135a_TEXT)
+      self.comboBackupType.addItem(BACKUP_TYPE_135a_SP_TEXT)
+      self.comboBackupType.addItem(BACKUP_TYPE_135c_TEXT)
+      self.comboBackupType.addItem(BACKUP_TYPE_135c_SP_TEXT)
       # If a wallet type hasn't been determined yet, allow the user to select it
+      self.comboBackupType.setEnabled(True)
       # This value will be locked after the first fragment is entered.
       if wltType == UNKNOWN:
-         self.comboBackupType.setCurrentIndex(2)
-         self.comboBackupType.setEnabled(True)
+         self.comboBackupType.setCurrentIndex(3)
       elif wltType == '0':
          self.comboBackupType.setCurrentIndex(0)
          self.comboBackupType.setEnabled(False)
-      elif wltType == '1.35a':
-         self.comboBackupType.setCurrentIndex(1)
-         self.comboBackupType.setEnabled(False)
-      elif wltType == '1.35c':
-         self.comboBackupType.setCurrentIndex(2)
-         self.comboBackupType.setEnabled(False)
+      elif wltType == BACKUP_TYPE_135A:
+         if securePrintCode:
+            self.comboBackupType.setCurrentIndex(2)
+            self.comboBackupType.setEnabled(False)
+         else:
+            # Could be 1.35a with or without SecurePrintCode so remove the rest
+            self.comboBackupType.removeItem(4)
+            self.comboBackupType.removeItem(3)
+            self.comboBackupType.removeItem(0)
+            self.comboBackupType.setCurrentIndex(0)
+      elif wltType == BACKUP_TYPE_135C:
+         if securePrintCode:
+            self.comboBackupType.setCurrentIndex(4)
+            self.comboBackupType.setEnabled(False)
+         else:
+            # Could be 1.35c with or without SecurePrintCode so remove the rest
+            self.comboBackupType.removeItem(2)
+            self.comboBackupType.removeItem(1)
+            self.comboBackupType.removeItem(0)
+            self.comboBackupType.setCurrentIndex(0)
 
       lblType = QRichLabel(tr("""<b>Backup Type:</b>"""), doWrap=False)
       self.connect(self.comboBackupType, SIGNAL('activated(int)'), self.changeType)
@@ -13519,11 +13525,22 @@ class DlgEnterOneFrag(ArmoryDialog):
       frmAllInputs = QFrame()
       frmAllInputs.setFrameStyle(STYLE_RAISED)
       layoutAllInp = QGridLayout()
-      layoutAllInp.addWidget(self.lblID, 0, 0, 1, 1)
-      layoutAllInp.addWidget(self.edtID, 0, 1, 1, 1)
+      
+      # Add Secure Print row - Use supplied securePrintCode and
+      # disable text entry if it is not None
+      self.lblSP = QRichLabel(tr('SecurePrint\xe2\x84\xa2 Code:'), doWrap=False) 
+      self.editSecurePrint = QLineEdit()     
+      self.editSecurePrint.setEnabled(not securePrintCode)
+      if (securePrintCode):
+         self.editSecurePrint.setText(securePrintCode)                               
+      self.frmSP = makeHorizFrame([STRETCH, self.lblSP, self.editSecurePrint])   
+      layoutAllInp.addWidget(self.frmSP, 0, 0, 1, 2)                   
+
+      layoutAllInp.addWidget(self.lblID, 1, 0, 1, 1)
+      layoutAllInp.addWidget(self.edtID, 1, 1, 1, 1)
       for i in range(12):
-         layoutAllInp.addWidget(self.prfxList[i], i + 1, 0, 1, 2)
-         layoutAllInp.addWidget(self.edtList[i], i + 1, 1, 1, 2)
+         layoutAllInp.addWidget(self.prfxList[i], i + 2, 0, 1, 2)
+         layoutAllInp.addWidget(self.edtList[i], i + 2, 1, 1, 2)
       frmAllInputs.setLayout(layoutAllInp)
 
       self.btnAccept = QPushButton("Done")
@@ -13551,15 +13568,19 @@ class DlgEnterOneFrag(ArmoryDialog):
 
    #############################################################################
    def changeType(self):
-      sel = self.comboBackupType.currentIndex()
+      sel = self.comboBackupType.currentText()
       #                      |-- X --| |-- Y --| |-- F --|
-      if   sel == 0: visList = [1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0]
-      elif sel == 1: visList = [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1]
-      elif sel == 2: visList = [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0]
+      if   sel == BACKUP_TYPE_0_TEXT: visList = [1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0]
+      elif sel == BACKUP_TYPE_135a_TEXT or \
+           sel == BACKUP_TYPE_135a_SP_TEXT: visList = [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1]
+      elif sel == BACKUP_TYPE_135c_TEXT or \
+           sel == BACKUP_TYPE_135c_SP_TEXT: visList = [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0]
       else:
          LOGERROR('What the heck backup type is selected?  %d', sel)
          return
 
+      self.frmSP.setVisible(sel == BACKUP_TYPE_135a_SP_TEXT or \
+                            sel == BACKUP_TYPE_135c_SP_TEXT)
       for i in range(12):
          self.prfxList[i].setVisible(visList[i] == 1)
          self.edtList[ i].setVisible(visList[i] == 1)
@@ -13574,6 +13595,9 @@ class DlgEnterOneFrag(ArmoryDialog):
             # It's an SBD Object.  Destroy it.
             line.destroy()
 
+   #############################################################################
+   def isSecurePrintID(self):
+      return hex_to_int(str(self.edtID.text()[:2])) > 127
 
    #############################################################################
    def verifyUserInput(self):
@@ -13581,13 +13605,40 @@ class DlgEnterOneFrag(ArmoryDialog):
       nError = 0
       rawBin = None
 
-      sel = self.comboBackupType.currentIndex()
+      sel = self.comboBackupType.currentText()
       rng = [-1]
-      if   sel == 0: rng = range(8)
-      elif sel == 1: rng = range(8, 12)
-      elif sel == 2: rng = range(8, 10)
+      if   sel == BACKUP_TYPE_0_TEXT:  rng = range(8)
+      elif sel == BACKUP_TYPE_135a_TEXT or \
+           sel == BACKUP_TYPE_135a_SP_TEXT: rng = range(8, 12)
+      elif sel == BACKUP_TYPE_135c_TEXT or \
+           sel == BACKUP_TYPE_135c_SP_TEXT: rng = range(8, 10)
 
-
+      
+      if (sel == BACKUP_TYPE_135a_SP_TEXT or \
+         sel == BACKUP_TYPE_135c_SP_TEXT) and \
+         self.editSecurePrint.isEnabled():
+         # Prepare the key mask parameters
+         SECPRINT = HardcodedKeyMaskParams()
+         securePrintCode = str(self.editSecurePrint.text()).strip()
+         if len(securePrintCode) < 9:
+            QMessageBox.critical(self, 'Invalid Code', tr("""
+               You didn't enter a full SecurePrint\xe2\x84\xa2 code.  This
+               code is needed to decrypt your backup.  If this backup is
+               actually unencrypted and there is no code, then choose the
+               appropriate backup type from the drop-down box"""), QMessageBox.Ok)
+            return
+         if not SECPRINT['FUNC_CHKPWD'](securePrintCode):
+            QMessageBox.critical(self, 'Bad Encryption Code', tr("""
+               The SecurePrint\xe2\x84\xa2 code you entered has an error
+               in it.  Note that the code is case-sensitive.  Please verify
+               you entered it correctly and try again."""), QMessageBox.Ok)
+            return
+      elif self.isSecurePrintID():
+            QMessageBox.critical(self, 'Bad Encryption Code', tr("""
+               The ID field indicates that this is a SecurePrint\xe2\x84\xa2
+               Backup Type. You have either entered the ID incorrectly or
+               have chosen an incorrect Backup Type."""), QMessageBox.Ok)
+            return
       for i in rng:
          hasError = False
          try:
