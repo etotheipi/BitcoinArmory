@@ -65,7 +65,7 @@ if not vstr:
 # Copy the correct control file (for 32-bit or 64-bit OS)
 osBits = platform.architecture()[0][:2]
 shutil.copy('dpkgfiles/control%s' % (osBits), 'dpkgfiles/control')
-dpkgfiles = ['control', 'copyright', 'postinst', 'postrm']
+dpkgfiles = ['control', 'copyright', 'postinst', 'postrm', 'rules']
 
 
 # Start pseudo-bash-script
@@ -76,7 +76,7 @@ execAndWait('rm -rf %s' % pkgdir)
 execAndWait('rm -f %s*' % pkgdir)
 execAndWait('rm -f %s*' % pkgdir_)
 shutil.copytree(origDir, pkgdir)
-execAndWait('tar -zcf %s.tar.gz %s' % (pkgdir, pkgdir))
+execAndWait('tar --exclude .git -zcf %s.tar.gz %s' % (pkgdir, pkgdir))
 cd(pkgdir)
 execAndWait('export DEBFULLNAME="Armory Technologies, Inc."; dh_make -s -e support@bitcoinarmory.com -f ../%s.tar.gz' % pkgdir)
 for f in dpkgfiles:
