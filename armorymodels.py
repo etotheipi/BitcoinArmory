@@ -706,7 +706,7 @@ class TxOutDispModel(QAbstractTableModel):
       self.main = main
       self.txOutList = []
       self.wltIDList = []
-      self.idxGray = idxGray
+      self.idxGray = idxGray[:]
       for i,txout in enumerate(self.tx.outputs):
          recip160 = TxOutScriptExtractAddr160(txout.binScript)
          self.txOutList.append(txout)
@@ -805,7 +805,12 @@ class SentToAddrBookModel(QAbstractTableModel):
       # the python code... :(
       for abe in TheBDM.getAddressBook(self.wlt.cppWallet):     
 
-         addr160 = CheckHash160(abe.getScrAddr())
+         scrAddr = abe.getScrAddr()
+         try:
+            addr160 = addrStr_to_hash160(scrAddr_to_addrStr(scrAddr))[1]
+         except Exception as e:
+            LOGERROR(str(e))
+            addr160 = ''
 
          # Only grab addresses that are not in any of your Armory wallets
          if not self.main.getWalletForAddr160(addr160):
@@ -814,9 +819,8 @@ class SentToAddrBookModel(QAbstractTableModel):
             txhashlist = []
             for i in range(ntx):
                txhashlist.append( abeList[i].getTxHash() )
-            self.addrBook.append( [ addr160, txhashlist] )
+            self.addrBook.append( [scrAddr, txhashlist] )
 
-      print 'Done collecting addresses for addrbook'
 
    def rowCount(self, index=QModelIndex()):
       return len(self.addrBook)
@@ -827,8 +831,13 @@ class SentToAddrBookModel(QAbstractTableModel):
    def data(self, index, role=Qt.DisplayRole):
       COL = ADDRBOOKCOLS
       row,col  = index.row(), index.column()
-      addr160  = self.addrBook[row][0]
-      addrB58  = hash160_to_addrStr(addr160)
+      scrAddr  = self.addrBook[row][0]
+      if scrAddr[0] in [SCRADDR_P2PKH_BYTE, SCRADDR_P2SH_BYTE]:
+         addrB58 = scrAddr_to_addrStr(scrAddr)
+         addr160 = scrAddr[1:]
+      else:
+         addrB58 = ''
+         addr160 = ''
       wltID    = self.main.getWalletForAddr160(addr160)
       txList   = self.addrBook[row][1]
       numSent  = len(txList)

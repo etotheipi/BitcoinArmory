@@ -4289,10 +4289,8 @@ class DlgConfirmSend(ArmoryDialog):
       super(DlgConfirmSend, self).__init__(parent, main)
 
       self.wlt = wlt
-
+   
       layout = QGridLayout()
-
-
       lblInfoImg = QLabel()
       lblInfoImg.setPixmap(QPixmap(':/MsgBox_info48.png'))
       lblInfoImg.setAlignment(Qt.AlignHCenter | Qt.AlignTop)
@@ -4309,19 +4307,19 @@ class DlgConfirmSend(ArmoryDialog):
       ffixBold = GETFONT('Fixed')
       ffixBold.setWeight(QFont.Bold)
       for sv in scraddrValuePairs:
-         addrPrint = (scrAddr_to_addrStr(sv[0]) + ' : ').ljust(37)
+         addrPrint = (scrAddr_to_addrStr(sv[0]) + ' : ').ljust(38)
          recipLbls.append(QLabel(addrPrint + coin2str(sv[1], rJust=True, maxZeros=4)))
          recipLbls[-1].setFont(ffixBold)
 
 
       if fee > 0:
          recipLbls.append(QSpacerItem(10, 10))
-         recipLbls.append(QLabel('Transaction Fee : '.ljust(37) +
+         recipLbls.append(QLabel('Transaction Fee : '.ljust(38) +
                            coin2str(fee, rJust=True, maxZeros=4)))
          recipLbls[-1].setFont(GETFONT('Fixed'))
 
       recipLbls.append(HLINE(QFrame.Sunken))
-      recipLbls.append(QLabel('Total bitcoins : '.ljust(37) +
+      recipLbls.append(QLabel('Total bitcoins : '.ljust(38) +
                         coin2str(totalSend, rJust=True, maxZeros=4)))
       recipLbls[-1].setFont(GETFONT('Fixed'))
 
@@ -4704,7 +4702,10 @@ class DlgSendBitcoins(ArmoryDialog):
       if not txdp:
          return
 
-      changePair = (self.changeScrAddr, self.selectedBehavior)
+      changePair = None
+      if len(self.selectedBehavior) > 0:
+         changePair = (self.changeScrAddr, self.selectedBehavior)
+
       dlg = DlgConfirmSend(self.wlt, self.origSVPairs, self.txValues[1], self, \
                                                    self.main, False, changePair)
       if dlg.exec_():
@@ -4729,7 +4730,10 @@ class DlgSendBitcoins(ArmoryDialog):
             QMessageBox.Ok)
 
 
-      changePair = (self.changeScrAddr, self.selectedBehavior)
+      changePair = None
+      if len(self.selectedBehavior) > 0:
+         changePair = (self.changeScrAddr, self.selectedBehavior)
+
       dlg = DlgConfirmSend(self.wlt, self.origSVPairs, self.txValues[1], self, \
                                                    self.main, True, changePair)
       if dlg.exec_():
@@ -5421,22 +5425,22 @@ class DlgOfflineTxCreated(ArmoryDialog):
 
       lblInstruct = QRichLabel('<b>Instructions for completing this transaction:</b>')
       lblUTX = QRichLabel('<b>Transaction Data</b> \t (Unsigned ID: %s)' % txdp.uniqueB58)
-      w, h = tightSizeStr(GETFONT('Fixed', 8), '0' * 90)[0], int(12 * 8.2)
 
       frmUTX = makeLayoutFrame(HORIZONTAL, [ttipDataIsSafe, lblUTX])
       frmUpper = makeLayoutFrame(HORIZONTAL, [lblDescr], STYLE_SUNKEN)
 
       # Wow, I just cannot get the txtEdits to be the right size without
       # forcing them very explicitly
+      w, h = tightSizeStr(GETFONT('Fixed', 8), '0' * 93)[0], int(12 * 8.2)
       self.txtTxDP = QTextEdit()
       self.txtTxDP.setFont(GETFONT('Fixed', 8))
       self.txtTxDP.setMinimumWidth(w)
       self.txtTxDP.setMinimumHeight(h)
       # self.txtTxDP.setMaximumWidth(w)
-      self.txtTxDP.setMaximumHeight(h)
+      #self.txtTxDP.setMaximumHeight(h)
       self.txtTxDP.setText(txdp.serializeAscii())
       self.txtTxDP.setReadOnly(True)
-      self.txtTxDP.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Expanding)
+      #self.txtTxDP.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Expanding)
 
 
       lblNextStep = QRichLabel(\
@@ -5473,9 +5477,9 @@ class DlgOfflineTxCreated(ArmoryDialog):
       frmLowerLayout.setColumnStretch(2, 0)
       frmLowerLayout.setColumnStretch(3, 0)
       frmLowerLayout.setRowStretch(0, 0)
-      frmLowerLayout.setRowStretch(1, 0)
-      frmLowerLayout.setRowStretch(2, 0)
-      frmLowerLayout.setRowStretch(3, 0)
+      frmLowerLayout.setRowStretch(1, 1)
+      frmLowerLayout.setRowStretch(2, 1)
+      frmLowerLayout.setRowStretch(3, 1)
 
       frmLowerLayout.addWidget(nextStepStrip, 4, 0, 1, 3)
       frmLower.setLayout(frmLowerLayout)
@@ -6159,8 +6163,9 @@ class DlgReviewOfflineTx(ArmoryDialog):
             continue
 
          addrStr = script_to_addrStr(info[2])
+         addr160 = addrStr_to_hash160(addrStr)[1]
          scrAddr = script_to_scrAddr(info[2])
-         if self.wlt.hasAddr(addrStr):
+         if self.wlt.hasAddr(addr160):
             rvpairsMine.append([scrAddr, info[1]])
          else:
             rvpairsOther.append([scrAddr, info[1]])
@@ -6818,8 +6823,9 @@ class DlgDispTxInfo(ArmoryDialog):
       for scrType, amt, script in data[FIELDS.OutList]:
          if scrType in CPP_TXOUT_WITH_ADDRSTR:
             addrStr = script_to_addrStr(script)
+            addr160 = addrStr_to_hash160(addrStr)[1]
             scrAddr = script_to_scrAddr(script)
-            if haveWallet and wlt.hasAddr(addrStr):
+            if haveWallet and wlt.hasAddr(addr160):
                svPairSelf.append([scrAddr, amt])
                indicesSelf.append(idx)
             else:
@@ -6846,7 +6852,7 @@ class DlgDispTxInfo(ArmoryDialog):
                if le.isSentToSelf():
                   txdir = 'Sent-to-Self'
                   svPairDisp = []
-                  if len(self.pytx.outputs):
+                  if len(self.pytx.outputs)==1:
                      txAmt = fee
                      triplet = data[FIELDS.OutList][0]
                      scrAddr = script_to_scrAddr(triplet[2])

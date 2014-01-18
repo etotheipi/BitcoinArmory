@@ -1675,15 +1675,19 @@ class PyBtcWallet(object):
          tx = TheBDM.getTxByHash(txHash)
          if tx.isInitialized():
             for i in range(tx.getNumTxOut()):
-               try:
-                  a160 = CheckHash160(tx.getScrAddrForTxOut(i))
-                  if self.hasAddr(a160):
-                     self.txAddrMap[txHash].append(a160)
-               except: 
-                  LOGERROR("Unrecognized scraddr: " + binary_to_hex(tx.getScrAddrForTxOut(i)))
+               txout = tx.getTxOutCopy(i)
+               stype = Cpp.BtcUtils().getTxOutScriptTypeInt(txout.getScript())
+               scrAddr = tx.getScrAddrForTxOut(i)
+
+               if stype in CPP_TXOUT_WITH_ADDRSTR:
+                  addrStr = scrAddr_to_addrStr(scrAddr)
+                  addr160 = addrStr_to_hash160(addrStr)[1]
+                  if self.hasAddr(addr160):
+                     self.txAddrMap[txHash].append(addr160)
+               else: 
+                  LOGERROR("Unrecognized scraddr: " + binary_to_hex(scrAddr))
                
      
-            
 
       addrComments = []
       for a160 in self.txAddrMap[txHash]:

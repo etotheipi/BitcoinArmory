@@ -29,7 +29,7 @@ def convertScriptToOpStrings(binScript):
          opList.append("0")
          i+=1
       elif nextOp < 76:
-         opList.append("[PUSHDATA -- " + str(nextOp) + " BYTES:]")
+         opList.append('PUSHDATA(%s)' % str(nextOp))
          binObj = binScript[i+1:i+1+nextOp]
          opList.append(binary_to_hex(binObj))
          i += nextOp+1
@@ -39,7 +39,7 @@ def convertScriptToOpStrings(binScript):
             error = True;
             break
          binObj = binScript[i+2:i+2+nb]
-         opList.append("[OP_PUSHDATA1 -- " + str(nb) + " BYTES:]");
+         opList.append('OP_PUSHDATA1(%s)' % str(nb))
          opList.append(binary_to_hex(binObj))
          i += nb+2
       elif nextOp == 77:
@@ -49,7 +49,7 @@ def convertScriptToOpStrings(binScript):
             break
          nbprint = min(nb,256)
          binObj = binScript[i+3:i+3+nbprint]
-         opList.append("[OP_PUSHDATA2 -- " + str(nb) + " BYTES:]");
+         opList.append('OP_PUSHDATA2(%s)' % str(nb))
          opList.append(binary_to_hex(binObj) + '...')
          i += nb+3
       elif nextOp == 78:
@@ -59,7 +59,7 @@ def convertScriptToOpStrings(binScript):
             break
          nbprint = min(nb,256)
          binObj = binScript[i+5,i+5+nbprint]
-         opList.append("[OP_PUSHDATA4 -- " + str(nb) + " BYTES:]");
+         opList.append('[OP_PUSHDATA4(%s)]' % str(nb))
          opList.append(binary_to_hex(binObj) + '...')
          i += nb+5
       else:
