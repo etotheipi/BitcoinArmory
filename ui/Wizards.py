@@ -92,7 +92,9 @@ class WalletCreationPage(ArmoryWizardPage):
    def __init__(self, wizard):
       ArmoryWizardPage.__init__(self, wizard, NewWalletFrame(wizard.parent, "Create Wallet"))
       self.setTitle(self.tr("Step 1: Create Wallet"))
-      self.setSubTitle(self.tr("Create wallet <Subtitle>"))
+      self.setSubTitle(self.tr("""
+            Create a new wallet for managing your funds.
+            The name and description can be changed at any time."""))
 
 class SetPasswordPage(ArmoryWizardPage):
    def __init__(self, wizard):
