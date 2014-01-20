@@ -13,6 +13,13 @@ from PyQt4.Qt import *
 from armoryengine.BDM import TheBDM
 from armoryengine.ArmoryUtils import coin2str
 
+# This class is intended to be an abstract frame class that
+# will hold all of the functionality that is common to all 
+# Frames used in Armory. 
+# The Frames that extend this class should contain all of the
+# display and control components for some screen used in Armory
+# Putting this content in a frame allows it to be used on it's own
+# in a dialog or as a component in a larger frame.
 class ArmoryFrame(QFrame):
    def __init__(self, parent=None, main=None):
       super(ArmoryFrame, self).__init__(parent)
@@ -21,7 +28,7 @@ class ArmoryFrame(QFrame):
       self.main   = main
 
    def accept(self):
-      self.parent.accpet()
+      self.parent.accept()
       return
 
 # This class has all of the select wallet display and control functionality for
@@ -195,7 +202,145 @@ class SelectWalletFrame(ArmoryFrame):
       self.repaint()
       if self.coinControlCallback:
          self.coinControlCallback(self.sourceAddrList, self.altBalance)
-         
+
+
+class NewWalletFrame(QFrame):
+
+   def __init__(self, mainScreen = None, initLabel=''):
+      super(QFrame, self).__init__()
+      # Options for creating a new wallet
+      lblDlgDescr = QLabel('Create a new wallet for managing your funds.\n'
+                           'The name and description can be changed at any time.')
+      lblDlgDescr.setWordWrap(True)
+
+      self.edtName = QLineEdit()
+      self.edtName.setMaxLength(32)
+      self.edtName.setText(initLabel)
+      lblName = QLabel("Wallet &name:")
+      lblName.setBuddy(self.edtName)
+
+
+      self.edtDescr = QTextEdit()
+      self.edtDescr.setMaximumHeight(75)
+      lblDescr = QLabel("Wallet &description:")
+      lblDescr.setAlignment(Qt.AlignVCenter)
+      lblDescr.setBuddy(self.edtDescr)
+
+      buttonBox = QDialogButtonBox(QDialogButtonBox.Ok | \
+                                   QDialogButtonBox.Cancel)
+
+
+      
+      # Advanced Encryption Options
+      lblComputeDescr = QLabel( \
+                  'Armory will test your system\'s speed to determine the most '
+                  'challenging encryption settings that can be performed '
+                  'in a given amount of time.  High settings make it much harder '
+                  'for someone to guess your passphrase.  This is used for all '
+                  'encrypted wallets, but the default parameters can be changed below.\n')
+      lblComputeDescr.setWordWrap(True)
+      timeDescrTip = mainScreen.createToolTipWidget( \
+                  'This is the amount of time it will take for your computer '
+                  'to unlock your wallet after you enter your passphrase. '
+                  '(the actual time used will be less than the specified '
+                  'time, but more than one half of it).  ')
+      
+      
+      # Set maximum compute time
+      self.edtComputeTime = QLineEdit()
+      self.edtComputeTime.setText('250 ms')
+      self.edtComputeTime.setMaxLength(12)
+      lblComputeTime = QLabel('Target compute &time (s, ms):')
+      memDescrTip = mainScreen.createToolTipWidget( \
+                  'This is the <b>maximum</b> memory that will be '
+                  'used as part of the encryption process.  The actual value used '
+                  'may be lower, depending on your system\'s speed.  If a '
+                  'low value is chosen, Armory will compensate by chaining '
+                  'together more calculations to meet the target time.  High '
+                  'memory target will make GPU-acceleration useless for '
+                  'guessing your passphrase.')
+      lblComputeTime.setBuddy(self.edtComputeTime)
+
+
+      # Set maximum memory usage
+      self.edtComputeMem = QLineEdit()
+      self.edtComputeMem.setText('32.0 MB')
+      self.edtComputeMem.setMaxLength(12)
+      lblComputeMem  = QLabel('Max &memory usage (kB, MB):')
+      lblComputeMem.setBuddy(self.edtComputeMem)
+
+      self.edtComputeTime.setMaximumWidth( tightSizeNChar(self, 20)[0] )
+      self.edtComputeMem.setMaximumWidth( tightSizeNChar(self, 20)[0] )
+
+      # Fork watching-only wallet
+      cryptoLayout = QGridLayout()
+      cryptoLayout.addWidget(lblComputeDescr,     0, 0,  1, 3)
+
+      cryptoLayout.addWidget(timeDescrTip,        1, 0,  1, 1)
+      cryptoLayout.addWidget(lblComputeTime,      1, 1,  1, 1)
+      cryptoLayout.addWidget(self.edtComputeTime, 1, 2,  1, 1)
+
+      cryptoLayout.addWidget(memDescrTip,         2, 0,  1, 1)
+      cryptoLayout.addWidget(lblComputeMem,       2, 1,  1, 1)
+      cryptoLayout.addWidget(self.edtComputeMem,  2, 2,  1, 1)
+
+      self.cryptoFrame = QFrame()
+      self.cryptoFrame.setFrameStyle(STYLE_SUNKEN)
+      self.cryptoFrame.setLayout(cryptoLayout)
+      self.cryptoFrame.setVisible(False)
+
+      self.chkUseCrypto  = QCheckBox("Use wallet &encryption")
+      self.chkUseCrypto.setChecked(True)
+      usecryptoTooltip = mainScreen.createToolTipWidget(
+                  'Encryption prevents anyone who accesses your computer '
+                  'or wallet file from being able to spend your money, as  '
+                  'long as they do not have the passphrase.'
+                  'You can choose to encrypt your wallet at a later time '
+                  'through the wallet properties dialog by double clicking '
+                  'the wallet on the dashboard.')
+
+      # For a new wallet, the user may want to print out a paper backup
+      self.chkPrintPaper = QCheckBox("Print a paper-backup of this wallet")
+      self.chkPrintPaper.setChecked(True)
+      paperBackupTooltip = mainScreen.createToolTipWidget(
+                  'A paper-backup allows you to recover your wallet/funds even '
+                  'if you lose your original wallet file, any time in the future. '
+                  'Because Armory uses "deterministic wallets," '
+                  'a single backup when the wallet is first made is sufficient '
+                  'for all future transactions (except ones to imported '
+                  'addresses).\n\n'
+                  'Anyone who gets ahold of your paper backup will be able to spend '
+                  'the money in your wallet, so please secure it appropriately.')
+
+      
+      self.btnAccept    = QPushButton("Accept")
+      self.btnCancel    = QPushButton("Cancel")
+      self.btnAdvCrypto = QPushButton("Adv. Encrypt Options>>>")
+      self.btnAdvCrypto.setCheckable(True)
+ 
+      frameLayout = QGridLayout()
+      frameLayout.addWidget(lblDlgDescr,        1, 0, 1, 2)
+      frameLayout.addWidget(lblName,            2, 0, 1, 1)
+      frameLayout.addWidget(self.edtName,       2, 1, 1, 2)
+      frameLayout.addWidget(lblDescr,           3, 0, 1, 2)
+      frameLayout.addWidget(self.edtDescr,      3, 1, 2, 2)
+      frameLayout.addWidget(self.chkUseCrypto,  5, 0, 1, 1)
+      frameLayout.addWidget(usecryptoTooltip,   5, 1, 1, 1)
+      frameLayout.addWidget(self.chkPrintPaper, 6, 0, 1, 1)
+      frameLayout.addWidget(paperBackupTooltip, 6, 1, 1, 1)
+      frameLayout.addWidget(self.cryptoFrame,   8, 0, 3, 3)
+   
+
+      frameLayout.setVerticalSpacing(5)
+      frameLayout.setSizeConstraint(QLayout.SetFixedSize)
+      self.setLayout(frameLayout)
+
+      self.connect(self.chkUseCrypto, SIGNAL("clicked()"), \
+                   self.cryptoFrame,  SLOT("setEnabled(bool)"))
+
+
+
+
          
 # Need to put circular imports at the end of the script to avoid an import deadlock
 # DlgWalletSelect uses SelectWalletFrame which uses DlgCoinControl

@@ -15,11 +15,12 @@ import time
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *
 
-from armorycolors import Colors, htmlColor
 from armoryengine.ALL import *
+from armorycolors import Colors, htmlColor
 from armorymodels import *
 import qrc_img_resources
 from qtdefines import *
+from armoryengine.PyBtcAddress import calcWalletIDFromRoot
 
 # This is a circular import, relocated to the end of the file
 #from ui.Frames import SelectWalletFrame
@@ -27,7 +28,13 @@ from qtdefines import *
 MIN_PASSWD_WIDTH = lambda obj: tightSizeStr(obj, '*' * 16)[0]
 STRETCH = 'Stretch'
 CLICKED = 'clicked()'
-
+BACKUP_TYPE_135A = '1.35a'
+BACKUP_TYPE_135C = '1.35c'
+BACKUP_TYPE_0_TEXT = tr('Version 0  (from script, 9 lines)')
+BACKUP_TYPE_135a_TEXT = tr('Version 1.35a (5 lines Unencrypted)')
+BACKUP_TYPE_135a_SP_TEXT = tr('Version 1.35a (5 lines SecurePrint\xe2\x84\xa2)')
+BACKUP_TYPE_135c_TEXT = tr('Version 1.35c (3 lines Unencrypted)')
+BACKUP_TYPE_135c_SP_TEXT = tr('Version 1.35c (3 lines SecurePrint\xe2\x84\xa2)')
 ################################################################################
 class DlgUnlockWallet(ArmoryDialog):
    def __init__(self, wlt, parent=None, main=None, unlockMsg='Unlock Wallet', \
@@ -289,12 +296,13 @@ class DlgUnlockWallet(ArmoryDialog):
       try:
          self.wlt.unlock(securePassphrase=self.securePassphrase)
 
-         if self.returnPassphrase == False: self.edtPasswd.setText('')
-         else: self.wlt.lock() #if we are trying to recover the plain passphrase, make sure the wallet is locked
+         if self.returnPassphrase == False: 
+			self.edtPasswd.setText('')
+         else: 
+			self.wlt.lock() #if we are trying to recover the plain passphrase, make sure the wallet is locked
 
          self.securePassphrase.destroy()
          self.accept()
-
       except PassphraseError:
          QMessageBox.critical(self, 'Invalid Passphrase', \
            'That passphrase is not correct!', QMessageBox.Ok)
@@ -4240,7 +4248,7 @@ class DlgWalletSelect(ArmoryDialog):
                              wltIDList=None, atLeast=0):
       super(DlgWalletSelect, self).__init__(parent, main)
 
-      self.lstWallets = QListWidget()
+
       self.balAtLeast = atLeast
 
       if self.main and len(self.main.walletMap) == 0:
@@ -4255,9 +4263,11 @@ class DlgWalletSelect(ArmoryDialog):
 
       # Start the layout
       layout = QVBoxLayout()
-      layout.addWidget(SelectWalletFrame(self, main, firstSelect, onlyMyWallets, \
-                  wltIDList, atLeast, HORIZONTAL, self.selectWallet))
-
+      # Expect to set selectedId
+      wltFrame = SelectWalletFrame(self, main, firstSelect, onlyMyWallets, 
+         wltIDList, atLeast, self.selectWallet)
+      layout.addWidget(wltFrame)
+      self.selectedID = wltFrame.selectedID
       buttonBox = QDialogButtonBox()
       btnAccept = QPushButton('OK')
       btnCancel = QPushButton('Cancel')
@@ -4408,23 +4418,26 @@ class DlgSendBitcoins(ArmoryDialog):
       # Created a standard wallet chooser frame. Pass the call back method
       # for when the user selects a wallet.
       self.walletSelector = SelectWalletFrame(parent, main, self.wltID,\
-                  wltIDList=self.wltIDList, \
-                  layoutDirection = VERTICAL, selectWltCallback=self.setWallet)
+                  wltIDList=self.wltIDList, selectWltCallback=self.setWallet,\
+                  coinControlCallback=self.coinControlUpdate if\
+                  self.main.usermode == USERMODE.Expert else None )
 
       self.ttipUnsigned = self.main.createToolTipWidget(\
                'After clicking this button, you will be given directions for '
                'completing this transaction.')
+      self.btnUnsigned = QPushButton('Create Unsigned Transaction')
+      self.connect(self.btnUnsigned, SIGNAL(CLICKED), self.createOfflineTxDPAndDisplay)
 
 
+      frmUnsigned = makeHorizFrame([self.btnUnsigned, self.ttipUnsigned])
       self.btnSend = QPushButton('Send!')
       self.connect(self.btnSend, SIGNAL(CLICKED), self.createTxAndBroadcast)
-      txFrm = makeLayoutFrame(HORIZONTAL, [QLabel('Transaction Fee:'), \
+      txFrm = makeLayoutFrame(HORIZONTAL, [QLabel('Fee:'), \
                                        self.edtFeeAmt, \
                                        feetip, \
                                        STRETCH, \
+                                       frmUnsigned,
                                        self.btnSend])
-      self.btnUnsigned = QPushButton('Create Unsigned Transaction')
-      self.connect(self.btnUnsigned, SIGNAL(CLICKED), self.createOfflineTxDPAndDisplay)
 
 
 
@@ -4448,21 +4461,12 @@ class DlgSendBitcoins(ArmoryDialog):
          fromFrameList.append(frmDonate)
 
       if not self.main.usermode == USERMODE.Standard:
-         frmUnsigned = makeHorizFrame([self.btnUnsigned, self.ttipUnsigned])
          frmEnterURI = makeHorizFrame([btnEnterURI, ttipEnterURI])
-         fromFrameList.append(frmUnsigned)
          fromFrameList.append(frmEnterURI)
 
       ########################################################################
       # In Expert usermode, allow the user to modify source addresses
       if self.main.usermode == USERMODE.Expert:
-
-         self.lblCoinCtrl = QRichLabel('Source:  All addresses')
-         self.btnCoinCtrl = QPushButton('Coin Control')
-         self.connect(self.btnCoinCtrl, SIGNAL(CLICKED), self.doCoinCtrl)
-         frmCoinControl = makeHorizFrame([self.lblCoinCtrl, self.btnCoinCtrl],)
-         fromFrameList.append(frmCoinControl)
-
          self.chkDefaultChangeAddr = QCheckBox('Use an existing address for change')
          self.radioFeedback = QRadioButton('Send change to first input address')
          self.radioSpecify = QRadioButton('Specify a change address')
@@ -4546,6 +4550,7 @@ class DlgSendBitcoins(ArmoryDialog):
       self.makeRecipFrame(1)
       self.setWindowTitle('Send Bitcoins')
       self.setMinimumHeight(self.maxHeight * 20)
+      self.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Preferred)
 
       loadCount = self.main.settings.get('Load_Count')
       alreadyDonated = self.main.getSettingOrSetDefault('DonateAlready', False)
@@ -4590,9 +4595,19 @@ class DlgSendBitcoins(ArmoryDialog):
       if len(hexgeom) > 0:
          geom = QByteArray.fromHex(hexgeom)
          self.restoreGeometry(geom)
-      # Set the wallet in the wallet chooser frame, and it will call back to setWallet.
-      self.walletSelector.showWalletInfo()
+      # Set the wallet in the wallet selector and let all of display components
+      # react to it. This is at the end so that we can be sure that all of the
+      # components that react to setting the wallet exist.
+      self.walletSelector.updateOnWalletChange()
 
+   #############################################################################
+   # Update the available source address list and balance based on results from
+   # coin control. This callback is now necessary because coin control was moved
+   # to the Select Wallet Frame
+   def coinControlUpdate(self, sourceAddrList, altBalance):
+      self.sourceAddrList = sourceAddrList
+      self.altBalance = altBalance
+      
    #############################################################################
    def toggleSpecify(self, b):
       self.lblChangeAddr.setVisible(b)
@@ -4621,15 +4636,13 @@ class DlgSendBitcoins(ArmoryDialog):
       if not TheBDM.getBDMState() == 'BlockchainReady':
          self.lblSummaryBal.setText('(available when online)', color='DisableFG')
       else:
+         self.btnSend.setEnabled(not self.wlt.watchingOnly)
          if self.wlt.watchingOnly:
             self.btnSend.setToolTip('This is a watching-only wallet! '
                                'You cannot use it to send bitcoins!')
-            self.btnSend.setEnabled(False)
             self.btnUnsigned.setDefault(True)
-            self.btnUnsigned.setEnabled(True)
          else:
             self.btnSend.setDefault(True)
-            self.btnSend.setEnabled(True)
             self.btnSend.setToolTip('Click to send bitcoins!')
       if self.main.usermode == USERMODE.Expert:
          # Pre-set values based on settings
@@ -4765,7 +4778,7 @@ class DlgSendBitcoins(ArmoryDialog):
       self.widgetTable[idx][col].setAutoFillBackground(True);
       try:
          addrtext = str(self.widgetTable[idx][self.COLS.Addr].text())
-         wid = self.main.getWalletForAddr160(addrStr_to_hash160(addrtext))
+         wid = self.main.getWalletForAddr160(addrStr_to_hash160(addrtext)[1])
          if wid:
             wlt = self.main.walletMap[wid]
             dispStr = '%s (%s)' % (wlt.labelName, wlt.uniqueIDB58)
@@ -4790,17 +4803,17 @@ class DlgSendBitcoins(ArmoryDialog):
          addrIsValid = False
          try:
             addrBytes.append(checkAddrType(base58_to_binary(addrStr)))
-            addrIsValid = (addrBytes[i] == ADDRBYTE)
+            addrIsValid = checkAddrStrValid(addrStr)
          except ValueError:
             addrBytes.append(-1)
-
 
          if not addrIsValid:
             self.freeOfErrors = False
             self.updateAddrField(i, COLS.Addr, Colors.SlightRed)
 
+      prefixInvalid = lambda b: (b==-1) or (not b in [ADDRBYTE,P2SHBYTE])
 
-      numChkFail = sum([1 if b == -1 or b != ADDRBYTE else 0 for b in addrBytes])
+      numChkFail = sum([1 if prefixInvalid(b) else 0 for b in addrBytes])
       if not self.freeOfErrors:
          QMessageBox.critical(self, 'Invalid Address', \
            'You have entered %d invalid addresses.  The errors have been '
@@ -4808,14 +4821,14 @@ class DlgSendBitcoins(ArmoryDialog):
            QMessageBox.Ok)
 
          for i in range(len(self.widgetTable)):
-            if addrBytes[i] != -1 and addrBytes[i] != ADDRBYTE:
+            if prefixInvalid(addrBytes[i]):
                net = 'Unknown Network'
                if NETWORKS.has_key(addrBytes[i]):
                   net = NETWORKS[addrBytes[i]]
                QMessageBox.warning(self, 'Wrong Network!', \
                   'Address %d is for the wrong network!  You are on the <b>%s</b> '
                   'and the address you supplied is for the the '
-                  '<b>%s</b>!' % (i + 1, NETWORKS[ADDRBYTE], net), QMessageBox.Ok)
+                  '<b>%s</b>!' % (i+1, NETWORKS[ADDRBYTE], net), QMessageBox.Ok)
          return False
 
 
@@ -4856,7 +4869,13 @@ class DlgSendBitcoins(ArmoryDialog):
             return False
 
          totalSend += value
-         recip160 = addrStr_to_hash160(recipStr)
+         atype, recip160 = addrStr_to_hash160(recipStr)
+         if atype==P2SHBYTE:
+            QMessageBox.critical(self, tr('P2SH Not Supported'), tr("""
+               Address %d is a P2SH address (BIP 16).  Armory does not yet
+               support sending to P2SH addresses.""") % (i+1), QMessageBox.Ok)
+            raise P2SHNotSupportedError('Tried to send to P2SH addr')
+
          recipValuePairs.append((recip160, value))
          self.comments.append(str(self.widgetTable[i][COLS.Comm].text()))
 
@@ -4895,44 +4914,41 @@ class DlgSendBitcoins(ArmoryDialog):
             'have %s BTC with this coin control selection!' % (valTry, valMax), QMessageBox.Ok)
          return False
 
+      # Iteratively calculate the minimum fee by first trying the user selected fee
+      # then on each iteration set the feeTry to the minFee, and see if the new feeTry
+      # can cover the original amount plus the new minfee
+      # This loop will rarely iterate. It will only iterate when there is enough dust in utxoList so that
+      # each fee increase causes enough dust to be used to increase the fee yet again.
+      # Also, for the loop to iterate, the totalSend + fee must be close to the bal,
+      # but not go over when the min fee is increased If it does go over, it will exit the loop on the
+      # last condition,and give the user an insufficient balance warning.
+      minFee = None
+      utxoSelect = []
+      feeTry = fee
+      while minFee == None or (feeTry < minFee and totalSend + minFee <= bal):
+         if minFee:
+            feeTry = minFee
+         utxoList = self.getUsableTxOutList()
+         utxoSelect = PySelectCoins(utxoList, totalSend, feeTry)
+         minFee = calcMinSuggestedFees(utxoSelect, totalSend, feeTry)[1]
 
-      # Get unspent outs for this wallet:
-      utxoList = self.getUsableTxOutList()
-      utxoSelect = PySelectCoins(utxoList, totalSend, fee)
-
-
-
-      # TODO:  I should use a while loop/iteration to make sure that the fee
-      #        change does not actually induce another, higher fee (which
-      #        is extraordinarily unlikely... I even set up the SelectCoins
-      #        algorithm to try to leave some room in the tx so that the fee
-      #        will not change the I/Os).   Despite this, I will concede
-      #        the extremely rare situation where this would happen, I think
-      #        it will be okay to send a slightly sub-standard fee.
-      minFeeRec = calcMinSuggestedFees(utxoSelect, totalSend, fee)
-      if fee < minFeeRec[1]:
-
-         overrideMin = self.main.getSettingOrSetDefault('OverrideMinFee', False)
-         if totalSend + minFeeRec[1] > bal:
+      if fee < minFee:
+         if totalSend + minFee > bal:
             # Need to adjust this based on overrideMin flag
-            self.edtFeeAmt.setText(coin2str(minFeeRec[1], maxZeros=1).strip())
+            self.edtFeeAmt.setText(coin2str(minFee, maxZeros=1).strip())
             QMessageBox.warning(self, 'Insufficient Balance', \
-               'You have specified a valid amount to send, but the required '
-               'transaction fee causes this transaction to exceed your balance.  '
+               'The required transaction fee causes this transaction to exceed your balance.  '
                'In order to send this transaction, you will be required to '
-               'pay a fee of <b>' + coin2str(minFeeRec[1], maxZeros=0).strip() + ' BTC</b>.  '
+               'pay a fee of <b>' + coin2str(minFee, maxZeros=0).strip() + ' BTC</b>.  '
                '<br><br>'
                'Please go back and adjust the value of your transaction, not '
-               'to exceed a total of <b>' + coin2str(bal - minFeeRec[1], maxZeros=0).strip() +
+               'to exceed a total of <b>' + coin2str(bal - minFee, maxZeros=0).strip() + 
                ' BTC</b> (the necessary fee has been entered into the form, so you '
                'can use the "MAX" button to enter the remaining balance for a '
                'recipient).', QMessageBox.Ok)
             return
-
-
-         extraMsg = ''
          feeStr = coin2str(fee, maxZeros=0).strip()
-         minRecStr = coin2str(minFeeRec[1], maxZeros=0).strip()
+         minFeeStr = coin2str(minFee, maxZeros=0).strip()
 
          msgBtns = QMessageBox.Yes | QMessageBox.Cancel
 
@@ -4940,21 +4956,19 @@ class DlgSendBitcoins(ArmoryDialog):
             'The fee you have specified (%s BTC) is insufficient for the size '
             'and priority of your transaction.  You must include at least '
             '%s BTC to send this transaction.  \n\nDo you agree to the fee of %s BTC?  ' % \
-            (feeStr, minRecStr, minRecStr), msgBtns)
+            (feeStr, minFeeStr, minFeeStr), msgBtns)
          if reply == QMessageBox.Cancel:
             return False
          if reply == QMessageBox.No:
             pass
          elif reply == QMessageBox.Yes:
-            fee = long(minFeeRec[1])
-            utxoSelect = PySelectCoins(utxoSelect, totalSend, fee)
+            fee = long(minFee)
 
       if len(utxoSelect) == 0:
          QMessageBox.critical(self, 'Coin Selection Error', \
             'SelectCoins returned a list of size zero.  This is problematic '
             'and probably not your fault.', QMessageBox.Ok)
          return
-
 
       # ## IF we got here, everything is good to go...
       #   Just need to get a change address and then construct the tx
@@ -4971,7 +4985,8 @@ class DlgSendBitcoins(ArmoryDialog):
             return
          recipValuePairs.append([self.change160, totalChange])
       else:
-         if self.main.usermode == USERMODE.Expert and self.chkDefaultChangeAddr.isChecked():
+         if self.main.usermode == USERMODE.Expert and \
+            self.chkDefaultChangeAddr.isChecked():
             self.selectedBehavior = 'NoChange'
 
       # Anonymize the outputs
@@ -5031,7 +5046,9 @@ class DlgSendBitcoins(ArmoryDialog):
                      'You specified an invalid change address '
                      'for this transcation.', QMessageBox.Ok)
                   return '', False
-               changeAddr160 = addrStr_to_hash160(addrStr)
+               atype, changeAddr160 = addrStr_to_hash160(addrStr)
+               if atype==P2SHBYTE:
+                  raise P2SHNotSupportedError('Tried to use P2SH change addr')
                self.selectedBehavior = 'Specify'
 
       if self.main.usermode == USERMODE.Expert and self.chkRememberChng.isChecked():
@@ -5311,26 +5328,7 @@ class DlgSendBitcoins(ArmoryDialog):
       self.scrollRecipArea.setWidget(frmRecip)
 
 
-   #############################################################################
-   def doCoinCtrl(self):
 
-      dlgcc = DlgCoinControl(self, self.main, self.wlt, self.sourceAddrList)
-      if dlgcc.exec_():
-         self.sourceAddrList = [x[0] for x in dlgcc.coinControlList]
-         self.altBalance = sum([x[1] for x in dlgcc.coinControlList])
-
-         nAddr = len(self.sourceAddrList)
-         if self.altBalance == self.wlt.getBalance('Spendable'):
-            self.lblCoinCtrl.setText('Source: All addresses')
-            self.sourceAddrList = None
-            self.altBalance = None
-         elif nAddr == 0:
-            self.lblCoinCtrl.setText('Source: None selected')
-         elif nAddr == 1:
-            aStr = hash160_to_addrStr(self.sourceAddrList[0])
-            self.lblCoinCtrl.setText('Source: %s...' % aStr[:12])
-         elif nAddr > 1:
-            self.lblCoinCtrl.setText('Source: %d addresses' % nAddr)
 
 ################################################################################
 class DlgOfflineTxCreated(ArmoryDialog):
@@ -6357,11 +6355,11 @@ class DlgShowKeyList(ArmoryDialog):
          self.addrCopies.append(addr.copy())
       self.rootKeyCopy = self.wlt.addrMap['ROOT'].copy()
 
-      backupVersion = '1.35a'
+      backupVersion = BACKUP_TYPE_135A
       testChain = DeriveChaincodeFromRootKey(self.rootKeyCopy.binPrivKey32_Plain)
       self.needChaincode = (not testChain == self.rootKeyCopy.chaincode)
       if not self.needChaincode:
-         backupVersion = '1.35c'
+         backupVersion = BACKUP_TYPE_135C
 
       self.strDescrReg = (\
          'The textbox below shows all keys that are part of this wallet, '
@@ -9433,11 +9431,16 @@ class DlgSettings(ArmoryDialog):
       # bitcoind-management settings
       ##########################################################################
 
-      self.chkSkipOnlineCheck = QCheckBox('Skip online check on startup (assume '
-         'internet is available, do not check)')
-      settingSkipCheck = self.main.getSettingOrSetDefault('SkipOnlineCheck', False)
-      self.chkSkipOnlineCheck.setChecked(settingSkipCheck)
+      # We check for internet connection on each startup.  
+      self.chkSkipOnlineCheck = QCheckBox('Skip online check on startup '
+         '(assume internet is available, do not check)')
+      skipOnlineChk = self.main.getSettingOrSetDefault('SkipOnlineCheck', False)
+      self.chkSkipOnlineCheck.setChecked(skipOnlineChk)
 
+      self.chkSkipVersionCheck = QCheckBox('Skip periodic version queries '
+         'to Armory server')
+      skipVerChk = self.main.getSettingOrSetDefault('SkipVersionCheck', False)
+      self.chkSkipVersionCheck.setChecked(skipVerChk)
 
       lblDefaultUriTitle = QRichLabel('<b>Set Armory as default URL handler</b>')
       lblDefaultURI = QRichLabel(
@@ -9653,6 +9656,9 @@ class DlgSettings(ArmoryDialog):
       frmLayout.addWidget(self.chkSkipOnlineCheck, i, 0, 1, 3)
 
       i += 1
+      frmLayout.addWidget(self.chkSkipVersionCheck, i, 0, 1, 3)
+
+      i += 1
       frmLayout.addWidget(HLINE(), i, 0, 1, 3)
 
       i += 1
@@ -9805,6 +9811,7 @@ class DlgSettings(ArmoryDialog):
 
 
       self.main.writeSetting('SkipOnlineCheck', self.chkSkipOnlineCheck.isChecked())
+      self.main.writeSetting('SkipVersionCheck', self.chkSkipVersionCheck.isChecked())
 
 
 
@@ -12435,8 +12442,7 @@ class DlgUniversalRestoreSelect(ArmoryDialog):
 
       lblDescrTitle = QRichLabel(tr("""
          <b><u>Restore Wallet from Backup</u></b>"""))
-      lblDescr = QRichLabel(tr("""
-         You can restore any kind of backup ever created by Armory using
+      lblDescr = QRichLabel(tr("""You can restore any kind of backup ever created by Armory using
          one of the options below.  If you have a list of private keys
          you should open the target wallet and select "Import/Sweep
          Private Keys."  """))
@@ -12566,30 +12572,30 @@ class DlgRestoreSingle(ArmoryDialog):
       self.comboBackupType = QComboBox()
       self.comboBackupType.clear()
       self.comboBackupType.addItem(tr('Version 1.35'))
-      self.comboBackupType.addItem(tr('Version 1.35a (Unencrypted)'))
-      self.comboBackupType.addItem(tr('Version 1.35a (with SecurePrint\xe2\x84\xa2)'))
-      self.comboBackupType.addItem(tr('Version 1.35c (Unencrypted)'))
-      self.comboBackupType.addItem(tr('Version 1.35c (with SecurePrint\xe2\x84\xa2)'))
+      self.comboBackupType.addItem(tr('Version 1.35a (4 lines Unencrypted)'))
+      self.comboBackupType.addItem(tr('Version 1.35a (4 lines SecurePrint\xe2\x84\xa2)'))
+      self.comboBackupType.addItem(tr('Version 1.35c (2 lines Unencrypted)'))
+      self.comboBackupType.addItem(tr('Version 1.35c (2 lines SecurePrint\xe2\x84\xa2)'))
       self.comboBackupType.setCurrentIndex(3)
 
 
       self.connect(self.comboBackupType, SIGNAL('activated(int)'), self.changeType)
       frmCombo = makeHorizFrame([lblType, 'Space(20)', self.comboBackupType, STRETCH])
 
-      self.lblSP = QRichLabel(tr('SecurePrint\xe2\x84\xa2 Code:'), doWrap=False)
-      self.edtSP = QLineEdit()
+      self.lblSP = QRichLabel(tr('SecurePrint\xe2\x84\xa2 Code:'), doWrap=False) 
+      self.editSecurePrint = QLineEdit()                                                   
       self.prfxList = [QLabel(tr('Root Key:')), QLabel(''), QLabel(tr('Chaincode:')), QLabel('')]
 
       inpMask = '<AAAA\ AAAA\ AAAA\ AAAA\ \ AAAA\ AAAA\ AAAA\ AAAA\ \ AAAA!'
       self.edtList = [MaskedInputLineEdit(inpMask) for i in range(4)]
 
 
-      self.frmSP = makeHorizFrame([STRETCH, self.lblSP, self.edtSP])
+      self.frmSP = makeHorizFrame([STRETCH, self.lblSP, self.editSecurePrint])   
 
       frmAllInputs = QFrame()
       frmAllInputs.setFrameStyle(STYLE_RAISED)
       layoutAllInp = QGridLayout()
-      layoutAllInp.addWidget(self.frmSP, 0, 0, 1, 2)
+      layoutAllInp.addWidget(self.frmSP, 0, 0, 1, 2)                   
       for i in range(4):
          layoutAllInp.addWidget(self.prfxList[i], i + 1, 0)
          layoutAllInp.addWidget(self.edtList[i], i + 1, 1)
@@ -12696,11 +12702,11 @@ class DlgRestoreSingle(ArmoryDialog):
          chain = SecureBinaryData(''.join(inputLines[2:]))
 
 
-
+      
       if self.doMask:
          # Prepare the key mask parameters
          SECPRINT = HardcodedKeyMaskParams()
-         pwd = str(self.edtSP.text()).strip()
+         pwd = str(self.editSecurePrint.text()).strip()
          if len(pwd) < 9:
             QMessageBox.critical(self, 'Invalid Code', tr("""
                You didn't enter a full SecurePrint\xe2\x84\xa2 code.  This
@@ -12817,6 +12823,7 @@ class DlgRestoreSingle(ArmoryDialog):
          self.newWallet = PyBtcWallet().readWalletFile(dlgOwnWlt.wltPath)
       self.accept()
 
+
 ################################################################################
 class DlgRestoreFragged(ArmoryDialog):
    def __init__(self, parent, main, thisIsATest=False, expectWltID=None):
@@ -12873,7 +12880,7 @@ class DlgRestoreFragged(ArmoryDialog):
       self.tableSize = 2
       self.wltType = UNKNOWN
       self.fragIDPrefix = UNKNOWN
-
+      
       doItText = tr('Test Backup' if thisIsATest else 'Restore from Fragments')
 
       btnExit = QPushButton(tr('Cancel'))
@@ -12886,15 +12893,17 @@ class DlgRestoreFragged(ArmoryDialog):
       self.lblSecureStr = QRichLabel(tr('SecurePrint\xe2\x84\xa2 Code:'), \
                                      hAlign=Qt.AlignHCenter, \
                                      color='TextWarn')
-      self.edtSecureStr = QLineEdit()
+      self.displaySecureString = QLineEdit()
       self.imgPie = QRichLabel('', hAlign=Qt.AlignHCenter)
       self.lblReqd = QRichLabel('', hAlign=Qt.AlignHCenter)
       self.lblWltID = QRichLabel('', doWrap=False, hAlign=Qt.AlignHCenter)
       self.lblFragID = QRichLabel('', doWrap=False, hAlign=Qt.AlignHCenter)
       self.lblSecureStr.setVisible(False)
-      self.edtSecureStr.setVisible(False)
-      self.edtSecureStr.setMaximumWidth(relaxedSizeNChar(self.edtSecureStr, 16)[0])
-      frmSecPair = makeVertFrame([self.lblSecureStr, self.edtSecureStr])
+      self.displaySecureString.setVisible(False)
+      self.displaySecureString.setMaximumWidth(relaxedSizeNChar(self.displaySecureString, 16)[0])
+      # The Secure String is now edited in DlgEnterOneFrag, It is only displayed here
+      self.displaySecureString.setEnabled(False)
+      frmSecPair = makeVertFrame([self.lblSecureStr, self.displaySecureString])
       frmSecCtr = makeHorizFrame([STRETCH, frmSecPair, STRETCH])
 
       frmWltInfo = makeVertFrame([STRETCH,
@@ -12991,9 +13000,10 @@ class DlgRestoreFragged(ArmoryDialog):
 
    #############################################################################
    def dataEnter(self, fnum):
-      dlg = DlgEnterOneFrag(self, self.main, self.fragsDone, self.wltType)
+      dlg = DlgEnterOneFrag(self, self.main, self.fragsDone, self.wltType, self.displaySecureString.text())
       if dlg.exec_():
          LOGINFO('Good data from enter_one_frag exec! %d', fnum)
+         self.displaySecureString.setText(dlg.editSecurePrint.text())
          self.addFragToTable(fnum, dlg.fragData)
          self.makeFragInputTable()
 
@@ -13040,6 +13050,7 @@ class DlgRestoreFragged(ArmoryDialog):
       fragData.append(hex_to_binary(fragMap['id']))
       for c in cList:
          for n in nList:
+            mapKey = c + n
             rawBin, err = readSixteenEasyBytes(fragMap[c + n])
             if err == 'Error_2+':
                QMessageBox.critical(self, tr('Fragment Error'), tr("""
@@ -13050,7 +13061,6 @@ class DlgRestoreFragged(ArmoryDialog):
             fragData.append(SecureBinaryData(rawBin))
             rawBin = None
 
-      M, findex, wltIDBin, doMask, idBase58 = ReadFragIDLineBin(fragMap['id'])
       self.addFragToTable(fnum, fragData)
       self.makeFragInputTable()
 
@@ -13090,9 +13100,11 @@ class DlgRestoreFragged(ArmoryDialog):
          if doMask:
             anyMask = True
             break
-
+      # If all of the rows with a Mask have been removed clear the securePrintCode
+      if  not anyMask:
+         self.displaySecureString.setText('')
       self.lblSecureStr.setVisible(anyMask)
-      self.edtSecureStr.setVisible(anyMask)
+      self.displaySecureString.setVisible(anyMask)
 
       if not showRightFrm:
          self.fragIDPrefix = UNKNOWN
@@ -13110,9 +13122,9 @@ class DlgRestoreFragged(ArmoryDialog):
       if len(fragData) == 9:
          currType = '0'
       elif len(fragData) == 5:
-         currType = '1.35a'
+         currType = BACKUP_TYPE_135A
       elif len(fragData) == 3:
-         currType = '1.35c'
+         currType = BACKUP_TYPE_135C
       else:
          LOGERROR('How\'d we get fragData of size: %d', len(fragData))
          return
@@ -13153,10 +13165,10 @@ class DlgRestoreFragged(ArmoryDialog):
       if currType == '0':
          X = SecureBinaryData(''.join([fragData[i].toBinStr() for i in range(1, 5)]))
          Y = SecureBinaryData(''.join([fragData[i].toBinStr() for i in range(5, 9)]))
-      elif currType == '1.35a':
+      elif currType == BACKUP_TYPE_135A:
          X = SecureBinaryData(int_to_binary(fnum + 1, widthBytes=64, endOut=BIGENDIAN))
          Y = SecureBinaryData(''.join([fragData[i].toBinStr() for i in range(1, 5)]))
-      elif currType == '1.35c':
+      elif currType == BACKUP_TYPE_135C:
          X = SecureBinaryData(int_to_binary(fnum + 1, widthBytes=32, endOut=BIGENDIAN))
          Y = SecureBinaryData(''.join([fragData[i].toBinStr() for i in range(1, 3)]))
 
@@ -13182,22 +13194,8 @@ class DlgRestoreFragged(ArmoryDialog):
 
       SECPRINT = HardcodedKeyMaskParams()
       pwd, ekey = '', ''
-      if self.edtSecureStr.isVisible():
-         pwd = str(self.edtSecureStr.text()).strip()
-         if len(pwd) < 9:
-            QMessageBox.critical(self, tr('Invalid Code'), tr("""
-               You didn't enter a full SecurePrint\xe2\x84\xa2 code.  This
-               code is needed to decrypt your backup.  If this backup is
-               actually unencrypted and there is no code, then choose the
-               correct "Unencrypted" option from the version drop-down
-               box."""), QMessageBox.Ok)
-            return
-         if not SECPRINT['FUNC_CHKPWD'](pwd):
-            QMessageBox.critical(self, tr('Bad Encryption Code'), tr("""
-               The SecurePrint\xe2\x84\xa2 code you entered has an error
-               in it.  Note that the code is case-sensitive.  Please verify
-               you entered it correctly and try again."""), QMessageBox.Ok)
-            return
+      if self.displaySecureString.isVisible():
+         pwd = str(self.displaySecureString.text()).strip()
          maskKey = SECPRINT['FUNC_KDF'](pwd)
 
       fragMtrx, M = [], -1
@@ -13211,7 +13209,7 @@ class DlgRestoreFragged(ArmoryDialog):
             LOGINFO('Row %d is already unencrypted' % row)
          fragMtrx.append([X.toBinStr(), Y.toBinStr()])
 
-      typeToBytes = {'0': 64, '1.35a': 64, '1.35c': 32}
+      typeToBytes = {'0': 64, BACKUP_TYPE_135A: 64, BACKUP_TYPE_135C: 32}
       nBytes = typeToBytes[self.wltType]
 
 
@@ -13276,10 +13274,10 @@ class DlgRestoreFragged(ArmoryDialog):
          if dlgPasswd.exec_():
             passwd = SecureBinaryData(str(dlgPasswd.edtPasswd1.text()))
          else:
-            QMessageBox.critical(self, 'Cannot Encrypt', \
-               'You requested your restored wallet be encrypted, but no '
-               'valid passphrase was supplied.  Aborting wallet recovery.', \
-               QMessageBox.Ok)
+            QMessageBox.critical(self, tr('Cannot Encrypt'), tr("""
+               You requested your restored wallet be encrypted, but no 
+               valid passphrase was supplied.  Aborting wallet 
+               recovery."""), QMessageBox.Ok)
             return
 
       shortl = ''
@@ -13318,7 +13316,9 @@ class DlgRestoreFragged(ArmoryDialog):
          self.newWallet.fillAddressPool(numPool=nP)
 
       # Will pop up a little "please wait..." window while filling addr pool
-      DlgExecLongProcess(fillAddrPoolAndAccept, "Recovering wallet...", self, self.main).exec_()
+      DlgExecLongProcess(fillAddrPoolAndAccept, \
+                         tr("Recovering wallet..."), \
+                         self, self.main).exec_()
 
       if dlgOwnWlt is not None:
          if dlgOwnWlt.Meta is not None:
@@ -13337,7 +13337,7 @@ class DlgRestoreFragged(ArmoryDialog):
       fragMap = {}
       for x, y in fragMtrx:
          fragMap[binary_to_int(x, BIGENDIAN) - 1] = [x, y]
-      typeToBytes = {'0': 64, '1.35a': 64, '1.35c': 32}
+      typeToBytes = {'0': 64, BACKUP_TYPE_135A: 64, BACKUP_TYPE_135C: 32}
 
       isRandom, results = testReconstructSecrets(fragMap, M, 100)
       def privAndChainFromRow(secret):
@@ -13453,12 +13453,9 @@ class DlgShowTestResults(ArmoryDialog):
 class DlgEnterOneFrag(ArmoryDialog):
 
    #############################################################################
-   def __init__(self, parent, main, fragList=[], wltType=UNKNOWN):
+   def __init__(self, parent, main, fragList=[], wltType=UNKNOWN, securePrintCode=None):
       super(DlgEnterOneFrag, self).__init__(parent, main)
-
-
       self.fragData = []
-
       BLUE = htmlColor('TextBlue')
       already = ''
       if len(fragList) > 0:
@@ -13474,29 +13471,41 @@ class DlgEnterOneFrag(ArmoryDialog):
          previous window, and it will be applied to all fragments that
          require it.""") % already)
 
-
-
-
       self.comboBackupType = QComboBox()
       self.comboBackupType.clear()
-      self.comboBackupType.addItem(tr('Version 0  (from script, 9 lines)'))
-      self.comboBackupType.addItem(tr('Version 1.35a  (5 lines)'))
-      self.comboBackupType.addItem(tr('Version 1.35c  (3 lines)'))
-
+      self.comboBackupType.addItem(BACKUP_TYPE_0_TEXT)
+      self.comboBackupType.addItem(BACKUP_TYPE_135a_TEXT)
+      self.comboBackupType.addItem(BACKUP_TYPE_135a_SP_TEXT)
+      self.comboBackupType.addItem(BACKUP_TYPE_135c_TEXT)
+      self.comboBackupType.addItem(BACKUP_TYPE_135c_SP_TEXT)
       # If a wallet type hasn't been determined yet, allow the user to select it
+      self.comboBackupType.setEnabled(True)
       # This value will be locked after the first fragment is entered.
       if wltType == UNKNOWN:
-         self.comboBackupType.setCurrentIndex(2)
-         self.comboBackupType.setEnabled(True)
+         self.comboBackupType.setCurrentIndex(3)
       elif wltType == '0':
          self.comboBackupType.setCurrentIndex(0)
          self.comboBackupType.setEnabled(False)
-      elif wltType == '1.35a':
-         self.comboBackupType.setCurrentIndex(1)
-         self.comboBackupType.setEnabled(False)
-      elif wltType == '1.35c':
-         self.comboBackupType.setCurrentIndex(2)
-         self.comboBackupType.setEnabled(False)
+      elif wltType == BACKUP_TYPE_135A:
+         if securePrintCode:
+            self.comboBackupType.setCurrentIndex(2)
+            self.comboBackupType.setEnabled(False)
+         else:
+            # Could be 1.35a with or without SecurePrintCode so remove the rest
+            self.comboBackupType.removeItem(4)
+            self.comboBackupType.removeItem(3)
+            self.comboBackupType.removeItem(0)
+            self.comboBackupType.setCurrentIndex(0)
+      elif wltType == BACKUP_TYPE_135C:
+         if securePrintCode:
+            self.comboBackupType.setCurrentIndex(4)
+            self.comboBackupType.setEnabled(False)
+         else:
+            # Could be 1.35c with or without SecurePrintCode so remove the rest
+            self.comboBackupType.removeItem(2)
+            self.comboBackupType.removeItem(1)
+            self.comboBackupType.removeItem(0)
+            self.comboBackupType.setCurrentIndex(0)
 
       lblType = QRichLabel(tr("""<b>Backup Type:</b>"""), doWrap=False)
       self.connect(self.comboBackupType, SIGNAL('activated(int)'), self.changeType)
@@ -13516,11 +13525,22 @@ class DlgEnterOneFrag(ArmoryDialog):
       frmAllInputs = QFrame()
       frmAllInputs.setFrameStyle(STYLE_RAISED)
       layoutAllInp = QGridLayout()
-      layoutAllInp.addWidget(self.lblID, 0, 0, 1, 1)
-      layoutAllInp.addWidget(self.edtID, 0, 1, 1, 1)
+      
+      # Add Secure Print row - Use supplied securePrintCode and
+      # disable text entry if it is not None
+      self.lblSP = QRichLabel(tr('SecurePrint\xe2\x84\xa2 Code:'), doWrap=False) 
+      self.editSecurePrint = QLineEdit()     
+      self.editSecurePrint.setEnabled(not securePrintCode)
+      if (securePrintCode):
+         self.editSecurePrint.setText(securePrintCode)                               
+      self.frmSP = makeHorizFrame([STRETCH, self.lblSP, self.editSecurePrint])   
+      layoutAllInp.addWidget(self.frmSP, 0, 0, 1, 2)                   
+
+      layoutAllInp.addWidget(self.lblID, 1, 0, 1, 1)
+      layoutAllInp.addWidget(self.edtID, 1, 1, 1, 1)
       for i in range(12):
-         layoutAllInp.addWidget(self.prfxList[i], i + 1, 0, 1, 2)
-         layoutAllInp.addWidget(self.edtList[i], i + 1, 1, 1, 2)
+         layoutAllInp.addWidget(self.prfxList[i], i + 2, 0, 1, 2)
+         layoutAllInp.addWidget(self.edtList[i], i + 2, 1, 1, 2)
       frmAllInputs.setLayout(layoutAllInp)
 
       self.btnAccept = QPushButton("Done")
@@ -13548,15 +13568,19 @@ class DlgEnterOneFrag(ArmoryDialog):
 
    #############################################################################
    def changeType(self):
-      sel = self.comboBackupType.currentIndex()
+      sel = self.comboBackupType.currentText()
       #                      |-- X --| |-- Y --| |-- F --|
-      if   sel == 0: visList = [1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0]
-      elif sel == 1: visList = [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1]
-      elif sel == 2: visList = [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0]
+      if   sel == BACKUP_TYPE_0_TEXT: visList = [1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0]
+      elif sel == BACKUP_TYPE_135a_TEXT or \
+           sel == BACKUP_TYPE_135a_SP_TEXT: visList = [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1]
+      elif sel == BACKUP_TYPE_135c_TEXT or \
+           sel == BACKUP_TYPE_135c_SP_TEXT: visList = [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0]
       else:
          LOGERROR('What the heck backup type is selected?  %d', sel)
          return
 
+      self.frmSP.setVisible(sel == BACKUP_TYPE_135a_SP_TEXT or \
+                            sel == BACKUP_TYPE_135c_SP_TEXT)
       for i in range(12):
          self.prfxList[i].setVisible(visList[i] == 1)
          self.edtList[ i].setVisible(visList[i] == 1)
@@ -13571,6 +13595,9 @@ class DlgEnterOneFrag(ArmoryDialog):
             # It's an SBD Object.  Destroy it.
             line.destroy()
 
+   #############################################################################
+   def isSecurePrintID(self):
+      return hex_to_int(str(self.edtID.text()[:2])) > 127
 
    #############################################################################
    def verifyUserInput(self):
@@ -13578,13 +13605,40 @@ class DlgEnterOneFrag(ArmoryDialog):
       nError = 0
       rawBin = None
 
-      sel = self.comboBackupType.currentIndex()
+      sel = self.comboBackupType.currentText()
       rng = [-1]
-      if   sel == 0: rng = range(8)
-      elif sel == 1: rng = range(8, 12)
-      elif sel == 2: rng = range(8, 10)
+      if   sel == BACKUP_TYPE_0_TEXT:  rng = range(8)
+      elif sel == BACKUP_TYPE_135a_TEXT or \
+           sel == BACKUP_TYPE_135a_SP_TEXT: rng = range(8, 12)
+      elif sel == BACKUP_TYPE_135c_TEXT or \
+           sel == BACKUP_TYPE_135c_SP_TEXT: rng = range(8, 10)
 
-
+      
+      if (sel == BACKUP_TYPE_135a_SP_TEXT or \
+         sel == BACKUP_TYPE_135c_SP_TEXT) and \
+         self.editSecurePrint.isEnabled():
+         # Prepare the key mask parameters
+         SECPRINT = HardcodedKeyMaskParams()
+         securePrintCode = str(self.editSecurePrint.text()).strip()
+         if len(securePrintCode) < 9:
+            QMessageBox.critical(self, 'Invalid Code', tr("""
+               You didn't enter a full SecurePrint\xe2\x84\xa2 code.  This
+               code is needed to decrypt your backup.  If this backup is
+               actually unencrypted and there is no code, then choose the
+               appropriate backup type from the drop-down box"""), QMessageBox.Ok)
+            return
+         if not SECPRINT['FUNC_CHKPWD'](securePrintCode):
+            QMessageBox.critical(self, 'Bad Encryption Code', tr("""
+               The SecurePrint\xe2\x84\xa2 code you entered has an error
+               in it.  Note that the code is case-sensitive.  Please verify
+               you entered it correctly and try again."""), QMessageBox.Ok)
+            return
+      elif self.isSecurePrintID():
+            QMessageBox.critical(self, 'Bad Encryption Code', tr("""
+               The ID field indicates that this is a SecurePrint\xe2\x84\xa2
+               Backup Type. You have either entered the ID incorrectly or
+               have chosen an incorrect Backup Type."""), QMessageBox.Ok)
+            return
       for i in rng:
          hasError = False
          try:
@@ -13703,6 +13757,10 @@ def finishPrintingBackup(parent, btype=None):
    if btype == None:
       QMessageBox.warning(parent, tr('Test Your Backup!'), tr("""
       """))
+
+# Need to put circular imports at the end of the script to avoid an import deadlock
+# DlgWalletSelect uses SelectWalletFrame which uses DlgCoinControl
+from ui.Frames import SelectWalletFrame
 
 ################################################################################
 class DlgReplaceWallet(ArmoryDialog):

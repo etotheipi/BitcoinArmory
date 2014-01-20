@@ -10,6 +10,7 @@ from tempfile import mkstemp
 
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *
+import urllib
 
 from armorycolors import Colors, htmlColor
 from armoryengine.ArmoryUtils import *
@@ -35,7 +36,8 @@ STYLE_NONE   = QFrame.NoFrame
 VERTICAL = 'vertical'
 HORIZONTAL = 'horizontal'
 CHANGE_ADDR_DESCR_STRING = '[[ Change received ]]'
-HTTP_VERSION_FILE = 'http://bitcoinarmory.com/versions.txt'
+HTTP_VERSION_FILE = 'https://bitcoinarmory.com/versions.txt'
+
 
 
 ################################################################################
@@ -76,8 +78,6 @@ def tr(txt):
 
 
 ################################################################################
-
-
 def HLINE(style=QFrame.Plain):
    qf = QFrame()
    qf.setFrameStyle(QFrame.HLine | style)
@@ -89,6 +89,29 @@ def VLINE(style=QFrame.Plain):
    return qf
 
 
+################################################################################
+def getVersionURL(withExtraFields=False, justHash=False):
+   argsMap = {}
+   argsMap['ver'] = getVersionString(BTCARMORY_VERSION)
+
+   if withExtraFields:
+      if OS_WINDOWS:
+         argsMap['os'] = 'win'
+      elif OS_LINUX:
+         argsMap['os'] = 'lin'
+      elif OS_MACOSX:
+         argsMap['os'] = 'mac'
+      else:
+         argsMap['os'] = 'unk'
+   
+      try:
+         argsMap['osvar'] = OS_VARIANT[0].lower()
+      except:
+         argsMap['osvar'] = 'unk'
+   
+      argsMap['id'] = binary_to_hex(hash256(USER_HOME_DIR)[:4])
+      
+   return HTTP_VERSION_FILE + '?' + urllib.urlencode(argsMap)
 
 
 # Setup fixed-width and var-width fonts

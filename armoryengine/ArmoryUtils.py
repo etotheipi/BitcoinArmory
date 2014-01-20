@@ -31,6 +31,7 @@ import sys
 import threading
 import time
 import traceback
+import shutil
 
 from psutil import Popen
 import psutil
@@ -64,6 +65,7 @@ parser.add_option("--keypool",         dest="keypool",     default=100, type="in
 parser.add_option("--rebuild",         dest="rebuild",     default=False,     action="store_true", help="Rebuild blockchain database and rescan")
 parser.add_option("--rescan",          dest="rescan",      default=False,     action="store_true", help="Rescan existing blockchain DB")
 parser.add_option("--maxfiles",        dest="maxOpenFiles",default=0,         type="int",          help="Set maximum allowed open files for LevelDB databases")
+#parser.add_option("--rebuildwithblocksize", dest="newBlockSize",default='32kB', type="str",          help="Rebuild databases with new blocksize")
 
 # These are arguments passed by running unit-tests that need to be handled
 parser.add_option("--port", dest="port", default=None, type="int", help="Unit Test Argument - Do not consume")
@@ -207,7 +209,7 @@ SETTINGS_PATH   = CLI_OPTIONS.settingsPath
 ARMORY_LOG_FILE = CLI_OPTIONS.logFile
 
 # Version Numbers 
-BTCARMORY_VERSION    = (0, 90,  0, 0)  # (Major, Minor, Bugfix, AutoIncrement) 
+BTCARMORY_VERSION    = (0, 90,  3, 0)  # (Major, Minor, Bugfix, AutoIncrement) 
 PYBTCWALLET_VERSION  = (1, 35,  0, 0)  # (Major, Minor, Bugfix, AutoIncrement)
 
 ARMORY_DONATION_ADDR = '1ArmoryXcfq7TnCSuZa9fQjRYwJ4bkRKfv'
@@ -237,39 +239,7 @@ NETWORKS = {}
 NETWORKS['\x00'] = "Main Network"
 NETWORKS['\x6f'] = "Test Network"
 NETWORKS['\x34'] = "Namecoin Network"
-# Figure out the default directories for Satoshi client, and BicoinArmory
-OS_NAME          = ''
-OS_VARIANT       = ''
-USER_HOME_DIR    = ''
-BTC_HOME_DIR     = ''
-ARMORY_HOME_DIR  = ''
-LEVELDB_DIR      = ''
-SUBDIR = 'testnet3' if USE_TESTNET else ''
-if OS_WINDOWS:
-   OS_NAME         = 'Windows'
-   OS_VARIANT      = platform.win32_ver()
-   USER_HOME_DIR   = os.getenv('APPDATA')
-   BTC_HOME_DIR    = os.path.join(USER_HOME_DIR, 'Bitcoin', SUBDIR)
-   ARMORY_HOME_DIR = os.path.join(USER_HOME_DIR, 'Armory', SUBDIR)
-   BLKFILE_DIR     = os.path.join(BTC_HOME_DIR, 'blocks')
-elif OS_LINUX:
-   OS_NAME         = 'Linux'
-   OS_VARIANT      = platform.linux_distribution()
-   USER_HOME_DIR   = os.getenv('HOME')
-   BTC_HOME_DIR    = os.path.join(USER_HOME_DIR, '.bitcoin', SUBDIR)
-   ARMORY_HOME_DIR = os.path.join(USER_HOME_DIR, '.armory', SUBDIR)
-   BLKFILE_DIR     = os.path.join(BTC_HOME_DIR, 'blocks')
-elif OS_MACOSX:
-   platform.mac_ver()
-   OS_NAME         = 'MacOSX'
-   OS_VARIANT      = platform.mac_ver()
-   USER_HOME_DIR   = os.path.expanduser('~/Library/Application Support')
-   BTC_HOME_DIR    = os.path.join(USER_HOME_DIR, 'Bitcoin', SUBDIR)
-   ARMORY_HOME_DIR = os.path.join(USER_HOME_DIR, 'Armory', SUBDIR)
-   BLKFILE_DIR     = os.path.join(BTC_HOME_DIR, 'blocks')
-else:
-   print '***Unknown operating system!'
-   print '***Cannot determine default directory locations'
+
 
 # Version Handling Code
 def getVersionString(vquad, numPieces=4):
@@ -733,6 +703,7 @@ fileRescan  = os.path.join(ARMORY_HOME_DIR, 'rescan.txt')
 if os.path.exists(fileRebuild):
    LOGINFO('Found %s, will destroy and rebuild databases' % fileRebuild)
    os.remove(fileRebuild)
+
    if os.path.exists(fileRescan):
       os.remove(fileRescan)
       
@@ -743,6 +714,14 @@ elif os.path.exists(fileRescan):
    if os.path.exists(fileRebuild):
       os.remove(fileRebuild)
    CLI_OPTIONS.rescan = True
+
+
+if CLI_OPTIONS.rebuild and os.path.exists(LEVELDB_DIR):
+   LOGINFO('Found existing databases dir; removing before rebuild')
+   shutil.rmtree(LEVELDB_DIR)
+   os.mkdir(LEVELDB_DIR)
+
+   
 
 ################################################################################
 # Load the C++ utilites here
@@ -1025,7 +1004,10 @@ def toUnicode(theStr, theEncoding=DEFAULT_ENCODING):
 
 
 def toPreferred(theStr):
-   return toUnicode(theStr).encode(locale.getpreferredencoding())
+   if OS_WINDOWS:
+      return theStr.encode('utf-8')
+   else:
+      return toUnicode(theStr).encode(locale.getpreferredencoding())
 
 
 def lenBytes(theStr, theEncoding=DEFAULT_ENCODING):
@@ -1078,7 +1060,7 @@ LITTLEENDIAN  = '<';
 BIGENDIAN     = '>';
 NETWORKENDIAN = '!';
 ONE_BTC       = long(100000000)
-DONATION      = long(10000000)
+DONATION       = long(5000000)
 CENT          = long(1000000)
 UNINITIALIZED = None
 UNKNOWN       = -2
@@ -1435,11 +1417,13 @@ def base58_to_binary(addr):
 
 
 ################################################################################
+
 def hash160_to_addrStr(binStr):
    """
    Converts the 20-byte pubKeyHash to 25-byte binary Bitcoin address
    which includes the network byte (prefix) and 4-byte checksum (suffix)
    """
+
    if not len(binStr) == 20:
       raise InvalidHashError('Input string is %d bytes' % len(binStr))
 
@@ -2056,35 +2040,38 @@ def ReadFragIDLineHex(hexLine):
 
 
 
-
-
-# We can identify an address string by its first byte upon conversion
-# back to binary.  Return -1 if checksum doesn't match
+################################################################################
 def checkAddrType(addrBin):
    """ Gets the network byte of the address.  Returns -1 if chksum fails """
    first21, chk4 = addrBin[:-4], addrBin[-4:]
    chkBytes = hash256(first21)
-   if chkBytes[:4] == chk4:
-      return addrBin[0]
-   else:
-      return -1
+   return addrBin[0] if (chkBytes[:4] == chk4) else -1
 
-# Check validity of a BTC address in its binary form, as would
-# be found inside a pkScript.  Usually about 24 bytes
-def checkAddrBinValid(addrBin, netbyte=ADDRBYTE):
+################################################################################
+def checkAddrBinValid(addrBin, validPrefixes=None):
    """
    Checks whether this address is valid for the given network
    (set at the top of pybtcengine.py)
    """
-   return checkAddrType(addrBin) == netbyte
+   if validPrefixes is None:
+      validPrefixes = [ADDRBYTE, P2SHBYTE]
 
-# Check validity of a BTC address in Base58 form
+   if not isinstance(validPrefixes, list):
+      validPrefixes = [validPrefixes]
+
+   return (checkAddrType(addrBin) in validPrefixes)
+
+
+
+################################################################################
 def checkAddrStrValid(addrStr):
    """ Check that a Base58 address-string is valid on this network """
    return checkAddrBinValid(base58_to_binary(addrStr))
 
 
+################################################################################
 def convertKeyDataToAddress(privKey=None, pubKey=None):
+   """ Returns a hash160 value """
    if not privKey and not pubKey:
       raise BadAddressError, 'No key data supplied for conversion'
    elif privKey:

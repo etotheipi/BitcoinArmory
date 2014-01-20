@@ -616,21 +616,21 @@ def list2cmdline(seq):
 
         # Add a space to separate this argument from the others
         if result:
-            result.append(u' ')
+            result.append(' ')
 
-        needquote = (u" " in arg) or (u"\t" in arg) or not arg
+        needquote = (" " in arg) or ("\t" in arg) or not arg
         if needquote:
-            result.append(u'"')
+            result.append('"')
 
         for c in arg:
-            if c == u'\\':
+            if c == '\\':
                 # Don't know if we need to double yet.
                 bs_buf.append(c)
-            elif c == u'"':
+            elif c == '"':
                 # Double backslashes.
-                result.append(u'\\' * len(bs_buf)*2)
+                result.append('\\' * len(bs_buf)*2)
                 bs_buf = []
-                result.append(u'\\"')
+                result.append('\\"')
             else:
                 # Normal char
                 if bs_buf:
@@ -644,7 +644,7 @@ def list2cmdline(seq):
 
         if needquote:
             result.extend(bs_buf)
-            result.append(u'"')
+            result.append('"')
 
     return ''.join(result)
 
@@ -982,8 +982,8 @@ class Popen(object):
             
             p_i = PROCESS_INFORMATION()            
             try:
-
-               ctypes.windll.kernel32.CreateProcessW(executable, args,
+               args_u16 = unicode(args)
+               efg = ctypes.windll.kernel32.CreateProcessW(executable, args_u16,
                #hp, ht, pid, tid = _subprocess.CreateProcess(executable, args,
                                        # no special security
                                          None, None,
