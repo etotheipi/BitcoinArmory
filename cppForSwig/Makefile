@@ -84,7 +84,7 @@ CppBlockUtils_wrap.o: log.h BlockUtils.h  BinaryData.h UniversalTimer.h CppBlock
 #************************************************************************
 clean:
 	touch CppBlockUtils.i
-	rm -f *.o *.out
+	rm -f *.o *.out *.a
 	rm -f CppBlockUtils_wrap.cxx 
 	rm pypaths.txt
 	$(MAKE) -C cryptopp clean
