@@ -15,12 +15,12 @@ install : all
 	mkdir -p $(DESTDIR)/share/armory/img
 	mkdir -p $(DESTDIR)/lib/armory/extras
 	mkdir -p $(DESTDIR)/lib/armory/jsonrpc
-	mkdir -p $(DESTDIR)/lib/armory/dialogs
+	mkdir -p $(DESTDIR)/lib/armory/ui
 	cp *.py *.so README $(DESTDIR)/lib/armory/
 	cp img/* $(DESTDIR)/share/armory/img
 	cp extras/*.py $(DESTDIR)/lib/armory/extras
 	cp jsonrpc/*.py $(DESTDIR)/lib/armory/jsonrpc
-	cp dialogs/*.py $(DESTDIR)/lib/armory/dialogs
+	cp ui/*.py $(DESTDIR)/lib/armory/ui
 	mkdir -p $(DESTDIR)/share/applications
 	sed "s:python /usr:python $(DESTDIR):g" < dpkgfiles/armory.desktop > $(DESTDIR)/share/applications/armory.desktop
 	sed "s:python /usr:python $(DESTDIR):g" < dpkgfiles/armoryoffline.desktop > $(DESTDIR)/share/applications/armoryoffline.desktop
