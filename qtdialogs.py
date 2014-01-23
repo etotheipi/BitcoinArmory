@@ -4341,7 +4341,7 @@ class DlgConfirmSend(ArmoryDialog):
 
       # Acknowledge if the user has selected a non-std change location
       lblSpecialChange = QRichLabel('')
-      if self.main.usermode == USERMODE.Expert and changeBehave:
+      if self.main.usermode == USERMODE.Expert and changeBehave[0]:
          chngAddr160 = changeBehave[0]
          chngAddrStr = hash160_to_addrStr(chngAddr160)
          chngBehaveStr = changeBehave[1]
