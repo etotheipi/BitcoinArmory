@@ -297,9 +297,9 @@ class DlgUnlockWallet(ArmoryDialog):
          self.wlt.unlock(securePassphrase=self.securePassphrase)
 
          if self.returnPassphrase == False: 
-			self.edtPasswd.setText('')
+            self.edtPasswd.setText('')
          else: 
-			self.wlt.lock() #if we are trying to recover the plain passphrase, make sure the wallet is locked
+            self.wlt.lock() #if we are trying to recover the plain passphrase, make sure the wallet is locked
 
          self.securePassphrase.destroy()
          self.accept()
@@ -13923,25 +13923,6 @@ class DlgWltRecoverWallet(ArmoryDialog):
       self.edtWalletPath.setText(QFileDialog.getOpenFileName())
 
 #################################################################################
-"""
-Progress bar dialog. The dialog is guaranteed to be created from the main thread.
-
-The dialog is modal, meaning all other windows are barred from user interaction as long as this dialog is within its message loop
-The message loop is entered either through the usual exec_(), which will lock the caller thread, or spawn_(), which will lock the
-main thread and the caller thread.
-
-The dialog reject() signal is overloaded to render it useless. The dialog cannot be killed through the user interface. As such, it
-is the caller responsibility to call Kill() on the dialog once the process is over. Calling Kill() will also release the locked threads
-
-To make a progress dialog that can be killed by the user (before the process is complete), pass a string to Interrupt. It will add a
-button with that text that will kill the progress dialog on click. Since killing the dialog releases the threads it had previously locked,
-you have to handle that scenario with the thread running the calculations yourself
-(cf. PyBtcWalletRecovery for an implementation of that mechanic).
-
-Passing a string to Title will draw a title.
-Passing an integer to HBar will draw a progress bar with a Max value set to that integer. It can be updated through UpdateHBar(int)
-Passing a string TProgress will draw a label with that string. It can be updated through UpdateText(str)
-"""
 class DlgProgress(ArmoryDialog):
    def __init__(self, parent=None, main=None, Interrupt=None, HBar=None, Title=None, TProgress=None):
       self.running = 1
@@ -13955,14 +13936,15 @@ class DlgProgress(ArmoryDialog):
       self.TProgress = None
 
       self.btnStop = None
-
-      from threading import RLock
-      self.thread_lock = RLock()
-
+      
+      self.connect(self, SIGNAL('Update'), self.UpdateDlg)
+      self.connect(self, SIGNAL('PromptPassphrase'), self.PromptPassphrase)
+      self.connect(self, SIGNAL('Exit'), self.Exit)
+      
       if main is not None:
          main.emit(SIGNAL('initTrigger'), self)
       else: return
-
+      
       from time import sleep
       while self.status == 0:
          sleep(0.01)
@@ -14019,17 +14001,16 @@ class DlgProgress(ArmoryDialog):
       self.running = 0
       self.done(0)
 
-   def spawn_(self):
+   def exec_(self, side_thread):
       if self.main is not None:
          self.status = 1
          self.main.emit(SIGNAL('spawnTrigger'), self)
 
-         from time import sleep
-         while self.status == 1:
-            sleep(0.01)
-
-         self.thread_lock.acquire()
-         self.thread_lock.release()
+         side_thread.join();
+         self.Kill()
+         
+         if side_thread.didThrowError():
+            side_thread.raiseLastError()
 
    def reject(self):
       return
@@ -14039,24 +14020,20 @@ class DlgProgress(ArmoryDialog):
 
       css = """
             QDialog{ border:1px solid rgb(0, 0, 0); }
-            QProgressBar{ text-align: center; }
+            QProgressBar{ text-align: center; font-weight: bold; }
             """
       self.setStyleSheet(css)
-
-      self.connect(self, SIGNAL('Update'), self.UpdateDlg)
-      self.connect(self, SIGNAL('PromptPassphrase'), self.PromptPassphrase)
-      self.connect(self, SIGNAL('Exit'), self.Exit)
 
       layoutMgmt = QVBoxLayout()
       self.lblDesc = QLabel('')
 
       if self.Title is not None:
+         if not self.HBar:
+            self.lblTitle = QLabel(self.Title)
+            self.lblTitle.setAlignment(Qt.AlignCenter)
+            layoutMgmt.addWidget(self.lblTitle)
 
-         self.lblTitle = QLabel(self.Title)
-         self.lblTitle.setAlignment(Qt.AlignCenter)
-         layoutMgmt.addWidget(self.lblTitle)
-
-
+            
       if self.HBar is not None:
          self.hbarProgress = QProgressBar(self)
          self.hbarProgress.setMaximum(self.HBar)
@@ -14064,6 +14041,9 @@ class DlgProgress(ArmoryDialog):
          self.hbarProgress.setValue(0)
          self.hbarProgress.setMinimumWidth(250)
          layoutMgmt.addWidget(self.hbarProgress)
+         
+         if self.HBar:
+            self.hbarProgress.setFormat(self.Title +': %p%')
       else:
          layoutMgmt.addWidget(self.lblDesc)
 
@@ -14089,10 +14069,209 @@ class DlgProgress(ArmoryDialog):
       globalbtmRight = self.parent.mapToGlobal((btmRight+topLeft)/2)
 
       self.move(globalbtmRight - QPoint(self.width()/2, self.height()))
+      if self.Title:
+         self.setWindowTitle(self.Title)
+      else:
+         self.setWindowTitle('Progress Bar')
 
       self.hide()
+      
+   """
+   Progress bar dialog. The dialog is guaranteed to be created from the main
+   thread.
+   
+   The dialog is modal, meaning all other windows are barred from user 
+   interaction as long as this dialog is within its message loop.
+   The message loop is entered either through exec_(side_thread), which will
+   which will lock the main threa and the caller thread, and join on the 
+   side thread
+   
+   The dialog reject() signal is overloaded to render it useless. The dialog 
+   cannot be killed through regular means. To kill the Dialog, call Kill()
+   or end the side thread. Either will release the main thread. The caller
+   will still join on the side thread if you only call Kill()
+   
+   To make a progress dialog that can be killed by the user (before the process 
+   is complete), pass a string to Interrupt. It will add a push button with 
+   that text, that will kill the progress dialog on click. The caller will
+   still be joining on the side thread.
+   
+   Passing a string to Title will draw a title.
+   Passing an integer to HBar will draw a progress bar with a Max value set to 
+   that integer. It can be updated through UpdateHBar(int)
+   Passing a string TProgress will draw a label with that string. It can be 
+   updated through UpdateText(str)
+   """
 
+#################################################################################
+class DlgCorruptWallet(DlgProgress):
+   def __init__(self, wallet, status, main=None, parent=None):
+      super(DlgProgress, self).__init__(parent, main)      
+      super(DlgCorruptWallet, self).__init__(parent)
+      
+      self.main = main
+      self.walletList = []
+      
+      self.running = 1
+      self.status = 1
+      self.Fixing = 0
+      
+      self.layout = QVBoxLayout()
+      
+      self.connect(self, SIGNAL('UCF'), self.UCF)
+      self.connect(self, SIGNAL('Show'), self.show)
+      self.connect(self, SIGNAL('Exec'), self.run_lock)
+      self.connect(self, SIGNAL('SNP'), self.setNewProgress)
+      self.connect(self, SIGNAL('LFW'), self.LFW)
+      self.connect(self, SIGNAL('SRD'), self.SRD)
+      
+      lblDescr = QLabel('<h1 style="color: red;">Wallet Corruption Found!!!</h1>')
+      lblDescr.setAlignment(Qt.AlignCenter)
+      
+      self.QDS = QDialog()
+      self.lblStatus = QLabel('')
+      self.lblStatus.setStyleSheet('background-color: white')
+      self.addStatus(wallet, status)
+      self.QDSlo = QVBoxLayout()
+      self.QDS.setLayout(self.QDSlo)
+      self.QDSlo.addWidget(self.lblStatus)
+            
+      saStatus = QScrollArea()
+      saStatus.setWidgetResizable(True)
+      saStatus.setWidget(self.QDS)
+      saStatus.setMaximumHeight(250)
 
+      layoutButtons = QGridLayout()
+      layoutButtons.setColumnStretch(0, 1)
+      layoutButtons.setColumnStretch(4, 1)
+      self.btnClose = QPushButton('Hide')
+      self.btnFixWallets = QPushButton('Fix Wallets')
+      self.btnFixWallets.setDisabled(True)
+      self.connect(self.btnFixWallets, SIGNAL('clicked()'), self.FixWallets)
+      self.connect(self.btnClose, SIGNAL('clicked()'), self.hide)
+      layoutButtons.addWidget(self.btnClose, 0, 1, 1, 1)
+      layoutButtons.addWidget(self.btnFixWallets, 0, 2, 1, 1)
+      
+      self.sep_line = QFrame()
+      self.sep_line.setFrameShape(QFrame.HLine);
+      self.sep_line.setFrameShadow(QFrame.Sunken);
+      
+      self.sep_line2 = QFrame()
+      self.sep_line2.setFrameShape(QFrame.HLine);
+      self.sep_line2.setFrameShadow(QFrame.Sunken);
+      
+      self.lblDescr2 = QLabel('<h2 style="color: red;">It is highly recommended to fix your<br>'
+                         'damaged wallets before using them</h2>')
+      self.lblDescr2.setAlignment(Qt.AlignCenter)
+      
+      self.lblFixRdy = QLabel('<br><u>Your wallets will be ready to fix once the scan is over</u><br>'
+                              'You can hide this window until then<br>')
+      
+      self.lblFixRdy.setAlignment(Qt.AlignCenter)
+      
+      
+      self.layout.addWidget(lblDescr)
+      self.layout.addWidget(saStatus)
+      self.layout.addWidget(self.lblDescr2)
+      self.layout.addWidget(self.sep_line)
+      self.layout.addWidget(self.lblFixRdy)
+      self.layout.addWidget(self.sep_line2)
+      self.layout.addLayout(layoutButtons)
+      
+      self.setLayout(self.layout)
+      self.adjustSize()
+      self.setWindowTitle('Wallet Error')
+      
+   def addStatus(self, wallet, status):
+      if wallet:
+         strStatus = ''.join(status) + str(self.lblStatus.text())
+         self.lblStatus.setText(strStatus)
+         
+         self.walletList.append(wallet)
+   
+   def show(self):
+      super(DlgCorruptWallet, self).show()
+      self.activateWindow()
+   
+   def run_lock(self):
+      self.hide()
+      super(DlgProgress, self).exec_()
+      self.walletList = None
+      
+   def UpdateCanFix(self, conditions, canFix=False):
+      self.emit(SIGNAL('UCF'), conditions, canFix)
+      
+   def UCF(self, conditions, canFix=False):
+      self.lblFixRdy.setText('<br>'.join(conditions))
+      if canFix:
+         self.btnFixWallets.setEnabled(True)
+         self.btnClose.setText('Close')
+         self.connect(self.btnClose, SIGNAL('clicked()'), self.reject)
+      
+   def FixWallets(self):
+      self.sep_line.hide()
+      self.sep_line2.hide()
+      self.lblFixRdy.hide()
+      self.adjustSize()
+      
+      self.lblDescr2.setText('<h2 style="color: blue;">Fixing your wallets</h2>')
+            
+      from armoryengine.PyBtcWalletRecovery import FixWallets
+      self.btnClose.setDisabled(True)
+      self.btnFixWallets.setDisabled(True)
+      self.Fixing = 1
+
+      self.lblStatus.hide()
+      self.QDSlo.removeWidget(self.lblStatus)
+      
+      for wlt in self.walletList:
+         self.parent.removeWalletFromApplication(wlt.uniqueIDB58)
+      
+      FixWallets(self.walletList, self, async=True)
+
+   def UpdateDlg(self, text=None, HBar=None, Title=None):
+      if text is not None: self.lblDesc.setText(text)
+
+   def reject(self):
+      if not self.Fixing:
+         super(DlgProgress, self).reject()
+      
+   def sigSetNewProgress(self, status):
+      self.emit(SIGNAL('SNP'), status)
+      
+   def setNewProgress(self, status):
+      self.lblDesc = QLabel('')
+      self.QDSlo.addWidget(self.lblDesc)
+      #self.QDS.adjustSize()
+      status[0] = 1
+      
+   def setRecoveryDone(self, st):
+      self.emit(SIGNAL('SRD'), st)
+      
+   def SRD(self, st):
+      self.btnClose.setEnabled(True)
+      self.btnClose.setText('Done')
+      self.Fixing = 0     
+      if len(st) == 0:
+         self.lblDescr2.setText('<h2 style="color: green;">Wallets Fixed! You can close this window</h2>')
+         self.main.statusBar().showMessage('Wallets fixed!', 15000)
+         
+      else:
+         self.lblDescr2.setText('<h2 style="color: red;">Failed to fix wallets!</h2>')
+         self.main.statusBar().showMessage('Failed to fix wallets!', 150000)
+      
+   def loadFixedWallets(self, wallets):
+      self.emit(SIGNAL('LFW'), wallets)
+         
+   def LFW(self, wallets):
+      for wlt in wallets:
+         newWallet = PyBtcWallet().readWalletFile(wlt)
+         self.main.addWalletToApplication(newWallet, walletIsNew=True)
+   
+         if TheBDM.getBDMState() in ('Uninitialized', 'Offline'):
+            TheBDM.registerWallet(newWallet, isFresh=True, wait=False)
+         else:
+            self.main.newWalletList.append([newWallet, True])
 
 # Put circular imports at the end
 from ui.Frames import SelectWalletFrame
