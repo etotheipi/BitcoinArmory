@@ -8,7 +8,6 @@
 
 from PyQt4.Qt import * #@UnusedWildImport
 from PyQt4.QtGui import * #@UnusedWildImport
-from py2exe import resources
 from armoryengine.ArmoryUtils import LOGINFO, USE_TESTNET
 from ui.Frames import NewWalletFrame, SetPassphraseFrame, VerifyPassphraseFrame,\
    WalletBackupFrame
