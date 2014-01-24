@@ -420,7 +420,7 @@ class WalletBackupFrame(ArmoryFrame):
    FEATURES = enum('ProtGen', 'ProtImport', 'LostPass', 'Durable', \
                    'Visual', 'Physical', 'Count')
    OPTIONS = enum('Paper1', 'PaperN', 'DigPlain', 'DigCrypt', 'Export', 'Count')
-   def __init__(self, parent, main, initLabel=''):
+   def __init__(self, parent, main, initLabel='', backupCreatedCallback=None):
       super(WalletBackupFrame, self).__init__(parent, main)
       # Don't have a wallet yet so assume false.
       self.hasImportedAddr = False
@@ -789,15 +789,16 @@ class WalletBackupFrame(ArmoryFrame):
       self.setDispFrame(-1)
 
    def clickedDoIt(self):
+      isBackupCreated = False
       if self.optPaperBackupOne.isChecked():
-         OpenPaperBackupWindow('Single', self.parent(), self.main, self.wlt)
+         isBackupCreated = OpenPaperBackupWindow('Single', self.parent(), self.main, self.wlt)
       elif self.optPaperBackupFrag.isChecked():
-         OpenPaperBackupWindow('Frag', self.parent(), self.main, self.wlt)
+         isBackupCreated = OpenPaperBackupWindow('Frag', self.parent(), self.main, self.wlt)
       elif self.optDigitalBackupPlain.isChecked():
          if self.main.digitalBackupWarning():
-            self.main.makeWalletCopy(self, self.wlt, 'Decrypt', 'decrypt')
+            isBackupCreated = self.main.makeWalletCopy(self, self.wlt, 'Decrypt', 'decrypt')
       elif self.optDigitalBackupCrypt.isChecked():
-         self.main.makeWalletCopy(self, self.wlt, 'Encrypt', 'encrypt')
+         isBackupCreated = self.main.makeWalletCopy(self, self.wlt, 'Encrypt', 'encrypt')
       elif self.optIndivKeyListTop.isChecked():
          if self.wlt.useEncryption and self.wlt.isLocked:
             dlg = DlgUnlockWallet(self.wlt, self, self.main, 'Unlock Private Keys')
@@ -815,8 +816,11 @@ class WalletBackupFrame(ArmoryFrame):
                   if self.main.usermode == USERMODE.Standard:
                      return
          DlgShowKeyList(self.wlt, self.parent(), self.main).exec_()
-      else:
-         return 0
+         isBackupCreated = True
+      if isBackupCreated and self.backupCreatedCallback:
+         self.backupCreatedCallback()
+         
+      
 
 # Need to put circular imports at the end of the script to avoid an import deadlock
 # DlgWalletSelect uses SelectWalletFrame which uses DlgCoinControl

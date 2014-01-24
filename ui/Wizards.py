@@ -8,13 +8,15 @@
 
 from PyQt4.Qt import * #@UnusedWildImport
 from PyQt4.QtGui import * #@UnusedWildImport
-from py2exe import resources
-from armoryengine.ArmoryUtils import LOGINFO, USE_TESTNET
+from armoryengine.ArmoryUtils import LOGINFO, USE_TESTNET, WalletExistsError,\
+   LOGWARN
 from ui.Frames import NewWalletFrame, SetPassphraseFrame, VerifyPassphraseFrame,\
    WalletBackupFrame
-from qtdefines import GETFONT
+from qtdefines import GETFONT, tr
 from armoryengine.PyBtcWallet import PyBtcWallet
 from CppBlockUtils import SecureBinaryData
+from armoryengine.BDM import TheBDM
+from qtdialogs import DlgExecLongProcess
 
 # This class is intended to be an abstract Wizard class that
 # will hold all of the functionality that is common to all 
@@ -67,7 +69,8 @@ class WalletWizard(ArmoryWizard):
    def __init__(self, parent, main):
       super(WalletWizard,self).__init__(parent, main)
       self.newWallet = None
-      self.setWindowTitle(self.tr("Wallet Wizard"))
+      self.isBackupCreated = False
+      self.setWindowTitle(tr("Wallet Creation Wizard"))
       
       # Page 1: Create Wallet
       self.walletCreationPage = WalletCreationPage(self)
@@ -94,37 +97,73 @@ class WalletWizard(ArmoryWizard):
       self.addPage(self.summaryPage)
 
       self.setButtonLayout([QWizard.BackButton,
-         QWizard.Stretch,
-         QWizard.NextButton,
-         QWizard.FinishButton])
+                            QWizard.Stretch,
+                            QWizard.NextButton,
+                            QWizard.FinishButton])
 
    def initializePage(self, *args, **kwargs):
 
       if self.currentPage() == self.verifyPassphrasePage:
          self.verifyPassphrasePage.setPassphrase(
                self.setPassphrasePage.pageFrame.getPassphrase())
-      elif self.currentPage() == self.walletBackupPage:
-         self.newWallet = PyBtcWallet().createNewWallet( \
-                        securePassphrase=self.setPassphrasePage.pageFrame.getPassphrase(), \
-                        kdfTargSec=self.walletCreationPage.pageFrame.getKdfSec(), \
-                        kdfMaxMem=self.walletCreationPage.pageFrame.getKdfBytes(), \
-                        shortLabel=self.walletCreationPage.pageFrame.getName(), \
-                        longLabel=self.walletCreationPage.pageFrame.getDescription(), \
-                        doRegisterWithBDM=False)
+      if self.currentPage() == self.walletBackupPage:
+         self.createNewWalletFromWizard()
          self.newWallet.unlock(securePassphrase=
                   SecureBinaryData(self.setPassphrasePage.pageFrame.getPassphrase()))
+         
          self.walletBackupPage.pageFrame.setWallet(self.newWallet)
          
-   def cleanupPage(self, *args, **kwargs):
-      if self.currentPage() == self.walletBackupPage:
-         self.newWallet = None
+         # Only hide the back button on wallet backup page  
+         self.setButtonLayout([QWizard.Stretch,
+                               QWizard.NextButton,
+                               QWizard.FinishButton])
+      else:
+         self.setButtonLayout([QWizard.BackButton,
+                               QWizard.Stretch,
+                               QWizard.NextButton,
+                               QWizard.FinishButton])
    
+   def createNewWalletFromWizard(self):
+      self.newWallet = PyBtcWallet().createNewWallet( \
+                     securePassphrase=self.setPassphrasePage.pageFrame.getPassphrase(), \
+                     kdfTargSec=self.walletCreationPage.pageFrame.getKdfSec(), \
+                     kdfMaxMem=self.walletCreationPage.pageFrame.getKdfBytes(), \
+                     shortLabel=self.walletCreationPage.pageFrame.getName(), \
+                     longLabel=self.walletCreationPage.pageFrame.getDescription(), \
+                     doRegisterWithBDM=False)
+      self.newWallet.unlock(securePassphrase=
+               SecureBinaryData(self.setPassphrasePage.pageFrame.getPassphrase()))
+      # We always want to fill the address pool, right away.  
+      fillpool = lambda: self.newWallet.fillAddressPool(doRegister=False)
+      DlgExecLongProcess(fillpool, 'Creating Wallet...', self, self).exec_()
+
+      # Reopening from file helps make sure everything is correct -- don't
+      # let the user use a wallet that triggers errors on reading it
+      wltpath = self.newWallet.walletPath
+      walletFromDisk = PyBtcWallet().readWalletFile(wltpath)
+      self.main.addWalletToApplication(walletFromDisk, walletIsNew=True)
+      if TheBDM.getBDMState() in ('Uninitialized', 'Offline'):
+         TheBDM.registerWallet(walletFromDisk, isFresh=True, wait=False)
+      else:
+         self.main.newWalletList.append([walletFromDisk, True])
+   
+   def cleanupPage(self, *args, **kwargs):
+      if self.currentPage() == self.createWatchingOnlyWalletPage:
+         self.setButtonLayout([QWizard.Stretch,
+                               QWizard.NextButton,
+                               QWizard.FinishButton])
+      else:
+         self.setButtonLayout([QWizard.BackButton,
+                               QWizard.Stretch,
+                               QWizard.NextButton,
+                               QWizard.FinishButton])
+          
 class WalletCreationPage(ArmoryWizardPage):
    def __init__(self, wizard):
       super(WalletCreationPage, self).__init__(wizard,
             NewWalletFrame(wizard, wizard.main, "Create Wallet"))
-      self.setTitle(self.tr("Step 1: Create Wallet"))
-      self.setSubTitle(self.tr("""
+      self.setTitle(tr("Step 1: Create Wallet"))
+      self.setSubTitle(tr("""
             Create a new wallet for managing your funds.
             The name and description can be changed at any time."""))
 
@@ -132,8 +171,8 @@ class SetPassphrasePage(ArmoryWizardPage):
    def __init__(self, wizard):
       super(SetPassphrasePage, self).__init__(wizard, 
                SetPassphraseFrame(wizard, wizard.main, "Set Passphrase", self.updateNextButton))
-      self.setTitle(self.tr("Step 2: Set Passphrase"))
-      self.setSubTitle(self.tr("Set Passphrase <Subtitle>"))
+      self.setTitle(tr("Step 2: Set Passphrase"))
+      self.setSubTitle(tr("Set Passphrase <Subtitle>"))
       self.updateNextButton()
 
    def updateNextButton(self):
@@ -147,8 +186,8 @@ class VerifyPassphrasePage(ArmoryWizardPage):
       super(VerifyPassphrasePage, self).__init__(wizard, 
             VerifyPassphraseFrame(wizard, wizard.main, "Verify Passphrase"))
       self.passphrase = None
-      self.setTitle(self.tr("Step 3: Verify Passphrase"))
-      self.setSubTitle(self.tr("Verify Passphrase <Subtitle>"))
+      self.setTitle(tr("Step 3: Verify Passphrase"))
+      self.setSubTitle(tr("Verify Passphrase <Subtitle>"))
    
    def setPassphrase(self, passphrase):
       self.passphrase = passphrase        
@@ -163,18 +202,21 @@ class VerifyPassphrasePage(ArmoryWizardPage):
 class WalletBackupPage(ArmoryWizardPage):
    def __init__(self, wizard):
       super(WalletBackupPage, self).__init__(wizard,
-                                WalletBackupFrame(wizard, wizard.main, "Backup Wallet"))
-      self.setTitle(self.tr("Step 4: Backup Wallet"))
-      self.setSubTitle(self.tr("Backup wallet <Subtitle>"))
+                                WalletBackupFrame(wizard, wizard.main, "Backup Wallet", self.onBackupCreated))
+      self.setTitle(tr("Step 4: Backup Wallet"))
+      self.setSubTitle(tr("Backup wallet <Subtitle>"))
+   
+   def onBackupCreated(self):
+      self.parent().isBackupCreated = True
 
 class CreateWatchingOnlyWalletPage(ArmoryWizardPage):
    def __init__(self, wizard):
       super(CreateWatchingOnlyWalletPage, self).__init__(wizard, QFrame())
-      self.setTitle(self.tr("Step 5: Watching Only Wallet"))
-      self.setSubTitle(self.tr("Watching Only wallet <Subtitle>"))
+      self.setTitle(tr("Step 5: Watching Only Wallet"))
+      self.setSubTitle(tr("Watching Only wallet <Subtitle>"))
       
 class SummaryPage(ArmoryWizardPage):
    def __init__(self, wizard):
       super(SummaryPage, self).__init__(wizard, QFrame())
-      self.setTitle(self.tr("Step 6: Wallet Creation Summary"))
-      self.setSubTitle(self.tr("Wallet Creation Summary <Subtitle>"))
+      self.setTitle(tr("Step 6: Wallet Creation Summary"))
+      self.setSubTitle(tr("Wallet Creation Summary <Subtitle>"))

@@ -1106,7 +1106,7 @@ class ArmoryMainWindow(QMainWindow):
          fn = 'armory_%s_%s.watchonly.wallet' % (wlt.uniqueIDB58, suffix)
       savePath = unicode(self.getFileSave(defaultFilename=fn))
       if not len(savePath)>0:
-         return 
+         return False
 
       if copyType.lower()=='same':
          wlt.writeFreshWalletFile(savePath)
@@ -1114,7 +1114,7 @@ class ArmoryMainWindow(QMainWindow):
          if wlt.useEncryption:
             dlg = DlgUnlockWallet(wlt, parent, self, 'Unlock Private Keys')
             if not dlg.exec_():
-               return
+               return False
          # Wallet should now be unlocked
          wlt.makeUnencryptedWalletCopy(savePath)
       elif copyType.lower()=='encrypt':
@@ -1130,11 +1130,12 @@ class ArmoryMainWindow(QMainWindow):
          wlt.makeEncryptedWalletCopy(savePath, newPassphrase)
       else:
          LOGERROR('Invalid "copyType" supplied to makeWalletCopy: %s', copyType)
-         return
+         return False
 
       QMessageBox.information(parent, tr('Backup Complete'), tr("""
          Your wallet was successfully backed up to the following 
          location:<br><br>%s""") % savePath, QMessageBox.Ok)
+      return True
       
    
    #############################################################################
