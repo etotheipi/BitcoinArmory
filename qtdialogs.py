@@ -35,6 +35,8 @@ BACKUP_TYPE_135a_TEXT = tr('Version 1.35a (5 lines Unencrypted)')
 BACKUP_TYPE_135a_SP_TEXT = tr('Version 1.35a (5 lines SecurePrint\xe2\x84\xa2)')
 BACKUP_TYPE_135c_TEXT = tr('Version 1.35c (3 lines Unencrypted)')
 BACKUP_TYPE_135c_SP_TEXT = tr('Version 1.35c (3 lines SecurePrint\xe2\x84\xa2)')
+
+
 ################################################################################
 class DlgUnlockWallet(ArmoryDialog):
    def __init__(self, wlt, parent=None, main=None, unlockMsg='Unlock Wallet', \
@@ -13925,6 +13927,8 @@ class DlgWltRecoverWallet(ArmoryDialog):
 #################################################################################
 class DlgProgress(ArmoryDialog):
    def __init__(self, parent=None, main=None, Interrupt=None, HBar=None, Title=None, TProgress=None):
+      super(DlgProgress, self).__init__(parent, main)
+
       self.running = 1
       self.Done = 0
       self.status = 0
