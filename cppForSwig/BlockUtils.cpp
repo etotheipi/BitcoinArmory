@@ -177,6 +177,7 @@ vector<UnspentTxOut> ScrAddrObj::getSpendableTxOutList(uint32_t blkNum)
          utxoList.push_back( UnspentTxOut(txout, blkNum) );
       }
    }
+
    for(uint32_t i=0; i<relevantTxIOPtrsZC_.size(); i++)
    {
       TxIOPair & txio = *relevantTxIOPtrsZC_[i];
@@ -5087,7 +5088,10 @@ bool BlockDataManager_LevelDB::addNewZeroConfTx(BinaryData const & rawTx,
 
    // If this is already in the zero-conf map or in the blockchain, ignore it
    if(hasTxWithHash(txHash))
+   {
+      LOGWARN << "Zero-conf tx added that is already in ZC list";
       return false;
+   }
 
 
    // In zero-conf-lite-mode, we only actually add the ZC if it's related

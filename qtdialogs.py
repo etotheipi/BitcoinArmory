@@ -5024,6 +5024,7 @@ class DlgSendBitcoins(ArmoryDialog):
             # Trying to avoid a swig bug involving iteration over vector<> types
             utxos = self.wlt.getAddrTxOutList(a160)
             for i in range(len(utxos)):
+               utxos[i].pprintOneLine(290000)
                utxoList.append(PyUnspentTxOut().createFromCppUtxo(utxos[i]))
          return utxoList
 
