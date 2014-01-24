@@ -11,7 +11,7 @@ from PyQt4.QtGui import * #@UnusedWildImport
 from armoryengine.ArmoryUtils import LOGINFO, USE_TESTNET, WalletExistsError,\
    LOGWARN
 from ui.Frames import NewWalletFrame, SetPassphraseFrame, VerifyPassphraseFrame,\
-   WalletBackupFrame
+   WalletBackupFrame, WizardCreateWatchingOnlyWalletFrame
 from qtdefines import GETFONT, tr
 from armoryengine.PyBtcWallet import PyBtcWallet
 from CppBlockUtils import SecureBinaryData
@@ -71,6 +71,8 @@ class WalletWizard(ArmoryWizard):
       self.newWallet = None
       self.isBackupCreated = False
       self.setWindowTitle(tr("Wallet Creation Wizard"))
+      self.setOption(QWizard.HaveFinishButtonOnEarlyPages, on=True)
+      self.setOption(QWizard.IgnoreSubTitles, on=True)
       
       # Page 1: Create Wallet
       self.walletCreationPage = WalletCreationPage(self)
@@ -91,10 +93,6 @@ class WalletWizard(ArmoryWizard):
       # Page 5: Create Watching Only Wallet
       self.createWatchingOnlyWalletPage = CreateWatchingOnlyWalletPage(self)
       self.addPage(self.createWatchingOnlyWalletPage)
-      
-      # Page 6: Summary
-      self.summaryPage = SummaryPage(self)
-      self.addPage(self.summaryPage)
 
       self.setButtonLayout([QWizard.BackButton,
                             QWizard.Stretch,
@@ -106,6 +104,9 @@ class WalletWizard(ArmoryWizard):
       if self.currentPage() == self.verifyPassphrasePage:
          self.verifyPassphrasePage.setPassphrase(
                self.setPassphrasePage.pageFrame.getPassphrase())
+      elif self.currentPage() == self.createWatchingOnlyWalletPage:
+         self.createWatchingOnlyWalletPage.pageFrame.setWallet(self.newWallet)
+         
       if self.currentPage() == self.walletBackupPage:
          self.createNewWalletFromWizard()
          self.newWallet.unlock(securePassphrase=
@@ -115,14 +116,26 @@ class WalletWizard(ArmoryWizard):
          
          # Only hide the back button on wallet backup page  
          self.setButtonLayout([QWizard.Stretch,
-                               QWizard.NextButton,
-                               QWizard.FinishButton])
+                                QWizard.NextButton,
+                                QWizard.FinishButton])
       else:
          self.setButtonLayout([QWizard.BackButton,
-                               QWizard.Stretch,
-                               QWizard.NextButton,
-                               QWizard.FinishButton])
-   
+                                QWizard.Stretch,
+                                QWizard.NextButton,
+                                QWizard.FinishButton])
+   def done(self, event):
+      if self.newWallet and not self.isBackupCreated:
+         reply = QMessageBox.question(self, 'Wallet Backup Warning', \
+               'You have not made a backup for your new wallet. Backing up your wallet ' +
+               'is critical securing  your bitcoins. If you do not backup your wallet now ' +
+               'you may do it from the wallet screen later.\n\n\t' +
+               'Are you sure that you want to leave this wizard without backing up your wallet?', \
+               QMessageBox.Yes | QMessageBox.No)
+         if reply == QMessageBox.No:
+            # Stay in the wizard
+            return None
+      return super(WalletWizard, self).done(event)
+             
    def createNewWalletFromWizard(self):
       self.newWallet = PyBtcWallet().createNewWallet( \
                      securePassphrase=self.setPassphrasePage.pageFrame.getPassphrase(), \
@@ -172,7 +185,6 @@ class SetPassphrasePage(ArmoryWizardPage):
       super(SetPassphrasePage, self).__init__(wizard, 
                SetPassphraseFrame(wizard, wizard.main, "Set Passphrase", self.updateNextButton))
       self.setTitle(tr("Step 2: Set Passphrase"))
-      self.setSubTitle(tr("Set Passphrase <Subtitle>"))
       self.updateNextButton()
 
    def updateNextButton(self):
@@ -187,7 +199,6 @@ class VerifyPassphrasePage(ArmoryWizardPage):
             VerifyPassphraseFrame(wizard, wizard.main, "Verify Passphrase"))
       self.passphrase = None
       self.setTitle(tr("Step 3: Verify Passphrase"))
-      self.setSubTitle(tr("Verify Passphrase <Subtitle>"))
    
    def setPassphrase(self, passphrase):
       self.passphrase = passphrase        
@@ -203,20 +214,14 @@ class WalletBackupPage(ArmoryWizardPage):
    def __init__(self, wizard):
       super(WalletBackupPage, self).__init__(wizard,
                                 WalletBackupFrame(wizard, wizard.main, "Backup Wallet", self.onBackupCreated))
-      self.setTitle(tr("Step 4: Backup Wallet"))
-      self.setSubTitle(tr("Backup wallet <Subtitle>"))
+      self.setFinalPage(True)
    
    def onBackupCreated(self):
       self.parent().isBackupCreated = True
 
 class CreateWatchingOnlyWalletPage(ArmoryWizardPage):
    def __init__(self, wizard):
-      super(CreateWatchingOnlyWalletPage, self).__init__(wizard, QFrame())
-      self.setTitle(tr("Step 5: Watching Only Wallet"))
-      self.setSubTitle(tr("Watching Only wallet <Subtitle>"))
+      super(CreateWatchingOnlyWalletPage, self).__init__(wizard,
+                  WizardCreateWatchingOnlyWalletFrame(wizard, wizard.main, "Create Watching Only Wallet"))
+      self.setTitle(tr("Step 5: Create Watching Only Wallet"))
       
-class SummaryPage(ArmoryWizardPage):
-   def __init__(self, wizard):
-      super(SummaryPage, self).__init__(wizard, QFrame())
-      self.setTitle(tr("Step 6: Wallet Creation Summary"))
-      self.setSubTitle(tr("Wallet Creation Summary <Subtitle>"))

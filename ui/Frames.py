@@ -424,6 +424,7 @@ class WalletBackupFrame(ArmoryFrame):
       super(WalletBackupFrame, self).__init__(parent, main)
       # Don't have a wallet yet so assume false.
       self.hasImportedAddr = False
+      self.backupCreatedCallback = backupCreatedCallback
       self.lblTitle = QRichLabel(tr("<b>Backup Options</b>"))
       lblTitleDescr = QRichLabel(tr("""
          Armory wallets only need to be backed up <u>one time, ever.</u>
@@ -821,6 +822,46 @@ class WalletBackupFrame(ArmoryFrame):
          self.backupCreatedCallback()
          
       
+class WizardCreateWatchingOnlyWalletFrame(ArmoryFrame):
+
+   def __init__(self, parent, main, initLabel='', backupCreatedCallback=None):
+      super(WizardCreateWatchingOnlyWalletFrame, self).__init__(parent, main)
+
+
+      summaryText = QRichLabel(tr("""
+               You have just ceated a new wallet that will should already
+               appea in the Available Wallets List in the main window.
+               <br><br>
+               You may create a watching only copy of this wallet that can
+               only be used for generating addresses and monitoring incoming
+               payments on any other computer. A watching-only wallet cannot
+               spend the funds, and thus cannot be compromised by an attacker
+               To setup a watching only copy of this wallet, press the button
+               below and put the resulting file in the data directory of another
+               Bitcoin Armory installation."""))
+      lbtnForkWlt = QPushButton('Create Watching-Only Copy')
+      self.connect(lbtnForkWlt, SIGNAL(CLICKED), self.forkOnlineWallet)
+      layout = QVBoxLayout()
+      layout.addWidget(summaryText)
+      layout.addWidget(lbtnForkWlt)
+      self.setLayout(layout)
+      
+   
+   def forkOnlineWallet(self):
+      currPath = self.wlt.walletPath
+      pieces = os.path.splitext(currPath)
+      currPath = pieces[0] + '.watchonly' + pieces[1]
+
+      saveLoc = self.main.getFileSave('Save Watching-Only Copy', \
+                                      defaultFilename=currPath)
+      if not saveLoc.endswith('.wallet'):
+         saveLoc += '.wallet'
+      self.wlt.forkOnlineWallet(saveLoc, self.wlt.labelName, \
+                             '(Watching-Only) ' + self.wlt.labelDescr)   
+   
+   def setWallet(self, wlt):
+      self.wlt = wlt
+
 
 # Need to put circular imports at the end of the script to avoid an import deadlock
 # DlgWalletSelect uses SelectWalletFrame which uses DlgCoinControl
