@@ -443,7 +443,7 @@ bool InterfaceToLDB::openDatabases(string basedir,
          LOGINFO << "Using max_open_files = " << maxOpenFiles_;
       }
 
-      LOGINFO << "Using LDB block_size = " << ldbBlockSize_ << " bytes";
+      //LOGINFO << "Using LDB block_size = " << ldbBlockSize_ << " bytes";
 
       //opts.block_cache = leveldb::NewLRUCache(100 * 1048576);
       //dbFilterPolicy_[db] = leveldb::NewBloomFilterPolicy(10);

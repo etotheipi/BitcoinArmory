@@ -6279,6 +6279,7 @@ TEST_F(BlockUtilsBare, Load5Blocks_ScanWhatIsNeeded)
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
+/*
 class FullScanTest : public ::testing::Test
 {
 protected:
@@ -6553,6 +6554,7 @@ TEST_F(FullScanTest, ReadSuperRawDB)
    cout << "Done!" << endl;
 
 }
+*/
 
 
 
@@ -7439,78 +7441,87 @@ TEST_F(BlockUtilsWithWalletTest, TestBalanceMainnet_usuallydisabled)
 */
 
 ////////////////////////////////////////////////////////////////////////////////
-/*  TODO: Whoops, never finished this...
 TEST_F(BlockUtilsWithWalletTest, ZeroConfUpdate)
 {
    // Copy only the first four blocks
-   BtcUtils::copyFile("../reorgTest/blk_0_to_4.dat", blk0dat_, 1596);
-   TheBDM.doInitialSyncOnLoad();
+   BtcUtils::copyFile("../reorgTest/blk_0_to_4.dat", blk0dat_, 513);
 
-   // We do all the database stuff first, THEN load the addresses
    BtcWallet wlt;
    wlt.addScrAddress(scrAddrA_);
    wlt.addScrAddress(scrAddrB_);
    wlt.addScrAddress(scrAddrC_);
+   wlt.addScrAddress(scrAddrD_);
+
    TheBDM.registerWallet(&wlt);
-   TheBDM.registerNewScrAddr(scrAddrD_);
+
+   TheBDM.doInitialSyncOnLoad();
    TheBDM.fetchAllRegisteredScrAddrData();
    TheBDM.scanRegisteredTxForWallet(wlt);
 
-   uint64_t balanceWlt;
-   uint64_t balanceDB;
-   
-   balanceWlt = wlt.getScrAddrObjByKey(scrAddrA_).getFullBalance();
-   balanceDB  = iface_->getBalanceForScrAddr(scrAddrA_);
-   EXPECT_EQ(balanceWlt,   50*COIN);
-   EXPECT_EQ(balanceDB,    50*COIN);
-   
-   balanceWlt = wlt.getScrAddrObjByKey(scrAddrB_).getFullBalance();
-   balanceDB  = iface_->getBalanceForScrAddr(scrAddrB_);
-   EXPECT_EQ(balanceWlt,    0*COIN);
-   EXPECT_EQ(balanceDB,     0*COIN);
+   cout << wlt.getScrAddrObjByKey(scrAddrA_).getFullBalance() << endl;
+   cout << wlt.getScrAddrObjByKey(scrAddrB_).getFullBalance() << endl;
+   cout << wlt.getScrAddrObjByKey(scrAddrC_).getFullBalance() << endl;
+   cout << wlt.getScrAddrObjByKey(scrAddrD_).getFullBalance() << endl;
+   cout << endl;
 
-   balanceWlt = wlt.getScrAddrObjByKey(scrAddrC_).getFullBalance();
-   balanceDB  = iface_->getBalanceForScrAddr(scrAddrC_);
-   EXPECT_EQ(balanceWlt,  100*COIN);
-   EXPECT_EQ(balanceDB,   100*COIN);
+   for(uint32_t i=0; i<4;  i++)
+   {
+      vector<UnspentTxOut> vutxo;
+      vutxo = wlt.getScrAddrObjByIndex(i).getFullTxOutList(2);
+      cout << wlt.getScrAddrObjByIndex(i).getScrAddr().toHexStr() << endl;
+      for(uint32_t j=0; j<vutxo.size(); j++)
+         vutxo[j].pprintOneLine();
+   }
 
-   balanceWlt = wlt.getScrAddrObjByKey(scrAddrD_).getFullBalance();
-   balanceDB  = iface_->getBalanceForScrAddr(scrAddrD_);
-   EXPECT_EQ(balanceWlt,    0*COIN);  // D is not part of the wallet
-   EXPECT_EQ(balanceDB,    50*COIN);
+   BinaryData txWithChangeHash = READHEX(
+      "7f47caaade4bd25b1dc8639411600fd5c279e402bd01c0a0b3c703caf05cc229");
+   BinaryData txWithChange = READHEX(
+      "0100000001aee7e7fc832d028f454d4fa1ca60ba2f1760d35a80570cb63fe0d6"
+      "dd4755087a000000004a49304602210038fcc428e8f28ebea2e8682a611ac301"
+      "2aedf5289535f3776c3b3acf5fbcff74022100c51c373fab30abd0e9a594be13"
+      "8bdd99a21cdcdb2258cf9795c3d569ac25c3aa01ffffffff0200ca9a3b000000"
+      "001976a914cb2abde8bccacc32e893df3a054b9ef7f227a4ce88ac00286bee00"
+      "0000001976a914ee26c56fc1d942be8d7a24b2a1001dd89469398088ac000000"
+      "00");
+
+   /////
+   TheBDM.addNewZeroConfTx(txWithChange, 1300000000, false);
+
+   cout << wlt.getScrAddrObjByKey(scrAddrA_).getFullBalance() << endl;
+   cout << wlt.getScrAddrObjByKey(scrAddrB_).getFullBalance() << endl;
+   cout << wlt.getScrAddrObjByKey(scrAddrC_).getFullBalance() << endl;
+   cout << wlt.getScrAddrObjByKey(scrAddrD_).getFullBalance() << endl;
+   cout << endl;
+
+   for(uint32_t i=0; i<4;  i++)
+   {
+      vector<UnspentTxOut> vutxo;
+      vutxo = wlt.getScrAddrObjByIndex(i).getFullTxOutList(2);
+      cout << wlt.getScrAddrObjByIndex(i).getScrAddr().toHexStr() << endl;
+      for(uint32_t j=0; j<vutxo.size(); j++)
+         vutxo[j].pprintOneLine();
+   }
 
 
-   BinaryData newTx = READHEX(
-     "01000000019b2468285fc191b7a033b2f32b3de8f0c39d1eac622f5132565f1e"
-     "a8ca74ec8d000000004a4930460221007a284fa21364d749389ff62328e837dd"
-     "2676cbe4e202c0766e3950cbd0a911e40221005ac1541e381b6d358df08cce6a"
-     "2869b76d5ffe05b6aaca5c03ebcba8559c4ede01ffffffff0100f2052a010000"
-     "001976a914c522664fb0e55cdc5c0cea73b4aad97ec834323288ac00000000");
+   /////
+   TheBDM.rescanWalletZeroConf(wlt);
 
-   TheBDM.addNewZeroConfTx(newTx, 1300000000, false);
+   cout << wlt.getScrAddrObjByKey(scrAddrA_).getFullBalance() << endl;
+   cout << wlt.getScrAddrObjByKey(scrAddrB_).getFullBalance() << endl;
+   cout << wlt.getScrAddrObjByKey(scrAddrC_).getFullBalance() << endl;
+   cout << wlt.getScrAddrObjByKey(scrAddrD_).getFullBalance() << endl;
+   cout << endl;
 
-   balanceWlt = wlt.getScrAddrObjByKey(scrAddrA_).getFullBalance();
-   balanceDB  = iface_->getBalanceForScrAddr(scrAddrA_);
-   EXPECT_EQ(balanceWlt,   50*COIN);
-   EXPECT_EQ(balanceDB,    50*COIN);
-   
-   balanceWlt = wlt.getScrAddrObjByKey(scrAddrB_).getFullBalance();
-   balanceDB  = iface_->getBalanceForScrAddr(scrAddrB_);
-   EXPECT_EQ(balanceWlt,    0*COIN);
-   EXPECT_EQ(balanceDB,     0*COIN);
-
-   balanceWlt = wlt.getScrAddrObjByKey(scrAddrC_).getFullBalance();
-   balanceDB  = iface_->getBalanceForScrAddr(scrAddrC_);
-   EXPECT_EQ(balanceWlt,  100*COIN);
-   EXPECT_EQ(balanceDB,   100*COIN);
-
-   balanceWlt = wlt.getScrAddrObjByKey(scrAddrD_).getFullBalance();
-   balanceDB  = iface_->getBalanceForScrAddr(scrAddrD_);
-   EXPECT_EQ(balanceWlt,    0*COIN);  // D is not part of the wallet
-   EXPECT_EQ(balanceDB,    50*COIN);
+   for(uint32_t i=0; i<4;  i++)
+   {
+      vector<UnspentTxOut> vutxo;
+      vutxo = wlt.getScrAddrObjByIndex(i).getFullTxOutList(2);
+      cout << wlt.getScrAddrObjByIndex(i).getScrAddr().toHexStr() << endl;
+      for(uint32_t j=0; j<vutxo.size(); j++)
+         vutxo[j].pprintOneLine();
+   }
    
 }
-*/
 
 // This was really just to time the logging to determine how much impact it 
 // has.  It looks like writing to file is about 1,000,000 logs/sec, while 
