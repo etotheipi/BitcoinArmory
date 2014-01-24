@@ -7458,21 +7458,14 @@ TEST_F(BlockUtilsWithWalletTest, ZeroConfUpdate)
    TheBDM.fetchAllRegisteredScrAddrData();
    TheBDM.scanRegisteredTxForWallet(wlt);
 
-   cout << wlt.getScrAddrObjByKey(scrAddrA_).getFullBalance() << endl;
-   cout << wlt.getScrAddrObjByKey(scrAddrB_).getFullBalance() << endl;
-   cout << wlt.getScrAddrObjByKey(scrAddrC_).getFullBalance() << endl;
-   cout << wlt.getScrAddrObjByKey(scrAddrD_).getFullBalance() << endl;
-   cout << endl;
-
-   for(uint32_t i=0; i<4;  i++)
-   {
-      vector<UnspentTxOut> vutxo;
-      vutxo = wlt.getScrAddrObjByIndex(i).getFullTxOutList(2);
-      cout << wlt.getScrAddrObjByIndex(i).getScrAddr().toHexStr() << endl;
-      for(uint32_t j=0; j<vutxo.size(); j++)
-         vutxo[j].pprintOneLine();
-   }
-
+   uint64_t balanceWlt;
+   uint64_t balanceDB;
+   
+   EXPECT_EQ(wlt.getScrAddrObjByKey(scrAddrA_).getFullBalance(),  50*COIN);
+   EXPECT_EQ(wlt.getScrAddrObjByKey(scrAddrB_).getFullBalance(),  50*COIN);
+   EXPECT_EQ(wlt.getScrAddrObjByKey(scrAddrC_).getFullBalance(),   0*COIN);
+   EXPECT_EQ(wlt.getScrAddrObjByKey(scrAddrD_).getFullBalance(),   0*COIN);
+   
    BinaryData txWithChangeHash = READHEX(
       "7f47caaade4bd25b1dc8639411600fd5c279e402bd01c0a0b3c703caf05cc229");
    BinaryData txWithChange = READHEX(
@@ -7486,40 +7479,13 @@ TEST_F(BlockUtilsWithWalletTest, ZeroConfUpdate)
 
    /////
    TheBDM.addNewZeroConfTx(txWithChange, 1300000000, false);
-
-   cout << wlt.getScrAddrObjByKey(scrAddrA_).getFullBalance() << endl;
-   cout << wlt.getScrAddrObjByKey(scrAddrB_).getFullBalance() << endl;
-   cout << wlt.getScrAddrObjByKey(scrAddrC_).getFullBalance() << endl;
-   cout << wlt.getScrAddrObjByKey(scrAddrD_).getFullBalance() << endl;
-   cout << endl;
-
-   for(uint32_t i=0; i<4;  i++)
-   {
-      vector<UnspentTxOut> vutxo;
-      vutxo = wlt.getScrAddrObjByIndex(i).getFullTxOutList(2);
-      cout << wlt.getScrAddrObjByIndex(i).getScrAddr().toHexStr() << endl;
-      for(uint32_t j=0; j<vutxo.size(); j++)
-         vutxo[j].pprintOneLine();
-   }
-
-
-   /////
    TheBDM.rescanWalletZeroConf(wlt);
 
-   cout << wlt.getScrAddrObjByKey(scrAddrA_).getFullBalance() << endl;
-   cout << wlt.getScrAddrObjByKey(scrAddrB_).getFullBalance() << endl;
-   cout << wlt.getScrAddrObjByKey(scrAddrC_).getFullBalance() << endl;
-   cout << wlt.getScrAddrObjByKey(scrAddrD_).getFullBalance() << endl;
-   cout << endl;
+   EXPECT_EQ(wlt.getScrAddrObjByKey(scrAddrA_).getFullBalance(),  50*COIN);
+   EXPECT_EQ(wlt.getScrAddrObjByKey(scrAddrB_).getFullBalance(),  40*COIN);
+   EXPECT_EQ(wlt.getScrAddrObjByKey(scrAddrC_).getFullBalance(),  10*COIN);
+   EXPECT_EQ(wlt.getScrAddrObjByKey(scrAddrD_).getFullBalance(),   0*COIN);
 
-   for(uint32_t i=0; i<4;  i++)
-   {
-      vector<UnspentTxOut> vutxo;
-      vutxo = wlt.getScrAddrObjByIndex(i).getFullTxOutList(2);
-      cout << wlt.getScrAddrObjByIndex(i).getScrAddr().toHexStr() << endl;
-      for(uint32_t j=0; j<vutxo.size(); j++)
-         vutxo[j].pprintOneLine();
-   }
    
 }
 

@@ -548,12 +548,11 @@ TxOut Tx::getTxOutCopy(int i)
    assert(isInitialized());
    uint32_t txoutSize = offsetsTxOut_[i+1] - offsetsTxOut_[i];
    TxOut out(dataCopy_.getPtr()+offsetsTxOut_[i], txoutSize, txRefObj_, i);
-   
+   out.setParentHash(getThisHash());
+
    if(txRefObj_.isInitialized())
-   {
-      out.setParentHash(getThisHash());
       out.setParentHeight(txRefObj_.getBlockHeight());
-   }
+
    return out;
 }
 
