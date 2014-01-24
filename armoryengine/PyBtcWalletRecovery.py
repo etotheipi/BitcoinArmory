@@ -280,6 +280,8 @@ class PyBtcWalletRecovery(object):
       self.UIreport = ''
       self.UID = ''
       
+      SecurePassphrase = None
+      
       self.naddress = 0
       addrDict = {} #holds address chain sequentially, ordered by chainIndex, as lists: [addrEntry, hashVal, naddress, byteLocation, rawData]
 
@@ -372,7 +374,6 @@ class PyBtcWalletRecovery(object):
                else: return self.BuildLogFile(-4, ProgDlg, returnError)
 
          #if the wallet uses encryption, unlock ROOT and verify it
-         SecurePassphrase = None
          if toRecover.isLocked and self.WO==0:
             self.useEnc=1
             SecurePassphrase = SecureBinaryData(Passphrase)

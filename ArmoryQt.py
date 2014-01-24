@@ -40,6 +40,7 @@ from qtdialogs import *
 from ui.Wizards import WalletWizard
 
 
+
 # PyQt4 Imports
 # Over 20,000 lines of python to help us out
 # All the twisted/networking functionality
@@ -178,9 +179,6 @@ class ArmoryMainWindow(QMainWindow):
 
       self.lblArmoryStatus = QRichLabel('<font color=%s>Offline</font> ' % 
                                       htmlColor('TextWarn'), doWrap=False)
-      
-      self.pbarWalletCheck = QProgressBar(self)
-      self.pbarWalletCheck.setMaximum(100)
       
       self.statusBar().insertPermanentWidget(0, self.lblArmoryStatus)
 
@@ -642,6 +640,8 @@ class ArmoryMainWindow(QMainWindow):
          self.ledgerView.setColumnWidth(LEDGERCOLS.NumConf, 20)
          self.ledgerView.setColumnWidth(LEDGERCOLS.TxDir,   72)
 
+      haveGUI[0] = True
+      
       self.checkWallets()
       reactor.callLater(0.1,  self.execIntroDialog)
       reactor.callLater(1, self.Heartbeat)
@@ -651,8 +651,6 @@ class ArmoryMainWindow(QMainWindow):
       elif not self.firstLoad:
          # Don't need to bother the user on the first load with updating
          reactor.callLater(0.2, self.checkForLatestVersion)
-
-      haveGUI = True
    ####################################################
    def factoryReset(self):
       reply = QMessageBox.information(self,'Revert all Settings?', \

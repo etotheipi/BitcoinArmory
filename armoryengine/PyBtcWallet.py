@@ -929,7 +929,7 @@ class PyBtcWallet(object):
    #############################################################################
    def fillAddressPool(self, numPool=None, isActuallyNew=True, doRegister=True, GUI=True):
 
-      if GUI == False or haveGUI == False:
+      if GUI == False or haveGUI[0] == False:
          return self.fillAddressPool_(numPool, isActuallyNew, doRegister)
       
       if not numPool:
@@ -1460,7 +1460,7 @@ class PyBtcWallet(object):
                                     extraFileUpdates=[],
                                     kdfObj=None, GUI=True):
 
-      if GUI and haveGUI == True:
+      if GUI and haveGUI[0] == True:
          from qtdialogs import DlgProgress
          dlgprg = DlgProgress(self.mainWnd, self.mainWnd, HBar=len(self.addrMap), Title='Changing Wallet Encryption')         
          dlgprg.exec_(self.changeWalletEncryption_(secureKdfOutput, securePassphrase, extraFileUpdates, kdfObj, DlgPrg = dlgprg, async=dlgprg.Kill))
@@ -2633,7 +2633,7 @@ class PyBtcWallet(object):
       if self.isLocked == False:
          if self.useEncryption == False: return
       
-      if GUI == True and haveGUI == True:
+      if GUI == True and haveGUI[0] == True:
          LOGDEBUG('Attempting to unlock wallet: %s', self.uniqueIDB58)
          if not secureKdfOutput and not securePassphrase:
             raise PassphraseError, "No passphrase/key provided to unlock wallet!"
@@ -2722,7 +2722,7 @@ class PyBtcWallet(object):
    #############################################################################
    def lock(self, GUI=True):
       
-      if GUI and haveGUI == True:
+      if GUI and haveGUI[0] == True:
          longlock = 0
          
          for addr160,addrObj in self.addrMap.iteritems():

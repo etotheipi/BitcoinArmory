@@ -13927,7 +13927,6 @@ class DlgWltRecoverWallet(ArmoryDialog):
 #################################################################################
 class DlgProgress(ArmoryDialog):
    def __init__(self, parent=None, main=None, Interrupt=None, HBar=None, Title=None, TProgress=None):
-      super(DlgProgress, self).__init__(parent, main)
 
       self.running = 1
       self.Done = 0
@@ -13941,18 +13940,17 @@ class DlgProgress(ArmoryDialog):
 
       self.btnStop = None
       
+      if main is not None:
+         main.emit(SIGNAL('initTrigger'), self)
+      else: return      
+      
+      while self.status == 0:
+         time.sleep(0.01)      
+         
       self.connect(self, SIGNAL('Update'), self.UpdateDlg)
       self.connect(self, SIGNAL('PromptPassphrase'), self.PromptPassphrase)
       self.connect(self, SIGNAL('Exit'), self.Exit)
       
-      if main is not None:
-         main.emit(SIGNAL('initTrigger'), self)
-      else: return
-      
-      from time import sleep
-      while self.status == 0:
-         sleep(0.01)
-
    def UpdateDlg(self, text=None, HBar=None, Title=None):
 
       if text is not None: self.lblDesc.setText(text)
