@@ -790,6 +790,8 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
          result = ''
          for pyTx in pyTxList:
             for pyTxIn in pyTx.inputs:
+               # We expect all these addresses to be PubKeyHash, meaning that the 
+               # public key must be in the TxIn script, and thus will be avail.
                sendingAddrHash = TxInScriptExtractAddr160IfAvail(pyTxIn)
                if len(sendingAddrHash) > 0:
                   sendingAddrStr = hash160_to_addrStr(sendingAddrHash)

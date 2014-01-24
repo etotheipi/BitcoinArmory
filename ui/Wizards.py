@@ -124,7 +124,7 @@ class WalletWizard(ArmoryWizard):
                                 QWizard.NextButton,
                                 QWizard.FinishButton])
    def done(self, event):
-      if self.newWallet and not self.isBackupCreated:
+      if self.newWallet and not self.walletBackupPage.pageFrame.isBackupCreated:
          reply = QMessageBox.question(self, 'Wallet Backup Warning', \
                'You have not made a backup for your new wallet. Backing up your wallet ' +
                'is critical securing  your bitcoins. If you do not backup your wallet now ' +
@@ -213,11 +213,9 @@ class VerifyPassphrasePage(ArmoryWizardPage):
 class WalletBackupPage(ArmoryWizardPage):
    def __init__(self, wizard):
       super(WalletBackupPage, self).__init__(wizard,
-                                WalletBackupFrame(wizard, wizard.main, "Backup Wallet", self.onBackupCreated))
+                                WalletBackupFrame(wizard, wizard.main, "Backup Wallet"))
+      self.myWizard = wizard
       self.setFinalPage(True)
-   
-   def onBackupCreated(self):
-      self.parent().isBackupCreated = True
 
 class CreateWatchingOnlyWalletPage(ArmoryWizardPage):
    def __init__(self, wizard):

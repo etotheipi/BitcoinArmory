@@ -38,6 +38,7 @@ HORIZONTAL = 'horizontal'
 CHANGE_ADDR_DESCR_STRING = '[[ Change received ]]'
 HTTP_VERSION_FILE = 'https://bitcoinarmory.com/versions.txt'
 
+runningDialogsList = []
 
 
 ################################################################################
@@ -695,9 +696,12 @@ class ArmoryDialog(QDialog):
          self.setWindowTitle('Armory - Bitcoin Wallet Management')
          self.setWindowIcon(QIcon(':/armory_icon_32x32.png'))
 
+   def exec_(self):
+      runningDialogsList.append(self)
+      exec_rt = super(ArmoryDialog, self).exec_()
+      runningDialogsList.remove(self)
 
-
-
+      return exec_rt
 
 ################################################################################
 class QRCodeWidget(QWidget):

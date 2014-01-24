@@ -41,6 +41,7 @@ from qrcodenative import QRCode, QRErrorCorrectLevel
 
 
 indent = ' '*3
+haveGUI = [False]
 
 parser = optparse.OptionParser(usage="%prog [options]\n")
 parser.add_option("--settings",        dest="settingsPath",default='DEFAULT', type="str",          help="load Armory with a specific settings file")
@@ -2300,6 +2301,8 @@ class PyBackgroundThread(threading.Thread):
       self.output     = None
       self.startedAt  = UNINITIALIZED
       self.finishedAt = UNINITIALIZED
+      self.errorThrown = None
+      self.passAsync = None
 
       if len(args)==0:
          self.func  = lambda: ()
@@ -2341,6 +2344,24 @@ class PyBackgroundThread(threading.Thread):
 
       return self.output
 
+   def didThrowError(self):
+      return (self.errorThrown is not None)
+
+   def raiseLastError(self):
+      if self.errorThrown is None:
+         return 
+      raise self.errorThrown
+
+   def getErrorType(self):
+      if self.errorThrown is None:
+         return None
+      return type(self.errorThrown)
+
+   def getErrorMsg(self):
+      if self.errorThrown is None:
+         return ''
+      return self.errorThrown.args[0]
+
 
    def start(self):
       # The prefunc is blocking.  Probably preparing something
@@ -2350,13 +2371,21 @@ class PyBackgroundThread(threading.Thread):
 
    def run(self):
       # This should not be called manually.  Only call start()
-      self.output     = self.func()
+      try:
+         self.output = self.func()
+      except Exception as e:
+         self.errorThrown = e
       self.finishedAt = RightNow()
+      
+      if not self.passAsync: return
+      if hasattr(self.passAsync, '__call__'):
+         self.passAsync()
       
    def reset(self):
       self.output = None
       self.startedAt  = UNINITIALIZED
       self.finishedAt = UNINITIALIZED
+      self.errorThrown = None
 
    def restart(self):
       self.reset()
@@ -2366,16 +2395,18 @@ class PyBackgroundThread(threading.Thread):
 # Define a decorator that allows the function to be called asynchronously
 def AllowAsync(func):
    def wrappedFunc(*args, **kwargs):
-
-      if not 'async' in kwargs or not kwargs['async']==True:
+      if not 'async' in kwargs or kwargs['async']==False:
          # Run the function normally
          if 'async' in kwargs:
             del kwargs['async']
          return func(*args, **kwargs)
       else:
          # Run the function as a background thread
+         passAsync = kwargs['async']
          del kwargs['async']
+         
          thr = PyBackgroundThread(func, *args, **kwargs)
+         thr.passAsync = passAsync
          thr.start()
          return thr
 

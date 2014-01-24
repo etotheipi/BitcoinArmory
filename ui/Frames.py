@@ -420,11 +420,11 @@ class WalletBackupFrame(ArmoryFrame):
    FEATURES = enum('ProtGen', 'ProtImport', 'LostPass', 'Durable', \
                    'Visual', 'Physical', 'Count')
    OPTIONS = enum('Paper1', 'PaperN', 'DigPlain', 'DigCrypt', 'Export', 'Count')
-   def __init__(self, parent, main, initLabel='', backupCreatedCallback=None):
+   def __init__(self, parent, main, initLabel=''):
       super(WalletBackupFrame, self).__init__(parent, main)
       # Don't have a wallet yet so assume false.
       self.hasImportedAddr = False
-      self.backupCreatedCallback = backupCreatedCallback
+      self.isBackupCreated = False
       self.lblTitle = QRichLabel(tr("<b>Backup Options</b>"))
       lblTitleDescr = QRichLabel(tr("""
          Armory wallets only need to be backed up <u>one time, ever.</u>
@@ -818,8 +818,8 @@ class WalletBackupFrame(ArmoryFrame):
                      return
          DlgShowKeyList(self.wlt, self.parent(), self.main).exec_()
          isBackupCreated = True
-      if isBackupCreated and self.backupCreatedCallback:
-         self.backupCreatedCallback()
+      if isBackupCreated:
+         self.isBackupCreated = True
          
       
 class WizardCreateWatchingOnlyWalletFrame(ArmoryFrame):
