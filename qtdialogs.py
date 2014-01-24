@@ -4344,19 +4344,12 @@ class DlgConfirmSend(ArmoryDialog):
 
       # Acknowledge if the user has selected a non-std change location
       lblSpecialChange = QRichLabel('')
-<<<<<<< HEAD
       if self.main.usermode == USERMODE.Expert and changeBehave:
          chngScrAddr = changeBehave[0]
          chngAddrStr = scrAddr_to_addrStr(chngScrAddr)
          atype, chngAddr160 = addrStr_to_hash160(chngAddrStr)
          if atype == P2SHBYTE:
             LOGWARN('P2SH Change address received')
-
-=======
-      if self.main.usermode == USERMODE.Expert and changeBehave[0]:
-         chngAddr160 = changeBehave[0]
-         chngAddrStr = hash160_to_addrStr(chngAddr160)
->>>>>>> 0.91-dev
          chngBehaveStr = changeBehave[1]
          if chngBehaveStr == 'Feedback':
             lblSpecialChange.setText('*Change will be sent back to first input address')
