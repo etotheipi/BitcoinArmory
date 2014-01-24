@@ -652,7 +652,7 @@ class ArmoryMainWindow(QMainWindow):
          # Don't need to bother the user on the first load with updating
          reactor.callLater(0.2, self.checkForLatestVersion)
 
-
+      haveGUI = True
    ####################################################
    def factoryReset(self):
       reply = QMessageBox.information(self,'Revert all Settings?', \
