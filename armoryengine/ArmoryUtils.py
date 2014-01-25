@@ -41,7 +41,7 @@ from qrcodenative import QRCode, QRErrorCorrectLevel
 
 
 indent = ' '*3
-haveGUI = [False]
+haveGUI = [False, None]
 
 parser = optparse.OptionParser(usage="%prog [options]\n")
 parser.add_option("--settings",        dest="settingsPath",default='DEFAULT', type="str",          help="load Armory with a specific settings file")
