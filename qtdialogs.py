@@ -35,6 +35,8 @@ BACKUP_TYPE_135a_TEXT = tr('Version 1.35a (5 lines Unencrypted)')
 BACKUP_TYPE_135a_SP_TEXT = tr('Version 1.35a (5 lines SecurePrint\xe2\x84\xa2)')
 BACKUP_TYPE_135c_TEXT = tr('Version 1.35c (3 lines Unencrypted)')
 BACKUP_TYPE_135c_SP_TEXT = tr('Version 1.35c (3 lines SecurePrint\xe2\x84\xa2)')
+
+
 ################################################################################
 class DlgUnlockWallet(ArmoryDialog):
    def __init__(self, wlt, parent=None, main=None, unlockMsg='Unlock Wallet', \
@@ -297,9 +299,9 @@ class DlgUnlockWallet(ArmoryDialog):
          self.wlt.unlock(securePassphrase=self.securePassphrase)
 
          if self.returnPassphrase == False: 
-			self.edtPasswd.setText('')
+            self.edtPasswd.setText('')
          else: 
-			self.wlt.lock() #if we are trying to recover the plain passphrase, make sure the wallet is locked
+            self.wlt.lock() #if we are trying to recover the plain passphrase, make sure the wallet is locked
 
          self.securePassphrase.destroy()
          self.accept()
@@ -11556,14 +11558,6 @@ class QRadioButtonBackupCtr(QRadioButton):
 
 ################################################################################
 class DlgBackupCenter(ArmoryDialog):
-   """
-   Some static enums, and a QRadioButton with mouse-enter/mouse-leave events
-   """
-   FEATURES = enum('ProtGen', 'ProtImport', 'LostPass', 'Durable', \
-                   'Visual', 'Physical', 'Count')
-   OPTIONS = enum('Paper1', 'PaperN', 'DigPlain', 'DigCrypt', 'Export', 'Count')
-
-
 
    #############################################################################
    def __init__(self, parent, main, wlt):
@@ -11573,395 +11567,21 @@ class DlgBackupCenter(ArmoryDialog):
       wltID = wlt.uniqueIDB58
       wltName = wlt.labelName
 
-      self.hasImportedAddr = self.wlt.hasAnyImported()
-
-      lblTitle = QRichLabel(tr("""
-         <b>Backup Options for Wallet "%s" (%s)</b>""" % (wltName, wltID)))
-
-      lblTitleDescr = QRichLabel(tr("""
-         Armory wallets only need to be backed up <u>one time, ever.</u>
-         The backup is good no matter how many addresses you use. """))
-      lblTitleDescr.setOpenExternalLinks(True)
-
-
-      self.optPaperBackupTop = QRadioButtonBackupCtr(self, \
-                                    tr('Printable Paper Backup'), self.OPTIONS.Paper1)
-      self.optPaperBackupOne = QRadioButtonBackupCtr(self, \
-                                    tr('Single-Sheet (Recommended)'), self.OPTIONS.Paper1)
-      self.optPaperBackupFrag = QRadioButtonBackupCtr(self, \
-                                    tr('Fragmented Backup\xe2\x84\xa2 (M-of-N)'), self.OPTIONS.PaperN)
-
-      self.optDigitalBackupTop = QRadioButtonBackupCtr(self, \
-                                    tr('Digital Backup'), self.OPTIONS.DigPlain)
-      self.optDigitalBackupPlain = QRadioButtonBackupCtr(self, \
-                                    tr('Unencrypted'), self.OPTIONS.DigPlain)
-      self.optDigitalBackupCrypt = QRadioButtonBackupCtr(self, \
-                                    tr('Encrypted'), self.OPTIONS.DigCrypt)
-
-      self.optIndivKeyListTop = QRadioButtonBackupCtr(self, \
-                                    tr('Export Key Lists'), self.OPTIONS.Export)
-
-
-      self.optPaperBackupTop.setFont(GETFONT('Var', bold=True))
-      self.optDigitalBackupTop.setFont(GETFONT('Var', bold=True))
-      self.optIndivKeyListTop.setFont(GETFONT('Var', bold=True))
-
-      # I need to be able to unset the sub-options when they become disabled
-      self.optPaperBackupNONE = QRadioButton('')
-      self.optDigitalBackupNONE = QRadioButton('')
-
-      btngrpTop = QButtonGroup(self)
-      btngrpTop.addButton(self.optPaperBackupTop)
-      btngrpTop.addButton(self.optDigitalBackupTop)
-      btngrpTop.addButton(self.optIndivKeyListTop)
-      btngrpTop.setExclusive(True)
-
-      btngrpPaper = QButtonGroup(self)
-      btngrpPaper.addButton(self.optPaperBackupNONE)
-      btngrpPaper.addButton(self.optPaperBackupOne)
-      btngrpPaper.addButton(self.optPaperBackupFrag)
-      btngrpPaper.setExclusive(True)
-
-      btngrpDig = QButtonGroup(self)
-      btngrpDig.addButton(self.optDigitalBackupNONE)
-      btngrpDig.addButton(self.optDigitalBackupPlain)
-      btngrpDig.addButton(self.optDigitalBackupCrypt)
-      btngrpDig.setExclusive(True)
-
-      self.connect(self.optPaperBackupTop, SIGNAL(CLICKED), self.optionClicked)
-      self.connect(self.optPaperBackupOne, SIGNAL(CLICKED), self.optionClicked)
-      self.connect(self.optPaperBackupFrag, SIGNAL(CLICKED), self.optionClicked)
-      self.connect(self.optDigitalBackupTop, SIGNAL(CLICKED), self.optionClicked)
-      self.connect(self.optDigitalBackupPlain, SIGNAL(CLICKED), self.optionClicked)
-      self.connect(self.optDigitalBackupCrypt, SIGNAL(CLICKED), self.optionClicked)
-      self.connect(self.optIndivKeyListTop, SIGNAL(CLICKED), self.optionClicked)
-
-
-      spacer = lambda: QSpacerItem(20, 1, QSizePolicy.Fixed, QSizePolicy.Expanding)
-      layoutOpts = QGridLayout()
-      layoutOpts.addWidget(self.optPaperBackupTop, 0, 0, 1, 2)
-      layoutOpts.addItem(spacer(), 1, 0)
-      layoutOpts.addItem(spacer(), 2, 0)
-      layoutOpts.addWidget(self.optDigitalBackupTop, 3, 0, 1, 2)
-      layoutOpts.addItem(spacer(), 4, 0)
-      layoutOpts.addItem(spacer(), 5, 0)
-      layoutOpts.addWidget(self.optIndivKeyListTop, 6, 0, 1, 2)
-
-      layoutOpts.addWidget(self.optPaperBackupOne, 1, 1)
-      layoutOpts.addWidget(self.optPaperBackupFrag, 2, 1)
-      layoutOpts.addWidget(self.optDigitalBackupPlain, 4, 1)
-      layoutOpts.addWidget(self.optDigitalBackupCrypt, 5, 1)
-      layoutOpts.setColumnStretch(0, 0)
-      layoutOpts.setColumnStretch(1, 1)
-
-      frmOpts = QFrame()
-      frmOpts.setLayout(layoutOpts)
-      frmOpts.setFrameStyle(STYLE_SUNKEN)
-
-
-      self.featuresTips = [None] * self.FEATURES.Count
-      self.featuresLbls = [None] * self.FEATURES.Count
-      self.featuresImgs = [None] * self.FEATURES.Count
-
-
-      F = self.FEATURES
-      self.featuresTips[F.ProtGen] = self.main.createToolTipWidget(tr("""
-         Every time you click "Receive Bitcoins," a new address is generated.
-         All of these addresses are generated from a single seed value, which
-         is included in all backups.   Therefore, all addresses that you have
-         generated so far <b>and</b> will ever generate with this wallet, are
-         protected by this backup! """))
-      if not self.hasImportedAddr:
-         self.featuresTips[F.ProtImport] = self.main.createToolTipWidget(tr("""
-            <i>This wallet <u>does not</u> currently have any imported
-            addresses, so you can safely ignore this feature!</i>.
-            When imported addresses are present, backups only protects those
-            imported before the backup was made!  You must replace that
-            backup if you import more addresses! """))
-      else:
-         self.featuresTips[F.ProtImport] = self.main.createToolTipWidget(tr("""
-            When imported addresses are present, backups only protects those
-            imported before the backup was made!  You must replace that
-            backup if you import more addresses!
-            <i>Your wallet <u>does</u> contain imported addresses<i>."""))
-      self.featuresTips[F.LostPass] = self.main.createToolTipWidget(tr("""
-         Lost/forgotten passphrases are, <b>by far</b>, the most common
-         reason for users losing bitcoins.  It is critical you have
-         at least one backup that works if you forget your wallet
-         passphrase. """))
-      self.featuresTips[F.Durable] = self.main.createToolTipWidget(tr("""
-         USB drives and CD/DVD disks are not intended for long-term storage.
-         They will <i>probably</i> last many years, but not guaranteed
-         even for 3-5 years.   On the other hand, printed text on paper will
-         last many decades, and useful even when thoroughly faded. """))
-      self.featuresTips[F.Visual] = self.main.createToolTipWidget(tr("""
-         The ability to look at a backup and determine if
-         it is still usable.   If a digital backup is stored in a safe
-         deposit box, you have no way to verify its integrity unless
-         you take a secure computer/device with you.  A simple glance at
-         a paper backup is enough to verify that it is still intact. """))
-      self.featuresTips[F.Physical] = self.main.createToolTipWidget(tr("""
-         If multiple pieces/fragments are required to restore this wallet.
-         For instance, encrypted backups require the backup
-         <b>and</b> the passphrase.  This feature is only needed for those
-         concerned about physical security, not just online security."""))
-
-
-      MkFeatLabel = lambda x: QRichLabel(tr(x), doWrap=False)
-      self.featuresLbls[F.ProtGen] = MkFeatLabel('Protects All Future Addresses')
-      self.featuresLbls[F.ProtImport] = MkFeatLabel('Protects Imported Addresses')
-      self.featuresLbls[F.LostPass] = MkFeatLabel('Forgotten Passphrase')
-      self.featuresLbls[F.Durable] = MkFeatLabel('Long-term Durability')
-      self.featuresLbls[F.Visual] = MkFeatLabel('Visual Integrity')
-      self.featuresLbls[F.Physical] = MkFeatLabel('Multi-Point Protection')
-
-      if not self.hasImportedAddr:
-         self.featuresLbls[F.ProtImport].setEnabled(False)
-
-      self.lblSelFeat = QRichLabel('', doWrap=False, hAlign=Qt.AlignHCenter)
-
-      layoutFeat = QGridLayout()
-      layoutFeat.addWidget(self.lblSelFeat, 0, 0, 1, 3)
-      layoutFeat.addWidget(HLINE(), 1, 0, 1, 3)
-      for i in range(self.FEATURES.Count):
-         self.featuresImgs[i] = QLabel('')
-         layoutFeat.addWidget(self.featuresTips[i], i + 2, 0)
-         layoutFeat.addWidget(self.featuresLbls[i], i + 2, 1)
-         layoutFeat.addWidget(self.featuresImgs[i], i + 2, 2)
-      layoutFeat.setColumnStretch(0, 0)
-      layoutFeat.setColumnStretch(1, 1)
-      layoutFeat.setColumnStretch(2, 0)
-
-      frmFeat = QFrame()
-      frmFeat.setLayout(layoutFeat)
-      frmFeat.setFrameStyle(STYLE_SUNKEN)
-
-
-      self.lblDescrSelected = QRichLabel('')
-      frmFeatDescr = makeVertFrame([self.lblDescrSelected])
-      w, h = tightSizeNChar(self, 10)
-      self.lblDescrSelected.setMinimumHeight(h * 8)
-
+      self.walletBackupFrame = WalletBackupFrame(parent, main)
+      self.walletBackupFrame.setWallet(wlt)
       self.btnDone = QPushButton('Done')
-      self.btnDoIt = QPushButton('Create Backup')
       self.connect(self.btnDone, SIGNAL(CLICKED), self.reject)
-      self.connect(self.btnDoIt, SIGNAL(CLICKED), self.clickedDoIt)
-      frmBottomBtns = makeHorizFrame([self.btnDone, STRETCH, self.btnDoIt])
+      frmBottomBtns = makeHorizFrame([STRETCH, self.btnDone])
 
-      ##########################################################################
-      layoutDialog = QGridLayout()
-      layoutDialog.addWidget(lblTitle, 0, 0, 1, 2)
-      layoutDialog.addWidget(lblTitleDescr, 1, 0, 1, 2)
-      layoutDialog.addWidget(frmOpts, 2, 0)
-      layoutDialog.addWidget(frmFeat, 2, 1)
-      layoutDialog.addWidget(frmFeatDescr, 3, 0, 1, 2)
-      layoutDialog.addWidget(frmBottomBtns, 4, 0, 1, 2)
-      layoutDialog.setRowStretch(0, 0)
-      layoutDialog.setRowStretch(1, 0)
-      layoutDialog.setRowStretch(2, 0)
-      layoutDialog.setRowStretch(3, 1)
-      layoutDialog.setRowStretch(4, 0)
+      layoutDialog = QVBoxLayout()
+      
+      layoutDialog.addWidget(self.walletBackupFrame)
+
+      layoutDialog.addWidget(frmBottomBtns)
+
       self.setLayout(layoutDialog)
       self.setWindowTitle("Backup Center")
       self.setMinimumSize(640, 350)
-
-      self.optPaperBackupTop.setChecked(True)
-      self.optPaperBackupOne.setChecked(True)
-      self.setDispFrame(-1)
-      self.optionClicked()
-
-
-
-   #############################################################################
-   def setDispFrame(self, index):
-      if index < 0:
-         self.setDispFrame(self.getIndexChecked())
-      else:
-         # Highlight imported-addr feature if their wallet contains them
-         pcolor = 'TextWarn' if self.hasImportedAddr else 'DisableFG'
-         self.featuresLbls[self.FEATURES.ProtImport].setText(tr(\
-            'Protects Imported Addresses'), color=pcolor)
-
-         txtPaper = tr("""
-               Paper backups protect every address ever generated by your
-               wallet. It is unencrypted, which means it needs to be stored
-               in a secure place, but it will help you recover your wallet
-               if you forget your encryption passphrase!
-               <br><br>
-               <b>You don't need a printer to make a paper backup!
-               The data can be copied by hand with pen and paper.</b>
-               Paper backups are preferred to digital backups, because you
-               know the paper backup will work no matter how many years (or
-               decades) it sits in storage.  """)
-         txtDigital = tr("""
-               Digital backups can be saved to an external hard-drive or
-               USB removable media.  It is recommended you make a few
-               copies to protect against "bit rot" (degradation). <br><br>""")
-         txtDigPlain = tr("""
-               <b><u>IMPORTANT:</u> Do not save an unencrypted digital
-               backup to your primary hard drive!</b>
-               Please save it <i>directly</i> to the backup device.
-               Deleting the file does not guarantee the data is actually
-               gone!  """)
-         txtDigCrypt = tr("""
-               <b><u>IMPORTANT:</u> It is critical that you have at least
-               one unencrypted backup!</b>  Without it, your bitcoins will
-               be lost forever if you forget your passphrase!  This is <b>
-               by far</b> the most common reason users lose coins!  Having
-               at least one paper backup is recommended.""")
-         txtIndivKeys = tr("""
-               View and export invidivual addresses strings,
-               public keys and/or private keys contained in your wallet.
-               This is useful for exporting your private keys to be imported into
-               another wallet app or service.
-               <br><br>
-               You can view/backup imported keys, as well as unused keys in your
-               keypool (pregenerated addresses protected by your backup that
-               have not yet been used). """)
-
-
-         chk = lambda: QPixmap(':/checkmark32.png').scaled(20, 20)
-         _X_ = lambda: QPixmap(':/red_X.png').scaled(16, 16)
-         if index == self.OPTIONS.Paper1:
-            self.lblSelFeat.setText(tr('Single-Sheet Paper Backup'), bold=True)
-            self.featuresImgs[self.FEATURES.ProtGen   ].setPixmap(chk())
-            self.featuresImgs[self.FEATURES.ProtImport].setPixmap(chk())
-            self.featuresImgs[self.FEATURES.LostPass  ].setPixmap(chk())
-            self.featuresImgs[self.FEATURES.Durable   ].setPixmap(chk())
-            self.featuresImgs[self.FEATURES.Visual    ].setPixmap(chk())
-            self.featuresImgs[self.FEATURES.Physical  ].setPixmap(_X_())
-            self.lblDescrSelected.setText(txtPaper)
-         elif index == self.OPTIONS.PaperN:
-            self.lblSelFeat.setText(tr('Fragmented Paper\xe2\x84\xa2 Backup'), bold=True)
-            self.featuresImgs[self.FEATURES.ProtGen   ].setPixmap(chk())
-            self.featuresImgs[self.FEATURES.ProtImport].setPixmap(_X_())
-            self.featuresImgs[self.FEATURES.LostPass  ].setPixmap(chk())
-            self.featuresImgs[self.FEATURES.Durable   ].setPixmap(chk())
-            self.featuresImgs[self.FEATURES.Visual    ].setPixmap(chk())
-            self.featuresImgs[self.FEATURES.Physical  ].setPixmap(chk())
-            self.lblDescrSelected.setText(txtPaper)
-         elif index == self.OPTIONS.DigPlain:
-            self.lblSelFeat.setText(tr('Unencrypted Digital Backup'), bold=True)
-            self.featuresImgs[self.FEATURES.ProtGen   ].setPixmap(chk())
-            self.featuresImgs[self.FEATURES.ProtImport].setPixmap(chk())
-            self.featuresImgs[self.FEATURES.LostPass  ].setPixmap(chk())
-            self.featuresImgs[self.FEATURES.Durable   ].setPixmap(_X_())
-            self.featuresImgs[self.FEATURES.Visual    ].setPixmap(_X_())
-            self.featuresImgs[self.FEATURES.Physical  ].setPixmap(_X_())
-            self.lblDescrSelected.setText(txtDigital + txtDigPlain)
-         elif index == self.OPTIONS.DigCrypt:
-            self.lblSelFeat.setText(tr('Encrypted Digital Backup'), bold=True)
-            self.featuresImgs[self.FEATURES.ProtGen   ].setPixmap(chk())
-            self.featuresImgs[self.FEATURES.ProtImport].setPixmap(chk())
-            self.featuresImgs[self.FEATURES.LostPass  ].setPixmap(_X_())
-            self.featuresImgs[self.FEATURES.Durable   ].setPixmap(_X_())
-            self.featuresImgs[self.FEATURES.Visual    ].setPixmap(_X_())
-            self.featuresImgs[self.FEATURES.Physical  ].setPixmap(chk())
-            self.lblDescrSelected.setText(txtDigital + txtDigCrypt)
-         elif index == self.OPTIONS.Export:
-            self.lblSelFeat.setText(tr('Export Key Lists'), bold=True)
-            self.featuresImgs[self.FEATURES.ProtGen   ].setPixmap(chk())
-            self.featuresImgs[self.FEATURES.ProtImport].setPixmap(chk())
-            self.featuresImgs[self.FEATURES.LostPass  ].setPixmap(chk())
-            self.featuresImgs[self.FEATURES.Durable   ].setPixmap(_X_())
-            self.featuresImgs[self.FEATURES.Visual    ].setPixmap(_X_())
-            self.featuresImgs[self.FEATURES.Physical  ].setPixmap(_X_())
-            self.lblDescrSelected.setText(txtIndivKeys)
-         else:
-            LOGERROR('What index was sent to setDispFrame? %d', index)
-
-
-   #############################################################################
-   def getIndexChecked(self):
-      if self.optPaperBackupOne.isChecked():
-         return self.OPTIONS.Paper1
-      elif self.optPaperBackupFrag.isChecked():
-         return self.OPTIONS.PaperN
-      elif self.optPaperBackupTop.isChecked():
-         return self.OPTIONS.Paper1
-      elif self.optDigitalBackupPlain.isChecked():
-         return self.OPTIONS.DigPlain
-      elif self.optDigitalBackupCrypt.isChecked():
-         return self.OPTIONS.DigCrypt
-      elif self.optDigitalBackupTop.isChecked():
-         return self.OPTIONS.DigPlain
-      elif self.optIndivKeyListTop.isChecked():
-         return self.OPTIONS.Export
-      else:
-         return 0
-
-   #############################################################################
-   def optionClicked(self):
-      if self.optPaperBackupTop.isChecked():
-         self.optPaperBackupOne.setEnabled(True)
-         self.optPaperBackupFrag.setEnabled(True)
-         self.optDigitalBackupPlain.setEnabled(False)
-         self.optDigitalBackupCrypt.setEnabled(False)
-         self.optDigitalBackupPlain.setChecked(False)
-         self.optDigitalBackupCrypt.setChecked(False)
-         self.optDigitalBackupNONE.setChecked(True)
-         self.btnDoIt.setText(tr('Create Paper Backup'))
-      elif self.optDigitalBackupTop.isChecked():
-         self.optDigitalBackupPlain.setEnabled(True)
-         self.optDigitalBackupCrypt.setEnabled(True)
-         self.optPaperBackupOne.setEnabled(False)
-         self.optPaperBackupFrag.setEnabled(False)
-         self.optPaperBackupOne.setChecked(False)
-         self.optPaperBackupFrag.setChecked(False)
-         self.optPaperBackupNONE.setChecked(True)
-         self.btnDoIt.setText(tr('Create Digital Backup'))
-      elif self.optIndivKeyListTop.isChecked():
-         self.optPaperBackupOne.setEnabled(False)
-         self.optPaperBackupFrag.setEnabled(False)
-         self.optPaperBackupOne.setChecked(False)
-         self.optPaperBackupFrag.setChecked(False)
-         self.optDigitalBackupPlain.setEnabled(False)
-         self.optDigitalBackupCrypt.setEnabled(False)
-         self.optDigitalBackupPlain.setChecked(False)
-         self.optDigitalBackupCrypt.setChecked(False)
-         self.optDigitalBackupNONE.setChecked(True)
-         self.optPaperBackupNONE.setChecked(True)
-         self.btnDoIt.setText(tr('Export Key Lists'))
-      self.setDispFrame(-1)
-
-
-   def clickedDoIt(self):
-      if self.optPaperBackupOne.isChecked():
-         self.accept()
-         OpenPaperBackupWindow('Single', self.parent, self.main, self.wlt)
-      elif self.optPaperBackupFrag.isChecked():
-         self.accept()
-         OpenPaperBackupWindow('Frag', self.parent, self.main, self.wlt)
-      elif self.optDigitalBackupPlain.isChecked():
-         if self.main.digitalBackupWarning():
-            self.main.makeWalletCopy(self, self.wlt, 'Decrypt', 'decrypt')
-      elif self.optDigitalBackupCrypt.isChecked():
-         self.main.makeWalletCopy(self, self.wlt, 'Encrypt', 'encrypt')
-      elif self.optIndivKeyListTop.isChecked():
-         if self.wlt.useEncryption and self.wlt.isLocked:
-            dlg = DlgUnlockWallet(self.wlt, self, self.main, 'Unlock Private Keys')
-            if not dlg.exec_():
-               if self.main.usermode == USERMODE.Expert:
-                  QMessageBox.warning(self, tr('Unlock Failed'), tr("""
-                     Wallet was not be unlocked.  The public keys and addresses
-                     will still be shown, but private keys will not be available
-                     unless you reopen the dialog with the correct passphrase."""), \
-                     QMessageBox.Ok)
-               else:
-                  QMessageBox.warning(self, tr('Unlock Failed'), tr("""
-                     'Wallet could not be unlocked to display individual keys."""), \
-                     QMessageBox.Ok)
-                  if self.main.usermode == USERMODE.Standard:
-                     return
-         DlgShowKeyList(self.wlt, self.parent, self.main).exec_()
-         self.accept()
-      else:
-         return 0
-
-
-
-
-
 
 ################################################################################
 class DlgSimpleBackup(ArmoryDialog):
@@ -13800,7 +13420,7 @@ def finishPrintingBackup(parent, btype=None):
 
 # Need to put circular imports at the end of the script to avoid an import deadlock
 # DlgWalletSelect uses SelectWalletFrame which uses DlgCoinControl
-from ui.Frames import SelectWalletFrame
+from ui.Frames import SelectWalletFrame, WalletBackupFrame
 
 ################################################################################
 class DlgReplaceWallet(ArmoryDialog):
@@ -13963,27 +13583,9 @@ class DlgWltRecoverWallet(ArmoryDialog):
       self.edtWalletPath.setText(QFileDialog.getOpenFileName())
 
 #################################################################################
-"""
-Progress bar dialog. The dialog is guaranteed to be created from the main thread.
-
-The dialog is modal, meaning all other windows are barred from user interaction as long as this dialog is within its message loop
-The message loop is entered either through the usual exec_(), which will lock the caller thread, or spawn_(), which will lock the
-main thread and the caller thread.
-
-The dialog reject() signal is overloaded to render it useless. The dialog cannot be killed through the user interface. As such, it
-is the caller responsibility to call Kill() on the dialog once the process is over. Calling Kill() will also release the locked threads
-
-To make a progress dialog that can be killed by the user (before the process is complete), pass a string to Interrupt. It will add a
-button with that text that will kill the progress dialog on click. Since killing the dialog releases the threads it had previously locked,
-you have to handle that scenario with the thread running the calculations yourself
-(cf. PyBtcWalletRecovery for an implementation of that mechanic).
-
-Passing a string to Title will draw a title.
-Passing an integer to HBar will draw a progress bar with a Max value set to that integer. It can be updated through UpdateHBar(int)
-Passing a string TProgress will draw a label with that string. It can be updated through UpdateText(str)
-"""
 class DlgProgress(ArmoryDialog):
    def __init__(self, parent=None, main=None, Interrupt=None, HBar=None, Title=None, TProgress=None):
+
       self.running = 1
       self.Done = 0
       self.status = 0
@@ -13995,18 +13597,18 @@ class DlgProgress(ArmoryDialog):
       self.TProgress = None
 
       self.btnStop = None
-
-      from threading import RLock
-      self.thread_lock = RLock()
-
+      
       if main is not None:
          main.emit(SIGNAL('initTrigger'), self)
-      else: return
-
-      from time import sleep
+      else: return      
+      
       while self.status == 0:
-         sleep(0.01)
-
+         time.sleep(0.01)      
+         
+      self.connect(self, SIGNAL('Update'), self.UpdateDlg)
+      self.connect(self, SIGNAL('PromptPassphrase'), self.PromptPassphrase)
+      self.connect(self, SIGNAL('Exit'), self.Exit)
+      
    def UpdateDlg(self, text=None, HBar=None, Title=None):
 
       if text is not None: self.lblDesc.setText(text)
@@ -14059,17 +13661,16 @@ class DlgProgress(ArmoryDialog):
       self.running = 0
       self.done(0)
 
-   def spawn_(self):
+   def exec_(self, side_thread):
       if self.main is not None:
          self.status = 1
          self.main.emit(SIGNAL('spawnTrigger'), self)
 
-         from time import sleep
-         while self.status == 1:
-            sleep(0.01)
-
-         self.thread_lock.acquire()
-         self.thread_lock.release()
+         side_thread.join();
+         self.Kill()
+         
+         if side_thread.didThrowError():
+            side_thread.raiseLastError()
 
    def reject(self):
       return
@@ -14079,24 +13680,20 @@ class DlgProgress(ArmoryDialog):
 
       css = """
             QDialog{ border:1px solid rgb(0, 0, 0); }
-            QProgressBar{ text-align: center; }
+            QProgressBar{ text-align: center; font-weight: bold; }
             """
       self.setStyleSheet(css)
-
-      self.connect(self, SIGNAL('Update'), self.UpdateDlg)
-      self.connect(self, SIGNAL('PromptPassphrase'), self.PromptPassphrase)
-      self.connect(self, SIGNAL('Exit'), self.Exit)
 
       layoutMgmt = QVBoxLayout()
       self.lblDesc = QLabel('')
 
       if self.Title is not None:
+         if not self.HBar:
+            self.lblTitle = QLabel(self.Title)
+            self.lblTitle.setAlignment(Qt.AlignCenter)
+            layoutMgmt.addWidget(self.lblTitle)
 
-         self.lblTitle = QLabel(self.Title)
-         self.lblTitle.setAlignment(Qt.AlignCenter)
-         layoutMgmt.addWidget(self.lblTitle)
-
-
+            
       if self.HBar is not None:
          self.hbarProgress = QProgressBar(self)
          self.hbarProgress.setMaximum(self.HBar)
@@ -14104,6 +13701,9 @@ class DlgProgress(ArmoryDialog):
          self.hbarProgress.setValue(0)
          self.hbarProgress.setMinimumWidth(250)
          layoutMgmt.addWidget(self.hbarProgress)
+         
+         if self.HBar:
+            self.hbarProgress.setFormat(self.Title +': %p%')
       else:
          layoutMgmt.addWidget(self.lblDesc)
 
@@ -14129,10 +13729,209 @@ class DlgProgress(ArmoryDialog):
       globalbtmRight = self.parent.mapToGlobal((btmRight+topLeft)/2)
 
       self.move(globalbtmRight - QPoint(self.width()/2, self.height()))
+      if self.Title:
+         self.setWindowTitle(self.Title)
+      else:
+         self.setWindowTitle('Progress Bar')
 
       self.hide()
+      
+   """
+   Progress bar dialog. The dialog is guaranteed to be created from the main
+   thread.
+   
+   The dialog is modal, meaning all other windows are barred from user 
+   interaction as long as this dialog is within its message loop.
+   The message loop is entered either through exec_(side_thread), which will
+   which will lock the main threa and the caller thread, and join on the 
+   side thread
+   
+   The dialog reject() signal is overloaded to render it useless. The dialog 
+   cannot be killed through regular means. To kill the Dialog, call Kill()
+   or end the side thread. Either will release the main thread. The caller
+   will still join on the side thread if you only call Kill()
+   
+   To make a progress dialog that can be killed by the user (before the process 
+   is complete), pass a string to Interrupt. It will add a push button with 
+   that text, that will kill the progress dialog on click. The caller will
+   still be joining on the side thread.
+   
+   Passing a string to Title will draw a title.
+   Passing an integer to HBar will draw a progress bar with a Max value set to 
+   that integer. It can be updated through UpdateHBar(int)
+   Passing a string TProgress will draw a label with that string. It can be 
+   updated through UpdateText(str)
+   """
 
+#################################################################################
+class DlgCorruptWallet(DlgProgress):
+   def __init__(self, wallet, status, main=None, parent=None):
+      super(DlgProgress, self).__init__(parent, main)      
+      super(DlgCorruptWallet, self).__init__(parent)
+      
+      self.main = main
+      self.walletList = []
+      
+      self.running = 1
+      self.status = 1
+      self.Fixing = 0
+      
+      self.layout = QVBoxLayout()
+      
+      self.connect(self, SIGNAL('UCF'), self.UCF)
+      self.connect(self, SIGNAL('Show'), self.show)
+      self.connect(self, SIGNAL('Exec'), self.run_lock)
+      self.connect(self, SIGNAL('SNP'), self.setNewProgress)
+      self.connect(self, SIGNAL('LFW'), self.LFW)
+      self.connect(self, SIGNAL('SRD'), self.SRD)
+      
+      lblDescr = QLabel('<h1 style="color: red;">Wallet Corruption Found!!!</h1>')
+      lblDescr.setAlignment(Qt.AlignCenter)
+      
+      self.QDS = QDialog()
+      self.lblStatus = QLabel('')
+      self.lblStatus.setStyleSheet('background-color: white')
+      self.addStatus(wallet, status)
+      self.QDSlo = QVBoxLayout()
+      self.QDS.setLayout(self.QDSlo)
+      self.QDSlo.addWidget(self.lblStatus)
+            
+      saStatus = QScrollArea()
+      saStatus.setWidgetResizable(True)
+      saStatus.setWidget(self.QDS)
+      saStatus.setMaximumHeight(250)
 
+      layoutButtons = QGridLayout()
+      layoutButtons.setColumnStretch(0, 1)
+      layoutButtons.setColumnStretch(4, 1)
+      self.btnClose = QPushButton('Hide')
+      self.btnFixWallets = QPushButton('Fix Wallets')
+      self.btnFixWallets.setDisabled(True)
+      self.connect(self.btnFixWallets, SIGNAL('clicked()'), self.FixWallets)
+      self.connect(self.btnClose, SIGNAL('clicked()'), self.hide)
+      layoutButtons.addWidget(self.btnClose, 0, 1, 1, 1)
+      layoutButtons.addWidget(self.btnFixWallets, 0, 2, 1, 1)
+      
+      self.sep_line = QFrame()
+      self.sep_line.setFrameShape(QFrame.HLine);
+      self.sep_line.setFrameShadow(QFrame.Sunken);
+      
+      self.sep_line2 = QFrame()
+      self.sep_line2.setFrameShape(QFrame.HLine);
+      self.sep_line2.setFrameShadow(QFrame.Sunken);
+      
+      self.lblDescr2 = QLabel('<h2 style="color: red;">It is highly recommended to fix your<br>'
+                         'damaged wallets before using them</h2>')
+      self.lblDescr2.setAlignment(Qt.AlignCenter)
+      
+      self.lblFixRdy = QLabel('<br><u>Your wallets will be ready to fix once the scan is over</u><br>'
+                              'You can hide this window until then<br>')
+      
+      self.lblFixRdy.setAlignment(Qt.AlignCenter)
+      
+      
+      self.layout.addWidget(lblDescr)
+      self.layout.addWidget(saStatus)
+      self.layout.addWidget(self.lblDescr2)
+      self.layout.addWidget(self.sep_line)
+      self.layout.addWidget(self.lblFixRdy)
+      self.layout.addWidget(self.sep_line2)
+      self.layout.addLayout(layoutButtons)
+      
+      self.setLayout(self.layout)
+      self.adjustSize()
+      self.setWindowTitle('Wallet Error')
+      
+   def addStatus(self, wallet, status):
+      if wallet:
+         strStatus = ''.join(status) + str(self.lblStatus.text())
+         self.lblStatus.setText(strStatus)
+         
+         self.walletList.append(wallet)
+   
+   def show(self):
+      super(DlgCorruptWallet, self).show()
+      self.activateWindow()
+   
+   def run_lock(self):
+      self.hide()
+      super(DlgProgress, self).exec_()
+      self.walletList = None
+      
+   def UpdateCanFix(self, conditions, canFix=False):
+      self.emit(SIGNAL('UCF'), conditions, canFix)
+      
+   def UCF(self, conditions, canFix=False):
+      self.lblFixRdy.setText('<br>'.join(conditions))
+      if canFix:
+         self.btnFixWallets.setEnabled(True)
+         self.btnClose.setText('Close')
+         self.connect(self.btnClose, SIGNAL('clicked()'), self.reject)
+      
+   def FixWallets(self):
+      self.sep_line.hide()
+      self.sep_line2.hide()
+      self.lblFixRdy.hide()
+      self.adjustSize()
+      
+      self.lblDescr2.setText('<h2 style="color: blue;">Fixing your wallets</h2>')
+            
+      from armoryengine.PyBtcWalletRecovery import FixWallets
+      self.btnClose.setDisabled(True)
+      self.btnFixWallets.setDisabled(True)
+      self.Fixing = 1
+
+      self.lblStatus.hide()
+      self.QDSlo.removeWidget(self.lblStatus)
+      
+      for wlt in self.walletList:
+         self.parent.removeWalletFromApplication(wlt.uniqueIDB58)
+      
+      FixWallets(self.walletList, self, async=True)
+
+   def UpdateDlg(self, text=None, HBar=None, Title=None):
+      if text is not None: self.lblDesc.setText(text)
+
+   def reject(self):
+      if not self.Fixing:
+         super(DlgProgress, self).reject()
+      
+   def sigSetNewProgress(self, status):
+      self.emit(SIGNAL('SNP'), status)
+      
+   def setNewProgress(self, status):
+      self.lblDesc = QLabel('')
+      self.QDSlo.addWidget(self.lblDesc)
+      #self.QDS.adjustSize()
+      status[0] = 1
+      
+   def setRecoveryDone(self, st):
+      self.emit(SIGNAL('SRD'), st)
+      
+   def SRD(self, st):
+      self.btnClose.setEnabled(True)
+      self.btnClose.setText('Done')
+      self.Fixing = 0     
+      if len(st) == 0:
+         self.lblDescr2.setText('<h2 style="color: green;">Wallets Fixed! You can close this window</h2>')
+         self.main.statusBar().showMessage('Wallets fixed!', 15000)
+         
+      else:
+         self.lblDescr2.setText('<h2 style="color: red;">Failed to fix wallets!</h2>')
+         self.main.statusBar().showMessage('Failed to fix wallets!', 150000)
+      
+   def loadFixedWallets(self, wallets):
+      self.emit(SIGNAL('LFW'), wallets)
+         
+   def LFW(self, wallets):
+      for wlt in wallets:
+         newWallet = PyBtcWallet().readWalletFile(wlt)
+         self.main.addWalletToApplication(newWallet, walletIsNew=True)
+   
+         if TheBDM.getBDMState() in ('Uninitialized', 'Offline'):
+            TheBDM.registerWallet(newWallet, isFresh=True, wait=False)
+         else:
+            self.main.newWalletList.append([newWallet, True])
 
 # Put circular imports at the end
 from ui.Frames import SelectWalletFrame

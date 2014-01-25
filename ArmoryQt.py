@@ -40,6 +40,7 @@ from qtdialogs import *
 from ui.Wizards import WalletWizard
 
 
+
 # PyQt4 Imports
 # Over 20,000 lines of python to help us out
 # All the twisted/networking functionality
@@ -102,6 +103,7 @@ class ArmoryMainWindow(QMainWindow):
       self.latestVer = {}
       self.firstVersionCheck = True
       self.lastVersionsTxtHash = ''
+      self.dlgCptWlt = None
 
       #delayed URI parsing dict
       self.delayedURIData = {}
@@ -163,10 +165,21 @@ class ArmoryMainWindow(QMainWindow):
 
       self.extraHeartbeatSpecial = []
       self.extraHeartbeatOnline = []
+      
+      """
+      pass a function to extraHeartbeatAlways to run on every heartbeat.
+      pass a list for more control on the function, as [func, [args], keep_running], where:
+         func is the function
+         [args] is a list of arguments
+         keep_running is a bool, pass False to remove the function from 
+         extraHeartbeatAlways on the next iteration
+      """
+      
       self.extraHeartbeatAlways = []
 
       self.lblArmoryStatus = QRichLabel('<font color=%s>Offline</font> ' % 
                                       htmlColor('TextWarn'), doWrap=False)
+      
       self.statusBar().insertPermanentWidget(0, self.lblArmoryStatus)
 
       # Keep a persistent printer object for paper backups
@@ -254,18 +267,15 @@ class ArmoryMainWindow(QMainWindow):
       self.ledgerView.setContextMenuPolicy(Qt.CustomContextMenu)
       self.ledgerView.customContextMenuRequested.connect(self.showContextMenuLedger)
 
-      btnAddWalletWiz  = QPushButton("Create Wallet Wizard")
       btnAddWallet  = QPushButton("Create Wallet")
       btnImportWlt  = QPushButton("Import or Restore Wallet")
-      self.connect(btnAddWalletWiz,  SIGNAL('clicked()'), self.startWalletWizard)
-      self.connect(btnAddWallet,  SIGNAL('clicked()'), self.createNewWallet)
+      self.connect(btnAddWallet,  SIGNAL('clicked()'), self.startWalletWizard)
       self.connect(btnImportWlt,  SIGNAL('clicked()'), self.execImportWallet)
 
       # Put the Wallet info into it's own little box
       lblAvail = QLabel("<b>Available Wallets:</b>")
       viewHeader = makeLayoutFrame(HORIZONTAL, [lblAvail, \
                                              'Stretch', \
-                                             btnAddWalletWiz, \
                                              btnAddWallet, \
                                              btnImportWlt, ])
       wltFrame = QFrame()
@@ -574,7 +584,7 @@ class ArmoryMainWindow(QMainWindow):
          self.menusList[MENUS.Addresses].addAction(actImportKey)
          self.menusList[MENUS.Addresses].addAction(actSweepKey)
 
-      actCreateNew    = self.createAction('&Create New Wallet',        self.createNewWallet)
+      actCreateNew    = self.createAction('&Create New Wallet',        self.startWalletWizard)
       actImportWlt    = self.createAction('&Import or Restore Wallet', self.execImportWallet)
       actAddressBook  = self.createAction('View &Address Book',        self.execAddressBook)
 
@@ -627,6 +637,9 @@ class ArmoryMainWindow(QMainWindow):
          self.ledgerView.setColumnWidth(LEDGERCOLS.NumConf, 20)
          self.ledgerView.setColumnWidth(LEDGERCOLS.TxDir,   72)
 
+      haveGUI[0] = True
+      
+      self.checkWallets()
       reactor.callLater(0.1,  self.execIntroDialog)
       reactor.callLater(1, self.Heartbeat)
 
@@ -635,8 +648,6 @@ class ArmoryMainWindow(QMainWindow):
       elif not self.firstLoad:
          # Don't need to bother the user on the first load with updating
          reactor.callLater(0.2, self.checkForLatestVersion)
-
-
    ####################################################
    def factoryReset(self):
       reply = QMessageBox.information(self,'Revert all Settings?', \
@@ -1088,7 +1099,7 @@ class ArmoryMainWindow(QMainWindow):
             self.writeSetting('DNAA_IntroDialog', True)
 
          if dlg.requestCreate:
-            self.createNewWallet(initLabel='Primary Wallet')
+            self.startWalletWizard()
 
          if dlg.requestImport:
             self.execImportWallet()
@@ -1106,7 +1117,7 @@ class ArmoryMainWindow(QMainWindow):
          fn = 'armory_%s_%s.watchonly.wallet' % (wlt.uniqueIDB58, suffix)
       savePath = unicode(self.getFileSave(defaultFilename=fn))
       if not len(savePath)>0:
-         return 
+         return False
 
       if copyType.lower()=='same':
          wlt.writeFreshWalletFile(savePath)
@@ -1114,7 +1125,7 @@ class ArmoryMainWindow(QMainWindow):
          if wlt.useEncryption:
             dlg = DlgUnlockWallet(wlt, parent, self, 'Unlock Private Keys')
             if not dlg.exec_():
-               return
+               return False
          # Wallet should now be unlocked
          wlt.makeUnencryptedWalletCopy(savePath)
       elif copyType.lower()=='encrypt':
@@ -1130,11 +1141,12 @@ class ArmoryMainWindow(QMainWindow):
          wlt.makeEncryptedWalletCopy(savePath, newPassphrase)
       else:
          LOGERROR('Invalid "copyType" supplied to makeWalletCopy: %s', copyType)
-         return
+         return False
 
       QMessageBox.information(parent, tr('Backup Complete'), tr("""
          Your wallet was successfully backed up to the following 
          location:<br><br>%s""") % savePath, QMessageBox.Ok)
+      return True
       
    
    #############################################################################
@@ -2225,7 +2237,7 @@ class ArmoryMainWindow(QMainWindow):
             'You currently do not have any wallets.  Would you like to '
             'create one, now?', QMessageBox.Yes | QMessageBox.No)
          if reply==QMessageBox.Yes:
-            self.createNewWallet(initLabel='Primary Wallet')
+            self.startWalletWizard()
          return
 
       if index==None:
@@ -2360,79 +2372,7 @@ class ArmoryMainWindow(QMainWindow):
          self.walletIndices[wltID] = i
 
       self.walletListChanged()
-
-   
-   #############################################################################
-   def createNewWallet(self, initLabel=''):
-      LOGINFO('createNewWallet')
-      dlg = DlgNewWallet(self, self, initLabel=initLabel)
-      if dlg.exec_():
-
-         if dlg.selectedImport:
-            self.execImportWallet()
-            return
-            
-         name     = str(dlg.edtName.text())
-         descr    = str(dlg.edtDescr.toPlainText())
-         kdfSec   = dlg.kdfSec
-         kdfBytes = dlg.kdfBytes
-
-         # If this will be encrypted, we'll need to get their passphrase
-         passwd = []
-         if dlg.chkUseCrypto.isChecked():
-            dlgPasswd = DlgChangePassphrase(self, self)
-            if dlgPasswd.exec_():
-               passwd = SecureBinaryData(str(dlgPasswd.edtPasswd1.text()))
-            else:
-               return # no passphrase == abort new wallet
-      else:
-         return False
-
-      newWallet = None
-      if passwd:
-          newWallet = PyBtcWallet().createNewWallet( \
-                                           withEncrypt=True, \
-                                           securePassphrase=passwd, \
-                                           kdfTargSec=kdfSec, \
-                                           kdfMaxMem=kdfBytes, \
-                                           shortLabel=name, \
-                                           longLabel=descr, \
-                                           doRegisterWithBDM=False)
-      else:
-          newWallet = PyBtcWallet().createNewWallet( \
-                                           withEncrypt=False, \
-                                           shortLabel=name, \
-                                           longLabel=descr, \
-                                           doRegisterWithBDM=False)
-
-
-      # And we must unlock it before the first fillAddressPool call
-      if newWallet.useEncryption:
-         newWallet.unlock(securePassphrase=passwd)
-
-      # We always want to fill the address pool, right away.  
-      fillpool = lambda: newWallet.fillAddressPool(doRegister=False)
-      DlgExecLongProcess(fillpool, 'Creating Wallet...', self, self).exec_()
-
-      # Reopening from file helps make sure everything is correct -- don't
-      # let the user use a wallet that triggers errors on reading it
-      wltpath = newWallet.walletPath
-      newWallet = None
-      newWallet = PyBtcWallet().readWalletFile(wltpath)
       
-
-      self.addWalletToApplication(newWallet, walletIsNew=True)
-
-      if TheBDM.getBDMState() in ('Uninitialized', 'Offline'):
-         TheBDM.registerWallet(newWallet, isFresh=True, wait=False)
-      else:
-         self.newWalletList.append([newWallet, True])
-      
-      # Prompt user to print paper backup if they requested it.
-      if dlg.chkPrintPaper.isChecked():
-         OpenPaperBackupWindow('Single', self, self, newWallet, \
-            tr("Create Paper Backup"))
-
    #############################################################################
    def RecoverWallet(self):
       from armoryengine.PyBtcWalletRecovery import PyBtcWalletRecovery
@@ -3061,7 +3001,7 @@ class ArmoryMainWindow(QMainWindow):
             'receive some coins.  Would you like to create a wallet?', \
             QMessageBox.Yes | QMessageBox.No)
          if reply==QMessageBox.Yes:
-            self.createNewWallet(initLabel='Primary Wallet')
+            self.startWalletWizard()
       else:
          if len(self.walletMap)>0:
             wltID = self.walletMap.keys()[0]
@@ -3135,7 +3075,7 @@ class ArmoryMainWindow(QMainWindow):
             'currently have no wallets!  Would you like to create a wallet '
             'now?', QMessageBox.Yes | QMessageBox.No)
          if reply==QMessageBox.Yes:
-            self.createNewWallet(initLabel='Primary Wallet')
+            self.startWalletWizard()
          return False
       elif len(self.walletMap)>1:
          dlg = DlgWalletSelect(self, self, 'Send from Wallet...', descrStr, \
@@ -3163,7 +3103,7 @@ class ArmoryMainWindow(QMainWindow):
             'store you bitcoins!  Would you like to create a wallet now?', \
             QMessageBox.Yes | QMessageBox.No)
          if reply==QMessageBox.Yes:
-            self.createNewWallet(initLabel='Primary Wallet')
+            self.startWalletWizard()
          return
       elif len(self.walletMap)==1:
          wltID = self.walletMap.keys()[0]
@@ -4574,21 +4514,20 @@ class ArmoryMainWindow(QMainWindow):
    
    #############################################################################
    @TimeThisFunction
-   def checkNewZeroConf(self, wltID, wlt):
-      rawTx = self.newZeroConfSinceLastUpdate.pop()
-      for wltID in self.walletMap.keys():
-         wlt = self.walletMap[wltID]
-         le = wlt.cppWallet.calcLedgerEntryForTxStr(rawTx)
-         if not le.getTxHash() == '\x00' * 32:
-            LOGDEBUG('ZerConf tx for wallet: %s.  Adding to notify queue.' % wltID)
-            notifyIn = self.getSettingOrSetDefault('NotifyBtcIn', not OS_MACOSX)
-            notifyOut = self.getSettingOrSetDefault('NotifyBtcOut', not OS_MACOSX)
-            if (le.getValue() <= 0 and notifyOut) or (le.getValue() > 0 and notifyIn):
-               self.notifyQueue.append([wltID, le, False]) # notifiedAlready=False
-            self.createCombinedLedger()
-            self.walletModel.reset()
-      
-      return wltID
+   def checkNewZeroConf(self):
+      while len(self.newZeroConfSinceLastUpdate)>0:
+         rawTx = self.newZeroConfSinceLastUpdate.pop()
+         for wltID in self.walletMap.keys():
+            wlt = self.walletMap[wltID]
+            le = wlt.cppWallet.calcLedgerEntryForTxStr(rawTx)
+            if not le.getTxHash() == '\x00' * 32:
+               LOGDEBUG('ZerConf tx for wallet: %s.  Adding to notify queue.' % wltID)
+               notifyIn = self.getSettingOrSetDefault('NotifyBtcIn', not OS_MACOSX)
+               notifyOut = self.getSettingOrSetDefault('NotifyBtcOut', not OS_MACOSX)
+               if (le.getValue() <= 0 and notifyOut) or (le.getValue() > 0 and notifyIn):
+                  self.notifyQueue.append([wltID, le, False]) # notifiedAlready=False
+               self.createCombinedLedger()
+               self.walletModel.reset()
 
    @TimeThisFunction
    def newBlockSyncRescanZC(self, wltID, prevLedgSize):
@@ -4638,7 +4577,15 @@ class ArmoryMainWindow(QMainWindow):
 
       try:
          for func in self.extraHeartbeatAlways:
-            func()
+            if isinstance(func, list):
+               fnc = func[0]
+               kargs = func[1]
+               keep_running = func[2]
+               if keep_running == False:
+                  self.extraHeartbeatAlways.remove(func)
+               fnc(*kargs)
+            else:
+               func()
    
          for idx,wltID in enumerate(self.walletIDList):
             self.walletMap[wltID].checkWalletLockTimeout()
@@ -4728,10 +4675,8 @@ class ArmoryMainWindow(QMainWindow):
                for wltID in self.walletMap.keys():
                   wlt = self.walletMap[wltID]
                   TheBDM.rescanWalletZeroConf(wlt.cppWallet, wait=True)
-
-            while len(self.newZeroConfSinceLastUpdate)>0:
-               # For each new tx, check each wallet
-               wltID = self.checkNewZeroConf(wltID, wlt)
+           
+            self.checkNewZeroConf()
    
             # Trigger any notifications, if we have them...
             self.doTheSystemTrayThing()
@@ -4979,18 +4924,151 @@ class ArmoryMainWindow(QMainWindow):
    #############################################################################
    def spawnTrigger(self, toSpawn):
       if isinstance(toSpawn, DlgProgress):
-         toSpawn.thread_lock.acquire()
-         toSpawn.status = 0
-         toSpawn.exec_()
-         toSpawn.thread_lock.release()
-
-      toSpawn.status = 0
+         super(DlgProgress, toSpawn).exec_()
 
    def initTrigger(self, toInit):
       if isinstance(toInit, DlgProgress):
          toInit.setup(self)
          toInit.status = 1
+   
+   #############################################################################
+   @AllowAsync      
+   def CheckWalletConsistency(self, wallets, prgAt=None):
+      
+      from armoryengine.PyBtcWalletRecovery import WalletConsistencyCheck
+      
+      if prgAt:
+         totalSize = 0
+         walletSize = {}
+         for wlt in wallets:
+            statinfo = os.stat(wallets[wlt].walletPath)
+            walletSize[wlt] = statinfo.st_size
+            totalSize = totalSize + statinfo.st_size
+      
+      i=0
+      dlgrdy = [0]
+      nerrors = 0
+      for wlt in wallets:
+         if prgAt:
+            prgAt[0] = i         
+            f = 10000*walletSize[wlt]/totalSize
+            prgAt[1] = f 
+            i = f +i
 
+         self.wltCstStatus = WalletConsistencyCheck(wallets[wlt], prgAt)
+         if self.wltCstStatus != 0:
+            self.WltCstError(wallets[wlt], self.wltCstStatus, dlgrdy)
+            while not dlgrdy[0]:
+               time.sleep(0.01)
+            nerrors = nerrors +1
+         
+      if self.UpdateWalletConsistencyPBar in self.extraHeartbeatAlways:
+         self.extraHeartbeatAlways.remove(self.UpdateWalletConsistencyPBar)
+      
+      dlgrdy[0] = 0   
+      if nerrors == 0:
+         self.extraHeartbeatAlways.append([self.WalletConsistencyCheckDone, ['Wallet Sanity Check Successful!', 30000, dlgrdy], False])
+      else:
+         self.extraHeartbeatAlways.append([self.WalletConsistencyCheckDone, ['Found Errors in your Wallets!!!', 0, dlgrdy], False])
+         #make sure nothing is running right before forcing the fix your wallet dialog up
+         
+         while not dlgrdy:
+            time.sleep(0.1)
+         
+         self.checkRdyForFix()
+         
+               
+   def checkRdyForFix(self): 
+      #check BDM first
+      time.sleep(1)
+      self.dlgCptWlt.emit(SIGNAL('Show'))  
+      dots = 0
+      while 1:         
+         dotsstr = '.'*((dots % 3)+1)
+         dots = dots +1 
+         if TheBDM.getBDMState() == 'Scanning':
+            canFix = 'Currently Scanning Blockchain. Fixing will be available once Armory is done loading' + dotsstr +\
+                     '<br>You can close this window, it will reappear once your wallets are ready to be fixed'
+            self.dlgCptWlt.UpdateCanFix([canFix])
+            time.sleep(1)
+         else:
+            break
+               
+      #check running dialogs
+
+      self.dlgCptWlt.emit(SIGNAL('Show'))  
+      runningList = []
+      while 1:
+         listchanged = 0
+         canFix = []
+         for dlg in runningList:
+            if dlg not in runningDialogsList:
+               runningList.remove(dlg)
+               listchanged = 1
+            
+         for dlg in runningDialogsList:
+            if dlg.__class__.__name__ != 'DlgCorruptWallet':  
+               if dlg not in runningList:
+                  runningList.append(dlg)
+                  listchanged = 1
+            
+         if len(runningList):         
+            if listchanged:
+               canFix.append('<u style="color: orange">The current windows need closed before you can Fix your wallets:</u>')
+               canFix.extend([str(myobj.windowTitle()) for myobj in runningList])
+               self.dlgCptWlt.UpdateCanFix(canFix)
+            time.sleep(0.2)
+         else:
+            break 
+      
+
+      canFix.append('Ready to fix your wallets!')
+      self.dlgCptWlt.UpdateCanFix(canFix, True)     
+      self.dlgCptWlt.emit(SIGNAL('Exec'))
+      
+   def checkWallets(self):
+      nwallets = len(self.walletMap)
+      
+      if nwallets > 0:
+         self.prgAt = [0, 0]
+            
+         self.pbarWalletProgress = QProgressBar()
+         self.pbarWalletProgress.setMaximum(10000)
+         self.pbarWalletProgress.setMaximumSize(200, 22)
+         self.pbarWalletProgress.setStyleSheet('text-align: center; margin-bottom: 2px; margin-left: 10px;')
+         self.pbarWalletProgress.setFormat('Wallet Sanity Check: %p%')
+         self.pbarWalletProgress.setValue(0)
+         self.statusBar().addWidget(self.pbarWalletProgress)
+
+         self.CheckWalletConsistency(self.walletMap, self.prgAt, async=True)
+         self.extraHeartbeatAlways.append(self.UpdateWalletConsistencyPBar)
+         
+   def UpdateWalletConsistencyPBar(self):
+      self.pbarWalletProgress.setValue(self.prgAt[0])
+      
+   def WalletConsistencyCheckDone(self, msg, msgLength, dlgrdy):
+      self.pbarWalletProgress.hide()
+      self.statusBar().showMessage(msg, msgLength)
+      dlgrdy[0] = 1
+
+   def WltCstError(self, wlt, status, dlgrdy):
+      self.extraHeartbeatAlways.append([self.PromptWltCstError, [dlgrdy, wlt, status], False])
+      self.extraHeartbeatAlways.append([LOGERROR, ['Failed consistency check on wallet %s' % (wlt.uniqueIDB58)], False])
+ 
+   def PromptWltCstError(self, dlgrdy, wallet=None, status='', mode=None):
+      
+      if not self.dlgCptWlt:
+         self.dlgCptWlt = DlgCorruptWallet(wallet, status, self, self)
+         dlgrdy[0] = 1
+      else:
+         self.dlgCptWlt.addStatus(wallet, status)
+      
+      if not mode:
+         self.dlgCptWlt.show()
+      else:
+         self.dlgCptWlt.exec_()
+      
+      
 ############################################
 class ArmoryInstanceListener(Protocol):
    def connectionMade(self):

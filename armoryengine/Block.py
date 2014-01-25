@@ -18,7 +18,7 @@ from armoryengine.BinaryPacker import BinaryPacker, UINT32, BINARY_CHUNK, \
 
 ################################################################################
 #  Block Information
-################################################################################
+################################################################################
 class PyBlockHeader(BlockComponent):
    def __init__(self):
       self.version      = 1
