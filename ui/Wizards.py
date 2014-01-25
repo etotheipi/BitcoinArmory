@@ -128,7 +128,7 @@ class WalletWizard(ArmoryWizard):
          reply = QMessageBox.question(self, 'Wallet Backup Warning', \
                'You have not made a backup for your new wallet. Backing up your wallet ' +
                'is critical securing  your bitcoins. If you do not backup your wallet now ' +
-               'you may do it from the wallet screen later.\n\n\t' +
+               'you may do it from the wallet screen later.\n\n' +
                'Are you sure that you want to leave this wizard without backing up your wallet?', \
                QMessageBox.Yes | QMessageBox.No)
          if reply == QMessageBox.No:
