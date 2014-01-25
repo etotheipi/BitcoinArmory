@@ -12,7 +12,7 @@ from armoryengine.ArmoryUtils import LOGINFO, USE_TESTNET, WalletExistsError,\
    LOGWARN
 from ui.Frames import NewWalletFrame, SetPassphraseFrame, VerifyPassphraseFrame,\
    WalletBackupFrame, WizardCreateWatchingOnlyWalletFrame
-from qtdefines import GETFONT, tr
+from qtdefines import GETFONT, tr, AddToRunningDialogsList
 from armoryengine.PyBtcWallet import PyBtcWallet
 from CppBlockUtils import SecureBinaryData
 from armoryengine.BDM import TheBDM
@@ -40,6 +40,10 @@ class ArmoryWizard(QWizard):
    
    def fitContents(self):
       self.adjustSize()
+   
+   @AddToRunningDialogsList
+   def exec_(self):
+      super(ArmoryWizard, self).exec_()
 
 # This class is intended to be an abstract Wizard Page class that
 # will hold all of the functionality that is common to all 
