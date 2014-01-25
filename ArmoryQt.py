@@ -267,18 +267,15 @@ class ArmoryMainWindow(QMainWindow):
       self.ledgerView.setContextMenuPolicy(Qt.CustomContextMenu)
       self.ledgerView.customContextMenuRequested.connect(self.showContextMenuLedger)
 
-      btnAddWalletWiz  = QPushButton("Create Wallet Wizard")
       btnAddWallet  = QPushButton("Create Wallet")
       btnImportWlt  = QPushButton("Import or Restore Wallet")
-      self.connect(btnAddWalletWiz,  SIGNAL('clicked()'), self.startWalletWizard)
-      self.connect(btnAddWallet,  SIGNAL('clicked()'), self.createNewWallet)
+      self.connect(btnAddWallet,  SIGNAL('clicked()'), self.startWalletWizard)
       self.connect(btnImportWlt,  SIGNAL('clicked()'), self.execImportWallet)
 
       # Put the Wallet info into it's own little box
       lblAvail = QLabel("<b>Available Wallets:</b>")
       viewHeader = makeLayoutFrame(HORIZONTAL, [lblAvail, \
                                              'Stretch', \
-                                             btnAddWalletWiz, \
                                              btnAddWallet, \
                                              btnImportWlt, ])
       wltFrame = QFrame()
@@ -587,7 +584,7 @@ class ArmoryMainWindow(QMainWindow):
          self.menusList[MENUS.Addresses].addAction(actImportKey)
          self.menusList[MENUS.Addresses].addAction(actSweepKey)
 
-      actCreateNew    = self.createAction('&Create New Wallet',        self.createNewWallet)
+      actCreateNew    = self.createAction('&Create New Wallet',        self.startWalletWizard)
       actImportWlt    = self.createAction('&Import or Restore Wallet', self.execImportWallet)
       actAddressBook  = self.createAction('View &Address Book',        self.execAddressBook)
 
@@ -1102,7 +1099,7 @@ class ArmoryMainWindow(QMainWindow):
             self.writeSetting('DNAA_IntroDialog', True)
 
          if dlg.requestCreate:
-            self.createNewWallet(initLabel='Primary Wallet')
+            self.startWalletWizard()
 
          if dlg.requestImport:
             self.execImportWallet()
@@ -1120,7 +1117,7 @@ class ArmoryMainWindow(QMainWindow):
          fn = 'armory_%s_%s.watchonly.wallet' % (wlt.uniqueIDB58, suffix)
       savePath = unicode(self.getFileSave(defaultFilename=fn))
       if not len(savePath)>0:
-         return 
+         return False
 
       if copyType.lower()=='same':
          wlt.writeFreshWalletFile(savePath)
@@ -1128,7 +1125,7 @@ class ArmoryMainWindow(QMainWindow):
          if wlt.useEncryption:
             dlg = DlgUnlockWallet(wlt, parent, self, 'Unlock Private Keys')
             if not dlg.exec_():
-               return
+               return False
          # Wallet should now be unlocked
          wlt.makeUnencryptedWalletCopy(savePath)
       elif copyType.lower()=='encrypt':
@@ -1144,11 +1141,12 @@ class ArmoryMainWindow(QMainWindow):
          wlt.makeEncryptedWalletCopy(savePath, newPassphrase)
       else:
          LOGERROR('Invalid "copyType" supplied to makeWalletCopy: %s', copyType)
-         return
+         return False
 
       QMessageBox.information(parent, tr('Backup Complete'), tr("""
          Your wallet was successfully backed up to the following 
          location:<br><br>%s""") % savePath, QMessageBox.Ok)
+      return True
       
    
    #############################################################################
@@ -2239,7 +2237,7 @@ class ArmoryMainWindow(QMainWindow):
             'You currently do not have any wallets.  Would you like to '
             'create one, now?', QMessageBox.Yes | QMessageBox.No)
          if reply==QMessageBox.Yes:
-            self.createNewWallet(initLabel='Primary Wallet')
+            self.startWalletWizard()
          return
 
       if index==None:
@@ -2374,78 +2372,7 @@ class ArmoryMainWindow(QMainWindow):
          self.walletIndices[wltID] = i
 
       self.walletListChanged()
-
-   
-   #############################################################################
-   def createNewWallet(self, initLabel=''):
-      LOGINFO('createNewWallet')
-      dlg = DlgNewWallet(self, self, initLabel=initLabel)
-      if dlg.exec_():
-
-         if dlg.selectedImport:
-            self.execImportWallet()
-            return
-            
-         name     = str(dlg.edtName.text())
-         descr    = str(dlg.edtDescr.toPlainText())
-         kdfSec   = dlg.kdfSec
-         kdfBytes = dlg.kdfBytes
-
-         # If this will be encrypted, we'll need to get their passphrase
-         passwd = []
-         if dlg.chkUseCrypto.isChecked():
-            dlgPasswd = DlgChangePassphrase(self, self)
-            if dlgPasswd.exec_():
-               passwd = SecureBinaryData(str(dlgPasswd.edtPasswd1.text()))
-            else:
-               return # no passphrase == abort new wallet
-      else:
-         return False
-
-      newWallet = None
-      if passwd:
-          newWallet = PyBtcWallet().createNewWallet( \
-                                           withEncrypt=True, \
-                                           securePassphrase=passwd, \
-                                           kdfTargSec=kdfSec, \
-                                           kdfMaxMem=kdfBytes, \
-                                           shortLabel=name, \
-                                           longLabel=descr, \
-                                           doRegisterWithBDM=False)
-      else:
-          newWallet = PyBtcWallet().createNewWallet( \
-                                           withEncrypt=False, \
-                                           shortLabel=name, \
-                                           longLabel=descr, \
-                                           doRegisterWithBDM=False)
-
-
-      # And we must unlock it before the first fillAddressPool call
-      if newWallet.useEncryption:
-         newWallet.unlock(securePassphrase=passwd)
-
-      # We always want to fill the address pool, right away.  
-      fillpool = lambda: newWallet.fillAddressPool(doRegister=False)
-      DlgExecLongProcess(fillpool, 'Creating Wallet...', self, self).exec_()
-
-      # Reopening from file helps make sure everything is correct -- don't
-      # let the user use a wallet that triggers errors on reading it
-      wltpath = newWallet.walletPath
-      newWallet = None
-      newWallet = PyBtcWallet().readWalletFile(wltpath)
       
-      self.addWalletToApplication(newWallet, walletIsNew=True)
-
-      if TheBDM.getBDMState() in ('Uninitialized', 'Offline'):
-         TheBDM.registerWallet(newWallet, isFresh=True, wait=False)
-      else:
-         self.newWalletList.append([newWallet, True])
-      
-      # Prompt user to print paper backup if they requested it.
-      if dlg.chkPrintPaper.isChecked():
-         OpenPaperBackupWindow('Single', self, self, newWallet, \
-            tr("Create Paper Backup"))
-
    #############################################################################
    def RecoverWallet(self):
       from armoryengine.PyBtcWalletRecovery import PyBtcWalletRecovery
@@ -3074,7 +3001,7 @@ class ArmoryMainWindow(QMainWindow):
             'receive some coins.  Would you like to create a wallet?', \
             QMessageBox.Yes | QMessageBox.No)
          if reply==QMessageBox.Yes:
-            self.createNewWallet(initLabel='Primary Wallet')
+            self.startWalletWizard()
       else:
          if len(self.walletMap)>0:
             wltID = self.walletMap.keys()[0]
@@ -3148,7 +3075,7 @@ class ArmoryMainWindow(QMainWindow):
             'currently have no wallets!  Would you like to create a wallet '
             'now?', QMessageBox.Yes | QMessageBox.No)
          if reply==QMessageBox.Yes:
-            self.createNewWallet(initLabel='Primary Wallet')
+            self.startWalletWizard()
          return False
       elif len(self.walletMap)>1:
          dlg = DlgWalletSelect(self, self, 'Send from Wallet...', descrStr, \
@@ -3176,7 +3103,7 @@ class ArmoryMainWindow(QMainWindow):
             'store you bitcoins!  Would you like to create a wallet now?', \
             QMessageBox.Yes | QMessageBox.No)
          if reply==QMessageBox.Yes:
-            self.createNewWallet(initLabel='Primary Wallet')
+            self.startWalletWizard()
          return
       elif len(self.walletMap)==1:
          wltID = self.walletMap.keys()[0]

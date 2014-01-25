@@ -424,6 +424,7 @@ class WalletBackupFrame(ArmoryFrame):
       super(WalletBackupFrame, self).__init__(parent, main)
       # Don't have a wallet yet so assume false.
       self.hasImportedAddr = False
+      self.isBackupCreated = False
       self.lblTitle = QRichLabel(tr("<b>Backup Options</b>"))
       lblTitleDescr = QRichLabel(tr("""
          Armory wallets only need to be backed up <u>one time, ever.</u>
@@ -789,15 +790,16 @@ class WalletBackupFrame(ArmoryFrame):
       self.setDispFrame(-1)
 
    def clickedDoIt(self):
+      isBackupCreated = False
       if self.optPaperBackupOne.isChecked():
-         OpenPaperBackupWindow('Single', self.parent(), self.main, self.wlt)
+         isBackupCreated = OpenPaperBackupWindow('Single', self.parent(), self.main, self.wlt)
       elif self.optPaperBackupFrag.isChecked():
-         OpenPaperBackupWindow('Frag', self.parent(), self.main, self.wlt)
+         isBackupCreated = OpenPaperBackupWindow('Frag', self.parent(), self.main, self.wlt)
       elif self.optDigitalBackupPlain.isChecked():
          if self.main.digitalBackupWarning():
-            self.main.makeWalletCopy(self, self.wlt, 'Decrypt', 'decrypt')
+            isBackupCreated = self.main.makeWalletCopy(self, self.wlt, 'Decrypt', 'decrypt')
       elif self.optDigitalBackupCrypt.isChecked():
-         self.main.makeWalletCopy(self, self.wlt, 'Encrypt', 'encrypt')
+         isBackupCreated = self.main.makeWalletCopy(self, self.wlt, 'Encrypt', 'encrypt')
       elif self.optIndivKeyListTop.isChecked():
          if self.wlt.useEncryption and self.wlt.isLocked:
             dlg = DlgUnlockWallet(self.wlt, self, self.main, 'Unlock Private Keys')
@@ -815,8 +817,51 @@ class WalletBackupFrame(ArmoryFrame):
                   if self.main.usermode == USERMODE.Standard:
                      return
          DlgShowKeyList(self.wlt, self.parent(), self.main).exec_()
-      else:
-         return 0
+         isBackupCreated = True
+      if isBackupCreated:
+         self.isBackupCreated = True
+         
+      
+class WizardCreateWatchingOnlyWalletFrame(ArmoryFrame):
+
+   def __init__(self, parent, main, initLabel='', backupCreatedCallback=None):
+      super(WizardCreateWatchingOnlyWalletFrame, self).__init__(parent, main)
+
+
+      summaryText = QRichLabel(tr("""
+               You have just ceated a new wallet that will should already
+               appea in the Available Wallets List in the main window.
+               <br><br>
+               You may create a watching only copy of this wallet that can
+               only be used for generating addresses and monitoring incoming
+               payments on any other computer. A watching-only wallet cannot
+               spend the funds, and thus cannot be compromised by an attacker
+               To setup a watching only copy of this wallet, press the button
+               below and put the resulting file in the data directory of another
+               Bitcoin Armory installation."""))
+      lbtnForkWlt = QPushButton('Create Watching-Only Copy')
+      self.connect(lbtnForkWlt, SIGNAL(CLICKED), self.forkOnlineWallet)
+      layout = QVBoxLayout()
+      layout.addWidget(summaryText)
+      layout.addWidget(lbtnForkWlt)
+      self.setLayout(layout)
+      
+   
+   def forkOnlineWallet(self):
+      currPath = self.wlt.walletPath
+      pieces = os.path.splitext(currPath)
+      currPath = pieces[0] + '.watchonly' + pieces[1]
+
+      saveLoc = self.main.getFileSave('Save Watching-Only Copy', \
+                                      defaultFilename=currPath)
+      if not saveLoc.endswith('.wallet'):
+         saveLoc += '.wallet'
+      self.wlt.forkOnlineWallet(saveLoc, self.wlt.labelName, \
+                             '(Watching-Only) ' + self.wlt.labelDescr)   
+   
+   def setWallet(self, wlt):
+      self.wlt = wlt
+
 
 # Need to put circular imports at the end of the script to avoid an import deadlock
 # DlgWalletSelect uses SelectWalletFrame which uses DlgCoinControl
