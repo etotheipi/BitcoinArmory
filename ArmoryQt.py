@@ -638,6 +638,7 @@ class ArmoryMainWindow(QMainWindow):
          self.ledgerView.setColumnWidth(LEDGERCOLS.TxDir,   72)
 
       haveGUI[0] = True
+      haveGUI[1] = self
       
       self.checkWallets()
       reactor.callLater(0.1,  self.execIntroDialog)
