@@ -24,6 +24,7 @@ from qtdialogs import DlgExecLongProcess
 class ArmoryWizard(QWizard):
    def __init__(self, parent, main):
       super(QWizard, self).__init__(parent)
+      self.setWizardStyle(QWizard.ClassicStyle)
       self.parent = parent
       self.main   = main
       self.setFont(GETFONT('var'))
@@ -109,9 +110,8 @@ class WalletWizard(ArmoryWizard):
          
       if self.currentPage() == self.walletBackupPage:
          self.createNewWalletFromWizard()
-         self.newWallet.unlock(securePassphrase=
-                  SecureBinaryData(self.setPassphrasePage.pageFrame.getPassphrase()))
-         
+         self.walletBackupPage.pageFrame.setPassphrase(
+                  self.setPassphrasePage.pageFrame.getPassphrase())         
          self.walletBackupPage.pageFrame.setWallet(self.newWallet)
          
          # Only hide the back button on wallet backup page  
@@ -179,6 +179,19 @@ class WalletCreationPage(ArmoryWizardPage):
       self.setSubTitle(tr("""
             Create a new wallet for managing your funds.
             The name and description can be changed at any time."""))
+      
+   # override this method to implement validators
+   def validatePage(self):
+      result = True
+      if self.pageFrame.getKdfSec() == -1:
+         QMessageBox.critical(self, 'Invalid Target Compute Time', \
+            'You entered your Target Compute Time incorrectly.\n\nEnter: <Number> (ms, s)', QMessageBox.Ok)
+         result = False
+      elif self.pageFrame.getKdfBytes() == -1:
+         QMessageBox.critical(self, 'Invalid Max Memory Usage', \
+            'You entered your Max Memory Usag incorrectly.\n\nnter: <Number> (kb, mb)', QMessageBox.Ok)
+         result = False
+      return result
 
 class SetPassphrasePage(ArmoryWizardPage):
    def __init__(self, wizard):
