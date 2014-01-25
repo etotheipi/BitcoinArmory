@@ -276,7 +276,6 @@ class ArmoryMainWindow(QMainWindow):
       lblAvail = QLabel("<b>Available Wallets:</b>")
       viewHeader = makeLayoutFrame(HORIZONTAL, [lblAvail, \
                                              'Stretch', \
-                                             btnAddWalletWiz, \
                                              btnAddWallet, \
                                              btnImportWlt, ])
       wltFrame = QFrame()
