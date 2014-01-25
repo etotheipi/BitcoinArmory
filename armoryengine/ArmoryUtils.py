@@ -205,8 +205,6 @@ if CLI_OPTIONS.logFile.lower()=='default':
       basename = os.path.basename(sys.argv[0])
       CLI_OPTIONS.logFile = os.path.join(ARMORY_HOME_DIR, '%s.log.txt' % basename)
 
-SETTINGS_PATH   = CLI_OPTIONS.settingsPath
-ARMORY_LOG_FILE = CLI_OPTIONS.logFile
 
 # Version Numbers 
 BTCARMORY_VERSION    = (0, 90,  3, 0)  # (Major, Minor, Bugfix, AutoIncrement) 
@@ -322,6 +320,7 @@ if not sys.argv[0] in ['ArmoryQt.py', 'ArmoryQt.exe', 'Armory.exe']:
    CLI_OPTIONS.logFile = os.path.join(ARMORY_HOME_DIR, '%s.log.txt' % basename)
 
 SETTINGS_PATH   = CLI_OPTIONS.settingsPath
+MULT_LOG_FILE   = os.path.join(ARMORY_HOME_DIR, 'multipliers.txt')
 
 
 # If this is the first Armory has been run, create directories
@@ -331,8 +330,6 @@ if ARMORY_HOME_DIR and not os.path.exists(ARMORY_HOME_DIR):
 
 if not os.path.exists(LEVELDB_DIR):
    os.makedirs(LEVELDB_DIR)
-
-SETTINGS_PATH   = CLI_OPTIONS.settingsPath
 
 # If this is the first Armory has been run, create directories
 if ARMORY_HOME_DIR and not os.path.exists(ARMORY_HOME_DIR):

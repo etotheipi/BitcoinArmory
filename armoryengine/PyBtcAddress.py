@@ -74,6 +74,7 @@ class PyBtcAddress(object):
       next time the user unlocks their wallet.  Thus, we have to save off the
       data they will need to create the key, to be applied on next unlock.
    """
+
    #############################################################################
    def __init__(self):
       """
@@ -399,19 +400,23 @@ class PyBtcAddress(object):
       # (Must be ultra paranoid with computing keys)
       logMult1 = SecureBinaryData()
       logMult2 = SecureBinaryData()
+      a160hex = ''
    
       # Can provide a pre-computed public key to skip that part of the compute
       if pubKey is None:
          pubKey = SecureBinaryData(0)
+      else:
+         a160hex = binary_to_hex(pubKey.getHash160())
 
       newPriv1 = CryptoECDSA().ComputeChainedPrivateKey(privKey, chn, pubKey, logMult1)
       newPriv2 = CryptoECDSA().ComputeChainedPrivateKey(privKey, chn, pubKey, logMult2)
 
-
       if newPriv1==newPriv2:
          newPriv2.destroy()
-         LOGINFO('Computed chained key with multiplier: ' + logMult1.toHexStr())
+         with open(MULT_LOG_FILE,'a') as f:
+            f.write('PrvChain (pkh, mult): %s,%s\n' % (a160hex,logMult1.toHexStr()))
          return newPriv1
+
       else:
          LOGCRIT('Chaining failed!  Computed keys are different!')
          LOGCRIT('Recomputing chained key 3 times; bail if they do not match')
@@ -428,6 +433,8 @@ class PyBtcAddress(object):
          if newPriv1==newPriv2 and newPriv1==newPriv3:
             newPriv2.destroy()
             newPriv3.destroy()
+            with open(MULT_LOG_FILE,'a') as f:
+               f.write('PrvChain (pkh, mult): %s,%s\n' % (a160hex,logMult1.toHexStr()))
             return newPriv1
          else:
             LOGCRIT('Chaining failed again!  Returning empty private key.')
@@ -443,6 +450,7 @@ class PyBtcAddress(object):
    def safeExtendPublicKey(self, pubKey, chn):
       # We do this computation twice, in case one is somehow corrupted
       # (Must be ultra paranoid with computing keys)
+      a160hex = binary_to_hex(pubKey.getHash160())
       logMult1 = SecureBinaryData()
       logMult2 = SecureBinaryData()
       newPub1 = CryptoECDSA().ComputeChainedPublicKey(pubKey, chn, logMult1)
@@ -450,7 +458,8 @@ class PyBtcAddress(object):
 
       if newPub1==newPub2:
          newPub2.destroy()
-         LOGINFO('Computed chained key with multiplier: ' + logMult1.toHexStr())
+         with open(MULT_LOG_FILE,'a') as f:
+            f.write('PubChain (pkh, mult): %s,%s\n' % (a160hex, logMult1.toHexStr()))
          return newPub1
       else:
          LOGCRIT('Chaining failed!  Computed keys are different!')
@@ -468,6 +477,8 @@ class PyBtcAddress(object):
          if newPub1==newPub2 and newPub1==newPub3:
             newPub2.destroy()
             newPub3.destroy()
+            with open(MULT_LOG_FILE,'a') as f:
+               f.write('PubChain (pkh, mult): %s,%s\n' % (a160hex, logMult1.toHexStr()))
             return newPub1
          else:
             LOGCRIT('Chaining failed again!  Returning empty public key.')

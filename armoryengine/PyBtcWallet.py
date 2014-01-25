@@ -2665,8 +2665,8 @@ class PyBtcWallet(object):
    #############################################################################
    @AllowAsync
    def unlock_(self, secureKdfOutput=None, \
-                    securePassphrase=None, \
-                    tempKeyLifetime=0, dlgPrg=None):
+                     securePassphrase=None, \
+                     tempKeyLifetime=0, dlgPrg=None):
       """
       We must assume that the kdfResultKey is a SecureBinaryData object
       containing the result of the KDF-passphrase.  The wallet unlocked-
