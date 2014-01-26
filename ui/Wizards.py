@@ -43,7 +43,7 @@ class ArmoryWizard(QWizard):
    
    @AddToRunningDialogsList
    def exec_(self):
-      super(ArmoryWizard, self).exec_()
+      return super(ArmoryWizard, self).exec_()
 
 # This class is intended to be an abstract Wizard Page class that
 # will hold all of the functionality that is common to all 

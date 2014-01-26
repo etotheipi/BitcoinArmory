@@ -4958,23 +4958,25 @@ class ArmoryMainWindow(QMainWindow):
             while not dlgrdy[0]:
                time.sleep(0.01)
             nerrors = nerrors +1
+            
+      prgAt[2] = 1
          
-      if self.UpdateWalletConsistencyPBar in self.extraHeartbeatAlways:
-         self.extraHeartbeatAlways.remove(self.UpdateWalletConsistencyPBar)
+      #if self.UpdateWalletConsistencyPBar in self.extraHeartbeatAlways:
+         #self.extraHeartbeatAlways.remove(self.UpdateWalletConsistencyPBar)
       
-      dlgrdy[0] = 0   
+      dlgrdy[0] = 0
+      while prgAt[2] != 2:
+         time.sleep(0.1)
       if nerrors == 0:
-         self.extraHeartbeatAlways.append([self.WalletConsistencyCheckDone, ['Wallet Sanity Check Successful!', 30000, dlgrdy], False])
+         self.emit(SIGNAL('UWCS'), [1, 'Wallet Sanity Check Successful!', 30000, dlgrdy])
       else:
-         self.extraHeartbeatAlways.append([self.WalletConsistencyCheckDone, ['Found Errors in your Wallets!!!', 0, dlgrdy], False])
-         #make sure nothing is running right before forcing the fix your wallet dialog up
+         while not dlgrdy:         
+            self.emit(SIGNAL('UWCS'), [1, 'Found Errors in your Wallets!!!', 0, dlgrdy])
+            time.sleep(1)
          
-         while not dlgrdy:
-            time.sleep(0.1)
-         
+         #make sure nothing is running right before forcing the fix your wallet dialog up         
          self.checkRdyForFix()
          
-               
    def checkRdyForFix(self): 
       #check BDM first
       time.sleep(1)
@@ -5011,7 +5013,7 @@ class ArmoryMainWindow(QMainWindow):
             
          if len(runningList):         
             if listchanged:
-               canFix.append('<u style="color: orange">The current windows need closed before you can Fix your wallets:</u>')
+               canFix.append('<u style="color: orange">The following windows need closed before you can Fix your wallets:</u>')
                canFix.extend([str(myobj.windowTitle()) for myobj in runningList])
                self.dlgCptWlt.UpdateCanFix(canFix)
             time.sleep(0.2)
@@ -5027,7 +5029,7 @@ class ArmoryMainWindow(QMainWindow):
       nwallets = len(self.walletMap)
       
       if nwallets > 0:
-         self.prgAt = [0, 0]
+         self.prgAt = [0, 0, 0]
             
          self.pbarWalletProgress = QProgressBar()
          self.pbarWalletProgress.setMaximum(10000)
@@ -5037,19 +5039,30 @@ class ArmoryMainWindow(QMainWindow):
          self.pbarWalletProgress.setValue(0)
          self.statusBar().addWidget(self.pbarWalletProgress)
 
+         self.connect(self, SIGNAL('UWCS'), self.UpdateWalletConsistencyStatus)
+         self.connect(self, SIGNAL('PWCE'), self.PromptWltCstError)
          self.CheckWalletConsistency(self.walletMap, self.prgAt, async=True)
-         self.extraHeartbeatAlways.append(self.UpdateWalletConsistencyPBar)
-         
-   def UpdateWalletConsistencyPBar(self):
-      self.pbarWalletProgress.setValue(self.prgAt[0])
-      
-   def WalletConsistencyCheckDone(self, msg, msgLength, dlgrdy):
-      self.pbarWalletProgress.hide()
-      self.statusBar().showMessage(msg, msgLength)
-      dlgrdy[0] = 1
+         self.UpdateConsistencyCheckMessage(async = True)
+         #self.extraHeartbeatAlways.append(self.UpdateWalletConsistencyPBar)
+   @AllowAsync
+   def UpdateConsistencyCheckMessage(self):      
+      while self.prgAt[2] == 0:
+         self.emit(SIGNAL('UWCS'), [0, self.prgAt[0]])
+         time.sleep(0.5)
+
+      self.emit(SIGNAL('UWCS'), [2])
+      self.prgAt[2] = 2     
+   def UpdateWalletConsistencyStatus(self, msg):
+      if msg[0] == 0:
+         self.pbarWalletProgress.setValue(msg[1])
+      elif msg[0] == 1:
+         self.statusBar().showMessage(msg[1], msg[2])
+         msg[3][0] = 1
+      else:
+         self.pbarWalletProgress.hide()
 
    def WltCstError(self, wlt, status, dlgrdy):
-      self.extraHeartbeatAlways.append([self.PromptWltCstError, [dlgrdy, wlt, status], False])
+      self.emit(SIGNAL('PWCE'), dlgrdy, wlt, status)
       self.extraHeartbeatAlways.append([LOGERROR, ['Failed consistency check on wallet %s' % (wlt.uniqueIDB58)], False])
  
    def PromptWltCstError(self, dlgrdy, wallet=None, status='', mode=None):

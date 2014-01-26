@@ -50,7 +50,8 @@ class PyBtcWalletRecoveryTest(unittest.TestCase):
       crpWlt.lastComputedChainAddr160 = newAddr.addrStr20
       crpWlt.fillAddressPool(250)
       
-      #TODO: corrupt a private key      
+      #TODO: corrupt a private key  
+      #break an address entry at binary level    
       return crpWlt.uniqueIDB58
 
    def testWalletRecovery(self):

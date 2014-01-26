@@ -706,7 +706,7 @@ class ArmoryDialog(QDialog):
    
    @AddToRunningDialogsList
    def exec_(self):
-      super(ArmoryDialog, self).exec_()
+      return super(ArmoryDialog, self).exec_()
       
 
 ################################################################################

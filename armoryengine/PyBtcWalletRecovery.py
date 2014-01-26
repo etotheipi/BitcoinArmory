@@ -4,7 +4,7 @@ from armoryengine.BinaryPacker import UINT16, UINT32, UINT64, INT64, BINARY_CHUN
 from armoryengine.PyBtcAddress import PyBtcAddress
 from armoryengine.PyBtcWallet import (PyBtcWallet, WLT_DATATYPE_KEYDATA, WLT_DATATYPE_ADDRCOMMENT, 
                                     WLT_DATATYPE_TXCOMMENT, WLT_DATATYPE_OPEVAL, WLT_DATATYPE_DELETED,
-                                    WLT_UPDATE_ADD)
+                                    WLT_UPDATE_ADD, getSuffixedPath)
 from CppBlockUtils import SecureBinaryData, CryptoECDSA, BtcWallet 
 import os
 from time import sleep, ctime, strftime, localtime
@@ -123,15 +123,15 @@ class PyBtcWalletRecovery(object):
          nErrors = nErrors + len(self.sequenceGaps)
          self.strOutput.append('Found %d gaps in the address chain:\r\n' % (len(self.sequenceGaps)))
          for i in range(0, len(self.sequenceGaps)):
-            self.strOutput.append('   from chainIndex %d to %d\r\n' % (self.sequenceGaps[i][0], self.sequenceGaps[i][1]))
+            self.strOutput.append('   from chainIndex %s to %s\r\n' % (self.sequenceGaps[i][0], self.sequenceGaps[i][1]))
 
-      if len(self.forkenPublicKeyChain) == 0:
+      if len(self.forkedPublicKeyChain) == 0:
          self.strOutput.append('No chained address fork was found\r\n')
       else:
          nErrors = nErrors + len(self.forkedPublicKeyChain)
          self.strOutput.append('Found %d forks within the address chain:\r\n' % (len(self.forkedPublicKeyChain)))
          for i in range(0, len(self.forkedPublicKeyChain)):
-            self.strOutput.append('   at chainIndex %d, file offset %s\r\n' % (self.forkedPublicKeyChain[i][0], self.forkedPublicKeyChain[i][1]))
+            self.strOutput.append('   at chainIndex %s, file offset %s\r\n' % (self.forkedPublicKeyChain[i][0], self.forkedPublicKeyChain[i][1]))
 
       if len(self.chainCodeCorruption) == 0:
          self.strOutput.append('No chaincode corruption was found\r\n')
@@ -139,7 +139,7 @@ class PyBtcWalletRecovery(object):
          nErrors = nErrors + len(self.chainCodeCorruption)
          self.strOutput.append('Found %d instances of chaincode corruption:\r\n' % (len(self.chainCodeCorruption)))
          for i in range(0, len(self.chainCodeCorruption)):
-            self.strOutput.append('   at chainIndex %d, file offset %d\r\n' % (self.chainCodeCorruption[i][0], self.chainCodeCorruption[i][1]))
+            self.strOutput.append('   at chainIndex %s, file offset %s\r\n' % (self.chainCodeCorruption[i][0], self.chainCodeCorruption[i][1]))
 
       if len(self.invalidPubKey) == 0:
          self.strOutput.append('All chained public keys are valid EC points\r\n')
@@ -147,7 +147,7 @@ class PyBtcWalletRecovery(object):
          nErrors = nErrors + len(self.invalidPubKey)
          self.strOutput.append('%d chained public keys are invalid EC points:\r\n' % (len(self.invalidPubKey)))
          for i in range(0, len(self.invalidPubKey)):
-            self.strOutput.append('   at chainIndex %d, file offset %d' % (self.invalidPubKey[i][0], self.invalidPubKey[i][1]))
+            self.strOutput.append('   at chainIndex %s, file offset %s' % (self.invalidPubKey[i][0], self.invalidPubKey[i][1]))
 
       if len(self.missingPubKey) == 0:
          self.strOutput.append('No chained public key is missing\r\n')
@@ -155,7 +155,7 @@ class PyBtcWalletRecovery(object):
          nErrors = nErrors + len(self.missingPubKey)
          self.strOutput.append('%d chained public keys are missing:\r\n' % (len(self.missingPubKey)))
          for i in range(0, len(self.missingPubKey)):
-            self.strOutput.append('   at chainIndex %d, file offset %d' % (self.missingPubKey[i][0], self.missingPubKey[i][1]))
+            self.strOutput.append('   at chainIndex %s, file offset %s' % (self.missingPubKey[i][0], self.missingPubKey[i][1]))
 
       if len(self.hashValMismatch) == 0:
          self.strOutput.append('All entries were saved under their matching hashVal\r\n')
@@ -163,7 +163,7 @@ class PyBtcWalletRecovery(object):
          nErrors = nErrors + len(self.hashValMismatch)
          self.strOutput.append('%d address entries were saved under an erroneous hashVal:\r\n' % (len(self.hashValMismatch)))
          for i in range(0, len(self.hashValMismatch)):
-            self.strOutput.append('   at chainIndex %d, file offset %d\r\n' % (self.hashValMismatch[i][0], self.hashValMismatch[i][1]))
+            self.strOutput.append('   at chainIndex %s, file offset %s\r\n' % (self.hashValMismatch[i][0], self.hashValMismatch[i][1]))
 
       if self.WO == 0:
          if len(self.unmatchedPair) == 0:
@@ -172,13 +172,13 @@ class PyBtcWalletRecovery(object):
             nErrors = nErrors + len(self.unmatchedPair)
             self.strOutput.append('%d public keys do not match their respective private key:\r\n' % (len(self.unmatchedPair)))
             for i in range(0, len(self.unmatchedPair)):
-               self.strOutput.append('   at chainIndex %d, file offset %d\r\n' % (self.unmatchedPair[i][0], self.unmatchedPair[i][1]))
+               self.strOutput.append('   at chainIndex %s, file offset %s\r\n' % (self.unmatchedPair[i][0], self.unmatchedPair[i][1]))
 
       if len(self.misc) > 0:
          nErrors = nErrors + len(self.misc)
-         self.strOutput.append('%s miscalleneous errors were found:\r\n')
+         self.strOutput.append('%d miscalleneous errors were found:\r\n' % (len(self.misc)))
          for i in range(0, len(self.misc)):
-            self.strOutput.append('   %d' % self.misc[i])
+            self.strOutput.append('   %s\r\n' % self.misc[i])
 
       #### imported keys
       self.strOutput.append('Found %d imported address entries\r\n' % (self.nImports))
@@ -190,10 +190,11 @@ class PyBtcWalletRecovery(object):
             nErrors = nErrors + len(self.importedErr)
             self.strOutput.append('%d errors were found within the imported address entries:\r\n' % (len(self.importedErr)))
             for i in range(0, len(self.importedErr)):
-               self.strOutput.append('   %s' % (self.importedErr[i]))
+               self.strOutput.append('   %s\r\n' % (self.importedErr[i]))
 
       ####TODO: comments error log
 
+      self.strOutput.append('%d errors where found\r\n' % (nErrors))
       self.UIreport = self.UIreport + '<b%s>- %d errors where found</b><br>' % ( ' style="color: red;"' if nErrors else '', nErrors)
       return self.EndLog(0, ProgDlg, returnError)
       
@@ -209,13 +210,15 @@ class PyBtcWalletRecovery(object):
          if ProgDlg:
             self.EndLog = '<b>- Recovery failed: error code %d</b><br>' % (errorcode)
             ProgDlg.UpdateText(self.UIreport + self.EndLog)
+            return errorcode
       else:
-         self.strOutput.append('Recovery done\r\n\r\n\r\n')
-
          if ProgDlg:
+            self.strOutput.append('Recovery done\r\n\r\n\r\n')            
             self.EndLog = self.EndLog + '<b>- Recovery done</b><br>'
             self.EndLog = self.EndLog + '<br>Recovered wallet saved at:<br>- %s<br>' % (self.newwalletPath)
             ProgDlg.UpdateText(self.UIreport + self.EndLog)
+         else:
+            self.strOutput.append('\r\n\r\n\r\n')
 
       if not returnError:      
          if ProgDlg:
@@ -358,7 +361,7 @@ class PyBtcWalletRecovery(object):
             if ProgDlg:
                ProgDlg.AskUnlock(toRecover)
                while ProgDlg.GotPassphrase == 0:
-                  sleep(0.01)
+                  sleep(0.1)
                
                if ProgDlg.GotPassphrase == 1:
                   Passphrase = ProgDlg.Passphrase
@@ -566,6 +569,7 @@ class PyBtcWalletRecovery(object):
 
 
       #chained key pairs. for rmode is 4, no need to skip this part, naddress will be 0
+      n=0
       for i in addrDict:
          entrylist = []
          entrylist = list(addrDict[i])
@@ -573,15 +577,16 @@ class PyBtcWalletRecovery(object):
          rawData = entrylist[4]
          byteLocation = entrylist[3]
 
+         n = n+1
          if ProgDlg:
-            UIupdate = '<b>- Processing address entries:</b>   %d/%d<br>' % (newAddr.chainIndex +1, self.naddress)
+            UIupdate = '<b>- Processing address entries:</b>   %d/%d<br>' % (n, self.naddress)
             if ProgDlg.UpdateText(self.UIreport + UIupdate) == 0:
                if SecurePassphrase: SecurePassphrase.destroy()
                if toRecover.kdfKey: toRecover.kdfKey.destroy()
                rootAddr.binPrivKey32_Plain.destroy()
                return 0
          if prgAt:
-            prgAt[0] = prgAt_in + (0.01 + 0.99*(newAddr.chainIndex +1)/prgTotal)*prgAt[1]
+            prgAt[0] = prgAt_in + (0.01 + 0.99*n/prgTotal)*prgAt[1]
          
          # Fix byte errors in the address data
          fixedAddrData = newAddr.serialize()
@@ -647,9 +652,9 @@ class PyBtcWalletRecovery(object):
             
             if newAddr.useEncryption != toRecover.useEncryption:
                if newAddr.useEncryption:
-                  self.misc.append('Encrypted address entry in a non encrypted wallet at chainIndex %d in wallet %s' % (newAddr.chainIndex, WalletPath))
+                  self.misc.append('Encrypted address entry in a non encrypted wallet at chainIndex %d in wallet %s' % (newAddr.chainIndex, os.path.basename(WalletPath)))
                else:
-                  self.misc.append('Unencrypted address entry in an encrypted wallet at chainIndex %d in wallet %s' % (newAddr.chainIndex, WalletPath))                  
+                  self.misc.append('Unencrypted address entry in an encrypted wallet at chainIndex %d in wallet %s' % (newAddr.chainIndex, os.path.basename(WalletPath)))                  
             
             keymismatch=0
             """
@@ -662,23 +667,24 @@ class PyBtcWalletRecovery(object):
             if not newAddr.hasPrivKey():
                #entry has no private key
                keymismatch=2
-
+               
+               #TODO: build private key at this point
+                  
+               if not newAddr.useEncryption:
+                  #uncomputed private key in a non encrypted wallet? definitely not supposed to happen
+                  keymismatch = 4 
+                  self.misc.append('Uncomputed private key in unencrypted wallet at chainIndex %d in wallet %s' % (newAddr.chainIndex, os.path.basename(WalletPath)))
+               else:
+                  self.misc.append('Missing private key is not flagged for computation at chainIndex %d in wallet %s' % (newAddr.chainIndex, os.path.basename(WalletPath)))
+                                       
+            else:
                if newAddr.createPrivKeyNextUnlock:
                   #have to build the private key on unlock; we can use prevAddr for that purpose, used to chain the public key off of
                   newAddr.createPrivKeyNextUnlock_IVandKey[0] = prevAddr.binInitVect16.copy()
                   newAddr.createPrivKeyNextUnlock_IVandKey[1] = prevAddr.binPrivKey32_Encr.copy()
-
+   
                   newAddr.createPrivKeyNextUnlock_ChainDepth = newAddr.chainIndex - prevAddr.chainIndex
-               else:
-                  if not newAddr.useEncryption:
-                     #uncomputed private key in a non encrypted wallet? definitely not supposed to happen
-                     keymismatch = 4 
-                     self.misc.append('Uncomputed private key in unencrypted wallet at chainIndex %d in wallet %s' % (newAddr.chainIndex, WalletPath))
-                  else:
-                     self.misc.append('Missing private key is not flagged for computation at chainIndex %d in wallet %s' % (newAddr.chainIndex, WalletPath))
-                     
-                  #TODO: build private key at this point
-                  
+
 
             #unlock if necessary
             if keymismatch == 0 or keymismatch == 2:
@@ -1271,7 +1277,7 @@ def WalletConsistencyCheck(wallet, prgAt=None):
 def FixWallets(wallets, dlg=None): 
    
    #It's the caller's responsibility to unload the wallets from his app
-
+   
    #fix the wallets
    fixedWlt = []
    wlterror = []
@@ -1306,8 +1312,8 @@ def FixWallets(wallets, dlg=None):
             os.rename(fixer.newwalletPath, wlt.walletPath)
             
             #remove backups
-            os.unlink(wlt.walletPath[:-7] + '_backup.wallet')
-            os.unlink(fixer.newwalletPath[:-7] + '_backup.wallet')
+            os.unlink(getSuffixedPath(wlt.walletPath, 'backup'))
+            os.unlink(getSuffixedPath(fixer.newwalletPath, 'backup'))
             
             #copy armory log
             copyfile(os.path.join(os.path.dirname(wlt.walletPath), 'armorylog.txt'), os.path.join(corruptFolder, 'armorylog.txt'))

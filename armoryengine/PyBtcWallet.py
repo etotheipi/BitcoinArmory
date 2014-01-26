@@ -2935,7 +2935,18 @@ class PyBtcWallet(object):
          return False
 
       return isEqualTo
-   
+
+###############################################################################
+def getSuffixedPath(walletPath, nameSuffix):
+   fpath = walletPath
+
+   pieces = os.path.splitext(fpath)
+   if not pieces[0].endswith('_'):
+      fpath = pieces[0] + '_' + nameSuffix + pieces[1]
+   else:
+      fpath = pieces[0] + nameSuffix + pieces[1]
+   return fpath
+
 # Putting this at the end because of the circular dependency
 from armoryengine.BDM import TheBDM, getCurrTimeAndBlock
 from armoryengine.PyBtcAddress import PyBtcAddress
