@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 #include <limits.h>
 #include <iostream>
 #include <stdlib.h>
@@ -1772,10 +1771,12 @@ TEST_F(BtcUtilsTest, TxOutScriptID_Multisig)
       "5221034758cefcb75e16e4dfafb32383b709fa632086ea5ca982712de6add93"
       "060b17a2103fe96237629128a0ae8c3825af8a4be8fe3109b16f62af19cec0b1"
       "eb93b8717e252ae");
-   BinaryData pub1   = READHEX("034758cefcb75e16e4dfafb32383b709fa632086ea5ca982712de6add93060b17a");
-   BinaryData pub2   = READHEX("03fe96237629128a0ae8c3825af8a4be8fe3109b16f62af19cec0b1eb93b8717e2");
-   BinaryData addr1  = READHEX("785652a6b8e721e80ffa353e5dfd84f0658284a9");
-   BinaryData addr2  = READHEX("b3348abf9dd2d1491359f937e2af64b1bb6d525a");
+   BinaryData pub1   = READHEX(
+      "034758cefcb75e16e4dfafb32383b709fa632086ea5ca982712de6add93060b17a");
+   BinaryData pub2   = READHEX(
+      "03fe96237629128a0ae8c3825af8a4be8fe3109b16f62af19cec0b1eb93b8717e2");
+   BinaryData addr1  = READHEX("b3348abf9dd2d1491359f937e2af64b1bb6d525a");
+   BinaryData addr2  = READHEX("785652a6b8e721e80ffa353e5dfd84f0658284a9");
    BinaryData a160   = BtcUtils::BadAddress_;
    BinaryData unique = READHEX(
       "fe0202785652a6b8e721e80ffa353e5dfd84f0658284a9b3348abf9dd2d14913"
@@ -1804,6 +1805,11 @@ TEST_F(BtcUtilsTest, TxOutScriptID_MultiList)
       "fe0202785652a6b8e721e80ffa353e5dfd84f0658284a9b3348abf9dd2d14913"
       "59f937e2af64b1bb6d525a");
 
+   BinaryData pub0 = READHEX(
+      "034758cefcb75e16e4dfafb32383b709fa632086ea5ca982712de6add93060b17a");
+   BinaryData pub1 = READHEX(
+      "03fe96237629128a0ae8c3825af8a4be8fe3109b16f62af19cec0b1eb93b8717e2");
+
    vector<BinaryData> a160List;
    uint32_t M;
 
@@ -1813,6 +1819,14 @@ TEST_F(BtcUtilsTest, TxOutScriptID_MultiList)
    
    EXPECT_EQ(a160List[0], addr0);
    EXPECT_EQ(a160List[1], addr1);
+
+   vector<BinaryData> pkList;
+   M = BtcUtils::getMultisigPubKeyList(script, pkList);
+   EXPECT_EQ(M, 2);              
+   EXPECT_EQ(pkList.size(), 2); // N
+   
+   EXPECT_EQ(pkList[0], pub0);
+   EXPECT_EQ(pkList[1], pub1);
 }
 
 
@@ -4566,6 +4580,8 @@ protected:
       // Make sure the global DB type and prune type are reset for each test
       DBUtils.setArmoryDbType(ARMORY_DB_FULL);
       DBUtils.setDbPruneType(DB_PRUNE_NONE);
+   
+      LOGDISABLESTDOUT();
    }
 
    /////

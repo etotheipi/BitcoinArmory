@@ -607,7 +607,7 @@ class TxInDispModel(QAbstractTableModel):
             self.dispTable[-1].append(idx)
             self.dispTable[-1].append(blk)
             if pytxdp==None:
-               self.dispTable[-1].append(TXIN_TYPE_NAMES[scrType])
+               self.dispTable[-1].append(CPP_TXIN_SCRIPT_NAMES[scrType])
             else:
                # TODO:  Assume NO multi-sig... will be updated in future to use 
                #        PyTxDP::isSigValidForInput which will handle all cases
@@ -619,17 +619,19 @@ class TxInDispModel(QAbstractTableModel):
             # We don't have any info from the BDM, display whatever we can
             # (which usually isn't much)
             recipAddr = '<Unknown>'
-            if scrType in (TXIN_SCRIPT_STANDARD,):
-               recipAddr = TxInScriptExtractAddr160IfAvail(txin)
-               if main:
-                  wltID = self.main.getWalletForAddr160(recipAddr)
+            recipAddr = TxInScriptExtractAddrStrIfAvail(txin)
+            atype, a160 = '',''
+            if len(recipAddr) > 0:
+               atype, a160 = addrStr_to_hash160(recipAddr)
+               wltID = self.main.getWalletForAddr160(a160)
+
             self.dispTable[-1].append(wltID)
-            self.dispTable[-1].append(recipAddr)
+            self.dispTable[-1].append(a160)
             self.dispTable[-1].append('<Unknown>')
             self.dispTable[-1].append(binary_to_hex(txin.outpoint.txHash))
             self.dispTable[-1].append(str(txin.outpoint.txOutIndex))
             self.dispTable[-1].append('')
-            self.dispTable[-1].append(TXIN_TYPE_NAMES[scrType])
+            self.dispTable[-1].append(CPP_TXIN_SCRIPT_NAMES[scrType])
             self.dispTable[-1].append(int_to_hex(txin.intSeq, widthBytes=4))
             self.dispTable[-1].append(binary_to_hex(txin.binScript))
 
@@ -708,7 +710,7 @@ class TxOutDispModel(QAbstractTableModel):
       self.wltIDList = []
       self.idxGray = idxGray[:]
       for i,txout in enumerate(self.tx.outputs):
-         recip160 = TxOutScriptExtractAddr160(txout.binScript)
+         recip160 = script_to_scrAddr(txout.binScript)[1:]
          self.txOutList.append(txout)
          if main:
             self.wltIDList.append(main.getWalletForAddr160(recip160))
@@ -726,21 +728,19 @@ class TxOutDispModel(QAbstractTableModel):
       COLS = TXOUTCOLS
       row,col = index.row(), index.column()
       txout = self.txOutList[row]
-      #stype = getTxOutScriptType(txout.binScript)
-      #stypeStr = TXOUT_TYPE_NAMES[stype]
       stype = BtcUtils().getTxOutScriptTypeInt(txout.binScript)
       stypeStr = CPP_TXOUT_SCRIPT_NAMES[stype]
       wltID = self.wltIDList[row]
       if stype==TXOUT_SCRIPT_MULTISIG:
-         mstype = getTxOutMultiSigInfo(txout.binScript)[0]
-         stypeStr = 'MultiSig(%d-of-%d)' % mstype
+         M,N = getMultisigScriptInfo(txout.binScript)[:2]
+         stypeStr = 'MultiSig(%d-of-%d)' % (M,N)
       if role==Qt.DisplayRole:
          if col==COLS.WltID:   return QVariant(wltID)
          if col==COLS.ScrType: return QVariant(stypeStr)
          if col==COLS.Script:  return QVariant(binary_to_hex(txout.binScript))
          if col==COLS.Btc:     return QVariant(coin2str(txout.getValue(),maxZeros=2))
          if col==COLS.Recip:   
-            if stype in CPP_TXOUT_WITH_ADDRSTR:
+            if stype in CPP_TXOUT_HAS_ADDRSTR:
                return QVariant(script_to_addrStr(txout.binScript))
             elif stype==TXOUT_SCRIPT_MULTISIG:
                return QVariant('[[Multiple]]')

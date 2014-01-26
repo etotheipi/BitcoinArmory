@@ -830,7 +830,7 @@ class WizardCreateWatchingOnlyWalletFrame(ArmoryFrame):
 
       summaryText = QRichLabel(tr("""
                You have just ceated a new wallet that will should already
-               appea in the Available Wallets List in the main window.
+               appear in the "Available Wallets" list in the main window.
                <br><br>
                You may create a watching only copy of this wallet that can
                only be used for generating addresses and monitoring incoming

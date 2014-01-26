@@ -8,7 +8,7 @@
 from CppBlockUtils import SecureBinaryData, CryptoAES, CryptoECDSA
 from armoryengine.ArmoryUtils import ADDRBYTE, hash256, binary_to_base58, \
    KeyDataError, RightNow, LOGERROR, ChecksumError, convertKeyDataToAddress, \
-   verifyChecksum, WalletLockError, createSigScript, binary_to_int, computeChecksum, \
+   verifyChecksum, WalletLockError, createSigScriptFromRS, binary_to_int, computeChecksum, \
    getVersionInt, PYBTCWALLET_VERSION, bitset_to_int, LOGDEBUG, Hash160ToScrAddr, \
    int_to_bitset, UnserializeError, hash160_to_addrStr, int_to_binary, BIGENDIAN, \
    BadAddressError, checkAddrStrValid, binary_to_hex
@@ -688,7 +688,7 @@ class PyBtcAddress(object):
 
          rBin   = sigstr[:32 ]
          sBin   = sigstr[ 32:]
-         return createSigScript(rBin, sBin)
+         return createSigScriptFromRS(rBin, sBin)
 
       except:
          LOGERROR('Failed signature generation')

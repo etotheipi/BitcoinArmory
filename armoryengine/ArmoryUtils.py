@@ -94,6 +94,7 @@ class WalletExistsError(Exception): pass
 class ConnectionError(Exception): pass
 class BlockchainUnavailableError(Exception): pass
 class InvalidHashError(Exception): pass
+class InvalidScriptError(Exception): pass
 class BadURIError(Exception): pass
 class CompressedKeyError(Exception): pass
 class TooMuchPrecisionError(Exception): pass
@@ -208,7 +209,7 @@ if CLI_OPTIONS.logFile.lower()=='default':
 
 
 # Version Numbers 
-BTCARMORY_VERSION    = (0, 90,  3, 0)  # (Major, Minor, Bugfix, AutoIncrement) 
+BTCARMORY_VERSION    = (0, 90,  5, 0)  # (Major, Minor, Bugfix, AutoIncrement) 
 PYBTCWALLET_VERSION  = (1, 35,  0, 0)  # (Major, Minor, Bugfix, AutoIncrement)
 
 ARMORY_DONATION_ADDR = '1ArmoryXcfq7TnCSuZa9fQjRYwJ4bkRKfv'
@@ -374,8 +375,10 @@ SCRADDR_P2PKH_BYTE    = '\x00'
 SCRADDR_P2SH_BYTE     = '\x05'
 SCRADDR_MULTISIG_BYTE = '\xfe'
 SCRADDR_NONSTD_BYTE   = '\xff'
-SCRADDR_BYTE_LIST     = [SCRADDR_P2PKH_BYTE, SCRADDR_P2SH_BYTE, \
-                         SCRADDR_MULTISIG_BYTE, SCRADDR_NONSTD_BYTE]
+SCRADDR_BYTE_LIST     = [SCRADDR_P2PKH_BYTE, \
+                         SCRADDR_P2SH_BYTE, \
+                         SCRADDR_MULTISIG_BYTE, \
+                         SCRADDR_NONSTD_BYTE]
 
 # Copied from cppForSwig/BtcUtils.h::getTxOutScriptTypeInt(script)
 CPP_TXOUT_STDHASH160   = 0
@@ -384,6 +387,13 @@ CPP_TXOUT_STDPUBKEY33  = 2
 CPP_TXOUT_MULTISIG     = 3
 CPP_TXOUT_P2SH         = 4
 CPP_TXOUT_NONSTANDARD  = 5
+CPP_TXOUT_HAS_ADDRSTR  = [CPP_TXOUT_STDHASH160, \
+                          CPP_TXOUT_STDPUBKEY65,
+                          CPP_TXOUT_STDPUBKEY33,
+                          CPP_TXOUT_P2SH]
+CPP_TXOUT_STDSINGLESIG = [CPP_TXOUT_STDHASH160, \
+                          CPP_TXOUT_STDPUBKEY65,
+                          CPP_TXOUT_STDPUBKEY33]
 
 CPP_TXOUT_SCRIPT_NAMES = ['']*6
 CPP_TXOUT_SCRIPT_NAMES[CPP_TXOUT_STDHASH160]  = 'Standard (PKH)'
@@ -392,11 +402,24 @@ CPP_TXOUT_SCRIPT_NAMES[CPP_TXOUT_STDPUBKEY33] = 'Standard (PK33)'
 CPP_TXOUT_SCRIPT_NAMES[CPP_TXOUT_MULTISIG]    = 'Multi-Signature'
 CPP_TXOUT_SCRIPT_NAMES[CPP_TXOUT_P2SH]        = 'Standard (P2SH)'
 CPP_TXOUT_SCRIPT_NAMES[CPP_TXOUT_NONSTANDARD] = 'Non-Standard'
-CPP_TXOUT_WITH_ADDRSTR = [CPP_TXOUT_STDHASH160, \
-                          CPP_TXOUT_STDPUBKEY65,
-                          CPP_TXOUT_STDPUBKEY33,
-                          CPP_TXOUT_P2SH]
          
+# Copied from cppForSwig/BtcUtils.h::getTxInScriptTypeInt(script)
+CPP_TXIN_STDUNCOMPR    = 0
+CPP_TXIN_STDCOMPR      = 1
+CPP_TXIN_COINBASE      = 2
+CPP_TXIN_SPENDPUBKEY   = 3
+CPP_TXIN_SPENDMULTI    = 4
+CPP_TXIN_SPENDP2SH     = 5
+CPP_TXIN_NONSTANDARD   = 6
+
+CPP_TXIN_SCRIPT_NAMES = ['']*7
+CPP_TXIN_SCRIPT_NAMES[CPP_TXIN_STDUNCOMPR]  = 'Sig + PubKey65'
+CPP_TXIN_SCRIPT_NAMES[CPP_TXIN_STDCOMPR]    = 'Sig + PubKey33'
+CPP_TXIN_SCRIPT_NAMES[CPP_TXIN_COINBASE]    = 'Coinbase'
+CPP_TXIN_SCRIPT_NAMES[CPP_TXIN_SPENDPUBKEY] = 'Plain Signature'
+CPP_TXIN_SCRIPT_NAMES[CPP_TXIN_SPENDMULTI]  = 'Spend Multisig'
+CPP_TXIN_SCRIPT_NAMES[CPP_TXIN_SPENDP2SH]   = 'Spend P2SH'
+CPP_TXIN_SCRIPT_NAMES[CPP_TXIN_NONSTANDARD] = 'Non-Standard'
 
 
 ################################################################################
@@ -2530,7 +2553,7 @@ def createBitcoinURI(addr, amt=None, msg=None):
 
 
 ################################################################################
-def createSigScript(rBin, sBin):
+def createSigScriptFromRS(rBin, sBin):
    # Remove all leading zero-bytes
    while rBin[0]=='\x00':
       rBin = rBin[1:]

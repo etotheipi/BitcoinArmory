@@ -6170,7 +6170,7 @@ class DlgReviewOfflineTx(ArmoryDialog):
       outInfo = txdp.pytxObj.makeRecipientsList()
       theFee = sum(txdp.inputValues) - sum([info[1] for info in outInfo])
       for info in outInfo:
-         if not info[0] in CPP_TXOUT_WITH_ADDRSTR:
+         if not info[0] in CPP_TXOUT_HAS_ADDRSTR:
             rvpairsOther.append(['Non-Standard Output', info[1]])
             continue
 
@@ -6760,11 +6760,11 @@ def extractTxInfo(pytx, rcvTime=None):
             txinFromList[-1].append('')
             txinFromList[-1].append('')
 
-   elif not pytxdp == None:
+   elif not pytxdp is None:
       haveAllInput = True
       for i, txin in enumerate(pytxdp.pytxObj.inputs):
          txinFromList.append([])
-         txinFromList[-1].append(TxOutScriptExtractAddr160(pytxdp.txOutScripts[i]))
+         txinFromList[-1].append(script_to_scrAddr(pytxdp.txOutScripts[i])[1:])
          txinFromList[-1].append(pytxdp.inputValues[i])
          txinFromList[-1].append('')
          txinFromList[-1].append('')
@@ -6833,7 +6833,7 @@ class DlgDispTxInfo(ArmoryDialog):
       indicesMakeGray = []
       idx = 0
       for scrType, amt, script in data[FIELDS.OutList]:
-         if scrType in CPP_TXOUT_WITH_ADDRSTR:
+         if scrType in CPP_TXOUT_HAS_ADDRSTR:
             addrStr = script_to_addrStr(script)
             addr160 = addrStr_to_hash160(addrStr)[1]
             scrAddr = script_to_scrAddr(script)
@@ -7337,7 +7337,7 @@ class DlgDispTxInfo(ArmoryDialog):
          binScript = hex_to_binary(hexScript)
          addrStr = None
          scrType = BtcUtils().getTxOutScriptTypeInt(binScript)
-         if scrType in CPP_TXOUT_WITH_ADDRSTR:
+         if scrType in CPP_TXOUT_HAS_ADDRSTR:
             addrStr = script_to_addrStr(binScript)
 
          oplist = convertScriptToOpStrings(hex_to_binary(hexScript))

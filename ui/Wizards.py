@@ -174,7 +174,7 @@ class WalletWizard(ArmoryWizard):
 class WalletCreationPage(ArmoryWizardPage):
    def __init__(self, wizard):
       super(WalletCreationPage, self).__init__(wizard,
-            NewWalletFrame(wizard, wizard.main, "Create Wallet"))
+            NewWalletFrame(wizard, wizard.main, "Primary Wallet"))
       self.setTitle(tr("Step 1: Create Wallet"))
       self.setSubTitle(tr("""
             Create a new wallet for managing your funds.

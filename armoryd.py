@@ -165,56 +165,68 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
                             tempKeyLifetime=timeout)
 
    #############################################################################
-
-   def getTxOutScriptType(self, binScript):
+   def getTxOutScriptTypeStr(self, binScript):
       if len(binScript) > 0: 
-         typeNumber = getTxOutScriptType(binScript)
-         scriptType = 'pubkeyhash' if typeNumber == TXOUT_SCRIPT_STANDARD else \
-                      'multisig' if typeNumber == TXOUT_SCRIPT_MULTISIG else \
-                      'coinbase' if typeNumber == TXOUT_SCRIPT_COINBASE else \
-                      'nonstandard'
+         scrType = Cpp.BtcUtils().getTxOutScriptTypeInt(binScript)
+         return CPP_TXOUT_SCRIPT_NAMES[scrType]
       else:
-         scriptType = 'nonstandard'
-      return scriptType
+         return 'Blank Script'
    
+   #############################################################################
    def getScriptPubKey(self, txOut):
       opStringList = convertScriptToOpStrings(txOut.binScript)
-      scriptType = self.getTxOutScriptType(txOut.binScript),
-      multiSigType, addr160List, pub65List = getTxOutMultiSigInfo(txOut.binScript)
+      scriptType = self.getTxOutScriptTypeStr(txOut.binScript),
+      M, N, addr160List, pub65List = getMultisigScriptInfo(txOut.binScript)
       addr160List = [hash160_to_addrStr(binStr) for binStr in addr160List]
       reqSigs = opnames.index(opStringList[0])-OP_1+1 if len(addr160List) > 1 else 1
       return { 'asm' : ' '.join(convertScriptToOpStrings(txOut.binScript)),
-                  'hex' : binary_to_hex(txOut.binScript),
-                  'reqSigs' : reqSigs,
-                  'type' : scriptType,
-                  'addresses' : addr160List
-                  }
+               'hex' : binary_to_hex(txOut.binScript),
+               'reqSigs' : reqSigs,
+               'type' : scriptType,
+               'addresses' : addr160List }
 
+   #############################################################################
    def jsonrpc_decoderawtransaction(self, hexString):
       pyTx = PyTx().unserialize(hex_to_binary(hexString))
-      result = {\
-                'txid' : pyTx.getHashHex(BIGENDIAN),
-                'version' : pyTx.version,
-                'locktime' : pyTx.lockTime,
-                'vin' : [{ \
-                         'txid' : binary_to_hex(txIn.outpoint.txHash, BIGENDIAN),
-                         'vout' : txIn.outpoint.txOutIndex,
-                         'scriptSig' : { \
-                                        'asm' : binary_to_hex(txIn.binScript[1:]),
-                                        'hex' : binary_to_hex(txIn.binScript)},
-                         'sequence' : txIn.intSeq} if not getTxInScriptType(txIn) == TXIN_SCRIPT_COINBASE else
-                                       {\
-                                        'coinbase' : binary_to_hex(txIn.binScript),
-                                        'sequence' : txIn.intSeq
-                                        }  for txIn in pyTx.inputs],
-                'vout' : [{ \
-                           'value' : AmountToJSON(pyTx.outputs[n].value),
-                           'n' : n,
-                           'scriptPubKey' : self.getScriptPubKey(pyTx.outputs[n])
-                           } for n in range(len(pyTx.outputs))]
-                
-                }
+
+      #####
+      # Accumulate TxIn info
+      vinList = []
+      for txin in pyTx.inputs:
+         prevHash = txin.outpoint.txHash
+         scrType = getTxInScriptType(txin)
+         # ACR:  What is asm, and why is basically just binScript?
+         scriptSigDict = { 'asm' : binary_to_hex(txIn.binScript[1:]),
+                           'hex' : binary_to_hex(txIn.binScript) }
+
+         if not scrType == CPP_TXIN_COINBASE:
+            vinList.append(  { 'txid'      : binary_to_hex(prevHash, BIGENDIAN),
+                               'vout'      : txIn.outpoint.txOutIndex, 
+                               'scriptSig' : scriptSigDict, 
+                               'sequence'  : txIn.intSeq})
+         else:
+            vinList.append{ {  'coinbase'  : binary_to_hex(txIn.binScript),
+                               'sequence'  : txIn.intSeq })
+
+      #####
+      # Accumulate TxOut info
+      voutList = []
+      for txout in pyTx.outputs: 
+         voutList.append( { 'value' : AmountToJSON(txout.value),
+                            'n' : n,
+                            'scriptPubKey' : self.getScriptPubKey(txout) }
+         
+
+      #####
+      # Accumulate all the data to return
+      result = { 'txid'     : pyTx.getHashHex(BIGENDIAN),
+                 'version'  : pyTx.version,
+                 'locktime' : pyTx.lockTime,
+                 'vin'      : vinList, 
+                 'vout'     : voutList }
+
       return result
+
 
    #############################################################################
    def jsonrpc_getnewaddress(self):
