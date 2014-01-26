@@ -167,7 +167,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
    #############################################################################
    def getTxOutScriptTypeStr(self, binScript):
       if len(binScript) > 0: 
-         scrType = Cpp.BtcUtils().getTxOutScriptTypeInt(binScript)
+         scrType = getTxOutScriptType(binScript)
          return CPP_TXOUT_SCRIPT_NAMES[scrType]
       else:
          return 'Blank Script'

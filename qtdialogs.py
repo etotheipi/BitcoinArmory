@@ -7336,7 +7336,7 @@ class DlgDispTxInfo(ArmoryDialog):
       if hexScript:
          binScript = hex_to_binary(hexScript)
          addrStr = None
-         scrType = BtcUtils().getTxOutScriptTypeInt(binScript)
+         scrType = getTxOutScriptType(binScript)
          if scrType in CPP_TXOUT_HAS_ADDRSTR:
             addrStr = script_to_addrStr(binScript)
 

@@ -1664,7 +1664,7 @@ class PyBtcWallet(object):
          if tx.isInitialized():
             for i in range(tx.getNumTxOut()):
                txout = tx.getTxOutCopy(i)
-               stype = Cpp.BtcUtils().getTxOutScriptTypeInt(txout.getScript())
+               stype = getTxOutScriptType(txout.getScript())
                scrAddr = tx.getScrAddrForTxOut(i)
 
                if stype in CPP_TXOUT_HAS_ADDRSTR:

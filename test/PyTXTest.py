@@ -5,6 +5,7 @@ Created on Aug 4, 2013
 '''
 import sys
 import unittest
+sys.path.append('..')
 
 from armoryengine.ArmoryUtils import hex_to_binary, binary_to_hex, hex_to_int, \
    ONE_BTC
@@ -15,8 +16,6 @@ from armoryengine.Script import PyScriptProcessor
 from armoryengine.Transaction import PyTx, PyTxIn, PyOutPoint, PyTxOut, \
    TXOUT_SCRIPT_STANDARD, PyCreateAndSignTx, getMultisigScriptInfo, BlockComponent
 
-
-sys.argv.append('--nologging')
 
 
 # Unserialize an reserialize

@@ -619,7 +619,7 @@ class TxInDispModel(QAbstractTableModel):
             # We don't have any info from the BDM, display whatever we can
             # (which usually isn't much)
             recipAddr = '<Unknown>'
-            recipAddr = TxInScriptExtractAddrStrIfAvail(txin)
+            recipAddr = TxInExtractAddrStrIfAvail(txin)
             atype, a160 = '',''
             if len(recipAddr) > 0:
                atype, a160 = addrStr_to_hash160(recipAddr)

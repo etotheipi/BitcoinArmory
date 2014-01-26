@@ -828,46 +828,54 @@ public:
    // TXIN_SCRIPT_SPENDMULTI
    // TXIN_SCRIPT_SPENDP2SH
    // TXIN_SCRIPT_NONSTANDARD
-   static TXIN_SCRIPT_TYPE getTxInScriptType(BinaryDataRef s,
+   static TXIN_SCRIPT_TYPE getTxInScriptType(BinaryDataRef script,
                                              BinaryDataRef prevTxHash)
    {
-      if(s.getSize() == 0)
+      if(script.getSize() == 0)
          return TXIN_SCRIPT_NONSTANDARD;
 
       if(prevTxHash == BtcUtils::EmptyHash_)
          return TXIN_SCRIPT_COINBASE;
 
-      if(s[0]==0x00)
+      // Technically, this doesn't recognize all P2SH spends.  Only 
+      // spends of P2SH scripts that are, themselves, standard
+      BinaryData lastPush = getLastPushDataInScript(script);
+      if(getTxOutScriptType(lastPush) != TXOUT_SCRIPT_NONSTANDARD)
+         return TXIN_SCRIPT_SPENDP2SH;
+
+      if(script[0]==0x00)
       {
          // TODO: All this complexity to check TxIn type may be too slow when 
          //       scanning the blockchain...will need to investigate later
-         vector<BinaryDataRef> splitScr = splitPushOnlyScriptRefs(s);
+         vector<BinaryDataRef> splitScr = splitPushOnlyScriptRefs(script);
    
          if(splitScr.size() == 0)
             return TXIN_SCRIPT_NONSTANDARD;
 
-         if(isMultisigScript(splitScr[splitScr.size()-1]))
-            return TXIN_SCRIPT_SPENDP2SH;
+         // TODO: Maybe should identify whether the other pushed data
+         //       in the script is a potential solution for the 
+         //       subscript... meh?
+         BinaryDataRef lastObj = splitScr[splitScr.size() - 1];
 
-         if(s[2]==0x30 && s[4]==0x02)
+         if(script[2]==0x30 && script[4]==0x02)
             return TXIN_SCRIPT_SPENDMULTI;
       }
          
 
-      if( !(s[1]==0x30 && s[3]==0x02) )
+      if( !(script[1]==0x30 && script[3]==0x02) )
          return TXIN_SCRIPT_NONSTANDARD;
 
-      uint32_t sigSize = s[2] + 4;
+      uint32_t sigSize = script[2] + 4;
 
-      if(s.getSize() == sigSize)
+      if(script.getSize() == sigSize)
          return TXIN_SCRIPT_SPENDPUBKEY;
 
       uint32_t keySizeFull = 66;  // \x41 \x04 [X32] [Y32] 
       uint32_t keySizeCompr= 34;  // \x41 \x02 [X32]
 
-      if(s.getSize() == sigSize + keySizeFull)
+      if(script.getSize() == sigSize + keySizeFull)
          return TXIN_SCRIPT_STDUNCOMPR;
-      else if(s.getSize() == sigSize + keySizeCompr)
+      else if(script.getSize() == sigSize + keySizeCompr)
          return TXIN_SCRIPT_STDCOMPR;
 
       return TXIN_SCRIPT_NONSTANDARD;

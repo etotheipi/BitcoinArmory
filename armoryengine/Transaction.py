@@ -370,6 +370,11 @@ def getMultisigScriptInfo(rawScript):
 
 
 
+################################################################################
+# These two methods are just easier-to-type wrappers around the C++ methods
+def getTxOutScriptType(script):
+   return Cpp.BtcUtils().getTxOutScriptTypeInt(script)
+
 
 ################################################################################
 def getTxInScriptType(txinObj):
@@ -407,7 +412,7 @@ def TxInExtractKeys(txinObj):
 
 
 ################################################################################
-def TxInScriptExtractAddrStrIfAvail(txinObj):
+def TxInExtractAddrStrIfAvail(txinObj):
    addrStr, pubKeyOrScript = TxInExtractKeys(txinObj)
    if addrStr.startswith('['):
       return ''
@@ -585,7 +590,7 @@ class PyTxOut(BlockComponent):
       indstr2 = indent*nIndent + indent
       print indstr + 'TxOut:'
       print indstr2 + 'Value:   ', self.value, '(', float(self.value) / ONE_BTC, ')'
-      txoutType = getTxOutScriptTypeInt(self.binScript)
+      txoutType = getTxOutScriptType(self.binScript)
       if txoutType in [CPP_TXOUT_STDPUBKEY33, CPP_TXOUT_STDPUBKEY65]:
          print indstr2 + 'Script: PubKey(%s) OP_CHECKSIG' % \
                                           script_to_addrStr(self.binScript)
@@ -608,7 +613,7 @@ class PyTxOut(BlockComponent):
       result = indstr + 'TxOut:\n'
       result += indstr2 + ' Value:   %s (%s)' % (valStr, btcStr)
       result += indstr2
-      txoutType = getTxOutScriptTypeInt(self.binScript)
+      txoutType = getTxOutScriptType(self.binScript)
 
       if txoutType in [CPP_TXOUT_STDPUBKEY33, CPP_TXOUT_STDPUBKEY65]:
          result += 'Script: PubKey(%s) OP_CHECKSIG \n' % \
@@ -705,7 +710,7 @@ class PyTx(BlockComponent):
       for txout in self.outputs:
          recipInfoList.append([])
 
-         scrType = Cpp.BtcUtils().getTxOutScriptTypeInt(txout.binScript)
+         scrType = getTxOutScriptType(txout.binScript)
          recipInfoList[-1].append(scrType)
          recipInfoList[-1].append(txout.value)
          recipInfoList[-1].append(txout.binScript)
@@ -933,7 +938,7 @@ class PyTxDistProposal(object):
          # spent.
          script =  pyPrevTx.outputs[txidx].binScript
          value  =  pyPrevTx.outputs[txidx].value
-         scrType = Cpp.BtcUtils().getTxOutScriptTypeInt(script)
+         scrType = getTxOutScriptType(script)
 
          self.inputValues.append(value)
          self.txOutScripts.append(str(script)) # copy it
@@ -959,7 +964,7 @@ class PyTxDistProposal(object):
             script = p2shMap[p2shScrAddr]
             self.p2shScripts[-1] = script
 
-            scrType = Cpp.BtcUtils().getTxOutScriptTypeInt(script)
+            scrType = getTxOutScriptType(script)
             self.scriptTypes[-1] = scrType
              
          # This operates 
@@ -985,7 +990,7 @@ class PyTxDistProposal(object):
                   raise InvalidScriptError, 'No P2SH script info avail for TxDP'
 
             subScript = p2shMap[p2shScrAddr]
-            subScriptType = Cpp.BtcUtils().getTxOutScriptTypeInt(subScript)
+            subScriptType = getTxOutScriptType(subScript)
             if subScriptType == CPP_TXOUT_NONSTANDARD:
                # Store the scrAddr of the bulk script
                self.inScrAddrList[-1] = script_to_scrAddr(script)
@@ -1056,7 +1061,7 @@ class PyTxDistProposal(object):
             #scrAddr = 
 
 
-         intType = Cpp.BtcUtils().getTxOutScriptTypeInt(script)
+         intType = getTxOutScriptType(script)
          if intType==CPP_TXOUT_NONSTANDARD:
             LOGERROR('Only standard script types are valid for this call')
             LOGERROR('Script: ' + binary_to_hex(script))
