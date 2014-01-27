@@ -1680,4 +1680,4 @@ def pprintLedgerEntry(le, indent=''):
 from armoryengine.BDM import TheBDM
 from armoryengine.PyBtcAddress import PyBtcAddress
 from armoryengine.CoinSelection import pprintUnspentTxOutList, sumTxOutList
-from armoryengine.Script import PyScriptProcessor, pprintScript
+from armoryengine.Script import *
