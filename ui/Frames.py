@@ -151,34 +151,35 @@ class SelectWalletFrame(ArmoryFrame):
          
    def updateOnWalletChange(self):
       currentWltIndex = self.walletComboBox.currentIndex()
-      wltID = self.wltIDList[currentWltIndex]
-      wlt = self.main.walletMap[wltID]
-            
-      self.dispID.setText(wltID)
-      self.dispName.setText(wlt.labelName)
-      self.dispDescr.setText(wlt.labelDescr)
-      self.selectedID = wltID
-      
-      if not TheBDM.getBDMState() == 'BlockchainReady':
-         self.dispBal.setText('-' * 12)
-      else:
-         bal = wlt.getBalance('Spendable')
-         balStr = coin2str(wlt.getBalance('Spendable'), maxZeros=1)
-         if bal <= self.balAtLeast:
-            self.dispBal.setText('<font color="red"><b>%s</b></font>' % balStr)
+      if currentWltIndex > -1:
+         wltID = self.wltIDList[currentWltIndex]
+         wlt = self.main.walletMap[wltID]
+               
+         self.dispID.setText(wltID)
+         self.dispName.setText(wlt.labelName)
+         self.dispDescr.setText(wlt.labelDescr)
+         self.selectedID = wltID
+         
+         if not TheBDM.getBDMState() == 'BlockchainReady':
+            self.dispBal.setText('-' * 12)
          else:
-            self.dispBal.setText('<b>' + balStr + '</b>')     
-      if self.selectWltCallback:
-         self.selectWltCallback(wlt)
-      self.repaint()
-      # Reset the coin control variables after a new wallet is selected
-      if self.coinControlCallback:
-         self.altBalance = None
-         self.sourceAddrList = None
-         self.btnCoinCtrl.setEnabled(wlt.getBalance('Spendable')>0)
-         self.lblCoinCtrl.setText('Source: All addresses' if wlt.getBalance('Spendable')>0 else\
-                                  'Source: 0 addresses' )
-         self.updateOnCoinControl()
+            bal = wlt.getBalance('Spendable')
+            balStr = coin2str(wlt.getBalance('Spendable'), maxZeros=1)
+            if bal <= self.balAtLeast:
+               self.dispBal.setText('<font color="red"><b>%s</b></font>' % balStr)
+            else:
+               self.dispBal.setText('<b>' + balStr + '</b>')     
+         if self.selectWltCallback:
+            self.selectWltCallback(wlt)
+         self.repaint()
+         # Reset the coin control variables after a new wallet is selected
+         if self.coinControlCallback:
+            self.altBalance = None
+            self.sourceAddrList = None
+            self.btnCoinCtrl.setEnabled(wlt.getBalance('Spendable')>0)
+            self.lblCoinCtrl.setText('Source: All addresses' if wlt.getBalance('Spendable')>0 else\
+                                     'Source: 0 addresses' )
+            self.updateOnCoinControl()
       
    def updateOnCoinControl(self):
       useAllAddr = (self.altBalance == None)
