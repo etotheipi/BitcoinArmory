@@ -4835,7 +4835,7 @@ class ArmoryMainWindow(QMainWindow):
                                      QSystemTrayIcon.Information, \
                                      10000)
             LOGINFO(title)
-            LOGINFO('\n' + '\n'.join(dispLines))
+            #LOGINFO('\n' + '\n'.join(dispLines))
             #qsnd = QSound('drip.wav')
             #qsnd.play()
 

@@ -175,7 +175,7 @@ def PySortCoins(unspentTxOutInfo, sortMethod=1):
          if utxo.getNumConfirm() == 0:
             zeroConfirm.append(utxo)
          else:
-            addr = TxOutScriptExtractAddr160(utxo.getScript())
+            addr = script_to_addrStr(utxo.getScript())
             if not addrMap.has_key(addr):
                addrMap[addr] = [utxo]
             else:
@@ -385,10 +385,11 @@ def getSelectCoinsScores(utxoSelectList, targetOutVal, minFee):
    ##################
    # -- Does this selection include any zero-confirmation tx?
    # -- How many addresses are linked together by this tx?
-   addrSet = set([])
+   addrSet = set()
    noZeroConf = 1
    for utxo in utxoSelectList:
-      addrSet.add(TxOutScriptExtractAddr160(utxo.getScript()))
+      
+      addrSet.add(script_to_scrAddr(utxo.getScript()))
       if utxo.getNumConfirm() == 0:
          noZeroConf = 0
    numAddr = len(addrSet)

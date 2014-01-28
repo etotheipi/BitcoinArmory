@@ -55,6 +55,7 @@ Changelog for Developers using the armoryengine codebase
    CPP_TXOUT_* constants listed at the top of cppForSwig/BtcUtils.h, 
    or around line 400 in armoryengine/ArmoryUtils.py (and listed here!):
 
+      CPP_TXIN_STDUNCOMPR    = 0   # Signature + PubKey33
       CPP_TXIN_STDCOMPR      = 1   # Signature + PubKey33
       CPP_TXIN_COINBASE      = 2   # Outpoint is ('00'*32, 'ffffffff')
       CPP_TXIN_SPENDPUBKEY   = 3   # Signature-only

@@ -1216,6 +1216,7 @@ def scrAddr_to_addrStr(scrAddr):
       raise BadAddressError('Can only convert P2PKH and P2SH scripts')
 
 
+
 ################################################################################
 def addrStr_to_scrAddr(addrStr):
    if not checkAddrStrValid(addrStr):

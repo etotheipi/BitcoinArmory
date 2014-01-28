@@ -732,7 +732,7 @@ class TxOutDispModel(QAbstractTableModel):
       stype = BtcUtils().getTxOutScriptTypeInt(txout.binScript)
       stypeStr = CPP_TXOUT_SCRIPT_NAMES[stype]
       wltID = self.wltIDList[row]
-      if stype==TXOUT_SCRIPT_MULTISIG:
+      if stype==CPP_TXOUT_MULTISIG:
          M,N = getMultisigScriptInfo(txout.binScript)[:2]
          stypeStr = 'MultiSig(%d-of-%d)' % (M,N)
       if role==Qt.DisplayRole:
@@ -743,9 +743,9 @@ class TxOutDispModel(QAbstractTableModel):
          if col==COLS.Recip:   
             if stype in CPP_TXOUT_HAS_ADDRSTR:
                return QVariant(script_to_addrStr(txout.binScript))
-            elif stype==TXOUT_SCRIPT_MULTISIG:
+            elif stype==CPP_TXOUT_MULTISIG:
                return QVariant('[[Multiple]]')
-            elif stype==TXOUT_SCRIPT_UNKNOWN:
+            elif stype==CPP_TXOUT_NONSTANDARD:
                return QVariant('[[Non-Standard]]')
       elif role==Qt.TextAlignmentRole:
          if col==COLS.Recip:   return QVariant(int(Qt.AlignLeft | Qt.AlignVCenter))
