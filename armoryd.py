@@ -802,16 +802,15 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
             for pyTxIn in pyTx.inputs:
                # We expect all these addresses to be PubKeyHash, meaning that the 
                # public key must be in the TxIn script, and thus will be avail.
-               sendingAddrHash = TxInScriptExtractAddr160IfAvail(pyTxIn)
-               if len(sendingAddrHash) > 0:
-                  sendingAddrStr = hash160_to_addrStr(sendingAddrHash)
+               sendingAddrStr = TxInExtractAddrStrIfAvail(pyTxIn)
+               if len(sendingAddrStr) > 0:
+                  atype, sendingAddrHash = addrStr_to_hash160(sendingAddrStr)
                   if self.wallet.addrMap.has_key(sendingAddrHash):
-                     sendingAddr = self.wallet.addrMap[sendingAddrHash]
                      if sendingAddrStr in self.chainDictionary:
                         result = ''.join([result, "\nChain: " + self.chainDictionary[sendingAddrStr][0]])
                         result = ''.join([result, "   Index: " + self.chainDictionary[sendingAddrStr][1]])
                      # print the meta data
-                     result = ''.join([result, '\n', sendingAddr.toString()])
+                     result = ''.join([result, '\n', sendingAddrStr.toString()])
                      result = ''.join([result, '\n', pyTx.toString()])
          return result
 

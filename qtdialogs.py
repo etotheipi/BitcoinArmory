@@ -6018,8 +6018,8 @@ class DlgReviewOfflineTx(ArmoryDialog):
 
       # Collect the input wallets (hopefully just one of them)
       fromWlts = set()
-      for recip, amt, a, b, c in data[FIELDS.InList]:
-         wltID = self.main.getWalletForAddr160(recip)
+      for scrAddr, amt, a, b, c in data[FIELDS.InList]:
+         wltID = self.main.getWalletForAddr160(scrAddr[1:])
          if not wltID == '':
             fromWlts.add(wltID)
 
@@ -6739,7 +6739,7 @@ def extractTxInfo(pytx, rcvTime=None):
          if TheBDM.getTxByHash(prevTxHash).isInitialized():
             prevTx = TheBDM.getPrevTx(cppTxin)
             prevTxOut = prevTx.getTxOutCopy(cppTxin.getOutPoint().getTxOutIndex())
-            txinFromList[-1].append(CheckHash160(TheBDM.getSenderScrAddr(cppTxin)))
+            txinFromList[-1].append(TheBDM.getSenderScrAddr(cppTxin))
             txinFromList[-1].append(TheBDM.getSentValue(cppTxin))
             if prevTx.isInitialized():
                txinFromList[-1].append(prevTx.getBlockHeight())
@@ -6754,7 +6754,8 @@ def extractTxInfo(pytx, rcvTime=None):
          else:
             haveAllInput = False
             txin = PyTxIn().unserialize(cppTxin.serialize())
-            txinFromList[-1].append(TxInScriptExtractAddr160IfAvail(txin))
+            scraddr = addrStr_to_scrAddr(TxInExtractAddrStrIfAvail(txin))
+            txinFromList[-1].append(scraddr)
             txinFromList[-1].append('')
             txinFromList[-1].append('')
             txinFromList[-1].append('')
@@ -6764,7 +6765,7 @@ def extractTxInfo(pytx, rcvTime=None):
       haveAllInput = True
       for i, txin in enumerate(pytxdp.pytxObj.inputs):
          txinFromList.append([])
-         txinFromList[-1].append(script_to_scrAddr(pytxdp.txOutScripts[i])[1:])
+         txinFromList[-1].append(script_to_scrAddr(pytxdp.txOutScripts[i]))
          txinFromList[-1].append(pytxdp.inputValues[i])
          txinFromList[-1].append('')
          txinFromList[-1].append('')
@@ -6772,8 +6773,9 @@ def extractTxInfo(pytx, rcvTime=None):
    else:  # BDM is not initialized
       haveAllInput = False
       for i, txin in enumerate(pytx.inputs):
+         scraddr = addrStr_to_scrAddr(TxInExtractAddrStrIfAvail(txin))
          txinFromList.append([])
-         txinFromList[-1].append(TxInScriptExtractAddr160IfAvail(txin))
+         txinFromList[-1].append(scraddr)
          txinFromList[-1].append('')
          txinFromList[-1].append('')
          txinFromList[-1].append('')

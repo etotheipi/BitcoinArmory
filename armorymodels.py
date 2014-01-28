@@ -596,12 +596,13 @@ class TxInDispModel(QAbstractTableModel):
          scrType = getTxInScriptType(txin)
          if txinListFromBDM and len(txinListFromBDM[i][0])>0:
             # We had a BDM to help us get info on each input -- use it
-            recip160,val,blk,hsh,idx = txinListFromBDM[i]
+            scrAddr,val,blk,hsh,idx = txinListFromBDM[i]
+            addrStr = scrAddr_to_addrStr(scrAddr)
             if main:
-               wltID = self.main.getWalletForAddr160(recip160)
+               wltID = self.main.getWalletForAddr160(scrAddr[1:])
             dispcoin  = '' if not val else coin2str(val,maxZeros=1)
             self.dispTable[-1].append(wltID)
-            self.dispTable[-1].append(hash160_to_addrStr(recip160))
+            self.dispTable[-1].append(addrStr)
             self.dispTable[-1].append(dispcoin)
             self.dispTable[-1].append(binary_to_hex(hsh))
             self.dispTable[-1].append(idx)

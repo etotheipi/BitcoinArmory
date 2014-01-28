@@ -813,8 +813,7 @@ public:
                s[1]    == 0x14 &&
                s[-1]   == 0x87)
          return TXOUT_SCRIPT_P2SH;
-      else if( s[-1]   == 0xae && 
-               isMultisigScript(s))
+      else if( s[-1]   == 0xae && isMultisigScript(s))
          return TXOUT_SCRIPT_MULTISIG;
       else 
          return TXOUT_SCRIPT_NONSTANDARD;

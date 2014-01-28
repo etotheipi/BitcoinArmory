@@ -14,6 +14,7 @@ from armoryengine.ArmoryUtils import *
 from armoryengine.BinaryPacker import *
 from armoryengine.BinaryUnpacker import *
 from armoryengine.Timer import *
+from armoryengine.Transaction import *
 
 
 BLOCKCHAIN_READONLY   = 0

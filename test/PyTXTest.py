@@ -211,7 +211,7 @@ class PyTXTest(unittest.TestCase):
       
       self.assertEqual(tx1.getHashHex(), binary_to_hex(tx1hash))
       # Creating transaction to send coins from A to B
-      tx2 = PyCreateAndSignTx( [[ addrA, tx1, 0 ]],  [[addrB, 50*(10**8)]])
+      tx2 = PyCreateAndSignTx( [[ addrA, tx1, 0 ]],  [[addrB, 50*ONE_BTC]])
       psp = PyScriptProcessor()
       psp.setTxObjects(tx1, tx2, 0)
       self.assertTrue(psp.verifyTransactionValid())

@@ -50,7 +50,7 @@ def convertScriptToOpStrings(binScript):
          nbprint = min(nb,256)
          binObj = binScript[i+3:i+3+nbprint]
          opList.append('OP_PUSHDATA2(%s)' % str(nb))
-         opList.append('['+binary_to_hex(binObj)[:64] + '...]')
+         opList.append('['+binary_to_hex(binObj)[:512] + '...]')
          i += nb+3
       elif nextOp == 78:
          nb = binScript[i+1:i+5];
@@ -60,7 +60,7 @@ def convertScriptToOpStrings(binScript):
          nbprint = min(nb,256)
          binObj = binScript[i+5,i+5+nbprint]
          opList.append('[OP_PUSHDATA4(%s)]' % str(nb))
-         opList.append('['+binary_to_hex(binObj)[:64] + '...]')
+         opList.append('['+binary_to_hex(binObj)[:512] + '...]')
          i += nb+5
       else:
          opList.append(opnames[nextOp]);

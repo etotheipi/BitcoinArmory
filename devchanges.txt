@@ -29,8 +29,8 @@ Changelog for Developers using the armoryengine codebase
          hash160_to_p2pkhash_script( a160 )    # DUP HASH <PKHASH> EQUAL CHKSIG
          hash160_to_p2shStr( a160 )            # HASH <SCRIPTHASH> EQUAL
          pubkey_to_p2pk_script( a160 )         # <PUBKEY> CHECKSIG
-         pubkeylist_to_multisig_script([])     # NOT-TESTED-YET
          scrAddr_to_script( scraddr )          # works for RegAddr and P2SH
+         pubkeylist_to_multisig_script([])     # NOT-TESTED-YET
 
       ADDR STRINGS:
 
@@ -59,7 +59,7 @@ Changelog for Developers using the armoryengine codebase
       CPP_TXIN_COINBASE      = 2   # Outpoint is ('00'*32, 'ffffffff')
       CPP_TXIN_SPENDPUBKEY   = 3   # Signature-only
       CPP_TXIN_SPENDMULTI    = 4   # OP_0 (M) Sig1 Sig2 ... (N)
-      CPP_TXIN_SPENDP2SH     = 5   # <scriptSoln> <script>
+      CPP_TXIN_SPENDP2SH     = 5   # <scriptSolution> <StdTxOutScript>
       CPP_TXIN_NONSTANDARD   = 6   # Everything else
 
       CPP_TXOUT_STDHASH160   = 0   # DUP HASH <20B> EQUAL CHKSIG
@@ -69,5 +69,16 @@ Changelog for Developers using the armoryengine codebase
       CPP_TXOUT_P2SH         = 4   # HASH <20B> EQUAL
       CPP_TXOUT_NONSTANDARD  = 5   # Everything else
 
+   NOTE:  The CPP_TXIN_SPENDP2SH identification should probably be renamed 
+          to CPP_TXIN_PROBP2SH, since it's not *theoretically* 100% reliable.
+          It will be flagged like this only if it is a push-only script,
+          AND the last PushData is, itself, a *STANDARD* TxOut script.  It
+          may very well be a p2sh-spending script but won't be flagged, if 
+          the subscript is non-standard.  This is okay, because the network
+          itself enforces this rule (a P2SH spend is standard, only if the 
+          subscript is standard).  However, I suppose it is possible to have
+          a TxIn script that gets labeled, but is not actually P2SHSPEND.  
+          However, I'm doubtful that such a script could be valid and make
+          it's way through Bitcoin-Qt into the blk*.dat files.
 
 
