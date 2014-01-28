@@ -13431,11 +13431,13 @@ class DlgReplaceWallet(ArmoryDialog):
    def __init__(self, WalletID, parent, main):
       super(DlgReplaceWallet, self).__init__(parent, main)
 
-      lblDesc = QLabel('<b>You already own this wallet!</b><br>'
-                       'You can choose to:<br>'
-                       '- Abort wallet restoration<br>'
-                       '- Replace the existing wallet<br>'
-                       '- Save meta data from the existing wallet and replace it<br>')
+      lblDesc = QLabel(tr("""
+                       <b>You already have this wallet loaded!</b><br>
+                       You can choose to:<br>
+                       - Cancel wallet restore operation<br>
+                       - Set new password and fix any errors<br>
+                       - Overwrite old wallet (delete comments & labels)<br>
+                       """))
 
       self.WalletID = WalletID
       self.main = main
@@ -13444,9 +13446,9 @@ class DlgReplaceWallet(ArmoryDialog):
 
       self.wltPath = main.walletMap[WalletID].walletPath
 
-      self.btnAbort = QPushButton('Abort')
-      self.btnReplace = QPushButton('Replace')
-      self.btnSaveMeta = QPushButton('Save Meta && Replace')
+      self.btnAbort = QPushButton('Cancel')
+      self.btnReplace = QPushButton('Overwrite')
+      self.btnSaveMeta = QPushButton('Set New Password')
 
       self.connect(self.btnAbort, SIGNAL('clicked()'), self.reject)
       self.connect(self.btnReplace, SIGNAL('clicked()'), self.Replace)
@@ -13454,10 +13456,10 @@ class DlgReplaceWallet(ArmoryDialog):
 
       layoutDlg = QGridLayout()
 
-      layoutDlg.addWidget(lblDesc, 0, 0, 4, 4)
-      layoutDlg.addWidget(self.btnAbort, 4, 0, 1, 1)
-      layoutDlg.addWidget(self.btnReplace, 4, 1, 1, 1)
-      layoutDlg.addWidget(self.btnSaveMeta, 4, 2, 1, 2)
+      layoutDlg.addWidget(lblDesc,          0, 0, 4, 4)
+      layoutDlg.addWidget(self.btnAbort,    4, 0, 1, 1)
+      layoutDlg.addWidget(self.btnSaveMeta, 4, 1, 1, 1)
+      layoutDlg.addWidget(self.btnReplace,  4, 2, 1, 1)
 
       self.setLayout(layoutDlg)
       self.setWindowTitle('Wallet already exists')

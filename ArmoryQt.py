@@ -1710,7 +1710,7 @@ class ArmoryMainWindow(QMainWindow):
          self.usermode = USERMODE.Expert
 
       # Load wallets found in the .armory directory
-      wltPaths = self.settings.get('Other_Wallets', expectList=True)
+      wltPaths = []
       self.walletMap = {}
       self.walletIndices = {}  
       self.walletIDSet = set()
@@ -4972,7 +4972,7 @@ class ArmoryMainWindow(QMainWindow):
       while prgAt[2] != 2:
          time.sleep(0.1)
       if nerrors == 0:
-         self.emit(SIGNAL('UWCS'), [1, 'Wallet Sanity Check Successful!', 30000, dlgrdy])
+         self.emit(SIGNAL('UWCS'), [1, 'No Wallet Errors Found', 10000, dlgrdy])
       else:
          while not dlgrdy:         
             self.emit(SIGNAL('UWCS'), [1, 'Found Errors in your Wallets!!!', 0, dlgrdy])
@@ -5039,7 +5039,7 @@ class ArmoryMainWindow(QMainWindow):
          self.pbarWalletProgress.setMaximum(10000)
          self.pbarWalletProgress.setMaximumSize(200, 22)
          self.pbarWalletProgress.setStyleSheet('text-align: center; margin-bottom: 2px; margin-left: 10px;')
-         self.pbarWalletProgress.setFormat('Wallet Sanity Check: %p%')
+         self.pbarWalletProgress.setFormat('Wallet Consistency Check: %p%')
          self.pbarWalletProgress.setValue(0)
          self.statusBar().addWidget(self.pbarWalletProgress)
 
