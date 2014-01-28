@@ -19,6 +19,7 @@
 #include <assert.h>
 #include <cmath>
 #include <time.h>
+#include <algorithm>
 
 #include "BinaryData.h"
 #include "cryptlib.h"
@@ -812,8 +813,7 @@ public:
                s[1]    == 0x14 &&
                s[-1]   == 0x87)
          return TXOUT_SCRIPT_P2SH;
-      else if( s[-1]   == 0xae && 
-               isMultisigScript(s))
+      else if( s[-1]   == 0xae && isMultisigScript(s))
          return TXOUT_SCRIPT_MULTISIG;
       else 
          return TXOUT_SCRIPT_NONSTANDARD;
@@ -827,46 +827,54 @@ public:
    // TXIN_SCRIPT_SPENDMULTI
    // TXIN_SCRIPT_SPENDP2SH
    // TXIN_SCRIPT_NONSTANDARD
-   static TXIN_SCRIPT_TYPE getTxInScriptType(BinaryDataRef s,
+   static TXIN_SCRIPT_TYPE getTxInScriptType(BinaryDataRef script,
                                              BinaryDataRef prevTxHash)
    {
-      if(s.getSize() == 0)
+      if(script.getSize() == 0)
          return TXIN_SCRIPT_NONSTANDARD;
 
       if(prevTxHash == BtcUtils::EmptyHash_)
          return TXIN_SCRIPT_COINBASE;
 
-      if(s[0]==0x00)
+      // Technically, this doesn't recognize all P2SH spends.  Only 
+      // spends of P2SH scripts that are, themselves, standard
+      BinaryData lastPush = getLastPushDataInScript(script);
+      if(getTxOutScriptType(lastPush) != TXOUT_SCRIPT_NONSTANDARD)
+         return TXIN_SCRIPT_SPENDP2SH;
+
+      if(script[0]==0x00)
       {
          // TODO: All this complexity to check TxIn type may be too slow when 
          //       scanning the blockchain...will need to investigate later
-         vector<BinaryDataRef> splitScr = splitPushOnlyScriptRefs(s);
+         vector<BinaryDataRef> splitScr = splitPushOnlyScriptRefs(script);
    
          if(splitScr.size() == 0)
             return TXIN_SCRIPT_NONSTANDARD;
 
-         if(isMultisigScript(splitScr[splitScr.size()-1]))
-            return TXIN_SCRIPT_SPENDP2SH;
+         // TODO: Maybe should identify whether the other pushed data
+         //       in the script is a potential solution for the 
+         //       subscript... meh?
+         BinaryDataRef lastObj = splitScr[splitScr.size() - 1];
 
-         if(s[2]==0x30 && s[4]==0x02)
+         if(script[2]==0x30 && script[4]==0x02)
             return TXIN_SCRIPT_SPENDMULTI;
       }
          
 
-      if( !(s[1]==0x30 && s[3]==0x02) )
+      if( !(script[1]==0x30 && script[3]==0x02) )
          return TXIN_SCRIPT_NONSTANDARD;
 
-      uint32_t sigSize = s[2] + 4;
+      uint32_t sigSize = script[2] + 4;
 
-      if(s.getSize() == sigSize)
+      if(script.getSize() == sigSize)
          return TXIN_SCRIPT_SPENDPUBKEY;
 
       uint32_t keySizeFull = 66;  // \x41 \x04 [X32] [Y32] 
       uint32_t keySizeCompr= 34;  // \x41 \x02 [X32]
 
-      if(s.getSize() == sigSize + keySizeFull)
+      if(script.getSize() == sigSize + keySizeFull)
          return TXIN_SCRIPT_STDUNCOMPR;
-      else if(s.getSize() == sigSize + keySizeCompr)
+      else if(script.getSize() == sigSize + keySizeCompr)
          return TXIN_SCRIPT_STDCOMPR;
 
       return TXIN_SCRIPT_NONSTANDARD;
@@ -931,6 +939,27 @@ public:
       }
    }
 
+   /////////////////////////////////////////////////////////////////////////////
+   // This is basically just for SWIG to access via python
+   static BinaryData getScrAddrForScript(BinaryData const & script)
+   {
+      return getTxOutScrAddr(script.getRef());
+   }
+
+   /////////////////////////////////////////////////////////////////////////////
+   // This is basically just for SWIG to access via python
+   static uint32_t getTxOutScriptTypeInt(BinaryData const & script)
+   {
+      return (uint32_t)getTxOutScriptType(script.getRef());
+   }
+
+   /////////////////////////////////////////////////////////////////////////////
+   // This is basically just for SWIG to access via python
+   static uint32_t getTxInScriptTypeInt(BinaryData const & script,
+                                        BinaryData const & prevHash)
+   {
+      return (uint32_t)getTxInScriptType(script.getRef(), prevHash);
+   }
 
    /////////////////////////////////////////////////////////////////////////////
    static bool isMultisigScript(BinaryDataRef script)
@@ -939,6 +968,7 @@ public:
    }
 
    /////////////////////////////////////////////////////////////////////////////
+   //        "UniqueKey"=="ScrAddr" - prefix
    // TODO:  Interesting exercise:  is there a non-standard script that could
    //        look like the output of this function operating on a multisig 
    //        script (doesn't matter if it's valid or not)?  In other words, is
@@ -948,49 +978,56 @@ public:
    //        output of this function?  My guess is, no.  And my guess is that 
    //        it's not a very useful even if it did.  But it would be good to
    //        rule it out.
-   static BinaryData getMultisigUniqueKey(BinaryDataRef script)
+   static BinaryData getMultisigUniqueKey(BinaryData const & script)
    {
-      BinaryData nothing(0);
 
-      if( script[-1] != 0xae )
-         return nothing;
+      vector<BinaryData> a160List(0);
 
-      uint8_t M = script[0];
-      uint8_t N = script[-2];
+      uint8_t M = getMultisigAddrList(script, a160List);
+      uint8_t N = a160List.size();
 
-      if(M<81 || M>96|| N<81 || N>96)
-         return nothing;
-
-      M -= 80;
-      N -= 80;
+      if(M==0)
+         return BinaryData(0);
 
       BinaryWriter bw(2 + N*20);  // reserve enough space for header + N addr
-
       bw.put_uint8_t(M);
       bw.put_uint8_t(N);
 
-      BinaryRefReader brr(script);
-      brr.advance(1);
-      for(uint8_t i=0; i<N; i++)
-      {
-         uint8_t nextSz = brr.get_uint8_t();
-         if( nextSz != 0x41 && nextSz != 0x21 )
-            return nothing;
-
-         bw.put_BinaryData(getHash160(brr.get_BinaryDataRef( nextSz )));
-      }
+      sort(a160List.begin(), a160List.end());
+      
+      for(uint32_t i=0; i<a160List.size(); i++)
+         bw.put_BinaryData(a160List[i]);
 
       return bw.getData();
    }
 
 
    /////////////////////////////////////////////////////////////////////////////
-   // Return pair<M, list<Addr160>>; you can get N from list.size()
-   static uint8_t getMultisigAddrList( BinaryDataRef script, 
+   // Returns M in M-of-N.  Use addr160List.size() for N.  Output is sorted.
+   static uint8_t getMultisigAddrList( BinaryData const & script, 
                                        vector<BinaryData> & addr160List)
    {
-      addr160List.clear();
 
+      vector<BinaryData> pkList;
+      uint32_t M = getMultisigPubKeyList(script, pkList);
+      uint32_t N = pkList.size();
+      
+      if(M==0)
+         return 0;
+
+      addr160List.resize(N);
+      for(uint32_t i=0; i<N; i++)
+         addr160List[i] = getHash160(pkList[i]);
+
+      return M;
+   }
+
+
+   /////////////////////////////////////////////////////////////////////////////
+   // Returns M in M-of-N.  Use pkList.size() for N.  Output is sorted.
+   static uint8_t getMultisigPubKeyList( BinaryData const & script, 
+                                         vector<BinaryData> & pkList)
+   {
       if( script[-1] != 0xae )
          return 0;
 
@@ -1006,18 +1043,55 @@ public:
       BinaryRefReader brr(script);
 
       brr.advance(1); // Skip over M-value
-      vector<BinaryData> accumList(N);
+      pkList.resize(N);
       for(uint8_t i=0; i<N; i++)
       {
          uint8_t nextSz = brr.get_uint8_t();
          if( nextSz != 0x41 && nextSz != 0x21 )
             return 0;
 
-         accumList[i] = getHash160(brr.get_BinaryDataRef(nextSz));
+         pkList[i] = brr.get_BinaryDataRef(nextSz);
       }
-      addr160List.insert(addr160List.end(), accumList.begin(), accumList.end());
+
       return M;
    }
+
+
+   
+   /////////////////////////////////////////////////////////////////////////////
+   // These two methods are basically just to make SWIG access easier
+   static BinaryData getMultisigAddr160InfoStr( BinaryData const & script)
+   {
+      vector<BinaryData> outVect;
+      uint32_t M = getMultisigAddrList(script, outVect);
+      uint32_t N = outVect.size();
+      
+      BinaryWriter bw(2 + N*20);  // reserve enough space for header + N addr
+      bw.put_uint8_t(M);
+      bw.put_uint8_t(N);
+      for(uint32_t i=0; i<N; i++)
+         bw.put_BinaryData(outVect[i]);
+
+      return bw.getData();
+   }
+
+   /////////////////////////////////////////////////////////////////////////////
+   static BinaryData getMultisigPubKeyInfoStr( BinaryData const & script)
+   {
+      vector<BinaryData> outVect;
+      uint32_t M = getMultisigPubKeyList(script, outVect);
+      uint32_t N = outVect.size();
+      
+      BinaryWriter bw(2 + N*20);  // reserve enough space for header + N addr
+      bw.put_uint8_t(M);
+      bw.put_uint8_t(N);
+      for(uint32_t i=0; i<N; i++)
+         bw.put_BinaryData(outVect[i]);
+
+      return bw.getData();
+   }
+
+   /////////////////////////////////////////////////////////////////////////////
 
 
    /////////////////////////////////////////////////////////////////////////////
@@ -1062,6 +1136,13 @@ public:
             LOGERR << "What kind of TxIn script did we get?";
             return BadAddress_;
       }
+   }
+
+   /////////////////////////////////////////////////////////////////////////////
+   static BinaryData getTxInAddrFromTypeInt( BinaryData const & script,
+                                             uint32_t typeInt)
+   {
+      return getTxInAddrFromType(script.getRef(), (TXIN_SCRIPT_TYPE)typeInt);
    }
 
    /////////////////////////////////////////////////////////////////////////////
@@ -1129,6 +1210,15 @@ public:
       return out;
    }
 
+   /////////////////////////////////////////////////////////////////////////////
+   static BinaryData getLastPushDataInScript(BinaryData const & script)
+   {
+      vector<BinaryDataRef> refs = splitPushOnlyScriptRefs(script);
+      if(refs.size()==0)
+         return BinaryData(0);
+
+      return refs[refs.size() - 1];
+   }
 
    /////////////////////////////////////////////////////////////////////////////
    static double convertDiffBitsToDouble(BinaryData const & diffBitsBinary)

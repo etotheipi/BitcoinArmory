@@ -14,6 +14,7 @@ from armoryengine.ArmoryUtils import *
 from armoryengine.BinaryPacker import *
 from armoryengine.BinaryUnpacker import *
 from armoryengine.Timer import *
+from armoryengine.Transaction import *
 
 
 BLOCKCHAIN_READONLY   = 0
@@ -1661,15 +1662,19 @@ class PyBtcWallet(object):
          tx = TheBDM.getTxByHash(txHash)
          if tx.isInitialized():
             for i in range(tx.getNumTxOut()):
-               try:
-                  a160 = CheckHash160(tx.getScrAddrForTxOut(i))
-                  if self.hasAddr(a160):
-                     self.txAddrMap[txHash].append(a160)
-               except: 
-                  LOGERROR("Unrecognized scraddr: " + binary_to_hex(tx.getScrAddrForTxOut(i)))
+               txout = tx.getTxOutCopy(i)
+               stype = getTxOutScriptType(txout.getScript())
+               scrAddr = tx.getScrAddrForTxOut(i)
+
+               if stype in CPP_TXOUT_HAS_ADDRSTR:
+                  addrStr = scrAddr_to_addrStr(scrAddr)
+                  addr160 = addrStr_to_hash160(addrStr)[1]
+                  if self.hasAddr(addr160):
+                     self.txAddrMap[txHash].append(addr160)
+               else: 
+                  LOGERROR("Unrecognized scraddr: " + binary_to_hex(scrAddr))
                
      
-            
 
       addrComments = []
       for a160 in self.txAddrMap[txHash]:
@@ -2547,15 +2552,16 @@ class PyBtcWallet(object):
       numInputs = len(txdp.pytxObj.inputs)
       wltAddr = []
       for index,txin in enumerate(txdp.pytxObj.inputs):
-         scriptType = getTxOutScriptType(txdp.txOutScripts[index])
-         
-         if scriptType in (TXOUT_SCRIPT_STANDARD, TXOUT_SCRIPT_COINBASE):
-            addr160 = TxOutScriptExtractAddr160(txdp.txOutScripts[index])
+         scrType = txdp.scriptTypes[index]
+         if scrType in CPP_TXOUT_STDSINGLESIG:
+            scrAddr = txdp.inScrAddrList[index]
+            addr160 = scrAddr[1:]
             if self.hasAddr(addr160) and self.addrMap[addr160].hasPrivKey():
                wltAddr.append( (self.addrMap[addr160], index, 0))
-         elif scriptType==TXOUT_SCRIPT_MULTISIG:
+         elif scrType==CPP_TXOUT_MULTISIG:
             # Basically the same check but multiple addresses to consider
-            addrList = getTxOutMultiSigInfo(txdp.txOutScripts[index])[1]
+            # STUB -- this branch has never been tested
+            addrList = getMultisigScriptInfo(txdp.txOutScripts[index])[2]
             for addrIdx, addr in enumerate(addrList):
                if self.hasAddr(addr) and self.addrMap[addr].hasPrivKey():
                   wltAddr.append( (self.addrMap[addr], index, addrIdx) )
@@ -2581,7 +2587,8 @@ class PyBtcWallet(object):
 
          if not addrObj.hasPubKey():
             # Make sure the public key is available for this address
-            addrObj.binPublicKey65 = CryptoECDSA().ComputePublicKey(addrObj.binPrivKey32_Plain)
+            addrObj.binPublicKey65 = \
+               CryptoECDSA().ComputePublicKey(addrObj.binPrivKey32_Plain)
 
          # Copy the script, blank out out all other scripts (assume hashcode==1)
          txCopy = PyTx().unserialize(txdp.pytxObj.serialize())
@@ -2597,21 +2604,27 @@ class PyBtcWallet(object):
          signature  = addrObj.generateDERSignature(preHashMsg) + hashCode1
 
          # Now we attach a binary signature or full script, depending on the type
-         if txdp.scriptTypes[idx]==TXOUT_SCRIPT_COINBASE:
+         p2shScript = txdp.p2shScripts[idx]
+         p2shAppend = ''
+         if len(p2shScript) > 0:
+            LOGWARN('Signing for P2SH input')
+            p2shAppend = serializeBytesWithPushData(p2shScript)
+
+         scrType = txdp.scriptTypes[idx]
+         if scrType in [CPP_TXOUT_STDPUBKEY33, CPP_TXOUT_STDPUBKEY65]:
             # Only need the signature to complete coinbase TxOut
-            sigLenInBinary = int_to_binary(len(signature))
-            txdp.signatures[idx][0] = sigLenInBinary + signature
-         elif txdp.scriptTypes[idx]==TXOUT_SCRIPT_STANDARD:
+            serSignature = serializeBytesWithPushData(signature)
+            txdp.signatures[idx][0] = serSignature + p2shAppend
+         elif scrType==CPP_TXOUT_STDHASH160:
             # Gotta include the public key, too, for standard TxOuts
             pubkey = addrObj.binPublicKey65.toBinStr()
-            sigLenInBinary    = int_to_binary(len(signature))
-            pubkeyLenInBinary = int_to_binary(len(pubkey)   )
-            txdp.signatures[idx][0] = sigLenInBinary    + signature + \
-                                      pubkeyLenInBinary + pubkey
+            serSig    = serializeBytesWithPushData(signature)
+            serPubKey = serializeBytesWithPushData(pubkey)
+            txdp.signatures[idx][0] = serSig + serPubKey + p2shAppend
          elif txdp.scriptTypes[idx]==TXOUT_SCRIPT_MULTISIG:
             # We attach just the sig for multi-sig transactions
-            sigLenInBinary = int_to_binary(len(signature))
-            txdp.signatures[idx][sigIdx] = (sigLenInBinary + signature)
+            serSignature = serializeBytesWithPushData(signature)
+            txdp.signatures[idx][sigIdx] = serSig
          else:
             LOGERROR('Unknown txOut script type')
 
@@ -2647,8 +2660,8 @@ class PyBtcWallet(object):
    #############################################################################
    @AllowAsync
    def unlock_(self, secureKdfOutput=None, \
-                    securePassphrase=None, \
-                    tempKeyLifetime=0, dlgPrg=None):
+                     securePassphrase=None, \
+                     tempKeyLifetime=0, dlgPrg=None):
       """
       We must assume that the kdfResultKey is a SecureBinaryData object
       containing the result of the KDF-passphrase.  The wallet unlocked-
@@ -2950,6 +2963,4 @@ def getSuffixedPath(walletPath, nameSuffix):
 # Putting this at the end because of the circular dependency
 from armoryengine.BDM import TheBDM, getCurrTimeAndBlock
 from armoryengine.PyBtcAddress import PyBtcAddress
-from armoryengine.Transaction import getTxOutScriptType, \
-   TXOUT_SCRIPT_STANDARD, TXOUT_SCRIPT_COINBASE, TxOutScriptExtractAddr160, \
-   TXOUT_SCRIPT_MULTISIG, getTxOutMultiSigInfo, PyTx
+from armoryengine.Transaction import getMultisigScriptInfo, PyTx

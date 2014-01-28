@@ -127,7 +127,12 @@ def createTxFromAddrList(walletObj, addrList, recipAmtPairList, \
    print 'Creating Distribution Proposal (just an unsigned transaction)...'
    print [(hash160_to_addrStr(r),coin2str(v)) for r,v in recip160List]
 
-   txdp = PyTxDistProposal().createFromTxOutSelection(selectedUtxoList, recip160List)
+   
+   # ACR:  To support P2SH in general, had to change createFromTxOutSelection
+   #       to take full scripts, not just hash160 values.  Convert the list
+   #       before passing it in
+   scrPairs = [[hash160_to_p2pkhash_script(r), v] for r,v in recip160List]
+   txdp = PyTxDistProposal().createFromTxOutSelection(selectedUtxoList, scrPairs)
 
    return txdp
    

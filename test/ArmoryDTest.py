@@ -8,38 +8,36 @@ import sys
 import time
 import unittest
 
+#sys.argv.append('--nologging')
+#sys.argv.append('--testnet')
+sys.path.append('..')
+
+
+from armoryengine.ALL import *
 from CppBlockUtils import SecureBinaryData, CryptoECDSA
 from armoryd import Armory_Json_Rpc_Server, PrivateKeyNotFound, \
    InvalidBitcoinAddress, WalletUnlockNeeded, Armory_Daemon
-from armoryengine.ArmoryUtils import ARMORY_HOME_DIR, hex_to_binary, \
-   binary_to_base58, binary_to_hex, convertKeyDataToAddress, hash160_to_addrStr
-from armoryengine.BDM import TheBDM
-from armoryengine.PyBtcWallet import PyBtcWallet
-from armoryengine.Transaction import PyTx
 
 
-sys.argv.append('--nologging')
-sys.argv.append('--testnet')
+RAW_TX1    = ('01000000081fa335f8aa332693c7bf77c960ac1eb86c50a5f60d8dc6892d4'
+              '3f89473dc50e4b104000000ffffffff4be787d4a6009ba04534c9b42af46e'
+              '5442744804e6050ad08e58804ef8f067882601000000ffffffffa20b1cdd9'
+              '232e335f6200f7d2623d2789a0847dc53faa79387ffab38271307be650400'
+              '0000ffffffff3a7771644a35dbe67e071f7d3ec8e097ec23817311c0a0d0e'
+              'a6a03d6c3a62f1b7000000000ffffffff445d69280e25c34db1159deef391'
+              '10fb47e7d3091972e4366e3991d52ac38edfec00000000ffffffffc258ede'
+              'c7fc46646ab2d4c682abf3757dabdee91b7635aa0e62f0d620cdb97830204'
+              '000000ffffffff38b93d88c22b56e58489dba7bbf439bb5044e5f76e00969'
+              'd591e805636601c886600000000ffffffffdada1b7c73ce39cffb8245f343'
+              '91c0f0d54f32cb3f05570b1c37635c44179df72700000000ffffffff03f04'
+              'b0000000000001976a914be17ec0fc1f8aa029223dbe5f53109d0faf8c797'
+              '88ac10270000000000001976a91443134735b72a1e9cf5e4c56d910295313'
+              '2352ba688ac00000000000000000000000000000000000000000000000000'
+              '00000000000000ffffffff3a4c3754686973206973206120636f6d6d656e7'
+              '420617474616368656420746f2061207472616e73616374696f6e206f6e20'
+              '6d61696e6e65742e7500000000')
 
-RAW_TX1     = '01000000081fa335f8aa332693c7bf77c960ac1eb86c50a5f60d8dc6892d4'+\
-              '3f89473dc50e4b104000000ffffffff4be787d4a6009ba04534c9b42af46e'+\
-              '5442744804e6050ad08e58804ef8f067882601000000ffffffffa20b1cdd9'+\
-              '232e335f6200f7d2623d2789a0847dc53faa79387ffab38271307be650400'+\
-              '0000ffffffff3a7771644a35dbe67e071f7d3ec8e097ec23817311c0a0d0e'+\
-              'a6a03d6c3a62f1b7000000000ffffffff445d69280e25c34db1159deef391'+\
-              '10fb47e7d3091972e4366e3991d52ac38edfec00000000ffffffffc258ede'+\
-              'c7fc46646ab2d4c682abf3757dabdee91b7635aa0e62f0d620cdb97830204'+\
-              '000000ffffffff38b93d88c22b56e58489dba7bbf439bb5044e5f76e00969'+\
-              'd591e805636601c886600000000ffffffffdada1b7c73ce39cffb8245f343'+\
-              '91c0f0d54f32cb3f05570b1c37635c44179df72700000000ffffffff03f04'+\
-              'b0000000000001976a914be17ec0fc1f8aa029223dbe5f53109d0faf8c797'+\
-              '88ac10270000000000001976a91443134735b72a1e9cf5e4c56d910295313'+\
-              '2352ba688ac00000000000000000000000000000000000000000000000000'+\
-              '00000000000000ffffffff3a4c3754686973206973206120636f6d6d656e7'+\
-              '420617474616368656420746f2061207472616e73616374696f6e206f6e20'+\
-              '6d61696e6e65742e7500000000'
-
-TX_ID1      =  'e0dc8e3d3654c5bfeb1eb077f835179395ee82d623b0c0d3c7074fc2d4c0706f'
+TX_ID1      =  hex_switchEndian('e0dc8e3d3654c5bfeb1eb077f835179395ee82d623b0c0d3c7074fc2d4c0706f')
 
 TX_ID1_OUTPUT0_VALUE = 63000
 TX_ID1_OUTPUT1_VALUE = 139367000
@@ -112,14 +110,15 @@ class ArmoryDTest(unittest.TestCase):
          
    # Cannot unit test actual balances. Only verify that getreceivedbyaddress return a 0 result.
    def testGetreceivedbyaddress(self):
-      testAddr = binary_to_base58(self.wallet.getNextUnusedAddress().binPublicKey65.toBinStr())
+      a160 = hash160(self.wallet.getNextUnusedAddress().binPublicKey65.toBinStr())
+      testAddr = hash160_to_addrStr(a160)
       result = self.jsonServer.jsonrpc_getreceivedbyaddress(testAddr)
       self.assertEqual(result, 0)
       
    def testGetrawtransaction(self):
       actualRawTx = self.jsonServer.jsonrpc_getrawtransaction(TX_ID1)
       pyTx = PyTx().unserialize(hex_to_binary(actualRawTx))
-      self.assertEquals(TX_ID1, binary_to_hex(pyTx.getHash()))
+      self.assertEquals(TX_ID1, binary_to_hex(pyTx.getHash(), BIGENDIAN))
 
    def testBackupWallet(self):
       backupTestPath = os.path.join(ARMORY_HOME_DIR, 'armory_%s_.wallet.backup.test' % self.wltID)
@@ -137,6 +136,7 @@ class ArmoryDTest(unittest.TestCase):
       print RAW_TX1
       actualDD = self.jsonServer.jsonrpc_decoderawtransaction(RAW_TX1)
       # Test specific values pulled from bitcoin daemon's output for the test raw TX
+      expectScriptStr = 'OP_DUP OP_HASH160 PUSHDATA(20) [be17ec0fc1f8aa029223dbe5f53109d0faf8c797] OP_EQUALVERIFY OP_CHECKSIG'
       self.assertEqual(actualDD['locktime'], 0)
       self.assertEqual(actualDD['version'], 1)
       self.assertEqual(actualDD['vin'][0]['sequence'], 4294967295L)
@@ -151,10 +151,10 @@ class ArmoryDTest(unittest.TestCase):
       self.assertEqual(actualDD['vout'][0]['scriptPubKey']['reqSigs'], 1)
       self.assertEqual(actualDD['vout'][0]['scriptPubKey']['hex'], '76a914be17ec0fc1f8aa029223dbe5f53109d0faf8c79788ac')
       self.assertEqual(actualDD['vout'][0]['scriptPubKey']['addresses'], ['mxr5Le3bt7dfbFqmpK6saUYPt5xtcDB7Yw'])
-      self.assertEqual(actualDD['vout'][0]['scriptPubKey']['asm'], 'OP_DUP OP_HASH160 [PUSHDATA -- 20 BYTES:] be17ec0fc1f8aa029223dbe5f53109d0faf8c797 OP_EQUALVERIFY OP_CHECKSIG')
-      self.assertEqual(actualDD['vout'][0]['scriptPubKey']['type'][0], 'pubkeyhash')
-      self.assertEqual(actualDD['vout'][1]['scriptPubKey']['type'][0], 'pubkeyhash')
-      self.assertEqual(actualDD['vout'][2]['scriptPubKey']['type'][0], 'nonstandard')
+      self.assertEqual(actualDD['vout'][0]['scriptPubKey']['asm'], expectScriptStr)
+      self.assertEqual(actualDD['vout'][0]['scriptPubKey']['type'], 'Standard (PKH)')
+      self.assertEqual(actualDD['vout'][1]['scriptPubKey']['type'], 'Standard (PKH)')
+      self.assertEqual(actualDD['vout'][2]['scriptPubKey']['type'], 'Non-Standard')
       
       
    def testDumpprivkey(self):

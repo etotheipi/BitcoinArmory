@@ -29,9 +29,9 @@ def convertScriptToOpStrings(binScript):
          opList.append("0")
          i+=1
       elif nextOp < 76:
-         opList.append("[PUSHDATA -- " + str(nextOp) + " BYTES:]")
+         opList.append('PUSHDATA(%s)' % str(nextOp))
          binObj = binScript[i+1:i+1+nextOp]
-         opList.append(binary_to_hex(binObj))
+         opList.append('['+binary_to_hex(binObj)+']')
          i += nextOp+1
       elif nextOp == 76:
          nb = binary_to_int(binScript[i+1:i+2])
@@ -39,8 +39,8 @@ def convertScriptToOpStrings(binScript):
             error = True;
             break
          binObj = binScript[i+2:i+2+nb]
-         opList.append("[OP_PUSHDATA1 -- " + str(nb) + " BYTES:]");
-         opList.append(binary_to_hex(binObj))
+         opList.append('OP_PUSHDATA1(%s)' % str(nb))
+         opList.append('['+binary_to_hex(binObj)+']')
          i += nb+2
       elif nextOp == 77:
          nb = binary_to_int(binScript[i+1:i+3]);
@@ -49,8 +49,8 @@ def convertScriptToOpStrings(binScript):
             break
          nbprint = min(nb,256)
          binObj = binScript[i+3:i+3+nbprint]
-         opList.append("[OP_PUSHDATA2 -- " + str(nb) + " BYTES:]");
-         opList.append(binary_to_hex(binObj) + '...')
+         opList.append('OP_PUSHDATA2(%s)' % str(nb))
+         opList.append('['+binary_to_hex(binObj)[:512] + '...]')
          i += nb+3
       elif nextOp == 78:
          nb = binScript[i+1:i+5];
@@ -59,8 +59,8 @@ def convertScriptToOpStrings(binScript):
             break
          nbprint = min(nb,256)
          binObj = binScript[i+5,i+5+nbprint]
-         opList.append("[OP_PUSHDATA4 -- " + str(nb) + " BYTES:]");
-         opList.append(binary_to_hex(binObj) + '...')
+         opList.append('[OP_PUSHDATA4(%s)]' % str(nb))
+         opList.append('['+binary_to_hex(binObj)[:512] + '...]')
          i += nb+5
       else:
          opList.append(opnames[nextOp]);
@@ -80,6 +80,20 @@ def pprintScript(binScript, nIndent=0):
       print indstr + indent + op
 
 
+def serializeBytesWithPushData(binObj):
+   sz = len(binObj) 
+   if sz <= 76:
+      lenByte = int_to_binary(sz, widthBytes=1)
+      return lenByte+binObj
+   elif sz <= 256:
+      lenByte = int_to_binary(sz, widthBytes=1)
+      return '\x4c' + lenByte + binObj
+   elif sz <= 65536:
+      lenBytes = int_to_binary(sz, widthBytes=2)
+      return '\x4d' + lenBytes + binObj
+   else:
+      InvalidScriptError('Cannot use PUSHDATA for len(obj)>65536')
+      
 
 TX_INVALID = 0
 OP_NOT_IMPLEMENTED = 1

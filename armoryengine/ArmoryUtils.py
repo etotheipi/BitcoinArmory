@@ -94,6 +94,7 @@ class WalletExistsError(Exception): pass
 class ConnectionError(Exception): pass
 class BlockchainUnavailableError(Exception): pass
 class InvalidHashError(Exception): pass
+class InvalidScriptError(Exception): pass
 class BadURIError(Exception): pass
 class CompressedKeyError(Exception): pass
 class TooMuchPrecisionError(Exception): pass
@@ -206,11 +207,9 @@ if CLI_OPTIONS.logFile.lower()=='default':
       basename = os.path.basename(sys.argv[0])
       CLI_OPTIONS.logFile = os.path.join(ARMORY_HOME_DIR, '%s.log.txt' % basename)
 
-SETTINGS_PATH   = CLI_OPTIONS.settingsPath
-ARMORY_LOG_FILE = CLI_OPTIONS.logFile
 
 # Version Numbers 
-BTCARMORY_VERSION    = (0, 90,  3, 0)  # (Major, Minor, Bugfix, AutoIncrement) 
+BTCARMORY_VERSION    = (0, 90,  6, 0)  # (Major, Minor, Bugfix, AutoIncrement) 
 PYBTCWALLET_VERSION  = (1, 35,  0, 0)  # (Major, Minor, Bugfix, AutoIncrement)
 
 ARMORY_DONATION_ADDR = '1ArmoryXcfq7TnCSuZa9fQjRYwJ4bkRKfv'
@@ -238,7 +237,9 @@ BLOCKCHAINS['\x0b\x11\x09\x07'] = "Test Network (testnet3)"
 
 NETWORKS = {}
 NETWORKS['\x00'] = "Main Network"
+NETWORKS['\x05'] = "Main Network"
 NETWORKS['\x6f'] = "Test Network"
+NETWORKS['\xc4'] = "Test Network"
 NETWORKS['\x34'] = "Namecoin Network"
 
 
@@ -321,6 +322,7 @@ if not sys.argv[0] in ['ArmoryQt.py', 'ArmoryQt.exe', 'Armory.exe']:
    CLI_OPTIONS.logFile = os.path.join(ARMORY_HOME_DIR, '%s.log.txt' % basename)
 
 SETTINGS_PATH   = CLI_OPTIONS.settingsPath
+MULT_LOG_FILE   = os.path.join(ARMORY_HOME_DIR, 'multipliers.txt')
 
 
 # If this is the first Armory has been run, create directories
@@ -330,8 +332,6 @@ if ARMORY_HOME_DIR and not os.path.exists(ARMORY_HOME_DIR):
 
 if not os.path.exists(LEVELDB_DIR):
    os.makedirs(LEVELDB_DIR)
-
-SETTINGS_PATH   = CLI_OPTIONS.settingsPath
 
 # If this is the first Armory has been run, create directories
 if ARMORY_HOME_DIR and not os.path.exists(ARMORY_HOME_DIR):
@@ -369,6 +369,60 @@ else:
    P2SHBYTE = '\xc4'
    PRIVKEYBYTE = '\xef'
 
+# These are the same regardless of network
+# They are the way data is stored in the database which is network agnostic
+SCRADDR_P2PKH_BYTE    = '\x00'
+SCRADDR_P2SH_BYTE     = '\x05'
+SCRADDR_MULTISIG_BYTE = '\xfe'
+SCRADDR_NONSTD_BYTE   = '\xff'
+SCRADDR_BYTE_LIST     = [SCRADDR_P2PKH_BYTE, \
+                         SCRADDR_P2SH_BYTE, \
+                         SCRADDR_MULTISIG_BYTE, \
+                         SCRADDR_NONSTD_BYTE]
+
+# Copied from cppForSwig/BtcUtils.h::getTxOutScriptTypeInt(script)
+CPP_TXOUT_STDHASH160   = 0
+CPP_TXOUT_STDPUBKEY65  = 1
+CPP_TXOUT_STDPUBKEY33  = 2
+CPP_TXOUT_MULTISIG     = 3
+CPP_TXOUT_P2SH         = 4
+CPP_TXOUT_NONSTANDARD  = 5
+CPP_TXOUT_HAS_ADDRSTR  = [CPP_TXOUT_STDHASH160, \
+                          CPP_TXOUT_STDPUBKEY65,
+                          CPP_TXOUT_STDPUBKEY33,
+                          CPP_TXOUT_P2SH]
+CPP_TXOUT_STDSINGLESIG = [CPP_TXOUT_STDHASH160, \
+                          CPP_TXOUT_STDPUBKEY65,
+                          CPP_TXOUT_STDPUBKEY33]
+
+CPP_TXOUT_SCRIPT_NAMES = ['']*6
+CPP_TXOUT_SCRIPT_NAMES[CPP_TXOUT_STDHASH160]  = 'Standard (PKH)'
+CPP_TXOUT_SCRIPT_NAMES[CPP_TXOUT_STDPUBKEY65] = 'Standard (PK65)'
+CPP_TXOUT_SCRIPT_NAMES[CPP_TXOUT_STDPUBKEY33] = 'Standard (PK33)'
+CPP_TXOUT_SCRIPT_NAMES[CPP_TXOUT_MULTISIG]    = 'Multi-Signature'
+CPP_TXOUT_SCRIPT_NAMES[CPP_TXOUT_P2SH]        = 'Standard (P2SH)'
+CPP_TXOUT_SCRIPT_NAMES[CPP_TXOUT_NONSTANDARD] = 'Non-Standard'
+         
+# Copied from cppForSwig/BtcUtils.h::getTxInScriptTypeInt(script)
+CPP_TXIN_STDUNCOMPR    = 0
+CPP_TXIN_STDCOMPR      = 1
+CPP_TXIN_COINBASE      = 2
+CPP_TXIN_SPENDPUBKEY   = 3
+CPP_TXIN_SPENDMULTI    = 4
+CPP_TXIN_SPENDP2SH     = 5
+CPP_TXIN_NONSTANDARD   = 6
+
+CPP_TXIN_SCRIPT_NAMES = ['']*7
+CPP_TXIN_SCRIPT_NAMES[CPP_TXIN_STDUNCOMPR]  = 'Sig + PubKey65'
+CPP_TXIN_SCRIPT_NAMES[CPP_TXIN_STDCOMPR]    = 'Sig + PubKey33'
+CPP_TXIN_SCRIPT_NAMES[CPP_TXIN_COINBASE]    = 'Coinbase'
+CPP_TXIN_SCRIPT_NAMES[CPP_TXIN_SPENDPUBKEY] = 'Plain Signature'
+CPP_TXIN_SCRIPT_NAMES[CPP_TXIN_SPENDMULTI]  = 'Spend Multisig'
+CPP_TXIN_SCRIPT_NAMES[CPP_TXIN_SPENDP2SH]   = 'Spend P2SH'
+CPP_TXIN_SCRIPT_NAMES[CPP_TXIN_NONSTANDARD] = 'Non-Standard'
+
+
+################################################################################
 if not CLI_OPTIONS.satoshiPort == 'DEFAULT':
    try:
       BITCOIN_PORT = int(CLI_OPTIONS.satoshiPort)
@@ -945,6 +999,245 @@ def str2coin(theStr, negAllowed=True, maxDec=8, roundHighPrec=True):
       return fullInt*(-1 if isNeg else 1)
 
 
+
+################################################################################
+def replacePlurals(txt, *args):
+   """
+   Use this like regular string formatting, but with pairs of strings:
+
+      replacePlurals("I have @{one cat|%d cats}@. @{It is|They are}@ cute!", nCat)
+
+   Then you can supply a single number which will select all supplied pairs.
+    or one number per @{|}@ object.  If you use with format
+   strings (such as above, with "%d") make sure to replace those strings FIRST,
+   then call this function.  Otherwise the %d will disappear depending on the
+   plurality and cause an error.  Hence why I made the function below: 
+      formatWithPlurals
+   """
+   if len(args)==0:
+      if ('@{' in txt) and ('}@' in txt):
+         raise IndexError('Not enough arguments for plural formatting')
+      return txt
+
+   argList = list(args[::-1])
+   n = argList[0]
+   nRepl = 0
+   while '@{' in txt:
+      idx0 = txt.find('@{')
+      idx1 = txt.find('}@')+2
+      sep = txt.find('|', idx0)
+      if idx1==1 or sep==-1:
+         raise TypeError('Invalid replacement format')
+
+      strOne     = txt[idx0+2:sep]
+      strMany    = txt[sep+1:idx1-2]
+      strReplace = txt[idx0:idx1]
+
+      if not len(args) == 1:
+         try:
+            n = argList.pop()
+         except IndexError:
+            raise IndexError('Not enough arguments for plural formatting')
+
+      txt = txt.replace(strReplace, strOne if n==1 else strMany)
+      nRepl += 1
+
+   if (len(args)>1 and len(argList)>0) or (nRepl < len(args)):
+      raise TypeError('Too many arguments supplied for plural formatting')
+      
+   return txt
+
+
+
+################################################################################
+def formatWithPlurals(txt, replList=None, pluralList=None):
+   """
+   Where you would normally supply X extra arguments for either regular string
+   formatting or the plural function, you will instead supply a X-element list
+   for each one (actually, the two lists are likely to be different sizes).   
+   """
+   # Do the string formatting/replacement first, since the post-pluralized
+   # string may remove some of the replacement objects (i.e. if you have
+   # "The @{cat|%d cats}@ danced", the %d won't be there if the singular 
+   # is chosen and replaced before applying the string formatting objects).
+   if replList is not None:
+      if not isinstance(replList, (list,tuple)):
+         replList = [replList]
+      txt = txt % tuple(replList)
+
+   if pluralList is not None:
+      if not isinstance(pluralList, (list,tuple)):
+         pluralList = [pluralList]
+      txt = replacePlurals(txt, *pluralList)
+
+   return txt
+
+
+################################################################################
+# A bunch of convenience methods for converting between:
+#  -- Raw binary scripts (as seen in the blockchain)
+#  -- Address strings (exchanged between people for paying each other)
+#  -- ScrAddr strings (A unique identifier used by the DB)
+################################################################################
+
+################################################################################
+# Convert a 20-byte hash to a "pay-to-public-key-hash" script to be inserted
+# into a TxOut script
+def hash160_to_p2pkhash_script(binStr20):
+   if not len(binStr20)==20:
+      raise InvalidHashError('Tried to convert non-20-byte str to p2pkh script')
+
+   from Transaction import getOpCode
+   outScript = ''.join([  getOpCode('OP_DUP'        ), \
+                          getOpCode('OP_HASH160'    ), \
+                          '\x14',                      \
+                          binStr20,
+                          getOpCode('OP_EQUALVERIFY'), \
+                          getOpCode('OP_CHECKSIG'   )])
+   return outScript
+
+
+################################################################################
+# Convert a 20-byte hash to a "pay-to-script-hash" script to be inserted
+# into a TxOut script
+def hash160_to_p2sh_script(binStr20):
+   if not len(binStr20)==20:
+      raise InvalidHashError('Tried to convert non-20-byte str to p2sh script')
+
+   from Transaction import getOpCode
+   outScript = ''.join([  getOpCode('OP_HASH160'), \
+                          '\x14',                      \
+                          binStr20,
+                          getOpCode('OP_EQUAL')])
+   return outScript
+
+################################################################################
+# Convert an arbitrary script into a P2SH script
+def script_to_p2sh_script(binScript):
+   scriptHash = hash160(binScript)
+   return hash160_to_p2sh_script(scriptHash)
+
+
+################################################################################
+# Convert a 33-byte or 65-byte hash to a "pay-to-pubkey" script to be inserted
+# into a TxOut script
+def pubkey_to_p2pk_script(binStr33or65):
+   
+   if not len(binStr33or65) in [33, 65]:
+      raise KeyDataError('Invalid public key supplied to p2pk script')
+
+   from Transaction import getOpCode
+   lenByte = int_to_binary(len(binStr33or65), widthBytes=1)
+   outScript =  ''.join([  lenByte,
+                           binStr33or65,
+                           getOpCode('OP_CHECKSIG')])
+   return outScript
+
+
+################################################################################
+# Convert a list of public keys to an OP_CHECKMULTISIG script.  There will be 
+# use cases where we require the keys to be sorted lexicographically, so we 
+# will do that by default.  If you require a different order, pre-sort them 
+# and pass withSort=False.
+# 
+# NOTE:  About the hardcoded bytes in here:
+#        I made a mistake when making the databases, and hardcoded the 
+#        mainnet addrByte and P2SH bytes into DB format.  This means that
+#        that any ScrAddr object will use the mainnet prefix bytes, despite
+#        being in testnet.  I will at some point fix this.
+def pubkeylist_to_multisig_script(pkList, M, withSort=True):
+
+   if sum([  (0 if len(pk) in [33,65] else 1)   for pk in pkList]) > 0:
+      raise KeyDataError('Not all strings in pkList are 33 or 65 bytes!')
+
+   from Transaction import getOpCode
+   opM = getOpCode('OP_%d' % M)
+   opN = getOpCode('OP_%d' % len(pkList))
+
+   newPkList = pkList[:] # copy
+   if withSort:
+      newPkList = sorted(pkList)
+
+   outScript = opM
+   for pk in newPkList:
+      outScript += int_to_binary(len(pk), widthBytes=1)   
+      outScript += pk
+   outScript += opN
+   outScript += getOpCode('OP_CHECKMULTISIG')
+
+   return outScript
+
+################################################################################
+def scrAddr_to_script(scraddr):
+   """ Convert a scrAddr string (used by BDM) to the correct TxOut script """
+   if len(scraddr)==0:
+      raise BadAddressError('Empty scraddr')
+
+   prefix = scraddr[0]
+   if not prefix in SCRADDR_BYTE_LIST or not len(scraddr)==21:
+      LOGERROR('Bad scraddr: "%s"' % binary_to_hex(scraddr))
+      raise BadAddressError('Invalid ScrAddress')
+
+   if prefix==SCRADDR_P2PKH_BYTE:
+      return hash160_to_p2pkhash_script(scraddr[1:])
+   elif prefix==SCRADDR_P2SH_BYTE:
+      return hash160_to_p2sh_script(scraddr[1:])
+   else:
+      LOGERROR('Unsupported scraddr type: "%s"' % binary_to_hex(scraddr))
+      raise BadAddressError('Can only convert P2PKH and P2SH scripts')
+
+
+################################################################################
+def script_to_scrAddr(binScript):
+   """ Convert a binary script to scrAddr string (used by BDM) """
+   return Cpp.BtcUtils().getScrAddrForScript(binScript)
+
+################################################################################
+def script_to_addrStr(binScript):
+   """ Convert a binary script to scrAddr string (used by BDM) """
+   return scrAddr_to_addrStr(script_to_scrAddr(binScript))
+
+################################################################################
+def scrAddr_to_addrStr(scrAddr):
+   if len(scrAddr)==0:
+      raise BadAddressError('Empty scrAddr')
+
+   prefix = scrAddr[0]
+   if not prefix in SCRADDR_BYTE_LIST or not len(scrAddr)==21:
+      LOGERROR('Bad scrAddr: "%s"' % binary_to_hex(scrAddr))
+      raise BadAddressError('Invalid ScrAddress')
+
+   if prefix==SCRADDR_P2PKH_BYTE:
+      return hash160_to_addrStr(scrAddr[1:])
+   elif prefix==SCRADDR_P2SH_BYTE:
+      return hash160_to_p2shStr(scrAddr[1:])
+   else:
+      LOGERROR('Unsupported scrAddr type: "%s"' % binary_to_hex(scrAddr))
+      raise BadAddressError('Can only convert P2PKH and P2SH scripts')
+
+
+
+################################################################################
+def addrStr_to_scrAddr(addrStr):
+   if not checkAddrStrValid(addrStr):
+      BadAddressError('Invalid address: "%s"' % addrStr)
+
+   # Okay this doesn't work because of the issue outlined before, where the 
+   # SCRADDR prefixes don't match the ADDRSTR prefixes.  Whoops 
+   #return addrBin[:21] 
+   
+   atype, a160 = addrStr_to_hash160(addrStr)
+   if atype==ADDRBYTE:
+      return SCRADDR_P2PKH_BYTE + a160
+   elif atype==P2SHBYTE:
+      return SCRADDR_P2SH_BYTE + a160
+   else:
+      BadAddressError('Invalid address: "%s"' % addrStr)
+
+
+
+
+
 ################################################################################
 # Load the C++ utilites here
 #
@@ -1418,7 +1711,6 @@ def base58_to_binary(addr):
 
 
 ################################################################################
-
 def hash160_to_addrStr(binStr):
    """
    Converts the 20-byte pubKeyHash to 25-byte binary Bitcoin address
@@ -2262,7 +2554,7 @@ def createBitcoinURI(addr, amt=None, msg=None):
 
 
 ################################################################################
-def createSigScript(rBin, sBin):
+def createSigScriptFromRS(rBin, sBin):
    # Remove all leading zero-bytes
    while rBin[0]=='\x00':
       rBin = rBin[1:]

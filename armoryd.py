@@ -116,7 +116,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
          
    #############################################################################
    def jsonrpc_importprivkey(self, privkey):
-      self.wallet.importExternalAddressData(PRIVATE_KEY=privkey)
+      self.wallet.importExternalAddressData(privKey=privkey)
 
    #############################################################################
    def jsonrpc_getrawtransaction(self, txHash, verbose=0):
@@ -132,7 +132,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
          else:
             result = rawTx
       else:    
-         LOGERROR('Tx hash not recognized by TheBDM: %s' % binary_to_hex(txHash))
+         LOGERROR('Tx hash not recognized by TheBDM: %s' % txHash)
          result = None
 
       return result
@@ -140,7 +140,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
    #############################################################################
    def jsonrpc_gettxout(self, txHash, n):
       txOut = None
-      cppTx = TheBDM.getTxByHash(hex_to_binary(txHash))
+      cppTx = TheBDM.getTxByHash(hex_to_binary(txHash, BIGENDIAN))
       if cppTx.isInitialized():
          txBinary = cppTx.serialize()
          pyTx = PyTx().unserialize(txBinary)
@@ -164,57 +164,73 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       self.wallet.unlock( securePassphrase=SecureBinaryData(passphrase),
                             tempKeyLifetime=timeout)
 
-   #############################################################################
-
-   def getTxOutScriptType(self, binScript):
-      if len(binScript) > 0: 
-         typeNumber = getTxOutScriptType(binScript)
-         scriptType = 'pubkeyhash' if typeNumber == TXOUT_SCRIPT_STANDARD else \
-                      'multisig' if typeNumber == TXOUT_SCRIPT_MULTISIG else \
-                      'coinbase' if typeNumber == TXOUT_SCRIPT_COINBASE else \
-                      'nonstandard'
-      else:
-         scriptType = 'nonstandard'
-      return scriptType
    
+   #############################################################################
    def getScriptPubKey(self, txOut):
-      opStringList = convertScriptToOpStrings(txOut.binScript)
-      scriptType = self.getTxOutScriptType(txOut.binScript),
-      multiSigType, addr160List, pub65List = getTxOutMultiSigInfo(txOut.binScript)
-      addr160List = [hash160_to_addrStr(binStr) for binStr in addr160List]
-      reqSigs = opnames.index(opStringList[0])-OP_1+1 if len(addr160List) > 1 else 1
-      return { 'asm' : ' '.join(convertScriptToOpStrings(txOut.binScript)),
-                  'hex' : binary_to_hex(txOut.binScript),
-                  'reqSigs' : reqSigs,
-                  'type' : scriptType,
-                  'addresses' : addr160List
-                  }
+      addrList = []
+      scriptType = getTxOutScriptType(txOut.binScript)
+      if scriptType in CPP_TXOUT_STDSINGLESIG:
+         M = 1
+         addrList = [script_to_addrStr(txOut.binScript)]
+      elif scriptType == CPP_TXOUT_P2SH:
+         M = -1
+         addrList = [script_to_addrStr(txOut.binScript)]
+      elif scriptType==CPP_TXOUT_MULTISIG:
+         M, N, addr160List, pub65List = getMultisigScriptInfo(txOut.binScript)
+         addrList = [hash160_to_addrStr(a160) for a160 in addr160List]
+      elif scriptType == CPP_TXOUT_NONSTANDARD:
+         M = -1
 
+      opStringList = convertScriptToOpStrings(txOut.binScript)
+      return { 'asm'       : ' '.join(opStringList),
+               'hex'       : binary_to_hex(txOut.binScript),
+               'reqSigs'   : M,
+               'type'      : CPP_TXOUT_SCRIPT_NAMES[scriptType],
+               'addresses' : addrList }
+
+   #############################################################################
    def jsonrpc_decoderawtransaction(self, hexString):
       pyTx = PyTx().unserialize(hex_to_binary(hexString))
-      result = {\
-                'txid' : pyTx.getHashHex(BIGENDIAN),
-                'version' : pyTx.version,
-                'locktime' : pyTx.lockTime,
-                'vin' : [{ \
-                         'txid' : binary_to_hex(txIn.outpoint.txHash, BIGENDIAN),
-                         'vout' : txIn.outpoint.txOutIndex,
-                         'scriptSig' : { \
-                                        'asm' : binary_to_hex(txIn.binScript[1:]),
-                                        'hex' : binary_to_hex(txIn.binScript)},
-                         'sequence' : txIn.intSeq} if not getTxInScriptType(txIn) == TXIN_SCRIPT_COINBASE else
-                                       {\
-                                        'coinbase' : binary_to_hex(txIn.binScript),
-                                        'sequence' : txIn.intSeq
-                                        }  for txIn in pyTx.inputs],
-                'vout' : [{ \
-                           'value' : AmountToJSON(pyTx.outputs[n].value),
-                           'n' : n,
-                           'scriptPubKey' : self.getScriptPubKey(pyTx.outputs[n])
-                           } for n in range(len(pyTx.outputs))]
-                
-                }
+
+      #####
+      # Accumulate TxIn info
+      vinList = []
+      for txin in pyTx.inputs:
+         prevHash = txin.outpoint.txHash
+         scrType = getTxInScriptType(txin)
+         # ACR:  What is asm, and why is basically just binScript?
+         oplist = convertScriptToOpStrings(txin.binScript)
+         scriptSigDict = { 'asm' : ' '.join(oplist),
+                           'hex' : binary_to_hex(txin.binScript) }
+
+         if not scrType == CPP_TXIN_COINBASE:
+            vinList.append(  { 'txid'      : binary_to_hex(prevHash, BIGENDIAN),
+                               'vout'      : txin.outpoint.txOutIndex, 
+                               'scriptSig' : scriptSigDict, 
+                               'sequence'  : txin.intSeq})
+         else:
+            vinList.append( {  'coinbase'  : binary_to_hex(txin.binScript),
+                               'sequence'  : txin.intSeq })
+
+      #####
+      # Accumulate TxOut info
+      voutList = []
+      for n,txout in enumerate(pyTx.outputs):
+         voutList.append( { 'value' : AmountToJSON(txout.value),
+                            'n' : n,
+                            'scriptPubKey' : self.getScriptPubKey(txout) } )
+         
+
+      #####
+      # Accumulate all the data to return
+      result = { 'txid'     : pyTx.getHashHex(BIGENDIAN),
+                 'version'  : pyTx.version,
+                 'locktime' : pyTx.lockTime,
+                 'vin'      : vinList, 
+                 'vout'     : voutList }
+
       return result
+
 
    #############################################################################
    def jsonrpc_getnewaddress(self):
@@ -278,28 +294,21 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
    def jsonrpc_sendtoaddress(self, bitcoinaddress, amount):
       if CLI_OPTIONS.offline:
          raise ValueError('Cannot create transactions when offline')
-      atype, addr160 = addrStr_to_hash160(bitcoinaddress)
-      if atype==P2SHBYTE:
-         raise P2SHNotSupportedError
-
+      scraddr = addrStr_to_scrAddr(bitcoinaddress)
       amtCoin = JSONtoAmount(amount)
-      return self.create_unsigned_transaction([[addr160, amtCoin]])
+      return self.create_unsigned_transaction([[scraddr, amtCoin]])
 
    #############################################################################
    def jsonrpc_sendmany(self, *args):
       if CLI_OPTIONS.offline:
          raise ValueError('Cannot create transactions when offline')
 
-      recipvalpairs = []
+      scraddrValuePairs = []
       for a in args:
          r,v = a.split(':')
-         #recipvalpairs.append([addrStr_to_hash160(r), JSONtoAmount(v)])
-         atype, addr160 = addrStr_to_hash160(r)
-         if atype==P2SHBYTE:
-            raise P2SHNotSupportedError
-         recipvalpairs.append([addr160, JSONtoAmount(v)])
+         scraddrValuePairs.append([addrStr_to_scrAddr(r), JSONtoAmount(v)])
 
-      return self.create_unsigned_transaction(recipvalpairs)
+      return self.create_unsigned_transaction(scraddrValuePairs)
 
 
    #############################################################################
@@ -738,11 +747,11 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
    #############################################################################
    # https://bitcointalk.org/index.php?topic=92496.msg1126310#msg1126310
-   def create_unsigned_transaction(self, recipValPairs):
+   def create_unsigned_transaction(self, scraddrValuePairs):
       # Get unspent TxOutList and select the coins
       #addr160_recipient = addrStr_to_hash160(bitcoinaddress_str)
 
-      totalSend = long( sum([rv[1] for rv in recipValPairs]) )
+      totalSend = long( sum([rv[1] for rv in scraddrValuePairs]) )
       fee = 0
 
       spendBal = self.wallet.getBalance('Spendable')
@@ -762,9 +771,10 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       totalSelected = sum([u.getValue() for u in utxoSelect])
       totalChange = totalSelected - (totalSend  + fee)
 
-      outputPairs = recipValPairs
+      outputPairs = scraddrValuePairs[:]
       if totalChange > 0:
-         outputPairs.append( [self.wallet.getNextUnusedAddress().getAddr160(), totalChange] )
+         nextAddr = self.wallet.getNextUnusedAddress().getAddrStr()
+         outputPairs.append( [addrStr_to_scrAddr(nextAddr), totalChange] )
 
       random.shuffle(outputPairs)
       txdp = PyTxDistProposal().createFromTxOutSelection(utxoSelect, outputPairs)
@@ -792,16 +802,15 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
             for pyTxIn in pyTx.inputs:
                # We expect all these addresses to be PubKeyHash, meaning that the 
                # public key must be in the TxIn script, and thus will be avail.
-               sendingAddrHash = TxInScriptExtractAddr160IfAvail(pyTxIn)
-               if len(sendingAddrHash) > 0:
-                  sendingAddrStr = hash160_to_addrStr(sendingAddrHash)
+               sendingAddrStr = TxInExtractAddrStrIfAvail(pyTxIn)
+               if len(sendingAddrStr) > 0:
+                  atype, sendingAddrHash = addrStr_to_hash160(sendingAddrStr)
                   if self.wallet.addrMap.has_key(sendingAddrHash):
-                     sendingAddr = self.wallet.addrMap[sendingAddrHash]
                      if sendingAddrStr in self.chainDictionary:
                         result = ''.join([result, "\nChain: " + self.chainDictionary[sendingAddrStr][0]])
                         result = ''.join([result, "   Index: " + self.chainDictionary[sendingAddrStr][1]])
                      # print the meta data
-                     result = ''.join([result, '\n', sendingAddr.toString()])
+                     result = ''.join([result, '\n', sendingAddrStr.toString()])
                      result = ''.join([result, '\n', pyTx.toString()])
          return result
 

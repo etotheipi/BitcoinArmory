@@ -5,6 +5,7 @@ Created on Aug 4, 2013
 '''
 import sys
 import unittest
+sys.path.append('..')
 
 from armoryengine.ArmoryUtils import hex_to_binary, binary_to_hex, hex_to_int, \
    ONE_BTC
@@ -13,10 +14,8 @@ from armoryengine.Block import PyBlock
 from armoryengine.PyBtcAddress import PyBtcAddress
 from armoryengine.Script import PyScriptProcessor
 from armoryengine.Transaction import PyTx, PyTxIn, PyOutPoint, PyTxOut, \
-   TXOUT_SCRIPT_STANDARD, PyCreateAndSignTx, getTxOutMultiSigInfo, BlockComponent
+   TXOUT_SCRIPT_STANDARD, PyCreateAndSignTx, getMultisigScriptInfo, BlockComponent
 
-
-sys.argv.append('--nologging')
 
 
 # Unserialize an reserialize
@@ -212,7 +211,7 @@ class PyTXTest(unittest.TestCase):
       
       self.assertEqual(tx1.getHashHex(), binary_to_hex(tx1hash))
       # Creating transaction to send coins from A to B
-      tx2 = PyCreateAndSignTx( [[ addrA, tx1, 0 ]],  [[addrB, 50*(10**8)]])
+      tx2 = PyCreateAndSignTx( [[ addrA, tx1, 0 ]],  [[addrB, 50*ONE_BTC]])
       psp = PyScriptProcessor()
       psp.setTxObjects(tx1, tx2, 0)
       self.assertTrue(psp.verifyTransactionValid())
@@ -261,7 +260,7 @@ class PyTXTest(unittest.TestCase):
       self.verifyMultiSigAddrExtraction(script3, expectedBtcAddrList3)
    
    def verifyMultiSigAddrExtraction(self, scr, expectedBtcAddrList):
-      addrList = getTxOutMultiSigInfo(scr)[1]
+      addrList = getMultisigScriptInfo(scr)[2]
       btcAddrList = []
       for a in addrList:
          btcAddrList.append(PyBtcAddress().createFromPublicKeyHash160(a).getAddrStr())

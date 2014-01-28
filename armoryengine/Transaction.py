@@ -303,43 +303,13 @@ opCodeLookup['OP_CHECKMULTISIGVERIFY'] =   175
 #OP_NOP1 = OP_NOP10   176-185   The word is ignored.
 
 
+################################################################################
 def getOpCode(name):
    return int_to_binary(opCodeLookup[name], widthBytes=1)
 
 
-TXIN_SCRIPT_STANDARD = 0
-TXIN_SCRIPT_COINBASE = 1
-TXIN_SCRIPT_SPENDCB  = 2
-TXIN_SCRIPT_UNSIGNED = 3
-TXIN_SCRIPT_UNKNOWN  = 4
-
-TXOUT_SCRIPT_STANDARD = 0
-TXOUT_SCRIPT_COINBASE = 1
-TXOUT_SCRIPT_MULTISIG = 2
-TXOUT_SCRIPT_OP_EVAL  = 3
-TXOUT_SCRIPT_UNKNOWN  = 4
-
-MULTISIG_1of1     = (1,1)
-MULTISIG_1of2     = (1,2)
-MULTISIG_2oF2     = (2,2)
-MULTISIG_1oF3     = (1,3)
-MULTISIG_2oF3     = (2,3)
-MULTISIG_3oF3     = (3,3)
-MULTISIG_UNKNOWN  = (0,0)
-
-TXOUT_TYPE_NAMES = { TXOUT_SCRIPT_STANDARD: 'Standard', \
-                     TXOUT_SCRIPT_COINBASE: 'Coinbase', \
-                     TXOUT_SCRIPT_MULTISIG: 'Multi-Signature', \
-                     TXOUT_SCRIPT_UNKNOWN:  '<Unrecognized>', \
-                     TXOUT_SCRIPT_OP_EVAL:  'OP-EVAL' }
-TXIN_TYPE_NAMES = {  TXIN_SCRIPT_STANDARD:  'Standard', \
-                     TXIN_SCRIPT_COINBASE:  'Coinbase', \
-                     TXIN_SCRIPT_SPENDCB:   'Spend-CB', \
-                     TXIN_SCRIPT_UNSIGNED:  'Unsigned', \
-                     TXIN_SCRIPT_UNKNOWN:   '<Unrecognized>'}
-
 ################################################################################
-def getTxOutMultiSigInfo(binScript):
+def getMultisigScriptInfo(rawScript):
    """
    Gets the Multi-Sig tx type, as well as all the address-160 strings of
    the keys that are needed to satisfy this transaction.  This currently
@@ -349,113 +319,48 @@ def getTxOutMultiSigInfo(binScript):
    whether the type was unknown:  we assume all 20-byte chunks of data
    are public key hashes, and 65-byte chunks are public keys.
 
-   NOTE:  Because the address list is always valid, there is no reason
-          not to use this method to extract addresses from ANY scripts,
-          not just multi-sig...
+   M==0 (output[0]==0) indicates this isn't a multisig script
    """
+
+   scrAddr = ''
    addr160List = []
-   pub65List   = []
-   bup = BinaryUnpacker(binScript)
-   opcodes = []
-   while bup.getRemainingSize() > 0:
-      nextByte = bup.get(UINT8)
-      binChunk = ''
-      if 0 < nextByte < 76:
-         nBytes = nextByte
-         binChunk = bup.get(BINARY_CHUNK, nBytes)
-      elif nextByte == OP_PUSHDATA1:
-         nBytes = bup.get(UINT8)
-         binChunk = bup.get(BINARY_CHUNK, nBytes)
-      elif nextByte == OP_PUSHDATA2:
-         nBytes = bup.get(UINT16)
-         binChunk = bup.get(BINARY_CHUNK, nBytes)
-      elif nextByte == OP_PUSHDATA4:
-         nBytes = bup.get(UINT32)
-         binChunk = bup.get(BINARY_CHUNK, nBytes)
-      else:
-         opcodes.append(nextByte)
-         
+   pubKeyList   = []
 
-      if len(binChunk) == 20:
-         addr160List.append(binChunk)
-         pub65List.append('')
-         opcodes.append('<Addr20>')
-      elif len(binChunk) == 65:
-         addr160List.append(convertKeyDataToAddress(pubKey=binChunk))
-         pub65List.append(binChunk)
-         opcodes.append('<PubKey65>')
+   M,N = 0,0
 
-   #print 'Transaction:',
-   #for op in opcodes:
-      #print op,
+   pubKeyStr  = Cpp.BtcUtils().getMultisigPubKeyInfoStr(rawScript) 
 
-   # First assume that this is an M-of-N script
-   try:
-      M = int(opcodes[ 0])
-      N = int(opcodes[-2])
-      keys  = opcodes[1:-2]
-      nPub = sum([(1 if p=='PubKey65' else 0) for p in keys])
-      if 0<M<3 and 0<N<=3 and N==nPub:
-         # We have a legit M-of-N script, figure out which one
-         if M==1 and N==1: return MULTISIG_1of1, addr160List, pub65List
-         if M==1 and N==2: return MULTISIG_1of2, addr160List, pub65List
-         if M==2 and N==2: return MULTISIG_2oF2, addr160List, pub65List
-         if M==1 and N==3: return MULTISIG_1oF3, addr160List, pub65List
-         if M==2 and N==3: return MULTISIG_2oF3, addr160List, pub65List
-         if M==3 and N==3: return MULTISIG_3oF3, addr160List, pub65List
-   except:
-      pass
+   bu = BinaryUnpacker(pubKeyStr)
+   M = bu.get(UINT8)
+   N = bu.get(UINT8)
 
-      
-   # Next try A-or-(B-and-C) transaction (not implemented yet
-   # I'm not sure how these transactions will look
-   try:
-      pass
-   except:
-      pass
+   if M==0:
+      return [0, 0, None, None]
 
-   return MULTISIG_UNKNOWN, addr160List, pub65List
+   for i in range(N):
+      pkstr = bu.get(BINARY_CHUNK, 33)
+      if pkstr[0] == '\x04':
+         pkstr += bu.get(BINARY_CHUNK, 32)
+      pubKeyList.append(pkstr)
+      addr160List.append(hash160(pkstr))
+
+   return M, N, addr160List, pubKeyList
 
 
 ################################################################################
-def getTxOutScriptType(binScript):
-   if binScript[:2] == hex_to_binary('4104'):
-      is65B = len(binScript) == 67
-      lastByteMatch = binScript[-1] == getOpCode('OP_CHECKSIG')
-      if (is65B and lastByteMatch):
-         return TXOUT_SCRIPT_COINBASE
-   else:
-      is1 = binScript[ 0] == getOpCode('OP_DUP')
-      is2 = binScript[ 1] == getOpCode('OP_HASH160')
-      is3 = binScript[-2] == getOpCode('OP_EQUALVERIFY')
-      is4 = binScript[-1] == getOpCode('OP_CHECKSIG')
-      if (is1 and is2 and is3 and is4):
-         return TXOUT_SCRIPT_STANDARD
+def getHash160ListFromMultisigScrAddr(scrAddr):
+   mslen = len(scrAddr) - 3
+   if not (mslen%20==0 and scrAddr[0]==SCRADDR_MULTISIG_BYTE):
+      raise BadAddressError('Supplied ScrAddr is not multisig!')
 
-   # If we got here, let's check if it's a standard Multi-sig type
-   mstype = getTxOutMultiSigInfo(binScript)[0]
-   if mstype!=MULTISIG_UNKNOWN:
-      return TXOUT_SCRIPT_MULTISIG
-
-   return TXOUT_SCRIPT_UNKNOWN
+   catList = scrAddr[3:]
+   return [catList[20*i:20*(i+1)] for i in range(len(catList)/20)]
+  
 
 ################################################################################
-def TxOutScriptExtractAddrStr(binScript):
-   return hash160_to_addrStr(TxOutScriptExtractAddr160(binScript))
-
-################################################################################
-def TxOutScriptExtractAddr160(binScript):
-   txoutType = getTxOutScriptType(binScript)
-   if txoutType == TXOUT_SCRIPT_UNKNOWN:
-      return '\x00'*20
-
-   if txoutType == TXOUT_SCRIPT_COINBASE:
-      return convertKeyDataToAddress(pubKey=binScript[1:66])
-   elif txoutType == TXOUT_SCRIPT_STANDARD:
-      return binScript[3:23]
-   elif txoutType == TXOUT_SCRIPT_MULTISIG:
-      # Returns a list of addresses
-      return getTxOutMultiSigInfo(binScript)[1]
+# These two methods are just easier-to-type wrappers around the C++ methods
+def getTxOutScriptType(script):
+   return Cpp.BtcUtils().getTxOutScriptTypeInt(script)
 
 
 ################################################################################
@@ -465,50 +370,54 @@ def getTxInScriptType(txinObj):
          is because this method needs to see the OutPoint to distinguish an
          UNKNOWN TxIn from a coinbase-TxIn
    """
-   binScript = txinObj.binScript
-   if len(binScript)==0:
-      return TXIN_SCRIPT_UNSIGNED
-   if txinObj.outpoint.txHash == EmptyHash:
-      return TXIN_SCRIPT_COINBASE
-
-   b0,b1,b2,b3,b4 = binScript[:5]
-   if not (b1=='\x30' and b3=='\x02'):
-      return TXIN_SCRIPT_UNKNOWN
-
-   SigSize = binary_to_int(b2) + 3
-   PubkeySize = 66  # 0x4104[Pubx][Puby]
-
-   if len(binScript)==SigSize:
-      return TXIN_SCRIPT_SPENDCB
-   elif len(binScript)==(SigSize + PubkeySize + 1):
-      return TXIN_SCRIPT_STANDARD
-
-   return TXIN_SCRIPT_UNKNOWN
-
+   script = txinObj.binScript
+   prevTx = txinObj.outpoint.txHash
+   return Cpp.BtcUtils().getTxInScriptTypeInt(script, prevTx)
 
 ################################################################################
-def TxInScriptExtractKeyAddr(txinObj):
+def getTxInP2SHScriptType(txinObj):
+   """ 
+   If this TxIn is identified as SPEND-P2SH, then it contains a subscript that
+   is really a TxOut script (which must hash to the value included on the
+   actual TxOut script).  
+
+   Use this to get the TxOut script type of the Spend-P2SH subscript
+   """
    scrType = getTxInScriptType(txinObj)
-   if scrType == TXIN_SCRIPT_STANDARD:
-      pubKeyBin = txinObj.binScript[-65:]
-      newAddr = PyBtcAddress().createFromPublicKey(pubKeyBin)
-      return (newAddr.calculateAddrStr(), newAddr.binPublicKey65.toBinStr()) # LITTLE_ENDIAN
-   elif scrType == TXIN_SCRIPT_COINBASE:
-      return ('[COINBASE-NO-ADDR: %s]'%binary_to_hex(txinObj.binScript), '[COINBASE-NO-PUBKEY]')
-      #return ('[COINBASE-NO-ADDR]', '[COINBASE-NO-PUBKEY]')
-   elif scrType == TXIN_SCRIPT_SPENDCB:
-      return ('[SPENDCOINBASE]', '[SPENDCOINBASE]')
-   else:
-      return ('[UNKNOWN-TXIN]', '[UNKNOWN-TXIN]')
+   if not scrType==CPP_TXIN_SPENDP2SH:
+      return None
+
+   lastPush = Cpp.BtcUtils().getLastPushDataInScript(txinObj.binScript)
+   
+   return getTxOutScriptType(lastPush)
 
 
 ################################################################################
-def TxInScriptExtractAddr160IfAvail(txinObj):
-   if getTxInScriptType(txinObj) == TXIN_SCRIPT_STANDARD:
-      pubKeyBin = txinObj.binScript[-65:]
-      return hash160(pubKeyBin)
+def TxInExtractAddrStrIfAvail(txinObj):
+   rawScript  = txinObj.binScript
+   prevTxHash = txinObj.outpoint.txHash
+   scrType = Cpp.BtcUtils().getTxInScriptTypeInt(rawScript, prevTxHash)
+   lastPush = Cpp.BtcUtils().getLastPushDataInScript(rawScript)
+
+   if scrType in [CPP_TXIN_STDUNCOMPR, CPP_TXIN_STDCOMPR]:
+      return hash160_to_addrStr( hash160(lastPush) )
+   elif scrType == CPP_TXIN_SPENDP2SH:
+      return hash160_to_p2shStr( hash160(lastPush) )
    else:
       return ''
+      
+
+################################################################################
+def TxInExtractPreImageIfAvail(txinObj):
+   rawScript  = txinObj.binScript
+   prevTxHash = txinObj.outpoint.txHash
+   scrType = Cpp.BtcUtils().getTxInScriptTypeInt(rawScript, prevTxHash)
+
+   if scrType == [CPP_TXIN_STDUNCOMPR, CPP_TXIN_STDCOMPR, CPP_TXIN_SPENDP2SH]:
+      return Cpp.BtcUtils().getLastPushDataInScript(rawScript)
+   else:
+      return ''
+
 
 
 
@@ -606,24 +515,27 @@ class PyTxIn(BlockComponent):
       print indstr + indent + 'TxOutIndex:', self.outpoint.txOutIndex
       print indstr + indent + 'Script:    ', \
                   '('+binary_to_hex(self.binScript)[:64]+')'
-      inAddr160 = TxInScriptExtractAddr160IfAvail(self)
-      if len(inAddr160)>0:
-         print indstr + indent + 'Sender:    ', hash160_to_addrStr(inAddr160)
+      addrStr = TxInExtractAddrStrIfAvail(self)
+      if len(addrStr)==0:
+         addrStr = '<UNKNOWN>'
+      print indstr + indent + 'Sender:    ', addrStr
       print indstr + indent + 'Seq:       ', self.intSeq
       
    def toString(self, nIndent=0, endian=BIGENDIAN):
       indstr = indent*nIndent
+      indstr2 = indstr + indent
       result = indstr + 'PyTxIn:'
-      result = ''.join([result, '\n',  indstr + indent + 'PrevTxHash:', \
+      result = ''.join([result, '\n',  indstr2 + 'PrevTxHash:', \
                   binary_to_hex(self.outpoint.txHash, endian), \
                       '(BE)' if endian==BIGENDIAN else '(LE)'])
-      result = ''.join([result, '\n',  indstr + indent + 'TxOutIndex:', str(self.outpoint.txOutIndex)])
-      result = ''.join([result, '\n',  indstr + indent + 'Script:    ', \
+      result = ''.join([result, '\n',  indstr2 + 'TxOutIndex:', \
+                                    str(self.outpoint.txOutIndex)])
+      result = ''.join([result, '\n',  indstr2 + 'Script:    ', \
                   '('+binary_to_hex(self.binScript)[:64]+')'])
-      inAddr160 = TxInScriptExtractAddr160IfAvail(self)
-      if len(inAddr160)>0:
-         result = ''.join([result, '\n',  indstr + indent + 'Sender:    ', hash160_to_addrStr(inAddr160)])
-      result = ''.join([result, '\n',  indstr + indent + 'Seq:       ', str(self.intSeq)])
+      addrStr = TxInExtractAddrStrIfAvail(self)
+      if len(addrStr)>0:
+         result = ''.join([result, '\n',  indstr2 + 'Sender:    ', addrStr])
+      result = ''.join([result, '\n',  indstr2 + 'Seq:       ', str(self.intSeq)])
       return result
 
    # Before broadcasting a transaction make sure that the script is canonical
@@ -636,7 +548,7 @@ class PyTxIn(BlockComponent):
       rBin = self.binScript[5:5+rLen]
       sLen = binary_to_int(self.binScript[6+rLen:7+rLen])
       sBin = self.binScript[7+rLen:7+rLen+sLen]
-      sigScript = createSigScript(rBin, sBin)
+      sigScript = createSigScriptFromRS(rBin, sBin)
       newBinScript = int_to_binary(len(sigScript)+1) + sigScript + self.binScript[3+rsLen:]
       paddingRemoved = newBinScript != self.binScript
       newTxIn = self.copy()
@@ -676,33 +588,51 @@ class PyTxOut(BlockComponent):
       return binOut.getBinaryString()
 
    def pprint(self, nIndent=0, endian=BIGENDIAN):
-      indstr = indent*nIndent
+      """
+      indstr  = indent*nIndent
+      indstr2 = indent*nIndent + indent
       print indstr + 'TxOut:'
-      print indstr + indent + 'Value:   ', self.value, '(', float(self.value) / ONE_BTC, ')'
+      print indstr2 + 'Value:   ', self.value, '(', float(self.value) / ONE_BTC, ')'
       txoutType = getTxOutScriptType(self.binScript)
-      if txoutType == TXOUT_SCRIPT_COINBASE:
-         print indstr + indent + 'Script:   PubKey(%s) OP_CHECKSIG' % \
-                              (TxOutScriptExtractAddrStr(self.binScript),)
-      elif txoutType == TXOUT_SCRIPT_STANDARD:
-         print indstr + indent + 'Script:   OP_DUP OP_HASH (%s) OP_EQUAL OP_CHECKSIG' % \
-                              (TxOutScriptExtractAddrStr(self.binScript),)
+      if txoutType in [CPP_TXOUT_STDPUBKEY33, CPP_TXOUT_STDPUBKEY65]:
+         print indstr2 + 'Script: PubKey(%s) OP_CHECKSIG' % \
+                                          script_to_addrStr(self.binScript)
+      elif txoutType == CPP_TXOUT_STDHASH160:
+         print indstr2 + 'Script: OP_DUP OP_HASH160 (%s) OP_EQUALVERIFY OP_CHECKSIG' % \
+                                          script_to_addrStr(self.binScript)
+      elif txoutType == CPP_TXOUT_P2SH:
+         print indstr2 + 'Script: OP_HASH160 (%s) OP_EQUAL' % \
+                                          script_to_addrStr(self.binScript)
       else:
-         print indstr + indent + 'Script:   <Non-standard script!>'
+         opStrList = convertScriptToOpStrings(self.binScript)
+         print indstr + indent + 'Script:  ', ' '.join(opStrList)
+      """
+      print self.toString(nIndent, endian)
 
    def toString(self, nIndent=0, endian=BIGENDIAN):
-      indstr = indent*nIndent
-      result = indstr + 'TxOut:'
-      result = ''.join([result, '\n',   indstr + indent + 'Value:   ', str(self.value), '(', str(float(self.value) / ONE_BTC), ')'])
+      indstr  = indent*nIndent
+      indstr2 = indent*nIndent + indent
+      valStr, btcStr = str(self.value), str(float(self.value)/ONE_BTC)
+      result = indstr + 'TxOut:\n'
+      result += indstr2 + 'Value:   %s (%s)\n' % (valStr, btcStr)
+      result += indstr2
       txoutType = getTxOutScriptType(self.binScript)
-      if txoutType == TXOUT_SCRIPT_COINBASE:
-         result = ''.join([result, '\n',   indstr + indent + 'Script:   PubKey(%s) OP_CHECKSIG' % \
-                              (TxOutScriptExtractAddrStr(self.binScript))])
-      elif txoutType == TXOUT_SCRIPT_STANDARD:
-         result = ''.join([result, '\n',   indstr + indent + 'Script:   OP_DUP OP_HASH (%s) OP_EQUAL OP_CHECKSIG' % \
-                              (TxOutScriptExtractAddrStr(self.binScript))])
+
+      if txoutType in [CPP_TXOUT_STDPUBKEY33, CPP_TXOUT_STDPUBKEY65]:
+         result += 'Script:  PubKey(%s) OP_CHECKSIG \n' % \
+                                          script_to_addrStr(self.binScript)
+      elif txoutType == CPP_TXOUT_STDHASH160:
+         result += 'Script:  OP_DUP OP_HASH160 (%s) OP_EQUALVERIFY OP_CHECKSIG' % \
+                                          script_to_addrStr(self.binScript)
+      elif txoutType == CPP_TXOUT_P2SH:
+         result += 'Script:  OP_HASH160 (%s) OP_EQUAL' % \
+                                          script_to_addrStr(self.binScript)
       else:
-         result = ''.join([result, '\n',   indstr + indent + 'Script:   <Non-standard script!>'])
+         opStrList = convertScriptToOpStrings(self.binScript)
+         result += 'Script:  ' + ' '.join(opStrList)
+
       return result 
+
 #####
 class PyTx(BlockComponent):
    def __init__(self):
@@ -711,7 +641,6 @@ class PyTx(BlockComponent):
       self.outputs    = UNINITIALIZED
       self.lockTime   = 0
       self.thisHash   = UNINITIALIZED
-      self.isSigned   = False
 
    def serialize(self):
       binOut = BinaryPacker()
@@ -775,7 +704,7 @@ class PyTx(BlockComponent):
       """ 
       Make a list of lists, each one containing information about 
       an output in this tx.  Usually contains
-         [ScriptType, Value, Addr160]
+         [ScriptType, Value, Script]
       May include more information if any of the scripts are multi-sig,
       such as public keys and multi-sig type (M-of-N)
       """
@@ -786,21 +715,13 @@ class PyTx(BlockComponent):
          scrType = getTxOutScriptType(txout.binScript)
          recipInfoList[-1].append(scrType)
          recipInfoList[-1].append(txout.value)
-         if scrType in (TXOUT_SCRIPT_STANDARD, TXOUT_SCRIPT_COINBASE):
-            recipInfoList[-1].append(TxOutScriptExtractAddr160(txout.binScript))
-         elif scrType in (TXOUT_SCRIPT_MULTISIG,):
-            mstype, addr160s, pubs = getTxOutMultiSigInfo(txout.binScript)
+         recipInfoList[-1].append(txout.binScript)
+         if scrType == CPP_TXOUT_MULTISIG:
+            M, N, addr160s, pubs = getMultisigScriptInfo(txout.binScript)
             recipInfoList[-1].append(addr160s)
             recipInfoList[-1].append(pubs)
-            recipInfoList[-1].append(mstype[0]) # this is M (from M-of-N)
-         elif scrType in (TXOUT_SCRIPT_OP_EVAL,):
-            LOGERROR('OP_EVAL doesn\'t exist anymore.  How did we get here?')
-            recipInfoList[-1].append(txout.binScript)
-         elif scrType in (TXOUT_SCRIPT_UNKNOWN,):
-            LOGERROR('Unknown TxOut type')
-            recipInfoList[-1].append(txout.binScript)
-         else:
-            LOGERROR('Unrecognized txout script that isn\'t TXOUT_SCRIPT_UNKNOWN...?')
+            recipInfoList[-1].append(M)
+
       return recipInfoList
 
 
@@ -864,82 +785,6 @@ class PyTx(BlockComponent):
 
 
 
-################################################################################
-# Convert a 20-byte hash to a "pay-to-public-key-hash" script to be inserted
-# into a TxOut script
-def hash160_to_p2pkhash_script(binStr20):
-   if not len(binStr20)==20:
-      raise InvalidHashError('Tried to convert non-20-byte str to p2pkh script')
-
-   outScript = ''.join([  getOpCode('OP_DUP'        ), \
-                          getOpCode('OP_HASH160'    ), \
-                          '\x14',                      \
-                          binStr20,
-                          getOpCode('OP_EQUALVERIFY'), \
-                          getOpCode('OP_CHECKSIG'   )])
-   return outScript
-
-
-################################################################################
-# Convert a 20-byte hash to a "pay-to-script-hash" script to be inserted
-# into a TxOut script
-def hash160_to_p2sh_script(binStr20):
-   if not len(binStr20)==20:
-      raise InvalidHashError('Tried to convert non-20-byte str to p2sh script')
-
-   outScript = ''.join([  getOpCode('OP_HASH160'), \
-                          '\x14',                      \
-                          binStr20,
-                          getOpCode('OP_EQUAL')])
-   return outScript
-
-################################################################################
-# Convert an arbitrary script into a P2SH script
-def script_to_p2sh_script(binScript):
-   scriptHash = hash160(binScript)
-   return hash160_to_p2sh_script(scriptHash)
-
-
-################################################################################
-# Convert a 33-byte or 65-byte hash to a "pay-to-pubkey" script to be inserted
-# into a TxOut script
-def pubkey_to_p2pk_script(binStr33or65):
-   
-   if not len(binStr33or65) in [33, 65]:
-      raise KeyDataError('Invalid public key supplied to p2pk script')
-
-   lenByte = int_to_binary(len(binStr33or65), widthBytes=1)
-   outScript =  ''.join([  lenByte,
-                           binStr33or65,
-                           getOpCode('OP_CHECKSIG')])
-   return outScript
-
-
-################################################################################
-# Convert a list of public keys to an OP_CHECKMULTISIG script.  There will be 
-# use cases where we require the keys to be sorted lexicographically, so we 
-# will do that by default.  If you require a different order, pre-sort them 
-# and pass withSort=False.
-def pubkeylist_to_multisig_script(pkList, M, withSort=True):
-
-   if sum([  (0 if len(pk) in [33,65] else 1)   for pk in pkList]) > 0:
-      raise KeyDataError('Not all strings in pkList are 33 or 65 bytes!')
-
-   opM = getOpCode('OP_%d' % M)
-   opN = getOpCode('OP_%d' % len(pkList))
-
-   newPkList = pkList[:] # copy
-   if withSort:
-      newPkList = sorted(pkList)
-
-   outScript = opM
-   for pk in newPkList:
-      outScript += int_to_binary(len(pk), widthBytes=1)   
-      outScript += pk
-   outScript += opN
-   outScript += getOpCode('OP_CHECKMULTISIG')
-
-   return outScript
 
 
 
@@ -961,37 +806,50 @@ class PyTxDistProposal(object):
    doesn't have to store the blockchain.
 
    For a given TxDP, we will be storing the following structure
-   in memory.  Use a 3-input tx as an example, with the first 
-   being a 2-of-3 multi-sig transaction (unsigned)
+   in memory.  Use a 4-input tx as an example, with the first 
+   being a 2-of-3 multi-sig transaction (unsigned), and the last
+   is a 2-o-2 P2SH input.
       
-      self.scriptTypes    = [TXOUT_SCRIPT_MULTISIG, 
-                             TXOUT_SCRIPT_STANDARD,   
-                             TXOUT_SCRIPT_STANDARD]
+      self.scriptTypes    = [ CPP_TXOUT_MULTISIG,
+                              CPP_TXOUT_STDHASH160,   
+                              CPP_TXOUT_STDHASH160,
+                              CPP_TXOUT_P2SH]
 
-      self.inputValues    = [ 2313000000, 
-                              400000000, 
-                              1000000000]
+      self.inputValues    = [ long(23.13 * ONE_BTC),
+                              long( 4.00 * ONE_BTC),
+                              long(10.00 * ONE_BTC),
+                              long( 5.00 * ONE_BTC) ]
 
       self.signatures     = [ ['', '', ''],
                               [''],
+                              [''],
                               [''],         ]
 
-      self.inAddr20Lists  = [ [addr1, addr2, addr3],
-                              [addr4]
-                              [addr5]         ]
+      self.inScrAddrList  = [ fe0203<a160_1><a160_2><a160_3>,
+                              HASH160PREFIX + a160_4,
+                              HASH160PREFIX + a160_5,
+                              P2SHPREFIX + p2sh160   ]
+
+      self.p2shScripts    = [ '',
+                              '',
+                              '',
+                              <scriptThatHashesTo_p2sh160>]
 
       # Usually only have public keys on multi-sig TxOuts
       self.inPubKeyLists  = [ [pubKey1, pubKey2, pubKey3],
-                              ['']
-                              ['']         ]   
+                              [''],
+                              [''],
+                              [pubKey6, pubKey7]         ]   
 
-      self.numSigsNeeded  = [ 2
-                              1
-                              1 ]
+      self.numSigsNeeded  = [ 2,
+                              1,
+                              1,
+                              2 ]
 
       self.relevantTxMap  = [ prevTx0Hash: prevTx0.serialize(),
                               prevTx1Hash: prevTx1.serialize(),
-                              prevTx2Hash: prevTx2.serialize() ]
+                              prevTx2Hash: prevTx2.serialize(),
+                              prevTx3Hash: prevTx3.serialize() ]
       
    UPDATE Feb 2012:  Before Jan 29, 2012, BIP 0010 used a different technique
                      for communicating blockchain information to the offline
@@ -1021,7 +879,8 @@ class PyTxDistProposal(object):
       self.scriptTypes   = []
       self.signatures    = []
       self.txOutScripts  = []
-      self.inAddr20Lists = []
+      self.inScrAddrList = []
+      self.p2shScripts   = []
       self.inPubKeyLists = []
       self.inputValues   = []
       self.numSigsNeeded = []
@@ -1030,14 +889,15 @@ class PyTxDistProposal(object):
          self.createFromPyTx(pytx, txMap)
 
    #############################################################################
-   def createFromPyTx(self, pytx, txMap={}):
+   def createFromPyTx(self, pytx, txMap={}, p2shMap={}):
       sz = len(pytx.inputs)
       self.pytxObj        = pytx.copy()
       self.uniqueB58 = binary_to_base58(hash256(pytx.serialize()))[:8]
       self.scriptTypes    = []
       self.signatures     = []
       self.txOutScripts   = []
-      self.inAddr20Lists  = []
+      self.inScrAddrList  = []
+      self.p2shScripts    = []
       self.inPubKeyLists  = []
       self.inputValues    = []
       self.numSigsNeeded  = []
@@ -1069,7 +929,8 @@ class PyTxDistProposal(object):
                raise InvalidHashError, 'Could not find the referenced tx'
             pyPrevTx = PyTx().unserialize(cppPrevTx.serialize())
          else:
-            raise InvalidHashError, 'No previous-tx data available for TxDP'
+            raise InvalidScriptError, 'No previous-tx data available for TxDP'
+
          self.relevantTxMap[txhash] = pyPrevTx.copy()
                
            
@@ -1083,28 +944,63 @@ class PyTxDistProposal(object):
          self.inputValues.append(value)
          self.txOutScripts.append(str(script)) # copy it
          self.scriptTypes.append(scrType)
-         self.inAddr20Lists.append([])
+   
+         # Make sure we always add an element to each of these
+         self.numSigsNeeded.append(-1)
+         self.inScrAddrList.append('')
+         self.p2shScripts.append('')
          self.inPubKeyLists.append([])
          self.signatures.append([])
-         if scrType in (TXOUT_SCRIPT_STANDARD, TXOUT_SCRIPT_COINBASE):
-            self.inAddr20Lists[-1].append(TxOutScriptExtractAddr160(script))
-            self.inPubKeyLists[-1].append('')
-            self.signatures[-1].append('')
-            self.numSigsNeeded.append(1)
-         elif scrType==TXOUT_SCRIPT_MULTISIG:
-            mstype, addrs, pubs = getTxOutMultiSigInfo(script)
-            self.inAddr20Lists[-1] = addrs
-            self.inPubKeyLists[-1] = pubs
+
+         # If this is a P2SH TxOut being spent, we store the information
+         # about the SUBSCRIPT, since that is ultimately what needs to be
+         # "solved" to spend the coins.  The fact that self.p2shScripts[i]
+         # will be non-empty is how we know we need to add the serialized
+         # SUBSCRIPT to the end of the sigScript when signing.
+         if scrType==CPP_TXOUT_P2SH:
+            p2shScrAddr = script_to_scrAddr(script)
+
+            if not p2shMap.has_key(p2shScrAddr):
+               raise InvalidScriptError, 'No P2SH script info avail for TxDP'
+            else:
+               scriptHash = hash160(p2shMap[p2shScrAddr])
+               if not SCRADDR_P2SH_BYTE+scriptHash == p2shScrAddr:
+                  raise InvalidScriptError, 'No P2SH script info avail for TxDP'
+
+            script = p2shMap[p2shScrAddr]
+            self.p2shScripts[-1] = script
+
+            scrType = getTxOutScriptType(script)
+            self.scriptTypes[-1] = scrType
+             
+
+         # Fill some of the other fields with info needed to spend the script 
+         if scrType==CPP_TXOUT_P2SH:
+            # Technically, this is just "OP_HASH160 <DATA> OP_EQUAL" in the 
+            # subscript which would be unusual and mostly useless.  I'll assume
+            # here that it was an attempt at recursive P2SH, since they are
+            # both the same to our code: unspendable
+            raise InvalidScriptError('Cannot have recursive P2SH scripts!')
+         elif scrType in CPP_TXOUT_STDSINGLESIG:
+            self.numSigsNeeded[-1] = 1
+            self.inScrAddrList[-1] = script_to_scrAddr(script)  
+            self.signatures[-1]    = ['']
+         elif scrType==CPP_TXOUT_MULTISIG:
+            M, N, a160s, pubs = getMultisigScriptInfo(script)
+            self.inScrAddrList[-1] = [SCRADDR_P2PKH_BYTE+a for a in a160s]
+            self.inPubKeyLists[-1] = pubs[:]
             self.signatures[-1]    = ['']*len(addrs)
-            self.numSigsNeeded[-1] = mstype[0]  # mstype for M-of-N tx is (M,N)
-         elif scrType in (TXOUT_SCRIPT_OP_EVAL, TXOUT_SCRIPT_UNKNOWN):
+            self.numSigsNeeded[-1] = M
+         else:
+            LOGWARN("Non-standard script for TxIn %d" % i)
+            LOGWARN(binary_to_hex(script))
             pass
 
       return self
 
 
    #############################################################################
-   def createFromTxOutSelection(self, utxoSelection, recip160ValPairs, txMap={}):
+   def createFromTxOutSelection(self, utxoSelection, scriptValuePairs, txMap={}):
       """
       This creates a TxDP for a standard transaction from a list of inputs and 
       a list of recipient-value-pairs.  
@@ -1114,10 +1010,23 @@ class PyTxDistProposal(object):
              anything, including a multi-signature transaction
       """
 
-      pprintUnspentTxOutList(utxoSelection)
-      #print sumTxOutList(utxoSelection)
-      #print sum([a[1] for a in recip160ValPairs])
-      assert(sumTxOutList(utxoSelection) >= sum([a[1] for a in recip160ValPairs]))
+      for scr,val in scriptValuePairs:
+         if len(scr)==20:
+            raise BadAddressError( tr("""
+               createFromTxOutSelection() has changed to take (script, value)
+               pairs instead of (hash160, value) pairs.  This is because we
+               need this function to be able to send to any arbitrary script,
+               not just pay2pubkeyhash scripts.  Especially for P2SH support.
+               This method will check that it is either reg, P2SH or multisig
+               before continuing.  Modify this function to allow more script
+               types to be handled."""))
+      
+
+      totalUtxoSum = sumTxOutList(utxoSelection)
+      totalOutputSum = sum([a[1] for a in scriptValuePairs])
+      if not totalUtxoSum >= totalOutputSum:
+         raise TxdpError('More outputs than inputs!')
+         
       thePyTx = PyTx()
       thePyTx.version = 1
       thePyTx.lockTime = 0
@@ -1125,28 +1034,24 @@ class PyTxDistProposal(object):
       thePyTx.outputs = []
 
       # We can prepare the outputs, first
-      for recipObj,value in recip160ValPairs:
+      for script,value in scriptValuePairs:
          txout = PyTxOut()
          txout.value = long(value)
 
          # Assume recipObj is either a PBA or a string
-         if isinstance(recipObj, PyBtcAddress):
-            recipObj = recipObj.getAddr160()
+         if isinstance(script, PyBtcAddress):
+            LOGERROR("Didn't know any func was still using this conditional")
+            #scrAddr = addrStr_to_scrAddr(scrAddr.getAddrStr())
+            #scrAddr = 
 
-         # Now recipObj is def a string
-         if len(recipObj)!=20:
-            # If not an address, it's a full script
-            txout.binScript = recipObj
-         else:
-            # Construct a std TxOut from addr160 str
-            txout.binScript = hash160_to_p2pkhash_script(recipObj)
-            #txout.binScript = ''.join([  getOpCode('OP_DUP'        ), \
-                                         #getOpCode('OP_HASH160'    ), \
-                                         #'\x14',                      \
-                                         #recipObj,
-                                         #getOpCode('OP_EQUALVERIFY'), \
-                                         #getOpCode('OP_CHECKSIG'   )])
 
+         intType = getTxOutScriptType(script)
+         if intType==CPP_TXOUT_NONSTANDARD:
+            LOGERROR('Only standard script types are valid for this call')
+            LOGERROR('Script: ' + binary_to_hex(script))
+            raise BadAddressError('Invalid script for tx creation')
+
+         txout.binScript = script[:]
          thePyTx.outputs.append(txout)
 
       # Prepare the inputs based on the utxo objects
@@ -1174,8 +1079,8 @@ class PyTxDistProposal(object):
       """
       Use this to add a signature to the TxDP object in memory.
       """
-      idx, pos, addr = self.processSignature(binSig, txinIndex, checkAllInputs=True)
-      if addr:
+      idx, pos, scrAddr = self.processSignature(binSig, txinIndex, checkAllInputs=True)
+      if scrAddr:
          self.signatures[idx].append(binSig)
          return True
    
@@ -1201,14 +1106,16 @@ class PyTxDistProposal(object):
       else:
          scriptType = self.scriptTypes[txinIdx]
          txCopy = self.pytxObj.copy()
-         if scriptType in (TXOUT_SCRIPT_STANDARD, TXOUT_SCRIPT_COINBASE):
+
+         if scriptType in CPP_TXOUT_STDSINGLESIG:
             # For standard Tx types, sigStr is the full script itself (copy it)
             txCopy.inputs[txinIdx].binScript = str(sigStr)
             prevOutScript = str(self.txOutScripts[txinIdx])
             psp = PyScriptProcessor(prevOutScript, txCopy, txinIdx)
             if psp.verifyTransactionValid():
-               return txinIdx, 0, TxOutScriptExtractAddr160(prevOutScript)
-         elif scriptType == TXOUT_SCRIPT_MULTISIG:
+               return txinIdx, 0, script_to_scrAddr(prevOutScript)
+         elif scriptType == CPP_TXOUT_MULTISIG:
+            #STUB
             pass
             '''
             # For multi-sig, sigStr is the raw ECDSA sig ... we will have to
@@ -1235,9 +1142,9 @@ class PyTxDistProposal(object):
 
       if checkAllInputs:
          for i in range(len(self.pytxObj.inputs)):
-            idx, pos, addr160 = self.processSignature(sigStr, i)
+            idx, pos, scrAddr = self.processSignature(sigStr, i)
             if idx>0:
-               return idx, pos, addr160
+               return idx, pos, scrAddr
          
       return -1,-1,''
       
@@ -1307,13 +1214,14 @@ class PyTxDistProposal(object):
       # are valid. 
       psp = PyScriptProcessor()
       for i,txin in enumerate(finalTx.inputs):
-         if self.scriptTypes[i] in (TXOUT_SCRIPT_STANDARD, TXOUT_SCRIPT_COINBASE):
+         if self.scriptTypes[i] in CPP_TXOUT_STDSINGLESIG:
             finalTx.inputs[i].binScript = self.signatures[i][0]
-         elif self.scriptTypes[i]==TXOUT_SCRIPT_MULTISIG:
-            sortedSigs = ['']*len(self.inAddr20Lists[i])
+         elif self.scriptTypes[i]==CPP_TXOUT_MULTISIG:
+            a160List = getHash160ListFromMultisigScrAddr(self.inScrAddrList[i])
+            sortedSigs = ['']*len(a160List)
             for sig in self.signatures[i]:
-               idx, pos, addr = self.processSignature(sig, i)
-               if not addr:
+               idx, pos, scrAddr = self.processSignature(sig, i)
+               if not scrAddr:
                   raise SignatureError, 'Sig is not valid for input', i
                else:
                   sortedSigs[pos] = sig
@@ -1328,8 +1236,10 @@ class PyTxDistProposal(object):
             pprintScript(self.txOutScripts[i], 2)
             raise SignatureError, 'Invalid script for input %d' % i
          else:
-            if len(self.inAddr20Lists)==1: print 'Signature', i, 'is valid!'
-            else: LOGDEBUG('Signatures for input %d are valid!', i)
+            if self.scriptTypes[i] in CPP_TXOUT_STDSINGLESIG:
+               print 'Signature', i, 'is valid!'
+            else: 
+               LOGDEBUG('Signatures for input %d are valid!', i)
       return finalTx
 
 
@@ -1366,7 +1276,7 @@ class PyTxDistProposal(object):
          for s,sig in enumerate(self.signatures[iin]):
             if len(sig)==0:
                continue
-            addrB58 = hash160_to_addrStr(self.inAddr20Lists[iin][s])
+            addrB58 = scrAddr_to_addrStr(self.inScrAddrList[iin])
             sigsz = int_to_hex(len(sig), widthBytes=2, endOut=BIGENDIAN)
             txdpLines.append('_SIG_%s_%02d_%s' % (addrB58, iin, sigsz))
             sigHex = binary_to_hex(sig)
@@ -1451,10 +1361,10 @@ class PyTxDistProposal(object):
                hexSig += line
                line = nextLine(L)
             binSig = hex_to_binary(hexSig)
-            idx, sigOrder, addr160 = self.processSignature(binSig, iin)
+            idx, sigOrder, scrAddr = self.processSignature(binSig, iin)
             if idx == -1:
                LOGWARN('Invalid sig: Input %d, addr=%s' % (iin, addrB58))
-            elif not hash160_to_addrStr(addr160)== addrB58:
+            elif not scrAddr_to_addrStr(scrAddr)== addrB58:
                LOGERROR('Listed addr does not match computed addr')
                raise BadAddressError 
             # If we got here, the signature is valid!
@@ -1484,13 +1394,15 @@ class PyTxDistProposal(object):
       for i,txout in enumerate(tx.outputs):
          print '   Recipient: %s BTC' % coin2str(txout.value),
          scrType = getTxOutScriptType(txout.binScript)
-         if scrType in (TXOUT_SCRIPT_STANDARD, TXOUT_SCRIPT_COINBASE):
-            print hash160_to_addrStr(TxOutScriptExtractAddr160(txout.binScript))
-         elif scrType in (TXOUT_SCRIPT_MULTISIG,):
-            mstype, addrs, pubs = getTxOutMultiSigInfo(txout.binScript)
-            print 'MULTI-SIG-SCRIPT:%d-of-%d' % mstype
+         if scrType in CPP_TXOUT_HAS_ADDRSTR:
+            print script_to_addrStr(txout.binScript)
+         elif scrType == CPP_TXOUT_MULTISIG:
+            M, N, addrs, pubs = getMultisigScriptInfo(txout.binScript)
+            print 'MULTI-SIG-SCRIPT: %d-of-%d' % (M,N)
             for addr in addrs:
                print indent*2, hash160_to_addrStr(addr)
+         elif scrType == CPP_TXOUT_NONSTANDARD:
+            print 'Non-standard: ', binary_to_hex(txout.binScript)
 
 
 ################################################################################
@@ -1537,20 +1449,11 @@ def PyCreateAndSignTx(srcTxOuts, dstAddrsVals):
    for i in range(numOutputs):
       txout       = PyTxOut()
       txout.value = dstAddrsVals[i][1]
-      dstAddr     = dstAddrsVals[i][0]
+      dst         = dstAddrsVals[i][0]
       if(coinbaseTx):
          txout.binScript = pubkey_to_p2pk_script(dst.binPublicKey65.toBinStr())
-         #txout.binScript = ''.join([  '\x41',                      \
-                                      #dstAddr.binPublicKey65.toBinStr(),  \
-                                      #getOpCode('OP_CHECKSIG'   )])
       else:
          txout.binScript = hash160_to_p2pkhash_script(dst.getAddr160())
-         #txout.binScript = ''.join([  getOpCode('OP_DUP'        ), \
-                                      #getOpCode('OP_HASH160'    ), \
-                                      #'\x14',                      \
-                                      #dstAddr.getAddr160(),        \
-                                      #getOpCode('OP_EQUALVERIFY'), \
-                                      #getOpCode('OP_CHECKSIG'   )])
 
       newTx.outputs.append(txout)
 
@@ -1756,4 +1659,4 @@ def pprintLedgerEntry(le, indent=''):
 from armoryengine.BDM import TheBDM
 from armoryengine.PyBtcAddress import PyBtcAddress
 from armoryengine.CoinSelection import pprintUnspentTxOutList, sumTxOutList
-from armoryengine.Script import PyScriptProcessor, pprintScript
+from armoryengine.Script import *

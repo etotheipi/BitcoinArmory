@@ -1771,10 +1771,12 @@ TEST_F(BtcUtilsTest, TxOutScriptID_Multisig)
       "5221034758cefcb75e16e4dfafb32383b709fa632086ea5ca982712de6add93"
       "060b17a2103fe96237629128a0ae8c3825af8a4be8fe3109b16f62af19cec0b1"
       "eb93b8717e252ae");
-   BinaryData pub1   = READHEX("034758cefcb75e16e4dfafb32383b709fa632086ea5ca982712de6add93060b17a");
-   BinaryData pub2   = READHEX("03fe96237629128a0ae8c3825af8a4be8fe3109b16f62af19cec0b1eb93b8717e2");
-   BinaryData addr1  = READHEX("785652a6b8e721e80ffa353e5dfd84f0658284a9");
-   BinaryData addr2  = READHEX("b3348abf9dd2d1491359f937e2af64b1bb6d525a");
+   BinaryData pub1   = READHEX(
+      "034758cefcb75e16e4dfafb32383b709fa632086ea5ca982712de6add93060b17a");
+   BinaryData pub2   = READHEX(
+      "03fe96237629128a0ae8c3825af8a4be8fe3109b16f62af19cec0b1eb93b8717e2");
+   BinaryData addr1  = READHEX("b3348abf9dd2d1491359f937e2af64b1bb6d525a");
+   BinaryData addr2  = READHEX("785652a6b8e721e80ffa353e5dfd84f0658284a9");
    BinaryData a160   = BtcUtils::BadAddress_;
    BinaryData unique = READHEX(
       "fe0202785652a6b8e721e80ffa353e5dfd84f0658284a9b3348abf9dd2d14913"
@@ -1803,6 +1805,11 @@ TEST_F(BtcUtilsTest, TxOutScriptID_MultiList)
       "fe0202785652a6b8e721e80ffa353e5dfd84f0658284a9b3348abf9dd2d14913"
       "59f937e2af64b1bb6d525a");
 
+   BinaryData pub0 = READHEX(
+      "034758cefcb75e16e4dfafb32383b709fa632086ea5ca982712de6add93060b17a");
+   BinaryData pub1 = READHEX(
+      "03fe96237629128a0ae8c3825af8a4be8fe3109b16f62af19cec0b1eb93b8717e2");
+
    vector<BinaryData> a160List;
    uint32_t M;
 
@@ -1812,6 +1819,14 @@ TEST_F(BtcUtilsTest, TxOutScriptID_MultiList)
    
    EXPECT_EQ(a160List[0], addr0);
    EXPECT_EQ(a160List[1], addr1);
+
+   vector<BinaryData> pkList;
+   M = BtcUtils::getMultisigPubKeyList(script, pkList);
+   EXPECT_EQ(M, 2);              
+   EXPECT_EQ(pkList.size(), 2); // N
+   
+   EXPECT_EQ(pkList[0], pub0);
+   EXPECT_EQ(pkList[1], pub1);
 }
 
 
@@ -4565,6 +4580,8 @@ protected:
       // Make sure the global DB type and prune type are reset for each test
       DBUtils.setArmoryDbType(ARMORY_DB_FULL);
       DBUtils.setDbPruneType(DB_PRUNE_NONE);
+   
+      LOGDISABLESTDOUT();
    }
 
    /////
@@ -6279,6 +6296,7 @@ TEST_F(BlockUtilsBare, Load5Blocks_ScanWhatIsNeeded)
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
+/*
 class FullScanTest : public ::testing::Test
 {
 protected:
@@ -6553,6 +6571,7 @@ TEST_F(FullScanTest, ReadSuperRawDB)
    cout << "Done!" << endl;
 
 }
+*/
 
 
 
@@ -7439,78 +7458,53 @@ TEST_F(BlockUtilsWithWalletTest, TestBalanceMainnet_usuallydisabled)
 */
 
 ////////////////////////////////////////////////////////////////////////////////
-/*  TODO: Whoops, never finished this...
 TEST_F(BlockUtilsWithWalletTest, ZeroConfUpdate)
 {
    // Copy only the first four blocks
-   BtcUtils::copyFile("../reorgTest/blk_0_to_4.dat", blk0dat_, 1596);
-   TheBDM.doInitialSyncOnLoad();
+   BtcUtils::copyFile("../reorgTest/blk_0_to_4.dat", blk0dat_, 513);
 
-   // We do all the database stuff first, THEN load the addresses
    BtcWallet wlt;
    wlt.addScrAddress(scrAddrA_);
    wlt.addScrAddress(scrAddrB_);
    wlt.addScrAddress(scrAddrC_);
+   wlt.addScrAddress(scrAddrD_);
+
    TheBDM.registerWallet(&wlt);
-   TheBDM.registerNewScrAddr(scrAddrD_);
+
+   TheBDM.doInitialSyncOnLoad();
    TheBDM.fetchAllRegisteredScrAddrData();
    TheBDM.scanRegisteredTxForWallet(wlt);
 
    uint64_t balanceWlt;
    uint64_t balanceDB;
    
-   balanceWlt = wlt.getScrAddrObjByKey(scrAddrA_).getFullBalance();
-   balanceDB  = iface_->getBalanceForScrAddr(scrAddrA_);
-   EXPECT_EQ(balanceWlt,   50*COIN);
-   EXPECT_EQ(balanceDB,    50*COIN);
+   EXPECT_EQ(wlt.getScrAddrObjByKey(scrAddrA_).getFullBalance(),  50*COIN);
+   EXPECT_EQ(wlt.getScrAddrObjByKey(scrAddrB_).getFullBalance(),  50*COIN);
+   EXPECT_EQ(wlt.getScrAddrObjByKey(scrAddrC_).getFullBalance(),   0*COIN);
+   EXPECT_EQ(wlt.getScrAddrObjByKey(scrAddrD_).getFullBalance(),   0*COIN);
    
-   balanceWlt = wlt.getScrAddrObjByKey(scrAddrB_).getFullBalance();
-   balanceDB  = iface_->getBalanceForScrAddr(scrAddrB_);
-   EXPECT_EQ(balanceWlt,    0*COIN);
-   EXPECT_EQ(balanceDB,     0*COIN);
+   BinaryData txWithChangeHash = READHEX(
+      "7f47caaade4bd25b1dc8639411600fd5c279e402bd01c0a0b3c703caf05cc229");
+   BinaryData txWithChange = READHEX(
+      "0100000001aee7e7fc832d028f454d4fa1ca60ba2f1760d35a80570cb63fe0d6"
+      "dd4755087a000000004a49304602210038fcc428e8f28ebea2e8682a611ac301"
+      "2aedf5289535f3776c3b3acf5fbcff74022100c51c373fab30abd0e9a594be13"
+      "8bdd99a21cdcdb2258cf9795c3d569ac25c3aa01ffffffff0200ca9a3b000000"
+      "001976a914cb2abde8bccacc32e893df3a054b9ef7f227a4ce88ac00286bee00"
+      "0000001976a914ee26c56fc1d942be8d7a24b2a1001dd89469398088ac000000"
+      "00");
 
-   balanceWlt = wlt.getScrAddrObjByKey(scrAddrC_).getFullBalance();
-   balanceDB  = iface_->getBalanceForScrAddr(scrAddrC_);
-   EXPECT_EQ(balanceWlt,  100*COIN);
-   EXPECT_EQ(balanceDB,   100*COIN);
+   /////
+   TheBDM.addNewZeroConfTx(txWithChange, 1300000000, false);
+   TheBDM.rescanWalletZeroConf(wlt);
 
-   balanceWlt = wlt.getScrAddrObjByKey(scrAddrD_).getFullBalance();
-   balanceDB  = iface_->getBalanceForScrAddr(scrAddrD_);
-   EXPECT_EQ(balanceWlt,    0*COIN);  // D is not part of the wallet
-   EXPECT_EQ(balanceDB,    50*COIN);
+   EXPECT_EQ(wlt.getScrAddrObjByKey(scrAddrA_).getFullBalance(),  50*COIN);
+   EXPECT_EQ(wlt.getScrAddrObjByKey(scrAddrB_).getFullBalance(),  40*COIN);
+   EXPECT_EQ(wlt.getScrAddrObjByKey(scrAddrC_).getFullBalance(),  10*COIN);
+   EXPECT_EQ(wlt.getScrAddrObjByKey(scrAddrD_).getFullBalance(),   0*COIN);
 
-
-   BinaryData newTx = READHEX(
-     "01000000019b2468285fc191b7a033b2f32b3de8f0c39d1eac622f5132565f1e"
-     "a8ca74ec8d000000004a4930460221007a284fa21364d749389ff62328e837dd"
-     "2676cbe4e202c0766e3950cbd0a911e40221005ac1541e381b6d358df08cce6a"
-     "2869b76d5ffe05b6aaca5c03ebcba8559c4ede01ffffffff0100f2052a010000"
-     "001976a914c522664fb0e55cdc5c0cea73b4aad97ec834323288ac00000000");
-
-   TheBDM.addNewZeroConfTx(newTx, 1300000000, false);
-
-   balanceWlt = wlt.getScrAddrObjByKey(scrAddrA_).getFullBalance();
-   balanceDB  = iface_->getBalanceForScrAddr(scrAddrA_);
-   EXPECT_EQ(balanceWlt,   50*COIN);
-   EXPECT_EQ(balanceDB,    50*COIN);
-   
-   balanceWlt = wlt.getScrAddrObjByKey(scrAddrB_).getFullBalance();
-   balanceDB  = iface_->getBalanceForScrAddr(scrAddrB_);
-   EXPECT_EQ(balanceWlt,    0*COIN);
-   EXPECT_EQ(balanceDB,     0*COIN);
-
-   balanceWlt = wlt.getScrAddrObjByKey(scrAddrC_).getFullBalance();
-   balanceDB  = iface_->getBalanceForScrAddr(scrAddrC_);
-   EXPECT_EQ(balanceWlt,  100*COIN);
-   EXPECT_EQ(balanceDB,   100*COIN);
-
-   balanceWlt = wlt.getScrAddrObjByKey(scrAddrD_).getFullBalance();
-   balanceDB  = iface_->getBalanceForScrAddr(scrAddrD_);
-   EXPECT_EQ(balanceWlt,    0*COIN);  // D is not part of the wallet
-   EXPECT_EQ(balanceDB,    50*COIN);
    
 }
-*/
 
 // This was really just to time the logging to determine how much impact it 
 // has.  It looks like writing to file is about 1,000,000 logs/sec, while 

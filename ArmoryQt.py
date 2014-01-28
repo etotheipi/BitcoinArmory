@@ -1710,7 +1710,7 @@ class ArmoryMainWindow(QMainWindow):
          self.usermode = USERMODE.Expert
 
       # Load wallets found in the .armory directory
-      wltPaths = self.settings.get('Other_Wallets', expectList=True)
+      wltPaths = []
       self.walletMap = {}
       self.walletIndices = {}  
       self.walletIDSet = set()
@@ -4086,6 +4086,7 @@ class ArmoryMainWindow(QMainWindow):
 
       sdmState = TheSDM.getSDMState()
       bdmState = TheBDM.getBDMState()
+      descr  = ''
       descr1 = ''
       descr2 = ''
 
@@ -4795,12 +4796,13 @@ class ArmoryMainWindow(QMainWindow):
             txref = TheBDM.getTxByHash(le.getTxHash())
             nOut = txref.getNumTxOut()
             getScrAddr = lambda i: txref.getTxOutCopy(i).getScrAddressStr()
-            recips = [CheckHash160(getScrAddr(i))          for i in range(nOut)]
-            values = [txref.getTxOutCopy(i).getValue()     for i in range(nOut)]
-            idxMine  = filter(lambda i:     wlt.hasAddr(recips[i]), range(nOut))
-            idxOther = filter(lambda i: not wlt.hasAddr(recips[i]), range(nOut))
-            mine  = [(recips[i],values[i]) for i in idxMine]
-            other = [(recips[i],values[i]) for i in idxOther]
+            recips = [scrAddr_to_addrStr(getScrAddr(j))    for j in range(nOut)]
+            a160s  = [addrStr_to_hash160(recips[j])[1]     for j in range(nOut)]
+            values = [txref.getTxOutCopy(j).getValue()     for j in range(nOut)]
+            idxMine  = filter(lambda j:     wlt.hasAddr(a160s[j]), range(nOut))
+            idxOther = filter(lambda j: not wlt.hasAddr(a160s[j]), range(nOut))
+            mine  = [(recips[j],values[j]) for j in idxMine]
+            other = [(recips[j],values[j]) for j in idxOther]
             dispLines = []
             title = ''
 
@@ -4811,8 +4813,8 @@ class ArmoryMainWindow(QMainWindow):
                totalStr = coin2str( sum([mine[i][1] for i in range(len(mine))]), maxZeros=1)
                dispLines.append(   'Amount: \t%s BTC' % totalStr.strip())
                if len(mine)==1:
-                  dispLines.append('Address:\t%s' % hash160_to_addrStr(mine[0][0]))
-                  addrComment = wlt.getComment(mine[0][0])
+                  dispLines.append('Address:\t%s' % mine[0][0])
+                  addrComment = wlt.getComment(addrStr_to_hash160(mine[0][0])[1])
                else:
                   dispLines.append('<Received with Multiple Addresses>')
                dispLines.append(   'Wallet:\t"%s" (%s)' % (wlt.labelName, wltID))
@@ -4822,8 +4824,8 @@ class ArmoryMainWindow(QMainWindow):
                totalStr = coin2str( sum([other[i][1] for i in range(len(other))]), maxZeros=1)
                dispLines.append(   'Amount: \t%s BTC' % totalStr.strip())
                if len(other)==1:
-                  dispLines.append('Sent To:\t%s' % hash160_to_addrStr(other[0][0]))
-                  addrComment = wlt.getComment(other[0][0])
+                  dispLines.append('Sent To:\t%s' % other[0][0])
+                  addrComment = wlt.getComment(addrStr_to_hash160(other[0][0])[1])
                else:
                   dispLines.append('<Sent to Multiple Addresses>')
                dispLines.append('From:\tWallet "%s" (%s)' % (wlt.labelName, wltID))
@@ -4832,6 +4834,8 @@ class ArmoryMainWindow(QMainWindow):
                                      '\n'.join(dispLines),  \
                                      QSystemTrayIcon.Information, \
                                      10000)
+            LOGINFO(title)
+            #LOGINFO('\n' + '\n'.join(dispLines))
             #qsnd = QSound('drip.wav')
             #qsnd.play()
 
@@ -4968,7 +4972,7 @@ class ArmoryMainWindow(QMainWindow):
       while prgAt[2] != 2:
          time.sleep(0.1)
       if nerrors == 0:
-         self.emit(SIGNAL('UWCS'), [1, 'Wallet Sanity Check Successful!', 30000, dlgrdy])
+         self.emit(SIGNAL('UWCS'), [1, 'No Wallet Errors Found', 10000, dlgrdy])
       else:
          while not dlgrdy:         
             self.emit(SIGNAL('UWCS'), [1, 'Found Errors in your Wallets!!!', 0, dlgrdy])
@@ -5035,7 +5039,7 @@ class ArmoryMainWindow(QMainWindow):
          self.pbarWalletProgress.setMaximum(10000)
          self.pbarWalletProgress.setMaximumSize(200, 22)
          self.pbarWalletProgress.setStyleSheet('text-align: center; margin-bottom: 2px; margin-left: 10px;')
-         self.pbarWalletProgress.setFormat('Wallet Sanity Check: %p%')
+         self.pbarWalletProgress.setFormat('Wallet Consistency Check: %p%')
          self.pbarWalletProgress.setValue(0)
          self.statusBar().addWidget(self.pbarWalletProgress)
 
