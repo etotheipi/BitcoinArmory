@@ -66,10 +66,8 @@ class ArmoryWizardPage(QWizardPage):
 #     1. Create Wallet
 #     2. Set Passphrase
 #     3. Verify Passphrase
-#     4. Unlock Wallet
-#     5. Create Paper Backup
-#     6. Create Watcing Only Wallet
-#     7. Summary
+#     4. Create Paper Backup
+#     5. Create Watcing Only Wallet
 class WalletWizard(ArmoryWizard):
    def __init__(self, parent, main):
       super(WalletWizard,self).__init__(parent, main)
@@ -241,3 +239,30 @@ class CreateWatchingOnlyWalletPage(ArmoryWizardPage):
                   WizardCreateWatchingOnlyWalletFrame(wizard, wizard.main, "Create Watching Only Wallet"))
       self.setTitle(tr("Step 5: Create Watching Only Wallet"))
       
+############################### Offline TX Wizard ##############################
+# Offline TX Wizard has these pages:
+#     1. Create Transaction
+#     2. Sign Transaction on Offline Computer
+#     3. Broadcast Transaction
+class OfflineTxWizard(ArmoryWizard):
+   def __init__(self, parent, main):
+      super(OfflineTxWizard,self).__init__(parent, main)
+      self.newWallet = None
+
+class CreateOfflineTxPage(ArmoryWizardPage):
+   def __init__(self, wizard):
+      super(CreateOfflineTxPage, self).__init__(wizard,
+                  WizardCreateWatchingOnlyWalletFrame(wizard, wizard.main, "Create Watching Only Wallet"))
+      self.setTitle(tr("Step 1: Create Offline Transaction"))
+      
+class SignOfflineTxPage(ArmoryWizardPage):
+   def __init__(self, wizard):
+      super(SignOfflineTxPage, self).__init__(wizard,
+                  WizardCreateWatchingOnlyWalletFrame(wizard, wizard.main, "Create Watching Only Wallet"))
+      self.setTitle(tr("Step 2: Sign Offline Transaction"))
+      
+class BroadcastOfflineTxPage(ArmoryWizardPage):
+   def __init__(self, wizard):
+      super(BroadcastOfflineTxPage, self).__init__(wizard,
+                  WizardCreateWatchingOnlyWalletFrame(wizard, wizard.main, "Create Watching Only Wallet"))
+      self.setTitle(tr("Step 3: Broadcast Offline Transaction"))      

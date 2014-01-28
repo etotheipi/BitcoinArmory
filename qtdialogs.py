@@ -4407,8 +4407,7 @@ class DlgSendBitcoins(ArmoryDialog):
             'keep the Bitcoin network secure, and in return they get your transaction '
             'included in the blockchain faster.  <b>Most transactions '
             'do not require a fee</b> but it is recommended anyway '
-            'since it guarantees quick processing for less than $0.01 USD and '
-            'helps the network.')
+            'since it guarantees quick processing and helps the network.')
 
       self.edtFeeAmt = QLineEdit()
       self.edtFeeAmt.setFont(GETFONT('Fixed'))

@@ -879,6 +879,10 @@ class WizardCreateWatchingOnlyWalletFrame(ArmoryFrame):
    def setWallet(self, wlt):
       self.wlt = wlt
 
+class OfflineTxFrame(ArmoryFrame):
+   def __init__(selfself, parent, main, initLabel=''):
+      
+
 
 # Need to put circular imports at the end of the script to avoid an import deadlock
 # DlgWalletSelect uses SelectWalletFrame which uses DlgCoinControl
