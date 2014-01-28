@@ -232,6 +232,7 @@ class WalletBackupPage(ArmoryWizardPage):
       super(WalletBackupPage, self).__init__(wizard,
                                 WalletBackupFrame(wizard, wizard.main, "Backup Wallet"))
       self.myWizard = wizard
+      self.setTitle(tr("Step 4: Backup Wallet"))
       self.setFinalPage(True)
 
 class CreateWatchingOnlyWalletPage(ArmoryWizardPage):
