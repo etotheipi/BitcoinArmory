@@ -294,19 +294,29 @@ class NewWalletFrame(ArmoryFrame):
       self.setLayout(frameLayout)
       
    def getKdfSec(self):
-      kdfT, kdfUnit = str(self.editComputeTime.text()).strip().split(' ')
-      if kdfUnit.lower() == 'ms':
-         kdfSec = float(kdfT) / 1000.
-      elif kdfUnit.lower() in ('s', 'sec', 'seconds'):
-         kdfSec = float(kdfT)
+      # return -1 if the input is invalid
+      kdfSec = -1
+      try:
+         kdfT, kdfUnit = str(self.editComputeTime.text()).strip().split(' ')
+         if kdfUnit.lower() == 'ms':
+            kdfSec = float(kdfT) / 1000.
+         elif kdfUnit.lower() in ('s', 'sec', 'seconds'):
+            kdfSec = float(kdfT)
+      except:
+         pass
       return kdfSec
 
    def getKdfBytes(self):
-      kdfM, kdfUnit = str(self.editComputeMem.text()).split(' ')
-      if kdfUnit.lower() == 'mb':
-         kdfBytes = round(float(kdfM) * (1024.0 ** 2))
-      if kdfUnit.lower() == 'kb':
-         kdfBytes = round(float(kdfM) * (1024.0))
+      # return -1 if the input is invalid
+      kdfBytes = -1
+      try:
+         kdfM, kdfUnit = str(self.editComputeMem.text()).split(' ')
+         if kdfUnit.lower() == 'mb':
+            kdfBytes = round(float(kdfM) * (1024.0 ** 2))
+         elif kdfUnit.lower() == 'kb':
+            kdfBytes = round(float(kdfM) * (1024.0))
+      except:
+         pass
       return kdfBytes
    
    def getName(self):
@@ -425,6 +435,7 @@ class WalletBackupFrame(ArmoryFrame):
       # Don't have a wallet yet so assume false.
       self.hasImportedAddr = False
       self.isBackupCreated = False
+      self.passphrase = None
       self.lblTitle = QRichLabel(tr("<b>Backup Options</b>"))
       lblTitleDescr = QRichLabel(tr("""
          Armory wallets only need to be backed up <u>one time, ever.</u>
@@ -789,8 +800,13 @@ class WalletBackupFrame(ArmoryFrame):
          self.btnDoIt.setText(tr('Export Key Lists'))
       self.setDispFrame(-1)
 
+   def setPassphrase(self, passphrase):
+      self.passphrase = passphrase
+      
    def clickedDoIt(self):
       isBackupCreated = False
+      if self.passphrase:
+         self.wlt.unlock(securePassphrase=SecureBinaryData(self.passphrase))
       if self.optPaperBackupOne.isChecked():
          isBackupCreated = OpenPaperBackupWindow('Single', self.parent(), self.main, self.wlt)
       elif self.optPaperBackupFrag.isChecked():

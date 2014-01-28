@@ -839,6 +839,9 @@ class PyBtcWallet(object):
 
       if self.useEncryption:
          self.lock(GUI=False)
+         
+      if haveGUI[0] == True:
+         self.mainWnd = haveGUI[1]
       return self
 
    #############################################################################
@@ -939,13 +942,10 @@ class PyBtcWallet(object):
       gap = self.lastComputedChainIndex - self.highestUsedChainIndex
       numToCreate = max(numPool - gap, 0)
       
-      if numToCreate>100:
-         from qtdialogs import DlgProgress
-         dlgprg = DlgProgress(self.mainWnd, self.mainWnd, HBar=numToCreate, Title='Computing New Addresses')
-         dlgprg.exec_(self.fillAddressPool_(numPool, isActuallyNew, doRegister, dlgprg, async=dlgprg.Kill))
-         return self.lastComputedChainIndex
-      else:
-         return self.fillAddressPool_(numPool, isActuallyNew, doRegister)
+      from qtdialogs import DlgProgress
+      dlgprg = DlgProgress(self.mainWnd, self.mainWnd, HBar=numToCreate, Title='Computing New Addresses')
+      dlgprg.exec_(self.fillAddressPool_(numPool, isActuallyNew, doRegister, dlgprg, async=dlgprg.Kill))
+      return self.lastComputedChainIndex
       
    #############################################################################
    @AllowAsync
@@ -959,8 +959,6 @@ class PyBtcWallet(object):
       """
       if not numPool:
          numPool = self.addrPoolSize
-         
-      if dlgPrg is not None: lastCmp = self.lastComputedChainIndex
 
       gap = self.lastComputedChainIndex - self.highestUsedChainIndex
       numToCreate = max(numPool - gap, 0)
@@ -968,7 +966,7 @@ class PyBtcWallet(object):
          if dlgPrg is not None:
             dlgPrg.UpdateHBar(i+1)
             
-         self.computeNextAddress(isActuallyNew=isActuallyNew, doRegister=doRegister)\
+         self.computeNextAddress(isActuallyNew=isActuallyNew, doRegister=doRegister)
       
       return self.lastComputedChainIndex
 
@@ -1981,8 +1979,10 @@ class PyBtcWallet(object):
 
       ### Update the wallet version if necessary ###
       if getVersionInt(self.version) < getVersionInt(PYBTCWALLET_VERSION):
-         LOGERROR('Wallets older than version 1.35 no loger supported!')
+         LOGERROR('Wallets older than version 1.35 no longer supported!')
          return
+      if haveGUI[0] == True:
+         self.mainWnd = haveGUI[1]
       return self
 
 
@@ -2948,7 +2948,18 @@ class PyBtcWallet(object):
          return False
 
       return isEqualTo
-   
+
+###############################################################################
+def getSuffixedPath(walletPath, nameSuffix):
+   fpath = walletPath
+
+   pieces = os.path.splitext(fpath)
+   if not pieces[0].endswith('_'):
+      fpath = pieces[0] + '_' + nameSuffix + pieces[1]
+   else:
+      fpath = pieces[0] + nameSuffix + pieces[1]
+   return fpath
+
 # Putting this at the end because of the circular dependency
 from armoryengine.BDM import TheBDM, getCurrTimeAndBlock
 from armoryengine.PyBtcAddress import PyBtcAddress

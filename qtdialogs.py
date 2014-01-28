@@ -13605,8 +13605,11 @@ class DlgProgress(ArmoryDialog):
       else: return      
       
       while self.status == 0:
-         time.sleep(0.01)      
+         time.sleep(0.01) 
          
+      self.connectDlg()     
+      
+   def connectDlg(self):
       self.connect(self, SIGNAL('Update'), self.UpdateDlg)
       self.connect(self, SIGNAL('PromptPassphrase'), self.PromptPassphrase)
       self.connect(self, SIGNAL('Exit'), self.Exit)
@@ -13770,6 +13773,8 @@ class DlgCorruptWallet(DlgProgress):
    def __init__(self, wallet, status, main=None, parent=None):
       super(DlgProgress, self).__init__(parent, main)      
       super(DlgCorruptWallet, self).__init__(parent)
+      
+      self.connectDlg()
       
       self.main = main
       self.walletList = []
