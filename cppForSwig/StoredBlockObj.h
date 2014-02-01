@@ -291,7 +291,8 @@ public:
                         merkle_(0), 
                         isMainBranch_(false),
                         blockAppliedToDB_(false), 
-						merkleIsPartial_(false) {}
+                        merkleIsPartial_(false),
+                        hasBlockHeader_(false) {}
                            
 
    bool isInitialized(void) const {return dataCopy_.getSize() > 0;}
@@ -370,6 +371,8 @@ public:
    ARMORY_DB_TYPE  unserDbType_;
    DB_PRUNE_TYPE   unserPrType_;
    MERKLE_SER_TYPE unserMkType_;
+   
+   bool hasBlockHeader_;
    
 };
 

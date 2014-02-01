@@ -775,6 +775,8 @@ public:
                                   bool forceRebuild=false, 
                                   bool skipFetch=false,
                                   bool initialLoad=false);
+   bool scanForMagicBytes(BinaryStreamBuffer& bsb, uint32_t *bytesSkipped=0) const;
+
    void readRawBlocksInFile(uint32_t blkFileNum, uint32_t offset);
    // These are wrappers around "buildAndScanDatabases"
    void doRebuildDatabases(void);
@@ -784,7 +786,7 @@ public:
    void doInitialSyncOnLoad_Rescan(void);
    void doInitialSyncOnLoad_Rebuild(void);
 
-   bool     addRawBlockToDB(BinaryRefReader & brr);
+   void     addRawBlockToDB(BinaryRefReader & brr);
    void     updateBlkDataHeader(StoredHeader const & sbh);
 
    // On the first pass through the blockchain data, we only write the raw

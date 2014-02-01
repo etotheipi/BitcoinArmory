@@ -32,6 +32,7 @@ class TxIn;
 class TxOut;
 
 
+
 class BlockHeader
 {
    friend class BlockDataManager_LevelDB;
@@ -46,7 +47,7 @@ public:
       numBlockBytes_(UINT32_MAX),
       duplicateID_(UINT8_MAX) {}
 
-   explicit BlockHeader(uint8_t const * ptr)      { unserialize(ptr); }
+   explicit BlockHeader(uint8_t const * ptr, uint32_t size) { unserialize(ptr, size); }
    explicit BlockHeader(BinaryRefReader & brr)    { unserialize(brr); }
    explicit BlockHeader(BinaryDataRef str)        { unserialize(str); }
    explicit BlockHeader(BinaryData const & str)   { unserialize(str); }
@@ -102,7 +103,7 @@ public:
    uint32_t      findNonce(void);
 
    /////////////////////////////////////////////////////////////////////////////
-   void unserialize(uint8_t const * ptr);
+   void unserialize(uint8_t const * ptr, uint32_t size);
    void unserialize(BinaryData const & str) { unserialize(str.getRef()); }
    void unserialize(BinaryDataRef const & str);
    void unserialize(BinaryRefReader & brr);
@@ -231,7 +232,7 @@ class OutPoint
 public:
    OutPoint(void) : txHash_(32), txOutIndex_(UINT32_MAX) { }
 
-   explicit OutPoint(uint8_t const * ptr) { unserialize(ptr); }
+   explicit OutPoint(uint8_t const * ptr, uint32_t remaining) { unserialize(ptr, remaining); }
    explicit OutPoint(BinaryData const & txHash, uint32_t txOutIndex) : 
                 txHash_(txHash), txOutIndex_(txOutIndex) { }
 
@@ -248,7 +249,7 @@ public:
 
    void        serialize(BinaryWriter & bw) const;
    BinaryData  serialize(void) const;
-   void        unserialize(uint8_t const * ptr);
+   void        unserialize(uint8_t const * ptr, uint32_t remaining);
    void        unserialize(BinaryReader & br);
    void        unserialize(BinaryRefReader & brr);
    void        unserialize(BinaryData const & bd);
@@ -272,15 +273,16 @@ class TxIn
    friend class InterfaceToLDB;
 
 public:
-   TxIn(void) : dataCopy_(0), scriptType_(TXIN_SCRIPT_NONSTANDARD), 
-                scriptOffset_(0), parentHeight_(UINT32_MAX), parentHash_(0) {}
+   TxIn(void) : dataCopy_(0), parentHash_(0), parentHeight_(UINT32_MAX),
+                scriptType_(TXIN_SCRIPT_NONSTANDARD), scriptOffset_(0) {}
 
    // Ptr to the beginning of the TxIn, last two arguments are supplemental
-   TxIn(uint8_t const * ptr,  
+   /*TxIn(uint8_t const * ptr,  
+        uint32_t size,
         uint32_t        nBytes=0, 
         TxRef           parent=TxRef(), 
-        uint32_t        idx=UINT32_MAX) { unserialize(ptr, nBytes, parent, idx); } 
-
+        uint32_t        idx=UINT32_MAX) { unserialize_checked(ptr, size, nBytes, parent, idx); } 
+*/
    uint8_t const *  getPtr(void) const { assert(isInitialized()); return dataCopy_.getPtr(); }
    uint32_t         getSize(void) const { assert(isInitialized()); return dataCopy_.getSize(); }
    bool             isStandard(void) const { return scriptType_!=TXIN_SCRIPT_NONSTANDARD; }
@@ -322,13 +324,14 @@ public:
    BinaryData       serialize(void)    { return dataCopy_; }
 
    /////////////////////////////////////////////////////////////////////////////
-   void unserialize( uint8_t const * ptr, 
+   void unserialize_checked( uint8_t const * ptr,
+                     uint32_t        size,
                      uint32_t        nbytes=0, 
                      TxRef           parent=TxRef(), 
                      uint32_t        idx=UINT32_MAX);
 
-   void unserialize( BinaryData const & str, 
-                     uint32_t       nbytes=0, 
+   void unserialize( BinaryData const & str,
+                     uint32_t       nbytes=0,
                      TxRef          parent=TxRef(), 
                      uint32_t       idx=UINT32_MAX);
 
@@ -380,10 +383,11 @@ public:
 
    /////////////////////////////////////////////////////////////////////////////
    TxOut(void) : dataCopy_(0), parentHash_(0) {}
+   /*
    TxOut(uint8_t const * ptr, 
          uint32_t        nBytes=0, 
          TxRef           parent=TxRef(), 
-         uint32_t        idx=UINT32_MAX) { unserialize(ptr, nBytes, parent, idx); } 
+         uint32_t        idx=UINT32_MAX) { unserialize(ptr, nBytes, parent, idx); } */
 
    uint8_t const * getPtr(void) const { return dataCopy_.getPtr(); }
    uint32_t        getSize(void) const { return dataCopy_.getSize(); }
@@ -428,7 +432,8 @@ public:
    void               setParentHeight(uint32_t blkheight) {parentHeight_ = blkheight;}
 
    /////////////////////////////////////////////////////////////////////////////
-   void unserialize( uint8_t const *   ptr, 
+   void unserialize_checked( uint8_t const *   ptr, 
+                     uint32_t          size,
                      uint32_t          nbytes=0, 
                      TxRef             parent=TxRef(), 
                      uint32_t          idx=UINT32_MAX);
@@ -477,7 +482,7 @@ class Tx
 
 public:
    Tx(void) : isInitialized_(false), offsetsTxIn_(0), offsetsTxOut_(0) {}
-   explicit Tx(uint8_t const * ptr)       { unserialize(ptr);       }
+   explicit Tx(uint8_t const * ptr, uint32_t size) { unserialize(ptr, size);       }
    explicit Tx(BinaryRefReader & brr)     { unserialize(brr);       }
    explicit Tx(BinaryData const & str)    { unserialize(str);       }
    explicit Tx(BinaryDataRef const & str) { unserialize(str);       }
@@ -510,9 +515,9 @@ public:
    BinaryData         serialize(void) const    { return dataCopy_; }
 
    /////////////////////////////////////////////////////////////////////////////
-   void unserialize(uint8_t const * ptr);
-   void unserialize(BinaryData const & str) { unserialize(str.getPtr()); }
-   void unserialize(BinaryDataRef const & str) { unserialize(str.getPtr()); }
+   void unserialize(uint8_t const * ptr, uint32_t size);
+   void unserialize(BinaryData const & str) { unserialize(str.getPtr(), str.getSize()); }
+   void unserialize(BinaryDataRef const & str) { unserialize(str.getPtr(), str.getSize()); }
    void unserialize(BinaryRefReader & brr);
    //void unserialize_no_txout(BinaryRefReader & brr);
    void unserialize_swigsafe_(BinaryData const & rawTx) { unserialize(rawTx); }
@@ -896,6 +901,6 @@ public:
    }
 };
 
-
+// kate: indent-width 3; replace-tabs on;
 #endif
 
