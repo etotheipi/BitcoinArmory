@@ -1215,6 +1215,13 @@ def scrAddr_to_addrStr(scrAddr):
       LOGERROR('Unsupported scrAddr type: "%s"' % binary_to_hex(scrAddr))
       raise BadAddressError('Can only convert P2PKH and P2SH scripts')
 
+################################################################################
+# We beat around the bush here, to make sure it goes through addrStr which
+# triggers errors if this isn't a regular addr or P2SH addr
+def scrAddr_to_hash160(scrAddr):
+   addr = scrAddr_to_addrStr(scrAddr)
+   atype, a160 = addrStr_to_hash160(addr)
+   return (atype, a160)
 
 
 ################################################################################

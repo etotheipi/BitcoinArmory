@@ -5037,7 +5037,7 @@ class ArmoryMainWindow(QMainWindow):
             
          self.pbarWalletProgress = QProgressBar()
          self.pbarWalletProgress.setMaximum(10000)
-         self.pbarWalletProgress.setMaximumSize(200, 22)
+         self.pbarWalletProgress.setMaximumSize(300, 22)
          self.pbarWalletProgress.setStyleSheet('text-align: center; margin-bottom: 2px; margin-left: 10px;')
          self.pbarWalletProgress.setFormat('Wallet Consistency Check: %p%')
          self.pbarWalletProgress.setValue(0)
