@@ -704,6 +704,22 @@ def saveTableView(qtbl):
 
 
 
+################################################################################
+# This class is intended to be an abstract frame class that
+# will hold all of the functionality that is common to all 
+# Frames used in Armory. 
+# The Frames that extend this class should contain all of the
+# display and control components for some screen used in Armory
+# Putting this content in a frame allows it to be used on it's own
+# in a dialog or as a component in a larger frame.
+class ArmoryFrame(QFrame):
+   def __init__(self, parent, main):
+      super(ArmoryFrame, self).__init__(parent)
+      self.main = main
+
+      # Subclasses should implement a method that returns a boolean to control
+      # when done, accept, next, or final button should be enabled.
+      self.isComplete = None
 
 
 ################################################################################

@@ -37,7 +37,7 @@ from ui.toolsDialogs import MessageSigningVerificationDialog
 import qrc_img_resources
 from qtdefines import *
 from qtdialogs import *
-from ui.Wizards import WalletWizard
+from ui.Wizards import WalletWizard, OfflineTxWizard
 
 
 
@@ -439,7 +439,6 @@ class ArmoryMainWindow(QMainWindow):
       btnRecvBtc   = QPushButton("Receive Bitcoins")
       btnWltProps  = QPushButton("Wallet Properties")
       btnOfflineTx = QPushButton("Offline Transactions")
- 
 
       self.connect(btnWltProps, SIGNAL('clicked()'), self.execDlgWalletDetails)
       self.connect(btnRecvBtc,  SIGNAL('clicked()'), self.clickReceiveCoins)
@@ -1059,20 +1058,9 @@ class ArmoryMainWindow(QMainWindow):
 
          # If we got here, one of three buttons was clicked.
          if dlgSelect.do_create:
-            selectWlt = []
-            for wltID in self.walletIDList:
-               if self.walletMap[wltID].watchingOnly:
-                  selectWlt.append(wltID)
-
-            dlgSend = DlgSendBitcoins(None, self, self, wltIDList=selectWlt)
-            dlgSend.exec_()
-
-         elif dlgSelect.do_review:
-            dlg = DlgReviewOfflineTx(self,self)
-            dlg.exec_()
-
+            self.startOfflineTxWizard()
          elif dlgSelect.do_broadc:
-            dlg = DlgReviewOfflineTx(self,self)
+            dlg = DlgSignBroadcastOfflineTx(self,self)
             dlg.exec_()
 
 
@@ -3151,7 +3139,12 @@ class ArmoryMainWindow(QMainWindow):
    def startWalletWizard(self):
       walletWizard = WalletWizard(self, self)
       walletWizard.exec_()
-
+      
+   #############################################################################
+   def startOfflineTxWizard(self):
+      offlineTxWizard = OfflineTxWizard(self, self)
+      offlineTxWizard.exec_()
+   
    #############################################################################
    def exportLogFile(self):
       LOGDEBUG('exportLogFile')

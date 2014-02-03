@@ -11,25 +11,11 @@ from PyQt4.QtGui import * #@UnusedWildImport
 
 from armoryengine.BDM import TheBDM
 from qtdefines import * #@UnusedWildImport
+from armoryengine.Transaction import PyTxDistProposal
+from armoryengine.CoinSelection import PySelectCoins, calcMinSuggestedFees,\
+   PyUnspentTxOut
 
 WALLET_DATA_ENTRY_FIELD_WIDTH = 60
-
-
-# This class is intended to be an abstract frame class that
-# will hold all of the functionality that is common to all 
-# Frames used in Armory. 
-# The Frames that extend this class should contain all of the
-# display and control components for some screen used in Armory
-# Putting this content in a frame allows it to be used on it's own
-# in a dialog or as a component in a larger frame.
-class ArmoryFrame(QFrame):
-   def __init__(self, parent, main):
-      super(ArmoryFrame, self).__init__(parent)
-      self.main = main
-
-      # Subclasses should implement a method that returns a boolean to control
-      # when done, accept, next, or final button should be enabled.
-      self.isComplete = None
 
 # This class has all of the select wallet display and control functionality for
 # selecting a wallet, and doing coin control. It can be dropped into any dialog
@@ -37,7 +23,8 @@ class ArmoryFrame(QFrame):
 class SelectWalletFrame(ArmoryFrame):
    def __init__(self, parent, main, firstSelect=None, onlyMyWallets=False, \
                              wltIDList=None, atLeast=0, \
-                             selectWltCallback=None, coinControlCallback=None):
+                             selectWltCallback=None, coinControlCallback=None,
+                             onlyOfflineWallets=False):
       super(SelectWalletFrame, self).__init__(parent, main)
       self.coinControlCallback = coinControlCallback
 
@@ -52,7 +39,7 @@ class SelectWalletFrame(ArmoryFrame):
          self.accept()
          return
       
-      self.wltIDList = wltIDList if not wltIDList == None else list(self.main.walletIDList)
+      self.wltIDList = wltIDList if wltIDList else self.getWalletIdList(onlyOfflineWallets)
       
       selectedWltIndex = 0
       self.selectedID = None
@@ -127,6 +114,16 @@ class SelectWalletFrame(ArmoryFrame):
       wltInfoFrame.setLayout(frmLayout)
       layout.addWidget(makeLayoutFrame(VERTICAL, [self.walletComboBox, wltInfoFrame]) )
       self.setLayout(layout)
+   
+   def getWalletIdList(self, onlyOfflineWallets):
+      result = []
+      if onlyOfflineWallets:
+         for wltID in self.main.walletIDList:
+            if self.main.walletMap[wltID].watchingOnly:
+               result.append(wltID)
+      else:
+         result = list(self.main.walletIDList)
+      return result
 
    def doCoinCtrl(self):
       wlt = self.main.walletMap[self.wltIDList[self.walletComboBox.currentIndex()]]
@@ -837,7 +834,8 @@ class WalletBackupFrame(ArmoryFrame):
          isBackupCreated = True
       if isBackupCreated:
          self.isBackupCreated = True
-         
+
+        
       
 class WizardCreateWatchingOnlyWalletFrame(ArmoryFrame):
 
@@ -847,7 +845,7 @@ class WizardCreateWatchingOnlyWalletFrame(ArmoryFrame):
 
       summaryText = QRichLabel(tr("""
                You have just ceated a new wallet that will should already
-               appear in the "Available Wallets" list in the main window.
+               appea in the Available Wallets List in the main window.
                <br><br>
                You may create a watching only copy of this wallet that can
                only be used for generating addresses and monitoring incoming
@@ -878,13 +876,7 @@ class WizardCreateWatchingOnlyWalletFrame(ArmoryFrame):
    
    def setWallet(self, wlt):
       self.wlt = wlt
-
-class OfflineTxFrame(ArmoryFrame):
-   def __init__(selfself, parent, main, initLabel=''):
       
-
-
 # Need to put circular imports at the end of the script to avoid an import deadlock
-# DlgWalletSelect uses SelectWalletFrame which uses DlgCoinControl
 from qtdialogs import CLICKED, DlgCoinControl, STRETCH, MIN_PASSWD_WIDTH, \
    QRadioButtonBackupCtr, OpenPaperBackupWindow, DlgUnlockWallet, DlgShowKeyList

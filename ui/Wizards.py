@@ -8,15 +8,16 @@
 
 from PyQt4.Qt import * #@UnusedWildImport
 from PyQt4.QtGui import * #@UnusedWildImport
-from armoryengine.ArmoryUtils import LOGINFO, USE_TESTNET, WalletExistsError,\
-   LOGWARN
-from ui.Frames import NewWalletFrame, SetPassphraseFrame, VerifyPassphraseFrame,\
+from armoryengine.ArmoryUtils import USE_TESTNET
+from ui.WalletFrames import NewWalletFrame, SetPassphraseFrame, VerifyPassphraseFrame,\
    WalletBackupFrame, WizardCreateWatchingOnlyWalletFrame
+from ui.TxFrames import SendBitcoinsFrame, SignBroadcastOfflineTxFrame,\
+   ReviewOfflineTxFrame
 from qtdefines import GETFONT, tr, AddToRunningDialogsList
 from armoryengine.PyBtcWallet import PyBtcWallet
 from CppBlockUtils import SecureBinaryData
 from armoryengine.BDM import TheBDM
-from qtdialogs import DlgExecLongProcess
+from qtdialogs import DlgExecLongProcess, DlgConfirmSend
 
 # This class is intended to be an abstract Wizard class that
 # will hold all of the functionality that is common to all 
@@ -247,22 +248,58 @@ class CreateWatchingOnlyWalletPage(ArmoryWizardPage):
 class OfflineTxWizard(ArmoryWizard):
    def __init__(self, parent, main):
       super(OfflineTxWizard,self).__init__(parent, main)
-      self.newWallet = None
+      self.setWindowTitle(tr("Offline Transaction Wizard"))
+      self.setOption(QWizard.IgnoreSubTitles, on=True)
+      
+      # Page 1: Create Offline TX
+      self.createOfflineTxPage = CreateOfflineTxPage(self)
+      self.addPage(self.createOfflineTxPage)
+      
+      # Page 2: Sign Offline TX
+      self.reviewOfflineTxPage = ReviewOfflineTxPage(self)
+      self.addPage(self.reviewOfflineTxPage)
+      
+      # Page 3: Broadcast Offline TX
+      self.signBroadcastOfflineTxPage = SignBroadcastOfflineTxPage(self)
+      self.addPage(self.signBroadcastOfflineTxPage)
+
+      self.setButtonLayout([QWizard.BackButton,
+                            QWizard.Stretch,
+                            QWizard.NextButton,
+                            QWizard.FinishButton])
+
+
+   def initializePage(self, *args, **kwargs):
+      if self.currentPage() == self.reviewOfflineTxPage:
+         self.reviewOfflineTxPage.pageFrame.setTxDp(self.createOfflineTxPage.txdp)
+         self.reviewOfflineTxPage.pageFrame.setWallet(
+                  self.createOfflineTxPage.pageFrame.wlt)
+         
 
 class CreateOfflineTxPage(ArmoryWizardPage):
    def __init__(self, wizard):
       super(CreateOfflineTxPage, self).__init__(wizard,
-                  WizardCreateWatchingOnlyWalletFrame(wizard, wizard.main, "Create Watching Only Wallet"))
+               SendBitcoinsFrame(wizard, wizard.main,
+                                 "Create Offline Transaction", onlyOfflineWallets=True))
       self.setTitle(tr("Step 1: Create Offline Transaction"))
+      self.txdp = None
       
-class SignOfflineTxPage(ArmoryWizardPage):
+   def validatePage(self):
+      result = self.pageFrame.validateInputsGetTxDP()
+      # the validator also computes the transaction and returns it or False if not valid
+      if result:
+         self.txdp = result
+         result = True
+      return result
+      
+class ReviewOfflineTxPage(ArmoryWizardPage):
    def __init__(self, wizard):
-      super(SignOfflineTxPage, self).__init__(wizard,
-                  WizardCreateWatchingOnlyWalletFrame(wizard, wizard.main, "Create Watching Only Wallet"))
+      super(ReviewOfflineTxPage, self).__init__(wizard,
+                  ReviewOfflineTxFrame(wizard, wizard.main, "Review Offline Transaction"))
       self.setTitle(tr("Step 2: Sign Offline Transaction"))
       
-class BroadcastOfflineTxPage(ArmoryWizardPage):
+class SignBroadcastOfflineTxPage(ArmoryWizardPage):
    def __init__(self, wizard):
-      super(BroadcastOfflineTxPage, self).__init__(wizard,
-                  WizardCreateWatchingOnlyWalletFrame(wizard, wizard.main, "Create Watching Only Wallet"))
+      super(SignBroadcastOfflineTxPage, self).__init__(wizard,
+                  SignBroadcastOfflineTxFrame(wizard, wizard.main, "Broadcast Offline Transaction"))
       self.setTitle(tr("Step 3: Broadcast Offline Transaction"))      
