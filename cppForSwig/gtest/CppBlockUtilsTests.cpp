@@ -2279,7 +2279,7 @@ TEST_F(BlockObjTest, OutPointSerialize)
    BinaryData prevIdx = READHEX(
       "01000000");
 
-   OutPoint op(rawOP.getPtr());
+   OutPoint op(rawOP.getPtr(), rawOP.getSize());
    EXPECT_EQ(op.getTxHash().getSize(), 32);
    EXPECT_EQ(op.getTxOutIndex(), 1);
    EXPECT_EQ(op.getTxHash(), prevHash);
@@ -2314,7 +2314,7 @@ TEST_F(BlockObjTest, TxInNoInit)
 TEST_F(BlockObjTest, TxInUnserialize)
 {
    BinaryRefReader brr(rawTxIn_);
-   uint32_t len = rawTxIn_.getSize();
+   const uint32_t len = rawTxIn_.getSize();
    BinaryData srcAddr = BtcUtils::getHash160( READHEX("04"
       "5d74feae58c4c36d7c35beac05eddddc78b3ce4b02491a2eea72043978056a8b"
       "c439b99ddaad327207b09ef16a8910828e805b0cc8c11fba5caea2ee939346d7"));
@@ -2322,16 +2322,15 @@ TEST_F(BlockObjTest, TxInUnserialize)
       "0044fbc929d78e4203eed6f1d3d39c0157d8e5c100bbe0886779c0ebf6a69324"
       "01000000");
 
-   vector<TxIn> txins(7);
-   txins[0] = TxIn(rawTxIn_.getPtr()); 
-   txins[1] = TxIn(rawTxIn_.getPtr(), len); 
-   txins[2] = TxIn(rawTxIn_.getPtr(), len, TxRef(), 12); 
-   txins[3].unserialize(rawTxIn_.getPtr());
-   txins[4].unserialize(rawTxIn_.getRef());
-   txins[5].unserialize(brr);
-   txins[6].unserialize_swigsafe_(rawTxIn_);
+   vector<TxIn> txins(6);
+   txins[0].unserialize_checked(rawTxIn_.getPtr(), len); 
+   txins[1].unserialize_checked(rawTxIn_.getPtr(), len, len); 
+   txins[2].unserialize_checked(rawTxIn_.getPtr(), len, len, TxRef(), 12); 
+   txins[3].unserialize(rawTxIn_.getRef());
+   txins[4].unserialize(brr);
+   txins[5].unserialize_swigsafe_(rawTxIn_);
 
-   for(uint32_t i=0; i<7; i++)
+   for(uint32_t i=0; i<6; i++)
    {
       EXPECT_TRUE( txins[i].isInitialized());
       EXPECT_EQ(   txins[i].serialize().getSize(), len);
@@ -2362,16 +2361,15 @@ TEST_F(BlockObjTest, TxOutUnserialize)
    uint32_t len = rawTxOut_.getSize();
    BinaryData dstAddr = READHEX("8dce8946f1c7763bb60ea5cf16ef514cbed0633b");
 
-   vector<TxOut> txouts(7);
-   txouts[0] = TxOut(rawTxOut_.getPtr()); 
-   txouts[1] = TxOut(rawTxOut_.getPtr(), len); 
-   txouts[2] = TxOut(rawTxOut_.getPtr(), len, TxRef(), 12); 
-   txouts[3].unserialize(rawTxOut_.getPtr());
-   txouts[4].unserialize(rawTxOut_.getRef());
-   txouts[5].unserialize(brr);
-   txouts[6].unserialize_swigsafe_(rawTxOut_);
+   vector<TxOut> txouts(6);
+   txouts[0].unserialize_checked(rawTxOut_.getPtr(), len); 
+   txouts[1].unserialize_checked(rawTxOut_.getPtr(), len, len); 
+   txouts[2].unserialize_checked(rawTxOut_.getPtr(), len, len, TxRef(), 12); 
+   txouts[3].unserialize(rawTxOut_.getRef());
+   txouts[4].unserialize(brr);
+   txouts[5].unserialize_swigsafe_(rawTxOut_);
 
-   for(uint32_t i=0; i<7; i++)
+   for(uint32_t i=0; i<6; i++)
    {
       EXPECT_TRUE( txouts[i].isInitialized());
       EXPECT_EQ(   txouts[i].getSize(), len);
@@ -2443,11 +2441,11 @@ TEST_F(BlockObjTest, TxUnserialize)
 
    Tx tx;
    vector<Tx> txs(10);
-   txs[0] = Tx(rawTx0_.getPtr()); 
+   txs[0] = Tx(rawTx0_.getPtr(), len); 
    txs[1] = Tx(brr);  brr.resetPosition();
    txs[2] = Tx(rawTx0_);
    txs[3] = Tx(rawTx0_.getRef());
-   txs[4].unserialize(rawTx0_.getPtr());
+   txs[4].unserialize(rawTx0_.getPtr(), len);
    txs[5].unserialize(rawTx0_);
    txs[6].unserialize(rawTx0_.getRef());
    txs[7].unserialize(brr);  brr.resetPosition();
