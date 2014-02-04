@@ -5706,6 +5706,7 @@ void BlockDataManager_LevelDB::addRawBlockToDB(BinaryRefReader & brr)
             throw BlockDeserializingException("Error parsing block (corrupt?) - Cannot add raw block to DB without hgt & dup");
 
          iface_->putStoredHeader(sbh, true);
+         missingBlockHashes_.push_back( sbh.thisHash_ );
          throw BlockDeserializingException("Error parsing block (corrupt?) - block header valid");
       }
       else

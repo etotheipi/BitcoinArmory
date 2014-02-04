@@ -616,6 +616,9 @@ private:
    // list of block headers that appear to be missing 
    // when scanned by buildAndScanDatabases
    vector<BinaryData>                 missingBlockHeaderHashes_;
+   // list of blocks whose contents are invalid but we have
+   // their headers
+   vector<BinaryData>                 missingBlockHashes_;
    
    // TODO: We eventually want to maintain some kind of master TxIO map, instead
    // of storing them in the individual wallets.  With the new DB, it makes more
@@ -1012,6 +1015,8 @@ public:
                         //map<BinaryData, StoredScriptHistory> & sshToModify);
 
    vector<BinaryData> missingBlockHeaderHashes() const { return missingBlockHeaderHashes_; }
+   
+   vector<BinaryData> missingBlockHashes() const { return missingBlockHashes_; }
 };
 
 
