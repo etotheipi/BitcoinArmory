@@ -613,6 +613,10 @@ private:
    set<OutPoint>                      registeredOutPoints_;
    uint32_t                           allScannedUpToBlk_; // one past top
 
+   // list of block headers that appear to be missing 
+   // when scanned by buildAndScanDatabases
+   vector<BinaryData>                 missingBlockHeaderHashes_;
+   
    // TODO: We eventually want to maintain some kind of master TxIO map, instead
    // of storing them in the individual wallets.  With the new DB, it makes more
    // sense to do this, and it will become easier to compute total balance when
@@ -1006,6 +1010,8 @@ public:
    //bool estimateDBUpdateSize(
                         //map<BinaryData, StoredTx> &            stxToModify,
                         //map<BinaryData, StoredScriptHistory> & sshToModify);
+
+   vector<BinaryData> missingBlockHeaderHashes() const { return missingBlockHeaderHashes_; }
 };
 
 
@@ -1028,5 +1034,6 @@ private:
    BlockDataManager_LevelDB* bdm_;
 };
 
+// kate: indent-width 3; replace-tabs on;
 
 #endif

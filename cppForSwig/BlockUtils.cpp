@@ -3296,6 +3296,9 @@ bool BlockDataManager_LevelDB::extractHeadersInBlkFile(uint32_t fnum,
                                                        uint64_t startOffset)
 {
    SCOPED_TIMER("extractHeadersInBlkFile");
+   
+   missingBlockHeaderHashes_.clear();
+   
    string filename = blkFileList_[fnum];
    uint64_t filesize = BtcUtils::GetFileSize(filename);
    if(filesize == FILE_DOES_NOT_EXIST)
@@ -3355,7 +3358,7 @@ bool BlockDataManager_LevelDB::extractHeadersInBlkFile(uint32_t fnum,
             break;
          }
          
-         LOGERR << "Next block header found at offset " << int(is.tellg()-4);
+         LOGERR << "Next block header found at offset " << uint64_t(is.tellg())-4;
       }
       
       is.read((char*)szstr.getPtr(), 4);
@@ -3391,6 +3394,19 @@ bool BlockDataManager_LevelDB::extractHeadersInBlkFile(uint32_t fnum,
       
       endOfLastBlockByte_ += nextBlkSize+8;
       is.seekg(nextBlkSize - HEAD_AND_NTX_SZ, ios::cur);
+      
+      // now check if the previous hash is in there
+      // (unless the previous hash is 0
+      if (headerMap_.find(bhInputPair.second.getPrevHash()) == headerMap_.end()
+         && BtcUtils::EmptyHash_ != bhInputPair.second.getPrevHash())
+      {
+         LOGWARN << "Block header " << bhInputPair.second.getThisHash().toHexStr()
+            << " refers to missing previous hash "
+            << bhInputPair.second.getPrevHash().toHexStr();
+            
+         missingBlockHeaderHashes_.push_back(bhInputPair.second.getPrevHash());
+      }
+      
    }
 
    is.close();
