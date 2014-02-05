@@ -118,9 +118,7 @@ class SelectWalletFrame(ArmoryFrame):
    def getWalletIdList(self, onlyOfflineWallets):
       result = []
       if onlyOfflineWallets:
-         for wltID in self.main.walletIDList:
-            if self.main.walletMap[wltID].watchingOnly:
-               result.append(wltID)
+         result = self.main.getWatchingOnlyWallets()
       else:
          result = list(self.main.walletIDList)
       return result

@@ -37,7 +37,7 @@ from ui.toolsDialogs import MessageSigningVerificationDialog
 import qrc_img_resources
 from qtdefines import *
 from qtdialogs import *
-from ui.Wizards import WalletWizard, OfflineTxWizard
+from ui.Wizards import WalletWizard, TxWizard
 
 
 
@@ -648,6 +648,15 @@ class ArmoryMainWindow(QMainWindow):
       elif not self.firstLoad:
          # Don't need to bother the user on the first load with updating
          reactor.callLater(0.2, self.checkForLatestVersion)
+         
+   ####################################################
+   def getWatchingOnlyWallets(self):
+      result = []
+      for wltID in self.walletIDList:
+         if self.walletMap[wltID].watchingOnly:
+            result.append(wltID)
+      return result
+            
    ####################################################
    def factoryReset(self):
       reply = QMessageBox.information(self,'Revert all Settings?', \
@@ -1058,7 +1067,7 @@ class ArmoryMainWindow(QMainWindow):
 
          # If we got here, one of three buttons was clicked.
          if dlgSelect.do_create:
-            self.startOfflineTxWizard()
+            self.startTxWizard(onlyOfflineWallets=True)
          elif dlgSelect.do_broadc:
             dlg = DlgSignBroadcastOfflineTx(self,self)
             dlg.exec_()
@@ -2962,6 +2971,18 @@ class ArmoryMainWindow(QMainWindow):
 
 
    #############################################################################
+
+   def getSelectedWallet(self):
+      wltID = None
+      if len(self.walletMap) > 0:
+         wltID = self.walletMap.keys()[0]
+      wltSelect = self.walletsView.selectedIndexes()
+      if len(wltSelect) > 0:
+         row = wltSelect[0].row()
+         wltID = str(self.walletsView.model().index(row, WLTVIEWCOLS.ID).data().toString())
+      # Starting the send dialog  with or without a wallet
+      return None if wltID == None else self.walletMap[wltID]
+
    def clickSendBitcoins(self):
       if TheBDM.getBDMState() in ('Offline', 'Uninitialized'):
          QMessageBox.warning(self, 'Offline Mode', \
@@ -2982,7 +3003,6 @@ class ArmoryMainWindow(QMainWindow):
             QMessageBox.Ok)
          return
 
-      wltID = None
       selectionMade = True
       if len(self.walletMap)==0:
          reply = QMessageBox.information(self, 'No Wallets!', \
@@ -2992,15 +3012,7 @@ class ArmoryMainWindow(QMainWindow):
          if reply==QMessageBox.Yes:
             self.startWalletWizard()
       else:
-         if len(self.walletMap)>0:
-            wltID = self.walletMap.keys()[0]
-         wltSelect = self.walletsView.selectedIndexes()
-         if len(wltSelect)>0:
-            row = wltSelect[0].row()
-            wltID = str(self.walletsView.model().index(row, WLTVIEWCOLS.ID).data().toString())
-         # Starting the send dialog  with or without a wallet
-         wlt = None if wltID == None else self.walletMap[wltID] 
-         DlgSendBitcoins(wlt, self, self).exec_()
+         self.startTxWizard()
    
 
    #############################################################################
@@ -3076,7 +3088,7 @@ class ArmoryMainWindow(QMainWindow):
          selectedWalletID = self.walletIDList[0]
          
       wlt = self.walletMap[selectedWalletID]
-      dlgSend = DlgSendBitcoins(wlt, self, self, uriDict)
+      dlgSend = self.startTxWizard(uriDict)
       dlgSend.exec_()
       return True
       
@@ -3141,9 +3153,9 @@ class ArmoryMainWindow(QMainWindow):
       walletWizard.exec_()
       
    #############################################################################
-   def startOfflineTxWizard(self):
-      offlineTxWizard = OfflineTxWizard(self, self)
-      offlineTxWizard.exec_()
+   def startTxWizard(self, prefill=None, onlyOfflineWallets=False):
+      txWizard = TxWizard(self, self, self.getSelectedWallet(), prefill, onlyOfflineWallets=onlyOfflineWallets)
+      txWizard.exec_()
    
    #############################################################################
    def exportLogFile(self):

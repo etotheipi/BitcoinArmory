@@ -245,15 +245,16 @@ class CreateWatchingOnlyWalletPage(ArmoryWizardPage):
 #     1. Create Transaction
 #     2. Sign Transaction on Offline Computer
 #     3. Broadcast Transaction
-class OfflineTxWizard(ArmoryWizard):
-   def __init__(self, parent, main):
-      super(OfflineTxWizard,self).__init__(parent, main)
+class TxWizard(ArmoryWizard):
+   def __init__(self, parent, main, wlt, prefill=None, onlyOfflineWallets=False):
+      super(TxWizard,self).__init__(parent, main)
       self.setWindowTitle(tr("Offline Transaction Wizard"))
       self.setOption(QWizard.IgnoreSubTitles, on=True)
+      self.setOption(QWizard.HaveCustomButton1, on=True)
       
       # Page 1: Create Offline TX
-      self.createOfflineTxPage = CreateOfflineTxPage(self)
-      self.addPage(self.createOfflineTxPage)
+      self.createTxPage = CreateTxPage(self, wlt, prefill, onlyOfflineWallets=onlyOfflineWallets)
+      self.addPage(self.createTxPage)
       
       # Page 2: Sign Offline TX
       self.reviewOfflineTxPage = ReviewOfflineTxPage(self)
@@ -263,25 +264,64 @@ class OfflineTxWizard(ArmoryWizard):
       self.signBroadcastOfflineTxPage = SignBroadcastOfflineTxPage(self)
       self.addPage(self.signBroadcastOfflineTxPage)
 
-      self.setButtonLayout([QWizard.BackButton,
+      self.setButtonText(QWizard.NextButton, tr('Create Unsigned Transaction'))
+      self.setButtonText(QWizard.CustomButton1, tr('Send!'))
+      self.connect(self, SIGNAL('customButtonClicked(int)'), self.sendClicked)
+      self.setButtonLayout([QWizard.CancelButton,
+                            QWizard.BackButton,
                             QWizard.Stretch,
                             QWizard.NextButton,
-                            QWizard.FinishButton])
+                            QWizard.CustomButton1])
 
+      
 
    def initializePage(self, *args, **kwargs):
-      if self.currentPage() == self.reviewOfflineTxPage:
-         self.reviewOfflineTxPage.pageFrame.setTxDp(self.createOfflineTxPage.txdp)
+      if self.currentPage() == self.createTxPage:
+         self.createTxPage.pageFrame.fireWalletChange()
+      elif self.currentPage() == self.reviewOfflineTxPage:
+         self.setButtonText(QWizard.NextButton, tr('Next'))
+         self.setButtonLayout([QWizard.CancelButton,
+                               QWizard.BackButton,
+                            QWizard.Stretch,
+                            QWizard.NextButton])
+         self.reviewOfflineTxPage.pageFrame.setTxDp(self.createTxPage.txdp)
          self.reviewOfflineTxPage.pageFrame.setWallet(
-                  self.createOfflineTxPage.pageFrame.wlt)
+                  self.createTxPage.pageFrame.wlt)
          
+   def cleanupPage(self, *args, **kwargs):
+      if self.currentPage() == self.createTxPage:
+         self.updateOnSelectWallet(self.createTxPage.pageFrame.wlt)
+         self.setButtonText(QWizard.NextButton, tr('Create Unsigned Transaction'))
 
-class CreateOfflineTxPage(ArmoryWizardPage):
-   def __init__(self, wizard):
-      super(CreateOfflineTxPage, self).__init__(wizard,
+   def sendClicked(self, customButtonIndex):
+      # The Send! button is clicked validate and broadcast tx
+      txdp = self.createTxPage.pageFrame.validateInputsGetTxDP()
+      # Either txdp is false or its a transaction distribution proposal
+      if txdp:
+         self.createTxPage.pageFrame.createTxAndBroadcast(txdp)
+         self.accept()
+      
+   def updateOnSelectWallet(self, wlt):
+      if wlt.watchingOnly:
+         self.setButtonLayout([QWizard.CancelButton,
+                            QWizard.BackButton,
+                            QWizard.Stretch,
+                            QWizard.NextButton])
+      else:
+         self.setButtonLayout([QWizard.CancelButton,
+                            QWizard.BackButton,
+                            QWizard.Stretch,
+                            QWizard.NextButton,
+                            QWizard.CustomButton1])
+         
+class CreateTxPage(ArmoryWizardPage):
+   def __init__(self, wizard, wlt, prefill=None, onlyOfflineWallets=False):
+      super(CreateTxPage, self).__init__(wizard,
                SendBitcoinsFrame(wizard, wizard.main,
-                                 "Create Offline Transaction", onlyOfflineWallets=True))
-      self.setTitle(tr("Step 1: Create Offline Transaction"))
+                                 "Create Unsigned Offline Transaction", wlt, prefill,
+                                 selectWltCallback=self.updateOnSelectWallet,
+                                 onlyOfflineWallets=onlyOfflineWallets))
+      self.setTitle(tr("Step 1: Create Unsigned Offline Transaction"))
       self.txdp = None
       
    def validatePage(self):
@@ -291,15 +331,18 @@ class CreateOfflineTxPage(ArmoryWizardPage):
          self.txdp = result
          result = True
       return result
+   
+   def updateOnSelectWallet(self, wlt):
+      self.wizard().updateOnSelectWallet(wlt)
       
 class ReviewOfflineTxPage(ArmoryWizardPage):
    def __init__(self, wizard):
       super(ReviewOfflineTxPage, self).__init__(wizard,
                   ReviewOfflineTxFrame(wizard, wizard.main, "Review Offline Transaction"))
-      self.setTitle(tr("Step 2: Sign Offline Transaction"))
+      self.setTitle(tr("Step 2: Review Offline Transaction"))
       
 class SignBroadcastOfflineTxPage(ArmoryWizardPage):
    def __init__(self, wizard):
       super(SignBroadcastOfflineTxPage, self).__init__(wizard,
-                  SignBroadcastOfflineTxFrame(wizard, wizard.main, "Broadcast Offline Transaction"))
-      self.setTitle(tr("Step 3: Broadcast Offline Transaction"))      
+                  SignBroadcastOfflineTxFrame(wizard, wizard.main, "Sign/Broadcast Offline Transaction"))
+      self.setTitle(tr("Step 3: Sign/Broadcast Offline Transaction"))      
