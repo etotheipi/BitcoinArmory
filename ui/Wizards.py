@@ -251,6 +251,7 @@ class TxWizard(ArmoryWizard):
       self.setWindowTitle(tr("Offline Transaction Wizard"))
       self.setOption(QWizard.IgnoreSubTitles, on=True)
       self.setOption(QWizard.HaveCustomButton1, on=True)
+      self.setOption(QWizard.HaveFinishButtonOnEarlyPages, on=True)
       
       # Page 1: Create Offline TX
       self.createTxPage = CreateTxPage(self, wlt, prefill, onlyOfflineWallets=onlyOfflineWallets)
@@ -280,10 +281,10 @@ class TxWizard(ArmoryWizard):
          self.createTxPage.pageFrame.fireWalletChange()
       elif self.currentPage() == self.reviewOfflineTxPage:
          self.setButtonText(QWizard.NextButton, tr('Next'))
-         self.setButtonLayout([QWizard.CancelButton,
-                               QWizard.BackButton,
+         self.setButtonLayout([QWizard.BackButton,
                             QWizard.Stretch,
-                            QWizard.NextButton])
+                            QWizard.NextButton,
+                            QWizard.FinishButton])
          self.reviewOfflineTxPage.pageFrame.setTxDp(self.createTxPage.txdp)
          self.reviewOfflineTxPage.pageFrame.setWallet(
                   self.createTxPage.pageFrame.wlt)
@@ -340,6 +341,7 @@ class ReviewOfflineTxPage(ArmoryWizardPage):
       super(ReviewOfflineTxPage, self).__init__(wizard,
                   ReviewOfflineTxFrame(wizard, wizard.main, "Review Offline Transaction"))
       self.setTitle(tr("Step 2: Review Offline Transaction"))
+      self.setFinalPage(True)
       
 class SignBroadcastOfflineTxPage(ArmoryWizardPage):
    def __init__(self, wizard):

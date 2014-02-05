@@ -1393,8 +1393,7 @@ class DlgWalletDetails(ArmoryDialog):
            'balance appears on the main window, then try again.', \
             QMessageBox.Ok)
          return
-      dlgSend = DlgSendBitcoins(self.wlt, self, self.main)
-      dlgSend.exec_()
+      self.main.startTxWizard()
       self.wltAddrModel.reset()
 
 
@@ -4385,109 +4384,6 @@ class DlgConfirmSend(ArmoryDialog):
       self.setMinimumWidth(350)
       self.setWindowTitle('Confirm Transaction')
 
-class DlgSendBitcoins(ArmoryDialog):
-   def __init__(self, wlt, parent=None, main=None, prefill=None, wltIDList=None):
-      super(DlgSendBitcoins, self).__init__(parent, main)
-      layout = QVBoxLayout()
-      self.ttipUnsigned = self.main.createToolTipWidget(\
-               'After clicking this button, you will be given directions for '
-               'completing this transaction.')
-      self.unsignedTxButton = QPushButton('Create Unsigned Transaction')
-      self.connect(self.unsignedTxButton, SIGNAL(CLICKED), self.createOfflineTxDPAndDisplay)
-
-      self.btnSend = QPushButton('Send!')
-      self.connect(self.btnSend, SIGNAL(CLICKED), self.createTxAndBroadcast)
-
-      txFrm = makeLayoutFrame(HORIZONTAL, [ STRETCH, \
-                        self.unsignedTxButton, \
-                        self.ttipUnsigned, \
-                        self.btnSend])
-      self.frame = SendBitcoinsFrame(parent, main, 'Send Bitcoins',\
-                   wlt, prefill, wltIDList, self.updateOnSelectWlt,\
-                   onlyOfflineWallets=False)
-
-      layout.addWidget(self.frame)
-      layout.addWidget(txFrm)
-
-      self.setLayout(layout)
-   
-   #############################################################################
-   def updateOnSelectWlt(self, wlt):
-      if wlt.watchingOnly:
-         self.btnSend.setEnabled(False)
-         self.btnSend.setToolTip('This is a watching-only wallet! '
-                   'You cannot use it to send bitcoins!')
-         self.unsignedTxButton.setDefault(True)
-      else:
-         self.btnSend.setEnabled(True)
-         self.btnSend.setDefault(True)
-         self.btnSend.setToolTip('Click to send bitcoins!')
-   
-   #############################################################################
-   def createOfflineTxDPAndDisplay(self):
-      txdp = self.frame.validateInputsGetTxDP()
-      if txdp:
-         dlg = DlgOfflineTxCreated(self.frame.wlt, txdp, self, self.main)
-         dlg.exec_()
-         self.accept()
-
-   #############################################################################
-   def createTxAndBroadcast(self):
-      self.txValues = []
-      self.origSVPairs = []
-      self.comments = []
-      txdp = self.frame.validateInputsGetTxDP()
-      if txdp:
-         try:
-            if self.frame.wlt.isLocked:
-               unlockdlg = DlgUnlockWallet(self.frame.wlt, self, self.main, 'Send Transaction')
-               if not unlockdlg.exec_():
-                  QMessageBox.critical(self, 'Wallet is Locked', \
-                     'Cannot sign transaction while your wallet is locked. ', \
-                     QMessageBox.Ok)
-                  return
-
-
-            commentStr = ''
-            if len(self.comments) == 1:
-               commentStr = self.comments[0]
-            else:
-               for i in range(len(self.comments)):
-                  amt = self.origSVPairs[i][1]
-                  if len(self.comments[i].strip()) > 0:
-                     commentStr += '%s (%s);  ' % (self.comments[i], coin2str_approx(amt).strip())
-
-
-            txdp = self.frame.wlt.signTxDistProposal(txdp)
-            finalTx = txdp.prepareFinalTx()
-            if len(commentStr) > 0:
-               self.frame.wlt.setComment(finalTx.getHash(), commentStr)
-            self.main.broadcastTransaction(finalTx)
-            self.accept()
-         except:
-            LOGEXCEPT('Problem sending transaction!')
-            # TODO: not sure what errors to catch here, yet...
-            raise
-         
-   #############################################################################
-   def saveGeometrySettings(self):
-      self.main.writeSetting('SendBtcGeometry', str(self.saveGeometry().toHex()))
-
-   #############################################################################
-   def closeEvent(self, event):
-      self.saveGeometrySettings()
-      super(DlgSendBitcoins, self).closeEvent(event)
-
-   #############################################################################
-   def accept(self, *args):
-      self.saveGeometrySettings()
-      super(DlgSendBitcoins, self).accept(*args)
-
-   #############################################################################
-   def reject(self, *args):
-      self.saveGeometrySettings()
-      super(DlgSendBitcoins, self).reject(*args)
-      
 ################################################################################
 class DlgOfflineTxCreated(ArmoryDialog):
    def __init__(self, wlt, txdp, parent=None, main=None):
@@ -4598,8 +4494,6 @@ class DlgOfflineSelect(ArmoryDialog):
       self.setLayout(dlgLayout)
       self.setWindowTitle('Select Offline Action')
       self.setWindowIcon(QIcon(self.main.iconfile))
-
-
 
 ################################################################################
 class DlgSignBroadcastOfflineTx(ArmoryDialog):
