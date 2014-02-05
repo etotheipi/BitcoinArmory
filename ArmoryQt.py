@@ -4536,7 +4536,7 @@ class ArmoryMainWindow(QMainWindow):
                self.walletModel.reset()
 
    @TimeThisFunction
-   def newBlockSyncRescanZC(self, wltID, prevLedgSize):
+   def newBlockSyncRescanZC(self, prevLedgSize):
       for wltID in self.walletMap.keys():
          self.walletMap[wltID].syncWithBlockchainLite()
          TheBDM.rescanWalletZeroConf(self.walletMap[wltID].cppWallet)
@@ -4703,7 +4703,7 @@ class ArmoryMainWindow(QMainWindow):
                didAffectUs = False
    
                # LITE sync means it won't rescan if addresses have been imported
-               didAffectUs = self.newBlockSyncRescanZC(wltID, prevLedgSize)
+               didAffectUs = self.newBlockSyncRescanZC(prevLedgSize)
             
                if didAffectUs:
                   LOGINFO('New Block contained a transaction relevant to us!')
