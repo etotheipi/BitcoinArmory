@@ -2196,7 +2196,7 @@ def decodeMiniPrivateKey(keyStr):
 
 ################################################################################
 def parsePrivateKeyData(theStr):
-      hexChars = '01234567890abcdef'
+      hexChars = '01234567890abcdefABCDEF'
       b58Chars = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
 
       hexCount = sum([1 if c in hexChars else 0 for c in theStr.lower()])
