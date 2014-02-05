@@ -901,7 +901,7 @@ class PyTxDistProposal(object):
       self.inputValues    = []
       self.numSigsNeeded  = []
       self.relevantTxMap  = {}  # needed to support input values of each TxIn
-      self.p2shScripts    = {}
+      self.p2shScripts    = []
 
       if len(txMap)==0 and not TheBDM.getBDMState()=='BlockchainReady':
          # TxDP includes the transactions that supply the inputs to this 
