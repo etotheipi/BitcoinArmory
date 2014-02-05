@@ -897,11 +897,11 @@ class PyTxDistProposal(object):
       self.signatures     = []
       self.txOutScripts   = []
       self.inScrAddrList  = []
-      self.p2shScripts    = []
       self.inPubKeyLists  = []
       self.inputValues    = []
       self.numSigsNeeded  = []
       self.relevantTxMap  = {}  # needed to support input values of each TxIn
+      self.p2shScripts    = {}
 
       if len(txMap)==0 and not TheBDM.getBDMState()=='BlockchainReady':
          # TxDP includes the transactions that supply the inputs to this 
@@ -1290,7 +1290,7 @@ class PyTxDistProposal(object):
       
 
    #############################################################################
-   def unserializeAscii(self, asciiStr):
+   def unserializeAscii(self, asciiStr, p2shMap={}):
       txdpTxt = [line.strip() for line in asciiStr.split('\n')]
 
       # Why can't I figure out the best way to do this with generators?
