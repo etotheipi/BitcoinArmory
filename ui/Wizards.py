@@ -289,7 +289,7 @@ class TxWizard(ArmoryWizard):
                   self.createTxPage.pageFrame.wlt)
          
    def cleanupPage(self, *args, **kwargs):
-      if self.currentPage() == self.createTxPage:
+      if self.currentPage() == self.reviewOfflineTxPage:
          self.updateOnSelectWallet(self.createTxPage.pageFrame.wlt)
          self.setButtonText(QWizard.NextButton, tr('Create Unsigned Transaction'))
 
