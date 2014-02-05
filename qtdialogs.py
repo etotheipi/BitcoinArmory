@@ -27,11 +27,11 @@ STRETCH = 'Stretch'
 CLICKED = 'clicked()'
 BACKUP_TYPE_135A = '1.35a'
 BACKUP_TYPE_135C = '1.35c'
-BACKUP_TYPE_0_TEXT = tr('Version 0  (from script, 9 lines)')
-BACKUP_TYPE_135a_TEXT = tr('Version 1.35a (5 lines Unencrypted)')
-BACKUP_TYPE_135a_SP_TEXT = tr('Version 1.35a (5 lines SecurePrint\xe2\x84\xa2)')
-BACKUP_TYPE_135c_TEXT = tr('Version 1.35c (3 lines Unencrypted)')
-BACKUP_TYPE_135c_SP_TEXT = tr('Version 1.35c (3 lines SecurePrint\xe2\x84\xa2)')
+BACKUP_TYPE_0_TEXT = tr('0  (from script, 9 lines)')
+BACKUP_TYPE_135a_TEXT = tr('1.35a (5 lines Unencrypted)')
+BACKUP_TYPE_135a_SP_TEXT = tr('1.35a (5 lines + SecurePrint\xe2\x84\xa2)')
+BACKUP_TYPE_135c_TEXT = tr('1.35c (3 lines Unencrypted)')
+BACKUP_TYPE_135c_SP_TEXT = tr('1.35c (3 lines + SecurePrint\xe2\x84\xa2)')
 
 
 ################################################################################
@@ -10397,18 +10397,26 @@ class DlgRestoreSingle(ArmoryDialog):
 
       lblType = QRichLabel(tr("""<b>Backup Type:</b>"""), doWrap=False)
 
-      self.comboBackupType = QComboBox()
-      self.comboBackupType.clear()
-      self.comboBackupType.addItem(tr('Version 1.35'))
-      self.comboBackupType.addItem(tr('Version 1.35a (4 lines Unencrypted)'))
-      self.comboBackupType.addItem(tr('Version 1.35a (4 lines SecurePrint\xe2\x84\xa2)'))
-      self.comboBackupType.addItem(tr('Version 1.35c (2 lines Unencrypted)'))
-      self.comboBackupType.addItem(tr('Version 1.35c (2 lines SecurePrint\xe2\x84\xa2)'))
-      self.comboBackupType.setCurrentIndex(3)
-
-
-      self.connect(self.comboBackupType, SIGNAL('activated(int)'), self.changeType)
-      frmCombo = makeHorizFrame([lblType, 'Space(20)', self.comboBackupType, STRETCH])
+      self.version135Button = QRadioButton(tr('1.35 (4 lines)'), self)
+      self.version135aButton = QRadioButton(tr('1.35a (4 lines Unencrypted)'), self)
+      self.version135aSPButton = QRadioButton(tr('1.35a (4 lines + SecurePrint\xe2\x84\xa2)'), self)
+      self.version135cButton = QRadioButton(tr('1.35c (2 lines Unencrypted)'), self)
+      self.version135cSPButton = QRadioButton(tr('1.35c (2 lines + SecurePrint\xe2\x84\xa2)'), self)
+      self.backupTypeButtonGroup = QButtonGroup(self)
+      self.backupTypeButtonGroup.addButton(self.version135Button)
+      self.backupTypeButtonGroup.addButton(self.version135aButton)
+      self.backupTypeButtonGroup.addButton(self.version135aSPButton)
+      self.backupTypeButtonGroup.addButton(self.version135cButton)
+      self.backupTypeButtonGroup.addButton(self.version135cSPButton)
+      self.version135cButton.setChecked(True)
+      self.connect(self.backupTypeButtonGroup, SIGNAL('buttonClicked(int)'), self.changeType)
+      
+      radioButtonFrame = makeVertFrame([lblType,
+                                self.version135Button,
+                                self.version135aButton,
+                                self.version135aSPButton,
+                                self.version135cButton,
+                                self.version135cSPButton])
 
       self.lblSP = QRichLabel(tr('SecurePrint\xe2\x84\xa2 Code:'), doWrap=False) 
       self.editSecurePrint = QLineEdit()                                                   
@@ -10450,7 +10458,7 @@ class DlgRestoreSingle(ArmoryDialog):
       layout = QVBoxLayout()
       layout.addWidget(lblDescr)
       layout.addWidget(HLINE())
-      layout.addWidget(frmCombo)
+      layout.addWidget(radioButtonFrame)
       layout.addWidget(frmAllInputs)
       layout.addWidget(bottomFrm)
       self.setLayout(layout)
@@ -10462,16 +10470,20 @@ class DlgRestoreSingle(ArmoryDialog):
          self.setWindowTitle('Restore Single-Sheet Backup')
       self.setMinimumWidth(500)
       self.layout().setSizeConstraint(QLayout.SetFixedSize)
-      self.changeType()
+      self.changeType(self.backupTypeButtonGroup.checkedId())
 
    #############################################################################
-   def changeType(self):
-      sel = self.comboBackupType.currentIndex()
-      if   sel == 0: visList = [0, 1, 1, 1, 1]
-      elif sel == 1: visList = [0, 1, 1, 1, 1]
-      elif sel == 2: visList = [1, 1, 1, 1, 1]
-      elif sel == 3: visList = [0, 1, 1, 0, 0]
-      elif sel == 4: visList = [1, 1, 1, 0, 0]
+   def changeType(self, sel):
+      if   sel == self.backupTypeButtonGroup.id(self.version135Button):
+         visList = [0, 1, 1, 1, 1]
+      elif sel == self.backupTypeButtonGroup.id(self.version135aButton):
+         visList = [0, 1, 1, 1, 1]
+      elif sel == self.backupTypeButtonGroup.id(self.version135aSPButton):
+         visList = [1, 1, 1, 1, 1]
+      elif sel == self.backupTypeButtonGroup.id(self.version135cButton):
+         visList = [0, 1, 1, 0, 0]
+      elif sel == self.backupTypeButtonGroup.id(self.version135cSPButton):
+         visList = [1, 1, 1, 0, 0]
       else:
          LOGERROR('What the heck backup type is selected?  %d', sel)
          return
@@ -11298,47 +11310,60 @@ class DlgEnterOneFrag(ArmoryDialog):
          SecurePrint\xe2\x84\xa2 code, please enter it once on the
          previous window, and it will be applied to all fragments that
          require it.""") % already)
+      
+      self.version0Button = QRadioButton(BACKUP_TYPE_0_TEXT, self)
+      self.version135aButton = QRadioButton(BACKUP_TYPE_135a_TEXT, self)
+      self.version135aSPButton = QRadioButton(BACKUP_TYPE_135a_SP_TEXT, self)
+      self.version135cButton = QRadioButton(BACKUP_TYPE_135c_TEXT, self)
+      self.version135cSPButton = QRadioButton(BACKUP_TYPE_135c_SP_TEXT, self)
+      self.backupTypeButtonGroup = QButtonGroup(self)
+      self.backupTypeButtonGroup.addButton(self.version0Button)
+      self.backupTypeButtonGroup.addButton(self.version135aButton)
+      self.backupTypeButtonGroup.addButton(self.version135aSPButton)
+      self.backupTypeButtonGroup.addButton(self.version135cButton)
+      self.backupTypeButtonGroup.addButton(self.version135cSPButton)
+      self.version135cButton.setChecked(True)
+      self.connect(self.backupTypeButtonGroup, SIGNAL('buttonClicked(int)'), self.changeType)
 
-      self.comboBackupType = QComboBox()
-      self.comboBackupType.clear()
-      self.comboBackupType.addItem(BACKUP_TYPE_0_TEXT)
-      self.comboBackupType.addItem(BACKUP_TYPE_135a_TEXT)
-      self.comboBackupType.addItem(BACKUP_TYPE_135a_SP_TEXT)
-      self.comboBackupType.addItem(BACKUP_TYPE_135c_TEXT)
-      self.comboBackupType.addItem(BACKUP_TYPE_135c_SP_TEXT)
-      # If a wallet type hasn't been determined yet, allow the user to select it
-      self.comboBackupType.setEnabled(True)
       # This value will be locked after the first fragment is entered.
       if wltType == UNKNOWN:
-         self.comboBackupType.setCurrentIndex(3)
+         self.version135cButton.setChecked(True)
       elif wltType == '0':
-         self.comboBackupType.setCurrentIndex(0)
-         self.comboBackupType.setEnabled(False)
+         self.version0Button.setChecked(True)
+         self.version135aButton.setEnabled(False)
+         self.version135aSPButton.setEnabled(False)
+         self.version135cButton.setEnabled(False)
+         self.version135cSPButton.setEnabled(False)
       elif wltType == BACKUP_TYPE_135A:
+         self.version0Button.setEnabled(False)
+         self.version135cButton.setEnabled(False)
+         self.version135cSPButton.setEnabled(False)
          if securePrintCode:
-            self.comboBackupType.setCurrentIndex(2)
-            self.comboBackupType.setEnabled(False)
+            self.version135aSPButton.setChecked(True)
+            self.version135aButton.setEnabled(False)
          else:
             # Could be 1.35a with or without SecurePrintCode so remove the rest
-            self.comboBackupType.removeItem(4)
-            self.comboBackupType.removeItem(3)
-            self.comboBackupType.removeItem(0)
-            self.comboBackupType.setCurrentIndex(0)
+            self.version135aButton.setChecked(True)
       elif wltType == BACKUP_TYPE_135C:
+         self.version0Button.setEnabled(False)
+         self.version135aButton.setEnabled(False)
+         self.version135aSPButton.setEnabled(False)
          if securePrintCode:
-            self.comboBackupType.setCurrentIndex(4)
-            self.comboBackupType.setEnabled(False)
+            self.version135cSPButton.setChecked(True)
+            self.version135cButton.setEnabled(False)
          else:
             # Could be 1.35c with or without SecurePrintCode so remove the rest
-            self.comboBackupType.removeItem(2)
-            self.comboBackupType.removeItem(1)
-            self.comboBackupType.removeItem(0)
-            self.comboBackupType.setCurrentIndex(0)
+            self.version135cButton.setChecked(True)
 
       lblType = QRichLabel(tr("""<b>Backup Type:</b>"""), doWrap=False)
-      self.connect(self.comboBackupType, SIGNAL('activated(int)'), self.changeType)
-      frmCombo = makeHorizFrame([lblType, 'Space(20)', self.comboBackupType, STRETCH])
-
+      
+      radioButtonFrame = makeVertFrame([lblType,
+                                self.version0Button,
+                                self.version135aButton,
+                                self.version135aSPButton,
+                                self.version135cButton,
+                                self.version135cSPButton])
+      
       self.prfxList = ['x1:', 'x2:', 'x3:', 'x4:', \
                        'y1:', 'y2:', 'y3:', 'y4:', \
                        'F1:', 'F2:', 'F3:', 'F4:']
@@ -11382,7 +11407,7 @@ class DlgEnterOneFrag(ArmoryDialog):
       layout = QVBoxLayout()
       layout.addWidget(lblDescr)
       layout.addWidget(HLINE())
-      layout.addWidget(frmCombo)
+      layout.addWidget(radioButtonFrame)
       layout.addWidget(frmAllInputs)
       layout.addWidget(buttonBox)
       self.setLayout(layout)
@@ -11391,29 +11416,30 @@ class DlgEnterOneFrag(ArmoryDialog):
       self.setWindowTitle('Restore Single-Sheet Backup')
       self.setMinimumWidth(500)
       self.layout().setSizeConstraint(QLayout.SetFixedSize)
-      self.changeType()
+      self.changeType(self.backupTypeButtonGroup.checkedId())
 
 
    #############################################################################
-   def changeType(self):
-      sel = self.comboBackupType.currentText()
-      #                      |-- X --| |-- Y --| |-- F --|
-      if   sel == BACKUP_TYPE_0_TEXT: visList = [1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0]
-      elif sel == BACKUP_TYPE_135a_TEXT or \
-           sel == BACKUP_TYPE_135a_SP_TEXT: visList = [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1]
-      elif sel == BACKUP_TYPE_135c_TEXT or \
-           sel == BACKUP_TYPE_135c_SP_TEXT: visList = [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0]
+   def changeType(self, sel):
+      #            |-- X --| |-- Y --| |-- F --|
+      if sel == self.backupTypeButtonGroup.id(self.version0Button):
+         visList = [1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0]
+      elif sel == self.backupTypeButtonGroup.id(self.version135aButton) or \
+           sel == self.backupTypeButtonGroup.id(self.version135aSPButton):
+         visList = [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1]
+      elif sel == self.backupTypeButtonGroup.id(self.version135cButton) or \
+           sel == self.backupTypeButtonGroup.id(self.version135cSPButton):
+         visList = [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0]
       else:
          LOGERROR('What the heck backup type is selected?  %d', sel)
          return
 
-      self.frmSP.setVisible(sel == BACKUP_TYPE_135a_SP_TEXT or \
-                            sel == BACKUP_TYPE_135c_SP_TEXT)
+      self.frmSP.setVisible(sel == self.backupTypeButtonGroup.id(self.version135aSPButton) or \
+                            sel == self.backupTypeButtonGroup.id(self.version135cSPButton))
       for i in range(12):
          self.prfxList[i].setVisible(visList[i] == 1)
          self.edtList[ i].setVisible(visList[i] == 1)
 
-      self.isLongForm = (sel in [0, 1])
 
 
    #############################################################################
@@ -11433,13 +11459,16 @@ class DlgEnterOneFrag(ArmoryDialog):
       nError = 0
       rawBin = None
 
-      sel = self.comboBackupType.currentText()
+      sel = self.backupTypeButtonGroup.checkedId()
       rng = [-1]
-      if   sel == BACKUP_TYPE_0_TEXT:  rng = range(8)
-      elif sel == BACKUP_TYPE_135a_TEXT or \
-           sel == BACKUP_TYPE_135a_SP_TEXT: rng = range(8, 12)
-      elif sel == BACKUP_TYPE_135c_TEXT or \
-           sel == BACKUP_TYPE_135c_SP_TEXT: rng = range(8, 10)
+      if   sel == self.backupTypeButtonGroup.id(self.version0Button):
+         rng = range(8)
+      elif sel == self.backupTypeButtonGroup.id(self.version135aButton) or \
+           sel == self.backupTypeButtonGroup.id(self.version135aSPButton):
+         rng = range(8, 12)
+      elif sel == self.backupTypeButtonGroup.id(self.version135cButton) or \
+           sel == self.backupTypeButtonGroup.id(self.version135cSPButton):
+         rng = range(8, 10)
 
       
       if (sel == BACKUP_TYPE_135a_SP_TEXT or \
