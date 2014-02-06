@@ -31,11 +31,13 @@ SecureBinaryData & SecureBinaryData::append(SecureBinaryData & sbd2)
    else
       BinaryDataT<CA_uint8>::append(sbd2.getRawRef());
 
-   int badcopy = -1;
-   while(badcopy<0)
-      badcopy = sbd2.sbd_rs.Decode(getPtr() + this_size, sbd2.getSize());
-
-   sbd_rs.Encode(getPtr(), getSize());
+   if(sbd2.sbd_rs.Decode(getPtr() + this_size, sbd2.getSize())>-1)
+      sbd_rs.Encode(getPtr(), getSize());
+   else
+   {
+      LOGERR << "***RS Decode Failure***";
+      throw "RS Decode Error! Aborting";
+   }
    return (*this);
 }
 
@@ -43,23 +45,22 @@ SecureBinaryData & SecureBinaryData::append(SecureBinaryData & sbd2)
 SecureBinaryData SecureBinaryData::operator+(SecureBinaryData & sbd2) const
 {
    SecureBinaryData out(getSize() + sbd2.getSize());
-   int badcopy = -1;
    
    //going around the const
    RS *rs = (RS*)&sbd_rs;
-   
-   while(badcopy<0)
+      
+   memcpy(out.getPtr(), getPtr(), getSize());
+   if(rs->Decode(out.getPtr(), getSize())<0)
    {
-      memcpy(out.getPtr(), getPtr(), getSize());
-      badcopy = rs->Decode(out.getPtr(), getSize());
+      LOGERR << "***RS Decode Failure***";
+      throw "RS Decode Error! Aborting";
    }
 
-   //second portion
-   badcopy = -1;
-   while(badcopy<0)
+   memcpy(out.getPtr()+getSize(), sbd2.getPtr(), sbd2.getSize());   
+   if(sbd2.sbd_rs.Decode(out.getPtr() +getSize(), sbd2.getSize())<0)
    {
-      memcpy(out.getPtr()+getSize(), sbd2.getPtr(), sbd2.getSize());   
-      badcopy = sbd2.sbd_rs.Decode(out.getPtr() +getSize(), sbd2.getSize());
+      LOGERR << "***RS Decode Failure***";
+      throw "RS Decode Error! Aborting";
    }
 
    out.sbd_rs.Encode(out.getPtr(), out.getSize());
@@ -95,6 +96,21 @@ bool SecureBinaryData::operator==(SecureBinaryData const & sbd2) const
       if( (*this)[i] != sbd2[i] )
          return false;
    return true;
+}
+
+/////////////////////////////////////////////////////////////////////////////
+BinaryData SecureBinaryData::getRawCopy(void) const
+{
+   BinaryData rt(getPtr(), getSize()); 
+   
+   RS* rs_noconst = (RS*)&sbd_rs;
+   if(rs_noconst->Decode(rt.getPtr(), getSize())<0)
+   {
+      LOGERR << "***RS Decode Failure***";
+      throw "RS Decode Error! Aborting";
+   }
+
+   return rt;
 }
 
 /////////////////////////////////////////////////////////////////////////////

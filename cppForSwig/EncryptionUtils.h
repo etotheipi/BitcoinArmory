@@ -163,7 +163,7 @@ public:
    void reserve(size_t sz) { BinaryDataT<CA_uint8>::reserve(sz); }
 
 
-   BinaryData    getRawCopy(void) const { return BinaryData(getPtr(), getSize()); }
+   BinaryData    getRawCopy(void) const;
    BinaryDataRef getRawRef(void)  { return BinaryDataRef(getPtr(), getSize()); }
 
    SecureBinaryData copySwapEndian(size_t pos1=0, size_t pos2=0) const;

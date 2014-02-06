@@ -73,6 +73,7 @@ namespace CustomAlloc
 
          size_t reserved;
 
+
       public:
 		   BufferHeader **BH;
 		   static const size_t memsize; //multiple of system page size
@@ -81,7 +82,9 @@ namespace CustomAlloc
 		   AtomicInt32 lockpool;
 		   byte defrag;
          void *ref;
-		
+         
+         static const int size_of_ptr = sizeof(void*);
+         
          MemPool::MemPool()
 		   {
 			   BH=0;
@@ -209,13 +212,13 @@ namespace CustomAlloc
 
          template <class U>
          struct rebind 
-            {typedef CAlloc<U> other;};
+            { typedef CAlloc<U> other; };
 
          pointer address (reference value) const 
-            {return &value;}
+            { return &value; }
    
          const_pointer address (const_reference value) const 
-            {return &value;}
+            { return &value; }
 
          CAlloc() throw() {}
          CAlloc(const CAlloc&) throw() {}
@@ -226,16 +229,16 @@ namespace CustomAlloc
             { return std::numeric_limits<std::size_t>::max() / sizeof(T); }
 
          pointer allocate (size_type num, const void* = 0) 
-         {return (pointer)(CA.alloc_(num*sizeof(T)));}
+            { return (pointer)(CA.alloc_(num*sizeof(T))); }
 
          void construct (pointer p, const T& value) 
-            {new((void*)p)T(value);}
+            { new((void*)p)T(value); }
 
           void destroy (pointer p) 
-            {p->~T();}
+            { p->~T(); }
 
           void deallocate (pointer p, size_type num) 
-          {CA.free_(p);}
+            { CA.free_(p); }
    };
 
    template <class T> bool operator==( const CAlloc<T>& left, const CAlloc<T>& right )

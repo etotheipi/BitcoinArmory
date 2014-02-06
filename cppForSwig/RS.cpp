@@ -236,7 +236,8 @@ void RS::SetParity(uint16_t *parity, int data_length)
 
 int RS::Encode(const void *data, int len_in_bytes)
 {
-	//memset(par, 0, sizeof(uint16_t)*rscp->nroots);
+   while(encode_flag.Fetch_Or(1));
+
    int rt = 0, i = 0, count;   
    if(data_len != len_in_bytes) PrepareData(len_in_bytes);
    else memset(par, 0, par_len*sizeof(uint16_t));
@@ -248,6 +249,7 @@ int RS::Encode(const void *data, int len_in_bytes)
       count += blocks[i];
    }
 
+   encode_flag = 0;
    return rt;
 }
 
@@ -287,6 +289,8 @@ int RS::Encode(rs_params *rs, uint8_t *data, int len, uint16_t *par, uint16_t in
 
 int RS::Decode(uint8_t *data, int len_in_bytes)
 {
+   while(encode_flag!=0);
+
    if(data_len != len_in_bytes) return -1;
    int rt=0, i=0, count=0, vrt, err=0;
 

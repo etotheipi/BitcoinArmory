@@ -1439,28 +1439,28 @@ class SecureBinaryDataTest : public ::testing::Test
          str4_ = "1234abcd";
          str5_ = "1234abcdef5948f216aad2e0";
 
-         bd0_ = READHEXS(str0_);
-         bd4_ = READHEXS(str4_);
-         bd5_ = READHEXS(str5_);
+         sbd0_ = READHEXS(str0_);
+         sbd4_ = READHEXS(str4_);
+         sbd12_ = READHEXS(str5_);
       }
 
       string str0_;
       string str4_;
       string str5_;
 
-      SecureBinaryData bd0_;
-      SecureBinaryData bd4_;
-      SecureBinaryData bd5_;
+      SecureBinaryData sbd0_;
+      SecureBinaryData sbd4_;
+      SecureBinaryData sbd12_;
 };
 
 TEST_F(SecureBinaryDataTest, CorruptAndCopy)
 {
-   SecureBinaryData bdcorrupt = bd5_;
-   SecureBinaryData ef("abcd");
+   SecureBinaryData sbdcorrupt12 = sbd12_;
+   SecureBinaryData sbdcorrupt4  = sbd4_;
 
    int nerrors=0;
-   uint8_t *p = bdcorrupt.getPtr();
-   for(int i=0; i<bdcorrupt.getSize(); i++)
+   uint8_t *p = sbdcorrupt12.getPtr();
+   for(int i=0; i<sbdcorrupt12.getSize(); i++)
    {
       if(!(rand() % 4))
       {
@@ -1471,10 +1471,32 @@ TEST_F(SecureBinaryDataTest, CorruptAndCopy)
       }
    }
 
-   SecureBinaryData bdrecovered = bdcorrupt;
+   p = sbdcorrupt4.getPtr();
+   p[0] = rand() % 255;
+   p[1] = rand() % 255;
 
-   EXPECT_NE(bd5_, bdcorrupt);
-   EXPECT_EQ(bd5_, bdrecovered);
+   SecureBinaryData sbdrecovered12 = sbdcorrupt12;
+
+   EXPECT_NE(sbd12_, sbdcorrupt12);
+   EXPECT_EQ(sbd12_, sbdrecovered12);
+
+   SecureBinaryData sbd16_ = sbd4_ + sbd12_;
+   SecureBinaryData sbdrecovered16 = sbdcorrupt4 + sbdcorrupt12;
+
+   EXPECT_EQ(sbd16_, sbdrecovered16);
+
+   SecureBinaryData sbdappend(sbdcorrupt4.getPtr(), sbdcorrupt4.getSize(), sbdcorrupt4.getRScode());
+   
+   EXPECT_NE(sbdcorrupt4, sbdappend);
+   EXPECT_EQ(sbd4_, sbdappend);
+
+   sbdappend.append(sbdcorrupt12);
+
+   EXPECT_EQ(sbd16_, sbdappend);
+
+   BinaryData bd12_ = sbdcorrupt12.getRawCopy();
+
+   EXPECT_EQ(bd12_, sbd12_);
 
    int abc=0;
 }

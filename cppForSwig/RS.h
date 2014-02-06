@@ -86,6 +86,8 @@ class RS
       static rs_control rsc; //holds the static RS parameters
 		rs_params *rscp;
 
+      AtomicInt32 encode_flag;
+
       int *blocks;
       int nblocks;
       int data_len;
@@ -112,6 +114,7 @@ class RS
          blocks = 0;
          data_len = 0;
 			SetParams(rsc.rs_16);
+         encode_flag = 0;
 		}
 
 		RS::RS(int parity_len)

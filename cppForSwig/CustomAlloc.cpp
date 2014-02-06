@@ -49,7 +49,7 @@ namespace CustomAlloc
 
    #ifdef _MSC_VER
       /***
-      MSVS only approach: WinAPI's SetProcessWorkingSetSize:
+      MSVC only approach: WinAPI's SetProcessWorkingSetSize:
       A few rules to follow with this API call:
       1) Windows requires 20 memory pages of overhead
       2) Your lockable memory is defined only by the minimum value
@@ -144,7 +144,7 @@ namespace CustomAlloc
       bhtmp->ref = (void*)this;
 	   nBH++;
 
-      bhtmp->size = size +4;
+      bhtmp->size = size +size_of_ptr;
       bhtmp->offset = 0;
       bhtmp->pinuse = &bhtmp->linuse;
 	   bhtmp->linuse = 1;
@@ -168,7 +168,7 @@ namespace CustomAlloc
             else BH[g]->reset();
 		   }
 
-         if(BH[sm]->offset) reserved = (size_t)BH[sm]->offset -4 -(size_t)pool +BH[sm]->size;
+         if(BH[sm]->offset) reserved = (size_t)BH[sm]->offset -size_of_ptr -(size_t)pool +BH[sm]->size;
 		   else reserved = 0;
 		   freemem = total - reserved;
 	   }
@@ -225,13 +225,13 @@ namespace CustomAlloc
    {
       while(acquireGap.Fetch_Or(1));
    
-      if((size_t)bh->offset - (size_t)pool +bh->size -4 == reserved)
+      if((size_t)bh->offset - (size_t)pool +bh->size -size_of_ptr == reserved)
          reserved -= bh->size;
       else
       {
          if(ngaps == total_ngaps) ExtendGap();
       
-         gaps[ngaps].position = (int)bh->offset -4;
+         gaps[ngaps].position = (int)bh->offset -size_of_ptr;
          gaps[ngaps].size = bh->size;
 
          ngaps++;
@@ -293,7 +293,7 @@ namespace CustomAlloc
 		
    BufferHeader* MemPool::GetBuffer(unsigned int size, unsigned int *sema) //needs fixing
    {
-      size+=4; //extra 4 bytes to point at the bh
+      size+=size_of_ptr; //extra bytes to point at the bh
 
 	   if(lockpool.Fetch_Or(1)) return 0; //pools are meant to function as single threaded
 	   if(!total) 
@@ -314,7 +314,7 @@ namespace CustomAlloc
          return 0;
       }
 
-      BufferHeader *bhtmp = GetBH(size -4);
+      BufferHeader *bhtmp = GetBH(size -size_of_ptr);
 
       if(!bhtmp) 
       {
@@ -322,9 +322,10 @@ namespace CustomAlloc
          return 0;
       }
 
-      bhtmp->offset = (byte*)offset +4;
-      int *bhhead = (int*)offset;
-      *bhhead = (int)bhtmp;
+      bhtmp->offset = (byte*)offset +size_of_ptr;
+      memcpy((void*)offset, &bhtmp, size_of_ptr);
+      //int *bhhead = (int*)offset;
+      //*bhhead = (int)bhtmp;
 
 	   if(sema) bhtmp->pinuse=sema;
 	   bhtmp->move = 0;
@@ -343,11 +344,11 @@ namespace CustomAlloc
    {
       //Nulls a buffer previously allocated by customAlloc and marks it as unused
       //frees empty pools
-      BufferHeader *bh = (BufferHeader*)*((int*)buffer -1);
+      BufferHeader *bh = (BufferHeader*)*(size_t*)((size_t)buffer -MemPool::size_of_ptr);
       if(bh->linuse==1)
       {
          *(bh->pinuse) = 0;
-         memset(bh->offset, 0, bh->size-4);
+         memset(bh->offset, 0, bh->size-MemPool::size_of_ptr);
          MemPool *mp = (MemPool*)bh->ref;
          mp->AddGap(bh);
          bh->offset = 0;
