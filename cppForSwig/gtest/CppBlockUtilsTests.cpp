@@ -6072,6 +6072,57 @@ TEST_F(BlockUtilsBare, Load5Blocks_FullReorg)
    EXPECT_EQ(wlt.getFullBalance(), 160*COIN);
 }
 
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(BlockUtilsBare, CorruptedBlock)
+{
+   BtcWallet wlt;
+   wlt.addScrAddress(scrAddrA_);
+   wlt.addScrAddress(scrAddrB_);
+   wlt.addScrAddress(scrAddrC_);
+   TheBDM.registerWallet(&wlt);
+   TheBDM.registerNewScrAddr(scrAddrD_);
+
+   BtcWallet wlt2;
+   wlt2.addScrAddress(scrAddrD_);
+   
+   TheBDM.doInitialSyncOnLoad(); 
+   TheBDM.scanBlockchainForTx(wlt);
+   TheBDM.scanBlockchainForTx(wlt2);
+
+   // corrupt blk_5A
+   {
+      const std::string src = "../reorgTest/blk_5A.dat";
+      const std::string dst = blk0dat_;
+      
+      const uint64_t srcsz = BtcUtils::GetFileSize(src);
+      
+      BinaryData temp((size_t)srcsz);
+      ifstream is(src.c_str(), ios::in  | ios::binary);
+      is.read((char*)temp.getPtr(), srcsz);
+      is.close();
+      
+      ofstream os(dst.c_str(), ios::out | ios::binary);
+      os.write((char*)temp.getPtr(), 100);
+      os.write((char*)temp.getPtr()+120, srcsz-100-20); // erase 20 bytes
+      os.close();
+   }
+
+   TheBDM.readBlkFileUpdate();
+   
+
+   TheBDM.scanBlockchainForTx(wlt);
+   TheBDM.scanBlockchainForTx(wlt2);
+
+   ScrAddrObj * scrobj;
+   scrobj = &wlt.getScrAddrObjByKey(scrAddrA_);
+   EXPECT_EQ(scrobj->getFullBalance(),100*COIN);
+   scrobj = &wlt.getScrAddrObjByKey(scrAddrB_);
+   EXPECT_EQ(scrobj->getFullBalance(), 0*COIN);
+   //scrobj = &wlt.getScrAddrObjByKey(scrAddrD_);
+   //EXPECT_EQ(scrobj->getFullBalance(),140*COIN);
+
+   EXPECT_EQ(wlt.getFullBalance(), 150*COIN);
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 TEST_F(BlockUtilsBare, Load5Blocks_RescanOps)
