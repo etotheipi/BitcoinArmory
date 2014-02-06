@@ -781,36 +781,31 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
       return txdp.serializeAscii()
 
-
    ################################################################################
-   # For each transaction that triggers a notification:
+   # For each transaction in a block that triggers a notification:
    #  List the inputs, and output, indicate the one we are watching, displays balance data
-   # Includes chain identifier and chain index
+   #  Also, display meta data associated with the address.
    #
    # Example usage:
    # started the daemon with these arguments: --testnet armory_286jcNJRc_.wallet
-   # Then I called the daemon with: --testnet watchwallet <email args> "n2p9xCvtsdHJPtEWx2EUABSy2nox4zhHPo" 0 1
-   # Pass in an optional "Chain Dictionary" keyed by public addr and values are (chain, index)
-   def jsonrpc_watchwallet(self, send_from=None, password=None, send_to=None, subject=None, watchAddr=None, chain=None, index=None):
-      if watchAddr:
-         self.chainDictionary[watchAddr] = (chain, index)
+   # Then I called the daemon with: --testnet watchwallet <email args>
+   def jsonrpc_watchwallet(self, send_from=None, password=None, send_to=None, subject=None):
       
       @EmailOutput(send_from, password, [send_to], subject)
       def reportTxFromAddrInNewBlock(pyHeader, pyTxList):
          result = ''
          for pyTx in pyTxList:
             for pyTxIn in pyTx.inputs:
-               # We expect all these addresses to be PubKeyHash, meaning that the 
-               # public key must be in the TxIn script, and thus will be avail.
-               sendingAddrStr = TxInExtractAddrStrIfAvail(pyTxIn)
-               if len(sendingAddrStr) > 0:
-                  atype, sendingAddrHash = addrStr_to_hash160(sendingAddrStr)
+               sendingAddrHash = TxInScriptExtractAddr160IfAvail(pyTxIn)
+               if len(sendingAddrHash) > 0:
+                  sendingAddrStr = hash160_to_addrStr(sendingAddrHash)
                   if self.wallet.addrMap.has_key(sendingAddrHash):
-                     if sendingAddrStr in self.chainDictionary:
-                        result = ''.join([result, "\nChain: " + self.chainDictionary[sendingAddrStr][0]])
-                        result = ''.join([result, "   Index: " + self.chainDictionary[sendingAddrStr][1]])
+                     sendingAddr = self.wallet.addrMap[sendingAddrHash]
+                     if sendingAddrStr in self.addressMetaData:
+                        result = ''.join([result, "\nChain: " + self.addressMetaData[sendingAddrStr][0]])
+                        result = ''.join([result, "   Index: " + self.addressMetaData[sendingAddrStr][1]])
                      # print the meta data
-                     result = ''.join([result, '\n', sendingAddrStr.toString()])
+                     result = ''.join([result, '\n', sendingAddr.toString()])
                      result = ''.join([result, '\n', pyTx.toString()])
          return result
 
@@ -818,6 +813,28 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       # Remove existing newBlockFunction to allow user to change the email args
       rpc_server.newBlockFunctions = []
       rpc_server.newBlockFunctions.append(reportTxFromAddrInNewBlock)
+   
+   ################################################################################
+   # Associate meta data to an address or addresses
+   def jsonrpc_setaddressmetadata(self, newAddressMetaData):
+      # Loop once to check the addresses
+      # Don't add any meta data if one of the addresses wrong.
+      for addr in newAddressMetaData.keys():
+         if not checkAddrStrValid(addr):
+            raise InvalidBitcoinAddress
+         if not self.wallet.addrMap.has_key(addr):
+            raise AddressNotInWallet()
+      self.addressMetaData.update()
+   
+   ################################################################################
+   # Clear the meta data
+   def jsonrpc_clearaddressmetadata(self):
+      self.addressMetaData = {}
+         
+   ################################################################################
+   # get the meta data
+   def jsonrpc_getaddressmetadata(self):
+      return self.addressMetaData
          
 ################################################################################
 ################################################################################
