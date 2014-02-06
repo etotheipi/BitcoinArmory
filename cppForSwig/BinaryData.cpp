@@ -10,21 +10,24 @@
 #include "BtcUtils.h"
 
 ////////////////////////////////////////////////////////////////////////////////
-BinaryData::BinaryData(BinaryDataRef const & bdRef) 
+template <class Alloc_> 
+BinaryDataT<Alloc_>::BinaryDataT(BinaryDataRef const & bdRef) 
 { 
    copyFrom(bdRef.getPtr(), bdRef.getSize());
 }
 
 
 ////////////////////////////////////////////////////////////////////////////////
-void BinaryData::copyFrom(BinaryDataRef const & bdr)
+template<class Alloc_> 
+void BinaryDataT<Alloc_>::copyFrom(BinaryDataRef const & bdr)
 {
    copyFrom( bdr.getPtr(), bdr.getSize() );
 }
 
 
 ////////////////////////////////////////////////////////////////////////////////
-BinaryDataRef BinaryData::getRef(void) const
+template<class Alloc_> 
+BinaryDataRef BinaryDataT<Alloc_>::getRef(void) const
 {
    return BinaryDataRef(getPtr(), getSize());
 }
@@ -32,7 +35,8 @@ BinaryDataRef BinaryData::getRef(void) const
 
 
 ////////////////////////////////////////////////////////////////////////////////
-BinaryData & BinaryData::append(BinaryDataRef const & bd2)
+template<class Alloc_> 
+BinaryDataT<Alloc_> & BinaryDataT<Alloc_>::append(BinaryDataRef const & bd2)
 {
    if(bd2.getSize()==0) 
       return (*this);
@@ -47,14 +51,16 @@ BinaryData & BinaryData::append(BinaryDataRef const & bd2)
 
 
 /////////////////////////////////////////////////////////////////////////////
-BinaryData & BinaryData::append(uint8_t const * str, uint32_t sz)
+template<class Alloc_> 
+BinaryDataT<Alloc_> & BinaryDataT<Alloc_>::append(uint8_t const * str, uint32_t sz)
 {
    BinaryDataRef appStr(str, sz);
    return append(appStr);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-int32_t BinaryData::find(BinaryDataRef const & matchStr, uint32_t startPos)
+template<class Alloc_> 
+int32_t BinaryDataT<Alloc_>::find(BinaryDataRef const & matchStr, uint32_t startPos)
 {
    int32_t finalAnswer = -1;
    if(matchStr.getSize()==0)
@@ -84,7 +90,8 @@ int32_t BinaryData::find(BinaryDataRef const & matchStr, uint32_t startPos)
 
 
 ////////////////////////////////////////////////////////////////////////////////
-int32_t BinaryData::find(BinaryData const & matchStr, uint32_t startPos)
+template<class Alloc_> 
+int32_t BinaryDataT<Alloc_>::find(BinaryDataT const & matchStr, uint32_t startPos)
 {
    BinaryDataRef bdrmatch(matchStr);
    return find(bdrmatch, startPos);
@@ -92,13 +99,15 @@ int32_t BinaryData::find(BinaryData const & matchStr, uint32_t startPos)
 
 
 ////////////////////////////////////////////////////////////////////////////////
-bool BinaryData::contains(BinaryData const & matchStr, uint32_t startPos)
+template<class Alloc_> 
+bool BinaryDataT<Alloc_>::contains(BinaryDataT<Alloc_> const & matchStr, uint32_t startPos)
 {
    return (find(matchStr, startPos) != -1);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-bool BinaryData::contains(BinaryDataRef const & matchStr, uint32_t startPos)
+template<class Alloc_> 
+bool BinaryDataT<Alloc_>::contains(BinaryDataRef const & matchStr, uint32_t startPos)
 {
    return (find(matchStr, startPos) != -1);
 }
@@ -106,7 +115,8 @@ bool BinaryData::contains(BinaryDataRef const & matchStr, uint32_t startPos)
 
 
 /////////////////////////////////////////////////////////////////////////////
-bool BinaryData::startsWith(BinaryDataRef const & matchStr) const
+template<class Alloc_> 
+bool BinaryDataT<Alloc_>::startsWith(BinaryDataRef const & matchStr) const
 {
    if(matchStr.getSize() > getSize())
       return false;
@@ -119,7 +129,8 @@ bool BinaryData::startsWith(BinaryDataRef const & matchStr) const
 }
 
 /////////////////////////////////////////////////////////////////////////////
-bool BinaryData::startsWith(BinaryData const & matchStr) const
+template<class Alloc_> 
+bool BinaryDataT<Alloc_>::startsWith(BinaryDataT<Alloc_> const & matchStr) const
 {
    if(matchStr.getSize() > getSize())
       return false;
@@ -132,7 +143,8 @@ bool BinaryData::startsWith(BinaryData const & matchStr) const
 }
 
 /////////////////////////////////////////////////////////////////////////////
-bool BinaryData::endsWith(BinaryDataRef const & matchStr) const
+template<class Alloc_> 
+bool BinaryDataT<Alloc_>::endsWith(BinaryDataRef const & matchStr) const
 {
    uint32_t sz = matchStr.getSize();
    if(sz > getSize())
@@ -145,7 +157,8 @@ bool BinaryData::endsWith(BinaryDataRef const & matchStr) const
    return true;
 }
 /////////////////////////////////////////////////////////////////////////////
-bool BinaryData::endsWith(BinaryData const & matchStr) const
+template<class Alloc_> 
+bool BinaryDataT<Alloc_>::endsWith(BinaryDataT<Alloc_> const & matchStr) const
 {
    uint32_t sz = matchStr.getSize();
    if(sz > getSize())
@@ -159,7 +172,8 @@ bool BinaryData::endsWith(BinaryData const & matchStr) const
 }
 
 /////////////////////////////////////////////////////////////////////////////
-BinaryDataRef BinaryData::getSliceRef(int32_t start_pos, uint32_t nChar) const
+template<class Alloc_> 
+BinaryDataRef BinaryDataT<Alloc_>::getSliceRef(int32_t start_pos, uint32_t nChar) const
 {
    if(start_pos < 0) 
       start_pos = getSize() + start_pos;
@@ -173,7 +187,8 @@ BinaryDataRef BinaryData::getSliceRef(int32_t start_pos, uint32_t nChar) const
 }
 
 /////////////////////////////////////////////////////////////////////////////
-BinaryData BinaryData::getSliceCopy(int32_t start_pos, uint32_t nChar) const
+template<class Alloc_> 
+BinaryDataT<Alloc_> BinaryDataT<Alloc_>::getSliceCopy(int32_t start_pos, uint32_t nChar) const
 {
    if(start_pos < 0) 
       start_pos = getSize() + start_pos;
@@ -181,9 +196,9 @@ BinaryData BinaryData::getSliceCopy(int32_t start_pos, uint32_t nChar) const
    if(start_pos + nChar > getSize())
    {
       cerr << "getSliceCopy: Invalid BinaryData access" << endl;
-      return BinaryData();
+      return BinaryDataT<Alloc_>();
    }
-   return BinaryData(getPtr()+start_pos, nChar);
+   return BinaryDataT<Alloc_>(getPtr()+start_pos, nChar);
 }
 
 
@@ -212,13 +227,12 @@ uint64_t BinaryRefReader::get_var_int(uint8_t* nRead)
 
 
 /////////////////////////////////////////////////////////////////////////////
-bool BinaryData::operator==(BinaryDataRef const & bd2) const
+template<class Alloc_> 
+bool BinaryDataT<Alloc_>::operator==(BinaryDataRef const & bd2) const
 {
    if(getSize() != bd2.getSize())
       return false;
 
    return (memcmp(getPtr(), bd2.getPtr(), getSize()) == 0);
 }
-
-
 

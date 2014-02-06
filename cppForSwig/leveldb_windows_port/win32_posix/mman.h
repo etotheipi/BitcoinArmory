@@ -45,8 +45,8 @@ void*   mmap(void *addr, size_t len, int prot, int flags, int fildes, off_t off)
 int     munmap(void *addr, size_t len);
 int     mprotect(void *addr, size_t len, int prot);
 int     msync(void *addr, size_t len, int flags);
-int     mlock(const void *addr, size_t len);
-int     munlock(const void *addr, size_t len);
+//int     mlock(const void *addr, size_t len);
+//int     munlock(const void *addr, size_t len);
 
 #ifdef __cplusplus
 };

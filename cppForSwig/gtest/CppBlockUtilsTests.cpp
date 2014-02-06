@@ -11,12 +11,14 @@
 #include "../PartialMerkle.h"
 #include "../leveldb_wrapper.h"
 #include "../BlockUtils.h"
+#include "../EncryptionUtils.h"
 
 #ifdef _MSC_VER
    #include "win32_posix.h"
 #endif
 
 #define READHEX BinaryData::CreateFromHex
+#define READHEXS BinaryDataT<CA_uint8>::CreateFromHex
 #define TheBDM BlockDataManager_LevelDB::GetInstance()
 
 
@@ -1428,6 +1430,54 @@ TEST(BinaryReadWriteTest, ReaderEndian)
    EXPECT_EQ(brrBE2.get_var_int(), 0x00ff00ff00ff00ffULL);
 }
 
+class SecureBinaryDataTest : public ::testing::Test
+{
+   protected:
+      virtual void SetUp(void) 
+      {
+         str0_ = "";
+         str4_ = "1234abcd";
+         str5_ = "1234abcdef5948f216aad2e0";
+
+         bd0_ = READHEXS(str0_);
+         bd4_ = READHEXS(str4_);
+         bd5_ = READHEXS(str5_);
+      }
+
+      string str0_;
+      string str4_;
+      string str5_;
+
+      SecureBinaryData bd0_;
+      SecureBinaryData bd4_;
+      SecureBinaryData bd5_;
+};
+
+TEST_F(SecureBinaryDataTest, CorruptAndCopy)
+{
+   SecureBinaryData bdcorrupt = bd5_;
+   SecureBinaryData ef("abcd");
+
+   int nerrors=0;
+   uint8_t *p = bdcorrupt.getPtr();
+   for(int i=0; i<bdcorrupt.getSize(); i++)
+   {
+      if(!(rand() % 4))
+      {
+         p[i] = rand() % 255;
+         nerrors++;
+         
+         if(nerrors==8) break;
+      }
+   }
+
+   SecureBinaryData bdrecovered = bdcorrupt;
+
+   EXPECT_NE(bd5_, bdcorrupt);
+   EXPECT_EQ(bd5_, bdrecovered);
+
+   int abc=0;
+}
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 class BtcUtilsTest : public ::testing::Test

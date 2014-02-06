@@ -70,32 +70,7 @@
 #include "BinaryData.h"
 #include "BtcUtils.h"
 #include "UniversalTimer.h"
-
-// This is used to attempt to keep keying material out of swap
-// I am stealing this from bitcoin 0.4.0 src, serialize.h
-#if defined(_MSC_VER) || defined(__MINGW32__)
-   // Note that VirtualLock does not provide this as a guarantee on Windows,
-   // but, in practice, memory that has been VirtualLock'd almost never gets written to
-   // the pagefile except in rare circumstances where memory is extremely low.
-   #include <windows.h>
-   #define mlock(p, n) VirtualLock((p), (n));
-   #define munlock(p, n) VirtualUnlock((p), (n));
-#else
-   #include <sys/mman.h>
-   #include <limits.h>
-   /* This comes from limits.h if it's not defined there set a sane default */
-   #ifndef PAGESIZE
-      #include <unistd.h>
-      #define PAGESIZE sysconf(_SC_PAGESIZE)
-   #endif
-   #define mlock(a,b) \
-     mlock(((void *)(((size_t)(a)) & (~((PAGESIZE)-1)))),\
-     (((((size_t)(a)) + (b) - 1) | ((PAGESIZE) - 1)) + 1) - (((size_t)(a)) & (~((PAGESIZE) - 1))))
-   #define munlock(a,b) \
-     munlock(((void *)(((size_t)(a)) & (~((PAGESIZE)-1)))),\
-     (((((size_t)(a)) + (b) - 1) | ((PAGESIZE) - 1)) + 1) - (((size_t)(a)) & (~((PAGESIZE) - 1))))
-#endif
-
+#include "RS.h"
 
 // We will look for a high memory value to use in the KDF
 // But as a safety check, we should probably put a cap
@@ -130,43 +105,62 @@ using namespace std;
 // really sensitive.  We can use the SecureBinaryData(bdObj) to convert our 
 // regular strings/BinaryData objects to secure objects
 //
-class SecureBinaryData : public BinaryData
+
+class SecureBinaryData : public BinaryDataT<CA_uint8>
 {
+private:
+   RS sbd_rs;
+
 public:
    // We want regular BinaryData, but page-locked and secure destruction
-   SecureBinaryData(void) : BinaryData() 
-                   { lockData(); }
-   SecureBinaryData(uint32_t sz) : BinaryData(sz) 
-                   { lockData(); }
-   SecureBinaryData(BinaryData const & data) : BinaryData(data) 
-                   { lockData(); }
-   SecureBinaryData(uint8_t const * inData, size_t sz) : BinaryData(inData, sz)
-                   { lockData(); }
-   SecureBinaryData(uint8_t const * d0, uint8_t const * d1) : BinaryData(d0, d1)
-                   { lockData(); }
-   SecureBinaryData(string const & str) : BinaryData(str)
-                   { lockData(); }
-   SecureBinaryData(BinaryDataRef const & bdRef) : BinaryData(bdRef)
-                   { lockData(); }
+   SecureBinaryData(void) : BinaryDataT<CA_uint8>() 
+                   { sbd_rs.WipeAndClean();}
+   SecureBinaryData(uint32_t sz) : BinaryDataT<CA_uint8>(sz) 
+                   { sbd_rs.WipeAndClean(); }
+   
+   SecureBinaryData(BinaryDataT<CA_uint8> const & data) : BinaryDataT<CA_uint8>(data) 
+                   { sbd_rs.Encode(getPtr(), getSize()); }
+   SecureBinaryData(uint8_t const * inData, size_t sz) : BinaryDataT<CA_uint8>(inData, sz)
+                   { sbd_rs.Encode(getPtr(), getSize()); }
+   SecureBinaryData(uint8_t const * d0, uint8_t const * d1) : BinaryDataT<CA_uint8>(d0, d1)
+                   { sbd_rs.Encode(getPtr(), getSize()); }
+   SecureBinaryData(string const & str) : BinaryDataT<CA_uint8>(str)
+                   { sbd_rs.Encode(getPtr(), getSize()); }
+   SecureBinaryData(BinaryDataRef const & bdRef) : BinaryDataT<CA_uint8>(bdRef)
+                   { sbd_rs.Encode(getPtr(), getSize()); }
+
+   SecureBinaryData(uint8_t const * inData, size_t sz, uint16_t* RScode) : BinaryDataT<CA_uint8>(inData, sz)
+                   {
+                      sbd_rs.SetParity(RScode, sz);
+                      if(sbd_rs.Decode(getPtr(), getSize())>-1)
+                         sbd_rs.Encode(getPtr(), getSize());
+                      else
+                      {
+                         LOGERR << "***RS Decode Failure***";
+                         throw "RS Decode Error! Aborting";
+                      }
+                   }
+
 
    ~SecureBinaryData(void) { destroy(); }
 
    // These methods are definitely inherited, but SWIG needs them here if they
    // are to be used from python
-   uint8_t const *   getPtr(void)  const { return BinaryData::getPtr();  }
-   uint8_t       *   getPtr(void)        { return BinaryData::getPtr();  }
-   size_t            getSize(void) const { return BinaryData::getSize(); }
-   SecureBinaryData  copy(void)    const { return SecureBinaryData(getPtr(), getSize());}
+   uint8_t const *   getPtr(void)  const { return BinaryDataT<CA_uint8>::getPtr();  }
+   uint8_t       *   getPtr(void)        { return BinaryDataT<CA_uint8>::getPtr();  }
+   size_t            getSize(void) const { return BinaryDataT<CA_uint8>::getSize(); }
+   SecureBinaryData  copy(void)    const { return SecureBinaryData(getPtr(), getSize(), getRScode());}
    
-   string toHexStr(bool BE=false) const { return BinaryData::toHexStr(BE);}
-   string toBinStr(void) const          { return BinaryData::toBinStr();  }
+   string toHexStr(bool BE=false) const { return BinaryDataT<CA_uint8>::toHexStr(BE);}
+   string toBinStr(void) const          { return BinaryDataT<CA_uint8>::toBinStr();  }
 
-   SecureBinaryData(SecureBinaryData const & sbd2) : 
-           BinaryData(sbd2.getPtr(), sbd2.getSize()) { lockData(); }
+   SecureBinaryData(SecureBinaryData const & sbd2)  
+           {  destroy();
+              *this = sbd2.copy(); }
 
 
-   void resize(size_t sz)  { BinaryData::resize(sz);  lockData(); }
-   void reserve(size_t sz) { BinaryData::reserve(sz); lockData(); }
+   void resize(size_t sz)  { BinaryDataT<CA_uint8>::resize(sz); }
+   void reserve(size_t sz) { BinaryDataT<CA_uint8>::reserve(sz); }
 
 
    BinaryData    getRawCopy(void) const { return BinaryData(getPtr(), getSize()); }
@@ -188,22 +182,18 @@ public:
    // SecureBinaryData().GenerateRandom(32), etc
    SecureBinaryData GenerateRandom(uint32_t numBytes);
 
-   void lockData(void)
-   {
-      if(getSize() > 0)
-         mlock(getPtr(), getSize());
-   }
-
    void destroy(void)
    {
       if(getSize() > 0)
       {
          fill(0x00);
-         munlock(getPtr(), getSize());
       }
       resize(0);
+      sbd_rs.WipeAndClean();
    }
 
+   uint16_t *getRScode(void) const
+      {return sbd_rs.GetParity();}
 };
 
 

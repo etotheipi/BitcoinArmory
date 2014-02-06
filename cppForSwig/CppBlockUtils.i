@@ -51,6 +51,7 @@ namespace std
    %template(vector_AddressBookEntry) std::vector<AddressBookEntry>;
    %template(vector_RegisteredTx) std::vector<RegisteredTx>;
 }
+
 /******************************************************************************/
 /* Convert Python(str) to C++(BinaryData) */
 %typemap(in) BinaryData

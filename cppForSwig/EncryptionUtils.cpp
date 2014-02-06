@@ -17,8 +17,6 @@
 
 #define CRYPTO_DEBUG false
 
-
-
 /////////////////////////////////////////////////////////////////////////////
 // We have to explicitly re-define some of these methods...
 SecureBinaryData & SecureBinaryData::append(SecureBinaryData & sbd2) 
@@ -26,12 +24,18 @@ SecureBinaryData & SecureBinaryData::append(SecureBinaryData & sbd2)
    if(sbd2.getSize()==0) 
       return (*this);
 
-   if(getSize()==0) 
-      BinaryData::copyFrom(sbd2.getPtr(), sbd2.getSize());
-   else
-      BinaryData::append(sbd2.getRawRef());
+   size_t this_size = getSize();
 
-   lockData();
+   if(getSize()==0) 
+      BinaryDataT<CA_uint8>::copyFrom(sbd2.getPtr(), sbd2.getSize());
+   else
+      BinaryDataT<CA_uint8>::append(sbd2.getRawRef());
+
+   int badcopy = -1;
+   while(badcopy<0)
+      badcopy = sbd2.sbd_rs.Decode(getPtr() + this_size, sbd2.getSize());
+
+   sbd_rs.Encode(getPtr(), getSize());
    return (*this);
 }
 
@@ -39,18 +43,47 @@ SecureBinaryData & SecureBinaryData::append(SecureBinaryData & sbd2)
 SecureBinaryData SecureBinaryData::operator+(SecureBinaryData & sbd2) const
 {
    SecureBinaryData out(getSize() + sbd2.getSize());
-   memcpy(out.getPtr(), getPtr(), getSize());
-   memcpy(out.getPtr()+getSize(), sbd2.getPtr(), sbd2.getSize());
-   out.lockData();
+   int badcopy = -1;
+   
+   //going around the const
+   RS *rs = (RS*)&sbd_rs;
+   
+   while(badcopy<0)
+   {
+      memcpy(out.getPtr(), getPtr(), getSize());
+      badcopy = rs->Decode(out.getPtr(), getSize());
+   }
+
+   //second portion
+   badcopy = -1;
+   while(badcopy<0)
+   {
+      memcpy(out.getPtr()+getSize(), sbd2.getPtr(), sbd2.getSize());   
+      badcopy = sbd2.sbd_rs.Decode(out.getPtr() +getSize(), sbd2.getSize());
+   }
+
+   out.sbd_rs.Encode(out.getPtr(), out.getSize());
+
    return out;
 }
 
 /////////////////////////////////////////////////////////////////////////////
 SecureBinaryData & SecureBinaryData::operator=(SecureBinaryData const & sbd2)
 { 
-   copyFrom(sbd2.getPtr(), sbd2.getSize() );
-   lockData(); 
-   return (*this);
+   destroy();
+
+   copyFrom(sbd2.getPtr(), sbd2.getSize());
+
+   sbd_rs.SetParity(sbd2.sbd_rs.GetParity(), sbd2.getSize());
+   if(sbd_rs.Decode(getPtr(), getSize())>-1)
+      sbd_rs.Encode(getPtr(), getSize());
+   else
+   {
+      LOGERR << "***RS Decode Failure***";
+      throw "RS Decode Error! Aborting";
+   }
+
+   return *this;
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -68,7 +101,7 @@ bool SecureBinaryData::operator==(SecureBinaryData const & sbd2) const
 // Swap endianness of the bytes in the index range [pos1, pos2)
 SecureBinaryData SecureBinaryData::copySwapEndian(size_t pos1, size_t pos2) const
 {
-   return SecureBinaryData(BinaryData::copySwapEndian(pos1, pos2));
+   return SecureBinaryData(BinaryDataT<CA_uint8>::copySwapEndian(pos1, pos2));
 }
 
 /////////////////////////////////////////////////////////////////////////////

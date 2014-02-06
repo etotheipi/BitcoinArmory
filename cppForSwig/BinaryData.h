@@ -44,7 +44,7 @@
 #define DEFAULT_BUFFER_SIZE 32*1048576
 
 #include "UniversalTimer.h"
-
+#include "CustomAlloc.h"
 
 #define READHEX        BinaryData::CreateFromHex
 
@@ -95,22 +95,22 @@ class BinaryDataRef;
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
-class BinaryData
+template <class Alloc_> class BinaryDataT
 {
 public:
 
 
    /////////////////////////////////////////////////////////////////////////////
-   BinaryData(void) : data_(0)                 {                         }
-   explicit BinaryData(size_t sz)              { alloc(sz);              }
-   BinaryData(uint8_t const * inData, size_t sz)      
+   BinaryDataT(void) : data_(0)                 {                         }
+   explicit BinaryDataT(size_t sz)              { alloc(sz);              }
+   BinaryDataT(uint8_t const * inData, size_t sz)      
                                                { copyFrom(inData, sz);   }
-   BinaryData(uint8_t const * dstart, uint8_t const * dend ) 
+   BinaryDataT(uint8_t const * dstart, uint8_t const * dend ) 
                                                { copyFrom(dstart, dend); }
-   BinaryData(string const & str)              { copyFrom(str);          }
-   BinaryData(BinaryData const & bd)           { copyFrom(bd);           }
+   BinaryDataT(string const & str)              { copyFrom(str);          }
+   BinaryDataT(BinaryDataT const & bd)           { copyFrom(bd);           }
 
-   BinaryData(BinaryDataRef const & bdRef);
+   BinaryDataT(BinaryDataRef const & bdRef);
    size_t getSize(void) const               { return data_.size(); }
 
    bool isNull(void) { return (data_.size()==0);}
@@ -142,7 +142,7 @@ public:
                   { copyFrom( start, (end-start)); }  // [start, end)
    void copyFrom(string const & str)                         
                   { copyFrom( (uint8_t*)str.c_str(), str.size()); } 
-   void copyFrom(BinaryData const & bd)                      
+   void copyFrom(BinaryDataT const & bd)                      
                   { copyFrom( bd.getPtr(), bd.getSize() ); }
    void copyFrom(BinaryDataRef const & bdr);
    void copyFrom(uint8_t const * inData, size_t sz)          
@@ -161,7 +161,7 @@ public:
    void copyTo(uint8_t* outData) const { memcpy( outData, &(data_[0]), getSize()); }
    void copyTo(uint8_t* outData, size_t sz) const { memcpy( outData, &(data_[0]), (size_t)sz); }
    void copyTo(uint8_t* outData, size_t offset, size_t sz) const { memcpy( outData, &(data_[offset]), (size_t)sz); }
-   void copyTo(BinaryData & bd) const 
+   void copyTo(BinaryDataT & bd) const 
    {
       bd.resize(data_.size());
 #ifdef _MSC_VER 
@@ -176,7 +176,7 @@ public:
    uint8_t   operator[](int32_t i) const { return (i<0 ? data_[getSize()+i] : data_[i]); } 
 
    /////////////////////////////////////////////////////////////////////////////
-   friend ostream& operator<<(ostream& os, BinaryData const & bd)
+   friend ostream& operator<<(ostream& os, BinaryDataT const & bd)
    {
       os << bd.toHexStr();
       return os;
@@ -184,9 +184,9 @@ public:
   
    
    /////////////////////////////////////////////////////////////////////////////
-   BinaryData operator+(BinaryData const & bd2) const
+   BinaryDataT operator+(BinaryDataT const & bd2) const
    {
-      BinaryData out(getSize() + bd2.getSize());
+      BinaryDataT out(getSize() + bd2.getSize());
       memcpy(out.getPtr(), getPtr(), getSize());
       memcpy(out.getPtr()+getSize(), bd2.getPtr(), bd2.getSize());
       return out;
@@ -194,7 +194,7 @@ public:
 
    /////////////////////////////////////////////////////////////////////////////
    // This is about as efficient as we're going to get...
-   BinaryData & append(BinaryData const & bd2)
+   BinaryDataT & append(BinaryDataT const & bd2)
    {
       if(bd2.getSize()==0) 
          return (*this);
@@ -207,13 +207,13 @@ public:
    }
 
    /////////////////////////////////////////////////////////////////////////////
-   BinaryData & append(BinaryDataRef const & bd2);
+   BinaryDataT & append(BinaryDataRef const & bd2);
 
    /////////////////////////////////////////////////////////////////////////////
-   BinaryData & append(uint8_t const * str, uint32_t sz);
+   BinaryDataT & append(uint8_t const * str, uint32_t sz);
 
    /////////////////////////////////////////////////////////////////////////////
-   BinaryData & append(uint8_t byte)
+   BinaryDataT & append(uint8_t byte)
    {
       data_.insert(data_.end(), byte);
       return (*this);
@@ -223,31 +223,31 @@ public:
    /////////////////////////////////////////////////////////////////////////////
    int32_t find(BinaryDataRef const & matchStr, uint32_t startPos=0);
    /////////////////////////////////////////////////////////////////////////////
-   int32_t find(BinaryData const & matchStr, uint32_t startPos=0);
+   int32_t find(BinaryDataT const & matchStr, uint32_t startPos=0);
 
    /////////////////////////////////////////////////////////////////////////////
    bool contains(BinaryDataRef const & matchStr, uint32_t startPos=0);
    /////////////////////////////////////////////////////////////////////////////
-   bool contains(BinaryData const & matchStr, uint32_t startPos=0);
+   bool contains(BinaryDataT const & matchStr, uint32_t startPos=0);
 
 
    /////////////////////////////////////////////////////////////////////////////
    bool startsWith(BinaryDataRef const & matchStr) const;
    /////////////////////////////////////////////////////////////////////////////
-   bool startsWith(BinaryData const & matchStr) const;
+   bool startsWith(BinaryDataT const & matchStr) const;
 
    /////////////////////////////////////////////////////////////////////////////
    bool endsWith(BinaryDataRef const & matchStr) const;
    /////////////////////////////////////////////////////////////////////////////
-   bool endsWith(BinaryData const & matchStr) const;
+   bool endsWith(BinaryDataT const & matchStr) const;
 
    /////////////////////////////////////////////////////////////////////////////
    BinaryDataRef getSliceRef(int32_t start_pos, uint32_t nChar) const;
    /////////////////////////////////////////////////////////////////////////////
-   BinaryData    getSliceCopy(int32_t start_pos, uint32_t nChar) const;
+   BinaryDataT    getSliceCopy(int32_t start_pos, uint32_t nChar) const;
 
    /////////////////////////////////////////////////////////////////////////////
-   bool operator<(BinaryData const & bd2) const
+   bool operator<(BinaryDataT const & bd2) const
    {
       int minLen = min(getSize(), bd2.getSize());
       for(int i=0; i<minLen; i++)
@@ -271,7 +271,7 @@ public:
    }
 
    /////////////////////////////////////////////////////////////////////////////
-   bool operator==(BinaryData const & bd2) const
+   bool operator==(BinaryDataT const & bd2) const
    {
       if(getSize() != bd2.getSize())
          return false;
@@ -286,7 +286,7 @@ public:
    }
 
    /////////////////////////////////////////////////////////////////////////////
-   bool operator!=(BinaryData const & bd2) const { return (!((*this)==bd2)); }
+   bool operator!=(BinaryDataT const & bd2) const { return (!((*this)==bd2)); }
 
    /////////////////////////////////////////////////////////////////////////////
    bool operator==(BinaryDataRef const & bd2) const;
@@ -295,7 +295,7 @@ public:
    bool operator!=(BinaryDataRef const & bd2) const { return (!((*this)==bd2)); }
 
    /////////////////////////////////////////////////////////////////////////////
-   bool operator>(BinaryData const & bd2) const
+   bool operator>(BinaryDataT const & bd2) const
    {
       int minLen = min(getSize(), bd2.getSize());
       for(int i=0; i<minLen; i++)
@@ -324,7 +324,7 @@ public:
 
       if(bigEndian)
       {
-         BinaryData out = copySwapEndian();
+         BinaryDataT out = copySwapEndian();
          return string((char const *)(out.getPtr()), getSize());
       }
       else
@@ -339,7 +339,7 @@ public:
 
    /////////////////////////////////////////////////////////////////////////////
    // Swap endianness of the bytes in the index range [pos1, pos2)
-   BinaryData& swapEndian(size_t pos1=0, size_t pos2=0)
+   BinaryDataT& swapEndian(size_t pos1=0, size_t pos2=0)
    {
       if(getSize()==0)
          return (*this);
@@ -359,9 +359,9 @@ public:
 
    /////////////////////////////////////////////////////////////////////////////
    // Swap endianness of the bytes in the index range [pos1, pos2)
-   BinaryData copySwapEndian(size_t pos1=0, size_t pos2=0) const
+   BinaryDataT copySwapEndian(size_t pos1=0, size_t pos2=0) const
    {
-      BinaryData bdout(*this);
+      BinaryDataT bdout(*this);
       bdout.swapEndian(pos1, pos2);
       return bdout;
    }
@@ -376,7 +376,7 @@ public:
                                         '4','5','6','7',
                                         '8','9','a','b',
                                         'c','d','e','f' };
-      BinaryData bdToHex(*this);
+      BinaryDataT bdToHex(*this);
       if(bigEndian)
          bdToHex.swapEndian();
 
@@ -392,9 +392,9 @@ public:
    }
 
    /////////////////////////////////////////////////////////////////////////////
-   static BinaryData CreateFromHex(string const & str)
+   static BinaryDataT CreateFromHex(string const & str)
    {
-      BinaryData out;
+      BinaryDataT out;
       out.createFromHex(str);
       return out;
    }
@@ -405,10 +405,10 @@ public:
    // big-endian.  Bit-shift & mod will always return the lowest significant
    // bytes, so we can put them into an array of bytes in the desired order.
    template<typename INTTYPE>
-   static BinaryData IntToStrLE(INTTYPE val)
+   static BinaryDataT IntToStrLE(INTTYPE val)
    {
       uint8_t const SZ = sizeof(INTTYPE);
-      BinaryData out(SZ);
+      BinaryDataT out(SZ);
       for(uint8_t i=0; i<SZ; i++, val>>=8)
          out[i] = val % 256;
       return out;
@@ -416,10 +416,10 @@ public:
    
    /////////////////////////////////////////////////////////////////////////////
    template<typename INTTYPE>
-   static BinaryData IntToStrBE(INTTYPE val)
+   static BinaryDataT IntToStrBE(INTTYPE val)
    {
       uint8_t const SZ = sizeof(INTTYPE);
-      BinaryData out(SZ);
+      BinaryDataT out(SZ);
       for(uint8_t i=0; i<SZ; i++, val>>=8)
          out[(SZ-1)-i] = val % 256;
       return out;
@@ -427,7 +427,7 @@ public:
 
    /////////////////////////////////////////////////////////////////////////////
    template<typename INTTYPE>
-   static INTTYPE StrToIntLE(BinaryData binstr)
+   static INTTYPE StrToIntLE(BinaryDataT binstr)
    {
       uint8_t const SZ = sizeof(INTTYPE);
       if(binstr.getSize() != SZ)
@@ -445,7 +445,7 @@ public:
 
    /////////////////////////////////////////////////////////////////////////////
    template<typename INTTYPE>
-   static INTTYPE StrToIntBE(BinaryData binstr)
+   static INTTYPE StrToIntBE(BinaryDataT binstr)
    {
       uint8_t const SZ = sizeof(INTTYPE);
       if(binstr.getSize() != SZ)
@@ -516,10 +516,10 @@ public:
 
 
    // Can remove this method if we don't have crypto++ linked
-   static BinaryData GenerateRandom(size_t numBytes)
+   static BinaryDataT GenerateRandom(size_t numBytes)
    {
       static CryptoPP::AutoSeededRandomPool prng;
-      BinaryData randData(numBytes);
+      BinaryDataT randData(numBytes);
       prng.GenerateBlock(randData.getPtr(), numBytes);
       return randData;
    }
@@ -545,7 +545,7 @@ public:
    void clear(void) { data_.clear(); }
 
 private:
-   vector<uint8_t> data_;
+   vector<uint8_t, Alloc_> data_;
 
 private:
    void alloc(size_t sz) 
@@ -560,6 +560,15 @@ private:
 
 };
 
+//swig cannot parse embedded '< >', have to typedef a custom allocator template
+//then feed it to the STL container
+typedef CustomAlloc::CAlloc<uint8_t> CA_uint8;
+typedef std::allocator<uint8_t> STLalloc;
+
+template class BinaryDataT<STLalloc>;
+template class BinaryDataT<CA_uint8>;
+
+typedef BinaryDataT<STLalloc> BinaryData;
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -591,7 +600,21 @@ public:
    }
 
    /////////////////////////////////////////////////////////////////////////////
-   BinaryDataRef(BinaryData const & bd)
+   template<class Alloc_> BinaryDataRef(BinaryDataT<Alloc_> const & bd)
+   { 
+      if(bd.getSize()!=0) 
+      {
+         ptr_ = bd.getPtr();
+         nBytes_ = bd.getSize();
+      }
+      else
+      {
+         ptr_= NULL;
+         nBytes_ = 0;
+      }
+   }
+
+  BinaryDataRef(BinaryData const & bd)
    { 
       if(bd.getSize()!=0) 
       {
