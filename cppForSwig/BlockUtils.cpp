@@ -3644,10 +3644,13 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
                                              bool skipFetch,
                                              bool initialLoad)
 {
-
+   missingBlockHashes_.clear();
+   
    SCOPED_TIMER("buildAndScanDatabases");
    LOGINFO << "Number of registered addr: " << registeredScrAddrMap_.size();
 
+   
+   
    // Will use this updating the GUI with progress bar
    time_t t;
    time(&t);
