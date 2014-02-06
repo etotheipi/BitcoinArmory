@@ -6112,7 +6112,7 @@ class DlgPrintBackup(ArmoryDialog):
          elif self.comboPageNum.count() > 0:
             cmbPage = int(str(self.comboPageNum.currentText())) - 1
 
-         self.createPrintScene('Fragmented Backup\xe2\x84\xa2', cmbPage)
+         self.createPrintScene('Fragmented Backup', cmbPage)
       else:
          pgSelect = cmbPage if self.chkImportPrint.isChecked() else 1
          if pgSelect == 1:
@@ -6285,7 +6285,7 @@ class DlgPrintBackup(ArmoryDialog):
       elif printType == 'SingleSheetImported':
          bType = tr('Imported Keys ' + ssType)
       elif printType.lower().startswith('frag'):
-         bstr = tr('Fragmented Backup\xe2\x84\xa2 (%d-of-%d)') % (self.fragData['M'], self.fragData['N'])
+         bstr = tr('Fragmented Backup (%d-of-%d)') % (self.fragData['M'], self.fragData['N'])
          bType = bstr + ' ' + tr(ssType)
 
       if printType.startswith('SingleSheet'):
@@ -9850,7 +9850,7 @@ class DlgFragBackup(ArmoryDialog):
       self.binCrypt32 = None
 
       lblDescrTitle = QRichLabel(tr("""
-         <b><u>Create M-of-N Fragmented Backup\xe2\x84\xa2</u> of "%s" (%s)</b>""") % \
+         <b><u>Create M-of-N Fragmented Backup</u> of "%s" (%s)</b>""") % \
          (wlt.labelName, wlt.uniqueIDB58), doWrap=False)
       lblDescrTitle.setContentsMargins(5, 5, 5, 5)
 
@@ -10278,7 +10278,7 @@ class DlgUniversalRestoreSelect(ArmoryDialog):
       lblRestore = QRichLabel(tr("""I am restoring a..."""))
 
       self.rdoSingle = QRadioButton(tr('Single-Sheet Backup (printed)'))
-      self.rdoFragged = QRadioButton(tr('Fragmented Backup\xe2\x84\xa2 (incl. mix of paper and files)'))
+      self.rdoFragged = QRadioButton(tr('Fragmented Backup (incl. mix of paper and files)'))
       self.rdoDigital = QRadioButton(tr('Import digital backup or watching-only wallet'))
       self.chkTest = QCheckBox(tr('This is a test recovery to make sure my backup works'))
       btngrp = QButtonGroup(self)
@@ -10674,7 +10674,7 @@ class DlgRestoreFragged(ArmoryDialog):
       headerStr = ''
       if thisIsATest:
          headerStr = tr("""<font color="blue" size="4">Testing a
-                     Fragmented Backup\xe2\x84\xa2</font>""")
+                     Fragmented Backup</font>""")
       else:
          headerStr = tr('Restore Wallet from Fragments')
 

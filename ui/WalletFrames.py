@@ -444,7 +444,7 @@ class WalletBackupFrame(ArmoryFrame):
       self.optPaperBackupOne = QRadioButtonBackupCtr(self, \
                                     tr('Single-Sheet (Recommended)'), self.OPTIONS.Paper1)
       self.optPaperBackupFrag = QRadioButtonBackupCtr(self, \
-                                    tr('Fragmented Backup\xe2\x84\xa2 (M-of-N)'), self.OPTIONS.PaperN)
+                                    tr('Fragmented Backup (M-of-N)'), self.OPTIONS.PaperN)
 
       self.optDigitalBackupTop = QRadioButtonBackupCtr(self, \
                                     tr('Digital Backup'), self.OPTIONS.DigPlain)
@@ -705,7 +705,7 @@ class WalletBackupFrame(ArmoryFrame):
             self.featuresImgs[self.FEATURES.Physical  ].setPixmap(_X_())
             self.lblDescrSelected.setText(txtPaper)
          elif index == self.OPTIONS.PaperN:
-            self.lblSelFeat.setText(tr('Fragmented Paper\xe2\x84\xa2 Backup'), bold=True)
+            self.lblSelFeat.setText(tr('Fragmented Paper Backup'), bold=True)
             self.featuresImgs[self.FEATURES.ProtGen   ].setPixmap(chk())
             self.featuresImgs[self.FEATURES.ProtImport].setPixmap(_X_())
             self.featuresImgs[self.FEATURES.LostPass  ].setPixmap(chk())
