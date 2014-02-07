@@ -92,17 +92,19 @@ class CoinSelectError(Exception): pass
 class WalletUnlockNeeded(Exception): pass
 class InvalidBitcoinAddress(Exception): pass
 class PrivateKeyNotFound(Exception): pass
+class AddressNotInWallet(Exception): pass
+
 
 
 NOT_IMPLEMENTED = '--Not Implemented--'
 
 class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
-   #############################################################################
+   ###########################################################################g##
    def __init__(self, wallet):
       self.wallet = wallet
       # Used with wallet notification code 
-      self.chainDictionary = {}
+      self.addressMetaData = {}
       
    #############################################################################
    def jsonrpc_backupwallet(self, backupFilePath):
@@ -504,7 +506,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
          if cppTx.getNumTxOut()==1:
             changeAddr160 = ""
-            targAddr160 = checkHash160(cppTx.getTxOutCopy(0).getScrAddressStr())
+            targAddr160 = CheckHash160(cppTx.getTxOutCopy(0).getScrAddressStr())
          elif isToSelf:
             selfamt,changeIdx = determineSentToSelfAmt(le, self.wallet)
             if changeIdx==-1:
@@ -796,7 +798,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
          result = ''
          for pyTx in pyTxList:
             for pyTxIn in pyTx.inputs:
-               sendingAddrHash = TxInScriptExtractAddr160IfAvail(pyTxIn)
+               sendingAddrHash = TxInExtractAddrStrIfAvail(pyTxIn)
                if len(sendingAddrHash) > 0:
                   sendingAddrStr = hash160_to_addrStr(sendingAddrHash)
                   if self.wallet.addrMap.has_key(sendingAddrHash):
@@ -823,7 +825,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
          if not checkAddrStrValid(addr):
             raise InvalidBitcoinAddress
          if not self.wallet.addrMap.has_key(addr):
-            raise AddressNotInWallet()
+            raise AddressNotInWallet
       self.addressMetaData.update()
    
    ################################################################################
@@ -957,11 +959,15 @@ class Armory_Daemon(object):
          
          if CLI_ARGS:
             proxyobj = ServiceProxy("http://%s:%s@127.0.0.1:%d" % (usr,pwd,ARMORY_RPC_PORT))
-            extraArgs = [] if len(CLI_ARGS)==1 else CLI_ARGS[1:]
             try:
                #if not proxyobj.__hasattr__(CLI_ARGS[0]):
                   #raise UnrecognizedCommand, 'No json command %s'%CLI_ARGS[0]
-
+               extraArgs = []
+               for arg in ([] if len(CLI_ARGS)==1 else CLI_ARGS[1:]):
+                  if arg[0] == '{':
+                     extraArgs.append(json.loads(arg))
+                  else:
+                     extraArgs.append(arg)
                result = proxyobj.__getattr__(CLI_ARGS[0])(*extraArgs)
                print json.dumps(result,
                                 indent=4, \
