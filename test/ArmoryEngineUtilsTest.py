@@ -317,6 +317,7 @@ class ArmoryEngineTest(unittest.TestCase):
 
       self.assertRaises(BadAddressError, addrStr_to_hash160, addrStrA3)
       self.assertRaises(ChecksumError, addrStr_to_hash160, addrStrBad)
+      self.assertRaises(P2SHNotSupportedError, addrStr_to_hash160, addrStr05, False)
 
 
    #############################################################################

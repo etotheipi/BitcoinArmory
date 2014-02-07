@@ -59,6 +59,7 @@ from CppBlockUtils import SecureBinaryData
 from armoryengine.ALL import *
 from jsonrpc import ServiceProxy
 from armoryengine.Decorators import EmailOutput
+from armoryengine.ArmoryUtils import addrStr_to_hash160
 
 
 # Some non-twisted json imports from jgarzik's code and his UniversalEncoder
@@ -249,9 +250,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       if not checkAddrStrValid(addr58):
          raise InvalidBitcoinAddress
 
-      atype, addr160 = addrStr_to_hash160(addr58)
-      if atype==P2SHBYTE:
-         raise P2SHNotSupportedError
+      atype, addr160 = addrStr_to_hash160(addr58, False)
 
       pyBtcAddress = self.wallet.getAddrByHash160(addr160)
       if pyBtcAddress == None:
@@ -284,9 +283,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       if CLI_OPTIONS.offline:
          raise ValueError('Cannot get received amount when offline')
       # Only gets correct amount for addresses in the wallet, otherwise 0
-      atype, addr160 = addrStr_to_hash160(address)
-      if atype==P2SHBYTE:
-         raise P2SHNotSupportedError
+      atype, addr160 = addrStr_to_hash160(address, False)
 
       txs = self.wallet.getAddrTxLedger(addr160)
       balance = sum([x.getValue() for x in txs if x.getValue() > 0])
@@ -798,16 +795,15 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
          result = ''
          for pyTx in pyTxList:
             for pyTxIn in pyTx.inputs:
-               sendingAddrHash = TxInExtractAddrStrIfAvail(pyTxIn)
-               if len(sendingAddrHash) > 0:
-                  sendingAddrStr = hash160_to_addrStr(sendingAddrHash)
-                  if self.wallet.addrMap.has_key(sendingAddrHash):
-                     sendingAddr = self.wallet.addrMap[sendingAddrHash]
-                     if sendingAddrStr in self.addressMetaData:
-                        result = ''.join([result, "\nChain: " + self.addressMetaData[sendingAddrStr][0]])
-                        result = ''.join([result, "   Index: " + self.addressMetaData[sendingAddrStr][1]])
+               sendingAddrStr = TxInExtractAddrStrIfAvail(pyTxIn)
+               if len(sendingAddrStr) > 0:
+                  sendingAddrHash160 = addrStr_to_hash160(sendingAddrStr, False)[1]
+                  if self.wallet.addrMap.has_key(sendingAddrHash160):
+                     sendingAddr = self.wallet.addrMap[sendingAddrHash160]
+                     result = ''.join([result, '\n', sendingAddr.toString(), '\n'])
                      # print the meta data
-                     result = ''.join([result, '\n', sendingAddr.toString()])
+                     if sendingAddrStr in self.addressMetaData:
+                        result = ''.join([result, "\nMeta Data: ", str(self.addressMetaData[sendingAddrStr]), '\n'])
                      result = ''.join([result, '\n', pyTx.toString()])
          return result
 
@@ -818,15 +814,18 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
    
    ################################################################################
    # Associate meta data to an address or addresses
+   # Example input:  "{\"mzAtXhy3Z6SLd7rAwNJrL17e8mQkjDVDXh\": {\"chain\": 5,
+   # \"index\": 2}, \"mkF5L93F5HLhLmQagX26TdXcvPGHvfjoTM\": {\"CrazyField\": \"what\",
+   # \"1\": 1, \"2\": 2}}"
    def jsonrpc_setaddressmetadata(self, newAddressMetaData):
       # Loop once to check the addresses
       # Don't add any meta data if one of the addresses wrong.
       for addr in newAddressMetaData.keys():
          if not checkAddrStrValid(addr):
             raise InvalidBitcoinAddress
-         if not self.wallet.addrMap.has_key(addr):
+         if not self.wallet.addrMap.has_key(addrStr_to_hash160(addr, False)[1]):
             raise AddressNotInWallet
-      self.addressMetaData.update()
+      self.addressMetaData.update(newAddressMetaData)
    
    ################################################################################
    # Clear the meta data

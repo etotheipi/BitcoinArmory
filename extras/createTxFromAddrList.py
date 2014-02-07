@@ -40,10 +40,7 @@ def createTxFromAddrList(walletObj, addrList, recipAmtPairList, \
 
    # Check that all addresses are actually in the specified wallet
    for addr in addrList:
-      atype, addr160 = addrStr_to_hash160(addr)
-      if atype==P2SHBYTE:
-         raise P2SHNotSupportedError
-
+      atype, addr160 = addrStr_to_hash160(addr, False)
       if not walletObj.hasAddr(addr160):
          raise WalletAddressError, 'Address is not in wallet! [%s]' % addr
    
@@ -105,9 +102,7 @@ def createTxFromAddrList(walletObj, addrList, recipAmtPairList, \
 
    # Convert address strings to Hash160 values (and make a copy, too)
    def extractHash160(astr):
-      atype, addr160 = addrStr_to_hash160(astr)
-      if atype==P2SHBYTE:
-         raise P2SHNotSupportedError
+      atype, addr160 = addrStr_to_hash160(astr, False)
       return addr160
 
    recip160List = [(extractHash160(pair[0]), pair[1]) for pair in recipList]

@@ -1755,8 +1755,10 @@ def addrStr_is_p2sh(b58Str):
 # As of version 0.90.1, this returns the prefix byte with the hash160.  This is
 # because we need to handle/distinguish regular addresses from P2SH.  All code
 # using this method must be updated to expect 2 outputs and check the prefix.
-def addrStr_to_hash160(b58Str):
+def addrStr_to_hash160(b58Str, p2shAllowed=True):
    binStr = base58_to_binary(b58Str)
+   if not p2shAllowed and binStr[0]==P2SHBYTE:
+         raise P2SHNotSupportedError
    if not len(binStr) == 25:
       raise BadAddressError('Address string is %d bytes' % len(binStr))
 

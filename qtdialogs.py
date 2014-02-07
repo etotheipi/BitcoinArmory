@@ -1312,9 +1312,7 @@ class DlgWalletDetails(ArmoryDialog):
          self.main.updateAddressCommentFromView(self.wltAddrView, self.wlt)
       else:
          addrStr = str(index.model().index(index.row(), ADDRESSCOLS.Address).data().toString())
-         atype, addr160 = addrStr_to_hash160(addrStr)
-         if atype==P2SHBYTE:
-            raise P2SHNotSupportedError
+         atype, addr160 = addrStr_to_hash160(addrStr, False)
 
          dlg = DlgAddressInfo(self.wlt, addr160, self, self.main)
          dlg.exec_()
@@ -9031,9 +9029,7 @@ class DlgCoinControl(ArmoryDialog):
       totalBal = 0
       for dispList in self.dispTable:
          if dispList[0].isChecked():
-            atype, a160 = addrStr_to_hash160(str(dispList[0].text()))
-            if atype==P2SHBYTE:
-               raise P2SHNotSupportedError
+            atype, a160 = addrStr_to_hash160(str(dispList[0].text()), False)
 
             totalBal += self.wlt.getAddrBalance(a160)
          else:
@@ -9047,9 +9043,7 @@ class DlgCoinControl(ArmoryDialog):
       self.coinControlList = []
       for dispList in self.dispTable:
          if dispList[0].isChecked():
-            atype, a160 = addrStr_to_hash160(str(dispList[0].text()))
-            if atype==P2SHBYTE:
-               raise P2SHNotSupportedError
+            atype, a160 = addrStr_to_hash160(str(dispList[0].text()), False)
 
             bal = self.wlt.getAddrBalance(a160)
             self.coinControlList.append([a160, bal])
