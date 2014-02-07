@@ -32,7 +32,7 @@ SecureBinaryData & SecureBinaryData::append(SecureBinaryData & sbd2)
       BinaryDataT<CA_uint8>::append(sbd2.getRawRef());
 
    if(sbd2.sbd_rs.Decode(getPtr() + this_size, sbd2.getSize())>-1)
-      sbd_rs.Encode(getPtr(), getSize());
+      RSencode();
    else
    {
       LOGERR << "***RS Decode Failure***";
@@ -63,7 +63,7 @@ SecureBinaryData SecureBinaryData::operator+(SecureBinaryData & sbd2) const
       throw "RS Decode Error! Aborting";
    }
 
-   out.sbd_rs.Encode(out.getPtr(), out.getSize());
+   out.RSencode();
 
    return out;
 }
@@ -77,7 +77,7 @@ SecureBinaryData & SecureBinaryData::operator=(SecureBinaryData const & sbd2)
 
    sbd_rs.SetParity(sbd2.sbd_rs.GetParity(), sbd2.getSize());
    if(sbd_rs.Decode(getPtr(), getSize())>-1)
-      sbd_rs.Encode(getPtr(), getSize());
+      RSencode();
    else
    {
       LOGERR << "***RS Decode Failure***";
@@ -126,6 +126,7 @@ SecureBinaryData SecureBinaryData::GenerateRandom(uint32_t numBytes)
    BTC_PRNG prng;
    SecureBinaryData randData(numBytes);
    prng.GenerateBlock(randData.getPtr(), numBytes);
+   RSencode();
    return randData;  
 }
 
@@ -367,7 +368,7 @@ SecureBinaryData CryptoAES::EncryptCFB(SecureBinaryData & data,
    aes_enc.ProcessData( (byte*)encrData.getPtr(), 
                         (byte*)data.getPtr(), 
                                data.getSize());
-
+   encrData.RSencode();
    return encrData;
 }
 
@@ -398,7 +399,7 @@ SecureBinaryData CryptoAES::DecryptCFB(SecureBinaryData & data,
    aes_enc.ProcessData( (byte*)unencrData.getPtr(), 
                         (byte*)data.getPtr(), 
                                data.getSize());
-
+   unencrData.RSencode();
    return unencrData;
 }
 
@@ -436,7 +437,7 @@ SecureBinaryData CryptoAES::EncryptCBC(SecureBinaryData & data,
    aes_enc.ProcessData( (byte*)encrData.getPtr(), 
                         (byte*)data.getPtr(), 
                                data.getSize());
-
+   encrData.RSencode();
    return encrData;
 }
 
@@ -466,6 +467,7 @@ SecureBinaryData CryptoAES::DecryptCBC(SecureBinaryData & data,
    aes_enc.ProcessData( (byte*)unencrData.getPtr(), 
                         (byte*)data.getPtr(), 
                                data.getSize());
+   unencrData.RSencode();
    return unencrData;
 }
 
@@ -526,6 +528,7 @@ SecureBinaryData CryptoECDSA::SerializePrivateKey(BTC_PRIVKEY const & privKey)
    CryptoPP::Integer privateExp = privKey.GetPrivateExponent();
    SecureBinaryData privKeyData(32);
    privateExp.Encode(privKeyData.getPtr(), privKeyData.getSize(), UNSIGNED);
+   privKeyData.RSencode();
    return privKeyData;
 }
    
@@ -540,6 +543,7 @@ SecureBinaryData CryptoECDSA::SerializePublicKey(BTC_PUBKEY const & pubKey)
 
    pubX.Encode(pubData.getPtr()+1,  32, UNSIGNED);
    pubY.Encode(pubData.getPtr()+33, 32, UNSIGNED);
+   pubData.RSencode();
    return pubData;
 }
 
@@ -790,6 +794,7 @@ SecureBinaryData CryptoECDSA::ComputeChainedPrivateKey(
    //LOGINFO << "   Chaincode:  " << chainOrig.toHexStr().c_str();
    //LOGINFO << "   Multiplier: " << chainXor.toHexStr().c_str();
 
+   newPrivData.RSencode();
    return newPrivData;
 }
                             
@@ -1000,6 +1005,7 @@ SecureBinaryData CryptoECDSA::CompressPoint(SecureBinaryData const & pubKey65)
    ecp.DecodePoint(ptPub, (byte*)pubKey65.getPtr(), 65);
    SecureBinaryData ptCompressed(33);
    ecp.EncodePoint((byte*)ptCompressed.getPtr(), ptPub, true);
+   ptCompressed.RSencode();
    return ptCompressed; 
 }
 
@@ -1011,6 +1017,7 @@ SecureBinaryData CryptoECDSA::UncompressPoint(SecureBinaryData const & pubKey33)
    ecp.DecodePoint(ptPub, (byte*)pubKey33.getPtr(), 33);
    SecureBinaryData ptUncompressed(65);
    ecp.EncodePoint((byte*)ptUncompressed.getPtr(), ptPub, false);
+   ptUncompressed.RSencode();
    return ptUncompressed; 
 
 }

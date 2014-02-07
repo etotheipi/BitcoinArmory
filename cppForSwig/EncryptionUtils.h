@@ -106,6 +106,12 @@ using namespace std;
 // regular strings/BinaryData objects to secure objects
 //
 
+/**********************
+None on SecureBinaryData: All SBD objects are expected to carry valid RS parity to 
+decode the content of data_ properly. If you change the content of data_ straight 
+from the pointer, you have to call RSencode() to recalculate the corresponding RS 
+parity.
+**********************/
 class SecureBinaryData : public BinaryDataT<CA_uint8>
 {
 private:
@@ -143,6 +149,9 @@ public:
 
 
    ~SecureBinaryData(void) { destroy(); }
+
+   void RSencode(void)
+      { sbd_rs.Encode(getPtr(), getSize()); }
 
    // These methods are definitely inherited, but SWIG needs them here if they
    // are to be used from python

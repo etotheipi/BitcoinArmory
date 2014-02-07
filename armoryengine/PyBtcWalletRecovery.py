@@ -541,7 +541,9 @@ class PyBtcWalletRecovery(object):
 
       if rmode != 4:
          currSequence = addrDict[0][2]
-         chaincode = addrDict[0][0].chaincode.toHexStr()
+         sbdcc = addrDict[0][0].chaincode
+         chaincode = sbdcc.toHexStr()
+         #sbdcc.destroy()
       else:
          currSequence = None
          chaincode = None
@@ -591,7 +593,7 @@ class PyBtcWalletRecovery(object):
          # Fix byte errors in the address data
          fixedAddrData = newAddr.serialize()
          if not rawData==fixedAddrData:
-            self.byteError([newAddr.chainIndex, byteLocation])
+            self.byteError.append([newAddr.chainIndex, byteLocation])
             newAddr = PyBtcAddress()
             newAddr.unserialize(fixedAddrData)
             entrylist[0] = newAddr
