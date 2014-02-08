@@ -18,11 +18,15 @@
 #include "StoredBlockObj.h"
 #include "BlockUtils.h"
 #include "BtcUtils.h"
+#include "CustomAlloc.h"
+#include "BinaryData.h"
 #include "EncryptionUtils.h"
 %}
 
 %include "std_string.i"
 %include "std_vector.i"
+
+
 
 %typedef std::string string;
 %typedef unsigned char      uint8_t;
@@ -36,6 +40,15 @@
 %typedef unsigned int       size_t;
 %typedef unsigned int       TXIN_SCRIPT_TYPE;
 %typedef unsigned int       TXOUT_SCRIPT_TYPE;
+
+namespace CustomAlloc
+{
+   %typedef CustomAlloc::CAlloc<uint8_t> CA_uint8;
+}
+
+%typedef std::allocator<uint8_t> stda_uint8;
+%typedef BinaryDataT<stda_uint8> BinaryData;
+%typedef BinaryDataT<CA_uint8> BinaryDataTCA;
 
 namespace std
 {
@@ -51,6 +64,8 @@ namespace std
    %template(vector_AddressBookEntry) std::vector<AddressBookEntry>;
    %template(vector_RegisteredTx) std::vector<RegisteredTx>;
 }
+
+
 
 /******************************************************************************/
 /* Convert Python(str) to C++(BinaryData) */

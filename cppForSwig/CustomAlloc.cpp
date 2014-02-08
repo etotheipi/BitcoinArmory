@@ -280,7 +280,7 @@ namespace CustomAlloc
          reserved += size;
       }
 
-      if(unsigned int(offset -(int)pool +size) > total) 
+      if((size_t)(offset -(size_t)pool +size) > total) 
       {
          offset = 0;
          reserved -= size;

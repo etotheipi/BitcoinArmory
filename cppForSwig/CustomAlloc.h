@@ -2,14 +2,22 @@
 #define CUSTOMALLOC
    
 #include "AtomicInt32.h"
-typedef uint8_t byte;
 
 #ifdef _MSC_VER
    #include <windows.h>
    #define mlock(p, n) VirtualLock((p), (n));
    #define munlock(p, n) VirtualUnlock((p), (n));
+#else 
+   #include <cstdint>
+   #include <stdlib.h>
+   #include <string.h>
+   #include <sys/mman.h>
+   #include <unistd.h>
+   #include <sys/resource.h>
+   typedef std::size_t size_t;
 #endif
 
+typedef uint8_t byte;
 #include <limits>
 
 namespace CustomAlloc
@@ -20,7 +28,7 @@ namespace CustomAlloc
       public:
          size_t position, size;
 
-         Gap::Gap(size_t p, size_t s)
+         Gap(size_t p, size_t s)
          {
             position = p;
             size = s;
@@ -85,7 +93,7 @@ namespace CustomAlloc
          
          static const int size_of_ptr = sizeof(void*);
          
-         MemPool::MemPool()
+         MemPool()
 		   {
 			   BH=0;
 			   nBH=0; totalBH=0;
@@ -103,7 +111,7 @@ namespace CustomAlloc
             passedQuota = 0;
 		   }
 
-		   MemPool::~MemPool()
+		   ~MemPool()
 		   {
             if(pool)
                Free();
@@ -151,7 +159,7 @@ namespace CustomAlloc
 
 	   public:
 		
-		   CustomAllocator::CustomAllocator()
+		   CustomAllocator()
 		   {
 			   MP=0;
 			   otmp=0; otmpS=0;
@@ -166,7 +174,7 @@ namespace CustomAlloc
             nbatch=0;
 		   }
 
-		   CustomAllocator::~CustomAllocator()
+		   ~CustomAllocator()
 		   {
             for(unsigned int i=0; i<nbatch; i++)
                delete[] poolbatch[i];
@@ -243,15 +251,11 @@ namespace CustomAlloc
 
    template <class T> bool operator==( const CAlloc<T>& left, const CAlloc<T>& right )
    {
-       if (left.m_pool == right.m_pool)
-         return true;
-       return false;
+       return true;
    }
  
    template <class T> bool operator!=( const CAlloc<T>& left, const CAlloc<T>& right)
    {
-       if (left.m_pool != right.m_pool)
-         return true;
        return false;
    }
 }

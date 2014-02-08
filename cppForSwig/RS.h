@@ -22,7 +22,7 @@ class rs_params
 
 		int init;
 
-		rs_params::rs_params() 
+		rs_params() 
 		{
 			init=0;
 
@@ -31,7 +31,7 @@ class rs_params
 			genpoly = 0;
 		}
 
-		rs_params::~rs_params()
+		~rs_params()
 		{
 			if(alpha_to) free(alpha_to);
 			if(index_of) free(index_of);
@@ -39,7 +39,7 @@ class rs_params
 		}
 
 		void set_params(int Symsize, int Gfpoly, int(*Gffunc)(int), int Fcr, int Prim, int Nroots);
-		int rs_params::operator==(rs_params &rhs);
+		int operator==(rs_params &rhs);
 		int rs_modnn(int x);
 		int rs_init();
 };
@@ -55,7 +55,7 @@ class rs_control
 
 		rs_params *rs_16; //(8, 0x187, 0, 1, 16)
 
-		rs_control::rs_control()
+		rs_control()
 		{
 			rsp = (rs_params**)malloc(sizeof(rs_params*));
 
@@ -67,7 +67,7 @@ class rs_control
 			ai_add=0;
 		}
 
-		rs_control::~rs_control()
+		~rs_control()
 		{
 			if(!rsp) return;
 			for(int i=0; i<n_params; i++)
@@ -76,7 +76,7 @@ class rs_control
 		}
 
 		int add_params(rs_params *rsp_in);
-		rs_params *init(int symsize, int gfpoly, int (*gffunc)(int), int fcr, int prim, int nroots);
+		rs_params* init(int symsize, int gfpoly, int (*gffunc)(int), int fcr, int prim, int nroots);
 		rs_params* init(rs_params *rsp_in);
 };
 
@@ -108,7 +108,7 @@ class RS
       uint16_t *par;
 		int par_len;
 
-		RS::RS() //constructer, defaults to (8, 0x187, 0, 1, 16)
+		RS() //constructer, defaults to (8, 0x187, 0, 1, 16)
 		{
 			par = 0;
          blocks = 0;
@@ -117,14 +117,14 @@ class RS
          encode_flag = 0;
 		}
 
-		RS::RS(int parity_len)
+		RS(int parity_len)
 		{
 			par = 0;
          blocks = 0;
 			SetParams(8, 0x187, 0, 0, 1, parity_len);
 		}
 
-		RS::~RS()
+		~RS()
 		{
          CleanUp();
 		}
@@ -132,7 +132,7 @@ class RS
 		void SetParams(int Symsize, int Gfpoly, int(*Gffunc)(int), int Fcr, int Prim, int Nroots);
       void SetParity(uint16_t *parity, int data_length);
 		int Encode(const void *data, int len_in_bytes);
-		int RS::Decode(uint8_t *data, int len_in_bytes);
+		int Decode(uint8_t *data, int len_in_bytes);
       void WipeAndClean();
       
       uint16_t* GetParity() const

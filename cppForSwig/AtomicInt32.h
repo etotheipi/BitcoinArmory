@@ -6,29 +6,30 @@
 #include <intrin.h>
 #include <stdint.h>
 
-class AtomicInt32 {
-	public:
-		volatile int32_t i;
+class AtomicInt32 
+{
+   public:
+      volatile int32_t i;
 
       AtomicInt32::AtomicInt32()
       {
-         *this = 0;
+         i = 0;
       }
 
 
       AtomicInt32::AtomicInt32(int32_t init)
       {
-         *this = init;
+         i = init;
       }
 
-		AtomicInt32 &AtomicInt32::operator=(int32_t in)
-		{
-			InterlockedExchange((long*)&this->i, (long)in);
-			return *this;
-		}
+      AtomicInt32 &AtomicInt32::operator=(int32_t in)
+      {
+         InterlockedExchange((long*)&this->i, (long)in);
+         return *this;
+      }
 
-		AtomicInt32 &AtomicInt32::operator++(int32_t)
-		{
+      AtomicInt32 &AtomicInt32::operator++(int32_t)
+      {
 			InterlockedIncrement((long*)&this->i);
 			return *this;
 		}
@@ -68,6 +69,81 @@ class AtomicInt32 {
 };
 
 #else
-// AtomicInt based on <cstdatomic>
+// AtomicInt based on <atomic>
+#include <atomic>
+
+class AtomicInt32 
+{
+   public:
+      std::atomic_int_fast32_t i;
+
+      AtomicInt32()
+      {
+         i.store(0);
+      }
+
+      AtomicInt32(const AtomicInt32& in_)
+      {
+         i.store(in_.i.load());
+      }
+
+      AtomicInt32(int32_t init)
+      {
+         i.store(init);
+      }
+
+      AtomicInt32& operator=(int32_t in)
+      {
+         this->i.store(in);
+         return *this;
+      }
+
+      AtomicInt32& operator=(const AtomicInt32& rhs)
+      {
+         this->i.store(rhs.i.load());
+         return *this;
+      }
+
+		AtomicInt32& operator++(int32_t)
+		{
+			this->i.fetch_add(1);
+			return *this;
+		}
+
+		AtomicInt32 &operator--(int32_t)
+		{
+			this->i.fetch_sub(1);
+			return *this;
+		}
+
+		bool operator!=(int32_t in)
+		{
+         if(this->i!=in) return true;
+			return false;
+		}
+
+  		bool operator==(int32_t in)
+		{
+         if(this->i==in) return true;
+			return false;
+		}
+
+		int32_t CompareExchange(int32_t exch, int32_t comp)
+		{
+			return i.compare_exchange_weak(comp, exch);
+		}
+
+      int32_t Fetch_Or(int32_t r)
+      {
+         return i.fetch_or(r);
+      }
+
+      int32_t Fetch_Add(int32_t r)
+      {
+         return i.fetch_add(r); 
+      }
+};
+
+
 #endif
 #endif //AINT32

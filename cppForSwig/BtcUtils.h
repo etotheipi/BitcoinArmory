@@ -79,8 +79,8 @@
 #define ITER_NOT_IN_MAP(ITER,MAP) (ITER == MAP.end())
 #define     ITER_IN_MAP(ITER,MAP) (ITER != MAP.end())
 
-//template <class Alloc_> class BinaryDataT;
-//class BinaryDataRef;
+template <class Alloc_> class BinaryDataT;
+class BinaryDataRef;
 
 typedef enum
 {

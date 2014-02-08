@@ -116,8 +116,7 @@ int rs_control::add_params(rs_params *rsp_in)
 {
 	if(!ai_add.CompareExchange(1, 0))
 	{
-		while(ai_init!=0)
-			Sleep(1);
+		while(ai_init!=0);
 
 		rsp = (rs_params**)realloc(rsp, sizeof(rs_params*)*(n_params+1));
 				
@@ -142,8 +141,7 @@ rs_params* rs_control::init(int symsize, int gfpoly, int (*gffunc)(int), int fcr
 
 rs_params* rs_control::init(rs_params *rsp_c)
 {
-	while(ai_add!=0)
-		Sleep(1);
+	while(ai_add!=0);
 	
 	ai_init++;
 
