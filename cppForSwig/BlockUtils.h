@@ -43,7 +43,6 @@
 #define NUM_BLKS_BATCH_THRESH 30
 #define UPDATE_BYTES_SSH      25
 #define UPDATE_BYTES_SUBSSH   75
-#define UPDATE_BYTES_THRESH   96*1024*1024
 
 #define NUM_BLKS_IS_DIRTY 2016
 
@@ -473,10 +472,54 @@ struct ZeroConfData
 // never actually used it on the .cpp side.
 //struct BlockWriteBatchData
 //{
-   //map<BinaryData, StoredTx>              stxToModify;
-   //map<BinaryData, StoredScriptHistory>   sshToModify;
-   //set<BinaryData>                        keysToDelete;
 //}
+
+/*
+ This class accumulates changes to write to the database,
+ and will do so when it gets to a certain threshold
+*/
+class BlockWriteBatcher
+{
+public:
+   static const uint64_t UPDATE_BYTES_THRESH = 96*1024*1024;
+   
+   BlockWriteBatcher(InterfaceToLDB* iface);
+   ~BlockWriteBatcher();
+   
+   void applyBlockToDB(StoredHeader &sbh);
+   void applyBlockToDB(uint32_t hgt, uint8_t dup)
+   {
+      StoredHeader sbh;
+      iface_->getStoredHeader(sbh, hgt, dup);
+      applyBlockToDB(sbh);
+   }
+   void undoBlockFromDB(StoredUndoData &sud);
+
+private:
+   // We have accumulated enough data, actually write it to the db
+   void commit();
+   
+   // search for entries in sshToModify_ that are empty and should
+   // be deleted, removing those empty ones from sshToModify
+   set<BinaryData> searchForSSHKeysToDelete();
+   
+   bool applyTxToBatchWriteData(
+                           StoredTx &       thisSTX,
+                           StoredUndoData * sud);
+private:
+   InterfaceToLDB* const iface_;
+
+   // turn off batches by setting this to 0
+   uint64_t dbUpdateSize_;
+   map<BinaryData, StoredTx>              stxToModify_;
+   map<BinaryData, StoredScriptHistory>   sshToModify_;
+   
+   // (theoretically) incremented for each
+   // applyBlockToDB and decremented for each
+   // undoBlockFromDB
+   uint32_t mostRecentBlockApplied_;
+};
+
 
 
 
@@ -556,7 +599,6 @@ private:
    uint64_t                           startApplyOffset_;
 
    // Used to estimate how much data is queued to be written to DB
-   uint64_t                           dbUpdateSize_;
    bool                               requestRescan_;
 
    // These should be set after the blockchain is organized
@@ -734,7 +776,7 @@ public:
    uint32_t evalLowestScrAddrCreationBlock(void);
    bool     evalRescanIsRequired(void);
    uint32_t numBlocksToRescan(BtcWallet & wlt, uint32_t topBlk=UINT32_MAX);
-   void     updateRegisteredScrAddrs(uint32_t newTopBlk);
+   void     updateRegisteredScrAddrs2(uint32_t newTopBlk);
 
    bool     walletIsRegistered(BtcWallet & wlt);
    bool     scrAddrIsRegistered(HashString scrAddr);
@@ -793,34 +835,12 @@ public:
    void doInitialSyncOnLoad_Rescan(void);
    void doInitialSyncOnLoad_Rebuild(void);
 
-   void     addRawBlockToDB(BinaryRefReader & brr);
-   void     updateBlkDataHeader(StoredHeader const & sbh);
-
-   // On the first pass through the blockchain data, we only write the raw
-   // blocks to do the DB.  We don't "apply" them (marking TxOuts spent and
-   // updating StoredScriptHistory objects).  When we know the longest chain,
-   // we do apply them.
-   bool applyBlockToDB(uint32_t hgt, uint8_t dup);
-   bool applyBlockToDB(StoredHeader & sbh);
-   bool applyBlockToDB( 
-         StoredHeader & sbh,
-         map<BinaryData, StoredTx> &            stxToModify,
-         map<BinaryData, StoredScriptHistory> & sshToModify,
-         set<BinaryData> &                      keysToDelete,
-         bool                                   applyWhenDone=true);
-   bool applyBlockToDB(
-         uint32_t hgt, 
-         uint8_t dup,
-         map<BinaryData, StoredTx> &            stxToModify,
-         map<BinaryData, StoredScriptHistory> & sshToModify,
-         set<BinaryData> &                      keysToDelete,
-         bool                                   applyWhenDone=true);
+   void addRawBlockToDB(BinaryRefReader & brr);
 
    void applyBlockRangeToDB(uint32_t blk0=0, uint32_t blk1=UINT32_MAX);
 
    // When we reorg, we have to undo blocks that have been applied.
    bool createUndoDataFromBlock(uint32_t hgt, uint8_t dup, StoredUndoData & sud);
-   bool undoBlockFromDB(StoredUndoData & sud);
 
    // When we add new block data, we will need to store/copy it to its
    // permanent memory location before parsing it.
@@ -836,7 +856,7 @@ public:
 
 
    void deleteHistories(void);
-   void saveScrAddrHistories(void);
+   void _saveScrAddrHistories(void);
 
    void fetchAllRegisteredScrAddrData(void);
    void fetchAllRegisteredScrAddrData(BtcWallet & myWlt);
@@ -960,39 +980,6 @@ public:
    void   markOrphanChain(BlockHeader & bhpStart);
 
    /////////////////////////////////////////////////////////////////////////////
-   // Helper methods for updating the DB
-   bool applyTxToBatchWriteData(
-                        StoredTx &                             thisSTX,
-                        map<BinaryData, StoredTx> &            stxToModify,
-                        map<BinaryData, StoredScriptHistory> & sshToModify,
-                        set<BinaryData> &                      keysToDelete,
-                        StoredUndoData *                       sud);
-
-   void applyModsToDB(  map<BinaryData, StoredTx> &            stxToModify,
-                        map<BinaryData, StoredScriptHistory> & sshToModify,
-                        set<BinaryData> &                      keysToDelete);
-
-
-   /////////////////////////////////////////////////////////////////////////////
-   StoredScriptHistory* makeSureSSHInMap(    
-                               BinaryDataRef uniqKey,
-                               BinaryDataRef hgtX,
-                               map<BinaryData, StoredScriptHistory> & sshMap,
-                               bool createIfDNE=true);
-
-   StoredTx* makeSureSTXInMap( BinaryDataRef txHash,
-                               map<BinaryData, StoredTx> & stxMap);
-
-   StoredTx* makeSureSTXInMap( uint32_t      height,
-                               uint8_t       dupID,
-                               uint16_t      txIndex,
-                               BinaryDataRef txHash,
-                               map<BinaryData, StoredTx> & stxMap);
-
-   void findSSHEntriesToDelete( map<BinaryData, StoredScriptHistory> & sshMap,
-                                set<BinaryData> & keysToDelete);
-
-
    void     setMaxOpenFiles(uint32_t n) {iface_->setMaxOpenFiles(n);}
    uint32_t getMaxOpenFiles(void)       {return iface_->getMaxOpenFiles();}
    void     setLdbBlockSize(uint32_t sz){iface_->setLdbBlockSize(sz);}

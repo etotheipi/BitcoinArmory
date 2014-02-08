@@ -826,13 +826,11 @@ public:
       uniqueKey_.copyFrom(key.getPtr()+1, key.getSize()-1);
    }
 
-
    BinaryData        uniqueKey_;
    uint8_t           addrType_;
    uint32_t          blkCreated_;
    uint32_t          alreadyScannedUpToBlk_;
    uint64_t          sumValue_;
-
 };
 
 
