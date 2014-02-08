@@ -466,14 +466,6 @@ struct ZeroConfData
 };
 
 
-
-////////////////////////////////////////////////////////////////////////////////
-// A somewhat convenient way to store and pass around block-update data but I 
-// never actually used it on the .cpp side.
-//struct BlockWriteBatchData
-//{
-//}
-
 /*
  This class accumulates changes to write to the database,
  and will do so when it gets to a certain threshold
