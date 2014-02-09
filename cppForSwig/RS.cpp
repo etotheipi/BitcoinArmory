@@ -114,18 +114,16 @@ int rs_params::rs_init()
 
 int rs_control::add_params(rs_params *rsp_in)
 {
-	if(!ai_add.CompareExchange(1, 0))
-	{
-		while(ai_init!=0);
+	while(ai_add.Fetch_Or(1));
+   while(ai_init!=0);
 
-		rsp = (rs_params**)realloc(rsp, sizeof(rs_params*)*(n_params+1));
+	rsp = (rs_params**)realloc(rsp, sizeof(rs_params*)*(n_params+1));
 				
-		rsp[n_params] = rsp_in;
-		int rt = n_params;
-		n_params++;
-		ai_add = 0;
-		return rt;
-	}
+	rsp[n_params] = rsp_in;
+	int rt = n_params;
+	n_params++;
+	ai_add = 0;
+	return rt;
 
 	init(rsp_in);
 	return -1;

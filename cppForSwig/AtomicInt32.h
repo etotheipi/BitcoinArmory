@@ -52,11 +52,6 @@ class AtomicInt32
 			return false;
 		}
 
-		int32_t CompareExchange(int32_t exch, int32_t comp)
-		{
-			return InterlockedCompareExchange((long*)&this->i, exch, comp);
-		}
-
       int32_t Fetch_Or(int32_t r)
       {
          return (int32_t)InterlockedOr((unsigned long long*)&this->i, r);
@@ -126,11 +121,6 @@ class AtomicInt32
 		{
          if(this->i==in) return true;
 			return false;
-		}
-
-		int32_t CompareExchange(int32_t exch, int32_t comp)
-		{
-			return i.compare_exchange_weak(comp, exch);
 		}
 
       int32_t Fetch_Or(int32_t r)
