@@ -11,7 +11,7 @@ endif
 #**************************************************************************
 LINK = $(CXX)
 
-OBJS = UniversalTimer.o BinaryData.o leveldb_wrapper.o StoredBlockObj.o BtcUtils.o BlockObj.o BlockUtils.o EncryptionUtils.o libcryptopp.a libleveldb.a
+OBJS = UniversalTimer.o BinaryData.o leveldb_wrapper.o StoredBlockObj.o BtcUtils.o BlockObj.o BlockUtils.o EncryptionUtils.o CustomAlloc.o RS.o libcryptopp.a libleveldb.a
 
 # This is a script created by goatpig which detects where the python 
 # dependencies are and writes them to the pypaths.txt file. It defines :
@@ -33,7 +33,7 @@ SWIG_OPTS    += -c++ -python -classic -threads
 SWIG_INC     += -I"$(PYTHON_INCLUDE)"
 STATICPYTHON += "$(PYTHON_LIB)"
 
-CXXCPP += $(CPPFLAGS)
+CXXCPP += $(CPPFLAGS) -std=c++11
 
 #**************************************************************************
 all:
@@ -47,8 +47,8 @@ swig: ../_CppBlockUtils.so ../qrc_img_resources.py
 ../qrc_img_resources.py: ../imgList.xml
 	pyrcc4 -o ../qrc_img_resources.py ../imgList.xml
 
-BlockUtilsTest.out : $(OBJS) BlockUtilsTest.cpp
-	$(LINK) $(LDLIBS) $(LDFLAGS) $(OBJS) -o BlockUtilsTest.out $(CXXCPP) $(CXXFLAGS) BlockUtilsTest.cpp
+BlockUtilsTest.out : $(OBJS) gtest-all.o CppBlockUtilsTests.o
+	$(LINK) $(LDLIBS) $(LDFLAGS) $(OBJS) gtest-all.o CppBlockUtilsTests.o -o gtest/BlockUtilsTest.out
 
 
 #**************************************************************************
@@ -63,20 +63,26 @@ libleveldb.a: Makefile
 %.o: %.cpp %.h
 	$(CXX) $(CXXCPP) $(CXXFLAGS) -c $<
 
-BinaryData.o: BtcUtils.h log.h
+BinaryData.o: BtcUtils.h log.h CustomAlloc.h
 BtcUtils.o: log.h
 BlockObj.o: BinaryData.h BtcUtils.h
 StoredBlockObj.o: log.h BtcUtils.h BinaryData.h
 leveldb_wrapper.o: log.h BtcUtils.h BinaryData.h
+RS.o: AtomicInt32.h
+CustomAlloc.o: AtomicInt32.h
 BlockUtils.o: log.h BinaryData.h UniversalTimer.h PartialMerkle.h
-EncryptionUtils.o: log.h BtcUtils.h BinaryData.h
+EncryptionUtils.o: log.h BtcUtils.h BinaryData.h RS.h
 CppBlockUtils_wrap.cxx: log.h BlockUtils.h BinaryData.h BlockObj.h UniversalTimer.h BlockUtils.h BlockUtils.cpp CppBlockUtils.i
 	swig $(SWIG_OPTS) -outdir ../ -v CppBlockUtils.i 
 
 CppBlockUtils_wrap.o: log.h BlockUtils.h  BinaryData.h UniversalTimer.h CppBlockUtils_wrap.cxx
 	$(CXX) $(SWIG_INC) $(CXXFLAGS) $(CXXCPP) -c CppBlockUtils_wrap.cxx
 
+gtest-all.o:
+	$(CXX) $(CXXCPP) $(CXXFLAGS) -c gtest/gtest-all.cc
 
+CppBlockUtilsTests.o: gtest/gtest.h gtest/gtest-all.cc
+	$(CXX) $(CXXCPP) $(CXXFLAGS) -c gtest/CppBlockUtilsTests.cpp
 
 ##########################################################################
 # And now we have created all the individual object files specified with 
