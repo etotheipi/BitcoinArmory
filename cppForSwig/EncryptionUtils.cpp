@@ -126,7 +126,7 @@ SecureBinaryData SecureBinaryData::GenerateRandom(uint32_t numBytes)
    BTC_PRNG prng;
    SecureBinaryData randData(numBytes);
    prng.GenerateBlock(randData.getPtr(), numBytes);
-   RSencode();
+   randData.RSencode();
    return randData;  
 }
 
