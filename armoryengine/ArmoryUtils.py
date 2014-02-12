@@ -123,7 +123,7 @@ if OS_WINDOWS:
       Windows, with the underlying Windows API instead replacing multi-byte
       characters with '?'.
       """
-   
+      result = []
       from ctypes import POINTER, byref, cdll, c_int, windll
       from ctypes.wintypes import LPCWSTR, LPWSTR
    
@@ -139,11 +139,22 @@ if OS_WINDOWS:
       argc = c_int(0)
       uargv = CommandLineToArgvW(cmd, byref(argc))
       if argc.value > 0:
+         # Use set operators to find the *size* of the intersection and difference between
+         # sys.argv and the command line.
+         allCommandLineArgs = [uargv[i].encode('utf8') for i in
+            range(argc.value)]
+         armoryCommandLineArgCount = len(set(allCommandLineArgs) & set(sys.argv))
+         armoryNonCommandLineArgCount = len(set(sys.argv) - set(allCommandLineArgs))
          # Remove Python executable and commands if present
-         start = argc.value - len(sys.argv)
-         return [uargv[i].encode('utf8') for i in
-            xrange(start, argc.value)]
-   
+         # Must maintain the order of the args
+         armoryCommandLineArgOffset = argc.value - armoryCommandLineArgCount
+         result = [uargv[i].encode('utf8') for i in
+            xrange(armoryCommandLineArgOffset, argc.value)]
+         armoryNonCommandLineArgOffset = len(sys.argv) - armoryNonCommandLineArgCount
+         for i in xrange(armoryNonCommandLineArgOffset, len(sys.argv)):
+            result.append(sys.argv[i])
+      return result
+
    sys.argv = win32_unicode_argv()
 
 CLI_OPTIONS = None
