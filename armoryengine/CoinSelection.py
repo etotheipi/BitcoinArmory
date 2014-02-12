@@ -682,7 +682,8 @@ def PySelectCoins(unspentTxOutInfo, targetOutVal, minFee=0, numRand=10, margin=C
 
 
 ################################################################################
-def calcMinSuggestedFees(selectCoinsResult, targetOutVal, preSelectedFee):
+def calcMinSuggestedFees(selectCoinsResult, targetOutVal, preSelectedFee,
+                         numRecipients):
    """
    Returns two fee options:  one for relay, one for include-in-block.
    In general, relay fees are required to get your block propagated
@@ -707,7 +708,7 @@ def calcMinSuggestedFees(selectCoinsResult, targetOutVal, preSelectedFee):
    # Calc approx tx size
    numBytes  =  10
    numBytes += 180 * len(selectCoinsResult)
-   numBytes +=  35 * (1 if change==0 else 2)
+   numBytes +=  35 * (numRecipients + (1 if change>0 else 0))
    numKb = int(numBytes / 1000)
 
    if numKb>10:

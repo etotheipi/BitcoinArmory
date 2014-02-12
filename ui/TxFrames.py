@@ -444,7 +444,7 @@ class SendBitcoinsFrame(ArmoryFrame):
             feeTry = minFee
          utxoList = self.getUsableTxOutList()
          utxoSelect = PySelectCoins(utxoList, totalSend, feeTry)
-         minFee = calcMinSuggestedFees(utxoSelect, totalSend, feeTry)[1]
+         minFee = calcMinSuggestedFees(utxoSelect, totalSend, feeTry, len(scraddrValuePairs))[1]
 
       if fee < minFee:
          if totalSend + minFee > bal:

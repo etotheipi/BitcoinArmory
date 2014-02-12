@@ -11,9 +11,6 @@ from PyQt4.QtGui import * #@UnusedWildImport
 
 from armoryengine.BDM import TheBDM
 from qtdefines import * #@UnusedWildImport
-from armoryengine.Transaction import PyTxDistProposal
-from armoryengine.CoinSelection import PySelectCoins, calcMinSuggestedFees,\
-   PyUnspentTxOut
 
 WALLET_DATA_ENTRY_FIELD_WIDTH = 60
 

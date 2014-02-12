@@ -1425,6 +1425,6 @@ else:
 
 
 # Put the import at the end to avoid circular reference problem
-from armoryengine.PyBtcWallet import *
+from armoryengine.PyBtcWallet import PyBtcWallet
 from armoryengine.Transaction import PyTx
 
