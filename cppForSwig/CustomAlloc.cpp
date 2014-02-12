@@ -231,7 +231,7 @@ namespace CustomAlloc
       {
          if(ngaps == total_ngaps) ExtendGap();
       
-         gaps[ngaps].position = (int)bh->offset -size_of_ptr;
+         gaps[ngaps].position = (size_t)bh->offset -size_of_ptr;
          gaps[ngaps].size = bh->size;
 
          ngaps++;
@@ -348,7 +348,7 @@ namespace CustomAlloc
       if(bh->linuse==1)
       {
          *(bh->pinuse) = 0;
-         memset(bh->offset, 0, bh->size-MemPool::size_of_ptr);
+         //memset(bh->offset, 0, bh->size-MemPool::size_of_ptr);
          MemPool *mp = (MemPool*)bh->ref;
          mp->AddGap(bh);
          bh->offset = 0;

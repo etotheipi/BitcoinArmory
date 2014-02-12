@@ -11,6 +11,7 @@
 #include "../PartialMerkle.h"
 #include "../leveldb_wrapper.h"
 #include "../BlockUtils.h"
+#include "../CustomAlloc.h"
 #include "../EncryptionUtils.h"
 
 #ifdef _MSC_VER
@@ -1430,6 +1431,25 @@ TEST(BinaryReadWriteTest, ReaderEndian)
    EXPECT_EQ(brrBE2.get_var_int(), 0x00ff00ff00ff00ffULL);
 }
 
+class CustomAllocTest : public ::testing::Test
+{
+   protected:
+   virtual void SetUp(void)
+   {
+   }
+
+   CustomAlloc::CAlloc<uint8_t> CA_uint8;
+};
+
+TEST_F(CustomAllocTest, LargeBuffer_MT)
+{
+   //allocate and free a large buffer
+   uint8_t* largebuffer = CA_uint8.allocate(1024*1024*1024);
+   CA_uint8.deallocate(largebuffer, 0);
+
+   
+}
+
 class SecureBinaryDataTest : public ::testing::Test
 {
    protected:
@@ -1497,6 +1517,19 @@ TEST_F(SecureBinaryDataTest, CorruptAndCopy)
    BinaryData bd12_ = sbdcorrupt12.getRawCopy();
 
    EXPECT_EQ(bd12_, sbd12_);
+
+   SecureBinaryData sbdr_ = SecureBinaryData().GenerateRandom(32);
+
+   sbdr_.append(sbd12_);
+   KdfRomix kdf;
+   kdf.computeKdfParams(1, 32*1024*1024);
+   SecureBinaryData sbdr1_ = kdf.DeriveKey(sbdr_);
+   SecureBinaryData sbdr2_ = kdf.DeriveKey(sbdr_);
+
+   EXPECT_EQ(sbdr1_, sbdr2_);
+   SecureBinaryData sbdr3_ = sbdr1_.append(sbdr2_);
+   
+   EXPECT_EQ(sbdr1_, sbdr3_);
 }
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////

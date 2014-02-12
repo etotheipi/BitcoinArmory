@@ -107,10 +107,9 @@ using namespace std;
 //
 
 /**********************
-None on SecureBinaryData: All SBD objects are expected to carry valid RS parity to 
-decode the content of data_ properly. If you change the content of data_ straight 
-from the pointer, you have to call RSencode() to recalculate the corresponding RS 
-parity.
+None on SecureBinaryData: All SBD objects are expected to carry valid RS parity to decode the content of data_ properly. If you change the content of data_ 
+straight from the pointer, you have to call RSencode() to recalculate the 
+corresponding RS parity.
 **********************/
 class SecureBinaryData : public BinaryDataT<CA_uint8>
 {
