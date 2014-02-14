@@ -8,15 +8,19 @@ import sys
 import time
 import unittest
 
-#sys.argv.append('--nologging')
-#sys.argv.append('--testnet')
+sys.argv.append('--nologging')
+sys.argv.append('--testnet')
 sys.path.append('..')
-
-
-from armoryengine.ALL import *
 from CppBlockUtils import SecureBinaryData, CryptoECDSA
 from armoryd import Armory_Json_Rpc_Server, PrivateKeyNotFound, \
    InvalidBitcoinAddress, WalletUnlockNeeded, Armory_Daemon
+from armoryengine.ArmoryUtils import ARMORY_HOME_DIR, hex_to_binary, \
+   binary_to_base58, binary_to_hex, convertKeyDataToAddress, hash160_to_addrStr,\
+   hex_switchEndian, hash160, BIGENDIAN
+from armoryengine.BDM import TheBDM
+from armoryengine.PyBtcWallet import PyBtcWallet
+from armoryengine.Transaction import PyTx
+
 
 
 RAW_TX1    = ('01000000081fa335f8aa332693c7bf77c960ac1eb86c50a5f60d8dc6892d4'

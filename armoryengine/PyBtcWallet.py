@@ -8,13 +8,13 @@
 import os.path
 import shutil
 
-from CppBlockUtils import SecureBinaryData, KdfRomix, CryptoAES, CryptoECDSA
+from CppBlockUtils import SecureBinaryData, KdfRomix, CryptoAES, CryptoECDSA,\
+   TXOUT_SCRIPT_MULTISIG
 import CppBlockUtils as Cpp
 from armoryengine.ArmoryUtils import *
 from armoryengine.BinaryPacker import *
 from armoryengine.BinaryUnpacker import *
 from armoryengine.Timer import *
-from armoryengine.Transaction import *
 
 
 BLOCKCHAIN_READONLY   = 0
@@ -528,18 +528,6 @@ class PyBtcWallet(object):
    def lockTxOutsOnNewTx(self, pytxObj):
       for txin in pytxObj.inputs:
          self.cppWallet.lockTxOutSwig(txin.outpoint.txHash, txin.outpoint.txOutIndex)
-
-   #############################################################################
-   def setDefaultKeyLifetime(self, lifetimeInSec):
-      """
-      This is used to set (in memory only) the default time to keep the encrypt
-      key in memory after the encryption passphrase has been entered.  This is
-      NOT enforced by PyBtcWallet, but the unlock method will use it to calc a
-      unix timestamp when the wallet SHOULD be locked, and the external program
-      can use that to decide when to call the lock method.
-      """
-      self.defaultKeyLifetime = lifetimeInSec
-
    
    #############################################################################
    #  THIS WAS CREATED ORIGINALLY TO SUPPORT BITSAFE INTEGRATION INTO ARMORY
@@ -2963,4 +2951,5 @@ def getSuffixedPath(walletPath, nameSuffix):
 # Putting this at the end because of the circular dependency
 from armoryengine.BDM import TheBDM, getCurrTimeAndBlock
 from armoryengine.PyBtcAddress import PyBtcAddress
-from armoryengine.Transaction import getMultisigScriptInfo, PyTx
+from armoryengine.Transaction import *
+from armoryengine.Script import serializeBytesWithPushData
