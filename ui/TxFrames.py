@@ -397,20 +397,21 @@ class SendBitcoinsFrame(ArmoryFrame):
          feeStr = str(self.edtFeeAmt.text())
          fee = str2coin(feeStr, negAllowed=False)
       except NegativeValueError:
-         QMessageBox.critical(self, 'Negative Value', \
-            'You must enter a positive value for the fee.', QMessageBox.Ok)
+         QMessageBox.critical(self, tr('Negative Value'), tr("""
+            You must enter a positive value for the fee."""), QMessageBox.Ok)
          return False
       except TooMuchPrecisionError:
-         QMessageBox.critical(self, 'Too much precision', \
-            'Bitcoins can only be specified down to 8 decimal places. '
-            'The smallest meaning Bitcoin amount is 0.0000 0001 BTC. '
-            'Please enter a fee of at least 0.0000 0001', QMessageBox.Ok)
+         QMessageBox.critical(self, tr('Too much precision'), tr("""
+            Bitcoins can only be specified down to 8 decimal places. 
+            The smallest unit of a Bitcoin is 0.0000 0001 BTC. 
+            Please enter a fee of at least 0.0000 0001"""), QMessageBox.Ok)
          return False
       except:
-         QMessageBox.critical(self, 'Invalid Fee String', \
-            'The fee you specified is invalid.  A standard fee is 0.0001 BTC, '
-            'though some transactions may succeed with zero fee.', QMessageBox.Ok)
-         LOGERROR('Invalid fee specified: "%s"', feeStr)
+         QMessageBox.critical(self, tr('Invalid Fee String'), tr("""
+            The fee you specified is invalid.  A standard fee is 
+            0.0001 BTC, though some transactions may succeed with 
+            zero fee."""), QMessageBox.Ok)
+         LOGERROR(tr('Invalid fee specified: "%s"') % feeStr)
          return False
 
 
@@ -419,23 +420,27 @@ class SendBitcoinsFrame(ArmoryFrame):
          valTry = coin2str(totalSend + fee, maxZeros=2).strip()
          valMax = coin2str(bal, maxZeros=2).strip()
          if self.altBalance == None:
-            QMessageBox.critical(self, 'Insufficient Funds', \
-            'You just tried to send %s BTC, including fee, but you only '
-            'have %s BTC (spendable) in this wallet!' % (valTry, valMax), QMessageBox.Ok)
+            QMessageBox.critical(self, tr('Insufficient Funds'), tr("""
+            You just tried to send %s BTC, including fee, but you only 
+            have %s BTC (spendable) in this wallet!""") % \
+            (valTry, valMax), QMessageBox.Ok)
          else:
-            QMessageBox.critical(self, 'Insufficient Funds', \
-            'You just tried to send %s BTC, including fee, but you only '
-            'have %s BTC with this coin control selection!' % (valTry, valMax), QMessageBox.Ok)
+            QMessageBox.critical(self, tr('Insufficient Funds'), tr("""
+            You just tried to send %s BTC, including fee, but you only 
+            have %s BTC with this coin control selection!""") % \
+            (valTry, valMax), QMessageBox.Ok)
          return False
 
-      # Iteratively calculate the minimum fee by first trying the user selected fee
-      # then on each iteration set the feeTry to the minFee, and see if the new feeTry
-      # can cover the original amount plus the new minfee
-      # This loop will rarely iterate. It will only iterate when there is enough dust in utxoList so that
-      # each fee increase causes enough dust to be used to increase the fee yet again.
-      # Also, for the loop to iterate, the totalSend + fee must be close to the bal,
-      # but not go over when the min fee is increased If it does go over, it will exit the loop on the
-      # last condition,and give the user an insufficient balance warning.
+      # Iteratively calculate the minimum fee by first trying the user 
+      # selected fee then on each iteration set the feeTry to the minFee, 
+      # and see if the new feeTry can cover the original amount plus the 
+      # new minfee.  This loop will rarely iterate. It will only iterate 
+      # when there is enough dust in utxoList so that each fee increase 
+      # causes enough dust to be used to increase the fee yet again.  
+      # Also, for the loop to iterate, the totalSend + fee must be close 
+      # to the bal, but not go over when the min fee is increased.  If 
+      # it does go over, it will exit the loop on the last condition, 
+      # and give the user an insufficient balance warning.
       minFee = None
       utxoSelect = []
       feeTry = fee
@@ -447,30 +452,35 @@ class SendBitcoinsFrame(ArmoryFrame):
          minFee = calcMinSuggestedFees(utxoSelect, totalSend, feeTry)[1]
 
       if fee < minFee:
+
+         usrFeeStr = coin2str(fee, maxZeros=0).strip()
+         minFeeStr = coin2str(minFee, maxZeros=0).strip()
+         newBalStr = coin2str(bal - minFee, maxZeros=0).strip()
+
          if totalSend + minFee > bal:
             # Need to adjust this based on overrideMin flag
             self.edtFeeAmt.setText(coin2str(minFee, maxZeros=1).strip())
-            QMessageBox.warning(self, 'Insufficient Balance', \
-               'The required transaction fee causes this transaction to exceed your balance.  '
-               'In order to send this transaction, you will be required to '
-               'pay a fee of <b>' + coin2str(minFee, maxZeros=0).strip() + ' BTC</b>.  '
-               '<br><br>'
-               'Please go back and adjust the value of your transaction, not '
-               'to exceed a total of <b>' + coin2str(bal - minFee, maxZeros=0).strip() + 
-               ' BTC</b> (the necessary fee has been entered into the form, so you '
-               'can use the "MAX" button to enter the remaining balance for a '
-               'recipient).', QMessageBox.Ok)
+            QMessageBox.warning(self, tr('Insufficient Balance'), tr("""
+               The required transaction fee causes this transaction to exceed 
+               your balance.  In order to send this transaction, you will be 
+               required to pay a fee of <b>%s BTC</b>. 
+               <br><br>
+               Please go back and adjust the value of your transaction, not 
+               to exceed a total of <b>%s BTC</b> (the necessary fee has 
+               been entered into the form, so you can use the "MAX" button 
+               to enter the remaining balance for a recipient).""") % \
+               (minFeeStr, newBalStr), QMessageBox.Ok)
             return
-         feeStr = coin2str(fee, maxZeros=0).strip()
-         minFeeStr = coin2str(minFee, maxZeros=0).strip()
 
-         msgBtns = QMessageBox.Yes | QMessageBox.Cancel
+         reply = QMessageBox.warning(self, tr('Insufficient Fee'), tr("""
+            The fee you have specified (%s BTC) is insufficient for the 
+            size and priority of your transaction.  You must include at 
+            least %s BTC to send this transaction. 
+            <br><br> 
+            Do you agree to the fee of %s BTC?""") % \
+            (usrFeeStr, minFeeStr, minFeeStr), \
+            QMessageBox.Yes | QMessageBox.Cancel)
 
-         reply = QMessageBox.warning(self, 'Insufficient Fee', \
-            'The fee you have specified (%s BTC) is insufficient for the size '
-            'and priority of your transaction.  You must include at least '
-            '%s BTC to send this transaction.  \n\nDo you agree to the fee of %s BTC?  ' % \
-            (feeStr, minFeeStr, minFeeStr), msgBtns)
          if reply == QMessageBox.Cancel:
             return False
          if reply == QMessageBox.No:
@@ -479,9 +489,11 @@ class SendBitcoinsFrame(ArmoryFrame):
             fee = long(minFee)
 
       if len(utxoSelect) == 0:
-         QMessageBox.critical(self, 'Coin Selection Error', \
-            'SelectCoins returned a list of size zero.  This is problematic '
-            'and probably not your fault.', QMessageBox.Ok)
+         QMessageBox.critical(self, tr('Coin Selection Error'), tr("""
+            There was an error constructing your transaction, due to a 
+            quirk in the way Bitcoin transactions work.  If you see this
+            error more than once, try sending your BTC in two or more 
+            separate transactions."""), QMessageBox.Ok)
          return False
 
       # ## IF we got here, everything is good to go...
