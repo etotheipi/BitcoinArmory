@@ -131,8 +131,12 @@ def getVersionURL(withExtraFields=False, justHash=False):
          argsMap['os'] = 'unk'
    
       try:
-         argsMap['osvar'] = OS_VARIANT[0].lower()
+         if OS_MACOSX:
+            argsMap['osvar'] = OS_VARIANT
+         else:
+            argsMap['osvar'] = OS_VARIANT[0].lower()
       except:
+         LOGERR('Unrecognized OS while constructing version URL')
          argsMap['osvar'] = 'unk'
    
       argsMap['id'] = binary_to_hex(hash256(USER_HOME_DIR)[:4])

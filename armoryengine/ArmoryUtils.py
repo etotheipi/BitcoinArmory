@@ -435,6 +435,8 @@ if not CLI_OPTIONS.rpcport == 'DEFAULT':
       ARMORY_RPC_PORT = int(CLI_OPTIONS.rpcport)
    except:
       raise TypeError, 'Invalid RPC port for armoryd ' + str(ARMORY_RPC_PORT)
+
+
 if sys.argv[0]=='ArmoryQt.py':
    print '********************************************************************************'
    print 'Loading Armory Engine:'
@@ -1313,6 +1315,12 @@ def toPreferred(theStr):
 
 def lenBytes(theStr, theEncoding=DEFAULT_ENCODING):
    return len(toBytes(theStr, theEncoding))
+
+# Stolen from stackoverflow (google "stackoverflow 1809531")
+def unicode_truncate(theStr, length, encoding='utf-8'):
+    encoded = theStr.encode(encoding)[:length]
+    return encoded.decode(encoding, 'ignore')
+
 ################################################################################
 
 

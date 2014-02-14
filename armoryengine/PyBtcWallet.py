@@ -527,7 +527,8 @@ class PyBtcWallet(object):
    #############################################################################
    def lockTxOutsOnNewTx(self, pytxObj):
       for txin in pytxObj.inputs:
-         self.cppWallet.lockTxOutSwig(txin.outpoint.txHash, txin.outpoint.txOutIndex)
+         self.cppWallet.lockTxOutSwig(txin.outpoint.txHash, \
+                                      txin.outpoint.txOutIndex)
 
    #############################################################################
    def setDefaultKeyLifetime(self, lifetimeInSec):
@@ -568,7 +569,8 @@ class PyBtcWallet(object):
    #############################################################################
    # Copy the wallet file to backup
    def backupWalletFile(self, backupPath = None):
-      walletFileBackup = self.getWalletPath('backup') if backupPath == None else backupPath
+      walletFileBackup = self.getWalletPath('backup') if backupPath == None \
+                                                               else backupPath
       shutil.copy(self.walletPath, walletFileBackup)
 
    #############################################################################

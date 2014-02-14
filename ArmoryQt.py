@@ -3171,26 +3171,26 @@ class ArmoryMainWindow(QMainWindow):
             messages from the log file and copy only those into a bug report email """) % \
             ARMORY_LOG_FILE
             
-      #reply = QMessageBox.warning(self, 'Export Log File', \
       reply = MsgBoxCustom(MSGBOX.Warning, 'Privacy Warning', tr("""
-         The log file contains information that may be considered sensitive 
-         by some users.  Log files should be protected the same 
-         way you would protect a watching-only wallet, though it 
-         usually contains much less information than that. 
+         Armory log files do not contain any <u>security</u>-sensitive 
+         information, but some may consider the information to be 
+         <u>privacy</u>-sensitive.  The log file may identify some addresses
+         and transactions that are related to your wallet.
          <br><br>
          <b>No private key data is ever written to the log file</b>. 
-         Some information about your wallets or balances may appear 
-         in the log file, but only enough to help the Armory developers 
-         track down bugs in the software.
+         The minimum amount of data is logged that helps the Armory 
+         developers track down bugs in the software.
+         <br><br>
+         Please do not send the log file to the Armory developers if you are not 
+         comfortable with them seeing some of your addresses and transactions. 
          <br><br>
          Please do not send the log file to the Armory developers if you are not 
          comfortable with them seeing some of your addresses and transactions. 
          """) + extraStr, wCancel=True, yesStr='Export', noStr='Cancel')
          
-
       if reply:
       
-         def getLastXBytesOfFile(filename, nBytes=500*1024):
+         def getLastBytesOfFile(filename, nBytes=500*1024):
             if not os.path.exists(filename):
                LOGERROR('File does not exist!')
                return ''
@@ -3201,19 +3201,17 @@ class ArmoryMainWindow(QMainWindow):
                   fin.seek(sz - nBytes)
                return fin.read()
 
-         # TODO: Interleave the C++ log and the python log.  That could be a lot of work!
-         defaultFn = 'armorylog_%s.txt' % unixTimeToFormatStr(RightNow(), '%Y%m%d_%H%M')
+         # TODO: Interleave the C++ log and the python log.  
+         #       That could be a lot of work!
+         fn = 'armorylog_%s.txt' % unixTimeToFormatStr(RightNow(),'%Y%m%d_%H%M')
          logfn = self.getFileSave(title='Export Log File', \
                                   ffilter=['Text Files (*.txt)'], \
-                                  defaultFilename=defaultFn)
+                                  defaultFilename=fn)
 
          if len(unicode(logfn)) > 0:
-            pyFilename  = ARMORY_LOG_FILE
-            cppFilename = os.path.join(ARMORY_HOME_DIR, 'armorycpplog.txt')
-
             fout = open(logfn, 'wb')
-            fout.write(getLastXBytesOfFile(pyFilename, 256*1024))
-            fout.write(getLastXBytesOfFile(cppFilename, 256*1024))
+            fout.write(getLastBytesOfFile(ARMORY_LOG_FILE, 256*1024))
+            fout.write(getLastBytesOfFile(ARMCPP_LOG_FILE, 256*1024))
             fout.close()
 
             LOGINFO('Log saved to %s', logfn)

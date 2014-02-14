@@ -428,6 +428,7 @@ class SendBitcoinsFrame(ArmoryFrame):
             'have %s BTC with this coin control selection!' % (valTry, valMax), QMessageBox.Ok)
          return False
 
+
       # Iteratively calculate the minimum fee by first trying the user selected fee
       # then on each iteration set the feeTry to the minFee, and see if the new feeTry
       # can cover the original amount plus the new minfee
@@ -439,7 +440,7 @@ class SendBitcoinsFrame(ArmoryFrame):
       minFee = None
       utxoSelect = []
       feeTry = fee
-      while minFee == None or (feeTry < minFee and totalSend + minFee <= bal):
+      while minFee is None or (feeTry < minFee and totalSend + minFee <= bal):
          if minFee:
             feeTry = minFee
          utxoList = self.getUsableTxOutList()
@@ -453,16 +454,16 @@ class SendBitcoinsFrame(ArmoryFrame):
             QMessageBox.warning(self, 'Insufficient Balance', \
                'The required transaction fee causes this transaction to exceed your balance.  '
                'In order to send this transaction, you will be required to '
-               'pay a fee of <b>' + coin2str(minFee, maxZeros=0).strip() + ' BTC</b>.  '
+               'pay a fee of <b>' + coin2strNZS(minFee) + ' BTC</b>.  '
                '<br><br>'
                'Please go back and adjust the value of your transaction, not '
-               'to exceed a total of <b>' + coin2str(bal - minFee, maxZeros=0).strip() + 
+               'to exceed a total of <b>' + coin2strNZS(bal - minFee) + 
                ' BTC</b> (the necessary fee has been entered into the form, so you '
                'can use the "MAX" button to enter the remaining balance for a '
                'recipient).', QMessageBox.Ok)
             return
-         feeStr = coin2str(fee, maxZeros=0).strip()
-         minFeeStr = coin2str(minFee, maxZeros=0).strip()
+         feeStr = coin2strNZS(fee)
+         minFeeStr = coin2strNZS(minFee)
 
          msgBtns = QMessageBox.Yes | QMessageBox.Cancel
 
@@ -477,6 +478,23 @@ class SendBitcoinsFrame(ArmoryFrame):
             pass
          elif reply == QMessageBox.Yes:
             fee = long(minFee)
+
+
+      # Warn user of excessive fee specified
+      if fee > 100*MIN_RELAY_TX_FEE or (minFee > 0 and fee > 10*minFee):
+         reply = QMessageBox.warning(self, tr('Excessive Fee'), tr("""
+            You have specified a fee of <b>%s BTC</b> which is much higher
+            than the minimum fee required for this transaction: <b>%s BTC</b>.
+            Are you <i>absolutely sure</i> that you want to send with such
+            a high fee?  
+            <br><br>
+            If you do not want this fee, click "No" and then change the fee
+            at the bottom of the "Send Bitcoins" window before trying 
+            again.""") % (fee, minFee), QMessageBox.Yes | QMessageBox.No)
+
+         if not reply==QMessageBox.Yes:
+            return False
+
 
       if len(utxoSelect) == 0:
          QMessageBox.critical(self, 'Coin Selection Error', \
@@ -1360,7 +1378,7 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
 
          ##### 3
          if self.leValue:
-            self.infoLbls[3][2].setText(coin2str(self.leValue, maxZeros=0).strip() + '  BTC')
+            self.infoLbls[3][2].setText(coin2strNZS(self.leValue) + '  BTC')
          else:
             self.infoLbls[3][2].setText('')
 

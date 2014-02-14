@@ -428,6 +428,177 @@ class DlgGenericGetPassword(ArmoryDialog):
       self.setWindowTitle('Enter Password')
       self.setWindowIcon(QIcon(self.main.iconfile))
 
+################################################################################
+class DlgBugReport(ArmoryDialog):
+
+   def __init__(self, parent=None, main=None, initLabel=''):
+      super(DlgBugReport, self).__init__(parent, main)
+
+      tsPage = 'https://bitcoinarmory.com/troubleshooting'
+      faqPage = 'https://bitcoinarmory.com/faqs'
+
+      lblDescr = QRichLabel(tr("""
+         <b><u>Send a bug report to the Armory team</u></b>
+         <br><br>
+         If you are having difficulties with Armory, you should first visit 
+         our <a href="%s">troubleshooting page</a> and our 
+         <a href="%s">FAQ page</a> which describe solutions to
+         many common problems.  
+         <br><br>
+         If you do not find the answer to your problem on those pages,
+         please describe it in detail below, and any steps taken to 
+         reproduce the problem.  The more information you provide, the 
+         more likely we will be able to help you.""") % (tsPage, faqPage))
+
+      self.chkNoLog = QCheckBox('Do not send log file with report')
+      self.chkNoLog.setChecked(False)
+
+      self.btnMoreInfo = QLabelButton('Privacy Info')
+      self.connect(self.btnMoreInfo, SIGNAL(CLICKED), self.moreInfo)
+
+      self.noLogWarn = QRichLabel(tr("""
+         <font color="%s">If you do not include the log file we may not 
+         be able to help you solve your problem!  Click the "More Info"
+         button for details.""") % htmlColor('TextWarn'))
+            
+      self.connect(self.chkNoLog, SIGNAL('toggled(bool)'), \
+                                           self.noLogWarn.setVisible) 
+
+      self.lblEmail = QRichLabel(tr('Email:'))
+      self.edtEmail = QLineEdit()
+      self.edtEmail.setMaxLength(100)
+      self.txtDescr = QTextEdit()
+      self.txtDescr.setFont(GETFONT('Fixed', 9))
+      w,h = tightSizeNChar(self, 60)
+      self.txtDescr.setMinimumWidth(w)
+      self.txtDescr.setMinimumHeight(5*h)
+      self.lblOS = QRichLabel(tr("""
+         Note: if you are using this computer to report an Armory problem
+         on another computer, please include the operating system of the
+         other computer and the version of Armory it is running."""))
+
+      self.btnSubmit = QPushButton(tr('Submit Report'))   
+      self.btnCancel = QPushButton(tr('Cancel'))   
+      self.btnbox = QDialogButtonBox()
+      self.btnbox.addButton(self.btnSubmit, QDialogButtonBox.AcceptRole)
+      self.btnbox.addButton(self.btnCancel, QDialogButtonBox.RejectRole)
+      self.connect(self.btnSubmit, SIGNAL(CLICKED), self.submitReport)
+      self.connect(self.btnCancel, SIGNAL(CLICKED), self, SLOT('reject()'))
+
+      layout = QGridLayout()
+      layout.addWidget(lblDescr,         0,0, 1,2)
+
+      layout.addWidget(self.lblEmail,    1,0, 1,1)
+      layout.addWidget(self.edtEmail,    1,0, 1,1)
+
+      layout.addWidget(self.txtDescr,    2,0, 1,2)
+
+      layout.addWidget(self.chkNoLog,    3,0, 1,1)
+      layout.addWidget(self.btnMoreInfo, 3,1, 1,1)
+
+      layout.addWidget(self.noLogWarn,   4,0, 1,2)
+
+      layout.addWidget(self.btnbox,      5,0, 1,2)
+         
+      self.setLayout(layout)
+      self.setWindowTitle(tr('Submit a Bug Report'))
+      self.setWindowIcon(QIcon(self.main.iconfile))
+
+
+   def moreInfo(self):
+      MsgBoxCustom(MSGBOX.Warning, 'Privacy Warning', tr("""
+         Armory log files do not contain any <u>security</u>-sensitive 
+         information, but some users may consider the information to be 
+         <u>privacy</u>-sensitive.  The log file may identify some addresses
+         and transactions that are related to your wallets.
+         <br><br>
+         <b>No private key data is ever written to the log file</b>. 
+         Only enough data is there to help the Armory developers 
+         track down bugs in the software, but it may still be considered 
+         sensitive information to some users.  
+         <br><br>
+         Please do not send the log file to the Armory developers if you 
+         are not comfortable with the privacy implications!  However, if you
+         do not send the log file, it may be very difficult or impossible 
+         for us to help you with your problem.
+
+         <br><br><b><u>Advanced tip:</u></b> The log files are maintained at 
+         the following locations on your hard drive, which you can manually
+         review in a text editor:
+         <br><br> %s <br><br>
+         <br><br> %s <br><br> 
+         """ % (ARMORY_LOG_FILE, ARMCPP_LOG_FILE), wCancel=False, yesStr="&Ok"))
+            
+   def submitReport(self):
+      emailAddr = unicode(self.edtEmail.text()).strip() 
+      emailLen = lenBytes(emailAddr)
+
+      description = unicode(self.txtDescr.toPlainText()).strip()
+      descrLen = lenBytes(description)
+
+
+      if emailLen == 0:
+         reply = MsgBoxCustom(MSGBOX.Warning, tr('Missing Email'), tr("""
+            You must supply an email address so we can follow up on your
+            request."""), \
+            noStr=tr('Go Back'), yesStr=tr('Submit without Email'))
+
+         if not reply:
+            return
+         else:
+            emailAddr = '<NO EMAIL SUPPPLIED>'
+
+
+      if descrLen < 32:
+         QMessageBox(self, tr('Empty Description'), tr("""
+            You must describe what problem you are having, and any information
+            that might help us reproduce the problem so we can help you and
+            fix the problem in the code.  The Armory team needs a written 
+            description of the problem, in addition to the log file."""), \
+            QMessageBox.Ok)
+         return
+
+      maxDescr = 16384
+      if descrLen > maxDescr:
+         reply = MsgBoxCustom(MSGBOX.Warning, tr('Long Description'), tr("""
+            You have exceeded the maximum size of the description that can
+            be submitted to our ticket system, which is %d bytes.  
+            If you click "Continue", the last %d bytes of your description
+            will be removed before sending.""") % (maxDescr, descrLen-maxDescr), \
+            noStr=tr('Go Back'), yesStr=tr('Continue'))
+         if not reply:
+            return
+         else:
+            description = unicode_truncate(description, maxDescr)
+
+      # This is a unique-but-not-traceable ID, to simply match users to log files
+      uniqID  = binary_to_base58(hash256(USER_HOME_DIR)[:4])
+      dateStr = unixTimeToFormatStr(RightNow(), '%Y%m%d_%H%M')
+
+      reportMap = {}
+      reportMap['uniqID']     = uniqID
+      reportMap['OSmajor']    = OS_NAME
+      reportMap['OSvariant']  = OS_VARIANT if OS_MACOSX else '-'.join(OS_VARIANT)
+      reportMap['ArmoryVer']  = getVersionString(BTCARMORY_VERSION)
+      reportMap['TotalRAM']   = '%0.2f' % SystemSpecs.Memory
+      reportMap['isAmd64']    = str(SystemSpecs.IsX64).lower()
+      reportMap['userEmail']  = emailAddr
+      reportMap['userDescr']  = description
+
+      tmpFile = os.path.join(ARMORY_HOME_DIR, 'log_%s_%s.txt' % (uniqID, dateStr))
+      self.main.saveCombinedLogFile(tmpFile)
+      with open(tmpFile, 'r') as f:
+         reportMap['combinedLog'] = f.read()
+      os.remove(tempFile)
+
+      import urllib3
+      http = urllib3.PoolManager()
+      headers = urllib3.make_headers('Mozilla/5.0 (Windows; U; Windows NT 5.1; en-US; rv:1.8.1.6) Gecko/20070725 Firefox/2.0.0.6')
+      url = "https://www.bitcoinarmory.com/scripts/receive_debug.php"
+      response = http.request('POST', url, reportMap, headers)
+      print response._body
+      
+
 
 ################################################################################
 class DlgNewWallet(ArmoryDialog):
@@ -439,8 +610,9 @@ class DlgNewWallet(ArmoryDialog):
       self.selectedImport = False
 
       # Options for creating a new wallet
-      lblDlgDescr = QLabel('Create a new wallet for managing your funds.\n'
-                           'The name and description can be changed at any time.')
+      lblDlgDescr = QRichLabel(tr("""
+         Create a new wallet for managing your funds.<br>
+         The name and description can be changed at any time."""))
       lblDlgDescr.setWordWrap(True)
 
       self.edtName = QLineEdit()
