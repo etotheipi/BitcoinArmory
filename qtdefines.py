@@ -146,10 +146,15 @@ def GETFONT(ftype, sz=10, bold=False, italic=False):
    if ftype.lower().startswith('fix'):
       if OS_WINDOWS:
          fnt = QFont("Courier", sz)
+      elif OS_MACOSX:
+         fnt = QFont("Menlo", sz)
       else: 
          fnt = QFont("DejaVu Sans Mono", sz)
    elif ftype.lower().startswith('var'):
-      fnt = QFont("Verdana", sz)
+      if OS_MACOSX:
+         fnt = QFont("Lucida Grande", sz)
+      else:
+         fnt = QFont("Verdana", sz)
       #if OS_WINDOWS:
          #fnt = QFont("Tahoma", sz)
       #else: 
@@ -157,6 +162,8 @@ def GETFONT(ftype, sz=10, bold=False, italic=False):
    elif ftype.lower().startswith('money'):
       if OS_WINDOWS:
          fnt = QFont("Courier", sz)
+      elif OS_MACOSX:
+         fnt = QFont("Menlo", sz)
       else: 
          fnt = QFont("DejaVu Sans Mono", sz)
    else:

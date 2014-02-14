@@ -8,6 +8,8 @@ CFLAGS=-O2 -pipe -fPIC
 CXXFLAGS=-O2 -pipe -fPIC
 endif
 
+platform=$(shell uname)
+
 #**************************************************************************
 LINK = $(CXX)
 
@@ -22,7 +24,10 @@ OBJS = UniversalTimer.o BinaryData.o leveldb_wrapper.o StoredBlockObj.o BtcUtils
 # pypaths.txt to define those three variables, and then comment out 
 # DO_EXEC_WHEREISPY line (to prevent the script from attempting to run
 # and overwriting the manual values).
+ifneq ($(platform),Darwin)
+# OS X will do its own thing.
 DO_EXEC_WHEREISPY := $(shell ./whereispy.sh)
+endif
 
 include ./pypaths.txt
 
