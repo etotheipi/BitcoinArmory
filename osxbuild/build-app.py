@@ -16,6 +16,15 @@ from subprocess import Popen, PIPE
 
 # Set some constants up front
 #swigBinVer = '2.0.12'
+pythonVer  = '2.7.5'
+setToolVer = '2.1.2'
+pipVer     = '1.5.2'
+psutilVer  = '1.2.1'
+twistedVer = '13.2.0'
+libpngVer  = '1.6.8'
+qtVer      = '4.8.5'
+sipVer     = '4.15.4'
+pyQtVer    = '4.10.3'
 LOGFILE    = 'build-app.log.txt'
 LOGPATH    = path.abspath( path.join(os.getcwd(), LOGFILE))
 ARMORYDIR  = '..'
@@ -295,34 +304,34 @@ def downloadPkg(pkgname, fname, url, ID, toDir=DLDIR):
 # (Name, filename, url, sha-1 or None)
 distfiles = []
 distfiles.append( [ 'Python', \
-                    "Python-2.7.5.tar.bz2", \
-                    "http://python.org/ftp/python/2.7.5/Python-2.7.5.tar.bz2", \
+                    "Python-%s.tar.bz2" % pythonVer, \
+                    "http://python.org/ftp/python/%s/Python-%s.tar.bz2" % (pythonVer, pythonVer), \
                     "6cfada1a739544a6fa7f2601b500fba02229656b" ] )
 
 distfiles.append( [ 'setuptools', \
-                    "setuptools-2.1.2.tar.gz", \
-                    "https://pypi.python.org/packages/source/s/setuptools/setuptools-2.1.2.tar.gz", \
+                    "setuptools-%s.tar.gz" % setToolVer, \
+                    "https://pypi.python.org/packages/source/s/setuptools/setuptools-%s.tar.gz" % setToolVer, \
                     "6a35e881a3aa2e06a1d5d4e966a9def296ec23e8" ] )
 
 distfiles.append( [ 'Pip', \
-                    "pip-1.5.2.tar.gz", \
-                    "https://pypi.python.org/packages/source/p/pip/pip-1.5.2.tar.gz", \
+                    "pip-%s.tar.gz" % pipVer, \
+                    "https://pypi.python.org/packages/source/p/pip/pip-%s.tar.gz" % pipVer, \
                     "4f43a6b04f83b8d83bee702750ff35be2a2b6af1" ] )
 
 distfiles.append( [ "psutil", \
-                    "psutil-1.2.1.tar.gz", \
-                    "https://pypi.python.org/packages/source/p/psutil/psutil-1.2.1.tar.gz", \
+                    "psutil-%s.tar.gz" % psutilVer, \
+                    "https://pypi.python.org/packages/source/p/psutil/psutil-%s.tar.gz" % psutilVer, \
                     "c8c1842bf1c63b9068ac25a37f7aae11fcecd57f" ] )
 
 distfiles.append( [ 'Twisted', \
-                    "Twisted-13.2.0.tar.bz2", \
-                    "https://pypi.python.org/packages/source/T/Twisted/Twisted-13.2.0.tar.bz2", \
+                    "Twisted-%s.tar.bz2" % twistedVer, \
+                    "https://pypi.python.org/packages/source/T/Twisted/Twisted-%s.tar.bz2" % twistedVer, \
                     "e1d43645fd3d84dc2867f36b60d2e469a71eb01d" ] )
 
 # Other lines rely on the given version. Patch this up later.
 distfiles.append( [ 'libpng', \
-                    "libpng-1.6.8.mavericks.bottle.tar.gz", \
-                    "https://downloads.sf.net/project/machomebrew/Bottles/libpng-1.6.8.mavericks.bottle.tar.gz", \
+                    "libpng-%s.mavericks.bottle.tar.gz" % libpngVer, \
+                    "https://downloads.sf.net/project/machomebrew/Bottles/libpng-%s.mavericks.bottle.tar.gz" % libpngVer, \
                     "666d5ba290d72b0cfa13366232eb0ffcc701d21f" ] )
 
 #distfiles.append( [ "Qt", \
@@ -337,8 +346,8 @@ distfiles.append( [ 'libpng', \
 
 # Pre-packaged source not used for now. Use Git instead.
 distfiles.append( [ "Qt", \
-                    "qt-everywhere-opensource-src-4.8.5.tar.gz", \
-                    "http://download.qt-project.org/official_releases/qt/4.8/4.8.5/qt-everywhere-opensource-src-4.8.5.tar.gz", \
+                    "qt-everywhere-opensource-src-%s.tar.gz" % qtVer, \
+                    "http://download.qt-project.org/official_releases/qt/4.8/%s/qt-everywhere-opensource-src-%s.tar.gz" % (qtVer, qtVer), \
                     "745f9ebf091696c0d5403ce691dc28c039d77b9e" ] )
 
 #distfiles.append( [ "Qt-git", \
@@ -372,14 +381,14 @@ distfiles.append( [ "Webkit-for-Qt", \
                     #'a0b5189097937410113f22b78579c4eac940def9' #] )
 
 distfiles.append( [ "sip", \
-                    "sip-4.15.4.tar.gz", \
-                    "http://sourceforge.net/projects/pyqt/files/sip/sip-4.15.4/sip-4.15.4.tar.gz", \
+                    "sip-%s.tar.gz" % sipVer, \
+                    "http://sourceforge.net/projects/pyqt/files/sip/sip-%s/sip-%s.tar.gz" % (sipVer, sipVer), \
                     'a5f6342dbb3cdc1fb61440ee8acb805f5fec3c41' ] )
 
 # Other lines rely on the given version. Patch this up later.
 distfiles.append( [ "pyqt", \
-                    "PyQt-mac-gpl-4.10.3.tar.gz", \
-                    "http://downloads.sf.net/project/pyqt/PyQt4/PyQt-4.10.3/PyQt-mac-gpl-4.10.3.tar.gz", \
+                    "PyQt-mac-gpl-%s.tar.gz" % pyQtVer, \
+                    "http://downloads.sf.net/project/pyqt/PyQt4/PyQt-%s/PyQt-mac-gpl-%s.tar.gz" % (pyQtVer, pyQtVer), \
                     'ba5465f92fb43c9f0a5b948fa25df5045f160bf0' ] )
 
 #distfiles.append( [ "pyqt", \
@@ -461,7 +470,7 @@ def install_libpng():
       logprint('libpng already installed.')
    else:
       pngDir = unpack(tarfilesToDL['libpng'])
-      src = path.join(pngDir, '1.6.8/lib', dylib)
+      src = path.join(pngDir, '%s/lib' % libpngVer, dylib)
       copyfile(src, target)
 
 ################################################################################
@@ -603,7 +612,7 @@ def compile_pyqt():
 
    # Need to add pyrcc4 to the PATH
    execAndWait('make install', cwd=pyqtPath)
-   pyrccPath = path.join(UNPACKDIR, 'PyQt-mac-gpl-4.10.3/pyrcc')
+   pyrccPath = path.join(UNPACKDIR, 'PyQt-mac-gpl-%s/pyrcc' % pyQtVer)
    os.environ['PATH'] = '%s:%s' % (pyrccPath, os.environ['PATH'])
 
 ################################################################################
