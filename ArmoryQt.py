@@ -605,22 +605,25 @@ class ArmoryMainWindow(QMainWindow):
       execAbout   = lambda: DlgHelpAbout(self).exec_()
       execVersion = lambda: self.checkForLatestVersion(wasRequested=True)
       execTrouble = lambda: webbrowser.open('https://bitcoinarmory.com/troubleshooting/')
+      execBugReport = lambda: DlgBugReport(self, self).exec_()
       actAboutWindow  = self.createAction('About Armory', execAbout)
       actTroubleshoot = self.createAction('Troubleshooting Armory', execTrouble)
+      actSubmitBug    = self.createAction('Submit Bug Report', execBugReport)
       actVersionCheck = self.createAction('Armory Version...', execVersion)
-      actFactoryReset = self.createAction('Revert All Settings', self.factoryReset)
       actClearMemPool = self.createAction('Clear All Unconfirmed', self.clearMemoryPool)
       actRescanDB     = self.createAction('Rescan Databases', self.rescanNextLoad)
       actRebuildDB    = self.createAction('Rebuild and Rescan Databases', self.rebuildNextLoad)
+      actFactoryReset = self.createAction('Revert All Settings', self.factoryReset)
 
       self.menusList[MENUS.Help].addAction(actAboutWindow)
       self.menusList[MENUS.Help].addAction(actTroubleshoot)
       self.menusList[MENUS.Help].addAction(actVersionCheck)
-      self.menusList[MENUS.Help].addAction(actFactoryReset)
+      self.menusList[MENUS.Help].addAction(actSubmitBug)
       self.menusList[MENUS.Help].addSeparator()
       self.menusList[MENUS.Help].addAction(actClearMemPool)
       self.menusList[MENUS.Help].addAction(actRescanDB)
       self.menusList[MENUS.Help].addAction(actRebuildDB)
+      self.menusList[MENUS.Help].addAction(actFactoryReset)
 
       # Restore any main-window geometry saved in the settings file
       hexgeom   = self.settings.get('MainGeometry')
@@ -3160,61 +3163,75 @@ class ArmoryMainWindow(QMainWindow):
    #############################################################################
    def exportLogFile(self):
       LOGDEBUG('exportLogFile')
-      extraStr = ''
-      if self.usermode in (USERMODE.Advanced, USERMODE.Expert):
-         extraStr = tr( """ 
-            <br><br><b><u>Advanced tip:</u></b> This log file is maintained at 
-            the following location on your hard drive:
-            <br><br> %s <br><br>
-            Before sending the log file, you may edit it to remove information that 
-            does not seem relevant for debugging purposes.  Or, extract the error 
-            messages from the log file and copy only those into a bug report email """) % \
-            ARMORY_LOG_FILE
-            
-      reply = MsgBoxCustom(MSGBOX.Warning, 'Privacy Warning', tr("""
+      reply = QMessageBox.warning(self, tr('Bug Reporting'), tr("""
+         As of version 0.91-beta, Armory now includes a form for reporting
+         problems with the software.  Please use "Help"\xe2\x86\x92"Submit Bug Report" 
+         to send a report directly to the Armory team, which will include 
+         your log file automatically."""), QMessageBox.Ok | QMessageBox.Cancel)
+      
+      if not reply==QMessageBox.Ok:
+         return
+         
+      if self.logFilePrivacyWarning(wCancel=True):
+         self.saveCombinedLogFile()
+      
+   #############################################################################
+   def logFilePrivacyWarning(self, wCancel=False):
+      return MsgBoxCustom(MSGBOX.Warning, tr('Privacy Warning'), tr("""
          Armory log files do not contain any <u>security</u>-sensitive 
-         information, but some may consider the information to be 
+         information, but some users may consider the information to be 
          <u>privacy</u>-sensitive.  The log file may identify some addresses
-         and transactions that are related to your wallet.
+         and transactions that are related to your wallets.
          <br><br>
          <b>No private key data is ever written to the log file</b>. 
-         The minimum amount of data is logged that helps the Armory 
-         developers track down bugs in the software.
+         Only enough data is there to help the Armory developers 
+         track down bugs in the software, but it may still be considered 
+         sensitive information to some users.  
          <br><br>
-         Please do not send the log file to the Armory developers if you are not 
-         comfortable with them seeing some of your addresses and transactions. 
-         <br><br>
-         Please do not send the log file to the Armory developers if you are not 
-         comfortable with them seeing some of your addresses and transactions. 
-         """) + extraStr, wCancel=True, yesStr='Export', noStr='Cancel')
-         
-      if reply:
+         Please do not send the log file to the Armory developers if you 
+         are not comfortable with the privacy implications!  However, if you
+         do not send the log file, it may be very difficult or impossible 
+         for us to help you with your problem.
+
+         <br><br><b><u>Advanced tip:</u></b> You can use 
+         "File"\xe2\x86\x92"Export Log File" from the main window to 
+         save a copy of the log file that you can manually review."""), \
+         wCancel=wCancel, yesStr="&Ok")
       
-         def getLastBytesOfFile(filename, nBytes=500*1024):
-            if not os.path.exists(filename):
-               LOGERROR('File does not exist!')
-               return ''
 
-            sz = os.path.getsize(filename)
-            with open(filename, 'rb') as fin:
-               if sz > nBytes:
-                  fin.seek(sz - nBytes)
-               return fin.read()
-
+   #############################################################################
+   def saveCombinedLogFile(self, saveFile=None):
+      if saveFile is None:
          # TODO: Interleave the C++ log and the python log.  
          #       That could be a lot of work!
-         fn = 'armorylog_%s.txt' % unixTimeToFormatStr(RightNow(),'%Y%m%d_%H%M')
-         logfn = self.getFileSave(title='Export Log File', \
+         defaultFN = 'armorylog_%s.txt' % \
+                     unixTimeToFormatStr(RightNow(),'%Y%m%d_%H%M')
+         saveFile = self.getFileSave(title='Export Log File', \
                                   ffilter=['Text Files (*.txt)'], \
-                                  defaultFilename=fn)
+                                  defaultFilename=defaultFN)
 
-         if len(unicode(logfn)) > 0:
-            fout = open(logfn, 'wb')
-            fout.write(getLastBytesOfFile(ARMORY_LOG_FILE, 256*1024))
-            fout.write(getLastBytesOfFile(ARMCPP_LOG_FILE, 256*1024))
-            fout.close()
 
-            LOGINFO('Log saved to %s', logfn)
+      def getLastBytesOfFile(filename, nBytes=500*1024):
+         if not os.path.exists(filename):
+            LOGERROR('File does not exist!')
+            return ''
+
+         sz = os.path.getsize(filename)
+         with open(filename, 'rb') as fin:
+            if sz > nBytes:
+               fin.seek(sz - nBytes)
+            return fin.read()
+
+
+      if len(unicode(saveFile)) > 0:
+         fout = open(saveFile, 'wb')
+         fout.write(getLastBytesOfFile(ARMORY_LOG_FILE, 256*1024))
+         fout.write(getLastBytesOfFile(ARMCPP_LOG_FILE, 256*1024))
+         fout.close()
+
+         LOGINFO('Log saved to %s', saveFile)
+         
+      
 
    #############################################################################
    def blinkTaskbar(self):

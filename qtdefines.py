@@ -493,14 +493,14 @@ def MsgBoxCustom(wtype, title, msg, wCancel=False, yesStr=None, noStr=None):
             buttonbox.addButton(btnYes,QDialogButtonBox.AcceptRole)
             buttonbox.addButton(btnNo, QDialogButtonBox.RejectRole)
          else:
-            if not yesStr: yesStr = '&OK'
-            if not noStr:  noStr = '&Cancel'
+            cancelStr = '&Cancel' if (noStr is not None or withCancel) else ''
+            yesStr    = '&OK' if (yesStr is None) else yesStr
             btnOk     = QPushButton(yesStr)
-            btnCancel = QPushButton(noStr)
+            btnCancel = QPushButton(cancelStr)
             self.connect(btnOk,     SIGNAL('clicked()'), self.accept)
             self.connect(btnCancel, SIGNAL('clicked()'), self.reject)
             buttonbox.addButton(btnOk, QDialogButtonBox.AcceptRole)
-            if withCancel or noStr:
+            if cancelStr:
                buttonbox.addButton(btnCancel, QDialogButtonBox.RejectRole)
 
          spacer = QSpacerItem(20, 10, QSizePolicy.Fixed, QSizePolicy.Expanding)
@@ -574,7 +574,6 @@ def MsgBoxWithDNAA(wtype, title, msg, dnaaMsg, wCancel=False, \
             self.connect(btnNo,  SIGNAL('clicked()'), self.reject)
             buttonbox.addButton(btnYes,QDialogButtonBox.AcceptRole)
             buttonbox.addButton(btnNo, QDialogButtonBox.RejectRole)
-
          else:
             btnOk = QPushButton('Ok')
             self.connect(btnOk, SIGNAL('clicked()'), self.accept)
