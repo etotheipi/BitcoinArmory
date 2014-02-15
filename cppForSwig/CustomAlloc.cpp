@@ -96,6 +96,7 @@ namespace CustomAlloc
    {
       position = 0;
       size = 0;
+	  end = 0;
    }
 
    void BufferHeader::reset()
@@ -191,7 +192,7 @@ namespace CustomAlloc
       if(passedQuota) mlock(pool, size);
 				
       total = size;
-	   freemem = size;
+	  freemem = size;
    }
 
    void MemPool::Free()
@@ -210,6 +211,8 @@ namespace CustomAlloc
       total=0;
       reserved=0;
 
+	  ngaps = 0;
+	  freemem = 0;
       pool = 0;
    }
 
@@ -226,15 +229,68 @@ namespace CustomAlloc
       while(acquireGap.Fetch_Or(1));
    
       if((size_t)bh->offset - (size_t)pool +bh->size -size_of_ptr == reserved)
+		{
          reserved -= bh->size;
+			size_t respos = (size_t)pool + reserved;
+			for(int g=0; g<ngaps; g++)
+			{
+				if(gaps[g].end==respos)
+				{
+					reserved -= gaps[g].size;
+					memcpy(gaps +g, gaps +g +1, sizeof(Gap)*(ngaps -g -1));
+					ngaps--;
+					break;
+				}
+			}
+		}
       else
       {
-         if(ngaps == total_ngaps) ExtendGap();
-      
-         gaps[ngaps].position = (size_t)bh->offset -size_of_ptr;
-         gaps[ngaps].size = bh->size;
+			int bf = -1, af = -1, g=0;
+			size_t bhend = (size_t)bh->offset + bh->size -size_of_ptr;
+			size_t bhstart = (size_t)bh->offset -size_of_ptr;
 
-         ngaps++;
+			for(g; g<ngaps; g++)
+			{
+				if(gaps[g].end==bhstart)
+				{
+					bf = g;
+					if(af>-1) break;
+				}
+				else if(gaps[g].position==bhend)
+				{
+					af = g;
+					if(bf>-1) break;
+				}
+			}
+
+			if(bf>-1)
+			{
+				gaps[bf].end = bhend;
+
+				if(af>-1)
+				{
+					gaps[bf].end = gaps[af].end;
+					memcpy(gaps +af, gaps +af +1, sizeof(Gap)*(ngaps -af -1));
+					ngaps--;
+				}
+
+				gaps[bf].size = gaps[bf].end - gaps[bf].position;
+			}
+			else if(af>-1)
+			{
+				gaps[af].position = bhstart;
+				gaps[af].size += bh->size;
+			}
+			else
+			{
+				if(ngaps == total_ngaps) ExtendGap();
+      
+				gaps[ngaps].position = bhstart;
+				gaps[ngaps].size = bh->size;
+				gaps[ngaps].end = (size_t)bh->offset +bh->size -size_of_ptr;
+
+				ngaps++;
+			}
       }
 
       freemem += bh->size;
@@ -308,7 +364,7 @@ namespace CustomAlloc
 	   }
 
       int offset = GetGap(size);
-	   if(!offset)
+	  if(!offset)
       {
     	   lockpool = 0;
          return 0;
@@ -543,8 +599,6 @@ namespace CustomAlloc
 
 	   float fhd = (float)hd/(float)npools;
 	   float fld = (float)ld/(float)npools;
-
-	   int abc=0;
    }
 
    CustomAllocator CAllocStatic::CA;

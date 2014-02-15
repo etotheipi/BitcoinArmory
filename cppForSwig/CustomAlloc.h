@@ -26,12 +26,13 @@ namespace CustomAlloc
    class Gap
    {
       public:
-         size_t position, size;
+         size_t position, size, end;
 
          Gap(size_t p, size_t s)
          {
             position = p;
             size = s;
+			end = position +s;
          }
 
          void reset();
