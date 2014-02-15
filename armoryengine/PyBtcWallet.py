@@ -8,13 +8,13 @@
 import os.path
 import shutil
 
-from CppBlockUtils import SecureBinaryData, KdfRomix, CryptoAES, CryptoECDSA,\
-   TXOUT_SCRIPT_MULTISIG
+from CppBlockUtils import SecureBinaryData, KdfRomix, CryptoAES, CryptoECDSA
 import CppBlockUtils as Cpp
 from armoryengine.ArmoryUtils import *
 from armoryengine.BinaryPacker import *
 from armoryengine.BinaryUnpacker import *
 from armoryengine.Timer import *
+from armoryengine.Transaction import *
 
 
 BLOCKCHAIN_READONLY   = 0
@@ -527,7 +527,9 @@ class PyBtcWallet(object):
    #############################################################################
    def lockTxOutsOnNewTx(self, pytxObj):
       for txin in pytxObj.inputs:
-         self.cppWallet.lockTxOutSwig(txin.outpoint.txHash, txin.outpoint.txOutIndex)
+         self.cppWallet.lockTxOutSwig(txin.outpoint.txHash, \
+                                      txin.outpoint.txOutIndex)
+
    
    #############################################################################
    #  THIS WAS CREATED ORIGINALLY TO SUPPORT BITSAFE INTEGRATION INTO ARMORY
@@ -556,7 +558,8 @@ class PyBtcWallet(object):
    #############################################################################
    # Copy the wallet file to backup
    def backupWalletFile(self, backupPath = None):
-      walletFileBackup = self.getWalletPath('backup') if backupPath == None else backupPath
+      walletFileBackup = self.getWalletPath('backup') if backupPath == None \
+                                                               else backupPath
       shutil.copy(self.walletPath, walletFileBackup)
 
    #############################################################################
@@ -2947,6 +2950,8 @@ def getSuffixedPath(walletPath, nameSuffix):
    else:
       fpath = pieces[0] + nameSuffix + pieces[1]
    return fpath
+
+
 
 # Putting this at the end because of the circular dependency
 from armoryengine.BDM import TheBDM, getCurrTimeAndBlock

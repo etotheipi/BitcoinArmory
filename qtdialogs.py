@@ -428,6 +428,222 @@ class DlgGenericGetPassword(ArmoryDialog):
       self.setWindowTitle('Enter Password')
       self.setWindowIcon(QIcon(self.main.iconfile))
 
+################################################################################
+class DlgBugReport(ArmoryDialog):
+
+   def __init__(self, parent=None, main=None):
+      super(DlgBugReport, self).__init__(parent, main)
+
+      tsPage = 'https://bitcoinarmory.com/troubleshooting'
+      faqPage = 'https://bitcoinarmory.com/faqs'
+
+      lblDescr = QRichLabel(tr("""
+         <b><u>Send a bug report to the Armory team</u></b>
+         <br><br>
+         If you are having difficulties with Armory, you should first visit 
+         our <a href="%s">troubleshooting page</a> and our 
+         <a href="%s">FAQ page</a> which describe solutions to
+         many common problems.  
+         <br><br>
+         If you do not find the answer to your problem on those pages,
+         please describe it in detail below, and any steps taken to 
+         reproduce the problem.  The more information you provide, the 
+         more likely we will be able to help you.""") % (tsPage, faqPage))
+
+      self.chkNoLog = QCheckBox('Do not send log file with report')
+      self.chkNoLog.setChecked(False)
+
+      self.btnMoreInfo = QLabelButton('Privacy Info')
+      self.connect(self.btnMoreInfo, SIGNAL(CLICKED), \
+                                 self.main.logFilePrivacyWarning)
+
+      self.noLogWarn = QRichLabel(tr("""
+         <font color="%s">If you do not include the log file we may not 
+         be able to help you solve your problem!  Click the "Privacy Info"
+         button for details.""") % htmlColor('TextWarn'))
+      self.noLogWarn.setVisible(False)
+            
+      self.connect(self.chkNoLog, SIGNAL('toggled(bool)'), \
+                                           self.noLogWarn.setVisible) 
+
+      self.lblEmail = QRichLabel(tr('Email Address:'))
+      self.edtEmail = QLineEdit()
+      self.edtEmail.setMaxLength(100)
+      self.txtDescr = QTextEdit()
+      self.txtDescr.setFont(GETFONT('Fixed', 9))
+      w,h = tightSizeNChar(self, 80)
+      self.txtDescr.setMinimumWidth(w)
+      self.txtDescr.setMinimumHeight(5*h)
+      self.lblOS = QRichLabel(tr("""
+         Note: if you are using this computer to report an Armory problem
+         on another computer, please include the operating system of the
+         other computer and the version of Armory it is running."""))
+
+      self.btnSubmit = QPushButton(tr('Submit Report'))   
+      self.btnCancel = QPushButton(tr('Cancel'))   
+      self.btnbox = QDialogButtonBox()
+      self.btnbox.addButton(self.btnSubmit, QDialogButtonBox.AcceptRole)
+      self.btnbox.addButton(self.btnCancel, QDialogButtonBox.RejectRole)
+      self.connect(self.btnSubmit, SIGNAL(CLICKED), self.submitReport)
+      self.connect(self.btnCancel, SIGNAL(CLICKED), self, SLOT('reject()'))
+
+      osvar = OS_VARIANT if OS_MACOSX else OS_VARIANT[0]
+      armoryver = getVersionString(BTCARMORY_VERSION)
+      lblDetect = QRichLabel( tr("""
+         <b>Detected:</b> %s (%s) / %0.2f GB RAM / Armory version %s<br>
+         <font size=2>(this data will be submitted automatically with the 
+         report)</font>""") % \
+         (OS_NAME, osvar, SystemSpecs.Memory, armoryver))
+      
+
+      layout = QGridLayout()
+      i = -1
+
+      i += 1
+      layout.addWidget(lblDescr,         i,0, 1,2)
+
+      i += 1
+      layout.addWidget(HLINE(),          i,0, 1,2)
+
+      i += 1
+      layout.addWidget(lblDetect,        i,0, 1,2)
+
+      i += 1
+      layout.addWidget(HLINE(),          i,0, 1,2)
+
+      i += 1
+      layout.addWidget(self.lblEmail,    i,0, 1,1)
+      layout.addWidget(self.edtEmail,    i,1, 1,1)
+
+      i += 1
+      layout.addWidget(self.txtDescr,    i,0, 1,2)
+
+      i += 1
+      frmchkbtn = makeHorizFrame([self.chkNoLog, self.btnMoreInfo, 'Stretch'])
+      layout.addWidget(frmchkbtn,        i,0, 1,2)
+
+      i += 1
+      layout.addWidget(self.noLogWarn,   i,0, 1,2)
+
+      i += 1
+      layout.addWidget(self.btnbox,      i,0, 1,2)
+         
+      self.setLayout(layout)
+      self.setWindowTitle(tr('Submit a Bug Report'))
+      self.setWindowIcon(QIcon(self.main.iconfile))
+
+   #############################################################################
+   def submitReport(self):
+      emailAddr = unicode(self.edtEmail.text()).strip() 
+      emailLen = lenBytes(emailAddr)
+
+      description = unicode(self.txtDescr.toPlainText()).strip()
+      descrLen = lenBytes(description)
+
+
+      if emailLen == 0 or not '@' in emailAddr:
+         reply = MsgBoxCustom(MSGBOX.Warning, tr('Missing Email'), tr("""
+            You must supply a valid email address so we can follow up on your
+            request."""), \
+            noStr=tr('Go Back'), yesStr=tr('Submit without Email'))
+
+         if not reply:
+            return
+         else:
+            emailAddr = '<NO EMAIL SUPPPLIED>'
+
+
+      if descrLen < 10:
+         QMessageBox.warning(self, tr('Empty Description'), tr("""
+            You must describe what problem you are having, and any information
+            that might help us reproduce the problem so we can help you and
+            fix the problem in the code.  The Armory team needs a written 
+            description of the problem, in addition to the log file."""), \
+            QMessageBox.Ok)
+         return
+
+      maxDescr = 16384
+      if descrLen > maxDescr:
+         reply = MsgBoxCustom(MSGBOX.Warning, tr('Long Description'), tr("""
+            You have exceeded the maximum size of the description that can
+            be submitted to our ticket system, which is %d bytes.  
+            If you click "Continue", the last %d bytes of your description
+            will be removed before sending.""") % (maxDescr, descrLen-maxDescr), \
+            noStr=tr('Go Back'), yesStr=tr('Continue'))
+         if not reply:
+            return
+         else:
+            description = unicode_truncate(description, maxDescr)
+
+      # This is a unique-but-not-traceable ID, to simply match users to log files
+      uniqID  = binary_to_base58(hash256(USER_HOME_DIR)[:4])
+      dateStr = unixTimeToFormatStr(RightNow(), '%Y%m%d_%H%M')
+
+      reportMap = {}
+      reportMap['uniqID']       = uniqID
+      reportMap['OSmajor']      = OS_NAME
+      reportMap['OSvariant']    = OS_VARIANT if OS_MACOSX else '-'.join(OS_VARIANT)
+      reportMap['ArmoryVer']    = getVersionString(BTCARMORY_VERSION)
+      reportMap['TotalRAM']     = '%0.2f' % SystemSpecs.Memory
+      reportMap['isAmd64']      = str(SystemSpecs.IsX64).lower()
+      reportMap['userEmail']    = emailAddr
+      reportMap['userDescr']    = description
+      reportMap['userTime']     = unixTimeToFormatStr(RightNow())
+      reportMap['userTimeUTC']  = unixTimeToFormatStr(RightNowUTC())
+
+      if self.chkNoLog.isChecked():
+         reportMap['fileLog'] = '<NO LOG FILE SUBMITTED>'
+      else:
+         tmpBase = 'log_%s_%s.txt' % (uniqID, dateStr)
+         tmpFile = os.path.join(ARMORY_HOME_DIR, tmpBase)
+         self.main.saveCombinedLogFile(tmpFile)
+         with open(tmpFile, 'r') as f:
+            reportMap['fileLog'] = f.read()
+         os.remove(tmpFile)
+
+         
+      logHash = binary_to_hex(hash160(reportMap['fileLog']))
+
+      try:
+         import urllib3
+         http = urllib3.PoolManager()
+         headers = urllib3.make_headers('ArmoryBugReportWindowNotABrowser')
+         url = "https://www.bitcoinarmory.com/scripts/receive_debug.php"
+         response = http.request('POST', url, reportMap, headers)
+         rstr = response._body[:]
+         rstart = rstr.index(':')+2
+         responseMap = ast.literal_eval(rstr[rstart:])
+
+         for key,val in responseMap.iteritems():
+            LOGINFO(key.ljust(20) + ': ' + (logHash if key=='fileLog' else val))
+         
+         LOGINFO('Connection info:')
+         LOGINFO('   status:  ' + str(response.status))
+         LOGINFO('   version: ' + str(response.version))
+         LOGINFO('   reason:  ' + str(response.reason))
+         LOGINFO('   strict:  ' + str(response.strict))
+
+
+         if response.reason.lower() == 'ok':
+            QMessageBox.information(self, tr('Submitted!'), tr("""
+               Your report was successfully received by the Armory team and will 
+               be reviewed as soon as is possible.  Please be aware that the team
+               receives lots of reports like these, so it may take a few days for
+               the team to get back to you."""), QMessageBox.Ok)
+            self.accept()
+         else:
+            raise ConnectionError('Failed to send bug report')
+        
+      except:
+         LOGEXCEPT('Failed:')
+         bugpage = 'https://bitcoinarmory.com/submitbug.php'
+         QMessageBox.information(self, tr('Submitted!'), tr("""
+            There was a problem submitting your bug report.  It is recommended
+            that you submit this information through our webpage instead:
+            <br><br>
+            <a href="%s">%s</a>""") % (bugpage, bugpage), QMessageBox.Ok)
+         self.reject()
+
 
 ################################################################################
 class DlgNewWallet(ArmoryDialog):
@@ -439,8 +655,9 @@ class DlgNewWallet(ArmoryDialog):
       self.selectedImport = False
 
       # Options for creating a new wallet
-      lblDlgDescr = QLabel('Create a new wallet for managing your funds.\n'
-                           'The name and description can be changed at any time.')
+      lblDlgDescr = QRichLabel(tr("""
+         Create a new wallet for managing your funds.<br>
+         The name and description can be changed at any time."""))
       lblDlgDescr.setWordWrap(True)
 
       self.edtName = QLineEdit()

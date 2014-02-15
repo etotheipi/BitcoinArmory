@@ -431,31 +431,32 @@ class SendBitcoinsFrame(ArmoryFrame):
             (valTry, valMax), QMessageBox.Ok)
          return False
 
-      # Iteratively calculate the minimum fee by first trying the user 
-      # selected fee then on each iteration set the feeTry to the minFee, 
-      # and see if the new feeTry can cover the original amount plus the 
-      # new minfee.  This loop will rarely iterate. It will only iterate 
-      # when there is enough dust in utxoList so that each fee increase 
-      # causes enough dust to be used to increase the fee yet again.  
-      # Also, for the loop to iterate, the totalSend + fee must be close 
-      # to the bal, but not go over when the min fee is increased.  If 
-      # it does go over, it will exit the loop on the last condition, 
-      # and give the user an insufficient balance warning.
+      # Iteratively calculate the minimum fee by first trying the user selected
+      # fee then on each iteration set the feeTry to the minFee, and see if the 
+      # new feeTry can cover the original amount plus the new minfee.  This loop
+      # will rarely iterate. It will only iterate when there is enough dust in 
+      # utxoList so that each fee increase causes enough dust to be used to 
+      # increase the fee yet again.  Also, for the loop to iterate, the 
+      # totalSend + fee must be close to the bal, but not go over when the min 
+      # fee is increased If it does go over, it will exit the loop on the
+      # last condition,and give the user an insufficient balance warning.
       minFee = None
       utxoSelect = []
       feeTry = fee
-      while minFee == None or (feeTry < minFee and totalSend + minFee <= bal):
+      while minFee is None or (feeTry < minFee and totalSend + minFee <= bal):
          if minFee:
             feeTry = minFee
          utxoList = self.getUsableTxOutList()
          utxoSelect = PySelectCoins(utxoList, totalSend, feeTry)
          minFee = calcMinSuggestedFees(utxoSelect, totalSend, feeTry, len(scraddrValuePairs))[1]
 
+
+      # We now have a min-fee that we know we can match if the user agrees
       if fee < minFee:
 
-         usrFeeStr = coin2str(fee, maxZeros=0).strip()
-         minFeeStr = coin2str(minFee, maxZeros=0).strip()
-         newBalStr = coin2str(bal - minFee, maxZeros=0).strip()
+         usrFeeStr = coin2strNZS(fee)
+         minFeeStr = coin2strNZS(minFee)
+         newBalStr = coin2strNZS(bal - minFee)
 
          if totalSend + minFee > bal:
             # Need to adjust this based on overrideMin flag
@@ -487,6 +488,23 @@ class SendBitcoinsFrame(ArmoryFrame):
             pass
          elif reply == QMessageBox.Yes:
             fee = long(minFee)
+
+
+      # Warn user of excessive fee specified
+      if fee > 100*MIN_RELAY_TX_FEE or (minFee > 0 and fee > 10*minFee):
+         reply = QMessageBox.warning(self, tr('Excessive Fee'), tr("""
+            You have specified a fee of <b>%s BTC</b> which is much higher
+            than the minimum fee required for this transaction: <b>%s BTC</b>.
+            Are you <i>absolutely sure</i> that you want to send with this
+            fee?  
+            <br><br>
+            If you do not want this fee, click "No" and then change the fee
+            at the bottom of the "Send Bitcoins" window before trying 
+            again.""") % (fee, minFee), QMessageBox.Yes | QMessageBox.No)
+
+         if not reply==QMessageBox.Yes:
+            return False
+
 
       if len(utxoSelect) == 0:
          QMessageBox.critical(self, tr('Coin Selection Error'), tr("""
@@ -1372,7 +1390,7 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
 
          ##### 3
          if self.leValue:
-            self.infoLbls[3][2].setText(coin2str(self.leValue, maxZeros=0).strip() + '  BTC')
+            self.infoLbls[3][2].setText(coin2strNZS(self.leValue) + '  BTC')
          else:
             self.infoLbls[3][2].setText('')
 
