@@ -39,7 +39,16 @@ from qtdefines import *
 from qtdialogs import *
 from ui.Wizards import WalletWizard, TxWizard
 
-
+# HACK ALERT: Qt has a bug in OS X where the system font settings will override
+# the app's settings when a window is activated (e.g., Armory starts, the user
+# switches to another app, and then switches back to Armory). There is a
+# workaround, as used by TeXstudio and other programs.
+# https://bugreports.qt-project.org/browse/QTBUG-5469 - Bug discussion.
+# http://sourceforge.net/p/texstudio/bugs/594/?page=1 - Fix is mentioned.
+# http://pyqt.sourceforge.net/Docs/PyQt4/qapplication.html#setDesktopSettingsAware
+# - Mentions that this must be called before the app (QAPP) is created.
+if OS_MACOSX:
+   QApplication.setDesktopSettingsAware(False)
 
 # PyQt4 Imports
 # Over 20,000 lines of python to help us out
@@ -4442,7 +4451,11 @@ class ArmoryMainWindow(QMainWindow):
       self.lblDashModeSync.setContentsMargins(50,5,50,5)
       self.lblDashModeScan.setContentsMargins(50,5,50,5)
       vbar = self.dashScrollArea.verticalScrollBar()
-      vbar.setValue(vbar.minimum())
+
+      # On Macs, this causes the main window scroll area to keep bouncing back
+      # to the top. Not setting the value seems to fix it. DR - 2014/02/12
+      if not OS_MACOSX:
+         vbar.setValue(vbar.minimum())
 
    #############################################################################
    def createToolTipWidget(self, tiptext, iconSz=2):

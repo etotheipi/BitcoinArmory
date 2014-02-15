@@ -4,7 +4,7 @@
 # Its role is to set up the environment before passing control onto Python.
 
 DIRNAME="`dirname $0`"
-ARMORYDIR="$DIRNAME/py/usr/lib/armory"
+ARMORYDIR="$DIRNAME/py/lib/armory"
 LIBDIR="$DIRNAME/../Dependencies"
 FRDIR="$DIRNAME/../Frameworks"
 
