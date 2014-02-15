@@ -96,7 +96,7 @@ namespace CustomAlloc
    {
       position = 0;
       size = 0;
-	  end = 0;
+		end = 0;
    }
 
    void BufferHeader::reset()
@@ -115,7 +115,7 @@ namespace CustomAlloc
 	   {
 		   for(i=0; i<nBH; i++)
 		   {
-			   if(!*BH[i]->pinuse)
+			   if(!BH[i]->pinuse || *BH[i]->pinuse==0)
 			   {
                bhtmp = BH[i];
                break;
@@ -124,26 +124,29 @@ namespace CustomAlloc
 	   }
       else return 0;
 
-	   if(nBH==totalBH)
-	   {
-		   totalBH+=BHstep;
-		   BufferHeader **bht;
+		if(!bhtmp)
+		{
+			if(nBH==totalBH)
+			{
+				totalBH+=BHstep;
+				BufferHeader **bht;
 
-		   while(!(bht = (BufferHeader**)malloc(sizeof(BufferHeader*)*totalBH)));
-	      while(!(bhtmp = (BufferHeader*)malloc(sizeof(BufferHeader)*BHstep)));
-		   memcpy(bht, BH, sizeof(BufferHeader*)*nBH);
-         for(i=0; i<BHstep; i++)
-            bht[nBH+i] = bhtmp +i;
+				while(!(bht = (BufferHeader**)malloc(sizeof(BufferHeader*)*totalBH)));
+				while(!(bhtmp = (BufferHeader*)malloc(sizeof(BufferHeader)*BHstep)));
+				memcpy(bht, BH, sizeof(BufferHeader*)*nBH);
+				for(i=0; i<BHstep; i++)
+					bht[nBH+i] = bhtmp +i;
 
-		   free(BH);
-		   BH = bht;
-	   }
+				free(BH);
+				BH = bht;
+			}
 
-	   bhtmp = BH[nBH];
-      bhtmp->reset();
-      bhtmp->index = nBH;
-      bhtmp->ref = (void*)this;
-	   nBH++;
+			bhtmp = BH[nBH];
+			bhtmp->reset();
+			bhtmp->index = nBH;
+			bhtmp->ref = (void*)this;
+			nBH++;
+		}
 
       bhtmp->size = size +size_of_ptr;
       bhtmp->offset = 0;
@@ -211,9 +214,9 @@ namespace CustomAlloc
       total=0;
       reserved=0;
 
-	  ngaps = 0;
-	  freemem = 0;
-      pool = 0;
+		ngaps = 0;
+		freemem = 0;
+		pool = 0;
    }
 
    void MemPool::ExtendGap()
@@ -227,7 +230,7 @@ namespace CustomAlloc
    void MemPool::AddGap(BufferHeader *bh)
    {
       while(acquireGap.Fetch_Or(1));
-   
+
       if((size_t)bh->offset - (size_t)pool +bh->size -size_of_ptr == reserved)
 		{
          reserved -= bh->size;
@@ -270,11 +273,12 @@ namespace CustomAlloc
 				if(af>-1)
 				{
 					gaps[bf].end = gaps[af].end;
+					gaps[bf].size = gaps[bf].end - gaps[bf].position;
+					
 					memcpy(gaps +af, gaps +af +1, sizeof(Gap)*(ngaps -af -1));
 					ngaps--;
 				}
-
-				gaps[bf].size = gaps[bf].end - gaps[bf].position;
+				else gaps[bf].size += bh->size;
 			}
 			else if(af>-1)
 			{
@@ -287,7 +291,7 @@ namespace CustomAlloc
       
 				gaps[ngaps].position = bhstart;
 				gaps[ngaps].size = bh->size;
-				gaps[ngaps].end = (size_t)bh->offset +bh->size -size_of_ptr;
+				gaps[ngaps].end = bhend;
 
 				ngaps++;
 			}
@@ -307,10 +311,12 @@ namespace CustomAlloc
    
       for(i=0; i<ngaps; i++)
       {
-         if(gaps[i].size>=size)
+         if(gaps[i].size>=size && gaps[i].size<lgap.size)
          {
             lgap = gaps[i];
             g = i;
+
+				if(lgap.size==size) break;
          }
       }
 
@@ -332,7 +338,7 @@ namespace CustomAlloc
       }
       else 
       {
-         offset = (int)pool +reserved;
+         offset = (size_t)pool +reserved;
          reserved += size;
       }
 
@@ -380,8 +386,6 @@ namespace CustomAlloc
 
       bhtmp->offset = (byte*)offset +size_of_ptr;
       memcpy((void*)offset, &bhtmp, size_of_ptr);
-      //int *bhhead = (int*)offset;
-      //*bhhead = (int)bhtmp;
 
 	   if(sema) bhtmp->pinuse=sema;
 	   bhtmp->move = 0;
@@ -404,7 +408,7 @@ namespace CustomAlloc
       if(bh->linuse==1)
       {
          *(bh->pinuse) = 0;
-         //memset(bh->offset, 0, bh->size-MemPool::size_of_ptr);
+         memset(bh->offset, 0, bh->size-MemPool::size_of_ptr);
          MemPool *mp = (MemPool*)bh->ref;
          mp->AddGap(bh);
          bh->offset = 0;
@@ -440,12 +444,12 @@ namespace CustomAlloc
 			   if(bh)
 			   {
 				   bufferfetch = 0;
-				   UpdateOrder(i);
+				   UpdateOrder(order[i]);
 				   return bh;
             }
 			   else 
             {
-               UpdateOrder(i);
+               UpdateOrder(order[i]);
                if(clearpool==0) getpoolflag++;
                else goto waithere;
             }
@@ -473,15 +477,34 @@ namespace CustomAlloc
 
    void CustomAllocator::UpdateOrder(unsigned int in)
    {
-	   if(orderlvl.Fetch_Add(1)==poolstep*2)
+		pool_height[in]++;
+	   
+		if(orderlvl.Fetch_Add(1)==poolstep*2)
 	   {
-		   in++;
 		   while(ab!=0); //extendpool lock
 		   ordering = 1;
 				
 		   unsigned int *ordtmp;
-		   memcpy(order2, order+in, sizeof(int)*(npools-in));
-		   memcpy(order2 +npools -in, order, sizeof(int)*in);
+		   /*memcpy(order2, order+in, sizeof(int)*(total-in));
+		   memcpy(order2 +total -in, order, sizeof(int)*in);*/
+
+			unsigned int g=1, t;
+			memcpy(order2, order, sizeof(int)*total);
+			while(g)
+			{
+				g=0;
+				for(t=1; t<total; t++)
+				{
+					if(pool_height[order2[t-1]] > pool_height[order2[t]])
+					{
+						g = order2[t-1];
+						order2[t-1] = order2[t];
+						order2[t] = g;
+
+						g = 1;
+					}
+				}
+			}
 				
 		   ordtmp = order;
 		   order = order2;
@@ -517,12 +540,17 @@ namespace CustomAlloc
          poolbatch[nbatch] = mptmp3;
          nbatch++;
 
+			pool_height = (unsigned int*)realloc(pool_height, sizeof(int)*S);
+			memset(pool_height, 0, sizeof(int)*S);
+
 	      for(I=total; I<S; I++)
 	      {
 		      F = I-total;
 		      mptmp[I] = &mptmp3[F];
             mptmp[I]->ref = this;
 		      order2[F] = I;
+
+				int efg=0;
 	      }
 
 	      orderlvl=0;
@@ -547,9 +575,9 @@ namespace CustomAlloc
    {
       unsigned int i=0;
    
-      for(i; i<total; i++)
+      for(i; i<npools; i++)
       {
-         if(pool->GetPool()==MP[i]->GetPool())
+         if(pool->GetPool()==MP[order[i]]->GetPool())
          {
             while(ab.Fetch_Or(1));
 
@@ -560,13 +588,9 @@ namespace CustomAlloc
 
             if(pool->freemem==pool->total)
             {
-               MP[i]->Free();
-         
-               MemPool *swap = MP[i];
-               MP[i] = MP[npools-1];
-               MP[npools-1] = swap;
-         
-               int iswap = order[i];
+               MP[order[i]]->Free();
+                  
+               unsigned int iswap = order[i];
                order[i] = order[npools-1];
                order[npools-1] = iswap;
 

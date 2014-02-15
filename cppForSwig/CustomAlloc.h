@@ -32,8 +32,14 @@ namespace CustomAlloc
          {
             position = p;
             size = s;
-			end = position +s;
+				end = position +s;
          }
+
+			Gap& operator=(Gap& rhs)
+			{
+				memcpy(this, &rhs, sizeof(Gap));
+				return *this;
+			}
 
          void reset();
    };
@@ -63,7 +69,7 @@ namespace CustomAlloc
    {
       private:
 		   static const int BHstep = 50;
-		   unsigned int totalBH, nBH;
+		   unsigned int totalBH;
 		   void *pool;
 
          int ngaps, total_ngaps;
@@ -81,7 +87,7 @@ namespace CustomAlloc
          int passedQuota;
 
          size_t reserved;
-
+			unsigned int nBH;
 
       public:
 		   BufferHeader **BH;
@@ -141,6 +147,7 @@ namespace CustomAlloc
 	   ***/
 	   private:
 		   unsigned int *order, *order2, *otmp, otmpS;
+			unsigned int *pool_height;
 		
          MemPool **MP;
          MemPool **poolbatch;
@@ -173,6 +180,7 @@ namespace CustomAlloc
             clearpool=0;
             poolbatch=0;
             nbatch=0;
+				pool_height=0;
 		   }
 
 		   ~CustomAllocator()
@@ -185,6 +193,7 @@ namespace CustomAlloc
 			   free(otmp);
 			   free(order);
 			   free(order2);
+				free(pool_height);
 		   }
 
          void* customAlloc(size_t size);

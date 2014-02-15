@@ -1444,10 +1444,8 @@ class CustomAllocTest : public ::testing::Test
 TEST_F(CustomAllocTest, LargeBuffer_MT)
 {
    //allocate and free a large buffer
-   //uint8_t* largebuffer = CA_uint8.allocate(1024*1024*1024);
-   //CA_uint8.deallocate(largebuffer, 0);
-
-   
+   uint8_t* largebuffer = CA_uint8.allocate(1024);
+   CA_uint8.deallocate(largebuffer, 0);
 }
 
 class SecureBinaryDataTest : public ::testing::Test
