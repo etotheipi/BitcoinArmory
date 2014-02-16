@@ -473,7 +473,7 @@ class DlgBugReport(ArmoryDialog):
       self.txtDescr.setFont(GETFONT('Fixed', 9))
       w,h = tightSizeNChar(self, 80)
       self.txtDescr.setMinimumWidth(w)
-      self.txtDescr.setMinimumHeight(5*h)
+      self.txtDescr.setMinimumHeight(4*h)
       self.lblOS = QRichLabel(tr("""
          Note: if you are using this computer to report an Armory problem
          on another computer, please include the operating system of the
@@ -487,13 +487,12 @@ class DlgBugReport(ArmoryDialog):
       self.connect(self.btnSubmit, SIGNAL(CLICKED), self.submitReport)
       self.connect(self.btnCancel, SIGNAL(CLICKED), self, SLOT('reject()'))
 
-      osvar = OS_VARIANT if OS_MACOSX else OS_VARIANT[0]
       armoryver = getVersionString(BTCARMORY_VERSION)
       lblDetect = QRichLabel( tr("""
          <b>Detected:</b> %s (%s) / %0.2f GB RAM / Armory version %s<br>
          <font size=2>(this data will be submitted automatically with the 
          report)</font>""") % \
-         (OS_NAME, osvar, SystemSpecs.Memory, armoryver))
+         (OS_NAME, OS_VARIANT[0], SystemSpecs.Memory, armoryver))
       
 
       layout = QGridLayout()
@@ -575,14 +574,16 @@ class DlgBugReport(ArmoryDialog):
          else:
             description = unicode_truncate(description, maxDescr)
 
+
       # This is a unique-but-not-traceable ID, to simply match users to log files
       uniqID  = binary_to_base58(hash256(USER_HOME_DIR)[:4])
       dateStr = unixTimeToFormatStr(RightNow(), '%Y%m%d_%H%M')
+      osvariant = OS_VARIANT[0] if OS_MACOSX else '-'.join(OS_VARIANT)
 
       reportMap = {}
       reportMap['uniqID']       = uniqID
       reportMap['OSmajor']      = OS_NAME
-      reportMap['OSvariant']    = OS_VARIANT if OS_MACOSX else '-'.join(OS_VARIANT)
+      reportMap['OSvariant']    = osvariant
       reportMap['ArmoryVer']    = getVersionString(BTCARMORY_VERSION)
       reportMap['TotalRAM']     = '%0.2f' % SystemSpecs.Memory
       reportMap['isAmd64']      = str(SystemSpecs.IsX64).lower()
@@ -4338,10 +4339,10 @@ class DlgRemoveAddress(ArmoryDialog):
 
 
       if not wlt.hasAddr(addr160):
-         raise WalletAddressError, 'Address does not exist in wallet!'
+         raise WalletAddressError('Address does not exist in wallet!')
 
       if not wlt.getAddrByHash160(addr160).chainIndex == -2:
-         raise WalletAddressError, ('Cannot delete regular chained addresses! '
+         raise WalletAddressError('Cannot delete regular chained addresses! '
                                    'Can only delete imported addresses.')
 
 
@@ -8576,7 +8577,7 @@ class DlgRequestPayment(ArmoryDialog):
       elif isLikelyDataType(recvAddr, DATATYPE.Base58):
          self.recvAddr = recvAddr
       else:
-         raise BadAddressError, 'Unrecognized address input'
+         raise BadAddressError('Unrecognized address input')
 
 
       # Amount

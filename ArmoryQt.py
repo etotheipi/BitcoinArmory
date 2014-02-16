@@ -1336,7 +1336,7 @@ class ArmoryMainWindow(QMainWindow):
                   LOGINFO('   Satoshi: %s', self.latestVer['SATOSHI'])
                   LOGINFO('    Armory: %s', self.latestVer['ARMORY'])
             else:
-               raise ECDSA_Error, 'Could not verify'
+               raise ECDSA_Error('Could not verify')
          except:
             LOGEXCEPT('Version check error, ignoring downloaded version info')
             
@@ -2085,7 +2085,7 @@ class ArmoryMainWindow(QMainWindow):
                wltIDList = self.walletIDList
             else:
                pass
-               #raise WalletExistsError, 'Bad combo-box selection: ' + str(currIdx)
+               #raise WalletExistsError('Bad combo-box selection: ' + str(currIdx))
          self.writeSetting('LastFilterState', currIdx)
                
 
@@ -2897,8 +2897,8 @@ class ArmoryMainWindow(QMainWindow):
          fname='%s_%02d.wallet'%(base, newIndex)
          newIndex+=1
          if newIndex==99:
-            raise WalletExistsError, ('Cannot find unique filename for wallet.'  
-                                      'Too many duplicates!')
+            raise WalletExistsError('Cannot find unique filename for wallet.'  
+                                                       'Too many duplicates!')
       return fname
          
 
@@ -3174,7 +3174,8 @@ class ArmoryMainWindow(QMainWindow):
       LOGDEBUG('exportLogFile')
       reply = QMessageBox.warning(self, tr('Bug Reporting'), tr("""
          As of version 0.91-beta, Armory now includes a form for reporting
-         problems with the software.  Please use "Help"\xe2\x86\x92"Submit Bug Report" 
+         problems with the software.  Please use 
+         <i>"Help"</i>\xe2\x86\x92<i>"Submit Bug Report"</i>
          to send a report directly to the Armory team, which will include 
          your log file automatically."""), QMessageBox.Ok | QMessageBox.Cancel)
       
@@ -3203,9 +3204,9 @@ class ArmoryMainWindow(QMainWindow):
          for us to help you with your problem.
 
          <br><br><b><u>Advanced tip:</u></b> You can use 
-         "File"\xe2\x86\x92"Export Log File" from the main window to 
-         save a copy of the log file that you can manually review."""), \
-         wCancel=wCancel, yesStr="&Ok")
+         "<i>File</i>"\xe2\x86\x92"<i>Export Log File</i>" from the main 
+         window to save a copy of the log file that you can manually 
+         review."""), wCancel=wCancel, yesStr="&Ok")
       
 
    #############################################################################

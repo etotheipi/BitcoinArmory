@@ -438,14 +438,14 @@ if not CLI_OPTIONS.satoshiPort == 'DEFAULT':
    try:
       BITCOIN_PORT = int(CLI_OPTIONS.satoshiPort)
    except:
-      raise TypeError, 'Invalid port for Bitcoin-Qt, using ' + str(BITCOIN_PORT)
+      raise TypeError('Invalid port for Bitcoin-Qt, using ' + str(BITCOIN_PORT))
 
 
 if not CLI_OPTIONS.rpcport == 'DEFAULT':
    try:
       ARMORY_RPC_PORT = int(CLI_OPTIONS.rpcport)
    except:
-      raise TypeError, 'Invalid RPC port for armoryd ' + str(ARMORY_RPC_PORT)
+      raise TypeError('Invalid RPC port for armoryd ' + str(ARMORY_RPC_PORT))
 
 
 if sys.argv[0]=='ArmoryQt.py':
@@ -870,7 +870,7 @@ def GetSystemDetails():
       out.CpuStr = subprocess_check_output('sysctl -n machdep.cpu.brand_string', shell=True)
    else:
       out.CpuStr = 'Unknown'
-      raise OSError, "Can't get system specs in: %s" % platform.system()
+      raise OSError("Can't get system specs in: %s" % platform.system())
 
    out.NumCores = multiprocessing.cpu_count()
    out.IsX64 = platform.architecture()[0].startswith('64')
@@ -900,7 +900,7 @@ LOGINFO('Loading Armory Engine:')
 LOGINFO('   Armory Version        : ' + getVersionString(BTCARMORY_VERSION))
 LOGINFO('   PyBtcWallet  Version  : ' + getVersionString(PYBTCWALLET_VERSION))
 LOGINFO('Detected Operating system: ' + OS_NAME)
-LOGINFO('   OS Variant            : ' + (str(OS_VARIANT) if OS_MACOSX else '-'.join(OS_VARIANT)))
+LOGINFO('   OS Variant            : ' + (OS_VARIANT[0] if OS_MACOSX else '-'.join(OS_VARIANT)))
 LOGINFO('   User home-directory   : ' + USER_HOME_DIR)
 LOGINFO('   Satoshi BTC directory : ' + BTC_HOME_DIR)
 LOGINFO('   Armory home dir       : ' + ARMORY_HOME_DIR)
@@ -1441,9 +1441,9 @@ MSIGPREFIX     = '\xfe'
 NONSTDPREFIX   = '\xff'
 def CheckHash160(scrAddr):
    if not len(scrAddr)==21:
-      raise BadAddressError, "Supplied scrAddr is not a Hash160 value!"
+      raise BadAddressError("Supplied scrAddr is not a Hash160 value!")
    if not scrAddr[0] == HASH160PREFIX:
-      raise BadAddressError, "Supplied scrAddr is not a Hash160 value!"
+      raise BadAddressError("Supplied scrAddr is not a Hash160 value!")
    return scrAddr[1:]
 
 def Hash160ToScrAddr(a160):
@@ -1819,7 +1819,7 @@ def easyType16_to_binary(b16str):
 
 def makeSixteenBytesEasy(b16):
    if not len(b16)==16:
-      raise ValueError, 'Must supply 16-byte input'
+      raise ValueError('Must supply 16-byte input')
    chk2 = computeChecksum(b16, nBytes=2)
    et18 = binary_to_easyType16(b16 + chk2) 
    nineQuads = [et18[i*4:(i+1)*4] for i in range(9)]
@@ -2394,13 +2394,13 @@ def checkAddrStrValid(addrStr):
 def convertKeyDataToAddress(privKey=None, pubKey=None):
    """ Returns a hash160 value """
    if not privKey and not pubKey:
-      raise BadAddressError, 'No key data supplied for conversion'
+      raise BadAddressError('No key data supplied for conversion')
    elif privKey:
       if isinstance(privKey, str):
          privKey = SecureBinaryData(privKey)
 
       if not privKey.getSize()==32:
-         raise BadAddressError, 'Invalid private key format!'
+         raise BadAddressError('Invalid private key format!')
       else:
          pubKey = CryptoECDSA().ComputePublicKey(privKey)
 
@@ -2423,9 +2423,9 @@ def decodeMiniPrivateKey(keyStr):
    theHash = sha256(keyQ)
    
    if binary_to_hex(theHash[0]) == '01':
-      raise KeyDataError, 'PBKDF2-based mini private keys not supported!'
+      raise KeyDataError('PBKDF2-based mini private keys not supported!')
    elif binary_to_hex(theHash[0]) != '00':
-      raise KeyDataError, 'Invalid mini private key... double check the entry'
+      raise KeyDataError('Invalid mini private key... double check the entry')
    
    return sha256(keyStr)
    
@@ -2449,19 +2449,19 @@ def parsePrivateKeyData(theStr):
             try:
                binEntry = decodeMiniPrivateKey(theStr)
             except KeyDataError:
-               raise BadAddressError, 'Invalid mini-private key string'
+               raise BadAddressError('Invalid mini-private key string')
             keyType = 'Mini Private Key Format'
             isMini = True
          elif len(theStr) in range(48,53):
             binEntry = base58_to_binary(theStr)
             keyType = 'Plain Base58'
          else:
-            raise BadAddressError, 'Unrecognized key data'
+            raise BadAddressError('Unrecognized key data')
       elif canBeHex:  
          binEntry = hex_to_binary(theStr)
          keyType = 'Plain Hex'
       else:
-         raise BadAddressError, 'Unrecognized key data'
+         raise BadAddressError('Unrecognized key data')
 
 
       if len(binEntry)==36 or (len(binEntry)==37 and binEntry[0]==PRIVKEYBYTE):
@@ -2481,9 +2481,9 @@ def parsePrivateKeyData(theStr):
                keyType = 'Standard %s key with checksum' % keyType.split(' ')[1]
 
          if binEntry=='':
-            raise InvalidHashError, 'Private Key checksum failed!'
+            raise InvalidHashError('Private Key checksum failed!')
       elif len(binEntry) in (33, 37) and binEntry[-1]=='\x01':
-         raise CompressedKeyError, 'Compressed Public keys not supported!'
+         raise CompressedKeyError('Compressed Public keys not supported!')
       return binEntry, keyType
    
 
@@ -2518,7 +2518,7 @@ def parseBitcoinURI(theStr):
       uriData['address'] = parts[1]
       for p in parts[2:]:
          if not '=' in p:
-            raise BadURIError, 'Unrecognized URI field: "%s"'%p
+            raise BadURIError('Unrecognized URI field: "%s"'%p)
             
          # All fields must be "key=value" making it pretty easy to parse
          key, value = p.split('=')
@@ -2628,8 +2628,7 @@ class PyBackgroundThread(threading.Thread):
          self.func  = lambda: ()
       else:
          if not hasattr(args[0], '__call__'):
-            raise TypeError, ('PyBkgdThread constructor first arg '
-                              '(if any) must be a function')
+            raise TypeError('PyBkgdThread ctor arg1 must be a function')
          else:
             self.setThreadFunction(args[0], *args[1:], **kwargs)
 
@@ -2815,7 +2814,7 @@ def EstimateCumulativeBlockchainSize(blkNum):
             b1,d1 = blkpair
             ratio = float(blkNum-b0)/float(b1-b0)
             return int(ratio*d1 + (1-ratio)*d0)
-      raise ValueError, 'Interpolation failed for %d' % blkNum
+      raise ValueError('Interpolation failed for %d' % blkNum)
         
    else:
       bend,  dend  = BLK_SIZE_LIST[-1]
@@ -3037,7 +3036,7 @@ class SettingsFile(object):
          path = self.settingsPath
 
       if not os.path.exists(path):
-         raise FileExistsError, 'Settings file DNE:', path
+         raise FileExistsError('Settings file DNE:' + path)
 
       f = open(path, 'rb')
       sdata = f.read()

@@ -378,7 +378,7 @@ class PyBtcWallet(object):
          elif balType.lower() in ('total','ultimate','unspent','full'):
             return self.cppWallet.getFullBalance()
          else:
-            raise TypeError, 'Unknown balance type! "' + balType + '"'
+            raise TypeError('Unknown balance type! "' + balType + '"')
 
 
    #############################################################################
@@ -395,7 +395,7 @@ class PyBtcWallet(object):
          elif balType.lower() in ('ultimate','unspent','full'):
             return addr.getFullBalance()
          else:
-            raise TypeError, 'Unknown balance type!'
+            raise TypeError('Unknown balance type!')
 
    #############################################################################
    def getTxLedger(self, ledgType='Full'):
@@ -417,7 +417,7 @@ class PyBtcWallet(object):
          elif ledgType.lower() in ('zeroconf', 'zero'):
             return ledgZeroConf
          else:
-            raise TypeError, 'Unknown ledger type! "' + ledgType + '"'
+            raise TypeError('Unknown ledger type! "' + ledgType + '"')
 
 
 
@@ -444,7 +444,7 @@ class PyBtcWallet(object):
          elif ledgType.lower() in ('zeroconf', 'zero'):
             return ledgZeroConf
          else:
-            raise TypeError, 'Unknown balance type! "' + ledgType + '"'
+            raise TypeError('Unknown balance type! "' + ledgType + '"')
 
 
    #############################################################################
@@ -460,7 +460,7 @@ class PyBtcWallet(object):
          elif txType.lower() in ('full', 'all', 'unspent', 'ultimate'):
             return self.cppWallet.getFullTxOutList(currBlk);
          else:
-            raise TypeError, 'Unknown balance type! ' + txType
+            raise TypeError('Unknown balance type! ' + txType)
       else:
          LOGERROR('***Blockchain is not available for accessing wallet-tx data')
          return []
@@ -481,7 +481,7 @@ class PyBtcWallet(object):
          elif txType.lower() in ('full', 'all', 'unspent', 'ultimate'):
             return cppAddr.getFullTxOutList(currBlk);
          else:
-            raise TypeError, 'Unknown TxOutList type! ' + txType
+            raise TypeError('Unknown TxOutList type! ' + txType)
       else:
          LOGERROR('***Blockchain is not available for accessing wallet-tx data')
          return []
@@ -707,7 +707,7 @@ class PyBtcWallet(object):
          chaincode = SecureBinaryData(chaincode)
 
       if withEncrypt and not securePassphrase:
-         raise EncryptionError, 'Cannot create encrypted wallet without passphrase'
+         raise EncryptionError('Cannot create encrypted wallet without passphrase')
 
       LOGINFO('***Creating new deterministic wallet')
 
@@ -1070,7 +1070,7 @@ class PyBtcWallet(object):
          topUsed = self.detectHighestUsedIndex(True)
          nWhile += 1
          if nWhile>10000:
-            raise WalletAddressError, 'Escaping inf loop in freshImport...'
+            raise WalletAddressError('Escaping inf loop in freshImport...')
             
 
       self.addrPoolSize = oldPoolSize
@@ -1298,7 +1298,7 @@ class PyBtcWallet(object):
 
       fixedKdfData = verifyChecksum(allKdfData, kdfChksum)
       if len(fixedKdfData)==0:
-         raise UnserializeError, 'Corrupted KDF params, could not fix'
+         raise UnserializeError('Corrupted KDF params, could not fix')
       elif not fixedKdfData==allKdfData:
          self.walletFileSafeUpdate( \
                [[WLT_UPDATE_MODIFY, self.offsetKdfParams, fixedKdfData]])
@@ -1422,10 +1422,10 @@ class PyBtcWallet(object):
             LOGERROR('requires modifying the encryption on this wallet.')
             LOGERROR('Please unlock your wallet before attempting to')
             LOGERROR('change the KDF parameters.')
-            raise WalletLockError, 'Cannot change KDF without unlocking wallet'
+            raise WalletLockError('Cannot change KDF without unlocking wallet')
          elif not self.verifyPassphrase(securePassphrase):
             LOGERROR('Incorrect passphrase to unlock wallet')
-            raise PassphraseError, 'Incorrect passphrase to unlock wallet'
+            raise PassphraseError('Incorrect passphrase to unlock wallet')
 
       secureSalt = SecureBinaryData(salt)
       newkdf = KdfRomix(mem, numIter, secureSalt)
@@ -1497,13 +1497,13 @@ class PyBtcWallet(object):
       oldKdfKey = None
       if oldUsedEncryption:
          if self.isLocked:      
-            raise WalletLockError, 'Must unlock wallet to change passphrase'
+            raise WalletLockError('Must unlock wallet to change passphrase')
          else:
             oldKdfKey = self.kdfKey.copy()
 
 
       if newUsesEncryption and not self.kdf:
-         raise EncryptionError, 'KDF must be setup before encrypting wallet'
+         raise EncryptionError('KDF must be setup before encrypting wallet')
 
       # Prep the file-update list with extras passed in as argument
       walletUpdateInfo = list(extraFileUpdates)
@@ -1743,7 +1743,7 @@ class PyBtcWallet(object):
    #############################################################################
    def packHeader(self, binPacker):
       if not self.addrMap['ROOT']:
-         raise WalletAddressError, 'Cannot serialize uninitialzed wallet!'
+         raise WalletAddressError('Cannot serialize uninitialzed wallet!')
 
       startByte = binPacker.getSize()
 
@@ -1890,7 +1890,7 @@ class PyBtcWallet(object):
          commentLen = binUnpacker.get(UINT16)
          binData = binUnpacker.get(BINARY_CHUNK, commentLen)
       elif dtype==WLT_DATATYPE_OPEVAL:
-         raise NotImplementedError, 'OP_EVAL not support in wallet yet'
+         raise NotImplementedError('OP_EVAL not support in wallet yet')
       elif dtype==WLT_DATATYPE_DELETED:
          deletedLen = binUnpacker.get(UINT16)
          binUnpacker.advance(deletedLen)
@@ -1902,7 +1902,7 @@ class PyBtcWallet(object):
    @TimeThisFunction
    def readWalletFile(self, wltpath, verifyIntegrity=True, doScanNow=False):
       if not os.path.exists(wltpath):
-         raise FileExistsError, "No wallet file:"+wltpath
+         raise FileExistsError("No wallet file:"+wltpath)
 
       self.__init__()
       self.walletPath = wltpath
@@ -1912,7 +1912,7 @@ class PyBtcWallet(object):
             nError = self.doWalletFileConsistencyCheck()
          except KeyDataError, errmsg:
             LOGEXCEPT('***ERROR:  Wallet file had unfixable errors.')
-            raise KeyDataError, errmsg
+            raise KeyDataError(errmsg)
 
 
       wltfile = open(wltpath, 'rb')
@@ -1955,7 +1955,7 @@ class PyBtcWallet(object):
             self.commentsMap[hashVal] = rawData # actually ASCII data, here
             self.commentLocs[hashVal] = byteLocation
          if dtype==WLT_DATATYPE_OPEVAL:
-            raise NotImplementedError, 'OP_EVAL not support in wallet yet'
+            raise NotImplementedError('OP_EVAL not support in wallet yet')
          if dtype==WLT_DATATYPE_DELETED:
             pass
 
@@ -2035,7 +2035,7 @@ class PyBtcWallet(object):
       """
 
       if not os.path.exists(self.walletPath):
-         raise FileExistsError, 'No wallet file exists to be updated!'
+         raise FileExistsError('No wallet file exists to be updated!')
 
       if len(updateList)==0:
          return []
@@ -2064,28 +2064,28 @@ class PyBtcWallet(object):
                updateLocations.append(toAppend.getSize()+oldWalletSize)
                if dtype==WLT_DATATYPE_KEYDATA:
                   if len(updateInfo[1])!=20 or not isinstance(updateInfo[2], PyBtcAddress):
-                     raise Exception, 'Data type does not match update type'
+                     raise Exception('Data type does not match update type')
                   toAppend.put(UINT8, WLT_DATATYPE_KEYDATA)
                   toAppend.put(BINARY_CHUNK, updateInfo[1])
                   toAppend.put(BINARY_CHUNK, updateInfo[2].serialize())
 
                elif dtype in (WLT_DATATYPE_ADDRCOMMENT, WLT_DATATYPE_TXCOMMENT):
                   if not isinstance(updateInfo[2], str):
-                     raise Exception, 'Data type does not match update type'
+                     raise Exception('Data type does not match update type')
                   toAppend.put(UINT8, dtype)
                   toAppend.put(BINARY_CHUNK, updateInfo[1])
                   toAppend.put(UINT16, len(updateInfo[2]))
                   toAppend.put(BINARY_CHUNK, updateInfo[2])
 
                elif dtype==WLT_DATATYPE_OPEVAL:
-                  raise Exception, 'OP_EVAL not support in wallet yet'
+                  raise Exception('OP_EVAL not support in wallet yet')
 
             elif(modType==WLT_UPDATE_MODIFY):
                updateLocations.append(updateInfo[0])
                dataToChange.append( updateInfo )
             else:
                LOGERROR('Unknown wallet-update type!')
-               raise Exception, 'Unknown wallet-update type!'
+               raise Exception('Unknown wallet-update type!')
       except Exception:
          LOGEXCEPT('Bad input to walletFileSafeUpdate')
          return []
@@ -2181,7 +2181,7 @@ class PyBtcWallet(object):
 
 
       if not os.path.exists(self.walletPath):
-         raise FileExistsError, 'No wallet file exists to be checked!'
+         raise FileExistsError('No wallet file exists to be checked!')
 
       walletFileBackup = self.getWalletPath('backup')
       mainUpdateFlag   = self.getWalletPath('update_unsuccessful')
@@ -2237,7 +2237,7 @@ class PyBtcWallet(object):
       """
 
       if not self.addrMap[addr160].chainIndex==-2:
-         raise WalletAddressError, 'You can only delete imported addresses!'
+         raise WalletAddressError('You can only delete imported addresses!')
 
       overwriteLoc = self.addrMap[addr160].walletByteLoc - 21
       overwriteLen = 20 + self.pybtcaddrSize - 2
@@ -2292,7 +2292,7 @@ class PyBtcWallet(object):
          LOGERROR('the associated private key.  Instead, use a')
          LOGERROR('watching-only wallet to import this address.')
          LOGERROR('(actually, this is currently, completely disabled)')
-         raise WalletAddressError, 'Cannot import non-private-key addresses'
+         raise WalletAddressError('Cannot import non-private-key addresses')
 
 
 
@@ -2333,9 +2333,9 @@ class PyBtcWallet(object):
          return
 
       #if pubKey and not computedPubkey==pubKey:
-         #raise ECDSA_Error, 'Private and public keys to be imported do not match!'
+         #raise ECDSA_Error('Private and public keys to be imported do not match!')
       #if addr20 and not computedAddr20==addr20:
-         #raise ECDSA_Error, 'Supplied address hash does not match key data!'
+         #raise ECDSA_Error('Supplied address hash does not match key data!')
 
       addr20 = computedAddr20
       
@@ -2345,7 +2345,7 @@ class PyBtcWallet(object):
       # If a private key is supplied and this wallet is encrypted&locked, then 
       # we have no way to secure the private key without unlocking the wallet.
       if self.useEncryption and privKey and not self.kdfKey:
-         raise WalletLockError, 'Cannot import private key when wallet is locked!'
+         raise WalletLockError('Cannot import private key when wallet is locked!')
 
 
       if privKey:
@@ -2538,7 +2538,7 @@ class PyBtcWallet(object):
 
       # If the wallet is locked, we better bail now
       if self.isLocked:
-         raise WalletLockError, "Cannot sign Tx when wallet is locked!"
+         raise WalletLockError("Cannot sign Tx when wallet is locked!")
 
       numInputs = len(txdp.pytxObj.inputs)
       wltAddr = []
@@ -2574,7 +2574,7 @@ class PyBtcWallet(object):
             if self.kdfKey:
                addrObj.unlock(self.kdfKey)
             else:
-               raise WalletLockError, 'Cannot sign tx without unlocking wallet'
+               raise WalletLockError('Cannot sign tx without unlocking wallet')
 
          if not addrObj.hasPubKey():
             # Make sure the public key is available for this address
@@ -2640,7 +2640,7 @@ class PyBtcWallet(object):
       if GUI == True and haveGUI[0] == True:
          LOGDEBUG('Attempting to unlock wallet: %s', self.uniqueIDB58)
          if not secureKdfOutput and not securePassphrase:
-            raise PassphraseError, "No passphrase/key provided to unlock wallet!"
+            raise PassphraseError("No passphrase/key provided to unlock wallet!")
             
          from qtdialogs import DlgProgress      
          dlgprg = DlgProgress(self.mainWnd, self.mainWnd, HBar=len(self.addrMap), Title='Unlocking Wallet')   
@@ -2664,16 +2664,16 @@ class PyBtcWallet(object):
       if dlgPrg is None:
          LOGDEBUG('Attempting to unlock wallet: %s', self.uniqueIDB58)
          if not secureKdfOutput and not securePassphrase:
-            raise PassphraseError, "No passphrase/key provided to unlock wallet!"
+            raise PassphraseError("No passphrase/key provided to unlock wallet!")
 
       if not secureKdfOutput:
          if not self.kdf:
-            raise EncryptionError, 'How do we have a locked wallet w/o KDF???'
+            raise EncryptionError('How do we have a locked wallet w/o KDF???')
          secureKdfOutput = self.kdf.DeriveKey(securePassphrase)
 
 
       if not self.verifyEncryptionKey(secureKdfOutput):
-         raise PassphraseError, "Incorrect passphrase for wallet"
+         raise PassphraseError("Incorrect passphrase for wallet")
 
       # For now, I assume that all keys have the same passphrase and all
       # unlocked successfully at the same time.
@@ -2798,7 +2798,7 @@ class PyBtcWallet(object):
          LOGERROR('Locking wallet requires encryption key.  This error')
          LOGERROR('Usually occurs on newly-encrypted wallets that have')
          LOGERROR('never been encrypted before.')
-         raise WalletLockError, 'Unlock with passphrase before locking again'
+         raise WalletLockError('Unlock with passphrase before locking again')
       LOGDEBUG('Wallet locked: %s', self.uniqueIDB58)
 
    #############################################################################
@@ -2859,7 +2859,7 @@ class PyBtcWallet(object):
          # I removed the option for fillPoolIfNecessary, because of the risk
          # that a bug may lead to generation of billions of addresses, which
          # would saturate the system's resources and fill the HDD.
-         raise WalletAddressError, 'Chain index is out of range'
+         raise WalletAddressError('Chain index is out of range')
          
 
       if self.chainIndexMap.has_key(desiredIdx):
