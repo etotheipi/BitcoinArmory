@@ -20,6 +20,7 @@
 #include <cmath>
 #include <time.h>
 #include <algorithm>
+#include <stdexcept>
 
 #include "BinaryData.h"
 #include "cryptlib.h"
@@ -254,6 +255,13 @@ enum OPCODETYPE
 };
 
 
+class BlockDeserializingException : public runtime_error
+{
+public:
+   BlockDeserializingException(const string &what="")
+      : runtime_error(what)
+   { }
+};
 
 
 // This class holds only static methods.  
@@ -311,6 +319,45 @@ public:
       }
       else //if(firstByte == 0xff)
       {
+         if(lenOutPtr != NULL) 
+            *lenOutPtr = 9;
+         return READ_UINT64_LE(strmPtr+1);
+      }
+   }
+   /////////////////////////////////////////////////////////////////////////////
+   static uint64_t readVarInt(uint8_t const * strmPtr, size_t remaining, uint32_t* lenOutPtr=NULL)
+   {
+      if (remaining < 1)
+         throw BlockDeserializingException();
+      uint8_t firstByte = strmPtr[0];
+
+      if(firstByte < 0xfd)
+      {
+         if(lenOutPtr != NULL) 
+            *lenOutPtr = 1;
+         return firstByte;
+      }
+      if(firstByte == 0xfd)
+      {
+         if (remaining < 3)
+            throw BlockDeserializingException();
+         if(lenOutPtr != NULL) 
+            *lenOutPtr = 3;
+         return READ_UINT16_LE(strmPtr+1);
+         
+      }
+      else if(firstByte == 0xfe)
+      {
+         if (remaining < 5)
+            throw BlockDeserializingException();
+         if(lenOutPtr != NULL) 
+            *lenOutPtr = 5;
+         return READ_UINT32_LE(strmPtr+1);
+      }
+      else //if(firstByte == 0xff)
+      {
+         if (remaining < 9)
+            throw BlockDeserializingException();
          if(lenOutPtr != NULL) 
             *lenOutPtr = 9;
          return READ_UINT64_LE(strmPtr+1);
@@ -652,6 +699,15 @@ public:
       uint32_t scrLen = (uint32_t)readVarInt(ptr+36, &viLen);
       return (36 + viLen + scrLen + 4);
    }
+   
+   static uint32_t TxInCalcLength(uint8_t const * ptr, uint32_t size)
+   {
+      if (size < 37)
+        throw BlockDeserializingException();
+      uint32_t viLen;
+      uint32_t scrLen = (uint32_t)readVarInt(ptr+36, size-36, &viLen);
+      return (36 + viLen + scrLen + 4);
+   }
 
    /////////////////////////////////////////////////////////////////////////////
    static uint32_t TxOutCalcLength(uint8_t const * ptr)
@@ -660,14 +716,27 @@ public:
       uint32_t scrLen = (uint32_t)readVarInt(ptr+8, &viLen);
       return (8 + viLen + scrLen);
    }
+   
+   /////////////////////////////////////////////////////////////////////////////
+   static uint32_t TxOutCalcLength(uint8_t const * ptr, uint32_t size)
+   {
+      if (size < 9)
+        throw BlockDeserializingException();
+      uint32_t viLen;
+      uint32_t scrLen = (uint32_t)readVarInt(ptr+8, size-8, &viLen);
+      return (8 + viLen + scrLen);
+   }
 
    /////////////////////////////////////////////////////////////////////////////
    static uint32_t TxCalcLength(uint8_t const * ptr,
+                                uint32_t size,
                                 vector<uint32_t> * offsetsIn=NULL,
                                 vector<uint32_t> * offsetsOut=NULL)
    {
-      BinaryRefReader brr(ptr);  
+      BinaryRefReader brr(ptr, size);  
       
+      if (brr.getSizeRemaining() < 4)
+         throw BlockDeserializingException();
       // Tx Version;
       brr.advance(4);
 
@@ -679,7 +748,7 @@ public:
          for(uint32_t i=0; i<nIn; i++)
          {
             (*offsetsIn)[i] = brr.getPosition();
-            brr.advance( TxInCalcLength(brr.getCurrPtr()) );
+            brr.advance( TxInCalcLength(brr.getCurrPtr(), brr.getSizeRemaining()) );
          }
          (*offsetsIn)[nIn] = brr.getPosition(); // Get the end of the last
       }
@@ -687,7 +756,7 @@ public:
       {
          // Don't need to track the offsets, just leap over everything
          for(uint32_t i=0; i<nIn; i++)
-            brr.advance( TxInCalcLength(brr.getCurrPtr()) );
+            brr.advance( TxInCalcLength(brr.getCurrPtr(), brr.getSizeRemaining()) );
       }
 
       // Now extract the TxOut list
@@ -698,14 +767,14 @@ public:
          for(uint32_t i=0; i<nOut; i++)
          {
             (*offsetsOut)[i] = brr.getPosition();
-            brr.advance( TxOutCalcLength(brr.getCurrPtr()) );
+            brr.advance( TxOutCalcLength(brr.getCurrPtr(), brr.getSizeRemaining()) );
          }
          (*offsetsOut)[nOut] = brr.getPosition();
       }
       else
       {
          for(uint32_t i=0; i<nOut; i++)
-            brr.advance( TxOutCalcLength(brr.getCurrPtr()) );
+            brr.advance( TxOutCalcLength(brr.getCurrPtr(), brr.getSizeRemaining()) );
       }
       brr.advance(4);
 
@@ -854,7 +923,7 @@ public:
          // TODO: Maybe should identify whether the other pushed data
          //       in the script is a potential solution for the 
          //       subscript... meh?
-         BinaryDataRef lastObj = splitScr[splitScr.size() - 1];
+         //BinaryDataRef lastObj = splitScr[splitScr.size() - 1];
 
          if(script[2]==0x30 && script[4]==0x02)
             return TXIN_SCRIPT_SPENDMULTI;
@@ -1119,12 +1188,16 @@ public:
       switch(type)
       {
          case(TXIN_SCRIPT_STDUNCOMPR):  
+            if (script.getSize() < 65)
+               throw BlockDeserializingException();
             return getHash160(script.getSliceRef(-65, 65));
          case(TXIN_SCRIPT_STDCOMPR):    
+            if (script.getSize() < 33)
+               throw BlockDeserializingException();
             return getHash160(script.getSliceRef(-33, 33));
          case(TXIN_SCRIPT_SPENDP2SH):   
          {
-            vector<BinaryDataRef> pushVect = splitPushOnlyScriptRefs(script);   
+            vector<BinaryDataRef> pushVect = splitPushOnlyScriptRefs(script);
             return getHash160(pushVect[pushVect.size()-1]);
          }
          case(TXIN_SCRIPT_COINBASE):    
@@ -1137,7 +1210,7 @@ public:
             return BadAddress_;
       }
    }
-
+   
    /////////////////////////////////////////////////////////////////////////////
    static BinaryData getTxInAddrFromTypeInt( BinaryData const & script,
                                              uint32_t typeInt)

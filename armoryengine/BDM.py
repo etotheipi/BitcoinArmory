@@ -968,6 +968,8 @@ class BlockDataManagerThread(threading.Thread):
          self.bdm.doRebuildDatabases()
          self.blkMode = BLOCKCHAINMODE.Rescanning
 
+      # missingBlocks = self.bdm.missingBlockHashes()
+      
       self.bdm.scanBlockchainForTx(self.masterCppWallet)
       self.bdm.saveScrAddrHistories()
 
