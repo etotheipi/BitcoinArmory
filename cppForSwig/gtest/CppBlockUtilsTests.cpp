@@ -1529,20 +1529,20 @@ TEST_F(CustomAllocTest, LargeBuffer_MT)
 		pthread_create(tID +i, 0, CreateBuffers, (void*)(buffer +i*1000));
 
 	for(int i=0; i<nthreads; i++)
-		pthread_join(tID +i, 0);
+		pthread_join(tID[i], 0);
 	
 	for(int i=0; i<nthreads; i++)
 		pthread_create(tID +i, 0, DeleteBuffers, (void*)(buffer +i*1000));
 
 	for(int i=0; i<nthreads; i++)
-		pthread_join(tID +i, 0);
+		pthread_join(tID[i], 0);
 
 	//
 	for(int i=0; i<nthreads; i++)
 		pthread_create(tID +i, 0, CreateBuffers, (void*)(buffer +i*1000));
 
 	for(int i=0; i<nthreads; i++)
-		pthread_join(tID +i, 0);
+		pthread_join(tID[i], 0);
 
 	for(int i=0; i<nthreads; i++)
 		pthread_create(tID +i, 0, DeleteSomeBuffers, (void*)(buffer +i*1000));
@@ -1551,14 +1551,14 @@ TEST_F(CustomAllocTest, LargeBuffer_MT)
 		pthread_create(tID +nthreads +i, 0, FillBuffers, (void*)(buffer +i*1000));
 
 	for(int i=0; i<nthreads*2; i++)
-		pthread_join(tID +i, 0);
+		pthread_join(tID[i], 0);
 
 	//
 	for(int i=0; i<nthreads; i++)
 		pthread_create(tID +i, 0, DeleteBuffers, (void*)(buffer +i*1000));
 
 	for(int i=0; i<nthreads; i++)
-		pthread_join(tID +i, 0);
+		pthread_join(tID[i], 0);
 
 
 	free(buffer);

@@ -222,7 +222,7 @@ namespace CustomAlloc
    void MemPool::ExtendGap()
    {
       gaps = (Gap*)realloc(gaps, sizeof(Gap)*(total_ngaps +BHstep));
-      memset(gaps +total_ngaps, 0, sizeof(Gap)*BHstep);
+      //memset(gaps +total_ngaps, 0, sizeof(Gap)*BHstep);
 
       total_ngaps += BHstep;
    }
@@ -399,12 +399,15 @@ namespace CustomAlloc
 		   return 0;
 	   }
 
-      int offset = GetGap(size);
-	  if(!offset)
+      //int offset = GetGap(size);
+      int offset = (size_t)pool + reserved;
+	  if(!offset || reserved+size<total)
       {
     	   lockpool = 0;
          return 0;
       }
+
+      reserved += size;
 
       BufferHeader *bhtmp = GetBH(size -size_of_ptr);
 
@@ -440,7 +443,7 @@ namespace CustomAlloc
          *(bh->pinuse) = 0;
          memset(bh->offset, 0, bh->size-MemPool::size_of_ptr);
          MemPool *mp = (MemPool*)bh->ref;
-         mp->AddGap(bh);
+         //mp->AddGap(bh);
          bh->offset = 0;
 
          if(mp->freemem==mp->total)
@@ -472,7 +475,7 @@ namespace CustomAlloc
 	   {
 		   mp = MP[order[i]];
 
-		   if(mp->freemem>=size || !mp->total) //look for available size
+		   if(!mp->total || (mp->freemem>=size && (mp->reserved +size+4)<mp->total)) //look for available size
 		   {
 	         getpoolflag--;
 			   bh = mp->GetBuffer(size, sema);
