@@ -13,6 +13,7 @@
 #include "../BlockUtils.h"
 #include "../CustomAlloc.h"
 #include "../EncryptionUtils.h"
+#include "pthread.h"
 
 #ifdef _MSC_VER
    #include "win32_posix.h"
@@ -1441,11 +1442,127 @@ class CustomAllocTest : public ::testing::Test
    CustomAlloc::CAlloc<uint8_t> CA_uint8;
 };
 
+void* CreateBuffers(void* in)
+{
+	CustomAlloc::CAllocStatic CA;
+
+	int* buffer = (int*)in;
+
+	for(int i=0; i<1000; i++)
+	{
+		buffer[i] = (int)CA.alloc_(512);
+		memset((int*)buffer[i], 0xFF, 512);
+	}
+
+	return 0;
+}
+
+void* DeleteBuffers(void* in)
+{
+	CustomAlloc::CAllocStatic CA;
+
+	int* buffer = (int*)in;
+
+	for(int i=0; i<1000; i++)
+	{
+		if(buffer[i])
+		{
+			CA.free_((int*)buffer[i]);
+			buffer[i] = 0;
+		}
+	}
+
+	return 0;
+}
+
+void* DeleteSomeBuffers(void* in)
+{
+	CustomAlloc::CAllocStatic CA;
+
+	int* buffer = (int*)in;
+
+	for(int i=0; i<1000; i++)
+	{
+		if(!(rand() % 2))
+		{
+			memset((int*)buffer[i], 0, 512);
+			CA.free_((int*)buffer[i]);
+			buffer[i] = 0;
+		}
+	}
+
+	return 0;
+}
+
+void* FillBuffers(void* in)
+{
+	CustomAlloc::CAllocStatic CA;
+
+	int* buffer = (int*)in;
+
+	for(int i=0; i<1000; i++)
+	{
+		if(!buffer[i])
+		{
+			buffer[i] = (int)CA.alloc_(256);
+			memset((int*)buffer[i], 0xFF, 256);
+		}
+	}
+
+	return 0;
+}
+
+
+
 TEST_F(CustomAllocTest, LargeBuffer_MT)
 {
    //allocate and free a large buffer
-   uint8_t* largebuffer = CA_uint8.allocate(1024);
+   uint8_t* largebuffer = CA_uint8.allocate(1024*1024*1024);
    CA_uint8.deallocate(largebuffer, 0);
+
+	int nthreads = 4;
+	pthread_t *tID = (pthread_t*)malloc(sizeof(pthread_t)*nthreads*2);
+
+	int *buffer = (int*)malloc(nthreads*1000*sizeof(int));
+
+	for(int i=0; i<nthreads; i++)
+		pthread_create(tID +i, 0, CreateBuffers, (void*)(buffer +i*1000));
+
+	for(int i=0; i<nthreads; i++)
+		pthread_join(tID +i, 0);
+	
+	for(int i=0; i<nthreads; i++)
+		pthread_create(tID +i, 0, DeleteBuffers, (void*)(buffer +i*1000));
+
+	for(int i=0; i<nthreads; i++)
+		pthread_join(tID +i, 0);
+
+	//
+	for(int i=0; i<nthreads; i++)
+		pthread_create(tID +i, 0, CreateBuffers, (void*)(buffer +i*1000));
+
+	for(int i=0; i<nthreads; i++)
+		pthread_join(tID +i, 0);
+
+	for(int i=0; i<nthreads; i++)
+		pthread_create(tID +i, 0, DeleteSomeBuffers, (void*)(buffer +i*1000));
+
+	for(int i=0; i<nthreads; i++)
+		pthread_create(tID +nthreads +i, 0, FillBuffers, (void*)(buffer +i*1000));
+
+	for(int i=0; i<nthreads*2; i++)
+		pthread_join(tID +i, 0);
+
+	//
+	for(int i=0; i<nthreads; i++)
+		pthread_create(tID +i, 0, DeleteBuffers, (void*)(buffer +i*1000));
+
+	for(int i=0; i<nthreads; i++)
+		pthread_join(tID +i, 0);
+
+
+	free(buffer);
+	free(tID);
 }
 
 class SecureBinaryDataTest : public ::testing::Test

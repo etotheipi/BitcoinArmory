@@ -86,10 +86,10 @@ namespace CustomAlloc
          static AtomicInt32 lock;
          int passedQuota;
 
-         size_t reserved;
 			unsigned int nBH;
 
       public:
+         size_t reserved;
 		   BufferHeader **BH;
 		   static const size_t memsize; //multiple of system page size
 		   size_t total;

@@ -297,7 +297,23 @@ namespace CustomAlloc
 			}
       }
 
+		for(int r=0; r<ngaps; r++)
+		{
+			for(int c=0; c<nBH; c++)
+			{
+				if(gaps[r].position>((size_t)BH[c]->offset -size_of_ptr) && gaps[r].position<((size_t)BH[c]->offset -size_of_ptr +BH[c]->size))
+					int lknlkn=0;
+
+				if(gaps[r].end>((size_t)BH[c]->offset -size_of_ptr) && gaps[r].end<((size_t)BH[c]->offset -size_of_ptr +BH[c]->size))
+					int lknlkn=0;
+
+			}
+		}
+
       freemem += bh->size;
+		if(freemem > total)
+			int lknrlke=0;
+
       acquireGap = 0;
    }
 
@@ -350,6 +366,20 @@ namespace CustomAlloc
       else freemem -= size;
 
       acquireGap = 0;
+
+		if(offset)
+		{
+			for(int u=0; u<nBH; u++)
+			{
+				if(offset>((size_t)BH[u]->offset - size_of_ptr))
+					if(offset<((size_t)BH[u]->offset - size_of_ptr +BH[u]->size))
+						int effr=0;
+			}
+		}
+
+		if(reserved>total)
+			int lklkn=0;
+
       return offset;
    }
 		
@@ -416,7 +446,12 @@ namespace CustomAlloc
          if(mp->freemem==mp->total)
          {
             CustomAllocator *ca = (CustomAllocator*)mp->ref;
-            if(ca) ca->FreePool(mp);
+            if(ca) 
+				{ 
+					ca->FreePool(mp);
+					if(mp->reserved!=0)
+						int lknkln=0;
+				}
          }
       }
    }
