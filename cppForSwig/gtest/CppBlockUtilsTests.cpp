@@ -1486,7 +1486,7 @@ void* DeleteSomeBuffers(void* in)
 	{
 		if(!(rand() % 2))
 		{
-			memset((int*)buffer[i], 0, 512);
+			//memset((int*)buffer[i], 0, 512);
 			CA.free_((int*)buffer[i]);
 			buffer[i] = 0;
 		}
@@ -1521,7 +1521,7 @@ TEST_F(CustomAllocTest, LargeBuffer_MT)
    uint8_t* largebuffer = CA_uint8.allocate(1024*1024*1024);
    CA_uint8.deallocate(largebuffer, 0);
 
-	int nthreads = 4;
+	int nthreads = 40;
 	pthread_t *tID = (pthread_t*)malloc(sizeof(pthread_t)*nthreads*2);
 
 	int *buffer = (int*)malloc(nthreads*1000*sizeof(int));

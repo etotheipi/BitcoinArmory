@@ -35,9 +35,11 @@ namespace CustomAlloc
 				end = position +s;
          }
 
-			Gap& operator=(Gap& rhs)
+			Gap& operator=(const Gap& rhs)
 			{
-				memcpy(this, &rhs, sizeof(Gap));
+				if(&rhs!=this)
+					memcpy(this, &rhs, sizeof(Gap));
+					
 				return *this;
 			}
 
@@ -134,7 +136,6 @@ namespace CustomAlloc
 		   }
 
          void AddGap(BufferHeader *bh);
- 		   void ComputeMem();
          void* GetPool();
          void Free();
 
@@ -147,7 +148,7 @@ namespace CustomAlloc
 	   ***/
 	   private:
 		   unsigned int *order, *order2, *otmp, otmpS;
-			unsigned int *pool_height;
+			unsigned int *pool_height, *pool_height2;
 		
          MemPool **MP;
          MemPool **poolbatch;
@@ -181,6 +182,7 @@ namespace CustomAlloc
             poolbatch=0;
             nbatch=0;
 				pool_height=0;
+				pool_height2=0;
 		   }
 
 		   ~CustomAllocator()
@@ -194,6 +196,7 @@ namespace CustomAlloc
 			   free(order);
 			   free(order2);
 				free(pool_height);
+				free(pool_height2);
 		   }
 
          void* customAlloc(size_t size);

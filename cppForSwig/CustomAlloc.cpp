@@ -156,28 +156,6 @@ namespace CustomAlloc
       return bhtmp;
    }
 		
-   void MemPool::ComputeMem()
-   {
-	   //reset all bh that aren't inuse anymore, compute reserved based on the deepest bh in pool
-	   if(nBH)
-	   {
-		   unsigned int sm=0, g=0;
-
-	      for(g; g<nBH; g++)
-		   {
-			   if(*BH[g]->pinuse)
-			   {
-				   if(BH[g]->offset>BH[sm]->offset) sm=g;
-			   }
-            else BH[g]->reset();
-		   }
-
-         if(BH[sm]->offset) reserved = (size_t)BH[sm]->offset -size_of_ptr -(size_t)pool +BH[sm]->size;
-		   else reserved = 0;
-		   freemem = total - reserved;
-	   }
-   }
-
    void* MemPool::GetPool()
    {
       return (void*)pool;
@@ -222,7 +200,6 @@ namespace CustomAlloc
    void MemPool::ExtendGap()
    {
       gaps = (Gap*)realloc(gaps, sizeof(Gap)*(total_ngaps +BHstep));
-      //memset(gaps +total_ngaps, 0, sizeof(Gap)*BHstep);
 
       total_ngaps += BHstep;
    }
@@ -240,7 +217,7 @@ namespace CustomAlloc
 				if(gaps[g].end==respos)
 				{
 					reserved -= gaps[g].size;
-					memcpy(gaps +g, gaps +g +1, sizeof(Gap)*(ngaps -g -1));
+					gaps[g] = gaps[ngaps-1];
 					ngaps--;
 					break;
 				}
@@ -275,7 +252,7 @@ namespace CustomAlloc
 					gaps[bf].end = gaps[af].end;
 					gaps[bf].size = gaps[bf].end - gaps[bf].position;
 					
-					memcpy(gaps +af, gaps +af +1, sizeof(Gap)*(ngaps -af -1));
+					gaps[af] = gaps[ngaps-1];
 					ngaps--;
 				}
 				else gaps[bf].size += bh->size;
@@ -297,22 +274,7 @@ namespace CustomAlloc
 			}
       }
 
-		for(int r=0; r<ngaps; r++)
-		{
-			for(int c=0; c<nBH; c++)
-			{
-				if(gaps[r].position>((size_t)BH[c]->offset -size_of_ptr) && gaps[r].position<((size_t)BH[c]->offset -size_of_ptr +BH[c]->size))
-					int lknlkn=0;
-
-				if(gaps[r].end>((size_t)BH[c]->offset -size_of_ptr) && gaps[r].end<((size_t)BH[c]->offset -size_of_ptr +BH[c]->size))
-					int lknlkn=0;
-
-			}
-		}
-
       freemem += bh->size;
-		if(freemem > total)
-			int lknrlke=0;
 
       acquireGap = 0;
    }
@@ -367,19 +329,6 @@ namespace CustomAlloc
 
       acquireGap = 0;
 
-		if(offset)
-		{
-			for(int u=0; u<nBH; u++)
-			{
-				if(offset>((size_t)BH[u]->offset - size_of_ptr))
-					if(offset<((size_t)BH[u]->offset - size_of_ptr +BH[u]->size))
-						int effr=0;
-			}
-		}
-
-		if(reserved>total)
-			int lklkn=0;
-
       return offset;
    }
 		
@@ -399,16 +348,16 @@ namespace CustomAlloc
 		   return 0;
 	   }
 
-      //int offset = GetGap(size);
-      int offset = (size_t)pool + reserved;
-	   if(!offset || reserved+size>total)
+      int offset = GetGap(size);
+      //int offset = (size_t)pool + reserved;
+	   if(!offset)// || reserved+size>total)
       {
     	   lockpool = 0;
          return 0;
       }
 
-      reserved += size;
-		freemem -= size;
+      //reserved += size;
+		//freemem -= size;
 
       BufferHeader *bhtmp = GetBH(size -size_of_ptr);
 
@@ -441,21 +390,16 @@ namespace CustomAlloc
       BufferHeader *bh = (BufferHeader*)*(size_t*)((size_t)buffer -MemPool::size_of_ptr);
       if(bh->linuse==1)
       {
-         *(bh->pinuse) = 0;
          memset(bh->offset, 0, bh->size-MemPool::size_of_ptr);
          MemPool *mp = (MemPool*)bh->ref;
-         //mp->AddGap(bh);
+         mp->AddGap(bh);
          bh->offset = 0;
+         *(bh->pinuse) = 0;
 
          if(mp->freemem==mp->total)
          {
             CustomAllocator *ca = (CustomAllocator*)mp->ref;
-            if(ca) 
-				{ 
-					ca->FreePool(mp);
-					if(mp->reserved!=0)
-						int lknkln=0;
-				}
+            if(ca) ca->FreePool(mp);
          }
       }
    }
@@ -524,8 +468,6 @@ namespace CustomAlloc
 		   ordering = 1;
 				
 		   unsigned int *ordtmp;
-		   /*memcpy(order2, order+in, sizeof(int)*(total-in));
-		   memcpy(order2 +total -in, order, sizeof(int)*in);*/
 
 			unsigned int g=1, t;
 			memcpy(order2, order, sizeof(int)*total);
@@ -579,8 +521,13 @@ namespace CustomAlloc
          poolbatch[nbatch] = mptmp3;
          nbatch++;
 
-			pool_height = (unsigned int*)realloc(pool_height, sizeof(int)*S);
-			memset(pool_height, 0, sizeof(int)*S);
+			free(pool_height2);
+			pool_height2 = (unsigned int*)malloc(sizeof(int)*S);
+			memset(pool_height2, 0, sizeof(int)*S);
+
+			unsigned int *phtmp = pool_height;
+			pool_height = pool_height2;
+			pool_height2 = phtmp;
 
 	      for(I=total; I<S; I++)
 	      {
@@ -613,18 +560,18 @@ namespace CustomAlloc
    void CustomAllocator::FreePool(MemPool *pool)
    {
       unsigned int i=0;
+            
+		while(ab.Fetch_Or(1));
+
+      clearpool = 1;
+
+      while(ordering!=0);
+      while(getpoolflag!=0);
    
       for(i; i<npools; i++)
       {
          if(pool->GetPool()==MP[order[i]]->GetPool())
          {
-            while(ab.Fetch_Or(1));
-
-            clearpool = 1;
-
-            while(ordering!=0);
-            while(getpoolflag!=0);
-
             if(pool->freemem==pool->total)
             {
                MP[order[i]]->Free();
@@ -639,9 +586,12 @@ namespace CustomAlloc
             clearpool = 0;
             ab = 0;
 
-            break;
+            return;
          }
       }
+
+		clearpool = 0;
+      ab = 0;
    }
 		
    void CustomAllocator::FillRate()
