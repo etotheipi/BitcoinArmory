@@ -27,11 +27,11 @@ STRETCH = 'Stretch'
 CLICKED = 'clicked()'
 BACKUP_TYPE_135A = '1.35a'
 BACKUP_TYPE_135C = '1.35c'
-BACKUP_TYPE_0_TEXT = tr('0  (from script, 9 lines)')
-BACKUP_TYPE_135a_TEXT = tr('1.35a (5 lines Unencrypted)')
-BACKUP_TYPE_135a_SP_TEXT = tr('1.35a (5 lines + SecurePrint\xe2\x84\xa2)')
-BACKUP_TYPE_135c_TEXT = tr('1.35c (3 lines Unencrypted)')
-BACKUP_TYPE_135c_SP_TEXT = tr('1.35c (3 lines + SecurePrint\xe2\x84\xa2)')
+BACKUP_TYPE_0_TEXT = tr('Version 0  (from script, 9 lines)')
+BACKUP_TYPE_135a_TEXT = tr('Version 1.35a (5 lines Unencrypted)')
+BACKUP_TYPE_135a_SP_TEXT = tr('Version 1.35a (5 lines + SecurePrint\xe2\x84\xa2)')
+BACKUP_TYPE_135c_TEXT = tr('Version 1.35c (3 lines Unencrypted)')
+BACKUP_TYPE_135c_SP_TEXT = tr('Version 1.35c (3 lines + SecurePrint\xe2\x84\xa2)')
 
 
 ################################################################################
@@ -10600,20 +10600,16 @@ class DlgRestoreSingle(ArmoryDialog):
          If your backup includes extra pages with
          imported keys, please restore the base wallet first, then
          double-click the restored wallet and select "Import Private
-         Keys" from the right-hand menu.
-         <br><br>
-         If your backup consists of multiple "fragments," then cancel
-         out of this window and choose "Fragmented Backup" from the
-         "Restore Wallet" menu."""))
+         Keys" from the right-hand menu. """))
 
 
       lblType = QRichLabel(tr("""<b>Backup Type:</b>"""), doWrap=False)
 
-      self.version135Button = QRadioButton(tr('1.35 (4 lines)'), self)
-      self.version135aButton = QRadioButton(tr('1.35a (4 lines Unencrypted)'), self)
-      self.version135aSPButton = QRadioButton(tr('1.35a (4 lines + SecurePrint\xe2\x84\xa2)'), self)
-      self.version135cButton = QRadioButton(tr('1.35c (2 lines Unencrypted)'), self)
-      self.version135cSPButton = QRadioButton(tr('1.35c (2 lines + SecurePrint\xe2\x84\xa2)'), self)
+      self.version135Button = QRadioButton(tr('Version 1.35 (4 lines)'), self)
+      self.version135aButton = QRadioButton(tr('Version 1.35a (4 lines Unencrypted)'), self)
+      self.version135aSPButton = QRadioButton(tr('Version 1.35a (4 lines + SecurePrint\xe2\x84\xa2)'), self)
+      self.version135cButton = QRadioButton(tr('Version 1.35c (2 lines Unencrypted)'), self)
+      self.version135cSPButton = QRadioButton(tr('Version 1.35c (2 lines + SecurePrint\xe2\x84\xa2)'), self)
       self.backupTypeButtonGroup = QButtonGroup(self)
       self.backupTypeButtonGroup.addButton(self.version135Button)
       self.backupTypeButtonGroup.addButton(self.version135aButton)
@@ -10623,12 +10619,18 @@ class DlgRestoreSingle(ArmoryDialog):
       self.version135cButton.setChecked(True)
       self.connect(self.backupTypeButtonGroup, SIGNAL('buttonClicked(int)'), self.changeType)
       
-      radioButtonFrame = makeVertFrame([lblType,
-                                self.version135Button,
-                                self.version135aButton,
-                                self.version135aSPButton,
-                                self.version135cButton,
-                                self.version135cSPButton])
+      layoutRadio = QVBoxLayout()
+      layoutRadio.addWidget(self.version135Button)
+      layoutRadio.addWidget(self.version135aButton)
+      layoutRadio.addWidget(self.version135aSPButton)
+      layoutRadio.addWidget(self.version135cButton)
+      layoutRadio.addWidget(self.version135cSPButton)
+      layoutRadio.setSpacing(0)
+      
+      radioButtonFrame = QFrame()
+      radioButtonFrame.setLayout(layoutRadio)
+
+      frmBackupType = makeVertFrame([lblType, radioButtonFrame])
 
       self.lblSP = QRichLabel(tr('SecurePrint\xe2\x84\xa2 Code:'), doWrap=False) 
       self.editSecurePrint = QLineEdit()                                                   
@@ -10670,7 +10672,7 @@ class DlgRestoreSingle(ArmoryDialog):
       layout = QVBoxLayout()
       layout.addWidget(lblDescr)
       layout.addWidget(HLINE())
-      layout.addWidget(radioButtonFrame)
+      layout.addWidget(frmBackupType)
       layout.addWidget(frmAllInputs)
       layout.addWidget(bottomFrm)
       self.setLayout(layout)
@@ -11569,12 +11571,18 @@ class DlgEnterOneFrag(ArmoryDialog):
 
       lblType = QRichLabel(tr("""<b>Backup Type:</b>"""), doWrap=False)
       
-      radioButtonFrame = makeVertFrame([lblType,
-                                self.version0Button,
-                                self.version135aButton,
-                                self.version135aSPButton,
-                                self.version135cButton,
-                                self.version135cSPButton])
+      layoutRadio = QVBoxLayout()
+      layoutRadio.addWidget(self.version0Button)
+      layoutRadio.addWidget(self.version135aButton)
+      layoutRadio.addWidget(self.version135aSPButton)
+      layoutRadio.addWidget(self.version135cButton)
+      layoutRadio.addWidget(self.version135cSPButton)
+      layoutRadio.setSpacing(0)
+
+      radioButtonFrame = QFrame()
+      radioButtonFrame.setLayout(layoutRadio)
+
+      frmBackupType = makeVertFrame([lblType, radioButtonFrame])
       
       self.prfxList = ['x1:', 'x2:', 'x3:', 'x4:', \
                        'y1:', 'y2:', 'y3:', 'y4:', \
@@ -11619,7 +11627,7 @@ class DlgEnterOneFrag(ArmoryDialog):
       layout = QVBoxLayout()
       layout.addWidget(lblDescr)
       layout.addWidget(HLINE())
-      layout.addWidget(radioButtonFrame)
+      layout.addWidget(frmBackupType)
       layout.addWidget(frmAllInputs)
       layout.addWidget(buttonBox)
       self.setLayout(layout)
@@ -12345,6 +12353,105 @@ class DlgCorruptWallet(DlgProgress):
             TheBDM.registerWallet(newWallet, isFresh=True, wait=False)
          else:
             self.main.newWalletList.append([newWallet, True])
+
+#################################################################################
+class DlgFactoryReset(ArmoryDialog):
+   def __init__(self, main=None, parent=None):
+      super(DlgFactoryReset, self).__init__(parent, main)      
+
+      lblDescr = QRichLabel(tr("""
+         <b><u>Armory Factory Reset</u></b>
+         <br><br>
+         It is <i>strongly</i> recommended that you make backups of your
+         wallets before continuing, though <b>wallet files will never be 
+         intentionally deleted!</b>  All Armory 
+         wallet files, and the wallet.dat file used by Bitcoin-Qt/bitcoind 
+         should remain untouched in their current locations.  All Armory 
+         wallets will automatically be detected and loaded after the reset.
+         <br><br>
+         If you are not sure which option to pick, try the "lightest option"
+         first, and see if your problems are resolved before trying the more
+         extreme options."""))
+
+
+      self.rdoSettings = QRadioButton()
+      self.lblSettingsText = QRichLabel(tr("""
+         <b>Delete settings and rescan (lightest option)</b>"""))
+      self.lblSettings = QRichLabel(tr("""
+         This will delete the settings file and transient network data.  The 
+         databases built by Armory will be rescanned (about 5-45 minutes)"""))
+   
+      self.rdoArmoryDB = QRadioButton()
+      self.lblArmoryDBText = QRichLabel(tr("""
+         <b>Also delete databases and rebuild</b>"""))
+      self.lblArmoryDB = QRichLabel(tr("""
+         This will additionally delete and rebuild Armory's databases.  Will
+         rebuild and rescan (45 min to 3 hours)"""))
+
+      self.rdoBitcoinDB = QRadioButton()
+      self.lblBitcoinDBText = QRichLabel(tr("""
+         <b>Also re-download the blockchain (most extreme)</b>"""))
+      self.lblBitcoinDB = QRichLabel(tr("""
+         This will delete Armory's databases, <b>and</b> the databases 
+         produced by the Bitcoin software, It will redownload the 15+ GB 
+         blockchain.  This is only needed if you suspect blockchain 
+         corruption (4-72 hours depending on your connection)"""))
+
+
+      optFrames = []
+      for rdo,txt,lbl in [ \
+            [self.rdoSettings,  self.lblSettingsText,  self.lblSettings], \
+            [self.rdoArmoryDB,  self.lblArmoryDBText,  self.lblArmoryDB], \
+            [self.rdoBitcoinDB, self.lblBitcoinDBText, self.lblBitcoinDB]]:
+
+         optLayout = QGridLayout() 
+         txt.setWordWrap(False)
+         optLayout.addWidget(makeHorizFrame([rdo, txt, 'Stretch']))
+         optLayout.addWidget(lbl, 1,0, 1,3)
+         optFrames.append(QFrame())
+         optFrames[-1].setLayout(optLayout)
+         optFrames[-1].setFrameStyle(STYLE_RAISED)
+         
+
+      self.rdoSettings.setChecked(True)
+
+      btngrp = QButtonGroup(self)
+      btngrp.addButton(self.rdoSettings)
+      btngrp.addButton(self.rdoArmoryDB)
+      btngrp.addButton(self.rdoBitcoinDB)
+
+      frmDescr = makeHorizFrame([lblDescr], STYLE_SUNKEN)
+      frmOptions = makeVertFrame(optFrames, STYLE_SUNKEN)
+
+      self.btnOkay = QPushButton(tr('Continue'))
+      self.btnCancel = QPushButton(tr('Cancel'))
+      buttonBox = QDialogButtonBox()
+      buttonBox.addButton(self.btnOkay, QDialogButtonBox.AcceptRole)
+      buttonBox.addButton(self.btnCancel, QDialogButtonBox.RejectRole)
+      self.connect(self.btnOkay, SIGNAL(CLICKED), self.clickedOkay)
+      self.connect(self.btnCancel, SIGNAL(CLICKED), self.reject)
+
+      layout = QVBoxLayout()
+      layout.addWidget(frmDescr)
+      layout.addWidget(frmOptions)
+      layout.addWidget(buttonBox)
+
+      self.setLayout(layout)
+      self.setMinimumWidth(600)
+      self.setWindowTitle(tr('Factory Reset'))
+      self.setWindowIcon(QIcon(self.main.iconfile))
+      
+
+         
+   ###      
+   def clickedOkay(self):
+      pass
+         
+
+
+
+
+
 
 # Put circular imports at the end
 from ui.WalletFrames import SelectWalletFrame, WalletBackupFrame

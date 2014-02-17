@@ -98,7 +98,7 @@ class ArmoryMainWindow(QMainWindow):
       self.newZeroConfSinceLastUpdate = []
       self.lastBDMState = ['Uninitialized', None]
       self.lastSDMState = 'Uninitialized'
-      self.doHardReset = False
+      self.removeSettingsOnClose = False
       self.doShutdown = False
       self.downloadDict = {}
       self.notAvailErrorCount = 0
@@ -615,18 +615,19 @@ class ArmoryMainWindow(QMainWindow):
       execVersion = lambda: self.checkForLatestVersion(wasRequested=True)
       execTrouble = lambda: webbrowser.open('https://bitcoinarmory.com/troubleshooting/')
       execBugReport = lambda: DlgBugReport(self, self).exec_()
-      actAboutWindow  = self.createAction('About Armory', execAbout)
-      actTroubleshoot = self.createAction('Troubleshooting Armory', execTrouble)
-      actSubmitBug    = self.createAction('Submit Bug Report', execBugReport)
-      actVersionCheck = self.createAction('Armory Version...', execVersion)
-      actClearMemPool = self.createAction('Clear All Unconfirmed', self.clearMemoryPool)
-      actRescanDB     = self.createAction('Rescan Databases', self.rescanNextLoad)
-      actRebuildDB    = self.createAction('Rebuild and Rescan Databases', self.rebuildNextLoad)
-      actFactoryReset = self.createAction('Revert All Settings', self.factoryReset)
+      actAboutWindow  = self.createAction(tr('About Armory'), execAbout)
+      actVersionCheck = self.createAction(tr('Armory Version...'), execVersion)
+      actTroubleshoot = self.createAction(tr('Troubleshooting Armory'), execTrouble)
+      actSubmitBug    = self.createAction(tr('Submit Bug Report'), execBugReport)
+      actClearMemPool = self.createAction(tr('Clear All Unconfirmed'), self.clearMemoryPool)
+      actRescanDB     = self.createAction(tr('Rescan Databases'), self.rescanNextLoad)
+      actRebuildDB    = self.createAction(tr('Rebuild and Rescan Databases'), self.rebuildNextLoad)
+      actFactoryReset = self.createAction(tr('Factory Reset'), self.factoryReset)
 
       self.menusList[MENUS.Help].addAction(actAboutWindow)
-      self.menusList[MENUS.Help].addAction(actTroubleshoot)
       self.menusList[MENUS.Help].addAction(actVersionCheck)
+      self.menusList[MENUS.Help].addSeparator()
+      self.menusList[MENUS.Help].addAction(actTroubleshoot)
       self.menusList[MENUS.Help].addAction(actSubmitBug)
       self.menusList[MENUS.Help].addSeparator()
       self.menusList[MENUS.Help].addAction(actClearMemPool)
@@ -671,7 +672,8 @@ class ArmoryMainWindow(QMainWindow):
             
    ####################################################
    def factoryReset(self):
-      reply = QMessageBox.information(self,'Revert all Settings?', \
+      """
+      reply = QMessageBox.information(self,'Factory Reset', \
          'You are about to revert all Armory settings '
          'to the state they were in when Armory was first installed.  '
          '<br><br>'
@@ -682,8 +684,15 @@ class ArmoryMainWindow(QMainWindow):
          QMessageBox.Yes | QMessageBox.No)
 
       if reply==QMessageBox.Yes:
-         self.doHardReset = True
+         self.removeSettingsOnClose = True
          self.closeForReal()
+      """
+
+      if DlgFactoryReset(self,self).exec_():
+         self.removeSettingsOnClose = True
+         self.closeForReal()
+
+
          
    ####################################################
    def clearMemoryPool(self):
@@ -4935,9 +4944,9 @@ class ArmoryMainWindow(QMainWindow):
          LOGEXCEPT('Strange error during shutdown')
 
       try:
-         if self.doHardReset:
-            rebuildFile = os.path.join(ARMORY_HOME_DIR, 'rebuild.txt')
-            touchFile(rebuildFile)
+         if self.removeSettingsOnClose:
+            # Remove settings and memory pool.  
+            # All reset flag files should already be touched
             os.remove(self.settingsPath) 
             mempoolfile = os.path.join(ARMORY_HOME_DIR, 'mempool.bin')
             if os.path.exists(mempoolfile):

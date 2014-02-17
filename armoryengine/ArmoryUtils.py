@@ -63,6 +63,7 @@ parser.add_option("--mtdebug",         dest="mtdebug",     default=False,     ac
 parser.add_option("--skip-online-check", dest="forceOnline", default=False,   action="store_true", help="Go into online mode, even if internet connection isn't detected")
 parser.add_option("--skip-version-check", dest="skipVerCheck", default=False, action="store_true", help="Do not contact bitcoinarmory.com to check for new versions")
 parser.add_option("--keypool",         dest="keypool",     default=100, type="int",                help="Default number of addresses to lookahead in Armory wallets")
+parser.add_option("--redownload",      dest="redownload",  default=False,     action="store_true", help="Delete Bitcoin-Qt/bitcoind databases; redownload")
 parser.add_option("--rebuild",         dest="rebuild",     default=False,     action="store_true", help="Rebuild blockchain database and rescan")
 parser.add_option("--rescan",          dest="rescan",      default=False,     action="store_true", help="Rescan existing blockchain DB")
 parser.add_option("--maxfiles",        dest="maxOpenFiles",default=0,         type="int",          help="Set maximum allowed open files for LevelDB databases")
@@ -766,9 +767,27 @@ sys.excepthook = logexcept_override
 
 
 # If there is a rebuild or rescan flag, let's do the right thing.
-fileRebuild = os.path.join(ARMORY_HOME_DIR, 'rebuild.txt')
-fileRescan  = os.path.join(ARMORY_HOME_DIR, 'rescan.txt')
-if os.path.exists(fileRebuild):
+fileRedownload = os.path.join(ARMORY_HOME_DIR, 'redownload.txt')
+fileRebuild    = os.path.join(ARMORY_HOME_DIR, 'rebuild.txt')
+fileRescan     = os.path.join(ARMORY_HOME_DIR, 'rescan.txt')
+
+# Flag to remove everything in Bitcoin dir except wallet.dat (if requested)
+if os.path.exists(fileRedownload):
+   LOGINFO('Found %s, will destroy and rebuild databases' % fileRebuild)
+
+   os.remove(fileRedownload)
+
+   if os.path.exists(fileRebuild):
+      os.remove(fileRebuild)
+
+   if os.path.exists(fileRescan):
+      os.remove(fileRescan)
+      
+   CLI_OPTIONS.redownload = True
+   CLI_OPTIONS.rebuild = True
+
+# Flag to remove Armory databases so it will have to rebuild
+elif os.path.exists(fileRebuild):
    LOGINFO('Found %s, will destroy and rebuild databases' % fileRebuild)
    os.remove(fileRebuild)
 
@@ -784,6 +803,29 @@ elif os.path.exists(fileRescan):
    CLI_OPTIONS.rescan = True
 
 
+#####
+if CLI_OPTIONS.redownload:
+   if not os.path.exists(BTC_HOME_DIR):
+      LOGERROR('Could not find Bitcoin-Qt/bitcoind home dir to remove blk data')
+      LOGERROR('  Does not exist: %s' % BTC_HOME_DIR)
+   else:
+      LOGINFO('Found bitcoin home dir, removing blocks and databases')
+      
+      # Remove directories
+      for btcDir in ['blocks', 'chainstate', 'database']:
+         fullPath = os.path.join(BTC_HOME_DIR, btcDir)
+         if os.path.exists(fullPath):
+            LOGINFO('   Removing dir:  %s' % fullPath)
+            shutil.rmtree(fullPath)
+
+      # Remove files
+      for btcFile in ['DB_CONFIG', 'db.log', 'debug.log', 'peers.dat']:
+         fullPath = os.path.join(BTC_HOME_DIR, btcFile)
+         if os.path.exists(fullPath):
+            LOGINFO('   Removing file: %s' % fullPath)
+            os.remove(fullPath)
+
+#####
 if CLI_OPTIONS.rebuild and os.path.exists(LEVELDB_DIR):
    LOGINFO('Found existing databases dir; removing before rebuild')
    shutil.rmtree(LEVELDB_DIR)
@@ -2801,6 +2843,7 @@ def EstimateCumulativeBlockchainSize(blkNum):
          257568 10838081536 
          259542 11106516992
          271827 12968787968
+         286296 15619588096
       """
    strList = [line.strip().split() for line in blksizefile.strip().split('\n')]
    BLK_SIZE_LIST = [[int(x[0]), int(x[1])] for x in strList]
