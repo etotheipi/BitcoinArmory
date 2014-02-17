@@ -13,7 +13,7 @@ sys.argv.append('--testnet')
 sys.path.append('..')
 from CppBlockUtils import SecureBinaryData, CryptoECDSA
 from armoryd import Armory_Json_Rpc_Server, PrivateKeyNotFound, \
-   InvalidBitcoinAddress, WalletUnlockNeeded, Armory_Daemon
+   InvalidBitcoinAddress, WalletUnlockNeeded, Armory_Daemon, AmountToJSON
 from armoryengine.ArmoryUtils import ARMORY_HOME_DIR, hex_to_binary, \
    binary_to_base58, binary_to_hex, convertKeyDataToAddress, hash160_to_addrStr,\
    hex_switchEndian, hash160, BIGENDIAN
@@ -22,6 +22,9 @@ from armoryengine.PyBtcWallet import PyBtcWallet
 from armoryengine.Transaction import PyTx
 
 
+TEST_WALLET_NAME = 'Test Wallet Name'
+TEST_WALLET_DESCRIPTION = 'Test Wallet Description'
+TEST_WALLET_ID = '3VB8XSoY'
 
 RAW_TX1    = ('01000000081fa335f8aa332693c7bf77c960ac1eb86c50a5f60d8dc6892d4'
               '3f89473dc50e4b104000000ffffffff4be787d4a6009ba04534c9b42af46e'
@@ -65,13 +68,10 @@ class ArmoryDTest(unittest.TestCase):
          time.sleep(2)
 
    def setUp(self):
-      self.shortlabel = 'TestWallet1'
-      self.wltID = '3VB8XSoY'
-
-      self.fileA    = os.path.join(ARMORY_HOME_DIR, 'armory_%s_.wallet' % self.wltID)
-      self.fileB    = os.path.join(ARMORY_HOME_DIR, 'armory_%s_backup.wallet' % self.wltID)
-      self.fileAupd = os.path.join(ARMORY_HOME_DIR, 'armory_%s_backup_unsuccessful.wallet' % self.wltID)
-      self.fileBupd = os.path.join(ARMORY_HOME_DIR, 'armory_%s_update_unsuccessful.wallet' % self.wltID)
+      self.fileA    = os.path.join(ARMORY_HOME_DIR, 'armory_%s_.wallet' % TEST_WALLET_ID)
+      self.fileB    = os.path.join(ARMORY_HOME_DIR, 'armory_%s_backup.wallet' % TEST_WALLET_ID)
+      self.fileAupd = os.path.join(ARMORY_HOME_DIR, 'armory_%s_backup_unsuccessful.wallet' % TEST_WALLET_ID)
+      self.fileBupd = os.path.join(ARMORY_HOME_DIR, 'armory_%s_update_unsuccessful.wallet' % TEST_WALLET_ID)
 
       self.removeFileList([self.fileA, self.fileB, self.fileAupd, self.fileBupd])
    
@@ -87,7 +87,8 @@ class ArmoryDTest(unittest.TestCase):
                                           plainRootKey=self.privKey, \
                                           chaincode=self.chainstr,   \
                                           IV=theIV, \
-                                          shortLabel=self.shortlabel)
+                                          shortLabel=TEST_WALLET_NAME, \
+                                          longLabel=TEST_WALLET_DESCRIPTION)
       self.jsonServer = Armory_Json_Rpc_Server(self.wallet)
       TheBDM.registerWallet(self.wallet)
       
@@ -125,7 +126,7 @@ class ArmoryDTest(unittest.TestCase):
       self.assertEquals(TX_ID1, binary_to_hex(pyTx.getHash(), BIGENDIAN))
 
    def testBackupWallet(self):
-      backupTestPath = os.path.join(ARMORY_HOME_DIR, 'armory_%s_.wallet.backup.test' % self.wltID)
+      backupTestPath = os.path.join(ARMORY_HOME_DIR, 'armory_%s_.wallet.backup.test' % TEST_WALLET_ID)
       # Remove backupTestPath in case it exists
       backupFileList = [backupTestPath, self.fileB]
       self.removeFileList(backupFileList)
@@ -137,7 +138,6 @@ class ArmoryDTest(unittest.TestCase):
       self.assertTrue(os.path.exists(self.fileB))
       
    def testDecoderawtransaction(self):
-      print RAW_TX1
       actualDD = self.jsonServer.jsonrpc_decoderawtransaction(RAW_TX1)
       # Test specific values pulled from bitcoin daemon's output for the test raw TX
       expectScriptStr = 'OP_DUP OP_HASH160 PUSHDATA(20) [be17ec0fc1f8aa029223dbe5f53109d0faf8c797] OP_EQUALVERIFY OP_CHECKSIG'
@@ -207,7 +207,25 @@ class ArmoryDTest(unittest.TestCase):
       self.wallet.checkWalletLockTimeout()
       self.assertTrue(self.wallet.isLocked)
       
+   def testGetWalletInfo(self):
+      wltInfo = self.jsonServer.jsonrpc_getwalletinfo()
+      self.assertEqual(wltInfo['name'], TEST_WALLET_NAME)
+      self.assertEqual(wltInfo['description'], TEST_WALLET_DESCRIPTION)
+      self.assertEqual(wltInfo['balance'], AmountToJSON(self.wallet.getBalance('Spend')))
+      self.assertEqual(wltInfo['keypoolsize'], self.wallet.addrPoolSize)
+      self.assertEqual(wltInfo['numaddrgen'], len(self.wallet.addrMap))
+      self.assertEqual(wltInfo['highestusedindex'], self.wallet.highestUsedChainIndex)
    
+   # This should always return 0 balance
+   # Need to create our own test net to test with balances
+   def testGetBalance(self):
+      for ballanceType in ['spendable','spend', 'unconf', \
+                           'unconfirmed', 'total', 'ultimate','unspent', 'full']:
+         self.assertEqual(self.jsonServer.jsonrpc_getbalance(ballanceType),
+                          AmountToJSON(self.wallet.getBalance(ballanceType)))
+      self.assertEqual(self.jsonServer.jsonrpc_getbalance('bogus'), -1)
+
+      
 if __name__ == "__main__":
-    #import sys;sys.argv = ['', 'Test.testName']
-    unittest.main()
+   #import sys;sys.argv = ['', 'Test.testName']
+   unittest.main()
