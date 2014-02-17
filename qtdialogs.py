@@ -7910,30 +7910,28 @@ class DlgSettings(ArmoryDialog):
       ###############################################################
       # Minimize on Close
       moc = self.main.getSettingOrSetDefault('MinimizeOrClose', 'DontKnow')
-      lblMinOrClose = QRichLabel('<b>Minimize to system tray on close:</b>')
-      lblMoCDescr = QRichLabel('When you click the "x" on the top window bar, '
-                                 'Armory will stay open but run in the background.  '
-                                 'You will still receive notifications, and '
-                                 'can access it through the system tray.')
-      ttipMinOrClose = self.main.createToolTipWidget(\
-         'If this is checked, you can still close Armory through the right-click menu '
-         'on the system tray icon, or by "File"->"Quit Armory" on the main window')
+      lblMinOrClose = QRichLabel(tr('<b>Minimize to system tray on <u>close</u>:</b>'))
+      lblMoCDescr = QRichLabel(tr("""
+         When you click the "x" on the top window bar or use
+         <i>"File"</i>\xe2\x86\x92<i>"Quit"</i>, 
+         Armory will stay open but run in the background.  
+         You will still receive notifications, and 
+         can access it through the system tray."""))
+      ttipMinOrClose = self.main.createToolTipWidget( tr("""
+         If this is checked, you can still close Armory through the right-click menu 
+         on the system tray icon, or by "File"->"Quit Armory" on the main window"""))
       self.chkMinOrClose = QCheckBox('')
       if moc == 'Minimize':
          self.chkMinOrClose.setChecked(True)
 
-
-      # doInclFee = self.main.getSettingOrSetDefault('LedgDisplayFee', True)
-      # lblLedgerFee = QRichLabel('<b>Include fee in transaction value on the '
-                                # 'primary ledger</b>.<br>Unselect if you want to '
-                                # 'see only the value received by the recipient.')
-      # ttipLedgerFee = self.main.createToolTipWidget( \
-                                # 'If you send someone 1.0 '
-                                # 'BTC with a 0.001 fee, the ledger will display '
-                                # '"1.001" in the "Amount" column if this option '
-                                # 'is checked.')
-      # self.chkInclFee = QCheckBox('')
-      # self.chkInclFee.setChecked(doInclFee)
+      moo = self.main.getSettingOrSetDefault('MinimizeOnOpen', False)
+      lblMinOnOpen = QRichLabel(tr('<b>Minimize to system tray on <u>open</u>:</b>'))
+      lblMoODescr = QRichLabel(tr("""
+         Armory will start minimized.  You will still receive notifications, 
+         and can access it through the system tray."""))
+      self.chkMinOnOpen = QCheckBox('')
+      if moo:
+         self.chkMinOnOpen.setChecked(True)
 
 
       ###############################################################
@@ -8115,12 +8113,17 @@ class DlgSettings(ArmoryDialog):
       frmLayout.addWidget(HLINE(), i, 0, 1, 3)
 
       i += 1
+      frmLayout.addWidget(lblMinOnOpen, i, 0)
+      frmLayout.addWidget(self.chkMinOnOpen, i, 2)
+
+      i += 1
       frmLayout.addWidget(lblMinOrClose, i, 0)
-      frmLayout.addWidget(ttipMinOrClose, i, 1)
       frmLayout.addWidget(self.chkMinOrClose, i, 2)
 
       i += 1
       frmLayout.addWidget(lblMoCDescr, i, 0, 1, 3)
+
+
 
       i += 1
       frmLayout.addWidget(HLINE(), i, 0, 1, 3)
@@ -8267,6 +8270,8 @@ class DlgSettings(ArmoryDialog):
          self.main.writeSetting('MinimizeOrClose', 'Minimize')
       else:
          self.main.writeSetting('MinimizeOrClose', 'Close')
+
+      self.main.writeSetting('MinimizeOnOpen', self.chkMinOnOpen.isChecked())
 
       # self.main.writeSetting('LedgDisplayFee', self.chkInclFee.isChecked())
       self.main.writeSetting('NotifyBtcIn', self.chkBtcIn.isChecked())
@@ -12374,6 +12379,7 @@ class DlgFactoryReset(ArmoryDialog):
          extreme options."""))
 
 
+
       self.rdoSettings = QRadioButton()
       self.lblSettingsText = QRichLabel(tr("""
          <b>Delete settings and rescan (lightest option)</b>"""))
@@ -12445,9 +12451,56 @@ class DlgFactoryReset(ArmoryDialog):
          
    ###      
    def clickedOkay(self):
-      pass
+
+      if self.rdoSettings.isChecked():
+         reply = QMessageBox.warning(self, tr('Confirmation'), tr("""
+            You are about to delete your settings and force Armory to rescan
+            its databases.  Are you sure you want to do this?"""), \
+            QMessageBox.Cancel | QMessageBox.Ok)
+
+         if not reply==QMessageBox.Ok:
+            return
+
+         touchFile( os.path.join(ARMORY_HOME_DIR, 'rescan.txt') )
+         touchFile( os.path.join(ARMORY_HOME_DIR, 'clearmempool.txt'))
+         os.remove(self.main.settingsPath) 
+         self.accept() 
+      elif self.rdoArmoryDB.isChecked():
+         reply = QMessageBox.warning(self, tr('Confirmation'), tr("""
+            You are about to delete your settings and force Armory to delete
+            and rebuild its databases.  Are you sure you want to do this?"""), \
+            QMessageBox.Cancel | QMessageBox.Ok)
+
+         if not reply==QMessageBox.Ok:
+            return
+
+         touchFile( os.path.join(ARMORY_HOME_DIR, 'rebuild.txt') )
+         touchFile( os.path.join(ARMORY_HOME_DIR, 'clearmempool.txt'))
+         os.remove(self.main.settingsPath) 
+         self.accept() 
+      elif self.rdoBitcoinDB.isChecked():
+         reply = QMessageBox.warning(self, tr('Confirmation'), tr("""
+            You are about to delete your settings and delete all blockchain
+            databases on your computer.  The Bitcoin software will have to 
+            redownload 15+ GB of blockchain data over the peer-to-peer network 
+            again which can take from 4 to 72 hours depending on system speed
+            and connection.  <br><br> Are you absolutely sure you want to do 
+            this?"""), QMessageBox.Cancel | QMessageBox.Yes)
+
+         if not reply==QMessageBox.Yes:
+            return
+
+         touchFile( os.path.join(ARMORY_HOME_DIR, 'rebuild.txt') )
+         touchFile( os.path.join(ARMORY_HOME_DIR, 'redownload.txt') )
+         touchFile( os.path.join(ARMORY_HOME_DIR, 'clearmempool.txt'))
+         os.remove(self.main.settingsPath) 
          
 
+      QMessageBox.information(self, tr('Restart Armory'), tr("""
+         Armory will now close so that the requested changes can 
+         be applied."""), QMessageBox.Ok)
+      self.accept() 
+   
 
 
 

@@ -651,10 +651,15 @@ class ArmoryMainWindow(QMainWindow):
 
       haveGUI[0] = True
       haveGUI[1] = self
-      
+
       self.checkWallets()
       reactor.callLater(0.1,  self.execIntroDialog)
       reactor.callLater(1, self.Heartbeat)
+
+      if self.getSettingOrSetDefault('MinimizeOnOpen', False) and not CLI_ARGS:
+         LOGINFO('MinimizeOnOpen is True')
+         reactor.callLater(0, self.minimizeArmory)
+      
 
       if CLI_ARGS:
          reactor.callLater(1, self.uriLinkClicked, CLI_ARGS[0])
@@ -4921,8 +4926,8 @@ class ArmoryMainWindow(QMainWindow):
    #############################################################################
    def closeForReal(self, event=None):
       '''
-      Seriously, I could not figure out how to exit gracefully, so the next
-      best thing is to just hard-kill the app with a sys.exit() call.  Oh well... 
+      Unlike File->Quit or clicking the X on the window, which may actually
+      minimize Armory, this method is for *really* closing Armory
       '''
       try:
          # Save the main window geometry in the settings file

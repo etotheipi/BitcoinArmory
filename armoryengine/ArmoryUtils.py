@@ -40,6 +40,23 @@ from CppBlockUtils import KdfRomix, CryptoAES
 from qrcodenative import QRCode, QRErrorCorrectLevel
 
 
+# Version Numbers 
+BTCARMORY_VERSION    = (0, 90,  9, 0)  # (Major, Minor, Bugfix, AutoIncrement) 
+PYBTCWALLET_VERSION  = (1, 35,  0, 0)  # (Major, Minor, Bugfix, AutoIncrement)
+
+ARMORY_DONATION_ADDR = '1ArmoryXcfq7TnCSuZa9fQjRYwJ4bkRKfv'
+ARMORY_DONATION_PUBKEY = ( '04' 
+      '11d14f8498d11c33d08b0cd7b312fb2e6fc9aebd479f8e9ab62b5333b2c395c5'
+      'f7437cab5633b5894c4a5c2132716bc36b7571cbe492a7222442b75df75b9a84')
+ARMORY_INFO_SIGN_ADDR = '1NWvhByxfTXPYNT4zMBmEY3VL8QJQtQoei'
+ARMORY_INFO_SIGN_PUBLICKEY = ('04'
+      'af4abc4b24ef57547dd13a1110e331645f2ad2b99dfe1189abb40a5b24e4ebd8'
+      'de0c1c372cc46bbee0ce3d1d49312e416a1fa9c7bb3e32a7eb3867d1c6d1f715')
+SATOSHI_PUBLIC_KEY = ( '04'
+      'fc9702847840aaf195de8442ebecedf5b095cdbb9bc716bda9110971b28a49e0'
+      'ead8564ff0db22209e0374782c093bb899692d524e9d6a6956e7c5ecbcd68284')
+
+
 indent = ' '*3
 haveGUI = [False, None]
 
@@ -220,21 +237,6 @@ if CLI_OPTIONS.logFile.lower()=='default':
       CLI_OPTIONS.logFile = os.path.join(ARMORY_HOME_DIR, '%s.log.txt' % basename)
 
 
-# Version Numbers 
-BTCARMORY_VERSION    = (0, 90,  8, 0)  # (Major, Minor, Bugfix, AutoIncrement) 
-PYBTCWALLET_VERSION  = (1, 35,  0, 0)  # (Major, Minor, Bugfix, AutoIncrement)
-
-ARMORY_DONATION_ADDR = '1ArmoryXcfq7TnCSuZa9fQjRYwJ4bkRKfv'
-ARMORY_DONATION_PUBKEY = ( '04' 
-      '11d14f8498d11c33d08b0cd7b312fb2e6fc9aebd479f8e9ab62b5333b2c395c5'
-      'f7437cab5633b5894c4a5c2132716bc36b7571cbe492a7222442b75df75b9a84')
-ARMORY_INFO_SIGN_ADDR = '1NWvhByxfTXPYNT4zMBmEY3VL8QJQtQoei'
-ARMORY_INFO_SIGN_PUBLICKEY = ('04'
-      'af4abc4b24ef57547dd13a1110e331645f2ad2b99dfe1189abb40a5b24e4ebd8'
-      'de0c1c372cc46bbee0ce3d1d49312e416a1fa9c7bb3e32a7eb3867d1c6d1f715')
-SATOSHI_PUBLIC_KEY = ( '04'
-      'fc9702847840aaf195de8442ebecedf5b095cdbb9bc716bda9110971b28a49e0'
-      'ead8564ff0db22209e0374782c093bb899692d524e9d6a6956e7c5ecbcd68284')
 
 # Get the host operating system
 opsys = platform.system()
