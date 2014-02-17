@@ -1,5 +1,5 @@
 from armoryengine.BinaryUnpacker import BinaryUnpacker
-from armoryengine.ArmoryUtils import UINT32_MAX, KeyDataError, verifyChecksum, int_to_bitset
+from armoryengine.ArmoryUtils import UINT32_MAX, KeyDataError, verifyChecksum, int_to_bitset, KILOBYTE
 from armoryengine.BinaryPacker import UINT16, UINT32, UINT64, INT64, BINARY_CHUNK
 from armoryengine.PyBtcAddress import PyBtcAddress
 from armoryengine.PyBtcWallet import (PyBtcWallet, WLT_DATATYPE_KEYDATA, WLT_DATATYPE_ADDRCOMMENT, 
@@ -442,7 +442,8 @@ class PyBtcWalletRecovery(object):
          byteLocation = wltdata.getPosition()
 
          if ProgDlg:
-            UIupdate =  '<b>- Parsing file:</b>   %d/%d kB<br>' % (byteLocation, self.fileSize)
+            UIupdate =  '<b>- Reading wallet:</b>   %0.1f/%0.1f kB<br>' % \
+               (float(byteLocation)/KILOBYTE, float(self.fileSize)/KILOBYTE)
             if ProgDlg.UpdateText(self.UIreport + UIupdate) == 0:
                if SecurePassphrase: SecurePassphrase.destroy()
                if toRecover.kdfKey: toRecover.kdfKey.destroy()
@@ -522,7 +523,8 @@ class PyBtcWalletRecovery(object):
             #TODO: try same trick as recovering from unpack errors?
 
       self.dataLastOffset = wltdata.getPosition()
-      UIupdate = '<b>- Parsing file:</b>   %d/%d kB<br>' % (self.dataLastOffset, self.fileSize)
+      UIupdate = '<b>- Reading wallet:</b>   %0.1f/%0.1f kB<br>' % \
+         (float(self.dataLastOffset)/KILOBYTE, float(self.fileSize)/KILOBYTE)
       self.UIreport = self.UIreport + UIupdate
 
       #verify the root address is derived from the root key
