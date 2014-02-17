@@ -319,10 +319,10 @@ class CreateTxPage(ArmoryWizardPage):
    def __init__(self, wizard, wlt, prefill=None, onlyOfflineWallets=False):
       super(CreateTxPage, self).__init__(wizard,
                SendBitcoinsFrame(wizard, wizard.main,
-                                 "Create Unsigned Offline Transaction", wlt, prefill,
+                                 "Create Transaction", wlt, prefill,
                                  selectWltCallback=self.updateOnSelectWallet,
                                  onlyOfflineWallets=onlyOfflineWallets))
-      self.setTitle(tr("Step 1: Create Unsigned Offline Transaction"))
+      self.setTitle(tr("Step 1: Create Transaction"))
       self.txdp = None
       
    def validatePage(self):

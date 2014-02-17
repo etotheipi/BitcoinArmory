@@ -158,24 +158,17 @@ class SendBitcoinsFrame(ArmoryFrame):
       lblSend.setAlignment(Qt.AlignLeft | Qt.AlignBottom)
 
 
-      layout = QGridLayout()
-
-      layout.addWidget(lblSend, 0, 0, 1, 1)
-      layout.addWidget(frmBottomLeft, 1, 0, 2, 1)
-
-      layout.addWidget(lblRecip, 0, 1, 1, 1)
-      layout.addWidget(self.scrollRecipArea, 1, 1, 1, 1)
-      layout.addWidget(txFrm, 2, 1, 1, 1)
-
-      layout.setRowStretch(0, 0)
-      layout.setRowStretch(1, 1)
-      layout.setRowStretch(2, 0)
+      leftFrame = makeVertFrame([lblSend, frmBottomLeft], STYLE_SUNKEN)
+      rightFrame = makeVertFrame([lblRecip, self.scrollRecipArea, txFrm], STYLE_SUNKEN)
+      layout = QHBoxLayout()
+      layout.addWidget(leftFrame)
+      layout.addWidget(rightFrame)
       self.setLayout(layout)
 
       self.makeRecipFrame(1)
       self.setWindowTitle('Send Bitcoins')
       self.setMinimumHeight(self.maxHeight * 20)
-      self.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Preferred)
+      # self.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Preferred)
 
       loadCount = self.main.settings.get('Load_Count')
       alreadyDonated = self.main.getSettingOrSetDefault('DonateAlready', False)
