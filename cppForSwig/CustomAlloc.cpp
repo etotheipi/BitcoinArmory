@@ -401,13 +401,14 @@ namespace CustomAlloc
 
       //int offset = GetGap(size);
       int offset = (size_t)pool + reserved;
-	  if(!offset || reserved+size<total)
+	   if(!offset || reserved+size>total)
       {
     	   lockpool = 0;
          return 0;
       }
 
       reserved += size;
+		freemem -= size;
 
       BufferHeader *bhtmp = GetBH(size -size_of_ptr);
 

@@ -1467,6 +1467,7 @@ void* DeleteBuffers(void* in)
 	{
 		if(buffer[i])
 		{
+			//memset((int*)buffer[i], 0, 512);
 			CA.free_((int*)buffer[i]);
 			buffer[i] = 0;
 		}
