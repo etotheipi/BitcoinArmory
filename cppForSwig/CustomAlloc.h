@@ -22,6 +22,8 @@ typedef uint8_t byte;
 
 namespace CustomAlloc
 {  
+   size_t extendLockedMemQuota();
+   size_t getPageSize();
 
    class Gap
    {
@@ -162,7 +164,7 @@ namespace CustomAlloc
 		   AtomicInt32 getpoolflag;
 
   		   BufferHeader *GetBuffer(unsigned int size, unsigned int *sema);
-         void ExtendPool();
+         void ExtendPool(unsigned int step);
 
          void UpdateOrder(unsigned int in);
 
@@ -183,6 +185,26 @@ namespace CustomAlloc
             nbatch=0;
 				pool_height=0;
 				pool_height2=0;
+
+				size_t lockablemem = extendLockedMemQuota();
+				if(lockablemem)
+				{
+					//failed to lockable memory, split what's available in the first
+					//few pools
+
+					size_t pageSize = getPageSize();
+					int np = 5;
+					ExtendPool(np);
+
+					lockablemem /= pageSize;
+					int first = lockablemem % np;
+					if(first)
+					{
+						MP[np-1]->Alloc(first * pageSize);
+						lockablemem-=first
+						np--;
+					}
+				}
 		   }
 
 		   ~CustomAllocator()

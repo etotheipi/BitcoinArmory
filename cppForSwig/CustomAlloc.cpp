@@ -30,14 +30,10 @@ namespace CustomAlloc
       return pageSize;
    }
 
-   size_t memMinHardTop = 1024*1024*100;
+   size_t memMinHardTop = 1024*1024*200;
    size_t memMaxHardTop = 1024*1024*1024;
 
-   #ifdef _MSC_VER
-      HANDLE processHandle = GetCurrentProcess();
-   #endif
-
-   int extendLockedMemQuota(int64_t quota)
+   size_t extendLockedMemQuota()
    {
       /***
       Sets the quota for locked memory.
@@ -64,23 +60,13 @@ namespace CustomAlloc
 
       size_t mincurrent, maxcurrent;
 
+      HANDLE processHandle = GetCurrentProcess();
       GetProcessWorkingSetSize(processHandle, (PSIZE_T)&mincurrent, (PSIZE_T)&maxcurrent);
 
-      mincurrent /= pageSize;
-      if(mincurrent<20) mincurrent = 20;
+		size_t mintop = memMinHardTop / pageSize;
+		size_t maxtop = memMaxHardTop / pageSize;
 
-      quota = (int64_t)mincurrent + quota/(int64_t)pageSize +1;
-
-      size_t mintop = memMinHardTop / pageSize;
-      size_t maxtop = memMaxHardTop / pageSize;
-
-      if(quota>mintop) 
-      {
-         quota = mintop;
-         rt = -1;
-      }
-
-      if(!SetProcessWorkingSetSize(processHandle, (size_t)quota * pageSize, maxtop * pageSize)) rt = -1;
+      if(!SetProcessWorkingSetSize(processHandle, mintop * pageSize, maxtop * pageSize)) rt = mincurrent;
 
    #else
    //*nix code goes here
@@ -163,31 +149,23 @@ namespace CustomAlloc
 
    void MemPool::Alloc(unsigned int size)
    {
-      while(lock.Fetch_Or(1));
-      passedQuota = !extendLockedMemQuota(size);
-      lock = 0;
-
 	   while(!pool)
 		   pool = (byte*)malloc(size);
 
-      if(passedQuota) mlock(pool, size);
+      passedQuota = !mlock(pool, size);
 				
       total = size;
-	  freemem = size;
+		freemem = size;
    }
 
    void MemPool::Free()
    {
       if(passedQuota)
-      {
          munlock(pool, total);
-         free(pool);
+         
+		free(pool);
+		passedQuota=0;
 
-         while(lock.Fetch_Or(1));
-         extendLockedMemQuota((int)total*-1);
-         lock = 0;
-      }
-      else free(pool);
 
       total=0;
       reserved=0;
@@ -349,15 +327,11 @@ namespace CustomAlloc
 	   }
 
       int offset = GetGap(size);
-      //int offset = (size_t)pool + reserved;
-	   if(!offset)// || reserved+size>total)
+	   if(!offset)
       {
     	   lockpool = 0;
          return 0;
       }
-
-      //reserved += size;
-		//freemem -= size;
 
       BufferHeader *bhtmp = GetBH(size -size_of_ptr);
 
@@ -496,13 +470,13 @@ namespace CustomAlloc
 	   }
    }
 
-   void CustomAllocator::ExtendPool()
+   void CustomAllocator::ExtendPool(unsigned int step)
    {
 	   while(ordering!=0); //updateorder lock
 
 	   unsigned int F, I;
       int T;
-	   unsigned int S = npools +poolstep;
+	   unsigned int S = npools +step;
 
       T = S - total;
       if(T>0) 
