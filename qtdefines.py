@@ -131,8 +131,12 @@ def getVersionURL(withExtraFields=False, justHash=False):
          argsMap['os'] = 'unk'
    
       try:
-         argsMap['osvar'] = OS_VARIANT[0].lower()
+         if OS_MACOSX:
+            argsMap['osvar'] = OS_VARIANT
+         else:
+            argsMap['osvar'] = OS_VARIANT[0].lower()
       except:
+         LOGERR('Unrecognized OS while constructing version URL')
          argsMap['osvar'] = 'unk'
    
       argsMap['id'] = binary_to_hex(hash256(USER_HOME_DIR)[:4])
@@ -146,10 +150,15 @@ def GETFONT(ftype, sz=10, bold=False, italic=False):
    if ftype.lower().startswith('fix'):
       if OS_WINDOWS:
          fnt = QFont("Courier", sz)
+      elif OS_MACOSX:
+         fnt = QFont("Menlo", sz)
       else: 
          fnt = QFont("DejaVu Sans Mono", sz)
    elif ftype.lower().startswith('var'):
-      fnt = QFont("Verdana", sz)
+      if OS_MACOSX:
+         fnt = QFont("Lucida Grande", sz)
+      else:
+         fnt = QFont("Verdana", sz)
       #if OS_WINDOWS:
          #fnt = QFont("Tahoma", sz)
       #else: 
@@ -157,6 +166,8 @@ def GETFONT(ftype, sz=10, bold=False, italic=False):
    elif ftype.lower().startswith('money'):
       if OS_WINDOWS:
          fnt = QFont("Courier", sz)
+      elif OS_MACOSX:
+         fnt = QFont("Menlo", sz)
       else: 
          fnt = QFont("DejaVu Sans Mono", sz)
    else:
@@ -489,14 +500,14 @@ def MsgBoxCustom(wtype, title, msg, wCancel=False, yesStr=None, noStr=None):
             buttonbox.addButton(btnYes,QDialogButtonBox.AcceptRole)
             buttonbox.addButton(btnNo, QDialogButtonBox.RejectRole)
          else:
-            if not yesStr: yesStr = '&OK'
-            if not noStr:  noStr = '&Cancel'
+            cancelStr = '&Cancel' if (noStr is not None or withCancel) else ''
+            yesStr    = '&OK' if (yesStr is None) else yesStr
             btnOk     = QPushButton(yesStr)
-            btnCancel = QPushButton(noStr)
+            btnCancel = QPushButton(cancelStr)
             self.connect(btnOk,     SIGNAL('clicked()'), self.accept)
             self.connect(btnCancel, SIGNAL('clicked()'), self.reject)
             buttonbox.addButton(btnOk, QDialogButtonBox.AcceptRole)
-            if withCancel or noStr:
+            if cancelStr:
                buttonbox.addButton(btnCancel, QDialogButtonBox.RejectRole)
 
          spacer = QSpacerItem(20, 10, QSizePolicy.Fixed, QSizePolicy.Expanding)
@@ -570,7 +581,6 @@ def MsgBoxWithDNAA(wtype, title, msg, dnaaMsg, wCancel=False, \
             self.connect(btnNo,  SIGNAL('clicked()'), self.reject)
             buttonbox.addButton(btnYes,QDialogButtonBox.AcceptRole)
             buttonbox.addButton(btnNo, QDialogButtonBox.RejectRole)
-
          else:
             btnOk = QPushButton('Ok')
             self.connect(btnOk, SIGNAL('clicked()'), self.accept)

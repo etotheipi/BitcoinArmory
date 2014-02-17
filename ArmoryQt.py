@@ -39,7 +39,16 @@ from qtdefines import *
 from qtdialogs import *
 from ui.Wizards import WalletWizard, TxWizard
 
-
+# HACK ALERT: Qt has a bug in OS X where the system font settings will override
+# the app's settings when a window is activated (e.g., Armory starts, the user
+# switches to another app, and then switches back to Armory). There is a
+# workaround, as used by TeXstudio and other programs.
+# https://bugreports.qt-project.org/browse/QTBUG-5469 - Bug discussion.
+# http://sourceforge.net/p/texstudio/bugs/594/?page=1 - Fix is mentioned.
+# http://pyqt.sourceforge.net/Docs/PyQt4/qapplication.html#setDesktopSettingsAware
+# - Mentions that this must be called before the app (QAPP) is created.
+if OS_MACOSX:
+   QApplication.setDesktopSettingsAware(False)
 
 # PyQt4 Imports
 # Over 20,000 lines of python to help us out
@@ -89,7 +98,7 @@ class ArmoryMainWindow(QMainWindow):
       self.newZeroConfSinceLastUpdate = []
       self.lastBDMState = ['Uninitialized', None]
       self.lastSDMState = 'Uninitialized'
-      self.doHardReset = False
+      self.removeSettingsOnClose = False
       self.doShutdown = False
       self.downloadDict = {}
       self.notAvailErrorCount = 0
@@ -605,22 +614,26 @@ class ArmoryMainWindow(QMainWindow):
       execAbout   = lambda: DlgHelpAbout(self).exec_()
       execVersion = lambda: self.checkForLatestVersion(wasRequested=True)
       execTrouble = lambda: webbrowser.open('https://bitcoinarmory.com/troubleshooting/')
-      actAboutWindow  = self.createAction('About Armory', execAbout)
-      actTroubleshoot = self.createAction('Troubleshooting Armory', execTrouble)
-      actVersionCheck = self.createAction('Armory Version...', execVersion)
-      actFactoryReset = self.createAction('Revert All Settings', self.factoryReset)
-      actClearMemPool = self.createAction('Clear All Unconfirmed', self.clearMemoryPool)
-      actRescanDB     = self.createAction('Rescan Databases', self.rescanNextLoad)
-      actRebuildDB    = self.createAction('Rebuild and Rescan Databases', self.rebuildNextLoad)
+      execBugReport = lambda: DlgBugReport(self, self).exec_()
+      actAboutWindow  = self.createAction(tr('About Armory'), execAbout)
+      actVersionCheck = self.createAction(tr('Armory Version...'), execVersion)
+      actTroubleshoot = self.createAction(tr('Troubleshooting Armory'), execTrouble)
+      actSubmitBug    = self.createAction(tr('Submit Bug Report'), execBugReport)
+      actClearMemPool = self.createAction(tr('Clear All Unconfirmed'), self.clearMemoryPool)
+      actRescanDB     = self.createAction(tr('Rescan Databases'), self.rescanNextLoad)
+      actRebuildDB    = self.createAction(tr('Rebuild and Rescan Databases'), self.rebuildNextLoad)
+      actFactoryReset = self.createAction(tr('Factory Reset'), self.factoryReset)
 
       self.menusList[MENUS.Help].addAction(actAboutWindow)
-      self.menusList[MENUS.Help].addAction(actTroubleshoot)
       self.menusList[MENUS.Help].addAction(actVersionCheck)
-      self.menusList[MENUS.Help].addAction(actFactoryReset)
+      self.menusList[MENUS.Help].addSeparator()
+      self.menusList[MENUS.Help].addAction(actTroubleshoot)
+      self.menusList[MENUS.Help].addAction(actSubmitBug)
       self.menusList[MENUS.Help].addSeparator()
       self.menusList[MENUS.Help].addAction(actClearMemPool)
       self.menusList[MENUS.Help].addAction(actRescanDB)
       self.menusList[MENUS.Help].addAction(actRebuildDB)
+      self.menusList[MENUS.Help].addAction(actFactoryReset)
 
       # Restore any main-window geometry saved in the settings file
       hexgeom   = self.settings.get('MainGeometry')
@@ -638,10 +651,15 @@ class ArmoryMainWindow(QMainWindow):
 
       haveGUI[0] = True
       haveGUI[1] = self
-      
+
       self.checkWallets()
       reactor.callLater(0.1,  self.execIntroDialog)
       reactor.callLater(1, self.Heartbeat)
+
+      if self.getSettingOrSetDefault('MinimizeOnOpen', False) and not CLI_ARGS:
+         LOGINFO('MinimizeOnOpen is True')
+         reactor.callLater(0, self.minimizeArmory)
+      
 
       if CLI_ARGS:
          reactor.callLater(1, self.uriLinkClicked, CLI_ARGS[0])
@@ -659,7 +677,8 @@ class ArmoryMainWindow(QMainWindow):
             
    ####################################################
    def factoryReset(self):
-      reply = QMessageBox.information(self,'Revert all Settings?', \
+      """
+      reply = QMessageBox.information(self,'Factory Reset', \
          'You are about to revert all Armory settings '
          'to the state they were in when Armory was first installed.  '
          '<br><br>'
@@ -670,8 +689,15 @@ class ArmoryMainWindow(QMainWindow):
          QMessageBox.Yes | QMessageBox.No)
 
       if reply==QMessageBox.Yes:
-         self.doHardReset = True
+         self.removeSettingsOnClose = True
          self.closeForReal()
+      """
+
+      if DlgFactoryReset(self,self).exec_():
+         self.removeSettingsOnClose = True
+         self.closeForReal()
+
+
          
    ####################################################
    def clearMemoryPool(self):
@@ -1324,7 +1350,7 @@ class ArmoryMainWindow(QMainWindow):
                   LOGINFO('   Satoshi: %s', self.latestVer['SATOSHI'])
                   LOGINFO('    Armory: %s', self.latestVer['ARMORY'])
             else:
-               raise ECDSA_Error, 'Could not verify'
+               raise ECDSA_Error('Could not verify')
          except:
             LOGEXCEPT('Version check error, ignoring downloaded version info')
             
@@ -2073,7 +2099,7 @@ class ArmoryMainWindow(QMainWindow):
                wltIDList = self.walletIDList
             else:
                pass
-               #raise WalletExistsError, 'Bad combo-box selection: ' + str(currIdx)
+               #raise WalletExistsError('Bad combo-box selection: ' + str(currIdx))
          self.writeSetting('LastFilterState', currIdx)
                
 
@@ -2885,8 +2911,8 @@ class ArmoryMainWindow(QMainWindow):
          fname='%s_%02d.wallet'%(base, newIndex)
          newIndex+=1
          if newIndex==99:
-            raise WalletExistsError, ('Cannot find unique filename for wallet.'  
-                                      'Too many duplicates!')
+            raise WalletExistsError('Cannot find unique filename for wallet.'  
+                                                       'Too many duplicates!')
       return fname
          
 
@@ -3160,63 +3186,76 @@ class ArmoryMainWindow(QMainWindow):
    #############################################################################
    def exportLogFile(self):
       LOGDEBUG('exportLogFile')
-      extraStr = ''
-      if self.usermode in (USERMODE.Advanced, USERMODE.Expert):
-         extraStr = tr( """ 
-            <br><br><b><u>Advanced tip:</u></b> This log file is maintained at 
-            the following location on your hard drive:
-            <br><br> %s <br><br>
-            Before sending the log file, you may edit it to remove information that 
-            does not seem relevant for debugging purposes.  Or, extract the error 
-            messages from the log file and copy only those into a bug report email """) % \
-            ARMORY_LOG_FILE
-            
-      #reply = QMessageBox.warning(self, 'Export Log File', \
-      reply = MsgBoxCustom(MSGBOX.Warning, 'Privacy Warning', tr("""
-         The log file contains information that may be considered sensitive 
-         by some users.  Log files should be protected the same 
-         way you would protect a watching-only wallet, though it 
-         usually contains much less information than that. 
+      reply = QMessageBox.warning(self, tr('Bug Reporting'), tr("""
+         As of version 0.91-beta, Armory now includes a form for reporting
+         problems with the software.  Please use 
+         <i>"Help"</i>\xe2\x86\x92<i>"Submit Bug Report"</i>
+         to send a report directly to the Armory team, which will include 
+         your log file automatically."""), QMessageBox.Ok | QMessageBox.Cancel)
+      
+      if not reply==QMessageBox.Ok:
+         return
+         
+      if self.logFilePrivacyWarning(wCancel=True):
+         self.saveCombinedLogFile()
+      
+   #############################################################################
+   def logFilePrivacyWarning(self, wCancel=False):
+      return MsgBoxCustom(MSGBOX.Warning, tr('Privacy Warning'), tr("""
+         Armory log files do not contain any <u>security</u>-sensitive 
+         information, but some users may consider the information to be 
+         <u>privacy</u>-sensitive.  The log file may identify some addresses
+         and transactions that are related to your wallets.
          <br><br>
          <b>No private key data is ever written to the log file</b>. 
-         Some information about your wallets or balances may appear 
-         in the log file, but only enough to help the Armory developers 
-         track down bugs in the software.
+         Only enough data is there to help the Armory developers 
+         track down bugs in the software, but it may still be considered 
+         sensitive information to some users.  
          <br><br>
-         Please do not send the log file to the Armory developers if you are not 
-         comfortable with them seeing some of your addresses and transactions. 
-         """) + extraStr, wCancel=True, yesStr='Export', noStr='Cancel')
-         
+         Please do not send the log file to the Armory developers if you 
+         are not comfortable with the privacy implications!  However, if you
+         do not send the log file, it may be very difficult or impossible 
+         for us to help you with your problem.
 
-      if reply:
+         <br><br><b><u>Advanced tip:</u></b> You can use 
+         "<i>File</i>"\xe2\x86\x92"<i>Export Log File</i>" from the main 
+         window to save a copy of the log file that you can manually 
+         review."""), wCancel=wCancel, yesStr="&Ok")
       
-         def getLastXBytesOfFile(filename, nBytes=500*1024):
-            if not os.path.exists(filename):
-               LOGERROR('File does not exist!')
-               return ''
 
-            sz = os.path.getsize(filename)
-            with open(filename, 'rb') as fin:
-               if sz > nBytes:
-                  fin.seek(sz - nBytes)
-               return fin.read()
-
-         # TODO: Interleave the C++ log and the python log.  That could be a lot of work!
-         defaultFn = 'armorylog_%s.txt' % unixTimeToFormatStr(RightNow(), '%Y%m%d_%H%M')
-         logfn = self.getFileSave(title='Export Log File', \
+   #############################################################################
+   def saveCombinedLogFile(self, saveFile=None):
+      if saveFile is None:
+         # TODO: Interleave the C++ log and the python log.  
+         #       That could be a lot of work!
+         defaultFN = 'armorylog_%s.txt' % \
+                     unixTimeToFormatStr(RightNow(),'%Y%m%d_%H%M')
+         saveFile = self.getFileSave(title='Export Log File', \
                                   ffilter=['Text Files (*.txt)'], \
-                                  defaultFilename=defaultFn)
+                                  defaultFilename=defaultFN)
 
-         if len(unicode(logfn)) > 0:
-            pyFilename  = ARMORY_LOG_FILE
-            cppFilename = os.path.join(ARMORY_HOME_DIR, 'armorycpplog.txt')
 
-            fout = open(logfn, 'wb')
-            fout.write(getLastXBytesOfFile(pyFilename, 256*1024))
-            fout.write(getLastXBytesOfFile(cppFilename, 256*1024))
-            fout.close()
+      def getLastBytesOfFile(filename, nBytes=500*1024):
+         if not os.path.exists(filename):
+            LOGERROR('File does not exist!')
+            return ''
 
-            LOGINFO('Log saved to %s', logfn)
+         sz = os.path.getsize(filename)
+         with open(filename, 'rb') as fin:
+            if sz > nBytes:
+               fin.seek(sz - nBytes)
+            return fin.read()
+
+
+      if len(unicode(saveFile)) > 0:
+         fout = open(saveFile, 'wb')
+         fout.write(getLastBytesOfFile(ARMORY_LOG_FILE, 256*1024))
+         fout.write(getLastBytesOfFile(ARMCPP_LOG_FILE, 256*1024))
+         fout.close()
+
+         LOGINFO('Log saved to %s', saveFile)
+         
+      
 
    #############################################################################
    def blinkTaskbar(self):
@@ -4442,7 +4481,11 @@ class ArmoryMainWindow(QMainWindow):
       self.lblDashModeSync.setContentsMargins(50,5,50,5)
       self.lblDashModeScan.setContentsMargins(50,5,50,5)
       vbar = self.dashScrollArea.verticalScrollBar()
-      vbar.setValue(vbar.minimum())
+
+      # On Macs, this causes the main window scroll area to keep bouncing back
+      # to the top. Not setting the value seems to fix it. DR - 2014/02/12
+      if not OS_MACOSX:
+         vbar.setValue(vbar.minimum())
 
    #############################################################################
    def createToolTipWidget(self, tiptext, iconSz=2):
@@ -4883,8 +4926,8 @@ class ArmoryMainWindow(QMainWindow):
    #############################################################################
    def closeForReal(self, event=None):
       '''
-      Seriously, I could not figure out how to exit gracefully, so the next
-      best thing is to just hard-kill the app with a sys.exit() call.  Oh well... 
+      Unlike File->Quit or clicking the X on the window, which may actually
+      minimize Armory, this method is for *really* closing Armory
       '''
       try:
          # Save the main window geometry in the settings file
@@ -4906,9 +4949,9 @@ class ArmoryMainWindow(QMainWindow):
          LOGEXCEPT('Strange error during shutdown')
 
       try:
-         if self.doHardReset:
-            rebuildFile = os.path.join(ARMORY_HOME_DIR, 'rebuild.txt')
-            touchFile(rebuildFile)
+         if self.removeSettingsOnClose:
+            # Remove settings and memory pool.  
+            # All reset flag files should already be touched
             os.remove(self.settingsPath) 
             mempoolfile = os.path.join(ARMORY_HOME_DIR, 'mempool.bin')
             if os.path.exists(mempoolfile):

@@ -14,7 +14,7 @@ install of OSX 10.9 in order to get build-app.py working.
     (https://gist.github.com/WyseNynja/4200620), execute the following
     to install and update brew:
 
-       $ ruby -e "$(curl -fsSkL raw.github.com/mxcl/homebrew/go)"
+       $ ruby -e "$(curl -fsSL https://raw.github.com/Homebrew/homebrew/go/install)"
        $ touch ~/.bashrc
        $ echo "export CFLAGS=\"-arch x86_64\"" >> ~/.bashrc
        $ echo "export ARCHFLAGS=\"-arch x86_64\"" >> ~/.bashrc
@@ -24,8 +24,5 @@ install of OSX 10.9 in order to get build-app.py working.
 
 (5) Execute "brew install swig"
 
-(6) Open cppForSwig/Makefile and comment out the DO_EXEC_WHEREISPY 
-    line (around line 20).  I tried to branch around it, but it 
-    didn't work for some reason.	
-
-(7) "cd" into the osx_picobit directory, and "python build-app.py"
+(6) "cd" into the osx_picobit directory, and execute "python build-app.py".
+    Armory will be found under the "workspace" subdirectory.

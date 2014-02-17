@@ -27,11 +27,11 @@ STRETCH = 'Stretch'
 CLICKED = 'clicked()'
 BACKUP_TYPE_135A = '1.35a'
 BACKUP_TYPE_135C = '1.35c'
-BACKUP_TYPE_0_TEXT = tr('0  (from script, 9 lines)')
-BACKUP_TYPE_135a_TEXT = tr('1.35a (5 lines Unencrypted)')
-BACKUP_TYPE_135a_SP_TEXT = tr('1.35a (5 lines + SecurePrint\xe2\x84\xa2)')
-BACKUP_TYPE_135c_TEXT = tr('1.35c (3 lines Unencrypted)')
-BACKUP_TYPE_135c_SP_TEXT = tr('1.35c (3 lines + SecurePrint\xe2\x84\xa2)')
+BACKUP_TYPE_0_TEXT = tr('Version 0  (from script, 9 lines)')
+BACKUP_TYPE_135a_TEXT = tr('Version 1.35a (5 lines Unencrypted)')
+BACKUP_TYPE_135a_SP_TEXT = tr('Version 1.35a (5 lines + SecurePrint\xe2\x84\xa2)')
+BACKUP_TYPE_135c_TEXT = tr('Version 1.35c (3 lines Unencrypted)')
+BACKUP_TYPE_135c_SP_TEXT = tr('Version 1.35c (3 lines + SecurePrint\xe2\x84\xa2)')
 
 
 ################################################################################
@@ -428,6 +428,223 @@ class DlgGenericGetPassword(ArmoryDialog):
       self.setWindowTitle('Enter Password')
       self.setWindowIcon(QIcon(self.main.iconfile))
 
+################################################################################
+class DlgBugReport(ArmoryDialog):
+
+   def __init__(self, parent=None, main=None):
+      super(DlgBugReport, self).__init__(parent, main)
+
+      tsPage = 'https://bitcoinarmory.com/troubleshooting'
+      faqPage = 'https://bitcoinarmory.com/faqs'
+
+      lblDescr = QRichLabel(tr("""
+         <b><u>Send a bug report to the Armory team</u></b>
+         <br><br>
+         If you are having difficulties with Armory, you should first visit 
+         our <a href="%s">troubleshooting page</a> and our 
+         <a href="%s">FAQ page</a> which describe solutions to
+         many common problems.  
+         <br><br>
+         If you do not find the answer to your problem on those pages,
+         please describe it in detail below, and any steps taken to 
+         reproduce the problem.  The more information you provide, the 
+         more likely we will be able to help you.""") % (tsPage, faqPage))
+
+      self.chkNoLog = QCheckBox('Do not send log file with report')
+      self.chkNoLog.setChecked(False)
+
+      self.btnMoreInfo = QLabelButton('Privacy Info')
+      self.connect(self.btnMoreInfo, SIGNAL(CLICKED), \
+                                 self.main.logFilePrivacyWarning)
+
+      self.noLogWarn = QRichLabel(tr("""
+         <font color="%s">If you do not include the log file we may not 
+         be able to help you solve your problem!  Click the "Privacy Info"
+         button for details.""") % htmlColor('TextWarn'))
+      self.noLogWarn.setVisible(False)
+            
+      self.connect(self.chkNoLog, SIGNAL('toggled(bool)'), \
+                                           self.noLogWarn.setVisible) 
+
+      self.lblEmail = QRichLabel(tr('Email Address:'))
+      self.edtEmail = QLineEdit()
+      self.edtEmail.setMaxLength(100)
+      self.txtDescr = QTextEdit()
+      self.txtDescr.setFont(GETFONT('Fixed', 9))
+      w,h = tightSizeNChar(self, 80)
+      self.txtDescr.setMinimumWidth(w)
+      self.txtDescr.setMinimumHeight(4*h)
+      self.lblOS = QRichLabel(tr("""
+         Note: if you are using this computer to report an Armory problem
+         on another computer, please include the operating system of the
+         other computer and the version of Armory it is running."""))
+
+      self.btnSubmit = QPushButton(tr('Submit Report'))   
+      self.btnCancel = QPushButton(tr('Cancel'))   
+      self.btnbox = QDialogButtonBox()
+      self.btnbox.addButton(self.btnSubmit, QDialogButtonBox.AcceptRole)
+      self.btnbox.addButton(self.btnCancel, QDialogButtonBox.RejectRole)
+      self.connect(self.btnSubmit, SIGNAL(CLICKED), self.submitReport)
+      self.connect(self.btnCancel, SIGNAL(CLICKED), self, SLOT('reject()'))
+
+      armoryver = getVersionString(BTCARMORY_VERSION)
+      lblDetect = QRichLabel( tr("""
+         <b>Detected:</b> %s (%s) / %0.2f GB RAM / Armory version %s<br>
+         <font size=2>(this data will be submitted automatically with the 
+         report)</font>""") % \
+         (OS_NAME, OS_VARIANT[0], SystemSpecs.Memory, armoryver))
+      
+
+      layout = QGridLayout()
+      i = -1
+
+      i += 1
+      layout.addWidget(lblDescr,         i,0, 1,2)
+
+      i += 1
+      layout.addWidget(HLINE(),          i,0, 1,2)
+
+      i += 1
+      layout.addWidget(lblDetect,        i,0, 1,2)
+
+      i += 1
+      layout.addWidget(HLINE(),          i,0, 1,2)
+
+      i += 1
+      layout.addWidget(self.lblEmail,    i,0, 1,1)
+      layout.addWidget(self.edtEmail,    i,1, 1,1)
+
+      i += 1
+      layout.addWidget(self.txtDescr,    i,0, 1,2)
+
+      i += 1
+      frmchkbtn = makeHorizFrame([self.chkNoLog, self.btnMoreInfo, 'Stretch'])
+      layout.addWidget(frmchkbtn,        i,0, 1,2)
+
+      i += 1
+      layout.addWidget(self.noLogWarn,   i,0, 1,2)
+
+      i += 1
+      layout.addWidget(self.btnbox,      i,0, 1,2)
+         
+      self.setLayout(layout)
+      self.setWindowTitle(tr('Submit a Bug Report'))
+      self.setWindowIcon(QIcon(self.main.iconfile))
+
+   #############################################################################
+   def submitReport(self):
+      emailAddr = unicode(self.edtEmail.text()).strip() 
+      emailLen = lenBytes(emailAddr)
+
+      description = unicode(self.txtDescr.toPlainText()).strip()
+      descrLen = lenBytes(description)
+
+
+      if emailLen == 0 or not '@' in emailAddr:
+         reply = MsgBoxCustom(MSGBOX.Warning, tr('Missing Email'), tr("""
+            You must supply a valid email address so we can follow up on your
+            request."""), \
+            noStr=tr('Go Back'), yesStr=tr('Submit without Email'))
+
+         if not reply:
+            return
+         else:
+            emailAddr = '<NO EMAIL SUPPPLIED>'
+
+
+      if descrLen < 10:
+         QMessageBox.warning(self, tr('Empty Description'), tr("""
+            You must describe what problem you are having, and any information
+            that might help us reproduce the problem so we can help you and
+            fix the problem in the code.  The Armory team needs a written 
+            description of the problem, in addition to the log file."""), \
+            QMessageBox.Ok)
+         return
+
+      maxDescr = 16384
+      if descrLen > maxDescr:
+         reply = MsgBoxCustom(MSGBOX.Warning, tr('Long Description'), tr("""
+            You have exceeded the maximum size of the description that can
+            be submitted to our ticket system, which is %d bytes.  
+            If you click "Continue", the last %d bytes of your description
+            will be removed before sending.""") % (maxDescr, descrLen-maxDescr), \
+            noStr=tr('Go Back'), yesStr=tr('Continue'))
+         if not reply:
+            return
+         else:
+            description = unicode_truncate(description, maxDescr)
+
+
+      # This is a unique-but-not-traceable ID, to simply match users to log files
+      uniqID  = binary_to_base58(hash256(USER_HOME_DIR)[:4])
+      dateStr = unixTimeToFormatStr(RightNow(), '%Y%m%d_%H%M')
+      osvariant = OS_VARIANT[0] if OS_MACOSX else '-'.join(OS_VARIANT)
+
+      reportMap = {}
+      reportMap['uniqID']       = uniqID
+      reportMap['OSmajor']      = OS_NAME
+      reportMap['OSvariant']    = osvariant
+      reportMap['ArmoryVer']    = getVersionString(BTCARMORY_VERSION)
+      reportMap['TotalRAM']     = '%0.2f' % SystemSpecs.Memory
+      reportMap['isAmd64']      = str(SystemSpecs.IsX64).lower()
+      reportMap['userEmail']    = emailAddr
+      reportMap['userDescr']    = description
+      reportMap['userTime']     = unixTimeToFormatStr(RightNow())
+      reportMap['userTimeUTC']  = unixTimeToFormatStr(RightNowUTC())
+
+      if self.chkNoLog.isChecked():
+         reportMap['fileLog'] = '<NO LOG FILE SUBMITTED>'
+      else:
+         tmpBase = 'log_%s_%s.txt' % (uniqID, dateStr)
+         tmpFile = os.path.join(ARMORY_HOME_DIR, tmpBase)
+         self.main.saveCombinedLogFile(tmpFile)
+         with open(tmpFile, 'r') as f:
+            reportMap['fileLog'] = f.read()
+         os.remove(tmpFile)
+
+         
+      logHash = binary_to_hex(hash160(reportMap['fileLog']))
+
+      try:
+         import urllib3
+         http = urllib3.PoolManager()
+         headers = urllib3.make_headers('ArmoryBugReportWindowNotABrowser')
+         url = "https://www.bitcoinarmory.com/scripts/receive_debug.php"
+         response = http.request('POST', url, reportMap, headers)
+         rstr = response._body[:]
+         rstart = rstr.index(':')+2
+         responseMap = ast.literal_eval(rstr[rstart:])
+
+         for key,val in responseMap.iteritems():
+            LOGINFO(key.ljust(20) + ': ' + (logHash if key=='fileLog' else val))
+         
+         LOGINFO('Connection info:')
+         LOGINFO('   status:  ' + str(response.status))
+         LOGINFO('   version: ' + str(response.version))
+         LOGINFO('   reason:  ' + str(response.reason))
+         LOGINFO('   strict:  ' + str(response.strict))
+
+
+         if response.reason.lower() == 'ok':
+            QMessageBox.information(self, tr('Submitted!'), tr("""
+               Your report was successfully received by the Armory team and will 
+               be reviewed as soon as is possible.  Please be aware that the team
+               receives lots of reports like these, so it may take a few days for
+               the team to get back to you."""), QMessageBox.Ok)
+            self.accept()
+         else:
+            raise ConnectionError('Failed to send bug report')
+        
+      except:
+         LOGEXCEPT('Failed:')
+         bugpage = 'https://bitcoinarmory.com/submitbug.php'
+         QMessageBox.information(self, tr('Submitted!'), tr("""
+            There was a problem submitting your bug report.  It is recommended
+            that you submit this information through our webpage instead:
+            <br><br>
+            <a href="%s">%s</a>""") % (bugpage, bugpage), QMessageBox.Ok)
+         self.reject()
+
 
 ################################################################################
 class DlgNewWallet(ArmoryDialog):
@@ -439,8 +656,9 @@ class DlgNewWallet(ArmoryDialog):
       self.selectedImport = False
 
       # Options for creating a new wallet
-      lblDlgDescr = QLabel('Create a new wallet for managing your funds.\n'
-                           'The name and description can be changed at any time.')
+      lblDlgDescr = QRichLabel(tr("""
+         Create a new wallet for managing your funds.<br>
+         The name and description can be changed at any time."""))
       lblDlgDescr.setWordWrap(True)
 
       self.edtName = QLineEdit()
@@ -4121,10 +4339,10 @@ class DlgRemoveAddress(ArmoryDialog):
 
 
       if not wlt.hasAddr(addr160):
-         raise WalletAddressError, 'Address does not exist in wallet!'
+         raise WalletAddressError('Address does not exist in wallet!')
 
       if not wlt.getAddrByHash160(addr160).chainIndex == -2:
-         raise WalletAddressError, ('Cannot delete regular chained addresses! '
+         raise WalletAddressError('Cannot delete regular chained addresses! '
                                    'Can only delete imported addresses.')
 
 
@@ -7692,30 +7910,28 @@ class DlgSettings(ArmoryDialog):
       ###############################################################
       # Minimize on Close
       moc = self.main.getSettingOrSetDefault('MinimizeOrClose', 'DontKnow')
-      lblMinOrClose = QRichLabel('<b>Minimize to system tray on close:</b>')
-      lblMoCDescr = QRichLabel('When you click the "x" on the top window bar, '
-                                 'Armory will stay open but run in the background.  '
-                                 'You will still receive notifications, and '
-                                 'can access it through the system tray.')
-      ttipMinOrClose = self.main.createToolTipWidget(\
-         'If this is checked, you can still close Armory through the right-click menu '
-         'on the system tray icon, or by "File"->"Quit Armory" on the main window')
+      lblMinOrClose = QRichLabel(tr('<b>Minimize to system tray on <u>close</u>:</b>'))
+      lblMoCDescr = QRichLabel(tr("""
+         When you click the "x" on the top window bar or use
+         <i>"File"</i>\xe2\x86\x92<i>"Quit"</i>, 
+         Armory will stay open but run in the background.  
+         You will still receive notifications, and 
+         can access it through the system tray."""))
+      ttipMinOrClose = self.main.createToolTipWidget( tr("""
+         If this is checked, you can still close Armory through the right-click menu 
+         on the system tray icon, or by "File"->"Quit Armory" on the main window"""))
       self.chkMinOrClose = QCheckBox('')
       if moc == 'Minimize':
          self.chkMinOrClose.setChecked(True)
 
-
-      # doInclFee = self.main.getSettingOrSetDefault('LedgDisplayFee', True)
-      # lblLedgerFee = QRichLabel('<b>Include fee in transaction value on the '
-                                # 'primary ledger</b>.<br>Unselect if you want to '
-                                # 'see only the value received by the recipient.')
-      # ttipLedgerFee = self.main.createToolTipWidget( \
-                                # 'If you send someone 1.0 '
-                                # 'BTC with a 0.001 fee, the ledger will display '
-                                # '"1.001" in the "Amount" column if this option '
-                                # 'is checked.')
-      # self.chkInclFee = QCheckBox('')
-      # self.chkInclFee.setChecked(doInclFee)
+      moo = self.main.getSettingOrSetDefault('MinimizeOnOpen', False)
+      lblMinOnOpen = QRichLabel(tr('<b>Minimize to system tray on <u>open</u>:</b>'))
+      lblMoODescr = QRichLabel(tr("""
+         Armory will start minimized.  You will still receive notifications, 
+         and can access it through the system tray."""))
+      self.chkMinOnOpen = QCheckBox('')
+      if moo:
+         self.chkMinOnOpen.setChecked(True)
 
 
       ###############################################################
@@ -7897,12 +8113,17 @@ class DlgSettings(ArmoryDialog):
       frmLayout.addWidget(HLINE(), i, 0, 1, 3)
 
       i += 1
+      frmLayout.addWidget(lblMinOnOpen, i, 0)
+      frmLayout.addWidget(self.chkMinOnOpen, i, 2)
+
+      i += 1
       frmLayout.addWidget(lblMinOrClose, i, 0)
-      frmLayout.addWidget(ttipMinOrClose, i, 1)
       frmLayout.addWidget(self.chkMinOrClose, i, 2)
 
       i += 1
       frmLayout.addWidget(lblMoCDescr, i, 0, 1, 3)
+
+
 
       i += 1
       frmLayout.addWidget(HLINE(), i, 0, 1, 3)
@@ -8049,6 +8270,8 @@ class DlgSettings(ArmoryDialog):
          self.main.writeSetting('MinimizeOrClose', 'Minimize')
       else:
          self.main.writeSetting('MinimizeOrClose', 'Close')
+
+      self.main.writeSetting('MinimizeOnOpen', self.chkMinOnOpen.isChecked())
 
       # self.main.writeSetting('LedgDisplayFee', self.chkInclFee.isChecked())
       self.main.writeSetting('NotifyBtcIn', self.chkBtcIn.isChecked())
@@ -8359,7 +8582,7 @@ class DlgRequestPayment(ArmoryDialog):
       elif isLikelyDataType(recvAddr, DATATYPE.Base58):
          self.recvAddr = recvAddr
       else:
-         raise BadAddressError, 'Unrecognized address input'
+         raise BadAddressError('Unrecognized address input')
 
 
       # Amount
@@ -10382,20 +10605,16 @@ class DlgRestoreSingle(ArmoryDialog):
          If your backup includes extra pages with
          imported keys, please restore the base wallet first, then
          double-click the restored wallet and select "Import Private
-         Keys" from the right-hand menu.
-         <br><br>
-         If your backup consists of multiple "fragments," then cancel
-         out of this window and choose "Fragmented Backup" from the
-         "Restore Wallet" menu."""))
+         Keys" from the right-hand menu. """))
 
 
       lblType = QRichLabel(tr("""<b>Backup Type:</b>"""), doWrap=False)
 
-      self.version135Button = QRadioButton(tr('1.35 (4 lines)'), self)
-      self.version135aButton = QRadioButton(tr('1.35a (4 lines Unencrypted)'), self)
-      self.version135aSPButton = QRadioButton(tr('1.35a (4 lines + SecurePrint\xe2\x84\xa2)'), self)
-      self.version135cButton = QRadioButton(tr('1.35c (2 lines Unencrypted)'), self)
-      self.version135cSPButton = QRadioButton(tr('1.35c (2 lines + SecurePrint\xe2\x84\xa2)'), self)
+      self.version135Button = QRadioButton(tr('Version 1.35 (4 lines)'), self)
+      self.version135aButton = QRadioButton(tr('Version 1.35a (4 lines Unencrypted)'), self)
+      self.version135aSPButton = QRadioButton(tr('Version 1.35a (4 lines + SecurePrint\xe2\x84\xa2)'), self)
+      self.version135cButton = QRadioButton(tr('Version 1.35c (2 lines Unencrypted)'), self)
+      self.version135cSPButton = QRadioButton(tr('Version 1.35c (2 lines + SecurePrint\xe2\x84\xa2)'), self)
       self.backupTypeButtonGroup = QButtonGroup(self)
       self.backupTypeButtonGroup.addButton(self.version135Button)
       self.backupTypeButtonGroup.addButton(self.version135aButton)
@@ -10405,12 +10624,18 @@ class DlgRestoreSingle(ArmoryDialog):
       self.version135cButton.setChecked(True)
       self.connect(self.backupTypeButtonGroup, SIGNAL('buttonClicked(int)'), self.changeType)
       
-      radioButtonFrame = makeVertFrame([lblType,
-                                self.version135Button,
-                                self.version135aButton,
-                                self.version135aSPButton,
-                                self.version135cButton,
-                                self.version135cSPButton])
+      layoutRadio = QVBoxLayout()
+      layoutRadio.addWidget(self.version135Button)
+      layoutRadio.addWidget(self.version135aButton)
+      layoutRadio.addWidget(self.version135aSPButton)
+      layoutRadio.addWidget(self.version135cButton)
+      layoutRadio.addWidget(self.version135cSPButton)
+      layoutRadio.setSpacing(0)
+      
+      radioButtonFrame = QFrame()
+      radioButtonFrame.setLayout(layoutRadio)
+
+      frmBackupType = makeVertFrame([lblType, radioButtonFrame])
 
       self.lblSP = QRichLabel(tr('SecurePrint\xe2\x84\xa2 Code:'), doWrap=False) 
       self.editSecurePrint = QLineEdit()                                                   
@@ -10452,7 +10677,7 @@ class DlgRestoreSingle(ArmoryDialog):
       layout = QVBoxLayout()
       layout.addWidget(lblDescr)
       layout.addWidget(HLINE())
-      layout.addWidget(radioButtonFrame)
+      layout.addWidget(frmBackupType)
       layout.addWidget(frmAllInputs)
       layout.addWidget(bottomFrm)
       self.setLayout(layout)
@@ -11351,12 +11576,18 @@ class DlgEnterOneFrag(ArmoryDialog):
 
       lblType = QRichLabel(tr("""<b>Backup Type:</b>"""), doWrap=False)
       
-      radioButtonFrame = makeVertFrame([lblType,
-                                self.version0Button,
-                                self.version135aButton,
-                                self.version135aSPButton,
-                                self.version135cButton,
-                                self.version135cSPButton])
+      layoutRadio = QVBoxLayout()
+      layoutRadio.addWidget(self.version0Button)
+      layoutRadio.addWidget(self.version135aButton)
+      layoutRadio.addWidget(self.version135aSPButton)
+      layoutRadio.addWidget(self.version135cButton)
+      layoutRadio.addWidget(self.version135cSPButton)
+      layoutRadio.setSpacing(0)
+
+      radioButtonFrame = QFrame()
+      radioButtonFrame.setLayout(layoutRadio)
+
+      frmBackupType = makeVertFrame([lblType, radioButtonFrame])
       
       self.prfxList = ['x1:', 'x2:', 'x3:', 'x4:', \
                        'y1:', 'y2:', 'y3:', 'y4:', \
@@ -11401,7 +11632,7 @@ class DlgEnterOneFrag(ArmoryDialog):
       layout = QVBoxLayout()
       layout.addWidget(lblDescr)
       layout.addWidget(HLINE())
-      layout.addWidget(radioButtonFrame)
+      layout.addWidget(frmBackupType)
       layout.addWidget(frmAllInputs)
       layout.addWidget(buttonBox)
       self.setLayout(layout)
@@ -12127,6 +12358,153 @@ class DlgCorruptWallet(DlgProgress):
             TheBDM.registerWallet(newWallet, isFresh=True, wait=False)
          else:
             self.main.newWalletList.append([newWallet, True])
+
+#################################################################################
+class DlgFactoryReset(ArmoryDialog):
+   def __init__(self, main=None, parent=None):
+      super(DlgFactoryReset, self).__init__(parent, main)      
+
+      lblDescr = QRichLabel(tr("""
+         <b><u>Armory Factory Reset</u></b>
+         <br><br>
+         It is <i>strongly</i> recommended that you make backups of your
+         wallets before continuing, though <b>wallet files will never be 
+         intentionally deleted!</b>  All Armory 
+         wallet files, and the wallet.dat file used by Bitcoin-Qt/bitcoind 
+         should remain untouched in their current locations.  All Armory 
+         wallets will automatically be detected and loaded after the reset.
+         <br><br>
+         If you are not sure which option to pick, try the "lightest option"
+         first, and see if your problems are resolved before trying the more
+         extreme options."""))
+
+
+
+      self.rdoSettings = QRadioButton()
+      self.lblSettingsText = QRichLabel(tr("""
+         <b>Delete settings and rescan (lightest option)</b>"""))
+      self.lblSettings = QRichLabel(tr("""
+         This will delete the settings file and transient network data.  The 
+         databases built by Armory will be rescanned (about 5-45 minutes)"""))
+   
+      self.rdoArmoryDB = QRadioButton()
+      self.lblArmoryDBText = QRichLabel(tr("""
+         <b>Also delete databases and rebuild</b>"""))
+      self.lblArmoryDB = QRichLabel(tr("""
+         This will additionally delete and rebuild Armory's databases.  Will
+         rebuild and rescan (45 min to 3 hours)"""))
+
+      self.rdoBitcoinDB = QRadioButton()
+      self.lblBitcoinDBText = QRichLabel(tr("""
+         <b>Also re-download the blockchain (most extreme)</b>"""))
+      self.lblBitcoinDB = QRichLabel(tr("""
+         This will delete Armory's databases, <b>and</b> the databases 
+         produced by the Bitcoin software, It will redownload the 15+ GB 
+         blockchain.  This is only needed if you suspect blockchain 
+         corruption (4-72 hours depending on your connection)"""))
+
+
+      optFrames = []
+      for rdo,txt,lbl in [ \
+            [self.rdoSettings,  self.lblSettingsText,  self.lblSettings], \
+            [self.rdoArmoryDB,  self.lblArmoryDBText,  self.lblArmoryDB], \
+            [self.rdoBitcoinDB, self.lblBitcoinDBText, self.lblBitcoinDB]]:
+
+         optLayout = QGridLayout() 
+         txt.setWordWrap(False)
+         optLayout.addWidget(makeHorizFrame([rdo, txt, 'Stretch']))
+         optLayout.addWidget(lbl, 1,0, 1,3)
+         optFrames.append(QFrame())
+         optFrames[-1].setLayout(optLayout)
+         optFrames[-1].setFrameStyle(STYLE_RAISED)
+         
+
+      self.rdoSettings.setChecked(True)
+
+      btngrp = QButtonGroup(self)
+      btngrp.addButton(self.rdoSettings)
+      btngrp.addButton(self.rdoArmoryDB)
+      btngrp.addButton(self.rdoBitcoinDB)
+
+      frmDescr = makeHorizFrame([lblDescr], STYLE_SUNKEN)
+      frmOptions = makeVertFrame(optFrames, STYLE_SUNKEN)
+
+      self.btnOkay = QPushButton(tr('Continue'))
+      self.btnCancel = QPushButton(tr('Cancel'))
+      buttonBox = QDialogButtonBox()
+      buttonBox.addButton(self.btnOkay, QDialogButtonBox.AcceptRole)
+      buttonBox.addButton(self.btnCancel, QDialogButtonBox.RejectRole)
+      self.connect(self.btnOkay, SIGNAL(CLICKED), self.clickedOkay)
+      self.connect(self.btnCancel, SIGNAL(CLICKED), self.reject)
+
+      layout = QVBoxLayout()
+      layout.addWidget(frmDescr)
+      layout.addWidget(frmOptions)
+      layout.addWidget(buttonBox)
+
+      self.setLayout(layout)
+      self.setMinimumWidth(600)
+      self.setWindowTitle(tr('Factory Reset'))
+      self.setWindowIcon(QIcon(self.main.iconfile))
+      
+
+         
+   ###      
+   def clickedOkay(self):
+
+      if self.rdoSettings.isChecked():
+         reply = QMessageBox.warning(self, tr('Confirmation'), tr("""
+            You are about to delete your settings and force Armory to rescan
+            its databases.  Are you sure you want to do this?"""), \
+            QMessageBox.Cancel | QMessageBox.Ok)
+
+         if not reply==QMessageBox.Ok:
+            return
+
+         touchFile( os.path.join(ARMORY_HOME_DIR, 'rescan.txt') )
+         touchFile( os.path.join(ARMORY_HOME_DIR, 'clearmempool.txt'))
+         os.remove(self.main.settingsPath) 
+         self.accept() 
+      elif self.rdoArmoryDB.isChecked():
+         reply = QMessageBox.warning(self, tr('Confirmation'), tr("""
+            You are about to delete your settings and force Armory to delete
+            and rebuild its databases.  Are you sure you want to do this?"""), \
+            QMessageBox.Cancel | QMessageBox.Ok)
+
+         if not reply==QMessageBox.Ok:
+            return
+
+         touchFile( os.path.join(ARMORY_HOME_DIR, 'rebuild.txt') )
+         touchFile( os.path.join(ARMORY_HOME_DIR, 'clearmempool.txt'))
+         os.remove(self.main.settingsPath) 
+         self.accept() 
+      elif self.rdoBitcoinDB.isChecked():
+         reply = QMessageBox.warning(self, tr('Confirmation'), tr("""
+            You are about to delete your settings and delete all blockchain
+            databases on your computer.  The Bitcoin software will have to 
+            redownload 15+ GB of blockchain data over the peer-to-peer network 
+            again which can take from 4 to 72 hours depending on system speed
+            and connection.  <br><br> Are you absolutely sure you want to do 
+            this?"""), QMessageBox.Cancel | QMessageBox.Yes)
+
+         if not reply==QMessageBox.Yes:
+            return
+
+         touchFile( os.path.join(ARMORY_HOME_DIR, 'rebuild.txt') )
+         touchFile( os.path.join(ARMORY_HOME_DIR, 'redownload.txt') )
+         touchFile( os.path.join(ARMORY_HOME_DIR, 'clearmempool.txt'))
+         os.remove(self.main.settingsPath) 
+         
+
+      QMessageBox.information(self, tr('Restart Armory'), tr("""
+         Armory will now close so that the requested changes can 
+         be applied."""), QMessageBox.Ok)
+      self.accept() 
+   
+
+
+
+
 
 # Put circular imports at the end
 from ui.WalletFrames import SelectWalletFrame, WalletBackupFrame

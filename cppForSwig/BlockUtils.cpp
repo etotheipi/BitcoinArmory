@@ -413,7 +413,7 @@ pair<bool,bool> BtcWallet::isMineBulkFilter(
    {
       // We have the txin, now check if it contains one of our TxOuts
       static OutPoint op;
-      op.unserialize(txStartPtr + tx.getTxInOffset(iin));
+      op.unserialize(txStartPtr + tx.getTxInOffset(iin), tx.getSize()-tx.getTxInOffset(iin));
       if(KEY_IN_MAP(op, txiomap))
          return pair<bool,bool>(true,true);
    }
@@ -661,7 +661,7 @@ void BlockDataManager_LevelDB::registeredScrAddrScan(
    {
       txInOffsets  = &localOffsIn;
       txOutOffsets = &localOffsOut;
-      BtcUtils::TxCalcLength(txptr, txInOffsets, txOutOffsets);
+      BtcUtils::TxCalcLength(txptr, txSize, txInOffsets, txOutOffsets);
    }
    
    uint32_t nTxIn  = txInOffsets->size()-1;
@@ -676,7 +676,7 @@ void BlockDataManager_LevelDB::registeredScrAddrScan(
    {
       // We have the txin, now check if it contains one of our TxOuts
       static OutPoint op;
-      op.unserialize(txStartPtr + (*txInOffsets)[iin]);
+      op.unserialize(txStartPtr + (*txInOffsets)[iin], txSize - (*txInOffsets)[iin]);
       if(registeredOutPoints_.count(op) > 0)
       {
          insertRegisteredTxIfNew(BtcUtils::getHash256(txptr, txSize));
@@ -771,7 +771,7 @@ void BlockDataManager_LevelDB::registeredScrAddrScan_IterSafe(
    {
       txInOffsets  = &localOffsIn;
       txOutOffsets = &localOffsOut;
-      BtcUtils::TxCalcLength(txStartPtr, txInOffsets, txOutOffsets);
+      BtcUtils::TxCalcLength(txStartPtr, tx.getSize(), txInOffsets, txOutOffsets);
    }
    
    uint32_t nTxIn  = txInOffsets->size()-1;
@@ -781,7 +781,7 @@ void BlockDataManager_LevelDB::registeredScrAddrScan_IterSafe(
    {
       // We have the txin, now check if it spends one of our TxOuts
       static OutPoint op;
-      op.unserialize(txStartPtr + (*txInOffsets)[iin]);
+      op.unserialize(txStartPtr + (*txInOffsets)[iin], tx.getSize()-(*txInOffsets)[iin]);
       if(registeredOutPoints_.count(op) > 0)
       {
          insertRegisteredTxIfNew(tx.getTxRef(),
@@ -1164,7 +1164,7 @@ LedgerEntry BtcWallet::calcLedgerEntryForTx(Tx & tx)
    {
       // We have the txin, now check if it contains one of our TxOuts
       static OutPoint op;
-      op.unserialize(txStartPtr + tx.getTxInOffset(iin));
+      op.unserialize(txStartPtr + tx.getTxInOffset(iin), tx.getSize()-tx.getTxInOffset(iin));
 
       if(op.getTxHashRef() == BtcUtils::EmptyHash_)
          isCoinbaseTx = true;
@@ -3250,7 +3250,36 @@ vector<TxRef*> BlockDataManager_LevelDB::findAllNonStdTx(void)
 }
 */
 
-
+static bool scanFor(std::istream &in, const uint8_t * bytes, unsigned len)
+{
+   unsigned matched=0; // how many bytes we've matched so far
+   uint8_t ahead[len]; // the bytes matched
+   
+   in.read((char*)ahead, len);
+   unsigned count = in.gcount();
+   if (count < len) return false;
+   
+   unsigned offset=0; // the index mod len which we're in ahead
+   
+   do
+   {
+      bool found=true;
+      for (unsigned i=0; i < len; i++)
+      {
+         if (ahead[(i+offset)%len] != bytes[i])
+         {
+            found=false;
+            break;
+         }
+      }
+      if (found)
+         return true;
+      
+      ahead[offset++%len] = in.get();
+      
+   } while (!in.eof());
+   return false;
+}
 
 /////////////////////////////////////////////////////////////////////////////
 // With the LevelDB database integration, we now index all blockchain data
@@ -3267,6 +3296,9 @@ bool BlockDataManager_LevelDB::extractHeadersInBlkFile(uint32_t fnum,
                                                        uint64_t startOffset)
 {
    SCOPED_TIMER("extractHeadersInBlkFile");
+   
+   missingBlockHeaderHashes_.clear();
+   
    string filename = blkFileList_[fnum];
    uint64_t filesize = BtcUtils::GetFileSize(filename);
    if(filesize == FILE_DOES_NOT_EXIST)
@@ -3305,9 +3337,30 @@ bool BlockDataManager_LevelDB::extractHeadersInBlkFile(uint32_t fnum,
    while(!is.eof())
    {
       is.read((char*)magic.getPtr(), 4);
-      if(magic!=MagicBytes_ || is.eof()) 
+      if (is.eof())
          break;
-
+         
+      if(magic!=MagicBytes_)
+      {
+         // I have to start scanning for MagicBytes
+         
+         BinaryData nulls( (const uint8_t*)"\0\0\0\0", 4);
+         
+         if (magic == nulls)
+            break;
+         
+         LOGERR << "Did not find block header in expected location, "
+            "possible corrupt data, searching for next block header.";
+         
+         if (!scanFor(is, MagicBytes_.getPtr(), MagicBytes_.getSize()))
+         {
+            LOGERR << "No more blocks found in file " << filename;
+            break;
+         }
+         
+         LOGERR << "Next block header found at offset " << uint64_t(is.tellg())-4;
+      }
+      
       is.read((char*)szstr.getPtr(), 4);
       uint32_t nextBlkSize = READ_UINT32_LE(szstr.getPtr());
       if(is.eof()) break;
@@ -3341,6 +3394,19 @@ bool BlockDataManager_LevelDB::extractHeadersInBlkFile(uint32_t fnum,
       
       endOfLastBlockByte_ += nextBlkSize+8;
       is.seekg(nextBlkSize - HEAD_AND_NTX_SZ, ios::cur);
+      
+      // now check if the previous hash is in there
+      // (unless the previous hash is 0
+      if (headerMap_.find(bhInputPair.second.getPrevHash()) == headerMap_.end()
+         && BtcUtils::EmptyHash_ != bhInputPair.second.getPrevHash())
+      {
+         LOGWARN << "Block header " << bhInputPair.second.getThisHash().toHexStr()
+            << " refers to missing previous hash "
+            << bhInputPair.second.getPrevHash().toHexStr();
+            
+         missingBlockHeaderHashes_.push_back(bhInputPair.second.getPrevHash());
+      }
+      
    }
 
    is.close();
@@ -3578,10 +3644,13 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
                                              bool skipFetch,
                                              bool initialLoad)
 {
-
+   missingBlockHashes_.clear();
+   
    SCOPED_TIMER("buildAndScanDatabases");
    LOGINFO << "Number of registered addr: " << registeredScrAddrMap_.size();
 
+   
+   
    // Will use this updating the GUI with progress bar
    time_t t;
    time(&t);
@@ -3771,11 +3840,35 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
 
 }
 
+// search for the next byte in bsb that looks like it could be a block
+bool BlockDataManager_LevelDB::scanForMagicBytes(BinaryStreamBuffer& bsb, uint32_t *bytesSkipped) const
+{
+   BinaryData firstFour(4);
+   if (bytesSkipped) *bytesSkipped=0;
+   
+   do
+   {
+      while (bsb.reader().getSizeRemaining() >= 4)
+      {
+         bsb.reader().get_BinaryData(firstFour, 4);
+         if(firstFour==MagicBytes_)
+         {
+            bsb.reader().rewind(4);
+            return true;
+         }
+         // try again at the very next byte
+         if (bytesSkipped) (*bytesSkipped)++;
+         bsb.reader().rewind(3);
+      }
+      
+   } while (bsb.streamPull());
+   
+   return false;
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 void BlockDataManager_LevelDB::readRawBlocksInFile(uint32_t fnum, uint32_t foffset)
 {
-
    string blkfile = blkFileList_[fnum];
    uint64_t filesize = BtcUtils::GetFileSize(blkfile);
    string fsizestr = BtcUtils::numToStrWCommas(filesize);
@@ -3809,11 +3902,13 @@ void BlockDataManager_LevelDB::readRawBlocksInFile(uint32_t fnum, uint32_t foffs
 
    iface_->startBatch(BLKDATA);
 
+   unsigned failedAttempts=0;
+   
    // It turns out that this streambuffering is probably not helping, but
    // it doesn't hurt either, so I'm leaving it alone
    while(bsb.streamPull())
    {
-      while(bsb.reader().getSizeRemaining() > 8)
+      while(bsb.reader().getSizeRemaining() >= 8)
       {
          
          if(!alreadyRead8B)
@@ -3826,6 +3921,7 @@ void BlockDataManager_LevelDB::readRawBlocksInFile(uint32_t fnum, uint32_t foffs
             }
             nextBlkSize = bsb.reader().get_uint32_t();
             bytesReadSoFar_ += 8;
+            locInBlkFile += 8;
          }
 
          if(bsb.reader().getSizeRemaining() < nextBlkSize)
@@ -3836,8 +3932,43 @@ void BlockDataManager_LevelDB::readRawBlocksInFile(uint32_t fnum, uint32_t foffs
          alreadyRead8B = false;
 
          BinaryRefReader brr(bsb.reader().getCurrPtr(), nextBlkSize);
+         
+         try
+         {
+            addRawBlockToDB(brr);
+         }
+         catch (BlockDeserializingException &e)
+         {
+            LOGERR << e.what() << " (error encountered processing block at byte "
+               << locInBlkFile << " file "
+               << blkfile << ", blocksize " << nextBlkSize << ")";
+            failedAttempts++;
+            
+            if (failedAttempts >= 4)
+            {
+               // It looks like this file is irredeemably corrupt
+               LOGERR << "Giving up searching " << blkfile
+                  << " after having found 4 block headers with unparseable contents";
+               breakbreak=true;
+               break;
+            }
+            
+            uint32_t bytesSkipped;
+            const bool next = scanForMagicBytes(bsb, &bytesSkipped);
+            if (!next)
+            {
+               LOGERR << "Could not find another block in the file";
+               breakbreak=true;
+               break;
+            }
+            else
+            {
+               locInBlkFile += bytesSkipped;
+               LOGERR << "Found another block header at " << locInBlkFile;
+            }
 
-         addRawBlockToDB(brr);
+            continue;
+         }
          dbUpdateSize_ += nextBlkSize;
 
          if(dbUpdateSize_>UPDATE_BYTES_THRESH && iface_->isBatchOn(BLKDATA))
@@ -3849,7 +3980,7 @@ void BlockDataManager_LevelDB::readRawBlocksInFile(uint32_t fnum, uint32_t foffs
 
          blocksReadSoFar_++;
          bytesReadSoFar_ += nextBlkSize;
-         locInBlkFile += nextBlkSize + 8;
+         locInBlkFile += nextBlkSize;
          bsb.reader().advance(nextBlkSize);
 
          // This is a hack of hacks, but I can't seem to pass this data 
@@ -5050,7 +5181,7 @@ void BlockDataManager_LevelDB::readZeroConfFile(string zcFilename)
    while(brr.getSizeRemaining() > 8)
    {
       uint64_t txTime = brr.get_uint64_t();
-      uint32_t txSize = BtcUtils::TxCalcLength(brr.getCurrPtr());
+      uint32_t txSize = BtcUtils::TxCalcLength(brr.getCurrPtr(), brr.getSizeRemaining());
       BinaryData rawtx(txSize);
       brr.get_BinaryData(rawtx.getPtr(), txSize);
       addNewZeroConfTx(rawtx, (uint32_t)txTime, false);
@@ -5534,7 +5665,7 @@ bool BlockDataManager_LevelDB::applyTxToBatchWriteData(
 
 ////////////////////////////////////////////////////////////////////////////////
 // We must have already added this to the header map and DB and have a dupID
-bool BlockDataManager_LevelDB::addRawBlockToDB(BinaryRefReader & brr)
+void BlockDataManager_LevelDB::addRawBlockToDB(BinaryRefReader & brr)
 {
    SCOPED_TIMER("addRawBlockToDB");
    
@@ -5556,7 +5687,37 @@ bool BlockDataManager_LevelDB::addRawBlockToDB(BinaryRefReader & brr)
    // added to the headerMap and the DB, and we have its correct height 
    // and dupID
    StoredHeader sbh;
-   sbh.unserializeFullBlock(brr, true, false);
+   try
+   {
+      sbh.unserializeFullBlock(brr, true, false);
+   }
+   catch (BlockDeserializingException &)
+   {
+      if (sbh.hasBlockHeader_)
+      {
+         // we still add this block to the chain in this case,
+         // if we miss a few transactions it's better than
+         // missing the entire block
+         BlockHeader & bh = headerMap_[sbh.thisHash_];
+         sbh.blockHeight_  = bh.getBlockHeight();
+         sbh.duplicateID_  = bh.getDuplicateID();
+         sbh.isMainBranch_ = bh.isMainBranch();
+         sbh.blockAppliedToDB_ = false;
+
+         // Don't put it into the DB if it's not proper!
+         if(sbh.blockHeight_==UINT32_MAX || sbh.duplicateID_==UINT8_MAX)
+            throw BlockDeserializingException("Error parsing block (corrupt?) - Cannot add raw block to DB without hgt & dup");
+
+         iface_->putStoredHeader(sbh, true);
+         missingBlockHashes_.push_back( sbh.thisHash_ );
+         throw BlockDeserializingException("Error parsing block (corrupt?) - block header valid");
+      }
+      else
+      {
+         throw BlockDeserializingException("Error parsing block (corrupt?) and block header invalid");
+      }
+      // throw a new exception with a useful "what"
+   }
    BlockHeader & bh = headerMap_[sbh.thisHash_];
    sbh.blockHeight_  = bh.getBlockHeight();
    sbh.duplicateID_  = bh.getDuplicateID();
@@ -5565,13 +5726,8 @@ bool BlockDataManager_LevelDB::addRawBlockToDB(BinaryRefReader & brr)
 
    // Don't put it into the DB if it's not proper!
    if(sbh.blockHeight_==UINT32_MAX || sbh.duplicateID_==UINT8_MAX)
-   {
-      LOGERR << "Cannot add raw block to DB without hgt & dup";
-      return false;
-   }
-
+      throw BlockDeserializingException("Cannot add raw block to DB without hgt & dup");
    iface_->putStoredHeader(sbh, true);
-   return true;
 }
 
 
@@ -6243,14 +6399,4 @@ void BlockDataManager_LevelDB::findSSHEntriesToDelete(
 
 
 
-
-
-
-
-
-
-
-
-
-
-
+// kate: indent-width 3; replace-tabs on;

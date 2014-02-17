@@ -2006,7 +2006,7 @@ TxOut InterfaceToLDB::getTxOutCopy( BinaryData ldbKey6B, uint16_t txOutIdx)
    TxRef parent(ldbKey6B, this);
 
    brr.advance(2);
-   txoOut.unserialize(brr.getCurrPtr(), 0, parent, (uint32_t)txOutIdx);
+   txoOut.unserialize_checked(brr.getCurrPtr(), brr.getSizeRemaining(), 0, parent, (uint32_t)txOutIdx);
    return txoOut;
 }
 
@@ -2049,7 +2049,9 @@ TxIn InterfaceToLDB::getTxInCopy( BinaryData ldbKey6B, uint16_t txInIdx)
       TxRef parent(ldbKey6B, this);
       uint8_t const * txInStart = brr.exposeDataPtr() + 34 + offsetsIn[txInIdx];
       uint32_t txInLength = offsetsIn[txInIdx+1] - offsetsIn[txInIdx];
-      return TxIn(txInStart, txInLength, parent, txInIdx);
+      TxIn txin;
+      txin.unserialize_checked(txInStart, brr.getSize() - 34 - offsetsIn[txInIdx], txInLength, parent, txInIdx);
+      return txin;
    }
 }
 

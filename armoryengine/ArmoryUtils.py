@@ -40,6 +40,23 @@ from CppBlockUtils import KdfRomix, CryptoAES
 from qrcodenative import QRCode, QRErrorCorrectLevel
 
 
+# Version Numbers 
+BTCARMORY_VERSION    = (0, 90,  9, 0)  # (Major, Minor, Bugfix, AutoIncrement) 
+PYBTCWALLET_VERSION  = (1, 35,  0, 0)  # (Major, Minor, Bugfix, AutoIncrement)
+
+ARMORY_DONATION_ADDR = '1ArmoryXcfq7TnCSuZa9fQjRYwJ4bkRKfv'
+ARMORY_DONATION_PUBKEY = ( '04' 
+      '11d14f8498d11c33d08b0cd7b312fb2e6fc9aebd479f8e9ab62b5333b2c395c5'
+      'f7437cab5633b5894c4a5c2132716bc36b7571cbe492a7222442b75df75b9a84')
+ARMORY_INFO_SIGN_ADDR = '1NWvhByxfTXPYNT4zMBmEY3VL8QJQtQoei'
+ARMORY_INFO_SIGN_PUBLICKEY = ('04'
+      'af4abc4b24ef57547dd13a1110e331645f2ad2b99dfe1189abb40a5b24e4ebd8'
+      'de0c1c372cc46bbee0ce3d1d49312e416a1fa9c7bb3e32a7eb3867d1c6d1f715')
+SATOSHI_PUBLIC_KEY = ( '04'
+      'fc9702847840aaf195de8442ebecedf5b095cdbb9bc716bda9110971b28a49e0'
+      'ead8564ff0db22209e0374782c093bb899692d524e9d6a6956e7c5ecbcd68284')
+
+
 indent = ' '*3
 haveGUI = [False, None]
 
@@ -63,6 +80,7 @@ parser.add_option("--mtdebug",         dest="mtdebug",     default=False,     ac
 parser.add_option("--skip-online-check", dest="forceOnline", default=False,   action="store_true", help="Go into online mode, even if internet connection isn't detected")
 parser.add_option("--skip-version-check", dest="skipVerCheck", default=False, action="store_true", help="Do not contact bitcoinarmory.com to check for new versions")
 parser.add_option("--keypool",         dest="keypool",     default=100, type="int",                help="Default number of addresses to lookahead in Armory wallets")
+parser.add_option("--redownload",      dest="redownload",  default=False,     action="store_true", help="Delete Bitcoin-Qt/bitcoind databases; redownload")
 parser.add_option("--rebuild",         dest="rebuild",     default=False,     action="store_true", help="Rebuild blockchain database and rescan")
 parser.add_option("--rescan",          dest="rescan",      default=False,     action="store_true", help="Rescan existing blockchain DB")
 parser.add_option("--maxfiles",        dest="maxOpenFiles",default=0,         type="int",          help="Set maximum allowed open files for LevelDB databases")
@@ -219,21 +237,6 @@ if CLI_OPTIONS.logFile.lower()=='default':
       CLI_OPTIONS.logFile = os.path.join(ARMORY_HOME_DIR, '%s.log.txt' % basename)
 
 
-# Version Numbers 
-BTCARMORY_VERSION    = (0, 90,  6, 0)  # (Major, Minor, Bugfix, AutoIncrement) 
-PYBTCWALLET_VERSION  = (1, 35,  0, 0)  # (Major, Minor, Bugfix, AutoIncrement)
-
-ARMORY_DONATION_ADDR = '1ArmoryXcfq7TnCSuZa9fQjRYwJ4bkRKfv'
-ARMORY_DONATION_PUBKEY = ( '04' 
-      '11d14f8498d11c33d08b0cd7b312fb2e6fc9aebd479f8e9ab62b5333b2c395c5'
-      'f7437cab5633b5894c4a5c2132716bc36b7571cbe492a7222442b75df75b9a84')
-ARMORY_INFO_SIGN_ADDR = '1NWvhByxfTXPYNT4zMBmEY3VL8QJQtQoei'
-ARMORY_INFO_SIGN_PUBLICKEY = ('04'
-      'af4abc4b24ef57547dd13a1110e331645f2ad2b99dfe1189abb40a5b24e4ebd8'
-      'de0c1c372cc46bbee0ce3d1d49312e416a1fa9c7bb3e32a7eb3867d1c6d1f715')
-SATOSHI_PUBLIC_KEY = ( '04'
-      'fc9702847840aaf195de8442ebecedf5b095cdbb9bc716bda9110971b28a49e0'
-      'ead8564ff0db22209e0374782c093bb899692d524e9d6a6956e7c5ecbcd68284')
 
 # Get the host operating system
 opsys = platform.system()
@@ -438,14 +441,16 @@ if not CLI_OPTIONS.satoshiPort == 'DEFAULT':
    try:
       BITCOIN_PORT = int(CLI_OPTIONS.satoshiPort)
    except:
-      raise TypeError, 'Invalid port for Bitcoin-Qt, using ' + str(BITCOIN_PORT)
+      raise TypeError('Invalid port for Bitcoin-Qt, using ' + str(BITCOIN_PORT))
 
 
 if not CLI_OPTIONS.rpcport == 'DEFAULT':
    try:
       ARMORY_RPC_PORT = int(CLI_OPTIONS.rpcport)
    except:
-      raise TypeError, 'Invalid RPC port for armoryd ' + str(ARMORY_RPC_PORT)
+      raise TypeError('Invalid RPC port for armoryd ' + str(ARMORY_RPC_PORT))
+
+
 if sys.argv[0]=='ArmoryQt.py':
    print '********************************************************************************'
    print 'Loading Armory Engine:'
@@ -764,9 +769,27 @@ sys.excepthook = logexcept_override
 
 
 # If there is a rebuild or rescan flag, let's do the right thing.
-fileRebuild = os.path.join(ARMORY_HOME_DIR, 'rebuild.txt')
-fileRescan  = os.path.join(ARMORY_HOME_DIR, 'rescan.txt')
-if os.path.exists(fileRebuild):
+fileRedownload = os.path.join(ARMORY_HOME_DIR, 'redownload.txt')
+fileRebuild    = os.path.join(ARMORY_HOME_DIR, 'rebuild.txt')
+fileRescan     = os.path.join(ARMORY_HOME_DIR, 'rescan.txt')
+
+# Flag to remove everything in Bitcoin dir except wallet.dat (if requested)
+if os.path.exists(fileRedownload):
+   LOGINFO('Found %s, will destroy and rebuild databases' % fileRebuild)
+
+   os.remove(fileRedownload)
+
+   if os.path.exists(fileRebuild):
+      os.remove(fileRebuild)
+
+   if os.path.exists(fileRescan):
+      os.remove(fileRescan)
+      
+   CLI_OPTIONS.redownload = True
+   CLI_OPTIONS.rebuild = True
+
+# Flag to remove Armory databases so it will have to rebuild
+elif os.path.exists(fileRebuild):
    LOGINFO('Found %s, will destroy and rebuild databases' % fileRebuild)
    os.remove(fileRebuild)
 
@@ -782,6 +805,29 @@ elif os.path.exists(fileRescan):
    CLI_OPTIONS.rescan = True
 
 
+#####
+if CLI_OPTIONS.redownload:
+   if not os.path.exists(BTC_HOME_DIR):
+      LOGERROR('Could not find Bitcoin-Qt/bitcoind home dir to remove blk data')
+      LOGERROR('  Does not exist: %s' % BTC_HOME_DIR)
+   else:
+      LOGINFO('Found bitcoin home dir, removing blocks and databases')
+      
+      # Remove directories
+      for btcDir in ['blocks', 'chainstate', 'database']:
+         fullPath = os.path.join(BTC_HOME_DIR, btcDir)
+         if os.path.exists(fullPath):
+            LOGINFO('   Removing dir:  %s' % fullPath)
+            shutil.rmtree(fullPath)
+
+      # Remove files
+      for btcFile in ['DB_CONFIG', 'db.log', 'debug.log', 'peers.dat']:
+         fullPath = os.path.join(BTC_HOME_DIR, btcFile)
+         if os.path.exists(fullPath):
+            LOGINFO('   Removing file: %s' % fullPath)
+            os.remove(fullPath)
+
+#####
 if CLI_OPTIONS.rebuild and os.path.exists(LEVELDB_DIR):
    LOGINFO('Found existing databases dir; removing before rebuild')
    shutil.rmtree(LEVELDB_DIR)
@@ -868,7 +914,7 @@ def GetSystemDetails():
       out.CpuStr = subprocess_check_output('sysctl -n machdep.cpu.brand_string', shell=True)
    else:
       out.CpuStr = 'Unknown'
-      raise OSError, "Can't get system specs in: %s" % platform.system()
+      raise OSError("Can't get system specs in: %s" % platform.system())
 
    out.NumCores = multiprocessing.cpu_count()
    out.IsX64 = platform.architecture()[0].startswith('64')
@@ -898,7 +944,7 @@ LOGINFO('Loading Armory Engine:')
 LOGINFO('   Armory Version        : ' + getVersionString(BTCARMORY_VERSION))
 LOGINFO('   PyBtcWallet  Version  : ' + getVersionString(PYBTCWALLET_VERSION))
 LOGINFO('Detected Operating system: ' + OS_NAME)
-LOGINFO('   OS Variant            : ' + (str(OS_VARIANT) if OS_MACOSX else '-'.join(OS_VARIANT)))
+LOGINFO('   OS Variant            : ' + (OS_VARIANT[0] if OS_MACOSX else '-'.join(OS_VARIANT)))
 LOGINFO('   User home-directory   : ' + USER_HOME_DIR)
 LOGINFO('   Satoshi BTC directory : ' + BTC_HOME_DIR)
 LOGINFO('   Armory home dir       : ' + ARMORY_HOME_DIR)
@@ -1324,6 +1370,12 @@ def toPreferred(theStr):
 
 def lenBytes(theStr, theEncoding=DEFAULT_ENCODING):
    return len(toBytes(theStr, theEncoding))
+
+# Stolen from stackoverflow (google "stackoverflow 1809531")
+def unicode_truncate(theStr, length, encoding='utf-8'):
+    encoded = theStr.encode(encoding)[:length]
+    return encoded.decode(encoding, 'ignore')
+
 ################################################################################
 
 
@@ -1433,9 +1485,9 @@ MSIGPREFIX     = '\xfe'
 NONSTDPREFIX   = '\xff'
 def CheckHash160(scrAddr):
    if not len(scrAddr)==21:
-      raise BadAddressError, "Supplied scrAddr is not a Hash160 value!"
+      raise BadAddressError("Supplied scrAddr is not a Hash160 value!")
    if not scrAddr[0] == HASH160PREFIX:
-      raise BadAddressError, "Supplied scrAddr is not a Hash160 value!"
+      raise BadAddressError("Supplied scrAddr is not a Hash160 value!")
    return scrAddr[1:]
 
 def Hash160ToScrAddr(a160):
@@ -1811,7 +1863,7 @@ def easyType16_to_binary(b16str):
 
 def makeSixteenBytesEasy(b16):
    if not len(b16)==16:
-      raise ValueError, 'Must supply 16-byte input'
+      raise ValueError('Must supply 16-byte input')
    chk2 = computeChecksum(b16, nBytes=2)
    et18 = binary_to_easyType16(b16 + chk2) 
    nineQuads = [et18[i*4:(i+1)*4] for i in range(9)]
@@ -2386,13 +2438,13 @@ def checkAddrStrValid(addrStr):
 def convertKeyDataToAddress(privKey=None, pubKey=None):
    """ Returns a hash160 value """
    if not privKey and not pubKey:
-      raise BadAddressError, 'No key data supplied for conversion'
+      raise BadAddressError('No key data supplied for conversion')
    elif privKey:
       if isinstance(privKey, str):
          privKey = SecureBinaryData(privKey)
 
       if not privKey.getSize()==32:
-         raise BadAddressError, 'Invalid private key format!'
+         raise BadAddressError('Invalid private key format!')
       else:
          pubKey = CryptoECDSA().ComputePublicKey(privKey)
 
@@ -2415,9 +2467,9 @@ def decodeMiniPrivateKey(keyStr):
    theHash = sha256(keyQ)
    
    if binary_to_hex(theHash[0]) == '01':
-      raise KeyDataError, 'PBKDF2-based mini private keys not supported!'
+      raise KeyDataError('PBKDF2-based mini private keys not supported!')
    elif binary_to_hex(theHash[0]) != '00':
-      raise KeyDataError, 'Invalid mini private key... double check the entry'
+      raise KeyDataError('Invalid mini private key... double check the entry')
    
    return sha256(keyStr)
    
@@ -2441,19 +2493,19 @@ def parsePrivateKeyData(theStr):
             try:
                binEntry = decodeMiniPrivateKey(theStr)
             except KeyDataError:
-               raise BadAddressError, 'Invalid mini-private key string'
+               raise BadAddressError('Invalid mini-private key string')
             keyType = 'Mini Private Key Format'
             isMini = True
          elif len(theStr) in range(48,53):
             binEntry = base58_to_binary(theStr)
             keyType = 'Plain Base58'
          else:
-            raise BadAddressError, 'Unrecognized key data'
+            raise BadAddressError('Unrecognized key data')
       elif canBeHex:  
          binEntry = hex_to_binary(theStr)
          keyType = 'Plain Hex'
       else:
-         raise BadAddressError, 'Unrecognized key data'
+         raise BadAddressError('Unrecognized key data')
 
 
       if len(binEntry)==36 or (len(binEntry)==37 and binEntry[0]==PRIVKEYBYTE):
@@ -2473,9 +2525,9 @@ def parsePrivateKeyData(theStr):
                keyType = 'Standard %s key with checksum' % keyType.split(' ')[1]
 
          if binEntry=='':
-            raise InvalidHashError, 'Private Key checksum failed!'
+            raise InvalidHashError('Private Key checksum failed!')
       elif len(binEntry) in (33, 37) and binEntry[-1]=='\x01':
-         raise CompressedKeyError, 'Compressed Public keys not supported!'
+         raise CompressedKeyError('Compressed Public keys not supported!')
       return binEntry, keyType
    
 
@@ -2510,7 +2562,7 @@ def parseBitcoinURI(theStr):
       uriData['address'] = parts[1]
       for p in parts[2:]:
          if not '=' in p:
-            raise BadURIError, 'Unrecognized URI field: "%s"'%p
+            raise BadURIError('Unrecognized URI field: "%s"'%p)
             
          # All fields must be "key=value" making it pretty easy to parse
          key, value = p.split('=')
@@ -2620,8 +2672,7 @@ class PyBackgroundThread(threading.Thread):
          self.func  = lambda: ()
       else:
          if not hasattr(args[0], '__call__'):
-            raise TypeError, ('PyBkgdThread constructor first arg '
-                              '(if any) must be a function')
+            raise TypeError('PyBkgdThread ctor arg1 must be a function')
          else:
             self.setThreadFunction(args[0], *args[1:], **kwargs)
 
@@ -2794,6 +2845,7 @@ def EstimateCumulativeBlockchainSize(blkNum):
          257568 10838081536 
          259542 11106516992
          271827 12968787968
+         286296 15619588096
       """
    strList = [line.strip().split() for line in blksizefile.strip().split('\n')]
    BLK_SIZE_LIST = [[int(x[0]), int(x[1])] for x in strList]
@@ -2807,7 +2859,7 @@ def EstimateCumulativeBlockchainSize(blkNum):
             b1,d1 = blkpair
             ratio = float(blkNum-b0)/float(b1-b0)
             return int(ratio*d1 + (1-ratio)*d0)
-      raise ValueError, 'Interpolation failed for %d' % blkNum
+      raise ValueError('Interpolation failed for %d' % blkNum)
         
    else:
       bend,  dend  = BLK_SIZE_LIST[-1]
@@ -3029,7 +3081,7 @@ class SettingsFile(object):
          path = self.settingsPath
 
       if not os.path.exists(path):
-         raise FileExistsError, 'Settings file DNE:', path
+         raise FileExistsError('Settings file DNE:' + path)
 
       f = open(path, 'rb')
       sdata = f.read()

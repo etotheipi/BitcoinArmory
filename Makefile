@@ -8,8 +8,8 @@ all :
 
 clean :
 	$(MAKE) -C cppForSwig clean
-	rm -rf osxbuild/Armory.app
-	rm -rf osxbuild/env
+	rm -f osxbuild/build-app.log.txt
+	rm -rf osxbuild/workspace/
 
 install : all
 	mkdir -p $(DESTDIR)/share/armory/img
@@ -17,7 +17,8 @@ install : all
 	mkdir -p $(DESTDIR)/lib/armory/jsonrpc
 	mkdir -p $(DESTDIR)/lib/armory/ui
 	cp *.py *.so README $(DESTDIR)/lib/armory/
-	cp img/* $(DESTDIR)/share/armory/img
+	rsync -rupE armoryengine $(DESTDIR)/lib/armory/
+	rsync -rupE img $(DESTDIR)/share/armory/
 	cp extras/*.py $(DESTDIR)/lib/armory/extras
 	cp jsonrpc/*.py $(DESTDIR)/lib/armory/jsonrpc
 	cp ui/*.py $(DESTDIR)/lib/armory/ui

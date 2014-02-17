@@ -15,6 +15,16 @@ import tarfile
 from subprocess import Popen, PIPE
 
 # Set some constants up front
+#swigBinVer = '2.0.12'
+pythonVer  = '2.7.5'
+setToolVer = '2.1.2'
+pipVer     = '1.5.2'
+psutilVer  = '1.2.1'
+twistedVer = '13.2.0'
+libpngVer  = '1.6.8'
+qtVer      = '4.8.5'
+sipVer     = '4.15.4'
+pyQtVer    = '4.10.3'
 LOGFILE    = 'build-app.log.txt'
 LOGPATH    = path.abspath( path.join(os.getcwd(), LOGFILE))
 ARMORYDIR  = '..'
@@ -22,6 +32,7 @@ WORKDIR    = path.join(os.getcwd(), 'workspace')
 APPDIR     = path.join(WORKDIR, 'Armory.app') # actually make it local
 DLDIR      = path.join(WORKDIR, 'downloads')
 UNPACKDIR  = path.join(WORKDIR, 'unpackandbuild')
+#SWIGDIR    = path.join(UNPACKDIR, 'swig', swigBinVer)
 INSTALLDIR = path.join(WORKDIR, 'install')
 PYPREFIX   = path.join(APPDIR, 'Contents/Frameworks/Python.framework/Versions/2.7')
 PYSITEPKGS = path.join(PYPREFIX, 'lib/python2.7/site-packages')
@@ -35,7 +46,6 @@ pypathData += '\nPYTHON_LIB=%s/lib/python2.7/config/libpython2.7.a' % PYPREFIX
 pypathData += '\nPYTHON_LIB_DIR=%s/lib/python2.7/config/' % PYPREFIX
 pypathData += '\nPYVER=python2.7'
 
-
 # If no arguments specified, then do the minimal amount of work necessary
 # Assume that only one flag is specified.  These should be 
 parser = optparse.OptionParser(usage="%prog [options]\n")
@@ -46,7 +56,6 @@ parser.add_option('--qtupdate',     dest='qtupdate',     default=False, action='
 parser.add_option('--qtrebuild',    dest='qtrebuild',    default=False, action='store_true', help='Rebuild only qt libraries, if already built')
 parser.add_option('--precompiledQt',dest='precompiledQt',default=False, action='store_true', help='Download and use a precompiled version of Qt')
 (CLIOPTS, CLIARGS) = parser.parse_args()
-
 
 ################################################################################
 # Now actually start the download&build process
@@ -84,12 +93,12 @@ def main():
    compile_pyqt()
    compile_twisted()
    compile_psutil()
+   #unzip_swig()
    compile_armory()
    make_ressources()
    cleanup_app()
    # Force Finder to update the Icon
    execAndWait("touch " + APPDIR)
-
 
 ################################################################################
 # Write the string to both console and log file
@@ -97,7 +106,6 @@ def logprint(s):
    print s
    with open(LOGFILE,'a') as f:
       f.write(s if s.endswith('\n') else s+'\n')
-
 
 ################################################################################
 """
@@ -151,10 +159,6 @@ def execAndWait(syscmd, cwd=None):
       logprint('ERROR: %s' % str(e))
       logprint('-'*80 + '\n')
 
-
-
-      
-
 ################################################################################
 def makedir(dirname):
    if not path.isdir(dirname):
@@ -185,7 +189,6 @@ def copytree(pathname, newpath):
       logprint('Copying directory tree: \nFrom "%s"\nTo   "%s"' % (pathname, newpath))
       shutil.copytree(pathname, newpath)
 
-
 ################################################################################
 def copyfile(src, dst):
    logprint('Copying file:  "%s" --> "%s"' % (src,dst))
@@ -209,7 +212,6 @@ def check_sha(filename, sha):
       logprint("SHA-1 does not match!")
       return False
 
-
 ################################################################################
 def getTarUnpackPath(tarName, inDir=None):
    """
@@ -225,7 +227,6 @@ def getTarUnpackPath(tarName, inDir=None):
    theDir = tar.next().name.split('/')[0]
    tar.close()
    return theDir
-
 
 ################################################################################
 def unpack(tarName, fromDir=DLDIR, toDir=UNPACKDIR, overwrite=False):
@@ -270,11 +271,8 @@ def unpack(tarName, fromDir=DLDIR, toDir=UNPACKDIR, overwrite=False):
 
    return newStuff[0] if len(newStuff)==1 else newStuff
 
-
-
 ################################################################################
 def downloadPkg(pkgname, fname, url, ID, toDir=DLDIR):
-
    myfile = path.join(toDir, fname)
    isGitRepo = url.lower().startswith('git:')
    doDL = True
@@ -291,8 +289,7 @@ def downloadPkg(pkgname, fname, url, ID, toDir=DLDIR):
       else:
          removefile(myfile)
          logprint("File exists but wrong hash.  Redownload %s" % myfile)
-
-            
+           
    # Start the download if needed
    if doDL:
       if isGitRepo:
@@ -303,51 +300,60 @@ def downloadPkg(pkgname, fname, url, ID, toDir=DLDIR):
          logprint('Downloading from %s' % url)
          execAndWait('curl -OL "%s"' % url, cwd=toDir)
 
-
-
-
 # List of all files needed to download.  Each item is
 # (Name, filename, url, sha-1 or None)
 distfiles = []
 distfiles.append( [ 'Python', \
-                    "Python-2.7.5.tar.bz2", \
-                    "http://python.org/ftp/python/2.7.5/Python-2.7.5.tar.bz2", \
+                    "Python-%s.tar.bz2" % pythonVer, \
+                    "http://python.org/ftp/python/%s/Python-%s.tar.bz2" % (pythonVer, pythonVer), \
                     "6cfada1a739544a6fa7f2601b500fba02229656b" ] )
 
 distfiles.append( [ 'setuptools', \
-                    "setuptools-1.1.4.tar.gz", \
-                    "https://pypi.python.org/packages/source/s/setuptools/setuptools-1.1.4.tar.gz", \
-                    "b8bf9c2b8a114045598f0e16681d6a63a4d6cdf9" ] )
+                    "setuptools-%s.tar.gz" % setToolVer, \
+                    "https://pypi.python.org/packages/source/s/setuptools/setuptools-%s.tar.gz" % setToolVer, \
+                    "6a35e881a3aa2e06a1d5d4e966a9def296ec23e8" ] )
 
 distfiles.append( [ 'Pip', \
-                    "pip-1.4.1.tar.gz", \
-                    "https://pypi.python.org/packages/source/p/pip/pip-1.4.1.tar.gz", \
-                    "9766254c7909af6d04739b4a7732cc29e9a48cb0" ] )
+                    "pip-%s.tar.gz" % pipVer, \
+                    "https://pypi.python.org/packages/source/p/pip/pip-%s.tar.gz" % pipVer, \
+                    "4f43a6b04f83b8d83bee702750ff35be2a2b6af1" ] )
 
 distfiles.append( [ "psutil", \
-                    "psutil-1.0.1.tar.gz", \
-                    "http://psutil.googlecode.com/files/psutil-1.0.1.tar.gz", \
-                    "3d3abb8b7a5479b7299a8d170ec25179410f24d1" ] )
+                    "psutil-%s.tar.gz" % psutilVer, \
+                    "https://pypi.python.org/packages/source/p/psutil/psutil-%s.tar.gz" % psutilVer, \
+                    "c8c1842bf1c63b9068ac25a37f7aae11fcecd57f" ] )
 
 distfiles.append( [ 'Twisted', \
-                    "Twisted-13.1.0.tar.bz2", \
-                    "https://pypi.python.org/packages/source/T/Twisted/Twisted-13.1.0.tar.bz2", \
-                    "7f6e07b8098b248157ac26378fafa9e018f279a7" ] )
+                    "Twisted-%s.tar.bz2" % twistedVer, \
+                    "https://pypi.python.org/packages/source/T/Twisted/Twisted-%s.tar.bz2" % twistedVer, \
+                    "e1d43645fd3d84dc2867f36b60d2e469a71eb01d" ] )
 
+# Other lines rely on the given version. Patch this up later.
 distfiles.append( [ 'libpng', \
-                    "libpng-1.5.14.mountain_lion.bottle.tar.gz", \
-                    "https://downloads.sf.net/project/machomebrew/Bottles/libpng-1.5.14.mountain_lion.bottle.tar.gz", \
-                    "5e7feb640d654df0c2ac072d86e46ce9df9eaeee" ] )
+                    "libpng-%s.mavericks.bottle.tar.gz" % libpngVer, \
+                    "https://downloads.sf.net/project/machomebrew/Bottles/libpng-%s.mavericks.bottle.tar.gz" % libpngVer, \
+                    "666d5ba290d72b0cfa13366232eb0ffcc701d21f" ] )
 
 #distfiles.append( [ "Qt", \
                     #"qt-4.8.5.mountain_lion.bottle.2.tar.gz", \
                     #"https://downloads.sf.net/project/machomebrew/Bottles/qt-4.8.5.mountain_lion.bottle.2.tar.gz", \
                     #"b361f521d413409c0e4397f2fc597c965ca44e56" #] )
 
+#distfiles.append( [ "Qt", \
+#                    "qt-everywhere-opensource-src-5.2.1.tar.gz", \
+#                    "http://download.qt-project.org/official_releases/qt/5.2/5.2.1/single/qt-everywhere-opensource-src-5.2.1.tar.gz", \
+#                    "31a5cf175bb94dbde3b52780d3be802cbeb19d65" ] )
+
+# Pre-packaged source not used for now. Use Git instead.
 distfiles.append( [ "Qt", \
-                    "qt-everywhere-opensource-src-4.8.5.tar.gz", \
-                    "http://download.qt-project.org/official_releases/qt/4.8/4.8.5/qt-everywhere-opensource-src-4.8.5.tar.gz", \
+                    "qt-everywhere-opensource-src-%s.tar.gz" % qtVer, \
+                    "http://download.qt-project.org/official_releases/qt/4.8/%s/qt-everywhere-opensource-src-%s.tar.gz" % (qtVer, qtVer), \
                     "745f9ebf091696c0d5403ce691dc28c039d77b9e" ] )
+
+#distfiles.append( [ "Qt-git", \
+#                    "qt5_git_repo.tar.gz", \
+#                    'git://gitorious.org/qt/qt5.git',
+#                    'stable' ] )
 
 distfiles.append( [ "Qt-git", \
                     "qt4_git_repo.tar.gz", \
@@ -356,8 +362,8 @@ distfiles.append( [ "Qt-git", \
 
 distfiles.append( [ "Webkit-for-Qt", \
                     "libWebKitSystemInterfaceMavericks.a", \
-                    "http://trac.webkit.org/export/157771/trunk/WebKitLibraries/libWebKitSystemInterfaceMavericks.a", \
-                    "fc5ebf85f637f9da9a68692df350e441c8ef5d7e" ] )
+                    "http://trac.webkit.org/export/162166/trunk/WebKitLibraries/libWebKitSystemInterfaceMavericks.a", \
+                    "bb071fb69cad0cec1f2ecb082ee34f44bd76ac93" ] )
 
 #distfiles.append( [ "Qt-p1", \
                     #"Ie9a72e3b.patch", \
@@ -375,26 +381,31 @@ distfiles.append( [ "Webkit-for-Qt", \
                     #'a0b5189097937410113f22b78579c4eac940def9' #] )
 
 distfiles.append( [ "sip", \
-                    "sip-4.14.6.tar.gz", \
-                    "http://download.sf.net/project/pyqt/sip/sip-4.14.6/sip-4.14.6.tar.gz", \
-                    'e9dfe98ab1418914c78fd3ac457a4e724aac9821' ] )
+                    "sip-%s.tar.gz" % sipVer, \
+                    "http://sourceforge.net/projects/pyqt/files/sip/sip-%s/sip-%s.tar.gz" % (sipVer, sipVer), \
+                    'a5f6342dbb3cdc1fb61440ee8acb805f5fec3c41' ] )
 
+# Other lines rely on the given version. Patch this up later.
 distfiles.append( [ "pyqt", \
-                    "PyQt-mac-gpl-4.10.1.tar.gz", \
-                    "http://downloads.sf.net/project/pyqt/PyQt4/PyQt-4.10.1/PyQt-mac-gpl-4.10.1.tar.gz", \
-                    'cf20699c4db8d3031c19dd51df8857bba1a4956b' ] )
+                    "PyQt-mac-gpl-%s.tar.gz" % pyQtVer, \
+                    "http://downloads.sf.net/project/pyqt/PyQt4/PyQt-%s/PyQt-mac-gpl-%s.tar.gz" % (pyQtVer, pyQtVer), \
+                    'ba5465f92fb43c9f0a5b948fa25df5045f160bf0' ] )
 
+#distfiles.append( [ "pyqt", \
+#                    "PyQt-gpl-5.2.tar.gz", \
+#                    "http://downloads.sf.net/project/pyqt/PyQt5/PyQt-5.2/PyQt-gpl-5.2.tar.gz", \
+#                    'a1c232d34ab268587c127ad3097c725ee1a70cf0' ] )
 
+# May roll our own SWIG/PCRE someday. For now, assume the user already has SWIG.
+#distfiles.append( [ 'swig', \
+#                    "swig-2.0.12.mavericks.bottle.tar.gz", \
+#                    "https://downloads.sf.net/project/machomebrew/Bottles/swig-2.0.12.mavericks.bottle.tar.gz", \
+#                    "5e429bc6228e8ec1f154ee5eb9497b54b8b765d5" ] )
 
 # Now repack the information in distfiles
 tarfilesToDL = {}
 for d in distfiles:
    tarfilesToDL[d[0]] = d[1]
-
-   
-
-
-
 
 ################################################################################
 def make_empty_app():
@@ -406,7 +417,6 @@ def make_empty_app():
    makedir(path.join(APPDIR,'Contents/Frameworks'))
    makedir(path.join(APPDIR,'Contents/Resources'))
    makedir(path.join(APPDIR,'Contents/Dependencies'))
-
 
 ################################################################################
 def compile_python():
@@ -432,7 +442,6 @@ def compile_python():
    newPath = path.join(PYPREFIX, 'bin')
    os.environ['PATH'] = '%s:%s' % (newPath, os.environ['PATH'])
    logprint('PATH is now %s' % os.environ['PATH'])
-   
 
 ################################################################################
 def compile_pip():
@@ -452,19 +461,17 @@ def compile_pip():
       pipDir   = unpack(tarfilesToDL['Pip'])
       execAndWait(command, cwd=pipDir)
 
-
 ################################################################################
 def install_libpng():
    logprint('Installing libpng')
-   dylib = 'libpng15.15.dylib'
+   dylib = 'libpng16.16.dylib'
    target = path.join(APPDIR, 'Contents/Dependencies', dylib)
    if path.exists(target):
       logprint('libpng already installed.')
    else:
       pngDir = unpack(tarfilesToDL['libpng'])
-      src = path.join(pngDir, '1.5.14/lib', dylib)
+      src = path.join(pngDir, '%s/lib' % libpngVer, dylib)
       copyfile(src, target)
-
 
 ################################################################################
 def compile_qt():
@@ -477,6 +484,7 @@ def compile_qt():
    qtBuildDir = path.join(UNPACKDIR, 'qt')
    qtInstDir  = path.join(INSTALLDIR, 'qt')
    qtTarFile   = path.join(DLDIR, 'qt4_git_repo.tar.gz')
+#   qtTarFile   = path.join(DLDIR, 'qt5_git_repo.tar.gz')
 
    # If we did a fresh download, it's already uncompressed in DLDir.  Move it
    # to where it should be in the UNPACKDIR
@@ -485,7 +493,6 @@ def compile_qt():
          removetree(qtBuildDir)
       movepath(qtDLDir, qtBuildDir)
 
-
    # If it's not in the bld dir, unpack it from the tar file
    # If it's not in the tar file, either, we have a problem.  
    if not path.exists(qtBuildDir):
@@ -493,6 +500,7 @@ def compile_qt():
          raise RuntimeError('*** ERROR: No cloned repo and no tar file...? ***')
       logprint('Unpacking qt repo from tarfile')
       logprint('Remove qt4_git_repo.tar.gz to re-clone HEAD')
+#      logprint('Remove qt5_git_repo.tar.gz to re-clone HEAD')
       gitdir = unpack(tarfilesToDL['Qt-git'])
    elif not path.exists(qtTarFile):
       logprint('Tarring downloaded repo for future use')
@@ -520,9 +528,6 @@ def compile_qt():
    ##### Make Install
    # This will actually happen outside this function, since the INSTALLDIR
    # Gets wiped every build
-
-
-
 
 ################################################################################
 def install_qt():
@@ -571,11 +576,6 @@ def install_qt():
       logprint('All the following ENV vars are now set:')
       for var in ['PATH','DYLD_FRAMEWORK_PATH', 'QTDIR', 'QMAKESPEC']:
          logprint('   %s: \n      %s' % (var, os.environ[var]))
-      
-      
-      
-
-   
 
 ################################################################################
 def compile_sip():
@@ -600,6 +600,8 @@ def compile_sip():
 ################################################################################
 def compile_pyqt():
    logprint('Install PyQt4')
+#   logprint('Install PyQt5')
+#   if path.exists(path.join(PYSITEPKGS, 'PyQt5')):
    if path.exists(path.join(PYSITEPKGS, 'PyQt4')):
       logprint('Pyqt is already installed.')
    else:
@@ -610,7 +612,7 @@ def compile_pyqt():
 
    # Need to add pyrcc4 to the PATH
    execAndWait('make install', cwd=pyqtPath)
-   pyrccPath = path.join(UNPACKDIR, 'PyQt-mac-gpl-4.10.1/pyrcc')
+   pyrccPath = path.join(UNPACKDIR, 'PyQt-mac-gpl-%s/pyrcc' % pyQtVer)
    os.environ['PATH'] = '%s:%s' % (pyrccPath, os.environ['PATH'])
 
 ################################################################################
@@ -650,7 +652,6 @@ def compile_psutil():
       psPath = unpack(tarfilesToDL['psutil'])
       execAndWait(command, cwd=psPath)
 
-
 ################################################################################
 def compile_armory():
    logprint('Compiling and installing Armory')
@@ -672,12 +673,18 @@ def compile_armory():
 def make_ressources():
    "Populate the Resources folder."
    cont = path.join(APPDIR, 'Contents')
-   icnsArm = path.join(cont,  'MacOS/py/usr/share/armory/img/armory_icon_fullres.icns')
+   icnsArm = path.join(cont,  'MacOS/py/share/armory/img/armory_icon_fullres.icns')
    icnsRes  = path.join(cont,  'Resources/Icon.icns')
    copyfile('Info.plist', cont)
    copyfile(icnsArm, icnsRes)
-   #execAndWait("cd '%s' && cp ../MacOS/py/usr/share/armory/img/armory_icon_fullres.icns Icon.icns" % (res,))
+   #execAndWait("cd '%s' && cp ../MacOS/py/share/armory/img/armory_icon_fullres.icns Icon.icns" % (res,))
    
+################################################################################
+#def unzip_swig():
+#   '''Unzip the SWIG binary.'''
+#   logprint('Unzipping the SWIG binary.')
+#   swigDir = unpack(tarfilesToDL['swig'])
+
 ################################################################################
 def cleanup_app():
    "Try to remove as much unnecessary junk as possible."
@@ -697,7 +704,6 @@ def show_app_size():
    logprint("Size of application: ")
    sys.stdout.flush()
    execAndWait('du -hs "%s"' % APPDIR)
-   
 
 ################################################################################
 def remove_python_files(top):
@@ -718,13 +724,9 @@ def remove_python_files(top):
             else:
                n_py_kept += 1
    logprint("Removes %i .py files (kept %i)." % (n_py_rem, n_py_kept))
-      
-
 
 ################################################################################
 def delete_prev_data(opts):
-
-
    # If we ran this before, we should have a qt dir here
    prevQtDir = path.join(UNPACKDIR, 'qt')
 
@@ -735,7 +737,6 @@ def delete_prev_data(opts):
             execAndWait('make clean', cwd=prevQtDir)
             removefile(makefile)
          removefile(QTBUILTFLAG)
-      
    
    # Always remove previously-built application files
    removetree(APPDIR)
@@ -759,11 +760,6 @@ def delete_prev_data(opts):
    else:
       logprint('Using all packages previously downloaded and built')
 
-      
-
-
-
+################################################################################
 if __name__ == "__main__":
    main()   
-
-
