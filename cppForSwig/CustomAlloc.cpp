@@ -42,6 +42,10 @@ namespace CustomAlloc
       ***/
 
       int rt = 0;
+	   
+      size_t pageSize = getPageSize();
+      size_t mintop = memMinHardTop / pageSize;
+		size_t maxtop = memMaxHardTop / pageSize;
 
    #ifdef _MSC_VER
       /***
@@ -54,7 +58,6 @@ namespace CustomAlloc
       Essentially this is just a guideline as memory is delivered on a first
       come first served basis. Set to 1GB for good measure.
       ***/
-      size_t pageSize = getPageSize();
 
       //all values have to be a multiple of the system pagesize
 
@@ -63,13 +66,19 @@ namespace CustomAlloc
       HANDLE processHandle = GetCurrentProcess();
       GetProcessWorkingSetSize(processHandle, (PSIZE_T)&mincurrent, (PSIZE_T)&maxcurrent);
 
-		size_t mintop = memMinHardTop / pageSize;
-		size_t maxtop = memMaxHardTop / pageSize;
-
       if(!SetProcessWorkingSetSize(processHandle, mintop * pageSize, maxtop * pageSize)) rt = mincurrent;
 
    #else
    //*nix code goes here
+   
+      rlimit rlm;
+      getrlimit(RLIMIT_MEMLOCK, &rlm);
+      size_t soft_limit = rlm.rlim_cur;
+
+      rlm.rlim_cur = mintop * pageSize;
+      rlm.rlim_max = mintop * pageSize;
+
+      if(setrlimit(RLIMIT_MEMLOCK, &rlm)) soft_limit;
    #endif
 
       return rt;
@@ -394,14 +403,14 @@ namespace CustomAlloc
 	   {
 		   mp = MP[order[i]];
 
-		   if(!mp->total || (mp->freemem>=size && (mp->reserved +size+4)<mp->total)) //look for available size
+		   if(!mp->total || mp->freemem>=size<mp->total) //look for available size
 		   {
 	         getpoolflag--;
 			   bh = mp->GetBuffer(size, sema);
 			   if(bh)
 			   {
 				   bufferfetch = 0;
-				   UpdateOrder(order[i]);
+				   //UpdateOrder(order[i]);
 				   return bh;
             }
 			   else 
@@ -422,7 +431,7 @@ namespace CustomAlloc
       if(!ab.Fetch_Or(1))
 	   {
 		   bufferfetch = npools;
-		   ExtendPool();
+		   ExtendPool(poolstep);
 		   bufferfetch = 0;
 		   ab = 0;
 	   }

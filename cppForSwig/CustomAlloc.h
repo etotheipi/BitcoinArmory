@@ -80,8 +80,6 @@ namespace CustomAlloc
          Gap *gaps;
          AtomicInt32 acquireGap;
       
-         void Alloc(size_t size);
-
          BufferHeader* GetBH(size_t size);
       
          int GetGap(size_t size);
@@ -101,7 +99,8 @@ namespace CustomAlloc
 		   AtomicInt32 lockpool;
 		   byte defrag;
          void *ref;
-         
+       
+         void Alloc(size_t size);
          static const int size_of_ptr = sizeof(void*);
          
          MemPool()
@@ -155,6 +154,7 @@ namespace CustomAlloc
          MemPool **MP;
          MemPool **poolbatch;
 		   unsigned int npools, total, nbatch;
+         int canlock;
 
 		   static const int poolstep = 10;
 		   static const int max_fetch = 10;
@@ -185,6 +185,7 @@ namespace CustomAlloc
             nbatch=0;
 				pool_height=0;
 				pool_height2=0;
+            canlock=1;
 
 				size_t lockablemem = extendLockedMemQuota();
 				if(lockablemem)
@@ -198,13 +199,14 @@ namespace CustomAlloc
 
 					lockablemem /= pageSize;
 					int first = lockablemem % np;
-					if(first)
-					{
-						MP[np-1]->Alloc(first * pageSize);
-						lockablemem-=first
-						np--;
-					}
-				}
+               int sz = lockablemem / np;
+				   
+               MP[0]->Alloc((first +sz) * pageSize);
+               for(int r=1; r<np; r++)
+                 MP[r]->Alloc(sz * pageSize);
+
+               canlock = 0;
+				}	
 		   }
 
 		   ~CustomAllocator()
