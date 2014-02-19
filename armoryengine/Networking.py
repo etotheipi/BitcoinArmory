@@ -1054,4 +1054,5 @@ def forceDeferred(callbk):
       else:
          d = Deferred()
          d.addCallback(callbk)
+         return d
 
