@@ -86,6 +86,10 @@ parser.add_option("--rescan",          dest="rescan",      default=False,     ac
 parser.add_option("--maxfiles",        dest="maxOpenFiles",default=0,         type="int",          help="Set maximum allowed open files for LevelDB databases")
 #parser.add_option("--rebuildwithblocksize", dest="newBlockSize",default='32kB', type="str",          help="Rebuild databases with new blocksize")
 
+# Pre-10.9 OS X sometimes passes a process serial number as -psn_0_xxxxxx. Nuke!
+if sys.platform == 'darwin':
+   parser.add_option('-p', '--psn')
+
 # These are arguments passed by running unit-tests that need to be handled
 parser.add_option("--port", dest="port", default=None, type="int", help="Unit Test Argument - Do not consume")
 parser.add_option("--verbosity", dest="verbosity", default=None, type="int", help="Unit Test Argument - Do not consume")
@@ -3141,4 +3145,3 @@ def touchFile(fname):
       f.flush()
       os.fsync(f.fileno())
       f.close()
-
