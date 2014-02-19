@@ -570,7 +570,6 @@ class SendBitcoinsFrame(ArmoryFrame):
       else:
          if self.main.usermode == USERMODE.Expert and \
             self.chkDefaultChangeAddr.isChecked():
-            NO_CHANGE = 'NoChange'
             self.selectedBehavior = NO_CHANGE
       
       changePair = None
@@ -1678,4 +1677,4 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
 # Need to put circular imports at the end of the script to avoid an import deadlock
 from qtdialogs import CLICKED, STRETCH, createAddrBookButton,\
       DlgConfirmSend, DlgUriCopyAndPaste, DlgUnlockWallet,\
-   extractTxInfo, DlgDispTxInfo
+   extractTxInfo, DlgDispTxInfo, NO_CHANGE
