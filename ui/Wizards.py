@@ -295,12 +295,8 @@ class TxWizard(ArmoryWizard):
          self.setButtonText(QWizard.NextButton, tr('Create Unsigned Transaction'))
 
    def sendClicked(self, customButtonIndex):
-      # The Send! button is clicked validate and broadcast tx
-      txdp = self.createTxPage.pageFrame.validateInputsGetTxDP()
-      # Either txdp is false or its a transaction distribution proposal
-      if txdp:
-         self.createTxPage.pageFrame.createTxAndBroadcast(txdp)
-         self.accept()
+      self.createTxPage.pageFrame.createTxAndBroadcast()
+      self.accept()
       
    def updateOnSelectWallet(self, wlt):
       if wlt.watchingOnly:

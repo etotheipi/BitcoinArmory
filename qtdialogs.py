@@ -22,6 +22,7 @@ import qrc_img_resources
 from qtdefines import *
 from armoryengine.PyBtcAddress import calcWalletIDFromRoot
 
+NO_CHANGE = 'NoChange'
 MIN_PASSWD_WIDTH = lambda obj: tightSizeStr(obj, '*' * 16)[0]
 STRETCH = 'Stretch'
 CLICKED = 'clicked()'
@@ -1609,7 +1610,7 @@ class DlgWalletDetails(ArmoryDialog):
            'balance appears on the main window, then try again.', \
             QMessageBox.Ok)
          return
-      self.main.startTxWizard()
+      DlgSendBitcoins(self.wlt, self, self.main, onlyOfflineWallets=False).exec_()
       self.wltAddrModel.reset()
 
 
@@ -4558,10 +4559,11 @@ class DlgConfirmSend(ArmoryDialog):
       lblSpecialChange = QRichLabel('')
       if self.main.usermode == USERMODE.Expert and changeBehave:
          chngScrAddr = changeBehave[0]
-         chngAddrStr = scrAddr_to_addrStr(chngScrAddr)
-         atype, chngAddr160 = addrStr_to_hash160(chngAddrStr)
-         if atype == P2SHBYTE:
-            LOGWARN('P2SH Change address received')
+         if len(chngScrAddr) > 0:
+            chngAddrStr = scrAddr_to_addrStr(chngScrAddr)
+            atype, chngAddr160 = addrStr_to_hash160(chngAddrStr)
+            if atype == P2SHBYTE:
+               LOGWARN('P2SH Change address received')
          chngBehaveStr = changeBehave[1]
          if chngBehaveStr == 'Feedback':
             lblSpecialChange.setText('*Change will be sent back to first input address')
@@ -4571,7 +4573,7 @@ class DlgConfirmSend(ArmoryDialog):
             if wltID:
                msg += ' (Wallet: %s)' % wltID
             lblSpecialChange.setText(msg)
-         elif chngBehaveStr == 'NoChange':
+         elif chngBehaveStr == NO_CHANGE:
             lblSpecialChange.setText('(This transaction is exact -- there are no change outputs)')
 
       self.btnCancel = QPushButton("Cancel")
@@ -4600,6 +4602,53 @@ class DlgConfirmSend(ArmoryDialog):
       self.setMinimumWidth(350)
       self.setWindowTitle('Confirm Transaction')
 
+
+################################################################################
+class DlgSendBitcoins(ArmoryDialog):
+   def __init__(self, wlt, parent=None, main=None, prefill=None, wltIDList=None, onlyOfflineWallets=False):
+      super(DlgSendBitcoins, self).__init__(parent, main)
+      layout = QVBoxLayout()
+
+      self.frame = SendBitcoinsFrame(parent, main, 'Send Bitcoins',\
+                   wlt, prefill, wltIDList, onlyOfflineWallets=onlyOfflineWallets,\
+                   sendCallback=self.createTxAndBroadcast,\
+                   createUnsignedTxCallback=self.createUnsignedTxDPAndDisplay)
+      layout.addWidget(self.frame)
+      self.setLayout(layout)
+      # Update the any controls based on the initial wallet selection
+      self.frame.fireWalletChange()
+   
+   #############################################################################
+   def createUnsignedTxDPAndDisplay(self, txdp):
+      self.accept()
+      dlg = DlgOfflineTxCreated(self.frame.wlt, txdp, self.parent, self.main)
+      dlg.exec_()
+
+
+   #############################################################################
+   def createTxAndBroadcast(self):
+      self.accept()
+
+   #############################################################################
+   def saveGeometrySettings(self):
+      self.main.writeSetting('SendBtcGeometry', str(self.saveGeometry().toHex()))
+
+   #############################################################################
+   def closeEvent(self, event):
+      self.saveGeometrySettings()
+      super(DlgSendBitcoins, self).closeEvent(event)
+
+   #############################################################################
+   def accept(self, *args):
+      self.saveGeometrySettings()
+      super(DlgSendBitcoins, self).accept(*args)
+
+   #############################################################################
+   def reject(self, *args):
+      self.saveGeometrySettings()
+      super(DlgSendBitcoins, self).reject(*args)
+
+
 ################################################################################
 class DlgOfflineTxCreated(ArmoryDialog):
    def __init__(self, wlt, txdp, parent=None, main=None):
@@ -4609,15 +4658,33 @@ class DlgOfflineTxCreated(ArmoryDialog):
       reviewOfflineTxFrame = ReviewOfflineTxFrame(self, main, "Review Offline Transaction")
       reviewOfflineTxFrame.setWallet(wlt)
       reviewOfflineTxFrame.setTxDp(txdp)
-      doneButton = QPushButton("Done")
+      continueButton = QPushButton('Continue')
+      self.connect(continueButton, SIGNAL(CLICKED), self.signBroadcastTx)
+      doneButton = QPushButton('Done')
       self.connect(doneButton, SIGNAL(CLICKED), self.accept)
-      bottomStrip = makeLayoutFrame(HORIZONTAL, [STRETCH, doneButton])
+      
+      ttipDone = self.main.createToolTipWidget(\
+         'By clicking Done you will exit end the offline transaction process for now. '
+         'When you are ready to sign and/or broadcast the transaction, click the Offline '
+         'Transactions button in the main window, then click the Sign and/or '
+         'Broadcast Transaction button in the Select Offline Action dialog.')
+      
+      ttipContinue = self.main.createToolTipWidget(\
+         'By clicking Continue you will continue to the next step in the offline '
+         'transaction process to sign and/or broadcast the transaction.')
+      
+      bottomStrip = makeLayoutFrame(HORIZONTAL, [doneButton, ttipDone, STRETCH, continueButton, ttipContinue])
       frame = makeLayoutFrame(VERTICAL, [reviewOfflineTxFrame, bottomStrip])
       layout.addWidget(frame)
       self.setLayout(layout)
       self.setWindowTitle('Review Offline Transaction')
       self.setWindowIcon(QIcon(self.main.iconfile))
       
+   def signBroadcastTx(self):
+      self.accept()
+      DlgSignBroadcastOfflineTx(self.parent,self.main).exec_()
+      
+
       
 ################################################################################
 class DlgOfflineSelect(ArmoryDialog):

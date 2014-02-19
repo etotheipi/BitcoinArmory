@@ -22,7 +22,8 @@ class SendBitcoinsFrame(ArmoryFrame):
                'LblUnit', 'BtnMax', 'LblComm', 'Comm')
    def __init__(self, parent, main, initLabel='',
                  wlt=None, prefill=None, wltIDList=None,
-                 selectWltCallback = None, onlyOfflineWallets=False ):
+                 selectWltCallback = None, onlyOfflineWallets=False,
+                 sendCallback = None, createUnsignedTxCallback = None):
       super(SendBitcoinsFrame, self).__init__(parent, main)
       self.maxHeight = tightSizeNChar(GETFONT('var'), 1)[1] + 8
       self.sourceAddrList = None
@@ -31,6 +32,8 @@ class SendBitcoinsFrame(ArmoryFrame):
       self.wltID = wlt.uniqueIDB58 if wlt else None
       self.wltIDList = wltIDList
       self.selectWltCallback = selectWltCallback
+      self.sendCallback = sendCallback
+      self.createUnsignedTxCallback = createUnsignedTxCallback
       self.onlyOfflineWallets = onlyOfflineWallets
       txFee = self.main.getSettingOrSetDefault('Default_Fee', MIN_TX_FEE)
       self.widgetTable = []
@@ -49,6 +52,7 @@ class SendBitcoinsFrame(ArmoryFrame):
 
       self.edtFeeAmt = QLineEdit()
       self.edtFeeAmt.setFont(GETFONT('Fixed'))
+      self.edtFeeAmt.setMinimumWidth(tightSizeNChar(self.edtFeeAmt, 6)[0])
       self.edtFeeAmt.setMaximumWidth(tightSizeNChar(self.edtFeeAmt, 12)[0])
       self.edtFeeAmt.setMaximumHeight(self.maxHeight)
       self.edtFeeAmt.setAlignment(Qt.AlignRight)
@@ -65,6 +69,23 @@ class SendBitcoinsFrame(ArmoryFrame):
                         self.edtFeeAmt, \
                         feetip, \
                         STRETCH]
+      # Only the Create  Unsigned Transaction button if there is a callback for it.
+      # Otherwise the containing dialog or wizard will provide the offlien tx button
+      if self.createUnsignedTxCallback:
+         self.ttipUnsigned = self.main.createToolTipWidget(\
+            'Check this box to create an unsigned transaction to be signed and/or broadcast later.')
+         self.unsignedCheckbox = QCheckBox('Create Unsigned')
+         self.connect(self.unsignedCheckbox, SIGNAL(CLICKED), self.unsignedCheckBoxUpdate)
+         frmUnsigned = makeHorizFrame([self.unsignedCheckbox, self.ttipUnsigned])
+         componentList.append(frmUnsigned)
+      
+      # Only add the Send Button if there's a callback for it
+      # Otherwise the containing dialog or wizard will provide the send button
+      if self.sendCallback:
+         self.btnSend = QPushButton('Send!')
+         self.connect(self.btnSend, SIGNAL(CLICKED), self.createTxAndBroadcast)
+         componentList.append(self.btnSend)
+         
       txFrm = makeLayoutFrame(HORIZONTAL, componentList)
 
       btnEnterURI = QPushButton('Manually Enter "bitcoin:" Link')
@@ -138,13 +159,21 @@ class SendBitcoinsFrame(ArmoryFrame):
          frmChngLayout.addWidget(self.radioSpecify, i, 1, 1, 5)
          frmChngLayout.addWidget(self.ttipSpecify, i, 6, 1, 2)
          i += 1
-         frmChngLayout.addWidget(self.lblChangeAddr, i, 1, 1, 2)
-         frmChngLayout.addWidget(self.edtChangeAddr, i, 3, 1, 4)
-         frmChngLayout.addWidget(self.btnChangeAddr, i, 7, 1, 1)
+         sendChangeToFrame = makeHorizFrame([self.lblChangeAddr,
+                                            self.edtChangeAddr,
+                                            self.btnChangeAddr])
+         frmChngLayout.addWidget(sendChangeToFrame, i, 1, 1, 6)
          i += 1
          frmChngLayout.addWidget(self.chkRememberChng, i, 1, 1, 7)
 
          frmChngLayout.addWidget(self.vertLine, 1, 0, i - 1, 1)
+         frmChngLayout.setColumnStretch(0,1)
+         frmChngLayout.setColumnStretch(1,1)
+         frmChngLayout.setColumnStretch(2,1)
+         frmChngLayout.setColumnStretch(3,1)
+         frmChngLayout.setColumnStretch(4,1)
+         frmChngLayout.setColumnStretch(5,1)
+         frmChngLayout.setColumnStretch(6,1)
          frmChangeAddr = QFrame()
          frmChangeAddr.setLayout(frmChngLayout)
          frmChangeAddr.setFrameStyle(STYLE_SUNKEN)
@@ -152,14 +181,14 @@ class SendBitcoinsFrame(ArmoryFrame):
          fromFrameList.append(frmChangeAddr)
       else:
          fromFrameList.append(STRETCH)
-      frmBottomLeft = makeVertFrame(fromFrameList, STYLE_SUNKEN)
+      frmBottomLeft = makeVertFrame(fromFrameList)
 
       lblSend = QRichLabel('<b>Sending from Wallet:</b>')
       lblSend.setAlignment(Qt.AlignLeft | Qt.AlignBottom)
 
 
-      leftFrame = makeVertFrame([lblSend, frmBottomLeft], STYLE_SUNKEN)
-      rightFrame = makeVertFrame([lblRecip, self.scrollRecipArea, txFrm], STYLE_SUNKEN)
+      leftFrame = makeVertFrame([lblSend, frmBottomLeft])
+      rightFrame = makeVertFrame([lblRecip, self.scrollRecipArea, txFrm])
       layout = QHBoxLayout()
       layout.addWidget(leftFrame)
       layout.addWidget(rightFrame)
@@ -221,7 +250,19 @@ class SendBitcoinsFrame(ArmoryFrame):
       # react to it. This is at the end so that we can be sure that all of the
       # components that react to setting the wallet exist.
       self.walletSelector.updateOnWalletChange()
+      self.unsignedCheckBoxUpdate()
 
+
+   #############################################################################
+   def unsignedCheckBoxUpdate(self):
+      if self.unsignedCheckbox.isChecked():
+         self.btnSend.setText('Continue')
+         self.btnSend.setToolTip('This is a watching-only wallet! '
+                      'You cannot use it to send bitcoins!')
+      else:
+         self.btnSend.setText('Send!')
+         self.btnSend.setToolTip('Click to send bitcoins!')
+      
 
    #############################################################################
    def addOneRecipient(self, addr160, amt, msg, label=''):
@@ -283,10 +324,15 @@ class SendBitcoinsFrame(ArmoryFrame):
             self.radioSpecify.setChecked(False)
             self.toggleChngAddr(False)
 
-         if(self.chkDefaultChangeAddr.isChecked() and \
+         if (self.chkDefaultChangeAddr.isChecked() and \
             not self.radioFeedback.isChecked() and \
             not self.radioSpecify.isChecked()):
             self.radioFeedback.setChecked(True)
+      # If there is a unsigned then we have a send button and unsigned checkbox to update
+      if self.createUnsignedTxCallback:
+         self.unsignedCheckbox.setChecked(wlt.watchingOnly)
+         self.unsignedCheckbox.setEnabled(not wlt.watchingOnly)
+         self.unsignedCheckBoxUpdate()
       if self.selectWltCallback:
          self.selectWltCallback(wlt)
 
@@ -524,7 +570,8 @@ class SendBitcoinsFrame(ArmoryFrame):
       else:
          if self.main.usermode == USERMODE.Expert and \
             self.chkDefaultChangeAddr.isChecked():
-            self.selectedBehavior = 'NoChange'
+            NO_CHANGE = 'NoChange'
+            self.selectedBehavior = NO_CHANGE
       
       changePair = None
       if len(self.selectedBehavior) > 0:
@@ -549,39 +596,46 @@ class SendBitcoinsFrame(ArmoryFrame):
       
       return txdp
    
-   # Takes in a Transaction Distribution Proposal
-   #
-   def createTxAndBroadcast(self, txdp):
-      try:
-         if self.wlt.isLocked:
-            unlockdlg = DlgUnlockWallet(self.wlt, self, self.main, 'Send Transaction')
-            if not unlockdlg.exec_():
-               QMessageBox.critical(self.parent(), 'Wallet is Locked', \
-                  'Cannot sign transaction while your wallet is locked. ', \
-                  QMessageBox.Ok)
-               return
-
-
-         commentStr = ''
-         if len(self.comments) == 1:
-            commentStr = self.comments[0]
+  
+   def createTxAndBroadcast(self):
+      # The Send! button is clicked validate and broadcast tx
+      txdp = self.validateInputsGetTxDP()
+      if txdp:
+         if self.createUnsignedTxCallback and self.unsignedCheckbox.isChecked():
+            self.createUnsignedTxCallback(txdp)
          else:
-            for i in range(len(self.comments)):
-               amt = self.origRVPairs[i][1]
-               if len(self.comments[i].strip()) > 0:
-                  commentStr += '%s (%s);  ' % (self.comments[i], coin2str_approx(amt).strip())
+            try:
+               if self.wlt.isLocked:
+                  unlockdlg = DlgUnlockWallet(self.wlt, self, self.main, 'Send Transaction')
+                  if not unlockdlg.exec_():
+                     QMessageBox.critical(self.parent(), 'Wallet is Locked', \
+                        'Cannot sign transaction while your wallet is locked. ', \
+                        QMessageBox.Ok)
+                     return
+      
+      
+               commentStr = ''
+               if len(self.comments) == 1:
+                  commentStr = self.comments[0]
+               else:
+                  for i in range(len(self.comments)):
+                     amt = self.origRVPairs[i][1]
+                     if len(self.comments[i].strip()) > 0:
+                        commentStr += '%s (%s);  ' % (self.comments[i], coin2str_approx(amt).strip())
+      
+      
+               tx = self.wlt.signTxDistProposal(txdp)
+               finalTx = tx.prepareFinalTx()
+               if len(commentStr) > 0:
+                  self.wlt.setComment(finalTx.getHash(), commentStr)
+               self.main.broadcastTransaction(finalTx)
+            except:
+               LOGEXCEPT('Problem sending transaction!')
+               # TODO: not sure what errors to catch here, yet...
+               raise
+            if self.sendCallback:
+               self.sendCallback()
 
-
-         tx = self.wlt.signTxDistProposal(txdp)
-         finalTx = tx.prepareFinalTx()
-         if len(commentStr) > 0:
-            self.wlt.setComment(finalTx.getHash(), commentStr)
-         self.main.broadcastTransaction(finalTx)
-      except:
-         LOGEXCEPT('Problem sending transaction!')
-         # TODO: not sure what errors to catch here, yet...
-         raise
-         
    #############################################################################
    def getUsableBalance(self):
       if self.altBalance == None:
@@ -1042,12 +1096,12 @@ class ReviewOfflineTxFrame(ArmoryDialog):
       elif determineWalletType(wlt, self.main)[0] == WLTTYPES.WatchOnly:
          self.lblDescr.setText(\
          'The chunk of data shown below is the complete transaction you just '
-         'requested, but <b>without</b> the signatures needed to be valid.  '
+         'requested, but <b>without</b> the signature(s) needed to be valid.  '
          '<br><br>'
-         'In order to complete this transaction, you need to send this '
-         'chunk of data (the proposed transaction) to the party who holds the '
-         'full version of this wallet.  They can load this data into Armory '
-         'and broadcast the transaction if they chose to sign it. ')
+         'In order to complete this transaction, you need to take this '
+         'chunk of data (the proposed transaction) to the computer who holds the '
+         'full version of this wallet to be signed.  Once signed, it can be loaded into Armory '
+         'and broadcast to the network. ')
       else:
          self.lblDescr.setText(
             'You have chosen to create the previous transaction but not sign '
