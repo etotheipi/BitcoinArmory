@@ -18,16 +18,23 @@ WALLET_DATA_ENTRY_FIELD_WIDTH = 60
 # selecting a wallet, and doing coin control. It can be dropped into any dialog
 # and will interface with the dialog with select wlt and coin control callbacks.
 class SelectWalletFrame(ArmoryFrame):
-   def __init__(self, parent, main, firstSelect=None, onlyMyWallets=False, \
-                             wltIDList=None, atLeast=0, \
-                             selectWltCallback=None, coinControlCallback=None,
-                             onlyOfflineWallets=False):
+   def __init__(self, parent, main, layoutDir=VERTICAL,
+                                    firstSelect=None,
+                                    onlyMyWallets=False,
+                                    wltIDList=None, 
+                                    atLeast=0, 
+                                    selectWltCallback=None, 
+                                    coinControlCallback=None,
+                                    onlyOfflineWallets=False):
+
       super(SelectWalletFrame, self).__init__(parent, main)
       self.coinControlCallback = coinControlCallback
 
       self.walletComboBox = QComboBox()
+      self.walletListBox  = QListWidget()
       self.balAtLeast = atLeast
       self.selectWltCallback = selectWltCallback
+      self.doVerticalLayout = layoutDir==VERTICAL
 
       if self.main and len(self.main.walletMap) == 0:
          QMessageBox.critical(self, 'No Wallets!', \
@@ -41,6 +48,7 @@ class SelectWalletFrame(ArmoryFrame):
       selectedWltIndex = 0
       self.selectedID = None
       wltItems = 0
+      self.displayIDs = []
       if len(self.wltIDList) > 0:
          self.selectedID = self.wltIDList[0]
          for wltID in self.wltIDList:
@@ -48,15 +56,26 @@ class SelectWalletFrame(ArmoryFrame):
             wlttype = determineWalletType(wlt, self.main)[0]
             if onlyMyWallets and wlttype == WLTTYPES.WatchOnly:
                continue
-            self.walletComboBox.addItem(wlt.labelName)
+
+            self.displayIDs.append(wltID)
+            if self.doVerticalLayout:
+               self.walletComboBox.addItem(wlt.labelName)
+            else:
+               self.walletListBox.addItem(QListWidgetItem(wlt.labelName))
          
             if wltID == firstSelect:
                selectedWltIndex = wltItems
                self.selectedID = wltID
             wltItems += 1
             
-         self.walletComboBox.setCurrentIndex(selectedWltIndex)
+         if self.doVerticalLayout:
+            self.walletComboBox.setCurrentIndex(selectedWltIndex)
+         else:
+            self.walletListBox.setCurrentRow(selectedWltIndex)
+
+
       self.connect(self.walletComboBox, SIGNAL('currentIndexChanged(int)'), self.updateOnWalletChange)
+      self.connect(self.walletListBox,  SIGNAL('currentRowChanged(int)'),   self.updateOnWalletChange)
 
       # Start the layout
       layout =  QVBoxLayout() 
@@ -86,7 +105,7 @@ class SelectWalletFrame(ArmoryFrame):
       
       wltInfoFrame = QFrame()
       wltInfoFrame.setFrameStyle(STYLE_SUNKEN)
-      wltInfoFrame.setMaximumWidth(380)
+      #wltInfoFrame.setMaximumWidth(380)
       wltInfoFrame.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
       frmLayout = QGridLayout()
       for i in range(len(lbls)):
@@ -97,10 +116,10 @@ class SelectWalletFrame(ArmoryFrame):
       self.dispDescr.setAlignment(Qt.AlignLeft | Qt.AlignTop)
       self.dispBal.setAlignment(Qt.AlignLeft | Qt.AlignTop)
       self.dispDescr.setMinimumWidth(tightSizeNChar(self.dispDescr, 40)[0])
-      frmLayout.addWidget(self.dispID, 0, 2, 1, 1)
-      frmLayout.addWidget(self.dispName, 1, 2, 1, 1)
-      frmLayout.addWidget(self.dispDescr, 2, 2, 1, 1)
-      frmLayout.addWidget(self.dispBal, 3, 2, 1, 1)
+      frmLayout.addWidget(self.dispID,     0, 2, 1, 1)
+      frmLayout.addWidget(self.dispName,   1, 2, 1, 1)
+      frmLayout.addWidget(self.dispDescr,  2, 2, 1, 1)
+      frmLayout.addWidget(self.dispBal,    3, 2, 1, 1)
       if coinControlCallback:
          self.lblCoinCtrl = QRichLabel('Source: All addresses', doWrap=False)
          frmLayout.addWidget(self.lblCoinCtrl, 4, 2, 1, 1)
@@ -109,8 +128,16 @@ class SelectWalletFrame(ArmoryFrame):
          frmLayout.addWidget(self.btnCoinCtrl, 4, 0, 1, 2)
       frmLayout.addItem(QSpacerItem(20, 10, QSizePolicy.Fixed, QSizePolicy.Expanding), 0, 1, 4, 1)
       wltInfoFrame.setLayout(frmLayout)
-      layout.addWidget(makeLayoutFrame(VERTICAL, [self.walletComboBox, wltInfoFrame]) )
+
+      if self.doVerticalLayout:
+         layout.addWidget(makeLayoutFrame(VERTICAL, [self.walletComboBox, wltInfoFrame]) )
+      else:
+         layout.addWidget(makeLayoutFrame(HORIZONTAL, [self.walletListBox, wltInfoFrame]) )
+
       self.setLayout(layout)
+      # Make sure this is called once so that the default selection is displayed
+      self.updateOnWalletChange()
+
    
    def getWalletIdList(self, onlyOfflineWallets):
       result = []
@@ -120,8 +147,18 @@ class SelectWalletFrame(ArmoryFrame):
          result = list(self.main.walletIDList)
       return result
 
+
+   def getSelectedWltID(self):
+      idx = -1
+      if self.doVerticalLayout:
+         idx = self.walletComboBox.currentIndex()
+      else:
+         idx = self.walletListBox.currentRow()
+
+      return '' if idx<0 else self.displayIDs[idx]
+
    def doCoinCtrl(self):
-      wlt = self.main.walletMap[self.wltIDList[self.walletComboBox.currentIndex()]]
+      wlt = self.main.walletMap[self.getSelectedWltID()]
       dlgcc = DlgCoinControl(self, self.main, wlt, self.sourceAddrList)
       if dlgcc.exec_():
          self.sourceAddrList = [x[0] for x in dlgcc.coinControlList]
@@ -141,10 +178,16 @@ class SelectWalletFrame(ArmoryFrame):
             self.lblCoinCtrl.setText('Source: %d addresses' % nAddr)
          self.updateOnCoinControl()
          
-   def updateOnWalletChange(self):
-      currentWltIndex = self.walletComboBox.currentIndex()
-      if currentWltIndex > -1:
-         wltID = self.wltIDList[currentWltIndex]
+   def updateOnWalletChange(self, ignoredInt=None):
+      """
+      "ignoredInt" is because the signals should call this function with the
+      selected index of the relevant container, but we grab it again anyway
+      using getSelectedWltID()
+      """
+
+      wltID = self.getSelectedWltID()
+
+      if len(wltID) > 0:
          wlt = self.main.walletMap[wltID]
                
          self.dispID.setText(wltID)
@@ -175,7 +218,7 @@ class SelectWalletFrame(ArmoryFrame):
       
    def updateOnCoinControl(self):
       useAllAddr = (self.altBalance == None)
-      wlt = self.main.walletMap[self.wltIDList[self.walletComboBox.currentIndex()]]
+      wlt = self.main.walletMap[self.getSelectedWltID()]
       fullBal = wlt.getBalance('Spendable')
       if useAllAddr:
          self.dispID.setText(wlt.uniqueIDB58)

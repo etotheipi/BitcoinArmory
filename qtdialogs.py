@@ -2436,6 +2436,9 @@ class DlgNewAddressDisp(ArmoryDialog):
       self.setWindowTitle('New Receiving Address')
       self.setFocus()
 
+      from twisted.internet import reactor
+      reactor.callLater(0.1, TheBDM.saveScrAddrHistories)
+
       try:
          self.parent.wltAddrModel.reset()
       except AttributeError:
@@ -4465,9 +4468,12 @@ class DlgRemoveAddress(ArmoryDialog):
 
 ################################################################################
 class DlgWalletSelect(ArmoryDialog):
-   def __init__(self, parent=None, main=None, title='Select Wallet:', \
-                             descr='', firstSelect=None, onlyMyWallets=False, \
-                             wltIDList=None, atLeast=0):
+   def __init__(self, parent=None, main=None, title='Select Wallet:', 
+                                              descr='', 
+                                              firstSelect=None, 
+                                              onlyMyWallets=False, 
+                                              wltIDList=None, 
+                                              atLeast=0):
       super(DlgWalletSelect, self).__init__(parent, main)
 
 
@@ -4486,7 +4492,7 @@ class DlgWalletSelect(ArmoryDialog):
       # Start the layout
       layout = QVBoxLayout()
       # Expect to set selectedId
-      wltFrame = SelectWalletFrame(self, main, firstSelect, onlyMyWallets, 
+      wltFrame = SelectWalletFrame(self, main, HORIZONTAL, firstSelect, onlyMyWallets, 
          wltIDList, atLeast, self.selectWallet)
       layout.addWidget(wltFrame)
       self.selectedID = wltFrame.selectedID

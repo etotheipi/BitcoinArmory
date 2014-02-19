@@ -1038,8 +1038,10 @@ class BlockDataManagerThread(threading.Thread):
       nblk = self.bdm.readBlkFileUpdate() 
 
       # On new blocks, re-save the histories
-      if nblk > 0:
-         self.bdm.saveScrAddrHistories()
+      # ACR: This was removed because the histories get saved already on the
+      #      call to TheBDM.updateWalletsAfterScan()
+      #if nblk > 0:
+         #self.bdm.saveScrAddrHistories()
 
       return nblk
          

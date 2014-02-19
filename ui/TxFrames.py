@@ -57,7 +57,7 @@ class SendBitcoinsFrame(ArmoryFrame):
       # Created a standard wallet chooser frame. Pass the call back method
       # for when the user selects a wallet.
       coinControlCallback = self.coinControlUpdate if self.main.usermode == USERMODE.Expert else None
-      self.walletSelector = SelectWalletFrame(parent, main, self.wltID, \
+      self.walletSelector = SelectWalletFrame(parent, main, VERTICAL, self.wltID, \
                   wltIDList=self.wltIDList, selectWltCallback=self.setWallet, \
                   coinControlCallback=coinControlCallback, onlyOfflineWallets=self.onlyOfflineWallets)
 
@@ -584,6 +584,7 @@ class SendBitcoinsFrame(ArmoryFrame):
          if len(commentStr) > 0:
             self.wlt.setComment(finalTx.getHash(), commentStr)
          self.main.broadcastTransaction(finalTx)
+         TheBDM.saveScrAddrHistories()
       except:
          LOGEXCEPT('Problem sending transaction!')
          # TODO: not sure what errors to catch here, yet...

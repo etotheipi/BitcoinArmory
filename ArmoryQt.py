@@ -2005,24 +2005,28 @@ class ArmoryMainWindow(QMainWindow):
             self.lblArmoryStatus.setText(\
                '<font color=%s>Connected (%s blocks)</font> ' % 
                (htmlColor('TextGreen'), self.currBlockNum))
-         self.blkReceived  = self.getSettingOrSetDefault('LastBlkRecvTime', 0)
+
+         self.blkReceived = TheBDM.getTopBlockHeader().getTimestamp()
+         self.writeSetting('LastBlkRecv',     self.currBlockNum)
+         self.writeSetting('LastBlkRecvTime', self.blkReceived)
 
          currSyncSuccess = self.getSettingOrSetDefault("SyncSuccessCount", 0)
          self.writeSetting('SyncSuccessCount', min(currSyncSuccess+1, 10))
 
 
          vectMissingBlks = TheBDM.missingBlockHashes()
-         LOGINFO('Missing blocks: %d', len(vectMissingBlks))
+         LOGINFO('Blockfile corruption check: Missing blocks: %d', len(vectMissingBlks))
          if len(vectMissingBlks) > 0:
             LOGINFO('Missing blocks: %d', len(vectMissingBlks))
             QMessageBox.critical(self, tr('Blockdata Error'), tr("""
                Armory has detected an error in the blockchain database
                maintained by the third-party Bitcoin software (Bitcoin-Qt
                or bitcoind).  This error is not fatal, but may lead to 
-               incorrect balances or inability to send coins.
+               incorrect balances, inability to send coins, or application
+               instability.
                <br><br>
-               It is very unlikely that the error affects your wallets,
-               but it is still possible.  If you experience crashing,
+               It is unlikely that the error affects your wallets,
+               but it <i>is</i> possible.  If you experience crashing,
                or see incorrect balances on any wallets, it is strongly
                recommended you re-download the blockchain using:
                "<b>Help</i>"\xe2\x86\x92"<i>Factory Reset</i>"."""), \
