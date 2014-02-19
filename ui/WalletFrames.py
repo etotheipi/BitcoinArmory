@@ -94,11 +94,11 @@ class SelectWalletFrame(ArmoryFrame):
       self.dispName = QRichLabel('')
       self.dispName.setWordWrap(True)
       # This line fixes squished text when word wrapping
-      self.dispName.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.MinimumExpanding)
+      self.dispName.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
       self.dispDescr = QRichLabel('')
       self.dispDescr.setWordWrap(True)
       # This line fixes squished text when word wrapping
-      self.dispDescr.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.MinimumExpanding)
+      self.dispDescr.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
       self.dispBal = QMoneyLabel(0)
 
       self.dispBal.setTextFormat(Qt.RichText)
@@ -114,7 +114,7 @@ class SelectWalletFrame(ArmoryFrame):
       self.dispName.setAlignment(Qt.AlignLeft | Qt.AlignTop)
       self.dispDescr.setAlignment(Qt.AlignLeft | Qt.AlignTop)
       self.dispBal.setAlignment(Qt.AlignLeft | Qt.AlignTop)
-      self.dispDescr.setMinimumWidth(tightSizeNChar(self.dispDescr, 20)[0])
+      self.dispDescr.setMinimumWidth(tightSizeNChar(self.dispDescr, 30)[0])
       frmLayout.addWidget(self.dispID,     0, 2, 1, 1)
       frmLayout.addWidget(self.dispName,   1, 2, 1, 1)
       frmLayout.addWidget(self.dispDescr,  2, 2, 1, 1)
@@ -139,7 +139,7 @@ class SelectWalletFrame(ArmoryFrame):
 
       self.setLayout(layout)
       # Make sure this is called once so that the default selection is displayed
-      self.updateOnWalletChange()
+      #self.updateOnWalletChange()
 
    
    def getWalletIdList(self, onlyOfflineWallets):

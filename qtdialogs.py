@@ -4494,7 +4494,7 @@ class DlgWalletSelect(ArmoryDialog):
       layout = QVBoxLayout()
       # Expect to set selectedId
       wltFrame = SelectWalletFrame(self, main, HORIZONTAL, firstSelect, onlyMyWallets, 
-         wltIDList, atLeast, self.selectWallet)
+                                                  wltIDList, atLeast, self.selectWallet)
       layout.addWidget(wltFrame)
       self.selectedID = wltFrame.selectedID
       buttonBox = QDialogButtonBox()
