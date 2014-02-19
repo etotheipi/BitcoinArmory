@@ -105,8 +105,7 @@ class SelectWalletFrame(ArmoryFrame):
       
       wltInfoFrame = QFrame()
       wltInfoFrame.setFrameStyle(STYLE_SUNKEN)
-      #wltInfoFrame.setMaximumWidth(380)
-      wltInfoFrame.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+      wltInfoFrame.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
       frmLayout = QGridLayout()
       for i in range(len(lbls)):
          frmLayout.addWidget(lbls[i], i, 0, 1, 1)
@@ -115,7 +114,7 @@ class SelectWalletFrame(ArmoryFrame):
       self.dispName.setAlignment(Qt.AlignLeft | Qt.AlignTop)
       self.dispDescr.setAlignment(Qt.AlignLeft | Qt.AlignTop)
       self.dispBal.setAlignment(Qt.AlignLeft | Qt.AlignTop)
-      self.dispDescr.setMinimumWidth(tightSizeNChar(self.dispDescr, 40)[0])
+      self.dispDescr.setMinimumWidth(tightSizeNChar(self.dispDescr, 20)[0])
       frmLayout.addWidget(self.dispID,     0, 2, 1, 1)
       frmLayout.addWidget(self.dispName,   1, 2, 1, 1)
       frmLayout.addWidget(self.dispDescr,  2, 2, 1, 1)
@@ -126,6 +125,10 @@ class SelectWalletFrame(ArmoryFrame):
          self.btnCoinCtrl = QPushButton('Coin Control')
          self.connect(self.btnCoinCtrl, SIGNAL(CLICKED), self.doCoinCtrl)
          frmLayout.addWidget(self.btnCoinCtrl, 4, 0, 1, 2)
+      frmLayout.setColumnStretch(0, 1)
+      frmLayout.setColumnStretch(1, 1)
+      frmLayout.setColumnStretch(2, 1)
+      
       frmLayout.addItem(QSpacerItem(20, 10, QSizePolicy.Fixed, QSizePolicy.Expanding), 0, 1, 4, 1)
       wltInfoFrame.setLayout(frmLayout)
 

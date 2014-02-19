@@ -295,12 +295,8 @@ class TxWizard(ArmoryWizard):
          self.setButtonText(QWizard.NextButton, tr('Create Unsigned Transaction'))
 
    def sendClicked(self, customButtonIndex):
-      # The Send! button is clicked validate and broadcast tx
-      txdp = self.createTxPage.pageFrame.validateInputsGetTxDP()
-      # Either txdp is false or its a transaction distribution proposal
-      if txdp:
-         self.createTxPage.pageFrame.createTxAndBroadcast(txdp)
-         self.accept()
+      self.createTxPage.pageFrame.createTxAndBroadcast()
+      self.accept()
       
    def updateOnSelectWallet(self, wlt):
       if wlt.watchingOnly:
@@ -319,10 +315,10 @@ class CreateTxPage(ArmoryWizardPage):
    def __init__(self, wizard, wlt, prefill=None, onlyOfflineWallets=False):
       super(CreateTxPage, self).__init__(wizard,
                SendBitcoinsFrame(wizard, wizard.main,
-                                 "Create Unsigned Offline Transaction", wlt, prefill,
+                                 "Create Transaction", wlt, prefill,
                                  selectWltCallback=self.updateOnSelectWallet,
                                  onlyOfflineWallets=onlyOfflineWallets))
-      self.setTitle(tr("Step 1: Create Unsigned Offline Transaction"))
+      self.setTitle(tr("Step 1: Create Transaction"))
       self.txdp = None
       
    def validatePage(self):

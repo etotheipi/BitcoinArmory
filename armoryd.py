@@ -64,10 +64,10 @@ from armoryengine.ArmoryUtils import addrStr_to_hash160
 
 # Some non-twisted json imports from jgarzik's code and his UniversalEncoder
 class UniversalEncoder(json.JSONEncoder):
-    def default(self, obj):
-        if isinstance(obj, decimal.Decimal):
-            return float(obj)
-        return json.JSONEncoder.default(self, obj)
+   def default(self, obj):
+      if isinstance(obj, decimal.Decimal):
+         return float(obj)
+      return json.JSONEncoder.default(self, obj)
 
 ARMORYD_CONF_FILE = os.path.join(ARMORY_HOME_DIR, 'armoryd.conf')
 
@@ -122,9 +122,9 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       self.wallet.importExternalAddressData(privKey=privkey)
 
    #############################################################################
-   def jsonrpc_getrawtransaction(self, txHash, verbose=0):
+   def jsonrpc_getrawtransaction(self, txHash, verbose=0, endianness=BIGENDIAN):
       rawTx = None
-      cppTx = TheBDM.getTxByHash(hex_to_binary(txHash, BIGENDIAN))
+      cppTx = TheBDM.getTxByHash(hex_to_binary(txHash, endianness))
       if cppTx.isInitialized():
          txBinary = cppTx.serialize()
          pyTx = PyTx().unserialize(txBinary)

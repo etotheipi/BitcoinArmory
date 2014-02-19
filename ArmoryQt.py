@@ -1095,10 +1095,9 @@ class ArmoryMainWindow(QMainWindow):
 
          # If we got here, one of three buttons was clicked.
          if dlgSelect.do_create:
-            self.startTxWizard(onlyOfflineWallets=True)
+            DlgSendBitcoins(self.getSelectedWallet(), self, self, onlyOfflineWallets=True).exec_()
          elif dlgSelect.do_broadc:
-            dlg = DlgSignBroadcastOfflineTx(self,self)
-            dlg.exec_()
+            DlgSignBroadcastOfflineTx(self,self).exec_()
 
 
    #############################################################################
@@ -3023,9 +3022,7 @@ class ArmoryMainWindow(QMainWindow):
       elif action==actComment:
          self.updateTxCommentFromView(self.ledgerView)
       elif action==actOpenWallet:
-         DlgWalletDetails(self.walletMap[wltID], self.usermode, self, self).exec_()
-
-
+         DlgWalletDetails(self.getSelectedWallet(), self.usermode, self, self).exec_()
 
    #############################################################################
 
@@ -3069,9 +3066,9 @@ class ArmoryMainWindow(QMainWindow):
          if reply==QMessageBox.Yes:
             self.startWalletWizard()
       else:
-         self.startTxWizard()
-   
+         DlgSendBitcoins(self.getSelectedWallet(), self, self).exec_()
 
+   
    #############################################################################
    def uriSendBitcoins(self, uriDict):
       # Because Bitcoin-Qt doesn't store the message= field we have to assume
@@ -3145,8 +3142,7 @@ class ArmoryMainWindow(QMainWindow):
          selectedWalletID = self.walletIDList[0]
          
       wlt = self.walletMap[selectedWalletID]
-      dlgSend = self.startTxWizard(uriDict)
-      dlgSend.exec_()
+      self.DlgSendBitcoins(wlt, self, self).exec_()
       return True
       
 
