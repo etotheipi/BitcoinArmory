@@ -554,11 +554,10 @@ class DlgBugReport(ArmoryDialog):
 
       if descrLen < 10:
          QMessageBox.warning(self, tr('Empty Description'), tr("""
-            You must describe what problem you are having, and any information
-            that might help us reproduce the problem so we can help you and
-            fix the problem in the code.  The Armory team needs a written 
-            description of the problem, in addition to the log file."""), \
-            QMessageBox.Ok)
+            You must describe what problem you are having, and any steps
+            to reproduce the problem.  The Armory team cannot look for 
+            problems in the log file if it doesn't know what those problems
+            are!."""), QMessageBox.Ok)
          return
 
       maxDescr = 16384
@@ -603,7 +602,8 @@ class DlgBugReport(ArmoryDialog):
          os.remove(tmpFile)
 
          
-      logHash = binary_to_hex(hash160(reportMap['fileLog']))
+      expectedResponseMap = {}
+      expectedResponseMap['logHash'] = binary_to_hex(sha256(reportMap['fileLog']))
 
       try:
          import urllib3
@@ -611,13 +611,19 @@ class DlgBugReport(ArmoryDialog):
          headers = urllib3.make_headers('ArmoryBugReportWindowNotABrowser')
          url = "https://www.bitcoinarmory.com/scripts/receive_debug.php"
          response = http.request('POST', url, reportMap, headers)
-         rstr = response._body[:]
-         rstart = rstr.index(':')+2
-         responseMap = ast.literal_eval(rstr[rstart:])
+         responseMap = ast.literal_eval(response._body)
 
+         LOGINFO('-'*50)
+         LOGINFO('Response JSON:')
          for key,val in responseMap.iteritems():
-            LOGINFO(key.ljust(20) + ': ' + (logHash if key=='fileLog' else val))
+            LOGINFO(key.ljust(12) + ': ' + str(val))
          
+         LOGINFO('-'*50)
+         LOGINFO('Expected JSON:')
+         for key,val in expectedResponseMap.iteritems():
+            LOGINFO(key.ljust(12) + ': ' + str(val))
+
+
          LOGINFO('Connection info:')
          LOGINFO('   status:  ' + str(response.status))
          LOGINFO('   version: ' + str(response.version))
@@ -625,7 +631,8 @@ class DlgBugReport(ArmoryDialog):
          LOGINFO('   strict:  ' + str(response.strict))
 
 
-         if response.reason.lower() == 'ok':
+         if responseMap==expectedResponseMap:
+            LOGINFO('Server verified receipt of log file')
             QMessageBox.information(self, tr('Submitted!'), tr("""
                Your report was successfully received by the Armory team and will 
                be reviewed as soon as is possible.  Please be aware that the team
@@ -12468,8 +12475,6 @@ class DlgFactoryReset(ArmoryDialog):
    ###      
    def clickedOkay(self):
 
-      extraCloseTxt = ''
-
       if self.rdoSettings.isChecked():
          reply = QMessageBox.warning(self, tr('Confirmation'), tr("""
             You are about to delete your settings and force Armory to rescan
@@ -12480,10 +12485,11 @@ class DlgFactoryReset(ArmoryDialog):
             self.reject()
             return
 
-         touchFile( os.path.join(ARMORY_HOME_DIR, 'rescan.txt') )
-         touchFile( os.path.join(ARMORY_HOME_DIR, 'clearmempool.txt'))
-         os.remove(self.main.settingsPath) 
+         touchFile( os.path.join(ARMORY_HOME_DIR, 'rescan.flag') )
+         touchFile( os.path.join(ARMORY_HOME_DIR, 'clearmempool.flag'))
+         touchFile( os.path.join(ARMORY_HOME_DIR, 'delsettings.flag'))
          self.accept() 
+
       elif self.rdoArmoryDB.isChecked():
          reply = QMessageBox.warning(self, tr('Confirmation'), tr("""
             You are about to delete your settings and force Armory to delete
@@ -12494,10 +12500,11 @@ class DlgFactoryReset(ArmoryDialog):
             self.reject()
             return
 
-         touchFile( os.path.join(ARMORY_HOME_DIR, 'rebuild.txt') )
-         touchFile( os.path.join(ARMORY_HOME_DIR, 'clearmempool.txt'))
-         os.remove(self.main.settingsPath) 
+         touchFile( os.path.join(ARMORY_HOME_DIR, 'rebuild.flag') )
+         touchFile( os.path.join(ARMORY_HOME_DIR, 'clearmempool.flag'))
+         touchFile( os.path.join(ARMORY_HOME_DIR, 'delsettings.flag'))
          self.accept() 
+
       elif self.rdoBitcoinDB.isChecked():
          reply = QMessageBox.warning(self, tr('Confirmation'), tr("""
             You are about to delete your settings and delete <b>all</b> 
@@ -12516,11 +12523,11 @@ class DlgFactoryReset(ArmoryDialog):
             return
 
       
-         if self.main.settings.get('ManageSatoshi'):
+         if not self.main.settings.get('ManageSatoshi'):
             # Must have user shutdown Bitcoin sw now, and delete DBs now
             reply = MsgBoxCustom(MSGBOX.Warning, tr('Restart Armory'), tr("""
-               <b>The Bitcoin software must not be running when its databases
-               are deleted!</b>  Make sure it is closed <u><b>right now</b></u>, 
+               <b>Bitcoin-Qt (or bitcoind) must be closed to do the reset!</b>  
+               Please close all Bitcoin software, <u><b>right now</b></u>, 
                before clicking "Continue".                 
                <br><br>
                Armory will now close.  Please restart Bitcoin-Qt/bitcoind 
@@ -12549,18 +12556,19 @@ class DlgFactoryReset(ArmoryDialog):
                self.reject()
                return
 
-            touchFile( os.path.join(ARMORY_HOME_DIR, 'redownload.txt') )
+            touchFile( os.path.join(ARMORY_HOME_DIR, 'redownload.flag') )
    
          #  Always flag the rebuild, and del mempool and settings
-         touchFile( os.path.join(ARMORY_HOME_DIR, 'rebuild.txt') )
-         touchFile( os.path.join(ARMORY_HOME_DIR, 'clearmempool.txt'))
-         os.remove(self.main.settingsPath) 
+         touchFile( os.path.join(ARMORY_HOME_DIR, 'rebuild.flag') )
+         touchFile( os.path.join(ARMORY_HOME_DIR, 'clearmempool.flag'))
+         touchFile( os.path.join(ARMORY_HOME_DIR, 'delsettings.flag'))
          self.accept()
          
 
    
 
 
+###
 
 
 

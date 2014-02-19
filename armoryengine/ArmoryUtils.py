@@ -324,10 +324,6 @@ if not CLI_OPTIONS.leveldbDir.lower()=='default':
       LEVELDB_DIR  = CLI_OPTIONS.leveldbDir
 
 
-# Change the settings file to use
-if CLI_OPTIONS.settingsPath.lower()=='default':
-   CLI_OPTIONS.settingsPath = os.path.join(ARMORY_HOME_DIR, 'ArmorySettings.txt')
-
 # Change the log file to use
 ARMORY_LOG_FILE = os.path.join(ARMORY_HOME_DIR, 'armorylog.txt')
 ARMCPP_LOG_FILE = os.path.join(ARMORY_HOME_DIR, 'armorycpplog.txt')
@@ -769,12 +765,14 @@ sys.excepthook = logexcept_override
 
 
 # If there is a rebuild or rescan flag, let's do the right thing.
-fileRedownload = os.path.join(ARMORY_HOME_DIR, 'redownload.txt')
-fileRebuild    = os.path.join(ARMORY_HOME_DIR, 'rebuild.txt')
-fileRescan     = os.path.join(ARMORY_HOME_DIR, 'rescan.txt')
+fileRedownload  = os.path.join(ARMORY_HOME_DIR, 'redownload.flag')
+fileRebuild     = os.path.join(ARMORY_HOME_DIR, 'rebuild.flag')
+fileRescan      = os.path.join(ARMORY_HOME_DIR, 'rescan.flag')
+fileDelSettings = os.path.join(ARMORY_HOME_DIR, 'delsettings.flag')
 
 # Flag to remove everything in Bitcoin dir except wallet.dat (if requested)
 if os.path.exists(fileRedownload):
+   # Flag to remove *BITCOIN-QT* databases so it will have to re-download
    LOGINFO('Found %s, will delete Bitcoin DBs & redownload' % fileRedownload)
 
    os.remove(fileRedownload)
@@ -788,8 +786,8 @@ if os.path.exists(fileRedownload):
    CLI_OPTIONS.redownload = True
    CLI_OPTIONS.rebuild = True
 
-# Flag to remove Armory databases so it will have to rebuild
 elif os.path.exists(fileRebuild):
+   # Flag to remove Armory databases so it will have to rebuild
    LOGINFO('Found %s, will destroy and rebuild databases' % fileRebuild)
    os.remove(fileRebuild)
 
@@ -803,6 +801,14 @@ elif os.path.exists(fileRescan):
    if os.path.exists(fileRebuild):
       os.remove(fileRebuild)
    CLI_OPTIONS.rescan = True
+
+
+# Separately, we may want to delete the settings file, which couldn't 
+# be done easily from the GUI, because it frequently gets rewritten to
+# file before shutdown is complete.  The best way is to delete it on start.
+if os.path.exists(fileDelSettings):
+   os.remove(SETTINGS_PATH)
+   os.remove(fileDelSettings)
 
 
 ################################################################################
@@ -827,8 +833,8 @@ def deleteBitcoindDBs():
             LOGINFO('   Removing file: %s' % fullPath)
             os.remove(fullPath)
 
-   if os.path.exists(os.path.join(ARMORY_HOME_DIR, 'redownload.txt')):
-      os.remove(os.path.join(ARMORY_HOME_DIR, 'redownload.txt'))
+   if os.path.exists(fileRedownload):
+      os.remove(fileRedownload)
    
 
 

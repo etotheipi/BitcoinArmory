@@ -676,6 +676,22 @@ class ArmoryMainWindow(QMainWindow):
             
    ####################################################
    def factoryReset(self):
+      """
+      reply = QMessageBox.information(self,'Factory Reset', \
+         'You are about to revert all Armory settings '
+         'to the state they were in when Armory was first installed.  '
+         '<br><br>'
+         'If you click "Yes," Armory will exit after settings are '
+         'reverted.  You will have to manually start Armory again.'
+         '<br><br>'
+         'Do you want to continue? ', \
+         QMessageBox.Yes | QMessageBox.No)
+
+      if reply==QMessageBox.Yes:
+         self.removeSettingsOnClose = True
+         self.closeForReal()
+      """
+
       if DlgFactoryReset(self,self).exec_():
          # The dialog already wrote all the flag files, just close now
          self.closeForReal()
@@ -684,7 +700,7 @@ class ArmoryMainWindow(QMainWindow):
          
    ####################################################
    def clearMemoryPool(self):
-      touchFile( os.path.join(ARMORY_HOME_DIR, 'clearmempool.txt') )
+      touchFile( os.path.join(ARMORY_HOME_DIR, 'clearmempool.flag') )
       msg = tr("""
          The next time you restart Armory, all unconfirmed transactions will
          be cleared allowing you to retry any stuck transactions.""")
@@ -705,7 +721,7 @@ class ArmoryMainWindow(QMainWindow):
          Do you wish to force a rescan on the next Armory restart?"""), \
          QMessageBox.Yes | QMessageBox.No)
       if reply==QMessageBox.Yes:
-         touchFile( os.path.join(ARMORY_HOME_DIR, 'rescan.txt') )
+         touchFile( os.path.join(ARMORY_HOME_DIR, 'rescan.flag') )
 
    ####################################################
    def rebuildNextLoad(self):
@@ -717,7 +733,7 @@ class ArmoryMainWindow(QMainWindow):
          Do you wish to force a rebuild on the next Armory restart?"""), \
          QMessageBox.Yes | QMessageBox.No)
       if reply==QMessageBox.Yes:
-         touchFile( os.path.join(ARMORY_HOME_DIR, 'rebuild.txt') )
+         touchFile( os.path.join(ARMORY_HOME_DIR, 'rebuild.flag') )
 
    ####################################################
    def loadFailedManyTimesFunc(self, nFail):
@@ -1963,9 +1979,9 @@ class ArmoryMainWindow(QMainWindow):
          self.setDashboardDetails()
          if not self.memPoolInit:
             mempoolfile = os.path.join(ARMORY_HOME_DIR,'mempool.bin')
-            clearpoolfile = os.path.join(ARMORY_HOME_DIR,'clearmempool.txt')
+            clearpoolfile = os.path.join(ARMORY_HOME_DIR,'clearmempool.flag')
             if os.path.exists(clearpoolfile):
-               LOGINFO('clearmempool.txt found.  Clearing memory pool')
+               LOGINFO('clearmempool.flag found.  Clearing memory pool')
                os.remove(clearpoolfile)
                if os.path.exists(mempoolfile):
                   os.remove(mempoolfile)
@@ -1993,6 +2009,25 @@ class ArmoryMainWindow(QMainWindow):
 
          currSyncSuccess = self.getSettingOrSetDefault("SyncSuccessCount", 0)
          self.writeSetting('SyncSuccessCount', min(currSyncSuccess+1, 10))
+
+
+         vectMissingBlks = TheBDM.missingBlockHashes()
+         LOGINFO('Missing blocks: %d', len(vectMissingBlks))
+         if len(vectMissingBlks) > 0:
+            LOGINFO('Missing blocks: %d', len(vectMissingBlks))
+            QMessageBox.critical(self, tr('Blockdata Error'), tr("""
+               Armory has detected an error in the blockchain database
+               maintained by the third-party Bitcoin software (Bitcoin-Qt
+               or bitcoind).  This error is not fatal, but may lead to 
+               incorrect balances or inability to send coins.
+               <br><br>
+               It is very unlikely that the error affects your wallets,
+               but it is still possible.  If you experience crashing,
+               or see incorrect balances on any wallets, it is strongly
+               recommended you re-download the blockchain using:
+               "<b>Help</i>"\xe2\x86\x92"<i>Factory Reset</i>"."""), \
+                QMessageBox.Ok)
+            
 
          if self.getSettingOrSetDefault('NotifyBlkFinish',True):
             reply,remember = MsgBoxWithDNAA(MSGBOX.Info, \
@@ -2634,7 +2669,7 @@ class ArmoryMainWindow(QMainWindow):
                   '<br><br>If the transaction did fail, please consider '
                   'reporting this error the the Armory '
                   'developers.  From the main window, go to '
-                  '"<b>File</b>"-->"<b>Export Log File</b>" to make a copy of your '
+                  '"<i>File</i>"\xe2\x86\x92"<i>Export Log File</i>" to make a copy of your '
                   'log file to send via email to support@bitcoinarmory.com.  ' \
                    % (searchstr,searchstr[:8]), \
                   QMessageBox.Ok)
