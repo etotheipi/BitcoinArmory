@@ -86,6 +86,10 @@ parser.add_option("--rescan",          dest="rescan",      default=False,     ac
 parser.add_option("--maxfiles",        dest="maxOpenFiles",default=0,         type="int",          help="Set maximum allowed open files for LevelDB databases")
 #parser.add_option("--rebuildwithblocksize", dest="newBlockSize",default='32kB', type="str",          help="Rebuild databases with new blocksize")
 
+# Pre-10.9 OS X sometimes passes a process serial number as -psn_0_xxxxxx. Nuke!
+if sys.platform == 'darwin':
+   parser.add_option('-p', '--psn')
+
 # These are arguments passed by running unit-tests that need to be handled
 parser.add_option("--port", dest="port", default=None, type="int", help="Unit Test Argument - Do not consume")
 parser.add_option("--verbosity", dest="verbosity", default=None, type="int", help="Unit Test Argument - Do not consume")
@@ -775,7 +779,7 @@ fileRescan     = os.path.join(ARMORY_HOME_DIR, 'rescan.txt')
 
 # Flag to remove everything in Bitcoin dir except wallet.dat (if requested)
 if os.path.exists(fileRedownload):
-   LOGINFO('Found %s, will destroy and rebuild databases' % fileRebuild)
+   LOGINFO('Found %s, will delete Bitcoin DBs & redownload' % fileRedownload)
 
    os.remove(fileRedownload)
 
@@ -805,8 +809,8 @@ elif os.path.exists(fileRescan):
    CLI_OPTIONS.rescan = True
 
 
-#####
-if CLI_OPTIONS.redownload:
+################################################################################
+def deleteBitcoindDBs():
    if not os.path.exists(BTC_HOME_DIR):
       LOGERROR('Could not find Bitcoin-Qt/bitcoind home dir to remove blk data')
       LOGERROR('  Does not exist: %s' % BTC_HOME_DIR)
@@ -827,11 +831,22 @@ if CLI_OPTIONS.redownload:
             LOGINFO('   Removing file: %s' % fullPath)
             os.remove(fullPath)
 
+   if os.path.exists(os.path.join(ARMORY_HOME_DIR, 'redownload.txt')):
+      os.remove(os.path.join(ARMORY_HOME_DIR, 'redownload.txt'))
+   
+
+
+#####
+if CLI_OPTIONS.redownload:
+   deleteBitcoindDBs()
+
 #####
 if CLI_OPTIONS.rebuild and os.path.exists(LEVELDB_DIR):
    LOGINFO('Found existing databases dir; removing before rebuild')
    shutil.rmtree(LEVELDB_DIR)
    os.mkdir(LEVELDB_DIR)
+
+
 
    
 
@@ -3130,4 +3145,3 @@ def touchFile(fname):
       f.flush()
       os.fsync(f.fileno())
       f.close()
-

@@ -98,7 +98,6 @@ class ArmoryMainWindow(QMainWindow):
       self.newZeroConfSinceLastUpdate = []
       self.lastBDMState = ['Uninitialized', None]
       self.lastSDMState = 'Uninitialized'
-      self.removeSettingsOnClose = False
       self.doShutdown = False
       self.downloadDict = {}
       self.notAvailErrorCount = 0
@@ -677,24 +676,8 @@ class ArmoryMainWindow(QMainWindow):
             
    ####################################################
    def factoryReset(self):
-      """
-      reply = QMessageBox.information(self,'Factory Reset', \
-         'You are about to revert all Armory settings '
-         'to the state they were in when Armory was first installed.  '
-         '<br><br>'
-         'If you click "Yes," Armory will exit after settings are '
-         'reverted.  You will have to manually start Armory again.'
-         '<br><br>'
-         'Do you want to continue? ', \
-         QMessageBox.Yes | QMessageBox.No)
-
-      if reply==QMessageBox.Yes:
-         self.removeSettingsOnClose = True
-         self.closeForReal()
-      """
-
       if DlgFactoryReset(self,self).exec_():
-         self.removeSettingsOnClose = True
+         # The dialog already wrote all the flag files, just close now
          self.closeForReal()
 
 
@@ -936,6 +919,9 @@ class ArmoryMainWindow(QMainWindow):
       Setup Armory as the default application for handling bitcoin: links
       """
       LOGINFO('setupUriRegistration')
+
+      if USE_TESTNET:
+         return
 
       if OS_LINUX:
          out,err = execAndWait('gconftool-2 --get /desktop/gnome/url-handlers/bitcoin/command')
@@ -1846,11 +1832,17 @@ class ArmoryMainWindow(QMainWindow):
       
 
    #############################################################################
-   def getFileLoad(self, title='Load Wallet File', ffilter=['Wallet files (*.wallet)']):
+   def getFileLoad(self, title='Load Wallet File', \
+                         ffilter=['Wallet files (*.wallet)'], \
+                         defaultDir=None):
+
       LOGDEBUG('getFileLoad')
-      lastDir = self.settings.get('LastDirectory')
-      if len(lastDir)==0 or not os.path.exists(lastDir):
-         lastDir = ARMORY_HOME_DIR
+
+      if defaultDir is None:
+         defaultDir = self.settings.get('LastDirectory')
+         if len(defaultDir)==0 or not os.path.exists(defaultDir):
+            defaultDir = ARMORY_HOME_DIR
+
 
       types = list(ffilter)
       types.append(tr('All files (*)'))
@@ -1859,9 +1851,9 @@ class ArmoryMainWindow(QMainWindow):
       # User picobit discovered this is avoided if you use the Qt dialogs, instead 
       # of the native OS dialogs.  Use native for all except OSX...
       if not OS_MACOSX:
-         fullPath = unicode(QFileDialog.getOpenFileName(self, title, lastDir, typesStr))
+         fullPath = unicode(QFileDialog.getOpenFileName(self, title, defaultDir, typesStr))
       else:
-         fullPath = unicode(QFileDialog.getOpenFileName(self, title, lastDir, typesStr, \
+         fullPath = unicode(QFileDialog.getOpenFileName(self, title, defaultDir, typesStr, \
                                              options=QFileDialog.DontUseNativeDialog))
 
       self.writeSetting('LastDirectory', os.path.split(fullPath)[0])
@@ -4940,18 +4932,6 @@ class ArmoryMainWindow(QMainWindow):
 
          # This will do nothing if bitcoind isn't running.  
          TheSDM.stopBitcoind()
-      except:
-         # Don't want a strange error here interrupt shutdown 
-         LOGEXCEPT('Strange error during shutdown')
-
-      try:
-         if self.removeSettingsOnClose:
-            # Remove settings and memory pool.  
-            # All reset flag files should already be touched
-            os.remove(self.settingsPath) 
-            mempoolfile = os.path.join(ARMORY_HOME_DIR, 'mempool.bin')
-            if os.path.exists(mempoolfile):
-               os.remove(mempoolfile)
       except:
          # Don't want a strange error here interrupt shutdown 
          LOGEXCEPT('Strange error during shutdown')
