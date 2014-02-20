@@ -41,16 +41,24 @@ class AtomicInt32
 		}
 
 		bool AtomicInt32::operator!=(int32_t in)
-		{
-         if(this->i!=in) return true;
-			return false;
+	   {
+         return in - this->i;  
 		}
 
   		bool AtomicInt32::operator==(int32_t in)
 		{
-         if(this->i==in) return true;
-			return false;
+         return !(in - this->i);
 		}
+
+      bool AtomicInt32::operator>(int32_t in)
+      {
+         return this->i > in;
+      }
+
+      bool AtomicInt32::operator<(int32_t in)
+      {
+         return this->i < in;
+      }
 
       int32_t Fetch_Or(int32_t r)
       {
@@ -111,18 +119,6 @@ class AtomicInt32
 			return *this;
 		}
 
-		bool operator!=(int32_t in)
-		{
-         if(this->i!=in) return true;
-			return false;
-		}
-
-  		bool operator==(int32_t in)
-		{
-         if(this->i==in) return true;
-			return false;
-		}
-
       int32_t Fetch_Or(int32_t r)
       {
          return i.fetch_or(r);
@@ -132,6 +128,33 @@ class AtomicInt32
       {
          return i.fetch_add(r); 
       }
+
+		bool operator!=(int32_t in)
+	   {
+         return in - this->i;  
+		}
+
+  		bool operator==(int32_t in)
+		{
+         return !(in - this->i);
+		}
+
+      bool operator>(int32_t in)
+      {
+         return this->i > in;
+      }
+
+      bool operator<(int32_t in)
+      {
+         return this->i < in;
+      }
+
+      bool operator>=(int32_t in)
+      {  
+         return this->i >= in;
+      }
+
+      int32_t Get() { return i; }
 };
 
 

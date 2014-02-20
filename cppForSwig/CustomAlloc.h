@@ -2,6 +2,7 @@
 #define CUSTOMALLOC
    
 #include "AtomicInt32.h"
+#include "log.h"
 
 #ifdef _MSC_VER
    #include <windows.h>
@@ -35,6 +36,11 @@ namespace CustomAlloc
             position = p;
             size = s;
 				end = position +s;
+         }
+
+         Gap()
+         {
+            memset(this, 0, sizeof(Gap));
          }
 
 			Gap& operator=(const Gap& rhs)
@@ -75,8 +81,10 @@ namespace CustomAlloc
 		   static const int BHstep = 50;
 		   unsigned int totalBH;
 		   void *pool;
+         int *bhorder;
 
-         int ngaps, total_ngaps;
+         unsigned int ngaps; 
+         unsigned int total_ngaps;
          Gap *gaps;
          AtomicInt32 acquireGap;
       
@@ -86,20 +94,19 @@ namespace CustomAlloc
          void ExtendGap();
 
          static AtomicInt32 lock;
-         int passedQuota;
-
 			unsigned int nBH;
 
       public:
          size_t reserved;
 		   BufferHeader **BH;
-		   static const size_t memsize; //multiple of system page size
+		   static const size_t memsize;
 		   size_t total;
-         size_t freemem;
+         AtomicInt32 freemem;
 		   AtomicInt32 lockpool;
 		   byte defrag;
          void *ref;
-       
+         int passedQuota;
+
          void Alloc(size_t size);
          static const int size_of_ptr = sizeof(void*);
          
@@ -119,6 +126,7 @@ namespace CustomAlloc
             ngaps = total_ngaps = 0;
             gaps = 0;
             passedQuota = 0;
+            bhorder = 0;
 		   }
 
 		   ~MemPool()
@@ -134,6 +142,7 @@ namespace CustomAlloc
             }
 
             if(gaps) free(gaps);
+            free(bhorder);
 		   }
 
          void AddGap(BufferHeader *bh);
@@ -148,20 +157,19 @@ namespace CustomAlloc
 	   /*** allocates and recycles memory used to hold transactions' raw data
 	   ***/
 	   private:
-		   unsigned int *order, *order2, *otmp, otmpS;
+		   unsigned int *order, *order2;
 			unsigned int *pool_height, *pool_height2;
 		
-         MemPool **MP;
+         MemPool **MP, **MP2;
          MemPool **poolbatch;
-		   unsigned int npools, total, nbatch;
+		   unsigned int npools, nbatch;
          int canlock;
 
 		   static const int poolstep = 10;
 		   static const int max_fetch = 10;
 
-		   AtomicInt32 ab, ordering, clearpool;
+		   AtomicInt32 ab, clearpool;
 		   AtomicInt32 orderlvl, bufferfetch;
-		   AtomicInt32 getpoolflag;
 
   		   BufferHeader *GetBuffer(unsigned int size, unsigned int *sema);
          void ExtendPool(unsigned int step);
@@ -172,14 +180,12 @@ namespace CustomAlloc
 		
 		   CustomAllocator()
 		   {
-			   MP=0;
-			   otmp=0; otmpS=0;
-			   npools=total=0;
+			   MP=MP2=0;
+			   npools=0;
 			   order=order2=0;
-			   ab=ordering=0;
 			   orderlvl=0;
-			   getpoolflag=0;
 			   bufferfetch=0;
+            ab=0;
             clearpool=0;
             poolbatch=0;
             nbatch=0;
@@ -206,7 +212,9 @@ namespace CustomAlloc
                  MP[r]->Alloc(sz * pageSize);
 
                canlock = 0;
-				}	
+               LOGERR << "Lacking privileges to set mlock ceiling";
+				}
+            else LOGINFO << "mlock ceiling raised";
 		   }
 
 		   ~CustomAllocator()
@@ -215,8 +223,7 @@ namespace CustomAlloc
                delete[] poolbatch[i];
 
             free(poolbatch);
-			   free(MP);
-			   free(otmp);
+			   free(MP); free(MP2);
 			   free(order);
 			   free(order2);
 				free(pool_height);

@@ -20,7 +20,6 @@ namespace CustomAlloc
       size_t pageSize = getPageSize();
       size_t target = 512*1024;
 
-
       if(pageSize < target)
       {
          int mult = target / pageSize +1;
@@ -78,7 +77,8 @@ namespace CustomAlloc
       rlm.rlim_cur = mintop * pageSize;
       rlm.rlim_max = mintop * pageSize;
 
-      if(setrlimit(RLIMIT_MEMLOCK, &rlm)) soft_limit;
+      if(setrlimit(RLIMIT_MEMLOCK, &rlm)) rt = soft_limit;
+      getrlimit(RLIMIT_MEMLOCK, &rlm);
    #endif
 
       return rt;
@@ -126,14 +126,17 @@ namespace CustomAlloc
 				totalBH+=BHstep;
 				BufferHeader **bht;
 
-				while(!(bht = (BufferHeader**)malloc(sizeof(BufferHeader*)*totalBH)));
-				while(!(bhtmp = (BufferHeader*)malloc(sizeof(BufferHeader)*BHstep)));
-				memcpy(bht, BH, sizeof(BufferHeader*)*nBH);
+				while(!(bht=(BufferHeader**)malloc(sizeof(BufferHeader*)*totalBH)));
+				while(!(bhtmp=(BufferHeader*)malloc(sizeof(BufferHeader)*BHstep)));				
+            memcpy(bht, BH, sizeof(BufferHeader*)*nBH);
 				for(i=0; i<BHstep; i++)
 					bht[nBH+i] = bhtmp +i;
 
 				free(BH);
 				BH = bht;
+
+            free(bhorder);
+            while(!(bhorder=(int*)malloc(sizeof(int)*totalBH)));
 			}
 
 			bhtmp = BH[nBH];
@@ -173,8 +176,8 @@ namespace CustomAlloc
          munlock(pool, total);
          
 		free(pool);
+      pool=0;
 		passedQuota=0;
-
 
       total=0;
       reserved=0;
@@ -193,75 +196,14 @@ namespace CustomAlloc
 
    void MemPool::AddGap(BufferHeader *bh)
    {
-      while(acquireGap.Fetch_Or(1));
-
-      if((size_t)bh->offset - (size_t)pool +bh->size -size_of_ptr == reserved)
-		{
-         reserved -= bh->size;
-			size_t respos = (size_t)pool + reserved;
-			for(int g=0; g<ngaps; g++)
-			{
-				if(gaps[g].end==respos)
-				{
-					reserved -= gaps[g].size;
-					gaps[g] = gaps[ngaps-1];
-					ngaps--;
-					break;
-				}
-			}
-		}
-      else
-      {
-			int bf = -1, af = -1, g=0;
-			size_t bhend = (size_t)bh->offset + bh->size -size_of_ptr;
-			size_t bhstart = (size_t)bh->offset -size_of_ptr;
-
-			for(g; g<ngaps; g++)
-			{
-				if(gaps[g].end==bhstart)
-				{
-					bf = g;
-					if(af>-1) break;
-				}
-				else if(gaps[g].position==bhend)
-				{
-					af = g;
-					if(bf>-1) break;
-				}
-			}
-
-			if(bf>-1)
-			{
-				gaps[bf].end = bhend;
-
-				if(af>-1)
-				{
-					gaps[bf].end = gaps[af].end;
-					gaps[bf].size = gaps[bf].end - gaps[bf].position;
-					
-					gaps[af] = gaps[ngaps-1];
-					ngaps--;
-				}
-				else gaps[bf].size += bh->size;
-			}
-			else if(af>-1)
-			{
-				gaps[af].position = bhstart;
-				gaps[af].size += bh->size;
-			}
-			else
-			{
-				if(ngaps == total_ngaps) ExtendGap();
+      if(acquireGap.Fetch_Or(1)) return;
+      if(ngaps >= total_ngaps) ExtendGap();
       
-				gaps[ngaps].position = bhstart;
-				gaps[ngaps].size = bh->size;
-				gaps[ngaps].end = bhend;
+		gaps[ngaps].position = (size_t)bh->offset - size_of_ptr;
+		gaps[ngaps].size = bh->size;
+		gaps[ngaps].end = (size_t)bh->offset + bh->size - size_of_ptr;
 
-				ngaps++;
-			}
-      }
-
-      freemem += bh->size;
+      ngaps++;
 
       acquireGap = 0;
    }
@@ -269,20 +211,81 @@ namespace CustomAlloc
    int MemPool::GetGap(size_t size)
    {
       int offset = 0;
-      while(acquireGap.Fetch_Or(1));
 
-      int i, g=-1;
+      int i, g=-3, t, f;
       Gap lgap(0, total);
    
-      for(i=0; i<ngaps; i++)
+      while(g<-1 && ngaps)
       {
-         if(gaps[i].size>=size && gaps[i].size<lgap.size)
+         if(g==-2)
          {
-            lgap = gaps[i];
-            g = i;
+            f=0;
+            if(nBH>0)
+               int rrt = 0;
 
-				if(lgap.size==size) break;
+            for(i=0; i<nBH; i++)
+            {
+               if(BH[i]->linuse)
+                  bhorder[f++] = i;
+            }
+
+            t=f;
+            while(t)
+            {
+               t = 0;
+               for(i=1; i<f; i++)
+               {
+                  if(BH[bhorder[i-1]]->offset>BH[bhorder[i]]->offset)
+                  {
+                     t = bhorder[i];
+                     bhorder[i] = bhorder[i-1];
+                     bhorder[i-1] = t;
+
+                     t = 1; 
+                  }
+               }
+            }
+
+            size_t bpos  = (size_t)pool;
+
+            while(acquireGap.Fetch_Or(1));
+            ngaps = 0;
+
+            for(i=0; i<f; i++)
+            {
+               if(((size_t)BH[bhorder[i]]->offset - size_of_ptr) != bpos)
+               {
+                  //add a gap
+                  if(ngaps >= total_ngaps) ExtendGap();
+                  gaps[ngaps].position = bpos;
+                  gaps[ngaps].end = (size_t)BH[bhorder[i]]->offset -size_of_ptr;
+
+                  gaps[ngaps].size = gaps[ngaps].end - gaps[ngaps].position;
+                  ngaps++;
+               }
+
+               bpos = (size_t)BH[bhorder[i]]->offset +BH[bhorder[i]]->size -\
+                      size_of_ptr;   
+            } 
+            
+            acquireGap = 0;
+            reserved = bpos - (size_t)pool;  
          }
+
+         for(i=0; i<ngaps; i++)
+         {
+            if(gaps[i].size>=size && gaps[i].size<lgap.size)
+            {
+               lgap = gaps[i];
+               g = i-1;
+
+				   if(lgap.size==size) break;
+            }
+         }
+
+         g++;
+
+         if(total - reserved > size) break;
       }
 
       if(g>-1)
@@ -296,9 +299,7 @@ namespace CustomAlloc
          }
          else
          {
-            gaps[g].reset();
-            memcpy(gaps +g, gaps +g+1, sizeof(Gap)*(ngaps -g -1));
-            ngaps--;
+            gaps[g].reset(); 
          }
       }
       else 
@@ -312,33 +313,31 @@ namespace CustomAlloc
          offset = 0;
          reserved -= size;
       }
-      else freemem -= size;
-
-      acquireGap = 0;
+      else freemem.Fetch_Add(-size);
 
       return offset;
    }
 		
-   BufferHeader* MemPool::GetBuffer(unsigned int size, unsigned int *sema) //needs fixing
+   BufferHeader* MemPool::GetBuffer(unsigned int size, unsigned int *sema)
    {
-      size+=size_of_ptr; //extra bytes to point at the bh
-
-	   if(lockpool.Fetch_Or(1)) return 0; //pools are meant to function as single threaded
+	   if(lockpool.Fetch_Or(1)) return 0;
+ 
+      size+=size_of_ptr; 
 	   if(!total) 
 	   {
 		   if(size<memsize) Alloc(memsize);
 		   else Alloc(size);
 	   }
-	   else if(size>freemem) 
+	   else if(freemem<size) 
 	   {
-		   lockpool = 0;
+		   lockpool--;
 		   return 0;
 	   }
 
       int offset = GetGap(size);
 	   if(!offset)
       {
-    	   lockpool = 0;
+    	   lockpool--;
          return 0;
       }
 
@@ -346,7 +345,7 @@ namespace CustomAlloc
 
       if(!bhtmp) 
       {
-         lockpool = 0;
+         lockpool--;
          return 0;
       }
 
@@ -355,7 +354,7 @@ namespace CustomAlloc
 
 	   if(sema) bhtmp->pinuse=sema;
 	   bhtmp->move = 0;
-	   lockpool = 0;
+	   lockpool--;
 	   return bhtmp;
    }
 
@@ -368,14 +367,14 @@ namespace CustomAlloc
 
    void CustomAllocator::customFree(void *buffer)
    {
-      //Nulls a buffer previously allocated by customAlloc and marks it as unused
-      //frees empty pools
-      BufferHeader *bh = (BufferHeader*)*(size_t*)((size_t)buffer -MemPool::size_of_ptr);
+      BufferHeader *bh = (BufferHeader*)*(size_t*) \
+                         ((size_t)buffer -MemPool::size_of_ptr);
       if(bh->linuse==1)
       {
          memset(bh->offset, 0, bh->size-MemPool::size_of_ptr);
          MemPool *mp = (MemPool*)bh->ref;
          mp->AddGap(bh);
+         mp->freemem.Fetch_Add(bh->size);
          bh->offset = 0;
          *(bh->pinuse) = 0;
 
@@ -387,57 +386,34 @@ namespace CustomAlloc
       }
    }
 
-   BufferHeader* CustomAllocator::GetBuffer(unsigned int size, unsigned int *sema)
+   BufferHeader* CustomAllocator::GetBuffer(unsigned int size, 
+                                            unsigned int *sema)
    {
-	   /*** set new lock system here ***/
-
 	   unsigned int i;
 	   MemPool *mp;
 	   BufferHeader *bh;
 			
 	   fetchloop:
-	   if(clearpool==0) getpoolflag++;
-      else goto waithere;
    
       while((i=bufferfetch.Fetch_Add(1))<npools)
 	   {
 		   mp = MP[order[i]];
 
-		   if(!mp->total || mp->freemem>=size<mp->total) //look for available size
+		   if(!mp->total || mp->freemem.Get() + size < mp->total) 
 		   {
-	         getpoolflag--;
 			   bh = mp->GetBuffer(size, sema);
 			   if(bh)
 			   {
 				   bufferfetch = 0;
-				   //UpdateOrder(order[i]);
 				   return bh;
-            }
-			   else 
-            {
-               UpdateOrder(order[i]);
-               if(clearpool==0) getpoolflag++;
-               else goto waithere;
-            }
-		   }
+            } 
+            UpdateOrder(order[i]);
+         }
 	   }
-						
-	   getpoolflag--;
-
-	   //either all pools are locked or they're full, add a new batch of pools
-      while(getpoolflag!=0);
-
-
-      if(!ab.Fetch_Or(1))
-	   {
-		   bufferfetch = npools;
-		   ExtendPool(poolstep);
-		   bufferfetch = 0;
-		   ab = 0;
-	   }
-
-      waithere:
-	   while(ab!=0);
+		
+      bufferfetch = 0;				
+      ExtendPool(poolstep);
+		   
 	   goto fetchloop;
    }
 
@@ -447,55 +423,66 @@ namespace CustomAlloc
 	   
 		if(orderlvl.Fetch_Add(1)==poolstep*2)
 	   {
-		   while(ab!=0); //extendpool lock
-		   ordering = 1;
-				
-		   unsigned int *ordtmp;
-
-			unsigned int g=1, t;
-			memcpy(order2, order, sizeof(int)*total);
+ 			unsigned int g=1, t;
+			
 			while(g)
 			{
 				g=0;
-				for(t=1; t<total; t++)
+				for(t=1; t<npools; t++)
 				{
-					if(pool_height[order2[t-1]] > pool_height[order2[t]])
+					if(pool_height[order[t-1]] > pool_height[order[t]])
 					{
-						g = order2[t-1];
-						order2[t-1] = order2[t];
-						order2[t] = g;
+						g = order[t-1];
+						order[t-1] = order[t];
+						order[t] = g;
 
 						g = 1;
 					}
 				}
 			}
 				
-		   ordtmp = order;
-		   order = order2;
-		   order2 = ordtmp;
-				
-		   orderlvl = 0;
-		   ordering = 0;
+         orderlvl = 0;
 	   }
    }
 
    void CustomAllocator::ExtendPool(unsigned int step)
    {
-	   while(ordering!=0); //updateorder lock
+      if(ab.Fetch_Or(1)) return;
 
-	   unsigned int F, I;
-      int T;
-	   unsigned int S = npools +step;
+	   unsigned int I;
+      int T, F;
+	   int S = npools +step -clearpool.Get();
 
-      T = S - total;
+      T = step - clearpool.Get();
+      F = clearpool.Get();
+      if((int)step<F) F = step;
+      
+      if(F>-1)
+      {
+         clearpool.Fetch_Add(-F);         
+
+         for(I=0; I<npools; I++)
+         {
+            if(MP[I]->lockpool>1)
+            {
+               MP[I]->lockpool.Fetch_Add(-2);
+               F--;
+
+               if(!F) break;
+            }
+         }
+      }
+
       if(T>0) 
       {
-	      MemPool **mptmp = (MemPool**)malloc(sizeof(MemPool*)*S);
-	      memcpy(mptmp, MP, sizeof(MemPool*)*total);
+         free(MP2);
+	      MP2 = (MemPool**)malloc(sizeof(MemPool*)*S);
+	      memcpy(MP2, MP, sizeof(MemPool*)*npools);
 
-	      unsigned int *ordtmp = order2;
+	      free(order2);
 	      order2 = (unsigned int*)malloc(sizeof(int)*S);
-	      memcpy(order2 +T, order, sizeof(int)*total);
+	      for(I=0; I<npools; I++)
+            order2[I+T] = I;
 			
 	      MemPool **mptmp2 = MP;
 	      MemPool *mptmp3 = new MemPool[T];
@@ -512,69 +499,38 @@ namespace CustomAlloc
 			pool_height = pool_height2;
 			pool_height2 = phtmp;
 
-	      for(I=total; I<S; I++)
+	      for(I=npools; I<S; I++)
 	      {
-		      F = I-total;
-		      mptmp[I] = &mptmp3[F];
-            mptmp[I]->ref = this;
+		      F = I-npools;
+		      MP2[I] = &mptmp3[F];
+            MP2[I]->ref = this;
 		      order2[F] = I;
-
-				int efg=0;
 	      }
 
-	      orderlvl=0;
-   
-         MP = mptmp;
+	      MP = MP2;
+         MP2 = mptmp2;
 
-	      free(ordtmp);
-	      ordtmp = order;
+	      unsigned int *ordtmp = order;
 	      order = order2;
-			
-	      order2 = (unsigned int*)malloc(sizeof(int)*S);
-	      free(ordtmp);
-	      free(mptmp2);
-   
-         total = S;
+         order2 = ordtmp;
+
+   	   npools = S;
       }
 
-	   npools = S;
+	   ab = 0;
    }
 
    void CustomAllocator::FreePool(MemPool *pool)
    {
-      unsigned int i=0;
-            
-		while(ab.Fetch_Or(1));
+      unsigned int i = pool->lockpool.Fetch_Or(2);             
+      
+      if(i<2) clearpool++;
 
-      clearpool = 1;
-
-      while(ordering!=0);
-      while(getpoolflag!=0);
-   
-      for(i; i<npools; i++)
+      if(!(i % 2))
       {
-         if(pool->GetPool()==MP[order[i]]->GetPool())
-         {
-            if(pool->freemem==pool->total)
-            {
-               MP[order[i]]->Free();
-                  
-               unsigned int iswap = order[i];
-               order[i] = order[npools-1];
-               order[npools-1] = iswap;
-
-               npools--;
-            }
-
-            clearpool = 0;
-            ab = 0;
-
-            return;
-         }
+         if(canlock || !pool->passedQuota)
+            pool->Free();
       }
-
-		clearpool = 0;
-      ab = 0;
    }
 		
    void CustomAllocator::FillRate()
@@ -584,7 +540,7 @@ namespace CustomAlloc
       //ld: low density
 	   float c;
    
-	   for(i=0; i<npools; i++)
+	   /*for(i=0; i<npools; i++)
 	   {
 		   c = (float)MP[i]->freemem/(float)MP[i]->total;
 		   if(c<=0.2f) hd++;
@@ -594,7 +550,7 @@ namespace CustomAlloc
 	   }
 
 	   float fhd = (float)hd/(float)npools;
-	   float fld = (float)ld/(float)npools;
+	   float fld = (float)ld/(float)npools;*/
    }
 
    CustomAllocator CAllocStatic::CA;
