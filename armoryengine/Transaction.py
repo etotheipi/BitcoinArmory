@@ -1631,7 +1631,7 @@ def getUnspentTxOutsForAddr160List(addr160List, utxoType='Sweep', startBlk=-1, \
       if utxoType.lower() in ('sweep','unspent','full','all','ultimate'):
          return cppWlt.getFullTxOutList(currBlk)
       elif utxoType.lower() in ('spend','spendable','confirmed'):
-         return cppWlt.getSpendableTxOutList(currBlk)
+         return cppWlt.getSpendableTxOutList(currBlk, IGNOREZC)
       else:
          raise TypeError, 'Unknown utxoType!'
    else:

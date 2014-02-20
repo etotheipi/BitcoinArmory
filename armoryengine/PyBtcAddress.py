@@ -1018,7 +1018,7 @@ class PyBtcAddress(object):
          TheBDM.scanBlockchainForTx(cppWlt, wait=True)
 
          utxoList = cppWlt.getUnspentTxOutList()
-         bal = cppWlt.getSpendableBalance(-1)
+         bal = cppWlt.getSpendableBalance(-1, IGNOREZC)
          return (bal, utxoList)
       else:
          return (-1, [])

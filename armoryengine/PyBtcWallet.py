@@ -366,15 +366,20 @@ class PyBtcWallet(object):
 
 
    #############################################################################
+   # The IGNOREZC args on the get*Balance calls determine whether unconfirmed
+   # change (sent-to-self) will be considered spendable or unconfirmed.  This
+   # was added after the malleability issues cropped up in Feb 2014.  Zero-conf
+   # change was always deprioritized, but using --nospendzeroconfchange makes
+   # it totally unspendable
    def getBalance(self, balType="Spendable"):
       if not TheBDM.getBDMState()=='BlockchainReady' and not self.calledFromBDM:
          return -1
       else:
          currBlk = TheBDM.getTopBlockHeight(calledFromBDM=self.calledFromBDM)
          if balType.lower() in ('spendable','spend'):
-            return self.cppWallet.getSpendableBalance(currBlk)
+            return self.cppWallet.getSpendableBalance(currBlk, IGNOREZC)
          elif balType.lower() in ('unconfirmed','unconf'):
-            return self.cppWallet.getUnconfirmedBalance(currBlk)
+            return self.cppWallet.getUnconfirmedBalance(currBlk, IGNOREZC)
          elif balType.lower() in ('total','ultimate','unspent','full'):
             return self.cppWallet.getFullBalance()
          else:
@@ -389,9 +394,9 @@ class PyBtcWallet(object):
       else:
          addr = self.cppWallet.getScrAddrObjByKey(Hash160ToScrAddr(addr160))
          if balType.lower() in ('spendable','spend'):
-            return addr.getSpendableBalance(currBlk)
+            return addr.getSpendableBalance(currBlk, IGNOREZC)
          elif balType.lower() in ('unconfirmed','unconf'):
-            return addr.getUnconfirmedBalance(currBlk)
+            return addr.getUnconfirmedBalance(currBlk, IGNOREZC)
          elif balType.lower() in ('ultimate','unspent','full'):
             return addr.getFullBalance()
          else:
@@ -456,7 +461,7 @@ class PyBtcWallet(object):
          currBlk = TheBDM.getTopBlockHeight(calledFromBDM=self.calledFromBDM)
          self.syncWithBlockchain()
          if txType.lower() in ('spend', 'spendable'):
-            return self.cppWallet.getSpendableTxOutList(currBlk);
+            return self.cppWallet.getSpendableTxOutList(currBlk, IGNOREZC);
          elif txType.lower() in ('full', 'all', 'unspent', 'ultimate'):
             return self.cppWallet.getFullTxOutList(currBlk);
          else:
@@ -477,7 +482,7 @@ class PyBtcWallet(object):
          scrAddrStr = Hash160ToScrAddr(addr160)
          cppAddr = self.cppWallet.getScrAddrObjByKey(scrAddrStr)
          if txType.lower() in ('spend', 'spendable'):
-            return cppAddr.getSpendableTxOutList(currBlk);
+            return cppAddr.getSpendableTxOutList(currBlk, IGNOREZC);
          elif txType.lower() in ('full', 'all', 'unspent', 'ultimate'):
             return cppAddr.getFullTxOutList(currBlk);
          else:

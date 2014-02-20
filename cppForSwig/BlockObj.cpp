@@ -1032,7 +1032,7 @@ bool TxIOPair::isUnspent(void)
 }
 
 //////////////////////////////////////////////////////////////////////////////
-bool TxIOPair::isSpendable(uint32_t currBlk)
+bool TxIOPair::isSpendable(uint32_t currBlk, bool ignoreAllZeroConf)
 { 
    // Spendable TxOuts are ones with at least 1 confirmation, or zero-conf
    // TxOuts that were sent-to-self.  Obviously, they should be unspent, too
@@ -1049,13 +1049,13 @@ bool TxIOPair::isSpendable(uint32_t currBlk)
    }
 
    if( hasTxOutZC() && isTxOutFromSelf() )
-      return true;
+      return !ignoreAllZeroConf;
 
    return false;
 }
 
 //////////////////////////////////////////////////////////////////////////////
-bool TxIOPair::isMineButUnconfirmed(uint32_t currBlk)
+bool TxIOPair::isMineButUnconfirmed(uint32_t currBlk, bool inclAllZC)
 {
    // All TxOuts that were from our own transactions are always confirmed
    if(isTxOutFromSelf())
@@ -1072,8 +1072,7 @@ bool TxIOPair::isMineButUnconfirmed(uint32_t currBlk)
       else 
          return (nConf<MIN_CONFIRMATIONS);
    }
-
-   else if( hasTxOutZC() && !isTxOutFromSelf() )
+   else if( hasTxOutZC() && (!isTxOutFromSelf() || inclAllZC))
       return true;
 
 

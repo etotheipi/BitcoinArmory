@@ -283,10 +283,13 @@ public:
    // the Utxos in the list.  If you don't care (i.e. you only want to 
    // know what TxOuts are available to spend, you can pass in 0 for currBlk
    uint64_t getFullBalance(void);
-   uint64_t getSpendableBalance(uint32_t currBlk=0);
-   uint64_t getUnconfirmedBalance(uint32_t currBlk);
+   uint64_t getSpendableBalance(uint32_t currBlk=0, 
+                                bool ignoreAllZeroConf=false);
+   uint64_t getUnconfirmedBalance(uint32_t currBlk, 
+                                  bool includeAllZeroConf=false);
    vector<UnspentTxOut> getFullTxOutList(uint32_t currBlk=0);
-   vector<UnspentTxOut> getSpendableTxOutList(uint32_t currBlk=0);
+   vector<UnspentTxOut> getSpendableTxOutList(uint32_t currBlk=0, 
+                                              bool ignoreAllZeroConf=false);
    void clearZeroConfPool(void);
 
 
@@ -407,10 +410,13 @@ public:
    // the Utxos in the list.  If you don't care (i.e. you only want to 
    // know what TxOuts are available to spend, you can pass in 0 for currBlk
    uint64_t getFullBalance(void);
-   uint64_t getSpendableBalance(uint32_t currBlk=0);
-   uint64_t getUnconfirmedBalance(uint32_t currBlk);
+   uint64_t getSpendableBalance(uint32_t currBlk=0, 
+                                bool ignoreAllZeroConf=false);
+   uint64_t getUnconfirmedBalance(uint32_t currBlk,
+                                  bool includeAllZeroConf=false);
    vector<UnspentTxOut> getFullTxOutList(uint32_t currBlk=0);
-   vector<UnspentTxOut> getSpendableTxOutList(uint32_t currBlk=0);
+   vector<UnspentTxOut> getSpendableTxOutList(uint32_t currBlk=0,
+                                              bool ignoreAllZeroConf=false);
    void clearZeroConfPool(void);
 
    
@@ -619,6 +625,7 @@ private:
    // list of blocks whose contents are invalid but we have
    // their headers
    vector<BinaryData>                 missingBlockHashes_;
+
    
    // TODO: We eventually want to maintain some kind of master TxIO map, instead
    // of storing them in the individual wallets.  With the new DB, it makes more
