@@ -470,6 +470,12 @@ class DlgBugReport(ArmoryDialog):
       self.lblEmail = QRichLabel(tr('Email Address:'))
       self.edtEmail = QLineEdit()
       self.edtEmail.setMaxLength(100)
+
+      self.lblSubject = QRichLabel(tr('Subject:'))
+      self.edtSubject = QLineEdit()
+      self.edtSubject.setMaxLength(64)
+      self.edtSubject.setText("Bug Report")
+
       self.txtDescr = QTextEdit()
       self.txtDescr.setFont(GETFONT('Fixed', 9))
       w,h = tightSizeNChar(self, 80)
@@ -516,6 +522,13 @@ class DlgBugReport(ArmoryDialog):
       layout.addWidget(self.edtEmail,    i,1, 1,1)
 
       i += 1
+      layout.addWidget(self.lblSubject,  i,0, 1,1)
+      layout.addWidget(self.edtSubject,  i,1, 1,1)
+
+      i += 1
+      layout.addWidget(QLabel(tr("Description of problem:")),    i,0, 1,2)
+
+      i += 1
       layout.addWidget(self.txtDescr,    i,0, 1,2)
 
       i += 1
@@ -536,6 +549,9 @@ class DlgBugReport(ArmoryDialog):
    def submitReport(self):
       emailAddr = unicode(self.edtEmail.text()).strip() 
       emailLen = lenBytes(emailAddr)
+
+      subjectText = unicode(self.edtSubject.text()).strip() 
+      subjectLen = lenBytes(subjectText)
 
       description = unicode(self.txtDescr.toPlainText()).strip()
       descrLen = lenBytes(description)
@@ -588,6 +604,7 @@ class DlgBugReport(ArmoryDialog):
       reportMap['TotalRAM']     = '%0.2f' % SystemSpecs.Memory
       reportMap['isAmd64']      = str(SystemSpecs.IsX64).lower()
       reportMap['userEmail']    = emailAddr
+      reportMap['userSubject']  = subjectText
       reportMap['userDescr']    = description
       reportMap['userTime']     = unixTimeToFormatStr(RightNow())
       reportMap['userTimeUTC']  = unixTimeToFormatStr(RightNowUTC())
@@ -602,6 +619,12 @@ class DlgBugReport(ArmoryDialog):
             reportMap['fileLog'] = f.read()
          os.remove(tmpFile)
 
+      LOGDEBUG('Sending the following dictionary of values to server')
+      for key,val in reportMap.iteritems():
+         if key=='fileLog': 
+            LOGDEBUG(key.ljust(12) + ': ' + binary_to_hex(sha256(val)))
+         else:
+            LOGDEBUG(key.ljust(12) + ': ' + val)
          
       expectedResponseMap = {}
       expectedResponseMap['logHash'] = binary_to_hex(sha256(reportMap['fileLog']))
@@ -614,6 +637,7 @@ class DlgBugReport(ArmoryDialog):
          response = http.request('POST', url, reportMap, headers)
          responseMap = ast.literal_eval(response._body)
 
+
          LOGINFO('-'*50)
          LOGINFO('Response JSON:')
          for key,val in responseMap.iteritems():
@@ -625,11 +649,11 @@ class DlgBugReport(ArmoryDialog):
             LOGINFO(key.ljust(12) + ': ' + str(val))
 
 
-         LOGINFO('Connection info:')
-         LOGINFO('   status:  ' + str(response.status))
-         LOGINFO('   version: ' + str(response.version))
-         LOGINFO('   reason:  ' + str(response.reason))
-         LOGINFO('   strict:  ' + str(response.strict))
+         LOGDEBUG('Connection info:')
+         LOGDEBUG('   status:  ' + str(response.status))
+         LOGDEBUG('   version: ' + str(response.version))
+         LOGDEBUG('   reason:  ' + str(response.reason))
+         LOGDEBUG('   strict:  ' + str(response.strict))
 
 
          if responseMap==expectedResponseMap:
