@@ -1,6 +1,7 @@
-This directory was prepared by forum user, "picobit", and reviewed 
-by the ATI team.  These notes describe what had to be done on a fresh
-install of OSX 10.9 in order to get build-app.py working.
+This directory was prepared by forum user, "picobit", and reviewed by the ATI
+team.  These notes describe what had to be done on fresh installs of OS X
+10.7 (Lion), 10.8 (Mountain Lion) and 10.9 (Mavericks) in order to get
+build-app.py working.
 
 (1) Install xcode from the Apple store (free)
 
@@ -24,5 +25,5 @@ install of OSX 10.9 in order to get build-app.py working.
 
 (5) Execute "brew install swig"
 
-(6) "cd" into the osx_picobit directory, and execute "python build-app.py".
+(6) "cd" into the "osxbuild" directory, and execute "python build-app.py".
     Armory will be found under the "workspace" subdirectory.
