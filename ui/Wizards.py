@@ -13,7 +13,7 @@ from ui.WalletFrames import NewWalletFrame, SetPassphraseFrame, VerifyPassphrase
    WalletBackupFrame, WizardCreateWatchingOnlyWalletFrame
 from ui.TxFrames import SendBitcoinsFrame, SignBroadcastOfflineTxFrame,\
    ReviewOfflineTxFrame
-from qtdefines import GETFONT, tr, AddToRunningDialogsList
+from qtdefines import USERMODE, GETFONT, tr, AddToRunningDialogsList
 from armoryengine.PyBtcWallet import PyBtcWallet
 from CppBlockUtils import SecureBinaryData
 from armoryengine.BDM import TheBDM
@@ -94,9 +94,12 @@ class WalletWizard(ArmoryWizard):
       self.walletBackupPage = WalletBackupPage(self)
       self.addPage(self.walletBackupPage)
       
-      # Page 5: Create Watching Only Wallet
-      self.createWatchingOnlyWalletPage = CreateWatchingOnlyWalletPage(self)
-      self.addPage(self.createWatchingOnlyWalletPage)
+      # Page 5: Create Watching Only Wallet -- but only if expert, or offline
+      self.hasCWOWPage = False
+      if self.main.usermode==USERMODE.Expert or not self.main.internetAvail:
+         self.hasCWOWPage = True
+         self.createWatchingOnlyWalletPage = CreateWatchingOnlyWalletPage(self)
+         self.addPage(self.createWatchingOnlyWalletPage)
 
       self.setButtonLayout([QWizard.BackButton,
                             QWizard.Stretch,
@@ -108,7 +111,7 @@ class WalletWizard(ArmoryWizard):
       if self.currentPage() == self.verifyPassphrasePage:
          self.verifyPassphrasePage.setPassphrase(
                self.setPassphrasePage.pageFrame.getPassphrase())
-      elif self.currentPage() == self.createWatchingOnlyWalletPage:
+      elif self.hasCWOWPage and self.currentPage() == self.createWatchingOnlyWalletPage:
          self.createWatchingOnlyWalletPage.pageFrame.setWallet(self.newWallet)
          
       if self.currentPage() == self.walletBackupPage:
@@ -128,11 +131,18 @@ class WalletWizard(ArmoryWizard):
                                 QWizard.FinishButton])
    def done(self, event):
       if self.newWallet and not self.walletBackupPage.pageFrame.isBackupCreated:
-         reply = QMessageBox.question(self, 'Wallet Backup Warning', \
-               'You have not made a backup for your new wallet. Backing up your wallet ' +
-               'is critical securing  your bitcoins. If you do not backup your wallet now ' +
-               'you may do it from the wallet screen later.\n\n' +
-               'Are you sure that you want to leave this wizard without backing up your wallet?', \
+         reply = QMessageBox.question(self, tr('Wallet Backup Warning'), tr("""
+               You have not made a backup for your new wallet.  You only have 
+               to make a backup of your wallet <u>one time</u> to protect 
+               all the funds held by this wallet <i>any time in the future</i>
+               (it is a backup of the signing keys, not the coins themselves).
+               <br><br>
+               If you do not make a backup, you will <u>permanently</u> lose
+               the money in this wallet if you ever forget your password, or 
+               suffer from hardware failure.
+               <br><br>
+               Are you sure that you want to leave this wizard without backing 
+               up your wallet?"""), \
                QMessageBox.Yes | QMessageBox.No)
          if reply == QMessageBox.No:
             # Stay in the wizard

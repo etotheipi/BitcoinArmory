@@ -37,6 +37,7 @@ VERTICAL = 'vertical'
 HORIZONTAL = 'horizontal'
 CHANGE_ADDR_DESCR_STRING = '[[ Change received ]]'
 HTTP_VERSION_FILE = 'https://bitcoinarmory.com/versions.txt'
+BUG_REPORT_URL = 'https://scripts.bitcoinarmory.com/receive_debug.php'
 
 # Keep track of dialogs and wizard that are executing
 runningDialogsList = []

@@ -885,16 +885,24 @@ class WizardCreateWatchingOnlyWalletFrame(ArmoryFrame):
 
 
       summaryText = QRichLabel(tr("""
-               You have just ceated a new wallet that will should already
-               appea in the Available Wallets List in the main window.
+               Your wallet has been created and is ready to be used.  It will
+               appear in the "<i>Available Wallets</i>" list in the main window.  
+               You may click "<i>Finish</i>" if you do not plan to use this 
+               wallet on any other computer.
                <br><br>
-               You may create a watching only copy of this wallet that can
-               only be used for generating addresses and monitoring incoming
-               payments on any other computer. A watching-only wallet cannot
-               spend the funds, and thus cannot be compromised by an attacker
-               To setup a watching only copy of this wallet, press the button
-               below and put the resulting file in the data directory of another
-               Bitcoin Armory installation."""))
+               A <b>watching-only wallet</b> behaves exactly like a a regular 
+               wallet, but does not contain any signing keys.  You can generate 
+               addresses and confirm receipt of payments, but not spend or move 
+               the funds in the wallet.  To move the funds, 
+               use the "<i>Offline Transactions</i>" button on the main 
+               window for directions (which involves bringing the transaction 
+               to this computer for a signature).  Or you can give the
+               watching-only wallet to someone who needs to monitor the wallet
+               but should not be able to move the money.
+               <br><br>
+               Click the button to save a watching-only copy of this wallet.
+               Use the "<i>Import or Restore Wallet</i>" button in the
+               upper-right corner"""))
       lbtnForkWlt = QPushButton('Create Watching-Only Copy')
       self.connect(lbtnForkWlt, SIGNAL(CLICKED), self.forkOnlineWallet)
       layout = QVBoxLayout()

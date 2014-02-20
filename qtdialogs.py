@@ -633,8 +633,7 @@ class DlgBugReport(ArmoryDialog):
          import urllib3
          http = urllib3.PoolManager()
          headers = urllib3.make_headers('ArmoryBugReportWindowNotABrowser')
-         url = "https://www.bitcoinarmory.com/scripts/receive_debug.php"
-         response = http.request('POST', url, reportMap, headers)
+         response = http.request('POST', BUG_REPORT_URL, reportMap, headers)
          responseMap = ast.literal_eval(response._body)
 
 
@@ -1641,6 +1640,8 @@ class DlgWalletDetails(ArmoryDialog):
            'balance appears on the main window, then try again.', \
             QMessageBox.Ok)
          return
+
+      self.accept()
       DlgSendBitcoins(self.wlt, self, self.main, onlyOfflineWallets=False).exec_()
       self.wltAddrModel.reset()
 
@@ -8013,29 +8014,28 @@ class DlgSettings(ArmoryDialog):
 
       ###############################################################
       # Minimize on Close
-      moc = self.main.getSettingOrSetDefault('MinimizeOrClose', 'DontKnow')
-      lblMinOrClose = QRichLabel(tr('<b>Minimize to system tray on <u>close</u>:</b>'))
-      lblMoCDescr = QRichLabel(tr("""
-         When you click the "x" on the top window bar or use
-         <i>"File"</i>\xe2\x86\x92<i>"Quit"</i>, 
-         Armory will stay open but run in the background.  
-         You will still receive notifications, and 
-         can access it through the system tray."""))
-      ttipMinOrClose = self.main.createToolTipWidget( tr("""
-         If this is checked, you can still close Armory through the right-click menu 
-         on the system tray icon, or by "File"->"Quit Armory" on the main window"""))
-      self.chkMinOrClose = QCheckBox('')
-      if moc == 'Minimize':
-         self.chkMinOrClose.setChecked(True)
+      lblMinimizeDescr = QRichLabel(tr("""
+         <b>Minimize to System Tray</b>
+         <br>
+         You can have Armory automatically minimize itself to your system 
+         tray on open or close.  Armory will stay open but run in the 
+         background, and you will still receive notifications.  Access Armory
+         through the icon on your system tray.
+         <br><br>  
+         If select "Minimize on close", the 'x' on the top window bar will 
+         minimize Armory instead of exiting the application.  You can always use 
+         <i>"File"</i>\xe2\x86\x92<i>"Quit Armory"</i> to actually close it."""))
 
       moo = self.main.getSettingOrSetDefault('MinimizeOnOpen', False)
-      lblMinOnOpen = QRichLabel(tr('<b>Minimize to system tray on <u>open</u>:</b>'))
-      lblMoODescr = QRichLabel(tr("""
-         Armory will start minimized.  You will still receive notifications, 
-         and can access it through the system tray."""))
-      self.chkMinOnOpen = QCheckBox('')
+      self.chkMinOnOpen = QCheckBox(tr('Minimize to system tray on open'))
       if moo:
          self.chkMinOnOpen.setChecked(True)
+
+      moc = self.main.getSettingOrSetDefault('MinimizeOrClose', 'DontKnow')
+      self.chkMinOrClose = QCheckBox(tr('Minimize to system tray on close'))
+
+      if moc == 'Minimize':
+         self.chkMinOrClose.setChecked(True)
 
 
       ###############################################################
@@ -8217,16 +8217,13 @@ class DlgSettings(ArmoryDialog):
       frmLayout.addWidget(HLINE(), i, 0, 1, 3)
 
       i += 1
-      frmLayout.addWidget(lblMinOnOpen, i, 0)
-      frmLayout.addWidget(self.chkMinOnOpen, i, 2)
-
+      frmLayout.addWidget(lblMinimizeDescr, i, 0, 1, 3)
+ 
       i += 1
-      frmLayout.addWidget(lblMinOrClose, i, 0)
-      frmLayout.addWidget(self.chkMinOrClose, i, 2)
-
+      frmLayout.addWidget(self.chkMinOnOpen, i, 0, 1, 3)
+ 
       i += 1
-      frmLayout.addWidget(lblMoCDescr, i, 0, 1, 3)
-
+      frmLayout.addWidget(self.chkMinOrClose, i, 0, 1, 3)
 
 
       i += 1
@@ -11993,7 +11990,7 @@ class DlgReplaceWallet(ArmoryDialog):
       except OSError:
          pass
       except:
-         LOGERROR('Cannot create new fodler in dataDir! Missing credentials?')
+         LOGERROR('Cannot create new folder in dataDir! Missing credentials?')
          self.reject()
          return
 
@@ -12035,27 +12032,49 @@ class DlgWltRecoverWallet(ArmoryDialog):
       self.btnWalletPath.setIcon(ico)
       self.connect(self.btnWalletPath, SIGNAL('clicked()'), self.selectFile)
 
-      lblDesc = QRichLabel('<b>Wallet Recovery Tool:</b><br>'
-                           'This tools attempts to recover data from damaged wallets.<br>'
-                           'Point to your wallet path and pick a recovery mode according to it\'s damage level'
-                           )
+      lblDesc = QRichLabel(tr("""
+         <b>Wallet Recovery Tool:
+         </b><br>
+         This tool attempts to recover data from damaged wallets.  Specify a 
+         wallet file and Armory will attempt to fix any errors in it. 
+         <br><br>
+         If you are not sure which option to choose, use the default "Full 
+         Recovery." """))
       lblDesc.setScaledContents(True)
 
-      lblWalletPath = QRichLabel('Wallet Path:')
+      lblWalletPath = QRichLabel(tr('Wallet Path:'))
+
+      # TODO: Farhod's first piece of GUI code -- doesn't have parent or main
+      #       Once it's been added, this can be commented out and this should 
+      #       be a working wallet-select button
+      #def doWltSelect():
+         #dlg = DlgWalletSelect(self, self.main, tr('Select Wallet...'), '')
+         #if dlg.exec_():
+            #wlt = self.parent.walletMap[dlg.selectedID]
+            #self.edtWalletPath.setText(wlt.walletPath)
+
+      #self.btnWltSelect = QPushButton(tr("Select From Loaded Wallets"))
+      #self.connect(self.btnWltSelect, SIGNAL(CLICKED), doWltSelect)
 
 
       layoutMgmt = QGridLayout()
 
-      layout_wltH = QHBoxLayout()
-      layout_wltH.addWidget(lblWalletPath, 2)
-      layout_wltH.addWidget(self.edtWalletPath, 7)
-      layout_wltH.addWidget(self.btnWalletPath, 1)
+      layoutWltSelect = QGridLayout()
+      layoutWltSelect.addWidget(lblWalletPath,      0,0)
+      layoutWltSelect.addWidget(self.edtWalletPath, 0,1, 1,2)
+      layoutWltSelect.addWidget(self.btnWalletPath, 0,3)
+      #layoutWltSelect.addWidget(self.btnWltSelect,  1,1)
+      layoutWltSelect.setColumnStretch(0, 0)
+      layoutWltSelect.setColumnStretch(1, 1)
+      layoutWltSelect.setColumnStretch(2, 1)
+      layoutWltSelect.setColumnStretch(3, 0)
+      
+      
 
-      layoutMgmt.addWidget(lblDesc, 0, 0, 2, 4)
-      layoutMgmt.addLayout(layout_wltH, 2, 0, 2, 4)
+      layoutMgmt.addWidget(makeHorizFrame([lblDesc], STYLE_SUNKEN), 0,0, 2,4)
+      layoutMgmt.addLayout(layoutWltSelect, 2, 0, 2, 4)
 
       self.rdbtnStripped = QRadioButton('')
-      self.rdbtnStripped.setChecked(True)
       lblStripped = QLabel('<b>Stripped Recovery</b><br>Only attempts to recover the wallet\'s rootkey and chaincode')
       layout_StrippedH = QGridLayout()
       layout_StrippedH.addWidget(self.rdbtnStripped, 0, 0, 1, 1)
@@ -12068,6 +12087,7 @@ class DlgWltRecoverWallet(ArmoryDialog):
       layout_BareH.addWidget(lblBare, 0, 1, 2, 19)
 
       self.rdbtnFull = QRadioButton('')
+      self.rdbtnFull.setChecked(True)
       lblFull = QLabel('<b>Full Recovery</b><br>Attempts to recover as much data as possible')
       layout_FullH = QGridLayout()
       layout_FullH.addWidget(self.rdbtnFull, 0, 0, 1, 1)
@@ -12105,7 +12125,23 @@ class DlgWltRecoverWallet(ArmoryDialog):
       self.setMinimumWidth(450)
 
    def selectFile(self):
-      self.edtWalletPath.setText(QFileDialog.getOpenFileName())
+      # Had to reimplement the path selection here, because the way this was
+      # implemented doesn't let me access self.main.getFileLoad
+      ftypes = 'Wallet files (*.wallet);; All files (*)'
+      if not OS_MACOSX:
+         pathSelect = unicode(QFileDialog.getOpenFileName(self, \
+                                 tr('Recover Wallet'), \
+                                 ARMORY_HOME_DIR, \
+                                 ftypes))
+      else:
+         pathSelect = unicode(QFileDialog.getOpenFileName(self, \
+                                 tr('Recover Wallet'), \
+                                 ARMORY_HOME_DIR, \
+                                 ftypes, \
+                                 options=QFileDialog.DontUseNativeDialog))
+
+      self.edtWalletPath.setText(pathSelect)
+      
 
 #################################################################################
 class DlgProgress(ArmoryDialog):
@@ -12488,24 +12524,25 @@ class DlgFactoryReset(ArmoryDialog):
       self.lblSettingsText = QRichLabel(tr("""
          <b>Delete settings and rescan (lightest option)</b>"""))
       self.lblSettings = QRichLabel(tr("""
-         This will delete the settings file and transient network data.  The 
+         Only delete the settings file and transient network data.  The
          databases built by Armory will be rescanned (about 5-45 minutes)"""))
    
       self.rdoArmoryDB = QRadioButton()
       self.lblArmoryDBText = QRichLabel(tr("""
          <b>Also delete databases and rebuild</b>"""))
       self.lblArmoryDB = QRichLabel(tr("""
-         This will additionally delete and rebuild Armory's databases.  Will
-         rebuild and rescan (45 min to 3 hours)"""))
+         Will delete settings, network data, and delete and Armory's databases, 
+         forcing a rebuild and rescan (45 min to 3 hours)"""))
 
       self.rdoBitcoinDB = QRadioButton()
       self.lblBitcoinDBText = QRichLabel(tr("""
          <b>Also re-download the blockchain (most extreme)</b>"""))
       self.lblBitcoinDB = QRichLabel(tr("""
-         This will delete Armory's databases, <b>and</b> the databases 
-         produced by the Bitcoin software, It will redownload the 15+ GB 
-         blockchain.  This is only needed if you suspect blockchain 
-         corruption (4-72 hours depending on your connection)"""))
+         This will delete settings, network data, Armory's databases, 
+         <b>and</b> the Bitcoin software databases.  Bitcoin-Qt/bitcoind will 
+         have to download the 15+ GB blockchain again.  Only use this if you 
+         suspect blockchain corruption, such as receiving StdOut/StdErr errors 
+         on the dashboard (8-72 hours depending on your connection)"""))
 
 
       optFrames = []
@@ -12556,6 +12593,7 @@ class DlgFactoryReset(ArmoryDialog):
    ###      
    def clickedOkay(self):
 
+
       if self.rdoSettings.isChecked():
          reply = QMessageBox.warning(self, tr('Confirmation'), tr("""
             You are about to delete your settings and force Armory to rescan
@@ -12563,6 +12601,7 @@ class DlgFactoryReset(ArmoryDialog):
             QMessageBox.Cancel | QMessageBox.Ok)
 
          if not reply==QMessageBox.Ok:
+            self.reject()
             return
 
          touchFile( os.path.join(ARMORY_HOME_DIR, 'rescan.flag') )
@@ -12577,6 +12616,7 @@ class DlgFactoryReset(ArmoryDialog):
             QMessageBox.Cancel | QMessageBox.Ok)
 
          if not reply==QMessageBox.Ok:
+            self.reject()
             return
 
          touchFile( os.path.join(ARMORY_HOME_DIR, 'rebuild.flag') )
@@ -12586,14 +12626,19 @@ class DlgFactoryReset(ArmoryDialog):
 
       elif self.rdoBitcoinDB.isChecked():
          reply = QMessageBox.warning(self, tr('Confirmation'), tr("""
-            You are about to delete your settings and delete all blockchain
-            databases on your computer.  The Bitcoin software will have to 
-            redownload 15+ GB of blockchain data over the peer-to-peer network 
-            again which can take from 4 to 72 hours depending on system speed
-            and connection.  <br><br> Are you absolutely sure you want to do 
-            this?"""), QMessageBox.Cancel | QMessageBox.Yes)
+            You are about to delete your settings and delete <b>all</b> 
+            blockchain databases on your system.  The Bitcoin software will 
+            have to redownload 15+ GB of blockchain data over the peer-to-peer 
+            network again which can take from 8 to 72 hours depending on 
+            your system speed and connection.  <br><br><b>Are you absolutely 
+            sure you want to do this?</b>"""), \
+            QMessageBox.Cancel | QMessageBox.Yes)
 
          if not reply==QMessageBox.Yes:
+            QMessageBox.warning(self, tr('Aborted'), tr("""
+                  You canceled the factory reset operation.  No changes were
+                  made."""), QMessageBox.Ok)
+            self.reject()
             return
 
       

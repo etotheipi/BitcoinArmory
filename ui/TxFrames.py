@@ -181,7 +181,7 @@ class SendBitcoinsFrame(ArmoryFrame):
          fromFrameList.append(frmChangeAddr)
       else:
          fromFrameList.append(STRETCH)
-      frmBottomLeft = makeVertFrame(fromFrameList)
+      frmBottomLeft = makeVertFrame(fromFrameList, STYLE_RAISED)
 
       lblSend = QRichLabel('<b>Sending from Wallet:</b>')
       lblSend.setAlignment(Qt.AlignLeft | Qt.AlignBottom)
