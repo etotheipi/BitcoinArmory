@@ -1585,6 +1585,7 @@ class ArmoryMainWindow(QMainWindow):
    
    
          self.NetworkingFactory = ArmoryClientFactory( \
+                                          TheBDM,
                                           func_loseConnect=showOfflineMsg, \
                                           func_madeConnect=showOnlineMsg, \
                                           func_newTx=self.newTxFunc)

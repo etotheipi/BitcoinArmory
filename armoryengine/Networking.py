@@ -49,7 +49,8 @@ class ArmoryClient(Protocol):
    ############################################################
    def __init__(self):
       self.recvData = ''
-      self.handshakeFinished = False
+      self.gotVerack = False
+      self.sentVerack = False
       self.sentHeadersReq = True
       self.peer = []
 
@@ -141,8 +142,8 @@ class ArmoryClient(Protocol):
                                                       binary_to_hex(inv[1]))
 
 
-         # We process version and verackk regardless of handshakeFinished
-         if cmd=='version' and not self.handshakeFinished:
+         # We process version and verackk only if we haven't yet
+         if cmd=='version' and not self.sentVerack:
             self.peerInfo = {}
             self.peerInfo['version'] = msg.payload.version
             self.peerInfo['subver']  = msg.payload.subver
@@ -153,15 +154,16 @@ class ArmoryClient(Protocol):
             LOGINFO('   SubVersion:  %s', str(self.peerInfo['subver']))
             LOGINFO('   TimeStamp:   %s', str(self.peerInfo['time']))
             LOGINFO('   StartHeight: %s', str(self.peerInfo['height']))
+            self.sentVerack = True
             self.sendMessage( PayloadVerack() )
          elif cmd=='verack':
-            self.handshakeFinished = True
+            self.gotVerack = True
             self.factory.handshakeFinished(self)
             #self.startHeaderDL()
 
          ####################################################################
          # Don't process any other messages unless the handshake is finished
-         if self.handshakeFinished:
+         if self.gotVerack and self.sentVerack:
             self.processMessage(msg)
 
 
@@ -184,24 +186,27 @@ class ArmoryClient(Protocol):
          getdataMsg = PyMessage('getdata')
          for inv in invobj.invList:
             if inv[0]==MSG_INV_BLOCK:
-               if TheBDM.getBDMState()=='Scanning' or \
-                  TheBDM.hasHeaderWithHash(inv[1]):
+               if self.factory.bdm and (self.factory.bdm.getBDMState()=='Scanning' or \
+                  self.factory.bdm.hasHeaderWithHash(inv[1])):
                   continue
                getdataMsg.payload.invList.append(inv)
             if inv[0]==MSG_INV_TX:
-               if TheBDM.getBDMState()=='Scanning' or \
-                  TheBDM.hasTxWithHash(inv[1]):
+               if self.factory.bdm and (self.factory.bdm.getBDMState()=='Scanning' or \
+                  self.factory.bdm.hasTxWithHash(inv[1])):
                   continue
                getdataMsg.payload.invList.append(inv)
 
          # Now send the full request
-         if not TheBDM.getBDMState()=='Scanning':
+         if self.factory.bdm and not self.factory.bdm.getBDMState()=='Scanning':
             self.sendMessage(getdataMsg)
 
       if msg.cmd=='tx':
          pytx = msg.payload.tx
          self.factory.func_newTx(pytx)
-      if msg.cmd=='block':
+      elif msg.cmd=='inv':
+         invList = msg.payload.invList
+         self.factory.func_inv(invList)
+      elif msg.cmd=='block':
          pyHeader = msg.payload.header
          pyTxList = msg.payload.txList
          LOGINFO('Received new block.  %s', binary_to_hex(pyHeader.getHash(), BIGENDIAN))
@@ -214,7 +219,10 @@ class ArmoryClient(Protocol):
       numList = self.createBlockLocatorNumList(self.topBlk)
       msg = PyMessage('getheaders')
       msg.payload.version  = 1
-      msg.payload.hashList = [TheBDM.getHeaderByHeight(i).getHash() for i in numList]
+      if self.factory.bdm:
+         msg.payload.hashList = [self.factory.bdm.getHeaderByHeight(i).getHash() for i in numList]
+      else:
+         msg.payload.hashList = []
       msg.payload.hashStop = '\x00'*32
    
       self.sentHeadersReq = True
@@ -226,7 +234,10 @@ class ArmoryClient(Protocol):
       numList = self.createBlockLocatorNumList(self.topBlk)
       msg = PyMessage('getblocks')
       msg.payload.version  = 1
-      msg.payload.hashList = [TheBDM.getHeaderByHeight(i).getHash() for i in numList]
+      if self.factory.bdm:
+         msg.payload.hashList = [self.factory.bdm.getHeaderByHeight(i).getHash() for i in numList]
+      else:
+         msg.payload.hashList = []
       msg.payload.hashStop = '\x00'*32
 
 
@@ -293,16 +304,19 @@ class ArmoryClientFactory(ReconnectingClientFactory):
 
    #############################################################################
    def __init__(self, \
+                bdm,
                 def_handshake=None, \
                 func_loseConnect=(lambda: None), \
                 func_madeConnect=(lambda: None), \
                 func_newTx=(lambda x: None), \
-                func_newBlock=(lambda x,y: None)):
+                func_newBlock=(lambda x,y: None), \
+                func_inv=(lambda x: None)):
       """
       Initialize the ReconnectingClientFactory with a deferred for when the handshake 
       finishes:  there should be only one handshake, and thus one firing 
       of the handshake-finished callback
       """
+      self.bdm = bdm
       self.lastAlert = 0
       self.deferred_handshake   = forceDeferred(def_handshake)
       self.fileMemPool = os.path.join(ARMORY_HOME_DIR, 'mempool.bin')
@@ -317,14 +331,15 @@ class ArmoryClientFactory(ReconnectingClientFactory):
       self.func_madeConnect = func_madeConnect
       self.func_newTx       = func_newTx
       self.func_newBlock    = func_newBlock
+      self.func_inv         = func_inv
       self.proto = None
 
    
 
    #############################################################################
    def addTxToMemoryPool(self, pytx):
-      if not TheBDM.getBDMState()=='Offline':
-         TheBDM.addNewZeroConfTx(pytx.serialize(), long(RightNow()), True)    
+      if self.bdm and not self.bdm.getBDMState()=='Offline':
+         self.bdm.addNewZeroConfTx(pytx.serialize(), long(RightNow()), True)    
       
 
 
@@ -364,7 +379,6 @@ class ArmoryClientFactory(ReconnectingClientFactory):
          self.proto.sendMessage(msgObj)
       else:
          raise ConnectionError, 'Connection to localhost DNE.'
-
 
 
 
@@ -575,12 +589,13 @@ class PayloadPing(object):
 
    def __init__(self):
       pass
-
+ 
    def unserialize(self, toUnpack):
       return self
-
+ 
    def serialize(self):
       return ''
+
 
    def pprint(self, nIndent=0):
       indstr = indent*nIndent
@@ -588,7 +603,6 @@ class PayloadPing(object):
       print indstr + 'Message(ping)'
 
       
-
 ################################################################################
 ################################################################################
 class PayloadVersion(object):
@@ -669,6 +683,7 @@ class PayloadVerack(object):
       indstr = indent*nIndent
       print ''
       print indstr + 'Message(verack)'
+
 
 
 ################################################################################
@@ -1023,7 +1038,8 @@ class FakeClientFactory(ReconnectingClientFactory):
                 func_loseConnect=(lambda: None), \
                 func_madeConnect=(lambda: None), \
                 func_newTx=(lambda x: None), \
-                func_newBlock=(lambda x,y: None)): pass
+                func_newBlock=(lambda x,y: None), \
+                func_inv=(lambda x: None)): pass
    def addTxToMemoryPool(self, pytx): pass
    def handshakeFinished(self, protoObj): pass
    def clientConnectionLost(self, connector, reason): pass
@@ -1056,3 +1072,4 @@ def forceDeferred(callbk):
          d.addCallback(callbk)
          return d
 
+# kate: indent-width 3; replace-tabs on;
