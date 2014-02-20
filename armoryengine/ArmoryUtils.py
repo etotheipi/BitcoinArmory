@@ -65,6 +65,7 @@ parser.add_option("--settings",        dest="settingsPath",default='DEFAULT', ty
 parser.add_option("--datadir",         dest="datadir",     default='DEFAULT', type="str",          help="Change the directory that Armory calls home")
 parser.add_option("--satoshi-datadir", dest="satoshiHome", default='DEFAULT', type='str',          help="The Bitcoin-Qt/bitcoind home directory")
 parser.add_option("--satoshi-port",    dest="satoshiPort", default='DEFAULT', type="str",          help="For Bitcoin-Qt instances operating on a non-standard port")
+parser.add_option("--satoshi-rpcport", dest="satoshiRpcport",default='DEFAULT',type="str",         help="RPC port Bitcoin-Qt instances operating on a non-standard port")
 #parser.add_option("--bitcoind-path",   dest="bitcoindPath",default='DEFAULT', type="str",         help="Path to the location of bitcoind on your system")
 parser.add_option("--dbdir",           dest="leveldbDir",  default='DEFAULT', type='str',          help="Location to store blocks database (defaults to --datadir)")
 parser.add_option("--rpcport",         dest="rpcport",     default='DEFAULT', type="str",          help="RPC port for running armoryd.py")
@@ -443,6 +444,11 @@ if not CLI_OPTIONS.satoshiPort == 'DEFAULT':
    except:
       raise TypeError('Invalid port for Bitcoin-Qt, using ' + str(BITCOIN_PORT))
 
+if not CLI_OPTIONS.satoshiRpcport == 'DEFAULT':
+   try:
+      BITCOIN_RPC_PORT = int(CLI_OPTIONS.satoshiRpcport)
+   except:
+      raise TypeError('Invalid rpc port for Bitcoin-Qt, using ' + str(BITCOIN_RPC_PORT))
 
 if not CLI_OPTIONS.rpcport == 'DEFAULT':
    try:
