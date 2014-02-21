@@ -41,6 +41,7 @@ int rs_params::rs_init()
 	int i, j, sr, root, iprim;
 
 	nn = (1 << mm) - 1;
+   packet_size = nn - nroots;
 
 	/* Allocate the arrays */
 	alpha_to = (uint16_t*)malloc(sizeof(uint16_t) * (nn + 1));
@@ -186,7 +187,8 @@ void RS::WipeAndClean()
    CleanUp();
 }
 
-void RS::SetParams(int Symsize, int Gfpoly, int(*Gffunc)(int), int Fcr, int Prim, int Nroots)
+void RS::SetParams(int Symsize, int Gfpoly, int(*Gffunc)(int), 
+                   int Fcr, int Prim, int Nroots)
 {
 	SetParams(rsc.init(Symsize, Gfpoly, Gffunc, Fcr, Prim, Nroots));
 }
@@ -203,10 +205,26 @@ void RS::PrepareData(int len)
 
    if(len)
    {
-      nblocks = len / 223;
-      if(len %223) nblocks++;
+      for(int i=0; i<7; i++)
+      {
+         if(len<=param_list[i].packet_size)
+         {
+            SetParams(param_list[i].symsize, param_list[i].genpoly,
+                      0, 0, 1,
+                      param_list[i].nroots);
+
+            break;
+         }
+
+         SetParams(param_list[6].symsize, param_list[6].genpoly,
+                   0, 0, 1,
+                   param_list[6].nroots);
+      }
+
+      nblocks = len / rscp->packet_size;
+      if(len % rscp->packet_size) nblocks++;
    
-      int blocksize = len / nblocks;
+      int blocksize = len / rscp->packet_size;
       if(len % nblocks) blocksize++;
 
       data_len = len;
