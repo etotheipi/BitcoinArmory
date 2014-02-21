@@ -31,7 +31,7 @@ endif
 
 include ./pypaths.txt
 
-CPPFLAGS += -Icryptopp -Ileveldb/include -DUSE_CRYPTOPP -D__STDC_LIMIT_MACROS
+CPPFLAGS += $(ARMORY_CPPFLAGS) -Icryptopp -Ileveldb/include -DUSE_CRYPTOPP -D__STDC_LIMIT_MACROS
 LDLIBS += -lpthread -Lleveldb -L$(PYTHON_LIB) -l$(PYVER)
 SWIG_OPTS    += -c++ -python -classic -threads
 
