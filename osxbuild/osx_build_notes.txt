@@ -26,4 +26,6 @@ build-app.py working.
 (5) Execute "brew install swig"
 
 (6) "cd" into the "osxbuild" directory, and execute "python build-app.py".
-    Armory will be found under the "workspace" subdirectory.
+    Armory will be found under the "workspace" subdirectory. Armory.app can be
+    moved elsewhere on the system, including under /Applications so that it's
+    accessible by the OS X Launchpad.
