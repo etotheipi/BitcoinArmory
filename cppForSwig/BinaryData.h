@@ -10,8 +10,8 @@
 
 #include <stdio.h>
 #if defined(_MSC_VER) || defined(__MINGW32__)
-   #ifdef _MSC_PLATFORM_TOOLSET == 100
-      #include <stdint.h>
+	#if _MSC_PLATFORM_TOOLSET==100
+		#include <stdint.h>
    #endif
 #else
    #include <stdlib.h>
