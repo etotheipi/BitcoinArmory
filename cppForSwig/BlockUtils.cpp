@@ -3407,55 +3407,15 @@ uint32_t BlockDataManager_LevelDB::numBlocksToRescan( BtcWallet & wlt,
 
 
 ////////////////////////////////////////////////////////////////////////////////
-void BlockDataManager_LevelDB::updateRegisteredScrAddrs2(uint32_t newTopBlk)
+void BlockDataManager_LevelDB::updateRegisteredScrAddrs(uint32_t newTopBlk)
 {
-   if(DBUtils.getArmoryDbType() != ARMORY_DB_BARE)
+   map<HashString, RegisteredScrAddr>::iterator rsaIter;
+   for(rsaIter  = registeredScrAddrMap_.begin();
+       rsaIter != registeredScrAddrMap_.end();
+       rsaIter++)
    {
-      LOGERR << "Should only use updateRegisteredScrAddrs2 in ARMORY_DB_BARE mode";
-      LOGERR << "Aborting save operation.";
-      return;
+      rsaIter->second.alreadyScannedUpToBlk_ = newTopBlk;
    }
-   
-   iface_->startBatch(BLKDATA);
-
-   uint32_t i=0;
-   set<BtcWallet*>::iterator wltIter;
-   for(wltIter  = registeredWallets_.begin();
-       wltIter != registeredWallets_.end();
-       wltIter++)
-   {
-      for(uint32_t a=0; a<(*wltIter)->getNumScrAddr(); a++)
-      { 
-         ScrAddrObj & scrAddr = (*wltIter)->getScrAddrObjByIndex(a);
-         BinaryData uniqKey = scrAddr.getScrAddr();
-
-         if(KEY_NOT_IN_MAP(uniqKey, registeredScrAddrMap_))
-         {
-            LOGERR << "How does the wallet have a non-registered ScrAddr?";
-            LOGERR << uniqKey.toHexStr().c_str();
-            continue;
-         }
-
-         RegisteredScrAddr & rsa = registeredScrAddrMap_[uniqKey];
-         if (rsa.alreadyScannedUpToBlk_ != newTopBlk)
-         {
-            rsa.alreadyScannedUpToBlk_ = newTopBlk;
-
-            StoredScriptHistory ssh;
-            ssh.uniqueKey_ = scrAddr.getScrAddr();
-            ssh.version_ = ARMORY_DB_VERSION;
-            ssh.alreadyScannedUpToBlk_ = rsa.alreadyScannedUpToBlk_;
-            
-            vector<TxIOPair*> & txioList = scrAddr.getTxIOList();
-            for(uint32_t t=0; t<txioList.size(); t++)
-               ssh.insertTxio(*(txioList[t]));
-
-            iface_->putStoredScriptHistory(ssh); 
-         }
-      }
-   }
-   
-   iface_->commitBatch(BLKDATA);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -3474,7 +3434,7 @@ void BlockDataManager_LevelDB::resetRegisteredWallets(void)
    }
 
    // Reset all addresses to "new"
-   updateRegisteredScrAddrs2(0);
+   updateRegisteredScrAddrs(0);
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -3557,7 +3517,7 @@ void BlockDataManager_LevelDB::scanBlockchainForTx(BtcWallet & myWallet,
    scanDBForRegisteredTx(allScannedUpToBlk_, endBlknum);
 
    allScannedUpToBlk_ = endBlknum;
-   updateRegisteredScrAddrs2(endBlknum);
+   updateRegisteredScrAddrs(endBlknum);
 
 
    // *********************************************************************** //
@@ -4534,6 +4494,7 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
    // Update registered address list so we know what's already been scanned
    lastTopBlock_ = getTopBlockHeight() + 1;
    allScannedUpToBlk_ = lastTopBlock_;
+   updateRegisteredScrAddrs(lastTopBlock_);
 
    // Since loading takes so long, there's a good chance that new block data
    // came in... let's get it.
@@ -4852,7 +4813,7 @@ void BlockDataManager_LevelDB::deleteHistories(void)
 
 
 ////////////////////////////////////////////////////////////////////////////////
-void BlockDataManager_LevelDB::_saveScrAddrHistories(void)
+void BlockDataManager_LevelDB::saveScrAddrHistories(void)
 {
    LOGINFO << "Saving wallet history to DB";
 
@@ -5105,7 +5066,7 @@ uint32_t BlockDataManager_LevelDB::readBlkFileUpdate(void)
    if(prevRegisteredUpToDate)
    {
       allScannedUpToBlk_ = getTopBlockHeight()+1;
-      updateRegisteredScrAddrs2(allScannedUpToBlk_);
+      updateRegisteredScrAddrs(allScannedUpToBlk_);
    }
 
    // If the blk file split, switch to tracking it

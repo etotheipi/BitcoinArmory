@@ -768,7 +768,7 @@ public:
    uint32_t evalLowestScrAddrCreationBlock(void);
    bool     evalRescanIsRequired(void);
    uint32_t numBlocksToRescan(BtcWallet & wlt, uint32_t topBlk=UINT32_MAX);
-   void     updateRegisteredScrAddrs2(uint32_t newTopBlk);
+   void     updateRegisteredScrAddrs(uint32_t newTopBlk);
 
    bool     walletIsRegistered(BtcWallet & wlt);
    bool     scrAddrIsRegistered(HashString scrAddr);
@@ -848,7 +848,7 @@ public:
 
 
    void deleteHistories(void);
-   void _saveScrAddrHistories(void);
+   void saveScrAddrHistories(void);
 
    void fetchAllRegisteredScrAddrData(void);
    void fetchAllRegisteredScrAddrData(BtcWallet & myWlt);
