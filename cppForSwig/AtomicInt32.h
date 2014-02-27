@@ -15,30 +15,30 @@ class AtomicInt32
 #ifdef _MSC_VER
       volatile int32_t i;
 
-      AtomicInt32::AtomicInt32()
+      AtomicInt32()
       {
          i = 0;
       }
 
 
-      AtomicInt32::AtomicInt32(int32_t init)
+      AtomicInt32(int32_t init)
       {
          i = init;
       }
 
-      AtomicInt32 &AtomicInt32::operator=(int32_t in)
+      AtomicInt32& operator=(int32_t in)
       {
          InterlockedExchange((long*)&this->i, (long)in);
          return *this;
       }
 
-      AtomicInt32 &AtomicInt32::operator++(int32_t)
+      AtomicInt32& operator++(int32_t)
       {
 			InterlockedIncrement((long*)&this->i);
 			return *this;
 		}
 
-		AtomicInt32 &AtomicInt32::operator--(int32_t)
+		AtomicInt32& operator--(int32_t)
 		{
 			InterlockedDecrement((long*)&this->i);
 			return *this;
@@ -106,22 +106,22 @@ class AtomicInt32
       }
 #endif
 
-		bool AtomicInt32::operator!=(int32_t in)
+		bool operator!=(int32_t in)
 	   {
          return in - this->i;  
 		}
 
-  		bool AtomicInt32::operator==(int32_t in)
+  		bool operator==(int32_t in)
 		{
          return !(in - this->i);
 		}
 
-      bool AtomicInt32::operator>(int32_t in)
+      bool operator>(int32_t in)
       {
          return this->i > in;
       }
 
-      bool AtomicInt32::operator<(int32_t in)
+      bool operator<(int32_t in)
       {
          return this->i < in;
       }
