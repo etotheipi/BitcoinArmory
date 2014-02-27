@@ -5,21 +5,12 @@
 #include <stdlib.h>
 #include "AtomicInt32.h"
 
-struct
+struct rs_presets
 {
    int symsize;
    int genpoly;
    int nroots;
    int packet_size; //(1 << symsize) -1 -nroots
-} param_list[]
-{
-   {4, 0x13, 2, 13},
-   {5, 0x25, 4, 27},
-   {6, 0x43, 8, 55},
-   {7, 0x89, 16, 111},
-   {8, 0x187, 16, 239},
-   {9, 0x211, 16, 495},
-   {10, 0x409, 16, 1007}
 };
 
 class rs_params

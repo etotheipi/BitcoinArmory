@@ -2,13 +2,17 @@
 #define AINT32
 
 #ifdef _MSC_VER
-#include <Windows.h>
-#include <intrin.h>
-#include <stdint.h>
+	#include <Windows.h>
+	#include <intrin.h>
+	#include <stdint.h>
+#else
+	#include <atomic>
+#endif
 
 class AtomicInt32 
 {
    public:
+#ifdef _MSC_VER
       volatile int32_t i;
 
       AtomicInt32::AtomicInt32()
@@ -40,26 +44,6 @@ class AtomicInt32
 			return *this;
 		}
 
-		bool AtomicInt32::operator!=(int32_t in)
-	   {
-         return in - this->i;  
-		}
-
-  		bool AtomicInt32::operator==(int32_t in)
-		{
-         return !(in - this->i);
-		}
-
-      bool AtomicInt32::operator>(int32_t in)
-      {
-         return this->i > in;
-      }
-
-      bool AtomicInt32::operator<(int32_t in)
-      {
-         return this->i < in;
-      }
-
       int32_t Fetch_Or(int32_t r)
       {
          return (int32_t)InterlockedOr((unsigned long long*)&this->i, r);
@@ -69,15 +53,7 @@ class AtomicInt32
       {
          return InterlockedExchangeAdd((long*)&this->i, r);
       }
-};
-
 #else
-// AtomicInt based on <atomic>
-#include <atomic>
-
-class AtomicInt32 
-{
-   public:
       std::atomic_int_fast32_t i;
 
       AtomicInt32()
@@ -128,23 +104,24 @@ class AtomicInt32
       {
          return i.fetch_add(r); 
       }
+#endif
 
-		bool operator!=(int32_t in)
+		bool AtomicInt32::operator!=(int32_t in)
 	   {
          return in - this->i;  
 		}
 
-  		bool operator==(int32_t in)
+  		bool AtomicInt32::operator==(int32_t in)
 		{
          return !(in - this->i);
 		}
 
-      bool operator>(int32_t in)
+      bool AtomicInt32::operator>(int32_t in)
       {
          return this->i > in;
       }
 
-      bool operator<(int32_t in)
+      bool AtomicInt32::operator<(int32_t in)
       {
          return this->i < in;
       }
@@ -157,6 +134,4 @@ class AtomicInt32
       int32_t Get() { return i; }
 };
 
-
-#endif
 #endif //AINT32

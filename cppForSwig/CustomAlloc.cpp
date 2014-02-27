@@ -97,7 +97,6 @@ namespace CustomAlloc
    void BufferHeader::reset()
    {
       memset(this, 0, sizeof(BufferHeader));
-      pinuse = &linuse;
    }
 
    BufferHeader* MemPool::GetBH(unsigned int size)
@@ -106,18 +105,14 @@ namespace CustomAlloc
       BufferHeader *bhtmp = 0;
       unsigned int i;
 
-	   if(size>0)
-	   {
-		   for(i=0; i<nBH; i++)
-		   {
-			   if(!BH[i]->pinuse || *BH[i]->pinuse==0)
-			   {
-               bhtmp = BH[i];
-               break;
-			   }
-		   }
+		for(i=0; i<nBH; i++)
+		{
+			if(BH[i]->linuse==0)
+			{
+            bhtmp = BH[i];
+            break;
+			}
 	   }
-      else return 0;
 
 		if(!bhtmp)
 		{
@@ -146,9 +141,8 @@ namespace CustomAlloc
 			nBH++;
 		}
 
-      bhtmp->size = size +size_of_ptr;
+      bhtmp->size = size;
       bhtmp->offset = 0;
-      bhtmp->pinuse = &bhtmp->linuse;
 	   bhtmp->linuse = 1;
 
       return bhtmp;
@@ -190,15 +184,15 @@ namespace CustomAlloc
    void MemPool::ExtendGap()
    {
       gaps = (Gap*)realloc(gaps, sizeof(Gap)*(total_ngaps +BHstep));
-
+		memset(gaps +total_ngaps, 0, sizeof(Gap)*BHstep);
       total_ngaps += BHstep;
    }
 
    void MemPool::AddGap(BufferHeader *bh)
    {
       if(acquireGap.Fetch_Or(1)) return;
-      if(ngaps >= total_ngaps) ExtendGap();
-      
+      if(ngaps == total_ngaps) ExtendGap();
+     
 		gaps[ngaps].position = (size_t)bh->offset - size_of_ptr;
 		gaps[ngaps].size = bh->size;
 		gaps[ngaps].end = (size_t)bh->offset + bh->size - size_of_ptr;
@@ -247,32 +241,36 @@ namespace CustomAlloc
             }
 
             size_t bpos  = (size_t)pool;
+				size_t offs;
 
             while(acquireGap.Fetch_Or(1));
             ngaps = 0;
 
             for(i=0; i<f; i++)
             {
-               if(((size_t)BH[bhorder[i]]->offset - size_of_ptr) != bpos)
-               {
-                  //add a gap
-                  if(ngaps >= total_ngaps) ExtendGap();
-                  gaps[ngaps].position = bpos;
-                  gaps[ngaps].end = (size_t)BH[bhorder[i]]->offset -size_of_ptr;
+					offs = (size_t)BH[bhorder[i]]->offset - size_of_ptr; 
+					if(offs > 0)
+					{
+						if(offs != bpos)
+						{
+							//add a gap
+							if(ngaps >= total_ngaps) ExtendGap();
+							gaps[ngaps].position = bpos;
+							gaps[ngaps].end = offs;
 
-                  gaps[ngaps].size = gaps[ngaps].end - gaps[ngaps].position;
-                  ngaps++;
-               }
+							gaps[ngaps].size = gaps[ngaps].end - gaps[ngaps].position;
+							ngaps++;
+						}
 
-               bpos = (size_t)BH[bhorder[i]]->offset +BH[bhorder[i]]->size -\
-                      size_of_ptr;   
+						bpos = offs +BH[bhorder[i]]->size;  
+					}
             } 
             
             acquireGap = 0;
             reserved = bpos - (size_t)pool;  
          }
 
-         for(i=0; i<ngaps; i++)
+         for(i=0; i<(int)ngaps; i++)
          {
             if(gaps[i].size>=size && gaps[i].size<lgap.size)
             {
@@ -318,7 +316,7 @@ namespace CustomAlloc
       return offset;
    }
 		
-   BufferHeader* MemPool::GetBuffer(unsigned int size, unsigned int *sema)
+   BufferHeader* MemPool::GetBuffer(unsigned int size)
    {
 	   if(lockpool.Fetch_Or(1)) return 0;
  
@@ -341,7 +339,7 @@ namespace CustomAlloc
          return 0;
       }
 
-      BufferHeader *bhtmp = GetBH(size -size_of_ptr);
+      BufferHeader *bhtmp = GetBH(size);
 
       if(!bhtmp) 
       {
@@ -352,7 +350,6 @@ namespace CustomAlloc
       bhtmp->offset = (byte*)offset +size_of_ptr;
       memcpy((void*)offset, &bhtmp, size_of_ptr);
 
-	   if(sema) bhtmp->pinuse=sema;
 	   bhtmp->move = 0;
 	   lockpool--;
 	   return bhtmp;
@@ -360,8 +357,8 @@ namespace CustomAlloc
 
    void* CustomAllocator::customAlloc(size_t size)
    {
-      //returns mlocked buffer of lenght 'size' (in bytes)
-      BufferHeader *bh = GetBuffer(size, 0);
+		if(!size) return 0;
+      BufferHeader *bh = GetBuffer(size);
       return (void*)bh->offset;
    }
 
@@ -374,9 +371,9 @@ namespace CustomAlloc
          memset(bh->offset, 0, bh->size-MemPool::size_of_ptr);
          MemPool *mp = (MemPool*)bh->ref;
          mp->AddGap(bh);
-         mp->freemem.Fetch_Add(bh->size);
          bh->offset = 0;
-         *(bh->pinuse) = 0;
+         mp->freemem.Fetch_Add(bh->size);
+         bh->linuse = 0;
 
          if(mp->freemem==mp->total)
          {
@@ -386,8 +383,7 @@ namespace CustomAlloc
       }
    }
 
-   BufferHeader* CustomAllocator::GetBuffer(unsigned int size, 
-                                            unsigned int *sema)
+   BufferHeader* CustomAllocator::GetBuffer(unsigned int size)
    {
 	   unsigned int i;
 	   MemPool *mp;
@@ -401,7 +397,7 @@ namespace CustomAlloc
 
 		   if(!mp->total || mp->freemem.Get() + size < mp->total) 
 		   {
-			   bh = mp->GetBuffer(size, sema);
+			   bh = mp->GetBuffer(size);
 			   if(bh)
 			   {
 				   bufferfetch = 0;
@@ -556,9 +552,13 @@ namespace CustomAlloc
    CustomAllocator CAllocStatic::CA;
 
    void* CAllocStatic::alloc_(size_t size)
-      {return CA.customAlloc(size);}
+      {return CA.customAlloc(size);
+		//return malloc(size);
+	}
          
    void  CAllocStatic::free_(void* buffer)
-      {CA.customFree(buffer);}
+      {CA.customFree(buffer);
+		//free(buffer);
+	}
 
 }

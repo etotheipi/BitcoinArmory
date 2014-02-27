@@ -58,7 +58,7 @@ namespace CustomAlloc
    {
       public:
          void *offset;
-	      unsigned int *pinuse, linuse;
+	      unsigned char linuse;
 	      size_t size;
 	      void* (*copy)(void*, void*);
 	      byte move;
@@ -149,7 +149,7 @@ namespace CustomAlloc
          void* GetPool();
          void Free();
 
-  		   BufferHeader* GetBuffer(size_t size, unsigned int *sema);
+  		   BufferHeader* GetBuffer(size_t size);
    };
 
    class CustomAllocator
@@ -171,7 +171,7 @@ namespace CustomAlloc
 		   AtomicInt32 ab, clearpool;
 		   AtomicInt32 orderlvl, bufferfetch;
 
-  		   BufferHeader *GetBuffer(unsigned int size, unsigned int *sema);
+  		   BufferHeader *GetBuffer(unsigned int size);
          void ExtendPool(unsigned int step);
 
          void UpdateOrder(unsigned int in);

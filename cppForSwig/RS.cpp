@@ -1,6 +1,19 @@
 #include "RS.h"
 #include "CustomAlloc.h"
 
+rs_presets param_list[] =
+{
+   /*{4, 0x13, 2, 13},
+   {5, 0x25, 4, 27},
+   {6, 0x43, 8, 55},
+   {7, 0x89, 16, 111},*/
+   {8, 0x187, 16, 239}
+   //{9, 0x211, 16, 495},
+   //{10, 0x409, 16, 1007}
+};
+
+int npresets = sizeof(param_list)/sizeof(rs_presets);
+
 void rs_params::set_params(int Mm, int Gfpoly, int(*Gffunc)(int), int Fcr, int Prim, int Nroots)
 {
 	mm = Mm;
@@ -205,7 +218,7 @@ void RS::PrepareData(int len)
 
    if(len)
    {
-      for(int i=0; i<7; i++)
+      for(int i=0; i<npresets; i++)
       {
          if(len<=param_list[i].packet_size)
          {
@@ -216,15 +229,15 @@ void RS::PrepareData(int len)
             break;
          }
 
-         SetParams(param_list[6].symsize, param_list[6].genpoly,
+         SetParams(param_list[npresets-1].symsize, param_list[npresets-1].genpoly,
                    0, 0, 1,
-                   param_list[6].nroots);
+                   param_list[npresets-1].nroots);
       }
 
       nblocks = len / rscp->packet_size;
       if(len % rscp->packet_size) nblocks++;
    
-      int blocksize = len / rscp->packet_size;
+      int blocksize = len / nblocks;
       if(len % nblocks) blocksize++;
 
       data_len = len;

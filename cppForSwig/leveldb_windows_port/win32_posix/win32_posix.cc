@@ -141,7 +141,8 @@ int open_win32(const char *path, int flag)
 	}
 
 	wchar_t *win32_path = posix_path_to_win32(path);
-	if(GetFileAttributesW(win32_path)==FILE_ATTRIBUTE_DIRECTORY) 
+	DWORD f = GetFileAttributesW(win32_path);
+	if(f & FILE_ATTRIBUTE_DIRECTORY) 
 	{
 		attributes |= FILE_FLAG_BACKUP_SEMANTICS;
 		desired_access |= GENERIC_WRITE; //grant additional write access to folders, can't flush the folder without it

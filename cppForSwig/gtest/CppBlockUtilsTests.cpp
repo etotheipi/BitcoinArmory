@@ -1447,11 +1447,13 @@ void* CreateBuffers(void* in)
 	CustomAlloc::CAllocStatic CA;
 
 	int* buffer = (int*)in;
+	int c;
 
 	for(int i=0; i<1000; i++)
 	{
-		buffer[i] = (int)CA.alloc_(512);
-		memset((int*)buffer[i], 0xFF, 512);
+		c = 64 * (1+ rand() % 8);
+		buffer[i] = (int)CA.alloc_(c);
+		memset((int*)buffer[i], 0xFF, c);
 	}
 
 	return 0;
@@ -1484,7 +1486,7 @@ void* DeleteSomeBuffers(void* in)
 
 	for(int i=0; i<1000; i++)
 	{
-		if(!(rand() % 2))
+		if(buffer[i] && !(rand() % 2))
 		{
 			//memset((int*)buffer[i], 0, 512);
 			CA.free_((int*)buffer[i]);
@@ -1500,13 +1502,15 @@ void* FillBuffers(void* in)
 	CustomAlloc::CAllocStatic CA;
 
 	int* buffer = (int*)in;
+	int c;
 
 	for(int i=0; i<1000; i++)
 	{
 		if(!buffer[i])
 		{
-			buffer[i] = (int)CA.alloc_(256);
-			memset((int*)buffer[i], 0xFF, 256);
+			c = 64 * (1 +rand() % 8);
+			buffer[i] = (int)CA.alloc_(c);
+			memset((int*)buffer[i], 0xFF, c);
 		}
 	}
 
@@ -1521,10 +1525,13 @@ TEST_F(CustomAllocTest, LargeBuffer_MT)
    uint8_t* largebuffer = CA_uint8.allocate(1024*1024*1024);
    CA_uint8.deallocate(largebuffer, 0);
 
-	int nthreads = 40;
+	int nthreads = 10;
 	pthread_t *tID = (pthread_t*)malloc(sizeof(pthread_t)*nthreads*2);
 
+	srand(0xFFFF2BAE);
+
 	int *buffer = (int*)malloc(nthreads*1000*sizeof(int));
+	memset(buffer, 0, nthreads*1000*sizeof(int));
 
 	for(int i=0; i<nthreads; i++)
 		pthread_create(tID +i, 0, CreateBuffers, (void*)(buffer +i*1000));
@@ -1540,27 +1547,29 @@ TEST_F(CustomAllocTest, LargeBuffer_MT)
 
 	//
 	for(int i=0; i<nthreads; i++)
-		pthread_create(tID +i, 0, CreateBuffers, (void*)(buffer +i*1000));
+		pthread_create(&tID[i], 0, CreateBuffers, (void*)(buffer +i*1000));
 
 	for(int i=0; i<nthreads; i++)
 		pthread_join(tID[i], 0);
 
 	for(int i=0; i<nthreads; i++)
-		pthread_create(tID +i, 0, DeleteSomeBuffers, (void*)(buffer +i*1000));
+		pthread_create(&tID[i], 0, DeleteSomeBuffers, (void*)(buffer +i*1000));
+
+	//for(int i=0; i<nthreads; i++)
+		//pthread_join(tID[i], 0);
 
 	for(int i=0; i<nthreads; i++)
-		pthread_create(tID +nthreads +i, 0, FillBuffers, (void*)(buffer +i*1000));
+		pthread_create(&tID[i +nthreads], 0, FillBuffers, (void*)(buffer +i*1000));
 
 	for(int i=0; i<nthreads*2; i++)
 		pthread_join(tID[i], 0);
 
 	//
 	for(int i=0; i<nthreads; i++)
-		pthread_create(tID +i, 0, DeleteBuffers, (void*)(buffer +i*1000));
+		pthread_create(&tID[i], 0, DeleteBuffers, (void*)(buffer +i*1000));
 
 	for(int i=0; i<nthreads; i++)
 		pthread_join(tID[i], 0);
-
 
 	free(buffer);
 	free(tID);
@@ -1572,71 +1581,67 @@ class SecureBinaryDataTest : public ::testing::Test
       virtual void SetUp(void) 
       {
          str0_ = "";
-         str4_ = "1234abcd";
-         str5_ = "1234abcdef5948f216aad2e0";
+         str8_ = "1234abcd";
+         str24_ = "1234abcdef5948f216aad2e0";
 
          sbd0_ = READHEXS(str0_);
-         sbd4_ = READHEXS(str4_);
-         sbd12_ = READHEXS(str5_);
+         sbd8_ = READHEXS(str8_);
+         sbd24_ = READHEXS(str24_);
       }
 
       string str0_;
-      string str4_;
-      string str5_;
+      string str8_;
+      string str24_;
 
       SecureBinaryData sbd0_;
-      SecureBinaryData sbd4_;
-      SecureBinaryData sbd12_;
+      SecureBinaryData sbd8_;
+      SecureBinaryData sbd24_;
 };
 
 TEST_F(SecureBinaryDataTest, CorruptAndCopy)
 {
-   SecureBinaryData sbdcorrupt12 = sbd12_;
-   SecureBinaryData sbdcorrupt4  = sbd4_;
+   SecureBinaryData sbdcorrupt24 = sbd24_;
+   SecureBinaryData sbdcorrupt8  = sbd8_;
 
-   int nerrors=0;
-   uint8_t *p = sbdcorrupt12.getPtr();
-   for(int i=0; i<sbdcorrupt12.getSize(); i++)
-   {
-      if(!(rand() % 4))
-      {
-         p[i] = rand() % 255;
-         nerrors++;
-         
-         if(nerrors==8) break;
-      }
-   }
+	uint8_t *s24 = sbd24_.getPtr();
 
-   p = sbdcorrupt4.getPtr();
-   p[0] = rand() % 255;
-   p[1] = rand() % 255;
+   uint8_t *p = sbdcorrupt24.getPtr();
+	int i = rand() % sbdcorrupt24.getSize();
+	p[i] = rand() % 255;
 
-   SecureBinaryData sbdrecovered12 = sbdcorrupt12;
+   p = sbdcorrupt8.getPtr();
+	i = rand() % sbdcorrupt8.getSize();
+   p[i] = rand() % 255;
 
-   EXPECT_NE(sbd12_, sbdcorrupt12);
-   EXPECT_EQ(sbd12_, sbdrecovered12);
+   SecureBinaryData sbdrecovered24 = sbdcorrupt24;
 
-   SecureBinaryData sbd16_ = sbd4_ + sbd12_;
-   SecureBinaryData sbdrecovered16 = sbdcorrupt4 + sbdcorrupt12;
+	uint8_t *s24c = sbdcorrupt24.getPtr();
+	uint8_t *s24r = sbdrecovered24.getPtr();
 
-   EXPECT_EQ(sbd16_, sbdrecovered16);
+   EXPECT_NE(sbd24_, sbdcorrupt24);
+   EXPECT_EQ(sbd24_, sbdrecovered24);
 
-   SecureBinaryData sbdappend(sbdcorrupt4.getPtr(), sbdcorrupt4.getSize(), sbdcorrupt4.getRScode());
+   SecureBinaryData sbd32_ = sbd8_ + sbd24_;
+   SecureBinaryData sbdrecovered32 = sbdcorrupt8 + sbdcorrupt24;
+
+   EXPECT_EQ(sbd32_, sbdrecovered32);
+
+   SecureBinaryData sbdappend(sbdcorrupt8.getPtr(), sbdcorrupt8.getSize(), sbdcorrupt8.getRScode());
    
-   EXPECT_NE(sbdcorrupt4, sbdappend);
-   EXPECT_EQ(sbd4_, sbdappend);
+   EXPECT_NE(sbdcorrupt8, sbdappend);
+   EXPECT_EQ(sbd8_, sbdappend);
 
-   sbdappend.append(sbdcorrupt12);
+   sbdappend.append(sbdcorrupt24);
 
-   EXPECT_EQ(sbd16_, sbdappend);
+   EXPECT_EQ(sbd32_, sbdappend);
 
-   BinaryData bd12_ = sbdcorrupt12.getRawCopy();
+   BinaryData bd24_ = sbdcorrupt24.getRawCopy();
 
-   EXPECT_EQ(bd12_, sbd12_);
+   EXPECT_EQ(bd24_, sbd24_);
 
    SecureBinaryData sbdr_ = SecureBinaryData().GenerateRandom(32);
 
-   sbdr_.append(sbd12_);
+   sbdr_.append(sbd24_);
    KdfRomix kdf;
    kdf.computeKdfParams(1, 32*1024*1024);
    SecureBinaryData sbdr1_ = kdf.DeriveKey(sbdr_);
