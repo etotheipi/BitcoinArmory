@@ -306,12 +306,21 @@ class PyBtcWallet(object):
          # calledFromBDM means that ultimately the BDM itself called this
          # method and is blocking waiting for it.  So we can't use the 
          # BDM-thread queue, must call its methods directly
+         if startBlk == None: startBlk = self.lastSyncBlockNum
+         
          if self.calledFromBDM:
             TheBDM.scanRegisteredTxForWallet_bdm_direct(self.cppWallet, startBlk)
             self.lastSyncBlockNum = TheBDM.getTopBlockHeight_bdm_direct()
          else:
             TheBDM.scanRegisteredTxForWallet(self.cppWallet, startBlk, wait=True)
             self.lastSyncBlockNum = TheBDM.getTopBlockHeight(wait=True)
+            
+            wltLE = self.cppWallet.getTxLedger()
+            for le in wltLE:
+               txHash = le.getTxHash()
+               if not self.txAddrMap.has_key(txHash):
+                  self.txAddrMap[txHash] = []
+                  self.txAddrMap[txHash].append(le.getScrAddr())
       else:
          LOGERROR('Blockchain-sync requested, but current wallet')
          LOGERROR('is set to BLOCKCHAIN_DONOTUSE')
@@ -1020,10 +1029,10 @@ class PyBtcWallet(object):
       self.doBlockchainSync = BLOCKCHAIN_READONLY
       if fullscan:
          # Will initiate rescan if wallet is dirty
-         self.syncWithBlockchain(0)  
+         self.syncWithBlockchain(self.lastSyncBlockNum)  
       else:
          # Will only use data already scanned, even if wallet is dirty
-         self.syncWithBlockchainLite(0)  
+         self.syncWithBlockchainLite(self.lastSyncBlockNum)  
       self.doBlockchainSync = oldSync
 
       highestIndex = max(self.highestUsedChainIndex, 0)
