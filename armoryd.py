@@ -335,7 +335,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
             LOGERROR('Tx hash not recognized by TheBDM: %s' % txHashHex)
 
          #cppHead = cppTx.getHeaderPtr()
-         cppHead = TheBDM.getHeaderPtrForTx(cppTx)
+         cppHead = TheBDM.blockchain().getHeaderPtrForTx(cppTx)
          if not cppHead.isInitialized():
             LOGERROR('Header pointer is not available!')
             headHashBin = ''
@@ -397,7 +397,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
          firstAddr = hash160_to_addrStr(first160)
          changeAddr = '' if len(change160)==0 else hash160_to_addrStr(change160)
 
-         nconf = TheBDM.getTopBlockHeader().getBlockHeight() - le.getBlockNum() + 1
+         nconf = TheBDM.blockchain().top().getBlockHeight() - le.getBlockNum() + 1
 
 
          myinputs,  otherinputs = [],[]
@@ -487,7 +487,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
          isToSelf   = le.isSentToSelf()
          feeCoin   = getFeeForTx(txHashBin)
          totalBalDiff = le.getValue()
-         nconf = TheBDM.getTopBlockHeader().getBlockHeight() - le.getBlockNum() + 1
+         nconf = TheBDM.blockchain().top().getBlockHeight() - le.getBlockNum() + 1
 
 
          # We have potentially change outputs on any outgoing transactions.
@@ -613,10 +613,10 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
                'walletversion':     getVersionInt(PYBTCWALLET_VERSION),
                'bdmstate':          TheBDM.getBDMState(),
                'balance':           AmountToJSON(self.wallet.getBalance()) if isReady else -1,
-               'blocks':            TheBDM.getTopBlockHeight(),
+               'blocks':            TheBDM.blockchain().top().getBlockHeight(),
                'connections':       (0 if isReady else 1),
                'proxy':             '',
-               'difficulty':        TheBDM.getTopBlockHeader().getDifficulty() if isReady else -1,
+               'difficulty':        TheBDM.blockchain().top().getDifficulty() if isReady else -1,
                'testnet':           USE_TESTNET,
                'keypoolsize':       self.wallet.addrPoolSize
             }
@@ -628,14 +628,14 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       if TheBDM.getBDMState() in ['Uninitialized', 'Offline']:
          return {'error': 'armoryd is offline'}
 
-      head = TheBDM.getHeaderByHash(hex_to_binary(blkhash, BIGENDIAN))
+      head = TheBDM.blockchain().getHeaderByHash(hex_to_binary(blkhash, BIGENDIAN))
 
       if not head:
          return {'error': 'header not found'}
       
       out = {}
       out['hash'] = blkhash
-      out['confirmations'] = TheBDM.getTopBlockHeight()-head.getBlockHeight()+1
+      out['confirmations'] = TheBDM.blockchain().top().getBlockHeight()-head.getBlockHeight()+1
       out['size'] = head.getBlockSize()
       out['height'] = head.getBlockHeight()
       out['time'] = head.getTimestamp()
@@ -718,7 +718,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
          return out
 
       # The tx is in a block, fill in the rest of the data
-      out['confirmations'] = TheBDM.getTopBlockHeight() - tx.getBlockHeight() + 1
+      out['confirmations'] = TheBDM.blockchain().top().getBlockHeight() - tx.getBlockHeight() + 1
       out['time'] = tx.getBlockTimestamp()
       out['orderinblock'] = tx.getBlockTxIndex()
 
@@ -920,8 +920,8 @@ class Armory_Daemon(object):
          while not TheBDM.getBDMState()=='BlockchainReady':
             time.sleep(2)
 
-         self.latestBlockNum = TheBDM.getTopBlockHeight()
-         LOGINFO('Blockchain loading finished.  Top block is %d', TheBDM.getTopBlockHeight())
+         self.latestBlockNum = TheBDM.blockchain().top().getBlockHeight()
+         LOGINFO('Blockchain loading finished.  Top block is %d', self.latestBlockNum)
 
          mempoolfile = os.path.join(ARMORY_HOME_DIR,'mempool.bin')
          self.checkMemoryPoolCorruption(mempoolfile)
@@ -1061,11 +1061,11 @@ class Armory_Daemon(object):
       # Check for new blocks in the blk000X.dat file
       if TheBDM.getBDMState()=='BlockchainReady':
 
-         prevTopBlock = TheBDM.getTopBlockHeight()
+         prevTopBlock = TheBDM.blockchain().top().getBlockHeight()
          newBlks = TheBDM.readBlkFileUpdate()
          if newBlks>0:
-            self.latestBlockNum = TheBDM.getTopBlockHeight()
-            self.topTimestamp   = TheBDM.getTopBlockHeader().getTimestamp()
+            self.latestBlockNum = TheBDM.blockchain().top().getBlockHeight()
+            self.topTimestamp   = TheBDM.blockchain().top().getTimestamp()
 
             prevLedgerSize = len(self.wallet.getTxLedger())
 
@@ -1084,7 +1084,7 @@ class Armory_Daemon(object):
                # reorg with multiple blocks and we only want to process the new
                # blocks on the main chain, not the invalid ones
                for blknum in range(prevTopBlock+1, self.latestBlockNum+1):
-                  cppHeader = TheBDM.getHeaderByHeight(blknum)
+                  cppHeader = TheBDM.blockchain().getHeaderByHeight(blknum)
                   pyHeader = PyBlockHeader().unserialize(cppHeader.serialize())
                   
                   cppBlock = TheBDM.getMainBlockFromDB(blknum)

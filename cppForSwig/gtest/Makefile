@@ -38,19 +38,21 @@ HEADERS += 	$(USER_DIR)/BinaryData.h \
 		 		$(USER_DIR)/StoredBlockObj.h \
 		 		$(USER_DIR)/leveldb_wrapper.h \
 		 		$(USER_DIR)/EncryptionUtils.h \
+		 		$(USER_DIR)/Util.h \
 		 		$(USER_DIR)/PartialMerkle.h
 
 OBJECTS += 	BinaryData.o \
-		 		BtcUtils.o \
-		 		BlockObj.o \
-		 		StoredBlockObj.o \
-		 		leveldb_wrapper.o \
-		 		EncryptionUtils.o \
-		 		UniversalTimer.o \
-		 		leveldb_wrapper.o \
-		 		BlockUtils.o \
-		 		libcryptopp.a \
-		 		libleveldb.a
+				BtcUtils.o \
+				BlockObj.o \
+				StoredBlockObj.o \
+				leveldb_wrapper.o \
+				EncryptionUtils.o \
+				UniversalTimer.o \
+				leveldb_wrapper.o \
+				BlockUtils.o \
+				Util.o \
+				../libcryptopp.a \
+				../libleveldb.a
 
 # Flags passed to the C++ compiler.
 CXXFLAGS += -g 
@@ -106,11 +108,11 @@ gtest.a : gtest-all.o
 	#$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ -lpthread -o $@
 
 
-libcryptopp.a: Makefile
-	cd ../cryptopp; make libcryptopp.a; mv libcryptopp.a ../gtest
+../libcryptopp.a: Makefile
+	$(MAKE) -C ../cryptopp libcryptopp.a
 
-libleveldb.a: Makefile
-	cd ../leveldb; make libleveldb.a; mv libleveldb.a ../gtest
+../libleveldb.a: Makefile
+	$(MAKE) -C ../leveldb libleveldb.a
 
 UniversalTimer.o: $(USER_DIR)/UniversalTimer.h $(USER_DIR)/UniversalTimer.cpp
 	$(CXX) $(CPPFLAGS) -c $(USER_DIR)/UniversalTimer.cpp
@@ -135,6 +137,9 @@ BlockUtils.o: $(USER_DIR)/log.h $(USER_DIR)/BlockUtils.h $(USER_DIR)/BinaryData.
 
 EncryptionUtils.o: $(USER_DIR)/log.h $(USER_DIR)/BtcUtils.h $(USER_DIR)/BinaryData.h $(USER_DIR)/EncryptionUtils.h $(USER_DIR)/EncryptionUtils.cpp
 	$(CXX) $(CPPFLAGS) -c $(USER_DIR)/EncryptionUtils.cpp
+
+Util.o: $(USER_DIR)/log.h $(USER_DIR)/Util.h $(USER_DIR)/Util.cpp
+	$(CXX) $(CPPFLAGS) -c $(USER_DIR)/Util.cpp
 
 
 ####

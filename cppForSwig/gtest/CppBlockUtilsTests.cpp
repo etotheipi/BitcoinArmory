@@ -6012,14 +6012,14 @@ TEST_F(BlockUtilsBare, Load4Blocks_Plus1)
    TheBDM.scanBlockchainForTx(wlt);
    EXPECT_EQ(iface_->getTopBlockHeight(HEADERS), 3);
    EXPECT_EQ(iface_->getTopBlockHash(HEADERS), blkHash3);
-   EXPECT_TRUE(TheBDM.getHeaderByHash(blkHash3)->isMainBranch());
+   EXPECT_TRUE(TheBDM.blockchain().getHeaderByHash(blkHash3).isMainBranch());
    
    BtcUtils::copyFile("../reorgTest/blk_0_to_4.dat", blk0dat_);
    TheBDM.readBlkFileUpdate(); 
    TheBDM.scanBlockchainForTx(wlt);
    EXPECT_EQ(iface_->getTopBlockHeight(HEADERS), 4);
    EXPECT_EQ(iface_->getTopBlockHash(HEADERS), blkHash4);
-   EXPECT_TRUE(TheBDM.getHeaderByHash(blkHash4)->isMainBranch());
+   EXPECT_TRUE(TheBDM.blockchain().getHeaderByHash(blkHash4).isMainBranch());
 
    ScrAddrObj * scrobj;
    scrobj = &wlt.getScrAddrObjByKey(scrAddrA_);
@@ -6838,12 +6838,12 @@ protected:
 ////////////////////////////////////////////////////////////////////////////////
 TEST_F(BlockUtilsSuper, HeadersOnly)
 {
-   EXPECT_EQ(TheBDM.getNumBlocks(), 0);
+   EXPECT_EQ(TheBDM.blockchain().numHeaders(), 0);
    TheBDM.processNewHeadersInBlkFiles(0);
    
-   EXPECT_EQ(TheBDM.getNumBlocks(), 5);
-   EXPECT_EQ(TheBDM.getTopBlockHeight(), 4);
-   EXPECT_EQ(TheBDM.getTopBlockHash(), blkHash4);
+   EXPECT_EQ(TheBDM.blockchain().numHeaders(), 5);
+   EXPECT_EQ(TheBDM.blockchain().top().getBlockHeight(), 4);
+   EXPECT_EQ(TheBDM.blockchain().top().getThisHash(), blkHash4);
    EXPECT_EQ(iface_->getTopBlockHeight(HEADERS), 4);
    //iface_->printAllDatabaseEntries(HEADERS);
 }
@@ -6852,10 +6852,10 @@ TEST_F(BlockUtilsSuper, HeadersOnly)
 TEST_F(BlockUtilsSuper, HeadersOnly_Reorg)
 {
    SETLOGLEVEL(LogLvlError);
-   EXPECT_EQ(TheBDM.getNumBlocks(), 0);
+   EXPECT_EQ(TheBDM.blockchain().numHeaders(), 0);
    TheBDM.processNewHeadersInBlkFiles(0);
    
-   EXPECT_EQ(TheBDM.getNumBlocks(), 5);
+   EXPECT_EQ(TheBDM.blockchain().numHeaders(), 5);
    EXPECT_EQ(TheBDM.getTopBlockHeight(), 4);
 
    EXPECT_EQ(iface_->getTopBlockHeight(HEADERS), 4);
@@ -6865,27 +6865,27 @@ TEST_F(BlockUtilsSuper, HeadersOnly_Reorg)
    TheBDM.processNewHeadersInBlkFiles(1);
    EXPECT_EQ(iface_->getTopBlockHeight(HEADERS), 4);
    EXPECT_EQ(iface_->getTopBlockHash(HEADERS), blkHash4);
-   EXPECT_FALSE(TheBDM.getHeaderByHash(blkHash3A)->isMainBranch());
-   EXPECT_TRUE( TheBDM.getHeaderByHash(blkHash3 )->isMainBranch());
+   EXPECT_FALSE(TheBDM.blockchain().getHeaderByHash(blkHash3A).isMainBranch());
+   EXPECT_TRUE( TheBDM.blockchain().getHeaderByHash(blkHash3 ).isMainBranch());
 
    BtcUtils::copyFile("../reorgTest/blk_4A.dat", BtcUtils::getBlkFilename(blkdir_, 2));
    TheBDM.processNewHeadersInBlkFiles(2);
    EXPECT_EQ(iface_->getTopBlockHeight(HEADERS), 4);
    EXPECT_EQ(iface_->getTopBlockHash(HEADERS), blkHash4);
-   EXPECT_FALSE(TheBDM.getHeaderByHash(blkHash3A)->isMainBranch());
-   EXPECT_TRUE( TheBDM.getHeaderByHash(blkHash3 )->isMainBranch());
-   EXPECT_FALSE(TheBDM.getHeaderByHash(blkHash4A)->isMainBranch());
-   EXPECT_TRUE( TheBDM.getHeaderByHash(blkHash4 )->isMainBranch());
+   EXPECT_FALSE(TheBDM.blockchain().getHeaderByHash(blkHash3A).isMainBranch());
+   EXPECT_TRUE( TheBDM.blockchain().getHeaderByHash(blkHash3 ).isMainBranch());
+   EXPECT_FALSE(TheBDM.blockchain().getHeaderByHash(blkHash4A).isMainBranch());
+   EXPECT_TRUE( TheBDM.blockchain().getHeaderByHash(blkHash4 ).isMainBranch());
 
    BtcUtils::copyFile("../reorgTest/blk_5A.dat", BtcUtils::getBlkFilename(blkdir_, 3));
    TheBDM.processNewHeadersInBlkFiles(3);
    EXPECT_EQ(iface_->getTopBlockHeight(HEADERS), 5);
    EXPECT_EQ(iface_->getTopBlockHeight(HEADERS), 5);
    EXPECT_EQ(iface_->getTopBlockHash(HEADERS), blkHash5A);
-   EXPECT_FALSE(TheBDM.getHeaderByHash(blkHash3 )->isMainBranch());
-   EXPECT_TRUE( TheBDM.getHeaderByHash(blkHash3A)->isMainBranch());
-   EXPECT_FALSE(TheBDM.getHeaderByHash(blkHash4 )->isMainBranch());
-   EXPECT_TRUE( TheBDM.getHeaderByHash(blkHash4A)->isMainBranch());
+   EXPECT_FALSE(TheBDM.blockchain().getHeaderByHash(blkHash3 ).isMainBranch());
+   EXPECT_TRUE( TheBDM.blockchain().getHeaderByHash(blkHash3A).isMainBranch());
+   EXPECT_FALSE(TheBDM.blockchain().getHeaderByHash(blkHash4 ).isMainBranch());
+   EXPECT_TRUE( TheBDM.blockchain().getHeaderByHash(blkHash4A).isMainBranch());
 
    SETLOGLEVEL(LogLvlDebug2);
 }
@@ -6929,13 +6929,13 @@ TEST_F(BlockUtilsSuper, Load4BlocksPlus1)
    TheBDM.doInitialSyncOnLoad(); 
    EXPECT_EQ(iface_->getTopBlockHeight(HEADERS), 3);
    EXPECT_EQ(iface_->getTopBlockHash(HEADERS), blkHash3);
-   EXPECT_TRUE(TheBDM.getHeaderByHash(blkHash3)->isMainBranch());
+   EXPECT_TRUE(TheBDM.blockchain().getHeaderByHash(blkHash3).isMainBranch());
    
    BtcUtils::copyFile("../reorgTest/blk_0_to_4.dat", blk0dat_);
    TheBDM.readBlkFileUpdate(); 
    EXPECT_EQ(iface_->getTopBlockHeight(HEADERS), 4);
    EXPECT_EQ(iface_->getTopBlockHash(HEADERS), blkHash4);
-   EXPECT_TRUE(TheBDM.getHeaderByHash(blkHash4)->isMainBranch());
+   EXPECT_TRUE(TheBDM.blockchain().getHeaderByHash(blkHash4).isMainBranch());
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -6948,13 +6948,13 @@ TEST_F(BlockUtilsSuper, Load5Blocks_Plus2NoReorg)
 
    BtcUtils::copyFile("../reorgTest/blk_3A.dat", blk0dat_);
    TheBDM.readBlkFileUpdate();
-   EXPECT_EQ(TheBDM.getTopBlockHash(),   blkHash4);
-   EXPECT_EQ(TheBDM.getTopBlockHeight(), 4);
+   EXPECT_EQ(TheBDM.blockchain().top().getThisHash(),   blkHash4);
+   EXPECT_EQ(TheBDM.blockchain().top().getBlockHeight(), 4);
 
    BtcUtils::copyFile("../reorgTest/blk_4A.dat", blk0dat_);
    TheBDM.readBlkFileUpdate();
-   EXPECT_EQ(TheBDM.getTopBlockHash(),   blkHash4);
-   EXPECT_EQ(TheBDM.getTopBlockHeight(), 4);
+   EXPECT_EQ(TheBDM.blockchain().top().getThisHash(),   blkHash4);
+   EXPECT_EQ(TheBDM.blockchain().top().getBlockHeight(), 4);
 
    //BtcUtils::copyFile("../reorgTest/blk_5A.dat", blk0dat_);
    //iface_->pprintBlkDataDB(BLKDATA);
@@ -7008,7 +7008,7 @@ TEST_F(BlockUtilsSuper, DISABLED_RestartDBAfterBuild)
    TheBDM.doInitialSyncOnLoad(); 
    EXPECT_EQ(iface_->getTopBlockHeight(HEADERS), 2);
    EXPECT_EQ(iface_->getTopBlockHash(HEADERS), blkHash2);
-   EXPECT_TRUE(TheBDM.getHeaderByHash(blkHash2)->isMainBranch());
+   EXPECT_TRUE(TheBDM.blockchain().getHeaderByHash(blkHash2).isMainBranch());
    TheBDM.DestroyInstance();
    
    // Add two more blocks
@@ -7027,7 +7027,7 @@ TEST_F(BlockUtilsSuper, DISABLED_RestartDBAfterBuild)
    
    EXPECT_EQ(TheBDM.getTopBlockHeightInDB(HEADERS), 4);
    EXPECT_EQ(TheBDM.getTopBlockHeightInDB(BLKDATA), 4);
-   EXPECT_TRUE(TheBDM.getHeaderByHash(blkHash4)->isMainBranch());
+   EXPECT_TRUE(TheBDM.blockchain().getHeaderByHash(blkHash4).isMainBranch());
 
    StoredScriptHistory ssh;
 
@@ -7062,7 +7062,7 @@ TEST_F(BlockUtilsSuper, DISABLED_RestartDBAfterBuild_withReplay)
    TheBDM.doInitialSyncOnLoad(); 
    EXPECT_EQ(iface_->getTopBlockHeight(HEADERS), 2);
    EXPECT_EQ(iface_->getTopBlockHash(HEADERS), blkHash2);
-   EXPECT_TRUE(TheBDM.getHeaderByHash(blkHash2)->isMainBranch());
+   EXPECT_TRUE(TheBDM.blockchain().getHeaderByHash(blkHash2).isMainBranch());
    TheBDM.DestroyInstance();
    
    // Add two more blocks
@@ -7085,7 +7085,7 @@ TEST_F(BlockUtilsSuper, DISABLED_RestartDBAfterBuild_withReplay)
    
    EXPECT_EQ(TheBDM.getTopBlockHeightInDB(HEADERS), 4);
    EXPECT_EQ(TheBDM.getTopBlockHeightInDB(BLKDATA), 4);
-   EXPECT_TRUE(TheBDM.getHeaderByHash(blkHash4)->isMainBranch());
+   EXPECT_TRUE(TheBDM.blockchain().getHeaderByHash(blkHash4).isMainBranch());
 
    StoredScriptHistory ssh;
 

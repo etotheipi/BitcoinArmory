@@ -52,14 +52,6 @@ class BlockDataManager_LevelDB;
 
 typedef enum
 {
-  ADD_BLOCK_SUCCEEDED,
-  ADD_BLOCK_NEW_TOP_BLOCK,
-  ADD_BLOCK_CAUSED_REORG,
-} ADD_BLOCK_RESULT_INDEX;
-
-
-typedef enum
-{
   TX_DNE,
   TX_ZEROCONF,
   TX_IN_BLOCKCHAIN
@@ -513,7 +505,80 @@ private:
 };
 
 
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+//
+// Manages the blockchain, keeping track of all the block headers
+// and our longest cord
+//
+class Blockchain
+{
+public:
+   Blockchain(BlockDataManager_LevelDB* bdm);
+   // implemented but not used:
+   //vector<BlockHeader*> getHeadersNotOnMainChain(void);
 
+   void clear();
+   
+   class BlockCorruptionError : public std::runtime_error
+   {
+   public:
+      BlockCorruptionError()
+         : std::runtime_error("Failed to organize blockchain (corruption)")
+      { }
+   };
+   
+   struct ReorganizationState
+   {
+      bool prevTopBlockStillValid;
+      bool hasNewTop;
+      BlockHeader *prevTopBlock;
+      BlockHeader *reorgBranchPoint;
+   };
+   
+   /**
+    * Adds a block to the chain
+    **/
+   BlockHeader& addBlock(const HashString &blockhash, const BlockHeader &block);
+   
+   ReorganizationState organize();
+   ReorganizationState forceOrganize();
+   
+   BlockHeader& top() const;
+   BlockHeader& getGenesisBlock() const;
+   BlockHeader& getHeaderByHeight(unsigned height) const;
+   unsigned numHeaders() const { return headersByHeight_.size(); }
+   
+   const BlockHeader& getHeaderByHash(HashString const & blkHash) const;
+   BlockHeader& getHeaderByHash(HashString const & blkHash);
+   bool hasHeaderWithHash(BinaryData const & txHash) const;
+   const BlockHeader& getHeaderPtrForTxRef(const TxRef &txr) const;
+   const BlockHeader& getHeaderPtrForTx(const Tx & txObj) const
+   {
+      if(txObj.getTxRef().isNull())
+      {
+         throw runtime_error("TxRef in Tx object is not set, cannot get header ptr");
+      }
+      
+      return getHeaderPtrForTxRef(txObj.getTxRef());
+   }
+
+private:
+   BlockHeader* organizeChain(bool forceRebuild=false);
+   /////////////////////////////////////////////////////////////////////////////
+   // Update/organize the headers map (figure out longest chain, mark orphans)
+   // Start from a node, trace down to the highest solved block, accumulate
+   // difficulties and difficultySum values.  Return the difficultySum of 
+   // this block.
+   double traceChainDown(BlockHeader & bhpStart);
+
+private:
+   BlockDataManager_LevelDB *const bdm_;
+   map<HashString, BlockHeader> headerMap_;
+   deque<BlockHeader*> headersByHeight_;
+   BlockHeader *topBlockPtr_;
+   BlockHeader *genesisBlockBlockPtr_;
+};
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
@@ -539,9 +604,6 @@ private:
    
  
    bool checkLdbStatus(leveldb::Status stat);
-
-
-   map<HashString, BlockHeader> headerMap_;
 
    // This is our permanent link to the two databases used
    static InterfaceToLDB* iface_;
@@ -589,20 +651,14 @@ private:
    uint64_t                           startScanOffset_;
    uint32_t                           startApplyBlkFile_;
    uint64_t                           startApplyOffset_;
+   
+   // set after the blockchain is organized
+   uint32_t                           lastTopBlock_;
 
    // Used to estimate how much data is queued to be written to DB
    bool                               requestRescan_;
 
-   // These should be set after the blockchain is organized
-   deque<BlockHeader*>                headersByHeight_;
-   BlockHeader*                       topBlockPtr_;
-   BlockHeader*                       genBlockPtr_;
-   uint32_t                           lastTopBlock_;
-
    // Reorganization details
-   bool                               lastBlockWasReorg_;
-   BlockHeader*                       reorgBranchPoint_;
-   BlockHeader*                       prevTopBlockPtr_;
    set<HashString>                    txJustInvalidated_;
    set<HashString>                    txJustAffected_;
 
@@ -616,12 +672,12 @@ private:
    static bool                        bdmCreatedYet_;
    bool                               isInitialized_;
 
-
+public:
    // These will be set for the specific network we are testing
    BinaryData GenesisHash_;
    BinaryData GenesisTxHash_;
    BinaryData MagicBytes_;
-   
+private:
   
    // Variables that will be updated as the blockchain loads:
    // can be used to report load progress
@@ -660,12 +716,17 @@ private:
    // multiple wallets share the same addresses
    //map<OutPoint,   TxIOPair>          txioMap_;
 
+   Blockchain blockchain_;
+   
 private:
    // Set the constructor to private so that only one can ever be created
    BlockDataManager_LevelDB(void);
    ~BlockDataManager_LevelDB(void);
 
 public:
+
+   Blockchain blockchain() { return blockchain_; }
+   const Blockchain blockchain() const { return blockchain_; }
 
    static BlockDataManager_LevelDB & GetInstance(void);
    static void DestroyInstance(void);
@@ -732,22 +793,14 @@ public:
    /////////////////////////////////////////////////////////////////////////////
    void Reset(void);
    int32_t          getNumConfirmations(BinaryData txHash);
-   BlockHeader &    getTopBlockHeader(void);
-   BlockHeader &    getGenesisBlock(void) ;
-   BlockHeader *    getHeaderByHeight(int index);
-   BlockHeader *    getHeaderByHash(BinaryData const & blkHash);
    string           getBlockfilePath(void) {return blkFileDir_;}
 
    TxRef            getTxRefByHash(BinaryData const & txHash);
    Tx               getTxByHash(BinaryData const & txHash);
 
-   uint32_t         getTopBlockHeight(void) {return getTopBlockHeader().getBlockHeight();}
-   BinaryData       getTopBlockHash(void)   {return getTopBlockHeader().getThisHash();}
-
    bool isDirty(uint32_t numBlockToBeConsideredDirty=NUM_BLKS_IS_DIRTY) const; 
 
    //uint32_t getNumTx(void) { return txHintMap_.size(); }
-   uint32_t getNumHeaders(void) { return headerMap_.size(); }
 
    /////////////////////////////////////////////////////////////////////////////
    // If you register you wallet with the BDM, it will automatically maintain 
@@ -838,7 +891,7 @@ public:
    // permanent memory location before parsing it.
    // These methods return (blockAddSucceeded, newBlockIsTop, didCauseReorg)
    uint32_t       readBlkFileUpdate(void);
-   vector<bool> addNewBlockData(BinaryRefReader & brrRawBlock, 
+   Blockchain::ReorganizationState addNewBlockData(BinaryRefReader & brrRawBlock, 
                                 uint32_t fileIndex0Idx,
                                 uint32_t thisHeaderOffset,
                                 uint32_t blockSize);
@@ -860,18 +913,12 @@ public:
    TX_AVAILABILITY getTxHashAvail(BinaryDataRef txhash);
    bool hasTxWithHash(BinaryData const & txhash);
    bool hasTxWithHashInDB(BinaryData const & txhash);
-   bool hasHeaderWithHash(BinaryData const & headHash) const;
 
-   uint32_t getNumBlocks(void) const { return headerMap_.size(); }
    //uint32_t getNumTx(void) const { return txHintMap_.size(); }
    StoredHeader getMainBlockFromDB(uint32_t hgt);
    uint8_t      getMainDupFromDB(uint32_t hgt);
    StoredHeader getBlockFromDB(uint32_t hgt, uint8_t dup);
 
-   vector<BlockHeader*> getHeadersNotOnMainChain(void);
-
-   bool addHeadersFirst(BinaryDataRef rawHeader);
-   bool addHeadersFirst(vector<StoredHeader> const & headVect);
 
    // Traverse the blockchain and update the wallet[s] with the relevant Tx data
    // See comments above the scanBlockchainForTx in the .cpp, for more info
@@ -914,14 +961,7 @@ public:
    void rescanWalletZeroConf(BtcWallet & wlt);
    bool isTxFinal(Tx & tx);
 
-
-   // After reading in all headers, find the longest chain and set nextHash vals
-   // TODO:  Figure out if there is an elegant way to deal with a forked 
-   //        blockchain containing two equal-length chains
-   bool organizeChain(bool forceRebuild=false);
-
    /////////////////////////////////////////////////////////////////////////////
-   bool             isLastBlockReorg(void)     {return lastBlockWasReorg_;}
    set<HashString>  getTxJustInvalidated(void) {return txJustInvalidated_;}
    set<HashString>  getTxJustAffected(void)    {return txJustAffected_;}
    void             updateWalletAfterReorg(BtcWallet & wlt);
@@ -940,36 +980,12 @@ public:
    BinaryData getSenderScrAddr(TxIn & txin);
    int64_t    getSentValue(TxIn & txin);
 
-   /////////////////////////////////////////////////////////////////////////////
-   // We used to have a method in TxRef class to do this, because all TxRefs 
-   // had pointers to their parent header object.  Now, TxRefs are much more
-   // isolated, so we have to ask the BDM to help us find the correct header
-   // (which is considerably easier with the DB design that indexes everything
-   // by block height...
-   BlockHeader* getHeaderPtrForTxRef(TxRef txr);
-   BlockHeader* getHeaderPtrForTx(Tx & txObj);
-
-   /////////////////////////////////////////////////////////////////////////////
-   // A couple random methods to expose internal data structures for testing.
-   // These methods should not be used for nominal operation.
-   //multimap<HashString, TxRef> &  getTxHintMapRef(void) { return txHintMap_; }
-   map<HashString, BlockHeader> & getHeaderMapRef(void) { return headerMap_; }
-   deque<BlockHeader*> &          getHeadersByHeightRef(void) { return headersByHeight_;}
-
 // These things should probably be private, but they also need to be test-able,
 // and googletest apparently cannot access private methods without polluting 
 // this class with gtest code
 //private: 
 
    void pprintSSHInfoAboutHash160(BinaryData const & a160);
-
-   /////////////////////////////////////////////////////////////////////////////
-   // Update/organize the headers map (figure out longest chain, mark orphans)
-   // Start from a node, trace down to the highest solved block, accumulate
-   // difficulties and difficultySum values.  Return the difficultySum of 
-   // this block.
-   double traceChainDown(BlockHeader & bhpStart);
-   void   markOrphanChain(BlockHeader & bhpStart);
 
    /////////////////////////////////////////////////////////////////////////////
    void     setMaxOpenFiles(uint32_t n) {iface_->setMaxOpenFiles(n);}
@@ -996,6 +1012,9 @@ public:
    vector<BinaryData> missingBlockHeaderHashes() const { return missingBlockHeaderHashes_; }
    
    vector<BinaryData> missingBlockHashes() const { return missingBlockHashes_; }
+   
+   // obsolete, needed for the python Passthru thing
+   uint32_t getTopBlockHeight() const { return blockchain_.top().getBlockHeight(); }
 };
 
 

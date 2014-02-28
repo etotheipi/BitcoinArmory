@@ -10,6 +10,7 @@
 #include <time.h>
 #include <stdio.h>
 #include "BlockUtils.h"
+#include "Util.h"
 
 static void updateBlkDataHeader(InterfaceToLDB* iface, StoredHeader const & sbh)
 {
@@ -2216,6 +2217,309 @@ set<BinaryData> BlockWriteBatcher::searchForSSHKeysToDelete()
    return keysToDelete;
 }
 
+
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+//
+// Start Blockchain methods
+//
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+
+Blockchain::Blockchain(BlockDataManager_LevelDB* bdm)
+   : bdm_(bdm)
+{
+   clear();
+}
+
+void Blockchain::clear()
+{
+   headerMap_.clear();
+   headersByHeight_.resize(0);
+   topBlockPtr_ = genesisBlockBlockPtr_ = &headerMap_[
+         bdm_->GenesisHash_
+      ];
+}
+
+BlockHeader& Blockchain::addBlock(
+      const HashString &blockhash,
+      const BlockHeader &block
+   )
+{
+   if (hasHeaderWithHash(blockhash))
+   {
+      LOGWARN << "Somehow tried to add header that's already in map";
+      LOGWARN << "Header Hash: " << blockhash.toHexStr();
+   }
+   return headerMap_[blockhash] = block;
+}
+
+Blockchain::ReorganizationState Blockchain::organize()
+{
+   ReorganizationState st;
+   st.prevTopBlock = &top();
+   st.reorgBranchPoint = organizeChain();
+   st.prevTopBlockStillValid = !st.reorgBranchPoint;
+   st.hasNewTop = (st.prevTopBlock != &top());
+   return st;
+}
+
+Blockchain::ReorganizationState Blockchain::forceOrganize()
+{
+   ReorganizationState st;
+   st.prevTopBlock = &top();
+   st.reorgBranchPoint = organizeChain(true);
+   st.prevTopBlockStillValid = !st.reorgBranchPoint;
+   st.hasNewTop = (st.prevTopBlock != &top());
+   return st;
+}
+
+BlockHeader& Blockchain::top() const
+{
+   return *topBlockPtr_;
+}
+
+BlockHeader& Blockchain::getGenesisBlock() const
+{
+   return *genesisBlockBlockPtr_;
+}
+
+BlockHeader& Blockchain::getHeaderByHeight(unsigned index) const
+{
+   if(index>=headersByHeight_.size())
+      throw std::range_error("Cannot get block at height " + Util::to_string(index));
+
+   return *headersByHeight_[index];
+}
+
+const BlockHeader& Blockchain::getHeaderByHash(HashString const & blkHash) const
+{
+   map<HashString, BlockHeader>::const_iterator it = headerMap_.find(blkHash);
+   if(ITER_NOT_IN_MAP(it, headerMap_))
+      throw std::range_error("Cannot find block with hash " + blkHash.toHexStr());
+   else
+      return it->second;
+}
+BlockHeader& Blockchain::getHeaderByHash(HashString const & blkHash)
+{
+   map<HashString, BlockHeader>::iterator it = headerMap_.find(blkHash);
+   if(ITER_NOT_IN_MAP(it, headerMap_))
+      throw std::range_error("Cannot find block with hash " + blkHash.toHexStr());
+   else
+      return it->second;
+}
+
+bool Blockchain::hasHeaderWithHash(BinaryData const & txHash) const
+{
+   return KEY_IN_MAP(txHash, headerMap_);
+}
+
+const BlockHeader& Blockchain::getHeaderPtrForTxRef(const TxRef &txr) const
+{
+   if(txr.isNull())
+      throw std::range_error("Null TxRef");
+
+   uint32_t hgt = txr.getBlockHeight();
+   uint8_t  dup = txr.getDuplicateID();
+   const BlockHeader& bh= getHeaderByHeight(hgt);
+   if(bh.getDuplicateID() != dup)
+   {
+      throw runtime_error("Requested txref not on main chain (BH dupID is diff)");
+   }
+   return bh;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+// Returns nullptr if the new top block is a direct follower of
+// the previous top. Returns the branch point if we had to reorg
+// TODO:  Figure out if there is an elegant way to deal with a forked 
+//        blockchain containing two equal-length chains
+BlockHeader* Blockchain::organizeChain(bool forceRebuild)
+{
+   SCOPED_TIMER("organizeChain");
+
+   // Why did this line not through an error?  I left here to remind 
+   // myself to go figure it out.
+   //LOGINFO << ("Organizing chain", (forceRebuild ? "w/ rebuild" : ""));
+   LOGDEBUG << "Organizing chain " << (forceRebuild ? "w/ rebuild" : "");
+
+   
+   // If rebuild, we zero out any original organization data and do a 
+   // rebuild of the chain from scratch.  This will need to be done in
+   // the event that our first call to organizeChain returns false, which
+   // means part of blockchain that was previously valid, has become
+   // invalid.  Rather than get fancy, just rebuild all which takes less
+   // than a second, anyway.
+   if(forceRebuild)
+   {
+      map<HashString, BlockHeader>::iterator iter;
+      for( iter  = headerMap_.begin(); 
+           iter != headerMap_.end(); 
+           iter++)
+      {
+         iter->second.difficultySum_  = -1;
+         iter->second.blockHeight_    =  0;
+         iter->second.isFinishedCalc_ =  false;
+         iter->second.nextHash_       =  BtcUtils::EmptyHash_;
+         iter->second.isMainBranch_   =  false;
+      }
+      topBlockPtr_ = NULL;
+   }
+
+   // Set genesis block
+   BlockHeader & genBlock = getGenesisBlock();
+   genBlock.blockHeight_    = 0;
+   genBlock.difficultyDbl_  = 1.0;
+   genBlock.difficultySum_  = 1.0;
+   genBlock.isMainBranch_   = true;
+   genBlock.isOrphan_       = false;
+   genBlock.isFinishedCalc_ = true;
+   genBlock.isInitialized_  = true; 
+
+   // If this is the first run, the topBlock is the genesis block
+   if(topBlockPtr_ == NULL)
+      topBlockPtr_ = &genBlock;
+
+   const BlockHeader& prevTopBlock = top();
+   
+   // Iterate over all blocks, track the maximum difficulty-sum block
+   map<HashString, BlockHeader>::iterator iter;
+   double   maxDiffSum     = prevTopBlock.getDifficultySum();
+   for( iter = headerMap_.begin(); iter != headerMap_.end(); iter ++)
+   {
+      // *** Walk down the chain following prevHash fields, until
+      //     you find a "solved" block.  Then walk back up and 
+      //     fill in the difficulty-sum values (do not set next-
+      //     hash ptrs, as we don't know if this is the main branch)
+      //     Method returns instantly if block is already "solved"
+      double thisDiffSum = traceChainDown(iter->second);
+
+      // Determine if this is the top block.  If it's the same diffsum
+      // as the prev top block, don't do anything
+      if(thisDiffSum > maxDiffSum)
+      {
+         maxDiffSum     = thisDiffSum;
+         topBlockPtr_   = &(iter->second);
+      }
+   }
+
+   
+   // Walk down the list one more time, set nextHash fields
+   // Also set headersByHeight_;
+   bool prevChainStillValid = (topBlockPtr_ == &prevTopBlock);
+   topBlockPtr_->nextHash_ = BtcUtils::EmptyHash_;
+   BlockHeader* thisHeaderPtr = topBlockPtr_;
+   //headersByHeight_.reserve(topBlockPtr_->getBlockHeight()+32768);
+   headersByHeight_.resize(topBlockPtr_->getBlockHeight()+1);
+   while( !thisHeaderPtr->isFinishedCalc_ )
+   {
+      thisHeaderPtr->isFinishedCalc_ = true;
+      thisHeaderPtr->isMainBranch_   = true;
+      thisHeaderPtr->isOrphan_       = false;
+      headersByHeight_[thisHeaderPtr->getBlockHeight()] = thisHeaderPtr;
+
+      // This loop not necessary anymore with the DB implementation
+      // We need to guarantee that the txs are pointing to the right block
+      // header, because they could've been linked to an invalidated block
+      //for(uint32_t i=0; i<thisHeaderPtr->getTxRefPtrList().size(); i++)
+      //{
+         //TxRef & tx = *(thisHeaderPtr->getTxRefPtrList()[i]);
+         //tx.setHeaderPtr(thisHeaderPtr);
+         //tx.setMainBranch(true);
+      //}
+
+      HashString & childHash    = thisHeaderPtr->thisHash_;
+      thisHeaderPtr             = &(headerMap_[thisHeaderPtr->getPrevHash()]);
+      thisHeaderPtr->nextHash_  = childHash;
+
+      if(thisHeaderPtr == &prevTopBlock)
+         prevChainStillValid = true;
+
+   }
+   // Last header in the loop didn't get added (the genesis block on first run)
+   thisHeaderPtr->isMainBranch_ = true;
+   headersByHeight_[thisHeaderPtr->getBlockHeight()] = thisHeaderPtr;
+
+
+   // Force a full rebuild to make sure everything is marked properly
+   // On a full rebuild, prevChainStillValid should ALWAYS be true
+   if( !prevChainStillValid )
+   {
+      LOGWARN << "Reorg detected!";
+
+      organizeChain(true); // force-rebuild blockchain (takes less than 1s)
+      return thisHeaderPtr;
+   }
+
+   // Let the caller know that there was no reorg
+   LOGDEBUG << "Done organizing chain";
+   return 0;
+}
+
+
+/////////////////////////////////////////////////////////////////////////////
+// Start from a node, trace down to the highest solved block, accumulate
+// difficulties and difficultySum values.  Return the difficultySum of 
+// this block.
+double Blockchain::traceChainDown(BlockHeader & bhpStart)
+{
+   if(bhpStart.difficultySum_ > 0)
+      return bhpStart.difficultySum_;
+
+   // Prepare some data structures for walking down the chain
+   vector<BlockHeader*>   headerPtrStack(headerMap_.size());
+   vector<double>         difficultyStack(headerMap_.size());
+   uint32_t blkIdx = 0;
+
+   // Walk down the chain of prevHash_ values, until we find a block
+   // that has a definitive difficultySum value (i.e. >0). 
+   BlockHeader* thisPtr = &bhpStart;
+   while( thisPtr->difficultySum_ < 0)
+   {
+      double thisDiff         = thisPtr->difficultyDbl_;
+      difficultyStack[blkIdx] = thisDiff;
+      headerPtrStack[blkIdx]  = thisPtr;
+      blkIdx++;
+
+      map<HashString, BlockHeader>::iterator iter = headerMap_.find(thisPtr->getPrevHash());
+      if(ITER_IN_MAP(iter, headerMap_))
+         thisPtr = &(iter->second);
+      else
+      {
+         // Under some circumstances, the headers DB is not getting written
+         // properly and triggering this code due to missing headers.  For 
+         // now, we simply avoid this condition by flagging the headers DB
+         // to be rebuilt.  The bug probably has to do with batching of
+         // header data.
+         throw BlockCorruptionError();
+         
+         // previously here: markOrphanBlock
+      }
+   }
+
+
+   // Now we have a stack of difficulties and pointers.  Walk back up
+   // (by pointer) and accumulate the difficulty values 
+   double   seedDiffSum = thisPtr->difficultySum_;
+   uint32_t blkHeight   = thisPtr->blockHeight_;
+   for(int32_t i=blkIdx-1; i>=0; i--)
+   {
+      seedDiffSum += difficultyStack[i];
+      blkHeight++;
+      thisPtr                 = headerPtrStack[i];
+      thisPtr->difficultyDbl_ = difficultyStack[i];
+      thisPtr->difficultySum_ = seedDiffSum;
+      thisPtr->blockHeight_   = blkHeight;
+   }
+   
+   // Finally, we have all the difficulty sums calculated, return this one
+   return bhpStart.difficultySum_;
+  
+}
+
+
+
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 //
@@ -2224,6 +2528,7 @@ set<BinaryData> BlockWriteBatcher::searchForSSHKeysToDelete()
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 BlockDataManager_LevelDB::BlockDataManager_LevelDB(void) 
+   : blockchain_(this)
 {
    Reset();
 }
@@ -2259,6 +2564,9 @@ void BlockDataManager_LevelDB::SetBtcNetworkParams(
    GenesisHash_.copyFrom(GenHash);
    GenesisTxHash_.copyFrom(GenTxHash);
    MagicBytes_.copyFrom(MagicBytes);
+   
+   // this is needed for making gtest work, I don't know why (~CS)
+   blockchain_.clear();
 }
 
 
@@ -2416,10 +2724,8 @@ bool BlockDataManager_LevelDB::detectCurrentSyncState(
       startApplyHgt_      = 0;
       startApplyBlkFile_  = 0;
       startApplyOffset_   = 0;
-      headerMap_.clear();
-      topBlockPtr_ = NULL;
-      genBlockPtr_ = NULL;
-      lastTopBlock_ = UINT32_MAX;;
+      lastTopBlock_ = UINT32_MAX;
+      blockchain_.clear();
       return true;
    }
 
@@ -2439,18 +2745,27 @@ bool BlockDataManager_LevelDB::detectCurrentSyncState(
    }
 
    map<HashString, StoredHeader> sbhMap;
-   headerMap_.clear();
-   iface_->readAllHeaders(headerMap_, sbhMap);
-
-
-   // Organize them into the longest chain
-   organizeChain(true);  // true ~ force rebuild
-
-
-   // If the headers DB ended up corrupted (triggered by organizeChain), 
-   // then nuke and rebuild the headers
-   if(corruptHeadersDB_)
+   blockchain_.clear();
    {
+      map<HashString, BlockHeader> headers;
+      iface_->readAllHeaders(headers, sbhMap);
+      for (map<HashString, BlockHeader>::iterator i = headers.begin();
+            i != headers.end(); ++i
+         )
+      {
+         blockchain_.addBlock(i->first, i->second);
+      }
+   }
+
+   try
+   {
+      // Organize them into the longest chain
+      blockchain_.forceOrganize();
+   }
+   catch (Blockchain::BlockCorruptionError &)
+   {
+      // If the headers DB ended up corrupted (triggered by forceOrganize), 
+      // then nuke and rebuild the headers
       LOGERR << "Corrupted headers DB!";
       startHeaderHgt_     = 0;
       startHeaderBlkFile_ = 0;
@@ -2461,21 +2776,16 @@ bool BlockDataManager_LevelDB::detectCurrentSyncState(
       startApplyHgt_      = 0;
       startApplyBlkFile_  = 0;
       startApplyOffset_   = 0;
-      headerMap_.clear();
-      headersByHeight_.clear();
-      topBlockPtr_ = NULL;
-      prevTopBlockPtr_ = NULL;
-      corruptHeadersDB_ = false;
-      lastTopBlock_ = UINT32_MAX;
-      genBlockPtr_ = NULL;
+      lastTopBlock_       = UINT32_MAX;
+      blockchain_.clear();
       return true;
    }
-   else
+   
    {
       // Now go through the linear list of main-chain headers, mark valid
-      for(uint32_t i=0; i<headersByHeight_.size(); i++)
+      for(unsigned i=0; i<blockchain_.numHeaders(); i++)
       {
-         BinaryDataRef headHash = headersByHeight_[i]->getThisHashRef();
+         BinaryDataRef headHash = blockchain_.getHeaderByHeight(i).getThisHashRef();
          StoredHeader & sbh = sbhMap[headHash];
          sbh.isMainBranch_ = true;
          iface_->setValidDupIDForHeight(sbh.blockHeight_, sbh.duplicateID_);
@@ -2487,7 +2797,7 @@ bool BlockDataManager_LevelDB::detectCurrentSyncState(
          startHeaderBlkFile_++)
       {
          // hasHeaderWithHash is probing the RAM block headers we just organized
-         if(!hasHeaderWithHash(firstHashes[startHeaderBlkFile_]))
+         if(!blockchain_.hasHeaderWithHash(firstHashes[startHeaderBlkFile_]))
             break;
       }
 
@@ -2620,7 +2930,7 @@ uint32_t BlockDataManager_LevelDB::findOffsetFirstUnrecognized(uint32_t fnum)
       is.read((char*)rawHead.getPtr(), HEADER_SIZE); 
 
       BtcUtils::getHash256_NoSafetyCheck(rawHead.getPtr(), HEADER_SIZE, hashResult);
-      if(getHeaderByHash(hashResult) == NULL)
+      if(!blockchain_.hasHeaderWithHash(hashResult))
          break; // first hash in the file that isn't in our header map
 
       loc += blksize + 8;
@@ -2680,12 +2990,17 @@ pair<uint32_t, uint32_t> BlockDataManager_LevelDB::findFileAndOffsetForHgt(
    int32_t blkfile;
    for(blkfile = 0; blkfile < (int32_t)firstHashes->size(); blkfile++)
    {
-      BlockHeader * bhptr = getHeaderByHash((*firstHashes)[blkfile]);
-      if(bhptr == NULL)
-         break;
+      try
+      {
+         BlockHeader &bh = blockchain_.getHeaderByHash((*firstHashes)[blkfile]);
 
-      if(bhptr->getBlockHeight() > hgt)
+         if(bh.getBlockHeight() > hgt)
+            break;
+      }
+      catch (...)
+      {
          break;
+      }
    }
 
    blkfile = max(blkfile-1, 0);
@@ -2714,13 +3029,17 @@ pair<uint32_t, uint32_t> BlockDataManager_LevelDB::findFileAndOffsetForHgt(
                                          HEADER_SIZE, 
                                          hashResult);
 
-      BlockHeader * bhptr = getHeaderByHash(hashResult);
-      if(bhptr == NULL)
-         break; 
-
-      if(bhptr->getBlockHeight() >= hgt)
+      try
+      {
+         BlockHeader &bh = blockchain_.getHeaderByHash(hashResult);
+         
+         if(bh.getBlockHeight() >= hgt)
+            break;
+      }
+      catch (...)
+      {
          break;
-
+      }
       loc += blksize + 8;
       is.seekg(blksize - HEADER_SIZE, ios::cur);
    }
@@ -2798,80 +3117,6 @@ uint32_t BlockDataManager_LevelDB::getAppliedToHeightInDB(void)
    return sdbi.appliedToHgt_;
 }
 
-////////////////////////////////////////////////////////////////////////////////
-// The name of this function reflects that we are going to implement headers-
-// first "verification."  Rather, we are going to organize the chain of headers
-// before we add any blocks, and then only add blocks that are on the main 
-// chain.  Return false if these headers induced a reorg.
-bool BlockDataManager_LevelDB::addHeadersFirst(BinaryDataRef rawHeader)
-{
-   vector<StoredHeader> toAdd(1);
-   toAdd[0].unserialize(rawHeader);
-   return addHeadersFirst(toAdd);
-}
-
-////////////////////////////////////////////////////////////////////////////////
-// Add the headers to the DB, which is required before putting raw blocks.
-// Can only put raw blocks when we know their height and dupID.  After we 
-// put the headers, then we put raw blocks.  Then we go through the valid
-// headers and applyToDB the raw blocks.
-bool BlockDataManager_LevelDB::addHeadersFirst(vector<StoredHeader> const & headVect)
-{
-   vector<BlockHeader*> headersToDB;
-   headersToDB.reserve(headVect.size());
-   for(uint32_t h=0; h<headVect.size(); h++)
-   {
-      pair<HashString, BlockHeader>                      bhInputPair;
-      pair<map<HashString, BlockHeader>::iterator, bool> bhInsResult;
-
-      // Actually insert it.  Take note of whether it was already there.
-      bhInputPair.second.unserialize(headVect[h].dataCopy_);
-      bhInputPair.first = bhInputPair.second.getThisHash();
-      bhInsResult       = headerMap_.insert(bhInputPair);
-      if(!bhInsResult.second)
-         bhInsResult.first->second = bhInputPair.second;
-
-      //if(bhInsResult.second) // true means didn't exist before
-      headersToDB.push_back(&(bhInsResult.first->second));
-   }
-
-   // Organize the chain with the new headers, note whether a reorg occurred
-   bool prevTopBlockStillValid = organizeChain();
-
-   // Add the main-branch headers to the DB.  We will handle reorg ops later.
-   // The batching is safe since we never write multiple blocks at the same hgt
-   iface_->startBatch(HEADERS);
-   for(uint32_t h=0; h<headersToDB.size(); h++)
-   {
-      if(!headersToDB[h]->isMainBranch())
-         continue;
-
-      StoredHeader sbh;
-      sbh.createFromBlockHeader(*headersToDB[h]);
-      uint8_t dup = iface_->putBareHeader(sbh);
-      headersToDB[h]->setDuplicateID(dup);
-   }
-   iface_->commitBatch(HEADERS);
-
-   // We need to add the non-main-branch headers, too.  
-   for(uint32_t h=0; h<headersToDB.size(); h++)
-   {
-      if(headersToDB[h]->isMainBranch())
-         continue;
-
-      StoredHeader sbh;
-      sbh.createFromBlockHeader(*headersToDB[h]);
-      uint8_t dup = iface_->putBareHeader(sbh);
-      headersToDB[h]->setDuplicateID(dup);
-   }
-   return prevTopBlockStillValid;
-}
-
-
-
-
-
-
 /////////////////////////////////////////////////////////////////////////////
 // The only way to "create" a BDM is with this method, which creates it
 // if one doesn't exist yet, or returns a reference to the only one
@@ -2905,7 +3150,7 @@ void BlockDataManager_LevelDB::Reset(void)
 
    // Clear out all the "real" data in the blkfile
    blkFileDir_ = "";
-   headerMap_.clear();
+   blockchain_.clear();
 
    zeroConfRawTxList_.clear();
    zeroConfMap_.clear();
@@ -2932,17 +3177,10 @@ void BlockDataManager_LevelDB::Reset(void)
    startRawOffset_ = 0;
    startApplyBlkFile_ = 0;
    startApplyOffset_ = 0;
+   lastTopBlock_ = 0;
 
-
-   // These should be set after the blockchain is organized
-   headersByHeight_.clear();
-   topBlockPtr_ = NULL;
-   genBlockPtr_ = NULL;
-   lastTopBlock_ = UINT32_MAX;;
 
    // Reorganization details
-   lastBlockWasReorg_ = false;
-   reorgBranchPoint_ = NULL;
    txJustInvalidated_.clear();
    txJustAffected_.clear();
 
@@ -2984,63 +3222,23 @@ int32_t BlockDataManager_LevelDB::getNumConfirmations(HashString txHash)
       return TX_NOT_EXIST;
    else
    {
-      BlockHeader* bhptr = getHeaderPtrForTxRef(txrefobj);
-      if(bhptr == NULL)
-         return TX_0_UNCONFIRMED; 
-      else
-      { 
-         BlockHeader & txbh = *bhptr;
+      try
+      {
+         BlockHeader & txbh = blockchain_.getHeaderByHeight(txrefobj.getBlockHeight());
          if(!txbh.isMainBranch())
             return TX_OFF_MAIN_BRANCH;
 
          int32_t txBlockHeight  = txbh.getBlockHeight();
-         int32_t topBlockHeight = getTopBlockHeight();
+         int32_t topBlockHeight = blockchain_.top().getBlockHeight();
          return  topBlockHeight - txBlockHeight + 1;
+      }
+      catch (std::exception &e)
+      {
+         LOGERR << "Failed to get num confirmations: " << e.what();
+         return TX_0_UNCONFIRMED;
       }
    }
 }
-
-
-/////////////////////////////////////////////////////////////////////////////
-BlockHeader & BlockDataManager_LevelDB::getTopBlockHeader(void) 
-{
-   if(topBlockPtr_ == NULL)
-      topBlockPtr_ = &(getGenesisBlock());
-   return *topBlockPtr_;
-}
-
-/////////////////////////////////////////////////////////////////////////////
-BlockHeader & BlockDataManager_LevelDB::getGenesisBlock(void) 
-{
-   if(genBlockPtr_ == NULL)
-      genBlockPtr_ = &(headerMap_[GenesisHash_]);
-   return *genBlockPtr_;
-}
-
-/////////////////////////////////////////////////////////////////////////////
-// Get a blockheader based on its height on the main chain
-BlockHeader * BlockDataManager_LevelDB::getHeaderByHeight(int index)
-{
-   if( index<0 || index>=(int)headersByHeight_.size())
-      return NULL;
-   else
-      return headersByHeight_[index];
-}
-
-
-/////////////////////////////////////////////////////////////////////////////
-// The most common access method is to get a block by its hash
-BlockHeader * BlockDataManager_LevelDB::getHeaderByHash(HashString const & blkHash)
-{
-   map<HashString, BlockHeader>::iterator it = headerMap_.find(blkHash);
-   //if(it==headerMap_.end())
-   if(ITER_NOT_IN_MAP(it, headerMap_))
-      return NULL;
-   else
-      return &(it->second);
-}
-
-
 
 /////////////////////////////////////////////////////////////////////////////
 TxRef BlockDataManager_LevelDB::getTxRefByHash(HashString const & txhash) 
@@ -3098,13 +3296,6 @@ bool BlockDataManager_LevelDB::hasTxWithHash(BinaryData const & txHash)
       return true;
    else
       return KEY_IN_MAP(txHash, zeroConfMap_);
-}
-
-/////////////////////////////////////////////////////////////////////////////
-bool BlockDataManager_LevelDB::hasHeaderWithHash(BinaryData const & txHash) const
-{
-   //return (headerMap_.find(txHash) != headerMap_.end());
-   return KEY_IN_MAP(txHash, headerMap_);
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -3237,7 +3428,7 @@ bool BlockDataManager_LevelDB::registerScrAddr(HashString scraddr,
    }
 
    if(addrIsNew)
-      firstBlk = getTopBlockHeight() + 1;
+      firstBlk = blockchain_.top().getBlockHeight() + 1;
 
    registeredScrAddrMap_[scraddr] = RegisteredScrAddr(scraddr, firstBlk);
    allScannedUpToBlk_  = min(firstBlk, allScannedUpToBlk_);
@@ -3252,7 +3443,7 @@ bool BlockDataManager_LevelDB::registerNewScrAddr(HashString scraddr)
    if(KEY_IN_MAP(scraddr, registeredScrAddrMap_))
       return false;
 
-   uint32_t currBlk = getTopBlockHeight();
+   uint32_t currBlk = blockchain_.top().getBlockHeight();
    registeredScrAddrMap_[scraddr] = RegisteredScrAddr(scraddr, currBlk);
 
    // New address cannot affect allScannedUpToBlk_, so don't bother
@@ -3346,7 +3537,7 @@ bool BlockDataManager_LevelDB::evalRescanIsRequired(void)
    // returns false, we can get away without any disk access at all, and
    // just use the registeredTxList_ object to get our information.
    allScannedUpToBlk_ = evalLowestBlockNextScan();
-   return (allScannedUpToBlk_ < getTopBlockHeight()+1);
+   return (allScannedUpToBlk_ < blockchain_.top().getBlockHeight()+1);
 }
 
 
@@ -3378,7 +3569,7 @@ uint32_t BlockDataManager_LevelDB::numBlocksToRescan( BtcWallet & wlt,
    // in order to produce accurate balances and TxOut lists.  If this
    // returns false, we can get away without any disk access at all, and
    // just use the registeredTxList_ object to get our information.
-   uint32_t currNextBlk = getTopBlockHeight() + 1;
+   uint32_t currNextBlk = blockchain_.top().getBlockHeight() + 1;
    endBlk = min(endBlk, currNextBlk);
 
    // If wallet is registered and current, no rescan necessary
@@ -3508,7 +3699,7 @@ void BlockDataManager_LevelDB::scanBlockchainForTx(BtcWallet & myWallet,
 
    
    // Check whether we can get everything we need from the registered tx list
-   endBlknum = min(endBlknum, getTopBlockHeight()+1);
+   endBlknum = min(endBlknum, blockchain_.top().getBlockHeight()+1);
    uint32_t numRescan = numBlocksToRescan(myWallet, endBlknum);
 
 
@@ -3542,7 +3733,7 @@ void BlockDataManager_LevelDB::applyBlockRangeToDB(uint32_t blk0, uint32_t blk1)
 {
    SCOPED_TIMER("applyBlockRangeToDB");
 
-   blk1 = min(blk1, getTopBlockHeight()+1);
+   blk1 = min(blk1, blockchain_.top().getBlockHeight()+1);
 
    BinaryData startKey = DBUtils.getBlkDataKey(blk0, 0);
    BinaryData endKey   = DBUtils.getBlkDataKey(blk1, 0);
@@ -3716,13 +3907,19 @@ void BlockDataManager_LevelDB::scanRegisteredTxForWallet( BtcWallet & wlt,
          continue;
       }
 
-      BlockHeader* bhptr = getHeaderPtrForTx(theTx);
-      // This condition happens on invalid Tx (like invalid P2Pool coinbases)
-      if( bhptr==NULL )
-         continue;
-
-      if( !bhptr->isMainBranch() )
-         continue;
+      
+      const BlockHeader* bhptr;
+      try
+      {
+         bhptr = &blockchain_.getHeaderPtrForTx(theTx);
+      }
+      catch (...)
+      {
+         // This condition happens on invalid Tx (like invalid P2Pool coinbases)
+         // or when the blockheader isn't on the main branch
+         if( bhptr==NULL )
+            continue;
+      }
 
       uint32_t thisBlk = bhptr->getBlockHeight();
       if(thisBlk < blkStart  ||  thisBlk >= blkEnd)
@@ -4006,11 +4203,6 @@ bool BlockDataManager_LevelDB::extractHeadersInBlkFile(uint32_t fnum,
    }
 
 
-   BinaryData rawHeader(HEADER_SIZE);
-
-   // Some objects to help insert header data efficiently
-   pair<HashString, BlockHeader>                      bhInputPair;
-   pair<map<HashString, BlockHeader>::iterator, bool> bhInsResult;
    endOfLastBlockByte_ = startOffset;
 
    uint32_t const HEAD_AND_NTX_SZ = HEADER_SIZE + 10; // enough
@@ -4050,42 +4242,37 @@ bool BlockDataManager_LevelDB::extractHeadersInBlkFile(uint32_t fnum,
       if(is.eof()) break;
 
       // Create a reader for the entire block, grab header, skip rest
+      pair<HashString, BlockHeader>                      bhInputPair;
+      BlockHeader block;
       BinaryRefReader brr(rawHead);
-      bhInputPair.second.unserialize(brr);
+      block.unserialize(brr);
+      HashString blockhash = block.getThisHash();
+      
       uint32_t nTx = (uint32_t)brr.get_var_int();
-      bhInputPair.first = bhInputPair.second.getThisHash();
-      bhInsResult = headerMap_.insert(bhInputPair);
-      if(!bhInsResult.second)
-      {
-         // We exclude the genesis block which is always in the DB here
-         if(fnum!=0 || endOfLastBlockByte_!=0)
-         {
-            LOGWARN << "Somehow tried to add header that's already in map";
-            LOGWARN << "Header Hash: " << bhInputPair.first.toHexStr().c_str();
-         }
-         // But overwrite the header anyway
-         bhInsResult.first->second = bhInputPair.second;
-      }
+      BlockHeader& addedBlock = blockchain_.addBlock(blockhash, block);
 
-      bhInsResult.first->second.setBlockFile(filename);
-      bhInsResult.first->second.setBlockFileNum(fnum);
-      bhInsResult.first->second.setBlockFileOffset(endOfLastBlockByte_);
-      bhInsResult.first->second.setNumTx(nTx);
-      bhInsResult.first->second.setBlockSize(nextBlkSize);
+      // is there any reason I can't just do this to "block"?
+      addedBlock.setBlockFile(filename);
+      addedBlock.setBlockFileNum(fnum);
+      addedBlock.setBlockFileOffset(endOfLastBlockByte_);
+      addedBlock.setNumTx(nTx);
+      addedBlock.setBlockSize(nextBlkSize);
       
       endOfLastBlockByte_ += nextBlkSize+8;
       is.seekg(nextBlkSize - HEAD_AND_NTX_SZ, ios::cur);
       
       // now check if the previous hash is in there
-      // (unless the previous hash is 0
-      if (headerMap_.find(bhInputPair.second.getPrevHash()) == headerMap_.end()
-         && BtcUtils::EmptyHash_ != bhInputPair.second.getPrevHash())
+      // (unless the previous hash is 0)
+      // most should be there, so search the map before checking for 0
+      if (!blockchain_.hasHeaderWithHash(addedBlock.getPrevHash())
+         && BtcUtils::EmptyHash_ != addedBlock.getPrevHash()
+         )
       {
-         LOGWARN << "Block header " << bhInputPair.second.getThisHash().toHexStr()
+         LOGWARN << "Block header " << addedBlock.getThisHash().toHexStr()
             << " refers to missing previous hash "
-            << bhInputPair.second.getPrevHash().toHexStr();
+            << addedBlock.getPrevHash().toHexStr();
             
-         missingBlockHeaderHashes_.push_back(bhInputPair.second.getPrevHash());
+         missingBlockHeaderHashes_.push_back(addedBlock.getPrevHash());
       }
       
    }
@@ -4146,24 +4333,35 @@ bool BlockDataManager_LevelDB::processNewHeadersInBlkFiles(uint32_t fnumStart,
       extractHeadersInBlkFile(fnum, useOffset);
    }
 
-   // This will return true unless genesis block was reorg'd...
-   bool prevTopBlkStillValid = organizeChain(true);
-   if(!prevTopBlkStillValid)
+   bool prevTopBlkStillValid=false;
+   
+   try
    {
-      LOGERR << "Organize chain indicated reorg in process all headers!";
-      LOGERR << "Did we shut down last time on an orphan block?";
+      // This will return true unless genesis block was reorg'd...
+      prevTopBlkStillValid = blockchain_.forceOrganize().prevTopBlockStillValid;
+      if(!prevTopBlkStillValid)
+      {
+         LOGERR << "Organize chain indicated reorg in process all headers!";
+         LOGERR << "Did we shut down last time on an orphan block?";
+      }
    }
-
-   map<HashString, BlockHeader>::iterator iter;
-   for(iter = headerMap_.begin(); iter != headerMap_.end(); iter++)
+   catch (std::exception &e)
    {
+      LOGERR << e.what();
+   }
+   
+   for(unsigned i=0; i < blockchain_.numHeaders(); i++)
+   {
+      BlockHeader &block = blockchain_.getHeaderByHeight(i);
       StoredHeader sbh;
-      sbh.createFromBlockHeader(iter->second);
+      sbh.createFromBlockHeader(block);
       uint8_t dup = iface_->putBareHeader(sbh);
-      iter->second.duplicateID_ = dup;  // make sure headerMap_ and DB agree
+      block.setDuplicateID(dup);  // make sure headerMap_ and DB agree
    }
-
+   
    return prevTopBlkStillValid;
+
+
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -4412,7 +4610,7 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
    }
 
    LOGINFO << "Total number of blk*.dat files: " << numBlkFiles_;
-   LOGINFO << "Total number of blocks found:   " << getTopBlockHeight() + 1;
+   LOGINFO << "Total number of blocks found:   " << blockchain_.top().getBlockHeight() + 1;
 
    /////////////////////////////////////////////////////////////////////////////
    // Now we start the meat of this process...
@@ -4485,14 +4683,14 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
    { 
       // In any DB type other than bare, we will be walking through the blocks
       // and updating the spentness fields and script histories
-      applyBlockRangeToDB(startApplyHgt_, getTopBlockHeight()+1);
+      applyBlockRangeToDB(startApplyHgt_, blockchain_.top().getBlockHeight()+1);
    }
 
    // We need to maintain the physical size of all blkXXXX.dat files together
    totalBlockchainBytes_ = bytesReadSoFar_;
 
    // Update registered address list so we know what's already been scanned
-   lastTopBlock_ = getTopBlockHeight() + 1;
+   lastTopBlock_ = blockchain_.top().getBlockHeight() + 1;
    allScannedUpToBlk_ = lastTopBlock_;
    updateRegisteredScrAddrs(lastTopBlock_);
 
@@ -4886,7 +5084,7 @@ uint32_t BlockDataManager_LevelDB::readBlkFileUpdate(void)
       filesize = (size_t)is.tellg();
    }
       
-   uint32_t prevTopBlk = getTopBlockHeight()+1;
+   uint32_t prevTopBlk = blockchain_.top().getBlockHeight()+1;
    uint64_t currBlkBytesToRead;
 
    if( filesize == FILE_DOES_NOT_EXIST )
@@ -4942,7 +5140,7 @@ uint32_t BlockDataManager_LevelDB::readBlkFileUpdate(void)
    // Observe if everything was up to date when we started, because we're 
    // going to add new blockchain data and don't want to trigger a rescan 
    // if this is just a normal update.
-   const uint32_t nextBlk = getTopBlockHeight() + 1;
+   const uint32_t nextBlk = blockchain_.top().getBlockHeight() + 1;
    const bool prevRegisteredUpToDate = (allScannedUpToBlk_==nextBlk);
    
    // Pull in the remaining data in old/curr blkfile, and beginning of new
@@ -4979,7 +5177,6 @@ uint32_t BlockDataManager_LevelDB::readBlkFileUpdate(void)
    BinaryRefReader brr(newBlockDataRaw);
    BinaryData fourBytes(4);
    uint32_t nBlkRead = 0;
-   vector<bool> blockAddResults;
    bool keepGoing = true;
    while(keepGoing)
    {
@@ -5002,70 +5199,76 @@ uint32_t BlockDataManager_LevelDB::readBlkFileUpdate(void)
          
       uint32_t nextBlockSize = brr.get_uint32_t();
 
-      blockAddResults = addNewBlockData(brr, 
-                                        useFileIndex0Idx,
-                                        bhOffset,
-                                        nextBlockSize);
+      try
+      {
+         const Blockchain::ReorganizationState state =
+               addNewBlockData(
+                     brr, 
+                     useFileIndex0Idx,
+                     bhOffset,
+                     nextBlockSize
+                  );
 
-      bool blockAddSucceeded = blockAddResults[ADD_BLOCK_SUCCEEDED    ];
-      bool blockIsNewTop     = blockAddResults[ADD_BLOCK_NEW_TOP_BLOCK];
-      bool blockchainReorg   = blockAddResults[ADD_BLOCK_CAUSED_REORG ];
-
-      if(blockAddSucceeded)
          nBlkRead++;
 
-      if(blockchainReorg)
-      {
-         LOGWARN << "Blockchain Reorganization detected!";
-         reassessAfterReorg(prevTopBlockPtr_, topBlockPtr_, reorgBranchPoint_);
-         purgeZeroConfPool();
-
-         // Update all the registered wallets...
-         updateWalletsAfterReorg(registeredWallets_);
-      }
-      else if(blockIsNewTop)
-      {
-         BlockHeader & bh = getTopBlockHeader();
-         uint32_t hgt = bh.getBlockHeight();
-         uint8_t  dup = bh.getDuplicateID();
-   
-         if(DBUtils.getArmoryDbType() != ARMORY_DB_BARE) 
+         if(!state.prevTopBlockStillValid)
          {
-            LOGINFO << "Applying block to DB!";
-            BlockWriteBatcher batcher(iface_);
-            batcher.applyBlockToDB(hgt, dup);
-         }
+            LOGWARN << "Blockchain Reorganization detected!";
+            reassessAfterReorg(
+                  state.prevTopBlock, &blockchain_.top(), state.reorgBranchPoint
+               );
+            purgeZeroConfPool();
 
-         // Replaced this with the scanDBForRegisteredTx call outside the loop
-         //StoredHeader sbh;
-         //iface_->getStoredHeader(sbh, hgt, dup);
-         //map<uint16_t, StoredTx>::iterator iter;
-         //for(iter = sbh.stxMap_.begin(); iter != sbh.stxMap_.end(); iter++)
-         //{
-            //Tx regTx = iter->second.getTxCopy();
-            //registeredScrAddrScan(regTx.getPtr(), regTx.getSize());
-         //}
-      }
-      else
-      {
-         LOGWARN << "Block data did not extend the main chain!";
-         // New block was added -- didn't cause a reorg but it's not the
-         // new top block either (it's a fork block).  We don't do anything
-         // at all until the reorg actually happens
-      }
+            // Update all the registered wallets...
+            updateWalletsAfterReorg(registeredWallets_);
+         }
+         else if(state.hasNewTop)
+         {
+            const BlockHeader & bh = blockchain_.top();
+            uint32_t hgt = bh.getBlockHeight();
+            uint8_t  dup = bh.getDuplicateID();
       
+            if(DBUtils.getArmoryDbType() != ARMORY_DB_BARE) 
+            {
+               LOGINFO << "Applying block to DB!";
+               BlockWriteBatcher batcher(iface_);
+               batcher.applyBlockToDB(hgt, dup);
+            }
+
+            // Replaced this with the scanDBForRegisteredTx call outside the loop
+            //StoredHeader sbh;
+            //iface_->getStoredHeader(sbh, hgt, dup);
+            //map<uint16_t, StoredTx>::iterator iter;
+            //for(iter = sbh.stxMap_.begin(); iter != sbh.stxMap_.end(); iter++)
+            //{
+               //Tx regTx = iter->second.getTxCopy();
+               //registeredScrAddrScan(regTx.getPtr(), regTx.getSize());
+            //}
+         }
+         else
+         {
+            LOGWARN << "Block data did not extend the main chain!";
+            // New block was added -- didn't cause a reorg but it's not the
+            // new top block either (it's a fork block).  We don't do anything
+            // at all until the reorg actually happens
+         }
+      }
+      catch (std::exception &e)
+      {
+         LOGERR << "Error adding block data: " << e.what();
+      }
       if(brr.isEndOfStream() || brr.getSizeRemaining() < 8)
          keepGoing = false;
    }
 
-   lastTopBlock_ = getTopBlockHeight()+1;
+   lastTopBlock_ = blockchain_.top().getBlockHeight()+1;
 
    purgeZeroConfPool();
    scanDBForRegisteredTx(prevTopBlk, lastTopBlock_);
 
    if(prevRegisteredUpToDate)
    {
-      allScannedUpToBlk_ = getTopBlockHeight()+1;
+      allScannedUpToBlk_ = blockchain_.top().getBlockHeight()+1;
       updateRegisteredScrAddrs(allScannedUpToBlk_);
    }
 
@@ -5260,11 +5463,8 @@ bool BlockDataManager_LevelDB::parseNewBlock(BinaryRefReader & brr,
 
 
 ////////////////////////////////////////////////////////////////////////////////
-// This method returns three booleans:
-//    (1)  Block data was added to memory pool successfully
-//    (2)  New block added is at the top of the chain
-//    (3)  Adding block data caused blockchain reorganization
-vector<bool> BlockDataManager_LevelDB::addNewBlockData(
+// This method returns the result of our inserting the block
+Blockchain::ReorganizationState BlockDataManager_LevelDB::addNewBlockData(
                                                 BinaryRefReader & brrRawBlock,
                                                 uint32_t fileIndex0Idx,
                                                 uint32_t thisHeaderOffset,
@@ -5274,11 +5474,6 @@ vector<bool> BlockDataManager_LevelDB::addNewBlockData(
    uint8_t const * startPtr = brrRawBlock.getCurrPtr();
    HashString newHeadHash = BtcUtils::getHash256(startPtr, HEADER_SIZE);
 
-   vector<bool> vb(3);
-   vb[ADD_BLOCK_SUCCEEDED]     = false;  // Added to memory pool
-   vb[ADD_BLOCK_NEW_TOP_BLOCK] = false;  // New block is new top of chain
-   vb[ADD_BLOCK_CAUSED_REORG]  = false;  // Add caused reorganization
-
    /////////////////////////////////////////////////////////////////////////////
    // This used to be in parseNewBlock(...) but relocated here because it's
    // not duplicated anywhere, and during the upgrade to LevelDB I needed
@@ -5287,33 +5482,23 @@ vector<bool> BlockDataManager_LevelDB::addNewBlockData(
    // its own method again, later
    if(brrRawBlock.getSizeRemaining() < blockSize || brrRawBlock.isEndOfStream())
    {
-      LOGERR << "***ERROR:  parseNewBlock did not get enough data...";
-      return vb;
+      throw std::runtime_error("addNewBlockData: Failed to read block data");
    }
 
-   // Create the objects once that will be used for insertion
-   // (txInsResult always succeeds--because multimap--so only iterator returns)
-   static pair<HashString, BlockHeader>                      bhInputPair;
-   static pair<map<HashString, BlockHeader>::iterator, bool> bhInsResult;
+   // Insert the block
+
+   BlockHeader bl;
+   bl.unserialize(brrRawBlock);
+   HashString hash = bl.getThisHash();
    
-   // Read the header and insert it into the map.
-   bhInputPair.second.unserialize(brrRawBlock);
-   bhInputPair.first = bhInputPair.second.getThisHash();
-   bhInsResult = headerMap_.insert(bhInputPair);
-   BlockHeader * bhptr = &(bhInsResult.first->second);
-   if(!bhInsResult.second)
-      *bhptr = bhInputPair.second; // overwrite it even if insert fails
-
-   // Finally, let's re-assess the state of the blockchain with the new data
-   // Check the lastBlockWasReorg_ variable to see if there was a reorg
-   bool prevTopBlockStillValid = organizeChain(); 
-   lastBlockWasReorg_ = !prevTopBlockStillValid;
-
+   BlockHeader &addedBlock = blockchain_.addBlock(hash, bl);
+   const Blockchain::ReorganizationState state = blockchain_.organize();
+   
    // Then put the bare header into the DB and get its duplicate ID.
    StoredHeader sbh;
-   sbh.createFromBlockHeader(*bhptr);
+   sbh.createFromBlockHeader(addedBlock);
    uint8_t dup = iface_->putBareHeader(sbh);
-   bhptr->setDuplicateID(dup);
+   addedBlock.setDuplicateID(dup);
 
    // Regardless of whether this was a reorg, we have to add the raw block
    // to the DB, but we don't apply it yet.
@@ -5358,20 +5543,11 @@ vector<bool> BlockDataManager_LevelDB::addNewBlockData(
    */
 
 
-   // Since this method only adds one block, if it's not on the main branch,
-   // then it's not the new head
-   bool newBlockIsNewTop = getHeaderByHash(newHeadHash)->isMainBranch();
-
-   // This method passes out 3 booleans
-   vb[ADD_BLOCK_SUCCEEDED]     =  true;
-   vb[ADD_BLOCK_NEW_TOP_BLOCK] =  newBlockIsNewTop;
-   vb[ADD_BLOCK_CAUSED_REORG]  = !prevTopBlockStillValid;
-
    // We actually accessed the pointer directly in this method, without 
    // advancing the BRR position.  But the outer function expects to see
    // the new location we would've been at if the BRR was used directly.
    brrRawBlock.advance(blockSize);
-   return vb;
+   return state;
 }
 
 
@@ -5450,7 +5626,7 @@ void BlockDataManager_LevelDB::reassessAfterReorg( BlockHeader* oldTopPtr,
          registeredTxSet_.erase(stx.thisHash_);
          removeRegisteredTx(stx.thisHash_);
       }
-      thisHeaderPtr = getHeaderByHash(thisHeaderPtr->getPrevHash());
+      thisHeaderPtr = &blockchain_.getHeaderByHash(thisHeaderPtr->getPrevHash());
    }
 
    // Walk down the newly-valid chain and mark transactions as valid.  If 
@@ -5464,7 +5640,7 @@ void BlockDataManager_LevelDB::reassessAfterReorg( BlockHeader* oldTopPtr,
    while( thisHeaderPtr->getNextHash() != BtcUtils::EmptyHash_ &&
           thisHeaderPtr->getNextHash().getSize() > 0 ) 
    {
-      thisHeaderPtr = getHeaderByHash(thisHeaderPtr->getNextHash());
+      thisHeaderPtr = &blockchain_.getHeaderByHash(thisHeaderPtr->getNextHash());
       uint32_t hgt = thisHeaderPtr->getBlockHeight();
       uint8_t  dup = thisHeaderPtr->getDuplicateID();
       iface_->markBlockHeaderValid(hgt, dup);
@@ -5486,274 +5662,6 @@ void BlockDataManager_LevelDB::reassessAfterReorg( BlockHeader* oldTopPtr,
 
    LOGWARN << "Done reassessing tx validity";
 }
-
-////////////////////////////////////////////////////////////////////////////////
-vector<BlockHeader*> BlockDataManager_LevelDB::getHeadersNotOnMainChain(void)
-{
-   SCOPED_TIMER("getHeadersNotOnMainChain");
-   PDEBUG("Getting headers not on main chain");
-   vector<BlockHeader*> out(0);
-   map<HashString, BlockHeader>::iterator iter;
-   for(iter  = headerMap_.begin(); 
-       iter != headerMap_.end(); 
-       iter++)
-   {
-      if( ! iter->second.isMainBranch() )
-         out.push_back(&(iter->second));
-   }
-   PDEBUG("Getting headers not on main chain");
-   return out;
-}
-
-
-////////////////////////////////////////////////////////////////////////////////
-// This returns false if our new main branch does not include the previous
-// topBlock.  If this returns false, that probably means that we have
-// previously considered some blocks to be valid that no longer are valid.
-// TODO:  Figure out if there is an elegant way to deal with a forked 
-//        blockchain containing two equal-length chains
-bool BlockDataManager_LevelDB::organizeChain(bool forceRebuild)
-{
-   SCOPED_TIMER("organizeChain");
-
-   // Why did this line not through an error?  I left here to remind 
-   // myself to go figure it out.
-   //LOGINFO << ("Organizing chain", (forceRebuild ? "w/ rebuild" : ""));
-   LOGDEBUG << "Organizing chain " << (forceRebuild ? "w/ rebuild" : "");
-
-   // If rebuild, we zero out any original organization data and do a 
-   // rebuild of the chain from scratch.  This will need to be done in
-   // the event that our first call to organizeChain returns false, which
-   // means part of blockchain that was previously valid, has become
-   // invalid.  Rather than get fancy, just rebuild all which takes less
-   // than a second, anyway.
-   if(forceRebuild)
-   {
-      map<HashString, BlockHeader>::iterator iter;
-      for( iter  = headerMap_.begin(); 
-           iter != headerMap_.end(); 
-           iter++)
-      {
-         iter->second.difficultySum_  = -1;
-         iter->second.blockHeight_    =  0;
-         iter->second.isFinishedCalc_ =  false;
-         iter->second.nextHash_       =  BtcUtils::EmptyHash_;
-         iter->second.isMainBranch_   =  false;
-      }
-      topBlockPtr_ = NULL;
-   }
-
-   // Set genesis block
-   BlockHeader & genBlock = getGenesisBlock();
-   genBlock.blockHeight_    = 0;
-   genBlock.difficultyDbl_  = 1.0;
-   genBlock.difficultySum_  = 1.0;
-   genBlock.isMainBranch_   = true;
-   genBlock.isOrphan_       = false;
-   genBlock.isFinishedCalc_ = true;
-   genBlock.isInitialized_  = true; 
-
-   // If this is the first run, the topBlock is the genesis block
-   if(topBlockPtr_ == NULL)
-      topBlockPtr_ = &genBlock;
-
-   // Store the old top block so we can later check whether it is included 
-   // in the new chain organization
-   prevTopBlockPtr_ = topBlockPtr_;
-
-   // Iterate over all blocks, track the maximum difficulty-sum block
-   map<HashString, BlockHeader>::iterator iter;
-   double   maxDiffSum     = prevTopBlockPtr_->getDifficultySum();
-   for( iter = headerMap_.begin(); iter != headerMap_.end(); iter ++)
-   {
-      // *** Walk down the chain following prevHash fields, until
-      //     you find a "solved" block.  Then walk back up and 
-      //     fill in the difficulty-sum values (do not set next-
-      //     hash ptrs, as we don't know if this is the main branch)
-      //     Method returns instantly if block is already "solved"
-      double thisDiffSum = traceChainDown(iter->second);
-
-      // If we hit orphans, we flag headers DB corruption
-      if(corruptHeadersDB_)
-         return false;
-
-
-      
-      // Determine if this is the top block.  If it's the same diffsum
-      // as the prev top block, don't do anything
-      if(thisDiffSum > maxDiffSum)
-      {
-         maxDiffSum     = thisDiffSum;
-         topBlockPtr_   = &(iter->second);
-      }
-   }
-
-   // Walk down the list one more time, set nextHash fields
-   // Also set headersByHeight_;
-   bool prevChainStillValid = (topBlockPtr_ == prevTopBlockPtr_);
-   topBlockPtr_->nextHash_ = BtcUtils::EmptyHash_;
-   BlockHeader* thisHeaderPtr = topBlockPtr_;
-   //headersByHeight_.reserve(topBlockPtr_->getBlockHeight()+32768);
-   headersByHeight_.resize(topBlockPtr_->getBlockHeight()+1);
-   while( !thisHeaderPtr->isFinishedCalc_ )
-   {
-      thisHeaderPtr->isFinishedCalc_ = true;
-      thisHeaderPtr->isMainBranch_   = true;
-      thisHeaderPtr->isOrphan_       = false;
-      headersByHeight_[thisHeaderPtr->getBlockHeight()] = thisHeaderPtr;
-
-      // This loop not necessary anymore with the DB implementation
-      // We need to guarantee that the txs are pointing to the right block
-      // header, because they could've been linked to an invalidated block
-      //for(uint32_t i=0; i<thisHeaderPtr->getTxRefPtrList().size(); i++)
-      //{
-         //TxRef & tx = *(thisHeaderPtr->getTxRefPtrList()[i]);
-         //tx.setHeaderPtr(thisHeaderPtr);
-         //tx.setMainBranch(true);
-      //}
-
-      HashString & childHash    = thisHeaderPtr->thisHash_;
-      thisHeaderPtr             = &(headerMap_[thisHeaderPtr->getPrevHash()]);
-      thisHeaderPtr->nextHash_  = childHash;
-
-      if(thisHeaderPtr == prevTopBlockPtr_)
-         prevChainStillValid = true;
-
-   }
-   // Last header in the loop didn't get added (the genesis block on first run)
-   thisHeaderPtr->isMainBranch_ = true;
-   headersByHeight_[thisHeaderPtr->getBlockHeight()] = thisHeaderPtr;
-
-
-   // Force a full rebuild to make sure everything is marked properly
-   // On a full rebuild, prevChainStillValid should ALWAYS be true
-   if( !prevChainStillValid )
-   {
-      LOGWARN << "Reorg detected!";
-      reorgBranchPoint_ = thisHeaderPtr;
-
-      // There was a dangerous bug -- prevTopBlockPtr_ is set correctly 
-      // RIGHT NOW, but won't be once I make the recursive call to organizeChain
-      // I need to save it now, and re-assign it after the organizeChain call.
-      // (I might consider finding a way to avoid this, but it's fine as-is)
-      BlockHeader* prevtopblk = prevTopBlockPtr_;
-      organizeChain(true); // force-rebuild blockchain (takes less than 1s)
-      prevTopBlockPtr_ = prevtopblk;
-      return false;
-   }
-
-   // Let the caller know that there was no reorg
-   LOGDEBUG << "Done organizing chain";
-   return true;
-}
-
-
-/////////////////////////////////////////////////////////////////////////////
-// Start from a node, trace down to the highest solved block, accumulate
-// difficulties and difficultySum values.  Return the difficultySum of 
-// this block.
-double BlockDataManager_LevelDB::traceChainDown(BlockHeader & bhpStart)
-{
-   if(bhpStart.difficultySum_ > 0)
-      return bhpStart.difficultySum_;
-
-   // Prepare some data structures for walking down the chain
-   vector<BlockHeader*>   headerPtrStack(headerMap_.size());
-   vector<double>           difficultyStack(headerMap_.size());
-   uint32_t blkIdx = 0;
-   double thisDiff;
-
-   // Walk down the chain of prevHash_ values, until we find a block
-   // that has a definitive difficultySum value (i.e. >0). 
-   BlockHeader* thisPtr = &bhpStart;
-   map<HashString, BlockHeader>::iterator iter;
-   while( thisPtr->difficultySum_ < 0)
-   {
-      thisDiff                = thisPtr->difficultyDbl_;
-      difficultyStack[blkIdx] = thisDiff;
-      headerPtrStack[blkIdx]  = thisPtr;
-      blkIdx++;
-
-      iter = headerMap_.find(thisPtr->getPrevHash());
-      if(ITER_IN_MAP(iter, headerMap_))
-         thisPtr = &(iter->second);
-      else
-      {
-         // Under some circumstances, the headers DB is not getting written
-         // properly and triggering this code due to missing headers.  For 
-         // now, we simply avoid this condition by flagging the headers DB
-         // to be rebuilt.  The bug probably has to do with batching of
-         // header data.
-         corruptHeadersDB_ = true;
-         return 0.0;
-         
-         // We didn't hit a known block, but we don't have this block's
-         // ancestor in the memory pool, so this is an orphan chain...
-         // at least temporarily
-         markOrphanChain(bhpStart);
-         return 0.0;
-      }
-   }
-
-
-   // Now we have a stack of difficulties and pointers.  Walk back up
-   // (by pointer) and accumulate the difficulty values 
-   double   seedDiffSum = thisPtr->difficultySum_;
-   uint32_t blkHeight   = thisPtr->blockHeight_;
-   for(int32_t i=blkIdx-1; i>=0; i--)
-   {
-      seedDiffSum += difficultyStack[i];
-      blkHeight++;
-      thisPtr                 = headerPtrStack[i];
-      thisPtr->difficultyDbl_ = difficultyStack[i];
-      thisPtr->difficultySum_ = seedDiffSum;
-      thisPtr->blockHeight_   = blkHeight;
-   }
-   
-   // Finally, we have all the difficulty sums calculated, return this one
-   return bhpStart.difficultySum_;
-  
-}
-
-
-/////////////////////////////////////////////////////////////////////////////
-// In practice, orphan chains shouldn't ever happen.  It means that there's
-// a block in our database that doesn't trace down to the genesis block. 
-// Currently, we get our blocks from Bitcoin-Qt/bitcoind which is incapable
-// of passing such blocks to us (or putting them in the blk*.dat files), so
-// if this function gets called, it's most likely in error.
-void BlockDataManager_LevelDB::markOrphanChain(BlockHeader & bhpStart)
-{
-   // TODO:  This method was written 18 months ago, and appeared to have 
-   //        a bug in it when I revisited it.  Not sure the bug was real
-   //        but I attempted to fix it.  This note is to remind you/me 
-   //        to check the old version of this method if any problems 
-   //        crop up.
-   LOGWARN << "Marking orphan chain";
-   map<HashString, BlockHeader>::iterator iter;
-   iter = headerMap_.find(bhpStart.getThisHash());
-   HashStringRef lastHeadHash;
-   while( ITER_IN_MAP(iter, headerMap_) )
-   {
-      // I don't see how it's possible to have a header that used to be 
-      // in the main branch, but is now an ORPHAN (meaning it has no
-      // parent).  It will be good to detect this case, though
-      if(iter->second.isMainBranch() == true)
-      {
-         // NOTE: this actually gets triggered when we scan the testnet
-         //       blk0001.dat file on main net, etc
-         LOGERR << "Block previously main branch, now orphan!?";
-         previouslyValidBlockHeaderPtrs_.push_back(&(iter->second));
-      }
-      iter->second.isOrphan_ = true;
-      iter->second.isMainBranch_ = false;
-      lastHeadHash = iter->second.thisHash_.getRef();
-      iter = headerMap_.find(iter->second.getPrevHash());
-   }
-   orphanChainStartBlocks_.push_back(&(headerMap_[lastHeadHash.copy()]));
-   LOGWARN << "Done marking orphan chain";
-}
-
 
 ////////////////////////////////////////////////////////////////////////////////
 // We're going to need the BDM's help to get the sender for a TxIn since it
@@ -5803,36 +5711,6 @@ int64_t BlockDataManager_LevelDB::getSentValue(TxIn & txin)
 
 }
 
-
-
-////////////////////////////////////////////////////////////////////////////////
-BlockHeader* BlockDataManager_LevelDB::getHeaderPtrForTxRef(TxRef txr) 
-{
-   if(txr.isNull())
-      return NULL;
-
-   uint32_t hgt = txr.getBlockHeight();
-   uint8_t  dup = txr.getDuplicateID();
-   BlockHeader* bhptr = headersByHeight_[hgt];
-   if(bhptr->getDuplicateID() != dup)
-   {
-      LOGERR << "Requested txref not on main chain (BH dupID is diff)";
-      return NULL;
-   }
-   return bhptr;
-}
-
-////////////////////////////////////////////////////////////////////////////////
-BlockHeader* BlockDataManager_LevelDB::getHeaderPtrForTx(Tx & txObj) 
-{
-   if(txObj.getTxRef().isNull())
-   {
-      LOGERR << "TxRef in Tx object is not set, cannot get header ptr";
-      return NULL; 
-   }
-   
-   return getHeaderPtrForTxRef(txObj.getTxRef());
-}
 
 ////////////////////////////////////////////////////////////////////////////////
 // Methods for handling zero-confirmation transactions
@@ -6187,7 +6065,7 @@ bool BlockDataManager_LevelDB::isTxFinal(Tx & tx)
       return true;
 
    if(tx.getLockTime() < 500000000)
-      return (getTopBlockHeight()>tx.getLockTime());
+      return (blockchain_.top().getBlockHeight()>tx.getLockTime());
    else
       return (time(NULL)>tx.getLockTime()+86400);
 }
@@ -6235,7 +6113,7 @@ void BlockDataManager_LevelDB::addRawBlockToDB(BinaryRefReader & brr)
          // we still add this block to the chain in this case,
          // if we miss a few transactions it's better than
          // missing the entire block
-         BlockHeader & bh = headerMap_[sbh.thisHash_];
+         const BlockHeader & bh = blockchain_.getHeaderByHash(sbh.thisHash_);
          sbh.blockHeight_  = bh.getBlockHeight();
          sbh.duplicateID_  = bh.getDuplicateID();
          sbh.isMainBranch_ = bh.isMainBranch();
@@ -6253,9 +6131,8 @@ void BlockDataManager_LevelDB::addRawBlockToDB(BinaryRefReader & brr)
       {
          throw BlockDeserializingException("Error parsing block (corrupt?) and block header invalid");
       }
-      // throw a new exception with a useful "what"
    }
-   BlockHeader & bh = headerMap_[sbh.thisHash_];
+   BlockHeader & bh = blockchain_.getHeaderByHash(sbh.thisHash_);
    sbh.blockHeight_  = bh.getBlockHeight();
    sbh.duplicateID_  = bh.getDuplicateID();
    sbh.isMainBranch_ = bh.isMainBranch();

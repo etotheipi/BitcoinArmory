@@ -35,7 +35,7 @@ class TxOut;
 
 class BlockHeader
 {
-   friend class BlockDataManager_LevelDB;
+   friend class Blockchain;
    friend class InterfaceToLDB;
 
 public:

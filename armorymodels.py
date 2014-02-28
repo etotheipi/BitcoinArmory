@@ -999,7 +999,7 @@ class HeaderDataModel(QAbstractTableModel):
 
       if role==Qt.DisplayRole:
          h = nHead-row-1
-         cppHeader = self.bdm.getHeaderByHeight(h)
+         cppHeader = self.bdm.blockchain().getHeaderByHeight(h)
          if cppHeader == None or not h>0:
             return QVariant()
          if col == HEAD_BLKNUM:

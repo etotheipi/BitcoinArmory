@@ -13,7 +13,9 @@ platform=$(shell uname)
 #**************************************************************************
 LINK = $(CXX)
 
-OBJS = UniversalTimer.o BinaryData.o leveldb_wrapper.o StoredBlockObj.o BtcUtils.o BlockObj.o BlockUtils.o EncryptionUtils.o libcryptopp.a libleveldb.a
+OBJS = UniversalTimer.o BinaryData.o leveldb_wrapper.o StoredBlockObj.o \
+	BtcUtils.o BlockObj.o BlockUtils.o EncryptionUtils.o Util.o \
+	libcryptopp.a libleveldb.a
 
 # This is a script created by goatpig which detects where the python 
 # dependencies are and writes them to the pypaths.txt file. It defines :

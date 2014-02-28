@@ -20,7 +20,7 @@ import CppBlockUtils as Cpp
 def getCurrTimeAndBlock():
    time0 = long(RightNowUTC())
    if TheBDM.getBDMState()=='BlockchainReady':
-      return (time0, TheBDM.getTopBlockHeight())
+      return (time0, TheBDM.blockchain().top().getBlockHeight())
    else:
       return (time0, UINT32_MAX)
    
@@ -814,7 +814,7 @@ class BlockDataManagerThread(threading.Thread):
       This method can be called from a non BDM class, but should only do so if 
       that class method was called by the BDM (thus, no conflicts)
       """
-      return self.bdm.getTopBlockHeight()
+      return self.bdm.blockchain().top().getBlockHeight()
 
 
 
@@ -1147,7 +1147,7 @@ class BlockDataManagerThread(threading.Thread):
 
    #############################################################################
    def __getFullBlock(self, headerHash):
-      headerObj = self.bdm.getHeaderByHash(headerHash)
+      headerObj = self.bdm.blockchain().getHeaderByHash(headerHash)
       if not headerObj:
          return None
 
@@ -1253,7 +1253,7 @@ class BlockDataManagerThread(threading.Thread):
                
             elif cmd == BDMINPUTTYPE.HeaderRequested:
                headHash = inputTuple[3]
-               rawHeader = self.bdm.getHeaderByHash(headHash)
+               rawHeader = self.bdm.blockchain().getHeaderByHash(headHash)
                if rawHeader:
                   output = rawHeader
                else:
@@ -1279,7 +1279,7 @@ class BlockDataManagerThread(threading.Thread):
 
             elif cmd == BDMINPUTTYPE.HeaderAtHeightRequested:
                height = inputTuple[3] 
-               rawHeader = self.bdm.getHeaderByHeight(height)
+               rawHeader = self.bdm.blockchain().getHeaderByHeight(height)
                if rawHeader:
                   output = rawHeader
                else:

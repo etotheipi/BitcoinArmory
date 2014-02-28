@@ -1976,7 +1976,7 @@ class ArmoryMainWindow(QMainWindow):
       # Now that the blockchain is loaded, let's populate the wallet info
       if TheBDM.isInitialized():
 
-         self.currBlockNum = TheBDM.getTopBlockHeight()
+         self.currBlockNum = TheBDM.blockchain().top().getBlockHeight()
          self.setDashboardDetails()
          if not self.memPoolInit:
             mempoolfile = os.path.join(ARMORY_HOME_DIR,'mempool.bin')
@@ -2007,7 +2007,7 @@ class ArmoryMainWindow(QMainWindow):
                '<font color=%s>Connected (%s blocks)</font> ' % 
                (htmlColor('TextGreen'), self.currBlockNum))
 
-         self.blkReceived = TheBDM.getTopBlockHeader().getTimestamp()
+         self.blkReceived = TheBDM.blockchain().top().getTimestamp()
          self.writeSetting('LastBlkRecv',     self.currBlockNum)
          self.writeSetting('LastBlkRecvTime', self.blkReceived)
 
@@ -2144,7 +2144,7 @@ class ArmoryMainWindow(QMainWindow):
       unconfFunds = 0
       currBlk = 0xffffffff
       if TheBDM.isInitialized():
-         currBlk = TheBDM.getTopBlockHeight()
+         currBlk = TheBDM.blockchain().top().getBlockHeight()
 
       for wltID in wltIDList:
          wlt = self.walletMap[wltID]
@@ -4742,7 +4742,7 @@ class ArmoryMainWindow(QMainWindow):
             # Now we start the normal array of heartbeat operations
             self.checkSatoshiVersion()  # this actually only checks every 15 min
             newBlocks = TheBDM.readBlkFileUpdate(wait=True)
-            self.currBlockNum = TheBDM.getTopBlockHeight()
+            self.currBlockNum = TheBDM.blockchain().top().getBlockHeight()
 
             if not newBlocks:
                newBlocks = 0
@@ -4799,7 +4799,7 @@ class ArmoryMainWindow(QMainWindow):
                self.walletModel.reset()
       
             blkRecvAgo  = RightNow() - self.blkReceived
-            #blkStampAgo = RightNow() - TheBDM.getTopBlockHeader().getTimestamp()
+            #blkStampAgo = RightNow() - TheBDM.blockchain().top().getTimestamp()
             self.lblArmoryStatus.setToolTip('Last block received is %s ago' % \
                                                 secondsToHumanTime(blkRecvAgo))
                
@@ -4821,7 +4821,7 @@ class ArmoryMainWindow(QMainWindow):
       # a block. It is a "surprise" when the first time we see it is in a block
       notifiedAlready = set([ n[1].getTxHash() for n in self.notifyQueue ])
       for blk in range(blk0, blk1):
-         for tx in TheBDM.getHeaderByHeight(blk).getTxRefPtrList():
+         for tx in TheBDM.blockchain().getHeaderByHeight(blk).getTxRefPtrList():
             for wltID,wlt in self.walletMap.iteritems():
                le = wlt.cppWallet.calcLedgerEntryForTx(tx)
                if not le.getTxHash() in notifiedAlready:

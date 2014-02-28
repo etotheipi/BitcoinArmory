@@ -62,7 +62,7 @@ if run_LoadBlockchain_Async:
 
    topBlock = TheBDM.getTopBlockHeight()
    print '\n\nCurrent Top Block is:', topBlock
-   TheBDM.getTopBlockHeader().pprint()
+   TheBDM.blockchain().top().pprint()
 
 ################################################################################
 if run_LoadBlockchain_Block:
@@ -74,7 +74,7 @@ if run_LoadBlockchain_Block:
 
    topBlock = TheBDM.getTopBlockHeight()
    print '\n\nCurrent Top Block is:', topBlock
-   TheBDM.getTopBlockHeader().pprint()
+   TheBDM.blockchain().top().pprint()
 
 
 ################################################################################
@@ -109,7 +109,7 @@ if run_DiffChangeList:
    minDiff = maxDiff
    minDiffBlk = hex_to_int('ff'*32)
    for h in xrange(0,topBlock+1):
-      header = TheBDM.getHeaderByHeight(h)
+      header = TheBDM.blockchain().getHeaderByHeight(h)
       currDiff = header.getDifficulty()
       thisHash = header.getThisHash()
       thisDiff = binary_to_int(thisHash);
@@ -132,7 +132,7 @@ if run_DiffChangeList:
    print '   Equiv Difficult:', maxDiff/(minDiff * 2**32)
    print '   Equiv Diff bits:', log(maxDiff/minDiff)/log(2)
    print '   Block Header (hex): '
-   print '      ', binary_to_hex(TheBDM.getHeaderByHeight(minDiffBlk).serialize())
+   print '      ', binary_to_hex(TheBDM.blockchain().getHeaderByHeight(minDiffBlk).serialize())
 
 
 ################################################################################
@@ -143,7 +143,7 @@ if run_CumulativeSize:
       if h%10000 == 0:
          print '\tAccumulated %d blocks' % h
    
-      header = TheBDM.getHeaderByHeight(h)
+      header = TheBDM.blockchain().getHeaderByHeight(h)
       cumul += header.getBlockSize()
       if (h%2016==0) or h+1>=topBlock:
          f.write('%d %d\n' % (h,cumul))
@@ -162,7 +162,7 @@ if run_UniqueAddresses:
       if h%10000 == 0:
          print '\tScanned %d blocks' % h
    
-      header = TheBDM.getHeaderByHeight(h)
+      header = TheBDM.blockchain().getHeaderByHeight(h)
       txList = header.getTxRefPtrList()
       for txref in txList:
          tx = txref.getTxCopy()
@@ -298,7 +298,7 @@ if run_SatoshiDice:
          if h%10000 == 0:
             print '\tSearched %d blocks' % h
    
-         header = TheBDM.getHeaderByHeight(h)
+         header = TheBDM.blockchain().getHeaderByHeight(h)
          txList = header.getTxRefPtrList()
 
          for txref in txList:
