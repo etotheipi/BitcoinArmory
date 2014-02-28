@@ -237,34 +237,34 @@ ScrAddrObj::ScrAddrObj(HashString    addr,
 
 
 ////////////////////////////////////////////////////////////////////////////////
-uint64_t ScrAddrObj::getSpendableBalance(uint32_t currBlk)
+uint64_t ScrAddrObj::getSpendableBalance(uint32_t currBlk, bool ignoreAllZC) 
 {
    uint64_t balance = 0;
    for(uint32_t i=0; i<relevantTxIOPtrs_.size(); i++)
    {
-      if(relevantTxIOPtrs_[i]->isSpendable(currBlk))
+      if(relevantTxIOPtrs_[i]->isSpendable(currBlk, ignoreAllZC))
          balance += relevantTxIOPtrs_[i]->getValue();
    }
    for(uint32_t i=0; i<relevantTxIOPtrsZC_.size(); i++)
    {
-      if(relevantTxIOPtrsZC_[i]->isSpendable(currBlk))
+      if(relevantTxIOPtrsZC_[i]->isSpendable(currBlk, ignoreAllZC))
          balance += relevantTxIOPtrsZC_[i]->getValue();
    }
    return balance;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-uint64_t ScrAddrObj::getUnconfirmedBalance(uint32_t currBlk)
+uint64_t ScrAddrObj::getUnconfirmedBalance(uint32_t currBlk, bool inclAllZC)
 {
    uint64_t balance = 0;
    for(uint32_t i=0; i<relevantTxIOPtrs_.size(); i++)
    {
-      if(relevantTxIOPtrs_[i]->isMineButUnconfirmed(currBlk))
+      if(relevantTxIOPtrs_[i]->isMineButUnconfirmed(currBlk, inclAllZC))
          balance += relevantTxIOPtrs_[i]->getValue();
    }
    for(uint32_t i=0; i<relevantTxIOPtrsZC_.size(); i++)
    {
-      if(relevantTxIOPtrsZC_[i]->isMineButUnconfirmed(currBlk))
+      if(relevantTxIOPtrsZC_[i]->isMineButUnconfirmed(currBlk, inclAllZC))
          balance += relevantTxIOPtrsZC_[i]->getValue();
    }
    return balance;
@@ -290,13 +290,14 @@ uint64_t ScrAddrObj::getFullBalance(void)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-vector<UnspentTxOut> ScrAddrObj::getSpendableTxOutList(uint32_t blkNum)
+vector<UnspentTxOut> ScrAddrObj::getSpendableTxOutList(uint32_t blkNum,
+                                                       bool ignoreAllZC)
 {
    vector<UnspentTxOut> utxoList(0);
    for(uint32_t i=0; i<relevantTxIOPtrs_.size(); i++)
    {
       TxIOPair & txio = *relevantTxIOPtrs_[i];
-      if(txio.isSpendable(blkNum))
+      if(txio.isSpendable(blkNum, ignoreAllZC))
       {
          TxOut txout = txio.getTxOutCopy();
          utxoList.push_back( UnspentTxOut(txout, blkNum) );
@@ -306,7 +307,7 @@ vector<UnspentTxOut> ScrAddrObj::getSpendableTxOutList(uint32_t blkNum)
    for(uint32_t i=0; i<relevantTxIOPtrsZC_.size(); i++)
    {
       TxIOPair & txio = *relevantTxIOPtrsZC_[i];
-      if(txio.isSpendable(blkNum))
+      if(txio.isSpendable(blkNum, ignoreAllZC))
       {
          TxOut txout = txio.getTxOutCopy();
          utxoList.push_back( UnspentTxOut(txout, blkNum) );
@@ -531,14 +532,15 @@ pair<bool,bool> BtcWallet::isMineBulkFilter(
    // fastest bulk filter possible, even though it will add 
    // redundant computation to the tx that are ours.  In fact,
    // we will skip the TxIn/TxOut convenience methods and follow the
-   // pointers directly the data we want
+   // pointers directly to the data we want
 
    uint8_t const * txStartPtr = tx.getPtr();
    for(uint32_t iin=0; iin<tx.getNumTxIn(); iin++)
    {
       // We have the txin, now check if it contains one of our TxOuts
       static OutPoint op;
-      op.unserialize(txStartPtr + tx.getTxInOffset(iin), tx.getSize()-tx.getTxInOffset(iin));
+      op.unserialize(txStartPtr + tx.getTxInOffset(iin), 
+                     tx.getSize()-tx.getTxInOffset(iin));
       if(KEY_IN_MAP(op, txiomap))
          return pair<bool,bool>(true,true);
    }
@@ -1444,7 +1446,7 @@ void BtcWallet::scanNonStdTx(uint32_t blknum,
 //uint64_t BtcWallet::getBalance(bool blockchainOnly)
 
 ////////////////////////////////////////////////////////////////////////////////
-uint64_t BtcWallet::getSpendableBalance(uint32_t currBlk)
+uint64_t BtcWallet::getSpendableBalance(uint32_t currBlk, bool ignoreAllZC)
 {
    uint64_t balance = 0;
    map<OutPoint, TxIOPair>::iterator iter;
@@ -1452,14 +1454,14 @@ uint64_t BtcWallet::getSpendableBalance(uint32_t currBlk)
        iter != txioMap_.end();
        iter++)
    {
-      if(iter->second.isSpendable(currBlk))
+      if(iter->second.isSpendable(currBlk, ignoreAllZC))
          balance += iter->second.getValue();      
    }
    return balance;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-uint64_t BtcWallet::getUnconfirmedBalance(uint32_t currBlk)
+uint64_t BtcWallet::getUnconfirmedBalance(uint32_t currBlk, bool inclAllZC)
 {
    uint64_t balance = 0;
    map<OutPoint, TxIOPair>::iterator iter;
@@ -1467,7 +1469,7 @@ uint64_t BtcWallet::getUnconfirmedBalance(uint32_t currBlk)
        iter != txioMap_.end();
        iter++)
    {
-      if(iter->second.isMineButUnconfirmed(currBlk))
+      if(iter->second.isMineButUnconfirmed(currBlk, inclAllZC))
          balance += iter->second.getValue();      
    }
    return balance;
@@ -1489,7 +1491,8 @@ uint64_t BtcWallet::getFullBalance(void)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-vector<UnspentTxOut> BtcWallet::getSpendableTxOutList(uint32_t blkNum)
+vector<UnspentTxOut> BtcWallet::getSpendableTxOutList(uint32_t blkNum, 
+                                                      bool ignoreAllZC)
 {
    vector<UnspentTxOut> utxoList(0);
    map<OutPoint, TxIOPair>::iterator iter;
@@ -1498,7 +1501,7 @@ vector<UnspentTxOut> BtcWallet::getSpendableTxOutList(uint32_t blkNum)
        iter++)
    {
       TxIOPair & txio = iter->second;
-      if(txio.isSpendable(blkNum))
+      if(txio.isSpendable(blkNum, ignoreAllZC))
       {
          TxOut txout = txio.getTxOutCopy();
          utxoList.push_back(UnspentTxOut(txout, blkNum) );
@@ -3931,7 +3934,7 @@ vector<TxRef*> BlockDataManager_LevelDB::findAllNonStdTx(void)
 }
 */
 
-static bool scanFor(std::istream &in, const uint8_t * bytes, unsigned len)
+static bool scanFor(std::istream &in, const uint8_t * bytes, const unsigned len)
 {
    unsigned matched=0; // how many bytes we've matched so far
    std::vector<uint8_t> ahead(len); // the bytes matched

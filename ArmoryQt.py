@@ -4740,7 +4740,7 @@ class ArmoryMainWindow(QMainWindow):
 
 
             # Now we start the normal array of heartbeat operations
-            self.checkSatoshiVersion()  # this actually only checks every 15 min
+            self.checkSatoshiVersion()  # this actually only checks every hour
             newBlocks = TheBDM.readBlkFileUpdate(wait=True)
             self.currBlockNum = TheBDM.getTopBlockHeight()
 

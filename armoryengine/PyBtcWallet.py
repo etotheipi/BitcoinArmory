@@ -306,12 +306,21 @@ class PyBtcWallet(object):
          # calledFromBDM means that ultimately the BDM itself called this
          # method and is blocking waiting for it.  So we can't use the 
          # BDM-thread queue, must call its methods directly
+         if startBlk == None: startBlk = self.lastSyncBlockNum
+         
          if self.calledFromBDM:
             TheBDM.scanRegisteredTxForWallet_bdm_direct(self.cppWallet, startBlk)
             self.lastSyncBlockNum = TheBDM.getTopBlockHeight_bdm_direct()
          else:
             TheBDM.scanRegisteredTxForWallet(self.cppWallet, startBlk, wait=True)
             self.lastSyncBlockNum = TheBDM.getTopBlockHeight(wait=True)
+            
+            wltLE = self.cppWallet.getTxLedger()
+            for le in wltLE:
+               txHash = le.getTxHash()
+               if not self.txAddrMap.has_key(txHash):
+                  self.txAddrMap[txHash] = []
+                  self.txAddrMap[txHash].append(le.getScrAddr())
       else:
          LOGERROR('Blockchain-sync requested, but current wallet')
          LOGERROR('is set to BLOCKCHAIN_DONOTUSE')
@@ -366,15 +375,20 @@ class PyBtcWallet(object):
 
 
    #############################################################################
+   # The IGNOREZC args on the get*Balance calls determine whether unconfirmed
+   # change (sent-to-self) will be considered spendable or unconfirmed.  This
+   # was added after the malleability issues cropped up in Feb 2014.  Zero-conf
+   # change was always deprioritized, but using --nospendzeroconfchange makes
+   # it totally unspendable
    def getBalance(self, balType="Spendable"):
       if not TheBDM.getBDMState()=='BlockchainReady' and not self.calledFromBDM:
          return -1
       else:
          currBlk = TheBDM.getTopBlockHeight(calledFromBDM=self.calledFromBDM)
          if balType.lower() in ('spendable','spend'):
-            return self.cppWallet.getSpendableBalance(currBlk)
+            return self.cppWallet.getSpendableBalance(currBlk, IGNOREZC)
          elif balType.lower() in ('unconfirmed','unconf'):
-            return self.cppWallet.getUnconfirmedBalance(currBlk)
+            return self.cppWallet.getUnconfirmedBalance(currBlk, IGNOREZC)
          elif balType.lower() in ('total','ultimate','unspent','full'):
             return self.cppWallet.getFullBalance()
          else:
@@ -389,9 +403,9 @@ class PyBtcWallet(object):
       else:
          addr = self.cppWallet.getScrAddrObjByKey(Hash160ToScrAddr(addr160))
          if balType.lower() in ('spendable','spend'):
-            return addr.getSpendableBalance(currBlk)
+            return addr.getSpendableBalance(currBlk, IGNOREZC)
          elif balType.lower() in ('unconfirmed','unconf'):
-            return addr.getUnconfirmedBalance(currBlk)
+            return addr.getUnconfirmedBalance(currBlk, IGNOREZC)
          elif balType.lower() in ('ultimate','unspent','full'):
             return addr.getFullBalance()
          else:
@@ -456,7 +470,7 @@ class PyBtcWallet(object):
          currBlk = TheBDM.getTopBlockHeight(calledFromBDM=self.calledFromBDM)
          self.syncWithBlockchain()
          if txType.lower() in ('spend', 'spendable'):
-            return self.cppWallet.getSpendableTxOutList(currBlk);
+            return self.cppWallet.getSpendableTxOutList(currBlk, IGNOREZC);
          elif txType.lower() in ('full', 'all', 'unspent', 'ultimate'):
             return self.cppWallet.getFullTxOutList(currBlk);
          else:
@@ -477,7 +491,7 @@ class PyBtcWallet(object):
          scrAddrStr = Hash160ToScrAddr(addr160)
          cppAddr = self.cppWallet.getScrAddrObjByKey(scrAddrStr)
          if txType.lower() in ('spend', 'spendable'):
-            return cppAddr.getSpendableTxOutList(currBlk);
+            return cppAddr.getSpendableTxOutList(currBlk, IGNOREZC);
          elif txType.lower() in ('full', 'all', 'unspent', 'ultimate'):
             return cppAddr.getFullTxOutList(currBlk);
          else:
@@ -1015,10 +1029,10 @@ class PyBtcWallet(object):
       self.doBlockchainSync = BLOCKCHAIN_READONLY
       if fullscan:
          # Will initiate rescan if wallet is dirty
-         self.syncWithBlockchain(0)  
+         self.syncWithBlockchain(self.lastSyncBlockNum)  
       else:
          # Will only use data already scanned, even if wallet is dirty
-         self.syncWithBlockchainLite(0)  
+         self.syncWithBlockchainLite(self.lastSyncBlockNum)  
       self.doBlockchainSync = oldSync
 
       highestIndex = max(self.highestUsedChainIndex, 0)
