@@ -3934,9 +3934,9 @@ vector<TxRef*> BlockDataManager_LevelDB::findAllNonStdTx(void)
 static bool scanFor(std::istream &in, const uint8_t * bytes, unsigned len)
 {
    unsigned matched=0; // how many bytes we've matched so far
-   uint8_t ahead[len]; // the bytes matched
+   std::vector<uint8_t> ahead(len); // the bytes matched
    
-   in.read((char*)ahead, len);
+   in.read((char*)&ahead.front(), len);
    unsigned count = in.gcount();
    if (count < len) return false;
    
