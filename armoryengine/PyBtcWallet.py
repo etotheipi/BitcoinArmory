@@ -301,12 +301,12 @@ class PyBtcWallet(object):
 
       if not self.doBlockchainSync==BLOCKCHAIN_DONOTUSE:
          if startBlk==None:
-            startBlk = self.lastSyncBlockNum + 1
+            if self.lastSyncBlockNum is not None:
+               startBlk = self.lastSyncBlockNum + 1
 
          # calledFromBDM means that ultimately the BDM itself called this
          # method and is blocking waiting for it.  So we can't use the 
          # BDM-thread queue, must call its methods directly
-         if startBlk == None: startBlk = self.lastSyncBlockNum
          
          if self.calledFromBDM:
             TheBDM.scanRegisteredTxForWallet_bdm_direct(self.cppWallet, startBlk)
