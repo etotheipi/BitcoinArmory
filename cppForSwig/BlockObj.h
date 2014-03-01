@@ -657,8 +657,8 @@ public:
 
    bool isSpent(void);
    bool isUnspent(void);
-   bool isSpendable(uint32_t currBlk=0);
-   bool isMineButUnconfirmed(uint32_t currBlk);
+   bool isSpendable(uint32_t currBlk=0, bool ignoreAllZeroConf=false);
+   bool isMineButUnconfirmed(uint32_t currBlk, bool includeAllZeroConf=false);
    void clearZCFields(void);
    void pprintOneLine(void);
 

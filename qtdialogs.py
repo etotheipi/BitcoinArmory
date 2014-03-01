@@ -3338,8 +3338,9 @@ class DlgAddressInfo(ArmoryDialog):
             'This is the current <i>spendable</i> balance of this address, '
             'not including zero-confirmation transactions from others.'))
       lbls[-1].append(QRichLabel('<b>Current Balance</b>'))
-      balStr = coin2str(cppAddr.getSpendableBalance(), maxZeros=1)
-      if cppAddr.getSpendableBalance() > 0:
+      balCoin = cppAddr.getSpendableBalance(self.main.currBlockNum, IGNOREZC)
+      balStr = coin2str(balCoin, maxZeros=1)
+      if balCoin > 0:
          goodColor = htmlColor('MoneyPos')
          lbls[-1].append(QRichLabel(\
             '<font color=' + goodColor + '>' + balStr.strip() + '</font> BTC'))

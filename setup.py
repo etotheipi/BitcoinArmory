@@ -10,7 +10,12 @@ opts = {"py2exe":{
 setup( options = opts, windows = [
                         {
                             "script": "../../ArmoryQt.py",
-                            "icon_resources": [(1, "../../img/armory256x256.ico")]
+                            "icon_resources": [(1, "../../img/armory256x256.ico"),
+                                               (1, "../../img/armory64x64.ico"),
+                                               (1, "../../img/armory48x48.ico"),
+                                               (1, "../../img/armory32x32.ico"),
+                                               (1, "../../img/armory24x24.ico"),
+                                               (1, "../../img/armory16x16.ico") ]
                         }
                 ],
     )

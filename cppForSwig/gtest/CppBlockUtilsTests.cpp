@@ -14,6 +14,7 @@
 
 #ifdef _MSC_VER
    #include "win32_posix.h"
+	#undef close
 #endif
 
 #define READHEX BinaryData::CreateFromHex
