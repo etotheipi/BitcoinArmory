@@ -206,6 +206,7 @@ private:
    deque<BlockHeader*> headersByHeight_;
    BlockHeader *topBlockPtr_;
    BlockHeader *genesisBlockBlockPtr_;
+   Blockchain(const Blockchain&); // not defined
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -353,8 +354,8 @@ private:
 
 public:
 
-   Blockchain blockchain() { return blockchain_; }
-   const Blockchain blockchain() const { return blockchain_; }
+   Blockchain& blockchain() { return blockchain_; }
+   const Blockchain& blockchain() const { return blockchain_; }
 
    static BlockDataManager_LevelDB & GetInstance(void);
    static void DestroyInstance(void);
@@ -640,9 +641,6 @@ public:
    vector<BinaryData> missingBlockHeaderHashes() const { return missingBlockHeaderHashes_; }
    
    vector<BinaryData> missingBlockHashes() const { return missingBlockHashes_; }
-   
-   // obsolete, needed for the python Passthru thing
-   uint32_t getTopBlockHeight() const { return blockchain_.top().getBlockHeight(); }
 };
 
 

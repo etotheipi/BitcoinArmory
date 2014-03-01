@@ -1976,7 +1976,7 @@ class ArmoryMainWindow(QMainWindow):
       # Now that the blockchain is loaded, let's populate the wallet info
       if TheBDM.isInitialized():
 
-         self.currBlockNum = TheBDM.blockchain().top().getBlockHeight()
+         self.currBlockNum = TheBDM.queued( lambda : TheBDM.bdm.blockchain().top().getBlockHeight() )
          self.setDashboardDetails()
          if not self.memPoolInit:
             mempoolfile = os.path.join(ARMORY_HOME_DIR,'mempool.bin')
@@ -1988,7 +1988,7 @@ class ArmoryMainWindow(QMainWindow):
                   os.remove(mempoolfile)
             else: 
                self.checkMemoryPoolCorruption(mempoolfile)
-            TheBDM.enableZeroConf(mempoolfile)
+            TheBDM.queued( lambda : TheBDM.bdm.enableZeroConf(mempoolfile) )
             self.memPoolInit = True
 
          for wltID in self.walletMap.iterkeys():
@@ -2007,7 +2007,7 @@ class ArmoryMainWindow(QMainWindow):
                '<font color=%s>Connected (%s blocks)</font> ' % 
                (htmlColor('TextGreen'), self.currBlockNum))
 
-         self.blkReceived = TheBDM.blockchain().top().getTimestamp()
+         self.blkReceived = TheBDM.bdm.blockchain().top().getTimestamp()
          self.writeSetting('LastBlkRecv',     self.currBlockNum)
          self.writeSetting('LastBlkRecvTime', self.blkReceived)
 
@@ -2015,7 +2015,7 @@ class ArmoryMainWindow(QMainWindow):
          self.writeSetting('SyncSuccessCount', min(currSyncSuccess+1, 10))
 
 
-         vectMissingBlks = TheBDM.missingBlockHashes()
+         vectMissingBlks = TheBDM.queued( lambda : TheBDM.bdm.missingBlockHashes() )
          LOGINFO('Blockfile corruption check: Missing blocks: %d', len(vectMissingBlks))
          if len(vectMissingBlks) > 0:
             LOGINFO('Missing blocks: %d', len(vectMissingBlks))
@@ -2144,7 +2144,7 @@ class ArmoryMainWindow(QMainWindow):
       unconfFunds = 0
       currBlk = 0xffffffff
       if TheBDM.isInitialized():
-         currBlk = TheBDM.blockchain().top().getBlockHeight()
+         currBlk = TheBDM.queued( lambda : TheBDM.bdm.blockchain().top().getBlockHeight() )
 
       for wltID in wltIDList:
          wlt = self.walletMap[wltID]
@@ -4742,7 +4742,7 @@ class ArmoryMainWindow(QMainWindow):
             # Now we start the normal array of heartbeat operations
             self.checkSatoshiVersion()  # this actually only checks every 15 min
             newBlocks = TheBDM.readBlkFileUpdate(wait=True)
-            self.currBlockNum = TheBDM.blockchain().top().getBlockHeight()
+            self.currBlockNum = TheBDM.queued( lambda : TheBDM.bdm.blockchain().top().getBlockHeight() )
 
             if not newBlocks:
                newBlocks = 0
@@ -4821,7 +4821,7 @@ class ArmoryMainWindow(QMainWindow):
       # a block. It is a "surprise" when the first time we see it is in a block
       notifiedAlready = set([ n[1].getTxHash() for n in self.notifyQueue ])
       for blk in range(blk0, blk1):
-         for tx in TheBDM.blockchain().getHeaderByHeight(blk).getTxRefPtrList():
+         for tx in TheBDM.queued( lambda : TheBDM.bdm.blockchain().getHeaderByHeight(blk).getTxRefPtrList() ):
             for wltID,wlt in self.walletMap.iteritems():
                le = wlt.cppWallet.calcLedgerEntryForTx(tx)
                if not le.getTxHash() in notifiedAlready:

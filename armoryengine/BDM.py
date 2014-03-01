@@ -20,7 +20,7 @@ import CppBlockUtils as Cpp
 def getCurrTimeAndBlock():
    time0 = long(RightNowUTC())
    if TheBDM.getBDMState()=='BlockchainReady':
-      return (time0, TheBDM.blockchain().top().getBlockHeight())
+      return (time0, TheBDM.queued( lambda : TheBDM.bdm.blockchain().top().getBlockHeight()) )
    else:
       return (time0, UINT32_MAX)
    
@@ -54,7 +54,8 @@ BDMINPUTTYPE  = enum('RegisterAddr', \
                      'GoOfflineRequested', \
                      'Passthrough', \
                      'Reset', \
-                     'Shutdown')
+                     'Shutdown', \
+                     'QueuedFunction')
 
 ################################################################################
 class BlockDataManagerThread(threading.Thread):
@@ -195,67 +196,28 @@ class BlockDataManagerThread(threading.Thread):
       self.ldbdir = LEVELDB_DIR
       self.lastPctLoad = 0
 
-      
-         
 
-   #############################################################################
-   def __getattr__(self, name):
+   def queued(self, fn):
       '''
-      Anything that is not explicitly defined in this class should 
-      passthrough to the C++ BlockDataManager class
-
-      This remaps such calls into "passthrough" requests via the input
-      queue.  This makes sure that the requests are processed only when
-      the BDM is ready.  Hopefully, this will prevent multi-threaded
-      disasters, such as seg faults due to trying to read memory that is
-      in the process of being updated.
-   
-      Specifically, any passthrough call is expected to return output
-      unless you add 'waitForReturn=False' to the arg list.  i.e. all
-      calls that "passthrough" will always block unless you explicitly
-      tell it not to.
+      Queue the function 'fn' to be called while the BDM is ready, on the BDM
+      thread. The result is the result of 'fn', which might take a while to appear
       '''
-
       
       rndID = int(random.uniform(0,100000000)) 
-      if not hasattr(self.bdm, name):
-         LOGERROR('No BDM method: %s', name)
-         raise AttributeError
-      else:
-         def passthruFunc(*args, **kwargs):
-            #LOGDEBUG('External thread requesting: %s (%d)', name, rndID)
-            waitForReturn = True
-            if len(kwargs)>0 and \
-               kwargs.has_key('wait') and \
-               not kwargs['wait']:
-               waitForReturn = False
-
-
-            # If this was ultimately called from the BDM thread, don't go
-            # through the queue, just do it!
-            if len(kwargs)>0 and \
-               kwargs.has_key('calledFromBDM') and \
-               kwargs['calledFromBDM']:
-                  return getattr(self.bdm, name)(*args)
-
-            self.inputQueue.put([BDMINPUTTYPE.Passthrough, rndID, waitForReturn, name] + list(args))
-            
-
-            if waitForReturn:
-               try:
-                  out = self.outputQueue.get(True, self.mtWaitSec)
-                  return out
-               except Queue.Empty:
-                  LOGERROR('BDM was not ready for your request!  Waited %d sec.' % self.mtWaitSec)
-                  LOGERROR('  getattr   name: %s', name)
-                  LOGERROR('BDM currently doing: %s (%d)', self.currentActivity,self.currentID )
-                  LOGERROR('Waiting for completion: ID= %d', rndID)
-                  LOGERROR('Direct traceback')
-                  traceback.print_stack()
-                  self.errorOut += 1
-                  LOGEXCEPT('Traceback:')
-         return passthruFunc
-
+      self.inputQueue.put([BDMINPUTTYPE.QueuedFunction, rndID, True, fn])
+      
+      try:
+         out = self.outputQueue.get(True, self.mtWaitSec)
+         return out
+      except Queue.Empty:
+         LOGERROR('BDM was not ready for your request!  Waited %d sec.' % self.mtWaitSec)
+         LOGERROR('  getattr   name: %s', name)
+         LOGERROR('BDM currently doing: %s (%d)', self.currentActivity,self.currentID )
+         LOGERROR('Waiting for completion: ID= %d', rndID)
+         LOGERROR('Direct traceback')
+         traceback.print_stack()
+         self.errorOut += 1
+         LOGEXCEPT('Traceback:')
 
    
    #############################################################################
@@ -1147,7 +1109,7 @@ class BlockDataManagerThread(threading.Thread):
 
    #############################################################################
    def __getFullBlock(self, headerHash):
-      headerObj = self.bdm.blockchain().getHeaderByHash(headerHash)
+      headerObj = self.bdm.queued( lambda : self.bdm.blockchain().getHeaderByHash(headerHash))
       if not headerObj:
          return None
 
@@ -1322,6 +1284,11 @@ class BlockDataManagerThread(threading.Thread):
                funcName = inputTuple[3]
                funcArgs = inputTuple[4:]
                output = getattr(self.bdm, funcName)(*funcArgs)
+               
+            elif cmd == BDMINPUTTYPE.QueuedFunction:
+               # If the caller is waiting, then it is notified by output
+               func = inputTuple[3]
+               output = func()
 
             elif cmd == BDMINPUTTYPE.Shutdown:
                LOGINFO('Shutdown Requested')
@@ -1408,8 +1375,8 @@ else:
 
    #if CLI_OPTIONS.doDebug or CLI_OPTIONS.netlog or CLI_OPTIONS.mtdebug:
    cppLogFile = os.path.join(ARMORY_HOME_DIR, 'armorycpplog.txt')
-   TheBDM.StartCppLogging(cppLogFile, 4)
-   TheBDM.EnableCppLogStdOut()
+   TheBDM.bdm.StartCppLogging(cppLogFile, 4)
+   TheBDM.bdm.EnableCppLogStdOut()
 
    # 32-bit linux has an issue with max open files.  Rather than modifying
    # the system, we can tell LevelDB to take it easy with max files to open
@@ -1432,3 +1399,4 @@ else:
 from armoryengine.PyBtcWallet import PyBtcWallet
 from armoryengine.Transaction import PyTx
 
+# kate: indent-width 3; replace-tabs on;

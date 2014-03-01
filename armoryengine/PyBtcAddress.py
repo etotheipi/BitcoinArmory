@@ -166,7 +166,7 @@ class PyBtcAddress(object):
 
       if blkNum==None:
          if TheBDM.getBDMState()=='BlockchainReady':
-            topBlk = TheBDM.blockchain().top().getBlockHeight()
+            topBlk = TheBDM.queued( lambda : TheBDM.bdm.blockchain().top().getBlockHeight() )
             self.blkRange[0] = long(min(self.blkRange[0], topBlk))
             self.blkRange[1] = long(max(self.blkRange[1], topBlk))
       else:
@@ -174,7 +174,7 @@ class PyBtcAddress(object):
          self.blkRange[1]  = long(max(self.blkRange[1], blkNum))
 
          if unixTime==None and TheBDM.getBDMState()=='BlockchainReady':
-            unixTime = TheBDM.blockchain().getHeaderByHeight(blkNum).getTimestamp()
+            unixTime = TheBDM.queued( lambda : TheBDM.bdm.blockchain().getHeaderByHeight(blkNum).getTimestamp() )
 
       if unixTime==None:
          unixTime = RightNow()

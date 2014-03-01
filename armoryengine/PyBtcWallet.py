@@ -279,8 +279,8 @@ class PyBtcWallet(object):
             TheBDM.scanBlockchainForTx_bdm_direct(self.cppWallet, startBlk)
             self.lastSyncBlockNum = TheBDM.getTopBlockHeight_bdm_direct()
          else:
-            TheBDM.scanBlockchainForTx(self.cppWallet, startBlk, wait=True)
-            self.lastSyncBlockNum = TheBDM.getTopBlockHeight(wait=True)
+            TheBDM.queued(lambda : TheBDM.bdm.scanBlockchainForTx(self.cppWallet, startBlk) )
+            self.lastSyncBlockNum = TheBDM.queued( lambda : TheBDM.bdm.blockchain().top().getBlockHeight() )
       else:
          LOGERROR('Blockchain-sync requested, but current wallet')
          LOGERROR('is set to BLOCKCHAIN_DONOTUSE')
@@ -310,8 +310,8 @@ class PyBtcWallet(object):
             TheBDM.scanRegisteredTxForWallet_bdm_direct(self.cppWallet, startBlk)
             self.lastSyncBlockNum = TheBDM.getTopBlockHeight_bdm_direct()
          else:
-            TheBDM.scanRegisteredTxForWallet(self.cppWallet, startBlk, wait=True)
-            self.lastSyncBlockNum = TheBDM.getTopBlockHeight(wait=True)
+            TheBDM.queued( lambda : TheBDM.bdm.scanRegisteredTxForWallet(self.cppWallet, startBlk) )
+            self.lastSyncBlockNum = TheBDM.queued( lambda : TheBDM.bdm.blockchain().top().getBlockHeight() )
       else:
          LOGERROR('Blockchain-sync requested, but current wallet')
          LOGERROR('is set to BLOCKCHAIN_DONOTUSE')
@@ -370,7 +370,7 @@ class PyBtcWallet(object):
       if not TheBDM.getBDMState()=='BlockchainReady' and not self.calledFromBDM:
          return -1
       else:
-         currBlk = TheBDM.getTopBlockHeight(calledFromBDM=self.calledFromBDM)
+         currBlk = TheBDM.queued( lambda : TheBDM.bdm.blockchain().top().getBlockHeight() )
          if balType.lower() in ('spendable','spend'):
             return self.cppWallet.getSpendableBalance(currBlk)
          elif balType.lower() in ('unconfirmed','unconf'):
@@ -453,7 +453,7 @@ class PyBtcWallet(object):
       if TheBDM.getBDMState()=='BlockchainReady' and \
          not self.doBlockchainSync==BLOCKCHAIN_DONOTUSE:
 
-         currBlk = TheBDM.getTopBlockHeight(calledFromBDM=self.calledFromBDM)
+         currBlk = TheBDM.queued( lambda : TheBDM.bdm.blockchain().top().getBlockHeight() )
          self.syncWithBlockchain()
          if txType.lower() in ('spend', 'spendable'):
             return self.cppWallet.getSpendableTxOutList(currBlk);
@@ -472,7 +472,11 @@ class PyBtcWallet(object):
             self.hasAddr(addr160) and \
             not self.doBlockchainSync==BLOCKCHAIN_DONOTUSE:
 
-         currBlk = TheBDM.getTopBlockHeight(calledFromBDM=self.calledFromBDM)
+         if self.calledFromBDM:
+            currBlk = TheBDM.bdm.blockchain().top().getBlockHeight()
+         else:
+            currBlk = TheBDM.queued(lambda : TheBDM.bdm.blockchain().top().getBlockHeight())
+    
          self.syncWithBlockchain()
          scrAddrStr = Hash160ToScrAddr(addr160)
          cppAddr = self.cppWallet.getScrAddrObjByKey(scrAddrStr)
@@ -2958,3 +2962,5 @@ from armoryengine.BDM import TheBDM, getCurrTimeAndBlock
 from armoryengine.PyBtcAddress import PyBtcAddress
 from armoryengine.Transaction import *
 from armoryengine.Script import serializeBytesWithPushData
+
+# kate: indent-width 3; replace-tabs on;
