@@ -141,14 +141,15 @@ pair<bool,bool> BtcWallet::isMineBulkFilter(
    // fastest bulk filter possible, even though it will add 
    // redundant computation to the tx that are ours.  In fact,
    // we will skip the TxIn/TxOut convenience methods and follow the
-   // pointers directly the data we want
+   // pointers directly to the data we want
 
    uint8_t const * txStartPtr = tx.getPtr();
    for(uint32_t iin=0; iin<tx.getNumTxIn(); iin++)
    {
       // We have the txin, now check if it contains one of our TxOuts
       static OutPoint op;
-      op.unserialize(txStartPtr + tx.getTxInOffset(iin), tx.getSize()-tx.getTxInOffset(iin));
+      op.unserialize(txStartPtr + tx.getTxInOffset(iin), 
+                     tx.getSize()-tx.getTxInOffset(iin));
       if(KEY_IN_MAP(op, txiomap))
          return pair<bool,bool>(true,true);
    }
@@ -750,7 +751,7 @@ void BtcWallet::scanNonStdTx(uint32_t blknum,
 //uint64_t BtcWallet::getBalance(bool blockchainOnly)
 
 ////////////////////////////////////////////////////////////////////////////////
-uint64_t BtcWallet::getSpendableBalance(uint32_t currBlk)
+uint64_t BtcWallet::getSpendableBalance(uint32_t currBlk, bool ignoreAllZC)
 {
    uint64_t balance = 0;
    map<OutPoint, TxIOPair>::iterator iter;
@@ -758,14 +759,14 @@ uint64_t BtcWallet::getSpendableBalance(uint32_t currBlk)
        iter != txioMap_.end();
        iter++)
    {
-      if(iter->second.isSpendable(currBlk))
+      if(iter->second.isSpendable(currBlk, ignoreAllZC))
          balance += iter->second.getValue();      
    }
    return balance;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-uint64_t BtcWallet::getUnconfirmedBalance(uint32_t currBlk)
+uint64_t BtcWallet::getUnconfirmedBalance(uint32_t currBlk, bool inclAllZC)
 {
    uint64_t balance = 0;
    map<OutPoint, TxIOPair>::iterator iter;
@@ -773,7 +774,7 @@ uint64_t BtcWallet::getUnconfirmedBalance(uint32_t currBlk)
        iter != txioMap_.end();
        iter++)
    {
-      if(iter->second.isMineButUnconfirmed(currBlk))
+      if(iter->second.isMineButUnconfirmed(currBlk, inclAllZC))
          balance += iter->second.getValue();      
    }
    return balance;
@@ -795,7 +796,8 @@ uint64_t BtcWallet::getFullBalance(void)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-vector<UnspentTxOut> BtcWallet::getSpendableTxOutList(uint32_t blkNum)
+vector<UnspentTxOut> BtcWallet::getSpendableTxOutList(uint32_t blkNum, 
+                                                      bool ignoreAllZC)
 {
    vector<UnspentTxOut> utxoList(0);
    map<OutPoint, TxIOPair>::iterator iter;
@@ -804,7 +806,7 @@ vector<UnspentTxOut> BtcWallet::getSpendableTxOutList(uint32_t blkNum)
        iter++)
    {
       TxIOPair & txio = iter->second;
-      if(txio.isSpendable(blkNum))
+      if(txio.isSpendable(blkNum, ignoreAllZC))
       {
          TxOut txout = txio.getTxOutCopy();
          utxoList.push_back(UnspentTxOut(txout, blkNum) );

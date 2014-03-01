@@ -628,7 +628,7 @@ class SendBitcoinsFrame(ArmoryFrame):
                if len(commentStr) > 0:
                   self.wlt.setComment(finalTx.getHash(), commentStr)
                self.main.broadcastTransaction(finalTx)
-               TheBDM.saveScrAddrHistories()
+               TheBDM.queued(lambda : TheBDM.bdm.saveScrAddrHistories())
             except:
                LOGEXCEPT('Problem sending transaction!')
                # TODO: not sure what errors to catch here, yet...

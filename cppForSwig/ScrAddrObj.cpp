@@ -25,34 +25,35 @@ ScrAddrObj::ScrAddrObj(HashString    addr,
 
 
 ////////////////////////////////////////////////////////////////////////////////
-uint64_t ScrAddrObj::getSpendableBalance(uint32_t currBlk)
+uint64_t ScrAddrObj::getSpendableBalance(uint32_t currBlk, bool ignoreAllZC) 
 {
    uint64_t balance = 0;
    for(uint32_t i=0; i<relevantTxIOPtrs_.size(); i++)
    {
-      if(relevantTxIOPtrs_[i]->isSpendable(currBlk))
+     if(relevantTxIOPtrs_[i]->isSpendable(currBlk, ignoreAllZC))
          balance += relevantTxIOPtrs_[i]->getValue();
    }
    for(uint32_t i=0; i<relevantTxIOPtrsZC_.size(); i++)
    {
-      if(relevantTxIOPtrsZC_[i]->isSpendable(currBlk))
+     if(relevantTxIOPtrsZC_[i]->isSpendable(currBlk, ignoreAllZC))
          balance += relevantTxIOPtrsZC_[i]->getValue();
    }
    return balance;
 }
 
+
 ////////////////////////////////////////////////////////////////////////////////
-uint64_t ScrAddrObj::getUnconfirmedBalance(uint32_t currBlk)
+uint64_t ScrAddrObj::getUnconfirmedBalance(uint32_t currBlk, bool inclAllZC)
 {
    uint64_t balance = 0;
    for(uint32_t i=0; i<relevantTxIOPtrs_.size(); i++)
    {
-      if(relevantTxIOPtrs_[i]->isMineButUnconfirmed(currBlk))
+      if(relevantTxIOPtrs_[i]->isMineButUnconfirmed(currBlk, inclAllZC))
          balance += relevantTxIOPtrs_[i]->getValue();
    }
    for(uint32_t i=0; i<relevantTxIOPtrsZC_.size(); i++)
    {
-      if(relevantTxIOPtrsZC_[i]->isMineButUnconfirmed(currBlk))
+      if(relevantTxIOPtrsZC_[i]->isMineButUnconfirmed(currBlk, inclAllZC))
          balance += relevantTxIOPtrsZC_[i]->getValue();
    }
    return balance;
@@ -78,13 +79,14 @@ uint64_t ScrAddrObj::getFullBalance(void)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-vector<UnspentTxOut> ScrAddrObj::getSpendableTxOutList(uint32_t blkNum)
+vector<UnspentTxOut> ScrAddrObj::getSpendableTxOutList(uint32_t blkNum,
+                                                       bool ignoreAllZC)
 {
    vector<UnspentTxOut> utxoList(0);
    for(uint32_t i=0; i<relevantTxIOPtrs_.size(); i++)
    {
       TxIOPair & txio = *relevantTxIOPtrs_[i];
-      if(txio.isSpendable(blkNum))
+      if(txio.isSpendable(blkNum, ignoreAllZC))
       {
          TxOut txout = txio.getTxOutCopy();
          utxoList.push_back( UnspentTxOut(txout, blkNum) );
@@ -94,7 +96,7 @@ vector<UnspentTxOut> ScrAddrObj::getSpendableTxOutList(uint32_t blkNum)
    for(uint32_t i=0; i<relevantTxIOPtrsZC_.size(); i++)
    {
       TxIOPair & txio = *relevantTxIOPtrsZC_[i];
-      if(txio.isSpendable(blkNum))
+      if(txio.isSpendable(blkNum, ignoreAllZC))
       {
          TxOut txout = txio.getTxOutCopy();
          utxoList.push_back( UnspentTxOut(txout, blkNum) );

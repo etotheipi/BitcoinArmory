@@ -4612,7 +4612,7 @@ class ArmoryMainWindow(QMainWindow):
    def newBlockSyncRescanZC(self, prevLedgSize):
       for wltID in self.walletMap.keys():
          self.walletMap[wltID].syncWithBlockchainLite()
-         TheBDM.rescanWalletZeroConf(self.walletMap[wltID].cppWallet)
+         TheBDM.queued( lambda : TheBDM.bdm.rescanWalletZeroConf(self.walletMap[wltID].cppWallet))
          newLedgerSize = len(self.walletMap[wltID].getTxLedger())
          didAffectUs = prevLedgSize[wltID] != newLedgerSize
       
@@ -4753,7 +4753,7 @@ class ArmoryMainWindow(QMainWindow):
                self.newZeroConfSinceLastUpdate.reverse()
                for wltID in self.walletMap.keys():
                   wlt = self.walletMap[wltID]
-                  TheBDM.rescanWalletZeroConf(wlt.cppWallet, wait=True)
+                  TheBDM.queued(lambda : TheBDM.bdm.rescanWalletZeroConf(wlt.cppWallet))
            
             self.checkNewZeroConf()
    

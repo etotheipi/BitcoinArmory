@@ -5198,9 +5198,9 @@ def extractTxInfo(pytx, rcvTime=None):
       txcpp = TheBDM.getTxByHash(txHash)
       if txcpp.isInitialized():
          hgt = txcpp.getBlockHeight()
-         if hgt < TheBDM.getTopBlockHeight():
-            headref = TheBDM.getHeaderByHeight(hgt)
-            txTime = unixTimeToFormatStr(headref.getTimestamp())
+         if hgt < TheBDM.queued( lambda : TheBDM.bdm.blockchain().top().getBlockHeight()):
+            headref = TheBDM.queued( lambda : TheBDM.bdm.blockchain().getHeaderByHeight(hgt))
+            txTime = unixTimeToFormatStr(TheBDM.queued( lambda : headref.getTimestamp() ))
             txBlk = headref.getBlockHeight()
             txIdx = txcpp.getBlockTxIndex()
          else:
@@ -5225,10 +5225,10 @@ def extractTxInfo(pytx, rcvTime=None):
          cppTxin = txcpp.getTxInCopy(i)
          prevTxHash = cppTxin.getOutPoint().getTxHash()
          if TheBDM.getTxByHash(prevTxHash).isInitialized():
-            prevTx = TheBDM.getPrevTx(cppTxin)
+            prevTx = TheBDM.queued( lambda : TheBDM.bdm.getPrevTx(cppTxin))
             prevTxOut = prevTx.getTxOutCopy(cppTxin.getOutPoint().getTxOutIndex())
-            txinFromList[-1].append(TheBDM.getSenderScrAddr(cppTxin))
-            txinFromList[-1].append(TheBDM.getSentValue(cppTxin))
+            txinFromList[-1].append(TheBDM.queued( lambda : TheBDM.bdm.getSenderScrAddr(cppTxin)))
+            txinFromList[-1].append(TheBDM.queued( lambda : TheBDM.bdm.getSentValue(cppTxin)))
             if prevTx.isInitialized():
                txinFromList[-1].append(prevTx.getBlockHeight())
                txinFromList[-1].append(prevTx.getThisHash())
@@ -5515,7 +5515,7 @@ class DlgDispTxInfo(ArmoryDialog):
             lbls[-1].append(QLabel('Included in Block:'))
             lbls[-1].append(QRichLabel(str(data[FIELDS.Blk]) + idxStr))
             if TheBDM.getBDMState() == 'BlockchainReady':
-               nConf = TheBDM.getTopBlockHeight() - data[FIELDS.Blk] + 1
+               nConf = TheBDM.queued( lambda : TheBDM.bdm.blockchain().top().getBlockHeight()) - data[FIELDS.Blk] + 1
                lbls.append([])
                lbls[-1].append(self.main.createToolTipWidget(
                      'The number of blocks that have been produced since '

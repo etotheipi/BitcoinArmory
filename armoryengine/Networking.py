@@ -187,12 +187,12 @@ class ArmoryClient(Protocol):
          for inv in invobj.invList:
             if inv[0]==MSG_INV_BLOCK:
                if self.factory.bdm and (self.factory.bdm.getBDMState()=='Scanning' or \
-                  self.factory.bdm.blockchain().hasHeaderWithHash(inv[1])):
+                  self.factory.bdm.queued( lambda : self.factory.bdm.bdm.blockchain().hasHeaderWithHash(inv[1]))):
                   continue
                getdataMsg.payload.invList.append(inv)
             if inv[0]==MSG_INV_TX:
                if self.factory.bdm and (self.factory.bdm.getBDMState()=='Scanning' or \
-                  self.factory.bdm.hasTxWithHash(inv[1])):
+                  self.factory.bdm.queued( lambda : self.factory.bdm.bdm.hasTxWithHash(inv[1]))):
                   continue
                getdataMsg.payload.invList.append(inv)
 
