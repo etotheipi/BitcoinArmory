@@ -19,6 +19,10 @@
 #include "BlockUtils.h"
 #include "BtcUtils.h"
 #include "EncryptionUtils.h"
+#include "BtcWallet.h"
+#include "LedgerEntry.h"
+#include "ScrAddrObj.h"
+
 %}
 
 %include "std_string.i"
@@ -104,5 +108,8 @@ namespace std
 %include "BlockUtils.h"
 %include "BtcUtils.h"
 %include "EncryptionUtils.h"
+%include "BtcWallet.h"
+%include "LedgerEntry.h"
+%include "ScrAddrObj.h"
 
 

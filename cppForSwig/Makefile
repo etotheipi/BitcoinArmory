@@ -15,6 +15,7 @@ LINK = $(CXX)
 
 OBJS = UniversalTimer.o BinaryData.o leveldb_wrapper.o StoredBlockObj.o \
 	BtcUtils.o BlockObj.o BlockUtils.o EncryptionUtils.o Util.o \
+	BtcWallet.o LedgerEntry.o ScrAddrObj.o \
 	libcryptopp.a libleveldb.a
 
 # This is a script created by goatpig which detects where the python 
@@ -69,11 +70,14 @@ libleveldb.a: Makefile
 BinaryData.o: BtcUtils.h log.h
 BtcUtils.o: log.h
 BlockObj.o: BinaryData.h BtcUtils.h
+BtcWallet.o: BinaryData.h BlockObj.h ScrAddrObj.h BlockUtils.h
+LedgerEntry.o: BinaryData.h BtcUtils.h BlockObj.h
+ScrAddrObj.o: BinaryData.h BtcUtils.h BlockObj.h LedgerEntry.h
 StoredBlockObj.o: log.h BtcUtils.h BinaryData.h
 leveldb_wrapper.o: log.h BtcUtils.h BinaryData.h
 BlockUtils.o: log.h BinaryData.h UniversalTimer.h PartialMerkle.h
 EncryptionUtils.o: log.h BtcUtils.h BinaryData.h
-CppBlockUtils_wrap.cxx: log.h BlockUtils.h BinaryData.h BlockObj.h UniversalTimer.h BlockUtils.h BlockUtils.cpp CppBlockUtils.i
+CppBlockUtils_wrap.cxx: log.h BlockUtils.h BinaryData.h BlockObj.h UniversalTimer.h BlockUtils.h BtcWallet.h LedgerEntry.h StoredBlockObj.h CppBlockUtils.i
 	swig $(SWIG_OPTS) -outdir ../ -v CppBlockUtils.i 
 
 CppBlockUtils_wrap.o: log.h BlockUtils.h  BinaryData.h UniversalTimer.h CppBlockUtils_wrap.cxx
