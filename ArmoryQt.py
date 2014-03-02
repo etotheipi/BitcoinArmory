@@ -112,6 +112,7 @@ class ArmoryMainWindow(QMainWindow):
       self.firstVersionCheck = True
       self.lastVersionsTxtHash = ''
       self.dlgCptWlt = None
+      self.torrentDLState = 'Uninitialized'
 
       #delayed URI parsing dict
       self.delayedURIData = {}
@@ -3762,6 +3763,8 @@ class ArmoryMainWindow(QMainWindow):
          else:
             LOGERROR('Should not predict sync info in non init/sync SDM state')
             return ('UNKNOWN','UNKNOWN', 'UNKNOWN')
+      elif self.torrentDLState == 'Downloading':
+         
       else:
          LOGWARN('Called updateSyncProgress while not sync\'ing')
 
@@ -5113,6 +5116,7 @@ class ArmoryMainWindow(QMainWindow):
          self.CheckWalletConsistency(self.walletMap, self.prgAt, async=True)
          self.UpdateConsistencyCheckMessage(async = True)
          #self.extraHeartbeatAlways.append(self.UpdateWalletConsistencyPBar)
+
    @AllowAsync
    def UpdateConsistencyCheckMessage(self):      
       while self.prgAt[2] == 0:

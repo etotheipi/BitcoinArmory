@@ -84,6 +84,7 @@ parser.add_option("--redownload",      dest="redownload",  default=False,     ac
 parser.add_option("--rebuild",         dest="rebuild",     default=False,     action="store_true", help="Rebuild blockchain database and rescan")
 parser.add_option("--rescan",          dest="rescan",      default=False,     action="store_true", help="Rescan existing blockchain DB")
 parser.add_option("--maxfiles",        dest="maxOpenFiles",default=0,         type="int",          help="Set maximum allowed open files for LevelDB databases")
+parser.add_option("--disable-bittorrent", dest="disableTorrent", default=False,     action="store_true", help="Only download blockchain data via P2P network (slow)")
 #parser.add_option("--rebuildwithblocksize", dest="newBlockSize",default='32kB', type="str",          help="Rebuild databases with new blocksize")
 
 # Pre-10.9 OS X sometimes passes a process serial number as -psn_0_xxxxxx. Nuke!
@@ -307,6 +308,10 @@ if not CLI_OPTIONS.satoshiHome.lower()=='default':
    else:
       BTC_HOME_DIR = CLI_OPTIONS.satoshiHome
 
+
+
+#USE_BITTORRENT = not CLI_OPTIONS.disableTorrentfdksjlfd
+#lsdjfldk_finish_handling_this
 
 
 # Allow user to override default Armory home directory
