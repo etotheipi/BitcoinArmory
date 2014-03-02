@@ -310,8 +310,13 @@ if not CLI_OPTIONS.satoshiHome.lower()=='default':
 
 
 
-#USE_BITTORRENT = not CLI_OPTIONS.disableTorrentfdksjlfd
-#lsdjfldk_finish_handling_this
+# Use torrent downloading if they haven't explicitly disabled it, 
+# and of course, if the torrent code is there to do it.
+USE_BITTORRENT = not CLI_OPTIONS.disableTorrent
+try:
+   import torrentDL
+except ImportError:
+   USE_BITTORRENT = False
 
 
 # Allow user to override default Armory home directory
@@ -2693,6 +2698,7 @@ class PyBackgroundThread(threading.Thread):
       self.finishedAt = UNINITIALIZED
       self.errorThrown = None
       self.passAsync = None
+      self.setDaemon(True)
 
       if len(args)==0:
          self.func  = lambda: ()
@@ -2706,6 +2712,12 @@ class PyBackgroundThread(threading.Thread):
       def funcPartial():
          return thefunc(*args, **kwargs)
       self.func = funcPartial
+
+   def setDaemon(self, yesno):
+      if self.isStarted():
+         LOGERROR('Must set daemon property before starting thread')
+      else:
+         super(PyBackgroundThread, self).setDaemon(yesno)
 
    def isFinished(self):
       return not (self.finishedAt==UNINITIALIZED)

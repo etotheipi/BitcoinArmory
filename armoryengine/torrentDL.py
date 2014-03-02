@@ -4,8 +4,10 @@ import os
 sys.path.append('..')
 
 from ArmoryUtils import ARMORY_HOME_DIR, BTC_HOME_DIR, LOGEXCEPT, \
-                        LOGERROR, LOGWARN, LOGINFO, AllowAsync, RightNow
-from BitTornado.download_bt1 import BT1Download, defaults, parse_params, get_response
+                        LOGERROR, LOGWARN, LOGINFO, MEGABYTE, \
+                        AllowAsync, RightNow, unixTimeToFormatStr, \
+                        secondsToHumanTime
+from BitTornado.download_bt1 import BT1Download, defaults, get_response
 from BitTornado.RawServer import RawServer, UPnP_ERROR
 from random import seed
 from socket import error as socketerror
@@ -17,7 +19,7 @@ from sys import argv, stdout
 import sys
 import shutil
 from sha import sha
-from time import strftime
+from time import strftime, sleep
 import types
 from BitTornado.clock import clock
 from BitTornado import createPeerID, version
@@ -25,6 +27,8 @@ from BitTornado.ConfigDir import ConfigDir
 from BitTornado.download_bt1 import defaults, download
 from BitTornado.ConfigDir import ConfigDir
 
+
+# Totally should've used a decorator for the custom funcs... 
    
 
 class torrentDownloader(object):
@@ -37,12 +41,6 @@ class torrentDownloader(object):
    #############################################################################
    def setup(self, torrentFile, savePath, minSecondsBetweenUpdates=1):
 
-      self.savePath = savePath
-      if self.savePath is None:
-         self.savePath = os.path.join(BTC_HOME_DIR, 'bootstrap.dat')
-
-      self.savePath_temp = self.savePath + '.partial'
-
       self.torrent = torrentFile
       self.cacheDir = os.path.join(ARMORY_HOME_DIR, 'bittorrentcache')
       self.doneObj = Event()
@@ -51,6 +49,52 @@ class torrentDownloader(object):
 
       self.minSecondsBetweenUpdates = minSecondsBetweenUpdates
       self.lastUpdate = RightNow()
+
+      # Get some info about the torrent
+      self.response = get_response(self.torrent, '', self.errorFunc)
+      self.torrentSize = self.response['info']['length']
+      self.torrentName = self.response['info']['name']
+      LOGINFO('Torrent name is: %s' %  self.torrentName)
+      LOGINFO('Torrent size is: %0.2f MB' %  (self.torrentSize/float(MEGABYTE)))
+
+
+      self.savePath = savePath
+      if self.savePath is None:
+         self.savePath = os.path.join(BTC_HOME_DIR, self.torrentName)
+      self.savePath_temp = self.savePath + '.partial'
+
+      self.lastStats = {}
+
+
+   #############################################################################
+   def fileProgress(self):
+      """
+      Either the mainsize is the same as the torrent (because it finished and 
+      was renamed, or the .partial file is the current state of the DL, and 
+      we report its size
+      """
+      
+      mainsize = 0 
+      if os.path.exists(self.savePath):
+         mainsize = os.path.getsize(self.savePath) 
+
+      tempsize = 0 
+      if os.path.exists(self.savePath_temp): 
+         tempsize = os.path.getsize(self.savePath_temp)
+
+
+      if tempsize > 0:
+         return (tempsize, self.torrentSize)
+      elif mainsize > 0:
+         if not mainsize == self.torrentSize:
+            LOGERROR('Torrent %s is not the correct size...?', self.torrentName)
+            return (0,0)
+         else:
+            return (mainsize, mainsize)
+         
+      return (0, self.torrentSize)
+      
+         
 
    #############################################################################
    def hasCustomFunc(self, funcName):
@@ -77,6 +121,37 @@ class torrentDownloader(object):
    def isDone(self):
       return self.doneObj.isSet()
 
+
+   #############################################################################
+   def displayFunc(self, dpflag=Event(), 
+                         fractionDone=None, 
+                         timeEst=None,
+                         downRate=None,
+                         upRate=None,
+                         activity=None,
+                         statistics=None,
+                         **kws):
+
+      # Use caller-set function if it exists
+      if self.hasCustomFunc('displayFunc'):
+         self.customCallbacks['displayFunc'](dpflag, fractionDone, timeEst, \
+                                            downRate, upRate, activity, \
+                                            statistics, **kws)
+         return
+
+
+      pr  = ''
+      pr += ('Done: %0.1f%%' % (fractionDone*100)) if fractionDone else ''
+      pr += (' (%0.1f kB/s' % (downRate/1024.)) if downRate else ' ('
+      pr += (' from %d seeds' % statistics.numSeeds) if statistics else ''
+      pr += (' and %d peers' % statistics.numPeers) if statistics else ''
+      if timeEst:
+         pr += ';  Approx %s remaining' % secondsToHumanTime(timeEst)
+      pr += ')'
+      LOGINFO(pr)
+
+
+
    #############################################################################
    def statusFunc(self, dpflag=Event(), 
                         fractionDone=None, 
@@ -86,49 +161,47 @@ class torrentDownloader(object):
                         activity=None,
                         statistics=None,
                         **kws):
-      """
-      This function must always end with dpflag.set()
-      """
+
+      # Want to be able to query a few things between status calls
+      self.lastStats['fracDone'] = fractionDone
+      self.lastStats['timeEst']  = timeEst
+      self.lastStats['downRate'] = downRate
+      self.lastStats['upRate']   = upRate
+      self.lastStats['activity'] = activity
+      self.lastStats['numSeeds'] = statistics.numSeeds if statistics else None
+      self.lastStats['numPeers'] = statistics.numPeers if statistics else None
 
       try:
-
          if (RightNow() - self.lastUpdate) < self.minSecondsBetweenUpdates:
             return
    
          self.lastUpdate = RightNow()
    
-         # Use caller-set function if it exists
-         if self.hasCustomFunc('statusFunc'):
-            self.customCallbacks['statusFunc'](dpflag, fractionDone, timeEst, \
-                                               downRate, upRate, activity, \
-                                               statistics, **kws)
-            return
-   
-         if activity:
-            print 'Doing: %s' % activity
-   
-         if None in [fractionDone, timeEst, downRate, upRate]:
-            print 'No information to display'
-         else:
-            print 'Done: %0.1f; TimeLeft: %0.1f, (DL,UL) = (%0.1f, %0.1f)' % \
-                                 ( fractionDone*100, timeEst, downRate, upRate)
+         self.displayFunc(dpflag, fractionDone, timeEst, downRate, upRate,
+                                                activity, statistics, **kws)
 
       finally:
+         # Set this flag to let the caller know it's ready for the next update
          dpflag.set()
+
+
+   #############################################################################
+   def getLastStats(self, name):
+      return self.lastStats.get(name)
 
    #############################################################################
    def finishedFunc(self):
       """
       This function must rename the ".partial" function to the correct name
       """
+      shutil.move(self.savePath_temp, self.savePath)
+      LOGINFO('Download finished!')
+
       # Use caller-set function if it exists
       if self.hasCustomFunc('finishedFunc'):
          self.customCallbacks['finishedFunc']()
          return
 
-      shutil.move(self.savePath_temp, self.savePath)
-
-      LOGINFO('Download finished!')
 
    #############################################################################
    def failedFunc(self, msg=''):
@@ -219,14 +292,17 @@ class torrentDownloader(object):
                self.failedFunc()
                return
    
-         response = get_response(  config['responsefile'], 
-                                   config['url'], 
-                                   self.errorFunc)
-
-         if not response:
+         if not self.response:
             break
    
-         infohash = sha(bencode(response['info'])).digest()
+         infohash = sha(bencode(self.response['info'])).digest()
+
+         LOGINFO('Downloading: %s', self.torrentName)
+         curr,tot = [float(a)/MEGABYTE for a in self.fileProgress()]
+         if curr == 0:
+            LOGINFO('Starting new download')
+         else:
+            LOGINFO('Picking up where left off at %0.0f of %0.0f MB' % (curr,tot))
    
          dow = BT1Download( self.statusFunc, 
                             self.finishedFunc, 
@@ -234,7 +310,7 @@ class torrentDownloader(object):
                             self.excFunc,
                             self.doneObj,
                             config, 
-                            response, 
+                            self.response, 
                             infohash, 
                             myid, 
                             rawserver, 
@@ -271,9 +347,13 @@ class torrentDownloader(object):
          self.failedFunc()
 
 
+# Run this file to test with your target torrent.  Also shows an example
+# of overriding methods with other custom methods.  Just about 
+# any of the methods of torrentDownloader can be replaced like this
 if __name__=="__main__":
    dlobj = torrentDownloader(argv[1], argv[2])
 
+   # Replace full-featured LOGINFOs with simple print message
    def simplePrint( dpflag=Event(), 
                     fractionDone=None, 
                     timeEst=None,
@@ -282,13 +362,29 @@ if __name__=="__main__":
                     activity=None,
                     statistics=None,
                     **kws):
-      if fractionDone:
-         print '%s: %0.1f%%' % (str(activity), fractionDone*100,)
+      
+      print 'TorrentThread: %0.1f%% done' % (fractionDone*100),
+      if timeEst:
+         print ', about %s remaining' %  secondsToHumanTime(timeEst)
 
-   dlobj.setCallback('statusFunc', simplePrint)
-   dlobj.setSecondsBetweenUpdates(5)
+   # Finish funct will still move file.partial to file, this is everything else
+   def notifyFinished():
+      print 'TorrentThread: Finished downloading at %s' % unixTimeToFormatStr(RightNow())
+      
 
-   dlobj.startDownload()
+   dlobj.setCallback('displayFunc', simplePrint)
+   dlobj.setCallback('finishedFunc', notifyFinished)
+   dlobj.setSecondsBetweenUpdates(1)
+
+   thr = dlobj.startDownload(async=True)
+
+   # The above call was asynchronous
+   while not thr.isFinished():
+      print 'MainThread:    Still downloading;',
+      if dlobj.getLastStats('downRate'):
+         print ' Last dl speed: %0.1f kB/s' % (dlobj.getLastStats('downRate')/1024.)
+      sleep(10)
+       
 
 
 
