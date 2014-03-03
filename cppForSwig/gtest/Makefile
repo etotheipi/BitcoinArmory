@@ -24,35 +24,11 @@ CPPFLAGS += -I$(GTEST_DIR) \
 				-I$(USER_DIR) \
 				-I$(USER_DIR)/cryptopp \
 				-I$(USER_DIR)/leveldb/include \
-				-L$(USER_DIR) \
-				-L$(USER_DIR)/cryptopp \
-				-L$(USER_DIR)/leveldb \
 				-D__STDC_LIMIT_MACROS \
 				-D_DEBUG \
 				-g
-				#-O2 \
 
-HEADERS += 	$(USER_DIR)/BinaryData.h \
-		 		$(USER_DIR)/BtcUtils.h \
-		 		$(USER_DIR)/BlockObj.h \
-		 		$(USER_DIR)/StoredBlockObj.h \
-		 		$(USER_DIR)/leveldb_wrapper.h \
-		 		$(USER_DIR)/EncryptionUtils.h \
-		 		$(USER_DIR)/Util.h \
-		 		$(USER_DIR)/PartialMerkle.h
-
-OBJECTS += 	BinaryData.o \
-				BtcUtils.o \
-				BlockObj.o \
-				StoredBlockObj.o \
-				leveldb_wrapper.o \
-				EncryptionUtils.o \
-				UniversalTimer.o \
-				leveldb_wrapper.o \
-				BlockUtils.o \
-				Util.o \
-				../libcryptopp.a \
-				../libleveldb.a
+HEADERS += 	$(wildcard $(USER_DIR)*.h)
 
 # Flags passed to the C++ compiler.
 CXXFLAGS += -g 
@@ -107,51 +83,19 @@ gtest.a : gtest-all.o
 #sample1_unittest : sample1.o sample1_unittest.o gtest_main.a
 	#$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ -lpthread -o $@
 
-
-../libcryptopp.a: Makefile
-	$(MAKE) -C ../cryptopp libcryptopp.a
-
-../libleveldb.a: Makefile
-	$(MAKE) -C ../leveldb libleveldb.a
-
-UniversalTimer.o: $(USER_DIR)/UniversalTimer.h $(USER_DIR)/UniversalTimer.cpp
-	$(CXX) $(CPPFLAGS) -c $(USER_DIR)/UniversalTimer.cpp
-
-BinaryData.o: $(USER_DIR)/BinaryData.h $(USER_DIR)/BinaryData.cpp $(USER_DIR)/BtcUtils.h $(USER_DIR)/log.h
-	$(CXX) $(CPPFLAGS) -c $(USER_DIR)/BinaryData.cpp
-
-BtcUtils.o: $(USER_DIR)/BtcUtils.h $(USER_DIR)/BtcUtils.cpp $(USER_DIR)/log.h
-	$(CXX) $(CPPFLAGS) -c $(USER_DIR)/BtcUtils.cpp
-
-BlockObj.o: $(USER_DIR)/log.h $(USER_DIR)/BinaryData.h $(USER_DIR)/BtcUtils.h $(USER_DIR)/BlockObj.h $(USER_DIR)/BlockObj.cpp
-	$(CXX) $(CPPFLAGS) -c $(USER_DIR)/BlockObj.cpp
-
-StoredBlockObj.o: $(USER_DIR)/log.h $(USER_DIR)/BtcUtils.h $(USER_DIR)/BinaryData.h $(USER_DIR)/StoredBlockObj.h $(USER_DIR)/StoredBlockObj.cpp
-	$(CXX) $(CPPFLAGS) -c $(USER_DIR)/StoredBlockObj.cpp
-
-leveldb_wrapper.o: $(USER_DIR)/log.h $(USER_DIR)/BtcUtils.h $(USER_DIR)/BinaryData.h $(USER_DIR)/leveldb_wrapper.h $(USER_DIR)/leveldb_wrapper.cpp
-	$(CXX) $(CPPFLAGS) -c $(USER_DIR)/leveldb_wrapper.cpp
-
-BlockUtils.o: $(USER_DIR)/log.h $(USER_DIR)/BlockUtils.h $(USER_DIR)/BinaryData.h $(USER_DIR)/UniversalTimer.h $(USER_DIR)/PartialMerkle.h $(USER_DIR)/BlockUtils.cpp
-	$(CXX) $(CPPFLAGS) -c $(USER_DIR)/BlockUtils.cpp
-
-EncryptionUtils.o: $(USER_DIR)/log.h $(USER_DIR)/BtcUtils.h $(USER_DIR)/BinaryData.h $(USER_DIR)/EncryptionUtils.h $(USER_DIR)/EncryptionUtils.cpp
-	$(CXX) $(CPPFLAGS) -c $(USER_DIR)/EncryptionUtils.cpp
-
-Util.o: $(USER_DIR)/log.h $(USER_DIR)/Util.h $(USER_DIR)/Util.cpp
-	$(CXX) $(CPPFLAGS) -c $(USER_DIR)/Util.cpp
-
+../../_CppBlockUtils.so:
+	$(MAKE) make -C .. ../_CppBlockUtils.so
 
 ####
 
-CppBlockUtilsTests.o : CppBlockUtilsTests.cpp $(HEADERS) $(GTEST_HEADERS)
+CppBlockUtilsTests.o : CppBlockUtilsTests.cpp $(HEADERS) $(GTEST_HEADERS) ../../_CppBlockUtils.so
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c CppBlockUtilsTests.cpp 
 
 getScrAddrData.o : getScrAddrData.cpp $(HEADERS) $(GTEST_HEADERS)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c getScrAddrData.cpp 
 
 CppBlockUtilsTests : $(OBJECTS) CppBlockUtilsTests.o gtest.a
-	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ -lpthread -lcryptopp -o $@
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) ../../_CppBlockUtils.so -Wl,-rpath,$(PWD)/../..  $^ -lpthread -o $@
 
 getScrAddrData : $(OBJECTS) getScrAddrData.o 
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ -lpthread -lcryptopp -o $@

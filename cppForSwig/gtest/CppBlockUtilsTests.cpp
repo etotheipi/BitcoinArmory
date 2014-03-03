@@ -11,6 +11,7 @@
 #include "../PartialMerkle.h"
 #include "../leveldb_wrapper.h"
 #include "../BlockUtils.h"
+#include "../BtcWallet.h"
 
 #ifdef _MSC_VER
    #include "win32_posix.h"
@@ -6857,7 +6858,7 @@ TEST_F(BlockUtilsSuper, HeadersOnly_Reorg)
    TheBDM.processNewHeadersInBlkFiles(0);
    
    EXPECT_EQ(TheBDM.blockchain().numHeaders(), 5);
-   EXPECT_EQ(TheBDM.getTopBlockHeight(), 4);
+   EXPECT_EQ(TheBDM.blockchain().top().getBlockHeight(), 4);
 
    EXPECT_EQ(iface_->getTopBlockHeight(HEADERS), 4);
    EXPECT_EQ(iface_->getTopBlockHash(HEADERS), blkHash4);
