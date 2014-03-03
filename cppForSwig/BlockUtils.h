@@ -279,9 +279,6 @@ private:
    // set after the blockchain is organized
    uint32_t                           lastTopBlock_;
 
-   // Used to estimate how much data is queued to be written to DB
-   bool                               requestRescan_;
-
    // Reorganization details
    set<HashString>                    txJustInvalidated_;
    set<HashString>                    txJustAffected_;
@@ -369,8 +366,6 @@ public:
    void SetBtcNetworkParams( BinaryData const & GenHash,
                              BinaryData const & GenTxHash,
                              BinaryData const & MagicBytes);
-
-   void SetRescanNextLoad(bool b=true) { requestRescan_=b; }
 
    //////////////////////////////////////////////////////////////////////////
    // This method opens the databases, and figures out up to what block each
