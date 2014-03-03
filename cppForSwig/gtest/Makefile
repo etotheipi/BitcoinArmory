@@ -28,7 +28,7 @@ CPPFLAGS += -I$(GTEST_DIR) \
 				-D_DEBUG \
 				-g
 
-HEADERS += 	$(wildcard $(USER_DIR)*.h)
+HEADERS += 	$(wildcard $(USER_DIR)/*.h)
 
 # Flags passed to the C++ compiler.
 CXXFLAGS += -g 
