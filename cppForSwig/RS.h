@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include "AtomicInt32.h"
+#include <string>
 
 struct rs_presets
 {
@@ -149,7 +150,8 @@ class RS
 		size_t ComputeParityLength(size_t total_len);
       
       uint8_t* GetParity() const {return par;}
-		size_t GetLength() const {return par_len*2;}
+		std::string GetParityStr() const {return std::string((char*)par, par_len);}
+		size_t GetLength() const {return par_len;}
 };
 
 #endif

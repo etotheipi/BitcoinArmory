@@ -135,7 +135,8 @@ public:
                    { sbd_rs.Encode(getPtr(), getSize()); }
 	SecureBinaryData(string const & str, int RS);
 
-   SecureBinaryData(uint8_t const * inData, size_t sz, uint8_t* RScode) : BinaryDataT<CA_uint8>(inData, sz)
+   SecureBinaryData(uint8_t const * inData, size_t sz, uint8_t* RScode) : 
+						  BinaryDataT<CA_uint8>(inData, sz)
                    {
                       sbd_rs.SetParity(RScode, sz);
                       if(sbd_rs.Decode(getPtr(), getSize())>-1)
@@ -211,6 +212,10 @@ public:
 
    uint8_t *getRScode(void) const
       {return sbd_rs.GetParity();}
+
+	std::string getRScodeStr(void) const
+      {return std::string((char*)sbd_rs.GetParity(), sbd_rs.GetLength());}
+
 };
 
 

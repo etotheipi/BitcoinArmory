@@ -945,8 +945,8 @@ class Popen(object):
 
             # Process startup details
             startup_info = STARTUP_INFO()
-            #if startupinfo is None:
-                #startupinfo = STARTUPINFO()
+            if startupinfo is None:
+                startupinfo = STARTUPINFO()
             if None not in (p2cread, c2pwrite, errwrite):
                 startup_info.dwFlags = 0x00000100
 
