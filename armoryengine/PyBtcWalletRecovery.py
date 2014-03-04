@@ -1299,7 +1299,8 @@ def FixWallets(wallets, dlg=None):
          fixedWlt.append(wlt.walletPath)
          
          #move the old wallets and log files to another folder
-         corruptFolder = os.path.join(os.path.dirname(wlt.walletPath), wlt.uniqueIDB58)
+         corruptFolder = os.path.join(os.path.dirname(wlt.walletPath), 'Corrupt_Wallets')
+         corruptFolder = os.path.join(corruptFolder, wlt.uniqueIDB58)
          corruptFolder = os.path.join(corruptFolder, strftime('%m.%d.%y_%H\'\'%M\'%S', localtime()))
          if not os.path.exists(corruptFolder):
             os.makedirs(corruptFolder)

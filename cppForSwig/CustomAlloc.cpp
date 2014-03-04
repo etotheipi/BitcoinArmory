@@ -181,23 +181,32 @@ namespace CustomAlloc
 		pool = 0;
    }
 
-   void MemPool::ExtendGap()
+   Gap* MemPool::ExtendGap()
    {
-      gaps = (Gap*)realloc(gaps, sizeof(Gap)*(total_ngaps +BHstep));
-		memset(gaps +total_ngaps, 0, sizeof(Gap)*BHstep);
-      total_ngaps += BHstep;
+      Gap *ng = (Gap*)malloc(sizeof(Gap)*(total_ngaps +BHstep));
+		memcpy(ng, gaps, sizeof(Gap)*total_ngaps);
+		memset(ng +total_ngaps, 0, sizeof(Gap)*BHstep);
+		
+		Gap *rg = gaps;
+		gaps = ng;
+      
+		total_ngaps += BHstep;
+
+		return rg;
    }
 
    void MemPool::AddGap(BufferHeader *bh)
    {
+		Gap *g = 0;
       if(acquireGap.Fetch_Or(1)) return;
-      if(ngaps == total_ngaps) ExtendGap();
+      if(ngaps == total_ngaps) g = ExtendGap();
      
 		gaps[ngaps].position = (size_t)bh->offset - size_of_ptr;
 		gaps[ngaps].size = bh->size;
 		gaps[ngaps].end = (size_t)bh->offset + bh->size - size_of_ptr;
 
       ngaps++;
+		if(g) free(g);
 
       acquireGap = 0;
    }
@@ -217,7 +226,7 @@ namespace CustomAlloc
             if(nBH>0)
                int rrt = 0;
 
-            for(i=0; i<nBH; i++)
+            for(i=0; i<(int)nBH; i++)
             {
                if(BH[i]->linuse)
                   bhorder[f++] = i;
@@ -254,7 +263,11 @@ namespace CustomAlloc
 						if(offs != bpos)
 						{
 							//add a gap
-							if(ngaps >= total_ngaps) ExtendGap();
+							if(ngaps >= total_ngaps) 
+							{
+								Gap *g = ExtendGap();
+								free(g);
+							}
 							gaps[ngaps].position = bpos;
 							gaps[ngaps].end = offs;
 
@@ -445,7 +458,7 @@ namespace CustomAlloc
    {
       if(ab.Fetch_Or(1)) return;
 
-	   unsigned int I;
+	   int I;
       int T, F;
 	   int S = npools +step -clearpool.Get();
 
@@ -457,7 +470,7 @@ namespace CustomAlloc
       {
          clearpool.Fetch_Add(-F);         
 
-         for(I=0; I<npools; I++)
+         for(I=0; I<(int)npools; I++)
          {
             if(MP[I]->lockpool>1)
             {
@@ -477,7 +490,7 @@ namespace CustomAlloc
 
 	      free(order2);
 	      order2 = (unsigned int*)malloc(sizeof(int)*S);
-	      for(I=0; I<npools; I++)
+	      for(I=0; I<(int)npools; I++)
             order2[I+T] = I;
 			
 	      MemPool **mptmp2 = MP;

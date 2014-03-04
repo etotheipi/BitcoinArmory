@@ -18,6 +18,17 @@
 #define CRYPTO_DEBUG false
 
 /////////////////////////////////////////////////////////////////////////////
+SecureBinaryData::SecureBinaryData(string const & str, int RS)
+{
+	size_t len = str.size();
+	size_t parlen = sbd_rs.ComputeParityLength(len);
+
+	if(parlen) len -= parlen;
+
+	*this = SecureBinaryData((uint8_t*)str.c_str(), len, (uint8_t*)(str.c_str() +len));
+}
+
+/////////////////////////////////////////////////////////////////////////////
 // We have to explicitly re-define some of these methods...
 SecureBinaryData & SecureBinaryData::append(SecureBinaryData & sbd2) 
 {
@@ -111,6 +122,16 @@ BinaryData SecureBinaryData::getRawCopy(void) const
    }
 
    return rt;
+}
+
+/////////////////////////////////////////////////////////////////////////////
+// With RS code appended at the end of the actual SBD data
+string SecureBinaryData::toBinStrRS(void) const
+{
+	string RSstr = toBinStr();
+	RSstr.append((const char*)sbd_rs.GetParity(), sbd_rs.GetLength());
+
+	return RSstr;
 }
 
 /////////////////////////////////////////////////////////////////////////////

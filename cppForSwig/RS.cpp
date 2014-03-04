@@ -3,13 +3,13 @@
 
 rs_presets param_list[] =
 {
-   /*{4, 0x13, 2, 13},
-   {5, 0x25, 4, 27},
-   {6, 0x43, 8, 55},
-   {7, 0x89, 16, 111},*/
-   {8, 0x187, 16, 239}
-   //{9, 0x211, 16, 495},
-   //{10, 0x409, 16, 1007}
+   /*{4, 0x13, 2, 13, 15},
+   {5, 0x25, 4, 27, 31},
+   {6, 0x43, 8, 55, 63},
+   {7, 0x89, 16, 111, 127},*/
+   {8, 0x187, 16, 239, 255}
+   //{9, 0x211, 16, 495, 511},
+   //{10, 0x409, 16, 1007, 1023}
 };
 
 int npresets = sizeof(param_list)/sizeof(rs_presets);
@@ -196,7 +196,7 @@ void RS::CleanUp()
 
 void RS::WipeAndClean()
 {
-   if(par_len) memset(par, 0, par_len*sizeof(uint16_t));
+   if(par_len) memset(par, 0, par_len);
    CleanUp();
 }
 
@@ -212,7 +212,26 @@ void RS::SetParams(rs_params *rsp_in)
 	rscp = rsp_in;
 }
 
-void RS::PrepareData(int len)
+size_t RS::ComputeParityLength(size_t total_len)
+{
+	if(total_len)
+   {
+      for(int i=0; i<npresets; i++)
+      {
+         if(total_len<=param_list[i].total_size)
+				return param_list[i].nroots;
+      }
+
+		size_t rt_len = total_len / param_list[npresets-1].total_size;
+		if(total_len % param_list[npresets-1].total_size) rt_len++;
+
+		return rt_len * param_list[npresets-1].nroots;
+	}
+
+	return 0;
+}
+
+void RS::PrepareData(unsigned int len)
 {
    CleanUp();
 
@@ -237,28 +256,28 @@ void RS::PrepareData(int len)
       nblocks = len / rscp->packet_size;
       if(len % rscp->packet_size) nblocks++;
    
-      int blocksize = len / nblocks;
+      unsigned int blocksize = len / nblocks;
       if(len % nblocks) blocksize++;
 
       data_len = len;
       par_len = nblocks*rscp->nroots;
 
       blocks = (int*)malloc(sizeof(int)*nblocks);
-      par = (uint16_t*)rs_alloc(sizeof(uint16_t)*par_len);
+      par = (uint8_t*)rs_alloc(sizeof(uint8_t)*par_len);
 
       for(int i=0; i<nblocks; i++)
       {
          blocks[i] = (blocksize < len ? blocksize : len);
          len -= blocksize;
       }
-      memset(par, 0, sizeof(uint16_t)*par_len);
+      memset(par, 0, par_len);
    }
 }
 
-void RS::SetParity(uint16_t *parity, int data_length)
+void RS::SetParity(uint8_t *parity, int data_length)
 {
    PrepareData(data_length);
-   memcpy(par, parity, sizeof(uint16_t)*par_len);
+   memcpy(par, parity, par_len);
 }
 
 int RS::Encode(const void *data, int len_in_bytes)
@@ -267,7 +286,7 @@ int RS::Encode(const void *data, int len_in_bytes)
 
    int rt = 0, i = 0, count;   
    if(data_len != len_in_bytes) PrepareData(len_in_bytes);
-   else memset(par, 0, par_len*sizeof(uint16_t));
+   else memset(par, 0, par_len);
 
    count = 0;
    for(i; i<nblocks; i++)
@@ -280,7 +299,7 @@ int RS::Encode(const void *data, int len_in_bytes)
    return rt;
 }
 
-int RS::Encode(rs_params *rs, uint8_t *data, int len, uint16_t *par, uint16_t invmsk)
+int RS::Encode(rs_params *rs, uint8_t *data, int len, uint8_t *par, uint16_t invmsk)
 {
 	int i, j, pad;
 	int nn = rs->nn;
@@ -306,7 +325,7 @@ int RS::Encode(rs_params *rs, uint8_t *data, int len, uint16_t *par, uint16_t in
 				par[j] ^= alpha_to[rs->rs_modnn(fb +genpoly[nroots - j])];
 		}
 		/* Shift */
-		memmove(&par[0], &par[1], sizeof(uint16_t) * (nroots - 1));
+		memmove(&par[0], &par[1], sizeof(uint8_t) * (nroots - 1));
 			
 		if (fb != nn) par[nroots - 1] = alpha_to[rs->rs_modnn(fb +genpoly[0])];
 		else par[nroots - 1] = 0;
@@ -335,7 +354,7 @@ int RS::Decode(uint8_t *data, int len_in_bytes)
    return rt;
 }
 
-int RS::Decode(rs_params *rs, uint8_t *data, uint16_t *par, int len,
+int RS::Decode(rs_params *rs, uint8_t *data, uint8_t *par, int len,
 	       uint16_t *s, int no_eras, int *eras_pos, uint16_t invmsk,
 	       uint16_t *corr)
 {

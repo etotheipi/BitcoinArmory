@@ -91,7 +91,7 @@ namespace CustomAlloc
          BufferHeader* GetBH(size_t size);
       
          int GetGap(size_t size);
-         void ExtendGap();
+         Gap* ExtendGap();
 
          static AtomicInt32 lock;
 			unsigned int nBH;

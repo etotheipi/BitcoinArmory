@@ -120,5 +120,6 @@ namespace std
 %include "BlockUtils.h"
 %include "BtcUtils.h"
 %include "EncryptionUtils.h"
+%include "RS.h"
 
 

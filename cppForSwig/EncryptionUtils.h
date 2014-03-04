@@ -133,8 +133,9 @@ public:
                    { sbd_rs.Encode(getPtr(), getSize()); }
    SecureBinaryData(BinaryDataRef const & bdRef) : BinaryDataT<CA_uint8>(bdRef)
                    { sbd_rs.Encode(getPtr(), getSize()); }
+	SecureBinaryData(string const & str, int RS);
 
-   SecureBinaryData(uint8_t const * inData, size_t sz, uint16_t* RScode) : BinaryDataT<CA_uint8>(inData, sz)
+   SecureBinaryData(uint8_t const * inData, size_t sz, uint8_t* RScode) : BinaryDataT<CA_uint8>(inData, sz)
                    {
                       sbd_rs.SetParity(RScode, sz);
                       if(sbd_rs.Decode(getPtr(), getSize())>-1)
@@ -154,13 +155,21 @@ public:
 
    // These methods are definitely inherited, but SWIG needs them here if they
    // are to be used from python
-   uint8_t const *   getPtr(void)  const { return BinaryDataT<CA_uint8>::getPtr();  }
-   uint8_t       *   getPtr(void)        { return BinaryDataT<CA_uint8>::getPtr();  }
-   size_t            getSize(void) const { return BinaryDataT<CA_uint8>::getSize(); }
-   SecureBinaryData  copy(void)    const { return SecureBinaryData(getPtr(), getSize(), getRScode());}
+   uint8_t const *   getPtr(void)  const 
+							{ return BinaryDataT<CA_uint8>::getPtr();  }
+   uint8_t       *   getPtr(void)        
+							{ return BinaryDataT<CA_uint8>::getPtr();  }
+   size_t            getSize(void) const 
+							{ return BinaryDataT<CA_uint8>::getSize(); }
+   SecureBinaryData  copy(void)    const 
+							{ return SecureBinaryData(getPtr(), 
+											 getSize(), getRScode());      }
    
-   string toHexStr(bool BE=false) const { return BinaryDataT<CA_uint8>::toHexStr(BE);}
-   string toBinStr(void) const          { return BinaryDataT<CA_uint8>::toBinStr();  }
+   string toHexStr(bool BE=false) const 
+			 { return BinaryDataT<CA_uint8>::toHexStr(BE);}
+   string toBinStr(void) const          
+			 { return BinaryDataT<CA_uint8>::toBinStr();  }
+	string toBinStrRS(void) const;
 
    SecureBinaryData(SecureBinaryData const & sbd2)  
            {  destroy();
@@ -172,7 +181,7 @@ public:
 
 
    BinaryData    getRawCopy(void) const;
-   BinaryDataRef getRawRef(void)  { return BinaryDataRef(getPtr(), getSize()); }
+   BinaryDataRef getRawRef(void)  { return BinaryDataRef(getPtr(), getSize());}
 
    SecureBinaryData copySwapEndian(size_t pos1=0, size_t pos2=0) const;
 
@@ -200,7 +209,7 @@ public:
       sbd_rs.WipeAndClean();
    }
 
-   uint16_t *getRScode(void) const
+   uint8_t *getRScode(void) const
       {return sbd_rs.GetParity();}
 };
 

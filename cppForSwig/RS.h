@@ -10,7 +10,8 @@ struct rs_presets
    int symsize;
    int genpoly;
    int nroots;
-   int packet_size; //(1 << symsize) -1 -nroots
+   unsigned int packet_size; //(1 << symsize) -1 -nroots
+	unsigned int total_size; //(1 << symsize) -1
 };
 
 class rs_params
@@ -102,12 +103,12 @@ class RS
       int data_len;
 		
       void SetParams(rs_params *rsp_in);
-      void PrepareData(int len);
+      void PrepareData(unsigned int len);
       void CleanUp();
 		
-      int Encode(rs_params *rs, uint8_t *data, int len, uint16_t *par, 
+      int Encode(rs_params *rs, uint8_t *data, int len, uint8_t *par, 
                  uint16_t invmsk);
-		int Decode(rs_params *rs, uint8_t *data, uint16_t *par, int len,
+		int Decode(rs_params *rs, uint8_t *data, uint8_t *par, int len,
 			   uint16_t *s, int no_eras, int *eras_pos, uint16_t invmsk,
 			   uint16_t *corr);
 
@@ -115,7 +116,7 @@ class RS
       static void* (*rs_alloc)(size_t size);
       static void (*rs_free)(void* buffer);
 		
-      uint16_t *par;
+      uint8_t *par;
 		int par_len;
 
 		RS() //constructor, defaults to (8, 0x187, 0, 0, 1, 16)
@@ -140,13 +141,15 @@ class RS
 		}
 
 		void SetParams(int Symsize, int Gfpoly, int(*Gffunc)(int), int Fcr, int Prim, int Nroots);
-      void SetParity(uint16_t *parity, int data_length);
+      void SetParity(uint8_t *parity, int data_length);
 		int Encode(const void *data, int len_in_bytes);
 		int Decode(uint8_t *data, int len_in_bytes);
       void WipeAndClean();
+
+		size_t ComputeParityLength(size_t total_len);
       
-      uint16_t* GetParity() const
-         {return par;}
+      uint8_t* GetParity() const {return par;}
+		size_t GetLength() const {return par_len*2;}
 };
 
 #endif
