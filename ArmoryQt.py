@@ -3134,17 +3134,8 @@ class ArmoryMainWindow(QMainWindow):
          if reply==QMessageBox.Yes:
             self.startWalletWizard()
          return False
-      elif len(self.walletMap)>1:
-         dlg = DlgWalletSelect(self, self, 'Send from Wallet...', descrStr, \
-                               onlyMyWallets=True, atLeast=amt)
-         if not dlg.exec_():
-            return False
-         selectedWalletID = dlg.selectedID
       else:
-         selectedWalletID = self.walletIDList[0]
-         
-      wlt = self.walletMap[selectedWalletID]
-      self.DlgSendBitcoins(wlt, self, self).exec_()
+         DlgSendBitcoins(self.getSelectedWallet(), self, self).exec_()
       return True
       
 
