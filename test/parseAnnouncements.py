@@ -99,18 +99,25 @@ downloadTestText = """
    Armory 0.91 Ubuntu 13.10        64   http://url/armory_13.10-64.deb   013fccb961a
 
    # Offline Bundles
-   ArmoryOffline 0.88 Ubuntu 10.04  32  http://url/offbundle-32.tar.gz   641382c93b9
-   ArmoryOffline 0.88 Ubuntu 12.10  32  http://url/offbundle-64.tar.gz   5541af39c84
+   ArmoryOffline 0.90 Ubuntu 10.04  32  http://url/offbundle-32-90.tar.gz 641382c93b9
+   ArmoryOffline 0.90 Ubuntu 12.10  32  http://url/offbundle-64-90.tar.gz 5541af39c84
+   ArmoryOffline 0.88 Ubuntu 10.04  32  http://url/offbundle-32-88.tar.gz 641382c93b9
+   ArmoryOffline 0.88 Ubuntu 12.10  32  http://url/offbundle-64-88.tar.gz 5541af39c84
 
    # Windows 32-bit Satoshi (Bitcoin-Qt/bitcoind)
    Satoshi 0.9.0 Windows XP,Vista,7,8 32,64 http://btc.org/win0.9.0.exe   118372a9ff3
-   Satoshi 0.9.0 Ubuntu  10.04              http://btc.org/win0.9.0.deb   2aa3f763c3b
+   Satoshi 0.9.0 Ubuntu  10.04        32    http://btc.org/lin0.9.0.deb   2aa3f763c3b
+   Satoshi 0.9.0 Ubuntu  10.04        64    http://btc.org/lin0.9.0.deb   2aa3f763c3b
 
    -----BEGIN BITCOIN SIGNATURE-----
    ac389861cff8a989ae57ae67af43cb3716ca189aa178cff893179531
    -----END BITCOIN SIGNATURE-----
 
 """
+
+
+
+
 
 
 
@@ -149,11 +156,38 @@ class parseVersionsTest(unittest.TestCase):
             self.assertEqual( testFeat, expectFeat )
 
 
+class parseDownloadTest(unittest.TestCase):
+   
+   def setUp(self):
+      pass
+
+   def tearDown(self):
+      pass
+
+
+   def testParseDL(self):
+      dl = parseDownloadList(downloadTestText)
+
+
+      self.assertEqual( dl['Armory']['0.91']['Windows']['XP']['32'], \
+                              ['http://url/armory_0.91_xp32.exe', '3afb9881c32'])
+
+      self.assertEqual( dl['Armory']['0.91']['Windows']['Vista']['32'], \
+                              ['http://url/armory_0.91.exe', '7f3b9964aa3'])
+
+      self.assertEqual( dl['Satoshi']['0.9.0']['Windows']['7']['64'], \
+                              ['http://btc.org/win0.9.0.exe', '118372a9ff3'])
+
+      self.assertEqual( dl['ArmoryOffline']['0.88']['Ubuntu']['10.04']['32'], \
+                              ['http://url/offbundle-32-88.tar.gz', '641382c93b9'])
+
+
 if __name__ == "__main__":
 
-   dllinks = parseDownloadList(downloadTestText)   
-   printNestedMap(dllinks)
+   # This is just a fun way to look at the download data
+   #dllinks = parseDownloadList(downloadTestText)   
+   #printNestedMap(dllinks)
 
-   #unittest.main()
+   unittest.main()
 
 
