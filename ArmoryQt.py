@@ -38,6 +38,7 @@ import qrc_img_resources
 from qtdefines import *
 from qtdialogs import *
 from ui.Wizards import WalletWizard, TxWizard
+from jasvet import verifySignature, readSigBlock
 
 # HACK ALERT: Qt has a bug in OS X where the system font settings will override
 # the app's settings when a window is activated (e.g., Armory starts, the user
@@ -51,7 +52,6 @@ if OS_MACOSX:
    QApplication.setDesktopSettingsAware(False)
 
 # PyQt4 Imports
-# Over 20,000 lines of python to help us out
 # All the twisted/networking functionality
 if OS_WINDOWS:
    from _winreg import *
@@ -66,6 +66,7 @@ class ArmoryMainWindow(QMainWindow):
       super(ArmoryMainWindow, self).__init__(parent)
 
       self.bornOnTime = RightNow()
+      self.lastFetchAnnounce = 0
 
       # Load the settings file
       self.settingsPath = CLI_OPTIONS.settingsPath
@@ -109,10 +110,17 @@ class ArmoryMainWindow(QMainWindow):
       self.satoshiExeSearchPath = None
       self.initSyncCircBuff = []
       self.latestVer = {}
-      self.firstVersionCheck = True
       self.lastVersionsTxtHash = ''
       self.dlgCptWlt = None
       self.torrentDLState = 'Uninitialized'
+
+      # Unless they explicitly skip the announcement checking...
+      self.announceMap = {}
+      self.firstAnnounceChk = None
+      skipChk = self.getSettingOrSetDefault('SkipAnnounceCheck', False)
+      self.skipAnnounceChk = skipChk or CLI_OPTIONS.skipAnnounceCheck
+      if not self.skipAnnounceChk:
+         self.fetchExternalAnnouncements(True, async=True)
 
       #delayed URI parsing dict
       self.delayedURIData = {}
@@ -128,6 +136,7 @@ class ArmoryMainWindow(QMainWindow):
       if self.settings.hasSetting('LastVersionLoad'):
          lastVerStr = self.settings.get('LastVersionLoad')
          if not lastVerStr==currVerStr:
+            LOGINFO('First load of new version: %s', currVerStr)
             self.firstLoadNewVersion = True
       self.settings.set('LastVersionLoad', currVerStr)
 
@@ -177,7 +186,9 @@ class ArmoryMainWindow(QMainWindow):
       
       """
       pass a function to extraHeartbeatAlways to run on every heartbeat.
-      pass a list for more control on the function, as [func, [args], keep_running], where:
+      pass a list for more control on the function, as 
+         [func, [args], keep_running], 
+      where:
          func is the function
          [args] is a list of arguments
          keep_running is a bool, pass False to remove the function from 
@@ -1249,6 +1260,93 @@ class ArmoryMainWindow(QMainWindow):
       self.writeSetting('DateFormat', binary_to_hex(fmtStr))
       return True
 
+   #############################################################################
+   @AllowAsync
+   def fetchExternalAnnouncements(self, forceCheck=False):
+      """
+      This function needs to be threadsafe, since it will frequently be
+      called using async=True
+
+      Arg forceCheck is usually used only on the first call, and will also
+      include extra meta data with the request to collect some statistics
+      (just OS and Armory version)
+      """
+
+      if CLI_OPTIONS.skipAnnounceChk:
+         return False
+
+      timeSinceLastFetch = long(RightNow()) - self.lastFetchAnnounce
+      
+      if not forceCheck and timeSinceLastFetch<ANNOUNCE_FETCH_INTERVAL:
+         return False
+
+      self.lastFetchAnnounce = long(RightNow())
+      
+      try:
+         import urllib2
+         import socket
+         downloadURL = getDecoratedURL(HTTP_ANNOUNCE_FILE, forceCheck)
+         LOGINFO('Checking version URL: %s' % downloadURL)
+         socket.setdefaulttimeout(CLI_OPTIONS.nettimeout)
+         annData = urllib2.urlopen(downloadURL, timeout=CLI_OPTIONS.nettimeout)
+         annData = annData.read().strip()
+      except ImportError:
+         LOGERROR('No module urllib2 -- cannot get latest version')
+         return False
+      except (urllib2.URLError, urllib2.HTTPError):
+         LOGERROR('Could not access latest Armory announce info')
+         LOGERROR('Tried: %s', downloadURL)
+         return False
+      except:
+         LOGEXCEPT('Unspecified error getting announce info')
+         return False
+      
+
+      # We have the file from the Armory server.  Check the signature
+      try:
+         sig, msg = readSigBlock(annData)
+         signAddress = verifySignature(sig, msg, 'v1', ord(ADDRBYTE))
+         if not signAddress == ARMORY_INFO_SIGN_ADDR:
+            LOGERROR('Announce info carried invalid signature!')
+            LOGERROR('Signature addr: %s' % signAddress)
+            return False
+      except:
+         LOGEXCEPT('Could not verify data in signed message block')
+         return False
+
+
+      # We have a verified signed message.  Parse it, and fetch new files
+      try:
+         mtrx = [line.split() for line in msg.strip().split('\n')]
+         for row in mtrx:
+            if len(row)==2:
+               self.announceMap[row[0]] = [row[1], None]
+            elif len(row)==3:
+               self.announceMap[row[0]] = [row[1], row[2]]
+            else:
+               LOGERROR('Malformed announce matrix: %s' % str(row))
+               continue
+
+         # Check whether any of the hashes have changed
+         haveNewAnnData = False
+         for key,val in self.announceMap.iteritems():
+            lastHash = self.main.getAnnounceSetting(key)
+            if not lastHash == val[1]:
+               haveNewAnnData = True
+               LOGINFO('ANNOUNCE [ "%s" ] == [%s, %s]', key, val[0], val[1])
+
+         return haveNewAnnData
+
+      except:
+         LOGEXCEPT('Could not parse announce info')
+         return False
+
+      
+
+   #############################################################################
+   def processAnnounceData(self):
+      #for key,val in self.announceMap.iteritems():
+      pass
 
    #############################################################################
    @AllowAsync
@@ -1892,6 +1990,18 @@ class ArmoryMainWindow(QMainWindow):
       wltPropName = 'Wallet_%s_%s' % (wltID, propName)
       self.writeSetting(wltPropName, value)
 
+   ##############################################################################
+   def getAnnounceSetting(self, name):
+      settingsStr = 'LastAnnounceHash_%s' % name
+      try:
+         return self.settings.get(settingsStr)
+      except KeyError:
+         return ''
+
+   #############################################################################
+   def setAnnounceSetting(self, name, newHash):
+      settingsStr = 'LastAnnounceHash_%s' % name
+      self.writeSetting(settingsStr, newHash)
 
    #############################################################################
    def toggleIsMine(self, wltID):
@@ -3764,7 +3874,7 @@ class ArmoryMainWindow(QMainWindow):
             LOGERROR('Should not predict sync info in non init/sync SDM state')
             return ('UNKNOWN','UNKNOWN', 'UNKNOWN')
       elif self.torrentDLState == 'Downloading':
-         
+         pdljkdsaf   
       else:
          LOGWARN('Called updateSyncProgress while not sync\'ing')
 
@@ -4620,6 +4730,7 @@ class ArmoryMainWindow(QMainWindow):
       
       return didAffectUs
 
+
    def Heartbeat(self, nextBeatSec=1):
       """
       This method is invoked when the app is initialized, and will
@@ -4652,6 +4763,10 @@ class ArmoryMainWindow(QMainWindow):
          return
             
 
+      # TorrentDownloadManager
+      # SatoshiDaemonManager
+      # BlockDataManager
+      #tdmState = TheTDM.getTDMState()
       sdmState = TheSDM.getSDMState()
       bdmState = TheBDM.getBDMState()
       #print '(SDM, BDM) State = (%s, %s)' % (sdmState, bdmState)
@@ -5269,5 +5384,7 @@ if 1:
    QAPP.setQuitOnLastWindowClosed(True)
    reactor.runReturn()
    os._exit(QAPP.exec_())
+
+
 
 

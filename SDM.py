@@ -726,3 +726,5 @@ class SatoshiDaemonManager(object):
       print '\t', 'SDM State Str'.ljust(20), ':', self.getSDMState()
       for key,value in self.returnSDMInfo().iteritems():
          print '\t', str(key).ljust(20), ':', str(value)
+
+

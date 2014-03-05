@@ -237,8 +237,9 @@ class SignatureVerificationWidget(QWidget):
             <font face="Courier" color="#000060"><b>%s</b></font>
             </blockquote>
             <hr><br>
-            <b>Please</b> make sure that the address above (%s...) matches the exact address 
-            you were expecting.  A valid signature is meaningless unless it is made
+            <b>Please</b> make sure that the address above (%s...) matches the 
+            exact address you were expecting.  A valid signature is meaningless 
+            unless it is made
             from a recognized address!""") % (addrB58, msg, addrB58[:10]))
          self.lblSigResult.setText('<font color="green">Valid Signature by %s!</font>' % addrB58)
       else:
@@ -331,3 +332,6 @@ class SignedMessageBlockVerificationWidget(SignatureVerificationWidget):
       super(SignedMessageBlockVerificationWidget, self).clearFields()
       self.signedMessageBlockTextEdit.setPlainText('')
       self.messageTextEdit.setPlainText('')
+
+
+

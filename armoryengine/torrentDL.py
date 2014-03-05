@@ -31,17 +31,27 @@ from BitTornado.ConfigDir import ConfigDir
 # Totally should've used a decorator for the custom funcs... 
    
 
-class torrentDownloader(object):
+class TorrentDownloadManager(object):
    
    #############################################################################
-   def __init__(self, torrentFile, savePath):
+   def __init__(self, torrentFile=None, savePath=None, doDisable=False):
       self.setup(torrentFile, savePath)
+
+      self.disabled = doDisable
+
       
 
    #############################################################################
-   def setup(self, torrentFile, savePath, minSecondsBetweenUpdates=1):
+   def setup(self, torrentFile, savePath=None, minSecondsBetweenUpdates=1):
 
       self.torrent = torrentFile
+      self.torrentDNE = False
+
+      if not os.path.exists(self.torrent):
+         self.torrentDNE = True
+         LOGERROR('Called setup with .torrent that does not exist')
+         LOGERROR('Call setup() again with torrent filename when it exists')
+
       self.cacheDir = os.path.join(ARMORY_HOME_DIR, 'bittorrentcache')
       self.doneObj = Event()
 
@@ -51,20 +61,32 @@ class torrentDownloader(object):
       self.lastUpdate = RightNow()
 
       # Get some info about the torrent
-      self.response = get_response(self.torrent, '', self.errorFunc)
-      self.torrentSize = self.response['info']['length']
-      self.torrentName = self.response['info']['name']
-      LOGINFO('Torrent name is: %s' %  self.torrentName)
-      LOGINFO('Torrent size is: %0.2f MB' %  (self.torrentSize/float(MEGABYTE)))
+      if not self.torrentDNE:
+         self.response = get_response(self.torrent, '', self.errorFunc)
+         self.torrentSize = self.response['info']['length']
+         self.torrentName = self.response['info']['name']
+         LOGINFO('Torrent name is: %s' %  self.torrentName)
+         LOGINFO('Torrent size is: %0.2f MB' %  (self.torrentSize/float(MEGABYTE)))
 
 
-      self.savePath = savePath
-      if self.savePath is None:
-         self.savePath = os.path.join(BTC_HOME_DIR, self.torrentName)
-      self.savePath_temp = self.savePath + '.partial'
+         self.savePath = savePath
+         if self.savePath is None:
+            self.savePath = os.path.join(BTC_HOME_DIR, self.torrentName)
+         self.savePath_temp = self.savePath + '.partial'
 
-      self.lastStats = {}
+      self.lastStats  = {}
+      self.startTime  = None
+      self.finishTime = None
+      self.dlFailed   = False
+      self.bt1dow     = None
 
+   #############################################################################
+   def isInitialized(self):
+      return (self.torrent is not None)
+
+   #############################################################################
+   def torrentIsMissing(self):
+      return self.torrentDNE
 
    #############################################################################
    def fileProgress(self):
@@ -190,27 +212,50 @@ class torrentDownloader(object):
       return self.lastStats.get(name)
 
    #############################################################################
+   def isStarted(self):
+      return (self.startTime is not None)
+
+   #############################################################################
+   def isFailed(self):
+      return self.dlFailed
+
+   #############################################################################
+   def isFinished(self):
+      return (self.finishTime is not None)
+
+   #############################################################################
+   def isRunning(self):
+      return self.isStarted() and not self.isFinished()
+
+   #############################################################################
    def finishedFunc(self):
       """
       This function must rename the ".partial" function to the correct name
       """
-      shutil.move(self.savePath_temp, self.savePath)
+      self.finishTime = RightNow()
       LOGINFO('Download finished!')
+      
 
       # Use caller-set function if it exists
       if self.hasCustomFunc('finishedFunc'):
          self.customCallbacks['finishedFunc']()
-         return
+
+      if self.bt1dow:
+         self.bt1dow.shutdown()
+
+      shutil.move(self.savePath_temp, self.savePath)
 
 
    #############################################################################
    def failedFunc(self, msg=''):
+      self.dlFailed = True
+      LOGEXCEPT('Download failed! %s', msg)
+
       # Use caller-set function if it exists
       if self.hasCustomFunc('failedFunc'):
          self.customCallbacks['failedFunc'](msg)
          return
 
-      LOGEXCEPT('Download failed! %s', msg)
 
    #############################################################################
    def errorFunc(self, errMsg):
@@ -239,12 +284,41 @@ class torrentDownloader(object):
 
       return (default if saveas is None else saveas)
 
+
+   #############################################################################
+   def getTDMState(self):
+      if self.disabled:
+         return 'Disabled'
+
+      if not self.isInitialized():
+         return 'Uninitialized'
+
+      if self.torrentDNE:
+         return 'TorrentDNE'
+
+      if not self.isStarted():
+         return 'ReadyToStart'
+
+      if self.dlFailed:
+         return 'DownloadFailed'
+
+      if self.isFinished():
+         return 'DownloadFinished'
+
+      return 'Downloading'
+
+
    #############################################################################
    @AllowAsync
    def startDownload(self):
       """
       This was copied and modified directly from btdownloadheadless.py 
       """
+
+      if self.disabled:
+         LOGERROR('Attempted to start DL but DISABLE_TORRENT is True') 
+         return
+   
       while 1:
 
          configdir = ConfigDir(self.cacheDir)
@@ -301,10 +375,13 @@ class torrentDownloader(object):
          curr,tot = [float(a)/MEGABYTE for a in self.fileProgress()]
          if curr == 0:
             LOGINFO('Starting new download')
+         elif curr==tot:
+            LOGINFO('Torrent already finished!')
+            return
          else:
             LOGINFO('Picking up where left off at %0.0f of %0.0f MB' % (curr,tot))
    
-         dow = BT1Download( self.statusFunc, 
+         self.bt1dow = BT1Download( self.statusFunc, 
                             self.finishedFunc, 
                             self.errorFunc, 
                             self.excFunc,
@@ -317,25 +394,28 @@ class torrentDownloader(object):
                             listen_port,
                             configdir)
          
-         if not dow.saveAs(self.chooseFileFunc):
+         if not self.bt1dow.saveAs(self.chooseFileFunc):
             break
    
-         if not dow.initFiles(old_style = True):
+         if not self.bt1dow.initFiles(old_style = True):
             break
 
-         if not dow.startEngine():
-            dow.shutdown()
+         if not self.bt1dow.startEngine():
+            self.bt1dow.shutdown()
             break
 
-         dow.startRerequester()
-         dow.autoStats()
+         self.bt1dow.startRerequester()
+         self.bt1dow.autoStats()
    
-         if not dow.am_I_finished():
-            self.statusFunc(activity = 'connecting to peers')
+         if not self.bt1dow.am_I_finished():
+            self.statusFunc(activity = 'Connecting to peers')
 
-         rawserver.listen_forever(dow.getPortHandler())
-         self.statusFunc(activity = 'shutting down')
-         dow.shutdown()
+         # Use this var to identify if we've started downloading
+         self.startTime = RightNow()
+
+         rawserver.listen_forever(self.bt1dow.getPortHandler())
+         self.statusFunc(activity = 'Shutting down')
+         self.bt1dow.shutdown()
          break
 
       try:
@@ -349,9 +429,9 @@ class torrentDownloader(object):
 
 # Run this file to test with your target torrent.  Also shows an example
 # of overriding methods with other custom methods.  Just about 
-# any of the methods of torrentDownloader can be replaced like this
+# any of the methods of TorrentDownloadManager can be replaced like this
 if __name__=="__main__":
-   dlobj = torrentDownloader(argv[1], argv[2])
+   dlobj = TorrentDownloadManager(argv[1], argv[2])
 
    # Replace full-featured LOGINFOs with simple print message
    def simplePrint( dpflag=Event(), 
@@ -363,13 +443,23 @@ if __name__=="__main__":
                     statistics=None,
                     **kws):
       
-      print 'TorrentThread: %0.1f%% done' % (fractionDone*100),
+      if fractionDone:
+         print 'TorrentThread: %0.1f%% done;' % (fractionDone*100),
+
       if timeEst:
-         print ', about %s remaining' %  secondsToHumanTime(timeEst)
+         print ', about %s remaining' %  secondsToHumanTime(timeEst), 
+
+      if activity:
+         print ' (%s)'%activity
+      else:
+         print ''
+
+      sys.stdout.flush()
 
    # Finish funct will still move file.partial to file, this is everything else
    def notifyFinished():
       print 'TorrentThread: Finished downloading at %s' % unixTimeToFormatStr(RightNow())
+      sys.stdout.flush()
       
 
    dlobj.setCallback('displayFunc', simplePrint)
@@ -383,9 +473,16 @@ if __name__=="__main__":
       print 'MainThread:    Still downloading;',
       if dlobj.getLastStats('downRate'):
          print ' Last dl speed: %0.1f kB/s' % (dlobj.getLastStats('downRate')/1024.)
+      else: 
+         print ''
+      sys.stdout.flush()
       sleep(10)
        
+   
+   print 'Finished downloading!  Exiting...'
 
 
 
+# Create a master TDM
+TheTDM = TorrentDownloadManager()
 
