@@ -24,7 +24,7 @@
 # Where possible this follows conventions established by the Satoshi client.
 # Does not require armory to be installed or running, this is a standalone application.
 # Requires bitcoind process to be running before starting armory-daemon.
-# Requires an armory watch-only wallet to be in the same folder as the
+# Requires an armory wallet to be in the same folder as the
 # armory-daemon script.
 # Works with testnet, use --testnet flag when starting the script.
 #
