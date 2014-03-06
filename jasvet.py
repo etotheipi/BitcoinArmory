@@ -538,7 +538,7 @@ def FormatText(t, sigctx=False, verbose=False):   #sigctx: False=what is display
          l+='\r'
       if not sigctx:
          if len(l) and l[0]=='-':
-            l='- '+l[1:]
+            l='- '+l
       r+=l+'\n'
    r=r[:-2]
 
