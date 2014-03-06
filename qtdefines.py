@@ -38,13 +38,15 @@ HORIZONTAL = 'horizontal'
 CHANGE_ADDR_DESCR_STRING = '[[ Change received ]]'
 HTTP_VERSION_FILE = 'https://bitcoinarmory.com/versions.txt'
 BUG_REPORT_URL = 'https://scripts.bitcoinarmory.com/receive_debug.php'
-ANNOUNCE_FETCH_INTERVAL = 1 * HOUR
 
+# For announcements handling
+ANNOUNCE_FETCH_INTERVAL = 1 * HOUR
 if CLI_OPTIONS.testAnnounceCode:
    HTTP_ANNOUNCE_FILE = \
-      'https://s3.amazonaws.com/bitcoinarmory-media/testannounce.txt'
+      'https://s3.amazonaws.com/bitcoinarmory-testing/testannounce.txt'
 else:
    HTTP_ANNOUNCE_FILE = 'https://bitcoinarmory.com/atiannounce.txt'
+
 # Keep track of dialogs and wizard that are executing
 runningDialogsList = []
 
@@ -121,34 +123,6 @@ def VLINE(style=QFrame.Plain):
    qf.setFrameStyle(QFrame.VLine | style)
    return qf
 
-
-################################################################################
-def getDecoratedURL(url, withExtraFields=False):
-   argsMap = {}
-   argsMap['ver'] = getVersionString(BTCARMORY_VERSION)
-
-   if withExtraFields:
-      if OS_WINDOWS:
-         argsMap['os'] = 'win'
-      elif OS_LINUX:
-         argsMap['os'] = 'lin'
-      elif OS_MACOSX:
-         argsMap['os'] = 'mac'
-      else:
-         argsMap['os'] = 'unk'
-   
-      try:
-         if OS_MACOSX:
-            argsMap['osvar'] = OS_VARIANT
-         else:
-            argsMap['osvar'] = OS_VARIANT[0].lower()
-      except:
-         LOGERR('Unrecognized OS while constructing version URL')
-         argsMap['osvar'] = 'unk'
-   
-      argsMap['id'] = binary_to_hex(hash256(USER_HOME_DIR)[:4])
-      
-   return url + '?' + urllib.urlencode(argsMap)
 
 
 # Setup fixed-width and var-width fonts

@@ -41,7 +41,7 @@ from qrcodenative import QRCode, QRErrorCorrectLevel
 
 
 # Version Numbers 
-BTCARMORY_VERSION    = (0, 90, 99, 0)  # (Major, Minor, Bugfix, AutoIncrement) 
+BTCARMORY_VERSION    = (0, 90, 99, 1)  # (Major, Minor, Bugfix, AutoIncrement) 
 PYBTCWALLET_VERSION  = (1, 35,  0, 0)  # (Major, Minor, Bugfix, AutoIncrement)
 
 ARMORY_DONATION_ADDR = '1ArmoryXcfq7TnCSuZa9fQjRYwJ4bkRKfv'
@@ -1843,7 +1843,7 @@ def base58_to_binary(addr):
 
 
 ################################################################################
-def hash160_to_addrStr(binStr):
+def hash160_to_addrStr(binStr, netbyte=ADDRBYTE):
    """
    Converts the 20-byte pubKeyHash to 25-byte binary Bitcoin address
    which includes the network byte (prefix) and 4-byte checksum (suffix)
@@ -1852,7 +1852,7 @@ def hash160_to_addrStr(binStr):
    if not len(binStr) == 20:
       raise InvalidHashError('Input string is %d bytes' % len(binStr))
 
-   addr21 = ADDRBYTE + binStr
+   addr21 = netbyte + binStr
    addr25 = addr21 + hash256(addr21)[:4]
    return binary_to_base58(addr25);
 

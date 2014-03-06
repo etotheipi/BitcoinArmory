@@ -65,8 +65,6 @@ class ArmoryMainWindow(QMainWindow):
    def __init__(self, parent=None):
       super(ArmoryMainWindow, self).__init__(parent)
 
-      self.bornOnTime = RightNow()
-      self.lastFetchAnnounce = 0
 
       # Load the settings file
       self.settingsPath = CLI_OPTIONS.settingsPath
@@ -114,13 +112,14 @@ class ArmoryMainWindow(QMainWindow):
       self.dlgCptWlt = None
       self.torrentDLState = 'Uninitialized'
 
-      # Unless they explicitly skip the announcement checking...
+      # Kick off announcement checking, unless they explicitly disabled it
+      # It's run asynchronously, and we'll be check for the results later
       self.announceMap = {}
-      self.firstAnnounceChk = None
+      self.fetchThread = None
+      self.lastFetchAnnounce = 0
       skipChk = self.getSettingOrSetDefault('SkipAnnounceCheck', False)
       self.skipAnnounceChk = skipChk or CLI_OPTIONS.skipAnnounceCheck
-      if not self.skipAnnounceChk:
-         self.fetchExternalAnnouncements(True, async=True)
+      self.bkgdFetchAnnouncements(True)
 
       #delayed URI parsing dict
       self.delayedURIData = {}
@@ -623,7 +622,7 @@ class ArmoryMainWindow(QMainWindow):
 
 
       execAbout   = lambda: DlgHelpAbout(self).exec_()
-      execVersion = lambda: self.checkForLatestVersion(wasRequested=True)
+      execVersion = lambda: self.fetchExternalAnnouncements(forceCheck=True)
       execTrouble = lambda: webbrowser.open('https://bitcoinarmory.com/troubleshooting/')
       execBugReport = lambda: DlgBugReport(self, self).exec_()
       actAboutWindow  = self.createAction(tr('About Armory'), execAbout)
@@ -645,6 +644,9 @@ class ArmoryMainWindow(QMainWindow):
       self.menusList[MENUS.Help].addAction(actRescanDB)
       self.menusList[MENUS.Help].addAction(actRebuildDB)
       self.menusList[MENUS.Help].addAction(actFactoryReset)
+
+
+      
 
       # Restore any main-window geometry saved in the settings file
       hexgeom   = self.settings.get('MainGeometry')
@@ -674,9 +676,7 @@ class ArmoryMainWindow(QMainWindow):
 
       if CLI_ARGS:
          reactor.callLater(1, self.uriLinkClicked, CLI_ARGS[0])
-      elif not self.firstLoad:
-         # Don't need to bother the user on the first load with updating
-         reactor.callLater(0.2, self.checkForLatestVersion)
+
          
    ####################################################
    def getWatchingOnlyWallets(self):
@@ -1260,6 +1260,13 @@ class ArmoryMainWindow(QMainWindow):
       self.writeSetting('DateFormat', binary_to_hex(fmtStr))
       return True
 
+
+
+   #############################################################################
+   def bkgdFetchAnnouncements(self, forceCheck=False):
+      if self.fetchThread
+      self.fetchThread = self.fetchExternalAnnouncements(forceCheck, async=True)
+
    #############################################################################
    @AllowAsync
    def fetchExternalAnnouncements(self, forceCheck=False):
@@ -1271,12 +1278,17 @@ class ArmoryMainWindow(QMainWindow):
       include extra meta data with the request to collect some statistics
       (just OS and Armory version)
       """
+      self.skipAnnounceChk = skipChk or CLI_OPTIONS.skipAnnounceCheck
+      if not self.skipAnnounceChk:
+         return False
+
+      if self.fetchThread and self.fetchThread.isRunning():
+         return False
 
       if CLI_OPTIONS.skipAnnounceChk:
          return False
 
       timeSinceLastFetch = long(RightNow()) - self.lastFetchAnnounce
-      
       if not forceCheck and timeSinceLastFetch<ANNOUNCE_FETCH_INTERVAL:
          return False
 
@@ -1319,9 +1331,7 @@ class ArmoryMainWindow(QMainWindow):
       try:
          mtrx = [line.split() for line in msg.strip().split('\n')]
          for row in mtrx:
-            if len(row)==2:
-               self.announceMap[row[0]] = [row[1], None]
-            elif len(row)==3:
+            if len(row)==3:
                self.announceMap[row[0]] = [row[1], row[2]]
             else:
                LOGERROR('Malformed announce matrix: %s' % str(row))
@@ -4648,7 +4658,6 @@ class ArmoryMainWindow(QMainWindow):
 
    #############################################################################
    def checkSatoshiVersion(self):
-      timeAlive = long(RightNow()) - self.bornOnTime
       if not CLI_OPTIONS.skipVerCheck and \
              (timeAlive%3600==0 or self.satoshiLatestVer==None):
          try:
@@ -4797,7 +4806,7 @@ class ArmoryMainWindow(QMainWindow):
                elif bdmState == 'Offline':
                   LOGERROR('Bitcoind is ready, but we are offline... ?')
                elif bdmState=='Scanning':
-                  self.checkSatoshiVersion()
+                  self.fetchExternalAnnouncements(async=True)
                   self.updateSyncProgress()
 
             if not sdmState==self.lastSDMState or not bdmState==self.lastBDMState[0]:
@@ -4810,7 +4819,7 @@ class ArmoryMainWindow(QMainWindow):
                self.setDashboardDetails()
                return
             elif bdmState=='Scanning':
-               self.checkSatoshiVersion()
+               self.fetchExternalAnnouncements(async=True)
                self.updateSyncProgress()
 
 
@@ -4857,7 +4866,7 @@ class ArmoryMainWindow(QMainWindow):
 
 
             # Now we start the normal array of heartbeat operations
-            self.checkSatoshiVersion()  # this actually only checks every 15 min
+            self.fetchExternalAnnouncements(async=True)  
             newBlocks = TheBDM.readBlkFileUpdate(wait=True)
             self.currBlockNum = TheBDM.getTopBlockHeight()
 

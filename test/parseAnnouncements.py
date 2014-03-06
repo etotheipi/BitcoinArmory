@@ -22,7 +22,7 @@ Version 0.31
         Description of 
         the second 
         big feature.  
-- Major Feature 3
+ - Major Feature 3
 
         Indentations might be
     malformed
@@ -93,7 +93,7 @@ downloadTestText = """
 
 
    # Various Ubuntu/Debian versions
-   Armory 0.91 Ubuntu 10.04,10.10  32   http://url/armory_10.04-32.deb   9af7613cab9
+   Armory 0.91 Ubuntu 10.04,10.10  32   http://url/armory_10.04-32.deb   01339a9469b59a15bedab3b90f0a9c90ff2ff712ffe1b8d767dd03673be8477f
    Armory 0.91 Ubuntu 12.10,13.04  32   http://url/armory_12.04-32.deb   5541af39c84
    Armory 0.91 Ubuntu 10.04,10.10  64   http://url/armory_10.04-64.deb   9af7613cab9
    Armory 0.91 Ubuntu 13.10        64   http://url/armory_13.10-64.deb   013fccb961a
@@ -105,7 +105,7 @@ downloadTestText = """
    ArmoryOffline 0.88 Ubuntu 12.10  32  http://url/offbundle-64-88.tar.gz 5541af39c84
 
    # Windows 32-bit Satoshi (Bitcoin-Qt/bitcoind)
-   Satoshi 0.9.0 Windows XP,Vista,7,8 32,64 http://btc.org/win0.9.0.exe   118372a9ff3
+   Satoshi 0.9.0 Windows XP,Vista,7,8 32,64 http://btc.org/win0.9.0.exe   837f6cb4981314b323350353e1ffed736badb1c8c0db083da4e5dfc0dd47cdf1
    Satoshi 0.9.0 Ubuntu  10.04        32    http://btc.org/lin0.9.0.deb   2aa3f763c3b
    Satoshi 0.9.0 Ubuntu  10.04        64    http://btc.org/lin0.9.0.deb   2aa3f763c3b
 
@@ -159,34 +159,36 @@ class parseVersionsTest(unittest.TestCase):
 class parseDownloadTest(unittest.TestCase):
    
    def setUp(self):
-      pass
+      self.dl = downloadLinkHandler(filetext=downloadTestText)
 
    def tearDown(self):
       pass
 
 
    def testParseDL(self):
-      dl = parseDownloadList(downloadTestText)
 
+      dllink = self.dl.getDownloadLink('Armory','0.91','Windows','XP','32')
+      self.assertEqual(dllink, ['http://url/armory_0.91_xp32.exe', '3afb9881c32'])
 
-      self.assertEqual( dl['Armory']['0.91']['Windows']['XP']['32'], \
-                              ['http://url/armory_0.91_xp32.exe', '3afb9881c32'])
+      dllink = self.dl.getDownloadLink('Armory','0.91','Windows','Vista','32')
+      self.assertEqual(dllink, ['http://url/armory_0.91.exe', '7f3b9964aa3'])
 
-      self.assertEqual( dl['Armory']['0.91']['Windows']['Vista']['32'], \
-                              ['http://url/armory_0.91.exe', '7f3b9964aa3'])
+      # This is a real file with a real hash, for testing DL in Armory
+      dllink = self.dl.getDownloadLink('Satoshi','0.9.0','Windows','7','64')
+      self.assertEqual(dllink, ['http://btc.org/win0.9.0.exe',
+            '837f6cb4981314b323350353e1ffed736badb1c8c0db083da4e5dfc0dd47cdf1'])
 
-      self.assertEqual( dl['Satoshi']['0.9.0']['Windows']['7']['64'], \
-                              ['http://btc.org/win0.9.0.exe', '118372a9ff3'])
+      dllink = self.dl.getDownloadLink('ArmoryOffline','0.88','Ubuntu','10.04','32')
+      self.assertEqual(dllink, ['http://url/offbundle-32-88.tar.gz', '641382c93b9'])
 
-      self.assertEqual( dl['ArmoryOffline']['0.88']['Ubuntu']['10.04']['32'], \
-                              ['http://url/offbundle-32-88.tar.gz', '641382c93b9'])
-
+      dllink = self.dl.getDownloadLink('Armory','1.01','WIndows','10.04','32')
+      self.assertEqual(dllink, None)
 
 if __name__ == "__main__":
 
    # This is just a fun way to look at the download data
-   #dllinks = parseDownloadList(downloadTestText)   
-   #printNestedMap(dllinks)
+   #dl = downloadLinkHandler(filetext=downloadTestText)
+   #dl.printDownloadMap()
 
    unittest.main()
 
