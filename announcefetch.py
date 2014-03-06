@@ -123,7 +123,13 @@ class AnnounceDataFetcher(object):
          self.forceIsFinished.wait()
          self.forceFetchFlag.clear()
 
+
       fname = os.path.join(self.fetchDir, fileID+'.file')
+
+      if not os.path.exists(fname):
+         LOGERROR('No file with ID=%s was fetched', fileID)
+         return None
+
       with open(fname, 'rb') as f:
          returnData = f.read()
       
@@ -292,6 +298,7 @@ class AnnounceDataFetcher(object):
             ##### Clean up as needed
             if self.forceFetchFlag.isSet():
                self.forceIsFinished.set()
+               self.forceFetchFlag.clear()
             self.numConsecutiveExceptions = 0
             self.currDownloading.clear()
 
