@@ -388,9 +388,9 @@ public:
 
    /////////////////////////////////////////////////////////////////////////////
    // Get the parameters of the network as they've been set
-   BinaryData getGenesisHash(void)   { return GenesisHash_;   }
-   BinaryData getGenesisTxHash(void) { return GenesisTxHash_; }
-   BinaryData getMagicBytes(void)    { return MagicBytes_;    }
+   const BinaryData& getGenesisHash(void) const  { return GenesisHash_;   }
+   const BinaryData& getGenesisTxHash(void) const { return GenesisTxHash_; }
+   const BinaryData& getMagicBytes(void) const   { return MagicBytes_;    }
 
    /////////////////////////////////////////////////////////////////////////////
    // These don't actually work while scanning in another thread!? 
