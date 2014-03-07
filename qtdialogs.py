@@ -11883,7 +11883,7 @@ def verifyRecoveryTestID(parent, computedWltID, expectedWltID=None):
       if yesno == QMessageBox.No:
          QMessageBox.critical(parent, tr('Bad Backup!'), tr("""
             If this is your only backup and you are sure that you entered
-            the data correctly, then it is <b>highly recommened you stop using
+            the data correctly, then it is <b>highly recommended you stop using
             this wallet!</b>  If this wallet currently holds any funds,
             you should move the funds to a wallet that <u>does</u>
             have a working backup.
@@ -11903,7 +11903,7 @@ def verifyRecoveryTestID(parent, computedWltID, expectedWltID=None):
       if not computedWltID == expectedWltID:
          QMessageBox.critical(parent, tr('Bad Backup!'), tr("""
             If you are sure that you entered the backup information
-            correctly, then it is <b>highly recommened you stop using
+            correctly, then it is <b>highly recommended you stop using
             this wallet!</b>  If this wallet currently holds any funds,
             you should move the funds to a wallet that <u>does</u>
             have a working backup.
@@ -11911,7 +11911,7 @@ def verifyRecoveryTestID(parent, computedWltID, expectedWltID=None):
             Computed wallet ID: %s <br>
             Expected wallet ID: %s <br><br>
             Is it possible that you loaded a different backup than the
-            on you just made? """ % (computedWltID, expectedWltID)), \
+            one you just made? """ % (computedWltID, expectedWltID)), \
             QMessageBox.Ok)
       else:
          MsgBoxCustom(MSGBOX.Good, tr('Backup is Good!'), tr("""

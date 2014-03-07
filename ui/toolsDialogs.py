@@ -223,6 +223,10 @@ class SignatureVerificationWidget(QWidget):
       if addrB58:
          msg = messageString.replace('\r\n','\n')
          msg = '   ' + '<br>   '.join(msg.split('\n'))
+         # Only display the first 50 characters in the "Verified!" message box so that it's not too big
+         # The user will be able to see the entire message in the Message Signing/Verification dialog
+         if len(msg)>50:
+            msg = msg[0:47] + "..."
          MsgBoxCustom(MSGBOX.Good, tr('Verified!'), tr(""" 
             The owner of the following Bitcoin address...
             <br>

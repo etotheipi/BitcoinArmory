@@ -538,7 +538,7 @@ def FormatText(t, sigctx=False, verbose=False):   #sigctx: False=what is display
          l+='\r'
       if not sigctx:
          if len(l) and l[0]=='-':
-            l='- '+l[1:]
+            l='- '+l
       r+=l+'\n'
    r=r[:-2]
 
@@ -605,10 +605,13 @@ def readSigBlock(r):
       signature = base64.b64encode(decoded[:65])
       msg = decoded[65:]
    elif name == CLEARSIGN_MSG_TYPE_MARKER:
-      # Always starts with a blank line (\r\n\r\n) chop that off with the comment oand process the rest
+      # First get rid of the Clearsign marker and everything before it in case the user
+      # added extra lines that would confuse the parsing that follows
+      # The message is preceded by a blank line (\r\n\r\n) chop that off with the comment and process the rest
       # For Clearsign the message is unencoded since the message could include the \r\n\r\n we only ignore
       # the first and combine the rest.
-      msg = RNRN.join(r.split(RNRN)[1:])
+      msg = r.split(BEGIN_MARKER+CLEARSIGN_MSG_TYPE_MARKER+DASHX5)[1]
+      msg = RNRN.join(msg.split(RNRN)[1:])
       msg = msg.split(RN+DASHX5)[0]
       # Only the signature is encoded, use the original r to pull out the encoded signature
       encoded =  r.split(BEGIN_MARKER)[2].split(DASHX5)[1].split(BITCOIN_SIG_TYPE_MARKER)[0]
