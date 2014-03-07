@@ -37,7 +37,7 @@ class AnnounceDataFetcher(object):
 
    #############################################################################
    def __init__(self, announceURL=HTTP_ANNOUNCE_FILE, fetchDir=None):
-      self.currDownloading = Event()
+      self.loopIsIdle = Event()
       self.forceFetchFlag = Event()
       self.forceIsFinished = Event()
       self.firstSuccess = Event()
@@ -90,8 +90,13 @@ class AnnounceDataFetcher(object):
       return self.disabled
 
    #############################################################################
+   def shutdown(self):
+      LOGINFO('Called AnnounceDataFetcher.shutdown()')
+      self.shutdownFlag.set()
+
+   #############################################################################
    def setFetchInterval(self, newInterval):
-      self.fetchInterval = newInterval
+      self.fetchInterval = max(newInterval,10)
 
    #############################################################################
    def setDisabled(self, b=True):
@@ -111,17 +116,27 @@ class AnnounceDataFetcher(object):
       
 
    #############################################################################
-   def getFetchedFile(self, fileID, forceFetch=False):
+   def getFetchedFile(self, fileID, forceFetch=False, forceWait=10):
       if not self.isRunning():
          LOGERROR('Cannot fetch file, fetcher is not running!')
          return None
+
 
       if forceFetch:
          LOGINFO('Forcing fetch before returning file')
          self.forceIsFinished.clear()
          self.forceFetchFlag.set()
-         self.forceIsFinished.wait()
+
+         if not self.forceIsFinished.wait(forceWait):
+            self.forceFetchFlag.clear()
+            return None
+
          self.forceFetchFlag.clear()
+      else:
+         # Wait up to one second for any current ops to finish
+         if not self.loopIsIdle.wait(1):
+            LOGERROR('Loop was busy for more than one second')
+            return None
 
 
       fname = os.path.join(self.fetchDir, fileID+'.file')
@@ -238,7 +253,7 @@ class AnnounceDataFetcher(object):
                self.forceIsFinished.clear()
 
             ##### Always decorate the URL with OS, Armory version on the first run
-            self.currDownloading.set()
+            self.loopIsIdle.clear()
             digestData = self.__fetchAnnounceDigests(not self.firstSuccess.isSet())
 
             if len(digestData)==0:
@@ -300,7 +315,7 @@ class AnnounceDataFetcher(object):
                self.forceIsFinished.set()
                self.forceFetchFlag.clear()
             self.numConsecutiveExceptions = 0
-            self.currDownloading.clear()
+            self.loopIsIdle.set()
 
          except:
             self.numConsecutiveExceptions += 1

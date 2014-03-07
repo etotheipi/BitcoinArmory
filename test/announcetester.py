@@ -32,7 +32,6 @@ class AnnouncementTester(unittest.TestCase):
       adf = AnnounceDataFetcher(forceTestURL, fetchDump)
       adf.setFetchInterval(20)
 
-      print 'Started: ', adf.isRunning(), adf.atLeastOneSuccess(), adf.numFiles()
       adf.start()
    
       t = 0
@@ -40,7 +39,10 @@ class AnnouncementTester(unittest.TestCase):
          while True:
             time.sleep(0.5)
             t += 0.5
-            print 'Running: ', adf.isRunning(), adf.atLeastOneSuccess(), adf.numFiles()
+            i
+            print '   Running:', adf.isRunning(), 
+            print '   OneSuccess:', adf.atLeastOneSuccess(), 
+            print '   #Files',adf.numFiles()
 
             if 10<t<11 or 14<t<15:
                s = RightNow()
@@ -57,6 +59,12 @@ class AnnouncementTester(unittest.TestCase):
                print d
                print '*****'
                print 'took %0.6f seconds' % (RightNow() - s)
+
+            if t>40:
+               adf.shutdown()
+
+            if not adf.isRunning():
+               break
 
       except KeyboardInterrupt:
          print 'Exiting...'
