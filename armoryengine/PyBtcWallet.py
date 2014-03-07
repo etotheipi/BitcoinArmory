@@ -1947,24 +1947,26 @@ class PyBtcWallet(object):
             newAddr.walletByteLoc = byteLocation + 21
             # Fix byte errors in the address data
             fixedAddrData = newAddr.serialize()
-            if not rawData==fixedAddrData:
-               self.walletFileSafeUpdate([ \
-                  [WLT_UPDATE_MODIFY, newAddr.walletByteLoc, fixedAddrData]])
-            if newAddr.useEncryption:
-               newAddr.isLocked = True
-            self.addrMap[hashVal] = newAddr
-            if newAddr.chainIndex > self.lastComputedChainIndex:
-               self.lastComputedChainIndex   = newAddr.chainIndex
-               self.lastComputedChainAddr160 = newAddr.getAddr160()
-            self.linearAddr160List.append(newAddr.getAddr160())
-            self.chainIndexMap[newAddr.chainIndex] = newAddr.getAddr160()
-
-            # Update the parallel C++ object that scans the blockchain for us
-            timeRng = newAddr.getTimeRange()
-            blkRng  = newAddr.getBlockRange()
-            self.cppWallet.addScrAddress_5_(Hash160ToScrAddr(hashVal), \
-                                                  timeRng[0], blkRng[0], \
-                                                  timeRng[1], blkRng[1])
+            if newAddr.chainIndex > -3:
+               if not rawData==fixedAddrData:
+                  self.walletFileSafeUpdate([ \
+                     [WLT_UPDATE_MODIFY, newAddr.walletByteLoc, fixedAddrData]])
+               if newAddr.useEncryption:
+                  newAddr.isLocked = True
+               self.addrMap[hashVal] = newAddr
+               if newAddr.chainIndex > self.lastComputedChainIndex:
+                  self.lastComputedChainIndex   = newAddr.chainIndex
+                  self.lastComputedChainAddr160 = newAddr.getAddr160()
+               self.linearAddr160List.append(newAddr.getAddr160())
+               self.chainIndexMap[newAddr.chainIndex] = newAddr.getAddr160()
+   
+               # Update the parallel C++ object that scans the blockchain for us
+               timeRng = newAddr.getTimeRange()
+               blkRng  = newAddr.getBlockRange()
+               self.cppWallet.addScrAddress_5_(Hash160ToScrAddr(hashVal), \
+                                                     timeRng[0], blkRng[0], \
+                                                     timeRng[1], blkRng[1])
+               
          if dtype in (WLT_DATATYPE_ADDRCOMMENT, WLT_DATATYPE_TXCOMMENT):
             self.commentsMap[hashVal] = rawData # actually ASCII data, here
             self.commentLocs[hashVal] = byteLocation

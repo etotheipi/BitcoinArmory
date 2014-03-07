@@ -135,50 +135,9 @@ OS_WINDOWS = 'win32'  in opsys.lower() or 'windows' in opsys.lower()
 OS_LINUX   = 'nix'    in opsys.lower() or 'nux'     in opsys.lower()
 OS_MACOSX  = 'darwin' in opsys.lower() or 'osx'     in opsys.lower()
 
-#Windows only: grab cli args as utf-16, convert to utf-8
-if OS_WINDOWS:
-   def win32_unicode_argv():
-      """
-      Uses shell32.GetCommandLineArgvW to get sys.argv as a list of Unicode
-      strings.
-   
-      Versions 2.x of Python don't support Unicode in sys.argv on
-      Windows, with the underlying Windows API instead replacing multi-byte
-      characters with '?'.
-      """
-      result = []
-      from ctypes import POINTER, byref, cdll, c_int, windll
-      from ctypes.wintypes import LPCWSTR, LPWSTR
-   
-      GetCommandLineW = cdll.kernel32.GetCommandLineW
-      GetCommandLineW.argtypes = []
-      GetCommandLineW.restype = LPCWSTR
-   
-      CommandLineToArgvW = windll.shell32.CommandLineToArgvW
-      CommandLineToArgvW.argtypes = [LPCWSTR, POINTER(c_int)]
-      CommandLineToArgvW.restype = POINTER(LPWSTR)
-   
-      cmd = GetCommandLineW()
-      argc = c_int(0)
-      uargv = CommandLineToArgvW(cmd, byref(argc))
-      if argc.value > 0:
-         # Use set operators to find the *size* of the intersection and difference between
-         # sys.argv and the command line.
-         allCommandLineArgs = [uargv[i].encode('utf8') for i in
-            range(argc.value)]
-         armoryCommandLineArgCount = len(set(allCommandLineArgs) & set(sys.argv))
-         armoryNonCommandLineArgCount = len(set(sys.argv) - set(allCommandLineArgs))
-         # Remove Python executable and commands if present
-         # Must maintain the order of the args
-         armoryCommandLineArgOffset = argc.value - armoryCommandLineArgCount
-         result = [uargv[i].encode('utf8') for i in
-            xrange(armoryCommandLineArgOffset, argc.value)]
-         armoryNonCommandLineArgOffset = len(sys.argv) - armoryNonCommandLineArgCount
-         for i in xrange(armoryNonCommandLineArgOffset, len(sys.argv)):
-            result.append(sys.argv[i])
-      return result
 
-   sys.argv = win32_unicode_argv()
+if getattr(sys, 'frozen', False):
+   sys.argv = [arg.decode('utf8') for arg in sys.argv]
 
 CLI_OPTIONS = None
 CLI_ARGS = None
@@ -326,6 +285,7 @@ if not CLI_OPTIONS.datadir.lower()=='default':
 
 # Same for the directory that holds the LevelDB databases
 LEVELDB_DIR     = os.path.join(ARMORY_HOME_DIR, 'databases')
+      
 if not CLI_OPTIONS.leveldbDir.lower()=='default':
    if not os.path.exists(CLI_OPTIONS.leveldbDir):
       print 'Directory "%s" does not exist!  Using default!' % \
@@ -353,15 +313,6 @@ if ARMORY_HOME_DIR and not os.path.exists(ARMORY_HOME_DIR):
 
 if not os.path.exists(LEVELDB_DIR):
    os.makedirs(LEVELDB_DIR)
-
-# If this is the first Armory has been run, create directories
-if ARMORY_HOME_DIR and not os.path.exists(ARMORY_HOME_DIR):
-   os.makedirs(ARMORY_HOME_DIR)
-
-
-if not os.path.exists(LEVELDB_DIR):
-   os.makedirs(LEVELDB_DIR)
-
 
 ##### MAIN NETWORK IS DEFAULT #####
 if not USE_TESTNET:
@@ -487,16 +438,11 @@ def launchProcess(cmd, useStartInfo=True, *args, **kwargs):
       return Popen(cmd, stdin=PIPE, stdout=PIPE, stderr=PIPE, *args, **kwargs)
    else:
       from subprocess import Popen, PIPE, STARTUPINFO, STARTF_USESHOWWINDOW
-      # Need lots of complicated stuff to accommodate quirks with Windows
-      if isinstance(cmd, basestring):
-         cmd2 = toPreferred(cmd)
-      else:
-         cmd2 = [toPreferred(c) for c in cmd]
 
       if useStartInfo:
          startinfo = STARTUPINFO()
          startinfo.dwFlags |= STARTF_USESHOWWINDOW
-         return Popen(cmd2, \
+         return Popen(cmd, \
                      *args, \
                      stdin=PIPE, \
                      stdout=PIPE, \
@@ -504,7 +450,7 @@ def launchProcess(cmd, useStartInfo=True, *args, **kwargs):
                      startupinfo=startinfo, \
                      **kwargs)
       else:
-         return Popen(cmd2, \
+         return Popen(cmd, \
                      *args, \
                      stdin=PIPE, \
                      stdout=PIPE, \

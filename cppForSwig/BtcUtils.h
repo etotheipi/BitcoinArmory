@@ -404,7 +404,7 @@ public:
    /////////////////////////////////////////////////////////////////////////////
    static uint64_t GetFileSize(string filename)
    {
-      ifstream is(filename.c_str(), ios::in|ios::binary);
+      ifstream is(OS_TranslatePath(filename.c_str()), ios::in|ios::binary);
       if(!is.is_open())
          return FILE_DOES_NOT_EXIST;
    

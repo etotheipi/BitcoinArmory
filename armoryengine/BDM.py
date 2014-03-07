@@ -896,11 +896,21 @@ class BlockDataManagerThread(threading.Thread):
       # We have the data, we're ready to go
       self.blkMode = BLOCKCHAINMODE.Rescanning
       self.aboutToRescan = False
+      
+      armory_homedir = ARMORY_HOME_DIR
+      blockdir = blkdir
+      leveldbdir = self.ldbdir
+      
+      if getattr(sys, 'frozen', False):
+         armory_homedir = ARMORY_HOME_DIR.encode('utf8')
+         blockdir = blkdir.encode('utf8')
+         leveldbdir = self.ldbdir.encode('utf8')
+      
 
       self.bdm.SetDatabaseModes(ARMORY_DB_BARE, DB_PRUNE_NONE);
-      self.bdm.SetHomeDirLocation(ARMORY_HOME_DIR)
-      self.bdm.SetBlkFileLocation(str(blkdir))
-      self.bdm.SetLevelDBLocation(self.ldbdir)
+      self.bdm.SetHomeDirLocation(armory_homedir)
+      self.bdm.SetBlkFileLocation(blockdir)
+      self.bdm.SetLevelDBLocation(leveldbdir)
       self.bdm.SetBtcNetworkParams( GENESIS_BLOCK_HASH, \
                                     GENESIS_TX_HASH,    \
                                     MAGIC_BYTES)
@@ -1362,6 +1372,7 @@ class BlockDataManagerThread(threading.Thread):
          except:
             inputName = self.getBDMInputName(inputTuple[0])
             LOGERROR('Error processing BDM input')
+            traceback.print_stack()
             LOGERROR('Received inputTuple: ' + inputName + ' ' + str(inputTuple))
             LOGERROR('Error processing ID (%d)', rndID)
             LOGEXCEPT('ERROR:')
@@ -1408,7 +1419,12 @@ else:
 
    #if CLI_OPTIONS.doDebug or CLI_OPTIONS.netlog or CLI_OPTIONS.mtdebug:
    cppLogFile = os.path.join(ARMORY_HOME_DIR, 'armorycpplog.txt')
-   TheBDM.StartCppLogging(cppLogFile, 4)
+   
+   cpplf = cppLogFile
+   if getattr(sys, 'frozen', False):
+      cpplf = cppLogFile.encode('utf8')
+   
+   TheBDM.StartCppLogging(cpplf, 4)
    TheBDM.EnableCppLogStdOut()
 
    # 32-bit linux has an issue with max open files.  Rather than modifying

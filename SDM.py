@@ -239,9 +239,13 @@ class SatoshiDaemonManager(object):
                   possBaseDir.append( targDir )
          
          # Also look in default place in ProgramFiles dirs
-         possBaseDir.append(os.getenv('PROGRAMFILES'))
-         if SystemSpecs.IsX64:
-            possBaseDir.append(os.getenv('PROGRAMFILES(X86)'))
+
+         from platform import machine
+         if '64' in machine():
+            possBaseDir.append(os.getenv('PROGRAMFILES(X86)'))                    
+            possBaseDir.append(os.getenv("ProgramW6432"))
+         else:
+            possBaseDir.append(os.getenv('PROGRAMFILES'))
          
 
          # Now look at a few subdirs of the 

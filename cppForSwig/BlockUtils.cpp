@@ -11,6 +11,7 @@
 #include <stdio.h>
 #include "BlockUtils.h"
 
+
 static void updateBlkDataHeader(InterfaceToLDB* iface, StoredHeader const & sbh)
 {
    iface->putValue(BLKDATA, sbh.getDBKey(), sbh.serializeDBValue(BLKDATA));
@@ -3643,7 +3644,7 @@ void BlockDataManager_LevelDB::writeProgressFile(DB_BUILD_PHASE phase,
    if(height!=0)
       startAtByte = blkFileCumul_[blkfile] + offset;
       
-   ofstream topblks(bfile.c_str(), ios::app);
+   ofstream topblks(OS_TranslatePath(bfile.c_str()), ios::app);
    double t = TIMER_READ_SEC(timerName);
    topblks << (uint32_t)phase << " "
            << startAtByte << " " 
@@ -4383,10 +4384,18 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
 
 
    // Remove this file
+
+#ifndef _MSC_VER
    if(BtcUtils::GetFileSize(blkProgressFile_) != FILE_DOES_NOT_EXIST)
       remove(blkProgressFile_.c_str());
    if(BtcUtils::GetFileSize(abortLoadFile_) != FILE_DOES_NOT_EXIST)
       remove(abortLoadFile_.c_str());
+#else
+   if(BtcUtils::GetFileSize(blkProgressFile_) != FILE_DOES_NOT_EXIST)
+      _wunlink(OS_TranslatePath(blkProgressFile_).c_str());
+   if(BtcUtils::GetFileSize(abortLoadFile_) != FILE_DOES_NOT_EXIST)
+      _wunlink(OS_TranslatePath(abortLoadFile_).c_str());
+#endif
    
    if(!initialLoad)
       detectAllBlkFiles(); // only need to spend time on this on the first call
