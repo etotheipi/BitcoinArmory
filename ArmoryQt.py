@@ -113,12 +113,10 @@ class ArmoryMainWindow(QMainWindow):
       self.torrentDLState = 'Uninitialized'
 
       # Kick off announcement checking, unless they explicitly disabled it
-      # It's run asynchronously, and we'll be check for the results later
+      # The fetch happens in the background, we check the results later
       self.announceMap = {}
       self.fetchThread = None
       self.lastFetchAnnounce = 0
-      skipChk = self.getSettingOrSetDefault('SkipAnnounceCheck', False)
-      self.skipAnnounceChk = skipChk or CLI_OPTIONS.skipAnnounceCheck
       self.bkgdFetchAnnouncements(True)
 
       #delayed URI parsing dict
@@ -1264,6 +1262,9 @@ class ArmoryMainWindow(QMainWindow):
 
    #############################################################################
    def bkgdFetchAnnouncements(self, forceCheck=False):
+
+      self.skipAnnounceChk = skipChk or CLI_OPTIONS.skipAnnounceCheck
+
       if self.fetchThread
       self.fetchThread = self.fetchExternalAnnouncements(forceCheck, async=True)
 
@@ -1278,14 +1279,14 @@ class ArmoryMainWindow(QMainWindow):
       include extra meta data with the request to collect some statistics
       (just OS and Armory version)
       """
-      self.skipAnnounceChk = skipChk or CLI_OPTIONS.skipAnnounceCheck
-      if not self.skipAnnounceChk:
-         return False
+      if not forceCheck:
+         if CLI_OPTIONS.skipAnnounceChk:
+            return False
+
+         if self.getSettingOrSetDefault('SkipAnnounceCheck', False):
+            return False
 
       if self.fetchThread and self.fetchThread.isRunning():
-         return False
-
-      if CLI_OPTIONS.skipAnnounceChk:
          return False
 
       timeSinceLastFetch = long(RightNow()) - self.lastFetchAnnounce

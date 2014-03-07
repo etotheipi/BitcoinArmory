@@ -87,8 +87,8 @@ fullFeatureLists = \
 
 
 downloadTestText = """
-
 -----BEGIN BITCOIN SIGNED MESSAGE-----
+
 # Armory for Windows
 Armory 0.91 Windows XP        32     http://url/armory_0.91_xp32.exe  3afb9881c32
 Armory 0.91 Windows XP        64     http://url/armory_0.91_xp64.exe  8993ab127cf
@@ -113,7 +113,10 @@ Satoshi 0.9.0 Ubuntu  10.04        32    http://btc.org/lin0.9.0.deb   2aa3f763c
 Satoshi 0.9.0 Ubuntu  10.04        64    http://btc.org/lin0.9.0.deb   2aa3f763c3b
 
 -----BEGIN BITCOIN SIGNATURE-----
-ac389861cff8a989ae57ae67af43cb3716ca189aa178cff893179531
+
+HAZGhRr4U/utHgk9BZVOTqWcAodtHLuIq67TMSdThAiZwcfpdjnYZ6ZwmkUj0c3W
+U0zy72vLLx9mpKJQdDmV7k0=
+=i8i+
 -----END BITCOIN SIGNATURE-----
 
 """
@@ -141,12 +144,8 @@ MAXVERSION: 0.88.1
 PRIORITY:   4096
 NOTIFYSEND: False
 NOTIFYRECV: True
-SHORTDESCR:
-   *****
-   Until further notice, require 30 confirmations for incoming transactions.
-   *****
+SHORTDESCR: Until further notice, require 30 confirmations for incoming transactions.
 LONGDESCR:
-   *****
    THIS IS A FAKE ALERT FOR TESTING PURPOSES:
 
    There is some turbulence on the network that may result in some transactions
@@ -172,20 +171,14 @@ MAXVERSION: 0.91.99.7
 PRIORITY:   0
 NOTIFYSEND: False
 NOTIFYRECV: False
-SHORTDESCR:
-   *****
-   New 0.92-beta testing version available.  Please download 0.91.99.8
-   <a href="https://bitcoinarmory.com/downloads/testing">from our</a>.
-   *****
+SHORTDESCR: New 0.92-beta testing version available.  Please download 0.91.99.8
 LONGDESCR:
-   *****
    The new version fixes the following bugs:
       - Bug A
       - Bug B
       - Bug C
-   *****
+*****
 -----BEGIN BITCOIN SIGNATURE-----
-
 
 HAZGhRr4U/utHgk9BZVOTqWcAodtHLuIq67TMSdThAiZwcfpdjnYZ6ZwmkUj0c3W
 U0zy72vLLx9mpKJQdDmV7k0=
@@ -201,7 +194,7 @@ class parseChangelogTest(unittest.TestCase):
 
 
    def setUp(self):
-      self.clh = changelogHandler(changelogTestText)
+      self.clh = changelogParser(changelogTestText)
       
    def tearDown(self):
       pass
@@ -232,11 +225,11 @@ class parseChangelogTest(unittest.TestCase):
             self.assertEqual( testFeat, expectFeat )
 
 
-
+################################################################################
 class parseDownloadTest(unittest.TestCase):
    
    def setUp(self):
-      self.dl = downloadLinkHandler(filetext=downloadTestText)
+      self.dl = downloadLinkParser(filetext=downloadTestText)
 
    def tearDown(self):
       pass
@@ -261,10 +254,42 @@ class parseDownloadTest(unittest.TestCase):
       dllink = self.dl.getDownloadLink('Armory','1.01','WIndows','10.04','32')
       self.assertEqual(dllink, None)
 
+
+
+################################################################################
+class parseNotifyTest(unittest.TestCase):
+   
+   def setUp(self):
+      self.notify = notificationParser(filetext=notifyTestText)
+
+   def tearDown(self):
+      pass
+
+   def testParseNotify(self):
+
+      notifyMap = self.notify.getNotificationMap()
+
+
+      self.assertEqual(notifyMap['873fbc11']['VERSION'], '0')
+      self.assertEqual(notifyMap['873fbc11']['CANCELID'], '[]')
+      self.assertEqual(notifyMap['873fbc11']['MAXVERSION'], '0.88.1')
+      self.assertTrue(notifyMap['873fbc11']['LONGDESCR'].strip().startswith('THIS IS A FAKE'))
+
+      self.assertEqual(notifyMap['113c948a']['VERSION'], '0')
+      self.assertEqual(notifyMap['113c948a']['CANCELID'], '[]')
+      self.assertEqual(notifyMap['113c948a']['MAXVERSION'], '0.91.99.7')
+      self.assertTrue(notifyMap['113c948a']['LONGDESCR'].strip().startswith('The new version'))
+
+      #for nid,fields in notifyMap.iteritems():
+         #print 'Notification ID: ', nid
+         #for key,val in fields.iteritems():
+            #print '   %s: %s' % (key.ljust(16), val)
+
+
 if __name__ == "__main__":
 
    # This is just a fun way to look at the download data
-   #dl = downloadLinkHandler(filetext=downloadTestText)
+   #dl = downloadLinkParser(filetext=downloadTestText)
    #dl.printDownloadMap()
 
    unittest.main()

@@ -7,6 +7,7 @@
 ################################################################################
 from ArmoryUtils import *
 import os
+from jasvet import readSigBlock
 from copy import deepcopy
 
 
@@ -22,7 +23,7 @@ SIGNED_BLOCK_TAIL = '-----BEGIN BITCOIN SIGNATURE-----'
 
 ################################################################################
 ################################################################################
-class changelogHandler(object):
+class changelogParser(object):
    """
    Returns a list of list of lists representing all version & changelg to the
    stop version (or all versions, if 0)
@@ -81,27 +82,22 @@ class changelogHandler(object):
    def parseChangelogText(self, fileText):
    
       self.changelog = []
+
+      if SIGNED_BLOCK_HEAD in fileText:
+         fileText = readSigBlock(fileText)[1]
+   
       versionLines = [line.strip() for line in fileText.split('\n')][::-1]
       
          
       if len(versionLines)==0:
          return None
    
-      # If sigblock header is present, ignore lines until we pass it
-      startedReading = (not SIGNED_BLOCK_HEAD in fileText)
-   
       # All lines have been stripped already
       while len(versionLines) > 0:
          line = versionLines.pop()
    
-         if not startedReading or line.startswith('#') or len(line)==0:
-            if line == SIGNED_BLOCK_HEAD:
-               startedReading = True
+         if line.startswith('#') or len(line)==0:
             continue
-   
-         if line == SIGNED_BLOCK_TAIL:
-            break
-   
    
          if line.upper().startswith('VERSION'):
             self.changelog.append([line.split(' ')[-1], '', []])
@@ -136,7 +132,7 @@ class changelogHandler(object):
 
 ################################################################################
 ################################################################################
-class downloadLinkHandler(object):
+class downloadLinkParser(object):
    """ 
    Parse files with the following format:
    
@@ -203,28 +199,23 @@ class downloadLinkHandler(object):
             mapObj[keyList[0]] = urlAndHash
    
       
+      if SIGNED_BLOCK_HEAD in fileText:
+         fileText = readSigBlock(fileText)[1]
+
       dlLines = [line.strip() for line in fileText.split('\n')][::-1]
    
-      # If sigblock header is present, ignore lines until we pass it
-      startedReading = (not SIGNED_BLOCK_HEAD in fileText)
-
       while len(dlLines) > 0:
    
          line = dlLines.pop()
    
-         if not startedReading or line.startswith('#') or len(line)==0:
-            if line == SIGNED_BLOCK_HEAD:
-               startedReading = True
+         if line.startswith('#') or len(line)==0:
             continue
-   
-         if line == SIGNED_BLOCK_TAIL:
-            break
    
          lineLists  = [pc.split(',') for pc in line.split()[:-2]]
          urlAndHash = line.split()[-2:]
    
          APPLIST, VERLIST, OSLIST, SUBOSLIST, BITLIST = range(5)
-   
+
          for app in lineLists[APPLIST]:
             for ver in lineLists[VERLIST]:
                for opsys in lineLists[OSLIST]:
@@ -282,7 +273,7 @@ class downloadLinkHandler(object):
    
 ################################################################################
 ################################################################################
-class notifyHandler(object):
+class notificationParser(object):
    """
    # PRIORITY VALUES:
    #    Test announce:          1024
@@ -330,13 +321,15 @@ class notifyHandler(object):
    
    
 
+   #############################################################################
    def parseNotificationText(self, fileText):
       self.notifications = {}
    
+      if SIGNED_BLOCK_HEAD in fileText:
+         fileText = readSigBlock(fileText)[1]
+   
       notifyLines = [line.strip() for line in fileText.split('\n')][::-1]
    
-      # If sigblock header is present, ignore lines until we pass it
-      startedReading = (not SIGNED_BLOCK_HEAD in fileText)
    
       currID = ''
       readLongDescr = False
@@ -346,32 +339,24 @@ class notifyHandler(object):
    
          line = notifyLines.pop()
    
-         if not startedReading or line.startswith('#') or len(line)==0:
-            if line == SIGNED_BLOCK_HEAD:
-               startedReading = True
+         if not readLongDescr and (line.startswith('#') or len(line)==0):
             continue
    
-         if line == SIGNED_BLOCK_TAIL:
-            break
-
          if line.upper().startswith('UNIQUEID'):
             currID = line.split(':')[-1].strip()
-         
             self.notifications[currID] = {}
-
-         if line.upper().startswith('LONGDESCR'):
+         elif line.upper().startswith('LONGDESCR'):
             readLongDescr = True
          elif line.startswith("*****"):
             readLongDescr = False
             self.notifications[currID]['LONGDESCR'] = longDescrAccum
+            longDescrAccum = ''
          elif readLongDescr:
-            longDescrAccum += (' ' if longDescrAccum else '')
-            longDescrAccum += line.strip()
+            longDescrAccum += line.strip() + '\n'
          else:
             key = line.split(':')[ 0].strip().upper()
             val = line.split(':')[-1].strip()
             self.notifications[currID][key] = val
-
 
 
    def getNotificationMap(self):
