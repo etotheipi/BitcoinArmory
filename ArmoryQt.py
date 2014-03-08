@@ -38,6 +38,7 @@ import qrc_img_resources
 from qtdefines import *
 from qtdialogs import *
 from ui.Wizards import WalletWizard, TxWizard
+from ui.UpgradeDownloader import UpgradeDownloader
 from jasvet import verifySignature, readSigBlock
 
 # HACK ALERT: Qt has a bug in OS X where the system font settings will override
@@ -618,13 +619,14 @@ class ArmoryMainWindow(QMainWindow):
       #self.menusList[MENUS.Wallets].addAction(actMigrateSatoshi)
       #self.menusList[MENUS.Wallets].addAction(actAddressBook)
 
-
       execAbout   = lambda: DlgHelpAbout(self).exec_()
       execVersion = lambda: self.fetchExternalAnnouncements(forceCheck=True)
       execTrouble = lambda: webbrowser.open('https://bitcoinarmory.com/troubleshooting/')
       execBugReport = lambda: DlgBugReport(self, self).exec_()
+      execDownloadUpgrade = lambda: UpgradeDownloader(self).exec_()
       actAboutWindow  = self.createAction(tr('About Armory'), execAbout)
       actVersionCheck = self.createAction(tr('Armory Version...'), execVersion)
+      actDownloadUpgrade = self.createAction(tr('Download Upgrade'), execDownloadUpgrade)
       actTroubleshoot = self.createAction(tr('Troubleshooting Armory'), execTrouble)
       actSubmitBug    = self.createAction(tr('Submit Bug Report'), execBugReport)
       actClearMemPool = self.createAction(tr('Clear All Unconfirmed'), self.clearMemoryPool)
@@ -634,6 +636,7 @@ class ArmoryMainWindow(QMainWindow):
 
       self.menusList[MENUS.Help].addAction(actAboutWindow)
       self.menusList[MENUS.Help].addAction(actVersionCheck)
+      self.menusList[MENUS.Help].addAction(actDownloadUpgrade)
       self.menusList[MENUS.Help].addSeparator()
       self.menusList[MENUS.Help].addAction(actTroubleshoot)
       self.menusList[MENUS.Help].addAction(actSubmitBug)

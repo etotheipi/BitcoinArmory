@@ -225,7 +225,6 @@ class downloadLinkParser(object):
                                    urlAndHash, 
                                    [app, ver, opsys, subOS, nbit])
    
-   
       return self.downloadMap 
    
          
@@ -364,3 +363,4 @@ class notificationParser(object):
 
 
 
+# kate: indent-width 3; replace-tabs on;
