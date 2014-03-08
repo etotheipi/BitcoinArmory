@@ -215,7 +215,7 @@ class PyBtcWalletRecovery(object):
          if ProgDlg:
             self.strOutput.append('Recovery done\r\n\r\n\r\n')            
             self.EndLog = self.EndLog + '<b>- Recovery done</b><br>'
-            self.EndLog = self.EndLog + '<br>Recovered wallet saved at:<br>- %s<br>' % (self.newwalletPath)
+            if self.newwalletPath: self.EndLog = self.EndLog + '<br>Recovered wallet saved at:<br>- %s<br>' % (self.newwalletPath)
             ProgDlg.UpdateText(self.UIreport + self.EndLog)
          else:
             self.strOutput.append('\r\n\r\n\r\n')
@@ -1304,32 +1304,7 @@ class PyBtcWalletRecovery(object):
       newWO.writeFreshWalletFile(newPath)
       
       return newWO
-
-   #############################################################################
-   #GUI related members start here
-   #############################################################################
-   #############################################################################
-   def UIRecoverWallet(self, parentWnd=None):
-      """
-      Prompts the user with a window asking for wallet path and recovery mode.
-      Proceeds to Recover the wallet. Prompt for password if the wallet is locked
-      """
-      self.parent = parentWnd
-      dlg = DlgWltRecoverWallet()
-      if dlg.exec_():
-         path = str(dlg.edtWalletPath.text())
-         mode = 'Bare'
-         if dlg.rdbtnStripped.isChecked() is True:
-            mode = 'Stripped'
-         elif dlg.rdbtnFull.isChecked() is True:
-            mode = 'Full'
-         elif dlg.rdbtnCheck.isChecked() is True:
-            mode = 'Check'
-
-         self.RecoverWallet(WalletPath=path, Mode=mode, GUI=True)
-      else:
-         return False
-      
+ 
 #############################################################################
 def WalletConsistencyCheck(wallet, prgAt=None):
    """

@@ -12028,9 +12028,8 @@ class DlgWltRecoverWallet(ArmoryDialog):
       super(DlgWltRecoverWallet, self).__init__(parent, main)
 
       self.edtWalletPath = QLineEdit()
-      self.btnWalletPath = QPushButton('')
-      ico = QIcon(QPixmap(':/folder24.png'))
-      self.btnWalletPath.setIcon(ico)
+      self.btnWalletPath = QPushButton('Browse File System')
+
       self.connect(self.btnWalletPath, SIGNAL('clicked()'), self.selectFile)
 
       lblDesc = QRichLabel(tr("""
@@ -12045,35 +12044,35 @@ class DlgWltRecoverWallet(ArmoryDialog):
 
       lblWalletPath = QRichLabel(tr('Wallet Path:'))
 
-      # TODO: Farhod's first piece of GUI code -- doesn't have parent or main
-      #       Once it's been added, this can be commented out and this should 
-      #       be a working wallet-select button
-      #def doWltSelect():
-         #dlg = DlgWalletSelect(self, self.main, tr('Select Wallet...'), '')
-         #if dlg.exec_():
-            #wlt = self.parent.walletMap[dlg.selectedID]
-            #self.edtWalletPath.setText(wlt.walletPath)
 
-      #self.btnWltSelect = QPushButton(tr("Select From Loaded Wallets"))
-      #self.connect(self.btnWltSelect, SIGNAL(CLICKED), doWltSelect)
+      def doWltSelect():
+         dlg = DlgWalletSelect(self, self.main, tr('Select Wallet...'), '')
+         if dlg.exec_():
+            wlt = self.parent.walletMap[dlg.selectedID]
+            self.edtWalletPath.setText(wlt.walletPath)
 
+      self.btnWltSelect = QPushButton(tr("Select From Loaded Wallets"))
+      self.connect(self.btnWltSelect, SIGNAL(CLICKED), doWltSelect)
 
       layoutMgmt = QGridLayout()
+      wltSltQF = QFrame()
+      wltSltQF.setFrameStyle(STYLE_SUNKEN)
 
-      layoutWltSelect = QGridLayout()
-      layoutWltSelect.addWidget(lblWalletPath,      0,0)
-      layoutWltSelect.addWidget(self.edtWalletPath, 0,1, 1,2)
-      layoutWltSelect.addWidget(self.btnWalletPath, 0,3)
-      #layoutWltSelect.addWidget(self.btnWltSelect,  1,1)
+      layoutWltSelect = QGridLayout()      
+      layoutWltSelect.addWidget(lblWalletPath,      0,0, 1, 1)
+      layoutWltSelect.addWidget(self.edtWalletPath, 0,1, 1, 3)
+      layoutWltSelect.addWidget(self.btnWltSelect,  1,0, 1, 2)      
+      layoutWltSelect.addWidget(self.btnWalletPath, 1,2, 1, 2)
       layoutWltSelect.setColumnStretch(0, 0)
       layoutWltSelect.setColumnStretch(1, 1)
       layoutWltSelect.setColumnStretch(2, 1)
       layoutWltSelect.setColumnStretch(3, 0)
       
+      wltSltQF.setLayout(layoutWltSelect)
       
-
       layoutMgmt.addWidget(makeHorizFrame([lblDesc], STYLE_SUNKEN), 0,0, 2,4)
-      layoutMgmt.addLayout(layoutWltSelect, 2, 0, 2, 4)
+      #layoutMgmt.addLayout(layoutWltSelect, 2, 0, 3, 4)
+      layoutMgmt.addWidget(wltSltQF, 2, 0, 3, 4)
 
       self.rdbtnStripped = QRadioButton('')
       lblStripped = QLabel('<b>Stripped Recovery</b><br>Only attempts to recover the wallet\'s rootkey and chaincode')
@@ -12101,29 +12100,54 @@ class DlgWltRecoverWallet(ArmoryDialog):
       layout_CheckH.addWidget(self.rdbtnCheck, 0, 0, 1, 1)
       layout_CheckH.addWidget(lblCheck, 0, 1, 3, 19)
 
-      #layoutMgmt.addWidget(self.rdbtnStripped, 3, 0, 1, 1)
-      #layoutMgmt.addWidget(lblStrippedP, 3, 1, 1, 12)
-      #layoutMgmt.addWidget(lblStripped, 4, 1, 1, 12)
-      layoutMgmt.addLayout(layout_StrippedH, 4, 0, 2, 4)
-      layoutMgmt.addLayout(layout_BareH, 6, 0, 2, 4)
-      layoutMgmt.addLayout(layout_FullH, 8, 0, 2, 4)
-      layoutMgmt.addLayout(layout_CheckH, 10, 0, 3, 4)
+      layoutMode = QGridLayout()
+      layoutMode.addLayout(layout_StrippedH, 0, 0, 2, 4)
+      layoutMode.addLayout(layout_BareH, 2, 0, 2, 4)
+      layoutMode.addLayout(layout_FullH, 4, 0, 2, 4)
+      layoutMode.addLayout(layout_CheckH, 6, 0, 3, 4)
+      
+      wltModeQF = QFrame()
+      wltModeQF.setFrameStyle(STYLE_SUNKEN)
+      wltModeQF.setLayout(layoutMode)
+      
+      layoutMgmt.addWidget(wltModeQF, 5, 0, 9, 4)
 
       self.btnRecover = QPushButton('Recover')
       self.btnCancel  = QPushButton('Cancel')
       layout_btnH = QHBoxLayout()
       layout_btnH.addWidget(self.btnRecover, 1)
       layout_btnH.addWidget(self.btnCancel, 1)
-      #layout_btnH.setAlignment(Qt.AlignHCenter)
 
-      layoutMgmt.addLayout(layout_btnH, 13, 1, 1, 2)
+      layoutMgmt.addLayout(layout_btnH, 14, 1, 1, 2)
 
       self.connect(self.btnRecover, SIGNAL('clicked()'), self.accept)
       self.connect(self.btnCancel , SIGNAL('clicked()'), self.reject)
 
       self.setLayout(layoutMgmt)
       self.setWindowTitle('Wallet Recovery Tool')
-      self.setMinimumWidth(450)
+      self.setMinimumWidth(550)
+      
+   def promptWalletRecovery(self):
+      """
+      Prompts the user with a window asking for wallet path and recovery mode.
+      Proceeds to Recover the wallet. Prompt for password if the wallet is locked
+      """
+      if self.exec_():
+         path = str(self.edtWalletPath.text())
+         mode = 'Bare'
+         if self.rdbtnStripped.isChecked() is True:
+            mode = 'Stripped'
+         elif self.rdbtnFull.isChecked() is True:
+            mode = 'Full'
+         elif self.rdbtnCheck.isChecked() is True:
+            mode = 'Check'
+
+         from armoryengine.PyBtcWalletRecovery import PyBtcWalletRecovery
+         recoverytool = PyBtcWalletRecovery()
+         recoverytool.parent = self.main
+         recoverytool.RecoverWallet(WalletPath=path, Mode=mode, GUI=True)
+      else:
+         return False      
 
    def selectFile(self):
       # Had to reimplement the path selection here, because the way this was

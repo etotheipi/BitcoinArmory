@@ -978,10 +978,10 @@ class ArmoryMainWindow(QMainWindow):
          action = 'DoNothing'
          modulepathname = '"'
          if getattr(sys, 'frozen', False):
-             app_dir = os.path.dirname(sys.executable)
-             app_path = os.path.join(app_dir, sys.executable)
+            app_dir = os.path.dirname(sys.executable)
+            app_path = os.path.join(app_dir, sys.executable)
          elif __file__:
-             return #running from a .py script, not gonna register URI on Windows
+            return #running from a .py script, not gonna register URI on Windows
 
          #justDoIt = True
          import ctypes
@@ -2431,8 +2431,7 @@ class ArmoryMainWindow(QMainWindow):
       
    #############################################################################
    def RecoverWallet(self):
-      from armoryengine.PyBtcWalletRecovery import PyBtcWalletRecovery
-      PyBtcWalletRecovery().UIRecoverWallet(self)
+      DlgWltRecoverWallet(self, self).promptWalletRecovery()
 
 
    #############################################################################
