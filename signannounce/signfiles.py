@@ -1,6 +1,7 @@
 import sys
 import os
 import getpass
+import shutil
 sys.path.append('..')
 
 from armoryengine.ALL import *
@@ -16,6 +17,9 @@ if not os.path.exists(wltPath):
    print 'Wallet file was not found (%s)' % wltPath
    exit(1)
 
+inDir = 'rawFiles'
+outDir = 'filesToAnnounce'
+
 ###
 if CLI_OPTIONS.testAnnounceCode:
    signAddress  = '1PpAJyNoocJt38Vcf4AfPffaxo76D4AAEe'
@@ -26,6 +30,8 @@ else:
    announceName = 'announce.txt'
    pathPrefix   = 'https://s3.amazonaws.com/bitcoinarmory-releases/'
 
+
+announcePath = os.path.join(outDir, announceName)
 
 ###
 wlt = PyBtcWallet().readWalletFile(wltPath)
@@ -41,15 +47,17 @@ if not wlt.verifyPassphrase(passwd):
    print 'Invalid passphrase!'
    exit(1)
 
+
+
 wlt.unlock(securePassphrase=passwd)
 passwd.destroy()
 addrObj = wlt.getAddrByHash160(addrStr_to_hash160(signAddress)[1])
 
-def doSignFile(fname):
-   with open(fname, 'rb') as f:
+def doSignFile(inFile, outFile):
+   with open(inFile, 'rb') as f:
       sigBlock = ASv1CS(addrObj.binPrivKey32_Plain.toBinStr(), f.read())
 
-   with open(fname, 'wb') as f:
+   with open(outFile, 'wb') as f:
       f.write(sigBlock)
 
 
@@ -61,24 +69,34 @@ print 'Reading file mapping...'
 with open('filemap.txt','r') as f:
    for line in f.readlines():
       fname, fid = line.strip().split()
-      if not os.path.exists(fname):
-         print 'ERROR:  Could not find %s-file (%s)' % (fid, fname)
+      inputPath = os.path.join(inDir, fname)
+      if not os.path.exists(inputPath):
+         print 'ERROR:  Could not find %s-file (%s)' % (fid, inputPath)
          exit(1)
       print '   Map: %s --> %s' % (fname, fid)
       
 
-print 'Do you want to sign any individual files before continuing? '
+
+if os.path.exists(outDir):
+   print 'Wiping old, announced files...'
+   shutil.rmtree(outDir)
+os.mkdir(outDir)
+
+
+
+print 'Signing and copying files to %s directory...' % outDir
 with open('filemap.txt','r') as f:
    for line in f.readlines():
       fname, fid = line.strip().split()
+      inputPath = os.path.join(inDir, fname)
+      outputPath = os.path.join(outDir, fname)
 
-      fdata = open(fname, 'rb').read()
-      if not fdata.strip().startswith('-----BEGIN'):
-         yesno = raw_input('   Sign %s? [y/N] ' % fname)
-         if yesno.lower().startswith('y'):
-            doSignFile(fname)
+      if fname.endswith('.txt'):
+         doSignFile(inputPath, outputPath)
+      else:
+         shutil.copy(inputPath, outputPath)
 
-      fdata = open(fname, 'rb').read()
+      fdata = open(outputPath, 'rb').read()
       fhash = binary_to_hex(sha256(fdata))
       fileMappings[fname] = [fid, fhash]
       longestID  = max(longestID,  len(fid))
@@ -89,7 +107,7 @@ with open('filemap.txt','r') as f:
       
 
 print 'Creating digest file...'
-digestFile = open(announceName, 'w')
+digestFile = open(announcePath, 'w')
 
 ###
 for fname,vals in fileMappings.iteritems():
@@ -102,7 +120,7 @@ digestFile.close()
 
 print ''
 print '------'
-with open(announceName, 'r') as f:
+with open(announcePath, 'r') as f:
    dfile = f.read()
    print dfile
 print '------'
@@ -113,11 +131,11 @@ raw_input('Hit <enter> when ready: ')
 
 
 
-doSignFile(announceName)
+doSignFile(announcePath, os.path.join(outDir, announceName))
 
 
 print ''
-print open(announceName, 'r').read()
+print open(announcePath, 'r').read()
 print ''
 
 

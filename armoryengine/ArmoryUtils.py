@@ -878,8 +878,10 @@ if os.path.exists(fileDelSettings):
    os.remove(fileDelSettings)
 
 
-# Use torrent downloading if they haven't explicitly disabled it, 
-# and of course, if the torrent code is there to do it.
+# This flag takes into account both CLI_OPTIONs, and availability of the
+# BitTornado library  (the user can remove the BitTornado dir and/or the
+# torrentDL.py files without breaking Armory, it will simply set this
+# disable flag to true)
 """
 DISABLE_TORRENTDL = not CLI_OPTIONS.disableTorrent
 try:

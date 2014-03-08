@@ -39,6 +39,7 @@ from qtdefines import *
 from qtdialogs import *
 from ui.Wizards import WalletWizard, TxWizard
 from jasvet import verifySignature, readSigBlock
+from announcefetch import AnnounceDataFetcher
 
 # HACK ALERT: Qt has a bug in OS X where the system font settings will override
 # the app's settings when a window is activated (e.g., Armory starts, the user
@@ -111,13 +112,12 @@ class ArmoryMainWindow(QMainWindow):
       self.lastVersionsTxtHash = ''
       self.dlgCptWlt = None
       self.torrentDLState = 'Uninitialized'
+      self.announceFetcher = None
+      self.lastAnnounceUpdate = None
 
       # Kick off announcement checking, unless they explicitly disabled it
-      # The fetch happens in the background, we check the results later
-      self.announceMap = {}
-      self.fetchThread = None
-      self.lastFetchAnnounce = 0
-      self.bkgdFetchAnnouncements(True)
+      # The fetch happens in the background, we check the results periodically
+      self.setupAnnouncementFetcher()
 
       #delayed URI parsing dict
       self.delayedURIData = {}
@@ -167,11 +167,14 @@ class ArmoryMainWindow(QMainWindow):
             self.getSettingOrSetDefault('ManageSatoshi', not OS_MACOSX)
 
 
-      # If we're going into online mode, start loading blockchain
-      if self.doManageSatoshi:
-         self.startBitcoindIfNecessary()
-      else:
-         self.loadBlockchainIfNecessary()
+      # If
+      self.doTorrentBeforeAllElse = self.checkShouldRunTorrent()
+      if not self.doTorrentBeforeAllElse:
+         # If we're going into online mode, start loading blockchain
+         if self.doManageSatoshi:
+            self.startBitcoindIfNecessary()
+         else:
+            self.loadBlockchainIfNecessary()
 
       # Setup system tray and register "bitcoin:" URLs with the OS
       self.setupSystemTray()
@@ -309,11 +312,7 @@ class ArmoryMainWindow(QMainWindow):
 
       # Put the labels into scroll areas just in case window size is small.
       self.tabDashboard = QWidget()
-
-      
-
       self.SetupDashboard()
-      
 
 
       # Combo box to filter ledger display
@@ -445,11 +444,16 @@ class ArmoryMainWindow(QMainWindow):
       self.tabActivity = QWidget()
       self.tabActivity.setLayout(ledgLayout)
 
+      self.tabAnnounce = QWidget()
+      self.setupAnnounceTab()
+      
+
       # Add the available tabs to the main tab widget
       self.MAINTABS  = enum('Dashboard','Transactions')
 
       self.mainDisplayTabs.addTab(self.tabDashboard, 'Dashboard')
       self.mainDisplayTabs.addTab(self.tabActivity,  'Transactions')
+      self.mainDisplayTabs.addTab(self.tabAnnounce,  'Announcements')
 
 
       btnSendBtc   = QPushButton("Send Bitcoins")
@@ -1261,213 +1265,62 @@ class ArmoryMainWindow(QMainWindow):
 
 
    #############################################################################
-   def bkgdFetchAnnouncements(self, forceCheck=False):
+   def setupAnnouncementFetcher(self):
+      skipChk1 = self.getSettingOrSetDefault('SkipAnnounceCheck', False)
+      skipChk2 = CLI_OPTIONS.skipAnnounceCheck
+      self.skipAnnounceCheck = skipChk1 or skipChk2
 
-      self.skipAnnounceChk = skipChk or CLI_OPTIONS.skipAnnounceCheck
+      url1 = ANNOUNCE_URL
+      url2 = ANNOUNCE_URL_BACKUP
+      fetchPath = os.path.join(ARMORY_HOME_DIR, 'atisignedannounce')
+      if self.announceFetcher is None: 
+         self.announceFetcher = AnnounceDataFetcher(url1, url2, fetchPath)
+         self.announceFetcher.setDisabled(self.skipAnnounceCheck)
+         self.announceFetcher.start()
 
-      if self.fetchThread
-      self.fetchThread = self.fetchExternalAnnouncements(forceCheck, async=True)
+         # Set last-updated vals to zero to force processing at startup
+         for fid in ['changelog, downloads','notify','bootstrap']:
+            self.lastAnnounceUpdate[fid] = 0
+
+      # If we recently updated the settings to enable or disable checking...
+      if not self.announceFetcher.isRunning() and not self.skipAnnounceCheck:
+         self.announceFetcher.setDisabled(False)
+         self.announceFetcher.setFetchInterval(DEFAULT_FETCH_INTERVAL)
+         self.announceFetcher.start()
+      elif self.announceFetcher.isRunning() and self.skipAnnounceCheck:
+         self.announceFetcher.setDisabled(True)
+         self.announceFetcher.shutdown()
+
+
 
    #############################################################################
-   @AllowAsync
-   def fetchExternalAnnouncements(self, forceCheck=False):
+   def processAnnounceData(self, forceFetch=False, forceWait=5):
+
+      adf = self.announceFetcher
+
+      # The ADF always fetches everything all the time.  If forced, do the
+      # regular fetch first, then examine the individual files without forcing
+      if forceFetch:
+         adf.fetchRightNow(forceWait)
+
+      # Check each of the individual files for recent modifications
+      idFuncPairs = [ ['changelog', self.processChangelog], 
+                      ['downloads', self.processDownloads],
+                      ['notify',    self.processNotifications],
+                      ['bootstrap', self.processBootstrap] ]
+   
+      # If modified recently 
+      for fid,func in idFuncPairs:
+         if adf.getFileModTime(fid) > self.lastAnnounceUpdate[fid]:
+            self.lastAnnounceUpdate[fid] = RightNow()
+            fileText = adf.getFetchedFile(fid)
+            func(fileText)
+      
+
+            
+
+      # This was from the old checkForNewVersion code
       """
-      This function needs to be threadsafe, since it will frequently be
-      called using async=True
-
-      Arg forceCheck is usually used only on the first call, and will also
-      include extra meta data with the request to collect some statistics
-      (just OS and Armory version)
-      """
-      if not forceCheck:
-         if CLI_OPTIONS.skipAnnounceChk:
-            return False
-
-         if self.getSettingOrSetDefault('SkipAnnounceCheck', False):
-            return False
-
-      if self.fetchThread and self.fetchThread.isRunning():
-         return False
-
-      timeSinceLastFetch = long(RightNow()) - self.lastFetchAnnounce
-      if not forceCheck and timeSinceLastFetch<ANNOUNCE_FETCH_INTERVAL:
-         return False
-
-      self.lastFetchAnnounce = long(RightNow())
-      
-      try:
-         import urllib2
-         import socket
-         downloadURL = getDecoratedURL(HTTP_ANNOUNCE_FILE, forceCheck)
-         LOGINFO('Checking version URL: %s' % downloadURL)
-         socket.setdefaulttimeout(CLI_OPTIONS.nettimeout)
-         annData = urllib2.urlopen(downloadURL, timeout=CLI_OPTIONS.nettimeout)
-         annData = annData.read().strip()
-      except ImportError:
-         LOGERROR('No module urllib2 -- cannot get latest version')
-         return False
-      except (urllib2.URLError, urllib2.HTTPError):
-         LOGERROR('Could not access latest Armory announce info')
-         LOGERROR('Tried: %s', downloadURL)
-         return False
-      except:
-         LOGEXCEPT('Unspecified error getting announce info')
-         return False
-      
-
-      # We have the file from the Armory server.  Check the signature
-      try:
-         sig, msg = readSigBlock(annData)
-         signAddress = verifySignature(sig, msg, 'v1', ord(ADDRBYTE))
-         if not signAddress == ARMORY_INFO_SIGN_ADDR:
-            LOGERROR('Announce info carried invalid signature!')
-            LOGERROR('Signature addr: %s' % signAddress)
-            return False
-      except:
-         LOGEXCEPT('Could not verify data in signed message block')
-         return False
-
-
-      # We have a verified signed message.  Parse it, and fetch new files
-      try:
-         mtrx = [line.split() for line in msg.strip().split('\n')]
-         for row in mtrx:
-            if len(row)==3:
-               self.announceMap[row[0]] = [row[1], row[2]]
-            else:
-               LOGERROR('Malformed announce matrix: %s' % str(row))
-               continue
-
-         # Check whether any of the hashes have changed
-         haveNewAnnData = False
-         for key,val in self.announceMap.iteritems():
-            lastHash = self.main.getAnnounceSetting(key)
-            if not lastHash == val[1]:
-               haveNewAnnData = True
-               LOGINFO('ANNOUNCE [ "%s" ] == [%s, %s]', key, val[0], val[1])
-
-         return haveNewAnnData
-
-      except:
-         LOGEXCEPT('Could not parse announce info')
-         return False
-
-      
-
-   #############################################################################
-   def processAnnounceData(self):
-      #for key,val in self.announceMap.iteritems():
-      pass
-
-   #############################################################################
-   @AllowAsync
-   def checkForLatestVersion(self, wasRequested=False):
-      LOGDEBUG('checkForLatestVersion')
-      # Download latest versions.txt file, accumulate changelog
-      skipChk = self.getSettingOrSetDefault('SkipVersionCheck', False)
-      if CLI_OPTIONS.skipVerCheck or skipChk:
-         return
-
-      optChkVer = self.getSettingOrSetDefault('CheckVersion', 'Always')
-      if optChkVer.lower()=='never' and not wasRequested:
-         LOGINFO('User requested never check for new versions')
-         return
-
-      if wasRequested and not self.internetAvail:
-         QMessageBox.critical(self, 'Offline Mode', \
-            'You are in offline mode, which means that version information '
-            'cannot be retrieved from the internet.  Please visit '
-            'www.bitcoinarmory.com from an internet-connected computer '
-            'to get the latest version information.', QMessageBox.Ok)
-         return
-
-      versionFile = None
-      try:
-         import urllib2
-         import socket
-         downloadURL = getVersionURL(self.firstVersionCheck)
-         LOGINFO('Checking version URL: %s' % downloadURL)
-         self.firstVersionCheck = False
-         socket.setdefaulttimeout(CLI_OPTIONS.nettimeout)
-         versionLines = urllib2.urlopen(downloadURL, timeout=CLI_OPTIONS.nettimeout)
-         versionLines = versionLines.readlines()
-      except ImportError:
-         LOGERROR('No module urllib2 -- cannot get latest version')
-         return
-      except (urllib2.URLError, urllib2.HTTPError):
-         if wasRequested:
-            QMessageBox.critical(self, 'Unavailable',  \
-              'The latest Armory version information could not be retrieved.'
-              'Please check www.bitcoinarmory.com for the latest version '
-              'information.', QMessageBox.Ok)
-         LOGERROR('Could not access latest Armory version information')
-         LOGERROR('Tried: %s', downloadURL)
-         return
-      
-
-      skipVerify = False
-      #LOGERROR('**********************************TESTING CODE: REMOVE ME')
-      #versionLines = open('versions.txt','r').readlines()
-      #skipVerify = True
-      #LOGERROR('**********************************TESTING CODE: REMOVE ME')
-
-      try:
-         currLineIdx = [0]
-
-         def popNextLine(currIdx):
-            if currIdx[0] < len(versionLines):
-               outstr = versionLines[ currIdx[0] ]
-               currIdx[0] += 1
-               return outstr.strip()
-            else:
-               return None
-            
-
-         thisVerString = getVersionString(BTCARMORY_VERSION)
-         changeLog = []
-         vernum = ''
-
-         line = popNextLine(currLineIdx)
-         comments = ''
-         while line != None:
-            if not line.startswith('#') and len(line)>0:
-               if line.startswith('VERSION'):
-                  vstr = line.split(' ')[-1]
-                  myVersionInt = getVersionInt(readVersionString(thisVerString))
-                  latestVerInt = getVersionInt(readVersionString(vstr))
-                  if myVersionInt>=latestVerInt and not wasRequested:
-                     break
-                  changeLog.append([vstr, []])
-               elif line.startswith('-'):
-                  featureTitle = line[2:]
-                  changeLog[-1][1].append([featureTitle, []])
-               else:
-                  changeLog[-1][1][-1][1].append(line)
-            if line.startswith('#'):
-               comments += line+'\n'
-            line = popNextLine(currLineIdx)
-
-         # We also store the list of latest
-         self.latestVer = {}
-         self.downloadDict = {}
-         try:
-            msg = extractSignedDataFromVersionsDotTxt(comments, doVerify=(not skipVerify))
-            if len(msg)>0:
-               dldict,verstrs = parseLinkList(msg)
-               self.downloadDict = dldict.copy()
-               self.latestVer = verstrs.copy()
-               if not TheBDM.getBDMState()=='BlockchainReady':
-                  # Don't dump all this info to the log all the time
-                  LOGINFO('Latest versions:')
-                  LOGINFO('   Satoshi: %s', self.latestVer['SATOSHI'])
-                  LOGINFO('    Armory: %s', self.latestVer['ARMORY'])
-            else:
-               raise ECDSA_Error('Could not verify')
-         except:
-            LOGEXCEPT('Version check error, ignoring downloaded version info')
-            
-            
-
          if len(changeLog)==0 and not wasRequested:
             LOGINFO('You are running the latest version!')
          elif optChkVer[1:]==changeLog[0][0] and not wasRequested:
@@ -1482,6 +1335,7 @@ class ArmoryMainWindow(QMainWindow):
               'Please check www.bitcoinarmory.com for the latest version '
               'information.', QMessageBox.Ok)
          LOGEXCEPT('Error trying to parse versions.txt file')
+      """
        
 
    #############################################################################
@@ -1544,6 +1398,36 @@ class ArmoryMainWindow(QMainWindow):
       LOGINFO('The first blk*.dat was Available: %s', str(self.checkHaveBlockfiles()))
       LOGINFO('Online mode currently possible:   %s', self.onlineModeIsPossible())
 
+
+   ############################################################################
+   def checkShouldRunTorrent(self):
+      """
+      If the user does not have the blockchain yet, or is at a sufficiently 
+      early state of downloading it, we will download the bootstrap.dat file
+      from the torrent network, AND THEN start bitcoind.  Obviously, if the 
+      code doesn't exist to do the download, or the --disable-torrent flag is
+      set this returns False.  And obviously if they already have the
+      blockchain downloaded, they don't need this.  
+
+      We will employ a couple other conditions that seem reasonable, given
+      that torrent download speed is expected to be 2-10x faster.
+      """
+
+      # This flag takes into account both CLI_OPTIONs, and availability of the
+      # BitTornado library.  The user can remove the BitTornado dir and/or the
+      # torrentDL.py file without breaking Armory -- it will simply set this
+      # disable flag to true when the import fails (they might do this if they 
+      # REALLY don't trust the torrent code for whatever reason).  Of course,
+      # the less extreme option is just to run with the --disable-torrent flag.
+      if DISABLE_TORRENTDL:
+         return False
+   
+
+      if not os.path.exists(BTC_HOME_DIR):
+         return True
+      
+      btcDirExists = os.path.exists(BTC_HOME_DIR)
+      
 
    ############################################################################
    def startBitcoindIfNecessary(self):
@@ -2001,18 +1885,6 @@ class ArmoryMainWindow(QMainWindow):
       wltPropName = 'Wallet_%s_%s' % (wltID, propName)
       self.writeSetting(wltPropName, value)
 
-   ##############################################################################
-   def getAnnounceSetting(self, name):
-      settingsStr = 'LastAnnounceHash_%s' % name
-      try:
-         return self.settings.get(settingsStr)
-      except KeyError:
-         return ''
-
-   #############################################################################
-   def setAnnounceSetting(self, name, newHash):
-      settingsStr = 'LastAnnounceHash_%s' % name
-      self.writeSetting(settingsStr, newHash)
 
    #############################################################################
    def toggleIsMine(self, wltID):
@@ -3696,6 +3568,45 @@ class ArmoryMainWindow(QMainWindow):
       scrollLayout = QVBoxLayout()
       scrollLayout.addWidget(self.dashScrollArea)
       self.tabDashboard.setLayout(scrollLayout)
+
+   #############################################################################
+   def createAlertFrame(self, alertTrips):
+      """
+      Input is list of triplets, [shortDescr, longDescr, priority]
+      """
+
+      frmAlerts = QFrame()
+      layout = QGridLayout()
+      
+      
+
+   #############################################################################
+   def setupAnnounceTab(self):
+
+      self.lblAlertStr = QRichLabel('<b>Alerts:</b>')
+
+      self.lblBtcSWVersion = QRichLabel('<b>Bitcoin Software Versions:</b>')
+      self.lblBtcSWVersion = QRichLabel('<b>Bitcoin Software Versions:</b>')
+      
+      self.lblLastUpdated = QRichLabel('<b>Last Updated:</b>')
+      self.lblLastUpdated = QRichLabel('<b>Last Updated:</b>')
+      self.btnCheckForUpdates  = QPushButton('Check for Updates')
+      
+
+      self.announceScrollArea = QScrollArea()
+      self.announceScrollArea.setWidgetResizable(True)
+      self.announceScrollArea.setWidget(frmNotify)
+      scrollLayout = QVBoxLayout()
+      scrollLayout.addWidget(self.announceScrollArea)
+      self.tabAnnounce.setLayout(scrollLayout)
+
+
+
+   #############################################################################
+   def explicitCheckAnnouncements(self)
+      self.announceFetcher.fetchRightNow(3)
+      self.updateAnnounceTab()
+
 
    #############################################################################
    def installSatoshiClient(self, closeWhenDone=False):

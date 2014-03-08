@@ -1,4 +1,4 @@
 bootstrap.dat.torrent   bootstrap
-versions.txt            versions
+changelog.txt           changelog
 dllinks.txt             downloads
 notify.txt              notify
