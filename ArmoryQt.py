@@ -1265,11 +1265,11 @@ class ArmoryMainWindow(QMainWindow):
 
    #############################################################################
    def bkgdFetchAnnouncements(self, forceCheck=False):
+      pass
+      #self.skipAnnounceChk = skipChk or CLI_OPTIONS.skipAnnounceCheck
 
-      self.skipAnnounceChk = skipChk or CLI_OPTIONS.skipAnnounceCheck
-
-      if self.fetchThread
-      self.fetchThread = self.fetchExternalAnnouncements(forceCheck, async=True)
+      #if self.fetchThread
+      #self.fetchThread = self.fetchExternalAnnouncements(forceCheck, async=True)
 
    #############################################################################
    @AllowAsync

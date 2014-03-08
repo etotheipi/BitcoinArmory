@@ -3,28 +3,39 @@ from PyQt4.QtGui import * #@UnusedWildImport
 from qtdefines import tr
 from armoryengine.parseAnnounce import *
 
-downloadTestText="""
-   -----BEGIN BITCOIN SIGNED MESSAGE-----
-   # Armory for Windows
-   Armory 0.91 Windows XP        32     http://url/armory_0.91_xp32.exe  3afb9881c32
-   Armory 0.91 Windows XP        64     http://url/armory_0.91_xp64.exe  8993ab127cf
-   Armory 0.91 Windows Vista,7,8 32,64  http://url/armory_0.91.exe       7f3b9964aa3
-   
-   # Offline Bundles
-   ArmoryOffline 0.88 Ubuntu 10.04  32  http://url/offbundle-32.tar.gz   641382c93b9
-   ArmoryOffline 0.88 Ubuntu 12.10  32  http://url/offbundle-64.tar.gz   5541af39c84
+downloadTestText = """
+-----BEGIN BITCOIN SIGNED MESSAGE-----
 
-   # Windows 32-bit Satoshi (Bitcoin-Qt/bitcoind)
-   Satoshi 0.9.0 Windows XP,Vista,7,8 32,64 http://btc.org/win0.9.0.exe  118372a9ff3
-   Satoshi 0.9.0 Ubuntu  10.04        32,64 http://btc.org/win0.9.0.deb  2aa3f763c3b
+# Armory for Windows
+Armory 0.91 Windows XP        32     http://url/armory_0.91_xp32.exe  3afb9881c32
+Armory 0.91 Windows XP        64     http://url/armory_0.91_xp64.exe  8993ab127cf
+Armory 0.91 Windows Vista,7,8 32,64  http://url/armory_0.91.exe       7f3b9964aa3
 
-   Satoshi 0.8.6 Debian  4        32,64 https://bitcoin.org/bin/0.8.6/bitcoin-0.8.6-linux.tar.gz 123abc
-   
-   Armory 0.90-beta Ubuntu 12.04 32 https://s3.amazonaws.com/bitcoinarmory-releases/armory_0.90-beta_OfflineBundle_12.04-32bit.tar.gz 1584a2586d43200367eb1cd3cbe01d44836f73d31d69a7e6f684a8e422e63684
-   
-   -----BEGIN BITCOIN SIGNATURE-----
-   ac389861cff8a989ae57ae67af43cb3716ca189aa178cff893179531
-   -----END BITCOIN SIGNATURE-----
+
+# Various Ubuntu/Debian versions
+Armory 0.91 Ubuntu 10.04,10.10  32   http://url/armory_10.04-32.deb   01339a9469b59a15bedab3b90f0a9c90ff2ff712ffe1b8d767dd03673be8477f
+Armory 0.91 Ubuntu 12.10,13.04  32   http://url/armory_12.04-32.deb   5541af39c84
+Armory 0.91 Ubuntu 10.04,10.10  64   http://url/armory_10.04-64.deb   9af7613cab9
+Armory 0.91 Ubuntu 13.10        64   http://url/armory_13.10-64.deb   013fccb961a
+
+# Offline Bundles
+ArmoryOffline 0.90 Ubuntu 10.04  32  http://url/offbundle-32-90.tar.gz 641382c93b9
+ArmoryOffline 0.90 Ubuntu 12.10  32  http://url/offbundle-64-90.tar.gz 5541af39c84
+ArmoryOffline 0.88 Ubuntu 10.04  32  http://url/offbundle-32-88.tar.gz 641382c93b9
+ArmoryOffline 0.88 Ubuntu 12.10  32  http://url/offbundle-64-88.tar.gz 5541af39c84
+
+# Windows 32-bit Satoshi (Bitcoin-Qt/bitcoind)
+Satoshi 0.9.0 Windows XP,Vista,7,8 32,64 http://btc.org/win0.9.0.exe   837f6cb4981314b323350353e1ffed736badb1c8c0db083da4e5dfc0dd47cdf1
+Satoshi 0.9.0 Ubuntu  10.04        32    http://btc.org/lin0.9.0.deb   2aa3f763c3b
+Satoshi 0.9.0 Ubuntu  10.04        64    http://btc.org/lin0.9.0.deb   2aa3f763c3b
+
+-----BEGIN BITCOIN SIGNATURE-----
+
+HAZGhRr4U/utHgk9BZVOTqWcAodtHLuIq67TMSdThAiZwcfpdjnYZ6ZwmkUj0c3W
+U0zy72vLLx9mpKJQdDmV7k0=
+=i8i+
+-----END BITCOIN SIGNATURE-----
+
 """
 
 changelog = \
@@ -59,10 +70,7 @@ class UpgradeDownloader(QDialog):
       self.downloadFile = None
       self.networkAccess = QNetworkAccessManager()
       
-      #self.nestedDownloadMap = { \
-         #'Satoshi' : { '0.9.0' : { 'Windows' : { '7' : { '64' : "hash" } } } } }
-      
-      self.nestedDownloadMap = downloadLinkHandler(filetext=downloadTestText).downloadMap
+      self.nestedDownloadMap = downloadLinkParser(filetext=downloadTestText).downloadMap
       self.changelog = changelog
       
       self.localizedData = { \
@@ -225,16 +233,19 @@ class UpgradeDownloader(QDialog):
          return
          
       size = self.downloadFile.header(QNetworkRequest.ContentLengthHeader).toInt()[0]
-      print "s",size
       self.progressBar.setRange(0, size)
       self.progressBar.setValue(len(self.receivedData))
       QTimer.singleShot(250, self.progressTimer)
       
    def cascade(self, combobox, valuesfrom, nextToCascade):
       combobox.blockSignals(True)
+      current = combobox.currentText()
       combobox.clear()
       for v in valuesfrom:
          combobox.addItem(self.localized(v), QVariant(v))
+      at = combobox.findText(current)
+      if at != -1:
+         combobox.setCurrentIndex(at)
          
       nextToCascade()
       combobox.blockSignals(False)
