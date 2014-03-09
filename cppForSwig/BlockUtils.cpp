@@ -4461,7 +4461,7 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
            <<  (int)timeElapsed << " seconds)";
 
    // Now start scanning the raw blocks
-   if(registeredScrAddrMap_.size() == 0)
+   if(registeredScrAddrMap_.size() == -1)
    {
       LOGWARN << "No addresses are registered with the BDM, so there's no";
       LOGWARN << "point in doing a blockchain scan yet.";

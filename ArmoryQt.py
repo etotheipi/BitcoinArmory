@@ -4600,6 +4600,7 @@ class ArmoryMainWindow(QMainWindow):
 
    @TimeThisFunction
    def newBlockSyncRescanZC(self, prevLedgSize):
+      didAffectUs = False
       for wltID in self.walletMap.keys():
          self.walletMap[wltID].syncWithBlockchainLite()
          TheBDM.rescanWalletZeroConf(self.walletMap[wltID].cppWallet)
