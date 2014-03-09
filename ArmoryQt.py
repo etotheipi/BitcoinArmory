@@ -124,6 +124,8 @@ class ArmoryMainWindow(QMainWindow):
       self.notifyOnSend = set()
       self.notifyonRecv = set()
       self.versionNotification = {}
+      self.satoshiVersions = ['','']  # [curr, avail]
+      self.armoryVersions = [getVersionString(BTCARMORY_VERSION), '']
 
       # Kick off announcement checking, unless they explicitly disabled it
       # The fetch happens in the background, we check the results periodically
@@ -461,7 +463,7 @@ class ArmoryMainWindow(QMainWindow):
       
 
       # Add the available tabs to the main tab widget
-      self.MAINTABS  = enum('Dashboard','Transactions')
+      self.MAINTABS  = enum('Dash','Ledger','Announce')
 
       self.mainDisplayTabs.addTab(self.tabDashboard, 'Dashboard')
       self.mainDisplayTabs.addTab(self.tabActivity,  'Transactions')
@@ -514,7 +516,7 @@ class ArmoryMainWindow(QMainWindow):
       self.setMinimumSize(750,500)
 
       # Start the user at the dashboard
-      self.mainDisplayTabs.setCurrentIndex(self.MAINTABS.Dashboard)
+      self.mainDisplayTabs.setCurrentIndex(self.MAINTABS.Dash)
 
       from twisted.internet import reactor
       # Show the appropriate information on the dashboard
@@ -1384,36 +1386,60 @@ class ArmoryMainWindow(QMainWindow):
          dlp = downloadLinkParser()
          self.downloadLinks = dlp.parseDownloadList(txt)
 
+         # Check ARMORY versions
          if not 'Armory' in self.downloadLinks:
-            return
-         
+            LOGWARN('No Armory links in the downloads list')
+         else:
+            thisVer = getVersionInt(BTCARMORY_VERSION) 
+            maxVer = thisVer # start at currentVer
+            self.versionNotification = {}
+            for verStr,vermap in self.downloadLinks['Armory']:
+               dlVer = getVersionInt(readVersionString(verStr))
+               if dlVer > maxVer:
+                  maxVer = dlVer
+                  notifyID = binary_to_hex(hash256(shortDescr)[:4])
+                  self.versionNotification['UNIQUEID'] = notifyID
+                  self.versionNotification['VERSION'] = '0'
+                  self.versionNotification['STARTTIME'] = '0'
+                  self.versionNotification['EXPIRES'] = '%d' % long(UINT64_MAX)
+                  self.versionNotification['CANCELID'] = '[]'
+                  self.versionNotification['MINVERSION'] = '*'
+                  self.versionNotification['MAXVERSION'] = '<%s' % verStr
+                  self.versionNotification['PRIORITY'] = '3072'
+                  self.versionNotification['NOTIFYSEND'] = 'False'
+                  self.versionNotification['NOTIFYRECV'] = 'False'
+                  self.versionNotification['SHORTDESCR'] = \
+                        tr('Armory version %s is now available!') % verStr
+                  self.versionNotification['LONGDESCR'] = \
+                        self.getVersionNotifyLongDescr(verStr)
+                  self.armoryVersions[1] = verStr
+   
+      
+         # For Satoshi updates, we don't trigger any notifications like we
+         # do for Armory above -- we will release a proper announcement if
+         # necessary.  But we want to set a flag to 
+         if not 'Satoshi' in self.downloadLinks:
+            LOGWARN('No Satoshi links in the downloads list')
+         else:
+            thisVerStr = self.NetworkingFactory.proto.peerInfo['subver']
+            thisVerStr = thisVerStr.strip('/').split(':')[-1]
+            if sum([0 if c in '0123456789.' else 1 for c in thisVerStr]) > 0:
+               return
+   
+            self.satoshiVersions[0] = thisVerStr
+               
+            maxVer = readVersionString(thisVerStr)
+            for verStr,vermap in self.downloadLinks['Armory']:
+               dlVer = getVersionInt(readVersionString(verStr))
+               if dlVer > maxVer:
+                  maxVer = dlVer
+                  self.satoshiVersions[1] = verStr
+            
+
          thisVer = getVersionInt(BTCARMORY_VERSION) 
          maxVer = thisVer # start at currentVer
          self.versionNotification = {}
          for verStr,vermap in self.downloadLinks['Armory']:
-            dlVer = getVersionInt(readVersionString(verStr))
-            if dlVer > maxVer:
-               maxVer = dlVer
-               shortDescr = 
-               notifyid = hash256(shortDescr)
-               self.versionNotification['VERSION'] = '0'
-               self.versionNotification['STARTTIME'] = '0'
-               self.versionNotification['EXPIRES'] = '%d' % long(UINT64_MAX)
-               self.versionNotification['CANCELID'] = '[]'
-               self.versionNotification['MINVERSION'] = '*'
-               self.versionNotification['MAXVERSION'] = '<%s' % verStr
-               self.versionNotification['PRIORITY'] = '3072'
-               self.versionNotification['NOTIFYSEND'] = 'False'
-               self.versionNotification['NOTIFYRECV'] = 'False'
-               self.versionNotification['SHORTDESCR'] = \
-                     tr('Armory version %s is now available!') % verStr
-               self.versionNotification['LONGDESCR'] = \
-                     self.getVersionNotifyLongDescr(verStr)
-
-         # If we actually found a new notification, add it to our list 
-         if maxVer > thisVer:
-      
-
       except:
          # Don't crash on an error, but do log what happened
          LOGEXCEPT('Failed to parse download link data')
@@ -1433,40 +1459,38 @@ class ArmoryMainWindow(QMainWindow):
       if shortOS is not None:
          webURL += '#' + shortOS
 
-      startStr = tr("""
+      return tr("""
          Your version of Armory is now outdated.  Please upgrade to version 
-         %s through our <a href="dlgSecureDownload">secure downloader</a>.
+         %s through our <font color="red"><a href="dlgSecureDownload">secure 
+         downloader inside Armory</a></font>.
          Alternatively, you can get the new version from our website
          downloads page at:
          <br><br>
-         %s
-         """) (verStr, webURL)
+         %s """) (verStr, webURL)
 
-      if len(self.changelog) == 0:
-         LOGERROR('No changelog available for version %s' % verStr)
-         return startStr
-
+      
+            
+   #############################################################################
+   def getChangelogText(self, verStr):
       releaseDate = None
       changeList  = None
       for ver,date,updList in self.changelog:
          if chngVer == verStr:
             releaseDate = date
-            changeLogList = updList[:]
+            changeList = updList[:]
             break
       else:
          LOGERROR('Could not find changelog info for version %s' % verStr
-         return startStr
+         return None
 
-      changeStr = '<b>Update information for version %s</b><br>' % verStr
+      changeStr = tr('<b>Update information for version %s</b><br>') % verStr
       if releaseDate:
          changeStr += tr("""<u>Release Date</u>: %s<br><br>""") % releaseDate
 
       for strHeader,strLong in changeList:
          changeStr += '<u>%s:</u> %s<br>' % (strHeader, strLong)
 
-      return startStr + h
-      
-            
+      return changeStr
          
 
 
@@ -1480,30 +1504,153 @@ class ArmoryMainWindow(QMainWindow):
          # Don't crash on an error, but do log what happened
          LOGEXCEPT('Failed to write/copy torrent file')
          
-       
+
+
+   #############################################################################
+   def notificationIsRelevant(self, notifyMap):
+      currTime = RightNow()
+      thisVerInt = getVersionInt(BTCARMORY_VERSION)
+
+      if notifyMap['STARTTIME'].isdigit():
+         if currTime < long(notifyMap['STARTTIME']):
+            return False
+
+      if notifyMap['EXPIRES'].isdigit():
+         if currTime > long(notifyMap['EXPIRES'])
+            return False
+
+
+      try:
+         minVerStr  = notifyMap['MINVERSION']
+         minExclude = minVerStr.startswith('>')
+         minVerStr  = minVerStr[1:] if minExclude else minVerStr
+         minVerInt  = getVersionInt(readVersionString(minVerStr))
+         minVerInt += 1 if minExclude else 0
+         if thisVerInt < minVerInt:
+            return False
+      except:
+         LOGERROR('Could not read minver string: %s', minVerStr)
+
+         
+      try:
+         maxVerStr  = notifyMap['MAXVERSION']
+         maxExclude = maxVerStr.startswith('<')
+         maxVerStr  = maxVerStr[1:] if maxExclude else maxVerStr
+         maxVerInt  = getVersionInt(readVersionString(maxVerStr))
+         minVerInt -= 1 if gtstrict else 0
+         if thisVerInt > maxVerInt:
+            return False
+      except:
+         LOGERROR('Could not read maxver string: %s', maxVerStr)
+
+      return True
+
+    
    #############################################################################
    def processNotifications(self, txt):
-      # Keep in mind this will always be run on startup with a blank slate, as
+   # Keep in mind this will always be run on startup with a blank slate, as
       # well as every 30 min while Armory is running.  All notifications are 
       # "new" on startup (though we will allow the user to do-not-show-again
       # and store the notification ID in the settings file).
       try:
          np = notifyParser()  
-         newNotifications = np.parseNotificationText(txt)
+         currNotificationList = np.parseNotificationText(txt)
       except:
          # Don't crash on an error, but do log what happened
          LOGEXCEPT('Failed to parse notifications')
 
+      if self.versionNotification and 'UNIQUEID' in self.versionNotification:
+         nid = vnotify['UNIQUEID']
+         currNotificationList[nid] = vnotify
 
+      tabPriority = 0
+      maxPriorityID = None
+
+      # Check for new notifications
       addedNotify = []
-      for nid,valmap in newNotifications.iteritems():
+      notificationsToRemove = set()
+      for nid,valmap in currNotificationList.iteritems():
+         if not self.notificationIsRelevant(valmap):
+            # Can't remove while iterating over the map
+            notificationsToRemove.add(nid)
+            continue
+
+         if valmap['PRIORITY'].isdigit():
+            if nid not in self.ignoreAnnounceList:
+               tabPriority = max(tabPriority, int(valmap['PRIORITY']))
+               maxPriorityID = nid
+
          if not nid in self.notifications:
             addedNotify.append(nid)
+
+      # Now remove them from the set that we 
+      for nid in notificationsToRemove:
+         del currNotificationList[nid]
       
+      # Check for notifications we had before but no long have
+      # Not sure we use this for anything, yet
       removedNotify = []
       for nid,valmap in self.notifications.iteritems():
-         if not nid in newNotifications:
+         if not nid in currNotificationList:
             removedNotify.append(nid)
+
+
+
+      tabWidgetBar = self.mainDisplayTabs.tabBar()
+      tabColor = Colors.Foreground
+      if tabPriority >= 2048:
+         tabColor = Colors.SlightBlue
+      if tabPriority >= 3072:
+         tabColor = Colors.SlightRed
+      if tabPriority >= 4096:
+         tabColor = Colors.TextRed
+      if tabPriority >= 5120:
+         tabColor = Colors.TextRed
+
+      tabWidgetBar.setTabTextColor(self.MAINTABS.Announce, tabColor)
+      self.updateAnnounceTab()
+
+      # If it's important enough, also do a popup
+      if tabPriority >= 5120:
+         QMessageBox.critical(self, tr('Critical Alert'), tr("""
+            Armory Technologies, Inc. has issued a critical alert regarding
+            using Armory and/or the Bitcoin network itself:
+            <br><br>
+            <b>%s</b>
+            <br><br>
+            View more information on the "Announcements" tab of the main 
+            window.""") % currNotificationList[maxPriorityID]['SHORTDESCR'], 
+            QMessageBox.Ok)
+         self.mainDisplayTabs.setCurrentIndex(self.MAINTABS.Announce)
+      
+      elif tabPriority >= 4096:
+         QMessageBox.critical(self, tr('Alert'), tr("""
+            Armory Technologies, Inc. has issued an alert regarding
+            using Armory and/or the Bitcoin network itself:
+            <br><br>
+            <b>%s</b>
+            <br><br>
+            Click the "Announcements" next to the ledger on the main window
+            for more information about this alert""") % \
+            currNotificationList[maxPriorityID]['SHORTDESCR'], QMessageBox.Ok)
+
+      elif self.versionNotification:
+         # Don't normally need to popup priority=3072 announcements, but we 
+         # do want to if it's for a new Armory version
+         QMessageBox.critical(self, tr('Alert'), tr("""
+            Armory Technologies, Inc. has released a new version of the
+            Armory software:
+            <br><br>
+            <b>%s</b>
+            <br><br>
+            Click the "Announcements" next to the ledger on the main window
+            for more information about this alert.""") % \
+            self.versionNotification['SHORTDESCR'], QMessageBox.Ok)
+            
+           
+         
+         
+
 
 
    #############################################################################
@@ -2283,7 +2430,7 @@ class ArmoryMainWindow(QMainWindow):
             if remember==True:
                self.writeSetting('NotifyBlkFinish',False)
          else:
-            self.mainDisplayTabs.setCurrentIndex(self.MAINTABS.Transactions)
+            self.mainDisplayTabs.setCurrentIndex(self.MAINTABS.Ledger)
 
                
          self.netMode = NETWORKMODE.Full
@@ -2917,7 +3064,7 @@ class ArmoryMainWindow(QMainWindow):
                    % (searchstr,searchstr[:8]), \
                   QMessageBox.Ok)
                   
-         self.mainDisplayTabs.setCurrentIndex(self.MAINTABS.Transactions)
+         self.mainDisplayTabs.setCurrentIndex(self.MAINTABS.Ledger)
          reactor.callLater(4, sendGetDataMsg)
          reactor.callLater(5, checkForTxInBDM)
 
@@ -3846,6 +3993,10 @@ class ArmoryMainWindow(QMainWindow):
       self.tabAnnounce.setLayout(scrollLayout)
 
 
+   #############################################################################
+   def updateAnnounceTab(self):
+      
+
 
    #############################################################################
    def explicitCheckAnnouncements(self)
@@ -4499,7 +4650,7 @@ class ArmoryMainWindow(QMainWindow):
             setBtnRowVisible(DASHBTNS.Close, False)
    
             if not (self.forceOnline or self.internetAvail) or CLI_OPTIONS.offline:
-               self.mainDisplayTabs.setTabEnabled(self.MAINTABS.Transactions, False)
+               self.mainDisplayTabs.setTabEnabled(self.MAINTABS.Ledger, False)
                setOnlyDashModeVisible()
                self.lblDashModeSync.setText( 'Armory is <u>offline</u>', \
                                             size=4, color='TextWarn', bold=True)
@@ -4535,7 +4686,7 @@ class ArmoryMainWindow(QMainWindow):
                   self.lblDashDescr2.setText(descr2)
             elif not TheSDM.isRunningBitcoind():
                setOnlyDashModeVisible()
-               self.mainDisplayTabs.setTabEnabled(self.MAINTABS.Transactions, False)
+               self.mainDisplayTabs.setTabEnabled(self.MAINTABS.Ledger, False)
                self.lblDashModeSync.setText( 'Armory is <u>offline</u>', \
                                             size=4, color='TextWarn', bold=True)
                # Bitcoind is not being managed, but we want it to be
@@ -4629,7 +4780,7 @@ class ArmoryMainWindow(QMainWindow):
             else:  # online detected/forced, and TheSDM has already been started
                if sdmState in ['BitcoindWrongPassword', 'BitcoindNotAvailable']:
                   setOnlyDashModeVisible()
-                  self.mainDisplayTabs.setTabEnabled(self.MAINTABS.Transactions, False)
+                  self.mainDisplayTabs.setTabEnabled(self.MAINTABS.Ledger, False)
                   LOGINFO('Dashboard switched to auto-BadConnection')
                   self.lblDashModeSync.setText( 'Armory is <u>offline</u>', \
                                             size=4, color='TextWarn', bold=True)
@@ -4639,7 +4790,7 @@ class ArmoryMainWindow(QMainWindow):
                   self.lblDashDescr2.setText(descr2)
                elif sdmState in ['BitcoindInitializing', 'BitcoindSynchronizing']:
                   LOGINFO('Dashboard switched to auto-InitSync')
-                  self.mainDisplayTabs.setTabEnabled(self.MAINTABS.Transactions, False)
+                  self.mainDisplayTabs.setTabEnabled(self.MAINTABS.Ledger, False)
                   self.updateSyncProgress()
                   setSyncRowVisible(True)
                   setScanRowVisible(True)
@@ -4676,7 +4827,7 @@ class ArmoryMainWindow(QMainWindow):
          if bdmState in ('Offline', 'Uninitialized'):
             if onlineAvail and not self.lastBDMState[1]==onlineAvail:
                LOGINFO('Dashboard switched to user-OfflineOnlinePoss')
-               self.mainDisplayTabs.setTabEnabled(self.MAINTABS.Transactions, False)
+               self.mainDisplayTabs.setTabEnabled(self.MAINTABS.Ledger, False)
                setOnlyDashModeVisible()
                self.lblBusy.setVisible(False)
                self.btnModeSwitch.setVisible(True)
@@ -4687,7 +4838,7 @@ class ArmoryMainWindow(QMainWindow):
                descr += self.GetDashFunctionalityText('Offline')
                self.lblDashDescr1.setText(descr)
             elif not onlineAvail and not self.lastBDMState[1]==onlineAvail:
-               self.mainDisplayTabs.setTabEnabled(self.MAINTABS.Transactions, False)
+               self.mainDisplayTabs.setTabEnabled(self.MAINTABS.Ledger, False)
                setOnlyDashModeVisible()
                self.lblBusy.setVisible(False)
                self.btnModeSwitch.setVisible(False)
@@ -4716,7 +4867,7 @@ class ArmoryMainWindow(QMainWindow):
    
          elif bdmState == 'BlockchainReady':
             setOnlyDashModeVisible()
-            self.mainDisplayTabs.setTabEnabled(self.MAINTABS.Transactions, True)
+            self.mainDisplayTabs.setTabEnabled(self.MAINTABS.Ledger, True)
             self.lblBusy.setVisible(False)
             if self.netMode == NETWORKMODE.Disconnected:
                self.btnModeSwitch.setVisible(False)
@@ -4728,7 +4879,7 @@ class ArmoryMainWindow(QMainWindow):
                LOGINFO('Dashboard switched to online-but-dirty mode')
                self.btnModeSwitch.setVisible(True)
                self.btnModeSwitch.setText('Rescan Now')
-               self.mainDisplayTabs.setCurrentIndex(self.MAINTABS.Dashboard)
+               self.mainDisplayTabs.setCurrentIndex(self.MAINTABS.Dash)
                self.lblDashModeSync.setText( 'Armory is online, but needs to rescan ' \
                               'the blockchain</b>', size=4, color='TextWarn', bold=True)
                if len(self.sweepAfterScanList) > 0:
@@ -4740,12 +4891,12 @@ class ArmoryMainWindow(QMainWindow):
                LOGINFO('Dashboard switched to fully-online mode')
                self.btnModeSwitch.setVisible(False)
                self.lblDashModeSync.setText( 'Armory is online!', color='TextGreen', size=4, bold=True)
-               self.mainDisplayTabs.setTabEnabled(self.MAINTABS.Transactions, True)
+               self.mainDisplayTabs.setTabEnabled(self.MAINTABS.Ledger, True)
                descr  = self.GetDashStateText('User', 'OnlineFull1')
                descr += self.GetDashFunctionalityText('Online')
                descr += self.GetDashStateText('User', 'OnlineFull2')
                self.lblDashDescr1.setText(descr)
-            #self.mainDisplayTabs.setCurrentIndex(self.MAINTABS.Dashboard)
+            #self.mainDisplayTabs.setCurrentIndex(self.MAINTABS.Dash)
          elif bdmState == 'Scanning':
             LOGINFO('Dashboard switched to "Scanning" mode')
             self.updateSyncProgress()
@@ -4770,7 +4921,7 @@ class ArmoryMainWindow(QMainWindow):
             if len(str(self.lblDashModeScan.text()).strip()) == 0:
                self.lblDashModeScan.setText( 'Preparing Databases', \
                                           size=4, bold=True, color='Foreground')
-            self.mainDisplayTabs.setTabEnabled(self.MAINTABS.Transactions, False)
+            self.mainDisplayTabs.setTabEnabled(self.MAINTABS.Ledger, False)
    
             if len(self.walletMap)==0:
                descr = self.GetDashStateText('User','ScanNoWallets')
@@ -4781,7 +4932,7 @@ class ArmoryMainWindow(QMainWindow):
             descr += self.GetDashFunctionalityText('Scanning') + '<br>'
             self.lblDashDescr1.setText(descr)
             self.lblDashDescr2.setText('')
-            self.mainDisplayTabs.setCurrentIndex(self.MAINTABS.Dashboard)
+            self.mainDisplayTabs.setCurrentIndex(self.MAINTABS.Dash)
          else:
             LOGERROR('What the heck blockchain mode are we in?  %s', bdmState)
    

@@ -9098,31 +9098,31 @@ class DlgVersionNotify(ArmoryDialog):
       lblDescr = QRichLabel('')
 
       if self.myVersion >= self.latestVer:
-         lblDescr = QRichLabel(\
-            '<font size=4><u><b>Your Armory installation is up-to-date!</b>'
-            '</u></font>'
-            '<br><br>'
-            '<b>Installed Version</b>: %s'
-            '<br><br>'
-            'When they become available, you can find and download new '
-            'versions of Armory from:<br><br> '
-            '<a href="https://bitcoinarmory.com/download/">'
-            'https://bitcoinarmory.com/download</a> ' % self.myVersionStr)
+         lblDescr = QRichLabel(tr("""
+            <font size=4><u><b>Your Armory installation is up-to-date!</b>
+            </u></font>
+            <br><br>
+            <b>Installed Version</b>: %s
+            <br><br>
+            When they become available, you can find and download new 
+            versions of Armory from:<br><br> 
+            <a href="https://bitcoinarmory.com/download/">
+            https://bitcoinarmory.com/download</a> """) % self.myVersionStr)
 
       else:
-         lblDescr = QRichLabel(\
-            '<font size=4><u><b>There is a new version of Armory available!</b>'
-            '</u></font>'
-            '<br><br>'
-            '<b>Current Version</b>: %s<br>'
-            '<b>Lastest Version</b>: %s'
-            '<br><br>'
-            'Please visit the '
-            '<a href="https://bitcoinarmory.com/download">Armory '
-            'download page</a> (https://bitcoinarmory.com/download) '
-            'to get the most recent version. '
-            '<b>All your wallets and settings will remain untouched when you '
-            'reinstall Armory.</b>' % (self.myVersionStr, self.latestVerStr))
+         lblDescr = QRichLabel( tr("""
+            <font size=4><u><b>There is a new version of Armory available!</b>
+            </u></font>
+            <br><br>
+            <b>Current Version</b>: %s<br>
+            <b>Lastest Version</b>: %s
+            <br><br>
+            Please visit the 
+            <a href="https://bitcoinarmory.com/download">Armory 
+            download page</a> (https://bitcoinarmory.com/download) 
+            to get the most recent version. 
+            <b>All your wallets and settings will remain untouched when you 
+            reinstall Armory.</b>""") % (self.myVersionStr, self.latestVerStr))
 
       lblDescr.setOpenExternalLinks(True)
 
