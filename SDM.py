@@ -43,8 +43,8 @@ def satoshiIsAvailable(host='127.0.0.1', port=BITCOIN_PORT, timeout=0.01):
 ################################################################################
 def extractSignedDataFromVersionsDotTxt(wholeFile, doVerify=True):
    """
-   This method returns a pair: a dictionary to lookup link by OS, and 
-   a formatted string that is sorted by OS, and re-formatted list that 
+   This method returns a pair: a dictionary to lookup link by OS, and
+   a formatted string that is sorted by OS, and re-formatted list that
    will hash the same regardless of original format or ordering
    """
 
@@ -61,13 +61,13 @@ def extractSignedDataFromVersionsDotTxt(wholeFile, doVerify=True):
       LOGERROR('No signed data block found')
       return ''
 
-   
+
    if doVerify:
       Pub = SecureBinaryData(hex_to_binary(ARMORY_INFO_SIGN_PUBLICKEY))
       Msg = SecureBinaryData(MSGRAW)
       Sig = SecureBinaryData(hex_to_binary(SIGHEX))
       isVerified = CryptoECDSA().VerifyData(Msg, Sig, Pub)
-   
+
       if not isVerified:
          LOGERROR('Signed data block failed verification!')
          return ''
@@ -79,12 +79,12 @@ def extractSignedDataFromVersionsDotTxt(wholeFile, doVerify=True):
 
 ################################################################################
 def parseLinkList(theData):
-   """ 
+   """
    Plug the verified data into here...
    """
    DLDICT,VERDICT = {},{}
    sectStr = None
-   for line in theData.split('\n'): 
+   for line in theData.split('\n'):
       pcs = line[1:].split()
       if line.startswith('# SECTION-') and 'INSTALLERS' in line:
          sectStr = pcs[0].split('-')[-1]
@@ -94,7 +94,7 @@ def parseLinkList(theData):
          if len(pcs)>1:
             VERDICT[sectStr] = pcs[-1]
          continue
-      
+
       if len(pcs)==3 and pcs[1].startswith('http'):
          DLDICT[sectStr][pcs[0]] = pcs[1:]
 
@@ -102,13 +102,13 @@ def parseLinkList(theData):
 
 
 
-   
+
 
 ################################################################################
 # jgarzik'sjj jsonrpc-bitcoin code -- stupid-easy to talk to bitcoind
 class SatoshiDaemonManager(object):
    """
-   Use an existing implementation of bitcoind 
+   Use an existing implementation of bitcoind
    """
 
    class BitcoindError(Exception): pass
@@ -125,7 +125,7 @@ class SatoshiDaemonManager(object):
       self.satoshiHome = None
       self.bitconf = {}
       self.proxy = None
-      self.bitcoind = None  
+      self.bitcoind = None
       self.isMidQuery = False
       self.last20queries = []
       self.disabled = False
@@ -191,7 +191,7 @@ class SatoshiDaemonManager(object):
       self.readBitcoinConf(makeIfDNE=True)
 
 
-   
+
 
 
    #############################################################################
@@ -203,13 +203,13 @@ class SatoshiDaemonManager(object):
             self.stopBitcoind()
 
       self.disabled = newBool
-            
+
 
    #############################################################################
    def getAllFoundExe(self):
       return list(self.foundExe)
-      
-      
+
+
    #############################################################################
    def findBitcoind(self, extraSearchPaths=[]):
       self.foundExe = []
@@ -218,15 +218,15 @@ class SatoshiDaemonManager(object):
 
       if OS_WINDOWS:
          # Making sure the search path argument comes with /daemon and /Bitcoin on Windows
-         
+
          searchPaths.extend([os.path.join(sp, 'Bitcoin') for sp in searchPaths])
          searchPaths.extend([os.path.join(sp, 'daemon') for sp in searchPaths])
-                  
+
          # First check desktop for links
          possBaseDir = []
          home      = os.path.expanduser('~')
-         desktop   = os.path.join(home, 'Desktop') 
-         
+         desktop   = os.path.join(home, 'Desktop')
+
          if os.path.exists(desktop):
             dtopfiles = os.listdir(desktop)
             for path in [os.path.join(desktop, fn) for fn in dtopfiles]:
@@ -237,18 +237,18 @@ class SatoshiDaemonManager(object):
                   targDir = os.path.dirname(targ)
                   LOGINFO('Found Bitcoin-Qt link on desktop: %s', targDir)
                   possBaseDir.append( targDir )
-         
+
          # Also look in default place in ProgramFiles dirs
 
          from platform import machine
          if '64' in machine():
-            possBaseDir.append(os.getenv('PROGRAMFILES(X86)'))                    
+            possBaseDir.append(os.getenv('PROGRAMFILES(X86)'))
             possBaseDir.append(os.getenv("ProgramW6432"))
          else:
             possBaseDir.append(os.getenv('PROGRAMFILES'))
-         
 
-         # Now look at a few subdirs of the 
+
+         # Now look at a few subdirs of the
          searchPaths.extend(possBaseDir)
          searchPaths.extend([os.path.join(p, 'Bitcoin', 'daemon') for p in possBaseDir])
          searchPaths.extend([os.path.join(p, 'daemon') for p in possBaseDir])
@@ -280,11 +280,11 @@ class SatoshiDaemonManager(object):
                LOGINFO('"whereis" returned: %s', str(locs))
                self.foundExe.extend(locs)
          except:
-            LOGEXCEPT('Error executing "whereis" command') 
-                         
+            LOGEXCEPT('Error executing "whereis" command')
+
 
       # For logging purposes, check that the first answer matches one of the
-      # extra search paths.  There should be some kind of notification that 
+      # extra search paths.  There should be some kind of notification that
       # their supplied search path was invalid and we are using something else.
       if len(self.foundExe)>0 and len(extraSearchPaths)>0:
          foundIt = False
@@ -338,7 +338,7 @@ class SatoshiDaemonManager(object):
             LOGERROR('(it usually is, but Armory cannot guarantee it ')
             LOGERROR('on XP systems):')
             LOGERROR('    %s', bitconf)
-         else: 
+         else:
             LOGINFO('Setting permissions on bitcoin.conf')
             import win32api
             username = win32api.GetUserName()
@@ -349,8 +349,8 @@ class SatoshiDaemonManager(object):
       else:
          LOGINFO('Setting permissions on bitcoin.conf')
          os.chmod(bitconf, stat.S_IRUSR | stat.S_IWUSR)
-               
-            
+
+
       with open(bitconf,'r') as f:
          # Find the last character of the each line:  either a newline or '#'
          endchr = lambda line: line.find('#') if line.find('#')>1 else len(line)
@@ -392,7 +392,7 @@ class SatoshiDaemonManager(object):
          LOGERROR('Non-ASCII character in bitcoin.conf (rpcpassword)!')
 
       self.bitconf['host'] = '127.0.0.1'
-      
+
 
 
    #############################################################################
@@ -409,7 +409,7 @@ class SatoshiDaemonManager(object):
 
       if not os.path.exists(self.executable):
          raise self.BitcoindError, 'Could not find bitcoind'
-   
+
 
       pargs = [self.executable]
 
@@ -425,12 +425,12 @@ class SatoshiDaemonManager(object):
       try:
          # Don't want some strange error in this size-check to abort loading
          blocksdir = os.path.join(self.satoshiHome, 'blocks')
-         sz = long(0) 
+         sz = long(0)
          if os.path.exists(blocksdir):
             for fn in os.listdir(blocksdir):
                fnpath = os.path.join(blocksdir, fn)
                sz += long(os.path.getsize(fnpath))
-         
+
          if sz < 5*GIGABYTE:
             if SystemSpecs.Memory>9.0:
                pargs.append('-dbcache=2000')
@@ -440,11 +440,11 @@ class SatoshiDaemonManager(object):
                pargs.append('-dbcache=500')
       except:
          LOGEXCEPT('Failed size check of blocks directory')
-               
+
 
       # Startup bitcoind and get its process ID (along with our own)
       self.bitcoind = launchProcess(pargs)
-                                       
+
       self.btcdpid  = self.bitcoind.pid
       self.selfpid  = os.getpid()
 
@@ -453,7 +453,7 @@ class SatoshiDaemonManager(object):
 
       # Startup guardian process -- it will watch Armory's PID
       gpath = self.getGuardianPath()
-      pargs = [gpath, str(self.selfpid), str(self.btcdpid)] 
+      pargs = [gpath, str(self.selfpid), str(self.btcdpid)]
       if not OS_WINDOWS:
          pargs.insert(0, 'python')
       launchProcess(pargs)
@@ -472,16 +472,16 @@ class SatoshiDaemonManager(object):
 
       time.sleep(1)
       self.bitcoind = None
-      
+
 
    #############################################################################
    def isRunningBitcoind(self):
-      """ 
-      armoryengine satoshiIsAvailable() only tells us whether there's a 
-      running bitcoind that is actively responding on its port.  But it 
+      """
+      armoryengine satoshiIsAvailable() only tells us whether there's a
+      running bitcoind that is actively responding on its port.  But it
       won't be responding immediately after we've started it (still doing
-      startup operations).  If bitcoind was started and still running, 
-      then poll() will return None.  Any othe poll() return value means 
+      startup operations).  If bitcoind was started and still running,
+      then poll() will return None.  Any othe poll() return value means
       that the process terminated
       """
       if self.bitcoind==None:
@@ -498,7 +498,7 @@ class SatoshiDaemonManager(object):
                for line in self.btcErr.split('\n'):
                   LOGWARN(line)
          return self.bitcoind.poll()==None
-      
+
    #############################################################################
    def wasRunningBitcoind(self):
       return (not self.bitcoind==None)
@@ -506,17 +506,17 @@ class SatoshiDaemonManager(object):
    #############################################################################
    def bitcoindIsResponsive(self):
       return satoshiIsAvailable(self.bitconf['host'], self.bitconf['rpcport'])
-   
+
    #############################################################################
    def getSDMState(self):
-      """ 
+      """
       As for why I'm doing this:  it turns out that between "initializing"
       and "synchronizing", bitcoind temporarily stops responding entirely,
       which causes "not-available" to be the state.  I need to smooth that
-      out because it wreaks havoc on the GUI which will switch to showing 
+      out because it wreaks havoc on the GUI which will switch to showing
       a nasty error.
       """
-         
+
       state = self.getSDMStateLogic()
       self.circBufferState.append(state)
       self.circBufferTime.append(RightNow())
@@ -527,15 +527,15 @@ class SatoshiDaemonManager(object):
          self.circBufferTime  = self.circBufferTime[1:]
 
       # Here's where we modify the output to smooth out the gap between
-      # "initializing" and "synchronizing" (which is a couple seconds 
-      # of "not available").   "NotAvail" keeps getting added to the 
-      # buffer, but if it was "initializing" in the last 5 seconds, 
+      # "initializing" and "synchronizing" (which is a couple seconds
+      # of "not available").   "NotAvail" keeps getting added to the
+      # buffer, but if it was "initializing" in the last 5 seconds,
       # we will keep "initializing"
       if state=='BitcoindNotAvailable':
          if 'BitcoindInitializing' in self.circBufferState:
             LOGWARN('Overriding not-available message. This should happen 0-5 times')
             return 'BitcoindInitializing'
-      
+
       return state
 
    #############################################################################
@@ -554,7 +554,7 @@ class SatoshiDaemonManager(object):
 
       if self.bitcoind==None and latestInfo['error']=='Uninitialized':
          return 'BitcoindNeverStarted'
-   
+
       if not self.isRunningBitcoind():
          # Not running at all:  either never started, or process terminated
          if not self.btcErr==None and len(self.btcErr)>0:
@@ -575,7 +575,7 @@ class SatoshiDaemonManager(object):
          return 'BitcoindInitializing'
       else:
          # If it's responsive, get the top block and check
-         # TODO: These conditionals are based on experimental results.  May 
+         # TODO: These conditionals are based on experimental results.  May
          #       not be accurate what the specific errors mean...
          if latestInfo['error']=='ValueError':
             return 'BitcoindWrongPassword'
@@ -599,9 +599,9 @@ class SatoshiDaemonManager(object):
                return 'BitcoindSynchronizing'
             else:
                return 'BitcoindReady'
-            
 
-        
+
+
 
    #############################################################################
    def createProxy(self, forceNew=False):
@@ -620,7 +620,7 @@ class SatoshiDaemonManager(object):
       self.isMidQuery = True
       try:
          numblks = self.proxy.getinfo()['blocks']
-         blkhash = self.proxy.getblockhash(numblks) 
+         blkhash = self.proxy.getblockhash(numblks)
          toptime = self.proxy.getblock(blkhash)['time']
          #LOGDEBUG('RPC Call: numBlks=%d, toptime=%d', numblks, toptime)
          # Only overwrite once all outputs are retrieved
@@ -648,7 +648,7 @@ class SatoshiDaemonManager(object):
          LOGEXCEPT('ValueError in bkgd req top blk')
          self.lastTopBlockInfo['error'] = 'ValueError'
       except authproxy.JSONRPCException:
-         # This seems to happen when bitcoind is overwhelmed... not quite ready 
+         # This seems to happen when bitcoind is overwhelmed... not quite ready
          LOGDEBUG('generic jsonrpc exception')
          self.lastTopBlockInfo['error'] = 'JsonRpcException'
       except socket.error:
@@ -671,19 +671,19 @@ class SatoshiDaemonManager(object):
       to respond to JSON-RPC calls!  We must do it in the background...
 
       If it's already querying, no need to kick off another background request,
-      just return the last value, which may be "stale" but we don't really 
+      just return the last value, which may be "stale" but we don't really
       care for this particular use-case
       """
       if not self.isRunningBitcoind():
-         return   
+         return
 
       if self.isMidQuery:
-         return 
+         return
 
       self.createProxy()
       self.queryThread = PyBackgroundThread(self.__backgroundRequestTopBlock)
       self.queryThread.start()
-      
+
 
    #############################################################################
    def getTopBlockInfo(self):
@@ -704,7 +704,7 @@ class SatoshiDaemonManager(object):
          raise self.BitcoindError, 'callJSON while %s'%state
 
       return self.proxy.__getattr__(func)(*args)
-   
+
 
    #############################################################################
    def returnSDMInfo(self):
