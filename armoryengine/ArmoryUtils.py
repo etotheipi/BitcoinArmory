@@ -892,7 +892,7 @@ except:
    DISABLE_TORRENTDL = True
 
 # We only use BITTORRENT for mainnet
-if USE_TESTNET:
+if USE_TESTNET or CLI_OPTIONS.offline:
    DISABLE_TORRENTDL = True
 """
 
@@ -920,14 +920,14 @@ def deleteBitcoindDBs():
             LOGINFO('   Removing file: %s' % fullPath)
             os.remove(fullPath)
 
-   if os.path.exists(fileRedownload):
-      os.remove(fileRedownload)
-   
 
 
 #####
 if CLI_OPTIONS.redownload:
    deleteBitcoindDBs()
+   if os.path.exists(fileRedownload):
+      os.remove(fileRedownload)
+   
 
 #####
 if CLI_OPTIONS.rebuild and os.path.exists(LEVELDB_DIR):

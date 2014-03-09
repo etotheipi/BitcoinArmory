@@ -35,29 +35,56 @@ class TorrentDownloadManager(object):
    
    #############################################################################
    def __init__(self, torrentFile=None, savePath=None, doDisable=False):
-      self.setup(torrentFile, savePath)
-
+      self.torrent = torrentFile
+      self.torrentDNE = False
+      self.cacheDir = os.path.join(ARMORY_HOME_DIR, 'bittorrentcache')
+      self.doneObj = Event()
+      self.customCallbacks = {}
+      self.minSecondsBetweenUpdates = 1
+      self.lastUpdate = 0
       self.disabled = doDisable
+
+      # These need to exist even if setup hasn't been called
+      self.lastStats     = {}
+      self.startTime     = None
+      self.finishTime    = None
+      self.dlFailed      = False
+      self.bt1dow        = None
+      self.response      = None
+      self.torrentSize   = None
+      self.torrentName   = None
+      self.savePath      = None
+      self.savePath_temp = None
+
 
       
 
    #############################################################################
-   def setup(self, torrentFile, savePath=None, minSecondsBetweenUpdates=1):
+   def setupTorrent(self, torrentFile, savePath=None):
 
+      # Some things to reset on every setup operation
+      self.lastStats  = {}
+      self.startTime  = None
+      self.finishTime = None
+      self.dlFailed   = False
+      self.bt1dow     = None
+      self.response    = None
+      self.torrentSize = None
+      self.torrentName = None
+      self.savePath    = None
+      self.savePath_temp = None
+
+      # Set torrent file, bail if it doesn't exist
       self.torrent = torrentFile
       self.torrentDNE = False
 
-      if not os.path.exists(self.torrent):
+      if not self.torrent or not os.path.exists(self.torrent):
+         LOGERROR('Attempted to setup TDM with non-existent torrent:')
+         if self.torrent:
+            LOGERROR('Torrent path:  %s', self.torrent)
          self.torrentDNE = True
-         LOGERROR('Called setup with .torrent that does not exist')
-         LOGERROR('Call setup() again with torrent filename when it exists')
+         return
 
-      self.cacheDir = os.path.join(ARMORY_HOME_DIR, 'bittorrentcache')
-      self.doneObj = Event()
-
-      self.customCallbacks = {}
-
-      self.minSecondsBetweenUpdates = minSecondsBetweenUpdates
       self.lastUpdate = RightNow()
 
       # Get some info about the torrent
@@ -74,11 +101,6 @@ class TorrentDownloadManager(object):
             self.savePath = os.path.join(BTC_HOME_DIR, self.torrentName)
          self.savePath_temp = self.savePath + '.partial'
 
-      self.lastStats  = {}
-      self.startTime  = None
-      self.finishTime = None
-      self.dlFailed   = False
-      self.bt1dow     = None
 
    #############################################################################
    def isInitialized(self):
@@ -192,6 +214,8 @@ class TorrentDownloadManager(object):
       self.lastStats['activity'] = activity
       self.lastStats['numSeeds'] = statistics.numSeeds if statistics else None
       self.lastStats['numPeers'] = statistics.numPeers if statistics else None
+      self.lastStats['downTotal']= statistics.downTotal if statistics else None
+      self.lastStats['upTotal']  = statistics.upTotal if statistics else None
 
       try:
          if (RightNow() - self.lastUpdate) < self.minSecondsBetweenUpdates:
@@ -431,7 +455,8 @@ class TorrentDownloadManager(object):
 # of overriding methods with other custom methods.  Just about 
 # any of the methods of TorrentDownloadManager can be replaced like this
 if __name__=="__main__":
-   dlobj = TorrentDownloadManager(argv[1], argv[2])
+   tdm = TorrentDownloadManager()
+   tdm.setupTorrent(argv[1], argv[2])
 
    # Replace full-featured LOGINFOs with simple print message
    def simplePrint( dpflag=Event(), 
@@ -462,17 +487,17 @@ if __name__=="__main__":
       sys.stdout.flush()
       
 
-   dlobj.setCallback('displayFunc', simplePrint)
-   dlobj.setCallback('finishedFunc', notifyFinished)
-   dlobj.setSecondsBetweenUpdates(1)
+   tdm.setCallback('displayFunc', simplePrint)
+   tdm.setCallback('finishedFunc', notifyFinished)
+   tdm.setSecondsBetweenUpdates(1)
 
-   thr = dlobj.startDownload(async=True)
+   thr = tdm.startDownload(async=True)
 
    # The above call was asynchronous
    while not thr.isFinished():
       print 'MainThread:    Still downloading;',
-      if dlobj.getLastStats('downRate'):
-         print ' Last dl speed: %0.1f kB/s' % (dlobj.getLastStats('downRate')/1024.)
+      if tdm.getLastStats('downRate'):
+         print ' Last dl speed: %0.1f kB/s' % (tdm.getLastStats('downRate')/1024.)
       else: 
          print ''
       sys.stdout.flush()

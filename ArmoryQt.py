@@ -24,6 +24,7 @@ import time
 import traceback
 import webbrowser
 import psutil
+from copy import deepcopy
 
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *
@@ -40,6 +41,7 @@ from qtdialogs import *
 from ui.Wizards import WalletWizard, TxWizard
 from jasvet import verifySignature, readSigBlock
 from announcefetch import AnnounceDataFetcher
+from armoryengine.parseAnnounce import *
 
 # HACK ALERT: Qt has a bug in OS X where the system font settings will override
 # the app's settings when a window is activated (e.g., Armory starts, the user
@@ -111,9 +113,17 @@ class ArmoryMainWindow(QMainWindow):
       self.latestVer = {}
       self.lastVersionsTxtHash = ''
       self.dlgCptWlt = None
-      self.torrentDLState = 'Uninitialized'
+
+      # Full list of notifications, and notify IDs that should trigger popups
+      # when sending or receiving.
       self.announceFetcher = None
       self.lastAnnounceUpdate = None
+      self.changelog = []
+      self.downloadLinks = {}
+      self.notifications = {}
+      self.notifyOnSend = set()
+      self.notifyonRecv = set()
+      self.versionNotification = {}
 
       # Kick off announcement checking, unless they explicitly disabled it
       # The fetch happens in the background, we check the results periodically
@@ -167,9 +177,11 @@ class ArmoryMainWindow(QMainWindow):
             self.getSettingOrSetDefault('ManageSatoshi', not OS_MACOSX)
 
 
-      # If
-      self.doTorrentBeforeAllElse = self.checkShouldRunTorrent()
-      if not self.doTorrentBeforeAllElse:
+      # If we're going to do the torrent DL, don't start bitcoind or BDM yet
+      # But we can't start the torrent until we've gotten the latest one from
+      # the announcement server
+      self.shouldTryTorrentFirst = self.checkShouldRunTorrent()
+      if not self.shouldTryTorrentFirst:
          # If we're going into online mode, start loading blockchain
          if self.doManageSatoshi:
             self.startBitcoindIfNecessary()
@@ -624,7 +636,7 @@ class ArmoryMainWindow(QMainWindow):
 
 
       execAbout   = lambda: DlgHelpAbout(self).exec_()
-      execVersion = lambda: self.fetchExternalAnnouncements(forceCheck=True)
+      execVersion = lambda: self.checkForNewVersions(forceCheck=True)
       execTrouble = lambda: webbrowser.open('https://bitcoinarmory.com/troubleshooting/')
       execBugReport = lambda: DlgBugReport(self, self).exec_()
       actAboutWindow  = self.createAction(tr('About Armory'), execAbout)
@@ -667,6 +679,7 @@ class ArmoryMainWindow(QMainWindow):
       haveGUI[0] = True
       haveGUI[1] = self
 
+
       self.checkWallets()
       reactor.callLater(0.1,  self.execIntroDialog)
       reactor.callLater(1, self.Heartbeat)
@@ -674,6 +687,23 @@ class ArmoryMainWindow(QMainWindow):
       if self.getSettingOrSetDefault('MinimizeOnOpen', False) and not CLI_ARGS:
          LOGINFO('MinimizeOnOpen is True')
          reactor.callLater(0, self.minimizeArmory)
+
+
+      # If we want to do torrenting, but they are running corebtc manually,
+      # need to ask them to close it, or skip doing the torrent thing.
+      if self.shouldTryTorrentFirst and not self.doManageSatoshi:
+         self.manageCoreWantTorrentAskUser() 
+
+      # If the user was queried the shouldTryTorrentFirst flag may have changed
+      if self.shouldTryTorrentFirst:
+         torrentFile = self.determineTorrentToUse()
+          
+
+      # Again, this flag will turn to false if the above check failed
+      if self.shouldTryTorrentFirst and torrentPath is not None:
+         bootfile = os.path.join(BTC_HOME_DIR, 'bootstrap.dat')
+         TheTDM.setupTorrent(torrentFile, bootfile)
+         self.setupAndStartTorrent(torrentPath)
       
 
       if CLI_ARGS:
@@ -718,7 +748,7 @@ class ArmoryMainWindow(QMainWindow):
       msg = tr("""
          The next time you restart Armory, all unconfirmed transactions will
          be cleared allowing you to retry any stuck transactions.""")
-      if not self.getSettingOrSetDefault('ManageSatoshi', True):
+      if not self.doManageSatoshi:
          msg += tr("""
          <br><br>Make sure you also restart Bitcoin-Qt 
          (or bitcoind) and let it synchronize again before you restart 
@@ -1294,13 +1324,13 @@ class ArmoryMainWindow(QMainWindow):
 
 
    #############################################################################
-   def processAnnounceData(self, forceFetch=False, forceWait=5):
+   def processAnnounceData(self, forceCheck=False, forceWait=5):
 
       adf = self.announceFetcher
 
       # The ADF always fetches everything all the time.  If forced, do the
       # regular fetch first, then examine the individual files without forcing
-      if forceFetch:
+      if forceCheck:
          adf.fetchRightNow(forceWait)
 
       # Check each of the individual files for recent modifications
@@ -1313,7 +1343,7 @@ class ArmoryMainWindow(QMainWindow):
       for fid,func in idFuncPairs:
          if adf.getFileModTime(fid) > self.lastAnnounceUpdate[fid]:
             self.lastAnnounceUpdate[fid] = RightNow()
-            fileText = adf.getFetchedFile(fid)
+            fileText = adf.getAnnounceFile(fid)
             func(fileText)
       
 
@@ -1336,7 +1366,145 @@ class ArmoryMainWindow(QMainWindow):
               'information.', QMessageBox.Ok)
          LOGEXCEPT('Error trying to parse versions.txt file')
       """
+
+   #############################################################################
+   def processChangelog(self, txt):
+      try:
+         clp = changelogParser()
+         self.changelog = clp.parseChangelogText(txt)
+      except:
+         # Don't crash on an error, but do log what happened
+         LOGEXCEPT('Failed to parse changelog data')
+         
+      
+
+   #############################################################################
+   def processDownloads(self, txt):
+      try:
+         dlp = downloadLinkParser()
+         self.downloadLinks = dlp.parseDownloadList(txt)
+
+         if not 'Armory' in self.downloadLinks:
+            return
+         
+         thisVer = getVersionInt(BTCARMORY_VERSION) 
+         maxVer = thisVer # start at currentVer
+         self.versionNotification = {}
+         for verStr,vermap in self.downloadLinks['Armory']:
+            dlVer = getVersionInt(readVersionString(verStr))
+            if dlVer > maxVer:
+               maxVer = dlVer
+               shortDescr = 
+               notifyid = hash256(shortDescr)
+               self.versionNotification['VERSION'] = '0'
+               self.versionNotification['STARTTIME'] = '0'
+               self.versionNotification['EXPIRES'] = '%d' % long(UINT64_MAX)
+               self.versionNotification['CANCELID'] = '[]'
+               self.versionNotification['MINVERSION'] = '*'
+               self.versionNotification['MAXVERSION'] = '<%s' % verStr
+               self.versionNotification['PRIORITY'] = '3072'
+               self.versionNotification['NOTIFYSEND'] = 'False'
+               self.versionNotification['NOTIFYRECV'] = 'False'
+               self.versionNotification['SHORTDESCR'] = \
+                     tr('Armory version %s is now available!') % verStr
+               self.versionNotification['LONGDESCR'] = \
+                     self.getVersionNotifyLongDescr(verStr)
+
+         # If we actually found a new notification, add it to our list 
+         if maxVer > thisVer:
+      
+
+      except:
+         # Don't crash on an error, but do log what happened
+         LOGEXCEPT('Failed to parse download link data')
+
+
+   #############################################################################
+   def getVersionNotifyLongDescr(self, verStr):
+      shortOS = None
+      if OS_WINDOWS: 
+         shortOS = 'windows'
+      elif OS_LINUX:
+         shortOS = 'ubuntu'
+      elif OS_MACOSX:
+         shortOS = 'mac'
+
+      webURL = 'https://bitcoinarmory.com/download/'
+      if shortOS is not None:
+         webURL += '#' + shortOS
+
+      startStr = tr("""
+         Your version of Armory is now outdated.  Please upgrade to version 
+         %s through our <a href="dlgSecureDownload">secure downloader</a>.
+         Alternatively, you can get the new version from our website
+         downloads page at:
+         <br><br>
+         %s
+         """) (verStr, webURL)
+
+      if len(self.changelog) == 0:
+         LOGERROR('No changelog available for version %s' % verStr)
+         return startStr
+
+      releaseDate = None
+      changeList  = None
+      for ver,date,updList in self.changelog:
+         if chngVer == verStr:
+            releaseDate = date
+            changeLogList = updList[:]
+            break
+      else:
+         LOGERROR('Could not find changelog info for version %s' % verStr
+         return startStr
+
+      changeStr = '<b>Update information for version %s</b><br>' % verStr
+      if releaseDate:
+         changeStr += tr("""<u>Release Date</u>: %s<br><br>""") % releaseDate
+
+      for strHeader,strLong in changeList:
+         changeStr += '<u>%s:</u> %s<br>' % (strHeader, strLong)
+
+      return startStr + h
+      
+            
+         
+
+
+   #############################################################################
+   def processBootstrap(self, binFile):
+      try:
+         dstTorrent = os.path.join(BTC_HOME_DIR, 'bootstrap.dat.torrent')
+         with open(dstTorrent, 'wb') as f:
+            f.write(binFile)
+      except:
+         # Don't crash on an error, but do log what happened
+         LOGEXCEPT('Failed to write/copy torrent file')
+         
        
+   #############################################################################
+   def processNotifications(self, txt):
+      # Keep in mind this will always be run on startup with a blank slate, as
+      # well as every 30 min while Armory is running.  All notifications are 
+      # "new" on startup (though we will allow the user to do-not-show-again
+      # and store the notification ID in the settings file).
+      try:
+         np = notifyParser()  
+         newNotifications = np.parseNotificationText(txt)
+      except:
+         # Don't crash on an error, but do log what happened
+         LOGEXCEPT('Failed to parse notifications')
+
+
+      addedNotify = []
+      for nid,valmap in newNotifications.iteritems():
+         if not nid in self.notifications:
+            addedNotify.append(nid)
+      
+      removedNotify = []
+      for nid,valmap in self.notifications.iteritems():
+         if not nid in newNotifications:
+            removedNotify.append(nid)
+
 
    #############################################################################
    @TimeThisFunction
@@ -1411,6 +1579,12 @@ class ArmoryMainWindow(QMainWindow):
 
       We will employ a couple other conditions that seem reasonable, given
       that torrent download speed is expected to be 2-10x faster.
+
+      NOTE:
+
+      This function only determines if we *want* to use bittorrent.  We don't
+      yet know if we have a torrent file to use, yet, or if the bittorrent
+      code will work on this system
       """
 
       # This flag takes into account both CLI_OPTIONs, and availability of the
@@ -1421,13 +1595,84 @@ class ArmoryMainWindow(QMainWindow):
       # the less extreme option is just to run with the --disable-torrent flag.
       if DISABLE_TORRENTDL:
          return False
-   
 
-      if not os.path.exists(BTC_HOME_DIR):
+      # The only torrent we have is for the primary Bitcoin network
+      if not MAGIC_BYTES=='\xf9\xbe\xb4\xd9':
+         return False
+
+      if self.getSettingOrSetDefault('NeverUseTorrent', False):
+         return False
+
+      # If they don't even have a BTC_HOME_DIR, corebtc never been installed
+      blockDir = os.path.join(BTC_HOME_DIR, 'blocks')
+      if not os.path.exists(BTC_HOME_DIR) or not os.path.exists(blockDir):
          return True
       
-      btcDirExists = os.path.exists(BTC_HOME_DIR)
+      # Get the cumulative size of the blk*.dat files
+      filesz = lambda f: os.path.getsize(os.path.join(blockDir, f))
+      blockDirSize = sum([filesz(a) for a in os.listdir(blockDir)])
+      blockDirSize = long(0.8333 * blockDirSize)  # adjust for rev files
+      sizeStr = bytesToHumanSize(blockDirSize)
+      LOGINFO('Total size of files in %s is approx %s' % (blockDir, sizeStr))
+
+      # If they have only a small portion of the blockchain, do it
+      if blockDirSize < 6*GIGABYTE:
+         return True
+
+      # So far we know they have a BTC_HOME_DIR, with more than 6GB in blocks/
+      # The only thing that can induce torrent now is if we have a partially-
+      # finished bootstrap file bigger than the blocks dir.
+      bootFile = os.path.join(BTC_HOME_DIR, 'bootstrap.dat.partial')
+      if os.path.exists(bootFile):
+         if os.path.getsize(bootFile) > blockDirSize:
+            return True
+            
+      # Okay, we give up -- just download [the rest] via P2P
+      return False
+
+         
+   ############################################################################
+   def determineTorrentToUse(self):
+      """
+      By now the announceFetcher should've already fetched the latest file.
+      """
+      srcTorrent = None
       
+      self.announceFetcher
+      if self.announceFetcher.getFileModTime('bootstrap') == 0:
+         # Get default torrent in installation directory
+         instDir = os.path.dirname(inspect.getsourcefile(ArmoryMainWindow))
+         srcTorrent = os.path.join(instDir, 'default_bootstrap.torrent')
+      else:
+         srcTorrent = self.announceFetcher.getAnnounceFilePath('bootstrap')
+      
+      # Maybe we still don't have a torrent for some reason
+      if not srcTorrent or not os.path.exists(srcTorrent):
+         LOGERROR('No torrent file available.  Disabling torrent downloading')
+         self.shouldTryTorrentFirst = False
+         return None
+
+      dstTorrent = os.path.join(ARMORY_HOME_DIR, 'bootstrap.dat.torrent')
+      shutil.copy(srcTorrent, dstTorrent)
+      return dstTorrent
+
+
+      
+   #############################################################################
+   def manageCoreWantTorrentAskUser(self):
+      if TheSDM.isRunningBitcoind():
+         reply = QMessageBox.warning(self, tr('BitTorrent'), tr("""
+            Armory can speed up the initial synchronization process
+            by downloading the blockchain through BitTorrent, but it 
+            requires all Bitcoin software to be closed.  Downloading 
+            over BitTorrent is safe, and usually 2x to 10x faster    
+            than letting the Bitcoin software download it.
+            <br><br>
+            If you would like to download over BitTorrent, please    
+            close Bitcoin-Qt (or bitcoind) before clicking "Ok".  
+            Click "Cancel" to continue
+            allowing the Bitcoin software synchronize through the 
+            Bitcoin network.
 
    ############################################################################
    def startBitcoindIfNecessary(self):
@@ -3795,7 +4040,7 @@ class ArmoryMainWindow(QMainWindow):
          else:
             LOGERROR('Should not predict sync info in non init/sync SDM state')
             return ('UNKNOWN','UNKNOWN', 'UNKNOWN')
-      elif self.torrentDLState == 'Downloading':
+      elif TheTDM.getTDMState() == 'Downloading':
          pdljkdsaf   
       else:
          LOGWARN('Called updateSyncProgress while not sync\'ing')
@@ -4718,7 +4963,7 @@ class ArmoryMainWindow(QMainWindow):
                elif bdmState == 'Offline':
                   LOGERROR('Bitcoind is ready, but we are offline... ?')
                elif bdmState=='Scanning':
-                  self.fetchExternalAnnouncements(async=True)
+                  self.checkForNewVersions()
                   self.updateSyncProgress()
 
             if not sdmState==self.lastSDMState or not bdmState==self.lastBDMState[0]:
@@ -4731,7 +4976,7 @@ class ArmoryMainWindow(QMainWindow):
                self.setDashboardDetails()
                return
             elif bdmState=='Scanning':
-               self.fetchExternalAnnouncements(async=True)
+               self.checkForNewVersions()
                self.updateSyncProgress()
 
 
@@ -4778,7 +5023,7 @@ class ArmoryMainWindow(QMainWindow):
 
 
             # Now we start the normal array of heartbeat operations
-            self.fetchExternalAnnouncements(async=True)  
+            self.checkForNewVersions()
             newBlocks = TheBDM.readBlkFileUpdate(wait=True)
             self.currBlockNum = TheBDM.getTopBlockHeight()
 

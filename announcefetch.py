@@ -44,7 +44,7 @@ class AnnounceDataFetcher(object):
                       fetchDir=None):
 
       self.loopIsIdle = Event()
-      self.forceFetchFlag = Event()
+      self.forceCheckFlag = Event()
       self.forceIsFinished = Event()
       self.firstSuccess = Event()
       self.shutdownFlag = Event()
@@ -130,29 +130,33 @@ class AnnounceDataFetcher(object):
    #############################################################################
    def fetchRightNow(self, doWait=0):
       self.forceIsFinished.clear()
-      self.forceFetchFlag.set()
+      self.forceCheckFlag.set()
    
       if doWait > 0:
          self.forceIsFinished.wait(doWait)
-         self.forceFetchFlag.clear()
+         self.forceCheckFlag.clear()
       
+   #############################################################################
+   def getAnnounceFilePath(self, fileID):
+      fpath = os.path.join(self.fetchDir, fileID+'.file')
+      return fpath if os.path.exists(fpath) else None
 
    #############################################################################
-   def getAnnounceFile(self, fileID, forceFetch=False, forceWait=10):
-      if forceFetch:
+   def getAnnounceFile(self, fileID, forceCheck=False, forceWait=10):
+      if forceCheck:
          LOGINFO('Forcing fetch before returning file')
          if not self.isRunning():
             # This is safe because there's no one to collide with
             self.__runFetchSequence()
          else:
             self.forceIsFinished.clear()
-            self.forceFetchFlag.set()
+            self.forceCheckFlag.set()
    
             if not self.forceIsFinished.wait(forceWait):
-               self.forceFetchFlag.clear()
+               self.forceCheckFlag.clear()
                return None
 
-            self.forceFetchFlag.clear()
+            self.forceCheckFlag.clear()
       else:
          # Wait up to one second for any current ops to finish
          if not self.loopIsIdle.wait(1):
@@ -161,7 +165,7 @@ class AnnounceDataFetcher(object):
 
       # If the above succeeded, it will be in the fetchedFiles dir
       # We may have 
-      fpath = os.path.join(self.fetchDir, fileID+'.file')
+      fpath = self.getAnnounceFilePath(fileID)
 
       if not os.path.exists(fpath):
          LOGERROR('No file with ID=%s was fetched', fileID)
@@ -172,9 +176,10 @@ class AnnounceDataFetcher(object):
       
       return returnData
 
+
    #############################################################################
    def getFileModTime(self, fileID):
-      fpath = os.path.join(self.fetchDir, fileID+'.file')
+      fpath = self.getAnnounceFilePath(fileID)
       if not os.path.exists(fpath):
          LOGERROR('No file with ID=%s was fetched', fileID)
          return 0
@@ -325,9 +330,9 @@ class AnnounceDataFetcher(object):
             self.fileHashMap[key] = jdHash
 
       ##### Clean up as needed
-      if self.forceFetchFlag.isSet():
+      if self.forceCheckFlag.isSet():
          self.forceIsFinished.set()
-         self.forceFetchFlag.clear()
+         self.forceCheckFlag.clear()
       self.numConsecutiveExceptions = 0
 
 
@@ -343,9 +348,9 @@ class AnnounceDataFetcher(object):
       are visible to other threads.
 
       By default, it will check once per hour.  If you call
-            self.forceFetchFlag.set()
+            self.forceCheckFlag.set()
       It will skip the time check and force a download right now.
-      Using getAnnounceFile(forceFetch=True) will do this for you,
+      Using getAnnounceFile(forceCheck=True) will do this for you,
       and will wait until the operation completes before returning 
       the result.
       """
@@ -358,7 +363,7 @@ class AnnounceDataFetcher(object):
                break
 
             ##### Only check once per hour unless force flag is set
-            if not self.forceFetchFlag.isSet():
+            if not self.forceCheckFlag.isSet():
                if RightNow()-self.lastFetch < self.fetchInterval:
                   continue
             else:

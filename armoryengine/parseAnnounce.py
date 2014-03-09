@@ -110,14 +110,18 @@ class changelogParser(object):
             curr = self.changelog[-1][1][-1][-1]
             self.changelog[-1][1][-1][-1] += ('' if len(curr)==0 else ' ') + line
    
-      return self.changelog
+      return self.getChangelog()
    
 
    #############################################################################
-   def getChangelog(self, stopAtVersion=0):
+   def getChangelog(self, stopAtVersion=0, dontStartBefore=UINT32_MAX):
       output = []
       for ver in self.changelog:
          verInt = getVersionInt(readVersionString(ver[0]))
+
+         if verInt > dontStartBefore:
+            continue
+
          if verInt <= stopAtVersion:
             break
 
@@ -226,7 +230,7 @@ class downloadLinkParser(object):
                                    [app, ver, opsys, subOS, nbit])
    
    
-      return self.downloadMap 
+      return self.getNestedDownloadMap()
    
          
    #############################################################################
@@ -358,7 +362,9 @@ class notificationParser(object):
             val = line.split(':')[-1].strip()
             self.notifications[currID][key] = val
 
+      return self.getNotificationMap()
 
+   #############################################################################
    def getNotificationMap(self):
       return deepcopy(self.notifications)
 
