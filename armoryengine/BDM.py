@@ -905,7 +905,13 @@ class BlockDataManagerThread(threading.Thread):
          armory_homedir = ARMORY_HOME_DIR.encode('utf8')
          blockdir = blkdir.encode('utf8')
          leveldbdir = self.ldbdir.encode('utf8')
-      
+      elif OS_WINDOWS:
+         if isinstance(ARMORY_HOME_DIR, unicode):
+            armory_homedir = ARMORY_HOME_DIR.encode('utf8')
+         if isinstance(blkdir, unicode):
+            blockdir = blkdir.encode('utf8')
+         if isinstance(self.ldbdir, unicode):
+            leveldbdir = self.ldbdir.encode('utf8')
 
       self.bdm.SetDatabaseModes(ARMORY_DB_BARE, DB_PRUNE_NONE);
       self.bdm.SetHomeDirLocation(armory_homedir)
@@ -1372,7 +1378,7 @@ class BlockDataManagerThread(threading.Thread):
          except:
             inputName = self.getBDMInputName(inputTuple[0])
             LOGERROR('Error processing BDM input')
-            traceback.print_stack()
+            #traceback.print_stack()
             LOGERROR('Received inputTuple: ' + inputName + ' ' + str(inputTuple))
             LOGERROR('Error processing ID (%d)', rndID)
             LOGEXCEPT('ERROR:')
