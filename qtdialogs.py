@@ -7899,7 +7899,8 @@ class DlgSettings(ArmoryDialog):
 
       ##########################################################################
       # bitcoind-management settings
-      self.chkManageSatoshi = QCheckBox('Let Armory run Bitcoin-Qt/bitcoind in the background')
+      self.chkManageSatoshi = QCheckBox(tr("""
+         Let Armory run Bitcoin-Qt/bitcoind in the background""")
       self.edtSatoshiExePath = QLineEdit()
       self.edtSatoshiHomePath = QLineEdit()
       self.edtSatoshiExePath.setMinimumWidth(tightSizeNChar(GETFONT('Fixed', 10), 40)[0])
@@ -7963,48 +7964,96 @@ class DlgSettings(ArmoryDialog):
       ##########################################################################
 
       # We check for internet connection on each startup.  
-      self.chkSkipOnlineCheck = QCheckBox('Skip online check on startup '
-         '(assume internet is available, do not check)')
+      self.chkSkipOnlineCheck = QCheckBox(tr("""
+         Skip online check on startup (assume internet is available, do 
+         not check)""")
       skipOnlineChk = self.main.getSettingOrSetDefault('SkipOnlineCheck', False)
       self.chkSkipOnlineCheck.setChecked(skipOnlineChk)
 
-      self.chkSkipVersionCheck = QCheckBox('Skip periodic version queries '
-         'to Armory server')
+      self.chkSkipVersionCheck = QCheckBox(tr("""
+         Skip periodic version queries to Armory server""")
       skipVerChk = self.main.getSettingOrSetDefault('SkipVersionCheck', False)
       self.chkSkipVersionCheck.setChecked(skipVerChk)
 
-      lblDefaultUriTitle = QRichLabel('<b>Set Armory as default URL handler</b>')
-      lblDefaultURI = QRichLabel(
-         'Set Armory to be the default when you click on "bitcoin:" '
-         'links in your browser or in emails.  '
-         'You can test if your operating system is supported by clicking '
-         'on a "bitcoin:" link right after clicking this button.', doWrap=True)
+      lblDefaultUriTitle = QRichLabel(tr("""
+         <b>Set Armory as default URL handler</b>""")
+      lblDefaultURI = QRichLabel(tr("""
+         Set Armory to be the default when you click on "bitcoin:"
+         links in your browser or in emails. 
+         You can test if your operating system is supported by clicking
+         on a "bitcoin:" link right after clicking this button."""))
       btnFrmDefaultURI = QPushButton('Set Armory as Default')
       def clickRegURI():
          self.main.setupUriRegistration(justDoIt=True)
-         QMessageBox.information(self, 'Registered', \
-            'Armory just attempted to register itself to handle "bitcoin:" '
-            'links, but this does not work on all operating systems.  You can '
-            'test it by going to the '
-            '<a href="http://www.bitcoinarmory.com">Bitcoin Armory website</a> and '
-            'clicking the link at the bottom of the homepage.', QMessageBox.Ok)
+         QMessageBox.information(self, tr('Registered'), tr("""
+            Armory just attempted to register itself to handle "bitcoin:" 
+            links, but this does not work on all operating systems.  You can 
+            test it by going to the 
+            <a href="http://www.bitcoinarmory.com">Bitcoin Armory 
+            website</a> and clicking the link at the bottom of the 
+            homepage."""), QMessageBox.Ok)
 
       self.connect(btnFrmDefaultURI, SIGNAL(CLICKED), clickRegURI)
 
 
+      ###############################################################
+      # Announcements and Alerts
+      lblAnnounce = QRichLabel(tr("""
+         Armory Technologies, Inc. will periodically post announcements and
+         security alerts.  ATI will also use this channel to notify you of 
+         new Armory versions.  All these notifications are signed by an 
+         offline private key controlled exclusively by ATI."""))
+      self.radioAnnounce1024 = QRadioButton(tr("""
+         (Level 1) All announcements including testing/unstable versions"""))
+      self.radioAnnounce2048 = QRadioButton(tr("""
+         (Level 2) Standard announcements and notifications"""))
+      self.radioAnnounce3072 = QRadioButton(tr("""
+         (Level 3) Only important announcements and alerts"""))
+      self.radioAnnounce4096 = QRadioButton(tr("""
+         (Level 4) Only critical security alerts"""))
+
+      self.chkDisableUpgradeNotify = QCheckBox(tr("""
+         Disable notifications of new Armory versions (independent of the
+         notification level chosen above)"""))
+
+      lblDisableAnnounce = QRichLabel(tr("""
+         <font color="%s">If you must to completely disable all communications 
+         channels from the Armory team, you can run Armory with the 
+         "--skip-announce-check" flag from the command-line, or add it to 
+         the Armory shortcut target</font>""") % htmlColor('DisableFG'))
+      
+      btnGroupAnnounce = QButtonGroup(self)
+      btngrp.addButton(self.radioAnnounce1024)
+      btngrp.addButton(self.radioAnnounce1024) btngrp.addButton(self.radioAnnounce1024)
+      btngrp.addButton(self.radioAnnounce1024)
+      btngrp.setExclusive(True)
+
+      minPriority = self.main.getSettingOrSetDefault('NotifyMinPriority', 2048)
+      if minPriority >= 4096:
+         self.radioAnnounce4096.setChecked()
+      elif minPriority >= 3072:
+         self.radioAnnounce3072.setChecked()
+      elif minPriority >= 2048
+         self.radioAnnounce2048.setChecked()
+      elif minPriority >= 0:
+         self.radioAnnounce1024.setChecked()
+
+
       txFee = self.main.getSettingOrSetDefault('Default_Fee', MIN_TX_FEE)
-      lblDefaultFee = QRichLabel('<b>Default fee to include with transactions:</b><br>')
-      lblDefaultDescr = QRichLabel(\
-                                 'Fees go to users that contribute computing power '
-                                 'to keep the Bitcoin network secure and increases '
-                                 'the priority of your transactions on the network '
-                                 '(%s BTC is standard).' % \
-                                 coin2str(MIN_TX_FEE, maxZeros=0).strip())
-      ttipDefaultFee = self.main.createToolTipWidget(\
-                                 'NOTE: some transactions will require a certain fee '
-                                 'regardless of your settings -- in such cases '
-                                 'you will be prompted to include the correct '
-                                 'value or cancel the transaction')
+      lblDefaultFee = QRichLabel(tr("""
+         <b>Default fee to include with transactions:</b><br>"""))
+      lblDefaultDescr = QRichLabel(tr("""
+         Fees go to users that contribute computing power to keep the 
+         Bitcoin network secure.  It also increases the priority of your 
+         transactions so they confirm faster (%s BTC is standard).""") % \
+         coin2strNZS(MIN_TX_FEE)
+
+      ttipDefaultFee = self.main.createToolTipWidget(tr("""
+         NOTE: some transactions will require a certain fee
+         regardless of your settings -- in such cases
+         you will be prompted to include the correct
+         value or cancel the transaction""")
+
       self.edtDefaultFee = QLineEdit()
       self.edtDefaultFee.setText(coin2str(txFee, maxZeros=1).strip())
       lblDefaultFee.setMinimumWidth(400)
@@ -8039,7 +8088,7 @@ class DlgSettings(ArmoryDialog):
 
 
       ###############################################################
-      # Notifications -- Don't work right on OSX
+      # System Tray Notifications -- Don't work right on OSX
       lblNotify = QRichLabel('<b>Enable notifcations from the system-tray:</b>')
       notifyBtcIn = self.main.getSettingOrSetDefault('NotifyBtcIn', not OS_MACOSX)
       notifyBtcOut = self.main.getSettingOrSetDefault('NotifyBtcOut', not OS_MACOSX)
@@ -8244,6 +8293,33 @@ class DlgSettings(ArmoryDialog):
       i += 1
       frmLayout.addWidget(self.chkReconn, i, 0, 1, 3)
 
+
+      i += 1
+      frmLayout.addWidget(HLINE(), i, 0, 1, 3)
+
+   
+      i += 1
+      frmLayout.addWidget(lblAnnounce, i, 0, 1, 3)
+   
+      i += 1
+      frmLayout.addWidget(self.radioAnnounce1024, i, 0, 1, 3)
+   
+      i += 1
+      frmLayout.addWidget(self.radioAnnounce2048, i, 0, 1, 3)
+   
+      i += 1
+      frmLayout.addWidget(self.radioAnnounce3072, i, 0, 1, 3)
+   
+      i += 1
+      frmLayout.addWidget(self.radioAnnounce4096, i, 0, 1, 3)
+
+      i += 1
+      frmLayout.addWidget(lblDisableAnnounce, i, 0, 1, 3)
+   
+      i += 1
+      frmLayout.addWidget(self.chkDisableUpgradeNotify , i, 0, 1, 3)
+
+
       i += 1
       frmLayout.addWidget(HLINE(), i, 0, 1, 3)
 
@@ -8379,6 +8455,21 @@ class DlgSettings(ArmoryDialog):
       self.main.writeSetting('NotifyBtcOut', self.chkBtcOut.isChecked())
       self.main.writeSetting('NotifyDiscon', self.chkDiscon.isChecked())
       self.main.writeSetting('NotifyReconn', self.chkReconn.isChecked())
+
+
+
+      if self.radioAnnounce1024.isChecked():
+         self.main.writeSetting('NotifyMinPriority', 1024)
+      elif self.radioAnnounce2048.isChecked():
+         self.main.writeSetting('NotifyMinPriority', 1024)
+      elif self.radioAnnounce3072.isChecked():
+         self.main.writeSetting('NotifyMinPriority', 1024)
+      elif self.radioAnnounce4096.isChecked():
+         self.main.writeSetting('NotifyMinPriority', 1024)
+
+
+      self.main.writeSetting('DisableUpgradeNotify', \
+                  self.chkDisableUpgradeNotify.isChecked():
 
       self.main.createCombinedLedger()
       super(DlgSettings, self).accept(*args)
@@ -9085,6 +9176,157 @@ class DlgRequestPayment(ArmoryDialog):
 
 
 
+################################################################################
+class DlgNotificationWithDNAA(ArmoryDialog, nid, notifyMap, isUpgrade=False):
+   """
+   This dialog will be used for automatic popups when notifications come in,
+   as well as displaying specific notifications if viewed and selected in
+   the Announcements tab.
+   """
+   def __init__(self, parent, main, changelog, wasRequested=False):
+      super(DlgVersionNotify, self).__init__(parent, main)
+
+      self.notifyID = nid
+
+      priority   = int(notifyMap['PRIORITY'])
+      shortDescr = notifyMap['SHORTDESCR']
+      longDescr  = notifyMap['LONGDESCR']
+      startTime  = long(notifyMap['STARTTIME'])
+       
+      minver  = notifyMap['MINVERSION']
+      maxver  = notifyMap['MAXVERSION']
+      minExclude = minver.startswith('>')
+      maxExclude = maxver.startswith('<')
+      minver  = minver[1:] if minExclude else minver
+      maxver  = maxver[1:] if maxExclude else maxver
+
+
+      LTE = '\xe2\x89\xa4'
+      GTE = '\xe2\x89\xa5'
+      
+      if isUpgrade:
+         currVerStr = getVersionString(BTCARMORY_VERSION) 
+         versionString = tr("""You are using version %s<br>""") % currVerStr
+      elif minver=='*':
+         versionString = tr('Affects Armory versions ')
+         if maxver=='*':
+            versionString = ''
+         elif maxExclude:
+            versionString += tr('before %s<br>' % maxver
+         else:
+            versionString += tr('%s%s<br>' % (LTE, maxver)
+      elif minExclude:
+         versionString = tr('Affects Armory versions ')
+         if maxver=='*':
+            versionString += tr('after %s<br>' % minver
+         elif maxExclude:
+            versionString += tr('between %s and %s<br>' % (minver, maxver)
+         else:
+            versionString += tr('after %s,  %s%s<br>' % (minver, LTE, maxver)
+      else:
+         versionString = tr('Affects Armory versions ')
+         if maxver=='*':
+            versionString += tr('s%s<br>' % (GTE,minver)
+         elif maxExclude:
+            versionString += tr('s%s and before %s<br>' % (GTE, minver, maxver)
+         else:
+            versionString += tr('%s%s and %s%s<br>' % (GTE,minver,LTE,maxver)
+
+
+      startTimeStr = ''
+      if isUpgrade:
+         for verStr,dateStr,updList in self.changelog:
+            if verStr==notifyMap['MAXVERSION'][1:]:
+               startTimeStr = tr('Released: %s' % dateStr)
+               break
+         else:
+            startTimeStr = ''
+      if startTimeStr > 0:
+         startTimeStr = unixTimeToFormatStr(startTime, 'Date: %B %d, %Y<br>')
+
+      
+      if isUpgrade:
+         iconFile = ':/MsgBox_info48.png'
+         titleStr = tr('Upgrade Armory')
+         headerStr = tr("""Armory is out-of-date!""")
+      elif 0 <= priority < 2048:
+         iconFile = ':/MsgBox_info48.png'
+         titleStr = tr('Information')
+         headerStr = tr("""General Notification""")
+      elif 2048 <= priority < 4096:
+         iconFile = ':/MsgBox_warning48.png'
+         headerStr = tr("""
+            Important Information from <i>Armory Technologies, Inc.</i>""")
+      elif 4096 <= priority: < 5120:
+         iconFile = ':/MsgBox_critical64.png'
+         titleStr = tr('Alert')
+         headerStr = tr("""
+            Security Alert from <i>Armory Technologies, Inc.</i>""")
+      elif 5120 <= priority:
+         iconFile = ':/MsgBox_critical64.png'
+         titleStr = tr('Alert')
+         headerStr = tr("""
+            Critical Security Alert from <i>Armory Technologies, Inc.</i>""")
+
+      lblTopInfo = QRichLabel(tr("""
+            <font size=4><b>%(headerStr)s</b></font><br>
+            <b>%(shortDescr)s</b><br>
+            %(startTimeStr)s 
+            %(versionString)s
+            """) % locals())
+      
+      lblBottomInfo = QRichLabel(tr("""
+         You can access all alerts and announcements from the 
+         "Announcements" tab on the main Armory window.  If new versions
+         of Armory are available, you can get them using our 
+         <font color="red"><a href="dlgSecureDownload">secure 
+         downloader</a></font>."""))
+
+      txtLongDescr = QTextEdit()
+      txtLongDescr.setReadOnly(True)
+      txtLongDescr.insertHtml(longDescr)
+
+      notifyIcon = QLabel()
+      notifyIcon.setPixmap(QPixmap(iconFile))
+      notifyIcon.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
+
+      
+      btnDismiss      = QPushButton(tr('Close'))
+      btnIgnoreLong   = QPushButton(tr('Do not show again'))
+
+      self.connect(btnDismiss, SIGNAL(CLICKED), self.acceptShortIgnore)
+      self.connect(btnIgnoreLong, SIGNAL(CLICKED), self.acceptLongIgnore)
+
+      # You cannot permanently ignore a critical security alert!
+      if priority >= 5120:
+         btnIgnoreLong.setVisible(False)
+
+      layout = QVBoxLayout()
+      frmTop = makeHorizFrame(['Stretch', notifyIcon, lblTopInfo, 'Stretch'])
+      frmButton = makeHorizFrame(['Stretch', btnDismiss, btnIgnoreLong])
+      layout.addWidget(frmTop)
+      layout.addWidget(txtLongDescr)
+      layout.addWidget(lblBottomInfo)
+      layout.addWidget(frmButton)
+      layout.setRowStretch(0, 0)
+      layout.setRowStretch(1, 1)
+      layout.setRowStretch(2, 0)
+      layout.setRowStretch(3, 0)
+
+      self.setLayout(layout)
+
+      self.setWindowTitle(titleStr)
+      self.setWindowIcon(QIcon(iconFile))
+
+   def acceptLongIgnore(self):
+      self.notifyIgnoreLong.add(self.notifyID)
+      self.notifyIgnoreShort.add(self.notifyID)
+      self.accept()
+
+   def acceptShortIgnore(self):
+      self.notifyIgnoreShort.add(self.notifyID)
+      self.accept()
+
 
 ################################################################################
 class DlgVersionNotify(ArmoryDialog):
@@ -9124,7 +9366,9 @@ class DlgVersionNotify(ArmoryDialog):
             <b>All your wallets and settings will remain untouched when you 
             reinstall Armory.</b>""") % (self.myVersionStr, self.latestVerStr))
 
-      lblDescr.setOpenExternalLinks(True)
+      lblDescr.setOpenExternalLinks(False)
+      self.connect(lblDescr, SIGNAL('linkActivated(QString)'), self.open
+
 
       lblChnglog = QRichLabel('')
       if wasRequested:

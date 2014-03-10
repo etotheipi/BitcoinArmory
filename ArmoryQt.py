@@ -116,7 +116,6 @@ class ArmoryMainWindow(QMainWindow):
 
       # Full list of notifications, and notify IDs that should trigger popups
       # when sending or receiving.
-      self.announceFetcher = None
       self.lastAnnounceUpdate = None
       self.changelog = []
       self.downloadLinks = {}
@@ -124,11 +123,15 @@ class ArmoryMainWindow(QMainWindow):
       self.notifyOnSend = set()
       self.notifyonRecv = set()
       self.versionNotification = {}
+      self.notifyIgnoreLong  = []
+      self.notifyIgnoreShort = []
       self.satoshiVersions = ['','']  # [curr, avail]
       self.armoryVersions = [getVersionString(BTCARMORY_VERSION), '']
 
+
       # Kick off announcement checking, unless they explicitly disabled it
       # The fetch happens in the background, we check the results periodically
+      self.announceFetcher = None
       self.setupAnnouncementFetcher()
 
       #delayed URI parsing dict
@@ -1434,12 +1437,8 @@ class ArmoryMainWindow(QMainWindow):
                if dlVer > maxVer:
                   maxVer = dlVer
                   self.satoshiVersions[1] = verStr
-            
 
-         thisVer = getVersionInt(BTCARMORY_VERSION) 
-         maxVer = thisVer # start at currentVer
-         self.versionNotification = {}
-         for verStr,vermap in self.downloadLinks['Armory']:
+
       except:
          # Don't crash on an error, but do log what happened
          LOGEXCEPT('Failed to parse download link data')
@@ -1507,9 +1506,21 @@ class ArmoryMainWindow(QMainWindow):
 
 
    #############################################################################
-   def notificationIsRelevant(self, notifyMap):
+   def notificationIsRelevant(self, notifyID, notifyMap):
       currTime = RightNow()
       thisVerInt = getVersionInt(BTCARMORY_VERSION)
+
+      # Ignore transactions below the requested priority
+      minPriority = self.getSettingOrSetDefault('NotifyMinPriority', 2048)
+      if int(notifyMap['PRIORITY']) < minPriority:
+         return False
+
+      # Ignore version upgrade notifications if disabled in the settings
+      if notifyID == self.versionNotification['UNIQUEID'] and \
+         self.getSettingOrSetDefault('DisableUpgradeNotify', False):
+
+      if notifyID in self.notifyIgnoreShort:
+         return False
 
       if notifyMap['STARTTIME'].isdigit():
          if currTime < long(notifyMap['STARTTIME']):
@@ -1548,7 +1559,8 @@ class ArmoryMainWindow(QMainWindow):
     
    #############################################################################
    def processNotifications(self, txt):
-   # Keep in mind this will always be run on startup with a blank slate, as
+
+      # Keep in mind this will always be run on startup with a blank slate, as
       # well as every 30 min while Armory is running.  All notifications are 
       # "new" on startup (though we will allow the user to do-not-show-again
       # and store the notification ID in the settings file).
@@ -1559,20 +1571,25 @@ class ArmoryMainWindow(QMainWindow):
          # Don't crash on an error, but do log what happened
          LOGEXCEPT('Failed to parse notifications')
 
+      # If we have a new-version notification, it's not ignroed, and such 
+      # notifications are not disabled
       if self.versionNotification and 'UNIQUEID' in self.versionNotification:
          nid = vnotify['UNIQUEID']
          currNotificationList[nid] = vnotify
+
+      
+      self.fullNotificationList = deepcopy(currNotificationList)
 
       tabPriority = 0
       maxPriorityID = None
 
       # Check for new notifications
-      addedNotify = []
-      notificationsToRemove = set()
+      addedNotifyIDs = set()
+      irrelevantIDs = set()
       for nid,valmap in currNotificationList.iteritems():
-         if not self.notificationIsRelevant(valmap):
+         if not self.notificationIsRelevant(nid, valmap):
             # Can't remove while iterating over the map
-            notificationsToRemove.add(nid)
+            irrelevantIDs.add(nid)
             continue
 
          if valmap['PRIORITY'].isdigit():
@@ -1581,21 +1598,28 @@ class ArmoryMainWindow(QMainWindow):
                maxPriorityID = nid
 
          if not nid in self.notifications:
-            addedNotify.append(nid)
+            addedNotifyIDs.append(nid)
 
-      # Now remove them from the set that we 
-      for nid in notificationsToRemove:
+      # Now remove them from the set that we are working with
+      for nid in irrelevantIDs:
          del currNotificationList[nid]
       
       # Check for notifications we had before but no long have
-      # Not sure we use this for anything, yet
-      removedNotify = []
+      removedNotifyIDs = []
       for nid,valmap in self.notifications.iteritems():
          if not nid in currNotificationList:
-            removedNotify.append(nid)
+            removedNotifyIDs.append(nid)
+
+
+      # Right now we only remove IDs from the ignore list if they DNE anymore
+      # Not sure if we'll do more with this later
+      for nid in removedNotifyIDs:
+         self.notifyIgnoreLong.discard(nid)
+         self.notifyIgnoreShort.discard(nid)
 
 
 
+      # Change the "Announcements" tab color if something important is there
       tabWidgetBar = self.mainDisplayTabs.tabBar()
       tabColor = Colors.Foreground
       if tabPriority >= 2048:
@@ -1608,45 +1632,17 @@ class ArmoryMainWindow(QMainWindow):
          tabColor = Colors.TextRed
 
       tabWidgetBar.setTabTextColor(self.MAINTABS.Announce, tabColor)
-      self.updateAnnounceTab()
+      self.updateAnnounceTab(currNotificationList)
 
       # If it's important enough, also do a popup
-      if tabPriority >= 5120:
-         QMessageBox.critical(self, tr('Critical Alert'), tr("""
-            Armory Technologies, Inc. has issued a critical alert regarding
-            using Armory and/or the Bitcoin network itself:
-            <br><br>
-            <b>%s</b>
-            <br><br>
-            View more information on the "Announcements" tab of the main 
-            window.""") % currNotificationList[maxPriorityID]['SHORTDESCR'], 
-            QMessageBox.Ok)
-         self.mainDisplayTabs.setCurrentIndex(self.MAINTABS.Announce)
-      
-      elif tabPriority >= 4096:
-         QMessageBox.critical(self, tr('Alert'), tr("""
-            Armory Technologies, Inc. has issued an alert regarding
-            using Armory and/or the Bitcoin network itself:
-            <br><br>
-            <b>%s</b>
-            <br><br>
-            Click the "Announcements" next to the ledger on the main window
-            for more information about this alert""") % \
-            currNotificationList[maxPriorityID]['SHORTDESCR'], QMessageBox.Ok)
-
+      if tabPriority >= 4096:
+         DlgNotificationWithDNAA(maxPriorityID, \
+                              currNotificationList[maxPriorityID]).exec_()
       elif self.versionNotification:
-         # Don't normally need to popup priority=3072 announcements, but we 
-         # do want to if it's for a new Armory version
-         QMessageBox.critical(self, tr('Alert'), tr("""
-            Armory Technologies, Inc. has released a new version of the
-            Armory software:
-            <br><br>
-            <b>%s</b>
-            <br><br>
-            Click the "Announcements" next to the ledger on the main window
-            for more information about this alert.""") % \
-            self.versionNotification['SHORTDESCR'], QMessageBox.Ok)
-            
+         DlgVersionNotify(self.versionNotification).exec_()
+
+      # Update the settings file with any permanent-ignore requests      
+      self.main.writeSetting('NotifyIgnore', ''.join(self.notifyIgnoreLong))
            
          
          
@@ -1671,10 +1667,10 @@ class ArmoryMainWindow(QMainWindow):
                                                           uriClick_partial )
             reactor.listenTCP(CLI_OPTIONS.interport, self.InstanceListener)
          except twisted.internet.error.CannotListenError:
-            LOGWARN('Socket already occupied!  This must be a duplicate Armory instance!')
-            QMessageBox.warning(self, 'Only One, Please!', \
-               'Armory is already running!  You can only have one instance open '
-               'at a time.  Aborting...', QMessageBox.Ok)
+            LOGWARN('Socket already occupied!  This must be a duplicate Armory')
+            QMessageBox.warning(self, tr('Already Open'), tr("""
+               Armory is already running!  You can only have one Armory open
+               at a time.  Exiting..."""), QMessageBox.Ok)
             os._exit(0)
       else:
          LOGWARN('*** Listening port is disabled.  URI-handling will not work')
@@ -1819,7 +1815,8 @@ class ArmoryMainWindow(QMainWindow):
             close Bitcoin-Qt (or bitcoind) before clicking "Ok".  
             Click "Cancel" to continue
             allowing the Bitcoin software synchronize through the 
-            Bitcoin network.
+            Bitcoin network."""), QMessageBox.Ok)
+         lkjfldsjf_stub
 
    ############################################################################
    def startBitcoindIfNecessary(self):
@@ -2119,6 +2116,18 @@ class ArmoryMainWindow(QMainWindow):
          self.usermode = USERMODE.Advanced
       elif self.settings.get('User_Mode') == 'Expert':
          self.usermode = USERMODE.Expert
+
+
+      # The user may have asked to never be notified of a particular
+      # notification again.  We have a short-term list (wiped on every 
+      # load), and a long-term list (saved in settings).  We simply 
+      # initialize the short-term list with the long-term list, and add
+      # short-term ignore requests to it
+      notifyStr = self.getSettingOrSetDefault('NotifyIgnore', '')
+      nsz = len(notifyStr)
+      self.notifyIgnoreLong  = set(notifyStr[8*i:8*(i+1)] for i in range(nsz/8))
+      self.notifyIgnoreShort = set(notifyStr[8*i:8*(i+1)] for i in range(nsz/8))
+
 
       # Load wallets found in the .armory directory
       wltPaths = []

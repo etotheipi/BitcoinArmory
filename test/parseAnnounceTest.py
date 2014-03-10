@@ -133,6 +133,7 @@ Comment: Signed by Bitcoin Armory v0.90.99
 #    General Announcment:    2048
 #    Important non-critical: 3072
 #    Critical/security sens: 4096
+#    Critical++:             5120
 
 UNIQUEID:   873fbc11
 VERSION:    0
