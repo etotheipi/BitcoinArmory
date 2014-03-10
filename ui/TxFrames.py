@@ -605,13 +605,25 @@ class SendBitcoinsFrame(ArmoryFrame):
          else:
             try:
                if self.wlt.isLocked:
-                  unlockdlg = DlgUnlockWallet(self.wlt, self, self.main, 'Send Transaction')
-                  if not unlockdlg.exec_():
+                  Passphrase = None  
+                  
+                  unlockdlg = DlgUnlockWallet(self.wlt, self, self.main, 'Send Transaction', returnPassphrase=True)
+                  if unlockdlg.exec_():
+                     if unlockdlg.Accepted == 1:
+                        Passphrase = unlockdlg.securePassphrase.copy()
+                        unlockdlg.securePassphrase.destroy()
+                     
+                  if Passphrase is None or self.wlt.kdf is None:
                      QMessageBox.critical(self.parent(), 'Wallet is Locked', \
                         'Cannot sign transaction while your wallet is locked. ', \
                         QMessageBox.Ok)
                      return
-      
+                  else:
+                     self.wlt.kdfKey = self.wlt.kdf.DeriveKey(Passphrase)
+                     Passphrase.destroy()                                     
+               
+               self.wlt.mainWnd = self.main
+               self.wlt.parent = self
       
                commentStr = ''
                if len(self.comments) == 1:
@@ -1527,12 +1539,22 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
 
 
       if self.wlt.useEncryption and self.wlt.isLocked:
-         dlg = DlgUnlockWallet(self.wlt, self.parent(), self.main, 'Sign Transaction')
-         if not dlg.exec_():
-            QMessageBox.warning(self, 'Wallet is Locked', \
-               'Cannot sign transaction while your wallet is locked!', \
+         Passphrase = None  
+
+         unlockdlg = DlgUnlockWallet(self.wlt, self, self.main, 'Send Transaction', returnPassphrase=True)
+         if unlockdlg.exec_():
+            if unlockdlg.Accepted == 1:
+               Passphrase = unlockdlg.securePassphrase.copy()
+               unlockdlg.securePassphrase.destroy()
+                     
+         if Passphrase is None or self.wlt.kdf is None:
+            QMessageBox.critical(self.parent(), 'Wallet is Locked', \
+               'Cannot sign transaction while your wallet is locked. ', \
                QMessageBox.Ok)
             return
+         else:
+            self.wlt.kdfKey = self.wlt.kdf.DeriveKey(Passphrase)
+            Passphrase.destroy()                                              
 
       newTxdp = self.wlt.signTxDistProposal(self.txdpObj)
       self.wlt.advanceHighestIndex()

@@ -228,6 +228,7 @@ class PyBtcWallet(object):
       
       #for progress dialog
       self.mainWnd = None
+      self.parent  = None
 
    #############################################################################
    def getWalletVersion(self):
@@ -2553,8 +2554,8 @@ class PyBtcWallet(object):
          return
 
       # If the wallet is locked, we better bail now
-      if self.isLocked:
-         raise WalletLockError("Cannot sign Tx when wallet is locked!")
+      if self.isLocked is True and self.kdfKey is None:
+         raise WalletLockError('Cannot sign tx without unlocking wallet')
 
       numInputs = len(txdp.pytxObj.inputs)
       wltAddr = []
@@ -2574,6 +2575,14 @@ class PyBtcWallet(object):
                   wltAddr.append( (self.addrMap[addr], index, addrIdx) )
                   break
                   
+      for entry in wltAddr:
+         addr = entry[0]
+         if not isinstance(addr.binPrivKey32_Plain, SecureBinaryData) or addr.binPrivKey32_Plain.getSize() != 32:
+            #if the private key was not craeted, just unlock the whole wallet
+            if addr.createPrivKeyNextUnlock:
+               self.unlock(secureKdfOutput=self.kdfKey)
+            else:
+               addr.unlock(self.kdfKey)
 
       # WltAddr now contains a list of every input we can sign for, and the
       # PyBtcAddress object that can be used to sign it.  Let's do it.
@@ -2590,6 +2599,7 @@ class PyBtcWallet(object):
             if self.kdfKey:
                addrObj.unlock(self.kdfKey)
             else:
+               self.lock()
                raise WalletLockError('Cannot sign tx without unlocking wallet')
 
          if not addrObj.hasPubKey():
@@ -2635,6 +2645,7 @@ class PyBtcWallet(object):
          else:
             LOGERROR('Unknown txOut script type')
 
+      self.lock()
       
       prevHighestIndex = self.highestUsedChainIndex  
       if prevHighestIndex<maxChainIndex:

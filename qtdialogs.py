@@ -289,19 +289,19 @@ class DlgUnlockWallet(ArmoryDialog):
    def acceptPassphrase(self):
 
       self.securePassphrase = SecureBinaryData(str(self.edtPasswd.text()))
+      self.edtPasswd.setText('')
+      
       if self.returnResult:
          self.accept()
          return
 
       try:
-         self.wlt.unlock(securePassphrase=self.securePassphrase)
-
          if self.returnPassphrase == False: 
-            self.edtPasswd.setText('')
+            self.wlt.unlock(securePassphrase=self.securePassphrase) 
+            self.securePassphrase.destroy()          
          else: 
-            self.wlt.lock() #if we are trying to recover the plain passphrase, make sure the wallet is locked
+            self.wlt.verifyPassphrase(self.securePassphrase)
 
-         self.securePassphrase.destroy()
          self.accept()
       except PassphraseError:
          QMessageBox.critical(self, 'Invalid Passphrase', \
@@ -12230,18 +12230,18 @@ class DlgProgress(ArmoryDialog):
    def PromptPassphrase(self):
       dlg = DlgUnlockWallet(self.wll, self, self.parent, "Enter Passphrase", returnPassphrase=True)
 
+      self.Passphrase = None
+      self.GotPassphrase = 0
       if dlg.exec_():
          #grab plain passphrase
          self.Passphrase = ''
          if dlg.Accepted == 1:
-            self.Passphrase = str(dlg.edtPasswd.text())
-            dlg.edtPasswd.setText('')
+            self.Passphrase = dlg.securePassphrase.copy()
+            dlg.securePassphrase.destroy()
             self.GotPassphrase = 1
          else: self.GotPassphrase = -1
-         return
       else:
          self.GotPassphrase = -1
-         return
 
    def Kill(self):
       if self.main: self.emit(SIGNAL('Exit'))

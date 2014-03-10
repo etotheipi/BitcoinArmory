@@ -364,8 +364,8 @@ class PyBtcWalletRecovery(object):
                   sleep(0.1)
                
                if ProgDlg.GotPassphrase == 1:
-                  Passphrase = ProgDlg.Passphrase
-                  ProgDlg.Passphrase = None                  
+                  SecurePassphrase = ProgDlg.Passphrase.copy()
+                  ProgDlg.Passphrase.destroy()                       
                else:
                   if rmode==5: 
                      self.WO = 1
@@ -379,8 +379,6 @@ class PyBtcWalletRecovery(object):
          #if the wallet uses encryption, unlock ROOT and verify it
          if toRecover.isLocked and self.WO==0:
             self.useEnc=1
-            SecurePassphrase = SecureBinaryData(Passphrase)
-            Passphrase = None
             if not toRecover.kdf:
                SecurePassphrase.destroy() 
                return self.BuildLogFile(-10, ProgDlg, returnError)
