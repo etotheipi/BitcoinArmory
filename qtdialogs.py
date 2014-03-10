@@ -10772,27 +10772,38 @@ class DlgRestoreSingle(ArmoryDialog):
       self.chkEncrypt.setChecked(True)
       bottomFrm = makeHorizFrame([self.chkEncrypt, buttonBox])
 
-      if thisIsATest:
-         self.chkEncrypt.setChecked(False)
-         self.chkEncrypt.setVisible(False)
+      walletRestoreTabs = QTabWidget()
+      backupTypeFrame = makeVertFrame([frmBackupType, frmAllInputs])
+      walletRestoreTabs.addTab(backupTypeFrame, "Backup")
+      self.advancedOptionsTab = AdvancedOptionsFrame(parent, main)
+      walletRestoreTabs.addTab(self.advancedOptionsTab, "Advanced Options")
 
       layout = QVBoxLayout()
       layout.addWidget(lblDescr)
       layout.addWidget(HLINE())
-      layout.addWidget(frmBackupType)
-      layout.addWidget(frmAllInputs)
+      layout.addWidget(walletRestoreTabs)
       layout.addWidget(bottomFrm)
       self.setLayout(layout)
 
 
+      self.chkEncrypt.setChecked(not thisIsATest)
+      self.chkEncrypt.setVisible(not thisIsATest)
+      self.advancedOptionsTab.setEnabled(not thisIsATest)
       if thisIsATest:
          self.setWindowTitle('Test Single-Sheet Backup')
       else:
          self.setWindowTitle('Restore Single-Sheet Backup')
+         self.connect(self.chkEncrypt, SIGNAL(CLICKED), self.onEncryptCheckboxChange)
+         
       self.setMinimumWidth(500)
       self.layout().setSizeConstraint(QLayout.SetFixedSize)
       self.changeType(self.backupTypeButtonGroup.checkedId())
 
+   #############################################################################
+   # Hide advanced options whenver the restored wallet is unencrypted
+   def onEncryptCheckboxChange(self):
+      self.advancedOptionsTab.setEnabled(self.chkEncrypt.isChecked())
+      
    #############################################################################
    def changeType(self, sel):
       if   sel == self.backupTypeButtonGroup.id(self.version135Button):
@@ -10833,15 +10844,16 @@ class DlgRestoreSingle(ArmoryDialog):
                hasError = True
             elif err == 'Fixed_1':
                nError += 1
-         except KeyError:
+         except:
             hasError = True
 
          if hasError:
+            lineNumber = i+1
             reply = QMessageBox.critical(self, tr('Invalid Data'), tr("""
                There is an error in the data you entered that could not be
                fixed automatically.  Please double-check that you entered the
                text exactly as it appears on the wallet-backup page.  <br><br>
-               The error occured on <font color="red">line #%d</font>.""") % i, \
+               The error occured on <font color="red">line #%d</font>.""") % lineNumber, \
                QMessageBox.Ok)
             LOGERROR('Error in wallet restore field')
             self.prfxList[i].setText('<font color="red">' + str(self.prfxList[i].text()) + '</font>')
@@ -10849,6 +10861,14 @@ class DlgRestoreSingle(ArmoryDialog):
 
          inputLines.append(rawBin)
 
+      if self.chkEncrypt.isChecked() and self.advancedOptionsTab.getKdfSec() == -1:
+            QMessageBox.critical(self, 'Invalid Target Compute Time', \
+               'You entered Target Compute Time incorrectly.\n\nEnter: <Number> (ms, s)', QMessageBox.Ok)
+            return
+      if self.chkEncrypt.isChecked() and self.advancedOptionsTab.getKdfBytes() == -1:
+            QMessageBox.critical(self, 'Invalid Max Memory Usage', \
+               'You entered Max Memory Usage incorrectly.\n\nnter: <Number> (kb, mb)', QMessageBox.Ok)
+            return
       if nError > 0:
          pluralStr = 'error' if nError == 1 else 'errors'
          QMessageBox.question(self, tr('Errors Corrected'), tr("""
@@ -10953,8 +10973,8 @@ class DlgRestoreSingle(ArmoryDialog):
                                  longLabel=longl, \
                                  withEncrypt=True, \
                                  securePassphrase=passwd, \
-                                 kdfTargSec=0.25, \
-                                 kdfMaxMem=32 * 1024 * 1024, \
+                                 kdfTargSec=self.advancedOptionsTab.getKdfSec(), \
+                                 kdfMaxMem=self.advancedOptionsTab.getKdfBytes(),
                                  isActuallyNew=False, \
                                  doRegisterWithBDM=False)
       else:
@@ -11033,10 +11053,6 @@ class DlgRestoreFragged(ArmoryDialog):
       self.chkEncrypt.setChecked(True)
       frmAddRm = makeHorizFrame([self.chkEncrypt, STRETCH, self.btnRmFrag, self.btnAddFrag])
 
-      if thisIsATest:
-         self.chkEncrypt.setChecked(False)
-         self.chkEncrypt.setVisible(False)
-
       self.fragDataMap = {}
       self.tableSize = 2
       self.wltType = UNKNOWN
@@ -11079,13 +11095,29 @@ class DlgRestoreFragged(ArmoryDialog):
                                    STRETCH], STYLE_SUNKEN)
 
 
-      layout = QGridLayout()
-      layout.addWidget(frmDescr, 0, 0, 1, 2)
-      layout.addWidget(frmAddRm, 1, 0, 1, 1)
-      layout.addWidget(self.scrollFragInput, 2, 0, 1, 1)
-      layout.addWidget(frmWltInfo, 1, 1, 2, 1)
-      layout.addWidget(frmBtns, 3, 0, 1, 2)
-      setLayoutStretchCols(layout, 1, 0)
+      fragmentsLayout = QGridLayout()
+      fragmentsLayout.addWidget(frmDescr, 0, 0, 1, 2)
+      fragmentsLayout.addWidget(frmAddRm, 1, 0, 1, 1)
+      fragmentsLayout.addWidget(self.scrollFragInput, 2, 0, 1, 1)
+      fragmentsLayout.addWidget(frmWltInfo, 1, 1, 2, 1)
+      setLayoutStretchCols(fragmentsLayout, 1, 0)
+      
+      walletRestoreTabs = QTabWidget()
+      fragmentsFrame = QFrame()
+      fragmentsFrame.setLayout(fragmentsLayout)
+      walletRestoreTabs.addTab(fragmentsFrame, "Fragments")
+      self.advancedOptionsTab = AdvancedOptionsFrame(parent, main)
+      walletRestoreTabs.addTab(self.advancedOptionsTab, "Advanced Options")
+      
+      self.chkEncrypt.setChecked(not thisIsATest)
+      self.chkEncrypt.setVisible(not thisIsATest)
+      self.advancedOptionsTab.setEnabled(not thisIsATest)
+      if not thisIsATest:
+         self.connect(self.chkEncrypt, SIGNAL(CLICKED), self.onEncryptCheckboxChange)
+      
+      layout = QVBoxLayout()
+      layout.addWidget(walletRestoreTabs)
+      layout.addWidget(frmBtns)
       self.setLayout(layout)
       self.setMinimumWidth(650)
       self.setMinimumHeight(465)
@@ -11094,6 +11126,10 @@ class DlgRestoreFragged(ArmoryDialog):
       self.makeFragInputTable()
       self.checkRestoreParams()
 
+   #############################################################################
+   # Hide advanced options whenver the restored wallet is unencrypted
+   def onEncryptCheckboxChange(self):
+      self.advancedOptionsTab.setEnabled(self.chkEncrypt.isChecked())
 
    def makeFragInputTable(self, addCount=0):
 
@@ -11352,7 +11388,14 @@ class DlgRestoreFragged(ArmoryDialog):
 
    #############################################################################
    def processFrags(self):
-
+      if self.chkEncrypt.isChecked() and self.advancedOptionsTab.getKdfSec() == -1:
+            QMessageBox.critical(self, 'Invalid Target Compute Time', \
+               'You entered Target Compute Time incorrectly.\n\nEnter: <Number> (ms, s)', QMessageBox.Ok)
+            return
+      if self.chkEncrypt.isChecked() and self.advancedOptionsTab.getKdfBytes() == -1:
+            QMessageBox.critical(self, 'Invalid Max Memory Usage', \
+               'You entered Max Memory Usage incorrectly.\n\nnter: <Number> (kb, mb)', QMessageBox.Ok)
+            return
       SECPRINT = HardcodedKeyMaskParams()
       pwd, ekey = '', ''
       if self.displaySecureString.isVisible():
@@ -11459,8 +11502,8 @@ class DlgRestoreFragged(ArmoryDialog):
                                  longLabel=longl, \
                                  withEncrypt=True, \
                                  securePassphrase=passwd, \
-                                 kdfTargSec=0.25, \
-                                 kdfMaxMem=32 * 1024 * 1024, \
+                                 kdfTargSec=self.advancedOptionsTab.getKdfSec(), \
+                                 kdfMaxMem=self.advancedOptionsTab.getKdfBytes(),
                                  isActuallyNew=False, \
                                  doRegisterWithBDM=False)
       else:
@@ -12721,7 +12764,8 @@ class DlgFactoryReset(ArmoryDialog):
 
 
 # Put circular imports at the end
-from ui.WalletFrames import SelectWalletFrame, WalletBackupFrame
+from ui.WalletFrames import SelectWalletFrame, WalletBackupFrame,\
+   AdvancedOptionsFrame
 from ui.TxFrames import  SendBitcoinsFrame, SignBroadcastOfflineTxFrame,\
    ReviewOfflineTxFrame
 

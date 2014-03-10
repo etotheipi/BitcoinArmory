@@ -1853,6 +1853,8 @@ def makeSixteenBytesEasy(b16):
 
 def readSixteenEasyBytes(et18):
    b18 = easyType16_to_binary(et18.strip().replace(' ',''))
+   if len(b18)!=18:
+      raise ValueError('Must supply 18-byte input')
    b16 = b18[:16]
    chk = b18[ 16:]
    if chk=='':
