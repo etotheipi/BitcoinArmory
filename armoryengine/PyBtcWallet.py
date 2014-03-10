@@ -2574,15 +2574,6 @@ class PyBtcWallet(object):
                if self.hasAddr(addr) and self.addrMap[addr].hasPrivKey():
                   wltAddr.append( (self.addrMap[addr], index, addrIdx) )
                   break
-                  
-      for entry in wltAddr:
-         addr = entry[0]
-         if not isinstance(addr.binPrivKey32_Plain, SecureBinaryData) or addr.binPrivKey32_Plain.getSize() != 32:
-            #if the private key was not craeted, just unlock the whole wallet
-            if addr.createPrivKeyNextUnlock:
-               self.unlock(secureKdfOutput=self.kdfKey)
-            else:
-               addr.unlock(self.kdfKey)
 
       # WltAddr now contains a list of every input we can sign for, and the
       # PyBtcAddress object that can be used to sign it.  Let's do it.
@@ -2597,7 +2588,10 @@ class PyBtcWallet(object):
          maxChainIndex = max(maxChainIndex, addrObj.chainIndex)
          if addrObj.isLocked:
             if self.kdfKey:
-               addrObj.unlock(self.kdfKey)
+               if addrObj.createPrivKeyNextUnlock:
+                  self.unlock(self.kdfKey)
+               else:
+                  addrObj.unlock(self.kdfKey)
             else:
                self.lock()
                raise WalletLockError('Cannot sign tx without unlocking wallet')
