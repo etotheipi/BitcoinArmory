@@ -10772,16 +10772,11 @@ class DlgRestoreSingle(ArmoryDialog):
       self.chkEncrypt.setChecked(True)
       bottomFrm = makeHorizFrame([self.chkEncrypt, buttonBox])
 
-      if thisIsATest:
-         self.chkEncrypt.setChecked(False)
-         self.chkEncrypt.setVisible(False)
-
       walletRestoreTabs = QTabWidget()
       backupTypeFrame = makeVertFrame([frmBackupType, frmAllInputs])
       walletRestoreTabs.addTab(backupTypeFrame, "Backup")
       self.advancedOptionsTab = AdvancedOptionsFrame(parent, main)
       walletRestoreTabs.addTab(self.advancedOptionsTab, "Advanced Options")
-      
 
       layout = QVBoxLayout()
       layout.addWidget(lblDescr)
@@ -10791,14 +10786,24 @@ class DlgRestoreSingle(ArmoryDialog):
       self.setLayout(layout)
 
 
+      self.chkEncrypt.setChecked(not thisIsATest)
+      self.chkEncrypt.setVisible(not thisIsATest)
+      self.advancedOptionsTab.setEnabled(not thisIsATest)
       if thisIsATest:
          self.setWindowTitle('Test Single-Sheet Backup')
       else:
          self.setWindowTitle('Restore Single-Sheet Backup')
+         self.connect(self.chkEncrypt, SIGNAL(CLICKED), self.onEncryptCheckboxChange)
+         
       self.setMinimumWidth(500)
       self.layout().setSizeConstraint(QLayout.SetFixedSize)
       self.changeType(self.backupTypeButtonGroup.checkedId())
 
+   #############################################################################
+   # Hide advanced options whenver the restored wallet is unencrypted
+   def onEncryptCheckboxChange(self):
+      self.advancedOptionsTab.setEnabled(self.chkEncrypt.isChecked())
+      
    #############################################################################
    def changeType(self, sel):
       if   sel == self.backupTypeButtonGroup.id(self.version135Button):
@@ -10856,11 +10861,11 @@ class DlgRestoreSingle(ArmoryDialog):
 
          inputLines.append(rawBin)
 
-      if self.advancedOptionsTab.getKdfSec() == -1:
+      if self.chkEncrypt.isChecked() and self.advancedOptionsTab.getKdfSec() == -1:
             QMessageBox.critical(self, 'Invalid Target Compute Time', \
                'You entered Target Compute Time incorrectly.\n\nEnter: <Number> (ms, s)', QMessageBox.Ok)
             return
-      if self.advancedOptionsTab.getKdfBytes() == -1:
+      if self.chkEncrypt.isChecked() and self.advancedOptionsTab.getKdfBytes() == -1:
             QMessageBox.critical(self, 'Invalid Max Memory Usage', \
                'You entered Max Memory Usage incorrectly.\n\nnter: <Number> (kb, mb)', QMessageBox.Ok)
             return
@@ -11048,10 +11053,6 @@ class DlgRestoreFragged(ArmoryDialog):
       self.chkEncrypt.setChecked(True)
       frmAddRm = makeHorizFrame([self.chkEncrypt, STRETCH, self.btnRmFrag, self.btnAddFrag])
 
-      if thisIsATest:
-         self.chkEncrypt.setChecked(False)
-         self.chkEncrypt.setVisible(False)
-
       self.fragDataMap = {}
       self.tableSize = 2
       self.wltType = UNKNOWN
@@ -11108,6 +11109,11 @@ class DlgRestoreFragged(ArmoryDialog):
       self.advancedOptionsTab = AdvancedOptionsFrame(parent, main)
       walletRestoreTabs.addTab(self.advancedOptionsTab, "Advanced Options")
       
+      self.chkEncrypt.setChecked(not thisIsATest)
+      self.chkEncrypt.setVisible(not thisIsATest)
+      self.advancedOptionsTab.setEnabled(not thisIsATest)
+      if not thisIsATest:
+         self.connect(self.chkEncrypt, SIGNAL(CLICKED), self.onEncryptCheckboxChange)
       
       layout = QVBoxLayout()
       layout.addWidget(walletRestoreTabs)
@@ -11120,6 +11126,10 @@ class DlgRestoreFragged(ArmoryDialog):
       self.makeFragInputTable()
       self.checkRestoreParams()
 
+   #############################################################################
+   # Hide advanced options whenver the restored wallet is unencrypted
+   def onEncryptCheckboxChange(self):
+      self.advancedOptionsTab.setEnabled(self.chkEncrypt.isChecked())
 
    def makeFragInputTable(self, addCount=0):
 
@@ -11378,11 +11388,11 @@ class DlgRestoreFragged(ArmoryDialog):
 
    #############################################################################
    def processFrags(self):
-      if self.advancedOptionsTab.getKdfSec() == -1:
+      if self.chkEncrypt.isChecked() and self.advancedOptionsTab.getKdfSec() == -1:
             QMessageBox.critical(self, 'Invalid Target Compute Time', \
                'You entered Target Compute Time incorrectly.\n\nEnter: <Number> (ms, s)', QMessageBox.Ok)
             return
-      if self.advancedOptionsTab.getKdfBytes() == -1:
+      if self.chkEncrypt.isChecked() and self.advancedOptionsTab.getKdfBytes() == -1:
             QMessageBox.critical(self, 'Invalid Max Memory Usage', \
                'You entered Max Memory Usage incorrectly.\n\nnter: <Number> (kb, mb)', QMessageBox.Ok)
             return
