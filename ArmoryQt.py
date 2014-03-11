@@ -121,16 +121,16 @@ class ArmoryMainWindow(QMainWindow):
       self.lastAnnounceUpdate = {}
       self.changelog = []
       self.downloadLinks = {}
-      self.notifications = {}
+      self.almostFullNotificationList = {}
       self.notifyOnSend = set()
       self.notifyonRecv = set()
       self.versionNotification = {}
       self.notifyIgnoreLong  = []
       self.notifyIgnoreShort = []
       self.maxPriorityID = None
-      self.almostFullNotificationList = []
       self.satoshiVersions = ['','']  # [curr, avail]
       self.armoryVersions = [getVersionString(BTCARMORY_VERSION), '']
+      self.NetworkingFactory = None
 
 
       # Kick off announcement checking, unless they explicitly disabled it
@@ -1362,7 +1362,8 @@ class ArmoryMainWindow(QMainWindow):
    
       # If modified recently 
       for fid,func in idFuncPairs:
-         if adf.getFileModTime(fid) > self.lastAnnounceUpdate[fid]:
+         if not fid in self.lastAnnounceUpdate or \
+            adf.getFileModTime(fid) > self.lastAnnounceUpdate[fid]:
             self.lastAnnounceUpdate[fid] = RightNow()
             fileText = adf.getAnnounceFile(fid)
             func(fileText)
@@ -1394,10 +1395,11 @@ class ArmoryMainWindow(QMainWindow):
             thisVer = getVersionInt(BTCARMORY_VERSION) 
             maxVer = thisVer # start at currentVer
             self.versionNotification = {}
-            for verStr,vermap in self.downloadLinks['Armory']:
+            for verStr,vermap in self.downloadLinks['Armory'].iteritems():
                dlVer = getVersionInt(readVersionString(verStr))
                if dlVer > maxVer:
                   maxVer = dlVer
+                  shortDescr = tr('Armory version %s is now available!') % verStr
                   notifyID = binary_to_hex(hash256(shortDescr)[:4])
                   self.versionNotification['UNIQUEID'] = notifyID
                   self.versionNotification['VERSION'] = '0'
@@ -1410,10 +1412,9 @@ class ArmoryMainWindow(QMainWindow):
                   self.versionNotification['ALERTTYPE'] = 'Upgrade'
                   self.versionNotification['NOTIFYSEND'] = 'False'
                   self.versionNotification['NOTIFYRECV'] = 'False'
-                  self.versionNotification['SHORTDESCR'] = \
-                        tr('Armory version %s is now available!') % verStr
+                  self.versionNotification['SHORTDESCR'] = shortDescr
                   self.versionNotification['LONGDESCR'] = \
-                        self.getVersionNotifyLongDescr(verStr)
+                     self.getVersionNotifyLongDescr(verStr).replace('\n','<br>')
                   self.armoryVersions[1] = verStr
    
       
@@ -1423,6 +1424,9 @@ class ArmoryMainWindow(QMainWindow):
          if not 'Satoshi' in self.downloadLinks:
             LOGWARN('No Satoshi links in the downloads list')
          else:
+            if not self.NetworkingFactory:
+               return
+
             thisVerStr = self.NetworkingFactory.proto.peerInfo['subver']
             thisVerStr = thisVerStr.strip('/').split(':')[-1]
             if sum([0 if c in '0123456789.' else 1 for c in thisVerStr]) > 0:
@@ -1464,7 +1468,7 @@ class ArmoryMainWindow(QMainWindow):
          Alternatively, you can get the new version from our website
          downloads page at:
          <br><br>
-         %s """) (verStr, webURL)
+         %s """) % (verStr, webURL)
 
       
             
@@ -1565,7 +1569,7 @@ class ArmoryMainWindow(QMainWindow):
       # "new" on startup (though we will allow the user to do-not-show-again
       # and store the notification ID in the settings file).
       try:
-         np = notifyParser()  
+         np = notificationParser()  
          currNotificationList = np.parseNotificationText(txt)
       except:
          # Don't crash on an error, but do log what happened
@@ -1573,7 +1577,8 @@ class ArmoryMainWindow(QMainWindow):
 
       # If we have a new-version notification, it's not ignroed, and such 
       # notifications are not disabled, add it to the list
-      if self.versionNotification and 'UNIQUEID' in self.versionNotification:
+      vnotify = self.versionNotification 
+      if vnotify and 'UNIQUEID' in vnotify:
          currNotificationList[vnotify['UNIQUEID']] = deepcopy(vnotify)
       
       # Create a copy of almost all the notifications we have.
@@ -1601,11 +1606,10 @@ class ArmoryMainWindow(QMainWindow):
             continue
 
          if valmap['PRIORITY'].isdigit():
-            if nid not in self.ignoreAnnounceList:
-               tabPriority = max(tabPriority, int(valmap['PRIORITY']))
-               self.maxPriorityID = nid
+            tabPriority = max(tabPriority, int(valmap['PRIORITY']))
+            self.maxPriorityID = nid
 
-         if not nid in self.notifications:
+         if not nid in self.almostFullNotificationList:
             addedNotifyIDs.append(nid)
 
       # Now remove them from the set that we are working with
@@ -1614,7 +1618,7 @@ class ArmoryMainWindow(QMainWindow):
       
       # Check for notifications we had before but no long have
       removedNotifyIDs = []
-      for nid,valmap in self.notifications.iteritems():
+      for nid,valmap in self.almostFullNotificationList.iteritems():
          if not nid in currNotificationList:
             removedNotifyIDs.append(nid)
 
@@ -1640,19 +1644,17 @@ class ArmoryMainWindow(QMainWindow):
          tabColor = Colors.TextRed
 
       tabWidgetBar.setTabTextColor(self.MAINTABS.Announce, tabColor)
-      self.updateAnnounceTab(currNotificationList)
+      self.updateAnnounceTab()
 
       # We only do popups for notifications >=4096, AND upgrade notify
       if tabPriority >= 4096:
          DlgNotificationWithDNAA(self, self, self.maxPriorityID, \
                            currNotificationList[self.maxPriorityID]).exec_()
-      elif self.versionNotification:
-         DlgNotificationWithDNAA(self, self, \
-                                 self.versionNotification['UNIQUEID'], \
-                                 self.versionNotification).exec_()
+      elif vnotify:
+         DlgNotificationWithDNAA(self,self,vnotify['UNIQUEID'],vnotify).exec_()
 
       # Update the settings file with any permanent-ignore requests      
-      self.main.writeSetting('NotifyIgnore', ''.join(self.notifyIgnoreLong))
+      self.writeSetting('NotifyIgnore', ''.join(self.notifyIgnoreLong))
            
          
          
@@ -3420,7 +3422,7 @@ class ArmoryMainWindow(QMainWindow):
 
    #############################################################################
    def addrViewDblClicked(self, index, wlt):
-      uacfv = lambda x: self.main.updateAddressCommentFromView(self.wltAddrView, self.wlt)
+      uacfv = lambda x: self.updateAddressCommentFromView(self.wltAddrView, self.wlt)
 
 
    #############################################################################
@@ -4277,7 +4279,7 @@ class ArmoryMainWindow(QMainWindow):
    #############################################################################
    def explicitCheckAnnouncements(self):
       self.announceFetcher.fetchRightNow(3)
-      self.processNotifications()
+      self.processAnnounceData()
 
 
    #############################################################################
@@ -5348,6 +5350,8 @@ class ArmoryMainWindow(QMainWindow):
       sdmState = TheSDM.getSDMState()
       bdmState = TheBDM.getBDMState()
       #print '(SDM, BDM) State = (%s, %s)' % (sdmState, bdmState)
+
+      self.processAnnounceData()
 
       try:
          for func in self.extraHeartbeatAlways:

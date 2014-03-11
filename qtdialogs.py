@@ -21,6 +21,7 @@ from armorymodels import *
 import qrc_img_resources
 from qtdefines import *
 from armoryengine.PyBtcAddress import calcWalletIDFromRoot
+from announcefetch import DEFAULT_MIN_PRIORITY
 
 NO_CHANGE = 'NoChange'
 MIN_PASSWD_WIDTH = lambda obj: tightSizeStr(obj, '*' * 16)[0]
@@ -9195,7 +9196,7 @@ class DlgNotificationWithDNAA(ArmoryDialog):
    the Announcements tab.
    """
    def __init__(self, parent, main, nid, notifyMap):
-      super(DlgVersionNotify, self).__init__(parent, main)
+      super(DlgNotificationWithDNAA, self).__init__(parent, main)
 
       self.notifyID = nid
       isUpgrade = (notifyMap['ALERTTYPE'].lower()=='upgrade')
@@ -9263,32 +9264,40 @@ class DlgNotificationWithDNAA(ArmoryDialog):
       if isUpgrade:
          iconFile = ':/MsgBox_info48.png'
          titleStr = tr('Upgrade Armory')
+         headerSz = 3
          headerStr = tr("""Armory is out-of-date!""")
       elif 0 <= priority < 2048:
          iconFile = ':/MsgBox_info48.png'
          titleStr = tr('Information')
+         headerSz = 3
          headerStr = tr("""General Notification""")
       elif 2048 <= priority < 4096:
          iconFile = ':/MsgBox_warning48.png'
+         titleStr = ''
+         headerSz = 3
          headerStr = tr("""
             Important Information from <i>Armory Technologies, Inc.</i>""")
       elif 4096 <= priority < 5120:
          iconFile = ':/MsgBox_critical64.png'
          titleStr = tr('Alert')
+         headerSz = 4
          headerStr = tr("""
             Security Alert from <i>Armory Technologies, Inc.</i>""")
       elif 5120 <= priority:
          iconFile = ':/MsgBox_critical64.png'
          titleStr = tr('Alert')
+         headerSz = 4
          headerStr = tr("""
             Critical Security Alert from <i>Armory Technologies, Inc.</i>""")
 
+      lblHeader =  QRichLabel(tr("""<font size=%d><b>%s</b></font><br>""") % \
+                     (headerSz, headerStr), doWrap=False, hAlign=Qt.AlignHCenter)
+         
       lblTopInfo = QRichLabel(tr("""
-            <font size=4><b>%(headerStr)s</b></font><br>
-            <b>%(shortDescr)s</b><br>
-            %(startTimeStr)s 
-            %(versionString)s
-            """) % locals())
+         <b>%(shortDescr)s</b><br>
+         %(startTimeStr)s 
+         %(versionString)s
+         """) % locals())
       
       lblBottomInfo = QRichLabel(tr("""
          You can access all alerts and announcements from the 
@@ -9300,9 +9309,14 @@ class DlgNotificationWithDNAA(ArmoryDialog):
       txtLongDescr = QTextEdit()
       txtLongDescr.setReadOnly(True)
       txtLongDescr.insertHtml(longDescr)
+      vbar = txtLongDescr.verticalScrollBar()
+      vbar.setValue(vbar.minimum())
+
 
       notifyIcon = QLabel()
-      notifyIcon.setPixmap(QPixmap(iconFile))
+      pixfile = QPixmap(iconFile)
+      pixfile.scaled(32,32)
+      notifyIcon.setPixmap(pixfile)
       notifyIcon.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
 
       
@@ -9317,29 +9331,36 @@ class DlgNotificationWithDNAA(ArmoryDialog):
          btnIgnoreLong.setVisible(False)
 
       layout = QVBoxLayout()
-      frmTop = makeHorizFrame(['Stretch', notifyIcon, lblTopInfo, 'Stretch'])
+      frmTop = makeHorizFrame([notifyIcon, 'Space(20)', lblTopInfo])
+      frmTop.layout().setStretch(0, 0)
+      frmTop.layout().setStretch(1, 0)
+      frmTop.layout().setStretch(2, 1)
       frmButton = makeHorizFrame(['Stretch', btnDismiss, btnIgnoreLong])
+      layout.addWidget(lblHeader)
       layout.addWidget(frmTop)
       layout.addWidget(txtLongDescr)
       layout.addWidget(lblBottomInfo)
       layout.addWidget(frmButton)
-      layout.setRowStretch(0, 0)
-      layout.setRowStretch(1, 1)
-      layout.setRowStretch(2, 0)
-      layout.setRowStretch(3, 0)
+      layout.setStretch(0, 0)
+      layout.setStretch(1, 0)
+      layout.setStretch(2, 1)
+      layout.setStretch(3, 0)
+      layout.setStretch(4, 0)
 
       self.setLayout(layout)
+
+      self.setMinimumWidth(500)
 
       self.setWindowTitle(titleStr)
       self.setWindowIcon(QIcon(iconFile))
 
    def acceptLongIgnore(self):
-      self.notifyIgnoreLong.add(self.notifyID)
-      self.notifyIgnoreShort.add(self.notifyID)
+      self.main.notifyIgnoreLong.add(self.notifyID)
+      self.main.notifyIgnoreShort.add(self.notifyID)
       self.accept()
 
    def acceptShortIgnore(self):
-      self.notifyIgnoreShort.add(self.notifyID)
+      self.main.notifyIgnoreShort.add(self.notifyID)
       self.accept()
 
 
@@ -9528,30 +9549,6 @@ class DlgCoinControl(ArmoryDialog):
          return
 
       self.accept()
-
-
-# STUB
-class dlgRawTx(ArmoryDialog):
-   def __init__(self, parent, main):
-      super(DlgVersionNotify, self).__init__(parent, main)
-
-
-      lblRaw = QRichLabel('You may paste raw transaction data into the box below, '
-                          'and then click "Broadcast" to send it to the Bitcoin '
-                          'network.  If the transaction has been broadcast before, '
-                          'attempting to send it again is unlikely to do anything.')
-
-      self.txtRawTx = QTextEdit()
-      self.txtRawTx.setFont(GETFONT('Fixed', 8))
-      # self.txtRawTx.sizeHint = lambda: QSize(w,h)
-      self.txtRawTx.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding)
-
-      self.connect(self.txtRawTx, SIGNAL('textChanged()'), self.processTx)
-
-      self.btnBroadcast = QPushButton("Broadcast")
-      self.connect(self.btnBroadcast, SIGNAL(CLICKED), self.broadcastTx)
-
-
 
 
 

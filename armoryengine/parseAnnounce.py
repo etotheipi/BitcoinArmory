@@ -105,11 +105,12 @@ class changelogParser(object):
             self.changelog[-1][1] = line[8:].strip()
          elif line.startswith('-'):
             featureTitle = line[2:]
-            self.changelog[-1][1].append([featureTitle, ''])
+            self.changelog[-1][2].append([featureTitle, ''])
          else:
-            curr = self.changelog[-1][1][-1][-1]
-            self.changelog[-1][1][-1][-1] += ('' if len(curr)==0 else ' ') + line
-   
+            curr = self.changelog[-1][2][-1][-1]
+            self.changelog[-1][2][-1][-1] += ('' if len(curr)==0 else ' ') + line
+
+
       return self.getChangelog()
    
 
@@ -356,7 +357,10 @@ class notificationParser(object):
             self.notifications[currID]['LONGDESCR'] = longDescrAccum
             longDescrAccum = ''
          elif readLongDescr:
-            longDescrAccum += line.strip() + '\n'
+            if len(line.strip())==0:
+               longDescrAccum += '<br><br>'
+            else:
+               longDescrAccum += line.strip() + ' '
          else:
             key = line.split(':')[ 0].strip().upper()
             val = line.split(':')[-1].strip()
