@@ -42,6 +42,7 @@ from ui.Wizards import WalletWizard, TxWizard
 from jasvet import verifySignature, readSigBlock
 from announcefetch import AnnounceDataFetcher
 from armoryengine.parseAnnounce import *
+from armoryengine.torrentDL import TheTDM
 
 # HACK ALERT: Qt has a bug in OS X where the system font settings will override
 # the app's settings when a window is activated (e.g., Armory starts, the user
@@ -125,6 +126,8 @@ class ArmoryMainWindow(QMainWindow):
       self.versionNotification = {}
       self.notifyIgnoreLong  = []
       self.notifyIgnoreShort = []
+      self.maxPriorityID = None
+      self.almostFullNotificationList = []
       self.satoshiVersions = ['','']  # [curr, avail]
       self.armoryVersions = [getVersionString(BTCARMORY_VERSION), '']
 
@@ -185,6 +188,7 @@ class ArmoryMainWindow(QMainWindow):
       # If we're going to do the torrent DL, don't start bitcoind or BDM yet
       # But we can't start the torrent until we've gotten the latest one from
       # the announcement server
+      self.weDecidedToUseTorrent = False
       self.shouldTryTorrentFirst = self.checkShouldRunTorrent()
       if not self.shouldTryTorrentFirst:
          # If we're going into online mode, start loading blockchain
@@ -463,6 +467,7 @@ class ArmoryMainWindow(QMainWindow):
 
       self.tabAnnounce = QWidget()
       self.setupAnnounceTab()
+      self.updateAnnounceTab()
       
 
       # Add the available tabs to the main tab widget
@@ -639,9 +644,12 @@ class ArmoryMainWindow(QMainWindow):
       #self.menusList[MENUS.Wallets].addAction(actMigrateSatoshi)
       #self.menusList[MENUS.Wallets].addAction(actAddressBook)
 
+      def execVersion():
+         self.explicitCheckAnnouncements()
+         self.mainDisplayTabs.setCurrentIndex(self.MAINTABS.Announce)
 
       execAbout   = lambda: DlgHelpAbout(self).exec_()
-      execVersion = lambda: self.checkForNewVersions(forceCheck=True)
+      execVersion = fetchAnnounceOpen
       execTrouble = lambda: webbrowser.open('https://bitcoinarmory.com/troubleshooting/')
       execBugReport = lambda: DlgBugReport(self, self).exec_()
       actAboutWindow  = self.createAction(tr('About Armory'), execAbout)
@@ -693,22 +701,34 @@ class ArmoryMainWindow(QMainWindow):
          LOGINFO('MinimizeOnOpen is True')
          reactor.callLater(0, self.minimizeArmory)
 
+      # If the user was queried the shouldTryTorrentFirst flag may have changed
+      if self.shouldTryTorrentFirst:
+         torrentFile = self.determineTorrentToUse()
 
       # If we want to do torrenting, but they are running corebtc manually,
       # need to ask them to close it, or skip doing the torrent thing.
       if self.shouldTryTorrentFirst and not self.doManageSatoshi:
-         self.manageCoreWantTorrentAskUser() 
+         self.manageBitcoindAskTorrent() 
 
-      # If the user was queried the shouldTryTorrentFirst flag may have changed
-      if self.shouldTryTorrentFirst:
-         torrentFile = self.determineTorrentToUse()
-          
 
       # Again, this flag will turn to false if the above check failed
       if self.shouldTryTorrentFirst and torrentPath is not None:
          bootfile = os.path.join(BTC_HOME_DIR, 'bootstrap.dat')
          TheTDM.setupTorrent(torrentFile, bootfile)
-         self.setupAndStartTorrent(torrentPath)
+         if TheTDM.getTDMState()=='ReadyToStart':
+            self.weDecidedToUseTorrent = True
+            self.setupAndStartTorrent(torrentPath)
+         else:
+            self.shouldTryTorrentFirst = False
+            LOGERROR('Somehow torrent is still not ready')
+
+      # If we failed to do the torrent thing, start everything else
+      if not self.weDecidedToUseTorrent:
+         if self.doManageSatoshi:
+            self.startBitcoindIfNecessary()
+         else:
+            self.loadBlockchainIfNecessary()
+         
       
 
       if CLI_ARGS:
@@ -1351,26 +1371,8 @@ class ArmoryMainWindow(QMainWindow):
             fileText = adf.getAnnounceFile(fid)
             func(fileText)
       
-
             
 
-      # This was from the old checkForNewVersion code
-      """
-         if len(changeLog)==0 and not wasRequested:
-            LOGINFO('You are running the latest version!')
-         elif optChkVer[1:]==changeLog[0][0] and not wasRequested:
-            LOGINFO('Latest version is %s -- Notify user on next version.', optChkVer)
-            return
-         else:
-            DlgVersionNotify(self,self, changeLog, wasRequested).exec_()
-      except:
-         if wasRequested:
-            QMessageBox.critical(self, 'Parse Error',  \
-              'The version information is malformed and cannot be understood. '
-              'Please check www.bitcoinarmory.com for the latest version '
-              'information.', QMessageBox.Ok)
-         LOGEXCEPT('Error trying to parse versions.txt file')
-      """
 
    #############################################################################
    def processChangelog(self, txt):
@@ -1409,6 +1411,7 @@ class ArmoryMainWindow(QMainWindow):
                   self.versionNotification['MINVERSION'] = '*'
                   self.versionNotification['MAXVERSION'] = '<%s' % verStr
                   self.versionNotification['PRIORITY'] = '3072'
+                  self.versionNotification['ALERTTYPE'] = 'Upgrade'
                   self.versionNotification['NOTIFYSEND'] = 'False'
                   self.versionNotification['NOTIFYRECV'] = 'False'
                   self.versionNotification['SHORTDESCR'] = \
@@ -1516,8 +1519,9 @@ class ArmoryMainWindow(QMainWindow):
          return False
 
       # Ignore version upgrade notifications if disabled in the settings
-      if notifyID == self.versionNotification['UNIQUEID'] and \
+      if notifyMap['ALERTTYPE'].lower() == 'upgrade' and
          self.getSettingOrSetDefault('DisableUpgradeNotify', False):
+         return False
 
       if notifyID in self.notifyIgnoreShort:
          return False
@@ -1572,16 +1576,24 @@ class ArmoryMainWindow(QMainWindow):
          LOGEXCEPT('Failed to parse notifications')
 
       # If we have a new-version notification, it's not ignroed, and such 
-      # notifications are not disabled
+      # notifications are not disabled, add it to the list
       if self.versionNotification and 'UNIQUEID' in self.versionNotification:
-         nid = vnotify['UNIQUEID']
-         currNotificationList[nid] = vnotify
-
+         currNotificationList[vnotify['UNIQUEID'] = deepcopy(vnotify)
       
-      self.fullNotificationList = deepcopy(currNotificationList)
+      # Create a copy of almost all the notifications we have.
+      # All notifications >= 2048, unless they've explictly allowed testing
+      # notifications.   This will be shown on the "Announcements" tab.
+      self.almostFullNotificationList = {}
+      currMin = self.getSettingOrSetDefault('NotifyMinPriority', \
+                                                     DEFAULT_MIN_PRIORITY)
+      minmin = min(currMin, DEFAULT_MIN_PRIORITY)
+      for nid,valmap in currNotificationList.iteritems():
+         if int(valmap['PRIORITY']) >= minmin:
+            self.almostFullNotificationList[nid] = deepcopy(valmap)
+
 
       tabPriority = 0
-      maxPriorityID = None
+      self.maxPriorityID = None
 
       # Check for new notifications
       addedNotifyIDs = set()
@@ -1595,7 +1607,7 @@ class ArmoryMainWindow(QMainWindow):
          if valmap['PRIORITY'].isdigit():
             if nid not in self.ignoreAnnounceList:
                tabPriority = max(tabPriority, int(valmap['PRIORITY']))
-               maxPriorityID = nid
+               self.maxPriorityID = nid
 
          if not nid in self.notifications:
             addedNotifyIDs.append(nid)
@@ -1634,12 +1646,14 @@ class ArmoryMainWindow(QMainWindow):
       tabWidgetBar.setTabTextColor(self.MAINTABS.Announce, tabColor)
       self.updateAnnounceTab(currNotificationList)
 
-      # If it's important enough, also do a popup
+      # We only do popups for notifications >=4096, AND upgrade notify
       if tabPriority >= 4096:
-         DlgNotificationWithDNAA(maxPriorityID, \
-                              currNotificationList[maxPriorityID]).exec_()
+         DlgNotificationWithDNAA(self, self, self.maxPriorityID, \
+                           currNotificationList[self.maxPriorityID]).exec_()
       elif self.versionNotification:
-         DlgVersionNotify(self.versionNotification).exec_()
+         DlgNotificationWithDNAA(self, self, \
+                                 self.versionNotification['UNIQUEID'], \
+                                 self.versionNotification).exec_()
 
       # Update the settings file with any permanent-ignore requests      
       self.main.writeSetting('NotifyIgnore', ''.join(self.notifyIgnoreLong))
@@ -1802,21 +1816,83 @@ class ArmoryMainWindow(QMainWindow):
 
       
    #############################################################################
-   def manageCoreWantTorrentAskUser(self):
-      if TheSDM.isRunningBitcoind():
-         reply = QMessageBox.warning(self, tr('BitTorrent'), tr("""
-            Armory can speed up the initial synchronization process
-            by downloading the blockchain through BitTorrent, but it 
-            requires all Bitcoin software to be closed.  Downloading 
-            over BitTorrent is safe, and usually 2x to 10x faster    
-            than letting the Bitcoin software download it.
+   def manageBitcoindAskTorrent(self):
+
+      if not TheSDM.isRunningBitcoind():
+         reply = MsgBoxCustom(MSGBOX.Question, tr('BitTorrent Option'), tr("""
+            You are currently configured to run the core Bitcoin software 
+            yourself (Bitcoin-Qt or bitcoind).  <u>Normally</u>, you should 
+            start the Bitcoin software first and wait for it to synchronize 
+            with the network before starting Armory.
             <br><br>
-            If you would like to download over BitTorrent, please    
-            close Bitcoin-Qt (or bitcoind) before clicking "Ok".  
-            Click "Cancel" to continue
-            allowing the Bitcoin software synchronize through the 
-            Bitcoin network."""), QMessageBox.Ok)
-         lkjfldsjf_stub
+            <b>However</b>, Armory can shortcut most of this initial 
+            synchronization 
+            for you using BitTorrent.  If your firewall allows it,
+            using BitTorrent can be an order of magnitude faster (2x to 20x)
+            than letting the Bitcoin software download it via P2P.
+            <br><br>
+            <u>To synchronize using BitTorrent (recommended):</u>
+            Click "Use BitTorrent" below, and <u>do not</u> start the Bitcoin
+            software until after it is complete.
+            <br><br>
+            <u>To synchronize using Bitcoin P2P (fallback):</u>
+            Click "Cancel" below, then close Armory and start Bitcoin-Qt 
+            (or bitcoind).  Do not start Armory until you see a green checkmark
+            in the bottom-right corner of the Bitcoin-Qt window."""), \
+            wCancel=True, yesStr='Use BitTorrent')
+
+         if not reply:
+            QMessageBox.warning(self, tr('Synchronize'), tr("""
+               When you are ready to start synchronization, close Armory and
+               start Bitcoin-Qt or bitcoind.  Restart Armory only when
+               synchronization is complete.  If using Bitcoin-Qt, you will see
+               a green checkmark in the bottom-right corner"""), QMessageBox.Ok)
+            return False
+            
+      else:
+         reply = MsgBoxCustom(MSGBOX.Question, tr('BitTorrent Option'), tr("""
+            You are currently running the core Bitcoin software, but it
+            is not fully synchronized with the network, yet.  <u>Normally</u>,
+            you should close Armory until Bitcoin-Qt (or bitcoind) is 
+            finished
+            <br><br>
+            <b>However</b>, Armory can shortcut most of this initial 
+            synchronization for you using BitTorrent.  If your firewall 
+            allows it, using BitTorrent can be an order of magnitude 
+            faster (2x to 20x)
+            than letting the Bitcoin software download it via P2P.
+            <br><br>
+            <u>To synchronize using BitTorrent (recommended):</u>
+            Close the running Bitcoin software <b>right now</b>.  When it is 
+            closed, click "Use BitTorrent" below.  Restart the Bitcoin software
+            when Armory indicates it is complete.
+            <br><br>
+            <u>To synchronize using Bitcoin P2P (fallback):</u>
+            Click "Cancel" below, and then close Armory until the Bitcoin
+            software is finished synchronizing.  If using Bitcoin-Qt, you
+            will see a green checkmark in the bottom-right corner of the 
+            main window."""), QMessageBox.Ok)
+
+         if reply:
+            QMessageBox.warning(self, tr('Synchronize'), tr("""
+               Please close the running Bitcoin software <b>right now</b>
+               before clicking "Ok."  The BitTorrent engine will start 
+               as soon as you do."""), QMessageBox.Ok)
+         else:
+            QMessageBox.warning(self, tr('Synchronize'), tr("""
+               You chose to finish synchronizing with the network using 
+               the Bitcoin software which is already running.  Please close
+               Armory until it is finished  If you are running Bitcoin-Qt, 
+               you will see
+               a green checkmark in the bottom-right corner"""), QMessageBox.Ok)
+            return False
+
+         return True
+
+   ####################################################
+   def setupAndStartTorrent(self):
+      LOGERROR('Torrent integration does not work yet')
+      exit(1)
 
    ############################################################################
    def startBitcoindIfNecessary(self):
@@ -3706,8 +3782,8 @@ class ArmoryMainWindow(QMainWindow):
       return 'AllGood'
 
    #############################################################################
-   def pressModeSwitchButton(self):
-      LOGDEBUG('pressModeSwitchButton')
+   def executeModeSwitch(self):
+      LOGDEBUG('executeModeSwitch')
       if TheSDM.getSDMState() == 'BitcoindExeMissing':
          bitcoindStat = self.lookForBitcoind()
          if bitcoindStat=='Running':
@@ -3788,7 +3864,7 @@ class ArmoryMainWindow(QMainWindow):
 
       self.btnModeSwitch = QPushButton('')
       self.connect(self.btnModeSwitch, SIGNAL('clicked()'), \
-                                       self.pressModeSwitchButton)
+                                       self.executeModeSwitch)
 
       # Will switch this to array/matrix of widgets if I get more than 2 rows
       self.lblDashModeSync = QRichLabel('',doWrap=False)
@@ -3798,24 +3874,32 @@ class ArmoryMainWindow(QMainWindow):
 
       self.barProgressSync = QProgressBar(self)
       self.barProgressScan = QProgressBar(self)
+      self.barProgressTorrent = QProgressBar(self)
       self.barProgressSync.setRange(0,100)
       self.barProgressScan.setRange(0,100)
+      self.barProgressTorrent.setRange(0,100)
 
       twid = relaxedSizeStr(self,'99 seconds')[0]
       self.lblTimeLeftSync = QRichLabel('')
       self.lblTimeLeftScan = QRichLabel('')
+      self.lblTimeLeftTorrent = QRichLabel('')
       self.lblTimeLeftSync.setMinimumWidth(twid)
       self.lblTimeLeftScan.setMinimumWidth(twid)
+      self.lblTimeLeftTorrent.setMinimumWidth(twid)
 
       layoutDashMode = QGridLayout()
-      layoutDashMode.addWidget(self.lblDashModeSync,  0,0)
-      layoutDashMode.addWidget(self.barProgressSync,  0,1)
-      layoutDashMode.addWidget(self.lblTimeLeftSync,  0,2)
-      layoutDashMode.addWidget(self.lblDashModeScan,  1,0)
-      layoutDashMode.addWidget(self.barProgressScan,  1,1)
-      layoutDashMode.addWidget(self.lblTimeLeftScan,  1,2)
-      layoutDashMode.addWidget(self.lblBusy,          0,3, 2,1)
-      layoutDashMode.addWidget(self.btnModeSwitch,    0,3, 2,1)
+      layoutDashMode.addWidget(self.lblDashModeTorrent,  0,0)
+      layoutDashMode.addWidget(self.barProgressTorrent,  0,1)
+      layoutDashMode.addWidget(self.lblTimeLeftTorrent,  0,2)
+      layoutDashMode.addWidget(self.lblStatsTorrent,     1,2, 1,2)
+      layoutDashMode.addWidget(self.lblDashModeSync,     2,0)
+      layoutDashMode.addWidget(self.barProgressSync,     2,1)
+      layoutDashMode.addWidget(self.lblTimeLeftSync,     2,2)
+      layoutDashMode.addWidget(self.lblDashModeScan,     3,0)
+      layoutDashMode.addWidget(self.barProgressScan,     3,1)
+      layoutDashMode.addWidget(self.lblTimeLeftScan,     3,2)
+      layoutDashMode.addWidget(self.lblBusy,             0,3, 4,1)
+      layoutDashMode.addWidget(self.btnModeSwitch,       0,3, 4,1)
       self.frmDashModeSub = QFrame()
       self.frmDashModeSub.setFrameStyle(STYLE_SUNKEN)
       self.frmDashModeSub.setLayout(layoutDashMode)
@@ -3970,47 +4054,217 @@ class ArmoryMainWindow(QMainWindow):
       scrollLayout.addWidget(self.dashScrollArea)
       self.tabDashboard.setLayout(scrollLayout)
 
-   #############################################################################
-   def createAlertFrame(self, alertTrips):
-      """
-      Input is list of triplets, [shortDescr, longDescr, priority]
-      """
 
-      frmAlerts = QFrame()
+   #############################################################################
+   def createAnnounceTable(self):
+
+      frmAnnounceTable = QFrame()
       layout = QGridLayout()
+
+      if len(self.almostFullNotificationList)==0:
+         layout.addWidget(QRichLabel(tr("""
+            There are no announcements or alerts to display""")), 0,0)
+         frmAnnounceTable.setLayout(layout)
+         frmAnnounceTable.setFrameStyle(STYLE_SUNKEN)
+         return frmAnnounceTable
+   
+
+      alertsForSorting = []
+      for nid,nmap = self.almostFullNotificationList.iteritems():
+         alertsForSorting.append([nid, nmap['PRIORITY']])
       
+      sortedAlerts = sorted(alertsForSorting, key=lambda a: -a[1])[:10]
+
+      i = 0
+      for nid,priority in sortedAlerts:
+         notifyMap = self.almostFullNotificationList[nid]
+         if priority>=4096:
+            lblPix = QPixmap(':/MsgBox_critical64.png')
+         elif priority>=3072:
+            lblPix = QPixmap(':/MsgBox_warning48.png')
+         elif priority>=2048:
+            lblPix = QPixmap(':/MsgBox_info48.png')
+         else:
+            lblPix = QPixmap()
+                        
+         lblPix.scaled(32,32)
+         lblShort = QRichLabel(notifyMap['SHORTDESCR'])
+         btnMore = QLabelButton('+')
+   
+         
+         self.connect(btnMore, SIGNAL(CLICKED), \
+            lambda: DlgNotificationWithDNAA(self, self, nid, notifyMap).exec_())
+
+         layout.addWidget(lblPix,   i, 0)
+         layout.addWidget(lblShort, i, 1)
+         layout.addWidget(btnMore,  i, 2)
+         i += 1
+
+      layout.setColumnStretch(0, 0)
+      layout.setColumnStretch(1, 1)
+      layout.setColumnStretch(2, 0)
+
+      frmAnnounceTable.setLayout(layout)
+      frmAnnounceTable.setFrameStyle(STYLE_SUNKEN)
+      return frmAnnounceTable
       
 
    #############################################################################
    def setupAnnounceTab(self):
 
-      self.lblAlertStr = QRichLabel('<b>Alerts:</b>')
+      self.lblAlertStr = QRichLabel(tr("""
+         <font size=4><b>Announcements and alerts from <i>Armory Technologies, 
+         Inc.</i></b></font>"""), hAlign=Qt.AlignHCenter)
 
-      self.lblBtcSWVersion = QRichLabel('<b>Bitcoin Software Versions:</b>')
-      self.lblBtcSWVersion = QRichLabel('<b>Bitcoin Software Versions:</b>')
-      
-      self.lblLastUpdated = QRichLabel('<b>Last Updated:</b>')
-      self.lblLastUpdated = QRichLabel('<b>Last Updated:</b>')
+      self.lblLastUpdated = QRichLabel('')
       self.btnCheckForUpdates  = QPushButton('Check for Updates')
+      self.connect(self.btnCheckForUpdates, SIGNAL(CLICKED), \
+                              self.explicitCheckAnnouncements)
       
+      frmLastUpdate = makeHorizFrame([self.lblLastUpdated, \
+                                      self.btnCheckForUpdates])
+
+      self.icoArmorySWVersion = QLabel('')
+      self.lblArmorySWVersion = QRichLabel('')
+      self.icoSatoshiSWVersion = QLabel('')
+      self.lblSatoshiSWVersion = QRichLabel('')
+      
+      self.btnSecureDLArmory  = QPushButton('Secure Download')
+      self.btnSecureDLSatoshi = QPushButton('Secure Download')
+      self.connect(btnSecureDLArmory, SIGNAL(CLICKED), self.openDLArmory)
+      self.connect(btnSecureDLSatoshi, SIGNAL(CLICKED), self.openDLSatoshi)
+
+
+      frmVersions = QFrame():
+      layoutVersions = QGridLayout()
+      layoutVersions.addWidget(self.icoArmorySWVersion, 0,0)
+      layoutVersions.addWidget(self.lblArmorySWVersion, 0,1)
+      layoutVersions.addWidget(self.btnSecureDLArmory,  0,2)
+      layoutVersions.addWidget(self.icoSatoshiSWVersion, 1,0)
+      layoutVersions.addWidget(self.lblSatoshiSWVersion, 1,1)
+      layoutVersions.addWidget(self.btnSecureDLSatoshi,  1,2)
+      frmVersions.setLayout(layoutVersions)
+      frmVersions.setFrameStyle(STYLE_RAISED)
+
+      
+      self.lblTableHeader = QRichLabel(tr("""<font size=4><b>
+         All Available Notifications:</b></font>"""), hAlign=Qt.AlignHCenter)
+
+      frmTable = self.createAnnounceTable()
+
+      frmEverything = makeVertFrame( [ self.lblAlertStr, 
+                                       frmLastUpdate,
+                                       frmVersions,
+                                       self.lblTableHeader,
+                                       frmTable])
+
+      frmFinal = makeHorizFrame(['Stretch', frmEverything, 'Stretch'])
 
       self.announceScrollArea = QScrollArea()
       self.announceScrollArea.setWidgetResizable(True)
-      self.announceScrollArea.setWidget(frmNotify)
+      self.announceScrollArea.setWidget(frmFinal)
       scrollLayout = QVBoxLayout()
       scrollLayout.addWidget(self.announceScrollArea)
       self.tabAnnounce.setLayout(scrollLayout)
 
 
    #############################################################################
-   def updateAnnounceTab(self):
+   def openDLArmory(self):
+      UpgradeDownloaderDialog(self,self, 'Armory').exec_()
       
+   #############################################################################
+   def openDLSatoshi(self):
+      UpgradeDownloaderDialog(self,self, 'Satoshi').exec_()
+
+
+
+   #############################################################################
+   def updateAnnounceTab(self):
+
+      iconInfoFile = ':/MsgBox_info48.png'
+      iconGoodFile = ':/MsgBox_good48.png'
+      iconWarnFile = ':/MsgBox_warning48.png'
+      iconCritFile = ':/MsgBox_critical64.png'
+
+      noAnnounce = (self.announceFetcher.getLastSuccessfulFetchTime() == 0)
+      
+      if noAnnounce:
+         self.lblLastUpdated.setText(tr("No announcement data was found!"))
+         self.btnSecureDLArmory.setVisible(False)
+         self.icoArmorySWVersion.setVisible(False)
+         self.lblArmorySWVersion.setText(tr(""" You are running Armory 
+            version %s""") % getVersionString(BTCARMORY_VERSION))
+      else:
+         updTimeStr = unixTimeToFormatStr(updTimeStr, RightNow())
+         self.lblLastUpdated.setText(tr("Last Updated on %s") % updTimeStr)
+      
+
+      # Notify of Armory updates
+      try:
+         armCurrent = getVersionInt(readVersionString(self.armoryVersions[0])) 
+         armLatest  = getVersionInt(readVersionString(self.armoryVersions[1])) 
+         if armCurrent >= armLatest:
+            dispIcon = QPixmap(iconGoodFile)
+            dispIcon.scaled(32,32)
+            self.btnSecureDLArmory.setVisible(False)
+            self.icoArmorySWVersion.setPixmap(dispIcon)
+            self.lblArmorySWVersion.setText(tr("""
+               You are using the latest version of Armory"""))
+         else:
+            dispIcon = QPixmap(iconWarnFile)
+            dispIcon.scaled(32,32)
+            self.btnSecureDLArmory.setVisible(True)
+            self.icoArmorySWVersion.setPixmap(dispIcon)
+            self.lblArmorySWVersion.setText(tr("""
+               <b>There is a newer version of Armory available!</b>"""))
+         self.btnSecureDLArmory.setVisible(True)
+         self.icoArmorySWVersion.setVisible(True)
+      except:
+         LOGEXCEPT('Error processing current Armory version')
+         self.btnSecureDLArmory.setVisible(False)
+         self.icoArmorySWVersion.setVisible(False)
+         self.lblArmorySWVersion.setText(tr(""" You are running Armory 
+            version %s""") % getVersionString(BTCARMORY_VERSION))
+
+
+      # Show CoreBTC updates
+      try:
+         satCurrent = getVersionInt(readVersionString(self.satoshiVersions[0])) 
+         satLatest  = getVersionInt(readVersionString(self.satoshiVersions[1])) 
+         if satCurrent >= satLatest:
+            dispIcon = QPixmap(iconGoodFile)
+            dispIcon.scaled(32,32)
+            self.btnSecureDLSatoshi.setVisible(False)
+            self.icoSatoshiSWVersion.setPixmap(dispIcon)
+            self.lblSatoshiSWVersion.setText(tr(""" You are using 
+               the latest version of the core Bitcoin software"""))
+         else:
+            dispIcon = QPixmap(iconWarnFile)
+            dispIcon.scaled(32,32)
+            self.btnSecureDLSatoshi.setVisible(True)
+            self.icoSatoshiSWVersion.setPixmap(dispIcon)
+            self.lblSatoshiSWVersion.setText(tr("""
+               <b>There is a newer version of the core Bitcoin software 
+               available!</b>"""))
+      except:
+         LOGEXCEPT('Error processing current Armory version')
+         self.btnSecureDLSatoshi.setVisible(False)
+         self.icoSatoshiSWVersion.setVisible(False)
+         if satCurrent:
+            self.lblSatoshiSWVersion.setText(tr(""" You are running
+               core Bitcoin software version %s""") % self.satoshiVersions[0])
+         else:
+            self.lblSatoshiSWVersion.setText(tr("""No version information is
+            version for the core Bitcoin software"""))
+
+
+
 
 
    #############################################################################
    def explicitCheckAnnouncements(self)
       self.announceFetcher.fetchRightNow(3)
-      self.updateAnnounceTab()
+      self.processNotifications()
 
 
    #############################################################################
@@ -4103,7 +4357,27 @@ class ArmoryMainWindow(QMainWindow):
    #############################################################################
    def updateSyncProgress(self):
 
-      if TheBDM.getBDMState()=='Scanning':
+      if TheTDM.getTDMState() == 'Downloading':
+         dlSpeed  = TheTDM.getLastStats('downRate')
+         timeEst  = TheTDM.getLastStats('timeEst')
+         fracDone = TheTDM.getLastStats('fracDone')
+         numSeeds = TheTDM.getLastStats('numSeeds')
+         numPeers = TheTDM.getLastStats('numPeers')
+         self.barProgressTorrent.setValue(int(99.9*fracDone))
+         self.lblTimeLeftTorrent.setText(secondsToHumanTime(timeEst))
+         self.lblStatsTorrent.setText(tr("""
+            Downloading %s/sec from %d seeds & peers""") % \
+            (bytesToHumanSize(dlSpeed), numSeeds+numPeers))
+
+         self.lblDashModeTorrent.setText('Bootstrapping via BitTorrent', \
+                                          size=4, bold=True, color='Foreground')
+
+         self.barProgressTorrent.setVisible(True)
+         self.lblTimeLeftTorrent.setVisible(True)
+         self.lblStatsTorrent.setVisible(True)
+         #self.btnCancelTorrent.setVisible(True)
+
+      elif TheBDM.getBDMState()=='Scanning':
          # Scan time is super-simple to predict: it's pretty much linear
          # with the number of bytes remaining.
          phase,pct,rate,tleft = TheBDM.predictLoadTime()
@@ -4118,6 +4392,11 @@ class ArmoryMainWindow(QMainWindow):
                                         size=4, bold=True, color='Foreground')
 
          self.barProgressSync.setValue(100)
+         self.barProgressTorrent.setValue(100)
+         self.lblTimeLeftTorrent.setVisible(False)
+         self.lblStatsTorrent.setVisible(False)
+         #self.btnCancelTorrent.setVisible(False)
+
          tleft15 = (int(tleft-1)/15 + 1)*15
          if tleft < 2:
             self.lblTimeLeftScan.setText('')
@@ -4130,6 +4409,11 @@ class ArmoryMainWindow(QMainWindow):
          ssdm = TheSDM.getSDMState() 
          lastBlkNum  = self.getSettingOrSetDefault('LastBlkRecv',     0)
          lastBlkTime = self.getSettingOrSetDefault('LastBlkRecvTime', 0)
+
+         self.barProgressTorrent.setValue(100)
+         self.lblTimeLeftTorrent.setVisible(False)
+         self.lblStatsTorrent.setVisible(False)
+         #self.btnCancelTorrent.setVisible(False)
    
          # Get data from SDM if it has it
          info = TheSDM.getTopBlockInfo()
@@ -4190,7 +4474,7 @@ class ArmoryMainWindow(QMainWindow):
             else:
                # If we're more than 10k blocks behind...
                if timeRemain:
-                  timeRemain = min(8*HOUR, timeRemain)
+                  timeRemain = min(24*HOUR, timeRemain)
                   self.lblTimeLeftSync.setText(secondsToHumanTime(timeRemain))
                else:
                   self.lblTimeLeftSync.setText('')
@@ -4200,8 +4484,6 @@ class ArmoryMainWindow(QMainWindow):
          else:
             LOGERROR('Should not predict sync info in non init/sync SDM state')
             return ('UNKNOWN','UNKNOWN', 'UNKNOWN')
-      elif TheTDM.getTDMState() == 'Downloading':
-         pdljkdsaf   
       else:
          LOGWARN('Called updateSyncProgress while not sync\'ing')
 
@@ -4612,6 +4894,13 @@ class ArmoryMainWindow(QMainWindow):
          self.lblDashModeSync.setVisible(b)
          self.barProgressSync.setVisible(b)
          self.lblTimeLeftSync.setVisible(b)
+
+      def setTorrentRowVisible(b):
+         self.lblDashModeTorrent.setVisible(b)
+         self.barProgressTorrent.setVisible(b)
+         self.lblTimeLeftTorrent.setVisible(b)
+         self.lblStatsTorrent.setVisible(b)
+         #self.btnCancelTorrent.setVisible(b)
          
       def setScanRowVisible(b):
          self.lblDashModeScan.setVisible(b)
@@ -4775,7 +5064,7 @@ class ArmoryMainWindow(QMainWindow):
                   self.notAvailErrorCount += 1
                   #if self.notAvailErrorCount < 5:
                      #LOGERROR('Auto-mode-switch')
-                     #self.pressModeSwitchButton()
+                     #self.executeModeSwitch()
                   descr1 += ''
                   descr2 += self.GetDashFunctionalityText('Offline')
                   self.lblDashDescr1.setText(descr1)
@@ -5046,6 +5335,7 @@ class ArmoryMainWindow(QMainWindow):
                self.createCombinedLedger()
                self.walletModel.reset()
 
+   #############################################################################
    @TimeThisFunction
    def newBlockSyncRescanZC(self, prevLedgSize):
       for wltID in self.walletMap.keys():
@@ -5057,6 +5347,8 @@ class ArmoryMainWindow(QMainWindow):
       return didAffectUs
 
 
+   #############################################################################
+   #############################################################################
    def Heartbeat(self, nextBeatSec=1):
       """
       This method is invoked when the app is initialized, and will
@@ -5092,7 +5384,7 @@ class ArmoryMainWindow(QMainWindow):
       # TorrentDownloadManager
       # SatoshiDaemonManager
       # BlockDataManager
-      #tdmState = TheTDM.getTDMState()
+      tdmState = TheTDM.getTDMState()
       sdmState = TheSDM.getSDMState()
       bdmState = TheBDM.getBDMState()
       #print '(SDM, BDM) State = (%s, %s)' % (sdmState, bdmState)
@@ -5111,6 +5403,9 @@ class ArmoryMainWindow(QMainWindow):
    
          for idx,wltID in enumerate(self.walletIDList):
             self.walletMap[wltID].checkWalletLockTimeout()
+
+
+         if TheTDM.
    
 
          if self.doManageSatoshi:
@@ -5123,7 +5418,6 @@ class ArmoryMainWindow(QMainWindow):
                elif bdmState == 'Offline':
                   LOGERROR('Bitcoind is ready, but we are offline... ?')
                elif bdmState=='Scanning':
-                  self.checkForNewVersions()
                   self.updateSyncProgress()
 
             if not sdmState==self.lastSDMState or not bdmState==self.lastBDMState[0]:
@@ -5136,7 +5430,6 @@ class ArmoryMainWindow(QMainWindow):
                self.setDashboardDetails()
                return
             elif bdmState=='Scanning':
-               self.checkForNewVersions()
                self.updateSyncProgress()
 
 
@@ -5183,7 +5476,6 @@ class ArmoryMainWindow(QMainWindow):
 
 
             # Now we start the normal array of heartbeat operations
-            self.checkForNewVersions()
             newBlocks = TheBDM.readBlkFileUpdate(wait=True)
             self.currBlockNum = TheBDM.getTopBlockHeight()
 

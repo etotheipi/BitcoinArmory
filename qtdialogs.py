@@ -7983,6 +7983,12 @@ class DlgSettings(ArmoryDialog):
          You can test if your operating system is supported by clicking
          on a "bitcoin:" link right after clicking this button."""))
       btnFrmDefaultURI = QPushButton('Set Armory as Default')
+
+      self.chkAskURIAtStartup = QRichLabel(tr("""
+         Check whether Armory is the default handler at startup</b>"""))
+      askuriDNAA = self.getSettingOrSetDefault('DNAA_DefaultApp', False)
+      self.chkAskURIAtStartup.setChecked(not askuriDNAA)
+
       def clickRegURI():
          self.main.setupUriRegistration(justDoIt=True)
          QMessageBox.information(self, tr('Registered'), tr("""
@@ -8028,7 +8034,8 @@ class DlgSettings(ArmoryDialog):
       btngrp.addButton(self.radioAnnounce1024)
       btngrp.setExclusive(True)
 
-      minPriority = self.main.getSettingOrSetDefault('NotifyMinPriority', 2048)
+      minPriority = self.main.getSettingOrSetDefault('NotifyMinPriority', \
+                                                         DEFAULT_MIN_PRIORITY)
       if minPriority >= 4096:
          self.radioAnnounce4096.setChecked()
       elif minPriority >= 3072:
@@ -8244,6 +8251,7 @@ class DlgSettings(ArmoryDialog):
       i += 1
       frmLayout.addWidget(lblDefaultURI, i, 0, 1, 2)
       frmLayout.addWidget(btnFrmDefaultURI, i, 2)
+      frmLayout.addWidget(self.chkAskURIAtStartup, i, 1, 2)
 
       i += 1
       frmLayout.addWidget(HLINE(), i, 0, 1, 3)
@@ -8419,6 +8427,9 @@ class DlgSettings(ArmoryDialog):
       self.main.writeSetting('SkipOnlineCheck', self.chkSkipOnlineCheck.isChecked())
       self.main.writeSetting('SkipVersionCheck', self.chkSkipVersionCheck.isChecked())
 
+      # Reset the DNAA flag as needed
+      askuriDNAA = self.chkAskURIAtStartup.isChecked()
+      self.main.writeSetting('DNAA_DefaultApp', not askuriDNAA)
 
 
       try:
@@ -8461,12 +8472,11 @@ class DlgSettings(ArmoryDialog):
       if self.radioAnnounce1024.isChecked():
          self.main.writeSetting('NotifyMinPriority', 1024)
       elif self.radioAnnounce2048.isChecked():
-         self.main.writeSetting('NotifyMinPriority', 1024)
+         self.main.writeSetting('NotifyMinPriority', 2048)
       elif self.radioAnnounce3072.isChecked():
-         self.main.writeSetting('NotifyMinPriority', 1024)
+         self.main.writeSetting('NotifyMinPriority', 3072)
       elif self.radioAnnounce4096.isChecked():
-         self.main.writeSetting('NotifyMinPriority', 1024)
-
+         self.main.writeSetting('NotifyMinPriority', 4096)
 
       self.main.writeSetting('DisableUpgradeNotify', \
                   self.chkDisableUpgradeNotify.isChecked():
@@ -9177,16 +9187,20 @@ class DlgRequestPayment(ArmoryDialog):
 
 
 ################################################################################
-class DlgNotificationWithDNAA(ArmoryDialog, nid, notifyMap, isUpgrade=False):
+class DlgNotificationWithDNAA(ArmoryDialog)
    """
    This dialog will be used for automatic popups when notifications come in,
    as well as displaying specific notifications if viewed and selected in
    the Announcements tab.
    """
-   def __init__(self, parent, main, changelog, wasRequested=False):
+   def __init__(self, parent, main, nid, notifyMap):
       super(DlgVersionNotify, self).__init__(parent, main)
 
       self.notifyID = nid
+      isUpgrade = (notifyMap['ALERTTYPE'].lower()=='upgrade')
+
+      #if notifyMap is None:
+         #notifyMap = self.main.almostFullNotificationList[nid]
 
       priority   = int(notifyMap['PRIORITY'])
       shortDescr = notifyMap['SHORTDESCR']
@@ -9956,7 +9970,7 @@ class DlgInstallLinux(ArmoryDialog):
       QMessageBox.information(self, 'Succeeded', \
          'The download succeeded!', QMessageBox.Ok)
       from twisted.internet import reactor
-      reactor.callLater(0.5, self.main.pressModeSwitchButton)
+      reactor.callLater(0.5, self.main.executeModeSwitch)
       self.accept()
 
 
@@ -10011,7 +10025,7 @@ def tryInstallLinux(main):
       try:
          TheSDM.setupSDM()
          from twisted.internet import reactor
-         reactor.callLater(0.1, main.pressModeSwitchButton)
+         reactor.callLater(0.1, main.executeModeSwitch)
          QMessageBox.information(main, 'Success!', \
             'The installation appears to have succeeded!')
       except:

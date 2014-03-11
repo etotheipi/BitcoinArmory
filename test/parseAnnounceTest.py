@@ -135,6 +135,8 @@ Comment: Signed by Bitcoin Armory v0.90.99
 #    Critical/security sens: 4096
 #    Critical++:             5120
 
+# 
+
 UNIQUEID:   873fbc11
 VERSION:    0
 STARTTIME:  0
@@ -143,6 +145,7 @@ CANCELID:   []
 MINVERSION: 0.87.2
 MAXVERSION: 0.88.1
 PRIORITY:   4096
+ALERTTYPE:  Security 
 NOTIFYSEND: False
 NOTIFYRECV: True
 SHORTDESCR: Until further notice, require 30 confirmations for incoming transactions.
@@ -170,6 +173,8 @@ CANCELID:   []
 MINVERSION: *
 MAXVERSION: <0.91.99.8
 PRIORITY:   0
+ALERTTYPE:  Upgrade
+NOTIFYSEND: False
 NOTIFYSEND: False
 NOTIFYRECV: False
 SHORTDESCR: New 0.92-beta testing version available.  Please download 0.91.99.8

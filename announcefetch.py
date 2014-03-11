@@ -8,6 +8,7 @@ import urllib
 
 
 DEFAULT_FETCH_INTERVAL = 30*MINUTE
+DEFAULT_MIN_PRIORITY = 2048
 
 if not CLI_OPTIONS.testAnnounceCode:
    # Signed with the Bitcoin offline announce key (see top of ArmoryUtils.py)
@@ -64,10 +65,8 @@ class AnnounceDataFetcher(object):
       self.numConsecutiveExceptions = 0
 
       # If we are on testnet, we may require matching a mainnnet addr
-      self.validAddrStrings = []
       a160 = hash160(hex_to_binary(ANNOUNCE_SIGN_PUBKEY))
-      self.validAddrStrings = [hash160_to_addrStr(a160), \
-                               hash160_to_addrStr(a160, '\x00')]
+      self.validAddrStr = hash160_to_addrStr(a160)
 
       
       
@@ -282,12 +281,10 @@ class AnnounceDataFetcher(object):
       try:
          sig, msg = readSigBlock(digestData)
          signAddress = verifySignature(sig, msg, 'v1', ord(ADDRBYTE))
-         if not signAddress in self.validAddrStrings:
+         if not signAddress == self.validAddrStr:
             LOGERROR('Announce info carried invalid signature!')
             LOGERROR('Signature addr: %s' % signAddress)
-            LOGERROR('Expected  addresses:')
-            for a in self.validAddrStrings:
-               LOGERROR('   ' + a)
+            LOGERROR('Expected  address: %s', self.validAddrStr)
             return 
       except:
          LOGEXCEPT('Could not verify data in signed message block')

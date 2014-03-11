@@ -240,6 +240,21 @@ CLI_OPTIONS = None
 CLI_ARGS = None
 (CLI_OPTIONS, CLI_ARGS) = parser.parse_args()
 
+
+# This is probably an abuse of the CLI_OPTIONS structure, but not 
+# automatically expanding "~" symbols is killing me
+for opt,val in CLI_OPTIONS.__dict__.iteritems():
+   if not isinstance(val, basestring) or not val.startswith('~'):
+      continue
+
+   if os.path.exists(os.path.expanduser(val)):
+      CLI_OPTIONS.__dict__[opt] = os.path.expanduser(val)
+   else:
+      # If the path doesn't exist, it still won't exist when we don't 
+      # modify it, and I'd like to modify as few vars as possible
+      pass
+
+
 # Use CLI args to determine testnet or not
 USE_TESTNET = CLI_OPTIONS.testnet
 
@@ -882,11 +897,11 @@ if os.path.exists(fileDelSettings):
 # BitTornado library  (the user can remove the BitTornado dir and/or the
 # torrentDL.py files without breaking Armory, it will simply set this
 # disable flag to true)
-"""
 DISABLE_TORRENTDL = not CLI_OPTIONS.disableTorrent
 try:
    #import torrentDL
-   raise
+   LOGERROR('Forcing torrent disable')
+   raise ImportError
 except:
    LOGEXCEPT('Failed to import torrent downloader')
    DISABLE_TORRENTDL = True
@@ -894,7 +909,6 @@ except:
 # We only use BITTORRENT for mainnet
 if USE_TESTNET or CLI_OPTIONS.offline:
    DISABLE_TORRENTDL = True
-"""
 
 
 
@@ -1984,9 +1998,12 @@ def secondsToHumanTime(nSec):
       strPieces = [floatSec/DAY, 'day']
    elif floatSec < 0.9*MONTH:
       strPieces = [floatSec/WEEK, 'week']
-   else:
+   elif floatSec < 0.9*YEAR:
       strPieces = [floatSec/MONTH, 'month']
+   else:
+      strPieces = [floatSec/YEAR, 'year']
 
+   #
    if strPieces[0]<1.25:
       return '1 '+strPieces[1]
    elif strPieces[0]<=1.75:
