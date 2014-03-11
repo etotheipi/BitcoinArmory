@@ -38,7 +38,8 @@ import qrc_img_resources
 from qtdefines import *
 from qtdialogs import *
 from ui.Wizards import WalletWizard, TxWizard
-from ui.UpgradeDownloader import UpgradeDownloader
+from ui.VerifyOfflinePackage import VerifyOfflinePackageDialog
+from ui.UpgradeDownloader import UpgradeDownloaderDialog
 from jasvet import verifySignature, readSigBlock
 
 # HACK ALERT: Qt has a bug in OS X where the system font settings will override
@@ -623,10 +624,12 @@ class ArmoryMainWindow(QMainWindow):
       execVersion = lambda: self.fetchExternalAnnouncements(forceCheck=True)
       execTrouble = lambda: webbrowser.open('https://bitcoinarmory.com/troubleshooting/')
       execBugReport = lambda: DlgBugReport(self, self).exec_()
-      execDownloadUpgrade = lambda: UpgradeDownloader(self).exec_()
+      execDownloadUpgrade = lambda: UpgradeDownloaderDialog(self).exec_()
+      execVerifySigned = lambda: VerifyOfflinePackageDialog(self).exec_()
       actAboutWindow  = self.createAction(tr('About Armory'), execAbout)
       actVersionCheck = self.createAction(tr('Armory Version...'), execVersion)
-      actDownloadUpgrade = self.createAction(tr('Download Upgrade'), execDownloadUpgrade)
+      actDownloadUpgrade = self.createAction(tr('Download Upgrade...'), execDownloadUpgrade)
+      actVerifySigned = self.createAction(tr('Verify Signed Package...'), execVerifySigned)
       actTroubleshoot = self.createAction(tr('Troubleshooting Armory'), execTrouble)
       actSubmitBug    = self.createAction(tr('Submit Bug Report'), execBugReport)
       actClearMemPool = self.createAction(tr('Clear All Unconfirmed'), self.clearMemoryPool)
@@ -637,6 +640,7 @@ class ArmoryMainWindow(QMainWindow):
       self.menusList[MENUS.Help].addAction(actAboutWindow)
       self.menusList[MENUS.Help].addAction(actVersionCheck)
       self.menusList[MENUS.Help].addAction(actDownloadUpgrade)
+      self.menusList[MENUS.Help].addAction(actVerifySigned)
       self.menusList[MENUS.Help].addSeparator()
       self.menusList[MENUS.Help].addAction(actTroubleshoot)
       self.menusList[MENUS.Help].addAction(actSubmitBug)
