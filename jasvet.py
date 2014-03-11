@@ -532,7 +532,7 @@ def FormatText(t, sigctx=False, verbose=False):   #sigctx: False=what is display
    r=''
    te=t.split('\n')
    for l in te:
-      while len(l) and l[len(l)-1] in [' ', '\t', chr(9)]:
+      while len(l) and l[len(l)-1] in [' ', '\r', '\t', chr(9)]:
          l=l[:-1]
       if not len(l) or l[len(l)-1]!='\r':
          l+='\r'
