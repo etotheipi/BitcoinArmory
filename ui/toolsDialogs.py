@@ -220,23 +220,22 @@ class SignatureVerificationWidget(QWidget):
       self.lblSigResult.setText('')
       
    def displayVerifiedBox(self, addrB58, messageString):
-      # TODO: Fix some hardcoded colors using armorycolors.py instead
       atihash160 = hash160(hex_to_binary(ANNOUNCE_SIGN_PUBKEY))
-      if addrB58== addrStr_to_hash160(atihash160)[1]
+      if addrB58==hash160_to_addrStr(atihash160):
          if CLI_OPTIONS.testAnnounceCode:
-            ownerStr(tr("""
+            ownerStr = tr("""
                <font color="%s"><b>Armory Technologies, Inc.
                (testing key)</b></font> has signed the following
                block of text:<br>""") % htmlColor('TextGreen')
          else:
-            ownerStr(tr("""
+            ownerStr = tr("""
                <font color="%s"><b>Armory Technologies, Inc.</b></font> 
                has signed the following block of text:<br>""") % \
                htmlColor('TextGreen')
       else:
          ownerStr = tr("""
          'The owner of the following Bitcoin address...
-         br>
+         <br>
          <blockquote>
          <font face="Courier" size=4 color="#000060"><b>%s</b></font>
          </blockquote>

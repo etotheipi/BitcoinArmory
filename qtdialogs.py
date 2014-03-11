@@ -7900,7 +7900,7 @@ class DlgSettings(ArmoryDialog):
       ##########################################################################
       # bitcoind-management settings
       self.chkManageSatoshi = QCheckBox(tr("""
-         Let Armory run Bitcoin-Qt/bitcoind in the background""")
+         Let Armory run Bitcoin-Qt/bitcoind in the background"""))
       self.edtSatoshiExePath = QLineEdit()
       self.edtSatoshiHomePath = QLineEdit()
       self.edtSatoshiExePath.setMinimumWidth(tightSizeNChar(GETFONT('Fixed', 10), 40)[0])
@@ -7966,23 +7966,23 @@ class DlgSettings(ArmoryDialog):
       # We check for internet connection on each startup.  
       self.chkSkipOnlineCheck = QCheckBox(tr("""
          Skip online check on startup (assume internet is available, do 
-         not check)""")
+         not check)"""))
       skipOnlineChk = self.main.getSettingOrSetDefault('SkipOnlineCheck', False)
       self.chkSkipOnlineCheck.setChecked(skipOnlineChk)
 
       self.chkSkipVersionCheck = QCheckBox(tr("""
-         Skip periodic version queries to Armory server""")
+         Skip periodic version queries to Armory server"""))
       skipVerChk = self.main.getSettingOrSetDefault('SkipVersionCheck', False)
       self.chkSkipVersionCheck.setChecked(skipVerChk)
 
       lblDefaultUriTitle = QRichLabel(tr("""
-         <b>Set Armory as default URL handler</b>""")
+         <b>Set Armory as default URL handler</b>"""))
       lblDefaultURI = QRichLabel(tr("""
          Set Armory to be the default when you click on "bitcoin:"
          links in your browser or in emails. 
          You can test if your operating system is supported by clicking
          on a "bitcoin:" link right after clicking this button."""))
-      btnFrmDefaultURI = QPushButton('Set Armory as Default')
+      btnFrmDefaultURI = QPushButton(tr('Set Armory as Default'))
 
       self.chkAskURIAtStartup = QRichLabel(tr("""
          Check whether Armory is the default handler at startup</b>"""))
@@ -8030,8 +8030,9 @@ class DlgSettings(ArmoryDialog):
       
       btnGroupAnnounce = QButtonGroup(self)
       btngrp.addButton(self.radioAnnounce1024)
-      btngrp.addButton(self.radioAnnounce1024) btngrp.addButton(self.radioAnnounce1024)
-      btngrp.addButton(self.radioAnnounce1024)
+      btngrp.addButton(self.radioAnnounce2048) 
+      btngrp.addButton(self.radioAnnounce3072)
+      btngrp.addButton(self.radioAnnounce4096)
       btngrp.setExclusive(True)
 
       minPriority = self.main.getSettingOrSetDefault('NotifyMinPriority', \
@@ -8040,7 +8041,7 @@ class DlgSettings(ArmoryDialog):
          self.radioAnnounce4096.setChecked()
       elif minPriority >= 3072:
          self.radioAnnounce3072.setChecked()
-      elif minPriority >= 2048
+      elif minPriority >= 2048:
          self.radioAnnounce2048.setChecked()
       elif minPriority >= 0:
          self.radioAnnounce1024.setChecked()
@@ -8053,13 +8054,13 @@ class DlgSettings(ArmoryDialog):
          Fees go to users that contribute computing power to keep the 
          Bitcoin network secure.  It also increases the priority of your 
          transactions so they confirm faster (%s BTC is standard).""") % \
-         coin2strNZS(MIN_TX_FEE)
+         coin2strNZS(MIN_TX_FEE))
 
       ttipDefaultFee = self.main.createToolTipWidget(tr("""
          NOTE: some transactions will require a certain fee
          regardless of your settings -- in such cases
          you will be prompted to include the correct
-         value or cancel the transaction""")
+         value or cancel the transaction"""))
 
       self.edtDefaultFee = QLineEdit()
       self.edtDefaultFee.setText(coin2str(txFee, maxZeros=1).strip())
@@ -8479,7 +8480,7 @@ class DlgSettings(ArmoryDialog):
          self.main.writeSetting('NotifyMinPriority', 4096)
 
       self.main.writeSetting('DisableUpgradeNotify', \
-                  self.chkDisableUpgradeNotify.isChecked():
+                  self.chkDisableUpgradeNotify.isChecked())
 
       self.main.createCombinedLedger()
       super(DlgSettings, self).accept(*args)
@@ -9187,7 +9188,7 @@ class DlgRequestPayment(ArmoryDialog):
 
 
 ################################################################################
-class DlgNotificationWithDNAA(ArmoryDialog)
+class DlgNotificationWithDNAA(ArmoryDialog):
    """
    This dialog will be used for automatic popups when notifications come in,
    as well as displaying specific notifications if viewed and selected in
@@ -9226,25 +9227,25 @@ class DlgNotificationWithDNAA(ArmoryDialog)
          if maxver=='*':
             versionString = ''
          elif maxExclude:
-            versionString += tr('before %s<br>' % maxver
+            versionString += tr('before %s<br>') % maxver
          else:
-            versionString += tr('%s%s<br>' % (LTE, maxver)
+            versionString += tr('%s%s<br>') % (LTE, maxver)
       elif minExclude:
          versionString = tr('Affects Armory versions ')
          if maxver=='*':
-            versionString += tr('after %s<br>' % minver
+            versionString += tr('after %s<br>') % minver
          elif maxExclude:
-            versionString += tr('between %s and %s<br>' % (minver, maxver)
+            versionString += tr('between %s and %s<br>') % (minver, maxver)
          else:
-            versionString += tr('after %s,  %s%s<br>' % (minver, LTE, maxver)
+            versionString += tr('after %s,  %s%s<br>') % (minver, LTE, maxver)
       else:
          versionString = tr('Affects Armory versions ')
          if maxver=='*':
-            versionString += tr('s%s<br>' % (GTE,minver)
+            versionString += tr('s%s<br>') % (GTE,minver)
          elif maxExclude:
-            versionString += tr('s%s and before %s<br>' % (GTE, minver, maxver)
+            versionString += tr('s%s and before %s<br>') % (GTE, minver, maxver)
          else:
-            versionString += tr('%s%s and %s%s<br>' % (GTE,minver,LTE,maxver)
+            versionString += tr('%s%s and %s%s<br>') % (GTE,minver,LTE,maxver)
 
 
       startTimeStr = ''
@@ -9271,7 +9272,7 @@ class DlgNotificationWithDNAA(ArmoryDialog)
          iconFile = ':/MsgBox_warning48.png'
          headerStr = tr("""
             Important Information from <i>Armory Technologies, Inc.</i>""")
-      elif 4096 <= priority: < 5120:
+      elif 4096 <= priority < 5120:
          iconFile = ':/MsgBox_critical64.png'
          titleStr = tr('Alert')
          headerStr = tr("""
@@ -9340,116 +9341,6 @@ class DlgNotificationWithDNAA(ArmoryDialog)
    def acceptShortIgnore(self):
       self.notifyIgnoreShort.add(self.notifyID)
       self.accept()
-
-
-################################################################################
-class DlgVersionNotify(ArmoryDialog):
-   def __init__(self, parent, main, changelog, wasRequested=False):
-      super(DlgVersionNotify, self).__init__(parent, main)
-
-      self.myVersion = getVersionInt(BTCARMORY_VERSION)
-      self.latestVer = getVersionInt(readVersionString(changelog[0][0]))
-      self.myVersionStr = getVersionString(BTCARMORY_VERSION)
-      self.latestVerStr = getVersionString(readVersionString(changelog[0][0]))
-      lblDescr = QRichLabel('')
-
-      if self.myVersion >= self.latestVer:
-         lblDescr = QRichLabel(tr("""
-            <font size=4><u><b>Your Armory installation is up-to-date!</b>
-            </u></font>
-            <br><br>
-            <b>Installed Version</b>: %s
-            <br><br>
-            When they become available, you can find and download new 
-            versions of Armory from:<br><br> 
-            <a href="https://bitcoinarmory.com/download/">
-            https://bitcoinarmory.com/download</a> """) % self.myVersionStr)
-
-      else:
-         lblDescr = QRichLabel( tr("""
-            <font size=4><u><b>There is a new version of Armory available!</b>
-            </u></font>
-            <br><br>
-            <b>Current Version</b>: %s<br>
-            <b>Lastest Version</b>: %s
-            <br><br>
-            Please visit the 
-            <a href="https://bitcoinarmory.com/download">Armory 
-            download page</a> (https://bitcoinarmory.com/download) 
-            to get the most recent version. 
-            <b>All your wallets and settings will remain untouched when you 
-            reinstall Armory.</b>""") % (self.myVersionStr, self.latestVerStr))
-
-      lblDescr.setOpenExternalLinks(False)
-      self.connect(lblDescr, SIGNAL('linkActivated(QString)'), self.open
-
-
-      lblChnglog = QRichLabel('')
-      if wasRequested:
-         lblChnglog = QRichLabel("<b>Changelog</b>:")
-      else:
-         lblChnglog = QRichLabel('New features added between version %s and %s:' % \
-                                                (self.myVersionStr, self.latestVerStr))
-
-
-
-      txtChangeLog = QTextEdit()
-      txtChangeLog.setReadOnly(True)
-
-      w, h = tightSizeNChar(self, 100)
-      w = min(w, 600)
-      h = min(h, 400)
-      txtChangeLog.sizeHint = lambda: QSize(w, 15 * h)
-
-      for versionTbl in changelog:
-         versionStr = versionTbl[0]
-         featureList = versionTbl[1]
-         txtChangeLog.insertHtml('<b><u>Version %s</u></b><br><br>' % versionStr)
-         for feat in featureList:
-            txtChangeLog.insertHtml('<b>%s</b><br>' % feat[0])
-            for dtxt in feat[1]:
-               txtChangeLog.insertHtml('%s<br>' % dtxt)
-         txtChangeLog.insertHtml('<br><br>')
-
-      curs = txtChangeLog.textCursor()
-      curs.movePosition(QTextCursor.Start)
-      txtChangeLog.setTextCursor(curs)
-
-      btnDNAA = QPushButton('&Do not notify me of new versions')
-      btnDelay = QPushButton('&No more reminders until next version')
-      btnOkay = QPushButton('&OK')
-      self.connect(btnDNAA, SIGNAL(CLICKED), self.clickDNAA)
-      self.connect(btnDelay, SIGNAL(CLICKED), self.clickDelay)
-      self.connect(btnOkay, SIGNAL(CLICKED), self.clickOkay)
-
-      frmDescr = makeVertFrame([lblDescr], STYLE_SUNKEN)
-      frmLog = makeVertFrame([lblChnglog, 'Space(5)', txtChangeLog], STYLE_SUNKEN)
-      frmBtn = makeHorizFrame([btnDNAA, btnDelay, STRETCH, btnOkay], STYLE_SUNKEN)
-      dlgLayout = QVBoxLayout()
-      dlgLayout.addWidget(frmDescr)
-      dlgLayout.addWidget(frmLog)
-      dlgLayout.addWidget(frmBtn)
-      dlgLayout.setContentsMargins(20, 20, 20, 20)
-
-      self.setLayout(dlgLayout)
-      self.setWindowTitle('New Armory Version')
-      self.setWindowIcon(QIcon(self.main.iconfile))
-
-
-   def clickDNAA(self):
-      self.main.writeSetting('CheckVersion', 'Never')
-      self.accept()
-
-   def clickDelay(self):
-      self.main.settings.set('CheckVersion', 'v' + self.latestVerStr)
-      self.accept()
-
-   def clickOkay(self):
-      self.main.writeSetting('CheckVersion', 'Always')
-      self.accept()
-
-
-
 
 
 ################################################################################

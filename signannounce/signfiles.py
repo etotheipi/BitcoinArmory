@@ -5,7 +5,7 @@ import shutil
 sys.path.append('..')
 
 from armoryengine.ALL import *
-from jasvet import ASv1CS
+from jasvet import ASv1CS, readSigBlock, verifySignature
 
 
 if len(CLI_ARGS)<1:
@@ -134,9 +134,21 @@ raw_input('Hit <enter> when ready: ')
 doSignFile(announcePath, os.path.join(outDir, announceName))
 
 
-print ''
+print '*'*80
 print open(announcePath, 'r').read()
+print '*'*80
+
+
 print ''
+print 'Verifying files'
+for fname,vals in fileMappings.iteritems():
+   if 'bootstrap' in fname:
+      continue
+   with open(os.path.join(outDir, fname), 'rb') as f:
+      sig,msg = readSigBlock(f.read())
+      addrB58 = verifySignature(sig, msg, 'v1', ord(ADDRBYTE))
+      print 'Sign addr for:', vals[0].ljust(longestID+3), addrB58
+   
 
 
 print 'Done!'
