@@ -16,11 +16,14 @@ from SDM import SatoshiDaemonManager
 from armoryengine.Timer import TimeThisFunction
 import CppBlockUtils as Cpp
 
+BDMcurrentBlock = [UINT32_MAX, 0]
+
 
 def getCurrTimeAndBlock():
    time0 = long(RightNowUTC())
    if TheBDM.getBDMState()=='BlockchainReady':
-      return (time0, TheBDM.getTopBlockHeight())
+      if BDMcurrentBlock[1]: return (time0, BDMcurrentBlock[0])
+      else: return (time0, TheBDM.getTopBlockHeight())
    else:
       return (time0, UINT32_MAX)
    

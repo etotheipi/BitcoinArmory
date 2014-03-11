@@ -948,10 +948,13 @@ class PyBtcWallet(object):
       gap = self.lastComputedChainIndex - self.highestUsedChainIndex
       numToCreate = max(numPool - gap, 0)
       
-      from qtdialogs import DlgProgress
-      dlgprg = DlgProgress(self.mainWnd, self.mainWnd, HBar=numToCreate, Title='Computing New Addresses')
-      dlgprg.exec_(self.fillAddressPool_(numPool, isActuallyNew, doRegister, dlgprg, async=dlgprg.Kill))
-      return self.lastComputedChainIndex
+      if numToCreate > 1:
+         from qtdialogs import DlgProgress
+         dlgprg = DlgProgress(self.mainWnd, self.mainWnd, HBar=numToCreate, Title='Computing New Addresses')
+         dlgprg.exec_(self.fillAddressPool_(numPool, isActuallyNew, doRegister, dlgprg, async=dlgprg.Kill))
+         return self.lastComputedChainIndex
+      else:
+         return self.fillAddressPool_(numPool, isActuallyNew, doRegister)
       
    #############################################################################
    @AllowAsync
