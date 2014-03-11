@@ -312,17 +312,22 @@ class UpgradeDownloaderDialog(QDialog):
          self.osver.setCurrentIndex(self.osver.findData(platform.win32_ver()))
       elif OS_LINUX:
          if OS_VARIANT == "debian":
-            self.os.setCurrentIndex(self.os.findData("Debian"))
+            d = self.os.findData("Debian")
+            if d == -1: 
+               d = self.os.findData("Ubuntu")
+            self.os.setCurrentIndex(d)
          elif OS_VARIANT == "ubuntu":
             self.os.setCurrentIndex(self.os.findData("Ubuntu"))
          else:
             self.os.setCurrentIndex(self.os.findData("Linux"))
       elif OS_MACOSX:
          self.os.setCurrentIndex(self.os.findData("MacOS"))
-      if platform.machine() == "i386":
-         self.osarch.setCurrentIndex(self.osarch.findData("32"))
-      else:
+         self.osver.setCurrentIndex(self.osver.findData(platform.mac_ver()[0]))
+      
+      if platform.machine() == "x86_64":
          self.osarch.setCurrentIndex(self.osarch.findData("64"))
+      else:
+         self.osarch.setCurrentIndex(self.osarch.findData("32"))
    
    def useSelectedPackage(self):
       if self.packages.currentItem() == None:
