@@ -2,6 +2,7 @@
 
 <RCC version="1.0">
    <qresource>
+      <file alias="MsgBox_critical24.png">img/MsgBox_critical24.png</file>
       <file alias="MsgBox_critical64.png">img/MsgBox_critical64.png</file>
       <file alias="MsgBox_error32.png">img/MsgBox_error32.png</file>
       <file alias="MsgBox_error64.png">img/MsgBox_error64.png</file>

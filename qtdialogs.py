@@ -2464,7 +2464,9 @@ class DlgNewAddressDisp(ArmoryDialog):
       self.setFocus()
 
       from twisted.internet import reactor
-      reactor.callLater(0.1, TheBDM.saveScrAddrHistories)
+
+      if TheBDM.getBDMState()=='BlockchainReady':
+         reactor.callLater(0.1, TheBDM.saveScrAddrHistories)
 
       try:
          self.parent.wltAddrModel.reset()
@@ -4184,27 +4186,27 @@ class DlgRemoveWallet(ArmoryDialog):
       btngrp.setExclusive(True)
 
       ttipExclude = self.main.createToolTipWidget(\
-                              '[DISABLED] This will not delete any files, but will add this '
-                              'wallet to the "ignore list."  This means that Armory '
-                              'will no longer show this wallet in the main screen '
-                              'and none of its funds will be added to your balance.  '
-                              'You can re-include this wallet in Armory at a later '
-                              'time by selecting the "Excluded Wallets..." option '
-                              'in the "Wallets" menu.')
+         '[DISABLED] This will not delete any files, but will add this '
+         'wallet to the "ignore list."  This means that Armory '
+         'will no longer show this wallet in the main screen '
+         'and none of its funds will be added to your balance.  '
+         'You can re-include this wallet in Armory at a later '
+         'time by selecting the "Excluded Wallets..." option '
+         'in the "Wallets" menu.')
       ttipDelete = self.main.createToolTipWidget(\
-                              'This will delete the wallet file, removing '
-                              'all its private keys from your settings directory.  '
-                              'If you intend to keep using addresses from this '
-                              'wallet, do not select this option unless the wallet '
-                              'is backed up elsewhere.')
+         'This will delete the wallet file, removing '
+         'all its private keys from your settings directory.  '
+         'If you intend to keep using addresses from this '
+         'wallet, do not select this option unless the wallet '
+         'is backed up elsewhere.')
       ttipWatch = self.main.createToolTipWidget(\
-                              'This will delete the private keys from your wallet, '
-                              'leaving you with a watching-only wallet, which can be '
-                              'used to generate addresses and monitor incoming '
-                              'payments.  This option would be used if you created '
-                              'the wallet on this computer <i>in order to transfer '
-                              'it to a different computer or device and want to '
-                              'remove the private data from this system for security.</i>')
+         'This will delete the private keys from your wallet, '
+         'leaving you with a watching-only wallet, which can be '
+         'used to generate addresses and monitor incoming '
+         'payments.  This option would be used if you created '
+         'the wallet on this computer <i>in order to transfer '
+         'it to a different computer or device and want to '
+         'remove the private data from this system for security.</i>')
 
 
       self.chkPrintBackup = QCheckBox('Print a paper backup of this wallet before deleting')
@@ -7983,11 +7985,12 @@ class DlgSettings(ArmoryDialog):
          links in your browser or in emails. 
          You can test if your operating system is supported by clicking
          on a "bitcoin:" link right after clicking this button."""))
-      btnFrmDefaultURI = QPushButton(tr('Set Armory as Default'))
+      btnDefaultURI = QPushButton(tr('Set Armory as Default'))
+      frmBtnDefaultURI = makeHorizFrame([btnDefaultURI, 'Stretch'])
 
-      self.chkAskURIAtStartup = QRichLabel(tr("""
-         Check whether Armory is the default handler at startup</b>"""))
-      askuriDNAA = self.getSettingOrSetDefault('DNAA_DefaultApp', False)
+      self.chkAskURIAtStartup = QCheckBox(tr("""
+         Check whether Armory is the default handler at startup"""))
+      askuriDNAA = self.main.getSettingOrSetDefault('DNAA_DefaultApp', False)
       self.chkAskURIAtStartup.setChecked(not askuriDNAA)
 
       def clickRegURI():
@@ -8000,7 +8003,7 @@ class DlgSettings(ArmoryDialog):
             website</a> and clicking the link at the bottom of the 
             homepage."""), QMessageBox.Ok)
 
-      self.connect(btnFrmDefaultURI, SIGNAL(CLICKED), clickRegURI)
+      self.connect(btnDefaultURI, SIGNAL(CLICKED), clickRegURI)
 
 
       ###############################################################
@@ -8020,32 +8023,41 @@ class DlgSettings(ArmoryDialog):
          (Level 4) Only critical security alerts"""))
 
       self.chkDisableUpgradeNotify = QCheckBox(tr("""
-         Disable notifications of new Armory versions (independent of the
-         notification level chosen above)"""))
+         Disable software upgrade notifications """))
 
       lblDisableAnnounce = QRichLabel(tr("""
-         <font color="%s">If you must to completely disable all communications 
-         channels from the Armory team, you can run Armory with the 
+         <font color="%s">If you must completely disable all notifications
+         from the Armory team, you can run Armory with the 
          "--skip-announce-check" flag from the command-line, or add it to 
          the Armory shortcut target</font>""") % htmlColor('DisableFG'))
       
       btnGroupAnnounce = QButtonGroup(self)
-      btngrp.addButton(self.radioAnnounce1024)
-      btngrp.addButton(self.radioAnnounce2048) 
-      btngrp.addButton(self.radioAnnounce3072)
-      btngrp.addButton(self.radioAnnounce4096)
-      btngrp.setExclusive(True)
+      btnGroupAnnounce.addButton(self.radioAnnounce1024)
+      btnGroupAnnounce.addButton(self.radioAnnounce2048) 
+      btnGroupAnnounce.addButton(self.radioAnnounce3072)
+      btnGroupAnnounce.addButton(self.radioAnnounce4096)
+      btnGroupAnnounce.setExclusive(True)
 
       minPriority = self.main.getSettingOrSetDefault('NotifyMinPriority', \
                                                          DEFAULT_MIN_PRIORITY)
       if minPriority >= 4096:
-         self.radioAnnounce4096.setChecked()
+         self.radioAnnounce4096.setChecked(True)
       elif minPriority >= 3072:
-         self.radioAnnounce3072.setChecked()
+         self.radioAnnounce3072.setChecked(True)
       elif minPriority >= 2048:
-         self.radioAnnounce2048.setChecked()
+         self.radioAnnounce2048.setChecked(True)
       elif minPriority >= 0:
-         self.radioAnnounce1024.setChecked()
+         self.radioAnnounce1024.setChecked(True)
+
+      btnResetNotify = QPushButton(tr('Reset Notifications'))
+      frmBtnResetNotify = makeHorizFrame([btnResetNotify, 'Stretch'])
+      def resetNotifyLong():
+         self.main.notifyIgnoreLong  = set() 
+         self.main.notifyIgnoreShort = set() 
+         self.main.writeSetting('NotifyIgnore', '')
+         QMessageBox.information(self, tr('Settings Changed'), tr("""
+            All notifications have been reset!"""), QMessageBox.Ok)
+      self.connect(btnResetNotify, SIGNAL(CLICKED), resetNotifyLong)
 
 
       txFee = self.main.getSettingOrSetDefault('Default_Fee', MIN_TX_FEE)
@@ -8241,8 +8253,8 @@ class DlgSettings(ArmoryDialog):
       i += 1
       frmLayout.addWidget(self.chkSkipOnlineCheck, i, 0, 1, 3)
 
-      i += 1
-      frmLayout.addWidget(self.chkSkipVersionCheck, i, 0, 1, 3)
+      #i += 1
+      #frmLayout.addWidget(self.chkSkipVersionCheck, i, 0, 1, 3)
 
       i += 1
       frmLayout.addWidget(HLINE(), i, 0, 1, 3)
@@ -8251,9 +8263,13 @@ class DlgSettings(ArmoryDialog):
       frmLayout.addWidget(lblDefaultUriTitle, i, 0)
 
       i += 1
-      frmLayout.addWidget(lblDefaultURI, i, 0, 1, 2)
-      frmLayout.addWidget(btnFrmDefaultURI, i, 2)
-      frmLayout.addWidget(self.chkAskURIAtStartup, i, 1, 2)
+      frmLayout.addWidget(lblDefaultURI, i, 0, 1, 3)
+
+      i += 1
+      frmLayout.addWidget(frmBtnDefaultURI, i, 0, 1, 3)
+
+      i += 1
+      frmLayout.addWidget(self.chkAskURIAtStartup, i, 0, 1, 3)
 
       i += 1
       frmLayout.addWidget(HLINE(), i, 0, 1, 3)
@@ -8324,10 +8340,13 @@ class DlgSettings(ArmoryDialog):
       frmLayout.addWidget(self.radioAnnounce4096, i, 0, 1, 3)
 
       i += 1
-      frmLayout.addWidget(lblDisableAnnounce, i, 0, 1, 3)
+      frmLayout.addWidget(lblDisableAnnounce, i, 0, 1, 4)
    
       i += 1
       frmLayout.addWidget(self.chkDisableUpgradeNotify , i, 0, 1, 3)
+
+      i += 1
+      frmLayout.addWidget(frmBtnResetNotify , i, 0, 1, 3)
 
 
       i += 1
@@ -9224,57 +9243,56 @@ class DlgNotificationWithDNAA(ArmoryDialog):
          currVerStr = getVersionString(BTCARMORY_VERSION) 
          versionString = tr("""You are using version %s<br>""") % currVerStr
       elif minver=='*':
-         versionString = tr('Affects Armory versions ')
+         versionString = tr('Affects Armory versions:  ')
          if maxver=='*':
             versionString = ''
          elif maxExclude:
-            versionString += tr('before %s<br>') % maxver
+            versionString += tr('before %s<br>' % maxver)
          else:
-            versionString += tr('%s%s<br>') % (LTE, maxver)
+            versionString += tr('%s%s<br>' % (LTE, maxver))
       elif minExclude:
          versionString = tr('Affects Armory versions ')
          if maxver=='*':
-            versionString += tr('after %s<br>') % minver
+            versionString += tr('after %s<br>' % minver)
          elif maxExclude:
-            versionString += tr('between %s and %s<br>') % (minver, maxver)
+            versionString += tr('between %s and %s<br>' % (minver, maxver))
          else:
-            versionString += tr('after %s,  %s%s<br>') % (minver, LTE, maxver)
+            versionString += tr('after %s,  %s%s<br>' % (minver, LTE, maxver))
       else:
          versionString = tr('Affects Armory versions ')
          if maxver=='*':
-            versionString += tr('s%s<br>') % (GTE,minver)
+            versionString += tr('%s%s<br>' % (GTE,minver))
          elif maxExclude:
-            versionString += tr('s%s and before %s<br>') % (GTE, minver, maxver)
+            versionString += tr('%s%s and before %s<br>' % (GTE, minver, maxver))
          else:
-            versionString += tr('%s%s and %s%s<br>') % (GTE,minver,LTE,maxver)
+            versionString += tr('%s%s and %s%s<br>' % (GTE,minver,LTE,maxver))
 
 
       startTimeStr = ''
-      if isUpgrade:
-         for verStr,dateStr,updList in self.changelog:
-            if verStr==notifyMap['MAXVERSION'][1:]:
-               startTimeStr = tr('Released: %s' % dateStr)
-               break
+      if startTime > 0:
+         if isUpgrade:
+            for verStr,dateStr,updList in self.main.changelog:
+               if verStr==notifyMap['MAXVERSION'][1:]:
+                  startTimeStr = tr('Released: %s<br>' % dateStr)
+                  break
          else:
-            startTimeStr = ''
-      if startTimeStr > 0:
-         startTimeStr = unixTimeToFormatStr(startTime, 'Date: %B %d, %Y<br>')
+            startTimeStr = unixTimeToFormatStr(startTime, 'Date: %B %d, %Y<br>')
 
       
       if isUpgrade:
          iconFile = ':/MsgBox_info48.png'
          titleStr = tr('Upgrade Armory')
-         headerSz = 3
+         headerSz = 4
          headerStr = tr("""Armory is out-of-date!""")
       elif 0 <= priority < 2048:
          iconFile = ':/MsgBox_info48.png'
          titleStr = tr('Information')
-         headerSz = 3
+         headerSz = 4
          headerStr = tr("""General Notification""")
       elif 2048 <= priority < 4096:
          iconFile = ':/MsgBox_warning48.png'
          titleStr = ''
-         headerSz = 3
+         headerSz = 4
          headerStr = tr("""
             Important Information from <i>Armory Technologies, Inc.</i>""")
       elif 4096 <= priority < 5120:
@@ -9290,32 +9308,38 @@ class DlgNotificationWithDNAA(ArmoryDialog):
          headerStr = tr("""
             Critical Security Alert from <i>Armory Technologies, Inc.</i>""")
 
-      lblHeader =  QRichLabel(tr("""<font size=%d><b>%s</b></font><br>""") % \
-                     (headerSz, headerStr), doWrap=False, hAlign=Qt.AlignHCenter)
+      lblHeader =  QRichLabel(tr("""
+         <font size=%d color="%s"><b>%s</b></font><br>""") % \
+                     (headerSz, htmlColor('TextWarn'), headerStr), \
+                     doWrap=False, hAlign=Qt.AlignHCenter)
          
       lblTopInfo = QRichLabel(tr("""
          <b>%(shortDescr)s</b><br>
          %(startTimeStr)s 
+         <br>
          %(versionString)s
          """) % locals())
       
+      if isUpgrade:
+         lastWord = u''
+      else:
+         lastWord = tr("""
+            If new versions
+            of Armory are available, you can get them using our 
+            <font color="red"><a href="dlgSecureDownload">secure 
+            downloader</a></font>.""")
+   
       lblBottomInfo = QRichLabel(tr("""
          You can access all alerts and announcements from the 
-         "Announcements" tab on the main Armory window.  If new versions
-         of Armory are available, you can get them using our 
-         <font color="red"><a href="dlgSecureDownload">secure 
-         downloader</a></font>."""))
+         "Announcements" tab on the main Armory window.""") + lastWord)
 
-      txtLongDescr = QTextEdit()
-      txtLongDescr.setReadOnly(True)
-      txtLongDescr.insertHtml(longDescr)
-      vbar = txtLongDescr.verticalScrollBar()
-      vbar.setValue(vbar.minimum())
+      self.txtLongDescr = QTextEdit()
+      self.txtLongDescr.setReadOnly(True)
+      self.txtLongDescr.insertHtml(longDescr)
 
 
       notifyIcon = QLabel()
       pixfile = QPixmap(iconFile)
-      pixfile.scaled(32,32)
       notifyIcon.setPixmap(pixfile)
       notifyIcon.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
 
@@ -9337,22 +9361,38 @@ class DlgNotificationWithDNAA(ArmoryDialog):
       frmTop.layout().setStretch(2, 1)
       frmButton = makeHorizFrame(['Stretch', btnDismiss, btnIgnoreLong])
       layout.addWidget(lblHeader)
+      layout.addWidget(HLINE())
       layout.addWidget(frmTop)
-      layout.addWidget(txtLongDescr)
+      layout.addWidget(self.txtLongDescr)
+      layout.addItem(QSpacerItem(20, 20))
       layout.addWidget(lblBottomInfo)
       layout.addWidget(frmButton)
       layout.setStretch(0, 0)
       layout.setStretch(1, 0)
-      layout.setStretch(2, 1)
-      layout.setStretch(3, 0)
+      layout.setStretch(2, 0)
+      layout.setStretch(3, 1)
       layout.setStretch(4, 0)
+      layout.setStretch(5, 0)
+      layout.setStretch(6, 0)
 
       self.setLayout(layout)
 
       self.setMinimumWidth(500)
 
+      # TODO:  Dear god this is terrible, but for my life I cannot figure 
+      #        out how to move the vbar, because you can't do it until 
+      #        the dialog is drawn which doesn't happen til after __init__
+      from twisted.internet import reactor
+      reactor.callLater(0.05, self.resizeEvent)
+
       self.setWindowTitle(titleStr)
       self.setWindowIcon(QIcon(iconFile))
+
+   def resizeEvent(self, ev=None):
+      super(DlgNotificationWithDNAA, self).resizeEvent(ev)
+      vbar = self.txtLongDescr.verticalScrollBar()
+      vbar.setValue(vbar.minimum())
+      
 
    def acceptLongIgnore(self):
       self.main.notifyIgnoreLong.add(self.notifyID)

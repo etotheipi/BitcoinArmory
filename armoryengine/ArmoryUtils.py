@@ -907,7 +907,7 @@ except:
    DISABLE_TORRENTDL = True
 
 # We only use BITTORRENT for mainnet
-if USE_TESTNET or CLI_OPTIONS.offline:
+if USE_TESTNET:
    DISABLE_TORRENTDL = True
 
 
