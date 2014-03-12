@@ -4174,14 +4174,14 @@ class ArmoryMainWindow(QMainWindow):
    #############################################################################
    def openDLArmory(self):
       dl = self.announceFetcher.getAnnounceFile('downloads')
-      cl = self.announceFetcher.getAnnounceFile('changelogs')
-      UpgradeDownloaderDialog(self,self, 'Armory', dl, cl).exec_()
+      cl = self.announceFetcher.getAnnounceFile('changelog')
+      UpgradeDownloaderDialog(self, 'Armory', dl, cl).exec_()
       
    #############################################################################
    def openDLSatoshi(self):
       dl = self.announceFetcher.getAnnounceFile('downloads')
-      cl = self.announceFetcher.getAnnounceFile('changelogs')
-      UpgradeDownloaderDialog(self,self, 'Satoshi', dl, cl).exec_()
+      cl = self.announceFetcher.getAnnounceFile('changelog')
+      UpgradeDownloaderDialog(self, 'Satoshi', dl, cl).exec_()
 
 
 

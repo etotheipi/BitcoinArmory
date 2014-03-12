@@ -177,7 +177,7 @@ class UpgradeDownloaderDialog(QDialog):
       
       self.downloadText = downloadText
       self.nestedDownloadMap = downloadLinkParser(filetext=downloadText).downloadMap
-      self.changelog = changeLog
+      self.changelog = changelogParser().parseChangelogText(changeLog)
       
       self.localizedData = { \
          "Ubuntu" : tr("Ubuntu/Debian"), \
@@ -249,8 +249,8 @@ class UpgradeDownloaderDialog(QDialog):
       if showPackage:
          for n in range(0, packages.topLevelItemCount()):
             row = packages.topLevelItem(n)
-            if row.data(0, 32)==n:
-               packages.setCurrentItem(n)
+            if row.data(0, 32)==showPackage:
+               packages.setCurrentItem(row)
                break
       
       self.useSelectedPackage()
@@ -271,7 +271,7 @@ class UpgradeDownloaderDialog(QDialog):
          elif OS_VARIANT == "ubuntu":
             self.os.setCurrentIndex(self.os.findData("Ubuntu"))
          else:
-            self.os.setCurrentIndex(self.os.findData("Linux"))
+            self.os.setCurrentIndex(self.os.findData("Ubuntu"))
       elif OS_MACOSX:
          d = self.os.findData("MacOS")
          if d == -1:
