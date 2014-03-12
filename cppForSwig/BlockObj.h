@@ -657,8 +657,8 @@ public:
 
    bool isSpent(void);
    bool isUnspent(void);
-   bool isSpendable(uint32_t currBlk=0);
-   bool isMineButUnconfirmed(uint32_t currBlk);
+   bool isSpendable(uint32_t currBlk=0, bool ignoreAllZeroConf=false);
+   bool isMineButUnconfirmed(uint32_t currBlk, bool includeAllZeroConf=false);
    void clearZCFields(void);
    void pprintOneLine(void);
 
@@ -826,13 +826,11 @@ public:
       uniqueKey_.copyFrom(key.getPtr()+1, key.getSize()-1);
    }
 
-
    BinaryData        uniqueKey_;
    uint8_t           addrType_;
    uint32_t          blkCreated_;
    uint32_t          alreadyScannedUpToBlk_;
    uint64_t          sumValue_;
-
 };
 
 

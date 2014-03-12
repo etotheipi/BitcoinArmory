@@ -31,7 +31,7 @@ endif
 
 include ./pypaths.txt
 
-CPPFLAGS += -Icryptopp -Ileveldb/include -DUSE_CRYPTOPP -D__STDC_LIMIT_MACROS
+CPPFLAGS += $(ARMORY_CPPFLAGS) -Icryptopp -Ileveldb/include -DUSE_CRYPTOPP -D__STDC_LIMIT_MACROS
 LDLIBS += -lpthread -Lleveldb -L$(PYTHON_LIB) -l$(PYVER)
 SWIG_OPTS    += -c++ -python -classic -threads
 
@@ -40,20 +40,16 @@ STATICPYTHON += "$(PYTHON_LIB)"
 
 CXXCPP += $(CPPFLAGS)
 
-#**************************************************************************
-all:
-	$(MAKE) BlockUtilsTest.out
 
-swig: ../_CppBlockUtils.so ../qrc_img_resources.py
+#**************************************************************************
+
+all: ../_CppBlockUtils.so ../qrc_img_resources.py
 
 ../_CppBlockUtils.so: $(OBJS) CppBlockUtils_wrap.o
 	$(LINK) -shared -fPIC $(LDLIBS) $(LDFLAGS) $(CXXFLAGS) $(OBJS) $(STATICPYTHON) CppBlockUtils_wrap.o -o ../_CppBlockUtils.so
 
 ../qrc_img_resources.py: ../imgList.xml
 	pyrcc4 -o ../qrc_img_resources.py ../imgList.xml
-
-BlockUtilsTest.out : $(OBJS) BlockUtilsTest.cpp
-	$(LINK) $(LDLIBS) $(LDFLAGS) $(OBJS) -o BlockUtilsTest.out $(CXXCPP) $(CXXFLAGS) BlockUtilsTest.cpp
 
 
 #**************************************************************************

@@ -935,6 +935,7 @@ class Armory_Daemon(object):
          # This is CONNECT call for armoryd to talk to bitcoind
          LOGINFO('Set up connection to bitcoind')
          self.NetworkingFactory = ArmoryClientFactory( \
+                        TheBDM,
                         func_loseConnect = self.showOfflineMsg, \
                         func_madeConnect = self.showOnlineMsg, \
                         func_newTx       = self.execOnNewTx, \

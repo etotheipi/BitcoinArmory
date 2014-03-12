@@ -247,6 +247,9 @@ class SignatureVerificationWidget(QWidget):
       if addrB58:
          msg = messageString.replace('\r\n','\n')
          msg = '   ' + '<br>   '.join(msg.split('\n'))
+         # The user will be able to see the entire message 
+         # in the Message Signing/Verification dialog
+         msg =  '<br>'.join([line[:60]+ '...'*(len(line)>60) for line in msg.split('<br>')][:20])
          MsgBoxCustom(MSGBOX.Good, tr('Verified!'), tr(""" 
             %s
             <hr>

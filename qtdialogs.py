@@ -290,19 +290,19 @@ class DlgUnlockWallet(ArmoryDialog):
    def acceptPassphrase(self):
 
       self.securePassphrase = SecureBinaryData(str(self.edtPasswd.text()))
+      self.edtPasswd.setText('')
+      
       if self.returnResult:
          self.accept()
          return
 
       try:
-         self.wlt.unlock(securePassphrase=self.securePassphrase)
-
          if self.returnPassphrase == False: 
-            self.edtPasswd.setText('')
+            self.wlt.unlock(securePassphrase=self.securePassphrase) 
+            self.securePassphrase.destroy()          
          else: 
-            self.wlt.lock() #if we are trying to recover the plain passphrase, make sure the wallet is locked
+            self.wlt.verifyPassphrase(self.securePassphrase)
 
-         self.securePassphrase.destroy()
          self.accept()
       except PassphraseError:
          QMessageBox.critical(self, 'Invalid Passphrase', \
@@ -3341,8 +3341,9 @@ class DlgAddressInfo(ArmoryDialog):
             'This is the current <i>spendable</i> balance of this address, '
             'not including zero-confirmation transactions from others.'))
       lbls[-1].append(QRichLabel('<b>Current Balance</b>'))
-      balStr = coin2str(cppAddr.getSpendableBalance(), maxZeros=1)
-      if cppAddr.getSpendableBalance() > 0:
+      balCoin = cppAddr.getSpendableBalance(self.main.currBlockNum, IGNOREZC)
+      balStr = coin2str(balCoin, maxZeros=1)
+      if balCoin > 0:
          goodColor = htmlColor('MoneyPos')
          lbls[-1].append(QRichLabel(\
             '<font color=' + goodColor + '>' + balStr.strip() + '</font> BTC'))
@@ -10957,27 +10958,38 @@ class DlgRestoreSingle(ArmoryDialog):
       self.chkEncrypt.setChecked(True)
       bottomFrm = makeHorizFrame([self.chkEncrypt, buttonBox])
 
-      if thisIsATest:
-         self.chkEncrypt.setChecked(False)
-         self.chkEncrypt.setVisible(False)
+      walletRestoreTabs = QTabWidget()
+      backupTypeFrame = makeVertFrame([frmBackupType, frmAllInputs])
+      walletRestoreTabs.addTab(backupTypeFrame, "Backup")
+      self.advancedOptionsTab = AdvancedOptionsFrame(parent, main)
+      walletRestoreTabs.addTab(self.advancedOptionsTab, "Advanced Options")
 
       layout = QVBoxLayout()
       layout.addWidget(lblDescr)
       layout.addWidget(HLINE())
-      layout.addWidget(frmBackupType)
-      layout.addWidget(frmAllInputs)
+      layout.addWidget(walletRestoreTabs)
       layout.addWidget(bottomFrm)
       self.setLayout(layout)
 
 
+      self.chkEncrypt.setChecked(not thisIsATest)
+      self.chkEncrypt.setVisible(not thisIsATest)
+      self.advancedOptionsTab.setEnabled(not thisIsATest)
       if thisIsATest:
          self.setWindowTitle('Test Single-Sheet Backup')
       else:
          self.setWindowTitle('Restore Single-Sheet Backup')
+         self.connect(self.chkEncrypt, SIGNAL(CLICKED), self.onEncryptCheckboxChange)
+         
       self.setMinimumWidth(500)
       self.layout().setSizeConstraint(QLayout.SetFixedSize)
       self.changeType(self.backupTypeButtonGroup.checkedId())
 
+   #############################################################################
+   # Hide advanced options whenver the restored wallet is unencrypted
+   def onEncryptCheckboxChange(self):
+      self.advancedOptionsTab.setEnabled(self.chkEncrypt.isChecked())
+      
    #############################################################################
    def changeType(self, sel):
       if   sel == self.backupTypeButtonGroup.id(self.version135Button):
@@ -11018,15 +11030,16 @@ class DlgRestoreSingle(ArmoryDialog):
                hasError = True
             elif err == 'Fixed_1':
                nError += 1
-         except KeyError:
+         except:
             hasError = True
 
          if hasError:
+            lineNumber = i+1
             reply = QMessageBox.critical(self, tr('Invalid Data'), tr("""
                There is an error in the data you entered that could not be
                fixed automatically.  Please double-check that you entered the
                text exactly as it appears on the wallet-backup page.  <br><br>
-               The error occured on <font color="red">line #%d</font>.""") % i, \
+               The error occured on <font color="red">line #%d</font>.""") % lineNumber, \
                QMessageBox.Ok)
             LOGERROR('Error in wallet restore field')
             self.prfxList[i].setText('<font color="red">' + str(self.prfxList[i].text()) + '</font>')
@@ -11034,6 +11047,14 @@ class DlgRestoreSingle(ArmoryDialog):
 
          inputLines.append(rawBin)
 
+      if self.chkEncrypt.isChecked() and self.advancedOptionsTab.getKdfSec() == -1:
+            QMessageBox.critical(self, 'Invalid Target Compute Time', \
+               'You entered Target Compute Time incorrectly.\n\nEnter: <Number> (ms, s)', QMessageBox.Ok)
+            return
+      if self.chkEncrypt.isChecked() and self.advancedOptionsTab.getKdfBytes() == -1:
+            QMessageBox.critical(self, 'Invalid Max Memory Usage', \
+               'You entered Max Memory Usage incorrectly.\n\nnter: <Number> (kb, mb)', QMessageBox.Ok)
+            return
       if nError > 0:
          pluralStr = 'error' if nError == 1 else 'errors'
          QMessageBox.question(self, tr('Errors Corrected'), tr("""
@@ -11138,8 +11159,8 @@ class DlgRestoreSingle(ArmoryDialog):
                                  longLabel=longl, \
                                  withEncrypt=True, \
                                  securePassphrase=passwd, \
-                                 kdfTargSec=0.25, \
-                                 kdfMaxMem=32 * 1024 * 1024, \
+                                 kdfTargSec=self.advancedOptionsTab.getKdfSec(), \
+                                 kdfMaxMem=self.advancedOptionsTab.getKdfBytes(),
                                  isActuallyNew=False, \
                                  doRegisterWithBDM=False)
       else:
@@ -11218,10 +11239,6 @@ class DlgRestoreFragged(ArmoryDialog):
       self.chkEncrypt.setChecked(True)
       frmAddRm = makeHorizFrame([self.chkEncrypt, STRETCH, self.btnRmFrag, self.btnAddFrag])
 
-      if thisIsATest:
-         self.chkEncrypt.setChecked(False)
-         self.chkEncrypt.setVisible(False)
-
       self.fragDataMap = {}
       self.tableSize = 2
       self.wltType = UNKNOWN
@@ -11264,13 +11281,29 @@ class DlgRestoreFragged(ArmoryDialog):
                                    STRETCH], STYLE_SUNKEN)
 
 
-      layout = QGridLayout()
-      layout.addWidget(frmDescr, 0, 0, 1, 2)
-      layout.addWidget(frmAddRm, 1, 0, 1, 1)
-      layout.addWidget(self.scrollFragInput, 2, 0, 1, 1)
-      layout.addWidget(frmWltInfo, 1, 1, 2, 1)
-      layout.addWidget(frmBtns, 3, 0, 1, 2)
-      setLayoutStretchCols(layout, 1, 0)
+      fragmentsLayout = QGridLayout()
+      fragmentsLayout.addWidget(frmDescr, 0, 0, 1, 2)
+      fragmentsLayout.addWidget(frmAddRm, 1, 0, 1, 1)
+      fragmentsLayout.addWidget(self.scrollFragInput, 2, 0, 1, 1)
+      fragmentsLayout.addWidget(frmWltInfo, 1, 1, 2, 1)
+      setLayoutStretchCols(fragmentsLayout, 1, 0)
+      
+      walletRestoreTabs = QTabWidget()
+      fragmentsFrame = QFrame()
+      fragmentsFrame.setLayout(fragmentsLayout)
+      walletRestoreTabs.addTab(fragmentsFrame, "Fragments")
+      self.advancedOptionsTab = AdvancedOptionsFrame(parent, main)
+      walletRestoreTabs.addTab(self.advancedOptionsTab, "Advanced Options")
+      
+      self.chkEncrypt.setChecked(not thisIsATest)
+      self.chkEncrypt.setVisible(not thisIsATest)
+      self.advancedOptionsTab.setEnabled(not thisIsATest)
+      if not thisIsATest:
+         self.connect(self.chkEncrypt, SIGNAL(CLICKED), self.onEncryptCheckboxChange)
+      
+      layout = QVBoxLayout()
+      layout.addWidget(walletRestoreTabs)
+      layout.addWidget(frmBtns)
       self.setLayout(layout)
       self.setMinimumWidth(650)
       self.setMinimumHeight(465)
@@ -11279,6 +11312,10 @@ class DlgRestoreFragged(ArmoryDialog):
       self.makeFragInputTable()
       self.checkRestoreParams()
 
+   #############################################################################
+   # Hide advanced options whenver the restored wallet is unencrypted
+   def onEncryptCheckboxChange(self):
+      self.advancedOptionsTab.setEnabled(self.chkEncrypt.isChecked())
 
    def makeFragInputTable(self, addCount=0):
 
@@ -11537,7 +11574,14 @@ class DlgRestoreFragged(ArmoryDialog):
 
    #############################################################################
    def processFrags(self):
-
+      if self.chkEncrypt.isChecked() and self.advancedOptionsTab.getKdfSec() == -1:
+            QMessageBox.critical(self, 'Invalid Target Compute Time', \
+               'You entered Target Compute Time incorrectly.\n\nEnter: <Number> (ms, s)', QMessageBox.Ok)
+            return
+      if self.chkEncrypt.isChecked() and self.advancedOptionsTab.getKdfBytes() == -1:
+            QMessageBox.critical(self, 'Invalid Max Memory Usage', \
+               'You entered Max Memory Usage incorrectly.\n\nnter: <Number> (kb, mb)', QMessageBox.Ok)
+            return
       SECPRINT = HardcodedKeyMaskParams()
       pwd, ekey = '', ''
       if self.displaySecureString.isVisible():
@@ -11644,8 +11688,8 @@ class DlgRestoreFragged(ArmoryDialog):
                                  longLabel=longl, \
                                  withEncrypt=True, \
                                  securePassphrase=passwd, \
-                                 kdfTargSec=0.25, \
-                                 kdfMaxMem=32 * 1024 * 1024, \
+                                 kdfTargSec=self.advancedOptionsTab.getKdfSec(), \
+                                 kdfMaxMem=self.advancedOptionsTab.getKdfBytes(),
                                  isActuallyNew=False, \
                                  doRegisterWithBDM=False)
       else:
@@ -12068,7 +12112,7 @@ def verifyRecoveryTestID(parent, computedWltID, expectedWltID=None):
       if yesno == QMessageBox.No:
          QMessageBox.critical(parent, tr('Bad Backup!'), tr("""
             If this is your only backup and you are sure that you entered
-            the data correctly, then it is <b>highly recommened you stop using
+            the data correctly, then it is <b>highly recommended you stop using
             this wallet!</b>  If this wallet currently holds any funds,
             you should move the funds to a wallet that <u>does</u>
             have a working backup.
@@ -12088,7 +12132,7 @@ def verifyRecoveryTestID(parent, computedWltID, expectedWltID=None):
       if not computedWltID == expectedWltID:
          QMessageBox.critical(parent, tr('Bad Backup!'), tr("""
             If you are sure that you entered the backup information
-            correctly, then it is <b>highly recommened you stop using
+            correctly, then it is <b>highly recommended you stop using
             this wallet!</b>  If this wallet currently holds any funds,
             you should move the funds to a wallet that <u>does</u>
             have a working backup.
@@ -12096,7 +12140,7 @@ def verifyRecoveryTestID(parent, computedWltID, expectedWltID=None):
             Computed wallet ID: %s <br>
             Expected wallet ID: %s <br><br>
             Is it possible that you loaded a different backup than the
-            on you just made? """ % (computedWltID, expectedWltID)), \
+            one you just made? """ % (computedWltID, expectedWltID)), \
             QMessageBox.Ok)
       else:
          MsgBoxCustom(MSGBOX.Good, tr('Backup is Good!'), tr("""
@@ -12213,9 +12257,8 @@ class DlgWltRecoverWallet(ArmoryDialog):
       super(DlgWltRecoverWallet, self).__init__(parent, main)
 
       self.edtWalletPath = QLineEdit()
-      self.btnWalletPath = QPushButton('')
-      ico = QIcon(QPixmap(':/folder24.png'))
-      self.btnWalletPath.setIcon(ico)
+      self.btnWalletPath = QPushButton('Browse File System')
+
       self.connect(self.btnWalletPath, SIGNAL('clicked()'), self.selectFile)
 
       lblDesc = QRichLabel(tr("""
@@ -12230,35 +12273,35 @@ class DlgWltRecoverWallet(ArmoryDialog):
 
       lblWalletPath = QRichLabel(tr('Wallet Path:'))
 
-      # TODO: Farhod's first piece of GUI code -- doesn't have parent or main
-      #       Once it's been added, this can be commented out and this should 
-      #       be a working wallet-select button
-      #def doWltSelect():
-         #dlg = DlgWalletSelect(self, self.main, tr('Select Wallet...'), '')
-         #if dlg.exec_():
-            #wlt = self.parent.walletMap[dlg.selectedID]
-            #self.edtWalletPath.setText(wlt.walletPath)
 
-      #self.btnWltSelect = QPushButton(tr("Select From Loaded Wallets"))
-      #self.connect(self.btnWltSelect, SIGNAL(CLICKED), doWltSelect)
+      def doWltSelect():
+         dlg = DlgWalletSelect(self, self.main, tr('Select Wallet...'), '')
+         if dlg.exec_():
+            wlt = self.parent.walletMap[dlg.selectedID]
+            self.edtWalletPath.setText(wlt.walletPath)
 
+      self.btnWltSelect = QPushButton(tr("Select From Loaded Wallets"))
+      self.connect(self.btnWltSelect, SIGNAL(CLICKED), doWltSelect)
 
       layoutMgmt = QGridLayout()
+      wltSltQF = QFrame()
+      wltSltQF.setFrameStyle(STYLE_SUNKEN)
 
-      layoutWltSelect = QGridLayout()
-      layoutWltSelect.addWidget(lblWalletPath,      0,0)
-      layoutWltSelect.addWidget(self.edtWalletPath, 0,1, 1,2)
-      layoutWltSelect.addWidget(self.btnWalletPath, 0,3)
-      #layoutWltSelect.addWidget(self.btnWltSelect,  1,1)
+      layoutWltSelect = QGridLayout()      
+      layoutWltSelect.addWidget(lblWalletPath,      0,0, 1, 1)
+      layoutWltSelect.addWidget(self.edtWalletPath, 0,1, 1, 3)
+      layoutWltSelect.addWidget(self.btnWltSelect,  1,0, 1, 2)      
+      layoutWltSelect.addWidget(self.btnWalletPath, 1,2, 1, 2)
       layoutWltSelect.setColumnStretch(0, 0)
       layoutWltSelect.setColumnStretch(1, 1)
       layoutWltSelect.setColumnStretch(2, 1)
       layoutWltSelect.setColumnStretch(3, 0)
       
+      wltSltQF.setLayout(layoutWltSelect)
       
-
       layoutMgmt.addWidget(makeHorizFrame([lblDesc], STYLE_SUNKEN), 0,0, 2,4)
-      layoutMgmt.addLayout(layoutWltSelect, 2, 0, 2, 4)
+      #layoutMgmt.addLayout(layoutWltSelect, 2, 0, 3, 4)
+      layoutMgmt.addWidget(wltSltQF, 2, 0, 3, 4)
 
       self.rdbtnStripped = QRadioButton('')
       lblStripped = QLabel('<b>Stripped Recovery</b><br>Only attempts to recover the wallet\'s rootkey and chaincode')
@@ -12286,29 +12329,54 @@ class DlgWltRecoverWallet(ArmoryDialog):
       layout_CheckH.addWidget(self.rdbtnCheck, 0, 0, 1, 1)
       layout_CheckH.addWidget(lblCheck, 0, 1, 3, 19)
 
-      #layoutMgmt.addWidget(self.rdbtnStripped, 3, 0, 1, 1)
-      #layoutMgmt.addWidget(lblStrippedP, 3, 1, 1, 12)
-      #layoutMgmt.addWidget(lblStripped, 4, 1, 1, 12)
-      layoutMgmt.addLayout(layout_StrippedH, 4, 0, 2, 4)
-      layoutMgmt.addLayout(layout_BareH, 6, 0, 2, 4)
-      layoutMgmt.addLayout(layout_FullH, 8, 0, 2, 4)
-      layoutMgmt.addLayout(layout_CheckH, 10, 0, 3, 4)
+      layoutMode = QGridLayout()
+      layoutMode.addLayout(layout_StrippedH, 0, 0, 2, 4)
+      layoutMode.addLayout(layout_BareH, 2, 0, 2, 4)
+      layoutMode.addLayout(layout_FullH, 4, 0, 2, 4)
+      layoutMode.addLayout(layout_CheckH, 6, 0, 3, 4)
+      
+      wltModeQF = QFrame()
+      wltModeQF.setFrameStyle(STYLE_SUNKEN)
+      wltModeQF.setLayout(layoutMode)
+      
+      layoutMgmt.addWidget(wltModeQF, 5, 0, 9, 4)
 
       self.btnRecover = QPushButton('Recover')
       self.btnCancel  = QPushButton('Cancel')
       layout_btnH = QHBoxLayout()
       layout_btnH.addWidget(self.btnRecover, 1)
       layout_btnH.addWidget(self.btnCancel, 1)
-      #layout_btnH.setAlignment(Qt.AlignHCenter)
 
-      layoutMgmt.addLayout(layout_btnH, 13, 1, 1, 2)
+      layoutMgmt.addLayout(layout_btnH, 14, 1, 1, 2)
 
       self.connect(self.btnRecover, SIGNAL('clicked()'), self.accept)
       self.connect(self.btnCancel , SIGNAL('clicked()'), self.reject)
 
       self.setLayout(layoutMgmt)
       self.setWindowTitle('Wallet Recovery Tool')
-      self.setMinimumWidth(450)
+      self.setMinimumWidth(550)
+      
+   def promptWalletRecovery(self):
+      """
+      Prompts the user with a window asking for wallet path and recovery mode.
+      Proceeds to Recover the wallet. Prompt for password if the wallet is locked
+      """
+      if self.exec_():
+         path = str(self.edtWalletPath.text())
+         mode = 'Bare'
+         if self.rdbtnStripped.isChecked() is True:
+            mode = 'Stripped'
+         elif self.rdbtnFull.isChecked() is True:
+            mode = 'Full'
+         elif self.rdbtnCheck.isChecked() is True:
+            mode = 'Check'
+
+         from armoryengine.PyBtcWalletRecovery import PyBtcWalletRecovery
+         recoverytool = PyBtcWalletRecovery()
+         recoverytool.parent = self.main
+         recoverytool.RecoverWallet(WalletPath=path, Mode=mode, GUI=True)
+      else:
+         return False      
 
    def selectFile(self):
       # Had to reimplement the path selection here, because the way this was
@@ -12391,18 +12459,18 @@ class DlgProgress(ArmoryDialog):
    def PromptPassphrase(self):
       dlg = DlgUnlockWallet(self.wll, self, self.parent, "Enter Passphrase", returnPassphrase=True)
 
+      self.Passphrase = None
+      self.GotPassphrase = 0
       if dlg.exec_():
          #grab plain passphrase
          self.Passphrase = ''
          if dlg.Accepted == 1:
-            self.Passphrase = str(dlg.edtPasswd.text())
-            dlg.edtPasswd.setText('')
+            self.Passphrase = dlg.securePassphrase.copy()
+            dlg.securePassphrase.destroy()
             self.GotPassphrase = 1
          else: self.GotPassphrase = -1
-         return
       else:
          self.GotPassphrase = -1
-         return
 
    def Kill(self):
       if self.main: self.emit(SIGNAL('Exit'))
@@ -12882,7 +12950,8 @@ class DlgFactoryReset(ArmoryDialog):
 
 
 # Put circular imports at the end
-from ui.WalletFrames import SelectWalletFrame, WalletBackupFrame
+from ui.WalletFrames import SelectWalletFrame, WalletBackupFrame,\
+   AdvancedOptionsFrame
 from ui.TxFrames import  SendBitcoinsFrame, SignBroadcastOfflineTxFrame,\
    ReviewOfflineTxFrame
 

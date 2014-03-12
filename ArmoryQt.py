@@ -694,6 +694,7 @@ class ArmoryMainWindow(QMainWindow):
 
       haveGUI[0] = True
       haveGUI[1] = self
+      BDMcurrentBlock[1] = 1
 
 
       self.checkWallets()
@@ -1024,10 +1025,10 @@ class ArmoryMainWindow(QMainWindow):
          action = 'DoNothing'
          modulepathname = '"'
          if getattr(sys, 'frozen', False):
-             app_dir = os.path.dirname(sys.executable)
-             app_path = os.path.join(app_dir, sys.executable)
+            app_dir = os.path.dirname(sys.executable)
+            app_path = os.path.join(app_dir, sys.executable)
          elif __file__:
-             return #running from a .py script, not gonna register URI on Windows
+            return #running from a .py script, not gonna register URI on Windows
 
          #justDoIt = True
          import ctypes
@@ -2057,6 +2058,7 @@ class ArmoryMainWindow(QMainWindow):
    
    
          self.NetworkingFactory = ArmoryClientFactory( \
+                                          TheBDM,
                                           func_loseConnect=showOfflineMsg, \
                                           func_madeConnect=showOnlineMsg, \
                                           func_newTx=self.newTxFunc)
@@ -2914,8 +2916,7 @@ class ArmoryMainWindow(QMainWindow):
       
    #############################################################################
    def RecoverWallet(self):
-      from armoryengine.PyBtcWalletRecovery import PyBtcWalletRecovery
-      PyBtcWalletRecovery().UIRecoverWallet(self)
+      DlgWltRecoverWallet(self, self).promptWalletRecovery()
 
 
    #############################################################################
@@ -3617,17 +3618,8 @@ class ArmoryMainWindow(QMainWindow):
          if reply==QMessageBox.Yes:
             self.startWalletWizard()
          return False
-      elif len(self.walletMap)>1:
-         dlg = DlgWalletSelect(self, self, 'Send from Wallet...', descrStr, \
-                               onlyMyWallets=True, atLeast=amt)
-         if not dlg.exec_():
-            return False
-         selectedWalletID = dlg.selectedID
       else:
-         selectedWalletID = self.walletIDList[0]
-         
-      wlt = self.walletMap[selectedWalletID]
-      self.DlgSendBitcoins(wlt, self, self).exec_()
+         DlgSendBitcoins(self.getSelectedWallet(), self, self).exec_()
       return True
       
 
@@ -5347,6 +5339,7 @@ class ArmoryMainWindow(QMainWindow):
    #############################################################################
    @TimeThisFunction
    def newBlockSyncRescanZC(self, prevLedgSize):
+      didAffectUs = False
       for wltID in self.walletMap.keys():
          self.walletMap[wltID].syncWithBlockchainLite()
          TheBDM.rescanWalletZeroConf(self.walletMap[wltID].cppWallet)
@@ -5504,6 +5497,7 @@ class ArmoryMainWindow(QMainWindow):
             # Now we start the normal array of heartbeat operations
             newBlocks = TheBDM.readBlkFileUpdate(wait=True)
             self.currBlockNum = TheBDM.getTopBlockHeight()
+            if isinstance(self.currBlockNum, int): BDMcurrentBlock[0] = self.currBlockNum
 
             if not newBlocks:
                newBlocks = 0

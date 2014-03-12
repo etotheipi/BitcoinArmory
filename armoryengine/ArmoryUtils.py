@@ -65,6 +65,7 @@ parser.add_option("--settings",        dest="settingsPath",default='DEFAULT', ty
 parser.add_option("--datadir",         dest="datadir",     default='DEFAULT', type="str",          help="Change the directory that Armory calls home")
 parser.add_option("--satoshi-datadir", dest="satoshiHome", default='DEFAULT', type='str',          help="The Bitcoin-Qt/bitcoind home directory")
 parser.add_option("--satoshi-port",    dest="satoshiPort", default='DEFAULT', type="str",          help="For Bitcoin-Qt instances operating on a non-standard port")
+parser.add_option("--satoshi-rpcport", dest="satoshiRpcport",default='DEFAULT',type="str",         help="RPC port Bitcoin-Qt instances operating on a non-standard port")
 #parser.add_option("--bitcoind-path",   dest="bitcoindPath",default='DEFAULT', type="str",         help="Path to the location of bitcoind on your system")
 parser.add_option("--dbdir",           dest="leveldbDir",  default='DEFAULT', type='str',          help="Location to store blocks database (defaults to --datadir)")
 parser.add_option("--rpcport",         dest="rpcport",     default='DEFAULT', type="str",          help="RPC port for running armoryd.py")
@@ -88,6 +89,7 @@ parser.add_option("--maxfiles",        dest="maxOpenFiles",default=0,         ty
 parser.add_option("--disable-torrent", dest="disableTorrent", default=False,     action="store_true", help="Only download blockchain data via P2P network (slow)")
 parser.add_option("--test-announce", dest="testAnnounceCode", default=False,     action="store_true", help="Only used for developers needing to test announcement code with non-offline keys")
 #parser.add_option("--rebuildwithblocksize", dest="newBlockSize",default='32kB', type="str",          help="Rebuild databases with new blocksize")
+parser.add_option("--nospendzeroconfchange",dest="ignoreAllZC",default=False, action="store_true", help="All zero-conf funds will be unspendable, including sent-to-self coins")
 
 # Pre-10.9 OS X sometimes passes a process serial number as -psn_0_xxxxxx. Nuke!
 if sys.platform == 'darwin':
@@ -191,50 +193,9 @@ OS_WINDOWS = 'win32'  in opsys.lower() or 'windows' in opsys.lower()
 OS_LINUX   = 'nix'    in opsys.lower() or 'nux'     in opsys.lower()
 OS_MACOSX  = 'darwin' in opsys.lower() or 'osx'     in opsys.lower()
 
-#Windows only: grab cli args as utf-16, convert to utf-8
-if OS_WINDOWS:
-   def win32_unicode_argv():
-      """
-      Uses shell32.GetCommandLineArgvW to get sys.argv as a list of Unicode
-      strings.
-   
-      Versions 2.x of Python don't support Unicode in sys.argv on
-      Windows, with the underlying Windows API instead replacing multi-byte
-      characters with '?'.
-      """
-      result = []
-      from ctypes import POINTER, byref, cdll, c_int, windll
-      from ctypes.wintypes import LPCWSTR, LPWSTR
-   
-      GetCommandLineW = cdll.kernel32.GetCommandLineW
-      GetCommandLineW.argtypes = []
-      GetCommandLineW.restype = LPCWSTR
-   
-      CommandLineToArgvW = windll.shell32.CommandLineToArgvW
-      CommandLineToArgvW.argtypes = [LPCWSTR, POINTER(c_int)]
-      CommandLineToArgvW.restype = POINTER(LPWSTR)
-   
-      cmd = GetCommandLineW()
-      argc = c_int(0)
-      uargv = CommandLineToArgvW(cmd, byref(argc))
-      if argc.value > 0:
-         # Use set operators to find the *size* of the intersection and difference between
-         # sys.argv and the command line.
-         allCommandLineArgs = [uargv[i].encode('utf8') for i in
-            range(argc.value)]
-         armoryCommandLineArgCount = len(set(allCommandLineArgs) & set(sys.argv))
-         armoryNonCommandLineArgCount = len(set(sys.argv) - set(allCommandLineArgs))
-         # Remove Python executable and commands if present
-         # Must maintain the order of the args
-         armoryCommandLineArgOffset = argc.value - armoryCommandLineArgCount
-         result = [uargv[i].encode('utf8') for i in
-            xrange(armoryCommandLineArgOffset, argc.value)]
-         armoryNonCommandLineArgOffset = len(sys.argv) - armoryNonCommandLineArgCount
-         for i in xrange(armoryNonCommandLineArgOffset, len(sys.argv)):
-            result.append(sys.argv[i])
-      return result
 
-   sys.argv = win32_unicode_argv()
+if getattr(sys, 'frozen', False):
+   sys.argv = [arg.decode('utf8') for arg in sys.argv]
 
 CLI_OPTIONS = None
 CLI_ARGS = None
@@ -261,6 +222,12 @@ USE_TESTNET = CLI_OPTIONS.testnet
 # Set default port for inter-process communication
 if CLI_OPTIONS.interport < 0:
    CLI_OPTIONS.interport = 8223 + (1 if USE_TESTNET else 0)
+
+
+# Pass this bool to all getSpendable* methods, and it will consider
+# all zero-conf UTXOs as unspendable, including sent-to-self (change)
+IGNOREZC  = CLI_OPTIONS.ignoreAllZC
+
 
 
 # Figure out the default directories for Satoshi client, and BicoinArmory
@@ -393,6 +360,7 @@ if not CLI_OPTIONS.datadir.lower()=='default':
 
 # Same for the directory that holds the LevelDB databases
 LEVELDB_DIR     = os.path.join(ARMORY_HOME_DIR, 'databases')
+      
 if not CLI_OPTIONS.leveldbDir.lower()=='default':
    if not os.path.exists(CLI_OPTIONS.leveldbDir):
       print 'Directory "%s" does not exist!  Using default!' % \
@@ -423,15 +391,6 @@ if ARMORY_HOME_DIR and not os.path.exists(ARMORY_HOME_DIR):
 
 if not os.path.exists(LEVELDB_DIR):
    os.makedirs(LEVELDB_DIR)
-
-# If this is the first Armory has been run, create directories
-if ARMORY_HOME_DIR and not os.path.exists(ARMORY_HOME_DIR):
-   os.makedirs(ARMORY_HOME_DIR)
-
-
-if not os.path.exists(LEVELDB_DIR):
-   os.makedirs(LEVELDB_DIR)
-
 
 ##### MAIN NETWORK IS DEFAULT #####
 if not USE_TESTNET:
@@ -520,6 +479,11 @@ if not CLI_OPTIONS.satoshiPort == 'DEFAULT':
    except:
       raise TypeError('Invalid port for Bitcoin-Qt, using ' + str(BITCOIN_PORT))
 
+if not CLI_OPTIONS.satoshiRpcport == 'DEFAULT':
+   try:
+      BITCOIN_RPC_PORT = int(CLI_OPTIONS.satoshiRpcport)
+   except:
+      raise TypeError('Invalid rpc port for Bitcoin-Qt, using ' + str(BITCOIN_RPC_PORT))
 
 if not CLI_OPTIONS.rpcport == 'DEFAULT':
    try:
@@ -553,16 +517,11 @@ def launchProcess(cmd, useStartInfo=True, *args, **kwargs):
       return Popen(cmd, stdin=PIPE, stdout=PIPE, stderr=PIPE, *args, **kwargs)
    else:
       from subprocess import Popen, PIPE, STARTUPINFO, STARTF_USESHOWWINDOW
-      # Need lots of complicated stuff to accommodate quirks with Windows
-      if isinstance(cmd, basestring):
-         cmd2 = toPreferred(cmd)
-      else:
-         cmd2 = [toPreferred(c) for c in cmd]
 
       if useStartInfo:
          startinfo = STARTUPINFO()
          startinfo.dwFlags |= STARTF_USESHOWWINDOW
-         return Popen(cmd2, \
+         return Popen(cmd, \
                      *args, \
                      stdin=PIPE, \
                      stdout=PIPE, \
@@ -570,7 +529,7 @@ def launchProcess(cmd, useStartInfo=True, *args, **kwargs):
                      startupinfo=startinfo, \
                      **kwargs)
       else:
-         return Popen(cmd2, \
+         return Popen(cmd, \
                      *args, \
                      stdin=PIPE, \
                      stdout=PIPE, \
@@ -1952,6 +1911,8 @@ def makeSixteenBytesEasy(b16):
 
 def readSixteenEasyBytes(et18):
    b18 = easyType16_to_binary(et18.strip().replace(' ',''))
+   if len(b18)!=18:
+      raise ValueError('Must supply 18-byte input')
    b16 = b18[:16]
    chk = b18[ 16:]
    if chk=='':
