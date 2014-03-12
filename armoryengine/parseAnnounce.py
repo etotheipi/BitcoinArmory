@@ -207,6 +207,7 @@ class downloadLinkParser(object):
       if SIGNED_BLOCK_HEAD in fileText:
          fileText = readSigBlock(fileText)[1]
 
+
       dlLines = [line.strip() for line in fileText.split('\n')][::-1]
    
       while len(dlLines) > 0:
@@ -374,3 +375,4 @@ class notificationParser(object):
 
 
 
+# kate: indent-width 3; replace-tabs on;

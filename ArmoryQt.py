@@ -39,6 +39,8 @@ import qrc_img_resources
 from qtdefines import *
 from qtdialogs import *
 from ui.Wizards import WalletWizard, TxWizard
+from ui.VerifyOfflinePackage import VerifyOfflinePackageDialog
+from ui.UpgradeDownloader import UpgradeDownloaderDialog
 from jasvet import verifySignature, readSigBlock
 from announcefetch import AnnounceDataFetcher, ANNOUNCE_URL, ANNOUNCE_URL_BACKUP
 from armoryengine.parseAnnounce import *
@@ -647,8 +649,12 @@ class ArmoryMainWindow(QMainWindow):
       execAbout   = lambda: DlgHelpAbout(self).exec_()
       execTrouble = lambda: webbrowser.open('https://bitcoinarmory.com/troubleshooting/')
       execBugReport = lambda: DlgBugReport(self, self).exec_()
+      execDownloadUpgrade = lambda: UpgradeDownloaderDialog(self).exec_()
+      execVerifySigned = lambda: VerifyOfflinePackageDialog(self).exec_()
       actAboutWindow  = self.createAction(tr('About Armory'), execAbout)
       actVersionCheck = self.createAction(tr('Armory Version...'), execVersion)
+      actDownloadUpgrade = self.createAction(tr('Download Upgrade...'), execDownloadUpgrade)
+      actVerifySigned = self.createAction(tr('Verify Signed Package...'), execVerifySigned)
       actTroubleshoot = self.createAction(tr('Troubleshooting Armory'), execTrouble)
       actSubmitBug    = self.createAction(tr('Submit Bug Report'), execBugReport)
       actClearMemPool = self.createAction(tr('Clear All Unconfirmed'), self.clearMemoryPool)
@@ -658,6 +664,8 @@ class ArmoryMainWindow(QMainWindow):
 
       self.menusList[MENUS.Help].addAction(actAboutWindow)
       self.menusList[MENUS.Help].addAction(actVersionCheck)
+      self.menusList[MENUS.Help].addAction(actDownloadUpgrade)
+      self.menusList[MENUS.Help].addAction(actVerifySigned)
       self.menusList[MENUS.Help].addSeparator()
       self.menusList[MENUS.Help].addAction(actTroubleshoot)
       self.menusList[MENUS.Help].addAction(actSubmitBug)
@@ -1635,7 +1643,6 @@ class ArmoryMainWindow(QMainWindow):
             DlgNotificationWithDNAA(self,self,vnotify['UNIQUEID'],vnotify).exec_()
 
       # Update the settings file with any permanent-ignore requests      
-      print 'Writing setting notifyignorelong: ', self.notifyIgnoreLong
       self.writeSetting('NotifyIgnore', ''.join(self.notifyIgnoreLong))
            
          
@@ -2207,11 +2214,8 @@ class ArmoryMainWindow(QMainWindow):
       # short-term ignore requests to it
       notifyStr = self.getSettingOrSetDefault('NotifyIgnore', '')
       nsz = len(notifyStr)
-      print 'NOTIFYSTR:', notifyStr
       self.notifyIgnoreLong  = set(notifyStr[8*i:8*(i+1)] for i in range(nsz/8))
       self.notifyIgnoreShort = set(notifyStr[8*i:8*(i+1)] for i in range(nsz/8))
-      print 'LONG IGNORE:', self.notifyIgnoreLong
-      print 'Short IGNORE:', self.notifyIgnoreShort
 
 
       # Load wallets found in the .armory directory
