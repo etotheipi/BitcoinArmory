@@ -650,6 +650,7 @@ class ArmoryMainWindow(QMainWindow):
 
       haveGUI[0] = True
       haveGUI[1] = self
+      BDMcurrentBlock[1] = 1
 
       self.checkWallets()
       reactor.callLater(0.1,  self.execIntroDialog)
@@ -4734,6 +4735,7 @@ class ArmoryMainWindow(QMainWindow):
             self.checkSatoshiVersion()  # this actually only checks every hour
             newBlocks = TheBDM.readBlkFileUpdate(wait=True)
             self.currBlockNum = TheBDM.getTopBlockHeight()
+            if isinstance(self.currBlockNum, int): BDMcurrentBlock[0] = self.currBlockNum
 
             if not newBlocks:
                newBlocks = 0
