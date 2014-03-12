@@ -1301,7 +1301,8 @@ class ArmoryMainWindow(QMainWindow):
    def setupAnnouncementFetcher(self):
       skipChk1 = self.getSettingOrSetDefault('SkipAnnounceCheck', False)
       skipChk2 = CLI_OPTIONS.skipAnnounceCheck
-      skipChk3 = CLI_OPTIONS.offline and not CLI_OPTIONS.testAnnounceCode
+      #skipChk3 = CLI_OPTIONS.offline and not CLI_OPTIONS.testAnnounceCode
+      skipChk3 = False
       self.skipAnnounceCheck = skipChk1 or skipChk2 or skipChk3
 
       url1 = ANNOUNCE_URL

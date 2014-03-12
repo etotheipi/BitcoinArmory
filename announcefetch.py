@@ -166,7 +166,7 @@ class AnnounceDataFetcher(object):
       # We may have 
       fpath = self.getAnnounceFilePath(fileID)
 
-      if not os.path.exists(fpath):
+      if not (fpath and os.path.exists(fpath)):
          LOGERROR('No file with ID=%s was fetched', fileID)
          return None
 

@@ -201,7 +201,7 @@ class SignatureVerificationWidget(QWidget):
       self.verifySignatureButton = QPushButton("Verify Signature")
       self.clearFieldsButton = QPushButton("Clear All")
       
-      self.lblSigResult = QRichLabel('')
+      self.lblSigResult = QRichLabel('', doWrap=False)
       buttonFrame = makeHorizFrame([self.verifySignatureButton, self.clearFieldsButton,\
                                     'Stretch', self.lblSigResult])
       self.signMessageLayout.addWidget(buttonFrame, 3, 1, 1, 2)
@@ -221,7 +221,9 @@ class SignatureVerificationWidget(QWidget):
       
    def displayVerifiedBox(self, addrB58, messageString):
       atihash160 = hash160(hex_to_binary(ANNOUNCE_SIGN_PUBKEY))
+      addrDisp = addrB58
       if addrB58==hash160_to_addrStr(atihash160):
+         addrDisp = '<b>Armory Technologies, Inc.</b>'
          if CLI_OPTIONS.testAnnounceCode:
             ownerStr = tr("""
                <font color="%s"><b>Armory Technologies, Inc.
@@ -249,7 +251,7 @@ class SignatureVerificationWidget(QWidget):
          msg = '   ' + '<br>   '.join(msg.split('\n'))
          # The user will be able to see the entire message 
          # in the Message Signing/Verification dialog
-         msg =  '<br>'.join([line[:60]+ '...'*(len(line)>60) for line in msg.split('<br>')][:20])
+         msg =  '<br>'.join([line[:60]+ '...'*(len(line)>60) for line in msg.split('<br>')][:12])
          MsgBoxCustom(MSGBOX.Good, tr('Verified!'), tr(""" 
             %s
             <hr>
@@ -261,7 +263,8 @@ class SignatureVerificationWidget(QWidget):
             exact address you were expecting.  A valid signature is meaningless 
             unless it is made
             from a recognized address!""") % (ownerStr, msg, addrB58[:10]))
-         self.lblSigResult.setText('<font color="green">Valid Signature by %s!</font>' % addrB58)
+         self.lblSigResult.setText(\
+            '<font color="green">Valid Signature by %s</font>' % addrDisp)
       else:
          self.displayInvalidSignatureMessage()
 
