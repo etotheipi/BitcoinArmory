@@ -179,8 +179,8 @@ class AnnounceDataFetcher(object):
    #############################################################################
    def getFileModTime(self, fileID):
       fpath = self.getAnnounceFilePath(fileID)
-      if not os.path.exists(fpath):
-         LOGERROR('No file with ID=%s was fetched', fileID)
+      if not fpath or not os.path.exists(fpath):
+         #LOGERROR('No file with ID=%s was fetched', fileID)
          return 0
    
       return os.path.getmtime(fpath)

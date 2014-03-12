@@ -4201,7 +4201,7 @@ class ArmoryMainWindow(QMainWindow):
       if noAnnounce:
          self.lblLastUpdated.setText(tr("No announcement data was found!"))
          self.btnSecureDLArmory.setVisible(False)
-         self.icoArmorySWVersion.setVisible(False)
+         self.icoArmorySWVersion.setVisible(True)
          self.lblArmorySWVersion.setText(tr(""" You are running Armory 
             version %s""") % getVersionString(BTCARMORY_VERSION))
       else:

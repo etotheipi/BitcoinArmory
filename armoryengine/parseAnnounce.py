@@ -83,6 +83,9 @@ class changelogParser(object):
    
       self.changelog = []
 
+      if fileText is None:
+         return None
+
       if SIGNED_BLOCK_HEAD in fileText:
          fileText = readSigBlock(fileText)[1]
    
@@ -194,6 +197,9 @@ class downloadLinkParser(object):
    #############################################################################
    def parseDownloadList(self, fileText):
       self.downloadMap = {}
+
+      if fileText is None:
+         return {}
    
       def insertLink(mapObj, urlAndHash, keyList):
          if len(keyList)>1:
