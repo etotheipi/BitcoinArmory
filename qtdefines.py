@@ -453,7 +453,9 @@ class QLabelButton(QLabel):
       self.setStyleSheet(ssStr)
 
 ################################################################################
-def MsgBoxCustom(wtype, title, msg, wCancel=False, yesStr=None, noStr=None): 
+# The optionalMsg argument is not word wrapped so the caller is responsible for limiting
+# the length of the longest line in the optionalMsg
+def MsgBoxCustom(wtype, title, msg, wCancel=False, yesStr=None, noStr=None, optionalMsg=None): 
    """
    Creates a message box with custom button text and icon
    """
@@ -488,7 +490,6 @@ def MsgBoxCustom(wtype, title, msg, wCancel=False, yesStr=None, noStr=None):
          lblMsg.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
          w,h = tightSizeNChar(lblMsg, 70)
          lblMsg.setMinimumSize( w, 3.2*h )
-
          buttonbox = QDialogButtonBox()
 
          if dtype==MSGBOX.Question:
@@ -517,7 +518,14 @@ def MsgBoxCustom(wtype, title, msg, wCancel=False, yesStr=None, noStr=None):
          layout.addItem(  spacer,         0,0, 1,2)
          layout.addWidget(msgIcon,        1,0, 1,1)
          layout.addWidget(lblMsg,         1,1, 1,1)
-         layout.addWidget(buttonbox,      3,0, 1,2)
+         if optionalMsg:
+            optionalTextLabel = QLabel(optionalMsg)
+            optionalTextLabel.setTextFormat(Qt.RichText)
+            optionalTextLabel.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+            w,h = tightSizeNChar(optionalTextLabel, 70)
+            optionalTextLabel.setMinimumSize( w, 3.2*h )
+            layout.addWidget(optionalTextLabel, 2,0,1,2)
+         layout.addWidget(buttonbox, 3,0, 1,2)
          layout.setSpacing(20)
          self.setLayout(layout)
          self.setWindowTitle(dtitle)

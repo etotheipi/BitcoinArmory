@@ -225,8 +225,8 @@ class SignatureVerificationWidget(QWidget):
          msg = '   ' + '<br>   '.join(msg.split('\n'))
          # Only display the first 50 characters in the "Verified!" message box so that it's not too big
          # The user will be able to see the entire message in the Message Signing/Verification dialog
-         if len(msg)>800:
-            msg = msg[0:797] + "..."
+         # Put ... at the end of each line that is truncated
+         msg =  '<br>'.join([line[:60]+ '...'*(len(line)>60) for line in msg.split('<br>')][:20])
          MsgBoxCustom(MSGBOX.Good, tr('Verified!'), tr(""" 
             The owner of the following Bitcoin address...
             <br>
@@ -235,15 +235,15 @@ class SignatureVerificationWidget(QWidget):
             </blockquote>
             <br>
             ...has produced a <b><u>valid</u></b> signature for 
-            the following message:<br>
-            <hr>
+            the following message:<br>""") % (addrB58),
+            optionalMsg =tr(""" 
             <blockquote>
             <font face="Courier" color="#000060"><b>%s</b></font>
             </blockquote>
             <hr><br>
-            <b>Please</b> make sure that the address above (%s...) matches the exact address 
-            you were expecting.  A valid signature is meaningless unless it is made
-            from a recognized address!""") % (addrB58, msg, addrB58[:10]))
+            <b>Please</b> make sure that the address above (%s...)  <br> matches the exact address 
+            you were expecting. A valid signature<br>is meaningless unless it is made
+            from a recognized address!""") % (msg, addrB58[:10]))
          self.lblSigResult.setText('<font color="green">Valid Signature by %s!</font>' % addrB58)
       else:
          self.displayInvalidSignatureMessage()
