@@ -649,7 +649,11 @@ class ArmoryMainWindow(QMainWindow):
       execAbout   = lambda: DlgHelpAbout(self).exec_()
       execTrouble = lambda: webbrowser.open('https://bitcoinarmory.com/troubleshooting/')
       execBugReport = lambda: DlgBugReport(self, self).exec_()
-      execDownloadUpgrade = lambda: UpgradeDownloaderDialog(self).exec_()
+      def execDownloadUpgrade():
+         dl = self.announceFetcher.getAnnounceFile('downloads')
+         cl = self.announceFetcher.getAnnounceFile('changelogs')
+         UpgradeDownloaderDialog(self, None, dl, cl).exec_()
+         
       execVerifySigned = lambda: VerifyOfflinePackageDialog(self).exec_()
       actAboutWindow  = self.createAction(tr('About Armory'), execAbout)
       actVersionCheck = self.createAction(tr('Armory Version...'), execVersion)
@@ -4167,14 +4171,17 @@ class ArmoryMainWindow(QMainWindow):
       scrollLayout.addWidget(self.announceScrollArea)
       self.tabAnnounce.setLayout(scrollLayout)
 
-
    #############################################################################
    def openDLArmory(self):
-      UpgradeDownloaderDialog(self,self, 'Armory').exec_()
+      dl = self.announceFetcher.getAnnounceFile('downloads')
+      cl = self.announceFetcher.getAnnounceFile('changelogs')
+      UpgradeDownloaderDialog(self,self, 'Armory', dl, cl).exec_()
       
    #############################################################################
    def openDLSatoshi(self):
-      UpgradeDownloaderDialog(self,self, 'Satoshi').exec_()
+      dl = self.announceFetcher.getAnnounceFile('downloads')
+      cl = self.announceFetcher.getAnnounceFile('changelogs')
+      UpgradeDownloaderDialog(self,self, 'Satoshi', dl, cl).exec_()
 
 
 

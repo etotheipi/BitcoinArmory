@@ -3,68 +3,6 @@ from PyQt4.QtGui import * #@UnusedWildImport
 from qtdefines import tr
 from armoryengine.parseAnnounce import *
 
-downloadTestText = """
------BEGIN BITCOIN SIGNED MESSAGE-----
-
-# Armory for Windows
-Armory 0.91 Windows XP        32     http://url/armory_0.91_xp32.exe  3afb9881c32
-Armory 0.91 Windows XP        64     http://url/armory_0.91_xp64.exe  8993ab127cf
-Armory 0.91 Windows Vista,7,8 32,64  http://url/armory_0.91.exe       7f3b9964aa3
-
-
-# Various Ubuntu/Debian versions
-Armory 0.91 Ubuntu 10.04,10.10  32   http://url/armory_10.04-32.deb   01339a9469b59a15bedab3b90f0a9c90ff2ff712ffe1b8d767dd03673be8477f
-Armory 0.91 Ubuntu 12.10,13.04  32   http://url/armory_12.04-32.deb   5541af39c84
-Armory 0.91 Ubuntu 10.04,10.10  64   http://url/armory_10.04-64.deb   9af7613cab9
-Armory 0.91 Ubuntu 13.10        64   http://url/armory_13.10-64.deb   013fccb961a
-
-# Offline Bundles
-ArmoryOffline 0.90 Ubuntu 10.04  32  http://url/offbundle-32-90.tar.gz 641382c93b9
-ArmoryOffline 0.90 Ubuntu 12.10  32  http://url/offbundle-64-90.tar.gz 5541af39c84
-ArmoryOffline 0.88 Ubuntu 10.04  32  http://url/offbundle-32-88.tar.gz 641382c93b9
-ArmoryOffline 0.88 Ubuntu 12.10  32  http://url/offbundle-64-88.tar.gz 5541af39c84
-
-# Windows 32-bit Satoshi (Bitcoin-Qt/bitcoind)
-Satoshi 0.9.0 Windows XP,Vista,7,8 32,64 http://btc.org/win0.9.0.exe   837f6cb4981314b323350353e1ffed736badb1c8c0db083da4e5dfc0dd47cdf1
-Satoshi 0.9.0 Ubuntu  10.04        32    http://btc.org/lin0.9.0.deb   2aa3f763c3b
-Satoshi 0.9.0 Ubuntu  10.04        64    http://btc.org/lin0.9.0.deb   2aa3f763c3b
-
-Satoshi 0.8.6 Debian  4     32  https://bitcoin.org/bin/0.8.6/bitcoin-0.8.6-linux.tar.gz    73495de53d1a30676884961e39ff46c3851ff770eeaa767331d065ff0ce8dd0c
-
------BEGIN BITCOIN SIGNATURE-----
-
-HAZGhRr4U/utHgk9BZVOTqWcAodtHLuIq67TMSdThAiZwcfpdjnYZ6ZwmkUj0c3W
-U0zy72vLLx9mpKJQdDmV7k0=
-=i8i+
------END BITCOIN SIGNATURE-----
-
-"""
-
-changeLog = \
-{ "Armory" : [ \
-    [ '0.91', 'January 27, 2014',
-        [ \
-            ['Major Feature 1', 'This is a description of the first major feature.'], 
-            ['Major Feature 2', 'Description of the second big feature.'], 
-            ['Major Feature 3', 'Indentations might be malformed'] \
-        ] \
-    ], 
-    [ '0.30', '',
-        [ \
-            ['Major Feature 4', 'Another multi-line description'], 
-            ['Major Feature 5', 'Description of the fifth big feature.'] \
-        ] \
-    ], 
-    [ '0.25', 'April 21, 2013',
-        [ \
-            ['Major Feature 6', 'This feature requires interspersed comments'], 
-            ['Major Feature 7', ''], 
-            ['Major Feature 8', ''] \
-        ] \
-    ] \
-    ]\
-}
-
 class UpgradeDownloader:
    def __init__(self):
       self.finishedCB = lambda : None
@@ -210,7 +148,11 @@ class UpgradeDownloader:
 
 
 class UpgradeDownloaderDialog(QDialog):
-   def __init__(self, parent, downloadTextUnused=None, changeLogUnused=None):
+   # parent: QWidget
+   # showPackage: automatically select this package name, if available, for the current OS
+   # downloadText: the text *WITH SIGNATURE* of the downloaded text data
+   # changeLog: the text of the downloaded changelogs
+   def __init__(self, parent, showPackage, downloadText, changeLog):
       super(QDialog, self).__init__(parent)
       
       self.downloader = UpgradeDownloader()
@@ -233,14 +175,13 @@ class UpgradeDownloaderDialog(QDialog):
          
       self.downloader.setStartedCallback(onStart)
       
-      self.downloadText = downloadTestText # downloadTextUnused
-      self.nestedDownloadMap = downloadLinkParser(filetext=downloadTestText).downloadMap # downloadTextUnused
+      self.downloadText = downloadText
+      self.nestedDownloadMap = downloadLinkParser(filetext=downloadText).downloadMap
       self.changelog = changeLog
       
       self.localizedData = { \
-         "Ubuntu" : tr("Ubuntu"), \
+         "Ubuntu" : tr("Ubuntu/Debian"), \
          "Windows" : tr("Windows"), \
-         "Debian" : tr("Debian"), \
          "MacOS" : tr("MacOS"), \
          "32" : tr("32-bit"), \
          "64" : tr("64-bit"), \
@@ -304,12 +245,23 @@ class UpgradeDownloaderDialog(QDialog):
       
       self.cascadeOs()
       self.selectMyOs()
+      
+      if showPackage:
+         for n in range(0, packages.topLevelItemCount()):
+            row = packages.topLevelItem(n)
+            if row.data(0, 32)==n:
+               packages.setCurrentItem(n)
+               break
+      
       self.useSelectedPackage()
       
    def selectMyOs(self):
       if OS_WINDOWS:
          self.os.setCurrentIndex(self.os.findData("Windows"))
-         self.osver.setCurrentIndex(self.osver.findData(platform.win32_ver()))
+         d = self.osver.findData(platform.win32_ver())
+         if d == -1:
+            d = 0 
+         self.osver.setCurrentIndex(d)
       elif OS_LINUX:
          if OS_VARIANT == "debian":
             d = self.os.findData("Debian")
@@ -321,7 +273,10 @@ class UpgradeDownloaderDialog(QDialog):
          else:
             self.os.setCurrentIndex(self.os.findData("Linux"))
       elif OS_MACOSX:
-         self.os.setCurrentIndex(self.os.findData("MacOS"))
+         d = self.os.findData("MacOS")
+         if d == -1:
+            d = 0
+         self.os.setCurrentIndex(d)
          self.osver.setCurrentIndex(self.osver.findData(platform.mac_ver()[0]))
       
       if platform.machine() == "x86_64":
