@@ -653,7 +653,7 @@ class ArmoryMainWindow(QMainWindow):
       def execDownloadUpgrade():
          dl = self.announceFetcher.getAnnounceFile('downloads')
          cl = self.announceFetcher.getAnnounceFile('changelogs')
-         UpgradeDownloaderDialog(self, None, dl, cl).exec_()
+         UpgradeDownloaderDialog(self, self, None, dl, cl).exec_()
 
       execVerifySigned = lambda: VerifyOfflinePackageDialog(self).exec_()
       actAboutWindow  = self.createAction(tr('About Armory'), execAbout)
@@ -1424,19 +1424,26 @@ class ArmoryMainWindow(QMainWindow):
             if not self.NetworkingFactory:
                return
 
-            thisVerStr = self.NetworkingFactory.proto.peerInfo['subver']
-            thisVerStr = thisVerStr.strip('/').split(':')[-1]
-            if sum([0 if c in '0123456789.' else 1 for c in thisVerStr]) > 0:
-               return
+            try:
+               maxVer = 0
+               for verStr,vermap in self.downloadLinks['Satoshi']:
+                  dlVer = getVersionInt(readVersionString(verStr))
+                  if dlVer > maxVer:
+                     maxVer = dlVer
+                     self.satoshiVersions[1] = verStr
 
-            self.satoshiVersions[0] = thisVerStr
+               print self.satoshiVersions
+               thisVerStr = self.NetworkingFactory.proto.peerInfo['subver']
+               thisVerStr = thisVerStr.strip('/').split(':')[-1]
 
-            maxVer = readVersionString(thisVerStr)
-            for verStr,vermap in self.downloadLinks['Armory']:
-               dlVer = getVersionInt(readVersionString(verStr))
-               if dlVer > maxVer:
-                  maxVer = dlVer
-                  self.satoshiVersions[1] = verStr
+               if sum([0 if c in '0123456789.' else 1 for c in thisVerStr]) > 0:
+                  return
+
+               self.satoshiVersions[0] = thisVerStr
+
+            except:
+               raise
+
 
 
       except:
@@ -3883,7 +3890,6 @@ class ArmoryMainWindow(QMainWindow):
       self.lblTimeLeftSync    = QRichLabel('')
       self.lblTimeLeftScan    = QRichLabel('')
 
-      self.lblTimeLeftTorrent.setMinimumWidth(twid)
       self.lblTimeLeftSync.setMinimumWidth(twid)
       self.lblTimeLeftScan.setMinimumWidth(twid)
 
@@ -4102,12 +4108,33 @@ class ArmoryMainWindow(QMainWindow):
          hAlign=Qt.AlignHCenter)
 
 
+      # We need to generate popups when a widget is clicked, and be able
+      # change that particular widget's target, when the table is updated.
+      # Create one of these DlgGen objects for each of the 10 rows, simply
+      # update it's nid and notifyMap when the table is updated
+      class DlgGen():
+         def setParams(self, parent, nid, notifyMap):
+            self.parent = parent
+            self.nid = nid
+            self.notifyMap = notifyMap
+         
+         def __call__(self):
+            return DlgNotificationWithDNAA(self.parent, self.parent, \
+                                          self.nid, self.notifyMap).exec_()
+
       self.announceTableWidgets = \
-         [[QLabel(''), QRichLabel(''), QLabelButton('+')] for i in range(10)]
+         [[QLabel(''), QRichLabel(''), QLabelButton('+'), DlgGen()] \
+                                                      for i in range(10)]
+
+
+
       layoutTable = QGridLayout()
       for i in range(10):
          for j in range(3):
             layoutTable.addWidget(self.announceTableWidgets[i][j], i,j)
+         self.connect(self.announceTableWidgets[i][2], SIGNAL(CLICKED), \
+                      self.announceTableWidgets[i][3])
+
       layoutTable.setColumnStretch(0,0)
       layoutTable.setColumnStretch(1,1)
       layoutTable.setColumnStretch(2,0)
@@ -4145,13 +4172,13 @@ class ArmoryMainWindow(QMainWindow):
    def openDLArmory(self):
       dl = self.announceFetcher.getAnnounceFile('downloads')
       cl = self.announceFetcher.getAnnounceFile('changelog')
-      UpgradeDownloaderDialog(self, 'Armory', dl, cl).exec_()
+      UpgradeDownloaderDialog(self, self, 'Armory', dl, cl).exec_()
 
    #############################################################################
    def openDLSatoshi(self):
       dl = self.announceFetcher.getAnnounceFile('downloads')
       cl = self.announceFetcher.getAnnounceFile('changelog')
-      UpgradeDownloaderDialog(self, 'Satoshi', dl, cl).exec_()
+      UpgradeDownloaderDialog(self, self, 'Satoshi', dl, cl).exec_()
 
 
 
@@ -4244,10 +4271,10 @@ class ArmoryMainWindow(QMainWindow):
       # Default: Make everything non-visible except first row, middle column
       for i in range(10):
          for j in range(3):
-            self.announceTableWidgets[0][1].setVisible(i==0 and j==1)
+            self.announceTableWidgets[i][j].setVisible(i==0 and j==1)
 
       if len(self.almostFullNotificationList)==0:
-         self.announceTableWidgets[i][j].setText(tr("""
+         self.announceTableWidgets[0][0].setText(tr("""
             There are no announcements or alerts to display"""))
          return
 
@@ -4260,7 +4287,6 @@ class ArmoryMainWindow(QMainWindow):
 
       i = 0
       for nid,priority in sortedAlerts:
-         notifyMap = self.almostFullNotificationList[nid]
          if priority>=4096:
             pixm = QPixmap(':/MsgBox_critical64.png')
          elif priority>=3072:
@@ -4271,7 +4297,7 @@ class ArmoryMainWindow(QMainWindow):
             pixm = QPixmap()
 
 
-         shortDescr = notifyMap['SHORTDESCR']
+         shortDescr = self.almostFullNotificationList[nid]['SHORTDESCR']
          if priority>=4096:
             shortDescr = '<font color="%s">' + shortDescr + '</font>'
             shortDescr = shortDescr % htmlColor('TextWarn')
@@ -4279,9 +4305,8 @@ class ArmoryMainWindow(QMainWindow):
          self.announceTableWidgets[i][0].setPixmap(pixm.scaled(24,24))
          self.announceTableWidgets[i][1].setText(shortDescr)
          self.announceTableWidgets[i][2].setVisible(True)
-
-         self.connect(self.announceTableWidgets[i][2], SIGNAL(CLICKED), \
-            lambda: DlgNotificationWithDNAA(self, self, nid, deepcopy(notifyMap)).exec_())
+         self.announceTableWidgets[i][3].setParams(self, nid, \
+                                 self.almostFullNotificationList[nid])
 
          for j in range(3):
             self.announceTableWidgets[i][j].setVisible(True)

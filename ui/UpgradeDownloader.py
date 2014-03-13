@@ -1,6 +1,6 @@
 from PyQt4.Qt import * #@UnusedWildImport
 from PyQt4.QtGui import * #@UnusedWildImport
-from qtdefines import tr
+from qtdefines import tr, ArmoryDialog
 from armoryengine.parseAnnounce import *
 
 class UpgradeDownloader:
@@ -147,13 +147,13 @@ class UpgradeDownloader:
       QTimer.singleShot(250, self.progressTimer)
 
 
-class UpgradeDownloaderDialog(QDialog):
+class UpgradeDownloaderDialog(ArmoryDialog):
    # parent: QWidget
    # showPackage: automatically select this package name, if available, for the current OS
    # downloadText: the text *WITH SIGNATURE* of the downloaded text data
    # changeLog: the text of the downloaded changelogs
-   def __init__(self, parent, showPackage, downloadText, changeLog):
-      super(QDialog, self).__init__(parent)
+   def __init__(self, parent, main, showPackage, downloadText, changeLog):
+      super(UpgradeDownloaderDialog, self).__init__(parent, main)
       
       self.downloader = UpgradeDownloader()
       
@@ -254,6 +254,10 @@ class UpgradeDownloaderDialog(QDialog):
                break
       
       self.useSelectedPackage()
+
+      self.setMinimumWidth(500)
+      self.setWindowTitle(tr('Secure Download Bitcoin Software'))
+
       
    def selectMyOs(self):
       if OS_WINDOWS:
@@ -285,7 +289,7 @@ class UpgradeDownloaderDialog(QDialog):
          self.osarch.setCurrentIndex(self.osarch.findData("32"))
    
    def useSelectedPackage(self):
-      if self.packages.currentItem() == None:
+      if self.packages.currentItem() is None:
          self.changelogView.setHtml("<html>" + tr("The changelog for the selected package will be visible here") +"</html>")
          self.downloader.setFile(None, None)
       else:
