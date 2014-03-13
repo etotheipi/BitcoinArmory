@@ -4211,13 +4211,13 @@ class DlgRemoveWallet(ArmoryDialog):
 
 
       self.chkPrintBackup = QCheckBox(tr("""
-         Print a paper backup of this wallet before deleting""")
+         Print a paper backup of this wallet before deleting"""))
 
       if wlt.watchingOnly:
          ttipDelete = self.main.createToolTipWidget(tr("""
             This will delete the wallet file from your system. 
             Since this is a watching-only wallet, no private keys
-            will be deleted.""")
+            will be deleted."""))
          ttipWatch = self.main.createToolTipWidget(tr("""
             This wallet is already a watching-only wallet so this option 
             is pointless"""))

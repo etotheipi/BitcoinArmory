@@ -6,7 +6,8 @@ sys.path.append('..')
 from ArmoryUtils import ARMORY_HOME_DIR, BTC_HOME_DIR, LOGEXCEPT, \
                         LOGERROR, LOGWARN, LOGINFO, MEGABYTE, \
                         AllowAsync, RightNow, unixTimeToFormatStr, \
-                        secondsToHumanTime
+                        secondsToHumanTime, MAGIC_BYTES,\
+                        bytesToHumanSize, secondsToHumanTime
 from BitTornado.download_bt1 import BT1Download, defaults, get_response
 from BitTornado.RawServer import RawServer, UPnP_ERROR
 from random import seed
@@ -259,6 +260,10 @@ class TorrentDownloadManager(object):
       self.finishTime = RightNow()
       LOGINFO('Download finished!')
       
+      LOGINFO("Moving file")
+      LOGINFO("   From:  %s", self.savePath_temp)
+      LOGINFO("     To:  %s", self.savePath)
+      shutil.move(self.savePath_temp, self.savePath)
 
       # Use caller-set function if it exists
       if self.hasCustomFunc('finishedFunc'):
@@ -267,7 +272,6 @@ class TorrentDownloadManager(object):
       if self.bt1dow:
          self.bt1dow.shutdown()
 
-      shutil.move(self.savePath_temp, self.savePath)
 
 
    #############################################################################
@@ -279,6 +283,10 @@ class TorrentDownloadManager(object):
       if self.hasCustomFunc('failedFunc'):
          self.customCallbacks['failedFunc'](msg)
          return
+
+      if self.bt1dow:
+         self.bt1dow.shutdown()
+
 
 
    #############################################################################

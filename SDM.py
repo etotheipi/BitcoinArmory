@@ -10,6 +10,7 @@ import os.path
 import socket
 import stat
 import time
+from threading import Event
 from jsonrpc import ServiceProxy
 from CppBlockUtils import SecureBinaryData, CryptoECDSA
 from armoryengine.ArmoryUtils import BITCOIN_PORT, LOGERROR, hex_to_binary, \
@@ -17,7 +18,8 @@ from armoryengine.ArmoryUtils import BITCOIN_PORT, LOGERROR, hex_to_binary, \
    SystemSpecs, subprocess_check_output, LOGEXCEPT, FileExistsError, OS_VARIANT, \
    BITCOIN_RPC_PORT, binary_to_base58, isASCII, USE_TESTNET, GIGABYTE, \
    launchProcess, killProcessTree, killProcess, LOGWARN, RightNow, HOUR, \
-   PyBackgroundThread, touchFile
+   PyBackgroundThread, touchFile, DISABLE_TORRENTDL, secondsToHumanTime, \
+   bytesToHumanSize, MAGIC_BYTES, deleteBitcoindDBs
 from jsonrpc import authproxy
 from armoryengine.torrentDL import TheTDM
 
@@ -147,28 +149,87 @@ class SatoshiDaemonManager(object):
       # Added torrent DL before we *actually* start SDM (if it makes sense)
       self.useTorrentFinalAnswer = False
       self.useTorrentFile = None
+      self.torrentDisabled = False
+      self.tdm = None
 
       
+   #############################################################################
+   def setDisableTorrentDL(self, b):
+      self.torrentDisabled = b
 
    #############################################################################
-   def tryToSetupTorrentDL(self, pathToTorrentFile):
-      if not pathToTorrentFile or not os.path.exists(pathToTorrentFile):
+   def tryToSetupTorrentDL(self, torrentPath):
+      if self.torrentDisabled:
+         LOGWARN('Tried to setup torrent download mgr but we are disabled')
+         return False
+      
+      if not torrentPath or not os.path.exists(torrentPath):
          self.useTorrentFinalAnswer = False
          return False
 
       bootfile = os.path.join(BTC_HOME_DIR, 'bootstrap.dat')
-      TheTDM.setupTorrent(pathToTorrentFile, bootfile)
+      TheTDM.setupTorrent(torrentPath, bootfile)
       if not TheTDM.getTDMState()=='ReadyToStart':
          LOGERROR('Unknown error trying to start torrent manager')
          self.useTorrentFinalAnswer = False
          return False
+
+
+      # We will tell the TDM to write status updates to the log file, and only
+      # every 90 seconds.  After it finishes (or fails), simply launch bitcoind
+      # as we would've done without the torrent
+      #####
+      def torrentLogToFile(dpflag=Event(), fractionDone=None, timeEst=None,
+                           downRate=None, upRate=None, activity=None,
+                           statistics=None, **kws):
+         statStr = ''
+         if fractionDone:
+            statStr += '   Done: %0.1f  ' % fractionDone*100
+         if downRate:
+            statStr += '/  DLRate: %0.1f/sec' % (downRate/1024.)
+         if timeEst:
+            statStr += '/  TLeft: %s' % secondsToHumanTime(timeEst)
+         if statistics:
+            statStr += '/  Seeds: %d' % (statistics.numSeeds)
+            statStr += '/  Peers: %d' % (statistics.numPeers)
+         if len(statStr)==0:
+            statStr = 'No torrent info available'
+         LOGINFO('Torrent: %s' % statStr)
+
+      #####
+      def torrentFinished():
+         bootsz = '<Unknown>'
+         if os.path.exists(bootfile):
+            bootsz = bytesToHumanSize(os.path.getsize(bootfile))
+
+         LOGINFO('Torrent finished; size of %s is %s', torrentPath, bootsz)
+         deleteBitcoindDBs()
+         self.launchBitcoindAndGuardian()
+
+      #####
+      def torrentFailed():
+         # Not sure there's actually anything we need to do here...
+         bootsz = '<Unknown>'
+         if os.path.exists(bootfile):
+            bootsz = bytesToHumanSize(os.path.getsize(bootfile))
+
+         LOGERROR('Torrent failed; size of %s is %s', torrentPath, bootsz)
+         self.launchBitcoindAndGuardian()
+ 
+      TheTDM.setSecondsBetweenUpdates(90)
+      TheTDM.setCallback('displayFunc',  torrentLogToFile)
+      TheTDM.setCallback('finishedFunc', torrentFinished)
+      TheTDM.setCallback('failedFunc',   torrentFailed)
+
+      LOGINFO('Bootstrap file is %s' % bytesToHumanSize(TheTDM.torrentSize))
          
       self.useTorrentFinalAnswer = True
+      self.useTorrentFile = torrentPath
       return True
       
 
    #############################################################################
-   def torrentIsAGoodIdea(self):
+   def shouldTryBootstrapTorrent(self):
       if DISABLE_TORRENTDL:
          return False
 
@@ -454,6 +515,10 @@ class SatoshiDaemonManager(object):
       self.bitconf['host'] = '127.0.0.1'
 
 
+   #############################################################################
+   def cleanupFailedTorrent(self):
+      # Right now I think don't do anything
+      pass    
 
    #############################################################################
    def startBitcoind(self):
@@ -464,15 +529,22 @@ class SatoshiDaemonManager(object):
 
       LOGINFO('Called startBitcoind')
 
-      if self.isRunningBitcoind():
-         raise self.BitcoindError, 'Looks like we have already started bitcoind'
+      if self.isRunningBitcoind() or TheTDM.getTDMState()=='Downloading':
+         raise self.BitcoindError, 'Looks like we have already started theSDM'
 
       if not os.path.exists(self.executable):
          raise self.BitcoindError, 'Could not find bitcoind'
 
       
-      if self.determineUseTorrent():
-         self.
+      chk1 = os.path.exists(self.useTorrentFile)
+      chk2 = self.shouldTryBootstrapTorrent()
+      chk3 = TheTDM.getTDMState()=='ReadyToStart'
+
+      if chk1 and chk2 and chk3:
+         TheTDM.startDownload(async=True)
+      else:
+         self.launchBitcoindAndGuardian()
+            
 
 
    #############################################################################

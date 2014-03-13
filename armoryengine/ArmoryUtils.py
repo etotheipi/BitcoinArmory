@@ -852,24 +852,6 @@ if os.path.exists(fileDelSettings):
    os.remove(fileDelSettings)
 
 
-# This flag takes into account both CLI_OPTIONs, and availability of the
-# BitTornado library  (the user can remove the BitTornado dir and/or the
-# torrentDL.py files without breaking Armory, it will simply set this
-# disable flag to true)
-DISABLE_TORRENTDL = not CLI_OPTIONS.disableTorrent
-try:
-   #import torrentDL
-   LOGERROR('Forcing torrent disable')
-   raise ImportError
-except:
-   LOGEXCEPT('Failed to import torrent downloader')
-   DISABLE_TORRENTDL = True
-
-# We only use BITTORRENT for mainnet
-if USE_TESTNET:
-   DISABLE_TORRENTDL = True
-
-
 
 ################################################################################
 def deleteBitcoindDBs():
@@ -3179,6 +3161,23 @@ def touchFile(fname):
       f.flush()
       os.fsync(f.fileno())
       f.close()
+
+
+# NOTE: Had to put in this at the eend so it was after the AllowAsync def
+# This flag takes into account both CLI_OPTIONs, and availability of the
+# BitTornado library  (the user can remove the BitTornado dir and/or the
+# torrentDL.py files without breaking Armory, it will simply set this
+# disable flag to true)
+DISABLE_TORRENTDL = CLI_OPTIONS.disableTorrent
+try:
+   import torrentDL
+except:
+   LOGEXCEPT('Failed to import torrent downloader')
+   DISABLE_TORRENTDL = True
+
+# We only use BITTORRENT for mainnet
+if USE_TESTNET:
+   DISABLE_TORRENTDL = True
 
 
 
