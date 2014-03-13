@@ -4290,7 +4290,6 @@ class ArmoryMainWindow(QMainWindow):
 
       i = 0
       for nid,priority in sortedAlerts:
-         notifyMap = self.almostFullNotificationList[nid]
          if priority>=4096:
             pixm = QPixmap(':/MsgBox_critical64.png')
          elif priority>=3072:
@@ -4301,7 +4300,7 @@ class ArmoryMainWindow(QMainWindow):
             pixm = QPixmap()
    
 
-         shortDescr = notifyMap['SHORTDESCR']
+         shortDescr = self.almostFullNotificationList[nid]['SHORTDESCR']
          if priority>=4096:
             shortDescr = '<font color="%s">' + shortDescr + '</font>'
             shortDescr = shortDescr % htmlColor('TextWarn')
@@ -4310,8 +4309,17 @@ class ArmoryMainWindow(QMainWindow):
          self.announceTableWidgets[i][1].setText(shortDescr)
          self.announceTableWidgets[i][2].setVisible(True)
          
+         class DlgGen():
+            def __init__(self, parent, nid, notifyMap):
+               self.parent = parent
+               self.nid = nid
+               self.notifyMap = notifyMap
+            
+            def __call__(self):
+               return DlgNotificationWithDNAA(self.parent, self.parent, self.nid, self.notifyMap).exec_()
+         
          self.connect(self.announceTableWidgets[i][2], SIGNAL(CLICKED), \
-            lambda: DlgNotificationWithDNAA(self, self, nid, deepcopy(notifyMap)).exec_())
+            DlgGen(self, nid, self.almostFullNotificationList[nid]))
 
          for j in range(3):
             self.announceTableWidgets[i][j].setVisible(True)
