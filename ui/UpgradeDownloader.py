@@ -6,6 +6,7 @@ from armoryengine.parseAnnounce import *
 class UpgradeDownloader:
    def __init__(self):
       self.finishedCB = lambda : None
+      self.startedCB = lambda : None
       self.url = None
       self.filesha = None
       self.downloadFile = None
@@ -262,6 +263,7 @@ class UpgradeDownloaderDialog(ArmoryDialog):
    def selectMyOs(self):
       if OS_WINDOWS:
          self.os.setCurrentIndex(self.os.findData("Windows"))
+         self.cascadeOsVer() # signals don't go through for some reason
          d = self.osver.findData(platform.win32_ver())
          if d == -1:
             d = 0 
@@ -272,17 +274,22 @@ class UpgradeDownloaderDialog(ArmoryDialog):
             if d == -1: 
                d = self.os.findData("Ubuntu")
             self.os.setCurrentIndex(d)
+            self.cascadeOsVer() # signals don't go through for some reason
+
          elif OS_VARIANT == "ubuntu":
             self.os.setCurrentIndex(self.os.findData("Ubuntu"))
          else:
             self.os.setCurrentIndex(self.os.findData("Ubuntu"))
+            self.cascadeOsVer() # signals don't go through for some reason
       elif OS_MACOSX:
          d = self.os.findData("MacOS")
          if d == -1:
             d = 0
          self.os.setCurrentIndex(d)
+         self.cascadeOsVer() # signals don't go through for some reason
          self.osver.setCurrentIndex(self.osver.findData(platform.mac_ver()[0]))
       
+      self.cascadeOsArch() # signals don't go through for some reason
       if platform.machine() == "x86_64":
          self.osarch.setCurrentIndex(self.osarch.findData("64"))
       else:

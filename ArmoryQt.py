@@ -649,16 +649,10 @@ class ArmoryMainWindow(QMainWindow):
       execAbout   = lambda: DlgHelpAbout(self).exec_()
       execTrouble = lambda: webbrowser.open('https://bitcoinarmory.com/troubleshooting/')
       execBugReport = lambda: DlgBugReport(self, self).exec_()
-
-      def execDownloadUpgrade():
-         dl = self.announceFetcher.getAnnounceFile('downloads')
-         cl = self.announceFetcher.getAnnounceFile('changelogs')
-         UpgradeDownloaderDialog(self, self, None, dl, cl).exec_()
-
       execVerifySigned = lambda: VerifyOfflinePackageDialog(self).exec_()
       actAboutWindow  = self.createAction(tr('About Armory'), execAbout)
       actVersionCheck = self.createAction(tr('Armory Version...'), execVersion)
-      actDownloadUpgrade = self.createAction(tr('Download Upgrade...'), execDownloadUpgrade)
+      actDownloadUpgrade = self.createAction(tr('Download Upgrade...'), self.openDLArmory)
       actVerifySigned = self.createAction(tr('Verify Signed Package...'), execVerifySigned)
       actTroubleshoot = self.createAction(tr('Troubleshooting Armory'), execTrouble)
       actSubmitBug    = self.createAction(tr('Submit Bug Report'), execBugReport)
@@ -679,9 +673,6 @@ class ArmoryMainWindow(QMainWindow):
       self.menusList[MENUS.Help].addAction(actRescanDB)
       self.menusList[MENUS.Help].addAction(actRebuildDB)
       self.menusList[MENUS.Help].addAction(actFactoryReset)
-
-
-
 
       # Restore any main-window geometry saved in the settings file
       hexgeom   = self.settings.get('MainGeometry')
