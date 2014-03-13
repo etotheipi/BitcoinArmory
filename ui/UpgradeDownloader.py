@@ -60,25 +60,25 @@ class UpgradeDownloader:
          self.startDownload()
    
    def startDownload(self):
-      req = QNetworkRequest(QUrl(self.url))
+      req = QNetworkRequest(QUrl.fromEncoded(self.url))
       self.receivedData = ""
       self.downloadFile = self.networkAccess.get(req)
       QObject.connect(self.downloadFile, SIGNAL('readyRead()'), self.readMoreDownloadData)
       QObject.connect(self.downloadFile, SIGNAL('finished()'), self.downloadFinished)
       
-      if self.downloadButton:
+      if not self.downloadButton is None:
          self.downloadButton.setText(tr("Cancel"))
          
       self.progressTimer()
       self.startedCB()
-
+      
    def downloadFinished(self):
-      status = self.downloadFile.attribute(QNetworkRequest.HttpStatusCodeAttribute).toInt()[0]
-      if self.downloadButton:
+      if not self.downloadButton is None:
          self.downloadButton.setText(tr("Download"))
       
-      if self.downloadFile:
-         # downloadFile will be removed on cancel
+      # downloadFile will be removed on cancel
+      if not self.downloadFile is None:
+         status = self.downloadFile.attribute(QNetworkRequest.HttpStatusCodeAttribute).toInt()[0]
          if len(self.receivedData)==0:
             if status == 404:
                status = tr("File not found")
@@ -99,7 +99,7 @@ class UpgradeDownloader:
                suffix = ""
                if self.downloadLinkFile:
                   suffix = ".signed"
-               
+               signed
                dest = QFileDialog.getSaveFileName(self.frame, tr("Save file"), QDir.homePath() + "/" + os.path.basename(self.url) + suffix)
                if len(dest)!=0:
                   df = open(dest, "wb")
@@ -110,16 +110,16 @@ class UpgradeDownloader:
                   df.write(self.receivedData)
                   df.close()
             
-         del self.receivedData
-         self.downloadFile = None
-         self.downloadButton.setEnabled(True)
-         self.progressBar.setFormat("")
+      self.receivedData = None
+      self.downloadFile = None
+      self.downloadButton.setEnabled(True)
+      self.progressBar.setFormat("")
 
-         if self.finishedCB:
-            self.finishedCB()
+      if self.finishedCB:
+         self.finishedCB()
    
    def readMoreDownloadData(self):
-      if self.receivedData:
+      if not self.receivedData is None:
          self.receivedData = self.receivedData + self.downloadFile.readAll()
 
    def progressTimer(self):
@@ -182,7 +182,7 @@ class UpgradeDownloaderDialog(QDialog):
       self.localizedData = { \
          "Ubuntu" : tr("Ubuntu/Debian"), \
          "Windows" : tr("Windows"), \
-         "MacOS" : tr("MacOS"), \
+         "MacOSX" : tr("MacOSX"), \
          "32" : tr("32-bit"), \
          "64" : tr("64-bit"), \
          "Satoshi" : tr("Bitcoin-Qt"), \
