@@ -4210,14 +4210,17 @@ class DlgRemoveWallet(ArmoryDialog):
          'remove the private data from this system for security.</i>')
 
 
-      self.chkPrintBackup = QCheckBox('Print a paper backup of this wallet before deleting')
+      self.chkPrintBackup = QCheckBox(tr("""
+         Print a paper backup of this wallet before deleting""")
 
       if wlt.watchingOnly:
-         ttipDelete = self.main.createToolTipWidget('This will delete the wallet file from your system.  '
-                                 'Since this is a watching-only wallet, no private keys '
-                                 'will be deleted.')
-         ttipWatch = self.main.createToolTipWidget('This wallet is already a watching-only wallet '
-                                 'so this option is pointless')
+         ttipDelete = self.main.createToolTipWidget(tr("""
+            This will delete the wallet file from your system. 
+            Since this is a watching-only wallet, no private keys
+            will be deleted.""")
+         ttipWatch = self.main.createToolTipWidget(tr("""
+            This wallet is already a watching-only wallet so this option 
+            is pointless"""))
          self.radioWatch.setEnabled(False)
          self.chkPrintBackup.setEnabled(False)
 
@@ -4255,12 +4258,14 @@ class DlgRemoveWallet(ArmoryDialog):
          self.frm[-1].setVisible(False)
 
 
-      printTtip = self.main.createToolTipWidget(\
-         'If this box is checked, you will have the ability to print off an '
-         'unencrypted version of your wallet before it is deleted.  <b>If '
-         'printing is unsuccessful, please press *CANCEL* on the print dialog '
-         'to prevent the delete operation from continuing</b>')
-      printFrm = makeLayoutFrame(HORIZONTAL, [self.chkPrintBackup, printTtip, STRETCH])
+      printTtip = self.main.createToolTipWidget(tr("""
+         If this box is checked, you will have the ability to print off an 
+         unencrypted version of your wallet before it is deleted.  <b>If 
+         printing is unsuccessful, please press *CANCEL* on the print dialog 
+         to prevent the delete operation from continuing</b>"""))
+      printFrm = makeLayoutFrame(HORIZONTAL, [self.chkPrintBackup, \
+                                              printTtip, \
+                                              'Stretch'])
       startRow += 1
       layout.addWidget(printFrm, startRow, 0, 1, 3)
 
@@ -4291,10 +4296,10 @@ class DlgRemoveWallet(ArmoryDialog):
       if self.chkPrintBackup.isChecked():
          if not OpenPaperBackupWindow('Single', self, self.main, self.wlt, \
                                                 tr('Unlock Paper Backup')):
-            QMessageBox.warning(self, 'Operation Aborted', \
-              'You requested a paper backup before deleting the wallet, but '
-              'clicked "Cancel" on the backup printing window.  So, the delete '
-              'operation was canceled as well.', QMessageBox.Ok)
+            QMessageBox.warning(self, tr('Operation Aborted'), tr("""
+              You requested a paper backup before deleting the wallet, but 
+              clicked "Cancel" on the backup printing window.  So, the delete 
+              operation was canceled as well."""), QMessageBox.Ok)
             return
 
 
@@ -4304,11 +4309,11 @@ class DlgRemoveWallet(ArmoryDialog):
 
       wltID = wlt.uniqueIDB58
       if self.radioExclude.isChecked():
-         reply = QMessageBox.warning(self, 'Verify Intentions', \
-           'Are you sure you want to remove this wallet from your Armory '
-           'dashboard?  The wallet file will not be deleted, but you will '
-           'no longer have access to the wallet or its funds unless you '
-           're-enable it through the "Wallets"->"Excluded Wallets" menu. ', \
+         reply = QMessageBox.warning(self, tr('Verify Intentions'), tr("""
+           Are you sure you want to remove this wallet from your Armory 
+           dashboard?  The wallet file will not be deleted, but you will 
+           no longer have access to the wallet or its funds unless you 
+           re-enable it through the "Wallets"->"Excluded Wallets" menu."""), \
            QMessageBox.Yes | QMessageBox.Cancel)
 
          if reply == QMessageBox.Yes:

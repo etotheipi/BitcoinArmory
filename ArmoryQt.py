@@ -195,8 +195,6 @@ class ArmoryMainWindow(QMainWindow):
       self.torrentIsAGoodIdea = self.checkShouldTryTorrent()
 
       # If we're going into online mode, start loading blockchain
-      if self.torrentIsAGoodIdea:
-         self.startTorrentDLIfNecessary()
       elif self.doAutoBitcoind:
          self.startBitcoindIfNecessary()
       else:
@@ -1780,12 +1778,6 @@ class ArmoryMainWindow(QMainWindow):
       # Okay, we give up -- just download [the rest] via P2P
       return False
 
-         
-   ############################################################################
-   def determineTorrentToUse(self):
-      """
-      By now the announceFetcher should've already fetched the latest file.
-      """
 
       
    #############################################################################
@@ -1874,10 +1866,11 @@ class ArmoryMainWindow(QMainWindow):
       sdlfjdlk 
 
    ############################################################################
-   def startTorrentDLIfNecessary(self):
+   def findTorrentFileForSDM(self):
       # If the user was queried the torrentIsAGoodIdea flag may have changed
       srcTorrent = None
       self.announceFetcher
+      #dstTorrent = os.path.join(BTC_HOME_DIR, 'bootstrap.dat.torrent')
       if self.announceFetcher.getFileModTime('bootstrap') == 0:
          # Get default torrent in installation directory
          srcTorrent = os.path.join(GetExecDir(), 'default_bootstrap.torrent')
@@ -1888,18 +1881,13 @@ class ArmoryMainWindow(QMainWindow):
       if not srcTorrent or not os.path.exists(srcTorrent):
          LOGERROR('No torrent file available.  Disabling torrent downloading')
          self.torrentIsAGoodIdea = False
-         return 
+         return None
 
       torrentPath = os.path.join(ARMORY_HOME_DIR, 'bootstrap.dat.torrent')
       shutil.copy(srcTorrent, torrentPath)
 
-      # If we want to do torrenting, but they are running corebtc manually,
-      # need to ask them to close it, or skip doing the torrent thing.
-      if self.doAutoBitcoind:
-         self.torrentIsAGoodIdea = self.manageBitcoindAskTorrent() 
+      return torrentPath
 
-      if self.torrentIsAGoodIdea and os.path.exists(torrentPath):
-         self.useTorrentFinalAnswer = True
 
       if self.useTorrentFinalAnswer:
          bootfile = os.path.join(BTC_HOME_DIR, 'bootstrap.dat')
@@ -4271,10 +4259,10 @@ class ArmoryMainWindow(QMainWindow):
    #############################################################################
    def updateAnnounceTable(self):
 
-      # Make everything non-visible except first row, middle column
+      # Default: Make everything non-visible except first row, middle column
       for i in range(10):
          for j in range(3):
-            self.announceTableWidgets[i][j].setVisible(i==0 and j==1)
+            self.announceTableWidgets[0][1].setVisible(i==0 and j==1)
 
       if len(self.almostFullNotificationList)==0:
          self.announceTableWidgets[i][j].setText(tr("""

@@ -19,6 +19,7 @@ from armoryengine.ArmoryUtils import BITCOIN_PORT, LOGERROR, hex_to_binary, \
    launchProcess, killProcessTree, killProcess, LOGWARN, RightNow, HOUR, \
    PyBackgroundThread, touchFile
 from jsonrpc import authproxy
+from armoryengine.torrentDL import TheTDM
 
 
 #############################################################################
@@ -143,6 +144,65 @@ class SatoshiDaemonManager(object):
                                  'error':      'Uninitialized',
                                  'blkspersec': -1     }
 
+      # Added torrent DL before we *actually* start SDM (if it makes sense)
+      self.useTorrentFinalAnswer = False
+      self.useTorrentFile = None
+
+      
+
+   #############################################################################
+   def tryToSetupTorrentDL(self, pathToTorrentFile):
+      if not pathToTorrentFile or not os.path.exists(pathToTorrentFile):
+         self.useTorrentFinalAnswer = False
+         return False
+
+      bootfile = os.path.join(BTC_HOME_DIR, 'bootstrap.dat')
+      TheTDM.setupTorrent(pathToTorrentFile, bootfile)
+      if not TheTDM.getTDMState()=='ReadyToStart':
+         LOGERROR('Unknown error trying to start torrent manager')
+         self.useTorrentFinalAnswer = False
+         return False
+         
+      self.useTorrentFinalAnswer = True
+      return True
+      
+
+   #############################################################################
+   def torrentIsAGoodIdea(self):
+      if DISABLE_TORRENTDL:
+         return False
+
+      # The only torrent we have is for the primary Bitcoin network
+      if not MAGIC_BYTES=='\xf9\xbe\xb4\xd9':
+         return False
+
+
+      # If they don't even have a BTC_HOME_DIR, corebtc never been installed
+      blockDir = os.path.join(BTC_HOME_DIR, 'blocks')
+      if not os.path.exists(BTC_HOME_DIR) or not os.path.exists(blockDir):
+         return True
+      
+      # Get the cumulative size of the blk*.dat files
+      filesz = lambda f: os.path.getsize(os.path.join(blockDir, f))
+      blockDirSize = sum([filesz(a) for a in os.listdir(blockDir)])
+      blockDirSize = long(0.8333 * blockDirSize)  # adjust for rev files
+      sizeStr = bytesToHumanSize(blockDirSize)
+      LOGINFO('Total size of files in %s is approx %s' % (blockDir, sizeStr))
+
+      # If they have only a small portion of the blockchain, do it
+      if blockDirSize < 6*GIGABYTE:
+         return True
+
+      # So far we know they have a BTC_HOME_DIR, with more than 6GB in blocks/
+      # The only thing that can induce torrent now is if we have a partially-
+      # finished bootstrap file bigger than the blocks dir.
+      bootFile = os.path.join(BTC_HOME_DIR, 'bootstrap.dat.partial')
+      if os.path.exists(bootFile):
+         if os.path.getsize(bootFile) > blockDirSize:
+            return True
+            
+      # Okay, we give up -- just download [the rest] via P2P
+      return False
 
 
    #############################################################################
@@ -410,6 +470,13 @@ class SatoshiDaemonManager(object):
       if not os.path.exists(self.executable):
          raise self.BitcoindError, 'Could not find bitcoind'
 
+      
+      if self.determineUseTorrent():
+         self.
+
+
+   #############################################################################
+   def launchBitcoindAndGuardian(self):
 
       pargs = [self.executable]
 
@@ -533,7 +600,7 @@ class SatoshiDaemonManager(object):
       # we will keep "initializing"
       if state=='BitcoindNotAvailable':
          if 'BitcoindInitializing' in self.circBufferState:
-            LOGWARN('Overriding not-available message. This should happen 0-5 times')
+            LOGWARN('Overriding not-available state. This should happen 0-5 times')
             return 'BitcoindInitializing'
 
       return state
@@ -549,6 +616,9 @@ class SatoshiDaemonManager(object):
 
       if self.failedFindHome:
          return 'BitcoindHomeMissing'
+
+      if TheTDM.isRunning():
+         return 'TorrentSynchronizing'
 
       latestInfo = self.getTopBlockInfo()
 
