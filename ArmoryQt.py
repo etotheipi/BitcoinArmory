@@ -993,8 +993,8 @@ class ArmoryMainWindow(QMainWindow):
          rtlength = GetModuleFileNameW(None, ctypes.byref(app_path), 1024)
          passstr = str(app_path.raw)
          
-         modulepathname += unicode(passstr[0:(rtlength*2)], encoding='utf16') + u'" %1'
-         #LOGWARN("running from: %s, key: %s", app_path, modulepathname)
+         modulepathname += unicode(passstr[0:(rtlength*2)], encoding='utf16') + u'" "%1"'
+         modulepathname = modulepathname.encode('utf8')
 
          rootKey = 'bitcoin\\shell\\open\\command'
          try:
@@ -1081,11 +1081,10 @@ class ArmoryMainWindow(QMainWindow):
                dkey = '%s\\%s' % (key,name)
                LOGINFO('\tWriting key: [HKEY_CURRENT_USER\\] ' + dkey)
                registryKey = CreateKey(HKEY_CURRENT_USER, key)
-               hKey = ctypes.c_int(registryKey.handle)
-               ctypes.windll.Advapi32.RegSetValueExW(hKey, None, 0, REG_SZ, val, (len(val)+1)*2)
-               #SetValueEx(registryKey, val, 0, REG_SZ, val)
+               #hKey = ctypes.c_int(registryKey.handle)
+               #ctypes.windll.Advapi32.RegSetValueEx(hKey, None, 0, REG_SZ, val, (len(val)+1))
+               SetValueEx(registryKey, name, 0, REG_SZ, val)
                CloseKey(registryKey)
-            #LOGWARN('app dir: %s', app_dir)
          
          
 
@@ -1691,6 +1690,7 @@ class ArmoryMainWindow(QMainWindow):
       elif not TheBDM.getBDMState()=='BlockchainReady':
          #BDM isnt ready yet, saved URI strings in the delayed URIDict to call later through finishLoadBlockChain
          qLen = self.delayedURIData['qLen']
+
          self.delayedURIData[qLen] = uriStr
          qLen = qLen +1
          self.delayedURIData['qLen'] = qLen
@@ -3135,7 +3135,7 @@ class ArmoryMainWindow(QMainWindow):
             self.startWalletWizard()
          return False
       else:
-         DlgSendBitcoins(self.getSelectedWallet(), self, self).exec_()
+         DlgSendBitcoins(self.getSelectedWallet(), self, self, uriDict).exec_()
       return True
       
 
