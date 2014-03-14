@@ -118,7 +118,7 @@ class ArmoryMainWindow(QMainWindow):
       self.dlgCptWlt = None
       self.torrentFinished = False
       self.torrentCircBuffer = []
-      self.alreadyAskedUserStopTorrent = False
+      self.lastAskedUserStopTorrent = 0
 
       # Full list of notifications, and notify IDs that should trigger popups
       # when sending or receiving.
@@ -189,12 +189,6 @@ class ArmoryMainWindow(QMainWindow):
       self.doAutoBitcoind = \
             self.getSettingOrSetDefault('ManageSatoshi', not OS_MACOSX)
 
-
-      # First we want to know if torrent is a good idea or not.  If we are
-      # in offline mode, and later switch to online mode, we should still
-      # know it's a good idea
-      self.useTorrentFinalAnswer = False
-      self.torrentIsAGoodIdea = self.checkShouldTryTorrent()
 
       # If we're going into online mode, start loading blockchain
       if self.doAutoBitcoind:
@@ -524,10 +518,6 @@ class ArmoryMainWindow(QMainWindow):
       # Start the user at the dashboard
       self.mainDisplayTabs.setCurrentIndex(self.MAINTABS.Dash)
 
-      from twisted.internet import reactor
-      # Show the appropriate information on the dashboard
-      self.setDashboardDetails(INIT=True)
-
 
       ##########################################################################
       # Set up menu and actions
@@ -652,10 +642,10 @@ class ArmoryMainWindow(QMainWindow):
 
       def execDownloadUpgrade():
          dl = self.announceFetcher.getAnnounceFile('downloads')
-         cl = self.announceFetcher.getAnnounceFile('changelogs')
+         cl = self.announceFetcher.getAnnounceFile('changelog')
          UpgradeDownloaderDialog(self, self, None, dl, cl).exec_()
 
-      execVerifySigned = lambda: VerifyOfflinePackageDialog(self).exec_()
+      execVerifySigned = lambda: VerifyOfflinePackageDialog(self, self).exec_()
       actAboutWindow  = self.createAction(tr('About Armory'), execAbout)
       actVersionCheck = self.createAction(tr('Armory Version...'), execVersion)
       actDownloadUpgrade = self.createAction(tr('Download Upgrade...'), execDownloadUpgrade)
@@ -701,17 +691,17 @@ class ArmoryMainWindow(QMainWindow):
       haveGUI[1] = self
       BDMcurrentBlock[1] = 1
 
-
       self.checkWallets()
+
+      self.setDashboardDetails()
+
+      from twisted.internet import reactor
       reactor.callLater(0.1,  self.execIntroDialog)
       reactor.callLater(1, self.Heartbeat)
 
       if self.getSettingOrSetDefault('MinimizeOnOpen', False) and not CLI_ARGS:
          LOGINFO('MinimizeOnOpen is True')
          reactor.callLater(0, self.minimizeArmory)
-
-
-
 
 
       if CLI_ARGS:
@@ -1426,13 +1416,13 @@ class ArmoryMainWindow(QMainWindow):
 
             try:
                maxVer = 0
-               for verStr,vermap in self.downloadLinks['Satoshi']:
+               for verStr,vermap in self.downloadLinks['Satoshi'].iteritems():
                   dlVer = getVersionInt(readVersionString(verStr))
                   if dlVer > maxVer:
                      maxVer = dlVer
                      self.satoshiVersions[1] = verStr
 
-               print self.satoshiVersions
+               # This is to detect the running versions of Bitcoin-Qt/bitcoind
                thisVerStr = self.NetworkingFactory.proto.peerInfo['subver']
                thisVerStr = thisVerStr.strip('/').split(':')[-1]
 
@@ -1442,7 +1432,8 @@ class ArmoryMainWindow(QMainWindow):
                self.satoshiVersions[0] = thisVerStr
 
             except:
-               raise
+               pass
+               
 
 
 
@@ -1467,12 +1458,11 @@ class ArmoryMainWindow(QMainWindow):
 
       return tr("""
          Your version of Armory is now outdated.  Please upgrade to version
-         %s through our <font color="red"><a href="dlgSecureDownload">secure
-         downloader inside Armory</a></font>.
-         Alternatively, you can get the new version from our website
-         downloads page at:
+         %s through our secure downloader inside Armory (link at the bottom
+         of this notification window).  Alternatively, you can get the new 
+         version from our website downloads page at:
          <br><br>
-         %s """) % (verStr, webURL)
+         <a href="%s">%s</a> """) % (verStr, webURL, webURL)
 
 
 
@@ -1721,68 +1711,6 @@ class ArmoryMainWindow(QMainWindow):
       LOGINFO('Online mode currently possible:   %s', self.onlineModeIsPossible())
 
 
-   ############################################################################
-   def checkShouldTryTorrent(self):
-      """
-      If the user does not have the blockchain yet, or is at a sufficiently
-      early state of downloading it, we will download the bootstrap.dat file
-      from the torrent network, AND THEN start bitcoind.  Obviously, if the
-      code doesn't exist to do the download, or the --disable-torrent flag is
-      set this returns False.  And obviously if they already have the
-      blockchain downloaded, they don't need this.
-
-      We will employ a couple other conditions that seem reasonable, given
-      that torrent download speed is expected to be 2-10x faster.
-
-      NOTE:
-
-      This function only determines if we *want* to use bittorrent.  We don't
-      yet know if we have a torrent file to use, yet, or if the bittorrent
-      code will work on this system
-      """
-
-      # This flag takes into account both CLI_OPTIONs, and availability of the
-      # BitTornado library.  The user can remove the BitTornado dir and/or the
-      # torrentDL.py file without breaking Armory -- it will simply set this
-      # disable flag to true when the import fails (they might do this if they
-      # REALLY don't trust the torrent code for whatever reason).  Of course,
-      # the less extreme option is just to run with the --disable-torrent flag.
-      if DISABLE_TORRENTDL:
-         return False
-
-      # The only torrent we have is for the primary Bitcoin network
-      if not MAGIC_BYTES=='\xf9\xbe\xb4\xd9':
-         return False
-
-      if self.getSettingOrSetDefault('NeverUseTorrent', False):
-         return False
-
-      # If they don't even have a BTC_HOME_DIR, corebtc never been installed
-      blockDir = os.path.join(BTC_HOME_DIR, 'blocks')
-      if not os.path.exists(BTC_HOME_DIR) or not os.path.exists(blockDir):
-         return True
-
-      # Get the cumulative size of the blk*.dat files
-      filesz = lambda f: os.path.getsize(os.path.join(blockDir, f))
-      blockDirSize = sum([filesz(a) for a in os.listdir(blockDir)])
-      blockDirSize = long(0.8333 * blockDirSize)  # adjust for rev files
-      sizeStr = bytesToHumanSize(blockDirSize)
-      LOGINFO('Total size of files in %s is approx %s' % (blockDir, sizeStr))
-
-      # If they have only a small portion of the blockchain, do it
-      if blockDirSize < 6*GIGABYTE:
-         return True
-
-      # So far we know they have a BTC_HOME_DIR, with more than 6GB in blocks/
-      # The only thing that can induce torrent now is if we have a partially-
-      # finished bootstrap file bigger than the blocks dir.
-      bootFile = os.path.join(BTC_HOME_DIR, 'bootstrap.dat.partial')
-      if os.path.exists(bootFile):
-         if os.path.getsize(bootFile) > blockDirSize:
-            return True
-
-      # Okay, we give up -- just download [the rest] via P2P
-      return False
 
 
 
@@ -1887,6 +1815,7 @@ class ArmoryMainWindow(QMainWindow):
          return ''
 
       torrentPath = os.path.join(ARMORY_HOME_DIR, 'bootstrap.dat.torrent')
+      LOGINFO('Using torrent file: ' + torrentPath)
       shutil.copy(srcTorrent, torrentPath)
 
       return torrentPath
@@ -3871,10 +3800,8 @@ class ArmoryMainWindow(QMainWindow):
                                        self.executeModeSwitch)
 
       # Will switch this to array/matrix of widgets if I get more than 2 rows
-      self.lblDashModeTorrent = QRichLabel('',doWrap=False)
       self.lblDashModeSync    = QRichLabel('',doWrap=False)
       self.lblDashModeScan    = QRichLabel('',doWrap=False)
-      self.lblDashModeTorrent.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
       self.lblDashModeSync.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
       self.lblDashModeScan.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
 
@@ -3884,7 +3811,7 @@ class ArmoryMainWindow(QMainWindow):
       self.barProgressSync.setRange(0,100)
       self.barProgressScan.setRange(0,100)
 
-      self.lblTorrentStats    = QRichLabel('')
+      self.lblTorrentStats    = QRichLabel('', hAlign=Qt.AlignHCenter)
 
       twid = relaxedSizeStr(self,'99 seconds')[0]
       self.lblTimeLeftSync    = QRichLabel('')
@@ -3896,15 +3823,15 @@ class ArmoryMainWindow(QMainWindow):
       self.lblStatsTorrent = QRichLabel('')
 
       layoutDashMode = QGridLayout()
-      layoutDashMode.addWidget(self.lblDashModeSync,     2,0)
-      layoutDashMode.addWidget(self.barProgressSync,     2,1)
-      layoutDashMode.addWidget(self.lblTimeLeftSync,     2,2)
-      layoutDashMode.addWidget(self.lblTorrentStats,     3,1, 1,2)
-      layoutDashMode.addWidget(self.lblDashModeScan,     4,0)
-      layoutDashMode.addWidget(self.barProgressScan,     4,1)
-      layoutDashMode.addWidget(self.lblTimeLeftScan,     4,2)
-      layoutDashMode.addWidget(self.lblBusy,             0,3, 4,1)
-      layoutDashMode.addWidget(self.btnModeSwitch,       0,3, 4,1)
+      layoutDashMode.addWidget(self.lblDashModeSync,     0,0)
+      layoutDashMode.addWidget(self.barProgressSync,     0,1)
+      layoutDashMode.addWidget(self.lblTimeLeftSync,     0,2)
+      layoutDashMode.addWidget(self.lblTorrentStats,     1,0)
+      layoutDashMode.addWidget(self.lblDashModeScan,     2,0)
+      layoutDashMode.addWidget(self.barProgressScan,     2,1)
+      layoutDashMode.addWidget(self.lblTimeLeftScan,     2,2)
+      layoutDashMode.addWidget(self.lblBusy,             0,3, 3,1)
+      layoutDashMode.addWidget(self.btnModeSwitch,       0,3, 3,1)
       self.frmDashModeSub = QFrame()
       self.frmDashModeSub.setFrameStyle(STYLE_SUNKEN)
       self.frmDashModeSub.setLayout(layoutDashMode)
@@ -4414,7 +4341,7 @@ class ArmoryMainWindow(QMainWindow):
    #############################################################################
    def updateSyncProgress(self):
 
-      if TheTDM.getTDMState() == 'Downloading':
+      if TheTDM.getTDMState()=='Downloading':
 
          dlSpeed  = TheTDM.getLastStats('downRate')
          timeEst  = TheTDM.getLastStats('timeEst')
@@ -4422,19 +4349,39 @@ class ArmoryMainWindow(QMainWindow):
          numSeeds = TheTDM.getLastStats('numSeeds')
          numPeers = TheTDM.getLastStats('numPeers')
 
-         self.lblDashModeSync.setText('Downloading via BitTorrent', \
+         if not numSeeds:
+            self.barProgressSync.setValue(0)
+            self.lblTimeLeftSync.setText('')
+            self.lblTorrentStats.setText('')
+
+            self.lblDashModeSync.setText(tr('Initializing Torrent Engine'), \
                                           size=4, bold=True, color='Foreground')
 
-         self.barProgressSync.setValue(int(99.9*fracDone))
-         self.lblTimeLeftSync.setText(secondsToHumanTime(timeEst))
-         self.lblTorrentStats.setText(tr("""
-            Downloading %s/sec from %d seeds & peers""") % \
-            (bytesToHumanSize(dlSpeed), numSeeds+numPeers))
+            self.lblTorrentStats.setVisible(False)
+         else:
+            self.lblDashModeSync.setText(tr('Downloading via Armory CDN'), \
+                                          size=4, bold=True, color='Foreground')
+
+            if fracDone:
+               self.barProgressSync.setValue(int(80*fracDone))
+
+            # The actual time to finish synchronizing includes bitcoind using
+            # the bootstrap file, plus topping-off the blockchain.  This
+            # doesn't have to be exact... it's not a huge deal if it jumps 
+            # from 1.5 hours to 2.5 hours when it hits 80%
+            timeAdj  = 1.5*HOUR
+
+            if timeEst:
+               self.lblTimeLeftSync.setText(secondsToHumanTime(timeEst+timeAdj))
+
+            self.lblTorrentStats.setText(tr("""
+               bootstrap.torrent: %s/sec from %d peers""") % \
+               (bytesToHumanSize(dlSpeed), numSeeds+numPeers))
+            self.lblTorrentStats.setVisible(True)
 
          self.barProgressSync.setVisible(True)
          self.lblTimeLeftSync.setVisible(True)
-         self.lblStatsTorSync.setVisible(True)
-         #self.btnCancelTorrent.setVisible(True)
+         self.lblTorrentStats.setVisible(True)
 
       elif TheBDM.getBDMState()=='Scanning':
          # Scan time is super-simple to predict: it's pretty much linear
@@ -4509,13 +4456,15 @@ class ArmoryMainWindow(QMainWindow):
          intPct = int(100*self.approxPctSoFar)
          strPct = '%d%%' % intPct
 
+         sdmPercent = 0
+
          self.barProgressSync.setFormat('%p%')
          if ssdm == 'BitcoindReady':
             return (0,0,0.99)  # because it's probably not completely done...
             self.lblTimeLeftSync.setText('Almost Done...')
             self.barProgressSync.setValue(99)
          elif ssdm == 'BitcoindSynchronizing':
-            self.barProgressSync.setValue(int(99.9*self.approxPctSoFar))
+            sdmPercent = int(99.9*self.approxPctSoFar)
             if self.approxBlkLeft < 10000:
                if self.approxBlkLeft < 200:
                   self.lblTimeLeftSync.setText('%d blocks' % self.approxBlkLeft)
@@ -4532,11 +4481,14 @@ class ArmoryMainWindow(QMainWindow):
                else:
                   self.lblTimeLeftSync.setText('')
          elif ssdm == 'BitcoindInitializing':
-            self.barProgressSync.setValue(0)
+            sdmPercent = 0
             self.barProgressSync.setFormat('')
          else:
             LOGERROR('Should not predict sync info in non init/sync SDM state')
             return ('UNKNOWN','UNKNOWN', 'UNKNOWN')
+
+         sdmPercent = 80 + 0.2*sdmPercent if TheTDM.isStarted() else sdmPercent
+         self.barProgressSync.setValue(sdmPercent)
       else:
          LOGWARN('Called updateSyncProgress while not sync\'ing')
 
@@ -4808,20 +4760,25 @@ class ArmoryMainWindow(QMainWindow):
             'to manage it yourself, please adjust your settings and '
             'restart Armory.')
          if state == 'InitializingLongTime':
-            return ( \
-            '<b>To maximize your security, the Bitcoin engine is downloading '
-            'and verifying the global transaction ledger.  <u>This will take '
-            'several hours, but only needs to be done once</u>!</b>  It is usually '
-            'best to leave it running over night for this initialization process.  '
-            'Subsequent loads will only take a few minutes.'
-            '<br><br>'
-            'While you wait, you can manage your wallets.  Make new wallets, '
-            'make digital or paper backups, create Bitcoin addresses to receive '
-            'payments, '
-            'sign messages, and/or import private keys.  You will always '
-            'receive Bitcoin payments regardless of whether you are online, '
-            'but you will have to verify that payment through another service '
-            'until Armory is finished this initialization.')
+            return tr("""
+            <b>To maximize your security, the Bitcoin engine is downloading 
+            and verifying the global transaction ledger.  <u>This will take 
+            several hours, but only needs to be done once</u>!</b>  It is 
+            usually best to leave it running over night for this 
+            initialization process.  Subsequent loads will only take a few 
+            minutes.
+            <br><br>
+            <b>Please Note:</b> Between Armory and the underlying Bitcoin 
+            engine, you need to have 40-50 GB of spare disk space available
+            to hold the global transaction history.  
+            <br><br>
+            While you wait, you can manage your wallets.  Make new wallets, 
+            make digital or paper backups, create Bitcoin addresses to receive 
+            payments, 
+            sign messages, and/or import private keys.  You will always 
+            receive Bitcoin payments regardless of whether you are online, 
+            but you will have to verify that payment through another service 
+            until Armory is finished this initialization.""")
          if state == 'InitializingDoneSoon':
             return ( \
             'The software is downloading and processing the latest activity '
@@ -4934,6 +4891,7 @@ class ArmoryMainWindow(QMainWindow):
 
       sdmState = TheSDM.getSDMState()
       bdmState = TheBDM.getBDMState()
+      tdmState = TheTDM.getTDMState()
       descr  = ''
       descr1 = ''
       descr2 = ''
@@ -4947,6 +4905,7 @@ class ArmoryMainWindow(QMainWindow):
          self.lblDashModeSync.setVisible(b)
          self.barProgressSync.setVisible(b)
          self.lblTimeLeftSync.setVisible(b)
+         self.lblTorrentStats.setVisible(b)
 
 
       def setScanRowVisible(b):
@@ -4977,6 +4936,8 @@ class ArmoryMainWindow(QMainWindow):
          setOnlyDashModeVisible()
          self.btnModeSwitch.setVisible(False)
 
+      # This keeps popping up for some reason!
+      self.lblTorrentStats.setVisible(False)
 
       if self.doAutoBitcoind and not sdmState=='BitcoindReady':
          # User is letting Armory manage the Satoshi client for them.
@@ -5030,7 +4991,7 @@ class ArmoryMainWindow(QMainWindow):
                   descr2 += self.GetDashFunctionalityText('Offline')
                   self.lblDashDescr1.setText(descr1)
                   self.lblDashDescr2.setText(descr2)
-            elif not TheSDM.isRunningBitcoind():
+            elif not TheSDM.isRunningBitcoind() and not TheTDM.isRunning():
                setOnlyDashModeVisible()
                self.mainDisplayTabs.setTabEnabled(self.MAINTABS.Ledger, False)
                self.lblDashModeSync.setText( 'Armory is <u>offline</u>', \
@@ -5134,7 +5095,9 @@ class ArmoryMainWindow(QMainWindow):
                   descr2 += self.GetDashFunctionalityText('Offline')
                   self.lblDashDescr1.setText(descr1)
                   self.lblDashDescr2.setText(descr2)
-               elif sdmState in ['BitcoindInitializing', 'BitcoindSynchronizing']:
+               elif sdmState in ['BitcoindInitializing', \
+                                 'BitcoindSynchronizing', \
+                                 'TorrentSynchronizing']:
                   LOGINFO('Dashboard switched to auto-InitSync')
                   self.mainDisplayTabs.setTabEnabled(self.MAINTABS.Ledger, False)
                   self.updateSyncProgress()
@@ -5142,16 +5105,25 @@ class ArmoryMainWindow(QMainWindow):
                   setScanRowVisible(True)
                   self.lblBusy.setVisible(True)
 
+                  if TheTDM.isRunning():
+                     self.lblDashModeSync.setText('Downloading via Armory CDN', \
+                                          size=4, bold=True, color='Foreground')
+                     self.lblTorrentStats.setVisible(True)
                   if sdmState=='BitcoindInitializing':
                      self.lblDashModeSync.setText( 'Initializing Bitcoin Engine', \
                                               size=4, bold=True, color='Foreground')
+                     self.lblTorrentStats.setVisible(False)
                   else:
                      self.lblDashModeSync.setText( 'Synchronizing with Network', \
                                               size=4, bold=True, color='Foreground')
+                     self.lblTorrentStats.setVisible(False)
+               
 
                   self.lblDashModeScan.setText( 'Build Databases and Scan', \
                                               size=4, bold=True, color='DisableFG')
-                  if self.approxBlkLeft > 1440: # more than 10 days
+
+                  # If more than 10 days behind, or still downloading torrent
+                  if tdmState=='Downloading' or self.approxBlkLeft > 1440:
                      descr1 += self.GetDashStateText('Auto', 'InitializingLongTime')
                      descr2 += self.GetDashStateText('Auto', 'NewUserInfo')
                   else:
@@ -5405,16 +5377,24 @@ class ArmoryMainWindow(QMainWindow):
 
          if self.doAutoBitcoind:
             if tdmState=='Downloading':
+               self.updateSyncProgress()
                timeEst  = TheTDM.getLastStats('timeEst')
-               self.torrentCircBuffer.append(timeEst)
+               if timeEst:
+                  self.torrentCircBuffer.append(timeEst)
                bufsz = len(self.torrentCircBuffer)
                if bufsz > 5*MINUTE:
                   self.torrentCircBuffer.pop()
                if bufsz > 1*MINUTE:
                   if sum(self.torrentCircBuffer) / float(bufsz) > 1*DAY:
-                     if not self.alreadyAskedUserStopTorrent:
-                        self.alreadyAskedUserStopTorrent = True
-                        QMessageBox.warning
+                     if (RightNow() - self.lastAskedUserStopTorrent) > 5*MINUTE:
+                        self.lastAskedUserStopTorrent = RightNow()
+                        reply = QMessageBox.warning(self, tr('Torrent'), tr("""
+                           Armory is attempting to use BitTorrent to speed up
+                           the initial synchronization, but it appears to be
+                           downloading slowly or not at all.  Would you like 
+                           to stop it?"""), QMessageBox.Yes |QMessageBox.No)
+                        if reply==QMessageBox.Yes:
+                           TheTDM.failedFunc('User selected shutdown torrent')
 
             if sdmState in ['BitcoindInitializing','BitcoindSynchronizing']:
                self.updateSyncProgress()

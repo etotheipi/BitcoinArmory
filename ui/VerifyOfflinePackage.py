@@ -1,12 +1,14 @@
 from PyQt4.Qt import * #@UnusedWildImport
 from PyQt4.QtGui import * #@UnusedWildImport
-from qtdefines import tr
+from qtdefines import tr, QRichLabel, ArmoryDialog
 from armoryengine.parseAnnounce import *
+from armorycolors import htmlColor
 
 
 class VerifyOfflinePackageDialog(QDialog):
-   def __init__(self, parent):
-      super(QDialog, self).__init__(parent)
+   def __init__(self, parent, main):
+      super(VerifyOfflinePackageDialog, self).__init__(parent)
+      self.main = main
 
       layout = QVBoxLayout(self)
       
@@ -18,8 +20,13 @@ class VerifyOfflinePackageDialog(QDialog):
       self.loadFileButton = QPushButton(tr("Select file to verify..."), load);
       layoutload.addWidget(self.loadFileButton)
       self.connect(self.loadFileButton, SIGNAL('clicked()'), self.load)
+
+      self.lblVerified = QRichLabel('', hAlign=Qt.AlignHCenter, doWrap=False)
+      layout.addWidget(self.lblVerified)
+
       
       save = QGroupBox(tr("Save Verified Package"), self)
+      layout.addItem(QSpacerItem(10,10))
       layout.addWidget(save)
       layoutsave = QVBoxLayout()
       save.setLayout(layoutsave)
@@ -27,14 +34,17 @@ class VerifyOfflinePackageDialog(QDialog):
       self.saveFileButton.setEnabled(False)
       layoutsave.addWidget(self.saveFileButton)
       self.connect(self.saveFileButton, SIGNAL('clicked()'), self.save)
+
       
    def load(self):
       self.fileData = None
-      fromfile = QFileDialog.getOpenFileName(self, tr("Load file to verify"), "", tr("Armory Signed Packages (*.signed)"))
-      if len(fromfile)==0:
+      #self.fromfile = QFileDialog.getOpenFileName(self, tr("Load file to verify"), "", tr("Armory Signed Packages (*.signed)"))
+      self.fromfile = self.main.getFileLoad(tr('Load file to Verify'),\
+                                       ['Armory Signed Packages (*.signed)'])
+      if len(self.fromfile)==0:
          return
          
-      df = open(fromfile, "rb")
+      df = open(self.fromfile, "rb")
       allfile = df.read()
       df.close()
       magicstart="START_OF_SIGNATURE_SECTION"
@@ -58,7 +68,7 @@ class VerifyOfflinePackageDialog(QDialog):
       
       good=False
       url=None
-      print "have hash",res
+      print "Hash of package file: ", res
       
       # simply check if any of the hashes match
       for pack in allsigs.itervalues():
@@ -67,20 +77,58 @@ class VerifyOfflinePackageDialog(QDialog):
                for packosver in packos.itervalues():
                   for packosarch in packosver.itervalues():
                      okhash = packosarch[1]
-                     print "hash",okhash
                      if okhash == res:
                         url = packosarch[0]
                         good=True
+
       if good:
          self.saveFileButton.setEnabled(True)
          self.fileData = fileData
          self.fileName = os.path.basename(url)
+         self.lblVerified.setText(tr("""<font color="%s"><b>Signature is 
+            Valid!</b></font>""") % htmlColor('TextGreen'))
+         reply = QMessageBox.warning(self, tr("Signature Valid"),  tr("""
+            The downloaded file has a <b>valid</b> signature from 
+            <font color="%s"><b>Armory Technologies, Inc.</b></font>, and is 
+            safe to install.  
+            <br><br>
+            Would you like to overwrite the original file with the extracted
+            installer?  If you would like to save it to a new location, click 
+            "No" and then use the "Save Verified Package" button to select
+            a new save location.""") % htmlColor('TextGreen'), \
+            QMessageBox.Yes | QMessageBox.No)
+
+         if reply==QMessageBox.Yes:
+            newFile = self.fromfile
+            if newFile.endswith('.signed'):
+               newFile = self.fromfile[:-7]
+
+            LOGINFO('Saving installer to: ' + newFile)
+
+            with open(newFile, 'wb') as df:
+               df.write(self.fileData)
+
+            if os.path.exists(newFile):
+               LOGINFO('Removing original file: ' + self.fromfile)
+               os.remove(self.fromfile)
+
+            QMessageBox.warning(self, tr('Saved!'), tr("""
+               The installer was successfully extracted and saved to the
+               following location:
+               <br><br>
+               %s""") % newFile, QMessageBox.Ok)
+         
+            
       else:
          self.saveFileButton.setEnabled(False)
-         QMessageBox.warning(self, tr("Signature Failure"),  tr("This file has an invalid signature"))
+         self.lblVerified.setText(tr("""<font color="%s">Invalid signature
+            on loaded file!</font>""") % htmlColor('TextRed'))
+         QMessageBox.warning(self, tr("Signature failure"),  \
+                        tr("This file has an invalid signature"))
          
    def save(self):
-      tofile = QFileDialog.getSaveFileName(self, tr("Save confirmed package"), QDir.homePath() + "/" + self.fileName)
+      tofile = QFileDialog.getSaveFileName(self, tr("Save confirmed package"), \
+                        QDir.homePath() + "/" + self.fileName)
       if len(tofile)==0:
          return
       df = open(tofile, "wb")

@@ -339,10 +339,13 @@ class TorrentDownloadManager(object):
 
       return 'Downloading'
 
+   #############################################################################
+   def startDownload(self):
+      return self.doTheDownloadThing(async=True)
 
    #############################################################################
    @AllowAsync
-   def startDownload(self):
+   def doTheDownloadThing(self):
       """
       This was copied and modified directly from btdownloadheadless.py 
       """
@@ -352,6 +355,10 @@ class TorrentDownloadManager(object):
          return
    
       while 1:
+
+         # Use this var to identify if we've started downloading
+         self.startTime = RightNow()
+
 
          configdir = ConfigDir(self.cacheDir)
          defaultsToIgnore = ['responsefile', 'url', 'priority']
@@ -436,14 +443,12 @@ class TorrentDownloadManager(object):
             self.bt1dow.shutdown()
             break
 
+
          self.bt1dow.startRerequester()
          self.bt1dow.autoStats()
    
          if not self.bt1dow.am_I_finished():
             self.statusFunc(activity = 'Connecting to peers')
-
-         # Use this var to identify if we've started downloading
-         self.startTime = RightNow()
 
          rawserver.listen_forever(self.bt1dow.getPortHandler())
          self.statusFunc(activity = 'Shutting down')

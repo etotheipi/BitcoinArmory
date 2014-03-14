@@ -148,7 +148,7 @@ class SatoshiDaemonManager(object):
 
       # Added torrent DL before we *actually* start SDM (if it makes sense)
       self.useTorrentFinalAnswer = False
-      self.useTorrentFile = None
+      self.useTorrentFile = ''
       self.torrentDisabled = False
       self.tdm = None
 
@@ -184,16 +184,18 @@ class SatoshiDaemonManager(object):
                            statistics=None, **kws):
          statStr = ''
          if fractionDone:
-            statStr += '   Done: %0.1f  ' % fractionDone*100
+            statStr += '   Done: %0.1f%%  ' % (fractionDone*100)
          if downRate:
-            statStr += '/  DLRate: %0.1f/sec' % (downRate/1024.)
+            statStr += ' / DLRate: %0.1f/sec' % (downRate/1024.)
          if timeEst:
-            statStr += '/  TLeft: %s' % secondsToHumanTime(timeEst)
+            statStr += ' / TLeft: %s' % secondsToHumanTime(timeEst)
          if statistics:
-            statStr += '/  Seeds: %d' % (statistics.numSeeds)
-            statStr += '/  Peers: %d' % (statistics.numPeers)
+            statStr += ' / Seeds: %d' % (statistics.numSeeds)
+            statStr += ' / Peers: %d' % (statistics.numPeers)
+
          if len(statStr)==0:
             statStr = 'No torrent info available'
+
          LOGINFO('Torrent: %s' % statStr)
 
       #####
@@ -203,6 +205,7 @@ class SatoshiDaemonManager(object):
             bootsz = bytesToHumanSize(os.path.getsize(bootfile))
 
          LOGINFO('Torrent finished; size of %s is %s', torrentPath, bootsz)
+         LOGINFO('Remove the core btc databases before doing bootstrap')
          deleteBitcoindDBs()
          self.launchBitcoindAndGuardian()
 
@@ -251,16 +254,20 @@ class SatoshiDaemonManager(object):
       LOGINFO('Total size of files in %s is approx %s' % (blockDir, sizeStr))
 
       # If they have only a small portion of the blockchain, do it
-      if blockDirSize < 6*GIGABYTE:
+      szThresh = 100*MEGABYTE if USE_TESTNET else 6*GIGABYTE
+      if blockDirSize < szThresh:
          return True
 
       # So far we know they have a BTC_HOME_DIR, with more than 6GB in blocks/
       # The only thing that can induce torrent now is if we have a partially-
       # finished bootstrap file bigger than the blocks dir.
-      bootFile = os.path.join(BTC_HOME_DIR, 'bootstrap.dat.partial')
-      if os.path.exists(bootFile):
-         if os.path.getsize(bootFile) > blockDirSize:
-            return True
+      bootFiles = ['','']
+      bootFiles[0] = os.path.join(BTC_HOME_DIR, 'bootstrap.dat')
+      bootFiles[1] = os.path.join(BTC_HOME_DIR, 'bootstrap.dat.partial')
+      for fn in bootFiles:
+         if os.path.exists(fn):
+            if os.path.getsize(fn) > blockDirSize:
+               return True
             
       # Okay, we give up -- just download [the rest] via P2P
       return False
@@ -541,7 +548,7 @@ class SatoshiDaemonManager(object):
       chk3 = TheTDM.getTDMState()=='ReadyToStart'
 
       if chk1 and chk2 and chk3:
-         TheTDM.startDownload(async=True)
+         TheTDM.startDownload()
       else:
          self.launchBitcoindAndGuardian()
             

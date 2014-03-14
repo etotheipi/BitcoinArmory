@@ -99,7 +99,6 @@ class UpgradeDownloader:
                suffix = ""
                if self.downloadLinkFile:
                   suffix = ".signed"
-               signed
                dest = QFileDialog.getSaveFileName(self.frame, tr("Save file"), QDir.homePath() + "/" + os.path.basename(self.url) + suffix)
                if len(dest)!=0:
                   df = open(dest, "wb")
@@ -134,9 +133,9 @@ class UpgradeDownloader:
       self.progressBar.setValue(len(self.receivedData))
       
       if size >= 1024*1024*10:
-         total = size/1024/1024
-         sofar = len(self.receivedData)/1024/1024
-         s = tr("{0}/{1} MiB downloaded").format(sofar, total)
+         total = size/1024/1024.
+         sofar = len(self.receivedData)/1024/1024.
+         s = tr("%0.1f / %0.1f MiB downloaded") % (sofar, total)
          self.progressBar.setFormat(s)
       else:
          total = size/1024
@@ -254,8 +253,9 @@ class UpgradeDownloaderDialog(ArmoryDialog):
                break
       
       self.useSelectedPackage()
+      self.cascadeOs()
 
-      self.setMinimumWidth(500)
+      self.setMinimumWidth(600)
       self.setWindowTitle(tr('Secure Download Bitcoin Software'))
 
       
@@ -323,9 +323,11 @@ class UpgradeDownloaderDialog(ArmoryDialog):
             self.changelogView.setHtml(html)
          else:
             if packagename == "Satoshi":
-               self.changelogView.setHtml(tr("No version information is available here for any of the core Bitcoin software "
-                  "downloads. You can find the information at: "
-                  "<a href='https://bitcoin.org/en/version-history'>https://bitcoin.org/en/version-history</a>"))
+               self.changelogView.setHtml(tr("""
+                  No version information is available here for any of the 
+                  core Bitcoin software downloads. You can find the 
+                  information at: 
+                  <a href='https://bitcoin.org/en/version-history'>https://bitcoin.org/en/version-history</a>"""))
             else:
                self.changelogView.setHtml(tr("Release notes are not available for this package"))
 

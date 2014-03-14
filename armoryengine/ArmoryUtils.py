@@ -267,17 +267,6 @@ else:
    print '***Unknown operating system!'
    print '***Cannot determine default directory locations'
 
-# Change the settings file to use
-if CLI_OPTIONS.settingsPath.lower()=='default':
-   CLI_OPTIONS.settingsPath = os.path.join(ARMORY_HOME_DIR, 'ArmorySettings.txt')
-
-# Change the log file to use
-if CLI_OPTIONS.logFile.lower()=='default':
-   if sys.argv[0] in ['ArmoryQt.py', 'ArmoryQt.exe', 'Armory.exe']:
-      CLI_OPTIONS.logFile = os.path.join(ARMORY_HOME_DIR, 'armorylog.txt')
-   else:
-      basename = os.path.basename(sys.argv[0])
-      CLI_OPTIONS.logFile = os.path.join(ARMORY_HOME_DIR, '%s.log.txt' % basename)
 
 
 
@@ -377,11 +366,22 @@ if not sys.argv[0] in ['ArmoryQt.py', 'ArmoryQt.exe', 'Armory.exe']:
    basename = os.path.basename(sys.argv[0])
    CLI_OPTIONS.logFile = os.path.join(ARMORY_HOME_DIR, '%s.log.txt' % basename)
 
+
+# Change the settings file to use
+if CLI_OPTIONS.settingsPath.lower()=='default':
+   CLI_OPTIONS.settingsPath = os.path.join(ARMORY_HOME_DIR, 'ArmorySettings.txt')
+
+# Change the log file to use
+if CLI_OPTIONS.logFile.lower()=='default':
+   if sys.argv[0] in ['ArmoryQt.py', 'ArmoryQt.exe', 'Armory.exe']:
+      CLI_OPTIONS.logFile = os.path.join(ARMORY_HOME_DIR, 'armorylog.txt')
+   else:
+      basename = os.path.basename(sys.argv[0])
+      CLI_OPTIONS.logFile = os.path.join(ARMORY_HOME_DIR, '%s.log.txt' % basename)
+
+
 SETTINGS_PATH   = CLI_OPTIONS.settingsPath
 MULT_LOG_FILE   = os.path.join(ARMORY_HOME_DIR, 'multipliers.txt')
-
-
-
 
 
 # If this is the first Armory has been run, create directories
