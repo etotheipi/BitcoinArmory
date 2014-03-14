@@ -157,6 +157,80 @@ IGNOREZC  = CLI_OPTIONS.ignoreAllZC
 
 
 
+# Some useful constants to be used throughout everything
+BASE58CHARS  = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
+BASE16CHARS  = '0123 4567 89ab cdef'.replace(' ','')
+LITTLEENDIAN  = '<';
+BIGENDIAN     = '>';
+NETWORKENDIAN = '!';
+
+SEND_UNITS = "sendUnits"
+BTC_UNIT_NAME = "BTC"
+MBTC_UNIT_NAME = "mBTC"
+UBTC_UNIT_NAME = "uBTC"
+ONE_BTC       = long(100000000)
+ONE_MBTC       = long(100000)
+ONE_UBTC       = long(100)
+DONATION       = long(5000000)
+CENT          = long(1000000)
+UNINITIALIZED = None
+UNKNOWN       = -2
+MIN_TX_FEE    = 10000
+MIN_RELAY_TX_FEE = 10000
+MT_WAIT_TIMEOUT_SEC = 20;
+
+UINT8_MAX  = 2**8-1
+UINT16_MAX = 2**16-1
+UINT32_MAX = 2**32-1
+UINT64_MAX = 2**64-1
+
+RightNow = time.time
+SECOND   = 1
+MINUTE   = 60
+HOUR     = 3600
+DAY      = 24*HOUR
+WEEK     = 7*DAY
+MONTH    = 30*DAY
+YEAR     = 365*DAY
+
+KILOBYTE = 1024.0
+MEGABYTE = 1024*KILOBYTE
+GIGABYTE = 1024*MEGABYTE
+TERABYTE = 1024*GIGABYTE
+PETABYTE = 1024*TERABYTE
+
+# Set the default-default 
+DEFAULT_DATE_FORMAT = '%Y-%b-%d %I:%M%p'
+FORMAT_SYMBOLS = [ \
+   ['%y', 'year, two digit (00-99)'], \
+   ['%Y', 'year, four digit'], \
+   ['%b', 'month name (abbrev)'], \
+   ['%B', 'month name (full)'], \
+   ['%m', 'month number (01-12)'], \
+   ['%d', 'day of month (01-31)'], \
+   ['%H', 'hour 24h (00-23)'], \
+   ['%I', 'hour 12h (01-12)'], \
+   ['%M', 'minute (00-59)'], \
+   ['%p', 'morning/night (am,pm)'], \
+   ['%a', 'day of week (abbrev)'], \
+   ['%A', 'day of week (full)'], \
+   ['%%', 'percent symbol'] ]
+
+
+# The database uses prefixes to identify type of address.  Until the new 
+# wallet format is created that supports more than just hash160 addresses
+# we have to explicitly add the prefix to any hash160 values that are being 
+# sent to any of the C++ utilities.  For instance, the BlockDataManager (BDM)
+# (C++ stuff) tracks regular hash160 addresses, P2SH, multisig, and all
+# non-standard scripts.  Any such "scrAddrs" (script-addresses) will eventually
+# be valid entities for tracking in a wallet.  Until then, all of our python
+# utilities all use just hash160 values, and we manually add the prefix 
+# before talking to the BDM.
+HASH160PREFIX  = '\x00'
+P2SHPREFIX     = '\x05'
+MSIGPREFIX     = '\xfe'
+NONSTDPREFIX   = '\xff'
+
 # Figure out the default directories for Satoshi client, and BicoinArmory
 OS_NAME          = ''
 OS_VARIANT       = ''
@@ -959,7 +1033,7 @@ def GetExecDir():
 
 
 
-def coin2str(nSatoshi, ndec=8, rJust=True, maxZeros=8):
+def coin2str(nSatoshi, ndec=8, rJust=True, maxZeros=8, unit=ONE_BTC):
    """
    Converts a raw value (1e-8 BTC) into a formatted string for display
    
@@ -970,7 +1044,7 @@ def coin2str(nSatoshi, ndec=8, rJust=True, maxZeros=8):
 
    """
 
-   nBtc = float(nSatoshi) / float(ONE_BTC)
+   nBtc = float(nSatoshi) / float(unit)
    s = ('%%0.%df' % ndec) % nBtc
    s = s.rjust(18, ' ')
 
@@ -991,28 +1065,23 @@ def coin2str(nSatoshi, ndec=8, rJust=True, maxZeros=8):
    return s
     
 
-def coin2strNZ(nSatoshi):
+def coin2strNZ(nSatoshi, unit=ONE_BTC):
    """ Right-justified, minimum zeros, but with padding for alignment"""
-   return coin2str(nSatoshi, 8, True, 0)
+   return coin2str(nSatoshi, 8, True, 0, unit=unit)
 
-def coin2strNZS(nSatoshi):
+def coin2strNZS(nSatoshi, unit=ONE_BTC):
    """ Right-justified, minimum zeros, stripped """
-   return coin2str(nSatoshi, 8, True, 0).strip()
+   return coin2str(nSatoshi, 8, True, 0, unit=unit).strip()
 
-def coin2str_approx(nSatoshi, sigfig=3):
-   posVal = nSatoshi
-   isNeg = False
-   if nSatoshi<0:
-      isNeg = True
-      posVal *= -1
-      
-   nDig = max(round(math.log(posVal+1, 10)-0.5), 0)
-   nChop = max(nDig-2, 0 )
-   approxVal = round((10**nChop) * round(posVal / (10**nChop)))
-   return coin2str( (-1 if isNeg else 1)*approxVal,  maxZeros=0)
+def coin2str_approx(nSatoshi, sigfig=3, unit=ONE_BTC):
+   if sigfig == 0:
+      return ''
+   posVal = max(nSatoshi, -1*nSatoshi)
+   negMultiplier = nSatoshi/posVal
+   approxVal = int(str(posVal)[:sigfig])
+   return coin2str(negMultiplier*approxVal,  maxZeros=0, unit=unit)
 
-
-def str2coin(theStr, negAllowed=True, maxDec=8, roundHighPrec=True):
+def str2coin(theStr, negAllowed=True, maxDec=8, roundHighPrec=True, unit=ONE_BTC):
    coinStr = str(theStr)
    if len(coinStr.strip())==0:
       raise ValueError
@@ -1022,7 +1091,7 @@ def str2coin(theStr, negAllowed=True, maxDec=8, roundHighPrec=True):
    if not '.' in coinStrPos:
       if not negAllowed and isNeg:
          raise NegativeValueError
-      return (int(coinStrPos)*ONE_BTC)*(-1 if isNeg else 1)
+      return (int(coinStrPos)*unit)*(-1 if isNeg else 1)
    else:
       lhs,rhs = coinStrPos.strip().split('.')
       if len(lhs.strip('-'))==0:
@@ -1031,10 +1100,9 @@ def str2coin(theStr, negAllowed=True, maxDec=8, roundHighPrec=True):
          raise TooMuchPrecisionError
       if not negAllowed and isNeg:
          raise NegativeValueError
-      fullInt = (int(lhs + rhs[:9].ljust(9,'0')) + 5) / 10
+      rhsDigits = len(str(unit))
+      fullInt = (int(lhs + rhs[:rhsDigits].ljust(rhsDigits,'0')) + 5) / 10
       return fullInt*(-1 if isNeg else 1)
-
-
 
 ################################################################################
 def replacePlurals(txt, *args):
@@ -1394,74 +1462,6 @@ if CLI_OPTIONS.logDisable:
    print 'Logging is disabled'
    rootLogger.disabled = True
 
-
-
-# Some useful constants to be used throughout everything
-BASE58CHARS  = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
-BASE16CHARS  = '0123 4567 89ab cdef'.replace(' ','')
-LITTLEENDIAN  = '<';
-BIGENDIAN     = '>';
-NETWORKENDIAN = '!';
-ONE_BTC       = long(100000000)
-DONATION       = long(5000000)
-CENT          = long(1000000)
-UNINITIALIZED = None
-UNKNOWN       = -2
-MIN_TX_FEE    = 10000
-MIN_RELAY_TX_FEE = 10000
-MT_WAIT_TIMEOUT_SEC = 20;
-
-UINT8_MAX  = 2**8-1
-UINT16_MAX = 2**16-1
-UINT32_MAX = 2**32-1
-UINT64_MAX = 2**64-1
-
-RightNow = time.time
-SECOND   = 1
-MINUTE   = 60
-HOUR     = 3600
-DAY      = 24*HOUR
-WEEK     = 7*DAY
-MONTH    = 30*DAY
-YEAR     = 365*DAY
-
-KILOBYTE = 1024.0
-MEGABYTE = 1024*KILOBYTE
-GIGABYTE = 1024*MEGABYTE
-TERABYTE = 1024*GIGABYTE
-PETABYTE = 1024*TERABYTE
-
-# Set the default-default 
-DEFAULT_DATE_FORMAT = '%Y-%b-%d %I:%M%p'
-FORMAT_SYMBOLS = [ \
-   ['%y', 'year, two digit (00-99)'], \
-   ['%Y', 'year, four digit'], \
-   ['%b', 'month name (abbrev)'], \
-   ['%B', 'month name (full)'], \
-   ['%m', 'month number (01-12)'], \
-   ['%d', 'day of month (01-31)'], \
-   ['%H', 'hour 24h (00-23)'], \
-   ['%I', 'hour 12h (01-12)'], \
-   ['%M', 'minute (00-59)'], \
-   ['%p', 'morning/night (am,pm)'], \
-   ['%a', 'day of week (abbrev)'], \
-   ['%A', 'day of week (full)'], \
-   ['%%', 'percent symbol'] ]
-
-
-# The database uses prefixes to identify type of address.  Until the new 
-# wallet format is created that supports more than just hash160 addresses
-# we have to explicitly add the prefix to any hash160 values that are being 
-# sent to any of the C++ utilities.  For instance, the BlockDataManager (BDM)
-# (C++ stuff) tracks regular hash160 addresses, P2SH, multisig, and all
-# non-standard scripts.  Any such "scrAddrs" (script-addresses) will eventually
-# be valid entities for tracking in a wallet.  Until then, all of our python
-# utilities all use just hash160 values, and we manually add the prefix 
-# before talking to the BDM.
-HASH160PREFIX  = '\x00'
-P2SHPREFIX     = '\x05'
-MSIGPREFIX     = '\xfe'
-NONSTDPREFIX   = '\xff'
 def CheckHash160(scrAddr):
    if not len(scrAddr)==21:
       raise BadAddressError("Supplied scrAddr is not a Hash160 value!")

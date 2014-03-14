@@ -15,11 +15,12 @@ from armoryengine.Transaction import PyTxDistProposal
 from armoryengine.CoinSelection import PySelectCoins, calcMinSuggestedFees,\
    PyUnspentTxOut
 from ui.WalletFrames import SelectWalletFrame
- 
+from armoryengine.ArmoryUtils import *
 
 class SendBitcoinsFrame(ArmoryFrame):
    COLS = enum('LblAddr', 'Addr', 'AddrBook', 'LblWltID', 'LblAmt', 'Btc', \
                'LblUnit', 'BtnMax', 'LblComm', 'Comm')
+
    def __init__(self, parent, main, initLabel='',
                  wlt=None, prefill=None, wltIDList=None,
                  selectWltCallback = None, onlyOfflineWallets=False,
@@ -35,12 +36,11 @@ class SendBitcoinsFrame(ArmoryFrame):
       self.sendCallback = sendCallback
       self.createUnsignedTxCallback = createUnsignedTxCallback
       self.onlyOfflineWallets = onlyOfflineWallets
-      txFee = self.main.getSettingOrSetDefault('Default_Fee', MIN_TX_FEE)
+      self.txFee = self.main.getSettingOrSetDefault('Default_Fee', MIN_TX_FEE)
       self.widgetTable = []
       self.scrollRecipArea = QScrollArea()
-      lblRecip = QRichLabel('<b>Enter Recipients:</b>')
+      lblRecip = QRichLabel('<b>Recipients:</b>')
       lblRecip.setAlignment(Qt.AlignLeft | Qt.AlignBottom)
-
       self.freeOfErrors = True
 
       feetip = self.main.createToolTipWidget(\
@@ -56,7 +56,6 @@ class SendBitcoinsFrame(ArmoryFrame):
       self.edtFeeAmt.setMaximumWidth(tightSizeNChar(self.edtFeeAmt, 12)[0])
       self.edtFeeAmt.setMaximumHeight(self.maxHeight)
       self.edtFeeAmt.setAlignment(Qt.AlignRight)
-      self.edtFeeAmt.setText(coin2str(txFee, maxZeros=1).strip())
 
       # Created a standard wallet chooser frame. Pass the call back method
       # for when the user selects a wallet.
@@ -186,9 +185,22 @@ class SendBitcoinsFrame(ArmoryFrame):
       lblSend = QRichLabel('<b>Sending from Wallet:</b>')
       lblSend.setAlignment(Qt.AlignLeft | Qt.AlignBottom)
 
-
-      leftFrame = makeVertFrame([lblSend, frmBottomLeft])
-      rightFrame = makeVertFrame([lblRecip, self.scrollRecipArea, txFrm])
+      topLeftRow = makeHorizFrame([lblSend])
+      leftFrame = makeVertFrame([topLeftRow, frmBottomLeft])
+      unitsLabel = QRichLabel(tr('''<b>Units:</b>'''))
+      self.btcRadioBtn = QRadioButton(BTC_UNIT_NAME)
+      self.mBtcRadioBtn = QRadioButton(MBTC_UNIT_NAME)
+      self.uBtcRadioBtn = QRadioButton(UBTC_UNIT_NAME)
+      self.connect(self.btcRadioBtn, SIGNAL(CLICKED), self.unitChosen)
+      self.connect(self.mBtcRadioBtn, SIGNAL(CLICKED), self.unitChosen)
+      self.connect(self.uBtcRadioBtn, SIGNAL(CLICKED), self.unitChosen)
+      unitsRadioBtnGroup = QButtonGroup()
+      unitsRadioBtnGroup.addButton(self.btcRadioBtn)
+      unitsRadioBtnGroup.addButton(self.mBtcRadioBtn)
+      unitsRadioBtnGroup.addButton(self.uBtcRadioBtn)
+      self.setDefaultUnits()                        
+      topRightRow = makeHorizFrame([lblRecip, STRETCH, unitsLabel, self.btcRadioBtn, self.mBtcRadioBtn, self.uBtcRadioBtn])
+      rightFrame = makeVertFrame([topRightRow, self.scrollRecipArea, txFrm])
       layout = QHBoxLayout()
       layout.addWidget(leftFrame)
       layout.addWidget(rightFrame)
@@ -252,7 +264,44 @@ class SendBitcoinsFrame(ArmoryFrame):
       self.walletSelector.updateOnWalletChange()
       self.unsignedCheckBoxUpdate()
 
+   #############################################################################
+   def setDefaultUnits(self):
+      defaultUnit = self.main.getSettingOrSetDefault(SEND_UNITS, BTC_UNIT_NAME)
+      if defaultUnit == BTC_UNIT_NAME:
+         self.btcRadioBtn.setChecked(True)
+         self.satoshiMultiplier = ONE_BTC
+      elif defaultUnit == MBTC_UNIT_NAME:
+         self.mBtcRadioBtn.setChecked(True)
+         self.satoshiMultiplier = ONE_MBTC
+      else: # Must be defaultUnit == UBTC_UNIT_NAME
+         self.uBtcRadioBtn.setChecked(True)
+         self.satoshiMultiplier = ONE_UBTC
+      self.unitChosen()
 
+   #############################################################################
+   def unitChosen(self):
+      previousSatoshiMultiplier = self.satoshiMultiplier
+      if self.btcRadioBtn.isChecked():
+         self.main.writeSetting(SEND_UNITS, BTC_UNIT_NAME)
+         self.selectedUnitName = BTC_UNIT_NAME
+         self.satoshiMultiplier = ONE_BTC
+      elif self.mBtcRadioBtn.isChecked():
+         self.main.writeSetting(SEND_UNITS, MBTC_UNIT_NAME)
+         self.selectedUnitName = MBTC_UNIT_NAME
+         self.satoshiMultiplier = ONE_MBTC
+      else: # self.btcRadioBtn.isChecked():
+         self.main.writeSetting(SEND_UNITS, UBTC_UNIT_NAME)
+         self.selectedUnitName = UBTC_UNIT_NAME
+         self.satoshiMultiplier = ONE_UBTC
+         
+      self.edtFeeAmt.setText(coin2str(self.txFee, maxZeros=1, unit=self.satoshiMultiplier).strip())
+      for widgetTableRow in self.widgetTable:
+         widgetTableRow[self.COLS.LblUnit].setText(self.selectedUnitName)
+         if len(str(widgetTableRow[self.COLS.Btc].text()).strip()) > 0:
+            valueStr = str(widgetTableRow[self.COLS.Btc].text()).strip()
+            value = str2coin(valueStr, negAllowed=False, unit=previousSatoshiMultiplier )
+            widgetTableRow[self.COLS.Btc].setText(coin2str(value, maxZeros=2, unit=self.satoshiMultiplier).strip())
+      
    #############################################################################
    def unsignedCheckBoxUpdate(self):
       if self.unsignedCheckbox.isChecked():
@@ -279,11 +328,11 @@ class SendBitcoinsFrame(ArmoryFrame):
          self.makeRecipFrame(len(self.widgetTable) + 1)
 
       if amt:
-         amt = coin2str(amt, maxZeros=2).strip()
+         amtStr = coin2str(amt, maxZeros=2, unit=self.satoshiMultiplier).strip()
 
       self.widgetTable[-1][self.COLS.Addr].setText(hash160_to_addrStr(addr160))
       self.widgetTable[-1][self.COLS.Addr].setCursorPosition(0)
-      self.widgetTable[-1][self.COLS.Btc].setText(amt)
+      self.widgetTable[-1][self.COLS.Btc].setText(amtStr)
       self.widgetTable[-1][self.COLS.Btc].setCursorPosition(0)
       self.widgetTable[-1][self.COLS.Comm].setText(msg)
       self.widgetTable[-1][self.COLS.Comm].setCursorPosition(0)
@@ -397,7 +446,7 @@ class SendBitcoinsFrame(ArmoryFrame):
          try:
             recipStr = str(self.widgetTable[i][COLS.Addr].text()).strip()
             valueStr = str(self.widgetTable[i][COLS.Btc].text()).strip()
-            value = str2coin(valueStr, negAllowed=False)
+            value = str2coin(valueStr, negAllowed=False, unit=self.satoshiMultiplier)
             if value == 0:
                QMessageBox.critical(self, 'Zero Amount', \
                   'You cannot send 0 BTC to any recipients.  <br>Please enter '
@@ -434,7 +483,7 @@ class SendBitcoinsFrame(ArmoryFrame):
 
       try:
          feeStr = str(self.edtFeeAmt.text())
-         fee = str2coin(feeStr, negAllowed=False)
+         fee = str2coin(feeStr, negAllowed=False, unit=self.satoshiMultiplier)
       except NegativeValueError:
          QMessageBox.critical(self, tr('Negative Value'), tr("""
             You must enter a positive value for the fee."""), QMessageBox.Ok)
@@ -493,13 +542,13 @@ class SendBitcoinsFrame(ArmoryFrame):
       # We now have a min-fee that we know we can match if the user agrees
       if fee < minFee:
 
-         usrFeeStr = coin2strNZS(fee)
-         minFeeStr = coin2strNZS(minFee)
-         newBalStr = coin2strNZS(bal - minFee)
+         usrFeeStr = coin2strNZS(fee, unit=self.satoshiMultiplier)
+         minFeeStr = coin2strNZS(minFee, unit=self.satoshiMultiplier)
+         newBalStr = coin2strNZS(bal - minFee, unit=self.satoshiMultiplier)
 
          if totalSend + minFee > bal:
             # Need to adjust this based on overrideMin flag
-            self.edtFeeAmt.setText(coin2str(minFee, maxZeros=1).strip())
+            self.edtFeeAmt.setText(coin2str(minFee, maxZeros=1, unit=self.satoshiMultiplier).strip())
             QMessageBox.warning(self, tr('Insufficient Balance'), tr("""
                The required transaction fee causes this transaction to exceed 
                your balance.  In order to send this transaction, you will be 
@@ -519,7 +568,7 @@ class SendBitcoinsFrame(ArmoryFrame):
             <br><br> 
             Do you agree to the fee of %s BTC?""") % \
             (usrFeeStr, minFeeStr, minFeeStr), \
-            QMessageBox.Yes | QMessageBox.Cancel)
+            QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel)
 
          if reply == QMessageBox.Cancel:
             return False
@@ -632,7 +681,7 @@ class SendBitcoinsFrame(ArmoryFrame):
                   for i in range(len(self.comments)):
                      amt = self.origRVPairs[i][1]
                      if len(self.comments[i].strip()) > 0:
-                        commentStr += '%s (%s);  ' % (self.comments[i], coin2str_approx(amt).strip())
+                        commentStr += '%s (%s);  ' % (self.comments[i], coin2str_approx(amt, unit=self.satoshiMultiplier).strip())
       
       
                tx = self.wlt.signTxDistProposal(txdp)
@@ -723,7 +772,7 @@ class SendBitcoinsFrame(ArmoryFrame):
       r = 0
       try:
          bal = self.getUsableBalance()
-         txFee = str2coin(str(self.edtFeeAmt.text()))
+         self.txFee = str2coin(str(self.edtFeeAmt.text()), unit=self.satoshiMultiplier)
          while r < nRecip:
             # Use while loop so 'r' is still in scope in the except-clause
             if targWidget == self.widgetTable[r][self.COLS.Btc]:
@@ -732,7 +781,7 @@ class SendBitcoinsFrame(ArmoryFrame):
 
             amtStr = str(self.widgetTable[r][self.COLS.Btc].text()).strip()
             if len(amtStr) > 0:
-               totalOther += str2coin(amtStr)
+               totalOther += str2coin(amtStr, unit=self.satoshiMultiplier)
             r += 1
 
       except:
@@ -743,8 +792,8 @@ class SendBitcoinsFrame(ArmoryFrame):
          return
 
 
-      maxStr = coin2str((bal - (txFee + totalOther)), maxZeros=0)
-      if bal < txFee + totalOther:
+      maxStr = coin2str((bal - (self.txFee + totalOther)), maxZeros=0, unit=self.satoshiMultiplier)
+      if bal < self.txFee + totalOther:
          QMessageBox.warning(self, 'Insufficient funds', \
                'You have specified more than your spendable balance to '
                'the other recipients and the transaction fee.  Therefore, the '
@@ -836,7 +885,7 @@ class SendBitcoinsFrame(ArmoryFrame):
          self.widgetTable[r][-1].setMaximumHeight(self.maxHeight)
          self.widgetTable[r][-1].setAlignment(Qt.AlignLeft)
 
-         self.widgetTable[r].append(QLabel('BTC'))
+         self.widgetTable[r].append(QLabel(self.selectedUnitName))
          self.widgetTable[r][-1].setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
 
          # self.widgetTable[r].append( QPushButton('MAX') )
@@ -917,7 +966,7 @@ class SendBitcoinsFrame(ArmoryFrame):
          self.makeRecipFrame(len(self.widgetTable) + 1)
 
       self.widgetTable[-1][self.COLS.Addr].setText(ARMORY_DONATION_ADDR)
-      self.widgetTable[-1][self.COLS.Btc].setText(coin2str(amt, maxZeros=2).strip())
+      self.widgetTable[-1][self.COLS.Btc].setText(coin2str(amt, maxZeros=2, unit=self.satoshiMultiplier).strip())
       self.widgetTable[-1][self.COLS.Comm].setText(\
             'Donation to Armory developers.  Thank you for your generosity!')
 
@@ -938,7 +987,7 @@ class SendBitcoinsFrame(ArmoryFrame):
 
          self.widgetTable[-1][self.COLS.Addr].setText(dlg.uriDict['address'])
          if dlg.uriDict.has_key('amount'):
-            amtStr = coin2str(dlg.uriDict['amount'], maxZeros=1).strip()
+            amtStr = coin2str(dlg.uriDict['amount'], maxZeros=1, unit=self.satoshiMultiplier).strip()
             self.widgetTable[-1][self.COLS.Btc].setText(amtStr)
 
 
@@ -1449,7 +1498,7 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
 
          ##### 3
          if self.leValue:
-            self.infoLbls[3][2].setText(coin2strNZS(self.leValue) + '  BTC')
+            self.infoLbls[3][2].setText(coin2strNZS(self.leValue, unit=self.satoshiMultiplier) + '  BTC')
          else:
             self.infoLbls[3][2].setText('')
 
