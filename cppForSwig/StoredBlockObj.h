@@ -126,8 +126,8 @@ class GlobalDBUtilities
 {
 public:
 
-   static uint32_t   hgtxToHeight(BinaryData hgtx);
-   static uint8_t    hgtxToDupID(BinaryData hgtx);
+   static uint32_t   hgtxToHeight(const BinaryData& hgtx);
+   static uint8_t    hgtxToDupID(const BinaryData& hgtx);
    static BinaryData heightAndDupToHgtx(uint32_t hgt, uint8_t dup);
 
    /////////////////////////////////////////////////////////////////////////////
