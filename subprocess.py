@@ -461,8 +461,9 @@ _active = []
 def _cleanup():
     for inst in _active[:]:
         res = inst._internal_poll(_deadstate=sys.maxint)
-        if inst._handle is not None:
-            if mswindows: ctypes.windll.kernel32.CloseHandle(inst._handle)
+        if mswindows:
+           if inst._handle is not None:
+             ctypes.windll.kernel32.CloseHandle(inst._handle)
         if res is not None:
             try:
                 _active.remove(inst)
@@ -470,7 +471,7 @@ def _cleanup():
                 # This can happen if two threads create a new Popen instance.
                 # It's harmless that it was already removed, so ignore.
                 pass
-             
+
 PIPE = -1
 STDOUT = -2
 
@@ -671,12 +672,12 @@ if mswindows:
          ("hStdOutput", ctypes.c_uint),
          ("hStdError", ctypes.c_uint)]
 
-   class PROCESS_INFORMATION(ctypes.Structure):  
+   class PROCESS_INFORMATION(ctypes.Structure):
       _fields_ = [
          ("hProcess", ctypes.c_uint),
          ("hThread", ctypes.c_uint),
          ("dwProcessId", ctypes.c_uint),
-         ("dwThreadId", ctypes.c_uint)]  
+         ("dwThreadId", ctypes.c_uint)]
 
 class Popen(object):
     def __init__(self, args, bufsize=0, executable=None,
@@ -945,8 +946,8 @@ class Popen(object):
 
             # Process startup details
             startup_info = STARTUP_INFO()
-            #if startupinfo is None:
-                #startupinfo = STARTUPINFO()
+            if startupinfo is None:
+                startupinfo = STARTUPINFO()
             if None not in (p2cread, c2pwrite, errwrite):
                 startup_info.dwFlags = 0x00000100
 
@@ -955,7 +956,7 @@ class Popen(object):
                 startup_info.hStdError = errwrite
 
             startup_info.dwFlags |= startupinfo.dwFlags
-                        
+
             if shell:
                 #startup_info.dwFlags |= 0x00000001
                 startup_info.wShowWindow = 0
@@ -979,8 +980,8 @@ class Popen(object):
                     creationflags = 0x00040000
 
             # Start the process
-            
-            p_i = PROCESS_INFORMATION()            
+
+            p_i = PROCESS_INFORMATION()
             try:
                args_u16 = unicode(args)
                efg = ctypes.windll.kernel32.CreateProcessW(executable, args_u16,

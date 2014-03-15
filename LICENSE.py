@@ -33,6 +33,7 @@ def licenseText():
           qtreactor4.py
           qrcodenative.py
           jsonrpc/*
+          bittornado/*
     
     Everything in the cryptopp directory is considered public domain according 
     to http://www.cryptopp.com/ and included with the source distribution 

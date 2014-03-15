@@ -13,6 +13,7 @@
 #include "Util.h"
 #include "BtcWallet.h"
 
+
 static void updateBlkDataHeader(InterfaceToLDB* iface, StoredHeader const & sbh)
 {
    iface->putValue(BLKDATA, sbh.getDBKey(), sbh.serializeDBValue(BLKDATA));
@@ -2622,7 +2623,7 @@ void BlockDataManager_LevelDB::writeProgressFile(DB_BUILD_PHASE phase,
    if(height!=0)
       startAtByte = blkFileCumul_[blkfile] + offset;
       
-   ofstream topblks(bfile.c_str(), ios::app);
+   ofstream topblks(OS_TranslatePath(bfile.c_str()), ios::app);
    double t = TIMER_READ_SEC(timerName);
    topblks << (uint32_t)phase << " "
            << startAtByte << " " 
@@ -3140,7 +3141,9 @@ bool BlockDataManager_LevelDB::processNewHeadersInBlkFiles(uint32_t fnumStart,
    {
       LOGERR << e.what();
    }
-   
+
+   iface_->startBatch(HEADERS);
+      
    for(unsigned i=0; i < blockchain_.numHeaders(); i++)
    {
       BlockHeader &block = blockchain_.getHeaderByHeight(i);
@@ -3149,7 +3152,8 @@ bool BlockDataManager_LevelDB::processNewHeadersInBlkFiles(uint32_t fnumStart,
       uint8_t dup = iface_->putBareHeader(sbh);
       block.setDuplicateID(dup);  // make sure headerMap_ and DB agree
    }
-   
+   iface_->commitBatch(HEADERS);
+
    return prevTopBlkStillValid;
 
 
@@ -3369,10 +3373,18 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
 
 
    // Remove this file
+
+#ifndef _MSC_VER
    if(BtcUtils::GetFileSize(blkProgressFile_) != FILE_DOES_NOT_EXIST)
       remove(blkProgressFile_.c_str());
    if(BtcUtils::GetFileSize(abortLoadFile_) != FILE_DOES_NOT_EXIST)
       remove(abortLoadFile_.c_str());
+#else
+   if(BtcUtils::GetFileSize(blkProgressFile_) != FILE_DOES_NOT_EXIST)
+      _wunlink(OS_TranslatePath(blkProgressFile_).c_str());
+   if(BtcUtils::GetFileSize(abortLoadFile_) != FILE_DOES_NOT_EXIST)
+      _wunlink(OS_TranslatePath(abortLoadFile_).c_str());
+#endif
    
    if(!initialLoad)
       detectAllBlkFiles(); // only need to spend time on this on the first call
@@ -3438,7 +3450,7 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
            <<  (int)timeElapsed << " seconds)";
 
    // Now start scanning the raw blocks
-   if(registeredScrAddrMap_.size() == 0)
+   if(registeredScrAddrMap_.size() == -1)
    {
       LOGWARN << "No addresses are registered with the BDM, so there's no";
       LOGWARN << "point in doing a blockchain scan yet.";

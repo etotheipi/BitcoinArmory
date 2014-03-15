@@ -118,7 +118,7 @@ class SendBitcoinsFrame(ArmoryFrame):
          self.radioSpecify = QRadioButton('Specify a change address')
          self.lblChangeAddr = QRichLabel('Send Change To:')
          self.edtChangeAddr = QLineEdit()
-         self.btnChangeAddr = createAddrBookButton(self, self.edtChangeAddr, \
+         self.btnChangeAddr = createAddrBookButton(parent, self.edtChangeAddr, \
                                        None, 'Send change to')
          self.chkRememberChng = QCheckBox('Remember for future transactions')
          self.vertLine = VLINE()
@@ -605,13 +605,25 @@ class SendBitcoinsFrame(ArmoryFrame):
          else:
             try:
                if self.wlt.isLocked:
-                  unlockdlg = DlgUnlockWallet(self.wlt, self, self.main, 'Send Transaction')
-                  if not unlockdlg.exec_():
+                  Passphrase = None  
+                  
+                  unlockdlg = DlgUnlockWallet(self.wlt, self, self.main, 'Send Transaction', returnPassphrase=True)
+                  if unlockdlg.exec_():
+                     if unlockdlg.Accepted == 1:
+                        Passphrase = unlockdlg.securePassphrase.copy()
+                        unlockdlg.securePassphrase.destroy()
+                     
+                  if Passphrase is None or self.wlt.kdf is None:
                      QMessageBox.critical(self.parent(), 'Wallet is Locked', \
                         'Cannot sign transaction while your wallet is locked. ', \
                         QMessageBox.Ok)
                      return
-      
+                  else:
+                     self.wlt.kdfKey = self.wlt.kdf.DeriveKey(Passphrase)
+                     Passphrase.destroy()                                     
+               
+               self.wlt.mainWnd = self.main
+               self.wlt.parent = self
       
                commentStr = ''
                if len(self.comments) == 1:
@@ -808,7 +820,7 @@ class SendBitcoinsFrame(ArmoryFrame):
 
 
          addrEntryBox = self.widgetTable[r][-1]
-         self.widgetTable[r].append(createAddrBookButton(self, addrEntryBox, \
+         self.widgetTable[r].append(createAddrBookButton(self.parent(), addrEntryBox, \
                                       None, 'Send to'))
 
 
@@ -911,7 +923,7 @@ class SendBitcoinsFrame(ArmoryFrame):
 
    #############################################################################
    def clickEnterURI(self):
-      dlg = DlgUriCopyAndPaste(self, self.main)
+      dlg = DlgUriCopyAndPaste(self.parent(), self.main)
       dlg.exec_()
 
       if len(dlg.uriDict) > 0:
@@ -1074,41 +1086,34 @@ class ReviewOfflineTxFrame(ArmoryDialog):
    
    def setWallet(self, wlt):
       self.wlt = wlt
-      if determineWalletType(wlt, self.main)[0] == WLTTYPES.Offline:
-         self.lblDescr.setText(
-         'The block of data shown below is the complete transaction you just '
-         'requested, but is invalid because it does not contain the appropriate '
-         'signatures.  You must '
-         'take this data to the computer holding the private keys for this '
-         'wallet to get the necessary signatures, then bring back the completed '
-         'transaction to be broadcast to the Bitcoin network.'
-         '<br><br>'
-         'Use the "Save as file..." button '
-         'to copy the <i>*.unsigned.tx</i> file to a USB key or other removable media.  '
-         'Take the file to the offline computer, and use the '
-         '"Offline Transactions" dialog to load the transaction data and sign it '
-         '(the filename suffix will be changed to *.signed.tx).'
-         '<br><br>'
-         'On the next screen, you will be able to load the signed transaction, '
-         'and then broadcast it if all signatures are valid.   In fact, the final, '
-         'signed transaction can be finalized from <i>any</i> '
-         'computer that is running Armory and connected to the Bitcoin network.')
-      elif determineWalletType(wlt, self.main)[0] == WLTTYPES.WatchOnly:
-         self.lblDescr.setText(\
-         'The chunk of data shown below is the complete transaction you just '
-         'requested, but <b>without</b> the signature(s) needed to be valid.  '
-         '<br><br>'
-         'In order to complete this transaction, you need to take this '
-         'chunk of data (the proposed transaction) to the computer who holds the '
-         'full version of this wallet to be signed.  Once signed, it can be loaded into Armory '
-         'and broadcast to the network. ')
+      if determineWalletType(wlt, self.main)[0] in \
+                                 [ WLTTYPES.Offline, WLTTYPES.WatchOnly ]:
+         self.lblDescr.setText(tr("""
+            The block of data shown below is the complete transaction you 
+            just requested, but is invalid because it does not contain any
+            signatures.  You must take this data to the computer with the 
+            full wallet to get it signed, then bring it back here to be
+            broadcast to the Bitcoin network.
+            <br><br>
+            Use "Save as file..." to save an <i>*.unsigned.tx</i> 
+            file to USB drive or other removable media.  
+            On the offline computer, click "Offline Transactions" on the main 
+            window.  Load the transaction, <b>review it</b>, then sign it 
+            (the filename now end with <i>*.signed.tx</i>).  Click "Continue" 
+            below when you have the signed transaction on this computer.  
+            <br><br>
+            <b>NOTE:</b> The USB drive only ever holds public transaction
+            data that will be broadcast to the network.  This data may be 
+            considered privacy-sensitive, but does <u>not</u> compromise
+            the security of your wallet."""))
       else:
-         self.lblDescr.setText(
-            'You have chosen to create the previous transaction but not sign '
-            'it or broadcast it, yet.  You can save the unsigned '
-            'transaction to file, or copy&paste from the text box.  '
-            'Whenever you want you can have the transaction signed '
-            'and broadcast it or save it to broadcast it later.')
+         self.lblDescr.setText(tr("""
+            You have chosen to create the previous transaction but not sign 
+            it or broadcast it, yet.  You can save the unsigned 
+            transaction to file, or copy&paste from the text box.  
+            You can use the following window (after clicking "Continue") to 
+            sign and broadcast the transaction when you are ready"""))
+           
          
    def copyAsciiTxDP(self):
       clipb = QApplication.clipboard()
@@ -1527,12 +1532,22 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
 
 
       if self.wlt.useEncryption and self.wlt.isLocked:
-         dlg = DlgUnlockWallet(self.wlt, self.parent(), self.main, 'Sign Transaction')
-         if not dlg.exec_():
-            QMessageBox.warning(self, 'Wallet is Locked', \
-               'Cannot sign transaction while your wallet is locked!', \
+         Passphrase = None  
+
+         unlockdlg = DlgUnlockWallet(self.wlt, self, self.main, 'Send Transaction', returnPassphrase=True)
+         if unlockdlg.exec_():
+            if unlockdlg.Accepted == 1:
+               Passphrase = unlockdlg.securePassphrase.copy()
+               unlockdlg.securePassphrase.destroy()
+                     
+         if Passphrase is None or self.wlt.kdf is None:
+            QMessageBox.critical(self.parent(), 'Wallet is Locked', \
+               'Cannot sign transaction while your wallet is locked. ', \
                QMessageBox.Ok)
             return
+         else:
+            self.wlt.kdfKey = self.wlt.kdf.DeriveKey(Passphrase)
+            Passphrase.destroy()                                              
 
       newTxdp = self.wlt.signTxDistProposal(self.txdpObj)
       self.wlt.advanceHighestIndex()

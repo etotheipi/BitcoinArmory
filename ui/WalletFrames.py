@@ -246,7 +246,11 @@ class SelectWalletFrame(ArmoryFrame):
       if self.coinControlCallback:
          self.coinControlCallback(self.sourceAddrList, self.altBalance)
 
-
+# Container for controls used in configuring a wallet to be added to any
+# dialog or wizard. Currently it is only used the create wallet wizard.
+# Just has Name and Description
+# Advanced options have just been moved to their own frame to be used in 
+# the restore wallet dialog as well.
 class NewWalletFrame(ArmoryFrame):
 
    def __init__(self, parent, main, initLabel=''):
@@ -265,8 +269,40 @@ class NewWalletFrame(ArmoryFrame):
       lblDescription = QLabel("Wallet &description:")
       lblDescription.setAlignment(Qt.AlignVCenter)
       lblDescription.setBuddy(self.editDescription)
+   
+      # breaking this up into tabs
+      frameLayout = QVBoxLayout()
+      newWalletTabs = QTabWidget()
+      
+      #### Basic Tab
+      nameFrame = makeHorizFrame([lblName, STRETCH, self.editName])
+      descriptionFrame = makeHorizFrame([lblDescription,
+                                         STRETCH, self.editDescription])
+      basicQTab = makeVertFrame([nameFrame, descriptionFrame, STRETCH])
+      newWalletTabs.addTab(basicQTab, "Configure")
+      
+      # Fork watching-only wallet
+      self.advancedOptionsTab = AdvancedOptionsFrame(parent, main)
+      newWalletTabs.addTab(self.advancedOptionsTab, "Advanced Options")
 
-      # Advanced Encryption Options
+      frameLayout.addWidget(newWalletTabs)
+      self.setLayout(frameLayout)
+      
+   def getKdfSec(self):
+      return self.advancedOptionsTab.getKdfSec()
+
+   def getKdfBytes(self):
+      return self.advancedOptionsTab.getKdfBytes()
+   
+   def getName(self):
+      return str(self.editName.text())
+
+   def getDescription(self):
+      return str(self.editDescription.toPlainText())
+
+class AdvancedOptionsFrame(ArmoryFrame):
+   def __init__(self, parent, main, initLabel=''):
+      super(AdvancedOptionsFrame, self).__init__(parent, main)
       lblComputeDescription = QRichLabel( \
                   'Armory will test your system\'s speed to determine the most '
                   'challenging encryption settings that can be performed '
@@ -305,33 +341,21 @@ class NewWalletFrame(ArmoryFrame):
       self.editComputeTime.setMaximumWidth( tightSizeNChar(self, 20)[0] )
       self.editComputeMem.setMaximumWidth( tightSizeNChar(self, 20)[0] )
       
-      # breaking this up into tabs
-      frameLayout = QVBoxLayout()
-      newWalletTabs = QTabWidget()
-      
-      #### Basic Tab
-      nameFrame = makeHorizFrame([lblName, STRETCH, self.editName])
-      descriptionFrame = makeHorizFrame([lblDescription,
-                                         STRETCH, self.editDescription])
-      basicQTab = makeVertFrame([nameFrame, descriptionFrame, STRETCH])
-      newWalletTabs.addTab(basicQTab, "Configure")
-      
-      # Fork watching-only wallet
-      advQTab = QFrame()
-      advTabLayout = QGridLayout()
-      advTabLayout.addWidget(lblComputeDescription,     0, 0,  1, 3)
-      advTabLayout.addWidget(timeDescriptionTip,        1, 0,  1, 1)
-      advTabLayout.addWidget(lblComputeTime,      1, 1,  1, 1)
-      advTabLayout.addWidget(self.editComputeTime, 1, 2,  1, 1)
-      advTabLayout.addWidget(memDescriptionTip,         2, 0,  1, 1)
-      advTabLayout.addWidget(lblComputeMem,       2, 1,  1, 1)
-      advTabLayout.addWidget(self.editComputeMem,  2, 2,  1, 1)
-      advQTab.setLayout(advTabLayout)
-      newWalletTabs.addTab(advQTab, "Advanced Options")
-
-      frameLayout.addWidget(newWalletTabs)
-      self.setLayout(frameLayout)
-      
+      entryFrame = QFrame()
+      entryLayout = QGridLayout()
+      entryLayout.addWidget(timeDescriptionTip,        0, 0,  1, 1)
+      entryLayout.addWidget(lblComputeTime,      0, 1,  1, 1)
+      entryLayout.addWidget(self.editComputeTime, 0, 2,  1, 1)
+      entryLayout.addWidget(memDescriptionTip,         1, 0,  1, 1)
+      entryLayout.addWidget(lblComputeMem,       1, 1,  1, 1)
+      entryLayout.addWidget(self.editComputeMem,  1, 2,  1, 1)
+      entryFrame.setLayout(entryLayout)
+      layout = QVBoxLayout()
+      layout.addWidget(lblComputeDescription)
+      layout.addWidget(entryFrame)
+      layout.addStretch()
+      self.setLayout(layout)
+   
    def getKdfSec(self):
       # return -1 if the input is invalid
       kdfSec = -1
@@ -357,13 +381,7 @@ class NewWalletFrame(ArmoryFrame):
       except:
          pass
       return kdfBytes
-   
-   def getName(self):
-      return str(self.editName.text())
-
-   def getDescription(self):
-      return str(self.editDescription.toPlainText())
-
+      
 class SetPassphraseFrame(ArmoryFrame):
    def __init__(self, parent, main, initLabel='', passphraseCallback=None):
       super(SetPassphraseFrame, self).__init__(parent, main)

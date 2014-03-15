@@ -198,11 +198,11 @@ class WalletCreationPage(ArmoryWizardPage):
       result = True
       if self.pageFrame.getKdfSec() == -1:
          QMessageBox.critical(self, 'Invalid Target Compute Time', \
-            'You entered your Target Compute Time incorrectly.\n\nEnter: <Number> (ms, s)', QMessageBox.Ok)
+            'You entered Target Compute Time incorrectly.\n\nEnter: <Number> (ms, s)', QMessageBox.Ok)
          result = False
       elif self.pageFrame.getKdfBytes() == -1:
          QMessageBox.critical(self, 'Invalid Max Memory Usage', \
-            'You entered your Max Memory Usag incorrectly.\n\nnter: <Number> (kb, mb)', QMessageBox.Ok)
+            'You entered Max Memory Usag incorrectly.\n\nnter: <Number> (kb, mb)', QMessageBox.Ok)
          result = False
       return result
 
