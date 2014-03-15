@@ -3866,7 +3866,7 @@ class ArmoryMainWindow(QMainWindow):
       BTN,LBL,TTIP = range(3)
       self.dashBtns = [[None]*3 for i in range(5)]
       self.dashBtns[DASHBTNS.Close   ][BTN] = QPushButton('Close Bitcoin Process')
-      self.dashBtns[DASHBTNS.Install ][BTN] = QPushButton('Auto-Install Bitcoin')
+      self.dashBtns[DASHBTNS.Install ][BTN] = QPushButton('Download Bitcoin')
       self.dashBtns[DASHBTNS.Browse  ][BTN] = QPushButton('Open www.bitcoin.org')
       self.dashBtns[DASHBTNS.Instruct][BTN] = QPushButton('Installation Instructions')
       self.dashBtns[DASHBTNS.Settings][BTN] = QPushButton('Change Settings')
@@ -3894,7 +3894,7 @@ class ArmoryMainWindow(QMainWindow):
       self.connect(self.dashBtns[DASHBTNS.Close][BTN], SIGNAL('clicked()'), \
                                                    self.closeExistingBitcoin)
       self.connect(self.dashBtns[DASHBTNS.Install][BTN], SIGNAL('clicked()'), \
-                                                     self.installSatoshiClient)
+                                                     self.openDLSatoshi)
       self.connect(self.dashBtns[DASHBTNS.Browse][BTN], SIGNAL('clicked()'), \
                                                              openBitcoinOrg)
       self.connect(self.dashBtns[DASHBTNS.Settings][BTN], SIGNAL('clicked()'), \
@@ -3954,10 +3954,10 @@ class ArmoryMainWindow(QMainWindow):
          dist = platform.linux_distribution()
          if dist[0] in ['Ubuntu','LinuxMint'] or 'debian' in dist:
             self.dashBtns[DASHBTNS.Install][BTN].setEnabled(True)
-            self.dashBtns[DASHBTNS.Install][LBL] = QRichLabel( \
-               'Automatic installation for Ubuntu/Debian')
-            self.dashBtns[DASHBTNS.Install][TTIP] = self.createToolTipWidget( \
-               'Will download and install Bitcoin from trusted sources.')
+            self.dashBtns[DASHBTNS.Install][LBL] = QRichLabel( tr("""
+               'Download Core Bitcoin for Ubuntu/Debian"""))
+            self.dashBtns[DASHBTNS.Install][TTIP] = self.createToolTipWidget( tr("""
+               'Will download and Bitcoin software and cryptographically verify it"""))
       elif OS_MACOSX:
          pass
       else:
@@ -4864,22 +4864,20 @@ class ArmoryMainWindow(QMainWindow):
             soutDisp = '<b><font face="courier">StdOut: %s</font></b>' % soutHtml
             serrDisp = '<b><font face="courier">StdErr: %s</font></b>' % serrHtml
             if len(sout)>0 or len(serr)>0:
-               return ( \
-               'There was an error starting the underlying Bitcoin engine.  '
-               'This should not normally happen.  Usually it occurs when you '
-               'have been using Bitcoin-Qt prior to using Armory, especially '
-               'if you have upgraded or downgraded Bitcoin-Qt recently (manually, '
-               'or through the Armory automatic installation).  Output from '
-               'bitcoind:<br>' +
-               (soutDisp if len(sout)>0 else '') +
+               return  (tr("""
+               There was an error starting the underlying Bitcoin engine.  
+               This should not normally happen.  Usually it occurs when you 
+               have been using Bitcoin-Qt prior to using Armory, especially 
+               if you have upgraded or downgraded Bitcoin-Qt recently. 
+               Output from bitcoind:<br>""") + \
+               (soutDisp if len(sout)>0 else '') + \
                (serrDisp if len(serr)>0 else '') )
             else:
                return ( tr("""
                   There was an error starting the underlying Bitcoin engine.
                   This should not normally happen.  Usually it occurs when you
                   have been using Bitcoin-Qt prior to using Armory, especially
-                  if you have upgraded or downgraded Bitcoin-Qt recently (manually,
-                  or through the Armory automatic installation).
+                  if you have upgraded or downgraded Bitcoin-Qt recently.
                   <br><br>
                   Unfortunately, this error is so strange, Armory does not
                   recognize it.  Please go to "Export Log File" from the "File"

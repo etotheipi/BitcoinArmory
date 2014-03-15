@@ -4,7 +4,7 @@ from qtdefines import *
 from armoryengine.parseAnnounce import *
 
 class UpgradeDownloader:
-   def __init__(self):
+   def __init__(self, parent, main):
       self.finishedCB = lambda : None
       self.startedCB = lambda : None
       self.url = None
@@ -12,6 +12,8 @@ class UpgradeDownloader:
       self.downloadFile = None
       self.progressBar = None
       self.frame = None
+      self.parent = parent
+      self.main = main
 
       self.networkAccess = QNetworkAccessManager()
 
@@ -47,7 +49,8 @@ class UpgradeDownloader:
       bottomRowLayout.addWidget(self.progressBar, +1)
 
       self.downloadButton = QPushButton(tr("Download"), self.frame)
-      self.frame.connect(self.downloadButton, SIGNAL('clicked()'), self.startOrStopDownload)
+      self.frame.connect(self.downloadButton, SIGNAL('clicked()'), \
+                                                      self.startOrStopDownload)
       bottomRowLayout.addWidget(self.downloadButton)
 
       return self.frame
@@ -89,18 +92,23 @@ class UpgradeDownloader:
             res = binary_to_hex(sha256(self.receivedData))
             LOGINFO("Downloaded package has hash " + res)
             if res != self.filesha:
-               QMessageBox.warning(self.frame, tr("Verification failed"), \
-                  tr("""The download completed but its cryptographic signature failed to verify.
-                  This may or may not be malicious interference and you should report
-                  the problem to support@bitcoinarmory.com after trying once more.
+               QMessageBox.warning(self.frame, tr("Verification failed"), tr("""
+                  The download completed but its cryptographic signature is invalid.
+                  Please try the download again.  If you get another error, please
+                  report the problem to support@bitcoinarmory.com.
                   <br><br>
-                  The downloaded data has been discarded.
-                  """))
+                  The downloaded data has been discarded.  """))
             else:
-               suffix = ""
+               defaultFN = os.path.basename(self.url)
                if self.downloadLinkFile:
-                  suffix = ".signed"
-               dest = QFileDialog.getSaveFileName(self.frame, tr("Save file"), QDir.homePath() + "/" + os.path.basename(self.url) + suffix)
+                  defaultFN += ".signed"
+               dest = self.main.getFileSave(tr("Save File"), ffilter = [ \
+                                 tr('Windows Installers (*.exe)'), \
+                                 tr('MacOSX Apps (*.app)'), \
+                                 tr('Ubuntu/Debian Installers (*.deb)'), \
+                                 tr('Compressed Tar File (*.tar.gz)') ], \
+                                 defaultFilename=defaultFN)
+                  
                if len(dest)!=0:
                   df = open(dest, "wb")
                   if self.downloadLinkFile:
@@ -109,6 +117,20 @@ class UpgradeDownloader:
                      df.write("END_OF_SIGNATURE_SECTION")
                   df.write(self.receivedData)
                   df.close()
+
+               QMessageBox.warning(self.frame, tr("Download complete"), tr("""
+                  The file downloaded successfully, and carries a valid signature
+                  from <font color="%s"><b>Armory Technologies, Inc.</b></font>
+                  You can now use it to install the software.  The file was 
+                  saved to:
+                  <br><br>
+                  %s
+                  <br><br>
+                  <b>There is no special procedure to update a previous 
+                  installation.</b>  The installer will update existing
+                  versions without touching your wallets or settings.""") % \
+                  (htmlColor("TextGreen"), dest), QMessageBox.Ok)
+                  
 
       self.receivedData = None
       self.downloadFile = None
@@ -155,7 +177,8 @@ class UpgradeDownloaderDialog(ArmoryDialog):
    def __init__(self, parent, main, showPackage, downloadText, changeLog):
       super(UpgradeDownloaderDialog, self).__init__(parent, main)
 
-      self.downloader = UpgradeDownloader()
+      self.downloader = UpgradeDownloader(parent, main)
+      self.bitsColor = htmlColor('Foreground')
 
       def enableOrDisable(e):
          self.os.setEnabled(e)
@@ -225,6 +248,10 @@ class UpgradeDownloaderDialog(ArmoryDialog):
                                        doWrap=False, hAlign=Qt.AlignHCenter)
       self.lblSelectedSimpleMore = QRichLabel(tr(''), doWrap=False)
       self.lblSelectedComplex = QRichLabel(tr('No download selected'))
+      self.lblCurrentVersion = QRichLabel('', hAlign=Qt.AlignHCenter)
+
+      # At the moment, not sure we actually need this label
+      self.lblSelectedComplex.setVisible(False)
 
 
       self.btnShowComplex = QLabelButton(tr('Show all downloads for all OS'))
@@ -235,6 +262,7 @@ class UpgradeDownloaderDialog(ArmoryDialog):
       layoutSimple = QVBoxLayout()
       layoutSimple.addWidget(self.lblSelectedSimple)
       layoutSimple.addWidget(frmDisp)
+      layoutSimple.addWidget(self.lblCurrentVersion)
       layoutSimple.addWidget(frmBtnShowComplex)
       frmTopSimple = QFrame()
       frmTopSimple.setLayout(layoutSimple)
@@ -273,24 +301,54 @@ class UpgradeDownloaderDialog(ArmoryDialog):
       closeButtonRowLayout.addStretch(1)
       closeButtonRowLayout.addWidget(self.closeButton)
 
+      self.cascadeOs()
+      self.selectMyOs()
+      self.useSelectedPackage()
+      self.cascadeOs()
+      # I have no clue why we have to call these things so many times!
+      self.selectMyOs()
+      self.cascadeOs()
+
+      
+      # Above we had to select *something*, we should check that the 
+      # architecture actually matches our system.  If not, warn
+      trueBits = '64' if SystemSpecs.IsX64 else '32'
+      selectBits = str(self.osarch.currentText())[:2]
+      if showPackage and not trueBits==selectBits:
+         QMessageBox.warning(self, tr("Wrong Architecture"), tr("""
+            You appear to be on a %s-bit architecture, but the only 
+            available download is for %s-bit systems.  It is unlikely
+            that this download will work on this operating system.
+            <br><br>
+            Please make sure that the correct operating system is
+            selected before attempting to download and install any
+            packages.""") % (trueBits, selectBits), QMessageBox.Ok)
+         
+         self.bitsColor = htmlColor('TextRed')
+            
 
       if showPackage:
          for n in range(0, packages.topLevelItemCount()):
             row = packages.topLevelItem(n)
-            if row.data(0, 32)==showPackage:
+            if str(row.data(0, 32).toString())==showPackage:
                packages.setCurrentItem(row)
                break
+            self.useSelectedPackage()
+         else:
+            foundPackage = False
+            self.stackedDisplay.setCurrentIndex(1)
+            QMessageBox.warning(self, tr("Not Found"), tr("""
+               Armory could not determine an appropriate download for
+               your operating system.  You will have to manually select
+               the correct download on the next window."""), QMessageBox.Ok)
+      else:
+         self.stackedDisplay.setCurrentIndex(1)
 
-      self.cascadeOs()
-      self.selectMyOs()
-      self.useSelectedPackage()
-      self.cascadeOs()
-      self.selectMyOs()
-      self.cascadeOs()
-      self.useSelectedPackage()
+
+
 
       self.setMinimumWidth(600)
-      self.setWindowTitle(tr('Secure Download Bitcoin Software'))
+      self.setWindowTitle(tr('Secure Downloader'))
 
 
    def showSimple(self):
@@ -350,18 +408,21 @@ class UpgradeDownloaderDialog(ArmoryDialog):
       elif OS_MACOSX:
          osverIndex = self.findCmbData(self.osver, platform.mac_ver()[0], True)
       self.osver.setCurrentIndex(osverIndex)
-
       self.cascadeOsArch()
-      if platform.machine() == "x86_64":
-         self.osarch.setCurrentIndex(self.osarch.findData("64"))
-      else:
-         self.osarch.setCurrentIndex(self.osarch.findData("32"))
 
+      archIndex = 0
+      if platform.machine() == "x86_64":
+         archIndex = self.findCmbData(self.osarch, '64-bit')
+      else:
+         archIndex = self.findCmbData(self.osarch, '32-bit')
+
+      self.osarch.setCurrentIndex(archIndex)
 
 
    def useSelectedPackage(self):
       if self.packages.currentItem() is None:
-         self.changelogView.setHtml("<html>" + tr("The changelog for the selected package will be visible here") +"</html>")
+         self.changelogView.setHtml("<html>" + tr("""
+            There is no changelog information to be shown here.""") +"</html>")
          self.downloader.setFile(None, None)
       else:
          packagename = str(self.packages.currentItem().data(0, 32).toString())
@@ -444,6 +505,8 @@ class UpgradeDownloaderDialog(ArmoryDialog):
                for osver in packver[chosenos].iterkeys():
                   allVers.add(osver)
 
+      # We use a list here because we need to sort the subvers
+      allVers = sorted([x for x in allVers])
       self.cascade(self.osver, allVers, self.cascadeOsArch)
 
    def cascadeOsArch(self):
@@ -508,11 +571,24 @@ class UpgradeDownloaderDialog(ArmoryDialog):
          self.lblSelectedSimple.setText(tr(""" <font size=4><b>Securely 
             download latest version of <u>%s</u></b></font>""") % pkgName)
    
+         self.lblCurrentVersion.setText('')
+         currVerStr = ''
+         if pkgName=='Bitcoin Core':
+            if self.main.satoshiVersions[0]:
+               self.lblCurrentVersion.setText(tr("""
+                  You are currently using Bitcoin Core version %s""") % \
+                  self.main.satoshiVersions[0])
+         elif pkgName=='Armory':
+            if self.main.armoryVersions[0]:
+               self.lblCurrentVersion.setText(tr("""
+                  You are currently using Armory version %s""") % \
+                  self.main.armoryVersions[0])
+
          self.lblSelectedSimpleMore.setText(tr("""
             <b>Software Download:</b>  %s version %s<br>
             <b>Operating System:</b>  %s %s <br>
-            <b>System Architecture:</b> %s """) % \
-            (pkgName, pkgVer, osName, osVer, osArch))
+            <b>System Architecture:</b> <font color="%s">%s</font> """) % \
+            (pkgName, pkgVer, osName, osVer, self.bitsColor, osArch))
 
 
 
