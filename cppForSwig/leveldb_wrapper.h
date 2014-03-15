@@ -404,6 +404,7 @@ public:
    //bool addHeader(BinaryData const & headerHash, BinaryData const & headerRaw);
 
 
+private:
    /////////////////////////////////////////////////////////////////////////////
    // All put/del ops will be batched/queued, and only executed when called
    // commitBatch().  We track the number calls to startBatch and commitBatch
@@ -414,7 +415,35 @@ public:
    void startBatch(DB_SELECT db);
    void commitBatch(DB_SELECT db);
    bool isBatchOn(DB_SELECT db)   { return batchStarts_[db] > 0; }
+public:
 
+   class Batch
+   {
+      InterfaceToLDB *const iface_;
+      const DB_SELECT db_;
+
+   public:
+      Batch(InterfaceToLDB *iface, DB_SELECT db)
+         : iface_(iface), db_(db)
+      {
+         iface_->startBatch(db_);
+      }
+      
+      void restart()
+      {
+         iface_->commitBatch(db_);
+         iface_->startBatch(db_);
+      }
+      
+      ~Batch()
+      {
+         iface_->commitBatch(db_);
+      }
+   private:
+      Batch(const Batch&); // disallow copies
+      Batch&operator=(const Batch&); // disallow assignment
+   };
+   
 
    /////////////////////////////////////////////////////////////////////////////
    uint8_t getValidDupIDForHeight_fromDB(uint32_t blockHgt);
@@ -718,3 +747,4 @@ private:
 
 
 #endif
+// kate: indent-width 3; replace-tabs on;

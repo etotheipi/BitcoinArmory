@@ -545,22 +545,20 @@ void BlockWriteBatcher::applyBlockToDB(StoredHeader &sbh)
    updateBlkDataHeader(iface_, sbh);
    //iface_->putStoredHeader(sbh, false);
 
-   // we want to commit the undo data at the same time as actual changes
-   iface_->startBatch(BLKDATA);
+   { // we want to commit the undo data at the same time as actual changes
+      InterfaceToLDB::Batch batch(iface_, BLKDATA);
    
-   // Now actually write all the changes to the DB all at once
-   // if we've gotten to that threshold
-   if (dbUpdateSize_ > UPDATE_BYTES_THRESH)
-      commit();
+      // Now actually write all the changes to the DB all at once
+      // if we've gotten to that threshold
+      if (dbUpdateSize_ > UPDATE_BYTES_THRESH)
+         commit();
 
-   // Only if pruning, we need to store 
-   // TODO: this is going to get run every block, probably should batch it 
-   //       like we do with the other data...when we actually implement pruning
-   if(DBUtils.getDbPruneType() == DB_PRUNE_ALL)
-      iface_->putStoredUndoData(sud);
-   
-      
-   iface_->commitBatch(BLKDATA);
+      // Only if pruning, we need to store 
+      // TODO: this is going to get run every block, probably should batch it 
+      //       like we do with the other data...when we actually implement pruning
+      if(DBUtils.getDbPruneType() == DB_PRUNE_ALL)
+         iface_->putStoredUndoData(sud);
+   }
 }
 
 
@@ -936,45 +934,45 @@ void BlockWriteBatcher::commit()
    // objects
    const set<BinaryData> keysToDelete = searchForSSHKeysToDelete();
    
-   iface_->startBatch(BLKDATA);
-
-   for(map<BinaryData, StoredTx>::iterator iter_stx = stxToModify_.begin();
-       iter_stx != stxToModify_.end();
-       iter_stx++)
    {
-      iface_->putStoredTx(iter_stx->second, true);
-   }
-       
-   for(map<BinaryData, StoredScriptHistory>::iterator iter_ssh = sshToModify_.begin();
-       iter_ssh != sshToModify_.end();
-       iter_ssh++)
-   {
-      iter_ssh->second.alreadyScannedUpToBlk_ = 123456789;
-      iface_->putStoredScriptHistory(iter_ssh->second);
-   }
+      InterfaceToLDB::Batch batch(iface_, BLKDATA);
 
-   for(set<BinaryData>::const_iterator iter_del  = keysToDelete.begin();
-       iter_del != keysToDelete.end();
-       iter_del++)
-   {
-      iface_->deleteValue(BLKDATA, *iter_del);
-   }
-
-
-   if(mostRecentBlockApplied_ != 0)
-   {
-      StoredDBInfo sdbi;
-      iface_->getStoredDBInfo(BLKDATA, sdbi);
-      if(!sdbi.isInitialized())
-         LOGERR << "How do we have invalid SDBI in applyMods?";
-      else
+      for(map<BinaryData, StoredTx>::iterator iter_stx = stxToModify_.begin();
+         iter_stx != stxToModify_.end();
+         iter_stx++)
       {
-         sdbi.appliedToHgt_  = mostRecentBlockApplied_;
-         iface_->putStoredDBInfo(BLKDATA, sdbi);
+         iface_->putStoredTx(iter_stx->second, true);
+      }
+         
+      for(map<BinaryData, StoredScriptHistory>::iterator iter_ssh = sshToModify_.begin();
+         iter_ssh != sshToModify_.end();
+         iter_ssh++)
+      {
+         iter_ssh->second.alreadyScannedUpToBlk_ = 123456789;
+         iface_->putStoredScriptHistory(iter_ssh->second);
+      }
+
+      for(set<BinaryData>::const_iterator iter_del  = keysToDelete.begin();
+         iter_del != keysToDelete.end();
+         iter_del++)
+      {
+         iface_->deleteValue(BLKDATA, *iter_del);
+      }
+
+
+      if(mostRecentBlockApplied_ != 0)
+      {
+         StoredDBInfo sdbi;
+         iface_->getStoredDBInfo(BLKDATA, sdbi);
+         if(!sdbi.isInitialized())
+            LOGERR << "How do we have invalid SDBI in applyMods?";
+         else
+         {
+            sdbi.appliedToHgt_  = mostRecentBlockApplied_;
+            iface_->putStoredDBInfo(BLKDATA, sdbi);
+         }
       }
    }
-
-   iface_->commitBatch(BLKDATA);
    
    stxToModify_.clear();
    sshToModify_.clear();
@@ -3142,17 +3140,18 @@ bool BlockDataManager_LevelDB::processNewHeadersInBlkFiles(uint32_t fnumStart,
       LOGERR << e.what();
    }
 
-   iface_->startBatch(HEADERS);
-      
-   for(unsigned i=0; i < blockchain_.numHeaders(); i++)
    {
-      BlockHeader &block = blockchain_.getHeaderByHeight(i);
-      StoredHeader sbh;
-      sbh.createFromBlockHeader(block);
-      uint8_t dup = iface_->putBareHeader(sbh);
-      block.setDuplicateID(dup);  // make sure headerMap_ and DB agree
+      InterfaceToLDB::Batch batch(iface_, HEADERS);
+         
+      for(unsigned i=0; i < blockchain_.numHeaders(); i++)
+      {
+         BlockHeader &block = blockchain_.getHeaderByHeight(i);
+         StoredHeader sbh;
+         sbh.createFromBlockHeader(block);
+         uint8_t dup = iface_->putBareHeader(sbh);
+         block.setDuplicateID(dup);  // make sure headerMap_ and DB agree
+      }
    }
-   iface_->commitBatch(HEADERS);
 
    return prevTopBlkStillValid;
 
@@ -3582,7 +3581,7 @@ void BlockDataManager_LevelDB::readRawBlocksInFile(uint32_t fnum, uint32_t foffs
    bool breakbreak = false;
    uint32_t locInBlkFile = foffset;
 
-   iface_->startBatch(BLKDATA);
+   InterfaceToLDB::Batch batch(iface_, BLKDATA);
 
    unsigned failedAttempts=0;
    
@@ -3653,11 +3652,10 @@ void BlockDataManager_LevelDB::readRawBlocksInFile(uint32_t fnum, uint32_t foffs
          }
          dbUpdateSize += nextBlkSize;
 
-         if(dbUpdateSize>BlockWriteBatcher::UPDATE_BYTES_THRESH && iface_->isBatchOn(BLKDATA))
+         if(dbUpdateSize>BlockWriteBatcher::UPDATE_BYTES_THRESH)
          {
             dbUpdateSize = 0;
-            iface_->commitBatch(BLKDATA);
-            iface_->startBatch(BLKDATA);
+            batch.restart();
          }
 
          blocksReadSoFar_++;
@@ -3685,10 +3683,6 @@ void BlockDataManager_LevelDB::readRawBlocksInFile(uint32_t fnum, uint32_t foffs
       if(isEOF || breakbreak)
          break;
    }
-   
-
-   if(iface_->isBatchOn(BLKDATA))
-      iface_->commitBatch(BLKDATA);
 }
 
 
@@ -3792,7 +3786,7 @@ void BlockDataManager_LevelDB::deleteHistories(void)
       return;
 
    //////////
-   iface_->startBatch(BLKDATA);
+   InterfaceToLDB::Batch batch(iface_, BLKDATA);
 
    do 
    {
@@ -3807,9 +3801,6 @@ void BlockDataManager_LevelDB::deleteHistories(void)
       iface_->deleteValue(BLKDATA, key);
       
    } while(ldbIter.advanceAndRead(DB_PREFIX_SCRIPT));
-
-   //////////
-   iface_->commitBatch(BLKDATA);
 }
 
 
@@ -3825,7 +3816,7 @@ void BlockDataManager_LevelDB::saveScrAddrHistories(void)
       return;
    }
 
-   iface_->startBatch(BLKDATA);
+   InterfaceToLDB::Batch batch(iface_, BLKDATA);
 
    uint32_t i=0;
    set<BtcWallet*>::iterator wltIter;
@@ -3859,8 +3850,6 @@ void BlockDataManager_LevelDB::saveScrAddrHistories(void)
          
       }
    }
-
-   iface_->commitBatch(BLKDATA);
 }
 
 
