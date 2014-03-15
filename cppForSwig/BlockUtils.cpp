@@ -2153,7 +2153,6 @@ void BlockWriteBatcher::commit()
        iter_ssh != sshToModify_.end();
        iter_ssh++)
    {
-      iter_ssh->second.alreadyScannedUpToBlk_ = 123456789;
       iface_->putStoredScriptHistory(iter_ssh->second);
    }
 
