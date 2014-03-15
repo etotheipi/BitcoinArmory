@@ -240,6 +240,17 @@ class SatoshiDaemonManager(object):
       if not MAGIC_BYTES=='\xf9\xbe\xb4\xd9':
          return False
 
+      
+         
+
+      if TheTDM.torrentSize:
+         bootfile = os.path.join(BTC_HOME_DIR, 'bootstrap.dat')
+         if os.path.exists(bootfile):
+            if os.path.getsize(bootfile) >= TheTDM.torrentSize/2:
+               LOGWARN('Looks like a full bootstrap is already here')
+               LOGWARN('Skipping torrent download')
+               return False
+               
 
       # If they don't even have a BTC_HOME_DIR, corebtc never been installed
       blockDir = os.path.join(BTC_HOME_DIR, 'blocks')

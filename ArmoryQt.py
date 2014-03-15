@@ -3805,15 +3805,20 @@ class ArmoryMainWindow(QMainWindow):
       self.lblDashModeSync.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
       self.lblDashModeScan.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
 
+      self.barProgressTorrent = QProgressBar(self)
       self.barProgressSync    = QProgressBar(self)
       self.barProgressScan    = QProgressBar(self)
 
+      self.barProgressTorrent.setRange(0,100)
       self.barProgressSync.setRange(0,100)
       self.barProgressScan.setRange(0,100)
 
-      self.lblTorrentStats    = QRichLabel('', hAlign=Qt.AlignHCenter)
+
+      self.lblDashModeTorrent    = QRichLabel('', hAlign=Qt.AlignHCenter)
+      self.lblTorrentStats       = QRichLabel('', hAlign=Qt.AlignHCenter)
 
       twid = relaxedSizeStr(self,'99 seconds')[0]
+      self.lblTimeLeftTorrent = QRichLabel('')
       self.lblTimeLeftSync    = QRichLabel('')
       self.lblTimeLeftScan    = QRichLabel('')
 
@@ -3823,15 +3828,22 @@ class ArmoryMainWindow(QMainWindow):
       self.lblStatsTorrent = QRichLabel('')
 
       layoutDashMode = QGridLayout()
-      layoutDashMode.addWidget(self.lblDashModeSync,     0,0)
-      layoutDashMode.addWidget(self.barProgressSync,     0,1)
-      layoutDashMode.addWidget(self.lblTimeLeftSync,     0,2)
+      layoutDashMode.addWidget(self.lblDashModeTorrent,  0,0)
+      layoutDashMode.addWidget(self.barProgressTorrent,  0,1)
+      layoutDashMode.addWidget(self.lblTimeLeftTorrent,  0,2)
       layoutDashMode.addWidget(self.lblTorrentStats,     1,0)
-      layoutDashMode.addWidget(self.lblDashModeScan,     2,0)
-      layoutDashMode.addWidget(self.barProgressScan,     2,1)
-      layoutDashMode.addWidget(self.lblTimeLeftScan,     2,2)
-      layoutDashMode.addWidget(self.lblBusy,             0,3, 3,1)
-      layoutDashMode.addWidget(self.btnModeSwitch,       0,3, 3,1)
+
+      layoutDashMode.addWidget(self.lblDashModeSync,     2,0)
+      layoutDashMode.addWidget(self.barProgressSync,     2,1)
+      layoutDashMode.addWidget(self.lblTimeLeftSync,     2,2)
+
+      layoutDashMode.addWidget(self.lblDashModeScan,     3,0)
+      layoutDashMode.addWidget(self.barProgressScan,     3,1)
+      layoutDashMode.addWidget(self.lblTimeLeftScan,     3,2)
+
+      layoutDashMode.addWidget(self.lblBusy,             0,3, 4,1)
+      layoutDashMode.addWidget(self.btnModeSwitch,       0,3, 4,1)
+
       self.frmDashModeSub = QFrame()
       self.frmDashModeSub.setFrameStyle(STYLE_SUNKEN)
       self.frmDashModeSub.setLayout(layoutDashMode)
@@ -4349,39 +4361,42 @@ class ArmoryMainWindow(QMainWindow):
          numSeeds = TheTDM.getLastStats('numSeeds')
          numPeers = TheTDM.getLastStats('numPeers')
 
+         self.barProgressTorrent.setVisible(True)
+         self.lblDashModeTorrent.setVisible(True)
+         self.lblTimeLeftTorrent.setVisible(True)
+         self.lblTorrentStats.setVisible(True)
+
+         self.barProgressSync.setVisible(True)
+         self.lblTimeLeftSync.setVisible(True)
+         self.barProgressScan.setVisible(True)
+         self.lblTimeLeftScan.setVisible(True)
+
          if not numSeeds:
-            self.barProgressSync.setValue(0)
-            self.lblTimeLeftSync.setText('')
+            self.barProgressTorrent.setValue(0)
+            self.lblTimeLeftTorrent.setText('')
             self.lblTorrentStats.setText('')
 
-            self.lblDashModeSync.setText(tr('Initializing Torrent Engine'), \
+            self.lblDashModeTorrent.setText(tr('Initializing Torrent Engine'), \
                                           size=4, bold=True, color='Foreground')
 
             self.lblTorrentStats.setVisible(False)
          else:
-            self.lblDashModeSync.setText(tr('Downloading via Armory CDN'), \
+            self.lblDashModeTorrent.setText(tr('Downloading via Armory CDN'), \
                                           size=4, bold=True, color='Foreground')
 
             if fracDone:
-               self.barProgressSync.setValue(int(80*fracDone))
-
-            # The actual time to finish synchronizing includes bitcoind using
-            # the bootstrap file, plus topping-off the blockchain.  This
-            # doesn't have to be exact... it's not a huge deal if it jumps 
-            # from 1.5 hours to 2.5 hours when it hits 80%
-            timeAdj  = 1.5*HOUR
+               self.barProgressTorrent.setValue(int(99.9*fracDone))
 
             if timeEst:
-               self.lblTimeLeftSync.setText(secondsToHumanTime(timeEst+timeAdj))
+               self.lblTimeLeftTorrent.setText(secondsToHumanTime(timeEst))
 
             self.lblTorrentStats.setText(tr("""
-               bootstrap.torrent: %s/sec from %d peers""") % \
+               Bootstrap Torrent:  %s/sec from %d peers""") % \
                (bytesToHumanSize(dlSpeed), numSeeds+numPeers))
+
             self.lblTorrentStats.setVisible(True)
 
-         self.barProgressSync.setVisible(True)
-         self.lblTimeLeftSync.setVisible(True)
-         self.lblTorrentStats.setVisible(True)
+
 
       elif TheBDM.getBDMState()=='Scanning':
          # Scan time is super-simple to predict: it's pretty much linear
@@ -4424,7 +4439,6 @@ class ArmoryMainWindow(QMainWindow):
          refTime  = max(1366171579,  lastBlkTime)
 
          #
-         self.lblTorrentStats.setText('')
 
          # Ten min/block is pretty accurate, even at genesis blk (about 1% slow)
          self.approxMaxBlock = refBlock + int((RightNow() - refTime) / (10*MINUTE))
@@ -4456,7 +4470,6 @@ class ArmoryMainWindow(QMainWindow):
          intPct = int(100*self.approxPctSoFar)
          strPct = '%d%%' % intPct
 
-         sdmPercent = 0
 
          self.barProgressSync.setFormat('%p%')
          if ssdm == 'BitcoindReady':
@@ -4487,7 +4500,6 @@ class ArmoryMainWindow(QMainWindow):
             LOGERROR('Should not predict sync info in non init/sync SDM state')
             return ('UNKNOWN','UNKNOWN', 'UNKNOWN')
 
-         sdmPercent = 80 + 0.2*sdmPercent if TheTDM.isStarted() else sdmPercent
          self.barProgressSync.setValue(sdmPercent)
       else:
          LOGWARN('Called updateSyncProgress while not sync\'ing')
@@ -4905,6 +4917,12 @@ class ArmoryMainWindow(QMainWindow):
          self.lblDashModeSync.setVisible(b)
          self.barProgressSync.setVisible(b)
          self.lblTimeLeftSync.setVisible(b)
+
+
+      def setTorrentRowVisible(b):
+         self.lblDashModeTorrent.setVisible(b)
+         self.barProgressTorrent.setVisible(b)
+         self.lblTimeLeftTorrent.setVisible(b)
          self.lblTorrentStats.setVisible(b)
 
 
@@ -4914,6 +4932,7 @@ class ArmoryMainWindow(QMainWindow):
          self.lblTimeLeftScan.setVisible(b)
 
       def setOnlyDashModeVisible():
+         setTorrentRowVisible(False)
          setSyncRowVisible(False)
          setScanRowVisible(False)
          self.lblBusy.setVisible(False)
@@ -5105,15 +5124,25 @@ class ArmoryMainWindow(QMainWindow):
                   setScanRowVisible(True)
                   self.lblBusy.setVisible(True)
 
+                  # If torrent ever ran, leave it visiable
+                  if not TheTDM.isStarted():
+                     setTorrentRowVisible(False)
+
                   if TheTDM.isRunning():
-                     self.lblDashModeSync.setText('Downloading via Armory CDN', \
+                     self.lblDashModeTorrent.setText('Downloading via Armory CDN', \
                                           size=4, bold=True, color='Foreground')
-                     self.lblTorrentStats.setVisible(True)
-                  if sdmState=='BitcoindInitializing':
+                     self.lblDashModeSync.setText( 'Synchronizing with Network', \
+                                          size=4, bold=True, color='DisableFG')
+                     self.lblTorrentStats.setVisible(False)
+                  elif sdmState=='BitcoindInitializing':
+                     self.lblDashModeTorrent.setText('Download via Armory CDN', \
+                                          size=4, bold=True, color='DisableFG')
                      self.lblDashModeSync.setText( 'Initializing Bitcoin Engine', \
                                               size=4, bold=True, color='Foreground')
                      self.lblTorrentStats.setVisible(False)
                   else:
+                     self.lblDashModeTorrent.setText('Download via Armory CDN', \
+                                          size=4, bold=True, color='DisableFG')
                      self.lblDashModeSync.setText( 'Synchronizing with Network', \
                                               size=4, bold=True, color='Foreground')
                      self.lblTorrentStats.setVisible(False)
