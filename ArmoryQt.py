@@ -670,9 +670,6 @@ class ArmoryMainWindow(QMainWindow):
       self.menusList[MENUS.Help].addAction(actRebuildDB)
       self.menusList[MENUS.Help].addAction(actFactoryReset)
 
-
-
-
       # Restore any main-window geometry saved in the settings file
       hexgeom   = self.settings.get('MainGeometry')
       hexledgsz = self.settings.get('MainLedgerCols')

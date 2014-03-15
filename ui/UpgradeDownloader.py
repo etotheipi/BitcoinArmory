@@ -6,6 +6,7 @@ from armoryengine.parseAnnounce import *
 class UpgradeDownloader:
    def __init__(self):
       self.finishedCB = lambda : None
+      self.startedCB = lambda : None
       self.url = None
       self.filesha = None
       self.downloadFile = None
@@ -324,10 +325,8 @@ class UpgradeDownloaderDialog(ArmoryDialog):
          osVar = osVar[0]
 
       osIndex = 0
-      osverIndex = 0
       if OS_WINDOWS:
          osIndex = self.findCmbData(self.os, tr("Windows"))
-         osverIndex = self.findCmbData(self.osver, platform.win32_ver(), True)
       elif OS_LINUX:
          if osVar.lower() in ['debian', 'linuxmint']:
             d1 = self.findCmbData(self.os, tr('Debian'))
@@ -337,15 +336,22 @@ class UpgradeDownloaderDialog(ArmoryDialog):
             osIndex = self.findCmbData(self.os, tr('Ubuntu/Debian'))
          else:
             osIndex = self.findCmbData(self.os, tr('Ubuntu/Debian'))
-
-         osverIndex = self.findCmbData(self.osver, OS_VARIANT[1], True)
       elif OS_MACOSX:
          osIndex = self.findCmbData(self.osver, tr('MacOSX'))
-         osverIndex = self.findCmbData(self.osver, platform.mac_ver()[0], True)
 
       self.os.setCurrentIndex(osIndex)
+      self.cascadeOsVer() # signals don't go through for some reason
+
+      osverIndex = 0
+      if OS_WINDOWS:
+         osverIndex = self.findCmbData(self.osver, platform.win32_ver(), True)
+      elif OS_LINUX:
+         osverIndex = self.findCmbData(self.osver, OS_VARIANT[1], True)
+      elif OS_MACOSX:
+         osverIndex = self.findCmbData(self.osver, platform.mac_ver()[0], True)
       self.osver.setCurrentIndex(osverIndex)
 
+      self.cascadeOsArch()
       if platform.machine() == "x86_64":
          self.osarch.setCurrentIndex(self.osarch.findData("64"))
       else:
