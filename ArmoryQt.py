@@ -640,15 +640,11 @@ class ArmoryMainWindow(QMainWindow):
       execTrouble = lambda: webbrowser.open('https://bitcoinarmory.com/troubleshooting/')
       execBugReport = lambda: DlgBugReport(self, self).exec_()
 
-      def execDownloadUpgrade():
-         dl = self.announceFetcher.getAnnounceFile('downloads')
-         cl = self.announceFetcher.getAnnounceFile('changelog')
-         UpgradeDownloaderDialog(self, self, None, dl, cl).exec_()
 
       execVerifySigned = lambda: VerifyOfflinePackageDialog(self, self).exec_()
       actAboutWindow  = self.createAction(tr('About Armory'), execAbout)
       actVersionCheck = self.createAction(tr('Armory Version...'), execVersion)
-      actDownloadUpgrade = self.createAction(tr('Download Upgrade...'), execDownloadUpgrade)
+      actDownloadUpgrade = self.createAction(tr('Update Software...'), self.openDownloaderAll)
       actVerifySigned = self.createAction(tr('Verify Signed Package...'), execVerifySigned)
       actTroubleshoot = self.createAction(tr('Troubleshooting Armory'), execTrouble)
       actSubmitBug    = self.createAction(tr('Submit Bug Report'), execBugReport)
@@ -4002,10 +3998,21 @@ class ArmoryMainWindow(QMainWindow):
          <font size=4><b>Announcements and alerts from <i>Armory Technologies,
          Inc.</i></b></font>"""), doWrap=False, hAlign=Qt.AlignHCenter)
 
+      def checkUpd():
+         lastUpdate = self.announceFetcher.getLastSuccessfulFetchTime()
+         self.explicitCheckAnnouncements(5)
+         lastUpdate2 = self.announceFetcher.getLastSuccessfulFetchTime()
+         if lastUpdate==lastUpdate2:
+            QMessageBox.warning(self, tr('Not Available'), tr("""
+               Could not access the <font color="%s"><b>Armory 
+               Technologies, Inc.</b></font> announcement feeder."""), \
+               QMessageBox.Ok)
+         
+
       self.lblLastUpdated = QRichLabel('', doWrap=False)
       self.btnCheckForUpdates  = QPushButton(tr('Check for Updates'))
-      self.connect(self.btnCheckForUpdates, SIGNAL(CLICKED), \
-                              self.explicitCheckAnnouncements)
+      self.connect(self.btnCheckForUpdates, SIGNAL(CLICKED), checkUpd)
+                              
 
       frmLastUpdate = makeHorizFrame(['Stretch', \
                                       self.lblLastUpdated, \
@@ -4031,6 +4038,9 @@ class ArmoryMainWindow(QMainWindow):
       layoutVersions.addWidget(self.icoSatoshiSWVersion, 1,0)
       layoutVersions.addWidget(self.lblSatoshiSWVersion, 1,1)
       layoutVersions.addWidget(self.btnSecureDLSatoshi,  1,2)
+      layoutVersions.setColumnStretch(0,0)
+      layoutVersions.setColumnStretch(1,1)
+      layoutVersions.setColumnStretch(2,0)
       frmVersions.setLayout(layoutVersions)
       frmVersions.setFrameStyle(STYLE_RAISED)
 
@@ -4103,17 +4113,50 @@ class ArmoryMainWindow(QMainWindow):
       self.tabAnnounce.setLayout(scrollLayout)
 
    #############################################################################
+   def openDownloaderAll(self):
+      dl,cl = self.getDownloaderData()
+      if not dl is None and not cl is None:
+         UpgradeDownloaderDialog(self, self, None, dl, cl).exec_()
+
+   #############################################################################
    def openDLArmory(self):
-      dl = self.announceFetcher.getAnnounceFile('downloads')
-      cl = self.announceFetcher.getAnnounceFile('changelog')
-      UpgradeDownloaderDialog(self, self, 'Armory', dl, cl).exec_()
+      dl,cl = self.getDownloaderData()
+      if not dl is None and not cl is None:
+         UpgradeDownloaderDialog(self, self, 'Armory', dl, cl).exec_()
 
    #############################################################################
    def openDLSatoshi(self):
+      dl,cl = self.getDownloaderData()
+      if not dl is None and not cl is None:
+         UpgradeDownloaderDialog(self, self, 'Satoshi', dl, cl).exec_()
+
+   
+   #############################################################################
+   def getDownloaderData(self):
       dl = self.announceFetcher.getAnnounceFile('downloads')
       cl = self.announceFetcher.getAnnounceFile('changelog')
-      UpgradeDownloaderDialog(self, self, 'Satoshi', dl, cl).exec_()
-
+      if dl is None or cl is None:
+         QMessageBox.warning(self, tr('No Data'), tr("""
+            The secure downloader has not received any download
+            data to display.  Either the <font color="%s"><b>Armory 
+            Technologies, Inc.</b></font> announcement feeder is 
+            down, or this computer cannot access the server.""") % \
+            htmlColor('TextGreen'), QMessageBox.Ok)
+         return None,None
+   
+      lastUpdate = self.announceFetcher.getLastSuccessfulFetchTime()
+      sinceLastUpd = RightNow() - lastUpdate
+      if lastUpdate < RightNow()-1*WEEK:
+         QMessageBox.warning(self, tr('Old Data'), tr("""
+            The last update retrieved from the <font color="%s"><b>Armory 
+            Technologies, Inc.</b></font> announcement feeder was <b>%s</b> 
+            ago.  The following downloads may not be the latest 
+            available.""") % (htmlColor("TextGreen"), \
+            secondsToHumanTime(sinceLastUpd)), QMessageBox.Ok)
+         
+            
+      return dl,cl
+      
 
 
    #############################################################################
@@ -4164,7 +4207,7 @@ class ArmoryMainWindow(QMainWindow):
          self.btnSecureDLArmory.setVisible(True)
          self.icoArmorySWVersion.setVisible(True)
       except:
-         #self.btnSecureDLArmory.setVisible(False)
+         self.btnSecureDLArmory.setVisible(False)
          self.lblArmorySWVersion.setText(tr(""" You are running Armory
             version %s""") % getVersionString(BTCARMORY_VERSION))
 
@@ -4187,7 +4230,7 @@ class ArmoryMainWindow(QMainWindow):
                <b>There is a newer version of the core Bitcoin software
                available!</b>"""))
       except:
-         #self.btnSecureDLSatoshi.setVisible(False)
+         self.btnSecureDLSatoshi.setVisible(False)
          if self.satoshiVersions[0]:
             self.lblSatoshiSWVersion.setText(tr(""" You are running
                core Bitcoin software version %s""") % self.satoshiVersions[0])
@@ -4208,7 +4251,7 @@ class ArmoryMainWindow(QMainWindow):
             self.announceTableWidgets[i][j].setVisible(i==0 and j==1)
 
       if len(self.almostFullNotificationList)==0:
-         self.announceTableWidgets[0][0].setText(tr("""
+         self.announceTableWidgets[0][1].setText(tr("""
             There are no announcements or alerts to display"""))
          return
 

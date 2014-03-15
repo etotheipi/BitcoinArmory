@@ -9341,9 +9341,7 @@ class DlgNotificationWithDNAA(ArmoryDialog):
 
       def doUDD(href=None):
          self.accept()
-         dl = self.main.announceFetcher.getAnnounceFile('downloads')
-         cl = self.main.announceFetcher.getAnnounceFile('changelog')
-         UpgradeDownloaderDialog(self, self, "Armory", dl, cl).exec_()
+         self.main.openDLArmory()
 
       lblBottomInfo.setOpenExternalLinks(False)
       self.connect(lblBottomInfo, SIGNAL('linkActivated(const QString &)'), doUDD)
@@ -9373,9 +9371,7 @@ class DlgNotificationWithDNAA(ArmoryDialog):
 
       def openUpgrader(): 
          self.accept()
-         dl = self.main.announceFetcher.getAnnounceFile('downloads')
-         cl = self.main.announceFetcher.getAnnounceFile('changelog')
-         UpgradeDownloaderDialog(self, self.main, "Armory", dl, cl).exec_()
+         self.main.openDLArmory()
 
       self.connect(btnDismiss,    SIGNAL(CLICKED), self.acceptShortIgnore)
       self.connect(btnIgnoreLong, SIGNAL(CLICKED), self.acceptLongIgnore)
