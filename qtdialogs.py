@@ -4648,7 +4648,7 @@ class DlgSendBitcoins(ArmoryDialog):
       super(DlgSendBitcoins, self).__init__(parent, main)
       layout = QVBoxLayout()
 
-      self.frame = SendBitcoinsFrame(parent, main, 'Send Bitcoins',\
+      self.frame = SendBitcoinsFrame(self, main, 'Send Bitcoins',\
                    wlt, prefill, wltIDList, onlyOfflineWallets=onlyOfflineWallets,\
                    sendCallback=self.createTxAndBroadcast,\
                    createUnsignedTxCallback=self.createUnsignedTxDPAndDisplay)

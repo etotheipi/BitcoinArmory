@@ -118,7 +118,7 @@ class SendBitcoinsFrame(ArmoryFrame):
          self.radioSpecify = QRadioButton('Specify a change address')
          self.lblChangeAddr = QRichLabel('Send Change To:')
          self.edtChangeAddr = QLineEdit()
-         self.btnChangeAddr = createAddrBookButton(self, self.edtChangeAddr, \
+         self.btnChangeAddr = createAddrBookButton(parent, self.edtChangeAddr, \
                                        None, 'Send change to')
          self.chkRememberChng = QCheckBox('Remember for future transactions')
          self.vertLine = VLINE()
@@ -820,7 +820,7 @@ class SendBitcoinsFrame(ArmoryFrame):
 
 
          addrEntryBox = self.widgetTable[r][-1]
-         self.widgetTable[r].append(createAddrBookButton(self, addrEntryBox, \
+         self.widgetTable[r].append(createAddrBookButton(self.parent(), addrEntryBox, \
                                       None, 'Send to'))
 
 
@@ -923,7 +923,7 @@ class SendBitcoinsFrame(ArmoryFrame):
 
    #############################################################################
    def clickEnterURI(self):
-      dlg = DlgUriCopyAndPaste(self, self.main)
+      dlg = DlgUriCopyAndPaste(self.parent(), self.main)
       dlg.exec_()
 
       if len(dlg.uriDict) > 0:
