@@ -41,7 +41,7 @@ from qrcodenative import QRCode, QRErrorCorrectLevel
 
 
 # Version Numbers 
-BTCARMORY_VERSION    = (0, 90, 99, 0)  # (Major, Minor, Bugfix, AutoIncrement) 
+BTCARMORY_VERSION    = (0, 90, 99, 1)  # (Major, Minor, Bugfix, AutoIncrement) 
 PYBTCWALLET_VERSION  = (1, 35,  0, 0)  # (Major, Minor, Bugfix, AutoIncrement)
 
 ARMORY_DONATION_ADDR = '1ArmoryXcfq7TnCSuZa9fQjRYwJ4bkRKfv'
@@ -80,11 +80,15 @@ parser.add_option("--logfile",         dest="logFile",     default='DEFAULT', ty
 parser.add_option("--mtdebug",         dest="mtdebug",     default=False,     action="store_true", help="Log multi-threaded call sequences")
 parser.add_option("--skip-online-check", dest="forceOnline", default=False,   action="store_true", help="Go into online mode, even if internet connection isn't detected")
 parser.add_option("--skip-version-check", dest="skipVerCheck", default=False, action="store_true", help="Do not contact bitcoinarmory.com to check for new versions")
+parser.add_option("--skip-announce-check", dest="skipAnnounceCheck", default=False, action="store_true", help="Do not query for Armory announcements")
 parser.add_option("--keypool",         dest="keypool",     default=100, type="int",                help="Default number of addresses to lookahead in Armory wallets")
 parser.add_option("--redownload",      dest="redownload",  default=False,     action="store_true", help="Delete Bitcoin-Qt/bitcoind databases; redownload")
 parser.add_option("--rebuild",         dest="rebuild",     default=False,     action="store_true", help="Rebuild blockchain database and rescan")
 parser.add_option("--rescan",          dest="rescan",      default=False,     action="store_true", help="Rescan existing blockchain DB")
 parser.add_option("--maxfiles",        dest="maxOpenFiles",default=0,         type="int",          help="Set maximum allowed open files for LevelDB databases")
+parser.add_option("--disable-torrent", dest="disableTorrent", default=False,     action="store_true", help="Only download blockchain data via P2P network (slow)")
+parser.add_option("--test-announce", dest="testAnnounceCode", default=False,     action="store_true", help="Only used for developers needing to test announcement code with non-offline keys")
+#parser.add_option("--rebuildwithblocksize", dest="newBlockSize",default='32kB', type="str",          help="Rebuild databases with new blocksize")
 parser.add_option("--nospendzeroconfchange",dest="ignoreAllZC",default=False, action="store_true", help="All zero-conf funds will be unspendable, including sent-to-self coins")
 
 # Pre-10.9 OS X sometimes passes a process serial number as -psn_0_xxxxxx. Nuke!
@@ -96,6 +100,60 @@ parser.add_option("--port", dest="port", default=None, type="int", help="Unit Te
 parser.add_option("--verbosity", dest="verbosity", default=None, type="int", help="Unit Test Argument - Do not consume")
 parser.add_option("--coverage_output_dir", dest="coverageOutputDir", default=None, type="str", help="Unit Test Argument - Do not consume")
 parser.add_option("--coverage_include", dest="coverageInclude", default=None, type="str", help="Unit Test Argument - Do not consume")
+
+
+
+# Some useful constants to be used throughout everything
+BASE58CHARS  = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
+BASE16CHARS  = '0123 4567 89ab cdef'.replace(' ','')
+LITTLEENDIAN  = '<';
+BIGENDIAN     = '>';
+NETWORKENDIAN = '!';
+ONE_BTC       = long(100000000)
+DONATION       = long(5000000)
+CENT          = long(1000000)
+UNINITIALIZED = None
+UNKNOWN       = -2
+MIN_TX_FEE    = 10000
+MIN_RELAY_TX_FEE = 10000
+MT_WAIT_TIMEOUT_SEC = 20;
+
+UINT8_MAX  = 2**8-1
+UINT16_MAX = 2**16-1
+UINT32_MAX = 2**32-1
+UINT64_MAX = 2**64-1
+
+RightNow = time.time
+SECOND   = 1
+MINUTE   = 60
+HOUR     = 3600
+DAY      = 24*HOUR
+WEEK     = 7*DAY
+MONTH    = 30*DAY
+YEAR     = 365*DAY
+
+KILOBYTE = 1024.0
+MEGABYTE = 1024*KILOBYTE
+GIGABYTE = 1024*MEGABYTE
+TERABYTE = 1024*GIGABYTE
+PETABYTE = 1024*TERABYTE
+
+# Set the default-default 
+DEFAULT_DATE_FORMAT = '%Y-%b-%d %I:%M%p'
+FORMAT_SYMBOLS = [ \
+   ['%y', 'year, two digit (00-99)'], \
+   ['%Y', 'year, four digit'], \
+   ['%b', 'month name (abbrev)'], \
+   ['%B', 'month name (full)'], \
+   ['%m', 'month number (01-12)'], \
+   ['%d', 'day of month (01-31)'], \
+   ['%H', 'hour 24h (00-23)'], \
+   ['%I', 'hour 12h (01-12)'], \
+   ['%M', 'minute (00-59)'], \
+   ['%p', 'morning/night (am,pm)'], \
+   ['%a', 'day of week (abbrev)'], \
+   ['%A', 'day of week (full)'], \
+   ['%%', 'percent symbol'] ]
 
 
 class UnserializeError(Exception): pass
@@ -142,6 +200,21 @@ if getattr(sys, 'frozen', False):
 CLI_OPTIONS = None
 CLI_ARGS = None
 (CLI_OPTIONS, CLI_ARGS) = parser.parse_args()
+
+
+# This is probably an abuse of the CLI_OPTIONS structure, but not 
+# automatically expanding "~" symbols is killing me
+for opt,val in CLI_OPTIONS.__dict__.iteritems():
+   if not isinstance(val, basestring) or not val.startswith('~'):
+      continue
+
+   if os.path.exists(os.path.expanduser(val)):
+      CLI_OPTIONS.__dict__[opt] = os.path.expanduser(val)
+   else:
+      # If the path doesn't exist, it still won't exist when we don't 
+      # modify it, and I'd like to modify as few vars as possible
+      pass
+
 
 # Use CLI args to determine testnet or not
 USE_TESTNET = CLI_OPTIONS.testnet
@@ -194,17 +267,6 @@ else:
    print '***Unknown operating system!'
    print '***Cannot determine default directory locations'
 
-# Change the settings file to use
-if CLI_OPTIONS.settingsPath.lower()=='default':
-   CLI_OPTIONS.settingsPath = os.path.join(ARMORY_HOME_DIR, 'ArmorySettings.txt')
-
-# Change the log file to use
-if CLI_OPTIONS.logFile.lower()=='default':
-   if sys.argv[0] in ['ArmoryQt.py', 'ArmoryQt.exe', 'Armory.exe']:
-      CLI_OPTIONS.logFile = os.path.join(ARMORY_HOME_DIR, 'armorylog.txt')
-   else:
-      basename = os.path.basename(sys.argv[0])
-      CLI_OPTIONS.logFile = os.path.join(ARMORY_HOME_DIR, '%s.log.txt' % basename)
 
 
 
@@ -275,6 +337,8 @@ if not CLI_OPTIONS.satoshiHome.lower()=='default':
 
 
 
+
+
 # Allow user to override default Armory home directory
 if not CLI_OPTIONS.datadir.lower()=='default':
    if not os.path.exists(CLI_OPTIONS.datadir):
@@ -301,6 +365,20 @@ ARMCPP_LOG_FILE = os.path.join(ARMORY_HOME_DIR, 'armorycpplog.txt')
 if not sys.argv[0] in ['ArmoryQt.py', 'ArmoryQt.exe', 'Armory.exe']:
    basename = os.path.basename(sys.argv[0])
    CLI_OPTIONS.logFile = os.path.join(ARMORY_HOME_DIR, '%s.log.txt' % basename)
+
+
+# Change the settings file to use
+if CLI_OPTIONS.settingsPath.lower()=='default':
+   CLI_OPTIONS.settingsPath = os.path.join(ARMORY_HOME_DIR, 'ArmorySettings.txt')
+
+# Change the log file to use
+if CLI_OPTIONS.logFile.lower()=='default':
+   if sys.argv[0] in ['ArmoryQt.py', 'ArmoryQt.exe', 'Armory.exe']:
+      CLI_OPTIONS.logFile = os.path.join(ARMORY_HOME_DIR, 'armorylog.txt')
+   else:
+      basename = os.path.basename(sys.argv[0])
+      CLI_OPTIONS.logFile = os.path.join(ARMORY_HOME_DIR, '%s.log.txt' % basename)
+
 
 SETTINGS_PATH   = CLI_OPTIONS.settingsPath
 MULT_LOG_FILE   = os.path.join(ARMORY_HOME_DIR, 'multipliers.txt')
@@ -412,6 +490,7 @@ if not CLI_OPTIONS.rpcport == 'DEFAULT':
       ARMORY_RPC_PORT = int(CLI_OPTIONS.rpcport)
    except:
       raise TypeError('Invalid RPC port for armoryd ' + str(ARMORY_RPC_PORT))
+
 
 
 if sys.argv[0]=='ArmoryQt.py':
@@ -773,6 +852,7 @@ if os.path.exists(fileDelSettings):
    os.remove(fileDelSettings)
 
 
+
 ################################################################################
 def deleteBitcoindDBs():
    if not os.path.exists(BTC_HOME_DIR):
@@ -795,14 +875,14 @@ def deleteBitcoindDBs():
             LOGINFO('   Removing file: %s' % fullPath)
             os.remove(fullPath)
 
-   if os.path.exists(fileRedownload):
-      os.remove(fileRedownload)
-   
 
 
 #####
 if CLI_OPTIONS.redownload:
    deleteBitcoindDBs()
+   if os.path.exists(fileRedownload):
+      os.remove(fileRedownload)
+   
 
 #####
 if CLI_OPTIONS.rebuild and os.path.exists(LEVELDB_DIR):
@@ -811,6 +891,17 @@ if CLI_OPTIONS.rebuild and os.path.exists(LEVELDB_DIR):
    os.mkdir(LEVELDB_DIR)
 
 
+####
+if CLI_OPTIONS.testAnnounceCode:
+   LOGERROR('*'*60)
+   LOGERROR('You are currently using a developer mode intended for ')
+   LOGERROR('to help with testing of announcements, which is considered')
+   LOGERROR('a security risk.  ')
+   LOGERROR('*'*60)
+   ARMORY_INFO_SIGN_ADDR      = '1PpAJyNoocJt38Vcf4AfPffaxo76D4AAEe'
+   ARMORY_INFO_SIGN_PUBLICKEY = ('04' 
+      '601c891a2cbc14a7b2bb1ecc9b6e42e166639ea4c2790703f8e2ed126fce432c'
+      '62fe30376497ad3efcd2964aa0be366010c11b8d7fc8209f586eac00bb763015')
 
    
 
@@ -1396,57 +1487,6 @@ if CLI_OPTIONS.logDisable:
 
 
 
-# Some useful constants to be used throughout everything
-BASE58CHARS  = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
-BASE16CHARS  = '0123 4567 89ab cdef'.replace(' ','')
-LITTLEENDIAN  = '<';
-BIGENDIAN     = '>';
-NETWORKENDIAN = '!';
-ONE_BTC       = long(100000000)
-DONATION       = long(5000000)
-CENT          = long(1000000)
-UNINITIALIZED = None
-UNKNOWN       = -2
-MIN_TX_FEE    = 10000
-MIN_RELAY_TX_FEE = 10000
-MT_WAIT_TIMEOUT_SEC = 20;
-
-UINT8_MAX  = 2**8-1
-UINT16_MAX = 2**16-1
-UINT32_MAX = 2**32-1
-UINT64_MAX = 2**64-1
-
-RightNow = time.time
-SECOND   = 1
-MINUTE   = 60
-HOUR     = 3600
-DAY      = 24*HOUR
-WEEK     = 7*DAY
-MONTH    = 30*DAY
-YEAR     = 365*DAY
-
-KILOBYTE = 1024.0
-MEGABYTE = 1024*KILOBYTE
-GIGABYTE = 1024*MEGABYTE
-TERABYTE = 1024*GIGABYTE
-PETABYTE = 1024*TERABYTE
-
-# Set the default-default 
-DEFAULT_DATE_FORMAT = '%Y-%b-%d %I:%M%p'
-FORMAT_SYMBOLS = [ \
-   ['%y', 'year, two digit (00-99)'], \
-   ['%Y', 'year, four digit'], \
-   ['%b', 'month name (abbrev)'], \
-   ['%B', 'month name (full)'], \
-   ['%m', 'month number (01-12)'], \
-   ['%d', 'day of month (01-31)'], \
-   ['%H', 'hour 24h (00-23)'], \
-   ['%I', 'hour 12h (01-12)'], \
-   ['%M', 'minute (00-59)'], \
-   ['%p', 'morning/night (am,pm)'], \
-   ['%a', 'day of week (abbrev)'], \
-   ['%A', 'day of week (full)'], \
-   ['%%', 'percent symbol'] ]
 
 
 # The database uses prefixes to identify type of address.  Until the new 
@@ -1760,7 +1800,7 @@ def base58_to_binary(addr):
 
 
 ################################################################################
-def hash160_to_addrStr(binStr):
+def hash160_to_addrStr(binStr, netbyte=ADDRBYTE):
    """
    Converts the 20-byte pubKeyHash to 25-byte binary Bitcoin address
    which includes the network byte (prefix) and 4-byte checksum (suffix)
@@ -1769,7 +1809,7 @@ def hash160_to_addrStr(binStr):
    if not len(binStr) == 20:
       raise InvalidHashError('Input string is %d bytes' % len(binStr))
 
-   addr21 = ADDRBYTE + binStr
+   addr21 = netbyte + binStr
    addr25 = addr21 + hash256(addr21)[:4]
    return binary_to_base58(addr25);
 
@@ -1901,9 +1941,12 @@ def secondsToHumanTime(nSec):
       strPieces = [floatSec/DAY, 'day']
    elif floatSec < 0.9*MONTH:
       strPieces = [floatSec/WEEK, 'week']
-   else:
+   elif floatSec < 0.9*YEAR:
       strPieces = [floatSec/MONTH, 'month']
+   else:
+      strPieces = [floatSec/YEAR, 'year']
 
+   #
    if strPieces[0]<1.25:
       return '1 '+strPieces[1]
    elif strPieces[0]<=1.75:
@@ -2648,6 +2691,7 @@ class PyBackgroundThread(threading.Thread):
       self.finishedAt = UNINITIALIZED
       self.errorThrown = None
       self.passAsync = None
+      self.setDaemon(True)
 
       if len(args)==0:
          self.func  = lambda: ()
@@ -2661,6 +2705,12 @@ class PyBackgroundThread(threading.Thread):
       def funcPartial():
          return thefunc(*args, **kwargs)
       self.func = funcPartial
+
+   def setDaemon(self, yesno):
+      if self.isStarted():
+         LOGERROR('Must set daemon property before starting thread')
+      else:
+         super(PyBackgroundThread, self).setDaemon(yesno)
 
    def isFinished(self):
       return not (self.finishedAt==UNINITIALIZED)
@@ -3111,3 +3161,23 @@ def touchFile(fname):
       f.flush()
       os.fsync(f.fileno())
       f.close()
+
+
+# NOTE: Had to put in this at the eend so it was after the AllowAsync def
+# This flag takes into account both CLI_OPTIONs, and availability of the
+# BitTornado library  (the user can remove the BitTornado dir and/or the
+# torrentDL.py files without breaking Armory, it will simply set this
+# disable flag to true)
+DISABLE_TORRENTDL = CLI_OPTIONS.disableTorrent
+try:
+   import torrentDL
+except:
+   LOGEXCEPT('Failed to import torrent downloader')
+   DISABLE_TORRENTDL = True
+
+# We only use BITTORRENT for mainnet
+if USE_TESTNET:
+   DISABLE_TORRENTDL = True
+
+
+
