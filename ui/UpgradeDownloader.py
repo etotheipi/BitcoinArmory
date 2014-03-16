@@ -102,13 +102,11 @@ class UpgradeDownloader:
                defaultFN = os.path.basename(self.url)
                if self.downloadLinkFile:
                   defaultFN += ".signed"
-               dest = self.main.getFileSave(tr("Save File"), ffilter = [ \
-                                 tr('Windows Installers (*.exe)'), \
-                                 tr('MacOSX Apps (*.app)'), \
-                                 tr('Ubuntu/Debian Installers (*.deb)'), \
-                                 tr('Compressed Tar File (*.tar.gz)') ], \
-                                 defaultFilename=defaultFN)
-                  
+
+               dest = self.main.getFileSave(tr("Save File"), 
+                  [tr('Installers (*.exe, *.app, *.deb, *.tar.gz)')], 
+                  defaultFilename=defaultFN)
+
                if len(dest)!=0:
                   df = open(dest, "wb")
                   if self.downloadLinkFile:
@@ -118,19 +116,37 @@ class UpgradeDownloader:
                   df.write(self.receivedData)
                   df.close()
 
-                  QMessageBox.warning(self.frame, tr("Download complete"), tr("""
-                     The file downloaded successfully, and carries a valid signature
-                     from <font color="%s"><b>Armory Technologies, Inc.</b></font>
-                     You can now use it to install the software.  The file was 
-                     saved to:
-                     <br><br>
-                     %s
-                     <br><br>
-                     <b>There is no special procedure to update a previous 
-                     installation.</b>  The installer will update existing
-                     versions without touching your wallets or settings.""") % \
-                     (htmlColor("TextGreen"), dest), QMessageBox.Ok)
-                  
+                  if self.downloadLinkFile:
+                     QMessageBox.warning(self.frame, tr("Download complete"), tr("""
+                        The package has the
+                        signature from <font color="%s"><b>Armory Technologies, 
+                        Inc.</b></font> bundled with it, so it can be verified
+                        by an offline computer before installation.  To use this 
+                        feature, the offline system must be running Armory 
+                        0.91-beta or higher.  Go to 
+                        <i>"Help"</i>\xe2\x86\x92<i>"Verify Signed Package"</i>
+                        and load the <i>*.signed</i> file.  The file was saved
+                        to:
+                        <br><br> 
+                        %s
+                        <br><br> 
+                        <b>There is no special procedure to update a previous
+                        installation.</b>  The installer will update existing
+                        versions without touching your wallets or settings.""") % \
+                        (htmlColor("TextGreen"), dest), \
+                        QMessageBox.Ok)
+                  else:
+                     QMessageBox.warning(self.frame, tr("Download complete"), tr("""
+                        The file downloaded successfully, and carries a valid 
+                        signature from <font color="%s"><b>Armory Technologies, 
+                        Inc.</b></font> You can now use it to install the 
+                        software.  The file was saved to:
+                        <br><br> %s <br><br>
+                        <b>There is no special procedure to update a previous
+                        installation.</b>  The installer will update existing
+                        versions without touching your wallets or settings.""") % \
+                        (htmlColor("TextGreen"), dest), QMessageBox.Ok)
+
 
       self.receivedData = None
       self.downloadFile = None
@@ -239,12 +255,16 @@ class UpgradeDownloaderDialog(ArmoryDialog):
       self.changelogView = QTextBrowser(self)
       self.changelogView.setOpenExternalLinks(True)
 
-      self.saveAsOfflinePackage = QCheckBox(tr("Saved as offline-signed package"), self)
+      self.saveAsOfflinePackage = QCheckBox(tr("Save with offline-verifiable signature"))
       self.closeButton = QPushButton(tr("Close"), self)
       self.connect(self.closeButton, SIGNAL('clicked()'), self.accept)
 
+      self.btnDLInfo = QLabelButton('Download Info')
+      self.btnDLInfo.setVisible(False)
+      self.connect(self.btnDLInfo, SIGNAL('clicked()'), self.popupPackageInfo)
 
-      self.lblSelectedSimple = QRichLabel(tr('No download selected'), 
+
+      self.lblSelectedSimple = QRichLabel(tr('No download selected'),
                                        doWrap=False, hAlign=Qt.AlignHCenter)
       self.lblSelectedSimpleMore = QRichLabel(tr(''), doWrap=False)
       self.lblSelectedComplex = QRichLabel(tr('No download selected'))
@@ -290,16 +310,17 @@ class UpgradeDownloaderDialog(ArmoryDialog):
       self.stackedDisplay.addWidget(frmTopSimple)
       self.stackedDisplay.addWidget(frmTopComplex)
 
-      layout = QVBoxLayout(self)
-      layout.addWidget(self.stackedDisplay)
-      layout.addWidget(self.changelogView, +1)
-      layout.addWidget(self.saveAsOfflinePackage)
-      layout.addWidget(self.downloader.createDownloaderWidget(self))
+      layout = QGridLayout()
+      layout.addWidget(self.stackedDisplay,       0,0,  1,3)
+      layout.addWidget(self.changelogView,        1,0,  1,3)
+      layout.addWidget(self.saveAsOfflinePackage, 2,0)
+      layout.addWidget(self.btnDLInfo,            2,2)
+      layout.addWidget(self.downloader.createDownloaderWidget(self), \
+                                                  3,0,  1,3)
+      layout.addWidget(self.closeButton,          4,2)
+      layout.setRowStretch(0, 1)
+      layout.setColumnStretch(1, 1)
 
-      closeButtonRowLayout = QHBoxLayout(None)
-      layout.addLayout(closeButtonRowLayout)
-      closeButtonRowLayout.addStretch(1)
-      closeButtonRowLayout.addWidget(self.closeButton)
 
       self.cascadeOs()
       self.selectMyOs()
@@ -309,30 +330,33 @@ class UpgradeDownloaderDialog(ArmoryDialog):
       self.selectMyOs()
       self.cascadeOs()
 
-      
-      # Above we had to select *something*, we should check that the 
+
+      # Above we had to select *something*, we should check that the
       # architecture actually matches our system.  If not, warn
       trueBits = '64' if SystemSpecs.IsX64 else '32'
       selectBits = str(self.osarch.currentText())[:2]
       if showPackage and not trueBits==selectBits:
          QMessageBox.warning(self, tr("Wrong Architecture"), tr("""
-            You appear to be on a %s-bit architecture, but the only 
+            You appear to be on a %s-bit architecture, but the only
             available download is for %s-bit systems.  It is unlikely
             that this download will work on this operating system.
             <br><br>
             Please make sure that the correct operating system is
             selected before attempting to download and install any
             packages.""") % (trueBits, selectBits), QMessageBox.Ok)
-         
+
          self.bitsColor = htmlColor('TextRed')
-            
+
+
 
       if showPackage:
          for n in range(0, packages.topLevelItemCount()):
             row = packages.topLevelItem(n)
             if str(row.data(0, 32).toString())==showPackage:
                packages.setCurrentItem(row)
-               break
+               if not self.main.armoryVersions[1] or \
+                  str(row.data(1, 32).toString())==self.main.armoryVersions[1]:
+                  break
             self.useSelectedPackage()
          else:
             foundPackage = False
@@ -347,6 +371,7 @@ class UpgradeDownloaderDialog(ArmoryDialog):
 
 
 
+      self.setLayout(layout)
       self.setMinimumWidth(600)
       self.setWindowTitle(tr('Secure Downloader'))
 
@@ -361,13 +386,13 @@ class UpgradeDownloaderDialog(ArmoryDialog):
    def findCmbData(self, cmb, findStr, last=False):
       """
       So I ran into some issues with finding python strings in comboboxes
-      full of QStrings.  I confirmed that 
+      full of QStrings.  I confirmed that
          self.os.itemText(i)==tr("Ubuntu/Debian")
       but not
          self.os.findData(tr("Ubuntu/Debian"))
       I'm probably being stupid, I thought I saw this work before...
 
-      Return zero if failed so we just select the first item in the list 
+      Return zero if failed so we just select the first item in the list
       if we don't find it.
       """
       for i in range(cmb.count()):
@@ -426,32 +451,48 @@ class UpgradeDownloaderDialog(ArmoryDialog):
          self.downloader.setFile(None, None)
       else:
          packagename = str(self.packages.currentItem().data(0, 32).toString())
-         packagever = str(self.packages.currentItem().data(1, 32).toString())
-         packageurl = str(self.packages.currentItem().data(2, 32).toString())
+         packagever  = str(self.packages.currentItem().data(1, 32).toString())
+         packageurl  = str(self.packages.currentItem().data(2, 32).toString())
          packagehash = str(self.packages.currentItem().data(3, 32).toString())
 
          self.downloader.setFile(packageurl, packagehash)
+         self.selectedDLInfo = [packagename,packagever,packageurl,packagehash]
+         self.btnDLInfo.setVisible(True)
 
-         if packagename in self.changelog:
-            chpackage = self.changelog[packagename]
-            index=0
-            for p in chpackage:
-               if p[0] == packagever:
+         # Figure out where to bound the changelog information
+         startIndex = -1
+         for i,triplet in enumerate(self.changelog):
+            if triplet[0]==packagever:
+               startIndex = i
+               break
+
+         stopIndex = len(self.changelog)
+         if len(self.main.armoryVersions[0])>0:
+            for i,triplet in enumerate(self.changelog):
+               currVer = getVersionInt(readVersionString(self.main.armoryVersions[0]))
+               thisVer = getVersionInt(readVersionString(triplet[0]))
+               if thisVer <= currVer:
+                  stopIndex = i
                   break
-               index+=1
+
+
+
+         if startIndex > -1:
 
             logHtml = "<html><body>"
-            for p in range(index, len(chpackage)):
-               block = chpackage[p]
-               logHtml += "<h2>" + tr("Version {0}").format(block[0]) + "</h2>\n"
-               logHtml += "<em>" + tr("Released on {0}").format(block[1]) + "</em>\n"
-
-               features = block[2]
-               logHtml += "<ul>"
-               for f in features:
-                  logHtml += "<li>" + tr("<b>{0}</b>: {1}").format(f[0], f[1]) + "</li>\n"
-               logHtml += "</ul>\n\n"
-
+            if startIndex >= stopIndex:
+               logHtml = tr("Release notes are not available for this package")
+            else:
+               for i in range(startIndex, stopIndex):
+                  block = self.changelog[i]
+                  logHtml += "<h2>" + tr("Version {0}").format(block[0]) + "</h2>\n"
+                  logHtml += "<em>" + tr("Released on {0}").format(block[1]) + "</em>\n"
+   
+                  features = block[2]
+                  logHtml += "<ul>"
+                  for f in features:
+                     logHtml += "<li>" + tr("<b>{0}</b>: {1}").format(f[0], f[1]) + "</li>\n"
+                  logHtml += "</ul>\n\n"
          else:
             if packagename == "Satoshi":
                logHtml = tr("""
@@ -462,21 +503,55 @@ class UpgradeDownloaderDialog(ArmoryDialog):
             else:
                logHtml = tr("Release notes are not available for this package")
 
-         logHtml += tr("""
-            <br><br>
-            -----
-            <br><br>
-            Package: %s version %s<br>
-            Download URL:  %s<br>
-            Verified sha256sum:  %s""") % \
-            (packagename, packagever, packageurl, packagehash)
-         self.changelogView.setHtml(logHtml)
 
-         self.updateLabels(packagename, packagever, 
-                              self.os.currentText(), 
-                              self.osver.currentText(), 
+         #logHtml += tr("""
+            #<br><br>
+            #-----
+            #<br><br>
+            #<u>Package</u>: <b>%s version %s</b><br>
+            #<u>Download URL</u>:  <b>%s</b><br>
+            #<u>Verified sha256sum</u>:  <b>%s</b>""") % \
+            #(packagename, packagever, packageurl, packagehash)
+
+         self.changelogView.setHtml(logHtml)
+         self.updateLabels(packagename, packagever,
+                              self.os.currentText(),
+                              self.osver.currentText(),
                               self.osarch.currentText())
-                                    
+
+
+
+   def popupPackageInfo(self):
+      pkgname,pkgver,pkgurl,pkghash = self.selectedDLInfo
+      osname = self.os.currentText()
+      osver  = self.osver.currentText()
+      osarch = self.osarch.currentText()
+      inst   = os.path.basename(pkgurl)
+      QMessageBox.information(self, tr('Package Information'), tr("""
+         Download information for <b>%(pkgname)s version %(pkgver)s:</b>
+         <br>
+         <ul>
+            <li><u><b>Operating System</b></u>:</li>  
+            <ul>
+               <li>%(osname)s %(osver)s %(osarch)s</li>
+            </ul>
+            <li><u><b>Installer Filename</b></u>:</li>  
+            <ul>
+               <li>%(inst)s</li>
+            </ul>
+            <li><u><b>Download URL</b></u>:</li>  
+            <ul>
+               <li>%(pkgurl)s</li>
+            </ul>
+            <li><u><b>Verified sha256sum</b></u>:</li>  
+            <ul>
+               <li>%(pkghash)s</li>
+            </ul>
+         </ul>""") % locals(), QMessageBox.Ok)
+            
+         
+         
+
 
    def cascade(self, combobox, valuesfrom, nextToCascade):
       combobox.blockSignals(True)
@@ -557,9 +632,9 @@ class UpgradeDownloaderDialog(ArmoryDialog):
                packages.addTopLevelItem(row)
 
 
-               self.updateLabels(packname, packvername, 
-                                     self.os.currentText(), 
-                                     self.osver.currentText(), 
+               self.updateLabels(packname, packvername,
+                                     self.os.currentText(),
+                                     self.osver.currentText(),
                                      self.osarch.currentText())
 
 
@@ -576,10 +651,10 @@ class UpgradeDownloaderDialog(ArmoryDialog):
          self.lblSelectedComplex.setText(tr("""
             <font size=4><b>Selected Package:</b> %s %s for %s %s %s</font>""") % \
             (pkgName, pkgVer, osName, osVer, osArch))
-   
-         self.lblSelectedSimple.setText(tr(""" <font size=4><b>Securely 
+
+         self.lblSelectedSimple.setText(tr(""" <font size=4><b>Securely
             download latest version of <u>%s</u></b></font>""") % pkgName)
-   
+
          self.lblCurrentVersion.setText('')
          currVerStr = ''
          if pkgName=='Bitcoin Core':

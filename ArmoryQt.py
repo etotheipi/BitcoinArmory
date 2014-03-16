@@ -1403,9 +1403,6 @@ class ArmoryMainWindow(QMainWindow):
          if not 'Satoshi' in self.downloadLinks:
             LOGWARN('No Satoshi links in the downloads list')
          else:
-            if not self.NetworkingFactory:
-               return
-
             try:
                maxVer = 0
                for verStr,vermap in self.downloadLinks['Satoshi'].iteritems():
@@ -1413,6 +1410,9 @@ class ArmoryMainWindow(QMainWindow):
                   if dlVer > maxVer:
                      maxVer = dlVer
                      self.satoshiVersions[1] = verStr
+
+               if not self.NetworkingFactory:
+                  return
 
                # This is to detect the running versions of Bitcoin-Qt/bitcoind
                thisVerStr = self.NetworkingFactory.proto.peerInfo['subver']
@@ -1629,10 +1629,10 @@ class ArmoryMainWindow(QMainWindow):
       # We only do popups for notifications >=4096, AND upgrade notify
       if tabPriority >= 4096:
          DlgNotificationWithDNAA(self, self, self.maxPriorityID, \
-                           currNotificationList[self.maxPriorityID]).exec_()
+                           currNotificationList[self.maxPriorityID]).show()
       elif vnotify:
          if not vnotify['UNIQUEID'] in self.notifyIgnoreShort:
-            DlgNotificationWithDNAA(self,self,vnotify['UNIQUEID'],vnotify).exec_()
+            DlgNotificationWithDNAA(self,self,vnotify['UNIQUEID'],vnotify).show()
 
       # Update the settings file with any permanent-ignore requests
       self.writeSetting('NotifyIgnore', ''.join(self.notifyIgnoreLong))
@@ -2078,7 +2078,8 @@ class ArmoryMainWindow(QMainWindow):
             QMessageBox.Ok)
          return
       elif not TheBDM.getBDMState()=='BlockchainReady':
-         #BDM isnt ready yet, saved URI strings in the delayed URIDict to call later through finishLoadBlockChain
+         # BDM isnt ready yet, saved URI strings in the delayed URIDict to 
+         # call later through finishLoadBlockChain
          qLen = self.delayedURIData['qLen']
 
          self.delayedURIData[qLen] = uriStr
@@ -2459,6 +2460,7 @@ class ArmoryMainWindow(QMainWindow):
 
       # This will force the table to refresh with new data
       self.setDashboardDetails()
+      self.updateAnnounceTab()  # make sure satoshi version info is up to date
       self.walletModel.reset()
 
       qLen = self.delayedURIData['qLen']
@@ -4224,31 +4226,53 @@ class ArmoryMainWindow(QMainWindow):
             version %s""") % getVersionString(BTCARMORY_VERSION))
 
 
-      # Show CoreBTC updates
       try:
-         satCurrent = verStrToInt(self.satoshiVersions[0])
-         satLatest  = verStrToInt(self.satoshiVersions[1])
-         if satCurrent >= satLatest:
+         satCurrStr,satLastStr = self.satoshiVersions
+         satCurrent = verStrToInt(satCurrStr) if satCurrStr else 0
+         satLatest  = verStrToInt(satLastStr) if satLastStr else 0
+
+      # Show CoreBTC updates
+         if satCurrent and satLatest:
+            if satCurrent >= satLatest:
+               dispIcon = QPixmap(iconGoodFile).scaled(24,24)
+               self.btnSecureDLSatoshi.setVisible(False)
+               self.icoSatoshiSWVersion.setPixmap(dispIcon)
+               self.lblSatoshiSWVersion.setText(tr(""" You are using
+                  the latest version of core Bitcoin (%s)""") % satCurrStr)
+            else:
+               dispIcon = QPixmap(iconWarnFile).scaled(24,24)
+               self.btnSecureDLSatoshi.setVisible(True)
+               self.icoSatoshiSWVersion.setPixmap(dispIcon)
+               self.lblSatoshiSWVersion.setText(tr("""
+                  <b>There is a newer version of the core Bitcoin software
+                  available!</b>"""))
+         elif satCurrent:
+            # satLatest is not available
             dispIcon = QPixmap(iconGoodFile).scaled(24,24)
             self.btnSecureDLSatoshi.setVisible(False)
-            self.icoSatoshiSWVersion.setPixmap(dispIcon)
+            self.icoSatoshiSWVersion.setPixmap(None)
             self.lblSatoshiSWVersion.setText(tr(""" You are using
-               the latest version of the core Bitcoin software"""))
+               core Bitcoin version %s""") % satCurrStr)
          else:
-            dispIcon = QPixmap(iconWarnFile).scaled(24,24)
+            # only satLatest is avail (maybe offline)
+            dispIcon = QPixmap(iconSatoshi).scaled(24,24)
             self.btnSecureDLSatoshi.setVisible(True)
             self.icoSatoshiSWVersion.setPixmap(dispIcon)
-            self.lblSatoshiSWVersion.setText(tr("""
-               <b>There is a newer version of the core Bitcoin software
-               available!</b>"""))
+            self.lblSatoshiSWVersion.setText(tr("""Core Bitcoin version
+               %s is available.""") % satLastStr)
+            
+            
+         
+
+         #self.btnSecureDLSatoshi.setVisible(False)
+         #if self.satoshiVersions[0]:
+            #self.lblSatoshiSWVersion.setText(tr(""" You are running
+               #core Bitcoin software version %s""") % self.satoshiVersions[0])
+         #else:
+            #self.lblSatoshiSWVersion.setText(tr("""No information is
+            #available for the core Bitcoin software"""))
       except:
-         self.btnSecureDLSatoshi.setVisible(False)
-         if self.satoshiVersions[0]:
-            self.lblSatoshiSWVersion.setText(tr(""" You are running
-               core Bitcoin software version %s""") % self.satoshiVersions[0])
-         else:
-            self.lblSatoshiSWVersion.setText(tr("""No information is
-            available for the core Bitcoin software"""))
+         LOGEXCEPT('Failed to process satoshi versions')
 
 
       self.updateAnnounceTable()
@@ -4493,7 +4517,7 @@ class ArmoryMainWindow(QMainWindow):
             ratioOfScanToBuild = (1-ratioIsBuild) / ratioIsBuild
             totalEstPhase3Time = totalEstPhase1Time * ratioOfScanToBuild
             tleft = tleft + totalEstPhase3Time
-            self.lblDashModeScan.setText( 'Building Databases', \
+            self.lblDashModeScan.setText( 'Build and Scan Databases', \
                                         size=4, bold=True, color='Foreground')
          elif phase==3:
             pct = ratioIsBuild + (1-ratioIsBuild)*pct
