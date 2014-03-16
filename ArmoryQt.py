@@ -119,6 +119,7 @@ class ArmoryMainWindow(QMainWindow):
       self.torrentFinished = False
       self.torrentCircBuffer = []
       self.lastAskedUserStopTorrent = 0
+      self.wasSynchronizing = False
 
       # Full list of notifications, and notify IDs that should trigger popups
       # when sending or receiving.
@@ -3805,7 +3806,7 @@ class ArmoryMainWindow(QMainWindow):
       self.barProgressScan.setRange(0,100)
 
 
-      self.lblDashModeTorrent    = QRichLabel('', hAlign=Qt.AlignHCenter)
+      self.lblDashModeTorrent    = QRichLabel('')
       self.lblTorrentStats       = QRichLabel('', hAlign=Qt.AlignHCenter)
 
       twid = relaxedSizeStr(self,'99 seconds')[0]
@@ -4403,11 +4404,19 @@ class ArmoryMainWindow(QMainWindow):
          self.lblDashModeTorrent.setVisible(True)
          self.lblTimeLeftTorrent.setVisible(True)
          self.lblTorrentStats.setVisible(True)
+         self.barProgressTorrent.setFormat('%p%')
 
+         self.lblDashModeSync.setVisible(True)
          self.barProgressSync.setVisible(True)
+         self.barProgressSync.setValue(0)
          self.lblTimeLeftSync.setVisible(True)
+         self.barProgressSync.setFormat('')
+
+         self.lblDashModeScan.setVisible(True)
          self.barProgressScan.setVisible(True)
+         self.barProgressScan.setValue(0)
          self.lblTimeLeftScan.setVisible(True)
+         self.barProgressScan.setFormat('')
 
          if not numSeeds:
             self.barProgressTorrent.setValue(0)
@@ -4437,6 +4446,28 @@ class ArmoryMainWindow(QMainWindow):
 
 
       elif TheBDM.getBDMState()=='Scanning':
+
+         
+         self.barProgressTorrent.setVisible(TheTDM.isStarted())
+         self.lblDashModeTorrent.setVisible(TheTDM.isStarted())
+         self.barProgressTorrent.setValue(100)
+         self.lblTimeLeftTorrent.setVisible(False)
+         self.lblTorrentStats.setVisible(False)
+         self.barProgressTorrent.setFormat('')
+
+         self.lblDashModeSync.setVisible(self.doAutoBitcoind)
+         self.barProgressSync.setVisible(self.doAutoBitcoind)
+         self.barProgressSync.setValue(100)
+         self.lblTimeLeftSync.setVisible(False)
+         self.barProgressSync.setFormat('')
+
+         self.lblDashModeScan.setVisible(True)
+         self.barProgressScan.setVisible(True)
+         self.lblTimeLeftScan.setVisible(True)
+         self.barProgressScan.setFormat('%p%')
+
+
+
          # Scan time is super-simple to predict: it's pretty much linear
          # with the number of bytes remaining.
          phase,pct,rate,tleft = TheBDM.predictLoadTime()
@@ -4450,9 +4481,6 @@ class ArmoryMainWindow(QMainWindow):
             self.lblDashModeScan.setText( 'Global Blockchain Index', \
                                         size=4, bold=True, color='Foreground')
 
-         self.barProgressSync.setValue(100)
-         self.lblTorrentStats.setText('')
-
          tleft15 = (int(tleft-1)/15 + 1)*15
          if tleft < 2:
             self.lblTimeLeftScan.setText('')
@@ -4461,7 +4489,28 @@ class ArmoryMainWindow(QMainWindow):
             self.lblTimeLeftScan.setText(secondsToHumanTime(tleft15))
             self.barProgressScan.setValue(pct*100)
 
+
       elif TheSDM.getSDMState() in ['BitcoindInitializing','BitcoindSynchronizing']:
+
+         self.barProgressTorrent.setVisible(TheTDM.isStarted())
+         self.lblDashModeTorrent.setVisible(TheTDM.isStarted())
+         self.barProgressTorrent.setValue(100)
+         self.lblTimeLeftTorrent.setVisible(False)
+         self.lblTorrentStats.setVisible(False)
+         self.barProgressTorrent.setFormat('')
+
+         self.lblDashModeSync.setVisible(True)
+         self.barProgressSync.setVisible(True)
+         self.lblTimeLeftSync.setVisible(True)
+         self.barProgressSync.setFormat('%p%')
+
+         self.lblDashModeScan.setVisible(True)
+         self.barProgressScan.setVisible(True)
+         self.lblTimeLeftScan.setVisible(False)
+         self.barProgressScan.setValue(0)
+         self.barProgressScan.setFormat('')
+
+
          ssdm = TheSDM.getSDMState()
          lastBlkNum  = self.getSettingOrSetDefault('LastBlkRecv',     0)
          lastBlkTime = self.getSettingOrSetDefault('LastBlkRecvTime', 0)
@@ -4473,10 +4522,9 @@ class ArmoryMainWindow(QMainWindow):
             lastBlkTime = info['toptime']
 
          # Use a reference point if we are starting from scratch
-         refBlock = max(231747,      lastBlkNum)
-         refTime  = max(1366171579,  lastBlkTime)
+         refBlock = max(290746,      lastBlkNum)
+         refTime  = max(1394922889,  lastBlkTime)
 
-         #
 
          # Ten min/block is pretty accurate, even at genesis blk (about 1% slow)
          self.approxMaxBlock = refBlock + int((RightNow() - refTime) / (10*MINUTE))
@@ -4534,6 +4582,7 @@ class ArmoryMainWindow(QMainWindow):
          elif ssdm == 'BitcoindInitializing':
             sdmPercent = 0
             self.barProgressSync.setFormat('')
+            self.barProgressScan.setFormat('')
          else:
             LOGERROR('Should not predict sync info in non init/sync SDM state')
             return ('UNKNOWN','UNKNOWN', 'UNKNOWN')
@@ -5141,35 +5190,48 @@ class ArmoryMainWindow(QMainWindow):
                   self.lblDashDescr2.setText(descr2)
             else:  # online detected/forced, and TheSDM has already been started
                if sdmState in ['BitcoindWrongPassword', 'BitcoindNotAvailable']:
-                  setOnlyDashModeVisible()
+
+                  extraTxt = ''
+                  if not self.wasSynchronizing:
+                     setOnlyDashModeVisible()
+                  else:
+                     extraTxt = tr("""
+                        <b>Armory has lost connection to the 
+                        core Bitcoin software.  If you did not do anything
+                        that affects your network connection or the bitcoind
+                        process, it will probably recover on its own in a
+                        couple minutes</b><br><br>""")
+                        
+
                   self.mainDisplayTabs.setTabEnabled(self.MAINTABS.Ledger, False)
                   LOGINFO('Dashboard switched to auto-BadConnection')
                   self.lblDashModeSync.setText( 'Armory is <u>offline</u>', \
                                             size=4, color='TextWarn', bold=True)
                   descr1 += self.GetDashStateText('Auto', 'OfflineBadConnection')
                   descr2 += self.GetDashFunctionalityText('Offline')
-                  self.lblDashDescr1.setText(descr1)
+                  self.lblDashDescr1.setText(extraTxt + descr1)
                   self.lblDashDescr2.setText(descr2)
                elif sdmState in ['BitcoindInitializing', \
                                  'BitcoindSynchronizing', \
                                  'TorrentSynchronizing']:
+                  self.wasSynchronizing = True
                   LOGINFO('Dashboard switched to auto-InitSync')
+                  self.lblBusy.setVisible(True)
                   self.mainDisplayTabs.setTabEnabled(self.MAINTABS.Ledger, False)
                   self.updateSyncProgress()
+
+
+                  # If torrent ever ran, leave it visible
                   setSyncRowVisible(True)
                   setScanRowVisible(True)
-                  self.lblBusy.setVisible(True)
-
-                  # If torrent ever ran, leave it visiable
-                  if not TheTDM.isStarted():
-                     setTorrentRowVisible(False)
+                  setTorrentRowVisible(TheTDM.isStarted())
 
                   if TheTDM.isRunning():
                      self.lblDashModeTorrent.setText('Downloading via Armory CDN', \
                                           size=4, bold=True, color='Foreground')
                      self.lblDashModeSync.setText( 'Synchronizing with Network', \
                                           size=4, bold=True, color='DisableFG')
-                     self.lblTorrentStats.setVisible(False)
+                     self.lblTorrentStats.setVisible(True)
                   elif sdmState=='BitcoindInitializing':
                      self.lblDashModeTorrent.setText('Download via Armory CDN', \
                                           size=4, bold=True, color='DisableFG')
