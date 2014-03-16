@@ -1,10 +1,16 @@
 #ifdef __linux__
 
+#include "log.h"
+
 #include <signal.h>
 #include <execinfo.h>
 #include <unistd.h>
 #include <stdio.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 
+       
 static void sigsegv(int, siginfo_t *info, void*)
 {
    const int stderr=2;
@@ -28,8 +34,34 @@ static void sigsegv(int, siginfo_t *info, void*)
    
    backtrace_symbols_fd(bt_buffer, n, stderr);
    
-   // crash again, so that the user sees the pretty "Segmentation fault"
+   // allow crash again, so that the user sees the pretty "Segmentation fault"
    signal(SIGSEGV, 0);
+   
+   // now try to write that same error to the log file
+   // since Log::filename accesses what might be corrupt memory,
+   // we have to repeat some of the stuff above. So it can crash
+   // here and we still get a log on stderr
+   int log = open(Log::filename().c_str(), O_APPEND, O_WRONLY);
+   if (log != -1)
+   {
+      {
+         const char e1[] =
+            "\n\nSIGSEGV\n"
+            "Failed to dereference address ";
+         ::write(log, e1, sizeof(e1)-1);
+      }
+      {
+         char addr[64];
+         int num = snprintf(addr, sizeof(addr), "%p", info->si_addr);
+         ::write(log, addr, num);
+         ::write(log, "\n", 1);
+      }
+      backtrace_symbols_fd(bt_buffer, n, log);
+      ::close(log);
+   }
+      
+   // now actually crash again so the user sees the error
+   
    int *crash = (int*)0;
    *crash = 0;
 }
