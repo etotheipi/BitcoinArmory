@@ -120,6 +120,7 @@ class ArmoryMainWindow(QMainWindow):
       self.torrentCircBuffer = []
       self.lastAskedUserStopTorrent = 0
       self.wasSynchronizing = False
+      self.announceIsSetup = False
 
       # Full list of notifications, and notify IDs that should trigger popups
       # when sending or receiving.
@@ -3792,8 +3793,10 @@ class ArmoryMainWindow(QMainWindow):
                                        self.executeModeSwitch)
 
       # Will switch this to array/matrix of widgets if I get more than 2 rows
+      self.lblDashModeTorrent = QRichLabel('',doWrap=False)
       self.lblDashModeSync    = QRichLabel('',doWrap=False)
       self.lblDashModeScan    = QRichLabel('',doWrap=False)
+      self.lblDashModeTorrent.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
       self.lblDashModeSync.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
       self.lblDashModeScan.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
 
@@ -3806,7 +3809,6 @@ class ArmoryMainWindow(QMainWindow):
       self.barProgressScan.setRange(0,100)
 
 
-      self.lblDashModeTorrent    = QRichLabel('')
       self.lblTorrentStats       = QRichLabel('', hAlign=Qt.AlignHCenter)
 
       twid = relaxedSizeStr(self,'99 seconds')[0]
@@ -4021,12 +4023,15 @@ class ArmoryMainWindow(QMainWindow):
                                       'Stretch'])
 
       self.icoArmorySWVersion = QLabel('')
-      self.lblArmorySWVersion = QRichLabel('', doWrap=False)
+      self.lblArmorySWVersion = QRichLabel(tr("""
+         No version information is available"""), doWrap=False)
       self.icoSatoshiSWVersion = QLabel('')
       self.lblSatoshiSWVersion = QRichLabel('', doWrap=False)
 
       self.btnSecureDLArmory  = QPushButton(tr('Secure Downloader'))
       self.btnSecureDLSatoshi = QPushButton(tr('Secure Downloader'))
+      self.btnSecureDLArmory.setVisible(False)
+      self.btnSecureDLSatoshi.setVisible(False)
       self.connect(self.btnSecureDLArmory, SIGNAL(CLICKED), self.openDLArmory)
       self.connect(self.btnSecureDLSatoshi, SIGNAL(CLICKED), self.openDLSatoshi)
 
@@ -4113,6 +4118,9 @@ class ArmoryMainWindow(QMainWindow):
       scrollLayout.addWidget(self.announceScrollArea)
       self.tabAnnounce.setLayout(scrollLayout)
 
+      self.announceIsSetup = True
+
+
    #############################################################################
    def openDownloaderAll(self):
       dl,cl = self.getDownloaderData()
@@ -4162,6 +4170,9 @@ class ArmoryMainWindow(QMainWindow):
 
    #############################################################################
    def updateAnnounceTab(self, *args):
+      
+      if not self.announceIsSetup:
+         return
 
       iconArmory   = ':/armory_icon_32x32.png'
       iconSatoshi  = ':/bitcoinlogo.png'
@@ -4467,14 +4478,25 @@ class ArmoryMainWindow(QMainWindow):
          self.barProgressScan.setFormat('%p%')
 
 
+         # We are going to merge the build and scan bars, even though the
+         # BDM reports them as two different phases with two different 
+         # percentages.  Based on my own system with a regular hard-drive,
+         # I see the DB build take about 40 minutes, and DB scan take 15 min.
+         ratioIsBuild = 40/55.
 
          # Scan time is super-simple to predict: it's pretty much linear
          # with the number of bytes remaining.
          phase,pct,rate,tleft = TheBDM.predictLoadTime()
          if phase==1:
+            pct = pct * ratioIsBuild
+            totalEstPhase1Time = 1 / rate
+            ratioOfScanToBuild = (1-ratioIsBuild) / ratioIsBuild
+            totalEstPhase3Time = totalEstPhase1Time * ratioOfScanToBuild
+            tleft = tleft + totalEstPhase3Time
             self.lblDashModeScan.setText( 'Building Databases', \
                                         size=4, bold=True, color='Foreground')
          elif phase==3:
+            pct = ratioIsBuild + (1-ratioIsBuild)*pct
             self.lblDashModeScan.setText( 'Scanning Transaction History', \
                                         size=4, bold=True, color='Foreground')
          elif phase==4:
@@ -4526,7 +4548,8 @@ class ArmoryMainWindow(QMainWindow):
          refTime  = max(1394922889,  lastBlkTime)
 
 
-         # Ten min/block is pretty accurate, even at genesis blk (about 1% slow)
+         # Ten min/block is pretty accurate, even from genesis (about 1% slow)
+         # And it gets better as we sync past the reference block above
          self.approxMaxBlock = refBlock + int((RightNow() - refTime) / (10*MINUTE))
          self.approxBlkLeft  = self.approxMaxBlock - lastBlkNum
          self.approxPctSoFar = self.getPercentageFinished(self.approxMaxBlock, \
@@ -5201,6 +5224,8 @@ class ArmoryMainWindow(QMainWindow):
                         that affects your network connection or the bitcoind
                         process, it will probably recover on its own in a
                         couple minutes</b><br><br>""")
+                     self.lblTimeLeftSync.setVisible(False)
+                     self.barProgressSync.setFormat('')
                         
 
                   self.mainDisplayTabs.setTabEnabled(self.MAINTABS.Ledger, False)

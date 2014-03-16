@@ -383,7 +383,7 @@ class BlockDataManagerThread(threading.Thread):
             if not self.lastPctLoad == pct1:
                LOGINFO('Reading blockchain, pct complete: %0.1f', 100*totalPct)
             self.lastPctLoad = totalPct 
-            return [currPhase,totalPct,rate,tleft]
+            return (currPhase,totalPct,rate,tleft)
       except:
          raise
          return [-1,-1,-1,-1]
