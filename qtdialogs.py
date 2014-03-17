@@ -4570,19 +4570,31 @@ class DlgConfirmSend(ArmoryDialog):
       lblInfoImg = QLabel()
       lblInfoImg.setPixmap(QPixmap(':/MsgBox_info48.png'))
       lblInfoImg.setAlignment(Qt.AlignHCenter | Qt.AlignTop)
-
-      totalSend = sum([sv[1] for sv in scraddrValuePairs]) + fee
-      sumStr = coin2str(totalSend, maxZeros=1)
-
-      lblMsg = QRichLabel(
-         'You are about to spend <b>%s BTC</b> from wallet "<b>%s</b>" (%s).  You '
-         'specified the following distribution:' % (sumStr, wlt.labelName, wlt.uniqueIDB58))
-
+      
+      sendPairs = []
+      for pair in scraddrValuePairs:
+         if not self.wlt.hasAddr(scrAddr_to_hash160(pair[0])[1]):
+            sendPairs.append(pair)
+      totalSend = 0
+      lblMsg = QRichLabel('')
+      if len(sendPairs) > 0:
+         totalSend = sum([sv[1] for sv in sendPairs]) + fee
+         sumStr = coin2str(totalSend, maxZeros=1)
+         lblMsg.setText('This transaction will spend <b>%s BTC</b> from wallet "<b>%s</b>" (%s).  Here '
+                           'are the outgoing outputs:' % (sumStr, wlt.labelName, wlt.uniqueIDB58))
+      else:
+         totalSend = fee
+         sumStr = coin2str(totalSend, maxZeros=1)
+         lblMsg.setText('This transaction will spend just a fee of <b>%s BTC</b> from wallet "<b>%s</b>" (%s). '
+            '<br><br><b>Note:</b> All of the outputs are coming back to this wallet. Here is the outgoing fee:'
+            % (sumStr, wlt.labelName, wlt.uniqueIDB58))
+         
+   
 
       recipLbls = []
       ffixBold = GETFONT('Fixed')
       ffixBold.setWeight(QFont.Bold)
-      for sv in scraddrValuePairs:
+      for sv in sendPairs:
          addrPrint = (scrAddr_to_addrStr(sv[0]) + ' : ').ljust(38)
          recipLbls.append(QLabel(addrPrint + coin2str(sv[1], rJust=True, maxZeros=4)))
          recipLbls[-1].setFont(ffixBold)
@@ -4595,7 +4607,7 @@ class DlgConfirmSend(ArmoryDialog):
          recipLbls[-1].setFont(GETFONT('Fixed'))
 
       recipLbls.append(HLINE(QFrame.Sunken))
-      recipLbls.append(QLabel('Total bitcoins : '.ljust(38) +
+      recipLbls.append(QLabel('Total bitcoins Sent: '.ljust(38) +
                         coin2str(totalSend, rJust=True, maxZeros=4)))
       recipLbls[-1].setFont(GETFONT('Fixed'))
 
