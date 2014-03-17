@@ -257,8 +257,7 @@ class SendBitcoinsFrame(ArmoryFrame):
    def unsignedCheckBoxUpdate(self):
       if self.unsignedCheckbox.isChecked():
          self.btnSend.setText('Continue')
-         self.btnSend.setToolTip('This is a watching-only wallet! '
-                      'You cannot use it to send bitcoins!')
+         self.btnSend.setToolTip('Click to create an unsigned transaction!')
       else:
          self.btnSend.setText('Send!')
          self.btnSend.setToolTip('Click to send bitcoins!')
