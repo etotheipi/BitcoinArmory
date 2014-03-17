@@ -41,7 +41,7 @@ from qrcodenative import QRCode, QRErrorCorrectLevel
 
 
 # Version Numbers 
-BTCARMORY_VERSION    = (0, 90, 99, 1)  # (Major, Minor, Bugfix, AutoIncrement) 
+BTCARMORY_VERSION    = (0, 90, 99, 2)  # (Major, Minor, Bugfix, AutoIncrement) 
 PYBTCWALLET_VERSION  = (1, 35,  0, 0)  # (Major, Minor, Bugfix, AutoIncrement)
 
 ARMORY_DONATION_ADDR = '1ArmoryXcfq7TnCSuZa9fQjRYwJ4bkRKfv'
@@ -2877,6 +2877,7 @@ def EstimateCumulativeBlockchainSize(blkNum):
          259542 11106516992
          271827 12968787968
          286296 15619588096
+         290715 16626221056
       """
    strList = [line.strip().split() for line in blksizefile.strip().split('\n')]
    BLK_SIZE_LIST = [[int(x[0]), int(x[1])] for x in strList]
@@ -3168,9 +3169,20 @@ def touchFile(fname):
 # BitTornado library  (the user can remove the BitTornado dir and/or the
 # torrentDL.py files without breaking Armory, it will simply set this
 # disable flag to true)
+class FakeTDM(object):
+   def __init__(self):
+      self.isRunning   = lambda: False
+      self.isStarted   = lambda: False
+      self.isFinished  = lambda: False
+      self.getTDMState = lambda: 'Disabled'
+      self.removeOldTorrentFile = lambda: None
+
+      
 DISABLE_TORRENTDL = CLI_OPTIONS.disableTorrent
+TheTDM = FakeTDM()
 try:
    import torrentDL
+   TheTDM = torrentDL.TorrentDownloadManager()
 except:
    LOGEXCEPT('Failed to import torrent downloader')
    DISABLE_TORRENTDL = True
@@ -3178,6 +3190,7 @@ except:
 # We only use BITTORRENT for mainnet
 if USE_TESTNET:
    DISABLE_TORRENTDL = True
+
 
 
 

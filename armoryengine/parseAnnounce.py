@@ -101,8 +101,9 @@ class changelogParser(object):
    
          if line.startswith('#') or len(line)==0:
             continue
+
    
-         if line.upper().startswith('VERSION'):
+         if line.startswith('VERSION') and len(line.split())==2:
             self.changelog.append([line.split(' ')[-1], '', []])
          elif line.upper().startswith('RELEASED'):
             self.changelog[-1][1] = line[8:].strip()

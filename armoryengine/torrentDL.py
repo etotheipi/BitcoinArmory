@@ -56,6 +56,7 @@ class TorrentDownloadManager(object):
       self.torrentName   = None
       self.savePath      = None
       self.savePath_temp = None
+      self.savePath_old  = None
 
 
       
@@ -74,6 +75,7 @@ class TorrentDownloadManager(object):
       self.torrentName = None
       self.savePath    = None
       self.savePath_temp = None
+      self.savePath_old = None
 
       # Set torrent file, bail if it doesn't exist
       self.torrent = torrentFile
@@ -101,6 +103,7 @@ class TorrentDownloadManager(object):
          if self.savePath is None:
             self.savePath = os.path.join(BTC_HOME_DIR, self.torrentName)
          self.savePath_temp = self.savePath + '.partial'
+         self.savePath_old  = self.savePath + '.old'
 
 
    #############################################################################
@@ -110,6 +113,11 @@ class TorrentDownloadManager(object):
    #############################################################################
    def torrentIsMissing(self):
       return self.torrentDNE
+
+   #############################################################################
+   def removeOldTorrentFile(self):
+      if os.path.exists(self.savePath_old):
+         os.remove(self.savePath_old)
 
    #############################################################################
    def fileProgress(self):
@@ -520,7 +528,4 @@ if __name__=="__main__":
    print 'Finished downloading!  Exiting...'
 
 
-
-# Create a master TDM
-TheTDM = TorrentDownloadManager()
 
