@@ -451,7 +451,12 @@ class DlgBugReport(ArmoryDialog):
          If you do not find the answer to your problem on those pages,
          please describe it in detail below, and any steps taken to
          reproduce the problem.  The more information you provide, the
-         more likely we will be able to help you.""") % (tsPage, faqPage))
+         more likely we will be able to help you.
+         <br><br>
+         <b><font color="%s">Note:</font></b>  Please keep in mind we 
+         are a small open-source company, and do not have a formal customer
+         support department.  We will do our best to help you, but cannot
+         respond to everyone!""") % (tsPage, faqPage, htmlColor('TextBlue')))
 
       self.chkNoLog = QCheckBox('Do not send log file with report')
       self.chkNoLog.setChecked(False)
@@ -461,9 +466,9 @@ class DlgBugReport(ArmoryDialog):
                                  self.main.logFilePrivacyWarning)
 
       self.noLogWarn = QRichLabel(tr("""
-         <font color="%s">If you do not include the log file we may not
-         be able to help you solve your problem!  Click the "Privacy Info"
-         button for details.""") % htmlColor('TextWarn'))
+         <font color="%s">You are unlikely to get a response unless you 
+         provide a log file and a reasonable description with your support
+         request.""") % htmlColor('TextWarn'))
       self.noLogWarn.setVisible(False)
 
       self.connect(self.chkNoLog, SIGNAL('toggled(bool)'), \

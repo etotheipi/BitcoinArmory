@@ -2471,6 +2471,13 @@ class ArmoryMainWindow(QMainWindow):
             self.delayedURIData['qLen'] = qLen -i -1
             self.uriLinkClicked(uriStr)
 
+
+   #############################################################################
+   def removeBootstrapDat(self):
+      bfile = os.path.join(BTC_HOME_DIR, 'bootstrap.dat.old')
+      if os.path.exists(bfile):
+         os.remove(bfile)
+
    #############################################################################
    def checkMemoryPoolCorruption(self, mempoolname):
       if not os.path.exists(mempoolname):
