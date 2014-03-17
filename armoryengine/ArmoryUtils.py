@@ -3169,9 +3169,20 @@ def touchFile(fname):
 # BitTornado library  (the user can remove the BitTornado dir and/or the
 # torrentDL.py files without breaking Armory, it will simply set this
 # disable flag to true)
+class FakeTDM(object):
+   def __init__(self):
+      self.isRunning   = lambda: False
+      self.isStarted   = lambda: False
+      self.isFinished  = lambda: False
+      self.getTDMState = lambda: 'Disabled'
+      self.removeOldTorrentFile = lambda: None
+
+      
 DISABLE_TORRENTDL = CLI_OPTIONS.disableTorrent
+TheTDM = FakeTDM()
 try:
    import torrentDL
+   TheTDM = torrentDL.TorrentDownloadManager()
 except:
    LOGEXCEPT('Failed to import torrent downloader')
    DISABLE_TORRENTDL = True
@@ -3179,6 +3190,7 @@ except:
 # We only use BITTORRENT for mainnet
 if USE_TESTNET:
    DISABLE_TORRENTDL = True
+
 
 
 

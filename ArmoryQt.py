@@ -44,7 +44,6 @@ from ui.UpgradeDownloader import UpgradeDownloaderDialog
 from jasvet import verifySignature, readSigBlock
 from announcefetch import AnnounceDataFetcher, ANNOUNCE_URL, ANNOUNCE_URL_BACKUP
 from armoryengine.parseAnnounce import *
-from armoryengine.torrentDL import TheTDM
 
 # HACK ALERT: Qt has a bug in OS X where the system font settings will override
 # the app's settings when a window is activated (e.g., Armory starts, the user
@@ -1028,7 +1027,7 @@ class ArmoryMainWindow(QMainWindow):
          rtlength = ctypes.c_int()
          rtlength = GetModuleFileNameW(None, ctypes.byref(app_path), 1024)
          passstr = str(app_path.raw)
-         
+
          modulepathname += unicode(passstr[0:(rtlength*2)], encoding='utf16') + u'" "%1"'
          modulepathname = modulepathname.encode('utf8')
 
@@ -1425,7 +1424,7 @@ class ArmoryMainWindow(QMainWindow):
 
             except:
                pass
-               
+
 
 
 
@@ -1451,7 +1450,7 @@ class ArmoryMainWindow(QMainWindow):
       return tr("""
          Your version of Armory is now outdated.  Please upgrade to version
          %s through our secure downloader inside Armory (link at the bottom
-         of this notification window).  Alternatively, you can get the new 
+         of this notification window).  Alternatively, you can get the new
          version from our website downloads page at:
          <br><br>
          <a href="%s">%s</a> """) % (verStr, webURL, webURL)
@@ -1585,11 +1584,13 @@ class ArmoryMainWindow(QMainWindow):
          if not self.notificationIsRelevant(nid, valmap):
             # Can't remove while iterating over the map
             irrelevantIDs.add(nid)
+            self.notifyIgnoreShort.add(nid)
             continue
 
          if valmap['PRIORITY'].isdigit():
-            tabPriority = max(tabPriority, int(valmap['PRIORITY']))
-            self.maxPriorityID = nid
+            if int(valmap['PRIORITY']) > tabPriority:
+               tabPriority = int(valmap['PRIORITY'])
+               self.maxPriorityID = nid
 
          if not nid in self.almostFullNotificationList:
             addedNotifyIDs.append(nid)
@@ -1614,28 +1615,26 @@ class ArmoryMainWindow(QMainWindow):
       # Change the "Announcements" tab color if something important is there
       tabWidgetBar = self.mainDisplayTabs.tabBar()
       tabColor = Colors.Foreground
-      if tabPriority >= 2048:
-         tabColor = Colors.Foreground
-      if tabPriority >= 3072:
-         tabColor = Colors.TextBlue
-      if tabPriority >= 4096:
-         tabColor = Colors.TextRed
       if tabPriority >= 5120:
          tabColor = Colors.TextRed
+      elif tabPriority >= 4096:
+         tabColor = Colors.TextRed
+      elif tabPriority >= 3072:
+         tabColor = Colors.TextBlue
+      elif tabPriority >= 2048:
+         tabColor = Colors.TextBlue
 
       tabWidgetBar.setTabTextColor(self.MAINTABS.Announce, tabColor)
       self.updateAnnounceTab()
 
       # We only do popups for notifications >=4096, AND upgrade notify
-      if tabPriority >= 4096:
+      if tabPriority >= 3072:
          DlgNotificationWithDNAA(self, self, self.maxPriorityID, \
                            currNotificationList[self.maxPriorityID]).show()
       elif vnotify:
          if not vnotify['UNIQUEID'] in self.notifyIgnoreShort:
             DlgNotificationWithDNAA(self,self,vnotify['UNIQUEID'],vnotify).show()
 
-      # Update the settings file with any permanent-ignore requests
-      self.writeSetting('NotifyIgnore', ''.join(self.notifyIgnoreLong))
 
 
 
@@ -2078,7 +2077,7 @@ class ArmoryMainWindow(QMainWindow):
             QMessageBox.Ok)
          return
       elif not TheBDM.getBDMState()=='BlockchainReady':
-         # BDM isnt ready yet, saved URI strings in the delayed URIDict to 
+         # BDM isnt ready yet, saved URI strings in the delayed URIDict to
          # call later through finishLoadBlockChain
          qLen = self.delayedURIData['qLen']
 
@@ -2461,6 +2460,7 @@ class ArmoryMainWindow(QMainWindow):
       # This will force the table to refresh with new data
       self.setDashboardDetails()
       self.updateAnnounceTab()  # make sure satoshi version info is up to date
+      self.removeBootstrapDat()  # if we got here, we're *really* done with it
       self.walletModel.reset()
 
       qLen = self.delayedURIData['qLen']
@@ -4009,15 +4009,15 @@ class ArmoryMainWindow(QMainWindow):
          lastUpdate2 = self.announceFetcher.getLastSuccessfulFetchTime()
          if lastUpdate==lastUpdate2:
             QMessageBox.warning(self, tr('Not Available'), tr("""
-               Could not access the <font color="%s"><b>Armory 
+               Could not access the <font color="%s"><b>Armory
                Technologies, Inc.</b></font> announcement feeder."""), \
                QMessageBox.Ok)
-         
+
 
       self.lblLastUpdated = QRichLabel('', doWrap=False)
       self.btnCheckForUpdates  = QPushButton(tr('Check for Updates'))
       self.connect(self.btnCheckForUpdates, SIGNAL(CLICKED), checkUpd)
-                              
+
 
       frmLastUpdate = makeHorizFrame(['Stretch', \
                                       self.lblLastUpdated, \
@@ -4069,7 +4069,7 @@ class ArmoryMainWindow(QMainWindow):
             self.parent = parent
             self.nid = nid
             self.notifyMap = notifyMap
-         
+
          def __call__(self):
             return DlgNotificationWithDNAA(self.parent, self.parent, \
                                           self.nid, self.notifyMap).exec_()
@@ -4141,7 +4141,7 @@ class ArmoryMainWindow(QMainWindow):
       if not dl is None and not cl is None:
          UpgradeDownloaderDialog(self, self, 'Satoshi', dl, cl).exec_()
 
-   
+
    #############################################################################
    def getDownloaderData(self):
       dl = self.announceFetcher.getAnnounceFile('downloads')
@@ -4149,30 +4149,30 @@ class ArmoryMainWindow(QMainWindow):
       if dl is None or cl is None:
          QMessageBox.warning(self, tr('No Data'), tr("""
             The secure downloader has not received any download
-            data to display.  Either the <font color="%s"><b>Armory 
-            Technologies, Inc.</b></font> announcement feeder is 
+            data to display.  Either the <font color="%s"><b>Armory
+            Technologies, Inc.</b></font> announcement feeder is
             down, or this computer cannot access the server.""") % \
             htmlColor('TextGreen'), QMessageBox.Ok)
          return None,None
-   
+
       lastUpdate = self.announceFetcher.getLastSuccessfulFetchTime()
       sinceLastUpd = RightNow() - lastUpdate
       if lastUpdate < RightNow()-1*WEEK:
          QMessageBox.warning(self, tr('Old Data'), tr("""
-            The last update retrieved from the <font color="%s"><b>Armory 
-            Technologies, Inc.</b></font> announcement feeder was <b>%s</b> 
-            ago.  The following downloads may not be the latest 
+            The last update retrieved from the <font color="%s"><b>Armory
+            Technologies, Inc.</b></font> announcement feeder was <b>%s</b>
+            ago.  The following downloads may not be the latest
             available.""") % (htmlColor("TextGreen"), \
             secondsToHumanTime(sinceLastUpd)), QMessageBox.Ok)
-         
-            
+
+
       return dl,cl
-      
+
 
 
    #############################################################################
    def updateAnnounceTab(self, *args):
-      
+
       if not self.announceIsSetup:
          return
 
@@ -4260,9 +4260,9 @@ class ArmoryMainWindow(QMainWindow):
             self.icoSatoshiSWVersion.setPixmap(dispIcon)
             self.lblSatoshiSWVersion.setText(tr("""Core Bitcoin version
                %s is available.""") % satLastStr)
-            
-            
-         
+
+
+
 
          #self.btnSecureDLSatoshi.setVisible(False)
          #if self.satoshiVersions[0]:
@@ -4307,7 +4307,7 @@ class ArmoryMainWindow(QMainWindow):
          elif priority>=2048:
             pixm = QPixmap(':/MsgBox_info48.png')
          else:
-            pixm = QPixmap()
+            pixm = QPixmap(':/MsgBox_info48.png')
 
 
          shortDescr = self.almostFullNotificationList[nid]['SHORTDESCR']
@@ -4482,7 +4482,6 @@ class ArmoryMainWindow(QMainWindow):
 
       elif TheBDM.getBDMState()=='Scanning':
 
-         
          self.barProgressTorrent.setVisible(TheTDM.isStarted())
          self.lblDashModeTorrent.setVisible(TheTDM.isStarted())
          self.barProgressTorrent.setValue(100)
@@ -4503,7 +4502,7 @@ class ArmoryMainWindow(QMainWindow):
 
 
          # We are going to merge the build and scan bars, even though the
-         # BDM reports them as two different phases with two different 
+         # BDM reports them as two different phases with two different
          # percentages.  Based on my own system with a regular hard-drive,
          # I see the DB build take about 40 minutes, and DB scan take 15 min.
          ratioIsBuild = 40/55.
@@ -4907,23 +4906,23 @@ class ArmoryMainWindow(QMainWindow):
             'restart Armory.')
          if state == 'InitializingLongTime':
             return tr("""
-            <b>To maximize your security, the Bitcoin engine is downloading 
-            and verifying the global transaction ledger.  <u>This will take 
-            several hours, but only needs to be done once</u>!</b>  It is 
-            usually best to leave it running over night for this 
-            initialization process.  Subsequent loads will only take a few 
+            <b>To maximize your security, the Bitcoin engine is downloading
+            and verifying the global transaction ledger.  <u>This will take
+            several hours, but only needs to be done once</u>!</b>  It is
+            usually best to leave it running over night for this
+            initialization process.  Subsequent loads will only take a few
             minutes.
             <br><br>
-            <b>Please Note:</b> Between Armory and the underlying Bitcoin 
+            <b>Please Note:</b> Between Armory and the underlying Bitcoin
             engine, you need to have 40-50 GB of spare disk space available
-            to hold the global transaction history.  
+            to hold the global transaction history.
             <br><br>
-            While you wait, you can manage your wallets.  Make new wallets, 
-            make digital or paper backups, create Bitcoin addresses to receive 
-            payments, 
-            sign messages, and/or import private keys.  You will always 
-            receive Bitcoin payments regardless of whether you are online, 
-            but you will have to verify that payment through another service 
+            While you wait, you can manage your wallets.  Make new wallets,
+            make digital or paper backups, create Bitcoin addresses to receive
+            payments,
+            sign messages, and/or import private keys.  You will always
+            receive Bitcoin payments regardless of whether you are online,
+            but you will have to verify that payment through another service
             until Armory is finished this initialization.""")
          if state == 'InitializingDoneSoon':
             return ( \
@@ -5002,10 +5001,10 @@ class ArmoryMainWindow(QMainWindow):
             serrDisp = '<b><font face="courier">StdErr: %s</font></b>' % serrHtml
             if len(sout)>0 or len(serr)>0:
                return  (tr("""
-               There was an error starting the underlying Bitcoin engine.  
-               This should not normally happen.  Usually it occurs when you 
-               have been using Bitcoin-Qt prior to using Armory, especially 
-               if you have upgraded or downgraded Bitcoin-Qt recently. 
+               There was an error starting the underlying Bitcoin engine.
+               This should not normally happen.  Usually it occurs when you
+               have been using Bitcoin-Qt prior to using Armory, especially
+               if you have upgraded or downgraded Bitcoin-Qt recently.
                Output from bitcoind:<br>""") + \
                (soutDisp if len(sout)>0 else '') + \
                (serrDisp if len(serr)>0 else '') )
@@ -5243,14 +5242,14 @@ class ArmoryMainWindow(QMainWindow):
                      setOnlyDashModeVisible()
                   else:
                      extraTxt = tr("""
-                        <b>Armory has lost connection to the 
+                        <b>Armory has lost connection to the
                         core Bitcoin software.  If you did not do anything
                         that affects your network connection or the bitcoind
                         process, it will probably recover on its own in a
                         couple minutes</b><br><br>""")
                      self.lblTimeLeftSync.setVisible(False)
                      self.barProgressSync.setFormat('')
-                        
+
 
                   self.mainDisplayTabs.setTabEnabled(self.MAINTABS.Ledger, False)
                   LOGINFO('Dashboard switched to auto-BadConnection')
@@ -5293,7 +5292,7 @@ class ArmoryMainWindow(QMainWindow):
                      self.lblDashModeSync.setText( 'Synchronizing with Network', \
                                               size=4, bold=True, color='Foreground')
                      self.lblTorrentStats.setVisible(False)
-               
+
 
                   self.lblDashModeScan.setText( 'Build Databases and Scan', \
                                               size=4, bold=True, color='DisableFG')
@@ -5567,7 +5566,7 @@ class ArmoryMainWindow(QMainWindow):
                         reply = QMessageBox.warning(self, tr('Torrent'), tr("""
                            Armory is attempting to use BitTorrent to speed up
                            the initial synchronization, but it appears to be
-                           downloading slowly or not at all.  Would you like 
+                           downloading slowly or not at all.  Would you like
                            to stop it?"""), QMessageBox.Yes |QMessageBox.No)
                         if reply==QMessageBox.Yes:
                            TheTDM.failedFunc('User selected shutdown torrent')

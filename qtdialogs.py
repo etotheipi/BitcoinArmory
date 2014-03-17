@@ -8032,6 +8032,9 @@ class DlgSettings(ArmoryDialog):
       self.chkDisableUpgradeNotify = QCheckBox(tr("""
          Disable software upgrade notifications """))
 
+      self.chkDisableUpgradeNotify.setChecked( \
+         self.main.getSettingOrSetDefault('DisableUpgradeNotify', False))
+
       lblDisableAnnounce = QRichLabel(tr("""
          <font color="%s">If you must completely disable all notifications
          from the Armory team, you can run Armory with the
@@ -8058,12 +8061,14 @@ class DlgSettings(ArmoryDialog):
 
       btnResetNotify = QPushButton(tr('Reset Notifications'))
       frmBtnResetNotify = makeHorizFrame([btnResetNotify, 'Stretch'])
+
       def resetNotifyLong():
          self.main.notifyIgnoreLong  = set()
          self.main.notifyIgnoreShort = set()
          self.main.writeSetting('NotifyIgnore', '')
          QMessageBox.information(self, tr('Settings Changed'), tr("""
             All notifications have been reset!"""), QMessageBox.Ok)
+
       self.connect(btnResetNotify, SIGNAL(CLICKED), resetNotifyLong)
 
 
@@ -8498,7 +8503,7 @@ class DlgSettings(ArmoryDialog):
 
 
       if self.radioAnnounce1024.isChecked():
-         self.main.writeSetting('NotifyMinPriority', 1024)
+         self.main.writeSetting('NotifyMinPriority',    0)
       elif self.radioAnnounce2048.isChecked():
          self.main.writeSetting('NotifyMinPriority', 2048)
       elif self.radioAnnounce3072.isChecked():
@@ -9252,7 +9257,7 @@ class DlgNotificationWithDNAA(ArmoryDialog):
       elif minver=='*':
          versionString = tr('Affects Armory versions:  ')
          if maxver=='*':
-            versionString = ''
+            versionString = 'Affects all Armory versions'
          elif maxExclude:
             versionString += tr('before %s<br>' % maxver)
          else:
@@ -9430,6 +9435,7 @@ class DlgNotificationWithDNAA(ArmoryDialog):
    def acceptLongIgnore(self):
       self.main.notifyIgnoreLong.add(self.notifyID)
       self.main.notifyIgnoreShort.add(self.notifyID)
+      self.main.writeSetting('NotifyIgnore',''.join(self.main.notifyIgnoreLong))
       self.accept()
 
    def acceptShortIgnore(self):
