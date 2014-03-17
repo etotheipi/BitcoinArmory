@@ -585,12 +585,12 @@ class SendBitcoinsFrame(ArmoryFrame):
       txdp = PyTxDistProposal().createFromTxOutSelection(utxoSelect, recipPairs)
 
       txValues = [totalSend, fee, totalChange]
-      
-      dlg = DlgConfirmSend(self.wlt, self.origSVPairs, txValues[1], self, \
-                                                   self.main, False, changePair)
-
-      if not dlg.exec_():
-         return False
+      if not self.unsignedCheckbox.isChecked():
+         dlg = DlgConfirmSend(self.wlt, self.origSVPairs, txValues[1], self, \
+                                                      self.main, False, changePair)
+   
+         if not dlg.exec_():
+            return False
       
       return txdp
    
