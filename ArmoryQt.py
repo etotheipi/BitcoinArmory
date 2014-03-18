@@ -120,6 +120,7 @@ class ArmoryMainWindow(QMainWindow):
       self.lastAskedUserStopTorrent = 0
       self.wasSynchronizing = False
       self.announceIsSetup = False
+      self.entropyAccum = []
 
       # Full list of notifications, and notify IDs that should trigger popups
       # when sending or receiving.
@@ -746,6 +747,83 @@ class ArmoryMainWindow(QMainWindow):
          (or bitcoind) and let it synchronize again before you restart
          Armory.  Doing so will clear its memory pool, as well""")
       QMessageBox.information(self, tr('Memory Pool'), msg, QMessageBox.Ok)
+
+
+
+   ####################################################
+   def registerWidgetActivateTime(self, widget):
+      # This is a bit of a hack, but it's a very isolated method to make 
+      # it easy to link widgets to my entropy accumulator
+      mainWindow = self
+      
+      def newKPE(wself, event=None):
+         mainWindow.logKeyPressTime()
+         super(wself.__class__, wself).keyPressEvent(event)
+
+      def newKRE(wself, event=None):
+         mainWindow.logKeyPressTime()
+         super(wself.__class__, wself).keyReleaseEvent(event)
+
+      def newMPE(wself, event=None):
+         mainWindow.logKeyPressTime()
+         super(wself.__class__, wself).mousePressEvent(event)
+
+      def newMRE(wself, event=None):
+         mainWindow.logKeyPressTime()
+         super(wself.__class__, wself).mouseReleaseEvent(event)
+
+      import types
+      widget.keyPressEvent     = types.MethodType(newKPE, widget)
+      widget.keyReleaseEvent   = types.MethodType(newKRE, widget)
+      widget.mousePressEvent   = types.MethodType(newMPE, widget)
+      widget.mouseReleaseEvent = types.MethodType(newMRE, widget)
+
+      
+   ####################################################
+   def logKeyPressTime(self):
+      self.entropyAccum.append(RightNow())
+
+   ####################################################
+   def getExtraEntropyForKeyGen(self):
+      source1,self.entropyAccum = self.entropyAccum,None
+      source2 = []
+
+      try:
+         if OS_WINDOWS:
+            tempDir = os.getenv('TEMP')
+            extraFiles = []
+         elif OS_LINUX:
+            tempDir = '/var/log'
+            extraFiles = ['/var/log/Xorg.0.log']
+         elif OS_MACOSX:
+            tempDir = '??'
+            extraFiles = []
+
+         # A simple listing of the directory files, sizes and times is good
+         if os.path.exists(tempDir):
+            for fname in os.listdir(tempDir):
+               fullpath = os.path.join(tempDir, fname)
+               sz = os.path.getsize(fullpath)
+               tm = os.path.getmtime(fullpath)
+               source2.append([fname, sz, tm])
+
+         # On Linux we also throw in Xorg.0.log
+         for f in extraFiles:
+            if os.path.exists(f):
+               with open(f,'rb') as infile:
+                  source2.append(hash256(infile.read()))
+               
+         if len(source2)==0:
+            LOGWARN('Second source of supplemental entropy will be empty')
+
+      except:
+         LOGEXCEPT('Error getting extra entropy from filesystem')
+
+
+      return SecureBinaryData( HMAC256(str(source1), str(source2)) )
+      
+
+
 
    ####################################################
    def rescanNextLoad(self):

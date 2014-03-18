@@ -287,6 +287,11 @@ class NewWalletFrame(ArmoryFrame):
 
       frameLayout.addWidget(newWalletTabs)
       self.setLayout(frameLayout)
+
+      # These help us collect entropy as the user goes through the wizard
+      # to be used for wallet creation
+      self.main.registerWidgetActivateTime(self)
+
       
    def getKdfSec(self):
       return self.advancedOptionsTab.getKdfSec()
@@ -388,8 +393,8 @@ class SetPassphraseFrame(ArmoryFrame):
       self.passphraseCallback = passphraseCallback
       layout = QGridLayout()
       lblDlgDescr = QLabel('Please enter an passphrase for wallet encryption.\n\n'
-                           'A good passphrase consists of at least 8 or more\n'
-                           'random letters, or 5 or more random words.\n')
+                           'A good passphrase consists of at 10 or more\n'
+                           'random letters, or 6 or more random words.\n')
       lblDlgDescr.setWordWrap(True)
       layout.addWidget(lblDlgDescr, 0, 0, 1, 2)
       lblPwd1 = QLabel("New Passphrase:")
@@ -415,6 +420,12 @@ class SetPassphraseFrame(ArmoryFrame):
                    self.checkPassphrase)
       self.connect(self.editPasswd2, SIGNAL('textChanged(QString)'), \
                    self.checkPassphrase)
+
+
+      # These help us collect entropy as the user goes through the wizard
+      # to be used for wallet creation
+      self.main.registerWidgetActivateTime(self)
+
    
    # This function is multi purpose. It updates the screen and validates the passphrase
    def checkPassphrase(self, sideEffects=True):
@@ -447,7 +458,7 @@ class SetPassphraseFrame(ArmoryFrame):
       return str(self.editPasswd1.text())
    
 class VerifyPassphraseFrame(ArmoryFrame):
-   def __init__(self, passphrase, parent, main, initLabel=''):
+   def __init__(self, parent, main, initLabel=''):
       super(VerifyPassphraseFrame, self).__init__(parent, main)
       lblWarnImgL = QLabel()
       lblWarnImgL.setPixmap(QPixmap(':/MsgBox_warning48.png'))
@@ -481,6 +492,11 @@ class VerifyPassphraseFrame(ArmoryFrame):
       layout.addWidget(lblWarnTxt2, 2, 1, 1, 1)
       layout.addWidget(self.edtPasswd3, 5, 1, 1, 1)
       self.setLayout(layout)
+
+      # These help us collect entropy as the user goes through the wizard
+      # to be used for wallet creation
+      self.main.registerWidgetActivateTime(self)
+
       
 class WalletBackupFrame(ArmoryFrame):
    # Some static enums, and a QRadioButton with mouse-enter/mouse-leave events

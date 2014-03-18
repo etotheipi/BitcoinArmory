@@ -683,7 +683,8 @@ class PyBtcWallet(object):
                              kdfTargSec=DEFAULT_COMPUTE_TIME_TARGET, \
                              kdfMaxMem=DEFAULT_MAXMEM_LIMIT, \
                              shortLabel='', longLabel='', isActuallyNew=True, \
-                             doRegisterWithBDM=True, skipBackupFile=False):
+                             doRegisterWithBDM=True, skipBackupFile=False, \
+                             extraEntropy=None):
       """
       This method will create a new wallet, using as much customizability
       as you want.  You can enable encryption, and set the target params
@@ -743,7 +744,9 @@ class PyBtcWallet(object):
       if not plainRootKey:
          # TODO: We should find a source for injecting extra entropy
          #       At least, Crypto++ grabs from a few different sources, itself
-         plainRootKey = SecureBinaryData().GenerateRandom(32)
+         if not extraEntropy:
+            extraEntropy = SecureBinaryData(0)
+         plainRootKey = SecureBinaryData().GenerateRandom(32, extraEntropy)
 
       if not chaincode:
          #chaincode = SecureBinaryData().GenerateRandom(32)

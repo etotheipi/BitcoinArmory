@@ -72,9 +72,15 @@ SecureBinaryData SecureBinaryData::copySwapEndian(size_t pos1, size_t pos2) cons
 }
 
 /////////////////////////////////////////////////////////////////////////////
-SecureBinaryData SecureBinaryData::GenerateRandom(uint32_t numBytes)
+SecureBinaryData SecureBinaryData::GenerateRandom(uint32_t numBytes, 
+                                                  SecureBinaryData entropy)
 {
    BTC_PRNG prng;
+
+   // Not required, but you may pass in extra bytes
+   if(entropy.getSize() > 0)
+      prng.IncorporateEntropy( (byte*)entropy.getPtr(), entropy.getSize());
+
    SecureBinaryData randData(numBytes);
    prng.GenerateBlock(randData.getPtr(), numBytes);
    return randData;  
@@ -424,9 +430,9 @@ SecureBinaryData CryptoAES::DecryptCBC(SecureBinaryData & data,
 
 
 /////////////////////////////////////////////////////////////////////////////
-BTC_PRIVKEY CryptoECDSA::CreateNewPrivateKey(void)
+BTC_PRIVKEY CryptoECDSA::CreateNewPrivateKey(SecureBinaryData entropy)
 {
-   return ParsePrivateKey(SecureBinaryData().GenerateRandom(32));
+   return ParsePrivateKey(SecureBinaryData().GenerateRandom(32, entropy));
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -518,9 +524,9 @@ BTC_PUBKEY CryptoECDSA::ComputePublicKey(BTC_PRIVKEY const & cppPrivKey)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-SecureBinaryData CryptoECDSA::GenerateNewPrivateKey(void)
+SecureBinaryData CryptoECDSA::GenerateNewPrivateKey(SecureBinaryData entropy)
 {
-   return SecureBinaryData().GenerateRandom(32);
+   return SecureBinaryData().GenerateRandom(32, entropy);
 }
 
 

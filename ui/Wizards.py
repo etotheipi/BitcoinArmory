@@ -156,7 +156,9 @@ class WalletWizard(ArmoryWizard):
                      kdfMaxMem=self.walletCreationPage.pageFrame.getKdfBytes(), \
                      shortLabel=self.walletCreationPage.pageFrame.getName(), \
                      longLabel=self.walletCreationPage.pageFrame.getDescription(), \
-                     doRegisterWithBDM=False)
+                     doRegisterWithBDM=False, \
+                     extraEntropy=self.main.getExtraEntropyForKeyGen())
+
       self.newWallet.unlock(securePassphrase=
                SecureBinaryData(self.setPassphrasePage.pageFrame.getPassphrase()))
       # We always want to fill the address pool, right away.  
