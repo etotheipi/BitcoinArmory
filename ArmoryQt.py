@@ -1287,8 +1287,7 @@ class ArmoryMainWindow(QMainWindow):
    def setupAnnouncementFetcher(self):
       skipChk1 = self.getSettingOrSetDefault('SkipAnnounceCheck', False)
       skipChk2 = CLI_OPTIONS.skipAnnounceCheck
-      #skipChk3 = CLI_OPTIONS.offline and not CLI_OPTIONS.testAnnounceCode
-      skipChk3 = False
+      skipChk3 = CLI_OPTIONS.offline and not CLI_OPTIONS.testAnnounceCode
       self.skipAnnounceCheck = skipChk1 or skipChk2 or skipChk3
 
       url1 = ANNOUNCE_URL
@@ -2344,6 +2343,8 @@ class ArmoryMainWindow(QMainWindow):
    #############################################################################
    def forceRescanDB(self):
       self.needUpdateAfterScan = True
+      self.lblDashModeBuild.setText( 'Build Databases', \
+                                        size=4, bold=True, color='DisableFG')
       self.lblDashModeScan.setText( 'Scanning Transaction History', \
                                         size=4, bold=True, color='Foreground')
       TheBDM.rescanBlockchain('ForceRescan', wait=False)
@@ -2352,8 +2353,10 @@ class ArmoryMainWindow(QMainWindow):
    #############################################################################
    def forceRebuildAndRescan(self):
       self.needUpdateAfterScan = True
-      self.lblDashModeScan.setText( 'Preparing Databases', \
+      self.lblDashModeBuild.setText( 'Preparing Databases', \
                                         size=4, bold=True, color='Foreground')
+      self.lblDashModeScan.setText( 'Scan Transaction History', \
+                                        size=4, bold=True, color='DisableFG')
       #self.resetBdmBeforeScan()  # this resets BDM and then re-registeres wlts
       TheBDM.rescanBlockchain('ForceRebuild', wait=False)
       self.setDashboardDetails()
@@ -3801,20 +3804,26 @@ class ArmoryMainWindow(QMainWindow):
       self.connect(self.btnModeSwitch, SIGNAL('clicked()'), \
                                        self.executeModeSwitch)
 
+
       # Will switch this to array/matrix of widgets if I get more than 2 rows
       self.lblDashModeTorrent = QRichLabel('',doWrap=False)
       self.lblDashModeSync    = QRichLabel('',doWrap=False)
+      self.lblDashModeBuild   = QRichLabel('',doWrap=False)
       self.lblDashModeScan    = QRichLabel('',doWrap=False)
-      self.lblDashModeTorrent.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
-      self.lblDashModeSync.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
-      self.lblDashModeScan.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+
+      self.lblDashModeTorrent.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+      self.lblDashModeSync.setAlignment(   Qt.AlignLeft | Qt.AlignVCenter)
+      self.lblDashModeBuild.setAlignment(  Qt.AlignLeft | Qt.AlignVCenter)
+      self.lblDashModeScan.setAlignment(   Qt.AlignLeft | Qt.AlignVCenter)
 
       self.barProgressTorrent = QProgressBar(self)
       self.barProgressSync    = QProgressBar(self)
+      self.barProgressBuild   = QProgressBar(self)
       self.barProgressScan    = QProgressBar(self)
 
       self.barProgressTorrent.setRange(0,100)
       self.barProgressSync.setRange(0,100)
+      self.barProgressBuild.setRange(0,100)
       self.barProgressScan.setRange(0,100)
 
 
@@ -3823,6 +3832,7 @@ class ArmoryMainWindow(QMainWindow):
       twid = relaxedSizeStr(self,'99 seconds')[0]
       self.lblTimeLeftTorrent = QRichLabel('')
       self.lblTimeLeftSync    = QRichLabel('')
+      self.lblTimeLeftBuild   = QRichLabel('')
       self.lblTimeLeftScan    = QRichLabel('')
 
       self.lblTimeLeftSync.setMinimumWidth(twid)
@@ -3840,12 +3850,16 @@ class ArmoryMainWindow(QMainWindow):
       layoutDashMode.addWidget(self.barProgressSync,     2,1)
       layoutDashMode.addWidget(self.lblTimeLeftSync,     2,2)
 
-      layoutDashMode.addWidget(self.lblDashModeScan,     3,0)
-      layoutDashMode.addWidget(self.barProgressScan,     3,1)
-      layoutDashMode.addWidget(self.lblTimeLeftScan,     3,2)
+      layoutDashMode.addWidget(self.lblDashModeBuild,    3,0)
+      layoutDashMode.addWidget(self.barProgressBuild,    3,1)
+      layoutDashMode.addWidget(self.lblTimeLeftBuild,    3,2)
 
-      layoutDashMode.addWidget(self.lblBusy,             0,3, 4,1)
-      layoutDashMode.addWidget(self.btnModeSwitch,       0,3, 4,1)
+      layoutDashMode.addWidget(self.lblDashModeScan,     4,0)
+      layoutDashMode.addWidget(self.barProgressScan,     4,1)
+      layoutDashMode.addWidget(self.lblTimeLeftScan,     4,2)
+
+      layoutDashMode.addWidget(self.lblBusy,             0,3, 5,1)
+      layoutDashMode.addWidget(self.btnModeSwitch,       0,3, 5,1)
 
       self.frmDashModeSub = QFrame()
       self.frmDashModeSub.setFrameStyle(STYLE_SUNKEN)
@@ -4260,13 +4274,20 @@ class ArmoryMainWindow(QMainWindow):
             self.icoSatoshiSWVersion.setPixmap(None)
             self.lblSatoshiSWVersion.setText(tr(""" You are using
                core Bitcoin version %s""") % satCurrStr)
-         else:
+         elif satLatest:
             # only satLatest is avail (maybe offline)
             dispIcon = QPixmap(iconSatoshi).scaled(24,24)
             self.btnSecureDLSatoshi.setVisible(True)
             self.icoSatoshiSWVersion.setPixmap(dispIcon)
             self.lblSatoshiSWVersion.setText(tr("""Core Bitcoin version
                %s is available.""") % satLastStr)
+         else:
+            # only satLatest is avail (maybe offline)
+            dispIcon = QPixmap(iconSatoshi).scaled(24,24)
+            self.btnSecureDLSatoshi.setVisible(False)
+            self.icoSatoshiSWVersion.setPixmap(dispIcon)
+            self.lblSatoshiSWVersion.setText(tr("""No version information
+               is available for core Bitcoin""") )
 
 
 
@@ -4454,6 +4475,12 @@ class ArmoryMainWindow(QMainWindow):
          self.lblTimeLeftSync.setVisible(True)
          self.barProgressSync.setFormat('')
 
+         self.lblDashModeBuild.setVisible(True)
+         self.barProgressBuild.setVisible(True)
+         self.barProgressBuild.setValue(0)
+         self.lblTimeLeftBuild.setVisible(True)
+         self.barProgressBuild.setFormat('')
+
          self.lblDashModeScan.setVisible(True)
          self.barProgressScan.setVisible(True)
          self.barProgressScan.setValue(0)
@@ -4488,7 +4515,6 @@ class ArmoryMainWindow(QMainWindow):
 
 
       elif TheBDM.getBDMState()=='Scanning':
-
          self.barProgressTorrent.setVisible(TheTDM.isStarted())
          self.lblDashModeTorrent.setVisible(TheTDM.isStarted())
          self.barProgressTorrent.setValue(100)
@@ -4502,45 +4528,53 @@ class ArmoryMainWindow(QMainWindow):
          self.lblTimeLeftSync.setVisible(False)
          self.barProgressSync.setFormat('')
 
+         self.lblDashModeBuild.setVisible(True)
+         self.barProgressBuild.setVisible(True)
+         self.lblTimeLeftBuild.setVisible(True)
+
          self.lblDashModeScan.setVisible(True)
          self.barProgressScan.setVisible(True)
          self.lblTimeLeftScan.setVisible(True)
-         self.barProgressScan.setFormat('%p%')
-
-
-         # We are going to merge the build and scan bars, even though the
-         # BDM reports them as two different phases with two different
-         # percentages.  Based on my own system with a regular hard-drive,
-         # I see the DB build take about 40 minutes, and DB scan take 15 min.
-         ratioIsBuild = 40/55.
 
          # Scan time is super-simple to predict: it's pretty much linear
          # with the number of bytes remaining.
+
          phase,pct,rate,tleft = TheBDM.predictLoadTime()
          if phase==1:
-            pct = pct * ratioIsBuild
-            totalEstPhase1Time = 1 / rate
-            ratioOfScanToBuild = (1-ratioIsBuild) / ratioIsBuild
-            totalEstPhase3Time = totalEstPhase1Time * ratioOfScanToBuild
-            tleft = tleft + totalEstPhase3Time
-            self.lblDashModeScan.setText( 'Build and Scan Databases', \
+            self.lblDashModeBuild.setText( 'Building Databases', \
                                         size=4, bold=True, color='Foreground')
+            self.lblDashModeScan.setText( 'Scan Transaction History', \
+                                        size=4, bold=True, color='DisableFG')
+            self.barProgressBuild.setFormat('%p%')
+            self.barProgressScan.setFormat('')
+
          elif phase==3:
-            pct = ratioIsBuild + (1-ratioIsBuild)*pct
+            self.lblDashModeBuild.setText( 'Build Databases', \
+                                        size=4, bold=True, color='DisableFG')
             self.lblDashModeScan.setText( 'Scanning Transaction History', \
                                         size=4, bold=True, color='Foreground')
+            self.lblTimeLeftBuild.setVisible(False)
+            self.barProgressBuild.setFormat('')
+            self.barProgressBuild.setValue(100)
+            self.barProgressScan.setFormat('%p%')
          elif phase==4:
             self.lblDashModeScan.setText( 'Global Blockchain Index', \
                                         size=4, bold=True, color='Foreground')
 
          tleft15 = (int(tleft-1)/15 + 1)*15
          if tleft < 2:
-            self.lblTimeLeftScan.setText('')
-            self.barProgressScan.setValue(1)
+            tstring = ''
+            pvalue  = 100
          else:
-            self.lblTimeLeftScan.setText(secondsToHumanTime(tleft15))
-            self.barProgressScan.setValue(pct*100)
+            tstring = secondsToHumanTime(tleft15)
+            pvalue = pct*100
 
+         if phase==1:
+            self.lblTimeLeftBuild.setText(tstring)
+            self.barProgressBuild.setValue(pvalue)
+         elif phase==3:
+            self.lblTimeLeftScan.setText(tstring)
+            self.barProgressScan.setValue(pvalue)
 
       elif TheSDM.getSDMState() in ['BitcoindInitializing','BitcoindSynchronizing']:
 
@@ -4556,12 +4590,17 @@ class ArmoryMainWindow(QMainWindow):
          self.lblTimeLeftSync.setVisible(True)
          self.barProgressSync.setFormat('%p%')
 
+         self.lblDashModeBuild.setVisible(True)
+         self.barProgressBuild.setVisible(True)
+         self.lblTimeLeftBuild.setVisible(False)
+         self.barProgressBuild.setValue(0)
+         self.barProgressBuild.setFormat('')
+
          self.lblDashModeScan.setVisible(True)
          self.barProgressScan.setVisible(True)
          self.lblTimeLeftScan.setVisible(False)
          self.barProgressScan.setValue(0)
          self.barProgressScan.setFormat('')
-
 
          ssdm = TheSDM.getSDMState()
          lastBlkNum  = self.getSettingOrSetDefault('LastBlkRecv',     0)
@@ -4635,6 +4674,7 @@ class ArmoryMainWindow(QMainWindow):
          elif ssdm == 'BitcoindInitializing':
             sdmPercent = 0
             self.barProgressSync.setFormat('')
+            self.barProgressBuild.setFormat('')
             self.barProgressScan.setFormat('')
          else:
             LOGERROR('Should not predict sync info in non init/sync SDM state')
@@ -5063,6 +5103,10 @@ class ArmoryMainWindow(QMainWindow):
          self.lblTimeLeftTorrent.setVisible(b)
          self.lblTorrentStats.setVisible(b)
 
+      def setBuildRowVisible(b):
+         self.lblDashModeBuild.setVisible(b)
+         self.barProgressBuild.setVisible(b)
+         self.lblTimeLeftBuild.setVisible(b)
 
       def setScanRowVisible(b):
          self.lblDashModeScan.setVisible(b)
@@ -5072,6 +5116,7 @@ class ArmoryMainWindow(QMainWindow):
       def setOnlyDashModeVisible():
          setTorrentRowVisible(False)
          setSyncRowVisible(False)
+         setBuildRowVisible(False)
          setScanRowVisible(False)
          self.lblBusy.setVisible(False)
          self.btnModeSwitch.setVisible(False)
@@ -5301,7 +5346,9 @@ class ArmoryMainWindow(QMainWindow):
                      self.lblTorrentStats.setVisible(False)
 
 
-                  self.lblDashModeScan.setText( 'Build Databases and Scan', \
+                  self.lblDashModeBuild.setText( 'Build Databases', \
+                                              size=4, bold=True, color='DisableFG')
+                  self.lblDashModeScan.setText( 'Scan Transaction History', \
                                               size=4, bold=True, color='DisableFG')
 
                   # If more than 10 days behind, or still downloading torrent
@@ -5418,9 +5465,14 @@ class ArmoryMainWindow(QMainWindow):
                self.lblTimeLeftSync.setVisible(False)
                self.lblDashModeSync.setVisible(False)
 
-            if len(str(self.lblDashModeScan.text()).strip()) == 0:
-               self.lblDashModeScan.setText( 'Preparing Databases', \
+            if len(str(self.lblDashModeBuild.text()).strip()) == 0:
+               self.lblDashModeBuild.setText( 'Preparing Databases', \
                                           size=4, bold=True, color='Foreground')
+
+            if len(str(self.lblDashModeScan.text()).strip()) == 0:
+               self.lblDashModeScan.setText( 'Scan Transaction History', \
+                                          size=4, bold=True, color='DisableFG')
+
             self.mainDisplayTabs.setTabEnabled(self.MAINTABS.Ledger, False)
 
             if len(self.walletMap)==0:
@@ -5438,8 +5490,10 @@ class ArmoryMainWindow(QMainWindow):
 
       self.lastBDMState = [bdmState, onlineAvail]
       self.lastSDMState =  sdmState
-      self.lblDashModeSync.setContentsMargins(50,5,50,5)
-      self.lblDashModeScan.setContentsMargins(50,5,50,5)
+      self.lblDashModeTorrent.setContentsMargins( 50,5,50,5)
+      self.lblDashModeSync.setContentsMargins( 50,5,50,5)
+      self.lblDashModeBuild.setContentsMargins(50,5,50,5)
+      self.lblDashModeScan.setContentsMargins( 50,5,50,5)
       vbar = self.dashScrollArea.verticalScrollBar()
 
       # On Macs, this causes the main window scroll area to keep bouncing back
