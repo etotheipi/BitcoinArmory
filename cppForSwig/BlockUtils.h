@@ -458,10 +458,6 @@ public:
                                    uint32_t txSize=0,
                                    vector<uint32_t> * txInOffsets=NULL,
                                    vector<uint32_t> * txOutOffsets=NULL);
-   void     registeredScrAddrScan_IterSafe( 
-                                   StoredTx & stx,
-                                   vector<uint32_t> * txInOffsets=NULL,
-                                   vector<uint32_t> * txOutOffsets=NULL);
    void     resetRegisteredWallets(void);
    void     pprintRegisteredWallets(void);
 

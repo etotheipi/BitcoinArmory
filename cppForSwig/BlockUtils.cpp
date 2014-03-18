@@ -317,123 +317,6 @@ void BlockDataManager_LevelDB::registeredScrAddrScan(
    }
 }
 
-////////////////////////////////////////////////////////////////////////////////
-//
-// Ugh: back to that design inefficiency.  Sincee we are 
-// relying on a contiguous iteration over the entire database,
-// we need the iface_->iters_[BLKDATA] to be untouched inside
-// this function.  Unfortunately, most TxRef() operations move 
-// the pointer.  Even if we move it back, it's likely to break
-// the efficiency of DB-order iteration.  We may consider 
-// creating multiple iterators on the iface_ side.  Until then, 
-// we can't use registeredScrAddrScan.
-//
-void BlockDataManager_LevelDB::registeredScrAddrScan_IterSafe( 
-                                            StoredTx & stx,
-                                            vector<uint32_t> * txInOffsets,
-                                            vector<uint32_t> * txOutOffsets)
-{
-   if(registeredScrAddrMap_.size() == 0)
-      return;
-
-   if(!stx.isInitialized())
-   {
-      LOGERR << "Passed uninitialized STX to regAddrScan";
-      return;
-   }
-
-   // Probably doesn't matter, but I'll keep these on the heap between calls
-   static vector<uint32_t> localOffsIn;
-   static vector<uint32_t> localOffsOut;
-
-   Tx tx = stx.getTxCopy();
-   uint8_t const * txStartPtr = tx.getPtr();
-
-   if(txInOffsets==NULL || txOutOffsets==NULL)
-   {
-      txInOffsets  = &localOffsIn;
-      txOutOffsets = &localOffsOut;
-      BtcUtils::TxCalcLength(txStartPtr, tx.getSize(), txInOffsets, txOutOffsets);
-   }
-   
-   uint32_t nTxIn  = txInOffsets->size()-1;
-   uint32_t nTxOut = txOutOffsets->size()-1;
-   
-   for(uint32_t iin=0; iin<nTxIn; iin++)
-   {
-      // We have the txin, now check if it spends one of our TxOuts
-      static OutPoint op;
-      op.unserialize(txStartPtr + (*txInOffsets)[iin], tx.getSize()-(*txInOffsets)[iin]);
-      if(registeredOutPoints_.count(op) > 0)
-      {
-         insertRegisteredTxIfNew(tx.getTxRef(),
-                                 stx.thisHash_,
-                                 stx.blockHeight_,
-                                 stx.txIndex_);
-         break; // we only care if ANY txIns are ours, not which ones
-      }
-   }
-
-   // We have to scan all TxOuts regardless, to make sure our list of 
-   // registeredOutPoints_ is up-to-date so that we can identify TxIns that are
-   // ours on future to-be-scanned transactions
-   for(uint32_t iout=0; iout<nTxOut; iout++)
-   {
-      static uint8_t scriptLenFirstByte;
-      static HashString addr160(20);
-      static HashString scrAddr;
-
-      uint8_t const * ptr = (txStartPtr + (*txOutOffsets)[iout] + 8);
-      scriptLenFirstByte = *(uint8_t*)ptr;
-      if(scriptLenFirstByte == 25)
-      {
-         // Std TxOut with 25-byte script
-         addr160.copyFrom(ptr+4, 20);
-         scrAddr = HASH160PREFIX + addr160;
-      }
-      else if(scriptLenFirstByte==67)
-      {
-         // Std spend-coinbase TxOut script
-         BtcUtils::getHash160_NoSafetyCheck(ptr+2, 65, addr160);
-         scrAddr = HASH160PREFIX + addr160;
-      }
-      else if(scriptLenFirstByte==35)
-      {
-         // Compressed public key
-         BtcUtils::getHash160_NoSafetyCheck(ptr+2, 33, addr160);
-         scrAddr = HASH160PREFIX + addr160;
-      }
-      else
-      {
-         /* TODO:  Right now we will just ignoring non-std tx
-                   I don't do anything with them right now, anyway
-         scrAddr = getTxOutScrAddr(stx.stxoMap_[iout].getScript());
-
-         // Old code for scanning non-std txout... 
-         TxOut txout = tx.getTxOutCopy(iout);
-         for(uint32_t i=0; i<scrAddrPtrs_.size(); i++)
-         {
-            ScrAddrObj & thisAddr = *(scrAddrPtrs_[i]);
-            HashString const & scraddr = thisAddr.getScrAddr();
-            if(txout.getScriptRef().find(thisAddr.getScrAddr()) > -1)
-               scanNonStdTx(0, 0, tx, iout, thisAddr);
-            continue;
-         }
-         //break;
-         */
-      }
-
-      if(scrAddrIsRegistered(scrAddr))
-      {
-         insertRegisteredTxIfNew(tx.getTxRef(),
-                                 stx.thisHash_,
-                                 stx.blockHeight_,
-                                 stx.txIndex_);
-         registeredOutPoints_.insert(OutPoint(stx.thisHash_, iout));
-      }
-   }
-}
-
 /////////////////////////////////////////////////////////////////////////////
 void BlockDataManager_LevelDB::registeredScrAddrScan( Tx & theTx )
 {
@@ -3764,7 +3647,8 @@ void BlockDataManager_LevelDB::scanDBForRegisteredTx(uint32_t blk0,
           iter++)
       {
          StoredTx & stx = iter->second;
-         registeredScrAddrScan_IterSafe(stx);
+         Tx tx = stx.getTxCopy();
+         registeredScrAddrScan(tx.getPtr(), tx.getSize());
       }
 
       // This will write out about once every 5 sec
@@ -4447,7 +4331,8 @@ void BlockDataManager_LevelDB::reassessAfterReorg( BlockHeader* oldTopPtr,
          LOGWARN << "   Tx: " << stx.thisHash_.getSliceCopy(0,8).toHexStr();
          txJustInvalidated_.erase(stx.thisHash_);
          txJustAffected_.insert(stx.thisHash_);
-         registeredScrAddrScan_IterSafe(stx);
+         Tx tx = stx.getTxCopy();
+         registeredScrAddrScan(tx.getPtr(), tx.getSize());
       }
    }
 
