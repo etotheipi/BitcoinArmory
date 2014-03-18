@@ -754,6 +754,11 @@ class ArmoryMainWindow(QMainWindow):
    def registerWidgetActivateTime(self, widget):
       # This is a bit of a hack, but it's a very isolated method to make 
       # it easy to link widgets to my entropy accumulator
+
+      # I just realized this doesn't do exactly what I originally intended...
+      # I wanted it to work on arbitrary widgets like QLineEdits, but using
+      # super is not the answer.  What I want is the original class method
+      # to be called after logging keypress, not its superclass method.
       mainWindow = self
       
       def newKPE(wself, event=None):
@@ -772,11 +777,11 @@ class ArmoryMainWindow(QMainWindow):
          mainWindow.logKeyPressTime()
          super(wself.__class__, wself).mouseReleaseEvent(event)
 
-      import types
-      widget.keyPressEvent     = types.MethodType(newKPE, widget)
-      widget.keyReleaseEvent   = types.MethodType(newKRE, widget)
-      widget.mousePressEvent   = types.MethodType(newMPE, widget)
-      widget.mouseReleaseEvent = types.MethodType(newMRE, widget)
+      from types import MethodType
+      widget.keyPressEvent     = MethodType(newKPE, widget)
+      widget.keyReleaseEvent   = MethodType(newKRE, widget)
+      widget.mousePressEvent   = MethodType(newMPE, widget)
+      widget.mouseReleaseEvent = MethodType(newMRE, widget)
 
       
    ####################################################

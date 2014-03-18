@@ -2541,7 +2541,7 @@ class DlgImportAddress(ArmoryDialog):
 
       lblPrivOne = QRichLabel('Private Key')
       self.edtPrivData = QLineEdit()
-      self.edtPrivData.setMinimumWidth(tightSizeStr(self.edtPrivData, 'X' * 80)[0])
+      self.edtPrivData.setMinimumWidth(tightSizeStr(self.edtPrivData, 'X' * 60)[0])
       privTooltip = self.main.createToolTipWidget(\
                        'Supported formats are any hexadecimal or Base58 '
                        'representation of a 32-byte private key (with or '
@@ -2576,15 +2576,13 @@ class DlgImportAddress(ArmoryDialog):
       stkMany = makeVertFrame([HLINE(), lblDescrMany, frmMid])
       self.stackedImport.addWidget(stkMany)
 
-      lblSecurePrint = QLabel('<b>SecurePrint</b><br>' \
-                                  'When saving imported private keys with our paper backup system, ' \
-                                  'you have the option to encrypt them with SecurePrint.<br>If you backed ' \
-                                  'up keys come with a SecurePrint passphrase, input it below.')
       
-      self.chkUseSP = QCheckBox('Use SecurePrint')     
+      self.chkUseSP = QCheckBox(tr("""
+         This is from a backup with SecurePrint\xe2\x84\xa2"""))
       self.edtSecurePrint = QLineEdit()
+      self.edtSecurePrint.setFont(GETFONT('Fixed',9))
       self.edtSecurePrint.setEnabled(False)
-      w, h = tightSizeStr(self.edtSecurePrint, 'X' * 10)
+      w, h = relaxedSizeStr(self.edtSecurePrint, 'X' * 12)
       self.edtSecurePrint.setMaximumWidth(w)
       
       def toggleSP():
@@ -2594,16 +2592,8 @@ class DlgImportAddress(ArmoryDialog):
             self.edtSecurePrint.setEnabled(False)
 
       self.chkUseSP.stateChanged.connect(toggleSP)      
-
-      loSP = QGridLayout()
-      loSP.setColumnStretch(0, 0)
-      loSP.addWidget(lblSecurePrint, 0, 0, 3, 60)
-      loSP.addWidget(self.chkUseSP, 4, 4, 1, 1)
-      loSP.addWidget(self.edtSecurePrint, 4, 5, 1, 1)
-      
-      frmSP = QFrame()
-      frmSP.setFrameStyle(STYLE_SUNKEN)
-      frmSP.setLayout(loSP)
+      frmSP = makeHorizFrame([self.chkUseSP, self.edtSecurePrint, 'Stretch'])
+      #frmSP.setFrameStyle(STYLE_PLAIN)
 
 
       # Set up the Import/Sweep select frame
@@ -4680,18 +4670,28 @@ class DlgConfirmSend(ArmoryDialog):
       sumStr = coin2str(totalSend, maxZeros=1)
       if len(returnPairs) > 0:
          if changeBehave == None and self.main.usermode == USERMODE.Expert:
-            lblMsg.setText('This transaction will spend <b>%s BTC</b> from wallet "<b>%s</b>" (%s). '
-                           '<br><br><b>Note:</b> Starred outputs are coming back to this wallet.  '
-                           'In Expert Mode Armory cannot reliably distinguish the starred outputs '
-                           'from the change address of a copied or loaded transaction. '
-                           'Here are the outputs:' % (sumStr, wlt.labelName, wlt.uniqueIDB58))
+            lblMsg.setText(tr("""
+               This transaction will spend <b>%s BTC</b> from wallet 
+               "<b>%s</b>" (%s). 
+               <br><br><b>Note:</b> Starred entries in the below list are 
+               going to the same wallet from which they came, and thus have 
+               no effect on your overall balance. When using Expert usermode 
+               features, Armory cannot always distinguish the starred outputs 
+               from the change address.""") % \
+               (sumStr, wlt.labelName, wlt.uniqueIDB58))
          else:
-            lblMsg.setText('This transaction will spend <b>%s BTC</b> from wallet "<b>%s</b>" (%s). '
-                           '<br><br><b>Note:</b> Starred outputs are coming back to this wallet.  '
-                              'Here are the outputs:' % (sumStr, wlt.labelName, wlt.uniqueIDB58))
+            lblMsg.setText(tr("""
+               This transaction will spend <b>%s BTC</b> from wallet 
+               "<b>%s</b>" (%s).
+               <br><br><b>Note:</b> Any starred outputs are are going to the
+               same wallet from which they came, and will have no effect on
+               the wallet's overall balance.""") % \
+               (sumStr, wlt.labelName, wlt.uniqueIDB58))
       else:
-         lblMsg.setText('This transaction will spend <b>%s BTC</b> from wallet "<b>%s</b>" (%s).  Here '
-                        'are the outputs:' % (sumStr, wlt.labelName, wlt.uniqueIDB58))
+         lblMsg.setText(tr("""
+            This transaction will spend <b>%s BTC</b> from wallet 
+            "<b>%s</b>" (%s).  Here are the outputs:""") % \
+            (sumStr, wlt.labelName, wlt.uniqueIDB58))
 
       recipLbls = []
       ffixBold = GETFONT('Fixed')

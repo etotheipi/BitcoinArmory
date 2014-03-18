@@ -77,7 +77,9 @@ SecureBinaryData SecureBinaryData::GenerateRandom(uint32_t numBytes,
 {
    BTC_PRNG prng;
 
-   // Not required, but you may pass in extra bytes
+   // Entropy here refers to *EXTRA* entropy.  Crypto++ has it's own mechanism
+   // for generating entropy which is sufficient, but it doesn't hurt to add
+   // more if you have it.
    if(entropy.getSize() > 0)
       prng.IncorporateEntropy( (byte*)entropy.getPtr(), entropy.getSize());
 
