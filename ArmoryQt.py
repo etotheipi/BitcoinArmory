@@ -5531,7 +5531,6 @@ class ArmoryMainWindow(QMainWindow):
             # Now we start the normal array of heartbeat operations
             newBlocks = TheBDM.readBlkFileUpdate(wait=True)
             self.currBlockNum = TheBDM.queued( lambda : TheBDM.bdm.blockchain().top().getBlockHeight() )
-            self.currBlockNum = TheBDM.getTopBlockHeight()
             if isinstance(self.currBlockNum, int): BDMcurrentBlock[0] = self.currBlockNum
 
             if not newBlocks:
