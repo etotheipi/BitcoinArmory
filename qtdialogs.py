@@ -11810,10 +11810,10 @@ class DlgRestoreFragged(ArmoryDialog):
 
       reply = QMessageBox.question(self, tr('Verify Wallet ID'), tr("""
          The data you entered corresponds to a wallet with a wallet
-         ID: \n\n \t'""") + newWltID + tr(""" \n\nDoes this ID
+         ID:<blockquote><b>{}</b></blockquote>Does this ID
          match the "Wallet Unique ID" printed on your paper backup?
          If not, click "No" and reenter key and chain-code data
-         again."""), QMessageBox.Yes | QMessageBox.No)
+         again.""").format(newWltID), QMessageBox.Yes | QMessageBox.No)
       if reply == QMessageBox.No:
          return
 
