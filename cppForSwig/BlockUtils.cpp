@@ -2589,8 +2589,7 @@ void BlockDataManager_LevelDB::scanRegisteredTxForWallet( BtcWallet & wlt,
       {
          // This condition happens on invalid Tx (like invalid P2Pool coinbases)
          // or when the blockheader isn't on the main branch
-         if( bhptr==NULL )
-            continue;
+         continue;
       }
 
       uint32_t thisBlk = bhptr->getBlockHeight();
