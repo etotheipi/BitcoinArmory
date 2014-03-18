@@ -15,6 +15,7 @@ from qtdefines import *
 from qtdialogs import MIN_PASSWD_WIDTH, DlgPasswd3, createAddrBookButton,\
    DlgUnlockWallet
 from armoryengine.ArmoryUtils import isASCII
+from announcefetch import ANNOUNCE_SIGN_PUBKEY
 
 class MessageSigningVerificationDialog(ArmoryDialog):
 
@@ -200,7 +201,7 @@ class SignatureVerificationWidget(QWidget):
       self.verifySignatureButton = QPushButton("Verify Signature")
       self.clearFieldsButton = QPushButton("Clear All")
       
-      self.lblSigResult = QRichLabel('')
+      self.lblSigResult = QRichLabel('', doWrap=False)
       buttonFrame = makeHorizFrame([self.verifySignatureButton, self.clearFieldsButton,\
                                     'Stretch', self.lblSigResult])
       self.signMessageLayout.addWidget(buttonFrame, 3, 1, 1, 2)
@@ -219,28 +220,51 @@ class SignatureVerificationWidget(QWidget):
       self.lblSigResult.setText('')
       
    def displayVerifiedBox(self, addrB58, messageString):
-      # TODO: Fix some hardcoded colors using armorycolors.py instead
+      atihash160 = hash160(hex_to_binary(ANNOUNCE_SIGN_PUBKEY))
+      addrDisp = addrB58
+      if addrB58==hash160_to_addrStr(atihash160):
+         addrDisp = '<b>Armory Technologies, Inc.</b>'
+         if CLI_OPTIONS.testAnnounceCode:
+            ownerStr = tr("""
+               <font color="%s"><b>Armory Technologies, Inc.
+               (testing key)</b></font> has signed the following
+               block of text:<br>""") % htmlColor('TextGreen')
+         else:
+            ownerStr = tr("""
+               <font color="%s"><b>Armory Technologies, Inc.</b></font> 
+               has signed the following block of text:<br>""") % \
+               htmlColor('TextGreen')
+      else:
+         ownerStr = tr("""
+         'The owner of the following Bitcoin address...
+         <br>
+         <blockquote>
+         <font face="Courier" size=4 color="#000060"><b>%s</b></font>
+         </blockquote>
+         <br>
+         ... has produced a <b><u>valid</u></b> signature for 
+         the following message:<br>
+         """) % addrB58
+         
       if addrB58:
          msg = messageString.replace('\r\n','\n')
          msg = '   ' + '<br>   '.join(msg.split('\n'))
+         # The user will be able to see the entire message 
+         # in the Message Signing/Verification dialog
+         msg =  '<br>'.join([line[:60]+ '...'*(len(line)>60) for line in msg.split('<br>')][:12])
          MsgBoxCustom(MSGBOX.Good, tr('Verified!'), tr(""" 
-            The owner of the following Bitcoin address...
-            <br>
-            <blockquote>
-            <font face="Courier" size=4 color="#000060"><b>%s</b></font>
-            </blockquote>
-            <br>
-            ...has produced a <b><u>valid</u></b> signature for 
-            the following message:<br>
+            %s
             <hr>
             <blockquote>
             <font face="Courier" color="#000060"><b>%s</b></font>
             </blockquote>
             <hr><br>
-            <b>Please</b> make sure that the address above (%s...) matches the exact address 
-            you were expecting.  A valid signature is meaningless unless it is made
-            from a recognized address!""") % (addrB58, msg, addrB58[:10]))
-         self.lblSigResult.setText('<font color="green">Valid Signature by %s!</font>' % addrB58)
+            <b>Please</b> make sure that the address above (%s...) matches the 
+            exact address you were expecting.  A valid signature is meaningless 
+            unless it is made
+            from a recognized address!""") % (ownerStr, msg, addrB58[:10]))
+         self.lblSigResult.setText(\
+            '<font color="green">Valid Signature by %s</font>' % addrDisp)
       else:
          self.displayInvalidSignatureMessage()
 
@@ -331,3 +355,6 @@ class SignedMessageBlockVerificationWidget(SignatureVerificationWidget):
       super(SignedMessageBlockVerificationWidget, self).clearFields()
       self.signedMessageBlockTextEdit.setPlainText('')
       self.messageTextEdit.setPlainText('')
+
+
+

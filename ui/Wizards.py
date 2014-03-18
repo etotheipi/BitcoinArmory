@@ -156,7 +156,9 @@ class WalletWizard(ArmoryWizard):
                      kdfMaxMem=self.walletCreationPage.pageFrame.getKdfBytes(), \
                      shortLabel=self.walletCreationPage.pageFrame.getName(), \
                      longLabel=self.walletCreationPage.pageFrame.getDescription(), \
-                     doRegisterWithBDM=False)
+                     doRegisterWithBDM=False, \
+                     extraEntropy=self.main.getExtraEntropyForKeyGen())
+
       self.newWallet.unlock(securePassphrase=
                SecureBinaryData(self.setPassphrasePage.pageFrame.getPassphrase()))
       # We always want to fill the address pool, right away.  
@@ -198,11 +200,11 @@ class WalletCreationPage(ArmoryWizardPage):
       result = True
       if self.pageFrame.getKdfSec() == -1:
          QMessageBox.critical(self, 'Invalid Target Compute Time', \
-            'You entered your Target Compute Time incorrectly.\n\nEnter: <Number> (ms, s)', QMessageBox.Ok)
+            'You entered Target Compute Time incorrectly.\n\nEnter: <Number> (ms, s)', QMessageBox.Ok)
          result = False
       elif self.pageFrame.getKdfBytes() == -1:
          QMessageBox.critical(self, 'Invalid Max Memory Usage', \
-            'You entered your Max Memory Usag incorrectly.\n\nnter: <Number> (kb, mb)', QMessageBox.Ok)
+            'You entered Max Memory Usag incorrectly.\n\nnter: <Number> (kb, mb)', QMessageBox.Ok)
          result = False
       return result
 

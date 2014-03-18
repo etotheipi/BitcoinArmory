@@ -4,7 +4,7 @@
 DESTDIR=/usr
 
 all :
-	$(MAKE) -C cppForSwig swig
+	$(MAKE) -C cppForSwig
 
 clean :
 	$(MAKE) -C cppForSwig clean

@@ -503,7 +503,7 @@ class PyBtcAddress(object):
             # Addr should be encrypted, and we already have encrypted priv key
             self.binPrivKey32_Plain.destroy()
             self.isLocked = True
-         else:
+         elif self.binPrivKey32_Plain.getSize()==32:
             # Addr should be encrypted, but haven't computed encrypted value yet
             if secureKdfOutput!=None:
                # We have an encryption key, use it

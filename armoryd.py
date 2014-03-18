@@ -24,7 +24,7 @@
 # Where possible this follows conventions established by the Satoshi client.
 # Does not require armory to be installed or running, this is a standalone application.
 # Requires bitcoind process to be running before starting armory-daemon.
-# Requires an armory wallet to be in the same folder as the
+# Requires an armory wallet (can be watching only) to be in the same folder as the
 # armory-daemon script.
 # Works with testnet, use --testnet flag when starting the script.
 #
@@ -935,6 +935,7 @@ class Armory_Daemon(object):
          # This is CONNECT call for armoryd to talk to bitcoind
          LOGINFO('Set up connection to bitcoind')
          self.NetworkingFactory = ArmoryClientFactory( \
+                        TheBDM,
                         func_loseConnect = self.showOfflineMsg, \
                         func_madeConnect = self.showOnlineMsg, \
                         func_newTx       = self.execOnNewTx, \
