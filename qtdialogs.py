@@ -4557,33 +4557,87 @@ class DlgWalletSelect(ArmoryDialog):
       if isDoubleClick:
          self.accept()
 
+#############################################################################
+def excludeChange(outputPairs, wlt):
+   """
+   NOTE:  this method works ONLY because we always generate a new address
+          whenever creating a change-output, which means it must have a
+          higher chainIndex than all other addresses.  If you did something 
+          creative with this tx, this may not actually work.
+   """
+   maxChainIndex = -5
+   nonChangeOutputPairs = []
+   currentMaxChainPair = None
+   for pair in outputPairs:
+      addr160 = scrAddr_to_hash160(pair[0])[1]
+      addr    = wlt.getAddrByHash160(addr160)
+      # this logic excludes the pair with the maximum chainIndex from the
+      # returned list
+      if addr:
+         if addr.chainIndex > maxChainIndex:
+            maxChainIndex = addr.chainIndex
+            if currentMaxChainPair:
+               nonChangeOutputPairs.append(currentMaxChainPair)
+            currentMaxChainPair = pair
+         else:
+            nonChangeOutputPairs.append(pair)
+   return nonChangeOutputPairs
 
 ################################################################################
 class DlgConfirmSend(ArmoryDialog):
 
    def __init__(self, wlt, scraddrValuePairs, fee, parent=None, main=None, sendNow=False, changeBehave=None):
       super(DlgConfirmSend, self).__init__(parent, main)
-
-      self.wlt = wlt
-
       layout = QGridLayout()
       lblInfoImg = QLabel()
       lblInfoImg.setPixmap(QPixmap(':/MsgBox_info48.png'))
       lblInfoImg.setAlignment(Qt.AlignHCenter | Qt.AlignTop)
+      
+      sendPairs = []
+      returnPairs = []
+      for pair in scraddrValuePairs:
+         if not wlt.hasAddr(scrAddr_to_hash160(pair[0])[1]):
+            sendPairs.append(pair)
+         else:
+            returnPairs.append(pair)
 
-      totalSend = sum([sv[1] for sv in scraddrValuePairs]) + fee
+      # if we do not know the change behavior then we have to
+      # guess that the highest chain index is the change
+      # and exclude it from the returnPairs list
+      # and not in expert mode (because in expert mode the change could be anywhere
+      if changeBehave == None and returnPairs > 0:
+         returnPairs = excludeChange(returnPairs, wlt)
+         
+      sendPairs.extend(returnPairs)
+      
+      # If there are multiple outputs coming back to wallet
+      # assume that the one with the highest index is change.
+      lblMsg = QRichLabel('')         
+      totalSend = sum([sv[1] for sv in sendPairs]) + fee
       sumStr = coin2str(totalSend, maxZeros=1)
-
-      lblMsg = QRichLabel(
-         'You are about to spend <b>%s BTC</b> from wallet "<b>%s</b>" (%s).  You '
-         'specified the following distribution:' % (sumStr, wlt.labelName, wlt.uniqueIDB58))
-
+      if len(returnPairs) > 0:
+         if changeBehave == None and self.main.usermode == USERMODE.Expert:
+            lblMsg.setText('This transaction will spend <b>%s BTC</b> from wallet "<b>%s</b>" (%s). '
+                           '<br><br><b>Note:</b> Starred outputs are coming back to this wallet.  '
+                           'In Expert Mode Armory cannot reliably distinguish the starred outputs '
+                           'from the change address of a copied or loaded transaction. '
+                           'Here are the outputs:' % (sumStr, wlt.labelName, wlt.uniqueIDB58))
+         else:
+            lblMsg.setText('This transaction will spend <b>%s BTC</b> from wallet "<b>%s</b>" (%s). '
+                           '<br><br><b>Note:</b> Starred outputs are coming back to this wallet.  '
+                              'Here are the outputs:' % (sumStr, wlt.labelName, wlt.uniqueIDB58))
+      else:
+         lblMsg.setText('This transaction will spend <b>%s BTC</b> from wallet "<b>%s</b>" (%s).  Here '
+                        'are the outputs:' % (sumStr, wlt.labelName, wlt.uniqueIDB58))
 
       recipLbls = []
       ffixBold = GETFONT('Fixed')
       ffixBold.setWeight(QFont.Bold)
-      for sv in scraddrValuePairs:
-         addrPrint = (scrAddr_to_addrStr(sv[0]) + ' : ').ljust(38)
+      for sv in sendPairs:
+         if sv in returnPairs:
+            addrPrint = ('*' + scrAddr_to_addrStr(sv[0]) + ' : ').ljust(38)
+         else:
+            addrPrint = (scrAddr_to_addrStr(sv[0]) + ' : ').ljust(38)
          recipLbls.append(QLabel(addrPrint + coin2str(sv[1], rJust=True, maxZeros=4)))
          recipLbls[-1].setFont(ffixBold)
 
@@ -4595,7 +4649,7 @@ class DlgConfirmSend(ArmoryDialog):
          recipLbls[-1].setFont(GETFONT('Fixed'))
 
       recipLbls.append(HLINE(QFrame.Sunken))
-      recipLbls.append(QLabel('Total bitcoins : '.ljust(38) +
+      recipLbls.append(QLabel('Total bitcoins Sent: '.ljust(38) +
                         coin2str(totalSend, rJust=True, maxZeros=4)))
       recipLbls[-1].setFont(GETFONT('Fixed'))
 
