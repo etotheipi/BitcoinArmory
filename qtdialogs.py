@@ -2576,7 +2576,34 @@ class DlgImportAddress(ArmoryDialog):
       stkMany = makeVertFrame([HLINE(), lblDescrMany, frmMid])
       self.stackedImport.addWidget(stkMany)
 
+      lblSecurePrint = QLabel('<b>SecurePrint</b><br>' \
+                                  'When saving imported private keys with our paper backup system, ' \
+                                  'you have the option to encrypt them with SecurePrint.<br>If you backed ' \
+                                  'up keys come with a SecurePrint passphrase, input it below.')
+      
+      self.chkUseSP = QCheckBox('Use SecurePrint')     
+      self.edtSecurePrint = QLineEdit()
+      self.edtSecurePrint.setEnabled(False)
+      w, h = tightSizeStr(self.edtSecurePrint, 'X' * 10)
+      self.edtSecurePrint.setMaximumWidth(w)
+      
+      def toggleSP():
+         if self.chkUseSP.isChecked():
+            self.edtSecurePrint.setEnabled(True)
+         else:
+            self.edtSecurePrint.setEnabled(False)
 
+      self.chkUseSP.stateChanged.connect(toggleSP)      
+
+      loSP = QGridLayout()
+      loSP.setColumnStretch(0, 0)
+      loSP.addWidget(lblSecurePrint, 0, 0, 3, 60)
+      loSP.addWidget(self.chkUseSP, 4, 4, 1, 1)
+      loSP.addWidget(self.edtSecurePrint, 4, 5, 1, 1)
+      
+      frmSP = QFrame()
+      frmSP.setFrameStyle(STYLE_SUNKEN)
+      frmSP.setLayout(loSP)
 
 
       # Set up the Import/Sweep select frame
@@ -2647,6 +2674,7 @@ class DlgImportAddress(ArmoryDialog):
       layout = QVBoxLayout()
       layout.addWidget(frmTop)
       layout.addWidget(self.stackedImport)
+      layout.addWidget(frmSP)
       layout.addWidget(frmWarn)
       layout.addWidget(buttonbox)
 
@@ -2667,19 +2695,48 @@ class DlgImportAddress(ArmoryDialog):
 
    #############################################################################
    def okayClicked(self):
+      pwd = None
+      if self.chkUseSP.isChecked():
+         SECPRINT = HardcodedKeyMaskParams()
+         pwd = str(self.edtSecurePrint.text()).strip()
+         self.edtSecurePrint.setText("")
+         
+         if len(pwd) < 9:
+            QMessageBox.critical(self, 'Invalid Code', tr("""
+                  You didn't enter a full SecurePrint\xe2\x84\xa2 code.  This
+                  code is needed to decrypt your backup.  If this backup is
+                  actually unencrypted and there is no code, then choose the
+                  appropriate backup type from the drop-down box"""), QMessageBox.Ok)
+            return
+            
+         if not SECPRINT['FUNC_CHKPWD'](pwd):
+            QMessageBox.critical(self, 'Bad Encryption Code', tr("""
+                  The SecurePrint\xe2\x84\xa2 code you entered has an error
+                  in it.  Note that the code is case-sensitive.  Please verify
+                  you entered it correctly and try again."""), QMessageBox.Ok)
+            return      
+         
       if self.radioImportOne.isChecked():
-         self.processUserString()
+         self.processUserString(pwd)
       else:
-         self.processMultiKey()
+         self.processMultiKey(pwd)
 
 
    #############################################################################
-   def processUserString(self):
+   def processUserString(self, pwd=None):
       theStr = str(self.edtPrivData.text()).strip().replace(' ', '')
       binKeyData, addr160, addrStr = '', '', ''
 
       try:
          binKeyData, keyType = parsePrivateKeyData(theStr)
+         
+         if pwd:
+            SECPRINT = HardcodedKeyMaskParams()
+            maskKey = SECPRINT['FUNC_KDF'](pwd)
+            SBDbinKeyData = SECPRINT['FUNC_UNMASK'](SecureBinaryData(binKeyData), ekey=maskKey)
+            binKeyData = SBDbinKeyData.toBinStr()
+            SBDbinKeyData.destroy()  
+         
          if binary_to_int(binKeyData, BIGENDIAN) >= SECP256K1_ORDER:
             QMessageBox.critical(self, 'Invalid Private Key', \
                'The private key you have entered is actually not valid '
@@ -2902,12 +2959,16 @@ class DlgImportAddress(ArmoryDialog):
 
 
    #############################################################################
-   def processMultiKey(self):
+   def processMultiKey(self, pwd=None):
       thisWltID = self.wlt.uniqueIDB58
 
       inputText = str(self.txtPrivBulk.toPlainText())
       inputLines = [s.strip().replace(' ', '') for s in inputText.split('\n')]
       binKeyData, addr160, addrStr = '', '', ''
+      
+      if pwd:
+         SECPRINT = HardcodedKeyMaskParams()
+         maskKey = SECPRINT['FUNC_KDF'](pwd)      
 
       privKeyList = []
       addrSet = set()
@@ -2919,6 +2980,8 @@ class DlgImportAddress(ArmoryDialog):
          try:
             nLines += 1
             binKeyData = SecureBinaryData(parsePrivateKeyData(lineend)[0])
+            if pwd: binKeyData = SECPRINT['FUNC_UNMASK'](binKeyData, ekey=maskKey)
+
             addr160 = convertKeyDataToAddress(privKey=binKeyData.toBinStr())
             if not addr160 in addrSet:
                addrSet.add(addr160)
@@ -12397,7 +12460,6 @@ class DlgWltRecoverWallet(ArmoryDialog):
       wltSltQF.setLayout(layoutWltSelect)
 
       layoutMgmt.addWidget(makeHorizFrame([lblDesc], STYLE_SUNKEN), 0,0, 2,4)
-      #layoutMgmt.addLayout(layoutWltSelect, 2, 0, 3, 4)
       layoutMgmt.addWidget(wltSltQF, 2, 0, 3, 4)
 
       self.rdbtnStripped = QRadioButton('')

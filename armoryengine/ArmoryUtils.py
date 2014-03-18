@@ -2962,7 +2962,7 @@ def HardcodedKeyMaskParams():
 
    def hardcodeUnmask(secret, passphrase=None, ekey=None):
       if not ekey:
-         ekey = applyKdf(passphrase)
+         ekey = hardcodeApplyKdf(passphrase)
       return CryptoAES().DecryptCBC(secret, ekey, paramMap['IV'])
 
    paramMap['FUNC_PWD']    = hardcodeCreateSecurePrintPassphrase
