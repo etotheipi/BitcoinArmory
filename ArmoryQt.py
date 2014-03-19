@@ -2962,7 +2962,8 @@ class ArmoryMainWindow(QMainWindow):
          addr160 = CheckHash160(utxo.getRecipientScrAddr())
          inputSide.append([getAddr(addr160), PyPrevTx, utxo.getTxOutIndex()])
 
-      minFee = calcMinSuggestedFees(utxoList, outValue, 0)[1]
+      # Try with zero fee and exactly one output
+      minFee = calcMinSuggestedFees(utxoList, outValue, 0, 1)[1]
 
       if minFee > 0 and \
          not forceZeroFee and \
@@ -2974,7 +2975,8 @@ class ArmoryMainWindow(QMainWindow):
          return [None, outValue, minFee]
 
       outputSide = []
-      outputSide.append( [PyBtcAddress().createFromPublicKeyHash160(sweepTo160), outValue] )
+      outputSide.append( [PyBtcAddress().createFromPublicKeyHash160(sweepTo160), \
+                          outValue] )
 
       pytx = PyCreateAndSignTx(inputSide, outputSide)
       return (pytx, outValue, minFee)
@@ -5596,7 +5598,7 @@ class ArmoryMainWindow(QMainWindow):
       lbl.setToolTip('<u></u>' + tiptext)
       lbl.setMaximumWidth(relaxedSizeStr(lbl, '(?)')[0])
       def pressEv(ev):
-         DlgTooltip(self, lbl, tiptext).exec_()
+         QWhatsThis.showText(ev.globalPos(), tiptext, self)
       lbl.mousePressEvent = pressEv
       return lbl
 
