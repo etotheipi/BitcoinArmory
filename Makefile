@@ -2,6 +2,7 @@
 # I am just calling them, here.
 
 PREFIX=/usr
+DESTDIR=
 
 all :
 	$(MAKE) -C cppForSwig
