@@ -840,6 +840,10 @@ class ArmoryMainWindow(QMainWindow):
       except:
          LOGEXCEPT('Error getting extra entropy from filesystem')
 
+      LOGINFO('Adding %d keypress events to the entropy pool', len(source1)/3)
+      LOGINFO('Adding %s bytes of filesystem data to the entropy pool', 
+                  bytesToHumanSize(len(str(source2))))
+      
 
       return SecureBinaryData( HMAC256(str(source1), str(source2)) )
       

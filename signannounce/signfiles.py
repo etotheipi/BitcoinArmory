@@ -28,7 +28,7 @@ if CLI_OPTIONS.testAnnounceCode:
 else:
    signAddress  = '1NWvhByxfTXPYNT4zMBmEY3VL8QJQtQoei'
    announceName = 'announce.txt'
-   pathPrefix   = 'https://s3.amazonaws.com/bitcoinarmory-releases/'
+   pathPrefix   = 'https://s3.amazonaws.com/bitcoinarmory-media/'
 
 
 announcePath = os.path.join(outDir, announceName)
