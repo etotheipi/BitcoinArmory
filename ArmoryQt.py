@@ -759,6 +759,8 @@ class ArmoryMainWindow(QMainWindow):
       # I wanted it to work on arbitrary widgets like QLineEdits, but using
       # super is not the answer.  What I want is the original class method
       # to be called after logging keypress, not its superclass method.
+      # Nonetheless, it does do what I need it to, as long as you only
+      # registered frames and dialogs, not individual widgets/controls.
       mainWindow = self
       
       def newKPE(wself, event=None):
