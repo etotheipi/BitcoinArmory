@@ -13,5 +13,5 @@
 	dh $@
 
 override_dh_auto_build:
-	$(shell dpkg-buildflags --export=sh) ; make PYVER=python2.6
+	make PYVER=python2.6
 
