@@ -5598,7 +5598,7 @@ class ArmoryMainWindow(QMainWindow):
       lbl.setToolTip('<u></u>' + tiptext)
       lbl.setMaximumWidth(relaxedSizeStr(lbl, '(?)')[0])
       def pressEv(ev):
-         DlgTooltip(self, lbl, tiptext).exec_()
+         QWhatsThis.showText(ev.globalPos(), tiptext, self)
       lbl.mousePressEvent = pressEv
       return lbl
 

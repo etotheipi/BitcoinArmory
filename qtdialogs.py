@@ -360,46 +360,6 @@ class LetterButton(QPushButton):
          self.parent.edtPasswd.setText(currPwd[:-1])
       self.parent.redrawKeys()
 
-
-################################################################################
-class DlgTooltip(ArmoryDialog):
-   def __init__(self, parentDlg=None, parentLbl=None, tiptext=''):
-      super(DlgTooltip, self).__init__(parentDlg, main=None)
-
-      if not parentDlg or not tiptext:
-         self.accept()
-
-      qc = QCursor.pos()
-      qp = QPoint(qc.x() - 20, qc.y() - 20)
-      self.move(qp)
-
-      tiptext += '<font size=2 color="#000044"><br>[Click to close]</font>'
-
-      lblText = QRichLabel(tiptext, doWrap=True)
-      lblText.mousePressEvent = lambda ev: self.accept()
-      lblText.mouseReleaseEvent = lambda ev: self.accept()
-      layout = QVBoxLayout()
-      layout.addWidget(makeHorizFrame([lblText], STYLE_RAISED))
-      layout.setContentsMargins(0, 0, 0, 0)
-      self.setLayout(layout)
-
-      self.setStyleSheet('QDialog { background-color : %s }' % htmlColor('Foreground'))
-      lblText.setStyleSheet('QLabel { background-color : %s }' % htmlColor('SlightBkgdDark'))
-      lblText.setContentsMargins(3, 3, 3, 3)
-
-      self.setMinimumWidth(150)
-      self.setWindowFlags(Qt.SplashScreen)
-
-   # def mouseReleaseEvent(self, ev):
-      # self.accept()
-
-   def mousePressEvent(self, ev):
-      self.accept()
-
-   def keyPressEvent(self, ev):
-      self.accept()
-
-
 ################################################################################
 class DlgGenericGetPassword(ArmoryDialog):
    def __init__(self, descriptionStr, parent=None, main=None):
@@ -11810,10 +11770,10 @@ class DlgRestoreFragged(ArmoryDialog):
 
       reply = QMessageBox.question(self, tr('Verify Wallet ID'), tr("""
          The data you entered corresponds to a wallet with a wallet
-         ID: \n\n \t'""") + newWltID + tr(""" \n\nDoes this ID
+         ID:<blockquote><b>{}</b></blockquote>Does this ID
          match the "Wallet Unique ID" printed on your paper backup?
          If not, click "No" and reenter key and chain-code data
-         again."""), QMessageBox.Yes | QMessageBox.No)
+         again.""").format(newWltID), QMessageBox.Yes | QMessageBox.No)
       if reply == QMessageBox.No:
          return
 
