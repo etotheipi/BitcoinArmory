@@ -14,7 +14,7 @@ if not CLI_OPTIONS.testAnnounceCode:
    # Signed with the Bitcoin offline announce key (see top of ArmoryUtils.py)
    ANNOUNCE_SIGN_PUBKEY = ARMORY_INFO_SIGN_PUBLICKEY
    ANNOUNCE_URL = 'https://bitcoinarmory.com/announce.txt'
-   ANNOUNCE_URL_BACKUP = 'https://s3.amazonaws.com/bitcoinarmory-releases/announce.txt'
+   ANNOUNCE_URL_BACKUP = 'https://s3.amazonaws.com/bitcoinarmory-media/announce.txt'
 else:
    # This is a lower-security announce file, fake data, just for testing
    ANNOUNCE_SIGN_PUBKEY = ('04'

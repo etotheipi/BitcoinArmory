@@ -764,19 +764,19 @@ class ArmoryMainWindow(QMainWindow):
       mainWindow = self
       
       def newKPE(wself, event=None):
-         mainWindow.logKeyPressTime()
+         mainWindow.logEntropy()
          super(wself.__class__, wself).keyPressEvent(event)
 
       def newKRE(wself, event=None):
-         mainWindow.logKeyPressTime()
+         mainWindow.logEntropy()
          super(wself.__class__, wself).keyReleaseEvent(event)
 
       def newMPE(wself, event=None):
-         mainWindow.logKeyPressTime()
+         mainWindow.logEntropy()
          super(wself.__class__, wself).mousePressEvent(event)
 
       def newMRE(wself, event=None):
-         mainWindow.logKeyPressTime()
+         mainWindow.logEntropy()
          super(wself.__class__, wself).mouseReleaseEvent(event)
 
       from types import MethodType
@@ -787,12 +787,26 @@ class ArmoryMainWindow(QMainWindow):
 
       
    ####################################################
-   def logKeyPressTime(self):
+   def logEntropy(self):
       self.entropyAccum.append(RightNow())
+      self.entropyAccum.append(QCursor.pos().x()) 
+      self.entropyAccum.append(QCursor.pos().y()) 
 
    ####################################################
    def getExtraEntropyForKeyGen(self):
+      # The entropyAccum var has all the timestamps, down to the microsecond,
+      # of every keypress and mouseclick made during the wallet creation
+      # wizard.   Also logs mouse positions on every press, though it will
+      # be constant while typing.  Either way, even, if they change no text
+      # and use a 5-char password, we will still pickup about 40 events. 
+      # Then we throw in the [name,time,size] triplets of some volatile 
+      # system directories, and the hash of a file in that directory that
+      # is expected to have timestamps and system-dependent parameters.
       source1,self.entropyAccum = self.entropyAccum,None
+
+      if len(source1)==0:
+         LOGERROR('Error getting extra entropy from mouse & key presses')
+
       source2 = []
 
       try:
@@ -803,8 +817,8 @@ class ArmoryMainWindow(QMainWindow):
             tempDir = '/var/log'
             extraFiles = ['/var/log/Xorg.0.log']
          elif OS_MACOSX:
-            tempDir = '??'
-            extraFiles = []
+            tempDir = '/var/log'
+            extraFiles = ['/var/log/system.log']
 
          # A simple listing of the directory files, sizes and times is good
          if os.path.exists(tempDir):
@@ -826,6 +840,10 @@ class ArmoryMainWindow(QMainWindow):
       except:
          LOGEXCEPT('Error getting extra entropy from filesystem')
 
+      LOGINFO('Adding %d keypress events to the entropy pool', len(source1)/3)
+      LOGINFO('Adding %s bytes of filesystem data to the entropy pool', 
+                  bytesToHumanSize(len(str(source2))))
+      
 
       return SecureBinaryData( HMAC256(str(source1), str(source2)) )
       

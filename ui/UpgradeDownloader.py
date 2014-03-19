@@ -348,14 +348,17 @@ class UpgradeDownloaderDialog(ArmoryDialog):
          self.bitsColor = htmlColor('TextRed')
 
 
+      if showPackage == 'Armory':
+         expectVer = self.main.armoryVersions[1]
+      elif showPackage == 'Satoshi':
+         expectVer = self.main.satoshiVersions[1]
 
       if showPackage:
          for n in range(0, packages.topLevelItemCount()):
             row = packages.topLevelItem(n)
             if str(row.data(0, 32).toString())==showPackage:
                packages.setCurrentItem(row)
-               if not self.main.armoryVersions[1] or \
-                  str(row.data(1, 32).toString())==self.main.armoryVersions[1]:
+               if not expectVer or str(row.data(1, 32).toString())==expectVer:
                   break
             self.useSelectedPackage()
          else:
