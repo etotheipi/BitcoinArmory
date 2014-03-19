@@ -12,20 +12,20 @@ clean :
 	rm -rf osxbuild/workspace/
 
 install : all
-	mkdir -p $(PREFIX)/share/armory/img
-	mkdir -p $(PREFIX)/lib/armory/extras
-	mkdir -p $(PREFIX)/lib/armory/jsonrpc
-	mkdir -p $(PREFIX)/lib/armory/ui
-	cp *.py *.so README $(PREFIX)/lib/armory/
-	rsync -rupE armoryengine $(PREFIX)/lib/armory/
-	rsync -rupE img $(PREFIX)/share/armory/
-	cp extras/*.py $(PREFIX)/lib/armory/extras
-	cp jsonrpc/*.py $(PREFIX)/lib/armory/jsonrpc
-	cp ui/*.py $(PREFIX)/lib/armory/ui
-	mkdir -p $(PREFIX)/share/applications
-	sed "s:python /usr:python $(PREFIX):g" < dpkgfiles/armory.desktop > $(PREFIX)/share/applications/armory.desktop
-	sed "s:python /usr:python $(PREFIX):g" < dpkgfiles/armoryoffline.desktop > $(PREFIX)/share/applications/armoryoffline.desktop
-	sed "s:python /usr:python $(PREFIX):g" < dpkgfiles/armorytestnet.desktop > $(PREFIX)/share/applications/armorytestnet.desktop
+	mkdir -p $(DESTDIR)$(PREFIX)/share/armory/img
+	mkdir -p $(DESTDIR)$(PREFIX)/lib/armory/extras
+	mkdir -p $(DESTDIR)$(PREFIX)/lib/armory/jsonrpc
+	mkdir -p $(DESTDIR)$(PREFIX)/lib/armory/ui
+	cp *.py *.so README $(DESTDIR)$(PREFIX)/lib/armory/
+	rsync -rupE armoryengine $(DESTDIR)$(PREFIX)/lib/armory/
+	rsync -rupE img $(DESTDIR)$(PREFIX)/share/armory/
+	cp extras/*.py $(DESTDIR)$(PREFIX)/lib/armory/extras
+	cp jsonrpc/*.py $(DESTDIR)$(PREFIX)/lib/armory/jsonrpc
+	cp ui/*.py $(DESTDIR)$(PREFIX)/lib/armory/ui
+	mkdir -p $(DESTDIR)$(PREFIX)/share/applications
+	sed "s:python /usr:python $(DESTDIR)$(PREFIX):g" < dpkgfiles/armory.desktop > $(DESTDIR)$(PREFIX)/share/applications/armory.desktop
+	sed "s:python /usr:python $(DESTDIR)$(PREFIX):g" < dpkgfiles/armoryoffline.desktop > $(DESTDIR)$(PREFIX)/share/applications/armoryoffline.desktop
+	sed "s:python /usr:python $(DESTDIR)$(PREFIX):g" < dpkgfiles/armorytestnet.desktop > $(DESTDIR)$(PREFIX)/share/applications/armorytestnet.desktop
 	
 
 osx :
