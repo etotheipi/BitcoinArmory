@@ -11971,9 +11971,9 @@ class DlgEnterSecurePrintCode(ArmoryDialog):
       super(DlgEnterSecurePrintCode, self).__init__(parent, main)
       
       lblSecurePrintCodeDescr = QRichLabel(tr("""
-         The backup fragment file that you are loading requires a SecurePrint\xe2\x84\xa2 Code.
-         Since that code has not been entered for a previous fragment please it in the field below and click done.
-         Note that this code will be used for all other fragments that need it."""))
+         This fragment file requires a SecurePrint\xe2\x84\xa2 code.  
+         You will only have to enter this code once since it is the same 
+         on all fragments."""))
       lblSecurePrintCodeDescr.setMinimumWidth(440)
       self.lblSP = QRichLabel(tr('SecurePrint\xe2\x84\xa2 Code: '), doWrap=False)
       self.editSecurePrint = QLineEdit()
@@ -12000,12 +12000,12 @@ class DlgEnterSecurePrintCode(ArmoryDialog):
       securePrintCode = str(self.editSecurePrint.text()).strip()
       if len(securePrintCode) < 9 or \
          sum([1 if c in BASE58CHARS else 0 for c in securePrintCode]) < len(securePrintCode):
-         QMessageBox.critical(self, 'Invalid Code', tr("""
+         QMessageBox.critical(self, tr('Invalid Code'), tr("""
             You didn't enter a full SecurePrint\xe2\x84\xa2 code.  This
             code is needed to decrypt your backup file."""), QMessageBox.Ok)
          return
       if not SECPRINT['FUNC_CHKPWD'](securePrintCode):
-         QMessageBox.critical(self, 'Bad Encryption Code', tr("""
+         QMessageBox.critical(self, tr('Bad Encryption Code'), tr("""
             The SecurePrint\xe2\x84\xa2 code you entered has an error
             in it.  Note that the code is case-sensitive.  Please verify
             you entered it correctly and try again."""), QMessageBox.Ok)
