@@ -1353,7 +1353,7 @@ class Popen(object):
                     if e.errno != errno.ECHILD:
                         raise
                 child_exception = pickle.loads(data)
-                if child_exception: raise child_exception
+                if no isinstance(child_exception, NoneType): raise child_exception
                 else: raise "child process exception"
 
 
