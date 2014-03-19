@@ -90,6 +90,7 @@ parser.add_option("--disable-torrent", dest="disableTorrent", default=False,    
 parser.add_option("--test-announce", dest="testAnnounceCode", default=False,     action="store_true", help="Only used for developers needing to test announcement code with non-offline keys")
 #parser.add_option("--rebuildwithblocksize", dest="newBlockSize",default='32kB', type="str",          help="Rebuild databases with new blocksize")
 parser.add_option("--nospendzeroconfchange",dest="ignoreAllZC",default=False, action="store_true", help="All zero-conf funds will be unspendable, including sent-to-self coins")
+parser.add_option("--nowalletcheck", dest="noWalletCheck", default=False, action="store_true", help="Skip the wallet sanity check on startup")
 
 # Pre-10.9 OS X sometimes passes a process serial number as -psn_0_xxxxxx. Nuke!
 if sys.platform == 'darwin':
@@ -227,7 +228,7 @@ if CLI_OPTIONS.interport < 0:
 # Pass this bool to all getSpendable* methods, and it will consider
 # all zero-conf UTXOs as unspendable, including sent-to-self (change)
 IGNOREZC  = CLI_OPTIONS.ignoreAllZC
-
+SKIPWALLETCHECK = CLI_OPTIONS.noWalletCheck
 
 
 # Figure out the default directories for Satoshi client, and BicoinArmory

@@ -686,7 +686,7 @@ class ArmoryMainWindow(QMainWindow):
       haveGUI[1] = self
       BDMcurrentBlock[1] = 1
 
-      self.checkWallets()
+      if not SKIPWALLETCHECK: self.checkWallets()
 
       self.setDashboardDetails()
 
