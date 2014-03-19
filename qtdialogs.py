@@ -11644,6 +11644,14 @@ class DlgRestoreFragged(ArmoryDialog):
 
 
       M, fnum, wltIDBin, doMask, idBase58 = ReadFragIDLineBin(fragData[0])
+      # If we don't know the Secure String Yet we have to get it
+      if doMask and len(str(self.displaySecureString.text()).strip()) == 0:
+         dlg = DlgEnterSecurePrintCode(self, self.main)
+         if dlg.exec_():
+            self.displaySecureString.setText(dlg.editSecurePrint.text())
+         else:
+            return
+         
       if self.fragIDPrefix == UNKNOWN:
          self.fragIDPrefix = idBase58.split('-')[0]
       elif not self.fragIDPrefix == idBase58.split('-')[0]:
@@ -11956,13 +11964,58 @@ class DlgShowTestResults(ArmoryDialog):
       self.setWindowTitle('Fragment Test Results')
       self.setMinimumWidth(500)
 
+################################################################################
+class DlgEnterSecurePrintCode(ArmoryDialog):
+   
+   def __init__(self, parent, main):
+      super(DlgEnterSecurePrintCode, self).__init__(parent, main)
+      
+      lblSecurePrintCodeDescr = QRichLabel(tr("""
+         The backup fragment file that you are loading requires a SecurePrint\xe2\x84\xa2 Code.
+         Since that code has not been entered for a previous fragment please it in the field below and click done.
+         Note that this code will be used for all other fragments that need it."""))
+      lblSecurePrintCodeDescr.setMinimumWidth(440)
+      self.lblSP = QRichLabel(tr('SecurePrint\xe2\x84\xa2 Code: '), doWrap=False)
+      self.editSecurePrint = QLineEdit()
+      spFrame = makeHorizFrame([self.lblSP, self.editSecurePrint, STRETCH])
+      
+      self.btnAccept = QPushButton("Done")
+      self.btnCancel = QPushButton("Cancel")
+      self.connect(self.btnAccept, SIGNAL(CLICKED), self.verifySecurePrintCode)
+      self.connect(self.btnCancel, SIGNAL(CLICKED), self.reject)
+      buttonBox = QDialogButtonBox()
+      buttonBox.addButton(self.btnAccept, QDialogButtonBox.AcceptRole)
+      buttonBox.addButton(self.btnCancel, QDialogButtonBox.RejectRole)
+      
+      layout = QVBoxLayout()
+      layout.addWidget(lblSecurePrintCodeDescr)
+      layout.addWidget(spFrame)
+      layout.addWidget(buttonBox)
+      self.setLayout(layout)
+      self.setWindowTitle(tr('Enter Secure Print Code'))
+      
+   def verifySecurePrintCode(self):
+      # Prepare the key mask parameters
+      SECPRINT = HardcodedKeyMaskParams()
+      securePrintCode = str(self.editSecurePrint.text()).strip()
+      if len(securePrintCode) < 9 or \
+         sum([1 if c in BASE58CHARS else 0 for c in securePrintCode]) < len(securePrintCode):
+         QMessageBox.critical(self, 'Invalid Code', tr("""
+            You didn't enter a full SecurePrint\xe2\x84\xa2 code.  This
+            code is needed to decrypt your backup file."""), QMessageBox.Ok)
+         return
+      if not SECPRINT['FUNC_CHKPWD'](securePrintCode):
+         QMessageBox.critical(self, 'Bad Encryption Code', tr("""
+            The SecurePrint\xe2\x84\xa2 code you entered has an error
+            in it.  Note that the code is case-sensitive.  Please verify
+            you entered it correctly and try again."""), QMessageBox.Ok)
+         return
 
-
+      self.accept()
 
 ################################################################################
 class DlgEnterOneFrag(ArmoryDialog):
 
-   #############################################################################
    def __init__(self, parent, main, fragList=[], wltType=UNKNOWN, securePrintCode=None):
       super(DlgEnterOneFrag, self).__init__(parent, main)
       self.fragData = []
@@ -12005,24 +12058,22 @@ class DlgEnterOneFrag(ArmoryDialog):
          self.version135cButton.setEnabled(False)
          self.version135cSPButton.setEnabled(False)
       elif wltType == BACKUP_TYPE_135A:
+            # Could be 1.35a with or without SecurePrintCode so remove the rest
          self.version0Button.setEnabled(False)
          self.version135cButton.setEnabled(False)
          self.version135cSPButton.setEnabled(False)
          if securePrintCode:
             self.version135aSPButton.setChecked(True)
-            self.version135aButton.setEnabled(False)
          else:
-            # Could be 1.35a with or without SecurePrintCode so remove the rest
             self.version135aButton.setChecked(True)
       elif wltType == BACKUP_TYPE_135C:
+         # Could be 1.35c with or without SecurePrintCode so remove the rest
          self.version0Button.setEnabled(False)
          self.version135aButton.setEnabled(False)
          self.version135aSPButton.setEnabled(False)
          if securePrintCode:
             self.version135cSPButton.setChecked(True)
-            self.version135cButton.setEnabled(False)
          else:
-            # Could be 1.35c with or without SecurePrintCode so remove the rest
             self.version135cButton.setChecked(True)
 
       lblType = QRichLabel(tr("""<b>Backup Type:</b>"""), doWrap=False)
@@ -12128,7 +12179,7 @@ class DlgEnterOneFrag(ArmoryDialog):
    #############################################################################
    def isSecurePrintID(self):
       return hex_to_int(str(self.edtID.text()[:2])) > 127
-
+   
    #############################################################################
    def verifyUserInput(self):
       self.fragData = []
@@ -12147,13 +12198,13 @@ class DlgEnterOneFrag(ArmoryDialog):
          rng = range(8, 10)
 
 
-      if (sel == BACKUP_TYPE_135a_SP_TEXT or \
-         sel == BACKUP_TYPE_135c_SP_TEXT) and \
-         self.editSecurePrint.isEnabled():
+      if sel == self.backupTypeButtonGroup.id(self.version135aSPButton) or \
+         sel == self.backupTypeButtonGroup.id(self.version135cSPButton):
          # Prepare the key mask parameters
          SECPRINT = HardcodedKeyMaskParams()
          securePrintCode = str(self.editSecurePrint.text()).strip()
-         if len(securePrintCode) < 9:
+         if len(securePrintCode) < 9  or \
+            sum([1 if c in BASE58CHARS else 0 for c in securePrintCode]) < len(securePrintCode):
             QMessageBox.critical(self, 'Invalid Code', tr("""
                You didn't enter a full SecurePrint\xe2\x84\xa2 code.  This
                code is needed to decrypt your backup.  If this backup is
