@@ -3835,10 +3835,7 @@ vector<TxIOPair> BlockDataManager_LevelDB::getHistoryForScrAddr(
    iter = registeredScrAddrMap_.find(uniqKey);
    if(ITER_IN_MAP(iter, registeredScrAddrMap_))
    {
-      if (ssh.alreadyScannedUpToBlk_ == 123456789)
-         iter->second.alreadyScannedUpToBlk_ = getAppliedToHeightInDB();
-      else
-         iter->second.alreadyScannedUpToBlk_ = ssh.alreadyScannedUpToBlk_;
+      iter->second.alreadyScannedUpToBlk_ = ssh.alreadyScannedUpToBlk_;
    }
    
    vector<TxIOPair> outVect(0);
