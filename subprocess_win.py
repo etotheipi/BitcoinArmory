@@ -1353,10 +1353,11 @@ class Popen(object):
                     if e.errno != errno.ECHILD:
                         raise
                 child_exception = pickle.loads(data)
-                if child_exception is not None: raise child_exception
-                else:
-                  class ChildProcessException(Exception): pass 
-                  raise ChildProcessException
+                #if child_exception is not None: raise child_exception
+                #else:
+                 # class ChildProcessException(Exception): pass
+                  #raise ChildProcessException
+                raise child_exception
 
 
         def _handle_exitstatus(self, sts, _WIFSIGNALED=os.WIFSIGNALED,
