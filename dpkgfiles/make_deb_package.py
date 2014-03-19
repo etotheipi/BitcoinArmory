@@ -76,7 +76,7 @@ execAndWait('rm -rf %s' % pkgdir)
 execAndWait('rm -f %s*' % pkgdir)
 execAndWait('rm -f %s*' % pkgdir_)
 shutil.copytree(origDir, pkgdir)
-execAndWait('tar --exclude .git -zcf %s.tar.gz %s' % (pkgdir, pkgdir))
+execAndWait('tar -zcf %s.tar.gz %s' % (pkgdir, pkgdir))
 cd(pkgdir)
 execAndWait('export DEBFULLNAME="Armory Technologies, Inc."; dh_make -s -e support@bitcoinarmory.com -f ../%s.tar.gz' % pkgdir)
 for f in dpkgfiles:
