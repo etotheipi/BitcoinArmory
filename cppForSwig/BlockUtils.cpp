@@ -1203,7 +1203,7 @@ BlockDataManager_LevelDB::BlockDataManager_LevelDB(void)
    : iface_(LevelDBWrapper::GetInterfacePtr())
    , blockchain_(this)
 {
-   Reset();
+   reset();
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -1219,7 +1219,7 @@ BlockDataManager_LevelDB::~BlockDataManager_LevelDB(void)
    
    iface_->closeDatabases();
 
-   Reset();
+   reset();
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -1794,9 +1794,9 @@ uint32_t BlockDataManager_LevelDB::getAppliedToHeightInDB(void)
 
 
 /////////////////////////////////////////////////////////////////////////////
-void BlockDataManager_LevelDB::Reset(void)
+void BlockDataManager_LevelDB::reset(void)
 {
-   SCOPED_TIMER("BDM::Reset");
+   SCOPED_TIMER("BDM::reset");
 
    // Clear out all the "real" data in the blkfile
    blkFileDir_ = "";

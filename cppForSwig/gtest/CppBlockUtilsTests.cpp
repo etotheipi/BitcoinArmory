@@ -20,8 +20,6 @@
 
 #define READHEX BinaryData::CreateFromHex
 
-#define TheBDM BlockDataManager().getBDM()
-
 
 /* This didn't work at all
 class BitcoinEnvironment : public ::testing::Environment 
@@ -5841,6 +5839,7 @@ TEST_F(DISABLED_PartialMerkleTest, EmptyTree)
 class BlockUtilsBare : public ::testing::Test
 {
 protected:
+   BlockDataManager_LevelDB TheBDM;
 
    /////////////////////////////////////////////////////////////////////////////
    virtual void SetUp(void) 
@@ -5900,7 +5899,6 @@ protected:
    /////////////////////////////////////////////////////////////////////////////
    virtual void TearDown(void)
    {
-      BlockDataManager().destroy();
 
       rmdir(blkdir_);
       rmdir(homedir_);
@@ -6632,6 +6630,7 @@ TEST_F(FullScanTest, ReadSuperRawDB)
 class LoadTestnetBareTest : public ::testing::Test
 {
 protected:
+   BlockDataManager_LevelDB TheBDM;
 
    /////////////////////////////////////////////////////////////////////////////
    virtual void TearDown(void)  {}
@@ -6700,7 +6699,6 @@ TEST_F(LoadTestnetBareTest, DISABLED_StepThroughDebug_usually_disabled)
 
    TheBDM.doInitialSyncOnLoad();
    TheBDM.scanBlockchainForTx(wlt);
-   BlockDataManager().destroy();
 }
 
 
@@ -6712,6 +6710,7 @@ TEST_F(LoadTestnetBareTest, DISABLED_StepThroughDebug_usually_disabled)
 class BlockUtilsSuper : public ::testing::Test
 {
 protected:
+   BlockDataManager_LevelDB TheBDM;
 
    /////////////////////////////////////////////////////////////////////////////
    virtual void SetUp(void) 
@@ -6771,8 +6770,6 @@ protected:
    /////////////////////////////////////////////////////////////////////////////
    virtual void TearDown(void)
    {
-      BlockDataManager().destroy();
-     
       rmdir(blkdir_);
       rmdir(homedir_);
 
@@ -7012,7 +7009,6 @@ TEST_F(BlockUtilsSuper, DISABLED_RestartDBAfterBuild)
    EXPECT_EQ(iface_->getTopBlockHeight(HEADERS), 2);
    EXPECT_EQ(iface_->getTopBlockHash(HEADERS), blkHash2);
    EXPECT_TRUE(TheBDM.blockchain().getHeaderByHash(blkHash2).isMainBranch());
-   BlockDataManager().destroy();
    
    // Add two more blocks
    BtcUtils::copyFile("../reorgTest/blk_0_to_4.dat", blk0dat_);
@@ -7066,7 +7062,6 @@ TEST_F(BlockUtilsSuper, DISABLED_RestartDBAfterBuild_withReplay)
    EXPECT_EQ(iface_->getTopBlockHeight(HEADERS), 2);
    EXPECT_EQ(iface_->getTopBlockHash(HEADERS), blkHash2);
    EXPECT_TRUE(TheBDM.blockchain().getHeaderByHash(blkHash2).isMainBranch());
-   BlockDataManager().destroy();
    
    // Add two more blocks
    BtcUtils::copyFile("../reorgTest/blk_0_to_4.dat", blk0dat_);
@@ -7168,6 +7163,7 @@ TEST_F(BlockUtilsSuper, DISABLED_TimeAndSpaceTest_usuallydisabled)
 class BlockUtilsWithWalletTest: public ::testing::Test
 {
 protected:
+   BlockDataManager_LevelDB TheBDM;
    /////////////////////////////////////////////////////////////////////////////
    virtual void SetUp(void) 
    {
@@ -7220,8 +7216,6 @@ protected:
    /////////////////////////////////////////////////////////////////////////////
    virtual void TearDown(void)
    {
-      BlockDataManager().destroy();
-     
       rmdir(blkdir_);
       rmdir(homedir_);
 

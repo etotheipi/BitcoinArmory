@@ -398,7 +398,7 @@ public:
 
    /////////////////////////////////////////////////////////////////////////////
 private:
-   void Reset(void);
+   void reset(void);
 public:
    int32_t          getNumConfirmations(BinaryData txHash);
    string           getBlockfilePath(void) {return blkFileDir_;}
