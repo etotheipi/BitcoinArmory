@@ -293,7 +293,6 @@ private:
    static bool                        bdmCreatedYet_;
    bool                               isInitialized_;
 
-public:
    // These will be set for the specific network we are testing
    BinaryData GenesisHash_;
    BinaryData GenesisTxHash_;
@@ -408,7 +407,7 @@ public:
    uint32_t findFirstBlkApproxOffset(uint32_t fnum, uint32_t offset) const;
    uint32_t findFirstUnappliedBlock(void);
    pair<uint32_t, uint32_t> findFileAndOffsetForHgt(
-               uint32_t hgt, vector<BinaryData>* firstHashOfEachBlkFile=NULL);
+               uint32_t hgt, const vector<BinaryData>* firstHashOfEachBlkFile=NULL);
 
    /////////////////////////////////////////////////////////////////////////////
    void Reset(void);

@@ -916,7 +916,7 @@ void Blockchain::clear()
    headerMap_.clear();
    headersByHeight_.resize(0);
    topBlockPtr_ = genesisBlockBlockPtr_ = &headerMap_[
-         bdm_->GenesisHash_
+         bdm_->getGenesisHash()
       ];
 }
 
@@ -1656,7 +1656,7 @@ uint32_t BlockDataManager_LevelDB::findFirstBlkApproxOffset(uint32_t fnum,
 ////////////////////////////////////////////////////////////////////////////////
 pair<uint32_t, uint32_t> BlockDataManager_LevelDB::findFileAndOffsetForHgt(
                                            uint32_t hgt, 
-                                           vector<BinaryData> * firstHashes)
+                                           const vector<BinaryData> * firstHashes)
 {
    vector<BinaryData> recomputedHashes;
    if(firstHashes==NULL)
