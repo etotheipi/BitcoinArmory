@@ -17,7 +17,7 @@ install : all
 	mkdir -p $(DESTDIR)$(PREFIX)/lib/armory/extras
 	mkdir -p $(DESTDIR)$(PREFIX)/lib/armory/jsonrpc
 	mkdir -p $(DESTDIR)$(PREFIX)/lib/armory/ui
-	mkdir -p $(DESTDIR)/lib/armory/BitTornado/BT1
+	mkdir -p $(DESTDIR)$(PREFIX)/lib/armory/BitTornado/BT1
 	cp *.py *.so README $(DESTDIR)$(PREFIX)/lib/armory/
 	rsync -rupE armoryengine $(DESTDIR)$(PREFIX)/lib/armory/
 	rsync -rupE img $(DESTDIR)$(PREFIX)/share/armory/
@@ -25,8 +25,8 @@ install : all
 	cp jsonrpc/*.py $(DESTDIR)$(PREFIX)/lib/armory/jsonrpc
 	cp ui/*.py $(DESTDIR)$(PREFIX)/lib/armory/ui
 	mkdir -p $(DESTDIR)$(PREFIX)/share/applications
-	cp BitTornado/*.py $(DESTDIR)/lib/armory/BitTornado
-	cp BitTornado/BT1/*.py $(DESTDIR)/lib/armory/BitTornado/BT1
+	cp BitTornado/*.py $(DESTDIR)$(PREFIX)/lib/armory/BitTornado
+	cp BitTornado/BT1/*.py $(DESTDIR)$(PREFIX)/lib/armory/BitTornado/BT1
 	sed "s:python /usr:python $(PREFIX):g" < dpkgfiles/armory.desktop > $(DESTDIR)$(PREFIX)/share/applications/armory.desktop
 	sed "s:python /usr:python $(PREFIX):g" < dpkgfiles/armoryoffline.desktop > $(DESTDIR)$(PREFIX)/share/applications/armoryoffline.desktop
 	sed "s:python /usr:python $(PREFIX):g" < dpkgfiles/armorytestnet.desktop > $(DESTDIR)$(PREFIX)/share/applications/armorytestnet.desktop
