@@ -337,6 +337,9 @@ class notificationParser(object):
    #############################################################################
    def parseNotificationText(self, fileText):
       self.notifications = {}
+
+      if fileText is None:
+         return None
    
       if SIGNED_BLOCK_HEAD in fileText:
          fileText = readSigBlock(fileText)[1]

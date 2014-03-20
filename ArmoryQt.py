@@ -1658,6 +1658,9 @@ class ArmoryMainWindow(QMainWindow):
          # Don't crash on an error, but do log what happened
          LOGEXCEPT('Failed to parse notifications')
 
+      if currNotificationList is None:
+         currNotificationList = {}
+
       # If we have a new-version notification, it's not ignroed, and such
       # notifications are not disabled, add it to the list
       vnotify = self.versionNotification
