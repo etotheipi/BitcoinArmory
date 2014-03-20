@@ -585,6 +585,7 @@ def killProcessTree(pid):
    # In this case, Windows is easier because we know it has the get_children
    # call, because have bundled a recent version of psutil.  Linux, however,
    # does not have that function call in earlier versions.
+   from subprocess import Popen, PIPE
    if not OS_LINUX:
       for child in psutil.Process(pid).get_children():
          killProcess(child.pid)
