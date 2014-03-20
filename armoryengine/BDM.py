@@ -177,6 +177,7 @@ class BlockDataManagerThread(threading.Thread):
 
       # Flags
       self.startBDM      = False
+      self.alwaysBlock   = False
       self.doShutdown    = False
       self.aboutToRescan = False
       self.errorOut      = 0
@@ -297,6 +298,8 @@ class BlockDataManagerThread(threading.Thread):
       So setting wait=True is NOT identical to setBlocking(True), since using
       wait=True with blocking=False will break when the timeout has been reached
       """
+      prevBlocking = self.alwaysBlock
+
       if doblock:
          self.alwaysBlock = True
          self.mtWaitSec   = None
@@ -304,6 +307,7 @@ class BlockDataManagerThread(threading.Thread):
          self.alwaysBlock = False
          self.mtWaitSec   = newTimeout
 
+      return prevBlocking
 
    #############################################################################
    def Reset(self, wait=None):
@@ -808,6 +812,7 @@ class BlockDataManagerThread(threading.Thread):
       This method can be called from a non BDM class, but should only do so if 
       that class method was called by the BDM (thus, no conflicts)
       """
+      LOGDEBUG('scanRegisteredTxForWallet_bdm_direct')
       self.bdm.scanRegisteredTxForWallet(cppWlt, startBlk, endBlk)
 
    #############################################################################
@@ -989,8 +994,10 @@ class BlockDataManagerThread(threading.Thread):
 
       # missingBlocks = self.bdm.missingBlockHashes()
       
+      prevBlocking = self.bdm.setBlocking(True)
       self.bdm.scanBlockchainForTx(self.masterCppWallet)
       self.bdm.saveScrAddrHistories()
+      self.bdm.setBlocking(prevBlocking)
 
 
    #############################################################################

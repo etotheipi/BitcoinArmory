@@ -312,10 +312,14 @@ class PyBtcWallet(object):
          # BDM-thread queue, must call its methods directly
          
          if self.calledFromBDM:
+            LOGDEBUG('scanRegisteredTxForWallet_bdm_direct calledFromBDM, so not blocking.')
             TheBDM.scanRegisteredTxForWallet_bdm_direct(self.cppWallet, startBlk)
             self.lastSyncBlockNum = TheBDM.getTopBlockHeight_bdm_direct()
          else:
-            TheBDM.scanRegisteredTxForWallet(self.cppWallet, startBlk, wait=True)
+            LOGDEBUG('scanRegisteredTxForWallet not calledFromBDM, so blocking.')
+            prevBlocking = TheBDM.setBlocking(True)
+            TheBDM.scanRegisteredTxForWallet(self.cppWallet, startBlk)
+            TheBDM.setBlocking(prevBlocking)
             self.lastSyncBlockNum = TheBDM.getTopBlockHeight(wait=True)
             
             wltLE = self.cppWallet.getTxLedger()
