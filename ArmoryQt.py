@@ -2313,6 +2313,7 @@ class ArmoryMainWindow(QMainWindow):
          LOGINFO(dispStr)
          # Register all wallets with TheBDM
          TheBDM.registerWallet( wlt.cppWallet )
+         TheBDM.bdm.registerWallet(wlt.cppWallet)
 
 
       # Get the last directory

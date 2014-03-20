@@ -2975,6 +2975,7 @@ void BlockDataManager_LevelDB::Reset(void)
    registeredOutPoints_.clear(); 
    allScannedUpToBlk_ = 0;
 
+
 }
 
 
@@ -3678,7 +3679,6 @@ BtcWallet* BlockDataManager_LevelDB::createNewWallet(void)
    return newWlt;
 }
 
-
 /////////////////////////////////////////////////////////////////////////////
 // This assumes that registeredTxList_ has already been populated from 
 // the initial blockchain scan.  The blockchain contains millions of tx,
@@ -3688,6 +3688,8 @@ void BlockDataManager_LevelDB::scanRegisteredTxForWallet( BtcWallet & wlt,
                                                            uint32_t blkEnd)
 {
    SCOPED_TIMER("scanRegisteredTxForWallet");
+
+	if(wlt.lastScanned_ > blkStart) blkStart = wlt.lastScanned_;
 
    // Make sure RegisteredTx objects have correct data, then sort.
    // TODO:  Why did I not need this with the MMAP blockchain?  Somehow
@@ -3745,6 +3747,11 @@ void BlockDataManager_LevelDB::scanRegisteredTxForWallet( BtcWallet & wlt,
    if(zcEnabled_)
       rescanWalletZeroConf(wlt);
 
+	uint32_t topBlk = getTopBlockHeight();
+	if(blkEnd > topBlk)
+		wlt.lastScanned_ = topBlk;
+	else if(blkEnd!=0)
+		wlt.lastScanned_ = blkEnd;
 }
 
 
@@ -4510,6 +4517,16 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
    // Since loading takes so long, there's a good chance that new block data
    // came in... let's get it.
    readBlkFileUpdate();
+
+   set<BtcWallet*>::iterator wltIter;
+   for(wltIter  = registeredWallets_.begin();
+       wltIter != registeredWallets_.end();
+       wltIter++)
+	{
+		BtcWallet* wlt = *wltIter;
+		scanRegisteredTxForWallet(*wlt, 0, lastTopBlock_);
+	}
+
    isInitialized_ = true;
    purgeZeroConfPool();
 

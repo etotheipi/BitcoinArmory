@@ -337,7 +337,7 @@ private:
 class BtcWallet
 {
 public:
-   BtcWallet(void) : bdmPtr_(NULL) {}
+   BtcWallet(void) : bdmPtr_(NULL) {lastScanned_ = 0;}
    explicit BtcWallet(BlockDataManager_LevelDB* bdm) : bdmPtr_(bdm) {}
    ~BtcWallet(void);
 
@@ -442,6 +442,8 @@ public:
    vector<AddressBookEntry> createAddressBook(void);
 
    vector<LedgerEntry> & getEmptyLedger(void) { EmptyLedger_.clear(); return EmptyLedger_;}
+
+	uint32_t lastScanned_;
 
 private:
    vector<ScrAddrObj*>          scrAddrPtrs_;
@@ -621,6 +623,7 @@ private:
    static BlockDataManager_LevelDB*   theOnlyBDM_;
    static bool                        bdmCreatedYet_;
    bool                               isInitialized_;
+	uint32_t									  lastScannedBlock_;
 
 
    // These will be set for the specific network we are testing
