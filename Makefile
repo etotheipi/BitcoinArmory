@@ -27,6 +27,7 @@ install : all
 	mkdir -p $(DESTDIR)$(PREFIX)/share/applications
 	cp BitTornado/*.py $(DESTDIR)$(PREFIX)/lib/armory/BitTornado
 	cp BitTornado/BT1/*.py $(DESTDIR)$(PREFIX)/lib/armory/BitTornado/BT1
+	cp default_bootstrap.torrent $(DESTDIR)$(PREFIX)/lib/armory
 	sed "s:python /usr:python $(PREFIX):g" < dpkgfiles/armory.desktop > $(DESTDIR)$(PREFIX)/share/applications/armory.desktop
 	sed "s:python /usr:python $(PREFIX):g" < dpkgfiles/armoryoffline.desktop > $(DESTDIR)$(PREFIX)/share/applications/armoryoffline.desktop
 	sed "s:python /usr:python $(PREFIX):g" < dpkgfiles/armorytestnet.desktop > $(DESTDIR)$(PREFIX)/share/applications/armorytestnet.desktop
