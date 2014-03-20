@@ -24,9 +24,9 @@ install : all
 	cp jsonrpc/*.py $(DESTDIR)$(PREFIX)/lib/armory/jsonrpc
 	cp ui/*.py $(DESTDIR)$(PREFIX)/lib/armory/ui
 	mkdir -p $(DESTDIR)$(PREFIX)/share/applications
-	sed "s:python /usr:python $(DESTDIR)$(PREFIX):g" < dpkgfiles/armory.desktop > $(DESTDIR)$(PREFIX)/share/applications/armory.desktop
-	sed "s:python /usr:python $(DESTDIR)$(PREFIX):g" < dpkgfiles/armoryoffline.desktop > $(DESTDIR)$(PREFIX)/share/applications/armoryoffline.desktop
-	sed "s:python /usr:python $(DESTDIR)$(PREFIX):g" < dpkgfiles/armorytestnet.desktop > $(DESTDIR)$(PREFIX)/share/applications/armorytestnet.desktop
+	sed "s:python /usr:python $(PREFIX):g" < dpkgfiles/armory.desktop > $(DESTDIR)$(PREFIX)/share/applications/armory.desktop
+	sed "s:python /usr:python $(PREFIX):g" < dpkgfiles/armoryoffline.desktop > $(DESTDIR)$(PREFIX)/share/applications/armoryoffline.desktop
+	sed "s:python /usr:python $(PREFIX):g" < dpkgfiles/armorytestnet.desktop > $(DESTDIR)$(PREFIX)/share/applications/armorytestnet.desktop
 	
 
 osx :
