@@ -1,5 +1,4 @@
-CXXFLAGS = -DNDEBUG -g -O2 $(CRYPTOPP_CXXFLAGS)
-LDFLAGS = $(CRYPTOPP_LDFLAGS)
+CXXFLAGS = -DNDEBUG -g -O2
 #CXXFLAGS = -g
 # -fPIC is supported. Please report any breakage of -fPIC as a bug.
 CXXFLAGS += -fPIC
