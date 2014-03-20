@@ -580,10 +580,13 @@ public:
    /////////////////////////////////////////////////////////////////////////////
    set<HashString>  getTxJustInvalidated(void) {return txJustInvalidated_;}
    set<HashString>  getTxJustAffected(void)    {return txJustAffected_;}
+
+private:
    void             updateWalletAfterReorg(BtcWallet & wlt);
    void             updateWalletsAfterReorg(vector<BtcWallet*> wltvect);
    void             updateWalletsAfterReorg(set<BtcWallet*> wltset);
 
+public:
    // Use these two methods to get ALL information about your unused TxOuts
    //vector<UnspentTxOut> getUnspentTxOutsForWallet(BtcWallet & wlt, int sortType=-1);
    //vector<UnspentTxOut> getNonStdUnspentTxOutsForWallet(BtcWallet & wlt);
