@@ -19,7 +19,8 @@
 #endif
 
 #define READHEX BinaryData::CreateFromHex
-#define TheBDM BlockDataManager_LevelDB::GetInstance()
+
+#define TheBDM BlockDataManager().getBDM()
 
 
 /* This didn't work at all
@@ -5899,7 +5900,7 @@ protected:
    /////////////////////////////////////////////////////////////////////////////
    virtual void TearDown(void)
    {
-      BlockDataManager_LevelDB::DestroyInstance();
+      BlockDataManager().destroy();
 
       rmdir(blkdir_);
       rmdir(homedir_);
@@ -6699,7 +6700,7 @@ TEST_F(LoadTestnetBareTest, DISABLED_StepThroughDebug_usually_disabled)
 
    TheBDM.doInitialSyncOnLoad();
    TheBDM.scanBlockchainForTx(wlt);
-   TheBDM.DestroyInstance();
+   BlockDataManager().destroy();
 }
 
 
@@ -6770,7 +6771,7 @@ protected:
    /////////////////////////////////////////////////////////////////////////////
    virtual void TearDown(void)
    {
-      BlockDataManager_LevelDB::DestroyInstance();
+      BlockDataManager().destroy();
      
       rmdir(blkdir_);
       rmdir(homedir_);
@@ -7011,7 +7012,7 @@ TEST_F(BlockUtilsSuper, DISABLED_RestartDBAfterBuild)
    EXPECT_EQ(iface_->getTopBlockHeight(HEADERS), 2);
    EXPECT_EQ(iface_->getTopBlockHash(HEADERS), blkHash2);
    EXPECT_TRUE(TheBDM.blockchain().getHeaderByHash(blkHash2).isMainBranch());
-   TheBDM.DestroyInstance();
+   BlockDataManager().destroy();
    
    // Add two more blocks
    BtcUtils::copyFile("../reorgTest/blk_0_to_4.dat", blk0dat_);
@@ -7065,7 +7066,7 @@ TEST_F(BlockUtilsSuper, DISABLED_RestartDBAfterBuild_withReplay)
    EXPECT_EQ(iface_->getTopBlockHeight(HEADERS), 2);
    EXPECT_EQ(iface_->getTopBlockHash(HEADERS), blkHash2);
    EXPECT_TRUE(TheBDM.blockchain().getHeaderByHash(blkHash2).isMainBranch());
-   TheBDM.DestroyInstance();
+   BlockDataManager().destroy();
    
    // Add two more blocks
    BtcUtils::copyFile("../reorgTest/blk_0_to_4.dat", blk0dat_);
@@ -7219,7 +7220,7 @@ protected:
    /////////////////////////////////////////////////////////////////////////////
    virtual void TearDown(void)
    {
-      BlockDataManager_LevelDB::DestroyInstance();
+      BlockDataManager().destroy();
      
       rmdir(blkdir_);
       rmdir(homedir_);

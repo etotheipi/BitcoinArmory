@@ -142,13 +142,6 @@ static StoredScriptHistory* makeSureSSHInMap(
 
 
 
-BlockDataManager_LevelDB* BlockDataManager_LevelDB::theOnlyBDM_ = NULL;
-InterfaceToLDB* BlockDataManager_LevelDB::iface_=NULL;
-bool BlockDataManager_LevelDB::bdmCreatedYet_=false;
-
-
-
-
 /////////////////////////////////////////////////////////////////////////////
 // This method is used in the registeredScrAddrScan to conditionally create and
 // insert a transaction into the registered list 
@@ -1207,7 +1200,8 @@ double Blockchain::traceChainDown(BlockHeader & bhpStart)
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 BlockDataManager_LevelDB::BlockDataManager_LevelDB(void) 
-   : blockchain_(this)
+   : iface_(LevelDBWrapper::GetInterfacePtr())
+   , blockchain_(this)
 {
    Reset();
 }
@@ -1222,6 +1216,8 @@ BlockDataManager_LevelDB::~BlockDataManager_LevelDB(void)
    {
       delete *iter;
    }
+   
+   iface_->closeDatabases();
 
    Reset();
 }
@@ -1796,31 +1792,6 @@ uint32_t BlockDataManager_LevelDB::getAppliedToHeightInDB(void)
    return sdbi.appliedToHgt_;
 }
 
-/////////////////////////////////////////////////////////////////////////////
-// The only way to "create" a BDM is with this method, which creates it
-// if one doesn't exist yet, or returns a reference to the only one
-// that will ever exist
-BlockDataManager_LevelDB & BlockDataManager_LevelDB::GetInstance(void) 
-{
-   if( !bdmCreatedYet_ )
-   {
-      theOnlyBDM_ = new BlockDataManager_LevelDB;
-      bdmCreatedYet_ = true;
-      iface_ = LevelDBWrapper::GetInterfacePtr();
-   }
-   return (*theOnlyBDM_);
-}
-
-
-/////////////////////////////////////////////////////////////////////////////
-void BlockDataManager_LevelDB::DestroyInstance(void)
-{
-   theOnlyBDM_->Reset();
-   iface_->closeDatabases();
-   delete theOnlyBDM_;
-   bdmCreatedYet_ = false;
-   iface_ = NULL;
-}
 
 /////////////////////////////////////////////////////////////////////////////
 void BlockDataManager_LevelDB::Reset(void)
@@ -4830,6 +4801,6 @@ bool BlockDataManager_LevelDB::createUndoDataFromBlock(uint32_t hgt,
  
 //}
 
-
+BlockDataManager_LevelDB* BlockDataManager::bdm_=0;
 
 // kate: indent-width 3; replace-tabs on;

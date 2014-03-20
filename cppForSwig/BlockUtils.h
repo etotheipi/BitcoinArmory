@@ -214,14 +214,6 @@ private:
 //
 
 
-
-////////////////////////////////////////////////////////////////////////////////
-//
-// BlockDataManager is a SINGLETON:  only one is ever created.  
-//
-// Access it via BlockDataManager_LevelDB::GetInstance();
-//
-////////////////////////////////////////////////////////////////////////////////
 class BlockDataManager_LevelDB
 {
 private:
@@ -230,7 +222,7 @@ private:
    bool checkLdbStatus(leveldb::Status stat);
 
    // This is our permanent link to the two databases used
-   static InterfaceToLDB* iface_;
+   InterfaceToLDB* iface_;
    
    // Need a separate memory pool just for zero-confirmation transactions
    // We need the second map to make sure we can find the data to remove
@@ -289,8 +281,6 @@ private:
    vector<BlockHeader*>               previouslyValidBlockHeaderPtrs_;
    vector<BlockHeader*>               orphanChainStartBlocks_;
 
-   static BlockDataManager_LevelDB*   theOnlyBDM_;
-   static bool                        bdmCreatedYet_;
    bool                               isInitialized_;
 
    // These will be set for the specific network we are testing
@@ -339,18 +329,15 @@ private:
 
    Blockchain blockchain_;
    
-private:
+public:
    // Set the constructor to private so that only one can ever be created
    BlockDataManager_LevelDB(void);
    ~BlockDataManager_LevelDB(void);
 
-public:
 
    Blockchain& blockchain() { return blockchain_; }
    const Blockchain& blockchain() const { return blockchain_; }
 
-   static BlockDataManager_LevelDB & GetInstance(void);
-   static void DestroyInstance(void);
    bool isInitialized(void) const { return isInitialized_;}
 
    void SetDatabaseModes(ARMORY_DB_TYPE atype, DB_PRUNE_TYPE dtype)
@@ -410,7 +397,9 @@ public:
                uint32_t hgt, const vector<BinaryData>* firstHashOfEachBlkFile=NULL);
 
    /////////////////////////////////////////////////////////////////////////////
+private:
    void Reset(void);
+public:
    int32_t          getNumConfirmations(BinaryData txHash);
    string           getBlockfilePath(void) {return blkFileDir_;}
 
@@ -644,12 +633,21 @@ public:
 class BlockDataManager
 {
 public:
-   BlockDataManager(void) { bdm_ = &(BlockDataManager_LevelDB::GetInstance());}
+   BlockDataManager_LevelDB & getBDM(void)
+   {
+      if (!bdm_)
+         bdm_ = new BlockDataManager_LevelDB;
+      return *bdm_;
+   }
    
-   BlockDataManager_LevelDB & getBDM(void) { return *bdm_; }
+   void destroy()
+   {
+      delete bdm_;
+      bdm_ = 0;
+   }
 
 private:
-   BlockDataManager_LevelDB* bdm_;
+   static BlockDataManager_LevelDB* bdm_;
 };
 
 // kate: indent-width 3; replace-tabs on;
