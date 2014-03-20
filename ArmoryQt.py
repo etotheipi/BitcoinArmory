@@ -2317,6 +2317,7 @@ class ArmoryMainWindow(QMainWindow):
          LOGINFO(dispStr)
          # Register all wallets with TheBDM
          TheBDM.registerWallet( wlt.cppWallet )
+         TheBDM.bdm.registerWallet(wlt.cppWallet)
 
 
       # Get the last directory
@@ -2488,6 +2489,9 @@ class ArmoryMainWindow(QMainWindow):
    def finishLoadBlockchain(self):
       # Now that the blockchain is loaded, let's populate the wallet info
       if TheBDM.isInitialized():
+         
+         for wltID in self.walletMap.iterkeys():
+            TheBDM.bdm.unregisterWallet(self.walletMap[wltID].cppWallet)
 
          self.currBlockNum = TheBDM.getTopBlockHeight()
          self.setDashboardDetails()
