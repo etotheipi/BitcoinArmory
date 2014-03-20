@@ -328,6 +328,7 @@ class SignedMessageBlockVerificationWidget(SignatureVerificationWidget):
       signatureLabel = QLabel('Signed Message Block:')
       self.signedMessageBlockTextEdit = QTextEdit()
       self.signedMessageBlockTextEdit.setStyleSheet("font: 9pt \"Courier\";")
+      self.signedMessageBlockTextEdit.setAcceptRichText(False)
       self.signMessageLayout.addWidget(signatureLabel,         0, 0)
       self.signMessageLayout.addWidget(self.signedMessageBlockTextEdit,  0, 1)
 
