@@ -1902,6 +1902,7 @@ class ArmoryMainWindow(QMainWindow):
 
       # If it's still not there, look for a default file
       if self.announceFetcher.getFileModTime('bootstrap') == 0:
+         LOGERROR('Could not get announce bootstrap; using default')
          srcTorrent = os.path.join(GetExecDir(), '../default_bootstrap.torrent')
       else:
          srcTorrent = self.announceFetcher.getAnnounceFilePath('bootstrap')
