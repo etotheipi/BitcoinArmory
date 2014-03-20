@@ -22,7 +22,7 @@ else
 PYTHON_INCLUDES=$(shell $(PYVER)-config --includes )
 endif
 
-CPPFLAGS += $(ARMORY_CPPFLAGS) -Icryptopp -Ileveldb/include -DUSE_CRYPTOPP -D__STDC_LIMIT_MACROS
+CPPFLAGS += $(ARMORY_CXXFLAGS) -Icryptopp -Ileveldb/include -DUSE_CRYPTOPP -D__STDC_LIMIT_MACROS
 LDLIBS += -lpthread -Lleveldb
 SWIG_OPTS    += -c++ -python -classic -threads
 
@@ -36,7 +36,7 @@ CXXCPP += $(CPPFLAGS)
 all: ../_CppBlockUtils.so ../qrc_img_resources.py
 
 ../_CppBlockUtils.so: $(OBJS) CppBlockUtils_wrap.o
-	$(LINK) -shared -fPIC $(LDLIBS) $(LDFLAGS) $(CXXFLAGS) $(OBJS) $(STATICPYTHON) CppBlockUtils_wrap.o -o ../_CppBlockUtils.so
+	$(LINK) -shared -fPIC $(LDLIBS) $(LDFLAGS) $(CXXFLAGS) $(ARMORY_LDFLAGS) $(OBJS) $(STATICPYTHON) CppBlockUtils_wrap.o -o ../_CppBlockUtils.so
 
 ../qrc_img_resources.py: ../imgList.xml
 	pyrcc4 -o ../qrc_img_resources.py ../imgList.xml
@@ -44,11 +44,11 @@ all: ../_CppBlockUtils.so ../qrc_img_resources.py
 
 #**************************************************************************
 libcryptopp.a: Makefile
-	$(MAKE) -C cryptopp libcryptopp.a
+	$(MAKE) -C cryptopp libcryptopp.a CRYPTOPP_CXXFLAGS=$(ARMORY_CXXFLAGS) CRYPTOPP_LDFLAGS=$(ARMORY_LDFLAGS)
 	mv cryptopp/libcryptopp.a .
 
 libleveldb.a: Makefile
-	$(MAKE) -C leveldb libleveldb.a
+	$(MAKE) -C leveldb libleveldb.a OPT=$(ARMORY_CXXFLAGS)
 	mv leveldb/libleveldb.a .
 
 %.o: %.cpp %.h
