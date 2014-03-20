@@ -464,19 +464,20 @@ class UpgradeDownloaderDialog(ArmoryDialog):
 
          # Figure out where to bound the changelog information
          startIndex = -1
-         for i,triplet in enumerate(self.changelog):
-            if triplet[0]==packagever:
-               startIndex = i
-               break
-
-         stopIndex = len(self.changelog)
-         if len(self.main.armoryVersions[0])>0:
+         if self.changelog is not None:
             for i,triplet in enumerate(self.changelog):
-               currVer = getVersionInt(readVersionString(self.main.armoryVersions[0]))
-               thisVer = getVersionInt(readVersionString(triplet[0]))
-               if thisVer <= currVer:
-                  stopIndex = i
+               if triplet[0]==packagever:
+                  startIndex = i
                   break
+
+            stopIndex = len(self.changelog)
+            if len(self.main.armoryVersions[0])>0:
+               for i,triplet in enumerate(self.changelog):
+                  currVer = getVersionInt(readVersionString(self.main.armoryVersions[0]))
+                  thisVer = getVersionInt(readVersionString(triplet[0]))
+                  if thisVer <= currVer:
+                     stopIndex = i
+                     break
 
 
 
@@ -579,6 +580,7 @@ class UpgradeDownloaderDialog(ArmoryDialog):
             for os in packver.iterkeys():
                allOSes.add(os)
       self.cascade(self.os, allOSes, self.cascadeOsVer)
+
 
    def cascadeOsVer(self):
       chosenos = str(self.os.itemData(self.os.currentIndex()).toString())

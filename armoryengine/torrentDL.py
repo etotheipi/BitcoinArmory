@@ -246,7 +246,7 @@ class TorrentDownloadManager(object):
 
    #############################################################################
    def isFinished(self):
-      return (self.finishTime is not None)
+      return (self.finishTime is not None) or self.dlFailed
 
    #############################################################################
    def isRunning(self):

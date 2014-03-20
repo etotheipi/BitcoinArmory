@@ -1464,6 +1464,9 @@ class ArmoryMainWindow(QMainWindow):
          dlp = downloadLinkParser()
          self.downloadLinks = dlp.parseDownloadList(txt)
 
+         if self.downloadLinks is None:
+            return
+
          thisVer = getVersionInt(BTCARMORY_VERSION)
 
          # Check ARMORY versions
@@ -1563,6 +1566,9 @@ class ArmoryMainWindow(QMainWindow):
    def getChangelogText(self, verStr):
       releaseDate = None
       changeList  = None
+      if self.changelog is None:
+         return None
+
       for ver,date,updList in self.changelog:
          if chngVer == verStr:
             releaseDate = date
@@ -4202,7 +4208,7 @@ class ArmoryMainWindow(QMainWindow):
 
          def __call__(self):
             return DlgNotificationWithDNAA(self.parent, self.parent, \
-                                          self.nid, self.notifyMap).exec_()
+                                          self.nid, self.notifyMap, False).exec_()
 
       self.announceTableWidgets = \
          [[QLabel(''), QRichLabel(''), QLabelButton('+'), DlgGen()] \
@@ -4276,7 +4282,11 @@ class ArmoryMainWindow(QMainWindow):
    def getDownloaderData(self):
       dl = self.announceFetcher.getAnnounceFile('downloads')
       cl = self.announceFetcher.getAnnounceFile('changelog')
-      if dl is None or cl is None:
+
+      dlObj = downloadLinkParser().parseDownloadList(dl)
+      clObj = changelogParser().parseChangelogText(cl)
+
+      if dlObj is None or clObj is None:
          QMessageBox.warning(self, tr('No Data'), tr("""
             The secure downloader has not received any download
             data to display.  Either the <font color="%s"><b>Armory
@@ -4295,6 +4305,8 @@ class ArmoryMainWindow(QMainWindow):
             available.""") % (htmlColor("TextGreen"), \
             secondsToHumanTime(sinceLastUpd)), QMessageBox.Ok)
 
+      dl = self.announceFetcher.getAnnounceFile('downloads')
+      cl = self.announceFetcher.getAnnounceFile('changelog')
 
       return dl,cl
 
@@ -5721,16 +5733,26 @@ class ArmoryMainWindow(QMainWindow):
 
 
          if self.doAutoBitcoind:
-            if tdmState=='Downloading':
-               self.updateSyncProgress()
-               timeEst  = TheTDM.getLastStats('timeEst')
-               if timeEst:
-                  self.torrentCircBuffer.append(timeEst)
+            if TheTDM.isRunning():
+               if not tdmState=='Downloading':
+                  pass   
+               if tdmState=='Downloading':
+                  self.updateSyncProgress()
+
+               downRate  = TheTDM.getLastStats('downRate')
+               if downRate:
+                  self.torrentCircBuffer.append(downRate)
+               else:
+                  self.torrentCircBuffer.append(0)
+
+               # Assumes 1 sec heartbeat
                bufsz = len(self.torrentCircBuffer)
                if bufsz > 5*MINUTE:
                   self.torrentCircBuffer.pop()
-               if bufsz > 1*MINUTE:
-                  if sum(self.torrentCircBuffer) / float(bufsz) > 1*DAY:
+
+               if bufsz > 5*MINUTE:
+                  # If dlrate is below 30 kB/s, offer the user a way to skip it
+                  if sum(self.torrentCircBuffer) / float(bufsz) < 30*KILOBYTE:
                      if (RightNow() - self.lastAskedUserStopTorrent) > 5*MINUTE:
                         self.lastAskedUserStopTorrent = RightNow()
                         reply = QMessageBox.warning(self, tr('Torrent'), tr("""

@@ -9308,7 +9308,7 @@ class DlgNotificationWithDNAA(ArmoryDialog):
    as well as displaying specific notifications if viewed and selected in
    the Announcements tab.
    """
-   def __init__(self, parent, main, nid, notifyMap):
+   def __init__(self, parent, main, nid, notifyMap, showBtnDNAA=True):
       super(DlgNotificationWithDNAA, self).__init__(parent, main)
 
       self.notifyID = nid
@@ -9455,6 +9455,8 @@ class DlgNotificationWithDNAA(ArmoryDialog):
       btnDismiss      = QPushButton(tr('Close'))
       btnIgnoreLong   = QPushButton(tr('Do not show again'))
       btnDownload     = QPushButton(tr('Secure Download'))
+
+      btnIgnoreLong.setVisible(showBtnDNAA)
 
       def openUpgrader(): 
          self.accept()
