@@ -14,6 +14,7 @@ class UpgradeDownloader:
       self.frame = None
       self.parent = parent
       self.main = main
+      self.packageName = ''
 
       self.networkAccess = QNetworkAccessManager()
 
@@ -36,6 +37,9 @@ class UpgradeDownloader:
 
    def setStartedCallback(self, callback):
       self.startedCB = callback
+
+   def setPackageName(self, pkgName):
+      self.packageName = pkgName
 
    def createDownloaderWidget(self, parent):
       if self.frame:
@@ -76,9 +80,14 @@ class UpgradeDownloader:
       self.progressTimer()
       self.startedCB()
 
+   #############################################################################
    def downloadFinished(self):
       if not self.downloadButton is None:
          self.downloadButton.setText(tr("Download"))
+
+      # We will ask the user if they want us to unpack it for them
+      # Only if linux, only if satoshi, only if not offline-pkg-signed
+      linuxUnpackFile = None
 
       # downloadFile will be removed on cancel
       if not self.downloadFile is None:
@@ -136,17 +145,49 @@ class UpgradeDownloader:
                         (htmlColor("TextGreen"), dest), \
                         QMessageBox.Ok)
                   else:
-                     QMessageBox.warning(self.frame, tr("Download complete"), tr("""
-                        The file downloaded successfully, and carries a valid 
-                        signature from <font color="%s"><b>Armory Technologies, 
-                        Inc.</b></font> You can now use it to install the 
-                        software.  The file was saved to:
-                        <br><br> %s <br><br>
-                        <b>There is no special procedure to update a previous
-                        installation.</b>  The installer will update existing
-                        versions without touching your wallets or settings.""") % \
-                        (htmlColor("TextGreen"), dest), QMessageBox.Ok)
+                     if OS_LINUX and \
+                        self.packageName=='Satoshi' and \
+                        dest.endswith('tar.gz'):
+                        linuxUnpackFile = dest
+                     else:
+                        QMessageBox.warning(self.frame, tr("Download complete"), tr("""
+                           The file downloaded successfully, and carries a valid 
+                           signature from <font color="%s"><b>Armory Technologies, 
+                           Inc.</b></font> You can now use it to install the 
+                           software.  The file was saved to:
+                           <br><br> %s <br><br>
+                           <b>There is no special procedure to update a previous
+                           installation.</b>  The installer will update existing
+                           versions without touching your wallets or settings.""") % \
+                           (htmlColor("TextGreen"), dest), QMessageBox.Ok)
 
+
+
+      if linuxUnpackFile is not None:
+         reply = QMessageBox.warning(self.frame, tr('Unpack Download'), tr("""
+            You just downloaded a <i>*.tar.gz</i> file that contains 
+            the Bitcoin Core software.  Would you like Armory to unpack
+            it for you and adjust your settings to use it?
+            <br><br>
+            Clicking "Yes" will make changes that are only useful if 
+            you let Armory run Bitcoin Core for you in the background
+            (will have no effect if you run Bitcoin Core yourself)."""), \
+            QMessageBox.Yes | QMessageBox.No)
+
+         if reply==QMessageBox.Yes:
+            finalDir = self.main.unpackLinuxTarGz(dest, changeSettings=True)
+            if finalDir is None:
+               QMessageBox.critical(self.frame, tr('Error Unpacking'), tr("""
+                  There was an error unpacking the Bitcoin Core file.  To use
+                  it, you need to go to where the file was saved, right-click
+                  on it and select "Extract Here", then adjust your settings
+                  (<i>"File"</i>\xe2\x86\x92<i>"Settings"</i> from the main 
+                  window) to point "Bitcoin Install Dir" to the extracted 
+                  directory."""), QMessageBox.Ok)
+            else:
+               QMessageBox.warning(self.frame, tr('Finished!'), tr("""
+                  The operation was successful.  Restart Armory to use the
+                  newly-downloaded Bitcoin Core software"""), QMessageBox.Ok)
 
       self.receivedData = None
       self.downloadFile = None
@@ -461,6 +502,8 @@ class UpgradeDownloaderDialog(ArmoryDialog):
          self.downloader.setFile(packageurl, packagehash)
          self.selectedDLInfo = [packagename,packagever,packageurl,packagehash]
          self.btnDLInfo.setVisible(True)
+
+         self.downloader.setPackageName(packagename)
 
          # Figure out where to bound the changelog information
          startIndex = -1

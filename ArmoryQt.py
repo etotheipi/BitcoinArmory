@@ -4094,7 +4094,7 @@ class ArmoryMainWindow(QMainWindow):
          if dist[0] in ['Ubuntu','LinuxMint'] or 'debian' in dist:
             self.dashBtns[DASHBTNS.Install][BTN].setEnabled(True)
             self.dashBtns[DASHBTNS.Install][LBL] = QRichLabel( tr("""
-               'Download Core Bitcoin for Ubuntu/Debian"""))
+               Download and Install Bitcoin Core for Ubuntu/Debian"""))
             self.dashBtns[DASHBTNS.Install][TTIP] = self.createToolTipWidget( tr("""
                'Will download and Bitcoin software and cryptographically verify it"""))
       elif OS_MACOSX:
@@ -5738,8 +5738,6 @@ class ArmoryMainWindow(QMainWindow):
 
          if self.doAutoBitcoind:
             if TheTDM.isRunning():
-               if not tdmState=='Downloading':
-                  pass   
                if tdmState=='Downloading':
                   self.updateSyncProgress()
 
@@ -6046,6 +6044,49 @@ class ArmoryMainWindow(QMainWindow):
       else:
          return  # how would we get here?
 
+
+
+   #############################################################################
+   def unpackLinuxTarGz(self, targzFile, changeSettings=True):
+      if targzFile is None:
+         return None
+
+      if not os.path.exists(targzFile):
+         return None
+
+      unpackDir  = os.path.join(ARMORY_HOME_DIR, 'latestBitcoinInst')
+      unpackDir2 = os.path.join(ARMORY_HOME_DIR, 'latestBitcoinInstOld')
+      if os.path.exists(unpackDir):
+         if os.path.exists(unpackDir2):
+            shutil.rmtree(unpackDir2)
+         shutil.move(unpackDir, unpackDir2)
+
+      os.mkdir(unpackDir)
+
+      out,err = execAndWait('tar -zxf %s -C %s' % (targzFile, unpackDir), \
+                                                                  timeout=5)
+
+      LOGINFO('UNPACK STDOUT: "' + out + '"')
+      LOGINFO('UNPACK STDERR: "' + err + '"')
+
+      
+      # There should only be one subdir
+      unpackDirChild = None
+      for fn in os.listdir(unpackDir):
+         unpackDirChild = os.path.join(unpackDir, fn)
+
+      if unpackDirChild is None:
+         LOGERROR('There was apparently an error unpacking the file')
+         return None
+
+      finalDir = os.path.abspath(unpackDirChild)
+      LOGWARN('Bitcoin Core unpacked into: %s', finalDir)
+
+      if changeSettings:
+         self.settings.set('SatoshiExe', finalDir)
+
+      return finalDir
+      
 
 
    #############################################################################
