@@ -2485,6 +2485,9 @@ class ArmoryMainWindow(QMainWindow):
    def finishLoadBlockchain(self):
       # Now that the blockchain is loaded, let's populate the wallet info
       if TheBDM.isInitialized():
+         
+         for wltID in self.walletMap.iterkeys():
+            TheBDM.bdm.unregisterWallet(self.walletMap[wltID].cppWallet)
 
          self.currBlockNum = TheBDM.getTopBlockHeight()
          self.setDashboardDetails()
