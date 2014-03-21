@@ -1786,9 +1786,9 @@ uint32_t BlockDataManager_LevelDB::getAppliedToHeightInDB(void)
 /////////////////////////////////////////////////////////////////////////////
 void BlockDataManager_LevelDB::Python_rgCallBack(PyObject* callback)
 {
-	LOGINFO << "Executing: Registering CallBack";
-	Py_INCREF((PyObject*)callback); //increment reference so the garbage collector wipe it
-	theCallBack_ = (PyObject*)callback;
+   LOGINFO << "Executing: Registering CallBack";
+   Py_INCREF((PyObject*)callback); //increment reference so the garbage collector wipe it
+   theCallBack_ = (PyObject*)callback;
 }
 
 /////////////////////////////////////////////////////////////////////////////

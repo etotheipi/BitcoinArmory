@@ -341,16 +341,14 @@ public:
    BlockDataManager_LevelDB(void);
    ~BlockDataManager_LevelDB(void);
 
-	void Python_CallBack(void)
-	{
-		PyGILState_STATE gstate;
-		gstate = PyGILState_Ensure();
+void Python_CallBack(void)
+{
+   PyGILState_STATE gstate;
+   gstate = PyGILState_Ensure();
 
-		PyObject * pInstance = PyObject_CallObject(theCallBack_, 0);
-
-		PyGILState_Release(gstate);
-	}
-
+   PyObject * pInstance = PyObject_CallObject(theCallBack_, 0);
+   PyGILState_Release(gstate);
+}
 
 public:
 
@@ -416,7 +414,7 @@ public:
    pair<uint32_t, uint32_t> findFileAndOffsetForHgt(
                uint32_t hgt, const vector<BinaryData>* firstHashOfEachBlkFile=NULL);
 
-	void Python_rgCallBack(PyObject* callback);
+   void Python_rgCallBack(PyObject* callback);
 
    /////////////////////////////////////////////////////////////////////////////
 private:
