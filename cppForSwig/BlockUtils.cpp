@@ -1784,11 +1784,6 @@ uint32_t BlockDataManager_LevelDB::getAppliedToHeightInDB(void)
 
 
 /////////////////////////////////////////////////////////////////////////////
-void BlockDataManager_LevelDB::reset(void)
-{
-   SCOPED_TIMER("BDM::reset");
-
-/////////////////////////////////////////////////////////////////////////////
 void BlockDataManager_LevelDB::Python_rgCallBack(PyObject* callback)
 {
 	LOGINFO << "Executing: Registering CallBack";
@@ -1797,7 +1792,7 @@ void BlockDataManager_LevelDB::Python_rgCallBack(PyObject* callback)
 }
 
 /////////////////////////////////////////////////////////////////////////////
-void BlockDataManager_LevelDB::Reset(void)
+void BlockDataManager_LevelDB::reset(void)
 {
    SCOPED_TIMER("BDM::Reset");
 
