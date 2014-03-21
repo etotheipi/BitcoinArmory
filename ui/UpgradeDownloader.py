@@ -285,12 +285,16 @@ class UpgradeDownloaderDialog(ArmoryDialog):
       packages = QTreeWidget(self)
       self.packages = packages
       packages.setRootIsDecorated(False)
+      packages.sortByColumn(0, Qt.AscendingOrder)
+      packages.setSortingEnabled(True)
 
       headerItem = QTreeWidgetItem()
       headerItem.setText(0,tr("Package"))
       headerItem.setText(1,tr("Version"))
       packages.setHeaderItem(headerItem)
       packages.setMaximumHeight(int(7*tightSizeStr(packages, "Abcdefg")[1]))
+      packages.header().setResizeMode(0, QHeaderView.Stretch)
+      packages.header().setResizeMode(1, QHeaderView.Stretch)
 
       self.connect(self.os, SIGNAL("activated(int)"), self.cascadeOsVer)
       self.connect(self.osver, SIGNAL("activated(int)"), self.cascadeOsArch)
@@ -382,7 +386,7 @@ class UpgradeDownloaderDialog(ArmoryDialog):
       # Above we had to select *something*, we should check that the
       # architecture actually matches our system.  If not, warn
       trueBits = '64' if SystemSpecs.IsX64 else '32'
-      selectBits = str(self.osarch.currentText())[:2]
+      selectBits = self.itemData(self.osarch)[:2]
       if showPackage and not trueBits==selectBits:
          QMessageBox.warning(self, tr("Wrong Architecture"), tr("""
             You appear to be on a %s-bit architecture, but the only
@@ -418,8 +422,6 @@ class UpgradeDownloaderDialog(ArmoryDialog):
                the correct download on the next window."""), QMessageBox.Ok)
       else:
          self.stackedDisplay.setCurrentIndex(1)
-
-
 
 
       self.setLayout(layout)
@@ -464,12 +466,12 @@ class UpgradeDownloaderDialog(ArmoryDialog):
       elif OS_LINUX:
          if osVar.lower() in ['debian', 'linuxmint']:
             d1 = self.findCmbData(self.os, tr('Debian'))
-            d2 = self.findCmbData(self.os, tr('Ubuntu/Debian'))
+            d2 = self.findCmbData(self.os, tr('Ubuntu'))
             osIndex = max(d1,d2)
          elif osVar.lower() == "ubuntu":
-            osIndex = self.findCmbData(self.os, tr('Ubuntu/Debian'))
+            osIndex = self.findCmbData(self.os, tr('Ubuntu'))
          else:
-            osIndex = self.findCmbData(self.os, tr('Ubuntu/Debian'))
+            osIndex = self.findCmbData(self.os, tr('Ubuntu'))
       elif OS_MACOSX:
          osIndex = self.findCmbData(self.osver, tr('MacOSX'))
 
@@ -488,9 +490,9 @@ class UpgradeDownloaderDialog(ArmoryDialog):
 
       archIndex = 0
       if platform.machine() == "x86_64":
-         archIndex = self.findCmbData(self.osarch, '64-bit')
+         archIndex = self.findCmbData(self.osarch, tr('64'))
       else:
-         archIndex = self.findCmbData(self.osarch, '32-bit')
+         archIndex = self.findCmbData(self.osarch, tr('32'))
 
       self.osarch.setCurrentIndex(archIndex)
 
@@ -569,17 +571,19 @@ class UpgradeDownloaderDialog(ArmoryDialog):
 
          self.changelogView.setHtml(logHtml)
          self.updateLabels(packagename, packagever,
-                              self.os.currentText(),
-                              self.osver.currentText(),
-                              self.osarch.currentText())
+                              self.itemData(self.os),
+                              self.itemData(self.osver),
+                              self.itemData(self.osarch))
 
 
 
    def popupPackageInfo(self):
       pkgname,pkgver,pkgurl,pkghash = self.selectedDLInfo
-      osname = self.os.currentText()
-      osver  = self.osver.currentText()
-      osarch = self.osarch.currentText()
+      pkgname= tr(pkgname)
+      pkgver = tr(pkgver)
+      osname = tr(self.itemData(self.os))
+      osver  = tr(self.itemData(self.osver))
+      osarch = tr(self.itemData(self.osarch))
       inst   = os.path.basename(pkgurl)
       QMessageBox.information(self, tr('Package Information'), tr("""
          Download information for <b>%(pkgname)s version %(pkgver)s:</b>
@@ -688,31 +692,27 @@ class UpgradeDownloaderDialog(ArmoryDialog):
 
 
                self.updateLabels(packname, packvername,
-                                     self.os.currentText(),
-                                     self.osver.currentText(),
-                                     self.osarch.currentText())
-
+                                    self.itemData(self.os),
+                                    self.itemData(self.osver),
+                                    self.itemData(self.osarch))
 
 
    def updateLabels(self, pkgName, pkgVer, osName, osVer, osArch):
-      if pkgName=='Satoshi':
-         pkgName = 'Bitcoin Core'
-
       if not pkgName:
          self.lblSelectedComplex.setText(tr("""No package currently selected"""))
          self.lblSelectedSimple.setText(tr("""No package currently selected"""))
          self.lblSelectedSimpleMore.setText(tr(""))
       else:
          self.lblSelectedComplex.setText(tr("""
-            <font size=4><b>Selected Package:</b> %s %s for %s %s %s</font>""") % \
-            (pkgName, pkgVer, osName, osVer, osArch))
+            <font size=4><b>Selected Package:</b> {} {} for {} {} {}</font>"""). \
+            format(tr(pkgName), tr(pkgVer), tr(osName), tr(osVer), tr(osArch)))
 
          self.lblSelectedSimple.setText(tr(""" <font size=4><b>Securely
             download latest version of <u>%s</u></b></font>""") % pkgName)
 
          self.lblCurrentVersion.setText('')
          currVerStr = ''
-         if pkgName=='Bitcoin Core':
+         if pkgName=='Satoshi':
             if self.main.satoshiVersions[0]:
                self.lblCurrentVersion.setText(tr("""
                   You are currently using Bitcoin Core version %s""") % \
@@ -727,9 +727,11 @@ class UpgradeDownloaderDialog(ArmoryDialog):
             <b>Software Download:</b>  %s version %s<br>
             <b>Operating System:</b>  %s %s <br>
             <b>System Architecture:</b> <font color="%s">%s</font> """) % \
-            (pkgName, pkgVer, osName, osVer, self.bitsColor, osArch))
+            (tr(pkgName), tr(pkgVer), tr(osName), tr(osVer), self.bitsColor, tr(osArch)))
 
-
+   # get the untranslated name from the combobox specified
+   def itemData(self, combobox):
+      return str(combobox.itemData(combobox.currentIndex()).toString())
 
    def localized(self, v):
       if v in self.localizedData:
