@@ -166,13 +166,14 @@ class UpgradeDownloader:
 
       if linuxUnpackFile is not None:
          reply = QMessageBox.warning(self.frame, tr('Unpack Download'), tr("""
-            You just downloaded a <i>*.tar.gz</i> file that contains 
-            the Bitcoin Core software.  Would you like Armory to unpack
-            it for you and adjust your settings to use it?
+            You just downloaded the Bitcoin Core software for Linux.  
+            Would you like Armory to extract it for you and adjust your 
+            settings to use it automatically?
             <br><br>
-            Clicking "Yes" will make changes that are only useful if 
-            you let Armory run Bitcoin Core for you in the background
-            (will have no effect if you run Bitcoin Core yourself)."""), \
+            If you modified your settings to run Bitcoin Core manually, 
+            click "No" then extract the downloaded file and manually start
+            bitcoin-qt or bitcoind in from the extracted "bin/%d" 
+            directory.""") % (64 if SystemSpecs.IsX64 else 32), \
             QMessageBox.Yes | QMessageBox.No)
 
          if reply==QMessageBox.Yes:
@@ -184,7 +185,11 @@ class UpgradeDownloader:
                   on it and select "Extract Here", then adjust your settings
                   (<i>"File"</i>\xe2\x86\x92<i>"Settings"</i> from the main 
                   window) to point "Bitcoin Install Dir" to the extracted 
-                  directory."""), QMessageBox.Ok)
+                  directory.
+                  <br><br>
+                  You saved the installer to:
+                  <br><br>
+                  %s""") % dest, QMessageBox.Ok)
             else:
                QMessageBox.warning(self.frame, tr('Finished!'), tr("""
                   The operation was successful.  Restart Armory to use the

@@ -672,12 +672,13 @@ def compile_armory():
 ################################################################################
 def make_resources():
    "Populate the Resources folder."
+
    cont = path.join(APPDIR, 'Contents')
-   icnsArm = path.join(cont,  'MacOS/py/share/armory/img/armory_icon_fullres.icns')
-   icnsRes  = path.join(cont,  'Resources/Icon.icns')
    copyfile('Info.plist', cont)
+
+   icnsArm = '../img/armory_icon_fullres.icns'
+   icnsRes  = path.join(cont,  'Resources/Icon.icns')
    copyfile(icnsArm, icnsRes)
-   #execAndWait("cd '%s' && cp ../MacOS/py/share/armory/img/armory_icon_fullres.icns Icon.icns" % (res,))
    
 ################################################################################
 #def unzip_swig():
