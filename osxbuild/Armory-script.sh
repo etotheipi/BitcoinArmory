@@ -5,7 +5,7 @@
 # Set environment variables so the Python executable finds its stuff.
 # Note that `dirname $0` gives a relative path. We'd like the absolute path.
 DIRNAME="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-ARMORYDIR="$DIRNAME/py/lib/armory"
+ARMORYDIR="$DIRNAME/py/usr/lib/armory"
 LIBDIR="$DIRNAME/../Dependencies"
 FRDIR="$DIRNAME/../Frameworks"
 

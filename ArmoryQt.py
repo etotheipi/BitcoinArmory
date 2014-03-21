@@ -4150,8 +4150,9 @@ class ArmoryMainWindow(QMainWindow):
          if lastUpdate==lastUpdate2:
             QMessageBox.warning(self, tr('Not Available'), tr("""
                Could not access the <font color="%s"><b>Armory
-               Technologies, Inc.</b></font> announcement feeder."""), \
-               QMessageBox.Ok)
+               Technologies, Inc.</b></font> announcement feeder.
+               Try again in a couple minutes.""") % \
+               htmlColor('TextGreen'), QMessageBox.Ok)
 
 
       self.lblLastUpdated = QRichLabel('', doWrap=False)

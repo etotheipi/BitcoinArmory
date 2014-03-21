@@ -10,6 +10,10 @@ endif
 
 platform=$(shell uname)
 
+ifeq ($(shell uname), Darwin)
+LDFLAGS += -undefined dynamic_lookup 
+endif
+
 #**************************************************************************
 LINK = $(CXX)
 
