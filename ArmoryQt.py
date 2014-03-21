@@ -2567,8 +2567,8 @@ class ArmoryMainWindow(QMainWindow):
 
             if remember==True:
                self.writeSetting('NotifyBlkFinish',False)
-         else:
-            self.mainDisplayTabs.setCurrentIndex(self.MAINTABS.Ledger)
+
+         self.mainDisplayTabs.setCurrentIndex(self.MAINTABS.Ledger)
 
 
          self.netMode = NETWORKMODE.Full
