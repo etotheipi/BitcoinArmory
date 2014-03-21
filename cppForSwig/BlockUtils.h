@@ -334,21 +334,24 @@ private:
    //map<OutPoint,   TxIOPair>          txioMap_;
 
    Blockchain blockchain_;
-	PyObject* theCallBack_;
+   PyObject* theCallBack_;
    
 public:
    // Set the constructor to private so that only one can ever be created
    BlockDataManager_LevelDB(void);
    ~BlockDataManager_LevelDB(void);
 
-void Python_CallBack(void)
-{
-   PyGILState_STATE gstate;
-   gstate = PyGILState_Ensure();
+private:
+   void Python_CallBack(void)
+   {
+      if (!theCallBack_)
+         return;
+      PyGILState_STATE gstate;
+      gstate = PyGILState_Ensure();
 
-   PyObject * pInstance = PyObject_CallObject(theCallBack_, 0);
-   PyGILState_Release(gstate);
-}
+      PyObject * pInstance = PyObject_CallObject(theCallBack_, 0);
+      PyGILState_Release(gstate);
+   }
 
 public:
 

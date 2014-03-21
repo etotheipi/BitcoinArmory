@@ -1202,6 +1202,7 @@ double Blockchain::traceChainDown(BlockHeader & bhpStart)
 BlockDataManager_LevelDB::BlockDataManager_LevelDB(void) 
    : iface_(LevelDBWrapper::GetInterfacePtr())
    , blockchain_(this)
+   , theCallBack_(0)
 {
    reset();
 }
@@ -3171,7 +3172,7 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
                                              bool skipFetch,
                                              bool initialLoad)
 {
-	Python_CallBack();
+   Python_CallBack();
    missingBlockHashes_.clear();
    
    SCOPED_TIMER("buildAndScanDatabases");
@@ -3180,9 +3181,7 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
    
    Python_CallBack();
    // Will use this updating the GUI with progress bar
-   time_t t;
-   time(&t);
-   progressTimer_ = (uint32_t)t;
+   progressTimer_ = (uint32_t)time(0);
 
    if(!iface_->databasesAreOpen())
       initializeDBInterface(DBUtils.getArmoryDbType(), DBUtils.getDbPruneType());
