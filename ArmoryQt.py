@@ -41,6 +41,7 @@ from qtdialogs import *
 from ui.Wizards import WalletWizard, TxWizard
 from ui.VerifyOfflinePackage import VerifyOfflinePackageDialog
 from ui.UpgradeDownloader import UpgradeDownloaderDialog
+from ui.MultiSigHacker import DlgMultiHacker
 from jasvet import verifySignature, readSigBlock
 from announcefetch import AnnounceDataFetcher, ANNOUNCE_URL, ANNOUNCE_URL_BACKUP
 from armoryengine.parseAnnounce import *
@@ -525,7 +526,8 @@ class ArmoryMainWindow(QMainWindow):
       # Set up menu and actions
       #MENUS = enum('File', 'Wallet', 'User', "Tools", "Network")
       currmode = self.getSettingOrSetDefault('User_Mode', 'Advanced')
-      MENUS = enum('File', 'User', 'Tools', 'Addresses', 'Wallets', 'Help')
+      MENUS = enum('File', 'User', 'Tools', 'Addresses', 'Wallets', \
+                                                'Experimental', 'Help')
       self.menu = self.menuBar()
       self.menusList = []
       self.menusList.append( self.menu.addMenu('&File') )
@@ -533,9 +535,12 @@ class ArmoryMainWindow(QMainWindow):
       self.menusList.append( self.menu.addMenu('&Tools') )
       self.menusList.append( self.menu.addMenu('&Addresses') )
       self.menusList.append( self.menu.addMenu('&Wallets') )
+      self.menusList.append( self.menu.addMenu('&Experimental') )
       self.menusList.append( self.menu.addMenu('&Help') )
       #self.menusList.append( self.menu.addMenu('&Network') )
 
+
+      self.menusList[MENUS.Experimental].hide(not currmode==USERMODE.Expert)
 
       def exportTx():
          if not TheBDM.getBDMState()=='BlockchainReady':
@@ -667,6 +672,14 @@ class ArmoryMainWindow(QMainWindow):
       self.menusList[MENUS.Help].addAction(actRescanDB)
       self.menusList[MENUS.Help].addAction(actRebuildDB)
       self.menusList[MENUS.Help].addAction(actFactoryReset)
+
+
+
+      execMSHack = lambda: DlgMultiHacker().exec_()
+      actMultiHacker = self.createAction(tr('Multi-Signature Transactions'))
+      self.menusList[MENUS.Experimental].addAction(actMultiHacker)
+
+
 
       # Restore any main-window geometry saved in the settings file
       hexgeom   = self.settings.get('MainGeometry')

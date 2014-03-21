@@ -7547,11 +7547,13 @@ class DlgAddressBook(ArmoryDialog):
                                     defaultWltID=None, \
                                     actionStr='Select', \
                                     selectExistingOnly=False, \
-                                    selectMineOnly=False):
+                                    selectMineOnly=False, \
+                                    getPubKey=False):
       super(DlgAddressBook, self).__init__(parent, main)
 
       self.target = putResultInWidget
       self.actStr = actionStr
+      self.returnPubKey = getPubKey
 
       self.isBrowsingOnly = (self.target == None)
 
@@ -7856,17 +7858,62 @@ class DlgAddressBook(ArmoryDialog):
    def acceptWltSelection(self):
       wltID = self.selectedWltID
       addr160 = self.main.walletMap[wltID].getNextUnusedAddress().getAddr160()
-      self.target.setText(hash160_to_addrStr(addr160))
+      if not self.returnPubKey:
+         self.target.setText(hash160_to_addrStr(addr160))
+      else:
+         pubKeyHash = self.getPubKeyForAddr160(addr160)
+         if pubKeyHash is None:
+            return
+         self.target.setText(pubKeyHash)
       self.target.setCursorPosition(0)
       self.accept()
 
 
    #############################################################################
    def acceptAddrSelection(self):
+      atype,a160 = addrStr_to_hash160(self.selectedAddr)
+      if atype==P2SHBYTE and self.returnPubKey:
+         LOGERROR('Cannot select P2SH address when selecting a public key!')
+         QMessageBox.critical(self, tr("P2SH Not Allowed"), tr("""
+            This operation requires a public key, but you selected a 
+            P2SH address which does not have a public key (these addresses
+            start with "2" or "3").  Please select a different address"""), \
+            QMessageBox.Ok)
+         return
+
       if self.target:
-         self.target.setText(self.selectedAddr)
+         if not self.returnPubKey:
+            self.target.setText(self.selectedAddr)
+         else:
+            pubKeyHash = self.getPubKeyForAddr160(a160)
+            if pubKeyHash is None:
+               return 
+            self.target.setText(pubKeyHash)
+
          self.target.setCursorPosition(0)
          self.accept()
+
+
+   
+   #############################################################################
+   def getPubKeyForAddr160(self, addr160):
+      if not self.returnPubKey:
+         LOGERROR('Requested getPubKeyNotAddr, but looks like addr requested')
+
+      wid = self.main.getWalletForAddr160(addr160)
+      if not wid:
+         QMessageBox.critical(self, tr('No Public Key'), tr("""
+            This operation requires a full public key, not just an address.  
+            Unfortunately, Armory cannot find the public key for the address
+            you selected.  In general public keys will only be available 
+            for addresses in your wallet."""), QMessageBox.Ok)
+         return None
+
+      wlt = self.main.walletMap[wid]
+      return wlt.getAddrByHash160(addr160).binPublicKey65.toHexStr()
+            
+
+      
 
    #############################################################################
    def showContextMenuTx(self, pos):
@@ -7931,7 +7978,7 @@ class DlgAddressBook(ArmoryDialog):
 
 
 ################################################################################
-def createAddrBookButton(parent, targWidget, defaultWlt, actionStr="Select", selectExistingOnly=False, selectMineOnly=False):
+def createAddrBookButton(parent, targWidget, defaultWlt, actionStr="Select", selectExistingOnly=False, selectMineOnly=False, getPubKey=False):
    btn = QPushButton('')
    ico = QIcon(QPixmap(':/addr_book_icon.png'))
    btn.setIcon(ico)
@@ -7940,7 +7987,7 @@ def createAddrBookButton(parent, targWidget, defaultWlt, actionStr="Select", sel
          QMessageBox.warning(parent, 'No wallets!', 'You have no wallets so '
             'there is no address book to display.', QMessageBox.Ok)
          return
-      dlg = DlgAddressBook(parent, parent.main, targWidget, defaultWlt, actionStr, selectExistingOnly, selectMineOnly)
+      dlg = DlgAddressBook(parent, parent.main, targWidget, defaultWlt, actionStr, selectExistingOnly, selectMineOnly, getPubKey)
       dlg.exec_()
 
    btn.setMaximumWidth(24)
