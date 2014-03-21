@@ -540,7 +540,7 @@ class ArmoryMainWindow(QMainWindow):
       #self.menusList.append( self.menu.addMenu('&Network') )
 
 
-      self.menusList[MENUS.Experimental].hide(not currmode==USERMODE.Expert)
+      #self.menusList[MENUS.Experimental].hide(not currmode==USERMODE.Expert)
 
       def exportTx():
          if not TheBDM.getBDMState()=='BlockchainReady':
@@ -675,8 +675,8 @@ class ArmoryMainWindow(QMainWindow):
 
 
 
-      execMSHack = lambda: DlgMultiHacker().exec_()
-      actMultiHacker = self.createAction(tr('Multi-Signature Transactions'))
+      execMSHack = lambda: DlgMultiHacker(self,self).exec_()
+      actMultiHacker = self.createAction(tr('Multi-Signature Transactions'), execMSHack)
       self.menusList[MENUS.Experimental].addAction(actMultiHacker)
 
 
