@@ -6174,7 +6174,7 @@ class ArmoryMainWindow(QMainWindow):
       while prgAt[2] != 2:
          time.sleep(0.1)
       if nerrors == 0:
-         self.emit(SIGNAL('UWCS'), [1, 'No Wallet Errors Found', 10000, dlgrdy])
+         self.emit(SIGNAL('UWCS'), [1, 'No Wallet Error Found', 10000, dlgrdy])
       else:
          while not dlgrdy:
             self.emit(SIGNAL('UWCS'), [1, 'Found Errors in your Wallets!!!', 0, dlgrdy])
@@ -6270,7 +6270,7 @@ class ArmoryMainWindow(QMainWindow):
 
    def WltCstError(self, wlt, status, dlgrdy):
       self.emit(SIGNAL('PWCE'), dlgrdy, wlt, status)
-      self.extraHeartbeatAlways.append([LOGERROR, ['Failed consistency check on wallet %s' % (wlt.uniqueIDB58)], False])
+      self.extraHeartbeatAlways.append([LOGERROR, ['Failed consistency check on wallet %s%s' % (wlt.uniqueIDB58, ' (' + wlt.labelName +')' if len(wlt.labelName) != 0 else '')], False])
 
    def PromptWltCstError(self, dlgrdy, wallet=None, status='', mode=None):
 

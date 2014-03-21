@@ -75,9 +75,9 @@ class PyBtcWalletRecovery(object):
       basename = os.path.basename(self.WalletPath)
       
       if self.smode == 'consistency check':
-         self.strOutput.append('Checking wallet %s (ID: %s) on %s \r\n' % (basename, self.UID, ctime()))
+         self.strOutput.append('Checking wallet %s (ID: %s) on %s \r\n' % ('\'' + self.labelName + '\'' if len(self.labelName) != 0 else basename, self.UID, ctime()))
       else:
-         self.strOutput.append('Recovering wallet %s (ID: %s) on %s \r\n' % (basename, self.UID, ctime()))
+         self.strOutput.append('Recovering wallet %s (ID: %s) on %s \r\n' % ('\'' + self.labelName + '\'' if len(self.labelName) != 0 else basename, self.UID, ctime()))
          self.strOutput.append('Using %s recovery mode\r\n' % (self.smode))
 
       if self.WO == 1:
@@ -282,6 +282,7 @@ class PyBtcWalletRecovery(object):
       self.WO = 0
       self.UIreport = ''
       self.UID = ''
+      self.labelName = ''
       
       SecurePassphrase = None
       
@@ -294,11 +295,6 @@ class PyBtcWalletRecovery(object):
       self.ncomments = 0
       commentDict = {} #holds all comments entries, as lists: [rawData, hashVal, dtype]
       #in meta mode, the wallet's short and long labels are saved in entries shortLabel and longLabel, pointing to a single str object
-
-      #wait for the progress window to be created
-      if ProgDlg:
-         self.UIreport = '<b>Recovering wallet:</b> %s<br>' % (os.path.basename(WalletPath))
-         ProgDlg.UpdateText(self.UIreport)
 
       rmode = 2
       self.smode = 'bare'
@@ -341,8 +337,14 @@ class PyBtcWalletRecovery(object):
       except: return self.BuildLogFile(-1, ProgDlg, returnError) #Raises here come from invalid header parsing, meaning the file isn't an Armory wallet to begin with, or the header is fubar
 
       self.UID = toRecover.uniqueIDB58
+      self.labelName = toRecover.labelName
       #TODO: try to salvage broken header
       #      compare uniqueIDB58 with recovered wallet
+      
+      if ProgDlg:
+         self.UIreport = '<b>Recovering wallet:</b> %s<br>' % (toRecover.labelName if len(toRecover.labelName) != 0 else os.path.basename(WalletPath))
+         ProgDlg.UpdateText(self.UIreport)
+      
 
       if returned < 0: return self.BuildLogFile(-3, ProgDlg, returnError)
 

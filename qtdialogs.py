@@ -302,7 +302,8 @@ class DlgUnlockWallet(ArmoryDialog):
             self.wlt.unlock(securePassphrase=self.securePassphrase)
             self.securePassphrase.destroy()
          else:
-            self.wlt.verifyPassphrase(self.securePassphrase)
+            if self.wlt.verifyPassphrase(self.securePassphrase) == False:
+               raise PassphraseError
 
          self.accept()
       except PassphraseError:
