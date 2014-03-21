@@ -1758,6 +1758,8 @@ bool InterfaceToLDB::readStoredBlockAtIter(LDBIter & ldbIter, StoredHeader & sbh
                                                 sbh.blockHeight_,
                                                 sbh.duplicateID_);
 
+   if (bdtype == NOT_BLKDATA)
+      throw runtime_error("readStoredBlockAtIter: tried to readBlkDataKey, got NOT_BLKDATA");
    
    // Grab the header first, then iterate over 
    sbh.unserializeDBValue(BLKDATA, ldbIter.getValueRef(), false);

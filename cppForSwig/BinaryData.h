@@ -409,7 +409,7 @@ public:
    template<typename INTTYPE>
    static BinaryData IntToStrLE(INTTYPE val)
    {
-      uint8_t const SZ = sizeof(INTTYPE);
+      static const uint8_t SZ = sizeof(INTTYPE);
       BinaryData out(SZ);
       for(uint8_t i=0; i<SZ; i++, val>>=8)
          out[i] = val % 256;
@@ -418,9 +418,9 @@ public:
    
    /////////////////////////////////////////////////////////////////////////////
    template<typename INTTYPE>
-   static BinaryData IntToStrBE(INTTYPE val)
+   inline static BinaryData IntToStrBE(INTTYPE val)
    {
-      uint8_t const SZ = sizeof(INTTYPE);
+      static const uint8_t SZ = sizeof(INTTYPE);
       BinaryData out(SZ);
       for(uint8_t i=0; i<SZ; i++, val>>=8)
          out[(SZ-1)-i] = val % 256;

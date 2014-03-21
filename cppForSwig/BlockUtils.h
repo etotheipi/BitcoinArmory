@@ -185,6 +185,14 @@ public:
       
       return getHeaderPtrForTxRef(txObj.getTxRef());
    }
+   
+   /**
+    * @return a map of all headers, even with duplicates
+    **/
+   map<HashString, BlockHeader>& allHeaders()
+   {
+      return headerMap_;
+   }
 
 private:
    BlockHeader* organizeChain(bool forceRebuild=false);
@@ -217,9 +225,6 @@ private:
 class BlockDataManager_LevelDB
 {
 private:
-   
- 
-   bool checkLdbStatus(leveldb::Status stat);
 
    // This is our permanent link to the two databases used
    InterfaceToLDB* iface_;
@@ -366,12 +371,13 @@ public:
    bool initializeDBInterface(ARMORY_DB_TYPE dbt = ARMORY_DB_WHATEVER,
                               DB_PRUNE_TYPE prt = DB_PRUNE_WHATEVER);
 
-
+private:
    // This figures out where we should start loading headers/rawblocks/scanning
    // The replay argument has been temporarily disable since it's not currently
    // being used, and was causing problems instead.
    bool detectCurrentSyncState(bool rebuild, bool initialLoad);
 
+public:
    /////////////////////////////////////////////////////////////////////////////
    // Get the parameters of the network as they've been set
    const BinaryData& getGenesisHash(void) const  { return GenesisHash_;   }

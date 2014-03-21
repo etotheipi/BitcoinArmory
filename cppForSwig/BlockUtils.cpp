@@ -918,8 +918,8 @@ BlockHeader& Blockchain::addBlock(
       const BlockHeader &block
    )
 {
-   if (hasHeaderWithHash(blockhash))
-   {
+   if (hasHeaderWithHash(blockhash) && blockhash != bdm_->getGenesisHash())
+   { // we don't show this error for the genesis block
       LOGWARN << "Somehow tried to add header that's already in map";
       LOGWARN << "Header Hash: " << blockhash.toHexStr();
    }
@@ -1307,16 +1307,6 @@ void BlockDataManager_LevelDB::SelectNetwork(string netName)
 }
 
 
-
-/////////////////////////////////////////////////////////////////////////////
-bool BlockDataManager_LevelDB::checkLdbStatus(leveldb::Status stat)
-{
-   if( stat.ok() )
-      return true;
-
-   LOGERR << "***LevelDB Error: " << stat.ToString();
-   return false;
-}
 
 //////////////////////////////////////////////////////////////////////////
 // This method opens the databases, and figures out up to what block each
@@ -2995,9 +2985,13 @@ bool BlockDataManager_LevelDB::processNewHeadersInBlkFiles(uint32_t fnumStart,
    {
       InterfaceToLDB::Batch batch(iface_, HEADERS);
          
-      for(unsigned i=0; i < blockchain_.numHeaders(); i++)
+      for(
+         map<HashString, BlockHeader>::iterator i = blockchain_.allHeaders().begin();
+         i != blockchain_.allHeaders().end();
+         ++i
+      )
       {
-         BlockHeader &block = blockchain_.getHeaderByHeight(i);
+         BlockHeader &block = i->second;
          StoredHeader sbh;
          sbh.createFromBlockHeader(block);
          uint8_t dup = iface_->putBareHeader(sbh);
