@@ -257,8 +257,7 @@ class SendBitcoinsFrame(ArmoryFrame):
    def unsignedCheckBoxUpdate(self):
       if self.unsignedCheckbox.isChecked():
          self.btnSend.setText('Continue')
-         self.btnSend.setToolTip('This is a watching-only wallet! '
-                      'You cannot use it to send bitcoins!')
+         self.btnSend.setToolTip('Click to create an unsigned transaction!')
       else:
          self.btnSend.setText('Send!')
          self.btnSend.setToolTip('Click to send bitcoins!')
@@ -586,12 +585,12 @@ class SendBitcoinsFrame(ArmoryFrame):
       txdp = PyTxDistProposal().createFromTxOutSelection(utxoSelect, recipPairs)
 
       txValues = [totalSend, fee, totalChange]
-      
-      dlg = DlgConfirmSend(self.wlt, self.origSVPairs, txValues[1], self, \
-                                                   self.main, False, changePair)
-
-      if not dlg.exec_():
-         return False
+      if not self.unsignedCheckbox.isChecked():
+         dlg = DlgConfirmSend(self.wlt, self.origSVPairs, txValues[1], self, \
+                                                      self.main, True, changePair)
+   
+         if not dlg.exec_():
+            return False
       
       return txdp
    
@@ -1495,25 +1494,23 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
       # sending a regular (online) transaction.  But the DlgConfirmSend was
       # not really designed
       txdp = self.txdpObj
-      rvpairsOther = []
+      rvpairs = []
       rvpairsMine = []
       outInfo = txdp.pytxObj.makeRecipientsList()
       theFee = sum(txdp.inputValues) - sum([info[1] for info in outInfo])
       for info in outInfo:
          if not info[0] in CPP_TXOUT_HAS_ADDRSTR:
-            rvpairsOther.append(['Non-Standard Output', info[1]])
+            rvpairs.append(['Non-Standard Output', info[1]])
             continue
 
          addrStr = script_to_addrStr(info[2])
          addr160 = addrStr_to_hash160(addrStr)[1]
          scrAddr = script_to_scrAddr(info[2])
+         rvpairs.append([scrAddr, info[1]])
          if self.wlt.hasAddr(addr160):
             rvpairsMine.append([scrAddr, info[1]])
-         else:
-            rvpairsOther.append([scrAddr, info[1]])
 
-
-      if len(rvpairsMine) == 0 and len(rvpairsOther) > 1:
+      if len(rvpairsMine) == 0 and len(rvpairs) > 1:
          QMessageBox.warning(self, 'Missing Change', \
             'This transaction has %d recipients, and none of them '
             'are addresses in this wallet (for receiving change).  '
@@ -1523,9 +1520,9 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
             'be the result of someone tampering with the transaction. '
             '<br><br>The transaction is valid and ready to be signed.  Please '
             'verify the recipient and amounts carefully before '
-            'confirming the transaction on the next screen.' % len(rvpairsOther), \
+            'confirming the transaction on the next screen.' % len(rvpairs), \
             QMessageBox.Ok)
-      dlg = DlgConfirmSend(self.wlt, rvpairsOther, theFee, self, self.main)
+      dlg = DlgConfirmSend(self.wlt, rvpairs, theFee, self, self.main)
       if not dlg.exec_():
          return
 
@@ -1583,11 +1580,27 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
             'that are probably not your fault...', QMessageBox.Ok)
          return
 
-      reply = QMessageBox.warning(self, 'Confirmation', \
-            'Are you sure that you want to broadcast this transaction?', \
-            QMessageBox.Yes | QMessageBox.No)
+      # We should provide the same confirmation dialog here, as we do when
+      # sending a regular (online) transaction.  But the DlgConfirmSend was
+      # not really designed
+      txdp = self.txdpObj
+      rvpairs = []
+      rvpairsMine = []
+      outInfo = txdp.pytxObj.makeRecipientsList()
+      theFee = sum(txdp.inputValues) - sum([info[1] for info in outInfo])
+      for info in outInfo:
+         if not info[0] in CPP_TXOUT_HAS_ADDRSTR:
+            rvpairs.append(['Non-Standard Output', info[1]])
+            continue
 
-      if reply == QMessageBox.Yes:
+         addrStr = script_to_addrStr(info[2])
+         addr160 = addrStr_to_hash160(addrStr)[1]
+         scrAddr = script_to_scrAddr(info[2])
+         rvpairs.append([scrAddr, info[1]])
+
+      dlg = DlgConfirmSend(self.wlt, rvpairs, theFee, self, self.main)
+      
+      if dlg.exec_():
          self.main.broadcastTransaction(finalTx)
          if self.fileLoaded and os.path.exists(self.fileLoaded):
             try:

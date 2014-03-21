@@ -246,7 +246,7 @@ class TorrentDownloadManager(object):
 
    #############################################################################
    def isFinished(self):
-      return (self.finishTime is not None)
+      return (self.finishTime is not None) or self.dlFailed
 
    #############################################################################
    def isRunning(self):
@@ -520,7 +520,4 @@ if __name__=="__main__":
    print 'Finished downloading!  Exiting...'
 
 
-
-# Create a master TDM
-TheTDM = TorrentDownloadManager()
 

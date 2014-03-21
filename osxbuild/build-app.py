@@ -95,7 +95,7 @@ def main():
    compile_psutil()
    #unzip_swig()
    compile_armory()
-   make_ressources()
+   make_resources()
    cleanup_app()
    # Force Finder to update the Icon
    execAndWait("touch " + APPDIR)
@@ -670,14 +670,15 @@ def compile_armory():
    execAndWait('chmod +x "%s"' % appscript)
 
 ################################################################################
-def make_ressources():
+def make_resources():
    "Populate the Resources folder."
+
    cont = path.join(APPDIR, 'Contents')
-   icnsArm = path.join(cont,  'MacOS/py/share/armory/img/armory_icon_fullres.icns')
-   icnsRes  = path.join(cont,  'Resources/Icon.icns')
    copyfile('Info.plist', cont)
+
+   icnsArm = '../img/armory_icon_fullres.icns'
+   icnsRes  = path.join(cont,  'Resources/Icon.icns')
    copyfile(icnsArm, icnsRes)
-   #execAndWait("cd '%s' && cp ../MacOS/py/share/armory/img/armory_icon_fullres.icns Icon.icns" % (res,))
    
 ################################################################################
 #def unzip_swig():

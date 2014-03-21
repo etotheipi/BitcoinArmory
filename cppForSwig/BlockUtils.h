@@ -73,7 +73,6 @@ typedef enum
 
 class BtcWallet;
 
-////////////////////////////////////////////////////////////////////////////////
 struct ZeroConfData
 {
    Tx            txobj_;   
@@ -288,6 +287,7 @@ private:
    vector<BlockHeader*>               orphanChainStartBlocks_;
 
    bool                               isInitialized_;
+   int32_t                            lastScannedBlock_;
 
    // These will be set for the specific network we are testing
    BinaryData GenesisHash_;

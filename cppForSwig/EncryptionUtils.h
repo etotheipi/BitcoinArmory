@@ -186,7 +186,8 @@ public:
    // This would be a static method, as would be appropriate, except SWIG won't
    // play nice with static methods.  Instead, we will just use 
    // SecureBinaryData().GenerateRandom(32), etc
-   SecureBinaryData GenerateRandom(uint32_t numBytes);
+   SecureBinaryData GenerateRandom(uint32_t numBytes, 
+                              SecureBinaryData extraEntropy=SecureBinaryData());
 
    void lockData(void)
    {
@@ -314,7 +315,8 @@ public:
    CryptoECDSA(void) {}
 
    /////////////////////////////////////////////////////////////////////////////
-   static BTC_PRIVKEY CreateNewPrivateKey(void);
+   static BTC_PRIVKEY CreateNewPrivateKey(
+                              SecureBinaryData extraEntropy=SecureBinaryData());
 
    /////////////////////////////////////////////////////////////////////////////
    static BTC_PRIVKEY ParsePrivateKey(SecureBinaryData const & privKeyData);
@@ -364,7 +366,8 @@ public:
    // SWIG to take BTC_PUBKEY and BTC_PRIVKEY
 
    /////////////////////////////////////////////////////////////////////////////
-   SecureBinaryData GenerateNewPrivateKey(void);
+   SecureBinaryData GenerateNewPrivateKey(
+                              SecureBinaryData extraEntropy=SecureBinaryData());
    
    /////////////////////////////////////////////////////////////////////////////
    SecureBinaryData ComputePublicKey(SecureBinaryData const & cppPrivKey);

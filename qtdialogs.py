@@ -302,7 +302,8 @@ class DlgUnlockWallet(ArmoryDialog):
             self.wlt.unlock(securePassphrase=self.securePassphrase)
             self.securePassphrase.destroy()
          else:
-            self.wlt.verifyPassphrase(self.securePassphrase)
+            if self.wlt.verifyPassphrase(self.securePassphrase) == False:
+               raise PassphraseError
 
          self.accept()
       except PassphraseError:
@@ -360,46 +361,6 @@ class LetterButton(QPushButton):
          self.parent.edtPasswd.setText(currPwd[:-1])
       self.parent.redrawKeys()
 
-
-################################################################################
-class DlgTooltip(ArmoryDialog):
-   def __init__(self, parentDlg=None, parentLbl=None, tiptext=''):
-      super(DlgTooltip, self).__init__(parentDlg, main=None)
-
-      if not parentDlg or not tiptext:
-         self.accept()
-
-      qc = QCursor.pos()
-      qp = QPoint(qc.x() - 20, qc.y() - 20)
-      self.move(qp)
-
-      tiptext += '<font size=2 color="#000044"><br>[Click to close]</font>'
-
-      lblText = QRichLabel(tiptext, doWrap=True)
-      lblText.mousePressEvent = lambda ev: self.accept()
-      lblText.mouseReleaseEvent = lambda ev: self.accept()
-      layout = QVBoxLayout()
-      layout.addWidget(makeHorizFrame([lblText], STYLE_RAISED))
-      layout.setContentsMargins(0, 0, 0, 0)
-      self.setLayout(layout)
-
-      self.setStyleSheet('QDialog { background-color : %s }' % htmlColor('Foreground'))
-      lblText.setStyleSheet('QLabel { background-color : %s }' % htmlColor('SlightBkgdDark'))
-      lblText.setContentsMargins(3, 3, 3, 3)
-
-      self.setMinimumWidth(150)
-      self.setWindowFlags(Qt.SplashScreen)
-
-   # def mouseReleaseEvent(self, ev):
-      # self.accept()
-
-   def mousePressEvent(self, ev):
-      self.accept()
-
-   def keyPressEvent(self, ev):
-      self.accept()
-
-
 ################################################################################
 class DlgGenericGetPassword(ArmoryDialog):
    def __init__(self, descriptionStr, parent=None, main=None):
@@ -451,7 +412,12 @@ class DlgBugReport(ArmoryDialog):
          If you do not find the answer to your problem on those pages,
          please describe it in detail below, and any steps taken to
          reproduce the problem.  The more information you provide, the
-         more likely we will be able to help you.""") % (tsPage, faqPage))
+         more likely we will be able to help you.
+         <br><br>
+         <b><font color="%s">Note:</font></b>  Please keep in mind we 
+         are a small open-source company, and do not have a formal customer
+         support department.  We will do our best to help you, but cannot
+         respond to everyone!""") % (tsPage, faqPage, htmlColor('TextBlue')))
 
       self.chkNoLog = QCheckBox('Do not send log file with report')
       self.chkNoLog.setChecked(False)
@@ -461,9 +427,9 @@ class DlgBugReport(ArmoryDialog):
                                  self.main.logFilePrivacyWarning)
 
       self.noLogWarn = QRichLabel(tr("""
-         <font color="%s">If you do not include the log file we may not
-         be able to help you solve your problem!  Click the "Privacy Info"
-         button for details.""") % htmlColor('TextWarn'))
+         <font color="%s">You are unlikely to get a response unless you 
+         provide a log file and a reasonable description with your support
+         request.""") % htmlColor('TextWarn'))
       self.noLogWarn.setVisible(False)
 
       self.connect(self.chkNoLog, SIGNAL('toggled(bool)'), \
@@ -2536,7 +2502,7 @@ class DlgImportAddress(ArmoryDialog):
 
       lblPrivOne = QRichLabel('Private Key')
       self.edtPrivData = QLineEdit()
-      self.edtPrivData.setMinimumWidth(tightSizeStr(self.edtPrivData, 'X' * 80)[0])
+      self.edtPrivData.setMinimumWidth(tightSizeStr(self.edtPrivData, 'X' * 60)[0])
       privTooltip = self.main.createToolTipWidget(\
                        'Supported formats are any hexadecimal or Base58 '
                        'representation of a 32-byte private key (with or '
@@ -2571,7 +2537,24 @@ class DlgImportAddress(ArmoryDialog):
       stkMany = makeVertFrame([HLINE(), lblDescrMany, frmMid])
       self.stackedImport.addWidget(stkMany)
 
+      
+      self.chkUseSP = QCheckBox(tr("""
+         This is from a backup with SecurePrint\xe2\x84\xa2"""))
+      self.edtSecurePrint = QLineEdit()
+      self.edtSecurePrint.setFont(GETFONT('Fixed',9))
+      self.edtSecurePrint.setEnabled(False)
+      w, h = relaxedSizeStr(self.edtSecurePrint, 'X' * 12)
+      self.edtSecurePrint.setMaximumWidth(w)
+      
+      def toggleSP():
+         if self.chkUseSP.isChecked():
+            self.edtSecurePrint.setEnabled(True)
+         else:
+            self.edtSecurePrint.setEnabled(False)
 
+      self.chkUseSP.stateChanged.connect(toggleSP)      
+      frmSP = makeHorizFrame([self.chkUseSP, self.edtSecurePrint, 'Stretch'])
+      #frmSP.setFrameStyle(STYLE_PLAIN)
 
 
       # Set up the Import/Sweep select frame
@@ -2642,6 +2625,7 @@ class DlgImportAddress(ArmoryDialog):
       layout = QVBoxLayout()
       layout.addWidget(frmTop)
       layout.addWidget(self.stackedImport)
+      layout.addWidget(frmSP)
       layout.addWidget(frmWarn)
       layout.addWidget(buttonbox)
 
@@ -2662,19 +2646,48 @@ class DlgImportAddress(ArmoryDialog):
 
    #############################################################################
    def okayClicked(self):
+      pwd = None
+      if self.chkUseSP.isChecked():
+         SECPRINT = HardcodedKeyMaskParams()
+         pwd = str(self.edtSecurePrint.text()).strip()
+         self.edtSecurePrint.setText("")
+         
+         if len(pwd) < 9:
+            QMessageBox.critical(self, 'Invalid Code', tr("""
+                  You didn't enter a full SecurePrint\xe2\x84\xa2 code.  This
+                  code is needed to decrypt your backup.  If this backup is
+                  actually unencrypted and there is no code, then choose the
+                  appropriate backup type from the drop-down box"""), QMessageBox.Ok)
+            return
+            
+         if not SECPRINT['FUNC_CHKPWD'](pwd):
+            QMessageBox.critical(self, 'Bad Encryption Code', tr("""
+                  The SecurePrint\xe2\x84\xa2 code you entered has an error
+                  in it.  Note that the code is case-sensitive.  Please verify
+                  you entered it correctly and try again."""), QMessageBox.Ok)
+            return      
+         
       if self.radioImportOne.isChecked():
-         self.processUserString()
+         self.processUserString(pwd)
       else:
-         self.processMultiKey()
+         self.processMultiKey(pwd)
 
 
    #############################################################################
-   def processUserString(self):
+   def processUserString(self, pwd=None):
       theStr = str(self.edtPrivData.text()).strip().replace(' ', '')
       binKeyData, addr160, addrStr = '', '', ''
 
       try:
          binKeyData, keyType = parsePrivateKeyData(theStr)
+         
+         if pwd:
+            SECPRINT = HardcodedKeyMaskParams()
+            maskKey = SECPRINT['FUNC_KDF'](pwd)
+            SBDbinKeyData = SECPRINT['FUNC_UNMASK'](SecureBinaryData(binKeyData), ekey=maskKey)
+            binKeyData = SBDbinKeyData.toBinStr()
+            SBDbinKeyData.destroy()  
+         
          if binary_to_int(binKeyData, BIGENDIAN) >= SECP256K1_ORDER:
             QMessageBox.critical(self, 'Invalid Private Key', \
                'The private key you have entered is actually not valid '
@@ -2897,12 +2910,16 @@ class DlgImportAddress(ArmoryDialog):
 
 
    #############################################################################
-   def processMultiKey(self):
+   def processMultiKey(self, pwd=None):
       thisWltID = self.wlt.uniqueIDB58
 
       inputText = str(self.txtPrivBulk.toPlainText())
       inputLines = [s.strip().replace(' ', '') for s in inputText.split('\n')]
       binKeyData, addr160, addrStr = '', '', ''
+      
+      if pwd:
+         SECPRINT = HardcodedKeyMaskParams()
+         maskKey = SECPRINT['FUNC_KDF'](pwd)      
 
       privKeyList = []
       addrSet = set()
@@ -2914,6 +2931,8 @@ class DlgImportAddress(ArmoryDialog):
          try:
             nLines += 1
             binKeyData = SecureBinaryData(parsePrivateKeyData(lineend)[0])
+            if pwd: binKeyData = SECPRINT['FUNC_UNMASK'](binKeyData, ekey=maskKey)
+
             addr160 = convertKeyDataToAddress(privKey=binKeyData.toBinStr())
             if not addr160 in addrSet:
                addrSet.add(addr160)
@@ -4552,33 +4571,97 @@ class DlgWalletSelect(ArmoryDialog):
       if isDoubleClick:
          self.accept()
 
+#############################################################################
+def excludeChange(outputPairs, wlt):
+   """
+   NOTE:  this method works ONLY because we always generate a new address
+          whenever creating a change-output, which means it must have a
+          higher chainIndex than all other addresses.  If you did something 
+          creative with this tx, this may not actually work.
+   """
+   maxChainIndex = -5
+   nonChangeOutputPairs = []
+   currentMaxChainPair = None
+   for pair in outputPairs:
+      addr160 = scrAddr_to_hash160(pair[0])[1]
+      addr    = wlt.getAddrByHash160(addr160)
+      # this logic excludes the pair with the maximum chainIndex from the
+      # returned list
+      if addr:
+         if addr.chainIndex > maxChainIndex:
+            maxChainIndex = addr.chainIndex
+            if currentMaxChainPair:
+               nonChangeOutputPairs.append(currentMaxChainPair)
+            currentMaxChainPair = pair
+         else:
+            nonChangeOutputPairs.append(pair)
+   return nonChangeOutputPairs
 
 ################################################################################
 class DlgConfirmSend(ArmoryDialog):
 
    def __init__(self, wlt, scraddrValuePairs, fee, parent=None, main=None, sendNow=False, changeBehave=None):
       super(DlgConfirmSend, self).__init__(parent, main)
-
-      self.wlt = wlt
-
       layout = QGridLayout()
       lblInfoImg = QLabel()
       lblInfoImg.setPixmap(QPixmap(':/MsgBox_info48.png'))
       lblInfoImg.setAlignment(Qt.AlignHCenter | Qt.AlignTop)
+      
+      sendPairs = []
+      returnPairs = []
+      for pair in scraddrValuePairs:
+         if not wlt.hasAddr(scrAddr_to_hash160(pair[0])[1]):
+            sendPairs.append(pair)
+         else:
+            returnPairs.append(pair)
 
-      totalSend = sum([sv[1] for sv in scraddrValuePairs]) + fee
+      # if we do not know the change behavior then we have to
+      # guess that the highest chain index is the change
+      # and exclude it from the returnPairs list
+      # and not in expert mode (because in expert mode the change could be anywhere
+      if changeBehave == None and returnPairs > 0:
+         returnPairs = excludeChange(returnPairs, wlt)
+         
+      sendPairs.extend(returnPairs)
+      
+      # If there are multiple outputs coming back to wallet
+      # assume that the one with the highest index is change.
+      lblMsg = QRichLabel('')         
+      totalSend = sum([sv[1] for sv in sendPairs]) + fee
       sumStr = coin2str(totalSend, maxZeros=1)
-
-      lblMsg = QRichLabel(
-         'You are about to spend <b>%s BTC</b> from wallet "<b>%s</b>" (%s).  You '
-         'specified the following distribution:' % (sumStr, wlt.labelName, wlt.uniqueIDB58))
-
+      if len(returnPairs) > 0:
+         if changeBehave == None and self.main.usermode == USERMODE.Expert:
+            lblMsg.setText(tr("""
+               This transaction will spend <b>%s BTC</b> from wallet 
+               "<b>%s</b>" (%s). 
+               <br><br><b>Note:</b> Starred entries in the below list are 
+               going to the same wallet from which they came, and thus have 
+               no effect on your overall balance. When using Expert usermode 
+               features, Armory cannot always distinguish the starred outputs 
+               from the change address.""") % \
+               (sumStr, wlt.labelName, wlt.uniqueIDB58))
+         else:
+            lblMsg.setText(tr("""
+               This transaction will spend <b>%s BTC</b> from wallet 
+               "<b>%s</b>" (%s).
+               <br><br><b>Note:</b> Any starred outputs are are going to the
+               same wallet from which they came, and will have no effect on
+               the wallet's overall balance.""") % \
+               (sumStr, wlt.labelName, wlt.uniqueIDB58))
+      else:
+         lblMsg.setText(tr("""
+            This transaction will spend <b>%s BTC</b> from wallet 
+            "<b>%s</b>" (%s).  Here are the outputs:""") % \
+            (sumStr, wlt.labelName, wlt.uniqueIDB58))
 
       recipLbls = []
       ffixBold = GETFONT('Fixed')
       ffixBold.setWeight(QFont.Bold)
-      for sv in scraddrValuePairs:
-         addrPrint = (scrAddr_to_addrStr(sv[0]) + ' : ').ljust(38)
+      for sv in sendPairs:
+         if sv in returnPairs:
+            addrPrint = ('*' + scrAddr_to_addrStr(sv[0]) + ' : ').ljust(38)
+         else:
+            addrPrint = (scrAddr_to_addrStr(sv[0]) + ' : ').ljust(38)
          recipLbls.append(QLabel(addrPrint + coin2str(sv[1], rJust=True, maxZeros=4)))
          recipLbls[-1].setFont(ffixBold)
 
@@ -4590,7 +4673,7 @@ class DlgConfirmSend(ArmoryDialog):
          recipLbls[-1].setFont(GETFONT('Fixed'))
 
       recipLbls.append(HLINE(QFrame.Sunken))
-      recipLbls.append(QLabel('Total bitcoins : '.ljust(38) +
+      recipLbls.append(QLabel('Total bitcoins Sent: '.ljust(38) +
                         coin2str(totalSend, rJust=True, maxZeros=4)))
       recipLbls[-1].setFont(GETFONT('Fixed'))
 
@@ -5331,7 +5414,7 @@ class DlgDispTxInfo(ArmoryDialog):
       indicesOther = []
       indicesMakeGray = []
       idx = 0
-      for scrType, amt, script in data[FIELDS.OutList]:
+      for scrType, amt, script, msInfo in data[FIELDS.OutList]:
          if scrType in CPP_TXOUT_HAS_ADDRSTR:
             addrStr = script_to_addrStr(script)
             addr160 = addrStr_to_hash160(addrStr)[1]
@@ -8032,6 +8115,9 @@ class DlgSettings(ArmoryDialog):
       self.chkDisableUpgradeNotify = QCheckBox(tr("""
          Disable software upgrade notifications """))
 
+      self.chkDisableUpgradeNotify.setChecked( \
+         self.main.getSettingOrSetDefault('DisableUpgradeNotify', False))
+
       lblDisableAnnounce = QRichLabel(tr("""
          <font color="%s">If you must completely disable all notifications
          from the Armory team, you can run Armory with the
@@ -8058,12 +8144,14 @@ class DlgSettings(ArmoryDialog):
 
       btnResetNotify = QPushButton(tr('Reset Notifications'))
       frmBtnResetNotify = makeHorizFrame([btnResetNotify, 'Stretch'])
+
       def resetNotifyLong():
          self.main.notifyIgnoreLong  = set()
          self.main.notifyIgnoreShort = set()
          self.main.writeSetting('NotifyIgnore', '')
          QMessageBox.information(self, tr('Settings Changed'), tr("""
             All notifications have been reset!"""), QMessageBox.Ok)
+
       self.connect(btnResetNotify, SIGNAL(CLICKED), resetNotifyLong)
 
 
@@ -8498,7 +8586,7 @@ class DlgSettings(ArmoryDialog):
 
 
       if self.radioAnnounce1024.isChecked():
-         self.main.writeSetting('NotifyMinPriority', 1024)
+         self.main.writeSetting('NotifyMinPriority',    0)
       elif self.radioAnnounce2048.isChecked():
          self.main.writeSetting('NotifyMinPriority', 2048)
       elif self.radioAnnounce3072.isChecked():
@@ -9221,7 +9309,7 @@ class DlgNotificationWithDNAA(ArmoryDialog):
    as well as displaying specific notifications if viewed and selected in
    the Announcements tab.
    """
-   def __init__(self, parent, main, nid, notifyMap):
+   def __init__(self, parent, main, nid, notifyMap, showBtnDNAA=True):
       super(DlgNotificationWithDNAA, self).__init__(parent, main)
 
       self.notifyID = nid
@@ -9252,7 +9340,7 @@ class DlgNotificationWithDNAA(ArmoryDialog):
       elif minver=='*':
          versionString = tr('Affects Armory versions:  ')
          if maxver=='*':
-            versionString = ''
+            versionString = 'Affects all Armory versions'
          elif maxExclude:
             versionString += tr('before %s<br>' % maxver)
          else:
@@ -9369,6 +9457,8 @@ class DlgNotificationWithDNAA(ArmoryDialog):
       btnIgnoreLong   = QPushButton(tr('Do not show again'))
       btnDownload     = QPushButton(tr('Secure Download'))
 
+      btnIgnoreLong.setVisible(showBtnDNAA)
+
       def openUpgrader(): 
          self.accept()
          self.main.openDLArmory()
@@ -9430,6 +9520,7 @@ class DlgNotificationWithDNAA(ArmoryDialog):
    def acceptLongIgnore(self):
       self.main.notifyIgnoreLong.add(self.notifyID)
       self.main.notifyIgnoreShort.add(self.notifyID)
+      self.main.writeSetting('NotifyIgnore',''.join(self.main.notifyIgnoreLong))
       self.accept()
 
    def acceptShortIgnore(self):
@@ -11556,6 +11647,14 @@ class DlgRestoreFragged(ArmoryDialog):
 
 
       M, fnum, wltIDBin, doMask, idBase58 = ReadFragIDLineBin(fragData[0])
+      # If we don't know the Secure String Yet we have to get it
+      if doMask and len(str(self.displaySecureString.text()).strip()) == 0:
+         dlg = DlgEnterSecurePrintCode(self, self.main)
+         if dlg.exec_():
+            self.displaySecureString.setText(dlg.editSecurePrint.text())
+         else:
+            return
+         
       if self.fragIDPrefix == UNKNOWN:
          self.fragIDPrefix = idBase58.split('-')[0]
       elif not self.fragIDPrefix == idBase58.split('-')[0]:
@@ -11682,10 +11781,10 @@ class DlgRestoreFragged(ArmoryDialog):
 
       reply = QMessageBox.question(self, tr('Verify Wallet ID'), tr("""
          The data you entered corresponds to a wallet with a wallet
-         ID: \n\n \t'""") + newWltID + tr(""" \n\nDoes this ID
+         ID:<blockquote><b>{}</b></blockquote>Does this ID
          match the "Wallet Unique ID" printed on your paper backup?
          If not, click "No" and reenter key and chain-code data
-         again."""), QMessageBox.Yes | QMessageBox.No)
+         again.""").format(newWltID), QMessageBox.Yes | QMessageBox.No)
       if reply == QMessageBox.No:
          return
 
@@ -11868,13 +11967,58 @@ class DlgShowTestResults(ArmoryDialog):
       self.setWindowTitle('Fragment Test Results')
       self.setMinimumWidth(500)
 
+################################################################################
+class DlgEnterSecurePrintCode(ArmoryDialog):
+   
+   def __init__(self, parent, main):
+      super(DlgEnterSecurePrintCode, self).__init__(parent, main)
+      
+      lblSecurePrintCodeDescr = QRichLabel(tr("""
+         This fragment file requires a SecurePrint\xe2\x84\xa2 code.  
+         You will only have to enter this code once since it is the same 
+         on all fragments."""))
+      lblSecurePrintCodeDescr.setMinimumWidth(440)
+      self.lblSP = QRichLabel(tr('SecurePrint\xe2\x84\xa2 Code: '), doWrap=False)
+      self.editSecurePrint = QLineEdit()
+      spFrame = makeHorizFrame([self.lblSP, self.editSecurePrint, STRETCH])
+      
+      self.btnAccept = QPushButton("Done")
+      self.btnCancel = QPushButton("Cancel")
+      self.connect(self.btnAccept, SIGNAL(CLICKED), self.verifySecurePrintCode)
+      self.connect(self.btnCancel, SIGNAL(CLICKED), self.reject)
+      buttonBox = QDialogButtonBox()
+      buttonBox.addButton(self.btnAccept, QDialogButtonBox.AcceptRole)
+      buttonBox.addButton(self.btnCancel, QDialogButtonBox.RejectRole)
+      
+      layout = QVBoxLayout()
+      layout.addWidget(lblSecurePrintCodeDescr)
+      layout.addWidget(spFrame)
+      layout.addWidget(buttonBox)
+      self.setLayout(layout)
+      self.setWindowTitle(tr('Enter Secure Print Code'))
+      
+   def verifySecurePrintCode(self):
+      # Prepare the key mask parameters
+      SECPRINT = HardcodedKeyMaskParams()
+      securePrintCode = str(self.editSecurePrint.text()).strip()
+      if len(securePrintCode) < 9 or \
+         sum([1 if c in BASE58CHARS else 0 for c in securePrintCode]) < len(securePrintCode):
+         QMessageBox.critical(self, tr('Invalid Code'), tr("""
+            You didn't enter a full SecurePrint\xe2\x84\xa2 code.  This
+            code is needed to decrypt your backup file."""), QMessageBox.Ok)
+         return
+      if not SECPRINT['FUNC_CHKPWD'](securePrintCode):
+         QMessageBox.critical(self, tr('Bad Encryption Code'), tr("""
+            The SecurePrint\xe2\x84\xa2 code you entered has an error
+            in it.  Note that the code is case-sensitive.  Please verify
+            you entered it correctly and try again."""), QMessageBox.Ok)
+         return
 
-
+      self.accept()
 
 ################################################################################
 class DlgEnterOneFrag(ArmoryDialog):
 
-   #############################################################################
    def __init__(self, parent, main, fragList=[], wltType=UNKNOWN, securePrintCode=None):
       super(DlgEnterOneFrag, self).__init__(parent, main)
       self.fragData = []
@@ -11917,24 +12061,22 @@ class DlgEnterOneFrag(ArmoryDialog):
          self.version135cButton.setEnabled(False)
          self.version135cSPButton.setEnabled(False)
       elif wltType == BACKUP_TYPE_135A:
+            # Could be 1.35a with or without SecurePrintCode so remove the rest
          self.version0Button.setEnabled(False)
          self.version135cButton.setEnabled(False)
          self.version135cSPButton.setEnabled(False)
          if securePrintCode:
             self.version135aSPButton.setChecked(True)
-            self.version135aButton.setEnabled(False)
          else:
-            # Could be 1.35a with or without SecurePrintCode so remove the rest
             self.version135aButton.setChecked(True)
       elif wltType == BACKUP_TYPE_135C:
+         # Could be 1.35c with or without SecurePrintCode so remove the rest
          self.version0Button.setEnabled(False)
          self.version135aButton.setEnabled(False)
          self.version135aSPButton.setEnabled(False)
          if securePrintCode:
             self.version135cSPButton.setChecked(True)
-            self.version135cButton.setEnabled(False)
          else:
-            # Could be 1.35c with or without SecurePrintCode so remove the rest
             self.version135cButton.setChecked(True)
 
       lblType = QRichLabel(tr("""<b>Backup Type:</b>"""), doWrap=False)
@@ -12040,7 +12182,7 @@ class DlgEnterOneFrag(ArmoryDialog):
    #############################################################################
    def isSecurePrintID(self):
       return hex_to_int(str(self.edtID.text()[:2])) > 127
-
+   
    #############################################################################
    def verifyUserInput(self):
       self.fragData = []
@@ -12059,13 +12201,13 @@ class DlgEnterOneFrag(ArmoryDialog):
          rng = range(8, 10)
 
 
-      if (sel == BACKUP_TYPE_135a_SP_TEXT or \
-         sel == BACKUP_TYPE_135c_SP_TEXT) and \
-         self.editSecurePrint.isEnabled():
+      if sel == self.backupTypeButtonGroup.id(self.version135aSPButton) or \
+         sel == self.backupTypeButtonGroup.id(self.version135cSPButton):
          # Prepare the key mask parameters
          SECPRINT = HardcodedKeyMaskParams()
          securePrintCode = str(self.editSecurePrint.text()).strip()
-         if len(securePrintCode) < 9:
+         if len(securePrintCode) < 9  or \
+            sum([1 if c in BASE58CHARS else 0 for c in securePrintCode]) < len(securePrintCode):
             QMessageBox.critical(self, 'Invalid Code', tr("""
                You didn't enter a full SecurePrint\xe2\x84\xa2 code.  This
                code is needed to decrypt your backup.  If this backup is
@@ -12332,7 +12474,6 @@ class DlgWltRecoverWallet(ArmoryDialog):
       wltSltQF.setLayout(layoutWltSelect)
 
       layoutMgmt.addWidget(makeHorizFrame([lblDesc], STYLE_SUNKEN), 0,0, 2,4)
-      #layoutMgmt.addLayout(layoutWltSelect, 2, 0, 3, 4)
       layoutMgmt.addWidget(wltSltQF, 2, 0, 3, 4)
 
       self.rdbtnStripped = QRadioButton('')

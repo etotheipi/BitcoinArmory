@@ -141,7 +141,7 @@ defaults = [
         "whether to use special upload-efficiency-maximizing routines (only for dedicated seeds)"),
     ('security', 1,
         "whether to enable extra security features intended to prevent abuse"),
-    ('max_connections', 0,
+    ('max_connections', 50,
         "the absolute maximum number of peers to connect with (0 = no limit)"),
     ('auto_kick', 1,
         "whether to allow the client to automatically kick/ban peers that send bad data"),

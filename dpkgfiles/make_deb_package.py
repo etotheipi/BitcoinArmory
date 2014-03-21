@@ -31,7 +31,7 @@ def pwd():
 if pwd().split('/')[-1]=='dpkgfiles':
    cd('..')
 
-if not os.path.exists('./armoryengine.py') or \
+if not os.path.exists('./armoryengine/ArmoryUtils.py') or \
    not os.path.exists('./ArmoryQt.py'):
    print '***ERROR: Must run this script from the root Armory directory!'
    exit(1)
@@ -40,7 +40,7 @@ if not os.path.exists('./armoryengine.py') or \
 # Must get current Armory version from armoryengine.py
 # I desperately need a better way to store/read/increment version numbers
 vstr = ''
-with open('armoryengine.py') as f:
+with open('armoryengine/ArmoryUtils.py') as f:
    for line in f.readlines():
       if line.startswith('BTCARMORY_VERSION'):
          vstr = line[line.index('(')+1:line.index(')')]
@@ -58,7 +58,7 @@ pkgdir = 'armory-%s' % (vstr,)
 pkgdir_ = 'armory_%s' % (vstr,)
 
 if not vstr:
-   print '***ERROR: Could not deduce version from armoryengine.py. '
+   print '***ERROR: Could not deduce version from ArmoryUtils.py. '
    print '          There is no good reason for this to happen.  Ever! :('
    exit(1)
 
@@ -76,7 +76,7 @@ execAndWait('rm -rf %s' % pkgdir)
 execAndWait('rm -f %s*' % pkgdir)
 execAndWait('rm -f %s*' % pkgdir_)
 shutil.copytree(origDir, pkgdir)
-execAndWait('tar --exclude .git -zcf %s.tar.gz %s' % (pkgdir, pkgdir))
+execAndWait('tar -zcf %s.tar.gz %s' % (pkgdir, pkgdir))
 cd(pkgdir)
 execAndWait('export DEBFULLNAME="Armory Technologies, Inc."; dh_make -s -e support@bitcoinarmory.com -f ../%s.tar.gz' % pkgdir)
 for f in dpkgfiles:

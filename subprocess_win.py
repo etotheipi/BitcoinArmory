@@ -1291,7 +1291,7 @@ class Popen(object):
 
                             # Close pipe fds.  Make sure we don't close the
                             # same fd more than once, or standard fds.
-                            closed = { None }
+                            closed = set(None)
                             for fd in [p2cread, c2pwrite, errwrite]:
                                 if fd not in closed and fd > 2:
                                     os.close(fd)
@@ -1353,6 +1353,10 @@ class Popen(object):
                     if e.errno != errno.ECHILD:
                         raise
                 child_exception = pickle.loads(data)
+                #if child_exception is not None: raise child_exception
+                #else:
+                 # class ChildProcessException(Exception): pass
+                  #raise ChildProcessException
                 raise child_exception
 
 

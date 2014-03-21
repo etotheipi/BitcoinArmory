@@ -717,10 +717,9 @@ class PyTx(BlockComponent):
          recipInfoList[-1].append(txout.value)
          recipInfoList[-1].append(txout.binScript)
          if scrType == CPP_TXOUT_MULTISIG:
-            M, N, addr160s, pubs = getMultisigScriptInfo(txout.binScript)
-            recipInfoList[-1].append(addr160s)
-            recipInfoList[-1].append(pubs)
-            recipInfoList[-1].append(M)
+            recipInfoList[-1].append(getMultisigScriptInfo(txout.binScript))
+         else:
+            recipInfoList[-1].append([])
 
       return recipInfoList
 

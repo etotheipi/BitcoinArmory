@@ -86,35 +86,40 @@ class changelogParser(object):
       if fileText is None:
          return None
 
-      if SIGNED_BLOCK_HEAD in fileText:
-         fileText = readSigBlock(fileText)[1]
    
-      versionLines = [line.strip() for line in fileText.split('\n')][::-1]
+      try:
+         if SIGNED_BLOCK_HEAD in fileText:
+            fileText = readSigBlock(fileText)[1]
       
+         versionLines = [line.strip() for line in fileText.split('\n')][::-1]
          
-      if len(versionLines)==0:
+            
+         if len(versionLines)==0:
+            return None
+      
+         # All lines have been stripped already
+         while len(versionLines) > 0:
+            line = versionLines.pop()
+      
+            if line.startswith('#') or len(line)==0:
+               continue
+   
+      
+            if line.startswith('VERSION') and len(line.split())==2:
+               self.changelog.append([line.split(' ')[-1], '', []])
+            elif line.upper().startswith('RELEASED'):
+               self.changelog[-1][1] = line[8:].strip()
+            elif line.startswith('-'):
+               featureTitle = line[2:]
+               self.changelog[-1][2].append([featureTitle, ''])
+            else:
+               curr = self.changelog[-1][2][-1][-1]
+               self.changelog[-1][2][-1][-1] += ('' if len(curr)==0 else ' ') + line
+   
+            return self.getChangelog()
+      except:
+         LOGEXCEPT('Failed to parse changelog')
          return None
-   
-      # All lines have been stripped already
-      while len(versionLines) > 0:
-         line = versionLines.pop()
-   
-         if line.startswith('#') or len(line)==0:
-            continue
-   
-         if line.upper().startswith('VERSION'):
-            self.changelog.append([line.split(' ')[-1], '', []])
-         elif line.upper().startswith('RELEASED'):
-            self.changelog[-1][1] = line[8:].strip()
-         elif line.startswith('-'):
-            featureTitle = line[2:]
-            self.changelog[-1][2].append([featureTitle, ''])
-         else:
-            curr = self.changelog[-1][2][-1][-1]
-            self.changelog[-1][2][-1][-1] += ('' if len(curr)==0 else ' ') + line
-
-
-      return self.getChangelog()
    
 
    #############################################################################
@@ -209,37 +214,41 @@ class downloadLinkParser(object):
          else:
             mapObj[keyList[0]] = urlAndHash
    
+
+      try:
+         if SIGNED_BLOCK_HEAD in fileText:
+            fileText = readSigBlock(fileText)[1]
+   
+   
+         dlLines = [line.strip() for line in fileText.split('\n')][::-1]
       
-      if SIGNED_BLOCK_HEAD in fileText:
-         fileText = readSigBlock(fileText)[1]
-
-
-      dlLines = [line.strip() for line in fileText.split('\n')][::-1]
+         while len(dlLines) > 0:
+      
+            line = dlLines.pop()
+      
+            if line.startswith('#') or len(line)==0:
+               continue
+      
+            lineLists  = [pc.split(',') for pc in line.split()[:-2]]
+            urlAndHash = line.split()[-2:]
+      
+            APPLIST, VERLIST, OSLIST, SUBOSLIST, BITLIST = range(5)
    
-      while len(dlLines) > 0:
-   
-         line = dlLines.pop()
-   
-         if line.startswith('#') or len(line)==0:
-            continue
-   
-         lineLists  = [pc.split(',') for pc in line.split()[:-2]]
-         urlAndHash = line.split()[-2:]
-   
-         APPLIST, VERLIST, OSLIST, SUBOSLIST, BITLIST = range(5)
-
-         for app in lineLists[APPLIST]:
-            for ver in lineLists[VERLIST]:
-               for opsys in lineLists[OSLIST]:
-                  for subOS in lineLists[SUBOSLIST]:
-                     for nbit in lineLists[BITLIST]:
-                        insertLink(self.downloadMap, 
-                                   urlAndHash, 
-                                   [app, ver, opsys, subOS, nbit])
-   
-   
-      return self.getNestedDownloadMap()
-   
+            for app in lineLists[APPLIST]:
+               for ver in lineLists[VERLIST]:
+                  for opsys in lineLists[OSLIST]:
+                     for subOS in lineLists[SUBOSLIST]:
+                        for nbit in lineLists[BITLIST]:
+                           insertLink(self.downloadMap, 
+                                      urlAndHash, 
+                                      [app, ver, opsys, subOS, nbit])
+      
+      
+         return self.getNestedDownloadMap()
+      except:
+         LOGEXCEPT('Failed to parse downloads')
+         return None
+      
          
    #############################################################################
    def printDownloadMap(self):
@@ -336,45 +345,54 @@ class notificationParser(object):
    #############################################################################
    def parseNotificationText(self, fileText):
       self.notifications = {}
+
+      if fileText is None:
+         return None
    
-      if SIGNED_BLOCK_HEAD in fileText:
-         fileText = readSigBlock(fileText)[1]
-   
-      notifyLines = [line.strip() for line in fileText.split('\n')][::-1]
-   
-   
-      currID = ''
-      readLongDescr = False
-      longDescrAccum = ''
+
+      try:
+         if SIGNED_BLOCK_HEAD in fileText:
+            fileText = readSigBlock(fileText)[1]
       
-      while len(notifyLines) > 0:
-   
-         line = notifyLines.pop()
-   
-         if not readLongDescr and (line.startswith('#') or len(line)==0):
-            continue
-   
-         if line.upper().startswith('UNIQUEID'):
-            currID = line.split(':')[-1].strip()
-            self.notifications[currID] = {}
-         elif line.upper().startswith('LONGDESCR'):
-            readLongDescr = True
-         elif line.startswith("*****"):
-            readLongDescr = False
-            self.notifications[currID]['LONGDESCR'] = longDescrAccum
-            longDescrAccum = ''
-         elif readLongDescr:
-            if len(line.strip())==0:
-               longDescrAccum += '<br><br>'
+         notifyLines = [line.strip() for line in fileText.split('\n')][::-1]
+      
+      
+         currID = ''
+         readLongDescr = False
+         longDescrAccum = ''
+         
+         while len(notifyLines) > 0:
+      
+            line = notifyLines.pop()
+      
+            if not readLongDescr and (line.startswith('#') or len(line)==0):
+               continue
+      
+            if line.upper().startswith('UNIQUEID'):
+               currID = line.split(':')[-1].strip()
+               self.notifications[currID] = {}
+            elif line.upper().startswith('LONGDESCR'):
+               readLongDescr = True
+            elif line.startswith("*****"):
+               readLongDescr = False
+               self.notifications[currID]['LONGDESCR'] = longDescrAccum
+               longDescrAccum = ''
+            elif readLongDescr:
+               if len(line.strip())==0:
+                  longDescrAccum += '<br><br>'
+               else:
+                  longDescrAccum += line.strip() + ' '
             else:
-               longDescrAccum += line.strip() + ' '
-         else:
-            key = line.split(':')[ 0].strip().upper()
-            val = line.split(':')[-1].strip()
-            self.notifications[currID][key] = val
-
-      return self.getNotificationMap()
-
+               key = line.split(':')[ 0].strip().upper()
+               val = line.split(':')[-1].strip()
+               self.notifications[currID][key] = val
+   
+         return self.getNotificationMap()
+      except:
+         LOGEXCEPT('Failed to parse notifications')
+         return None
+      
+   
    #############################################################################
    def getNotificationMap(self):
       return deepcopy(self.notifications)

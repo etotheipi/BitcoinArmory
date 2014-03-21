@@ -49,7 +49,8 @@ class BtcWallet
 {
 public:
    BtcWallet(void) : bdmPtr_(NULL) {}
-   explicit BtcWallet(BlockDataManager_LevelDB* bdm) : bdmPtr_(bdm) {}
+   explicit BtcWallet(BlockDataManager_LevelDB* bdm)
+      : bdmPtr_(bdm), lastScanned_(0) {}
    ~BtcWallet(void);
 
    /////////////////////////////////////////////////////////////////////////////
@@ -153,6 +154,8 @@ public:
    vector<AddressBookEntry> createAddressBook(void);
 
    vector<LedgerEntry> & getEmptyLedger(void) { EmptyLedger_.clear(); return EmptyLedger_;}
+   
+   uint32_t lastScanned_;
 
 private:
    vector<ScrAddrObj*>          scrAddrPtrs_;
