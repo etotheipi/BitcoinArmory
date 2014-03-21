@@ -1788,6 +1788,19 @@ void BlockDataManager_LevelDB::reset(void)
 {
    SCOPED_TIMER("BDM::reset");
 
+/////////////////////////////////////////////////////////////////////////////
+void BlockDataManager_LevelDB::Python_rgCallBack(PyObject* callback)
+{
+	LOGINFO << "Executing: Registering CallBack";
+	Py_INCREF((PyObject*)callback); //increment reference so the garbage collector wipe it
+	theCallBack_ = (PyObject*)callback;
+}
+
+/////////////////////////////////////////////////////////////////////////////
+void BlockDataManager_LevelDB::Reset(void)
+{
+   SCOPED_TIMER("BDM::Reset");
+
    // Clear out all the "real" data in the blkfile
    blkFileDir_ = "";
    blockchain_.clear();
@@ -3163,13 +3176,14 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
                                              bool skipFetch,
                                              bool initialLoad)
 {
+	Python_CallBack();
    missingBlockHashes_.clear();
    
    SCOPED_TIMER("buildAndScanDatabases");
    LOGINFO << "Number of registered addr: " << registeredScrAddrMap_.size();
 
    
-   
+   Python_CallBack();
    // Will use this updating the GUI with progress bar
    time_t t;
    time(&t);

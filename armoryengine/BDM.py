@@ -18,6 +18,8 @@ import CppBlockUtils as Cpp
 
 BDMcurrentBlock = [UINT32_MAX, 0]
 
+def callbackTest():
+   print 'testing callback'
 
 def getCurrTimeAndBlock():
    time0 = long(RightNowUTC())
@@ -163,6 +165,7 @@ class BlockDataManagerThread(threading.Thread):
    def __init__(self, isOffline=False, blocking=False):
       super(BlockDataManagerThread, self).__init__()
 
+
       if isOffline:
          self.blkMode  = BLOCKCHAINMODE.Offline
          self.prefMode = BLOCKCHAINMODE.Offline
@@ -171,7 +174,8 @@ class BlockDataManagerThread(threading.Thread):
          self.prefMode = BLOCKCHAINMODE.Full
 
       self.bdm = Cpp.BlockDataManager().getBDM()
-
+      self.bdm.Python_rgCallBack(callbackTest)
+      
       # These are for communicating with the master (GUI) thread
       self.inputQueue  = Queue.Queue()
       self.outputQueue = Queue.Queue()
@@ -208,6 +212,7 @@ class BlockDataManagerThread(threading.Thread):
       
       rndID = int(random.uniform(0,100000000)) 
       self.inputQueue.put([BDMINPUTTYPE.QueuedFunction, rndID, True, fn])
+      self.run_queue()
       
       try:
          out = self.outputQueue.get(True, self.mtWaitSec)
@@ -1160,7 +1165,7 @@ class BlockDataManagerThread(threading.Thread):
    def createAddressBook(self, cppWlt):
       return cppWlt.createAddressBook()
 
-   def run(self):
+   def run_queue(self):
       """
       This thread runs in an infinite loop, waiting for things to show up
       on the self.inputQueue, and then processing those entries.  If there
@@ -1348,7 +1353,6 @@ class BlockDataManagerThread(threading.Thread):
          except:
             inputName = self.getBDMInputName(inputTuple[0])
             LOGERROR('Error processing BDM input')
-            #traceback.print_stack()
             LOGERROR('Received inputTuple: ' + inputName + ' ' + str(inputTuple))
             LOGERROR('Error processing ID (%d)', rndID)
             LOGEXCEPT('ERROR:')
@@ -1364,6 +1368,7 @@ class BlockDataManagerThread(threading.Thread):
 
 
 ################################################################################
+   
 # Make TheBDM reference the asyncrhonous BlockDataManager wrapper if we are 
 # running 
 TheBDM = None
@@ -1372,7 +1377,7 @@ if CLI_OPTIONS.offline:
    LOGINFO('Armory loaded in offline-mode.  Will not attempt to load ')
    LOGINFO('blockchain without explicit command to do so.')
    TheBDM = BlockDataManagerThread(isOffline=True, blocking=False)
-   TheBDM.start()
+   #TheBDM.start()
 
    # Also create the might-be-needed SatoshiDaemonManager
    TheSDM = SatoshiDaemonManager()
@@ -1391,7 +1396,7 @@ else:
    LOGINFO('inclusion after the current scan is completed.')
    TheBDM = BlockDataManagerThread(isOffline=False, blocking=False)
    TheBDM.setDaemon(True)
-   TheBDM.start()
+   #TheBDM.start()
 
    #if CLI_OPTIONS.doDebug or CLI_OPTIONS.netlog or CLI_OPTIONS.mtdebug:
    cppLogFile = os.path.join(ARMORY_HOME_DIR, 'armorycpplog.txt')
