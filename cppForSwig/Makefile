@@ -17,10 +17,14 @@ endif
 #**************************************************************************
 LINK = $(CXX)
 
-OBJS = UniversalTimer.o BinaryData.o leveldb_wrapper.o StoredBlockObj.o BtcUtils.o BlockObj.o BlockUtils.o EncryptionUtils.o libcryptopp.a libleveldb.a sighandler.o
+OBJS = UniversalTimer.o BinaryData.o leveldb_wrapper.o StoredBlockObj.o \
+	BtcUtils.o BlockObj.o BlockUtils.o EncryptionUtils.o Util.o \
+	BtcWallet.o LedgerEntry.o ScrAddrObj.o \
+	libcryptopp.a libleveldb.a
 
 #if python is specified, use it
 ifndef PYVER
+PYVER=python
 PYTHON_INCLUDES=$(shell python-config --includes )
 else
 PYTHON_INCLUDES=$(shell $(PYVER)-config --includes )
@@ -32,7 +36,7 @@ SWIG_OPTS    += -c++ -python -classic -threads
 
 SWIG_INC     += 
 
-CXXCPP += $(CPPFLAGS) -I$(PYTHON_INCLUDE)
+CXXCPP += $(CPPFLAGS) $(PYTHON_INCLUDES)
 
 
 #**************************************************************************
@@ -74,7 +78,8 @@ CppBlockUtils_wrap.cxx: log.h BlockUtils.h BinaryData.h BlockObj.h UniversalTime
 CppBlockUtils_wrap.o: log.h BlockUtils.h  BinaryData.h UniversalTimer.h CppBlockUtils_wrap.cxx
 	$(CXX) $(SWIG_INC) $(CXXFLAGS) $(CXXCPP) -c CppBlockUtils_wrap.cxx
 
-
+playground: ../_CppBlockUtils.so playground.cpp BlockUtils.h ScrAddrObj.h LedgerEntry.h
+	$(CXX) $(CXXCPP) $(CXXFLAGS) $(LDFLAGS) $(shell $(PYVER)-config --libs) -Wl,-rpath,$(PWD)/.. ../_CppBlockUtils.so -o playground playground.cpp
 
 ##########################################################################
 # And now we have created all the individual object files specified with 

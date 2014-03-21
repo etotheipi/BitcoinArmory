@@ -2583,7 +2583,7 @@ void BlockDataManager_LevelDB::scanRegisteredTxForWallet( BtcWallet & wlt,
    if(zcEnabled_)
       rescanWalletZeroConf(wlt);
 
-   uint32_t topBlk = getTopBlockHeight();
+   uint32_t topBlk = blockchain_.top().getBlockHeight();
    if(blkEnd > topBlk)
       wlt.lastScanned_ = topBlk;
    else if(blkEnd!=0)
