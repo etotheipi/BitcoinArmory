@@ -38,10 +38,10 @@ CPPFLAGS += $(ARMORY_CPPFLAGS) -Icryptopp -Ileveldb/include -DUSE_CRYPTOPP -D__S
 LDLIBS += -lpthread -Lleveldb -L$(PYTHON_LIB) -l$(PYVER)
 SWIG_OPTS    += -c++ -python -classic -threads
 
-SWIG_INC     += -I"$(PYTHON_INCLUDE)"
+SWIG_INC     += 
 STATICPYTHON += "$(PYTHON_LIB)"
 
-CXXCPP += $(CPPFLAGS)
+CXXCPP += $(CPPFLAGS) -I$(PYTHON_INCLUDE)
 
 
 #**************************************************************************
