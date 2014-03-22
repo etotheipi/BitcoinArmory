@@ -19,7 +19,7 @@ LINK = $(CXX)
 
 OBJS = UniversalTimer.o BinaryData.o leveldb_wrapper.o StoredBlockObj.o \
 	BtcUtils.o BlockObj.o BlockUtils.o EncryptionUtils.o Util.o \
-	BtcWallet.o LedgerEntry.o ScrAddrObj.o \
+	BtcWallet.o LedgerEntry.o ScrAddrObj.o Blockchain.o BlockWriteBatcher.o \
 	libcryptopp.a libleveldb.a
 
 #if python is specified, use it
@@ -72,7 +72,7 @@ StoredBlockObj.o: log.h BtcUtils.h BinaryData.h
 leveldb_wrapper.o: log.h BtcUtils.h BinaryData.h
 BlockUtils.o: log.h BinaryData.h UniversalTimer.h PartialMerkle.h
 EncryptionUtils.o: log.h BtcUtils.h BinaryData.h
-CppBlockUtils_wrap.cxx: log.h BlockUtils.h BinaryData.h BlockObj.h UniversalTimer.h BlockUtils.h BtcWallet.h LedgerEntry.h StoredBlockObj.h CppBlockUtils.i
+CppBlockUtils_wrap.cxx: log.h BlockUtils.h BinaryData.h BlockObj.h UniversalTimer.h BlockUtils.h BtcWallet.h LedgerEntry.h StoredBlockObj.h Blockchain.h CppBlockUtils.i
 	swig $(SWIG_OPTS) -outdir ../ -v CppBlockUtils.i 
 
 CppBlockUtils_wrap.o: log.h BlockUtils.h  BinaryData.h UniversalTimer.h CppBlockUtils_wrap.cxx

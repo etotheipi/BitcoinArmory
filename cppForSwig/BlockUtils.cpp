@@ -12,6 +12,7 @@
 #include "BlockUtils.h"
 #include "Util.h"
 #include "BtcWallet.h"
+#include "BlockWriteBatcher.h"
 
 
 static void updateBlkDataHeader(InterfaceToLDB* iface, StoredHeader const & sbh)
@@ -137,6 +138,102 @@ static StoredScriptHistory* makeSureSSHInMap(
    if (additionalSize)
       *additionalSize += (newSize - prevSize) * UPDATE_BYTES_SUBSSH;
    return sshptr;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+// For now, we will call createUndoDataFromBlock(), and then pass that data to 
+// undoBlockFromDB(), even though it will result in accessing the DB data 
+// twice --
+//    (1) LevelDB does an excellent job caching results, so the second lookup
+//        should be instantaneous
+//    (2) We prefer to integrate StoredUndoData objects now, which will be 
+//        needed for pruning even though we don't strictly need it for no-prune
+//        now (and could save a lookup by skipping it).  But I want unified
+//        code flow for both pruning and non-pruning. 
+static void createUndoDataFromBlock(
+      InterfaceToLDB* iface,
+      uint32_t hgt,
+      uint8_t  dup,
+      StoredUndoData & sud)
+{
+   SCOPED_TIMER("createUndoDataFromBlock");
+
+   StoredHeader sbh;
+
+   // Fetch the full, stored block
+   iface->getStoredHeader(sbh, hgt, dup, true);
+   if(!sbh.haveFullBlock())
+      throw runtime_error("Cannot get undo data for block because not full!");
+
+   sud.blockHash_   = sbh.thisHash_;
+   sud.blockHeight_ = sbh.blockHeight_;
+   sud.duplicateID_ = sbh.duplicateID_;
+
+   // Go through tx list, fetch TxOuts that are spent, record OutPoints added
+   for(uint32_t itx=0; itx<sbh.numTx_; itx++)
+   {
+      StoredTx & stx = sbh.stxMap_[itx];
+      
+      // Convert to a regular tx to make accessing TxIns easier
+      Tx regTx = stx.getTxCopy();
+      for(uint32_t iin=0; iin<regTx.getNumTxIn(); iin++)
+      {
+         TxIn txin = regTx.getTxInCopy(iin);
+         BinaryData prevHash  = txin.getOutPoint().getTxHash();
+         uint16_t   prevIndex = txin.getOutPoint().getTxOutIndex();
+
+         // Skip if coinbase input
+         if(prevHash == BtcUtils::EmptyHash_)
+            continue;
+         
+         // Above we checked the block to be undone is full, but we
+         // still need to make sure the prevTx we just fetched has our data.
+         StoredTx prevStx;
+         iface->getStoredTx(prevStx, prevHash);
+         //if(prevStx.stxoMap_.find(prevIndex) == prevStx.stxoMap_.end())
+         if(KEY_NOT_IN_MAP(prevIndex, prevStx.stxoMap_))
+         {
+            throw runtime_error("Cannot get undo data for block because not full!");
+         }
+         
+         // 
+         sud.stxOutsRemovedByBlock_.push_back(prevStx.stxoMap_[prevIndex]);
+      }
+      
+      // Use the stxoMap_ to iterate through TxOuts
+      for(uint32_t iout=0; iout<stx.numTxOut_; iout++)
+      {
+         OutPoint op(stx.thisHash_, iout);
+         sud.outPointsAddedByBlock_.push_back(op);
+      }
+   }
+}
+
+// search for the next byte in bsb that looks like it could be a block
+static bool scanForMagicBytes(BinaryStreamBuffer& bsb, const BinaryData &bytes, uint32_t *bytesSkipped)
+{
+   BinaryData firstFour(4);
+   if (bytesSkipped) *bytesSkipped=0;
+   
+   do
+   {
+      while (bsb.reader().getSizeRemaining() >= 4)
+      {
+         bsb.reader().get_BinaryData(firstFour, 4);
+         if(firstFour==bytes)
+         {
+            bsb.reader().rewind(4);
+            return true;
+         }
+         // try again at the very next byte
+         if (bytesSkipped) (*bytesSkipped)++;
+         bsb.reader().rewind(3);
+      }
+      
+   } while (bsb.streamPull());
+   
+   return false;
 }
 
 
@@ -888,308 +985,6 @@ set<BinaryData> BlockWriteBatcher::searchForSSHKeysToDelete()
 
    return keysToDelete;
 }
-
-
-////////////////////////////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////////////////////////////
-//
-// Start Blockchain methods
-//
-////////////////////////////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////////////////////////////
-
-Blockchain::Blockchain(BlockDataManager_LevelDB* bdm)
-   : bdm_(bdm)
-{
-   clear();
-}
-
-void Blockchain::clear()
-{
-   headerMap_.clear();
-   headersByHeight_.resize(0);
-   topBlockPtr_ = genesisBlockBlockPtr_ = &headerMap_[
-         bdm_->getGenesisHash()
-      ];
-}
-
-BlockHeader& Blockchain::addBlock(
-      const HashString &blockhash,
-      const BlockHeader &block
-   )
-{
-   if (hasHeaderWithHash(blockhash) && blockhash != bdm_->getGenesisHash())
-   { // we don't show this error for the genesis block
-      LOGWARN << "Somehow tried to add header that's already in map";
-      LOGWARN << "Header Hash: " << blockhash.toHexStr();
-   }
-   return headerMap_[blockhash] = block;
-}
-
-Blockchain::ReorganizationState Blockchain::organize()
-{
-   ReorganizationState st;
-   st.prevTopBlock = &top();
-   st.reorgBranchPoint = organizeChain();
-   st.prevTopBlockStillValid = !st.reorgBranchPoint;
-   st.hasNewTop = (st.prevTopBlock != &top());
-   return st;
-}
-
-Blockchain::ReorganizationState Blockchain::forceOrganize()
-{
-   ReorganizationState st;
-   st.prevTopBlock = &top();
-   st.reorgBranchPoint = organizeChain(true);
-   st.prevTopBlockStillValid = !st.reorgBranchPoint;
-   st.hasNewTop = (st.prevTopBlock != &top());
-   return st;
-}
-
-BlockHeader& Blockchain::top() const
-{
-   return *topBlockPtr_;
-}
-
-BlockHeader& Blockchain::getGenesisBlock() const
-{
-   return *genesisBlockBlockPtr_;
-}
-
-BlockHeader& Blockchain::getHeaderByHeight(unsigned index) const
-{
-   if(index>=headersByHeight_.size())
-      throw std::range_error("Cannot get block at height " + Util::to_string(index));
-
-   return *headersByHeight_[index];
-}
-
-const BlockHeader& Blockchain::getHeaderByHash(HashString const & blkHash) const
-{
-   map<HashString, BlockHeader>::const_iterator it = headerMap_.find(blkHash);
-   if(ITER_NOT_IN_MAP(it, headerMap_))
-      throw std::range_error("Cannot find block with hash " + blkHash.toHexStr());
-   else
-      return it->second;
-}
-BlockHeader& Blockchain::getHeaderByHash(HashString const & blkHash)
-{
-   map<HashString, BlockHeader>::iterator it = headerMap_.find(blkHash);
-   if(ITER_NOT_IN_MAP(it, headerMap_))
-      throw std::range_error("Cannot find block with hash " + blkHash.toHexStr());
-   else
-      return it->second;
-}
-
-bool Blockchain::hasHeaderWithHash(BinaryData const & txHash) const
-{
-   return KEY_IN_MAP(txHash, headerMap_);
-}
-
-const BlockHeader& Blockchain::getHeaderPtrForTxRef(const TxRef &txr) const
-{
-   if(txr.isNull())
-      throw std::range_error("Null TxRef");
-
-   uint32_t hgt = txr.getBlockHeight();
-   uint8_t  dup = txr.getDuplicateID();
-   const BlockHeader& bh= getHeaderByHeight(hgt);
-   if(bh.getDuplicateID() != dup)
-   {
-      throw runtime_error("Requested txref not on main chain (BH dupID is diff)");
-   }
-   return bh;
-}
-
-
-////////////////////////////////////////////////////////////////////////////////
-// Returns nullptr if the new top block is a direct follower of
-// the previous top. Returns the branch point if we had to reorg
-// TODO:  Figure out if there is an elegant way to deal with a forked 
-//        blockchain containing two equal-length chains
-BlockHeader* Blockchain::organizeChain(bool forceRebuild)
-{
-   SCOPED_TIMER("organizeChain");
-
-   // Why did this line not through an error?  I left here to remind 
-   // myself to go figure it out.
-   //LOGINFO << ("Organizing chain", (forceRebuild ? "w/ rebuild" : ""));
-   LOGDEBUG << "Organizing chain " << (forceRebuild ? "w/ rebuild" : "");
-
-   
-   // If rebuild, we zero out any original organization data and do a 
-   // rebuild of the chain from scratch.  This will need to be done in
-   // the event that our first call to organizeChain returns false, which
-   // means part of blockchain that was previously valid, has become
-   // invalid.  Rather than get fancy, just rebuild all which takes less
-   // than a second, anyway.
-   if(forceRebuild)
-   {
-      map<HashString, BlockHeader>::iterator iter;
-      for( iter  = headerMap_.begin(); 
-           iter != headerMap_.end(); 
-           iter++)
-      {
-         iter->second.difficultySum_  = -1;
-         iter->second.blockHeight_    =  0;
-         iter->second.isFinishedCalc_ =  false;
-         iter->second.nextHash_       =  BtcUtils::EmptyHash_;
-         iter->second.isMainBranch_   =  false;
-      }
-      topBlockPtr_ = NULL;
-   }
-
-   // Set genesis block
-   BlockHeader & genBlock = getGenesisBlock();
-   genBlock.blockHeight_    = 0;
-   genBlock.difficultyDbl_  = 1.0;
-   genBlock.difficultySum_  = 1.0;
-   genBlock.isMainBranch_   = true;
-   genBlock.isOrphan_       = false;
-   genBlock.isFinishedCalc_ = true;
-   genBlock.isInitialized_  = true; 
-
-   // If this is the first run, the topBlock is the genesis block
-   if(topBlockPtr_ == NULL)
-      topBlockPtr_ = &genBlock;
-
-   const BlockHeader& prevTopBlock = top();
-   
-   // Iterate over all blocks, track the maximum difficulty-sum block
-   map<HashString, BlockHeader>::iterator iter;
-   double   maxDiffSum     = prevTopBlock.getDifficultySum();
-   for( iter = headerMap_.begin(); iter != headerMap_.end(); iter ++)
-   {
-      // *** Walk down the chain following prevHash fields, until
-      //     you find a "solved" block.  Then walk back up and 
-      //     fill in the difficulty-sum values (do not set next-
-      //     hash ptrs, as we don't know if this is the main branch)
-      //     Method returns instantly if block is already "solved"
-      double thisDiffSum = traceChainDown(iter->second);
-
-      // Determine if this is the top block.  If it's the same diffsum
-      // as the prev top block, don't do anything
-      if(thisDiffSum > maxDiffSum)
-      {
-         maxDiffSum     = thisDiffSum;
-         topBlockPtr_   = &(iter->second);
-      }
-   }
-
-   
-   // Walk down the list one more time, set nextHash fields
-   // Also set headersByHeight_;
-   bool prevChainStillValid = (topBlockPtr_ == &prevTopBlock);
-   topBlockPtr_->nextHash_ = BtcUtils::EmptyHash_;
-   BlockHeader* thisHeaderPtr = topBlockPtr_;
-   //headersByHeight_.reserve(topBlockPtr_->getBlockHeight()+32768);
-   headersByHeight_.resize(topBlockPtr_->getBlockHeight()+1);
-   while( !thisHeaderPtr->isFinishedCalc_ )
-   {
-      thisHeaderPtr->isFinishedCalc_ = true;
-      thisHeaderPtr->isMainBranch_   = true;
-      thisHeaderPtr->isOrphan_       = false;
-      headersByHeight_[thisHeaderPtr->getBlockHeight()] = thisHeaderPtr;
-
-      // This loop not necessary anymore with the DB implementation
-      // We need to guarantee that the txs are pointing to the right block
-      // header, because they could've been linked to an invalidated block
-      //for(uint32_t i=0; i<thisHeaderPtr->getTxRefPtrList().size(); i++)
-      //{
-         //TxRef & tx = *(thisHeaderPtr->getTxRefPtrList()[i]);
-         //tx.setHeaderPtr(thisHeaderPtr);
-         //tx.setMainBranch(true);
-      //}
-
-      HashString & childHash    = thisHeaderPtr->thisHash_;
-      thisHeaderPtr             = &(headerMap_[thisHeaderPtr->getPrevHash()]);
-      thisHeaderPtr->nextHash_  = childHash;
-
-      if(thisHeaderPtr == &prevTopBlock)
-         prevChainStillValid = true;
-
-   }
-   // Last header in the loop didn't get added (the genesis block on first run)
-   thisHeaderPtr->isMainBranch_ = true;
-   headersByHeight_[thisHeaderPtr->getBlockHeight()] = thisHeaderPtr;
-
-
-   // Force a full rebuild to make sure everything is marked properly
-   // On a full rebuild, prevChainStillValid should ALWAYS be true
-   if( !prevChainStillValid )
-   {
-      LOGWARN << "Reorg detected!";
-
-      organizeChain(true); // force-rebuild blockchain (takes less than 1s)
-      return thisHeaderPtr;
-   }
-
-   // Let the caller know that there was no reorg
-   LOGDEBUG << "Done organizing chain";
-   return 0;
-}
-
-
-/////////////////////////////////////////////////////////////////////////////
-// Start from a node, trace down to the highest solved block, accumulate
-// difficulties and difficultySum values.  Return the difficultySum of 
-// this block.
-double Blockchain::traceChainDown(BlockHeader & bhpStart)
-{
-   if(bhpStart.difficultySum_ > 0)
-      return bhpStart.difficultySum_;
-
-   // Prepare some data structures for walking down the chain
-   vector<BlockHeader*>   headerPtrStack(headerMap_.size());
-   vector<double>         difficultyStack(headerMap_.size());
-   uint32_t blkIdx = 0;
-
-   // Walk down the chain of prevHash_ values, until we find a block
-   // that has a definitive difficultySum value (i.e. >0). 
-   BlockHeader* thisPtr = &bhpStart;
-   while( thisPtr->difficultySum_ < 0)
-   {
-      double thisDiff         = thisPtr->difficultyDbl_;
-      difficultyStack[blkIdx] = thisDiff;
-      headerPtrStack[blkIdx]  = thisPtr;
-      blkIdx++;
-
-      map<HashString, BlockHeader>::iterator iter = headerMap_.find(thisPtr->getPrevHash());
-      if(ITER_IN_MAP(iter, headerMap_))
-         thisPtr = &(iter->second);
-      else
-      {
-         // Under some circumstances, the headers DB is not getting written
-         // properly and triggering this code due to missing headers.  For 
-         // now, we simply avoid this condition by flagging the headers DB
-         // to be rebuilt.  The bug probably has to do with batching of
-         // header data.
-         throw BlockCorruptionError();
-         
-         // previously here: markOrphanBlock
-      }
-   }
-
-
-   // Now we have a stack of difficulties and pointers.  Walk back up
-   // (by pointer) and accumulate the difficulty values 
-   double   seedDiffSum = thisPtr->difficultySum_;
-   uint32_t blkHeight   = thisPtr->blockHeight_;
-   for(int32_t i=blkIdx-1; i>=0; i--)
-   {
-      seedDiffSum += difficultyStack[i];
-      blkHeight++;
-      thisPtr                 = headerPtrStack[i];
-      thisPtr->difficultyDbl_ = difficultyStack[i];
-      thisPtr->difficultySum_ = seedDiffSum;
-      thisPtr->blockHeight_   = blkHeight;
-   }
-   
-   // Finally, we have all the difficulty sums calculated, return this one
-   return bhpStart.difficultySum_;
-  
-}
-
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -2502,14 +2297,6 @@ void BlockDataManager_LevelDB::pprintRegisteredWallets(void)
 }
 
 /////////////////////////////////////////////////////////////////////////////
-BtcWallet* BlockDataManager_LevelDB::createNewWallet(void)
-{
-   BtcWallet* newWlt = new BtcWallet(this);
-   registeredWallets_.insert(newWlt);  
-   return newWlt;
-}
-
-/////////////////////////////////////////////////////////////////////////////
 // This assumes that registeredTxList_ has already been populated from 
 // the initial blockchain scan.  The blockchain contains millions of tx,
 // but this list will at least 3 orders of magnitude smaller
@@ -3388,32 +3175,6 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
 
 }
 
-// search for the next byte in bsb that looks like it could be a block
-bool BlockDataManager_LevelDB::scanForMagicBytes(BinaryStreamBuffer& bsb, uint32_t *bytesSkipped) const
-{
-   BinaryData firstFour(4);
-   if (bytesSkipped) *bytesSkipped=0;
-   
-   do
-   {
-      while (bsb.reader().getSizeRemaining() >= 4)
-      {
-         bsb.reader().get_BinaryData(firstFour, 4);
-         if(firstFour==MagicBytes_)
-         {
-            bsb.reader().rewind(4);
-            return true;
-         }
-         // try again at the very next byte
-         if (bytesSkipped) (*bytesSkipped)++;
-         bsb.reader().rewind(3);
-      }
-      
-   } while (bsb.streamPull());
-   
-   return false;
-}
-
 ////////////////////////////////////////////////////////////////////////////////
 void BlockDataManager_LevelDB::readRawBlocksInFile(uint32_t fnum, uint32_t foffset)
 {
@@ -3504,7 +3265,7 @@ void BlockDataManager_LevelDB::readRawBlocksInFile(uint32_t fnum, uint32_t foffs
             }
             
             uint32_t bytesSkipped;
-            const bool next = scanForMagicBytes(bsb, &bytesSkipped);
+            const bool next = scanForMagicBytes(bsb, MagicBytes_, &bytesSkipped);
             if (!next)
             {
                LOGERR << "Could not find another block in the file";
@@ -4270,7 +4031,7 @@ void BlockDataManager_LevelDB::reassessAfterReorg( BlockHeader* oldTopPtr,
          // Added with leveldb... in addition to reversing blocks in RAM, 
          // we also need to undo the blocks in the DB
          StoredUndoData sud;
-         createUndoDataFromBlock(hgt, dup, sud);
+         createUndoDataFromBlock(iface_, hgt, dup, sud);
          blockWrites.undoBlockFromDB(sud);
       }
       
@@ -4618,7 +4379,7 @@ void BlockDataManager_LevelDB::pprintZeroConfPool(void)
 
 
 /////////////////////////////////////////////////////////////////////////////
-bool BlockDataManager_LevelDB::isTxFinal(Tx & tx)
+bool BlockDataManager_LevelDB::isTxFinal(const Tx & tx) const
 {
    // Anything that is replaceable (regular or through blockchain injection)
    // will be considered isFinal==false.  Users shouldn't even see the tx,
@@ -4731,80 +4492,6 @@ void BlockDataManager_LevelDB::addRawBlockToDB(BinaryRefReader & brr)
 
 
 
-
-
-////////////////////////////////////////////////////////////////////////////////
-// For now, we will call createUndoDataFromBlock(), and then pass that data to 
-// undoBlockFromDB(), even though it will result in accessing the DB data 
-// twice --
-//    (1) LevelDB does an excellent job caching results, so the second lookup
-//        should be instantaneous
-//    (2) We prefer to integrate StoredUndoData objects now, which will be 
-//        needed for pruning even though we don't strictly need it for no-prune
-//        now (and could save a lookup by skipping it).  But I want unified
-//        code flow for both pruning and non-pruning. 
-bool BlockDataManager_LevelDB::createUndoDataFromBlock(uint32_t hgt, 
-                                                       uint8_t  dup,
-                                                       StoredUndoData & sud)
-{
-   SCOPED_TIMER("createUndoDataFromBlock");
-
-   StoredHeader sbh;
-
-   // Fetch the full, stored block
-   iface_->getStoredHeader(sbh, hgt, dup, true);
-   if(!sbh.haveFullBlock())
-   {
-      LOGERR << "Cannot get undo data for block because not full!";
-      return false;
-   }
-
-   sud.blockHash_   = sbh.thisHash_;
-   sud.blockHeight_ = sbh.blockHeight_;
-   sud.duplicateID_ = sbh.duplicateID_;
-
-   // Go through tx list, fetch TxOuts that are spent, record OutPoints added
-   for(uint32_t itx=0; itx<sbh.numTx_; itx++)
-   {
-      StoredTx & stx = sbh.stxMap_[itx];
-      
-      // Convert to a regular tx to make accessing TxIns easier
-      Tx regTx = stx.getTxCopy();
-      for(uint32_t iin=0; iin<regTx.getNumTxIn(); iin++)
-      {
-         TxIn txin = regTx.getTxInCopy(iin);
-         BinaryData prevHash  = txin.getOutPoint().getTxHash();
-         uint16_t   prevIndex = txin.getOutPoint().getTxOutIndex();
-
-         // Skip if coinbase input
-         if(prevHash == BtcUtils::EmptyHash_)
-            continue;
-         
-         // Above we checked the block to be undone is full, but we
-         // still need to make sure the prevTx we just fetched has our data.
-         StoredTx prevStx;
-         iface_->getStoredTx(prevStx, prevHash);
-         //if(prevStx.stxoMap_.find(prevIndex) == prevStx.stxoMap_.end())
-         if(KEY_NOT_IN_MAP(prevIndex, prevStx.stxoMap_))
-         {
-            LOGERR << "StoredTx retrieved from DB, but TxOut not with it";
-            return false;
-         }
-         
-         // 
-         sud.stxOutsRemovedByBlock_.push_back(prevStx.stxoMap_[prevIndex]);
-      }
-      
-      // Use the stxoMap_ to iterate through TxOuts
-      for(uint32_t iout=0; iout<stx.numTxOut_; iout++)
-      {
-         OutPoint op(stx.thisHash_, iout);
-         sud.outPointsAddedByBlock_.push_back(op);
-      }
-   }
-
-   return true;
-}
 
 
 

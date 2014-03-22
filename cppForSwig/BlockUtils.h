@@ -28,6 +28,7 @@
 #include <set>
 #include <limits>
 
+#include "Blockchain.h"
 #include "BinaryData.h"
 #include "BtcUtils.h"
 #include "BlockObj.h"
@@ -68,9 +69,6 @@ typedef enum
 } DB_BUILD_PHASE;
 
 
-
-
-
 class BtcWallet;
 
 struct ZeroConfData
@@ -81,136 +79,6 @@ struct ZeroConfData
 };
 
 
-/*
- This class accumulates changes to write to the database,
- and will do so when it gets to a certain threshold
-*/
-class BlockWriteBatcher
-{
-public:
-   static const uint64_t UPDATE_BYTES_THRESH = 96*1024*1024;
-   
-   BlockWriteBatcher(InterfaceToLDB* iface);
-   ~BlockWriteBatcher();
-   
-   void applyBlockToDB(StoredHeader &sbh);
-   void applyBlockToDB(uint32_t hgt, uint8_t dup)
-   {
-      StoredHeader sbh;
-      iface_->getStoredHeader(sbh, hgt, dup);
-      applyBlockToDB(sbh);
-   }
-   void undoBlockFromDB(StoredUndoData &sud);
-
-private:
-   // We have accumulated enough data, actually write it to the db
-   void commit();
-   
-   // search for entries in sshToModify_ that are empty and should
-   // be deleted, removing those empty ones from sshToModify
-   set<BinaryData> searchForSSHKeysToDelete();
-   
-   bool applyTxToBatchWriteData(
-                           StoredTx &       thisSTX,
-                           StoredUndoData * sud);
-private:
-   InterfaceToLDB* const iface_;
-
-   // turn off batches by setting this to 0
-   uint64_t dbUpdateSize_;
-   map<BinaryData, StoredTx>              stxToModify_;
-   map<BinaryData, StoredScriptHistory>   sshToModify_;
-   
-   // (theoretically) incremented for each
-   // applyBlockToDB and decremented for each
-   // undoBlockFromDB
-   uint32_t mostRecentBlockApplied_;
-};
-
-
-////////////////////////////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////////////////////////////
-//
-// Manages the blockchain, keeping track of all the block headers
-// and our longest cord
-//
-class Blockchain
-{
-public:
-   Blockchain(BlockDataManager_LevelDB* bdm);
-   // implemented but not used:
-   //vector<BlockHeader*> getHeadersNotOnMainChain(void);
-
-   void clear();
-   
-   class BlockCorruptionError : public std::runtime_error
-   {
-   public:
-      BlockCorruptionError()
-         : std::runtime_error("Failed to organize blockchain (corruption)")
-      { }
-   };
-   
-   struct ReorganizationState
-   {
-      bool prevTopBlockStillValid;
-      bool hasNewTop;
-      BlockHeader *prevTopBlock;
-      BlockHeader *reorgBranchPoint;
-   };
-   
-   /**
-    * Adds a block to the chain
-    **/
-   BlockHeader& addBlock(const HashString &blockhash, const BlockHeader &block);
-   
-   ReorganizationState organize();
-   ReorganizationState forceOrganize();
-   
-   BlockHeader& top() const;
-   BlockHeader& getGenesisBlock() const;
-   BlockHeader& getHeaderByHeight(unsigned height) const;
-   unsigned numHeaders() const { return headersByHeight_.size(); }
-   
-   const BlockHeader& getHeaderByHash(HashString const & blkHash) const;
-   BlockHeader& getHeaderByHash(HashString const & blkHash);
-   bool hasHeaderWithHash(BinaryData const & txHash) const;
-   const BlockHeader& getHeaderPtrForTxRef(const TxRef &txr) const;
-   const BlockHeader& getHeaderPtrForTx(const Tx & txObj) const
-   {
-      if(txObj.getTxRef().isNull())
-      {
-         throw runtime_error("TxRef in Tx object is not set, cannot get header ptr");
-      }
-      
-      return getHeaderPtrForTxRef(txObj.getTxRef());
-   }
-   
-   /**
-    * @return a map of all headers, even with duplicates
-    **/
-   map<HashString, BlockHeader>& allHeaders()
-   {
-      return headerMap_;
-   }
-
-private:
-   BlockHeader* organizeChain(bool forceRebuild=false);
-   /////////////////////////////////////////////////////////////////////////////
-   // Update/organize the headers map (figure out longest chain, mark orphans)
-   // Start from a node, trace down to the highest solved block, accumulate
-   // difficulties and difficultySum values.  Return the difficultySum of 
-   // this block.
-   double traceChainDown(BlockHeader & bhpStart);
-
-private:
-   BlockDataManager_LevelDB *const bdm_;
-   map<HashString, BlockHeader> headerMap_;
-   deque<BlockHeader*> headersByHeight_;
-   BlockHeader *topBlockPtr_;
-   BlockHeader *genesisBlockBlockPtr_;
-   Blockchain(const Blockchain&); // not defined
-};
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
@@ -373,6 +241,7 @@ public:
                              BinaryData const & GenTxHash,
                              BinaryData const & MagicBytes);
 
+private:
    //////////////////////////////////////////////////////////////////////////
    // This method opens the databases, and figures out up to what block each
    // of them is sync'd to.  Then it figures out where that corresponds in
@@ -386,7 +255,6 @@ public:
    bool initializeDBInterface(ARMORY_DB_TYPE dbt = ARMORY_DB_WHATEVER,
                               DB_PRUNE_TYPE prt = DB_PRUNE_WHATEVER);
 
-private:
    // This figures out where we should start loading headers/rawblocks/scanning
    // The replay argument has been temporarily disable since it's not currently
    // being used, and was causing problems instead.
@@ -408,7 +276,10 @@ public:
    uint32_t getLoadProgressBlocks(void)   const {return blocksReadSoFar_;}
    uint16_t getLoadProgressFiles(void)    const {return filesReadSoFar_;}
 
-   uint32_t getTopBlockHeightInDB(DB_SELECT db);
+   
+   uint32_t getTopBlockHeightInDB(DB_SELECT db); // testing
+
+private:
    uint32_t getAppliedToHeightInDB(void);
    vector<BinaryData> getFirstHashOfEachBlkFile(void) const;
    uint32_t findOffsetFirstUnrecognized(uint32_t fnum);
@@ -417,6 +288,7 @@ public:
    pair<uint32_t, uint32_t> findFileAndOffsetForHgt(
                uint32_t hgt, const vector<BinaryData>* firstHashOfEachBlkFile=NULL);
 
+public:
    void Python_rgCallBack(PyObject* callback);
 
    /////////////////////////////////////////////////////////////////////////////
@@ -472,9 +344,6 @@ public:
    void     resetRegisteredWallets(void);
    void     pprintRegisteredWallets(void);
 
-
-   BtcWallet* createNewWallet(void);
-
    // Parsing requires the data TO ALREADY BE IN ITS PERMANENT MEMORY LOCATION
    // Pass in a wallet if you want to update the initialScanTxHashes_/OutPoints_
    //bool     parseNewBlock(BinaryRefReader & rawBlockDataReader,
@@ -496,8 +365,6 @@ public:
                                   bool forceRebuild=false, 
                                   bool skipFetch=false,
                                   bool initialLoad=false);
-   bool scanForMagicBytes(BinaryStreamBuffer& bsb, uint32_t *bytesSkipped=0) const;
-
    void readRawBlocksInFile(uint32_t blkFileNum, uint32_t offset);
    // These are wrappers around "buildAndScanDatabases"
    void doRebuildDatabases(void);
@@ -507,17 +374,16 @@ public:
    void doInitialSyncOnLoad_Rescan(void);
    void doInitialSyncOnLoad_Rebuild(void);
 
+private:
    void addRawBlockToDB(BinaryRefReader & brr);
-
+public:
    void applyBlockRangeToDB(uint32_t blk0=0, uint32_t blk1=UINT32_MAX);
-
-   // When we reorg, we have to undo blocks that have been applied.
-   bool createUndoDataFromBlock(uint32_t hgt, uint8_t dup, StoredUndoData & sud);
 
    // When we add new block data, we will need to store/copy it to its
    // permanent memory location before parsing it.
    // These methods return (blockAddSucceeded, newBlockIsTop, didCauseReorg)
    uint32_t       readBlkFileUpdate(void);
+private:
    Blockchain::ReorganizationState addNewBlockData(BinaryRefReader & brrRawBlock, 
                                 uint32_t fileIndex0Idx,
                                 uint32_t thisHeaderOffset,
@@ -528,19 +394,23 @@ public:
 
 
    void deleteHistories(void);
+public:
    void saveScrAddrHistories(void);
 
+private:
    void fetchAllRegisteredScrAddrData(void);
    void fetchAllRegisteredScrAddrData(BtcWallet & myWlt);
    void fetchAllRegisteredScrAddrData(
                               map<BinaryData, RegisteredScrAddr> & addrMap);
    void fetchAllRegisteredScrAddrData(BinaryData const & scrAddr);
 
+public:
    // Check for availability of data with a given hash
    TX_AVAILABILITY getTxHashAvail(BinaryDataRef txhash);
    bool hasTxWithHash(BinaryData const & txhash);
    bool hasTxWithHashInDB(BinaryData const & txhash);
 
+public:
    //uint32_t getNumTx(void) const { return txHintMap_.size(); }
    StoredHeader getMainBlockFromDB(uint32_t hgt);
    uint8_t      getMainDupFromDB(uint32_t hgt);
@@ -555,38 +425,43 @@ public:
                             uint32_t endBlknum=UINT32_MAX,
                             bool fetchFirst=true);
 
+private:
    void writeProgressFile(DB_BUILD_PHASE phase, 
                           string bfile, 
                           string timerName);
 
+public:
    // This will only be used by the above method, probably wouldn't be called
    // directly from any other code
    void scanRegisteredTxForWallet( BtcWallet & wlt,
                                    uint32_t blkStart=0,
                                    uint32_t blkEnd=UINT32_MAX);
-
+private:
    void scanDBForRegisteredTx(uint32_t blk0=0, uint32_t blk1=UINT32_MAX);
-
+public:
  
    /////////////////////////////////////////////////////////////////////////////
    // With the blockchain in supernode mode, we can just query address balances
    // and UTXO sets directly.  These will fail if not supernode mode
    uint64_t             getDBBalanceForHash160(BinaryDataRef addr160);
+private:
    uint64_t             getDBReceivedForHash160(BinaryDataRef addr160);
    vector<UnspentTxOut> getUTXOVectForHash160(BinaryDataRef addr160);
    vector<TxIOPair>     getHistoryForScrAddr(BinaryDataRef uniqKey, 
                                              bool withMultiSig=false);
-
+public:
    // For zero-confirmation tx-handling
    void enableZeroConf(string filename, bool zcLite=true);
    void disableZeroConf(void);
+private:
    void readZeroConfFile(string filename);
    bool addNewZeroConfTx(BinaryData const & rawTx, uint32_t txtime, bool writeToFile);
    void purgeZeroConfPool(void);
    void pprintZeroConfPool(void);
    void rewriteZeroConfFile(void);
+   bool isTxFinal(const Tx & tx) const;
+public:
    void rescanWalletZeroConf(BtcWallet & wlt);
-   bool isTxFinal(Tx & tx);
 
    /////////////////////////////////////////////////////////////////////////////
    set<HashString>  getTxJustInvalidated(void) {return txJustInvalidated_;}
@@ -617,6 +492,7 @@ public:
 
    void pprintSSHInfoAboutHash160(BinaryData const & a160);
 
+   
    /////////////////////////////////////////////////////////////////////////////
    void     setMaxOpenFiles(uint32_t n) {iface_->setMaxOpenFiles(n);}
    uint32_t getMaxOpenFiles(void)       {return iface_->getMaxOpenFiles();}

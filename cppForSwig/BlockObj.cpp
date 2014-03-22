@@ -557,7 +557,7 @@ BinaryData Tx::getScrAddrForTxOut(uint32_t txOutIndex)
 // This is not a pointer to persistent object, this method actually CREATES
 // the TxIn.   But it's fast and doesn't hold a lot of post-construction
 // information, so it can probably just be computed on the fly
-TxIn Tx::getTxInCopy(int i)
+TxIn Tx::getTxInCopy(int i) const
 {
    assert(isInitialized());
    uint32_t txinSize = offsetsTxIn_[i+1] - offsetsTxIn_[i];
@@ -576,7 +576,7 @@ TxIn Tx::getTxInCopy(int i)
 // This is not a pointer to persistent object, this method actually CREATES
 // the TxOut.   But it's fast and doesn't hold a lot of post-construction
 // information, so it can probably just be computed on the fly
-TxOut Tx::getTxOutCopy(int i)
+TxOut Tx::getTxOutCopy(int i) const
 {
    assert(isInitialized());
    uint32_t txoutSize = offsetsTxOut_[i+1] - offsetsTxOut_[i];

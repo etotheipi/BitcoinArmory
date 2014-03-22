@@ -534,8 +534,8 @@ public:
    // These are not pointers to persistent object, these methods actually 
    // CREATES the TxIn/TxOut.  But the construction is fast, so it's
    // okay to do it on the fly
-   TxIn   getTxInCopy(int i);
-   TxOut  getTxOutCopy(int i);
+   TxIn   getTxInCopy(int i) const;
+   TxOut  getTxOutCopy(int i) const;
 
    /////////////////////////////////////////////////////////////////////////////
    // All these methods return UINTX_MAX if txRefObj.isNull()

@@ -15,14 +15,13 @@
 %{
 #define SWIG_PYTHON_EXTRA_NATIVE_CONTAINERS
 #include "BlockObj.h"
-#include "StoredBlockObj.h"
 #include "BlockUtils.h"
 #include "BtcUtils.h"
 #include "EncryptionUtils.h"
 #include "BtcWallet.h"
 #include "LedgerEntry.h"
 #include "ScrAddrObj.h"
-
+#include "Blockchain.h"
 %}
 
 %include "std_string.i"
@@ -104,12 +103,12 @@ namespace std
 
 /* With our typemaps, we can finally include our other objects */
 %include "BlockObj.h"
-%include "StoredBlockObj.h"
 %include "BlockUtils.h"
 %include "BtcUtils.h"
 %include "EncryptionUtils.h"
 %include "BtcWallet.h"
 %include "LedgerEntry.h"
 %include "ScrAddrObj.h"
+%include "Blockchain.h"
 
 
