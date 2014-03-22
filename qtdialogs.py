@@ -1482,14 +1482,23 @@ class DlgWalletDetails(ArmoryDialog):
       if True:  actionBlkChnInfo = menu.addAction("View Address on www.blockchain.info")
       if True:  actionReqPayment = menu.addAction("Request Payment to this Address")
       if dev:   actionCopyHash160 = menu.addAction("Copy Hash160 (hex)")
+      if dev:   actionCopyPubKey  = menu.addAction("Copy Public Key (hex)")
       if True:  actionCopyComment = menu.addAction("Copy Comment")
       if True:  actionCopyBalance = menu.addAction("Copy Balance")
       idx = self.wltAddrView.selectedIndexes()[0]
       action = menu.exec_(QCursor.pos())
 
-      addr = str(self.wltAddrView.model().index(idx.row(), ADDRESSCOLS.Address).data().toString()).strip()
+
+      # Get data on a given row, easily
+      def getModelStr(col):
+         model = self.wltAddrView.model()
+         qstr = model.index(idx.row(), col).data().toString()
+         return str(qstr).strip()
+
+
+      addr = getModelStr(ADDRESSCOLS.Address)
       if action == actionCopyAddr:
-         s = self.wltAddrView.model().index(idx.row(), ADDRESSCOLS.Address).data().toString()
+         clippy = addr
       elif action == actionBlkChnInfo:
          try:
             import webbrowser
@@ -1510,17 +1519,21 @@ class DlgWalletDetails(ArmoryDialog):
          DlgRequestPayment(self, self.main, addr).exec_()
          return
       elif dev and action == actionCopyHash160:
-         s = binary_to_hex(addrStr_to_hash160(addr)[1])
+         clippy = binary_to_hex(addrStr_to_hash160(addr)[1])
+      elif dev and action == actionCopyPubKey:
+         astr = getModelStr(ADDRESSCOLS.Address)
+         addrObj = self.wlt.getAddrByHash160( addrStr_to_hash160(astr)[1] )
+         clippy = addrObj.binPublicKey65.toHexStr()
       elif action == actionCopyComment:
-         s = self.wltAddrView.model().index(idx.row(), ADDRESSCOLS.Comment).data().toString()
+         clippy = getModelStr(ADDRESSCOLS.Comment)
       elif action == actionCopyBalance:
-         s = self.wltAddrView.model().index(idx.row(), ADDRESSCOLS.Balance).data().toString()
+         clippy = getModelStr(ADDRESSCOLS.Balance)
       else:
          return
 
       clipb = QApplication.clipboard()
       clipb.clear()
-      clipb.setText(str(s).strip())
+      clipb.setText(str(clippy).strip())
 
    #############################################################################
    def dblClickAddressView(self, index):

@@ -41,7 +41,7 @@ from qtdialogs import *
 from ui.Wizards import WalletWizard, TxWizard
 from ui.VerifyOfflinePackage import VerifyOfflinePackageDialog
 from ui.UpgradeDownloader import UpgradeDownloaderDialog
-from ui.MultiSigHacker import DlgMultiHacker
+from ui.MultiSigHacker import DlgMultiSigCreator
 from jasvet import verifySignature, readSigBlock
 from announcefetch import AnnounceDataFetcher, ANNOUNCE_URL, ANNOUNCE_URL_BACKUP
 from armoryengine.parseAnnounce import *
@@ -540,7 +540,8 @@ class ArmoryMainWindow(QMainWindow):
       #self.menusList.append( self.menu.addMenu('&Network') )
 
 
-      #self.menusList[MENUS.Experimental].hide(not currmode==USERMODE.Expert)
+      if not currmode==USERMODE.Expert:
+         self.menusList[MENUS.Experimental].hide()
 
       def exportTx():
          if not TheBDM.getBDMState()=='BlockchainReady':
@@ -675,7 +676,7 @@ class ArmoryMainWindow(QMainWindow):
 
 
 
-      execMSHack = lambda: DlgMultiHacker(self,self).exec_()
+      execMSHack = lambda: DlgMultiSigCreator(self,self).exec_()
       actMultiHacker = self.createAction(tr('Multi-Signature Transactions'), execMSHack)
       self.menusList[MENUS.Experimental].addAction(actMultiHacker)
 
