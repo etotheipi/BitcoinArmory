@@ -4081,7 +4081,7 @@ class DlgSetComment(ArmoryDialog):
    """ This will be a dumb dialog for retrieving a comment from user """
 
    #############################################################################
-   def __init__(self, currcomment='', ctype='', parent=None, main=None):
+   def __init__(self, parent, main, currcomment='', ctype='', cwhat='Comment'):
       super(DlgSetComment, self).__init__(parent, main)
 
 
@@ -4095,10 +4095,10 @@ class DlgSetComment(ArmoryDialog):
 
       layout = QGridLayout()
       lbl = None
-      if     ctype and     currcomment: lbl = QLabel('Change %s Comment:' % ctype)
-      if not ctype and     currcomment: lbl = QLabel('Change Comment:')
-      if     ctype and not currcomment: lbl = QLabel('Add %s Comment:' % ctype)
-      if not ctype and not currcomment: lbl = QLabel('Add Comment:')
+      if     ctype and     currcomment: lbl = QLabel('Change %s %s:' % (ctype, cwhat))
+      if not ctype and     currcomment: lbl = QLabel('Change %s:' % cwhat)
+      if     ctype and not currcomment: lbl = QLabel('Add %s %s:' % (ctype, cwhat))
+      if not ctype and not currcomment: lbl = QLabel('Add %s:' % cwhat)
       self.edtComment = QLineEdit()
       self.edtComment.setText(currcomment)
       h, w = relaxedSizeNChar(self, 50)
@@ -7847,7 +7847,7 @@ class DlgAddressBook(ArmoryDialog):
 
       wlt = self.main.walletMap[self.selectedWltID]
 
-      dialog = DlgSetComment(self.selectedCmmt, 'Address', self, self.main)
+      dialog = DlgSetComment(self, self.main, self.selectedCmmt, 'Address')
       if dialog.exec_():
          newComment = str(dialog.edtComment.text())
          addr160 = addrStr_to_hash160(self.selectedAddr)[1]
@@ -7861,7 +7861,7 @@ class DlgAddressBook(ArmoryDialog):
 
       wlt = self.main.walletMap[self.selectedWltID]
 
-      dialog = DlgSetComment(self.selectedCmmt, 'Address', self, self.main)
+      dialog = DlgSetComment(self, self.main, self.selectedCmmt, 'Address')
       if dialog.exec_():
          newComment = str(dialog.edtComment.text())
          addr160 = addrStr_to_hash160(self.selectedAddr)[1]

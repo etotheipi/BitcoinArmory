@@ -527,7 +527,7 @@ class ArmoryMainWindow(QMainWindow):
       #MENUS = enum('File', 'Wallet', 'User', "Tools", "Network")
       currmode = self.getSettingOrSetDefault('User_Mode', 'Advanced')
       MENUS = enum('File', 'User', 'Tools', 'Addresses', 'Wallets', \
-                                                'Experimental', 'Help')
+                                                'MultiSig', 'Help')
       self.menu = self.menuBar()
       self.menusList = []
       self.menusList.append( self.menu.addMenu('&File') )
@@ -535,13 +535,13 @@ class ArmoryMainWindow(QMainWindow):
       self.menusList.append( self.menu.addMenu('&Tools') )
       self.menusList.append( self.menu.addMenu('&Addresses') )
       self.menusList.append( self.menu.addMenu('&Wallets') )
-      self.menusList.append( self.menu.addMenu('&Experimental') )
+      self.menusList.append( self.menu.addMenu('&MultiSig') )
       self.menusList.append( self.menu.addMenu('&Help') )
       #self.menusList.append( self.menu.addMenu('&Network') )
 
 
       if not currmode==USERMODE.Expert:
-         self.menusList[MENUS.Experimental].hide()
+         self.menusList[MENUS.MultiSig].hide()
 
       def exportTx():
          if not TheBDM.getBDMState()=='BlockchainReady':
@@ -677,8 +677,8 @@ class ArmoryMainWindow(QMainWindow):
 
 
       execMSHack = lambda: DlgMultiSigCreator(self,self).exec_()
-      actMultiHacker = self.createAction(tr('Multi-Signature Transactions'), execMSHack)
-      self.menusList[MENUS.Experimental].addAction(actMultiHacker)
+      actMultiHacker = self.createAction(tr('Multi-Sig Transactions'), execMSHack)
+      self.menusList[MENUS.MultiSig].addAction(actMultiHacker)
 
 
 
@@ -2869,7 +2869,7 @@ class ArmoryMainWindow(QMainWindow):
       wltID       = str(view.model().index(row, LEDGERCOLS.WltID  ).data().toString())
       txHash      = str(view.model().index(row, LEDGERCOLS.TxHash ).data().toString())
 
-      dialog = DlgSetComment(currComment, 'Transaction', self, self)
+      dialog = DlgSetComment(self, self, currComment, 'Transaction')
       if dialog.exec_():
          newComment = str(dialog.edtComment.text())
          self.walletMap[wltID].setComment(hex_to_binary(txHash), newComment)
@@ -2883,7 +2883,7 @@ class ArmoryMainWindow(QMainWindow):
       currComment = str(view.model().index(row, ADDRESSCOLS.Comment).data().toString())
       addrStr     = str(view.model().index(row, ADDRESSCOLS.Address).data().toString())
 
-      dialog = DlgSetComment(currComment, 'Address', self, self)
+      dialog = DlgSetComment(self, self, currComment, 'Address')
       if dialog.exec_():
          newComment = str(dialog.edtComment.text())
          atype, addr160 = addrStr_to_hash160(addrStr)
