@@ -997,7 +997,6 @@ set<BinaryData> BlockWriteBatcher::searchForSSHKeysToDelete()
 BlockDataManager_LevelDB::BlockDataManager_LevelDB(void) 
    : iface_(LevelDBWrapper::GetInterfacePtr())
    , blockchain_(this)
-   , theCallBack_(0)
 {
    reset();
 }
@@ -1580,12 +1579,6 @@ uint32_t BlockDataManager_LevelDB::getAppliedToHeightInDB(void)
 
 
 /////////////////////////////////////////////////////////////////////////////
-void BlockDataManager_LevelDB::Python_rgCallBack(PyObject* callback)
-{
-   LOGINFO << "Executing: Registering CallBack";
-   Py_INCREF((PyObject*)callback); //increment reference so the garbage collector wipe it
-   theCallBack_ = (PyObject*)callback;
-}
 
 /////////////////////////////////////////////////////////////////////////////
 void BlockDataManager_LevelDB::reset(void)
@@ -2964,14 +2957,13 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
                                              bool skipFetch,
                                              bool initialLoad)
 {
-   Python_CallBack();
    missingBlockHashes_.clear();
    
    SCOPED_TIMER("buildAndScanDatabases");
    LOGINFO << "Number of registered addr: " << registeredScrAddrMap_.size();
 
    
-   Python_CallBack();
+   
    // Will use this updating the GUI with progress bar
    progressTimer_ = (uint32_t)time(0);
 

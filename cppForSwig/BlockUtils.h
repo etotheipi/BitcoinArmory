@@ -39,7 +39,6 @@
 #include "sha.h"
 #include "UniversalTimer.h"
 #include "leveldb/db.h"
-#include "Python.h"
 
 
 #define NUM_BLKS_BATCH_THRESH 30
@@ -202,26 +201,12 @@ private:
    //map<OutPoint,   TxIOPair>          txioMap_;
 
    Blockchain blockchain_;
-   PyObject* theCallBack_;
    
 public:
    // Set the constructor to private so that only one can ever be created
    BlockDataManager_LevelDB(void);
    ~BlockDataManager_LevelDB(void);
 
-private:
-   void Python_CallBack(void)
-   {
-      if (!theCallBack_)
-         return;
-      PyGILState_STATE gstate;
-      gstate = PyGILState_Ensure();
-
-      PyObject * pInstance = PyObject_CallObject(theCallBack_, 0);
-      PyGILState_Release(gstate);
-   }
-
-public:
 
    Blockchain& blockchain() { return blockchain_; }
    const Blockchain& blockchain() const { return blockchain_; }
@@ -288,10 +273,6 @@ private:
    pair<uint32_t, uint32_t> findFileAndOffsetForHgt(
                uint32_t hgt, const vector<BinaryData>* firstHashOfEachBlkFile=NULL);
 
-public:
-   void Python_rgCallBack(PyObject* callback);
-
-   /////////////////////////////////////////////////////////////////////////////
 private:
    void reset(void);
 public:
