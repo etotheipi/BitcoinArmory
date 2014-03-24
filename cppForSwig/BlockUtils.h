@@ -42,8 +42,6 @@
 
 
 #define NUM_BLKS_BATCH_THRESH 30
-#define UPDATE_BYTES_SSH      25
-#define UPDATE_BYTES_SUBSSH   75
 
 #define NUM_BLKS_IS_DIRTY 2016
 
