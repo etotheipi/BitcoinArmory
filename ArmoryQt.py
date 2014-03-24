@@ -41,7 +41,7 @@ from qtdialogs import *
 from ui.Wizards import WalletWizard, TxWizard
 from ui.VerifyOfflinePackage import VerifyOfflinePackageDialog
 from ui.UpgradeDownloader import UpgradeDownloaderDialog
-from ui.MultiSigHacker import DlgMultiSigCreator
+from ui.MultiSigHacker import DlgSelectMultiSigOption
 from jasvet import verifySignature, readSigBlock
 from announcefetch import AnnounceDataFetcher, ANNOUNCE_URL, ANNOUNCE_URL_BACKUP
 from armoryengine.parseAnnounce import *
@@ -676,7 +676,7 @@ class ArmoryMainWindow(QMainWindow):
 
 
 
-      execMSHack = lambda: DlgMultiSigCreator(self,self).exec_()
+      execMSHack = lambda: DlgSelectMultiSigOption(self,self).exec_()
       actMultiHacker = self.createAction(tr('Multi-Sig Transactions'), execMSHack)
       self.menusList[MENUS.MultiSig].addAction(actMultiHacker)
 

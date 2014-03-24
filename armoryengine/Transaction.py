@@ -889,7 +889,7 @@ class PyTxDistProposal(object):
          self.createFromPyTx(pytx, txMap)
 
    #############################################################################
-   def createFromPyTx(self, pytx, txMap={}, p2shMap={}):
+   def createFromPyTx(self, pytx, txMap=None, p2shMap=None):
       sz = len(pytx.inputs)
       self.pytxObj        = pytx.copy()
       self.uniqueB58 = binary_to_base58(hash256(pytx.serialize()))[:8]
@@ -902,6 +902,12 @@ class PyTxDistProposal(object):
       self.numSigsNeeded  = []
       self.relevantTxMap  = {}  # needed to support input values of each TxIn
       self.p2shScripts    = []
+
+      if txMap is None:
+         txMap = {}
+
+      if p2shMap is None:
+         p2shMap = {}
 
       if len(txMap)==0 and not TheBDM.getBDMState()=='BlockchainReady':
          # TxDP includes the transactions that supply the inputs to this 
