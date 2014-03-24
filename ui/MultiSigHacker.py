@@ -568,6 +568,10 @@ class DlgCreateEnvelope(ArmoryDialog):
       self.updateLabels(forceUpdate=True)
          
 
+   
+   #############################################################################
+   def fillForm(self):
+      pass
       
    #############################################################################
    def doContinue(self):
@@ -648,6 +652,7 @@ class DlgCreateEnvelope(ArmoryDialog):
 def createContribBlock(self, msScript, walletID, amt, fee=0):
 
    msgParams = {}
+   msgParams['Version'] = 0
    msgParams['MagicBytes'] = ''
    msgParams['IDBytes'] = ''
    msgParams['PayContrib'] = amt
