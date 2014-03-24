@@ -15,7 +15,7 @@ class DlgSelectMultiSigOption(ArmoryDialog):
       super(DlgSelectMultiSigOption, self).__init__(parent, main)
 
       self.btnCreate = QPushButton(tr('Create/edit multi-sig envelope'))
-      self.btnImport = QPushButton(tr('Import multi-sig envelope'))
+      #self.btnImport = QPushButton(tr('Import multi-sig envelope'))
       self.btnFund   = QPushButton(tr('Fund a multi-sig envelope'))
       self.btnSpend  = QPushButton(tr('Spend from a multi-sig envelope'))
 
@@ -45,9 +45,9 @@ class DlgSelectMultiSigOption(ArmoryDialog):
       self.lblCreate = QRichLabel(tr("""
          Collect public keys to create an "address" that can be used 
          to send funds to the multi-sig container"""))
-      self.lblImport = QRichLabel(tr("""
-         If someone has already created the envelope you can add it 
-         to your envelope list"""))
+      #self.lblImport = QRichLabel(tr("""
+         #If someone has already created the envelope you can add it 
+         #to your envelope list"""))
       self.lblFund = QRichLabel(tr("""
          Send money to an envelope simultaneously with other 
          parties involved in the envelope"""))
@@ -57,7 +57,7 @@ class DlgSelectMultiSigOption(ArmoryDialog):
 
 
       self.connect(self.btnCreate,  SIGNAL('clicked()'), self.openCreate)
-      self.connect(self.btnImport,  SIGNAL('clicked()'), self.openImport)
+      #self.connect(self.btnImport,  SIGNAL('clicked()'), self.openImport)
       self.connect(self.btnFund,    SIGNAL('clicked()'), self.openFund)
       self.connect(self.btnSpend,   SIGNAL('clicked()'), self.openSpend)
 
@@ -75,32 +75,32 @@ class DlgSelectMultiSigOption(ArmoryDialog):
       layoutBottom.addItem(QSpacerItem(10,10),    0,6,  7,1)
 
       layoutBottom.addItem(QSpacerItem(10,10),    0,1)
-      layoutBottom.addItem(QSpacerItem(10,10),    2,1)
+      #layoutBottom.addItem(QSpacerItem(10,10),    2,1)
       layoutBottom.addItem(QSpacerItem(10,10),    4,1)
       layoutBottom.addItem(QSpacerItem(10,10),    6,1)
 
       layoutBottom.addWidget(self.btnCreate,      0,2)
-      layoutBottom.addWidget(self.btnImport,      2,2)
+      #layoutBottom.addWidget(self.btnImport,      2,2)
       layoutBottom.addWidget(self.btnFund,        4,2)
       layoutBottom.addWidget(self.btnSpend,       6,2)
 
       layoutBottom.addItem(QSpacerItem(10,10),    0,3)
-      layoutBottom.addItem(QSpacerItem(10,10),    2,3)
+      #layoutBottom.addItem(QSpacerItem(10,10),    2,3)
       layoutBottom.addItem(QSpacerItem(10,10),    4,3)
       layoutBottom.addItem(QSpacerItem(10,10),    6,3)
 
       layoutBottom.addWidget(self.lblCreate,      0,4)
-      layoutBottom.addWidget(self.lblImport,      2,4)
+      #layoutBottom.addWidget(self.lblImport,      2,4)
       layoutBottom.addWidget(self.lblFund,        4,4)
       layoutBottom.addWidget(self.lblSpend,       6,4)
 
       layoutBottom.addItem(QSpacerItem(10,10),    0,5)
-      layoutBottom.addItem(QSpacerItem(10,10),    2,5)
+      #layoutBottom.addItem(QSpacerItem(10,10),    2,5)
       layoutBottom.addItem(QSpacerItem(10,10),    4,5)
       layoutBottom.addItem(QSpacerItem(10,10),    6,5)
 
       layoutBottom.addWidget(HLINE(),             1,1,  1,4)
-      layoutBottom.addWidget(HLINE(),             3,1,  1,4)
+      #layoutBottom.addWidget(HLINE(),             3,1,  1,4)
       layoutBottom.addWidget(HLINE(),             5,1,  1,4)
 
       layoutBottom.setColumnStretch(2, 1)
@@ -131,10 +131,6 @@ class DlgSelectMultiSigOption(ArmoryDialog):
       DlgCreateEnvelope(self, self.main).exec_()
 
    #############################################################################
-   def openImport(self):
-      DlgImportEnvelope(self, self.main).exec_()
-
-   #############################################################################
    def openFund(self):
       DlgFundEnvelope(self, self.main).exec_()
 
@@ -156,7 +152,7 @@ class DlgBrowseEnvelopes(ArmoryDialog):
 class DlgCreateEnvelope(ArmoryDialog):
 
    #############################################################################
-   def __init__(self, parent, main, maxM=5, maxN=5, prefill=None):
+   def __init__(self, parent, main, maxM=5, maxN=5, loadEnv=None):
       super(DlgCreateEnvelope, self).__init__(parent, main)
 
       QMessageBox.warning(self, tr('Dangerous Feature!'), tr("""
@@ -210,7 +206,6 @@ class DlgCreateEnvelope(ArmoryDialog):
       lblDescr3.setOpenExternalLinks(False)
       self.connect(lblDescr3, SIGNAL('linkActivated(const QString &)'), \
                                                                openMoreInfo)
-      
 
 
       self.comboM = QComboBox()
@@ -232,22 +227,6 @@ class DlgCreateEnvelope(ArmoryDialog):
       self.prevTextLength = [0]*self.maxN
 
 
-      if prefill is None:
-         prefill = {}
-
-      defaultM = prefill['M'] if 'M' in prefill else 2
-      defaultN = prefill['N'] if 'N' in prefill else 3
-      
-      defaultPubKeyList = ['']*self.maxN
-      if 'Script' in prefill:
-         defaultM, defaultN, a160list, defaultPubKeyList = \
-                           getMultisigScriptInfo(prefill['Script']) 
-      elif 'PubKeyList' in prefill:
-         defaultPubKeyList = prefill['PubKeyList'][:]
-         if not len(defaultPubKeyList)==defaultN:
-            LOGERROR('Size of key list does not match specified N value!')
-
-
 
       for i in range(1,self.maxM+1):
          self.comboM.addItem(str(i))
@@ -255,6 +234,9 @@ class DlgCreateEnvelope(ArmoryDialog):
       for i in range(2, self.maxN+1):
          self.comboN.addItem(str(i))
 
+      defaultM = 2
+      defaultN = 3
+      
       self.comboM.setCurrentIndex(defaultM-1)
       self.comboN.setCurrentIndex(defaultN-2)
 
@@ -302,7 +284,7 @@ class DlgCreateEnvelope(ArmoryDialog):
          
          
       self.btnCancel   = QPushButton(tr('Exit'))
-      self.btnContinue = QPushButton(tr('Create Envelope'))
+      self.btnContinue = QPushButton(tr('Save Envelope'))
       self.btnContinue.setEnabled(False)
       self.connect(self.btnContinue, SIGNAL('clicked()'), self.doContinue)
       self.connect(self.btnCancel, SIGNAL('clicked()'), self.reject)
@@ -368,7 +350,6 @@ class DlgCreateEnvelope(ArmoryDialog):
       lblMNSelect = QRichLabel(tr("""<font color="%s" size=4><b>Create 
          Multi-Signature Address</b></font>""") % htmlColor("TextBlue"), \
          doWrap=False, hAlign=Qt.AlignHCenter)
-      lblMNSelect.setVisible(False)
 
       lblBelowM = QRichLabel(tr('<b>Required Signatures (M)</b> '), \
                                        hAlign=Qt.AlignHCenter, doWrap=False)
@@ -378,6 +359,18 @@ class DlgCreateEnvelope(ArmoryDialog):
       lblOfStr = QRichLabel(tr(' - OF - '))
 
 
+      btnClear  = QPushButton(tr('Clear All'))
+      btnLoad   = QPushButton(tr('Load Existing'))
+      btnImport = QPushButton(tr('Import'))
+
+      self.connect(btnClear,  SIGNAL('clicked()'), self.clearAll)
+      self.connect(btnLoad,   SIGNAL('clicked()'), self.loadSaved)
+      self.connect(btnImport, SIGNAL('clicked()'), self.importNew)
+      
+      frmLoadImport = makeVertFrame([btnLoad, btnImport, btnClear])
+      frmLoadImport.layout().setSpacing(0)
+
+
       layoutMNSelect = QGridLayout()
       layoutMNSelect.addWidget(lblMNSelect,     0,0, 1,9)
       layoutMNSelect.addWidget(self.comboM,     1,2)
@@ -385,8 +378,10 @@ class DlgCreateEnvelope(ArmoryDialog):
       layoutMNSelect.addWidget(self.comboN,     1,6)
       layoutMNSelect.addWidget(lblBelowM,       2,1, 1,3)
       layoutMNSelect.addWidget(lblBelowN,       2,5, 1,3)
+      layoutMNSelect.addWidget(frmLoadImport,   0,9, 3,1)
       layoutMNSelect.setColumnStretch(0,1)
       layoutMNSelect.setColumnStretch(8,1)
+      layoutMNSelect.setColumnStretch(9,1)
       
       frmMNSelect = QFrame()
       frmMNSelect.setFrameStyle(STYLE_RAISED)
@@ -404,6 +399,10 @@ class DlgCreateEnvelope(ArmoryDialog):
 
       self.updateWidgetTable(defaultM, defaultN)
       self.updateLabels(forceUpdate=True)
+
+      if loadEnv is not None:
+         self.fillForm(loadEnv)
+         
 
       self.setLayout(layoutMaster)
       self.setWindowTitle('Multi-Sig Hacker [EXPERIMENTAL]')
@@ -568,10 +567,49 @@ class DlgCreateEnvelope(ArmoryDialog):
       self.updateLabels(forceUpdate=True)
          
 
+   #############################################################################
+   def loadSaved(self):
+      envObj = self.main.getSelectEnvelope()
+      if envObj:
+         self.fillForm(envObj)
+
+   #############################################################################
+   def importNew(self):
+      dlg = DlgImportEnvelope(self, self.main)
+      if dlg.exec_():
+         mse = MultiSigEnvelope().unserialize(dlg.txtEnvBlock)
+         self.fillForm(mse)
+
+
+   #############################################################################
+   def clearAll(self):
+      self.edtEnvName.clear()
+      self.longDescr = ''
+      for key,widget in self.widgetMap.iteritems():
+         if key in ['EDT_PUBK', 'LBL_ASTR', 'LBL_NAME']:
+            widget.clear()
+
    
    #############################################################################
-   def fillForm(self):
-      pass
+   def fillForm(self, envObj):
+
+      self.edtEnvName.setText(envObj.shortName)
+      self.longDescr = envObj.longDescr
+
+      for i in range(N):
+         self.widgetMap[i]['EDT_PUBK'].setText(binary_to_hex(envObj.pkList[i]))
+
+      def setCombo(cmb, val):
+         for i in cmb.count():
+            if str(cmb.itemText())==str(val):
+               cmb.setCurrentIndex(i)
+
+      setCombo(self.comboM, envObj.M)
+      setCombo(self.comboN, envObj.N)
+
+      self.updateWidgetTable(envObj.M, envObj.N)
+      self.updateLabels(forceUpdate=True)
+      
       
    #############################################################################
    def doContinue(self):
@@ -579,6 +617,14 @@ class DlgCreateEnvelope(ArmoryDialog):
       currN = int(str(self.comboN.currentText()))
 
       print currM,currN
+
+      if len(str(self.edtEnvName.text()).strip())==0:
+         QMessageBox.warning(self, tr('Missing Name'), tr("""
+            You did not specify a name for this envelope, at the top of 
+            the list of public keys.  You should also make sure you that
+            you have set the extended information (next to it), for better
+            documentation of what this envelope is used for"""), QMessageBox.Ok)
+         return
 
       # If we got here, we already know all the public keys are valid strings
       pubKeyList = []
@@ -623,16 +669,17 @@ class DlgCreateEnvelope(ArmoryDialog):
       LOGINFO('Envelope ID: ' + self.EnvelopeID)
       LOGINFO('List of Names/IDs\n   ' + '\n   '.join(self.NameIDList))
 
-      env = MultiSigEnvelope(txOutScript, \
-                             unicode(self.edtEnvName.text()),
-                             unicode(self.longDescr),
-                             self.NameIDList)
+      self.envelope = MultiSigEnvelope( \
+                                 txOutScript, \
+                                 unicode(self.edtEnvName.text()),
+                                 unicode(self.longDescr),
+                                 self.NameIDList)
 
       print 'pprint Env:'
-      env.pprint()
+      self.envelope.pprint()
 
       print 'Print encoded:'
-      ser = env.serialize()
+      ser = self.envelope.serialize()
       print ser
 
 
@@ -641,39 +688,57 @@ class DlgCreateEnvelope(ArmoryDialog):
       env2.pprint()
 
       print 'Print encoded:'
-      ser2 = env.serialize()
+      ser2 = env2.serialize()
       print ser2
 
       print 'Equal: ', ser==ser2
       
 
+################################################################################
+class DlgImportEnvelope(QDialog):
+   def __init__(self, parent, main):
+      super(DlgImportEnvelope, self).__init__(parent)
+      self.main = main
+      lbl = QRichLabel(tr("""
+         <b><u>Import Envelope</u></b>
+         <br><br>
+         Copy the envelope text block from file or email into the box 
+         below.  If you have a file with the envelope in it, you can
+         load it using the "Load Envelope" button at the bottom."""))
+
+      self.txtEnvBlock = QPlainTextEdit()
+      self.txtEnvBlock.setPlainText(currDescr)
+      btnLoad = QPushButton(tr("Load from file"))
+      btnDone = QPushButton(tr("Done"))
+      btnCancel = QPushButton(tr("Cancel"))
+
+                              
+      self.connect(btnLoad, SIGNAL('clicked()'), self.loadfile)
+
+      frmLoadButton = makeHorizFrame(['Stretch', btnLoad])
+      frmBottomRow  = makeHorizFrame([btnCancel, 'Stretch', btnDone])
+
+      layout = QVBoxLayout()
+      layout.addWidget(lbl)
+      layout.addWidget(frmLoadButton)
+      layout.addWidget(self.txtEnvBlock, 1)
+      layout.addWidget(frmBottomRow)
+      self.setLayout(layout)
+      self.setWindowTitle(tr('Import Envelope'))
+      self.setMinimumWidth(450)
+
+   def loadfile(self):
+      envPath = unicode(self.main.getFileLoad(tr('Load Envelope')))
+      with open(envPath) as f:
+         data = f.read()
+      self.txtEnvBlock.setPlainText(data)
+
+
 
 ################################################################################
 def createContribBlock(self, msScript, walletID, amt, fee=0):
 
-   msgParams = {}
-   msgParams['Version'] = 0
-   msgParams['MagicBytes'] = ''
-   msgParams['IDBytes'] = ''
-   msgParams['PayContrib'] = amt
-   msgParams['FeeContrib'] = fee
-   msgParams['ChangeScript'] = ''  
-   msgParams['SupportTxList'] = []
-
-   utxoList = self.main.walletMap[walletID].getTxOutList('Spendable')
-   utxoSelect = PySelectCoins(utxoList, amt, fee)
-
-   bp = BinaryPacker()
-   bp.put(BINARY_CHUNK, msgParams['MagicBytes'])
-   bp.put(BINARY_CHUNK, msgParams['IDBytes'])
-   bp.put(UINT64,       msgParams['PayContrib'])
-   bp.put(UINT64,       msgParams['FeeContrib'])
-   bp.put(VAR_INT,      len(msgParams['ChangeScript']))
-   bp.put(BINARY_CHUNK, msgParams['ChangeScript'])
-   bp.put(VAR_INT,      len(msgParams['UtxoList']))
-   bp.put(VAR_INT,      len(msgParams['UtxoList']))
-   bp.put(VAR_INT,      len(msgParams['UtxoList']))
-   
+   pass 
 
 
 ################################################################################

@@ -91,6 +91,7 @@ parser.add_option("--test-announce", dest="testAnnounceCode", default=False,    
 #parser.add_option("--rebuildwithblocksize", dest="newBlockSize",default='32kB', type="str",          help="Rebuild databases with new blocksize")
 parser.add_option("--nospendzeroconfchange",dest="ignoreAllZC",default=False, action="store_true", help="All zero-conf funds will be unspendable, including sent-to-self coins")
 parser.add_option("--nowalletcheck", dest="noWalletCheck", default=False, action="store_true", help="Skip the wallet sanity check on startup")
+parser.add_option("--multisigfile",  dest="multisigFile",  default='DEFAULT', type='str',          help="File to store information about multi-signature transactions")
 
 # Pre-10.9 OS X sometimes passes a process serial number as -psn_0_xxxxxx. Nuke!
 if sys.platform == 'darwin':
@@ -383,6 +384,16 @@ if CLI_OPTIONS.logFile.lower()=='default':
 
 SETTINGS_PATH   = CLI_OPTIONS.settingsPath
 MULT_LOG_FILE   = os.path.join(ARMORY_HOME_DIR, 'multipliers.txt')
+MULTISIG_FILE   = os.path.join(ARMORY_HOME_DIR, 'multisigs.txt')
+
+
+
+if not CLI_OPTIONS.multisigFile.lower()=='default':
+   if not os.path.exists(CLI_OPTIONS.multisigFile):
+      print 'Multisig file "%s" does not exist!' % CLI_OPTIONS.multisigFile
+   else:
+      MULTISIG_FILE  = CLI_OPTIONS.multisigFile
+
 
 
 # If this is the first Armory has been run, create directories

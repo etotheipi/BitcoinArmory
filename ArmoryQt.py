@@ -42,6 +42,7 @@ from ui.Wizards import WalletWizard, TxWizard
 from ui.VerifyOfflinePackage import VerifyOfflinePackageDialog
 from ui.UpgradeDownloader import UpgradeDownloaderDialog
 from ui.MultiSigHacker import DlgSelectMultiSigOption
+from armoryengine.MultiSigUtils import MultiSigEnvelope
 from jasvet import verifySignature, readSigBlock
 from announcefetch import AnnounceDataFetcher, ANNOUNCE_URL, ANNOUNCE_URL_BACKUP
 from armoryengine.parseAnnounce import *
@@ -122,6 +123,7 @@ class ArmoryMainWindow(QMainWindow):
       self.wasSynchronizing = False
       self.announceIsSetup = False
       self.entropyAccum = []
+      self.allEnvelopes = []
 
       # Full list of notifications, and notify IDs that should trigger popups
       # when sending or receiving.
@@ -2340,12 +2342,20 @@ class ArmoryMainWindow(QMainWindow):
          TheBDM.bdm.registerWallet(wlt.cppWallet)
 
 
+      LOGINFO('Loading Multisig Envelopes')
+      self.readEnvelopesFromFile(MULTISIG_FILE)
+      for env in self.allEnvelopes:
+         scraddr = script_to_scrAddr(env.binScript)
+         TheBDM.registerScrAddr(scraddr)
+
+
       # Get the last directory
       savedDir = self.settings.get('LastDirectory')
       if len(savedDir)==0 or not os.path.exists(savedDir):
          savedDir = ARMORY_HOME_DIR
       self.lastDirectory = savedDir
       self.writeSetting('LastDirectory', savedDir)
+
 
    #############################################################################
    def getFileSave(self, title='Save Wallet File', \
@@ -2432,6 +2442,51 @@ class ArmoryMainWindow(QMainWindow):
          self.setWltSetting(wltID, 'IsMine', True)
 
 
+   #############################################################################
+   def readEnvelopesFromFile(self, fn):
+      self.allEnvelopes = []
+      if not os.path.exists(fn):
+         LOGERROR('Attempted to open multisig file that DNE')
+         return
+         
+      with open(fn, 'r') as f:
+         allData = f.read()
+         
+      startMark = '=====ENVELOPE'
+      pos = allData.find(startMark)
+      while pos > 0:
+         nextPos = allData.find(startMark, pos+1)
+         if nextPos < 0:
+            nextPos = len(allData)
+         envBlock = allData[pos:nextPos].strip()
+         self.allEnvelopes.append(MultiSigEnvelope().unserialize(envBlock))
+         LOGINFO('Read in envelope: %s' % self.allEnvelopes[-1].uniqueIDB58)
+
+         pos = allData.find(startMark, pos+1)
+   
+        
+          
+      
+
+   #############################################################################
+   def writeEnvelopesFile(self, fn):
+      # Do all the serializing and bail-on-error before opening the file 
+      # for writing, or we might delete it all by accident
+      textOut = '\n\n'.join([env.serialize() for env in self.allEnvelopes])
+      with open(fn, 'w') as f:
+         f.write(textOut)
+
+
+   #############################################################################
+   def addEnvelope(self, env):
+      self.allEnvelopes.append(env)
+      self.writeEnvelopesFile()
+      
+
+
+   #############################################################################
+   def getSelectEnvelope(self):
+      pass
 
 
    #############################################################################

@@ -85,7 +85,7 @@ class MultiSigEnvelope(object):
 
    #############################################################################
    def setParams(self, script, name=None, descr=None, commList=None, \
-                                                               version=MULTISIG_VERSION):
+                                                     version=MULTISIG_VERSION):
       
       # Set params will only overwrite with non-None data
       self.binScript = script
@@ -97,7 +97,7 @@ class MultiSigEnvelope(object):
          self.longDescr = descr
 
       if commList is not None:
-         self.commentList = commList
+         self.commentList = commList[:]
 
       self.version = version
       self.magicBytes = MAGIC_BYTES
@@ -194,10 +194,16 @@ class MultiSigEnvelope(object):
    #############################################################################
    def pprint(self):
       print 'Multi-signature %d-of-%d envelope:' % (self.M, self.N)
-      print '   Unique ID: ', self.uniqueIDB58
-      print '    Env Name: ', self.shortName
-      print '    Env Desc: \n' + self.longDescr[:60]
-      print '    Key List: '
+      print '   Unique ID:  ', self.uniqueIDB58
+      print '   Env Name:   ', self.shortName
+      print '   Env Desc:   '
+      print '     ', self.longDescr[:70]
+      print '   Key List:   '
+      print '   Script Ops: '
+      for opStr in self.opStrList:
+         print '       ', opStr
+      print''
+      print '   Key Info:   '
       for i in range(len(self.pkList)):
          print '            Key %d' % i
          print '           ', binary_to_hex(self.pkList[i])[:40] + '...'
@@ -209,69 +215,93 @@ class MultiSigEnvelope(object):
 
 
 
+
+
+
+
 ################################################################################
 ################################################################################
 class MultiSigContribFunds(object):
    #############################################################################
-   def __init__(self, envID=None, payAmt=None, feeAmt=None, changeScript=None, \
-                              supportTxPairs=None, version=MULTISIG_VERSION):
-      self.version = 0
-      self.envID
+   def __init__(self, envID=None, payAmt=None, feeAmt=None, changeScript=None, 
+                  contribLabel=None, supportTx=None, version=MULTISIG_VERSION):
+      self.version   = 0
+      self.envID     = envID
+      self.payAmt    = payAmt
+      self.feeAmt    = feeAmt
+      self.changeScript  = changeScript
+      self.contribLabel  = contribLabel
+      self.supportTxPairs = supportTx
 
-      self.binScript = script
-      self.shortName = name
-      self.longDescr = descr
-      self.commentList = commList
-
-      if script is not None:
-         self.setParams(script, name, descr, commList)
+      if envID is not None:
+         self.setParams(envID, payAmt, feeAmt, changeScript, supportTx, version)
 
 
    #############################################################################
-   def setParams(self, script, name=None, descr=None, commList=None):
+   def setParams(self, envID=None, payAmt=None, feeAmt=None, changeScript=None,
+                   contribLabel=None, supportTx=None, version=MULTISIG_VERSION):
       
       # Set params will only overwrite with non-None data
-      self.binScript = script
+      self.envID = envID
       
-      if name is not None:
-         self.shortName = name
+      if payAmt is not None:
+         self.payAmt = payAmt
 
-      if descr is not None:
-         self.longDescr = descr
+      if feeAmt is not None:
+         self.feeAmt = feeAmt
 
-      if commList is not None:
-         self.commentList = commList
+      if changeScript is not None:
+         self.changeScript = changeScript
 
-      scrType = getTxOutScriptType(script)
-      if not scrType==CPP_TXOUT_MULTISIG:
-         LOGERROR('Attempted to create envelope from non-multi-sig script')
-         self.binScript = None
-         return
+      if contribLabel is not None:
+         self.contribLabel = contribLabel
+
+      if supportTx is not None:
+         self.supportTxPairs = supportTx[:]
+
+      # Compute some other data members
+      self.version = version
+      self.magicBytes = MAGIC_BYTES
 
 
-      # Computed some derived members
+      self.outPointTriplets = []
+      for rawTx,txoIdx in supportTx:
+         tx = PyTx().unserialize(rawTx)
+         op = PyOutPoint()
+         op.txHash = hash256(rawTx)
+         op.txOutIndex = txoIdx
+         val = tx.outputs[txoIdx].value
+         scr = tx.outputs[txoIdx].binScript
+         self.opValues.append([op, val, scr])
 
-      self.scrAddr      = script_to_scrAddr(script)
-      self.uniqueIDB58  = getMultiSigID(script)
-      self.M, self.N, self.a160List, self.pkList = getMultisigScriptInfo(script)
-      self.opStrList = convertScriptToOpStrings(script)
+
 
       
       
    #############################################################################
    def serialize(self, wid=64):
-      data = { 'Script': self.binScript,
-               'Name':   self.shortName,
-               'Descr':  self.longDescr,
-               'Comms':  self.commentList}
 
-      rawStr = base64.b64encode(str(data))
+      bp = BinaryPacker()
+      bp.put(UINT32,       self.version)
+      bp.put(BINARY_CHUNK, MAGIC_BYTES)
+      bp.put(VAR_STR,      self.envID)
+      bp.put(UINT64,       self.payAmt)
+      bp.put(UINT64,       self.feeAmt)
+      bp.put(VAR_STR,      self.changeScript)
+      bp.put(VAR_STR,      toBytes(self.contribLabel))
+      bp.put(UINT32,       len(self.supportTxPairs))
+      for rawTx,txoIdx in self.supportTxPairs:
+         bp.put(VAR_STR,   rawTx)
+         bp.put(UINT32,    txoIdx)
+
+      rawStr = base64.b64encode(bp.getBinaryString())
       sz = len(rawStr)
-      lines = ['=====ENVELOPE=%s=====' % self.uniqueIDB58]
-      lines.append([rawStr[wid*i:wid*(i+1)] for i in range((sz-1)/wid+1)])
+      lines = ['=====ENVCONTRIB=%s=====' % self.uniqueIDB58]
+      lines.extend([rawStr[wid*i:wid*(i+1)] for i in range((sz-1)/wid+1)])
       lines.append("="*28)
       
-      theData = '\n'.join(lines)
+      return '\n'.join(lines)
+
 
 
    #############################################################################
