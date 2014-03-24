@@ -3,6 +3,9 @@ Minimal pthread port for leveldb purpose
 Cancelation isn't supported
 ***/
 
+#ifndef PTHREADS
+#define PTHREADS
+
 #include <Windows.h>
 #include <intrin.h>
 
@@ -16,11 +19,24 @@ Cancelation isn't supported
 typedef CRITICAL_SECTION pthread_mutex_t;
 typedef DWORD pthread_t;
 typedef int pthread_attr_t;
-typedef CONDITION_VARIABLE pthread_cond_t;
+#ifdef USE_CONDVAR
+	typedef CONDITION_VARIABLE pthread_cond_t;
+#else
+	struct pthread_cond_t_
+	{
+		volatile long Broadcast;
+		volatile long resetEvent;
+		HANDLE mu;
+		HANDLE EV;
+	};
+
+	typedef struct pthread_cond_t_ * pthread_cond_t;
+
+#endif
 typedef int * pthread_condattr_t;
 
 #define PTHREAD_ONCE_INIT 0
-typedef long pthread_once_t;
+typedef volatile long pthread_once_t;
 
 int pthread_mutex_init(pthread_mutex_t *mu, const int mutex_attr);
 int pthread_mutex_lock(pthread_mutex_t *mu);
@@ -39,4 +55,4 @@ DWORD pthread_self();
 
 int pthread_once(pthread_once_t *once, void (*func)(void));
 
-
+#endif
