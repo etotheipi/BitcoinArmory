@@ -153,9 +153,11 @@ public:
    
    vector<AddressBookEntry> createAddressBook(void);
 
-   vector<LedgerEntry> & getEmptyLedger(void) { EmptyLedger_.clear(); return EmptyLedger_;}
    
    uint32_t lastScanned_;
+
+private:
+	vector<LedgerEntry> & getEmptyLedger(void) { EmptyLedger_.clear(); return EmptyLedger_;}
 
 private:
    vector<ScrAddrObj*>          scrAddrPtrs_;

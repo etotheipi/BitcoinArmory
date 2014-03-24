@@ -1098,7 +1098,6 @@ void BlockDataManager_LevelDB::SelectNetwork(string netName)
    else
       LOGERR << "ERROR: Unrecognized network name";
 
-   isNetParamsSet_ = true;
 }
 
 
@@ -1595,7 +1594,6 @@ void BlockDataManager_LevelDB::reset(void)
    zcLiteMode_ = false;
    zcFilename_ = "";
 
-   isNetParamsSet_ = false;
    isBlkParamsSet_ = false;
    isLevelDBSet_ = false;
    armoryHomeDir_ = string("");

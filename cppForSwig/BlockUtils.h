@@ -106,7 +106,6 @@ private:
    string                             zcFilename_;
 
    // This is for detecting external changes made to the blk0001.dat file
-   bool                               isNetParamsSet_;
    bool                               isBlkParamsSet_;
    bool                               isLevelDBSet_;
    string                             armoryHomeDir_;
@@ -203,7 +202,6 @@ private:
    Blockchain blockchain_;
    
 public:
-   // Set the constructor to private so that only one can ever be created
    BlockDataManager_LevelDB(void);
    ~BlockDataManager_LevelDB(void);
 
@@ -300,7 +298,7 @@ public:
    bool     registerNewScrAddr(BinaryData scraddr);
    bool     registerImportedScrAddr(HashString scrAddr, uint32_t createBlk=0);
    bool     unregisterScrAddr(HashString scrAddr);
-
+private:
    uint32_t evalLowestBlockNextScan(void);
    uint32_t evalLowestScrAddrCreationBlock(void);
    bool     evalRescanIsRequired(void);
@@ -322,6 +320,7 @@ public:
                                    uint32_t txSize=0,
                                    vector<uint32_t> * txInOffsets=NULL,
                                    vector<uint32_t> * txOutOffsets=NULL);
+public:
    void     resetRegisteredWallets(void);
    void     pprintRegisteredWallets(void);
 
