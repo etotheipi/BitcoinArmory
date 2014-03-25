@@ -15,7 +15,6 @@
 #include "BlockWriteBatcher.h"
 
 
-
 ////////////////////////////////////////////////////////////////////////////////
 // For now, we will call createUndoDataFromBlock(), and then pass that data to 
 // undoBlockFromDB(), even though it will result in accessing the DB data 
@@ -84,6 +83,168 @@ static void createUndoDataFromBlock(
       }
    }
 }
+
+// do something when a reorg happens
+class ReorgUpdater
+{
+   Blockchain *const blockchain_;
+   InterfaceToLDB* const iface_;
+   
+   set<HashString> txJustInvalidated_;
+   set<HashString> txJustAffected_;
+   vector<BlockHeader*> previouslyValidBlockHeaderPtrs_;
+   
+   list<StoredTx> removedTxes_, addedTxes_;
+
+public:
+   ReorgUpdater(
+      const Blockchain::ReorganizationState& state,
+      Blockchain *blockchain, 
+      InterfaceToLDB* iface
+   )
+      : blockchain_(blockchain)
+      , iface_(iface)
+   {
+      reassessAfterReorg(
+         state.prevTopBlock,
+         &blockchain_->top(),
+         state.reorgBranchPoint
+      );
+   }
+   
+   const list<StoredTx>& removedTxes() const { return removedTxes_; }
+   const list<StoredTx>& addedTxes() const { return addedTxes_; }
+   
+   template<typename Collection>
+   void updateWalletsAfterReorg(Collection & col)
+   {
+      for (typename Collection::iterator i = col.begin(); i != col.end(); ++i)
+      {
+         updateWalletAfterReorg(**i);
+      }
+   }
+   
+   void updateWalletAfterReorg(BtcWallet & wlt)
+   {
+      SCOPED_TIMER("updateWalletAfterReorg");
+
+      // Fix the wallet's ledger
+      vector<LedgerEntry> & ledg = wlt.getTxLedger();
+      for(uint32_t i=0; i<ledg.size(); i++)
+      {
+         HashString const & txHash = ledg[i].getTxHash();
+         if(txJustInvalidated_.count(txHash) > 0)
+            ledg[i].setValid(false);
+
+         if(txJustAffected_.count(txHash) > 0)
+            ledg[i].changeBlkNum(iface_->getTxRef(txHash).getBlockHeight());
+      }
+
+      // Now fix the individual address ledgers
+      for(uint32_t a=0; a<wlt.getNumScrAddr(); a++)
+      {
+         ScrAddrObj & addr = wlt.getScrAddrObjByIndex(a);
+         vector<LedgerEntry> & addrLedg = addr.getTxLedger();
+         for(uint32_t i=0; i<addrLedg.size(); i++)
+         {
+            HashString const & txHash = addrLedg[i].getTxHash();
+            if(txJustInvalidated_.count(txHash) > 0)
+               addrLedg[i].setValid(false);
+      
+            if(txJustAffected_.count(txHash) > 0) 
+               addrLedg[i].changeBlkNum(iface_->getTxRef(txHash).getBlockHeight());
+         }
+      }
+   }
+
+private:
+   void reassessAfterReorg(
+      BlockHeader* oldTopPtr,
+      BlockHeader* newTopPtr,
+      BlockHeader* branchPtr
+   )
+   {
+      SCOPED_TIMER("reassessAfterReorg");
+      LOGINFO << "Reassessing Tx validity after reorg";
+
+      // Walk down invalidated chain first, until we get to the branch point
+      // Mark transactions as invalid
+     
+      BlockWriteBatcher blockWrites(iface_);
+      
+      BlockHeader* thisHeaderPtr = oldTopPtr;
+      LOGINFO << "Invalidating old-chain transactions...";
+      
+      while(thisHeaderPtr != branchPtr)
+      {
+         uint32_t hgt = thisHeaderPtr->getBlockHeight();
+         uint8_t  dup = thisHeaderPtr->getDuplicateID();
+
+         if(DBUtils.getArmoryDbType() != ARMORY_DB_BARE)
+         {
+            // Added with leveldb... in addition to reversing blocks in RAM, 
+            // we also need to undo the blocks in the DB
+            StoredUndoData sud;
+            createUndoDataFromBlock(iface_, hgt, dup, sud);
+            blockWrites.undoBlockFromDB(sud);
+         }
+         
+         StoredHeader sbh;
+         iface_->getStoredHeader(sbh, hgt, dup, true);
+
+         // This is the original, tested, reorg code
+         previouslyValidBlockHeaderPtrs_.push_back(thisHeaderPtr);
+         for(uint32_t i=0; i<sbh.numTx_; i++)
+         {
+            StoredTx & stx = sbh.stxMap_[i];
+            LOGWARN << "   Tx: " << stx.thisHash_.getSliceCopy(0,8).toHexStr();
+            txJustInvalidated_.insert(stx.thisHash_);
+            txJustAffected_.insert(stx.thisHash_);
+            
+            removedTxes_.push_back(stx);
+            //registeredTxSet_.erase(stx.thisHash_);
+            //removeRegisteredTx(stx.thisHash_);
+         }
+         thisHeaderPtr = &blockchain_->getHeaderByHash(thisHeaderPtr->getPrevHash());
+      }
+
+      // Walk down the newly-valid chain and mark transactions as valid.  If 
+      // a tx is in both chains, it will still be valid after this process
+      // UPDATE for LevelDB upgrade:
+      //       This used to start from the new top block and walk down, but 
+      //       I need to apply the blocks in order, so I switched it to start
+      //       from the branch point and walk up
+      thisHeaderPtr = branchPtr; // note branch block was not undone, skip it
+      LOGINFO << "Marking new-chain transactions valid...";
+      while( thisHeaderPtr->getNextHash() != BtcUtils::EmptyHash_ &&
+            thisHeaderPtr->getNextHash().getSize() > 0 ) 
+      {
+         thisHeaderPtr = &blockchain_->getHeaderByHash(thisHeaderPtr->getNextHash());
+         uint32_t hgt = thisHeaderPtr->getBlockHeight();
+         uint8_t  dup = thisHeaderPtr->getDuplicateID();
+         iface_->markBlockHeaderValid(hgt, dup);
+         StoredHeader sbh;
+         iface_->getStoredHeader(sbh, hgt, dup, true);
+
+         if(DBUtils.getArmoryDbType() != ARMORY_DB_BARE)
+            blockWrites.applyBlockToDB(sbh);
+
+         for(uint32_t i=0; i<sbh.numTx_; i++)
+         {
+            StoredTx & stx = sbh.stxMap_[i];
+            LOGWARN << "   Tx: " << stx.thisHash_.getSliceCopy(0,8).toHexStr();
+            txJustInvalidated_.erase(stx.thisHash_);
+            txJustAffected_.insert(stx.thisHash_);
+            addedTxes_.push_back(stx);
+            //Tx tx = stx.getTxCopy();
+            //registeredScrAddrScan(tx.getPtr(), tx.getSize());
+         }
+      }
+
+      LOGWARN << "Done reassessing tx validity";
+   }
+};
+
 
 // search for the next byte in bsb that looks like it could be a block
 static bool scanForMagicBytes(BinaryStreamBuffer& bsb, const BinaryData &bytes, uint32_t *bytesSkipped)
@@ -923,15 +1084,6 @@ void BlockDataManager_LevelDB::reset(void)
    startApplyBlkFile_ = 0;
    startApplyOffset_ = 0;
    lastTopBlock_ = 0;
-
-
-   // Reorganization details
-   txJustInvalidated_.clear();
-   txJustAffected_.clear();
-
-   // Reset orphan chains
-   previouslyValidBlockHeaderPtrs_.clear();
-   orphanChainStartBlocks_.clear();
 
    GenesisHash_.resize(0);
    GenesisTxHash_.resize(0);
@@ -2939,13 +3091,31 @@ uint32_t BlockDataManager_LevelDB::readBlkFileUpdate(void)
          if(!state.prevTopBlockStillValid)
          {
             LOGWARN << "Blockchain Reorganization detected!";
-            reassessAfterReorg(
-                  state.prevTopBlock, &blockchain_.top(), state.reorgBranchPoint
-               );
+            ReorgUpdater reorg(state, &blockchain_, iface_);
+            
+            // can this occur after the updateWAlletsAfterReorg below?
             purgeZeroConfPool();
 
-            // Update all the registered wallets...
-            updateWalletsAfterReorg(registeredWallets_);
+            for (
+               list<StoredTx>::const_iterator i = reorg.removedTxes().begin();
+               i != reorg.removedTxes().end();
+               ++i
+            )
+            {
+               registeredTxSet_.erase(i->thisHash_);
+               removeRegisteredTx(i->thisHash_);
+            }
+            for (
+               list<StoredTx>::const_iterator i = reorg.addedTxes().begin();
+               i != reorg.addedTxes().end();
+               ++i
+            )
+            {
+               Tx tx = i->getTxCopy();
+               registeredScrAddrScan(tx.getPtr(), tx.getSize());
+            }
+            
+            reorg.updateWalletsAfterReorg(registeredWallets_);
          }
          else if(state.hasNewTop)
          {
@@ -3024,54 +3194,6 @@ uint32_t BlockDataManager_LevelDB::readBlkFileUpdate(void)
 // BDM detects the reorg, but is wallet-agnostic so it can't update any wallets
 // You have to call this yourself after you check whether the last organizeChain
 // call indicated that a reorg happened
-void BlockDataManager_LevelDB::updateWalletAfterReorg(BtcWallet & wlt)
-{
-   SCOPED_TIMER("updateWalletAfterReorg");
-
-   // Fix the wallet's ledger
-   vector<LedgerEntry> & ledg = wlt.getTxLedger();
-   for(uint32_t i=0; i<ledg.size(); i++)
-   {
-      HashString const & txHash = ledg[i].getTxHash();
-      if(txJustInvalidated_.count(txHash) > 0)
-         ledg[i].setValid(false);
-
-      if(txJustAffected_.count(txHash) > 0)
-         ledg[i].changeBlkNum(getTxRefByHash(txHash).getBlockHeight());
-   }
-
-   // Now fix the individual address ledgers
-   for(uint32_t a=0; a<wlt.getNumScrAddr(); a++)
-   {
-      ScrAddrObj & addr = wlt.getScrAddrObjByIndex(a);
-      vector<LedgerEntry> & addrLedg = addr.getTxLedger();
-      for(uint32_t i=0; i<addrLedg.size(); i++)
-      {
-         HashString const & txHash = addrLedg[i].getTxHash();
-         if(txJustInvalidated_.count(txHash) > 0)
-            addrLedg[i].setValid(false);
-   
-         if(txJustAffected_.count(txHash) > 0) 
-            addrLedg[i].changeBlkNum(getTxRefByHash(txHash).getBlockHeight());
-      }
-   }
-}
-
-
-/////////////////////////////////////////////////////////////////////////////
-void BlockDataManager_LevelDB::updateWalletsAfterReorg(vector<BtcWallet*> wltvect)
-{
-   for(uint32_t i=0; i<wltvect.size(); i++)
-      updateWalletAfterReorg(*wltvect[i]);
-}
-
-/////////////////////////////////////////////////////////////////////////////
-void BlockDataManager_LevelDB::updateWalletsAfterReorg(set<BtcWallet*> wltset)
-{
-   set<BtcWallet*>::iterator iter;
-   for(iter = wltset.begin(); iter != wltset.end(); iter++)
-      updateWalletAfterReorg(**iter);
-}
 
 /////////////////////////////////////////////////////////////////////////////
 /* This was never actually used
@@ -3306,88 +3428,6 @@ Blockchain::ReorganizationState BlockDataManager_LevelDB::addNewBlockData(
 
 
 ////////////////////////////////////////////////////////////////////////////////
-void BlockDataManager_LevelDB::reassessAfterReorg( BlockHeader* oldTopPtr,
-                                                   BlockHeader* newTopPtr,
-                                                   BlockHeader* branchPtr)
-{
-   SCOPED_TIMER("reassessAfterReorg");
-   LOGINFO << "Reassessing Tx validity after reorg";
-
-   // Walk down invalidated chain first, until we get to the branch point
-   // Mark transactions as invalid
-   txJustInvalidated_.clear();
-   txJustAffected_.clear();
-   
-   BlockWriteBatcher blockWrites(iface_);
-   
-   BlockHeader* thisHeaderPtr = oldTopPtr;
-   LOGINFO << "Invalidating old-chain transactions...";
-   
-   while(thisHeaderPtr != branchPtr)
-   {
-      uint32_t hgt = thisHeaderPtr->getBlockHeight();
-      uint8_t  dup = thisHeaderPtr->getDuplicateID();
-
-      if(DBUtils.getArmoryDbType() != ARMORY_DB_BARE)
-      {
-         // Added with leveldb... in addition to reversing blocks in RAM, 
-         // we also need to undo the blocks in the DB
-         StoredUndoData sud;
-         createUndoDataFromBlock(iface_, hgt, dup, sud);
-         blockWrites.undoBlockFromDB(sud);
-      }
-      
-      StoredHeader sbh;
-      iface_->getStoredHeader(sbh, hgt, dup, true);
-
-      // This is the original, tested, reorg code
-      previouslyValidBlockHeaderPtrs_.push_back(thisHeaderPtr);
-      for(uint32_t i=0; i<sbh.numTx_; i++)
-      {
-         StoredTx & stx = sbh.stxMap_[i];
-         LOGWARN << "   Tx: " << stx.thisHash_.getSliceCopy(0,8).toHexStr();
-         txJustInvalidated_.insert(stx.thisHash_);
-         txJustAffected_.insert(stx.thisHash_);
-         registeredTxSet_.erase(stx.thisHash_);
-         removeRegisteredTx(stx.thisHash_);
-      }
-      thisHeaderPtr = &blockchain_.getHeaderByHash(thisHeaderPtr->getPrevHash());
-   }
-
-   // Walk down the newly-valid chain and mark transactions as valid.  If 
-   // a tx is in both chains, it will still be valid after this process
-   // UPDATE for LevelDB upgrade:
-   //       This used to start from the new top block and walk down, but 
-   //       I need to apply the blocks in order, so I switched it to start
-   //       from the branch point and walk up
-   thisHeaderPtr = branchPtr; // note branch block was not undone, skip it
-   LOGINFO << "Marking new-chain transactions valid...";
-   while( thisHeaderPtr->getNextHash() != BtcUtils::EmptyHash_ &&
-          thisHeaderPtr->getNextHash().getSize() > 0 ) 
-   {
-      thisHeaderPtr = &blockchain_.getHeaderByHash(thisHeaderPtr->getNextHash());
-      uint32_t hgt = thisHeaderPtr->getBlockHeight();
-      uint8_t  dup = thisHeaderPtr->getDuplicateID();
-      iface_->markBlockHeaderValid(hgt, dup);
-      StoredHeader sbh;
-      iface_->getStoredHeader(sbh, hgt, dup, true);
-
-      if(DBUtils.getArmoryDbType() != ARMORY_DB_BARE)
-         blockWrites.applyBlockToDB(sbh);
-
-      for(uint32_t i=0; i<sbh.numTx_; i++)
-      {
-         StoredTx & stx = sbh.stxMap_[i];
-         LOGWARN << "   Tx: " << stx.thisHash_.getSliceCopy(0,8).toHexStr();
-         txJustInvalidated_.erase(stx.thisHash_);
-         txJustAffected_.insert(stx.thisHash_);
-         Tx tx = stx.getTxCopy();
-         registeredScrAddrScan(tx.getPtr(), tx.getSize());
-      }
-   }
-
-   LOGWARN << "Done reassessing tx validity";
-}
 
 ////////////////////////////////////////////////////////////////////////////////
 // We're going to need the BDM's help to get the sender for a TxIn since it

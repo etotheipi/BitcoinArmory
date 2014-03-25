@@ -141,14 +141,8 @@ private:
    uint32_t                           lastTopBlock_;
 
    // Reorganization details
-   set<HashString>                    txJustInvalidated_;
-   set<HashString>                    txJustAffected_;
 
    bool                               corruptHeadersDB_;
-
-   // Store info on orphan chains
-   vector<BlockHeader*>               previouslyValidBlockHeaderPtrs_;
-   vector<BlockHeader*>               orphanChainStartBlocks_;
 
    bool                               isInitialized_;
    int32_t                            lastScannedBlock_;
@@ -366,9 +360,6 @@ private:
                                 uint32_t fileIndex0Idx,
                                 uint32_t thisHeaderOffset,
                                 uint32_t blockSize);
-   void reassessAfterReorg(BlockHeader* oldTopPtr,
-                           BlockHeader* newTopPtr,
-                           BlockHeader* branchPtr );
 
 
    void deleteHistories(void);
@@ -440,15 +431,6 @@ private:
    bool isTxFinal(const Tx & tx) const;
 public:
    void rescanWalletZeroConf(BtcWallet & wlt);
-
-   /////////////////////////////////////////////////////////////////////////////
-   set<HashString>  getTxJustInvalidated(void) {return txJustInvalidated_;}
-   set<HashString>  getTxJustAffected(void)    {return txJustAffected_;}
-
-private:
-   void             updateWalletAfterReorg(BtcWallet & wlt);
-   void             updateWalletsAfterReorg(vector<BtcWallet*> wltvect);
-   void             updateWalletsAfterReorg(set<BtcWallet*> wltset);
 
 public:
    // Use these two methods to get ALL information about your unused TxOuts
