@@ -221,6 +221,7 @@ public:
    void SetBtcNetworkParams( BinaryData const & GenHash,
                              BinaryData const & GenTxHash,
                              BinaryData const & MagicBytes);
+   void reset(void);
 
 private:
    //////////////////////////////////////////////////////////////////////////
@@ -269,8 +270,6 @@ private:
    pair<uint32_t, uint32_t> findFileAndOffsetForHgt(
                uint32_t hgt, const vector<BinaryData>* firstHashOfEachBlkFile=NULL);
 
-private:
-   void reset(void);
 public:
    int32_t          getNumConfirmations(BinaryData txHash);
    string           getBlockfilePath(void) {return blkFileDir_;}
@@ -296,11 +295,12 @@ public:
    bool     registerNewScrAddr(BinaryData scraddr);
    bool     registerImportedScrAddr(HashString scrAddr, uint32_t createBlk=0);
    bool     unregisterScrAddr(HashString scrAddr);
+   
+   uint32_t numBlocksToRescan(BtcWallet & wlt, uint32_t topBlk=UINT32_MAX);
 private:
    uint32_t evalLowestBlockNextScan(void);
    uint32_t evalLowestScrAddrCreationBlock(void);
    bool     evalRescanIsRequired(void);
-   uint32_t numBlocksToRescan(BtcWallet & wlt, uint32_t topBlk=UINT32_MAX);
    void     updateRegisteredScrAddrs(uint32_t newTopBlk);
 
    bool     walletIsRegistered(BtcWallet & wlt);

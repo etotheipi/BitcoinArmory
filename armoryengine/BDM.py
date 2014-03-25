@@ -211,10 +211,10 @@ class BlockDataManagerThread(threading.Thread):
       
       try:
          out = self.outputQueue.get(True, self.mtWaitSec)
+         LOGINFO('type of output ' + str(out))
          return out
       except Queue.Empty:
          LOGERROR('BDM was not ready for your request!  Waited %d sec.' % self.mtWaitSec)
-         LOGERROR('  getattr   name: %s', name)
          LOGERROR('BDM currently doing: %s (%d)', self.currentActivity,self.currentID )
          LOGERROR('Waiting for completion: ID= %d', rndID)
          LOGERROR('Direct traceback')
@@ -1038,11 +1038,11 @@ class BlockDataManagerThread(threading.Thread):
 
       numToRescan = 0
       for pyWlt in self.pyWltList:
-         thisNum = self.bdm.numBlocksToRescan(pyWlt.cppWallet)
+         thisNum = self.queued( lambda : TheBDM.bdm.numBlocksToRescan(pyWlt.cppWallet))
          numToRescan = max(numToRescan, thisNum)
 
       for cppWlt in self.cppWltList:
-         thisNum = self.bdm.numBlocksToRescan(cppWlt)
+         thisNum = self.queued( lambda : TheBDM.bdm.numBlocksToRescan(cppWlt))
          numToRescan = max(numToRescan, thisNum)
 
       if numToRescan<144:
@@ -1108,9 +1108,9 @@ class BlockDataManagerThread(threading.Thread):
          self.blkMode = BLOCKCHAINMODE.Uninitialized
       elif not self.blkMode==BLOCKCHAINMODE.Offline:
          return
-         
+      
       self.bdm.resetRegisteredWallets()
-
+      
       # Flags
       self.startBDM     = False
       #self.btcdir       = BTC_HOME_DIR
