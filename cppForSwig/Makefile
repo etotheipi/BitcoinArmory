@@ -38,6 +38,9 @@ SWIG_INC     +=
 
 CXXCPP += $(CPPFLAGS) $(PYTHON_INCLUDES)
 
+# each .o file depends on all .h files
+ALL_HEADERS=$(wildcard *.h)
+
 
 #**************************************************************************
 
@@ -59,26 +62,16 @@ libleveldb.a: Makefile
 	$(MAKE) -C leveldb libleveldb.a
 	mv leveldb/libleveldb.a .
 
-%.o: %.cpp %.h
+%.o: %.cpp $(ALL_HEADERS)
 	$(CXX) $(CXXCPP) $(CXXFLAGS) -c $<
 
-BinaryData.o: BtcUtils.h log.h
-BtcUtils.o: log.h
-BlockObj.o: BinaryData.h BtcUtils.h
-BtcWallet.o: BinaryData.h BlockObj.h ScrAddrObj.h BlockUtils.h
-LedgerEntry.o: BinaryData.h BtcUtils.h BlockObj.h
-ScrAddrObj.o: BinaryData.h BtcUtils.h BlockObj.h LedgerEntry.h
-StoredBlockObj.o: log.h BtcUtils.h BinaryData.h
-leveldb_wrapper.o: log.h BtcUtils.h BinaryData.h
-BlockUtils.o: log.h BinaryData.h UniversalTimer.h PartialMerkle.h
-EncryptionUtils.o: log.h BtcUtils.h BinaryData.h
-CppBlockUtils_wrap.cxx: log.h BlockUtils.h BinaryData.h BlockObj.h UniversalTimer.h BlockUtils.h BtcWallet.h LedgerEntry.h StoredBlockObj.h Blockchain.h CppBlockUtils.i
+CppBlockUtils_wrap.cxx: $(ALL_HEADERS) CppBlockUtils.i
 	swig $(SWIG_OPTS) -outdir ../ -v CppBlockUtils.i 
 
-CppBlockUtils_wrap.o: log.h BlockUtils.h  BinaryData.h UniversalTimer.h CppBlockUtils_wrap.cxx
+CppBlockUtils_wrap.o: $(ALL_HEADERS) CppBlockUtils_wrap.cxx
 	$(CXX) $(SWIG_INC) $(CXXFLAGS) $(CXXCPP) -c CppBlockUtils_wrap.cxx
 
-playground: ../_CppBlockUtils.so playground.cpp BlockUtils.h ScrAddrObj.h LedgerEntry.h
+playground: ../_CppBlockUtils.so playground.cpp $(ALL_HEADERS)
 	$(CXX) $(CXXCPP) $(CXXFLAGS) $(LDFLAGS) $(shell $(PYVER)-config --libs) -Wl,-rpath,$(PWD)/.. ../_CppBlockUtils.so -o playground playground.cpp
 
 ##########################################################################
