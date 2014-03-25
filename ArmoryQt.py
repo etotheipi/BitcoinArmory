@@ -48,7 +48,7 @@ from announcefetch import AnnounceDataFetcher, ANNOUNCE_URL, ANNOUNCE_URL_BACKUP
 from armoryengine.parseAnnounce import *
 
 from armoryengine.MultiSigUtils import MultiSigLockbox
-from ui.MultiSigHacker import DlgSelectMultiSigOption, DlgBrowseLockboxes
+from ui.MultiSigHacker import DlgSelectMultiSigOption, DlgLockboxManager
 from ui.MultiSigModels import LockboxDisplayModel, LOCKBOXCOLS
 
 # HACK ALERT: Qt has a bug in OS X where the system font settings will override
@@ -480,15 +480,17 @@ class ArmoryMainWindow(QMainWindow):
       self.mainDisplayTabs.addTab(self.tabAnnounce,  'Announcements')
 
 
-      btnSendBtc   = QPushButton("Send Bitcoins")
-      btnRecvBtc   = QPushButton("Receive Bitcoins")
-      btnWltProps  = QPushButton("Wallet Properties")
-      btnOfflineTx = QPushButton("Offline Transactions")
+      btnSendBtc   = QPushButton(tr("Send Bitcoins"))
+      btnRecvBtc   = QPushButton(tr("Receive Bitcoins"))
+      btnWltProps  = QPushButton(tr("Wallet Properties"))
+      btnOfflineTx = QPushButton(tr("Offline Transactions"))
+      btnMultisig  = QPushButton(tr("Multi-Sig Transactions"))
 
       self.connect(btnWltProps, SIGNAL('clicked()'), self.execDlgWalletDetails)
       self.connect(btnRecvBtc,  SIGNAL('clicked()'), self.clickReceiveCoins)
       self.connect(btnSendBtc,  SIGNAL('clicked()'), self.clickSendBitcoins)
       self.connect(btnOfflineTx,SIGNAL('clicked()'), self.execOfflineTx)
+      self.connect(btnMultisig, SIGNAL('clicked()'), self.browseLockboxes)
 
       verStr = 'Armory %s-beta / %s' % (getVersionString(BTCARMORY_VERSION), \
                                               UserModeStr(self.usermode))
@@ -503,6 +505,8 @@ class ArmoryMainWindow(QMainWindow):
       logoBtnFrame.append(btnWltProps)
       if self.usermode in (USERMODE.Advanced, USERMODE.Expert):
          logoBtnFrame.append(btnOfflineTx)
+      if self.usermode in (USERMODE.Expert,):
+         logoBtnFrame.append(btnMultisig)
       logoBtnFrame.append(lblInfo)
       logoBtnFrame.append('Stretch')
 
@@ -546,9 +550,6 @@ class ArmoryMainWindow(QMainWindow):
       self.menusList.append( self.menu.addMenu('&Help') )
       #self.menusList.append( self.menu.addMenu('&Network') )
 
-
-      if not currmode==USERMODE.Expert:
-         self.menusList[MENUS.MultiSig].hide()
 
       def exportTx():
          if not TheBDM.getBDMState()=='BlockchainReady':
@@ -619,6 +620,10 @@ class ArmoryMainWindow(QMainWindow):
          self.menusList[MENUS.Tools].addAction(actOpenTools)
 
 
+      if not self.usermode==USERMODE.Expert:
+         self.menusList[MENUS.MultiSig].menuAction().setVisible(False)
+
+
       # Addresses
       actAddrBook   = self.createAction('View &Address Book',          self.execAddressBook)
       actSweepKey   = self.createAction('&Sweep Private Key/Address',  self.menuSelectSweepKey)
@@ -684,7 +689,7 @@ class ArmoryMainWindow(QMainWindow):
 
 
       execMSHack = lambda: DlgSelectMultiSigOption(self,self).exec_()
-      execBrowse = lambda: DlgBrowseLockboxes(self,self).exec_()
+      execBrowse = lambda: DlgLockboxManager(self,self).exec_()
       actMultiHacker = self.createAction(tr('Multi-Key Lockboxes'), execMSHack)
       actBrowseLockboxes = self.createAction(tr('Browse Lockboxes'), execBrowse)
       self.menusList[MENUS.MultiSig].addAction(actMultiHacker)
@@ -2484,14 +2489,35 @@ class ArmoryMainWindow(QMainWindow):
    
    #############################################################################
    def updateOrAddLockbox(self, lbObj):
-      lb = self.getLockboxByID(lbObj.uniqueIDB58)
-      if lb is None:
+      index = self.lockboxIDMap.get(lbObj.uniqueIDB58)
+      if index is None:
+         # Add new lockbox to list
          self.allLockboxes.append(lbObj)
+         self.lockboxIDMap[lbObj.uniqueIDB58] = len(self.allLockboxes)-1
       else:
-         lb = lbObj
+         # Replace the original
+         self.allLockboxes[index] = lbObj
 
       self.writeLockboxesFile()
         
+   
+   #############################################################################
+   def removeLockbox(self, lbObj):
+      lbID = lbObj.uniqueIDB58
+      index = self.lockboxIDMap.get(lbID)
+      if index is None:
+         LOGERROR('Tried to remove lockbox that DNE: %s', lbID)
+      else:
+         del self.allLockboxes[index]
+         self.reconstructLockboxMaps()
+         self.writeLockboxesFile()
+
+
+   #############################################################################
+   def reconstructLockboxMaps(self):
+      self.lockboxIDMap.clear()
+      for i,box in enumerate(self.allLockboxes):
+         self.lockboxIDMap[box.uniqueIDB58] = i
 
    #############################################################################
    def getLockboxByID(self, boxID):
@@ -2513,8 +2539,8 @@ class ArmoryMainWindow(QMainWindow):
 
 
    #############################################################################
-   def getSelectLockbox(self):
-      DlgBrowseLockboxes(self,self).exec_()
+   def browseLockboxes(self):
+      DlgLockboxManager(self,self).exec_()
 
    #############################################################################
    def getWalletForAddr160(self, addr160):

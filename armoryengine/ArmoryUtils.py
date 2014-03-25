@@ -1435,13 +1435,17 @@ def toBytes(theStr, theEncoding=DEFAULT_ENCODING):
    else:
       LOGERROR('toBytes() not been defined for input: %s', str(type(theStr)))
 
+
 def toUnicode(theStr, theEncoding=DEFAULT_ENCODING):
    if isinstance(theStr, unicode):
       return theStr
    elif isinstance(theStr, str):
       return unicode(theStr, theEncoding)
    else:
-      LOGERROR('toUnicode() not been defined for input: %s', str(type(theStr)))
+      try:
+         return unicode(theStr)
+      except:
+         LOGEXCEPT('toUnicode() not defined for %s', str(type(theStr)))
 
 
 def toPreferred(theStr):

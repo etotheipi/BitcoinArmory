@@ -76,7 +76,7 @@ class MultiSigLockbox(object):
       self.version   = 0
       self.binScript = script
       self.shortName = name
-      self.longDescr = descr
+      self.longDescr = toUnicode(descr)
       self.commentList = commList
       self.createDate = long(RightNow()) if createDate is None else createDate
       self.magicBytes = MAGIC_BYTES
@@ -96,7 +96,7 @@ class MultiSigLockbox(object):
          self.shortName = name
 
       if descr is not None:
-         self.longDescr = descr
+         self.longDescr = toUnicode(descr)
 
       if commList is not None:
          self.commentList = commList[:]
@@ -124,7 +124,7 @@ class MultiSigLockbox(object):
       
       
    #############################################################################
-   def serialize(self, wid=64):
+   def serialize(self, wid=64, newline='\n'):
 
       bp = BinaryPacker()
       bp.put(UINT32,       self.version)
@@ -139,17 +139,17 @@ class MultiSigLockbox(object):
 
       rawStr = base64.b64encode(bp.getBinaryString())
       sz = len(rawStr)
-      lines = ['=====LOCKBOX=%s=====' % self.uniqueIDB58]
+      lines = [('=====LOCKBOX=%s=====' % self.uniqueIDB58).ljust(wid, '=')]
       lines.extend([rawStr[wid*i:wid*(i+1)] for i in range((sz-1)/wid+1)])
-      lines.append("="*28)
+      lines.append("="*wid)
       
-      return '\n'.join(lines)
+      return newline.join(lines)
       
 
    #############################################################################
-   def unserialize(self, envBlock):
+   def unserialize(self, boxBlock):
 
-      lines = envBlock.split()
+      lines = boxBlock.split()
       if not lines[0].startswith('=====LOCKBOX') or \
          not lines[-1].startswith('======'):
          LOGERROR('Attempting to unserialize lockbox that is not lockbox')
@@ -160,40 +160,40 @@ class MultiSigLockbox(object):
       rawData = base64.b64decode(''.join(lines[1:-1]))
 
       bu = BinaryUnpacker(rawData)
-      envVersion = bu.get(UINT32)
-      envMagic   = bu.get(BINARY_CHUNK, 4)
+      boxVersion = bu.get(UINT32)
+      boxMagic   = bu.get(BINARY_CHUNK, 4)
       created    = bu.get(UINT64)
-      envScript  = bu.get(VAR_STR)
-      envName    = bu.get(VAR_STR)
-      envDescr   = bu.get(VAR_STR)
+      boxScript  = bu.get(VAR_STR)
+      boxName    = toUnicode(bu.get(VAR_STR))
+      boxDescr   = toUnicode(bu.get(VAR_STR))
       nComment   = bu.get(UINT32)
 
-      envComms = ['']*nComment
+      boxComms = ['']*nComment
       for i in range(nComment):
-         envComms[i] = bu.get(VAR_STR)
+         boxComms[i] = toUnicode(bu.get(VAR_STR))
 
       # Issue a warning if the versions don't match
-      if not envVersion == MULTISIG_VERSION:
+      if not boxVersion == MULTISIG_VERSION:
          LOGWARN('Unserialing lockbox of different version')
-         LOGWARN('   Lockbox Version: ' + envVersion)
+         LOGWARN('   Lockbox Version: ' + boxVersion)
          LOGWARN('   Armory  Version: ' + MULTISIG_VERSION)
 
       # Check the magic bytes of the lockbox match
-      if not envMagic == MAGIC_BYTES:
+      if not boxMagic == MAGIC_BYTES:
          LOGERROR('Wrong network!')
-         LOGERROR('    Lockbox Magic: ' + binary_to_hex(envMagic))
+         LOGERROR('    Lockbox Magic: ' + binary_to_hex(boxMagic))
          LOGERROR('    Armory  Magic: ' + binary_to_hex(MAGIC_BYTES))
          return None
 
       
       # Lockbox ID is written in the first line, it should match the script
       # If not maybe a version mistmatch, serialization error, or bug
-      if not getMultiSigID(envScript) == expectID:
+      if not getMultiSigID(boxScript) == expectID:
          LOGERROR('ID on lockbox block does not match script')
          return None
 
       # No need to read magic bytes -- already checked & bailed if incorrect
-      self.setParams(envScript, envName, envDescr, envComms, \
+      self.setParams(boxScript, boxName, boxDescr, boxComms, \
                                                    MULTISIG_VERSION, created)
 
       return self
@@ -204,8 +204,8 @@ class MultiSigLockbox(object):
       print 'Multi-signature %d-of-%d lockbox:' % (self.M, self.N)
       print '   Unique ID:  ', self.uniqueIDB58
       print '   Created:    ', unixTimeToFormatStr(self.createDate)
-      print '   Env Name:   ', self.shortName
-      print '   Env Desc:   '
+      print '   Box Name:   ', self.shortName
+      print '   Box Desc:   '
       print '     ', self.longDescr[:70]
       print '   Key List:   '
       print '   Script Ops: '
@@ -227,6 +227,56 @@ class MultiSigLockbox(object):
       print 'LockBox %s:  %s-of-%s, created: %s;  "%s"' % (self.uniqueIDB58, 
          self.M, self.N, unixTimeToFormatStr(self.createDate), self.shortName)
 
+   #############################################################################
+   def getDisplayPlainText(self, tr=None, dateFmt=None):
+
+      if dateFmt is None:
+         dateFmt = DEFAULT_DATE_FORMAT
+
+      if tr is None:
+         tr = lambda x: unicode(x)
+
+      EMPTYLINE = u''
+
+      shortName = toUnicode(self.shortName)
+      if len(shortName.strip())==0:
+         shortName = u'<No Lockbox Name'
+
+      longDescr = toUnicode(self.longDescr)
+      if len(longDescr.strip())==0:
+         longDescr = u'<No Extended Info>'
+
+      formattedDate = unixTimeToFormatStr(self.createDate, dateFmt)
+      
+      lines = []
+      lines.append(tr('Lockbox Information for %s:') % self.uniqueIDB58)
+      lines.append(tr('Multisig:      %d-of-%d') % (self.M, self.N))
+      lines.append(tr('Lockbox ID:    %s') % self.uniqueIDB58)
+      lines.append(tr('Lockbox Name:  %s') % self.shortName)
+      lines.append(tr('Created:       %s') % formattedDate)
+      lines.append(tr('Extended Info:'))
+      lines.append(EMPTYLINE)
+      lines.append(tr('-'*10))
+      lines.append(longDescr)
+      lines.append(tr('-'*10))
+      lines.append(EMPTYLINE)
+      lines.append(tr('Stored Key Details'))
+      for i in range(len(self.pkList)):
+         comm = self.commentList[i]
+         addr = hash160_to_addrStr(self.a160List[i])
+         pubk = binary_to_hex(self.pkList[i])[:40] + '...'
+
+         if len(comm.strip())==0:
+            comm = '<No Info>'
+
+         lines.append(tr('  Key #%d') % (i+1))
+         lines.append(tr('     Name/ID: %s') % comm)
+         lines.append(tr('     Address: %s') % addr)
+         lines.append(tr('     PubKey:  %s') % pubk)
+         lines.append(EMPTYLINE)
+
+      return '\n'.join(lines)
+
 
 
 
@@ -236,26 +286,26 @@ class MultiSigLockbox(object):
 ################################################################################
 class MultiSigContribFunds(object):
    #############################################################################
-   def __init__(self, envID=None, payAmt=None, feeAmt=None, changeScript=None, 
+   def __init__(self, boxID=None, payAmt=None, feeAmt=None, changeScript=None, 
                   contribLabel=None, supportTx=None, version=MULTISIG_VERSION):
       self.version   = 0
-      self.envID     = envID
+      self.boxID     = boxID
       self.payAmt    = payAmt
       self.feeAmt    = feeAmt
       self.changeScript  = changeScript
       self.contribLabel  = contribLabel
       self.supportTxPairs = supportTx
 
-      if envID is not None:
-         self.setParams(envID, payAmt, feeAmt, changeScript, supportTx, version)
+      if boxID is not None:
+         self.setParams(boxID, payAmt, feeAmt, changeScript, supportTx, version)
 
 
    #############################################################################
-   def setParams(self, envID=None, payAmt=None, feeAmt=None, changeScript=None,
+   def setParams(self, boxID=None, payAmt=None, feeAmt=None, changeScript=None,
                    contribLabel=None, supportTx=None, version=MULTISIG_VERSION):
       
       # Set params will only overwrite with non-None data
-      self.envID = envID
+      self.boxID = boxID
       
       if payAmt is not None:
          self.payAmt = payAmt
@@ -297,7 +347,7 @@ class MultiSigContribFunds(object):
       bp = BinaryPacker()
       bp.put(UINT32,       self.version)
       bp.put(BINARY_CHUNK, MAGIC_BYTES)
-      bp.put(VAR_STR,      self.envID)
+      bp.put(VAR_STR,      self.boxID)
       bp.put(UINT64,       self.payAmt)
       bp.put(UINT64,       self.feeAmt)
       bp.put(VAR_STR,      self.changeScript)
@@ -309,18 +359,18 @@ class MultiSigContribFunds(object):
 
       rawStr = base64.b64encode(bp.getBinaryString())
       sz = len(rawStr)
-      lines = ['=====ENVCONTRIB=%s=====' % self.uniqueIDB58]
+      lines = [('=====LOCKBOX=%s=====' % self.uniqueIDB58).ljust(wid, '=')]
       lines.extend([rawStr[wid*i:wid*(i+1)] for i in range((sz-1)/wid+1)])
-      lines.append("="*28)
+      lines.append("="*wid)
       
       return '\n'.join(lines)
 
 
 
    #############################################################################
-   def unserialize(self, envBlock):
+   def unserialize(self, boxBlock):
 
-      lines = envBlock.split()
+      lines = boxBlock.split()
       if not lines[0].startswith('=====LOCKBOX') or \
          not lines[-1].startswith('======'):
          LOGERROR('Attempting to unserialize lockbox that is not lockbox')
@@ -329,8 +379,8 @@ class MultiSigContribFunds(object):
       idSize = len(getMultiSigID(''))
       expectID = lines[0][14:14+idSize]
 
-      envBlock = ''.join(lines[1:-1])
-      mapStr = base64.b64decode(''.join(envBlock.split()))
+      boxBlock = ''.join(lines[1:-1])
+      mapStr = base64.b64decode(''.join(boxBlock.split()))
       dataMap = ast.literal_eval(mapStr)
       
       if not 'Script'  in dataMap or \
@@ -351,8 +401,8 @@ class MultiSigContribFunds(object):
    def pprint(self):
       print 'Multi-signature %d-of-%d lockbox:' % (self.M, self.N)
       print '   Unique ID: ', self.uniqueIDB58
-      print '    Env Name: ', self.shortName
-      print '    Env Desc: ', self.longDescr[:60]
+      print '    Box Name: ', self.shortName
+      print '    Box Desc: ', self.longDescr[:60]
       print '    Key List: '
       for i in range(len(self.pkList)):
          print '            Key %d' % i

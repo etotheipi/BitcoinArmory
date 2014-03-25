@@ -122,7 +122,7 @@ class DlgSelectMultiSigOption(ArmoryDialog):
 
    #############################################################################
    def openCreate(self):
-      DlgCreateLockbox(self, self.main).exec_()
+      DlgLockboxEditor(self, self.main).exec_()
 
    #############################################################################
    def openFund(self):
@@ -134,28 +134,14 @@ class DlgSelectMultiSigOption(ArmoryDialog):
          
 
 
-#############################################################################
-class DlgBrowseLockboxes(ArmoryDialog):
-   #############################################################################
-   def __init__(self, parent, main):
-      super(DlgBrowseLockboxes, self).__init__(parent, main)
-    
 
 
 #############################################################################
-class DlgCreateLockbox(ArmoryDialog):
+class DlgLockboxEditor(ArmoryDialog):
 
    #############################################################################
    def __init__(self, parent, main, maxM=5, maxN=5, loadBox=None):
-      super(DlgCreateLockbox, self).__init__(parent, main)
-
-      QMessageBox.warning(self, tr('Dangerous Feature!'), tr("""
-         Multi-key transaction hacking is an 
-         <b>EXPERIMENTAL</b> feature in this version of Armory.  It is 
-         <u>not</u> intended to be used with real money, until it is
-         moved out of the "Experimental" menu on the main screen.
-         <br><br>
-         <b>Use at your own risk!</b>"""), QMessageBox.Ok)
+      super(DlgLockboxEditor, self).__init__(parent, main)
 
       lblDescr = QRichLabel(tr("""
          <b><u><font size=5 color="%s">Multi-key is an experimental 
@@ -354,15 +340,15 @@ class DlgCreateLockbox(ArmoryDialog):
 
 
       btnClear  = QPushButton(tr('Clear All'))
-      btnLoad   = QPushButton(tr('Load Existing'))
-      btnImport = QPushButton(tr('Import'))
+      #btnLoad   = QPushButton(tr('Load Existing'))
+      #btnImport = QPushButton(tr('Import'))
 
       self.connect(btnClear,  SIGNAL('clicked()'), self.clearAll)
-      self.connect(btnLoad,   SIGNAL('clicked()'), self.loadSaved)
-      self.connect(btnImport, SIGNAL('clicked()'), self.importNew)
+      #self.connect(btnLoad,   SIGNAL('clicked()'), self.loadSaved)
+      #self.connect(btnImport, SIGNAL('clicked()'), self.importNew)
       
-      frmLoadImport = makeVertFrame([btnLoad, btnImport, btnClear])
-      frmLoadImport.layout().setSpacing(0)
+      #frmLoadImport = makeVertFrame([btnLoad, btnImport, btnClear])
+      #frmLoadImport.layout().setSpacing(0)
 
 
       layoutMNSelect = QGridLayout()
@@ -372,17 +358,19 @@ class DlgCreateLockbox(ArmoryDialog):
       layoutMNSelect.addWidget(self.comboN,     1,6)
       layoutMNSelect.addWidget(lblBelowM,       2,1, 1,3)
       layoutMNSelect.addWidget(lblBelowN,       2,5, 1,3)
-      layoutMNSelect.addWidget(frmLoadImport,   0,9, 3,1)
       layoutMNSelect.setColumnStretch(0,1)
       layoutMNSelect.setColumnStretch(8,1)
-      layoutMNSelect.setColumnStretch(9,1)
       
       frmMNSelect = QFrame()
       frmMNSelect.setFrameStyle(STYLE_RAISED)
       frmMNSelect.setLayout(layoutMNSelect)
 
 
-      frmFinish = makeHorizFrame([self.btnCancel, 'Stretch', self.btnContinue])
+      frmFinish = makeHorizFrame([self.btnCancel, 
+                                  'Stretch', 
+                                  btnClear,
+                                  'Stretch', 
+                                  self.btnContinue])
 
       layoutMaster = QVBoxLayout()
       layoutMaster.addWidget(frmTop)
@@ -560,27 +548,16 @@ class DlgCreateLockbox(ArmoryDialog):
       self.updateLabels(forceUpdate=True)
          
 
-   #############################################################################
-   def loadSaved(self):
-      boxObj = self.main.getSelectLockbox()
-      if boxObj:
-         self.fillForm(boxObj)
-
-   #############################################################################
-   def importNew(self):
-      dlg = DlgImportLockbox(self, self.main)
-      if dlg.exec_():
-         mse = MultiSigLockbox().unserialize(str(dlg.txtBoxBlock.toPlainText()))
-         self.fillForm(mse)
 
 
    #############################################################################
    def clearAll(self):
       self.edtBoxName.clear()
       self.longDescr = ''
-      for key,widget in self.widgetMap.iteritems():
-         if key in ['EDT_PUBK', 'LBL_ASTR', 'LBL_NAME']:
-            widget.clear()
+      for index,widMap in self.widgetMap.iteritems():
+         for key,widget in widMap.iteritems():
+            if key in ['EDT_PUBK', 'LBL_ASTR', 'LBL_NAME']:
+               widget.clear()
 
    
    #############################################################################
@@ -654,13 +631,17 @@ class DlgCreateLockbox(ArmoryDialog):
       lockboxID = getMultiSigID(txOutScript)
       if self.loadedID is not None:
          if not self.loadedID == lockboxID:
-            reply = QMessageBox(self, tr('Different Lockbox'), tr("""
-               It appears you changed M, N, or at least one public key in 
-               the lockbox that you originally loaded (%s).  Because of that, 
-               this is now a different lockbox and will be added to the list
-               of available lockboxes, instead of overwriting the original
-               lockbox.""") % (self.loadedID, lockboxID), QMessageBox.Ok)
-            if reply is not QMessageBox.Ok:
+            reply = QMessageBox.warning(self, tr('Different Lockbox'), tr("""
+               You originally loaded lockbox (%s) but the edits you made
+               have caused it to become a new/different lockbox (%s).
+               Changing the M-value, N-value, or any of the public keys 
+               will result in a new lockbox, unrelated to the original.
+               <br><br>
+               <b>If you click "Ok" a new lockbox will be created</b> instead
+               of replacing the original.  If you do not need the original,
+               you can go the lockbox browser and manually remove it.""") % \
+               (self.loadedID, lockboxID), QMessageBox.Ok | QMessageBox.Cancel)
+            if not reply==QMessageBox.Ok:
                return
             
 
@@ -677,65 +658,307 @@ class DlgCreateLockbox(ArmoryDialog):
 
       self.lockbox = MultiSigLockbox( \
                                  txOutScript, \
-                                 unicode(self.edtBoxName.text()),
-                                 unicode(self.longDescr),
+                                 toUnicode(self.edtBoxName.text()),
+                                 toUnicode(self.longDescr),
                                  self.NameIDList)
 
       print 'pprint Box:'
       self.lockbox.pprint()
-
       print 'Print encoded:'
       ser = self.lockbox.serialize()
       print ser
-
-
       box2 = MultiSigLockbox().unserialize(ser)
       print 'pprint box:'
       box2.pprint()
-
       print 'Print encoded:'
       ser2 = box2.serialize()
       print ser2
-
       print 'Equal: ', ser==ser2
-
-      for lb in self.main.allLockboxes:
-         lb.pprintOneLine()
 
       self.main.updateOrAddLockbox(self.lockbox)
 
-      for lb in self.main.allLockboxes:
-         lb.pprintOneLine()
+   
+      
+
+
+      self.accept()
+
 
 
 ################################################################################
-class DlgBrowseLockboxes(ArmoryDialog):
-   def __init__(self, parent, main):
-      super(DlgBrowseLockboxes, self).__init__(parent, main)
+class DlgExportLockbox(ArmoryDialog):
+   def __init__(self, parent, main, lockbox):
+      super(DlgExportLockbox, self).__init__(parent, main)
+
+
+      lblDescr = QRichLabel(tr("""
+         The following block of text contains all information stored about
+         this lockbox.  All parties or devices that have signing authority
+         for this lockbox will need to import this block of text.
+         <br><br>
+         <b>IMPORTANT: All labels and descriptions you have entered for 
+         this lockbox are included in the text block!</b>  Please confirm
+         that you have not entered any sensitive or embarassing information 
+         before you send this to the other parties!  
+         <br><br>"""))
+         #Also, please make sure that all details for the lockbox, and each
+         #public key are accurate, including your own.  For instance, if you
+         #are storing everyone else's contact information in the lockbox 
+         #info, make sure you include your own, as well, for their benefit."""))
+
+      self.boxText = lockbox.serialize()
+
+      txt = QPlainTextEdit()
+      txt.setPlainText(self.boxText)
+
+      self.lblCopied = QRichLabel('')
+      btnCopy = QPushButton(tr("Copy to Clipboard"))
+      btnDone = QPushButton(tr("Done"))
    
-      lbModel = LockboxDisplayModel(self.main, \
+      self.connect(btnCopy, SIGNAL('clicked()'), self.clipcopy)
+      self.connect(btnDone, SIGNAL('clicked()'), self.accept)
+
+      frmCopy = makeHorizFrame([btnCopy, self.lblCopied, 'Stretch'])
+      frmDone = makeHorizFrame(['Stretch', btnDone])
+
+      frmMain = makeVertFrame([lblDescr, txt, frmCopy], STYLE_RAISED)
+
+      layout = QVBoxLayout()
+      layout.addWidget(frmMain)
+      layout.addWidget(frmDone)
+      self.setLayout(layout)
+
+      self.setWindowTitle(tr("Export Lockbox Info"))
+      self.setWindowIcon(QIcon(self.main.iconfile))
+
+
+
+   def clipcopy(self):
+      clipb = QApplication.clipboard()
+      clipb.clear()
+      clipb.setText(self.boxText)
+      self.lblCopied.setText('<i>Copied!</i>')
+      
+
+################################################################################
+class DlgLockboxManager(ArmoryDialog):
+   def __init__(self, parent, main):
+      super(DlgLockboxManager, self).__init__(parent, main)
+
+      QMessageBox.warning(self, tr('Dangerous Feature!'), tr("""
+         Multi-key transaction hacking is an 
+         <b>EXPERIMENTAL</b> feature in this version of Armory.  It is 
+         <u>not</u> intended to be used with real money, until it is
+         moved out of the "Experimental" menu on the main screen.
+         <br><br>
+         <b>Use at your own risk!</b>"""), QMessageBox.Ok)
+
+
+      lblDescr = QRichLabel(tr("""
+         <font color="%s" size=4><b>Manage Multi-key Lockbox Info</b></font>
+         <br><br>
+         Single-click on a row to view the stored info for the lockbox.
+         <br>
+         Double-click on a row to edit the stored lockbox info.
+         <br>
+         Use the buttons to import, create, edit, fund, or spend from a lockbox.
+         """) % htmlColor('TextBlue'))
+      
+      #frmDescr = makeVertFrame([lblDescr1, lblDescr2], STYLE_RAISED)
+      frmDescr = makeVertFrame([lblDescr], STYLE_RAISED)
+   
+      self.lboxModel = LockboxDisplayModel(self.main, \
                                     self.main.allLockboxes, \
                                     self.main.getPreferredDateFormat())
-      lbView = QTableView()
-      lbView.setModel(lbModel)
-      lbView.setSelectionBehavior(QTableView.SelectRows)
-      lbView.setSelectionMode(QTableView.SingleSelection)
-      lbView.verticalHeader().setDefaultSectionSize(20)
-      lbView.horizontalHeader().setStretchLastSection(True)
+      self.lboxView = QTableView()
+      self.lboxView.setModel(self.lboxModel)
+      self.lboxView.setSelectionBehavior(QTableView.SelectRows)
+      self.lboxView.setSelectionMode(QTableView.SingleSelection)
+      self.lboxView.verticalHeader().setDefaultSectionSize(20)
+      self.lboxView.horizontalHeader().setStretchLastSection(True)
+
+      self.connect( \
+            self.lboxView, 
+            SIGNAL('clicked(QModelIndex)'), 
+            self.singleClickLockbox)
+      self.connect( \
+            self.lboxView, 
+            SIGNAL('doubleClicked(QModelIndex)'), 
+            self.dblClickLockbox)
+
+      self.txtLockboxInfo = QPlainTextEdit()
+      self.txtLockboxInfo.setReadOnly(True)
+      self.txtLockboxInfo.setFont(GETFONT('Fixed', 9))
+
+      btnCreate = QPushButton(tr('Create New'))
+      btnImport = QPushButton(tr('Import New'))
+      btnLoad   = QPushButton(tr('Edit'))
+      btnExport = QPushButton(tr('Export'))
+      btnDelete = QPushButton(tr('Remove'))
+      btnFundIt = QPushButton(tr('Deposit Funds'))
+      btnSpend  = QPushButton(tr('Spend Funds'))
+
+      self.connect(btnCreate,   SIGNAL('clicked()'), self.doCreate)
+      self.connect(btnImport,   SIGNAL('clicked()'), self.doImport)
+      self.connect(btnLoad,     SIGNAL('clicked()'), self.doLoad)
+      self.connect(btnExport,   SIGNAL('clicked()'), self.doExport)
+      self.connect(btnDelete,   SIGNAL('clicked()'), self.doDelete)
+      self.connect(btnFundIt,   SIGNAL('clicked()'), self.doFundIt)
+      self.connect(btnSpend,    SIGNAL('clicked()'), self.doSpend)
+      
+      frmManageBtns = makeVertFrame([ 'Stretch',
+                                      QRichLabel(tr('<b>Create:</b>')),
+                                      btnCreate, 
+                                      btnImport,
+                                      'Space(20)',
+                                      QRichLabel(tr('<b>Selected:</b>')),
+                                      btnLoad,
+                                      btnExport,
+                                      btnDelete,
+                                      'Space(20)',
+                                      QRichLabel(tr('<b>Move Coins:</b>')),
+                                      btnFundIt,
+                                      btnSpend,
+                                      'Stretch'])
+
+      if TheBDM.getBDMState()=='BlockchainReady':
+         btnSpend.setDisabled(True)
+         btnFundIt.setDisabled(True)
+            
+      frmManageBtns.layout().setSpacing(2)
+
+      btnDone = QPushButton(tr('Done'))
+      frmDone = makeHorizFrame(['Stretch', btnDone])
+      self.connect(btnDone, SIGNAL('clicked()'), self.accept)
+
 
       #maxKeys = max([lb.N for lb in self.main.allLockboxes])
       for i in range(LOCKBOXCOLS.Key0, LOCKBOXCOLS.Key4+1):
-         lbView.hideColumn(i)
-      #if maxKeys<5: lbView.hideColumn(LOCKBOXCOLS.Key4)
-      #if maxKeys<4: lbView.hideColumn(LOCKBOXCOLS.Key3)
-      #if maxKeys<3: lbView.hideColumn(LOCKBOXCOLS.Key2)
+         self.lboxView.hideColumn(i)
+      #if maxKeys<5: self.lboxView.hideColumn(LOCKBOXCOLS.Key4)
+      #if maxKeys<4: self.lboxView.hideColumn(LOCKBOXCOLS.Key3)
+      #if maxKeys<3: self.lboxView.hideColumn(LOCKBOXCOLS.Key2)
 
-      layout = QVBoxLayout()
-      layout.addWidget(lbView)
+      layout = QGridLayout()
+      layout.addWidget(frmDescr,            0,0,  1,2)
+      layout.addWidget(self.lboxView,       1,0,  1,2)
+      layout.addWidget(frmManageBtns,       2,0)
+      layout.addWidget(self.txtLockboxInfo, 2,1)
+      layout.addWidget(frmDone,             3,0,  1,2)
+
+      layout.setColumnStretch(1, 1)
+      layout.setRowStretch(1, 1)
+      layout.setRowStretch(2, 2)
+
       self.setLayout(layout)
+
       self.setMinimumWidth(700)
       
+
+      hexgeom = self.main.settings.get('LockboxGeometry')
+      tblgeom = self.main.settings.get('LockboxAddrCols')
+      if len(hexgeom) > 0:
+         geom = QByteArray.fromHex(hexgeom)
+         self.restoreGeometry(geom)
+      if len(tblgeom) > 0:
+         restoreTableView(self.lboxView, tblgeom)
+
+
       
+   #############################################################################
+   def getSelectedLBID(self):
+      selection = self.lboxView.selectedIndexes()
+      if len(selection)==0:
+         return None
+      row = selection[0].row()
+      idCol = LOCKBOXCOLS.ID
+      return str(self.lboxView.model().index(row, idCol).data().toString())
+
+   #############################################################################
+   def getSelectedLockbox(self):
+      lbID = self.getSelectedLBID()
+      if lbID:
+         return self.main.getLockboxByID(lbID)
+      return None
+
+
+   #############################################################################
+   def singleClickLockbox(self, index=None, *args):
+      lb = self.getSelectedLockbox()
+      if lb:
+         self.txtLockboxInfo.setPlainText(lb.getDisplayPlainText())
+
+
+   #############################################################################
+   def dblClickLockbox(self, index, *args):
+      lb = self.getSelectedLockbox()
+      if lb:
+         DlgLockboxEditor(self, self.main, loadBox=lb).exec_()
+         self.lboxModel.reset()
+         self.singleClickLockbox()
+
+
+   def doCreate(self):
+      pass
+
+   def doImport(self):
+      pass
+
+   def doLoad(self):
+      pass
+
+   def doExport(self):
+      lbID = self.getSelectedLBID()
+      lb = self.main.getLockboxByID(lbID)
+      DlgExportLockbox(self, self.main, lb).exec_()
+
+   def doDelete(self):
+      lbID = self.getSelectedLBID()
+      lb = self.main.getLockboxByID(lbID)
+      reply = QMessageBox.warning(self, tr('Confirm Delete'), tr("""
+         "Removing" a lockbox does not delete any signing keys, so you 
+         maintain signing authority for any coins that are sent there.     
+         However, It will remove it from the list of lockboxes, and you
+         will have to re-import it again later in order to send any funds
+         to or from the lockbox.
+         <br><br>
+         Really remove this lockbox?"""), QMessageBox.Yes | QMessageBox.No) 
+
+      if reply==QMessageBox.Yes:
+         lbObj = self.getSelectedLockbox()
+         self.main.removeLockbox(lbObj)
+         self.lboxModel.reset()
+   
+   def doFundIt(self):
+      pass
+
+   def doSpend(self):
+      pass
+
+
+
+
+   #############################################################################
+   def saveGeometrySettings(self):
+      self.main.writeSetting('LockboxGeometry', str(self.saveGeometry().toHex()))
+      self.main.writeSetting('LockboxAddrCols', saveTableView(self.lboxView))
+
+   #############################################################################
+   def closeEvent(self, event):
+      self.saveGeometrySettings()
+      super(DlgLockboxManager, self).closeEvent(event)
+
+   #############################################################################
+   def accept(self, *args):
+      self.saveGeometrySettings()
+      super(DlgLockboxManager, self).accept(*args)
+
+   #############################################################################
+   def reject(self, *args):
+      self.saveGeometrySettings()
+      super(DlgLockboxManager, self).reject(*args)
+      
+
 
 ################################################################################
 class DlgImportLockbox(QDialog):
