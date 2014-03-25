@@ -1,0 +1,95 @@
+#ifndef _BLOCKCHAIN_H
+#define _BLOCKCHAIN_H
+
+#include "BlockObj.h"
+
+#include <deque>
+#include <map>
+
+class BlockDataManager_LevelDB;
+
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+//
+// Manages the blockchain, keeping track of all the block headers
+// and our longest cord
+//
+class Blockchain
+{
+public:
+   Blockchain(BlockDataManager_LevelDB* bdm);
+   // implemented but not used:
+   //vector<BlockHeader*> getHeadersNotOnMainChain(void);
+
+   void clear();
+   
+   class BlockCorruptionError : public std::runtime_error
+   {
+   public:
+      BlockCorruptionError()
+         : std::runtime_error("Failed to organize blockchain (corruption)")
+      { }
+   };
+   
+   struct ReorganizationState
+   {
+      bool prevTopBlockStillValid;
+      bool hasNewTop;
+      BlockHeader *prevTopBlock;
+      BlockHeader *reorgBranchPoint;
+   };
+   
+   /**
+    * Adds a block to the chain
+    **/
+   BlockHeader& addBlock(const HashString &blockhash, const BlockHeader &block);
+   
+   ReorganizationState organize();
+   ReorganizationState forceOrganize();
+   
+   BlockHeader& top() const;
+   BlockHeader& getGenesisBlock() const;
+   BlockHeader& getHeaderByHeight(unsigned height) const;
+   unsigned numHeaders() const { return headersByHeight_.size(); }
+   
+   const BlockHeader& getHeaderByHash(HashString const & blkHash) const;
+   BlockHeader& getHeaderByHash(HashString const & blkHash);
+   bool hasHeaderWithHash(BinaryData const & txHash) const;
+   const BlockHeader& getHeaderPtrForTxRef(const TxRef &txr) const;
+   const BlockHeader& getHeaderPtrForTx(const Tx & txObj) const
+   {
+      if(txObj.getTxRef().isNull())
+      {
+         throw runtime_error("TxRef in Tx object is not set, cannot get header ptr");
+      }
+      
+      return getHeaderPtrForTxRef(txObj.getTxRef());
+   }
+   
+   /**
+    * @return a map of all headers, even with duplicates
+    **/
+   map<HashString, BlockHeader>& allHeaders()
+   {
+      return headerMap_;
+   }
+
+private:
+   BlockHeader* organizeChain(bool forceRebuild=false);
+   /////////////////////////////////////////////////////////////////////////////
+   // Update/organize the headers map (figure out longest chain, mark orphans)
+   // Start from a node, trace down to the highest solved block, accumulate
+   // difficulties and difficultySum values.  Return the difficultySum of 
+   // this block.
+   double traceChainDown(BlockHeader & bhpStart);
+
+private:
+   BlockDataManager_LevelDB *const bdm_;
+   map<HashString, BlockHeader> headerMap_;
+   deque<BlockHeader*> headersByHeight_;
+   BlockHeader *topBlockPtr_;
+   BlockHeader *genesisBlockBlockPtr_;
+   Blockchain(const Blockchain&); // not defined
+};
+
+#endif
