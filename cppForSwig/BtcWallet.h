@@ -48,7 +48,7 @@ private:
 class BtcWallet
 {
 public:
-   BtcWallet(void) : bdmPtr_(NULL) {}
+   BtcWallet(void) : bdmPtr_(NULL), lastScanned_(0) {}
    explicit BtcWallet(BlockDataManager_LevelDB* bdm)
       : bdmPtr_(bdm), lastScanned_(0) {}
    ~BtcWallet(void);
@@ -103,7 +103,8 @@ public:
    void scanTx(Tx & tx, 
                uint32_t txIndex = UINT32_MAX,
                uint32_t blktime = UINT32_MAX,
-               uint32_t blknum  = UINT32_MAX);
+               uint32_t blknum  = UINT32_MAX,
+               bool mainwallet = true);
 
    void scanNonStdTx(uint32_t    blknum, 
                      uint32_t    txidx, 

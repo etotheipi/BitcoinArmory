@@ -323,7 +323,14 @@ class PyBtcWallet(object):
                txHash = le.getTxHash()
                if not self.txAddrMap.has_key(txHash):
                   self.txAddrMap[txHash] = []
-                  self.txAddrMap[txHash].append(le.getScrAddr())
+               scrAddr = SecureBinaryData(le.getScrAddr())
+               try:
+                  addrStr = scrAddr_to_addrStr(scrAddr.toBinStr())
+                  addr160 = addrStr_to_hash160(addrStr)[1] 
+                  if addr160 not in self.txAddrMap[txHash]:              
+                     self.txAddrMap[txHash].append(addr160)
+               except:
+                  continue
       else:
          LOGERROR('Blockchain-sync requested, but current wallet')
          LOGERROR('is set to BLOCKCHAIN_DONOTUSE')
@@ -1696,7 +1703,7 @@ class PyBtcWallet(object):
 
       addrComments = []
       for a160 in self.txAddrMap[txHash]:
-         if self.commentsMap.has_key(a160):
+         if self.commentsMap.has_key(a160) and '[[' not in self.commentsMap[a160]:
             addrComments.append(self.commentsMap[a160])
 
       return '; '.join(addrComments)

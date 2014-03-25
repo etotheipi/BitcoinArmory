@@ -313,7 +313,8 @@ void BtcWallet::pprintAlot(uint32_t topBlk, bool withAddr)
 void BtcWallet::scanTx(Tx & tx, 
                        uint32_t txIndex,
                        uint32_t txtime,
-                       uint32_t blknum)
+                       uint32_t blknum,
+                       bool mainwallet)
 {
    
    int64_t totalLedgerAmt = 0;
@@ -412,7 +413,6 @@ void BtcWallet::scanTx(Tx & tx,
                                  isCoinbaseTx,
                                  false,  // SentToSelf is meaningless for addr ledger
                                  false); // "isChangeBack" is meaningless for TxIn
-            thisAddrPtr->addLedgerEntry(newEntry, isZeroConf);
 
             // Update last seen on the network
             thisAddrPtr->setLastTimestamp(txtime);
@@ -537,7 +537,6 @@ void BtcWallet::scanTx(Tx & tx,
                                   isCoinbaseTx, // input was coinbase/generation
                                   false,   // sentToSelf meaningless for addr ledger
                                   false);  // we don't actually know
-            thisAddrPtr->addLedgerEntry(newLedger, isZeroConf);
          }
          // Check if this is the first time we've seen this
          if(thisAddrPtr->getFirstTimestamp() == 0)
@@ -554,10 +553,19 @@ void BtcWallet::scanTx(Tx & tx,
 
    bool allTxOutIsOurs = true;
    bool anyTxOutIsOurs = false;
+   vector<BinaryData> scrAddrV;
    for(uint32_t i=0; i<tx.getNumTxOut(); i++)
    {
       if( thisTxOutIsOurs[i] )
+      {
          anyTxOutIsOurs = true;
+         if(!mainwallet)
+         {      
+            TxOut txout = tx.getTxOutCopy(i);
+            if( txout.getScriptType() != TXOUT_SCRIPT_NONSTANDARD )
+               scrAddrV.push_back(txout.getScrAddressStr());
+         }
+      }
       else
          allTxOutIsOurs = false;
    }
@@ -567,20 +575,44 @@ void BtcWallet::scanTx(Tx & tx,
 
    if(anyNewTxInIsOurs || anyNewTxOutIsOurs)
    {
-      LedgerEntry le( BinaryData(0),
-                      totalLedgerAmt, 
-                      blknum, 
-                      tx.getThisHash(), 
-                      txIndex,
-                      txtime,
-                      isCoinbaseTx,
-                      isSentToSelf,
-                      isChangeBack);
+      if(mainwallet)
+      {
+         LedgerEntry le( BinaryData(0),
+                         totalLedgerAmt, 
+                         blknum, 
+                         tx.getThisHash(), 
+                         txIndex,
+                         txtime,
+                         isCoinbaseTx,
+                         isSentToSelf,
+                         isChangeBack);
 
-      if(isZeroConf)
-         ledgerAllAddrZC_.push_back(le);
+         if(isZeroConf)
+            ledgerAllAddrZC_.push_back(le);
+         else
+            ledgerAllAddr_.push_back(le);
+      }
       else
-         ledgerAllAddr_.push_back(le);
+      {
+         vector<BinaryData>::iterator saIt;
+         for(saIt = scrAddrV.begin(); saIt != scrAddrV.end(); saIt++)
+         {
+            LedgerEntry le( (*saIt),
+                            totalLedgerAmt, 
+                            blknum, 
+                            tx.getThisHash(), 
+                            txIndex,
+                            txtime,
+                            isCoinbaseTx,
+                            isSentToSelf,
+                            isChangeBack);
+
+            if(isZeroConf)
+               ledgerAllAddrZC_.push_back(le);
+            else
+               ledgerAllAddr_.push_back(le);
+         }
+      }
    }
 }
 

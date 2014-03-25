@@ -282,6 +282,7 @@ void BlockDataManager_LevelDB::registeredScrAddrScan(
    }
 }
 
+
 /////////////////////////////////////////////////////////////////////////////
 void BlockDataManager_LevelDB::registeredScrAddrScan( Tx & theTx )
 {
@@ -1608,6 +1609,8 @@ void BlockDataManager_LevelDB::scanRegisteredTxForWallet( BtcWallet & wlt,
 
    if(wlt.lastScanned_ > blkStart)
       blkStart = wlt.lastScanned_;
+   bool isMainWallet = true;
+   if(&wlt != (*registeredWallets_.begin())) isMainWallet = false;
 
    // Make sure RegisteredTx objects have correct data, then sort.
    // TODO:  Why did I not need this with the MMAP blockchain?  Somehow
@@ -1660,7 +1663,7 @@ void BlockDataManager_LevelDB::scanRegisteredTxForWallet( BtcWallet & wlt,
          continue;
 
       // If we made it here, we want to scan this tx!
-      wlt.scanTx(theTx, txIter->txIndex_, bhptr->getTimestamp(), thisBlk);
+      wlt.scanTx(theTx, txIter->txIndex_, bhptr->getTimestamp(), thisBlk, isMainWallet);
    }
  
    wlt.sortLedger();
@@ -2449,10 +2452,10 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
    for(wltIter  = registeredWallets_.begin();
        wltIter != registeredWallets_.end();
        wltIter++)
-	{
-		BtcWallet* wlt = *wltIter;
-		scanRegisteredTxForWallet(*wlt, 0, lastTopBlock_);
-	}
+   {
+      BtcWallet* wlt = *wltIter;
+      scanRegisteredTxForWallet(*wlt, 0, lastTopBlock_);
+   }
 
    isInitialized_ = true;
    purgeZeroConfPool();
