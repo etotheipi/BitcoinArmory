@@ -1100,6 +1100,8 @@ void BtcWallet::scanTx(Tx & tx,
                                  false,  // SentToSelf is meaningless for addr ledger
                                  false); // "isChangeBack" is meaningless for TxIn
             thisAddrPtr->addLedgerEntry(newEntry, isZeroConf);
+            ledgerAllAddr_.push_back(newEntry);
+
 
             // Update last seen on the network
             thisAddrPtr->setLastTimestamp(txtime);
@@ -1225,6 +1227,7 @@ void BtcWallet::scanTx(Tx & tx,
                                   false,   // sentToSelf meaningless for addr ledger
                                   false);  // we don't actually know
             thisAddrPtr->addLedgerEntry(newLedger, isZeroConf);
+            ledgerAllAddr_.push_back(newLedger);
          }
          // Check if this is the first time we've seen this
          if(thisAddrPtr->getFirstTimestamp() == 0)
