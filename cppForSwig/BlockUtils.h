@@ -781,7 +781,7 @@ public:
    void     updateRegisteredScrAddrs(uint32_t newTopBlk);
 
    bool     walletIsRegistered(BtcWallet & wlt);
-   bool     scrAddrIsRegistered(HashString scrAddr);
+   bool     scrAddrIsRegistered(BinaryData scrAddr);
    void     insertRegisteredTxIfNew(HashString txHash);
    void     insertRegisteredTxIfNew(RegisteredTx & regTx);
    void     insertRegisteredTxIfNew(TxRef const & txref,

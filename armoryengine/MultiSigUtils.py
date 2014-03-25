@@ -22,8 +22,8 @@ MULTISIG_VERSION = 0
 # wallet format.
 #
 # Concepts:
-#     "Envelope":  A "lock box" for putting coins that will be protected
-#                  with multiple signatures.  The envelope contains both
+#     "Lockbox":  A "lock box" for putting coins that will be protected
+#                  with multiple signatures.  The lockbox contains both
 #                  the script info as well as meta-data, like participants'
 #                  names and emails associated with each public key.
 #
@@ -37,22 +37,22 @@ Use-Case 1 -- Protecting coins with 2-of-3 computers (2 offline, 1 online):
 
    Create or access existing wallet on each of three computers. 
 
-   Online computer will create the envelope - needs one public key from its
+   Online computer will create the lockbox - needs one public key from its
    own wallet, and one from each offline wallet.  Can have both WO wallets
    on the online computer, and pull keys directly from those.
 
-   User creates an envelope with all three keys, labeling them appropriately
-   This envelope will be added to the global list.
+   User creates an lockbox with all three keys, labeling them appropriately
+   This lockbox will be added to the global list.
 
-   User will fund the envelope from an existing offline wallet with lots of
+   User will fund the lockbox from an existing offline wallet with lots of
    money.  He does not need to use the special funding procedure, which is
    only needed if there's multiple people involved with less than full trust.
    
-   Creates the transaction as usual, but uses the "envelope" button for the
+   Creates the transaction as usual, but uses the "lockbox" button for the
    recipient instead of normal address.  The address line will show the 
-   envelope ID and short description.  
+   lockbox ID and short description.  
 
-   Will save the envelope and the offline transaction to the USB drive
+   Will save the lockbox and the offline transaction to the USB drive
 
 """
 
@@ -68,15 +68,17 @@ def getMultiSigID(script):
 
 ################################################################################
 ################################################################################
-class MultiSigEnvelope(object):
+class MultiSigLockbox(object):
 
    #############################################################################
-   def __init__(self, script=None, name=None, descr=None, commList=None):
+   def __init__(self, script=None, name=None, descr=None, \
+                                          commList=None, createDate=None):
       self.version   = 0
       self.binScript = script
       self.shortName = name
       self.longDescr = descr
       self.commentList = commList
+      self.createDate = long(RightNow()) if createDate is None else createDate
       self.magicBytes = MAGIC_BYTES
 
       if script is not None:
@@ -85,7 +87,7 @@ class MultiSigEnvelope(object):
 
    #############################################################################
    def setParams(self, script, name=None, descr=None, commList=None, \
-                                                     version=MULTISIG_VERSION):
+                                 version=MULTISIG_VERSION, createDate=None):
       
       # Set params will only overwrite with non-None data
       self.binScript = script
@@ -99,12 +101,15 @@ class MultiSigEnvelope(object):
       if commList is not None:
          self.commentList = commList[:]
 
+      if createDate is not None:
+         self.createDate = createDate
+
       self.version = version
       self.magicBytes = MAGIC_BYTES
 
       scrType = getTxOutScriptType(script)
       if not scrType==CPP_TXOUT_MULTISIG:
-         LOGERROR('Attempted to create envelope from non-multi-sig script')
+         LOGERROR('Attempted to create lockbox from non-multi-sig script')
          self.binScript = None
          return
 
@@ -124,6 +129,7 @@ class MultiSigEnvelope(object):
       bp = BinaryPacker()
       bp.put(UINT32,       self.version)
       bp.put(BINARY_CHUNK, MAGIC_BYTES)
+      bp.put(UINT64,       self.createDate)
       bp.put(VAR_STR,      self.binScript)
       bp.put(VAR_STR,      toBytes(self.shortName))
       bp.put(VAR_STR,      toBytes(self.longDescr))
@@ -133,7 +139,7 @@ class MultiSigEnvelope(object):
 
       rawStr = base64.b64encode(bp.getBinaryString())
       sz = len(rawStr)
-      lines = ['=====ENVELOPE=%s=====' % self.uniqueIDB58]
+      lines = ['=====LOCKBOX=%s=====' % self.uniqueIDB58]
       lines.extend([rawStr[wid*i:wid*(i+1)] for i in range((sz-1)/wid+1)])
       lines.append("="*28)
       
@@ -144,18 +150,19 @@ class MultiSigEnvelope(object):
    def unserialize(self, envBlock):
 
       lines = envBlock.split()
-      if not lines[0].startswith('=====ENVELOPE') or \
+      if not lines[0].startswith('=====LOCKBOX') or \
          not lines[-1].startswith('======'):
-         LOGERROR('Attempting to unserialize envelope that is not envelope')
+         LOGERROR('Attempting to unserialize lockbox that is not lockbox')
          return None
 
       idSize = len(getMultiSigID(''))
-      expectID = lines[0][14:14+idSize]
+      expectID = lines[0][13:13+idSize]
       rawData = base64.b64decode(''.join(lines[1:-1]))
 
       bu = BinaryUnpacker(rawData)
       envVersion = bu.get(UINT32)
       envMagic   = bu.get(BINARY_CHUNK, 4)
+      created    = bu.get(UINT64)
       envScript  = bu.get(VAR_STR)
       envName    = bu.get(VAR_STR)
       envDescr   = bu.get(VAR_STR)
@@ -167,34 +174,36 @@ class MultiSigEnvelope(object):
 
       # Issue a warning if the versions don't match
       if not envVersion == MULTISIG_VERSION:
-         LOGWARN('Unserialing envelope of different version')
-         LOGWARN('   Envelope Version: ' + envVersion)
-         LOGWARN('   Armory   Version: ' + MULTISIG_VERSION)
+         LOGWARN('Unserialing lockbox of different version')
+         LOGWARN('   Lockbox Version: ' + envVersion)
+         LOGWARN('   Armory  Version: ' + MULTISIG_VERSION)
 
-      # Check the magic bytes of the envelope match
+      # Check the magic bytes of the lockbox match
       if not envMagic == MAGIC_BYTES:
          LOGERROR('Wrong network!')
-         LOGERROR('    Envelope Magic: ' + binary_to_hex(envMagic))
-         LOGERROR('    Armory   Magic: ' + binary_to_hex(MAGIC_BYTES))
+         LOGERROR('    Lockbox Magic: ' + binary_to_hex(envMagic))
+         LOGERROR('    Armory  Magic: ' + binary_to_hex(MAGIC_BYTES))
          return None
 
       
-      # Envelope ID is written in the first line, it should match the script
+      # Lockbox ID is written in the first line, it should match the script
       # If not maybe a version mistmatch, serialization error, or bug
       if not getMultiSigID(envScript) == expectID:
-         LOGERROR('ID on envelope block does not match script')
+         LOGERROR('ID on lockbox block does not match script')
          return None
 
       # No need to read magic bytes -- already checked & bailed if incorrect
-      self.setParams(envScript, envName, envDescr, envComms, MULTISIG_VERSION)
+      self.setParams(envScript, envName, envDescr, envComms, \
+                                                   MULTISIG_VERSION, created)
 
       return self
 
 
    #############################################################################
    def pprint(self):
-      print 'Multi-signature %d-of-%d envelope:' % (self.M, self.N)
+      print 'Multi-signature %d-of-%d lockbox:' % (self.M, self.N)
       print '   Unique ID:  ', self.uniqueIDB58
+      print '   Created:    ', unixTimeToFormatStr(self.createDate)
       print '   Env Name:   ', self.shortName
       print '   Env Desc:   '
       print '     ', self.longDescr[:70]
@@ -213,6 +222,10 @@ class MultiSigEnvelope(object):
       
 
 
+   #############################################################################
+   def pprintOneLine(self):
+      print 'LockBox %s:  %s-of-%s, created: %s;  "%s"' % (self.uniqueIDB58, 
+         self.M, self.N, unixTimeToFormatStr(self.createDate), self.shortName)
 
 
 
@@ -308,9 +321,9 @@ class MultiSigContribFunds(object):
    def unserialize(self, envBlock):
 
       lines = envBlock.split()
-      if not lines[0].startswith('=====ENVELOPE') or \
+      if not lines[0].startswith('=====LOCKBOX') or \
          not lines[-1].startswith('======'):
-         LOGERROR('Attempting to unserialize envelope that is not envelope')
+         LOGERROR('Attempting to unserialize lockbox that is not lockbox')
          return None
 
       idSize = len(getMultiSigID(''))
@@ -325,7 +338,7 @@ class MultiSigContribFunds(object):
          not 'Descr'   in dataMap or \
          not 'Comms'   in dataMap or \
          not 'Version' in dataMap:
-         LOGERROR('Missing envelope data')
+         LOGERROR('Missing lockbox data')
       
       self.setParams(dataMap['Script'], \
                      dataMap['Name'], \
@@ -336,7 +349,7 @@ class MultiSigContribFunds(object):
 
    #############################################################################
    def pprint(self):
-      print 'Multi-signature %d-of-%d envelope:' % (self.M, self.N)
+      print 'Multi-signature %d-of-%d lockbox:' % (self.M, self.N)
       print '   Unique ID: ', self.uniqueIDB58
       print '    Env Name: ', self.shortName
       print '    Env Desc: ', self.longDescr[:60]

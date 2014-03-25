@@ -4,8 +4,9 @@ from PyQt4.QtNetwork import *
 from qtdefines import *
 from qtdialogs import createAddrBookButton, DlgSetComment
 from armoryengine.ALL import *
-from armoryengine.MultiSigUtils import MultiSigEnvelope, getMultiSigID
 
+from armoryengine.MultiSigUtils import MultiSigLockbox, getMultiSigID
+from ui.MultiSigModels import LockboxDisplayModel,  LOCKBOXCOLS
 
 ################################################################################
 class DlgSelectMultiSigOption(ArmoryDialog):
@@ -14,50 +15,49 @@ class DlgSelectMultiSigOption(ArmoryDialog):
    def __init__(self, parent, main):
       super(DlgSelectMultiSigOption, self).__init__(parent, main)
 
-      self.btnCreate = QPushButton(tr('Create/edit multi-sig envelope'))
-      #self.btnImport = QPushButton(tr('Import multi-sig envelope'))
-      self.btnFund   = QPushButton(tr('Fund a multi-sig envelope'))
-      self.btnSpend  = QPushButton(tr('Spend from a multi-sig envelope'))
+      self.btnCreate = QPushButton(tr('Create/Manage lockboxes'))
+      #self.btnImport = QPushButton(tr('Import multi-key lockbox'))
+      self.btnFund   = QPushButton(tr('Fund a lockbox'))
+      self.btnSpend  = QPushButton(tr('Spend from a lockbox'))
 
       lblDescr  = QRichLabel(tr("""
-         <font color="%s" size=5><b>Multi-signature Transactions 
+         <font color="%s" size=5><b>Multi-Key Lockboxes 
          [EXPERIMENTAL]</b></font>""") % htmlColor('TextBlue'), 
          hAlign=Qt.AlignHCenter, doWrap=False)
 
       lblDescr2 = QRichLabel(tr("""
          The buttons below link you to all the functionality needed to 
-         create, fund and spend from multi-signature "envelopes."  This 
+         create, fund and spend from multi-key "lockboxes."  This 
          includes turning multiple wallets into a multi-factor lock-box
          for your personal coins, or can be used for escrow between
          multiple parties, using the Bitcoin network itself to hold the
          escrow.
          <br><br>
-         <b><u>IMPORTANT:</u></b>  If you are using an envelope that requires
+         <b><u>IMPORTANT:</u></b>  If you are using an lockbox that requires
          being funded by multiple parties simultaneously, you should 
          <b><u>not</u> </b> use regular transactions to do the funding.  
-         You should use the third button labeled "Fund a multi-sig envelope" 
+         You should use the third button labeled "Fund a multi-key lockbox" 
          to collect funding promises into a single transaction, to limit 
          the ability of any party to scam you.  Read more about it by
          clicking [NO LINK YET]  (if the above doesn't hold, you can use
-         the regular "Send Bitcoins" dialog to fund the envelope)."""))
+         the regular "Send Bitcoins" dialog to fund the lockbox)."""))
 
 
       self.lblCreate = QRichLabel(tr("""
          Collect public keys to create an "address" that can be used 
-         to send funds to the multi-sig container"""))
+         to send funds to the multi-key container"""))
       #self.lblImport = QRichLabel(tr("""
-         #If someone has already created the envelope you can add it 
-         #to your envelope list"""))
+         #If someone has already created the lockbox you can add it 
+         #to your lockbox list"""))
       self.lblFund = QRichLabel(tr("""
-         Send money to an envelope simultaneously with other 
-         parties involved in the envelope"""))
+         Send money to an lockbox simultaneously with other 
+         parties involved in the lockbox"""))
       self.lblSpend = QRichLabel(tr("""
          Collect signatures to authorize transferring money out of 
-         a multi-sig envelope"""))
+         a multi-key lockbox"""))
 
 
       self.connect(self.btnCreate,  SIGNAL('clicked()'), self.openCreate)
-      #self.connect(self.btnImport,  SIGNAL('clicked()'), self.openImport)
       self.connect(self.btnFund,    SIGNAL('clicked()'), self.openFund)
       self.connect(self.btnSpend,   SIGNAL('clicked()'), self.openSpend)
 
@@ -71,37 +71,31 @@ class DlgSelectMultiSigOption(ArmoryDialog):
 
 
       layoutBottom = QGridLayout()
-      layoutBottom.addItem(QSpacerItem(10,10),    0,0,  7,1)
-      layoutBottom.addItem(QSpacerItem(10,10),    0,6,  7,1)
+      layoutBottom.addItem(QSpacerItem(10,10),    0,0,  5,1)
+      layoutBottom.addItem(QSpacerItem(10,10),    0,6,  5,1)
 
       layoutBottom.addItem(QSpacerItem(10,10),    0,1)
-      #layoutBottom.addItem(QSpacerItem(10,10),    2,1)
+      layoutBottom.addItem(QSpacerItem(10,10),    2,1)
       layoutBottom.addItem(QSpacerItem(10,10),    4,1)
-      layoutBottom.addItem(QSpacerItem(10,10),    6,1)
 
       layoutBottom.addWidget(self.btnCreate,      0,2)
-      #layoutBottom.addWidget(self.btnImport,      2,2)
-      layoutBottom.addWidget(self.btnFund,        4,2)
-      layoutBottom.addWidget(self.btnSpend,       6,2)
+      layoutBottom.addWidget(self.btnFund,        2,2)
+      layoutBottom.addWidget(self.btnSpend,       4,2)
 
       layoutBottom.addItem(QSpacerItem(10,10),    0,3)
-      #layoutBottom.addItem(QSpacerItem(10,10),    2,3)
+      layoutBottom.addItem(QSpacerItem(10,10),    2,3)
       layoutBottom.addItem(QSpacerItem(10,10),    4,3)
-      layoutBottom.addItem(QSpacerItem(10,10),    6,3)
 
       layoutBottom.addWidget(self.lblCreate,      0,4)
-      #layoutBottom.addWidget(self.lblImport,      2,4)
-      layoutBottom.addWidget(self.lblFund,        4,4)
-      layoutBottom.addWidget(self.lblSpend,       6,4)
+      layoutBottom.addWidget(self.lblFund,        2,4)
+      layoutBottom.addWidget(self.lblSpend,       4,4)
 
       layoutBottom.addItem(QSpacerItem(10,10),    0,5)
-      #layoutBottom.addItem(QSpacerItem(10,10),    2,5)
+      layoutBottom.addItem(QSpacerItem(10,10),    2,5)
       layoutBottom.addItem(QSpacerItem(10,10),    4,5)
-      layoutBottom.addItem(QSpacerItem(10,10),    6,5)
 
       layoutBottom.addWidget(HLINE(),             1,1,  1,4)
-      #layoutBottom.addWidget(HLINE(),             3,1,  1,4)
-      layoutBottom.addWidget(HLINE(),             5,1,  1,4)
+      layoutBottom.addWidget(HLINE(),             3,1,  1,4)
 
       layoutBottom.setColumnStretch(2, 1)
       layoutBottom.setColumnStretch(4, 2)
@@ -122,41 +116,41 @@ class DlgSelectMultiSigOption(ArmoryDialog):
 
       self.setMinimumWidth(550)
       self.setLayout(layoutMaster)
-      self.setWindowTitle(tr('Multi-Signature Transactions [EXPERIMENTAL]'))
+      self.setWindowTitle(tr('Multi-Key Lockboxes [EXPERIMENTAL]'))
       
 
 
    #############################################################################
    def openCreate(self):
-      DlgCreateEnvelope(self, self.main).exec_()
+      DlgCreateLockbox(self, self.main).exec_()
 
    #############################################################################
    def openFund(self):
-      DlgFundEnvelope(self, self.main).exec_()
+      DlgFundLockbox(self, self.main).exec_()
 
    #############################################################################
    def openSpend(self):
-      DlgSpendFromEnvelope(self, self.main).exec_()
+      DlgSpendFromLockbox(self, self.main).exec_()
          
 
 
 #############################################################################
-class DlgBrowseEnvelopes(ArmoryDialog):
+class DlgBrowseLockboxes(ArmoryDialog):
    #############################################################################
    def __init__(self, parent, main):
-      super(DlgBrowseEnvelopes, self).__init__(parent, main)
+      super(DlgBrowseLockboxes, self).__init__(parent, main)
     
 
 
 #############################################################################
-class DlgCreateEnvelope(ArmoryDialog):
+class DlgCreateLockbox(ArmoryDialog):
 
    #############################################################################
-   def __init__(self, parent, main, maxM=5, maxN=5, loadEnv=None):
-      super(DlgCreateEnvelope, self).__init__(parent, main)
+   def __init__(self, parent, main, maxM=5, maxN=5, loadBox=None):
+      super(DlgCreateLockbox, self).__init__(parent, main)
 
       QMessageBox.warning(self, tr('Dangerous Feature!'), tr("""
-         Multi-signature transaction hacking is an 
+         Multi-key transaction hacking is an 
          <b>EXPERIMENTAL</b> feature in this version of Armory.  It is 
          <u>not</u> intended to be used with real money, until it is
          moved out of the "Experimental" menu on the main screen.
@@ -164,24 +158,24 @@ class DlgCreateEnvelope(ArmoryDialog):
          <b>Use at your own risk!</b>"""), QMessageBox.Ok)
 
       lblDescr = QRichLabel(tr("""
-         <b><u><font size=5 color="%s">Multi-Sig is an experimental 
+         <b><u><font size=5 color="%s">Multi-key is an experimental 
          feature!</font></u>  
          <br><br>
          Please do not use this with money you cannot afford to 
          lose!""") % htmlColor("TextRed"), hAlign=Qt.AlignHCenter)
 
       lblDescr2 = QRichLabel(tr("""
-         Use this form to create a "multi-signature envelope" to hold
+         Use this form to create a "multi-key lockbox" to hold
          coins in escrow between multiple parties, or to share signing
-         authority between multiple devices or wallets.  Once the envelope is
+         authority between multiple devices or wallets.  Once the lockbox is
          created, you can send coins to it by selecting it in your 
          address book from the "Send Bitcoins" window.  Spending or 
-         moving bitcoins held in the envelope requires a special 
+         moving bitcoins held in the lockbox requires a special 
          preparation and signing procedure, which can be accessed via
          the "MultiSig" menu on the main screen"""))
 
       lblDescr3 = QRichLabel(tr("""
-         <b>Multi-signature "envelopes" require <u>public keys</u>, not 
+         <b>Multi-key "lockboxes" require <u>public keys</u>, not 
          the address strings most Bitcoin users are familiar with.</b>
          <a href="None">Click for more info</a>."""))
 
@@ -197,7 +191,7 @@ class DlgCreateEnvelope(ArmoryDialog):
             normal address strings, but will enter the correct public 
             key of the address you select.  
             <br><br>
-            If you are creating this multi-signature transaction with other
+            If you are creating this lockbox with other
             Armory users, they can get their public keys by right-clicking 
             on the address in the wallet properties, and selecting 
             "Copy Public Key" (only available in Armory versions >0.91, 
@@ -208,13 +202,13 @@ class DlgCreateEnvelope(ArmoryDialog):
                                                                openMoreInfo)
 
 
+      self.loadedID = None
       self.comboM = QComboBox()
       self.comboN = QComboBox()
       self.maxM = maxM
       self.maxN = maxN
       self.minM = 1
       self.minN = 2
-      self.FinalScript = None
       self.connect(self.comboM, SIGNAL('activated(int)'), \
                                              self.updateWidgetTable_M)
       self.connect(self.comboN, SIGNAL('activated(int)'), \
@@ -284,25 +278,25 @@ class DlgCreateEnvelope(ArmoryDialog):
          
          
       self.btnCancel   = QPushButton(tr('Exit'))
-      self.btnContinue = QPushButton(tr('Save Envelope'))
+      self.btnContinue = QPushButton(tr('Save Lockbox'))
       self.btnContinue.setEnabled(False)
       self.connect(self.btnContinue, SIGNAL('clicked()'), self.doContinue)
       self.connect(self.btnCancel, SIGNAL('clicked()'), self.reject)
       self.lblFinal = QRichLabel('')
 
 
-      self.edtEnvName = QLineEdit()
-      w,h = relaxedSizeNChar(self.edtEnvName, 36)
-      self.edtEnvName.setMinimumWidth(w)
-      self.edtEnvName.setMaxLength(64)
+      self.edtBoxName = QLineEdit()
+      w,h = relaxedSizeNChar(self.edtBoxName, 36)
+      self.edtBoxName.setMinimumWidth(w)
+      self.edtBoxName.setMaxLength(64)
 
       self.btnLongDescr = QLabelButton(tr("Set extended info"))
       self.longDescr = u''
       self.connect(self.btnLongDescr, SIGNAL('clicked()'), self.setLongDescr)
 
       frmName = makeHorizFrame(['Stretch', 
-                                QLabel('Envelope Name'),
-                                self.edtEnvName,
+                                QLabel('Lockbox Name:'),
+                                self.edtBoxName,
                                 self.btnLongDescr,
                                 'Stretch'])
                                 
@@ -348,7 +342,7 @@ class DlgCreateEnvelope(ArmoryDialog):
       
       # Create the M,N select frame (stolen from frag-create dialog
       lblMNSelect = QRichLabel(tr("""<font color="%s" size=4><b>Create 
-         Multi-Signature Address</b></font>""") % htmlColor("TextBlue"), \
+         Multi-Key Lockbox</b></font>""") % htmlColor("TextBlue"), \
          doWrap=False, hAlign=Qt.AlignHCenter)
 
       lblBelowM = QRichLabel(tr('<b>Required Signatures (M)</b> '), \
@@ -394,14 +388,13 @@ class DlgCreateEnvelope(ArmoryDialog):
       layoutMaster.addWidget(frmTop)
       layoutMaster.addWidget(frmMNSelect)
       layoutMaster.addWidget(self.scrollPubKeys, 1)
-      layoutMaster.addWidget(HLINE())
       layoutMaster.addWidget(frmFinish)
 
       self.updateWidgetTable(defaultM, defaultN)
       self.updateLabels(forceUpdate=True)
 
-      if loadEnv is not None:
-         self.fillForm(loadEnv)
+      if loadBox is not None:
+         self.fillForm(loadBox)
          
 
       self.setLayout(layoutMaster)
@@ -413,7 +406,7 @@ class DlgCreateEnvelope(ArmoryDialog):
    def clickNameButton(self, i):
       currName = unicode(self.widgetMap[i]['LBL_NAME'].text())
       dlgComm = DlgSetComment(self, self.main, currName, \
-                              'Multi-Sig', 'Name or Idenifier (such as email)')
+                              'Multi-Key', 'Name or Idenifier (such as email)')
       if dlgComm.exec_():
          self.widgetMap[i]['LBL_NAME'].setText(dlgComm.edtComment.text())
 
@@ -425,12 +418,12 @@ class DlgCreateEnvelope(ArmoryDialog):
          def __init__(self, parent, currDescr=''):
             super(DlgSetLongDescr, self).__init__(parent)
             lbl = QRichLabel(tr("""
-               <b><u>Set Extended Envelope Details</u></b>
+               <b><u>Set Extended Lockbox Details</u></b>
                <br><br>
                Use this space to store any extended information about this
-               multi-signature envelope, such as contact information of other
+               multi-key lockbox, such as contact information of other
                parties, references to contracts, etc.  Keep in mind that this
-               field will be included when this envelope is shared with others,
+               field will be included when this lockbox is shared with others,
                so you should include your own contact information, as well as
                avoid putting any sensitive data in here"""))
 
@@ -444,7 +437,7 @@ class DlgCreateEnvelope(ArmoryDialog):
             layout.addWidget(self.descr, 1)
             layout.addWidget(makeHorizFrame(['Stretch', btn]))
             self.setLayout(layout)
-            self.setWindowTitle(tr('Edit Envelope Description'))
+            self.setWindowTitle(tr('Edit Lockbox Description'))
             self.setMinimumWidth(450)
 
       dlg = DlgSetLongDescr(self, self.longDescr)
@@ -517,7 +510,7 @@ class DlgCreateEnvelope(ArmoryDialog):
          self.btnContinue.setEnabled(True)
          self.lblFinal.setText(tr("""
             Using the <font color="%s"><b>%d</b></font> public keys above, 
-            a multi-signature address will be created requiring
+            a multi-key lockbox will be created requiring
             <font color="%s"><b>%d</b></font> signatures to spend 
             money.""") % (htmlColor('TextBlue'),  M, htmlColor('TextBlue'), N))
 
@@ -569,21 +562,21 @@ class DlgCreateEnvelope(ArmoryDialog):
 
    #############################################################################
    def loadSaved(self):
-      envObj = self.main.getSelectEnvelope()
-      if envObj:
-         self.fillForm(envObj)
+      boxObj = self.main.getSelectLockbox()
+      if boxObj:
+         self.fillForm(boxObj)
 
    #############################################################################
    def importNew(self):
-      dlg = DlgImportEnvelope(self, self.main)
+      dlg = DlgImportLockbox(self, self.main)
       if dlg.exec_():
-         mse = MultiSigEnvelope().unserialize(dlg.txtEnvBlock)
+         mse = MultiSigLockbox().unserialize(str(dlg.txtBoxBlock.toPlainText()))
          self.fillForm(mse)
 
 
    #############################################################################
    def clearAll(self):
-      self.edtEnvName.clear()
+      self.edtBoxName.clear()
       self.longDescr = ''
       for key,widget in self.widgetMap.iteritems():
          if key in ['EDT_PUBK', 'LBL_ASTR', 'LBL_NAME']:
@@ -591,39 +584,41 @@ class DlgCreateEnvelope(ArmoryDialog):
 
    
    #############################################################################
-   def fillForm(self, envObj):
+   def fillForm(self, boxObj):
 
-      self.edtEnvName.setText(envObj.shortName)
-      self.longDescr = envObj.longDescr
+      self.edtBoxName.setText(boxObj.shortName)
+      self.longDescr = boxObj.longDescr
+      self.loadedID = boxObj.uniqueIDB58
 
-      for i in range(N):
-         self.widgetMap[i]['EDT_PUBK'].setText(binary_to_hex(envObj.pkList[i]))
+      for i in range(boxObj.N):
+         self.widgetMap[i]['EDT_PUBK'].setText(binary_to_hex(boxObj.pkList[i]))
 
       def setCombo(cmb, val):
-         for i in cmb.count():
-            if str(cmb.itemText())==str(val):
+         for i in range(cmb.count()):
+            if str(cmb.itemText(i))==str(val):
                cmb.setCurrentIndex(i)
 
-      setCombo(self.comboM, envObj.M)
-      setCombo(self.comboN, envObj.N)
+      setCombo(self.comboM, boxObj.M)
+      setCombo(self.comboN, boxObj.N)
 
-      self.updateWidgetTable(envObj.M, envObj.N)
+      self.updateWidgetTable(boxObj.M, boxObj.N)
       self.updateLabels(forceUpdate=True)
       
       
    #############################################################################
    def doContinue(self):
+
       currM = int(str(self.comboM.currentText()))
       currN = int(str(self.comboN.currentText()))
 
       print currM,currN
 
-      if len(str(self.edtEnvName.text()).strip())==0:
+      if len(str(self.edtBoxName.text()).strip())==0:
          QMessageBox.warning(self, tr('Missing Name'), tr("""
-            You did not specify a name for this envelope, at the top of 
+            You did not specify a name for this lockbox, at the top of 
             the list of public keys.  You should also make sure you that
             you have set the extended information (next to it), for better
-            documentation of what this envelope is used for"""), QMessageBox.Ok)
+            documentation of what this lockbox is used for"""), QMessageBox.Ok)
          return
 
       # If we got here, we already know all the public keys are valid strings
@@ -656,8 +651,19 @@ class DlgCreateEnvelope(ArmoryDialog):
       opCodeList = convertScriptToOpStrings(txOutScript)
       scraddr = script_to_scrAddr(txOutScript)
 
-      self.FinalScript  = txOutScript
-      self.EnvelopeID   = getMultiSigID(txOutScript)
+      lockboxID = getMultiSigID(txOutScript)
+      if self.loadedID is not None:
+         if not self.loadedID == lockboxID:
+            reply = QMessageBox(self, tr('Different Lockbox'), tr("""
+               It appears you changed M, N, or at least one public key in 
+               the lockbox that you originally loaded (%s).  Because of that, 
+               this is now a different lockbox and will be added to the list
+               of available lockboxes, instead of overwriting the original
+               lockbox.""") % (self.loadedID, lockboxID), QMessageBox.Ok)
+            if reply is not QMessageBox.Ok:
+               return
+            
+
       self.NameIDList   = \
          [unicode(self.widgetMap[i]['LBL_NAME'].text()) for i in range(currN)]
 
@@ -666,54 +672,95 @@ class DlgCreateEnvelope(ArmoryDialog):
       LOGINFO('ScrAddrStr: ' + binary_to_hex(scraddr))
       LOGINFO('Raw script: ' + binary_to_hex(txOutScript))
       LOGINFO('HR Script: \n   ' + '\n   '.join(opCodeList))
-      LOGINFO('Envelope ID: ' + self.EnvelopeID)
+      LOGINFO('Lockbox ID: ' + lockboxID)
       LOGINFO('List of Names/IDs\n   ' + '\n   '.join(self.NameIDList))
 
-      self.envelope = MultiSigEnvelope( \
+      self.lockbox = MultiSigLockbox( \
                                  txOutScript, \
-                                 unicode(self.edtEnvName.text()),
+                                 unicode(self.edtBoxName.text()),
                                  unicode(self.longDescr),
                                  self.NameIDList)
 
-      print 'pprint Env:'
-      self.envelope.pprint()
+      print 'pprint Box:'
+      self.lockbox.pprint()
 
       print 'Print encoded:'
-      ser = self.envelope.serialize()
+      ser = self.lockbox.serialize()
       print ser
 
 
-      env2 = MultiSigEnvelope().unserialize(ser)
-      print 'pprint Env:'
-      env2.pprint()
+      box2 = MultiSigLockbox().unserialize(ser)
+      print 'pprint box:'
+      box2.pprint()
 
       print 'Print encoded:'
-      ser2 = env2.serialize()
+      ser2 = box2.serialize()
       print ser2
 
       print 'Equal: ', ser==ser2
+
+      for lb in self.main.allLockboxes:
+         lb.pprintOneLine()
+
+      self.main.updateOrAddLockbox(self.lockbox)
+
+      for lb in self.main.allLockboxes:
+         lb.pprintOneLine()
+
+
+################################################################################
+class DlgBrowseLockboxes(ArmoryDialog):
+   def __init__(self, parent, main):
+      super(DlgBrowseLockboxes, self).__init__(parent, main)
+   
+      lbModel = LockboxDisplayModel(self.main, \
+                                    self.main.allLockboxes, \
+                                    self.main.getPreferredDateFormat())
+      lbView = QTableView()
+      lbView.setModel(lbModel)
+      lbView.setSelectionBehavior(QTableView.SelectRows)
+      lbView.setSelectionMode(QTableView.SingleSelection)
+      lbView.verticalHeader().setDefaultSectionSize(20)
+      lbView.horizontalHeader().setStretchLastSection(True)
+
+      #maxKeys = max([lb.N for lb in self.main.allLockboxes])
+      for i in range(LOCKBOXCOLS.Key0, LOCKBOXCOLS.Key4+1):
+         lbView.hideColumn(i)
+      #if maxKeys<5: lbView.hideColumn(LOCKBOXCOLS.Key4)
+      #if maxKeys<4: lbView.hideColumn(LOCKBOXCOLS.Key3)
+      #if maxKeys<3: lbView.hideColumn(LOCKBOXCOLS.Key2)
+
+      layout = QVBoxLayout()
+      layout.addWidget(lbView)
+      self.setLayout(layout)
+      self.setMinimumWidth(700)
+      
       
 
 ################################################################################
-class DlgImportEnvelope(QDialog):
+class DlgImportLockbox(QDialog):
    def __init__(self, parent, main):
-      super(DlgImportEnvelope, self).__init__(parent)
+      super(DlgImportLockbox, self).__init__(parent)
       self.main = main
       lbl = QRichLabel(tr("""
-         <b><u>Import Envelope</u></b>
+         <b><u>Import Lockbox</u></b>
          <br><br>
-         Copy the envelope text block from file or email into the box 
-         below.  If you have a file with the envelope in it, you can
-         load it using the "Load Envelope" button at the bottom."""))
+         Copy the lockbox text block from file or email into the box 
+         below.  If you have a file with the lockbox in it, you can
+         load it using the "Load Lockbox" button at the bottom."""))
 
-      self.txtEnvBlock = QPlainTextEdit()
-      self.txtEnvBlock.setPlainText(currDescr)
+      self.txtBoxBlock = QPlainTextEdit()
+      self.txtBoxBlock.setFont(GETFONT('Fixed', 9))
+      w,h = relaxedSizeNChar(self.txtBoxBlock, 64)
+      self.txtBoxBlock.setMinimumWidth(w)
       btnLoad = QPushButton(tr("Load from file"))
       btnDone = QPushButton(tr("Done"))
       btnCancel = QPushButton(tr("Cancel"))
 
                               
-      self.connect(btnLoad, SIGNAL('clicked()'), self.loadfile)
+      self.connect(btnLoad,   SIGNAL('clicked()'), self.loadfile)
+      self.connect(btnDone,   SIGNAL('clicked()'), self.accept)
+      self.connect(btnCancel, SIGNAL('clicked()'), self.reject)
 
       frmLoadButton = makeHorizFrame(['Stretch', btnLoad])
       frmBottomRow  = makeHorizFrame([btnCancel, 'Stretch', btnDone])
@@ -721,17 +768,19 @@ class DlgImportEnvelope(QDialog):
       layout = QVBoxLayout()
       layout.addWidget(lbl)
       layout.addWidget(frmLoadButton)
-      layout.addWidget(self.txtEnvBlock, 1)
+      layout.addWidget(self.txtBoxBlock, 1)
       layout.addWidget(frmBottomRow)
       self.setLayout(layout)
-      self.setWindowTitle(tr('Import Envelope'))
+      self.setWindowTitle(tr('Import Lockbox'))
       self.setMinimumWidth(450)
 
    def loadfile(self):
-      envPath = unicode(self.main.getFileLoad(tr('Load Envelope')))
-      with open(envPath) as f:
+      boxPath = unicode(self.main.getFileLoad(tr('Load Lockbox')))
+      if not boxPath:
+         return
+      with open(boxPath) as f:
          data = f.read()
-      self.txtEnvBlock.setPlainText(data)
+      self.txtBoxBlock.setPlainText(data)
 
 
 
@@ -742,22 +791,22 @@ def createContribBlock(self, msScript, walletID, amt, fee=0):
 
 
 ################################################################################
-class DlgConfirmEnvelope(ArmoryDialog):
+class DlgConfirmLockbox(ArmoryDialog):
 
    #############################################################################
    def __init__(self, parent, main, msScript):
-      super(DlgConfirmEnvelope, self).__init__(parent, main)
+      super(DlgConfirmLockbox, self).__init__(parent, main)
 
       
 
 
 
 ################################################################################
-class DlgContributeFundEnvelope(ArmoryDialog):
+class DlgContributeFundLockbox(ArmoryDialog):
 
    #############################################################################
    def __init__(self, parent, main, msScript):
-      super(DlgContributeFundEnvelope, self).__init__(parent, main)
+      super(DlgContributeFundLockbox, self).__init__(parent, main)
 
 
 

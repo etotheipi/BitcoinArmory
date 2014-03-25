@@ -3449,7 +3449,7 @@ bool BlockDataManager_LevelDB::walletIsRegistered(BtcWallet & wlt)
 }
 
 /////////////////////////////////////////////////////////////////////////////
-bool BlockDataManager_LevelDB::scrAddrIsRegistered(HashString scraddr)
+bool BlockDataManager_LevelDB::scrAddrIsRegistered(BinaryData scraddr)
 {
    //return (registeredScrAddrMap_.find(scraddr)!=registeredScrAddrMap_.end());
    return KEY_IN_MAP(scraddr, registeredScrAddrMap_);

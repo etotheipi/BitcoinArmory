@@ -31,6 +31,7 @@ from PyQt4.QtGui import *
 from twisted.internet.defer import Deferred
 from twisted.internet.protocol import Protocol, ClientFactory
 
+import CppBlockUtils as Cpp
 from armoryengine.ALL import *
 from armorycolors import Colors, htmlColor, QAPP
 from armorymodels import *
@@ -41,11 +42,14 @@ from qtdialogs import *
 from ui.Wizards import WalletWizard, TxWizard
 from ui.VerifyOfflinePackage import VerifyOfflinePackageDialog
 from ui.UpgradeDownloader import UpgradeDownloaderDialog
-from ui.MultiSigHacker import DlgSelectMultiSigOption
-from armoryengine.MultiSigUtils import MultiSigEnvelope
+
 from jasvet import verifySignature, readSigBlock
 from announcefetch import AnnounceDataFetcher, ANNOUNCE_URL, ANNOUNCE_URL_BACKUP
 from armoryengine.parseAnnounce import *
+
+from armoryengine.MultiSigUtils import MultiSigLockbox
+from ui.MultiSigHacker import DlgSelectMultiSigOption, DlgBrowseLockboxes
+from ui.MultiSigModels import LockboxDisplayModel, LOCKBOXCOLS
 
 # HACK ALERT: Qt has a bug in OS X where the system font settings will override
 # the app's settings when a window is activated (e.g., Armory starts, the user
@@ -123,7 +127,8 @@ class ArmoryMainWindow(QMainWindow):
       self.wasSynchronizing = False
       self.announceIsSetup = False
       self.entropyAccum = []
-      self.allEnvelopes = []
+      self.allLockboxes = []
+      self.lockboxIDMap = {}
 
       # Full list of notifications, and notify IDs that should trigger popups
       # when sending or receiving.
@@ -679,8 +684,11 @@ class ArmoryMainWindow(QMainWindow):
 
 
       execMSHack = lambda: DlgSelectMultiSigOption(self,self).exec_()
-      actMultiHacker = self.createAction(tr('Multi-Sig Transactions'), execMSHack)
+      execBrowse = lambda: DlgBrowseLockboxes(self,self).exec_()
+      actMultiHacker = self.createAction(tr('Multi-Key Lockboxes'), execMSHack)
+      actBrowseLockboxes = self.createAction(tr('Browse Lockboxes'), execBrowse)
       self.menusList[MENUS.MultiSig].addAction(actMultiHacker)
+      self.menusList[MENUS.MultiSig].addAction(actBrowseLockboxes)
 
 
 
@@ -2342,11 +2350,14 @@ class ArmoryMainWindow(QMainWindow):
          TheBDM.bdm.registerWallet(wlt.cppWallet)
 
 
-      LOGINFO('Loading Multisig Envelopes')
-      self.readEnvelopesFromFile(MULTISIG_FILE)
-      for env in self.allEnvelopes:
-         scraddr = script_to_scrAddr(env.binScript)
-         TheBDM.registerScrAddr(scraddr)
+      if self.usermode==USERMODE.Expert:
+         LOGINFO('Loading Multisig Lockboxes')
+         self.readLockboxesFromFile(MULTISIG_FILE)
+         self.cppLockboxWallet = Cpp.BtcWallet()
+         for lb in self.allLockboxes:
+            scraddr = script_to_scrAddr(lb.binScript)
+            self.cppLockboxWallet.addScrAddress_1_(scraddr)
+         TheBDM.registerWallet(self.cppLockboxWallet)
 
 
       # Get the last directory
@@ -2443,51 +2454,67 @@ class ArmoryMainWindow(QMainWindow):
 
 
    #############################################################################
-   def readEnvelopesFromFile(self, fn):
-      self.allEnvelopes = []
+   def readLockboxesFromFile(self, fn):
+      self.allLockboxes = []
       if not os.path.exists(fn):
-         LOGERROR('Attempted to open multisig file that DNE')
          return
          
       with open(fn, 'r') as f:
          allData = f.read()
+
+      startMark = '=====LOCKBOX'
+
+      if not startMark in allData:
+         return
          
-      startMark = '=====ENVELOPE'
       pos = allData.find(startMark)
-      while pos > 0:
+      i = 0
+      while pos >= 0:
          nextPos = allData.find(startMark, pos+1)
          if nextPos < 0:
             nextPos = len(allData)
-         envBlock = allData[pos:nextPos].strip()
-         self.allEnvelopes.append(MultiSigEnvelope().unserialize(envBlock))
-         LOGINFO('Read in envelope: %s' % self.allEnvelopes[-1].uniqueIDB58)
+         lbBlock = allData[pos:nextPos].strip()
+         self.allLockboxes.append(MultiSigLockbox().unserialize(lbBlock))
+         lbid = self.allLockboxes[-1].uniqueIDB58
+         self.lockboxIDMap[lbid] = i
+         LOGINFO('Read in Lockbox: %s' % lbid)
 
          pos = allData.find(startMark, pos+1)
+         i += 1
    
+   #############################################################################
+   def updateOrAddLockbox(self, lbObj):
+      lb = self.getLockboxByID(lbObj.uniqueIDB58)
+      if lb is None:
+         self.allLockboxes.append(lbObj)
+      else:
+         lb = lbObj
+
+      self.writeLockboxesFile()
         
+
+   #############################################################################
+   def getLockboxByID(self, boxID):
+      index = self.lockboxIDMap.get(boxID)
+      return None if index is None else self.allLockboxes[index]
           
       
 
    #############################################################################
-   def writeEnvelopesFile(self, fn):
+   def writeLockboxesFile(self):
       # Do all the serializing and bail-on-error before opening the file 
       # for writing, or we might delete it all by accident
-      textOut = '\n\n'.join([env.serialize() for env in self.allEnvelopes])
-      with open(fn, 'w') as f:
+      textOut = '\n\n'.join([lb.serialize() for lb in self.allLockboxes])
+      with open(MULTISIG_FILE, 'w') as f:
          f.write(textOut)
 
 
-   #############################################################################
-   def addEnvelope(self, env):
-      self.allEnvelopes.append(env)
-      self.writeEnvelopesFile()
       
 
 
    #############################################################################
-   def getSelectEnvelope(self):
-      pass
-
+   def getSelectLockbox(self):
+      DlgBrowseLockboxes(self,self).exec_()
 
    #############################################################################
    def getWalletForAddr160(self, addr160):
