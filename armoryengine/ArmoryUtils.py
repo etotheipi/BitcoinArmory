@@ -1514,7 +1514,11 @@ def CheckHash160(scrAddr):
    if not len(scrAddr)==21:
       raise BadAddressError("Supplied scrAddr is not a Hash160 value!")
    if not scrAddr[0] == HASH160PREFIX:
-      raise BadAddressError("Supplied scrAddr is not a Hash160 value!")
+      LOGWARN("Supplied scrAddr is not a Hash160 value! Addr version:{}".format(repr(scrAddr[0])))
+      if scrAddr[0] == P2SHPREFIX:
+         print hash160_to_p2shStr(scrAddr[1:])
+      else:
+         raise BadAddressError("Supplied scrAddr is not a Hash160 nor P2SH value!")
    return scrAddr[1:]
 
 def Hash160ToScrAddr(a160):
