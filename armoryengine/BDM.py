@@ -18,24 +18,29 @@ import CppBlockUtils as Cpp
 
 BDMcurrentBlock = [UINT32_MAX, 0]
 
-def callbackTest(*args):
-   print 'at callback'
-   action = ''
-   arglist = []
+class PySide_CallBack(Cpp.BDM_CallBack):
+   def __init__(self):
+      Cpp.BDM_CallBack.__init__(self)
+      
+   def run(self, action, arg):
+      act = ''
+      arglist = []
+      
+      if action == 1:
+         act = 'finishLoadBlockchain'
+      elif action == 2:
+         act = 'sweepAfterScanList'
+      elif action == 3:
+         act = 'newZC'
+      elif action == 4:
+         act = 'newblock'
+         arglist.append(arg)
    
-   act_i = args[0]
-   if act_i == '1':
-      action = 'finishLoadBlockchain'
-   elif act_i == '2':
-      action = 'sweepAfterScanList'
-   elif act_i == '3':
-      action = 'newZC'
-   elif act_i == '4':
-      action = 'newblock'
-      nblocks = int(args[1])
-      arglist.append(nblocks)
+      cppPushTrigger[0](act, arglist)
 
-   cppPushTrigger[0](action, arglist)
+#register callback
+caller = Cpp.Caller()
+caller.setCallback(PySide_CallBack().__disown__())
 
 def getCurrTimeAndBlock():
    time0 = long(RightNowUTC())
@@ -189,7 +194,6 @@ class BlockDataManagerThread(threading.Thread):
          self.prefMode = BLOCKCHAINMODE.Full
 
       self.bdm = Cpp.BlockDataManager().getBDM()
-      self.bdm.Python_rgCallBack(callbackTest)
 
       # These are for communicating with the master (GUI) thread
       self.inputQueue  = Queue.Queue()

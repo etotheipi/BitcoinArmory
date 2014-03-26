@@ -10,7 +10,8 @@
 ////////////////////////////////////////////////////////////////////////////////
 */
 
-%module CppBlockUtils
+%module(directors="1") CppBlockUtils
+%feature("director") BDM_CallBack;
 
 %{
 #define SWIG_PYTHON_EXTRA_NATIVE_CONTAINERS
@@ -23,8 +24,8 @@
 #include "ScrAddrObj.h"
 #include "Blockchain.h"
 #include "BDM_mainthread.h"
-
 %}
+
 
 %include "std_string.i"
 %include "std_vector.i"

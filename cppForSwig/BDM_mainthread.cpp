@@ -1,6 +1,8 @@
 #include "BDM_mainthread.h"
 
+BDM_CallBack* Caller::_callback = 0;
 BlockDataManager_LevelDB *theBDM;
+Caller call;
 
 void* run(void *arg)
 {
@@ -15,7 +17,7 @@ void* run(void *arg)
          theBDM->rescanZC_ = false;
 
          //notify ZC
-         theBDM->Python_CallBack(3, 0, 0);
+         call.call(3, 0);
       }
 
       if(newBlocks = theBDM->readBlkFileUpdate())
@@ -27,7 +29,7 @@ void* run(void *arg)
          currentBlock = theBDM->getBlockHeight();
          
          //notify Python that new blocks have been parsed
-         theBDM->Python_CallBack(4, 0, newBlocks);
+         call.call(4, newBlocks);
       }
 
       Sleep(1);
@@ -50,7 +52,7 @@ void startBDM(int mode)
    theBDM->saveScrAddrHistories();
 
    //push 'bdm is ready' to Python
-   theBDM->Python_CallBack(1, 0, 0);
+   call.call(1, 0);
 
    //start maintenance thread
    pthread_t tID;

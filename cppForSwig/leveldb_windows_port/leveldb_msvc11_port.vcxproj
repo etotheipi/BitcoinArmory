@@ -179,6 +179,7 @@
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;LEVELDB_PLATFORM_POSIX;LEVELDB_HAVE_MEMORY_BARRIER;NOMINMAX;WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>.\win32_posix;..\leveldb;..\leveldb\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
+      <BasicRuntimeChecks>UninitializedLocalUsageCheck</BasicRuntimeChecks>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>

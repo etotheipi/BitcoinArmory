@@ -39,7 +39,6 @@
 #include "sha.h"
 #include "UniversalTimer.h"
 #include "leveldb/db.h"
-#include "Python.h"
 
 
 #define NUM_BLKS_BATCH_THRESH 30
@@ -203,7 +202,6 @@ public:
    ~BlockDataManager_LevelDB(void);
 
    //for 1:1 wallets
-   PyObject* theCallBack_;
    bool rescanZC_;
 
 public:
@@ -277,7 +275,6 @@ private:
 
    /////////////////////////////////////////////////////////////////////////////
 public:
-   void             Python_rgCallBack(PyObject* callback);
    int32_t          getNumConfirmations(BinaryData txHash);
    string           getBlockfilePath(void) {return blkFileDir_;}
 
@@ -379,7 +376,6 @@ public:
    void scanBlockchainForTx(uint32_t startBlknum, uint32_t endBlknum,
                                                    bool fetchFirst);
    void rescanWalletZeroConf();
-   void Python_CallBack(byte msg, char* argv, int argi);
    InterfaceToLDB *getIFace(void) {return iface_;}
    vector<TxIOPair> getHistoryForScrAddr(BinaryDataRef uniqKey, 
                                           bool withMultisig=false);

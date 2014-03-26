@@ -1004,15 +1004,6 @@ uint32_t BlockDataManager_LevelDB::getAppliedToHeightInDB(void)
 
 
 /////////////////////////////////////////////////////////////////////////////
-void BlockDataManager_LevelDB::Python_rgCallBack(PyObject* callback)
-{
-   LOGINFO << "Executing: Registering CallBack";
-   //increment reference so the garbage collector doesn't wipe the callback
-   Py_INCREF((PyObject*)callback);
-   theCallBack_ = (PyObject*)callback;
-}
-
-/////////////////////////////////////////////////////////////////////////////
 void BlockDataManager_LevelDB::reset(void)
 {
    SCOPED_TIMER("BDM::Reset");
@@ -3651,37 +3642,6 @@ void BlockDataManager_LevelDB::addRawBlockToDB(BinaryRefReader & brr)
    if(sbh.blockHeight_==UINT32_MAX || sbh.duplicateID_==UINT8_MAX)
       throw BlockDeserializingException("Cannot add raw block to DB without hgt & dup");
    iface_->putStoredHeader(sbh, true);
-}
-
-void BlockDataManager_LevelDB::Python_CallBack(byte msg, char *argv, int argi)
-{
-   PyGILState_STATE gstate;
-
-   char *action = (char*)malloc(20);
-   _itoa(msg, action, 10);
-   
-   char *extra_args = (char*)malloc(1024);
-   extra_args[0] = 0;
-   if(argv) strcat(extra_args, argv);
-
-   char *argi_c = (char*)malloc(20);
-   
-   if(argi)
-   {
-      _itoa(argi, argi_c, 10);
-      strcat(extra_args, argi_c);
-   }
-   
-
-   PyObject* args = PyTuple_Pack(2, PyString_FromString(action),   
-                                 PyString_FromString(extra_args));
-   gstate = PyGILState_Ensure();
-   PyObject * pInstance = PyObject_CallObject(theCallBack_, args);
-   PyGILState_Release(gstate);
-
-   free(action);
-   free(extra_args);
-   free(argi_c);
 }
 
 vector<TxIOPair> BlockDataManager_LevelDB::getHistoryForScrAddr(BinaryDataRef uniqKey, 
