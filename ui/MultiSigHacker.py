@@ -5,133 +5,10 @@ from qtdefines import *
 from qtdialogs import createAddrBookButton, DlgSetComment, DlgSendBitcoins
 from armoryengine.ALL import *
 
-from armoryengine.MultiSigUtils import MultiSigLockbox, getMultiSigID
+from armoryengine.MultiSigUtils import MultiSigLockbox, calcLockboxID
 from ui.MultiSigModels import \
             LockboxDisplayModel,  LockboxDisplayProxy, LOCKBOXCOLS
 
-################################################################################
-class DlgSelectMultiSigOption(ArmoryDialog):
-
-   #############################################################################
-   def __init__(self, parent, main):
-      super(DlgSelectMultiSigOption, self).__init__(parent, main)
-
-      self.btnCreate = QPushButton(tr('Create/Manage lockboxes'))
-      #self.btnImport = QPushButton(tr('Import multi-key lockbox'))
-      self.btnFund   = QPushButton(tr('Fund a lockbox'))
-      self.btnSpend  = QPushButton(tr('Spend from a lockbox'))
-
-      lblDescr  = QRichLabel(tr("""
-         <font color="%s" size=5><b>Multi-Key Lockboxes 
-         [EXPERIMENTAL]</b></font>""") % htmlColor('TextBlue'), 
-         hAlign=Qt.AlignHCenter, doWrap=False)
-
-      lblDescr2 = QRichLabel(tr("""
-         The buttons below link you to all the functionality needed to 
-         create, fund and spend from multi-key "lockboxes."  This 
-         includes turning multiple wallets into a multi-factor lock-box
-         for your personal coins, or can be used for escrow between
-         multiple parties, using the Bitcoin network itself to hold the
-         escrow.
-         <br><br>
-         <b><u>IMPORTANT:</u></b>  If you are using an lockbox that requires
-         being funded by multiple parties simultaneously, you should 
-         <b><u>not</u> </b> use regular transactions to do the funding.  
-         You should use the third button labeled "Fund a multi-key lockbox" 
-         to collect funding promises into a single transaction, to limit 
-         the ability of any party to scam you.  Read more about it by
-         clicking [NO LINK YET]  (if the above doesn't hold, you can use
-         the regular "Send Bitcoins" dialog to fund the lockbox)."""))
-
-
-      self.lblCreate = QRichLabel(tr("""
-         Collect public keys to create an "address" that can be used 
-         to send funds to the multi-key container"""))
-      #self.lblImport = QRichLabel(tr("""
-         #If someone has already created the lockbox you can add it 
-         #to your lockbox list"""))
-      self.lblFund = QRichLabel(tr("""
-         Send money to an lockbox simultaneously with other 
-         parties involved in the lockbox"""))
-      self.lblSpend = QRichLabel(tr("""
-         Collect signatures to authorize transferring money out of 
-         a multi-key lockbox"""))
-
-
-      self.connect(self.btnCreate,  SIGNAL('clicked()'), self.openCreate)
-      self.connect(self.btnFund,    SIGNAL('clicked()'), self.openFund)
-      self.connect(self.btnSpend,   SIGNAL('clicked()'), self.openSpend)
-
-      layoutTop = QVBoxLayout()
-      layoutTop.addWidget(lblDescr)
-      layoutTop.addWidget(HLINE())
-      layoutTop.addWidget(lblDescr2, 1)
-      frmTop = QFrame()
-      frmTop.setFrameStyle(STYLE_RAISED)
-      frmTop.setLayout(layoutTop)
-
-
-      layoutBottom = QGridLayout()
-      layoutBottom.addItem(QSpacerItem(10,10),    0,0,  5,1)
-      layoutBottom.addItem(QSpacerItem(10,10),    0,6,  5,1)
-
-      layoutBottom.addItem(QSpacerItem(10,10),    0,1)
-      layoutBottom.addItem(QSpacerItem(10,10),    2,1)
-      layoutBottom.addItem(QSpacerItem(10,10),    4,1)
-
-      layoutBottom.addWidget(self.btnCreate,      0,2)
-      layoutBottom.addWidget(self.btnFund,        2,2)
-      layoutBottom.addWidget(self.btnSpend,       4,2)
-
-      layoutBottom.addItem(QSpacerItem(10,10),    0,3)
-      layoutBottom.addItem(QSpacerItem(10,10),    2,3)
-      layoutBottom.addItem(QSpacerItem(10,10),    4,3)
-
-      layoutBottom.addWidget(self.lblCreate,      0,4)
-      layoutBottom.addWidget(self.lblFund,        2,4)
-      layoutBottom.addWidget(self.lblSpend,       4,4)
-
-      layoutBottom.addItem(QSpacerItem(10,10),    0,5)
-      layoutBottom.addItem(QSpacerItem(10,10),    2,5)
-      layoutBottom.addItem(QSpacerItem(10,10),    4,5)
-
-      layoutBottom.addWidget(HLINE(),             1,1,  1,4)
-      layoutBottom.addWidget(HLINE(),             3,1,  1,4)
-
-      layoutBottom.setColumnStretch(2, 1)
-      layoutBottom.setColumnStretch(4, 2)
-
-      frmBottom = QFrame()
-      frmBottom.setFrameStyle(STYLE_RAISED)
-      frmBottom.setLayout(layoutBottom)
-      
-
-      btnDone = QPushButton(tr("Done"))
-      self.connect(btnDone, SIGNAL('clicked()'), self.accept)
-      frmDone = makeHorizFrame(['Stretch', btnDone])
-
-      layoutMaster = QVBoxLayout()
-      layoutMaster.addWidget(frmTop)
-      layoutMaster.addWidget(frmBottom,1)
-      layoutMaster.addWidget(frmDone)
-
-      self.setMinimumWidth(550)
-      self.setLayout(layoutMaster)
-      self.setWindowTitle(tr('Multi-Key Lockboxes [EXPERIMENTAL]'))
-      
-
-
-   #############################################################################
-   def openCreate(self):
-      DlgLockboxEditor(self, self.main).exec_()
-
-   #############################################################################
-   def openFund(self):
-      DlgFundLockbox(self, self.main).exec_()
-
-   #############################################################################
-   def openSpend(self):
-      DlgSpendFromLockbox(self, self.main).exec_()
          
 
 
@@ -189,6 +66,7 @@ class DlgLockboxEditor(ArmoryDialog):
                                                                openMoreInfo)
 
 
+      self.createDate = long(RightNow())
       self.loadedID = None
       self.comboM = QComboBox()
       self.comboN = QComboBox()
@@ -567,6 +445,7 @@ class DlgLockboxEditor(ArmoryDialog):
       self.edtBoxName.setText(boxObj.shortName)
       self.longDescr = boxObj.longDescr
       self.loadedID = boxObj.uniqueIDB58
+      self.createDate = boxObj.createDate
 
       for i in range(boxObj.N):
          self.widgetMap[i]['EDT_PUBK'].setText(binary_to_hex(boxObj.pkList[i]))
@@ -589,8 +468,6 @@ class DlgLockboxEditor(ArmoryDialog):
       currM = int(str(self.comboM.currentText()))
       currN = int(str(self.comboN.currentText()))
 
-      print currM,currN
-
       if len(str(self.edtBoxName.text()).strip())==0:
          QMessageBox.warning(self, tr('Missing Name'), tr("""
             You did not specify a name for this lockbox, at the top of 
@@ -612,24 +489,20 @@ class DlgLockboxEditor(ArmoryDialog):
          if not isValid:
             QMessageBox.critical(self, tr('Invalid Public Key'), tr("""
                The data specified for public key <b>%d</b> is not valid.
-               Please double-check the data was entered correctly."""), \
+               Please double-check the data was entered correctly.""") % i, \
                QMessageBox.Ok)
             return
 
          pubKeyList.append(pkBin)
 
 
-      print 'PubKeys:'
-      for pk in pubKeyList:
-         print '   ', binary_to_hex(pk)
-      
 
       txOutScript = pubkeylist_to_multisig_script(pubKeyList, currM, \
                                                          withSort=False)  
       opCodeList = convertScriptToOpStrings(txOutScript)
       scraddr = script_to_scrAddr(txOutScript)
 
-      lockboxID = getMultiSigID(txOutScript)
+      lockboxID = calcLockboxID(txOutScript)
       if self.loadedID is not None:
          if not self.loadedID == lockboxID:
             reply = QMessageBox.warning(self, tr('Different Lockbox'), tr("""
@@ -644,6 +517,8 @@ class DlgLockboxEditor(ArmoryDialog):
                (self.loadedID, lockboxID), QMessageBox.Ok | QMessageBox.Cancel)
             if not reply==QMessageBox.Ok:
                return
+            else:
+               self.createDate = long(RightNow())
             
 
       self.NameIDList   = \
@@ -661,7 +536,8 @@ class DlgLockboxEditor(ArmoryDialog):
                                  txOutScript, \
                                  toUnicode(self.edtBoxName.text()),
                                  toUnicode(self.longDescr),
-                                 self.NameIDList)
+                                 self.NameIDList, 
+                                 self.createDate)
 
       """
       print 'pprint Box:'
@@ -776,6 +652,7 @@ class DlgLockboxManager(ArmoryDialog):
                                     self.main.getPreferredDateFormat())
       self.lboxProxy = LockboxDisplayProxy(self)
       self.lboxProxy.setSourceModel(self.lboxModel)
+      self.lboxProxy.sort(LOCKBOXCOLS.CreateDate, Qt.DescendingOrder)
       self.lboxView = QTableView()
       self.lboxView.setModel(self.lboxProxy)
       self.lboxView.setSortingEnabled(True)
@@ -960,7 +837,7 @@ class DlgLockboxManager(ArmoryDialog):
       reply = QMessageBox.warning(self, tr('Confirm Delete'), tr("""
          "Removing" a lockbox does not delete any signing keys, so you 
          maintain signing authority for any coins that are sent there.     
-         However, It will remove it from the list of lockboxes, and you
+         However, it will remove it from the list of lockboxes, and you
          will have to re-import it again later in order to send any funds
          to or from the lockbox.
          <br><br>
@@ -1133,3 +1010,127 @@ class DlgContributeFundLockbox(ArmoryDialog):
 
 
 
+
+################################################################################
+class DlgSelectMultiSigOption(ArmoryDialog):
+
+   #############################################################################
+   def __init__(self, parent, main):
+      super(DlgSelectMultiSigOption, self).__init__(parent, main)
+
+      self.btnCreate = QPushButton(tr('Create/Manage lockboxes'))
+      #self.btnImport = QPushButton(tr('Import multi-key lockbox'))
+      self.btnFund   = QPushButton(tr('Fund a lockbox'))
+      self.btnSpend  = QPushButton(tr('Spend from a lockbox'))
+
+      lblDescr  = QRichLabel(tr("""
+         <font color="%s" size=5><b>Multi-Key Lockboxes 
+         [EXPERIMENTAL]</b></font>""") % htmlColor('TextBlue'), 
+         hAlign=Qt.AlignHCenter, doWrap=False)
+
+      lblDescr2 = QRichLabel(tr("""
+         The buttons below link you to all the functionality needed to 
+         create, fund and spend from multi-key "lockboxes."  This 
+         includes turning multiple wallets into a multi-factor lock-box
+         for your personal coins, or can be used for escrow between
+         multiple parties, using the Bitcoin network itself to hold the
+         escrow.
+         <br><br>
+         <b><u>IMPORTANT:</u></b>  If you are using an lockbox that requires
+         being funded by multiple parties simultaneously, you should 
+         <b><u>not</u> </b> use regular transactions to do the funding.  
+         You should use the third button labeled "Fund a multi-key lockbox" 
+         to collect funding promises into a single transaction, to limit 
+         the ability of any party to scam you.  Read more about it by
+         clicking [NO LINK YET]  (if the above doesn't hold, you can use
+         the regular "Send Bitcoins" dialog to fund the lockbox)."""))
+
+
+      self.lblCreate = QRichLabel(tr("""
+         Collect public keys to create an "address" that can be used 
+         to send funds to the multi-key container"""))
+      #self.lblImport = QRichLabel(tr("""
+         #If someone has already created the lockbox you can add it 
+         #to your lockbox list"""))
+      self.lblFund = QRichLabel(tr("""
+         Send money to an lockbox simultaneously with other 
+         parties involved in the lockbox"""))
+      self.lblSpend = QRichLabel(tr("""
+         Collect signatures to authorize transferring money out of 
+         a multi-key lockbox"""))
+
+
+      self.connect(self.btnCreate,  SIGNAL('clicked()'), self.openCreate)
+      self.connect(self.btnFund,    SIGNAL('clicked()'), self.openFund)
+      self.connect(self.btnSpend,   SIGNAL('clicked()'), self.openSpend)
+
+      layoutTop = QVBoxLayout()
+      layoutTop.addWidget(lblDescr)
+      layoutTop.addWidget(HLINE())
+      layoutTop.addWidget(lblDescr2, 1)
+      frmTop = QFrame()
+      frmTop.setFrameStyle(STYLE_RAISED)
+      frmTop.setLayout(layoutTop)
+
+
+      layoutBottom = QGridLayout()
+      layoutBottom.addItem(QSpacerItem(10,10),    0,0,  5,1)
+      layoutBottom.addItem(QSpacerItem(10,10),    0,6,  5,1)
+
+      layoutBottom.addItem(QSpacerItem(10,10),    0,1)
+      layoutBottom.addItem(QSpacerItem(10,10),    2,1)
+      layoutBottom.addItem(QSpacerItem(10,10),    4,1)
+
+      layoutBottom.addWidget(self.btnCreate,      0,2)
+      layoutBottom.addWidget(self.btnFund,        2,2)
+      layoutBottom.addWidget(self.btnSpend,       4,2)
+
+      layoutBottom.addItem(QSpacerItem(10,10),    0,3)
+      layoutBottom.addItem(QSpacerItem(10,10),    2,3)
+      layoutBottom.addItem(QSpacerItem(10,10),    4,3)
+
+      layoutBottom.addWidget(self.lblCreate,      0,4)
+      layoutBottom.addWidget(self.lblFund,        2,4)
+      layoutBottom.addWidget(self.lblSpend,       4,4)
+
+      layoutBottom.addItem(QSpacerItem(10,10),    0,5)
+      layoutBottom.addItem(QSpacerItem(10,10),    2,5)
+      layoutBottom.addItem(QSpacerItem(10,10),    4,5)
+
+      layoutBottom.addWidget(HLINE(),             1,1,  1,4)
+      layoutBottom.addWidget(HLINE(),             3,1,  1,4)
+
+      layoutBottom.setColumnStretch(2, 1)
+      layoutBottom.setColumnStretch(4, 2)
+
+      frmBottom = QFrame()
+      frmBottom.setFrameStyle(STYLE_RAISED)
+      frmBottom.setLayout(layoutBottom)
+      
+
+      btnDone = QPushButton(tr("Done"))
+      self.connect(btnDone, SIGNAL('clicked()'), self.accept)
+      frmDone = makeHorizFrame(['Stretch', btnDone])
+
+      layoutMaster = QVBoxLayout()
+      layoutMaster.addWidget(frmTop)
+      layoutMaster.addWidget(frmBottom,1)
+      layoutMaster.addWidget(frmDone)
+
+      self.setMinimumWidth(550)
+      self.setLayout(layoutMaster)
+      self.setWindowTitle(tr('Multi-Key Lockboxes [EXPERIMENTAL]'))
+      
+
+
+   #############################################################################
+   def openCreate(self):
+      DlgLockboxEditor(self, self.main).exec_()
+
+   #############################################################################
+   def openFund(self):
+      DlgFundLockbox(self, self.main).exec_()
+
+   #############################################################################
+   def openSpend(self):
+      DlgSpendFromLockbox(self, self.main).exec_()

@@ -23,6 +23,7 @@ from qtdefines import *
 from armoryengine.PyBtcAddress import calcWalletIDFromRoot
 from announcefetch import DEFAULT_MIN_PRIORITY
 from ui.UpgradeDownloader import UpgradeDownloaderDialog
+from armoryengine.MultiSigUtils import calcLockboxID
 
 NO_CHANGE = 'NoChange'
 MIN_PASSWD_WIDTH = lambda obj: tightSizeStr(obj, '*' * 16)[0]
@@ -4613,7 +4614,8 @@ def excludeChange(outputPairs, wlt):
 ################################################################################
 class DlgConfirmSend(ArmoryDialog):
 
-   def __init__(self, wlt, scraddrValuePairs, fee, parent=None, main=None, sendNow=False, changeBehave=None):
+   def __init__(self, wlt, scriptValPairs, fee, parent=None, main=None, \
+                                          sendNow=False, changeBehave=None):
       super(DlgConfirmSend, self).__init__(parent, main)
       layout = QGridLayout()
       lblInfoImg = QLabel()
@@ -4622,11 +4624,18 @@ class DlgConfirmSend(ArmoryDialog):
       
       sendPairs = []
       returnPairs = []
-      for pair in scraddrValuePairs:
-         if not wlt.hasAddr(scrAddr_to_hash160(pair[0])[1]):
-            sendPairs.append(pair)
+      for script,val in scriptValPairs:
+         scrType = getTxOutScriptType(script)
+         if scrType in CPP_TXOUT_HAS_ADDRSTR:
+            scraddr = script_to_scrAddr(script)
+            addr160 = scrAddr_to_hash160(scraddr)
+            if wlt.hasAddr(addr160):
+               returnPairs.append([script,val])
+            else:
+               sendPairs.append([script,val])
          else:
-            returnPairs.append(pair)
+            # We assume that anything without an addrStr is going external
+            sendPairs.append([script,val])
 
       # if we do not know the change behavior then we have to
       # guess that the highest chain index is the change
@@ -4640,7 +4649,7 @@ class DlgConfirmSend(ArmoryDialog):
       # If there are multiple outputs coming back to wallet
       # assume that the one with the highest index is change.
       lblMsg = QRichLabel('')         
-      totalSend = sum([sv[1] for sv in sendPairs]) + fee
+      totalSend = sum([val for script,val in sendPairs]) + fee
       sumStr = coin2str(totalSend, maxZeros=1)
       if len(returnPairs) > 0:
          if changeBehave == None and self.main.usermode == USERMODE.Expert:
@@ -4670,12 +4679,26 @@ class DlgConfirmSend(ArmoryDialog):
       recipLbls = []
       ffixBold = GETFONT('Fixed')
       ffixBold.setWeight(QFont.Bold)
-      for sv in sendPairs:
-         if sv in returnPairs:
-            addrPrint = ('*' + scrAddr_to_addrStr(sv[0]) + ' : ').ljust(38)
+      for script,val in sendPairs:
+         scrType = getTxOutScriptType(script)
+         if scrType in CPP_TXOUT_HAS_ADDRSTR:
+            # Standard P2PKH or P2SH
+            dispStr = scrAddr_to_addrStr(script_to_scrAddr(script))
+            if [script,val] in returnPairs:
+               dispStr = '*'+dispStr
+         elif scrType==CPP_TXOUT_MULTISIG:
+            # Display multi-sig/lockbox
+            lbID = calcLockboxID(script)
+            lb = self.main.getLockboxByID(lbID)
+            if lb:
+               dispStr = 'Lockbox %d-of-%d (%s)' % (lb.M, lb.N, lb.uniqueIDB58)
+            else:
+               dispStr = 'Multi-sig %d-of-%d [UNRECOGNIZED]' % (lb.M, lb.N)
          else:
-            addrPrint = (scrAddr_to_addrStr(sv[0]) + ' : ').ljust(38)
-         recipLbls.append(QLabel(addrPrint + coin2str(sv[1], rJust=True, maxZeros=4)))
+            dispStr = 'Non-standard [UNRECOGNIZED]'
+
+         coinStr = coin2str(val, rJust=True, maxZeros=4)
+         recipLbls.append(QLabel(dispStr.ljust(38) + coinStr))
          recipLbls[-1].setFont(ffixBold)
 
 
@@ -4707,7 +4730,7 @@ class DlgConfirmSend(ArmoryDialog):
             chngAddrStr = scrAddr_to_addrStr(chngScrAddr)
             atype, chngAddr160 = addrStr_to_hash160(chngAddrStr)
             if atype == P2SHBYTE:
-               LOGWARN('P2SH Change address received')
+               LOGWARN('P2SH change address specified')
          chngBehaveStr = changeBehave[1]
          if chngBehaveStr == 'Feedback':
             lblSpecialChange.setText('*Change will be sent back to first input address')

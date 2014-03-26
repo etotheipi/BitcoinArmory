@@ -1309,7 +1309,13 @@ def pubkeylist_to_multisig_script(pkList, M, withSort=True):
 
 ################################################################################
 def scrAddr_to_script(scraddr):
-   """ Convert a scrAddr string (used by BDM) to the correct TxOut script """
+   """ 
+   Convert a scrAddr string (used by BDM) to the correct TxOut script 
+   Note this only works for P2PKH and P2SH scraddrs.  Multi-sig and 
+   all non-standard scripts cannot be derived from scrAddrs.  In a way,
+   a scrAddr is intended to be an intelligent "hash" of the script, 
+   and it's a perk that most of the time we can reverse it to get the script.
+   """
    if len(scraddr)==0:
       raise BadAddressError('Empty scraddr')
 

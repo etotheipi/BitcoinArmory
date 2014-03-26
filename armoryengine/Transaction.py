@@ -1080,7 +1080,8 @@ class PyTxDistProposal(object):
 
 
    #############################################################################
-   # Currently not used, but may be when we finally implement multi-sig (or coinjoin)
+   # Currently not used, but may be when we finally implement multi-sig 
+   # (or coinjoin)
    def appendSignature(self, binSig, txinIndex=None):
       """
       Use this to add a signature to the TxDP object in memory.
@@ -1388,6 +1389,7 @@ class PyTxDistProposal(object):
       print indent+'Transaction Version   : ', tx.version
       print indent+'Transaction Lock Time : ', tx.lockTime
       print indent+'Num Inputs            : ', len(tx.inputs)
+
       for i,txin in enumerate(tx.inputs):
          prevHash = txin.outpoint.txHash
          prevIndex = txin.outpoint.txOutIndex
@@ -1396,6 +1398,7 @@ class PyTxDistProposal(object):
          print indent*2 + 'SrcScript:   %s' % binary_to_hex(self.txOutScripts[i])
          for ns, sig in enumerate(self.signatures[i]):
             print indent*2 + 'Sig%d = "%s"'%(ns, binary_to_hex(sig))
+
       print indent+'Num Outputs           : ', len(tx.outputs)
       for i,txout in enumerate(tx.outputs):
          print '   Recipient: %s BTC' % coin2str(txout.value),

@@ -12,10 +12,14 @@ from PyQt4.QtGui import * #@UnusedWildImport
 from armoryengine.BDM import TheBDM
 from qtdefines import * #@UnusedWildImport
 from armoryengine.Transaction import PyTxDistProposal
+from armoryengine.Script import convertScriptToOpStrings
 from armoryengine.CoinSelection import PySelectCoins, calcMinSuggestedFees,\
    PyUnspentTxOut
 from ui.WalletFrames import SelectWalletFrame
+from armoryengine.MultiSigUtils import \
+      calcLockboxID, readLockboxEntryStr, createLockboxEntryStr
  
+
 
 class SendBitcoinsFrame(ArmoryFrame):
    COLS = enum('LblAddr', 'Addr', 'AddrBook', 'LblWltID', 'LblAmt', 'Btc', \
@@ -212,7 +216,7 @@ class SendBitcoinsFrame(ArmoryFrame):
          message = get('message')
          label = get('label')
          if get('lockbox'):
-            plainStr = 'Lockbox[ID:%s]' % get('lockbox')
+            plainStr = createLockboxEntryStr(get('lockbox'))
             self.addOneRecipient(None, amount, message, None, plainStr)
          else:
             atype, addr160 = addrStr_to_hash160(get('address'))
@@ -357,11 +361,25 @@ class SendBitcoinsFrame(ArmoryFrame):
       self.sourceAddrList = sourceAddrList
       self.altBalance = altBalance
 
+
+   #############################################################################
+   def getScriptForInputStr(self, inputStr):
+      # The addrStr_to_scrAddr method fails if not reg Addr, or P2SH
+      lockboxID = readLockboxEntryStr(inputStr)
+      if lockboxID:
+         lbox = self.main.getLockboxByID(lockboxID)
+         return lbox.binScript if lbox else None
+      else:
+         scrAddr = addrStr_to_scrAddr(inputStr)
+         return scrAddr_to_script(scrAddr)
+
+
+
    #############################################################################
    def validateInputsGetTxDP(self):
       COLS = self.COLS
       self.freeOfErrors = True
-      scrAddrs = []
+      scripts = []
       addrList = []
       self.comments = []
       for i in range(len(self.widgetTable)):
@@ -371,16 +389,16 @@ class SendBitcoinsFrame(ArmoryFrame):
          addrIsValid = True
          addrList.append(addrStr)
          try:
-            # The addrStr_to_scrAddr method fails if not reg Addr, or P2SH
-            scrAddrs.append(addrStr_to_scrAddr(addrStr))
+            scripts.append(self.getScriptForInputStr(addrStr))
          except:
+            LOGEXCEPT('Failed to parse entered address: %s', addrStr)
             addrIsValid = False
-            scrAddrs.append('')
+            scripts.append('')
             self.freeOfErrors = False
             self.updateAddrField(i, COLS.Addr, Colors.SlightRed)
 
 
-      numChkFail = sum([1 if len(b)==0 else 0 for b in scrAddrs])
+      numChkFail = sum([1 if len(b)==0 else 0 for b in scripts])
       if not self.freeOfErrors:
          QMessageBox.critical(self, tr('Invalid Address'), tr("""
            You have entered %d invalid @{address|addresses}@.  
@@ -404,7 +422,7 @@ class SendBitcoinsFrame(ArmoryFrame):
          return False
 
       # Construct recipValuePairs and check that all metrics check out
-      scraddrValuePairs = []
+      scriptValuePairs = []
       totalSend = 0
       for i in range(len(self.widgetTable)):
          try:
@@ -440,9 +458,9 @@ class SendBitcoinsFrame(ArmoryFrame):
             return False
 
          totalSend += value
-         scraddr = addrStr_to_scrAddr(recipStr)
+         script = self.getScriptForInputStr(recipStr)
 
-         scraddrValuePairs.append((scraddr, value))
+         scriptValuePairs.append((script, value))
          self.comments.append(str(self.widgetTable[i][COLS.Comm].text()))
 
       try:
@@ -500,7 +518,8 @@ class SendBitcoinsFrame(ArmoryFrame):
             feeTry = minFee
          utxoList = self.getUsableTxOutList()
          utxoSelect = PySelectCoins(utxoList, totalSend, feeTry)
-         minFee = calcMinSuggestedFees(utxoSelect, totalSend, feeTry, len(scraddrValuePairs))[1]
+         minFee = calcMinSuggestedFees(utxoSelect, totalSend, feeTry, \
+                                             len(scriptValuePairs))[1]
 
 
       # We now have a min-fee that we know we can match if the user agrees
@@ -571,7 +590,7 @@ class SendBitcoinsFrame(ArmoryFrame):
       totalTxSelect = sum([u.getValue() for u in utxoSelect])
       totalChange = totalTxSelect - (totalSend + fee)
 
-      self.origSVPairs = list(scraddrValuePairs) # copy
+      self.origSVPairs = list(scriptValuePairs) # copy
       self.changeScrAddr = ''
       self.selectedBehavior = ''
       if totalChange > 0:
@@ -579,7 +598,8 @@ class SendBitcoinsFrame(ArmoryFrame):
          LOGINFO('Change address behavior: %s', self.selectedBehavior)
          if not self.changeScrAddr:
             return False
-         scraddrValuePairs.append([self.changeScrAddr, totalChange])
+         changeScript = scrAddr_to_script(self.changeScrAddr)
+         scriptValuePairs.append([changeScript, totalChange])
       else:
          if self.main.usermode == USERMODE.Expert and \
             self.chkDefaultChangeAddr.isChecked():
@@ -590,13 +610,13 @@ class SendBitcoinsFrame(ArmoryFrame):
          changePair = (self.changeScrAddr, self.selectedBehavior)
 
       # Anonymize the outputs
-      random.shuffle(scraddrValuePairs)
-
-      # Convert all scrAddrs to scripts for creation
-      recipPairs = [[scrAddr_to_script(s),v] for s,v in scraddrValuePairs]
+      random.shuffle(scriptValuePairs)
 
       # Now create the unsigned TxDP
-      txdp = PyTxDistProposal().createFromTxOutSelection(utxoSelect, recipPairs)
+      txdp = PyTxDistProposal().createFromTxOutSelection(utxoSelect, \
+                                                         scriptValuePairs)
+
+      txdp.pprint()
 
       txValues = [totalSend, fee, totalChange]
       if not self.unsignedCheckbox.isChecked():
@@ -796,6 +816,12 @@ class SendBitcoinsFrame(ArmoryFrame):
 
       COLS = self.COLS
 
+      def changeColorCallback(row):
+         def callbk():
+            self.updateAddrField(row, COLS.Addr, Colors.Background)
+         return callbk
+         
+
       self.widgetTable = []
       for r in range(nRecip):
          self.widgetTable.append([])
@@ -807,29 +833,8 @@ class SendBitcoinsFrame(ArmoryFrame):
          self.widgetTable[r][-1].setMaximumHeight(self.maxHeight)
          self.widgetTable[r][-1].setFont(GETFONT('var', 9))
 
-         # This is the hack of all hacks -- but I have no other way to make this work.
-         # For some reason, the references on variable r are carrying over between loops
-         # and all widgets are getting connected to the last one.  The only way I could
-         # work around this was just ultra explicit garbage.  I'll pay 0.1 BTC to anyone
-         # who figures out why my original code was failing...
-         # idx = r+0
-         # chgColor = lambda x: self.updateAddrField(idx, COLS.Addr, QColor(255,255,255))
-         # self.connect(self.widgetTable[idx][-1], SIGNAL('textChanged(QString)'), chgColor)
-         if r == 0:
-            chgColor = lambda x: self.updateAddrField(0, COLS.Addr, QColor(255, 255, 255))
-            self.connect(self.widgetTable[0][-1], SIGNAL('textChanged(QString)'), chgColor)
-         elif r == 1:
-            chgColor = lambda x: self.updateAddrField(1, COLS.Addr, QColor(255, 255, 255))
-            self.connect(self.widgetTable[1][-1], SIGNAL('textChanged(QString)'), chgColor)
-         elif r == 2:
-            chgColor = lambda x: self.updateAddrField(2, COLS.Addr, QColor(255, 255, 255))
-            self.connect(self.widgetTable[2][-1], SIGNAL('textChanged(QString)'), chgColor)
-         elif r == 3:
-            chgColor = lambda x: self.updateAddrField(3, COLS.Addr, QColor(255, 255, 255))
-            self.connect(self.widgetTable[3][-1], SIGNAL('textChanged(QString)'), chgColor)
-         elif r == 4:
-            chgColor = lambda x: self.updateAddrField(4, COLS.Addr, QColor(255, 255, 255))
-            self.connect(self.widgetTable[4][-1], SIGNAL('textChanged(QString)'), chgColor)
+         self.connect(self.widgetTable[r][-1], SIGNAL('textChanged(QString)'), 
+                                                        changeColorCallback(r))
 
 
          addrEntryBox = self.widgetTable[r][-1]
@@ -995,17 +1000,33 @@ class SendBitcoinsFrame(ArmoryFrame):
       self.widgetTable[idx][col].setPalette(palette);
       self.widgetTable[idx][col].setAutoFillBackground(True);
       try:
+         idCol = self.COLS.LblWltID
          addrtext = str(self.widgetTable[idx][self.COLS.Addr].text())
-         wid = self.main.getWalletForAddr160(addrStr_to_hash160(addrtext)[1])
-         if wid:
-            wlt = self.main.walletMap[wid]
+         lboxID = readLockboxEntryStr(addrtext)
+         if lboxID:
+            lbox = self.main.getLockboxByID(lboxID)
+            if lbox:
+               dispStr = '<b>%s-of-%s</b>: %s' % (lbox.M, lbox.N, 
+                                                      lbox.shortName)
+            else:
+               dispStr = 'Unrecognized Lockbox'
+
+            self.widgetTable[idx][idCol].setVisible(True)
+            self.widgetTable[idx][idCol].setText(dispStr, color='TextBlue')
+            return
+
+         wltID = self.main.getWalletForAddr160(addrStr_to_hash160(addrtext)[1])
+         if wltID:
+            wlt = self.main.walletMap[wltID]
             dispStr = '%s (%s)' % (wlt.labelName, wlt.uniqueIDB58)
-            self.widgetTable[idx][self.COLS.LblWltID].setVisible(True)
-            self.widgetTable[idx][self.COLS.LblWltID].setText(dispStr, color='TextBlue')
-         else:
-            self.widgetTable[idx][self.COLS.LblWltID].setVisible(False)
+            self.widgetTable[idx][idCol].setVisible(True)
+            self.widgetTable[idx][idCol].setText(dispStr, color='TextBlue')
+            return
+
+         self.widgetTable[idx][idCol].setVisible(False)
+
       except:
-         self.widgetTable[idx][self.COLS.LblWltID].setVisible(False)
+         self.widgetTable[idx][idCol].setVisible(False)
 
 
 class ReviewOfflineTxFrame(ArmoryDialog):

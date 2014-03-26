@@ -58,15 +58,48 @@ Use-Case 1 -- Protecting coins with 2-of-3 computers (2 offline, 1 online):
 
 
 ################################################################################
-def getMultiSigID(script):
+def calcLockboxID(script=None, scraddr=None):
+   if script is not None:
+      scrType = getTxOutScriptType(script)
+      if not scrType==CPP_TXOUT_MULTISIG:
+         LOGERROR('Not a multisig script!')
+         return None
+      scraddr = script_to_scrAddr(script)
+
+   if not scraddr.startswith(SCRADDR_MULTISIG_BYTE):
+      LOGERROR('ScrAddr is not a multisig script!')
+      return None
+
    #M,N = getMultisigScriptInfo(script)[:2]
-   hashedData = hash160(MAGIC_BYTES + script)
+   hashedData = hash160(MAGIC_BYTES + scraddr)
    #return '%d%d%s' % (M, N, binary_to_base58(hashedData)[:6])
 
    # Using letters 1:9 because the first letter has a minimal range of 
    # values for 32-bytes converted to base58
    return binary_to_base58(hashedData)[1:9]
 
+LOCKBOXIDSIZE = 8
+
+
+
+LBPREFIX, LBSUFFIX = 'Lockbox[ID:', ']'
+
+################################################################################
+def createLockboxEntryStr(lbID):
+   return '%s%s%s' % (LBPREFIX, lbID, LBSUFFIX)
+
+################################################################################
+def readLockboxEntryStr(addrtext):
+   if not addrtext.startswith(LBPREFIX) or not addrtext.endswith(LBSUFFIX):
+      return None
+
+   c0,c1 = len(LBPREFIX), addrtext.find(LBSUFFIX)
+   idStr = addrtext[c0:c1]
+   if len(idStr)==LOCKBOXIDSIZE:
+      return idStr
+
+   return None
+   
 
 
 ################################################################################
@@ -120,7 +153,7 @@ class MultiSigLockbox(object):
       # Computed some derived members
 
       self.scrAddr      = script_to_scrAddr(script)
-      self.uniqueIDB58  = getMultiSigID(script)
+      self.uniqueIDB58  = calcLockboxID(script)
       self.M, self.N, self.a160List, self.pkList = getMultisigScriptInfo(script)
       self.opStrList = convertScriptToOpStrings(script)
 
@@ -158,8 +191,7 @@ class MultiSigLockbox(object):
          LOGERROR('Attempting to unserialize lockbox that is not lockbox')
          return None
 
-      idSize = len(getMultiSigID(''))
-      expectID = lines[0][13:13+idSize]
+      expectID = lines[0][13:13+LOCKBOXIDSIZE]
       rawData = base64.b64decode(''.join(lines[1:-1]))
 
       bu = BinaryUnpacker(rawData)
@@ -186,14 +218,14 @@ class MultiSigLockbox(object):
          LOGERROR('Wrong network!')
          LOGERROR('    Lockbox Magic: ' + binary_to_hex(boxMagic))
          LOGERROR('    Armory  Magic: ' + binary_to_hex(MAGIC_BYTES))
-         return None
+         raise UnserializeError('Wrong network')
 
       
       # Lockbox ID is written in the first line, it should match the script
       # If not maybe a version mistmatch, serialization error, or bug
-      if not getMultiSigID(boxScript) == expectID:
+      if not calcLockboxID(boxScript) == expectID:
          LOGERROR('ID on lockbox block does not match script')
-         return None
+         raise UnserializeError('ID on lockbox does not match!')
 
       # No need to read magic bytes -- already checked & bailed if incorrect
       self.setParams(boxScript, boxName, boxDescr, boxComms, \
@@ -379,8 +411,7 @@ class MultiSigContribFunds(object):
          LOGERROR('Attempting to unserialize lockbox that is not lockbox')
          return None
 
-      idSize = len(getMultiSigID(''))
-      expectID = lines[0][14:14+idSize]
+      expectID = lines[0][13:13+LOCKBOXIDSIZE]
 
       boxBlock = ''.join(lines[1:-1])
       mapStr = base64.b64decode(''.join(boxBlock.split()))

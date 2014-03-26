@@ -3265,7 +3265,7 @@ bool BlockDataManager_LevelDB::registerNewScrAddr(HashString scraddr)
 }
 
 /////////////////////////////////////////////////////////////////////////////
-bool BlockDataManager_LevelDB::registerImportedScrAddr(HashString scraddr,
+bool BlockDataManager_LevelDB::registerImportedScrAddr(BinaryData scraddr,
                                                     uint32_t createBlk)
 {
    SCOPED_TIMER("registerImportedScrAddr");
@@ -3283,7 +3283,7 @@ bool BlockDataManager_LevelDB::registerImportedScrAddr(HashString scraddr,
 
 
 /////////////////////////////////////////////////////////////////////////////
-bool BlockDataManager_LevelDB::unregisterScrAddr(HashString scraddr)
+bool BlockDataManager_LevelDB::unregisterScrAddr(BinaryData scraddr)
 {
    SCOPED_TIMER("unregisterScrAddr");
    //if(registeredScrAddrMap_.find(scraddr) == registeredScrAddrMap_.end())

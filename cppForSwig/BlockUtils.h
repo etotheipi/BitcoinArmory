@@ -771,8 +771,8 @@ public:
 
    bool     registerScrAddr(BinaryData scraddr, bool isNew, uint32_t blk0);
    bool     registerNewScrAddr(BinaryData scraddr);
-   bool     registerImportedScrAddr(HashString scrAddr, uint32_t createBlk=0);
-   bool     unregisterScrAddr(HashString scrAddr);
+   bool     registerImportedScrAddr(BinaryData scrAddr, uint32_t createBlk=0);
+   bool     unregisterScrAddr(BinaryData scrAddr);
 
    uint32_t evalLowestBlockNextScan(void);
    uint32_t evalLowestScrAddrCreationBlock(void);

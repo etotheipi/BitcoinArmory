@@ -2471,21 +2471,26 @@ class ArmoryMainWindow(QMainWindow):
 
       if not startMark in allData:
          return
-         
-      pos = allData.find(startMark)
-      i = 0
-      while pos >= 0:
-         nextPos = allData.find(startMark, pos+1)
-         if nextPos < 0:
-            nextPos = len(allData)
-         lbBlock = allData[pos:nextPos].strip()
-         self.allLockboxes.append(MultiSigLockbox().unserialize(lbBlock))
-         lbid = self.allLockboxes[-1].uniqueIDB58
-         self.lockboxIDMap[lbid] = i
-         LOGINFO('Read in Lockbox: %s' % lbid)
 
-         pos = allData.find(startMark, pos+1)
-         i += 1
+      try:
+         
+         pos = allData.find(startMark)
+         i = 0
+         while pos >= 0:
+            nextPos = allData.find(startMark, pos+1)
+            if nextPos < 0:
+               nextPos = len(allData)
+            lbBlock = allData[pos:nextPos].strip()
+            self.allLockboxes.append(MultiSigLockbox().unserialize(lbBlock))
+            lbid = self.allLockboxes[-1].uniqueIDB58
+            self.lockboxIDMap[lbid] = i
+            LOGINFO('Read in Lockbox: %s' % lbid)
+
+            pos = allData.find(startMark, pos+1)
+            i += 1
+      except:
+         LOGEXCEPT('Error reading lockboxes file')
+         shutil.move(fn, fn+'.%d.bak'% long(RightNow()))
    
    #############################################################################
    def updateOrAddLockbox(self, lbObj):
@@ -2494,6 +2499,9 @@ class ArmoryMainWindow(QMainWindow):
          # Add new lockbox to list
          self.allLockboxes.append(lbObj)
          self.lockboxIDMap[lbObj.uniqueIDB58] = len(self.allLockboxes)-1
+         self.cppLockboxWallet.addScrAddress_1_(lbObj.scrAddr)
+         if TheBDM.getBDMState()=='BlockchainReady':
+            TheBDM.saveScrAddrHistories()
       else:
          # Replace the original
          self.allLockboxes[index] = lbObj

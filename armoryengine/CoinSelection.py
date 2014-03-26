@@ -699,6 +699,9 @@ def calcMinSuggestedFees(selectCoinsResult, targetOutVal, preSelectedFee,
    when it actually is not.
    """
 
+   # TODO: this should be updated to accommodate the non-constant 
+   #       TxOut/TxIn size given that it now accepts P2SH and Multisig
+
    if len(selectCoinsResult)==0:
       return [-1,-1]
 
