@@ -764,13 +764,9 @@ class DlgLockboxManager(ArmoryDialog):
 
       lblDescr = QRichLabel(tr("""
          <font color="%s" size=4><b>Manage Multi-key Lockbox Info</b></font>
-         <br><br>
-         Single-click on a row to view the stored info for the lockbox.
-         <br>
-         Double-click on a row to edit the stored lockbox info.
-         <br>
-         Use the buttons to import, create, edit, fund, or spend from a lockbox.
-         """) % htmlColor('TextBlue'))
+         <br> <b>Multi-Sig is an <u>EXPERIMENTAL</u> feature.  
+         Use at your own risk!</b>""") % htmlColor('TextBlue'), 
+         hAlign=Qt.AlignHCenter)
       
       #frmDescr = makeVertFrame([lblDescr1, lblDescr2], STYLE_RAISED)
       frmDescr = makeVertFrame([lblDescr], STYLE_RAISED)
@@ -785,7 +781,7 @@ class DlgLockboxManager(ArmoryDialog):
       self.lboxView.setSortingEnabled(True)
       self.lboxView.setSelectionBehavior(QTableView.SelectRows)
       self.lboxView.setSelectionMode(QTableView.SingleSelection)
-      self.lboxView.verticalHeader().setDefaultSectionSize(20)
+      self.lboxView.verticalHeader().setDefaultSectionSize(18)
       self.lboxView.horizontalHeader().setStretchLastSection(True)
 
       self.connect( \
@@ -821,14 +817,14 @@ class DlgLockboxManager(ArmoryDialog):
                                       QRichLabel(tr('<b>Create:</b>')),
                                       self.btnCreate, 
                                       self.btnImport,
-                                      'Space(20)',
+                                      'Space(10)',
                                       QRichLabel(tr('<b>Selected:</b>')),
-                                      self.btnFundIt,
-                                      self.btnSpend,
-                                      'Space(20)',
                                       self.btnEdit,
                                       self.btnExport,
                                       self.btnDelete,
+                                      'Space(10)',
+                                      self.btnFundIt,
+                                      self.btnSpend,
                                       'Stretch'])
 
       if not TheBDM.getBDMState()=='BlockchainReady':
@@ -850,16 +846,19 @@ class DlgLockboxManager(ArmoryDialog):
       #if maxKeys<4: self.lboxView.hideColumn(LOCKBOXCOLS.Key3)
       #if maxKeys<3: self.lboxView.hideColumn(LOCKBOXCOLS.Key2)
 
+      splitter = QSplitter()
+      splitter.setOrientation(Qt.Vertical)
+      splitter.addWidget(self.lboxView)
+      splitter.addWidget(makeHorizFrame([frmManageBtns, self.txtLockboxInfo]))
+      splitter.setStretchFactor(0, 1)
+      splitter.setStretchFactor(0, 2)
+
       layout = QGridLayout()
       layout.addWidget(frmDescr,            0,0,  1,2)
-      layout.addWidget(self.lboxView,       1,0,  1,2)
-      layout.addWidget(frmManageBtns,       2,0)
-      layout.addWidget(self.txtLockboxInfo, 2,1)
-      layout.addWidget(frmDone,             3,0,  1,2)
+      layout.addWidget(splitter,            1,0,  1,2)
+      layout.addWidget(frmDone,             2,0,  1,2)
 
-      layout.setColumnStretch(1, 1)
       layout.setRowStretch(1, 1)
-      layout.setRowStretch(2, 2)
       self.setLayout(layout)
 
       self.setMinimumWidth(700)
@@ -945,6 +944,8 @@ class DlgLockboxManager(ArmoryDialog):
    def doEdit(self):
       lb = self.getSelectedLockbox()
       DlgLockboxEditor(self, self.main, loadBox=lb).exec_()
+      self.lboxModel.reset()
+      self.singleClickLockbox()
       self.updateButtonDisable()
 
    #############################################################################
