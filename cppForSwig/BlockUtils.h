@@ -388,10 +388,11 @@ public:
                                      map<OutPoint, TxIOPair> const & txiomap,
                                      bool withMultiSig=false) const;
 
-   void scanTx(Tx & tx, 
+   void scanTx(Tx & tx,
                uint32_t txIndex = UINT32_MAX,
                uint32_t blktime = UINT32_MAX,
-               uint32_t blknum  = UINT32_MAX);
+               uint32_t blknum  = UINT32_MAX,
+               bool mainwallet = true);
 
    void scanNonStdTx(uint32_t    blknum, 
                      uint32_t    txidx, 

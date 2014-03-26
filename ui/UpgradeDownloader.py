@@ -272,6 +272,7 @@ class UpgradeDownloaderDialog(ArmoryDialog):
          "32" : tr("32-bit"), \
          "64" : tr("64-bit"), \
          "Satoshi" : tr("Bitcoin Core"), \
+         "ArmoryTesting" : tr("Armory Testing (unstable)"), \
          "ArmoryOffline" : tr("Offline Armory Wallet") \
       }
 

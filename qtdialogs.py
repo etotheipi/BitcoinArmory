@@ -5451,7 +5451,7 @@ class DlgDispTxInfo(ArmoryDialog):
       indicesOther = []
       indicesMakeGray = []
       idx = 0
-      for scrType, amt, script in data[FIELDS.OutList]:
+      for scrType, amt, script, msInfo in data[FIELDS.OutList]:
          if scrType in CPP_TXOUT_HAS_ADDRSTR:
             addrStr = script_to_addrStr(script)
             addr160 = addrStr_to_hash160(addrStr)[1]

@@ -1000,7 +1000,8 @@ void BlockDataManager_LevelDB::registeredScrAddrScan( Tx & theTx )
 void BtcWallet::scanTx(Tx & tx, 
                        uint32_t txIndex,
                        uint32_t txtime,
-                       uint32_t blknum)
+                       uint32_t blknum,
+                       bool mainwallet)
 {
    
    int64_t totalLedgerAmt = 0;
@@ -1241,10 +1242,19 @@ void BtcWallet::scanTx(Tx & tx,
 
    bool allTxOutIsOurs = true;
    bool anyTxOutIsOurs = false;
+   vector<BinaryData> scrAddrV;
    for(uint32_t i=0; i<tx.getNumTxOut(); i++)
    {
       if( thisTxOutIsOurs[i] )
+      {
          anyTxOutIsOurs = true;
+         if(!mainwallet)
+         {      
+            TxOut txout = tx.getTxOutCopy(i);
+            if( txout.getScriptType() != TXOUT_SCRIPT_NONSTANDARD )
+               scrAddrV.push_back(txout.getScrAddressStr());
+         }
+      }
       else
          allTxOutIsOurs = false;
    }
@@ -1252,22 +1262,46 @@ void BtcWallet::scanTx(Tx & tx,
    bool isSentToSelf = (anyTxInIsOurs && allTxOutIsOurs);
    bool isChangeBack = (anyTxInIsOurs && anyTxOutIsOurs && !isSentToSelf);
 
-   if(anyNewTxInIsOurs || anyNewTxOutIsOurs)
+   if((anyNewTxInIsOurs || anyNewTxOutIsOurs))
    {
-      LedgerEntry le( BinaryData(0),
-                      totalLedgerAmt, 
-                      blknum, 
-                      tx.getThisHash(), 
-                      txIndex,
-                      txtime,
-                      isCoinbaseTx,
-                      isSentToSelf,
-                      isChangeBack);
+      if(mainwallet)
+      {
+         LedgerEntry le( BinaryData(0),
+                         totalLedgerAmt, 
+                         blknum, 
+                         tx.getThisHash(), 
+                         txIndex,
+                         txtime,
+                         isCoinbaseTx,
+                         isSentToSelf,
+                         isChangeBack);
 
-      if(isZeroConf)
-         ledgerAllAddrZC_.push_back(le);
+         if(isZeroConf)
+            ledgerAllAddrZC_.push_back(le);
+         else
+            ledgerAllAddr_.push_back(le);
+      }
       else
-         ledgerAllAddr_.push_back(le);
+      {
+         vector<BinaryData>::iterator saIt;
+         for(saIt = scrAddrV.begin(); saIt != scrAddrV.end(); saIt++)
+         {
+            LedgerEntry le( (*saIt),
+                            totalLedgerAmt, 
+                            blknum, 
+                            tx.getThisHash(), 
+                            txIndex,
+                            txtime,
+                            isCoinbaseTx,
+                            isSentToSelf,
+                            isChangeBack);
+
+            if(isZeroConf)
+               ledgerAllAddrZC_.push_back(le);
+            else
+               ledgerAllAddr_.push_back(le);
+         }
+      }
    }
 }
 
@@ -3690,6 +3724,8 @@ void BlockDataManager_LevelDB::scanRegisteredTxForWallet( BtcWallet & wlt,
    SCOPED_TIMER("scanRegisteredTxForWallet");
 
 	if(wlt.lastScanned_ > blkStart) blkStart = wlt.lastScanned_;
+   bool isMainWallet = true;
+   if(&wlt != (*registeredWallets_.begin())) isMainWallet = false;
 
    // Make sure RegisteredTx objects have correct data, then sort.
    // TODO:  Why did I not need this with the MMAP blockchain?  Somehow
@@ -3737,7 +3773,7 @@ void BlockDataManager_LevelDB::scanRegisteredTxForWallet( BtcWallet & wlt,
          continue;
 
       // If we made it here, we want to scan this tx!
-      wlt.scanTx(theTx, txIter->txIndex_, bhptr->getTimestamp(), thisBlk);
+      wlt.scanTx(theTx, txIter->txIndex_, bhptr->getTimestamp(), thisBlk, isMainWallet);
    }
  
    wlt.sortLedger();
