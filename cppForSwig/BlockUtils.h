@@ -795,11 +795,13 @@ public:
    void     registeredScrAddrScan( uint8_t const * txptr,
                                    uint32_t txSize=0,
                                    vector<uint32_t> * txInOffsets=NULL,
-                                   vector<uint32_t> * txOutOffsets=NULL);
+                                   vector<uint32_t> * txOutOffsets=NULL,
+                                   bool withSecondOrderMultisig=true);
    void     registeredScrAddrScan_IterSafe( 
                                    StoredTx & stx,
                                    vector<uint32_t> * txInOffsets=NULL,
-                                   vector<uint32_t> * txOutOffsets=NULL);
+                                   vector<uint32_t> * txOutOffsets=NULL,
+                                   bool withSecondOrderMultisig=true);
    void     resetRegisteredWallets(void);
    void     pprintRegisteredWallets(void);
 

@@ -587,6 +587,7 @@ class DlgExportLockbox(ArmoryDialog):
          #are storing everyone else's contact information in the lockbox 
          #info, make sure you include your own, as well, for their benefit."""))
 
+      self.lockbox = lockbox
       self.boxText = lockbox.serialize()
 
       txt = QPlainTextEdit()
@@ -598,12 +599,14 @@ class DlgExportLockbox(ArmoryDialog):
 
       self.lblCopied = QRichLabel('')
       btnCopy = QPushButton(tr("Copy to Clipboard"))
+      btnSave = QPushButton(tr("Save to File"))
       btnDone = QPushButton(tr("Done"))
    
       self.connect(btnCopy, SIGNAL('clicked()'), self.clipcopy)
+      self.connect(btnSave, SIGNAL('clicked()'), self.savefile)
       self.connect(btnDone, SIGNAL('clicked()'), self.accept)
 
-      frmCopy = makeHorizFrame([btnCopy, self.lblCopied, 'Stretch'])
+      frmCopy = makeHorizFrame([btnSave, btnCopy, self.lblCopied, 'Stretch'])
       frmDone = makeHorizFrame(['Stretch', btnDone])
 
       frmMain = makeVertFrame([lblDescr, txt, frmCopy], STYLE_RAISED)
@@ -617,6 +620,14 @@ class DlgExportLockbox(ArmoryDialog):
       self.setWindowIcon(QIcon(self.main.iconfile))
 
 
+   def savefile(self):
+      fn = self.main.getFileSave(tr('Export Lockbox Info'), 
+                                 ['Lockboxes (*.lockbox.txt)'], 
+                            'Multikey_%s.lockbox.txt'%self.lockbox.uniqueIDB58)
+      if fn:
+         with open(fn,'w') as f:
+            f.write(self.boxText + '\n')
+         self.accept()
 
    def clipcopy(self):
       clipb = QApplication.clipboard()
@@ -813,8 +824,8 @@ class DlgLockboxManager(ArmoryDialog):
 
    #############################################################################
    def doImport(self):
-      dlg = DlgImportLockbox(self, self.main).exec_()
-      if dlg:
+      dlg = DlgImportLockbox(self, self.main)
+      if dlg.exec_():
          if dlg.importedLockbox is not None:
             self.main.updateOrAddLockbox(dlg.importedLockbox)
          self.lboxModel.reset()
@@ -959,7 +970,8 @@ class DlgImportLockbox(QDialog):
 
    #############################################################################
    def loadfile(self):
-      boxPath = unicode(self.main.getFileLoad(tr('Load Lockbox')))
+      boxPath = self.main.getFileLoad(tr('Load Lockbox'),
+                                                 ['Lockboxes (*.lockbox.txt)'])
       if not boxPath:
          return
       with open(boxPath) as f:
@@ -986,9 +998,10 @@ class DlgImportLockbox(QDialog):
             information already stored for %s?""") % (lbID,lbID), \
             QMessageBox.Yes | QMessageBox.Cancel)
 
-         if reply==QMessageBox.Yes:
-            self.accept()
+         if not reply==QMessageBox.Yes:
+            return
 
+      self.accept()
 
 
 ################################################################################

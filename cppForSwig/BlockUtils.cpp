@@ -546,6 +546,9 @@ pair<bool,bool> BtcWallet::isMineBulkFilter(
          return pair<bool,bool>(true,true);
    }
 
+   // TODO: Consider replacing this with the getTxOutScrAddr method.
+   //       MIGHT be slightly slower, but much more robust and centralizes
+   //       the logic to BtcUtils.getTxOutScrAddr.
    // TxOuts are a little more complicated, because we have to process each
    // different type separately.  Nonetheless, 99% of transactions use the
    // 25-byte repr which is ridiculously fast
@@ -595,9 +598,9 @@ pair<bool,bool> BtcWallet::isMineBulkFilter(
          {
             BinaryRefReader brr(ptr, txOutEnd-viStart);
             uint64_t scrsz = brr.get_var_int();
-            BinaryDataRef scr = brr.get_BinaryDataRef((uint32_t)scrsz);
+            BinaryDataRef script = brr.get_BinaryDataRef((uint32_t)scrsz);
    
-            BinaryData msigkey = BtcUtils::getMultisigUniqueKey(scr); 
+            BinaryData msigkey = BtcUtils::getMultisigUniqueKey(script); 
             if(msigkey.getSize() == 0)
                continue;
         
@@ -779,7 +782,8 @@ void BlockDataManager_LevelDB::registeredScrAddrScan(
                                             uint8_t const * txptr,
                                             uint32_t txSize,
                                             vector<uint32_t> * txInOffsets,
-                                            vector<uint32_t> * txOutOffsets)
+                                            vector<uint32_t> * txOutOffsets, 
+                                            bool withSecondOrderMultisig)
 {
    // Probably doesn't matter, but I'll keep these on the heap between calls
    static vector<uint32_t> localOffsIn;
@@ -817,48 +821,38 @@ void BlockDataManager_LevelDB::registeredScrAddrScan(
    // ours on future to-be-scanned transactions
    for(uint32_t iout=0; iout<nTxOut; iout++)
    {
-      static uint8_t scriptLenFirstByte;
-      static HashString addr160(20);
+      uint32_t viStart  = (*txOutOffsets)[iout] + 8;
+      uint32_t txOutEnd = (*txOutOffsets)[iout+1];
+      BinaryRefReader brr(txptr+viStart, txOutEnd-viStart);
+      uint32_t scrsz = (uint32_t)brr.get_var_int();
+      BinaryDataRef script = brr.get_BinaryDataRef(scrsz);
 
-      uint8_t const * ptr = (txStartPtr + (*txOutOffsets)[iout] + 8);
-      scriptLenFirstByte = *(uint8_t*)ptr;
-      if(scriptLenFirstByte == 25)
+      TXOUT_SCRIPT_TYPE txoType = BtcUtils::getTxOutScriptType(script);
+      BinaryData scrAddr = BtcUtils::getTxOutScrAddr(script, txoType);
+
+      if(scrAddrIsRegistered(scrAddr))
       {
-         // Std TxOut with 25-byte script
-         addr160.copyFrom(ptr+4, 20);
-         if( scrAddrIsRegistered(HASH160PREFIX + addr160) )
-         {
-            HashString txHash = BtcUtils::getHash256(txptr, txSize);
-            insertRegisteredTxIfNew(txHash);
-            registeredOutPoints_.insert(OutPoint(txHash, iout));
-         }
+         HashString txHash = BtcUtils::getHash256(txptr, txSize);
+         insertRegisteredTxIfNew(txHash);
+         registeredOutPoints_.insert(OutPoint(txHash, iout));
       }
-      else if(scriptLenFirstByte==67)
+
+      // If this is a multi-sig scraddr, we may want to check it for
+      // subkeys related to our wallet.  
+      if(withSecondOrderMultisig && txoType==TXOUT_SCRIPT_MULTISIG)
       {
-         // Std spend-coinbase TxOut script
-         BtcUtils::getHash160_NoSafetyCheck(ptr+2, 65, addr160);
-         if( scrAddrIsRegistered(HASH160PREFIX + addr160) )
+         BinaryRefReader brrmsig(scrAddr);
+         uint8_t M = brrmsig.get_uint8_t();
+         uint8_t N = brrmsig.get_uint8_t();
+         for(uint8_t a=0; a<N; a++)
          {
-            HashString txHash = BtcUtils::getHash256(txptr, txSize);
-            insertRegisteredTxIfNew(txHash);
-            registeredOutPoints_.insert(OutPoint(txHash, iout));
+            if(scrAddrIsRegistered(HASH160PREFIX + brr.get_BinaryDataRef(20)))
+            {
+               HashString txHash = BtcUtils::getHash256(txptr, txSize);
+               insertRegisteredTxIfNew(txHash);
+               registeredOutPoints_.insert(OutPoint(txHash, iout));
+            }
          }
-      }
-      else
-      {
-         /* TODO:  Right now we will just ignoring non-std tx
-                   I don't do anything with them right now, anyway
-         TxOut txout = tx.getTxOutCopy(iout);
-         for(uint32_t i=0; i<scrAddrPtrs_.size(); i++)
-         {
-            ScrAddrObj & thisAddr = *(scrAddrPtrs_[i]);
-            HashString const & scraddr = thisAddr.getScrAddr();
-            if(txout.getScriptRef().find(thisAddr.getScrAddr()) > -1)
-               scanNonStdTx(0, 0, tx, iout, thisAddr);
-            continue;
-         }
-         //break;
-         */
       }
    }
 }
@@ -877,7 +871,8 @@ void BlockDataManager_LevelDB::registeredScrAddrScan(
 void BlockDataManager_LevelDB::registeredScrAddrScan_IterSafe( 
                                             StoredTx & stx,
                                             vector<uint32_t> * txInOffsets,
-                                            vector<uint32_t> * txOutOffsets)
+                                            vector<uint32_t> * txOutOffsets, 
+                                            bool withSecondOrderMultisig)
 {
    if(registeredScrAddrMap_.size() == 0)
       return;
@@ -909,7 +904,9 @@ void BlockDataManager_LevelDB::registeredScrAddrScan_IterSafe(
    {
       // We have the txin, now check if it spends one of our TxOuts
       static OutPoint op;
-      op.unserialize(txStartPtr + (*txInOffsets)[iin], tx.getSize()-(*txInOffsets)[iin]);
+      op.unserialize(txStartPtr + (*txInOffsets)[iin], 
+                     tx.getSize()-(*txInOffsets)[iin]);
+
       if(registeredOutPoints_.count(op) > 0)
       {
          insertRegisteredTxIfNew(tx.getTxRef(),
@@ -925,49 +922,14 @@ void BlockDataManager_LevelDB::registeredScrAddrScan_IterSafe(
    // ours on future to-be-scanned transactions
    for(uint32_t iout=0; iout<nTxOut; iout++)
    {
-      static uint8_t scriptLenFirstByte;
-      static HashString addr160(20);
-      static HashString scrAddr;
+      uint32_t viStart  = (*txOutOffsets)[iout] + 8;
+      uint32_t txOutEnd = (*txOutOffsets)[iout+1];
+      BinaryRefReader brr(txStartPtr+viStart, txOutEnd-viStart);
+      uint32_t scrsz = (uint32_t)brr.get_var_int();
+      BinaryDataRef script = brr.get_BinaryDataRef(scrsz);
 
-      uint8_t const * ptr = (txStartPtr + (*txOutOffsets)[iout] + 8);
-      scriptLenFirstByte = *(uint8_t*)ptr;
-      if(scriptLenFirstByte == 25)
-      {
-         // Std TxOut with 25-byte script
-         addr160.copyFrom(ptr+4, 20);
-         scrAddr = HASH160PREFIX + addr160;
-      }
-      else if(scriptLenFirstByte==67)
-      {
-         // Std spend-coinbase TxOut script
-         BtcUtils::getHash160_NoSafetyCheck(ptr+2, 65, addr160);
-         scrAddr = HASH160PREFIX + addr160;
-      }
-      else if(scriptLenFirstByte==35)
-      {
-         // Compressed public key
-         BtcUtils::getHash160_NoSafetyCheck(ptr+2, 33, addr160);
-         scrAddr = HASH160PREFIX + addr160;
-      }
-      else
-      {
-         /* TODO:  Right now we will just ignoring non-std tx
-                   I don't do anything with them right now, anyway
-         scrAddr = getTxOutScrAddr(stx.stxoMap_[iout].getScript());
-
-         // Old code for scanning non-std txout... 
-         TxOut txout = tx.getTxOutCopy(iout);
-         for(uint32_t i=0; i<scrAddrPtrs_.size(); i++)
-         {
-            ScrAddrObj & thisAddr = *(scrAddrPtrs_[i]);
-            HashString const & scraddr = thisAddr.getScrAddr();
-            if(txout.getScriptRef().find(thisAddr.getScrAddr()) > -1)
-               scanNonStdTx(0, 0, tx, iout, thisAddr);
-            continue;
-         }
-         //break;
-         */
-      }
+      TXOUT_SCRIPT_TYPE txoType = BtcUtils::getTxOutScriptType(script);
+      BinaryData scrAddr = BtcUtils::getTxOutScrAddr(script, txoType);
 
       if(scrAddrIsRegistered(scrAddr))
       {
@@ -976,6 +938,24 @@ void BlockDataManager_LevelDB::registeredScrAddrScan_IterSafe(
                                  stx.blockHeight_,
                                  stx.txIndex_);
          registeredOutPoints_.insert(OutPoint(stx.thisHash_, iout));
+      }
+
+      if(withSecondOrderMultisig && txoType==TXOUT_SCRIPT_MULTISIG)
+      {
+         BinaryRefReader brrmsig(scrAddr);
+         uint8_t M = brrmsig.get_uint8_t();
+         uint8_t N = brrmsig.get_uint8_t();
+         for(uint8_t a=0; a<N; a++)
+         {
+            if(scrAddrIsRegistered(HASH160PREFIX + brr.get_BinaryDataRef(20)))
+            {
+               insertRegisteredTxIfNew(tx.getTxRef(),
+                                       stx.thisHash_,
+                                       stx.blockHeight_,
+                                       stx.txIndex_);
+               registeredOutPoints_.insert(OutPoint(stx.thisHash_, iout));
+            }
+         }
       }
    }
 }
@@ -1326,7 +1306,8 @@ LedgerEntry BtcWallet::calcLedgerEntryForTx(Tx & tx)
    {
       // We have the txin, now check if it contains one of our TxOuts
       static OutPoint op;
-      op.unserialize(txStartPtr + tx.getTxInOffset(iin), tx.getSize()-tx.getTxInOffset(iin));
+      op.unserialize(txStartPtr + tx.getTxInOffset(iin), 
+                     tx.getSize()-tx.getTxInOffset(iin));
 
       if(op.getTxHashRef() == BtcUtils::EmptyHash_)
          isCoinbaseTx = true;
@@ -1347,6 +1328,7 @@ LedgerEntry BtcWallet::calcLedgerEntryForTx(Tx & tx)
    HashString scraddr(21);
    for(uint32_t iout=0; iout<tx.getNumTxOut(); iout++)
    {
+      /*
       static uint8_t scriptLenFirstByte;
 
       uint8_t const * ptr = txStartPtr + tx.getTxOutOffset(iout);
@@ -1369,6 +1351,20 @@ LedgerEntry BtcWallet::calcLedgerEntryForTx(Tx & tx)
          else
             allTxOutIsOurs = false;
       }
+      else
+         allTxOutIsOurs = false;
+      */
+
+      uint32_t viStart  = tx.getTxOutOffset(iout) + 8;
+      uint32_t txOutEnd = tx.getTxOutOffset(iout+1);
+      BinaryRefReader brr(txStartPtr+viStart, txOutEnd-viStart);
+      uint32_t scrsz = (uint32_t)brr.get_var_int();
+      BinaryDataRef script = brr.get_BinaryDataRef(scrsz);
+
+      TXOUT_SCRIPT_TYPE txoType = BtcUtils::getTxOutScriptType(script);
+      BinaryData scrAddr = BtcUtils::getTxOutScrAddr(script, txoType);
+      if(hasScrAddress(scrAddr))
+         totalValue += READ_UINT64_LE(txStartPtr+viStart-8);
       else
          allTxOutIsOurs = false;
    }
