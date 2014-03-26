@@ -39,6 +39,7 @@
 #include "sha.h"
 #include "UniversalTimer.h"
 #include "leveldb/db.h"
+#include "Python.h"
 
 
 #define NUM_BLKS_BATCH_THRESH 30
@@ -151,6 +152,10 @@ private:
    BinaryData GenesisHash_;
    BinaryData GenesisTxHash_;
    BinaryData MagicBytes_;
+   
+   //for C++ side maintenance thread
+   bool run_;
+
 private:
   
    // Variables that will be updated as the blockchain loads:
@@ -171,10 +176,10 @@ private:
    // will automatically update for all addresses, period.  And we'd best not 
    // track those in RAM (maybe on a huge server...?)
    set<BtcWallet*>                    registeredWallets_;
-   map<BinaryData, RegisteredScrAddr> registeredScrAddrMap_;
-   list<RegisteredTx>                 registeredTxList_;
-   set<HashString>                    registeredTxSet_;
-   set<OutPoint>                      registeredOutPoints_;
+   //map<BinaryData, RegisteredScrAddr> registeredScrAddrMap_;
+   //list<RegisteredTx>                 registeredTxList_;
+   //set<HashString>                    registeredTxSet_;
+   //set<OutPoint>                      registeredOutPoints_;
    uint32_t                           allScannedUpToBlk_; // one past top
 
    // list of block headers that appear to be missing 
@@ -197,6 +202,11 @@ public:
    BlockDataManager_LevelDB(void);
    ~BlockDataManager_LevelDB(void);
 
+   //for 1:1 wallets
+   PyObject* theCallBack_;
+   bool rescanZC_;
+
+public:
 
    Blockchain& blockchain() { return blockchain_; }
    const Blockchain& blockchain() const { return blockchain_; }
@@ -254,9 +264,9 @@ public:
 
    
    uint32_t getTopBlockHeightInDB(DB_SELECT db); // testing
+   uint32_t getAppliedToHeightInDB(void);
 
 private:
-   uint32_t getAppliedToHeightInDB(void);
    vector<BinaryData> getFirstHashOfEachBlkFile(void) const;
    uint32_t findOffsetFirstUnrecognized(uint32_t fnum);
    uint32_t findFirstBlkApproxOffset(uint32_t fnum, uint32_t offset) const;
@@ -264,7 +274,10 @@ private:
    pair<uint32_t, uint32_t> findFileAndOffsetForHgt(
                uint32_t hgt, const vector<BinaryData>* firstHashOfEachBlkFile=NULL);
 
+
+   /////////////////////////////////////////////////////////////////////////////
 public:
+   void             Python_rgCallBack(PyObject* callback);
    int32_t          getNumConfirmations(BinaryData txHash);
    string           getBlockfilePath(void) {return blkFileDir_;}
 
@@ -285,13 +298,6 @@ public:
    bool     registerWallet(BtcWallet* wallet, bool wltIsNew=false);
    void     unregisterWallet(BtcWallet* wlt) {registeredWallets_.erase(wlt);}
 
-   bool     registerScrAddr(BinaryData scraddr, bool isNew, uint32_t blk0);
-   bool     registerNewScrAddr(BinaryData scraddr);
-   bool     registerImportedScrAddr(HashString scrAddr, uint32_t createBlk=0);
-   bool     unregisterScrAddr(HashString scrAddr);
-   
-   uint32_t numBlocksToRescan(BtcWallet & wlt, uint32_t topBlk=UINT32_MAX);
-private:
    uint32_t evalLowestBlockNextScan(void);
    uint32_t evalLowestScrAddrCreationBlock(void);
    bool     evalRescanIsRequired(void);
@@ -299,13 +305,6 @@ private:
 
    bool     walletIsRegistered(BtcWallet & wlt);
    bool     scrAddrIsRegistered(HashString scrAddr);
-   void     insertRegisteredTxIfNew(HashString txHash);
-   void     insertRegisteredTxIfNew(RegisteredTx & regTx);
-   void     insertRegisteredTxIfNew(TxRef const & txref,
-                                    BinaryDataRef txHash,
-                                    uint32_t hgt,
-                                    uint16_t txIndex);
-   bool     removeRegisteredTx(BinaryData const & txHash);
 
    void     registeredScrAddrScan( Tx & theTx );
    void     registeredScrAddrScan( uint8_t const * txptr,
@@ -365,15 +364,29 @@ private:
    void deleteHistories(void);
 public:
    void saveScrAddrHistories(void);
+   
+   //for 1:1 wallets
+   void fetchWalletRegisteredScrAddrData(void);
+   void fetchWalletRegisteredScrAddrData(BtcWallet & myWallet);
+   void fetchWalletRegisteredScrAddrData(BtcWallet &wlt, 
+                                         BinaryData const & scrAddr);
+   const BlockHeader* getHeaderPtrForTx(Tx& theTx)
+                     {return &blockchain_.getHeaderPtrForTx(theTx);}
+   bool isZcEnabled() {return zcEnabled_;}
+   uint32_t getBlockHeight() {return blockchain_.top().getBlockHeight();}
+   bool doRun() {return run_;}
+   void doShutdown() {run_ = false;}
+   void scanBlockchainForTx(uint32_t startBlknum, uint32_t endBlknum,
+                                                   bool fetchFirst);
+   void rescanWalletZeroConf();
+   void Python_CallBack(byte msg, char* argv, int argi);
+   InterfaceToLDB *getIFace(void) {return iface_;}
+   vector<TxIOPair> getHistoryForScrAddr(BinaryDataRef uniqKey, 
+                                          bool withMultisig=false);
+   void eraseTx(BinaryData& txHash);
+   uint32_t numBlocksToRescan( BtcWallet & wlt, uint32_t endBlk);
 
-private:
-   void fetchAllRegisteredScrAddrData(void);
-   void fetchAllRegisteredScrAddrData(BtcWallet & myWlt);
-   void fetchAllRegisteredScrAddrData(
-                              map<BinaryData, RegisteredScrAddr> & addrMap);
-   void fetchAllRegisteredScrAddrData(BinaryData const & scrAddr);
 
-public:
    // Check for availability of data with a given hash
    TX_AVAILABILITY getTxHashAvail(BinaryDataRef txhash);
    bool hasTxWithHash(BinaryData const & txhash);
@@ -402,8 +415,7 @@ private:
 public:
    // This will only be used by the above method, probably wouldn't be called
    // directly from any other code
-   void scanRegisteredTxForWallet( BtcWallet & wlt,
-                                   uint32_t blkStart=0,
+   void scanRegisteredTxForWallet( uint32_t blkStart=0,
                                    uint32_t blkEnd=UINT32_MAX);
 private:
    void scanDBForRegisteredTx(uint32_t blk0=0, uint32_t blk1=UINT32_MAX);
@@ -416,20 +428,16 @@ public:
 private:
    uint64_t             getDBReceivedForHash160(BinaryDataRef addr160);
    vector<UnspentTxOut> getUTXOVectForHash160(BinaryDataRef addr160);
-   vector<TxIOPair>     getHistoryForScrAddr(BinaryDataRef uniqKey, 
-                                             bool withMultiSig=false);
 public:
    // For zero-confirmation tx-handling
    void enableZeroConf(string filename, bool zcLite=true);
    void disableZeroConf(void);
-private:
    void readZeroConfFile(string filename);
    bool addNewZeroConfTx(BinaryData const & rawTx, uint32_t txtime, bool writeToFile);
    void purgeZeroConfPool(void);
    void pprintZeroConfPool(void);
    void rewriteZeroConfFile(void);
    bool isTxFinal(const Tx & tx) const;
-public:
    void rescanWalletZeroConf(BtcWallet & wlt);
 
 public:

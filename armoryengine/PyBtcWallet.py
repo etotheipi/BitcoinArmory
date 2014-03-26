@@ -279,11 +279,11 @@ class PyBtcWallet(object):
          # method and is blocking waiting for it.  So we can't use the 
          # BDM-thread queue, must call its methods directly
          if self.calledFromBDM:
-            TheBDM.scanBlockchainForTx_bdm_direct(self.cppWallet, startBlk)
+            #TheBDM.scanBlockchainForTx_bdm_direct(self.cppWallet, startBlk)
             self.lastSyncBlockNum = TheBDM.getTopBlockHeight_bdm_direct()
          else:
-            TheBDM.queued(lambda : TheBDM.bdm.scanBlockchainForTx(self.cppWallet, startBlk) )
-            self.lastSyncBlockNum = TheBDM.queued( lambda : TheBDM.bdm.blockchain().top().getBlockHeight() )
+            #TheBDM.queued(lambda : TheBDM.bdm.scanBlockchainForTx(self.cppWallet, startBlk) )
+            self.lastSyncBlockNum = TheBDM.queued( lambda : TheBDM.bdm.blockchain().top().getBlockHeight() )    
       else:
          LOGERROR('Blockchain-sync requested, but current wallet')
          LOGERROR('is set to BLOCKCHAIN_DONOTUSE')
@@ -312,10 +312,10 @@ class PyBtcWallet(object):
          # BDM-thread queue, must call its methods directly
          
          if self.calledFromBDM:
-            TheBDM.scanRegisteredTxForWallet_bdm_direct(self.cppWallet, startBlk)
+            #TheBDM.scanRegisteredTxForWallet_bdm_direct(self.cppWallet, startBlk)
             self.lastSyncBlockNum = TheBDM.getTopBlockHeight_bdm_direct()
          else:
-            TheBDM.queued( lambda : TheBDM.bdm.scanRegisteredTxForWallet(self.cppWallet, startBlk) )
+            #TheBDM.queued( lambda : TheBDM.bdm.scanRegisteredTxForWallet(self.cppWallet, startBlk) )
             self.lastSyncBlockNum = TheBDM.queued( lambda : TheBDM.bdm.blockchain().top().getBlockHeight() )
             
             wltLE = self.cppWallet.getTxLedger()
@@ -1954,6 +1954,7 @@ class PyBtcWallet(object):
       wltfile.close()
 
       self.cppWallet = Cpp.BtcWallet()
+      TheBDM.bdm.registerWallet( self.cppWallet )
       self.unpackHeader(wltdata)
 
       self.lastComputedChainIndex = -UINT32_MAX

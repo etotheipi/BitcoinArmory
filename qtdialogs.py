@@ -2432,8 +2432,8 @@ class DlgNewAddressDisp(ArmoryDialog):
 
       from twisted.internet import reactor
 
-      if TheBDM.getBDMState()=='BlockchainReady':
-         reactor.callLater(0.1, TheBDM.saveScrAddrHistories)
+      #if TheBDM.getBDMState()=='BlockchainReady':
+         #reactor.callLater(0.1, TheBDM.saveScrAddrHistories)
 
       try:
          self.parent.wltAddrModel.reset()
@@ -2461,9 +2461,6 @@ class DlgNewAddressDisp(ArmoryDialog):
       clipb.clear()
       clipb.setText(self.addr.getAddrStr())
       self.lblIsCopied.setText('<i>Copied!</i>')
-
-
-
 
 
 #############################################################################

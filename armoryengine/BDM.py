@@ -18,6 +18,24 @@ import CppBlockUtils as Cpp
 
 BDMcurrentBlock = [UINT32_MAX, 0]
 
+def callbackTest(*args):
+   print 'at callback'
+   action = ''
+   arglist = []
+   
+   act_i = args[0]
+   if act_i == '1':
+      action = 'finishLoadBlockchain'
+   elif act_i == '2':
+      action = 'sweepAfterScanList'
+   elif act_i == '3':
+      action = 'newZC'
+   elif act_i == '4':
+      action = 'newblock'
+      nblocks = int(args[1])
+      arglist.append(nblocks)
+
+   cppPushTrigger[0](action, arglist)
 
 def getCurrTimeAndBlock():
    time0 = long(RightNowUTC())
@@ -171,6 +189,7 @@ class BlockDataManagerThread(threading.Thread):
          self.prefMode = BLOCKCHAINMODE.Full
 
       self.bdm = Cpp.BlockDataManager().getBDM()
+      self.bdm.Python_rgCallBack(callbackTest)
 
       # These are for communicating with the master (GUI) thread
       self.inputQueue  = Queue.Queue()
@@ -193,7 +212,7 @@ class BlockDataManagerThread(threading.Thread):
       # The BlockDataManager is easier to use if you put all your addresses
       # into a C++ BtcWallet object, and let it 
       self.masterCppWallet = Cpp.BtcWallet()
-      self.bdm.registerWallet(self.masterCppWallet)
+      #self.bdm.registerWallet(self.masterCppWallet)
        
       self.btcdir = BTC_HOME_DIR
       self.ldbdir = LEVELDB_DIR
@@ -660,7 +679,7 @@ class BlockDataManagerThread(threading.Thread):
 
  
    #############################################################################
-   def registerNewScrAddr(self, scrAddr, wait=None):
+   def registerNewScrAddr(self, wlt, scrAddr, wait=None):
       """
       Variable isFresh==True means the address was just [freshly] created,
       and we need to watch for transactions with it, but we don't need
@@ -671,14 +690,14 @@ class BlockDataManagerThread(threading.Thread):
          expectOutput = True
 
       rndID = int(random.uniform(0,100000000)) 
-      self.inputQueue.put([BDMINPUTTYPE.RegisterAddr, rndID, expectOutput, scrAddr, True])
+      self.inputQueue.put([BDMINPUTTYPE.RegisterAddr, rndID, expectOutput, wlt, scrAddr, True])
 
       return self.waitForOutputIfNecessary(expectOutput, rndID)
 
 
 
    #############################################################################
-   def registerImportedScrAddr(self, scrAddr, \
+   def registerImportedScrAddr(self, wlt, scrAddr, \
                                      firstTime=UINT32_MAX, \
                                      firstBlk=UINT32_MAX, \
                                      lastTime=0, \
@@ -693,8 +712,8 @@ class BlockDataManagerThread(threading.Thread):
          expectOutput = True
 
       rndID = int(random.uniform(0,100000000)) 
-      self.inputQueue.put([BDMINPUTTYPE.RegisterAddr, rndID, expectOutput, scrAddr, \
-                                   [firstTime, firstBlk, lastTime, lastBlk]])
+      self.inputQueue.put([BDMINPUTTYPE.RegisterAddr, rndID, expectOutput, wlt, \
+                           scrAddr, [firstTime, firstBlk, lastTime, lastBlk]])
 
       return self.waitForOutputIfNecessary(expectOutput, rndID)
 
@@ -709,10 +728,10 @@ class BlockDataManagerThread(threading.Thread):
 
          if isFresh:
             for scrad in scrAddrs:
-               self.registerNewScrAddr(scrad, wait=wait)
+               self.registerNewScrAddr(wlt, scrad, wait=wait)
          else:
             for scrad in scrAddrs:
-               self.registerImportedScrAddr(scrad, wait=wait)
+               self.registerImportedScrAddr(wlt, scrad, wait=wait)
 
          if not wlt in self.pyWltList:
             self.pyWltList.append(wlt)
@@ -721,12 +740,15 @@ class BlockDataManagerThread(threading.Thread):
          naddr = wlt.getNumScrAddr()
 
          for a in range(naddr):
-            self.registerScrAddr(wlt.getScrAddrObjByIndex(a).getScrAddr(), isFresh, wait=wait)
+            self.registerScrAddr(wlt, wlt.getScrAddrObjByIndex(a).getScrAddr(), isFresh, wait=wait)
 
          if not wlt in self.cppWltList:
             self.cppWltList.append(wlt)
+            
       else:
          LOGERROR('Unrecognized object passed to registerWallet function')
+         
+      self.bdm.registerWallet(wlt)
                
 
 
@@ -794,7 +816,7 @@ class BlockDataManagerThread(threading.Thread):
    
 
    #############################################################################
-   def __registerScrAddrNow(self, scrAddr, timeInfo):
+   def __registerScrAddrNow(self, wlt, scrAddr, timeInfo):
       """
       Do the registration right now.  This should not be called directly
       outside of this class.  This is only called by the BDM thread when
@@ -805,17 +827,17 @@ class BlockDataManagerThread(threading.Thread):
          isFresh = timeInfo
          if isFresh:
             # We claimed to have just created this ScrAddr...(so no rescan needed)
-            self.masterCppWallet.addNewScrAddress_1_(scrAddr)
+            wlt.addNewScrAddress_1_(scrAddr)
          else:
-            self.masterCppWallet.addScrAddress_1_(scrAddr)
+            wlt.addScrAddress_1_(scrAddr)
       else:
          if isinstance(timeInfo, (list,tuple)) and len(timeInfo)==4:
-            self.masterCppWallet.addScrAddress_5_(scrAddr, *timeInfo)
+            wlt.addScrAddress_5_(scrAddr, *timeInfo)
          else:
             LOGWARN('Unrecognized time information in register method.')
             LOGWARN('   Data: %s', str(timeInfo))
             LOGWARN('Assuming imported key requires full rescan...')
-            self.masterCppWallet.addScrAddress_1_(scrAddr)
+            wlt.addScrAddress_1_(scrAddr)
 
 
 
@@ -887,20 +909,20 @@ class BlockDataManagerThread(threading.Thread):
                                     MAGIC_BYTES)
 
       # The master wallet contains all addresses of all wallets registered
-      self.bdm.registerWallet(self.masterCppWallet)
+      #self.bdm.registerWallet(self.masterCppWallet)
 
       # Now we actually startup the BDM and run with it
       if CLI_OPTIONS.rebuild:
-         self.bdm.doInitialSyncOnLoad_Rebuild()
+         Cpp.startBDM(2)
       elif CLI_OPTIONS.rescan:
-         self.bdm.doInitialSyncOnLoad_Rescan()
+         Cpp.startBDM(1)
       else:
-         self.bdm.doInitialSyncOnLoad()
+         Cpp.startBDM(0)
 
       # The above op populates the BDM with all relevent tx, but those tx
       # still need to be scanned to collect the wallet ledger and UTXO sets
-      self.bdm.scanBlockchainForTx(self.masterCppWallet)
-      self.bdm.saveScrAddrHistories()
+      #self.bdm.scanBlockchainForTx(self.masterCppWallet)
+      #self.bdm.saveScrAddrHistories()
 
       
    #############################################################################
@@ -927,13 +949,13 @@ class BlockDataManagerThread(threading.Thread):
       if not self.isDirty():
          LOGWARN('It does not look like we need a rescan... doing it anyway')
 
-      if scanType=='AsNeeded':
-         if self.bdm.numBlocksToRescan(self.masterCppWallet) < 144:
-            LOGINFO('Rescan requested, but <1 day\'s worth of block to rescan')
-            self.blkMode = BLOCKCHAINMODE.LiteScanning
-         else:
-            LOGINFO('Rescan requested, and very large scan is necessary')
-            self.blkMode = BLOCKCHAINMODE.Rescanning
+      #if scanType=='AsNeeded':
+         #if self.bdm.numBlocksToRescan(self.masterCppWallet) < 144:
+          #  LOGINFO('Rescan requested, but <1 day\'s worth of block to rescan')
+          #  self.blkMode = BLOCKCHAINMODE.LiteScanning
+       #  else:
+        #    LOGINFO('Rescan requested, and very large scan is necessary')
+         #   self.blkMode = BLOCKCHAINMODE.Rescanning
 
 
       self.aboutToRescan = False
@@ -951,8 +973,8 @@ class BlockDataManagerThread(threading.Thread):
 
       # missingBlocks = self.bdm.missingBlockHashes()
       
-      self.bdm.scanBlockchainForTx(self.masterCppWallet)
-      self.bdm.saveScrAddrHistories()
+      #self.bdm.scanBlockchainForTx(self.masterCppWallet)
+      #self.bdm.saveScrAddrHistories()
 
 
    #############################################################################
@@ -999,7 +1021,7 @@ class BlockDataManagerThread(threading.Thread):
       pywlt.calledFromBDM = prevCalledFromBDM
 
       #####
-      self.bdm.scanRegisteredTxForWallet(self.masterCppWallet)
+      #self.bdm.scanRegisteredTxForWallet(self.masterCppWallet)
 
    
 
@@ -1054,7 +1076,7 @@ class BlockDataManagerThread(threading.Thread):
       for pyWlt in self.pyWltList:
          pyWlt.syncWithBlockchain()
 
-      for cppWlt in self.cppWltList:
+      #for cppWlt in self.cppWltList:
          # The pre-leveldb version of Armory specifically required to call
          #
          #    scanRegisteredTxForWallet   (scan already-collected reg tx)
@@ -1075,21 +1097,18 @@ class BlockDataManagerThread(threading.Thread):
          # However we may want to re-examine this after we implement new
          # database modes of operation
          #self.bdm.scanRegisteredTxForWallet(cppWlt)
-         self.bdm.scanBlockchainForTx(cppWlt)
+         #self.bdm.scanBlockchainForTx(cppWlt)
 
       # At this point all wallets should be 100% up-to-date, save the histories
       # to be reloaded next time
-      self.bdm.saveScrAddrHistories()
+      #self.bdm.saveScrAddrHistories()
 
 
 
    #############################################################################
    def __shutdown(self):
-      if not self.blkMode == BLOCKCHAINMODE.Rescanning:
-         self.bdm.saveScrAddrHistories()
-
-      self.__reset()
       self.blkMode = BLOCKCHAINMODE.Offline
+      self.bdm.doShutdown()      
       self.doShutdown = True
 
    #############################################################################
@@ -1123,7 +1142,7 @@ class BlockDataManagerThread(threading.Thread):
       # The BlockDataManager is easier to use if you put all your addresses
       # into a C++ BtcWallet object, and let it 
       self.masterCppWallet = Cpp.BtcWallet()
-      self.bdm.registerWallet(self.masterCppWallet)
+      #self.bdm.registerWallet(self.masterCppWallet)
 
 
    #############################################################################
@@ -1222,8 +1241,8 @@ class BlockDataManagerThread(threading.Thread):
             self.currentID = rndID
 
             if cmd == BDMINPUTTYPE.RegisterAddr:
-               scrAddr,timeInfo = inputTuple[3:]
-               self.__registerScrAddrNow(scrAddr, timeInfo)
+               wlt,scrAddr,timeInfo = inputTuple[3:]
+               self.__registerScrAddrNow(wlt, scrAddr, timeInfo)
 
             elif cmd == BDMINPUTTYPE.ZeroConfTxToInsert:
                rawTx  = inputTuple[3]
@@ -1294,10 +1313,12 @@ class BlockDataManagerThread(threading.Thread):
                LOGINFO('Wallet Recovery Scan Requested')
                pywlt = inputTuple[3]
                self.__startRecoveryRescan(pywlt)
-               
-            elif cmd == BDMINPUTTYPE.ReadBlkUpdate:
-               output = self.__readBlockfileUpdates()
+            
 
+            #elif cmd == BDMINPUTTYPE.ReadBlkUpdate:
+             #  output = self.__readBlockfileUpdates()
+
+            
             elif cmd == BDMINPUTTYPE.Passthrough:
                # If the caller is waiting, then it is notified by output
                funcName = inputTuple[3]
@@ -1320,20 +1341,21 @@ class BlockDataManagerThread(threading.Thread):
             elif cmd == BDMINPUTTYPE.Reset:
                LOGINFO('Reset Requested')
                self.__reset()
-               
+            
+
             elif cmd == BDMINPUTTYPE.GoOnlineRequested:
-               LOGINFO('Go online requested')
+             #  LOGINFO('Go online requested')
                # This only sets the blkMode to what will later be
                # recognized as online-requested, or offline
-               self.prefMode = BLOCKCHAINMODE.Full
-               if self.bdm.isInitialized():
+              # self.prefMode = BLOCKCHAINMODE.Full
+              # if self.bdm.isInitialized():
                   # The BDM was started and stopped at one point, without
                   # being reset.  It can safely pick up from where it 
                   # left off
-                  self.__readBlockfileUpdates()
-               else:
-                  self.blkMode = BLOCKCHAINMODE.Uninitialized
-                  self.__startLoadBlockchain()
+               #   self.__readBlockfileUpdates()
+              # else:
+               self.blkMode = BLOCKCHAINMODE.Uninitialized
+               self.__startLoadBlockchain()
 
             elif cmd == BDMINPUTTYPE.GoOfflineRequested:
                LOGINFO('Go offline requested')

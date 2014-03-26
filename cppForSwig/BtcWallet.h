@@ -48,7 +48,7 @@ private:
 class BtcWallet
 {
 public:
-   BtcWallet(void) : bdmPtr_(NULL), lastScanned_(0) {}
+   BtcWallet(void) : bdmPtr_(NULL), lastScanned_(0), allScannedUpToBlk_(0) {}
    explicit BtcWallet(BlockDataManager_LevelDB* bdm)
       : bdmPtr_(bdm), lastScanned_(0) {}
    ~BtcWallet(void);
@@ -103,8 +103,7 @@ public:
    void scanTx(Tx & tx, 
                uint32_t txIndex = UINT32_MAX,
                uint32_t blktime = UINT32_MAX,
-               uint32_t blknum  = UINT32_MAX,
-               bool mainwallet = true);
+               uint32_t blknum  = UINT32_MAX);
 
    void scanNonStdTx(uint32_t    blknum, 
                      uint32_t    txidx, 
@@ -157,6 +156,36 @@ public:
    
    uint32_t lastScanned_;
 
+   //for 1:1 wallets
+   bool registerNewScrAddr(HashString scraddr);
+   bool registerImportedScrAddr(HashString scraddr, uint32_t createBlk);
+   void insertRegisteredTxIfNew(RegisteredTx & regTx)
+   {
+      // .insert() function returns pair<iter,bool> with bool true if inserted
+      if(registeredTxSet_.insert(regTx.getTxHash()).second == true)
+         registeredTxList_.push_back(regTx);
+   }
+   vector<TxIOPair> getHistoryForScrAddr(BinaryDataRef uniqKey, 
+                                          bool withMultisig=false);
+   //bool registerScrAddr(BinaryData scraddr, bool isNew, uint32_t blk0);
+   //bool BtcWallet::unregisterScrAddr(HashString scraddr);
+
+   void registerOutPoint(OutPoint &op) {registeredOutPoints_.insert(op);}
+   int  countOutPoints(OutPoint &op) {return registeredOutPoints_.count(op);}
+   void insertRegisteredTxIfNew(HashString txHash);
+   bool scrAddrIsRegistered(HashString scraddr)
+                     {return KEY_IN_MAP(scraddr, registeredScrAddrMap_);}
+   void scanRegisteredTxForWallet( uint32_t blkStart, uint32_t blkEnd);
+   void updateRegisteredScrAddrs(uint32_t newTopBlk);
+   uint32_t numBlocksToRescan(uint32_t endBlk);
+   RegisteredScrAddr* getRegisteredScrAddr(BinaryData& uniqKey)
+                        {return &registeredScrAddrMap_[uniqKey];}
+   map<BinaryData, RegisteredScrAddr> & getRegisteredScrAddrMap() {return registeredScrAddrMap_;}
+   void BtcWallet::eraseTx(BinaryData& txHash);
+
+   //end of 1:1 wallets
+
+
 private:
 	vector<LedgerEntry> & getEmptyLedger(void) { EmptyLedger_.clear(); return EmptyLedger_;}
 
@@ -164,6 +193,13 @@ private:
    vector<ScrAddrObj*>          scrAddrPtrs_;
    map<BinaryData, ScrAddrObj>  scrAddrMap_;
    map<OutPoint, TxIOPair>      txioMap_;
+
+   //for 1:1 wallets
+   map<BinaryData, RegisteredScrAddr> registeredScrAddrMap_;
+   list<RegisteredTx>                 registeredTxList_;
+   set<HashString>                    registeredTxSet_;
+   set<OutPoint>                      registeredOutPoints_;
+   uint32_t                           allScannedUpToBlk_; // one past top
 
    vector<LedgerEntry>          ledgerAllAddr_;  
    vector<LedgerEntry>          ledgerAllAddrZC_;  
@@ -174,8 +210,6 @@ private:
 
    BlockDataManager_LevelDB*    bdmPtr_;
    static vector<LedgerEntry>   EmptyLedger_; // just a null-reference object
-
-
 };
 
 #endif

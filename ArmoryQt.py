@@ -60,7 +60,7 @@ if OS_MACOSX:
 # All the twisted/networking functionality
 if OS_WINDOWS:
    from _winreg import *
-
+   
 
 class ArmoryMainWindow(QMainWindow):
    """ The primary Armory window """
@@ -151,6 +151,10 @@ class ArmoryMainWindow(QMainWindow):
       #Setup the signal to spawn progress dialogs from the main thread
       self.connect(self, SIGNAL('initTrigger') , self.initTrigger)
       self.connect(self, SIGNAL('spawnTrigger'), self.spawnTrigger)
+      
+      #push model BDM notify signal
+      self.connect(self, SIGNAL('cppNotify'), self.cppNotify)
+      cppPushTrigger.append(self.cppNotifySignal)
 
       # We want to determine whether the user just upgraded to a new version
       self.firstLoadNewVersion = False
@@ -685,6 +689,8 @@ class ArmoryMainWindow(QMainWindow):
       haveGUI[0] = True
       haveGUI[1] = self
       BDMcurrentBlock[1] = 1
+      
+      self.blkReceived = RightNow()
 
       if not SKIPWALLETCHECK: self.checkWallets()
 
@@ -2322,7 +2328,7 @@ class ArmoryMainWindow(QMainWindow):
          dispStr +=  '(Encrypted)' if wlt.useEncryption else '(No Encryption)'
          LOGINFO(dispStr)
          # Register all wallets with TheBDM
-         TheBDM.registerWallet( wlt.cppWallet )
+         TheBDM.bdm.registerWallet( wlt.cppWallet )
          TheBDM.bdm.registerWallet(wlt.cppWallet)
 
 
@@ -2495,10 +2501,6 @@ class ArmoryMainWindow(QMainWindow):
    def finishLoadBlockchain(self):
       # Now that the blockchain is loaded, let's populate the wallet info
       if TheBDM.isInitialized():
-         
-         for wltID in self.walletMap.iterkeys():
-            TheBDM.bdm.unregisterWallet(self.walletMap[wltID].cppWallet)
-
          self.currBlockNum = TheBDM.queued( lambda : TheBDM.bdm.blockchain().top().getBlockHeight() )
          self.setDashboardDetails()
          if not self.memPoolInit:
@@ -5668,7 +5670,7 @@ class ArmoryMainWindow(QMainWindow):
       didAffectUs = False
       for wltID in self.walletMap.keys():
          self.walletMap[wltID].syncWithBlockchainLite()
-         TheBDM.queued( lambda : TheBDM.bdm.rescanWalletZeroConf(self.walletMap[wltID].cppWallet))
+         #TheBDM.queued( lambda : TheBDM.bdm.rescanWalletZeroConf(self.walletMap[wltID].cppWallet))
          newLedgerSize = len(self.walletMap[wltID].getTxLedger())
          didAffectUs = prevLedgSize[wltID] != newLedgerSize
 
@@ -5676,6 +5678,72 @@ class ArmoryMainWindow(QMainWindow):
 
 
    #############################################################################
+   def cppNotify(self, action, args):
+
+      # Blockchain just finished loading.  Do lots of stuff...
+      if action == 'finishLoadBlockchain':
+         self.blkReceived = RightNow()
+         if self.needUpdateAfterScan:
+            LOGDEBUG('Running finishLoadBlockchain')
+            self.finishLoadBlockchain()
+            self.needUpdateAfterScan = False
+            self.setDashboardDetails()
+            
+      elif action == 'sweepAfterScanList':
+         if len(self.sweepAfterScanList)>0:
+            LOGDEBUG('SweepAfterScanList is not empty -- exec finishSweepScan()')
+            self.finishSweepScan()
+            for addr in self.sweepAfterScanList:
+               addr.binPrivKey32_Plain.destroy()
+            self.sweepAfterScanList = []
+            self.setDashboardDetails()     
+            
+      elif action == 'newZC':
+         # If we have new zero-conf transactions, scan them and update ledger
+         self.checkNewZeroConf()
+         self.setDashboardDetails()          
+
+      elif action == 'newblock':
+         newBlocks = args[0]
+         if newBlocks>0 and not TheBDM.isDirty():
+            # This says "after scan", but works when new blocks appear, too
+            self.currBlockNum = TheBDM.bdm.getBlockHeight()
+            TheBDM.updateWalletsAfterScan(wait=True)
+
+            prevLedgSize = dict([(wltID, len(self.walletMap[wltID].getTxLedger())) \
+                                                for wltID in self.walletMap.keys()])
+
+            print 'New Block: ', self.currBlockNum
+
+            self.ledgerModel.reset()
+
+            LOGINFO('New Block! : %d', self.currBlockNum)
+            didAffectUs = False
+
+            # LITE sync means it won't rescan if addresses have been imported
+            didAffectUs = self.newBlockSyncRescanZC(prevLedgSize)
+
+            if didAffectUs:
+               LOGINFO('New Block contained a transaction relevant to us!')
+               self.walletListChanged()
+               self.notifyOnSurpriseTx(self.currBlockNum-newBlocks, \
+                                       self.currBlockNum+1)
+
+            self.createCombinedLedger()
+            self.blkReceived  = RightNow()
+            self.writeSetting('LastBlkRecvTime', self.blkReceived)
+            self.writeSetting('LastBlkRecv',     self.currBlockNum)
+
+            if self.netMode==NETWORKMODE.Full:
+               LOGINFO('Current block number: %d', self.currBlockNum)
+               self.lblArmoryStatus.setText(\
+                  '<font color=%s>Connected (%s blocks)</font> ' % \
+                  (htmlColor('TextGreen'), self.currBlockNum))
+
+            # Update the wallet view to immediately reflect new balances
+            self.walletModel.reset()    
+            self.setDashboardDetails()   
+         
    #############################################################################
    def Heartbeat(self, nextBeatSec=1):
       """
@@ -5712,9 +5780,11 @@ class ArmoryMainWindow(QMainWindow):
       # TorrentDownloadManager
       # SatoshiDaemonManager
       # BlockDataManager
+      
       tdmState = TheTDM.getTDMState()
       sdmState = TheSDM.getSDMState()
       bdmState = TheBDM.getBDMState()
+
       #print '(SDM, BDM) State = (%s, %s)' % (sdmState, bdmState)
 
       self.processAnnounceData()
@@ -5772,7 +5842,7 @@ class ArmoryMainWindow(QMainWindow):
                if bdmState == 'Uninitialized':
                   LOGINFO('Starting load blockchain')
                   self.loadBlockchainIfNecessary()
-               elif bdmState == 'Offline':
+               if bdmState == 'Offline':
                   LOGERROR('Bitcoind is ready, but we are offline... ?')
                elif bdmState=='Scanning':
                   self.updateSyncProgress()
@@ -5801,24 +5871,9 @@ class ArmoryMainWindow(QMainWindow):
 
 
          if bdmState=='BlockchainReady':
-
-            #####
-            # Blockchain just finished loading.  Do lots of stuff...
-            if self.needUpdateAfterScan:
-               LOGDEBUG('Running finishLoadBlockchain')
-               self.finishLoadBlockchain()
-               self.needUpdateAfterScan = False
-               self.setDashboardDetails()
-
             #####
             # If we just rescanned to sweep an address, need to finish it
-            if len(self.sweepAfterScanList)>0:
-               LOGDEBUG('SweepAfterScanList is not empty -- exec finishSweepScan()')
-               self.finishSweepScan()
-               for addr in self.sweepAfterScanList:
-                  addr.binPrivKey32_Plain.destroy()
-               self.sweepAfterScanList = []
-               self.setDashboardDetails()
+
 
             #####
             # If we had initiated any wallet restoration scans, we need to add
@@ -5834,63 +5889,12 @@ class ArmoryMainWindow(QMainWindow):
 
 
             # Now we start the normal array of heartbeat operations
-            newBlocks = TheBDM.readBlkFileUpdate(wait=True)
+            #newBlocks = TheBDM.readBlkFileUpdate(wait=True)
             self.currBlockNum = TheBDM.queued( lambda : TheBDM.bdm.blockchain().top().getBlockHeight() )
             if isinstance(self.currBlockNum, int): BDMcurrentBlock[0] = self.currBlockNum
 
-            if not newBlocks:
-               newBlocks = 0
-
-
-            # If we have new zero-conf transactions, scan them and update ledger
-            if len(self.newZeroConfSinceLastUpdate)>0:
-               self.newZeroConfSinceLastUpdate.reverse()
-               for wltID in self.walletMap.keys():
-                  wlt = self.walletMap[wltID]
-                  TheBDM.queued(lambda : TheBDM.bdm.rescanWalletZeroConf(wlt.cppWallet))
-           
-            self.checkNewZeroConf()
-
             # Trigger any notifications, if we have them...
             self.doTheSystemTrayThing()
-
-            if newBlocks>0 and not TheBDM.isDirty():
-
-               # This says "after scan", but works when new blocks appear, too
-               TheBDM.updateWalletsAfterScan(wait=True)
-
-               prevLedgSize = dict([(wltID, len(self.walletMap[wltID].getTxLedger())) \
-                                                   for wltID in self.walletMap.keys()])
-
-               print 'New Block: ', self.currBlockNum
-
-               self.ledgerModel.reset()
-
-               LOGINFO('New Block! : %d', self.currBlockNum)
-               didAffectUs = False
-
-               # LITE sync means it won't rescan if addresses have been imported
-               didAffectUs = self.newBlockSyncRescanZC(prevLedgSize)
-
-               if didAffectUs:
-                  LOGINFO('New Block contained a transaction relevant to us!')
-                  self.walletListChanged()
-                  self.notifyOnSurpriseTx(self.currBlockNum-newBlocks, \
-                                          self.currBlockNum+1)
-
-               self.createCombinedLedger()
-               self.blkReceived  = RightNow()
-               self.writeSetting('LastBlkRecvTime', self.blkReceived)
-               self.writeSetting('LastBlkRecv',     self.currBlockNum)
-
-               if self.netMode==NETWORKMODE.Full:
-                  LOGINFO('Current block number: %d', self.currBlockNum)
-                  self.lblArmoryStatus.setText(\
-                     '<font color=%s>Connected (%s blocks)</font> ' % \
-                     (htmlColor('TextGreen'), self.currBlockNum))
-
-               # Update the wallet view to immediately reflect new balances
-               self.walletModel.reset()
 
             blkRecvAgo  = RightNow() - self.blkReceived
             #blkStampAgo = RightNow() - TheBDM.blockchain().top().getTimestamp()
@@ -6285,8 +6289,12 @@ class ArmoryMainWindow(QMainWindow):
          self.dlgCptWlt.show()
       else:
          self.dlgCptWlt.exec_()
-
-
+      
+   #########################################
+   def cppNotifySignal(self, action, arg):
+      self.emit(SIGNAL('cppNotify'), action, arg)
+         
+         
 ############################################
 class ArmoryInstanceListener(Protocol):
    def connectionMade(self):
@@ -6364,6 +6372,7 @@ def checkForAlreadyOpenError():
 
 
 ############################################
+
 if 1:
 
    import qt4reactor

@@ -22,6 +22,8 @@
 #include "LedgerEntry.h"
 #include "ScrAddrObj.h"
 #include "Blockchain.h"
+#include "BDM_mainthread.h"
+
 %}
 
 %include "std_string.i"
@@ -110,5 +112,6 @@ namespace std
 %include "LedgerEntry.h"
 %include "ScrAddrObj.h"
 %include "Blockchain.h"
+%include "BDM_mainthread.h"
 
 
