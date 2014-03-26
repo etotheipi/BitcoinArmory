@@ -2620,6 +2620,8 @@ class ArmoryMainWindow(QMainWindow):
          #self.walletMap[wltID].syncWithBlockchain(0)
          self.walletMap[wltID].detectHighestUsedIndex(True) # expand wlt if necessary
          self.walletMap[wltID].fillAddressPool()
+      TheBDM.scanRegisteredTxForWallet(self.cppLockboxWallet, wait=True)
+
 
    @TimeThisFunction
    def finishLoadBlockchain(self):
@@ -2650,6 +2652,9 @@ class ArmoryMainWindow(QMainWindow):
             self.walletMap[wltID].syncWithBlockchainLite(0)
             self.walletMap[wltID].detectHighestUsedIndex(True)  # expand wlt if necessary
             self.walletMap[wltID].fillAddressPool()
+
+         # The lockboxes are in a raw C++ wallet, not in the list above
+         TheBDM.scanRegisteredTxForWallet(self.cppLockboxWallet, 0, wait=True)
 
          self.createCombinedLedger()
          self.ledgerSize = len(self.combinedLedger)

@@ -449,6 +449,7 @@ class DlgLockboxEditor(ArmoryDialog):
 
       for i in range(boxObj.N):
          self.widgetMap[i]['EDT_PUBK'].setText(binary_to_hex(boxObj.pkList[i]))
+         self.widgetMap[i]['LBL_NAME'].setText(boxObj.commentList[i])
 
       def setCombo(cmb, val):
          for i in range(cmb.count()):
@@ -780,6 +781,10 @@ class DlgLockboxManager(ArmoryDialog):
 
 
    #############################################################################
+   def addedNewLockbox(self):
+      self.main.cppLockboxWallet.addScrAddress_1_(scraddr)
+
+   #############################################################################
    def singleClickLockbox(self, index=None, *args):
       lb = self.getSelectedLockbox()
       if lb:
@@ -952,6 +957,7 @@ class DlgImportLockbox(QDialog):
       self.setWindowTitle(tr('Import Lockbox'))
       self.setMinimumWidth(450)
 
+   #############################################################################
    def loadfile(self):
       boxPath = unicode(self.main.getFileLoad(tr('Load Lockbox')))
       if not boxPath:
@@ -960,6 +966,7 @@ class DlgImportLockbox(QDialog):
          data = f.read()
       self.txtBoxBlock.setPlainText(data)
 
+   #############################################################################
    def clickedDone(self):
       txt = str(self.txtBoxBlock.toPlainText()).strip()
       try:

@@ -17,6 +17,7 @@ from PyQt4.QtGui import *
 from CppBlockUtils import *
 from armoryengine.ALL import *
 from qtdefines import *
+from armoryengine.MultiSigUtils import calcLockboxID
 
 
 sys.path.append('..')
@@ -744,7 +745,12 @@ class TxOutDispModel(QAbstractTableModel):
             if stype in CPP_TXOUT_HAS_ADDRSTR:
                return QVariant(script_to_addrStr(txout.binScript))
             elif stype==CPP_TXOUT_MULTISIG:
-               return QVariant('[[Multiple]]')
+               lbID = calcLockboxID(txout.binScript)
+               lb = self.main.getLockboxByID(lbID)
+               if not lb:
+                  return QVariant('[[Multiple]]')
+               else:
+                  return QVariant('Lockbox %d-of-%d (%s)' % (lb.M, lb.N, lbID))
             elif stype==CPP_TXOUT_NONSTANDARD:
                return QVariant('[[Non-Standard]]')
       elif role==Qt.TextAlignmentRole:
