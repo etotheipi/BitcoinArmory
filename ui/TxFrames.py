@@ -208,16 +208,22 @@ class SendBitcoinsFrame(ArmoryFrame):
 
       if prefill:
          get = lambda s: prefill[s] if prefill.has_key(s) else ''
-         atype, addr160 = addrStr_to_hash160(get('address'))
          amount = get('amount')
          message = get('message')
          label = get('label')
-         self.addOneRecipient(addr160, amount, message, label)
+         if get('lockbox'):
+            plainStr = 'Lockbox[ID:%s]' % get('lockbox')
+            self.addOneRecipient(None, amount, message, None, plainStr)
+         else:
+            atype, addr160 = addrStr_to_hash160(get('address'))
+            self.addOneRecipient(addr160, amount, message, label)
 
-      elif not self.main == None and loadCount % donateFreq == (donateFreq - 1) and \
-         not loadCount == lastPestering and not dnaaDonate:
+      elif not self.main == None and \
+           loadCount % donateFreq == (donateFreq-1) and \
+           not loadCount == lastPestering and \
+           not dnaaDonate:
          result = MsgBoxWithDNAA(MSGBOX.Question, 'Please donate!', \
-            '<i>Armory</i> is the result of over 3,000 hours of development '
+            '<i>Armory</i> is the result of over 5,000 hours of development '
             'and dozens of late nights bug-hunting and testing.  Yet, this software '
             'has been given to you for free to benefit the greater Bitcoin '
             'community! '
@@ -264,8 +270,13 @@ class SendBitcoinsFrame(ArmoryFrame):
       
 
    #############################################################################
-   def addOneRecipient(self, addr160, amt, msg, label=''):
-      if len(label) > 0:
+   def addOneRecipient(self, addr160, amt, msg, label=None, plainText=None):
+      """
+      plainText arg can be used, and will override addr160.  It is for 
+      injecting either fancy script types, or special keywords into the 
+      address field, such as a lockbox ID
+      """
+      if label is not None:
          self.wlt.setComment(addr160, label)
 
       COLS = self.COLS
@@ -280,7 +291,10 @@ class SendBitcoinsFrame(ArmoryFrame):
       if amt:
          amt = coin2str(amt, maxZeros=2).strip()
 
-      self.widgetTable[-1][self.COLS.Addr].setText(hash160_to_addrStr(addr160))
+      if plainText is None:
+         plainText = hash160_to_addrStr(addr160)
+
+      self.widgetTable[-1][self.COLS.Addr].setText(plainText)
       self.widgetTable[-1][self.COLS.Addr].setCursorPosition(0)
       self.widgetTable[-1][self.COLS.Btc].setText(amt)
       self.widgetTable[-1][self.COLS.Btc].setCursorPosition(0)

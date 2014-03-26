@@ -62,7 +62,10 @@ def getMultiSigID(script):
    #M,N = getMultisigScriptInfo(script)[:2]
    hashedData = hash160(MAGIC_BYTES + script)
    #return '%d%d%s' % (M, N, binary_to_base58(hashedData)[:6])
-   return binary_to_base58(hashedData)[:8]
+
+   # Using letters 1:9 because the first letter has a minimal range of 
+   # values for 32-bytes converted to base58
+   return binary_to_base58(hashedData)[1:9]
 
 
 

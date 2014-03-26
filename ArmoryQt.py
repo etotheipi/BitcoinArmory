@@ -691,8 +691,8 @@ class ArmoryMainWindow(QMainWindow):
       execMSHack = lambda: DlgSelectMultiSigOption(self,self).exec_()
       execBrowse = lambda: DlgLockboxManager(self,self).exec_()
       actMultiHacker = self.createAction(tr('Multi-Key Lockboxes'), execMSHack)
-      actBrowseLockboxes = self.createAction(tr('Browse Lockboxes'), execBrowse)
-      self.menusList[MENUS.MultiSig].addAction(actMultiHacker)
+      actBrowseLockboxes = self.createAction(tr('Lockbox Manager'), execBrowse)
+      #self.menusList[MENUS.MultiSig].addAction(actMultiHacker)
       self.menusList[MENUS.MultiSig].addAction(actBrowseLockboxes)
 
 

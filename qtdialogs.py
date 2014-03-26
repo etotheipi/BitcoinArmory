@@ -4749,7 +4749,8 @@ class DlgConfirmSend(ArmoryDialog):
 
 ################################################################################
 class DlgSendBitcoins(ArmoryDialog):
-   def __init__(self, wlt, parent=None, main=None, prefill=None, wltIDList=None, onlyOfflineWallets=False):
+   def __init__(self, wlt, parent=None, main=None, prefill=None, 
+                              wltIDList=None, onlyOfflineWallets=False):
       super(DlgSendBitcoins, self).__init__(parent, main)
       layout = QVBoxLayout()
 
