@@ -1737,7 +1737,7 @@ vector<AddressBookEntry> BtcWallet::createAddressBook(void)
 //
 ////////////////////////////////////////////////////////////////////////////////
 BlockWriteBatcher::BlockWriteBatcher(InterfaceToLDB* iface)
-   : iface_(iface), dbUpdateSize_(0)
+   : iface_(iface), dbUpdateSize_(0), mostRecentBlockApplied_(0)
 {
 
 }
