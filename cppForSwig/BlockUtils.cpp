@@ -4197,8 +4197,6 @@ bool BlockDataManager_LevelDB::processNewHeadersInBlkFiles(uint32_t fnumStart,
       LOGERR << "Did we shut down last time on an orphan block?";
    }
 
-   iface_->startBatch(HEADERS);
-   
    map<HashString, BlockHeader>::iterator iter;
    for(iter = headerMap_.begin(); iter != headerMap_.end(); iter++)
    {
@@ -4207,7 +4205,6 @@ bool BlockDataManager_LevelDB::processNewHeadersInBlkFiles(uint32_t fnumStart,
       uint8_t dup = iface_->putBareHeader(sbh);
       iter->second.duplicateID_ = dup;  // make sure headerMap_ and DB agree
    }
-   iface_->commitBatch(HEADERS);
 
    return prevTopBlkStillValid;
 }
