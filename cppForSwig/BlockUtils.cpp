@@ -554,9 +554,19 @@ pair<bool,bool> BtcWallet::isMineBulkFilter(
    // 25-byte repr which is ridiculously fast
    for(uint32_t iout=0; iout<tx.getNumTxOut(); iout++)
    {
-      static uint8_t scriptLenFirstByte;
-      static HashString scrAddr(20);
+      uint32_t viStart  = tx.getTxOutOffset(iout) + 8;
+      uint32_t txOutEnd = tx.getTxOutOffset(iout+1);
+      BinaryRefReader brr(txStartPtr+viStart, txOutEnd-viStart);
+      uint32_t scrsz = (uint32_t)brr.get_var_int();
+      BinaryDataRef script = brr.get_BinaryDataRef(scrsz);
 
+      TXOUT_SCRIPT_TYPE txoType = BtcUtils::getTxOutScriptType(script);
+      BinaryData scrAddr = BtcUtils::getTxOutScrAddr(script, txoType);
+      
+      if(hasScrAddress(scrAddr))
+         return pair<bool,bool>(true,false);
+
+      /*
       uint8_t const * ptr = (txStartPtr + tx.getTxOutOffset(iout) + 8);
       scriptLenFirstByte = *(uint8_t*)ptr;
       if(scriptLenFirstByte == 25)
@@ -589,25 +599,16 @@ pair<bool,bool> BtcWallet::isMineBulkFilter(
          if( hasScrAddress(HASH160PREFIX + scrAddr) )
             return pair<bool,bool>(true,false);
       }
-      else if(withMultiSig)
+      */
+
+      if(withMultiSig && txoType==TXOUT_SCRIPT_MULTISIG)
       {
          // This branch may be compute-intensive, so it's opt-in only
          uint32_t viStart  = tx.getTxOutOffset(iout) + 8;
          uint32_t txOutEnd = tx.getTxOutOffset(iout+1);
          if(txStartPtr[txOutEnd-1] == OP_CHECKMULTISIG)
          {
-            BinaryRefReader brr(ptr, txOutEnd-viStart);
-            uint64_t scrsz = brr.get_var_int();
-            BinaryDataRef script = brr.get_BinaryDataRef((uint32_t)scrsz);
-   
-            BinaryData msigkey = BtcUtils::getMultisigUniqueKey(script); 
-            if(msigkey.getSize() == 0)
-               continue;
-        
-            if(hasScrAddress(MSIGPREFIX + msigkey))
-               return pair<bool,bool>(true,false);
-
-            BinaryRefReader brrmsig(msigkey);
+            BinaryRefReader brrmsig(scrAddr);
             uint8_t M = brrmsig.get_uint8_t();
             uint8_t N = brrmsig.get_uint8_t();
             for(uint8_t a=0; a<N; a++)
@@ -833,6 +834,9 @@ void BlockDataManager_LevelDB::registeredScrAddrScan(
       if(scrAddrIsRegistered(scrAddr))
       {
          HashString txHash = BtcUtils::getHash256(txptr, txSize);
+         //if(txoType==TXOUT_SCRIPT_MULTISIG)
+            //LOGINFO << "Found registered multisig script! " << txHash.toHexStr();
+
          insertRegisteredTxIfNew(txHash);
          registeredOutPoints_.insert(OutPoint(txHash, iout));
       }
@@ -933,6 +937,10 @@ void BlockDataManager_LevelDB::registeredScrAddrScan_IterSafe(
 
       if(scrAddrIsRegistered(scrAddr))
       {
+         if(txoType==TXOUT_SCRIPT_MULTISIG)
+            LOGINFO << "Found registered multisig script! " 
+                    << stx.thisHash_.toHexStr();
+
          insertRegisteredTxIfNew(tx.getTxRef(),
                                  stx.thisHash_,
                                  stx.blockHeight_,
@@ -992,6 +1000,7 @@ void BtcWallet::scanTx(Tx & tx,
    pair<bool,bool> boolPair = isMineBulkFilter(tx);
    bool txIsRelevant  = boolPair.first;
    bool anyTxInIsOurs = boolPair.second;
+
 
    if( !txIsRelevant )
       return;
@@ -1124,6 +1133,9 @@ void BtcWallet::scanTx(Tx & tx,
       //if( addrIter != scrAddrMap_.end())
       if(ITER_IN_MAP(addrIter, scrAddrMap_))
       {
+         //if( txout.getScriptType() == TXOUT_SCRIPT_MULTISIG )
+            //LOGINFO << "ScanTx on registered multisig script! ";
+
          thisAddrPtr = &addrIter->second;
          // If we got here, at least this TxOut is for this address.
          // But we still need to find out if it's new and update
@@ -3721,7 +3733,7 @@ void BlockDataManager_LevelDB::scanRegisteredTxForWallet( BtcWallet & wlt,
 
 	if(wlt.lastScanned_ > blkStart) blkStart = wlt.lastScanned_;
    bool isMainWallet = true;
-   if(&wlt != (*registeredWallets_.begin())) isMainWallet = false;
+   //if(&wlt != (*registeredWallets_.begin())) isMainWallet = false;
 
    // Make sure RegisteredTx objects have correct data, then sort.
    // TODO:  Why did I not need this with the MMAP blockchain?  Somehow
@@ -3869,6 +3881,13 @@ vector<TxIOPair> BlockDataManager_LevelDB::getHistoryForScrAddr(
 {
    StoredScriptHistory ssh;
    iface_->getStoredScriptHistory(ssh, uniqKey);
+
+   // "withMultisig" usually refers to whether we want to get the
+   // multisig outputs associated with a non-multisig scrAddr.  However,
+   // if this scrAddr is, itself, a multisig scrAddr, we obviously 
+   // should include its direct history
+   if(uniqKey[0]==SCRIPT_PREFIX_MULTISIG)
+      withMultisig = true;
 
    map<BinaryData, RegisteredScrAddr>::iterator iter;
    iter = registeredScrAddrMap_.find(uniqKey);
