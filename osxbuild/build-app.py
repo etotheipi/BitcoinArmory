@@ -24,7 +24,7 @@ twistedVer = '13.2.0'
 libpngVer  = '1.6.8'
 qtVer      = '4.8.5'
 sipVer     = '4.15.4'
-pyQtVer    = '4.10.3'
+pyQtVer    = '4.10.4'
 LOGFILE    = 'build-app.log.txt'
 LOGPATH    = path.abspath( path.join(os.getcwd(), LOGFILE))
 ARMORYDIR  = '..'
@@ -513,7 +513,7 @@ def compile_qt():
    copyfile(src, dst)
    #for patch in ['Qt-p1', 'Qt-p2', 'Qt-p3']:
    #   execAndWait('patch -p1 < ../../downloads/' + tarfilesToDL[patch], cwd=qtBuildDir)
-   execAndWait('patch -p1 < ../../../qt-maverick-stability.patch', cwd=qtBuildDir)
+   #execAndWait('patch -p1 < ../../../qt-maverick-stability.patch', cwd=qtBuildDir)
 
    ##### Configure
    command  = './configure -prefix "%s" -system-zlib -confirm-license -opensource ' 
@@ -553,7 +553,7 @@ def install_qt():
       execAndWait('make install', cwd=qtBuildDir)
 
       newcwd = path.join(APPDIR, 'Contents/Frameworks')
-      for mod in ['QtCore', 'QtGui', 'QtXml']:
+      for mod in ['QtCore', 'QtGui', 'QtXml', 'QtNetwork']:
          src = path.join(qtInstDir, 'lib', mod+'.framework')
          dst = path.join(APPDIR, 'Contents/Frameworks', mod+'.framework')
          if path.exists(dst):
@@ -672,7 +672,6 @@ def compile_armory():
 ################################################################################
 def make_resources():
    "Populate the Resources folder."
-
    cont = path.join(APPDIR, 'Contents')
    copyfile('Info.plist', cont)
 
