@@ -516,9 +516,9 @@ bool BtcWallet::hasScrAddress(HashString const & scrAddr) const
 
 /////////////////////////////////////////////////////////////////////////////
 pair<bool,bool> BtcWallet::isMineBulkFilter(Tx & tx, 
-                                            bool withMultiSig) const
+                                            bool withSecondOrderMultisig) const
 {
-   return isMineBulkFilter(tx, txioMap_, withMultiSig);
+   return isMineBulkFilter(tx, txioMap_, withSecondOrderMultisig);
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -527,7 +527,7 @@ pair<bool,bool> BtcWallet::isMineBulkFilter(Tx & tx,
 pair<bool,bool> BtcWallet::isMineBulkFilter(
                                  Tx & tx, 
                                  map<OutPoint, TxIOPair> const & txiomap,
-                                 bool withMultiSig) const
+                                 bool withSecondOrderMultisig) const
 {
    // Since 99.999%+ of all transactions are not ours, let's do the 
    // fastest bulk filter possible, even though it will add 
@@ -546,89 +546,25 @@ pair<bool,bool> BtcWallet::isMineBulkFilter(
          return pair<bool,bool>(true,true);
    }
 
-   // TODO: Consider replacing this with the getTxOutScrAddr method.
-   //       MIGHT be slightly slower, but much more robust and centralizes
-   //       the logic to BtcUtils.getTxOutScrAddr.
-   // TxOuts are a little more complicated, because we have to process each
-   // different type separately.  Nonetheless, 99% of transactions use the
-   // 25-byte repr which is ridiculously fast
+   // Simply convert the TxOut scripts to scrAddrs and check if registered
    for(uint32_t iout=0; iout<tx.getNumTxOut(); iout++)
    {
-      uint32_t viStart  = tx.getTxOutOffset(iout) + 8;
-      uint32_t txOutEnd = tx.getTxOutOffset(iout+1);
-      BinaryRefReader brr(txStartPtr+viStart, txOutEnd-viStart);
-      uint32_t scrsz = (uint32_t)brr.get_var_int();
-      BinaryDataRef script = brr.get_BinaryDataRef(scrsz);
-
-      TXOUT_SCRIPT_TYPE txoType = BtcUtils::getTxOutScriptType(script);
-      BinaryData scrAddr = BtcUtils::getTxOutScrAddr(script, txoType);
-      
+      TxOut txout = tx.getTxOutCopy(iout);
+      BinaryData scrAddr = txout.getScrAddressStr();
       if(hasScrAddress(scrAddr))
          return pair<bool,bool>(true,false);
 
-      /*
-      uint8_t const * ptr = (txStartPtr + tx.getTxOutOffset(iout) + 8);
-      scriptLenFirstByte = *(uint8_t*)ptr;
-      if(scriptLenFirstByte == 25)
+      // It's still possible this is a multisig addr involving one of our 
+      // existing scrAddrs, even if we aren't explicitly looking for this multisig
+      if(withSecondOrderMultisig && txout.getScriptType()==TXOUT_SCRIPT_MULTISIG)
       {
-         // Std TxOut with 25-byte script
-         scrAddr.copyFrom(ptr+4, 20);
-         if( hasScrAddress(HASH160PREFIX + scrAddr) )
-            return pair<bool,bool>(true,false);
+         BinaryRefReader brrmsig(scrAddr);
+         uint8_t M = brrmsig.get_uint8_t();
+         uint8_t N = brrmsig.get_uint8_t();
+         for(uint8_t a=0; a<N; a++)
+            if(hasScrAddress(HASH160PREFIX + brrmsig.get_BinaryDataRef(20)))
+               return pair<bool,bool>(true,false);
       }
-      if(scriptLenFirstByte == 23)
-      {
-         // Std P2SH with 23-byte script
-         scrAddr.copyFrom(ptr+3, 20);
-         if( hasScrAddress(P2SHPREFIX + scrAddr) )
-            return pair<bool,bool>(true,false);
-      }
-      else if(scriptLenFirstByte==67)
-      {
-         // Std spend-coinbase TxOut script
-         static HashString scrAddr(20);
-         BtcUtils::getHash160_NoSafetyCheck(ptr+2, 65, scrAddr);
-         if( hasScrAddress(HASH160PREFIX + scrAddr) )
-            return pair<bool,bool>(true,false);
-      }
-      else if(scriptLenFirstByte==35)
-      {
-         // Std spend-coinbase TxOut script
-         static HashString scrAddr(20);
-         BtcUtils::getHash160_NoSafetyCheck(ptr+2, 33, scrAddr);
-         if( hasScrAddress(HASH160PREFIX + scrAddr) )
-            return pair<bool,bool>(true,false);
-      }
-      */
-
-      if(withMultiSig && txoType==TXOUT_SCRIPT_MULTISIG)
-      {
-         // This branch may be compute-intensive, so it's opt-in only
-         uint32_t viStart  = tx.getTxOutOffset(iout) + 8;
-         uint32_t txOutEnd = tx.getTxOutOffset(iout+1);
-         if(txStartPtr[txOutEnd-1] == OP_CHECKMULTISIG)
-         {
-            BinaryRefReader brrmsig(scrAddr);
-            uint8_t M = brrmsig.get_uint8_t();
-            uint8_t N = brrmsig.get_uint8_t();
-            for(uint8_t a=0; a<N; a++)
-               if(hasScrAddress(HASH160PREFIX + brr.get_BinaryDataRef(20)))
-                  return pair<bool,bool>(true,false);
-         }
-      }
-
-       
-      // Try to flag non-standard scripts
-      //TxOut txout = tx.getTxOutCopy(iout);
-      //for(uint32_t i=0; i<scrAddrPtrs_.size(); i++)
-      //{
-         //ScrAddrObj & thisAddr = *(scrAddrPtrs_[i]);
-         //HashString const & scraddr = thisAddr.getScrAddr();
-         //if(txout.getScriptRef().find(thisAddr.getScrAddr()) > -1)
-            //scanNonStdTx(0, 0, tx, iout, thisAddr);
-         //continue;
-      //}
-      //break;
    }
 
    // If we got here, it's either non std or not ours
@@ -937,9 +873,9 @@ void BlockDataManager_LevelDB::registeredScrAddrScan_IterSafe(
 
       if(scrAddrIsRegistered(scrAddr))
       {
-         if(txoType==TXOUT_SCRIPT_MULTISIG)
-            LOGINFO << "Found registered multisig script! " 
-                    << stx.thisHash_.toHexStr();
+         //if(txoType==TXOUT_SCRIPT_MULTISIG)
+            //LOGINFO << "Found registered multisig script! " 
+                    //<< stx.thisHash_.toHexStr();
 
          insertRegisteredTxIfNew(tx.getTxRef(),
                                  stx.thisHash_,
@@ -1324,7 +1260,6 @@ LedgerEntry BtcWallet::calcLedgerEntryForTx(Tx & tx)
       if(op.getTxHashRef() == BtcUtils::EmptyHash_)
          isCoinbaseTx = true;
 
-      //if(txioMap_.find(op) != txioMap_.end())
       if(KEY_IN_MAP(op, txioMap_))
       {
          anyTxInIsOurs = true;
@@ -1333,50 +1268,13 @@ LedgerEntry BtcWallet::calcLedgerEntryForTx(Tx & tx)
    }
 
 
-   // TxOuts are a little more complicated, because we have to process each
-   // different type separately.  Nonetheless, 99% of transactions use the
-   // 25-byte repr which is ridiculously fast
-   //    TODO:  update this for multisig and P2SH 
+   // This became much simpler once we implemented arbirtrary scrAddrs
    HashString scraddr(21);
    for(uint32_t iout=0; iout<tx.getNumTxOut(); iout++)
    {
-      /*
-      static uint8_t scriptLenFirstByte;
-
-      uint8_t const * ptr = txStartPtr + tx.getTxOutOffset(iout);
-      scriptLenFirstByte = *(uint8_t*)(ptr+8);
-      if(scriptLenFirstByte == 25)
-      {
-         // Std TxOut with 25-byte script
-         scraddr.copyFrom(ptr+12, 20);
-         if( hasScrAddress(HASH160PREFIX + scraddr) )
-            totalValue += READ_UINT64_LE(ptr);
-         else
-            allTxOutIsOurs = false;
-      }
-      else if(scriptLenFirstByte==67)
-      {
-         // Std spend-coinbase TxOut script
-         BtcUtils::getHash160_NoSafetyCheck(ptr+10, 65, scraddr);
-         if( hasScrAddress(HASH160PREFIX + scraddr) )
-            totalValue += READ_UINT64_LE(ptr);
-         else
-            allTxOutIsOurs = false;
-      }
-      else
-         allTxOutIsOurs = false;
-      */
-
-      uint32_t viStart  = tx.getTxOutOffset(iout) + 8;
-      uint32_t txOutEnd = tx.getTxOutOffset(iout+1);
-      BinaryRefReader brr(txStartPtr+viStart, txOutEnd-viStart);
-      uint32_t scrsz = (uint32_t)brr.get_var_int();
-      BinaryDataRef script = brr.get_BinaryDataRef(scrsz);
-
-      TXOUT_SCRIPT_TYPE txoType = BtcUtils::getTxOutScriptType(script);
-      BinaryData scrAddr = BtcUtils::getTxOutScrAddr(script, txoType);
-      if(hasScrAddress(scrAddr))
-         totalValue += READ_UINT64_LE(txStartPtr+viStart-8);
+      uint32_t valOffset  = tx.getTxOutOffset(iout);
+      if(hasScrAddress(tx.getTxOutCopy(iout).getScrAddressStr()))
+         totalValue += READ_UINT64_LE(txStartPtr + valOffset);
       else
          allTxOutIsOurs = false;
    }
