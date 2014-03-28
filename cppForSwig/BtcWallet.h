@@ -170,10 +170,10 @@ public:
    //bool registerScrAddr(BinaryData scraddr, bool isNew, uint32_t blk0);
    //bool BtcWallet::unregisterScrAddr(HashString scraddr);
 
-   void registerOutPoint(OutPoint &op) {registeredOutPoints_.insert(op);}
-   int  countOutPoints(OutPoint &op) {return registeredOutPoints_.count(op);}
+   void registerOutPoint(const OutPoint &op) {registeredOutPoints_.insert(op);}
+   int  countOutPoints(const OutPoint &op) const {return registeredOutPoints_.count(op);}
    void insertRegisteredTxIfNew(HashString txHash);
-   bool scrAddrIsRegistered(HashString scraddr)
+   bool scrAddrIsRegistered(HashString scraddr) const
                      {return KEY_IN_MAP(scraddr, registeredScrAddrMap_);}
    void scanRegisteredTxForWallet( uint32_t blkStart, uint32_t blkEnd);
    void updateRegisteredScrAddrs(uint32_t newTopBlk);
@@ -181,7 +181,7 @@ public:
    RegisteredScrAddr* getRegisteredScrAddr(BinaryData& uniqKey)
                         {return &registeredScrAddrMap_[uniqKey];}
    map<BinaryData, RegisteredScrAddr> & getRegisteredScrAddrMap() {return registeredScrAddrMap_;}
-   void BtcWallet::eraseTx(BinaryData& txHash);
+   void eraseTx(const BinaryData& txHash);
 
    //end of 1:1 wallets
 

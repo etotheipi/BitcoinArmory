@@ -1,11 +1,21 @@
 #include "BDM_mainthread.h"
+#include "pthread.h"
 
-BDM_CallBack* Caller::_callback = 0;
-BlockDataManager_LevelDB *theBDM;
-Caller call;
+#include <unistd.h>
 
-void* run(void *arg)
+struct ThreadParams
 {
+   BlockDataManager_LevelDB *bdm;
+   BDM_CallBack *callback;
+};
+
+static void* run(void *_threadparams)
+{
+   ThreadParams *const threadparams = static_cast<ThreadParams*>(_threadparams);
+   BlockDataManager_LevelDB *const theBDM = threadparams->bdm;
+   
+   BDM_CallBack *const callback = threadparams->callback;
+   
    uint32_t currentBlock = theBDM->getBlockHeight();
    uint32_t newBlocks;
 
@@ -17,7 +27,7 @@ void* run(void *arg)
          theBDM->rescanZC_ = false;
 
          //notify ZC
-         call.call(3, 0);
+         callback->run(3, 0);
       }
 
       if(newBlocks = theBDM->readBlkFileUpdate())
@@ -29,32 +39,45 @@ void* run(void *arg)
          currentBlock = theBDM->getBlockHeight();
          
          //notify Python that new blocks have been parsed
-         call.call(4, newBlocks);
+         callback->run(4, newBlocks);
       }
 
+#ifdef _WIN32_
       Sleep(1);
+#else
+      sleep(1);
+#endif
    }
 
    theBDM->saveScrAddrHistories();
    theBDM->reset();
 
+   delete threadparams;
+   
    return 0;
 }
 
-void startBDM(int mode)
+BlockDataManager_LevelDB * startBDM(int mode, BDM_CallBack *callback)
 {
-   theBDM =  &(BlockDataManager().getBDM());
-
+   ThreadParams *const tp = new ThreadParams;
+   tp->bdm = &BlockDataManager().getBDM();
+   tp->callback = callback;
+   
    //don't call this unless you're trying to get online
-   if(!mode) theBDM->doInitialSyncOnLoad();
-   else if(mode==1) theBDM->doInitialSyncOnLoad_Rescan();
-   else if(mode==2) theBDM->doInitialSyncOnLoad_Rebuild();
-   theBDM->saveScrAddrHistories();
+   if(!mode) tp->bdm->doInitialSyncOnLoad();
+   else if(mode==1) tp->bdm->doInitialSyncOnLoad_Rescan();
+   else if(mode==2) tp->bdm->doInitialSyncOnLoad_Rebuild();
+   tp->bdm->saveScrAddrHistories();
 
    //push 'bdm is ready' to Python
-   call.call(1, 0);
+   callback->run(1, 0);
 
    //start maintenance thread
    pthread_t tID;
-   pthread_create(&tID, 0, run, 0);
+   pthread_create(&tID, 0, run, tp);
+   
+   return &BlockDataManager().getBDM();
 }
+
+// kate: indent-width 3; replace-tabs on;
+

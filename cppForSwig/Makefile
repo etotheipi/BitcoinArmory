@@ -20,7 +20,8 @@ LINK = $(CXX)
 OBJS = UniversalTimer.o BinaryData.o leveldb_wrapper.o StoredBlockObj.o \
 	BtcUtils.o BlockObj.o BlockUtils.o EncryptionUtils.o Util.o \
 	BtcWallet.o LedgerEntry.o ScrAddrObj.o Blockchain.o BlockWriteBatcher.o \
-	libcryptopp.a libleveldb.a
+	BDM_mainthread.o \
+	libcryptopp.a libleveldb.a 
 
 #if python is specified, use it
 ifndef PYVER

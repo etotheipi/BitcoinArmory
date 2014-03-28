@@ -39,8 +39,7 @@ class PySide_CallBack(Cpp.BDM_CallBack):
       cppPushTrigger[0](act, arglist)
 
 #register callback
-caller = Cpp.Caller()
-caller.setCallback(PySide_CallBack().__disown__())
+callback = PySide_CallBack().__disown__()
 
 def getCurrTimeAndBlock():
    time0 = long(RightNowUTC())
@@ -917,11 +916,11 @@ class BlockDataManagerThread(threading.Thread):
 
       # Now we actually startup the BDM and run with it
       if CLI_OPTIONS.rebuild:
-         Cpp.startBDM(2)
+         Cpp.startBDM(2, callback)
       elif CLI_OPTIONS.rescan:
-         Cpp.startBDM(1)
+         Cpp.startBDM(1, callback)
       else:
-         Cpp.startBDM(0)
+         Cpp.startBDM(0, callback)
 
       # The above op populates the BDM with all relevent tx, but those tx
       # still need to be scanned to collect the wallet ledger and UTXO sets

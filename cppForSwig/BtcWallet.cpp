@@ -1301,7 +1301,7 @@ vector<TxIOPair> BtcWallet::getHistoryForScrAddr(
    return outVect;
 }
 
-void BtcWallet::eraseTx(BinaryData& txHash)
+void BtcWallet::eraseTx(const BinaryData& txHash)
 {
    if(registeredTxSet_.erase(txHash))
    {

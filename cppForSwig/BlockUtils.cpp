@@ -2913,7 +2913,7 @@ uint32_t BlockDataManager_LevelDB::readBlkFileUpdate(void)
                ++i
             )
             {
-               eraseTx((BinaryData)i->thisHash_);
+               eraseTx(i->thisHash_);
             }
             for (
                list<StoredTx>::const_iterator i = reorg.addedTxes().begin();
@@ -3661,7 +3661,7 @@ vector<TxIOPair> BlockDataManager_LevelDB::getHistoryForScrAddr(BinaryDataRef un
    return rt_TxIOPair;
 }
 
-void BlockDataManager_LevelDB::eraseTx(BinaryData& txHash)
+void BlockDataManager_LevelDB::eraseTx(const BinaryData& txHash)
 {
    set<BtcWallet*>::iterator wltIter;
 
