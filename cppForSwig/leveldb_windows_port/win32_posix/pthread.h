@@ -49,6 +49,7 @@ int pthread_cond_init(pthread_cond_t *cond, const pthread_condattr_t *attr);
 int pthread_cond_signal(pthread_cond_t *cond);
 int pthread_cond_broadcast(pthread_cond_t *cond);
 int pthread_cond_wait(pthread_cond_t *cond, pthread_mutex_t *mu);
+int pthread_cond_timedwait(pthread_cond_t * cond, pthread_mutex_t *mutex, const ULONGLONG *tickcount64);
 int pthread_cond_destroy(pthread_cond_t *cond);
 
 DWORD pthread_self();

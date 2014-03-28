@@ -12,6 +12,7 @@
 
 %module(directors="1") CppBlockUtils
 %feature("director") BDM_CallBack;
+%feature("director") BDM_Inject;
 
 %{
 #define SWIG_PYTHON_EXTRA_NATIVE_CONTAINERS
