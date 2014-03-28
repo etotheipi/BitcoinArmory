@@ -15,12 +15,10 @@ static void* run(void *_threadparams)
    BlockDataManager_LevelDB *const theBDM = threadparams->bdm;
    
    BDM_CallBack *const callback = threadparams->callback;
-   
-   uint32_t currentBlock = theBDM->getBlockHeight();
-   uint32_t newBlocks;
 
    while(theBDM->doRun())
    {
+      uint32_t currentBlock = theBDM->getBlockHeight();
       if(theBDM->rescanZC_)
       {
          theBDM->rescanWalletZeroConf();
@@ -30,6 +28,7 @@ static void* run(void *_threadparams)
          callback->run(3, 0);
       }
 
+      uint32_t newBlocks;
       if(newBlocks = theBDM->readBlkFileUpdate())
       {
          //scan registered tx
