@@ -15,7 +15,7 @@ vector<LedgerEntry> BtcWallet::EmptyLedger_(0);
 /////////////////////////////////////////////////////////////////////////////
 BtcWallet::~BtcWallet(void)
 {
-   if(bdmPtr_!=NULL)
+   if(bdmPtr_)
       bdmPtr_->unregisterWallet(this);
 }
 
@@ -1318,3 +1318,45 @@ void BtcWallet::eraseTx(const BinaryData& txHash)
       }
    }
 }
+
+void BtcWallet::fetchWalletRegisteredScrAddrData(InterfaceToLDB* iface)
+{
+   SCOPED_TIMER("fetchWalletRegisteredScrAddrData");
+
+   uint32_t numAddr = getNumScrAddr();
+   for(uint32_t s=0; s<numAddr; s++)
+   {
+      ScrAddrObj & scrAddrObj = getScrAddrObjByIndex(s);
+      fetchWalletRegisteredScrAddrData(iface, scrAddrObj.getScrAddr());
+   }
+}
+
+void BtcWallet::fetchWalletRegisteredScrAddrData(
+   InterfaceToLDB* iface,
+   BinaryData const & scrAddr
+)
+{
+   const vector<TxIOPair> hist = getHistoryForScrAddr(scrAddr);
+
+   for(uint32_t i=0; i<hist.size(); i++)
+   {
+      // Fetch the full tx of the arriving coins
+      TxRef txref = hist[i].getTxRefOfOutput();
+      StoredTx stx;
+      iface->getStoredTx(stx, txref.getDBKey());
+      RegisteredTx regTx(txref, stx.thisHash_, stx.blockHeight_, stx.txIndex_);
+      insertRegisteredTxIfNew(regTx);
+      registerOutPoint(hist[i].getOutPoint());
+
+      txref = hist[i].getTxRefOfInput();
+      if(txref.isNull())
+         continue;
+
+      // If the coins were spent, also fetch the tx in which they were spent
+      iface->getStoredTx(stx, txref.getDBKey());
+      regTx = RegisteredTx(txref, stx.thisHash_, stx.blockHeight_, stx.txIndex_);
+      insertRegisteredTxIfNew(regTx);
+   }
+}
+
+// kate: indent-width 3; replace-tabs on;

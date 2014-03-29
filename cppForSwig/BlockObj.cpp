@@ -879,7 +879,7 @@ TxIOPair::TxIOPair(BinaryData txOutKey8B, uint64_t val) :
 }
 
 //////////////////////////////////////////////////////////////////////////////
-HashString TxIOPair::getTxHashOfOutput(void)
+HashString TxIOPair::getTxHashOfOutput(void) const
 {
    if(!hasTxOut())
       return BtcUtils::EmptyHash_;
@@ -890,7 +890,7 @@ HashString TxIOPair::getTxHashOfOutput(void)
 }
 
 //////////////////////////////////////////////////////////////////////////////
-HashString TxIOPair::getTxHashOfInput(void)
+HashString TxIOPair::getTxHashOfInput(void) const
 {
    if(!hasTxIn())
       return BtcUtils::EmptyHash_;

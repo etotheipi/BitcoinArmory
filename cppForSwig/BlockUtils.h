@@ -364,9 +364,6 @@ public:
    
    //for 1:1 wallets
    void fetchWalletRegisteredScrAddrData(void);
-   void fetchWalletRegisteredScrAddrData(BtcWallet & myWallet);
-   void fetchWalletRegisteredScrAddrData(BtcWallet &wlt, 
-                                         BinaryData const & scrAddr);
    const BlockHeader* getHeaderPtrForTx(Tx& theTx)
                      {return &blockchain_.getHeaderPtrForTx(theTx);}
    bool isZcEnabled() {return zcEnabled_;}

@@ -625,7 +625,7 @@ public:
    TxRef     getTxRefOfInput(void) const  { return txRefOfInput_;  }
    uint32_t  getIndexOfOutput(void) const { return indexOfOutput_; }
    uint32_t  getIndexOfInput(void) const  { return indexOfInput_;  }
-   OutPoint  getOutPoint(void) { return OutPoint(getTxHashOfOutput(),indexOfOutput_);}
+   OutPoint  getOutPoint(void) const { return OutPoint(getTxHashOfOutput(),indexOfOutput_);}
 
    pair<bool,bool> reassessValidity(void);
    bool  isTxOutFromSelf(void) const  { return isTxOutFromSelf_; }
@@ -641,8 +641,8 @@ public:
                { return txRefOfInput_.getDBKeyOfChild(indexOfInput_);}
 
    //////////////////////////////////////////////////////////////////////////////
-   BinaryData    getTxHashOfInput(void);
-   BinaryData    getTxHashOfOutput(void);
+   BinaryData    getTxHashOfInput(void) const;
+   BinaryData    getTxHashOfOutput(void) const;
 
    bool setTxIn   (TxRef  txref, uint32_t index);
    bool setTxIn   (BinaryData dbKey8B);

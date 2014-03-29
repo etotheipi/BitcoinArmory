@@ -48,9 +48,8 @@ private:
 class BtcWallet
 {
 public:
-   BtcWallet(void) : bdmPtr_(NULL), lastScanned_(0), allScannedUpToBlk_(0) {}
-   explicit BtcWallet(BlockDataManager_LevelDB* bdm)
-      : bdmPtr_(bdm), lastScanned_(0) {}
+   BtcWallet(BlockDataManager_LevelDB* bdm=0)
+      : bdmPtr_(bdm), lastScanned_(0), allScannedUpToBlk_(0) {}
    ~BtcWallet(void);
 
    /////////////////////////////////////////////////////////////////////////////
@@ -180,10 +179,18 @@ public:
    uint32_t numBlocksToRescan(uint32_t endBlk);
    RegisteredScrAddr* getRegisteredScrAddr(BinaryData& uniqKey)
                         {return &registeredScrAddrMap_[uniqKey];}
-   map<BinaryData, RegisteredScrAddr> & getRegisteredScrAddrMap() {return registeredScrAddrMap_;}
+   const map<BinaryData, RegisteredScrAddr>& getRegisteredScrAddrMap() const
+      { return registeredScrAddrMap_; }
+      
    void eraseTx(const BinaryData& txHash);
 
    //end of 1:1 wallets
+   
+   void fetchWalletRegisteredScrAddrData(InterfaceToLDB* iface);
+   void fetchWalletRegisteredScrAddrData(
+      InterfaceToLDB* iface_,
+      BinaryData const & scrAddr
+   );
 
 
 private:
@@ -213,3 +220,4 @@ private:
 };
 
 #endif
+// kate: indent-width 3; replace-tabs on;

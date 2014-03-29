@@ -1496,7 +1496,7 @@ void BlockDataManager_LevelDB::scanBlockchainForTx(BtcWallet & myWallet,
    //        and register scraddr data that is between those two blocks).
    //        At the moment, it is 
    //if(fetchFirst && DBUtils.getArmoryDbType()!=ARMORY_DB_BARE)
-   fetchWalletRegisteredScrAddrData(myWallet);
+   myWallet.fetchWalletRegisteredScrAddrData(iface_);
    
    // Check whether we can get everything we need from the registered tx list
    endBlknum = min(endBlknum, blockchain_.top().getBlockHeight()+1);
@@ -2111,51 +2111,9 @@ void BlockDataManager_LevelDB::fetchWalletRegisteredScrAddrData(void)
    for(wltIter  = registeredWallets_.begin();
        wltIter != registeredWallets_.end();
        wltIter++)
-	{
-		BtcWallet* wlt = *wltIter;
-      fetchWalletRegisteredScrAddrData(*wlt);
-	}
-}
-
-void BlockDataManager_LevelDB::fetchWalletRegisteredScrAddrData(
-                                                       BtcWallet & myWallet)
-{
-   SCOPED_TIMER("fetchWalletRegisteredScrAddrData");
-
-   uint32_t numAddr = myWallet.getNumScrAddr();
-   for(uint32_t s=0; s<numAddr; s++)
    {
-      ScrAddrObj & scrAddrObj = myWallet.getScrAddrObjByIndex(s);
-      fetchWalletRegisteredScrAddrData(myWallet, scrAddrObj.getScrAddr());
-   }
-}
-
-void BlockDataManager_LevelDB::fetchWalletRegisteredScrAddrData(BtcWallet &wlt,
-                                             BinaryData const & scrAddr)
-{
-   vector<TxIOPair> hist = wlt.getHistoryForScrAddr(scrAddr);
-
-   BinaryData txKey;
-   StoredTx stx;
-   TxRef txref;
-   RegisteredTx regTx;
-   for(uint32_t i=0; i<hist.size(); i++)
-   {
-      // Fetch the full tx of the arriving coins
-      txref = hist[i].getTxRefOfOutput();
-      iface_->getStoredTx(stx, txref.getDBKey());
-      regTx = RegisteredTx(txref, stx.thisHash_, stx.blockHeight_, stx.txIndex_);
-      wlt.insertRegisteredTxIfNew(regTx);
-      wlt.registerOutPoint(hist[i].getOutPoint());
-
-      txref = hist[i].getTxRefOfInput();
-      if(txref.isNull())
-         continue;
-
-      // If the coins were spent, also fetch the tx in which they were spent
-      iface_->getStoredTx(stx, txref.getDBKey());
-      regTx = RegisteredTx(txref, stx.thisHash_, stx.blockHeight_, stx.txIndex_);
-      wlt.insertRegisteredTxIfNew(regTx);
+      BtcWallet* wlt = *wltIter;
+      wlt->fetchWalletRegisteredScrAddrData(iface_);
    }
 }
 
