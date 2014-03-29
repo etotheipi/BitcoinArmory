@@ -4155,6 +4155,9 @@ class ArmoryMainWindow(QMainWindow):
                Technologies, Inc.</b></font> announcement feeder.
                Try again in a couple minutes.""") % \
                htmlColor('TextGreen'), QMessageBox.Ok)
+         else:
+            QMessageBox.warning(self, tr('Update'), tr("""
+               Announcements are now up to date!"""), QMessageBox.Ok)
 
 
       self.lblLastUpdated = QRichLabel('', doWrap=False)

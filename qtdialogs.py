@@ -11242,15 +11242,15 @@ class DlgRestoreSingle(ArmoryDialog):
          else:
             self.reject()
             return
-
-      reply = QMessageBox.question(self, 'Verify Wallet ID', \
-               'The data you entered corresponds to a wallet with a wallet ID: \n\n \t' +
-               newWltID + '\n\nDoes this ID match the "Wallet Unique ID" '
-               'printed on your paper backup?  If not, click "No" and reenter '
-               'key and chain-code data again.', \
-               QMessageBox.Yes | QMessageBox.No)
-      if reply == QMessageBox.No:
-         return
+      else:
+         reply = QMessageBox.question(self, 'Verify Wallet ID', \
+                  'The data you entered corresponds to a wallet with a wallet ID: \n\n \t' +
+                  newWltID + '\n\nDoes this ID match the "Wallet Unique ID" '
+                  'printed on your paper backup?  If not, click "No" and reenter '
+                  'key and chain-code data again.', \
+                  QMessageBox.Yes | QMessageBox.No)
+         if reply == QMessageBox.No:
+            return
 
       passwd = []
       if self.chkEncrypt.isChecked():
