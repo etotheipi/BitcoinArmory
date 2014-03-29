@@ -1319,7 +1319,7 @@ void BtcWallet::eraseTx(const BinaryData& txHash)
    }
 }
 
-void BtcWallet::fetchWalletRegisteredScrAddrData(InterfaceToLDB* iface)
+void BtcWallet::fetchWalletRegisteredScrAddrData()
 {
    SCOPED_TIMER("fetchWalletRegisteredScrAddrData");
 
@@ -1327,15 +1327,14 @@ void BtcWallet::fetchWalletRegisteredScrAddrData(InterfaceToLDB* iface)
    for(uint32_t s=0; s<numAddr; s++)
    {
       ScrAddrObj & scrAddrObj = getScrAddrObjByIndex(s);
-      fetchWalletRegisteredScrAddrData(iface, scrAddrObj.getScrAddr());
+      fetchWalletRegisteredScrAddrData(scrAddrObj.getScrAddr());
    }
 }
 
-void BtcWallet::fetchWalletRegisteredScrAddrData(
-   InterfaceToLDB* iface,
-   BinaryData const & scrAddr
-)
+void BtcWallet::fetchWalletRegisteredScrAddrData(BinaryData const & scrAddr)
 {
+   InterfaceToLDB *const iface = bdmPtr_->getIFace();
+
    const vector<TxIOPair> hist = getHistoryForScrAddr(scrAddr);
 
    for(uint32_t i=0; i<hist.size(); i++)

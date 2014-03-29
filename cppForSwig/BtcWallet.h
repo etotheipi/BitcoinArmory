@@ -186,11 +186,8 @@ public:
 
    //end of 1:1 wallets
    
-   void fetchWalletRegisteredScrAddrData(InterfaceToLDB* iface);
-   void fetchWalletRegisteredScrAddrData(
-      InterfaceToLDB* iface_,
-      BinaryData const & scrAddr
-   );
+   void fetchWalletRegisteredScrAddrData();
+   void fetchWalletRegisteredScrAddrData(BinaryData const & scrAddr);
 
 
 private:

@@ -1496,7 +1496,7 @@ void BlockDataManager_LevelDB::scanBlockchainForTx(BtcWallet & myWallet,
    //        and register scraddr data that is between those two blocks).
    //        At the moment, it is 
    //if(fetchFirst && DBUtils.getArmoryDbType()!=ARMORY_DB_BARE)
-   myWallet.fetchWalletRegisteredScrAddrData(iface_);
+   myWallet.fetchWalletRegisteredScrAddrData();
    
    // Check whether we can get everything we need from the registered tx list
    endBlknum = min(endBlknum, blockchain_.top().getBlockHeight()+1);
@@ -2113,7 +2113,7 @@ void BlockDataManager_LevelDB::fetchWalletRegisteredScrAddrData(void)
        wltIter++)
    {
       BtcWallet* wlt = *wltIter;
-      wlt->fetchWalletRegisteredScrAddrData(iface_);
+      wlt->fetchWalletRegisteredScrAddrData();
    }
 }
 
