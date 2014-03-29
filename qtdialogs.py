@@ -9454,7 +9454,7 @@ class DlgNotificationWithDNAA(ArmoryDialog):
 
 
       btnDismiss      = QPushButton(tr('Close'))
-      btnIgnoreLong   = QPushButton(tr('Do not show again'))
+      btnIgnoreLong   = QPushButton(tr('Do not popup again'))
       btnDownload     = QPushButton(tr('Secure Download'))
 
       btnIgnoreLong.setVisible(showBtnDNAA)

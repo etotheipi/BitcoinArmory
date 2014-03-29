@@ -238,7 +238,6 @@ class SatoshiDaemonManager(object):
       # The only torrent we have is for the primary Bitcoin network
       if not MAGIC_BYTES=='\xf9\xbe\xb4\xd9':
          return False
-
       
          
 
@@ -257,11 +256,10 @@ class SatoshiDaemonManager(object):
          return True
       
       # Get the cumulative size of the blk*.dat files
-      filesz = lambda f: os.path.getsize(os.path.join(blockDir, f))
-      blockDirSize = sum([filesz(a) for a in os.listdir(blockDir)])
-      blockDirSize = long(0.8333 * blockDirSize)  # adjust for rev files
+      blockDirSize = sum([os.path.getsize(os.path.join(blockDir, a)) \
+                  for a in os.listdir(blockDir) if a.startswith('blk')])
       sizeStr = bytesToHumanSize(blockDirSize)
-      LOGINFO('Total size of files in %s is approx %s' % (blockDir, sizeStr))
+      LOGINFO('Total size of files in %s is %s' % (blockDir, sizeStr))
 
       # If they have only a small portion of the blockchain, do it
       szThresh = 100*MEGABYTE if USE_TESTNET else 6*GIGABYTE
@@ -282,6 +280,10 @@ class SatoshiDaemonManager(object):
       # Okay, we give up -- just download [the rest] via P2P
       return False
 
+
+   #############################################################################
+   #def setSatoshiDir(self, newDir):
+      #self.satoshiHome = newDir
 
    #############################################################################
    def setupSDM(self, pathToBitcoindExe=None, satoshiHome=BTC_HOME_DIR, \

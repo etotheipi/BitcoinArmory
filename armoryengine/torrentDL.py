@@ -102,6 +102,10 @@ class TorrentDownloadManager(object):
             self.savePath = os.path.join(BTC_HOME_DIR, self.torrentName)
          self.savePath_temp = self.savePath + '.partial'
 
+   #############################################################################
+   def updatePaths(self, btcDir):
+      self.savePath = os.path.join(btcDir, self.torrentName)
+      self.savePath_temp = self.savePath + '.partial'
 
    #############################################################################
    def isInitialized(self):

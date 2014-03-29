@@ -901,7 +901,7 @@ class BlockDataManagerThread(threading.Thread):
       self.aboutToRescan = False
       
       armory_homedir = ARMORY_HOME_DIR
-      blockdir = blkdir
+      blockdir = blkdi
       leveldbdir = self.ldbdir
       
       if getattr(sys, 'frozen', False):

@@ -1989,6 +1989,8 @@ class ArmoryMainWindow(QMainWindow):
          self.satoshiHomePath = self.settings.get('SatoshiDatadir')
 
       TheBDM.setSatoshiDir(self.satoshiHomePath)
+      TheTDM.updatePaths(self.satoshiHomePath)
+
 
    ############################################################################
    def loadBlockchainIfNecessary(self):

@@ -4467,6 +4467,7 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
            <<  (int)timeElapsed << " seconds)";
 
    // Now start scanning the raw blocks
+   xjkljz # Maybe rm no-wallet-no-scan shortcut.  Might be breaking stuff
    if(registeredScrAddrMap_.size() == -1)
    {
       LOGWARN << "No addresses are registered with the BDM, so there's no";
