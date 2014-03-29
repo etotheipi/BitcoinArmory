@@ -2355,15 +2355,19 @@ class ArmoryMainWindow(QMainWindow):
          TheBDM.bdm.registerWallet(wlt.cppWallet)
 
 
+      # Create one wallet per lockbox to make sure we can query individual
+      # lockbox histories easily.
       if self.usermode==USERMODE.Expert:
          LOGINFO('Loading Multisig Lockboxes')
-         self.readLockboxesFromFile(MULTISIG_FILE)
-         self.cppLockboxWallet = Cpp.BtcWallet()
+         self.loadLockboxesFromFile(MULTISIG_FILE)
+         self.cppLockboxWltMap = {}
          for lb in self.allLockboxes:
+            lbID = lb.uniqueIDB58
+            self.cppLockboxWltMap[lbID] = BtcWallet()
             scraddr = script_to_scrAddr(lb.binScript)
-            self.cppLockboxWallet.addScrAddress_1_(scraddr)
-         TheBDM.registerWallet(self.cppLockboxWallet)
-         TheBDM.bdm.registerWallet(self.cppLockboxWallet)
+            self.cppLockboxWltMap[lbID].addScrAddress_1_(scraddr)
+            TheBDM.registerWallet(self.cppLockboxWltMap[lbID])
+            TheBDM.bdm.registerWallet(self.cppLockboxWltMap[lbID])
 
 
       # Get the last directory
@@ -2460,8 +2464,9 @@ class ArmoryMainWindow(QMainWindow):
 
 
    #############################################################################
-   def readLockboxesFromFile(self, fn):
+   def loadLockboxesFromFile(self, fn):
       self.allLockboxes = []
+      self.cppLockboxWltMap = {}
       if not os.path.exists(fn):
          return
          
@@ -2481,11 +2486,11 @@ class ArmoryMainWindow(QMainWindow):
             nextPos = allData.find(startMark, pos+1)
             if nextPos < 0:
                nextPos = len(allData)
+
             lbBlock = allData[pos:nextPos].strip()
-            self.allLockboxes.append(MultiSigLockbox().unserialize(lbBlock))
-            lbid = self.allLockboxes[-1].uniqueIDB58
-            self.lockboxIDMap[lbid] = i
-            LOGINFO('Read in Lockbox: %s' % lbid)
+            lbox = MultiSigLockbox().unserialize(lbBlock)
+            self.updateOrAddLockbox(lbox)
+            LOGINFO('Read in Lockbox: %s' % lbox.uniqueIDB58)
 
             pos = allData.find(startMark, pos+1)
             i += 1
@@ -2495,19 +2500,33 @@ class ArmoryMainWindow(QMainWindow):
    
    #############################################################################
    def updateOrAddLockbox(self, lbObj):
-      index = self.lockboxIDMap.get(lbObj.uniqueIDB58)
-      if index is None:
-         # Add new lockbox to list
-         self.allLockboxes.append(lbObj)
-         self.lockboxIDMap[lbObj.uniqueIDB58] = len(self.allLockboxes)-1
-         self.cppLockboxWallet.addScrAddress_1_(lbObj.scrAddr)
-         if TheBDM.getBDMState()=='BlockchainReady':
-            TheBDM.saveScrAddrHistories()
-      else:
-         # Replace the original
-         self.allLockboxes[index] = lbObj
+      try:
+         lbID = lbObj.uniqueIDB58
+         index = self.lockboxIDMap.get(lbID)
+         if index is None:
+            # Add new lockbox to list
+            self.allLockboxes.append(lbObj)
+            self.lockboxIDMap[lbID] = len(self.allLockboxes)-1
+   
+            # Create new wallet to hold the lockbox, register it with BDM
+            self.cppLockboxWltMap[lbID] = BtcWallet()
+            scraddrReg = script_to_scrAddr(lbObj.binScript)
+            scraddrP2SH = script_to_p2sh_script(lbObj.binScript)
+            self.cppLockboxWltMap[lbID].addScrAddress_1_(scraddrReg)
+            self.cppLockboxWltMap[lbID].addScrAddress_1_(scraddrP2SH)
+            TheBDM.registerWallet(self.cppLockboxWltMap[lbID])
+            TheBDM.bdm.registerWallet(self.cppLockboxWltMap[lbID])
 
-      self.writeLockboxesFile()
+            # Save the scrAddr histories again to make sure no rescan nexttime
+            if TheBDM.getBDMState()=='BlockchainReady':
+               TheBDM.saveScrAddrHistories()
+         else:
+            # Replace the original
+            self.allLockboxes[index] = lbObj
+
+         self.writeLockboxesFile()
+      except:
+         LOGEXCEPT('Failed to add/update lockbox')
         
    
    #############################################################################
@@ -2622,7 +2641,8 @@ class ArmoryMainWindow(QMainWindow):
          self.walletMap[wltID].detectHighestUsedIndex(True) # expand wlt if necessary
          self.walletMap[wltID].fillAddressPool()
 
-      TheBDM.scanRegisteredTxForWallet(self.cppLockboxWallet, wait=True)
+      for lbID,cppWallet in self.cppLockboxWltMap.iteritems():
+         TheBDM.scanRegisteredTxForWallet(cppWallet, wait=True)
 
 
    @TimeThisFunction
@@ -2656,7 +2676,8 @@ class ArmoryMainWindow(QMainWindow):
             self.walletMap[wltID].fillAddressPool()
 
          # The lockboxes are in a raw C++ wallet, not in the list above
-         TheBDM.scanRegisteredTxForWallet(self.cppLockboxWallet, 0, wait=True)
+         for lbID,cppWallet in self.cppLockboxWltMap.iteritems():
+            TheBDM.scanRegisteredTxForWallet(cppWallet, 0, wait=True)
 
          self.createCombinedLedger()
          self.ledgerSize = len(self.combinedLedger)
@@ -2881,16 +2902,21 @@ class ArmoryMainWindow(QMainWindow):
       for wltID,le in ledger:
          row = []
 
-         wlt = self.walletMap[wltID]
+         wlt = self.walletMap.get(wltID)
+
+         if wlt:
+            isWatch = (determineWalletType(wlt, self)[0] == WLTTYPES.WatchOnly)
+            wltName = wlt.labelName 
+            dispComment = self.getCommentForLE(wltID, le)
+         else:
+            lbox = self.getLockboxByID(wltID)
+            isWatch = True
+            wltName = lbox.shortName
+            dispComment = ''
+
          nConf = self.currBlockNum - le.getBlockNum()+1
          if le.getBlockNum()>=0xffffffff:
             nConf=0
-
-         # We need to compute the fee by adding inputs and outputs...
-         amt = le.getValue()
-         #removeFee = self.getSettingOrSetDefault('DispRmFee', False)
-         #if TheBDM.isInitialized() and removeFee and amt<0:
-            #amt += self.getFeeForTx(le.getTxHash())
 
          # If this was sent-to-self... we should display the actual specified
          # value when the transaction was executed.  This is pretty difficult
@@ -2898,35 +2924,49 @@ class ArmoryMainWindow(QMainWindow):
          # They're actually not because we ALWAYS generate a new address to
          # for change , which means the change address MUST have a higher
          # chain index
-         if le.isSentToSelf():
+         amt = le.getValue()
+         if le.isSentToSelf() and wlt:
             amt = determineSentToSelfAmt(le, wlt)[0]
-         if le.getBlockNum() >= 0xffffffff: nConf = 0
+
          # NumConf
          row.append(nConf)
+
          # UnixTime (needed for sorting)
          row.append(le.getTxTime())
+
          # Date
          row.append(unixTimeToFormatStr(le.getTxTime(), datefmt))
+
          # TxDir (actually just the amt... use the sign of the amt to determine dir)
          row.append(coin2str(le.getValue(), maxZeros=2))
+
          # Wlt Name
-         row.append(self.walletMap[wltID].labelName)
+         row.append(wltName)
+
          # Comment
-         row.append(self.getCommentForLE(wltID, le))
+         row.append(dispComment)
+
          # Amount
          row.append(coin2str(amt, maxZeros=2))
+
          # Is this money mine?
-         row.append( determineWalletType(wlt, self)[0]==WLTTYPES.WatchOnly)
-         # WltID
+         row.append(isWatch)
+
+         # ID to display (this might be the lockbox ID)
          row.append( wltID )
+
          # TxHash
          row.append( binary_to_hex(le.getTxHash() ))
+
          # Is this a coinbase/generation transaction
          row.append( le.isCoinbase() )
+
          # Sent-to-self
          row.append( le.isSentToSelf() )
+
          # Tx was invalidated!  (double=spend!)
          row.append( not le.isValid())
+
          # Finally, attach the row to the table
          table2D.append(row)
       return table2D

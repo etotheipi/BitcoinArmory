@@ -42,16 +42,17 @@ class LockboxDisplayModel(QAbstractTableModel):
    def data(self, index, role=Qt.DisplayRole):
       row,col = index.row(), index.column()
       lbox = self.boxList[row]
-      lwlt = self.main.cppLockboxWallet
+      lbID = lbox.uniqueIDB58
+      lwlt = self.main.cppLockboxWltMap[lbID]
 
       nTx, bal = 0, 0
       if TheBDM.getBDMState()=='BlockchainReady':
-         nTx = len(lwlt.getScrAddrObjByKey(lbox.scrAddr).getTxLedger())
-         bal = lwlt.getScrAddrObjByKey(lbox.scrAddr).getFullBalance()
+         nTx = len(lwlt.getTxLedger())
+         bal = lwlt.getFullBalance()
 
       if role==Qt.DisplayRole:
          if col==LOCKBOXCOLS.ID: 
-            return QVariant(lbox.uniqueIDB58)
+            return QVariant(lbID)
          elif col==LOCKBOXCOLS.CreateDate: 
             return QVariant(unixTimeToFormatStr(lbox.createDate, self.dateFmt))
          elif col==LOCKBOXCOLS.MSType: 

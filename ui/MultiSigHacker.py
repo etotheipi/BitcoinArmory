@@ -4,7 +4,7 @@ from PyQt4.QtNetwork import *
 from qtdefines import *
 from qtdialogs import createAddrBookButton, DlgSetComment, DlgSendBitcoins
 from armoryengine.ALL import *
-
+from armorymodels import *
 from armoryengine.MultiSigUtils import MultiSigLockbox, calcLockboxID
 from ui.MultiSigModels import \
             LockboxDisplayModel,  LockboxDisplayProxy, LOCKBOXCOLS
@@ -686,6 +686,7 @@ class DlgLockboxManager(ArmoryDialog):
       self.txtLockboxInfo.setReadOnly(True)
       self.txtLockboxInfo.setFont(GETFONT('Fixed', 9))
 
+
       self.btnCreate = QPushButton(tr('Create New'))
       self.btnImport = QPushButton(tr('Import New'))
       self.btnEdit   = QPushButton(tr('Edit'))
@@ -735,10 +736,71 @@ class DlgLockboxManager(ArmoryDialog):
       #if maxKeys<4: self.lboxView.hideColumn(LOCKBOXCOLS.Key3)
       #if maxKeys<3: self.lboxView.hideColumn(LOCKBOXCOLS.Key2)
 
+      # Main Tab displays lockbox details
+      # Second tab has the ledger
+      self.lockboxTable = []
+      for lbID,cppWlt in self.main.cppLockboxWltMap.iteritems():
+         ledger = cppWlt.getTxLedger()
+         for i in range(len(ledger)):
+            print lbID, ledger[i].pprintOneLine()
+            self.lockboxTable.append([lbID, ledger[i]])
+         #id_le_pairs = [[lbID, le] for le in cppWlt.getTxLedger()]
+         #self.lockboxTable.extend(id_le_pairs)
+         
+         
+      self.lockboxLedg = self.main.convertLedgerToTable(self.lockboxTable)
+      self.ledgerModel = LedgerDispModelSimple(self.lockboxLedg, self, self.main)
+      self.ledgerView  = QTableView()
+      self.ledgerView.setModel(self.ledgerModel)
+      self.ledgerView.setSortingEnabled(True)
+      self.ledgerView.setItemDelegate(LedgerDispDelegate(self))
+      self.ledgerView.setSelectionBehavior(QTableView.SelectRows)
+      self.ledgerView.setSelectionMode(QTableView.SingleSelection)
+      #self.ledgerView.verticalHeader().setDefaultSectionSize(20)
+      self.ledgerView.verticalHeader().hide()
+      self.ledgerView.horizontalHeader().setResizeMode(0, QHeaderView.Fixed)
+      self.ledgerView.horizontalHeader().setResizeMode(3, QHeaderView.Fixed)
+
+      self.ledgerView.hideColumn(LEDGERCOLS.isOther)
+      self.ledgerView.hideColumn(LEDGERCOLS.UnixTime)
+      #self.ledgerView.hideColumn(LEDGERCOLS.WltID)
+      self.ledgerView.hideColumn(LEDGERCOLS.TxHash)
+      self.ledgerView.hideColumn(LEDGERCOLS.isCoinbase)
+      self.ledgerView.hideColumn(LEDGERCOLS.toSelf)
+      self.ledgerView.hideColumn(LEDGERCOLS.DoubleSpend)
+
+      dateWidth    = tightSizeStr(self.ledgerView, '_9999-Dec-99 99:99pm__')[0]
+      nameWidth    = tightSizeStr(self.ledgerView, '9'*32)[0]
+      cWidth = 20 # num-confirm icon width
+      tWidth = 72 # date icon width
+      initialColResize(self.ledgerView, [cWidth, 0, dateWidth, tWidth, \
+                                                            0.30, 0.40, 0.3])
+      
+
+      # Setup the details tab
+      self.tabDetails = QWidget()
+      layoutDetails = QHBoxLayout()
+      layoutDetails.addWidget(frmManageBtns)
+      layoutDetails.addWidget(self.txtLockboxInfo, 1)
+      self.tabDetails.setLayout(layoutDetails)
+
+      # Setup the ledger tab
+      self.tabLedger = QWidget()
+      layoutLedger = QHBoxLayout()
+      layoutLedger.addWidget(self.ledgerView)
+      self.tabLedger.setLayout(layoutLedger)
+
+      self.tabbedDisplay = QTabWidget()
+      self.tabbedDisplay.addTab(self.tabDetails, tr("Info"))
+      self.tabbedDisplay.addTab(self.tabLedger, tr("Transactions"))
+
+
+
+
       splitter = QSplitter()
       splitter.setOrientation(Qt.Vertical)
       splitter.addWidget(self.lboxView)
-      splitter.addWidget(makeHorizFrame([frmManageBtns, self.txtLockboxInfo]))
+      splitter.addWidget(self.tabbedDisplay)
       splitter.setStretchFactor(0, 1)
       splitter.setStretchFactor(0, 2)
 
