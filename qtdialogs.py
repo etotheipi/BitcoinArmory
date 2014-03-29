@@ -8068,6 +8068,13 @@ class DlgSettings(ArmoryDialog):
       skipVerChk = self.main.getSettingOrSetDefault('SkipVersionCheck', False)
       self.chkSkipVersionCheck.setChecked(skipVerChk)
 
+
+      self.chkDisableTorrent = QCheckBox(tr("""
+         Disable torrent download (force synchronization via Bitcoin P2P)"""))
+      disableTorrent = self.main.getSettingOrSetDefault('DisableTorrent', False)
+      self.chkDisableTorrent.setChecked(disableTorrent)
+
+
       lblDefaultUriTitle = QRichLabel(tr("""
          <b>Set Armory as default URL handler</b>"""))
       lblDefaultURI = QRichLabel(tr("""
@@ -8352,6 +8359,9 @@ class DlgSettings(ArmoryDialog):
       #frmLayout.addWidget(self.chkSkipVersionCheck, i, 0, 1, 3)
 
       i += 1
+      frmLayout.addWidget(self.chkDisableTorrent, i, 0, 1, 3)
+
+      i += 1
       frmLayout.addWidget(HLINE(), i, 0, 1, 3)
 
       i += 1
@@ -8538,10 +8548,8 @@ class DlgSettings(ArmoryDialog):
             self.main.settings.delete('SatoshiDatadir')
 
       self.main.writeSetting('ManageSatoshi', self.chkManageSatoshi.isChecked())
-
-
       self.main.writeSetting('SkipOnlineCheck', self.chkSkipOnlineCheck.isChecked())
-      self.main.writeSetting('SkipVersionCheck', self.chkSkipVersionCheck.isChecked())
+      self.main.writeSetting('DisableTorrent', self.chkDisableTorrent.isChecked())
 
       # Reset the DNAA flag as needed
       askuriDNAA = self.chkAskURIAtStartup.isChecked()

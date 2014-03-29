@@ -788,9 +788,12 @@ class ArmoryMainWindow(QMainWindow):
       
    ####################################################
    def logEntropy(self):
-      self.entropyAccum.append(RightNow())
-      self.entropyAccum.append(QCursor.pos().x()) 
-      self.entropyAccum.append(QCursor.pos().y()) 
+      try:
+         self.entropyAccum.append(RightNow())
+         self.entropyAccum.append(QCursor.pos().x()) 
+         self.entropyAccum.append(QCursor.pos().y()) 
+      except:
+         LOGEXCEPT('Error logging keypress entropy')
 
    ####################################################
    def getExtraEntropyForKeyGen(self):
@@ -802,6 +805,8 @@ class ArmoryMainWindow(QMainWindow):
       # Then we throw in the [name,time,size] triplets of some volatile 
       # system directories, and the hash of a file in that directory that
       # is expected to have timestamps and system-dependent parameters.
+      # Finally, take a desktop screenshot... 
+      # All three of these source are likely to have sufficient entropy alone.
       source1,self.entropyAccum = self.entropyAccum,None
 
       if len(source1)==0:
@@ -840,12 +845,30 @@ class ArmoryMainWindow(QMainWindow):
       except:
          LOGEXCEPT('Error getting extra entropy from filesystem')
 
+
+      source3 = ''
+      try:
+         pixDesk = QPixmap.grabWindow(QApplication.desktop().winId())
+         pixRaw = QByteArray()
+         pixBuf = QBuffer(pixRaw)
+         pixBuf.open(QIODevice.WriteOnly)
+         pixDesk.save(pixBuf, 'PNG')
+         source3 = pixBuf.buffer().toHex()
+      except:
+         LOGEXCEPT('Third source of entropy (desktop screenshot) failed')
+         
+      if len(source3)==0:
+         LOGWARN('Error getting extra entropy from screenshot')
+
       LOGINFO('Adding %d keypress events to the entropy pool', len(source1)/3)
       LOGINFO('Adding %s bytes of filesystem data to the entropy pool', 
                   bytesToHumanSize(len(str(source2))))
+      LOGINFO('Adding %s bytes from desktop screenshot to the entropy pool', 
+                  bytesToHumanSize(len(str(source3))/2))
       
 
-      return SecureBinaryData( HMAC256(str(source1), str(source2)) )
+      allEntropy = ''.join([str(a) for a in [source1, source1, source3]])
+      return SecureBinaryData(HMAC256('Armory Entropy', allEntropy))
       
 
 
@@ -1945,8 +1968,10 @@ class ArmoryMainWindow(QMainWindow):
       self.setSatoshiPaths()
       TheSDM.setDisabled(False)
 
+      torrentIsDisabled = self.getSettingOrSetDefault('DisableTorrent', False)
+
       # Give the SDM the torrent file...it will use it if it makes sense
-      if TheSDM.shouldTryBootstrapTorrent():
+      if not torrentIsDisabled and TheSDM.shouldTryBootstrapTorrent():
          torrentFile = self.findTorrentFileForSDM(2)
          if not torrentFile or not os.path.exists(torrentFile):
             LOGERROR('Could not find torrent file')
@@ -1957,8 +1982,7 @@ class ArmoryMainWindow(QMainWindow):
       try:
          # "satexe" is actually just the install directory, not the direct
          # path the executable.  That dir tree will be searched for bitcoind
-         TheSDM.setupSDM(None, self.satoshiHomePath, \
-                         extraExeSearch=self.satoshiExeSearchPath)
+         TheSDM.setupSDM(extraExeSearch=self.satoshiExeSearchPath)
          TheSDM.startBitcoind()
          LOGDEBUG('Bitcoind started without error')
          return True
@@ -1987,9 +2011,11 @@ class ArmoryMainWindow(QMainWindow):
          # Setting override BTC_HOME_DIR only if it wasn't explicitly
          # set as the command line.
          self.satoshiHomePath = self.settings.get('SatoshiDatadir')
+         LOGINFO('Setting satoshi datadir = %s' % self.satoshiHomePath)
 
       TheBDM.setSatoshiDir(self.satoshiHomePath)
-      TheTDM.updatePaths(self.satoshiHomePath)
+      TheSDM.setSatoshiDir(self.satoshiHomePath)
+      TheTDM.setSatoshiDir(self.satoshiHomePath)
 
 
    ############################################################################
@@ -5748,28 +5774,33 @@ class ArmoryMainWindow(QMainWindow):
                   self.updateSyncProgress()
 
                downRate  = TheTDM.getLastStats('downRate')
-               if downRate:
-                  self.torrentCircBuffer.append(downRate)
-               else:
-                  self.torrentCircBuffer.append(0)
+               self.torrentCircBuffer.append(downRate if downRate else 0)
 
                # Assumes 1 sec heartbeat
                bufsz = len(self.torrentCircBuffer)
                if bufsz > 5*MINUTE:
-                  self.torrentCircBuffer.pop()
+                  self.torrentCircBuffer = self.torrentCircBuffer[1:]
 
-               if bufsz > 5*MINUTE:
+               if bufsz >= 4.99*MINUTE:
                   # If dlrate is below 30 kB/s, offer the user a way to skip it
-                  if sum(self.torrentCircBuffer) / float(bufsz) < 30*KILOBYTE:
+                  avgDownRate = sum(self.torrentCircBuffer) / float(bufsz)
+                  if avgDownRate < 30*KILOBYTE:
                      if (RightNow() - self.lastAskedUserStopTorrent) > 5*MINUTE:
                         self.lastAskedUserStopTorrent = RightNow()
                         reply = QMessageBox.warning(self, tr('Torrent'), tr("""
                            Armory is attempting to use BitTorrent to speed up
                            the initial synchronization, but it appears to be
-                           downloading slowly or not at all.  Would you like
-                           to stop it?"""), QMessageBox.Yes |QMessageBox.No)
-                        if reply==QMessageBox.Yes:
-                           TheTDM.failedFunc('User selected shutdown torrent')
+                           downloading slowly or not at all.  
+                           <br><br>
+                           If the torrent engine is not starting properly,
+                           or is not downloading
+                           at a reasonable speed for your internet connection, 
+                           you should disable it in
+                           <i>File\xe2\x86\x92Settings</i> and then
+                           restart Armory."""), QMessageBox.Ok)
+
+                        # For now, just show once then disable
+                        self.lastAskedUserStopTorrent = UINT64_MAX
 
             if sdmState in ['BitcoindInitializing','BitcoindSynchronizing']:
                self.updateSyncProgress()

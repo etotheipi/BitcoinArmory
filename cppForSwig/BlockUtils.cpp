@@ -4500,9 +4500,11 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
            <<  (int)timeElapsed << " seconds)";
 
    // Now start scanning the raw blocks
-   xjkljz # Maybe rm no-wallet-no-scan shortcut.  Might be breaking stuff
    if(registeredScrAddrMap_.size() == -1)
    {
+      // We think that the lack of scanning was causing some crashes
+      // So we disabled this block, at least temporarily, despite being
+      // "pointless" when no wallets are loaded
       LOGWARN << "No addresses are registered with the BDM, so there's no";
       LOGWARN << "point in doing a blockchain scan yet.";
    }

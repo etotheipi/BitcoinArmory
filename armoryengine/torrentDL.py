@@ -44,6 +44,7 @@ class TorrentDownloadManager(object):
       self.minSecondsBetweenUpdates = 1
       self.lastUpdate = 0
       self.disabled = doDisable
+      self.satoshiDir = BTC_HOME_DIR
 
       # These need to exist even if setup hasn't been called
       self.lastStats     = {}
@@ -103,9 +104,8 @@ class TorrentDownloadManager(object):
          self.savePath_temp = self.savePath + '.partial'
 
    #############################################################################
-   def updatePaths(self, btcDir):
-      self.savePath = os.path.join(btcDir, self.torrentName)
-      self.savePath_temp = self.savePath + '.partial'
+   def setSatoshiDir(self, btcDir):
+      self.satoshiDir = btcDir
 
    #############################################################################
    def isInitialized(self):
