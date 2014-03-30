@@ -444,7 +444,10 @@ public:
 
    vector<LedgerEntry> & getEmptyLedger(void) { EmptyLedger_.clear(); return EmptyLedger_;}
 
-	uint32_t lastScanned_;
+	void changeBlkNum(uint32_t newBlkHgt)
+                     {if(newBlkHgt<lastScanned_) lastScanned_ = newBlkHgt;}
+   uint32_t lastScanned_;
+
 
 private:
    vector<ScrAddrObj*>          scrAddrPtrs_;

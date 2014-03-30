@@ -1252,7 +1252,9 @@ void BtcWallet::scanTx(Tx & tx,
          {      
             TxOut txout = tx.getTxOutCopy(i);
             if( txout.getScriptType() != TXOUT_SCRIPT_NONSTANDARD )
-               scrAddrV.push_back(txout.getScrAddressStr());
+               if(std::find(scrAddrV.begin(), 
+                  scrAddrV.end(), txout.getScrAddressStr()) == scrAddrV.end())
+                     scrAddrV.push_back(txout.getScrAddressStr());
          }
       }
       else
@@ -1300,6 +1302,8 @@ void BtcWallet::scanTx(Tx & tx,
                ledgerAllAddrZC_.push_back(le);
             else
                ledgerAllAddr_.push_back(le);
+
+            if(isSentToSelf) break;
          }
       }
    }
@@ -3723,7 +3727,7 @@ void BlockDataManager_LevelDB::scanRegisteredTxForWallet( BtcWallet & wlt,
 {
    SCOPED_TIMER("scanRegisteredTxForWallet");
 
-	if(wlt.lastScanned_ > blkStart) blkStart = wlt.lastScanned_;
+	if(!blkStart && blkStart > wlt.lastScanned_) blkStart = wlt.lastScanned_;
    bool isMainWallet = true;
    if(&wlt != (*registeredWallets_.begin())) isMainWallet = false;
 
@@ -4943,7 +4947,7 @@ uint32_t BlockDataManager_LevelDB::readBlkFileUpdate(void)
    string filename = blkFileList_[blkFileList_.size()-1];
 
    uint64_t filesize = FILE_DOES_NOT_EXIST;
-   ifstream is(filename.c_str(), ios::in|ios::binary);
+   ifstream is(OS_TranslatePath(filename).c_str(), ios::in|ios::binary);
    if(is.is_open())
    {
       is.seekg(0, ios::end);
@@ -5164,6 +5168,8 @@ void BlockDataManager_LevelDB::updateWalletAfterReorg(BtcWallet & wlt)
 {
    SCOPED_TIMER("updateWalletAfterReorg");
 
+   uint32_t changeToBlkNum;
+
    // Fix the wallet's ledger
    vector<LedgerEntry> & ledg = wlt.getTxLedger();
    for(uint32_t i=0; i<ledg.size(); i++)
@@ -5188,7 +5194,12 @@ void BlockDataManager_LevelDB::updateWalletAfterReorg(BtcWallet & wlt)
             addrLedg[i].setValid(false);
    
          if(txJustAffected_.count(txHash) > 0) 
-            addrLedg[i].changeBlkNum(getTxRefByHash(txHash).getBlockHeight());
+         {
+            changeToBlkNum = getTxRefByHash(txHash).getBlockHeight();
+            addrLedg[i].changeBlkNum(changeToBlkNum);
+
+            wlt.changeBlkNum(changeToBlkNum);
+         }
       }
    }
 }
