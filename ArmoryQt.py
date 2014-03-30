@@ -299,6 +299,10 @@ class ArmoryMainWindow(QMainWindow):
       self.ledgerView.hideColumn(LEDGERCOLS.toSelf)
       self.ledgerView.hideColumn(LEDGERCOLS.DoubleSpend)
 
+      # Another table and model, for lockboxes
+      self.lockboxLedgTable = []
+      self.lockboxLedgModel = LedgerDispModelSimple(self.lockboxLedgTable, 
+                                                                   self, self)
 
       dateWidth    = tightSizeStr(self.ledgerView, '_9999-Dec-99 99:99pm__')[0]
       nameWidth    = tightSizeStr(self.ledgerView, '9'*32)[0]
@@ -2360,14 +2364,6 @@ class ArmoryMainWindow(QMainWindow):
       if self.usermode==USERMODE.Expert:
          LOGINFO('Loading Multisig Lockboxes')
          self.loadLockboxesFromFile(MULTISIG_FILE)
-         self.cppLockboxWltMap = {}
-         for lb in self.allLockboxes:
-            lbID = lb.uniqueIDB58
-            self.cppLockboxWltMap[lbID] = BtcWallet()
-            scraddr = script_to_scrAddr(lb.binScript)
-            self.cppLockboxWltMap[lbID].addScrAddress_1_(scraddr)
-            TheBDM.registerWallet(self.cppLockboxWltMap[lbID])
-            TheBDM.bdm.registerWallet(self.cppLockboxWltMap[lbID])
 
 
       # Get the last directory
@@ -2894,6 +2890,26 @@ class ArmoryMainWindow(QMainWindow):
       except AttributeError:
          raise
 
+
+      if not self.usermode==USERMODE.Expert:
+         return 
+
+      # In expert mode, we're updating the lockbox info, too
+      try:
+         lockboxTable = []
+         for lbID,cppWlt in self.cppLockboxWltMap.iteritems():
+            ledger = cppWlt.getTxLedger()
+            for i in range(len(ledger)):
+               lockboxTable.append([lbID, ledger[i]])
+
+         self.lockboxLedgTable = self.convertLedgerToTable(lockboxTable)
+         self.lockboxLedgModel.ledger = self.lockboxLedgTable
+         self.lockboxLedgModel.reset()
+      except:
+         LOGEXCEPT('Failed to update lockbox ledger')
+
+
+
    #############################################################################
    @TimeThisFunction
    def convertLedgerToTable(self, ledger):
@@ -2910,8 +2926,10 @@ class ArmoryMainWindow(QMainWindow):
             dispComment = self.getCommentForLE(wltID, le)
          else:
             lbox = self.getLockboxByID(wltID)
+            if not lbox:
+               continue
             isWatch = True
-            wltName = lbox.shortName
+            wltName = '%s-of-%s: %s (%s)' % (lbox.M, lbox.N, lbox.shortName, wltID)
             dispComment = ''
 
          nConf = self.currBlockNum - le.getBlockNum()+1
@@ -2969,6 +2987,7 @@ class ArmoryMainWindow(QMainWindow):
 
          # Finally, attach the row to the table
          table2D.append(row)
+
       return table2D
 
 

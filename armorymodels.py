@@ -156,10 +156,18 @@ class LedgerDispModelSimple(QAbstractTableModel):
       rowData = self.ledger[row]
       nConf = rowData[LEDGERCOLS.NumConf]
       wltID = rowData[LEDGERCOLS.WltID]
-      wtype = determineWalletType(self.main.walletMap[wltID], self.main)[0]
+      wlt = self.main.walletMap.get(wltID)
+      
+      if wlt:
+         wtype = determineWalletType(self.main.walletMap[wltID], self.main)[0]
+      else:
+         wtype = WLTTYPES.WatchOnly
 
-      #LEDGERCOLS  = enum('NumConf', 'UnixTime','DateStr', 'TxDir', 'WltName', 'Comment', \
-                         #'Amount', 'isOther', 'WltID', 'TxHash', 'isCoinbase', 'toSelf', 'DoubleSpend')
+      #LEDGERCOLS  = enum( 'NumConf', 'UnixTime','DateStr', 'TxDir', 
+                         # 'WltName', 'Comment', 'Amount', 'isOther', 
+                         # 'WltID', 'TxHash', 'isCoinbase', 'toSelf', 
+                         # 'DoubleSpend')
+
       if role==Qt.DisplayRole:
          return QVariant(rowData[col])
       elif role==Qt.TextAlignmentRole:

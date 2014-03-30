@@ -732,38 +732,33 @@ class DlgLockboxManager(ArmoryDialog):
       for i in range(LOCKBOXCOLS.Key0, LOCKBOXCOLS.Key4+1):
          self.lboxView.hideColumn(i)
       self.lboxView.hideColumn(LOCKBOXCOLS.UnixTime)
-      #if maxKeys<5: self.lboxView.hideColumn(LOCKBOXCOLS.Key4)
-      #if maxKeys<4: self.lboxView.hideColumn(LOCKBOXCOLS.Key3)
-      #if maxKeys<3: self.lboxView.hideColumn(LOCKBOXCOLS.Key2)
 
       # Main Tab displays lockbox details
-      # Second tab has the ledger
-      self.lockboxTable = []
-      for lbID,cppWlt in self.main.cppLockboxWltMap.iteritems():
-         ledger = cppWlt.getTxLedger()
-         for i in range(len(ledger)):
-            print lbID, ledger[i].pprintOneLine()
-            self.lockboxTable.append([lbID, ledger[i]])
-         #id_le_pairs = [[lbID, le] for le in cppWlt.getTxLedger()]
-         #self.lockboxTable.extend(id_le_pairs)
+      #self.lockboxTable = []
+      #for lbID,cppWlt in self.main.cppLockboxWltMap.iteritems():
+         #ledger = cppWlt.getTxLedger()
+         #for i in range(len(ledger)):
+            #self.lockboxTable.append([lbID, ledger[i]])
          
-         
-      self.lockboxLedg = self.main.convertLedgerToTable(self.lockboxTable)
-      self.ledgerModel = LedgerDispModelSimple(self.lockboxLedg, self, self.main)
+      #self.lockboxLedg = self.main.convertLedgerToTable(self.lockboxTable)
+
+      self.ledgerProxy = LedgerDispSortProxy(self)
+      self.ledgerProxy.setSourceModel(self.main.lockboxLedgModel)
+
       self.ledgerView  = QTableView()
-      self.ledgerView.setModel(self.ledgerModel)
+      self.ledgerView.setModel(self.ledgerProxy)
       self.ledgerView.setSortingEnabled(True)
       self.ledgerView.setItemDelegate(LedgerDispDelegate(self))
       self.ledgerView.setSelectionBehavior(QTableView.SelectRows)
       self.ledgerView.setSelectionMode(QTableView.SingleSelection)
-      #self.ledgerView.verticalHeader().setDefaultSectionSize(20)
+      self.ledgerView.verticalHeader().setDefaultSectionSize(20)
       self.ledgerView.verticalHeader().hide()
       self.ledgerView.horizontalHeader().setResizeMode(0, QHeaderView.Fixed)
       self.ledgerView.horizontalHeader().setResizeMode(3, QHeaderView.Fixed)
 
       self.ledgerView.hideColumn(LEDGERCOLS.isOther)
       self.ledgerView.hideColumn(LEDGERCOLS.UnixTime)
-      #self.ledgerView.hideColumn(LEDGERCOLS.WltID)
+      self.ledgerView.hideColumn(LEDGERCOLS.WltID)
       self.ledgerView.hideColumn(LEDGERCOLS.TxHash)
       self.ledgerView.hideColumn(LEDGERCOLS.isCoinbase)
       self.ledgerView.hideColumn(LEDGERCOLS.toSelf)
@@ -791,7 +786,7 @@ class DlgLockboxManager(ArmoryDialog):
       self.tabLedger.setLayout(layoutLedger)
 
       self.tabbedDisplay = QTabWidget()
-      self.tabbedDisplay.addTab(self.tabDetails, tr("Info"))
+      self.tabbedDisplay.addTab(self.tabDetails, tr("Manage"))
       self.tabbedDisplay.addTab(self.tabLedger, tr("Transactions"))
 
 
@@ -815,13 +810,17 @@ class DlgLockboxManager(ArmoryDialog):
       self.setMinimumWidth(700)
       self.updateButtonDisable()
 
-      hexgeom = self.main.settings.get('LockboxGeometry')
-      tblgeom = self.main.settings.get('LockboxAddrCols')
+      hexgeom  = self.main.settings.get('LockboxGeometry')
+      tblgeom  = self.main.settings.get('LockboxAddrCols')
+      ledggeom = self.main.settings.get('LockboxLedgerCols')
+
       if len(hexgeom) > 0:
          geom = QByteArray.fromHex(hexgeom)
          self.restoreGeometry(geom)
       if len(tblgeom) > 0:
          restoreTableView(self.lboxView, tblgeom)
+      if len(ledggeom) > 0:
+         restoreTableView(self.ledgerView, ledggeom)
 
 
    #############################################################################
@@ -853,9 +852,6 @@ class DlgLockboxManager(ArmoryDialog):
       return None
 
 
-   #############################################################################
-   def addedNewLockbox(self):
-      self.main.cppLockboxWallet.addScrAddress_1_(scraddr)
 
    #############################################################################
    def singleClickLockbox(self, index=None, *args):
@@ -969,11 +965,11 @@ class DlgLockboxManager(ArmoryDialog):
 
 
 
-
    #############################################################################
    def saveGeometrySettings(self):
       self.main.writeSetting('LockboxGeometry', str(self.saveGeometry().toHex()))
       self.main.writeSetting('LockboxAddrCols', saveTableView(self.lboxView))
+      self.main.writeSetting('LockboxLedgerCols', saveTableView(self.ledgerView))
 
    #############################################################################
    def closeEvent(self, event):
