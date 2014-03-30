@@ -85,6 +85,7 @@ def luminance(qcolor):
 QAPP = QApplication(sys.argv)
 qpal = QAPP.palette()
 
+# workaround for https://bugs.launchpad.net/ubuntu/+source/qt4-x11/+bug/877236
 qpal.setColor(QPalette.ToolTipBase, qpal.color(QPalette.Window))
 qpal.setColor(QPalette.ToolTipText, qpal.color(QPalette.WindowText))
 QAPP.setPalette(qpal)
