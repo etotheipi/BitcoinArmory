@@ -17,8 +17,64 @@ if not os.path.exists(wltPath):
    print 'Wallet file was not found (%s)' % wltPath
    exit(1)
 
+
 inDir = 'rawFiles'
 outDir = 'filesToAnnounce'
+
+origDLFile = os.path.join(inDir, 'dllinks.txt')
+newDLFile = os.path.join(inDir, 'dllinks_temp.txt')
+
+################################################################################
+################################################################################
+# We may need to compute some installer hashes
+doComputeDLLinks = (len(CLI_ARGS)>1)
+if doComputeDLLinks:
+   instDir = CLI_ARGS[1]
+   if not os.path.exists(instDir):
+      print 'Installers dir does not exist!'
+      exit(1)
+
+   instFileInfo = {}
+   with open('dlmap.txt','r') as f:
+      dlmapLines = [line.strip() for line in f.readlines()]
+      verName, verStr, urlPrefix = dlmapLines[0].split()
+
+      for line in dlmapLines[2:]:
+         fn,opsys,osver,osarch = line.replace('%ver',verStr).split()
+         instFileInfo[fn] = [opsys, osver, osarch]
+
+   OS,OSVER,OSARCH = range(3)
+   with open(newDLFile, 'w') as f:
+      # Write the existing data from rawfiles/dllinks into temp file
+      f.write(open(origDLFile, 'r').read())
+      f.write('\n')
+
+      # Now compute hashes of each installer and write info to temp file
+      for fn in os.listdir(instDir):
+         fullpath = os.path.join(instDir, fn)
+         if not fn in instFileInfo:
+            print 'File in installer directory does not match any in info map'
+            print '   File:', fullpath
+            print '   InfoMap:'
+            for filename in instFileInfo:
+               print '      ', filename
+            exit(1)
+            
+         fdata = open(fullpath, 'rb').read()
+         fhash = binary_to_hex(sha256(fdata))
+         outputStr = [verName, 
+                      verStr, 
+                      instFileInfo[fn][OS], 
+                      instFileInfo[fn][OSVER], 
+                      instFileInfo[fn][OSARCH], 
+                      os.path.join(urlPrefix, fn),                       
+                      fhash]
+         f.write(' '.join(outputStr) + '\n')
+################################################################################
+         
+         
+         
+         
 
 ###
 if CLI_OPTIONS.testAnnounceCode:
@@ -66,7 +122,7 @@ fileMappings = {}
 longestID  = 0
 longestURL = 0
 print 'Reading file mapping...'
-with open('filemap.txt','r') as f:
+with open('announcemap.txt','r') as f:
    for line in f.readlines():
       fname, fid = line.strip().split()
       inputPath = os.path.join(inDir, fname)
@@ -85,16 +141,22 @@ os.mkdir(outDir)
 
 
 print 'Signing and copying files to %s directory...' % outDir
-with open('filemap.txt','r') as f:
+with open('announcemap.txt','r') as f:
    for line in f.readlines():
       fname, fid = line.strip().split()
+
       inputPath = os.path.join(inDir, fname)
       outputPath = os.path.join(outDir, fname)
+
+      # If we're using a modified DL file
+      if fname=='dllinks.txt' and doComputeDLLinks:
+         inputPath = newDLFile
 
       if fname.endswith('.txt'):
          doSignFile(inputPath, outputPath)
       else:
          shutil.copy(inputPath, outputPath)
+
 
       fdata = open(outputPath, 'rb').read()
       fhash = binary_to_hex(sha256(fdata))
