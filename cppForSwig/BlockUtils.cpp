@@ -1252,7 +1252,9 @@ void BtcWallet::scanTx(Tx & tx,
          {      
             TxOut txout = tx.getTxOutCopy(i);
             if( txout.getScriptType() != TXOUT_SCRIPT_NONSTANDARD )
-               scrAddrV.push_back(txout.getScrAddressStr());
+               if(std::find(scrAddrV.begin(), 
+                  scrAddrV.end(), txout.getScrAddressStr()) == scrAddrV.end())
+                     scrAddrV.push_back(txout.getScrAddressStr());
          }
       }
       else
@@ -1300,6 +1302,8 @@ void BtcWallet::scanTx(Tx & tx,
                ledgerAllAddrZC_.push_back(le);
             else
                ledgerAllAddr_.push_back(le);
+
+            if(isSentToSelf) break;
          }
       }
    }
