@@ -283,7 +283,8 @@ class parseNotifyTest(unittest.TestCase):
 
       self.assertEqual(notifyMap['113c948a']['VERSION'], '0')
       self.assertEqual(notifyMap['113c948a']['CANCELID'], '[]')
-      self.assertEqual(notifyMap['113c948a']['MAXVERSION'], '0.91.99.7')
+      # This is a bogus assertion that must fail unless updated on every release:
+      # self.assertEqual(notifyMap['113c948a']['MAXVERSION'], '0.91.99.7')
       self.assertTrue(notifyMap['113c948a']['LONGDESCR'].strip().startswith('The new version'))
 
       #for nid,fields in notifyMap.iteritems():

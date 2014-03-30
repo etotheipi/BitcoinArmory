@@ -2265,8 +2265,8 @@ def SplitSecret(secret, needed, pieces, nbytes=None, use_random_x=False):
    # Convert secret to an integer
    a = binary_to_int(SecureBinaryData(secret).toBinStr(),BIGENDIAN)
    if not a<ff.prime:
-      LOGERROR('Secret must be less than %s', int_to_hex(ff.prime,BIGENDIAN))
-      LOGERROR('             You entered %s', int_to_hex(a,BIGENDIAN))
+      LOGERROR('Secret must be less than %s', int_to_hex(ff.prime,endOut=BIGENDIAN))
+      LOGERROR('             You entered %s', int_to_hex(a,endOut=BIGENDIAN))
       raise FiniteFieldError
 
    if not pieces>=needed:
