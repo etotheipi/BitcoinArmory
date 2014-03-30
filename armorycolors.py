@@ -85,6 +85,10 @@ def luminance(qcolor):
 QAPP = QApplication(sys.argv)
 qpal = QAPP.palette()
 
+qpal.setColor(QPalette.ToolTipBase, qpal.color(QPalette.Window))
+qpal.setColor(QPalette.ToolTipText, qpal.color(QPalette.WindowText))
+QAPP.setPalette(qpal)
+
 # Some of the standard colors to be tweaked
 class ArbitraryStruct: pass
 Colors = ArbitraryStruct()
