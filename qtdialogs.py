@@ -9321,7 +9321,8 @@ class DlgNotificationWithDNAA(ArmoryDialog):
       super(DlgNotificationWithDNAA, self).__init__(parent, main)
 
       self.notifyID = nid
-      isUpgrade = (notifyMap['ALERTTYPE'].lower()=='upgrade')
+      isUpgrade = ('upgrade' in notifyMap['ALERTTYPE'].lower())
+      isTesting = (notifyMap['ALERTTYPE'].lower()=='upgrade-testing')
 
       #if notifyMap is None:
          #notifyMap = self.main.almostFullNotificationList[nid]
@@ -9381,12 +9382,17 @@ class DlgNotificationWithDNAA(ArmoryDialog):
          else:
             startTimeStr = unixTimeToFormatStr(startTime, 'Date: %B %d, %Y<br>')
 
-
       if isUpgrade:
          iconFile = ':/MsgBox_info48.png'
-         titleStr = tr('Upgrade Armory')
-         headerSz = 4
-         headerStr = tr("""Armory is out-of-date!""")
+         headerSz = 4         
+          
+         if isTesting:
+            titleStr = tr('New Armory Test Build')
+            headerStr = tr("""New Testing Version Available!""")        
+         else:
+            titleStr = tr('Upgrade Armory')
+            headerStr = tr("""Armory is out-of-date!""")
+            
       elif 0 <= priority < 2048:
          iconFile = ':/MsgBox_info48.png'
          titleStr = tr('Information')
