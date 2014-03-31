@@ -1522,6 +1522,31 @@ class ArmoryMainWindow(QMainWindow):
                   self.versionNotification['SHORTDESCR'] = shortDescr
                   self.versionNotification['LONGDESCR'] = \
                      self.getVersionNotifyLongDescr(verStr).replace('\n','<br>')
+                     
+            for verStr,vermap in self.downloadLinks['ArmoryTesting'].iteritems():
+               dlVer = getVersionInt(readVersionString(verStr))
+               if dlVer > maxVer:
+                  maxVer = dlVer
+                  self.armoryVersions[1] = verStr
+                  if thisVer >= maxVer:
+                     continue
+
+                  shortDescr = tr('Armory Testing version %s is now available!') % verStr
+                  notifyID = binary_to_hex(hash256(shortDescr)[:4])
+                  self.versionNotification['UNIQUEID'] = notifyID
+                  self.versionNotification['VERSION'] = '0'
+                  self.versionNotification['STARTTIME'] = '0'
+                  self.versionNotification['EXPIRES'] = '%d' % long(UINT64_MAX)
+                  self.versionNotification['CANCELID'] = '[]'
+                  self.versionNotification['MINVERSION'] = '*'
+                  self.versionNotification['MAXVERSION'] = '<%s' % verStr
+                  self.versionNotification['PRIORITY'] = '1024'
+                  self.versionNotification['ALERTTYPE'] = 'upgrade-testing'
+                  self.versionNotification['NOTIFYSEND'] = 'False'
+                  self.versionNotification['NOTIFYRECV'] = 'False'
+                  self.versionNotification['SHORTDESCR'] = shortDescr
+                  self.versionNotification['LONGDESCR'] = \
+                     self.getVersionNotifyLongDescr(verStr, True).replace('\n','<br>')
 
 
          # For Satoshi updates, we don't trigger any notifications like we
@@ -1562,7 +1587,7 @@ class ArmoryMainWindow(QMainWindow):
 
 
    #############################################################################
-   def getVersionNotifyLongDescr(self, verStr):
+   def getVersionNotifyLongDescr(self, verStr, testing=False):
       shortOS = None
       if OS_WINDOWS:
          shortOS = 'windows'
@@ -1575,6 +1600,13 @@ class ArmoryMainWindow(QMainWindow):
       if shortOS is not None:
          webURL += '#' + shortOS
 
+      if testing:
+         return tr("""
+            A new testing version of Armory is out. You can upgrade to version
+            %s through our secure downloader inside Armory (link at the bottom
+            of this notification window).
+            """) % (verStr)
+         
       return tr("""
          Your version of Armory is now outdated.  Please upgrade to version
          %s through our secure downloader inside Armory (link at the bottom
@@ -1631,7 +1663,7 @@ class ArmoryMainWindow(QMainWindow):
          return False
 
       # Ignore version upgrade notifications if disabled in the settings
-      if notifyMap['ALERTTYPE'].lower() == 'upgrade' and \
+      if 'upgrade' in notifyMap['ALERTTYPE'].lower() and \
          self.getSettingOrSetDefault('DisableUpgradeNotify', False):
          return False
 
