@@ -14,7 +14,7 @@ from armoryengine.Block import PyBlock
 from armoryengine.PyBtcAddress import PyBtcAddress
 from armoryengine.Script import PyScriptProcessor
 from armoryengine.Transaction import PyTx, PyTxIn, PyOutPoint, PyTxOut, \
-   TXOUT_SCRIPT_STANDARD, PyCreateAndSignTx, getMultisigScriptInfo, BlockComponent
+   PyCreateAndSignTx, getMultisigScriptInfo, BlockComponent
 
 
 
