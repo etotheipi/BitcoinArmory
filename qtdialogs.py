@@ -636,7 +636,7 @@ class DlgBugReport(ArmoryDialog):
 
       except:
          LOGEXCEPT('Failed:')
-         bugpage = 'https://bitcoinarmory.com/submitbug.php'
+         bugpage = 'https://bitcoinarmory.com/support/'
          QMessageBox.information(self, tr('Submitted!'), tr("""
             There was a problem submitting your bug report.  It is recommended
             that you submit this information through our webpage instead:
