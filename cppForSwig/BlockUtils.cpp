@@ -1102,6 +1102,8 @@ void BtcWallet::scanTx(Tx & tx,
                                  false); // "isChangeBack" is meaningless for TxIn
             thisAddrPtr->addLedgerEntry(newEntry, isZeroConf);
 
+            txLedgerForComments_.push_back(newEntry);
+
             // Update last seen on the network
             thisAddrPtr->setLastTimestamp(txtime);
             thisAddrPtr->setLastBlockNum(blknum);
@@ -1226,6 +1228,8 @@ void BtcWallet::scanTx(Tx & tx,
                                   false,   // sentToSelf meaningless for addr ledger
                                   false);  // we don't actually know
             thisAddrPtr->addLedgerEntry(newLedger, isZeroConf);
+
+            txLedgerForComments_.push_back(newLedger);
          }
          // Check if this is the first time we've seen this
          if(thisAddrPtr->getFirstTimestamp() == 0)
@@ -1242,21 +1246,10 @@ void BtcWallet::scanTx(Tx & tx,
 
    bool allTxOutIsOurs = true;
    bool anyTxOutIsOurs = false;
-   vector<BinaryData> scrAddrV;
    for(uint32_t i=0; i<tx.getNumTxOut(); i++)
    {
       if( thisTxOutIsOurs[i] )
-      {
          anyTxOutIsOurs = true;
-         if(!mainwallet)
-         {      
-            TxOut txout = tx.getTxOutCopy(i);
-            if( txout.getScriptType() != TXOUT_SCRIPT_NONSTANDARD )
-               if(std::find(scrAddrV.begin(), 
-                  scrAddrV.end(), txout.getScrAddressStr()) == scrAddrV.end())
-                     scrAddrV.push_back(txout.getScrAddressStr());
-         }
-      }
       else
          allTxOutIsOurs = false;
    }
@@ -1266,46 +1259,20 @@ void BtcWallet::scanTx(Tx & tx,
 
    if((anyNewTxInIsOurs || anyNewTxOutIsOurs))
    {
-      if(mainwallet)
-      {
-         LedgerEntry le( BinaryData(0),
-                         totalLedgerAmt, 
-                         blknum, 
-                         tx.getThisHash(), 
-                         txIndex,
-                         txtime,
-                         isCoinbaseTx,
-                         isSentToSelf,
-                         isChangeBack);
+      LedgerEntry le( BinaryData(0),
+                      totalLedgerAmt, 
+                      blknum, 
+                      tx.getThisHash(), 
+                      txIndex,
+                      txtime,
+                      isCoinbaseTx,
+                      isSentToSelf,
+                      isChangeBack);
 
-         if(isZeroConf)
-            ledgerAllAddrZC_.push_back(le);
-         else
-            ledgerAllAddr_.push_back(le);
-      }
+      if(isZeroConf)
+         ledgerAllAddrZC_.push_back(le);
       else
-      {
-         vector<BinaryData>::iterator saIt;
-         for(saIt = scrAddrV.begin(); saIt != scrAddrV.end(); saIt++)
-         {
-            LedgerEntry le( (*saIt),
-                            totalLedgerAmt, 
-                            blknum, 
-                            tx.getThisHash(), 
-                            txIndex,
-                            txtime,
-                            isCoinbaseTx,
-                            isSentToSelf,
-                            isChangeBack);
-
-            if(isZeroConf)
-               ledgerAllAddrZC_.push_back(le);
-            else
-               ledgerAllAddr_.push_back(le);
-
-            if(isSentToSelf) break;
-         }
-      }
+         ledgerAllAddr_.push_back(le);
    }
 }
 

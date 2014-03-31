@@ -432,6 +432,10 @@ public:
    map<OutPoint, TxIOPair> & getTxIOMap(void)    {return txioMap_;}
    map<OutPoint, TxIOPair> & getNonStdTxIO(void) {return nonStdTxioMap_;}
 
+
+   vector<LedgerEntry> & getTxLedgerForComments(void)
+                                                 { return txLedgerForComments_; }
+
    bool isOutPointMine(BinaryData const & hsh, uint32_t idx);
 
    void pprintLedger(void);
@@ -455,7 +459,10 @@ private:
    map<OutPoint, TxIOPair>      txioMap_;
 
    vector<LedgerEntry>          ledgerAllAddr_;  
-   vector<LedgerEntry>          ledgerAllAddrZC_;  
+   vector<LedgerEntry>          ledgerAllAddrZC_;
+
+   // Work around for address comments populating until 1:1 wallets are adopted
+   vector<LedgerEntry>          txLedgerForComments_;
 
    // For non-std transactions
    map<OutPoint, TxIOPair>      nonStdTxioMap_;

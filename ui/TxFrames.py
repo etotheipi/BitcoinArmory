@@ -429,7 +429,7 @@ class SendBitcoinsFrame(ArmoryFrame):
          scraddr = addrStr_to_scrAddr(recipStr)
 
          scraddrValuePairs.append((scraddr, value))
-         self.comments.append(str(self.widgetTable[i][COLS.Comm].text()))
+         self.comments.append((str(self.widgetTable[i][COLS.Comm].text()), value))
 
       try:
          feeStr = str(self.edtFeeAmt.text())
@@ -626,12 +626,12 @@ class SendBitcoinsFrame(ArmoryFrame):
       
                commentStr = ''
                if len(self.comments) == 1:
-                  commentStr = self.comments[0]
+                  commentStr = self.comments[0][0]
                else:
                   for i in range(len(self.comments)):
-                     amt = self.origRVPairs[i][1]
-                     if len(self.comments[i].strip()) > 0:
-                        commentStr += '%s (%s);  ' % (self.comments[i], coin2str_approx(amt).strip())
+                     amt = self.comments[i][1]
+                     if len(self.comments[i][0].strip()) > 0:
+                        commentStr += '%s (%s);  ' % (self.comments[i][0], coin2str_approx(amt).strip())
       
       
                tx = self.wlt.signTxDistProposal(txdp)

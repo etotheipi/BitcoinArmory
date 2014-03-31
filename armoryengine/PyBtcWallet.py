@@ -318,7 +318,7 @@ class PyBtcWallet(object):
             TheBDM.scanRegisteredTxForWallet(self.cppWallet, startBlk, wait=True)
             self.lastSyncBlockNum = TheBDM.getTopBlockHeight(wait=True)
             
-            wltLE = self.cppWallet.getTxLedger()
+            wltLE = self.cppWallet.getTxLedgerForComments()
             for le in wltLE:
                txHash = le.getTxHash()
                if not self.txAddrMap.has_key(txHash):
