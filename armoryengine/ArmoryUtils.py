@@ -1928,6 +1928,7 @@ def unixTimeToFormatStr(unixTime, formatStr=DEFAULT_DATE_FORMAT):
    """
    dtobj = datetime.fromtimestamp(unixTime)
    dtstr = u'' + dtobj.strftime(formatStr).decode('utf-8')
+   dtstr = dtstr.encode('ascii', errors='replace')
    return dtstr[:-2] + dtstr[-2:].lower()
 
 def secondsToHumanTime(nSec):
