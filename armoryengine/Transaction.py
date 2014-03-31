@@ -702,6 +702,10 @@ class PyTx(BlockComponent):
    def getHashHex(self, endianness=LITTLEENDIAN):
       return binary_to_hex(self.getHash(), endOut=endianness)
 
+   def copy(self):
+      return PyTx().unserialize(self.serialize())
+
+
    def makeRecipientsList(self):
       """ 
       Make a list of lists, each one containing information about 
@@ -825,6 +829,7 @@ class UnsignedTxInput(object):
                       insertSigs=None,
                       insertWltLocs=None,
                       contribID=None,
+                      sequence=UINT32_MAX,
                       version=UNSIGNED_TX_VERSION):
 
       tx = PyTx().unserialize(rawSupportTx)
@@ -838,9 +843,9 @@ class UnsignedTxInput(object):
       self.binScript   = txout.getScript()
       self.scriptType  = getTxOutScriptType(self.binScript)
       self.value       = txout.getValue()
-      self.contribID   = '' if p2sh is None else contribID
+      self.contribID   = '' if contribID is None else contribID
       self.p2shScript  = '' if p2sh is None else p2sh
-      self.isP2SH      = False
+      self.sequence    = sequence
    
       # Each of these will be a single value for single-signature UTXOs
       self.sigsNeeded  = 0
@@ -848,6 +853,10 @@ class UnsignedTxInput(object):
       self.pubKeys     = None
       self.signatures  = None
       self.wltLocators = None
+
+      #####
+      if not self.sequence==UINT32_MAX
+         LOGWARN('WARNING: NON-MAX SEQUENCE NUMBER ON UNSIGNEDTX INPUT!')
 
       #####
       # If this is P2SH, let's check things, and then use the sub-script
@@ -868,7 +877,6 @@ class UnsignedTxInput(object):
          # We can use the presence of 
          self.binScript  = self.p2shScript[:]
          self.scriptType = getTxOutScriptType(self.p2shScript)
-         self.isP2SH     = True
              
 
       #####
@@ -938,11 +946,12 @@ class UnsignedTxInput(object):
 
       bp = BinaryPacker()
       bp.put(UINT32,       self.version)
-      bp.put(BINARY_CHUNK, MAGIC_BYTES)
-      bp.put(BINARY_CHUNK, self.outpoint.serialize())
+      bp.put(BINARY_CHUNK, MAGIC_BYTES, 4)
+      bp.put(BINARY_CHUNK, self.outpoint.serialize(), 36)
       bp.put(VAR_STR,      self.supportTx)
       bp.put(VAR_STR,      self.p2shScript)
       bp.put(VAR_STR,      self.contribID)
+      bp.put(UINT32,       self.sequence)
       bp.put(VAR_INT,      numEntries)
 
       for i in range(numEntries):
@@ -963,6 +972,7 @@ class UnsignedTxInput(object):
       suppTx   = bu.get(VAR_STR)
       p2shScr  = bu.get(VAR_STR)
       contrib  = bu.get(VAR_STR)
+      seq      = bu.get(UINT32)
       nEntry   = bu.get(VAR_INT)
 
       keysiginfo = []
@@ -975,6 +985,9 @@ class UnsignedTxInput(object):
 
       if not outpt[:32] == hash160(suppTx):
          raise UnserializeError('OutPoint hash does not match supporting tx')
+
+      if not seq==UINT32_MAX:
+         LOGWARN('WARNING: NON-MAX SEQUENCE NUMBER ON UNSIGNEDTX INPUT!')
 
       if not magic==MAGIC_BYTES:
          LOGERROR('WRONG NETWORK!')
@@ -995,6 +1008,7 @@ class UnsignedTxInput(object):
                     sigList,
                     locList,
                     contrib,
+                    sequence,
                     version)
 
       return self
@@ -1096,7 +1110,6 @@ class UnsignedTxOutput(object):
       authMeth = bu.get(VAR_STR)
       authInfo = bu.get(VAR_STR)
 
-
       if not magic==MAGIC_BYTES:
          LOGERROR('WRONG NETWORK!')
          LOGERROR('   MAGIC BYTES:  ' + magic)
@@ -1114,6 +1127,36 @@ class UnsignedTxOutput(object):
 
       self.__init__(script, value, p2shScr, wltLoc, authMeth, authInfoObj)
       return self
+
+
+
+
+################################################################################
+def generatePreHashTxMsgToSign(pytx, txInIndex, prevTxOutScript, hashcode=1):
+   """
+   This wraps up all the complexity of:
+   https://en.bitcoin.it/w/images/en/7/70/Bitcoin_OpCheckSig_InDetail.png
+   into a few simple lines of code!  
+   (blank all scripts except this one, insert prev script, append hashcode)
+   """
+   if not hashcode==1:
+      LOGERROR('hashcode!=1 is not supported at this time!')
+      return None
+
+   # Copy the script, blank out out all other scripts (assume hashcode==1)
+   txCopy = pytxObj.copy()
+   for i in range(len(txCopy.inputs)):
+      txCopy.inputs[i].binScript = ''
+
+   txCopy.inputs[txInIndex].binScript = prevTxOutScript
+
+   hashCode1  = int_to_binary(hashcode, widthBytes=1)
+   hashCode4  = int_to_binary(hashcode, widthBytes=4, endOut=LITTLEENDIAN)
+   preHashMsg = txCopy.serialize() + hashCode4
+   return preHashMsg, hashCode1
+   
+
+
 
 
 
@@ -1141,11 +1184,13 @@ class UnsignedTransaction(object):
    
    """
    #############################################################################
-   def __init__(self, pytx=None, txMap=None, p2shMap=None):
+   def __init__(self, pytx=None, txMap=None, p2shMap=None, 
+                                       version=UNSIGNED_TX_VERSION):
+      self.version         = version
       self.pytxObj         = UNINITIALIZED
       self.uniqueB58       = ''
-      self.txOutScripts    = []
-      self.unsignedInputs  = {}  # needed to support input values of each TxIn
+      self.lockTime        = 0
+      self.unsignedInputs  = []
       self.unsignedOutputs = []
 
       txMap   = {} if txMap   is None else txMap
@@ -1163,12 +1208,15 @@ class UnsignedTransaction(object):
       txMap   = {} if txMap   is None else txMap
       p2shMap = {} if p2shMap is None else p2shMap
 
+
       if len(txMap)==0 and not TheBDM.getBDMState()=='BlockchainReady':
          # TxDP includes the transactions that supply the inputs to this 
          # transaction, so the BDM needs to be available to fetch those.
          raise BlockchainUnavailableError, ('Must input supporting transactions '
                                             'or access to the blockchain, to '
                                             'create the TxDP')
+
+      self.lockTime = pytx.lockTime
 
       # Get support tx for each input and create unsignedTx-input for each
       for txin in pytx.inputs:
@@ -1225,6 +1273,36 @@ class UnsignedTransaction(object):
       return self
 
 
+
+   #############################################################################
+   def createFromUnsignedTxIO(self, ustxinList, ustxoutList, lockTime=0):
+      nIn  = len(ustxinList)
+      nOut = len(ustxoutList)
+
+      self.pytxObj = PyTx()
+      self.pytxObj.version = version
+      self.pytxObj.lockTime = lockTime
+      self.pytxObj.inputs = [None]*nIn
+      self.pytxObj.outputs = [None]*nOut
+
+
+      for iin,ustxi in enumerate(ustxinList):
+         self.pytxObj.inputs[iin] = PyTxIn()
+         self.pytxObj.inputs[iin].outpoint  = ustxi.outpoint
+         self.pytxObj.inputs[iin].binScript = ''
+         self.pytxObj.inputs[iin].intSeq    = ustxi.sequence
+
+      for iout,ustxo in enumerate(ustxoutList):
+         self.pytxObj.outputs[iout] = PyTxIn()
+         self.pytxObj.outputs[iout].value     = ustxo.value
+         self.pytxObj.outputs[iout].binScript = ustxo.binScript
+      
+      self.unsignedInputs  = ustxinList[:]
+      self.unsignedOutputs = ustxoutList[:]
+
+      self.uniqueB58 = binary_to_base58(hash256(self.pytxObj.serialize()))[:8]
+      return self
+
    #############################################################################
    def createFromTxOutSelection(self, utxoSelection, scriptValuePairs, 
                                                   txMap=None, p2shMap=None):
@@ -1237,9 +1315,8 @@ class UnsignedTransaction(object):
              anything, including a multi-signature transaction
       """
 
-      txMap   = {} if txMap   is None else txMap
-      p2shMap = {} if p2shMap is None else p2shMap
 
+      # Warning that this method has changed!
       for scr,val in scriptValuePairs:
          if len(scr)==20:
             raise BadAddressError( tr("""
@@ -1302,7 +1379,41 @@ class UnsignedTransaction(object):
 
          self.inContribID.append(utxo.contribID)
 
-      return self.createFromPyTx(thePyTx, txMap)
+      return self.createFromPyTx(thePyTx, txMap, p2shMap)
+
+
+   #############################################################################
+   def serialize(self):
+      """
+      TODO:  We should consider the idea that we don't even need to serialize
+             the pytxObj at all... it seems there should only be a single,
+             canonical way to construct the tx.
+             
+      """
+      if self.pytxObj==UNINITIALIZED:
+         LOGERROR('Cannot serialize an uninitialized tx')
+         return None
+
+      bp = BinaryPacker()
+      
+      #bp.put(VAR_STR,  self.pytxObj.serialize())
+      bp.put(UINT32,   self.version)
+      bp.put(UINT32,   self.lockTime)
+      
+      bp.put(UINT32,  len(self.unsignedInputs))
+      for ustxi in self.unsignedInputs:
+         bp.put(VAR_STR, ustxi.serialize())
+
+      bp.put(UINT32,  len(self.unsignedOutputs))
+      for ustxo in self.unsignedOutputs:
+         bp.put(VAR_STR, ustxo.serialize())
+
+      return bp.getBinaryString()
+
+
+   #############################################################################
+   def unserialize(
+   def createFromUnsignedTxIO(self, ustxinList, ustxoutList, version=1, lockTime=0):
 
 
    #############################################################################

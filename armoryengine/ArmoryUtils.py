@@ -323,6 +323,7 @@ def readVersionInt(verInt):
    verList.append( int(verStr[ -7:-5    ]) )
    verList.append( int(verStr[:-7       ]) )
    return tuple(verList[::-1])
+
 # Allow user to override default bitcoin-qt/bitcoind home directory
 if not CLI_OPTIONS.satoshiHome.lower()=='default':
    success = True
@@ -1137,6 +1138,34 @@ def str2coin(theStr, negAllowed=True, maxDec=8, roundHighPrec=True):
          raise NegativeValueError
       fullInt = (int(lhs + rhs[:9].ljust(9,'0')) + 5) / 10
       return fullInt*(-1 if isNeg else 1)
+
+
+
+################################################################################
+def makeAsciiBlock(binStr, headStr='', wid=64, newline='\n'):
+   # Convert the raw chunk of binary data
+   rawStr = base64.b64encode(self.serialize())
+   sz = len(binStr)
+   firstLine = '=====%s' % headStr
+   lines = [firstLine.ljust(wid, '=')]
+   lines.extend([binStr[wid*i:wid*(i+1)] for i in range((sz-1)/wid+1)])
+   lines.append("="*wid)
+   return newline.join(lines)
+
+
+################################################################################
+def readAsciiBlock(ablock, headStr=''):
+   lines = ablock.strip().split()
+   if not lines[0].startswith('=====%s' % headStr) or \
+      not lines[-1].startswith('======'):
+      LOGERROR('Attempting to unserialize something not an ASCII block')
+      return lines[0].strip('='), None
+
+   headStr = lines[0].strip('=')
+   rawData = base64.b64decode(''.join(lines[1:-1]))
+
+   return (headStr, rawData)
+
 
 
 

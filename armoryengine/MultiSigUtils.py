@@ -158,7 +158,7 @@ class MultiSigLockbox(object):
       
       
    #############################################################################
-   def serialize(self, wid=64, newline='\n'):
+   def serialize(self):
 
       bp = BinaryPacker()
       bp.put(UINT32,       self.version)
@@ -171,26 +171,12 @@ class MultiSigLockbox(object):
       for comm in self.commentList:
          bp.put(VAR_STR,   toBytes(comm))
 
-      rawStr = base64.b64encode(bp.getBinaryString())
-      sz = len(rawStr)
-      lines = [('=====LOCKBOX=%s=====' % self.uniqueIDB58).ljust(wid, '=')]
-      lines.extend([rawStr[wid*i:wid*(i+1)] for i in range((sz-1)/wid+1)])
-      lines.append("="*wid)
-      
-      return newline.join(lines)
-      
+      return bp.getBinaryString()
+
+
 
    #############################################################################
-   def unserialize(self, boxBlock):
-
-      lines = boxBlock.split()
-      if not lines[0].startswith('=====LOCKBOX') or \
-         not lines[-1].startswith('======'):
-         LOGERROR('Attempting to unserialize lockbox that is not lockbox')
-         return None
-
-      expectID = lines[0][13:13+LOCKBOXIDSIZE]
-      rawData = base64.b64decode(''.join(lines[1:-1]))
+   def unserialize(self, rawData, expectID=None):
 
       bu = BinaryUnpacker(rawData)
       boxVersion = bu.get(UINT32)
@@ -221,7 +207,7 @@ class MultiSigLockbox(object):
       
       # Lockbox ID is written in the first line, it should match the script
       # If not maybe a version mistmatch, serialization error, or bug
-      if not calcLockboxID(boxScript) == expectID:
+      if expectID and not calcLockboxID(boxScript) == expectID:
          LOGERROR('ID on lockbox block does not match script')
          raise UnserializeError('ID on lockbox does not match!')
 
@@ -231,6 +217,23 @@ class MultiSigLockbox(object):
 
       return self
 
+
+   #############################################################################
+   def serializeAscii(self, wid=64, newline='\n'):
+      headStr = 'LOCKBOX-%s' % self.uniqueIDB58
+      return makeAsciiBlock(self.serialize(), headStr, wid, newline)
+
+
+   #############################################################################
+   def unserializeAscii(self, boxBlock):
+      headStr, rawData = readAsciiBlock(boxBlock, 'LOCKBOX')
+      if rawData is None:
+         LOGERROR('Expected header str "LOCKBOX", got "%s"' % headStr
+         return None
+
+      # We should have "PROMISSORY-BOXID-PROMID" in the headstr
+      boxID = headStr.split('-')[-1]
+      return self.unserialize(rawData, boxID)
 
    #############################################################################
    def pprint(self):
@@ -440,7 +443,7 @@ class MultiSigPromissoryNote(object):
       
       
    #############################################################################
-   def serialize(self, wid=64):
+   def serialize(self):
 
       if not self.boxID:
          LOGERROR('Cannot serialize uninitialized promissory note')
@@ -464,36 +467,13 @@ class MultiSigPromissoryNote(object):
       bp.put(VAR_STR,      self.lockboxKey)
       bp.put(VAR_STR,      toBytes(self.lockboxKeyInfo))
 
-      # Convert the raw chunk of binary data
-      rawStr = base64.b64encode(bp.getBinaryString())
-      sz = len(rawStr)
-      firstLine = '=====PROMISSORY=%s=%s=====' % (self.boxID, self.promID)
-      lines = [firstLine.ljust(wid, '=')]
-      lines.extend([rawStr[wid*i:wid*(i+1)] for i in range((sz-1)/wid+1)])
-      lines.append("="*wid)
-      
-      return '\n'.join(lines)
-
-
+      return bp.getBinaryString()
 
    #############################################################################
-   def unserialize(self, boxBlock):
-
-      lines = boxBlock.split()
-      if not lines[0].startswith('=====PROMISSORY') or \
-         not lines[-1].startswith('======'):
-         LOGERROR('Attempting to unserialize something not a promissory note')
-         return None
-
-      expectID = lines[0][16:16+LOCKBOXIDSIZE]
-      promID = lines[0][16+LOCKBOXIDSIZE:16+LOCKBOXIDSIZE+PROMIDSIZE]
-
-      promBlock = ''.join(lines[1:-1])
-      rawProm = base64.b64decode(''.join(promBlock.split()))
-
-
+   def unserialize(self, rawData, expectID=None):
       supportMap = {}
       
+      bu = BinaryUnpacker(rawData)
       version           = bu.get(UINT32)
       magicBytes        = bu.get(BINARY_CHUNK, 4)
       lboxID            = bu.get(VAR_STR)
@@ -517,13 +497,37 @@ class MultiSigPromissoryNote(object):
          LOGWARN('   PromNote Version: %d' % version)
          LOGWARN('   Armory   Version: %d' % MULTISIG_VERSION)
 
+      self.setParams(lboxID, payAmt, feeAmt, changeScript, contribLabel, 
+                                                                supportMap)
 
-      self.setParams(lboxID, payAmt, feeAmt, changeScript, contribLabel, supportMap)
+      if expectID and not expectID==self.promID:
+         LOGERROR('Promissory note ID does not match expected')
+         return None
 
       if len(lockboxKey)>0:
          self.setLockboxKey(lockboxKey, lockboxKeyInfo)
 
       return self
+
+
+   #############################################################################
+   def serializeAscii(self, wid=64, newline='\n')
+      headStr = 'PROMISSORY-%s-%s' % (self.boxID, self.promID)
+      return makeAsciiBlock(self.serialize(), headStr, wid, newline)
+
+
+   #############################################################################
+   def unserializeAscii(self, promBlock):
+
+      headStr, rawData = readAsciiBlock(promBlock, 'PROMISSORY')
+
+      if rawData is None:
+         LOGERROR('Expected header str "PROMISSORY", got "%s"' % headStr
+         return None
+
+      # We should have "PROMISSORY-BOXID-PROMID" in the headstr
+      promID = headStr.split('-')[-1]
+      return self.unserialize(rawData, promID)
 
 
    #############################################################################
