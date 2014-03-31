@@ -1090,6 +1090,32 @@ class DlgContributeFundLockbox(ArmoryDialog):
 
 
 ################################################################################
+class DlgMultiSpendReview(ArmoryDialog):
+
+   #############################################################################
+   def __init__(self, parent, main, txdp):
+      super(DlgMultiSpendReview, self).__init__(parent, main)
+
+
+      lblDescr = QRichLabel(tr("""
+         The following transaction is a proposed spend of funds controlled
+         by multiple parties.  The keyholes next to each input represent 
+         required signatures for the tx to be valid.  If the keyhole is white,
+         it has not yet been signed, and cannot be signed by you.  Blue
+         keyholes represent signatures that can be made by private keys/wallets
+         claimed to be owned by you (though it may require getting an offline 
+         signature).
+         <br><br>
+         Change outputs have been hidden where it is obvious (such as coins
+         returning to the same lockbox from where it came).  If there is 
+         any ambiguity, Armory will display all outputs."""))
+
+
+     
+     def isFinal(tx):
+
+
+################################################################################
 class DlgSelectMultiSigOption(ArmoryDialog):
 
    #############################################################################

@@ -56,6 +56,9 @@ Use-Case 1 -- Protecting coins with 2-of-3 computers (2 offline, 1 online):
 
 """
 
+LOCKBOXIDSIZE = 8
+PROMIDSIZE = 4
+LBPREFIX, LBSUFFIX = 'Lockbox[ID:', ']'
 
 ################################################################################
 def calcLockboxID(script=None, scraddr=None):
@@ -78,11 +81,6 @@ def calcLockboxID(script=None, scraddr=None):
    # values for 32-bytes converted to base58
    return binary_to_base58(hashedData)[1:9]
 
-LOCKBOXIDSIZE = 8
-
-
-
-LBPREFIX, LBSUFFIX = 'Lockbox[ID:', ']'
 
 ################################################################################
 def createLockboxEntryStr(lbID):
@@ -315,21 +313,61 @@ class MultiSigLockbox(object):
 
 
 
+################################################################################
+def computePromissoryID(supportTxMap):
+   if not supportTxMap:
+      LOGERROR("Empty supportTxMap in computePromissoryID")
+      return None
+
+   pairList = [tx + int_to_binary(i, width=4) for tx,i in supportTxMap]
+   return binary_to_base58(hash256(''.join(pairList)))[:4]
+   
 
 
 ################################################################################
 ################################################################################
-class MultiSigContribFunds(object):
+class MultiSigPromissoryNote(object):
+
+   # TODO:  We currently only include txIndex values, not wallet-index values.
+   #        I'm fairly certain this encoding/structure will have to change
+   #        anyway, so we'll put it in when we get more feedback/collaboration
+   #        about how we want to proceed with helping super-lite devices find
+   #        their own keys
+   #
+   # Support Tx
+   #
+   # supportTxMap = {}
+   # supportTxMap[txid0] = [rawTx0, [(txoIdx00, wltIdx00),(txoidx01,wltIdx01)] ]
+   # supportTxMap[txid1] = [rawTx1, [(txoIdx10, wltIdx10)] ]
+   # supportTxMap[txid2] = [rawTx2, [(txoIdx20, wltIdx20)] ]
+   # 
+   # WltIdx is a 4-byte field that is ignored by all parties except for the
+   # one who created it.  It is an identifier that may be used by an lite/HW
+   # wallet that doesn't store all BIP32 keys, but recomputes them as needed.
+   # The multi-spend tx encoding will include this value, so it can be passed
+   # directly to the signer and it can immediately figure out if the signing
+   # key for that TxIn is in the wallet
+   # 
+   # For regular wallets that can identify their own inputs, this can just 
+   # be left blank.
+   # 
+
    #############################################################################
    def __init__(self, boxID=None, payAmt=None, feeAmt=None, changeScript=None, 
-                  contribLabel=None, supportTx=None, version=MULTISIG_VERSION):
-      self.version   = 0
-      self.boxID     = boxID
-      self.payAmt    = payAmt
-      self.feeAmt    = feeAmt
+                  contribLabel=None, supportTxMap=None, version=MULTISIG_VERSION):
+      self.version       = 0
+      self.boxID         = boxID
+      self.payAmt        = payAmt
+      self.feeAmt        = feeAmt
       self.changeScript  = changeScript
       self.contribLabel  = contribLabel
-      self.supportTxPairs = supportTx
+      self.supportTxMap  = supportTxMap
+      self.promID        = None
+
+      # This packet may be used to communicate both a promissory note, and a
+      # key to be used in a lockbox, at the same time
+      self.lockboxKey     = ''
+      self.lockboxKeyInfo = ''
 
       if boxID is not None:
          self.setParams(boxID, payAmt, feeAmt, changeScript, supportTx, version)
@@ -355,29 +393,58 @@ class MultiSigContribFunds(object):
          self.contribLabel = contribLabel
 
       if supportTx is not None:
-         self.supportTxPairs = supportTx[:]
+         self.supportTxMap = supportTx
 
       # Compute some other data members
       self.version = version
       self.magicBytes = MAGIC_BYTES
 
+      self.promID = computePromissoryID(self.supportTxMap)
 
-      self.outPointTriplets = []
-      for rawTx,txoIdx in supportTx:
+      self.outpointTriplets = []
+      for txid,supportMap in self.supportTxMap.iteritems():
+         rawTx      = supportTxMap[0]
+         txoIdxList = supportTxMap[1][:]
          tx = PyTx().unserialize(rawTx)
-         op = PyOutPoint()
-         op.txHash = hash256(rawTx)
-         op.txOutIndex = txoIdx
-         val = tx.outputs[txoIdx].value
-         scr = tx.outputs[txoIdx].binScript
-         self.opValues.append([op, val, scr])
+
+         if not hash256(rawTx)==txid:
+            raise UnserializeError('Supplied txid does not match computed')
+
+         for txoIdx in txoIdxList:
+            op = PyOutPoint()
+            op.txHash = txid
+            op.txOutIndex = txoIdx
+            val = tx.outputs[txoIdx].value
+            scr = tx.outputs[txoIdx].binScript
+            self.outpointTriplets.append([op, val, scr])
 
 
 
+   #############################################################################
+   def setLockboxKey(self, binPubKey, keyInfo=None):
+      keyPair = [binPubKey[0], len(binPubKey)] 
+      if not keyPair in [['\x02', 33], ['\x03', 33], ['\x04', 65]]:
+         LOGERROR('Invalid public key supplied')
+         return False
+      
+      if keyPair[0] == '\x04':
+         if not CryptoECDSA().VerifyPublicKeyValid(SecureBinaryData(binPubKey)):
+            LOGERROR('Invalid public key supplied')
+            return False
+
+      self.lockboxKey = binPubKey[:]
+      if keyInfo:
+         self.lockboxKeyInfo = toUnicode(keyInfo)
+
+      return True
       
       
    #############################################################################
    def serialize(self, wid=64):
+
+      if not self.boxID:
+         LOGERROR('Cannot serialize uninitialized promissory note')
+         return None
 
       bp = BinaryPacker()
       bp.put(UINT32,       self.version)
@@ -387,14 +454,21 @@ class MultiSigContribFunds(object):
       bp.put(UINT64,       self.feeAmt)
       bp.put(VAR_STR,      self.changeScript)
       bp.put(VAR_STR,      toBytes(self.contribLabel))
-      bp.put(UINT32,       len(self.supportTxPairs))
-      for rawTx,txoIdx in self.supportTxPairs:
+      bp.put(VAR_INT,      len(self.supportTxMap))
+      for txid,supportInfo in self.supportTxMap:
+         rawTx,idxList = supportInfo
          bp.put(VAR_STR,   rawTx)
-         bp.put(UINT32,    txoIdx)
+         bp.put(VAR_INT,   len(idxList)
+         for idx in supportInfo[1]:
+            bp.put(UINT32,    idx)
+      bp.put(VAR_STR,      self.lockboxKey)
+      bp.put(VAR_STR,      toBytes(self.lockboxKeyInfo))
 
+      # Convert the raw chunk of binary data
       rawStr = base64.b64encode(bp.getBinaryString())
       sz = len(rawStr)
-      lines = [('=====LOCKBOX=%s=====' % self.uniqueIDB58).ljust(wid, '=')]
+      firstLine = '=====PROMISSORY=%s=%s=====' % (self.boxID, self.promID)
+      lines = [firstLine.ljust(wid, '=')]
       lines.extend([rawStr[wid*i:wid*(i+1)] for i in range((sz-1)/wid+1)])
       lines.append("="*wid)
       
@@ -406,49 +480,132 @@ class MultiSigContribFunds(object):
    def unserialize(self, boxBlock):
 
       lines = boxBlock.split()
-      if not lines[0].startswith('=====LOCKBOX') or \
+      if not lines[0].startswith('=====PROMISSORY') or \
          not lines[-1].startswith('======'):
-         LOGERROR('Attempting to unserialize lockbox that is not lockbox')
+         LOGERROR('Attempting to unserialize something not a promissory note')
          return None
 
-      expectID = lines[0][13:13+LOCKBOXIDSIZE]
+      expectID = lines[0][16:16+LOCKBOXIDSIZE]
+      promID = lines[0][16+LOCKBOXIDSIZE:16+LOCKBOXIDSIZE+PROMIDSIZE]
 
-      boxBlock = ''.join(lines[1:-1])
-      mapStr = base64.b64decode(''.join(boxBlock.split()))
-      dataMap = ast.literal_eval(mapStr)
+      promBlock = ''.join(lines[1:-1])
+      rawProm = base64.b64decode(''.join(promBlock.split()))
+
+
+      supportMap = {}
       
-      if not 'Script'  in dataMap or \
-         not 'Name'    in dataMap or \
-         not 'Descr'   in dataMap or \
-         not 'Comms'   in dataMap or \
-         not 'Version' in dataMap:
-         LOGERROR('Missing lockbox data')
-      
-      self.setParams(dataMap['Script'], \
-                     dataMap['Name'], \
-                     dataMap['Descr'], \
-                     dataMap['Comms'])
+      version           = bu.get(UINT32)
+      magicBytes        = bu.get(BINARY_CHUNK, 4)
+      lboxID            = bu.get(VAR_STR)
+      payAmt            = bu.get(UINT64)
+      feeAmt            = bu.get(UINT64)
+      changeScript      = bu.get(VAR_STR)
+      contribLabel      = toUnicode(bu.get(VAR_STR))
+      numSupportPairs   = bu.get(VAR_INT)
+      for i in range(numSupportPairs):
+         rawTx  = bu.get(VAR_STR)
+         txid = hash256(rawTx)
+         numIdx = bu.get(VAR_INT)
+         supportMap[txid] = [rawTx, []]
+         for i in range(numIdx):
+            supportMap[txid][1].append(bu.get(UINT32))
+      lockboxKey      = bu.get(VAR_STR)
+      lockboxKeyInfo  = bu.get(VAR_STR)
+
+      if not version==MULTISIG_VERSION:
+         LOGWARN('Unserialing promissory note of different version')
+         LOGWARN('   PromNote Version: ' + version)
+         LOGWARN('   Armory   Version: ' + MULTISIG_VERSION)
+
+
+      self.setParams(lboxID, payAmt, feeAmt, changeScript, contribLabel, supportMap)
+
+      if len(lockboxKey)>0:
+         self.setLockboxKey(lockboxKey, lockboxKeyInfo)
+
       return self
 
 
    #############################################################################
    def pprint(self):
-      print 'Multi-signature %d-of-%d lockbox:' % (self.M, self.N)
-      print '   Unique ID: ', self.uniqueIDB58
-      print '    Box Name: ', self.shortName
-      print '    Box Desc: ', self.longDescr[:60]
-      print '    Key List: '
-      for i in range(len(self.pkList)):
-         print '            Key %d' % i
-         print '           ', binary_to_hex(self.pkList[i])[:40] + '...'
-         print '           ', hash160_to_addrStr(self.a160List[i])
-         print '           ', self.commentList[i]
-         print ''
+      print 'Promissory Note:'
+      #print '   Unique ID: ', self.promID
+      #print '    Box Name: ', self.shortName
+      #print '    Box Desc: ', self.longDescr[:60]
+      #print '    Key List: '
+      #for i in range(len(self.pkList)):
+         #print '            Key %d' % i
+         #print '           ', binary_to_hex(self.pkList[i])[:40] + '...'
+         #print '           ', hash160_to_addrStr(self.a160List[i])
+         #print '           ', self.commentList[i]
+         #print ''
 
 
 
 
+################################################################################
+def makeFundingTxdpFromPromNotes(targetScript, promList, lockbox):
+   """
+   #We provide a target lockbox, and a full list of promissory notes to fund
+   #that lockbox.  
 
+   We do need to check that everything is consistent, to make sure that all
+   users are intending to fund the correct -lockbox- target script
+
+   EDIT:  No reason to make this specific to lockboxes, can use this for any
+          kind of simultaneous funding tx
+
+   """
+
+   fullTxMap  = {}
+   utxoInputs = []
+   scrValList = []
+
+   accumPay = sum([prom.payAmt for prom in promList])
+   accumFee = sum([prom.feeAmt for prom in promList])
+
+   scrType = getTxOutScriptType(targetScript)
+   if scrType==CPP_TXOUT_NONSTANDARD:
+      LOGWARN('Target script is non-standard transaction!' )
+      LOGWARN('Raw script:')
+      LOGWARN(binary_to_hex(targetScript))
+      LOGWARN('Human-Readable:')
+      for op in convertScriptToOpStrings(targetScript):
+         LOGWARN('   ' + op)
+
+   # Add the target script to the output list
+   scrValList.append( [targetScript, accumPay] )
+
+   for prom in promList:
+      totalInputVal = 0
+
+      # Collect all the inputs from the promissory not
+      for txid,supportInfo in prom.supportTxMap.iteritems():
+         rawTx,idxList = supportInfo
+         fullTxMap[txid] = PyTx().unserialize(rawTx)
+         for txoIdx in idxList:
+            txout = fullTxMap[txid].outputs[txoIdx] 
+            script  = txout.getScript()
+            val     = txout.getValue()
+            scrAddr = script_to_scrAddr(script)
+            cid     = prom.promID  # contribID
+            utxo = PyUnspentTxOut(scrAddr, txid, txoIdx, val, 0, script, cid)
+            utxoInputs.append(utxo)
+            totalInputVal += value
+
+
+      # Collect all the change addresses 
+      changeAmt = totalInputVal - (prom.payAmt + prom.feeAmt)
+      if changeAmt > 0:
+         scrValList.append([changeScript, changeAmt])
+
+   txdp = PyTxDistProposal().createFromTxOutSelection(utxoInputs, scrValPairs,
+                                                         fullTxMap, p2shMap)
+
+
+
+################################################################################
+def makeSpendingTxdpFromLockbox(lockbox, scriptValPairs):
 
 
 

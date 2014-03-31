@@ -785,6 +785,89 @@ class PyTx(BlockComponent):
 
 
 
+################################################################################
+class UnsignedTxInput(object):
+   """
+   This used to be part of the PyTxDP class itself, but it didn't make sense
+   to be tracking all those individual, parallel lists anymore.  So now we 
+   use this class to hold all the data that used to be split between half 
+   a dozen TxDP vars, and just store a list of these in the TxDP.
+
+   This holds the full, raw, supporting transaction for the particular input
+   needing to be signed, as well as the raw P2SH script if needed.  Can also
+   store a "contributor" ID -- all UTXO inputs with the same contribID will
+   be shown in the user interface as belonging to a single person/device.
+
+   This class will also be used to store/track signatures.
+
+   In addition to moving the variables, this class also takes over some of
+   the computation, such as parsing the supporting transaction and determining
+   the type and number of sigs needed
+   """
+
+   #############################################################################
+   def __init__(self, supportingTxRaw, txoutIndex, p2sh=None, contribID=None):
+      tx = PyTx().unserialize(supportingTxRaw)
+      txout = tx.outputs[txoutIndex]
+
+      self.supportTx   = tx
+      self.txoutIndex  = txoutIndex
+      self.binScript   = txout.getScript()
+      self.scriptType  = getTxOutScriptType(self.binScript)
+      self.value       = txout.getValue()
+      self.contribID   = '' if p2sh is None else contribID
+      self.p2shScript  = '' if p2sh is None else p2sh
+      self.isInitialized = True
+
+      if self.scriptType==CPP_TXOUT_P2SH:
+         if self.p2shScript is None:
+            LOGERROR('No P2SH script supplied for P2SH input')
+            self.isInitialized = False
+            return 
+
+         # Sanity check tha the supplied P2SH script actually matches
+         self.p2shScrAddr = script_to_scrAddr(self.p2shScript)
+         scriptHash = hash160(self.p2shScript)
+         if not SCRADDR_P2SH_BYTE+scriptHash == self.p2shScrAddr:
+            raise InvalidScriptError, 'No P2SH script info avail for TxDP'
+
+         # Replace script type with that of the sub-script
+         # We can use the presence of 
+         self.scriptType = getTxOutScriptType(self.p2shScript)
+             
+
+      # Fill some of the other fields with info needed to spend the script 
+      if scrType==CPP_TXOUT_P2SH:
+         # Technically, this is just "OP_HASH160 <DATA> OP_EQUAL" in the 
+         # subscript which would be unusual and mostly useless.  I'll assume
+         # here that it was an attempt at recursive P2SH, since they are
+         # both the same to our code: unspendable
+         raise InvalidScriptError('Cannot have recursive P2SH scripts!')
+      elif scrType in CPP_TXOUT_STDSINGLESIG:
+         self.numSigsNeeded[-1] = 1
+         self.inScrAddrList[-1] = script_to_scrAddr(script)  
+         self.signatures[-1]    = ['']
+      elif scrType==CPP_TXOUT_MULTISIG:
+         M, N, a160s, pubs = getMultisigScriptInfo(script)
+         self.inScrAddrList[-1] = [SCRADDR_P2PKH_BYTE+a for a in a160s]
+         self.inPubKeyLists[-1] = pubs[:]
+         self.signatures[-1]    = ['']*len(addrs)
+         self.numSigsNeeded[-1] = M
+      else:
+         LOGWARN("Non-standard script for TxIn %d" % i)
+         LOGWARN(binary_to_hex(script))
+         pass
+
+
+      #self.scriptTypes    = [ CPP_TXOUT_MULTISIG,
+      #self.inputValues    = [ long(23.13 * ONE_BTC),
+      #self.signatures     = [ ['', '', ''],
+      #self.inScrAddrList  = [ fe0203<a160_1><a160_2><a160_3>,
+      #self.p2shScripts    = [ '',
+      #self.inPubKeyLists  = [ [pubKey1, pubKey2, pubKey3],
+      #self.numSigsNeeded  = [ 2,
+      #self.relevantTxMap  = [ prevTx0Hash: prevTx0.serialize(),
+      #self.inContribID    = [ '839c4aa1',   # Contributor A
 
 
 ################################################################################
@@ -849,41 +932,41 @@ class PyTxDistProposal(object):
                               prevTx1Hash: prevTx1.serialize(),
                               prevTx2Hash: prevTx2.serialize(),
                               prevTx3Hash: prevTx3.serialize() ]
+
+      # Only used if this is a multi-user-contributed TxDP 
+      self.inContribID    = [ '839c4aa1',   # Contributor A
+                              '839c4aa1',   # Contributor A
+                              'a21e3f4a',   # Contributor B
+                              '7783a910' ]  # Contributor C
       
-   UPDATE Feb 2012:  Before Jan 29, 2012, BIP 0010 used a different technique
-                     for communicating blockchain information to the offline
-                     device.  This is no longer the case
-                     
-                     Gregory Maxwell identified a reasonable-enough security
-                     risk with the fact that previous BIP 0010 cannot guarantee 
-                     validity of stated input values in a TxDP.  This is solved
-                     by adding the supporting transactions to the TxDP, so that 
-                     the signing device can get the input values from those 
-                     tx and verify the hash matches the OutPoint on the tx 
-                     being signed (which *is* part of what's being signed).  
-                     The concern was that someone could manipulate your online
-                     computer to misrepresent the inputs, and cause you to 
-                     send you entire wallet to tx-fees.  Not the most useful
-                     attack (for someone trying to steal your coins), but it is
-                     still a risk that can be avoided by adding some "bloat" to
-                     the TxDP
+      The contribID is basically just the promissory note ID, if this was 
+      constrcuted from a collection of promissory notes.  For instance,
+      we have 100 inputs to a tx, but only two contributors.  If only 12
+      of those inputs have signatures (so far), then it would be good to
+      know that, say, there's only two other people that need to provide 
+      sigs, not 88.
 
                      
    
    """
    #############################################################################
-   def __init__(self, pytx=None, txMap={}):
-      self.pytxObj       = UNINITIALIZED
-      self.uniqueB58     = ''
-      self.scriptTypes   = []
-      self.signatures    = []
-      self.txOutScripts  = []
-      self.inScrAddrList = []
-      self.p2shScripts   = []
-      self.inPubKeyLists = []
-      self.inputValues   = []
-      self.numSigsNeeded = []
-      self.relevantTxMap = {}  # needed to support input values of each TxIn
+   def __init__(self, pytx=None, txMap=None, p2shMap=None):
+      self.pytxObj        = UNINITIALIZED
+      self.uniqueB58      = ''
+      self.scriptTypes    = []
+      self.signatures     = []
+      self.txOutScripts   = []
+      self.inScrAddrList  = []
+      self.p2shScripts    = []
+      self.inPubKeyLists  = []
+      self.inputValues    = []
+      self.inContribID    = []
+      self.numSigsNeeded  = []
+      self.relevantTxMap  = {}  # needed to support input values of each TxIn
+
+      txMap   = {} if txMap   is None else txMap
+      p2shMap = {} if p2shMap is None else p2shMap
+
       if pytx:
          self.createFromPyTx(pytx, txMap)
 
@@ -898,15 +981,13 @@ class PyTxDistProposal(object):
       self.inScrAddrList  = []
       self.inPubKeyLists  = []
       self.inputValues    = []
+      #self.inContribID    = [] # if used, it should've been set already
       self.numSigsNeeded  = []
       self.relevantTxMap  = {}  # needed to support input values of each TxIn
       self.p2shScripts    = []
 
-      if txMap is None:
-         txMap = {}
-
-      if p2shMap is None:
-         p2shMap = {}
+      txMap   = {} if txMap   is None else txMap
+      p2shMap = {} if p2shMap is None else p2shMap
 
       if len(txMap)==0 and not TheBDM.getBDMState()=='BlockchainReady':
          # TxDP includes the transactions that supply the inputs to this 
@@ -1005,7 +1086,8 @@ class PyTxDistProposal(object):
 
 
    #############################################################################
-   def createFromTxOutSelection(self, utxoSelection, scriptValuePairs, txMap={}):
+   def createFromTxOutSelection(self, utxoSelection, scriptValuePairs, 
+                                                  txMap=None, p2shMap=None):
       """
       This creates a TxDP for a standard transaction from a list of inputs and 
       a list of recipient-value-pairs.  
@@ -1014,6 +1096,9 @@ class PyTxDistProposal(object):
              string, it is instead interpretted as a SCRIPT -- which could be
              anything, including a multi-signature transaction
       """
+
+      txMap   = {} if txMap   is None else txMap
+      p2shMap = {} if p2shMap is None else p2shMap
 
       for scr,val in scriptValuePairs:
          if len(scr)==20:
@@ -1074,6 +1159,8 @@ class PyTxDistProposal(object):
          txin.outpoint.txHash = str(txhash)
          txin.outpoint.txOutIndex = txidx
          thePyTx.inputs.append(txin)
+
+         self.inContribID.append(utxo.contribID)
 
       return self.createFromPyTx(thePyTx, txMap)
 

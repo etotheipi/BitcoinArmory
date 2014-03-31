@@ -77,20 +77,37 @@ from armoryengine.Transaction import *
 #        (correctly) throw errors if you don't.  We can upgrade this in
 #        the future.
 class PyUnspentTxOut(object):
-   def __init__(self, scrAddr='', val=-1, numConf=-1):
-      pass
-      #self.scrAddr = scrAddr
-      #self.val  = long(val*ONE_BTC)
-      #self.conf = numConf
-   def createFromCppUtxo(self, cppUtxo):
-      self.scrAddr = cppUtxo.getRecipientScrAddr()
-      self.val  = cppUtxo.getValue()
-      self.conf = cppUtxo.getNumConfirm()
-      # For now, this will throw errors unless we always use hash160 scraddrs
-      self.binScript = '\x76\xa9\x14' + CheckHash160(self.scrAddr) + '\x88\xac'
+   def __init__(self, scrAddr=None, txHash=None, txoIdx=None, val=None, 
+                             numConf=None, fullScript=None, contribID=None):
+
+      self.initialize(scrAddr,txHash,txoIdx,val,numConf,fullScript,contribID)
+
+
+   def createFromCppUtxo(self, cppUtxo, fullScript=None, contribID=None):
+      scrAddr= cppUtxo.getRecipientScrAddr()
+      val    = cppUtxo.getValue()
+      conf   = cppUtxo.getNumConfirm()
+      txHash = cppUtxo.getTxHash()
+      txoIdx = cppUtxo.getTxOutIndex()
+
+      self.initialize(scrAddr,txHash,txoIdx,val,conf,fullScript,contribID)
+      return self
+
+   def initialize(self, scrAddr=None, txHash=None, txoIdx=None, val=None, 
+                               numConf=None, fullScript=None, contribID=None):
+      self.scrAddr    = scrAddr
       self.txHash     = cppUtxo.getTxHash()
       self.txOutIndex = cppUtxo.getTxOutIndex()
-      return self
+      self.val        = val
+      self.conf       = numConf
+      self.contribID  = contribID
+
+      if fullScript is None:
+         self.binScript = scrAddr_to_script(self.scrAddr)
+      else:
+         self.binScript = fullScript
+
+
    def getTxHash(self):
       return self.txHash
    def getTxOutIndex(self):
@@ -101,6 +118,8 @@ class PyUnspentTxOut(object):
       return self.conf
    def getScript(self):
       return self.binScript
+   def getContribID(self):
+      return self.contribID
    def getRecipientScrAddr(self):
       return self.scrAddr
    def getRecipientHash160(self):
