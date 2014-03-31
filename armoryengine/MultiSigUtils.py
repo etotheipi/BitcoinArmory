@@ -208,15 +208,15 @@ class MultiSigLockbox(object):
       # Issue a warning if the versions don't match
       if not boxVersion == MULTISIG_VERSION:
          LOGWARN('Unserialing lockbox of different version')
-         LOGWARN('   Lockbox Version: ' + boxVersion)
-         LOGWARN('   Armory  Version: ' + MULTISIG_VERSION)
+         LOGWARN('   Lockbox Version: %d' % boxVersion)
+         LOGWARN('   Armory  Version: %d' % MULTISIG_VERSION)
 
       # Check the magic bytes of the lockbox match
       if not boxMagic == MAGIC_BYTES:
          LOGERROR('Wrong network!')
          LOGERROR('    Lockbox Magic: ' + binary_to_hex(boxMagic))
          LOGERROR('    Armory  Magic: ' + binary_to_hex(MAGIC_BYTES))
-         raise UnserializeError('Wrong network')
+         raise NetworkIDError('Network magic bytes mismatch')
 
       
       # Lockbox ID is written in the first line, it should match the script
@@ -514,8 +514,8 @@ class MultiSigPromissoryNote(object):
 
       if not version==MULTISIG_VERSION:
          LOGWARN('Unserialing promissory note of different version')
-         LOGWARN('   PromNote Version: ' + version)
-         LOGWARN('   Armory   Version: ' + MULTISIG_VERSION)
+         LOGWARN('   PromNote Version: %d' % version)
+         LOGWARN('   Armory   Version: %d' % MULTISIG_VERSION)
 
 
       self.setParams(lboxID, payAmt, feeAmt, changeScript, contribLabel, supportMap)

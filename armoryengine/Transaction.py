@@ -13,6 +13,8 @@ from armoryengine.ArmoryUtils import *
 from armoryengine.BinaryPacker import *
 from armoryengine.BinaryUnpacker import *
 
+UNSIGNED_TX_VERSION = 1
+
 ################################################################################
 # Identify all the codes/strings that are needed for dealing with scripts
 ################################################################################
@@ -798,32 +800,54 @@ class UnsignedTxInput(object):
    store a "contributor" ID -- all UTXO inputs with the same contribID will
    be shown in the user interface as belonging to a single person/device.
 
-   This class will also be used to store/track signatures.
+   A "locator" is a 4-byte, user-specified string, that identifies where
+   in a BIP32 wallet a particular address is located.  This isn't needed
+   for regular Armory wallets, but may be needed in the future for HW or
+   other lightweight wallets to be able to locate their keys (because they
+   don't store all the keys, they compute them on-the-fly and need to be 
+   told the BIP32 branch where it is).
 
-   In addition to moving the variables, this class also takes over some of
-   the computation, such as parsing the supporting transaction and determining
-   the type and number of sigs needed
+   This class will also be used to store/track signatures.  Note that for 
+   regular Pay2PubKeyHash scripts, "adding a signature" to this object
+   means also adding a public key
    """
 
    #############################################################################
-   def __init__(self, supportingTxRaw, txoutIndex, p2sh=None, contribID=None):
-      tx = PyTx().unserialize(supportingTxRaw)
+   def __init__(self, rawSupportTx, 
+                      txoutIndex, 
+                      p2sh=None, 
+                      contribID=None,
+                      keySigInfo=None, 
+                      version=UNSIGNED_TX_VERSION):
+
+      tx = PyTx().unserialize(rawSupportTx)
       txout = tx.outputs[txoutIndex]
 
+      self.isInitialized = True
+
+      self.version     = version
       self.supportTx   = tx
-      self.txoutIndex  = txoutIndex
+      self.outpoint    = PyOutPoint(hash160(rawSupportTx), txoutIndex)
       self.binScript   = txout.getScript()
       self.scriptType  = getTxOutScriptType(self.binScript)
       self.value       = txout.getValue()
       self.contribID   = '' if p2sh is None else contribID
       self.p2shScript  = '' if p2sh is None else p2sh
-      self.isInitialized = True
+      self.isP2SH      = False
+   
+      # Each of these will be a single value for single-signature UTXOs
+      self.sigsNeeded  = 0
+      self.scrAddrs    = None
+      self.pubKeys     = None
+      self.signatures  = None
+      self.wltLocators = None
 
+      #####
+      # If this is P2SH, let's check things, and then use the sub-script
       if self.scriptType==CPP_TXOUT_P2SH:
+         # If we're here, we should've passed in a P2SH script
          if self.p2shScript is None:
-            LOGERROR('No P2SH script supplied for P2SH input')
-            self.isInitialized = False
-            return 
+            raise TxdpError('No P2SH script supplied for P2SH input')
 
          # Sanity check tha the supplied P2SH script actually matches
          self.p2shScrAddr = script_to_scrAddr(self.p2shScript)
@@ -833,41 +857,157 @@ class UnsignedTxInput(object):
 
          # Replace script type with that of the sub-script
          # We can use the presence of 
+         self.binScript  = self.p2shScript[:]
          self.scriptType = getTxOutScriptType(self.p2shScript)
+         self.isP2SH     = True
              
 
+      #####
       # Fill some of the other fields with info needed to spend the script 
       if scrType==CPP_TXOUT_P2SH:
-         # Technically, this is just "OP_HASH160 <DATA> OP_EQUAL" in the 
-         # subscript which would be unusual and mostly useless.  I'll assume
-         # here that it was an attempt at recursive P2SH, since they are
-         # both the same to our code: unspendable
+         # If this is a P2SH script, we've already overwritten the script
+         # type with the type of sub script.  If we're here, this means
+         # that the subscript is also P2SH, which is not allowed
          raise InvalidScriptError('Cannot have recursive P2SH scripts!')
       elif scrType in CPP_TXOUT_STDSINGLESIG:
-         self.numSigsNeeded[-1] = 1
-         self.inScrAddrList[-1] = script_to_scrAddr(script)  
-         self.signatures[-1]    = ['']
+         self.sigsNeeded  = 1
+         self.scrAddrs    = [script_to_scrAddr(script)]
+         self.pubKeys     = ['']
+         self.signatures  = ['']
+         self.wltLocators = ['']
       elif scrType==CPP_TXOUT_MULTISIG:
-         M, N, a160s, pubs = getMultisigScriptInfo(script)
-         self.inScrAddrList[-1] = [SCRADDR_P2PKH_BYTE+a for a in a160s]
-         self.inPubKeyLists[-1] = pubs[:]
-         self.signatures[-1]    = ['']*len(addrs)
-         self.numSigsNeeded[-1] = M
+         M, N, a160s, pubs = getMultisigScriptInfo(self.binScript)
+         self.sigsNeeded   = M
+         self.scrAddrs     = [SCRADDR_P2PKH_BYTE+a for a in a160s]
+         self.pubKeys      = pubs[:]
+         self.signatures   = ['']*N
+         self.wltLocators  = ['']*N
       else:
          LOGWARN("Non-standard script for TxIn %d" % i)
          LOGWARN(binary_to_hex(script))
          pass
 
 
-      #self.scriptTypes    = [ CPP_TXOUT_MULTISIG,
-      #self.inputValues    = [ long(23.13 * ONE_BTC),
-      #self.signatures     = [ ['', '', ''],
-      #self.inScrAddrList  = [ fe0203<a160_1><a160_2><a160_3>,
-      #self.p2shScripts    = [ '',
-      #self.inPubKeyLists  = [ [pubKey1, pubKey2, pubKey3],
-      #self.numSigsNeeded  = [ 2,
-      #self.relevantTxMap  = [ prevTx0Hash: prevTx0.serialize(),
-      #self.inContribID    = [ '839c4aa1',   # Contributor A
+      # If we included some sigs, add them blindly (we can't check them
+      # because we don't know exactly what we're signing yet... leave it
+      # to the 
+      if keySigInfo is not None:
+         for i,triplet in enumerate(keySigInfo):
+            self.setKeySigInfo(i, *triplet)
+            
+
+
+   #############################################################################
+   def setKeySigInfo(self, msIndex, pubKey, sigStr='', wltLoc=''):
+      self.pubKeys[msIndex]     = pubKey
+      self.signatures[msIndex]  = sigStr
+      self.wltLocators[msIndex] = wltLoc
+      
+
+   #############################################################################
+   def serialize(self):
+      if not self.isInitialized:
+         LOGERROR('Cannot serialize an uninitialzed unsigned txin')
+         return None
+
+      numEntries = len(self.signatures)
+
+      bp = BinaryPacker()
+      bp.put(UINT32,       self.version)
+      bp.put(BINARY_CHUNK, MAGIC_BYTES)
+      bp.put(BINARY_CHUNK, self.outpoint.serialize())
+      bp.put(VAR_STR,      self.supportTx)
+      bp.put(VAR_STR,      self.p2shScript)
+      bp.put(VAR_STR,      self.contribID)
+      bp.put(VAR_INT,      numEntries)
+
+      for i in range(numEntries):
+         bp.put(VAR_STR,      self.pubKeys[i])
+         bp.put(VAR_STR,      self.signatures[i])
+         bp.put(VAR_STR,      self.wltLocators[i])
+
+      return bp.getBinaryString()
+   
+
+   #############################################################################
+   def unserialize(self, rawBinaryData):
+
+      bu = BinaryUnpacker(rawBinaryData)
+      version  = bu.get(UINT32)
+      magic    = bu.get(BINARY_CHUNK, 4)
+      outpt    = bu.get(BINARY_CHUNK, 36)
+      suppTx   = bu.get(VAR_STR)
+      p2shScr  = bu.get(VAR_STR)
+      contrib  = bu.get(VAR_STR)
+      nEntry   = bu.get(VAR_INT)
+
+      keysiginfo = []
+      for i in range(nEntry):
+         pub = bu.get(VAR_STR)
+         sig = bu.get(VAR_STR)
+         loc = bu.get(VAR_STR)
+         keysiginfo.append([pub, sig, loc])
+
+      if not magic==MAGIC_BYTES:
+         LOGERROR('WRONG NETWORK!')
+         LOGERROR('   MAGIC BYTES:  ' + magic)
+         LOGERROR('   Expected:     ' + MAGIC_BYTES)
+         raise NetworkIDError('Network magic bytes mismatch')
+         
+
+      if not version==UNSIGNED_TX_VERSION:
+         LOGWARN('Unserialing UnsignedTxInput of different version')
+         LOGWARN('   USTX    Version: %d' % version)
+         LOGWARN('   Armory  Version: %d' % UNSIGNED_TX_VERSION)
+
+      self.__init__(suppTx, 
+                    outpt.getTxOutIndex(), 
+                    p2shScr,
+                    contrib,
+                    keysiginfo,
+                    version)
+
+      return self
+         
+
+
+
+################################################################################
+class UnsignedTxOutput(object):
+   """
+   self.authInfo can be anything that the offline computer will recognize
+   as authentication of the owner of the txOut script.  This could be our
+   planned rootpub + multiplier technique (or multiple root keys and 
+   multipliers, in multisig), or it could be a chain of X509 certs that
+   link an ID to this script.  
+   
+   As of this writing, we're not utilizing any of these auth techniques,
+   yet, so we simply assume it will be None, or that it has a .serialize()
+   and .unserialize() method so this class doesn't have to care
+   """
+   def __init__(self, script, value, authMeth='NONE', authInfo=None, 
+                                 p2sh=None, version=UNSIGNED_TX_VERSION):
+
+      self.version    = version
+      self.binScript  = script
+      self.value      = value
+      self.authMethod = "NONE"  # 4-byte identifier
+      self.authInfo   = None
+      self.p2shScript = p2sh
+
+      # Derived values
+      self.scrAddr    = script_to_scrAddr(script)
+      self.scrType    = getTxOutScriptType(script)
+      self.multiInfo  = {}
+      if self.scrType == CPP_TXOUT_P2SH:
+         
+      if self.scrType == CPP_TXOUT_MULTISIG:
+         M, N, a160s, pubs = getMultisigScriptInfo(script)
+         self.multiInfo['M'] = M
+         self.multiInfo['N'] = N
+         self.multiInfo['Addr160s'] = a160s
+         self.multiInfo['PubKeys'] = pubs
+
 
 
 ################################################################################
@@ -875,76 +1015,20 @@ class UnsignedTxInput(object):
 # This class can be used for both multi-signature tx collection, as well as
 # offline wallet signing (you are collecting signatures for a 1-of-1 tx only
 # involving yourself).
-class PyTxDistProposal(object):
+class UnsignedTransaction(object):
    """
-   PyTxDistProposal is created from a PyTx object, and represents
-   an unsigned transaction, that may require the signatures of
-   multiple parties before being accepted by the network.
+   Let's call this a "USTX" to avoid confusion with "UTXO"s which are 
+   "unSPENT TxOut"s.  
 
-   This technique (https://en.bitcoin.it/wiki/BIP_0010) is that 
-   once TxDP is created, the system signing it only needs the 
-   ECDSA private keys and nothing else.   This enables the device
-   providing the signatures to be extremely lightweight, since it
-   doesn't have to store the blockchain.
-
-   For a given TxDP, we will be storing the following structure
-   in memory.  Use a 4-input tx as an example, with the first 
-   being a 2-of-3 multi-sig transaction (unsigned), and the last
-   is a 2-o-2 P2SH input.
+   UnsignedTransaction is basically a PyTx() object that has all the 
+   metadata needed for an offline device to sign it.
       
-      self.scriptTypes    = [ CPP_TXOUT_MULTISIG,
-                              CPP_TXOUT_STDHASH160,   
-                              CPP_TXOUT_STDHASH160,
-                              CPP_TXOUT_P2SH]
-
-      self.inputValues    = [ long(23.13 * ONE_BTC),
-                              long( 4.00 * ONE_BTC),
-                              long(10.00 * ONE_BTC),
-                              long( 5.00 * ONE_BTC) ]
-
-      self.signatures     = [ ['', '', ''],
-                              [''],
-                              [''],
-                              [''],         ]
-
-      self.inScrAddrList  = [ fe0203<a160_1><a160_2><a160_3>,
-                              HASH160PREFIX + a160_4,
-                              HASH160PREFIX + a160_5,
-                              P2SHPREFIX + p2sh160   ]
-
-      self.p2shScripts    = [ '',
-                              '',
-                              '',
-                              <scriptThatHashesTo_p2sh160>]
-
-      # Usually only have public keys on multi-sig TxOuts
-      self.inPubKeyLists  = [ [pubKey1, pubKey2, pubKey3],
-                              [''],
-                              [''],
-                              [pubKey6, pubKey7]         ]   
-
-      self.numSigsNeeded  = [ 2,
-                              1,
-                              1,
-                              2 ]
-
-      self.relevantTxMap  = [ prevTx0Hash: prevTx0.serialize(),
-                              prevTx1Hash: prevTx1.serialize(),
-                              prevTx2Hash: prevTx2.serialize(),
-                              prevTx3Hash: prevTx3.serialize() ]
-
-      # Only used if this is a multi-user-contributed TxDP 
-      self.inContribID    = [ '839c4aa1',   # Contributor A
-                              '839c4aa1',   # Contributor A
-                              'a21e3f4a',   # Contributor B
-                              '7783a910' ]  # Contributor C
-      
-      The contribID is basically just the promissory note ID, if this was 
-      constrcuted from a collection of promissory notes.  For instance,
-      we have 100 inputs to a tx, but only two contributors.  If only 12
-      of those inputs have signatures (so far), then it would be good to
-      know that, say, there's only two other people that need to provide 
-      sigs, not 88.
+   The contribID is basically just the promissory note ID, if this was 
+   constrcuted from a collection of promissory notes.  For instance,
+   we have 100 inputs to a tx, but only two contributors.  If only 12
+   of those inputs have signatures (so far), then it would be good to
+   know that, say, there's only two other people that need to provide 
+   sigs, not 88.
 
                      
    
@@ -953,16 +1037,8 @@ class PyTxDistProposal(object):
    def __init__(self, pytx=None, txMap=None, p2shMap=None):
       self.pytxObj        = UNINITIALIZED
       self.uniqueB58      = ''
-      self.scriptTypes    = []
-      self.signatures     = []
       self.txOutScripts   = []
-      self.inScrAddrList  = []
-      self.p2shScripts    = []
-      self.inPubKeyLists  = []
-      self.inputValues    = []
-      self.inContribID    = []
-      self.numSigsNeeded  = []
-      self.relevantTxMap  = {}  # needed to support input values of each TxIn
+      self.unsignedInputs = {}  # needed to support input values of each TxIn
 
       txMap   = {} if txMap   is None else txMap
       p2shMap = {} if p2shMap is None else p2shMap
@@ -1180,7 +1256,7 @@ class PyTxDistProposal(object):
       return False
 
    #############################################################################
-   def processSignature(self, sigStr, txinIdx, checkAllInputs=False):
+   def processSignature(self, sigStr, pubKey, txinIdx, checkAllInputs=False):
       """
       For standard transaction types, the signature field is actually the raw
       script to be plugged into the final transaction that allows it to eval
