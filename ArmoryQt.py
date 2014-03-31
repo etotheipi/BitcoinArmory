@@ -1618,33 +1618,6 @@ class ArmoryMainWindow(QMainWindow):
 
 
    #############################################################################
-   def getChangelogText(self, verStr):
-      releaseDate = None
-      changeList  = None
-      if self.changelog is None:
-         return None
-
-      for ver,date,updList in self.changelog:
-         if chngVer == verStr:
-            releaseDate = date
-            changeList = updList[:]
-            break
-      else:
-         LOGERROR('Could not find changelog info for version %s' % verStr)
-         return None
-
-      changeStr = tr('<b>Update information for version %s</b><br>') % verStr
-      if releaseDate:
-         changeStr += tr("""<u>Release Date</u>: %s<br><br>""") % releaseDate
-
-      for strHeader,strLong in changeList:
-         changeStr += '<u>%s:</u> %s<br>' % (strHeader, strLong)
-
-      return changeStr
-
-
-
-   #############################################################################
    def processBootstrap(self, binFile):
       # Nothing to process, actually.  We'll grab the bootstrap from its
       # current location, if needed

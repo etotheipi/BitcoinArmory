@@ -112,7 +112,7 @@ class PyBtcWalletRecovery(object):
       if len(self.brokenSequence) == 0:
          self.strOutput.append('All chained addresses were arranged sequentially in the wallet file\r\n')
       else:
-         nErrors = nErrors + len(self.brokenSequence)
+         #nErrors = nErrors + len(self.brokenSequence)
          self.strOutput.append('The following %d addresses were not arranged sequentially in the wallet file:\r\n' % (len(self.brokenSequence)))
          for i in range(0, len(self.brokenSequence)):
             self.strOutput.append('   chainIndex %s at file offset %s\r\n' % (self.brokenSequence[i][0], self.brokenSequence[i][1]))
