@@ -42,11 +42,21 @@ void BDM_Inject::wait(unsigned ms)
 #ifdef _WIN32_
    ULONGLONG abstime = GetTickCount64();
    abstime += 1000;
+   
+   pthread_mutex_lock(&pimpl->notifierLock);
+   while (!pimpl->hasSomething)
+   {
+      pthread_cond_timedwait(&pimpl->notifier, &pimpl->notifierLock, &abstime); 
+      
+      ULONGLONG latertime = GetTickCount64();
+      if (latertime <= abstime)
+         break;
+   }
+   pthread_mutex_unlock(&pimpl->notifierLock);
 #else
    struct timeval abstime;
    gettimeofday(&abstime, 0);
    abstime.tv_sec += 1;
-#endif
    
    pthread_mutex_lock(&pimpl->notifierLock);
    while (!pimpl->hasSomething)
@@ -57,18 +67,13 @@ void BDM_Inject::wait(unsigned ms)
       pthread_cond_timedwait(&pimpl->notifier, &pimpl->notifierLock, &abstimets); 
       
       unsigned mselapsed;
-#ifdef _WIN32_
-      ULONGLONG latertime = GetTickCount64();
-      if (latertime <= abstime)
-         break;
-#else
       struct timeval latertime;
       gettimeofday(&latertime, 0);
       if (latertime.tv_sec >= abstime.tv_sec && latertime.tv_usec >= abstime.tv_usec)
          break;
-#endif
    }
    pthread_mutex_unlock(&pimpl->notifierLock);
+#endif
 }
 
 struct ThreadParams

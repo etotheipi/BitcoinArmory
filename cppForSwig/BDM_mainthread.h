@@ -3,6 +3,12 @@
 
 #include "BlockUtils.h"
 
+#ifdef _MSC_VER
+   #ifndef _WIN32_
+      #define _WIN32_
+   #endif
+#endif
+
 class BDM_CallBack
 {
 public:

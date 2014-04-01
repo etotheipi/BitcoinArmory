@@ -68,10 +68,24 @@ int pthread_cond_wait(pthread_cond_t *cond, pthread_mutex_t *mu)
 	return 0;
 }
 
+int pthread_cond_timedwait(pthread_cond_t * cond, pthread_mutex_t *mutex, const ULONGLONG *tickcount64)
+{
+   const ULONGLONG now = GetTickCount64();
+	
+	ULONGLONG diff = *tickcount64-now;
+	if (diff > now)
+		diff = 0;
+
+   SleepConditionVariableCS(cond, mutex, (DWORD)diff);
+	return 0;
+}
+
 int pthread_cond_destroy(pthread_cond_t *cond)
 {
 	return 0;
 }
+
+
 #else //in case it has to run on WinXP, condition variables aren't supported, have to implement them with oldschool WinAPI calls.
 int pthread_cond_init(pthread_cond_t *cond, const pthread_condattr_t *attr)
 { 
@@ -113,22 +127,9 @@ int pthread_cond_wait(pthread_cond_t *cond, pthread_mutex_t *mu)
 	return 0;
 }
 
-static ULONGLONG asLargeInteger(const SYSTEMTIME &abstime)
-{
-	// see the msdn docs for SYSTEMTIME to understand why this madness is here
-	FILETIME thePresentFT;
-	SystemTimeToFileTime(&thePresent, &thePresentFT.u);
-	
-	ULARGE_INTEGER o;
-	o.LowPart = thePresentFT.dwLowDateTime;
-	o.HighPart = thePresentFT.dwHighDateTime;
-	
-	return o.QuadPart;
-}
-
 int pthread_cond_timedwait(pthread_cond_t * cond, pthread_mutex_t *mutex, const ULONGLONG *tickcount64)
 {
-	LeaveCriticalSection(mu);
+	LeaveCriticalSection(mutex);
 	
 	const ULONGLONG now = GetTickCount64();
 	
@@ -136,9 +137,9 @@ int pthread_cond_timedwait(pthread_cond_t * cond, pthread_mutex_t *mutex, const 
 	if (diff > now)
 		diff = 0;
 	
-	WaitForSingleObject((*cond)->EV, *tickcount-now);
+	WaitForSingleObject((*cond)->EV, (DWORD)diff);
 	
-	EnterCriticalSection(mu);
+	EnterCriticalSection(mutex);
 		
 	if((*cond)->Broadcast)
 			SetEvent((*cond)->EV);

@@ -9,7 +9,6 @@
 //                                                                            //
 ////////////////////////////////////////////////////////////////////////////////
 */
-
 %module(directors="1") CppBlockUtils
 %feature("director") BDM_CallBack;
 %feature("director") BDM_Inject;

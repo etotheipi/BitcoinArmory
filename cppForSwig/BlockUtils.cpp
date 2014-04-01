@@ -129,6 +129,7 @@ public:
       SCOPED_TIMER("updateWalletAfterReorg");
 
       // Fix the wallet's ledger
+      uint32_t changeToBlkNum;
       vector<LedgerEntry> & ledg = wlt.getTxLedger();
       for(uint32_t i=0; i<ledg.size(); i++)
       {
@@ -137,7 +138,13 @@ public:
             ledg[i].setValid(false);
 
          if(txJustAffected_.count(txHash) > 0)
-            ledg[i].changeBlkNum(iface_->getTxRef(txHash).getBlockHeight());
+         {
+            changeToBlkNum = iface_->getTxRef(txHash).getBlockHeight();
+            ledg[i].changeBlkNum(changeToBlkNum);
+
+            if(changeToBlkNum<wlt.lastScanned_) 
+               wlt.lastScanned_ = changeToBlkNum;
+         }
       }
 
       // Now fix the individual address ledgers
@@ -1687,7 +1694,7 @@ void BlockDataManager_LevelDB::pprintRegisteredWallets(void)
 // This assumes that registeredTxList_ has already been populated from 
 // the initial blockchain scan.  The blockchain contains millions of tx,
 // but this list will at least 3 orders of magnitude smaller
-void BlockDataManager_LevelDB::scanRegisteredTxForWallet( uint32_t blkStart,
+void BlockDataManager_LevelDB::scanRegisteredTxForWallets( uint32_t blkStart,
                                                           uint32_t blkEnd)
 {
    set<BtcWallet*>::iterator wltIter;
@@ -2105,7 +2112,7 @@ bool BlockDataManager_LevelDB::processNewHeadersInBlkFiles(uint32_t fnumStart,
 // working.  This way, all of our previously-tested code remains mostly 
 // untouched
 
-void BlockDataManager_LevelDB::fetchWalletRegisteredScrAddrData(void)
+void BlockDataManager_LevelDB::fetchWalletsRegisteredScrAddrData(void)
 {
    set<BtcWallet*>::iterator wltIter;
    for(wltIter  = registeredWallets_.begin();
@@ -2245,7 +2252,7 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
    {
       LOGINFO << "Fetching stored script histories from DB";
       //fetchAllRegisteredScrAddrData();
-      fetchWalletRegisteredScrAddrData();
+      fetchWalletsRegisteredScrAddrData();
    }
 
 
@@ -2374,7 +2381,7 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
    // came in... let's get it.
    readBlkFileUpdate();
 
-	scanRegisteredTxForWallet(0, lastTopBlock_);
+	scanRegisteredTxForWallets(0, lastTopBlock_);
 
    isInitialized_ = true;
    purgeZeroConfPool();

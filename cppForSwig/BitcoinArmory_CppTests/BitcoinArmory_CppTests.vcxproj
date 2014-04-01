@@ -175,16 +175,22 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\BinaryData.cpp" />
+    <ClCompile Include="..\Blockchain.cpp" />
     <ClCompile Include="..\BlockObj.cpp" />
     <ClCompile Include="..\BlockUtils.cpp" />
+    <ClCompile Include="..\BlockWriteBatcher.cpp" />
     <ClCompile Include="..\BtcUtils.cpp" />
+    <ClCompile Include="..\BtcWallet.cpp" />
     <ClCompile Include="..\EncryptionUtils.cpp" />
     <ClCompile Include="..\gtest\CppBlockUtilsTests.cpp" />
     <ClCompile Include="..\gtest\gtest-all.cc" />
+    <ClCompile Include="..\LedgerEntry.cpp" />
     <ClCompile Include="..\leveldb_windows_port\win32_posix\Win_TranslatePath.cpp" />
     <ClCompile Include="..\leveldb_wrapper.cpp" />
+    <ClCompile Include="..\ScrAddrObj.cpp" />
     <ClCompile Include="..\StoredBlockObj.cpp" />
     <ClCompile Include="..\UniversalTimer.cpp" />
+    <ClCompile Include="..\Util.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

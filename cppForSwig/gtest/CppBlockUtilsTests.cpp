@@ -5978,7 +5978,7 @@ TEST_F(BlockUtilsBare, Load5Blocks)
    wlt.addScrAddress(scrAddrB_);
    wlt.addScrAddress(scrAddrC_);
    TheBDM.registerWallet(&wlt);
-   TheBDM.registerNewScrAddr(scrAddrD_);
+   wlt.registerNewScrAddr(scrAddrD_);
    
    TheBDM.doInitialSyncOnLoad(); 
    TheBDM.scanBlockchainForTx(wlt);
@@ -6004,7 +6004,7 @@ TEST_F(BlockUtilsBare, Load4Blocks_Plus1)
    wlt.addScrAddress(scrAddrB_);
    wlt.addScrAddress(scrAddrC_);
    TheBDM.registerWallet(&wlt);
-   TheBDM.registerNewScrAddr(scrAddrD_);
+   wlt.registerNewScrAddr(scrAddrD_);
    
    // Copy only the first four blocks.  Will copy the full file next to test
    // readBlkFileUpdate method on non-reorg blocks.
@@ -6041,7 +6041,7 @@ TEST_F(BlockUtilsBare, Load5Blocks_FullReorg)
    wlt.addScrAddress(scrAddrB_);
    wlt.addScrAddress(scrAddrC_);
    TheBDM.registerWallet(&wlt);
-   TheBDM.registerNewScrAddr(scrAddrD_);
+   wlt.registerNewScrAddr(scrAddrD_);
 
    BtcWallet wlt2;
    wlt2.addScrAddress(scrAddrD_);
@@ -6081,7 +6081,7 @@ TEST_F(BlockUtilsBare, CorruptedBlock)
    wlt.addScrAddress(scrAddrB_);
    wlt.addScrAddress(scrAddrC_);
    TheBDM.registerWallet(&wlt);
-   TheBDM.registerNewScrAddr(scrAddrD_);
+   wlt.registerNewScrAddr(scrAddrD_);
 
    BtcWallet wlt2;
    wlt2.addScrAddress(scrAddrD_);
@@ -7290,12 +7290,12 @@ TEST_F(BlockUtilsWithWalletTest, PreRegisterScrAddrs)
    wlt.addScrAddress(scrAddrB_);
    wlt.addScrAddress(scrAddrC_);
    TheBDM.registerWallet(&wlt);
-   TheBDM.registerNewScrAddr(scrAddrD_);
+   wlt.registerNewScrAddr(scrAddrD_);
 
    BtcUtils::copyFile("../reorgTest/blk_0_to_4.dat", blk0dat_);
    TheBDM.doInitialSyncOnLoad();
 
-   TheBDM.fetchAllRegisteredScrAddrData();
+   TheBDM.fetchWalletsRegisteredScrAddrData();
    TheBDM.scanBlockchainForTx(wlt);
 
    uint64_t balanceWlt;
@@ -7334,9 +7334,9 @@ TEST_F(BlockUtilsWithWalletTest, PostRegisterScrAddr)
    wlt.addScrAddress(scrAddrB_);
    wlt.addScrAddress(scrAddrC_);
    TheBDM.registerWallet(&wlt);
-   TheBDM.registerNewScrAddr(scrAddrD_);
-   TheBDM.fetchAllRegisteredScrAddrData();
-   TheBDM.scanRegisteredTxForWallet(wlt);
+   wlt.registerNewScrAddr(scrAddrD_);
+   TheBDM.fetchWalletsRegisteredScrAddrData();
+   TheBDM.scanRegisteredTxForWallets();
 
    uint64_t balanceWlt;
    uint64_t balanceDB;
@@ -7518,8 +7518,8 @@ TEST_F(BlockUtilsWithWalletTest, ZeroConfUpdate)
    TheBDM.registerWallet(&wlt);
 
    TheBDM.doInitialSyncOnLoad();
-   TheBDM.fetchAllRegisteredScrAddrData();
-   TheBDM.scanRegisteredTxForWallet(wlt);
+   TheBDM.fetchWalletsRegisteredScrAddrData();
+   TheBDM.scanRegisteredTxForWallets();
 
    uint64_t balanceWlt;
    uint64_t balanceDB;

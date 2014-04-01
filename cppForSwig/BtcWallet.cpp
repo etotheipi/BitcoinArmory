@@ -1122,7 +1122,7 @@ void BtcWallet::scanRegisteredTxForWallet(uint32_t blkStart, uint32_t blkEnd)
    // Make sure RegisteredTx objects have correct data, then sort.
    // TODO:  Why did I not need this with the MMAP blockchain?  Somehow
    //        I was able to sort correctly without this step, before...?
-	if(lastScanned_ > blkStart) blkStart = lastScanned_;
+	if(!blkStart && blkStart > lastScanned_) blkStart = lastScanned_;
 
    list<RegisteredTx>::iterator txIter;
    for(txIter  = registeredTxList_.begin();

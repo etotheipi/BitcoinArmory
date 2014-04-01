@@ -363,7 +363,7 @@ public:
    void saveScrAddrHistories(void);
    
    //for 1:1 wallets
-   void fetchWalletRegisteredScrAddrData(void);
+   void fetchWalletsRegisteredScrAddrData(void);
    const BlockHeader* getHeaderPtrForTx(Tx& theTx)
                      {return &blockchain_.getHeaderPtrForTx(theTx);}
    bool isZcEnabled() {return zcEnabled_;}
@@ -408,7 +408,7 @@ private:
 public:
    // This will only be used by the above method, probably wouldn't be called
    // directly from any other code
-   void scanRegisteredTxForWallet( uint32_t blkStart=0,
+   void scanRegisteredTxForWallets( uint32_t blkStart=0,
                                    uint32_t blkEnd=UINT32_MAX);
 private:
    void scanDBForRegisteredTx(uint32_t blk0=0, uint32_t blk1=UINT32_MAX);
