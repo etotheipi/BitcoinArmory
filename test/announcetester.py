@@ -43,7 +43,7 @@ class AnnouncementTester(unittest.TestCase):
       print 'LENGTH OF NOTIFY FILE:', (len(d) if d else 0)
       print '*****'
       print 'Attempting to fetch before ADF is started (forced)'
-      d = adf.getAnnounceFile('notify', forceFetch=True)
+      d = adf.getAnnounceFile('notify', forceCheck=True)
       print '*****'
       print 'LENGTH OF NOTIFY FILE:', (len(d) if d else 0)
       print '*****'
@@ -69,7 +69,7 @@ class AnnouncementTester(unittest.TestCase):
 
             if 30<t<31 or 34<t<35:
                s = RightNow()
-               d = adf.getAnnounceFile('notify', forceFetch=True) 
+               d = adf.getAnnounceFile('notify', forceCheck=True) 
                print '*****'
                print 'LENGTH OF NOTIFY FILE:', (len(d) if d else 0)
                print '*****'
@@ -85,7 +85,7 @@ class AnnouncementTester(unittest.TestCase):
                print 'LENGTH OF NOTIFY FILE:', (len(d) if d else 0)
                print '*****'
                print 'Attempting to fetch after shutdown (forced)'
-               d = adf.getAnnounceFile('notify', forceFetch=True)
+               d = adf.getAnnounceFile('notify', forceCheck=True)
                print '*****'
                print 'LENGTH OF NOTIFY FILE:', (len(d) if d else 0)
                print '*****'

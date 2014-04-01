@@ -206,7 +206,7 @@ class PyTXTest(unittest.TestCase):
       tx1hash = tx1.getHash()
       recipientList = tx1.makeRecipientsList()
       self.assertEqual(len(recipientList), 1)
-      self.assertEqual(recipientList[0][0], TXOUT_SCRIPT_STANDARD)
+      self.assertEqual(recipientList[0][0], 0)
       self.assertEqual(recipientList[0][1], 50 * ONE_BTC)
       
       self.assertEqual(tx1.getHashHex(), binary_to_hex(tx1hash))
