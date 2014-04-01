@@ -1028,6 +1028,8 @@ void BtcWallet::scanTx(Tx & tx,
    ScrAddrObj* thisAddrPtr;
    HashString  scraddr;
 
+   bool savedAsTxIn = false;
+
    ///// LOOP OVER ALL TXIN IN TX /////
    for(uint32_t iin=0; iin<tx.getNumTxIn(); iin++)
    {
@@ -1103,6 +1105,7 @@ void BtcWallet::scanTx(Tx & tx,
             thisAddrPtr->addLedgerEntry(newEntry, isZeroConf);
 
             txLedgerForComments_.push_back(newEntry);
+            savedAsTxIn = true;
 
             // Update last seen on the network
             thisAddrPtr->setLastTimestamp(txtime);
@@ -1229,7 +1232,7 @@ void BtcWallet::scanTx(Tx & tx,
                                   false);  // we don't actually know
             thisAddrPtr->addLedgerEntry(newLedger, isZeroConf);
 
-            txLedgerForComments_.push_back(newLedger);
+            if(!savedAsTxIn) txLedgerForComments_.push_back(newLedger);
          }
          // Check if this is the first time we've seen this
          if(thisAddrPtr->getFirstTimestamp() == 0)
