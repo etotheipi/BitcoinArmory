@@ -1394,7 +1394,7 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
       theirOutSum = 0
       rvPairs = []
       idx = 0
-      for scrType, amt, recip in data[FIELDS.OutList]:
+      for scrType, amt, recip, multiSigList in data[FIELDS.OutList]:
          wltID = self.main.getWalletForAddr160(recip)
          if wltID == spendWltID:
             toWlts.add(wltID)
