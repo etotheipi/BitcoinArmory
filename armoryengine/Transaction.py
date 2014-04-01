@@ -792,6 +792,74 @@ class PyTx(BlockComponent):
 
 
 
+# Use to identify status of individual sigs on an UnsignedTxINPUT
+IN_SIGSTAT = enum('ALREADY_SIGNED', 
+                  'WLT_ALREADY_SIGNED', 
+                  'WLT_CAN_SIGN',
+                  'NO_SIGNATURE')
+
+# Use to identify status of USTXI objects of an UnsignedTransaction obj
+TX_SIGSTAT = enum('SIGNING_COMPLETE', 
+                  'WLT_CAN_COMPLETE', 
+                  'WLT_CAN_CONTRIB',
+                  'CANNOT_COMPLETE')
+
+
+################################################################################
+# This is a container object for holding data about USTXI signing status
+class InputSigningStatus(object):
+   def __init__(self):
+      self.M              = 0
+      self.N              = 0
+      self.statusN        = []
+      self.statusM        = []
+      self.allSigned      = False
+      self.wltCanSign     = False
+      self.wltIsRelevant  = False
+      self.wltCanComplete = False
+
+################################################################################
+# This is a container object for holding a list of InputSigningStatus objects
+# and aggregating info about
+class TxSigningStatus(object):
+   def __init__(self):
+      self.numInputs       = 0
+      self.statusList      = []
+      self.canBroadcast    = False
+      self.wltCanSign      = False
+      self.wltIsRelevant   = False
+      self.wltCanComplete  = False
+
+
+
+################################################################################
+def generatePreHashTxMsgToSign(pytx, txInIndex, prevTxOutScript, hashcode=1):
+   """
+   This wraps up all the complexity of:
+   https://en.bitcoin.it/w/images/en/7/70/Bitcoin_OpCheckSig_InDetail.png
+   into a few simple lines of code!  
+   (blank all scripts except this one, insert prev script, append hashcode)
+
+   Right now only supports SIGHASH_ALL
+   """
+   if not hashcode==1:
+      LOGERROR('hashcode!=1 is not supported at this time!')
+      return None
+
+   # Copy the script, blank out out all other scripts (assume hashcode==1)
+   txCopy = pytxObj.copy()
+   for i in range(len(txCopy.inputs)):
+      txCopy.inputs[i].binScript = ''
+
+   txCopy.inputs[txInIndex].binScript = prevTxOutScript
+
+   hashCode1  = int_to_binary(hashcode, widthBytes=1)
+   hashCode4  = int_to_binary(hashcode, widthBytes=4, endOut=LITTLEENDIAN)
+   preHashMsg = txCopy.serialize() + hashCode4
+   return preHashMsg, hashCode1
+
+
+
 ################################################################################
 class UnsignedTxInput(object):
    """
@@ -992,7 +1060,7 @@ class UnsignedTxInput(object):
       else:
          raise SignatureError('No PubKey that matches this privKey')
 
-      msg = generatePreHashTxMsgToSign(pytx, txiIdx, self.txoScript, hashcode)
+      msg = generatePreHashTxMsgToSign(pytx, txiIdx, self.txoScript, hashcode)[0]
       sbdSig = CryptoECDSA().SignData(SecureBinaryData(msg), sbdPrivKey)
       return sbdSig.toBinStr()
           
@@ -1022,7 +1090,7 @@ class UnsignedTxInput(object):
       else:
          raise SignatureError('No TxIn that matches this USTXI')
 
-      msg = generatePreHashTxMsgToSign(pytx, txiIdx, self.txoScript, hashcode)
+      msg = generatePreHashTxMsgToSign(pytx, txiIdx, self.txoScript, hashcode)[0]
       sbdMsg = SecureBinaryData(msg)
       sbdSig = SecureBinaryData(sigStr)
       sbdPub = SecureBinaryData(pubKey)
@@ -1106,6 +1174,55 @@ class UnsignedTxInput(object):
 
       return self
          
+   #############################################################################
+   def evaluateSigningStatus(self, cppWlt=None):
+
+      signStatus = InputSigningStatus()
+
+      #CLASS InputSigningStatus
+      #self.M              = 0
+      #self.N              = 0
+      #self.statusN        = []
+      #self.statusM        = []
+      #self.allSigned      = False
+      #self.wltCanSign     = False
+      #self.wltIsRelevant  = False
+      #self.wltCanComplete = False
+
+      signStatus.M = len(self.signatures)
+      signStatus.N = self.sigsNeeded
+      signStatus.statusN = [IN_SIGSTAT.NO_SIGNATURE]*nkey
+      signStatus.statusM = [IN_SIGSTAT.NO_SIGNATURE]*msig
+
+      # First evaluate if we have sigs for each key, or if we *COULD* sign
+      # This simply returns signed-or-notsigned if no wallet is supplied
+      self.wltIsRelevant = False
+      self.wltCanSign    = False
+      for i in range(signStatus.N):
+         if len(self.signatures[i]) > 0:
+            signStatus.statusN[i] = IN_SIGSTAT.ALREADY_SIGNED
+
+         if cppWlt and cppWlt.hasScrAddr(self.scrAddrs[i]):
+            self.wltIsRelevant = True
+            if len(self.signatures[i]) > 0:
+               jaggedArray[-1][i] = IN_SIGSTAT.WLT_ALREADY_SIGNED
+            else:
+               self.wltCanSign    = True
+               jaggedArray[-1][i] = IN_SIGSTAT.WLT_CAN_SIGN
+               
+
+      # Now we sort the results and compare to M-value to get high-level metrics
+      # SIGSTAT enumeration values sort the way we ultimately want to display
+      self.statusM = sorted(signStatus.statusN)[:signStatus.M]
+
+      # Since values are sorted, the last element tells us whether we're done
+      signStatus.allSigned = (self.statusM[-1] in \
+                  [IN_SIGSTAT.ALREADY_SIGNED, IN_SIGSTAT.WLT_ALREADY_SIGNED])
+
+      signStatus.wltCanComplete = (self.statusM[-1] == IN_SIGSTAT.WLT_CAN_SIGN)
+      return signStatus
+
+                                                      
 
 
 ################################################################################
@@ -1224,33 +1341,7 @@ class UnsignedTxOutput(object):
 
 
 
-################################################################################
-def generatePreHashTxMsgToSign(pytx, txInIndex, prevTxOutScript, hashcode=1):
-   """
-   This wraps up all the complexity of:
-   https://en.bitcoin.it/w/images/en/7/70/Bitcoin_OpCheckSig_InDetail.png
-   into a few simple lines of code!  
-   (blank all scripts except this one, insert prev script, append hashcode)
-
-   Right now only supports SIGHASH_ALL
-   """
-   if not hashcode==1:
-      LOGERROR('hashcode!=1 is not supported at this time!')
-      return None
-
-   # Copy the script, blank out out all other scripts (assume hashcode==1)
-   txCopy = pytxObj.copy()
-   for i in range(len(txCopy.inputs)):
-      txCopy.inputs[i].binScript = ''
-
-   txCopy.inputs[txInIndex].binScript = prevTxOutScript
-
-   hashCode1  = int_to_binary(hashcode, widthBytes=1)
-   hashCode4  = int_to_binary(hashcode, widthBytes=4, endOut=LITTLEENDIAN)
-   preHashMsg = txCopy.serialize() + hashCode4
-   return preHashMsg, hashCode1
    
-
 
 
 
@@ -1569,6 +1660,57 @@ class UnsignedTransaction(object):
       expectID = headStr.split('-')[-1]
       return self.unserialize(rawData, expectID)
 
+
+   #############################################################################
+   def evaluateSigningStatus(self, cppWlt=None):
+   
+      #class TxSigningStatus(object):
+         #def __init__(self):
+            #self.numInputs       = 0
+            #self.statusList      = []
+            #self.canBroadcast    = False
+            #self.wltCanSign      = False
+            #self.wltIsRelevant   = False
+            #self.wltCanComplete  = False
+         
+      txSigStat = TxSigningStatus
+      txSigStat.numInputs = len(self.unsignedInputs)
+      txSigStat.statusList = [ustxi.evaluateSigningStatus(cppWlt) \
+                                       for ustxi in self.unsignedInputs]
+
+      txSigStat.canBroadcast   = True
+      txSigStat.wltCanSign     = False
+      txSigStat.wltIsRelevant  = False
+      txSigStat.wltCanComplete = True
+      
+      for inputStat in txSigStat.statusList:
+         #def __init__(self):
+         #self.M              = 0
+         #self.N              = 0
+         #self.statusN        = []
+         #self.statusM        = []
+         #self.allSigned      = False
+         #self.wltCanSign     = False
+         #self.wltIsRelevant  = False
+         #self.wltCanComplete = False
+         if not inputStat.allSigned:
+            txSigStat.canBroadcast = False
+
+         if inputStat.wltCanSign:
+            txSigStat.wltCanSign = True
+
+         if inputStat.wltIsRelevant:
+            txSigStat.wltIsRelevant = True
+
+         if not inputStat.wltCanComplete:
+            txSigStat.wltCanComplete = False
+
+      return txSigStat
+             
+         
+               
+               
+               
 
 
    #############################################################################
