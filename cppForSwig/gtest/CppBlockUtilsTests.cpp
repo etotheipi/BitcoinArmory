@@ -6045,6 +6045,7 @@ TEST_F(BlockUtilsBare, Load5Blocks_FullReorg)
 
    BtcWallet wlt2;
    wlt2.addScrAddress(scrAddrD_);
+   TheBDM.registerWallet(&wlt2);
    
    TheBDM.doInitialSyncOnLoad(); 
    TheBDM.scanBlockchainForTx(wlt);
@@ -6085,7 +6086,8 @@ TEST_F(BlockUtilsBare, CorruptedBlock)
 
    BtcWallet wlt2;
    wlt2.addScrAddress(scrAddrD_);
-   
+   TheBDM.registerWallet(&wlt2);
+
    TheBDM.doInitialSyncOnLoad(); 
    TheBDM.scanBlockchainForTx(wlt);
    TheBDM.scanBlockchainForTx(wlt2);
