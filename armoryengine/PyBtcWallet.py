@@ -318,7 +318,7 @@ class PyBtcWallet(object):
             #TheBDM.queued( lambda : TheBDM.bdm.scanRegisteredTxForWallet(self.cppWallet, startBlk) )
             self.lastSyncBlockNum = TheBDM.queued( lambda : TheBDM.bdm.blockchain().top().getBlockHeight() )
             
-            wltLE = self.cppWallet.getTxLedger()
+            wltLE = self.cppWallet.getTxLedgerForComments()
             for le in wltLE:
                txHash = le.getTxHash()
                if not self.txAddrMap.has_key(txHash):

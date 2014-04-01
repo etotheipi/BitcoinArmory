@@ -180,9 +180,10 @@ public:
    RegisteredScrAddr* getRegisteredScrAddr(BinaryData& uniqKey)
                         {return &registeredScrAddrMap_[uniqKey];}
    const map<BinaryData, RegisteredScrAddr>& getRegisteredScrAddrMap() const
-      { return registeredScrAddrMap_; }
-      
+                     { return registeredScrAddrMap_; }
    void eraseTx(const BinaryData& txHash);
+   vector<LedgerEntry> & getTxLedgerForComments(void)
+                     { return txLedgerForComments_; }
 
    //end of 1:1 wallets
    
@@ -207,6 +208,7 @@ private:
 
    vector<LedgerEntry>          ledgerAllAddr_;  
    vector<LedgerEntry>          ledgerAllAddrZC_;  
+   vector<LedgerEntry>          txLedgerForComments_;
 
    // For non-std transactions
    map<OutPoint, TxIOPair>      nonStdTxioMap_;
