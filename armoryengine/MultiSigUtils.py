@@ -62,6 +62,13 @@ LBPREFIX, LBSUFFIX = 'Lockbox[ID:', ']'
 
 ################################################################################
 def calcLockboxID(script=None, scraddr=None):
+   # ScrAddr is "Script/Address" and for multisig it is 0xfe followed by
+   # M and N, then the SORTED hash160 values of the public keys
+   # Part of the reason for using "ScrAddrs" is to bundle together
+   # different scripts that have the same effective signing authority.
+   # Different sortings of the same public key list have same signing
+   # authority and therefore should have the same ScrAddr
+
    if script is not None:
       scrType = getTxOutScriptType(script)
       if not scrType==CPP_TXOUT_MULTISIG:
@@ -73,8 +80,8 @@ def calcLockboxID(script=None, scraddr=None):
       LOGERROR('ScrAddr is not a multisig script!')
       return None
 
-   #M,N = getMultisigScriptInfo(script)[:2]
    hashedData = hash160(MAGIC_BYTES + scraddr)
+   #M,N = getMultisigScriptInfo(script)[:2]
    #return '%d%d%s' % (M, N, binary_to_base58(hashedData)[:6])
 
    # Using letters 1:9 because the first letter has a minimal range of 
