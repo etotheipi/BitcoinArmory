@@ -78,58 +78,64 @@ from armoryengine.Transaction import *
 #        the future.
 class PyUnspentTxOut(object):
    def __init__(self, scrAddr=None, txHash=None, txoIdx=None, val=None, 
-                             numConf=None, fullScript=None, contribID=None):
+                                             numConf=None, fullScript=None):
 
-      self.initialize(scrAddr,txHash,txoIdx,val,numConf,fullScript,contribID)
+      self.initialize(scrAddr, txHash, txoIdx, val, numConf, fullScript)
 
 
-   def createFromCppUtxo(self, cppUtxo, fullScript=None, contribID=None):
+   #############################################################################
+   def createFromCppUtxo(self, cppUtxo, fullScript=None):
       scrAddr= cppUtxo.getRecipientScrAddr()
       val    = cppUtxo.getValue()
       conf   = cppUtxo.getNumConfirm()
       txHash = cppUtxo.getTxHash()
       txoIdx = cppUtxo.getTxOutIndex()
 
-      self.initialize(scrAddr,txHash,txoIdx,val,conf,fullScript,contribID)
+      self.initialize(scrAddr, txHash, txoIdx, val, conf, fullScript)
       return self
 
+   #############################################################################
    def initialize(self, scrAddr=None, txHash=None, txoIdx=None, val=None, 
-                               numConf=None, fullScript=None, contribID=None):
+                                              numConf=None, fullScript=None):
       self.scrAddr    = scrAddr
       self.txHash     = cppUtxo.getTxHash()
       self.txOutIndex = cppUtxo.getTxOutIndex()
       self.val        = val
       self.conf       = numConf
-      self.contribID  = contribID
 
       if fullScript is None:
          self.binScript = scrAddr_to_script(self.scrAddr)
       else:
          self.binScript = fullScript
 
-
    def getTxHash(self):
       return self.txHash
+
    def getTxOutIndex(self):
       return self.txOutIndex
+
    def getValue(self):
       return self.val
+
    def getNumConfirm(self):
       return self.conf
+
    def getScript(self):
       return self.binScript
-   def getContribID(self):
-      return self.contribID
+
    def getRecipientScrAddr(self):
       return self.scrAddr
+
    def getRecipientHash160(self):
       return CheckHash160(self.scrAddr)
+
    def prettyStr(self, indent=''):
       pstr = [indent]
       pstr.append(binary_to_hex(self.scrAddr[:8]))
       pstr.append(coin2str(self.val))
       pstr.append(str(self.conf).rjust(8,' '))
       return '  '.join(pstr)
+
    def pprint(self, indent=''):
       print self.prettyStr(indent)
 
