@@ -40,7 +40,8 @@ SWIG_INC     +=
 CXXCPP += $(CPPFLAGS) $(PYTHON_INCLUDES)
 
 # each .o file depends on all .h files
-ALL_HEADERS=$(wildcard *.h)
+ALL_HEADERS_FOUND=$(wildcard *.h)
+ALL_HEADERS=$(filter-out CppBlockUtils_wrap.h,$(ALL_HEADERS_FOUND))
 
 
 #**************************************************************************

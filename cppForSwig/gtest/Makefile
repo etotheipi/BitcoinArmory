@@ -87,6 +87,12 @@ gtest.a : gtest-all.o
 	$(MAKE) make -C .. ../_CppBlockUtils.so
 
 ####
+ifndef PYVER
+PYVER=python
+PYTHON_LDFLAGS=$(shell python-config --ldflags)
+else
+PYTHON_LDFLAGS=$(shell $(PYVER)-config --ldflags )
+endif
 
 CppBlockUtilsTests.o : CppBlockUtilsTests.cpp $(HEADERS) $(GTEST_HEADERS) ../../_CppBlockUtils.so
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c CppBlockUtilsTests.cpp 
@@ -95,7 +101,7 @@ getScrAddrData.o : getScrAddrData.cpp $(HEADERS) $(GTEST_HEADERS)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -c getScrAddrData.cpp 
 
 CppBlockUtilsTests : $(OBJECTS) CppBlockUtilsTests.o gtest.a
-	$(CXX) $(CPPFLAGS) $(CXXFLAGS) ../../_CppBlockUtils.so -Wl,-rpath,$(PWD)/../..  $^ -lpthread -o $@
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $(PYTHON_LDFLAGS) ../../_CppBlockUtils.so -Wl,-rpath,$(PWD)/../..  $^ -lpthread -o $@
 
 getScrAddrData : $(OBJECTS) getScrAddrData.o 
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $^ -lpthread -lcryptopp -o $@
