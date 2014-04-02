@@ -218,16 +218,10 @@ class UpgradeDownloader:
       self.progressBar.setRange(0, size)
       self.progressBar.setValue(len(self.receivedData))
 
-      if size >= 1024*1024*10:
-         total = size/1024/1024.
-         sofar = len(self.receivedData)/1024/1024.
-         s = tr("%0.1f / %0.1f MiB downloaded") % (sofar, total)
-         self.progressBar.setFormat(s)
-      else:
-         total = size/1024
-         sofar = len(self.receivedData)/1024
-         s = tr("{0}/{1} KiB downloaded").format(sofar, total)
-         self.progressBar.setFormat(s)
+      totalStr = bytesToHumanSize(size)
+      sofarStr = bytesToHumanSize(len(self.receivedData))
+      s = tr("{0} / {1} downloaded").format(sofarStr, totalStr)
+      self.progressBar.setFormat(s)
 
       QTimer.singleShot(250, self.progressTimer)
 
