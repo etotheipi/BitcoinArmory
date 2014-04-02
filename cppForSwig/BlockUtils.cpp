@@ -695,6 +695,16 @@ void BtcWallet::pprintAlot(uint32_t topBlk, bool withAddr)
    }
 }
 
+void BtcWallet::reorgChangeBlkNum(uint32_t newBlkHgt)                     
+{
+   if(newBlkHgt<lastScanned_) 
+   {
+      lastScanned_ = newBlkHgt;
+      reorgTrigger_ = true;
+   }
+}
+
+
 /////////////////////////////////////////////////////////////////////////////
 // This method is used in the registeredScrAddrScan to conditionally create and
 // insert a transaction into the registered list 
@@ -3697,7 +3707,12 @@ void BlockDataManager_LevelDB::scanRegisteredTxForWallet( BtcWallet & wlt,
 {
    SCOPED_TIMER("scanRegisteredTxForWallet");
 
-	if(!blkStart && blkStart > wlt.lastScanned_) blkStart = wlt.lastScanned_;
+   if(!wlt.reorgTrigger_)
+   {
+	   blkStart = wlt.lastScanned_;
+      wlt.reorgTrigger_ = false;
+   }
+
    bool isMainWallet = true;
    if(&wlt != (*registeredWallets_.begin())) isMainWallet = false;
 
@@ -4522,12 +4537,15 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
    // Update registered address list so we know what's already been scanned
    lastTopBlock_ = getTopBlockHeight() + 1;
    allScannedUpToBlk_ = lastTopBlock_;
+
+   LOGINFO << "Updating registered addresses";
    updateRegisteredScrAddrs(lastTopBlock_);
 
    // Since loading takes so long, there's a good chance that new block data
    // came in... let's get it.
    readBlkFileUpdate();
 
+   LOGINFO << "Scanning Wallets";
    set<BtcWallet*>::iterator wltIter;
    for(wltIter  = registeredWallets_.begin();
        wltIter != registeredWallets_.end();
@@ -5168,7 +5186,7 @@ void BlockDataManager_LevelDB::updateWalletAfterReorg(BtcWallet & wlt)
             changeToBlkNum = getTxRefByHash(txHash).getBlockHeight();
             addrLedg[i].changeBlkNum(changeToBlkNum);
 
-            wlt.changeBlkNum(changeToBlkNum);
+            wlt.reorgChangeBlkNum(changeToBlkNum);
          }
       }
    }

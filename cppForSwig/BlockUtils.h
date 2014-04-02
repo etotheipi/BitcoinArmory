@@ -337,7 +337,7 @@ private:
 class BtcWallet
 {
 public:
-   BtcWallet(void) : bdmPtr_(NULL) {lastScanned_ = 0;}
+   BtcWallet(void) : bdmPtr_(NULL), lastScanned_(0), reorgTrigger_(0) {}
    explicit BtcWallet(BlockDataManager_LevelDB* bdm) : bdmPtr_(bdm) {}
    ~BtcWallet(void);
 
@@ -448,10 +448,10 @@ public:
 
    vector<LedgerEntry> & getEmptyLedger(void) { EmptyLedger_.clear(); return EmptyLedger_;}
 
-	void changeBlkNum(uint32_t newBlkHgt)
-                     {if(newBlkHgt<lastScanned_) lastScanned_ = newBlkHgt;}
+	void reorgChangeBlkNum(uint32_t newBlkHgt);
+   
    uint32_t lastScanned_;
-
+   uint32_t reorgTrigger_;
 
 private:
    vector<ScrAddrObj*>          scrAddrPtrs_;
@@ -470,7 +470,6 @@ private:
 
    BlockDataManager_LevelDB*    bdmPtr_;
    static vector<LedgerEntry>   EmptyLedger_; // just a null-reference object
-
 
 };
 
