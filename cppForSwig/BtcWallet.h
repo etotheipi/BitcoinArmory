@@ -131,8 +131,22 @@ public:
 
    
    uint32_t     getNumScrAddr(void) const {return scrAddrMap_.size();}
-   ScrAddrObj & getScrAddrObjByIndex(uint32_t i) { return *(scrAddrPtrs_[i]); }
-   ScrAddrObj & getScrAddrObjByKey(BinaryData const & a) { return scrAddrMap_[a];}
+   ScrAddrObj& getScrAddrObjByIndex(uint32_t i) { return *(scrAddrPtrs_[i]); }
+   const ScrAddrObj & getScrAddrObjByIndex(uint32_t i) const { return *(scrAddrPtrs_[i]); }
+   const ScrAddrObj& getScrAddrObjByKey(BinaryData const & a) const
+   {
+      map<BinaryData, ScrAddrObj>::const_iterator i = scrAddrMap_.find(a);
+      if (i == scrAddrMap_.end())
+         throw std::runtime_error("Could not find ScrAddrObject with key=" + a.toHexStr());
+      return i->second;
+   }
+   ScrAddrObj& getScrAddrObjByKey(BinaryData const & a)
+   {
+      map<BinaryData, ScrAddrObj>::iterator i = scrAddrMap_.find(a);
+      if (i == scrAddrMap_.end())
+         throw std::runtime_error("Could not find ScrAddrObject with key=" + a.toHexStr());
+      return i->second;
+   }
 
    void     sortLedger(void);
    uint32_t removeInvalidEntries(void);
@@ -176,7 +190,7 @@ public:
                      {return KEY_IN_MAP(scraddr, registeredScrAddrMap_);}
    void scanRegisteredTxForWallet( uint32_t blkStart, uint32_t blkEnd);
    void updateRegisteredScrAddrs(uint32_t newTopBlk);
-   uint32_t numBlocksToRescan(uint32_t endBlk);
+   uint32_t numBlocksToRescan(uint32_t endBlk) const;
    RegisteredScrAddr* getRegisteredScrAddr(BinaryData& uniqKey)
                         {return &registeredScrAddrMap_[uniqKey];}
    const map<BinaryData, RegisteredScrAddr>& getRegisteredScrAddrMap() const
@@ -192,7 +206,7 @@ public:
 
 
 private:
-	vector<LedgerEntry> & getEmptyLedger(void) { EmptyLedger_.clear(); return EmptyLedger_;}
+   vector<LedgerEntry> & getEmptyLedger(void) { EmptyLedger_.clear(); return EmptyLedger_;}
 
 private:
    vector<ScrAddrObj*>          scrAddrPtrs_;

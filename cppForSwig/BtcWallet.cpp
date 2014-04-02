@@ -1178,11 +1178,11 @@ void BtcWallet::scanRegisteredTxForWallet(uint32_t blkStart, uint32_t blkEnd)
    if(bdmPtr_->isZcEnabled())
       bdmPtr_->rescanWalletZeroConf(*this);
 
-	uint32_t topBlk = bdmPtr_->getBlockHeight();
-	if(blkEnd > topBlk)
-		lastScanned_ = topBlk;
-	else if(blkEnd!=0)
-		lastScanned_ = blkEnd;
+   uint32_t topBlk = bdmPtr_->getBlockHeight();
+   if(blkEnd > topBlk)
+      lastScanned_ = topBlk;
+   else if(blkEnd!=0)
+      lastScanned_ = blkEnd;
 }
 
 void BtcWallet::updateRegisteredScrAddrs(uint32_t newTopBlk)
@@ -1197,7 +1197,7 @@ void BtcWallet::updateRegisteredScrAddrs(uint32_t newTopBlk)
    }
 }
 
-uint32_t BtcWallet::numBlocksToRescan(uint32_t endBlk)
+uint32_t BtcWallet::numBlocksToRescan(uint32_t endBlk) const
 {
    SCOPED_TIMER("numBlocksToRescan");
    // This method tells us whether we have to scan ANY blocks from disk
@@ -1212,14 +1212,21 @@ uint32_t BtcWallet::numBlocksToRescan(uint32_t endBlk)
    uint32_t maxAddrBehind = 0;
    for(uint32_t i=0; i<getNumScrAddr(); i++)
    {
-      ScrAddrObj & addr = getScrAddrObjByIndex(i);
+      const ScrAddrObj & addr = getScrAddrObjByIndex(i);
 
       // If any address is not registered, will have to do a full scan
       //if(registeredScrAddrMap_.find(addr.getScrAddr()) == registeredScrAddrMap_.end())
       if(KEY_NOT_IN_MAP(addr.getScrAddr(), registeredScrAddrMap_))
          return endBlk;  // Gotta do a full rescan!
 
-      RegisteredScrAddr & ra = registeredScrAddrMap_[addr.getScrAddr()];
+      map<BinaryData, RegisteredScrAddr>::const_iterator rai
+         = registeredScrAddrMap_.find(addr.getScrAddr());
+      if (rai == registeredScrAddrMap_.end())
+      {
+         LOGWARN << "item not found in registeredScrAddrMap_";
+         continue;
+      }
+      const RegisteredScrAddr & ra = rai->second;
       maxAddrBehind = max(maxAddrBehind, endBlk-ra.alreadyScannedUpToBlk_);
    }
 

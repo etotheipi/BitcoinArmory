@@ -2075,13 +2075,9 @@ bool BlockDataManager_LevelDB::processNewHeadersInBlkFiles(uint32_t fnumStart,
    {
       InterfaceToLDB::Batch batch(iface_, HEADERS);
          
-      for(
-         map<HashString, BlockHeader>::iterator i = blockchain_.allHeaders().begin();
-         i != blockchain_.allHeaders().end();
-         ++i
-      )
+      for(unsigned i = 0; i < blockchain_.numHeaders(); ++i)
       {
-         BlockHeader &block = i->second;
+         BlockHeader &block = blockchain_.getHeaderByHeight(i);
          StoredHeader sbh;
          sbh.createFromBlockHeader(block);
          uint8_t dup = iface_->putBareHeader(sbh);

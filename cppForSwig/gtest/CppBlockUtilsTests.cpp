@@ -5990,8 +5990,15 @@ TEST_F(BlockUtilsBare, Load5Blocks)
    EXPECT_EQ(scrobj->getFullBalance(),  0*COIN);
    scrobj = &wlt.getScrAddrObjByKey(scrAddrC_);
    EXPECT_EQ(scrobj->getFullBalance(), 50*COIN);
-   scrobj = &wlt.getScrAddrObjByKey(scrAddrD_);
-   EXPECT_EQ(scrobj->getFullBalance(),  0*COIN);  // hasn't been scanned yet
+   try
+   {
+      scrobj = &wlt.getScrAddrObjByKey(scrAddrD_);
+      EXPECT_TRUE(false);  //unreachable
+   }
+   catch (...)
+   {
+      // hasn't been scanned yet
+   }
 
    EXPECT_EQ(wlt.getFullBalance(), 150*COIN);
 }
@@ -6029,8 +6036,15 @@ TEST_F(BlockUtilsBare, Load4Blocks_Plus1)
    EXPECT_EQ(scrobj->getFullBalance(),  0*COIN);
    scrobj = &wlt.getScrAddrObjByKey(scrAddrC_);
    EXPECT_EQ(scrobj->getFullBalance(), 50*COIN);
-   scrobj = &wlt.getScrAddrObjByKey(scrAddrD_);
-   EXPECT_EQ(scrobj->getFullBalance(),  0*COIN);  // hasn't been scanned yet
+   try
+   {
+      scrobj = &wlt.getScrAddrObjByKey(scrAddrD_);
+      EXPECT_TRUE(false);  //unreachable
+   }
+   catch (...)
+   {
+      // hasn't been scanned yet
+   }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -7318,9 +7332,16 @@ TEST_F(BlockUtilsWithWalletTest, PreRegisterScrAddrs)
    EXPECT_EQ(balanceWlt,   50*COIN);
    EXPECT_EQ(balanceDB,    50*COIN);
 
-   balanceWlt = wlt.getScrAddrObjByKey(scrAddrD_).getFullBalance();
+   try
+   {
+      balanceWlt = wlt.getScrAddrObjByKey(scrAddrD_).getFullBalance();
+      EXPECT_TRUE(false);  //unreachable
+   }
+   catch (...)
+   {
+       // D is not part of the wallet
+   }
    balanceDB  = iface_->getBalanceForScrAddr(scrAddrD_);
-   EXPECT_EQ(balanceWlt,    0*COIN);  // D is not part of the wallet
    EXPECT_EQ(balanceDB,   100*COIN);
 }
 
@@ -7358,9 +7379,17 @@ TEST_F(BlockUtilsWithWalletTest, PostRegisterScrAddr)
    EXPECT_EQ(balanceWlt,   50*COIN);
    EXPECT_EQ(balanceDB,    50*COIN);
 
-   balanceWlt = wlt.getScrAddrObjByKey(scrAddrD_).getFullBalance();
+   try
+   {
+      balanceWlt = wlt.getScrAddrObjByKey(scrAddrD_).getFullBalance();
+      EXPECT_TRUE(false);  //unreachable
+   }
+   catch (...)
+   {
+      // D is not part of the wallet
+   }
+   
    balanceDB  = iface_->getBalanceForScrAddr(scrAddrD_);
-   EXPECT_EQ(balanceWlt,    0*COIN);  // D is not part of the wallet
    EXPECT_EQ(balanceDB,   100*COIN);
 }
 
