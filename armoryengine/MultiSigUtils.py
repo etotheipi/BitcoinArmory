@@ -321,6 +321,103 @@ class MultiSigLockbox(object):
       return '\n'.join(lines)
 
 
+   ################################################################################
+   def createDecoratedTxOut(self, value=0, asP2SH=False):
+      if not asP2SH:
+         dtxoScript = binScript
+         p2shScript = None
+      else:
+         dtxoScript = script_to_p2sh_script(self.binScript)
+         p2shScript = self.binScript
+
+      return DecoratedTxOut(dtxoScript, value, p2shScript)
+      
+
+
+   ################################################################################
+   def makeFundingTxFromPromNotes(self, promList):
+      ustxiAccum = []
+      
+      totalPay = sum([prom.payAmt for prom in promList])
+      totalFee = sum([prom.feeAmt for prom in promList])
+
+      # DTXO list always has at least the lockbox itself
+      dtxoAccum  = [self.createDecoratedTxOut(value=totalPay, asP2SH=False)]
+
+      # Errors with the change values should've been caught in prom::setParams
+      totalInputs = 0
+      totalChange = 0
+      for prom in promList:
+         for ustxi in prom.ustxInputs:
+            ustxiAccum.append(ustxi)
+            totalInputs += ustxi.value
+
+         # Add any change outputs
+         if prom.dtxoChange.value > 0:
+            dtxoList.append(prom.dtxoChange)
+            totalChange += prom.dtxoChange.value
+      
+      if not totalPay + totalFee == totalInputs - totalChange:
+         raise ValueError('Promissory note values do not add up correctly')
+
+      return UnsignedTransaction().createFromUnsignedTxIO(ustxiAccum, dtxoAccum)
+
+
+   ################################################################################
+   def makeSpendingTx(self, rawFundTxIdxPairs, dtxoList, feeAmt):
+
+      ustxiAccum = []
+      
+      # Errors with the change values should've been caught in setParams
+      totalInputs = 0
+      anyP2SH = False
+      for rawTx,txoIdx in rawFundTxIdxPairs:
+         fundTx    = PyTx().unserialize(rawTx)
+         txout     = fundTx.outputs[txoIdx]
+         txoScript = txout.getScript()
+         txoValue  = txout.getValue()
+
+         if not calcLockboxID(txoScript)==self.uniqueIDB58:
+            raise InvalidScriptError('Given OutPoint is not for this lockbox')
+
+         # If the funding tx is P2SH, make sure it matches the lockbox
+         # then include the subscript in the USTXI
+         p2shSubscript = None
+         if getTxOutScriptType(txoScript) == CPP_TXOUT_P2SH:
+            # setParams guarantees self.binScript is bare multi-sig script
+            txP2SHScrAddr = script_to_scrAddr(txoScript)
+            lbP2SHScrAddr = script_to_p2sh_script(self.binScript)
+            if not lbP2SHScrAddr == txP2SHScrAddr:
+               LOGERROR('Given utxo script hash does not match this lockbox')
+               raise InvalidScriptError('P2SH input does not match lockbox')
+            p2shSubscript = self.binScript
+            anyP2SH = True
+            
+
+         ustxiAccum.append(UnsignedTxInput(rawTx, txoIndex, p2shSubscript))
+         totalInputs += txoValue
+
+
+      # Copy the dtxoList since we're probably adding a change output
+      dtxoAccum = dtxoList[:]
+
+      totalOutputs = sum([dtxo.value for dtxo in dtxoAccum])
+      changeAmt = totalInputs - (totalOutputs + feeAmt)
+      if changeAmt < 0:
+         raise ValueError('More outputs than inputs!')
+      elif changeAmt > 0:
+         # If adding change output, make it P2SH if any inputs were P2SH
+         if not anyP2SH:
+            txoScript = self.binScript
+            p2shScript = None
+         else:
+            txoScript = script_to_p2sh_script(self.binScript)
+            p2shScript = self.binScript
+         dtxoAccum.append( DecoratedTxOut(txoScript, changeAmt, p2shScript))
+
+      return UnsignedTransaction().createFromUnsignedTxIO(ustxiAccum, dtxoAccum)
+      
+
 
 
 ################################################################################
@@ -340,15 +437,15 @@ class MultiSigPromissoryNote(object):
 
 
    #############################################################################
-   def __init__(self, boxID=None, payAmt=None, feeAmt=None, changeScript=None, 
-                                 ustxInputs=None, version=MULTISIG_VERSION):
-      self.version       = 0
-      self.boxID         = boxID
-      self.payAmt        = payAmt
-      self.feeAmt        = feeAmt
-      self.changeScript  = changeScript
-      self.ustxInputs    = ustxInputs
-      self.promID        = None
+   def __init__(self, boxID=None, payAmt=None, feeAmt=None, ustxInputs=None, 
+                                    dtxoChange=None, version=MULTISIG_VERSION):
+      self.version     = 0
+      self.boxID       = boxID
+      self.payAmt      = payAmt
+      self.feeAmt      = feeAmt
+      self.ustxInputs  = ustxInputs
+      self.dtxoChange  = dtxoChange
+      self.promID      = None
 
       # We MIGHT use this object to simultaneously promise funds AND 
       # provide a key to include in the target multisig lockbox (which would 
@@ -357,11 +454,11 @@ class MultiSigPromissoryNote(object):
       self.lockboxKeyInfo = ''
 
       if boxID is not None:
-         self.setParams(boxID, payAmt, feeAmt, changeScript, ustxInputs, version)
+         self.setParams(boxID, payAmt, feeAmt, dtxoChange, ustxInputs, version)
 
 
    #############################################################################
-   def setParams(self, boxID=None, payAmt=None, feeAmt=None, changeScript=None,
+   def setParams(self, boxID=None, payAmt=None, feeAmt=None, dtxoChange=None,
                                     ustxInputs=None, version=MULTISIG_VERSION):
       
       # Set params will only overwrite with non-None data
@@ -373,8 +470,8 @@ class MultiSigPromissoryNote(object):
       if feeAmt is not None:
          self.feeAmt = feeAmt
 
-      if changeScript is not None:
-         self.changeScript = changeScript
+      if dtxoChange is not None:
+         self.dtxoChange = dtxoChange
 
       if ustxInputs is not None:
          self.ustxInputs = ustxInputs
@@ -385,9 +482,24 @@ class MultiSigPromissoryNote(object):
 
       self.promID = computePromissoryID(self.ustxInputs)
 
-      for i in range(len(self.ustxInputs)):
-         self.ustxInputs.contribID = self.promID
+      # Make sure that the change output matches expected, also set contribIDs
+      totalInputs = 0
+      for ustxi in self.ustxInputs:
+         totalInputs += ustxi.value
+         ustxi.contribID = self.promID
 
+      changeAmt = totalInputs - (self.payAmt + self.feeAmt)
+      if changeAmt > 0:
+         if not self.dtxoChange.value==changeAmt:
+            LOGERROR('dtxoChange.value==%s, computed %s',
+               coin2strNZS(self.dtxoChange.value), coin2strNZS(changeAmt))
+            raise ValueError('Change output on prom note is unexpected')
+      elif changeAmt < 0:
+         LOGERROR('Insufficient prom inputs for payAmt and feeAmt')
+         LOGERROR('Total inputs: %s', coin2strNZS(totalInputs))
+         LOGERROR('(PayAmt, FeeAmt)=(%s,%s)', coin2strNZS(self.payAmt), 
+                                              coin2strNZS(self.feeAmt))
+         raise ValueError('Insufficient prom inputs for pay & fee')
 
 
    #############################################################################
@@ -422,7 +534,7 @@ class MultiSigPromissoryNote(object):
       bp.put(VAR_STR,      self.boxID)
       bp.put(UINT64,       self.payAmt)
       bp.put(UINT64,       self.feeAmt)
-      bp.put(VAR_STR,      self.changeScript)
+      bp.put(VAR_STR,      self.dtxoChange.serialize())
       bp.put(VAR_INT,      len(self.ustxInputs))
       for ustxi in self.ustxInputs:
          bp.put(VAR_STR,      ustxi.serialize())
@@ -442,7 +554,7 @@ class MultiSigPromissoryNote(object):
       lboxID            = bu.get(VAR_STR)
       payAmt            = bu.get(UINT64)
       feeAmt            = bu.get(UINT64)
-      changeScript      = bu.get(VAR_STR)
+      dtxoChange      = bu.get(VAR_STR)
       contribLabel      = toUnicode(bu.get(VAR_STR))
       numUSTXI          = bu.get(VAR_INT)
       
@@ -457,7 +569,7 @@ class MultiSigPromissoryNote(object):
          LOGWARN('   PromNote Version: %d' % version)
          LOGWARN('   Armory   Version: %d' % MULTISIG_VERSION)
 
-      self.setParams(lboxID, payAmt, feeAmt, changeScript, contribLabel, 
+      self.setParams(lboxID, payAmt, feeAmt, dtxoChange, contribLabel, 
                                                                 supportMap)
 
       if expectID and not expectID==self.promID:
@@ -492,23 +604,26 @@ class MultiSigPromissoryNote(object):
 
    #############################################################################
    def pprint(self):
+      chngStr = getTxOutScriptDisplayStr(self.dtxoChange.binScript)
+
+      self.lockboxKey     = ''
+      self.lockboxKeyInfo = ''
       print 'Promissory Note:'
-      #print '   Unique ID: ', self.promID
-      #print '    Box Name: ', self.shortName
-      #print '    Box Desc: ', self.longDescr[:60]
-      #print '    Key List: '
-      #for i in range(len(self.pkList)):
-         #print '            Key %d' % i
-         #print '           ', binary_to_hex(self.pkList[i])[:40] + '...'
-         #print '           ', hash160_to_addrStr(self.a160List[i])
-         #print '           ', self.commentList[i]
-         #print ''
+      print '   Version     :', self.version
+      print '   Unique ID   :', self.promID
+      print '   Num Inputs  :', len(self.ustxInputs)
+      print '   For Lockbox :', self.boxID
+      print '   Pay Amount  :', self.payAmt
+      print '   Fee Amount  :', self.feeAmt
+      print '   ChangeAddr  :', chngStr
+      #for ustxi in self.ustxInputs:
+         #ustxi.pprintOneLine(indent=6)
 
 
 
 
 ################################################################################
-def makeUnsignedTxFromPromNotes(promList, targetScript):
+def makeUnsignedTxFromPromNotes(promList, dtxoTarget):
    """
    #We provide a target lockbox, and a full list of promissory notes to fund
    #that lockbox.  
@@ -521,52 +636,27 @@ def makeUnsignedTxFromPromNotes(promList, targetScript):
 
    """
 
-   fullTxMap  = {}
-   utxoInputs = []
-   scrValList = []
+   # Decorated txout list always has at least the target, probably a lockbox
+   ustxiAccum = []
+   dtxoAccum  = [dtxoTarget]
 
-   accumPay = sum([prom.payAmt for prom in promList])
-   accumFee = sum([prom.feeAmt for prom in promList])
-
-   scrType = getTxOutScriptType(targetScript)
-   if scrType==CPP_TXOUT_NONSTANDARD:
-      LOGWARN('Target script is non-standard transaction!' )
-      LOGWARN('Raw script:')
-      LOGWARN(binary_to_hex(targetScript))
-      LOGWARN('Human-Readable:')
-      for op in convertScriptToOpStrings(targetScript):
-         LOGWARN('   ' + op)
-
-   # Add the target script to the output list
-   scrValList.append( [targetScript, accumPay] )
-
-   accumUSTXI = []
+   # Accumulate all inputs from all prom notes, as well as change outputs
+   # Errors with the change values should've been caught in setParams
    for prom in promList:
-
-      totalInputVal = 0
-      # Collect all the inputs from the promissory not
       for ustxi in prom.ustxInputs:
-         totalInputVal += ustxi.value
-         accumUSTXI.append(ustxi)
+         ustxiAccum.append(ustxi)
 
+      if prom.dtxoChange.value > 0:
+         dtxoList.append(prom.dtxoChange)
 
-      # Collect all the change addresses 
-      changeAmt = totalInputVal - (prom.payAmt + prom.feeAmt)
-      if changeAmt > 0:
-         scrValList.append([prom.changeScript, changeAmt])
-      elif changeAmt < 0:
-         LOGERROR('Insufficient prom inputs for payAmt and feeAmt')
-         raise ValueError('Insufficient prom inputs for pay & fee')
-
-   return UnsignedTransaction().createFromUnsignedTxInputSelection(
-                                          accumUSTXI, scrValList, p2shMap)
+   return UnsignedTransaction().createFromUnsignedTxIO(ustxiAccum, dtxoAccum)
 
 
 
 
 
-################################################################################
-def makeSpendingTxFromLockbox(lockbox, scriptValPairs):
+
+
 
 
 

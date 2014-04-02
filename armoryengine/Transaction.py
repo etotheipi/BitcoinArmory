@@ -365,6 +365,20 @@ def getHash160ListFromMultisigScrAddr(scrAddr):
 def getTxOutScriptType(script):
    return Cpp.BtcUtils().getTxOutScriptTypeInt(script)
 
+################################################################################
+# These two methods are just easier-to-type wrappers around the C++ methods
+def getTxOutScriptDisplayStr(script):
+   scrAddr = script_to_scrAddr(script)
+   scrType = getTxOutScriptType(script)
+   if scrType in CPP_TXOUT_HAS_ADDRSTR:
+      return scrAddr_to_addrStr(scrAddr)
+   elif scrType==CPP_TXOUT_MULTISIG:
+      M, N, addrs, pubs = getMultisigScriptInfo(script)
+      p2shStr = script_to_addrStr(script_to_p2sh_script(script))
+      return '[Multisig %d-of-%d] (not P2SH but would be %s)' % (M,N,p2shStr)
+   else:
+      return '[Non-Standard Script: %s]: ' % binary_to_hex(scrAddr[1:65])
+
 
 ################################################################################
 def getTxInScriptType(txinObj):
@@ -1329,13 +1343,13 @@ class NullAuthInfo(object):
 
 
 ################################################################################
-class UnsignedTxOutput(object):
+class DecoratedTxOut(object):
    """
    The name is really "UnsignedTx" output ... it is an output of an unsignedTx
 
    self.authInfo can be anything that the offline computer will recognize
    as authentication of the owner of the txOut script.  This could be our
-   planned rootpub + multiplier technique (or multiple root keys and 
+   planned rootkey + multiplier technique (or multiple root keys and 
    multipliers, in multisig), or it could be a chain of X509 certs that
    link an ID to this script.  
    
@@ -1360,10 +1374,16 @@ class UnsignedTxOutput(object):
       self.scrAddr    = script_to_scrAddr(script)
       self.scrType    = getTxOutScriptType(script)
       self.multiInfo  = {}
-      if self.scrType == CPP_TXOUT_P2SH:
-         
+
+      # P2SH destinations don't *require* the subscript like USTXI do
+      baseScript = self.binScript
+      if p2sh and self.scrType == CPP_TXOUT_P2SH:
+         self.scrType = getTxOutScriptType(p2sh)
+         baseScript = p2sh
+
+      
       if self.scrType == CPP_TXOUT_MULTISIG:
-         M, N, a160s, pubs = getMultisigScriptInfo(script)
+         M, N, a160s, pubs = getMultisigScriptInfo(baseScript)
          self.multiInfo['M'] = M
          self.multiInfo['N'] = N
          self.multiInfo['Addr160s'] = a160s
@@ -1468,7 +1488,7 @@ class UnsignedTransaction(object):
       self.uniqueB58       = ''
       self.lockTime        = 0
       self.ustxInputs  = []
-      self.ustxOutputs = []
+      self.decorTxOuts = []
 
       txMap   = {} if txMap   is None else txMap
       p2shMap = {} if p2shMap is None else p2shMap
@@ -1478,13 +1498,13 @@ class UnsignedTransaction(object):
 
 
    #############################################################################
-   def createFromUnsignedTxIO(self, ustxinList, ustxoutList, lockTime=0):
+   def createFromUnsignedTxIO(self, ustxinList, dtxoList, lockTime=0):
       """
       All custom sequence numbers are set in the individual ustxi entries
       """
 
       nIn  = len(ustxinList)
-      nOut = len(ustxoutList)
+      nOut = len(dtxoList)
 
       self.pytxObj = PyTx()
       self.pytxObj.version  = version
@@ -1500,13 +1520,13 @@ class UnsignedTransaction(object):
          self.pytxObj.inputs[iin].intSeq    = ustxi.sequence
 
 
-      for iout,ustxo in enumerate(ustxoutList):
+      for iout,dtxo in enumerate(dtxoList):
          self.pytxObj.outputs[iout] = PyTxIn()
-         self.pytxObj.outputs[iout].value     = ustxo.value
-         self.pytxObj.outputs[iout].binScript = ustxo.binScript
+         self.pytxObj.outputs[iout].value     = dtxo.value
+         self.pytxObj.outputs[iout].binScript = dtxo.binScript
       
-      self.ustxInputs  = ustxinList[:]
-      self.ustxOutputs = ustxoutList[:]
+      self.ustxInputs = ustxinList[:]
+      self.decorTxOuts = dtxoList[:]
 
       self.uniqueB58 = binary_to_base58(hash256(self.pytxObj.serialize()))[:8]
       return self
@@ -1515,10 +1535,9 @@ class UnsignedTransaction(object):
    #############################################################################
    def createFromPyTx(self, pytx, txMap=None, p2shMap=None):
       """
-      It might seem silly to convert the pytx into USTXIs and USTXOs, just to
-      call the other method that reconstructs the same pytx object.  It might
-      be, but at least the TxDP is always constructed through a common method
-      (ultimately), and we might be removing the self.pytxObj anyway.
+      It might seem silly to convert pytx into USTXIs and DecoratedTxos, just 
+      to call the other method that reconstructs the same pytx object.  At
+      least it all goes through the same construction method.
       """
 
       txMap   = {} if txMap   is None else txMap
@@ -1534,7 +1553,7 @@ class UnsignedTransaction(object):
 
 
       ustxiList = []
-      ustxoList = []
+      dtxoList = []
 
       # Get support tx for each input and create unsignedTx-input for each
       for txin in pytx.inputs:
@@ -1575,20 +1594,17 @@ class UnsignedTransaction(object):
 
 
 
-      # Create the unsignedTx-output for each output.  Without any 
+      # Create the DecoratedTxOut for each output.  Without any 
       # supplemental auth info, this conversion isn't necessarily useful.
       for txout in pytx.outputs:
          scr = txout.getScript()
          val = txout.getValue()
-         
-         p2sh=None
-         if getTxOutScriptType(scr)==CPP_TXOUT_P2SH:
-            p2sh = p2shMap.get(script_to_scrAddr(scr))
+         p2sh = p2shMap.get(script_to_scrAddr(scr)) # returns None if not P2SH
 
-         # Append to the unsigned txout list
-         ustxoList.append(UnsignedTxOutput(scr, val, p2sh))
+         # Append to the dtxo list
+         dtxoList.append(DecoratedTxOut(scr, val, p2sh))
 
-      return self.createFromUnsignedTxIO(ustxiList, ustxoList, pytx.lockTime)
+      return self.createFromUnsignedTxIO(ustxiList, dtxoList, pytx.lockTime)
 
 
 
@@ -1657,15 +1673,15 @@ class UnsignedTransaction(object):
    #############################################################################
    def createFromUnsignedTxInputSelection(self, ustxiList, scriptValuePairs, 
                                                     p2shMap=None, lockTime=0):
-      ustxoList = []
+      dtxoList = []
       if p2shMap is None:
          p2shMap = {}
 
       for scr,val in scriptValuePairs:
          p2sh = p2shMap.get(script_to_scrAddr(scr))   # Returns None if DNE
-         ustxoList.append(UnsignedTxOutput(scr,val,p2sh))
+         dtxoList.append(DecoratedTxOut(scr,val,p2sh))
 
-      return self.createFromUnsignedTxIO(ustxiList, ustxoList, lockTime)
+      return self.createFromUnsignedTxIO(ustxiList, dtxoList, lockTime)
                                                   
 
 
@@ -1687,15 +1703,16 @@ class UnsignedTransaction(object):
       bp.put(BINARY_CHUNK, MAGIC_BYTES, 4)
       bp.put(UINT32,       self.lockTime)
       
-      bp.put(UINT32,  len(self.ustxInputs))
+      bp.put(VAR_INT,  len(self.ustxInputs))
       for ustxi in self.ustxInputs:
          bp.put(VAR_STR, ustxi.serialize())
 
-      bp.put(UINT32,  len(self.ustxOutputs))
-      for ustxo in self.ustxOutputs:
-         bp.put(VAR_STR, ustxo.serialize())
+      bp.put(VAR_INT,  len(self.decorTxOuts))
+      for dtxo in self.decorTxOuts:
+         bp.put(VAR_STR, dtxo.serialize())
 
       return bp.getBinaryString()
+
 
    #############################################################################
    def unserialize(self, rawData, expectID=None):
@@ -1704,15 +1721,15 @@ class UnsignedTransaction(object):
       magic   = bu.get(BINARY_CHUNK, 4)
       lockt   = bu.get(UINT32)
 
-      numUSTXI = bu.get(UINT32)
+      numUSTXI = bu.get(VAR_INT)
       ustxiList = []
       for i in range(numUSTXI):
          ustxiList.append( UnsignedTxInput().unserialize(bu.get(VAR_STR)) )
 
-      numUSTXO = bu.get(UINT32)
-      ustxoList = []
-      for i in range(numUSTXO):
-         ustxoList.append( UnsignedTxOutput().unserialize(bu.get(VAR_STR)) )
+      numDtxo = bu.get(VAR_INT)
+      dtxoList = []
+      for i in range(numDtxo):
+         dtxoList.append( DecoratedTxOut().unserialize(bu.get(VAR_STR)) )
 
       # Issue a warning if the versions don't match
       if not ver == UNSIGNED_TX_VERSION:
@@ -1727,7 +1744,7 @@ class UnsignedTransaction(object):
          LOGERROR('    Armory  Magic: ' + binary_to_hex(MAGIC_BYTES))
          raise NetworkIDError('Network magic bytes mismatch')
       
-      self.createFromUnsignedTxIO(ustxiList, ustxoList, lockt)
+      self.createFromUnsignedTxIO(ustxiList, dtxoList, lockt)
 
       # Check that we got the expect ID on the TXSIGCOLLECT
       if not expectID==self.uniqueB58:
@@ -1891,19 +1908,8 @@ class UnsignedTransaction(object):
 
       print ind+'#Outputs     : ', len(tx.outputs)
       for i,txout in enumerate(tx.outputs):
-         scrAddr = script_to_scrAddr(txout.binScript)
-         scrType = getTxOutScriptType(txout.binScript)
-         if scrType in CPP_TXOUT_HAS_ADDRSTR:
-            addrDisp = scrAddr_to_addrStr(scrAddr)
-         elif scrType==CPP_TXOUT_MULTISIG:
-            M, N, addrs, pubs = getMultisigScriptInfo(txout.binScript)
-            p2shStr = script_to_addrStr(script_to_p2sh_script(txout.binScript))
-            addrDisp = '[Multisig %d-of-%d] (not P2SH but would be %s)' % (M,N,p2shStr)
-         else:
-            addrDisp = '[Non-Standard Script: %s]: ' % binary_to_hex(scrAddr[1:])
-
+         addrDisp = getTxOutScriptDisplayStr(txout.binScript)
          valDisp = coin2str(txout.value, maxZeros=2)
-            
          print ind*2, valDisp, 'BTC to', addrDisp
 
 
