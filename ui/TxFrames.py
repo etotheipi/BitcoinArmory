@@ -1162,10 +1162,11 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
          'you will have the opportunity to broadcast it to '
          'the Bitcoin network to make it final.')
 
-      w, h = tightSizeStr(GETFONT('Fixed', 8), '0' * 90)[0], int(12 * 8.2)
       self.txtTxDP = QTextEdit()
       self.txtTxDP.setFont(GETFONT('Fixed', 8))
+      w, h = relaxedSizeNChar(self.txtTxDP, 80)[0], int(12 * 8.2)
       self.txtTxDP.sizeHint = lambda: QSize(w, h)
+      self.txtTxDP.setMinimumWidth(w)
       self.txtTxDP.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
       self.btnSign = QPushButton('Sign')
@@ -1677,8 +1678,8 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
 
 
    def loadTx(self):
-      filename = self.main.getFileLoad('Load Transaction', \
-                             ['Transactions (*.signed.tx *.unsigned.tx)'])
+      filename = self.main.getFileLoad(tr('Load Transaction'), \
+                    ['Transactions (*.signed.tx *.unsigned.tx *.SENT.tx)'])
 
       if len(str(filename)) > 0:
          LOGINFO('Selected transaction file to load: %s', filename)
