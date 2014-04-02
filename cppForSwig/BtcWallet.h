@@ -49,7 +49,7 @@ class BtcWallet
 {
 public:
    BtcWallet(BlockDataManager_LevelDB* bdm=0)
-      : bdmPtr_(bdm), lastScanned_(0), allScannedUpToBlk_(0) {}
+      : bdmPtr_(bdm), lastScanned_(0), allScannedUpToBlk_(0), reorgTrigger_(0) {}
    ~BtcWallet(void);
 
    /////////////////////////////////////////////////////////////////////////////
@@ -166,9 +166,6 @@ public:
    
    vector<AddressBookEntry> createAddressBook(void);
 
-   
-   uint32_t lastScanned_;
-
    //for 1:1 wallets
    bool registerNewScrAddr(HashString scraddr);
    bool registerImportedScrAddr(HashString scraddr, uint32_t createBlk);
@@ -198,6 +195,7 @@ public:
    void eraseTx(const BinaryData& txHash);
    vector<LedgerEntry> & getTxLedgerForComments(void)
                      { return txLedgerForComments_; }
+   void reorgChangeBlkNum(uint32_t blkNum);
 
    //end of 1:1 wallets
    
@@ -219,6 +217,8 @@ private:
    set<HashString>                    registeredTxSet_;
    set<OutPoint>                      registeredOutPoints_;
    uint32_t                           allScannedUpToBlk_; // one past top
+   uint32_t                           reorgTrigger_; //
+   uint32_t                           lastScanned_;
 
    vector<LedgerEntry>          ledgerAllAddr_;  
    vector<LedgerEntry>          ledgerAllAddrZC_;  

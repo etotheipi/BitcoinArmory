@@ -142,8 +142,7 @@ public:
             changeToBlkNum = iface_->getTxRef(txHash).getBlockHeight();
             ledg[i].changeBlkNum(changeToBlkNum);
 
-            if(changeToBlkNum<wlt.lastScanned_) 
-               wlt.lastScanned_ = changeToBlkNum;
+            wlt.reorgChangeBlkNum(changeToBlkNum);
          }
       }
 

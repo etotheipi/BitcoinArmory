@@ -303,10 +303,6 @@ class PyBtcWallet(object):
          return
 
       if not self.doBlockchainSync==BLOCKCHAIN_DONOTUSE:
-         if startBlk==None:
-            if self.lastSyncBlockNum is not None:
-               startBlk = self.lastSyncBlockNum + 1
-
          # calledFromBDM means that ultimately the BDM itself called this
          # method and is blocking waiting for it.  So we can't use the 
          # BDM-thread queue, must call its methods directly
@@ -1699,8 +1695,6 @@ class PyBtcWallet(object):
                else: 
                   LOGERROR("Unrecognized scraddr: " + binary_to_hex(scrAddr))
                
-     
-
       addrComments = []
       for a160 in self.txAddrMap[txHash]:
          if self.commentsMap.has_key(a160) and '[[' not in self.commentsMap[a160]:

@@ -1043,74 +1043,6 @@ void BtcWallet::insertRegisteredTxIfNew(HashString txHash)
    }
 }
 
-/*{
-   SCOPED_TIMER("scanRegisteredTxForWallet");
-
-	if(lastScanned_ > blkStart) blkStart = lastScanned_;
-
-   // Make sure RegisteredTx objects have correct data, then sort.
-   // TODO:  Why did I not need this with the MMAP blockchain?  Somehow
-   //        I was able to sort correctly without this step, before...?
-   list<RegisteredTx>::iterator txIter;
-   for(txIter  = registeredTxList_.begin();
-       txIter != registeredTxList_.end();
-       txIter++)
-   {
-      if(txIter->txIndex_ > UINT32_MAX/2)
-      {
-         // The RegisteredTx was created before the chain was organized
-         txIter->blkNum_ = txIter->txRefObj_.getBlockHeight();
-         txIter->txIndex_ = txIter->txRefObj_.getBlockTxIndex();
-      }
-   }
-   registeredTxList_.sort();
-
-   ///// LOOP OVER ALL RELEVANT TX ////
-   for(txIter  = registeredTxList_.begin();
-       txIter != registeredTxList_.end();
-       txIter++)
-   {
-      // Pull the tx from disk and check it for the supplied wallet
-      Tx theTx = txIter->getTxCopy();
-      if( !theTx.isInitialized() )
-      {
-         LOGWARN << "***WARNING: How did we get a NULL tx?";
-         continue;
-      }
-
-      BlockHeader* bhptr = bdmPtr_->getHeaderPtrForTx(theTx);
-      // This condition happens on invalid Tx (like invalid P2Pool coinbases)
-      if( bhptr==NULL )
-         continue;
-
-      if( !bhptr->isMainBranch() )
-         continue;
-
-      uint32_t thisBlk = bhptr->getBlockHeight();
-      if(thisBlk < blkStart  ||  thisBlk >= blkEnd)
-         continue;
-
-      if( !isTxFinal(theTx) )
-         continue;
-
-      // If we made it here, we want to scan this tx!
-      wlt.scanTx(theTx, txIter->txIndex_, bhptr->getTimestamp(), thisBlk);
-   }
- 
-   wlt.sortLedger();
-
-
-   // We should clean up any dangling TxIOs in the wallet then rescan
-   if(zcEnabled_)
-      rescanWalletZeroConf(wlt);
-
-	uint32_t topBlk = getTopBlockHeight();
-	if(blkEnd > topBlk)
-		wlt.lastScanned_ = topBlk;
-	else if(blkEnd!=0)
-		wlt.lastScanned_ = blkEnd;
-}*/
-
 void BtcWallet::scanRegisteredTxForWallet(uint32_t blkStart, uint32_t blkEnd)
 {
    SCOPED_TIMER("scanRegisteredTxForWallet");
@@ -1118,7 +1050,11 @@ void BtcWallet::scanRegisteredTxForWallet(uint32_t blkStart, uint32_t blkEnd)
    // Make sure RegisteredTx objects have correct data, then sort.
    // TODO:  Why did I not need this with the MMAP blockchain?  Somehow
    //        I was able to sort correctly without this step, before...?
-	if(!blkStart && blkStart > lastScanned_) blkStart = lastScanned_;
+	if(!reorgTrigger_)
+   {
+      blkStart = lastScanned_;
+      reorgTrigger_ = false;
+   }
 
    list<RegisteredTx>::iterator txIter;
    for(txIter  = registeredTxList_.begin();
@@ -1358,6 +1294,15 @@ void BtcWallet::fetchWalletRegisteredScrAddrData(BinaryData const & scrAddr)
       iface->getStoredTx(stx, txref.getDBKey());
       regTx = RegisteredTx(txref, stx.thisHash_, stx.blockHeight_, stx.txIndex_);
       insertRegisteredTxIfNew(regTx);
+   }
+}
+
+void BtcWallet::reorgChangeBlkNum(uint32_t blkNum)
+{
+   if(blkNum<lastScanned_) 
+   {
+      lastScanned_ = blkNum;
+      reorgTrigger_ = true;
    }
 }
 
