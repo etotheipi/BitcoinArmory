@@ -1,10 +1,11 @@
 # All the actual Makefiles are deeper in the directory tree.  
 # I am just calling them, here.
 
-DESTDIR=/usr
+PREFIX=/usr
+DESTDIR=
 
 all :
-	$(MAKE) -C cppForSwig swig
+	$(MAKE) -C cppForSwig
 
 clean :
 	$(MAKE) -C cppForSwig clean
@@ -12,20 +13,24 @@ clean :
 	rm -rf osxbuild/workspace/
 
 install : all
-	mkdir -p $(DESTDIR)/share/armory/img
-	mkdir -p $(DESTDIR)/lib/armory/extras
-	mkdir -p $(DESTDIR)/lib/armory/jsonrpc
-	mkdir -p $(DESTDIR)/lib/armory/ui
-	cp *.py *.so README $(DESTDIR)/lib/armory/
-	rsync -rupE armoryengine $(DESTDIR)/lib/armory/
-	rsync -rupE img $(DESTDIR)/share/armory/
-	cp extras/*.py $(DESTDIR)/lib/armory/extras
-	cp jsonrpc/*.py $(DESTDIR)/lib/armory/jsonrpc
-	cp ui/*.py $(DESTDIR)/lib/armory/ui
-	mkdir -p $(DESTDIR)/share/applications
-	sed "s:python /usr:python $(DESTDIR):g" < dpkgfiles/armory.desktop > $(DESTDIR)/share/applications/armory.desktop
-	sed "s:python /usr:python $(DESTDIR):g" < dpkgfiles/armoryoffline.desktop > $(DESTDIR)/share/applications/armoryoffline.desktop
-	sed "s:python /usr:python $(DESTDIR):g" < dpkgfiles/armorytestnet.desktop > $(DESTDIR)/share/applications/armorytestnet.desktop
+	mkdir -p $(DESTDIR)$(PREFIX)/share/armory/img
+	mkdir -p $(DESTDIR)$(PREFIX)/lib/armory/extras
+	mkdir -p $(DESTDIR)$(PREFIX)/lib/armory/jsonrpc
+	mkdir -p $(DESTDIR)$(PREFIX)/lib/armory/ui
+	mkdir -p $(DESTDIR)$(PREFIX)/lib/armory/BitTornado/BT1
+	cp *.py *.so README $(DESTDIR)$(PREFIX)/lib/armory/
+	rsync -rupE armoryengine $(DESTDIR)$(PREFIX)/lib/armory/
+	rsync -rupE img $(DESTDIR)$(PREFIX)/share/armory/
+	cp extras/*.py $(DESTDIR)$(PREFIX)/lib/armory/extras
+	cp jsonrpc/*.py $(DESTDIR)$(PREFIX)/lib/armory/jsonrpc
+	cp ui/*.py $(DESTDIR)$(PREFIX)/lib/armory/ui
+	mkdir -p $(DESTDIR)$(PREFIX)/share/applications
+	cp BitTornado/*.py $(DESTDIR)$(PREFIX)/lib/armory/BitTornado
+	cp BitTornado/BT1/*.py $(DESTDIR)$(PREFIX)/lib/armory/BitTornado/BT1
+	cp default_bootstrap.torrent $(DESTDIR)$(PREFIX)/lib/armory
+	sed "s:python /usr:python $(PREFIX):g" < dpkgfiles/armory.desktop > $(DESTDIR)$(PREFIX)/share/applications/armory.desktop
+	sed "s:python /usr:python $(PREFIX):g" < dpkgfiles/armoryoffline.desktop > $(DESTDIR)$(PREFIX)/share/applications/armoryoffline.desktop
+	sed "s:python /usr:python $(PREFIX):g" < dpkgfiles/armorytestnet.desktop > $(DESTDIR)$(PREFIX)/share/applications/armorytestnet.desktop
 	
 
 osx :

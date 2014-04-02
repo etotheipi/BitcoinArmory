@@ -53,6 +53,7 @@ typedef __ssize_t ssize_t;
 #define fopen fopen_win32
 #define stat stat_win32
 
+
 /***
 Regarding stat: for stat to point at the function and not the struct in win32, sys/types.h has to be declared BEFORE sys/stat.h, which isn't the case with env_posix.cc
 This one is a bit painful. In order for the function to be accessible, it has to be defined after the struct. Since the attempt of this port is to limit modification of source file

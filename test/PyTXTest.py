@@ -14,7 +14,7 @@ from armoryengine.Block import PyBlock
 from armoryengine.PyBtcAddress import PyBtcAddress
 from armoryengine.Script import PyScriptProcessor
 from armoryengine.Transaction import PyTx, PyTxIn, PyOutPoint, PyTxOut, \
-   TXOUT_SCRIPT_STANDARD, PyCreateAndSignTx, getMultisigScriptInfo, BlockComponent
+   PyCreateAndSignTx, getMultisigScriptInfo, BlockComponent
 
 
 
@@ -206,7 +206,7 @@ class PyTXTest(unittest.TestCase):
       tx1hash = tx1.getHash()
       recipientList = tx1.makeRecipientsList()
       self.assertEqual(len(recipientList), 1)
-      self.assertEqual(recipientList[0][0], TXOUT_SCRIPT_STANDARD)
+      self.assertEqual(recipientList[0][0], 0)
       self.assertEqual(recipientList[0][1], 50 * ONE_BTC)
       
       self.assertEqual(tx1.getHashHex(), binary_to_hex(tx1hash))

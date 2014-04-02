@@ -23,8 +23,8 @@ psutilVer  = '1.2.1'
 twistedVer = '13.2.0'
 libpngVer  = '1.6.8'
 qtVer      = '4.8.5'
-sipVer     = '4.15.4'
-pyQtVer    = '4.10.3'
+sipVer     = '4.15.5' # NB: I'm occasionally forced to upgrade alongside PyQt.
+pyQtVer    = '4.10.4' # NB: When I'm upgraded, SIP usually has to be upgraded too.
 LOGFILE    = 'build-app.log.txt'
 LOGPATH    = path.abspath( path.join(os.getcwd(), LOGFILE))
 ARMORYDIR  = '..'
@@ -95,7 +95,7 @@ def main():
    compile_psutil()
    #unzip_swig()
    compile_armory()
-   make_ressources()
+   make_resources()
    cleanup_app()
    # Force Finder to update the Icon
    execAndWait("touch " + APPDIR)
@@ -513,7 +513,7 @@ def compile_qt():
    copyfile(src, dst)
    #for patch in ['Qt-p1', 'Qt-p2', 'Qt-p3']:
    #   execAndWait('patch -p1 < ../../downloads/' + tarfilesToDL[patch], cwd=qtBuildDir)
-   execAndWait('patch -p1 < ../../../qt-maverick-stability.patch', cwd=qtBuildDir)
+   #execAndWait('patch -p1 < ../../../qt-maverick-stability.patch', cwd=qtBuildDir)
 
    ##### Configure
    command  = './configure -prefix "%s" -system-zlib -confirm-license -opensource ' 
@@ -553,7 +553,7 @@ def install_qt():
       execAndWait('make install', cwd=qtBuildDir)
 
       newcwd = path.join(APPDIR, 'Contents/Frameworks')
-      for mod in ['QtCore', 'QtGui', 'QtXml']:
+      for mod in ['QtCore', 'QtGui', 'QtXml', 'QtNetwork']:
          src = path.join(qtInstDir, 'lib', mod+'.framework')
          dst = path.join(APPDIR, 'Contents/Frameworks', mod+'.framework')
          if path.exists(dst):
@@ -670,14 +670,14 @@ def compile_armory():
    execAndWait('chmod +x "%s"' % appscript)
 
 ################################################################################
-def make_ressources():
+def make_resources():
    "Populate the Resources folder."
    cont = path.join(APPDIR, 'Contents')
-   icnsArm = path.join(cont,  'MacOS/py/share/armory/img/armory_icon_fullres.icns')
-   icnsRes  = path.join(cont,  'Resources/Icon.icns')
    copyfile('Info.plist', cont)
+
+   icnsArm = '../img/armory_icon_fullres.icns'
+   icnsRes  = path.join(cont,  'Resources/Icon.icns')
    copyfile(icnsArm, icnsRes)
-   #execAndWait("cd '%s' && cp ../MacOS/py/share/armory/img/armory_icon_fullres.icns Icon.icns" % (res,))
    
 ################################################################################
 #def unzip_swig():

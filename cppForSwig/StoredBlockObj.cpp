@@ -2829,14 +2829,14 @@ BinaryData GlobalDBUtilities::getBlkDataKeyNoPrefix( uint32_t height,
 }
 
 /////////////////////////////////////////////////////////////////////////////
-uint32_t GlobalDBUtilities::hgtxToHeight(BinaryData hgtx)
+uint32_t GlobalDBUtilities::hgtxToHeight(const BinaryData& hgtx)
 {
    return (READ_UINT32_BE(hgtx) >> 8);
 
 }
 
 /////////////////////////////////////////////////////////////////////////////
-uint8_t GlobalDBUtilities::hgtxToDupID(BinaryData hgtx)
+uint8_t GlobalDBUtilities::hgtxToDupID(const BinaryData& hgtx)
 {
    return (READ_UINT32_BE(hgtx) & 0x7f);
 }

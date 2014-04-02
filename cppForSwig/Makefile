@@ -10,50 +10,42 @@ endif
 
 platform=$(shell uname)
 
+ifeq ($(shell uname), Darwin)
+MACOSX_DEPLOYMENT_TARGET=10.7
+export MACOSX_DEPLOYMENT_TARGET
+LDFLAGS += -undefined dynamic_lookup -headerpad_max_install_names
+endif
+
 #**************************************************************************
 LINK = $(CXX)
 
-OBJS = UniversalTimer.o BinaryData.o leveldb_wrapper.o StoredBlockObj.o BtcUtils.o BlockObj.o BlockUtils.o EncryptionUtils.o libcryptopp.a libleveldb.a
+OBJS = UniversalTimer.o BinaryData.o leveldb_wrapper.o StoredBlockObj.o BtcUtils.o BlockObj.o BlockUtils.o EncryptionUtils.o libcryptopp.a libleveldb.a sighandler.o
 
-# This is a script created by goatpig which detects where the python 
-# dependencies are and writes them to the pypaths.txt file. It defines :
-# 		$(PYTHON_LIB) 
-# 		$(PYVER) 
-# 		$(PYTHON_INCLUDE)
-# If this makefile doesn't work for you, you should manually modify
-# pypaths.txt to define those three variables, and then comment out 
-# DO_EXEC_WHEREISPY line (to prevent the script from attempting to run
-# and overwriting the manual values).
-ifneq ($(platform),Darwin)
-# OS X will do its own thing.
-DO_EXEC_WHEREISPY := $(shell ./whereispy.sh)
+#if python is specified, use it
+ifndef PYVER
+PYTHON_INCLUDES=$(shell python-config --includes )
+else
+PYTHON_INCLUDES=$(shell $(PYVER)-config --includes )
 endif
 
-include ./pypaths.txt
-
 CPPFLAGS += $(ARMORY_CPPFLAGS) -Icryptopp -Ileveldb/include -DUSE_CRYPTOPP -D__STDC_LIMIT_MACROS
-LDLIBS += -lpthread -Lleveldb -L$(PYTHON_LIB) -l$(PYVER)
+LDLIBS += -lpthread -Lleveldb
 SWIG_OPTS    += -c++ -python -classic -threads
 
-SWIG_INC     += -I"$(PYTHON_INCLUDE)"
-STATICPYTHON += "$(PYTHON_LIB)"
+SWIG_INC     += $(PYTHON_INCLUDES)
 
 CXXCPP += $(CPPFLAGS)
 
-#**************************************************************************
-all:
-	$(MAKE) BlockUtilsTest.out
 
-swig: ../_CppBlockUtils.so ../qrc_img_resources.py
+#**************************************************************************
+
+all: ../_CppBlockUtils.so ../qrc_img_resources.py
 
 ../_CppBlockUtils.so: $(OBJS) CppBlockUtils_wrap.o
 	$(LINK) -shared -fPIC $(LDLIBS) $(LDFLAGS) $(CXXFLAGS) $(OBJS) $(STATICPYTHON) CppBlockUtils_wrap.o -o ../_CppBlockUtils.so
 
 ../qrc_img_resources.py: ../imgList.xml
 	pyrcc4 -o ../qrc_img_resources.py ../imgList.xml
-
-BlockUtilsTest.out : $(OBJS) BlockUtilsTest.cpp
-	$(LINK) $(LDLIBS) $(LDFLAGS) $(OBJS) -o BlockUtilsTest.out $(CXXCPP) $(CXXFLAGS) BlockUtilsTest.cpp
 
 
 #**************************************************************************
@@ -91,15 +83,12 @@ clean:
 	touch CppBlockUtils.i
 	rm -f *.o *.out *.a
 	rm -f CppBlockUtils_wrap.cxx 
-	rm pypaths.txt
+	rm -f pypaths.txt
 
 hardclean:
 	touch CppBlockUtils.i
 	rm -f *.o *.out *.a
 	rm -f CppBlockUtils_wrap.cxx 
-	rm pypaths.txt
+	rm -f pypaths.txt
 	$(MAKE) -C cryptopp clean
 	$(MAKE) -C leveldb clean
-	
-
-

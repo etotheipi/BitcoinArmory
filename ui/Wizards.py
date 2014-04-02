@@ -98,8 +98,8 @@ class WalletWizard(ArmoryWizard):
       self.hasCWOWPage = False
       if self.main.usermode==USERMODE.Expert or not self.main.internetAvail:
          self.hasCWOWPage = True
-         self.createWatchingOnlyWalletPage = CreateWatchingOnlyWalletPage(self)
-         self.addPage(self.createWatchingOnlyWalletPage)
+         self.createWOWPage = CreateWatchingOnlyWalletPage(self)
+         self.addPage(self.createWOWPage)
 
       self.setButtonLayout([QWizard.BackButton,
                             QWizard.Stretch,
@@ -111,8 +111,8 @@ class WalletWizard(ArmoryWizard):
       if self.currentPage() == self.verifyPassphrasePage:
          self.verifyPassphrasePage.setPassphrase(
                self.setPassphrasePage.pageFrame.getPassphrase())
-      elif self.hasCWOWPage and self.currentPage() == self.createWatchingOnlyWalletPage:
-         self.createWatchingOnlyWalletPage.pageFrame.setWallet(self.newWallet)
+      elif self.hasCWOWPage and self.currentPage() == self.createWOWPage:
+         self.createWOWPage.pageFrame.setWallet(self.newWallet)
          
       if self.currentPage() == self.walletBackupPage:
          self.createNewWalletFromWizard()
@@ -156,7 +156,9 @@ class WalletWizard(ArmoryWizard):
                      kdfMaxMem=self.walletCreationPage.pageFrame.getKdfBytes(), \
                      shortLabel=self.walletCreationPage.pageFrame.getName(), \
                      longLabel=self.walletCreationPage.pageFrame.getDescription(), \
-                     doRegisterWithBDM=False)
+                     doRegisterWithBDM=False, \
+                     extraEntropy=self.main.getExtraEntropyForKeyGen())
+
       self.newWallet.unlock(securePassphrase=
                SecureBinaryData(self.setPassphrasePage.pageFrame.getPassphrase()))
       # We always want to fill the address pool, right away.  
@@ -174,7 +176,7 @@ class WalletWizard(ArmoryWizard):
          self.main.newWalletList.append([walletFromDisk, True])
    
    def cleanupPage(self, *args, **kwargs):
-      if self.currentPage() == self.createWatchingOnlyWalletPage:
+      if self.hasCWOWPage and self.currentPage() == self.createWOWPage:
          self.setButtonLayout([QWizard.Stretch,
                                QWizard.NextButton,
                                QWizard.FinishButton])
@@ -198,11 +200,11 @@ class WalletCreationPage(ArmoryWizardPage):
       result = True
       if self.pageFrame.getKdfSec() == -1:
          QMessageBox.critical(self, 'Invalid Target Compute Time', \
-            'You entered your Target Compute Time incorrectly.\n\nEnter: <Number> (ms, s)', QMessageBox.Ok)
+            'You entered Target Compute Time incorrectly.\n\nEnter: <Number> (ms, s)', QMessageBox.Ok)
          result = False
       elif self.pageFrame.getKdfBytes() == -1:
          QMessageBox.critical(self, 'Invalid Max Memory Usage', \
-            'You entered your Max Memory Usag incorrectly.\n\nnter: <Number> (kb, mb)', QMessageBox.Ok)
+            'You entered Max Memory Usag incorrectly.\n\nnter: <Number> (kb, mb)', QMessageBox.Ok)
          result = False
       return result
 

@@ -282,10 +282,13 @@ public:
    // the Utxos in the list.  If you don't care (i.e. you only want to 
    // know what TxOuts are available to spend, you can pass in 0 for currBlk
    uint64_t getFullBalance(void);
-   uint64_t getSpendableBalance(uint32_t currBlk=0);
-   uint64_t getUnconfirmedBalance(uint32_t currBlk);
+   uint64_t getSpendableBalance(uint32_t currBlk=0, 
+                                bool ignoreAllZeroConf=false);
+   uint64_t getUnconfirmedBalance(uint32_t currBlk, 
+                                  bool includeAllZeroConf=false);
    vector<UnspentTxOut> getFullTxOutList(uint32_t currBlk=0);
-   vector<UnspentTxOut> getSpendableTxOutList(uint32_t currBlk=0);
+   vector<UnspentTxOut> getSpendableTxOutList(uint32_t currBlk=0, 
+                                              bool ignoreAllZeroConf=false);
    void clearZeroConfPool(void);
 
 
@@ -334,7 +337,7 @@ private:
 class BtcWallet
 {
 public:
-   BtcWallet(void) : bdmPtr_(NULL) {}
+   BtcWallet(void) : bdmPtr_(NULL) {lastScanned_ = 0;}
    explicit BtcWallet(BlockDataManager_LevelDB* bdm) : bdmPtr_(bdm) {}
    ~BtcWallet(void);
 
@@ -385,10 +388,11 @@ public:
                                      map<OutPoint, TxIOPair> const & txiomap,
                                      bool withMultiSig=false) const;
 
-   void scanTx(Tx & tx, 
+   void scanTx(Tx & tx,
                uint32_t txIndex = UINT32_MAX,
                uint32_t blktime = UINT32_MAX,
-               uint32_t blknum  = UINT32_MAX);
+               uint32_t blknum  = UINT32_MAX,
+               bool mainwallet = true);
 
    void scanNonStdTx(uint32_t    blknum, 
                      uint32_t    txidx, 
@@ -406,10 +410,13 @@ public:
    // the Utxos in the list.  If you don't care (i.e. you only want to 
    // know what TxOuts are available to spend, you can pass in 0 for currBlk
    uint64_t getFullBalance(void);
-   uint64_t getSpendableBalance(uint32_t currBlk=0);
-   uint64_t getUnconfirmedBalance(uint32_t currBlk);
+   uint64_t getSpendableBalance(uint32_t currBlk=0, 
+                                bool ignoreAllZeroConf=false);
+   uint64_t getUnconfirmedBalance(uint32_t currBlk,
+                                  bool includeAllZeroConf=false);
    vector<UnspentTxOut> getFullTxOutList(uint32_t currBlk=0);
-   vector<UnspentTxOut> getSpendableTxOutList(uint32_t currBlk=0);
+   vector<UnspentTxOut> getSpendableTxOutList(uint32_t currBlk=0,
+                                              bool ignoreAllZeroConf=false);
    void clearZeroConfPool(void);
 
    
@@ -425,6 +432,10 @@ public:
    map<OutPoint, TxIOPair> & getTxIOMap(void)    {return txioMap_;}
    map<OutPoint, TxIOPair> & getNonStdTxIO(void) {return nonStdTxioMap_;}
 
+
+   vector<LedgerEntry> & getTxLedgerForComments(void)
+                                                 { return txLedgerForComments_; }
+
    bool isOutPointMine(BinaryData const & hsh, uint32_t idx);
 
    void pprintLedger(void);
@@ -437,13 +448,21 @@ public:
 
    vector<LedgerEntry> & getEmptyLedger(void) { EmptyLedger_.clear(); return EmptyLedger_;}
 
+	void changeBlkNum(uint32_t newBlkHgt)
+                     {if(newBlkHgt<lastScanned_) lastScanned_ = newBlkHgt;}
+   uint32_t lastScanned_;
+
+
 private:
    vector<ScrAddrObj*>          scrAddrPtrs_;
    map<BinaryData, ScrAddrObj>  scrAddrMap_;
    map<OutPoint, TxIOPair>      txioMap_;
 
    vector<LedgerEntry>          ledgerAllAddr_;  
-   vector<LedgerEntry>          ledgerAllAddrZC_;  
+   vector<LedgerEntry>          ledgerAllAddrZC_;
+
+   // Work around for address comments populating until 1:1 wallets are adopted
+   vector<LedgerEntry>          txLedgerForComments_;
 
    // For non-std transactions
    map<OutPoint, TxIOPair>      nonStdTxioMap_;
@@ -615,6 +634,7 @@ private:
    static BlockDataManager_LevelDB*   theOnlyBDM_;
    static bool                        bdmCreatedYet_;
    bool                               isInitialized_;
+	uint32_t									  lastScannedBlock_;
 
 
    // These will be set for the specific network we are testing
@@ -653,6 +673,7 @@ private:
    // list of blocks whose contents are invalid but we have
    // their headers
    vector<BinaryData>                 missingBlockHashes_;
+
    
    // TODO: We eventually want to maintain some kind of master TxIO map, instead
    // of storing them in the individual wallets.  With the new DB, it makes more

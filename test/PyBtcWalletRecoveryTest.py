@@ -1,4 +1,4 @@
-from armoryengine.PyBtcWallet import PyBtcWallet
+
 from CppBlockUtils import SecureBinaryData, CryptoECDSA
 from armoryengine.PyBtcAddress import PyBtcAddress
 from armoryengine.ArmoryUtils import hex_to_binary
@@ -21,6 +21,7 @@ class PyBtcWalletRecoveryTest(unittest.TestCase):
       os.unlink('armory_%s_RECOVERED_backup.wallet' % self.wltID)
       
    def buildCorruptWallet(self, walletPath):
+      from armoryengine.PyBtcWallet import PyBtcWallet
       crpWlt = PyBtcWallet()
       crpWlt.createNewWallet(walletPath, securePassphrase='testing', doRegisterWithBDM=False)
       #not registering with the BDM, have to fill the wallet address pool manually 

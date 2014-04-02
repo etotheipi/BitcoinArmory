@@ -717,10 +717,9 @@ class PyTx(BlockComponent):
          recipInfoList[-1].append(txout.value)
          recipInfoList[-1].append(txout.binScript)
          if scrType == CPP_TXOUT_MULTISIG:
-            M, N, addr160s, pubs = getMultisigScriptInfo(txout.binScript)
-            recipInfoList[-1].append(addr160s)
-            recipInfoList[-1].append(pubs)
-            recipInfoList[-1].append(M)
+            recipInfoList[-1].append(getMultisigScriptInfo(txout.binScript))
+         else:
+            recipInfoList[-1].append([])
 
       return recipInfoList
 
@@ -1631,7 +1630,7 @@ def getUnspentTxOutsForAddr160List(addr160List, utxoType='Sweep', startBlk=-1, \
       if utxoType.lower() in ('sweep','unspent','full','all','ultimate'):
          return cppWlt.getFullTxOutList(currBlk)
       elif utxoType.lower() in ('spend','spendable','confirmed'):
-         return cppWlt.getSpendableTxOutList(currBlk)
+         return cppWlt.getSpendableTxOutList(currBlk, IGNOREZC)
       else:
          raise TypeError, 'Unknown utxoType!'
    else:
