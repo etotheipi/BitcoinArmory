@@ -807,7 +807,7 @@ class ArmoryMainWindow(QMainWindow):
       # is expected to have timestamps and system-dependent parameters.
       # Finally, take a desktop screenshot... 
       # All three of these source are likely to have sufficient entropy alone.
-      source1,self.entropyAccum = self.entropyAccum,None
+      source1,self.entropyAccum = self.entropyAccum,[]
 
       if len(source1)==0:
          LOGERROR('Error getting extra entropy from mouse & key presses')
@@ -2529,8 +2529,8 @@ class ArmoryMainWindow(QMainWindow):
       # Now that the blockchain is loaded, let's populate the wallet info
       if TheBDM.isInitialized():
          
-         for wltID in self.walletMap.iterkeys():
-            TheBDM.bdm.unregisterWallet(self.walletMap[wltID].cppWallet)
+         #for wltID in self.walletMap.iterkeys():
+          #  TheBDM.bdm.unregisterWallet(self.walletMap[wltID].cppWallet)
 
          self.currBlockNum = TheBDM.getTopBlockHeight()
          self.setDashboardDetails()

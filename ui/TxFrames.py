@@ -1395,8 +1395,13 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
       theirOutSum = 0
       rvPairs = []
       idx = 0
-      for scrType, amt, recip, multiSigList in data[FIELDS.OutList]:
-         wltID = self.main.getWalletForAddr160(recip)
+      for scrType, amt, binScript, multiSigList in data[FIELDS.OutList]:
+         recip = script_to_scrAddr(binScript)
+         try:
+            wltID = self.main.getWalletForAddr160(CheckHash160(recip))
+         except BadAddressError:
+            wltID = ''
+            
          if wltID == spendWltID:
             toWlts.add(wltID)
             myOutSum += amt
