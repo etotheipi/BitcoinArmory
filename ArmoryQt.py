@@ -3163,7 +3163,7 @@ class ArmoryMainWindow(QMainWindow):
 
 
    #############################################################################
-   def createSweepAddrTx(self, a160ToSweepList, sweepTo160, forceZeroFee=False):
+   def createSweepAddrTx(self, sweepFromAddrObjList, sweepToScript):
       """
       This method takes a list of addresses (likely just created from private
       key data), finds all their unspent TxOuts, and creates a signed tx that
@@ -3172,11 +3172,11 @@ class ArmoryMainWindow(QMainWindow):
       PyTx object that the user can confirm.  TxFee is automatically calc'd
       and deducted from the output value, if necessary.
       """
+
+
       LOGINFO('createSweepAddrTx')
-      if not isinstance(a160ToSweepList, (list, tuple)):
-         a160ToSweepList = [a160ToSweepList]
-      addr160List = [a.getAddr160() for a in a160ToSweepList]
-      getAddr = lambda addr160: a160ToSweepList[addr160List.index(addr160)]
+      if not isinstance(sweepFromAddrObjList, (list, tuple)):
+         sweepFromAddrObjList = [sweepFromAddrObjList]
 
       utxoList = getUnspentTxOutsForAddr160List(addr160List, 'Sweep', 0)
       if len(utxoList)==0:
@@ -3185,19 +3185,52 @@ class ArmoryMainWindow(QMainWindow):
       outValue = sumTxOutList(utxoList)
 
       inputSide = []
+      outputSide = []
+
       for utxo in utxoList:
          # The PyCreateAndSignTx method require PyTx and PyBtcAddress objects
-         CppPrevTx = TheBDM.getTxByHash(utxo.getTxHash())
-         PyPrevTx = PyTx().unserialize(CppPrevTx.serialize())
-         addr160 = CheckHash160(utxo.getRecipientScrAddr())
-         inputSide.append([getAddr(addr160), PyPrevTx, utxo.getTxOutIndex()])
+         rawTx = TheBDM.getTxByHash(utxo.getTxHash()).serialize()
+         PyPrevTx = PyTx().unserialize(rawTx)
+         a160 = CheckHash160(utxo.getRecipientScrAddr())
+         for aobj in sweepFromAddrObjList:
+            if a160 == aobj.getAddr160():
+               pubKey = aobj.binPublicKey65.toBinStr()
+               txoIdx = utxo.getTxOutIndex()
+               inputSide.append(UnsignedTxInput(rawTx, txoIdx, None, pubKey))
+               break
 
+      minFee = calcMinSuggestedFees(utxoList, outValue, 0, 1)
+
+      if minFee > 0:
+         LOGDEBUG( 'Subtracting fee from Sweep-output')
+         outValue -= minFee
+
+      if outValue<=0:
+         return [None, outValue, minFee]
+
+      # Creating the output list is pretty easy...
+      outputSide = []
+      outputSide.append(DecoratedTxOut(sweepToScript, outValue))
+
+      try:
+         # Make copies, destroy them in the finally clause
+         privKeyMap = {}
+         for addrObj in sweepFromAddrObjList:
+            scrAddr = SCRADDR_P2PKH_BYTE + addrObj.getAddr160()
+            privKeyMap[scrAddr] = addrObj.binPrivKey32_Plain.copy()
+   
+         pytx = PyCreateAndSignTx(inputSide, outputSide, privKeyMap)
+         return (pytx, outValue, minFee)
+
+      finally:
+         for scraddr in privKeyMap:
+            privKeyMap[scraddr].destroy()
+
+      """
       # Try with zero fee and exactly one output
       minFee = calcMinSuggestedFees(utxoList, outValue, 0, 1)[1]
 
-      if minFee > 0 and \
-         not forceZeroFee and \
-         not self.getSettingOrSetDefault('OverrideMinFee', False):
+      if minFee > 0:
          LOGDEBUG( 'Subtracting fee from Sweep-output')
          outValue -= minFee
 
@@ -3210,6 +3243,7 @@ class ArmoryMainWindow(QMainWindow):
 
       pytx = PyCreateAndSignTx(inputSide, outputSide)
       return (pytx, outValue, minFee)
+      """
 
 
 
@@ -3291,7 +3325,8 @@ class ArmoryMainWindow(QMainWindow):
       #######################################################################
       # The createSweepTx method will return instantly because the blockchain
       # has already been rescanned, as described above
-      finishedTx, outVal, fee = self.createSweepAddrTx(sweepList, self.sweepAfterScanTarg)
+      targScript = scrAddr_to_script(self.sweepAfterScanTarg)
+      finishedTx, outVal, fee = self.createSweepAddrTx(sweepList, targScript)
 
       gt1 = len(sweepList)>1
 

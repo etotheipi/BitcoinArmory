@@ -128,7 +128,7 @@ class MultiSigLockbox(object):
 
    #############################################################################
    def setParams(self, script, name=None, descr=None, commList=None, \
-                                 version=MULTISIG_VERSION, createDate=None):
+                                 createDate=None, version=MULTISIG_VERSION):
       
       # Set params will only overwrite with non-None data
       self.binScript = script
@@ -219,8 +219,7 @@ class MultiSigLockbox(object):
          raise UnserializeError('ID on lockbox does not match!')
 
       # No need to read magic bytes -- already checked & bailed if incorrect
-      self.setParams(boxScript, boxName, boxDescr, boxComms, \
-                                                   MULTISIG_VERSION, created)
+      self.setParams(boxScript, boxName, boxDescr, boxComms, created)
 
       return self
 
@@ -549,14 +548,14 @@ class MultiSigPromissoryNote(object):
       ustxiList = []
       
       bu = BinaryUnpacker(rawData)
-      version           = bu.get(UINT32)
-      magicBytes        = bu.get(BINARY_CHUNK, 4)
-      lboxID            = bu.get(VAR_STR)
-      payAmt            = bu.get(UINT64)
-      feeAmt            = bu.get(UINT64)
+      version         = bu.get(UINT32)
+      magicBytes      = bu.get(BINARY_CHUNK, 4)
+      lboxID          = bu.get(VAR_STR)
+      payAmt          = bu.get(UINT64)
+      feeAmt          = bu.get(UINT64)
       dtxoChange      = bu.get(VAR_STR)
-      contribLabel      = toUnicode(bu.get(VAR_STR))
-      numUSTXI          = bu.get(VAR_INT)
+      contribLabel    = toUnicode(bu.get(VAR_STR))
+      numUSTXI        = bu.get(VAR_INT)
       
       for i in range(numUSTXI):
          ustxiList.append( UnsignedTxInput.unserialize(bu.get(VAR_STR)) )
@@ -569,8 +568,7 @@ class MultiSigPromissoryNote(object):
          LOGWARN('   PromNote Version: %d' % version)
          LOGWARN('   Armory   Version: %d' % MULTISIG_VERSION)
 
-      self.setParams(lboxID, payAmt, feeAmt, dtxoChange, contribLabel, 
-                                                                supportMap)
+      self.setParams(lboxID, payAmt, feeAmt, dtxoChange, ustxiList)
 
       if expectID and not expectID==self.promID:
          LOGERROR('Promissory note ID does not match expected')

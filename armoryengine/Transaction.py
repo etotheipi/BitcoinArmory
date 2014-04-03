@@ -807,10 +807,10 @@ class PyTx(BlockComponent):
 
 
 # Use to identify status of individual sigs on an UnsignedTxINPUT
-IN_SIGSTAT = enum('ALREADY_SIGNED', 
-                  'WLT_ALREADY_SIGNED', 
-                  'WLT_CAN_SIGN',
-                  'NO_SIGNATURE')
+TXIN_SIGSTAT = enum('ALREADY_SIGNED', 
+                    'WLT_ALREADY_SIGNED', 
+                    'WLT_CAN_SIGN',
+                    'NO_SIGNATURE')
 
 # Use to identify status of USTXI objects of an UnsignedTransaction obj
 TX_SIGSTAT = enum('SIGNING_COMPLETE', 
@@ -974,7 +974,7 @@ class UnsignedTxInput(object):
          # If we're here, we should've passed in a P2SH script
          if self.p2shScript is None:
             self.isInitialized = False
-            raise TxdpError('No P2SH script supplied for P2SH input')
+            raise UstxError('No P2SH script supplied for P2SH input')
 
          # Sanity check tha the supplied P2SH script actually matches
          self.p2shScrAddr = script_to_scrAddr(self.p2shScript)
@@ -1096,18 +1096,17 @@ class UnsignedTxInput(object):
          raise InvalidScriptError('Nested P2SH not allowed')
       if self.scriptType in [CPP_TXOUT_STDPUBKEY33, CPP_TXOUT_STDPUBKEY65]:
          # Only need the signature to complete coinbase TxOut
-         outScript = serializeBytesWithPushData(self.signatures[0])
+         outScript = scriptPushData(self.signatures[0])
       elif self.scriptType==CPP_TXOUT_STDHASH160:
          # Gotta include the public key, too, for standard TxOuts
-         serSig    = serializeBytesWithPushData(self.signatures[0])
-         serPubKey = serializeBytesWithPushData(self.pubKeys[0])
+         serSig    = scriptPushData(self.signatures[0])
+         serPubKey = scriptPushData(self.pubKeys[0])
          outScript = serSig + serPubKey
       elif self.scriptType==TXOUT_SCRIPT_MULTISIG:
          # Serialize non-empty sigs, replace empty ones with OP_0
          OP_0 = getOpCode('OP_0')
-         def sig_to_pushdata(sig):
-            return (OP_0 if len(sig)==0 else serializeBytesWithPushData(sig))
-         serSigList = [sig_to_pushdata(s) for s in self.signatures]
+         pushSig = lambda sig: (scriptPushData(sig) if sig else OP_0)
+         serSigList = [pushSig(s) for s in self.signatures]
          outScript = OP_0 + ''.join(serSigList) 
       else:
          raise InvalidScriptError('Non-std script, cannot create sig script')
@@ -1117,7 +1116,7 @@ class UnsignedTxInput(object):
       # can tell because the p2shScript var will be non-empty.  All we do 
       # for these types of script is append the raw p2sh script to the end
       if len(self.p2shScript) > 0:
-         outScript += serializeBytesWithPushData(self.p2shScript)
+         outScript += scriptPushData(self.p2shScript)
          
       return outScript
 
@@ -1126,18 +1125,27 @@ class UnsignedTxInput(object):
    def createTxSignature(self, pytx, sbdPrivKey, hashcode=1):
       """ 
       This might be a little confusing ... remember this is an input for a 
-      transaction which may not have been fully constructed at the time this
-      object was created.  We must supply the final PyTx object we're signing,
+      transaction which may not have been fully defined at the time this
+      object was created.  We supply the final PyTx object is being signed,
       and assume that this input is one of them.  Then we produce the signature
-      using the CryptoECDSA module and the supply privKey
+      using the CryptoECDSA module and the supplied privKey.
       """ 
+
+      # Make sure the supplied privateKey is relevant to this USTXI
+      computedPub = CryptoECDSA().ComputePublicKey(sbdPrivKey).toBinStr()
+      for i,pub in enumerate(self.pubKeys):
+         if computedPub==pub:
+            break 
+      else:
+         raise SignatureError('No PubKey that matches this privKey')
+
       txiIdx = -1
       for i,txin in enumerate(pytx.inputs):
          if self.outpoint.serialize()==txin.outpoint:
             txiIdx = i
             break
       else:
-         raise SignatureError('No PubKey that matches this privKey')
+         raise SignatureError('No TxIn in tx that matches this USTXI')
 
       msg = generatePreHashTxMsgToSign(pytx, txiIdx, self.txoScript, hashcode)[0]
       sbdSig = CryptoECDSA().SignData(SecureBinaryData(msg), sbdPrivKey)
@@ -1150,11 +1158,16 @@ class UnsignedTxInput(object):
       sig = createTxSignature(sbdPrivKey, pytx, hashcode)
 
       computedPub = CryptoECDSA().ComputePublicKey(sbdPrivKey).toBinStr()
+      atLeastOne = False
       for i,pub in enumerate(self.pubKeys):
          if computedPub==pub:
             self.signatures[i] = sbdSig.toBinStr()
-            break
-      else:
+            atLeastOne = True
+            # Don't break, just in case this key is used multiple times!
+            # (for instance, maybe 3-of-5 where one particular public key
+            # is included twice as a "privileged" key)
+
+      if not atLeastOne:
          raise SignatureError('No PubKey that matches this privKey')
       
       return sig
@@ -1190,8 +1203,8 @@ class UnsignedTxInput(object):
       # Now check that all the raw signatures are actually value
       numValid = 0  # we'll double check sufficient sigs
       for i in range(signStat.N):
-         if signStat.statusN[i] in [IN_SIGSTAT.ALREADY_SIGNED, \
-                                    IN_SIGSTAT.WLT_ALREADY_SIGNED]:
+         if signStat.statusN[i] in [TXIN_SIGSTAT.ALREADY_SIGNED, \
+                                    TXIN_SIGSTAT.WLT_ALREADY_SIGNED]:
             pub = self.pubKeys[i]
             sig = self.signatures[i]
             if self.verifyTxSignature(pytx, pub, sig):
@@ -1284,20 +1297,10 @@ class UnsignedTxInput(object):
 
       signStatus = InputSigningStatus()
 
-      #CLASS InputSigningStatus
-      #self.M              = 0
-      #self.N              = 0
-      #self.statusN        = []
-      #self.statusM        = []
-      #self.allSigned      = False
-      #self.wltCanSign     = False
-      #self.wltIsRelevant  = False
-      #self.wltCanComplete = False
-
       signStatus.M = self.sigsNeeded
       signStatus.N = self.keysListed
-      signStatus.statusN = [IN_SIGSTAT.NO_SIGNATURE]*nkey
-      signStatus.statusM = [IN_SIGSTAT.NO_SIGNATURE]*msig
+      signStatus.statusN = [TXIN_SIGSTAT.NO_SIGNATURE]*nkey
+      signStatus.statusM = [TXIN_SIGSTAT.NO_SIGNATURE]*msig
 
       # First evaluate if we have sigs for each key, or if we *COULD* sign
       # This simply returns signed-or-notsigned if no wallet is supplied
@@ -1305,15 +1308,15 @@ class UnsignedTxInput(object):
       self.wltCanSign    = False
       for i in range(signStatus.N):
          if len(self.signatures[i]) > 0:
-            signStatus.statusN[i] = IN_SIGSTAT.ALREADY_SIGNED
+            signStatus.statusN[i] = TXIN_SIGSTAT.ALREADY_SIGNED
 
          if cppWlt and cppWlt.hasScrAddr(self.scrAddrs[i]):
             self.wltIsRelevant = True
             if len(self.signatures[i]) > 0:
-               signStatus.statusN[i] = IN_SIGSTAT.WLT_ALREADY_SIGNED
+               signStatus.statusN[i] = TXIN_SIGSTAT.WLT_ALREADY_SIGNED
             else:
                self.wltCanSign    = True
-               signStatus.statusN[i] = IN_SIGSTAT.WLT_CAN_SIGN
+               signStatus.statusN[i] = TXIN_SIGSTAT.WLT_CAN_SIGN
                
 
       # Now we sort the results and compare to M-value to get high-level metrics
@@ -1322,9 +1325,9 @@ class UnsignedTxInput(object):
 
       # Since values are sorted, the last element tells us whether we're done
       signStatus.allSigned = (self.statusM[-1] in \
-                  [IN_SIGSTAT.ALREADY_SIGNED, IN_SIGSTAT.WLT_ALREADY_SIGNED])
+                  [TXIN_SIGSTAT.ALREADY_SIGNED, TXIN_SIGSTAT.WLT_ALREADY_SIGNED])
 
-      signStatus.wltCanComplete = (self.statusM[-1] == IN_SIGSTAT.WLT_CAN_SIGN)
+      signStatus.wltCanComplete = (self.statusM[-1] == TXIN_SIGSTAT.WLT_CAN_SIGN)
       return signStatus
 
                                                       
@@ -1525,8 +1528,20 @@ class UnsignedTransaction(object):
          self.pytxObj.outputs[iout].value     = dtxo.value
          self.pytxObj.outputs[iout].binScript = dtxo.binScript
       
+      # Create copies of the input lists
       self.ustxInputs = ustxinList[:]
       self.decorTxOuts = dtxoList[:]
+
+      # Finally issue a warning if this selection is super high fee
+      totalIn  = sum([ustxi.value for ustxi in ustxinList ])
+      totalOut = sum([dtxo.value  for dtxo  in decorTxOuts])
+      if totalIn - totalOut > 100*MIN_RELAY_TX_FEE:
+         LOGWARN('Exceptionally high fee in createFromUnsignedTxIO')
+         LOGWARN('TotalInputs  = %s BTC', coin2strNZS(totalIn))
+         LOGWARN('TotalOutputs = %s BTC', coin2strNZS(totalOut))
+         LOGWARN('Computed Fee = %s BTC', coin2strNZS(totalIn-totalOut))
+      elif totalIn - totalOut < 0:
+         raise ValueError('Supplied inputs are less than the supplied outputs')
 
       self.uniqueB58 = binary_to_base58(hash256(self.pytxObj.serialize()))[:8]
       return self
@@ -1612,15 +1627,11 @@ class UnsignedTransaction(object):
    #############################################################################
    def createFromTxOutSelection(self, utxoSelection, scriptValuePairs, 
                                                   txMap=None, p2shMap=None):
-      """
-      This creates a USTX for a standard transaction from a list of inputs and 
-      a list of recipient-value-pairs.  
-      """
 
       totalUtxoSum = sumTxOutList(utxoSelection)
       totalOutputSum = sum([a[1] for a in scriptValuePairs])
       if not totalUtxoSum >= totalOutputSum:
-         raise TxdpError('More outputs than inputs!')
+         raise UstxError('More outputs than inputs!')
          
       thePyTx = PyTx()
       thePyTx.version = 1
@@ -1636,9 +1647,6 @@ class UnsignedTransaction(object):
          # Assume recipObj is either a PBA or a string
          if isinstance(script, PyBtcAddress):
             LOGERROR("Didn't know any func was still using this conditional")
-            #scrAddr = addrStr_to_scrAddr(scrAddr.getAddrStr())
-            #scrAddr = 
-
 
          intType = getTxOutScriptType(script)
          if intType==CPP_TXOUT_NONSTANDARD:
@@ -1665,7 +1673,6 @@ class UnsignedTransaction(object):
          txin.outpoint.txOutIndex = txoIdx
          thePyTx.inputs.append(txin)
 
-         self.inContribID.append(utxo.contribID)
 
       return self.createFromPyTx(thePyTx, txMap, p2shMap)
 
@@ -1682,6 +1689,13 @@ class UnsignedTransaction(object):
          dtxoList.append(DecoratedTxOut(scr,val,p2sh))
 
       return self.createFromUnsignedTxIO(ustxiList, dtxoList, lockTime)
+
+
+   #############################################################################
+   def calculateFee(self):
+      totalIn  = sum([ustxi.value for ustxi in self.ustxInputs ])
+      totalOut = sum([dtxo.value  for dtxo  in self.decorTxOuts])
+      return totalIn-totalOut
                                                   
 
 
@@ -1870,9 +1884,9 @@ class UnsignedTransaction(object):
 
 
    #############################################################################
-   def getBroadcastTxIfReady(self):
+   def getBroadcastTxIfReady(self, verifySigs=True):
       try:
-         return self.prepareFinalTx()
+         return self.prepareFinalTx(verifySigs)
       except SignatureError, msg:
          return None
    
@@ -1914,6 +1928,29 @@ class UnsignedTransaction(object):
 
 
 
+################################################################################
+# This is intended only for lists of unsignedTxInputs that have all unlocked 
+# signing keys in the signAddrObjMap.  Map is all [scrAddr, PyBtcAddress] pairs.
+#
+# This method is intended for sweep transaction where a bundle of private keys
+# were provided.
+def PyCreateAndSignTx(ustxiList, dtxoList, sbdPrivKeyMap):
+   ustx = UnsignedTransaction().createFromUnsignedTxIO(ustxiList, dtxoList)
+
+   for ustxi in ustx.ustxInputs:
+      for iin in range(len(ustxi.scrAddrs)):
+         pubKey  = ustxi.pubKeys[iin]
+         scrAddr = ustxi.scrAddrs[iin]
+         sbdPriv = sbdPrivKeyMap.get(sbdPriv)
+         if sbdPriv is None:
+            raise BadAddressError('Supplied key map cannot sign all inputs')
+         ustx.createAndInsertSignatureForInput(iin, sbdPriv)
+
+   # Make sure everythign was good
+   if not ustx.verifySigsAllInputs():
+      raise SignatureError('Not all signatures are present or valid')
+
+   return ustx.prepareFinalTx(doVerifySigs=False) # already checked them
 
 
 
@@ -1940,7 +1977,7 @@ class UnsignedTransaction(object):
 #
 # Of course, we usually don't have the private keys of the dst addrs...
 #
-def PyCreateAndSignTx(srcTxOuts, dstAddrsVals):
+def PyCreateAndSignTx_old(srcTxOuts, dstAddrsVals):
    newTx = PyTx()
    newTx.version    = 1
    newTx.lockTime   = 0
@@ -2033,6 +2070,8 @@ def PyCreateAndSignTx(srcTxOuts, dstAddrsVals):
    #############################
    # Finally, our tx is complete!
    return newTx
+
+
 
 #############################################################################
 def getFeeForTx(txHash):

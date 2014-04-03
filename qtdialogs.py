@@ -4780,16 +4780,16 @@ class DlgSendBitcoins(ArmoryDialog):
       self.frame = SendBitcoinsFrame(self, main, 'Send Bitcoins',\
                    wlt, prefill, wltIDList, onlyOfflineWallets=onlyOfflineWallets,\
                    sendCallback=self.createTxAndBroadcast,\
-                   createUnsignedTxCallback=self.createUnsignedTxDPAndDisplay)
+                   createUnsignedTxCallback=self.createUnsignedTxAndDisplay)
       layout.addWidget(self.frame)
       self.setLayout(layout)
       # Update the any controls based on the initial wallet selection
       self.frame.fireWalletChange()
 
    #############################################################################
-   def createUnsignedTxDPAndDisplay(self, txdp):
+   def createUnsignedTxAndDisplay(self, ustx):
       self.accept()
-      dlg = DlgOfflineTxCreated(self.frame.wlt, txdp, self.parent, self.main)
+      dlg = DlgOfflineTxCreated(self.frame.wlt, ustx, self.parent, self.main)
       dlg.exec_()
 
 
@@ -4819,13 +4819,13 @@ class DlgSendBitcoins(ArmoryDialog):
 
 ################################################################################
 class DlgOfflineTxCreated(ArmoryDialog):
-   def __init__(self, wlt, txdp, parent=None, main=None):
+   def __init__(self, wlt, ustx, parent=None, main=None):
       super(DlgOfflineTxCreated, self).__init__(parent, main)
       layout = QVBoxLayout()
 
       reviewOfflineTxFrame = ReviewOfflineTxFrame(self, main, "Review Offline Transaction")
       reviewOfflineTxFrame.setWallet(wlt)
-      reviewOfflineTxFrame.setTxDp(txdp)
+      reviewOfflineTxFrame.setUSTX(ustx)
       continueButton = QPushButton('Continue')
       self.connect(continueButton, SIGNAL(CLICKED), self.signBroadcastTx)
       doneButton = QPushButton('Done')
@@ -4841,12 +4841,18 @@ class DlgOfflineTxCreated(ArmoryDialog):
          'By clicking Continue you will continue to the next step in the offline '
          'transaction process to sign and/or broadcast the transaction.')
 
-      bottomStrip = makeLayoutFrame(HORIZONTAL, [doneButton, ttipDone, STRETCH, continueButton, ttipContinue])
-      frame = makeLayoutFrame(VERTICAL, [reviewOfflineTxFrame, bottomStrip])
+      bottomStrip = makeHorizFrame([doneButton, 
+                                    ttipDone, 
+                                    STRETCH, 
+                                    continueButton, 
+                                    ttipContinue])
+
+      frame = makeVertFrame([reviewOfflineTxFrame, bottomStrip])
       layout.addWidget(frame)
       self.setLayout(layout)
-      self.setWindowTitle('Review Offline Transaction')
+      self.setWindowTitle(tr('Review Offline Transaction'))
       self.setWindowIcon(QIcon(self.main.iconfile))
+
 
    def signBroadcastTx(self):
       self.accept()
@@ -4970,7 +4976,7 @@ class DlgSignBroadcastOfflineTx(ArmoryDialog):
       dlgLayout.addWidget(signBroadcastOfflineTxFrame)
       dlgLayout.addWidget(doneForm)
       self.setLayout(dlgLayout)
-      signBroadcastOfflineTxFrame.processTxDP()
+      signBroadcastOfflineTxFrame.processUSTX()
 
 ################################################################################
 class DlgShowKeyList(ArmoryDialog):
@@ -5311,10 +5317,10 @@ class DlgAddressProperties(ArmoryDialog):
 
 ################################################################################
 def extractTxInfo(pytx, rcvTime=None):
-   pytxdp = None
-   if isinstance(pytx, PyTxDistProposal):
-      pytxdp = pytx
-      pytx = pytxdp.pytxObj.copy()
+   ustx = None
+   if isinstance(pytx, UnsignedTransaction):
+      ustx = pytx
+      pytx = ustx.pytxObj.copy()
 
    txHash = pytx.getHash()
    txOutToList, sumTxOut, txinFromList, sumTxIn, txTime, txBlk, txIdx = [None] * 7
@@ -5378,15 +5384,15 @@ def extractTxInfo(pytx, rcvTime=None):
             txinFromList[-1].append('')
             txinFromList[-1].append('')
 
-   elif not pytxdp is None:
+   elif ustx is not None:
       haveAllInput = True
-      for i, txin in enumerate(pytxdp.pytxObj.inputs):
+      for ustxi in ustx.ustxInputs:
          txinFromList.append([])
-         txinFromList[-1].append(script_to_scrAddr(pytxdp.txOutScripts[i]))
-         txinFromList[-1].append(pytxdp.inputValues[i])
+         txinFromList[-1].append(script_to_scrAddr(ustxi.txoScript))
+         txinFromList[-1].append(ustxi.value)
          txinFromList[-1].append('')
-         txinFromList[-1].append('')
-         txinFromList[-1].append('')
+         txinFromList[-1].append(hash256(ustxi.supportTx))
+         txinFromList[-1].append(ustxi.outpoint.getTxOutIndex())
    else:  # BDM is not initialized
       haveAllInput = False
       for i, txin in enumerate(pytx.inputs):
@@ -5397,10 +5403,12 @@ def extractTxInfo(pytx, rcvTime=None):
          txinFromList[-1].append('')
          txinFromList[-1].append('')
          txinFromList[-1].append('')
+
    if haveAllInput:
       sumTxIn = sum([x[1] for x in txinFromList])
    else:
       sumTxIn = None
+
    return [txHash, txOutToList, sumTxOut, txinFromList, sumTxIn, txTime, txBlk, txIdx]
 
 ################################################################################
@@ -5421,11 +5429,11 @@ class DlgDispTxInfo(ArmoryDialog):
       FIELDS = enum('Hash', 'OutList', 'SumOut', 'InList', 'SumIn', 'Time', 'Blk', 'Idx')
       data = extractTxInfo(pytx, txtime)
 
-      # If this is actually a TxDP in here...
-      pytxdp = None
-      if isinstance(pytx, PyTxDistProposal):
-         pytxdp = pytx
-         pytx = pytxdp.pytxObj.copy()
+      # If this is actually a ustx in here...
+      ustx = None
+      if isinstance(pytx, UnsignedTransaction):
+         ustx = pytx
+         pytx = ustx.pytxObj.copy()
 
 
       self.pytx = pytx.copy()
@@ -5508,29 +5516,13 @@ class DlgDispTxInfo(ArmoryDialog):
                break
 
 
-      # If this is a TxDP, the above calculation probably didn't do its job
+      # If this is a USTX, the above calculation probably didn't do its job
       # It is possible, but it's also possible that this Tx has nothing to
       # do with our wallet, which is not the focus of the above loop/conditions
       # So we choose to pass in the amount we already computed based on extra
-      # information available in the TxDP structure
+      # information available in the USTX structure
       if precomputeAmt:
          txAmt = precomputeAmt
-
-
-      # This is incorrectly flagging P2Pool outputs as non-std!
-      # if IsNonStandard:
-         # # TODO:  Need to do something with this non-std tx!
-         # print '***Non-std transaction!'
-         # QMessageBox.critical(self, 'Non-Standard Transaction', \
-           # 'This is a non-standard transaction, which cannot be '
-           # 'interpretted by this program.  DO NOT ASSUME that you '
-           # 'own these bitcoins, even if you see your address in '
-           # 'any part of the transaction.  Only an expert can tell '
-           # 'you if and how these coins can be redeemed!  \n\n'
-           # 'If you would like more information, please copy the '
-           # 'information on the next window into an email and send '
-           # 'it to alan.reiner@gmail.com.', QMessageBox.Ok)
-
 
 
       layout = QGridLayout()
@@ -5558,13 +5550,13 @@ class DlgDispTxInfo(ArmoryDialog):
 
 
       # Want to display the hash of the Tx if we have a valid one:
-      # A TxDP does not have a valid hash until it's completely signed, though
+      # A USTX does not have a valid hash until it's completely signed, though
       longTxt = '[[ Transaction ID cannot be determined without all signatures ]]'
       w, h = relaxedSizeStr(QRichLabel(''), longTxt)
 
       tempPyTx = self.pytx.copy()
-      if pytxdp:
-         finalTx = pytxdp.getBroadcastTxIfReady()
+      if ustx:
+         finalTx = ustx.getBroadcastTxIfReady(verifySigs=False)
          if finalTx:
             tempPyTx = finalTx.copy()
          else:
@@ -5763,8 +5755,8 @@ class DlgDispTxInfo(ArmoryDialog):
       wWlt = relaxedSizeStr(GETFONT('Var'), 'A' * 10)[0]
       wAddr = relaxedSizeStr(GETFONT('Var'), 'A' * 31)[0]
       wAmt = relaxedSizeStr(GETFONT('Fixed'), 'A' * 20)[0]
-      if pytxdp:
-         self.txInModel = TxInDispModel(pytxdp, data[FIELDS.InList], self.main)
+      if ustx:
+         self.txInModel = TxInDispModel(ustx, data[FIELDS.InList], self.main)
       else:
          self.txInModel = TxInDispModel(pytx, data[FIELDS.InList], self.main)
       self.txInView = QTableView()

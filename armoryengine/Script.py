@@ -80,7 +80,7 @@ def pprintScript(binScript, nIndent=0):
       print indstr + indent + op
 
 
-def serializeBytesWithPushData(binObj):
+def scriptPushData(binObj):
    sz = len(binObj) 
    if sz <= 76:
       lenByte = int_to_binary(sz, widthBytes=1)

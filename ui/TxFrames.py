@@ -376,7 +376,7 @@ class SendBitcoinsFrame(ArmoryFrame):
 
 
    #############################################################################
-   def validateInputsGetTxDP(self):
+   def validateInputsGetUSTX(self):
       COLS = self.COLS
       self.freeOfErrors = True
       scripts = []
@@ -613,10 +613,10 @@ class SendBitcoinsFrame(ArmoryFrame):
       random.shuffle(scriptValuePairs)
 
       # Now create the unsigned TxDP
-      txdp = PyTxDistProposal().createFromTxOutSelection(utxoSelect, \
+      ustx = UnsignedTransaction().createFromTxOutSelection(utxoSelect, \
                                                          scriptValuePairs)
 
-      txdp.pprint()
+      ustx.pprint()
 
       txValues = [totalSend, fee, totalChange]
       if not self.unsignedCheckbox.isChecked():
@@ -626,15 +626,15 @@ class SendBitcoinsFrame(ArmoryFrame):
          if not dlg.exec_():
             return False
       
-      return txdp
+      return ustx
    
   
    def createTxAndBroadcast(self):
       # The Send! button is clicked validate and broadcast tx
-      txdp = self.validateInputsGetTxDP()
-      if txdp:
+      ustx = self.validateInputsGetUSTX()
+      if ustx:
          if self.createUnsignedTxCallback and self.unsignedCheckbox.isChecked():
-            self.createUnsignedTxCallback(txdp)
+            self.createUnsignedTxCallback(ustx)
          else:
             try:
                if self.wlt.isLocked:
@@ -668,7 +668,7 @@ class SendBitcoinsFrame(ArmoryFrame):
                         commentStr += '%s (%s);  ' % (self.comments[i], coin2str_approx(amt).strip())
       
       
-               tx = self.wlt.signTxDistProposal(txdp)
+               tx = self.wlt.signUnsignedTx(ustx)
                finalTx = tx.prepareFinalTx()
                if len(commentStr) > 0:
                   self.wlt.setComment(finalTx.getHash(), commentStr)
@@ -1033,7 +1033,7 @@ class ReviewOfflineTxFrame(ArmoryDialog):
    def __init__(self, parent=None, main=None, initLabel=''):
       super(ReviewOfflineTxFrame, self).__init__(parent, main)
 
-      self.txdp = None
+      self.ustx = None
       self.wlt = None
       self.lblDescr = QRichLabel('')
 
@@ -1049,7 +1049,7 @@ class ReviewOfflineTxFrame(ArmoryDialog):
          'a computer that contains the private keys for this wallet.')
 
       btnCopy = QPushButton('Copy to clipboard')
-      self.connect(btnCopy, SIGNAL(CLICKED), self.copyAsciiTxDP)
+      self.connect(btnCopy, SIGNAL(CLICKED), self.copyAsciiUSTX)
       self.lblCopied = QRichLabel('  ')
       self.lblCopied.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
 
@@ -1065,12 +1065,12 @@ class ReviewOfflineTxFrame(ArmoryDialog):
 
       # Wow, I just cannot get the txtEdits to be the right size without
       # forcing them very explicitly
-      w, h = tightSizeStr(GETFONT('Fixed', 8), '0' * 93)[0], int(12 * 8.2)
-      self.txtTxDP = QTextEdit()
-      self.txtTxDP.setFont(GETFONT('Fixed', 8))
-      self.txtTxDP.setMinimumWidth(w)
-      self.txtTxDP.setMinimumHeight(h)
-      self.txtTxDP.setReadOnly(True)
+      self.txtUSTX = QTextEdit()
+      self.txtUSTX.setFont(GETFONT('Fixed', 8))
+      w,h = relaxedSizeNChar(self.txtUSTX, 85)[0], int(12 * 8.2)
+      self.txtUSTX.setMinimumWidth(w)
+      self.txtUSTX.setMinimumHeight(h)
+      self.txtUSTX.setReadOnly(True)
 
 
 
@@ -1079,7 +1079,7 @@ class ReviewOfflineTxFrame(ArmoryDialog):
       frmLowerLayout = QGridLayout()
 
       frmLowerLayout.addWidget(frmUTX, 0, 0, 1, 3)
-      frmLowerLayout.addWidget(self.txtTxDP, 1, 0, 3, 1)
+      frmLowerLayout.addWidget(self.txtUSTX, 1, 0, 3, 1)
       frmLowerLayout.addWidget(btnSave, 1, 1, 1, 1)
       frmLowerLayout.addWidget(ttipSave, 1, 2, 1, 1)
       frmLowerLayout.addWidget(btnCopy, 2, 1, 1, 1)
@@ -1113,10 +1113,10 @@ class ReviewOfflineTxFrame(ArmoryDialog):
 
       self.setLayout(dlgLayout)
    
-   def setTxDp(self, txdp):
-      self.txdp = txdp
-      self.lblUTX.setText('<b>Transaction Data</b> \t (Unsigned ID: %s)' % txdp.uniqueB58)
-      self.txtTxDP.setText(txdp.serializeAscii())
+   def setUSTX(self, ustx):
+      self.ustx = ustx
+      self.lblUTX.setText('<b>Transaction Data</b> \t (Unsigned ID: %s)' % ustx.uniqueB58)
+      self.txtUSTX.setText(ustx.serializeAscii())
    
    def setWallet(self, wlt):
       self.wlt = wlt
@@ -1149,15 +1149,15 @@ class ReviewOfflineTxFrame(ArmoryDialog):
             sign and broadcast the transaction when you are ready"""))
            
          
-   def copyAsciiTxDP(self):
+   def copyAsciiUSTX(self):
       clipb = QApplication.clipboard()
       clipb.clear()
-      clipb.setText(self.txtTxDP.toPlainText())
+      clipb.setText(self.txtUSTX.toPlainText())
       self.lblCopied.setText('<i>Copied!</i>')
 
    def doSaveFile(self):
       """ Save the Unsigned-Tx block of data """
-      dpid = self.txdp.uniqueB58
+      dpid = self.ustx.uniqueB58
       suffix = ('' if OS_WINDOWS else '.unsigned.tx')
       toSave = self.main.getFileSave(\
                       'Save Unsigned Transaction', \
@@ -1169,7 +1169,7 @@ class ReviewOfflineTxFrame(ArmoryDialog):
       LOGINFO('Saving unsigned tx file: %s', toSave)
       try:
          theFile = open(toSave, 'w')
-         theFile.write(self.txtTxDP.toPlainText())
+         theFile.write(self.txtUSTX.toPlainText())
          theFile.close()
       except IOError:
          LOGEXCEPT('Failed to save file: %s', toSave)
@@ -1198,10 +1198,10 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
          'the Bitcoin network to make it final.')
 
       w, h = tightSizeStr(GETFONT('Fixed', 8), '0' * 90)[0], int(12 * 8.2)
-      self.txtTxDP = QTextEdit()
-      self.txtTxDP.setFont(GETFONT('Fixed', 8))
-      self.txtTxDP.sizeHint = lambda: QSize(w, h)
-      self.txtTxDP.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+      self.txtUSTX = QTextEdit()
+      self.txtUSTX.setFont(GETFONT('Fixed', 8))
+      self.txtUSTX.sizeHint = lambda: QSize(w, h)
+      self.txtUSTX.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
       self.btnSign = QPushButton('Sign')
       self.btnBroadcast = QPushButton('Broadcast')
@@ -1215,7 +1215,7 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
       self.btnSign.setEnabled(False)
       self.btnBroadcast.setEnabled(False)
 
-      self.connect(self.txtTxDP, SIGNAL('textChanged()'), self.processTxDP)
+      self.connect(self.txtUSTX, SIGNAL('textChanged()'), self.processUSTX)
 
 
       self.connect(self.btnSign, SIGNAL(CLICKED), self.signTx)
@@ -1299,7 +1299,7 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
       frmBottom = QFrame()
       frmBottom.setFrameStyle(STYLE_SUNKEN)
       frmBottomLayout = QGridLayout()
-      frmBottomLayout.addWidget(self.txtTxDP, 0, 0, 1, 1)
+      frmBottomLayout.addWidget(self.txtUSTX, 0, 0, 1, 1)
       frmBottomLayout.addWidget(frmBtn, 0, 1, 2, 1)
       frmBottomLayout.addWidget(frmInfo, 1, 0, 1, 1)
       # frmBottomLayout.addWidget(frmMoreInfo,   1,1,  1,1)
@@ -1310,47 +1310,48 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
       layout.addWidget(frmBottom)
 
       self.setLayout(layout)
-      self.processTxDP()
+      self.processUSTX()
 
-   def processTxDP(self):
+   def processUSTX(self):
       # TODO:  it wouldn't be TOO hard to modify this dialog to take
       #        arbitrary hex-serialized transactions for broadcast...
       #        but it's not trivial either (for instance, I assume
       #        that we have inputs values, etc)
       self.wlt = None
       self.leValue = None
-      self.txdpObj = None
+      self.ustxObj = None
       self.idxSelf = []
       self.idxOther = []
       self.lblStatus.setText('')
       self.lblCopied.setText('')
       self.enoughSigs = False
       self.sigsValid = False
-      self.txdpReadable = False
+      self.ustxReadable = False
 
-      txdpStr = str(self.txtTxDP.toPlainText())
+      ustxStr = str(self.txtUSTX.toPlainText())
       try:
-         self.txdpObj = PyTxDistProposal().unserializeAscii(txdpStr)
-         self.enoughSigs = self.txdpObj.checkTxHasEnoughSignatures()
-         self.sigsValid = self.txdpObj.checkTxHasEnoughSignatures(alsoVerify=True)
-         self.txdpReadable = True
+         self.ustxObj = PyTxDistProposal().unserializeAscii(ustxStr)
+         self.signStat = self.ustxObj.evaluateSigningStatus()
+         self.enoughSigs = self.signStat.canBroadcast
+         self.sigsValid = self.ustxObj.verifySigsAllInputs()
+         self.ustxReadable = True
       except BadAddressError:
          QMessageBox.critical(self, 'Inconsistent Data!', \
             'This transaction contains inconsistent information.  This '
             'is probably not your fault...', QMessageBox.Ok)
-         self.txdpObj = None
-         self.txdpReadable = False
+         self.ustxObj = None
+         self.ustxReadable = False
       except NetworkIDError:
          QMessageBox.critical(self, 'Wrong Network!', \
             'This transaction is actually for a different network!  '
             'Did you load the correct transaction?', QMessageBox.Ok)
-         self.txdpObj = None
-         self.txdpReadable = False
+         self.ustxObj = None
+         self.ustxReadable = False
       except (UnserializeError, IndexError, ValueError):
-         self.txdpObj = None
-         self.txdpReadable = False
+         self.ustxObj = None
+         self.ustxReadable = False
 
-      if not self.enoughSigs or not self.sigsValid or not self.txdpReadable:
+      if not self.enoughSigs or not self.sigsValid or not self.ustxReadable:
          self.btnBroadcast.setEnabled(False)
       else:
          if self.main.netMode == NETWORKMODE.Full:
@@ -1361,8 +1362,8 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
 
       self.btnSave.setEnabled(True)
       self.btnCopyHex.setEnabled(False)
-      if not self.txdpReadable:
-         if len(txdpStr) > 0:
+      if not self.ustxReadable:
+         if len(ustxStr) > 0:
             self.lblStatus.setText('<b><font color="red">Unrecognized!</font></b>')
          else:
             self.lblStatus.setText('')
@@ -1396,7 +1397,7 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
       #        multi-sig code, I will have to either make a different dialog,
       #        or add some logic to this one
       FIELDS = enum('Hash', 'OutList', 'SumOut', 'InList', 'SumIn', 'Time', 'Blk', 'Idx')
-      data = extractTxInfo(self.txdpObj, -1)
+      data = extractTxInfo(self.ustxObj, -1)
 
       # Collect the input wallets (hopefully just one of them)
       fromWlts = set()
@@ -1455,7 +1456,7 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
    ############################################################################
    def makeReviewFrame(self):
       # ##
-      if self.txdpObj == None:
+      if self.ustxObj == None:
          self.infoLbls[0][2].setText('')
          self.infoLbls[1][2].setText('')
          self.infoLbls[2][2].setText('')
@@ -1472,7 +1473,7 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
             self.infoLbls[1][2].setText('')
 
          ##### 2
-         self.infoLbls[2][2].setText(self.txdpObj.uniqueB58)
+         self.infoLbls[2][2].setText(self.ustxObj.uniqueB58)
 
          ##### 3
          if self.leValue:
@@ -1484,28 +1485,28 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
 
    def execMoreTxInfo(self):
 
-      if not self.txdpObj:
-         self.processTxDP()
+      if not self.ustxObj:
+         self.processUSTX()
 
-      if not self.txdpObj:
+      if not self.ustxObj:
          QMessageBox.warning(self, 'Invalid Transaction', \
             'Transaction data is invalid and cannot be shown!', QMessageBox.Ok)
          return
 
-      dlgTxInfo = DlgDispTxInfo(self.txdpObj, self.wlt, self.parent(), self.main, \
+      dlgTxInfo = DlgDispTxInfo(self.ustxObj, self.wlt, self.parent(), self.main, \
                           precomputeIdxGray=self.idxSelf, precomputeAmt=-self.leValue, txtime=-1)
       dlgTxInfo.exec_()
 
 
 
    def signTx(self):
-      if not self.txdpObj:
+      if not self.ustxObj:
          QMessageBox.critical(self, 'Cannot Sign', \
                'This transaction is not relevant to any of your wallets.'
                'Did you load the correct transaction?', QMessageBox.Ok)
          return
 
-      if self.txdpObj == None:
+      if self.ustxObj == None:
          QMessageBox.warning(self, 'Not Signable', \
                'This is not a valid transaction, and thus it cannot '
                'be signed. ', QMessageBox.Ok)
@@ -1528,11 +1529,11 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
       # We should provide the same confirmation dialog here, as we do when
       # sending a regular (online) transaction.  But the DlgConfirmSend was
       # not really designed
-      txdp = self.txdpObj
+      ustx = self.ustxObj
       rvpairs = []
       rvpairsMine = []
-      outInfo = txdp.pytxObj.makeRecipientsList()
-      theFee = sum(txdp.inputValues) - sum([info[1] for info in outInfo])
+      outInfo = ustx.pytxObj.makeRecipientsList()
+      theFee = ustx.calculateFee()
       for info in outInfo:
          if not info[0] in CPP_TXOUT_HAS_ADDRSTR:
             rvpairs.append(['Non-Standard Output', info[1]])
@@ -1581,7 +1582,7 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
             self.wlt.kdfKey = self.wlt.kdf.DeriveKey(Passphrase)
             Passphrase.destroy()                                              
 
-      newTxdp = self.wlt.signTxDistProposal(self.txdpObj)
+      newUstx = self.wlt.signUnsignedTx(self.ustxObj)
       self.wlt.advanceHighestIndex()
       self.txtTxDP.setText(newTxdp.serializeAscii())
       self.txdpObj = newTxdp

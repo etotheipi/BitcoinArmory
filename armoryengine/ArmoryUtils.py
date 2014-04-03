@@ -186,7 +186,7 @@ class FiniteFieldError(Exception): pass
 class BitcoindError(Exception): pass
 class ShouldNotGetHereError(Exception): pass
 class BadInputError(Exception): pass
-class TxdpError(Exception): pass
+class UstxError(Exception): pass
 class P2SHNotSupportedError(Exception): pass
 
 # Get the host operating system
@@ -1259,8 +1259,7 @@ def hash160_to_p2pkhash_script(binStr20):
    from Transaction import getOpCode
    outScript = ''.join([  getOpCode('OP_DUP'        ), \
                           getOpCode('OP_HASH160'    ), \
-                          '\x14',                      \
-                          binStr20,
+                          scriptPushData(binStr20),
                           getOpCode('OP_EQUALVERIFY'), \
                           getOpCode('OP_CHECKSIG'   )])
    return outScript
@@ -1274,9 +1273,8 @@ def hash160_to_p2sh_script(binStr20):
       raise InvalidHashError('Tried to convert non-20-byte str to p2sh script')
 
    from Transaction import getOpCode
-   outScript = ''.join([  getOpCode('OP_HASH160'), \
-                          '\x14',                      \
-                          binStr20,
+   outScript = ''.join([  getOpCode('OP_HASH160'), 
+                          scriptPushData(binStr20),
                           getOpCode('OP_EQUAL')])
    return outScript
 
@@ -1296,10 +1294,8 @@ def pubkey_to_p2pk_script(binStr33or65):
       raise KeyDataError('Invalid public key supplied to p2pk script')
 
    from Transaction import getOpCode
-   lenByte = int_to_binary(len(binStr33or65), widthBytes=1)
-   outScript =  ''.join([  lenByte,
-                           binStr33or65,
-                           getOpCode('OP_CHECKSIG')])
+   serPubKey = scriptPushData(binStr33or65)
+   outScript = serPubKey + getOpCode('OP_CHECKSIG')])
    return outScript
 
 
