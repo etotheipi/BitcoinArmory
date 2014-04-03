@@ -461,9 +461,9 @@ class BlockComponent(object):
    
 ################################################################################
 class PyOutPoint(BlockComponent):
-   #def __init__(self, txHash, txOutIndex):
-      #self.txHash = txHash
-      #self.txOutIndex     = outIndex
+   def __init__(self, txHash=None, txOutIndex=None):
+      self.txHash     = txHash
+      self.txOutIndex = txOutIndex
 
    def unserialize(self, toUnpack):
       if isinstance(toUnpack, BinaryUnpacker):
@@ -504,7 +504,7 @@ class PyTxIn(BlockComponent):
       else:
          txInData = BinaryUnpacker( toUnpack )
 
-      self.outpoint  = PyOutPoint().unserialize( txInData.get(BINARY_CHUNK, 36) )
+      self.outpoint  = PyOutPoint().unserialize(txInData.get(BINARY_CHUNK, 36) )
       
       scriptSize     = txInData.get(VAR_INT)
       if txInData.getRemainingSize() < scriptSize+4: raise UnserializeError
@@ -930,8 +930,8 @@ class UnsignedTxInput(object):
    """
 
    #############################################################################
-   def __init__(self, rawSupportTx, 
-                      txoutIndex, 
+   def __init__(self, rawSupportTx='',
+                      txoutIndex=-1,
                       p2sh=None, 
                       insertPubKeys=None,
                       insertSigs=None,
@@ -940,14 +940,18 @@ class UnsignedTxInput(object):
                       sequence=UINT32_MAX,
                       version=UNSIGNED_TX_VERSION):
 
+      if not rawSupportTx:
+         self.isInitialized = False
+         return
+
       tx = PyTx().unserialize(rawSupportTx)
       txout = tx.outputs[txoutIndex]
 
       self.isInitialized = True
 
       self.version     = version
-      self.supportTx   = tx
-      self.outpoint    = PyOutPoint(hash160(rawSupportTx), txoutIndex)
+      self.supportTx   = rawSupportTx
+      self.outpoint    = PyOutPoint(hash256(rawSupportTx), txoutIndex)
       self.txoScript   = txout.getScript()
       self.scriptType  = getTxOutScriptType(self.txoScript)
       self.value       = txout.getValue()
@@ -964,7 +968,7 @@ class UnsignedTxInput(object):
       self.wltLocators = None
 
       #####
-      if not self.sequence==UINT32_MAX
+      if not self.sequence==UINT32_MAX:
          LOGWARN('WARNING: NON-MAX SEQUENCE NUMBER ON UNSIGNEDTX INPUT!')
 
       #####
@@ -985,6 +989,9 @@ class UnsignedTxInput(object):
 
          # Replace script type with that of the sub-script
          # We can use the presence of p2shScript to identify it's p2sh
+         # Do the rest of the processing with the baseScript though we
+         # will leave self.txoScript alone since that needs to be the
+         # original script
          baseScript = self.p2shScript
          self.scriptType = getTxOutScriptType(self.p2shScript)
              
@@ -999,7 +1006,7 @@ class UnsignedTxInput(object):
       elif self.scriptType in CPP_TXOUT_STDSINGLESIG:
          self.sigsNeeded  = 1
          self.keysListed  = 1
-         self.scrAddrs    = [script_to_scrAddr(script)]
+         self.scrAddrs    = [script_to_scrAddr(baseScript)]
          self.pubKeys     = ['']
          self.signatures  = ['']
          self.wltLocators = ['']
@@ -1024,6 +1031,9 @@ class UnsignedTxInput(object):
                     (insertWltLocs, self.setWltLocator)]
 
       for insList,insFunc in insertData:
+         if insList is None:
+            continue 
+
          listlist = insList
          if not isinstance(listlist, (list, tuple)):
             listlist = [[0, insList]]
@@ -1090,22 +1100,24 @@ class UnsignedTxInput(object):
       scrType = self.scriptType
 
       outScript = ''
+
+      sigToDER = lambda sigStr: createDERSigFromRS(sigStr[:32], sigStr[32:])
          
       # If this is is p2sh, the scrType is 
       if self.scriptType == CPP_TXOUT_P2SH:
          raise InvalidScriptError('Nested P2SH not allowed')
       if self.scriptType in [CPP_TXOUT_STDPUBKEY33, CPP_TXOUT_STDPUBKEY65]:
          # Only need the signature to complete coinbase TxOut
-         outScript = scriptPushData(self.signatures[0])
+         outScript = scriptPushData(sigToDER(self.signatures[0]))
       elif self.scriptType==CPP_TXOUT_STDHASH160:
          # Gotta include the public key, too, for standard TxOuts
-         serSig    = scriptPushData(self.signatures[0])
+         serSig    = scriptPushData(sigToDER(self.signatures[0]))
          serPubKey = scriptPushData(self.pubKeys[0])
          outScript = serSig + serPubKey
       elif self.scriptType==TXOUT_SCRIPT_MULTISIG:
          # Serialize non-empty sigs, replace empty ones with OP_0
          OP_0 = getOpCode('OP_0')
-         pushSig = lambda sig: (scriptPushData(sig) if sig else OP_0)
+         pushSig = lambda sig: (scriptPushData(sigToDER(sig)) if sig else OP_0)
          serSigList = [pushSig(s) for s in self.signatures]
          outScript = OP_0 + ''.join(serSigList) 
       else:
@@ -1262,7 +1274,7 @@ class UnsignedTxInput(object):
          locList.append([i, bu.get(VAR_STR)])
          
 
-      if not outpt[:32] == hash160(suppTx):
+      if not outpt[:32] == hash256(suppTx):
          raise UnserializeError('OutPoint hash does not match supporting tx')
 
       if not seq==UINT32_MAX:
@@ -1281,13 +1293,13 @@ class UnsignedTxInput(object):
          LOGWARN('   Armory  Version: %d' % UNSIGNED_TX_VERSION)
 
       self.__init__(suppTx, 
-                    outpt.getTxOutIndex(), 
+                    binary_to_int(outpt[-4:]),
                     p2shScr,
                     pubList,
                     sigList,
                     locList,
                     contrib,
-                    sequence,
+                    seq,
                     version)
 
       return self
@@ -1330,6 +1342,19 @@ class UnsignedTxInput(object):
       signStatus.wltCanComplete = (self.statusM[-1] == TXIN_SIGSTAT.WLT_CAN_SIGN)
       return signStatus
 
+
+   def pprint(self, indent=3):
+      ind = ' '*indent
+      txHashStr = binary_to_hex(self.outpoint.txHash, BIGENDIAN)[:8]
+      txoIdx    = self.outpoint.txOutIndex
+      scrType   = CPP_TXOUT_SCRIPT_NAMES[self.scriptType]
+      
+      print 'UnsignedTxInput --  %s:%d (%s)' % (txHashStr, txoIdx, scrType)
+      
+
+   
+      
+
                                                       
 
 
@@ -1364,7 +1389,7 @@ class DecoratedTxOut(object):
                       wltLocator=None, authMethod='NONE', authInfo=None,
                       version=UNSIGNED_TX_VERSION):
 
-      self.isInitialized = (None is not in [script, value, 
+      self.isInitialized = (None not in [script, value])
       self.version    = version
       self.binScript  = script
       self.value      = value
@@ -1605,7 +1630,7 @@ class UnsignedTransaction(object):
                raise InvalidHashError('P2SH script not supplied')
             p2sh = p2shMap(txoScraddr)
 
-         ustxiList.append(UnsignedTxInput(rawPrevTx, txoIdx, p2sh))
+         ustxiList.append(UnsignedTxInput(pyPrevTx.serialize(), txoIdx, p2sh))
 
 
 
@@ -1776,7 +1801,7 @@ class UnsignedTransaction(object):
    def unserializeAscii(self, ustxBlock):
       headStr,rawData = readAsciiBlock(ustxBlock, 'TXSIGCOLLECT')
       if rawData is None:
-         LOGERROR('Expected header str "TXSIGCOLLECT", got "%s"' % headStr
+         LOGERROR('Expected header str "TXSIGCOLLECT", got "%s"' % headStr)
          return None
 
       expectID = headStr.split('-')[-1]
@@ -1905,7 +1930,7 @@ class UnsignedTransaction(object):
       print ind+'#Inputs      : ', len(tx.inputs)
 
       for i,ustxi in enumerate(self.ustxInputs):
-         prevHash  = binary_to_hex(ustxi.outpoint.txHash, BIGENDIAN))[:8]
+         prevHash  = binary_to_hex(ustxi.outpoint.getTxHash(), BIGENDIAN)[:8]
          prevIdx   = ustxi.outpoint.txOutIndex
          typeName  = CPP_TXOUT_SCRIPT_NAMES[ustxi.scriptType]
          usesP2SH  = '*' if len(ustxi.p2shScript)>0 else ' '

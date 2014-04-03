@@ -1257,6 +1257,7 @@ def hash160_to_p2pkhash_script(binStr20):
       raise InvalidHashError('Tried to convert non-20-byte str to p2pkh script')
 
    from Transaction import getOpCode
+   from Script import scriptPushData
    outScript = ''.join([  getOpCode('OP_DUP'        ), \
                           getOpCode('OP_HASH160'    ), \
                           scriptPushData(binStr20),
@@ -1273,6 +1274,7 @@ def hash160_to_p2sh_script(binStr20):
       raise InvalidHashError('Tried to convert non-20-byte str to p2sh script')
 
    from Transaction import getOpCode
+   from Script import scriptPushData
    outScript = ''.join([  getOpCode('OP_HASH160'), 
                           scriptPushData(binStr20),
                           getOpCode('OP_EQUAL')])
@@ -1294,8 +1296,9 @@ def pubkey_to_p2pk_script(binStr33or65):
       raise KeyDataError('Invalid public key supplied to p2pk script')
 
    from Transaction import getOpCode
+   from Script import scriptPushData
    serPubKey = scriptPushData(binStr33or65)
-   outScript = serPubKey + getOpCode('OP_CHECKSIG')])
+   outScript = serPubKey + getOpCode('OP_CHECKSIG')
    return outScript
 
 
@@ -2698,8 +2701,8 @@ def createBitcoinURI(addr, amt=None, msg=None):
 
 
 ################################################################################
-def createSigScriptFromRS(rBin, sBin):
-   # Remove all leading zero-bytes
+def createDERSigFromRS(rBin, sBin):
+   # Remove all leading zero-bytes (why didn't we use lstrip() here?)
    while rBin[0]=='\x00':
       rBin = rBin[1:]
    while sBin[0]=='\x00':
@@ -2711,11 +2714,36 @@ def createSigScriptFromRS(rBin, sBin):
    sSize  = int_to_binary(len(sBin))
    rsSize = int_to_binary(len(rBin) + len(sBin) + 4)
    sigScript = '\x30' + rsSize + \
-            '\x02' + rSize + rBin + \
-            '\x02' + sSize + sBin
+               '\x02' + rSize + rBin + \
+               '\x02' + sSize + sBin
    return sigScript
 
 
+################################################################################
+def getRSFromDERSig(derSig):
+   if not isinstance(derSig, str):
+      # In case this is a SecureBinaryData object...
+      derSig = derSig.toBinStr()
+
+   codeByte = derSig[0]
+   nBytes   = binary_to_int(derSig[1])
+   rsStr    = derSig[2:2+nBytes]
+   assert(codeByte == '\x30')
+   assert(nBytes == len(rsStr))
+   # Read r
+   codeByte  = rsStr[0]
+   rBytes    = binary_to_int(rsStr[1])
+   r         = rsStr[2:2+rBytes]
+   assert(codeByte == '\x02')
+   sStr      = rsStr[2+rBytes:]
+   # Read s
+   codeByte  = sStr[0]
+   sBytes    = binary_to_int(sStr[1])
+   s         = sStr[2:2+sBytes]
+   assert(codeByte == '\x02')
+   # Now we have the (r,s) values of the
+
+   return r[-32:], s[-32:]
 
 
 

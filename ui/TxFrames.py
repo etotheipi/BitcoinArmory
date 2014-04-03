@@ -11,7 +11,7 @@ from PyQt4.QtGui import * #@UnusedWildImport
 
 from armoryengine.BDM import TheBDM
 from qtdefines import * #@UnusedWildImport
-from armoryengine.Transaction import PyTxDistProposal
+from armoryengine.Transaction import UnsignedTransaction
 from armoryengine.Script import convertScriptToOpStrings
 from armoryengine.CoinSelection import PySelectCoins, calcMinSuggestedFees,\
    PyUnspentTxOut
@@ -612,7 +612,7 @@ class SendBitcoinsFrame(ArmoryFrame):
       # Anonymize the outputs
       random.shuffle(scriptValuePairs)
 
-      # Now create the unsigned TxDP
+      # Now create the unsigned USTX
       ustx = UnsignedTransaction().createFromTxOutSelection(utxoSelect, \
                                                          scriptValuePairs)
 
@@ -1330,7 +1330,7 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
 
       ustxStr = str(self.txtUSTX.toPlainText())
       try:
-         self.ustxObj = PyTxDistProposal().unserializeAscii(ustxStr)
+         self.ustxObj = UnsignedTransaction().unserializeAscii(ustxStr)
          self.signStat = self.ustxObj.evaluateSigningStatus()
          self.enoughSigs = self.signStat.canBroadcast
          self.sigsValid = self.ustxObj.verifySigsAllInputs()
@@ -1584,8 +1584,8 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
 
       newUstx = self.wlt.signUnsignedTx(self.ustxObj)
       self.wlt.advanceHighestIndex()
-      self.txtTxDP.setText(newTxdp.serializeAscii())
-      self.txdpObj = newTxdp
+      self.txtUSTX.setText(newUstx.serializeAscii())
+      self.ustxObj = newUstx
 
       if not self.fileLoaded == None:
          self.saveTxAuto()
@@ -1609,7 +1609,7 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
 
 
       try:
-         finalTx = self.txdpObj.prepareFinalTx()
+         finalTx = self.ustxObj.prepareFinalTx()
       except:
          QMessageBox.warning(self, 'Error', \
             'There was an error processing this transaction, for reasons '
@@ -1619,11 +1619,11 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
       # We should provide the same confirmation dialog here, as we do when
       # sending a regular (online) transaction.  But the DlgConfirmSend was
       # not really designed
-      txdp = self.txdpObj
+      ustx = self.ustxObj
       rvpairs = []
       rvpairsMine = []
-      outInfo = txdp.pytxObj.makeRecipientsList()
-      theFee = sum(txdp.inputValues) - sum([info[1] for info in outInfo])
+      outInfo = ustx.pytxObj.makeRecipientsList()
+      theFee = ustx.calculateFee()
       for info in outInfo:
          if not info[0] in CPP_TXOUT_HAS_ADDRSTR:
             rvpairs.append(['Non-Standard Output', info[1]])
@@ -1653,7 +1653,7 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
 
 
    def saveTxAuto(self):
-      if not self.txdpReadable:
+      if not self.ustxReadable:
          QMessageBox.warning(self, 'Formatting Error', \
             'The transaction data was not in a format recognized by '
             'Armory.')
@@ -1664,7 +1664,7 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
          newSaveFile = self.fileLoaded.replace('unsigned', 'signed')
          print newSaveFile
          f = open(newSaveFile, 'w')
-         f.write(str(self.txtTxDP.toPlainText()))
+         f.write(str(self.txtUSTX.toPlainText()))
          f.close()
          if not newSaveFile == self.fileLoaded:
             os.remove(self.fileLoaded)
@@ -1676,7 +1676,7 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
          return
 
    def saveTx(self):
-      if not self.txdpReadable:
+      if not self.ustxReadable:
          QMessageBox.warning(self, 'Formatting Error', \
             'The transaction data was not in a format recognized by '
             'Armory.')
@@ -1687,14 +1687,14 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
       # adds the ffilter suffix to the default filename, where as it needs to
       # be explicitly added in PyQt in Linux.  Not sure why this behavior exists.
       defaultFilename = ''
-      if not self.txdpObj == None:
+      if not self.ustxObj == None:
          if self.enoughSigs and self.sigsValid:
             suffix = '' if OS_WINDOWS else '.signed.tx'
-            defaultFilename = 'armory_%s_%s' % (self.txdpObj.uniqueB58, suffix)
+            defaultFilename = 'armory_%s_%s' % (self.ustxObj.uniqueB58, suffix)
             ffilt = 'Transactions (*.signed.tx *.unsigned.tx)'
          else:
             suffix = '' if OS_WINDOWS else '.unsigned.tx'
-            defaultFilename = 'armory_%s_%s' % (self.txdpObj.uniqueB58, suffix)
+            defaultFilename = 'armory_%s_%s' % (self.ustxObj.uniqueB58, suffix)
             ffilt = 'Transactions (*.unsigned.tx *.signed.tx)'
       filename = self.main.getFileSave('Save Transaction', \
                              [ffilt], \
@@ -1708,7 +1708,7 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
       if len(str(filename)) > 0:
          LOGINFO('Saving transaction file: %s', filename)
          f = open(filename, 'w')
-         f.write(str(self.txtTxDP.toPlainText()))
+         f.write(str(self.txtUSTX.toPlainText()))
          f.close()
 
 
@@ -1720,7 +1720,7 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
          LOGINFO('Selected transaction file to load: %s', filename)
          print filename
          f = open(filename, 'r')
-         self.txtTxDP.setText(f.read())
+         self.txtUSTX.setText(f.read())
          f.close()
          self.fileLoaded = filename
          print self.fileLoaded
@@ -1729,17 +1729,20 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
    def copyTx(self):
       clipb = QApplication.clipboard()
       clipb.clear()
-      clipb.setText(str(self.txtTxDP.toPlainText()))
+      clipb.setText(str(self.txtUSTX.toPlainText()))
       self.lblCopied.setText('<i>Copied!</i>')
 
 
    def copyTxHex(self):
       clipb = QApplication.clipboard()
       clipb.clear()
-      clipb.setText(binary_to_hex(self.txdpObj.prepareFinalTx().serialize()))
+      clipb.setText(binary_to_hex(self.ustxObj.prepareFinalTx().serialize()))
       self.lblCopied.setText('<i>Copied!</i>')
          
+
 # Need to put circular imports at the end of the script to avoid an import deadlock
 from qtdialogs import CLICKED, STRETCH, createAddrBookButton,\
       DlgConfirmSend, DlgUriCopyAndPaste, DlgUnlockWallet,\
    extractTxInfo, DlgDispTxInfo, NO_CHANGE
+
+

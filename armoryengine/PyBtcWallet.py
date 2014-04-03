@@ -2951,4 +2951,4 @@ def getSuffixedPath(walletPath, nameSuffix):
 from armoryengine.BDM import TheBDM, getCurrTimeAndBlock
 from armoryengine.PyBtcAddress import PyBtcAddress
 from armoryengine.Transaction import *
-from armoryengine.Script import serializeBytesWithPushData
+from armoryengine.Script import scriptPushData

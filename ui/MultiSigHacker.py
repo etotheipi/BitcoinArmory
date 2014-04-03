@@ -1112,7 +1112,8 @@ class DlgMultiSpendReview(ArmoryDialog):
 
 
      
-     def isFinal(tx):
+   def isFinal(tx):
+      return False
 
 
 ################################################################################

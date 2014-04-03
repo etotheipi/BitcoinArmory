@@ -234,7 +234,7 @@ class MultiSigLockbox(object):
    def unserializeAscii(self, boxBlock):
       headStr, rawData = readAsciiBlock(boxBlock, 'LOCKBOX')
       if rawData is None:
-         LOGERROR('Expected header str "LOCKBOX", got "%s"' % headStr
+         LOGERROR('Expected header str "LOCKBOX", got "%s"' % headStr)
          return None
 
       # We should have "LOCKBOX-BOXID" in the headstr
@@ -581,7 +581,7 @@ class MultiSigPromissoryNote(object):
 
 
    #############################################################################
-   def serializeAscii(self, wid=64, newline='\n')
+   def serializeAscii(self, wid=64, newline='\n'):
       headStr = 'PROMISSORY-%s-%s' % (self.boxID, self.promID)
       return makeAsciiBlock(self.serialize(), headStr, wid, newline)
 
@@ -592,7 +592,7 @@ class MultiSigPromissoryNote(object):
       headStr, rawData = readAsciiBlock(promBlock, 'PROMISSORY')
 
       if rawData is None:
-         LOGERROR('Expected header str "PROMISSORY", got "%s"' % headStr
+         LOGERROR('Expected header str "PROMISSORY", got "%s"' % headStr)
          return None
 
       # We should have "PROMISSORY-BOXID-PROMID" in the headstr
