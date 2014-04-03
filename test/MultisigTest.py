@@ -154,14 +154,22 @@ class MSUtilsTest(unittest.TestCase):
       ustxi = UnsignedTxInput(tx1raw, 1,  None, self.pubKey)
 
       # Try once with provided pub key
-      self.assertTrue(ustxi.verifyTxSignature(self.tx2, self.sigStr, self.pubKey))
+      insertIndex = ustxi.verifyTxSignature(self.tx2, self.sigStr, self.pubKey)
+      self.assertEqual(insertIndex, 0)
 
       # Try the recursive method
-      self.assertTrue(ustxi.verifyTxSignature(self.tx2, self.sigStr))
+      insertIndex = ustxi.verifyTxSignature(self.tx2, self.sigStr)
+      self.assertEqual(insertIndex, 0)
 
       # Try inserting the signature into USTXI then verify all
       ustxi.setSignature(0, self.sigStr)
       self.assertTrue(ustxi.verifyAllSignatures(self.tx2))
+
+      badSig = self.sigStr[:16] + '\x00'*8 + self.sigStr[24:]
+      # Try the recursive method
+      insertIndex = ustxi.verifyTxSignature(self.tx2, badSig)
+      self.assertEqual(insertIndex, -1)
+      
 
 
    def testDTXO(self):
@@ -177,6 +185,65 @@ class MSUtilsTest(unittest.TestCase):
       serDTXO2 = dtxo2.serialize()
       dtxo2_dup = DecoratedTxOut().unserialize(serDTXO2)
       self.assertEqual(serDTXO2,  dtxo2_dup.serialize())
+
+
+   # not a real test
+   """
+   def testPprintTxInSignStat(self):
+      ustxi = UnsignedTxInput(tx1raw, 1,  None, self.pubKey)
+      sigstat = ustxi.evaluateSigningStatus()
+      sigstat.pprint()
+   """
+      
+
+   # not a real test
+   def testUnsignedTx(self):
+      ustxi = UnsignedTxInput(tx1raw, 1,  None, self.pubKey)
+      a160_1 = addrStr_to_hash160('13Tn1QkAcqnQvGA7kBiCBH7NbijNcr6GMs')[1]
+      a160_2 = addrStr_to_hash160('12HFYcL3Gj8EPhgeXk5689z8Wcc7x7FsNx')[1]
+      dtxo1 = DecoratedTxOut(hash160_to_p2pkhash_script(a160_1), long(1.00*ONE_BTC))
+      dtxo2 = DecoratedTxOut(hash160_to_p2pkhash_script(a160_2), long(0.49*ONE_BTC))
+
+      ustx = UnsignedTransaction().createFromUnsignedTxIO([ustxi], [dtxo1,dtxo2])
+
+      self.assertEqual(len(ustx.ustxInputs),  1)
+      self.assertEqual(len(ustx.decorTxOuts), 2)
+      self.assertEqual(ustx.lockTime, 0)
+      self.assertEqual(ustx.uniqueB58,  'J2mRenD7')
+
+      serUstx = ustx.serialize()
+      ustx2 = UnsignedTransaction().unserialize(serUstx)
+      self.assertEqual(serUstx, ustx2.serialize())
+
+      serUstxASCII = ustx.serializeAscii()
+      print '' 
+      print 'Sample TxSigCollect Block:'
+      print serUstxASCII
+      ustx2 = UnsignedTransaction().unserializeAscii(serUstxASCII)
+      self.assertEqual(serUstx, ustx2.serialize())
+      #ustx.pprint()
+      #print '\n'
+      #ustx.evaluateSigningStatus().pprint()
+
+   def testAddSigToUSTX(self):
+      ustxi = UnsignedTxInput(tx1raw, 1,  None, self.pubKey)
+      a160_1 = addrStr_to_hash160('13Tn1QkAcqnQvGA7kBiCBH7NbijNcr6GMs')[1]
+      a160_2 = addrStr_to_hash160('12HFYcL3Gj8EPhgeXk5689z8Wcc7x7FsNx')[1]
+      dtxo1 = DecoratedTxOut(hash160_to_p2pkhash_script(a160_1), long(1.00*ONE_BTC))
+      dtxo2 = DecoratedTxOut(hash160_to_p2pkhash_script(a160_2), long(0.49*ONE_BTC))
+
+      ustx = UnsignedTransaction().createFromUnsignedTxIO([ustxi], [dtxo1,dtxo2])
+
+      msIndex = ustx.insertSignatureForInput(0, self.sigStr, self.pubKey)
+      self.assertEqual(msIndex, 0)
+
+      msIndex = ustx.insertSignatureForInput(0, self.sigStr)
+      self.assertEqual(msIndex, 0)
+
+      badSig = self.sigStr[:16] + '\x00'*8 + self.sigStr[24:]
+      msIndex = ustx.insertSignatureForInput(0, badSig)
+      self.assertEqual(msIndex, -1)
+     
    
    """
    def testMinimizeDERSignaturePadding(self):

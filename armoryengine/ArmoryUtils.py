@@ -32,6 +32,7 @@ import threading
 import time
 import traceback
 import shutil
+import base64
 
 #from psutil import Popen
 import psutil
@@ -1142,13 +1143,13 @@ def str2coin(theStr, negAllowed=True, maxDec=8, roundHighPrec=True):
 
 
 ################################################################################
-def makeAsciiBlock(binStr, headStr='', wid=64, newline='\n'):
+def makeAsciiBlock(binStr, headStr='', wid=80, newline='\n'):
    # Convert the raw chunk of binary data
-   rawStr = base64.b64encode(self.serialize())
-   sz = len(binStr)
+   b64Data = base64.b64encode(binStr)
+   sz = len(b64Data)
    firstLine = '=====%s' % headStr
    lines = [firstLine.ljust(wid, '=')]
-   lines.extend([binStr[wid*i:wid*(i+1)] for i in range((sz-1)/wid+1)])
+   lines.extend([b64Data[wid*i:wid*(i+1)] for i in range((sz-1)/wid+1)])
    lines.append("="*wid)
    return newline.join(lines)
 

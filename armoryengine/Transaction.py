@@ -832,6 +832,28 @@ class InputSigningStatus(object):
       self.wltIsRelevant  = False
       self.wltCanComplete = False
 
+
+   def pprint(self, indent=3, lutFunc=None):
+      if lutFunc is None:
+         def lutDispLetter(code):
+            if   code==TXIN_SIGSTAT.ALREADY_SIGNED:
+               return '#'
+            elif code==TXIN_SIGSTAT.WLT_ALREADY_SIGNED:
+               return '@'
+            elif code==TXIN_SIGSTAT.WLT_CAN_SIGN:
+               return '-'
+            elif code==TXIN_SIGSTAT.NO_SIGNATURE:
+               return '_'
+         lutFunc = lutDispLetter
+
+      ind = ' '*indent
+      print ind, 
+      print '(%d-of-%d)' % (self.M, self.N),
+      print 'AllSigned: %s' % str(self.allSigned).ljust(6),
+      print 'AllSlots:',  ' '.join([lutFunc(s) for s in self.statusN]), ' ',
+      print 'ReqSorted:', ' '.join([lutFunc(s) for s in self.statusM]), ' '
+         
+
 ################################################################################
 # This is a container object for holding a list of InputSigningStatus objects
 # and aggregating info about
@@ -844,6 +866,11 @@ class TxSigningStatus(object):
       self.wltIsRelevant   = False
       self.wltCanComplete  = False
 
+
+   def pprint(self, indent=3, lutFunc=None):
+      print ' '*indent + 'Tx has %d inputs:' % self.numInputs
+      for stat in self.statusList:
+         stat.pprint(indent+3, lutFunc)
 
 
 ################################################################################
@@ -925,7 +952,7 @@ class UnsignedTxInput(object):
       txoScript  == "OP_DUP [ScriptHash] OP_EQUALVERIFY"
       p2shScript == "OP_2 [KeyA] [KeyB] [KeyC] OP_3 OP_CHECKMULTISIG"
 
-   The txoScript variable always contains the script that needs to be injected
+   The txoScript variable always contains the script that needs to be inserted
    into the TxIn script when signing (look at OP_CHECKSIG for details)
    """
 
@@ -1063,6 +1090,7 @@ class UnsignedTxInput(object):
       self.wltLocators[msIndex] = wltLoc
 
 
+
    #############################################################################
    def getPublicKeyList(self):
       """
@@ -1142,8 +1170,8 @@ class UnsignedTxInput(object):
       and assume that this input is one of them.  Then we produce the signature
       using the CryptoECDSA module and the supplied privKey.
 
-      This also appends the proper 1-byte hashcode as expected at the end
-      of the signature
+      This returns a DER-encoded signature string with the 1-byte hashcode
+      appended to the end
       """ 
 
       # Make sure the supplied privateKey is relevant to this USTXI
@@ -1161,32 +1189,40 @@ class UnsignedTxInput(object):
 
       msg,hc = generatePreHashTxMsgToSign(pytx, txiIdx, self.txoScript, hashcode)
       sbdSig = CryptoECDSA().SignData(SecureBinaryData(msg), sbdPrivKey)
-      return sbdSig.toBinStr() + hc
+      binSig = sbdSig.toBinStr()
+      return createDERSigFromRS(binSig[:32], binSig[32:]) + hc
           
+
+   #############################################################################
+   def insertSignature(self, sigStr, pubKey):
+      try:
+         msIdx = self.pubKeys.index(pubKey)
+      except ValueError:
+         return -1
+
+      self.setSignature(msIdx, sigStr)
+      return msIdx
 
 
    #############################################################################
    def createAndInsertSignature(self, pytx, sbdPrivKey, hashcode=1):
-      sig = createTxSignature(sbdPrivKey, pytx, hashcode)
 
+      derSig = createTxSignature(pytx, sbdPrivKey, hashcode)
       computedPub = CryptoECDSA().ComputePublicKey(sbdPrivKey).toBinStr()
-      atLeastOne = False
-      for i,pub in enumerate(self.pubKeys):
-         if computedPub==pub:
-            self.signatures[i] = sbdSig.toBinStr()
-            atLeastOne = True
-            # Don't break, just in case this key is used multiple times!
-            # (for instance, maybe 3-of-5 where one particular public key
-            # is included twice as a "privileged" key)
 
-      if not atLeastOne:
-         raise SignatureError('No PubKey that matches this privKey')
-      
-      return sig
+      msIdx, self.insertSignature(derSig, computedPub)
+      return derSig, msIdx
 
 
    #############################################################################
    def verifyTxSignature(self, pytx, sigStr, pubKey=None):
+      """
+      IMPORTANT:  This returns the index in the self.pubKeys list, for which
+                  the signature is valid!  -1 is returned if the signature is
+                  not valid for any pubkey!  For boolean query, use:
+
+                     isValid = (verifyTxSignature(...) >= 0)
+      """
       txiIdx = -1
       for i,txin in enumerate(pytx.inputs):
          if self.outpoint.serialize()==txin.outpoint.serialize():
@@ -1202,11 +1238,16 @@ class UnsignedTxInput(object):
       # always be available with the supportingTx, all as part of the 
       # USTXI class
       if pubKey is None:
-         for pk in self.pubKeys:
-            if self.verifyTxSignature(pytx, sigStr, pk):
-               return True
-         return False
-         
+         for i,pubk in enumerate(self.pubKeys):
+            if self.verifyTxSignature(pytx, sigStr, pubk) >= 0:
+               return i
+         return -1
+
+      try:
+         msIndex = self.pubKeys.index(pubKey)
+      except ValueError:
+         raise KeyDataError('Supplied pubkey does not match any USTXI keys')
+
 
       rBin, sBin = getRSFromDERSig(sigStr)
       hashcode  = binary_to_int(sigStr[-1])
@@ -1216,7 +1257,7 @@ class UnsignedTxInput(object):
       sbdMsg = SecureBinaryData(msg)
       sbdSig = SecureBinaryData(rBin + sBin)
       sbdPub = SecureBinaryData(pubKey)
-      return CryptoECDSA().VerifyData(sbdMsg, sbdSig, sbdPub)
+      return msIndex if CryptoECDSA().VerifyData(sbdMsg, sbdSig, sbdPub) else -1
 
 
    #############################################################################
@@ -1236,7 +1277,7 @@ class UnsignedTxInput(object):
                                     TXIN_SIGSTAT.WLT_ALREADY_SIGNED]:
             pub = self.pubKeys[i]
             sig = self.signatures[i]
-            if self.verifyTxSignature(pytx, sig, pub):
+            if self.verifyTxSignature(pytx, sig, pub) >= 0:
                numValid +=1
             else:
                LOGERROR('Signature in USTXI is not valid')
@@ -1557,7 +1598,7 @@ class UnsignedTransaction(object):
       nOut = len(dtxoList)
 
       self.pytxObj = PyTx()
-      self.pytxObj.version  = version
+      self.pytxObj.version  = UNSIGNED_TX_VERSION
       self.pytxObj.lockTime = lockTime
       self.pytxObj.inputs   = [None]*nIn
       self.pytxObj.outputs  = [None]*nOut
@@ -1571,7 +1612,7 @@ class UnsignedTransaction(object):
 
 
       for iout,dtxo in enumerate(dtxoList):
-         self.pytxObj.outputs[iout] = PyTxIn()
+         self.pytxObj.outputs[iout] = PyTxOut()
          self.pytxObj.outputs[iout].value     = dtxo.value
          self.pytxObj.outputs[iout].binScript = dtxo.binScript
       
@@ -1580,8 +1621,8 @@ class UnsignedTransaction(object):
       self.decorTxOuts = dtxoList[:]
 
       # Finally issue a warning if this selection is super high fee
-      totalIn  = sum([ustxi.value for ustxi in ustxinList ])
-      totalOut = sum([dtxo.value  for dtxo  in decorTxOuts])
+      totalIn  = sum([ustxi.value for ustxi in ustxinList])
+      totalOut = sum([dtxo.value  for dtxo  in dtxoList  ])
       if totalIn - totalOut > 100*MIN_RELAY_TX_FEE:
          LOGWARN('Exceptionally high fee in createFromUnsignedTxIO')
          LOGWARN('TotalInputs  = %s BTC', coin2strNZS(totalIn))
@@ -1590,7 +1631,8 @@ class UnsignedTransaction(object):
       elif totalIn - totalOut < 0:
          raise ValueError('Supplied inputs are less than the supplied outputs')
 
-      self.uniqueB58 = binary_to_base58(hash256(self.pytxObj.serialize()))[:8]
+      rawTxNoSigs = self.pytxObj.serialize()
+      self.uniqueB58 = binary_to_base58(hash256(rawTxNoSigs))[:8]
       return self
 
 
@@ -1808,7 +1850,7 @@ class UnsignedTransaction(object):
       self.createFromUnsignedTxIO(ustxiList, dtxoList, lockt)
 
       # Check that we got the expect ID on the TXSIGCOLLECT
-      if not expectID==self.uniqueB58:
+      if expectID and not expectID==self.uniqueB58:
          raise UnserializeError('ID on ascii block does not match computed ID')
 
       return self
@@ -1909,9 +1951,11 @@ class UnsignedTransaction(object):
       return self.pytxObj
 
                
-               
    #############################################################################
-   def isSigValidForInput(self, txInIndex, sigStr, pubKey):
+   def isSigValidForInput(self, txInIndex, sigStr, pubKey=None):
+      """
+      This returns the multi-sig index
+      """
 
       if txInIndex >= len(self.ustxInputs):
          raise SignatureError('TxIn index is out of range for this USTX')
@@ -1921,7 +1965,7 @@ class UnsignedTransaction(object):
 
 
    #############################################################################
-   def createAndInsertSignatureForInput(txInIndex, sbdPrivKey, hashcode=1):
+   def createAndInsertSignatureForInput(self, txInIndex, sbdPrivKey, hashcode=1):
       if txInIndex >= len(self.ustxInputs):
          raise SignatureError('TxIn index is out of range for this USTX')
       
@@ -1929,6 +1973,26 @@ class UnsignedTransaction(object):
       ustxi.createAndInsertSignature(self.pytxObj, sbdPrivKey, hashcode)
 
 
+   #############################################################################
+   def insertSignatureForInput(self, txInIndex, sigStr, pubKey=None):
+      ustxi = self.ustxInputs[txInIndex]
+      if pubKey is None:
+         sigIndex = ustxi.verifyTxSignature(self.pytxObj, sigStr)
+         if sigIndex >= 0:
+            ustxi.setSignature(sigIndex, sigStr)
+         return sigIndex 
+      else:
+         ustxi.verifyTxSignature(self.pytxObj, sigStr, pubKey)
+         return ustxi.insertSignature(sigStr, pubKey)
+
+   #############################################################################
+   def insertSignature(self, sigStr, pubKey=None):
+      if pubKey is None or len(self.ustxInputs)>5:
+         LOGWARN('Inserting sig without input index and/or pubkey will be SLOW!')
+
+      for iin,ustxi in enumerate(self.ustxInputs):
+         msIdx = self
+    
 
    #############################################################################
    def getBroadcastTxIfReady(self, verifySigs=True):
@@ -1945,33 +2009,35 @@ class UnsignedTransaction(object):
    def pprint(self, indent=3):
       ind = ' '*indent
       tx = self.pytxObj
+      txHash = hash256(tx.serialize())
       print ind+'UnsignedTx ID: ', self.uniqueB58
-      print ind+'Curr TxID    : ', binary_to_hex(hash256(tx.serialize()), BIGENDIAN)
+      print ind+'Curr TxID    : ', binary_to_hex(txHash, BIGENDIAN)
       print ind+'Version      : ', tx.version
       print ind+'Lock Time    : ', tx.lockTime
       print ind+'#Inputs      : ', len(tx.inputs)
 
       for i,ustxi in enumerate(self.ustxInputs):
-         prevHash  = binary_to_hex(ustxi.outpoint.getTxHash(), BIGENDIAN)[:8]
+         prevHash  = binary_to_hex(ustxi.outpoint.txHash, BIGENDIAN)[:8]
          prevIdx   = ustxi.outpoint.txOutIndex
          typeName  = CPP_TXOUT_SCRIPT_NAMES[ustxi.scriptType]
          usesP2SH  = '*' if len(ustxi.p2shScript)>0 else ' '
-         value     = coin2str(txout.getValue())
+         value     = coin2str(ustxi.value).lstrip().rjust(12)
          M,N       = ustxi.sigsNeeded, ustxi.keysListed
          contrib   = '(%s)'%ustxi.contribID if ustxi.contribID else ''
 
-         printStr  = ind*2, 
-         printStr += '%(prevHash)s:%(prevIdx) /'
-         printStr += '%(typeName)s%(usesP2SH)s /' 
-         printStr += '(M=%(M)d, N=%(N)d /' 
-         printStr += '%(value)s / %(contrib)s' 
-         print printStr%locals()
+         printStr  = ' '*2*indent
+         printStr += '%(prevHash)s:%(prevIdx)d / ' % locals()
+         printStr += '%(typeName)s%(usesP2SH)s / '  % locals()
+         printStr += '(M=%(M)d, N=%(N)d) / '  % locals()
+         printStr += '%(value)s / %(contrib)s'  % locals()
+         print printStr
 
       print ind+'#Outputs     : ', len(tx.outputs)
       for i,txout in enumerate(tx.outputs):
          addrDisp = getTxOutScriptDisplayStr(txout.binScript)
          valDisp = coin2str(txout.value, maxZeros=2)
-         print ind*2, valDisp, 'BTC to', addrDisp
+         print ' '*2*indent + 'Recip:', addrDisp.ljust(35),
+         print valDisp, 'BTC'
 
 
 
