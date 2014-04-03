@@ -565,7 +565,7 @@ class PyTxIn(BlockComponent):
       rBin = self.binScript[5:5+rLen]
       sLen = binary_to_int(self.binScript[6+rLen:7+rLen])
       sBin = self.binScript[7+rLen:7+rLen+sLen]
-      sigScript = createSigScriptFromRS(rBin, sBin)
+      sigScript = createDERSigFromRS(rBin, sBin)
       newBinScript = int_to_binary(len(sigScript)+1) + sigScript + self.binScript[3+rsLen:]
       paddingRemoved = newBinScript != self.binScript
       newTxIn = self.copy()
@@ -862,7 +862,7 @@ def generatePreHashTxMsgToSign(pytx, txInIndex, prevTxOutScript, hashcode=1):
       return None
 
    # Create a copy of the tx with all scripts blanked out
-   txCopy = pytxObj.copy()
+   txCopy = pytx.copy()
    for i in range(len(txCopy.inputs)):
       txCopy.inputs[i].binScript = ''
 
@@ -1141,14 +1141,14 @@ class UnsignedTxInput(object):
       object was created.  We supply the final PyTx object is being signed,
       and assume that this input is one of them.  Then we produce the signature
       using the CryptoECDSA module and the supplied privKey.
+
+      This also appends the proper 1-byte hashcode as expected at the end
+      of the signature
       """ 
 
       # Make sure the supplied privateKey is relevant to this USTXI
       computedPub = CryptoECDSA().ComputePublicKey(sbdPrivKey).toBinStr()
-      for i,pub in enumerate(self.pubKeys):
-         if computedPub==pub:
-            break 
-      else:
+      if not computedPub in self.pubKeys:
          raise SignatureError('No PubKey that matches this privKey')
 
       txiIdx = -1
@@ -1159,9 +1159,9 @@ class UnsignedTxInput(object):
       else:
          raise SignatureError('No TxIn in tx that matches this USTXI')
 
-      msg = generatePreHashTxMsgToSign(pytx, txiIdx, self.txoScript, hashcode)[0]
+      msg,hc = generatePreHashTxMsgToSign(pytx, txiIdx, self.txoScript, hashcode)
       sbdSig = CryptoECDSA().SignData(SecureBinaryData(msg), sbdPrivKey)
-      return sbdSig.toBinStr()
+      return sbdSig.toBinStr() + hc
           
 
 
@@ -1186,18 +1186,35 @@ class UnsignedTxInput(object):
 
 
    #############################################################################
-   def verifyTxSignature(self, pytx, pubKey, sigStr, hashcode=1):
+   def verifyTxSignature(self, pytx, sigStr, pubKey=None):
       txiIdx = -1
       for i,txin in enumerate(pytx.inputs):
-         if self.outpoint.serialize()==txin.outpoint:
+         if self.outpoint.serialize()==txin.outpoint.serialize():
             txiIdx = i
             break
       else:
          raise SignatureError('No TxIn that matches this USTXI')
 
+
+      # If we were not given a public key to use for verification,
+      # recurse into this method once with each of self.pubKeys.
+      # We've assumed up until now that pubkeys and p2sh script will
+      # always be available with the supportingTx, all as part of the 
+      # USTXI class
+      if pubKey is None:
+         for pk in self.pubKeys:
+            if self.verifyTxSignature(pytx, sigStr, pk):
+               return True
+         return False
+         
+
+      rBin, sBin = getRSFromDERSig(sigStr)
+      hashcode  = binary_to_int(sigStr[-1])
+
+      # Don't forget "sigStr" has the 1-byte hashcode at the end
       msg = generatePreHashTxMsgToSign(pytx, txiIdx, self.txoScript, hashcode)[0]
       sbdMsg = SecureBinaryData(msg)
-      sbdSig = SecureBinaryData(sigStr)
+      sbdSig = SecureBinaryData(rBin + sBin)
       sbdPub = SecureBinaryData(pubKey)
       return CryptoECDSA().VerifyData(sbdMsg, sbdSig, sbdPub)
 
@@ -1219,7 +1236,7 @@ class UnsignedTxInput(object):
                                     TXIN_SIGSTAT.WLT_ALREADY_SIGNED]:
             pub = self.pubKeys[i]
             sig = self.signatures[i]
-            if self.verifyTxSignature(pytx, pub, sig):
+            if self.verifyTxSignature(pytx, sig, pub):
                numValid +=1
             else:
                LOGERROR('Signature in USTXI is not valid')
@@ -1311,8 +1328,9 @@ class UnsignedTxInput(object):
 
       signStatus.M = self.sigsNeeded
       signStatus.N = self.keysListed
-      signStatus.statusN = [TXIN_SIGSTAT.NO_SIGNATURE]*nkey
-      signStatus.statusM = [TXIN_SIGSTAT.NO_SIGNATURE]*msig
+
+      signStatus.statusM = [TXIN_SIGSTAT.NO_SIGNATURE]*signStatus.M
+      signStatus.statusN = [TXIN_SIGSTAT.NO_SIGNATURE]*signStatus.N
 
       # First evaluate if we have sigs for each key, or if we *COULD* sign
       # This simply returns signed-or-notsigned if no wallet is supplied
@@ -1389,7 +1407,11 @@ class DecoratedTxOut(object):
                       wltLocator=None, authMethod='NONE', authInfo=None,
                       version=UNSIGNED_TX_VERSION):
 
-      self.isInitialized = (None not in [script, value])
+      if None in [script, value]:
+         self.isInitialized = False
+         return
+
+      self.isInitialized = True
       self.version    = version
       self.binScript  = script
       self.value      = value
@@ -1895,7 +1917,7 @@ class UnsignedTransaction(object):
          raise SignatureError('TxIn index is out of range for this USTX')
                
       ustxi = self.ustxInputs[txInIndex]
-      return ustxi.verifyTxSignature(self.pytxObj, pubKey, sigStr)
+      return ustxi.verifyTxSignature(self.pytxObj, sigStr, pubKey)
 
 
    #############################################################################
@@ -2089,7 +2111,7 @@ def PyCreateAndSignTx_old(srcTxOuts, dstAddrsVals):
             pubkey = srcAddr.binPublicKey65.toBinStr()
             sigLenInBinary    = int_to_binary(len(signature) + 1)
             pubkeyLenInBinary = int_to_binary(len(pubkey)   )
-            newTx.inputs[i].binScript = sigLenInBinary    + signature + hashCode1 + \
+            newTx.inputs[i].binScript = sigLenInBinary + signature + hashCode1 + \
                                         pubkeyLenInBinary + pubkey
 
    #############################
