@@ -3709,10 +3709,9 @@ void BlockDataManager_LevelDB::scanRegisteredTxForWallet( BtcWallet & wlt,
    SCOPED_TIMER("scanRegisteredTxForWallet");
 
    if(!wlt.ignoreLastScanned_)
-   {
 	   blkStart = wlt.lastScanned_;
+   else
       wlt.ignoreLastScanned_ = false;
-   }
 
    bool isMainWallet = true;
    if(&wlt != (*registeredWallets_.begin())) isMainWallet = false;
