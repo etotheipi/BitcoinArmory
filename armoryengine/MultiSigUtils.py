@@ -225,7 +225,7 @@ class MultiSigLockbox(object):
 
 
    #############################################################################
-   def serializeAscii(self, wid=64, newline='\n'):
+   def serializeAscii(self, wid=80, newline='\n'):
       headStr = 'LOCKBOX-%s' % self.uniqueIDB58
       return makeAsciiBlock(self.serialize(), headStr, wid, newline)
 
@@ -581,7 +581,7 @@ class MultiSigPromissoryNote(object):
 
 
    #############################################################################
-   def serializeAscii(self, wid=64, newline='\n'):
+   def serializeAscii(self, wid=80, newline='\n'):
       headStr = 'PROMISSORY-%s-%s' % (self.boxID, self.promID)
       return makeAsciiBlock(self.serialize(), headStr, wid, newline)
 

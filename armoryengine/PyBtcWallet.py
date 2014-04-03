@@ -2574,7 +2574,7 @@ class PyBtcWallet(object):
 
       numInputs = len(ustx.pytxObj.inputs)
       wltAddr = []
-      for iin,ustxi in ustx.ustxInputs:
+      for iin,ustxi in enumerate(ustx.ustxInputs):
          for isig,scrAddr in enumerate(ustxi.scrAddrs):
             addr160 = scrAddr_to_hash160(scrAddr)
             if self.hasAddr(addr160) and self.addrMap[addr160].hasPrivKey():

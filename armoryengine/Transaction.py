@@ -1129,7 +1129,10 @@ class UnsignedTxInput(object):
 
       outScript = ''
 
-      sigToDER = lambda sigStr: createDERSigFromRS(sigStr[:32], sigStr[32:])
+      sigToDER = lambda s: createDERSigFromRS(s[:32], s[32:]) if s else ''
+
+      if self.scriptType in CPP_TXOUT_STDSINGLESIG and not self.signatures[0]:
+         return ''
          
       # If this is is p2sh, the scrType is 
       if self.scriptType == CPP_TXOUT_P2SH:
@@ -1213,9 +1216,12 @@ class UnsignedTxInput(object):
       msIdx, self.insertSignature(derSig, computedPub)
       return derSig, msIdx
 
-
    #############################################################################
    def verifyTxSignature(self, pytx, sigStr, pubKey=None):
+      return (self.getValidIndexForSignature(pytx, sigStr, pubKey) >= 0)
+
+   #############################################################################
+   def getValidIndexForSignature(self, pytx, sigStr, pubKey=None):
       """
       IMPORTANT:  This returns the index in the self.pubKeys list, for which
                   the signature is valid!  -1 is returned if the signature is
@@ -1239,10 +1245,12 @@ class UnsignedTxInput(object):
       # USTXI class
       if pubKey is None:
          for i,pubk in enumerate(self.pubKeys):
-            if self.verifyTxSignature(pytx, sigStr, pubk) >= 0:
+            if self.verifyTxSignature(pytx, sigStr, pubk):
                return i
          return -1
 
+
+      # If public key is supplied (including on recursion)
       try:
          msIndex = self.pubKeys.index(pubKey)
       except ValueError:
@@ -1277,7 +1285,7 @@ class UnsignedTxInput(object):
                                     TXIN_SIGSTAT.WLT_ALREADY_SIGNED]:
             pub = self.pubKeys[i]
             sig = self.signatures[i]
-            if self.verifyTxSignature(pytx, sig, pub) >= 0:
+            if self.verifyTxSignature(pytx, sig, pub):
                numValid +=1
             else:
                LOGERROR('Signature in USTXI is not valid')
@@ -1903,7 +1911,7 @@ class UnsignedTransaction(object):
    #############################################################################
    def verifySigsAllInputs(self):
       for ustxi in self.ustxInputs:
-         if not ustxi.verifyAllSignatures(pytx):
+         if not ustxi.verifyAllSignatures(self.pytxObj):
             return False
 
       return True
@@ -1932,12 +1940,7 @@ class UnsignedTransaction(object):
       if not self.verifyInputsMatchPyTxObj():
          LOGERROR('Invalid USTXI set or ordering')
          return None
-      
-      # Iterate through the lists
-      for iin in len(self.ustxInputs):
-         ustxi = self.ustxInputs[iin]
-         self.pytxObj.inputs[iin].binScript = ustxi.createSigScript()
-         
+
       # Check signatures are valid (if not skipped)
       # TODO: I would've used PyScriptProcessor since it evaluates the scripts
       #       as a whole, instead of just verifying the individual signatures,
@@ -1947,6 +1950,15 @@ class UnsignedTransaction(object):
          if not self.verifySigsAllInputs():
             LOGERROR('Attempted to prepare final tx, but not all sigs available')
             raise SignatureError('Invalid signature while preparing final tx')
+      
+      # Iterate through the lists
+      for iin in range(len(self.ustxInputs)):
+         ustxi = self.ustxInputs[iin]
+         sigScript = ustxi.createSigScript()
+         if not sigScript:
+            return None
+         self.pytxObj.inputs[iin].binScript = sigScript
+         
 
       return self.pytxObj
 
@@ -1976,14 +1988,12 @@ class UnsignedTransaction(object):
    #############################################################################
    def insertSignatureForInput(self, txInIndex, sigStr, pubKey=None):
       ustxi = self.ustxInputs[txInIndex]
-      if pubKey is None:
-         sigIndex = ustxi.verifyTxSignature(self.pytxObj, sigStr)
-         if sigIndex >= 0:
-            ustxi.setSignature(sigIndex, sigStr)
-         return sigIndex 
-      else:
-         ustxi.verifyTxSignature(self.pytxObj, sigStr, pubKey)
-         return ustxi.insertSignature(sigStr, pubKey)
+      sigIndex = ustxi.getValidIndexForSignature(self.pytxObj, sigStr, pubKey)
+      if sigIndex >= 0:
+         ustxi.setSignature(sigIndex, sigStr)
+         return sigIndex
+
+      return -1
 
    #############################################################################
    def insertSignature(self, sigStr, pubKey=None):

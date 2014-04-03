@@ -8,11 +8,12 @@ import unittest
 sys.path.append('..')
 
 from armoryengine.ArmoryUtils import hex_to_binary, binary_to_hex, hex_to_int, \
-   ONE_BTC, BIGENDIAN, addrStr_to_hash160, hash160_to_p2pkhash_script
+   ONE_BTC, BIGENDIAN, addrStr_to_hash160, hash160_to_p2pkhash_script, \
+   CryptoECDSA, SecureBinaryData, pubkeylist_to_multisig_script
 from armoryengine.BinaryUnpacker import BinaryUnpacker
 from armoryengine.Block import PyBlock
 from armoryengine.PyBtcAddress import PyBtcAddress
-from armoryengine.Script import PyScriptProcessor
+from armoryengine.Script import PyScriptProcessor, convertScriptToOpStrings
 from armoryengine.Transaction import PyTx, PyTxIn, PyOutPoint, PyTxOut, \
    PyCreateAndSignTx, getMultisigScriptInfo, \
    BlockComponent, UnsignedTransaction, UnsignedTxInput, DecoratedTxOut
@@ -154,21 +155,18 @@ class MSUtilsTest(unittest.TestCase):
       ustxi = UnsignedTxInput(tx1raw, 1,  None, self.pubKey)
 
       # Try once with provided pub key
-      insertIndex = ustxi.verifyTxSignature(self.tx2, self.sigStr, self.pubKey)
-      self.assertEqual(insertIndex, 0)
+      self.assertTrue(ustxi.verifyTxSignature(self.tx2, self.sigStr, self.pubKey))
 
       # Try the recursive method
-      insertIndex = ustxi.verifyTxSignature(self.tx2, self.sigStr)
-      self.assertEqual(insertIndex, 0)
+      self.assertTrue(ustxi.verifyTxSignature(self.tx2, self.sigStr))
 
       # Try inserting the signature into USTXI then verify all
       ustxi.setSignature(0, self.sigStr)
       self.assertTrue(ustxi.verifyAllSignatures(self.tx2))
 
+      # Try a bad signature
       badSig = self.sigStr[:16] + '\x00'*8 + self.sigStr[24:]
-      # Try the recursive method
-      insertIndex = ustxi.verifyTxSignature(self.tx2, badSig)
-      self.assertEqual(insertIndex, -1)
+      self.assertFalse(ustxi.verifyTxSignature(self.tx2, badSig))
       
 
 
@@ -243,6 +241,31 @@ class MSUtilsTest(unittest.TestCase):
       badSig = self.sigStr[:16] + '\x00'*8 + self.sigStr[24:]
       msIndex = ustx.insertSignatureForInput(0, badSig)
       self.assertEqual(msIndex, -1)
+
+
+
+   def testCreateMultisigTests(self):
+      '''
+      This is used solely to generate some multi-sig scripts, using known
+      public/private keys, that we can then use to test signing, etc.  This
+      test doesn't actually test anything, but could be tweaked and then 
+      reenabled to produce new data for new tests
+      '''
+
+      print ''
+   
+      privKeys = [SecureBinaryData(a*32) for a in ['\xaa','\xbb','\xcc']]
+      pubKeys  = [CryptoECDSA().ComputePublicKey(prv) for prv in privKeys]
+      pubStrs  = [pubk.toBinStr() for pubk in pubKeys]
+
+      for i,prv in enumerate(privKeys):
+         print 'PrivKey %d:', prv.toHexStr()
+
+      msScript = pubkeylist_to_multisig_script(pubStrs, 2)
+      for opStr in convertScriptToOpStrings(msScript):
+         print '   ', opStr
+
+      dtxo = DecoratedTxOut(msScript, 1.0*ONE_BTC)
      
    
    """

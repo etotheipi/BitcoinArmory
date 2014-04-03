@@ -588,11 +588,11 @@ class DlgExportLockbox(ArmoryDialog):
          #info, make sure you include your own, as well, for their benefit."""))
 
       self.lockbox = lockbox
-      self.boxText = lockbox.serialize()
+      self.boxText = lockbox.serializeAscii()
 
       txt = QPlainTextEdit()
       txt.setFont(GETFONT('Fixed', 9))
-      w,h = relaxedSizeNChar(txt, 64)
+      w,h = relaxedSizeNChar(txt, 80)
       txt.setMinimumWidth(w)
       txt.setMinimumHeight(h*9)
       txt.setPlainText(self.boxText)
@@ -1003,7 +1003,7 @@ class DlgImportLockbox(QDialog):
 
       self.txtBoxBlock = QPlainTextEdit()
       self.txtBoxBlock.setFont(GETFONT('Fixed', 9))
-      w,h = relaxedSizeNChar(self.txtBoxBlock, 64)
+      w,h = relaxedSizeNChar(self.txtBoxBlock, 80)
       self.txtBoxBlock.setMinimumWidth(w)
       btnLoad = QPushButton(tr("Load from file"))
       btnDone = QPushButton(tr("Done"))
@@ -1040,7 +1040,7 @@ class DlgImportLockbox(QDialog):
    def clickedDone(self):
       txt = str(self.txtBoxBlock.toPlainText()).strip()
       try:
-         self.importedLockbox = MultiSigLockbox().unserialize(txt)
+         self.importedLockbox = MultiSigLockbox().unserializeAscii(txt)
       except:
          LOGEXCEPT('Error unserializing the entered text')
          return

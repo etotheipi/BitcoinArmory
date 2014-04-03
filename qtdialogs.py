@@ -5392,7 +5392,7 @@ def extractTxInfo(pytx, rcvTime=None):
          txinFromList[-1].append(ustxi.value)
          txinFromList[-1].append('')
          txinFromList[-1].append(hash256(ustxi.supportTx))
-         txinFromList[-1].append(ustxi.outpoint.getTxOutIndex())
+         txinFromList[-1].append(ustxi.outpoint.txOutIndex)
    else:  # BDM is not initialized
       haveAllInput = False
       for i, txin in enumerate(pytx.inputs):
