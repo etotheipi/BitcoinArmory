@@ -4563,7 +4563,7 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
       nWallet++;
 		BtcWallet* wlt = *wltIter;
       if(forceRebuild || forceRescan || skipFetch)
-         wlt->lastScanned_ = startScanHgt_;
+         wlt->ignoreLastScanned_ = true;
 
       //LOGINFO << "Scanning Wallet #" << nWallet << " from height " << wlt->lastScanned_;
 
