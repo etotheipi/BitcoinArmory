@@ -337,7 +337,7 @@ private:
 class BtcWallet
 {
 public:
-   BtcWallet(void) : bdmPtr_(NULL), lastScanned_(0), reorgTrigger_(0) {}
+   BtcWallet(void) : bdmPtr_(NULL), lastScanned_(0), ignoreLastScanned_(true) {}
    explicit BtcWallet(BlockDataManager_LevelDB* bdm) : bdmPtr_(bdm) {}
    ~BtcWallet(void);
 
@@ -451,7 +451,7 @@ public:
 	void reorgChangeBlkNum(uint32_t newBlkHgt);
    
    uint32_t lastScanned_;
-   uint32_t reorgTrigger_;
+   bool     ignoreLastScanned_;
 
 private:
    vector<ScrAddrObj*>          scrAddrPtrs_;

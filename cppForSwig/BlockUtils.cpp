@@ -700,7 +700,7 @@ void BtcWallet::reorgChangeBlkNum(uint32_t newBlkHgt)
    if(newBlkHgt<lastScanned_) 
    {
       lastScanned_ = newBlkHgt;
-      reorgTrigger_ = true;
+      ignoreLastScanned_ = true;
    }
 }
 
@@ -3544,6 +3544,7 @@ void BlockDataManager_LevelDB::scanBlockchainForTx(BtcWallet & myWallet,
 
    // *********************************************************************** //
    // Finally, walk through all the registered tx
+   myWallet.ignoreLastScanned_ = true;
    scanRegisteredTxForWallet(myWallet, startBlknum, endBlknum);
 
 
@@ -3707,10 +3708,10 @@ void BlockDataManager_LevelDB::scanRegisteredTxForWallet( BtcWallet & wlt,
 {
    SCOPED_TIMER("scanRegisteredTxForWallet");
 
-   if(!wlt.reorgTrigger_)
+   if(!wlt.ignoreLastScanned_)
    {
 	   blkStart = wlt.lastScanned_;
-      wlt.reorgTrigger_ = false;
+      wlt.ignoreLastScanned_ = false;
    }
 
    bool isMainWallet = true;
@@ -4240,6 +4241,14 @@ void BlockDataManager_LevelDB::fetchAllRegisteredScrAddrData(
 {
    SCOPED_TIMER("fetchAllRegisteredScrAddrData");
 
+   set<BtcWallet*>::iterator wltIter;
+
+   for(wltIter  = registeredWallets_.begin();
+       wltIter != registeredWallets_.end();
+       wltIter++)
+   {
+      (*wltIter)->ignoreLastScanned_ = true;
+   }
 
    map<BinaryData, RegisteredScrAddr>::iterator iter;
    for(iter  = addrMap.begin(); iter != addrMap.end(); iter++)
@@ -4544,6 +4553,7 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
    // Since loading takes so long, there's a good chance that new block data
    // came in... let's get it.
    readBlkFileUpdate();
+   uint32_t nWallet = 0;
 
    LOGINFO << "Scanning Wallets";
    set<BtcWallet*>::iterator wltIter;
@@ -4551,7 +4561,13 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
        wltIter != registeredWallets_.end();
        wltIter++)
 	{
+      nWallet++;
 		BtcWallet* wlt = *wltIter;
+      if(forceRebuild || forceRescan || skipFetch)
+         wlt->lastScanned_ = startScanHgt_;
+
+      //LOGINFO << "Scanning Wallet #" << nWallet << " from height " << wlt->lastScanned_;
+
 		scanRegisteredTxForWallet(*wlt, 0, lastTopBlock_);
 	}
 
