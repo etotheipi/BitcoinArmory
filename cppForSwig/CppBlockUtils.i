@@ -43,6 +43,8 @@
 %typedef unsigned int       TXIN_SCRIPT_TYPE;
 %typedef unsigned int       TXOUT_SCRIPT_TYPE;
 
+%ignore getScrAddrObjByKey(const BinaryData &a) const;
+
 namespace std
 {
    %template(vector_int) std::vector<int>;
