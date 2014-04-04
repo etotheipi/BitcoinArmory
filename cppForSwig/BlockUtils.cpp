@@ -3544,7 +3544,6 @@ void BlockDataManager_LevelDB::scanBlockchainForTx(BtcWallet & myWallet,
 
    // *********************************************************************** //
    // Finally, walk through all the registered tx
-   myWallet.ignoreLastScanned_ = true;
    scanRegisteredTxForWallet(myWallet, startBlknum, endBlknum);
 
 
