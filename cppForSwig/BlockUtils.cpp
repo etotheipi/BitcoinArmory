@@ -344,11 +344,11 @@ void BlockDataManager_LevelDB::registeredScrAddrScan(
    // ours on future to-be-scanned transactions
    for(uint32_t iout=0; iout<nTxOut; iout++)
    {
-      static uint8_t scriptLenFirstByte;
-      static HashString addr160(20);
+      // reused for performance
+      HashString addr160(20);
 
       uint8_t const * ptr = (txStartPtr + (*txOutOffsets)[iout] + 8);
-      scriptLenFirstByte = *(uint8_t*)ptr;
+      const uint8_t scriptLenFirstByte = *(uint8_t*)ptr;
       if(scriptLenFirstByte == 25)
       {
          // Std TxOut with 25-byte script
@@ -1278,16 +1278,14 @@ uint32_t BlockDataManager_LevelDB::evalLowestBlockNextScan(void)
 
    uint32_t lowestBlk = UINT32_MAX;
 
-   map<HashString, RegisteredScrAddr>::iterator rsaIter;
-   set<BtcWallet*>::iterator wltIter;
-   map<HashString, RegisteredScrAddr> regScrAddrMap;
-
-   for(wltIter  = registeredWallets_.begin();
+   for(set<BtcWallet*>::iterator wltIter = registeredWallets_.begin();
        wltIter != registeredWallets_.end();
        wltIter++)
    {
-      regScrAddrMap = (*wltIter)->getRegisteredScrAddrMap();
-      for(rsaIter  = regScrAddrMap.begin();
+      const map<HashString, RegisteredScrAddr>& regScrAddrMap
+         = (*wltIter)->getRegisteredScrAddrMap();
+      for(map<HashString, RegisteredScrAddr>::const_iterator rsaIter
+            = regScrAddrMap.begin();
           rsaIter != regScrAddrMap.end();
           rsaIter++)
       {
@@ -2691,7 +2689,7 @@ void BlockDataManager_LevelDB::saveScrAddrHistories(void)
             continue;
          }
 
-         RegisteredScrAddr & rsa = *((*wltIter)->getRegisteredScrAddr(uniqKey));
+         RegisteredScrAddr & rsa = (*wltIter)->getRegisteredScrAddr(uniqKey);
          vector<TxIOPair*> & txioList = scrAddr.getTxIOList();
 
          StoredScriptHistory ssh;

@@ -191,8 +191,14 @@ public:
    void scanRegisteredTxForWallet( uint32_t blkStart, uint32_t blkEnd);
    void updateRegisteredScrAddrs(uint32_t newTopBlk);
    uint32_t numBlocksToRescan(uint32_t endBlk) const;
-   RegisteredScrAddr* getRegisteredScrAddr(BinaryData& uniqKey)
-                        {return &registeredScrAddrMap_[uniqKey];}
+   RegisteredScrAddr& getRegisteredScrAddr(const BinaryData& uniqKey)
+   {
+      map<BinaryData, RegisteredScrAddr>::iterator i
+         = registeredScrAddrMap_.find(uniqKey);
+      if (i == registeredScrAddrMap_.end())
+         throw std::runtime_error("Could not find RegisteredScrAddr with key=" + uniqKey.toHexStr());
+      return i->second;
+   }
    const map<BinaryData, RegisteredScrAddr>& getRegisteredScrAddrMap() const
                      { return registeredScrAddrMap_; }
    void eraseTx(const BinaryData& txHash);
