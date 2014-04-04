@@ -318,7 +318,7 @@ class PyBtcWallet(object):
             TheBDM.scanRegisteredTxForWallet(self.cppWallet, startBlk, wait=True)
             self.lastSyncBlockNum = TheBDM.getTopBlockHeight(wait=True)
             
-            wltLE = self.cppWallet.getTxLedger()
+            wltLE = self.cppWallet.getTxLedgerForComments()
             for le in wltLE:
                txHash = le.getTxHash()
                if not self.txAddrMap.has_key(txHash):
@@ -2576,7 +2576,7 @@ class PyBtcWallet(object):
       wltAddr = []
       for iin,ustxi in enumerate(ustx.ustxInputs):
          for isig,scrAddr in enumerate(ustxi.scrAddrs):
-            addr160 = scrAddr_to_hash160(scrAddr)
+            addr160 = scrAddr_to_hash160(scrAddr)[1]
             if self.hasAddr(addr160) and self.addrMap[addr160].hasPrivKey():
                wltAddr.append((self.addrMap[addr160], iin, isig))
 

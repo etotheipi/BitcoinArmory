@@ -337,7 +337,7 @@ private:
 class BtcWallet
 {
 public:
-   BtcWallet(void) : bdmPtr_(NULL) {lastScanned_ = 0;}
+   BtcWallet(void) : bdmPtr_(NULL), lastScanned_(0), ignoreLastScanned_(true) {}
    explicit BtcWallet(BlockDataManager_LevelDB* bdm) : bdmPtr_(bdm) {}
    ~BtcWallet(void);
 
@@ -432,6 +432,10 @@ public:
    map<OutPoint, TxIOPair> & getTxIOMap(void)    {return txioMap_;}
    map<OutPoint, TxIOPair> & getNonStdTxIO(void) {return nonStdTxioMap_;}
 
+
+   vector<LedgerEntry> & getTxLedgerForComments(void)
+                                                 { return txLedgerForComments_; }
+
    bool isOutPointMine(BinaryData const & hsh, uint32_t idx);
 
    void pprintLedger(void);
@@ -444,7 +448,10 @@ public:
 
    vector<LedgerEntry> & getEmptyLedger(void) { EmptyLedger_.clear(); return EmptyLedger_;}
 
-	uint32_t lastScanned_;
+	void reorgChangeBlkNum(uint32_t newBlkHgt);
+   
+   uint32_t lastScanned_;
+   bool     ignoreLastScanned_;
 
 private:
    vector<ScrAddrObj*>          scrAddrPtrs_;
@@ -452,7 +459,10 @@ private:
    map<OutPoint, TxIOPair>      txioMap_;
 
    vector<LedgerEntry>          ledgerAllAddr_;  
-   vector<LedgerEntry>          ledgerAllAddrZC_;  
+   vector<LedgerEntry>          ledgerAllAddrZC_;
+
+   // Work around for address comments populating until 1:1 wallets are adopted
+   vector<LedgerEntry>          txLedgerForComments_;
 
    // For non-std transactions
    map<OutPoint, TxIOPair>      nonStdTxioMap_;
@@ -460,7 +470,6 @@ private:
 
    BlockDataManager_LevelDB*    bdmPtr_;
    static vector<LedgerEntry>   EmptyLedger_; // just a null-reference object
-
 
 };
 

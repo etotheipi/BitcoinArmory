@@ -150,7 +150,12 @@ class SatoshiDaemonManager(object):
       self.useTorrentFile = ''
       self.torrentDisabled = False
       self.tdm = None
+      self.satoshiHome = None
 
+
+   #############################################################################
+   def setSatoshiDir(self, newDir):
+      self.satoshiHome = newDir   
       
    #############################################################################
    def setDisableTorrentDL(self, b):
@@ -166,7 +171,7 @@ class SatoshiDaemonManager(object):
          self.useTorrentFinalAnswer = False
          return False
 
-      bootfile = os.path.join(BTC_HOME_DIR, 'bootstrap.dat')
+      bootfile = os.path.join(self.satoshiHome, 'bootstrap.dat')
       TheTDM.setupTorrent(torrentPath, bootfile)
       if not TheTDM.getTDMState()=='ReadyToStart':
          LOGERROR('Unknown error trying to start torrent manager')
@@ -238,12 +243,11 @@ class SatoshiDaemonManager(object):
       # The only torrent we have is for the primary Bitcoin network
       if not MAGIC_BYTES=='\xf9\xbe\xb4\xd9':
          return False
-
       
          
 
       if TheTDM.torrentSize:
-         bootfile = os.path.join(BTC_HOME_DIR, 'bootstrap.dat')
+         bootfile = os.path.join(self.satoshiHome, 'bootstrap.dat')
          if os.path.exists(bootfile):
             if os.path.getsize(bootfile) >= TheTDM.torrentSize/2:
                LOGWARN('Looks like a full bootstrap is already here')
@@ -252,16 +256,15 @@ class SatoshiDaemonManager(object):
                
 
       # If they don't even have a BTC_HOME_DIR, corebtc never been installed
-      blockDir = os.path.join(BTC_HOME_DIR, 'blocks')
-      if not os.path.exists(BTC_HOME_DIR) or not os.path.exists(blockDir):
+      blockDir = os.path.join(self.satoshiHome, 'blocks')
+      if not os.path.exists(self.satoshiHome) or not os.path.exists(blockDir):
          return True
       
       # Get the cumulative size of the blk*.dat files
-      filesz = lambda f: os.path.getsize(os.path.join(blockDir, f))
-      blockDirSize = sum([filesz(a) for a in os.listdir(blockDir)])
-      blockDirSize = long(0.8333 * blockDirSize)  # adjust for rev files
+      blockDirSize = sum([os.path.getsize(os.path.join(blockDir, a)) \
+                  for a in os.listdir(blockDir) if a.startswith('blk')])
       sizeStr = bytesToHumanSize(blockDirSize)
-      LOGINFO('Total size of files in %s is approx %s' % (blockDir, sizeStr))
+      LOGINFO('Total size of files in %s is %s' % (blockDir, sizeStr))
 
       # If they have only a small portion of the blockchain, do it
       szThresh = 100*MEGABYTE if USE_TESTNET else 6*GIGABYTE
@@ -272,8 +275,8 @@ class SatoshiDaemonManager(object):
       # The only thing that can induce torrent now is if we have a partially-
       # finished bootstrap file bigger than the blocks dir.
       bootFiles = ['','']
-      bootFiles[0] = os.path.join(BTC_HOME_DIR, 'bootstrap.dat')
-      bootFiles[1] = os.path.join(BTC_HOME_DIR, 'bootstrap.dat.partial')
+      bootFiles[0] = os.path.join(self.satoshiHome, 'bootstrap.dat')
+      bootFiles[1] = os.path.join(self.satoshiHome, 'bootstrap.dat.partial')
       for fn in bootFiles:
          if os.path.exists(fn):
             if os.path.getsize(fn) > blockDirSize:
@@ -284,7 +287,11 @@ class SatoshiDaemonManager(object):
 
 
    #############################################################################
-   def setupSDM(self, pathToBitcoindExe=None, satoshiHome=BTC_HOME_DIR, \
+   #def setSatoshiDir(self, newDir):
+      #self.satoshiHome = newDir
+
+   #############################################################################
+   def setupSDM(self, pathToBitcoindExe=None, satoshiHome=None, \
                       extraExeSearch=[], createHomeIfDNE=True):
       LOGDEBUG('Exec setupSDM')
       self.failedFindExe = False
@@ -308,10 +315,19 @@ class SatoshiDaemonManager(object):
 
       self.executable = pathToBitcoindExe
 
-      if not os.path.exists(satoshiHome):
+      # Four possible conditions for already-set satoshi home dir, and input arg
+      if satoshiHome is not None:
+         self.satoshiHome = satoshiHome
+      else:
+         if self.satoshiHome is None:
+            self.satoshiHome = BTC_HOME_DIR
+
+      # If no new dir is specified, leave satoshi home if it's already set
+      # Give it a default BTC_HOME_DIR if not.
+      if not os.path.exists(self.satoshiHome):
          if createHomeIfDNE:
             LOGINFO('Making satoshi home dir')
-            os.makedirs(satoshiHome)
+            os.makedirs(self.satoshiHome)
          else:
             LOGINFO('No home dir, makedir not requested')
             self.failedFindHome = True
@@ -319,7 +335,6 @@ class SatoshiDaemonManager(object):
       if self.failedFindExe:  raise self.BitcoindError, 'bitcoind not found'
       if self.failedFindHome: raise self.BitcoindError, 'homedir not found'
 
-      self.satoshiHome = satoshiHome
       self.disabled = False
       self.proxy = None
       self.bitcoind = None  # this will be a Popen object

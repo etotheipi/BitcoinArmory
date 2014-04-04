@@ -253,6 +253,23 @@ class MSUtilsTest(unittest.TestCase):
       '''
 
       print ''
+
+      txsigcoll = """=====TXSIGCOLLECT-91kDE5bZ======================================================
+AQAAAAsRCQcAAAAAAf06AQEAAAALEQkHtv1Yn6xN1hFE+1Q5/AtbZRy8nLra6BPUTBaqWjjnMLIBAAAA
+/QEBAQAAAAHJmS+HOei25YeVR96qg09TG12P5aBz8yA7kVVVGWm68wAAAACKRzBEAiBWSc7ox8nvv/vf
+mmyPDmPX9Mzib/gn1NGdVE0X0UGknwIgd2haE1y91fTsLhwVJjrpDQlAFqq/1+ftq2ShN7a4Po8BQQSU
+SZDdT7MFDtd2ivwdkAetf0b9ZtdJ/CaDINf0I1qrUkw/GBcKrbRqLx8icsUasY/lmVGAfGuK8pmyLoGp
+cAMV/////wIA4fUFAAAAABl2qRTTYKciNHNmzKh9FmOybKk8MCayxois8JVyBwAAAAAZdqkUrBIUVaig
+iZFnPC4QvCszBZTsTqWIrAAAAAAAAP////8BAAAAAuIBAAAACxEJB8lSQQRqBKuY2eR3StgG4wLd3rY7
+6ha1y18iPud0eOhhu1g+sza2+8tgtbPU8VUaxF5f/Ek2Rm59mPbHwOxzZTn3RpGmQQRoaAc3x22ruAHL
+IgT1fb5ORXnk9xDNZ9wbQidZLIHptc8Ctayei0yfSb5SUQVram0BHkw39rbRft5rVfqiNRniQQS5XCSd
+hPQX4+OVoSdCVCi1QGccwViB64KMF7cipT/FmeIcpeVskPNAmI05M6zHa+uDL9ZMqweN3zznMpIwMdGo
+U64A4fUFAAAAAAAABE5PTkUAMgEAAAALEQkHGXapFKA2XtHpSek/eb11IQt+GinK8VffiKzgjXwBAAAA
+AAAABE5PTkUA
+================================================================================"""
+
+      UnsignedTransaction().unserializeAscii(txsigcoll).pprint()
+
    
       privKeys = [SecureBinaryData(a*32) for a in ['\xaa','\xbb','\xcc']]
       pubKeys  = [CryptoECDSA().ComputePublicKey(prv) for prv in privKeys]
@@ -266,6 +283,22 @@ class MSUtilsTest(unittest.TestCase):
          print '   ', opStr
 
       dtxo = DecoratedTxOut(msScript, 1.0*ONE_BTC)
+
+      signedFundMS = hex_to_binary( \
+         '0100000001b6fd589fac4dd61144fb5439fc0b5b651cbc9cbadae813d44c16aa'
+         '5a38e730b201000000914c4d304b02203044022045461d4ec5c77a2b714119ba'
+         'cf85c1e4c9bf1d740dd4dfd807727e5002271a90a88202205a9c8d96a04e9b9f'
+         '1d0242c6c1b2f128def46cdef4bb7adf614e2bdb8d62d675014104d0a96276c6'
+         '1c4a8df3ee1099f4f66a7555cffd4fe529dc84ebd4bf866443f1b494c3183198'
+         '9a1baccd4df2b6e38fbb69e233e15ff3e6f4383219ce2d62679206ffffffff02'
+         'e08d7c01000000001976a914724fce9566d9bbd2544accb471648fdba3d18423'
+         '88ac00e1f50500000000c95241046a04ab98d9e4774ad806e302dddeb63bea16'
+         'b5cb5f223ee77478e861bb583eb336b6fbcb60b5b3d4f1551ac45e5ffc493646'
+         '6e7d98f6c7c0ec736539f74691a6410468680737c76dabb801cb2204f57dbe4e'
+         '4579e4f710cd67dc1b4227592c81e9b5cf02b5ac9e8b4c9f49be5251056b6a6d'
+         '011e4c37f6b6d17ede6b55faa23519e24104b95c249d84f417e3e395a1274254'
+         '28b540671cc15881eb828c17b722a53fc599e21ca5e56c90f340988d3933acc7'
+         '6beb832fd64cab078ddf3ce732923031d1a853ae00000000')
      
    
    """

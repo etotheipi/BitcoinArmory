@@ -11,7 +11,7 @@ from PyQt4.QtGui import * #@UnusedWildImport
 
 from armoryengine.BDM import TheBDM
 from qtdefines import * #@UnusedWildImport
-from armoryengine.Transaction import UnsignedTransaction
+from armoryengine.Transaction import UnsignedTransaction, getTxOutScriptType
 from armoryengine.Script import convertScriptToOpStrings
 from armoryengine.CoinSelection import PySelectCoins, calcMinSuggestedFees,\
    PyUnspentTxOut
@@ -422,7 +422,7 @@ class SendBitcoinsFrame(ArmoryFrame):
          return False
 
       # Construct recipValuePairs and check that all metrics check out
-      scriptValuePairs = []
+      scriptValPairs = []
       totalSend = 0
       for i in range(len(self.widgetTable)):
          try:
@@ -459,9 +459,10 @@ class SendBitcoinsFrame(ArmoryFrame):
 
          totalSend += value
          script = self.getScriptForInputStr(recipStr)
+         scraddr = script_to_scrAddr(script)
 
-         scriptValuePairs.append((script, value))
-         self.comments.append(str(self.widgetTable[i][COLS.Comm].text()))
+         scriptValPairs.append([script, value])
+         self.comments.append((str(self.widgetTable[i][COLS.Comm].text()), value))
 
       try:
          feeStr = str(self.edtFeeAmt.text())
@@ -519,7 +520,7 @@ class SendBitcoinsFrame(ArmoryFrame):
          utxoList = self.getUsableTxOutList()
          utxoSelect = PySelectCoins(utxoList, totalSend, feeTry)
          minFee = calcMinSuggestedFees(utxoSelect, totalSend, feeTry, \
-                                             len(scriptValuePairs))[1]
+                                             len(scriptValPairs))[1]
 
 
       # We now have a min-fee that we know we can match if the user agrees
@@ -590,16 +591,16 @@ class SendBitcoinsFrame(ArmoryFrame):
       totalTxSelect = sum([u.getValue() for u in utxoSelect])
       totalChange = totalTxSelect - (totalSend + fee)
 
-      self.origSVPairs = list(scriptValuePairs) # copy
       self.changeScrAddr = ''
       self.selectedBehavior = ''
       if totalChange > 0:
          self.changeScrAddr = self.determineChangeAddr(utxoSelect)
+         # For now assume that change is always CPP_TXOUT_HAS_ADDRSTR
+         changeScript = scrAddr_to_script(self.changeScrAddr)
          LOGINFO('Change address behavior: %s', self.selectedBehavior)
          if not self.changeScrAddr:
             return False
-         changeScript = scrAddr_to_script(self.changeScrAddr)
-         scriptValuePairs.append([changeScript, totalChange])
+         scriptValPairs.append([changeScript, totalChange])
       else:
          if self.main.usermode == USERMODE.Expert and \
             self.chkDefaultChangeAddr.isChecked():
@@ -609,19 +610,35 @@ class SendBitcoinsFrame(ArmoryFrame):
       if len(self.selectedBehavior) > 0:
          changePair = (self.changeScrAddr, self.selectedBehavior)
 
+      # Keep a copy of the originally-sorted list for display
+      origSVPairs = scriptValPairs[:]
+
       # Anonymize the outputs
-      random.shuffle(scriptValuePairs)
+      random.shuffle(scriptValPairs)
+
+
+      # In order to create the USTXI objects, need to make we supply a
+      # map of public keys that can be included
+      pubKeyMap = {}
+      for utxo in utxoSelect:
+         scrType = getTxOutScriptType(utxo.getScript())
+         if scrType in CPP_TXOUT_STDSINGLESIG:
+            scrAddr = utxo.getRecipientScrAddr()
+            a160 = scrAddr_to_hash160(scrAddr)[1]
+            addrObj = self.wlt.getAddrByHash160(a160)
+            if addrObj:
+               pubKeyMap[scrAddr] = addrObj.binPublicKey65.toBinStr()
 
       # Now create the unsigned USTX
-      ustx = UnsignedTransaction().createFromTxOutSelection(utxoSelect, \
-                                                         scriptValuePairs)
+      ustx = UnsignedTransaction().createFromTxOutSelection( \
+                                    utxoSelect, scriptValPairs, pubKeyMap)
 
       ustx.pprint()
 
       txValues = [totalSend, fee, totalChange]
       if not self.unsignedCheckbox.isChecked():
-         dlg = DlgConfirmSend(self.wlt, self.origSVPairs, txValues[1], self, \
-                                                      self.main, True, changePair)
+         dlg = DlgConfirmSend(self.wlt, origSVPairs, txValues[1], self, \
+                                                  self.main, True, changePair)
    
          if not dlg.exec_():
             return False
@@ -660,12 +677,12 @@ class SendBitcoinsFrame(ArmoryFrame):
       
                commentStr = ''
                if len(self.comments) == 1:
-                  commentStr = self.comments[0]
+                  commentStr = self.comments[0][0]
                else:
                   for i in range(len(self.comments)):
-                     amt = self.origRVPairs[i][1]
-                     if len(self.comments[i].strip()) > 0:
-                        commentStr += '%s (%s);  ' % (self.comments[i], coin2str_approx(amt).strip())
+                     amt = self.comments[i][1]
+                     if len(self.comments[i][0].strip()) > 0:
+                        commentStr += '%s (%s);  ' % (self.comments[i][0], coin2str_approx(amt).strip())
       
       
                tx = self.wlt.signUnsignedTx(ustx)
@@ -1430,8 +1447,13 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
       theirOutSum = 0
       rvPairs = []
       idx = 0
-      for scrType, amt, recip in data[FIELDS.OutList]:
-         wltID = self.main.getWalletForAddr160(recip)
+      for scrType, amt, binScript, multiSigList in data[FIELDS.OutList]:
+         recip = script_to_scrAddr(binScript)
+         try:
+            wltID = self.main.getWalletForAddr160(CheckHash160(recip))
+         except BadAddressError:
+            wltID = ''
+            
          if wltID == spendWltID:
             toWlts.add(wltID)
             myOutSum += amt
@@ -1530,35 +1552,30 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
       # sending a regular (online) transaction.  But the DlgConfirmSend was
       # not really designed
       ustx = self.ustxObj
-      rvpairs = []
-      rvpairsMine = []
-      outInfo = ustx.pytxObj.makeRecipientsList()
+      svpairs = []
+      svpairsMine = []
       theFee = ustx.calculateFee()
-      for info in outInfo:
-         if not info[0] in CPP_TXOUT_HAS_ADDRSTR:
-            rvpairs.append(['Non-Standard Output', info[1]])
-            continue
+      for scrType,value,script,msInfo in ustx.pytxObj.makeRecipientsList():
+         svpairs.append([script, value])
+         if scrType in CPP_TXOUT_STDSINGLESIG:
+            addrStr = script_to_addrStr(script)
+            if self.wlt.hasAddr(addrStr_to_hash160(addrStr)[1]):
+               svpairsMine.append([script, value])
 
-         addrStr = script_to_addrStr(info[2])
-         addr160 = addrStr_to_hash160(addrStr)[1]
-         scrAddr = script_to_scrAddr(info[2])
-         rvpairs.append([scrAddr, info[1]])
-         if self.wlt.hasAddr(addr160):
-            rvpairsMine.append([scrAddr, info[1]])
+      if len(svpairsMine) == 0 and len(svpairs) > 1:
+         QMessageBox.warning(self, tr('Missing Change'), tr("""
+            This transaction has %d recipients, and none of them 
+            are addresses in this wallet (for receiving change).  
+            This can happen if you specified a custom change address 
+            for this transaction, or sometimes happens solely by 
+            chance with a multi-recipient transaction.  It could also 
+            be the result of someone tampering with the transaction. 
+            <br><br>The transaction is valid and ready to be signed.  
+            Please verify the recipient and amounts carefully before 
+            confirming the transaction on the next screen.""") % \
+            len(svpairs), QMessageBox.Ok)
 
-      if len(rvpairsMine) == 0 and len(rvpairs) > 1:
-         QMessageBox.warning(self, 'Missing Change', \
-            'This transaction has %d recipients, and none of them '
-            'are addresses in this wallet (for receiving change).  '
-            'This can happen if you specified a custom change address '
-            'for this transaction, or sometimes happens solely by '
-            'chance with a multi-recipient transaction.  It could also '
-            'be the result of someone tampering with the transaction. '
-            '<br><br>The transaction is valid and ready to be signed.  Please '
-            'verify the recipient and amounts carefully before '
-            'confirming the transaction on the next screen.' % len(rvpairs), \
-            QMessageBox.Ok)
-      dlg = DlgConfirmSend(self.wlt, rvpairs, theFee, self, self.main)
+      dlg = DlgConfirmSend(self.wlt, svpairs, theFee, self, self.main)
       if not dlg.exec_():
          return
 
@@ -1620,21 +1637,9 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
       # sending a regular (online) transaction.  But the DlgConfirmSend was
       # not really designed
       ustx = self.ustxObj
-      rvpairs = []
-      rvpairsMine = []
-      outInfo = ustx.pytxObj.makeRecipientsList()
+      svpairs = [[r[2],r[1]] for r in ustx.pytxObj.makeRecipientsList()]
       theFee = ustx.calculateFee()
-      for info in outInfo:
-         if not info[0] in CPP_TXOUT_HAS_ADDRSTR:
-            rvpairs.append(['Non-Standard Output', info[1]])
-            continue
-
-         addrStr = script_to_addrStr(info[2])
-         addr160 = addrStr_to_hash160(addrStr)[1]
-         scrAddr = script_to_scrAddr(info[2])
-         rvpairs.append([scrAddr, info[1]])
-
-      dlg = DlgConfirmSend(self.wlt, rvpairs, theFee, self, self.main)
+      dlg = DlgConfirmSend(self.wlt, svpairs, theFee, self, self.main)
       
       if dlg.exec_():
          self.main.broadcastTransaction(finalTx)

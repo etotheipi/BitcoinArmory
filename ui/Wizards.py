@@ -98,8 +98,8 @@ class WalletWizard(ArmoryWizard):
       self.hasCWOWPage = False
       if self.main.usermode==USERMODE.Expert or not self.main.internetAvail:
          self.hasCWOWPage = True
-         self.createWatchingOnlyWalletPage = CreateWatchingOnlyWalletPage(self)
-         self.addPage(self.createWatchingOnlyWalletPage)
+         self.createWOWPage = CreateWatchingOnlyWalletPage(self)
+         self.addPage(self.createWOWPage)
 
       self.setButtonLayout([QWizard.BackButton,
                             QWizard.Stretch,
@@ -111,8 +111,8 @@ class WalletWizard(ArmoryWizard):
       if self.currentPage() == self.verifyPassphrasePage:
          self.verifyPassphrasePage.setPassphrase(
                self.setPassphrasePage.pageFrame.getPassphrase())
-      elif self.hasCWOWPage and self.currentPage() == self.createWatchingOnlyWalletPage:
-         self.createWatchingOnlyWalletPage.pageFrame.setWallet(self.newWallet)
+      elif self.hasCWOWPage and self.currentPage() == self.createWOWPage:
+         self.createWOWPage.pageFrame.setWallet(self.newWallet)
          
       if self.currentPage() == self.walletBackupPage:
          self.createNewWalletFromWizard()
@@ -176,7 +176,7 @@ class WalletWizard(ArmoryWizard):
          self.main.newWalletList.append([walletFromDisk, True])
    
    def cleanupPage(self, *args, **kwargs):
-      if self.currentPage() == self.createWatchingOnlyWalletPage:
+      if self.hasCWOWPage and self.currentPage() == self.createWOWPage:
          self.setButtonLayout([QWizard.Stretch,
                                QWizard.NextButton,
                                QWizard.FinishButton])

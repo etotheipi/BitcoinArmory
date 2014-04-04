@@ -821,9 +821,12 @@ class ArmoryMainWindow(QMainWindow):
       
    ####################################################
    def logEntropy(self):
-      self.entropyAccum.append(RightNow())
-      self.entropyAccum.append(QCursor.pos().x()) 
-      self.entropyAccum.append(QCursor.pos().y()) 
+      try:
+         self.entropyAccum.append(RightNow())
+         self.entropyAccum.append(QCursor.pos().x()) 
+         self.entropyAccum.append(QCursor.pos().y()) 
+      except:
+         LOGEXCEPT('Error logging keypress entropy')
 
    ####################################################
    def getExtraEntropyForKeyGen(self):
@@ -835,7 +838,9 @@ class ArmoryMainWindow(QMainWindow):
       # Then we throw in the [name,time,size] triplets of some volatile 
       # system directories, and the hash of a file in that directory that
       # is expected to have timestamps and system-dependent parameters.
-      source1,self.entropyAccum = self.entropyAccum,None
+      # Finally, take a desktop screenshot... 
+      # All three of these source are likely to have sufficient entropy alone.
+      source1,self.entropyAccum = self.entropyAccum,[]
 
       if len(source1)==0:
          LOGERROR('Error getting extra entropy from mouse & key presses')
@@ -873,12 +878,30 @@ class ArmoryMainWindow(QMainWindow):
       except:
          LOGEXCEPT('Error getting extra entropy from filesystem')
 
+
+      source3 = ''
+      try:
+         pixDesk = QPixmap.grabWindow(QApplication.desktop().winId())
+         pixRaw = QByteArray()
+         pixBuf = QBuffer(pixRaw)
+         pixBuf.open(QIODevice.WriteOnly)
+         pixDesk.save(pixBuf, 'PNG')
+         source3 = pixBuf.buffer().toHex()
+      except:
+         LOGEXCEPT('Third source of entropy (desktop screenshot) failed')
+         
+      if len(source3)==0:
+         LOGWARN('Error getting extra entropy from screenshot')
+
       LOGINFO('Adding %d keypress events to the entropy pool', len(source1)/3)
       LOGINFO('Adding %s bytes of filesystem data to the entropy pool', 
                   bytesToHumanSize(len(str(source2))))
+      LOGINFO('Adding %s bytes from desktop screenshot to the entropy pool', 
+                  bytesToHumanSize(len(str(source3))/2))
       
 
-      return SecureBinaryData( HMAC256(str(source1), str(source2)) )
+      allEntropy = ''.join([str(a) for a in [source1, source1, source3]])
+      return SecureBinaryData(HMAC256('Armory Entropy', allEntropy))
       
 
 
@@ -1532,6 +1555,31 @@ class ArmoryMainWindow(QMainWindow):
                   self.versionNotification['SHORTDESCR'] = shortDescr
                   self.versionNotification['LONGDESCR'] = \
                      self.getVersionNotifyLongDescr(verStr).replace('\n','<br>')
+                     
+            for verStr,vermap in self.downloadLinks['ArmoryTesting'].iteritems():
+               dlVer = getVersionInt(readVersionString(verStr))
+               if dlVer > maxVer:
+                  maxVer = dlVer
+                  self.armoryVersions[1] = verStr
+                  if thisVer >= maxVer:
+                     continue
+
+                  shortDescr = tr('Armory Testing version %s is now available!') % verStr
+                  notifyID = binary_to_hex(hash256(shortDescr)[:4])
+                  self.versionNotification['UNIQUEID'] = notifyID
+                  self.versionNotification['VERSION'] = '0'
+                  self.versionNotification['STARTTIME'] = '0'
+                  self.versionNotification['EXPIRES'] = '%d' % long(UINT64_MAX)
+                  self.versionNotification['CANCELID'] = '[]'
+                  self.versionNotification['MINVERSION'] = '*'
+                  self.versionNotification['MAXVERSION'] = '<%s' % verStr
+                  self.versionNotification['PRIORITY'] = '1024'
+                  self.versionNotification['ALERTTYPE'] = 'upgrade-testing'
+                  self.versionNotification['NOTIFYSEND'] = 'False'
+                  self.versionNotification['NOTIFYRECV'] = 'False'
+                  self.versionNotification['SHORTDESCR'] = shortDescr
+                  self.versionNotification['LONGDESCR'] = \
+                     self.getVersionNotifyLongDescr(verStr, True).replace('\n','<br>')
 
 
          # For Satoshi updates, we don't trigger any notifications like we
@@ -1572,7 +1620,7 @@ class ArmoryMainWindow(QMainWindow):
 
 
    #############################################################################
-   def getVersionNotifyLongDescr(self, verStr):
+   def getVersionNotifyLongDescr(self, verStr, testing=False):
       shortOS = None
       if OS_WINDOWS:
          shortOS = 'windows'
@@ -1585,6 +1633,13 @@ class ArmoryMainWindow(QMainWindow):
       if shortOS is not None:
          webURL += '#' + shortOS
 
+      if testing:
+         return tr("""
+            A new testing version of Armory is out. You can upgrade to version
+            %s through our secure downloader inside Armory (link at the bottom
+            of this notification window).
+            """) % (verStr)
+         
       return tr("""
          Your version of Armory is now outdated.  Please upgrade to version
          %s through our secure downloader inside Armory (link at the bottom
@@ -1592,33 +1647,6 @@ class ArmoryMainWindow(QMainWindow):
          version from our website downloads page at:
          <br><br>
          <a href="%s">%s</a> """) % (verStr, webURL, webURL)
-
-
-
-   #############################################################################
-   def getChangelogText(self, verStr):
-      releaseDate = None
-      changeList  = None
-      if self.changelog is None:
-         return None
-
-      for ver,date,updList in self.changelog:
-         if chngVer == verStr:
-            releaseDate = date
-            changeList = updList[:]
-            break
-      else:
-         LOGERROR('Could not find changelog info for version %s' % verStr)
-         return None
-
-      changeStr = tr('<b>Update information for version %s</b><br>') % verStr
-      if releaseDate:
-         changeStr += tr("""<u>Release Date</u>: %s<br><br>""") % releaseDate
-
-      for strHeader,strLong in changeList:
-         changeStr += '<u>%s:</u> %s<br>' % (strHeader, strLong)
-
-      return changeStr
 
 
 
@@ -1641,7 +1669,7 @@ class ArmoryMainWindow(QMainWindow):
          return False
 
       # Ignore version upgrade notifications if disabled in the settings
-      if notifyMap['ALERTTYPE'].lower() == 'upgrade' and \
+      if 'upgrade' in notifyMap['ALERTTYPE'].lower() and \
          self.getSettingOrSetDefault('DisableUpgradeNotify', False):
          return False
 
@@ -1978,8 +2006,10 @@ class ArmoryMainWindow(QMainWindow):
       self.setSatoshiPaths()
       TheSDM.setDisabled(False)
 
+      torrentIsDisabled = self.getSettingOrSetDefault('DisableTorrent', False)
+
       # Give the SDM the torrent file...it will use it if it makes sense
-      if TheSDM.shouldTryBootstrapTorrent():
+      if not torrentIsDisabled and TheSDM.shouldTryBootstrapTorrent():
          torrentFile = self.findTorrentFileForSDM(2)
          if not torrentFile or not os.path.exists(torrentFile):
             LOGERROR('Could not find torrent file')
@@ -1990,8 +2020,7 @@ class ArmoryMainWindow(QMainWindow):
       try:
          # "satexe" is actually just the install directory, not the direct
          # path the executable.  That dir tree will be searched for bitcoind
-         TheSDM.setupSDM(None, self.satoshiHomePath, \
-                         extraExeSearch=self.satoshiExeSearchPath)
+         TheSDM.setupSDM(extraExeSearch=self.satoshiExeSearchPath)
          TheSDM.startBitcoind()
          LOGDEBUG('Bitcoind started without error')
          return True
@@ -2020,8 +2049,12 @@ class ArmoryMainWindow(QMainWindow):
          # Setting override BTC_HOME_DIR only if it wasn't explicitly
          # set as the command line.
          self.satoshiHomePath = self.settings.get('SatoshiDatadir')
+         LOGINFO('Setting satoshi datadir = %s' % self.satoshiHomePath)
 
       TheBDM.setSatoshiDir(self.satoshiHomePath)
+      TheSDM.setSatoshiDir(self.satoshiHomePath)
+      TheTDM.setSatoshiDir(self.satoshiHomePath)
+
 
    ############################################################################
    def loadBlockchainIfNecessary(self):
@@ -2484,7 +2517,7 @@ class ArmoryMainWindow(QMainWindow):
                nextPos = len(allData)
 
             lbBlock = allData[pos:nextPos].strip()
-            lbox = MultiSigLockbox().unserialize(lbBlock)
+            lbox = MultiSigLockbox().unserializeAscii(lbBlock)
             self.updateOrAddLockbox(lbox)
             LOGINFO('Read in Lockbox: %s' % lbox.uniqueIDB58)
 
@@ -2554,7 +2587,7 @@ class ArmoryMainWindow(QMainWindow):
    def writeLockboxesFile(self):
       # Do all the serializing and bail-on-error before opening the file 
       # for writing, or we might delete it all by accident
-      textOut = '\n\n'.join([lb.serialize() for lb in self.allLockboxes])
+      textOut = '\n\n'.join([lb.serializeAscii() for lb in self.allLockboxes])
       with open(MULTISIG_FILE, 'w') as f:
          f.write(textOut)
 
@@ -2646,8 +2679,8 @@ class ArmoryMainWindow(QMainWindow):
       # Now that the blockchain is loaded, let's populate the wallet info
       if TheBDM.isInitialized():
          
-         for wltID in self.walletMap.iterkeys():
-            TheBDM.bdm.unregisterWallet(self.walletMap[wltID].cppWallet)
+         #for wltID in self.walletMap.iterkeys():
+          #  TheBDM.bdm.unregisterWallet(self.walletMap[wltID].cppWallet)
 
          self.currBlockNum = TheBDM.getTopBlockHeight()
          self.setDashboardDetails()
@@ -4384,6 +4417,9 @@ class ArmoryMainWindow(QMainWindow):
                Technologies, Inc.</b></font> announcement feeder.
                Try again in a couple minutes.""") % \
                htmlColor('TextGreen'), QMessageBox.Ok)
+         else:
+            QMessageBox.warning(self, tr('Update'), tr("""
+               Announcements are now up to date!"""), QMessageBox.Ok)
 
 
       self.lblLastUpdated = QRichLabel('', doWrap=False)
@@ -5974,28 +6010,33 @@ class ArmoryMainWindow(QMainWindow):
                   self.updateSyncProgress()
 
                downRate  = TheTDM.getLastStats('downRate')
-               if downRate:
-                  self.torrentCircBuffer.append(downRate)
-               else:
-                  self.torrentCircBuffer.append(0)
+               self.torrentCircBuffer.append(downRate if downRate else 0)
 
                # Assumes 1 sec heartbeat
                bufsz = len(self.torrentCircBuffer)
                if bufsz > 5*MINUTE:
-                  self.torrentCircBuffer.pop()
+                  self.torrentCircBuffer = self.torrentCircBuffer[1:]
 
-               if bufsz > 5*MINUTE:
+               if bufsz >= 4.99*MINUTE:
                   # If dlrate is below 30 kB/s, offer the user a way to skip it
-                  if sum(self.torrentCircBuffer) / float(bufsz) < 30*KILOBYTE:
+                  avgDownRate = sum(self.torrentCircBuffer) / float(bufsz)
+                  if avgDownRate < 30*KILOBYTE:
                      if (RightNow() - self.lastAskedUserStopTorrent) > 5*MINUTE:
                         self.lastAskedUserStopTorrent = RightNow()
                         reply = QMessageBox.warning(self, tr('Torrent'), tr("""
                            Armory is attempting to use BitTorrent to speed up
                            the initial synchronization, but it appears to be
-                           downloading slowly or not at all.  Would you like
-                           to stop it?"""), QMessageBox.Yes |QMessageBox.No)
-                        if reply==QMessageBox.Yes:
-                           TheTDM.failedFunc('User selected shutdown torrent')
+                           downloading slowly or not at all.  
+                           <br><br>
+                           If the torrent engine is not starting properly,
+                           or is not downloading
+                           at a reasonable speed for your internet connection, 
+                           you should disable it in
+                           <i>File\xe2\x86\x92Settings</i> and then
+                           restart Armory."""), QMessageBox.Ok)
+
+                        # For now, just show once then disable
+                        self.lastAskedUserStopTorrent = UINT64_MAX
 
             if sdmState in ['BitcoindInitializing','BitcoindSynchronizing']:
                self.updateSyncProgress()

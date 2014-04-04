@@ -70,12 +70,10 @@ class Test(unittest.TestCase):
       self.assertRaises(FiniteFieldError, SplitSecret, SECRET, 4,3)
       
       # Secret Too many needed needed
-      fragmentList = SplitSecret(SECRET, 9, 12)
-      self.assertEqual(len(fragmentList), 0)
+      self.assertRaises(FiniteFieldError, SplitSecret, SECRET, 9, 12)
 
       # Too few pieces needed
-      fragmentList = SplitSecret(SECRET, 1, 12)
-      self.assertEqual(len(fragmentList), 0)
+      self.assertRaises(FiniteFieldError, SplitSecret, SECRET, 1, 12)
       
       # Test Reconstuction failures
       fragmentList = SplitSecret(SECRET, 3, 5)

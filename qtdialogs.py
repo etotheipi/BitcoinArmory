@@ -637,7 +637,7 @@ class DlgBugReport(ArmoryDialog):
 
       except:
          LOGEXCEPT('Failed:')
-         bugpage = 'https://bitcoinarmory.com/submitbug.php'
+         bugpage = 'https://bitcoinarmory.com/support/'
          QMessageBox.information(self, tr('Submitted!'), tr("""
             There was a problem submitting your bug report.  It is recommended
             that you submit this information through our webpage instead:
@@ -4596,9 +4596,15 @@ def excludeChange(outputPairs, wlt):
    maxChainIndex = -5
    nonChangeOutputPairs = []
    currentMaxChainPair = None
-   for pair in outputPairs:
-      addr160 = scrAddr_to_hash160(pair[0])[1]
-      addr    = wlt.getAddrByHash160(addr160)
+   for script,val in outputPairs:
+      scrType = getTxOutScriptType(script)
+      addr160 = ''
+      if scrType in CPP_TXOUT_HAS_ADDRSTR:
+         scrAddr = script_to_scrAddr(script)
+         addr160 = scrAddr_to_hash160(scrAddr)[1]
+
+      addr = wlt.getAddrByHash160(addr160)
+
       # this logic excludes the pair with the maximum chainIndex from the
       # returned list
       if addr:
@@ -4606,9 +4612,9 @@ def excludeChange(outputPairs, wlt):
             maxChainIndex = addr.chainIndex
             if currentMaxChainPair:
                nonChangeOutputPairs.append(currentMaxChainPair)
-            currentMaxChainPair = pair
+            currentMaxChainPair = [script,val]
          else:
-            nonChangeOutputPairs.append(pair)
+            nonChangeOutputPairs.append([script,val])
    return nonChangeOutputPairs
 
 ################################################################################
@@ -4628,7 +4634,7 @@ class DlgConfirmSend(ArmoryDialog):
          scrType = getTxOutScriptType(script)
          if scrType in CPP_TXOUT_HAS_ADDRSTR:
             scraddr = script_to_scrAddr(script)
-            addr160 = scrAddr_to_hash160(scraddr)
+            addr160 = scrAddr_to_hash160(scraddr)[1]
             if wlt.hasAddr(addr160):
                returnPairs.append([script,val])
             else:
@@ -4693,7 +4699,8 @@ class DlgConfirmSend(ArmoryDialog):
             if lb:
                dispStr = 'Lockbox %d-of-%d (%s)' % (lb.M, lb.N, lb.uniqueIDB58)
             else:
-               dispStr = 'Multi-sig %d-of-%d [UNRECOGNIZED]' % (lb.M, lb.N)
+               M,N,a160s,pubkeys = getMultisigScriptInfo(script)
+               dispStr = 'Multi-sig %d-of-%d [UNRECOGNIZED]' % (M,N)
          else:
             dispStr = 'Non-standard [UNRECOGNIZED]'
 
@@ -8144,6 +8151,13 @@ class DlgSettings(ArmoryDialog):
       skipVerChk = self.main.getSettingOrSetDefault('SkipVersionCheck', False)
       self.chkSkipVersionCheck.setChecked(skipVerChk)
 
+
+      self.chkDisableTorrent = QCheckBox(tr("""
+         Disable torrent download (force synchronization via Bitcoin P2P)"""))
+      disableTorrent = self.main.getSettingOrSetDefault('DisableTorrent', False)
+      self.chkDisableTorrent.setChecked(disableTorrent)
+
+
       lblDefaultUriTitle = QRichLabel(tr("""
          <b>Set Armory as default URL handler</b>"""))
       lblDefaultURI = QRichLabel(tr("""
@@ -8428,6 +8442,9 @@ class DlgSettings(ArmoryDialog):
       #frmLayout.addWidget(self.chkSkipVersionCheck, i, 0, 1, 3)
 
       i += 1
+      frmLayout.addWidget(self.chkDisableTorrent, i, 0, 1, 3)
+
+      i += 1
       frmLayout.addWidget(HLINE(), i, 0, 1, 3)
 
       i += 1
@@ -8614,10 +8631,8 @@ class DlgSettings(ArmoryDialog):
             self.main.settings.delete('SatoshiDatadir')
 
       self.main.writeSetting('ManageSatoshi', self.chkManageSatoshi.isChecked())
-
-
       self.main.writeSetting('SkipOnlineCheck', self.chkSkipOnlineCheck.isChecked())
-      self.main.writeSetting('SkipVersionCheck', self.chkSkipVersionCheck.isChecked())
+      self.main.writeSetting('DisableTorrent', self.chkDisableTorrent.isChecked())
 
       # Reset the DNAA flag as needed
       askuriDNAA = self.chkAskURIAtStartup.isChecked()
@@ -9389,7 +9404,8 @@ class DlgNotificationWithDNAA(ArmoryDialog):
       super(DlgNotificationWithDNAA, self).__init__(parent, main)
 
       self.notifyID = nid
-      isUpgrade = (notifyMap['ALERTTYPE'].lower()=='upgrade')
+      isUpgrade = ('upgrade' in notifyMap['ALERTTYPE'].lower())
+      isTesting = (notifyMap['ALERTTYPE'].lower()=='upgrade-testing')
 
       #if notifyMap is None:
          #notifyMap = self.main.almostFullNotificationList[nid]
@@ -9449,12 +9465,17 @@ class DlgNotificationWithDNAA(ArmoryDialog):
          else:
             startTimeStr = unixTimeToFormatStr(startTime, 'Date: %B %d, %Y<br>')
 
-
       if isUpgrade:
          iconFile = ':/MsgBox_info48.png'
-         titleStr = tr('Upgrade Armory')
-         headerSz = 4
-         headerStr = tr("""Armory is out-of-date!""")
+         headerSz = 4         
+          
+         if isTesting:
+            titleStr = tr('New Armory Test Build')
+            headerStr = tr("""New Testing Version Available!""")        
+         else:
+            titleStr = tr('Upgrade Armory')
+            headerStr = tr("""Armory is out-of-date!""")
+            
       elif 0 <= priority < 2048:
          iconFile = ':/MsgBox_info48.png'
          titleStr = tr('Information')
@@ -9530,7 +9551,7 @@ class DlgNotificationWithDNAA(ArmoryDialog):
 
 
       btnDismiss      = QPushButton(tr('Close'))
-      btnIgnoreLong   = QPushButton(tr('Do not show again'))
+      btnIgnoreLong   = QPushButton(tr('Do not popup again'))
       btnDownload     = QPushButton(tr('Secure Download'))
 
       btnIgnoreLong.setVisible(showBtnDNAA)
@@ -11318,15 +11339,15 @@ class DlgRestoreSingle(ArmoryDialog):
          else:
             self.reject()
             return
-
-      reply = QMessageBox.question(self, 'Verify Wallet ID', \
-               'The data you entered corresponds to a wallet with a wallet ID: \n\n \t' +
-               newWltID + '\n\nDoes this ID match the "Wallet Unique ID" '
-               'printed on your paper backup?  If not, click "No" and reenter '
-               'key and chain-code data again.', \
-               QMessageBox.Yes | QMessageBox.No)
-      if reply == QMessageBox.No:
-         return
+      else:
+         reply = QMessageBox.question(self, 'Verify Wallet ID', \
+                  'The data you entered corresponds to a wallet with a wallet ID: \n\n \t' +
+                  newWltID + '\n\nDoes this ID match the "Wallet Unique ID" '
+                  'printed on your paper backup?  If not, click "No" and reenter '
+                  'key and chain-code data again.', \
+                  QMessageBox.Yes | QMessageBox.No)
+         if reply == QMessageBox.No:
+            return
 
       passwd = []
       if self.chkEncrypt.isChecked():

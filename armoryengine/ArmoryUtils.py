@@ -220,7 +220,7 @@ for opt,val in CLI_OPTIONS.__dict__.iteritems():
 
 
 # Use CLI args to determine testnet or not
-USE_TESTNET = CLI_OPTIONS.testnet
+USE_TESTNET = True
 
 # Set default port for inter-process communication
 if CLI_OPTIONS.interport < 0:
@@ -1978,6 +1978,7 @@ def unixTimeToFormatStr(unixTime, formatStr=DEFAULT_DATE_FORMAT):
    """
    dtobj = datetime.fromtimestamp(unixTime)
    dtstr = u'' + dtobj.strftime(formatStr).decode('utf-8')
+   dtstr = dtstr.encode('ascii', errors='replace')
    return dtstr[:-2] + dtstr[-2:].lower()
 
 def secondsToHumanTime(nSec):
@@ -2315,8 +2316,8 @@ def SplitSecret(secret, needed, pieces, nbytes=None, use_random_x=False):
    # Convert secret to an integer
    a = binary_to_int(SecureBinaryData(secret).toBinStr(),BIGENDIAN)
    if not a<ff.prime:
-      LOGERROR('Secret must be less than %s', int_to_hex(ff.prime,BIGENDIAN))
-      LOGERROR('             You entered %s', int_to_hex(a,BIGENDIAN))
+      LOGERROR('Secret must be less than %s', int_to_hex(ff.prime,endOut=BIGENDIAN))
+      LOGERROR('             You entered %s', int_to_hex(a,endOut=BIGENDIAN))
       raise FiniteFieldError
 
    if not pieces>=needed:

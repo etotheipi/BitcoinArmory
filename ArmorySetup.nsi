@@ -52,7 +52,8 @@ Var StartMenuGroup
 !insertmacro MUI_LANGUAGE English
 
 # Installer attributes
-OutFile ArmorySetup-${VERSION}-beta_win32.exe
+# Default to -testing to match 90% of builds.  Manually change actual releases
+OutFile armory_${VERSION}-testing_winAll.exe
 InstallDir "$PROGRAMFILES\Armory"
 CRCCheck on
 XPStyle on

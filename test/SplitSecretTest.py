@@ -66,7 +66,7 @@ class SplitSecretTest(unittest.TestCase):
       self.callSplitSecret('9f'*16, 7,10, 16)
       self.assertRaises(FiniteFieldError, SplitSecret, '9f'*16, 3, 5, 8)
       self.assertRaises(FiniteFieldError, SplitSecret, '9f', 5,4)
-      self.assertEqual(SplitSecret('9f', 1,1), [])
+      self.assertRaises(FiniteFieldError, SplitSecret, '9f', 1,1)
 
    
    def callSplitSecret(self, secretHex, M, N, nbytes=1):
