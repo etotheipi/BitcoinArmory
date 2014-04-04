@@ -4565,7 +4565,7 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
       if(forceRebuild || forceRescan || skipFetch)
          wlt->ignoreLastScanned_ = true;
 
-      //LOGINFO << "Scanning Wallet #" << nWallet << " from height " << wlt->lastScanned_;
+      LOGINFO << "Scanning Wallet #" << nWallet << " from height " << (wlt->ignoreLastScanned_ ? 0 : wlt->lastScanned_);
 
 		scanRegisteredTxForWallet(*wlt, 0, lastTopBlock_);
 	}
