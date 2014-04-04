@@ -1639,9 +1639,13 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
       ustx = self.ustxObj
       svpairs = [[r[2],r[1]] for r in ustx.pytxObj.makeRecipientsList()]
       theFee = ustx.calculateFee()
-      dlg = DlgConfirmSend(self.wlt, svpairs, theFee, self, self.main)
-      
-      if dlg.exec_():
+
+      doIt = True
+      if self.wlt:
+         dlg = DlgConfirmSend(self.wlt, svpairs, theFee, self, self.main)
+         doIt = dlg.exec_()
+
+      if doIt:
          self.main.broadcastTransaction(finalTx)
          if self.fileLoaded and os.path.exists(self.fileLoaded):
             try:

@@ -994,6 +994,20 @@ class UnsignedTxInput(object):
       self.signatures  = None
       self.wltLocators = None
 
+
+      
+      if pubKeyMap is not None and not isinstance(pubKeyMap, dict):
+         if isinstance(pubKeyMap, (list,tuple)):
+            pub = dict([[SCRADDR_P2PKH_BYTE+hash160(pk), pk] for pk in pubKeyMap])
+         elif isinstance(pubKeyMap, basestring):
+            pub = {SCRADDR_P2PKH_BYTE+hash160(pubKeyMap): pubKeyMap}
+         else:
+            LOGERROR('Invalid type for pub keys input: %s', str(type(pubKeyMap)))
+            self.isInitialized = False
+            return 
+         pubKeyMap = pub
+         
+
       #####
       if not self.sequence==UINT32_MAX:
          LOGWARN('WARNING: NON-MAX SEQUENCE NUMBER ON UNSIGNEDTX INPUT!')
@@ -1131,26 +1145,24 @@ class UnsignedTxInput(object):
 
       outScript = ''
 
-      sigToDER = lambda s: createDERSigFromRS(s[:32], s[32:]) if s else ''
-
       if self.scriptType in CPP_TXOUT_STDSINGLESIG and not self.signatures[0]:
          return ''
 
-      # If this is is p2sh, the scrType is
+      # All signatures are already DER-encoded. 
       if self.scriptType == CPP_TXOUT_P2SH:
          raise InvalidScriptError('Nested P2SH not allowed')
       if self.scriptType in [CPP_TXOUT_STDPUBKEY33, CPP_TXOUT_STDPUBKEY65]:
          # Only need the signature to complete coinbase TxOut
-         outScript = scriptPushData(sigToDER(self.signatures[0]))
+         outScript = scriptPushData(self.signatures[0])
       elif self.scriptType==CPP_TXOUT_STDHASH160:
          # Gotta include the public key, too, for standard TxOuts
-         serSig    = scriptPushData(sigToDER(self.signatures[0]))
+         serSig    = scriptPushData(self.signatures[0])
          serPubKey = scriptPushData(self.pubKeys[0])
          outScript = serSig + serPubKey
-      elif self.scriptType==TXOUT_SCRIPT_MULTISIG:
+      elif self.scriptType==CPP_TXOUT_MULTISIG:
          # Serialize non-empty sigs, replace empty ones with OP_0
          OP_0 = getOpCode('OP_0')
-         pushSig = lambda sig: (scriptPushData(sigToDER(sig)) if sig else OP_0)
+         pushSig = lambda sig: (scriptPushData(sig) if sig else OP_0)
          serSigList = [pushSig(s) for s in self.signatures]
          outScript = OP_0 + ''.join(serSigList)
       else:
@@ -1403,13 +1415,13 @@ class UnsignedTxInput(object):
 
       # Now we sort the results and compare to M-value to get high-level metrics
       # SIGSTAT enumeration values sort the way we ultimately want to display
-      self.statusM = sorted(signStatus.statusN)[:signStatus.M]
+      signStatus.statusM = sorted(signStatus.statusN)[:signStatus.M]
 
       # Since values are sorted, the last element tells us whether we're done
-      signStatus.allSigned = (self.statusM[-1] in \
+      signStatus.allSigned = (signStatus.statusM[-1] in \
                   [TXIN_SIGSTAT.ALREADY_SIGNED, TXIN_SIGSTAT.WLT_ALREADY_SIGNED])
 
-      signStatus.wltCanComplete = (self.statusM[-1] == TXIN_SIGSTAT.WLT_CAN_SIGN)
+      signStatus.wltCanComplete = (signStatus.statusM[-1] == TXIN_SIGSTAT.WLT_CAN_SIGN)
       return signStatus
 
 
@@ -2033,6 +2045,7 @@ class UnsignedTransaction(object):
       print ind+'Curr TxID    : ', binary_to_hex(txHash, BIGENDIAN)
       print ind+'Version      : ', tx.version
       print ind+'Lock Time    : ', tx.lockTime
+      print ind+'Fee (BTC)    : ', coin2strNZS(self.calculateFee())
       print ind+'#Inputs      : ', len(tx.inputs)
 
       for i,ustxi in enumerate(self.ustxInputs):

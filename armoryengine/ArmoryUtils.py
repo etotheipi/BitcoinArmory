@@ -220,6 +220,7 @@ for opt,val in CLI_OPTIONS.__dict__.iteritems():
 
 
 # Use CLI args to determine testnet or not
+#USE_TESTNET = CLI_OPTIONS.testnet
 USE_TESTNET = True
 
 # Set default port for inter-process communication

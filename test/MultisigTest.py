@@ -9,14 +9,16 @@ sys.path.append('..')
 
 from armoryengine.ArmoryUtils import hex_to_binary, binary_to_hex, hex_to_int, \
    ONE_BTC, BIGENDIAN, addrStr_to_hash160, hash160_to_p2pkhash_script, \
-   CryptoECDSA, SecureBinaryData, pubkeylist_to_multisig_script
+   CryptoECDSA, SecureBinaryData, \
+   pubkeylist_to_multisig_script, addrStr_to_scrAddr, scrAddr_to_script
 from armoryengine.BinaryUnpacker import BinaryUnpacker
 from armoryengine.Block import PyBlock
 from armoryengine.PyBtcAddress import PyBtcAddress
 from armoryengine.Script import PyScriptProcessor, convertScriptToOpStrings
 from armoryengine.Transaction import PyTx, PyTxIn, PyOutPoint, PyTxOut, \
    PyCreateAndSignTx, getMultisigScriptInfo, \
-   BlockComponent, UnsignedTransaction, UnsignedTxInput, DecoratedTxOut
+   BlockComponent, UnsignedTransaction, UnsignedTxInput, DecoratedTxOut, \
+   TXIN_SIGSTAT, TX_SIGSTAT
 from armoryengine.MultiSigUtils import calcLockboxID, computePromissoryID, \
    MultiSigLockbox, MultiSigPromissoryNote
 
@@ -129,7 +131,7 @@ class MSUtilsTest(unittest.TestCase):
       self.pubKey = hex_to_binary( \
          '048d103d81ac9691cf13f3fc94e44968ef67b27f58b27372c13108552d24a6ee04'
            '785838f34624b294afee83749b64478bb8480c20b242c376e77eea2b3dc48b4b')
-      self.addrStr = '12HFYcL3Gj8EPhgeXk5689z8Wcc7x7FsNx'
+      self.addrStr = 'mgoCqfR25kZVApAGFK3Tx5CTNcCppmKwfb'
       self.sigStr  = hex_to_binary( \
          '304602210041e1186ca9a41fdfe1569d5d807ca7ff'
          '6c5ffd19d2ad1be42f7f2a20cdc8f1cc0221003366b5d64fe81e53910e156914'
@@ -171,8 +173,8 @@ class MSUtilsTest(unittest.TestCase):
 
 
    def testDTXO(self):
-      a160_1 = addrStr_to_hash160('13Tn1QkAcqnQvGA7kBiCBH7NbijNcr6GMs')[1]
-      a160_2 = addrStr_to_hash160('12HFYcL3Gj8EPhgeXk5689z8Wcc7x7FsNx')[1]
+      a160_1 = addrStr_to_hash160('mhyjJTq9RsDfhNdjTkga1CKhTiL5VFw85J')[1]
+      a160_2 = addrStr_to_hash160('mgoCqfR25kZVApAGFK3Tx5CTNcCppmKwfb')[1]
       dtxo1 = DecoratedTxOut(hash160_to_p2pkhash_script(a160_1), long(1.00*ONE_BTC))
       dtxo2 = DecoratedTxOut(hash160_to_p2pkhash_script(a160_2), long(0.49*ONE_BTC))
 
@@ -197,8 +199,8 @@ class MSUtilsTest(unittest.TestCase):
    # not a real test
    def testUnsignedTx(self):
       ustxi = UnsignedTxInput(tx1raw, 1,  None, self.pubKey)
-      a160_1 = addrStr_to_hash160('13Tn1QkAcqnQvGA7kBiCBH7NbijNcr6GMs')[1]
-      a160_2 = addrStr_to_hash160('12HFYcL3Gj8EPhgeXk5689z8Wcc7x7FsNx')[1]
+      a160_1 = addrStr_to_hash160('mhyjJTq9RsDfhNdjTkga1CKhTiL5VFw85J')[1]
+      a160_2 = addrStr_to_hash160('mgoCqfR25kZVApAGFK3Tx5CTNcCppmKwfb')[1]
       dtxo1 = DecoratedTxOut(hash160_to_p2pkhash_script(a160_1), long(1.00*ONE_BTC))
       dtxo2 = DecoratedTxOut(hash160_to_p2pkhash_script(a160_2), long(0.49*ONE_BTC))
 
@@ -214,19 +216,19 @@ class MSUtilsTest(unittest.TestCase):
       self.assertEqual(serUstx, ustx2.serialize())
 
       serUstxASCII = ustx.serializeAscii()
-      print '' 
-      print 'Sample TxSigCollect Block:'
-      print serUstxASCII
       ustx2 = UnsignedTransaction().unserializeAscii(serUstxASCII)
       self.assertEqual(serUstx, ustx2.serialize())
+      #print '' 
+      #print 'Sample TxSigCollect Block:'
+      #print serUstxASCII
       #ustx.pprint()
       #print '\n'
       #ustx.evaluateSigningStatus().pprint()
 
    def testAddSigToUSTX(self):
       ustxi = UnsignedTxInput(tx1raw, 1,  None, self.pubKey)
-      a160_1 = addrStr_to_hash160('13Tn1QkAcqnQvGA7kBiCBH7NbijNcr6GMs')[1]
-      a160_2 = addrStr_to_hash160('12HFYcL3Gj8EPhgeXk5689z8Wcc7x7FsNx')[1]
+      a160_1 = addrStr_to_hash160('mhyjJTq9RsDfhNdjTkga1CKhTiL5VFw85J')[1]
+      a160_2 = addrStr_to_hash160('mgoCqfR25kZVApAGFK3Tx5CTNcCppmKwfb')[1]
       dtxo1 = DecoratedTxOut(hash160_to_p2pkhash_script(a160_1), long(1.00*ONE_BTC))
       dtxo2 = DecoratedTxOut(hash160_to_p2pkhash_script(a160_2), long(0.49*ONE_BTC))
 
@@ -252,23 +254,46 @@ class MSUtilsTest(unittest.TestCase):
       reenabled to produce new data for new tests
       '''
 
-      print ''
 
-      txsigcoll = """=====TXSIGCOLLECT-91kDE5bZ======================================================
-AQAAAAsRCQcAAAAAAf06AQEAAAALEQkHtv1Yn6xN1hFE+1Q5/AtbZRy8nLra6BPUTBaqWjjnMLIBAAAA
-/QEBAQAAAAHJmS+HOei25YeVR96qg09TG12P5aBz8yA7kVVVGWm68wAAAACKRzBEAiBWSc7ox8nvv/vf
-mmyPDmPX9Mzib/gn1NGdVE0X0UGknwIgd2haE1y91fTsLhwVJjrpDQlAFqq/1+ftq2ShN7a4Po8BQQSU
-SZDdT7MFDtd2ivwdkAetf0b9ZtdJ/CaDINf0I1qrUkw/GBcKrbRqLx8icsUasY/lmVGAfGuK8pmyLoGp
-cAMV/////wIA4fUFAAAAABl2qRTTYKciNHNmzKh9FmOybKk8MCayxois8JVyBwAAAAAZdqkUrBIUVaig
-iZFnPC4QvCszBZTsTqWIrAAAAAAAAP////8BAAAAAuIBAAAACxEJB8lSQQRqBKuY2eR3StgG4wLd3rY7
-6ha1y18iPud0eOhhu1g+sza2+8tgtbPU8VUaxF5f/Ek2Rm59mPbHwOxzZTn3RpGmQQRoaAc3x22ruAHL
-IgT1fb5ORXnk9xDNZ9wbQidZLIHptc8Ctayei0yfSb5SUQVram0BHkw39rbRft5rVfqiNRniQQS5XCSd
-hPQX4+OVoSdCVCi1QGccwViB64KMF7cipT/FmeIcpeVskPNAmI05M6zHa+uDL9ZMqweN3zznMpIwMdGo
-U64A4fUFAAAAAAAABE5PTkUAMgEAAAALEQkHGXapFKA2XtHpSek/eb11IQt+GinK8VffiKzgjXwBAAAA
-AAAABE5PTkUA
-================================================================================"""
+      asc_nosig = """
+=====TXSIGCOLLECT-5JxmLy4T======================================================
+AQAAAAsRCQcAAAAAAf19AQEAAAALEQkH/XsoFKgwJMVZsviXpv+aOun4BQHRm+Cuvs/X7O/J3n8BAAAA
+/QMBAQAAAAGcgxlJ0d+ZHi+MzG+laL4qTx/jVH/lPbbKmrGLA1oc8AAAAACMSTBGAiEArOklwdcihg72
+fMu+GvnKF+AdFiMmeT7CWV4KMZmA3kcCIQDyjBMqkI6tFVXMG/yhbBhVg7TNYsAGLjM5UWLfVx57WgFB
+BLmTMVBhjWo901GrcZzZMNBUectdX4ZsVyHhMNjZpaAJxlpQqnjiK9PAvrNqOIgMq8itz9S3KDaOs/Kh
+W6/lJNL/////AsAOFgIAAAAAGXapFInbjSGPxqYLm35NTXhzcAkVf8h8iKwwq98DAAAAABl2qRSBj0Gs
+NlhCyvZkoRO2iRw54544foisAAAAAAAA/////wFBBJ6i78WXHp6ywhTupFpF7A0V2jwQEjE9pWO1+7wZ
+qS+IM59Dur1Ut5OC+yUycjeFHQdqemkBDFT97zMCJalmtXwAAALiAQAAAAsRCQfJUkEEagSrmNnkd0rY
+BuMC3d62O+oWtctfIj7ndHjoYbtYPrM2tvvLYLWz1PFVGsReX/xJNkZufZj2x8Dsc2U590aRpkEEaGgH
+N8dtq7gByyIE9X2+TkV55PcQzWfcG0InWSyB6bXPArWsnotMn0m+UlEFa2ptAR5MN/a20X7ea1X6ojUZ
+4kEEuVwknYT0F+PjlaEnQlQotUBnHMFYgeuCjBe3IqU/xZniHKXlbJDzQJiNOTOsx2vrgy/WTKsHjd88
+5zKSMDHRqFOuoH+IAgAAAAAAAAROT05FADIBAAAACxEJBxl2qRRs7kd5CHIvdApqfOmMDp1dyrD6Mois
+gARXAQAAAAAAAAROT05FAA==
+================================================================================
+         """.strip()
 
-      UnsignedTransaction().unserializeAscii(txsigcoll).pprint()
+
+      asc_sig = """
+=====TXSIGCOLLECT-5JxmLy4T======================================================
+AQAAAAsRCQcAAAAAAf3EAQEAAAALEQkH/XsoFKgwJMVZsviXpv+aOun4BQHRm+Cuvs/X7O/J3n8BAAAA
+/QMBAQAAAAGcgxlJ0d+ZHi+MzG+laL4qTx/jVH/lPbbKmrGLA1oc8AAAAACMSTBGAiEArOklwdcihg72
+fMu+GvnKF+AdFiMmeT7CWV4KMZmA3kcCIQDyjBMqkI6tFVXMG/yhbBhVg7TNYsAGLjM5UWLfVx57WgFB
+BLmTMVBhjWo901GrcZzZMNBUectdX4ZsVyHhMNjZpaAJxlpQqnjiK9PAvrNqOIgMq8itz9S3KDaOs/Kh
+W6/lJNL/////AsAOFgIAAAAAGXapFInbjSGPxqYLm35NTXhzcAkVf8h8iKwwq98DAAAAABl2qRSBj0Gs
+NlhCyvZkoRO2iRw54544foisAAAAAAAA/////wFBBJ6i78WXHp6ywhTupFpF7A0V2jwQEjE9pWO1+7wZ
+qS+IM59Dur1Ut5OC+yUycjeFHQdqemkBDFT97zMCJalmtXxHMEQCIF12j4Vj1Shf49BkDWwVzf1kRgYr
+4EIPObgRTVPQz2KkAiAQ28gOniv2A5ozeBCk/rpWHTw2DqqkraEUDYLAPr83NQEAAuIBAAAACxEJB8lS
+QQRqBKuY2eR3StgG4wLd3rY76ha1y18iPud0eOhhu1g+sza2+8tgtbPU8VUaxF5f/Ek2Rm59mPbHwOxz
+ZTn3RpGmQQRoaAc3x22ruAHLIgT1fb5ORXnk9xDNZ9wbQidZLIHptc8Ctayei0yfSb5SUQVram0BHkw3
+9rbRft5rVfqiNRniQQS5XCSdhPQX4+OVoSdCVCi1QGccwViB64KMF7cipT/FmeIcpeVskPNAmI05M6zH
+a+uDL9ZMqweN3zznMpIwMdGoU66gf4gCAAAAAAAABE5PTkUAMgEAAAALEQkHGXapFGzuR3kIci90Cmp8
+6YwOnV3KsPoyiKyABFcBAAAAAAAABE5PTkUA
+================================================================================
+         """.strip()
+
+
+      #UnsignedTransaction().unserializeAscii(asc_nosig).evaluateSigningStatus().pprint()
+      #UnsignedTransaction().unserializeAscii(asc_sig).evaluateSigningStatus().pprint()
 
    
       privKeys = [SecureBinaryData(a*32) for a in ['\xaa','\xbb','\xcc']]
@@ -285,22 +310,75 @@ AAAABE5PTkUA
       dtxo = DecoratedTxOut(msScript, 1.0*ONE_BTC)
 
       signedFundMS = hex_to_binary( \
-         '0100000001b6fd589fac4dd61144fb5439fc0b5b651cbc9cbadae813d44c16aa'
-         '5a38e730b201000000914c4d304b02203044022045461d4ec5c77a2b714119ba'
-         'cf85c1e4c9bf1d740dd4dfd807727e5002271a90a88202205a9c8d96a04e9b9f'
-         '1d0242c6c1b2f128def46cdef4bb7adf614e2bdb8d62d675014104d0a96276c6'
-         '1c4a8df3ee1099f4f66a7555cffd4fe529dc84ebd4bf866443f1b494c3183198'
-         '9a1baccd4df2b6e38fbb69e233e15ff3e6f4383219ce2d62679206ffffffff02'
-         'e08d7c01000000001976a914724fce9566d9bbd2544accb471648fdba3d18423'
-         '88ac00e1f50500000000c95241046a04ab98d9e4774ad806e302dddeb63bea16'
-         'b5cb5f223ee77478e861bb583eb336b6fbcb60b5b3d4f1551ac45e5ffc493646'
-         '6e7d98f6c7c0ec736539f74691a6410468680737c76dabb801cb2204f57dbe4e'
-         '4579e4f710cd67dc1b4227592c81e9b5cf02b5ac9e8b4c9f49be5251056b6a6d'
-         '011e4c37f6b6d17ede6b55faa23519e24104b95c249d84f417e3e395a1274254'
-         '28b540671cc15881eb828c17b722a53fc599e21ca5e56c90f340988d3933acc7'
-         '6beb832fd64cab078ddf3ce732923031d1a853ae00000000')
+         '0100000001fd7b2814a83024c559b2f897a6ff9a3ae9f80501d19be0aebecfd7'
+         'ecefc9de7f010000008a47304402205d768f8563d5285fe3d0640d6c15cdfd64'
+         '46062be0420f39b8114d53d0cf62a4022010dbc80e9e2bf6039a337810a4feba'
+         '561d3c360eaaa4ada1140d82c03ebf37350141049ea2efc5971e9eb2c214eea4'
+         '5a45ec0d15da3c1012313da563b5fbbc19a92f88339f43babd54b79382fb2532'
+         '7237851d076a7a69010c54fdef330225a966b57cffffffff02a07f8802000000'
+         '00c95241046a04ab98d9e4774ad806e302dddeb63bea16b5cb5f223ee77478e8'
+         '61bb583eb336b6fbcb60b5b3d4f1551ac45e5ffc4936466e7d98f6c7c0ec7365'
+         '39f74691a6410468680737c76dabb801cb2204f57dbe4e4579e4f710cd67dc1b'
+         '4227592c81e9b5cf02b5ac9e8b4c9f49be5251056b6a6d011e4c37f6b6d17ede'
+         '6b55faa23519e24104b95c249d84f417e3e395a127425428b540671cc15881eb'
+         '828c17b722a53fc599e21ca5e56c90f340988d3933acc76beb832fd64cab078d'
+         'df3ce732923031d1a853ae80045701000000001976a9146cee477908722f740a'
+         '6a7ce98c0e9d5dcab0fa3288ac00000000')
      
    
+      ustxi = UnsignedTxInput(signedFundMS, 0)
+      ustxi.pprint()
+
+      refund1 = addrStr_to_scrAddr('mqSvihZRtKt1J3EBbwBJSHeAYVjdxUnpvf')
+      refund2 = addrStr_to_scrAddr('mjAauu6jzmYaE7jrfFgKqLxtvpStmPxcb7')
+      dtxo1 = DecoratedTxOut(scrAddr_to_script(refund1), long(0.223*ONE_BTC))
+      dtxo2 = DecoratedTxOut(scrAddr_to_script(refund2), long(0.200*ONE_BTC))
+
+      ustx = UnsignedTransaction().createFromUnsignedTxIO([ustxi], [dtxo1, dtxo2])
+      ustx.pprint()
+      ustx.evaluateSigningStatus().pprint()
+
+
+      # Need a candidate tx to test signing
+      txObj = ustx.pytxObj
+      
+      NOSIG = TXIN_SIGSTAT.NO_SIGNATURE
+      SIG   = TXIN_SIGSTAT.ALREADY_SIGNED
+      for i in [0,1]:
+         for j in [0,1]:
+            for k in [0,1]:
+               ustxiCopy = UnsignedTxInput().unserialize(ustxi.serialize())
+               if i>0: ustxiCopy.createAndInsertSignature(txObj, privKeys[0])
+               if j>0: ustxiCopy.createAndInsertSignature(txObj, privKeys[1])
+               if k>0: ustxiCopy.createAndInsertSignature(txObj, privKeys[2])
+               sstat = ustxiCopy.evaluateSigningStatus()
+               sstat.pprint()
+               self.assertEqual(sstat.allSigned, (i+j+k)>1)
+               self.assertEqual(sstat.statusM[0], NOSIG if i+j+k==0 else SIG)
+               self.assertEqual(sstat.statusM[1], NOSIG if i+j+k<2  else SIG)
+                  
+      
+      # Now try all this on the full USTX (not just the input
+      for i in [0,1]:
+         for j in [0,1]:
+            for k in [0,1]:
+               ustxCopy = UnsignedTransaction().unserialize(ustx.serialize())
+               if i>0: ustxCopy.createAndInsertSignatureForInput(0, privKeys[0])
+               if j>0: ustxCopy.createAndInsertSignatureForInput(0, privKeys[1])
+               if k>0: ustxCopy.createAndInsertSignatureForInput(0, privKeys[2])
+               sstat = ustxCopy.evaluateSigningStatus()
+               #sstat.pprint()
+               self.assertEqual(sstat.canBroadcast, (i+j+k)>1)
+               #self.assertEqual(sstat.statusM[0], NOSIG if i+j+k==0 else SIG)
+               #self.assertEqual(sstat.statusM[1], NOSIG if i+j+k<2  else SIG)
+      
+      # Now actually sign it and dump out a raw signed tx!
+      ustx.createAndInsertSignatureForInput(0, privKeys[0])
+      ustx.createAndInsertSignatureForInput(0, privKeys[2])
+
+      print ustx.serializeAscii()
+      print binary_to_hex(ustx.prepareFinalTx().serialize())
+
    """
    def testMinimizeDERSignaturePadding(self):
       multiTx1  = PyTx().unserialize(multiTx1raw)
