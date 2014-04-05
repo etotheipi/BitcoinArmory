@@ -90,6 +90,11 @@
       <file alias="frag6f.png">img/frag6f.png</file>
       <file alias="frag7f.png">img/frag7f.png</file>
       <file alias="frag8f.png">img/frag8f.png</file>
+      <file alias="keyhole_gray.png">img/keyhole_gray.png</file>
+      <file alias="keyhole_green.png">img/keyhole_green.png</file>
+      <file alias="keyhole_blue.png">img/keyhole_blue.png</file>
+      <file alias="keyhole_red.png">img/keyhole_red.png</file>
+      <file alias="keyhole_white.png">img/keyhole_white.png</file>
       <file alias="lockedIcon.png">img/lockedIcon.png</file>
       <file alias="loadicon_0.png">img/loadicon_0.png</file>
       <file alias="loadicon_1.png">img/loadicon_1.png</file>

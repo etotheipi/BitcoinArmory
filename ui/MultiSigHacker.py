@@ -2,7 +2,8 @@ from PyQt4.Qt import *
 from PyQt4.QtGui import *
 from PyQt4.QtNetwork import *
 from qtdefines import *
-from qtdialogs import createAddrBookButton, DlgSetComment, DlgSendBitcoins
+from qtdialogs import createAddrBookButton, DlgSetComment, DlgSendBitcoins, \
+                      DlgUnlockWallet
 from armoryengine.ALL import *
 from armorymodels import *
 from armoryengine.MultiSigUtils import MultiSigLockbox, calcLockboxID
@@ -1096,17 +1097,13 @@ class DlgContributeFundLockbox(ArmoryDialog):
 ################################################################################
 class DlgMultiSpendReview(ArmoryDialog):
    """
-   For now, this *only* supports spending from up to 3-of-3 lockboxes.  
-   Although most of the mechanics are there to handle arbitrary multi-spend 
-   tx, a few shortcuts were taken that don't work well with non-lockboxes
-   """
+   ASSUMPTION q38JmNa5:  USTX has no inputs other than a single lockbox
+                         (though that lockbox may have multiple UTXOs)
 
-   KEYW = 32
-   KEYH = 46
-   CHKW = 32
-   CHKH = 32
-   PIEW = 32
-   PIEH = 32
+   Of course, we will eventually expand this to handle more diverse types
+   of multi-spend transactions, but for now we had to iron out this common
+   case before doing more complex things
+   """
 
    #############################################################################
    def __init__(self, parent, main, lboxID, ustx):
@@ -1126,27 +1123,28 @@ class DlgMultiSpendReview(ArmoryDialog):
          returning to the same lockbox from where it came).  If there is 
          any ambiguity, Armory will display all outputs."""))
 
+      KEYW = 25
+      KEYH = 36
+      CHKW = 32
+      CHKH = 32
+      PIEW = 32
+      PIEH = 32
+
 
       # These need to return copies
-      self.pixGn  = lambda: QPixmap(':/keyhole_green.png').scaled(KEYW,KEYH)
-      self.pixGr  = lambda: QPixmap(':/keyhole_gray.png' ).scaled(KEYW,KEYH)
-      self.pixBl  = lambda: QPixmap(':/keyhole_blue.png' ).scaled(KEYW,KEYH)
-      self.pixWh  = lambda: QPixmap(':/keyhole_white.png').scaled(KEYW,KEYH)
-      self.pixRd  = lambda: QPixmap(':/keyhole_red.png'  ).scaled(KEYW,KEYH)
-      self.pixChk = lambda: QPixmap(':/checkmark32.png'  ).scaled(CHKW,CHKH)
-      self.pixPie = lambda m: QPixmap(':/frag%df.png'%m  ).scaled(PIEW,PIEH)
+      self.pixGreen = lambda: QPixmap(':/keyhole_green.png').scaled(KEYW,KEYH)
+      self.pixGray  = lambda: QPixmap(':/keyhole_gray.png' ).scaled(KEYW,KEYH)
+      self.pixBlue  = lambda: QPixmap(':/keyhole_blue.png' ).scaled(KEYW,KEYH)
+      self.pixWhite = lambda: QPixmap(':/keyhole_white.png').scaled(KEYW,KEYH)
+      self.pixRed   = lambda: QPixmap(':/keyhole_red.png'  ).scaled(KEYW,KEYH)
+      self.pixChk   = lambda: QPixmap(':/checkmark32.png'  ).scaled(CHKW,CHKH)
+      self.pixPie   = lambda m: QPixmap(':/frag%df.png'%m  ).scaled(PIEW,PIEH)
 
       layout = QVBoxLayout()
 
       self.lboxID = lboxID
       self.lbox   = self.main.getLockboxByID(lboxID)
       self.ustx = UnsignedTransaction().unserialize(ustx.serialize())
-
-      self.contribAmt = {}
-      self.receiveAmt = {}
-      self.contribStr = {}
-      self.needToSign = {}
-      self.useContrib = True
 
 
       # Some simple container classes
@@ -1163,10 +1161,12 @@ class DlgMultiSpendReview(ArmoryDialog):
 
       # Some simple container classes
       class OutputBundle(object):
+         def __init__(self):
             self.recvAmt = 0
             self.dispStr = ''
             self.lockbox = None
             self.wltID = None
+
       
       self.inputBundles = {}
       self.outputBundles = {}
@@ -1199,11 +1199,11 @@ class DlgMultiSpendReview(ArmoryDialog):
                Input that failed:  %s""") % hrStr, QMessageBox.Ok)
             self.reject()
 
-         # Take note of which lockbox this is
+         # (ASSUMPTION q38JmNa5) Take note of which lockbox this is
          iBundle.lockbox = self.main.getLockboxByID(idStr.split(':')[-1])
 
-         # Check whether we have the capability to sign this thing
-         # Again assuming lockbox input... for simplicity
+         # (ASSUMPTION q38JmNa5)
+         # Check whether we have the capability to sign this lockbox
          iBundle.binScript = iBundle.lockbox.binScript
          M,N = iBundle.lockbox.M, iBundle.lockbox.N
          iBundle.wltOfflineSign  = [None]*N
@@ -1212,7 +1212,8 @@ class DlgMultiSpendReview(ArmoryDialog):
          for i in range(N):
             a160 = iBundle.lockbox.a160List[i]
             wltID = self.main.getWalletForAddr160(a160)
-            iBundle.keyholePixmap[i].setPixmap(self.pixWh())
+            iBundle.keyholePixmap[i] = QLabel()
+            iBundle.keyholePixmap[i].setPixmap(self.pixWhite())
             if wltID:
                wlt = self.main.walletMap[wltID]
                wltType = determineWalletType(wlt, self.main)[0]
@@ -1220,7 +1221,7 @@ class DlgMultiSpendReview(ArmoryDialog):
                   iBundle.wltOfflineSign[i] = [wltID, a160]
                else:
                   iBundle.wltSignRightNow[i] = [wltID, a160]
-                  iBundle.keyholePixmap[i].setPixmap(self.pixGn())
+                  iBundle.keyholePixmap[i].setPixmap(self.pixGreen())
                
 
       # The output bundles are quite a bit simpler 
@@ -1245,7 +1246,6 @@ class DlgMultiSpendReview(ArmoryDialog):
 
       self.maxN = 3
 
-      print 'Contributions:'
       iin = 0
       iout = 0
       for idStr in self.inputBundles:
@@ -1254,9 +1254,12 @@ class DlgMultiSpendReview(ArmoryDialog):
          topRow = (self.maxN+1)*iin
          iin += 1
 
+         ib = self.inputBundles[idStr]
+
          iWidgMap['HeadLbl'] = QRichLabel(tr("""
             <font color="%s"><b><u>Spending:</u> %s</b></font>""") % \
-            (htmlColor('TextBlue'), self.contribStr[idStr]))
+            (htmlColor('TextBlue'), self.inputBundles[idStr].dispStr), \
+            doWrap=False)
          val = self.inputBundles[idStr].sendAmt
          iWidgMap['Amount'] = QMoneyLabel(-val, txtSize=12, wBold=True)
 
@@ -1270,7 +1273,7 @@ class DlgMultiSpendReview(ArmoryDialog):
          for i in range(self.maxN):
             iWidgMap['HeadImg'][i] = QLabel()
             iWidgMap['KeyImg' ][i] = QLabel()
-            iWidgMap['KeyLbl' ][i] = QRichLabel('')
+            iWidgMap['KeyLbl' ][i] = QRichLabel('', doWrap=False)
             iWidgMap['ChkImg' ][i] = QLabel()
             iWidgMap['SignBtn'][i] = QPushButton('')
          
@@ -1291,19 +1294,21 @@ class DlgMultiSpendReview(ArmoryDialog):
             row = topRow + 1 + i
             layoutInputs.addItem(QSpacerItem(20,20),       row,0)
             layoutInputs.addWidget(iWidgMap['KeyImg' ][i], row,1)
-            layoutInputs.addWidget(iWidgMap['ChkImg' ][i], row,2)
-            layoutInputs.addWidget(iWidgMap['KeyLbl' ][i], row,3)
+            layoutInputs.addWidget(iWidgMap['KeyLbl' ][i], row,2)
+            layoutInputs.addWidget(iWidgMap['ChkImg' ][i], row,3)
             layoutInputs.addWidget(iWidgMap['SignBtn'][i], row,4)
 
             self.connect(iWidgMap['SignBtn'][i], SIGNAL('clicked()'), \
                                            createSignCallback(idStr, i))
 
+            # (ASSUMPTION q38JmNa5)
             lbox = self.inputBundles[idStr].lockbox
             if i < lbox.N:
                iWidgMap['HeadImg'][i].setPixmap(self.pixPie(lbox.M))
                iWidgMap['KeyImg' ][i].setMinimumSize(KEYW,KEYH)
                iWidgMap['ChkImg' ][i].setMinimumSize(CHKW,CHKH)
                iWidgMap['KeyLbl' ][i].setText(lbox.commentList[i])
+               iWidgMap['KeyLbl' ][i].setWordWrap(False)
    
             
 
@@ -1311,24 +1316,33 @@ class DlgMultiSpendReview(ArmoryDialog):
             if widgetName in ['HeadLbl', 'Amount']:
                continue
 
-            for i in range(self.maxN):
-               lockbox = self.inputBundles[idStr].lockbox
-               widgetList[i].setVisible(i < lockboxN)
+            print 'Figure out how to uncomment this...'
+            #for i in range(self.maxN):
+               #lockbox = self.inputBundles[idStr].lockbox
+               #widgetList[i].setVisible(i < lockbox.N)
             
 
+      layoutInputs.setColumnStretch(0,0)
+      layoutInputs.setColumnStretch(1,0)
+      layoutInputs.setColumnStretch(2,1)
+      layoutInputs.setColumnStretch(3,0)
+      layoutInputs.setColumnStretch(4,0)
 
+
+      # Maybe one day we'll do full listing of lockboxes on the output side
+      # But for now, it will only further complicate things...
       for idStr in self.outputBundles:
-         #print "SEND-:", self.contribStr[idStr], coin2strNZS(-amt), 
-                                                               #'(',idStr,')'
+
          self.oWidgets[idStr] = {}
          oWidgMap = self.oWidgets[idStr]
-         topRow = (self.maxN+1)*iOut
+         topRow = (self.maxN+1)*iout
          iout += 1
 
 
          oWidgMap['HeadLbl'] = QRichLabel(tr("""
             <font color="%s"><b><u>Receiving:</u> %s</b></font>""") % \
-            (htmlColor('TextBlue'), self.contribStr[idStr]))
+            (htmlColor('TextBlue'), self.outputBundles[idStr].dispStr), \
+            doWrap=False)
          val = self.outputBundles[idStr].recvAmt
          oWidgMap['Amount'] = QMoneyLabel(val, txtSize=12, wBold=True)
 
@@ -1356,12 +1370,32 @@ class DlgMultiSpendReview(ArmoryDialog):
                oWidgMap['HeadImg'][i].setPixmap(self.pixPie(M))
                oWidgMap['HeadImg'][i].setMinimumSize(KEYW,KEYH)
 
+      frmInputs = QFrame()
+      frmInputs.setLayout(layoutInputs)
+      frmInputs.setFrameStyle(STYLE_STYLED)
+
+      frmOutputs = QFrame()
+      frmOutputs.setLayout(layoutOutputs)
+      frmOutputs.setFrameStyle(STYLE_STYLED)
+
 
       # Evaluate SigningStatus returns per-wallet details if a wlt is given
       self.relevancyMap  = {}
       self.canSignMap    = {}
       self.alreadySigned = {}
       self.evalSigStat()
+
+      frmMain = makeVertFrame([lblDescr, 
+                               HLINE(),
+                               HLINE(),
+                               frmInputs,
+                               HLINE(),
+                               HLINE(),
+                               frmOutputs])
+
+      layoutMain = QVBoxLayout()
+      layoutMain.addWidget(frmMain)
+      self.setLayout(layoutMain)
       
 
       
@@ -1404,6 +1438,8 @@ class DlgMultiSpendReview(ArmoryDialog):
          self.canSignMap[wltID]    = txss.wltCanSign
          self.alreadySigned[wltID] = txss.wltAlreadySigned
 
+      # General signed/not-signed
+      txss = self.ustx.evaluateSigningStatus()
       
       #class InputBundle(object):
          #def __init__(self):
@@ -1421,22 +1457,40 @@ class DlgMultiSpendReview(ArmoryDialog):
       #    Then goes over all N public keys
       for idStr,ib in self.inputBundles.iteritems():
          iWidgMap = self.iWidgets[idStr]
+
+         # (ASSUMPTION q38JmNa5) Only one type of input, a single lockbox
+         #                       (therefore only need to examine first ustxi)
+         # Since we are calling this without a wlt, each key state can only
+         # be either ALREADY_SIGNED or NO_SIGNATURE (no WLT* possible)
+         isigstat = ib.ustxiList[0].evaluateSigningStatus()
+
          for i in range(ib.lockbox.N):
             signBtn = iWidgMap['SignBtn'][i]
             chkLbl  = iWidgMap['ChkImg'][i]
             keyImg  = iWidgMap['KeyImg'][i]
-            if ib.wltOfflineSign[i]:
+            if isigstat.statusN[i]==TXIN_SIGSTAT.ALREADY_SIGNED:
+               chkLbl.setVisible(True)
+               signBtn.setEnabled(False)
+               signBtn.setText(tr('Done!'))
+               keyImg.setPixmap(self.pixGray())
+            elif ib.wltOfflineSign[i]:
+               chkLbl.setVisible(False)
                signBtn.setVisible(True)
                signBtn.setEnabled(False)
                signBtn.setText('Offline')
-               chkLbl.
+               keyImg.setPixmap(self.pixWhite())
             elif ib.wltSignRightNow[i]:
+               chkLbl.setVisible(False)
                signBtn.setVisible(True)
                signBtn.setEnabled(True)
-               signBtn.setText('Sign!')
+               signBtn.setText('Sign')
+               keyImg.setPixmap(self.pixGreen())
+            else:
+               chkLbl.setVisible(False)
+               signBtn.setVisible(False)
+               keyImg.setPixmap(self.pixWhite())
+               signBtn.setVisible(False)
 
-            chkLbl.setPixmap(self.pixChk())
-            keyImg.setPixmap(self.pixGr())
             
 
          
