@@ -445,7 +445,7 @@ class DlgLockboxEditor(ArmoryDialog):
 
       self.edtBoxName.setText(boxObj.shortName)
       self.longDescr = boxObj.longDescr
-      self.loadedID = boxObj.uniqueIDB58
+      self.loadedID = boxObj.uniqueB58
       self.createDate = boxObj.createDate
 
       for i in range(boxObj.N):
@@ -624,7 +624,7 @@ class DlgExportLockbox(ArmoryDialog):
    def savefile(self):
       fn = self.main.getFileSave(tr('Export Lockbox Info'), 
                                  ['Lockboxes (*.lockbox.txt)'], 
-                            'Multikey_%s.lockbox.txt'%self.lockbox.uniqueIDB58)
+                            'Multikey_%s.lockbox.txt'%self.lockbox.uniqueB58)
       if fn:
          with open(fn,'w') as f:
             f.write(self.boxText + '\n')
@@ -992,6 +992,126 @@ class DlgLockboxManager(ArmoryDialog):
       super(DlgLockboxManager, self).reject(*args)
       
 
+################################################################################
+class DlgImportAsciiBlock(QDialog):
+   def __init__(self, parent, main, titleStr, descrStr, fileTypes, importType):
+      super(DlgImportAsciiBlock, self).__init__(parent)
+      self.main = main
+      self.fileTypes = fileTypes
+      self.importType = importType
+
+      lbl = QRichLabel(descrStr)
+
+      self.txtAscii = QPlainTextEdit()
+      self.txtAscii.setFont(GETFONT('Fixed', 9))
+      w,h = relaxedSizeNChar(self.txtAscii, 80)
+      self.txtAscii.setMinimumWidth(w)
+      btnLoad = QPushButton(tr("Load from file"))
+      btnDone = QPushButton(tr("Done"))
+      btnCancel = QPushButton(tr("Cancel"))
+
+                              
+      self.connect(btnLoad,   SIGNAL('clicked()'), self.loadfile)
+      self.connect(btnDone,   SIGNAL('clicked()'), self.clickedDone)
+      self.connect(btnCancel, SIGNAL('clicked()'), self.reject)
+
+      frmLoadButton = makeHorizFrame(['Stretch', btnLoad])
+      frmBottomRow  = makeHorizFrame([btnCancel, 'Stretch', btnDone])
+
+      layout = QVBoxLayout()
+      layout.addWidget(lbl)
+      layout.addWidget(frmLoadButton)
+      layout.addWidget(self.txtAscii, 1)
+      layout.addWidget(frmBottomRow)
+      self.setLayout(layout)
+      self.setWindowTitle(titleStr)
+      self.setMinimumWidth(450)
+
+   #############################################################################
+   def loadfile(self):
+      loadPath = self.main.getFileLoad(tr('Load Data'), self.fileTypes)
+                                                 
+      if not loadPath:
+         return
+      with open(loadPath) as f:
+         data = f.read()
+      self.txtAscii.setPlainText(data)
+
+
+   #############################################################################
+   def clickedDone(self):
+      try:
+         txt = str(self.txtAscii.toPlainText()).strip()
+         self.returnObj = self.importType().unserializeAscii(txt)
+      except:
+         LOGEXCEPT('Error reading ASCII block')
+         QMessageBox.warning(self, tr('Error'), tr("""
+            There was an error reading the ASCII block entered.  Please
+            make sure it was entered/copied correctly, and that you have
+            copied the header and footer lines that start with "=====". """), 
+            QMessageBox.Ok)
+         return
+         
+      self.accept()
+
+
+################################################################################
+class DlgExportAsciiBlock(ArmoryDialog):
+   def __init__(self, parent, main, exportObj, title, descr, ftypes, defaultFN):
+      super(DlgExportAsciiBlock, self).__init__(parent, main)
+
+      lblDescr = QRichLabel(descr)
+      self.exportObj  = exportObj
+      self.fileTypes  = ftypes
+      self.defaultFN  = defaultFN
+      self.asciiBlock = exportObj.serializeAscii()
+
+
+      txt = QPlainTextEdit()
+      txt.setFont(GETFONT('Fixed', 9))
+      w,h = relaxedSizeNChar(txt, 80)
+      txt.setMinimumWidth(w)
+      txt.setMinimumHeight(h*9)
+      txt.setPlainText(self.asciiBlock)
+
+      self.lblCopied = QRichLabel('')
+      btnCopy = QPushButton(tr("Copy to Clipboard"))
+      btnSave = QPushButton(tr("Save to File"))
+      btnDone = QPushButton(tr("Done"))
+   
+      self.connect(btnCopy, SIGNAL('clicked()'), self.clipcopy)
+      self.connect(btnSave, SIGNAL('clicked()'), self.savefile)
+      self.connect(btnDone, SIGNAL('clicked()'), self.accept)
+
+      frmCopy = makeHorizFrame([btnSave, btnCopy, self.lblCopied, 'Stretch'])
+      frmDone = makeHorizFrame(['Stretch', btnDone])
+      frmMain = makeVertFrame([lblDescr, txt, frmCopy], STYLE_RAISED)
+
+      layout = QVBoxLayout()
+      layout.addWidget(frmMain)
+      layout.addWidget(frmDone)
+      self.setLayout(layout)
+
+      self.setWindowTitle(title)
+      self.setWindowIcon(QIcon(self.main.iconfile))
+
+
+   def savefile(self):
+      defaultFn = self.filePrefix 
+      fn = self.main.getFileSave(tr('Export ASCII Block'), self.fileTypes,
+                                                            self.defaultFn)
+      if fn:
+         with open(fn,'w') as f:
+            f.write(self.asciiBlock + '\n')
+         self.accept()
+
+
+   def clipcopy(self):
+      clipb = QApplication.clipboard()
+      clipb.clear()
+      clipb.setText(self.asciiBlock)
+      self.lblCopied.setText('<i>Copied!</i>')
+
 
 ################################################################################
 class DlgImportLockbox(QDialog):
@@ -1050,7 +1170,7 @@ class DlgImportLockbox(QDialog):
          LOGEXCEPT('Error unserializing the entered text')
          return
          
-      lbID = self.importedLockbox.uniqueIDB58
+      lbID = self.importedLockbox.uniqueB58
       if not self.main.getLockboxByID(lbID) is None:
          reply = QMessageBox.warning(self, tr("Duplicate Lockbox"), tr("""
             You just attempted to import a lockbox with ID, %s.  This
@@ -1106,7 +1226,7 @@ class DlgMultiSpendReview(ArmoryDialog):
    """
 
    #############################################################################
-   def __init__(self, parent, main, lboxID, ustx):
+   def __init__(self, parent, main, ustx):
       super(DlgMultiSpendReview, self).__init__(parent, main)
 
 
@@ -1142,9 +1262,10 @@ class DlgMultiSpendReview(ArmoryDialog):
 
       layout = QVBoxLayout()
 
-      self.lboxID = lboxID
-      self.lbox   = self.main.getLockboxByID(lboxID)
+      #self.lboxID = lboxID
+      #self.lbox   = self.main.getLockboxByID(lboxID)
       self.ustx = UnsignedTransaction().unserialize(ustx.serialize())
+      self.feeAmt = self.ustx.calculateFee()
 
 
       # Some simple container classes
@@ -1257,18 +1378,18 @@ class DlgMultiSpendReview(ArmoryDialog):
          ib = self.inputBundles[idStr]
 
          iWidgMap['HeadLbl'] = QRichLabel(tr("""
-            <font color="%s"><b><u>Spending:</u> %s</b></font>""") % \
+            <b><u>Spending:</u> <font color="%s">%s</b></font>""") % \
             (htmlColor('TextBlue'), self.inputBundles[idStr].dispStr), \
             doWrap=False)
          val = self.inputBundles[idStr].sendAmt
          iWidgMap['Amount'] = QMoneyLabel(-val, txtSize=12, wBold=True)
 
-         # These are images that show up to N=3
-         iWidgMap['HeadImg'] = [None]*3
-         iWidgMap['KeyImg']  = [None]*3
-         iWidgMap['KeyLbl']  = [None]*3
-         iWidgMap['ChkImg']  = [None]*3
-         iWidgMap['SignBtn']  = [None]*3
+         # These are images that show up to N=5
+         iWidgMap['HeadImg'] = [None]*self.maxN
+         iWidgMap['KeyImg']  = [None]*self.maxN
+         iWidgMap['KeyLbl']  = [None]*self.maxN
+         iWidgMap['ChkImg']  = [None]*self.maxN
+         iWidgMap['SignBtn']  = [None]*self.maxN
 
          for i in range(self.maxN):
             iWidgMap['HeadImg'][i] = QLabel()
@@ -1290,24 +1411,53 @@ class DlgMultiSpendReview(ArmoryDialog):
                self.doSignForInput(idstring, nIdx)
             return doSign
 
+
          for i in range(self.maxN):
             row = topRow + 1 + i
             layoutInputs.addItem(QSpacerItem(20,20),       row,0)
-            layoutInputs.addWidget(iWidgMap['KeyImg' ][i], row,1)
-            layoutInputs.addWidget(iWidgMap['KeyLbl' ][i], row,2)
-            layoutInputs.addWidget(iWidgMap['ChkImg' ][i], row,3)
-            layoutInputs.addWidget(iWidgMap['SignBtn'][i], row,4)
+            layoutInputs.addWidget(iWidgMap['SignBtn'][i], row,1)
+            layoutInputs.addWidget(iWidgMap['KeyImg' ][i], row,2)
+            layoutInputs.addWidget(iWidgMap['KeyLbl' ][i], row,3)
+            layoutInputs.addWidget(iWidgMap['ChkImg' ][i], row,4)
 
             self.connect(iWidgMap['SignBtn'][i], SIGNAL('clicked()'), \
                                            createSignCallback(idStr, i))
 
             # (ASSUMPTION q38JmNa5)
             lbox = self.inputBundles[idStr].lockbox
-            if i < lbox.N:
+            if i >= lbox.N:
+               iWidgMap['SignBtn'][i].setVisible(False)
+               iWidgMap['KeyImg' ][i].setVisible(False)
+               iWidgMap['KeyLbl' ][i].setVisible(False)
+               iWidgMap['ChkImg' ][i].setVisible(False)
+            else:
+               comm = lbox.commentList[i]
+
+               wltID = ''
+               if iBundle.wltOfflineSign[i]:
+                  wltID = iBundle.wltOfflineSign[i][0]
+               if iBundle.wltSignRightNow[i]:
+                  wltID = iBundle.wltSignRightNow[i][0]
+
+               wltName = '' 
+               if wltID:
+                  wltName = self.main.walletMap[wltID].getDisplayStr()
+
+               if not comm:
+                  if not wltName:
+                     dispStr = tr('[[Unknown Signer]]') 
+                  else:
+                     dispStr = wltName
+               else:
+                  if not wltName:
+                     dispStr = comm
+                  else:
+                     dispStr = '%s [%s]' % (comm,wltName)
+               iWidgMap['KeyLbl' ][i].setText(dispStr)
+
                iWidgMap['HeadImg'][i].setPixmap(self.pixPie(lbox.M))
                iWidgMap['KeyImg' ][i].setMinimumSize(KEYW,KEYH)
                iWidgMap['ChkImg' ][i].setMinimumSize(CHKW,CHKH)
-               iWidgMap['KeyLbl' ][i].setText(lbox.commentList[i])
                iWidgMap['KeyLbl' ][i].setWordWrap(False)
    
             
@@ -1316,16 +1466,16 @@ class DlgMultiSpendReview(ArmoryDialog):
             if widgetName in ['HeadLbl', 'Amount']:
                continue
 
-            print 'Figure out how to uncomment this...'
-            #for i in range(self.maxN):
-               #lockbox = self.inputBundles[idStr].lockbox
-               #widgetList[i].setVisible(i < lockbox.N)
+            for i in range(self.maxN):
+               lockbox = self.inputBundles[idStr].lockbox
+               if i>= lockbox.N:
+                  widgetList[i].setVisible(False)
             
 
       layoutInputs.setColumnStretch(0,0)
       layoutInputs.setColumnStretch(1,0)
-      layoutInputs.setColumnStretch(2,1)
-      layoutInputs.setColumnStretch(3,0)
+      layoutInputs.setColumnStretch(2,0)
+      layoutInputs.setColumnStretch(3,1)
       layoutInputs.setColumnStretch(4,0)
 
 
@@ -1340,14 +1490,14 @@ class DlgMultiSpendReview(ArmoryDialog):
 
 
          oWidgMap['HeadLbl'] = QRichLabel(tr("""
-            <font color="%s"><b><u>Receiving:</u> %s</b></font>""") % \
+            <b><u>Receiving:</u>  <font color="%s">%s</font></b>""") % \
             (htmlColor('TextBlue'), self.outputBundles[idStr].dispStr), \
             doWrap=False)
          val = self.outputBundles[idStr].recvAmt
          oWidgMap['Amount'] = QMoneyLabel(val, txtSize=12, wBold=True)
 
          # These are images that show up to N=3
-         oWidgMap['HeadImg'] = [None]*3
+         oWidgMap['HeadImg'] = [None]*self.maxN
          for i in range(self.maxN):
             oWidgMap['HeadImg'][i] = QLabel()
 
@@ -1364,11 +1514,24 @@ class DlgMultiSpendReview(ArmoryDialog):
             M,N = 1,1
          else:
             M,N = lbox.M, lbox.N
+            for i in range(self.maxN):
+               if i < N:
+                  oWidgMap['HeadImg'][i].setPixmap(self.pixPie(M))
+                  oWidgMap['HeadImg'][i].setMinimumSize(KEYW,KEYH)
             
-         for i in range(self.maxN):
-            if i < N:
-               oWidgMap['HeadImg'][i].setPixmap(self.pixPie(M))
-               oWidgMap['HeadImg'][i].setMinimumSize(KEYW,KEYH)
+
+
+      # Add a fee row if needed
+      if self.feeAmt > 0:
+         row = (self.maxN+1)*iout
+         lblFee = QRichLabel('<b>Transaction Fee</b>')
+         lblAmt = QMoneyLabel(self.feeAmt, txtSize=12, wBold=True)
+
+         frmTxFee = makeHorizFrame([lblFee, 'Stretch', lblAmt])
+         layoutOutputs.addWidget(HLINE(),   row,0,   1,5)
+         layoutOutputs.addWidget(frmTxFee,  row+1,0, 1,5)
+         
+                  
 
       frmInputs = QFrame()
       frmInputs.setLayout(layoutInputs)
@@ -1379,11 +1542,26 @@ class DlgMultiSpendReview(ArmoryDialog):
       frmOutputs.setFrameStyle(STYLE_STYLED)
 
 
-      # Evaluate SigningStatus returns per-wallet details if a wlt is given
-      self.relevancyMap  = {}
-      self.canSignMap    = {}
-      self.alreadySigned = {}
-      self.evalSigStat()
+
+      self.btnLoadImport  = QPushButton(tr('Load/Import'))
+      self.lblFinalMsg    = QRichLabel('')
+      self.lblFinalChk    = QLabel()
+      self.btnFinalBroad  = QPushButton(tr('Broadcast'))
+      self.btnFinalExport = QPushButton(tr('Export'))
+      self.lblFinalChk.setMinimumSize(CHKW,CHKH)
+      layoutBtns = QHBoxLayout()
+      layoutBtns.addWidget(self.btnLoadImport)
+      layoutBtns.addStretch()
+      layoutBtns.addWidget(self.lblFinalMsg, 1)
+      layoutBtns.addWidget(self.lblFinalChk)
+      layoutBtns.addWidget(self.btnFinalBroad)
+      layoutBtns.addWidget(self.btnFinalExport)
+      frmButtons = QFrame()
+      frmButtons.setLayout(layoutBtns)
+
+      self.connect(self.btnLoadImport,  SIGNAL('clicked()'), self.doImport)
+      self.connect(self.btnFinalBroad,  SIGNAL('clicked()'), self.doBroadcast)
+      self.connect(self.btnFinalExport, SIGNAL('clicked()'), self.doExport)
 
       frmMain = makeVertFrame([lblDescr, 
                                HLINE(),
@@ -1391,12 +1569,26 @@ class DlgMultiSpendReview(ArmoryDialog):
                                frmInputs,
                                HLINE(),
                                HLINE(),
-                               frmOutputs])
+                               frmOutputs,
+                               HLINE(),
+                               frmButtons])
+
+      # Actually, this dialog will not handle changing USTX objects yet
+      # For now, need to pre-select your USTX, then load this dialog with it
+      #self.btnLoadImport.setVisible(False)
+
 
       layoutMain = QVBoxLayout()
       layoutMain.addWidget(frmMain)
       self.setLayout(layoutMain)
+
+      self.setMinimumWidth(750)
       
+      # Evaluate SigningStatus returns per-wallet details if a wlt is given
+      self.relevancyMap  = {}
+      self.canSignMap    = {}
+      self.alreadySigned = {}
+      self.evalSigStat()
 
       
    
@@ -1438,9 +1630,6 @@ class DlgMultiSpendReview(ArmoryDialog):
          self.canSignMap[wltID]    = txss.wltCanSign
          self.alreadySigned[wltID] = txss.wltAlreadySigned
 
-      # General signed/not-signed
-      txss = self.ustx.evaluateSigningStatus()
-      
       #class InputBundle(object):
          #def __init__(self):
             #self.binScript = ''
@@ -1470,38 +1659,113 @@ class DlgMultiSpendReview(ArmoryDialog):
             keyImg  = iWidgMap['KeyImg'][i]
             if isigstat.statusN[i]==TXIN_SIGSTAT.ALREADY_SIGNED:
                chkLbl.setVisible(True)
+               chkLbl.setPixmap(self.pixChk())
                signBtn.setEnabled(False)
                signBtn.setText(tr('Done!'))
                keyImg.setPixmap(self.pixGray())
-            elif ib.wltOfflineSign[i]:
-               chkLbl.setVisible(False)
-               signBtn.setVisible(True)
-               signBtn.setEnabled(False)
-               signBtn.setText('Offline')
-               keyImg.setPixmap(self.pixWhite())
             elif ib.wltSignRightNow[i]:
-               chkLbl.setVisible(False)
+               chkLbl.setPixmap(QPixmap())
                signBtn.setVisible(True)
                signBtn.setEnabled(True)
                signBtn.setText('Sign')
                keyImg.setPixmap(self.pixGreen())
+            elif ib.wltOfflineSign[i]:
+               chkLbl.setPixmap(QPixmap())
+               signBtn.setVisible(True)
+               signBtn.setEnabled(False)
+               signBtn.setText('Offline')
+               keyImg.setPixmap(self.pixWhite())
             else:
-               chkLbl.setVisible(False)
+               chkLbl.setPixmap(QPixmap())
+               signBtn.setVisible(True)
                signBtn.setVisible(False)
                keyImg.setPixmap(self.pixWhite())
                signBtn.setVisible(False)
 
-            
-
-         
-
-   ############################################################################# 
-   def exportCurrentUSTX(self):
-      self
-
-
+      # Now modify the window/buttons based on the whole transaction state
+      # (i.e. Can broadcast, etc)
+      txss = self.ustx.evaluateSigningStatus()
+      if txss.canBroadcast:
+         self.lblFinalMsg.setText( tr("""
+            <font color="%s">This transaction has enough signatures and 
+            can be broadcast!""") % htmlColor('TextGreen'))
+         self.btnFinalBroad.setVisible(True)
+         self.btnFinalBroad.setEnabled(True)
+         self.btnFinalExport.setVisible(True)
+         self.btnFinalExport.setEnabled(True)
+         self.lblFinalChk.setPixmap(self.pixChk())
+      else:
+         self.lblFinalMsg.setText( tr("""
+            <font color="%s">This transaction is incomplete.  You can
+            add signatures then export and give to other parties or
+            devices to sign.</font>""") % htmlColor('TextWarn'))
+         self.btnFinalBroad.setVisible(False)
+         self.btnFinalBroad.setEnabled(False)
+         self.btnFinalExport.setVisible(True)
+         self.btnFinalExport.setEnabled(True)
+         self.lblFinalChk.setPixmap(QPixmap())
 
       
+
+   def doExport(self):
+      #class DlgExportAsciiBlock(ArmoryDialog):
+      #def __init__(self, parent, main, exportObj, title, descr, fileTypes, defaultFN)
+      title = tr("Export Signature Collector")
+      descr = tr("""
+         The text below includes all data about this multi-key transaction, 
+         including all the signatures already made to it.  It contains 
+         everything needed to securely review and sign it, including offline 
+         devices/wallets.  
+         <br><br>
+         If this transaction requires signatures from multiple parties, it is
+         safe to send this data via email or USB key.  No data is included 
+         that would compromise the security of any of the signing devices.""")
+      ftypes = ['Signature Collectors (*.sigcollect.tx)']
+      defaultFN = 'MultikeyTransaction_%s.sigcollect.tx' % self.ustx.uniqueB58
+         
+      DlgExportAsciiBlock(self, self.main, self.ustx, title, descr, 
+                                                    ftypes, defaultFN).exec_()
+
+   
+   def doImport(self):
+      title = tr("Import Signature Collector")
+      descr = tr("""
+         Load a multi-key transaction for review, signing and/or broadcast.  
+         If any of your loaded wallets can sign for any transaction inputs,
+         you will be able to execute the signing for each one.  If your 
+         signature completes the transaction, you can then broadcast it to
+         finalize it.""")
+      ftypes = ['Signature Collectors (*.sigcollect.tx)']
+      importType = self.ustx.__class__
+
+      dlg = DlgImportAsciiBlock(self, self.main, title, descr, ftypes, importType)
+      if dlg.exec_():
+         # FIXME: This is a serious hack because I didn't have time to implement
+         #        reloading an existing dialog with a new USTX, so I just recurse
+         #        for now (it's because all the layouts are set in the __init__
+         #        function, etc...
+         self.accept() 
+         DlgMultiSpendReview(self.parent, self.main, dlg.returnObj).exec_()
+
+
+   def doBroadcast(self):
+      finalTx = self.ustx.prepareFinalTx(doVerifySigs=True)
+      if not finalTx:
+         self.ustx.evaluateSigningStatus().pprint()
+         QMessageBox.critical(self, tr('Invalid Signatures'), tr("""
+            Somehow not all inputs have valid sigantures!  You can choose  
+            to attempt to broadcast anyway, in case you think Armory is
+            not evaluating the transaction state correctly.  
+            <br><br>
+            Otherwise, please confirm that you have created signatures 
+            from the correct wallets.  Perhaps try collecting signatures
+            again...?"""), QMessageBox.Ok)
+
+         finalTx = self.ustx.prepareFinalTx(doVerifySigs=False)
+
+      self.main.broadcastTransaction(finalTx)
+         
+
 
 
 

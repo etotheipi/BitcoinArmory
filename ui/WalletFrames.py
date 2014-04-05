@@ -165,8 +165,7 @@ class SelectWalletFrame(ArmoryFrame):
       self.dispDescr.setWordWrap(True)
       # This line fixes squished text when word wrapping
       self.dispDescr.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
-      self.dispBal = QMoneyLabel(self.cppWlt.getSpendableBalance())
-
+      self.dispBal = QMoneyLabel(0)
       self.dispBal.setTextFormat(Qt.RichText)
       
       wltInfoFrame = QFrame()

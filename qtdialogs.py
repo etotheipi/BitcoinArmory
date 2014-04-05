@@ -4806,8 +4806,7 @@ class DlgSendBitcoins(ArmoryDialog):
          dlg = DlgOfflineTxCreated(self.frame.wlt, ustx, self.parent, self.main)
          dlg.exec_()
       else:
-         dlg = DlgMultiSpendReview(self.parent, self.main, 
-                                          self.spendFromLockboxID, ustx)
+         dlg = DlgMultiSpendReview(self.parent, self.main, ustx)
          dlg.exec_()
 
 

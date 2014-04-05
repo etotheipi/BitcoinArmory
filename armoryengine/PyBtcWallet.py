@@ -1631,6 +1631,9 @@ class PyBtcWallet(object):
       return fpath
 
 
+   #############################################################################
+   def getDisplayStr(self, pref="Wallet: "):
+      return '%s"%s" (%s)' % (pref, self.labelName, self.uniqueIDB58)
 
    #############################################################################
    def getCommentForAddress(self, addr160):
