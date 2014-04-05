@@ -961,7 +961,11 @@ class DlgLockboxManager(ArmoryDialog):
 
    #############################################################################
    def doSpend(self):
+      lbID = self.getSelectedLBID()
+      dlg = DlgSendBitcoins(None, self, self.main, spendFromLockboxID=lbID)
+      dlg.exec_()
       self.updateButtonDisable()
+      
 
 
 
@@ -1093,7 +1097,7 @@ class DlgContributeFundLockbox(ArmoryDialog):
 class DlgMultiSpendReview(ArmoryDialog):
 
    #############################################################################
-   def __init__(self, parent, main, txdp):
+   def __init__(self, parent, main, lboxID, ustx):
       super(DlgMultiSpendReview, self).__init__(parent, main)
 
 
@@ -1110,10 +1114,80 @@ class DlgMultiSpendReview(ArmoryDialog):
          returning to the same lockbox from where it came).  If there is 
          any ambiguity, Armory will display all outputs."""))
 
+      layout = QVBoxLayout()
+
+      self.lboxID = lboxID
+      self.lbox   = self.main.getLockboxByID(lboxID)
+      self.ustx = UnsignedTransaction().unserialize(ustx.serialize())
+
+      # Evaluate SigningStatus returns per-wallet details if a wlt is given
+      self.relevancyMap  = {}
+      self.canSignMap    = {}
+      self.alreadySigned = {}
+      self.evalSigStat()
+      
+
+      self.contribNet = {}
+      self.useContrib = True
+
+      # Accumulate values of each contribID
+      for ustxi in self.ustx.ustxInputs:
+         if not ustxi.contribID in self.contribNet:
+            self.contribNet[ustxi.contribID] = 0
+
+         self.contribNet[ustxi.contribID] -= ustxi.value
+      
+      # Decrement if there is change values for that ID
+      for dtxo in self.ustx.decorTxOuts:
+         cid = dtxo.contribID
+         if not cid:
+            cid = dtxo.getRecipStr()
+            
+         if not cid in self.contribNet:
+            self.contribNet[cid] = 0
+
+         self.contribNet[cid] += dtxo.value
+
+
+      for cid,amt in self.contribNet.iteritems():
+         if not cid:
+            cid = 'OTHER'.ljust(8)
+         print 'ID: %s / Amt: %s' % (cid.ljust(35), coin2str(amt))
+            
+   
+
+   #############################################################################
+   def evalSigStat(self):
+      self.relevancyMap  = {}
+      self.canSignMap    = {}
+      self.alreadySigned = {}
+
+      for wltID,pyWlt in self.main.walletMap.iteritems():
+         txss = self.ustx.evaluateSigningStatus(pyWlt.cppWallet)
+         self.relevancyMap[wltID]  = txss.wltIsRelevant
+         self.canSignMap[wltID]    = txss.wltCanSign
+         self.alreadySigned[wltID] = txss.wltAlreadySigned
 
      
-   def isFinal(tx):
-      return False
+   #############################################################################
+   def signAsMuchAsPossible(self, wlts):
+      if not isinstance(wlts, (list,tuple)):
+         wlts = [wlts]
+
+         
+
+
+   #############################################################################
+   def redrawSigs(self):
+      self.allSigStat = self.ustx.evaluateSigningStatus()
+
+      print 'Original USTX:'
+      self.ustx.pprint()
+
+      print 'Signing Status'
+      self.allSigStat.pprint()
+      
+
 
 
 ################################################################################

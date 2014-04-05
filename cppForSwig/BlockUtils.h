@@ -376,6 +376,7 @@ public:
                       uint32_t      lastTimestamp,
                       uint32_t      lastBlockNum);
 
+   // Why did we not just name this "hasScrAddr" like everything else?
    bool hasScrAddress(BinaryData const & scrAddr) const;
 
 

@@ -606,7 +606,11 @@ class TxInDispModel(QAbstractTableModel):
          if txinListFromBDM and len(txinListFromBDM[i][0])>0:
             # We had a BDM to help us get info on each input -- use it
             scrAddr,val,blk,hsh,idx = txinListFromBDM[i]
-            addrStr = scrAddr_to_addrStr(scrAddr)
+            if scrType==CPP_TXIN_SPENDMULTI:
+               M,N = [binary_to_int(a) for a in scrAddr[1:3]]
+               addrStr = 'Multisig (%d-of-%d)' % (M,N)
+            else:
+               addrStr = scrAddr_to_addrStr(scrAddr)
             if main:
                wltID = self.main.getWalletForAddr160(scrAddr[1:])
             dispcoin  = '' if not val else coin2str(val,maxZeros=1)

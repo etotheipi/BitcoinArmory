@@ -859,12 +859,13 @@ class InputSigningStatus(object):
 # and aggregating info about
 class TxSigningStatus(object):
    def __init__(self):
-      self.numInputs       = 0
-      self.statusList      = []
-      self.canBroadcast    = False
-      self.wltCanSign      = False
-      self.wltIsRelevant   = False
-      self.wltCanComplete  = False
+      self.numInputs        = 0
+      self.statusList       = []
+      self.canBroadcast     = False
+      self.wltCanSign       = False
+      self.wltIsRelevant    = False
+      self.wltAlreadySigned = False
+      self.wltCanComplete   = False
 
 
    def pprint(self, indent=3, lutFunc=None):
@@ -1162,7 +1163,7 @@ class UnsignedTxInput(object):
       elif self.scriptType==CPP_TXOUT_MULTISIG:
          # Serialize non-empty sigs, replace empty ones with OP_0
          OP_0 = getOpCode('OP_0')
-         pushSig = lambda sig: (scriptPushData(sig) if sig else OP_0)
+         pushSig = lambda sig: (scriptPushData(sig) if sig else '')
          serSigList = [pushSig(s) for s in self.signatures]
          outScript = OP_0 + ''.join(serSigList)
       else:
@@ -1404,7 +1405,7 @@ class UnsignedTxInput(object):
          if len(self.signatures[i]) > 0:
             signStatus.statusN[i] = TXIN_SIGSTAT.ALREADY_SIGNED
 
-         if cppWlt and cppWlt.hasScrAddr(self.scrAddrs[i]):
+         if cppWlt and cppWlt.hasScrAddress(self.scrAddrs[i]):
             self.wltIsRelevant = True
             if len(self.signatures[i]) > 0:
                signStatus.statusN[i] = TXIN_SIGSTAT.WLT_ALREADY_SIGNED
@@ -1469,7 +1470,7 @@ class DecoratedTxOut(object):
    """
    def __init__(self, script=None, value=None, p2sh=None,
                       wltLocator=None, authMethod='NONE', authInfo=None,
-                      version=UNSIGNED_TX_VERSION):
+                      contribID=None, version=UNSIGNED_TX_VERSION):
 
       if None in [script, value]:
          self.isInitialized = False
@@ -1483,20 +1484,21 @@ class DecoratedTxOut(object):
       self.wltLocator = wltLocator if wltLocator else ''
       self.authMethod = authMethod
       self.authInfo   = authInfo if authInfo else NullAuthInfo()
+      self.contribID  = contribID if contribID else ''
 
       # Derived values
       self.scrAddr    = script_to_scrAddr(script)
-      self.scrType    = getTxOutScriptType(script)
+      self.scriptType = getTxOutScriptType(script)
       self.multiInfo  = {}
 
       # P2SH destinations don't *require* the subscript like USTXI do
       baseScript = self.binScript
-      if p2sh and self.scrType == CPP_TXOUT_P2SH:
-         self.scrType = getTxOutScriptType(p2sh)
+      if p2sh and self.scriptType == CPP_TXOUT_P2SH:
+         self.scriptType = getTxOutScriptType(p2sh)
          baseScript = p2sh
 
 
-      if self.scrType == CPP_TXOUT_MULTISIG:
+      if self.scriptType == CPP_TXOUT_MULTISIG:
          M, N, a160s, pubs = getMultisigScriptInfo(baseScript)
          self.multiInfo['M'] = M
          self.multiInfo['N'] = N
@@ -1514,6 +1516,14 @@ class DecoratedTxOut(object):
       self.wltLocator = wltLocStr
 
    #############################################################################
+   def getRecipStr(self):
+      if self.scriptType in CPP_TXOUT_HAS_ADDRSTR:
+         return script_to_addrStr(self.binScript)
+      elif self.scriptType == CPP_TXOUT_MULTISIG:
+         return 'Multisig %d-of-%d' % (self.multiInfo['M'], self.multiInfo['N'])
+
+
+   #############################################################################
    def serialize(self):
       if not self.isInitialized:
          LOGERROR('Cannot serialize an uninitialzed unsigned txin')
@@ -1528,6 +1538,7 @@ class DecoratedTxOut(object):
       bp.put(VAR_STR,      self.wltLocator)
       bp.put(VAR_STR,      self.authMethod)
       bp.put(VAR_STR,      self.authInfo.serialize())
+      bp.put(VAR_STR,      self.contribID)
 
       return bp.getBinaryString()
 
@@ -1544,6 +1555,7 @@ class DecoratedTxOut(object):
       wltLoc   = bu.get(VAR_STR)
       authMeth = bu.get(VAR_STR)
       authInfo = bu.get(VAR_STR)
+      contrib  = bu.get(VAR_STR)
 
       if not magic==MAGIC_BYTES:
          LOGERROR('WRONG NETWORK!')
@@ -1560,10 +1572,15 @@ class DecoratedTxOut(object):
 
       authInfoObj = NullAuthInfo().unserialize(authInfo)
 
-      self.__init__(script, value, p2shScr, wltLoc, authMeth, authInfoObj)
+      self.__init__(script, value, p2shScr, wltLoc, 
+                                 authMeth, authInfoObj, contrib)
       return self
 
 
+   #def pprint(self, indent=3):
+      #ind = ' '*indent
+      #scrType   = CPP_TXOUT_SCRIPT_NAMES[self.scriptType]
+      #print 'DecoratedTxOut --  ' % (txHashStr, txoIdx, scrType)
 
 
 
@@ -1806,6 +1823,31 @@ class UnsignedTransaction(object):
 
 
    #############################################################################
+   def createFromPromNoteList(self, promList):
+      # Decorated txout list always has at least the target, probably a lockbox
+      ustxiAccum = []
+      dtxoAccum  = [dtxoTarget]
+   
+      # Accumulate all inputs from all prom notes, as well as change outputs
+      # Errors with the change values should've been caught in setParams
+      # Set all the "contribID" values to the same thing, so that you can 
+      # later identify which inputs and outputs belong to each party
+      for prom in promList:
+         for ustxi in prom.ustxInputs:
+            ustxi.contribID = promID
+            ustxiAccum.append(ustxi)
+   
+         if prom.dtxoChange.value > 0:
+            dtxo.contribID = promID
+            dtxoList.append(prom.dtxoChange)
+   
+      return UnsignedTransaction().createFromUnsignedTxIO(ustxiAccum, dtxoAccum)
+
+
+         
+   
+
+   #############################################################################
    def calculateFee(self):
       totalIn  = sum([ustxi.value for ustxi in self.ustxInputs ])
       totalOut = sum([dtxo.value  for dtxo  in self.decorTxOuts])
@@ -1908,6 +1950,8 @@ class UnsignedTransaction(object):
       txSigStat.wltCanSign     = False
       txSigStat.wltIsRelevant  = False
       txSigStat.wltCanComplete = True
+      txSigStat.wltAlreadySigned = False
+      #txSigStat.wltPartialSigned = False
 
       for inputStat in txSigStat.statusList:
          if not inputStat.allSigned:
@@ -1921,6 +1965,21 @@ class UnsignedTransaction(object):
 
          if not inputStat.wltCanComplete:
             txSigStat.wltCanComplete = False
+
+         for statCode in inputStat.statusN:
+            # WLT_CAN_SIGN is true only if it's not signed yet.  
+            # Therefore, if we run into with other WLT_ALREADY_SIGNED
+            # that means we're in a partial state (not sure how that happens)
+            #wltCanSign = statCode == TXIN_SIGSTAT.WLT_CAN_SIGN
+            wltAlready = statCode == TXIN_SIGSTAT.WLT_ALREADY_SIGNED
+            #if (wltCanSign and txSigStat.wltAlreadySigned) or \
+               #(wltAlready and txSigStat.wltCanSign):
+               #txSigStat.wltPartialSigned = True
+               #break
+
+            if wltAlready: 
+               txSigStat.wltAlreadySigned = True
+               break
 
       return txSigStat
 
@@ -2068,10 +2127,12 @@ class UnsignedTransaction(object):
 
       print ind+'#Outputs     : ', len(tx.outputs)
       for i,txout in enumerate(tx.outputs):
+         dtxo = self.decorTxOuts[i]
          addrDisp = getTxOutScriptDisplayStr(txout.binScript)
          valDisp = coin2str(txout.value, maxZeros=2)
          print ' '*2*indent + 'Recip:', addrDisp.ljust(35),
-         print valDisp, 'BTC'
+         print valDisp, 'BTC',
+         print ('(%s)' % dtxo.contribID) if dtxo.contribID else ''
 
 
 

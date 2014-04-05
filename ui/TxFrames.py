@@ -14,8 +14,8 @@ from qtdefines import * #@UnusedWildImport
 from armoryengine.Transaction import UnsignedTransaction, getTxOutScriptType
 from armoryengine.Script import convertScriptToOpStrings
 from armoryengine.CoinSelection import PySelectCoins, calcMinSuggestedFees,\
-   PyUnspentTxOut
-from ui.WalletFrames import SelectWalletFrame
+   calcMinSuggestedFeesHackMS, PyUnspentTxOut
+from ui.WalletFrames import SelectWalletFrame, LockboxSelectFrame
 from armoryengine.MultiSigUtils import \
       calcLockboxID, readLockboxEntryStr, createLockboxEntryStr
  
@@ -27,7 +27,8 @@ class SendBitcoinsFrame(ArmoryFrame):
    def __init__(self, parent, main, initLabel='',
                  wlt=None, prefill=None, wltIDList=None,
                  selectWltCallback = None, onlyOfflineWallets=False,
-                 sendCallback = None, createUnsignedTxCallback = None):
+                 sendCallback = None, createUnsignedTxCallback = None,
+                 spendFromLockboxID=None):
       super(SendBitcoinsFrame, self).__init__(parent, main)
       self.maxHeight = tightSizeNChar(GETFONT('var'), 1)[1] + 8
       self.sourceAddrList = None
@@ -38,12 +39,15 @@ class SendBitcoinsFrame(ArmoryFrame):
       self.selectWltCallback = selectWltCallback
       self.sendCallback = sendCallback
       self.createUnsignedTxCallback = createUnsignedTxCallback
+      self.lbox = self.main.getLockboxByID(spendFromLockboxID)
       self.onlyOfflineWallets = onlyOfflineWallets
       txFee = self.main.getSettingOrSetDefault('Default_Fee', MIN_TX_FEE)
       self.widgetTable = []
       self.scrollRecipArea = QScrollArea()
       lblRecip = QRichLabel('<b>Enter Recipients:</b>')
       lblRecip.setAlignment(Qt.AlignLeft | Qt.AlignBottom)
+
+
 
       self.freeOfErrors = True
 
@@ -64,10 +68,19 @@ class SendBitcoinsFrame(ArmoryFrame):
 
       # Created a standard wallet chooser frame. Pass the call back method
       # for when the user selects a wallet.
-      coinControlCallback = self.coinControlUpdate if self.main.usermode == USERMODE.Expert else None
-      self.walletSelector = SelectWalletFrame(parent, main, VERTICAL, self.wltID, \
-                  wltIDList=self.wltIDList, selectWltCallback=self.setWallet, \
-                  coinControlCallback=coinControlCallback, onlyOfflineWallets=self.onlyOfflineWallets)
+      if self.lbox is None:
+         coinControlCallback = self.coinControlUpdate if self.main.usermode == USERMODE.Expert else None
+         self.frmSelectedWlt = SelectWalletFrame(parent, main, 
+                     VERTICAL, 
+                     self.wltID, 
+                     wltIDList=self.wltIDList, 
+                     selectWltCallback=self.setWallet, \
+                     coinControlCallback=coinControlCallback, 
+                     onlyOfflineWallets=self.onlyOfflineWallets)
+      else:
+         self.frmSelectedWlt = LockboxSelectFrame(parent, main, 
+                                    VERTICAL,
+                                    self.lbox.uniqueIDB58)
 
       componentList = [ QLabel('Fee:'), \
                         self.edtFeeAmt, \
@@ -98,7 +111,7 @@ class SendBitcoinsFrame(ArmoryFrame):
          'URL links from webpages and email.  '
          'Click this button to copy a link directly into Armory')
       self.connect(btnEnterURI, SIGNAL("clicked()"), self.clickEnterURI)
-      fromFrameList = [self.walletSelector]
+      fromFrameList = [self.frmSelectedWlt]
       if not USE_TESTNET:
          btnDonate = QPushButton("Donate to Armory Developers!")
          ttipDonate = self.main.createToolTipWidget(\
@@ -248,6 +261,13 @@ class SendBitcoinsFrame(ArmoryFrame):
          if result[1] == True:
             self.main.writeSetting('DonateDNAA', True)
 
+
+
+      if self.lbox:
+         self.toggleSpecify(False)
+         self.toggleChngAddr(False)
+
+
       hexgeom = self.main.settings.get('SendBtcGeometry')
       if len(hexgeom) > 0:
          geom = QByteArray.fromHex(hexgeom)
@@ -259,7 +279,12 @@ class SendBitcoinsFrame(ArmoryFrame):
       # Set the wallet in the wallet selector and let all of display components
       # react to it. This is at the end so that we can be sure that all of the
       # components that react to setting the wallet exist.
-      self.walletSelector.updateOnWalletChange()
+      if self.lbox:
+         self.unsignedCheckbox.setChecked(True)
+         self.unsignedCheckbox.setEnabled(False)
+      else:
+         self.frmSelectedWlt.updateOnWalletChange()
+
       self.unsignedCheckBoxUpdate()
 
 
@@ -377,6 +402,7 @@ class SendBitcoinsFrame(ArmoryFrame):
 
    #############################################################################
    def validateInputsGetUSTX(self):
+
       COLS = self.COLS
       self.freeOfErrors = True
       scripts = []
@@ -519,7 +545,12 @@ class SendBitcoinsFrame(ArmoryFrame):
             feeTry = minFee
          utxoList = self.getUsableTxOutList()
          utxoSelect = PySelectCoins(utxoList, totalSend, feeTry)
-         minFee = calcMinSuggestedFees(utxoSelect, totalSend, feeTry, \
+      
+         if self.lbox is None:
+            minFee = calcMinSuggestedFees(utxoSelect, totalSend, feeTry, \
+                                             len(scriptValPairs))[1]
+         else:
+            minFee = calcMinSuggestedFeesHackMS(utxoSelect, totalSend, feeTry, \
                                              len(scriptValPairs))[1]
 
 
@@ -593,22 +624,27 @@ class SendBitcoinsFrame(ArmoryFrame):
 
       self.changeScrAddr = ''
       self.selectedBehavior = ''
-      if totalChange > 0:
-         self.changeScrAddr = self.determineChangeAddr(utxoSelect)
-         # For now assume that change is always CPP_TXOUT_HAS_ADDRSTR
-         changeScript = scrAddr_to_script(self.changeScrAddr)
-         LOGINFO('Change address behavior: %s', self.selectedBehavior)
-         if not self.changeScrAddr:
-            return False
-         scriptValPairs.append([changeScript, totalChange])
-      else:
-         if self.main.usermode == USERMODE.Expert and \
-            self.chkDefaultChangeAddr.isChecked():
-            self.selectedBehavior = NO_CHANGE
-      
-      changePair = None
-      if len(self.selectedBehavior) > 0:
-         changePair = (self.changeScrAddr, self.selectedBehavior)
+      if self.lbox is None:
+         if totalChange > 0:
+            self.changeScrAddr = self.determineChangeAddr(utxoSelect)
+            # For now assume that change is always CPP_TXOUT_HAS_ADDRSTR
+            changeScript = scrAddr_to_script(self.changeScrAddr)
+            LOGINFO('Change address behavior: %s', self.selectedBehavior)
+            if not self.changeScrAddr:
+               return False
+            scriptValPairs.append([changeScript, totalChange])
+         else:
+            if self.main.usermode == USERMODE.Expert and \
+               self.chkDefaultChangeAddr.isChecked():
+               self.selectedBehavior = NO_CHANGE
+         
+         changePair = None
+         if len(self.selectedBehavior) > 0:
+            changePair = (self.changeScrAddr, self.selectedBehavior)
+      elif totalChange > 0:
+         changePair = (self.lbox.scrAddr, 'Feedback')
+         LOGWARN('Change from LOCKBOX tx goes back to the same LOCKBOX!')
+         scriptValPairs.append([self.lbox.binScript, totalChange])
 
       # Keep a copy of the originally-sorted list for display
       origSVPairs = scriptValPairs[:]
@@ -619,19 +655,35 @@ class SendBitcoinsFrame(ArmoryFrame):
 
       # In order to create the USTXI objects, need to make we supply a
       # map of public keys that can be included
-      pubKeyMap = {}
-      for utxo in utxoSelect:
-         scrType = getTxOutScriptType(utxo.getScript())
-         if scrType in CPP_TXOUT_STDSINGLESIG:
-            scrAddr = utxo.getRecipientScrAddr()
-            a160 = scrAddr_to_hash160(scrAddr)[1]
-            addrObj = self.wlt.getAddrByHash160(a160)
-            if addrObj:
-               pubKeyMap[scrAddr] = addrObj.binPublicKey65.toBinStr()
+      if self.lbox:
+         ustx = UnsignedTransaction().createFromTxOutSelection( \
+                                       utxoSelect, scriptValPairs)
 
-      # Now create the unsigned USTX
-      ustx = UnsignedTransaction().createFromTxOutSelection( \
-                                    utxoSelect, scriptValPairs, pubKeyMap)
+         for i in range(len(ustx.ustxInputs)):
+            ustx.ustxInputs[i].contribID = self.lbox.uniqueIDB58
+
+         for i in range(len(ustx.decorTxOuts)):
+            print binary_to_hex(ustx.decorTxOuts[i].binScript)
+            print binary_to_hex(self.lbox.binScript)
+            if ustx.decorTxOuts[i].binScript == self.lbox.binScript:
+               ustx.decorTxOuts[i].contribID = self.lbox.uniqueIDB58
+
+      else:
+         # If this has nothing to do with lockboxes, we need to make sure
+         # we're providing a key map for the inputs
+         pubKeyMap = {}
+         for utxo in utxoSelect:
+            scrType = getTxOutScriptType(utxo.getScript())
+            if scrType in CPP_TXOUT_STDSINGLESIG:
+               scrAddr = utxo.getRecipientScrAddr()
+               a160 = scrAddr_to_hash160(scrAddr)[1]
+               addrObj = self.wlt.getAddrByHash160(a160)
+               if addrObj:
+                  pubKeyMap[scrAddr] = addrObj.binPublicKey65.toBinStr()
+
+         # Now create the unsigned USTX
+         ustx = UnsignedTransaction().createFromTxOutSelection( \
+                                       utxoSelect, scriptValPairs, pubKeyMap)
 
       ustx.pprint()
 
@@ -700,25 +752,50 @@ class SendBitcoinsFrame(ArmoryFrame):
 
    #############################################################################
    def getUsableBalance(self):
-      if self.altBalance == None:
-         return self.wlt.getBalance('Spendable')
+      if self.lbox is None:
+         if self.altBalance == None:
+            return self.wlt.getBalance('Spendable')
+         else:
+            return self.altBalance
       else:
-         return self.altBalance
+         lbID = self.lbox.uniqueIDB58
+         cppWlt = self.main.cppLockboxWltMap.get(lbID)
+         if cppWlt is None:
+            LOGERROR('Somehow failed to get cppWlt for lockbox: %s', lbID)
+
+         return cppWlt.getSpendableBalance(self.main.currBlockNum, IGNOREZC)
+         
+         
 
 
    #############################################################################
    def getUsableTxOutList(self):
-      if self.altBalance == None:
-         return list(self.wlt.getTxOutList('Spendable'))
+      if self.lbox is None:
+         if self.altBalance is None:
+            return list(self.wlt.getTxOutList('Spendable'))
+         else:
+            utxoList = []
+            for a160 in self.sourceAddrList:
+               # Trying to avoid a swig bug involving iteration over vector<> types
+               utxos = self.wlt.getAddrTxOutList(a160)
+               for i in range(len(utxos)):
+                  utxos[i].pprintOneLine(290000)
+                  utxoList.append(PyUnspentTxOut().createFromCppUtxo(utxos[i]))
+            return utxoList
       else:
-         utxoList = []
-         for a160 in self.sourceAddrList:
-            # Trying to avoid a swig bug involving iteration over vector<> types
-            utxos = self.wlt.getAddrTxOutList(a160)
-            for i in range(len(utxos)):
-               utxos[i].pprintOneLine(290000)
-               utxoList.append(PyUnspentTxOut().createFromCppUtxo(utxos[i]))
-         return utxoList
+         lbID = self.lbox.uniqueIDB58
+         cppWlt = self.main.cppLockboxWltMap.get(lbID)
+         if cppWlt is None:
+            LOGERROR('Somehow failed to get cppWlt for lockbox: %s', lbID)
+
+         txoList = cppWlt.getSpendableTxOutList(self.main.currBlockNum, IGNOREZC)
+         pyUtxoList = []
+         for i in range(len(txoList)):
+            script = self.lbox.binScript
+            pyUtxo = PyUnspentTxOut().createFromCppUtxo(txoList[i], script)
+            pyUtxoList.append( pyUtxo)
+            pyUtxoList[-1].pprint()
+         return pyUtxoList
 
 
    #############################################################################
@@ -932,7 +1009,6 @@ class SendBitcoinsFrame(ArmoryFrame):
 
       # widgetsForWidth = [COLS.LblAddr, COLS.Addr, COLS.LblAmt, COLS.Btc]
       # minScrollWidth = sum([self.widgetTable[0][col].width() for col in widgetsForWidth])
-
       frmRecipLayout.addWidget(btnFrm)
       frmRecipLayout.addStretch()
       frmRecip.setLayout(frmRecipLayout)

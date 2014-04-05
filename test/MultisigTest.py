@@ -292,6 +292,24 @@ a+uDL9ZMqweN3zznMpIwMdGoU66gf4gCAAAAAAAABE5PTkUAMgEAAAALEQkHGXapFGzuR3kIci90Cmp8
          """.strip()
 
 
+      # For this manual construction to work, I had to save the signed funding
+      # transaction
+      signedFundMS = hex_to_binary( \
+         '0100000001fd7b2814a83024c559b2f897a6ff9a3ae9f80501d19be0aebecfd7'
+         'ecefc9de7f010000008a47304402205d768f8563d5285fe3d0640d6c15cdfd64'
+         '46062be0420f39b8114d53d0cf62a4022010dbc80e9e2bf6039a337810a4feba'
+         '561d3c360eaaa4ada1140d82c03ebf37350141049ea2efc5971e9eb2c214eea4'
+         '5a45ec0d15da3c1012313da563b5fbbc19a92f88339f43babd54b79382fb2532'
+         '7237851d076a7a69010c54fdef330225a966b57cffffffff02a07f8802000000'
+         '00c95241046a04ab98d9e4774ad806e302dddeb63bea16b5cb5f223ee77478e8'
+         '61bb583eb336b6fbcb60b5b3d4f1551ac45e5ffc4936466e7d98f6c7c0ec7365'
+         '39f74691a6410468680737c76dabb801cb2204f57dbe4e4579e4f710cd67dc1b'
+         '4227592c81e9b5cf02b5ac9e8b4c9f49be5251056b6a6d011e4c37f6b6d17ede'
+         '6b55faa23519e24104b95c249d84f417e3e395a127425428b540671cc15881eb'
+         '828c17b722a53fc599e21ca5e56c90f340988d3933acc76beb832fd64cab078d'
+         'df3ce732923031d1a853ae80045701000000001976a9146cee477908722f740a'
+         '6a7ce98c0e9d5dcab0fa3288ac00000000')
+     
       #UnsignedTransaction().unserializeAscii(asc_nosig).evaluateSigningStatus().pprint()
       #UnsignedTransaction().unserializeAscii(asc_sig).evaluateSigningStatus().pprint()
 
@@ -309,22 +327,6 @@ a+uDL9ZMqweN3zznMpIwMdGoU66gf4gCAAAAAAAABE5PTkUAMgEAAAALEQkHGXapFGzuR3kIci90Cmp8
 
       dtxo = DecoratedTxOut(msScript, 1.0*ONE_BTC)
 
-      signedFundMS = hex_to_binary( \
-         '0100000001fd7b2814a83024c559b2f897a6ff9a3ae9f80501d19be0aebecfd7'
-         'ecefc9de7f010000008a47304402205d768f8563d5285fe3d0640d6c15cdfd64'
-         '46062be0420f39b8114d53d0cf62a4022010dbc80e9e2bf6039a337810a4feba'
-         '561d3c360eaaa4ada1140d82c03ebf37350141049ea2efc5971e9eb2c214eea4'
-         '5a45ec0d15da3c1012313da563b5fbbc19a92f88339f43babd54b79382fb2532'
-         '7237851d076a7a69010c54fdef330225a966b57cffffffff02a07f8802000000'
-         '00c95241046a04ab98d9e4774ad806e302dddeb63bea16b5cb5f223ee77478e8'
-         '61bb583eb336b6fbcb60b5b3d4f1551ac45e5ffc4936466e7d98f6c7c0ec7365'
-         '39f74691a6410468680737c76dabb801cb2204f57dbe4e4579e4f710cd67dc1b'
-         '4227592c81e9b5cf02b5ac9e8b4c9f49be5251056b6a6d011e4c37f6b6d17ede'
-         '6b55faa23519e24104b95c249d84f417e3e395a127425428b540671cc15881eb'
-         '828c17b722a53fc599e21ca5e56c90f340988d3933acc76beb832fd64cab078d'
-         'df3ce732923031d1a853ae80045701000000001976a9146cee477908722f740a'
-         '6a7ce98c0e9d5dcab0fa3288ac00000000')
-     
    
       ustxi = UnsignedTxInput(signedFundMS, 0)
       ustxi.pprint()
@@ -342,6 +344,7 @@ a+uDL9ZMqweN3zznMpIwMdGoU66gf4gCAAAAAAAABE5PTkUAMgEAAAALEQkHGXapFGzuR3kIci90Cmp8
       # Need a candidate tx to test signing
       txObj = ustx.pytxObj
       
+      # Test signing on the individual USTXI
       NOSIG = TXIN_SIGSTAT.NO_SIGNATURE
       SIG   = TXIN_SIGSTAT.ALREADY_SIGNED
       for i in [0,1]:
@@ -378,6 +381,7 @@ a+uDL9ZMqweN3zznMpIwMdGoU66gf4gCAAAAAAAABE5PTkUAMgEAAAALEQkHGXapFGzuR3kIci90Cmp8
 
       print ustx.serializeAscii()
       print binary_to_hex(ustx.prepareFinalTx().serialize())
+      
 
    """
    def testMinimizeDERSignaturePadding(self):

@@ -4780,24 +4780,35 @@ class DlgConfirmSend(ArmoryDialog):
 ################################################################################
 class DlgSendBitcoins(ArmoryDialog):
    def __init__(self, wlt, parent=None, main=None, prefill=None, 
-                              wltIDList=None, onlyOfflineWallets=False):
+                              wltIDList=None, onlyOfflineWallets=False, 
+                              spendFromLockboxID=None):
       super(DlgSendBitcoins, self).__init__(parent, main)
       layout = QVBoxLayout()
 
-      self.frame = SendBitcoinsFrame(self, main, 'Send Bitcoins',\
-                   wlt, prefill, wltIDList, onlyOfflineWallets=onlyOfflineWallets,\
-                   sendCallback=self.createTxAndBroadcast,\
-                   createUnsignedTxCallback=self.createUnsignedTxAndDisplay)
+      self.spendFromLockboxID = spendFromLockboxID
+
+      self.frame = SendBitcoinsFrame(self, main, tr('Send Bitcoins'),
+                   wlt, prefill, wltIDList, onlyOfflineWallets=onlyOfflineWallets,
+                   sendCallback=self.createTxAndBroadcast,
+                   createUnsignedTxCallback=self.createUnsignedTxAndDisplay, 
+                   spendFromLockboxID=spendFromLockboxID)
       layout.addWidget(self.frame)
       self.setLayout(layout)
       # Update the any controls based on the initial wallet selection
       self.frame.fireWalletChange()
 
+
+
    #############################################################################
    def createUnsignedTxAndDisplay(self, ustx):
       self.accept()
-      dlg = DlgOfflineTxCreated(self.frame.wlt, ustx, self.parent, self.main)
-      dlg.exec_()
+      if self.spendFromLockboxID is None:
+         dlg = DlgOfflineTxCreated(self.frame.wlt, ustx, self.parent, self.main)
+         dlg.exec_()
+      else:
+         dlg = DlgMultiSpendReview(self.parent, self.main, 
+                                          self.spendFromLockboxID, ustx)
+         dlg.exec_()
 
 
    #############################################################################
@@ -4822,6 +4833,11 @@ class DlgSendBitcoins(ArmoryDialog):
    def reject(self, *args):
       self.saveGeometrySettings()
       super(DlgSendBitcoins, self).reject(*args)
+
+
+
+
+
 
 
 ################################################################################
@@ -13224,5 +13240,5 @@ from ui.WalletFrames import SelectWalletFrame, WalletBackupFrame,\
    AdvancedOptionsFrame
 from ui.TxFrames import  SendBitcoinsFrame, SignBroadcastOfflineTxFrame,\
    ReviewOfflineTxFrame
-
+from ui.MultiSigHacker import DlgMultiSpendReview
 

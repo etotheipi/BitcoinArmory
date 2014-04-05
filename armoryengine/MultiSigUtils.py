@@ -620,36 +620,6 @@ class MultiSigPromissoryNote(object):
 
 
 
-################################################################################
-def makeUnsignedTxFromPromNotes(promList, dtxoTarget):
-   """
-   #We provide a target lockbox, and a full list of promissory notes to fund
-   #that lockbox.  
-
-   We do need to check that everything is consistent, to make sure that all
-   users are intending to fund the correct -lockbox- target script
-
-   EDIT:  No reason to make this specific to lockboxes, can use this for any
-          kind of simultaneous funding tx
-
-   """
-
-   # Decorated txout list always has at least the target, probably a lockbox
-   ustxiAccum = []
-   dtxoAccum  = [dtxoTarget]
-
-   # Accumulate all inputs from all prom notes, as well as change outputs
-   # Errors with the change values should've been caught in setParams
-   for prom in promList:
-      for ustxi in prom.ustxInputs:
-         ustxiAccum.append(ustxi)
-
-      if prom.dtxoChange.value > 0:
-         dtxoList.append(prom.dtxoChange)
-
-   return UnsignedTransaction().createFromUnsignedTxIO(ustxiAccum, dtxoAccum)
-
-
 
 
 
