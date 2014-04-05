@@ -1105,6 +1105,8 @@ class DlgMultiSpendReview(ArmoryDialog):
    KEYH = 46
    CHKW = 32
    CHKH = 32
+   PIEW = 32
+   PIEH = 32
 
    #############################################################################
    def __init__(self, parent, main, lboxID, ustx):
@@ -1124,9 +1126,15 @@ class DlgMultiSpendReview(ArmoryDialog):
          returning to the same lockbox from where it came).  If there is 
          any ambiguity, Armory will display all outputs."""))
 
-      
-      self.kscale = lambda pix: pix.scaled(KEYW,KEYH)
-      self.cscale = lambda pix: pix.scaled(CHKW,CHKH)
+
+      # These need to return copies
+      self.pixGn  = lambda: QPixmap(':/keyhole_green.png').scaled(KEYW,KEYH)
+      self.pixGr  = lambda: QPixmap(':/keyhole_gray.png' ).scaled(KEYW,KEYH)
+      self.pixBl  = lambda: QPixmap(':/keyhole_blue.png' ).scaled(KEYW,KEYH)
+      self.pixWh  = lambda: QPixmap(':/keyhole_white.png').scaled(KEYW,KEYH)
+      self.pixRd  = lambda: QPixmap(':/keyhole_red.png'  ).scaled(KEYW,KEYH)
+      self.pixChk = lambda: QPixmap(':/checkmark32.png'  ).scaled(CHKW,CHKH)
+      self.pixPie = lambda m: QPixmap(':/frag%df.png'%m  ).scaled(PIEW,PIEH)
 
       layout = QVBoxLayout()
 
@@ -1144,12 +1152,14 @@ class DlgMultiSpendReview(ArmoryDialog):
       # Some simple container classes
       class InputBundle(object):
          def __init__(self):
+            self.binScript = ''
             self.sendAmt = 0
             self.dispStr = ''
             self.ustxiList = []
             self.lockbox = None
-            self.capable = 0
-            self.binScript = ''
+            self.wltOfflineSign = []
+            self.wltSignRightNow = []
+            self.keyholePixmap = []
 
       # Some simple container classes
       class OutputBundle(object):
@@ -1157,10 +1167,15 @@ class DlgMultiSpendReview(ArmoryDialog):
             self.dispStr = ''
             self.lockbox = None
             self.wltID = None
-            self.binScript = ''
       
       self.inputBundles = {}
       self.outputBundles = {}
+
+      # NOTE:  This will do some weird things if we have a contrib that 
+      #        gets back more than he puts in... i.e. he will be required
+      #        to sign, but he will be receiving money, instead of sending
+      #        it.  Right now, if that happens, he will show up as an 
+      #        input bundle with a negative send amount
 
       # Accumulate and prepare all static info (that doesn't change with sigs)
       for ustxi in self.ustx.ustxInputs:
@@ -1188,15 +1203,24 @@ class DlgMultiSpendReview(ArmoryDialog):
          iBundle.lockbox = self.main.getLockboxByID(idStr.split(':')[-1])
 
          # Check whether we have the capability to sign this thing
+         # Again assuming lockbox input... for simplicity
          iBundle.binScript = iBundle.lockbox.binScript
-         for i in iBundle.lockbox.N:
-            wltID = self.main.getWalletForAddr160(iBundle.a160List[i])
+         M,N = iBundle.lockbox.M, iBundle.lockbox.N
+         iBundle.wltOfflineSign  = [None]*N
+         iBundle.wltSignRightNow = [None]*N
+         iBundle.keyholePixmap   = [None]*N
+         for i in range(N):
+            a160 = iBundle.lockbox.a160List[i]
+            wltID = self.main.getWalletForAddr160(a160)
+            iBundle.keyholePixmap[i].setPixmap(self.pixWh())
             if wltID:
+               wlt = self.main.walletMap[wltID]
                wltType = determineWalletType(wlt, self.main)[0]
                if wltType in [WLTTYPES.WatchOnly, WLTTYPES.Offline]:
-                  iBundle.capable = max(iBundle.capable, 1)  # watch-only
+                  iBundle.wltOfflineSign[i] = [wltID, a160]
                else:
-                  iBundle.capable = max(iBundle.capable, 2)  # can sign now!
+                  iBundle.wltSignRightNow[i] = [wltID, a160]
+                  iBundle.keyholePixmap[i].setPixmap(self.pixGn())
                
 
       # The output bundles are quite a bit simpler 
@@ -1204,15 +1228,13 @@ class DlgMultiSpendReview(ArmoryDialog):
          hrStr,idStr = self.main.getContribStr(dtxo.binScript, dtxo.contribID)
          if idStr in self.inputBundles:
             self.inputBundles[idStr].sendAmt -= dtxo.value
+         else:
+            oBundle = self.outputBundles.setdefault(idStr, OutputBundle())
+            oBundle.recvAmt += dtxo.value
+            oBundle.dispStr = hrStr
+            if idStr.startswith('LB:'):
+               oBundle.lockbox = self.main.getLockboxByID(idStr.split(':')[-1])
 
-         oBundle = self.outputBundles.setdefault(idStr, OutputBundle())
-         if not idStr in self.receiveAmt:
-            self.receiveAmt[idStr] = 0
-            self.contribStr[idStr] = hrStr
-
-         self.receiveAmt[idStr] += dtxo.value
-         if idStr in self.contribAmt:
-            self.contribAmt[idStr] += dtxo.value
             
 
       layoutInputs  = QGridLayout()
@@ -1221,110 +1243,119 @@ class DlgMultiSpendReview(ArmoryDialog):
       self.iWidgets = {}
       self.oWidgets = {}
 
-      maxN = 3
+      self.maxN = 3
 
       print 'Contributions:'
       iin = 0
       iout = 0
-      for idStr in self.contribAmt:
+      for idStr in self.inputBundles:
          self.iWidgets[idStr] = {}
-         topRow = (maxN+1)*iin
+         iWidgMap = self.iWidgets[idStr]
+         topRow = (self.maxN+1)*iin
          iin += 1
 
-         self.iWidgets[idStr]['HeadLbl'] = QRichLabel(tr("""
+         iWidgMap['HeadLbl'] = QRichLabel(tr("""
             <font color="%s"><b><u>Spending:</u> %s</b></font>""") % \
             (htmlColor('TextBlue'), self.contribStr[idStr]))
-         self.iWidgets[idStr]['Amount'] = QMoneyLabel()
+         val = self.inputBundles[idStr].sendAmt
+         iWidgMap['Amount'] = QMoneyLabel(-val, txtSize=12, wBold=True)
 
          # These are images that show up to N=3
-         self.iWidgets[idStr]['HeadImg'] = [None]*3
-         for i in range(maxN):
-            self.iWidgets[idStr]['HeadImg'][i] = QLabel()
+         iWidgMap['HeadImg'] = [None]*3
+         iWidgMap['KeyImg']  = [None]*3
+         iWidgMap['KeyLbl']  = [None]*3
+         iWidgMap['ChkImg']  = [None]*3
+         iWidgMap['SignBtn']  = [None]*3
 
-         self.iWidgets[idStr]['KeyImg']  = [None]*3
-         for i in range(maxN):
-            self.iWidgets[idStr]['KeyImg'][i] = QLabel()
-
-         self.iWidgets[idStr]['KeyLbl']  = [None]*3
-         for i in range(maxN):
-            self.iWidgets[idStr]['KeyLbl'][i] = QRichLabel('')
-
-         self.iWidgets[idStr]['ChkImg']  = [None]*3
-         for i in range(maxN):
-            self.iWidgets[idStr]['ChkImg'][i] = QLabel()
-
-         self.iWidgets[idStr]['SignBtn']  = [None]*3
-         for i in range(maxN):
-            self.iWidgets[idStr]['SignBtn'][i] = QPushButton('')
-         self.iWidgets[idStr]['SignBtn']  = [None]*3
-         for i in range(maxN):
-            self.iWidgets[idStr]['SignBtn'][i] = QPushButton('')
+         for i in range(self.maxN):
+            iWidgMap['HeadImg'][i] = QLabel()
+            iWidgMap['KeyImg' ][i] = QLabel()
+            iWidgMap['KeyLbl' ][i] = QRichLabel('')
+            iWidgMap['ChkImg' ][i] = QLabel()
+            iWidgMap['SignBtn'][i] = QPushButton('')
          
 
          # Now actually insert the widgets into a layout
-         headerLine = [self.iWidgets[idStr]['HeadLbl']]
-         headerLine.extend(self.iWidgets[idStr]['HeadImg'])
+         headerLine = [iWidgMap['HeadLbl']]
+         headerLine.extend(iWidgMap['HeadImg'])
          headerLine.append('Stretch')
+         headerLine.append(iWidgMap['Amount'])
          layoutInputs.addWidget(makeHorizFrame(headerLine), topRow,0, 1,5)
 
-         for i in range(maxN):
+         def createSignCallback(idstring, nIdx):
+            def doSign():
+               self.doSignForInput(idstring, nIdx)
+            return doSign
+
+         for i in range(self.maxN):
             row = topRow + 1 + i
-            layoutInputs.addItem(QSpacerItem(20,20),         row,0)
-            layoutInputs.addWidget(self.iWidgets['KeyImg'][i],  row,1)
-            layoutInputs.addWidget(self.iWidgets['ChkImg'][i],  row,2)
-            layoutInputs.addWidget(self.iWidgets['KeyLbl'][i],  row,3)
-            layoutInputs.addWidget(self.iWidgets['SignBtn'][i], row,4)
+            layoutInputs.addItem(QSpacerItem(20,20),       row,0)
+            layoutInputs.addWidget(iWidgMap['KeyImg' ][i], row,1)
+            layoutInputs.addWidget(iWidgMap['ChkImg' ][i], row,2)
+            layoutInputs.addWidget(iWidgMap['KeyLbl' ][i], row,3)
+            layoutInputs.addWidget(iWidgMap['SignBtn'][i], row,4)
 
-            self.iWidgets['HeadImg'][i].setMinimumSize(KEYW,KEYH)
-            self.iWidgets['KeyImg' ][i].setMinimumSize(KEYW,KEYH)
-            self.iWidgets['ChkImg' ][i].setMinimumSize(CHKW,CHKH)
+            self.connect(iWidgMap['SignBtn'][i], SIGNAL('clicked()'), \
+                                           createSignCallback(idStr, i))
 
+            lbox = self.inputBundles[idStr].lockbox
+            if i < lbox.N:
+               iWidgMap['HeadImg'][i].setPixmap(self.pixPie(lbox.M))
+               iWidgMap['KeyImg' ][i].setMinimumSize(KEYW,KEYH)
+               iWidgMap['ChkImg' ][i].setMinimumSize(CHKW,CHKH)
+               iWidgMap['KeyLbl' ][i].setText(lbox.commentList[i])
+   
             
 
-      for 
-         elif amt < 0:
-            #print "SEND-:", self.contribStr[idStr], coin2strNZS(-amt), 
+         for widgetName,widgetList in iWidgMap.iteritems():
+            if widgetName in ['HeadLbl', 'Amount']:
+               continue
+
+            for i in range(self.maxN):
+               lockbox = self.inputBundles[idStr].lockbox
+               widgetList[i].setVisible(i < lockboxN)
+            
+
+
+      for idStr in self.outputBundles:
+         #print "SEND-:", self.contribStr[idStr], coin2strNZS(-amt), 
                                                                #'(',idStr,')'
-            topRow = (maxN+1)*iOut
-            iout += 1
+         self.oWidgets[idStr] = {}
+         oWidgMap = self.oWidgets[idStr]
+         topRow = (self.maxN+1)*iOut
+         iout += 1
 
-            self.oWidgets[idStr] = {}
-            self.oWidgets[idStr]['HeadLbl'] = QRichLabel(tr("""
-               <font color="%s"><b><u>Receiving:</u> %s</b></font>""") % \
-               (htmlColor('TextBlue'), self.contribStr[idStr]))
 
-            # These are images that show up to N=3
-            self.oWidgets[idStr]['HeadImg'] = [None]*3
-            self.oWidgets[idStr]['HeadImg'][0] = QLabel()
-            self.oWidgets[idStr]['HeadImg'][1] = QLabel()
-            self.oWidgets[idStr]['HeadImg'][2] = QLabel()
+         oWidgMap['HeadLbl'] = QRichLabel(tr("""
+            <font color="%s"><b><u>Receiving:</u> %s</b></font>""") % \
+            (htmlColor('TextBlue'), self.contribStr[idStr]))
+         val = self.outputBundles[idStr].recvAmt
+         oWidgMap['Amount'] = QMoneyLabel(val, txtSize=12, wBold=True)
 
-            self.oWidgets[idStr]['KeyLbl']  = [None]*3
-            self.oWidgets[idStr]['KeyLbl'][0] = QRichLabel('')
-            self.oWidgets[idStr]['KeyLbl'][1] = QRichLabel('')
-            self.oWidgets[idStr]['KeyLbl'][2] = QRichLabel('')
+         # These are images that show up to N=3
+         oWidgMap['HeadImg'] = [None]*3
+         for i in range(self.maxN):
+            oWidgMap['HeadImg'][i] = QLabel()
 
-            self.oWidgets[idStr]['KeyLbl']  = [None]*3
-            self.oWidgets[idStr]['KeyImg'][0] = QRichLabel('')
-            self.oWidgets[idStr]['KeyImg'][1] = QRichLabel('')
-            self.oWidgets[idStr]['KeyImg'][2] = QRichLabel('')
 
-            # Now actually insert the widgets into a layout
-            headerLine = [self.oWidgets[idStr]['HeadLbl']]
-            headerLine.extend(self.oWidgets[idStr]['HeadImg'])
-            headerLine.append('Stretch')
-            layoutOutputs.addWidget(makeHorizFrame(headerLine), topRow,0, 1,5)
+         # Now actually insert the widgets into a layout
+         headerLine = [oWidgMap['HeadLbl']]
+         headerLine.extend(oWidgMap['HeadImg'])
+         headerLine.append('Stretch')
+         headerLine.append(oWidgMap['Amount'])
+         layoutOutputs.addWidget(makeHorizFrame(headerLine), topRow,0, 1,5)
 
-            for i in range(maxN):
-               row = topRow + 1 + i
-               layoutOutputs.addItem(QSpacerItem(20,20),            row,0)
-               layoutOutputs.addWidget(self.oWidgets['KeyImg'][i],  row,1)
-               layoutOutputs.addWidget(self.oWidgets['KeyLbl'][i],  row,3)
-
-               self.oWidgets['HeadImg'][i].setMinimumSize(KEYW,KEYH)
-               self.oWidgets['KeyImg' ][i].setMinimumSize(KEYW,KEYH)
-               self.oWidgets['ChkImg' ][i].setMinimumSize(CHKW,CHKH)
+         lbox = self.outputBundles[idStr].lockbox
+         if lbox is None:
+            M,N = 1,1
+         else:
+            M,N = lbox.M, lbox.N
             
+         for i in range(self.maxN):
+            if i < N:
+               oWidgMap['HeadImg'][i].setPixmap(self.pixPie(M))
+               oWidgMap['HeadImg'][i].setMinimumSize(KEYW,KEYH)
+
 
       # Evaluate SigningStatus returns per-wallet details if a wlt is given
       self.relevancyMap  = {}
@@ -1336,7 +1367,31 @@ class DlgMultiSpendReview(ArmoryDialog):
       
    
          
+   ############################################################################# 
+   def doSignForInput(self, idStr, keyIdx):
+      ib = self.inputBundles[idStr]
+      wltID, a160 = ib.wltSignRightNow[keyIdx]
+      wlt = self.main.walletMap[wltID]
+      pytx = self.ustx.pytxObj
+      if wlt.useEncryption and wlt.isLocked:
+         dlg = DlgUnlockWallet(wlt, self, self.main, 'Sign Lockbox')
+         if not dlg.exec_():
+            QMessageBox.critical(self, 'Wallet is locked',
+               'Cannot sign this lockbox without unlocking wallet!', 
+               QMessageBox.Ok)
+            return
 
+      if wlt.isLocked:
+         QMessageBox.critical(self, 'Wallet is locked',
+            'Wallet is still locked.  Cannot sign.', QMessageBox.Ok)
+         return
+         
+      for ustxi in ib.ustxiList:
+         addrObj = wlt.getAddrByHash160(a160)
+         ustxi.createAndInsertSignature(pytx, addrObj.binPrivKey32_Plain)
+
+      self.evalSigStat()
+      
    ############################################################################# 
    def evalSigStat(self):
       self.relevancyMap  = {}
@@ -1349,49 +1404,49 @@ class DlgMultiSpendReview(ArmoryDialog):
          self.canSignMap[wltID]    = txss.wltCanSign
          self.alreadySigned[wltID] = txss.wltAlreadySigned
 
+      
+      #class InputBundle(object):
+         #def __init__(self):
+            #self.binScript = ''
+            #self.sendAmt = 0
+            #self.dispStr = ''
+            #self.ustxiList = []
+            #self.lockbox = None
+            #self.wltOfflineSign = []
+            #self.wltSignRightNow = []
+            #self.keyholePixmap = []
 
       # This is complex, for sure.  
       #    The outermost loop goes over all inputs and outputs
       #    Then goes over all N public keys
-      for idStr in self.contribAmt:
-         amt = self.contribAmt[idStr]
-         if amt > 0:
-            for i in range(3):
-               signBtn = self.iWidgets[idStr]['SignBtn'][i]
-               chkLbl  = self.iWidgets[idStr]['chkImg'][i]
-               keyImg  = self.iWidgets[idStr]['keyImg'][i]
-               for wltID in self.alreadySigned:
-                  if not self.alreadySigned[wltID]:
-                     continue
-                  signBtn.setVisible(False)
-                  chkLbl.setPixmap(self.cscale(QPixmap(':/checkmark32.png')))
-                  keyImg.setPixmap(self.kscale(QPixmap(':/keyhole_gray.png')))
-               for wltID in self.canSignMap:
-                  if not self.canSignMap[wltID]:
-                     continue
-                  wlt = self.main.walletMap[wltID]
-                  wltType = determineWalletType(wlt, self.main)[0]
-                  if wltType == WLTTYPES.Offline:
-               
-            canSign = sum([1 if t else 0 for t in self.canSignMap
-     
-   #############################################################################
-   def signAsMuchAsPossible(self, wlts):
-      if not isinstance(wlts, (list,tuple)):
-         wlts = [wlts]
+      for idStr,ib in self.inputBundles.iteritems():
+         iWidgMap = self.iWidgets[idStr]
+         for i in range(ib.lockbox.N):
+            signBtn = iWidgMap['SignBtn'][i]
+            chkLbl  = iWidgMap['ChkImg'][i]
+            keyImg  = iWidgMap['KeyImg'][i]
+            if ib.wltOfflineSign[i]:
+               signBtn.setVisible(True)
+               signBtn.setEnabled(False)
+               signBtn.setText('Offline')
+               chkLbl.
+            elif ib.wltSignRightNow[i]:
+               signBtn.setVisible(True)
+               signBtn.setEnabled(True)
+               signBtn.setText('Sign!')
+
+            chkLbl.setPixmap(self.pixChk())
+            keyImg.setPixmap(self.pixGr())
+            
 
          
 
+   ############################################################################# 
+   def exportCurrentUSTX(self):
+      self
 
-   #############################################################################
-   def redrawSigs(self):
-      self.allSigStat = self.ustx.evaluateSigningStatus()
 
-      print 'Original USTX:'
-      self.ustx.pprint()
 
-      print 'Signing Status'
-      self.allSigStat.pprint()
       
 
 

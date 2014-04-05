@@ -159,7 +159,7 @@ class MultiSigLockbox(object):
       self.scrAddr      = script_to_scrAddr(script)
       self.p2shScrAddr  = script_to_scrAddr(script_to_p2sh_script(script))
       self.uniqueIDB58  = calcLockboxID(script)
-      self.M, self.N, self.a160List, self.pkList = getMultisigScriptInfo(script)
+      self.M, self.N, self.a160List, self.pubKeys = getMultisigScriptInfo(script)
       self.opStrList = convertScriptToOpStrings(script)
 
       
@@ -255,9 +255,9 @@ class MultiSigLockbox(object):
          print '       ', opStr
       print''
       print '   Key Info:   '
-      for i in range(len(self.pkList)):
+      for i in range(len(self.pubKeys)):
          print '            Key %d' % i
-         print '           ', binary_to_hex(self.pkList[i])[:40] + '...'
+         print '           ', binary_to_hex(self.pubKeys[i])[:40] + '...'
          print '           ', hash160_to_addrStr(self.a160List[i])
          print '           ', self.commentList[i]
          print ''
@@ -303,10 +303,10 @@ class MultiSigLockbox(object):
       lines.append(tr('-'*10))
       lines.append(EMPTYLINE)
       lines.append(tr('Stored Key Details'))
-      for i in range(len(self.pkList)):
+      for i in range(len(self.pubKeys)):
          comm = self.commentList[i]
          addr = hash160_to_addrStr(self.a160List[i])
-         pubk = binary_to_hex(self.pkList[i])[:40] + '...'
+         pubk = binary_to_hex(self.pubKeys[i])[:40] + '...'
 
          if len(comm.strip())==0:
             comm = '<No Info>'

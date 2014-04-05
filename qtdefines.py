@@ -323,7 +323,8 @@ class QRichLabel(QLabel):
 
 
 class QMoneyLabel(QRichLabel):
-   def __init__(self, nSatoshi, ndec=8, maxZeros=2, wColor=True, wBold=False):
+   def __init__(self, nSatoshi, ndec=8, maxZeros=2, wColor=True, wBold=False,
+                                                   txtSize=10):
       QLabel.__init__(self, coin2str(nSatoshi))
 
       self.setValueText(nSatoshi, ndec, maxZeros, wColor, wBold)
@@ -347,7 +348,7 @@ class QMoneyLabel(QRichLabel):
          self.bold = wBold
          
 
-      theFont = GETFONT("Fixed", 10)
+      theFont = GETFONT("Fixed", txtSize)
       if self.bold:
          theFont.setWeight(QFont.Bold)
 
