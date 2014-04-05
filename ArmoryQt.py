@@ -2599,6 +2599,54 @@ class ArmoryMainWindow(QMainWindow):
    def browseLockboxes(self):
       DlgLockboxManager(self,self).exec_()
 
+
+
+   #############################################################################
+   def getContribStr(self, binScript, contribID):
+      """ 
+      We need to be very careful and not rely any more than we have to
+      on the contribID fields: those could be manipulated to deceive you.
+      We should extract as much information as possible without it.  This
+      at least guarantees that we see the correct data for our own wallets
+      and lockboxes, even if the data for other parties is incorrect.
+      """
+      scriptType = getTxOutScriptType(binScript) 
+      scrAddr = script_to_scrAddr(binScript)
+      wltID = self.getWalletForScrAddr(scrAddr)
+      if wltID:
+         wlt = self.walletMap[wltID]
+         outStr = 'Wallet "%s" (%s)' % (wlt.labelName, wltID)
+         return outStr, ('WLT:%s' % wltID)
+
+      # Maybe it's a scrAddr for one of our known lockboxes?
+      for lb in self.allLockboxes:
+         if scrAddr in [lb.scrAddr, lb.p2shScrAddr]:
+            outStr = 'Lockbox "%s" %d-of-%d (%s)' % \
+                  (lb.shortName, lb.M, lb.N, lb.uniqueIDB58)
+            return outStr, ('LB:%s' % lb.uniqueIDB58)
+
+      # At this point, we can use the contrib ID
+      if contribID:
+         outStr = 'Contributor ' + contribID
+         return outStr, ('CID:%s' % contribID)
+
+      # If no contrib ID, then salvage anything
+      if scriptType in CPP_TXOUT_HAS_ADDRSTR:
+         addrStr = script_to_addrStr(binScript)
+         return addrStr, ('ADDR:%s' % addrStr)
+      elif scriptType == CPP_TXOUT_MULTISIG:
+         M,N,a160s,pubs = getMultisigScriptInfo(binScript)
+         lbID = calcLockboxID(binScript)
+         outStr = 'Unrecognized %d-of-%d (%s)' % (M,N,lbID)
+         return outStr, ('MS:%s' % lbID)
+      elif scriptType:
+         # TODO: Should maybe not bundle all non-standard together?
+         outStr = 'Non-Standard Script'
+         return outStr, ('NS:%s' % \
+               script_to_addrStr(script_to_p2sh_script(binScript)))
+
+
+
    #############################################################################
    def getWalletForAddr160(self, addr160):
       for wltID, wlt in self.walletMap.iteritems():
@@ -2606,6 +2654,12 @@ class ArmoryMainWindow(QMainWindow):
             return wltID
       return ''
 
+   #############################################################################
+   def getWalletForScrAddr(self, scrAddr):
+      for wltID, wlt in self.walletMap.iteritems():
+         if wlt.hasScrAddr(scrAddr):
+            return wltID
+      return ''
 
    #############################################################################
    def getSettingOrSetDefault(self, settingName, defaultVal):

@@ -1399,18 +1399,18 @@ class UnsignedTxInput(object):
 
       # First evaluate if we have sigs for each key, or if we *COULD* sign
       # This simply returns signed-or-notsigned if no wallet is supplied
-      self.wltIsRelevant = False
-      self.wltCanSign    = False
+      signStatus.wltIsRelevant = False
+      signStatus.wltCanSign    = False
       for i in range(signStatus.N):
          if len(self.signatures[i]) > 0:
             signStatus.statusN[i] = TXIN_SIGSTAT.ALREADY_SIGNED
 
          if cppWlt and cppWlt.hasScrAddress(self.scrAddrs[i]):
-            self.wltIsRelevant = True
+            signStatus.wltIsRelevant = True
             if len(self.signatures[i]) > 0:
                signStatus.statusN[i] = TXIN_SIGSTAT.WLT_ALREADY_SIGNED
             else:
-               self.wltCanSign    = True
+               signStatus.wltCanSign    = True
                signStatus.statusN[i] = TXIN_SIGSTAT.WLT_CAN_SIGN
 
 
@@ -1520,7 +1520,11 @@ class DecoratedTxOut(object):
       if self.scriptType in CPP_TXOUT_HAS_ADDRSTR:
          return script_to_addrStr(self.binScript)
       elif self.scriptType == CPP_TXOUT_MULTISIG:
-         return 'Multisig %d-of-%d' % (self.multiInfo['M'], self.multiInfo['N'])
+         lbID = calcLockboxID(self.binScript)
+         return 'Multisig %d-of-%d (%s)' % \
+            (self.multiInfo['M'], self.multiInfo['N'], lbID)
+      else:
+         return ''
 
 
    #############################################################################

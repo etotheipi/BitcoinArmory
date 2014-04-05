@@ -516,6 +516,18 @@ class PyBtcWallet(object):
       return (None if not self.hasAddr(addr160) else self.addrMap[addr160])
 
    #############################################################################
+   def hasScrAddr(self, scrAddr):
+      """
+      Wallets currently only hold P2PKH scraddrs, so if it's not that, False
+      """
+      if not scrAddr[0] == SCRADDR_P2PKH_BYTE or not len(scrAddr)==21:
+         return False
+
+      # For P2PKH scraddrs, the first byte is prefix, next 20 bytes is addr160
+      return self.hasAddr(scrAddr[1:])
+
+
+   #############################################################################
    def hasAddr(self, addrData):
       if isinstance(addrData, str):
          if len(addrData) == 20:

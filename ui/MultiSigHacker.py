@@ -448,7 +448,7 @@ class DlgLockboxEditor(ArmoryDialog):
       self.createDate = boxObj.createDate
 
       for i in range(boxObj.N):
-         self.widgetMap[i]['EDT_PUBK'].setText(binary_to_hex(boxObj.pkList[i]))
+         self.widgetMap[i]['EDT_PUBK'].setText(binary_to_hex(boxObj.pubKeys[i]))
          self.widgetMap[i]['LBL_NAME'].setText(boxObj.commentList[i])
 
       def setCombo(cmb, val):
@@ -1095,6 +1095,16 @@ class DlgContributeFundLockbox(ArmoryDialog):
 
 ################################################################################
 class DlgMultiSpendReview(ArmoryDialog):
+   """
+   For now, this *only* supports spending from up to 3-of-3 lockboxes.  
+   Although most of the mechanics are there to handle arbitrary multi-spend 
+   tx, a few shortcuts were taken that don't work well with non-lockboxes
+   """
+
+   KEYW = 32
+   KEYH = 46
+   CHKW = 32
+   CHKH = 32
 
    #############################################################################
    def __init__(self, parent, main, lboxID, ustx):
@@ -1114,11 +1124,207 @@ class DlgMultiSpendReview(ArmoryDialog):
          returning to the same lockbox from where it came).  If there is 
          any ambiguity, Armory will display all outputs."""))
 
+      
+      self.kscale = lambda pix: pix.scaled(KEYW,KEYH)
+      self.cscale = lambda pix: pix.scaled(CHKW,CHKH)
+
       layout = QVBoxLayout()
 
       self.lboxID = lboxID
       self.lbox   = self.main.getLockboxByID(lboxID)
       self.ustx = UnsignedTransaction().unserialize(ustx.serialize())
+
+      self.contribAmt = {}
+      self.receiveAmt = {}
+      self.contribStr = {}
+      self.needToSign = {}
+      self.useContrib = True
+
+
+      # Some simple container classes
+      class InputBundle(object):
+         def __init__(self):
+            self.sendAmt = 0
+            self.dispStr = ''
+            self.ustxiList = []
+            self.lockbox = None
+            self.capable = 0
+            self.binScript = ''
+
+      # Some simple container classes
+      class OutputBundle(object):
+            self.recvAmt = 0
+            self.dispStr = ''
+            self.lockbox = None
+            self.wltID = None
+            self.binScript = ''
+      
+      self.inputBundles = {}
+      self.outputBundles = {}
+
+      # Accumulate and prepare all static info (that doesn't change with sigs)
+      for ustxi in self.ustx.ustxInputs:
+         hrStr,idStr = self.main.getContribStr(ustxi.txoScript, ustxi.contribID)
+
+         iBundle = self.inputBundles.setdefault(idStr, InputBundle())
+         iBundle.ustxiList.append(ustxi)
+         iBundle.sendAmt += ustxi.value
+         iBundle.dispStr = hrStr
+         if not idStr[:2] in ['LB']:
+            LOGERROR('Something other than a lockbox on input side')
+            QMessageBox.critical(self, tr('Non-lockbox'), tr("""
+               You loaded a transaction that is more complex that just
+               spending from a single lockbox.  Armory does not currently
+               handle this condition.  <br><br>
+               This error can occur when you attempt to spend multi-signature
+               coins for which you have not imported the appropriate lockbox
+               information.  Please have the party that created the lockbox
+               export it for you, and then you can import it in the lockbox
+               manager.  <br><br>
+               Input that failed:  %s""") % hrStr, QMessageBox.Ok)
+            self.reject()
+
+         # Take note of which lockbox this is
+         iBundle.lockbox = self.main.getLockboxByID(idStr.split(':')[-1])
+
+         # Check whether we have the capability to sign this thing
+         iBundle.binScript = iBundle.lockbox.binScript
+         for i in iBundle.lockbox.N:
+            wltID = self.main.getWalletForAddr160(iBundle.a160List[i])
+            if wltID:
+               wltType = determineWalletType(wlt, self.main)[0]
+               if wltType in [WLTTYPES.WatchOnly, WLTTYPES.Offline]:
+                  iBundle.capable = max(iBundle.capable, 1)  # watch-only
+               else:
+                  iBundle.capable = max(iBundle.capable, 2)  # can sign now!
+               
+
+      # The output bundles are quite a bit simpler 
+      for dtxo in self.ustx.decorTxOuts:
+         hrStr,idStr = self.main.getContribStr(dtxo.binScript, dtxo.contribID)
+         if idStr in self.inputBundles:
+            self.inputBundles[idStr].sendAmt -= dtxo.value
+
+         oBundle = self.outputBundles.setdefault(idStr, OutputBundle())
+         if not idStr in self.receiveAmt:
+            self.receiveAmt[idStr] = 0
+            self.contribStr[idStr] = hrStr
+
+         self.receiveAmt[idStr] += dtxo.value
+         if idStr in self.contribAmt:
+            self.contribAmt[idStr] += dtxo.value
+            
+
+      layoutInputs  = QGridLayout()
+      layoutOutputs = QGridLayout()
+
+      self.iWidgets = {}
+      self.oWidgets = {}
+
+      maxN = 3
+
+      print 'Contributions:'
+      iin = 0
+      iout = 0
+      for idStr in self.contribAmt:
+         self.iWidgets[idStr] = {}
+         topRow = (maxN+1)*iin
+         iin += 1
+
+         self.iWidgets[idStr]['HeadLbl'] = QRichLabel(tr("""
+            <font color="%s"><b><u>Spending:</u> %s</b></font>""") % \
+            (htmlColor('TextBlue'), self.contribStr[idStr]))
+         self.iWidgets[idStr]['Amount'] = QMoneyLabel()
+
+         # These are images that show up to N=3
+         self.iWidgets[idStr]['HeadImg'] = [None]*3
+         for i in range(maxN):
+            self.iWidgets[idStr]['HeadImg'][i] = QLabel()
+
+         self.iWidgets[idStr]['KeyImg']  = [None]*3
+         for i in range(maxN):
+            self.iWidgets[idStr]['KeyImg'][i] = QLabel()
+
+         self.iWidgets[idStr]['KeyLbl']  = [None]*3
+         for i in range(maxN):
+            self.iWidgets[idStr]['KeyLbl'][i] = QRichLabel('')
+
+         self.iWidgets[idStr]['ChkImg']  = [None]*3
+         for i in range(maxN):
+            self.iWidgets[idStr]['ChkImg'][i] = QLabel()
+
+         self.iWidgets[idStr]['SignBtn']  = [None]*3
+         for i in range(maxN):
+            self.iWidgets[idStr]['SignBtn'][i] = QPushButton('')
+         self.iWidgets[idStr]['SignBtn']  = [None]*3
+         for i in range(maxN):
+            self.iWidgets[idStr]['SignBtn'][i] = QPushButton('')
+         
+
+         # Now actually insert the widgets into a layout
+         headerLine = [self.iWidgets[idStr]['HeadLbl']]
+         headerLine.extend(self.iWidgets[idStr]['HeadImg'])
+         headerLine.append('Stretch')
+         layoutInputs.addWidget(makeHorizFrame(headerLine), topRow,0, 1,5)
+
+         for i in range(maxN):
+            row = topRow + 1 + i
+            layoutInputs.addItem(QSpacerItem(20,20),         row,0)
+            layoutInputs.addWidget(self.iWidgets['KeyImg'][i],  row,1)
+            layoutInputs.addWidget(self.iWidgets['ChkImg'][i],  row,2)
+            layoutInputs.addWidget(self.iWidgets['KeyLbl'][i],  row,3)
+            layoutInputs.addWidget(self.iWidgets['SignBtn'][i], row,4)
+
+            self.iWidgets['HeadImg'][i].setMinimumSize(KEYW,KEYH)
+            self.iWidgets['KeyImg' ][i].setMinimumSize(KEYW,KEYH)
+            self.iWidgets['ChkImg' ][i].setMinimumSize(CHKW,CHKH)
+
+            
+
+      for 
+         elif amt < 0:
+            #print "SEND-:", self.contribStr[idStr], coin2strNZS(-amt), 
+                                                               #'(',idStr,')'
+            topRow = (maxN+1)*iOut
+            iout += 1
+
+            self.oWidgets[idStr] = {}
+            self.oWidgets[idStr]['HeadLbl'] = QRichLabel(tr("""
+               <font color="%s"><b><u>Receiving:</u> %s</b></font>""") % \
+               (htmlColor('TextBlue'), self.contribStr[idStr]))
+
+            # These are images that show up to N=3
+            self.oWidgets[idStr]['HeadImg'] = [None]*3
+            self.oWidgets[idStr]['HeadImg'][0] = QLabel()
+            self.oWidgets[idStr]['HeadImg'][1] = QLabel()
+            self.oWidgets[idStr]['HeadImg'][2] = QLabel()
+
+            self.oWidgets[idStr]['KeyLbl']  = [None]*3
+            self.oWidgets[idStr]['KeyLbl'][0] = QRichLabel('')
+            self.oWidgets[idStr]['KeyLbl'][1] = QRichLabel('')
+            self.oWidgets[idStr]['KeyLbl'][2] = QRichLabel('')
+
+            self.oWidgets[idStr]['KeyLbl']  = [None]*3
+            self.oWidgets[idStr]['KeyImg'][0] = QRichLabel('')
+            self.oWidgets[idStr]['KeyImg'][1] = QRichLabel('')
+            self.oWidgets[idStr]['KeyImg'][2] = QRichLabel('')
+
+            # Now actually insert the widgets into a layout
+            headerLine = [self.oWidgets[idStr]['HeadLbl']]
+            headerLine.extend(self.oWidgets[idStr]['HeadImg'])
+            headerLine.append('Stretch')
+            layoutOutputs.addWidget(makeHorizFrame(headerLine), topRow,0, 1,5)
+
+            for i in range(maxN):
+               row = topRow + 1 + i
+               layoutOutputs.addItem(QSpacerItem(20,20),            row,0)
+               layoutOutputs.addWidget(self.oWidgets['KeyImg'][i],  row,1)
+               layoutOutputs.addWidget(self.oWidgets['KeyLbl'][i],  row,3)
+
+               self.oWidgets['HeadImg'][i].setMinimumSize(KEYW,KEYH)
+               self.oWidgets['KeyImg' ][i].setMinimumSize(KEYW,KEYH)
+               self.oWidgets['ChkImg' ][i].setMinimumSize(CHKW,CHKH)
+            
 
       # Evaluate SigningStatus returns per-wallet details if a wlt is given
       self.relevancyMap  = {}
@@ -1127,36 +1333,11 @@ class DlgMultiSpendReview(ArmoryDialog):
       self.evalSigStat()
       
 
-      self.contribNet = {}
-      self.useContrib = True
-
-      # Accumulate values of each contribID
-      for ustxi in self.ustx.ustxInputs:
-         if not ustxi.contribID in self.contribNet:
-            self.contribNet[ustxi.contribID] = 0
-
-         self.contribNet[ustxi.contribID] -= ustxi.value
       
-      # Decrement if there is change values for that ID
-      for dtxo in self.ustx.decorTxOuts:
-         cid = dtxo.contribID
-         if not cid:
-            cid = dtxo.getRecipStr()
-            
-         if not cid in self.contribNet:
-            self.contribNet[cid] = 0
-
-         self.contribNet[cid] += dtxo.value
-
-
-      for cid,amt in self.contribNet.iteritems():
-         if not cid:
-            cid = 'OTHER'.ljust(8)
-         print 'ID: %s / Amt: %s' % (cid.ljust(35), coin2str(amt))
-            
    
+         
 
-   #############################################################################
+   ############################################################################# 
    def evalSigStat(self):
       self.relevancyMap  = {}
       self.canSignMap    = {}
@@ -1168,6 +1349,31 @@ class DlgMultiSpendReview(ArmoryDialog):
          self.canSignMap[wltID]    = txss.wltCanSign
          self.alreadySigned[wltID] = txss.wltAlreadySigned
 
+
+      # This is complex, for sure.  
+      #    The outermost loop goes over all inputs and outputs
+      #    Then goes over all N public keys
+      for idStr in self.contribAmt:
+         amt = self.contribAmt[idStr]
+         if amt > 0:
+            for i in range(3):
+               signBtn = self.iWidgets[idStr]['SignBtn'][i]
+               chkLbl  = self.iWidgets[idStr]['chkImg'][i]
+               keyImg  = self.iWidgets[idStr]['keyImg'][i]
+               for wltID in self.alreadySigned:
+                  if not self.alreadySigned[wltID]:
+                     continue
+                  signBtn.setVisible(False)
+                  chkLbl.setPixmap(self.cscale(QPixmap(':/checkmark32.png')))
+                  keyImg.setPixmap(self.kscale(QPixmap(':/keyhole_gray.png')))
+               for wltID in self.canSignMap:
+                  if not self.canSignMap[wltID]:
+                     continue
+                  wlt = self.main.walletMap[wltID]
+                  wltType = determineWalletType(wlt, self.main)[0]
+                  if wltType == WLTTYPES.Offline:
+               
+            canSign = sum([1 if t else 0 for t in self.canSignMap
      
    #############################################################################
    def signAsMuchAsPossible(self, wlts):

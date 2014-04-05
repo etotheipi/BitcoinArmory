@@ -156,8 +156,8 @@ class MultiSigLockbox(object):
 
 
       # Computed some derived members
-
       self.scrAddr      = script_to_scrAddr(script)
+      self.p2shScrAddr  = script_to_scrAddr(script_to_p2sh_script(script))
       self.uniqueIDB58  = calcLockboxID(script)
       self.M, self.N, self.a160List, self.pkList = getMultisigScriptInfo(script)
       self.opStrList = convertScriptToOpStrings(script)
