@@ -2544,8 +2544,8 @@ class ArmoryMainWindow(QMainWindow):
             scraddrP2SH = script_to_p2sh_script(lbObj.binScript)
             TheBDM.registerWallet(self.cppLockboxWltMap[lbID])
             TheBDM.bdm.registerWallet(self.cppLockboxWltMap[lbID])
-            self.cppLockboxWltMap[lbID].addNewScrAddress(scraddrReg)
-            self.cppLockboxWltMap[lbID].addNewScrAddress(scraddrP2SH)
+            self.cppLockboxWltMap[lbID].addScrAddress_1_(scraddrReg)
+            self.cppLockboxWltMap[lbID].addScrAddress_1_(scraddrP2SH)
 
             # Save the scrAddr histories again to make sure no rescan nexttime
             if TheBDM.getBDMState()=='BlockchainReady':
