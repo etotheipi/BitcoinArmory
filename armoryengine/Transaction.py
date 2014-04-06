@@ -1620,7 +1620,7 @@ class UnsignedTransaction(object):
                                        version=UNSIGNED_TX_VERSION):
       self.version         = version
       self.pytxObj         = UNINITIALIZED
-      self.uniqueB58       = ''
+      self.uniqueIDB58     = ''
       self.lockTime        = 0
       self.ustxInputs  = []
       self.decorTxOuts = []
@@ -1676,7 +1676,7 @@ class UnsignedTransaction(object):
          raise ValueError('Supplied inputs are less than the supplied outputs')
 
       rawTxNoSigs = self.pytxObj.serialize()
-      self.uniqueB58 = binary_to_base58(hash256(rawTxNoSigs))[:8]
+      self.uniqueIDB58 = binary_to_base58(hash256(rawTxNoSigs))[:8]
       return self
 
 
@@ -1921,7 +1921,7 @@ class UnsignedTransaction(object):
       self.createFromUnsignedTxIO(ustxiList, dtxoList, lockt)
 
       # Check that we got the expect ID on the TXSIGCOLLECT
-      if expectID and not expectID==self.uniqueB58:
+      if expectID and not expectID==self.uniqueIDB58:
          raise UnserializeError('ID on ascii block does not match computed ID')
 
       return self
@@ -1929,7 +1929,7 @@ class UnsignedTransaction(object):
 
    #############################################################################
    def serializeAscii(self):
-      headStr = 'TXSIGCOLLECT-%s' % self.uniqueB58
+      headStr = 'TXSIGCOLLECT-%s' % self.uniqueIDB58
       return makeAsciiBlock(self.serialize(), headStr)
 
    #############################################################################
@@ -2104,7 +2104,7 @@ class UnsignedTransaction(object):
       ind = ' '*indent
       tx = self.pytxObj
       txHash = hash256(tx.serialize())
-      print ind+'UnsignedTx ID: ', self.uniqueB58
+      print ind+'UnsignedTx ID: ', self.uniqueIDB58
       print ind+'Curr TxID    : ', binary_to_hex(txHash, BIGENDIAN)
       print ind+'Version      : ', tx.version
       print ind+'Lock Time    : ', tx.lockTime

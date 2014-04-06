@@ -846,7 +846,7 @@ class BlockDataManagerThread(threading.Thread):
          isFresh = timeInfo
          if isFresh:
             # We claimed to have just created this ScrAddr...(so no rescan needed)
-            self.masterCppWallet.addNewScrAddress_1_(scrAddr)
+            self.masterCppWallet.addNewScrAddress(scrAddr)
          else:
             self.masterCppWallet.addScrAddress_1_(scrAddr)
       else:

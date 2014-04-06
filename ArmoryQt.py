@@ -129,6 +129,7 @@ class ArmoryMainWindow(QMainWindow):
       self.entropyAccum = []
       self.allLockboxes = []
       self.lockboxIDMap = {}
+      self.cppLockboxWltMap = {}
 
       # Full list of notifications, and notify IDs that should trigger popups
       # when sending or receiving.
@@ -2541,10 +2542,10 @@ class ArmoryMainWindow(QMainWindow):
             self.cppLockboxWltMap[lbID] = BtcWallet()
             scraddrReg = script_to_scrAddr(lbObj.binScript)
             scraddrP2SH = script_to_p2sh_script(lbObj.binScript)
-            self.cppLockboxWltMap[lbID].addScrAddress_1_(scraddrReg)
-            self.cppLockboxWltMap[lbID].addScrAddress_1_(scraddrP2SH)
             TheBDM.registerWallet(self.cppLockboxWltMap[lbID])
             TheBDM.bdm.registerWallet(self.cppLockboxWltMap[lbID])
+            self.cppLockboxWltMap[lbID].addNewScrAddress(scraddrReg)
+            self.cppLockboxWltMap[lbID].addNewScrAddress(scraddrP2SH)
 
             # Save the scrAddr histories again to make sure no rescan nexttime
             if TheBDM.getBDMState()=='BlockchainReady':
@@ -3459,14 +3460,14 @@ class ArmoryMainWindow(QMainWindow):
       self.walletListChanged()
 
    #############################################################################
-   def broadcastTransaction(self, pytx, dryRun=False):
+   def broadcastTransaction(self, pytx, dryRun=False, withOldSigWarning=True):
 
       if dryRun:
          #DlgDispTxInfo(pytx, None, self, self).exec_()
          return
       else:
          modified, newTx = pytx.minimizeDERSignaturePadding()
-         if modified:
+         if modified and withOldSigWarning:
             reply = QMessageBox.warning(self, 'Old signature format detected', \
                  'The transaction that you are about to execute '
                  'has been signed with an older version Bitcoin Armory '

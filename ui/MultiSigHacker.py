@@ -445,7 +445,7 @@ class DlgLockboxEditor(ArmoryDialog):
 
       self.edtBoxName.setText(boxObj.shortName)
       self.longDescr = boxObj.longDescr
-      self.loadedID = boxObj.uniqueB58
+      self.loadedID = boxObj.uniqueIDB58
       self.createDate = boxObj.createDate
 
       for i in range(boxObj.N):
@@ -624,7 +624,7 @@ class DlgExportLockbox(ArmoryDialog):
    def savefile(self):
       fn = self.main.getFileSave(tr('Export Lockbox Info'), 
                                  ['Lockboxes (*.lockbox.txt)'], 
-                            'Multikey_%s.lockbox.txt'%self.lockbox.uniqueB58)
+                            'Multikey_%s.lockbox.txt'%self.lockbox.uniqueIDB58)
       if fn:
          with open(fn,'w') as f:
             f.write(self.boxText + '\n')
@@ -718,9 +718,11 @@ class DlgLockboxManager(ArmoryDialog):
                                       self.btnSpend,
                                       'Stretch'])
 
+      """
       if not TheBDM.getBDMState()=='BlockchainReady':
          self.btnSpend.setDisabled(True)
          self.btnFundIt.setDisabled(True)
+      """
             
       frmManageBtns.layout().setSpacing(2)
 
@@ -834,7 +836,7 @@ class DlgLockboxManager(ArmoryDialog):
       self.btnDelete.setDisabled(noSelection)
 
       self.btnFundIt.setDisabled(noSelection or isOffline)
-      self.btnSpend.setDisabled(noSelection or isOffline)
+      self.btnSpend.setDisabled(noSelection)
       
    #############################################################################
    def getSelectedLBID(self):
@@ -962,9 +964,33 @@ class DlgLockboxManager(ArmoryDialog):
 
    #############################################################################
    def doSpend(self):
-      lbID = self.getSelectedLBID()
-      dlg = DlgSendBitcoins(None, self, self.main, spendFromLockboxID=lbID)
-      dlg.exec_()
+
+
+      dlgSpend = DlgSpendFromLockboxSelect(self, self.main)
+      dlgSpend.exec_()
+
+      if dlgSpend.selection is None:
+         return
+      elif dlgSpend.selection=='Create':
+         lbID = self.getSelectedLBID()
+         dlg = DlgSendBitcoins(None, self, self.main, spendFromLockboxID=lbID)
+         dlg.exec_()
+      elif dlgSpend.selection=='Review':
+         title = tr("Import Signature Collector")
+         descr = tr("""
+            If someone else made a transaction that you need to sign, either 
+            copy and paste it into the box below, or load it from file.  Files
+            containing signature-collecting data usually end with
+            <i>*.sigcollect.tx</i>.""")
+         ftypes = ['Signature Collectors (*.sigcollect.tx)']
+         dlgImport = DlgImportAsciiBlock(self, self.main, 
+                           title, descr, ftypes, UnsignedTransaction)
+         dlgImport.exec_()
+         if dlgImport.returnObj:
+            self.accept()
+            ustx = dlgImport.returnObj
+            DlgMultiSpendReview(self, self.main, ustx).exec_()
+
       self.updateButtonDisable()
       
 
@@ -993,12 +1019,148 @@ class DlgLockboxManager(ArmoryDialog):
       
 
 ################################################################################
+class DlgFundLockboxSelect(ArmoryDialog):
+   def __init__(self, parent, main):
+      super(DlgFundLockboxSelect, self).__init__(parent, main)
+   
+      self.selection = None
+
+      lblDescr = QRichLabel(tr("""
+         To spend from a multi-key lockbox, one party/device must create
+         a proposed spending transaction, then all parties/devices must
+         review and sign that transaction.  Once it has enough signatures,
+         any device, can broadcast the transaction to the network."""))
+
+      lblCreate = QRichLabel(tr("""
+         I am creating a new proposed spending transaction and will pass
+         it to each party or device that needs to sign it"""))
+
+      lblReview = QRichLabel(tr("""
+         Another party or device created the transaction, I just need 
+         to review and sign it."""))
+
+      btnCreate = QPushButton(tr("Create Transaction"))
+      btnReview = QPushButton(tr("Review and Sign"))
+      btnCancel = QPushButton(tr("Cancel"))
+
+      self.connect(btnCreate, SIGNAL('clicked()'), self.doCreate)
+      self.connect(btnReview, SIGNAL('clicked()'), self.doReview)
+      self.connect(btnCancel, SIGNAL('clicked()'), self.reject)
+
+      frmTop = makeHorizFrame([lblDescr], STYLE_STYLED)
+
+      layoutBot = QGridLayout()
+      layoutBot.addWidget(btnReview,   0,0)
+      layoutBot.addWidget(lblReview,   0,1)
+      layoutBot.addWidget(HLINE(),     1,0, 1,2)
+      layoutBot.addWidget(btnCreate,   2,0)
+      layoutBot.addWidget(lblCreate,   2,1)
+
+      layoutBot.setColumnStretch(0, 0)
+      layoutBot.setColumnStretch(1, 1)
+      frmBot = QFrame()
+      frmBot.setLayout(layoutBot)
+      frmBot.setFrameStyle(STYLE_STYLED)
+
+      frmCancel = makeHorizFrame([btnCancel, 'Stretch'])
+
+      layoutMain = QVBoxLayout()
+      layoutMain.addWidget(frmTop)
+      layoutMain.addWidget(frmBot)
+      layoutMain.addWidget(frmCancel)
+      self.setLayout(layoutMain)
+
+      self.setMinimumWidth(500)
+
+
+   def doCreate(self):
+      self.selection = 'Create'
+      self.accept()
+
+   def doReview(self):
+      self.selection = 'Review'
+      self.accept()
+
+
+################################################################################
+class DlgSpendFromLockboxSelect(ArmoryDialog):
+   def __init__(self, parent, main):
+      super(DlgSpendFromLockboxSelect, self).__init__(parent, main)
+   
+      self.selection = None
+
+      lblDescr = QRichLabel(tr("""
+         To spend from a multi-key lockbox, one party/device must create
+         a proposed spending transaction, then all parties/devices must
+         review and sign that transaction.  Once it has enough signatures,
+         any device, can broadcast the transaction to the network."""))
+
+      btnCreate = QPushButton(tr("Create Transaction"))
+      btnReview = QPushButton(tr("Review and Sign"))
+      btnCancel = QPushButton(tr("Cancel"))
+
+      if TheBDM.getBDMState()=='BlockchainReady':
+         lblCreate = QRichLabel(tr("""
+            I am creating a new proposed spending transaction and will pass
+            it to each party or device that needs to sign it"""))
+      else:
+         btnCreate.setEnabled(False)
+         lblCreate = QRichLabel(tr("""
+            Transaction creation is not available when offline."""))
+
+      lblReview = QRichLabel(tr("""
+         Another party or device created the transaction, I just need 
+         to review and sign it."""))
+
+
+      self.connect(btnCreate, SIGNAL('clicked()'), self.doCreate)
+      self.connect(btnReview, SIGNAL('clicked()'), self.doReview)
+      self.connect(btnCancel, SIGNAL('clicked()'), self.reject)
+
+      frmTop = makeHorizFrame([lblDescr], STYLE_STYLED)
+
+      layoutBot = QGridLayout()
+      layoutBot.addWidget(btnCreate,   0,0)
+      layoutBot.addWidget(lblCreate,   0,1)
+      layoutBot.addWidget(HLINE(),     1,0, 1,2)
+      layoutBot.addWidget(btnReview,   2,0)
+      layoutBot.addWidget(lblReview,   2,1)
+
+      layoutBot.setColumnStretch(0, 0)
+      layoutBot.setColumnStretch(1, 1)
+
+      frmBot = QFrame()
+      frmBot.setLayout(layoutBot)
+      frmBot.setFrameStyle(STYLE_STYLED)
+
+      frmCancel = makeHorizFrame([btnCancel, 'Stretch'])
+
+      layoutMain = QVBoxLayout()
+      layoutMain.addWidget(frmTop,    1)
+      layoutMain.addWidget(frmBot,    1)
+      layoutMain.addWidget(frmCancel, 0)
+      self.setLayout(layoutMain)
+
+      self.setMinimumWidth(500)
+
+
+   def doCreate(self):
+      self.selection = 'Create'
+      self.accept()
+
+   def doReview(self):
+      self.selection = 'Review'
+      self.accept()
+
+
+################################################################################
 class DlgImportAsciiBlock(QDialog):
    def __init__(self, parent, main, titleStr, descrStr, fileTypes, importType):
       super(DlgImportAsciiBlock, self).__init__(parent)
       self.main = main
       self.fileTypes = fileTypes
       self.importType = importType
+      self.returnObj = None
 
       lbl = QRichLabel(descrStr)
 
@@ -1170,7 +1332,7 @@ class DlgImportLockbox(QDialog):
          LOGEXCEPT('Error unserializing the entered text')
          return
          
-      lbID = self.importedLockbox.uniqueB58
+      lbID = self.importedLockbox.uniqueIDB58
       if not self.main.getLockboxByID(lbID) is None:
          reply = QMessageBox.warning(self, tr("Duplicate Lockbox"), tr("""
             You just attempted to import a lockbox with ID, %s.  This
@@ -1299,6 +1461,7 @@ class DlgMultiSpendReview(ArmoryDialog):
       #        input bundle with a negative send amount
 
       # Accumulate and prepare all static info (that doesn't change with sigs)
+      self.maxN = 0
       for ustxi in self.ustx.ustxInputs:
          hrStr,idStr = self.main.getContribStr(ustxi.txoScript, ustxi.contribID)
 
@@ -1327,6 +1490,7 @@ class DlgMultiSpendReview(ArmoryDialog):
          # Check whether we have the capability to sign this lockbox
          iBundle.binScript = iBundle.lockbox.binScript
          M,N = iBundle.lockbox.M, iBundle.lockbox.N
+         self.maxN = max(N, self.maxN)
          iBundle.wltOfflineSign  = [None]*N
          iBundle.wltSignRightNow = [None]*N
          iBundle.keyholePixmap   = [None]*N
@@ -1365,7 +1529,6 @@ class DlgMultiSpendReview(ArmoryDialog):
       self.iWidgets = {}
       self.oWidgets = {}
 
-      self.maxN = 3
 
       iin = 0
       iout = 0
@@ -1670,11 +1833,21 @@ class DlgMultiSpendReview(ArmoryDialog):
                signBtn.setText('Sign')
                keyImg.setPixmap(self.pixGreen())
             elif ib.wltOfflineSign[i]:
-               chkLbl.setPixmap(QPixmap())
-               signBtn.setVisible(True)
-               signBtn.setEnabled(False)
-               signBtn.setText('Offline')
-               keyImg.setPixmap(self.pixWhite())
+               wltID = ib.wltOfflineSign[i][0]
+               wlt = self.main.walletMap[wltID]
+               wltType = determineWalletType(wlt, self.main)[0]
+               if wltType==WLTTYPES.WatchOnly:
+                  chkLbl.setPixmap(QPixmap())
+                  signBtn.setVisible(False)
+                  signBtn.setEnabled(False)
+                  signBtn.setText('Offline')
+                  keyImg.setPixmap(self.pixWhite())
+               elif wltType==WLTTYPES.Offline:
+                  chkLbl.setPixmap(QPixmap())
+                  signBtn.setVisible(True)
+                  signBtn.setEnabled(False)
+                  signBtn.setText('Offline')
+                  keyImg.setPixmap(self.pixWhite())
             else:
                chkLbl.setPixmap(QPixmap())
                signBtn.setVisible(True)
@@ -1690,7 +1863,7 @@ class DlgMultiSpendReview(ArmoryDialog):
             <font color="%s">This transaction has enough signatures and 
             can be broadcast!""") % htmlColor('TextGreen'))
          self.btnFinalBroad.setVisible(True)
-         self.btnFinalBroad.setEnabled(True)
+         self.btnFinalBroad.setEnabled(self.main.netMode == NETWORKMODE.Full)
          self.btnFinalExport.setVisible(True)
          self.btnFinalExport.setEnabled(True)
          self.lblFinalChk.setPixmap(self.pixChk())
@@ -1721,7 +1894,7 @@ class DlgMultiSpendReview(ArmoryDialog):
          safe to send this data via email or USB key.  No data is included 
          that would compromise the security of any of the signing devices.""")
       ftypes = ['Signature Collectors (*.sigcollect.tx)']
-      defaultFN = 'MultikeyTransaction_%s.sigcollect.tx' % self.ustx.uniqueB58
+      defaultFN = 'MultikeyTransaction_%s.sigcollect.tx' % self.ustx.uniqueIDB58
          
       DlgExportAsciiBlock(self, self.main, self.ustx, title, descr, 
                                                     ftypes, defaultFN).exec_()
@@ -1763,7 +1936,7 @@ class DlgMultiSpendReview(ArmoryDialog):
 
          finalTx = self.ustx.prepareFinalTx(doVerifySigs=False)
 
-      self.main.broadcastTransaction(finalTx)
+      self.main.broadcastTransaction(finalTx, withOldSigWarning=False)
          
 
 
