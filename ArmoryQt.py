@@ -1523,30 +1523,31 @@ class ArmoryMainWindow(QMainWindow):
                   self.versionNotification['LONGDESCR'] = \
                      self.getVersionNotifyLongDescr(verStr).replace('\n','<br>')
                      
-            for verStr,vermap in self.downloadLinks['ArmoryTesting'].iteritems():
-               dlVer = getVersionInt(readVersionString(verStr))
-               if dlVer > maxVer:
-                  maxVer = dlVer
-                  self.armoryVersions[1] = verStr
-                  if thisVer >= maxVer:
-                     continue
+            if 'ArmoryTesting' in self.downloadLinks:
+               for verStr,vermap in self.downloadLinks['ArmoryTesting'].iteritems():
+                  dlVer = getVersionInt(readVersionString(verStr))
+                  if dlVer > maxVer:
+                     maxVer = dlVer
+                     self.armoryVersions[1] = verStr
+                     if thisVer >= maxVer:
+                        continue
 
-                  shortDescr = tr('Armory Testing version %s is now available!') % verStr
-                  notifyID = binary_to_hex(hash256(shortDescr)[:4])
-                  self.versionNotification['UNIQUEID'] = notifyID
-                  self.versionNotification['VERSION'] = '0'
-                  self.versionNotification['STARTTIME'] = '0'
-                  self.versionNotification['EXPIRES'] = '%d' % long(UINT64_MAX)
-                  self.versionNotification['CANCELID'] = '[]'
-                  self.versionNotification['MINVERSION'] = '*'
-                  self.versionNotification['MAXVERSION'] = '<%s' % verStr
-                  self.versionNotification['PRIORITY'] = '1024'
-                  self.versionNotification['ALERTTYPE'] = 'upgrade-testing'
-                  self.versionNotification['NOTIFYSEND'] = 'False'
-                  self.versionNotification['NOTIFYRECV'] = 'False'
-                  self.versionNotification['SHORTDESCR'] = shortDescr
-                  self.versionNotification['LONGDESCR'] = \
-                     self.getVersionNotifyLongDescr(verStr, True).replace('\n','<br>')
+                     shortDescr = tr('Armory Testing version %s is now available!') % verStr
+                     notifyID = binary_to_hex(hash256(shortDescr)[:4])
+                     self.versionNotification['UNIQUEID'] = notifyID
+                     self.versionNotification['VERSION'] = '0'
+                     self.versionNotification['STARTTIME'] = '0'
+                     self.versionNotification['EXPIRES'] = '%d' % long(UINT64_MAX)
+                     self.versionNotification['CANCELID'] = '[]'
+                     self.versionNotification['MINVERSION'] = '*'
+                     self.versionNotification['MAXVERSION'] = '<%s' % verStr
+                     self.versionNotification['PRIORITY'] = '1024'
+                     self.versionNotification['ALERTTYPE'] = 'upgrade-testing'
+                     self.versionNotification['NOTIFYSEND'] = 'False'
+                     self.versionNotification['NOTIFYRECV'] = 'False'
+                     self.versionNotification['SHORTDESCR'] = shortDescr
+                     self.versionNotification['LONGDESCR'] = \
+                        self.getVersionNotifyLongDescr(verStr, True).replace('\n','<br>')
 
 
          # For Satoshi updates, we don't trigger any notifications like we

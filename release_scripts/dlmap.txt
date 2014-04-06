@@ -1,7 +1,7 @@
-ArmoryTesting 0.90.99.7 https://s3.amazonaws.com/bitcoinarmory-testing/
+Armory 0.91 https://s3.amazonaws.com/bitcoinarmory-releases/
 
-armory_%ver-testing_64bit.deb Ubuntu 12.04,12.10,13.04,13.10,14.10 64
-armory_%ver-testing_32bit.deb Ubuntu 12.04,12.10,13.04,13.10,14.10 32
-armory_%ver-testing_osx.tar.gz MacOSX 10.7,10.8,10.9,10.9.1,10.9.2 64
-armory_%ver-testing_raspbian.tar.gz RaspberryPi Raspbian(armhf) 32
-armory_%ver-testing_winAll.exe Windows XP,Vista,7,8,8.1 32,64
+armory_%ver-beta_64bit.deb Ubuntu 12.04,12.10,13.04,13.10,14.10 64
+armory_%ver-beta_32bit.deb Ubuntu 12.04,12.10,13.04,13.10,14.10 32
+armory_%ver-beta_osx.tar.gz MacOSX 10.7,10.8,10.9,10.9.1,10.9.2 64
+armory_%ver-beta_raspbian.tar.gz RaspberryPi Raspbian(armhf) 32
+armory_%ver-beta_winAll.exe Windows XP,Vista,7,8,8.1 32,64
