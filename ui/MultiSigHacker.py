@@ -1395,11 +1395,10 @@ class DlgMultiSpendReview(ArmoryDialog):
       lblDescr = QRichLabel(tr("""
          The following transaction is a proposed spend of funds controlled
          by multiple parties.  The keyholes next to each input represent 
-         required signatures for the tx to be valid.  If the keyhole is white,
-         it has not yet been signed, and cannot be signed by you.  Blue
-         keyholes represent signatures that can be made by private keys/wallets
-         claimed to be owned by you (though it may require getting an offline 
-         signature).
+         required signatures for the tx to be valid.  White
+         means it has not yet been signed, and cannot be signed by you.  Green
+         represents signatures that can be added by one of your wallets.
+         Gray keyholes are already signed.Untitled
          <br><br>
          Change outputs have been hidden where it is obvious (such as coins
          returning to the same lockbox from where it came).  If there is 
@@ -1561,13 +1560,14 @@ class DlgMultiSpendReview(ArmoryDialog):
             iWidgMap['ChkImg' ][i] = QLabel()
             iWidgMap['SignBtn'][i] = QPushButton('')
          
+            iWidgMap['ChkImg'][i].setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
 
          # Now actually insert the widgets into a layout
          headerLine = [iWidgMap['HeadLbl']]
          headerLine.extend(iWidgMap['HeadImg'])
          headerLine.append('Stretch')
          headerLine.append(iWidgMap['Amount'])
-         layoutInputs.addWidget(makeHorizFrame(headerLine), topRow,0, 1,5)
+         layoutInputs.addWidget(makeHorizFrame(headerLine), topRow,0, 1,4)
 
          def createSignCallback(idstring, nIdx):
             def doSign():
@@ -1579,9 +1579,9 @@ class DlgMultiSpendReview(ArmoryDialog):
             row = topRow + 1 + i
             layoutInputs.addItem(QSpacerItem(20,20),       row,0)
             layoutInputs.addWidget(iWidgMap['SignBtn'][i], row,1)
+            layoutInputs.addWidget(iWidgMap['ChkImg' ][i], row,1)
             layoutInputs.addWidget(iWidgMap['KeyImg' ][i], row,2)
             layoutInputs.addWidget(iWidgMap['KeyLbl' ][i], row,3)
-            layoutInputs.addWidget(iWidgMap['ChkImg' ][i], row,4)
 
             self.connect(iWidgMap['SignBtn'][i], SIGNAL('clicked()'), \
                                            createSignCallback(idStr, i))
@@ -1824,9 +1824,11 @@ class DlgMultiSpendReview(ArmoryDialog):
                chkLbl.setVisible(True)
                chkLbl.setPixmap(self.pixChk())
                signBtn.setEnabled(False)
+               signBtn.setVisible(False)
                signBtn.setText(tr('Done!'))
                keyImg.setPixmap(self.pixGray())
             elif ib.wltSignRightNow[i]:
+               chkLbl.setVisible(False)
                chkLbl.setPixmap(QPixmap())
                signBtn.setVisible(True)
                signBtn.setEnabled(True)
@@ -1837,12 +1839,14 @@ class DlgMultiSpendReview(ArmoryDialog):
                wlt = self.main.walletMap[wltID]
                wltType = determineWalletType(wlt, self.main)[0]
                if wltType==WLTTYPES.WatchOnly:
+                  chkLbl.setVisible(False)
                   chkLbl.setPixmap(QPixmap())
                   signBtn.setVisible(False)
                   signBtn.setEnabled(False)
                   signBtn.setText('Offline')
                   keyImg.setPixmap(self.pixWhite())
                elif wltType==WLTTYPES.Offline:
+                  chkLbl.setVisible(False)
                   chkLbl.setPixmap(QPixmap())
                   signBtn.setVisible(True)
                   signBtn.setEnabled(False)
@@ -1850,6 +1854,7 @@ class DlgMultiSpendReview(ArmoryDialog):
                   keyImg.setPixmap(self.pixWhite())
             else:
                chkLbl.setPixmap(QPixmap())
+               chkLbl.setVisible(False)
                signBtn.setVisible(True)
                signBtn.setVisible(False)
                keyImg.setPixmap(self.pixWhite())
