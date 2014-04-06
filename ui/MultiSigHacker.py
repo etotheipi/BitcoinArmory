@@ -556,7 +556,7 @@ class DlgLockboxEditor(ArmoryDialog):
       print 'Equal: ', ser==ser2
       """
 
-      self.main.updateOrAddLockbox(self.lockbox)
+      self.main.updateOrAddLockbox(self.lockbox, isFresh=True)
       
       self.accept()
       DlgExportLockbox(self, self.main, self.lockbox).exec_()
@@ -888,7 +888,9 @@ class DlgLockboxManager(ArmoryDialog):
       dlg = DlgImportLockbox(self, self.main)
       if dlg.exec_():
          if dlg.importedLockbox is not None:
-            self.main.updateOrAddLockbox(dlg.importedLockbox)
+            # FIXEME:  For now always assume fresh, restart should catch 
+            #          anything in the last 2016 blocks. Or manual rescan.
+            self.main.updateOrAddLockbox(dlg.importedLockbox, isFresh=True)
          self.lboxModel.reset()
          self.singleClickLockbox()
       self.updateButtonDisable()

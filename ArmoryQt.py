@@ -497,7 +497,7 @@ class ArmoryMainWindow(QMainWindow):
       self.connect(btnOfflineTx,SIGNAL('clicked()'), self.execOfflineTx)
       self.connect(btnMultisig, SIGNAL('clicked()'), self.browseLockboxes)
 
-      verStr = 'Armory %s-beta / %s' % (getVersionString(BTCARMORY_VERSION), \
+      verStr = 'Armory %s-multisig / %s' % (getVersionString(BTCARMORY_VERSION), \
                                               UserModeStr(self.usermode))
       lblInfo = QRichLabel(verStr, doWrap=False)
       lblInfo.setFont(GETFONT('var',10))
@@ -2529,7 +2529,7 @@ class ArmoryMainWindow(QMainWindow):
          shutil.move(fn, fn+'.%d.bak'% long(RightNow()))
    
    #############################################################################
-   def updateOrAddLockbox(self, lbObj):
+   def updateOrAddLockbox(self, lbObj, isFresh=False):
       try:
          lbID = lbObj.uniqueIDB58
          index = self.lockboxIDMap.get(lbID)
@@ -2542,10 +2542,14 @@ class ArmoryMainWindow(QMainWindow):
             self.cppLockboxWltMap[lbID] = BtcWallet()
             scraddrReg = script_to_scrAddr(lbObj.binScript)
             scraddrP2SH = script_to_p2sh_script(lbObj.binScript)
-            TheBDM.registerWallet(self.cppLockboxWltMap[lbID])
-            TheBDM.bdm.registerWallet(self.cppLockboxWltMap[lbID])
-            self.cppLockboxWltMap[lbID].addScrAddress_1_(scraddrReg)
-            self.cppLockboxWltMap[lbID].addScrAddress_1_(scraddrP2SH)
+            TheBDM.registerWallet(self.cppLockboxWltMap[lbID], isFresh)
+            TheBDM.bdm.registerWallet(self.cppLockboxWltMap[lbID], isFresh)
+            if not isFresh:
+               self.cppLockboxWltMap[lbID].addScrAddress_1_(scraddrReg)
+               self.cppLockboxWltMap[lbID].addScrAddress_1_(scraddrP2SH)
+            else:
+               self.cppLockboxWltMap[lbID].addNewScrAddress(scraddrReg)
+               self.cppLockboxWltMap[lbID].addNewScrAddress(scraddrP2SH)
 
             # Save the scrAddr histories again to make sure no rescan nexttime
             if TheBDM.getBDMState()=='BlockchainReady':
@@ -2986,6 +2990,11 @@ class ArmoryMainWindow(QMainWindow):
       try:
          lockboxTable = []
          for lbID,cppWlt in self.cppLockboxWltMap.iteritems():
+
+            zcLedger = cppWlt.getZeroConfLedger()
+            for i in range(len(zcLedger)):
+               lockboxTable.append([lbID, zcLedger[i]])
+
             ledger = cppWlt.getTxLedger()
             for i in range(len(ledger)):
                lockboxTable.append([lbID, ledger[i]])
@@ -5984,6 +5993,14 @@ class ArmoryMainWindow(QMainWindow):
                self.createCombinedLedger()
                self.walletModel.reset()
 
+         for lbID,cppWlt in self.cppLockboxWltMap.iteritems():
+            le = cppWlt.calcLedgerEntryForTxStr(rawTx)
+            if not le.getTxHash() == '\x00' * 32:
+               LOGDEBUG('ZerConf tx for LOCKBOX: %s' % lbID)
+               self.createCombinedLedger()
+               self.walletModel.reset()
+               self.lockboxLedgModel.reset()
+
    #############################################################################
    @TimeThisFunction
    def newBlockSyncRescanZC(self, prevLedgSize):
@@ -6175,6 +6192,10 @@ class ArmoryMainWindow(QMainWindow):
                for wltID in self.walletMap.keys():
                   wlt = self.walletMap[wltID]
                   TheBDM.rescanWalletZeroConf(wlt.cppWallet, wait=True)
+
+               for lbID,cppWlt in self.cppLockboxWltMap.iteritems():
+                  TheBDM.rescanWalletZeroConf(cppWlt, wait=True)
+                  
 
             self.checkNewZeroConf()
 
