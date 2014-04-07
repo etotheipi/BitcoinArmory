@@ -4603,6 +4603,7 @@ def excludeChange(outputPairs, wlt):
          scrAddr = script_to_scrAddr(script)
          addr160 = scrAddr_to_hash160(scrAddr)[1]
 
+      print binary_to_hex(addr160)
       addr = wlt.getAddrByHash160(addr160)
 
       # this logic excludes the pair with the maximum chainIndex from the
@@ -4647,8 +4648,9 @@ class DlgConfirmSend(ArmoryDialog):
       # guess that the highest chain index is the change
       # and exclude it from the returnPairs list
       # and not in expert mode (because in expert mode the change could be anywhere
-      if changeBehave == None and returnPairs > 0:
-         returnPairs = excludeChange(returnPairs, wlt)
+      #if changeBehave == None and returnPairs > 0:
+      print 'FIXME: always exclude change... should disable under some conditions'
+      returnPairs = excludeChange(returnPairs, wlt)
          
       sendPairs.extend(returnPairs)
       

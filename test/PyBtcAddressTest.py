@@ -8,8 +8,9 @@ import unittest
 
 from CppBlockUtils import CryptoECDSA, SecureBinaryData
 from armoryengine.ArmoryUtils import hex_to_binary, RightNow, int_to_binary, \
-   checkAddrStrValid, hash256, UnserializeError
+   checkAddrStrValid, hash256, UnserializeError, hash160_to_addrStr
 from armoryengine.PyBtcAddress import PyBtcAddress
+from armoryengine.BDM import TheBDM
 
 
 sys.argv.append('--nologging')
@@ -38,7 +39,7 @@ class PyBtcAddressTest(unittest.TestCase):
 
 
    def setUp(self):
-      pass
+      TheBDM.Reset()
       
    def tearDown(self):
       pass
@@ -379,11 +380,9 @@ class PyBtcAddressTest(unittest.TestCase):
    def testSimpleAddress(self):
       # Execute the tests with Satoshi's public key from the Bitcoin specification page
       satoshiPubKeyHex = '04fc9702847840aaf195de8442ebecedf5b095cdbb9bc716bda9110971b28a49e0ead8564ff0db22209e0374782c093bb899692d524e9d6a6956e7c5ecbcd68284'
-      satoshiAddrStr = '1AGRxqDa5WjUKBwHB9XYEjmkv1ucoUUy1s'
       addrPiece1Hex = '65a4358f4691660849d9f235eb05f11fabbd69fa'
-      addrPiece2Hex = 'd8b2307a'
       addrPiece1Bin = hex_to_binary(addrPiece1Hex)
-      addrPiece2Bin = hex_to_binary(addrPiece2Hex)
+      satoshiAddrStr = hash160_to_addrStr(addrPiece1Bin)
 
       saddr = PyBtcAddress().createFromPublicKey( hex_to_binary(satoshiPubKeyHex) )
       print '\tAddr calc from pubkey: ', saddr.calculateAddrStr()

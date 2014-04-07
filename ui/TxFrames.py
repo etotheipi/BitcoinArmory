@@ -1208,7 +1208,7 @@ class ReviewOfflineTxFrame(ArmoryDialog):
    
    def setUSTX(self, ustx):
       self.ustx = ustx
-      self.lblUTX.setText('<b>Transaction Data</b> \t (Unsigned ID: %s)' % ustx.uniqueB58)
+      self.lblUTX.setText('<b>Transaction Data</b> \t (Unsigned ID: %s)' % ustx.uniqueIDB58)
       self.txtUSTX.setText(ustx.serializeAscii())
    
    def setWallet(self, wlt):
@@ -1250,7 +1250,7 @@ class ReviewOfflineTxFrame(ArmoryDialog):
 
    def doSaveFile(self):
       """ Save the Unsigned-Tx block of data """
-      dpid = self.ustx.uniqueB58
+      dpid = self.ustx.uniqueIDB58
       suffix = ('' if OS_WINDOWS else '.unsigned.tx')
       toSave = self.main.getFileSave(\
                       'Save Unsigned Transaction', \
@@ -1290,10 +1290,12 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
          'you will have the opportunity to broadcast it to '
          'the Bitcoin network to make it final.')
 
-      w, h = tightSizeStr(GETFONT('Fixed', 8), '0' * 90)[0], int(12 * 8.2)
       self.txtUSTX = QTextEdit()
       self.txtUSTX.setFont(GETFONT('Fixed', 8))
-      self.txtUSTX.sizeHint = lambda: QSize(w, h)
+      w,h = relaxedSizeNChar(self.txtUSTX, 80)
+      #self.txtUSTX.sizeHint = lambda: QSize(w, h)
+      self.txtUSTX.setMinimumWidth(w)
+      self.txtUSTX.setMinimumHeight(8*h)
       self.txtUSTX.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
       self.btnSign = QPushButton('Sign')
@@ -1571,7 +1573,7 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
             self.infoLbls[1][2].setText('')
 
          ##### 2
-         self.infoLbls[2][2].setText(self.ustxObj.uniqueB58)
+         self.infoLbls[2][2].setText(self.ustxObj.uniqueIDB58)
 
          ##### 3
          if self.leValue:
@@ -1775,11 +1777,11 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
       if not self.ustxObj == None:
          if self.enoughSigs and self.sigsValid:
             suffix = '' if OS_WINDOWS else '.signed.tx'
-            defaultFilename = 'armory_%s_%s' % (self.ustxObj.uniqueB58, suffix)
+            defaultFilename = 'armory_%s_%s' % (self.ustxObj.uniqueIDB58, suffix)
             ffilt = 'Transactions (*.signed.tx *.unsigned.tx)'
          else:
             suffix = '' if OS_WINDOWS else '.unsigned.tx'
-            defaultFilename = 'armory_%s_%s' % (self.ustxObj.uniqueB58, suffix)
+            defaultFilename = 'armory_%s_%s' % (self.ustxObj.uniqueIDB58, suffix)
             ffilt = 'Transactions (*.unsigned.tx *.signed.tx)'
       filename = self.main.getFileSave('Save Transaction', \
                              [ffilt], \
@@ -1798,8 +1800,8 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
 
 
    def loadTx(self):
-      filename = self.main.getFileLoad('Load Transaction', \
-                             ['Transactions (*.signed.tx *.unsigned.tx)'])
+      filename = self.main.getFileLoad(tr('Load Transaction'), \
+                    ['Transactions (*.signed.tx *.unsigned.tx *.SENT.tx)'])
 
       if len(str(filename)) > 0:
          LOGINFO('Selected transaction file to load: %s', filename)

@@ -300,8 +300,8 @@ class ArmoryEngineTest(unittest.TestCase):
    #############################################################################
    def test_read_address(self):
       hashVal = hex_to_binary('c3a9eb6753c449c88ac193e9ddf7ab3a0be8c5ad')
-      addrStr00  = '1JqaKdBsruwgGcZkiVCNU2DBh56DJqhemg'
-      addrStr05  = '3KXbFAgKQpG4MnGBqarxtea7qbNvtKyuAp'
+      addrStr00  = hash160_to_addrStr(hashVal)
+      addrStr05  = hash160_to_p2shStr(hashVal)
       addrStrA3  = '28tvtpKmqbKUVaGHshsVKWTaRHJ5yG36xvv'
       addrStrBad = '1JqaKdBsruwgGcZkiVCNU2DBh56DHBsEb1'
 
@@ -391,12 +391,11 @@ class ArmoryEngineTest(unittest.TestCase):
       script  = hex_to_binary("76a914a134408afa258a50ed7a1d9817f26b63cc9002cc88ac")
       a160    = hex_to_binary(      "a134408afa258a50ed7a1d9817f26b63cc9002cc")
       scraddr = hex_to_binary(    "00a134408afa258a50ed7a1d9817f26b63cc9002cc")
-      addrstr = '1FhNPRh1TxVidoKkWFEpdmK5RXw9vG1KUb'
 
       self.assertEqual(script,  scrAddr_to_script(scraddr))
       self.assertEqual(scraddr, script_to_scrAddr(script))  # this uses C++
-      self.assertEqual(addrstr, scrAddr_to_addrStr(scraddr))
-      self.assertEqual(scraddr, addrStr_to_scrAddr(addrstr))
+      # Go round trip to avoid dependency on the network. Works in both main-net or testnet
+      self.assertEqual(scraddr, addrStr_to_scrAddr(scrAddr_to_addrStr(scraddr)))
       
 
       ##### Pay to PubKey65
@@ -407,10 +406,8 @@ class ArmoryEngineTest(unittest.TestCase):
                               "7117ab65129b8a2e681f3c1e0908ef7b""ac")
       a160    = hex_to_binary(  "e24b86bff5112623ba67c63b6380636cbdf1a66d")
       scraddr = hex_to_binary("00e24b86bff5112623ba67c63b6380636cbdf1a66d")
-      addrstr = '1MdYC22Gmjp2ejVPCxyYjFyWbQCYTGhGq8'
-
       self.assertEqual(scraddr, script_to_scrAddr(script))
-      self.assertEqual(addrstr, scrAddr_to_addrStr(scraddr))
+      self.assertEqual(scraddr, addrStr_to_scrAddr(scrAddr_to_addrStr(scraddr)))
 
 
       ##### Pay to PubKey33
@@ -419,10 +416,9 @@ class ArmoryEngineTest(unittest.TestCase):
                               "a845bd25689edb723d5ad4068ddd3036""ac")
       a160    = hex_to_binary(  "0c1b83d01d0ffb2bccae606963376cca3863a7ce")
       scraddr = hex_to_binary("000c1b83d01d0ffb2bccae606963376cca3863a7ce")
-      addrstr = "1272555ceTPn2WepjzVgFESWdfNQjqdjgp"
 
       self.assertEqual(scraddr, script_to_scrAddr(script))
-      self.assertEqual(addrstr, scrAddr_to_addrStr(scraddr))
+      self.assertEqual(scraddr, addrStr_to_scrAddr(scrAddr_to_addrStr(scraddr)))
 
       ##### Non-standard script
       # This was from block 150951 which was erroneously produced by MagicalTux
@@ -437,12 +433,10 @@ class ArmoryEngineTest(unittest.TestCase):
       script  = hex_to_binary("a914d0c15a7d41500976056b3345f542d8c944077c8a87")
       a160    = hex_to_binary(  "d0c15a7d41500976056b3345f542d8c944077c8a")
       scraddr = hex_to_binary("05d0c15a7d41500976056b3345f542d8c944077c8a")
-      addrstr = '3Lip6sxQymNr9LD2cAVp6wLrw8xdKBdYFG'
 
       self.assertEqual(script,  scrAddr_to_script(scraddr))
       self.assertEqual(scraddr, script_to_scrAddr(script))  # this uses C++
-      self.assertEqual(addrstr, scrAddr_to_addrStr(scraddr))
-      self.assertEqual(scraddr, addrStr_to_scrAddr(addrstr))
+      self.assertEqual(scraddr, addrStr_to_scrAddr(scrAddr_to_addrStr(scraddr)))
 
 
 ################################################################################

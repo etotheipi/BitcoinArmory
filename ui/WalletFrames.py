@@ -461,8 +461,8 @@ class SetPassphraseFrame(ArmoryFrame):
       super(SetPassphraseFrame, self).__init__(parent, main)
       self.passphraseCallback = passphraseCallback
       layout = QGridLayout()
-      lblDlgDescr = QLabel('Please enter an passphrase for wallet encryption.\n\n'
-                           'A good passphrase consists of at 10 or more\n'
+      lblDlgDescr = QLabel('Please enter a passphrase for wallet encryption.\n\n'
+                           'A good passphrase consists of at least 10 or more\n'
                            'random letters, or 6 or more random words.\n')
       lblDlgDescr.setWordWrap(True)
       layout.addWidget(lblDlgDescr, 0, 0, 1, 2)

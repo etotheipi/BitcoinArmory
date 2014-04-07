@@ -37,8 +37,7 @@ VERTICAL = 'vertical'
 HORIZONTAL = 'horizontal'
 CHANGE_ADDR_DESCR_STRING = '[[ Change received ]]'
 HTTP_VERSION_FILE = 'https://bitcoinarmory.com/versions.txt'
-BUG_REPORT_URL = 'https://scripts.bitcoinarmory.com/receive_debug.php'
-
+BUG_REPORT_URL = 'https://bitcoinarmory.com/scripts/receive_debug.php'
 # For announcements handling
 ANNOUNCE_FETCH_INTERVAL = 1 * HOUR
 if CLI_OPTIONS.testAnnounceCode:

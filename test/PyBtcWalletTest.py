@@ -13,6 +13,7 @@ from armoryengine.ArmoryUtils import USE_TESTNET, convertKeyDataToAddress, \
    hash256, binary_to_hex, hex_to_binary, CLI_OPTIONS, ARMORY_HOME_DIR, \
    WalletLockError, InterruptTestError
 from armoryengine.PyBtcWallet import PyBtcWallet
+from armoryengine.BDM import TheBDM
 
 
 sys.argv.append('--nologging')
@@ -24,8 +25,9 @@ NEW_UNUSED_ADDR = 'fb80e6fd042fa24178b897a6a70e1ae7eb56a20a'
 class PyBtcWalletTest(unittest.TestCase):
 
    def setUp(self):
+      TheBDM.Reset()
       self.shortlabel = 'TestWallet1'
-      self.wltID = '3VB8XSmd'
+      self.wltID ='3VB8XSoY' if USE_TESTNET else '3VB8XSmd' 
       
       self.fileA    = os.path.join(ARMORY_HOME_DIR, 'armory_%s_.wallet' % self.wltID)
       self.fileB    = os.path.join(ARMORY_HOME_DIR, 'armory_%s_backup.wallet' % self.wltID)
@@ -47,6 +49,7 @@ class PyBtcWalletTest(unittest.TestCase):
                                           chaincode=self.chainstr,   \
                                           IV=theIV, \
                                           shortLabel=self.shortlabel)
+      
    def tearDown(self):
       self.removeFileList([self.fileA, self.fileB, self.fileAupd, self.fileBupd])
       
@@ -79,9 +82,6 @@ class PyBtcWalletTest(unittest.TestCase):
       self.assertEqual(self.wlt.detectHighestUsedIndex(True), -1)
       self.assertEqual(self.wlt.kdfKey, None)
       self.assertEqual(binary_to_hex(self.wlt.addrMap['ROOT'].addrStr20), WALLET_ROOT_ADDR )
-   
-      # New wallet is at:', self.wlt.getWalletPath()
-      self.assertEqual(len(self.wlt.linearAddr160List), CLI_OPTIONS.keypool)
 
       #############################################################################
       # (1) Getting a new address:
@@ -214,7 +214,7 @@ class PyBtcWalletTest(unittest.TestCase):
       self.wlt.lock()
       for i in range(10):
          self.wlt.getNextUnusedAddress()
-      self.assertEqual(len(self.wlt.addrMap), CLI_OPTIONS.keypool+13)
+      self.assertEqual(len(self.wlt.addrMap), originalLength+13)
       
       # (5) Re-reading wallet from file, compare the two wallets'
       wlt2 = PyBtcWallet().readWalletFile(self.wlt.getWalletPath())
@@ -236,7 +236,7 @@ class PyBtcWalletTest(unittest.TestCase):
       newaddr1 = self.wlt.getNextUnusedAddress()
       newaddr2 = wlt2.getNextUnusedAddress()   
       self.assertTrue(newaddr1.getAddr160() == newaddr2.getAddr160())
-      self.assertEqual(len(wlt2.addrMap), 3*CLI_OPTIONS.keypool+14)
+      self.assertEqual(len(wlt2.addrMap), 3*originalLength+14)
    
       # (6) Re-reading wallet from file, compare the two wallets
       wlt3 = PyBtcWallet().readWalletFile('OnlineVersionOfEncryptedWallet.bin')

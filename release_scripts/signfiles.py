@@ -3,6 +3,7 @@ import os
 import getpass
 import shutil
 sys.path.append('..')
+sys.path.append('/usr/lib/armory')
 
 from armoryengine.ALL import *
 from jasvet import ASv1CS, readSigBlock, verifySignature
@@ -18,8 +19,8 @@ if not os.path.exists(wltPath):
    exit(1)
 
 
-inDir = 'rawFiles'
-outDir = 'filesToAnnounce'
+inDir = 'unsignedAnnounce'
+outDir = 'signedAnnounce'
 
 origDLFile = os.path.join(inDir, 'dllinks.txt')
 newDLFile = os.path.join(inDir, 'dllinks_temp.txt')

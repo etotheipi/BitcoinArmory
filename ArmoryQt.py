@@ -1703,7 +1703,7 @@ class ArmoryMainWindow(QMainWindow):
          maxExclude = maxVerStr.startswith('<')
          maxVerStr  = maxVerStr[1:] if maxExclude else maxVerStr
          maxVerInt  = getVersionInt(readVersionString(maxVerStr))
-         minVerInt -= 1 if gtstrict else 0
+         maxVerInt -= 1 if maxExclude else 0
          if thisVerInt > maxVerInt:
             return False
       except:
