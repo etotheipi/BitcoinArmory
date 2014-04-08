@@ -1735,8 +1735,13 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
                   'The file could not be deleted.  If you want to delete '
                   'it, please do so manually.  The file was loaded from: '
                   '<br><br>%s: ' % self.fileLoaded, QMessageBox.Ok)
-         if self.parent() is ArmoryDialog:
+
+         try:
             self.parent().accept()
+         except:
+            # This just attempts to close the OfflineReview&Sign window.  If 
+            # it fails, the user can close it themselves.
+            LOGEXCEPT('Could not close/accept parent dialog.')            
 
 
    def saveTxAuto(self):

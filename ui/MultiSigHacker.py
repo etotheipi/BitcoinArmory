@@ -358,8 +358,9 @@ class DlgLockboxEditor(ArmoryDialog):
             self.widgetMap[i]['LBL_ASTR'].setText( \
                '<font color="%s">%s</font>' % \
                (htmlColor("TextBlue"), addrStr))
-            self.widgetMap[i]['LBL_NAME'].setText( \
-               '%s (%s)' % (self.main.walletMap[wid].labelName, wid))
+            if len(str(self.widgetMap[i]['LBL_NAME'].text()).strip())==0:
+               self.widgetMap[i]['LBL_NAME'].setText( \
+                  '%s (%s)' % (self.main.walletMap[wid].labelName, wid))
             self.widgetMap[i]['LBL_NAME'].setStyleSheet( \
                      'QLabel {color : "%s"; }' % htmlColor('TextBlue'))
 
@@ -1261,9 +1262,8 @@ class DlgExportAsciiBlock(ArmoryDialog):
 
 
    def savefile(self):
-      defaultFn = self.filePrefix 
       fn = self.main.getFileSave(tr('Export ASCII Block'), self.fileTypes,
-                                                            self.defaultFn)
+                                                            self.defaultFN)
       if fn:
          with open(fn,'w') as f:
             f.write(self.asciiBlock + '\n')
@@ -1864,11 +1864,16 @@ class DlgMultiSpendReview(ArmoryDialog):
 
       # Now modify the window/buttons based on the whole transaction state
       # (i.e. Can broadcast, etc)
+      extraTxt = tr('')
+      if not self.main.netMode == NETWORKMODE.Full:
+         extraTxt = tr("""
+            from any online computer (you are currently offline)""")
+
       txss = self.ustx.evaluateSigningStatus()
       if txss.canBroadcast:
-         self.lblFinalMsg.setText( tr("""
-            <font color="%s">This transaction has enough signatures and 
-            can be broadcast!""") % htmlColor('TextGreen'))
+         self.lblFinalMsg.setText(tr("""
+         <font color="%s">This transaction has enough signatures and 
+         can be broadcast %s</font>""") % (htmlColor('TextGreen'), extraTxt))
          self.btnFinalBroad.setVisible(True)
          self.btnFinalBroad.setEnabled(self.main.netMode == NETWORKMODE.Full)
          self.btnFinalExport.setVisible(True)
@@ -1944,6 +1949,11 @@ class DlgMultiSpendReview(ArmoryDialog):
          finalTx = self.ustx.prepareFinalTx(doVerifySigs=False)
 
       self.main.broadcastTransaction(finalTx, withOldSigWarning=False)
+      try:
+         self.parent.tabbedDisplay.setCurrentIndex(1)
+      except:
+         LOGEXCEPT('Failed to switch parent tabs')
+      self.accept()
          
 
 
