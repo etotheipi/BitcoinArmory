@@ -57,7 +57,7 @@ class PyBtcWalletRecoveryTest(unittest.TestCase):
 
    def testWalletRecovery(self):
       #run recovery on broken wallet
-      brkWltResult = PyBtcWalletRecovery().RecoverWallet(self.corruptWallet, 'testing', 'Full', returnError = 'Dict')
+      brkWltResult = PyBtcWalletRecovery().RecoverWallet(self.corruptWallet, None, 'Full', returnError = 'Dict')
       self.assertTrue(len(brkWltResult['sequenceGaps'])==1, "Sequence Gap Undetected")
       self.assertTrue(len(brkWltResult['forkedPublicKeyChain'])==2, "Address Chain Forks Undetected")
       self.assertTrue(len(brkWltResult['unmatchedPair'])==100, "Unmatched Priv/Pub Key Undetected")

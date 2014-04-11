@@ -114,7 +114,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
    #############################################################################
    def jsonrpc_listunspent(self):
       utxoList = self.wallet.getTxOutList('unspent')
-      result = [u.serialize() for u in utxoList]
+      result = [u.getOutPoint().serialize() for u in utxoList]
       return result
          
    #############################################################################

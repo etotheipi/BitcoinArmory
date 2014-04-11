@@ -17,7 +17,24 @@ class PyBtcWalletRecovery(object):
    """
    Fail safe wallet recovery tool. Reads a wallet, verifies and extracts 
    sensitive data to a new file.
-   """
+   """  
+   
+   def __init__(self):
+      """
+      Set of lists holding various errors at given indexes. Used at the end of the recovery process to compile a wallet specific log of encountered
+      inconsistencies
+      """
+      self.byteError = [] #byte errors
+      self.brokenSequence = [] #inconsistent address entry order in the file
+      self.sequenceGaps = [] #gaps in key pair chain
+      self.forkedPublicKeyChain = [] #for public keys: (N-1)*chaincode != N
+      self.chainCodeCorruption = [] #addr[N] chaincode doesnt match addr[0] chaincode
+      self.invalidPubKey = [] #pub key isnt a valid EC point
+      self.missingPubKey = [] #addr[N] has no pub key
+      self.hashValMismatch = [] #addrStr20 doesnt match hashVal entry in file
+      self.unmatchedPair = [] #private key doesnt yield public key
+      self.importedErr = [] #all imported keys related errors
+
 
    ############################################################################
    def BuildLogFile(self, errorCode=0, ProgDlg=None, returnError=False):
@@ -25,23 +42,7 @@ class PyBtcWalletRecovery(object):
       The recovery function has ended and called this. Review the analyzed data, 
       build a log and return negative values if the recovery couldn't complete
       """
-      
-      if returnError == 'Dict':
-         errors = {}
-         errors['byteError'] = self.byteError
-         errors['brokenSequence'] = self.brokenSequence
-         errors['sequenceGaps'] = self.sequenceGaps
-         errors['forkedPublicKeyChain'] = self.forkedPublicKeyChain
-         errors['chainCodeCorruption'] = self.chainCodeCorruption
-         errors['invalidPubKey'] = self.invalidPubKey
-         errors['missingPubKey'] = self.missingPubKey
-         errors['hashValMismatch'] = self.hashValMismatch
-         errors['unmatchedPair'] = self.unmatchedPair
-         errors['misc'] = self.misc
-         errors['importedErr'] = self.importedErr
-         
-         return errors
-      
+
       self.strOutput = []
       
       if ProgDlg:
@@ -67,6 +68,24 @@ class PyBtcWalletRecovery(object):
             self.UIreport = self.UIreport + errorstr
             ProgDlg.UpdateText(self.UIreport)
          return self.EndLog(errorCode, ProgDlg, returnError)
+      
+            
+      if returnError == 'Dict':
+         errors = {}
+         errors['byteError'] = self.byteError
+         errors['brokenSequence'] = self.brokenSequence
+         errors['sequenceGaps'] = self.sequenceGaps
+         errors['forkedPublicKeyChain'] = self.forkedPublicKeyChain
+         errors['chainCodeCorruption'] = self.chainCodeCorruption
+         errors['invalidPubKey'] = self.invalidPubKey
+         errors['missingPubKey'] = self.missingPubKey
+         errors['hashValMismatch'] = self.hashValMismatch
+         errors['unmatchedPair'] = self.unmatchedPair
+         errors['misc'] = self.misc
+         errors['importedErr'] = self.importedErr
+         
+         return errors
+      
       
       if self.newwalletPath != None:
          self.LogPath = self.newwalletPath + ".log"
@@ -237,17 +256,17 @@ class PyBtcWalletRecovery(object):
          return self.strOutput
 
    #############################################################################
-   def RecoverWallet(self, WalletPath, Passphrase=None, Mode='Bare', GUI=False, returnError=False):
+   def RecoverWallet(self, WalletPath, Mode='Bare', GUI=False, returnError=False):
       if GUI == True:
          PrgDlg = DlgProgress(main=self.parent, parent=self.parent, Interrupt="Stop Recovery", Title="<b>Recovering Wallet</b>", TProgress="")
-         PrgDlg.exec_(self.ProcessWallet(WalletPath, None, Passphrase, Mode, PrgDlg, self.parent, None, returnError, async=True))
+         PrgDlg.exec_(self.ProcessWallet(WalletPath, None, Mode, PrgDlg, self.parent, None, returnError, async=True))
 
       else:
-         return self.ProcessWallet(WalletPath, None, Passphrase, Mode, None, None, None, returnError)
+         return self.ProcessWallet(WalletPath, None, Mode, None, None, None, returnError)
 
    ############################################################################
    @AllowAsync
-   def ProcessWallet(self, WalletPath=None, Wallet=None, Passphrase=None, Mode='Bare', ProgDlg=None, mainWnd=None, prgAt=None, returnError=False):
+   def ProcessWallet(self, WalletPath=None, Wallet=None, Mode='Bare', ProgDlg=None, mainWnd=None, prgAt=None, returnError=False):
       """
       Modes:
          1) Stripped: Only recover the root key and chaincode (it all sits in 
@@ -358,7 +377,7 @@ class PyBtcWalletRecovery(object):
 
       if self.WO == 0 or rmode == 3:
          #check if wallet is encrypted
-         if toRecover.isLocked==True and Passphrase==None and rmode != 4:
+         if toRecover.isLocked==True and rmode != 4:
             #locked wallet and no passphrase, prompt the user if we're using the gui
             if ProgDlg:
                ProgDlg.AskUnlock(toRecover)
@@ -554,20 +573,6 @@ class PyBtcWalletRecovery(object):
       if prgAt:
          prgTotal = len(addrDict) + len(importedDict) + len(commentDict)
 
-      """
-      Set of lists holding various errors at given indexes. Used at the end of the recovery process to compile a wallet specific log of encountered
-      inconsistencies
-      """
-      self.byteError = [] #byte errors
-      self.brokenSequence = [] #inconsistent address entry order in the file
-      self.sequenceGaps = [] #gaps in key pair chain
-      self.forkedPublicKeyChain = [] #for public keys: (N-1)*chaincode != N
-      self.chainCodeCorruption = [] #addr[N] chaincode doesnt match addr[0] chaincode
-      self.invalidPubKey = [] #pub key isnt a valid EC point
-      self.missingPubKey = [] #addr[N] has no pub key
-      self.hashValMismatch = [] #addrStr20 doesnt match hashVal entry in file
-      self.unmatchedPair = [] #private key doesnt yield public key
-      self.importedErr = [] #all imported keys related errors
 
 
       #chained key pairs. for rmode is 4, no need to skip this part, naddress will be 0
