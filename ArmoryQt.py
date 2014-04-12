@@ -2541,7 +2541,7 @@ class ArmoryMainWindow(QMainWindow):
             # Create new wallet to hold the lockbox, register it with BDM
             self.cppLockboxWltMap[lbID] = BtcWallet()
             scraddrReg = script_to_scrAddr(lbObj.binScript)
-            scraddrP2SH = script_to_p2sh_script(lbObj.binScript)
+            scraddrP2SH = script_to_scrAddr(script_to_p2sh_script(lbObj.binScript))
             TheBDM.registerWallet(self.cppLockboxWltMap[lbID], isFresh)
             TheBDM.bdm.registerWallet(self.cppLockboxWltMap[lbID], isFresh)
             if not isFresh:
