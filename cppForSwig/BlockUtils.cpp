@@ -897,28 +897,17 @@ void BlockDataManager_LevelDB::registeredScrAddrScan_IterSafe(
 
       if(withSecondOrderMultisig && txoType==TXOUT_SCRIPT_MULTISIG)
       {
-         BinaryRefReader brrmsig(scrAddr);
-         uint8_t M = brrmsig.get_uint8_t();
-         uint8_t N = brrmsig.get_uint8_t();
+         vector<BinaryData> a160List(0);
 
-         if(N>5)
-            LOGINFO << "suspicious MS tx, N = " << N;
-  
-         int scsz = (int)scrsz;
-         int op = (int)txOutEnd-(int)viStart;
-         if(op-scsz<20*(int)N)
+         uint8_t M = BtcUtils::getMultisigAddrList(script, a160List);
+         if(M==0)
+            continue;
+         
+         vector<BinaryData>::iterator a160Iter;
+         for(a160Iter  = a160List.begin(); 
+             a160Iter != a160List.end(); a160Iter++)
          {
-            
-            LOGERR << "Malformed Multisig Script!";
-            LOGERR << "Total script: " << op;
-            LOGERR << "Size left: " << op - scsz;
-            LOGERR << "M is: " << (int)M << ", N is: " << N;
-            N = 0;
-         }
-
-         for(uint8_t a=0; a<N; a++)
-         {
-            if(scrAddrIsRegistered(HASH160PREFIX + brr.get_BinaryDataRef(20)))
+            if(scrAddrIsRegistered(HASH160PREFIX + (*a160Iter)))
             {
                insertRegisteredTxIfNew(tx.getTxRef(),
                                        stx.thisHash_,
