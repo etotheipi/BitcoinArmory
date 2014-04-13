@@ -780,9 +780,6 @@ void BlockDataManager_LevelDB::registeredScrAddrScan(
       if(scrAddrIsRegistered(scrAddr))
       {
          HashString txHash = BtcUtils::getHash256(txptr, txSize);
-         //if(txoType==TXOUT_SCRIPT_MULTISIG)
-            //LOGINFO << "Found registered multisig script! " << txHash.toHexStr();
-
          insertRegisteredTxIfNew(txHash);
          registeredOutPoints_.insert(OutPoint(txHash, iout));
       }
@@ -792,11 +789,13 @@ void BlockDataManager_LevelDB::registeredScrAddrScan(
       if(withSecondOrderMultisig && txoType==TXOUT_SCRIPT_MULTISIG)
       {
          BinaryRefReader brrmsig(scrAddr);
-         uint8_t M = brrmsig.get_uint8_t();
-         uint8_t N = brrmsig.get_uint8_t();
+         uint8_t PREFIX = brrmsig.get_uint8_t();
+         uint8_t M      = brrmsig.get_uint8_t();
+         uint8_t N      = brrmsig.get_uint8_t();
          for(uint8_t a=0; a<N; a++)
          {
-            if(scrAddrIsRegistered(HASH160PREFIX + brr.get_BinaryDataRef(20)))
+            BinaryDataRef bdrAddr160 = brrmsig.get_BinaryDataRef(20);
+            if(scrAddrIsRegistered(HASH160PREFIX + bdrAddr160))
             {
                HashString txHash = BtcUtils::getHash256(txptr, txSize);
                insertRegisteredTxIfNew(txHash);
@@ -884,10 +883,6 @@ void BlockDataManager_LevelDB::registeredScrAddrScan_IterSafe(
 
       if(scrAddrIsRegistered(scrAddr))
       {
-         //if(txoType==TXOUT_SCRIPT_MULTISIG)
-            //LOGINFO << "Found registered multisig script! " 
-                    //<< stx.thisHash_.toHexStr();
-
          insertRegisteredTxIfNew(tx.getTxRef(),
                                  stx.thisHash_,
                                  stx.blockHeight_,
@@ -897,17 +892,14 @@ void BlockDataManager_LevelDB::registeredScrAddrScan_IterSafe(
 
       if(withSecondOrderMultisig && txoType==TXOUT_SCRIPT_MULTISIG)
       {
-         vector<BinaryData> a160List(0);
-
-         uint8_t M = BtcUtils::getMultisigAddrList(script, a160List);
-         if(M==0)
-            continue;
-         
-         vector<BinaryData>::iterator a160Iter;
-         for(a160Iter  = a160List.begin(); 
-             a160Iter != a160List.end(); a160Iter++)
+         BinaryRefReader  brrmsig(scrAddr);
+         uint8_t PREFIX = brrmsig.get_uint8_t();
+         uint8_t M      = brrmsig.get_uint8_t();
+         uint8_t N      = brrmsig.get_uint8_t();
+         for(uint8_t a=0; a<N; a++)
          {
-            if(scrAddrIsRegistered(HASH160PREFIX + (*a160Iter)))
+            BinaryDataRef bdrAddr160 = brrmsig.get_BinaryDataRef(20);
+            if(scrAddrIsRegistered(HASH160PREFIX + bdrAddr160))
             {
                insertRegisteredTxIfNew(tx.getTxRef(),
                                        stx.thisHash_,
