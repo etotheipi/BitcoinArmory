@@ -834,8 +834,8 @@ void BlockDataManager_LevelDB::registeredScrAddrScan_IterSafe(
    }
 
    // Probably doesn't matter, but I'll keep these on the heap between calls
-   static vector<uint32_t> localOffsIn;
-   static vector<uint32_t> localOffsOut;
+   vector<uint32_t> localOffsIn;
+   vector<uint32_t> localOffsOut;
 
    Tx tx = stx.getTxCopy();
    uint8_t const * txStartPtr = tx.getPtr();
@@ -874,6 +874,7 @@ void BlockDataManager_LevelDB::registeredScrAddrScan_IterSafe(
    {
       uint32_t viStart  = (*txOutOffsets)[iout] + 8;
       uint32_t txOutEnd = (*txOutOffsets)[iout+1];
+
       BinaryRefReader brr(txStartPtr+viStart, txOutEnd-viStart);
       uint32_t scrsz = (uint32_t)brr.get_var_int();
       BinaryDataRef script = brr.get_BinaryDataRef(scrsz);
@@ -899,6 +900,22 @@ void BlockDataManager_LevelDB::registeredScrAddrScan_IterSafe(
          BinaryRefReader brrmsig(scrAddr);
          uint8_t M = brrmsig.get_uint8_t();
          uint8_t N = brrmsig.get_uint8_t();
+
+         if(N>5)
+            LOGINFO << "suspicious MS tx, N = " << N;
+  
+         int scsz = (int)scrsz;
+         int op = (int)txOutEnd-(int)viStart;
+         if(op-scsz<20*(int)N)
+         {
+            
+            LOGERR << "Malformed Multisig Script!";
+            LOGERR << "Total script: " << op;
+            LOGERR << "Size left: " << op - scsz;
+            LOGERR << "M is: " << (int)M << ", N is: " << N;
+            N = 0;
+         }
+
          for(uint8_t a=0; a<N; a++)
          {
             if(scrAddrIsRegistered(HASH160PREFIX + brr.get_BinaryDataRef(20)))
