@@ -559,6 +559,7 @@ pair<bool,bool> BtcWallet::isMineBulkFilter(
       if(withSecondOrderMultisig && txout.getScriptType()==TXOUT_SCRIPT_MULTISIG)
       {
          BinaryRefReader brrmsig(scrAddr);
+         uint8_t PREFIX = brrmsig.get_uint8_t();
          uint8_t M = brrmsig.get_uint8_t();
          uint8_t N = brrmsig.get_uint8_t();
          for(uint8_t a=0; a<N; a++)
