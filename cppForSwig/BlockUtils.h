@@ -376,6 +376,7 @@ public:
                       uint32_t      lastTimestamp,
                       uint32_t      lastBlockNum);
 
+   // Why did we not just name this "hasScrAddr" like everything else?
    bool hasScrAddress(BinaryData const & scrAddr) const;
 
 
@@ -781,8 +782,8 @@ public:
 
    bool     registerScrAddr(BinaryData scraddr, bool isNew, uint32_t blk0);
    bool     registerNewScrAddr(BinaryData scraddr);
-   bool     registerImportedScrAddr(HashString scrAddr, uint32_t createBlk=0);
-   bool     unregisterScrAddr(HashString scrAddr);
+   bool     registerImportedScrAddr(BinaryData scrAddr, uint32_t createBlk=0);
+   bool     unregisterScrAddr(BinaryData scrAddr);
 
    uint32_t evalLowestBlockNextScan(void);
    uint32_t evalLowestScrAddrCreationBlock(void);
@@ -791,7 +792,7 @@ public:
    void     updateRegisteredScrAddrs(uint32_t newTopBlk);
 
    bool     walletIsRegistered(BtcWallet & wlt);
-   bool     scrAddrIsRegistered(HashString scrAddr);
+   bool     scrAddrIsRegistered(BinaryData scrAddr);
    void     insertRegisteredTxIfNew(HashString txHash);
    void     insertRegisteredTxIfNew(RegisteredTx & regTx);
    void     insertRegisteredTxIfNew(TxRef const & txref,
@@ -804,11 +805,13 @@ public:
    void     registeredScrAddrScan( uint8_t const * txptr,
                                    uint32_t txSize=0,
                                    vector<uint32_t> * txInOffsets=NULL,
-                                   vector<uint32_t> * txOutOffsets=NULL);
+                                   vector<uint32_t> * txOutOffsets=NULL,
+                                   bool withSecondOrderMultisig=true);
    void     registeredScrAddrScan_IterSafe( 
                                    StoredTx & stx,
                                    vector<uint32_t> * txInOffsets=NULL,
-                                   vector<uint32_t> * txOutOffsets=NULL);
+                                   vector<uint32_t> * txOutOffsets=NULL,
+                                   bool withSecondOrderMultisig=true);
    void     resetRegisteredWallets(void);
    void     pprintRegisteredWallets(void);
 

@@ -32,6 +32,7 @@ import threading
 import time
 import traceback
 import shutil
+import base64
 
 #from psutil import Popen
 import psutil
@@ -41,7 +42,7 @@ from qrcodenative import QRCode, QRErrorCorrectLevel
 
 
 # Version Numbers
-BTCARMORY_VERSION    = (0, 91,  0, 0)  # (Major, Minor, Bugfix, AutoIncrement)
+BTCARMORY_VERSION    = (0, 91,  0, 1)  # (Major, Minor, Bugfix, AutoIncrement)
 PYBTCWALLET_VERSION  = (1, 35,  0, 0)  # (Major, Minor, Bugfix, AutoIncrement)
 
 ARMORY_DONATION_ADDR = '1ArmoryXcfq7TnCSuZa9fQjRYwJ4bkRKfv'
@@ -91,6 +92,7 @@ parser.add_option("--test-announce", dest="testAnnounceCode", default=False,    
 #parser.add_option("--rebuildwithblocksize", dest="newBlockSize",default='32kB', type="str",          help="Rebuild databases with new blocksize")
 parser.add_option("--nospendzeroconfchange",dest="ignoreAllZC",default=False, action="store_true", help="All zero-conf funds will be unspendable, including sent-to-self coins")
 parser.add_option("--nowalletcheck", dest="noWalletCheck", default=False, action="store_true", help="Skip the wallet sanity check on startup")
+parser.add_option("--multisigfile",  dest="multisigFile",  default='DEFAULT', type='str',          help="File to store information about multi-signature transactions")
 
 # Pre-10.9 OS X sometimes passes a process serial number as -psn_0_xxxxxx. Nuke!
 if sys.platform == 'darwin':
@@ -185,7 +187,7 @@ class FiniteFieldError(Exception): pass
 class BitcoindError(Exception): pass
 class ShouldNotGetHereError(Exception): pass
 class BadInputError(Exception): pass
-class TxdpError(Exception): pass
+class UstxError(Exception): pass
 class P2SHNotSupportedError(Exception): pass
 
 # Get the host operating system
@@ -218,7 +220,8 @@ for opt,val in CLI_OPTIONS.__dict__.iteritems():
 
 
 # Use CLI args to determine testnet or not
-USE_TESTNET = CLI_OPTIONS.testnet
+#USE_TESTNET = CLI_OPTIONS.testnet
+USE_TESTNET = True
 
 # Set default port for inter-process communication
 if CLI_OPTIONS.interport < 0:
@@ -322,6 +325,7 @@ def readVersionInt(verInt):
    verList.append( int(verStr[ -7:-5    ]) )
    verList.append( int(verStr[:-7       ]) )
    return tuple(verList[::-1])
+
 # Allow user to override default bitcoin-qt/bitcoind home directory
 if not CLI_OPTIONS.satoshiHome.lower()=='default':
    success = True
@@ -383,6 +387,16 @@ if CLI_OPTIONS.logFile.lower()=='default':
 
 SETTINGS_PATH   = CLI_OPTIONS.settingsPath
 MULT_LOG_FILE   = os.path.join(ARMORY_HOME_DIR, 'multipliers.txt')
+MULTISIG_FILE   = os.path.join(ARMORY_HOME_DIR, 'multisigs.txt')
+
+
+
+if not CLI_OPTIONS.multisigFile.lower()=='default':
+   if not os.path.exists(CLI_OPTIONS.multisigFile):
+      print 'Multisig file "%s" does not exist!' % CLI_OPTIONS.multisigFile
+   else:
+      MULTISIG_FILE  = CLI_OPTIONS.multisigFile
+
 
 
 # If this is the first Armory has been run, create directories
@@ -1130,6 +1144,34 @@ def str2coin(theStr, negAllowed=True, maxDec=8, roundHighPrec=True):
 
 
 ################################################################################
+def makeAsciiBlock(binStr, headStr='', wid=80, newline='\n'):
+   # Convert the raw chunk of binary data
+   b64Data = base64.b64encode(binStr)
+   sz = len(b64Data)
+   firstLine = '=====%s' % headStr
+   lines = [firstLine.ljust(wid, '=')]
+   lines.extend([b64Data[wid*i:wid*(i+1)] for i in range((sz-1)/wid+1)])
+   lines.append("="*wid)
+   return newline.join(lines)
+
+
+################################################################################
+def readAsciiBlock(ablock, headStr=''):
+   lines = ablock.strip().split()
+   if not lines[0].startswith('=====%s' % headStr) or \
+      not lines[-1].startswith('======'):
+      LOGERROR('Attempting to unserialize something not an ASCII block')
+      return lines[0].strip('='), None
+
+   headStr = lines[0].strip('=')
+   rawData = base64.b64decode(''.join(lines[1:-1]))
+
+   return (headStr, rawData)
+
+
+
+
+################################################################################
 def replacePlurals(txt, *args):
    """
    Use this like regular string formatting, but with pairs of strings:
@@ -1217,10 +1259,10 @@ def hash160_to_p2pkhash_script(binStr20):
       raise InvalidHashError('Tried to convert non-20-byte str to p2pkh script')
 
    from Transaction import getOpCode
+   from Script import scriptPushData
    outScript = ''.join([  getOpCode('OP_DUP'        ), \
                           getOpCode('OP_HASH160'    ), \
-                          '\x14',                      \
-                          binStr20,
+                          scriptPushData(binStr20),
                           getOpCode('OP_EQUALVERIFY'), \
                           getOpCode('OP_CHECKSIG'   )])
    return outScript
@@ -1234,9 +1276,9 @@ def hash160_to_p2sh_script(binStr20):
       raise InvalidHashError('Tried to convert non-20-byte str to p2sh script')
 
    from Transaction import getOpCode
-   outScript = ''.join([  getOpCode('OP_HASH160'), \
-                          '\x14',                      \
-                          binStr20,
+   from Script import scriptPushData
+   outScript = ''.join([  getOpCode('OP_HASH160'), 
+                          scriptPushData(binStr20),
                           getOpCode('OP_EQUAL')])
    return outScript
 
@@ -1256,10 +1298,9 @@ def pubkey_to_p2pk_script(binStr33or65):
       raise KeyDataError('Invalid public key supplied to p2pk script')
 
    from Transaction import getOpCode
-   lenByte = int_to_binary(len(binStr33or65), widthBytes=1)
-   outScript =  ''.join([  lenByte,
-                           binStr33or65,
-                           getOpCode('OP_CHECKSIG')])
+   from Script import scriptPushData
+   serPubKey = scriptPushData(binStr33or65)
+   outScript = serPubKey + getOpCode('OP_CHECKSIG')
    return outScript
 
 
@@ -1298,7 +1339,13 @@ def pubkeylist_to_multisig_script(pkList, M, withSort=True):
 
 ################################################################################
 def scrAddr_to_script(scraddr):
-   """ Convert a scrAddr string (used by BDM) to the correct TxOut script """
+   """ 
+   Convert a scrAddr string (used by BDM) to the correct TxOut script 
+   Note this only works for P2PKH and P2SH scraddrs.  Multi-sig and 
+   all non-standard scripts cannot be derived from scrAddrs.  In a way,
+   a scrAddr is intended to be an intelligent "hash" of the script, 
+   and it's a perk that most of the time we can reverse it to get the script.
+   """
    if len(scraddr)==0:
       raise BadAddressError('Empty scraddr')
 
@@ -1424,13 +1471,17 @@ def toBytes(theStr, theEncoding=DEFAULT_ENCODING):
    else:
       LOGERROR('toBytes() not been defined for input: %s', str(type(theStr)))
 
+
 def toUnicode(theStr, theEncoding=DEFAULT_ENCODING):
    if isinstance(theStr, unicode):
       return theStr
    elif isinstance(theStr, str):
       return unicode(theStr, theEncoding)
    else:
-      LOGERROR('toUnicode() not been defined for input: %s', str(type(theStr)))
+      try:
+         return unicode(theStr)
+      except:
+         LOGEXCEPT('toUnicode() not defined for %s', str(type(theStr)))
 
 
 def toPreferred(theStr):
@@ -2653,8 +2704,8 @@ def createBitcoinURI(addr, amt=None, msg=None):
 
 
 ################################################################################
-def createSigScriptFromRS(rBin, sBin):
-   # Remove all leading zero-bytes
+def createDERSigFromRS(rBin, sBin):
+   # Remove all leading zero-bytes (why didn't we use lstrip() here?)
    while rBin[0]=='\x00':
       rBin = rBin[1:]
    while sBin[0]=='\x00':
@@ -2666,11 +2717,36 @@ def createSigScriptFromRS(rBin, sBin):
    sSize  = int_to_binary(len(sBin))
    rsSize = int_to_binary(len(rBin) + len(sBin) + 4)
    sigScript = '\x30' + rsSize + \
-            '\x02' + rSize + rBin + \
-            '\x02' + sSize + sBin
+               '\x02' + rSize + rBin + \
+               '\x02' + sSize + sBin
    return sigScript
 
 
+################################################################################
+def getRSFromDERSig(derSig):
+   if not isinstance(derSig, str):
+      # In case this is a SecureBinaryData object...
+      derSig = derSig.toBinStr()
+
+   codeByte = derSig[0]
+   nBytes   = binary_to_int(derSig[1])
+   rsStr    = derSig[2:2+nBytes]
+   assert(codeByte == '\x30')
+   assert(nBytes == len(rsStr))
+   # Read r
+   codeByte  = rsStr[0]
+   rBytes    = binary_to_int(rsStr[1])
+   r         = rsStr[2:2+rBytes]
+   assert(codeByte == '\x02')
+   sStr      = rsStr[2+rBytes:]
+   # Read s
+   codeByte  = sStr[0]
+   sBytes    = binary_to_int(sStr[1])
+   s         = sStr[2:2+sBytes]
+   assert(codeByte == '\x02')
+   # Now we have the (r,s) values of the
+
+   return r[-32:], s[-32:]
 
 
 

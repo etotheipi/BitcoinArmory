@@ -731,8 +731,8 @@ class BlockDataManagerThread(threading.Thread):
          expectOutput = True
 
       rndID = int(random.uniform(0,100000000)) 
-      self.inputQueue.put([BDMINPUTTYPE.RegisterAddr, rndID, expectOutput, scrAddr, \
-                                   [firstTime, firstBlk, lastTime, lastBlk]])
+      self.inputQueue.put([BDMINPUTTYPE.RegisterAddr, rndID, expectOutput, \
+                           scrAddr, [firstTime, firstBlk, lastTime, lastBlk]])
 
       return self.waitForOutputIfNecessary(expectOutput, rndID)
 
@@ -756,10 +756,13 @@ class BlockDataManagerThread(threading.Thread):
             self.pyWltList.append(wlt)
 
       elif isinstance(wlt, Cpp.BtcWallet):
+         # We are using this branch to add multi-sig wallets, which aren't
+         # even help as python wallets, only low-level BtcWallets 
          naddr = wlt.getNumScrAddr()
 
          for a in range(naddr):
-            self.registerScrAddr(wlt.getScrAddrObjByIndex(a).getScrAddr(), isFresh, wait=wait)
+            self.registerScrAddr(wlt.getScrAddrObjByIndex(a).getScrAddr(), 
+                                                          isFresh, wait=wait)
 
          if not wlt in self.cppWltList:
             self.cppWltList.append(wlt)
@@ -843,7 +846,7 @@ class BlockDataManagerThread(threading.Thread):
          isFresh = timeInfo
          if isFresh:
             # We claimed to have just created this ScrAddr...(so no rescan needed)
-            self.masterCppWallet.addNewScrAddress_1_(scrAddr)
+            self.masterCppWallet.addNewScrAddress(scrAddr)
          else:
             self.masterCppWallet.addScrAddress_1_(scrAddr)
       else:

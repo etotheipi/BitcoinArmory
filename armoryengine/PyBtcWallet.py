@@ -519,6 +519,18 @@ class PyBtcWallet(object):
       return (None if not self.hasAddr(addr160) else self.addrMap[addr160])
 
    #############################################################################
+   def hasScrAddr(self, scrAddr):
+      """
+      Wallets currently only hold P2PKH scraddrs, so if it's not that, False
+      """
+      if not scrAddr[0] == SCRADDR_P2PKH_BYTE or not len(scrAddr)==21:
+         return False
+
+      # For P2PKH scraddrs, the first byte is prefix, next 20 bytes is addr160
+      return self.hasAddr(scrAddr[1:])
+
+
+   #############################################################################
    def hasAddr(self, addrData):
       if isinstance(addrData, str):
          if len(addrData) == 20:
@@ -1622,6 +1634,9 @@ class PyBtcWallet(object):
       return fpath
 
 
+   #############################################################################
+   def getDisplayStr(self, pref="Wallet: "):
+      return '%s"%s" (%s)' % (pref, self.labelName, self.uniqueIDB58)
 
    #############################################################################
    def getCommentForAddress(self, addr160):
@@ -2571,7 +2586,7 @@ class PyBtcWallet(object):
 
 
    #############################################################################
-   def signTxDistProposal(self, txdp, hashcode=1):
+   def signUnsignedTx(self, ustx, hashcode=1):
       if not hashcode==1:
          LOGERROR('hashcode!=1 is not supported at this time!')
          return
@@ -2580,23 +2595,13 @@ class PyBtcWallet(object):
       if self.isLocked is True and self.kdfKey is None:
          raise WalletLockError('Cannot sign tx without unlocking wallet')
 
-      numInputs = len(txdp.pytxObj.inputs)
+      numInputs = len(ustx.pytxObj.inputs)
       wltAddr = []
-      for index,txin in enumerate(txdp.pytxObj.inputs):
-         scrType = txdp.scriptTypes[index]
-         if scrType in CPP_TXOUT_STDSINGLESIG:
-            scrAddr = txdp.inScrAddrList[index]
-            addr160 = scrAddr[1:]
+      for iin,ustxi in enumerate(ustx.ustxInputs):
+         for isig,scrAddr in enumerate(ustxi.scrAddrs):
+            addr160 = scrAddr_to_hash160(scrAddr)[1]
             if self.hasAddr(addr160) and self.addrMap[addr160].hasPrivKey():
-               wltAddr.append( (self.addrMap[addr160], index, 0))
-         elif scrType==CPP_TXOUT_MULTISIG:
-            # Basically the same check but multiple addresses to consider
-            # STUB -- this branch has never been tested
-            addrList = getMultisigScriptInfo(txdp.txOutScripts[index])[2]
-            for addrIdx, addr in enumerate(addrList):
-               if self.hasAddr(addr) and self.addrMap[addr].hasPrivKey():
-                  wltAddr.append( (self.addrMap[addr], index, addrIdx) )
-                  break
+               wltAddr.append((self.addrMap[addr160], iin, isig))
 
       # WltAddr now contains a list of every input we can sign for, and the
       # PyBtcAddress object that can be used to sign it.  Let's do it.
@@ -2607,7 +2612,7 @@ class PyBtcWallet(object):
 
       # Unlock the wallet if necessary, sign inputs 
       maxChainIndex = -1
-      for addrObj,idx, sigIdx in wltAddr:
+      for addrObj,idx,sigIdx in wltAddr:
          maxChainIndex = max(maxChainIndex, addrObj.chainIndex)
          if addrObj.isLocked:
             if self.kdfKey:
@@ -2624,43 +2629,11 @@ class PyBtcWallet(object):
             addrObj.binPublicKey65 = \
                CryptoECDSA().ComputePublicKey(addrObj.binPrivKey32_Plain)
 
-         # Copy the script, blank out out all other scripts (assume hashcode==1)
-         txCopy = PyTx().unserialize(txdp.pytxObj.serialize())
-         for i in range(len(txCopy.inputs)):
-            if not i==idx:
-               txCopy.inputs[i].binScript = ''
-            else:
-               txCopy.inputs[i].binScript = txdp.txOutScripts[i]
 
-         hashCode1  = int_to_binary(hashcode, widthBytes=1)
-         hashCode4  = int_to_binary(hashcode, widthBytes=4)
-         preHashMsg = txCopy.serialize() + hashCode4
-         signature  = addrObj.generateDERSignature(preHashMsg) + hashCode1
-
-         # Now we attach a binary signature or full script, depending on the type
-         p2shScript = txdp.p2shScripts[idx]
-         p2shAppend = ''
-         if len(p2shScript) > 0:
-            LOGWARN('Signing for P2SH input')
-            p2shAppend = serializeBytesWithPushData(p2shScript)
-
-         scrType = txdp.scriptTypes[idx]
-         if scrType in [CPP_TXOUT_STDPUBKEY33, CPP_TXOUT_STDPUBKEY65]:
-            # Only need the signature to complete coinbase TxOut
-            serSignature = serializeBytesWithPushData(signature)
-            txdp.signatures[idx][0] = serSignature + p2shAppend
-         elif scrType==CPP_TXOUT_STDHASH160:
-            # Gotta include the public key, too, for standard TxOuts
-            pubkey = addrObj.binPublicKey65.toBinStr()
-            serSig    = serializeBytesWithPushData(signature)
-            serPubKey = serializeBytesWithPushData(pubkey)
-            txdp.signatures[idx][0] = serSig + serPubKey + p2shAppend
-         elif txdp.scriptTypes[idx]==TXOUT_SCRIPT_MULTISIG:
-            # We attach just the sig for multi-sig transactions
-            serSignature = serializeBytesWithPushData(signature)
-            txdp.signatures[idx][sigIdx] = serSig
-         else:
-            LOGERROR('Unknown txOut script type')
+         ##### MAGIC #####
+         ustx.createAndInsertSignatureForInput(idx, addrObj.binPrivKey32_Plain)
+         ##### MAGIC #####
+                                               
 
       self.lock()
       
@@ -2669,7 +2642,7 @@ class PyBtcWallet(object):
          self.advanceHighestIndex(maxChainIndex-prevHighestIndex)
          self.fillAddressPool()
       
-      return txdp
+      return ustx
 
 
 
@@ -3001,4 +2974,4 @@ def getSuffixedPath(walletPath, nameSuffix):
 from armoryengine.BDM import TheBDM, getCurrTimeAndBlock
 from armoryengine.PyBtcAddress import PyBtcAddress
 from armoryengine.Transaction import *
-from armoryengine.Script import serializeBytesWithPushData
+from armoryengine.Script import scriptPushData

@@ -17,6 +17,7 @@ from PyQt4.QtGui import *
 from CppBlockUtils import *
 from armoryengine.ALL import *
 from qtdefines import *
+from armoryengine.MultiSigUtils import calcLockboxID
 
 
 sys.path.append('..')
@@ -155,10 +156,18 @@ class LedgerDispModelSimple(QAbstractTableModel):
       rowData = self.ledger[row]
       nConf = rowData[LEDGERCOLS.NumConf]
       wltID = rowData[LEDGERCOLS.WltID]
-      wtype = determineWalletType(self.main.walletMap[wltID], self.main)[0]
+      wlt = self.main.walletMap.get(wltID)
+      
+      if wlt:
+         wtype = determineWalletType(self.main.walletMap[wltID], self.main)[0]
+      else:
+         wtype = WLTTYPES.WatchOnly
 
-      #LEDGERCOLS  = enum('NumConf', 'UnixTime','DateStr', 'TxDir', 'WltName', 'Comment', \
-                         #'Amount', 'isOther', 'WltID', 'TxHash', 'isCoinbase', 'toSelf', 'DoubleSpend')
+      #LEDGERCOLS  = enum( 'NumConf', 'UnixTime','DateStr', 'TxDir', 
+                         # 'WltName', 'Comment', 'Amount', 'isOther', 
+                         # 'WltID', 'TxHash', 'isCoinbase', 'toSelf', 
+                         # 'DoubleSpend')
+
       if role==Qt.DisplayRole:
          return QVariant(rowData[col])
       elif role==Qt.TextAlignmentRole:
@@ -580,14 +589,14 @@ class TxInDispModel(QAbstractTableModel):
       self.txInList = []
       self.dispTable = []
 
-      # If this is actually a TxDP in here, then let's use that
-      # We do this to make sure we have somewhere to put txdp-specific
+      # If this is actually a USTX in here, then let's use that
+      # We do this to make sure we have somewhere to put USTX-specific
       # code, but we don't really need it yet, except to identify
       # signed/unsigned in the table
-      pytxdp = None
-      if isinstance(pytx, PyTxDistProposal):
-         pytxdp = pytx
-         pytx = pytxdp.pytxObj.copy()
+      ustx = None
+      if isinstance(pytx, UnsignedTransaction):
+         ustx = pytx
+         pytx = ustx.pytxObj.copy()
       self.tx = pytx.copy()
       
       for i,txin in enumerate(self.tx.inputs):
@@ -597,7 +606,11 @@ class TxInDispModel(QAbstractTableModel):
          if txinListFromBDM and len(txinListFromBDM[i][0])>0:
             # We had a BDM to help us get info on each input -- use it
             scrAddr,val,blk,hsh,idx = txinListFromBDM[i]
-            addrStr = scrAddr_to_addrStr(scrAddr)
+            if scrType==CPP_TXIN_SPENDMULTI:
+               M,N = [binary_to_int(a) for a in scrAddr[1:3]]
+               addrStr = 'Multisig (%d-of-%d)' % (M,N)
+            else:
+               addrStr = scrAddr_to_addrStr(scrAddr)
             if main:
                wltID = self.main.getWalletForAddr160(scrAddr[1:])
             dispcoin  = '' if not val else coin2str(val,maxZeros=1)
@@ -607,12 +620,12 @@ class TxInDispModel(QAbstractTableModel):
             self.dispTable[-1].append(binary_to_hex(hsh))
             self.dispTable[-1].append(idx)
             self.dispTable[-1].append(blk)
-            if pytxdp==None:
+            if ustx is None:
                self.dispTable[-1].append(CPP_TXIN_SCRIPT_NAMES[scrType])
             else:
-               # TODO:  Assume NO multi-sig... will be updated in future to use 
-               #        PyTxDP::isSigValidForInput which will handle all cases
-               self.dispTable[-1].append('Signed' if pytxdp.signatures[i][0] else 'Unsigned')
+               # TODO:  Assume NO multi-sig... will be updated soon!
+               sig = ustx.ustxInputs[i].signatures[0] 
+               self.dispTable[-1].append('Signed' if len(sig)>0 else 'Unsigned')
                
             self.dispTable[-1].append(int_to_hex(txin.intSeq, widthBytes=4))
             self.dispTable[-1].append(binary_to_hex(txin.binScript))
@@ -744,7 +757,12 @@ class TxOutDispModel(QAbstractTableModel):
             if stype in CPP_TXOUT_HAS_ADDRSTR:
                return QVariant(script_to_addrStr(txout.binScript))
             elif stype==CPP_TXOUT_MULTISIG:
-               return QVariant('[[Multiple]]')
+               lbID = calcLockboxID(txout.binScript)
+               lb = self.main.getLockboxByID(lbID)
+               if not lb:
+                  return QVariant('[[Multiple]]')
+               else:
+                  return QVariant('Lockbox %d-of-%d (%s)' % (lb.M, lb.N, lbID))
             elif stype==CPP_TXOUT_NONSTANDARD:
                return QVariant('[[Non-Standard]]')
       elif role==Qt.TextAlignmentRole:

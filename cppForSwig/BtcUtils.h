@@ -1037,7 +1037,7 @@ public:
    }
 
    /////////////////////////////////////////////////////////////////////////////
-   //        "UniqueKey"=="ScrAddr" - prefix
+   //        "UniqueKey"=="ScrAddr" minus prefix
    // TODO:  Interesting exercise:  is there a non-standard script that could
    //        look like the output of this function operating on a multisig 
    //        script (doesn't matter if it's valid or not)?  In other words, is
