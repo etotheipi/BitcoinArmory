@@ -862,6 +862,8 @@ class DlgLockboxManager(ArmoryDialog):
       lb = self.getSelectedLockbox()
       if lb:
          self.txtLockboxInfo.setPlainText(lb.getDisplayPlainText())
+      else:
+         self.txtLockboxInfo.setPlainText('')
 
       self.updateButtonDisable()
 
@@ -927,6 +929,7 @@ class DlgLockboxManager(ArmoryDialog):
          lbObj = self.getSelectedLockbox()
          self.main.removeLockbox(lbObj)
          self.lboxModel.reset()
+         self.singleClickLockbox()
 
       self.updateButtonDisable()
    
