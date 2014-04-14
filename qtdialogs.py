@@ -395,29 +395,36 @@ class DlgGenericGetPassword(ArmoryDialog):
 ################################################################################
 class DlgBugReport(ArmoryDialog):
 
-   def __init__(self, parent=None, main=None):
+   def __init__(self, parent=None, main=None, corruptWlt=False):
       super(DlgBugReport, self).__init__(parent, main)
 
       tsPage = 'https://bitcoinarmory.com/troubleshooting'
       faqPage = 'https://bitcoinarmory.com/faqs'
 
-      lblDescr = QRichLabel(tr("""
-         <b><u>Send a bug report to the Armory team</u></b>
-         <br><br>
-         If you are having difficulties with Armory, you should first visit
-         our <a href="%s">troubleshooting page</a> and our
-         <a href="%s">FAQ page</a> which describe solutions to
-         many common problems.
-         <br><br>
-         If you do not find the answer to your problem on those pages,
-         please describe it in detail below, and any steps taken to
-         reproduce the problem.  The more information you provide, the
-         more likely we will be able to help you.
-         <br><br>
-         <b><font color="%s">Note:</font></b>  Please keep in mind we 
-         are a small open-source company, and do not have a formal customer
-         support department.  We will do our best to help you, but cannot
-         respond to everyone!""") % (tsPage, faqPage, htmlColor('TextBlue')))
+      if not corruptWlt:
+         lblDescr = QRichLabel(tr("""
+            <b><u>Send a bug report to the Armory team</u></b>
+            <br><br>
+            If you are having difficulties with Armory, you should first visit
+            our <a href="%s">troubleshooting page</a> and our
+            <a href="%s">FAQ page</a> which describe solutions to
+            many common problems.
+            <br><br>
+            If you do not find the answer to your problem on those pages,
+            please describe it in detail below, and any steps taken to
+            reproduce the problem.  The more information you provide, the
+            more likely we will be able to help you.
+            <br><br>
+            <b><font color="%s">Note:</font></b>  Please keep in mind we 
+            are a small open-source company, and do not have a formal customer
+            support department.  We will do our best to help you, but cannot
+            respond to everyone!""") % (tsPage, faqPage, htmlColor('TextBlue')))
+      else:
+         lblDescr = QRichLabel(tr("""
+            <b><u>Send a bug report to the Armory team</u></b>
+            <br><br>
+            If you are having difficulties with Armory, you should first visit
+            """))
 
       self.chkNoLog = QCheckBox('Do not send log file with report')
       self.chkNoLog.setChecked(False)
@@ -12792,12 +12799,20 @@ class DlgCorruptWallet(DlgProgress):
       self.connect(self, SIGNAL('LFW'), self.LFW)
       self.connect(self, SIGNAL('SRD'), self.SRD)
 
-      lblDescr = QLabel('<h1 style="color: red;">Wallet Corruption Found!!!</h1>')
+      lblDescr = QRichLabel(tr("""
+         <font color="%s" size=4><b><u>Wallet Consistency Check 
+         Failed</u></b></font>
+         <br><br>
+         Armory software now detects and prevents certain kinds of 
+         hardware errors that could lead to problems with your wallet.  
+         It is strongly recommended that you run the following analysis
+         tool and submit the results to the Armory team.""") % \
+         (htmlColor('TextWarn'), htmlColor('TextGreen')))
       lblDescr.setAlignment(Qt.AlignCenter)
 
       self.QDS = QDialog()
       self.lblStatus = QLabel('')
-      self.lblStatus.setStyleSheet('background-color: white')
+      #self.lblStatus.setStyleSheet('background-color: white')
       self.addStatus(wallet, status)
       self.QDSlo = QVBoxLayout()
       self.QDS.setLayout(self.QDSlo)
@@ -12812,7 +12827,7 @@ class DlgCorruptWallet(DlgProgress):
       layoutButtons.setColumnStretch(0, 1)
       layoutButtons.setColumnStretch(4, 1)
       self.btnClose = QPushButton('Hide')
-      self.btnFixWallets = QPushButton('Fix Wallets')
+      self.btnFixWallets = QPushButton('Analyze Wallet')
       self.btnFixWallets.setDisabled(True)
       self.connect(self.btnFixWallets, SIGNAL('clicked()'), self.FixWallets)
       self.connect(self.btnClose, SIGNAL('clicked()'), self.hide)
@@ -12827,12 +12842,15 @@ class DlgCorruptWallet(DlgProgress):
       self.sep_line2.setFrameShape(QFrame.HLine);
       self.sep_line2.setFrameShadow(QFrame.Sunken);
 
-      self.lblDescr2 = QLabel('<h2 style="color: red;">It is highly recommended to fix your<br>'
-                         'damaged wallets before using them</h2>')
+      self.lblDescr2 = QRichLabel(tr("""
+         <font color="%s">You are strongly encouraged to send the Armory
+         team a copy of your watching-only wallet so that it can be 
+         checked for problems</font>""") % htmlColor('TextWarn'))
       self.lblDescr2.setAlignment(Qt.AlignCenter)
 
-      self.lblFixRdy = QLabel('<br><u>Your wallets will be ready to fix once the scan is over</u><br>'
-                              'You can hide this window until then<br>')
+      self.lblFixRdy = QRichLabel(tr("""
+         <u>Your wallets will be ready to fix once the scan is over</u><br>
+         'You can hide this window until then<br>"""))
 
       self.lblFixRdy.setAlignment(Qt.AlignCenter)
 
@@ -12881,7 +12899,7 @@ class DlgCorruptWallet(DlgProgress):
       self.lblFixRdy.hide()
       self.adjustSize()
 
-      self.lblDescr2.setText('<h2 style="color: blue;">Fixing your wallets</h2>')
+      self.lblDescr2.setText('')
 
       from armoryengine.PyBtcWalletRecovery import FixWallets
       self.btnClose.setDisabled(True)
@@ -12939,6 +12957,7 @@ class DlgCorruptWallet(DlgProgress):
             TheBDM.registerWallet(newWallet, isFresh=True, wait=False)
          else:
             self.main.newWalletList.append([newWallet, True])
+
 
 #################################################################################
 class DlgFactoryReset(ArmoryDialog):

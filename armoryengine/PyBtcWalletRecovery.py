@@ -1,5 +1,6 @@
 from armoryengine.BinaryUnpacker import BinaryUnpacker
-from armoryengine.ArmoryUtils import UINT32_MAX, KeyDataError, verifyChecksum, int_to_bitset, KILOBYTE
+from armoryengine.ArmoryUtils import UINT32_MAX, KeyDataError, verifyChecksum, int_to_bitset, \
+                                       KILOBYTE, RightNowStr
 from armoryengine.BinaryPacker import UINT16, UINT32, UINT64, INT64, BINARY_CHUNK
 from armoryengine.PyBtcAddress import PyBtcAddress
 from armoryengine.PyBtcWallet import (PyBtcWallet, WLT_DATATYPE_KEYDATA, WLT_DATATYPE_ADDRCOMMENT, 
@@ -7,6 +8,7 @@ from armoryengine.PyBtcWallet import (PyBtcWallet, WLT_DATATYPE_KEYDATA, WLT_DAT
                                     WLT_UPDATE_ADD, getSuffixedPath)
 from CppBlockUtils import SecureBinaryData, CryptoECDSA, CryptoAES, BtcWallet 
 import os
+import shutil
 from time import sleep, ctime, strftime, localtime
 from armoryengine.ArmoryUtils import AllowAsync
 from qtdialogs import DlgProgress, DlgWltRecoverWallet
@@ -77,7 +79,7 @@ class PyBtcWalletRecovery(object):
       if self.smode == 'consistency check':
          self.strOutput.append('Checking wallet %s (ID: %s) on %s \r\n' % ('\'' + self.labelName + '\'' if len(self.labelName) != 0 else basename, self.UID, ctime()))
       else:
-         self.strOutput.append('Recovering wallet %s (ID: %s) on %s \r\n' % ('\'' + self.labelName + '\'' if len(self.labelName) != 0 else basename, self.UID, ctime()))
+         self.strOutput.append('Analyzing wallet %s (ID: %s) on %s \r\n' % ('\'' + self.labelName + '\'' if len(self.labelName) != 0 else basename, self.UID, ctime()))
          self.strOutput.append('Using %s recovery mode\r\n' % (self.smode))
 
       if self.WO == 1:
@@ -194,8 +196,8 @@ class PyBtcWalletRecovery(object):
 
       ####TODO: comments error log
 
-      self.strOutput.append('%d errors where found\r\n' % (nErrors))
-      self.UIreport = self.UIreport + '<b%s>- %d errors where found</b><br>' % ( ' style="color: red;"' if nErrors else '', nErrors)
+      self.strOutput.append('%d errors were found\r\n' % (nErrors))
+      self.UIreport = self.UIreport + '<b%s>- %d errors were found</b><br>' % ( ' style="color: red;"' if nErrors else '', nErrors)
       return self.EndLog(0, ProgDlg, returnError)
       
 
@@ -324,6 +326,7 @@ class PyBtcWalletRecovery(object):
       try:
          toRecover.doWalletFileConsistencyCheck()
       except: #I expect 99% of errors raised here would be by the Python 'os' import failing an I/O operations, mainly for lack of credentials.
+         LOGEXCEPT('')
          return self.BuildLogFile(-2, ProgDlg, returnError)
 
       #fetch wallet content
@@ -334,7 +337,9 @@ class PyBtcWalletRecovery(object):
       #unpack header
       try:
          returned = toRecover.unpackHeader(wltdata)
-      except: return self.BuildLogFile(-1, ProgDlg, returnError) #Raises here come from invalid header parsing, meaning the file isn't an Armory wallet to begin with, or the header is fubar
+      except: 
+         LOGEXCEPT('')
+         return self.BuildLogFile(-1, ProgDlg, returnError) #Raises here come from invalid header parsing, meaning the file isn't an Armory wallet to begin with, or the header is fubar
 
       self.UID = toRecover.uniqueIDB58
       self.labelName = toRecover.labelName
@@ -342,7 +347,7 @@ class PyBtcWalletRecovery(object):
       #      compare uniqueIDB58 with recovered wallet
       
       if ProgDlg:
-         self.UIreport = '<b>Recovering wallet:</b> %s<br>' % (toRecover.labelName if len(toRecover.labelName) != 0 else os.path.basename(WalletPath))
+         self.UIreport = '<b>Analyzing wallet:</b> %s<br>' % (toRecover.labelName if len(toRecover.labelName) != 0 else os.path.basename(WalletPath))
          ProgDlg.UpdateText(self.UIreport)
       
 
@@ -399,6 +404,7 @@ class PyBtcWalletRecovery(object):
             try:
                rootAddr.unlock(toRecover.kdfKey)
             except:
+               LOGEXCEPT('')
                SecurePassphrase.destroy()
                return self.BuildLogFile(-12, ProgDlg, returnError)
          else:
@@ -457,6 +463,7 @@ class PyBtcWalletRecovery(object):
             self.misc.append('Found OPEVAL data entry at offest: %d' % (byteLocation))
             pass
          except:
+            LOGEXCEPT('')
             #Error in the binary file content. Try to skip an entry size amount of bytes to find a valid entry.
             self.rawError.append('Raw binary error found at offset: %d' % (byteLocation))
 
@@ -481,12 +488,14 @@ class PyBtcWalletRecovery(object):
                   try:
                      newAddr.unserialize(rawData)
                   except:
+                     LOGEXCEPT('')
                      #unserialize error, try to recover the entry
                      self.rawError.append('   Found checksum errors in address entry starting at offset: %d' % (byteLocation))
                      try:
                         newAddr, chksumError = self.addrEntry_unserialize_recover(rawData)
                         self.rawError.append('   Recovered damaged entry')
                      except:
+                        LOGEXCEPT('')
                         #failed to recover the entry
                         self.rawError.append('   Could not recover damaged entry')
                         newAddr = None
@@ -962,6 +971,7 @@ class PyBtcWalletRecovery(object):
          try: 
             os.remove(self.newwalletPath)
          except: 
+            LOGEXCEPT('')
             return self.BuildLogFile(-2, ProgDlg, returnError)
 
       try:
@@ -975,6 +985,7 @@ class PyBtcWalletRecovery(object):
          else:
             RecoveredWallet = self.createNewWO(toRecover, self.newwalletPath, rootAddr)
       except:
+         LOGEXCEPT('')
          return self.BuildLogFile(-2, ProgDlg, returnError) #failed to create new file
       
       return RecoveredWallet
@@ -1032,6 +1043,7 @@ class PyBtcWalletRecovery(object):
 
          return 0, hash160, chunk, [1, loc]
       except:
+         LOGEXCEPT('')
          #unserialize error, move on
          rawdata.resetPosition(loc)
 
@@ -1044,6 +1056,7 @@ class PyBtcWalletRecovery(object):
          else:
             rawdata.resetPosition(loc)
       except:
+         LOGEXCEPT('')
          rawdata.resetPosition(loc)
 
       #try for addr comment: push 1 byte for the key, 20 for the hash160, 2 for the N and N for the comment
@@ -1061,6 +1074,7 @@ class PyBtcWalletRecovery(object):
          else:
             rawdata.resetPosition(loc)
       except:
+         LOGEXCEPT('')
          rawdata.resetPosition(loc)
 
       #try for txn comment: push 1 byte for the key, 32 for the txnhash, 2 for N, and N for the comment
@@ -1078,6 +1092,7 @@ class PyBtcWalletRecovery(object):
          else:
             rawdata.resetPosition(loc)
       except:
+         LOGEXCEPT('')
          rawdata.resetPosition(loc)
 
       #try for deleted entry: 1 byte for the key, 2 bytes for N, N bytes worth of 0s
@@ -1100,6 +1115,7 @@ class PyBtcWalletRecovery(object):
 
          rawdata.resetPosition(loc)
       except:
+         LOGEXCEPT('')
          rawdata.resetPosition(loc)
 
       #couldn't find any valid entries, push loc by 1 and try again
@@ -1323,7 +1339,7 @@ def FixWallets(wallets, dlg=None):
    #fix the wallets
    fixedWlt = []
    wlterror = []
-   from shutil import copyfile
+
    for wlt in wallets:
       if dlg: 
          status = [0]         
@@ -1333,57 +1349,79 @@ def FixWallets(wallets, dlg=None):
          
       fixer = PyBtcWalletRecovery()
       frt = fixer.ProcessWallet(None, wlt, None, 3, dlg, dlg.parent if dlg else None, None, False)
+
+      # Shorten a bunch of statements
+      datestr = RightNowStr('%Y-%m-%d-%H%M')
+      homedir = os.path.dirname(wlt.walletPath)
+      wltID   = wlt.uniqueIDB58
       
       if frt == 0:
          if dlg: dlg.UpdateText(fixer.UIreport)
          fixedWlt.append(wlt.walletPath)
          
          #move the old wallets and log files to another folder
-         corruptFolder = os.path.join(os.path.dirname(wlt.walletPath), wlt.uniqueIDB58)
-         corruptFolder = os.path.join(corruptFolder, strftime('%m.%d.%y_%H\'\'%M\'%S', localtime()))
+         corruptFolder = os.path.join(homedir, wltID, datestr)
          if not os.path.exists(corruptFolder):
             os.makedirs(corruptFolder)
          
-         moveOldWallet = os.path.join(corruptFolder, 'armory_%s_CORRUPT_%s.wallet' % (wlt.uniqueIDB58, '.watchonly'))
-         
-         if not fixer.WO:
-            #wallet has private keys, make a WO version and delete it
-            wlt.forkOnlineWallet(moveOldWallet, wlt.labelName, wlt.labelDescr)
-            moveOldWallet = None
+         pylog       = os.path.join(homedir, 'armorylog.txt')
+         cpplog      = os.path.join(homedir, 'armorycpplog.txt')
+         wltCopyName = 'armory_%s_ORIGINAL_%s.wallet' % (wltID, '.watchonly')
+         wltLogName  = 'armory_%s_LOGFILE_%s.log' % \
+                                (wltID, '.watchonly' if fixer.WO==1 else '')
 
+         corruptWltPath  = os.path.join(corruptFolder, wltCopyName)
+         recoverLogPath = os.path.join(corruptFolder, wltLogName)
+         
          try:
-            #move wallets around
-            if moveOldWallet:
-               os.rename(wlt.walletPath, moveOldWallet)
-            else: 
-               os.unlink(wlt.walletPath)
+
+            if not fixer.WO:
+               #wallet has private keys, make a WO version and delete it
+               wlt.forkOnlineWallet(corruptWltPath, wlt.labelName, wlt.labelDescr)
+               os.remove(wlt.walletPath)
+            else:
+               os.rename(wlt.walletPath, corruptWltPath)
+
                
-            os.rename(fixer.LogPath, os.path.join(corruptFolder, 'armory_%s_LOGFILE_%s.log' % (wlt.uniqueIDB58, '.watchonly' if fixer.WO == 1 else '')))
-            os.rename(fixer.newwalletPath, wlt.walletPath)
+            if os.path.exists(fixer.LogPath):
+               os.rename(fixer.LogPath, os.path.join(corruptFolder, wltLogName))
+            
+            if os.path.exists(fixer.newwalletPath):
+               os.rename(fixer.newwalletPath, wlt.walletPath)
             
             #remove backups
-            os.unlink(getSuffixedPath(wlt.walletPath, 'backup'))
-            os.unlink(getSuffixedPath(fixer.newwalletPath, 'backup'))
+            origBackup = getSuffixedPath(wlt.walletPath, 'backup')
+            if os.path.exists(origBackup):
+               os.remove(origBackup)
+
+            newBackup = getSuffixedPath(fixer.newwalletPath, 'backup')
+            if os.path.exists(newBackup):
+               os.remove(newBackup)
             
             #copy armory log
-            copyfile(os.path.join(os.path.dirname(wlt.walletPath), 'armorylog.txt'), os.path.join(corruptFolder, 'armorylog.txt'))
-            copyfile(os.path.join(os.path.dirname(wlt.walletPath), 'armorycpplog.txt'), os.path.join(corruptFolder, 'armorycpplog.txt'))
+            if os.path.exists(pylog):
+               shutil.copy(pylog,  corruptFolder)
+
+            if os.path.exists(cpplog):
+               shutil.copy(cpplog, corruptFolder)
             
             if dlg:
-               fixer.EndLog = '<br>' + wlt.uniqueIDB58 + ' fixed!<br>' +\
-                              'The corrupted wallet and attached log files were moved to:<br>' +\
-                              corruptFolder + '<br><br>'
+               fixer.EndLog = ("""
+                  <br>Wallet %s fixed!<br> 
+                  The inconsistent wallet and log files were moved to:
+                  <br>%s/<br><br>""") % (wltID, corruptFolder)
                               
                dlg.UpdateText(fixer.UIreport + fixer.EndLog)
    
          except Exception as e:
             #failed to move files around, most likely a credential error
             fixedWlt.remove(wlt.walletPath)
-            wlterror.append([wlt.uniqueIDB58, fixer.UIreport + '<br>An error occurred while moving wallet files: %s<br>' % (e)])
+            errStr = '<br><b>An error occurred moving wallet files:</b> %s' % e
+            wlterror.append([wltID, fixer.UIreport + errStr])
             if dlg:
-               dlg.UpdateText(fixer.UIreport + '<br>An error occurred while moving wallet files: %s<br>' % (e))
+               dlg.UpdateText(fixer.UIreport + errStr)
       else:
-         wlterror.append([wlt.uniqueIDB58, fixer.UIreport + fixer.EndLog])
+         wlterror.append([wltID, fixer.UIreport + fixer.EndLog])
          if dlg: dlg.UpdateText(fixer.UIreport + fixer.EndLog)
    
    if dlg:                  

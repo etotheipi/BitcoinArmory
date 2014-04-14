@@ -44,6 +44,7 @@ from ui.UpgradeDownloader import UpgradeDownloaderDialog
 from jasvet import verifySignature, readSigBlock
 from announcefetch import AnnounceDataFetcher, ANNOUNCE_URL, ANNOUNCE_URL_BACKUP
 from armoryengine.parseAnnounce import *
+from armoryengine.PyBtcWalletRecovery import WalletConsistencyCheck
 
 # HACK ALERT: Qt has a bug in OS X where the system font settings will override
 # the app's settings when a window is activated (e.g., Armory starts, the user
@@ -151,6 +152,7 @@ class ArmoryMainWindow(QMainWindow):
       #Setup the signal to spawn progress dialogs from the main thread
       self.connect(self, SIGNAL('initTrigger') , self.initTrigger)
       self.connect(self, SIGNAL('spawnTrigger'), self.spawnTrigger)
+      self.connect(self, SIGNAL('checkForkedImports'), self.checkForkedImports)
 
       # We want to determine whether the user just upgraded to a new version
       self.firstLoadNewVersion = False
@@ -482,7 +484,7 @@ class ArmoryMainWindow(QMainWindow):
       self.connect(btnSendBtc,  SIGNAL('clicked()'), self.clickSendBitcoins)
       self.connect(btnOfflineTx,SIGNAL('clicked()'), self.execOfflineTx)
 
-      verStr = 'Armory %s-beta / %s' % (getVersionString(BTCARMORY_VERSION), \
+      verStr = 'Armory v%s / %s' % (getVersionString(BTCARMORY_VERSION), \
                                               UserModeStr(self.usermode))
       lblInfo = QRichLabel(verStr, doWrap=False)
       lblInfo.setFont(GETFONT('var',10))
@@ -3776,7 +3778,7 @@ class ArmoryMainWindow(QMainWindow):
    def exportLogFile(self):
       LOGDEBUG('exportLogFile')
       reply = QMessageBox.warning(self, tr('Bug Reporting'), tr("""
-         As of version 0.91-beta, Armory now includes a form for reporting
+         As of version 0.91, Armory now includes a form for reporting
          problems with the software.  Please use
          <i>"Help"</i>\xe2\x86\x92<i>"Submit Bug Report"</i>
          to send a report directly to the Armory team, which will include
@@ -6176,11 +6178,24 @@ class ArmoryMainWindow(QMainWindow):
          toInit.setup(self)
          toInit.status = 1
 
+
+   #############################################################################
+   def checkForkedImports(self):
+      
+      forkedImports = []
+      
+      for wlt in self.walletMap:
+         if self.walletMap[wlt].hasForkedImports:
+            forkedImports.append(self.walletMap[wlt].uniqueIDB58)
+            
+      if len(forkedImports):
+         DlgForkedImports(forkedImports, self, self).show()    
+
+
    #############################################################################
    @AllowAsync
    def CheckWalletConsistency(self, wallets, prgAt=None):
 
-      from armoryengine.PyBtcWalletRecovery import WalletConsistencyCheck
 
       if prgAt:
          totalSize = 0
@@ -6216,26 +6231,25 @@ class ArmoryMainWindow(QMainWindow):
       while prgAt[2] != 2:
          time.sleep(0.1)
       if nerrors == 0:
-         self.emit(SIGNAL('UWCS'), [1, 'No Wallet Error Found', 10000, dlgrdy])
+         self.emit(SIGNAL('UWCS'), [1, 'Wallet Consistency Check', 10000, dlgrdy])
       else:
          while not dlgrdy:
-            self.emit(SIGNAL('UWCS'), [1, 'Found Errors in your Wallets!!!', 0, dlgrdy])
+            self.emit(SIGNAL('UWCS'), [1, 'Consistency Check Failed!', 0, dlgrdy])
             time.sleep(1)
 
-         #make sure nothing is running right before forcing the fix your wallet dialog up
          self.checkRdyForFix()
+
 
    def checkRdyForFix(self):
       #check BDM first
       time.sleep(1)
       self.dlgCptWlt.emit(SIGNAL('Show'))
-      dots = 0
       while 1:
-         dotsstr = '.'*((dots % 3)+1)
-         dots = dots +1
          if TheBDM.getBDMState() == 'Scanning':
-            canFix = 'Currently Scanning Blockchain. Fixing will be available once Armory is done loading' + dotsstr +\
-                     '<br>You can close this window, it will reappear once your wallets are ready to be fixed'
+            canFix = tr("""
+               Fixing inconsistent wallets will become available
+               as soon as Armory is done loading.   You can close this 
+               window and it will reappear when ready.""")
             self.dlgCptWlt.UpdateCanFix([canFix])
             time.sleep(1)
          else:
@@ -6261,7 +6275,9 @@ class ArmoryMainWindow(QMainWindow):
 
          if len(runningList):
             if listchanged:
-               canFix.append('<u style="color: orange">The following windows need closed before you can Fix your wallets:</u>')
+               canFix.append(tr("""
+                  <u style="color: orange">The following windows need closed 
+                  before you can Fix your wallets:</u>"""))
                canFix.extend([str(myobj.windowTitle()) for myobj in runningList])
                self.dlgCptWlt.UpdateCanFix(canFix)
             time.sleep(0.2)
@@ -6269,7 +6285,7 @@ class ArmoryMainWindow(QMainWindow):
             break
 
 
-      canFix.append('Ready to fix your wallets!')
+      canFix.append('Ready to fix inconsistent wallets!')
       self.dlgCptWlt.UpdateCanFix(canFix, True)
       self.dlgCptWlt.emit(SIGNAL('Exec'))
 
@@ -6301,6 +6317,7 @@ class ArmoryMainWindow(QMainWindow):
 
       self.emit(SIGNAL('UWCS'), [2])
       self.prgAt[2] = 2
+
    def UpdateWalletConsistencyStatus(self, msg):
       if msg[0] == 0:
          self.pbarWalletProgress.setValue(msg[1])
@@ -6312,10 +6329,9 @@ class ArmoryMainWindow(QMainWindow):
 
    def WltCstError(self, wlt, status, dlgrdy):
       self.emit(SIGNAL('PWCE'), dlgrdy, wlt, status)
-      self.extraHeartbeatAlways.append([LOGERROR, ['Failed consistency check on wallet %s%s' % (wlt.uniqueIDB58, ' (' + wlt.labelName +')' if len(wlt.labelName) != 0 else '')], False])
+      LOGERROR('Wallet consistency check failed! (%s)', wlt.uniqueIDB58)
 
    def PromptWltCstError(self, dlgrdy, wallet=None, status='', mode=None):
-
       if not self.dlgCptWlt:
          self.dlgCptWlt = DlgCorruptWallet(wallet, status, self, self)
          dlgrdy[0] = 1

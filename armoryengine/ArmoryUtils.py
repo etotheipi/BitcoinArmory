@@ -1536,6 +1536,10 @@ RightNow = time.time
 def RightNowUTC():
    return time.mktime(time.gmtime(RightNow()))
 
+def RightNowStr(fmt=DEFAULT_DATE_FORMAT):
+   return unixTimeToFormatStr(RightNow(), fmt)
+   
+
 # Define all the hashing functions we're going to need.  We don't actually
 # use any of the first three directly (sha1, sha256, ripemd160), we only
 # use hash256 and hash160 which use the first three to create the ONLY hash
