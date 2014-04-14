@@ -1364,8 +1364,10 @@ def FixWallets(wallets, dlg=None):
          if not os.path.exists(corruptFolder):
             os.makedirs(corruptFolder)
          
-         pylog       = os.path.join(homedir, 'armorylog.txt')
-         cpplog      = os.path.join(homedir, 'armorycpplog.txt')
+         logsToCopy = ['armorylog.txt', 'armorycpplog.txt', 'multipliers.txt']
+         #pylog       = os.path.join(homedir, 'armorylog.txt')
+         #cpplog      = os.path.join(homedir, 'armorycpplog.txt')
+         #multipliers = os.path.join(homedir, 'multipliers.txt')
          wltCopyName = 'armory_%s_ORIGINAL_%s.wallet' % (wltID, '.watchonly')
          wltLogName  = 'armory_%s_LOGFILE_%s.log' % \
                                 (wltID, '.watchonly' if fixer.WO==1 else '')
@@ -1398,12 +1400,12 @@ def FixWallets(wallets, dlg=None):
             if os.path.exists(newBackup):
                os.remove(newBackup)
             
-            #copy armory log
-            if os.path.exists(pylog):
-               shutil.copy(pylog,  corruptFolder)
+            # Copy all the relevant log files
+            for fn in logsToCopy:
+               fullpath = os.path.join(homedir, fn)
+               if os.path.exists(fullpath):
+                  shutil.copy(fullpath,  corruptFolder)
 
-            if os.path.exists(cpplog):
-               shutil.copy(cpplog, corruptFolder)
             
             if dlg:
                fixer.EndLog = ("""

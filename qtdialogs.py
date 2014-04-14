@@ -12805,9 +12805,10 @@ class DlgCorruptWallet(DlgProgress):
          <br><br>
          Armory software now detects and prevents certain kinds of 
          hardware errors that could lead to problems with your wallet.  
+         One or more of your wallets has inconsistent 
          It is strongly recommended that you run the following analysis
          tool and submit the results to the Armory team.""") % \
-         (htmlColor('TextWarn'), htmlColor('TextGreen')))
+         htmlColor('TextWarn'))
       lblDescr.setAlignment(Qt.AlignCenter)
 
       self.QDS = QDialog()
