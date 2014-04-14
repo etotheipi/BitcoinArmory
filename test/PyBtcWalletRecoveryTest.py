@@ -62,10 +62,12 @@ class PyBtcWalletRecoveryTest(unittest.TestCase):
       self.assertTrue(len(brkWltResult['forkedPublicKeyChain'])==2, "Address Chain Forks Undetected")
       self.assertTrue(len(brkWltResult['unmatchedPair'])==100, "Unmatched Priv/Pub Key Undetected")
       self.assertTrue(len(brkWltResult['misc'])==50, "Wallet Encryption Inconsistency Undetected")
+      self.assertTrue(brkWltResult['nErrors']==153, "Unexpected Errors Found")      
       
       #run recovery on recovered wallet
       rcvWltResult = PyBtcWalletRecovery().RecoverWallet('armory_%s_RECOVERED.wallet' % self.wltID, 'testing', 'Full', returnError = 'Dict')
-      self.assertTrue(rcvWltResult == 0, "Broken Recovered Wallet")
+      self.assertTrue(rcvWltResult['nErrors']==0, "Unexpected Errors Found")
+      self.assertTrue(len(rcvWltResult['forkedImports'])==50, "Missing Forked Imports")
       
 ###############################################################################
 if __name__ == "__main__":

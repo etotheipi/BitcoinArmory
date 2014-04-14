@@ -12918,9 +12918,14 @@ class DlgCorruptWallet(DlgProgress):
    def UpdateDlg(self, text=None, HBar=None, Title=None):
       if text is not None: self.lblDesc.setText(text)
 
+   def accept(self):
+      self.main.emit(SIGNAL('checkForkedImports'))      
+      super(DlgCorruptWallet, self).accept()      
+
    def reject(self):
       if not self.Fixing:
          super(DlgProgress, self).reject()
+         self.main.emit(SIGNAL('checkForkedImports'))
 
    def sigSetNewProgress(self, status):
       self.emit(SIGNAL('SNP'), status)
@@ -12937,6 +12942,8 @@ class DlgCorruptWallet(DlgProgress):
    def SRD(self, st):
       self.btnClose.setEnabled(True)
       self.btnClose.setText('Done')
+      self.btnClose.disconnect(self, SIGNAL('clicked()'), self.hide)
+      self.btnClose.connect(self, SIGNAL('clicked()'), self.accept)
       self.Fixing = 0
       if len(st) == 0:
          self.lblDescr2.setText('<h2 style="color: green;">Wallets Fixed! You can close this window</h2>')
@@ -12958,6 +12965,8 @@ class DlgCorruptWallet(DlgProgress):
             TheBDM.registerWallet(newWallet, isFresh=True, wait=False)
          else:
             self.main.newWalletList.append([newWallet, True])
+            
+      self.main.emit(SIGNAL('checkForkedImport'))
 
 
 #################################################################################
@@ -13151,7 +13160,59 @@ class DlgFactoryReset(ArmoryDialog):
       self.accept()
 
 
+#################################################################################
+class DlgForkedImports(ArmoryDialog):
+   def __init__(self, walletList, main=None, parent=None):
+      super(DlgForkedImports, self).__init__(parent, main)
 
+      descr1 = '<h2 style="color: red; text-align: center;">Forked imported addresses have been \
+      detected in your wallets!!!</h2>'
+      
+      descr2 = 'The following wallets have forked imported addresses: <br><br><b>' + \
+      '<br>'.join(walletList) + '</b>'
+      
+      descr3 = 'When you fix a corrupted wallet, any damaged private keys will be off \
+      the determinstic chain. It means these private keys cannot be recreated \
+      by your paper backup. If such private keys are encountered, Armory saves \
+      them as forked imported private keys after it fixes the relevant wallets.'
+      
+      descr4 = '<h1 style="color: orange;"> - Do not accept payments to these wallets anymore<br>\
+      - Do not delete or overwrite these wallets. <br> \
+      - Transfer all funds to a fresh and backed up wallet<h1>'
+      
+      lblDescr1 = QRichLabel(descr1)
+      lblDescr2 = QRichLabel(descr2)
+      lblDescr3 = QRichLabel(descr3)
+      lblDescr4 = QRichLabel(descr4)
+      
+      layout2 = QVBoxLayout()
+      layout2.addWidget(lblDescr2)
+      frame2 = QFrame()
+      frame2.setLayout(layout2) 
+      frame2.setFrameStyle(QFrame.StyledPanel)
+      
+      layout4 = QVBoxLayout()
+      layout4.addWidget(lblDescr4)
+      frame4 = QFrame()
+      frame4.setLayout(layout4) 
+      frame4.setFrameStyle(QFrame.StyledPanel)      
+      
+      
+      self.btnOk = QPushButton('Ok')
+      self.connect(self.btnOk, SIGNAL('clicked()'), self.accept)
+      
+      
+      layout = QVBoxLayout()      
+      layout.addWidget(lblDescr1)
+      layout.addWidget(frame2)
+      layout.addWidget(lblDescr3)      
+      layout.addWidget(frame4)      
+      layout.addWidget(self.btnOk)
+
+      
+      self.setLayout(layout)
+      self.setMinimumWidth(600)
+      self.setWindowTitle('Forked Imported Addresses')
 ###
 
 

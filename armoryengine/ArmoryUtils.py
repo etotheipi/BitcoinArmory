@@ -2775,6 +2775,7 @@ class PyBackgroundThread(threading.Thread):
       try:
          self.output = self.func()
       except Exception as e:
+         LOGEXCEPT('Error in pybkgdthread: %s', str(e))
          self.errorThrown = e
       self.finishedAt = RightNow()
 

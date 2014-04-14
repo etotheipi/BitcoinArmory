@@ -1525,30 +1525,31 @@ class ArmoryMainWindow(QMainWindow):
                   self.versionNotification['LONGDESCR'] = \
                      self.getVersionNotifyLongDescr(verStr).replace('\n','<br>')
                      
-            for verStr,vermap in self.downloadLinks['ArmoryTesting'].iteritems():
-               dlVer = getVersionInt(readVersionString(verStr))
-               if dlVer > maxVer:
-                  maxVer = dlVer
-                  self.armoryVersions[1] = verStr
-                  if thisVer >= maxVer:
-                     continue
+            if 'ArmoryTesting' in self.downloadLinks:
+               for verStr,vermap in self.downloadLinks['ArmoryTesting'].iteritems():
+                  dlVer = getVersionInt(readVersionString(verStr))
+                  if dlVer > maxVer:
+                     maxVer = dlVer
+                     self.armoryVersions[1] = verStr
+                     if thisVer >= maxVer:
+                        continue
 
-                  shortDescr = tr('Armory Testing version %s is now available!') % verStr
-                  notifyID = binary_to_hex(hash256(shortDescr)[:4])
-                  self.versionNotification['UNIQUEID'] = notifyID
-                  self.versionNotification['VERSION'] = '0'
-                  self.versionNotification['STARTTIME'] = '0'
-                  self.versionNotification['EXPIRES'] = '%d' % long(UINT64_MAX)
-                  self.versionNotification['CANCELID'] = '[]'
-                  self.versionNotification['MINVERSION'] = '*'
-                  self.versionNotification['MAXVERSION'] = '<%s' % verStr
-                  self.versionNotification['PRIORITY'] = '1024'
-                  self.versionNotification['ALERTTYPE'] = 'upgrade-testing'
-                  self.versionNotification['NOTIFYSEND'] = 'False'
-                  self.versionNotification['NOTIFYRECV'] = 'False'
-                  self.versionNotification['SHORTDESCR'] = shortDescr
-                  self.versionNotification['LONGDESCR'] = \
-                     self.getVersionNotifyLongDescr(verStr, True).replace('\n','<br>')
+                     shortDescr = tr('Armory Testing version %s is now available!') % verStr
+                     notifyID = binary_to_hex(hash256(shortDescr)[:4])
+                     self.versionNotification['UNIQUEID'] = notifyID
+                     self.versionNotification['VERSION'] = '0'
+                     self.versionNotification['STARTTIME'] = '0'
+                     self.versionNotification['EXPIRES'] = '%d' % long(UINT64_MAX)
+                     self.versionNotification['CANCELID'] = '[]'
+                     self.versionNotification['MINVERSION'] = '*'
+                     self.versionNotification['MAXVERSION'] = '<%s' % verStr
+                     self.versionNotification['PRIORITY'] = '1024'
+                     self.versionNotification['ALERTTYPE'] = 'upgrade-testing'
+                     self.versionNotification['NOTIFYSEND'] = 'False'
+                     self.versionNotification['NOTIFYRECV'] = 'False'
+                     self.versionNotification['SHORTDESCR'] = shortDescr
+                     self.versionNotification['LONGDESCR'] = \
+                        self.getVersionNotifyLongDescr(verStr, True).replace('\n','<br>')
 
 
          # For Satoshi updates, we don't trigger any notifications like we
@@ -6193,6 +6194,18 @@ class ArmoryMainWindow(QMainWindow):
 
 
    #############################################################################
+   def checkForkedImports(self):
+      
+      forkedImports = []
+      
+      for wlt in self.walletMap:
+         if self.walletMap[wlt].hasForkedImports:
+            forkedImports.append(self.walletMap[wlt].uniqueIDB58)
+            
+      if len(forkedImports):
+         DlgForkedImports(forkedImports, self, self).show()            
+      
+   #############################################################################
    @AllowAsync
    def CheckWalletConsistency(self, wallets, prgAt=None):
 
@@ -6208,6 +6221,7 @@ class ArmoryMainWindow(QMainWindow):
       i=0
       dlgrdy = [0]
       nerrors = 0
+
       for wlt in wallets:
          if prgAt:
             prgAt[0] = i
@@ -6216,7 +6230,7 @@ class ArmoryMainWindow(QMainWindow):
             i = f +i
 
          self.wltCstStatus = WalletConsistencyCheck(wallets[wlt], prgAt)
-         if self.wltCstStatus != 0:
+         if self.wltCstStatus != 0 and (not isinstance(self.wltCstStatus, dict) or self.wltCstStatus['nErrors'] != 0):
             self.WltCstError(wallets[wlt], self.wltCstStatus, dlgrdy)
             while not dlgrdy[0]:
                time.sleep(0.01)
@@ -6232,6 +6246,7 @@ class ArmoryMainWindow(QMainWindow):
          time.sleep(0.1)
       if nerrors == 0:
          self.emit(SIGNAL('UWCS'), [1, 'Wallet Consistency Check', 10000, dlgrdy])
+         self.emit(SIGNAL('checkForkedImports'))
       else:
          while not dlgrdy:
             self.emit(SIGNAL('UWCS'), [1, 'Consistency Check Failed!', 0, dlgrdy])
