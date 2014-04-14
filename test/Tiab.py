@@ -3,6 +3,7 @@ import os
 import tempfile
 import shutil
 import subprocess
+import copy
 
 # runs a Test In a Box (TIAB) bitcoind session. By copying a prebuilt
 # testnet with a known state
@@ -60,6 +61,12 @@ class TiabSession:
          raise RuntimeError("No such instance number")
 
    # clean() and then start bitcoind again
+
+   def callBitcoinD(self, bitcoinDArgs):
+      bitcoinDArgsCopy = copy.copy(bitcoinDArgs)
+      bitcoinDArgsCopy.insert(0, "bitcoind")
+      return self.processes.append(subprocess.Popen(bitcoinDArgsCopy))
+
    def restart(self):
       self.clean()
       if TiabSession.numInstances != 0:
@@ -70,8 +77,8 @@ class TiabSession:
       shutil.copytree(self.tiabdatadir, self.directory)
       try:
          print "executing in datadir " + self.directory
-         self.processes.append( subprocess.Popen(["bitcoind", "-datadir=" + self.directory + "/1", "-debugnet", "-debug" ]) )
-         self.processes.append( subprocess.Popen(["bitcoind", "-datadir=" + self.directory + "/2", "-debugnet", "-debug" ]) )
+         self.callBitcoinD(["-datadir=" + self.directory + "\\1", "-debugnet", "-debug"])
+         self.callBitcoinD(["-datadir=" + self.directory + "\\2", "-debugnet", "-debug"])
       except:
          self.clean()
          raise
