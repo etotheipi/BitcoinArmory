@@ -23,7 +23,10 @@ from qtdefines import *
 from armoryengine.PyBtcAddress import calcWalletIDFromRoot
 from announcefetch import DEFAULT_MIN_PRIORITY
 from ui.UpgradeDownloader import UpgradeDownloaderDialog
-from armoryengine.MultiSigUtils import calcLockboxID
+from armoryengine.MultiSigUtils import calcLockboxID, createLockboxEntryStr,\
+   LBPREFIX
+from ui.MultiSigModels import LockboxDisplayModel, LockboxDisplayProxy,\
+   LOCKBOXCOLS
 
 NO_CHANGE = 'NoChange'
 MIN_PASSWD_WIDTH = lambda obj: tightSizeStr(obj, '*' * 16)[0]
@@ -7601,7 +7604,8 @@ class DlgAddressBook(ArmoryDialog):
                                     actionStr='Select', \
                                     selectExistingOnly=False, \
                                     selectMineOnly=False, \
-                                    getPubKey=False):
+                                    getPubKey=False,
+                                    showLockBoxes=True):
       super(DlgAddressBook, self).__init__(parent, main)
 
       self.target = putResultInWidget
@@ -7676,6 +7680,33 @@ class DlgAddressBook(ArmoryDialog):
       self.tabWidget.addTab(self.addrBookRxView, 'Receiving (Mine)')
       if not selectMineOnly:
          self.tabWidget.addTab(self.addrBookTxView, 'Sending (Other\'s)')
+      # DISPLAY Lock Boxes
+      if showLockBoxes:
+         self.lboxModel = LockboxDisplayModel(self.main, \
+                                    self.main.allLockboxes, \
+                                    self.main.getPreferredDateFormat())
+         self.lboxProxy = LockboxDisplayProxy(self)
+         self.lboxProxy.setSourceModel(self.lboxModel)
+         self.lboxProxy.sort(LOCKBOXCOLS.CreateDate, Qt.DescendingOrder)
+         self.lboxView = QTableView()
+         self.lboxView.setModel(self.lboxProxy)
+         self.lboxView.setSortingEnabled(True)
+         self.lboxView.setSelectionBehavior(QTableView.SelectRows)
+         self.lboxView.setSelectionMode(QTableView.SingleSelection)
+         self.lboxView.verticalHeader().setDefaultSectionSize(18)
+         self.lboxView.horizontalHeader().setStretchLastSection(True)
+         #maxKeys = max([lb.N for lb in self.main.allLockboxes])
+         for i in range(LOCKBOXCOLS.Key0, LOCKBOXCOLS.Key4+1):
+            self.lboxView.hideColumn(i)
+         self.lboxView.hideColumn(LOCKBOXCOLS.UnixTime)
+         self.tabWidget.addTab(self.lboxView, 'Lock Boxes')
+         self.connect( self.lboxView, 
+            SIGNAL('doubleClicked(QModelIndex)'), 
+            self.dblClickedLockbox)
+         self.connect(self.lboxView.selectionModel(), \
+             SIGNAL('currentChanged(const QModelIndex &, const QModelIndex &)'), \
+             self.clickedLockbox)
+      self.connect(self.tabWidget, SIGNAL('currentChanged(int)'), self.tabChanged)   
       self.tabWidget.setCurrentIndex(0)
 
 
@@ -7802,6 +7833,30 @@ class DlgAddressBook(ArmoryDialog):
 
 
    #############################################################################
+   def tabChanged(self, index):
+      if not self.isBrowsingOnly:
+         if self.tabWidget.currentWidget() == self.lboxView:
+            selectedLockBox = self.getSelectedLBID()
+            self.btnSelectAddr.setEnabled(selectedLockBox != None)
+            if selectedLockBox:
+               self.btnSelectAddr.setText( createLockboxEntryStr(selectedLockBox))
+            else:
+               self.btnSelectAddr.setText('None Selected')
+         elif self.tabWidget.currentWidget() == self.addrBookTxView:
+            selection = self.addrBookTxView.selectedIndexes()
+            if len(selection)==0:
+               self.btnSelectAddr.setText('None Selected')
+            else:
+               self.addrTableTxClicked(selection[0])
+         elif self.tabWidget.currentWidget() == self.addrBookRxView:
+            selection = self.addrBookRxView.selectedIndexes()
+            if len(selection)==0:
+               self.btnSelectAddr.setText('None Selected')
+            else:
+               self.addrTableRxClicked(selection[0])    
+         
+      
+   #############################################################################
    def setAddrBookRxModel(self, wltID):
       wlt = self.main.walletMap[wltID]
       self.addrBookRxModel = WalletAddrDispModel(wlt, self)
@@ -7845,7 +7900,7 @@ class DlgAddressBook(ArmoryDialog):
          # If switched wallet selection, de-select address so it doesn't look
          # like the currently-selected address is for this different wallet
          self.btnSelectAddr.setEnabled(False)
-         self.btnSelectAddr.setText('No Address Selected')
+         self.btnSelectAddr.setText('None Selected')
          self.selectedAddr = ''
          self.selectedCmmt = ''
       self.addrBookTxModel.reset()
@@ -7878,7 +7933,6 @@ class DlgAddressBook(ArmoryDialog):
       if not self.isBrowsingOnly:
          self.btnSelectAddr.setText('%s Address: %s...' % (self.actStr, self.selectedAddr[:10]))
 
-
    #############################################################################
    def dblClickAddressRx(self, index):
       if index.column() != ADDRESSCOLS.Comment:
@@ -7892,6 +7946,31 @@ class DlgAddressBook(ArmoryDialog):
          newComment = str(dialog.edtComment.text())
          addr160 = addrStr_to_hash160(self.selectedAddr)[1]
          wlt.setComment(addr160, newComment)
+         
+   #############################################################################
+   def getSelectedLBID(self):
+      selection = self.lboxView.selectedIndexes()
+      if len(selection)==0:
+         return None
+      row = selection[0].row()
+      idCol = LOCKBOXCOLS.ID
+      return str(self.lboxView.model().index(row, idCol).data().toString())
+   
+   #############################################################################
+   def dblClickedLockbox(self, index):
+      self.acceptLockBoxSelection()
+      
+   #############################################################################
+   def clickedLockbox(self, currIndex, prevIndex=None):
+      if prevIndex == currIndex:
+         return
+
+      row = currIndex.row()
+
+      if not self.isBrowsingOnly:
+         self.btnSelectAddr.setEnabled(True)
+         selectedLockBoxId = str(currIndex.model().index(row, LOCKBOXCOLS.ID).data().toString())
+         self.btnSelectAddr.setText( createLockboxEntryStr(selectedLockBoxId))
 
    #############################################################################
    def dblClickAddressTx(self, index):
@@ -7924,29 +8003,37 @@ class DlgAddressBook(ArmoryDialog):
 
    #############################################################################
    def acceptAddrSelection(self):
-      atype,a160 = addrStr_to_hash160(self.selectedAddr)
-      if atype==P2SHBYTE and self.returnPubKey:
-         LOGERROR('Cannot select P2SH address when selecting a public key!')
-         QMessageBox.critical(self, tr("P2SH Not Allowed"), tr("""
-            This operation requires a public key, but you selected a 
-            P2SH address which does not have a public key (these addresses
-            start with "2" or "3").  Please select a different address"""), \
-            QMessageBox.Ok)
-         return
+      if str(self.btnSelectAddr.text())[:len(LBPREFIX)] == LBPREFIX:
+         self.acceptLockBoxSelection()
+      else: 
+         atype,a160 = addrStr_to_hash160(self.selectedAddr)
+         if atype==P2SHBYTE and self.returnPubKey:
+            LOGERROR('Cannot select P2SH address when selecting a public key!')
+            QMessageBox.critical(self, tr("P2SH Not Allowed"), tr("""
+               This operation requires a public key, but you selected a 
+               P2SH address which does not have a public key (these addresses
+               start with "2" or "3").  Please select a different address"""), \
+               QMessageBox.Ok)
+            return
+   
+         if self.target:
+            if not self.returnPubKey:
+               self.target.setText(self.selectedAddr)
+            else:
+               pubKeyHash = self.getPubKeyForAddr160(a160)
+               if pubKeyHash is None:
+                  return 
+               self.target.setText(pubKeyHash)
+   
+            self.target.setCursorPosition(0)
+            self.accept()
 
+   #############################################################################
+   def acceptLockBoxSelection(self):
       if self.target:
-         if not self.returnPubKey:
-            self.target.setText(self.selectedAddr)
-         else:
-            pubKeyHash = self.getPubKeyForAddr160(a160)
-            if pubKeyHash is None:
-               return 
-            self.target.setText(pubKeyHash)
-
+         self.target.setText( createLockboxEntryStr(self.getSelectedLBID()))
          self.target.setCursorPosition(0)
          self.accept()
-
-
    
    #############################################################################
    def getPubKeyForAddr160(self, addr160):
@@ -8031,7 +8118,9 @@ class DlgAddressBook(ArmoryDialog):
 
 
 ################################################################################
-def createAddrBookButton(parent, targWidget, defaultWlt, actionStr="Select", selectExistingOnly=False, selectMineOnly=False, getPubKey=False):
+def createAddrBookButton(parent, targWidget, defaultWlt, actionStr="Select",
+                         selectExistingOnly=False, selectMineOnly=False, getPubKey=False,
+                         showLockBoxes=True):
    btn = QPushButton('')
    ico = QIcon(QPixmap(':/addr_book_icon.png'))
    btn.setIcon(ico)
@@ -8040,7 +8129,8 @@ def createAddrBookButton(parent, targWidget, defaultWlt, actionStr="Select", sel
          QMessageBox.warning(parent, 'No wallets!', 'You have no wallets so '
             'there is no address book to display.', QMessageBox.Ok)
          return
-      dlg = DlgAddressBook(parent, parent.main, targWidget, defaultWlt, actionStr, selectExistingOnly, selectMineOnly, getPubKey)
+      dlg = DlgAddressBook(parent, parent.main, targWidget, defaultWlt, actionStr, selectExistingOnly, selectMineOnly, getPubKey,
+                           showLockBoxes)
       dlg.exec_()
 
    btn.setMaximumWidth(24)

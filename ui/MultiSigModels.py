@@ -31,7 +31,7 @@ class LockboxDisplayModel(QAbstractTableModel):
    def columnCount(self, index=QModelIndex()):
       return 12
 
-   def getKeyDisp(self, i):
+   def getKeyDisp(self, lbox, i):
       if len(lbox.commentList[i].strip())>0:
          return lbox.commentList[i]
       else:
@@ -60,15 +60,15 @@ class LockboxDisplayModel(QAbstractTableModel):
          elif col==LOCKBOXCOLS.LBName: 
             return QVariant(lbox.shortName)
          elif col==LOCKBOXCOLS.Key0: 
-            return QVariant(self.getKeyDisp(0))
+            return QVariant(self.getKeyDisp(lbox, 0))
          elif col==LOCKBOXCOLS.Key1: 
-            return QVariant(self.getKeyDisp(1))
+            return QVariant(self.getKeyDisp(lbox, 1))
          elif col==LOCKBOXCOLS.Key2: 
-            return QVariant(self.getKeyDisp(2))
+            return QVariant(self.getKeyDisp(lbox, 2))
          elif col==LOCKBOXCOLS.Key3: 
-            return QVariant(self.getKeyDisp(3))
+            return QVariant(self.getKeyDisp(lbox, 3))
          elif col==LOCKBOXCOLS.Key4: 
-            return QVariant(self.getKeyDisp(4))
+            return QVariant(self.getKeyDisp(lbox, 4))
          elif col==LOCKBOXCOLS.NumTx: 
             if not TheBDM.getBDMState()=='BlockchainReady':
                return QVariant('(...)') 

@@ -49,7 +49,6 @@ from armoryengine.parseAnnounce import *
 
 from armoryengine.MultiSigUtils import MultiSigLockbox
 from ui.MultiSigHacker import DlgSelectMultiSigOption, DlgLockboxManager
-from ui.MultiSigModels import LockboxDisplayModel, LOCKBOXCOLS
 
 # HACK ALERT: Qt has a bug in OS X where the system font settings will override
 # the app's settings when a window is activated (e.g., Armory starts, the user

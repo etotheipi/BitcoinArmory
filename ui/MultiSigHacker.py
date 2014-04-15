@@ -116,7 +116,7 @@ class DlgLockboxEditor(ArmoryDialog):
          self.widgetMap[i]['EDT_PUBK'] = QLineEdit()
          self.widgetMap[i]['BTN_BOOK'] = \
             createAddrBookButton(self, self.widgetMap[i]['EDT_PUBK'], None, \
-                                                         getPubKey=True)
+                                 getPubKey=True, selectMineOnly=True, showLockBoxes=False)
          self.widgetMap[i]['LBL_ASTR'] = QRichLabel('', doWrap=False)
          self.widgetMap[i]['LBL_NAME'] = QRichLabel('', doWrap=False)
 

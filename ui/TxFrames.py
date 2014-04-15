@@ -224,15 +224,14 @@ class SendBitcoinsFrame(ArmoryFrame):
 
 
       if prefill:
-         get = lambda s: prefill[s] if prefill.has_key(s) else ''
-         amount = get('amount')
-         message = get('message')
-         label = get('label')
-         if get('lockbox'):
-            plainStr = createLockboxEntryStr(get('lockbox'))
+         amount = prefill.get('amount','')
+         message = prefill.get('message','')
+         label = prefill.get('label','')
+         if prefill.get('lockbox',''):
+            plainStr = createLockboxEntryStr(prefill.get('lockbox',''))
             self.addOneRecipient(None, amount, message, None, plainStr)
          else:
-            atype, addr160 = addrStr_to_hash160(get('address'))
+            atype, addr160 = addrStr_to_hash160(prefill.get('address',''))
             self.addOneRecipient(addr160, amount, message, label)
 
       elif not self.main == None and \
