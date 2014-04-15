@@ -7658,7 +7658,6 @@ class DlgAddressBook(ArmoryDialog):
       self.addrBookTxModel = None
       self.addrBookTxView = QTableView()
       self.addrBookTxView.setSortingEnabled(True)
-      self.setAddrBookTxModel(defaultWltID)
       self.connect(self.addrBookTxView, SIGNAL('doubleClicked(QModelIndex)'), \
                    self.dblClickAddressTx)
       self.addrBookTxView.setContextMenuPolicy(Qt.CustomContextMenu)
@@ -7668,7 +7667,6 @@ class DlgAddressBook(ArmoryDialog):
       self.addrBookRxModel = None
       self.addrBookRxView = QTableView()
       self.addrBookRxView.setSortingEnabled(True)
-      self.setAddrBookRxModel(defaultWltID)
       self.connect(self.addrBookRxView, SIGNAL('doubleClicked(QModelIndex)'), \
                    self.dblClickAddressRx)
 
@@ -7766,7 +7764,6 @@ class DlgAddressBook(ArmoryDialog):
          rowNum = self.main.walletIndices[defaultWltID]
       rowIndex = self.wltDispModel.index(rowNum, 0)
       self.wltDispView.setCurrentIndex(rowIndex)
-      self.wltTableClicked(rowIndex)
 
       self.setWindowTitle('Address Book')
       self.setWindowIcon(QIcon(self.main.iconfile))
@@ -7846,12 +7843,14 @@ class DlgAddressBook(ArmoryDialog):
             selection = self.addrBookTxView.selectedIndexes()
             if len(selection)==0:
                self.btnSelectAddr.setText('None Selected')
+               self.btnSelectAddr.setEnabled(False)
             else:
                self.addrTableTxClicked(selection[0])
          elif self.tabWidget.currentWidget() == self.addrBookRxView:
             selection = self.addrBookRxView.selectedIndexes()
             if len(selection)==0:
                self.btnSelectAddr.setText('None Selected')
+               self.btnSelectAddr.setEnabled(False)
             else:
                self.addrTableRxClicked(selection[0])    
          

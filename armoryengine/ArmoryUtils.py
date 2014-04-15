@@ -1380,7 +1380,6 @@ def scrAddr_to_addrStr(scrAddr):
 
    prefix = scrAddr[0]
    if not prefix in SCRADDR_BYTE_LIST or not len(scrAddr)==21:
-      LOGERROR('Bad scrAddr: "%s"' % binary_to_hex(scrAddr))
       raise BadAddressError('Invalid ScrAddress')
 
    if prefix==SCRADDR_P2PKH_BYTE:

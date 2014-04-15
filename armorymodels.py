@@ -827,18 +827,19 @@ class SentToAddrBookModel(QAbstractTableModel):
          scrAddr = abe.getScrAddr()
          try:
             addr160 = addrStr_to_hash160(scrAddr_to_addrStr(scrAddr))[1]
+            
+            # Only grab addresses that are not in any of your Armory wallets
+            if not self.main.getWalletForAddr160(addr160):
+               abeList = abe.getTxList()
+               ntx = len(abeList)
+               txhashlist = []
+               for i in range(ntx):
+                  txhashlist.append( abeList[i].getTxHash() )
+               self.addrBook.append( [scrAddr, txhashlist] )
          except Exception as e:
-            LOGERROR(str(e))
-            addr160 = ''
+            # This is not necessarily an error. It could be a lock box LOGERROR(str(e))
+            pass
 
-         # Only grab addresses that are not in any of your Armory wallets
-         if not self.main.getWalletForAddr160(addr160):
-            abeList = abe.getTxList()
-            ntx = len(abeList)
-            txhashlist = []
-            for i in range(ntx):
-               txhashlist.append( abeList[i].getTxHash() )
-            self.addrBook.append( [scrAddr, txhashlist] )
 
 
    def rowCount(self, index=QModelIndex()):
