@@ -12446,12 +12446,16 @@ class DlgReplaceWallet(ArmoryDialog):
       self.Meta = getMeta.RecoverWallet(WalletPath=self.wltPath, Mode=4)
       self.Replace()
 
+
 ################################################################################
 class DlgWltRecoverWallet(ArmoryDialog):
    def __init__(self, parent=None, main=None):
       super(DlgWltRecoverWallet, self).__init__(parent, main)
 
       self.edtWalletPath = QLineEdit()
+      self.edtWalletPath.setFont(GETFONT('Fixed', 9))
+      edtW,edtH = tightSizeNChar(self.edtWalletPath, 50)
+      self.edtWalletPath.setMinimumWidth(edtW)
       self.btnWalletPath = QPushButton('Browse File System')
 
       self.connect(self.btnWalletPath, SIGNAL('clicked()'), self.selectFile)
@@ -12459,23 +12463,27 @@ class DlgWltRecoverWallet(ArmoryDialog):
       lblDesc = QRichLabel(tr("""
          <b>Wallet Recovery Tool:
          </b><br>
-         This tool attempts to recover data from damaged wallets.  Specify a
-         wallet file and Armory will attempt to fix any errors in it.
+         This tool will recover data from damaged or inconsistent 
+         wallets.  Specify a wallet file and Armory will analyze the
+         wallet and fix any errors with it. 
          <br><br>
-         If you are not sure which option to choose, use the default "Full
-         Recovery." """))
+         <font color="%s">If any problems are found with the specified
+         wallet, Armory will provide explanation and instructions to 
+         transition to a new wallet. """) % htmlColor('TextWarn'))
       lblDesc.setScaledContents(True)
 
       lblWalletPath = QRichLabel(tr('Wallet Path:'))
 
+      self.selectedWltID = None
 
       def doWltSelect():
          dlg = DlgWalletSelect(self, self.main, tr('Select Wallet...'), '')
          if dlg.exec_():
+            self.selectedWltID = dlg.selectedID
             wlt = self.parent.walletMap[dlg.selectedID]
             self.edtWalletPath.setText(wlt.walletPath)
 
-      self.btnWltSelect = QPushButton(tr("Select From Loaded Wallets"))
+      self.btnWltSelect = QPushButton(tr("Select Loaded Wallet"))
       self.connect(self.btnWltSelect, SIGNAL(CLICKED), doWltSelect)
 
       layoutMgmt = QGridLayout()
@@ -12534,6 +12542,20 @@ class DlgWltRecoverWallet(ArmoryDialog):
       wltModeQF.setLayout(layoutMode)
 
       layoutMgmt.addWidget(wltModeQF, 5, 0, 9, 4)
+      wltModeQF.setVisible(False)
+
+         
+      btnShowAllOpts = QLabelButton(tr("All Recovery Options>>>"))
+      frmBtn = makeHorizFrame(['Stretch', btnShowAllOpts, 'Stretch'], STYLE_SUNKEN)
+      layoutMgmt.addWidget(frmBtn, 5, 0, 9, 4)
+
+      def expandOpts():
+         wltModeQF.setVisible(True)
+         btnShowAllOpts.setVisible(False)
+      self.connect(btnShowAllOpts, SIGNAL('clicked()'), expandOpts)
+
+      if not self.main.usermode==USERMODE.Expert:
+         frmBtn.setVisible(False)
 
       self.btnRecover = QPushButton('Recover')
       self.btnCancel  = QPushButton('Cancel')
@@ -12547,6 +12569,7 @@ class DlgWltRecoverWallet(ArmoryDialog):
       self.connect(self.btnCancel , SIGNAL('clicked()'), self.reject)
 
       self.setLayout(layoutMgmt)
+      self.layout().setSizeConstraint(QLayout.SetFixedSize)
       self.setWindowTitle('Wallet Recovery Tool')
       self.setMinimumWidth(550)
 
@@ -12558,17 +12581,25 @@ class DlgWltRecoverWallet(ArmoryDialog):
       if self.exec_():
          path = str(self.edtWalletPath.text())
          mode = 'Bare'
-         if self.rdbtnStripped.isChecked() is True:
+         if self.rdbtnStripped.isChecked():
             mode = 'Stripped'
-         elif self.rdbtnFull.isChecked() is True:
+         elif self.rdbtnFull.isChecked():
             mode = 'Full'
-         elif self.rdbtnCheck.isChecked() is True:
+         elif self.rdbtnCheck.isChecked():
             mode = 'Check'
 
-         from armoryengine.PyBtcWalletRecovery import PyBtcWalletRecovery
-         recoverytool = PyBtcWalletRecovery()
-         recoverytool.parent = self.main
-         recoverytool.RecoverWallet(WalletPath=path, Mode=mode, GUI=True)
+         if mode=='Full' and self.selectedWltID:
+            # Funnel all standard, full recovery operations through the 
+            # incosistent-wallet-dialog.  
+            wlt = self.main.walletMap[self.selectedWltID]
+            DlgCorruptWallet(wlt, [], self.main, self, False).exec_(None)
+         else:
+            # This is goatpig's original behavior - preserved for any 
+            # non-loaded wallets or non-full recovery operations.
+            from armoryengine.PyBtcWalletRecovery import PyBtcWalletRecovery
+            recoverytool = PyBtcWalletRecovery()
+            recoverytool.parent = self.main
+            recoverytool.RecoverWallet(WalletPath=path, Mode=mode, GUI=True)
       else:
          return False
 
@@ -12593,6 +12624,32 @@ class DlgWltRecoverWallet(ArmoryDialog):
 
 #################################################################################
 class DlgProgress(ArmoryDialog):
+   """
+   Progress bar dialog. The dialog is guaranteed to be created from the main
+   thread.
+
+   The dialog is modal, meaning all other windows are barred from user
+   interaction as long as this dialog is within its message loop.
+   The message loop is entered either through exec_(side_thread), which will
+   which will lock the main threa and the caller thread, and join on the
+   side thread
+
+   The dialog reject() signal is overloaded to render it useless. The dialog
+   cannot be killed through regular means. To kill the Dialog, call Kill()
+   or end the side thread. Either will release the main thread. The caller
+   will still join on the side thread if you only call Kill()
+
+   To make a progress dialog that can be killed by the user (before the process
+   is complete), pass a string to Interrupt. It will add a push button with
+   that text, that will kill the progress dialog on click. The caller will
+   still be joining on the side thread.
+
+   Passing a string to Title will draw a title.
+   Passing an integer to HBar will draw a progress bar with a Max value set to
+   that integer. It can be updated through UpdateHBar(int)
+   Passing a string TProgress will draw a label with that string. It can be
+   updated through UpdateText(str)
+   """
    def __init__(self, parent=None, main=None, Interrupt=None, HBar=None, Title=None, TProgress=None):
 
       self.running = 1
@@ -12748,36 +12805,10 @@ class DlgProgress(ArmoryDialog):
 
       self.hide()
 
-   """
-   Progress bar dialog. The dialog is guaranteed to be created from the main
-   thread.
-
-   The dialog is modal, meaning all other windows are barred from user
-   interaction as long as this dialog is within its message loop.
-   The message loop is entered either through exec_(side_thread), which will
-   which will lock the main threa and the caller thread, and join on the
-   side thread
-
-   The dialog reject() signal is overloaded to render it useless. The dialog
-   cannot be killed through regular means. To kill the Dialog, call Kill()
-   or end the side thread. Either will release the main thread. The caller
-   will still join on the side thread if you only call Kill()
-
-   To make a progress dialog that can be killed by the user (before the process
-   is complete), pass a string to Interrupt. It will add a push button with
-   that text, that will kill the progress dialog on click. The caller will
-   still be joining on the side thread.
-
-   Passing a string to Title will draw a title.
-   Passing an integer to HBar will draw a progress bar with a Max value set to
-   that integer. It can be updated through UpdateHBar(int)
-   Passing a string TProgress will draw a label with that string. It can be
-   updated through UpdateText(str)
-   """
 
 #################################################################################
 class DlgCorruptWallet(DlgProgress):
-   def __init__(self, wallet, status, main=None, parent=None):
+   def __init__(self, wallet, status, main=None, parent=None, alreadyFailed=True):
       super(DlgProgress, self).__init__(parent, main)
       super(DlgCorruptWallet, self).__init__(parent)
 
@@ -12788,7 +12819,7 @@ class DlgCorruptWallet(DlgProgress):
 
       self.running = 1
       self.status = 1
-      self.Fixing = 0
+      self.isFixing = False
 
       self.layout = QVBoxLayout()
 
@@ -12799,36 +12830,62 @@ class DlgCorruptWallet(DlgProgress):
       self.connect(self, SIGNAL('LFW'), self.LFW)
       self.connect(self, SIGNAL('SRD'), self.SRD)
 
+      if alreadyFailed:
+         titleStr = tr('Wallet Consistency Check Failed!')
+      else:
+         titleStr = tr('Perform Wallet Consistency Check')
+
       lblDescr = QRichLabel(tr("""
-         <font color="%s" size=4><b><u>Wallet Consistency Check 
-         Failed</u></b></font>
+         <font color="%s" size=4><b><u>%s</u></b></font>
          <br><br>
          Armory software now detects and prevents certain kinds of 
          hardware errors that could lead to problems with your wallet.  
-         One or more of your wallets has inconsistent 
-         It is strongly recommended that you run the following analysis
-         tool and submit the results to the Armory team.""") % \
-         htmlColor('TextWarn'))
+         <br> """) % (htmlColor('TextWarn'), titleStr))
+
       lblDescr.setAlignment(Qt.AlignCenter)
+
+
+      if alreadyFailed:
+         self.lblFirstMsg = QRichLabel(tr("""
+            Armory has detected that wallet file <b>Wallet "%s" (%s)</b> 
+            is inconsistent and should be further analyzed to ensure that your
+            funds are protected.
+            <br><br>
+            <font color="%s">This error will pop up every time you start 
+            Armory until the wallet has been analyzed and fixed!</font>""") % \
+            (wallet.labelName, wallet.uniqueIDB58, htmlColor('TextWarn')))
+      else:
+         self.lblFirstMsg = QRichLabel(tr("""
+            Armory will perform a consistency check on <b>Wallet "%s" (%s)</b> 
+            and determine if any further action is required to keep your funds
+            protected.  This check is normally performed on startup on all 
+            your wallets, but you can click below to force another 
+            check.""") % (wallet.labelName, wallet.uniqueIDB58))
 
       self.QDS = QDialog()
       self.lblStatus = QLabel('')
-      #self.lblStatus.setStyleSheet('background-color: white')
       self.addStatus(wallet, status)
       self.QDSlo = QVBoxLayout()
       self.QDS.setLayout(self.QDSlo)
+
+      self.QDSlo.addWidget(self.lblFirstMsg)
       self.QDSlo.addWidget(self.lblStatus)
+
+      self.lblStatus.setVisible(False)
+      self.lblFirstMsg.setVisible(True)
 
       saStatus = QScrollArea()
       saStatus.setWidgetResizable(True)
       saStatus.setWidget(self.QDS)
-      saStatus.setMaximumHeight(250)
+      saStatus.setMinimumHeight(250)
+      saStatus.setMinimumWidth(500)
+      
 
       layoutButtons = QGridLayout()
       layoutButtons.setColumnStretch(0, 1)
       layoutButtons.setColumnStretch(4, 1)
       self.btnClose = QPushButton('Hide')
-      self.btnFixWallets = QPushButton('Analyze Wallet')
+      self.btnFixWallets = QPushButton('Run Wallet Analysis Tool')
       self.btnFixWallets.setDisabled(True)
       self.connect(self.btnFixWallets, SIGNAL('clicked()'), self.FixWallets)
       self.connect(self.btnClose, SIGNAL('clicked()'), self.hide)
@@ -12843,15 +12900,16 @@ class DlgCorruptWallet(DlgProgress):
       self.sep_line2.setFrameShape(QFrame.HLine);
       self.sep_line2.setFrameShadow(QFrame.Sunken);
 
-      self.lblDescr2 = QRichLabel(tr("""
-         <font color="%s">You are strongly encouraged to send the Armory
-         team a copy of your watching-only wallet so that it can be 
-         checked for problems</font>""") % htmlColor('TextWarn'))
+      #self.lblDescr2 = QRichLabel(tr("""
+         #<font color="%s">You are strongly encouraged to send the Armory
+         #team a copy of your watching-only wallet so that it can be 
+         #checked for problems</font>""") % htmlColor('TextWarn'))
+      self.lblDescr2 = QRichLabel('')
       self.lblDescr2.setAlignment(Qt.AlignCenter)
 
       self.lblFixRdy = QRichLabel(tr("""
          <u>Your wallets will be ready to fix once the scan is over</u><br>
-         'You can hide this window until then<br>"""))
+         You can hide this window until then<br>"""))
 
       self.lblFixRdy.setAlignment(Qt.AlignCenter)
 
@@ -12880,6 +12938,7 @@ class DlgCorruptWallet(DlgProgress):
       self.activateWindow()
 
    def run_lock(self):
+      self.btnClose.setVisible(False)
       self.hide()
       super(DlgProgress, self).exec_()
       self.walletList = None
@@ -12888,10 +12947,13 @@ class DlgCorruptWallet(DlgProgress):
       self.emit(SIGNAL('UCF'), conditions, canFix)
 
    def UCF(self, conditions, canFix=False):
-      self.lblFixRdy.setText('<br>'.join(conditions))
+      self.lblFixRdy.setText('')
+      self.sep_line.setVisible(False)
+      self.sep_line2.setVisible(False)
       if canFix:
          self.btnFixWallets.setEnabled(True)
          self.btnClose.setText('Close')
+         self.btnClose.setVisible(False)
          self.connect(self.btnClose, SIGNAL('clicked()'), self.reject)
 
    def FixWallets(self):
@@ -12901,11 +12963,13 @@ class DlgCorruptWallet(DlgProgress):
       self.adjustSize()
 
       self.lblDescr2.setText('')
+      self.lblStatus.setVisible(True)
+      self.lblFirstMsg.setVisible(False)
 
       from armoryengine.PyBtcWalletRecovery import FixWallets
       self.btnClose.setDisabled(True)
       self.btnFixWallets.setDisabled(True)
-      self.Fixing = 1
+      self.isFixing = True
 
       self.lblStatus.hide()
       self.QDSlo.removeWidget(self.lblStatus)
@@ -12915,6 +12979,7 @@ class DlgCorruptWallet(DlgProgress):
 
       FixWallets(self.walletList, self, async=True)
 
+
    def UpdateDlg(self, text=None, HBar=None, Title=None):
       if text is not None: self.lblDesc.setText(text)
 
@@ -12923,7 +12988,7 @@ class DlgCorruptWallet(DlgProgress):
       super(DlgCorruptWallet, self).accept()      
 
    def reject(self):
-      if not self.Fixing:
+      if not self.isFixing:
          super(DlgProgress, self).reject()
          self.main.emit(SIGNAL('checkForkedImports'))
 
@@ -12941,10 +13006,12 @@ class DlgCorruptWallet(DlgProgress):
 
    def SRD(self, st):
       self.btnClose.setEnabled(True)
-      self.btnClose.setText('Done')
+      self.btnClose.setVisible(True)
+      self.btnClose.setText('Continue')
+      self.btnFixWallets.setVisible(False)
       self.btnClose.disconnect(self, SIGNAL('clicked()'), self.hide)
       self.btnClose.connect(self, SIGNAL('clicked()'), self.accept)
-      self.Fixing = 0
+      self.isFixing = False
       if len(st) == 0:
          self.lblDescr2.setText('<h2 style="color: green;">Wallets Fixed! You can close this window</h2>')
          self.main.statusBar().showMessage('Wallets fixed!', 15000)

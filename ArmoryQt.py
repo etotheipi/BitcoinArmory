@@ -621,8 +621,7 @@ class ArmoryMainWindow(QMainWindow):
       actCreateNew    = self.createAction('&Create New Wallet',        self.startWalletWizard)
       actImportWlt    = self.createAction('&Import or Restore Wallet', self.execImportWallet)
       actAddressBook  = self.createAction('View &Address Book',        self.execAddressBook)
-
-      actRecoverWlt   = self.createAction('Recover Damaged Wallet',    self.RecoverWallet)
+      actRecoverWlt   = self.createAction('Fix Damaged Wallet',        self.RecoverWallet)
       #actRescanOnly   = self.createAction('Rescan Blockchain', self.forceRescanDB)
       #actRebuildAll   = self.createAction('Rescan with Database Rebuild', self.forceRebuildAndRescan)
 
@@ -6174,6 +6173,8 @@ class ArmoryMainWindow(QMainWindow):
       if isinstance(toSpawn, DlgProgress):
          super(DlgProgress, toSpawn).exec_()
 
+
+   #############################################################################
    def initTrigger(self, toInit):
       if isinstance(toInit, DlgProgress):
          toInit.setup(self)
@@ -6262,7 +6263,7 @@ class ArmoryMainWindow(QMainWindow):
       while 1:
          if TheBDM.getBDMState() == 'Scanning':
             canFix = tr("""
-               Fixing inconsistent wallets will become available
+               The wallet analysis tool will become available
                as soon as Armory is done loading.   You can close this 
                window and it will reappear when ready.""")
             self.dlgCptWlt.UpdateCanFix([canFix])
@@ -6283,7 +6284,7 @@ class ArmoryMainWindow(QMainWindow):
                listchanged = 1
 
          for dlg in runningDialogsList:
-            if dlg.__class__.__name__ != 'DlgCorruptWallet':
+            if not isinstance(dlg, DlgCorruptWallet):
                if dlg not in runningList:
                   runningList.append(dlg)
                   listchanged = 1
@@ -6291,8 +6292,8 @@ class ArmoryMainWindow(QMainWindow):
          if len(runningList):
             if listchanged:
                canFix.append(tr("""
-                  <u style="color: orange">The following windows need closed 
-                  before you can Fix your wallets:</u>"""))
+                  <b>The following windows need closed before you can 
+                  run the wallet analysis tool:</b>"""))
                canFix.extend([str(myobj.windowTitle()) for myobj in runningList])
                self.dlgCptWlt.UpdateCanFix(canFix)
             time.sleep(0.2)
@@ -6300,7 +6301,7 @@ class ArmoryMainWindow(QMainWindow):
             break
 
 
-      canFix.append('Ready to fix inconsistent wallets!')
+      canFix.append('Ready to analyze inconsistent wallets!')
       self.dlgCptWlt.UpdateCanFix(canFix, True)
       self.dlgCptWlt.emit(SIGNAL('Exec'))
 

@@ -256,7 +256,7 @@ class PyBtcWalletRecovery(object):
 
       ####TODO: comments error log
       self.strOutput.append('%d errors were found\r\n' % (nErrors))
-      self.UIreport = self.UIreport + '<b%s>- %d errors were found</b><br>' % ( ' style="color: red;"' if nErrors else '', nErrors)
+      #self.UIreport += '<b%s>- %d errors were found</b><br>' % ( ' style="color: red;"' if nErrors else '', nErrors)
       return self.FinalizeLog(0, ProgDlg, returnError)
       
 
