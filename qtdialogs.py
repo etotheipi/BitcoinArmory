@@ -12590,9 +12590,10 @@ class DlgWltRecoverWallet(ArmoryDialog):
 
          if mode=='Full' and self.selectedWltID:
             # Funnel all standard, full recovery operations through the 
-            # incosistent-wallet-dialog.  
+            # inconsistent-wallet-dialog.  
             wlt = self.main.walletMap[self.selectedWltID]
-            DlgCorruptWallet(wlt, [], self.main, self, False).exec_(None)
+            dlgRecoveryUI = DlgCorruptWallet(wlt, [], self.main, self, False)
+            dlgRecoveryUI.exec_(dlgRecoveryUI.FixWallets())
          else:
             # This is goatpig's original behavior - preserved for any 
             # non-loaded wallets or non-full recovery operations.
@@ -12622,7 +12623,7 @@ class DlgWltRecoverWallet(ArmoryDialog):
       self.edtWalletPath.setText(pathSelect)
 
 
-#################################################################################
+###############################################################################
 class DlgProgress(ArmoryDialog):
    """
    Progress bar dialog. The dialog is guaranteed to be created from the main
@@ -12650,7 +12651,8 @@ class DlgProgress(ArmoryDialog):
    Passing a string TProgress will draw a label with that string. It can be
    updated through UpdateText(str)
    """
-   def __init__(self, parent=None, main=None, Interrupt=None, HBar=None, Title=None, TProgress=None):
+   def __init__(self, parent=None, main=None, Interrupt=None, HBar=None, 
+                Title=None, TProgress=None):
 
       self.running = 1
       self.Done = 0
@@ -12708,7 +12710,8 @@ class DlgProgress(ArmoryDialog):
       self.emit(SIGNAL('PromptPassphrase'))
 
    def PromptPassphrase(self):
-      dlg = DlgUnlockWallet(self.wll, self, self.parent, "Enter Passphrase", returnPassphrase=True)
+      dlg = DlgUnlockWallet(self.wll, self, self.main, "Enter Passphrase",
+                            returnPassphrase=True)
 
       self.Passphrase = None
       self.GotPassphrase = 0
@@ -12730,17 +12733,20 @@ class DlgProgress(ArmoryDialog):
       self.running = 0
       self.done(0)
 
-   def exec_(self, side_thread):
-      if self.main is not None:
-         self.status = 1
-         self.main.emit(SIGNAL('spawnTrigger'), self)
-
-         side_thread.join();
-         self.Kill()
-
-         if side_thread.didThrowError():
-            side_thread.raiseLastError()
-
+   def exec_(self, side_thread=None):
+      if side_thread:
+         if self.main is not None:
+            self.status = 1
+            self.main.emit(SIGNAL('spawnTrigger'), self)
+   
+            side_thread.join();
+            self.Kill()
+   
+            if side_thread.didThrowError():
+               side_thread.raiseLastError()
+      else:
+         super(DlgProgress, self).exec_()
+                  
    def reject(self):
       return
 
@@ -12810,7 +12816,6 @@ class DlgProgress(ArmoryDialog):
 class DlgCorruptWallet(DlgProgress):
    def __init__(self, wallet, status, main=None, parent=None, alreadyFailed=True):
       super(DlgProgress, self).__init__(parent, main)
-      super(DlgCorruptWallet, self).__init__(parent)
 
       self.connectDlg()
 
@@ -12975,9 +12980,9 @@ class DlgCorruptWallet(DlgProgress):
       self.QDSlo.removeWidget(self.lblStatus)
 
       for wlt in self.walletList:
-         self.parent.removeWalletFromApplication(wlt.uniqueIDB58)
+         self.main.removeWalletFromApplication(wlt.uniqueIDB58)
 
-      FixWallets(self.walletList, self, async=True)
+      FixWallets(self.walletList, self, Progress=self.UpdateText, async=True)
 
 
    def UpdateDlg(self, text=None, HBar=None, Title=None):
