@@ -11,6 +11,7 @@ import shutil
 import socket
 import sys
 import time
+from zipfile import ZipFile, ZIP_DEFLATED
 
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *
@@ -395,43 +396,36 @@ class DlgGenericGetPassword(ArmoryDialog):
 ################################################################################
 class DlgBugReport(ArmoryDialog):
 
-   def __init__(self, parent=None, main=None, corruptWlt=False):
+   def __init__(self, parent=None, main=None):
       super(DlgBugReport, self).__init__(parent, main)
 
       tsPage = 'https://bitcoinarmory.com/troubleshooting'
       faqPage = 'https://bitcoinarmory.com/faqs'
 
-      if not corruptWlt:
-         lblDescr = QRichLabel(tr("""
-            <b><u>Send a bug report to the Armory team</u></b>
-            <br><br>
-            If you are having difficulties with Armory, you should first visit
-            our <a href="%s">troubleshooting page</a> and our
-            <a href="%s">FAQ page</a> which describe solutions to
-            many common problems.
-            <br><br>
-            If you do not find the answer to your problem on those pages,
-            please describe it in detail below, and any steps taken to
-            reproduce the problem.  The more information you provide, the
-            more likely we will be able to help you.
-            <br><br>
-            <b><font color="%s">Note:</font></b>  Please keep in mind we 
-            are a small open-source company, and do not have a formal customer
-            support department.  We will do our best to help you, but cannot
-            respond to everyone!""") % (tsPage, faqPage, htmlColor('TextBlue')))
-      else:
-         lblDescr = QRichLabel(tr("""
-            <b><u>Send a bug report to the Armory team</u></b>
-            <br><br>
-            If you are having difficulties with Armory, you should first visit
-            """))
+      lblDescr = QRichLabel(tr("""
+         <b><u>Send a bug report to the Armory team</u></b>
+         <br><br>
+         If you are having difficulties with Armory, you should first visit
+         our <a href="%s">troubleshooting page</a> and our
+         <a href="%s">FAQ page</a> which describe solutions to
+         many common problems.
+         <br><br>
+         If you do not find the answer to your problem on those pages,
+         please describe it in detail below, and any steps taken to
+         reproduce the problem.  The more information you provide, the
+         more likely we will be able to help you.
+         <br><br>
+         <b><font color="%s">Note:</font></b>  Please keep in mind we 
+         are a small open-source company, and do not have a formal customer
+         support department.  We will do our best to help you, but cannot
+         respond to everyone!""") % (tsPage, faqPage, htmlColor('TextBlue')))
 
       self.chkNoLog = QCheckBox('Do not send log file with report')
       self.chkNoLog.setChecked(False)
 
       self.btnMoreInfo = QLabelButton('Privacy Info')
       self.connect(self.btnMoreInfo, SIGNAL(CLICKED), \
-                                 self.main.logFilePrivacyWarning)
+	                              self.main.logFilePrivacyWarning)
 
       self.noLogWarn = QRichLabel(tr("""
          <font color="%s">You are unlikely to get a response unless you 
@@ -650,6 +644,308 @@ class DlgBugReport(ArmoryDialog):
             <br><br>
             <a href="%s">%s</a>""") % (bugpage, bugpage), QMessageBox.Ok)
          self.reject()
+
+
+################################################################################
+# Hack!  We need to replicate the DlgBugReport... but to be as safe as 
+# possible for 0.91.1, we simply duplicate the dialog and modify directly.
+# TODO:  There's definitely a way to make DlgBugReport more generic so that
+#        both these contexts can be handled by it.
+class DlgInconsistentWltReport(ArmoryDialog):
+
+   def __init__(self, parent, main, wlt, logPathList):
+      super(DlgInconsistentWltReport, self).__init__(parent, main)
+
+      tsPage = 'https://bitcoinarmory.com/troubleshooting'
+      faqPage = 'https://bitcoinarmory.com/faqs'
+
+      # logPathList is [wltID, corruptFolder] pairs
+      self.logPathList = logPathList[:]
+      walletList = [self.main.walletMap[wid] for wid,folder in logPathList]
+
+      getWltStr = lambda w: '<b>Wallet "%s" (%s)</b>' % \
+                                       (w.labelName, w.uniqueIDB58) 
+    
+      if len(logPathList == 1):
+         wltDispStr = getWltStr(walletList[0]) + ' is'
+      else:
+         strList = [getWltStr(w) for w in walletList]
+         wltDispStr = ', '.join(strList[:-1]) + ' and ' + strList[-1] + ' are '
+      
+      lblDescr = QRichLabel(tr("""
+         <b><u>Submit Wallet Analysis Logs for Review</u></b>
+         <br><br>
+         Armory has detected that %s inconsistent,
+         possibly due to hardware errors out of our control.  You
+         are <b><u>strongly encouraged</u></b> to submit the wallet analysis
+         log files to use so that we can verify your coins are still secure.   
+         The Armory team will review the submitted
+         information to determine if any further action is required.
+         <br><br>
+         <font color="%s"><b>Note:</b> It is very important that you do not 
+         delete any data in your Armory home directory.  In fact, out of an
+         abundance of caution, it is recommended you make a backup of the
+         relevant data from your Armory home directory to external media,
+         such as USB drive.</font>
+         <br><br>
+         """) % (wltDispStr, htmlColor('TextWarn'), htmlColor('TextWarn')))
+
+      self.chkIncludeWOW = QCheckBox(tr("""
+         Include watching-only @{wallet|wallets}@""", len(walletList)))
+      self.chkIncludeWOW.setChecked(False)
+
+      self.btnMoreInfo = QLabelButton('Privacy Warning')
+      self.connect(self.btnMoreInfo, SIGNAL(CLICKED), \
+                                 self.main.woWalletSubmitPrivacyWarning)
+
+
+
+      self.lblEmail = QRichLabel(tr('Email Address:'))
+      self.edtEmail = QLineEdit()
+      self.edtEmail.setMaxLength(100)
+
+      self.lblSubject = QRichLabel(tr('Subject:'))
+      self.edtSubject = QLineEdit()
+      self.edtSubject.setMaxLength(64)
+      self.edtSubject.setText("Wallet Consistency Logs")
+
+      self.txtDescr = QTextEdit()
+      self.txtDescr.setFont(GETFONT('Fixed', 9))
+      w,h = tightSizeNChar(self, 80)
+      self.txtDescr.setMinimumWidth(w)
+      self.txtDescr.setMinimumHeight(3*h)
+
+      self.btnSubmit = QPushButton(tr('Submit Data to ATI'))
+      self.btnCancel = QPushButton(tr('Cancel'))
+      self.btnbox = QDialogButtonBox()
+      self.btnbox.addButton(self.btnSubmit, QDialogButtonBox.AcceptRole)
+      self.btnbox.addButton(self.btnCancel, QDialogButtonBox.RejectRole)
+      self.connect(self.btnSubmit, SIGNAL(CLICKED), self.submitReport)
+      self.connect(self.btnCancel, SIGNAL(CLICKED), self, SLOT('reject()'))
+
+      armoryver = getVersionString(BTCARMORY_VERSION)
+      lblDetect = QRichLabel( tr("""
+         <b>Detected:</b> %s (%s) / %0.2f GB RAM / Armory version %s<br>
+         <font size=2>(this data will be included with the data 
+         submission""") % \
+         (OS_NAME, OS_VARIANT[0], SystemSpecs.Memory, armoryver))
+
+
+      layout = QGridLayout()
+      i = -1
+
+      i += 1
+      layout.addWidget(lblDescr,         i,0, 1,2)
+
+      i += 1
+      layout.addWidget(HLINE(),          i,0, 1,2)
+
+      i += 1
+      layout.addWidget(lblDetect,        i,0, 1,2)
+
+      i += 1
+      layout.addWidget(HLINE(),          i,0, 1,2)
+
+      i += 1
+      layout.addWidget(self.lblEmail,    i,0, 1,1)
+      layout.addWidget(self.edtEmail,    i,1, 1,1)
+
+      i += 1
+      layout.addWidget(self.lblSubject,  i,0, 1,1)
+      layout.addWidget(self.edtSubject,  i,1, 1,1)
+
+      i += 1
+      layout.addWidget(QLabel(tr("Additional Info:")),    i,0, 1,2)
+
+      i += 1
+      layout.addWidget(self.txtDescr,    i,0, 1,2)
+
+      i += 1
+      frmchkbtn = makeHorizFrame([self.chkIncludeWOW, self.btnMoreInfo, 'Stretch'])
+      layout.addWidget(frmchkbtn,        i,0, 1,2)
+
+      i += 1
+      layout.addWidget(self.btnbox,      i,0, 1,2)
+
+      self.setLayout(layout)
+      self.setWindowTitle(tr('Submit a Bug Report'))
+      self.setWindowIcon(QIcon(self.main.iconfile))
+
+
+   #############################################################################
+   def submitReport(self):
+
+      self.userAgreedToPrivacyPolicy = False
+      if self.chkIncludeWOW.isChecked():
+         if self.main.woWalletSubmitPrivacyWarning():
+            self.userAgreedToPrivacyPolicy = True
+         else:
+            return
+      else:
+         if self.main.submitRecoveryLogWarning():
+            self.userAgreedToPrivacyPolicy = True
+         else:
+            return
+
+      emailAddr = unicode(self.edtEmail.text()).strip()
+      emailLen = lenBytes(emailAddr)
+
+      subjectText = unicode(self.edtSubject.text()).strip()
+      subjectLen = lenBytes(subjectText)
+
+      description = unicode(self.txtDescr.toPlainText()).strip()
+      descrLen = lenBytes(description)
+
+
+      if emailLen == 0 or not '@' in emailAddr:
+         QMessageBox.warning(self, tr('Missing Email'), tr("""
+            You must supply a valid email address so we can follow up on your
+            submission."""),  QMessageBox.Ok)
+         return
+
+
+
+      maxDescr = 16384
+      if descrLen > maxDescr:
+         reply = MsgBoxCustom(MSGBOX.Warning, tr('Long Description'), tr("""
+            You have exceeded the maximum size of the description that can
+            be submitted to our ticket system, which is %d bytes.
+            If you click "Continue", the last %d bytes of your description
+            will be removed before sending.""") % (maxDescr, descrLen-maxDescr), \
+            noStr=tr('Go Back'), yesStr=tr('Continue'))
+
+         if not reply:
+            return
+         else:
+            description = unicode_truncate(description, maxDescr)
+
+
+      # This is a unique-but-not-traceable ID, to simply match users to log files
+      uniqID  = binary_to_base58(hash256(USER_HOME_DIR)[:4])
+      dateStr = unixTimeToFormatStr(RightNow(), '%Y%m%d_%H%M')
+      osvariant = OS_VARIANT[0] if OS_MACOSX else '-'.join(OS_VARIANT)
+
+      reportMap = {}
+      reportMap['uniqID']       = uniqID
+      reportMap['OSmajor']      = OS_NAME
+      reportMap['OSvariant']    = osvariant
+      reportMap['ArmoryVer']    = getVersionString(BTCARMORY_VERSION)
+      reportMap['TotalRAM']     = '%0.2f' % SystemSpecs.Memory
+      reportMap['isAmd64']      = str(SystemSpecs.IsX64).lower()
+      reportMap['userEmail']    = emailAddr
+      reportMap['userSubject']  = subjectText
+      reportMap['userDescr']    = description
+      reportMap['userTime']     = unixTimeToFormatStr(RightNow())
+      reportMap['userTimeUTC']  = unixTimeToFormatStr(RightNowUTC())
+      reportMap['privacyEULA']  = str(self.userAgreedToPrivacyPolicy)
+
+
+      # Create a zip file of all logs (for all dirs), and put raw into map
+      zpath = self.createZipfile()
+      with open(zpath, 'rb') as f:
+         reportMap['fileLog'] = f.read()
+
+      LOGDEBUG('Sending the following dictionary of values to server')
+      for key,val in reportMap.iteritems():
+         if key=='fileLog':
+            LOGDEBUG(key.ljust(12) + ': ' + binary_to_hex(sha256(val)))
+         else:
+            LOGDEBUG(key.ljust(12) + ': ' + val)
+
+      expectedResponseMap = {}
+      expectedResponseMap['logHash'] = binary_to_hex(sha256(reportMap['fileLog']))
+
+      try:
+         import urllib3
+         http = urllib3.PoolManager()
+         headers = urllib3.make_headers('ArmoryBugReportWindowNotABrowser')
+         response = http.request('POST', BUG_REPORT_URL, reportMap, headers)
+         responseMap = ast.literal_eval(response._body)
+
+
+         LOGINFO('-'*50)
+         LOGINFO('Response JSON:')
+         for key,val in responseMap.iteritems():
+            LOGINFO(key.ljust(12) + ': ' + str(val))
+
+         LOGINFO('-'*50)
+         LOGINFO('Expected JSON:')
+         for key,val in expectedResponseMap.iteritems():
+            LOGINFO(key.ljust(12) + ': ' + str(val))
+
+
+         LOGDEBUG('Connection info:')
+         LOGDEBUG('   status:  ' + str(response.status))
+         LOGDEBUG('   version: ' + str(response.version))
+         LOGDEBUG('   reason:  ' + str(response.reason))
+         LOGDEBUG('   strict:  ' + str(response.strict))
+
+
+         if responseMap==expectedResponseMap:
+            LOGINFO('Server verified receipt of log file')
+            QMessageBox.information(self, tr('Submitted!'), tr("""
+               Your report was successfully received by the Armory team and will
+               be reviewed as soon as is possible.  Please be aware that the team
+               receives lots of reports like these, so it may take a few days for
+               the team to get back to you."""), QMessageBox.Ok)
+            self.accept()
+         else:
+            raise ConnectionError('Failed to send bug report')
+
+      except:
+         LOGEXCEPT('Failed:')
+         bugpage = 'https://bitcoinarmory.com/support/'
+         QMessageBox.information(self, tr('Submitted!'), tr("""
+            There was a problem submitting your data through Armory.
+            Please create a new support ticket using our webpage, and attach
+            the following file to it:
+            <br><br>
+            %s
+            <br><br>
+            Click below to go to the support page to open a new ticket. 
+            <br><br>
+            <a href="%s">%s</a>""") % (bugpage, bugpage), QMessageBox.Ok)
+         self.reject()
+
+
+   #############################################################################
+   def createZipfile(self):
+      # Should we include wallet files from logs directory?
+      includeWlt = self.chkIncludeWOW.isChecked()
+
+      # Open zipfile
+      uniqueFiles = set()
+      zfilePath = os.path.join(ARMORY_HOME_DIR, 'wallet_analyze_logs.zip')
+
+      LOGINFO('Creating archive: %s', zfilePath)
+      zfile = ZipFile(zfilePath, 'w', ZIP_DEFLATED)
+
+      # Iterate over all log directories (usually one)
+      for wltID,logDir in self.logPathList:
+         for fn in os.listdir(logDir):
+            fullpath = os.path.join(logDir, fn)
+
+            # If multiple dirs, will see duplicate armorylogs and multipliers
+            if fn in uniqueFiles or not os.path.isfile(fullpath):
+               continue 
+
+            uniqueFiles.add(fn)
+
+            # Exclude any wallet files if the checkbox was not checked
+            if not includeWlt and os.path.getsize(fullpath) >= 8:
+               # Don't exclude based on file extension, check leading bytes
+               with open(fullpath, 'rb') as tempopen:
+                  if tempopen.read(8) == '\xbaWALLET\x00':
+                     continue
+
+            # If we got here, add file to archive
+            LOGINFO('   Adding %s to archive')
+            zfile.write(fullpath)
+      
+      zfile.close()
+
+      return zfilePath
+
 
 
 ################################################################################
@@ -12816,6 +13112,7 @@ class DlgCorruptWallet(DlgProgress):
 
       self.main = main
       self.walletList = []
+      self.logDirs = []
 
       self.running = 1
       self.status = 1
@@ -12977,7 +13274,7 @@ class DlgCorruptWallet(DlgProgress):
       for wlt in self.walletList:
          self.parent.removeWalletFromApplication(wlt.uniqueIDB58)
 
-      FixWallets(self.walletList, self, async=True)
+      self.logDirs, wltErrs = FixWallets(self.walletList, self, async=True)
 
 
    def UpdateDlg(self, text=None, HBar=None, Title=None):
@@ -13034,6 +13331,11 @@ class DlgCorruptWallet(DlgProgress):
             self.main.newWalletList.append([newWallet, True])
             
       self.main.emit(SIGNAL('checkForkedImport'))
+
+
+   def submitLogsToATI(self):
+      dlgIWR = DlgInconsistentWltReport(self, self.main, self.logDirs)
+      if dlgIWR.exec_():
 
 
 #################################################################################

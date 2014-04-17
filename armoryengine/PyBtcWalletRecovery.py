@@ -1479,6 +1479,7 @@ def FixWallets(wallets, dlg=None):
    #fix the wallets
    fixedWlt = []
    wlterror = []
+   logsSaved = []
 
    for wlt in wallets:
       if dlg: 
@@ -1503,11 +1504,9 @@ def FixWallets(wallets, dlg=None):
          corruptFolder = os.path.join(homedir, wltID, datestr)
          if not os.path.exists(corruptFolder):
             os.makedirs(corruptFolder)
-         
+
+         logsSaved.append([wltID, corruptFolder])
          logsToCopy = ['armorylog.txt', 'armorycpplog.txt', 'multipliers.txt']
-         #pylog       = os.path.join(homedir, 'armorylog.txt')
-         #cpplog      = os.path.join(homedir, 'armorycpplog.txt')
-         #multipliers = os.path.join(homedir, 'multipliers.txt')
          wltCopyName = 'armory_%s_ORIGINAL_%s.wallet' % (wltID, '.watchonly')
          wltLogName  = 'armory_%s_LOGFILE_%s.log' % \
                                 (wltID, '.watchonly' if fixer.WO==1 else '')
@@ -1573,10 +1572,10 @@ def FixWallets(wallets, dlg=None):
       dlg.loadFixedWallets(fixedWlt)
       
    else:
-      return wlterror
+      return [logsSaved, wlterror]
    
-#############################################################################
 
+#############################################################################
 """
 TODO: setup an array of tests:
 1) Gaps in chained address entries
