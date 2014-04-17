@@ -1023,7 +1023,7 @@ class UnsignedTxInput(object):
             raise UstxError('No P2SH script supplied for P2SH input')
 
          # Sanity check tha the supplied P2SH script actually matches
-         self.p2shScrAddr = script_to_scrAddr(self.p2shScript)
+         self.p2shScrAddr = script_to_scrAddr(baseScript)
          scriptHash = hash160(self.p2shScript)
          if not SCRADDR_P2SH_BYTE+scriptHash == self.p2shScrAddr:
             self.isInitialized = False
@@ -1688,7 +1688,7 @@ class UnsignedTransaction(object):
       least it all goes through the same construction method.
       """
 
-      pubMap  = {} if not pubKeyMap else pubKeyMap
+      pubKeyMap  = {} if not pubKeyMap else pubKeyMap
       txMap   = {} if not txMap     else txMap
       p2shMap = {} if not p2shMap   else p2shMap
 
@@ -1735,9 +1735,9 @@ class UnsignedTransaction(object):
 
          p2sh = None
          if txoType==CPP_TXOUT_P2SH:
-            if not txoScrAddr in p2shMap:
+            p2sh = p2shMap.get(binary_to_hex(txoScrAddr))
+            if not p2sh:
                raise InvalidHashError('P2SH script not supplied')
-            p2sh = p2shMap(txoScraddr)
 
 
          ustxiList.append(UnsignedTxInput(pyPrevTx.serialize(), txoIdx, p2sh, pubKeyMap))

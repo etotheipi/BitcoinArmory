@@ -17,7 +17,8 @@ from armoryengine.CoinSelection import PySelectCoins, calcMinSuggestedFees,\
    calcMinSuggestedFeesHackMS, PyUnspentTxOut
 from ui.WalletFrames import SelectWalletFrame, LockboxSelectFrame
 from armoryengine.MultiSigUtils import \
-      calcLockboxID, readLockboxEntryStr, createLockboxEntryStr
+      calcLockboxID, readLockboxEntryStr, createLockboxEntryStr, isLockbox,\
+   isP2SHLockbox
  
 
 
@@ -388,15 +389,19 @@ class SendBitcoinsFrame(ArmoryFrame):
 
    #############################################################################
    def getScriptForInputStr(self, inputStr):
+      result = None
       # The addrStr_to_scrAddr method fails if not reg Addr, or P2SH
-      lockboxID = readLockboxEntryStr(inputStr)
-      if lockboxID:
-         lbox = self.main.getLockboxByID(lockboxID)
-         return lbox.binScript if lbox else None
+      if isLockbox(inputStr):
+         lbox = self.main.getLockboxByID(readLockboxEntryStr(inputStr))
+         result = lbox.binScript if lbox else None
+         
+      elif isP2SHLockbox(inputStr):
+         lbox = self.main.getLockboxByID(readLockboxEntryStr(inputStr))
+         result = script_to_p2sh_script(lbox.binScript) if lbox else None
       else:
          scrAddr = addrStr_to_scrAddr(inputStr)
-         return scrAddr_to_script(scrAddr)
-
+         result = scrAddr_to_script(scrAddr)
+      return result
 
 
    #############################################################################
@@ -655,8 +660,11 @@ class SendBitcoinsFrame(ArmoryFrame):
       # In order to create the USTXI objects, need to make we supply a
       # map of public keys that can be included
       if self.lbox:
+         p2shMap = {binary_to_hex(script_to_scrAddr(script_to_p2sh_script(
+                        self.lbox.binScript))) : self.lbox.binScript}
          ustx = UnsignedTransaction().createFromTxOutSelection( \
-                                       utxoSelect, scriptValPairs)
+                                       utxoSelect, scriptValPairs,
+                                       p2shMap = p2shMap)
 
          for i in range(len(ustx.ustxInputs)):
             ustx.ustxInputs[i].contribID = self.lbox.uniqueIDB58

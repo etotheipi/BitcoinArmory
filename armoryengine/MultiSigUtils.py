@@ -59,6 +59,7 @@ Use-Case 1 -- Protecting coins with 2-of-3 computers (2 offline, 1 online):
 LOCKBOXIDSIZE = 8
 PROMIDSIZE = 4
 LBPREFIX, LBSUFFIX = 'Lockbox[ID:', ']'
+LBP2SHPREFIX = 'Lockbox[P2SH:'
 
 ################################################################################
 def calcLockboxID(script=None, scraddr=None):
@@ -90,22 +91,29 @@ def calcLockboxID(script=None, scraddr=None):
 
 
 ################################################################################
-def createLockboxEntryStr(lbID):
-   return '%s%s%s' % (LBPREFIX, lbID, LBSUFFIX)
+def createLockboxEntryStr(lbID, isP2SH=False):
+   return '%s%s%s' % (LBP2SHPREFIX if isP2SH else LBPREFIX,
+                       lbID, LBSUFFIX)
 
 ################################################################################
 def readLockboxEntryStr(addrtext):
-   if not addrtext.startswith(LBPREFIX) or not addrtext.endswith(LBSUFFIX):
-      return None
+   result = None
+   if isLockbox(addrtext) or isP2SHLockbox(addrtext):
+      len(LBPREFIX if isLockbox(addrtext) else LBP2SHPREFIX)
+      idStr = addrtext[len(LBPREFIX if isLockbox(addrtext) else LBP2SHPREFIX):
+                       addrtext.find(LBSUFFIX)]
+      if len(idStr)==LOCKBOXIDSIZE:
+         result = idStr
 
-   c0,c1 = len(LBPREFIX), addrtext.find(LBSUFFIX)
-   idStr = addrtext[c0:c1]
-   if len(idStr)==LOCKBOXIDSIZE:
-      return idStr
-
-   return None
+   return result
    
+################################################################################
+def isP2SHLockbox(addrtext):
+   return addrtext.startswith(LBP2SHPREFIX)
 
+################################################################################
+def isLockbox(addrtext):
+   return addrtext.startswith(LBPREFIX)
 
 ################################################################################
 ################################################################################
@@ -323,7 +331,7 @@ class MultiSigLockbox(object):
    ################################################################################
    def createDecoratedTxOut(self, value=0, asP2SH=False):
       if not asP2SH:
-         dtxoScript = binScript
+         dtxoScript = self.binScript
          p2shScript = None
       else:
          dtxoScript = script_to_p2sh_script(self.binScript)
@@ -353,7 +361,7 @@ class MultiSigLockbox(object):
 
          # Add any change outputs
          if prom.dtxoChange.value > 0:
-            dtxoList.append(prom.dtxoChange)
+            dtxoAccum.append(prom.dtxoChange)
             totalChange += prom.dtxoChange.value
       
       if not totalPay + totalFee == totalInputs - totalChange:
@@ -393,7 +401,7 @@ class MultiSigLockbox(object):
             anyP2SH = True
             
 
-         ustxiAccum.append(UnsignedTxInput(rawTx, txoIndex, p2shSubscript))
+         ustxiAccum.append(UnsignedTxInput(rawTx, txoIdx, p2shSubscript))
          totalInputs += txoValue
 
 

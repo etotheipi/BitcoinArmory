@@ -24,7 +24,7 @@ from armoryengine.PyBtcAddress import calcWalletIDFromRoot
 from announcefetch import DEFAULT_MIN_PRIORITY
 from ui.UpgradeDownloader import UpgradeDownloaderDialog
 from armoryengine.MultiSigUtils import calcLockboxID, createLockboxEntryStr,\
-   LBPREFIX
+   LBPREFIX, isLockbox, isP2SHLockbox
 from ui.MultiSigModels import LockboxDisplayModel, LockboxDisplayProxy,\
    LOCKBOXCOLS
 
@@ -7704,6 +7704,8 @@ class DlgAddressBook(ArmoryDialog):
          self.connect(self.lboxView.selectionModel(), \
              SIGNAL('currentChanged(const QModelIndex &, const QModelIndex &)'), \
              self.clickedLockbox)
+      else:
+         self.lboxView = None
       self.connect(self.tabWidget, SIGNAL('currentChanged(int)'), self.tabChanged)   
       self.tabWidget.setCurrentIndex(0)
 
@@ -7717,6 +7719,8 @@ class DlgAddressBook(ArmoryDialog):
 
       self.lblSelectWlt = QRichLabel('', doWrap=False)
       self.btnSelectWlt = QPushButton('No Wallet Selected')
+      self.useP2SHCheckBox = QCheckBox('Use P2SH')
+      self.useP2SHCheckBox.setVisible(False)
       self.btnSelectAddr = QPushButton('No Address Selected')
       self.btnSelectWlt.setEnabled(False)
       self.btnSelectAddr.setEnabled(False)
@@ -7724,6 +7728,7 @@ class DlgAddressBook(ArmoryDialog):
 
       if self.isBrowsingOnly:
          self.btnSelectWlt.setVisible(False)
+         self.useP2SHCheckBox.setVisible(False)
          self.btnSelectAddr.setVisible(False)
          self.lblSelectWlt.setVisible(False)
          btnCancel = QPushButton('<<< Go Back')
@@ -7737,6 +7742,7 @@ class DlgAddressBook(ArmoryDialog):
 
       self.connect(self.btnSelectWlt, SIGNAL(CLICKED), self.acceptWltSelection)
       self.connect(self.btnSelectAddr, SIGNAL(CLICKED), self.acceptAddrSelection)
+      self.connect(self.useP2SHCheckBox, SIGNAL(CLICKED), self.useP2SHClicked)
       self.connect(btnCancel, SIGNAL(CLICKED), self.reject)
 
 
@@ -7749,7 +7755,7 @@ class DlgAddressBook(ArmoryDialog):
       dlgLayout.addWidget(HLINE(), 5, 0)
       dlgLayout.addWidget(lblToAddr, 6, 0)
       dlgLayout.addWidget(self.tabWidget, 7, 0)
-      dlgLayout.addWidget(makeHorizFrame([STRETCH, self.btnSelectAddr]), 8, 0)
+      dlgLayout.addWidget(makeHorizFrame([STRETCH, self.useP2SHCheckBox, self.btnSelectAddr]), 8, 0)
       dlgLayout.addWidget(HLINE(), 9, 0)
       dlgLayout.addWidget(makeHorizFrame([btnCancel, STRETCH]), 10, 0)
       dlgLayout.setRowStretch(3, 1)
@@ -7828,29 +7834,40 @@ class DlgAddressBook(ArmoryDialog):
                    SIGNAL('currentChanged(const QModelIndex &, const QModelIndex &)'), \
                    self.addrTableTxClicked)
 
+   #############################################################################
+   def disableSelectButtons(self):
+      self.btnSelectAddr.setText('None Selected')
+      self.btnSelectAddr.setEnabled(False)
+      self.useP2SHCheckBox.setChecked(False)
+      self.useP2SHCheckBox.setEnabled(False)
+
 
    #############################################################################
+   # Update the controls when the tab changes
    def tabChanged(self, index):
       if not self.isBrowsingOnly:
          if self.tabWidget.currentWidget() == self.lboxView:
+            self.useP2SHCheckBox.setVisible(self.btnSelectAddr.isVisible())
             selectedLockBox = self.getSelectedLBID()
             self.btnSelectAddr.setEnabled(selectedLockBox != None)
             if selectedLockBox:
-               self.btnSelectAddr.setText( createLockboxEntryStr(selectedLockBox))
+               self.btnSelectAddr.setText( createLockboxEntryStr(selectedLockBox,
+                                                                 self.useP2SHCheckBox.isChecked()))
+               self.useP2SHCheckBox.setEnabled(True)
             else:
-               self.btnSelectAddr.setText('None Selected')
+               self.disableSelectButtons()
          elif self.tabWidget.currentWidget() == self.addrBookTxView:
+            self.useP2SHCheckBox.setVisible(False)
             selection = self.addrBookTxView.selectedIndexes()
             if len(selection)==0:
-               self.btnSelectAddr.setText('None Selected')
-               self.btnSelectAddr.setEnabled(False)
+               self.disableSelectButtons()
             else:
                self.addrTableTxClicked(selection[0])
          elif self.tabWidget.currentWidget() == self.addrBookRxView:
+            self.useP2SHCheckBox.setVisible(False)
             selection = self.addrBookRxView.selectedIndexes()
             if len(selection)==0:
-               self.btnSelectAddr.setText('None Selected')
-               self.btnSelectAddr.setEnabled(False)
+               self.disableSelectButtons()
             else:
                self.addrTableRxClicked(selection[0])    
          
@@ -7898,10 +7915,10 @@ class DlgAddressBook(ArmoryDialog):
 
          # If switched wallet selection, de-select address so it doesn't look
          # like the currently-selected address is for this different wallet
-         self.btnSelectAddr.setEnabled(False)
-         self.btnSelectAddr.setText('None Selected')
-         self.selectedAddr = ''
-         self.selectedCmmt = ''
+         if not self.tabWidget.currentWidget() == self.lboxView:
+            self.disableSelectButtons()
+            self.selectedAddr = ''
+            self.selectedCmmt = ''
       self.addrBookTxModel.reset()
 
 
@@ -7968,8 +7985,10 @@ class DlgAddressBook(ArmoryDialog):
 
       if not self.isBrowsingOnly:
          self.btnSelectAddr.setEnabled(True)
+         self.useP2SHCheckBox.setEnabled(True)
          selectedLockBoxId = str(currIndex.model().index(row, LOCKBOXCOLS.ID).data().toString())
-         self.btnSelectAddr.setText( createLockboxEntryStr(selectedLockBoxId))
+         self.btnSelectAddr.setText( createLockboxEntryStr(selectedLockBoxId,
+                                           self.useP2SHCheckBox.isChecked()))
 
    #############################################################################
    def dblClickAddressTx(self, index):
@@ -7998,11 +8017,15 @@ class DlgAddressBook(ArmoryDialog):
          self.target.setText(pubKeyHash)
       self.target.setCursorPosition(0)
       self.accept()
-
+      
+   #############################################################################
+   def useP2SHClicked(self):
+      self.btnSelectAddr.setText( createLockboxEntryStr(self.getSelectedLBID(),
+                                                    self.useP2SHCheckBox.isChecked()))
 
    #############################################################################
    def acceptAddrSelection(self):
-      if str(self.btnSelectAddr.text())[:len(LBPREFIX)] == LBPREFIX:
+      if isLockbox(str(self.btnSelectAddr.text())) or isP2SHLockbox(str(self.btnSelectAddr.text())):
          self.acceptLockBoxSelection()
       else: 
          atype,a160 = addrStr_to_hash160(self.selectedAddr)
@@ -8030,7 +8053,8 @@ class DlgAddressBook(ArmoryDialog):
    #############################################################################
    def acceptLockBoxSelection(self):
       if self.target:
-         self.target.setText( createLockboxEntryStr(self.getSelectedLBID()))
+         self.target.setText( createLockboxEntryStr(self.getSelectedLBID(),
+                                                    self.useP2SHCheckBox.isChecked()))
          self.target.setCursorPosition(0)
          self.accept()
    
