@@ -489,7 +489,7 @@ class ArmoryMainWindow(QMainWindow):
       btnRecvBtc   = QPushButton(tr("Receive Bitcoins"))
       btnWltProps  = QPushButton(tr("Wallet Properties"))
       btnOfflineTx = QPushButton(tr("Offline Transactions"))
-      btnMultisig  = QPushButton(tr("Multi-Sig Transactions"))
+      btnMultisig  = QPushButton(tr("Lockbox Manager (Multisig)"))
 
       self.connect(btnWltProps, SIGNAL('clicked()'), self.execDlgWalletDetails)
       self.connect(btnRecvBtc,  SIGNAL('clicked()'), self.clickReceiveCoins)

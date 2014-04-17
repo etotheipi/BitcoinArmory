@@ -1775,10 +1775,6 @@ class DlgMultiSpendReview(ArmoryDialog):
                QMessageBox.Ok)
             return
 
-      if wlt.isLocked:
-         QMessageBox.critical(self, 'Wallet is locked',
-            'Wallet is still locked.  Cannot sign.', QMessageBox.Ok)
-         return
          
       for ustxi in ib.ustxiList:
          addrObj = wlt.getAddrByHash160(a160)
