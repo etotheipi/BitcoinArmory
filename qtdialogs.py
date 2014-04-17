@@ -7678,7 +7678,7 @@ class DlgAddressBook(ArmoryDialog):
       self.tabWidget.addTab(self.addrBookRxView, 'Receiving (Mine)')
       if not selectMineOnly:
          self.tabWidget.addTab(self.addrBookTxView, 'Sending (Other\'s)')
-      # DISPLAY Lock Boxes
+      # DISPLAY Lockboxes
       if showLockBoxes:
          self.lboxModel = LockboxDisplayModel(self.main, \
                                     self.main.allLockboxes, \
@@ -7697,7 +7697,7 @@ class DlgAddressBook(ArmoryDialog):
          for i in range(LOCKBOXCOLS.Key0, LOCKBOXCOLS.Key4+1):
             self.lboxView.hideColumn(i)
          self.lboxView.hideColumn(LOCKBOXCOLS.UnixTime)
-         self.tabWidget.addTab(self.lboxView, 'Lock Boxes')
+         self.tabWidget.addTab(self.lboxView, 'Lockboxes')
          self.connect( self.lboxView, 
             SIGNAL('doubleClicked(QModelIndex)'), 
             self.dblClickedLockbox)

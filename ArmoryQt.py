@@ -489,7 +489,7 @@ class ArmoryMainWindow(QMainWindow):
       btnRecvBtc   = QPushButton(tr("Receive Bitcoins"))
       btnWltProps  = QPushButton(tr("Wallet Properties"))
       btnOfflineTx = QPushButton(tr("Offline Transactions"))
-      btnMultisig  = QPushButton(tr("Multi-Sig Transactions"))
+      btnMultisig  = QPushButton(tr("Lockbox Manager (Multisig)"))
 
       self.connect(btnWltProps, SIGNAL('clicked()'), self.execDlgWalletDetails)
       self.connect(btnRecvBtc,  SIGNAL('clicked()'), self.clickReceiveCoins)
@@ -6316,13 +6316,41 @@ class ArmoryMainWindow(QMainWindow):
             txref = TheBDM.getTxByHash(le.getTxHash())
             nOut = txref.getNumTxOut()
             getScrAddr = lambda i: txref.getTxOutCopy(i).getScrAddressStr()
-            recips = [scrAddr_to_addrStr(getScrAddr(j))    for j in range(nOut)]
-            a160s  = [addrStr_to_hash160(recips[j])[1]     for j in range(nOut)]
-            values = [txref.getTxOutCopy(j).getValue()     for j in range(nOut)]
-            idxMine  = filter(lambda j:     wlt.hasAddr(a160s[j]), range(nOut))
-            idxOther = filter(lambda j: not wlt.hasAddr(a160s[j]), range(nOut))
-            mine  = [(recips[j],values[j]) for j in idxMine]
-            other = [(recips[j],values[j]) for j in idxOther]
+
+            # Maybe it's a scrAddr for one of our known lockboxes?
+            singleAddr = []
+            lockboxAddr = []
+            for i in range(nOut):
+               inAddr = getScrAddr(i)
+               if inAddr.startswith(SCRADDR_MULTISIG_BYTE):
+                  lockboxAddr.append(i)
+                  print 'DOUG DEBUG: Lockbox address'
+               else:
+                  singleAddr.append(i)
+                  print 'DOUG DEBUG: Single address'
+
+            # Handle single addrs
+            print 'DOUG DEBUG: Single Len=%d' % len(singleAddr)
+            recips = [scrAddr_to_addrStr(getScrAddr(j)) for j in singleAddr]
+            print recips
+            print str(singleAddr)
+            a160s  = [addrStr_to_hash160(recips[j])[1]  for j in range(len(singleAddr))]
+            values = [txref.getTxOutCopy(j).getValue()  for j in singleAddr]
+            idxMine  = filter(lambda j:     wlt.hasAddr(a160s[j]), range(len(singleAddr)))
+            idxOther = filter(lambda j: not wlt.hasAddr(a160s[j]), range(len(singleAddr)))
+            mineSingle  = [(recips[j],values[j]) for j in idxMine]
+            otherSingle = [(recips[j],values[j]) for j in idxOther]
+
+            # Handle lockbox addrs
+            recips = [getScrAddr(k) for k in lockboxAddr]
+            print recips
+            print str(lockboxAddr)
+            values = [txref.getTxOutCopy(k).getValue()  for k in lockboxAddr]
+            idxMine  = filter(lambda k:     calcLockboxID(scraddr=getScrAddr(k)), range(len(lockboxAddr)))
+            idxOther = filter(lambda k: not calcLockboxID(scraddr=getScrAddr(k)), range(len(lockboxAddr)))
+            mineLockbox  = [(recips[k],values[k]) for k in idxMine]
+            otherLockbox = [(recips[k],values[k]) for k in idxOther]
+
             dispLines = []
             title = ''
 
@@ -6330,24 +6358,36 @@ class ArmoryMainWindow(QMainWindow):
             if le.getValue()>0:
                # Received!
                title = 'Bitcoins Received!'
-               totalStr = coin2str( sum([mine[i][1] for i in range(len(mine))]), maxZeros=1)
+               coinSum = sum([mineSingle[i][1] for i in range(len(mineSingle))] + \
+                             [mineLockbox[j][1] for j in range(len(mineLockbox))])
+               totalStr = coin2str(coinSum, maxZeros=1)
                dispLines.append(   'Amount: \t%s BTC' % totalStr.strip())
-               if len(mine)==1:
-                  dispLines.append('Address:\t%s' % mine[0][0])
-                  addrComment = wlt.getComment(addrStr_to_hash160(mine[0][0])[1])
-               else:
+               totAddrsMine = len(mineSingle) + len(mineLockbox)
+               if totAddrsMine > 1:
                   dispLines.append('<Received with Multiple Addresses>')
+               if len(mineSingle)==1:
+                  dispLines.append('Address:\t%s' % mineSingle[0][0])
+                  addrComment = wlt.getComment(addrStr_to_hash160(mineSingle[0][0])[1])
+               elif len(mineLockbox)==1:
+                  dispLines.append('Lockbox:\t%s' % mineLockbox[0][0])
+                  addrComment = wlt.getComment(addrStr_to_hash160(mineLockbox[0][0])[1])
                dispLines.append(   'Wallet:\t"%s" (%s)' % (wlt.labelName, wltID))
             elif le.getValue()<0:
                # Sent!
                title = 'Bitcoins Sent!'
-               totalStr = coin2str( sum([other[i][1] for i in range(len(other))]), maxZeros=1)
+               coinSum = sum([otherSingle[i][1] for i in range(len(otherSingle))] + \
+                             [otherLockbox[j][1] for j in range(len(otherLockbox))])
+               totalStr = coin2str(coinSum, maxZeros=1)
                dispLines.append(   'Amount: \t%s BTC' % totalStr.strip())
-               if len(other)==1:
-                  dispLines.append('Sent To:\t%s' % other[0][0])
-                  addrComment = wlt.getComment(addrStr_to_hash160(other[0][0])[1])
-               else:
+               totAddrsOther = len(otherSingle) + len(otherLockbox)
+               if totAddrsOther > 1:
                   dispLines.append('<Sent to Multiple Addresses>')
+               elif len(otherSingle)==1:
+                  dispLines.append('Sent To:\t%s' % otherSingle[0][0])
+                  addrComment = wlt.getComment(addrStr_to_hash160(otherSingle[0][0])[1])
+               elif len(otherLockbox)==1:
+                  dispLines.append('Sent To:\t%s' % otherLockbox[0][0])
+                  addrComment = wlt.getComment(addrStr_to_hash160(otherLockbox[0][0])[1])
                dispLines.append('From:\tWallet "%s" (%s)' % (wlt.labelName, wltID))
 
             self.sysTray.showMessage(title, \
@@ -6766,7 +6806,3 @@ if 1:
    QAPP.setQuitOnLastWindowClosed(True)
    reactor.runReturn()
    os._exit(QAPP.exec_())
-
-
-
-
