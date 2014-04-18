@@ -805,14 +805,14 @@ SecureBinaryData CryptoECDSA::ComputeChainedPublicKey(
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-SecureBinaryData CryptoECDSA::InvMod(const SecureBinaryData& dividend,
-                                     const SecureBinaryData& divisor)
+SecureBinaryData CryptoECDSA::InvMod(const SecureBinaryData& m,
+                                     const SecureBinaryData& modulo)
 {
-   CryptoPP::Integer cppDividend;
-   CryptoPP::Integer cppDivisor;
-   cppDividend.Decode(dividend.getPtr(), dividend.getSize(), UNSIGNED);
-   cppDivisor.Decode(divisor.getPtr(), divisor.getSize(), UNSIGNED);
-   CryptoPP::Integer cppResult = cppDividend.InverseMod(cppDivisor);
+   CryptoPP::Integer cppM;
+   CryptoPP::Integer cppModulo;
+   cppM.Decode(m.getPtr(), m.getSize(), UNSIGNED);
+   cppModulo.Decode(modulo.getPtr(), modulo.getSize(), UNSIGNED);
+   CryptoPP::Integer cppResult = cppM.InverseMod(cppModulo);
    SecureBinaryData result(32);
    cppResult.Encode(result.getPtr(), result.getSize(), UNSIGNED);
    return result;
