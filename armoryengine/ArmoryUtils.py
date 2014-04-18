@@ -2814,20 +2814,10 @@ def AllowAsync(func):
 
    return wrappedFunc
 
-# Define a decorator to pass an empty function to functions expecting a 
-# progress callback
-def ProgressCallback(func):
-   def emptyFunc(*args, **kwargs):
-      return   
-   def wrappedFunc(*args, **kwargs):
-      if not 'Progress' in kwargs:
-         kwargs['Progress'] = emptyFunc
-      elif kwargs['Progress'] == None:
-         kwargs['Progress'] = emptyFunc
-         
-      return func(*args, **kwargs)
-   
-   return wrappedFunc
+
+def emptyFunc(*args, **kwargs):
+   return
+
 
 def EstimateCumulativeBlockchainSize(blkNum):
    # I tried to make a "static" variable here so that

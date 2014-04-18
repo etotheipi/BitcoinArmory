@@ -17,7 +17,7 @@ from qtdefines import USERMODE, GETFONT, tr, AddToRunningDialogsList
 from armoryengine.PyBtcWallet import PyBtcWallet
 from CppBlockUtils import SecureBinaryData
 from armoryengine.BDM import TheBDM
-from qtdialogs import DlgExecLongProcess, DlgConfirmSend
+from qtdialogs import DlgProgress, DlgConfirmSend
 
 # This class is intended to be an abstract Wizard class that
 # will hold all of the functionality that is common to all 
@@ -162,8 +162,10 @@ class WalletWizard(ArmoryWizard):
       self.newWallet.unlock(securePassphrase=
                SecureBinaryData(self.setPassphrasePage.pageFrame.getPassphrase()))
       # We always want to fill the address pool, right away.  
-      fillpool = lambda: self.newWallet.fillAddressPool(doRegister=False)
-      DlgExecLongProcess(fillpool, 'Creating Wallet...', self, self).exec_()
+      fillPoolProgress = DlgProgress(self, self.main, HBar=1, \
+                                     Title="Creating Wallet") 
+      fillPoolProgress.exec_(self.newWallet.fillAddressPool, doRegister=False,
+                             Progress=fillPoolProgress.UpdateHBar)
 
       # Reopening from file helps make sure everything is correct -- don't
       # let the user use a wallet that triggers errors on reading it

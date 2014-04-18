@@ -878,8 +878,16 @@ class WalletBackupFrame(ArmoryFrame):
       
    def clickedDoIt(self):
       isBackupCreated = False
+      
       if self.passphrase:
-         self.wlt.unlock(securePassphrase=SecureBinaryData(self.passphrase))
+         from qtdialogs import DlgProgress
+         unlockProgress = DlgProgress(self, self.main, HBar=1,
+                                      Title="Unlocking Wallet")
+         unlockProgress.exec_(self.wlt.unlock, 
+                              securePassphrase=SecureBinaryData( \
+                              self.passphrase),
+                              Progress=unlockProgress.UpdateHBar)
+         
       if self.optPaperBackupOne.isChecked():
          isBackupCreated = OpenPaperBackupWindow('Single', self.parent(), self.main, self.wlt)
       elif self.optPaperBackupFrag.isChecked():

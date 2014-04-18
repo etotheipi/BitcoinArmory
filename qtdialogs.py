@@ -300,7 +300,11 @@ class DlgUnlockWallet(ArmoryDialog):
 
       try:
          if self.returnPassphrase == False:
-            self.wlt.unlock(securePassphrase=self.securePassphrase)
+            unlockProgress = DlgProgress(self, self.main, HBar=1, 
+                                         Title="Unlocking Wallet")
+            unlockProgress.exec_(self.wlt.unlock, 
+                                 securePassphrase=self.securePassphrase,
+                                 Progress=unlockProgress.UpdateHBar)
             self.securePassphrase.destroy()
          else:
             if self.wlt.verifyPassphrase(self.securePassphrase) == False:
@@ -1862,7 +1866,11 @@ class DlgWalletDetails(ArmoryDialog):
          if self.wlt.useEncryption:
             origPassphrase = SecureBinaryData(str(dlgCrypt.edtPasswdOrig.text()))
             if self.wlt.verifyPassphrase(origPassphrase):
-               self.wlt.unlock(securePassphrase=origPassphrase)
+               unlockProgress = DlgProgress(self, self.main, HBar=1, 
+                                            Title="Unlocking Wallet")
+               unlockProgress.exec_(self.wlt.unlock, 
+                                    securePassphrase=origPassphrase,
+                                    Progress=unlockProgress.UpdateHBar)
             else:
                # Even if the wallet is already unlocked, enter pwd again to change it
                QMessageBox.critical(self, 'Invalid Passphrase', \
@@ -1871,7 +1879,10 @@ class DlgWalletDetails(ArmoryDialog):
 
 
          if self.disableEncryption:
-            self.wlt.changeWalletEncryption(None, None)
+            unlockProgress = DlgProgress(self, self.main, HBar=1, 
+                                         Title="Changing Encryption")
+            unlockProgress.exec_(self.wlt.changeWalletEncryption, 
+                                 Progress=unlockProgress.UpdateHBar)            
             # self.accept()
             self.labelValues[WLTFIELDS.Secure].setText('No Encryption')
             self.labelValues[WLTFIELDS.Secure].setText('')
@@ -1880,7 +1891,12 @@ class DlgWalletDetails(ArmoryDialog):
             if not self.wlt.useEncryption:
                kdfParams = self.wlt.computeSystemSpecificKdfParams(0.2)
                self.wlt.changeKdfParams(*kdfParams)
-            self.wlt.changeWalletEncryption(securePassphrase=newPassphrase)
+            
+            unlockProgress = DlgProgress(self, self.main, HBar=2, 
+                                         Title="Changing Encryption")
+            unlockProgress.exec_(self.wlt.changeWalletEncryption, 
+                                 securePassphrase=newPassphrase,
+                                 Progress=unlockProgress.UpdateHBar)
             self.labelValues[WLTFIELDS.Secure].setText('Encrypted (AES256)')
             # self.accept()
 
@@ -2574,11 +2590,20 @@ class DlgKeypoolSettings(ArmoryDialog):
             return
 
       cred = htmlColor('TextRed')
-      self.lblAddrCompVal.setText('<font color="%s">Calculating...</font>' % cred)
+      self.lblAddrCompVal.setText('<font color="%s">Calculating...</font>' % \
+                                   cred)
 
       def doit():
-         currPool = self.wlt.lastComputedChainIndex - self.wlt.highestUsedChainIndex
-         self.wlt.fillAddressPool(currPool + naddr, isActuallyNew=False)
+         currPool = self.wlt.lastComputedChainIndex - \
+                    self.wlt.highestUsedChainIndex
+         fillAddressPoolProgress = DlgProgress(self, self.main, HBar=1, 
+                                               Title='Computing New Addresses')
+         fillAddressPoolProgress.exec_( \
+               self.wlt.fillAddressPool, currPool + naddr, 
+                                        isActuallyNew=False,
+                                        Progress= \
+                                        fillAddressPoolProgress.UpdateHBar)
+         
          self.lblAddrCompVal.setText('<font color="%s">%d</font>' % \
                         (cred, self.wlt.lastComputedChainIndex))
          self.addressesWereGenerated = True
@@ -4169,9 +4194,6 @@ class DlgIntroMessage(ArmoryDialog):
 
 
 
-
-
-
 #############################################################################
 class DlgImportPaperWallet(ArmoryDialog):
 
@@ -4357,7 +4379,10 @@ class DlgImportPaperWallet(ArmoryDialog):
                                  doRegisterWithBDM=False)
 
       def fillAddrPoolAndAccept():
-         self.newWallet.fillAddressPool()
+         progressBar = DlgProgress(self, self.main, None, HBar=1,
+                                   Title="Computing New Addresses")
+         progressBar.exec_(self.newWallet.fillAddressPool(), 
+                           Progress=progressBar.UpdateHBar)
          self.accept()
 
       # Will pop up a little "please wait..." window while filling addr pool
@@ -11591,33 +11616,38 @@ class DlgRestoreSingle(ArmoryDialog):
             longl  = dlgOwnWlt.Meta['longLabel']
             nPool = max(nPool, dlgOwnWlt.Meta['naddress'])
 
+      self.newWallet = PyBtcWallet()
+      
       if passwd:
-         self.newWallet = PyBtcWallet().createNewWallet(\
+         self.newWallet.createNewWallet( \
                                  plainRootKey=privKey, \
                                  chaincode=chain, \
-                                 shortLabel='Restored - %s%s' % (newWltID, shortl), \
+                                 shortLabel='Restored - %s%s' % \
+                                 (newWltID, shortl), \
                                  longLabel=longl, \
                                  withEncrypt=True, \
                                  securePassphrase=passwd, \
-                                 kdfTargSec=self.advancedOptionsTab.getKdfSec(), \
-                                 kdfMaxMem=self.advancedOptionsTab.getKdfBytes(),
+                                 kdfTargSec = \
+                                 self.advancedOptionsTab.getKdfSec(), \
+                                 kdfMaxMem = \
+                                 self.advancedOptionsTab.getKdfBytes(),
                                  isActuallyNew=False, \
                                  doRegisterWithBDM=False)
       else:
-         self.newWallet = PyBtcWallet().createNewWallet(\
+         self.newWallet.createNewWallet( \
                                  plainRootKey=privKey, \
                                  chaincode=chain, \
-                                 shortLabel='Restored - %s%s' % (newWltID, shortl), \
+                                 shortLabel='Restored - %s%s' % \
+                                 (newWltID, shortl), \
                                  longLabel=longl, \
                                  withEncrypt=False, \
                                  isActuallyNew=False, \
                                  doRegisterWithBDM=False)
 
-      def fillAddrPoolAndAccept():
-         self.newWallet.fillAddressPool(numPool=nPool)
-
-      # Will pop up a little "please wait..." window while filling addr pool
-      DlgExecLongProcess(fillAddrPoolAndAccept, "Recovering wallet...", self, self.main).exec_()
+      fillAddrPoolProgress = DlgProgress(self, self.main, HBar=1,
+                                         Title="Computing New Addresses")
+      fillAddrPoolProgress.exec_(self.newWallet.fillAddressPool, nPool,
+                                 Progress=fillAddrPoolProgress.UpdateHBar)
 
       if dlgOwnWlt is not None:
          if dlgOwnWlt.Meta is not None:
@@ -11625,7 +11655,10 @@ class DlgRestoreSingle(ArmoryDialog):
             for n_cmt in range(0, dlgOwnWlt.Meta['ncomments']):
                entrylist = []
                entrylist = list(dlgOwnWlt.Meta[n_cmt])
-               self.newWallet.walletFileSafeUpdate([[WLT_UPDATE_ADD, entrylist[2], entrylist[1], entrylist[0]]])
+               self.newWallet.walletFileSafeUpdate([[WLT_UPDATE_ADD, 
+                                                     entrylist[2], 
+                                                     entrylist[1], 
+                                                     entrylist[0]]])
 
          self.newWallet = PyBtcWallet().readWalletFile(dlgOwnWlt.wltPath)
       self.accept()
@@ -12149,15 +12182,14 @@ class DlgRestoreFragged(ArmoryDialog):
                                  withEncrypt=False, \
                                  isActuallyNew=False, \
                                  doRegisterWithBDM=False)
-
-      def fillAddrPoolAndAccept():
-         self.newWallet.fillAddressPool(numPool=nPool)
-
+         
+         
       # Will pop up a little "please wait..." window while filling addr pool
-      DlgExecLongProcess(fillAddrPoolAndAccept, \
-                         tr("Recovering wallet..."), \
-                         self, self.main).exec_()
-
+      fillAddrPoolProgress = DlgProgress(self, self.parent, HBar=1,
+                                         Title="Computing New Addresses")
+      fillAddrPoolProgress.exec_(self.newWallet.fillAddressPool, nPool,
+                                 Progress=fillAddrPoolProgress.UpdateHBar)
+ 
       if dlgOwnWlt is not None:
          if dlgOwnWlt.Meta is not None:
             from armoryengine.PyBtcWallet import WLT_UPDATE_ADD
@@ -12706,8 +12738,12 @@ class DlgReplaceWallet(ArmoryDialog):
    #########
    def Replace(self):
       self.main.removeWalletFromApplication(self.WalletID)
-      oldpath = os.path.join(os.path.dirname(self.wltPath), 'old_wallets')
-      try: os.mkdir(oldpath)
+      
+      datestr = RightNowStr('%Y-%m-%d-%H%M')
+      homedir = os.path.dirname(self.wltPath)
+
+      oldpath = os.path.join(homedir, self.WalletID, datestr)
+      try: os.makedirs(oldpath)
       except OSError:
          pass
       except:
@@ -12716,14 +12752,7 @@ class DlgReplaceWallet(ArmoryDialog):
          return
 
       oldname = os.path.basename(self.wltPath)
-      itr = ''
-      p=1
-      while p:
-         self.newname = os.path.join(oldpath, '%s_old%s.wallet' % (oldname[0:-7], itr))
-         if os.path.exists(self.newname):
-            itr = '_%d' % (p)
-            p = p +1
-         else: break
+      self.newname = os.path.join(oldpath, '%s_old.wallet' % (oldname[0:-7]))
 
       os.rename(self.wltPath, self.newname)
 
@@ -12738,12 +12767,15 @@ class DlgReplaceWallet(ArmoryDialog):
    def SaveMeta(self):
       from armoryengine.PyBtcWalletRecovery import PyBtcWalletRecovery
 
+      metaProgress = DlgProgress(self, self.main, Title='Ripping Meta Data')
       getMeta = PyBtcWalletRecovery()
-      self.Meta = getMeta.RecoverWallet(WalletPath=self.wltPath, Mode=4)
+      self.Meta = metaProgress.exec_(getMeta.ProcessWallet, 
+                                     WalletPath=self.wltPath, Mode=4,
+                                     Progress=metaProgress.UpdateText)
       self.Replace()
 
 
-################################################################################
+###############################################################################
 class DlgWltRecoverWallet(ArmoryDialog):
    def __init__(self, parent=None, main=None):
       super(DlgWltRecoverWallet, self).__init__(parent, main)
@@ -12801,8 +12833,10 @@ class DlgWltRecoverWallet(ArmoryDialog):
       layoutMgmt.addWidget(makeHorizFrame([lblDesc], STYLE_SUNKEN), 0,0, 2,4)
       layoutMgmt.addWidget(wltSltQF, 2, 0, 3, 4)
 
-      self.rdbtnStripped = QRadioButton('')
-      lblStripped = QLabel('<b>Stripped Recovery</b><br>Only attempts to recover the wallet\'s rootkey and chaincode')
+      self.rdbtnStripped = QRadioButton('', parent=self)
+      self.connect(self.rdbtnStripped, SIGNAL('event()'), self.rdClicked)
+      lblStripped = QLabel('<b>Stripped Recovery</b><br>Only attempts to \
+                            recover the wallet\'s rootkey and chaincode')
       layout_StrippedH = QGridLayout()
       layout_StrippedH.addWidget(self.rdbtnStripped, 0, 0, 1, 1)
       layout_StrippedH.addWidget(lblStripped, 0, 1, 2, 19)
@@ -12826,13 +12860,24 @@ class DlgWltRecoverWallet(ArmoryDialog):
       layout_CheckH = QGridLayout()
       layout_CheckH.addWidget(self.rdbtnCheck, 0, 0, 1, 1)
       layout_CheckH.addWidget(lblCheck, 0, 1, 3, 19)
+      
 
       layoutMode = QGridLayout()
       layoutMode.addLayout(layout_StrippedH, 0, 0, 2, 4)
       layoutMode.addLayout(layout_BareH, 2, 0, 2, 4)
       layoutMode.addLayout(layout_FullH, 4, 0, 2, 4)
       layoutMode.addLayout(layout_CheckH, 6, 0, 3, 4)
+      
+      
+      #self.rdnGroup = QButtonGroup()
+      #self.rdnGroup.addButton(self.rdbtnStripped)
+      #self.rdnGroup.addButton(self.rdbtnBare)
+      #self.rdnGroup.addButton(self.rdbtnFull)
+      #self.rdnGroup.addButton(self.rdbtnCheck)
+            
 
+      layoutMgmt.addLayout(layoutMode, 5, 0, 9, 4)
+      '''
       wltModeQF = QFrame()
       wltModeQF.setFrameStyle(STYLE_SUNKEN)
       wltModeQF.setLayout(layoutMode)
@@ -12852,6 +12897,7 @@ class DlgWltRecoverWallet(ArmoryDialog):
 
       if not self.main.usermode==USERMODE.Expert:
          frmBtn.setVisible(False)
+      '''
 
       self.btnRecover = QPushButton('Recover')
       self.btnCancel  = QPushButton('Cancel')
@@ -12868,6 +12914,9 @@ class DlgWltRecoverWallet(ArmoryDialog):
       self.layout().setSizeConstraint(QLayout.SetFixedSize)
       self.setWindowTitle('Wallet Recovery Tool')
       self.setMinimumWidth(550)
+      
+   def rdClicked(self):
+      print "cliocked"
 
    def promptWalletRecovery(self):
       """
@@ -12893,10 +12942,13 @@ class DlgWltRecoverWallet(ArmoryDialog):
          else:
             # This is goatpig's original behavior - preserved for any 
             # non-loaded wallets or non-full recovery operations.
-            from armoryengine.PyBtcWalletRecovery import PyBtcWalletRecovery
-            recoverytool = PyBtcWalletRecovery()
-            recoverytool.parent = self.main
-            recoverytool.RecoverWallet(WalletPath=path, Mode=mode, GUI=True)
+            if self.selectedWltID:
+               wlt = self.main.walletMap[self.selectedWltID]
+            else:
+               wlt = path
+            
+            dlgRecoveryUI = DlgCorruptWallet(wlt, [], self.main, self, False)
+            dlgRecoveryUI.exec_(dlgRecoveryUI.ProcessWallet(mode))
       else:
          return False
 
@@ -12959,6 +13011,10 @@ class DlgProgress(ArmoryDialog):
       self.HBar = HBar
       self.Title = Title
       self.TProgress = None
+      self.procressDone = False
+      
+      self.lock = threading.Lock()
+      self.condVar = threading.Condition(self.lock)
 
       self.btnStop = None
 
@@ -12977,7 +13033,6 @@ class DlgProgress(ArmoryDialog):
       self.connect(self, SIGNAL('Exit'), self.Exit)
 
    def UpdateDlg(self, text=None, HBar=None, Title=None):
-
       if text is not None: self.lblDesc.setText(text)
       if HBar is not None: self.hbarProgress.setValue(HBar)
 
@@ -12993,34 +13048,40 @@ class DlgProgress(ArmoryDialog):
       self.emit(SIGNAL('Update'), updatedText, None)
       return self.running
 
-   def UpdateHBar(self, value, endProgress=False):
+   def UpdateHBar(self, value, maxVal, endProgress=False):
       self.Done = endProgress
       if self.main is None: return self.running
 
-      self.emit(SIGNAL('Update'), None, value)
+      progressVal = 100*value/maxVal
+
+      self.emit(SIGNAL('Update'), None, self.HBarCount*100 +progressVal)
+      if progressVal >= 100:
+         self.HBarCount = self.HBarCount + 1      
       return self.running
 
    def AskUnlock(self, wll):
-      self.GotPassphrase = 0
-      self.wll = wll
-      self.emit(SIGNAL('PromptPassphrase'))
+      self.condVar.acquire()
+      self.emit(SIGNAL('PromptPassphrase'), wll)
+      self.condVar.wait()
+      self.condVar.release()
+      
+      return self.Passphrase
 
-   def PromptPassphrase(self):
-      dlg = DlgUnlockWallet(self.wll, self, self.main, "Enter Passphrase",
+   def PromptPassphrase(self, wll):
+      self.condVar.acquire()
+      dlg = DlgUnlockWallet(wll, self, self.main, "Enter Passphrase",
                             returnPassphrase=True)
 
       self.Passphrase = None
       self.GotPassphrase = 0
       if dlg.exec_():
          #grab plain passphrase
-         self.Passphrase = ''
          if dlg.Accepted == 1:
             self.Passphrase = dlg.securePassphrase.copy()
             dlg.securePassphrase.destroy()
-            self.GotPassphrase = 1
-         else: self.GotPassphrase = -1
-      else:
-         self.GotPassphrase = -1
+      
+      self.condVar.notify()
+      self.condVar.release()
 
    def Kill(self):
       if self.main: self.emit(SIGNAL('Exit'))
@@ -13029,20 +13090,35 @@ class DlgProgress(ArmoryDialog):
       self.running = 0
       self.done(0)
 
-   def exec_(self, side_thread=None):
-      if side_thread:
+   def exec_(self, *args, **kwargs):
+      '''
+      If args[0] is a function, it will be called in exec_thread
+      args[1:] is the argument list for that function
+      will return the functions output in exec_thread.output, which is then
+      returned by exec_
+      '''      
+      exec_thread = PyBackgroundThread(self.exec_async, *args, **kwargs)
+      exec_thread.start()
+      
+      self.main.emit(SIGNAL('execTrigger'), self)    
+      exec_thread.join()
+      
+      if exec_thread.didThrowError():
+         exec_thread.raiseLastError()
+      else:
+         return exec_thread.output
+
+   def exec_async(self, *args, **kwargs):
+      if len(args) > 0 and hasattr(args[0], '__call__'):
+         func = args[0]
          if self.main is not None:
             self.status = 1
-            self.main.emit(SIGNAL('spawnTrigger'), self)
-   
-            side_thread.join();
-            self.Kill()
-   
-            if side_thread.didThrowError():
-               side_thread.raiseLastError()
-      else:
-         super(DlgProgress, self).exec_()
-                  
+
+            rt = func(*args[1:], **kwargs)
+            self.Kill()  
+            
+            return rt
+
    def reject(self):
       return
 
@@ -13067,11 +13143,12 @@ class DlgProgress(ArmoryDialog):
 
       if self.HBar is not None:
          self.hbarProgress = QProgressBar(self)
-         self.hbarProgress.setMaximum(self.HBar)
+         self.hbarProgress.setMaximum(self.HBar*100)
          self.hbarProgress.setMinimum(0)
          self.hbarProgress.setValue(0)
          self.hbarProgress.setMinimumWidth(250)
          layoutMgmt.addWidget(self.hbarProgress)
+         self.HBarCount = 0
 
          if self.HBar:
             self.hbarProgress.setFormat(self.Title +': %p%')
@@ -13122,6 +13199,10 @@ class DlgCorruptWallet(DlgProgress):
       self.running = 1
       self.status = 1
       self.isFixing = False
+      self.checkMode = -1
+      
+      self.lock = threading.Lock()
+      self.condVar = threading.Condition(self.lock)
 
       self.layout = QVBoxLayout()
 
@@ -13156,13 +13237,15 @@ class DlgCorruptWallet(DlgProgress):
             <font color="%s">This error will pop up every time you start 
             Armory until the wallet has been analyzed and fixed!</font>""") % \
             (wallet.labelName, wallet.uniqueIDB58, htmlColor('TextWarn')))
-      else:
+      elif isinstance(wallet, PyBtcWallet):
          self.lblFirstMsg = QRichLabel(tr("""
             Armory will perform a consistency check on <b>Wallet "%s" (%s)</b> 
             and determine if any further action is required to keep your funds
             protected.  This check is normally performed on startup on all 
             your wallets, but you can click below to force another 
             check.""") % (wallet.labelName, wallet.uniqueIDB58))
+      else:
+         self.lblFirstMsg = QRichLabel('')
 
       self.QDS = QDialog()
       self.lblStatus = QLabel('')
@@ -13257,6 +13340,7 @@ class DlgCorruptWallet(DlgProgress):
          self.btnClose.setText('Close')
          self.btnClose.setVisible(False)
          self.connect(self.btnClose, SIGNAL('clicked()'), self.reject)
+         self.hide()
 
    def FixWallets(self):
       self.sep_line.hide()
@@ -13283,7 +13367,41 @@ class DlgCorruptWallet(DlgProgress):
       self.logDirs,wltErrs = FixWallets(self.walletList, self, 
                                     Progress=self.UpdateText, async=True)
 
-
+   def ProcessWallet(self, mode=3):
+      '''
+      Serves as the entry point for non processing wallets that arent loaded 
+      or fully processed. Only takes 1 wallet at a time
+      '''
+      if len(self.walletList) > 0:
+         wlt = None
+         wltPath = ''
+         
+         if isinstance(self.walletList[0], str): 
+            wltPath = self.walletList[0]
+         else:
+            wlt = self.walletList[0]
+            
+      self.lblDesc = QLabel('')
+      self.QDSlo.addWidget(self.lblDesc)
+      
+      self.sep_line.hide()
+      self.sep_line2.hide()
+      self.lblFixRdy.hide()
+      self.adjustSize()      
+      
+      self.lblDescr2.setText('')
+      self.lblStatus.setVisible(True)
+      self.lblFirstMsg.setVisible(False)  
+                     
+      from armoryengine.PyBtcWalletRecovery import ParseWallet
+      self.btnClose.setDisabled(True)
+      self.btnFixWallets.setDisabled(True)
+      self.isFixing = True        
+      
+      self.checkMode = mode
+      ParseWallet(wltPath, wlt, mode, self, 
+                             Progress=self.UpdateText, async=True)
+      
    def UpdateDlg(self, text=None, HBar=None, Title=None):
       if text is not None: self.lblDesc.setText(text)
 
@@ -13305,10 +13423,10 @@ class DlgCorruptWallet(DlgProgress):
       #self.QDS.adjustSize()
       status[0] = 1
 
-   def setRecoveryDone(self, st):
-      self.emit(SIGNAL('SRD'), st)
+   def setRecoveryDone(self, badWallets, goodWallets, fixedWallets):
+      self.emit(SIGNAL('SRD'), badWallets, goodWallets, fixedWallets)
 
-   def SRD(self, st):
+   def SRD(self, badWallets, goodWallets, fixedWallets):
       self.btnClose.setEnabled(True)
       self.btnClose.setVisible(True)
       self.btnClose.setText('Continue')
@@ -13316,13 +13434,26 @@ class DlgCorruptWallet(DlgProgress):
       self.btnClose.disconnect(self, SIGNAL('clicked()'), self.hide)
       self.btnClose.connect(self, SIGNAL('clicked()'), self.accept)
       self.isFixing = False
-      if len(st) == 0:
-         self.lblDescr2.setText('<h2 style="color: green;">Wallets Fixed! You can close this window</h2>')
-         self.main.statusBar().showMessage('Wallets fixed!', 15000)
-
-      else:
-         self.lblDescr2.setText('<h2 style="color: red;">Failed to fix wallets!</h2>')
+      
+      if len(badWallets) > 0:
+         self.lblDescr2.setText('<h2 style="color: red;"> \
+                                 Failed to fix wallets!</h2>')
          self.main.statusBar().showMessage('Failed to fix wallets!', 150000)
+      elif len(goodWallets) == len(fixedWallets):
+         self.lblDescr2.setText('<h2 style="color: blue;">Wallet%s consitent,\
+                                  nothing to fix.' % \
+                                  (' is' if len(goodWallets)==1 else 's are'))
+         self.main.statusBar().showMessage('Consistent Wallet%s!' % \
+                                           ('s' if len(goodWallets)>1 else ''),
+                                           15000)
+      elif len(fixedWallets) > 0:
+         if self.checkMode != 5 and self.checkMode != 'Check':
+            self.lblDescr2.setText('<h2 style="color: green;">Wallets Fixed! \
+                                    You can close this window</h2>')
+            self.main.statusBar().showMessage('Wallets fixed!', 15000)
+         else:
+            self.lblDescr2.setText('<h2 style="color: red;"> \
+                                    Consistency check failed! </h2>')
 
    def loadFixedWallets(self, wallets):
       self.emit(SIGNAL('LFW'), wallets)
