@@ -1205,7 +1205,8 @@ class UnsignedTxInput(object):
       else:
          raise SignatureError('No TxIn in tx that matches this USTXI')
 
-      msg,hc = generatePreHashTxMsgToSign(pytx, txiIdx, self.txoScript, hashcode)
+      msg,hc = generatePreHashTxMsgToSign(pytx, txiIdx, 
+               self.getTxoScriptToSign(), hashcode)
       sbdSig = CryptoECDSA().SignData(SecureBinaryData(msg), sbdPrivKey)
       binSig = sbdSig.toBinStr()
       return createDERSigFromRS(binSig[:32], binSig[32:]) + hc
@@ -1276,13 +1277,20 @@ class UnsignedTxInput(object):
       hashcode  = binary_to_int(sigStr[-1])
 
       # Don't forget "sigStr" has the 1-byte hashcode at the end
-      msg = generatePreHashTxMsgToSign(pytx, txiIdx, self.txoScript, hashcode)[0]
+      msg = generatePreHashTxMsgToSign(pytx, txiIdx,
+            self.getTxoScriptToSign(), hashcode)[0]
       sbdMsg = SecureBinaryData(msg)
       sbdSig = SecureBinaryData(rBin + sBin)
       sbdPub = SecureBinaryData(pubKey)
       return msIndex if CryptoECDSA().VerifyData(sbdMsg, sbdSig, sbdPub) else -1
 
-
+   #############################################################################
+   # make sure to sign the p2shScript if it is there, other wise sign the txoScript
+   # For p2sh the txoScript is not signed, it's compared with the p2sh that
+   # supplied as input, and the signatures reference that script for p2sh
+   def getTxoScriptToSign(self):
+      return self.p2shScript if self.p2shScript else self.txoScript
+      
    #############################################################################
    def verifyAllSignatures(self, pytx):
       M = self.sigsNeeded
