@@ -152,7 +152,7 @@ class ArmoryMainWindow(QMainWindow):
       #Setup the signal to spawn progress dialogs from the main thread
       self.connect(self, SIGNAL('initTrigger') , self.initTrigger)
       self.connect(self, SIGNAL('spawnTrigger'), self.spawnTrigger)
-      self.connect(self, SIGNAL('checkForkedImports'), self.checkForkedImports)
+      self.connect(self, SIGNAL('checkForNegImports'), self.checkForNegImports)
 
       # We want to determine whether the user just upgraded to a new version
       self.firstLoadNewVersion = False
@@ -3799,15 +3799,15 @@ class ArmoryMainWindow(QMainWindow):
          <br><br>
          You may be requested to submit a watching-only copy of your wallet
          to <i>Armory Technologies, Inc.</i> to make sure that there is no 
-         risk to the security of your funds.  Additional log files will be 
-         included, providing the wallet analysis info collected from your system.
-         All data collected as part of this process will be analyzed by our
+         risk to the security of your funds.  This submission will also include
+         all logs produced by the wallet analysis tool.  All data collected 
+         as part of this process will be analyzed by our
          team, and then subsequently deleted.  
          <br><br>
          Please be aware that many users are not comfortable with the privacy
          implications of revealing their watching-only wallet to any other 
-         party.  You should not send this information unless and Armory 
-         representative specifically requested it."""), 
+         party.  You should especially not send this information unless 
+         an Armory representative specifically requested it."""), 
          wCancel=wCancel, yesStr="&Ok")
           
    #############################################################################
@@ -6221,29 +6221,49 @@ class ArmoryMainWindow(QMainWindow):
 
 
    #############################################################################
-   def checkForkedImports(self):
+   def checkForNegImports(self):
       
-      forkedImports = []
+      negativeImports = []
       
       for wlt in self.walletMap:
          if self.walletMap[wlt].hasForkedImports:
-            forkedImports.append(self.walletMap[wlt].uniqueIDB58)
+            negativeImports.append(self.walletMap[wlt].uniqueIDB58)
             
-      if len(forkedImports):
-         DlgForkedImports(forkedImports, self, self).show()    
+      # If we detect any negative import
+      if len(negativeImports) > 0:
+         logDirs = []
+         for wltID in negativeImports:
+            if not wltID in self.walletMap:
+               continue
+
+            homedir = os.path.dirname(self.walletMap[wltID].walletPath)
+            wltlogdir  = os.path.join(homedir, wltID)
+            if not os.path.exists(wltlogdir):
+               continue
+   
+            for subdirname in os.listdir(wltlogdir):
+               subdirpath = os.path.join(wltlogdir, subdirname)
+               logDirs.append([wltID, subdirpath])
+
+         DlgInconsistentWltReport(self, self, logDirs).exec_()
 
 
    #############################################################################
-   def checkForkedImports(self):
-      
-      forkedImports = []
-      
-      for wlt in self.walletMap:
-         if self.walletMap[wlt].hasForkedImports:
-            forkedImports.append(self.walletMap[wlt].uniqueIDB58)
-            
-      if len(forkedImports):
-         DlgForkedImports(forkedImports, self, self).show()            
+   def getAllRecoveryLogDirs(self, wltIDList):
+      self.logDirs = []
+      for wltID in wltIDList:
+         if not wltID in self.walletMap:
+            continue
+
+         homedir = os.path.dirname(self.walletMap[wltID].walletPath)
+         logdir  = os.path.join(homedir, wltID)
+         if not os.path.exists(logdir):
+            continue
+
+         self.logDirs.append([wltID, logdir])
+
+      return self.logDirs 
+
       
    #############################################################################
    @AllowAsync
@@ -6286,7 +6306,7 @@ class ArmoryMainWindow(QMainWindow):
          time.sleep(0.1)
       if nerrors == 0:
          self.emit(SIGNAL('UWCS'), [1, 'Wallet Consistency Check', 10000, dlgrdy])
-         self.emit(SIGNAL('checkForkedImports'))
+         self.emit(SIGNAL('checkForNegImports'))
       else:
          while not dlgrdy:
             self.emit(SIGNAL('UWCS'), [1, 'Consistency Check Failed!', 0, dlgrdy])

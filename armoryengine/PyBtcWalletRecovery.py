@@ -1629,6 +1629,13 @@ def WalletConsistencyCheck(wallet, prgAt=None):
                                               None, prgAt, True)
 
 #############################################################################
+# We don't have access to the qtdefines:tr function, but we still want
+# the capability to print multi-line strings within the code.  This simply
+# strips each line and then concatenates them together
+def tr_(s):
+   return ' '.join([line.strip() for line in s.split('\n')])
+
+#############################################################################
 @AllowAsync
 @ProgressCallback
 def FixWallets(wallets, dlg, Progress=None): 
@@ -1638,7 +1645,6 @@ def FixWallets(wallets, dlg, Progress=None):
    #fix the wallets
    fixedWlt = []
    wlterror = []
-   logsSaved = []
 
    for wlt in wallets:
       if dlg: 
@@ -1666,7 +1672,6 @@ def FixWallets(wallets, dlg, Progress=None):
          if not os.path.exists(corruptFolder):
             os.makedirs(corruptFolder)
 
-         logsSaved.append([wltID, corruptFolder])
          logsToCopy = ['armorylog.txt', 'armorycpplog.txt', 'multipliers.txt']
          wltCopyName = 'armory_%s_ORIGINAL_%s.wallet' % (wltID, '.watchonly')
          wltLogName  = 'armory_%s_LOGFILE_%s.log' % \
@@ -1710,14 +1715,15 @@ def FixWallets(wallets, dlg, Progress=None):
 
             
             fixer.EndLog = ("""
-                  <br>Wallet %s fixed!<br> 
+                  <br><b>Wallet analysis and restoration complete.</b><br>
                   The inconsistent wallet and log files were moved to:
-                  <br>%s/<br><br>""") % (wltID, corruptFolder)
+                  <br>%s/<br><br>""") % corruptFolder
                               
             Progress(fixer.UIreport + fixer.EndLog)
    
          except Exception as e:
             #failed to move files around, most likely a credential error
+            LOGEXCEPT(str(e))
             fixedWlt.remove(wlt.walletPath)
             errStr = '<br><b>An error occurred moving wallet files:</b> %s' % e
             wlterror.append([wltID, fixer.UIreport + errStr])
@@ -1733,7 +1739,7 @@ def FixWallets(wallets, dlg, Progress=None):
       dlg.loadFixedWallets(fixedWlt)
       
    else:
-      return [logsSaved, wlterror]
+      return wlterror
    
 
 #############################################################################

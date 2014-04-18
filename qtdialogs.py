@@ -628,7 +628,7 @@ class DlgBugReport(ArmoryDialog):
             LOGINFO('Server verified receipt of log file')
             QMessageBox.information(self, tr('Submitted!'), tr("""
                Your report was successfully received by the Armory team and will
-               be reviewed as soon as is possible.  Please be aware that the team
+               be reviewed as soon as possible.  Please be aware that the team
                receives lots of reports like these, so it may take a few days for
                the team to get back to you."""), QMessageBox.Ok)
             self.accept()
@@ -653,7 +653,7 @@ class DlgBugReport(ArmoryDialog):
 #        both these contexts can be handled by it.
 class DlgInconsistentWltReport(ArmoryDialog):
 
-   def __init__(self, parent, main, wlt, logPathList):
+   def __init__(self, parent, main, logPathList):
       super(DlgInconsistentWltReport, self).__init__(parent, main)
 
       tsPage = 'https://bitcoinarmory.com/troubleshooting'
@@ -666,7 +666,7 @@ class DlgInconsistentWltReport(ArmoryDialog):
       getWltStr = lambda w: '<b>Wallet "%s" (%s)</b>' % \
                                        (w.labelName, w.uniqueIDB58) 
     
-      if len(logPathList == 1):
+      if len(logPathList) == 1:
          wltDispStr = getWltStr(walletList[0]) + ' is'
       else:
          strList = [getWltStr(w) for w in walletList]
@@ -688,10 +688,10 @@ class DlgInconsistentWltReport(ArmoryDialog):
          relevant data from your Armory home directory to external media,
          such as USB drive.</font>
          <br><br>
-         """) % (wltDispStr, htmlColor('TextWarn'), htmlColor('TextWarn')))
+         """) % (wltDispStr, htmlColor('TextWarn')))
 
-      self.chkIncludeWOW = QCheckBox(tr("""
-         Include watching-only @{wallet|wallets}@""", len(walletList)))
+      self.chkIncludeWOW = QCheckBox(tr(""" Include watching-only 
+         @{wallet|wallets}@""", pluralList=len(walletList)))
       self.chkIncludeWOW.setChecked(False)
 
       self.btnMoreInfo = QLabelButton('Privacy Warning')
@@ -777,12 +777,12 @@ class DlgInconsistentWltReport(ArmoryDialog):
 
       self.userAgreedToPrivacyPolicy = False
       if self.chkIncludeWOW.isChecked():
-         if self.main.woWalletSubmitPrivacyWarning():
+         if self.main.woWalletSubmitPrivacyWarning(wCancel=True):
             self.userAgreedToPrivacyPolicy = True
          else:
             return
       else:
-         if self.main.submitRecoveryLogWarning():
+         if self.main.submitRecoveryLogWarning(wCancel=True):
             self.userAgreedToPrivacyPolicy = True
          else:
             return
@@ -852,6 +852,7 @@ class DlgInconsistentWltReport(ArmoryDialog):
          else:
             LOGDEBUG(key.ljust(12) + ': ' + val)
 
+
       expectedResponseMap = {}
       expectedResponseMap['logHash'] = binary_to_hex(sha256(reportMap['fileLog']))
 
@@ -885,9 +886,7 @@ class DlgInconsistentWltReport(ArmoryDialog):
             LOGINFO('Server verified receipt of log file')
             QMessageBox.information(self, tr('Submitted!'), tr("""
                Your report was successfully received by the Armory team and will
-               be reviewed as soon as is possible.  Please be aware that the team
-               receives lots of reports like these, so it may take a few days for
-               the team to get back to you."""), QMessageBox.Ok)
+               be reviewed as soon as possible."""), QMessageBox.Ok)
             self.accept()
          else:
             raise ConnectionError('Failed to send bug report')
@@ -914,8 +913,10 @@ class DlgInconsistentWltReport(ArmoryDialog):
       includeWlt = self.chkIncludeWOW.isChecked()
 
       # Open zipfile
-      uniqueFiles = set()
       zfilePath = os.path.join(ARMORY_HOME_DIR, 'wallet_analyze_logs.zip')
+
+      if os.path.exists(zfilePath):
+         os.remove(zfilePath)
 
       LOGINFO('Creating archive: %s', zfilePath)
       zfile = ZipFile(zfilePath, 'w', ZIP_DEFLATED)
@@ -926,10 +927,9 @@ class DlgInconsistentWltReport(ArmoryDialog):
             fullpath = os.path.join(logDir, fn)
 
             # If multiple dirs, will see duplicate armorylogs and multipliers
-            if fn in uniqueFiles or not os.path.isfile(fullpath):
+            if not os.path.isfile(fullpath):
                continue 
 
-            uniqueFiles.add(fn)
 
             # Exclude any wallet files if the checkbox was not checked
             if not includeWlt and os.path.getsize(fullpath) >= 8:
@@ -939,8 +939,10 @@ class DlgInconsistentWltReport(ArmoryDialog):
                      continue
 
             # If we got here, add file to archive
-            LOGINFO('   Adding %s to archive')
-            zfile.write(fullpath)
+            parentDir = os.path.basename(logDir)
+            archiveName = '%s_%s_%s' % (wltID, parentDir, fn)
+            LOGINFO('   Adding %s to archive' % archiveName)
+            zfile.write(fullpath, archiveName)
       
       zfile.close()
 
@@ -13122,6 +13124,7 @@ class DlgCorruptWallet(DlgProgress):
       self.running = 1
       self.status = 1
       self.isFixing = False
+      self.needToSubmitLogs = False
 
       self.layout = QVBoxLayout()
 
@@ -13280,21 +13283,20 @@ class DlgCorruptWallet(DlgProgress):
          self.main.removeWalletFromApplication(wlt.uniqueIDB58)
 
 
-      self.logDirs,wltErrs = FixWallets(self.walletList, self, 
-                                    Progress=self.UpdateText, async=True)
+      FixWallets(self.walletList, self, Progress=self.UpdateText, async=True)
 
 
    def UpdateDlg(self, text=None, HBar=None, Title=None):
       if text is not None: self.lblDesc.setText(text)
 
    def accept(self):
-      self.main.emit(SIGNAL('checkForkedImports'))      
+      self.main.emit(SIGNAL('checkForNegImports'))      
       super(DlgCorruptWallet, self).accept()      
 
    def reject(self):
       if not self.isFixing:
          super(DlgProgress, self).reject()
-         self.main.emit(SIGNAL('checkForkedImports'))
+         self.main.emit(SIGNAL('checkForNegImports'))
 
    def sigSetNewProgress(self, status):
       self.emit(SIGNAL('SNP'), status)
@@ -13316,12 +13318,15 @@ class DlgCorruptWallet(DlgProgress):
       self.btnClose.disconnect(self, SIGNAL('clicked()'), self.hide)
       self.btnClose.connect(self, SIGNAL('clicked()'), self.accept)
       self.isFixing = False
+      #self.lblFixRdy.setVisible(True)
       if len(st) == 0:
-         self.lblDescr2.setText('<h2 style="color: green;">Wallets Fixed! You can close this window</h2>')
+         self.needToSubmitLogs = False
+         #self.lblFixRdy.setText('<h2 style="color: green;">Wallets Fixed! You can close this window</h2>')
          self.main.statusBar().showMessage('Wallets fixed!', 15000)
 
       else:
-         self.lblDescr2.setText('<h2 style="color: red;">Failed to fix wallets!</h2>')
+         self.needToSubmitLogs = True
+         #self.lblFixRdy.setText('<h2 style="color: red;">Failed to fix wallets!</h2>')
          self.main.statusBar().showMessage('Failed to fix wallets!', 150000)
 
    def loadFixedWallets(self, wallets):
@@ -13340,9 +13345,14 @@ class DlgCorruptWallet(DlgProgress):
       self.main.emit(SIGNAL('checkForkedImport'))
 
 
-   def submitLogsToATI(self):
-      dlgIWR = DlgInconsistentWltReport(self, self.main, self.logDirs)
-      if dlgIWR.exec_():
+   # Decided that we can just add all the logic to 
+   #def checkForkedSubmitLogs(self):
+      #forkedImports = []
+      #for wlt in self.walletMap:
+         #if self.walletMap[wlt].hasForkedImports:
+            #dlgIWR = DlgInconsistentWltReport(self, self.main, self.logDirs)
+            #if dlgIWR.exec_():
+            #return
 
 
 #################################################################################

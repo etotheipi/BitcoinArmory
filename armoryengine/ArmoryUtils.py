@@ -700,8 +700,8 @@ DEFAULT_RAWDATA_LOGLEVEL  = logging.DEBUG
 rootLogger = logging.getLogger('')
 if CLI_OPTIONS.doDebug or CLI_OPTIONS.netlog or CLI_OPTIONS.mtdebug:
    # Drop it all one level: console will see INFO, file will see DEBUG
-   DEFAULT_CONSOLE_LOGTHRESH  -= 10
-   DEFAULT_FILE_LOGTHRESH     -= 10
+   DEFAULT_CONSOLE_LOGTHRESH  -= 20
+   DEFAULT_FILE_LOGTHRESH     -= 20
 
 
 def chopLogFile(filename, size):
