@@ -27,7 +27,7 @@ if run_WalletCreate:
    print '\n\nCreating a new C++ wallet, add a few addresses...'
    cppWallet = Cpp.BtcWallet()
    cppWallet.addAddress_1_( hex_to_binary('11b366edfc0a8b66feebae5c2e25a7b6a5d1cf31') )  # hash160 (hex)
-   cppWallet.addAddress_1_( addrStr_to_hash160('1EbAUHsitefy3rSECh8eK2fdAWTUbpVUDN') )   # addrStr
+   cppWallet.addAddress_1_( addrStr_to_hash160('1EbAUHsitefy3rSECh8eK2fdAWTUbpVUDN')[1] )   # addrStr
    cppWallet.addAddress_1_('\x1b~\xa7*\x85\t\x12\xb7=\xd4G\xf3\xbd\xc1\x00\xf1\x00\x8b\xde\xb0') # hash160 (bin)
 
    print 'Addresses in this wallet:'
@@ -222,7 +222,7 @@ if run_SatoshiDice:
    for line in httppage:
       if 'lessthan' in line and '1dice' in line:
          targ,addr,winr,mult,hous,rtrn   = extractLineData(line)
-         diceAddr                        = addrStr_to_hash160(addr)
+         diceAddr                        = addrStr_to_hash160(addr)[1]
          diceTargetMap[diceAddr]         = int(targ)
          dicePctWinMap[diceAddr]         = float(winr[:-1])/100.0
          diceWinMultMap[diceAddr]        = float(mult[:-1])

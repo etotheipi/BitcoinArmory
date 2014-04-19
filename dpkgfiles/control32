@@ -8,7 +8,7 @@ Homepage: http://www.bitcoinarmory.com
 
 Package: armory
 Architecture: i386
-Depends: python (>= 2.6), python-qt4, python-twisted, python-psutil, ${shlibs:Depends}, ${python:Depends}
+Depends: python (>= 2.6), python-qt4, python-twisted, python-psutil, xdg-utils, ${shlibs:Depends}
 Description: Advanced Bitcoin Wallet Management Software
  Armory is advanced program for managing multiple Bitcoin wallets with the 
  highest level of security available.  Use top-of-the-line wallet encryption,

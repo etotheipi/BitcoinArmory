@@ -16,11 +16,9 @@
 #include "leveldb/status.h"
 #include "leveldb/write_batch.h"
 
-// ***** ADDED BY AREINER FROM GOATPIG'S WINDOWS-PORT INSTRUCTIONS
-#if defined(_MSC_VER) || defined(__MINGW32__)
-   #define strdup _strdup
+#ifdef _MSC_VER
+	#define strdup _strdup
 #endif
-// ***** ADDED BY AREINER FROM GOATPIG'S WINDOWS-PORT INSTRUCTIONS
 
 using leveldb::Cache;
 using leveldb::Comparator;

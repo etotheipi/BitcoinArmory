@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////
 //                                                                            //
-//  Copyright(C) 2011-2013, Armory Technologies, Inc.                         //
+//  Copyright (C) 2011-2014, Armory Technologies, Inc.                        //
 //  Distributed under the GNU Affero General Public License (AGPL v3)         //
 //  See LICENSE or http://www.gnu.org/licenses/agpl.html                      //
 //                                                                            //
@@ -186,7 +186,8 @@ public:
    // This would be a static method, as would be appropriate, except SWIG won't
    // play nice with static methods.  Instead, we will just use 
    // SecureBinaryData().GenerateRandom(32), etc
-   SecureBinaryData GenerateRandom(uint32_t numBytes);
+   SecureBinaryData GenerateRandom(uint32_t numBytes, 
+                              SecureBinaryData extraEntropy=SecureBinaryData());
 
    void lockData(void)
    {
@@ -314,7 +315,8 @@ public:
    CryptoECDSA(void) {}
 
    /////////////////////////////////////////////////////////////////////////////
-   static BTC_PRIVKEY CreateNewPrivateKey(void);
+   static BTC_PRIVKEY CreateNewPrivateKey(
+                              SecureBinaryData extraEntropy=SecureBinaryData());
 
    /////////////////////////////////////////////////////////////////////////////
    static BTC_PRIVKEY ParsePrivateKey(SecureBinaryData const & privKeyData);
@@ -355,7 +357,7 @@ public:
 
    /////////////////////////////////////////////////////////////////////////////
    // For doing direct raw ECPoint operations... need the ECP object
-   static CryptoPP::ECP & Get_secp256k1_ECP(void);
+   static CryptoPP::ECP Get_secp256k1_ECP(void);
 
 
    /////////////////////////////////////////////////////////////////////////////
@@ -364,7 +366,8 @@ public:
    // SWIG to take BTC_PUBKEY and BTC_PRIVKEY
 
    /////////////////////////////////////////////////////////////////////////////
-   SecureBinaryData GenerateNewPrivateKey(void);
+   SecureBinaryData GenerateNewPrivateKey(
+                              SecureBinaryData extraEntropy=SecureBinaryData());
    
    /////////////////////////////////////////////////////////////////////////////
    SecureBinaryData ComputePublicKey(SecureBinaryData const & cppPrivKey);
@@ -395,14 +398,17 @@ public:
    //           hurt to add some extra entropy/non-linearity to the chain
    //           generation process)
    SecureBinaryData ComputeChainedPrivateKey(
-                     SecureBinaryData const & binPrivKey,
-                     SecureBinaryData const & chainCode,
-                     SecureBinaryData binPubKey=SecureBinaryData());
+                           SecureBinaryData const & binPrivKey,
+                           SecureBinaryData const & chainCode,
+                           SecureBinaryData binPubKey=SecureBinaryData(),
+                           SecureBinaryData* computedMultiplier=NULL);
                                
    /////////////////////////////////////////////////////////////////////////////
    // Deterministically generate new private key using a chaincode
-   SecureBinaryData ComputeChainedPublicKey(SecureBinaryData const & binPubKey,
-                                            SecureBinaryData const & chainCode);
+   SecureBinaryData ComputeChainedPublicKey(
+                           SecureBinaryData const & binPubKey,
+                           SecureBinaryData const & chainCode,
+                           SecureBinaryData* multiplierOut=NULL);
 
 
    /////////////////////////////////////////////////////////////////////////////

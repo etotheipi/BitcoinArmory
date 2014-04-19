@@ -1,23 +1,26 @@
 ################################################################################
 #                                                                              #
-# Copyright (C) 2011-2013, Armory Technologies, Inc.                           #
+# Copyright (C) 2011-2014, Armory Technologies, Inc.                           #
 # Distributed under the GNU Affero General Public License (AGPL v3)            #
 # See LICENSE or http://www.gnu.org/licenses/agpl.html                         #
 #                                                                              #
 ################################################################################
 
+from os import path
 import os
 import platform
 import sys
-from os import path
+
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *
+
+from CppBlockUtils import *
+from armoryengine.ALL import *
+from qtdefines import *
+
+
 sys.path.append('..')
 sys.path.append('../cppForSwig')
-from armoryengine import *
-from CppBlockUtils import *
-from qtdefines import *
-from armorycolors import Colors, htmlColor
 
 
 
@@ -178,7 +181,7 @@ class LedgerDispModelSimple(QAbstractTableModel):
          #if self.index(index.row(),COL.DoubleSpend).data().toBool():
          if rowData[COL.DoubleSpend]:
             return QVariant(Colors.TextRed)
-         if nConf <= 2:
+         if nConf < 2:
             return QVariant(Colors.TextNoConfirm)
          elif nConf <= 4:
             return QVariant(Colors.TextSomeConfirm)
@@ -420,6 +423,7 @@ class WalletAddrDispModel(QAbstractTableModel):
       self.addr160List = [a.getAddr160() for a in addrList]
 
 
+   @TimeThisFunction
    def reset(self):
       self.filterAddrList()
       super(WalletAddrDispModel, self).reset()
@@ -592,18 +596,19 @@ class TxInDispModel(QAbstractTableModel):
          scrType = getTxInScriptType(txin)
          if txinListFromBDM and len(txinListFromBDM[i][0])>0:
             # We had a BDM to help us get info on each input -- use it
-            recip160,val,blk,hsh,idx = txinListFromBDM[i]
+            scrAddr,val,blk,hsh,idx = txinListFromBDM[i]
+            addrStr = scrAddr_to_addrStr(scrAddr)
             if main:
-               wltID = self.main.getWalletForAddr160(recip160)
+               wltID = self.main.getWalletForAddr160(scrAddr[1:])
             dispcoin  = '' if not val else coin2str(val,maxZeros=1)
             self.dispTable[-1].append(wltID)
-            self.dispTable[-1].append(hash160_to_addrStr(recip160))
+            self.dispTable[-1].append(addrStr)
             self.dispTable[-1].append(dispcoin)
             self.dispTable[-1].append(binary_to_hex(hsh))
             self.dispTable[-1].append(idx)
             self.dispTable[-1].append(blk)
             if pytxdp==None:
-               self.dispTable[-1].append(TXIN_TYPE_NAMES[scrType])
+               self.dispTable[-1].append(CPP_TXIN_SCRIPT_NAMES[scrType])
             else:
                # TODO:  Assume NO multi-sig... will be updated in future to use 
                #        PyTxDP::isSigValidForInput which will handle all cases
@@ -615,17 +620,19 @@ class TxInDispModel(QAbstractTableModel):
             # We don't have any info from the BDM, display whatever we can
             # (which usually isn't much)
             recipAddr = '<Unknown>'
-            if scrType in (TXIN_SCRIPT_STANDARD,):
-               recipAddr = TxInScriptExtractAddr160IfAvail(txin)
-               if main:
-                  wltID = self.main.getWalletForAddr160(recip)
+            recipAddr = TxInExtractAddrStrIfAvail(txin)
+            atype, a160 = '',''
+            if len(recipAddr) > 0:
+               atype, a160 = addrStr_to_hash160(recipAddr)
+               wltID = self.main.getWalletForAddr160(a160)
+
             self.dispTable[-1].append(wltID)
-            self.dispTable[-1].append(recipAddr)
+            self.dispTable[-1].append(a160)
             self.dispTable[-1].append('<Unknown>')
             self.dispTable[-1].append(binary_to_hex(txin.outpoint.txHash))
             self.dispTable[-1].append(str(txin.outpoint.txOutIndex))
             self.dispTable[-1].append('')
-            self.dispTable[-1].append(TXIN_TYPE_NAMES[scrType])
+            self.dispTable[-1].append(CPP_TXIN_SCRIPT_NAMES[scrType])
             self.dispTable[-1].append(int_to_hex(txin.intSeq, widthBytes=4))
             self.dispTable[-1].append(binary_to_hex(txin.binScript))
 
@@ -702,9 +709,9 @@ class TxOutDispModel(QAbstractTableModel):
       self.main = main
       self.txOutList = []
       self.wltIDList = []
-      self.idxGray = idxGray
+      self.idxGray = idxGray[:]
       for i,txout in enumerate(self.tx.outputs):
-         recip160 = TxOutScriptExtractAddr160(txout.binScript)
+         recip160 = script_to_scrAddr(txout.binScript)[1:]
          self.txOutList.append(txout)
          if main:
             self.wltIDList.append(main.getWalletForAddr160(recip160))
@@ -722,31 +729,24 @@ class TxOutDispModel(QAbstractTableModel):
       COLS = TXOUTCOLS
       row,col = index.row(), index.column()
       txout = self.txOutList[row]
-      stype = getTxOutScriptType(txout.binScript)
-      stypeStr = TXOUT_TYPE_NAMES[stype]
+      stype = BtcUtils().getTxOutScriptTypeInt(txout.binScript)
+      stypeStr = CPP_TXOUT_SCRIPT_NAMES[stype]
       wltID = self.wltIDList[row]
-      if stype==TXOUT_SCRIPT_MULTISIG:
-         mstype = getTxOutMultiSigInfo(txout.binScript)[0]
-         stypeStr = 'Multi-Signature (%d-of-%d)' % mstype
+      if stype==CPP_TXOUT_MULTISIG:
+         M,N = getMultisigScriptInfo(txout.binScript)[:2]
+         stypeStr = 'MultiSig(%d-of-%d)' % (M,N)
       if role==Qt.DisplayRole:
          if col==COLS.WltID:   return QVariant(wltID)
          if col==COLS.ScrType: return QVariant(stypeStr)
          if col==COLS.Script:  return QVariant(binary_to_hex(txout.binScript))
-         if stype==TXOUT_SCRIPT_STANDARD:
-            if col==COLS.Recip:   return QVariant(TxOutScriptExtractAddrStr(txout.binScript))
-            if col==COLS.Btc:     return QVariant(coin2str(txout.getValue(),maxZeros=2))
-         if stype==TXOUT_SCRIPT_COINBASE:
-            if col==COLS.Recip:   return QVariant(TxOutScriptExtractAddrStr(txout.binScript))
-            if col==COLS.Btc:     return QVariant(coin2str(txout.getValue(),maxZeros=2))
-         if stype==TXOUT_SCRIPT_MULTISIG:
-            if col==COLS.Recip:   return QVariant('[[Multiple]]')
-            if col==COLS.Btc:     return QVariant(coin2str(txout.getValue(),maxZeros=2))
-         if stype==TXOUT_SCRIPT_UNKNOWN:
-            if col==COLS.Recip:   return QVariant('[[Non-Standard]]')
-            if col==COLS.Btc:     return QVariant(coin2str(txout.getValue(),maxZeros=2))
-         if stype==TXOUT_SCRIPT_OP_EVAL:
-            if col==COLS.Recip:   return QVariant('[[OP-EVAL]]')
-            if col==COLS.Btc:     return QVariant(coin2str(txout.getValue(),maxZeros=2))
+         if col==COLS.Btc:     return QVariant(coin2str(txout.getValue(),maxZeros=2))
+         if col==COLS.Recip:   
+            if stype in CPP_TXOUT_HAS_ADDRSTR:
+               return QVariant(script_to_addrStr(txout.binScript))
+            elif stype==CPP_TXOUT_MULTISIG:
+               return QVariant('[[Multiple]]')
+            elif stype==CPP_TXOUT_NONSTANDARD:
+               return QVariant('[[Non-Standard]]')
       elif role==Qt.TextAlignmentRole:
          if col==COLS.Recip:   return QVariant(int(Qt.AlignLeft | Qt.AlignVCenter))
          if col==COLS.Btc:     return QVariant(int(Qt.AlignRight | Qt.AlignVCenter))
@@ -806,7 +806,12 @@ class SentToAddrBookModel(QAbstractTableModel):
       # the python code... :(
       for abe in TheBDM.getAddressBook(self.wlt.cppWallet):     
 
-         addr160 = CheckHash160(abe.getScrAddr())
+         scrAddr = abe.getScrAddr()
+         try:
+            addr160 = addrStr_to_hash160(scrAddr_to_addrStr(scrAddr))[1]
+         except Exception as e:
+            LOGERROR(str(e))
+            addr160 = ''
 
          # Only grab addresses that are not in any of your Armory wallets
          if not self.main.getWalletForAddr160(addr160):
@@ -815,9 +820,8 @@ class SentToAddrBookModel(QAbstractTableModel):
             txhashlist = []
             for i in range(ntx):
                txhashlist.append( abeList[i].getTxHash() )
-            self.addrBook.append( [ addr160, txhashlist] )
+            self.addrBook.append( [scrAddr, txhashlist] )
 
-      print 'Done collecting addresses for addrbook'
 
    def rowCount(self, index=QModelIndex()):
       return len(self.addrBook)
@@ -828,8 +832,13 @@ class SentToAddrBookModel(QAbstractTableModel):
    def data(self, index, role=Qt.DisplayRole):
       COL = ADDRBOOKCOLS
       row,col  = index.row(), index.column()
-      addr160  = self.addrBook[row][0]
-      addrB58  = hash160_to_addrStr(addr160)
+      scrAddr  = self.addrBook[row][0]
+      if scrAddr[0] in [SCRADDR_P2PKH_BYTE, SCRADDR_P2SH_BYTE]:
+         addrB58 = scrAddr_to_addrStr(scrAddr)
+         addr160 = scrAddr[1:]
+      else:
+         addrB58 = ''
+         addr160 = ''
       wltID    = self.main.getWalletForAddr160(addr160)
       txList   = self.addrBook[row][1]
       numSent  = len(txList)

@@ -17,36 +17,12 @@
       <Configuration>Release</Configuration>
       <Platform>x64</Platform>
     </ProjectConfiguration>
-    <ProjectConfiguration Include="WinXP Release|Win32">
-      <Configuration>WinXP Release</Configuration>
-      <Platform>Win32</Platform>
-    </ProjectConfiguration>
-    <ProjectConfiguration Include="WinXP Release|x64">
-      <Configuration>WinXP Release</Configuration>
-      <Platform>x64</Platform>
-    </ProjectConfiguration>
     <ProjectConfiguration Include="WinXP_32|Win32">
       <Configuration>WinXP_32</Configuration>
       <Platform>Win32</Platform>
     </ProjectConfiguration>
     <ProjectConfiguration Include="WinXP_32|x64">
       <Configuration>WinXP_32</Configuration>
-      <Platform>x64</Platform>
-    </ProjectConfiguration>
-    <ProjectConfiguration Include="WinXP_release_x86|Win32">
-      <Configuration>WinXP_release_x86</Configuration>
-      <Platform>Win32</Platform>
-    </ProjectConfiguration>
-    <ProjectConfiguration Include="WinXP_release_x86|x64">
-      <Configuration>WinXP_release_x86</Configuration>
-      <Platform>x64</Platform>
-    </ProjectConfiguration>
-    <ProjectConfiguration Include="Win_XP_32|Win32">
-      <Configuration>Win_XP_32</Configuration>
-      <Platform>Win32</Platform>
-    </ProjectConfiguration>
-    <ProjectConfiguration Include="Win_XP_32|x64">
-      <Configuration>Win_XP_32</Configuration>
       <Platform>x64</Platform>
     </ProjectConfiguration>
   </ItemGroup>
@@ -200,8 +176,8 @@
       </PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
-      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;LEVELDB_PLATFORM_POSIX;LEVELDB_CSTDATOMIC_PRESENT;NOMINMAX;WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>..\pthreads-w32-2-9-1-release\Pre-built.2\include;.\win32_posix;..\leveldb;..\leveldb\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;LEVELDB_PLATFORM_POSIX;LEVELDB_HAVE_MEMORY_BARRIER;NOMINMAX;WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>.\win32_posix;..\leveldb;..\leveldb\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
     </ClCompile>
     <Link>
@@ -209,8 +185,9 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
     <Lib>
-      <AdditionalDependencies>pthreadVC2.lib</AdditionalDependencies>
-      <AdditionalLibraryDirectories>..\pthreads-w32-2-9-1-release\Pre-built.2\lib\x86;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>
+      </AdditionalDependencies>
+      <AdditionalLibraryDirectories>%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Lib>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Win_XP_32|Win32'">
@@ -241,7 +218,7 @@
       </PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
-      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;LEVELDB_PLATFORM_POSIX;LEVELDB_CSTDATOMIC_PRESENT;NOMINMAX;WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;LEVELDB_PLATFORM_POSIX;LEVELDB_HAVE_MEMORY_BARRIER;NOMINMAX;WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>..\pthreads-w32-2-9-1-release\Pre-built.2\include;.\win32_posix;..\leveldb;..\leveldb\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
     </ClCompile>
@@ -281,7 +258,7 @@
       <Optimization>Full</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>false</IntrinsicFunctions>
-      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;LEVELDB_PLATFORM_POSIX;LEVELDB_CSTDATOMIC_PRESENT;NOMINMAX;WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;LEVELDB_PLATFORM_POSIX;LEVELDB_HAVE_MEMORY_BARRIER;NOMINMAX;USE_CONDVAR;NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <AdditionalIncludeDirectories>.\win32_posix;..\leveldb;..\leveldb\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <DebugInformationFormat>None</DebugInformationFormat>
@@ -311,9 +288,9 @@
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;LEVELDB_PLATFORM_POSIX;LEVELDB_HAVE_MEMORY_BARRIER;NOMINMAX;WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;LEVELDB_PLATFORM_POSIX;LEVELDB_HAVE_MEMORY_BARRIER;NDEBUG;LEVELDB_HAVE_MEMORY_BARRIER;NOMINMAX;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
-      <AdditionalIncludeDirectories>..\pthreads-w32-2-9-1-release\Pre-built.2\include;.\win32_posix;..\leveldb;..\leveldb\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.\win32_posix;..\leveldb;..\leveldb\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -324,10 +301,11 @@
       <AdditionalLibraryDirectories>..\pthreads-w32-2-9-1-release\Pre-built.2\lib\x86;..\pthreads-w32-2-9-1-release\Pre-built.2\dll\x86;$(SolutionDir)$(Platform)\libs;C:\WinDDK\7600.16385.1\lib\ATL\i386</AdditionalLibraryDirectories>
     </Link>
     <Lib>
-      <AdditionalDependencies>pthreadVC2.lib</AdditionalDependencies>
+      <AdditionalDependencies>
+      </AdditionalDependencies>
     </Lib>
     <Lib>
-      <AdditionalLibraryDirectories>..\pthreads-w32-2-9-1-release\Pre-built.2\lib\x86;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Lib>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -338,7 +316,7 @@
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;LEVELDB_PLATFORM_POSIX;LEVELDB_CSTDATOMIC_PRESENT;NOMINMAX;WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;LEVELDB_PLATFORM_POSIX;LEVELDB_HAVE_MEMORY_BARRIER;NOMINMAX;USE_CONDVAR;NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <AdditionalIncludeDirectories>.\win32_posix;..\leveldb;..\leveldb\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
@@ -366,7 +344,7 @@
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;LEVELDB_PLATFORM_POSIX;LEVELDB_CSTDATOMIC_PRESENT;NOMINMAX;WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;LEVELDB_PLATFORM_POSIX;LEVELDB_HAVE_MEMORY_BARRIER;NDEBUG;LEVELDB_CSTDATOMIC_PRESENT;NOMINMAX;WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <AdditionalIncludeDirectories>..\pthreads-w32-2-9-1-release\Pre-built.2\include;.\win32_posix;..\leveldb;..\leveldb\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
@@ -405,7 +383,6 @@
     <ClCompile Include="..\leveldb\db\builder.cc" />
     <ClCompile Include="..\leveldb\db\c.cc" />
     <ClCompile Include="..\leveldb\db\dbformat.cc" />
-    <ClCompile Include="..\leveldb\db\db_bench.cc" />
     <ClCompile Include="..\leveldb\db\db_impl.cc" />
     <ClCompile Include="..\leveldb\db\db_iter.cc" />
     <ClCompile Include="..\leveldb\db\filename.cc" />
@@ -443,7 +420,7 @@
     <ClCompile Include="..\leveldb\util\status.cc" />
     <ClCompile Include="..\leveldb\util\testharness.cc" />
     <ClCompile Include="..\leveldb\util\testutil.cc" />
-    <ClCompile Include="win32_posix\dirent_win32.c" />
+    <ClCompile Include="win32_posix\dirent_win32.cpp" />
     <ClCompile Include="win32_posix\mman.cpp" />
     <ClCompile Include="win32_posix\pthread_win32port.cpp" />
     <ClCompile Include="win32_posix\win32_posix.cc" />

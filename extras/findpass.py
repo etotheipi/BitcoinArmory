@@ -7,7 +7,9 @@ import sys
 sys.argv.append('--nologging')
 from sys import path, argv
 import os
-from armoryengine import PyBtcWallet, RightNow
+
+from armoryengine.PyBtcWallet import PyBtcWallet
+from armoryengine.ArmoryUtils import RightNow
 from CppBlockUtils import SecureBinaryData
 from operator import add, mul
 # Give an upper limit for any method to return

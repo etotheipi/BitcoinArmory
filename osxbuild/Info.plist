@@ -5,8 +5,8 @@
   <key>CFBundleDisplayName</key> <string>Armory Bitcoin Client</string>
   <key>CFBundleExecutable</key> <string>Armory</string>
   <key>CFBundleIdentifier</key> <string>com.armory.armory</string>
-  <key>CFBundleIconFile</key> <string>Icon</string>
-  <key>CFBundleInfoDictionaryVersion</key> <string>0.87.2</string>
+  <key>CFBundleIconFile</key> <string>Icon.icns</string>
+  <key>CFBundleInfoDictionaryVersion</key> <string>0.89.99.3</string>
   <key>CFBundleName</key> <string>Armory Bitcoin Client</string>
   <key>NSPrincipalClass</key> <string>NSApplication</string>
   <key>LSMinimumSystemVersion</key> <string>10.6.0</string>

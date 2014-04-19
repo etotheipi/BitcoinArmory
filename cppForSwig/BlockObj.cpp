@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////
 //                                                                            //
-//  Copyright(C) 2011-2013, Armory Technologies, Inc.                         //
+//  Copyright (C) 2011-2014, Armory Technologies, Inc.                        //
 //  Distributed under the GNU Affero General Public License (AGPL v3)         //
 //  See LICENSE or http://www.gnu.org/licenses/agpl.html                      //
 //                                                                            //
@@ -21,8 +21,10 @@
 
 
 ////////////////////////////////////////////////////////////////////////////////
-void BlockHeader::unserialize(uint8_t const * ptr)
+void BlockHeader::unserialize(uint8_t const * ptr, uint32_t size)
 {
+   if (size < HEADER_SIZE)
+      throw BlockDeserializingException();
    dataCopy_.copyFrom(ptr, HEADER_SIZE);
    BtcUtils::getHash256(dataCopy_.getPtr(), HEADER_SIZE, thisHash_);
    difficultyDbl_ = BtcUtils::convertDiffBitsToDouble( 
@@ -40,7 +42,7 @@ void BlockHeader::unserialize(uint8_t const * ptr)
 ////////////////////////////////////////////////////////////////////////////////
 void BlockHeader::unserialize(BinaryDataRef const & str) 
 { 
-   unserialize(str.getPtr()); 
+   unserialize(str.getPtr(), str.getSize()); 
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -155,18 +157,25 @@ BinaryData OutPoint::serialize(void) const
    return bw.getData();
 }
 
-void OutPoint::unserialize(uint8_t const * ptr)
+void OutPoint::unserialize(uint8_t const * ptr, uint32_t size)
 {
+   if (size < 32)
+      throw BlockDeserializingException();
+
    txHash_.copyFrom(ptr, 32);
    txOutIndex_ = READ_UINT32_LE(ptr+32);
 }
 void OutPoint::unserialize(BinaryReader & br)
 {
+   if (br.getSizeRemaining() < 32)
+      throw BlockDeserializingException();
    br.get_BinaryData(txHash_, 32);
    txOutIndex_ = br.get_uint32_t();
 }
 void OutPoint::unserialize(BinaryRefReader & brr)
 {
+   if (brr.getSizeRemaining() < 32)
+      throw BlockDeserializingException();
    brr.get_BinaryData(txHash_, 32);
    txOutIndex_ = brr.get_uint32_t();
 }
@@ -174,11 +183,11 @@ void OutPoint::unserialize(BinaryRefReader & brr)
 
 void OutPoint::unserialize(BinaryData const & bd) 
 { 
-   unserialize(bd.getPtr()); 
+   unserialize(bd.getPtr(), bd.getSize());
 }
 void OutPoint::unserialize(BinaryDataRef const & bdRef) 
 { 
-   unserialize(bdRef.getPtr());
+   unserialize(bdRef.getPtr(), bdRef.getSize());
 }
 
 
@@ -194,7 +203,7 @@ void OutPoint::unserialize(BinaryDataRef const & bdRef)
 OutPoint TxIn::getOutPoint(void) const
 { 
    OutPoint op;
-   op.unserialize(getPtr());
+   op.unserialize(getPtr(), getSize());
    return op;
 }
 
@@ -215,20 +224,26 @@ BinaryDataRef TxIn::getScriptRef(void) const
 }
 
 
-
 /////////////////////////////////////////////////////////////////////////////
-void TxIn::unserialize(uint8_t const * ptr, 
+void TxIn::unserialize_checked(uint8_t const * ptr, 
+                       uint32_t        size,
                        uint32_t        nbytes, 
                        TxRef           parent, 
                        uint32_t        idx)
 {
    parentTx_ = parent;
    index_ = idx;
-   uint32_t numBytes = (nbytes==0 ? BtcUtils::TxInCalcLength(ptr) : nbytes);
+   uint32_t numBytes = (nbytes==0 ? BtcUtils::TxInCalcLength(ptr, size) : nbytes);
+   if (size < numBytes)
+      throw BlockDeserializingException();
    dataCopy_.copyFrom(ptr, numBytes);
 
+   if (dataCopy_.getSize()-36 < 1)
+      throw BlockDeserializingException();
    scriptOffset_ = 36 + BtcUtils::readVarIntLength(getPtr()+36);
 
+   if (dataCopy_.getSize() < 32)
+      throw BlockDeserializingException();
    scriptType_ = BtcUtils::getTxInScriptType(getScriptRef(),
                                              BinaryDataRef(getPtr(),32));
 
@@ -245,7 +260,7 @@ void TxIn::unserialize(BinaryRefReader & brr,
                        TxRef parent, 
                        uint32_t idx)
 {
-   unserialize(brr.getCurrPtr(), nbytes, parent, idx);
+   unserialize_checked(brr.getCurrPtr(), brr.getSizeRemaining(), nbytes, parent, idx);
    brr.advance(getSize());
 }
 
@@ -255,7 +270,7 @@ void TxIn::unserialize(BinaryData const & str,
                        TxRef parent,
                        uint32_t idx)
 {
-   unserialize(str.getPtr(), nbytes, parent, idx);
+   unserialize_checked(str.getPtr(), str.getSize(), nbytes, parent, idx);
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -264,7 +279,7 @@ void TxIn::unserialize(BinaryDataRef str,
                        TxRef parent,
                        uint32_t idx)
 {
-   unserialize(str.getPtr(), nbytes, parent, idx);
+   unserialize_checked(str.getPtr(), str.getSize(), nbytes, parent, idx);
 }
 
 
@@ -281,7 +296,14 @@ bool TxIn::getSenderScrAddrIfAvail(BinaryData & addrTarget) const
       return false;
    }
    
-   addrTarget = BtcUtils::getTxInAddrFromType(getScript(), scriptType_);
+   try
+   {
+      addrTarget = BtcUtils::getTxInAddrFromType(getScript(), scriptType_);
+   }
+   catch (BlockDeserializingException&)
+   {
+      return false;
+   }
    return true;
 }
 
@@ -355,9 +377,9 @@ BinaryDataRef TxOut::getScriptRef(void)
    return BinaryDataRef( dataCopy_.getPtr()+scriptOffset_, getScriptSize() );
 }
 
-
 /////////////////////////////////////////////////////////////////////////////
-void TxOut::unserialize( uint8_t const * ptr,
+void TxOut::unserialize_checked( uint8_t const * ptr,
+                         uint32_t size,
                          uint32_t nbytes,
                          TxRef parent,
                          uint32_t idx)
@@ -365,9 +387,13 @@ void TxOut::unserialize( uint8_t const * ptr,
    parentTx_ = parent;
    index_ = idx;
    uint32_t numBytes = (nbytes==0 ? BtcUtils::TxOutCalcLength(ptr) : nbytes);
+   if (size < numBytes)
+      throw BlockDeserializingException();
    dataCopy_.copyFrom(ptr, numBytes);
 
    scriptOffset_ = 8 + BtcUtils::readVarIntLength(getPtr()+8);
+   if (dataCopy_.getSize()-scriptOffset_-getScriptSize() > size)
+      throw BlockDeserializingException();
    BinaryDataRef scriptRef(dataCopy_.getPtr()+scriptOffset_, getScriptSize());
    scriptType_ = BtcUtils::getTxOutScriptType(scriptRef);
    uniqueScrAddr_ = BtcUtils::getTxOutScrAddr(scriptRef);
@@ -385,7 +411,7 @@ void TxOut::unserialize( BinaryData const & str,
                          TxRef  parent,
                          uint32_t idx)
 {
-   unserialize(str.getPtr(), nbytes, parent, idx);
+   unserialize_checked(str.getPtr(), str.getSize(), nbytes, parent, idx);
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -394,7 +420,7 @@ void TxOut::unserialize( BinaryDataRef const & str,
                          TxRef  parent,
                          uint32_t idx)
 {
-   unserialize(str.getPtr(), nbytes, parent, idx);
+   unserialize_checked(str.getPtr(), str.getSize(), nbytes, parent, idx);
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -403,7 +429,7 @@ void TxOut::unserialize( BinaryRefReader & brr,
                          TxRef  parent,
                          uint32_t idx)
 {
-   unserialize( brr.getCurrPtr(), nbytes, parent, idx );
+   unserialize_checked( brr.getCurrPtr(), brr.getSizeRemaining(), nbytes, parent, idx );
    brr.advance(getSize());
 }
 
@@ -464,14 +490,20 @@ Tx::Tx(TxRef  txref)
 }
 
 /////////////////////////////////////////////////////////////////////////////
-void Tx::unserialize(uint8_t const * ptr)
+void Tx::unserialize(uint8_t const * ptr, uint32_t size)
 {
-   uint32_t nBytes = BtcUtils::TxCalcLength(ptr, &offsetsTxIn_, &offsetsTxOut_);
+   uint32_t nBytes = BtcUtils::TxCalcLength(ptr, size, &offsetsTxIn_, &offsetsTxOut_);
+   if (nBytes > size)
+      throw BlockDeserializingException();
    dataCopy_.copyFrom(ptr, nBytes);
    BtcUtils::getHash256(ptr, nBytes, thisHash_);
+   if (8 > size)
+      throw BlockDeserializingException();
 
    uint32_t numTxOut = offsetsTxOut_.size()-1;
    version_  = READ_UINT32_LE(ptr);
+   if (4 > size - offsetsTxOut_[numTxOut])
+      throw BlockDeserializingException();
    lockTime_ = READ_UINT32_LE(ptr + offsetsTxOut_[numTxOut]);
 
    isInitialized_ = true;
@@ -497,7 +529,7 @@ BinaryData Tx::getThisHash(void) const
 /////////////////////////////////////////////////////////////////////////////
 void Tx::unserialize(BinaryRefReader & brr)
 {
-   unserialize(brr.getCurrPtr());
+   unserialize(brr.getCurrPtr(), brr.getSizeRemaining());
    brr.advance(getSize());
 }
 
@@ -529,7 +561,8 @@ TxIn Tx::getTxInCopy(int i)
 {
    assert(isInitialized());
    uint32_t txinSize = offsetsTxIn_[i+1] - offsetsTxIn_[i];
-   TxIn out(dataCopy_.getPtr()+offsetsTxIn_[i], txinSize, txRefObj_, i);
+   TxIn out;
+   out.unserialize_checked(dataCopy_.getPtr()+offsetsTxIn_[i], dataCopy_.getSize()-offsetsTxIn_[i], txinSize, txRefObj_, i);
    
    if(txRefObj_.isInitialized())
    {
@@ -547,13 +580,13 @@ TxOut Tx::getTxOutCopy(int i)
 {
    assert(isInitialized());
    uint32_t txoutSize = offsetsTxOut_[i+1] - offsetsTxOut_[i];
-   TxOut out(dataCopy_.getPtr()+offsetsTxOut_[i], txoutSize, txRefObj_, i);
-   
+   TxOut out;
+   out.unserialize_checked(dataCopy_.getPtr()+offsetsTxOut_[i], dataCopy_.getSize()-offsetsTxOut_[i], txoutSize, txRefObj_, i);
+   out.setParentHash(getThisHash());
+
    if(txRefObj_.isInitialized())
-   {
-      out.setParentHash(getThisHash());
       out.setParentHeight(txRefObj_.getBlockHeight());
-   }
+
    return out;
 }
 
@@ -999,7 +1032,7 @@ bool TxIOPair::isUnspent(void)
 }
 
 //////////////////////////////////////////////////////////////////////////////
-bool TxIOPair::isSpendable(uint32_t currBlk)
+bool TxIOPair::isSpendable(uint32_t currBlk, bool ignoreAllZeroConf)
 { 
    // Spendable TxOuts are ones with at least 1 confirmation, or zero-conf
    // TxOuts that were sent-to-self.  Obviously, they should be unspent, too
@@ -1016,13 +1049,13 @@ bool TxIOPair::isSpendable(uint32_t currBlk)
    }
 
    if( hasTxOutZC() && isTxOutFromSelf() )
-      return true;
+      return !ignoreAllZeroConf;
 
    return false;
 }
 
 //////////////////////////////////////////////////////////////////////////////
-bool TxIOPair::isMineButUnconfirmed(uint32_t currBlk)
+bool TxIOPair::isMineButUnconfirmed(uint32_t currBlk, bool inclAllZC)
 {
    // All TxOuts that were from our own transactions are always confirmed
    if(isTxOutFromSelf())
@@ -1039,8 +1072,7 @@ bool TxIOPair::isMineButUnconfirmed(uint32_t currBlk)
       else 
          return (nConf<MIN_CONFIRMATIONS);
    }
-
-   else if( hasTxOutZC() && !isTxOutFromSelf() )
+   else if( hasTxOutZC() && (!isTxOutFromSelf() || inclAllZC))
       return true;
 
 
@@ -1235,9 +1267,5 @@ RegisteredScrAddr::RegisteredScrAddr(BtcAddress const & addrObj,
 
 
 
-
-
-
-
-
+// kate: indent-width 3; replace-tabs on;
 

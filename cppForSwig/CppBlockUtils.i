@@ -2,7 +2,7 @@
 /*
 ////////////////////////////////////////////////////////////////////////////////
 //                                                                            //
-//  Copyright (C) 2011-2013, Armory Technologies, Inc.                        //
+//  Copyright (C) 2011-2014, Armory Technologies, Inc.                        //
 //  support@bitcoinarmory.com                                                 //
 //  Distributed under the GNU Affero General Public License (AGPL v3)         //
 //  See LICENSE or http://www.gnu.org/licenses/agpl.html                      //
@@ -15,6 +15,7 @@
 %{
 #define SWIG_PYTHON_EXTRA_NATIVE_CONTAINERS
 #include "BlockObj.h"
+#include "StoredBlockObj.h"
 #include "BlockUtils.h"
 #include "BtcUtils.h"
 #include "EncryptionUtils.h"
@@ -99,6 +100,7 @@ namespace std
 
 /* With our typemaps, we can finally include our other objects */
 %include "BlockObj.h"
+%include "StoredBlockObj.h"
 %include "BlockUtils.h"
 %include "BtcUtils.h"
 %include "EncryptionUtils.h"
