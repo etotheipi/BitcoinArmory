@@ -151,7 +151,7 @@ class ArmoryMainWindow(QMainWindow):
 
       #Setup the signal to spawn progress dialogs from the main thread
       self.connect(self, SIGNAL('initTrigger') , self.initTrigger)
-      self.connect(self, SIGNAL('spawnTrigger'), self.spawnTrigger)
+      self.connect(self, SIGNAL('execTrigger'), self.execTrigger)
       self.connect(self, SIGNAL('checkForNegImports'), self.checkForNegImports)
 
       # We want to determine whether the user just upgraded to a new version
@@ -6208,9 +6208,8 @@ class ArmoryMainWindow(QMainWindow):
 
 
    #############################################################################
-   def spawnTrigger(self, toSpawn):
-      if isinstance(toSpawn, DlgProgress):
-         super(DlgProgress, toSpawn).exec_()
+   def execTrigger(self, toSpawn):
+      super(ArmoryDialog, toSpawn).exec_()
 
 
    #############################################################################
@@ -6269,7 +6268,6 @@ class ArmoryMainWindow(QMainWindow):
    @AllowAsync
    def CheckWalletConsistency(self, wallets, prgAt=None):
 
-
       if prgAt:
          totalSize = 0
          walletSize = {}
@@ -6290,16 +6288,13 @@ class ArmoryMainWindow(QMainWindow):
             i = f +i
 
          self.wltCstStatus = WalletConsistencyCheck(wallets[wlt], prgAt)
-         if self.wltCstStatus != 0 and (not isinstance(self.wltCstStatus, dict) or self.wltCstStatus['nErrors'] != 0):
-            self.WltCstError(wallets[wlt], self.wltCstStatus, dlgrdy)
+         if self.wltCstStatus[0] != 0:
+            self.WltCstError(wallets[wlt], self.wltCstStatus[1], dlgrdy)
             while not dlgrdy[0]:
                time.sleep(0.01)
             nerrors = nerrors +1
 
       prgAt[2] = 1
-
-      #if self.UpdateWalletConsistencyPBar in self.extraHeartbeatAlways:
-         #self.extraHeartbeatAlways.remove(self.UpdateWalletConsistencyPBar)
 
       dlgrdy[0] = 0
       while prgAt[2] != 2:
@@ -6331,7 +6326,6 @@ class ArmoryMainWindow(QMainWindow):
             break
 
       #check running dialogs
-
       self.dlgCptWlt.emit(SIGNAL('Show'))
       runningList = []
       while 1:
@@ -6362,7 +6356,7 @@ class ArmoryMainWindow(QMainWindow):
 
       canFix.append('Ready to analyze inconsistent wallets!')
       self.dlgCptWlt.UpdateCanFix(canFix, True)
-      self.dlgCptWlt.emit(SIGNAL('Exec'))
+      self.dlgCptWlt.exec_()
 
    def checkWallets(self):
       nwallets = len(self.walletMap)
