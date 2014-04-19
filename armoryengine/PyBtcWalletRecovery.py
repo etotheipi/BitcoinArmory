@@ -16,7 +16,7 @@ import os
 import shutil
 from time import sleep, ctime
 from armoryengine.ArmoryUtils import AllowAsync, emptyFunc, LOGEXCEPT, enum
-
+                                  LOGINFO, LOGERROR, enum
 
 
 #                      0          1        2       3       4        5 
@@ -1756,6 +1756,13 @@ def FixWallets(wallets, dlg, Progress=emptyFunc):
       return wlterror
    
 ###############################################################################
+'''
+Stand alone, one wallet a time, all purpose recovery call.
+Used with unloaded wallets or modes other than Full, and for armoryd
+If dlg is set, it will report to it (UI)
+If not, it will log the wallet status with LOGERROR and LOGINFO, and return the
+status code to the caller
+''' 
 @AllowAsync
 def ParseWallet(wltPath, wlt, mode, dlg, Progress=emptyFunc): 
    fixedWlt = []
@@ -1768,14 +1775,32 @@ def ParseWallet(wltPath, wlt, mode, dlg, Progress=emptyFunc):
    if wltStatus == 0:
       goodWallets.append(1)
       fixedWlt.append(1)
+      
+      if dlg is None:
+         if wlt: LOGINFO('Wallet %s is consistent' % (wlt.uniqueIDB58))
+         elif wltPath: LOGINFO('Wallet %s is consistent' % (wltPath))
                  
    elif wltStatus == 1:
       fixedWlt.append(1)
+      
+      if dlg is None:
+         if wlt: LOGERROR('Wallet %s is inconsistent!!!' % (wlt.uniqueIDB58))
+         elif wltPath: LOGERROR('Wallet %s is inconsistent!!!' % (wltPath))
+         
    elif wltStatus == -1:
       wlterror.append(extraData)
+      
+      if dlg is None:
+         if wlt: 
+            LOGERROR('Failed to perform consistency check on wallet %s!!!'\
+                      % (wlt.uniqueIDB58))
+         elif wltPath: 
+            LOGERROR('Failed to perform consistency check on wallet %s!!!'\
+                      % (wltPath))
    
    if dlg:                  
       dlg.setRecoveryDone(wlterror, goodWallets, fixedWlt) 
+   else: return wltStatus
 
 ###############################################################################
 
