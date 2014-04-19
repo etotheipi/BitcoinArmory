@@ -15,7 +15,7 @@ from CppBlockUtils import SecureBinaryData, CryptoECDSA, CryptoAES, BtcWallet
 import os
 import shutil
 from time import sleep, ctime
-from armoryengine.ArmoryUtils import AllowAsync, emptyFunc, LOGEXCEPT, enum
+from armoryengine.ArmoryUtils import AllowAsync, emptyFunc, LOGEXCEPT, enum, \
                                   LOGINFO, LOGERROR, enum
 
 
