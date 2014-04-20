@@ -18,8 +18,7 @@ from time import sleep, ctime
 from armoryengine.ArmoryUtils import AllowAsync, emptyFunc, LOGEXCEPT, \
                                      LOGINFO, LOGERROR, SECP256K1_ORDER, \
                                      binary_to_int, BIGENDIAN, int_to_binary, \
-                                     binary_to_hex, enum
-import hmac, hashlib
+                                     binary_to_hex, enum, HMAC256
 
 
 #                      0          1        2       3       4        5 
@@ -1625,14 +1624,14 @@ class PyBtcWalletRecovery(object):
    ############################################################################
    def getInvModQ(self, Q):
       nonce = 0
-      while 1:
-         hmacQ = hmac.HMAC(Q, 'LogMult%d' % (nonce), hashlib.sha512).digest()
-         shaHmacQ = hashlib.new('sha256', hmacQ).digest()
-         
-         if binary_to_int(shaHmacQ, BIGENDIAN) < SECP256K1_ORDER:
-            return CryptoECDSA().InvMod(SecureBinaryData(shaHmacQ))
-            
-         nonce = nonce +1
+      while True:
+         hmacQ = HMAC256(Q, 'LogMult%d' % nonce)
+         if binary_to_int(hmacQ, BIGENDIAN) > SECP256K1_ORDER:
+            nonce += 1
+            continue
+
+         return CryptoECDSA().InvMod(SecureBinaryData(hmacQ))
+
 ###############################################################################
 def WalletConsistencyCheck(wallet, prgAt=None):
    """

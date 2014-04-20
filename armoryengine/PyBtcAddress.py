@@ -256,8 +256,9 @@ class PyBtcAddress(object):
          if self.hasPubKey():
             verified = (self.binPublicKey65==computedPubKey)
          else:
-            self.binPublicKey65 = computedPubKey
             verified = (computedPubKey.getHash160()==self.addrStr20)
+            if verified:
+               self.binPublicKey65 = computedPubKey
 
       decryptedKey.destroy()
       return verified
