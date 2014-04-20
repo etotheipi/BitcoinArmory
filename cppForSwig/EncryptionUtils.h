@@ -412,8 +412,7 @@ public:
 
    /////////////////////////////////////////////////////////////////////////////
    // We need some direct access to Crypto++ math functions
-   SecureBinaryData InvMod(const SecureBinaryData& m,
-                           const SecureBinaryData& modulo);
+   SecureBinaryData InvMod(const SecureBinaryData& m);
 
    /////////////////////////////////////////////////////////////////////////////
    // Some standard ECC operations

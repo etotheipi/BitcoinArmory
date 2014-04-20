@@ -1,9 +1,14 @@
 
-from CppBlockUtils import SecureBinaryData, CryptoECDSA
+from CppBlockUtils import SecureBinaryData, CryptoECDSA, CryptoAES
 from armoryengine.PyBtcAddress import PyBtcAddress
-from armoryengine.ArmoryUtils import hex_to_binary
+from armoryengine.ArmoryUtils import hex_to_binary, binary_to_hex
+from armoryengine.BinaryUnpacker import BinaryUnpacker
+from armoryengine.PyBtcWallet import PyBtcWallet
 import unittest
 import os
+import hmac, hashlib
+
+from armoryengine.ArmoryUtils import SECP256K1_ORDER, binary_to_int, BIGENDIAN
 
 from armoryengine.PyBtcWalletRecovery import PyBtcWalletRecovery
 
@@ -21,7 +26,6 @@ class PyBtcWalletRecoveryTest(unittest.TestCase):
       os.unlink('armory_%s_RECOVERED_backup.wallet' % self.wltID)
       
    def buildCorruptWallet(self, walletPath):
-      from armoryengine.PyBtcWallet import PyBtcWallet
       crpWlt = PyBtcWallet()
       crpWlt.createNewWallet(walletPath, securePassphrase='testing', doRegisterWithBDM=False)
       #not registering with the BDM, have to fill the wallet address pool manually 
@@ -43,7 +47,8 @@ class PyBtcWalletRecoveryTest(unittest.TestCase):
       newAddr.chainIndex = 250
       PrivKey = hex_to_binary('e3b0c44298fc1c149afbf4c8996fb92427ae41e5978fe51ca495991b7852b855')
       newAddr.binPrivKey32_Plain = SecureBinaryData(PrivKey)
-      newAddr.binPublicKey65 = CryptoECDSA().ComputePublicKey(newAddr.binPrivKey32_Plain)
+      newAddr.binPublicKey65 = CryptoECDSA().ComputePublicKey( \
+                                                newAddr.binPrivKey32_Plain)
       newAddr.addrStr20 = newAddr.binPublicKey65.getHash160()
       newAddr.isInitialized = True
       
@@ -57,17 +62,77 @@ class PyBtcWalletRecoveryTest(unittest.TestCase):
 
    def testWalletRecovery(self):
       #run recovery on broken wallet
-      brkWltResult = PyBtcWalletRecovery().RecoverWallet(self.corruptWallet, 'testing', 'Full', returnError = 'Dict')
-      self.assertTrue(len(brkWltResult['sequenceGaps'])==1, "Sequence Gap Undetected")
-      self.assertTrue(len(brkWltResult['forkedPublicKeyChain'])==2, "Address Chain Forks Undetected")
-      self.assertTrue(len(brkWltResult['unmatchedPair'])==100, "Unmatched Priv/Pub Key Undetected")
-      self.assertTrue(len(brkWltResult['misc'])==50, "Wallet Encryption Inconsistency Undetected")
-      self.assertTrue(brkWltResult['nErrors']==153, "Unexpected Errors Found")      
+      recThread = PyBtcWalletRecovery().RecoverWallet(self.corruptWallet, \
+                                                      'testing', 'Full', \
+                                                      returnError = 'Dict')
+      recThread.join()
+      brkWltResult = recThread.output
+      
+      self.assertTrue(len(brkWltResult['sequenceGaps'])==1, \
+                      "Sequence Gap Undetected")
+      self.assertTrue(len(brkWltResult['forkedPublicKeyChain'])==2, \
+                      "Address Chain Forks Undetected")
+      self.assertTrue(len(brkWltResult['unmatchedPair'])==100, \
+                      "Unmatched Priv/Pub Key Undetected")
+      self.assertTrue(len(brkWltResult['misc'])==50, \
+                      "Wallet Encryption Inconsistency Undetected")
+      self.assertTrue(brkWltResult['nErrors']==153, \
+                      "Unexpected Errors Found")   
+      
+      #check obfuscated keys yield the valid key
+      #grab root key
+      badWlt = PyBtcWallet()
+      badWlt.readWalletFile(self.corruptWallet, False, False)
+      rootAddr = badWlt.addrMap['ROOT']
+      
+      SecurePassphrase = SecureBinaryData('testing')
+      secureKdfOutput = badWlt.kdf.DeriveKey(SecurePassphrase)
+      
+      #HMAC Q
+      rootAddr.unlock(secureKdfOutput)
+      Q = rootAddr.binPrivKey32_Plain.toBinStr()
+      
+      nonce = 0
+      while 1:
+         hmacQ = hmac.HMAC(Q, 'LogMult%d' % (nonce), hashlib.sha512).digest()
+         shaHmacQ = hashlib.new('sha256', hmacQ).digest()
+         
+         if binary_to_int(shaHmacQ, BIGENDIAN) < SECP256K1_ORDER:         
+            hmacQ = SecureBinaryData(shaHmacQ)
+            break
+         nonce = nonce +1
+      
+      #Bad Private Keys
+      import operator
+      badKeys = [addrObj for addrObj in (sorted(badWlt.addrMap.values(), 
+                             key=operator.attrgetter('chainIndex')))]
+         
+      #run through obdsPrivKey
+      for i in range(0, len(brkWltResult['obfsKeys'])):
+         obfsPKey = SecureBinaryData(
+                        hex_to_binary(brkWltResult['obfsKeys'][i]))
+         pKey = CryptoECDSA().ECMultiplyScalars(obfsPKey.toBinStr(), \
+                                                hmacQ.toBinStr())
+         
+         try:
+            badKeys[i+201].unlock(secureKdfOutput)
+         except:
+            continue
+         
+         self.assertTrue(binary_to_hex(pKey) == \
+                         badKeys[i+201].binPrivKey32_Plain.toHexStr(), \
+                         'obfs key error')
       
       #run recovery on recovered wallet
-      rcvWltResult = PyBtcWalletRecovery().RecoverWallet('armory_%s_RECOVERED.wallet' % self.wltID, 'testing', 'Full', returnError = 'Dict')
+      recThread = PyBtcWalletRecovery().RecoverWallet( \
+                                 'armory_%s_RECOVERED.wallet' % self.wltID, \
+                                 'testing', 'Full', returnError = 'Dict')
+      recThread.join()
+      rcvWltResult = recThread.output
+      
       self.assertTrue(rcvWltResult['nErrors']==0, "Unexpected Errors Found")
-      self.assertTrue(len(rcvWltResult['forkedImports'])==50, "Missing Forked Imports")
+      self.assertTrue(len(rcvWltResult['forkedImports'])==50, \
+                      "Missing Forked Imports")
       
 ###############################################################################
 if __name__ == "__main__":

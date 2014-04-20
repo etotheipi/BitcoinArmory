@@ -805,13 +805,14 @@ SecureBinaryData CryptoECDSA::ComputeChainedPublicKey(
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-SecureBinaryData CryptoECDSA::InvMod(const SecureBinaryData& m,
-                                     const SecureBinaryData& modulo)
+SecureBinaryData CryptoECDSA::InvMod(const SecureBinaryData& m)
 {
+   static BinaryData N = BinaryData::CreateFromHex(
+           "fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141");
    CryptoPP::Integer cppM;
    CryptoPP::Integer cppModulo;
    cppM.Decode(m.getPtr(), m.getSize(), UNSIGNED);
-   cppModulo.Decode(modulo.getPtr(), modulo.getSize(), UNSIGNED);
+   cppModulo.Decode(N.getPtr(), N.getSize(), UNSIGNED);
    CryptoPP::Integer cppResult = cppM.InverseMod(cppModulo);
    SecureBinaryData result(32);
    cppResult.Encode(result.getPtr(), result.getSize(), UNSIGNED);

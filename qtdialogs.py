@@ -13485,7 +13485,7 @@ class DlgCorruptWallet(DlgProgress):
             #dlgIWR = DlgInconsistentWltReport(self, self.main, self.logDirs)
             #if dlgIWR.exec_():
             #return
-
+         return
 
 #################################################################################
 class DlgFactoryReset(ArmoryDialog):

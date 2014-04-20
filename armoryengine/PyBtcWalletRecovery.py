@@ -15,8 +15,11 @@ from CppBlockUtils import SecureBinaryData, CryptoECDSA, CryptoAES, BtcWallet
 import os
 import shutil
 from time import sleep, ctime
-from armoryengine.ArmoryUtils import AllowAsync, emptyFunc, LOGEXCEPT, enum, \
-                                  LOGINFO, LOGERROR, enum
+from armoryengine.ArmoryUtils import AllowAsync, emptyFunc, LOGEXCEPT, \
+                                     LOGINFO, LOGERROR, SECP256K1_ORDER, \
+                                     binary_to_int, BIGENDIAN, int_to_binary, \
+                                     binary_to_hex, enum
+import hmac, hashlib
 
 
 #                      0          1        2       3       4        5 
@@ -48,6 +51,9 @@ class PyBtcWalletRecovery(object):
       self.unmatchedPair = [] #private key doesnt yield public key
       self.importedErr = [] #all imported keys related errors
       self.forkedImports = [] #lists forked imports in wallet
+      
+      #inconsistent private keys as P/HMAC512(rootKey, 'LogMult') mod N
+      self.obfuscatedPrivKeys = []
       
       """
       Object wide identifiers. To make sure certain sensitive objects are 
@@ -147,6 +153,7 @@ class PyBtcWalletRecovery(object):
          errors['importedErr'] = self.importedErr
          errors['forkedImports'] = self.forkedImports
          errors['nErrors'] = nErrors
+         errors['obfsKeys'] = self.obfuscatedPrivKeys
          
          return errors
       
@@ -308,6 +315,13 @@ class PyBtcWalletRecovery(object):
                                   (len(self.importedErr)))
             for i in range(0, len(self.importedErr)):
                self.strOutput.append('   %s\r\n' % (self.importedErr[i]))
+               
+      if len(self.obfuscatedPrivKeys) > 0:
+         self.strOutput.append('Inconsistent private keys were found!\r\n')
+         self.strOutput.append('Logging Multipliers:\r\n')
+         
+         for i in range(0, len(self.obfuscatedPrivKeys)):
+            self.strOutput.append('   %s\r\n' % (self.obfuscatedPrivKeys[i]))
 
       ####TODO: comments error log
       self.strOutput.append('%d errors were found\r\n' % (nErrors))
@@ -520,7 +534,7 @@ class PyBtcWalletRecovery(object):
          if rmode == RECOVERMODE.Stripped:
             RecoveredWallet = self.createRecoveredWallet(toRecover, rootAddr, \
                                        SecurePassphrase, Progress, returnError)
-            rootAddr.binPrivKey32_Plain.destroy()   
+            rootAddr.lock()   
             if SecurePassphrase: SecurePassphrase.destroy()
             
             if not isinstance(RecoveredWallet, PyBtcWallet):  
@@ -567,7 +581,7 @@ class PyBtcWalletRecovery(object):
          if Progress(self.UIreport + UIupdate) == 0:
             if SecurePassphrase: SecurePassphrase.destroy()
             if toRecover.kdfKey: toRecover.kdfKey.destroy()
-            rootAddr.binPrivKey32_Plain.destroy()
+            rootAddr.lock()
             return 0
 
          newAddr = None
@@ -682,7 +696,7 @@ class PyBtcWalletRecovery(object):
             self.rawError.append('   chainIndex 0 was not derived from the \
                                   root address')
 
-         testroot.binPrivKey32_Plain.destroy()
+         testroot.lock()
 
       if rmode != RECOVERMODE.Meta:
          currSequence = addrDict[0][2]
@@ -715,7 +729,7 @@ class PyBtcWalletRecovery(object):
          if Progress(self.UIreport + UIupdate) == 0:
             if SecurePassphrase: SecurePassphrase.destroy()
             if toRecover.kdfKey: toRecover.kdfKey.destroy()
-            rootAddr.binPrivKey32_Plain.destroy()
+            rootAddr.lock()
             return 0
          if prgAt:
             prgAt[0] = prgAt_in + (0.01 + 0.99*n/prgTotal)*prgAt[1]
@@ -1016,7 +1030,7 @@ class PyBtcWalletRecovery(object):
             if Progress(self.UIreport + UIupdate) == 0:
                if SecurePassphrase: SecurePassphrase.destroy()
                if toRecover.kdfKey: toRecover.kdfKey.destroy()
-               rootAddr.binPrivKey32_Plain.destroy()
+               rootAddr.lock()
                return 0
             if prgAt:
                prgAt[0] = prgAt_in + (0.01 + 0.99*(newAddr.chainIndex +1) \
@@ -1120,7 +1134,7 @@ class PyBtcWalletRecovery(object):
                            rootAddr, SecurePassphrase, Progress, returnError)
                if SecurePassphrase: RecoveredWallet.kdfKey = \
                            RecoveredWallet.kdf.DeriveKey(SecurePassphrase)               
-               rootAddr.binPrivKey32_Plain.destroy()
+               rootAddr.lock()
                
                if not isinstance(RecoveredWallet, PyBtcWallet):
                   if SecurePassphrase: SecurePassphrase.destroy()
@@ -1145,6 +1159,11 @@ class PyBtcWalletRecovery(object):
                   self.UIreport = self.UIreport + UIupdate
    
                #save imported addresses
+               if rootAddr.isLocked:
+                  rootAddr.unlock(toRecover.kdfKey)
+               invQ = self.getInvModQ(rootAddr.binPrivKey32_Plain.toBinStr())
+               rootAddr.lock()
+               
                for i in range(0, self.nImports):
                   UIupdate = '<b>- Saving imported addresses:</b>   %d/%d<br>' \
                               % (i+1, self.nImports)
@@ -1160,6 +1179,14 @@ class PyBtcWalletRecovery(object):
                   
                   if newAddr.isLocked:
                      newAddr.unlock(toRecover.kdfKey)
+                    
+                  if newAddr.chainIndex < -2:
+                     obfsPrivKey = CryptoECDSA().ECMultiplyScalars( \
+                                                   newAddr.binPrivKey32_Plain.toBinStr(),
+                                                   invQ.toBinStr())
+                     self.obfuscatedPrivKeys.append(binary_to_hex(obfsPrivKey))
+                     
+                  if newAddr.isLocked:
                      newAddr.keyChanged = 1
                      newAddr.lock(RecoveredWallet.kdfKey)
                                           
@@ -1190,7 +1217,7 @@ class PyBtcWalletRecovery(object):
                                                       self.UIreport + UIupdate
    
       if isinstance(rootAddr.binPrivKey32_Plain, SecureBinaryData): 
-         rootAddr.binPrivKey32_Plain.destroy()
+         rootAddr.lock()
       
       #TODO: nothing to process anymore at this point. if the recovery mode 
       #is 4 (meta), just return the comments dict
@@ -1594,8 +1621,19 @@ class PyBtcWalletRecovery(object):
       newWO.writeFreshWalletFile(newPath)
       
       return newWO
- 
-#############################################################################
+   
+   ############################################################################
+   def getInvModQ(self, Q):
+      nonce = 0
+      while 1:
+         hmacQ = hmac.HMAC(Q, 'LogMult%d' % (nonce), hashlib.sha512).digest()
+         shaHmacQ = hashlib.new('sha256', hmacQ).digest()
+         
+         if binary_to_int(shaHmacQ, BIGENDIAN) < SECP256K1_ORDER:
+            return CryptoECDSA().InvMod(SecureBinaryData(shaHmacQ))
+            
+         nonce = nonce +1
+###############################################################################
 def WalletConsistencyCheck(wallet, prgAt=None):
    """
    Checks consistency of non encrypted wallet data
@@ -1714,7 +1752,7 @@ def FixWallet(wltPath, wlt, mode=RECOVERMODE.Full, DoNotMove=False,
       Progress(fixer.UIreport + fixer.EndLog)
       return -1, fixer.UIreport + fixer.EndLog
 
-#############################################################################
+###############################################################################
 @AllowAsync
 def FixWallets(wallets, dlg, Progress=emptyFunc): 
    
