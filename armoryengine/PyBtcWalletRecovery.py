@@ -17,7 +17,7 @@ import shutil
 from time import sleep, ctime
 from armoryengine.ArmoryUtils import AllowAsync, emptyFunc, LOGEXCEPT, \
                                      LOGINFO, LOGERROR, SECP256K1_ORDER, \
-                                     binary_to_int, BIGENDIAN, int_to_binary, \
+                                     binary_to_int, BIGENDIAN, \
                                      binary_to_hex, enum
 import hmac, hashlib
 
@@ -624,8 +624,9 @@ class PyBtcWalletRecovery(object):
                   except:
                      LOGEXCEPT('')
                      #unserialize error, try to recover the entry
-                     self.rawError.append('   Found checksum errors in address \
-                     entry starting at offset: %d' % (byteLocation))
+                     self.rawError.append( \
+                        '   Found checksum errors in address entry starting at offset: %d' \
+                        % (byteLocation))
                      
                      try:
                         newAddr, chksumError = \
@@ -738,6 +739,8 @@ class PyBtcWalletRecovery(object):
          fixedAddrData = newAddr.serialize()
          if not rawData==fixedAddrData:
             self.byteError.append([newAddr.chainIndex, byteLocation])
+            fixedAddr = PyBtcAddress()
+            fixedAddr.unserialize(fixedAddrData)
             newAddr = PyBtcAddress()
             newAddr.unserialize(fixedAddrData)
             entrylist[0] = newAddr
@@ -803,8 +806,7 @@ class PyBtcWalletRecovery(object):
                                     (newAddr.chainIndex, os.path.basename( \
                                      WalletPath)))
                else:
-                  self.misc.append('Unencrypted address entry in an encrypted \
-                                    wallet at chainIndex %d in wallet %s' % \
+                  self.misc.append('Unencrypted address entry in an encrypted wallet at chainIndex %d in wallet %s' % \
                                     (newAddr.chainIndex, os.path.basename( \
                                      WalletPath)))                  
             
@@ -824,13 +826,11 @@ class PyBtcWalletRecovery(object):
                   #uncomputed private key in a non encrypted wallet? 
                   #definitely not supposed to happen
                   keymismatch = 4 
-                  self.misc.append('Uncomputed private key in unencrypted ' +
-                                   'wallet at chainIndex %d in wallet %s' \
+                  self.misc.append('Uncomputed private key in unencrypted wallet at chainIndex %d in wallet %s' \
                                     % (newAddr.chainIndex, os.path.basename \
                                     (WalletPath)))
                else:
-                  self.misc.append('Missing private key is not flagged for' +
-                                   'computation at chainIndex %d in wallet %s'\
+                  self.misc.append('Missing private key is not flagged for computation at chainIndex %d in wallet %s'\
                                     % (newAddr.chainIndex, os.path.basename \
                                     (WalletPath)))
                                        
@@ -1850,5 +1850,6 @@ TODO: setup an array of tests:
 
 possible wallet corruption vectors:
 1) PyBtcAddress.unlock verifies consistency between private and public key, \
-   unless SkipCheck is forced to false. Look for this scenario
+   unless SkipCheck is forced to false and private key is already computed. 
+   Look for this scenario
 """

@@ -303,9 +303,7 @@ class DlgUnlockWallet(ArmoryDialog):
          if self.returnPassphrase == False:
             unlockProgress = DlgProgress(self, self.main, HBar=1, 
                                          Title="Unlocking Wallet")
-            unlockProgress.exec_(self.wlt.unlock, 
-                                 securePassphrase=self.securePassphrase,
-                                 Progress=unlockProgress.UpdateHBar)
+            unlockProgress.exec_(self.wlt.unlock)
             self.securePassphrase.destroy()
          else:
             if self.wlt.verifyPassphrase(self.securePassphrase) == False:
@@ -1872,9 +1870,7 @@ class DlgWalletDetails(ArmoryDialog):
             if self.wlt.verifyPassphrase(origPassphrase):
                unlockProgress = DlgProgress(self, self.main, HBar=1, 
                                             Title="Unlocking Wallet")
-               unlockProgress.exec_(self.wlt.unlock, 
-                                    securePassphrase=origPassphrase,
-                                    Progress=unlockProgress.UpdateHBar)
+               unlockProgress.exec_(self.wlt.unlock)
             else:
                # Even if the wallet is already unlocked, enter pwd again to change it
                QMessageBox.critical(self, 'Invalid Passphrase', \
@@ -1885,8 +1881,7 @@ class DlgWalletDetails(ArmoryDialog):
          if self.disableEncryption:
             unlockProgress = DlgProgress(self, self.main, HBar=1, 
                                          Title="Changing Encryption")
-            unlockProgress.exec_(self.wlt.changeWalletEncryption, 
-                                 Progress=unlockProgress.UpdateHBar)            
+            unlockProgress.exec_(self.wlt.changeWalletEncryption)            
             # self.accept()
             self.labelValues[WLTFIELDS.Secure].setText('No Encryption')
             self.labelValues[WLTFIELDS.Secure].setText('')
@@ -2604,9 +2599,7 @@ class DlgKeypoolSettings(ArmoryDialog):
                                                Title='Computing New Addresses')
          fillAddressPoolProgress.exec_( \
                self.wlt.fillAddressPool, currPool + naddr, 
-                                        isActuallyNew=False,
-                                        Progress= \
-                                        fillAddressPoolProgress.UpdateHBar)
+                                        isActuallyNew=False)
          
          self.lblAddrCompVal.setText('<font color="%s">%d</font>' % \
                         (cred, self.wlt.lastComputedChainIndex))
@@ -4385,8 +4378,7 @@ class DlgImportPaperWallet(ArmoryDialog):
       def fillAddrPoolAndAccept():
          progressBar = DlgProgress(self, self.main, None, HBar=1,
                                    Title="Computing New Addresses")
-         progressBar.exec_(self.newWallet.fillAddressPool(), 
-                           Progress=progressBar.UpdateHBar)
+         progressBar.exec_(self.newWallet.fillAddressPool)
          self.accept()
 
       # Will pop up a little "please wait..." window while filling addr pool
@@ -11650,8 +11642,7 @@ class DlgRestoreSingle(ArmoryDialog):
 
       fillAddrPoolProgress = DlgProgress(self, self.main, HBar=1,
                                          Title="Computing New Addresses")
-      fillAddrPoolProgress.exec_(self.newWallet.fillAddressPool, nPool,
-                                 Progress=fillAddrPoolProgress.UpdateHBar)
+      fillAddrPoolProgress.exec_(self.newWallet.fillAddressPool, nPool)
 
       if dlgOwnWlt is not None:
          if dlgOwnWlt.Meta is not None:
@@ -12191,8 +12182,7 @@ class DlgRestoreFragged(ArmoryDialog):
       # Will pop up a little "please wait..." window while filling addr pool
       fillAddrPoolProgress = DlgProgress(self, self.parent, HBar=1,
                                          Title="Computing New Addresses")
-      fillAddrPoolProgress.exec_(self.newWallet.fillAddressPool, nPool,
-                                 Progress=fillAddrPoolProgress.UpdateHBar)
+      fillAddrPoolProgress.exec_(self.newWallet.fillAddressPool, nPool)
  
       if dlgOwnWlt is not None:
          if dlgOwnWlt.Meta is not None:
@@ -13116,13 +13106,15 @@ class DlgProgress(ArmoryDialog):
    def exec_async(self, *args, **kwargs):
       if len(args) > 0 and hasattr(args[0], '__call__'):
          func = args[0]
-         if self.main is not None:
-            self.status = 1
+         
+         if not 'Progress' in kwargs:
+            if self.HBar > 0: kwargs['Progress'] = self.UpdateHBar
+            else: kwargs['Progress'] = self.UpdateText
 
-            rt = func(*args[1:], **kwargs)
-            self.Kill()  
+         rt = func(*args[1:], **kwargs)
+         self.Kill()  
             
-            return rt
+         return rt
 
    def reject(self):
       return
@@ -13485,7 +13477,6 @@ class DlgCorruptWallet(DlgProgress):
             #dlgIWR = DlgInconsistentWltReport(self, self.main, self.logDirs)
             #if dlgIWR.exec_():
             #return
-         return
 
 #################################################################################
 class DlgFactoryReset(ArmoryDialog):
