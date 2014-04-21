@@ -303,9 +303,7 @@ class DlgUnlockWallet(ArmoryDialog):
          if self.returnPassphrase == False:
             unlockProgress = DlgProgress(self, self.main, HBar=1, 
                                          Title="Unlocking Wallet")
-            unlockProgress.exec_(self.wlt.unlock, 
-                                 securePassphrase=self.securePassphrase,
-                                 Progress=unlockProgress.UpdateHBar)
+            unlockProgress.exec_(self.wlt.unlock)
             self.securePassphrase.destroy()
          else:
             if self.wlt.verifyPassphrase(self.securePassphrase) == False:
@@ -661,8 +659,21 @@ class DlgInconsistentWltReport(ArmoryDialog):
    def __init__(self, parent, main, logPathList):
       super(DlgInconsistentWltReport, self).__init__(parent, main)
 
-      tsPage = 'https://bitcoinarmory.com/troubleshooting'
-      faqPage = 'https://bitcoinarmory.com/faqs'
+
+      QMessageBox.critical(self, tr('Inconsistent Wallet!'), tr("""
+         <font color="%s" size=4><b><u>Important:</u>  Wallet Consistency 
+         Issues Detected!</b></font>
+         <br><br>
+         Armory now detects certain kinds of hardware errors, and one 
+         or more of your wallets
+         was flagged.  The consistency logs need to be analyzed by the 
+         Armory team to determine if any further action is required.
+         <br><br>
+         <b>This warning will pop up every time you start Armory until
+         the wallet is fixed</b>""") % (htmlColor('TextWarn')), 
+         QMessageBox.Ok)
+
+         
 
       # logPathList is [wltID, corruptFolder] pairs
       self.logPathList = logPathList[:]
@@ -678,31 +689,42 @@ class DlgInconsistentWltReport(ArmoryDialog):
          wltDispStr = ', '.join(strList[:-1]) + ' and ' + strList[-1] + ' are '
       
       lblTopDescr = QRichLabel(tr("""
-         <b><u>Submit Wallet Analysis Logs for Review</u></b><br><br>"""))
+         <b><u><font color="%s" size=4>Submit Wallet Analysis Logs for 
+         Review</font></u></b><br>""") % htmlColor('TextWarn'), 
+         hAlign=Qt.AlignHCenter)
+
       lblDescr = QRichLabel(tr("""
          Armory has detected that %s inconsistent,
-         possibly due to hardware errors out of our control.  You
-         are <b><u>strongly encouraged</u></b> to submit the wallet analysis
-         log files to use so that we can verify your coins are still secure.   
-         The Armory team will review the submitted
-         information to determine if any further action is required.
-         <br><br>
-         <font color="%s"><b>Note:</b> It is very important that you do not 
-         delete any data in your Armory home directory.  In fact, out of an
-         abundance of caution, it is recommended you make a backup of the
-         relevant data from your Armory home directory to external media,
-         such as USB drive.</font>
-         <br><br>
-         """) % (wltDispStr, htmlColor('TextWarn')))
+         possibly due to hardware errors out of our control.  Please
+         submit the wallet 
+         logs to <i>Armory Technologies, Inc.</i> for review.
+         Until you hear back from an Armory representative, 
+         we recommend:
+         <ul>
+         <li><b>Do not delete any data in your Armory home directory</b></li>
+         <li><b>Do not receive any more money to the affected wallets</b></li>
+         <li><b>Create a new wallet and move all remaining funds to it</b></li>
+         <li><b>Create a backup of the wallet analysis logs</b></li>
+         </ul> 
+         <b>Note:</b> The wallet analysis logs do not contain any private
+         key data, or even public key data!  It's simply a record of 
+         inconsistencies found in your wallet. 
+         """) % (wltDispStr))
 
-      self.chkIncludeWOW = QCheckBox(tr(""" Include watching-only 
+      self.chkIncludeRegLogs = QCheckBox(tr("""Include all log files"""))
+      self.chkIncludeWOW = QCheckBox(tr("""Include watch-only 
          @{wallet|wallets}@""", pluralList=len(walletList)))
       self.chkIncludeWOW.setChecked(False)
+      self.chkIncludeRegLogs.setChecked(True)
 
       self.btnMoreInfo = QLabelButton('Privacy Warning')
       self.connect(self.btnMoreInfo, SIGNAL(CLICKED), \
                                  self.main.woWalletSubmitPrivacyWarning)
 
+
+      btnBackupLogs = QPushButton(tr("Save backup of log files"))
+      self.connect(btnBackupLogs, SIGNAL('clicked()'), self.doBackupLogs)
+      frmBackup = makeHorizFrame(['Stretch', btnBackupLogs, 'Stretch'])
 
 
       self.lblEmail = QRichLabel(tr('Email Address:'))
@@ -718,7 +740,7 @@ class DlgInconsistentWltReport(ArmoryDialog):
       self.txtDescr.setFont(GETFONT('Fixed', 9))
       w,h = tightSizeNChar(self, 80)
       self.txtDescr.setMinimumWidth(w)
-      self.txtDescr.setMinimumHeight(3*h)
+      self.txtDescr.setMinimumHeight(int(2.5*h))
 
       self.btnSubmit = QPushButton(tr('Submit Data to ATI'))
       self.btnCancel = QPushButton(tr('Cancel'))
@@ -740,16 +762,20 @@ class DlgInconsistentWltReport(ArmoryDialog):
       i = -1
 
       i += 1
+      layout.addWidget(lblTopDescr,      i,0, 1,2)
+
+      i += 1
       layout.addWidget(lblDescr,         i,0, 1,2)
 
       i += 1
-      layout.addWidget(HLINE(),          i,0, 1,2)
+      layout.addWidget(frmBackup,        i,0, 1,2)
 
-      i += 1
-      layout.addWidget(lblDetect,        i,0, 1,2)
-
-      i += 1
-      layout.addWidget(HLINE(),          i,0, 1,2)
+      #i += 1
+      #layout.addWidget(HLINE(),          i,0, 1,2)
+      #i += 1
+      #layout.addWidget(lblDetect,        i,0, 1,2)
+      #i += 1
+      #layout.addWidget(HLINE(),          i,0, 1,2)
 
       i += 1
       layout.addWidget(self.lblEmail,    i,0, 1,1)
@@ -766,8 +792,11 @@ class DlgInconsistentWltReport(ArmoryDialog):
       layout.addWidget(self.txtDescr,    i,0, 1,2)
 
       i += 1
-      frmchkbtn = makeHorizFrame([self.chkIncludeWOW, self.btnMoreInfo, 'Stretch'])
-      layout.addWidget(frmchkbtn,        i,0, 1,2)
+      frmChkBtnRL = makeHorizFrame([self.chkIncludeRegLogs, 
+                                    self.chkIncludeWOW,  
+                                    self.btnMoreInfo,])
+      layout.addWidget(frmChkBtnRL,      i,0, 1,2)
+
 
       i += 1
       layout.addWidget(self.btnbox,      i,0, 1,2)
@@ -914,13 +943,23 @@ class DlgInconsistentWltReport(ArmoryDialog):
 
 
    #############################################################################
-   def createZipfile(self):
+   def createZipfile(self, zfilePath=None, forceIncludeAllData=False):
+      """ 
+      If not forceIncludeAllData, then we will exclude wallet file and/or
+      regular logs, depending on the user's checkbox selection.   For making
+      a user backup, we always want to include everything, regardless of 
+      that selection.
+      """
+         
       # Should we include wallet files from logs directory?
       includeWlt = self.chkIncludeWOW.isChecked()
+      includeRegLogs = self.chkIncludeRegLogs.isChecked()
 
-      # Open zipfile
-      zfilePath = os.path.join(ARMORY_HOME_DIR, 'wallet_analyze_logs.zip')
+      # Set to default save path if needed
+      if zfilePath is None:
+         zfilePath = os.path.join(ARMORY_HOME_DIR, 'wallet_analyze_logs.zip')
 
+      # Remove a previous copy
       if os.path.exists(zfilePath):
          os.remove(zfilePath)
 
@@ -937,12 +976,18 @@ class DlgInconsistentWltReport(ArmoryDialog):
                continue 
 
 
-            # Exclude any wallet files if the checkbox was not checked
-            if not includeWlt and os.path.getsize(fullpath) >= 8:
-               # Don't exclude based on file extension, check leading bytes
-               with open(fullpath, 'rb') as tempopen:
-                  if tempopen.read(8) == '\xbaWALLET\x00':
-                     continue
+            if not forceIncludeAllData:
+               # Exclude any wallet files if the checkbox was not checked
+               if not includeWlt and os.path.getsize(fullpath) >= 8:
+                  # Don't exclude based on file extension, check leading bytes
+                  with open(fullpath, 'rb') as tempopen:
+                     if tempopen.read(8) == '\xbaWALLET\x00':
+                        continue
+
+               # Exclude regular logs as well, if desired
+               if fn in ['armorylog.txt', 'armorycpplog.txt']:
+                  continue
+               
 
             # If we got here, add file to archive
             parentDir = os.path.basename(logDir)
@@ -953,6 +998,35 @@ class DlgInconsistentWltReport(ArmoryDialog):
       zfile.close()
 
       return zfilePath
+
+
+   #############################################################################
+   def doBackupLogs(self):
+      saveTo = self.main.getFileSave(ffilter=['Zip files (*.zip)'], 
+                                     defaultFilename='wallet_analyze_logs.zip')
+      if not saveTo:
+         QMessageBox.critical(self, tr("Not saved"), tr("""
+            You canceled the backup operation.  No backup was made."""),
+            QMessageBox.Ok)
+         return
+
+      try:
+         self.createZipfile(saveTo, forceIncludeAllData=True)
+         QMessageBox.critical(self, tr('Success'), tr("""
+            The wallet logs were successfully saved to the following
+            location: 
+            <br><br>
+            %s
+            <br><br>
+            It is still important to complete the rest of this form
+            and submit the data to the Armory team for review!""") % \
+            saveTo, QMessageBox.Ok)
+         
+      except:
+         LOGEXCEPT('Failed to create zip file')
+         QMessageBox.warning(self, tr('Save Failed'), tr("""There was an 
+            error saving a copy of your log files"""), QMessageBox.Ok)
+      
 
 
 
@@ -1872,9 +1946,7 @@ class DlgWalletDetails(ArmoryDialog):
             if self.wlt.verifyPassphrase(origPassphrase):
                unlockProgress = DlgProgress(self, self.main, HBar=1, 
                                             Title="Unlocking Wallet")
-               unlockProgress.exec_(self.wlt.unlock, 
-                                    securePassphrase=origPassphrase,
-                                    Progress=unlockProgress.UpdateHBar)
+               unlockProgress.exec_(self.wlt.unlock)
             else:
                # Even if the wallet is already unlocked, enter pwd again to change it
                QMessageBox.critical(self, 'Invalid Passphrase', \
@@ -1885,8 +1957,7 @@ class DlgWalletDetails(ArmoryDialog):
          if self.disableEncryption:
             unlockProgress = DlgProgress(self, self.main, HBar=1, 
                                          Title="Changing Encryption")
-            unlockProgress.exec_(self.wlt.changeWalletEncryption, 
-                                 Progress=unlockProgress.UpdateHBar)            
+            unlockProgress.exec_(self.wlt.changeWalletEncryption)            
             # self.accept()
             self.labelValues[WLTFIELDS.Secure].setText('No Encryption')
             self.labelValues[WLTFIELDS.Secure].setText('')
@@ -2604,9 +2675,7 @@ class DlgKeypoolSettings(ArmoryDialog):
                                                Title='Computing New Addresses')
          fillAddressPoolProgress.exec_( \
                self.wlt.fillAddressPool, currPool + naddr, 
-                                        isActuallyNew=False,
-                                        Progress= \
-                                        fillAddressPoolProgress.UpdateHBar)
+                                        isActuallyNew=False)
          
          self.lblAddrCompVal.setText('<font color="%s">%d</font>' % \
                         (cred, self.wlt.lastComputedChainIndex))
@@ -4385,8 +4454,7 @@ class DlgImportPaperWallet(ArmoryDialog):
       def fillAddrPoolAndAccept():
          progressBar = DlgProgress(self, self.main, None, HBar=1,
                                    Title="Computing New Addresses")
-         progressBar.exec_(self.newWallet.fillAddressPool(), 
-                           Progress=progressBar.UpdateHBar)
+         progressBar.exec_(self.newWallet.fillAddressPool)
          self.accept()
 
       # Will pop up a little "please wait..." window while filling addr pool
@@ -11650,8 +11718,7 @@ class DlgRestoreSingle(ArmoryDialog):
 
       fillAddrPoolProgress = DlgProgress(self, self.main, HBar=1,
                                          Title="Computing New Addresses")
-      fillAddrPoolProgress.exec_(self.newWallet.fillAddressPool, nPool,
-                                 Progress=fillAddrPoolProgress.UpdateHBar)
+      fillAddrPoolProgress.exec_(self.newWallet.fillAddressPool, nPool)
 
       if dlgOwnWlt is not None:
          if dlgOwnWlt.Meta is not None:
@@ -12191,8 +12258,7 @@ class DlgRestoreFragged(ArmoryDialog):
       # Will pop up a little "please wait..." window while filling addr pool
       fillAddrPoolProgress = DlgProgress(self, self.parent, HBar=1,
                                          Title="Computing New Addresses")
-      fillAddrPoolProgress.exec_(self.newWallet.fillAddressPool, nPool,
-                                 Progress=fillAddrPoolProgress.UpdateHBar)
+      fillAddrPoolProgress.exec_(self.newWallet.fillAddressPool, nPool)
  
       if dlgOwnWlt is not None:
          if dlgOwnWlt.Meta is not None:
@@ -13116,13 +13182,15 @@ class DlgProgress(ArmoryDialog):
    def exec_async(self, *args, **kwargs):
       if len(args) > 0 and hasattr(args[0], '__call__'):
          func = args[0]
-         if self.main is not None:
-            self.status = 1
+         
+         if not 'Progress' in kwargs:
+            if self.HBar > 0: kwargs['Progress'] = self.UpdateHBar
+            else: kwargs['Progress'] = self.UpdateText
 
-            rt = func(*args[1:], **kwargs)
-            self.Kill()  
+         rt = func(*args[1:], **kwargs)
+         self.Kill()  
             
-            return rt
+         return rt
 
    def reject(self):
       return
@@ -13276,7 +13344,7 @@ class DlgCorruptWallet(DlgProgress):
       layoutButtons.setColumnStretch(0, 1)
       layoutButtons.setColumnStretch(4, 1)
       self.btnClose = QPushButton('Hide')
-      self.btnFixWallets = QPushButton('Run Wallet Analysis and Recovery Tool')
+      self.btnFixWallets = QPushButton('Run Analysis and Recovery Tool')
       self.btnFixWallets.setDisabled(True)
       self.connect(self.btnFixWallets, SIGNAL('clicked()'), self.FixWallets)
       self.connect(self.btnClose, SIGNAL('clicked()'), self.hide)
@@ -13439,23 +13507,20 @@ class DlgCorruptWallet(DlgProgress):
          self.lblDescr2.setText(tr("""
             <font size=4 color="%s"><b>Wallet%s consistent, nothing to 
             fix.</b></font>""") % (htmlColor("TextBlue"), pluralStr))
-                                  
          self.main.statusBar().showMessage(tr(""" Wallet%s consistent!""") % \
             pluralStr, 15000)
       elif len(fixedWallets) > 0:
          if self.checkMode != RECOVERMODE.Check:
             self.lblDescr2.setText(tr(""" 
                <font color="%s"><b>
-               <font size=4>Wallet Analysis and Recovery Finished</font></b>
+               <font size=4><b><u>There may still be issues with your 
+               wallet!</u></b></font>
                <br>
-               <font color="%s"><i><u>There may still be issues with your 
-               wallet!</u></i></font>
-               <br>
-               Click "Continue" to provide an email address and submit 
-               your analysis logs to the Armory team to make sure there 
-               is no further risk to your funds!</b></font>""") % \
-               (htmlColor('TextWarn'), htmlColor('TextWarn')))
-            self.main.statusBar().showMessage('Wallets fixed!', 15000)
+               It is important that you send us the recovery logs 
+               and an email address so the Armory team can check for 
+               further risk to your funds!</b></font>""") % \
+               (htmlColor('TextWarn')))
+            #self.main.statusBar().showMessage('Wallets fixed!', 15000)
          else:
             self.lblDescr2.setText('<h2 style="color: red;"> \
                                     Consistency check failed! </h2>')

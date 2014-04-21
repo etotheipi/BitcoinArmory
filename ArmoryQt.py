@@ -6244,6 +6244,7 @@ class ArmoryMainWindow(QMainWindow):
                subdirpath = os.path.join(wltlogdir, subdirname)
                logDirs.append([wltID, subdirpath])
 
+         
          DlgInconsistentWltReport(self, self, logDirs).exec_()
 
 

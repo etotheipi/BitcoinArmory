@@ -52,7 +52,7 @@ class PyBtcWalletRecovery(object):
       self.forkedImports = [] #lists forked imports in wallet
       
       #inconsistent private keys as P/HMAC512(rootKey, 'LogMult') mod N
-      self.obfuscatedPrivKeys = []
+      self.privKeyMultipliers = []
       
       """
       Object wide identifiers. To make sure certain sensitive objects are 
@@ -152,7 +152,7 @@ class PyBtcWalletRecovery(object):
          errors['importedErr'] = self.importedErr
          errors['forkedImports'] = self.forkedImports
          errors['nErrors'] = nErrors
-         errors['obfsKeys'] = self.obfuscatedPrivKeys
+         errors['privMult'] = self.privKeyMultipliers
          
          return errors
       
@@ -182,13 +182,17 @@ class PyBtcWalletRecovery(object):
          if self.useEnc == 0:
             self.strOutput.append('and doesn\'t use encryption\r\n')
          else:
-            self.strOutput.append('and uses encryption')
+            self.strOutput.append('and uses encryption\r\n')
+
+      # If all we have is these logs, should know num used, if avail
+      self.strOutput.append('Highest used index: %d\r\n' % self.highestUsed)
+
 
       if self.smode == RECOVERMODE.Stripped and not self.WO:
          self.strOutput.append('   Recovered root key and chaincode, stripped recovery done.')
          return self.FinalizeLog(errorCode, Progress, returnError)
 
-      self.strOutput.append('The wallet file is %d bytes, of which %d bytes \were read\r\n' % \
+      self.strOutput.append('The wallet file is %d bytes, of which %d bytes were read\r\n' % \
                              (self.fileSize, self.dataLastOffset))
       self.strOutput.append('%d chain addresses, %d imported keys and %d comments were found\r\n' % \
                             (self.naddress, self.nImports, self.ncomments))
@@ -315,12 +319,12 @@ class PyBtcWalletRecovery(object):
             for i in range(0, len(self.importedErr)):
                self.strOutput.append('   %s\r\n' % (self.importedErr[i]))
                
-      if len(self.obfuscatedPrivKeys) > 0:
+      if len(self.privKeyMultipliers) > 0:
          self.strOutput.append('Inconsistent private keys were found!\r\n')
          self.strOutput.append('Logging Multipliers:\r\n')
          
-         for i in range(0, len(self.obfuscatedPrivKeys)):
-            self.strOutput.append('   %s\r\n' % (self.obfuscatedPrivKeys[i]))
+         for i in range(0, len(self.privKeyMultipliers)):
+            self.strOutput.append('   %s\r\n' % (self.privKeyMultipliers[i]))
 
       ####TODO: comments error log
       self.strOutput.append('%d errors were found\r\n' % (nErrors))
@@ -451,6 +455,7 @@ class PyBtcWalletRecovery(object):
 
       self.UID = toRecover.uniqueIDB58
       self.labelName = toRecover.labelName
+      self.highestUsed = toRecover.highestUsedChainIndex
       #TODO: try to salvage broken header
       #      compare uniqueIDB58 with recovered wallet
       
@@ -623,8 +628,9 @@ class PyBtcWalletRecovery(object):
                   except:
                      LOGEXCEPT('')
                      #unserialize error, try to recover the entry
-                     self.rawError.append('   Found checksum errors in address \
-                     entry starting at offset: %d' % (byteLocation))
+                     self.rawError.append( \
+                        '   Found checksum errors in address entry starting at offset: %d' \
+                        % (byteLocation))
                      
                      try:
                         newAddr, chksumError = \
@@ -737,6 +743,8 @@ class PyBtcWalletRecovery(object):
          fixedAddrData = newAddr.serialize()
          if not rawData==fixedAddrData:
             self.byteError.append([newAddr.chainIndex, byteLocation])
+            fixedAddr = PyBtcAddress()
+            fixedAddr.unserialize(fixedAddrData)
             newAddr = PyBtcAddress()
             newAddr.unserialize(fixedAddrData)
             entrylist[0] = newAddr
@@ -802,8 +810,7 @@ class PyBtcWalletRecovery(object):
                                     (newAddr.chainIndex, os.path.basename( \
                                      WalletPath)))
                else:
-                  self.misc.append('Unencrypted address entry in an encrypted \
-                                    wallet at chainIndex %d in wallet %s' % \
+                  self.misc.append('Unencrypted address entry in an encrypted wallet at chainIndex %d in wallet %s' % \
                                     (newAddr.chainIndex, os.path.basename( \
                                      WalletPath)))                  
             
@@ -823,13 +830,11 @@ class PyBtcWalletRecovery(object):
                   #uncomputed private key in a non encrypted wallet? 
                   #definitely not supposed to happen
                   keymismatch = 4 
-                  self.misc.append('Uncomputed private key in unencrypted ' +
-                                   'wallet at chainIndex %d in wallet %s' \
+                  self.misc.append('Uncomputed private key in unencrypted wallet at chainIndex %d in wallet %s' \
                                     % (newAddr.chainIndex, os.path.basename \
                                     (WalletPath)))
                else:
-                  self.misc.append('Missing private key is not flagged for' +
-                                   'computation at chainIndex %d in wallet %s'\
+                  self.misc.append('Missing private key is not flagged for computation at chainIndex %d in wallet %s'\
                                     % (newAddr.chainIndex, os.path.basename \
                                     (WalletPath)))
                                        
@@ -1160,7 +1165,8 @@ class PyBtcWalletRecovery(object):
                #save imported addresses
                if rootAddr.isLocked:
                   rootAddr.unlock(toRecover.kdfKey)
-               invQ = self.getInvModQ(rootAddr.binPrivKey32_Plain.toBinStr())
+               invQ = self.getInvModOfHMAC(rootAddr.binPrivKey32_Plain.toBinStr())
+               regQ = self.getValidKeyHMAC(rootAddr.binPrivKey32_Plain.toBinStr())
                rootAddr.lock()
                
                for i in range(0, self.nImports):
@@ -1180,10 +1186,20 @@ class PyBtcWalletRecovery(object):
                      newAddr.unlock(toRecover.kdfKey)
                     
                   if newAddr.chainIndex < -2:
-                     obfsPrivKey = CryptoECDSA().ECMultiplyScalars( \
-                                                   newAddr.binPrivKey32_Plain.toBinStr(),
-                                                   invQ.toBinStr())
-                     self.obfuscatedPrivKeys.append(binary_to_hex(obfsPrivKey))
+                     privMultiplier = CryptoECDSA().ECMultiplyScalars( \
+                                           newAddr.binPrivKey32_Plain.toBinStr(),
+                                           invQ.toBinStr())
+                     self.privKeyMultipliers.append(binary_to_hex(privMultiplier))
+
+                     # Sanity check that the multipliers are correct
+                     recov = CryptoECDSA().ECMultiplyScalars(privMultiplier,
+                                                             regQ.toBinStr())
+                     if not recov==newAddr.binPrivKey32_Plain.toBinStr():
+                        # Unfortunately I'm not sure what to do here if it doesn't match
+                        # We know no ther way to handle it...
+                        LOGERROR('Logging a multiplier that does not match!?')
+                     else:
+                        LOGINFO('Multiplier correctly recovers the private key')
                      
                   if newAddr.isLocked:
                      newAddr.keyChanged = 1
@@ -1194,6 +1210,8 @@ class PyBtcWalletRecovery(object):
    
                if Progress and self.nImports > 0: self.UIreport = \
                                                       self.UIreport + UIupdate
+
+               invQ,regQ = None,None
    
                #save comments
                if rmode == RECOVERMODE.Full:
@@ -1622,15 +1640,21 @@ class PyBtcWalletRecovery(object):
       return newWO
    
    ############################################################################
-   def getInvModQ(self, Q):
+   def getValidKeyHMAC(self, Q):
       nonce = 0
       while True:
          hmacQ = HMAC256(Q, 'LogMult%d' % nonce)
-         if binary_to_int(hmacQ, BIGENDIAN) > SECP256K1_ORDER:
+         if binary_to_int(hmacQ, BIGENDIAN) >= SECP256K1_ORDER:
             nonce += 1
             continue
 
-         return CryptoECDSA().InvMod(SecureBinaryData(hmacQ))
+         return SecureBinaryData(hmacQ)
+
+   ############################################################################
+   def getInvModOfHMAC(self, Q):
+      hmacQ = self.getValidKeyHMAC(Q)
+      return CryptoECDSA().InvMod(SecureBinaryData(hmacQ))
+
 
 ###############################################################################
 def WalletConsistencyCheck(wallet, prgAt=None):
@@ -1730,6 +1754,8 @@ def FixWallet(wltPath, wlt, mode=RECOVERMODE.Full, DoNotMove=False,
                fullpath = os.path.join(homedir, fn)
                if os.path.exists(fullpath):
                   shutil.copy(fullpath,  corruptFolder)
+               else:
+                  LOGERROR('Expected log file was not copied: %s', fn)
    
                
             fixer.EndLog = ("""
@@ -1849,5 +1875,6 @@ TODO: setup an array of tests:
 
 possible wallet corruption vectors:
 1) PyBtcAddress.unlock verifies consistency between private and public key, \
-   unless SkipCheck is forced to false. Look for this scenario
+   unless SkipCheck is forced to false and private key is already computed. 
+   Look for this scenario
 """

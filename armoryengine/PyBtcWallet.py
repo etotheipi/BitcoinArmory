@@ -1199,6 +1199,7 @@ class PyBtcWallet(object):
          onlineWallet.addrMap[addr160] = addrObj.copy()
          onlineWallet.addrMap[addr160].binPrivKey32_Encr  = SecureBinaryData()
          onlineWallet.addrMap[addr160].binPrivKey32_Plain = SecureBinaryData()
+         onlineWallet.addrMap[addr160].binInitVector16    = SecureBinaryData()
          onlineWallet.addrMap[addr160].useEncryption = False
          onlineWallet.addrMap[addr160].createPrivKeyNextUnlock = False
 
