@@ -5975,29 +5975,47 @@ class ArmoryMainWindow(QMainWindow):
       return lbl
 
 
-
    #############################################################################
    @TimeThisFunction
    def checkNewZeroConf(self):
+      '''
+      Function that looks at an incoming zero-confirmation transaction queue and
+      determines if any incoming transactions were created by Armory. If so, the
+      transaction will be passed along to a user notification queue.
+      '''
       while len(self.newZeroConfSinceLastUpdate)>0:
          rawTx = self.newZeroConfSinceLastUpdate.pop()
+
+         # Iterate through the Python wallets and create a ledger entry for the
+         # transaction. If the transaction is for us, put it on the notification
+         # queue, create the combined ledger, and reset the Qt table model.
          for wltID in self.walletMap.keys():
             wlt = self.walletMap[wltID]
             le = wlt.cppWallet.calcLedgerEntryForTxStr(rawTx)
             if not le.getTxHash() == '\x00' * 32:
-               LOGDEBUG('ZerConf tx for wallet: %s.  Adding to notify queue.' % wltID)
-               notifyIn = self.getSettingOrSetDefault('NotifyBtcIn', not OS_MACOSX)
-               notifyOut = self.getSettingOrSetDefault('NotifyBtcOut', not OS_MACOSX)
-               if (le.getValue() <= 0 and notifyOut) or (le.getValue() > 0 and notifyIn):
-                  self.notifyQueue.append([wltID, le, False, True]) # notifiedAlready=False
+               LOGDEBUG('ZerConf tx for wallet: %s.  Adding to notify queue.' \
+                        % wltID)
+               notifyIn = self.getSettingOrSetDefault('NotifyBtcIn', \
+                                                      not OS_MACOSX)
+               notifyOut = self.getSettingOrSetDefault('NotifyBtcOut', \
+                                                       not OS_MACOSX)
+               if (le.getValue() <= 0 and notifyOut) or \
+                  (le.getValue() > 0 and notifyIn):
+                  # notifiedAleready = False, isSingleAddr = True
+                  self.notifyQueue.append([wltID, le, False, True])
                self.createCombinedLedger()
                self.walletModel.reset()
 
+         # Iterate through the C++ lockbox wallets and create a ledger entry for
+         # the transaction. If the transaction is for us, put it on the
+         # notification queue, create the combined ledger, and reset the Qt
+         # table models.
          for lbID,cppWlt in self.cppLockboxWltMap.iteritems():
             le = cppWlt.calcLedgerEntryForTxStr(rawTx)
             if not le.getTxHash() == '\x00' * 32:
                LOGDEBUG('ZerConf tx for LOCKBOX: %s' % lbID)
-               self.notifyQueue.append([lbID, le, False, False]) # notifiedAlready=False
+               # notifiedAleready = False, isSingleAddr = True
+               self.notifyQueue.append([lbID, le, False, False])
                self.createCombinedLedger()
                self.walletModel.reset()
                self.lockboxLedgModel.reset()
@@ -6250,7 +6268,6 @@ class ArmoryMainWindow(QMainWindow):
             for func in self.extraHeartbeatOnline:
                func()
 
-
       except:
          LOGEXCEPT('Error in heartbeat function')
          print sys.exc_info()
@@ -6267,6 +6284,9 @@ class ArmoryMainWindow(QMainWindow):
       notifyOut = self.getSettingOrSetDefault('NotifyBtcOut', not OS_MACOSX)
       for blk in range(blk0, blk1):
          for tx in TheBDM.getHeaderByHeight(blk).getTxRefPtrList():
+            # Iterate through the Python wallets and create a ledger entry for
+            # the transaction. If we haven't already been notified of the
+            # transaction, put it on the notification queue.
             for wltID,wlt in self.walletMap.iteritems():
                le = wlt.cppWallet.calcLedgerEntryForTx(tx)
                if not le.getTxHash() in notifiedAlready:
@@ -6275,14 +6295,45 @@ class ArmoryMainWindow(QMainWindow):
                else:
                   pass
 
+            # Iterate through the C++ lockbox wallets and create a ledger entry
+            # for the transaction.If we haven't already been notified of the
+            # transaction, put it on the notification queue.
             for lbID,cppWlt in self.cppLockboxWltMap.iteritems():
                le = cppWlt.calcLedgerEntryForTx(tx)
                if not le.getTxHash() in notifiedAlready:
-                  if (le.getValue()<=0 and notifyOut) or (le.getValue>0 and notifyIn):
+                  if (le.getValue()<=0 and notifyOut) or \
+                     (le.getValue>0 and notifyIn):
                      self.notifyQueue.append([lbID, le, False, False])
                else:
                   pass
 
+
+   #############################################################################
+   def printAlert(self, moneyID, ledgerAmt, txAmt):
+      '''
+      Function that prints a notification for a transaction that affects an
+      address we control.
+      '''
+      dispLines = []
+      title = ''
+      totalStr = coin2str(txAmt, maxZeros=1)
+
+      # Collected everything we need to display, now construct it and do it.
+      if ledgerAmt > 0:
+         # Received!
+         title = 'Bitcoins Received!'
+         dispLines.append('Amount: \t%s BTC' % totalStr.strip())
+         dispLines.append('Recipient:\tID[%s]' % moneyID)
+      elif ledgerAmt < 0:
+         # Sent!
+         title = 'Bitcoins Sent!'
+         dispLines.append('Amount: \t%s BTC' % totalStr.strip())
+         dispLines.append('Sender:\tID[%s]' % moneyID)
+      self.sysTray.showMessage(title, \
+                               '\n'.join(dispLines),  \
+                               QSystemTrayIcon.Information, \
+                               10000)
+      LOGINFO(title)
 
 
    #############################################################################
@@ -6298,136 +6349,80 @@ class ArmoryMainWindow(QMainWindow):
          RightNow()<self.notifyBlockedUntil:
          return
 
-      # Input is:  [WltID/LBID, LedgerEntry, NotifiedAlready, IsSingleAddr]
+      # Notify queue input is:
+      # [WltID/LBID, LedgerEntry, alreadyNotified, isSingleAddr]
       txNotifyList = []
       for i in range(len(self.notifyQueue)):
          moneyID, le, alreadyNotified, isSingleAddr = self.notifyQueue[i]
+
+         # Make sure the wallet ID or lockbox ID keys are actually valid before
+         # using them to grab the appropriate C++ wallet.
          if ((isSingleAddr and not self.walletMap.has_key(moneyID)) and \
             (not isSingleAddr and not self.cppLockboxWltMap.has_key(moneyID))):
             continue
          if isSingleAddr:
-             wlt = self.walletMap[moneyID]
+             wlt = self.walletMap[moneyID].cppWallet
          else:
              wlt = self.cppLockboxWltMap[moneyID]
 
-         # Skip the ones we've notified of already
+         # Skip the ones we've notified of already.
          if alreadyNotified:
             continue
 
-         # Notification is not actually for us
+         # Notification is not actually for us.
          if le.getTxHash()=='\x00'*32:
             continue
 
+         # Mark the transactions as having gone through the queue. If the
+         # transaction stayed within the wallet, send a special notification,
+         # otherwise print a standard alert for the transaction.
          self.notifyQueue[i][2] = True
          if le.isSentToSelf():
-            if isSingleAddr: # For now, this will apply only to single addrs
-######################## DETERMINESENTTOSELFAMT FIX NEEDS TO BE APPLIED!!!!!!!!!!!!!!!!!!!!!!!
-               amt = determineSentToSelfAmt(le, wlt)[0]
-               self.sysTray.showMessage('Your bitcoins just did a lap!', \
-                  'Wallet "%s" (%s) just sent %s BTC to itself!' % \
-                  (wlt.labelName, moneyID, coin2str(amt,maxZeros=1).strip()),
-                  QSystemTrayIcon.Information, 10000)
+            # For now, don't send the amount. The code was getting a value from
+            # Python wallets. At the moment, C++ wallets require a lot more
+            # effort. This will be fixed soon, but for now....
+            # amt = determineSentToSelfAmt(le, wlt)[0]
+            # self.sysTray.showMessage('Your bitcoins just did a lap!', \
+            #                  'Wallet "%s" (%s) just sent %s BTC to itself!' % \
+            #         (wlt.labelName, moneyID, coin2str(amt,maxZeros=1).strip()),
+            self.sysTray.showMessage('Your bitcoins just did a lap!', \
+                              'Wallet "%s" (%s) just sent some BTC to itself!' % \
+                     (wlt.labelName, moneyID), QSystemTrayIcon.Information, 10000)
          else:
             txref = TheBDM.getTxByHash(le.getTxHash())
             nOut = txref.getNumTxOut()
-            nIn = txref.getNumTxIn()
+#            nIn = txref.getNumTxIn()
             getScrAddrOut = lambda i: txref.getTxOutCopy(i).getScrAddressStr()
-            getScrAddrIn = lambda i: txref.getTxOutCopy(i).getScrAddressStr()
+#            getScrAddrIn = lambda i: txref.getTxOutCopy(i).getScrAddressStr()
 
-            # Maybe it's a scrAddr for one of our known lockboxes?
-            singleAddr = []
-            lockboxAddr = []
-#            mineSingle = []
-#            mineLockbox = []
-#            otherSingle = []
-#            otherLockbox = []
-            mine = []
-            other = []
-            idxMine = []
-            idxOther = []
-#            mine = []
-#            other = []
+            # Iterate through each TxOut.
             for i in range(nOut):
-               inAddr = getScrAddrOut(i)
-               if inAddr.startswith(SCRADDR_MULTISIG_BYTE):
-                  lockboxAddr.append(i)
+               scrType = getTxOutScriptType(txref.getTxOutCopy(i).getScript())
+               if scrType in CPP_TXOUT_HAS_ADDRSTR:
+                  # Normal addresses are in a standard wallet.
+                  recip = getScrAddrOut(i)
+                  value = txref.getTxOutCopy(i).getValue()
+                  self.printAlert(moneyID, le.getValue(), value)
+
+               elif scrType == CPP_TXOUT_MULTISIG:
+                  # Multisig is in a lockbox.
+                  recip = getScrAddrOut(i)
+                  value = txref.getTxOutCopy(i).getValue()
+                  self.printAlert(moneyID, le.getValue(), value)
+
+               elif scrType == CPP_TXOUT_P2SH:
+                  # P2SH is in a lockbox.
+                  recip = getScrAddrOut(i)
+                  value = txref.getTxOutCopy(i).getValue()
+                  self.printAlert(moneyID, le.getValue())
+
                else:
-                  singleAddr.append(i)
+                  # Non-standard script. Just skip it.
+                  print 'This is a non-standard script. We will skip it.'
 
-            # Handle single addrs
-            if isSingleAddr:
-               recips = [scrAddr_to_addrStr(getScrAddrOut(j)) for j in singleAddr]
-               print recips
-               print str(singleAddr)
-               a160s  = [addrStr_to_hash160(recips[j])[1]  for j in range(len(singleAddr))]
-               values = [txref.getTxOutCopy(j).getValue()  for j in singleAddr]
-               idxMine  = filter(lambda j:     wlt.hasAddr(a160s[j]), range(len(singleAddr)))
-               idxOther = filter(lambda j: not wlt.hasAddr(a160s[j]), range(len(singleAddr)))
-               mine  = [(recips[j],values[j]) for j in idxMine]
-               other = [(recips[j],values[j]) for j in idxOther]
-
-            # Handle lockbox addrs
-            else:
-               recips = [getScrAddrOut(k) for k in lockboxAddr]
-               print recips
-               print str(lockboxAddr)
-               values = [txref.getTxOutCopy(k).getValue()  for k in lockboxAddr]
-               idxMine  = filter(lambda k:     calcLockboxID(scraddr=getScrAddrOut(k)), range(len(lockboxAddr)))
-               idxOther = filter(lambda k: not calcLockboxID(scraddr=getScrAddrOut(k)), range(len(lockboxAddr)))
-               mine  = [(recips[k],values[k]) for k in idxMine]
-               other = [(recips[k],values[k]) for k in idxOther]
-
-            dispLines = []
-            title = ''
-
-            # Collected everything we need to display, now construct it and do it
-            if le.getValue()>0:
-               # Received!
-               title = 'Bitcoins Received!'
-               coinSum = sum([mine[i][1] for i in range(len(mine))])
-               totalStr = coin2str(coinSum, maxZeros=1)
-               dispLines.append('Amount: \t%s BTC' % totalStr.strip())
-#               totAddrsMine = len(mineSingle) + len(mineLockbox)
-               if len(mine) >= 1 and isSingleAddr:
-#                  dispLines.append('<Received With Multiple Addresses>')
-#               elif len(mineSingle) == 1:
-#                  dispLines.append('Address:\t%s' % mineSingle[0][0])
-                  dispLines.append('Wallet:\t"%s" (%s)' % (wlt.labelName, moneyID))
-               elif len(mine) >= 1 and not isSingleAddr:
-                  dispLines.append('Lockbox:\t[%s]' % mine[0][0])
-#                  dispLines.append('From:\tWallet "%s" (%s)' % (idxMine[0][0], moneyID))
-            elif le.getValue()<0:
-               # Sent!
-               title = 'Bitcoins Sent!'
-               coinSum = sum([other[i][1] for i in range(len(other))])
-               totalStr = coin2str(coinSum, maxZeros=1)
-               dispLines.append('Amount: \t%s BTC' % totalStr.strip())
-#               if totAddrsOther > 1:
-               if len(other) >= 1 and isSingleAddr:
-#                  coinSum = sum(coinSumSingle)
-#                  totalStr = coin2str(coinSum, maxZeros=1)
-#                  dispLines.append('Amount: \t%s BTC' % totalStr.strip())
-#                  dispLines.append('Sent To:\t%s' % otherSingle[0][0])
-                  dispLines.append('From:\tWallet "%s" (%s)' % (wlt.labelName, moneyID))
-               elif len(other) >= 1 and not isSingleAddr:
-#                  coinSum = sum(coinSumLockbox)
-#                  totalStr = coin2str(coinSum, maxZeros=1)
-#                  dispLines.append('Amount: \t%s BTC' % totalStr.strip())
-#                  dispLines.append('Sent To:\t[%s]' % otherLockbox[0][0])
-                  dispLines.append('From:\tLockbox [%s]' % moneyID)
-
-            self.sysTray.showMessage(title, \
-                                     '\n'.join(dispLines),  \
-                                     QSystemTrayIcon.Information, \
-                                     10000)
-            LOGINFO(title)
-            #LOGINFO('\n' + '\n'.join(dispLines))
-            #qsnd = QSound('drip.wav')
-            #qsnd.play()
-
+         # Wait for 5 seconds before processing the next queue object.
          self.notifyBlockedUntil = RightNow() + 5
          return
-
 
 
    #############################################################################
@@ -6832,7 +6827,3 @@ if 1:
    QAPP.setQuitOnLastWindowClosed(True)
    reactor.runReturn()
    os._exit(QAPP.exec_())
-
-
-
-

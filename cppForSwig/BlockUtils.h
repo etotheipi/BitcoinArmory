@@ -78,7 +78,7 @@ typedef enum
 //
 // LedgerEntry  
 //
-// LedgerEntry class is used for bother ScrAddresses and BtcWallets.  Members
+// LedgerEntry class is used for both ScrAddresses and BtcWallets.  Members
 // have slightly different meanings (or irrelevant) depending which one it's
 // used with.
 //
@@ -179,12 +179,8 @@ private:
    bool             isValid_;
    bool             isCoinbase_;
    bool             isSentToSelf_;
-   bool             isChangeBack_;;
-
-
-   
+   bool             isChangeBack_;
 }; 
-
 
 
 ////////////////////////////////////////////////////////////////////////////////
