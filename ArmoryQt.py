@@ -6240,7 +6240,7 @@ class ArmoryMainWindow(QMainWindow):
       negativeImports = []
       
       for wlt in self.walletMap:
-         if self.walletMap[wlt].hasForkedImports:
+         if self.walletMap[wlt].hasNegativeImports:
             negativeImports.append(self.walletMap[wlt].uniqueIDB58)
             
       # If we detect any negative import

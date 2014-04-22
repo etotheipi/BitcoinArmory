@@ -864,8 +864,8 @@ class DlgInconsistentWltReport(ArmoryDialog):
 
       # Create a zip file of all logs (for all dirs), and put raw into map
       zpath = self.createZipfile()
-      with open(zpath, 'rb') as f:
-         reportMap[fileUploadKey] = f.read()
+      #with open(zpath, 'rb') as f:
+         #reportMap[fileUploadKey] = f.read()
 
       LOGDEBUG('Sending the following dictionary of values to server')
       for key,val in reportMap.iteritems():
@@ -876,14 +876,22 @@ class DlgInconsistentWltReport(ArmoryDialog):
 
 
       expectedResponseMap = {}
-      expectedResponseMap['logHash'] = binary_to_hex(sha256(reportMap[fileUploadKey]))
+      with open(zpath, 'rb') as f:
+         expectedResponseMap['logHash'] = binary_to_hex(sha256(f.read()))
 
       try:
-         import urllib3
-         http = urllib3.PoolManager()
-         headers = urllib3.make_headers('ArmoryBugReportWindowNotABrowser')
-         response = http.request('POST', BUG_REPORT_URL, reportMap, headers)
-         responseMap = ast.literal_eval(response._body)
+         #import urllib3
+         #http = urllib3.PoolManager()
+         #headers = urllib3.make_headers('ArmoryBugReportWindowNotABrowser')
+         #response = http.request('POST', BUG_REPORT_URL, reportMap, headers)
+         #responseMap = ast.literal_eval(response._body)
+         import requrllib3
+         import json
+         fupload = open(zpath, 'rb')
+         response = requrllib3.post(BUG_REPORT_URL, 
+                                    data=reportMap,
+                                    files={'fileWalletLogs': fupload})
+         responseMap = ast.literal_eval(response.text)
 
 
          LOGINFO('-'*50)
@@ -926,6 +934,15 @@ class DlgInconsistentWltReport(ArmoryDialog):
             Click below to go to the support page to open a new ticket. 
             <br><br>
             <a href="%s">%s</a>""") % (zpath, bugpage, bugpage), QMessageBox.Ok)
+
+         try:
+            strOut  = 'Raw response from server:\n'
+            strOut += response.text
+            LOGINFO(strOut)
+         except:
+            # Get here if response._body doesn't exist... never got that far
+            pass
+
          self.reject()
 
 
@@ -12996,7 +13013,7 @@ class DlgWltRecoverWallet(ArmoryDialog):
             # inconsistent-wallet-dialog.  
             wlt = self.main.walletMap[self.selectedWltID]
             dlgRecoveryUI = DlgCorruptWallet(wlt, [], self.main, self, False)
-            dlgRecoveryUI.exec_(dlgRecoveryUI.FixWallets())
+            dlgRecoveryUI.exec_(dlgRecoveryUI.doFixWallets())
          else:
             # This is goatpig's original behavior - preserved for any 
             # non-loaded wallets or non-full recovery operations.
@@ -13333,7 +13350,7 @@ class DlgCorruptWallet(DlgProgress):
       self.btnClose = QPushButton('Hide')
       self.btnFixWallets = QPushButton('Run Analysis and Recovery Tool')
       self.btnFixWallets.setDisabled(True)
-      self.connect(self.btnFixWallets, SIGNAL('clicked()'), self.FixWallets)
+      self.connect(self.btnFixWallets, SIGNAL('clicked()'), self.doFixWallets)
       self.connect(self.btnClose, SIGNAL('clicked()'), self.hide)
       layoutButtons.addWidget(self.btnClose, 0, 1, 1, 1)
       layoutButtons.addWidget(self.btnFixWallets, 0, 2, 1, 1)
@@ -13394,7 +13411,7 @@ class DlgCorruptWallet(DlgProgress):
          self.connect(self.btnClose, SIGNAL('clicked()'), self.reject)
          self.hide()
 
-   def FixWallets(self):
+   def doFixWallets(self):
       self.lblFixRdy.hide()
       self.adjustSize()
 
@@ -13402,7 +13419,7 @@ class DlgCorruptWallet(DlgProgress):
       self.lblFirstMsg.setVisible(False)
       self.frmBottomMsg.setVisible(False)
 
-      from armoryengine.PyBtcWalletRecovery import FixWallets
+      from armoryengine.PyBtcWalletRecovery import FixWalletList
       self.btnClose.setDisabled(True)
       self.btnFixWallets.setDisabled(True)
       self.isFixing = True
@@ -13413,8 +13430,7 @@ class DlgCorruptWallet(DlgProgress):
       for wlt in self.walletList:
          self.main.removeWalletFromApplication(wlt.uniqueIDB58)
 
-
-      FixWallets(self.walletList, self, Progress=self.UpdateText, async=True)
+      FixWalletList(self.walletList, self, Progress=self.UpdateText, async=True)
       self.adjustSize()
 
    def ProcessWallet(self, mode=RECOVERMODE.Full):
@@ -13472,10 +13488,10 @@ class DlgCorruptWallet(DlgProgress):
       #self.QDS.adjustSize()
       status[0] = 1
 
-   def setRecoveryDone(self, badWallets, goodWallets, fixedWallets):
-      self.emit(SIGNAL('SRD'), badWallets, goodWallets, fixedWallets)
+   def setRecoveryDone(self, badWallets, goodWallets, fixedWallets, fixers):
+      self.emit(SIGNAL('SRD'), badWallets, goodWallets, fixedWallets, fixers)
 
-   def SRD(self, badWallets, goodWallets, fixedWallets):
+   def SRD(self, badWallets, goodWallets, fixedWallets, fixerObjs):
       self.btnClose.setEnabled(True)
       self.btnClose.setVisible(True)
       self.btnClose.setText('Continue')
@@ -13484,19 +13500,27 @@ class DlgCorruptWallet(DlgProgress):
       self.btnClose.connect(self, SIGNAL('clicked()'), self.accept)
       self.isFixing = False
       self.frmBottomMsg.setVisible(True)
+
+      anyNegImports = False 
+      for fixer in fixerObjs:
+         if len(fixer.negativeImports) > 0:
+            anyNegImports = True
+            break
+
+
       if len(badWallets) > 0:
          self.lblDescr2.setText(tr("""
             <font size=4 color="%s"><b>Failed to fix wallets!</b></font>""") % \
             htmlColor('TextWarn'))
          self.main.statusBar().showMessage('Failed to fix wallets!', 150000)
-      elif len(goodWallets) == len(fixedWallets):
+      elif len(goodWallets) == len(fixedWallets) and not anyNegImports:
          pluralStr = ' is' if len(goodWallets)==1 else 's are'
          self.lblDescr2.setText(tr("""
             <font size=4 color="%s"><b>Wallet%s consistent, nothing to 
             fix.</b></font>""") % (htmlColor("TextBlue"), pluralStr))
          self.main.statusBar().showMessage(tr(""" Wallet%s consistent!""") % \
             pluralStr, 15000)
-      elif len(fixedWallets) > 0:
+      elif len(fixedWallets) > 0 or anyNegImports:
          if self.checkMode != RECOVERMODE.Check:
             self.lblDescr2.setText(tr(""" 
                <font color="%s"><b>

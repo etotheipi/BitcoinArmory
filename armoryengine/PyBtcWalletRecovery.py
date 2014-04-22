@@ -49,7 +49,7 @@ class PyBtcWalletRecovery(object):
       self.hashValMismatch = [] #addrStr20 doesnt match hashVal entry in file
       self.unmatchedPair = [] #private key doesnt yield public key
       self.importedErr = [] #all imported keys related errors
-      self.forkedImports = [] #lists forked imports in wallet
+      self.negativeImports = [] #lists forked imports in wallet
       
       #inconsistent private keys as P/HMAC512(rootKey, 'LogMult') mod N
       self.privKeyMultipliers = []
@@ -150,7 +150,7 @@ class PyBtcWalletRecovery(object):
          errors['unmatchedPair'] = self.unmatchedPair
          errors['misc'] = self.misc
          errors['importedErr'] = self.importedErr
-         errors['forkedImports'] = self.forkedImports
+         errors['negativeImports'] = self.negativeImports
          errors['nErrors'] = nErrors
          errors['privMult'] = self.privKeyMultipliers
          
@@ -1007,13 +1007,13 @@ class PyBtcWalletRecovery(object):
 
             
             if isPrivForked:
-               forkedImport = newAddr.copy()
-               forkedImport.chainIndex = -3 -newAddr.chainIndex
+               negImport = newAddr.copy()
+               negImport.chainIndex = -3 -newAddr.chainIndex
                
-               if forkedImport.useEncryption:
-                  forkedImport.lock()
+               if negImport.useEncryption:
+                  negImport.lock()
                                              
-               importedDict[self.nImports] = [forkedImport, 0, 0, 0]
+               importedDict[self.nImports] = [negImport, 0, 0, 0]
                self.nImports = self.nImports +1
                       
             if newAddr.useEncryption:
@@ -1041,7 +1041,7 @@ class PyBtcWalletRecovery(object):
                                       /prgTotal)*prgAt[1]            
       
             if newAddr.chainIndex < -2:
-               self.forkedImports.append(newAddr.addrStr20)
+               self.negativeImports.append(newAddr.addrStr20)
             elif newAddr.chainIndex == -2:   
                # Fix byte errors in the address data
                fixedAddrData = newAddr.serialize()
@@ -1700,14 +1700,14 @@ def FixWallet(wltPath, wlt, mode=RECOVERMODE.Full, DoNotMove=False,
       
    if frt == 0:
       Progress(fixer.UIreport + fixer.EndLog) 
-      return 0, 0
+      return 0, 0, fixer
                  
    elif frt == 1 or (isinstance(frt, dict) and frt['nErrors'] != 0):
       Progress(fixer.UIreport)
       
       if DoNotMove:
          Progress(fixer.UIreport + fixer.EndLog)
-         return 1, 0
+         return 1, 0, fixer
       else:   
          #move the old wallets and log files to another folder
          corruptFolder = os.path.join(homedir, wltID, datestr)
@@ -1764,7 +1764,7 @@ def FixWallet(wltPath, wlt, mode=RECOVERMODE.Full, DoNotMove=False,
                   <br>%s/<br><br>""") % corruptFolder
                                  
             Progress(fixer.UIreport + fixer.EndLog)
-            return 1, corruptFolder 
+            return 1, corruptFolder, fixer
       
          except Exception as e:
             #failed to move files around, most likely a credential error
@@ -1772,14 +1772,14 @@ def FixWallet(wltPath, wlt, mode=RECOVERMODE.Full, DoNotMove=False,
             errStr = '<br><b>An error occurred moving wallet files:</b> %s' % e
             Progress(fixer.UIreport + errStr)
             
-            return -1, fixer.UIreport + errStr
+            return -1, fixer.UIreport + errSt, fixer
    else:
       Progress(fixer.UIreport + fixer.EndLog)
-      return -1, fixer.UIreport + fixer.EndLog
+      return -1, fixer.UIreport + fixer.EndLog, fixer
 
 ###############################################################################
 @AllowAsync
-def FixWallets(wallets, dlg, Progress=emptyFunc): 
+def FixWalletList(wallets, dlg, Progress=emptyFunc): 
    
    #It's the caller's responsibility to unload the wallets from his app
    
@@ -1787,6 +1787,7 @@ def FixWallets(wallets, dlg, Progress=emptyFunc):
    fixedWlt = []
    wlterror = []
    goodWallets = []
+   fixerObjs = []
    logsSaved = []   
 
    for wlt in wallets:
@@ -1796,8 +1797,11 @@ def FixWallets(wallets, dlg, Progress=emptyFunc):
          while not status[0]:
             sleep(0.01)
          
-      wltStatus, extraData = FixWallet('', wlt, Passphrase=dlg.AskUnlock,
-                                       Progress=Progress)
+      wltStatus, extraData, recovObj = FixWallet( \
+         '', wlt, Passphrase=dlg.AskUnlock, Progress=Progress)
+
+
+      fixerObjs.append(recovObj)
 
       if wltStatus == 0:
          goodWallets.append(wlt.uniqueIDB58)
@@ -1810,7 +1814,7 @@ def FixWallets(wallets, dlg, Progress=emptyFunc):
          wlterror.append([wlt.uniqueIDB58, extraData])
    
    if dlg:                  
-      dlg.setRecoveryDone(wlterror, goodWallets, fixedWlt) 
+      dlg.setRecoveryDone(wlterror, goodWallets, fixedWlt, fixerObjs)
             
       #load the new wallets
       dlg.loadFixedWallets(fixedWlt)
@@ -1832,9 +1836,9 @@ def ParseWallet(wltPath, wlt, mode, dlg, Progress=emptyFunc):
    wlterror = []
    goodWallets = []
    
-   wltStatus, extraData = FixWallet(wltPath, wlt, mode, True, 
-                                    Passphrase=dlg.AskUnlock, 
-                                    Progress=Progress)
+   wltStatus, extraData, recovObj = FixWallet(wltPath, wlt, mode, True, 
+                                       Passphrase=dlg.AskUnlock, 
+                                       Progress=Progress)
    if wltStatus == 0:
       goodWallets.append(1)
       fixedWlt.append(1)
@@ -1863,7 +1867,8 @@ def ParseWallet(wltPath, wlt, mode, dlg, Progress=emptyFunc):
    
    if dlg:                  
       dlg.setRecoveryDone(wlterror, goodWallets, fixedWlt) 
-   else: return wltStatus
+   else: 
+      return wltStatus
 
 ###############################################################################
 

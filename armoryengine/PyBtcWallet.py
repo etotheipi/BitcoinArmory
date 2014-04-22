@@ -229,7 +229,7 @@ class PyBtcWallet(object):
       self.interruptTest3  = False
       
       #flags the wallet if it has off chain imports (from a consistency repair)
-      self.hasForkedImports = False
+      self.hasNegativeImports = False
       
 
    #############################################################################
@@ -1935,7 +1935,7 @@ class PyBtcWallet(object):
                
             if newAddr.chainIndex < -2:
                newAddr.chainIndex = -2
-               self.hasForkedImports = True
+               self.hasNegativeImports = True
                                  
             self.linearAddr160List.append(newAddr.getAddr160())
             self.chainIndexMap[newAddr.chainIndex] = newAddr.getAddr160()
