@@ -695,27 +695,23 @@ class DlgInconsistentWltReport(ArmoryDialog):
 
       lblDescr = QRichLabel(tr("""
          Armory has detected that %s inconsistent,
-         possibly due to hardware errors out of our control.  Please
-         submit the wallet 
-         logs to <i>Armory Technologies, Inc.</i> for review.
-         Until you hear back from an Armory representative, 
+         possibly due to hardware errors out of our control.  It <u>strongly
+         recommended</u> you submit the wallet logs to the Armory team 
+         for review.  Until you hear back from an Armory representative, 
          we recommend:
          <ul>
          <li><b>Do not delete any data in your Armory home directory</b></li>
-         <li><b>Do not receive any more money to the affected wallets</b></li>
-         <li><b>Create a new wallet and move all remaining funds to it</b></li>
+         <li><b>Do not send or receive any funds with the affected 
+                wallet(s)</b></li>
          <li><b>Create a backup of the wallet analysis logs</b></li>
          </ul> 
-         <b>Note:</b> The wallet analysis logs do not contain any private
-         key data, or even public key data!  It's simply a record of 
-         inconsistencies found in your wallet. 
          """) % (wltDispStr))
 
-      self.chkIncludeRegLogs = QCheckBox(tr("""Include all log files"""))
+      self.chkIncludeReg = QCheckBox(tr("""Include all log files"""))
       self.chkIncludeWOW = QCheckBox(tr("""Include watch-only 
          @{wallet|wallets}@""", pluralList=len(walletList)))
       self.chkIncludeWOW.setChecked(False)
-      self.chkIncludeRegLogs.setChecked(True)
+      self.chkIncludeReg.setChecked(True)
 
       self.btnMoreInfo = QLabelButton('Privacy Warning')
       self.connect(self.btnMoreInfo, SIGNAL(CLICKED), \
@@ -770,12 +766,9 @@ class DlgInconsistentWltReport(ArmoryDialog):
       i += 1
       layout.addWidget(frmBackup,        i,0, 1,2)
 
-      #i += 1
-      #layout.addWidget(HLINE(),          i,0, 1,2)
-      #i += 1
-      #layout.addWidget(lblDetect,        i,0, 1,2)
-      #i += 1
-      #layout.addWidget(HLINE(),          i,0, 1,2)
+      i += 1
+      layout.addWidget(HLINE(),          i,0, 1,2)
+
 
       i += 1
       layout.addWidget(self.lblEmail,    i,0, 1,1)
@@ -792,7 +785,7 @@ class DlgInconsistentWltReport(ArmoryDialog):
       layout.addWidget(self.txtDescr,    i,0, 1,2)
 
       i += 1
-      frmChkBtnRL = makeHorizFrame([self.chkIncludeRegLogs, 
+      frmChkBtnRL = makeHorizFrame([self.chkIncludeReg, 
                                     self.chkIncludeWOW,  
                                     self.btnMoreInfo,])
       layout.addWidget(frmChkBtnRL,      i,0, 1,2)
@@ -810,16 +803,10 @@ class DlgInconsistentWltReport(ArmoryDialog):
    def submitReport(self):
 
       self.userAgreedToPrivacyPolicy = False
-      if self.chkIncludeWOW.isChecked():
-         if self.main.woWalletSubmitPrivacyWarning(wCancel=True):
-            self.userAgreedToPrivacyPolicy = True
-         else:
-            return
+      if self.main.woWalletSubmitPrivacyWarning(wCancel=True):
+         self.userAgreedToPrivacyPolicy = True
       else:
-         if self.main.submitRecoveryLogWarning(wCancel=True):
-            self.userAgreedToPrivacyPolicy = True
-         else:
-            return
+         return
 
       emailAddr = unicode(self.edtEmail.text()).strip()
       emailLen = lenBytes(emailAddr)
@@ -873,7 +860,7 @@ class DlgInconsistentWltReport(ArmoryDialog):
       reportMap['userTimeUTC']  = unixTimeToFormatStr(RightNowUTC())
       reportMap['privacyEULA']  = str(self.userAgreedToPrivacyPolicy)
 
-      fileUploadKey = 'fileLog'
+      fileUploadKey = 'fileWalletLogs'
 
       # Create a zip file of all logs (for all dirs), and put raw into map
       zpath = self.createZipfile()
@@ -953,7 +940,7 @@ class DlgInconsistentWltReport(ArmoryDialog):
          
       # Should we include wallet files from logs directory?
       includeWlt = self.chkIncludeWOW.isChecked()
-      includeRegLogs = self.chkIncludeRegLogs.isChecked()
+      includeReg = self.chkIncludeReg.isChecked()
 
       # Set to default save path if needed
       if zfilePath is None:
@@ -985,7 +972,7 @@ class DlgInconsistentWltReport(ArmoryDialog):
                         continue
 
                # Exclude regular logs as well, if desired
-               if fn in ['armorylog.txt', 'armorycpplog.txt']:
+               if not includeReg and fn in ['armorylog.txt', 'armorycpplog.txt']:
                   continue
                
 
@@ -1012,7 +999,7 @@ class DlgInconsistentWltReport(ArmoryDialog):
 
       try:
          self.createZipfile(saveTo, forceIncludeAllData=True)
-         QMessageBox.critical(self, tr('Success'), tr("""
+         QMessageBox.information(self, tr('Success'), tr("""
             The wallet logs were successfully saved to the following
             location: 
             <br><br>

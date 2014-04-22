@@ -321,7 +321,7 @@ class PyBtcWalletRecovery(object):
                
       if len(self.privKeyMultipliers) > 0:
          self.strOutput.append('Inconsistent private keys were found!\r\n')
-         self.strOutput.append('Logging Multipliers:\r\n')
+         self.strOutput.append('Logging Multipliers (no private key data):\r\n')
          
          for i in range(0, len(self.privKeyMultipliers)):
             self.strOutput.append('   %s\r\n' % (self.privKeyMultipliers[i]))

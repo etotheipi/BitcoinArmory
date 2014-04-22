@@ -2368,6 +2368,7 @@ class ArmoryMainWindow(QMainWindow):
       self.lastDirectory = savedDir
       self.writeSetting('LastDirectory', savedDir)
 
+
    #############################################################################
    def getFileSave(self, title='Save Wallet File', \
                          ffilter=['Wallet files (*.wallet)'], \
@@ -3793,22 +3794,36 @@ class ArmoryMainWindow(QMainWindow):
    #############################################################################
    def woWalletSubmitPrivacyWarning(self, wCancel=False):
       return MsgBoxCustom(MSGBOX.Warning, tr('Privacy Warning'), tr("""
+         <b><u><font size=4>Wallet Analysis Log Files</font></u></b>
+         <br><br>
+         The wallet analysis logs contain no personally-identifiable
+         information, only a record of errors and inconsistencies 
+         found in your wallet file.  No private keys or even public 
+         keys are included.
+         <br><br>
+
+         <b><u><font size=4>Regular Log Files</font></u></b>
+         <br><br>
+         The regular log files do not contain any <u>security</u>-sensitive
+         information, but some users may consider the information to be
+         <u>privacy</u>-sensitive.  The log files may identify some addresses
+         and transactions that are related to your wallets.  It is always 
+         recommended you include your log files with any request to the
+         Armory team, unless you are uncomfortable with the privacy 
+         implications.
+         <br><br>
+
+         <b><u><font size=4>Watching-only Wallet</font></u></b>
+         <br><br>
          A watching-only wallet is a copy of a regular wallet that does not 
          contain any signing keys.  This allows the holder to see the balance
          and transaction history of the wallet, but not spend any of the funds.
          <br><br>
          You may be requested to submit a watching-only copy of your wallet
          to <i>Armory Technologies, Inc.</i> to make sure that there is no 
-         risk to the security of your funds.  This submission will also include
-         all logs produced by the wallet analysis tool.  All data collected 
-         as part of this process will be analyzed by our
-         team, and then subsequently deleted.  
-         <br><br>
-         Please be aware that many users are not comfortable with the privacy
-         implications of revealing their watching-only wallet to any other 
-         party.  You should especially not send this information unless 
-         an Armory representative specifically requested it."""), 
-         wCancel=wCancel, yesStr="&Ok")
+         risk to the security of your funds.  You should not send your
+         watching-only wallet unless it was specifically requested by an
+         Armory representative."""), wCancel=wCancel, yesStr="&Ok")
           
    #############################################################################
    def submitRecoveryLogWarning(self, wCancel=False):
