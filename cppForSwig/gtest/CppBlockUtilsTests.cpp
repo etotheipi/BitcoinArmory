@@ -252,6 +252,10 @@ protected:
 TEST_F(BinaryDataTest, Constructor)
 {
    uint8_t* ptr = new uint8_t[4];
+   ptr[0]='0'; // random junk
+   ptr[1]='1';
+   ptr[2]='2';
+   ptr[3]='3';
 
    BinaryData a;
    BinaryData b(4);
