@@ -864,8 +864,8 @@ class DlgInconsistentWltReport(ArmoryDialog):
 
       # Create a zip file of all logs (for all dirs), and put raw into map
       zpath = self.createZipfile()
-      #with open(zpath, 'rb') as f:
-         #reportMap[fileUploadKey] = f.read()
+      with open(zpath, 'rb') as f:
+         reportMap[fileUploadKey] = f.read()
 
       LOGDEBUG('Sending the following dictionary of values to server')
       for key,val in reportMap.iteritems():
@@ -877,21 +877,16 @@ class DlgInconsistentWltReport(ArmoryDialog):
 
       expectedResponseMap = {}
       with open(zpath, 'rb') as f:
-         expectedResponseMap['logHash'] = binary_to_hex(sha256(f.read()))
+         expectedResponseMap['fileWalletLogsHash'] = \
+                           binary_to_hex(sha256(f.read()))
 
       try:
-         #import urllib3
-         #http = urllib3.PoolManager()
-         #headers = urllib3.make_headers('ArmoryBugReportWindowNotABrowser')
-         #response = http.request('POST', BUG_REPORT_URL, reportMap, headers)
-         #responseMap = ast.literal_eval(response._body)
-         import requrllib3
-         import json
-         fupload = open(zpath, 'rb')
-         response = requrllib3.post(BUG_REPORT_URL, 
-                                    data=reportMap,
-                                    files={'fileWalletLogs': fupload})
-         responseMap = ast.literal_eval(response.text)
+
+         import urllib3
+         http = urllib3.PoolManager()
+         headers = urllib3.make_headers('ArmoryBugReportWindowNotABrowser')
+         response = http.request('POST', BUG_REPORT_URL, reportMap, headers)
+         responseMap = ast.literal_eval(response._body)
 
 
          LOGINFO('-'*50)
@@ -13536,6 +13531,7 @@ class DlgCorruptWallet(DlgProgress):
             self.lblDescr2.setText('<h2 style="color: red;"> \
                                     Consistency check failed! </h2>')
       self.adjustSize()
+
 
    def loadFixedWallets(self, wallets):
       self.emit(SIGNAL('LFW'), wallets)
