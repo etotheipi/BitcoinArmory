@@ -2595,6 +2595,8 @@ class ArmoryMainWindow(QMainWindow):
       textOut = '\n\n'.join([lb.serializeAscii() for lb in self.allLockboxes])
       with open(MULTISIG_FILE, 'w') as f:
          f.write(textOut)
+         f.flush()
+         os.fsync(f.fileno())
 
 
       

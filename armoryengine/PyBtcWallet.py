@@ -682,6 +682,8 @@ class PyBtcWallet(object):
          TheBDM.registerWallet(self.cppWallet, isFresh=isActuallyNew) # new wallet
 
       newfile.write(fileData.getBinaryString())
+      newfile.flush()
+      os.fsync(newfile.fileno())
       newfile.close()
 
       walletFileBackup = self.getWalletPath('backup')
@@ -2154,6 +2156,8 @@ class PyBtcWallet(object):
       try:
          wltfile = open(self.walletPath, 'ab')
          wltfile.write(binaryToAppend)
+         wltfile.flush()
+         os.fsync(wltfile.fileno())
          wltfile.close()
 
          # This is for unit-testing the atomic-wallet-file-update robustness
@@ -2163,6 +2167,8 @@ class PyBtcWallet(object):
          for loc,replStr in dataToChange:
             wltfile.seek(loc)
             wltfile.write(replStr)
+         wltfile.flush()
+         os.fsync(wltfile.fileno())
          wltfile.close()
 
       except IOError:
@@ -2187,12 +2193,16 @@ class PyBtcWallet(object):
 
          backupfile = open(walletFileBackup, 'ab')
          backupfile.write(binaryToAppend)
+         backupfile.flush()
+         os.fsync(backupfile.fileno())
          backupfile.close()
 
          backupfile = open(walletFileBackup, 'r+b')
          for loc,replStr in dataToChange:
             backupfile.seek(loc)
             backupfile.write(replStr)
+         backupfile.flush()
+         os.fsync(backupfile.fileno())
          backupfile.close()
 
       except IOError:
