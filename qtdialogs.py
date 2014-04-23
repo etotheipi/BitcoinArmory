@@ -715,7 +715,7 @@ class DlgInconsistentWltReport(ArmoryDialog):
 
       self.btnMoreInfo = QLabelButton('Privacy Warning')
       self.connect(self.btnMoreInfo, SIGNAL(CLICKED), \
-                                 self.main.woWalletSubmitPrivacyWarning)
+                                 self.main.logFileTriplePrivacyWarning)
 
 
       btnBackupLogs = QPushButton(tr("Save backup of log files"))

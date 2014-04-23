@@ -180,6 +180,7 @@ class VerifiedHTTPSConnection(HTTPSConnection):
                                     server_hostname=self.host,
                                     ssl_version=resolved_ssl_version)
 
+
         if resolved_cert_reqs != ssl.CERT_NONE:
             if self.assert_fingerprint:
                 assert_fingerprint(self.sock.getpeercert(binary_form=True),
@@ -187,6 +188,10 @@ class VerifiedHTTPSConnection(HTTPSConnection):
             elif self.assert_hostname is not False:
                 #match_hostname(self.sock.getpeercert(),
                                #self.assert_hostname or self.host)
+                # TODO:  At the very least, we should not totally nerf this 
+                #        function for all hosts.  But it does work for this
+                #        very isolated usecase, so I'm leaving it in here.
+                #        Can fix later if we need to 
                 print "***** FIXME *****"
                 print "   ** Had issues with bitcoinarmory.com validation;"
                 print "   ** SSLError: hostname 'scripts.bitcoinarmory.com'"
@@ -195,9 +200,9 @@ class VerifiedHTTPSConnection(HTTPSConnection):
                 print "   ** certname into the bundled requests/urllib3"
                 print "   ** which breaks compatibility using it with any "
                 print "   ** HTTPS hosts other than bitcoinarmory.com."
-                pcert = self.sock.getpeercert()
-                for key,val in pcert.get('subjectAltName', []):
-                    if key=='DNS' and val=='bitcoinarmory.com':
+                validDNS = ['bitcoinarmory.com', 'scripts.bitcoinarmory.com']
+                for key,val in self.sock.getpeercert().get('subjectAltName', []):
+                    if key=='DNS' and val in validDNS:
                         break 
                 else:
                     raise ssl.SSLError('Cert does not match bitcoinarmory.com')
