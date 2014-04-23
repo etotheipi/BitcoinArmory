@@ -13,12 +13,13 @@
 #include "../BlockUtils.h"
 #include "../EncryptionUtils.h"
 
-#ifdef mlock
-   #undef mlock
-   #undef munlock
-#endif
+
 
 #ifdef _MSC_VER
+   #ifdef mlock
+      #undef mlock
+      #undef munlock
+   #endif
    #include "win32_posix.h"
 	#undef close
 #endif
