@@ -1050,11 +1050,10 @@ void BtcWallet::scanRegisteredTxForWallet(uint32_t blkStart, uint32_t blkEnd)
    // Make sure RegisteredTx objects have correct data, then sort.
    // TODO:  Why did I not need this with the MMAP blockchain?  Somehow
    //        I was able to sort correctly without this step, before...?
-	if(!reorgTrigger_)
-   {
-      blkStart = lastScanned_;
-      reorgTrigger_ = false;
-   }
+   if(!ignoreLastScanned_)
+	   blkStart = lastScanned_;
+   else
+      ignoreLastScanned_ = false;
 
    list<RegisteredTx>::iterator txIter;
    for(txIter  = registeredTxList_.begin();
@@ -1114,11 +1113,11 @@ void BtcWallet::scanRegisteredTxForWallet(uint32_t blkStart, uint32_t blkEnd)
    if(bdmPtr_->isZcEnabled())
       bdmPtr_->rescanWalletZeroConf(*this);
 
-   uint32_t topBlk = bdmPtr_->getBlockHeight();
-   if(blkEnd > topBlk)
-      lastScanned_ = topBlk;
-   else if(blkEnd!=0)
-      lastScanned_ = blkEnd;
+	uint32_t topBlk = bdmPtr_->getTopBlockHeight();
+	if(blkEnd > topBlk)
+		lastScanned_ = topBlk;
+	else if(blkEnd!=0)
+		lastScanned_ = blkEnd;
 }
 
 void BtcWallet::updateRegisteredScrAddrs(uint32_t newTopBlk)
@@ -1140,7 +1139,7 @@ uint32_t BtcWallet::numBlocksToRescan(uint32_t endBlk) const
    // in order to produce accurate balances and TxOut lists.  If this
    // returns false, we can get away without any disk access at all, and
    // just use the registeredTxList_ object to get our information.
-   uint32_t currNextBlk = bdmPtr_->getBlockHeight() + 1;
+   uint32_t currNextBlk = bdmPtr_->getTopBlockHeight() + 1;
    endBlk = min(endBlk, currNextBlk);
 
    // The wallet isn't registered with the BDM, but there's a chance that 
@@ -1175,7 +1174,7 @@ bool BtcWallet::registerNewScrAddr(HashString scraddr)
    if(KEY_IN_MAP(scraddr, registeredScrAddrMap_))
       return false;
 
-   uint32_t currBlk = bdmPtr_->getBlockHeight();
+   uint32_t currBlk = bdmPtr_->getTopBlockHeight();
    registeredScrAddrMap_[scraddr] = RegisteredScrAddr(scraddr, currBlk);
    
    return true;
@@ -1261,6 +1260,7 @@ void BtcWallet::eraseTx(const BinaryData& txHash)
 void BtcWallet::fetchWalletRegisteredScrAddrData()
 {
    SCOPED_TIMER("fetchWalletRegisteredScrAddrData");
+   ignoreLastScanned_ = true;
 
    uint32_t numAddr = getNumScrAddr();
    for(uint32_t s=0; s<numAddr; s++)
@@ -1302,7 +1302,6 @@ void BtcWallet::reorgChangeBlkNum(uint32_t blkNum)
    if(blkNum<lastScanned_) 
    {
       lastScanned_ = blkNum;
-      reorgTrigger_ = true;
    }
 }
 

@@ -5899,6 +5899,7 @@ protected:
    /////////////////////////////////////////////////////////////////////////////
    virtual void TearDown(void)
    {
+      TheBDM.BlockDataManager_LevelDB::DestroyInstance();
 
       rmdir(blkdir_);
       rmdir(homedir_);

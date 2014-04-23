@@ -49,7 +49,8 @@ class BtcWallet
 {
 public:
    BtcWallet(BlockDataManager_LevelDB* bdm=0)
-      : bdmPtr_(bdm), lastScanned_(0), allScannedUpToBlk_(0), reorgTrigger_(0) {}
+      : bdmPtr_(bdm), lastScanned_(0), allScannedUpToBlk_(0), 
+        ignoreLastScanned_(true) {}
    ~BtcWallet(void);
 
    /////////////////////////////////////////////////////////////////////////////
@@ -202,6 +203,7 @@ public:
    vector<LedgerEntry> & getTxLedgerForComments(void)
                      { return txLedgerForComments_; }
    void reorgChangeBlkNum(uint32_t blkNum);
+   void setIgnoreLastScanned(void) {ignoreLastScanned_ = true;}
 
    //end of 1:1 wallets
    
@@ -223,8 +225,8 @@ private:
    set<HashString>                    registeredTxSet_;
    set<OutPoint>                      registeredOutPoints_;
    uint32_t                           allScannedUpToBlk_; // one past top
-   uint32_t                           reorgTrigger_; //
    uint32_t                           lastScanned_;
+   bool                               ignoreLastScanned_;
 
    vector<LedgerEntry>          ledgerAllAddr_;  
    vector<LedgerEntry>          ledgerAllAddrZC_;  

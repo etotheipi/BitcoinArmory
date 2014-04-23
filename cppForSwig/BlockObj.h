@@ -45,7 +45,8 @@ public:
       isInitialized_(false), 
       numTx_(UINT32_MAX), 
       numBlockBytes_(UINT32_MAX),
-      duplicateID_(UINT8_MAX) {}
+      duplicateID_(UINT8_MAX),
+      isFinishedCalc_(false) {}
 
    explicit BlockHeader(uint8_t const * ptr, uint32_t size) { unserialize(ptr, size); }
    explicit BlockHeader(BinaryRefReader & brr)    { unserialize(brr); }

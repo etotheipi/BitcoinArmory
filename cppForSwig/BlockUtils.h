@@ -224,6 +224,7 @@ public:
                              BinaryData const & GenTxHash,
                              BinaryData const & MagicBytes);
    void reset(void);
+   void DestroyInstance(void);
 
 private:
    //////////////////////////////////////////////////////////////////////////
@@ -367,7 +368,7 @@ public:
    const BlockHeader* getHeaderPtrForTx(Tx& theTx)
                      {return &blockchain_.getHeaderPtrForTx(theTx);}
    bool isZcEnabled() {return zcEnabled_;}
-   uint32_t getBlockHeight() {return blockchain_.top().getBlockHeight();}
+   uint32_t getTopBlockHeight() {return blockchain_.top().getBlockHeight();}
    bool doRun() {return run_;}
    void doShutdown() {run_ = false;}
    void scanBlockchainForTx(uint32_t startBlknum, uint32_t endBlknum,

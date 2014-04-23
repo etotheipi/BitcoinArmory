@@ -1068,6 +1068,11 @@ void BlockDataManager_LevelDB::reset(void)
 
 }
 
+void BlockDataManager_LevelDB::DestroyInstance()
+{
+   iface_->closeDatabases();
+   reset();
+}
 
 
 /////////////////////////////////////////////////////////////////////////////
@@ -2374,7 +2379,17 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
    // came in... let's get it.
    readBlkFileUpdate();
 
-	scanRegisteredTxForWallets(0, lastTopBlock_);
+	set<BtcWallet*>::iterator wltIter;
+   for(wltIter  = registeredWallets_.begin();
+       wltIter != registeredWallets_.end();
+       wltIter++)
+	{
+		BtcWallet* wlt = *wltIter;
+      if(forceRebuild || forceRescan || skipFetch)
+         wlt->setIgnoreLastScanned();
+
+		wlt->scanRegisteredTxForWallet(0, lastTopBlock_);
+	}
 
    isInitialized_ = true;
    purgeZeroConfPool();
