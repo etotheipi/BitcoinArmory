@@ -255,7 +255,7 @@ int rmdir_resovled(wchar_t *win32_path)
 					if(wcscmp(killfile->wd_name, L".") && wcscmp(killfile->wd_name, L"..")) //skip all . and .. returned by dirent
 					{
 						wcscpy(filepath +fpl, killfile->wd_name);
-						if(GetFileAttributesW(filepath)==FILE_ATTRIBUTE_DIRECTORY) //check path is a folder
+						if(GetFileAttributesW(filepath) & FILE_ATTRIBUTE_DIRECTORY) //check path is a folder
 							rmdir_resovled(filepath); //if it's a folder, call rmdir on it
 						else
 							_wunlink(filepath); //else delete the file
@@ -297,7 +297,7 @@ int rmdir_win32(const char *path)
 		//get wild card
 		wchar_t *wildcard = (wchar_t*)malloc(sizeof(wchar_t)*MAX_PATH);
 		memset(wildcard, 0, sizeof(wchar_t)*MAX_PATH);
-		int l = wcslen(win32_path), s=l-2; //-2 for the *
+		int l = wcslen(win32_path), s=l-1; //-1 for the *
 		int wildcard_length=0;
 
 		while(s)
@@ -331,7 +331,7 @@ int rmdir_win32(const char *path)
 				if(wcscmp(dirp->wd_name, L".") && wcscmp(dirp->wd_name, L"..")) //skip all . and .. returned by dirent
 				{
 					wcscpy(delpath +dpl, dirp->wd_name);
-					if(GetFileAttributesW(delpath)==FILE_ATTRIBUTE_DIRECTORY) //check path is a folder
+					if(GetFileAttributesW(delpath) & FILE_ATTRIBUTE_DIRECTORY) //check path is a folder
 					{
 						//check path against wildcard
 						wcscpy(checkwc, dirp->wd_name);

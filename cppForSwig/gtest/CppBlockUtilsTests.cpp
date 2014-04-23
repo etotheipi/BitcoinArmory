@@ -6791,6 +6791,8 @@ protected:
    /////////////////////////////////////////////////////////////////////////////
    virtual void TearDown(void)
    {
+      TheBDM.DestroyInstance();
+
       rmdir(blkdir_);
       rmdir(homedir_);
 
@@ -7237,6 +7239,7 @@ protected:
    /////////////////////////////////////////////////////////////////////////////
    virtual void TearDown(void)
    {
+      TheBDM.DestroyInstance();
       rmdir(blkdir_);
       rmdir(homedir_);
 
