@@ -1051,7 +1051,7 @@ void BtcWallet::scanRegisteredTxForWallet(uint32_t blkStart, uint32_t blkEnd)
    // TODO:  Why did I not need this with the MMAP blockchain?  Somehow
    //        I was able to sort correctly without this step, before...?
    if(!ignoreLastScanned_)
-	   blkStart = lastScanned_;
+      blkStart = lastScanned_;
    else
       ignoreLastScanned_ = false;
 
@@ -1113,11 +1113,11 @@ void BtcWallet::scanRegisteredTxForWallet(uint32_t blkStart, uint32_t blkEnd)
    if(bdmPtr_->isZcEnabled())
       bdmPtr_->rescanWalletZeroConf(*this);
 
-	uint32_t topBlk = bdmPtr_->getTopBlockHeight();
-	if(blkEnd > topBlk)
-		lastScanned_ = topBlk;
-	else if(blkEnd!=0)
-		lastScanned_ = blkEnd;
+   uint32_t topBlk = bdmPtr_->getTopBlockHeight();
+   if(blkEnd > topBlk)
+      lastScanned_ = topBlk;
+   else if(blkEnd!=0)
+      lastScanned_ = blkEnd;
 }
 
 void BtcWallet::updateRegisteredScrAddrs(uint32_t newTopBlk)

@@ -92,7 +92,7 @@ static void* run(void *_threadparams)
 
    while(theBDM->doRun())
    {
-      uint32_t currentBlock = theBDM->getBlockHeight();
+      uint32_t currentBlock = theBDM->blockchain().top().getBlockHeight();
       if(theBDM->rescanZC_)
       {
          theBDM->rescanWalletZeroConf();
@@ -106,10 +106,14 @@ static void* run(void *_threadparams)
       if(newBlocks = theBDM->readBlkFileUpdate())
       {
          //scan registered tx
-         theBDM->scanBlockchainForTx(currentBlock, theBDM->getBlockHeight(), true);
+         theBDM->scanBlockchainForTx(
+            currentBlock,
+            theBDM->blockchain().top().getBlockHeight(),
+            true
+         );
          theBDM->rescanWalletZeroConf();
 
-         currentBlock = theBDM->getBlockHeight();
+         currentBlock = theBDM->blockchain().top().getBlockHeight();
          
          //notify Python that new blocks have been parsed
          callback->run(4, newBlocks);
