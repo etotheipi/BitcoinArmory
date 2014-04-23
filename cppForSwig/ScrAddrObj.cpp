@@ -7,7 +7,7 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
-ScrAddrObj::ScrAddrObj(InterfaceToLDB *db, HashString    addr, 
+ScrAddrObj::ScrAddrObj(LMDBBlockDatabase *db, HashString    addr, 
                        uint32_t      firstBlockNum,
                        uint32_t      firstTimestamp,
                        uint32_t      lastBlockNum,

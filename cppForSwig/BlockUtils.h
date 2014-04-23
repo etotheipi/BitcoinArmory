@@ -27,12 +27,11 @@
 #include "BlockObj.h"
 #include "StoredBlockObj.h"
 #include "BlockDataManagerConfig.h"
-#include "leveldb_wrapper.h"
+#include "lmdb_wrapper.h"
 
 #include "cryptlib.h"
 #include "sha.h"
 #include "UniversalTimer.h"
-#include "leveldb/db.h"
 
 #include "pthread.h"
 #include "ThreadSafeContainer.h"
@@ -47,6 +46,7 @@
 using namespace std;
 
 class BlockDataManager_LevelDB;
+class LSM;
 
 typedef enum
 {
@@ -103,11 +103,10 @@ typedef ts_pair_container<ZCMap>      ts_ZCMap;
 class BlockDataManager_LevelDB
 {
 private:
-
    BlockDataManagerConfig config_;
    
    // This is our permanent link to the two databases used
-   InterfaceToLDB* iface_;
+   LMDBBlockDatabase* iface_;
    
    // Need a separate memory pool just for zero-confirmation transactions
    // We need the second map to make sure we can find the data to remove
@@ -355,7 +354,7 @@ public:
                      {return &blockchain_.getHeaderPtrForTx(theTx);}
    bool isZcEnabled() {return zcEnabled_;}
    uint32_t getTopBlockHeight() const {return blockchain_.top().getBlockHeight();}
-   InterfaceToLDB *getIFace(void) {return iface_;}
+   LMDBBlockDatabase *getIFace(void) {return iface_;}
    vector<TxIOPair> getHistoryForScrAddr(BinaryDataRef uniqKey, 
                                           bool withMultisig=false);
    uint32_t numBlocksToRescan( BtcWallet & wlt, uint32_t endBlk) const;
@@ -364,9 +363,9 @@ public:
                     uint32_t endBlock=UINT32_MAX, 
                     bool forceScan=false);
    
-   LDBIter getIterator(DB_SELECT db, bool fill_cache = true)
+   LDBIter getIterator(DB_SELECT db)
    {
-      return iface_->getIterator(db, fill_cache);
+      return iface_->getIterator(db);
    }
    
    bool readStoredBlockAtIter(LDBIter & iter, StoredHeader & sbh)
@@ -397,8 +396,9 @@ public:
 
 public:
    //uint32_t getNumTx(void) const { return txHintMap_.size(); }
+
    StoredHeader getMainBlockFromDB(uint32_t hgt);
-   uint8_t      getMainDupFromDB(uint32_t hgt);
+   uint8_t      getMainDupFromDB(uint32_t hgt) const;
    StoredHeader getBlockFromDB(uint32_t hgt, uint8_t dup);
 
 public:

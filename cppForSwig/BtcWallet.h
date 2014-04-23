@@ -167,7 +167,7 @@ public:
    bool isOutPointMine(BinaryData const & hsh, uint32_t idx);
 
    void pprintLedger() const;
-   void pprintAlot(InterfaceToLDB *db, uint32_t topBlk=0, bool withAddr=false) const;
+   void pprintAlot(LMDBBlockDatabase *db, uint32_t topBlk=0, bool withAddr=false) const;
    void pprintAlittle(std::ostream &os) const;
 
    void clearBlkData(void);

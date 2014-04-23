@@ -518,10 +518,10 @@ public:
    bool isInitialized(void) const { return uniqueKey_.getSize() > 0; }
    bool isNull(void) { return !isInitialized(); }
 
-   void       unserializeDBValue(BinaryRefReader & brr, InterfaceToLDB *db);
-   void         serializeDBValue(BinaryWriter    & bw, InterfaceToLDB *db, ARMORY_DB_TYPE dbType, DB_PRUNE_TYPE pruneType ) const;
-   void       unserializeDBValue(BinaryData const & bd, InterfaceToLDB *db);
-   void       unserializeDBValue(BinaryDataRef      bd, InterfaceToLDB *db);
+   void       unserializeDBValue(BinaryRefReader & brr, LMDBBlockDatabase *db);
+   void         serializeDBValue(BinaryWriter    & bw, LMDBBlockDatabase *db, ARMORY_DB_TYPE dbType, DB_PRUNE_TYPE pruneType ) const;
+   void       unserializeDBValue(BinaryData const & bd, LMDBBlockDatabase *db);
+   void       unserializeDBValue(BinaryDataRef      bd, LMDBBlockDatabase *db);
    void       unserializeDBKey(BinaryDataRef key, bool withPrefix=true);
 
    BinaryData    getDBKey(bool withPrefix=true) const;
@@ -536,11 +536,11 @@ public:
    bool     haveFullHistoryLoaded(void) const;
 
    TxIOPair*   findTxio(BinaryData const & dbKey8B, bool inclMultisig=false);
-   bool       eraseTxio(InterfaceToLDB *db, TxIOPair const & txio);
-   bool       eraseTxio(InterfaceToLDB *db, BinaryData const & dbKey8B);
+   bool       eraseTxio(LMDBBlockDatabase *db, TxIOPair const & txio);
+   bool       eraseTxio(LMDBBlockDatabase *db, BinaryData const & dbKey8B);
 
    bool       mergeSubHistory(StoredSubHistory & subssh);
-   TxIOPair& insertTxio(InterfaceToLDB *db, TxIOPair const & txio, 
+   TxIOPair& insertTxio(LMDBBlockDatabase *db, TxIOPair const & txio, 
                         bool withOverwrite=true,
                         bool skipTally=false);
 
@@ -548,13 +548,13 @@ public:
                        bool withMultisig=false);
 
    // This adds the TxOut if it doesn't exist yet
-   uint64_t   markTxOutUnspent(InterfaceToLDB *db, BinaryData txOutKey8B, 
+   uint64_t   markTxOutUnspent(LMDBBlockDatabase *db, BinaryData txOutKey8B, 
                                ARMORY_DB_TYPE dbType, DB_PRUNE_TYPE pruneType,
                                uint64_t   value=UINT64_MAX,
                                bool       isCoinbase=false,
                                bool       isMultisigRef=false);
 
-   uint64_t   markTxOutSpent(InterfaceToLDB *db, BinaryData txOutKey8B, 
+   uint64_t   markTxOutSpent(LMDBBlockDatabase *db, BinaryData txOutKey8B, 
                              BinaryData  txInKey8B,
                              ARMORY_DB_TYPE dbType, DB_PRUNE_TYPE pruneType);
 
@@ -594,7 +594,7 @@ public:
    bool isNull(void) { return !isInitialized(); }
 
    void       unserializeDBValue(BinaryRefReader & brr);
-   void         serializeDBValue(BinaryWriter    & bw, InterfaceToLDB *db, ARMORY_DB_TYPE dbType, DB_PRUNE_TYPE pruneType ) const;
+   void         serializeDBValue(BinaryWriter    & bw, LMDBBlockDatabase *db, ARMORY_DB_TYPE dbType, DB_PRUNE_TYPE pruneType ) const;
    void       unserializeDBValue(BinaryData const & bd);
    void       unserializeDBValue(BinaryDataRef      bd);
    void       unserializeDBKey(BinaryDataRef key, bool withPrefix=true);
@@ -608,18 +608,18 @@ public:
 
    TxIOPair*   findTxio(BinaryData const & dbKey8B, bool includeMultisig=false);
    TxIOPair& insertTxio(TxIOPair const & txio, bool withOverwrite=true);
-   uint64_t   eraseTxio(InterfaceToLDB *db, TxIOPair const & txio);
-   uint64_t   eraseTxio(InterfaceToLDB *db, BinaryData const & dbKey8B);
+   uint64_t   eraseTxio(LMDBBlockDatabase *db, TxIOPair const & txio);
+   uint64_t   eraseTxio(LMDBBlockDatabase *db, BinaryData const & dbKey8B);
 
    
    // This adds the TxOut if it doesn't exist yet
-   uint64_t   markTxOutUnspent(InterfaceToLDB *db, BinaryData txOutKey8B,
+   uint64_t   markTxOutUnspent(LMDBBlockDatabase *db, BinaryData txOutKey8B,
                                ARMORY_DB_TYPE dbType, DB_PRUNE_TYPE pruneType,
                                uint64_t   value=UINT64_MAX,
                                bool       isCoinbase=false,
                                bool       isMultisigRef=false);
 
-   uint64_t   markTxOutSpent(InterfaceToLDB *db, BinaryData txOutKey8B, 
+   uint64_t   markTxOutSpent(LMDBBlockDatabase *db, BinaryData txOutKey8B, 
                              BinaryData  txInKey8B,
                              ARMORY_DB_TYPE dbType, DB_PRUNE_TYPE pruneType);
                               

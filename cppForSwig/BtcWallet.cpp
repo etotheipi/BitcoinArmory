@@ -170,7 +170,7 @@ pair<bool,bool> BtcWallet::isMineBulkFilter(
 
 
 /////////////////////////////////////////////////////////////////////////////
-void BtcWallet::pprintAlot(InterfaceToLDB *db, uint32_t topBlk, bool withAddr) const
+void BtcWallet::pprintAlot(LMDBBlockDatabase *db, uint32_t topBlk, bool withAddr) const
 {
    uint32_t numLedg = ledgerAllAddr_.size();
    uint32_t numLedgZC = ledgerAllAddrZC_.size();
@@ -1024,12 +1024,19 @@ void BtcWallet::insertRegisteredTxIfNew(HashString txHash)
    // .insert() function returns pair<iter,bool> with bool true if inserted
    if(registeredTxSet_.insert(txHash).second == true)
    {
-      DBTxRef txref = bdmPtr_->getTxRefByHash(txHash).attached(bdmPtr_->getIFace());
-      RegisteredTx regTx(txref,
-                         txref.getThisHash(),
-                         txref.getBlockHeight(),
-                         txref.getBlockTxIndex());
-      registeredTxList_.push_back(regTx);
+      try
+      {
+         DBTxRef txref = bdmPtr_->getTxRefByHash(txHash).attached(bdmPtr_->getIFace());
+         RegisteredTx regTx(txref,
+                           txref.getThisHash(),
+                           txref.getBlockHeight(),
+                           txref.getBlockTxIndex());
+         registeredTxList_.push_back(regTx);
+      }
+      catch (std::exception &e)
+      {
+         LOGERR << "Failed to register tx: " << e.what();
+      }
    }
 }
 
@@ -1198,7 +1205,7 @@ vector<TxIOPair> BtcWallet::getHistoryForScrAddr(
    bool withMultisig
 )
 {
-   InterfaceToLDB *const iface_ = bdmPtr_->getIFace();
+   LMDBBlockDatabase *const iface_ = bdmPtr_->getIFace();
 
    StoredScriptHistory ssh;
    iface_->getStoredScriptHistory(ssh, uniqKey);
@@ -1248,7 +1255,7 @@ vector<TxIOPair> BtcWallet::getHistoryForScrAddr(
    bool withMultisig
    ) const
 {
-   InterfaceToLDB *const iface_ = bdmPtr_->getIFace();
+   LMDBBlockDatabase *const iface_ = bdmPtr_->getIFace();
 
    StoredScriptHistory ssh;
    iface_->getStoredScriptHistory(ssh, uniqKey);
@@ -1300,7 +1307,7 @@ void BtcWallet::fetchDBRegisteredScrAddrData()
 
 void BtcWallet::fetchDBRegisteredScrAddrData(BinaryData const & scrAddr)
 {
-   InterfaceToLDB *const iface = bdmPtr_->getIFace();
+   LMDBBlockDatabase *const iface = bdmPtr_->getIFace();
 
    const vector<TxIOPair> hist = getHistoryForScrAddr(scrAddr);
 
@@ -1436,7 +1443,7 @@ void BtcWallet::scanBlocksAgainstRegisteredScrAddr(uint32_t blk0,
       //remove(bfile.c_str());
    }
 
-   LDBIter ldbIter = bdmPtr_->getIterator(BLKDATA, BULK_SCAN);
+   LDBIter ldbIter = bdmPtr_->getIterator(BLKDATA);
    BinaryData firstKey = DBUtils::getBlkDataKey(blk0, 0);
    ldbIter.seekTo(firstKey);
 
@@ -1600,8 +1607,8 @@ void BtcWallet::saveScrAddrHistories()
       return;
    }
 
-   InterfaceToLDB* iface = bdmPtr_->getIFace();
-   InterfaceToLDB::Batch batch(iface, BLKDATA);
+   LMDBBlockDatabase* iface = bdmPtr_->getIFace();
+   LMDBBlockDatabase::Batch batch(iface, BLKDATA);
 
    ts_saMap::const_snapshot saSnapshot(scrAddrMap_);
    ts_saMap::const_iterator saIter;
@@ -1699,6 +1706,10 @@ void BtcWallet::scanWallet(uint32_t startBlock, uint32_t endBlock,
    current top height.
    ***/
 
+   LMDBBlockDatabase* const iface = bdmPtr_->getIFace();
+   LMDBBlockDatabase::Batch batch1(iface, BLKDATA);
+   LMDBBlockDatabase::Batch batch2(iface, HEADERS);
+   
    pthread_t thrSelf = pthread_self();
    threadIDs_.push_back(thrSelf);
 

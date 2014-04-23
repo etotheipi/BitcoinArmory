@@ -15,7 +15,7 @@
 #include "BinaryData.h"
 #include "BtcUtils.h"
 #include "BlockObj.h"
-#include "leveldb_wrapper.h"
+#include "lmdb_wrapper.h"
 
 
 
@@ -317,7 +317,7 @@ BinaryData TxIn::getSenderScrAddrIfAvail(void) const
 
 
 ////////////////////////////////////////////////////////////////////////////////
-BinaryData TxIn::getParentHash(InterfaceToLDB *db)
+BinaryData TxIn::getParentHash(LMDBBlockDatabase *db)
 {
    if(!parentTx_.isInitialized())
       return parentHash_;
@@ -445,7 +445,7 @@ uint32_t TxOut::getParentHeight() const
 
 }
 
-BinaryData TxOut::getParentHash(InterfaceToLDB *db)
+BinaryData TxOut::getParentHash(LMDBBlockDatabase *db)
 {
    if(!parentTx_.isInitialized())
       return parentHash_;
@@ -852,7 +852,7 @@ TxIOPair::TxIOPair(BinaryData txOutKey8B, uint64_t val) :
    setTxOut(txOutKey8B);
 }
  //////////////////////////////////////////////////////////////////////////////
-HashString TxIOPair::getTxHashOfOutput(InterfaceToLDB *db) const
+HashString TxIOPair::getTxHashOfOutput(LMDBBlockDatabase *db) const
 {
    if(!hasTxOut())
       return BtcUtils::EmptyHash();
@@ -863,7 +863,7 @@ HashString TxIOPair::getTxHashOfOutput(InterfaceToLDB *db) const
 }
 
 //////////////////////////////////////////////////////////////////////////////
-HashString TxIOPair::getTxHashOfInput(InterfaceToLDB *db) const
+HashString TxIOPair::getTxHashOfInput(LMDBBlockDatabase *db) const
 {
    if(!hasTxIn())
       return BtcUtils::EmptyHash();
@@ -873,7 +873,7 @@ HashString TxIOPair::getTxHashOfInput(InterfaceToLDB *db) const
       return BinaryData(0);
 }
 //////////////////////////////////////////////////////////////////////////////
-TxOut TxIOPair::getTxOutCopy(InterfaceToLDB *db) const
+TxOut TxIOPair::getTxOutCopy(LMDBBlockDatabase *db) const
 {
    // I actually want this to segfault when there is no TxOut... 
    // we should't ever be trying to access it without checking it 
@@ -886,7 +886,7 @@ TxOut TxIOPair::getTxOutCopy(InterfaceToLDB *db) const
 
 
 //////////////////////////////////////////////////////////////////////////////
-TxIn TxIOPair::getTxInCopy(InterfaceToLDB *db) const
+TxIn TxIOPair::getTxInCopy(LMDBBlockDatabase *db) const
 {
    // I actually want this to segfault when there is no TxIn... 
    // we should't ever be trying to access it without checking it 
@@ -928,7 +928,7 @@ bool TxIOPair::setTxOut(BinaryData dbKey8B)
 }
 
 //////////////////////////////////////////////////////////////////////////////
-bool TxIOPair::setTxInZC(InterfaceToLDB *db, Tx* tx, uint32_t index)
+bool TxIOPair::setTxInZC(LMDBBlockDatabase *db, Tx* tx, uint32_t index)
 { 
    if(hasTxInInMain(db) || hasTxInZC())
       return false;
@@ -954,7 +954,7 @@ bool TxIOPair::setTxOut(TxRef txref, uint32_t index)
 }
 
 //////////////////////////////////////////////////////////////////////////////
-bool TxIOPair::setTxOutZC(InterfaceToLDB *db, Tx* tx, uint32_t index)
+bool TxIOPair::setTxOutZC(LMDBBlockDatabase *db, Tx* tx, uint32_t index)
 {
    if(hasTxOutInMain(db) || hasTxOutZC())
       return false;
@@ -969,7 +969,7 @@ bool TxIOPair::setTxOutZC(InterfaceToLDB *db, Tx* tx, uint32_t index)
 }
 
 //////////////////////////////////////////////////////////////////////////////
-pair<bool,bool> TxIOPair::reassessValidity(InterfaceToLDB *db)
+pair<bool,bool> TxIOPair::reassessValidity(LMDBBlockDatabase *db)
 {
    pair<bool,bool> result;
    result.first  = hasTxOutInMain(db);
@@ -979,7 +979,7 @@ pair<bool,bool> TxIOPair::reassessValidity(InterfaceToLDB *db)
 
 
 //////////////////////////////////////////////////////////////////////////////
-bool TxIOPair::isSpent(InterfaceToLDB *db) const
+bool TxIOPair::isSpent(LMDBBlockDatabase *db) const
 { 
    // Not sure whether we should verify hasTxOut.  It wouldn't make much 
    // sense to have TxIn but not TxOut, but there might be a preferred 
@@ -989,14 +989,14 @@ bool TxIOPair::isSpent(InterfaceToLDB *db) const
 
 
 //////////////////////////////////////////////////////////////////////////////
-bool TxIOPair::isUnspent(InterfaceToLDB *db) const
+bool TxIOPair::isUnspent(LMDBBlockDatabase *db) const
 { 
    return ( (hasTxOutInMain(db) || hasTxOutZC()) && !isSpent(db));
 
 }
 
 //////////////////////////////////////////////////////////////////////////////
-bool TxIOPair::isSpendable(InterfaceToLDB *db, uint32_t currBlk, bool ignoreAllZeroConf) const
+bool TxIOPair::isSpendable(LMDBBlockDatabase *db, uint32_t currBlk, bool ignoreAllZeroConf) const
 { 
    // Spendable TxOuts are ones with at least 1 confirmation, or zero-conf
    // TxOuts that were sent-to-self.  Obviously, they should be unspent, too
@@ -1020,7 +1020,7 @@ bool TxIOPair::isSpendable(InterfaceToLDB *db, uint32_t currBlk, bool ignoreAllZ
 
 //////////////////////////////////////////////////////////////////////////////
 bool TxIOPair::isMineButUnconfirmed(
-   InterfaceToLDB *db,
+   LMDBBlockDatabase *db,
    uint32_t currBlk, bool inclAllZC
 ) const
 {
@@ -1046,12 +1046,12 @@ bool TxIOPair::isMineButUnconfirmed(
    return false;
 }
 
-bool TxIOPair::hasTxOutInMain(InterfaceToLDB *db) const
+bool TxIOPair::hasTxOutInMain(LMDBBlockDatabase *db) const
 {
    return (hasTxOut() && txRefOfOutput_.attached(db).isMainBranch());
 }
 
-bool TxIOPair::hasTxInInMain(InterfaceToLDB *db) const
+bool TxIOPair::hasTxInInMain(LMDBBlockDatabase *db) const
 {
    return (hasTxIn() && txRefOfInput_.attached(db).isMainBranch());
 }
@@ -1076,7 +1076,7 @@ void TxIOPair::clearZCFields(void)
 }
 
 
-void TxIOPair::pprintOneLine(InterfaceToLDB *db) const
+void TxIOPair::pprintOneLine(LMDBBlockDatabase *db) const
 {
    printf("   Val:(%0.3f)\t  (STS, O,I, Omb,Imb, Oz,Iz)  %d  %d%d %d%d %d%d\n", 
            (double)getValue()/1e8,
@@ -1118,7 +1118,7 @@ UnspentTxOut::UnspentTxOut(void) :
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void UnspentTxOut::init(InterfaceToLDB *db, TxOut & txout, uint32_t blkNum, bool isMulti)
+void UnspentTxOut::init(LMDBBlockDatabase *db, TxOut & txout, uint32_t blkNum, bool isMulti)
 {
    txHash_     = txout.getParentHash(db);
    txOutIndex_ = txout.getIndex();

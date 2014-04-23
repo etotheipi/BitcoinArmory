@@ -38,7 +38,7 @@ public:
       lastBlockNum_(0), lastTimestamp_(0), 
       relevantTxIOPtrs_(0), ledger_(0) {}
 
-   ScrAddrObj(InterfaceToLDB *db, BinaryData    addr, 
+   ScrAddrObj(LMDBBlockDatabase *db, BinaryData    addr, 
               uint32_t      firstBlockNum  = UINT32_MAX,
               uint32_t      firstTimestamp = UINT32_MAX,
               uint32_t      lastBlockNum   = 0,
@@ -54,7 +54,7 @@ public:
    void           setLastBlockNum(uint32_t b)    { lastBlockNum_   = b; }
    void           setLastTimestamp(uint32_t t)   { lastTimestamp_  = t; }
 
-   void           setScrAddr(InterfaceToLDB *db, BinaryData bd) { db_ = db; scrAddr_.copyFrom(bd);}
+   void           setScrAddr(LMDBBlockDatabase *db, BinaryData bd) { db_ = db; scrAddr_.copyFrom(bd);}
 
    void     sortLedger(void);
    uint32_t removeInvalidEntries(void);
@@ -101,7 +101,7 @@ public:
    }
 
 private:
-   InterfaceToLDB *db_;
+   LMDBBlockDatabase *db_;
    
    BinaryData     scrAddr_; // this includes the prefix byte!
    uint32_t       firstBlockNum_;

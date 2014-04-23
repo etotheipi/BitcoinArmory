@@ -1,4 +1,5 @@
 CXX = g++
+CC = gcc
 
 ifdef DEBUG
 CFLAGS=-g3 -Wall -pipe -fPIC
@@ -19,11 +20,11 @@ endif
 #**************************************************************************
 LINK = $(CXX)
 
-OBJS = UniversalTimer.o BinaryData.o leveldb_wrapper.o StoredBlockObj.o \
+OBJS = UniversalTimer.o BinaryData.o lmdb_wrapper.o StoredBlockObj.o \
 	BtcUtils.o BlockObj.o BlockUtils.o EncryptionUtils.o \
 	BtcWallet.o LedgerEntry.o ScrAddrObj.o Blockchain.o BlockWriteBatcher.o \
-	BDM_mainthread.o \
-	libcryptopp.a libleveldb.a 
+	BDM_mainthread.o lmdbpp.o \
+	libcryptopp.a mdb.o midl.o
 
 #if python is specified, use it
 ifndef PYVER
@@ -33,13 +34,13 @@ else
 PYTHON_INCLUDES=$(shell $(PYVER)-config --includes )
 endif
 
-CPPFLAGS += $(ARMORY_CPPFLAGS) -Icryptopp -Ileveldb/include -DUSE_CRYPTOPP -D__STDC_LIMIT_MACROS -std=c++11
-LDLIBS += -lpthread -Lleveldb
+CPPFLAGS += $(ARMORY_CPPFLAGS) -Icryptopp -Imdb -DUSE_CRYPTOPP -D__STDC_LIMIT_MACROS
+LDLIBS += -lpthread -Lmdb
 SWIG_OPTS    += -c++ -python -classic -threads
 
 SWIG_INC     += 
 
-CXXCPP += $(CPPFLAGS) $(PYTHON_INCLUDES)
+CXXCPP += $(CPPFLAGS) $(PYTHON_INCLUDES)  -std=c++11
 
 # each .o file depends on all .h files
 ALL_HEADERS_FOUND=$(wildcard *.h)
@@ -62,12 +63,14 @@ libcryptopp.a: Makefile
 	$(MAKE) -C cryptopp libcryptopp.a
 	mv cryptopp/libcryptopp.a .
 
-libleveldb.a: Makefile
-	$(MAKE) -C leveldb libleveldb.a
-	mv leveldb/libleveldb.a .
+mdb.o: mdb/mdb.c mdb/lmdb.h mdb/midl.h
+	$(CC) $(CPPFLAGS) $(CFLAGS) -c mdb/mdb.c
+midl.o: mdb/midl.c mdb/lmdb.h mdb/midl.h
+	$(CC) $(CPPFLAGS) $(CFLAGS) -c mdb/midl.c
 
 %.o: %.cpp $(ALL_HEADERS)
 	$(CXX) $(CXXCPP) $(CXXFLAGS) -c $<
+
 
 CppBlockUtils_wrap.cxx: $(ALL_HEADERS) CppBlockUtils.i
 	swig $(SWIG_OPTS) -outdir ../ -v CppBlockUtils.i 
@@ -94,4 +97,3 @@ hardclean:
 	rm -f CppBlockUtils_wrap.cxx 
 	rm -f pypaths.txt
 	$(MAKE) -C cryptopp clean
-	$(MAKE) -C leveldb clean

@@ -12,6 +12,7 @@
 #include "BlockUtils.h"
 #include "BtcWallet.h"
 #include "BlockWriteBatcher.h"
+#include "lmdbpp.h"
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -25,7 +26,7 @@
 //        now (and could save a lookup by skipping it).  But I want unified
 //        code flow for both pruning and non-pruning. 
 static void createUndoDataFromBlock(
-      InterfaceToLDB* iface,
+      LMDBBlockDatabase* iface,
       uint32_t hgt,
       uint8_t  dup,
       StoredUndoData & sud)
@@ -87,7 +88,7 @@ static void createUndoDataFromBlock(
 class ReorgUpdater
 {
    Blockchain *const blockchain_;
-   InterfaceToLDB* const iface_;
+   LMDBBlockDatabase* const iface_;
    
    set<HashString> txJustInvalidated_;
    set<HashString> txJustAffected_;
@@ -101,7 +102,7 @@ public:
    ReorgUpdater(
       const Blockchain::ReorganizationState& state,
       Blockchain *blockchain,
-      InterfaceToLDB* iface,
+      LMDBBlockDatabase* iface,
       const BlockDataManagerConfig &config
    )
       : blockchain_(blockchain)
@@ -328,7 +329,7 @@ public:
 ////////////////////////////////////////////////////////////////////////////////
 BlockDataManager_LevelDB::BlockDataManager_LevelDB(const BlockDataManagerConfig &bdmConfig) 
    : config_(bdmConfig)
-   , iface_(new InterfaceToLDB)
+   , iface_(new LMDBBlockDatabase)
    , blockchain_(config_.genesisBlockHash)
 {
    LOGINFO << "Set home directory: " << config_.homeDirLocation;
@@ -377,19 +378,13 @@ BlockDataManager_LevelDB::BlockDataManager_LevelDB(const BlockDataManagerConfig 
       throw runtime_error("No blockfiles could be found!");
    }
    
-   iface_->setLdbBlockSize(config_.levelDBBlockSize);
-   iface_->setMaxOpenFiles(config_.levelDBMaxOpenFiles);
-   
-   bool openWithErr = iface_->openDatabases(
+   iface_->openDatabases(
       config_.levelDBLocation, 
       config_.genesisBlockHash, 
       config_.genesisTxHash, 
       config_.magicBytes,
       config_.armoryDbType, 
       config_.pruneType);
-   
-   if (!openWithErr)
-      throw runtime_error("Failed to open LevelDB database \"" + config_.levelDBLocation + "\"");
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -834,11 +829,9 @@ uint32_t BlockDataManager_LevelDB::getAppliedToHeightInDB(void)
 /////////////////////////////////////////////////////////////////////////////
 int32_t BlockDataManager_LevelDB::getNumConfirmations(HashString txHash)
 {
-   TxRef txrefobj = getTxRefByHash(txHash);
-   if(txrefobj.isNull())
-      return TX_NOT_EXIST;
-   else
+   try
    {
+      const TxRef txrefobj = getTxRefByHash(txHash);
       try
       {
          BlockHeader & txbh = blockchain_.getHeaderByHeight(txrefobj.getBlockHeight());
@@ -854,6 +847,10 @@ int32_t BlockDataManager_LevelDB::getNumConfirmations(HashString txHash)
          LOGERR << "Failed to get num confirmations: " << e.what();
          return TX_0_UNCONFIRMED;
       }
+   }
+   catch (NoValue&)
+   {
+      return TX_NOT_EXIST;
    }
 }
 
@@ -909,9 +906,12 @@ bool BlockDataManager_LevelDB::hasTxWithHashInDB(BinaryData const & txHash)
 /////////////////////////////////////////////////////////////////////////////
 bool BlockDataManager_LevelDB::hasTxWithHash(BinaryData const & txHash)
 {
-   if(iface_->getTxRef(txHash).isInitialized())
+   try
+   {
+      iface_->getTxRef(txHash);
       return true;
-   else
+   }
+   catch (...)
    {
       ts_ZCMap::const_snapshot zcSS(zeroConfMap_);
       return ( zcSS.find(txHash) != zcSS.end() );
@@ -1150,6 +1150,8 @@ bool BlockDataManager_LevelDB::scrAddrIsRegistered(BinaryData scraddr)
 void BlockDataManager_LevelDB::applyBlockRangeToDB(uint32_t blk0, uint32_t blk1)
 {
    SCOPED_TIMER("applyBlockRangeToDB");
+   LMDB::Transaction batch(&iface_->dbs_[HEADERS]);
+   LMDB::Transaction batch1(&iface_->dbs_[BLKDATA]);
 
    blk1 = min(blk1, blockchain_.top().getBlockHeight()+1);
 
@@ -1572,7 +1574,7 @@ bool BlockDataManager_LevelDB::processNewHeadersInBlkFiles(uint32_t fnumStart,
    }
 
    {
-      InterfaceToLDB::Batch batch(iface_, HEADERS);
+      LMDB::Transaction batch(&iface_->dbs_[HEADERS]);
          
       for(unsigned i = 0; i < blockchain_.numHeaders(); ++i)
       {
@@ -1865,7 +1867,8 @@ void BlockDataManager_LevelDB::readRawBlocksInFile(
    bool breakbreak = false;
    uint32_t locInBlkFile = foffset;
 
-   InterfaceToLDB::Batch batch(iface_, BLKDATA);
+   LMDBBlockDatabase::Batch batchB(iface_, BLKDATA);
+   LMDBBlockDatabase::Batch batchH(iface_, HEADERS);
 
    unsigned failedAttempts=0;
    
@@ -1906,7 +1909,8 @@ void BlockDataManager_LevelDB::readRawBlocksInFile(
          {
             LOGERR << e.what() << " (error encountered processing block at byte "
                << locInBlkFile << " file "
-               << blkfile << ", blocksize " << nextBlkSize << ")";
+               << blkfile << ", blocksize " << nextBlkSize
+               << ", top=" << blockchain_.top().getBlockHeight() << ")";
             failedAttempts++;
             
             if (failedAttempts >= 4)
@@ -1939,7 +1943,10 @@ void BlockDataManager_LevelDB::readRawBlocksInFile(
          if(dbUpdateSize>BlockWriteBatcher::UPDATE_BYTES_THRESH)
          {
             dbUpdateSize = 0;
-            batch.restart();
+            batchB.commit();
+            batchB.begin();
+            batchH.commit();
+            batchH.begin();
          }
 
          blocksReadSoFar_++;
@@ -1988,7 +1995,7 @@ StoredHeader BlockDataManager_LevelDB::getBlockFromDB(uint32_t hgt, uint8_t dup)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-uint8_t BlockDataManager_LevelDB::getMainDupFromDB(uint32_t hgt)
+uint8_t BlockDataManager_LevelDB::getMainDupFromDB(uint32_t hgt) const
 {
    return iface_->getValidDupIDForHeight(hgt);
 }
@@ -2006,13 +2013,13 @@ void BlockDataManager_LevelDB::deleteHistories(void)
 {
    SCOPED_TIMER("deleteHistories");
 
+   LMDBBlockDatabase::Batch batch(iface_, BLKDATA);
    LDBIter ldbIter = iface_->getIterator(BLKDATA);
 
    if(!ldbIter.seekToStartsWith(DB_PREFIX_SCRIPT, BinaryData(0)))
       return;
 
    //////////
-   InterfaceToLDB::Batch batch(iface_, BLKDATA);
 
    do 
    {
@@ -2039,6 +2046,9 @@ void BlockDataManager_LevelDB::deleteHistories(void)
 //
 uint32_t BlockDataManager_LevelDB::readBlkFileUpdate(void)
 {
+   LMDBBlockDatabase::Batch batch(iface_, HEADERS);
+   LMDBBlockDatabase::Batch batch1(iface_, BLKDATA);
+      
    SCOPED_TIMER("readBlkFileUpdate");
 
    // Make sure the file exists and is readable
@@ -2648,8 +2658,13 @@ void BlockDataManager_LevelDB::purgeZeroConfPool(void)
    
    for (ts_ZCMap::const_iterator i = ssZCMap.begin(); i != ssZCMap.end(); ++i)
    {
-      if (!getTxRefByHash(i->first).isNull())
+      try
+      {
+         getTxRefByHash(i->first);
          mapRmList.push_back(i);
+      }
+      catch (NoValue&)
+      {}
    }
 
    // We've made a list of the zc tx to remove, now let's remove them
