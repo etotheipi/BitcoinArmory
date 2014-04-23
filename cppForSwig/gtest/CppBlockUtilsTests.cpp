@@ -13,6 +13,11 @@
 #include "../BlockUtils.h"
 #include "../EncryptionUtils.h"
 
+#ifdef mlock
+   #undef mlock
+   #undef munlock
+#endif
+
 #ifdef _MSC_VER
    #include "win32_posix.h"
 	#undef close
@@ -7463,15 +7468,6 @@ TEST_F(TestCryptoECDSA, SECP256K1MultScalars)
    SecureBinaryData testRes = CryptoECDSA().ECMultiplyScalars(multScalarA,
                                                               multScalarB);
    EXPECT_EQ(multRes, testRes);
-}
-
-TEST_F(TestCryptoECDSA, InvMod)
-{
-   SecureBinaryData m(READHEX("03"));      // 3
-   SecureBinaryData modulo(READHEX("a0")); // 160
-   SecureBinaryData testRes = CryptoECDSA().InvMod(m, modulo);
-
-   EXPECT_EQ(invModRes, testRes); // Result should be 0x6b, or 107.
 }
 
 ////////////////////////////////////////////////////////////////////////////////
