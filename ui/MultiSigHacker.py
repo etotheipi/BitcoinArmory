@@ -656,7 +656,7 @@ class DlgLockboxManager(ArmoryDialog):
 
 
       lblDescr = QRichLabel(tr("""
-         <font color="%s" size=4><b>Manage Multi-key Lockbox Info</b></font>
+         <font color="%s" size=4><b>Manage Multi-Sig Lockbox Info</b></font>
          <br> <b>Multi-Sig is an <u>EXPERIMENTAL</u> feature.  
          Use at your own risk!</b>""") % htmlColor('TextBlue'), 
          hAlign=Qt.AlignHCenter)
@@ -2124,7 +2124,7 @@ class DlgSelectMultiSigOption(ArmoryDialog):
       self.btnSpend  = QPushButton(tr('Spend from a lockbox'))
 
       lblDescr  = QRichLabel(tr("""
-         <font color="%s" size=5><b>Multi-Key Lockboxes 
+         <font color="%s" size=5><b>Multi-Sig Lockboxes 
          [EXPERIMENTAL]</b></font>""") % htmlColor('TextBlue'), 
          hAlign=Qt.AlignHCenter, doWrap=False)
 
@@ -2219,7 +2219,7 @@ class DlgSelectMultiSigOption(ArmoryDialog):
 
       self.setMinimumWidth(550)
       self.setLayout(layoutMaster)
-      self.setWindowTitle(tr('Multi-Key Lockboxes [EXPERIMENTAL]'))
+      self.setWindowTitle(tr('Multi-Sig Lockboxes [EXPERIMENTAL]'))
       
 
 
