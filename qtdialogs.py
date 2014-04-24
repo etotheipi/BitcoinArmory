@@ -803,7 +803,7 @@ class DlgInconsistentWltReport(ArmoryDialog):
    def submitReport(self):
 
       self.userAgreedToPrivacyPolicy = False
-      if self.main.woWalletSubmitPrivacyWarning(wCancel=True):
+      if self.main.getUserAgreeToPrivacy():
          self.userAgreedToPrivacyPolicy = True
       else:
          return
@@ -13807,11 +13807,116 @@ class DlgForkedImports(ArmoryDialog):
 ###
 
 
+#################################################################################
+class DlgPrivacyPolicy(ArmoryDialog):
+   def __init__(self, main=None, parent=None, popupType='generic'):
+      super(DlgPrivacyPolicy, self).__init__(parent, main)
+
+      lblHeader = QRichLabel(tr("""
+         <font size=4><b>Armory Technologies, Inc. Privacy 
+         Policy</b></font>"""), hAlign=Qt.AlignCenter)
+
+      if popupType=='generic':
+         descrTxt = tr("""
+            Unless explicitly disabled, Armory periodically contacts ATI 
+            servers for alerts and software updates.  These checks expose 
+            your IP address, software version, and operating system 
+            to ATI servers, as well as any other servers 
+            in-route.  No other information is collected without your 
+            explicit permission, which will be obtained when such
+            information is requested, such as submitting a bug report
+            with your log files.
+            <br><br>
+            By using this software and submitting this information to 
+            ATI, you are agreeing to the ATI privacy policy at the 
+            link below.  The page also includes information
+            about changing Armory's default privacy settings.""")
+      elif popupType=='submitbug':
+         descrTxt = tr("""
+            You are submitting a bug report to ATI servers.  Your log 
+            files will be included unless you explicitly unselected it
+            from the bug submission screen.  Armory log files do not 
+            contain any <u>security</u>-sensitive
+            information, but some users may consider the information to be
+            <u>privacy</u>-sensitive.  The log files may identify some 
+            addresses and transactions that are related to your wallets.
+            No signing keys are ever written to the log file that would
+            allow another party to move or spend your funds.
+            <br><br>
+
+            By using this software and submitting this information to 
+            ATI, you are agreeing to the ATI privacy policy at the 
+            link below.""")
+      else:
+         LOGERROR("Unknown popup type: %s", popupType)
+         descrTxt = tr("""
+            By using this software and submitting this information to 
+            ATI, you are agreeing to the ATI privacy policy at the 
+            link below.  The page also includes information about 
+            changing Armory's default privacy settings.
+            <br><br>""")
+         
+
+      lblURL = QRichLabel(tr(""" <a href="%s">%s</a>""") % \
+         (PRIVACY_URL, PRIVACY_URL), hAlign=Qt.AlignHCenter)
+      lblURL.setOpenExternalLinks(True)
+
+      
+      lblDescr = QRichLabel(tr("""<br> %s""") % descrTxt)
+
+      self.chkUserAgrees = QCheckBox(tr("""
+         I have read and agree to the ATI privacy policy"""))
+
+
+      self.btnContinue = QPushButton('')
+      self.connect(self.chkUserAgrees, SIGNAL('toggled(bool)'), 
+                                          self.btnContinue.setEnabled)
+      self.connect(self.btnContinue, SIGNAL('clicked()'), self.accept)
+
+
+      frmBtn = makeHorizFrame(['Stretch', self.btnContinue])
+      mainLayout = QVBoxLayout()
+      mainLayout.addWidget(lblHeader)
+      mainLayout.addWidget(lblDescr)
+      mainLayout.addWidget(lblURL)
+      mainLayout.addWidget(self.chkUserAgrees)
+      mainLayout.addWidget(frmBtn)
+      self.setLayout(mainLayout)
+
+      if popupType=='submitbug':
+         self.chkUserAgrees.setVisible(True)
+         self.chkUserAgrees.setChecked(False)
+         self.btnContinue.setEnabled(False)
+         self.btnContinue.setText(tr('Continue'))
+      else:
+         self.chkUserAgrees.setVisible(False)
+         self.chkUserAgrees.setChecked(False)
+         self.btnContinue.setEnabled(True)
+         self.btnContinue.setText(tr('Ok'))
+
+   
+      self.setWindowTitle(tr("Privacy Policy"))
+         
+
+
 
 # Put circular imports at the end
 from ui.WalletFrames import SelectWalletFrame, WalletBackupFrame,\
    AdvancedOptionsFrame
 from ui.TxFrames import  SendBitcoinsFrame, SignBroadcastOfflineTxFrame,\
    ReviewOfflineTxFrame
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 

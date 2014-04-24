@@ -655,6 +655,7 @@ class ArmoryMainWindow(QMainWindow):
       actRescanDB     = self.createAction(tr('Rescan Databases'), self.rescanNextLoad)
       actRebuildDB    = self.createAction(tr('Rebuild and Rescan Databases'), self.rebuildNextLoad)
       actFactoryReset = self.createAction(tr('Factory Reset'), self.factoryReset)
+      actPrivacyPolicy = self.createAction(tr('Armory Privacy Policy'), self.showPrivacyGeneric)
 
       self.menusList[MENUS.Help].addAction(actAboutWindow)
       self.menusList[MENUS.Help].addAction(actVersionCheck)
@@ -663,6 +664,7 @@ class ArmoryMainWindow(QMainWindow):
       self.menusList[MENUS.Help].addSeparator()
       self.menusList[MENUS.Help].addAction(actTroubleshoot)
       self.menusList[MENUS.Help].addAction(actSubmitBug)
+      self.menusList[MENUS.Help].addAction(actPrivacyPolicy)
       self.menusList[MENUS.Help].addSeparator()
       self.menusList[MENUS.Help].addAction(actClearMemPool)
       self.menusList[MENUS.Help].addAction(actRescanDB)
@@ -687,7 +689,8 @@ class ArmoryMainWindow(QMainWindow):
       haveGUI[1] = self
       BDMcurrentBlock[1] = 1
 
-      if not SKIPWALLETCHECK: self.checkWallets()
+      if DO_WALLET_CHECK: 
+         self.checkWallets()
 
       self.setDashboardDetails()
 
@@ -735,6 +738,9 @@ class ArmoryMainWindow(QMainWindow):
          self.closeForReal()
 
 
+   ####################################################
+   def showPrivacyGeneric(self):
+      DlgPrivacyPolicy().exec_()
 
    ####################################################
    def clearMemoryPool(self):
@@ -3792,9 +3798,23 @@ class ArmoryMainWindow(QMainWindow):
          self.saveCombinedLogFile()
 
    #############################################################################
+   def getUserAgreeToPrivacy(self):
+      dlg = DlgPrivacyPolicy()
+      if not dlg.exec_():
+         return False
+
+      return dlg.chkUserAgrees.isChecked()
+
+   #############################################################################
    def logFileTriplePrivacyWarning(self):
       return MsgBoxCustom(MSGBOX.Warning, tr('Privacy Warning'), tr("""
-         <b><u><font size=4>Wallet Analysis Log Files</font></u></b>
+         <b><u><font size=4>ATI Privacy Policy</font></u></b>
+         <br><br>
+         You should review the <a href="%s">Armory Technologies, Inc. privacy 
+         policy</a> before sending any data to ATI servers.
+         <br><br>
+
+         <b><u><font size=3>Wallet Analysis Log Files</font></u></b>
          <br><br>
          The wallet analysis logs contain no personally-identifiable
          information, only a record of errors and inconsistencies 
@@ -3802,7 +3822,7 @@ class ArmoryMainWindow(QMainWindow):
          keys are included.
          <br><br>
 
-         <b><u><font size=4>Regular Log Files</font></u></b>
+         <b><u><font size=3>Regular Log Files</font></u></b>
          <br><br>
          The regular log files do not contain any <u>security</u>-sensitive
          information, but some users may consider the information to be
@@ -3813,7 +3833,7 @@ class ArmoryMainWindow(QMainWindow):
          implications.
          <br><br>
 
-         <b><u><font size=4>Watching-only Wallet</font></u></b>
+         <b><u><font size=3>Watching-only Wallet</font></u></b>
          <br><br>
          A watching-only wallet is a copy of a regular wallet that does not 
          contain any signing keys.  This allows the holder to see the balance
@@ -3821,24 +3841,33 @@ class ArmoryMainWindow(QMainWindow):
          <br><br>
          You may be requested to submit a watching-only copy of your wallet
          to <i>Armory Technologies, Inc.</i> to make sure that there is no 
-         risk to the security of your funds.  You should not send your
+         risk to the security of your funds.  You should not even consider 
+         sending your
          watching-only wallet unless it was specifically requested by an
-         Armory representative."""), yesStr="&Ok")
+         Armory representative.""") % PRIVACY_URL, yesStr="&Ok")
           
 
    #############################################################################
    def logFilePrivacyWarning(self, wCancel=False):
       return MsgBoxCustom(MSGBOX.Warning, tr('Privacy Warning'), tr("""
+         <b><u><font size=4>ATI Privacy Policy</font></u></b>
+         <br>
+         You should review the <a href="%s">Armory Technologies, Inc. privacy 
+         policy</a> before sending any data to ATI servers.
+         <br><br>
+
          Armory log files do not contain any <u>security</u>-sensitive
          information, but some users may consider the information to be
          <u>privacy</u>-sensitive.  The log files may identify some addresses
          and transactions that are related to your wallets.
          <br><br>
+
          <b>No signing-key data is ever written to the log file</b>.
          Only enough data is there to help the Armory developers
          track down bugs in the software, but it may still be considered
          sensitive information to some users.
          <br><br>
+
          Please do not send the log file to the Armory developers if you
          are not comfortable with the privacy implications!  However, if you
          do not send the log file, it may be very difficult or impossible

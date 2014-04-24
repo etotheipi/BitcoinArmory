@@ -1198,8 +1198,6 @@ class PyBtcWalletRecovery(object):
                         # Unfortunately I'm not sure what to do here if it doesn't match
                         # We know no ther way to handle it...
                         LOGERROR('Logging a multiplier that does not match!?')
-                     else:
-                        LOGINFO('Multiplier correctly recovers the private key')
                      
                   if newAddr.isLocked:
                      newAddr.keyChanged = 1
