@@ -1385,7 +1385,7 @@ def scrAddr_to_addrStr(scrAddr):
    if prefix==SCRADDR_P2PKH_BYTE:
       return hash160_to_addrStr(scrAddr[1:])
    elif prefix==SCRADDR_P2SH_BYTE:
-      return hash160_to_p2shStr(scrAddr[1:])
+      return hash160_to_p2shAddrStr(scrAddr[1:])
    else:
       LOGERROR('Unsupported scrAddr type: "%s"' % binary_to_hex(scrAddr))
       raise BadAddressError('Can only convert P2PKH and P2SH scripts')
@@ -1866,13 +1866,17 @@ def hash160_to_addrStr(binStr, netbyte=ADDRBYTE):
    return binary_to_base58(addr25);
 
 ################################################################################
-def hash160_to_p2shStr(binStr):
+def hash160_to_p2shAddrStr(binStr):
    if not len(binStr) == 20:
       raise InvalidHashError('Input string is %d bytes' % len(binStr))
 
    addr21 = P2SHBYTE + binStr
    addr25 = addr21 + hash256(addr21)[:4]
    return binary_to_base58(addr25);
+
+################################################################################
+def binScript_to_p2shAddrStr(binScript):
+   return hash160_to_p2shAddrStr(hash160(binScript))
 
 ################################################################################
 def addrStr_is_p2sh(b58Str):
@@ -2140,26 +2144,13 @@ def difficulty_to_binaryBits(i):
 
 ################################################################################
 def CreateQRMatrix(dataToEncode, errLevel='L'):
-   sz=3
-   success=False
-   qrmtrx = [[]]
-   while sz<20:
-      try:
-         errCorrectEnum = getattr(QRErrorCorrectLevel, errLevel.upper())
-         qr = QRCode(sz, errCorrectEnum)
-         qr.addData(dataToEncode)
-         qr.make()
-         success=True
-         break
-      except TypeError:
-         sz += 1
+   dataLen = len(dataToEncode)
+   sz = 4 if dataLen < 70 else  5 +  (dataLen - 70) / 30
 
-   if not success:
-      LOGERROR('Unsuccessful attempt to create QR code')
-      LOGERROR('Data to encode: (Length: %s, isAscii: %s)', \
-                     len(dataToEncode), isASCII(dataToEncode))
-      return [[0]], 1
-
+   errCorrectEnum = getattr(QRErrorCorrectLevel, errLevel.upper())
+   qr = QRCode(sz, errCorrectEnum)
+   qr.addData(dataToEncode)
+   qr.make()
    qrmtrx = []
    modCt = qr.getModuleCount()
    for r in range(modCt):

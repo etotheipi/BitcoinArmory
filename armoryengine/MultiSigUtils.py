@@ -104,7 +104,6 @@ def readLockboxEntryStr(addrtext):
                        addrtext.find(LBSUFFIX)]
       if len(idStr)==LOCKBOXIDSIZE:
          result = idStr
-
    return result
 
 ################################################################################
@@ -302,9 +301,9 @@ class MultiSigLockbox(object):
       lines.append(tr('Lockbox Information for %s:') % self.uniqueIDB58)
       lines.append(tr('Multisig:      %d-of-%d') % (self.M, self.N))
       lines.append(tr('Lockbox ID:    %s') % self.uniqueIDB58)
-      lines.append(tr('P2SH Hash:     %s') % hash160_to_p2shStr(hash160(self.binScript)))
+      lines.append(tr('P2SH Address:     %s') % binScript_to_p2shAddrStr(self.binScript))
       lines.append(tr('Lockbox Name:  %s') % self.shortName)
-      lines.append(tr('Created:       %s') % formattedDate)
+      lines.append(tr('Created:       %s') % formattedDate) 
       lines.append(tr('Extended Info:'))
       lines.append(EMPTYLINE)
       lines.append(tr('-'*10))

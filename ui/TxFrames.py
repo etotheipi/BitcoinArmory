@@ -1102,7 +1102,10 @@ class SendBitcoinsFrame(ArmoryFrame):
       try:
          idCol = self.COLS.LblWltID
          addrtext = str(self.widgetTable[idx][self.COLS.Addr].text())
-         lboxID = readLockboxEntryStr(addrtext)
+         if addrStr_is_p2sh(addrtext):
+            lboxID = self.main.getLockboxByP2SHAddrStr(addrtext) 
+         else:
+            lboxID = readLockboxEntryStr(addrtext)
          if lboxID:
             lbox = self.main.getLockboxByID(lboxID)
             if lbox:

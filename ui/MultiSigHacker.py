@@ -3,12 +3,15 @@ from PyQt4.QtGui import *
 from PyQt4.QtNetwork import *
 from qtdefines import *
 from qtdialogs import createAddrBookButton, DlgSetComment, DlgSendBitcoins, \
-                      DlgUnlockWallet
+                      DlgUnlockWallet, DlgQRCodeDisplay, DlgRequestPayment,\
+   DlgDispTxInfo
 from armoryengine.ALL import *
 from armorymodels import *
-from armoryengine.MultiSigUtils import MultiSigLockbox, calcLockboxID
+from armoryengine.MultiSigUtils import MultiSigLockbox, calcLockboxID,\
+   createLockboxEntryStr
 from ui.MultiSigModels import \
             LockboxDisplayModel,  LockboxDisplayProxy, LOCKBOXCOLS
+import webbrowser
 
          
 
@@ -23,14 +26,14 @@ class DlgLockboxEditor(ArmoryDialog):
       super(DlgLockboxEditor, self).__init__(parent, main)
 
       lblDescr = QRichLabel(tr("""
-         <b><u><font size=5 color="%s">Multi-key is an experimental 
+         <b><u><font size=5 color="%s">Multi-sig is an experimental 
          feature!</font></u>  
          <br><br>
          Please do not use this with money you cannot afford to 
          lose!""") % htmlColor("TextRed"), hAlign=Qt.AlignHCenter)
 
       lblDescr2 = QRichLabel(tr("""
-         Use this form to create a "multi-key lockbox" to hold
+         Use this form to create a "multi-sig lockbox" to hold
          coins in escrow between multiple parties, or to share signing
          authority between multiple devices or wallets.  Once the lockbox is
          created, you can send coins to it by selecting it in your 
@@ -40,7 +43,7 @@ class DlgLockboxEditor(ArmoryDialog):
          the "MultiSig" menu on the main screen"""))
 
       lblDescr3 = QRichLabel(tr("""
-         <b>Multi-key "lockboxes" require <u>public keys</u>, not 
+         <b>Multi-sig "lockboxes" require <u>public keys</u>, not 
          the address strings most Bitcoin users are familiar with.</b>
          <a href="None">Click for more info</a>."""))
 
@@ -208,7 +211,7 @@ class DlgLockboxEditor(ArmoryDialog):
       
       # Create the M,N select frame (stolen from frag-create dialog
       lblMNSelect = QRichLabel(tr("""<font color="%s" size=4><b>Create 
-         Multi-Key Lockbox</b></font>""") % htmlColor("TextBlue"), \
+         Multi-Sig Lockbox</b></font>""") % htmlColor("TextBlue"), \
          doWrap=False, hAlign=Qt.AlignHCenter)
 
       lblBelowM = QRichLabel(tr('<b>Required Signatures (M)</b> '), \
@@ -274,7 +277,7 @@ class DlgLockboxEditor(ArmoryDialog):
    def clickNameButton(self, i):
       currName = unicode(self.widgetMap[i]['LBL_NAME'].text())
       dlgComm = DlgSetComment(self, self.main, currName, \
-                              'Multi-Key', 'Name or Idenifier (such as email)')
+                              'Multi-Sig', 'Name or Idenifier (such as email)')
       if dlgComm.exec_():
          self.widgetMap[i]['LBL_NAME'].setText(dlgComm.edtComment.text())
 
@@ -289,7 +292,7 @@ class DlgLockboxEditor(ArmoryDialog):
                <b><u>Set Extended Lockbox Details</u></b>
                <br><br>
                Use this space to store any extended information about this
-               multi-key lockbox, such as contact information of other
+               multi-sig lockbox, such as contact information of other
                parties, references to contracts, etc.  Keep in mind that this
                field will be included when this lockbox is shared with others,
                so you should include your own contact information, as well as
@@ -379,7 +382,7 @@ class DlgLockboxEditor(ArmoryDialog):
          self.btnContinue.setEnabled(True)
          self.lblFinal.setText(tr("""
             Using the <font color="%s"><b>%d</b></font> public keys above, 
-            a multi-key lockbox will be created requiring
+            a multi-sig lockbox will be created requiring
             <font color="%s"><b>%d</b></font> signatures to spend 
             money.""") % (htmlColor('TextBlue'),  M, htmlColor('TextBlue'), N))
 
@@ -674,6 +677,8 @@ class DlgLockboxManager(ArmoryDialog):
       self.lboxView.setSelectionMode(QTableView.SingleSelection)
       self.lboxView.verticalHeader().setDefaultSectionSize(18)
       self.lboxView.horizontalHeader().setStretchLastSection(True)
+      self.lboxView.setContextMenuPolicy(Qt.CustomContextMenu)
+      self.lboxView.customContextMenuRequested.connect(self.showLboxContextMenu)
 
       self.connect( \
             self.lboxView, 
@@ -775,6 +780,12 @@ class DlgLockboxManager(ArmoryDialog):
       initialColResize(self.ledgerView, [cWidth, 0, dateWidth, tWidth, \
                                                             0.30, 0.40, 0.3])
       
+      self.connect(self.ledgerView, SIGNAL('doubleClicked(QModelIndex)'), \
+                   self.dblClickLedger)
+
+      self.ledgerView.setContextMenuPolicy(Qt.CustomContextMenu)
+      self.ledgerView.customContextMenuRequested.connect(self.showContextMenuLedger)
+
 
       # Setup the details tab
       self.tabDetails = QWidget()
@@ -826,6 +837,148 @@ class DlgLockboxManager(ArmoryDialog):
       if len(ledggeom) > 0:
          restoreTableView(self.ledgerView, ledggeom)
 
+   #############################################################################
+   def updateTxCommentFromView(self, view):
+      index = view.selectedIndexes()[0]
+      row, col = index.row(), index.column()
+      currComment = str(view.model().index(row, LEDGERCOLS.Comment).data().toString())
+
+      dialog = DlgSetComment(self, self.main, currComment, 'Transaction')
+      if dialog.exec_():
+         newComment = str(dialog.edtComment.text())
+         # Need to figure out where to store the comment
+
+   #############################################################################
+   def dblClickLedger(self, index):
+      if index.column()==LEDGERCOLS.Comment:
+         self.updateTxCommentFromView(self.ledgerView)
+      else:
+         self.showLedgerTx()
+   
+   #############################################################################
+   def showLedgerTx(self):
+      row = self.ledgerView.selectedIndexes()[0].row()
+      txHash = str(self.ledgerView.model().index(row, LEDGERCOLS.TxHash).data().toString())
+      wltID  = str(self.ledgerView.model().index(row, LEDGERCOLS.WltID).data().toString())
+      txtime = unicode(self.ledgerView.model().index(row, LEDGERCOLS.DateStr).data().toString())
+
+      pytx = None
+      txHashBin = hex_to_binary(txHash)
+      if TheBDM.isInitialized():
+         cppTx = TheBDM.getTxByHash(txHashBin)
+         if cppTx.isInitialized():
+            pytx = PyTx().unserialize(cppTx.serialize())
+
+      if pytx==None:
+         QMessageBox.critical(self, 'Invalid Tx:',
+         'The transaction you requested be displayed does not exist in '
+         'in Armory\'s database.  This is unusual...', QMessageBox.Ok)
+         return
+
+      # Need get the wallet to display this info
+      # DlgDispTxInfo( pytx, ????, self, self.main, txtime=txtime).exec_()
+   
+   #############################################################################
+   def showContextMenuLedger(self):
+      menu = QMenu(self.ledgerView)
+
+      if len(self.ledgerView.selectedIndexes())==0:
+         return
+
+      actViewTx     = menu.addAction("View Details")
+      actViewBlkChn = menu.addAction("View on www.blockchain.info")
+      actComment    = menu.addAction("Change Comment")
+      actCopyTxID   = menu.addAction("Copy Transaction ID")
+      row = self.ledgerView.selectedIndexes()[0].row()
+      action = menu.exec_(QCursor.pos())
+
+      txHash = str(self.ledgerView.model().index(row, LEDGERCOLS.TxHash).data().toString())
+      txHash = hex_switchEndian(txHash)
+      wltID  = str(self.ledgerView.model().index(row, LEDGERCOLS.WltID).data().toString())
+
+      blkchnURL = 'https://blockchain.info/tx/%s' % txHash
+
+      if action==actViewTx:
+         self.showLedgerTx()
+      elif action==actViewBlkChn:
+         try:
+            webbrowser.open(blkchnURL)
+         except:
+            LOGEXCEPT('Failed to open webbrowser')
+            QMessageBox.critical(self, 'Could not open browser', \
+               'Armory encountered an error opening your web browser.  To view '
+               'this transaction on blockchain.info, please copy and paste '
+               'the following URL into your browser: '
+               '<br><br>%s' % blkchnURL, QMessageBox.Ok)
+      elif action==actCopyTxID:
+         clipb = QApplication.clipboard()
+         clipb.clear()
+         clipb.setText(txHash)
+      elif action==actComment:
+         self.updateTxCommentFromView(self.ledgerView)
+
+         
+   #############################################################################
+   def showLboxContextMenu(self, pos):
+      menu = QMenu(self.lboxView)
+      std = (self.main.usermode == USERMODE.Standard)
+      adv = (self.main.usermode == USERMODE.Advanced)
+      dev = (self.main.usermode == USERMODE.Expert)
+
+      if True:  actionCopyAddr = menu.addAction("Copy P2SH Address")
+      if True:  actionShowQRCode = menu.addAction("Display P2SH Address QR Code")
+      if True:  actionBlkChnInfo = menu.addAction("View P2SH Address on www.blockchain.info")
+      if True:  actionReqPayment = menu.addAction("Request Payment to this P2SH Address")
+      if dev:   actionCopyHash160 = menu.addAction("Copy Hash160 (hex)")
+      if dev:   actionCopyPubKey  = menu.addAction("Copy Lock Box ID")
+      if True:  actionCopyBalance = menu.addAction("Copy Balance")
+      idx = self.lboxView.selectedIndexes()[0]
+      action = menu.exec_(QCursor.pos())
+
+
+      # Get data on a given row, easily
+      def getModelStr(col):
+         model = self.lboxView.model()
+         qstr = model.index(idx.row(), col).data().toString()
+         return str(qstr).strip()
+
+
+      lboxId = getModelStr(LOCKBOXCOLS.ID)
+      lbox = self.main.getLockboxByID(lboxId)
+      p2shAddr = script_to_addrStr(script_to_p2sh_script(lbox.binScript)) if lbox else None
+
+      if action == actionCopyAddr:
+         clippy = p2shAddr
+      elif action == actionBlkChnInfo:
+         try:
+            import webbrowser
+            blkchnURL = 'https://blockchain.info/address/%s' % p2shAddr
+            webbrowser.open(blkchnURL)
+         except:
+            QMessageBox.critical(self, 'Could not open browser', \
+               'Armory encountered an error opening your web browser.  To view '
+               'this address on blockchain.info, please copy and paste '
+               'the following URL into your browser: '
+               '<br><br>%s' % blkchnURL, QMessageBox.Ok)
+         return
+      elif action == actionShowQRCode:
+         DlgQRCodeDisplay(self, self.main, p2shAddr, p2shAddr, createLockboxEntryStr(lboxId)).exec_()
+         return
+      elif action == actionReqPayment:
+         DlgRequestPayment(self, self.main, p2shAddr).exec_()
+         return
+      elif dev and action == actionCopyHash160:
+         clippy = binary_to_hex(addrStr_to_hash160(p2shAddr)[1])
+      elif dev and action == actionCopyPubKey:
+         clippy = lboxId
+      elif action == actionCopyBalance:
+         clippy = getModelStr(LOCKBOXCOLS.Balance)
+      else:
+         return
+
+      clipb = QApplication.clipboard()
+      clipb.clear()
+      clipb.setText(str(clippy).strip())
 
    #############################################################################
    def updateButtonDisable(self):
@@ -972,7 +1125,7 @@ class DlgLockboxManager(ArmoryDialog):
    def doSpend(self):
 
 
-      dlgSpend = DlgSpendFromLockboxSelect(self, self.main)
+      dlgSpend = DlgSpendFromLockbox(self, self.main)
       dlgSpend.exec_()
 
       if dlgSpend.selection is None:
@@ -1025,14 +1178,14 @@ class DlgLockboxManager(ArmoryDialog):
       
 
 ################################################################################
-class DlgFundLockboxSelect(ArmoryDialog):
+class DlgFundLockbox(ArmoryDialog):
    def __init__(self, parent, main):
-      super(DlgFundLockboxSelect, self).__init__(parent, main)
+      super(DlgFundLockbox, self).__init__(parent, main)
    
       self.selection = None
 
       lblDescr = QRichLabel(tr("""
-         To spend from a multi-key lockbox, one party/device must create
+         To spend from a multi-sig lockbox, one party/device must create
          a proposed spending transaction, then all parties/devices must
          review and sign that transaction.  Once it has enough signatures,
          any device, can broadcast the transaction to the network."""))
@@ -1089,14 +1242,14 @@ class DlgFundLockboxSelect(ArmoryDialog):
 
 
 ################################################################################
-class DlgSpendFromLockboxSelect(ArmoryDialog):
+class DlgSpendFromLockbox(ArmoryDialog):
    def __init__(self, parent, main):
-      super(DlgSpendFromLockboxSelect, self).__init__(parent, main)
+      super(DlgSpendFromLockbox, self).__init__(parent, main)
    
       self.selection = None
 
       lblDescr = QRichLabel(tr("""
-         To spend from a multi-key lockbox, one party/device must create
+         To spend from a multi-sig lockbox, one party/device must create
          a proposed spending transaction, then all parties/devices must
          review and sign that transaction.  Once it has enough signatures,
          any device, can broadcast the transaction to the network."""))
@@ -1896,7 +2049,7 @@ class DlgMultiSpendReview(ArmoryDialog):
       #def __init__(self, parent, main, exportObj, title, descr, fileTypes, defaultFN)
       title = tr("Export Signature Collector")
       descr = tr("""
-         The text below includes all data about this multi-key transaction, 
+         The text below includes all data about this multi-sig transaction, 
          including all the signatures already made to it.  It contains 
          everything needed to securely review and sign it, including offline 
          devices/wallets.  
@@ -1914,7 +2067,7 @@ class DlgMultiSpendReview(ArmoryDialog):
    def doImport(self):
       title = tr("Import Signature Collector")
       descr = tr("""
-         Load a multi-key transaction for review, signing and/or broadcast.  
+         Load a multi-sig transaction for review, signing and/or broadcast.  
          If any of your loaded wallets can sign for any transaction inputs,
          you will be able to execute the signing for each one.  If your 
          signature completes the transaction, you can then broadcast it to
@@ -1966,7 +2119,7 @@ class DlgSelectMultiSigOption(ArmoryDialog):
       super(DlgSelectMultiSigOption, self).__init__(parent, main)
 
       self.btnCreate = QPushButton(tr('Create/Manage lockboxes'))
-      #self.btnImport = QPushButton(tr('Import multi-key lockbox'))
+      #self.btnImport = QPushButton(tr('Import multi-sig lockbox'))
       self.btnFund   = QPushButton(tr('Fund a lockbox'))
       self.btnSpend  = QPushButton(tr('Spend from a lockbox'))
 
@@ -1977,7 +2130,7 @@ class DlgSelectMultiSigOption(ArmoryDialog):
 
       lblDescr2 = QRichLabel(tr("""
          The buttons below link you to all the functionality needed to 
-         create, fund and spend from multi-key "lockboxes."  This 
+         create, fund and spend from multi-sig "lockboxes."  This 
          includes turning multiple wallets into a multi-factor lock-box
          for your personal coins, or can be used for escrow between
          multiple parties, using the Bitcoin network itself to hold the
@@ -1986,7 +2139,7 @@ class DlgSelectMultiSigOption(ArmoryDialog):
          <b><u>IMPORTANT:</u></b>  If you are using an lockbox that requires
          being funded by multiple parties simultaneously, you should 
          <b><u>not</u> </b> use regular transactions to do the funding.  
-         You should use the third button labeled "Fund a multi-key lockbox" 
+         You should use the third button labeled "Fund a multi-sig lockbox" 
          to collect funding promises into a single transaction, to limit 
          the ability of any party to scam you.  Read more about it by
          clicking [NO LINK YET]  (if the above doesn't hold, you can use
@@ -1995,7 +2148,7 @@ class DlgSelectMultiSigOption(ArmoryDialog):
 
       self.lblCreate = QRichLabel(tr("""
          Collect public keys to create an "address" that can be used 
-         to send funds to the multi-key container"""))
+         to send funds to the multi-sig container"""))
       #self.lblImport = QRichLabel(tr("""
          #If someone has already created the lockbox you can add it 
          #to your lockbox list"""))
@@ -2004,7 +2157,7 @@ class DlgSelectMultiSigOption(ArmoryDialog):
          parties involved in the lockbox"""))
       self.lblSpend = QRichLabel(tr("""
          Collect signatures to authorize transferring money out of 
-         a multi-key lockbox"""))
+         a multi-sig lockbox"""))
 
 
       self.connect(self.btnCreate,  SIGNAL('clicked()'), self.openCreate)

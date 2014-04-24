@@ -419,7 +419,7 @@ def TxInExtractAddrStrIfAvail(txinObj):
    if scrType in [CPP_TXIN_STDUNCOMPR, CPP_TXIN_STDCOMPR]:
       return hash160_to_addrStr( hash160(lastPush) )
    elif scrType == CPP_TXIN_SPENDP2SH:
-      return hash160_to_p2shStr( hash160(lastPush) )
+      return binScript_to_p2shAddrStr(lastPush)
    else:
       return ''
 

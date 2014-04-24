@@ -39,6 +39,7 @@ BACKUP_TYPE_135a_TEXT = tr('Version 1.35a (5 lines Unencrypted)')
 BACKUP_TYPE_135a_SP_TEXT = tr('Version 1.35a (5 lines + SecurePrint\xe2\x84\xa2)')
 BACKUP_TYPE_135c_TEXT = tr('Version 1.35c (3 lines Unencrypted)')
 BACKUP_TYPE_135c_SP_TEXT = tr('Version 1.35c (3 lines + SecurePrint\xe2\x84\xa2)')
+MAX_QR_SIZE = 198
 
 
 ################################################################################
@@ -1155,8 +1156,6 @@ class DlgWalletDetails(ArmoryDialog):
       self.wltAddrView.setContextMenuPolicy(Qt.CustomContextMenu)
       self.wltAddrView.customContextMenuRequested.connect(self.showContextMenu)
       self.wltAddrProxy.sort(ADDRESSCOLS.ChainIdx, Qt.AscendingOrder)
-
-      uacfv = lambda x: self.main.updateAddressCommentFromView(self.wltAddrView, self.wlt)
 
       self.connect(self.wltAddrView, SIGNAL('doubleClicked(QModelIndex)'), \
                    self.dblClickAddressView)
@@ -2534,7 +2533,7 @@ class DlgImportAddress(ArmoryDialog):
 
 
 
-      # Set up the multi-key import widget
+      # Set up the multi-Sig import widget
       lblDescrMany = QRichLabel(\
                    'Enter a list of private keys to be "swept" or imported. '
                    'All standard private-key formats are supported.  ')
@@ -9277,26 +9276,28 @@ class DlgRequestPayment(ArmoryDialog):
 
       lblOut = QRichLabel('Copy and paste the following text into email or other document:')
       frmOutput = makeVertFrame([lblOut, frmOut, frmCopyBtnStrip], STYLE_SUNKEN)
-      frmOutput.layout().setStretch(0, 0)
+      frmOutput.layout().setStretch(0, 1)
       frmOutput.layout().setStretch(1, 1)
       frmOutput.layout().setStretch(2, 0)
       frmClose = makeHorizFrame([STRETCH, btnClose])
 
-
+      self.qrStackedDisplay = QStackedWidget()
+      self.qrStackedDisplay.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Preferred)
+      self.qrWaitingLabel = QRichLabel('Creating QR Code Please Wait', doWrap=False, hAlign=Qt.AlignHCenter)
+      self.qrStackedDisplay.addWidget(self.qrWaitingLabel)
       self.qrURI = QRCodeWidget('', parent=self)
+      self.qrStackedDisplay.addWidget(self.qrURI)
       lblQRDescr = QRichLabel('This QR code contains address <b>and</b> the '
-                              'other payment information shown to the left.')
+                              'other payment information shown to the left.', doWrap=True)
 
       lblQRDescr.setAlignment(Qt.AlignTop | Qt.AlignHCenter)
-      frmQR = makeVertFrame([self.qrURI, STRETCH, lblQRDescr, STRETCH], STYLE_SUNKEN)
+      frmQR = makeVertFrame([self.qrStackedDisplay, STRETCH, lblQRDescr, STRETCH], STYLE_SUNKEN)
       frmQR.layout().setStretch(0, 0)
       frmQR.layout().setStretch(1, 0)
       frmQR.layout().setStretch(2, 1)
 
-      self.maxQRSize = int(1.25 * QRCodeWidget('a' * 200).getSize())
-      frmQR.setMinimumWidth(self.maxQRSize)
-      self.qrURI.setMinimumHeight(self.maxQRSize)
-
+      frmQR.setMinimumWidth(MAX_QR_SIZE)
+      self.qrURI.setMinimumHeight(MAX_QR_SIZE)
 
       dlgLayout = QGridLayout()
 
@@ -9318,7 +9319,6 @@ class DlgRequestPayment(ArmoryDialog):
       self.setLabels()
       self.prevURI = ''
       self.closed = False  # kind of a hack to end the update loop
-      self.updateQRCode()
       self.setLayout(dlgLayout)
       self.setWindowTitle('Create Payment Request Link')
 
@@ -9458,21 +9458,13 @@ class DlgRequestPayment(ArmoryDialog):
          self.updateQRCode()
          reactor.callLater(nsec, self.periodicUpdate)
 
-
-   def accept(self, *args):
-      # Kind of a hacky way to get the loop to end, but it seems to work
-      self.closed = True
-      super(DlgRequestPayment, self).accept(*args)
-
-   def reject(self, *args):
-      # Kind of a hacky way to get the loop to end, but it seems to work
-      self.closed = True
-      super(DlgRequestPayment, self).reject(*args)
-
    def updateQRCode(self, e=None):
       if not self.prevURI == self.rawURI:
+         self.qrStackedDisplay.setCurrentWidget(self.qrWaitingLabel)
+         self.repaint()
          self.qrURI.setAsciiData(self.rawURI)
-         self.qrURI.setPreferredSize(self.maxQRSize - 10, 'max')
+         self.qrURI.setPreferredSize(MAX_QR_SIZE - 10, 'max')
+         self.qrStackedDisplay.setCurrentWidget(self.qrURI)
          self.repaint()
       self.prevURI = self.rawURI
 

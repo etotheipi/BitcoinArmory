@@ -301,7 +301,7 @@ class ArmoryEngineTest(unittest.TestCase):
    def test_read_address(self):
       hashVal = hex_to_binary('c3a9eb6753c449c88ac193e9ddf7ab3a0be8c5ad')
       addrStr00  = hash160_to_addrStr(hashVal)
-      addrStr05  = hash160_to_p2shStr(hashVal)
+      addrStr05  = hash160_to_p2shAddrStr(hashVal)
       addrStrA3  = '28tvtpKmqbKUVaGHshsVKWTaRHJ5yG36xvv'
       addrStrBad = '1JqaKdBsruwgGcZkiVCNU2DBh56DHBsEb1'
 
