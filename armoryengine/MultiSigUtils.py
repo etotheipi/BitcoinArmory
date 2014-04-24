@@ -58,8 +58,8 @@ Use-Case 1 -- Protecting coins with 2-of-3 computers (2 offline, 1 online):
 
 LOCKBOXIDSIZE = 8
 PROMIDSIZE = 4
-LBPREFIX, LBSUFFIX = 'Lockbox[ID:', ']'
-LBP2SHPREFIX = 'Lockbox[P2SH:'
+LBPREFIX, LBSUFFIX = 'Lockbox[Bare:', ']'
+LBP2SHPREFIX = 'Lockbox['
 
 ################################################################################
 def calcLockboxID(script=None, scraddr=None):
@@ -91,8 +91,8 @@ def calcLockboxID(script=None, scraddr=None):
 
 
 ################################################################################
-def createLockboxEntryStr(lbID, isP2SH=False):
-   return '%s%s%s' % (LBP2SHPREFIX if isP2SH else LBPREFIX,
+def createLockboxEntryStr(lbID, isBareMultiSig=False):
+   return '%s%s%s' % (LBPREFIX if isBareMultiSig else LBP2SHPREFIX,
                        lbID, LBSUFFIX)
 
 ################################################################################
@@ -106,7 +106,7 @@ def readLockboxEntryStr(addrtext):
          result = idStr
 
    return result
-   
+
 ################################################################################
 def isP2SHLockbox(addrtext):
    return addrtext.startswith(LBP2SHPREFIX)
@@ -302,6 +302,7 @@ class MultiSigLockbox(object):
       lines.append(tr('Lockbox Information for %s:') % self.uniqueIDB58)
       lines.append(tr('Multisig:      %d-of-%d') % (self.M, self.N))
       lines.append(tr('Lockbox ID:    %s') % self.uniqueIDB58)
+      lines.append(tr('P2SH Hash:     %s') % hash160_to_p2shStr(hash160(self.binScript)))
       lines.append(tr('Lockbox Name:  %s') % self.shortName)
       lines.append(tr('Created:       %s') % formattedDate)
       lines.append(tr('Extended Info:'))

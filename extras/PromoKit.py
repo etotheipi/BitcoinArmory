@@ -24,7 +24,7 @@ from armoryengine.ArmoryUtils import makeSixteenBytesEasy, NegativeValueError, \
    WalletAddressError, MIN_RELAY_TX_FEE, LOGINFO, hash160_to_p2pkhash_script
 from armoryengine.BDM import TheBDM
 from armoryengine.CoinSelection import calcMinSuggestedFees, PySelectCoins
-from armoryengine.Transaction import PyTxDistProposal
+from armoryengine.Transaction import UnsignedTransaction
 from qtdefines import GETFONT, tr
 from qtdialogs import SimplePrintableGraphicsScene
 
@@ -221,7 +221,7 @@ def distributeBtc(masterWallet, amount, sendingAddrList):
       #       to take full scripts, not just hash160 values.  Convert the list
       #       before passing it in
       scrPairs = [[hash160_to_p2pkhash_script(r), v] for r,v in recipValuePairs]
-      txdp = PyTxDistProposal().createFromTxOutSelection(selectedUtxoList, scrPairs)
+      txdp = UnsignedTransaction().createFromTxOutSelection(selectedUtxoList, scrPairs)
       
       masterWallet.unlock(securePassphrase = SecureBinaryData(getpass('Enter your secret string:')))
       # Sign and prepare the final transaction for broadcast
@@ -268,7 +268,7 @@ def sweepImportedAddrs(masterWallet):
    #       to take full scripts, not just hash160 values.  Convert the list
    #       before passing it in
    scrPairs = [[hash160_to_p2pkhash_script(r), v] for r,v in recipValuePairs]
-   txdp = PyTxDistProposal().createFromTxOutSelection(utxoList, scrPairs)
+   txdp = UnsignedTransaction().createFromTxOutSelection(utxoList, scrPairs)
    
    masterWallet.unlock(securePassphrase = SecureBinaryData(getpass('Enter your secret string:')))
    # Sign and prepare the final transaction for broadcast
