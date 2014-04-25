@@ -519,6 +519,11 @@ class DlgBugReport(ArmoryDialog):
 
    #############################################################################
    def submitReport(self):
+      if self.main.getUserAgreeToPrivacy(True):
+         self.userAgreedToPrivacyPolicy = True
+      else:
+         return
+
       emailAddr = unicode(self.edtEmail.text()).strip()
       emailLen = lenBytes(emailAddr)
 
@@ -580,16 +585,17 @@ class DlgBugReport(ArmoryDialog):
       reportMap['userDescr']    = description
       reportMap['userTime']     = unixTimeToFormatStr(RightNow())
       reportMap['userTimeUTC']  = unixTimeToFormatStr(RightNowUTC())
+      reportMap['agreedPrivacy']  = str(self.userAgreedToPrivacyPolicy)
+
+      combinedLogName = 'armory_log_%s_%s.txt' % (uniqID, dateStr)
+      combinedLogPath = os.path.join(ARMORY_HOME_DIR, combinedLogName)
+      self.main.saveCombinedLogFile(combinedLogPath)
 
       if self.chkNoLog.isChecked():
          reportMap['fileLog'] = '<NO LOG FILE SUBMITTED>'
       else:
-         tmpBase = 'log_%s_%s.txt' % (uniqID, dateStr)
-         tmpFile = os.path.join(ARMORY_HOME_DIR, tmpBase)
-         self.main.saveCombinedLogFile(tmpFile)
-         with open(tmpFile, 'r') as f:
+         with open(combinedLogPath, 'r') as f:
             reportMap['fileLog'] = f.read()
-         os.remove(tmpFile)
 
       LOGDEBUG('Sending the following dictionary of values to server')
       for key,val in reportMap.iteritems():
@@ -629,11 +635,20 @@ class DlgBugReport(ArmoryDialog):
 
          if responseMap==expectedResponseMap:
             LOGINFO('Server verified receipt of log file')
+            cemail = 'contact@bitcoinarmory.com'
             QMessageBox.information(self, tr('Submitted!'), tr("""
-               Your report was successfully received by the Armory team and will
-               be reviewed as soon as possible.  Please be aware that the team
-               receives lots of reports like these, so it may take a few days for
-               the team to get back to you."""), QMessageBox.Ok)
+               <b>Your report submitted successfully!</b> 
+               <br><br>
+               You should receive and email shortly from our support system.
+               If you do not receive it, you should follow up your request
+               with an email to <a href="%s">%s</a>.  If you do, please
+               attach the following file to your email:
+               <br><br>
+               %s
+               <br><br>
+               Please be aware that the team receives lots of reports, 
+               so it may take a few days for the team to get back to 
+               you.""") % (cemail, cemail, combinedLogPath), QMessageBox.Ok)
             self.accept()
          else:
             raise ConnectionError('Failed to send bug report')
@@ -803,7 +818,7 @@ class DlgInconsistentWltReport(ArmoryDialog):
    def submitReport(self):
 
       self.userAgreedToPrivacyPolicy = False
-      if self.main.getUserAgreeToPrivacy():
+      if self.main.getUserAgreeToPrivacy(True):
          self.userAgreedToPrivacyPolicy = True
       else:
          return
@@ -858,7 +873,7 @@ class DlgInconsistentWltReport(ArmoryDialog):
       reportMap['userDescr']    = description
       reportMap['userTime']     = unixTimeToFormatStr(RightNow())
       reportMap['userTimeUTC']  = unixTimeToFormatStr(RightNowUTC())
-      reportMap['privacyEULA']  = str(self.userAgreedToPrivacyPolicy)
+      reportMap['agreedPrivacy']  = str(self.userAgreedToPrivacyPolicy)
 
       fileUploadKey = 'fileWalletLogs'
 
@@ -909,9 +924,15 @@ class DlgInconsistentWltReport(ArmoryDialog):
 
          if responseMap==expectedResponseMap:
             LOGINFO('Server verified receipt of log file')
+            cemail = 'contact@bitcoinarmory.com'
             QMessageBox.information(self, tr('Submitted!'), tr("""
-               Your report was successfully received by the Armory team and will
-               be reviewed as soon as possible."""), QMessageBox.Ok)
+               <b>Your report submitted successfully!</b> 
+               <br><br>
+               You should receive and email shortly from our support system.
+               If you do not receive it, you should follow up your request
+               with an email to <a href="%s">%s</a>.  
+               You should hear back from an Armory representative within
+               24 hours.""") % (cemail, cemail), QMessageBox.Ok)
             self.accept()
          else:
             raise ConnectionError('Failed to send bug report')
@@ -13857,7 +13878,7 @@ class DlgPrivacyPolicy(ArmoryDialog):
             <br><br>""")
          
 
-      lblURL = QRichLabel(tr(""" <a href="%s">%s</a>""") % \
+      lblURL = QRichLabel(tr("""<br><a href="%s">%s</a><br><br>""") % \
          (PRIVACY_URL, PRIVACY_URL), hAlign=Qt.AlignHCenter)
       lblURL.setOpenExternalLinks(True)
 

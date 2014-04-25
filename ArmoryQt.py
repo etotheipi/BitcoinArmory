@@ -3798,8 +3798,9 @@ class ArmoryMainWindow(QMainWindow):
          self.saveCombinedLogFile()
 
    #############################################################################
-   def getUserAgreeToPrivacy(self):
-      dlg = DlgPrivacyPolicy()
+   def getUserAgreeToPrivacy(self, getAgreement=False):
+      ptype = 'submitbug' if getAgreement else 'generic'
+      dlg = DlgPrivacyPolicy(self, self, ptype)
       if not dlg.exec_():
          return False
 
