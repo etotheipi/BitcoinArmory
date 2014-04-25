@@ -375,8 +375,17 @@ class SatoshiDaemonManager(object):
          searchPaths.extend([os.path.join(sp, 'Bitcoin') for sp in searchPaths])
          searchPaths.extend([os.path.join(sp, 'daemon') for sp in searchPaths])
 
-         # First check desktop for links
-         possBaseDir = []
+         possBaseDir = []         
+         
+         from platform import machine
+         if '64' in machine():
+            possBaseDir.append(os.getenv("ProgramW6432"))            
+            possBaseDir.append(os.getenv('PROGRAMFILES(X86)'))
+         else:
+            possBaseDir.append(os.getenv('PROGRAMFILES'))
+        
+         # check desktop for links
+
          home      = os.path.expanduser('~')
          desktop   = os.path.join(home, 'Desktop')
 
@@ -393,12 +402,7 @@ class SatoshiDaemonManager(object):
 
          # Also look in default place in ProgramFiles dirs
 
-         from platform import machine
-         if '64' in machine():
-            possBaseDir.append(os.getenv('PROGRAMFILES(X86)'))
-            possBaseDir.append(os.getenv("ProgramW6432"))
-         else:
-            possBaseDir.append(os.getenv('PROGRAMFILES'))
+
 
 
          # Now look at a few subdirs of the

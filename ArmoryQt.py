@@ -6350,6 +6350,11 @@ class ArmoryMainWindow(QMainWindow):
                window and it will reappear when ready.""")
             self.dlgCptWlt.UpdateCanFix([canFix])
             time.sleep(1)
+         elif TheBDM.getBDMState() == 'Offline' or \
+              TheBDM.getBDMState() == 'Uninitialized':
+            TheSDM.setDisabled(True)
+            CLI_OPTIONS.offline = True
+            break
          else:
             break
 
