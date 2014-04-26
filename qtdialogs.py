@@ -637,7 +637,7 @@ class DlgBugReport(ArmoryDialog):
             LOGINFO('Server verified receipt of log file')
             cemail = 'contact@bitcoinarmory.com'
             QMessageBox.information(self, tr('Submitted!'), tr("""
-               <b>Your report submitted successfully!</b> 
+               <b>Your report was submitted successfully!</b> 
                <br><br>
                You should receive and email shortly from our support system.
                If you do not receive it, you should follow up your request
@@ -926,7 +926,7 @@ class DlgInconsistentWltReport(ArmoryDialog):
             LOGINFO('Server verified receipt of log file')
             cemail = 'contact@bitcoinarmory.com'
             QMessageBox.information(self, tr('Submitted!'), tr("""
-               <b>Your report submitted successfully!</b> 
+               <b>Your report was submitted successfully!</b> 
                <br><br>
                You should receive and email shortly from our support system.
                If you do not receive it, you should follow up your request
