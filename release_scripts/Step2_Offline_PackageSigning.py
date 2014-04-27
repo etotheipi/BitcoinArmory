@@ -6,8 +6,13 @@ import sys
 import os
 import time
 import shutil
+import getpass
 from subprocess import Popen, PIPE
 from release_utils import *
+
+from signannounce import signAnnounceFiles
+
+
 
 uploadlog = open('step2_log.txt', 'w')
 def logprint(s):
@@ -18,6 +23,7 @@ def logprint(s):
 ################################################################################
 # DEFAULTS FOR RUNNING THIS SCRIPT
 gpgKeyID  = 'FB596985'
+btcWltID  = '2xT8467b'
 builder   = 'Armory Technologies, Inc.'
 
 gitRepo   = './BitcoinArmory' 
@@ -48,13 +54,14 @@ LinuxPkgs = {}
 LinuxPkgs['Ubuntu 12.04-64bit'] = ['_12.04-64bit.deb', ['Ubuntu', 'Debian'], ['12.04+'],  64]
 LinuxPkgs['Ubuntu 12.04-32bit'] = ['_12.04-32bit.deb', ['Ubuntu', 'Debian'], ['12.04+'],  32]
 LinuxPkgs['Raspberry Pi']       = ['_raspbian.tar.gz', ['Raspbian'],         ['Rpi'],     32]
-#LinuxPkgs['Tails 64bit']        = ['tails64.deb',      ['TailsOS'],          ['0.22.1'], 64]
 
 # [BundleName] = [PkgName, DependenciesDir, Suffix]
 OfflineBundles = {}
 OfflineBundles['UbuntuBundle 12.04-64bit'] = ['Ubuntu 12.04-64bit', 'ubuntu_12.04-64_all_deps', 'OfflineUbuntu64']
 OfflineBundles['UbuntuBundle 12.04-32bit'] = ['Ubuntu 12.04-32bit', 'ubuntu_12.04-32_all_deps', 'OfflineUbuntu32']
-OfflineBundles['Raspberry Pi Bundle']      = ['Raspberry Pi',       'rpi_offline_all_deps',     'OfflineRaspbian']
+OfflineBundles['Raspberry Pi Bundle']      = ['Raspberry Pi',       'armory_raspbian_deps',     'OfflineRaspbian']
+#OfflineBundles['Tails']                    = ['Tails OS',           'armory_tails64_deps',      'OfflineTails']
+#LinuxPkgs['Tails 32bit']        = ['tails32.deb',      ['TailsOS'],          ['0.23'], 32]
 
 # For now we are disabling these because they are enormous, holding the git repo with them
 LinuxRaw = {}
@@ -65,14 +72,11 @@ LinuxRaw = {}
 ################################################################################
 # Do some sanity checks to make sure things are in order before continuing
 if len(sys.argv) < 3:
-   print 'Must supply dir with installers and version type [testing, beta]'
+   print '***ERROR: Must give a directory containing Armory installers'
    print 'USAGE: %s <installersdir>' % argv[0]
    exit(1)
 
-
 instDir = sys.argv[1]
-
-
 if not os.path.exists(instDir):
    logprint('Installers dir does not exist!' + instDir)
    exit(1)
@@ -110,6 +114,14 @@ for name,trip in OfflineBundles.iteritems():
    else:
       print 'Found offline bundle deps dir: %s' % depsdir
 
+
+# Check wallet exists for announcement signing
+wltPath = os.path.expanduser('~/.armory/wallet_%s_.wallet' % btcWltID)
+if not os.path.exists(wltPath):
+   logprint('Wallet for signing announcements does not exist: %s' % wltPath)
+   exit(1)
+
+
 # Grab the latest file version from the list   
 latestVerInt,latestVerStr,latestVerType = getLatestVerFromList2(os.listdir(instDir))
 
@@ -119,6 +131,7 @@ logprint('   Dir with all the installers: "%s"' % instDir)
 logprint('   Detected Version String    : "%s"' % latestVerStr)
 logprint('   This is release of type    : "%s"' % latestVerType)
 logprint('   Use the following GPG key  : "%s"' % gpgKeyID)
+logprint('   Use the following wallet   : "%s"' % wltPath)
 logprint('   Builder for signing deb    : "%s"' % builder)
 logprint('   Git repo to be signed is   : "%s", branch: "%s"' % (gitRepo,gitBranch))
 logprint('   Git user to tag release    : "%s" / <%s>' % (gituser, gitemail))
@@ -193,6 +206,8 @@ for fn,depsdir,bundledir in debbundles:
    instFiles.append(targz)
 """
 
+################################################################################
+# Create Offline Bundles
 OfflineBundles['UbuntuBundle 12.04-64bit'] = ['Ubuntu 12.04-64bit', 'ubuntu_12.04-64_all_deps']
 for bundleName,trip in OfflineBundles.iteritems():
    pkgName,depsdir,suff = trip[:]
@@ -222,6 +237,12 @@ with open(hashfilename, 'w') as hashfile:
 
 execAndWait('gpg -sa --clearsign --digest-algo SHA256 %s ' %  hashfilename)
 os.remove(hashfilename)
+
+
+
+################################################################################
+################################################################################
+# Now update the announcements
 
 
 # GIT SIGN

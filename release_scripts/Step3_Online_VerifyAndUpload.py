@@ -16,7 +16,7 @@ startDir = os.getcwd()
 latestVerInt, latestVerStr, latestRelease = 0,'',''
 unpackDir = 'signed_release_unpack'
 bucket = 'bitcoinarmory-releases'
-buckets3 = 's3://%s' % bucket
+bucketS3 = 's3://%s' % bucket
 bucketdl = 'https://s3.amazonaws.com/%s' % bucket
 
 #uploadlog = open('step3_log_%d.txt' % long(time.time()), 'w')
@@ -56,7 +56,7 @@ logprint('Detected Release Parameters:')
 logprint('   Version type: ' + latestVerType)
 logprint('   Full version: ' + verFullStr)
 logprint('   Release file: ' + latestRelease)
-logprint('   S3 Bucket   : ' + buckets3)
+logprint('   S3 Bucket   : ' + bucketS3)
 logprint('   DL Links    : ' + bucketdl)
 logprint('')
 
@@ -169,7 +169,7 @@ for fullfn, fn, isbundle, ishash, fivevals in uploads:
    else:
       humanText += ' for %s %s %s' % tuple(pkgMap[ext])
             
-   uploadurl = '%s/%s' % (buckets3, fn)
+   uploadurl = '%s/%s' % (bucketS3, fn)
    linkurl = '%s/%s' % (bucketdl, fn)
 
    s3cmd = 's3cmd put --acl-public %s %s' % (fullfn, uploadurl)
@@ -182,6 +182,11 @@ for fullfn, fn, isbundle, ishash, fivevals in uploads:
    rawUrlList.append(linkurl)
    s3cmdList.append(s3cmd)
    
+
+for ann in announceFiles:
+   uploadurl = '%s/%s' % (bucketS3, fn)
+   s3cmd = 's3cmd put --acl-public %s %s' % (ann, uploadurl)
+   s3cmdList.append(s3cmd)
 
 logprint('\nRAW URL LIST')
 for txt in rawUrlList:
