@@ -13207,7 +13207,13 @@ class DlgProgress(ArmoryDialog):
             if self.HBar > 0: kwargs['Progress'] = self.UpdateHBar
             else: kwargs['Progress'] = self.UpdateText
 
-         rt = func(*args[1:], **kwargs)
+         try:
+            rt = func(*args[1:], **kwargs)
+         except Exception as e:
+            self.Kill()
+            raise e
+            pass
+         
          self.Kill()  
             
          return rt
