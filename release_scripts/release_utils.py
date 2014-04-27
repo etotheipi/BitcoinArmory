@@ -102,6 +102,50 @@ def parseInstallerName(fn, ignoreExt=False):
    return None
       
 
+################################################################################
+# Extract [osName, verStr, verInt, verType, ext]
+# Example ['winAll', '0.91.1', 91001000, 'rc1', '.exe']
+def parseInstallerName2(fn):
+   pcs = fn.split('_')
+   if not len(pcs)==3 or not pcs[0]=='armory':
+      return None
+
+   temp,verWhole,osNameExt = pcs[:]
+   vpcs    = verWhole.split('-')
+   verStr  = vpcs[0]
+   verType = ('-'+vpcs[1]) if len(vpcs)>1 else ''
+   epcs    = osNameExt.split('.')
+   osName  = epcs[0]
+   osExt   = '.'.join(epcs[1:])
+
+   verQuad = readVersionString(verStr)
+   verInt  = getVersionInt(verQuad)
+   return [osName, verStr, verInt, verType, osExt]
+        
+
+################################################################################
+# Parse filenames to return the latest version number present (and assoc type)
+def getLatestVerFromList2(filelist):
+   latestVerInt = 0
+   latestVerStr = ''
+   verType = ''
+   
+   # Find the highest version number
+   for fn in filelist:
+      fivevals = parseInstallerName(fn)
+      if fivevals is None:
+         continue;
+
+      verstr,verint,vertype = fivevals[1:4]
+      if verint>latestVerInt:
+         latestVerInt  = verint
+         latestVerStr  = verstr
+         latestVerType = vertype
+
+   return (latestVerInt, latestVerStr, latestVerType)
+   
+
+
 def getLatestVerFromList(filelist):
    
    latestVerInt = 0
