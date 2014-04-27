@@ -776,7 +776,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
          outputPairs.append( [addrStr_to_scrAddr(nextAddr), totalChange] )
 
       random.shuffle(outputPairs)
-      txdp = PyTxDistProposal().createFromTxOutSelection(utxoSelect, outputPairs)
+      txdp = UnsignedTransaction().createFromTxOutSelection(utxoSelect, outputPairs)
 
       return txdp.serializeAscii()
 

@@ -39,6 +39,7 @@ BACKUP_TYPE_135a_TEXT = tr('Version 1.35a (5 lines Unencrypted)')
 BACKUP_TYPE_135a_SP_TEXT = tr('Version 1.35a (5 lines + SecurePrint\xe2\x84\xa2)')
 BACKUP_TYPE_135c_TEXT = tr('Version 1.35c (3 lines Unencrypted)')
 BACKUP_TYPE_135c_SP_TEXT = tr('Version 1.35c (3 lines + SecurePrint\xe2\x84\xa2)')
+MAX_QR_SIZE = 198
 
 
 ################################################################################
@@ -1155,8 +1156,6 @@ class DlgWalletDetails(ArmoryDialog):
       self.wltAddrView.setContextMenuPolicy(Qt.CustomContextMenu)
       self.wltAddrView.customContextMenuRequested.connect(self.showContextMenu)
       self.wltAddrProxy.sort(ADDRESSCOLS.ChainIdx, Qt.AscendingOrder)
-
-      uacfv = lambda x: self.main.updateAddressCommentFromView(self.wltAddrView, self.wlt)
 
       self.connect(self.wltAddrView, SIGNAL('doubleClicked(QModelIndex)'), \
                    self.dblClickAddressView)
@@ -2534,7 +2533,7 @@ class DlgImportAddress(ArmoryDialog):
 
 
 
-      # Set up the multi-key import widget
+      # Set up the multi-Sig import widget
       lblDescrMany = QRichLabel(\
                    'Enter a list of private keys to be "swept" or imported. '
                    'All standard private-key formats are supported.  ')
@@ -7719,8 +7718,8 @@ class DlgAddressBook(ArmoryDialog):
 
       self.lblSelectWlt = QRichLabel('', doWrap=False)
       self.btnSelectWlt = QPushButton('No Wallet Selected')
-      self.useP2SHCheckBox = QCheckBox('Use P2SH')
-      self.useP2SHCheckBox.setVisible(False)
+      self.useBareMultiSigCheckBox = QCheckBox('Use Bare Multi-Sig (No P2SH)')
+      self.useBareMultiSigCheckBox.setVisible(False)
       self.btnSelectAddr = QPushButton('No Address Selected')
       self.btnSelectWlt.setEnabled(False)
       self.btnSelectAddr.setEnabled(False)
@@ -7728,7 +7727,7 @@ class DlgAddressBook(ArmoryDialog):
 
       if self.isBrowsingOnly:
          self.btnSelectWlt.setVisible(False)
-         self.useP2SHCheckBox.setVisible(False)
+         self.useBareMultiSigCheckBox.setVisible(False)
          self.btnSelectAddr.setVisible(False)
          self.lblSelectWlt.setVisible(False)
          btnCancel = QPushButton('<<< Go Back')
@@ -7742,7 +7741,7 @@ class DlgAddressBook(ArmoryDialog):
 
       self.connect(self.btnSelectWlt, SIGNAL(CLICKED), self.acceptWltSelection)
       self.connect(self.btnSelectAddr, SIGNAL(CLICKED), self.acceptAddrSelection)
-      self.connect(self.useP2SHCheckBox, SIGNAL(CLICKED), self.useP2SHClicked)
+      self.connect(self.useBareMultiSigCheckBox, SIGNAL(CLICKED), self.useP2SHClicked)
       self.connect(btnCancel, SIGNAL(CLICKED), self.reject)
 
 
@@ -7755,7 +7754,7 @@ class DlgAddressBook(ArmoryDialog):
       dlgLayout.addWidget(HLINE(), 5, 0)
       dlgLayout.addWidget(lblToAddr, 6, 0)
       dlgLayout.addWidget(self.tabWidget, 7, 0)
-      dlgLayout.addWidget(makeHorizFrame([STRETCH, self.useP2SHCheckBox, self.btnSelectAddr]), 8, 0)
+      dlgLayout.addWidget(makeHorizFrame([STRETCH, self.useBareMultiSigCheckBox, self.btnSelectAddr]), 8, 0)
       dlgLayout.addWidget(HLINE(), 9, 0)
       dlgLayout.addWidget(makeHorizFrame([btnCancel, STRETCH]), 10, 0)
       dlgLayout.setRowStretch(3, 1)
@@ -7838,8 +7837,8 @@ class DlgAddressBook(ArmoryDialog):
    def disableSelectButtons(self):
       self.btnSelectAddr.setText('None Selected')
       self.btnSelectAddr.setEnabled(False)
-      self.useP2SHCheckBox.setChecked(False)
-      self.useP2SHCheckBox.setEnabled(False)
+      self.useBareMultiSigCheckBox.setChecked(False)
+      self.useBareMultiSigCheckBox.setEnabled(False)
 
 
    #############################################################################
@@ -7847,24 +7846,24 @@ class DlgAddressBook(ArmoryDialog):
    def tabChanged(self, index):
       if not self.isBrowsingOnly:
          if self.tabWidget.currentWidget() == self.lboxView:
-            self.useP2SHCheckBox.setVisible(self.btnSelectAddr.isVisible())
+            self.useBareMultiSigCheckBox.setVisible(self.btnSelectAddr.isVisible())
             selectedLockBox = self.getSelectedLBID()
             self.btnSelectAddr.setEnabled(selectedLockBox != None)
             if selectedLockBox:
                self.btnSelectAddr.setText( createLockboxEntryStr(selectedLockBox,
-                                                                 self.useP2SHCheckBox.isChecked()))
-               self.useP2SHCheckBox.setEnabled(True)
+                                                                 self.useBareMultiSigCheckBox.isChecked()))
+               self.useBareMultiSigCheckBox.setEnabled(True)
             else:
                self.disableSelectButtons()
          elif self.tabWidget.currentWidget() == self.addrBookTxView:
-            self.useP2SHCheckBox.setVisible(False)
+            self.useBareMultiSigCheckBox.setVisible(False)
             selection = self.addrBookTxView.selectedIndexes()
             if len(selection)==0:
                self.disableSelectButtons()
             else:
                self.addrTableTxClicked(selection[0])
          elif self.tabWidget.currentWidget() == self.addrBookRxView:
-            self.useP2SHCheckBox.setVisible(False)
+            self.useBareMultiSigCheckBox.setVisible(False)
             selection = self.addrBookRxView.selectedIndexes()
             if len(selection)==0:
                self.disableSelectButtons()
@@ -7985,10 +7984,10 @@ class DlgAddressBook(ArmoryDialog):
 
       if not self.isBrowsingOnly:
          self.btnSelectAddr.setEnabled(True)
-         self.useP2SHCheckBox.setEnabled(True)
+         self.useBareMultiSigCheckBox.setEnabled(True)
          selectedLockBoxId = str(currIndex.model().index(row, LOCKBOXCOLS.ID).data().toString())
          self.btnSelectAddr.setText( createLockboxEntryStr(selectedLockBoxId,
-                                           self.useP2SHCheckBox.isChecked()))
+                                           self.useBareMultiSigCheckBox.isChecked()))
 
    #############################################################################
    def dblClickAddressTx(self, index):
@@ -8021,7 +8020,7 @@ class DlgAddressBook(ArmoryDialog):
    #############################################################################
    def useP2SHClicked(self):
       self.btnSelectAddr.setText( createLockboxEntryStr(self.getSelectedLBID(),
-                                                    self.useP2SHCheckBox.isChecked()))
+                                                    self.useBareMultiSigCheckBox.isChecked()))
 
    #############################################################################
    def acceptAddrSelection(self):
@@ -8054,7 +8053,7 @@ class DlgAddressBook(ArmoryDialog):
    def acceptLockBoxSelection(self):
       if self.target:
          self.target.setText( createLockboxEntryStr(self.getSelectedLBID(),
-                                                    self.useP2SHCheckBox.isChecked()))
+                                                    self.useBareMultiSigCheckBox.isChecked()))
          self.target.setCursorPosition(0)
          self.accept()
    
@@ -9277,26 +9276,28 @@ class DlgRequestPayment(ArmoryDialog):
 
       lblOut = QRichLabel('Copy and paste the following text into email or other document:')
       frmOutput = makeVertFrame([lblOut, frmOut, frmCopyBtnStrip], STYLE_SUNKEN)
-      frmOutput.layout().setStretch(0, 0)
+      frmOutput.layout().setStretch(0, 1)
       frmOutput.layout().setStretch(1, 1)
       frmOutput.layout().setStretch(2, 0)
       frmClose = makeHorizFrame([STRETCH, btnClose])
 
-
+      self.qrStackedDisplay = QStackedWidget()
+      self.qrStackedDisplay.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Preferred)
+      self.qrWaitingLabel = QRichLabel('Creating QR Code Please Wait', doWrap=False, hAlign=Qt.AlignHCenter)
+      self.qrStackedDisplay.addWidget(self.qrWaitingLabel)
       self.qrURI = QRCodeWidget('', parent=self)
+      self.qrStackedDisplay.addWidget(self.qrURI)
       lblQRDescr = QRichLabel('This QR code contains address <b>and</b> the '
-                              'other payment information shown to the left.')
+                              'other payment information shown to the left.', doWrap=True)
 
       lblQRDescr.setAlignment(Qt.AlignTop | Qt.AlignHCenter)
-      frmQR = makeVertFrame([self.qrURI, STRETCH, lblQRDescr, STRETCH], STYLE_SUNKEN)
+      frmQR = makeVertFrame([self.qrStackedDisplay, STRETCH, lblQRDescr, STRETCH], STYLE_SUNKEN)
       frmQR.layout().setStretch(0, 0)
       frmQR.layout().setStretch(1, 0)
       frmQR.layout().setStretch(2, 1)
 
-      self.maxQRSize = int(1.25 * QRCodeWidget('a' * 200).getSize())
-      frmQR.setMinimumWidth(self.maxQRSize)
-      self.qrURI.setMinimumHeight(self.maxQRSize)
-
+      frmQR.setMinimumWidth(MAX_QR_SIZE)
+      self.qrURI.setMinimumHeight(MAX_QR_SIZE)
 
       dlgLayout = QGridLayout()
 
@@ -9318,7 +9319,6 @@ class DlgRequestPayment(ArmoryDialog):
       self.setLabels()
       self.prevURI = ''
       self.closed = False  # kind of a hack to end the update loop
-      self.updateQRCode()
       self.setLayout(dlgLayout)
       self.setWindowTitle('Create Payment Request Link')
 
@@ -9458,21 +9458,13 @@ class DlgRequestPayment(ArmoryDialog):
          self.updateQRCode()
          reactor.callLater(nsec, self.periodicUpdate)
 
-
-   def accept(self, *args):
-      # Kind of a hacky way to get the loop to end, but it seems to work
-      self.closed = True
-      super(DlgRequestPayment, self).accept(*args)
-
-   def reject(self, *args):
-      # Kind of a hacky way to get the loop to end, but it seems to work
-      self.closed = True
-      super(DlgRequestPayment, self).reject(*args)
-
    def updateQRCode(self, e=None):
       if not self.prevURI == self.rawURI:
+         self.qrStackedDisplay.setCurrentWidget(self.qrWaitingLabel)
+         self.repaint()
          self.qrURI.setAsciiData(self.rawURI)
-         self.qrURI.setPreferredSize(self.maxQRSize - 10, 'max')
+         self.qrURI.setPreferredSize(MAX_QR_SIZE - 10, 'max')
+         self.qrStackedDisplay.setCurrentWidget(self.qrURI)
          self.repaint()
       self.prevURI = self.rawURI
 

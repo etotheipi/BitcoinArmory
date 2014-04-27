@@ -695,7 +695,7 @@ class ArmoryMainWindow(QMainWindow):
 
       execMSHack = lambda: DlgSelectMultiSigOption(self,self).exec_()
       execBrowse = lambda: DlgLockboxManager(self,self).exec_()
-      actMultiHacker = self.createAction(tr('Multi-Key Lockboxes'), execMSHack)
+      actMultiHacker = self.createAction(tr('Multi-Sig Lockboxes'), execMSHack)
       actBrowseLockboxes = self.createAction(tr('Lockbox Manager'), execBrowse)
       #self.menusList[MENUS.MultiSig].addAction(actMultiHacker)
       self.menusList[MENUS.MultiSig].addAction(actBrowseLockboxes)
@@ -2585,8 +2585,16 @@ class ArmoryMainWindow(QMainWindow):
    def getLockboxByID(self, boxID):
       index = self.lockboxIDMap.get(boxID)
       return None if index is None else self.allLockboxes[index]
-          
-      
+   
+   ################################################################################
+   # Get  the lock box ID if the p2shAddrString is found in one of the lockboxes
+   # otherwise it returns None
+   def getLockboxByP2SHAddrStr(self, p2shAddrStr):
+      for lboxId in self.lockboxIDMap.keys():
+         lbox = self.allLockboxes[self.lockboxIDMap[lboxId]]
+         if p2shAddrStr == binScript_to_p2shAddrStr(lbox.binScript):
+            return lboxId
+      return None
 
    #############################################################################
    def writeLockboxesFile(self):
@@ -3139,8 +3147,6 @@ class ArmoryMainWindow(QMainWindow):
       dialog = DlgWalletDetails(wlt, self.usermode, self, self)
       dialog.exec_()
       #self.walletListChanged()
-
-
 
    #############################################################################
    def updateTxCommentFromView(self, view):
