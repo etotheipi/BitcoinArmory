@@ -303,7 +303,7 @@ class DlgUnlockWallet(ArmoryDialog):
          if self.returnPassphrase == False:
             unlockProgress = DlgProgress(self, self.main, HBar=1, 
                                          Title="Unlocking Wallet")
-            unlockProgress.exec_(self.wlt.unlock)
+            unlockProgress.exec_(self.wlt.unlock, securePassphrase=self.securePassphrase)
             self.securePassphrase.destroy()
          else:
             if self.wlt.verifyPassphrase(self.securePassphrase) == False:
