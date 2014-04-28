@@ -172,3 +172,19 @@ def getAllHashes(fnlist):
       hashes.append([fn, out.strip().split()[0]])
    return hashes
 
+
+################################################################################
+def check_exists(fullPath, onDNE='exit'):
+   fullPath = os.path.expanduser(fullPath)
+   if os.path.exists(fullPath):
+      print 'Found file: %s' % fullPath 
+   else:
+      print 'Path does not exist: %s' % fullPath
+      if onDNE=='skip':
+         return None
+      elif onDNE=='exit':
+         exit(1)
+
+   return fullPath
+
+
