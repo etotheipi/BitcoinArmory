@@ -4,7 +4,6 @@ import os
 import time
 import shutil
 import ast
-import textwrap
 from sys import argv
 from release_utils import *
 
@@ -17,6 +16,7 @@ masterPkgList = getMasterPackageList()
 CLONE_URL = 'https://github.com/etotheipi/BitcoinArmory.git'
 
 if len(argv)<3:
+   import textwrap
    print textwrap.dedent("""
       Script Arguments (* is optional)
             argv[0]   "python %s"
@@ -51,7 +51,7 @@ checkExists(annSrc)
 # Throw in the Bitcoin Core hashes file if supplied
 if shaCore is not None:
    checkExists(shaCore)
-   shutil.copy(shaCore, outDir)
+   shutil.copy(shaCore, os.path.join(outDir,'SHA256SUMS.asc'))
 
 # Grab the list of scp and cp commands from fetchlist
 for pkgName,pkgInfo in masterPkgList.iteritems():

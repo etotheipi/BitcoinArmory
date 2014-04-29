@@ -14,10 +14,9 @@ from release_utils import *
 from release_settings import getReleaseParams, getMasterPackageList
 #####
 
-masterPkgList = getMasterPackageList()
-
 
 if len(argv)<6:
+   import textwrap
    print textwrap.dedent("""
       Script Arguments (* is optional)
          argv[0]   "python %s"
@@ -35,11 +34,12 @@ outDir     = argv[2]
 bundleDir  = argv[3]
 gitBranch  = 'master' if len(argv)<4 else argv[4]
 testParams = (len(argv)>5 and not argv[5]=="0")
-
 outDir = makeOutputDir(outDir, wipe=False)
 
 
+masterPkgList = getMasterPackageList()
 RELEASE = getReleaseParams(testParams)
+
 
 # Other defaults -- same for all Armory releases
 builder        = RELEASE['Builder']
@@ -47,8 +47,9 @@ gituser        = RELEASE['GitUser']
 gitemail       = RELEASE['GitEmail']
 signAddress    = RELEASE['SignAddr']
 announceName   = RELEASE['AnnounceFile']
-bucketAnnounce = RELEASE['BucketAnnounce']
-bucketReleases = RELEASE['BucketReleases']
+bucketPrefix   = RELEASE['BucketPrefix']
+bucketAnnounce = bucketPrefix + RELEASE['BucketAnnounce']
+bucketReleases = bucketPrefix + RELEASE['BucketReleases']
 gpgKeyID       = RELEASE['GPGKeyID']
 btcWltID       = RELEASE['BTCWltID']
 
@@ -64,7 +65,7 @@ def logprint(s):
 srcGitRepo  = checkExists(os.path.join(inDir, 'BitcoinArmory'))
 srcInstalls = checkExists(os.path.join(inDir, 'installers'))
 srcAnnounce = checkExists(os.path.join(inDir, 'unsignedannounce'))
-srcCoreSHA  = checkExists(os.path.join(inDir, 'SHASUMS256.asc'), 'skip')
+srcCoreSHA  = checkExists(os.path.join(inDir, 'SHA256SUMS.asc'), 'skip')
 
 # Check that all the paths expected from step 1 actually exist
 dstGitRepo  =               os.path.join(outDir, 'BitcoinArmory')
@@ -73,7 +74,7 @@ dstAnnounce = makeOutputDir(os.path.join(outDir, 'signedannounce'))
 
 # Scan the list of files in installers dir to get latest 
 instList = [fn for fn in os.listdir(srcInstalls)]
-topVerInt,topVerStr,topVerType = getLatestVerFromList2(instList)
+topVerInt,topVerStr,topVerType = getLatestVerFromList(instList)
 
 # A shortcut to get the full path of the installer filename for a given pkg
 def getSrcPath(pkgName, suffixStr='FileSuffix'):
@@ -82,7 +83,13 @@ def getSrcPath(pkgName, suffixStr='FileSuffix'):
    return os.path.join(srcInstalls, fname)
 
 def getDstPath(pkgName, suffixStr='FileSuffix'):
-   pkgSuffix = masterPkgList[pkgName][suffixStr]
+   if pkgName=='SHAFILE_TXT':
+      pkgSuffix = 'sha256sum.txt'
+   elif pkgName=='SHAFILE_ASC':
+      pkgSuffix = 'sha256sum.txt.asc'
+   else:
+      pkgSuffix = masterPkgList[pkgName][suffixStr]
+
    fname = 'armory_%s%s_%s' % (topVerStr, topVerType, pkgSuffix)
    return os.path.join(dstInstalls, fname)
 
@@ -118,7 +125,7 @@ if srcCoreSHA:
    logprint('\n'*2)
    logprint('*'*80)
    logprint('Output of gpg-verify on SHA256SUMS')
-   logprint(execAndWait('gpg -v %s'%srcCoreSHA))
+   logprint(execAndWait('gpg -v %s' % srcCoreSHA)[0])
    logprint('*'*80)
    logprint('Contents of SHA256SUM.asc:')
    logprint(open(srcCoreSHA,'r').read())
@@ -190,7 +197,8 @@ for f in filesToSign:
    
 
 newHashes = getAllHashes(filesToSign)
-hashname = 'armory_%s%s_sha256sum.txt' % (topVerStr, topVerType)
+#hashname = 'armory_%s%s_sha256sum.txt' % (topVerStr, topVerType)
+hashname = getDstPath('SHAFILE_TXT')
 hashpath = os.path.join(dstInstalls, hashname)
 with open(hashpath, 'w') as hashfile:
    for fn,sha2 in newHashes:

@@ -5,19 +5,47 @@
 #   dpkg-sig --verify *.deb
 #   gpg -v *.asc
 #   cd BitcoinArmory; git tag -v v0.90-beta  (or whatever the tag is)
-import sys
+from sys import argv
 import os
 import time
 import shutil
 from release_utils import *
 
+#####
+from release_settings import getReleaseParams, getMasterPackageList
+#####
 
-startDir = os.getcwd()
-latestVerInt, latestVerStr, latestRelease = 0,'',''
-unpackDir = 'signed_release_unpack'
-bucket = 'bitcoinarmory-releases'
-bucketS3 = 's3://%s' % bucket
-bucketdl = 'https://s3.amazonaws.com/%s' % bucket
+if len(argv)<2:
+   import textwrap
+   print textwrap.dedent("""
+      Script Arguments (* is optional)
+            argv[0]   "python %s"
+            argv[1]   inputDir       (from Step2)
+            argv[2]*  isDryRun       (default ~ 0)
+            argv[3]*  useTestParams  (default ~ 0)
+      """) % argv[0]
+   exit(1)
+   
+
+# Parse CLI args
+inDir      = checkExists(argv[1])
+isDryRun   = (len(argv)>2 and not argv[2]=='0')
+testParams = (len(argv)>3 and not argv[3]=='0')
+
+
+masterPkgList = getMasterPackageList()
+RELEASE = getReleaseParams(testParams)
+
+signAddress    = RELEASE['SignAddr']
+announceName   = RELEASE['AnnounceFile']
+bucketPrefix   = RELEASE['BucketPrefix']
+htmlRelease    = bucketPrefix + RELEASE['BucketAnnounce']
+htmlAnnounce   = bucketPrefix + RELEASE['BucketReleases']
+s3Release      = 's3://%s' % RELEASE['BucketAnnounce']
+s3Announce     = 's3://%s' % RELEASE['BucketReleases']
+gpgKeyID       = RELEASE['GPGKeyID']
+btcWltID       = RELEASE['BTCWltID']
+
 
 #uploadlog = open('step3_log_%d.txt' % long(time.time()), 'w')
 uploadlog = open('step3_log.txt', 'w')
@@ -25,56 +53,34 @@ def logprint(s):
    print s
    uploadlog.write(s + '\n')
 
-# Find the latest signed_release archive 
-for fn in os.listdir('.'):
-   if not fn.startswith('signed_release'):
-      continue 
+srcGitRepo  = checkExists(os.path.join(inDir, 'BitcoinArmory'))
+srcInstalls = checkExists(os.path.join(inDir, 'installers'))
+srcAnnounce = checkExists(os.path.join(inDir, 'signedannounce'))
 
-   fivevals = parseInstallerName2(fn, ignoreExt=True)
-
-   if fivevals==None:
-      continue
-
-   vs,vi,vt = fivevals[1:4]
-   if vi>latestVerInt:
-      latestVerInt = vi
-      latestVerStr = vs
-      latestVerType = vt
-      latestRelease = fn
-   
-   
-# Get the version type "testing", "beta", etc
-locver  = latestRelease.index(latestVerStr)
-lenver  = len(latestVerStr)
-locdot  = latestRelease.index('.', locver+lenver+1)
-verFullStr = latestVerStr + latestVerType
+# Scan the list of files in installers dir to get latest 
+instList = [fn for fn in os.listdir(srcInstalls)]
+topVerInt,topVerStr,topVerType = getLatestVerFromList(instList)
 
 
-logprint('')
-logprint('*'*80)
-logprint('Detected Release Parameters:')
-logprint('   Version type: ' + latestVerType)
-logprint('   Full version: ' + verFullStr)
-logprint('   Release file: ' + latestRelease)
-logprint('   S3 Bucket   : ' + bucketS3)
-logprint('   DL Links    : ' + bucketdl)
-logprint('')
+def getPkgFilename(pkgName, offline=False):
+   if pkgName=='SHAFILE_TXT':
+      suffix = 'sha256sum.txt'
+   elif pkgName=='SHAFILE_ASC':
+      suffix = 'sha256sum.txt.asc'
+   else:
+      suffixType = 'BundleSuffix' if offline else 'FileSuffix'
+      suffix = masterPkgList[pkgName][suffixType]
 
-################################################################################
-# Now unpack and start doing our thing
-if os.path.exists(unpackDir):
-   logprint('Removing previous unpack-directory: %s' % unpackDir)
-   shutil.rmtree(unpackDir)
+   return 'armory_%s%s_%s' % (topVerStr, topVerType, suffix)
 
-os.mkdir(unpackDir)
-execAndWait('tar -zxf %s -C %s' % (latestRelease, unpackDir))
 
 # Create [relpath, filename, isBundle, isHashes, [pentuple]] 
+"""
 uploads = []
 ascfile = ''
 for fn in os.listdir(unpackDir):
    fullfn = os.path.join(unpackDir, fn)
-   fivevals = parseInstallerName2(fullfn, ignoreExt=True)
+   fivevals = parseInstallerName(fullfn, ignoreExt=True)
    if fivevals==None or os.path.isdir(fullfn):
       continue
 
@@ -144,36 +150,83 @@ pkgMap['raspbian'] = ['Raspberry Pi', '', '(armhf)' ]
 pkgMap['ubuntu32'] = ['Ubuntu', '12.04+', '(32bit)' ]
 pkgMap['ubuntu64'] = ['Ubuntu', '12.04+', '(64bit)' ]
 
+"""
 
-uploads.sort(key=lambda x: x[1])
+#uploads.sort(key=lambda x: x[1])
    
 # Now actually execute the uploads and make them public
 forumTextList = []
 htmlTextList  = []
 rawUrlList    = []
 s3cmdList     = []
-for fullfn, fn, isbundle, ishash, fivevals in uploads:
+
+
+uploads = []
+for pkgName,pkgInfo in masterPkgList.iteritems():
+   pkgDict = {}
+   pkgDict['SrcFile']   = getPkgFilename(pkgName)
+   pkgDict['SrcPath']   = os.path.join(inDir, pkgDict['SrcFile'])
+   pkgDict['OSName']    = pkgInfo['OSNameDisp']
+   pkgDict['OSVar']     = pkgInfo['OSVarDisp']
+   pkgDict['OSArch']    = pkgInfo['OSArchDisp']
+   pkgDict['IsHash']    = False
+   pkgDict['IsBundle']  = False
+   pkgDict['DstUpload'] = '%s/%s' % (s3Release,   pkgDict['SrcFile'])
+   pkgDict['DstHtml']   = '%s/%s' % (htmlRelease, pkgDict['SrcFile'])
+   uploads.append(pkgDict)
+
+   if pkgInfo['HasBundle']:
+      pkgDict = {}
+      pkgDict['SrcFile']   = getPkgFilename(pkgName, offline=True)
+      pkgDict['SrcPath']   = os.path.join(inDir, pkgDict['SrcFile'])
+      pkgDict['OSName']    = pkgInfo['OSNameDisp']
+      pkgDict['OSVar']     = pkgInfo['BundleOSVar']
+      pkgDict['OSArch']    = pkgInfo['OSArchDisp']
+      pkgDict['IsHash']    = False
+      pkgDict['IsBundle']  = True
+      pkgDict['DstUpload'] = '%s/%s' % (s3Release,   pkgDict['SrcFile'])
+      pkgDict['DstHtml']   = '%s/%s' % (htmlRelease, pkgDict['SrcFile'])
+      uploads.append(pkgDict)
+   
+
+ascDict = {}
+ascDict['SrcFile']   = getPkgFilename('SHAFILE_ASC')
+ascDict['SrcPath']   = os.path.join(inDir, ascDict['SrcFile'])
+ascDict['IsHash']    = True
+pkgDict['DstUpload'] = '%s%s' % (s3Release,   pkgDict['SrcFile'])
+pkgDict['DstHtml']   = '%s%s' % (htmlRelease, pkgDict['SrcFile'])
+uploads.append(ascDict)
+
+
+for upl in uploads:
+   print 'Going to upload:'
+   for key,val in upl.iteritems():
+      print '   ', key.ljust(10), ':', val
+   print ''
+
+
+exit(0)
+
+for pkgDict in uploads:
 
    #osStr, subOS, bits, vi, vs = fivevals
    #print fullfn, fn, isbundle, ishash, osStr, subOS, bits, vi, vs
-
-   osName,verStr,verInt,verType,ext = fivevals[:]
-   humanOS,humanVer,humanBits = pkgMap[ext]
+   verFullStr = topVerStr + topVerType
 
    humanText = 'Armory %s' % verFullStr
-   if isbundle:
+   if pkgDict['IsBundle']:
       humanText += ' Offline Bundle'
 
-   if ishash: 
+   if pkgDict['IsHash']: 
       humanText += ': Signed hashes of all installers '
    else:
-      humanText += ' for %s %s %s' % tuple(pkgMap[ext])
+      osParams = [pkgDict[a] for a in ['OSName', 'OSVar', 'OSArch']]
+      humanText += ' for %s %s %s' % tuple(osParams)
             
-   uploadurl = '%s/%s' % (bucketS3, fn)
-   linkurl = '%s/%s' % (bucketdl, fn)
+   uploadurl = pkgDict['DstUpload']
+   linkurl   = pkgDict['DstHtml']
 
-   s3cmd = 's3cmd put --acl-public %s %s' % (fullfn, uploadurl)
-   #s3cmd = 's3cmd put %s %s' % (fullfn, uploadurl)
+   s3cmd = 's3cmd put --acl-public %s %s' % (pkgDict['SrcPath'], uploadurl)
    forumText = '[url=%s]%s[/url]' % (linkurl, humanText)
    htmlText  = '<a href="%s">%s</a>' % (linkurl, humanText)
 
@@ -181,13 +234,16 @@ for fullfn, fn, isbundle, ishash, fivevals in uploads:
    htmlTextList.append(htmlText)
    rawUrlList.append(linkurl)
    s3cmdList.append(s3cmd)
-   
 
-for ann in announceFiles:
-   uploadurl = '%s/%s' % (bucketS3, fn)
-   s3cmd = 's3cmd put --acl-public %s %s' % (ann, uploadurl)
+
+announceDir = os.path.join(inDir, 'signedannounce')
+for fn in os.listdir(announceDir):
+   fpath = os.path.join(announceDir, fn)
+   uploadurl = '%s/%s' % (s3Announce, fn)
+   s3cmd = 's3cmd put --acl-public %s %s' % (fpath, uploadurl)
    s3cmdList.append(s3cmd)
-
+   
+   
 logprint('\nRAW URL LIST')
 for txt in rawUrlList:
    logprint('  '+txt)

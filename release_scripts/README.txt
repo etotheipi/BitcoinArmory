@@ -217,7 +217,7 @@ def getMasterPackageList():
    m[pkg]['OSArchLink']   = '32'
    m[pkg]['HasBundle']    = True
    m[pkg]['BundleDeps']   = 'offline_deps_ubuntu32'
-   m[pkg]['BundleSuffix'] = 'offline_ubuntu_12.0432.tar.gz'
+   m[pkg]['BundleSuffix'] = 'offline_ubuntu_12.04-32.tar.gz'
    m[pkg]['BundleOSVar']  = '12.04'
    
    
@@ -233,7 +233,7 @@ def getMasterPackageList():
    m[pkg]['OSArchLink']   = '64'
    m[pkg]['HasBundle']    = True
    m[pkg]['BundleDeps']   = 'offline_deps_ubuntu64'
-   m[pkg]['BundleSuffix'] = 'offline_ubuntu64.tar.gz'
+   m[pkg]['BundleSuffix'] = 'offline_ubuntu_12.04-64.tar.gz'
    m[pkg]['BundleOSVar']  = '12.04'
    
    pkg = 'RaspberryPi'

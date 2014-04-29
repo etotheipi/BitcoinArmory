@@ -60,52 +60,9 @@ def getVersionInt(vquad, numPieces=4):
 
 
 ################################################################################
-# Extract [osStr, subOS, armoryVersion, bits]
-def parseInstallerName(fn, ignoreExt=False):
-   if ignoreExt or \
-      fn[-4:] in ('.msi', '.exe', '.deb', '.app', '.dmg') or \
-      fn.endswith('.app.tar.gz'):
-
-      try:
-         pieces = fn.replace('-','_').split('_')
-         osStr, subOS, bits, armVerInt, armVerStr = None,'',32,None,None
-         for pc in pieces:
-            if 'win' in pc.lower():
-               osStr = 'Win'
-            elif pc.endswith('.deb'):
-               osStr = 'Linux'
-            elif 'osx' in pc.lower():
-               osStr = 'Mac'
-   
-            try:
-               verpieces = [int(a) for a in pc.split('.')]
-               # Could be Armory version or Ubuntu version, or nothing
-               if verpieces[0]>=10:
-                  subOS = pc 
-               else:
-                  while len(verpieces)<4:
-                     verpieces.append(0)
-                  armVerInt = getVersionInt(verpieces)
-                  armVerStr = pc
-            except Exception as e:
-               pass
-
-            if 'amd64' in pc or 'win64' in pc or '64bit' in pc:
-               bits = 64
-               
-         return osStr,subOS,bits,armVerInt,armVerStr
-
-      except:
-         print 'WARNING: Could not parse installer filename: %s' % fn
-
-      
-   return None
-      
-
-################################################################################
 # Extract [osName, verStr, verInt, verType, ext]
 # Example ['winAll', '0.91.1', 91001000, 'rc1', '.exe']
-def parseInstallerName2(fn):
+def parseInstallerName(fn):
    pcs = fn.split('_')
    if not len(pcs)==3 or not pcs[0]=='armory':
       return None
@@ -125,14 +82,14 @@ def parseInstallerName2(fn):
 
 ################################################################################
 # Parse filenames to return the latest version number present (and assoc type)
-def getLatestVerFromList2(filelist):
+def getLatestVerFromList(filelist):
    latestVerInt = 0
    latestVerStr = ''
    verType = ''
    
    # Find the highest version number
    for fn in filelist:
-      fivevals = parseInstallerName2(fn)
+      fivevals = parseInstallerName(fn)
       if fivevals is None:
          continue;
 
@@ -146,22 +103,6 @@ def getLatestVerFromList2(filelist):
    
 
 
-def getLatestVerFromList(filelist):
-   
-   latestVerInt = 0
-   latestVerStr = ''
-   
-   # Find the highest version number
-   for fn in filelist:
-      fivevals = parseInstallerName(fn)
-      if fivevals == None:
-         continue;
-      verint,verstr = fivevals[-2], fivevals[-1]
-      if verint>latestVerInt:
-         latestVerInt = verint
-         latestVerStr = verstr
-
-   return (latestVerInt, latestVerStr)
 
 
 ################################################################################
