@@ -9,7 +9,7 @@ from sys import argv
 from release_utils import *
 
 #####
-from master_list import getMasterPackageList
+from release_settings import getReleaseParams, getMasterPackageList
 #####
 
 masterPkgList = getMasterPackageList()

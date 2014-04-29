@@ -53,6 +53,7 @@ can be copied to a USB key to be taken to the offline computer.
          argv[3]*  output directory      (default ~ ./exportToOffline)
          argv[4]*  unsigned announce dir (default ~ ./unsignedannounce)
          argv[5]*  Bitcoin Core SHA256SUMS.asc (default ~ "None")
+         argv[7]*  use testing settings (default ~ "0")
       
    Script Output:
 
@@ -85,9 +86,8 @@ of Armory for any non-generic-python operations.
          argv[1]   inputDir  (from Step1)
          argv[2]   outputDir (for Step3)
          argv[3]   bundleDir 
-         argv[4]   gpgKeyID
-         argv[5]   btcWltID
          argv[6]*  git branch to tag (default ~ "master")
+         argv[7]*  use testing settings (default ~ 0)
       
    Script Output:
 
@@ -105,6 +105,9 @@ i.e. Step2 script will make a copy of the bundle deps, it will copy the
 signed installer into the copy, and then tar it all up.  The bundle deps
 dir should have, in addition to the deps themselves, a script that will
 install everything in that directory including the signed package.
+
+The testing settings use a different GPG key, BTC key, and different bucket
+for uploading
 
 
 
@@ -140,10 +143,38 @@ It will do the following:
 #                                                                              #
 # Example master_list.py file                                                  #
 #                                                                              #
+# Provides dictionaries "getReleaseParams" and "getMasterPackageList"          #
+#                                                                              #
 ################################################################################
 
 #! /usr/bin/python
 import os
+
+
+def getReleaseParams(doTest=False):
+   rparams = {}
+   rparams['Builder']        = 'Armory Technologies, Inc.'
+   rparams['GitUser']        = 'Armory Technologies, Inc.'
+   rparams['GitEmail']       = 'contact@bitcoinarmory.com'
+
+   if not doTest:
+      rparams['SignAddr']       = '1NWvhByxfTXPYNT4zMBmEY3VL8QJQtQoei'
+      rparams['AnnounceFile']   = 'announce.txt'
+      rparams['BucketAnnounce'] = 'https://s3.amazonaws.com/bitcoinarmory-media/'
+      rparams['BucketReleases'] = 'https://s3.amazonaws.com/bitcoinarmory-releases/'
+      rparams['GPGKeyID']       = '98832223'
+      rparams['BTCWltID']       = '2DTq89wvw'
+   else:
+      rparams['SignAddr']       = '1PpAJyNoocJt38Vcf4AfPffaxo76D4AAEe'
+      rparams['AnnounceFile']   = 'testannounce.txt'
+      rparams['BucketAnnounce'] = 'https://s3.amazonaws.com/bitcoinarmory-testing/'
+      rparams['BucketReleases'] = 'https://s3.amazonaws.com/bitcoinarmory-testing/'
+      rparams['GPGKeyID']       = 'FB596985'
+      rparams['BTCWltID']       = '2XqAdZZ8B'
+
+   return rparams
+
+
 
 def getMasterPackageList():
    masterPkgList = {}

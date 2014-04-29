@@ -11,7 +11,7 @@ from subprocess import Popen, PIPE
 from release_utils import *
 
 #####
-from master_list import getMasterPackageList
+from release_settings import getReleaseParams, getMasterPackageList
 #####
 
 masterPkgList = getMasterPackageList()
@@ -24,34 +24,34 @@ if len(argv)<6:
          argv[1]   inputDir  (from Step1)
          argv[2]   outputDir (for Step3)
          argv[3]   bundleDir 
-         argv[4]   gpgKeyID
-         argv[5]   btcWltID
-         argv[6]*  git branch to tag (default ~ "master")
+         argv[4]*  git branch to tag (default ~ "master")
+         argv[5]*  use testing settings (default ~ "0")
             """) % argv[0]
    exit(1)
 
 # Process CLI args
-inDir     = checkExists(argv[1])
-outDir    = argv[2]
-bundleDir = argv[3]
-gpgKeyID  = argv[4]
-btcWltID  = argv[5]
-gitBranch = 'master' if len(argv)<6 else argv[6]
+inDir      = checkExists(argv[1])
+outDir     = argv[2]
+bundleDir  = argv[3]
+gitBranch  = 'master' if len(argv)<4 else argv[4]
+testParams = (len(argv)>5 and not argv[5]=="0")
 
 outDir = makeOutputDir(outDir, wipe=False)
 
-# Other defaults -- same for all Armory releases
-builder      = 'Armory Technologies, Inc.'
-gituser      = 'Armory Technologies, Inc.'
-gitemail     = 'contact@bitcoinarmory.com'
-#signAddress  = '1NWvhByxfTXPYNT4zMBmEY3VL8QJQtQoei'
-signAddress  = '1PpAJyNoocJt38Vcf4AfPffaxo76D4AAEe'
-announceName = 'announce.txt'
-bucketURL    = 'https://s3.amazonaws.com/bitcoinarmory-media/'
 
-#if CLI_OPTIONS.testAnnounceCode:
-   #announceName = 'testannounce.txt'
-   #bucketURL   = 'https://s3.amazonaws.com/bitcoinarmory-testing/'
+RELEASE = getReleaseParams(testParams)
+
+# Other defaults -- same for all Armory releases
+builder        = RELEASE['Builder']
+gituser        = RELEASE['GitUser']
+gitemail       = RELEASE['GitEmail']
+signAddress    = RELEASE['SignAddr']
+announceName   = RELEASE['AnnounceFile']
+bucketAnnounce = RELEASE['BucketAnnounce']
+bucketReleases = RELEASE['BucketReleases']
+gpgKeyID       = RELEASE['GPGKeyID']
+btcWltID       = RELEASE['BTCWltID']
+
 
 # Setup dual writing to console and log file
 writelog = open('step2_log.txt', 'w')
@@ -208,7 +208,9 @@ os.remove(hashpath)
 ################################################################################
 # Now update the announcements (require armoryengine)
 sys.path.append('/usr/lib/armory')
-from armoryengine.ALL import *
+from armoryengine.ALL import PyBtcWallet, binary_to_hex, hex_to_binary, \
+                             SecureBinaryData, addrStr_to_hash160, sha256, \
+                             ADDRBYTE
 from jasvet import ASv1CS, readSigBlock, verifySignature
    
 origDLFile   = os.path.join(srcAnnounce, 'dllinks.txt')
@@ -256,7 +258,7 @@ for pkgName,pkgInfo in masterPkgList.iteritems():
                 pkgInfo['OSNameLink'],
                 pkgInfo['OSVarLink'],
                 pkgInfo['OSArchLink'],
-                os.path.join(bucketURL, fn),                       
+                os.path.join(bucketReleases, fn),                       
                 getFileHash(dstInstalls, fn)]
    fnew.write(' '.join(outputStr) + '\n')
 
@@ -268,7 +270,7 @@ for pkgName,pkgInfo in masterPkgList.iteritems():
                    pkgInfo['OSNameLink'],
                    pkgInfo['BundleOSVar'],
                    pkgInfo['OSArchLink'],
-                   os.path.join(bucketURL, fn),                       
+                   os.path.join(bucketReleases, fn),                       
                    getFileHash(dstInstalls, fn)]
       fnew.write(' '.join(outputStr) + '\n')
 
@@ -313,7 +315,7 @@ with open('announcemap.txt','r') as f:
       fhash = binary_to_hex(sha256(fdata))
       fileMappings[fname] = [fid, fhash]
       longestID  = max(longestID,  len(fid))
-      longestURL = max(longestURL, len(bucketURL + fname))
+      longestURL = max(longestURL, len(bucketAnnounce + fname))
       
 
 
@@ -323,7 +325,7 @@ digestFile = open(announcePath, 'w')
 ###
 for fname,vals in fileMappings.iteritems():
    fid   = vals[0].ljust(longestID + 3)
-   url   = (bucketURL + fname).ljust(longestURL + 3)
+   url   = (bucketAnnounce + fname).ljust(longestURL + 3)
    fhash = vals[1]
    digestFile.write('%s %s %s\n' % (fid, url, fhash))
 digestFile.close()
@@ -374,7 +376,8 @@ logprint('   User:  ' + gituser)
 logprint('   Email: ' + gitemail)
 
 gitmsg = raw_input('Put your commit message here: ')
-
+if os.path.exists(dstGitRepo):
+   shutil.rmtree(dstGitRepo)
 shutil.copytree(srcGitRepo, dstGitRepo)
 os.chdir(dstGitRepo)
 execAndWait('git checkout %s' % gitBranch, cwd=dstGitRepo)
@@ -388,12 +391,12 @@ logprint(err)
 
 
 logprint('*'*80)
-logprint('CLEAN UP & BUNDLE EVERYTHING TOGETHER')
-toExport = instFiles[:]
-toExport.append(hashpath + '.asc')
-toExport.append("%s" % dstGitRepo)
+#logprint('CLEAN UP & BUNDLE EVERYTHING TOGETHER')
+#toExport = instFiles[:]
+#toExport.append(hashpath + '.asc')
+#toExport.append("%s" % dstGitRepo)
 
-execAndWait('tar -zcf signed_release_%s%s.tar.gz %s' % (topVerStr, topVerType, ' '.join(toExport)))
+#execAndWait('tar -zcf signed_release_%s%s.tar.gz %s' % (topVerStr, topVerType, ' '.join(toExport)))
 
 
 

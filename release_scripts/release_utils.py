@@ -6,7 +6,7 @@ import shutil
 from subprocess import Popen, PIPE
 
 ################################################################################
-def execAndWait(cli_str, timeout=0, usepipes=True):
+def execAndWait(cli_str, timeout=0, usepipes=True, cwd=None):
    """ 
    There may actually still be references to this function where check_output
    would've been more appropriate.  But I didn't know about check_output at 
@@ -16,9 +16,9 @@ def execAndWait(cli_str, timeout=0, usepipes=True):
       cli_str = ' '.join(cli_str)
    print 'Executing:', '"' + cli_str + '"'
    if usepipes:
-      process = Popen(cli_str, stdin=PIPE, stdout=PIPE, stderr=PIPE, shell=True)
+      process = Popen(cli_str, stdin=PIPE, stdout=PIPE, stderr=PIPE, shell=True, cwd=cwd)
    else:
-      process = Popen(cli_str, shell=True)
+      process = Popen(cli_str, shell=True, cwd=cwd)
 
    pid = process.pid
    start = time.time()

@@ -916,6 +916,10 @@ class BlockDataManagerThread(threading.Thread):
          if isinstance(self.ldbdir, unicode):
             leveldbdir = self.ldbdir.encode('utf8')
 
+      LOGINFO('Setting Armory Home Dir: %s' % unicode(armory_homedir))
+      LOGINFO('Setting BlkFile Dir:     %s' % unicode(blockdir))
+      LOGINFO('Setting LevelDB Dir:     %s' % unicode(leveldbdir))
+
       self.bdm.SetDatabaseModes(ARMORY_DB_BARE, DB_PRUNE_NONE);
       self.bdm.SetHomeDirLocation(armory_homedir)
       self.bdm.SetBlkFileLocation(blockdir)
