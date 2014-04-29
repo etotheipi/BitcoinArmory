@@ -842,11 +842,17 @@ class DlgLockboxManager(ArmoryDialog):
       index = view.selectedIndexes()[0]
       row, col = index.row(), index.column()
       currComment = str(view.model().index(row, LEDGERCOLS.Comment).data().toString())
-
       dialog = DlgSetComment(self, self.main, currComment, 'Transaction')
       if dialog.exec_():
          newComment = str(dialog.edtComment.text())
-         # Need to figure out where to store the comment
+         lboxId = str(view.model().index(row, LEDGERCOLS.WltID).data().toString())
+         txHash = str(view.model().index(row, LEDGERCOLS.TxHash).data().toString())
+         lbox = self.main.allLockboxes[self.main.lockboxIDMap[lboxId]]
+         for a160 in lbox.a160List:
+            wltID = self.main.getWalletForAddr160(a160)
+            if len(wltID)>0:
+               self.main.walletMap[wltID].setComment(hex_to_binary(txHash), newComment)
+         self.main.walletListChanged()
 
    #############################################################################
    def dblClickLedger(self, index):
@@ -932,53 +938,55 @@ class DlgLockboxManager(ArmoryDialog):
       if dev:   actionCopyHash160 = menu.addAction("Copy Hash160 (hex)")
       if dev:   actionCopyPubKey  = menu.addAction("Copy Lock Box ID")
       if True:  actionCopyBalance = menu.addAction("Copy Balance")
-      idx = self.lboxView.selectedIndexes()[0]
-      action = menu.exec_(QCursor.pos())
-
-
-      # Get data on a given row, easily
-      def getModelStr(col):
-         model = self.lboxView.model()
-         qstr = model.index(idx.row(), col).data().toString()
-         return str(qstr).strip()
-
-
-      lboxId = getModelStr(LOCKBOXCOLS.ID)
-      lbox = self.main.getLockboxByID(lboxId)
-      p2shAddr = script_to_addrStr(script_to_p2sh_script(lbox.binScript)) if lbox else None
-
-      if action == actionCopyAddr:
-         clippy = p2shAddr
-      elif action == actionBlkChnInfo:
-         try:
-            import webbrowser
-            blkchnURL = 'https://blockchain.info/address/%s' % p2shAddr
-            webbrowser.open(blkchnURL)
-         except:
-            QMessageBox.critical(self, 'Could not open browser', \
-               'Armory encountered an error opening your web browser.  To view '
-               'this address on blockchain.info, please copy and paste '
-               'the following URL into your browser: '
-               '<br><br>%s' % blkchnURL, QMessageBox.Ok)
-         return
-      elif action == actionShowQRCode:
-         DlgQRCodeDisplay(self, self.main, p2shAddr, p2shAddr, createLockboxEntryStr(lboxId)).exec_()
-         return
-      elif action == actionReqPayment:
-         DlgRequestPayment(self, self.main, p2shAddr).exec_()
-         return
-      elif dev and action == actionCopyHash160:
-         clippy = binary_to_hex(addrStr_to_hash160(p2shAddr)[1])
-      elif dev and action == actionCopyPubKey:
-         clippy = lboxId
-      elif action == actionCopyBalance:
-         clippy = getModelStr(LOCKBOXCOLS.Balance)
-      else:
-         return
-
-      clipb = QApplication.clipboard()
-      clipb.clear()
-      clipb.setText(str(clippy).strip())
+      selectedIndexes = self.lboxView.selectedIndexes()
+      if len(selectedIndexes)>0:
+         idx = [0]
+         action = menu.exec_(QCursor.pos())
+   
+   
+         # Get data on a given row, easily
+         def getModelStr(col):
+            model = self.lboxView.model()
+            qstr = model.index(idx.row(), col).data().toString()
+            return str(qstr).strip()
+   
+   
+         lboxId = getModelStr(LOCKBOXCOLS.ID)
+         lbox = self.main.getLockboxByID(lboxId)
+         p2shAddr = script_to_addrStr(script_to_p2sh_script(lbox.binScript)) if lbox else None
+   
+         if action == actionCopyAddr:
+            clippy = p2shAddr
+         elif action == actionBlkChnInfo:
+            try:
+               import webbrowser
+               blkchnURL = 'https://blockchain.info/address/%s' % p2shAddr
+               webbrowser.open(blkchnURL)
+            except:
+               QMessageBox.critical(self, 'Could not open browser', \
+                  'Armory encountered an error opening your web browser.  To view '
+                  'this address on blockchain.info, please copy and paste '
+                  'the following URL into your browser: '
+                  '<br><br>%s' % blkchnURL, QMessageBox.Ok)
+            return
+         elif action == actionShowQRCode:
+            DlgQRCodeDisplay(self, self.main, p2shAddr, p2shAddr, createLockboxEntryStr(lboxId)).exec_()
+            return
+         elif action == actionReqPayment:
+            DlgRequestPayment(self, self.main, p2shAddr).exec_()
+            return
+         elif dev and action == actionCopyHash160:
+            clippy = binary_to_hex(addrStr_to_hash160(p2shAddr)[1])
+         elif dev and action == actionCopyPubKey:
+            clippy = lboxId
+         elif action == actionCopyBalance:
+            clippy = getModelStr(LOCKBOXCOLS.Balance)
+         else:
+            return
+   
+         clipb = QApplication.clipboard()
+         clipb.clear()
+         clipb.setText(str(clippy).strip())
 
    #############################################################################
    def updateButtonDisable(self):

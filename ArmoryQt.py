@@ -3015,7 +3015,14 @@ class ArmoryMainWindow(QMainWindow):
       except:
          LOGEXCEPT('Failed to update lockbox ledger')
 
-
+   #############################################################################
+   def getCommentForLockboxTx(self, lboxId, le):
+      commentSet = set([])
+      lbox = self.allLockboxes[self.lockboxIDMap[lboxId]]
+      for a160 in lbox.a160List:
+         wltID = self.getWalletForAddr160(a160)
+         commentSet.add(self.walletMap[wltID].getCommentForLE(le))
+      return ' '.join(commentSet)
 
    #############################################################################
    @TimeThisFunction
@@ -3032,12 +3039,13 @@ class ArmoryMainWindow(QMainWindow):
             wltName = wlt.labelName 
             dispComment = self.getCommentForLE(wltID, le)
          else:
-            lbox = self.getLockboxByID(wltID)
+            lboxId = wltID
+            lbox = self.getLockboxByID(lboxId)
             if not lbox:
                continue
             isWatch = True
-            wltName = '%s-of-%s: %s (%s)' % (lbox.M, lbox.N, lbox.shortName, wltID)
-            dispComment = ''
+            wltName = '%s-of-%s: %s (%s)' % (lbox.M, lbox.N, lbox.shortName, lboxId)
+            dispComment = self.getCommentForLockboxTx(lboxId, le)
 
          nConf = self.currBlockNum - le.getBlockNum()+1
          if le.getBlockNum()>=0xffffffff:
@@ -3215,9 +3223,6 @@ class ArmoryMainWindow(QMainWindow):
 
       return comment
       """
-
-
-
 
    #############################################################################
    def addWalletToApplication(self, newWallet, walletIsNew=True):

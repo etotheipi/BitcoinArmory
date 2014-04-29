@@ -220,8 +220,8 @@ for opt,val in CLI_OPTIONS.__dict__.iteritems():
 
 
 # Use CLI args to determine testnet or not
-#USE_TESTNET = CLI_OPTIONS.testnet
-USE_TESTNET = True
+USE_TESTNET = CLI_OPTIONS.testnet
+#USE_TESTNET = True
 
 # Set default port for inter-process communication
 if CLI_OPTIONS.interport < 0:
@@ -2143,14 +2143,31 @@ def difficulty_to_binaryBits(i):
    pass
 
 ################################################################################
-def CreateQRMatrix(dataToEncode, errLevel='L'):
+def CreateQRMatrix(dataToEncode, errLevel=QRErrorCorrectLevel.L):
    dataLen = len(dataToEncode)
-   sz = 4 if dataLen < 70 else  5 +  (dataLen - 70) / 30
+   baseSz = 4 if errLevel == QRErrorCorrectLevel.L else \
+            5 if errLevel == QRErrorCorrectLevel.M else \
+            6 if errLevel == QRErrorCorrectLevel.Q else \
+            7 # errLevel = QRErrorCorrectLevel.H 
+   sz = baseSz if dataLen < 70 else  5 +  (dataLen - 70) / 30
+   qrmtrx = [[]]
+   while sz<20:
+      try:
+         errCorrectEnum = getattr(QRErrorCorrectLevel, errLevel.upper())
+         qr = QRCode(sz, errCorrectEnum)
+         qr.addData(dataToEncode)
+         qr.make()
+         success=True
+         break
+      except TypeError:
+         sz += 1
 
-   errCorrectEnum = getattr(QRErrorCorrectLevel, errLevel.upper())
-   qr = QRCode(sz, errCorrectEnum)
-   qr.addData(dataToEncode)
-   qr.make()
+   if not success:
+      LOGERROR('Unsuccessful attempt to create QR code')
+      LOGERROR('Data to encode: (Length: %s, isAscii: %s)', \
+                     len(dataToEncode), isASCII(dataToEncode))
+      return [[0]], 1
+
    qrmtrx = []
    modCt = qr.getModuleCount()
    for r in range(modCt):
