@@ -132,7 +132,7 @@ def getLatestVerFromList2(filelist):
    
    # Find the highest version number
    for fn in filelist:
-      fivevals = parseInstallerName(fn)
+      fivevals = parseInstallerName2(fn)
       if fivevals is None:
          continue;
 
@@ -174,7 +174,7 @@ def getAllHashes(fnlist):
 
 
 ################################################################################
-def check_exists(fullPath, onDNE='exit'):
+def checkExists(fullPath, onDNE='exit'):
    fullPath = os.path.expanduser(fullPath)
    if os.path.exists(fullPath):
       print 'Found file: %s' % fullPath 
@@ -187,4 +187,14 @@ def check_exists(fullPath, onDNE='exit'):
 
    return fullPath
 
+
+def makeOutputDir(dirpath, wipe=True):
+   if os.path.exists(dirpath) and wipe:
+      shutil.rmtree(dirpath)
+
+   if not os.path.exists(dirpath):
+      os.makedirs(dirpath)
+   return dirpath
+
+    
 

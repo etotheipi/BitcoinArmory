@@ -59,7 +59,7 @@ can be copied to a USB key to be taken to the offline computer.
       <outputDir>/BitcoinArmory       (clone of repo)
       <outputDir>/release_scripts     (copy of release_scripts dir from repo)
       <outputDir>/installers          (all non-offline-bundle packages)
-      <outputDir>/announceFiles       (all unsigned announcement files)
+      <outputDir>/unsignedannounce    (all unsigned announcement files)
       <outputDir>/SHA256SUMS.asc      (if present)
 
 Note the release_scripts dir is itself copied because it has master_list.py
@@ -84,17 +84,27 @@ of Armory for any non-generic-python operations.
          argv[0]   <>
          argv[1]   inputDir  (from Step1)
          argv[2]   outputDir (for Step3)
-         argv[3]   gpgKeyID
-         argv[4]   btcWltID
-         argv[5]*  git branch to tag (default ~ "master")
+         argv[3]   bundleDir 
+         argv[4]   gpgKeyID
+         argv[5]   btcWltID
+         argv[6]*  git branch to tag (default ~ "master")
       
    Script Output:
 
       <outputDir>/BitcoinArmory       (same repo but with signed tag v0.91.1)
       <outputDir>/release_scripts     (same copy, unmodified)
-      <outputDir>/installers          (now includes offline bundles)
+      <outputDir>/installers          (signed, now includes offline bundles)
       <outputDir>/announceFiles       (all txt signed, added announce.txt)
 
+The "bundleDir" should contain one directory for everything in the master
+package list that "hasBundle==True".  It's "BundleDeps" will be the name
+of the directory that the Step 2 script will look for.   The bundle deps dir
+will contain all dependencies (all of them .debs, as of this writing), as
+well as a script that installs everything including the package itself.  
+i.e. Step2 script will make a copy of the bundle deps, it will copy the
+signed installer into the copy, and then tar it all up.  The bundle deps
+dir should have, in addition to the deps themselves, a script that will
+install everything in that directory including the signed package.
 
 
 
@@ -110,29 +120,20 @@ It expects to find the .s3cmd configuration file, already setup with your
 S3 API key to be able to upload files to the BitoinArmory-releases bucket.
 It will do the following:
 
-      -- Upload all installers and offline bundles to BitcoinArmory-releases 
-      -- Upload all announce files to BitcoinArmory-media bucket
-      -- Ask if you'd like to push the latest git tag (if this is a testing
-         version, you may not want to push the tag)
-
 
    Script Arguments (* is optional)
          argv[0]   <>
          argv[1]   inputDir  (from Step2)
-         argv[5]*  git branch to tag (default ~ "master")
+         argv[2]*  isDryRun  (default ~ False)
       
    Script Output:
 
-      <outputDir>/BitcoinArmory       (same repo but with signed tag v0.91.1)
-      <outputDir>/release_scripts     (same copy, unmodified)
-      <outputDir>/installers          (now includes offline bundles)
-      <outputDir>/announceFiles       (all txt signed, added announce.txt)
+         -- Upload all installers and offline bundles to BitcoinArmory-releases 
+         -- Upload all announce files to BitcoinArmory-media bucket
+         -- Ask if you'd like to push the latest git tag (if this is a testing
+            version, you may not want to push the tag)
 
   
-
-
-
-
 
 
 ################################################################################
@@ -152,54 +153,72 @@ def getMasterPackageList():
    m[pkg] = {}
    m[pkg]['FetchFrom']  = ['cp', '~/windows_share/armory_%s_win32.exe']
    m[pkg]['FileSuffix'] = 'winAll.exe'
-   m[pkg]['OSName']     = 'Windows'
-   m[pkg]['OSVar']      = 'XP, Vista, 7, 8+'
-   m[pkg]['OSArch']     = '32- and 64-bit'
+   m[pkg]['OSNameDisp'] = 'Windows'
+   m[pkg]['OSVarDisp']  = 'XP, Vista, 7, 8+'
+   m[pkg]['OSArchDisp'] = '32- and 64-bit'
+   m[pkg]['OSNameLink'] = 'Windows'
+   m[pkg]['OSVarLink']  = 'XP,Vista,7,8,8.1'
+   m[pkg]['OSArchLink'] = '32,64'
    m[pkg]['HasBundle']  = False
    
    pkg = 'MacOSX (All)'
    m[pkg] = {}
    m[pkg]['FetchFrom']  = ['scp', 'joeschmode', '192.168.1.22', 22, '~/BitcoinArmory/osxbuild/armory_%s_osx.tar.gz']
    m[pkg]['FileSuffix'] = 'osx.tar.gz'
-   m[pkg]['OSName']     = 'MacOSX'
-   m[pkg]['OSVar']      = '10.7+'
-   m[pkg]['OSArch']     = '64bit'
+   m[pkg]['OSNameDisp'] = 'MacOSX'
+   m[pkg]['OSVarDisp']  = '10.7+'
+   m[pkg]['OSArchDisp'] = '64bit'
+   m[pkg]['OSNameLink'] = 'MacOSX'
+   m[pkg]['OSVarLink']  = '10.7,10.8,10.9,10.9.1,10.9.2'
+   m[pkg]['OSArchLink'] = '64''
    m[pkg]['HasBundle']  = False
    
    
    pkg = 'Ubuntu 12.04-32bit'
    m[pkg] = {}
-   m[pkg]['FetchFrom']  = ['scp', 'guest', '192.168.1.23', 5111, '~/buildenv/armory_%s-1_i386.deb']
-   m[pkg]['FileSuffix'] = 'ubuntu-32bit.deb'
-   m[pkg]['OSName']     = 'Ubuntu'
-   m[pkg]['OSVar']      = '12.04+'
-   m[pkg]['OSArch']     = '32bit'
-   m[pkg]['HasBundle']  = True
-   m[pkg]['BundleDeps'] = 'offline_deps_ubuntu32'
-   m[pkg]['BndlSuffix'] = 'offline_ubuntu_12.0432.tar.gz'
+   m[pkg]['FetchFrom']    = ['scp', 'guest', '192.168.1.23', 5111, '~/buildenv/armory_%s-1_i386.deb']
+   m[pkg]['FileSuffix']   = 'ubuntu-32bit.deb'
+   m[pkg]['OSNameDisp']   = 'Ubuntu'
+   m[pkg]['OSVarDisp']    = '12.04+'
+   m[pkg]['OSArchDisp']   = '32bit'
+   m[pkg]['OSNameLink']   = 'Ubuntu'
+   m[pkg]['OSVarLink']    = '12.04,12.10,13.04,13.10,14.04'
+   m[pkg]['OSArchLink']   = '32'
+   m[pkg]['HasBundle']    = True
+   m[pkg]['BundleDeps']   = 'offline_deps_ubuntu32'
+   m[pkg]['BundleSuffix'] = 'offline_ubuntu_12.0432.tar.gz'
+   m[pkg]['BundleOSVar']  = '12.04'
    
    
    pkg = 'Ubuntu 12.04-64bit'
    m[pkg] = {}
-   m[pkg]['FetchFrom']  = ['scp', 'joe', '192.168.1.80', 5111, '~/buildenv/armory_%s-1_amd64_osx.deb']
-   m[pkg]['FileSuffix'] = 'ubuntu-64bit.deb'
-   m[pkg]['OSName']     = 'Ubuntu'
-   m[pkg]['OSVar']      = '12.04+'
-   m[pkg]['OSArch']     = '64bit'
-   m[pkg]['HasBundle']  = True
-   m[pkg]['BundleDeps'] = 'offline_deps_ubuntu64'
-   m[pkg]['BndlSuffix'] = 'offline_ubuntu64.tar.gz'
+   m[pkg]['FetchFrom']    = ['scp', 'joe', '192.168.1.80', 5111, '~/buildenv/armory_%s-1_amd64_osx.deb']
+   m[pkg]['FileSuffix']   = 'ubuntu-64bit.deb'
+   m[pkg]['OSNameDisp']   = 'Ubuntu'
+   m[pkg]['OSVarDisp']    = '12.04+'
+   m[pkg]['OSArchDisp']   = '64bit'
+   m[pkg]['OSNameLink']   = 'Ubuntu'
+   m[pkg]['OSVarLink']    = '12.04,12.10,13.04,13.10,14.04'
+   m[pkg]['OSArchLink']   = '64'
+   m[pkg]['HasBundle']    = True
+   m[pkg]['BundleDeps']   = 'offline_deps_ubuntu64'
+   m[pkg]['BundleSuffix'] = 'offline_ubuntu64.tar.gz'
+   m[pkg]['BundleOSVar']  = '12.04'
    
    pkg = 'RaspberryPi'
    m[pkg] = {}
-   m[pkg]['FetchFrom']  = ['cp', '~/buildenv/rpibuild/armory_%s-1.tar.gz']
-   m[pkg]['FileSuffix'] = 'raspbian-armhf.tar.gz'
-   m[pkg]['OSName']     = 'Raspbian'
-   m[pkg]['OSVar']      = None
-   m[pkg]['OSArch']     = 'armhf'
-   m[pkg]['HasBundle']  = True
-   m[pkg]['BundleDeps'] = 'offline_deps_raspbian'
-   m[pkg]['BndlSuffix'] = 'rpi_bundle.tar.gz'
+   m[pkg]['FetchFrom']    = ['cp', '~/buildenv/rpibuild/armory_%s-1.tar.gz']
+   m[pkg]['FileSuffix']   = 'raspbian-armhf.tar.gz'
+   m[pkg]['OSNameDisp']   = 'Raspbian'
+   m[pkg]['OSVarDisp']    = None
+   m[pkg]['OSArchDisp']   = 'armhf'
+   m[pkg]['OSNameLink']   = 'RaspberryPi'
+   m[pkg]['OSVarLink']    = None
+   m[pkg]['OSArchLink']   = '32'
+   m[pkg]['HasBundle']    = True
+   m[pkg]['BundleDeps']   = 'offline_deps_raspbian'
+   m[pkg]['BundleSuffix'] = 'rpi_bundle.tar.gz'
+   m[pkg]['BundleOSVar']  = None
 
 
    return masterPkgList
