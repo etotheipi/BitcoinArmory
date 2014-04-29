@@ -209,7 +209,7 @@ class MSUtilsTest(unittest.TestCase):
       self.assertEqual(len(ustx.ustxInputs),  1)
       self.assertEqual(len(ustx.decorTxOuts), 2)
       self.assertEqual(ustx.lockTime, 0)
-      self.assertEqual(ustx.uniqueB58,  'J2mRenD7')
+      self.assertEqual(ustx.uniqueIDB58,  'J2mRenD7')
 
       serUstx = ustx.serialize()
       ustx2 = UnsignedTransaction().unserialize(serUstx)
@@ -255,41 +255,42 @@ class MSUtilsTest(unittest.TestCase):
       '''
 
 
-      asc_nosig = """
-=====TXSIGCOLLECT-5JxmLy4T======================================================
-AQAAAAsRCQcAAAAAAf19AQEAAAALEQkH/XsoFKgwJMVZsviXpv+aOun4BQHRm+Cuvs/X7O/J3n8BAAAA
-/QMBAQAAAAGcgxlJ0d+ZHi+MzG+laL4qTx/jVH/lPbbKmrGLA1oc8AAAAACMSTBGAiEArOklwdcihg72
-fMu+GvnKF+AdFiMmeT7CWV4KMZmA3kcCIQDyjBMqkI6tFVXMG/yhbBhVg7TNYsAGLjM5UWLfVx57WgFB
-BLmTMVBhjWo901GrcZzZMNBUectdX4ZsVyHhMNjZpaAJxlpQqnjiK9PAvrNqOIgMq8itz9S3KDaOs/Kh
-W6/lJNL/////AsAOFgIAAAAAGXapFInbjSGPxqYLm35NTXhzcAkVf8h8iKwwq98DAAAAABl2qRSBj0Gs
-NlhCyvZkoRO2iRw54544foisAAAAAAAA/////wFBBJ6i78WXHp6ywhTupFpF7A0V2jwQEjE9pWO1+7wZ
-qS+IM59Dur1Ut5OC+yUycjeFHQdqemkBDFT97zMCJalmtXwAAALiAQAAAAsRCQfJUkEEagSrmNnkd0rY
-BuMC3d62O+oWtctfIj7ndHjoYbtYPrM2tvvLYLWz1PFVGsReX/xJNkZufZj2x8Dsc2U590aRpkEEaGgH
-N8dtq7gByyIE9X2+TkV55PcQzWfcG0InWSyB6bXPArWsnotMn0m+UlEFa2ptAR5MN/a20X7ea1X6ojUZ
-4kEEuVwknYT0F+PjlaEnQlQotUBnHMFYgeuCjBe3IqU/xZniHKXlbJDzQJiNOTOsx2vrgy/WTKsHjd88
-5zKSMDHRqFOuoH+IAgAAAAAAAAROT05FADIBAAAACxEJBxl2qRRs7kd5CHIvdApqfOmMDp1dyrD6Mois
-gARXAQAAAAAAAAROT05FAA==
-================================================================================
-         """.strip()
+      import textwrap
+      asc_nosig = textwrap.dedent("""
+         =====TXSIGCOLLECT-5JxmLy4T======================================================
+         AQAAAAsRCQcAAAAAAf19AQEAAAALEQkH/XsoFKgwJMVZsviXpv+aOun4BQHRm+Cuvs/X7O/J3n8BAAAA
+         /QMBAQAAAAGcgxlJ0d+ZHi+MzG+laL4qTx/jVH/lPbbKmrGLA1oc8AAAAACMSTBGAiEArOklwdcihg72
+         fMu+GvnKF+AdFiMmeT7CWV4KMZmA3kcCIQDyjBMqkI6tFVXMG/yhbBhVg7TNYsAGLjM5UWLfVx57WgFB
+         BLmTMVBhjWo901GrcZzZMNBUectdX4ZsVyHhMNjZpaAJxlpQqnjiK9PAvrNqOIgMq8itz9S3KDaOs/Kh
+         W6/lJNL/////AsAOFgIAAAAAGXapFInbjSGPxqYLm35NTXhzcAkVf8h8iKwwq98DAAAAABl2qRSBj0Gs
+         NlhCyvZkoRO2iRw54544foisAAAAAAAA/////wFBBJ6i78WXHp6ywhTupFpF7A0V2jwQEjE9pWO1+7wZ
+         qS+IM59Dur1Ut5OC+yUycjeFHQdqemkBDFT97zMCJalmtXwAAALiAQAAAAsRCQfJUkEEagSrmNnkd0rY
+         BuMC3d62O+oWtctfIj7ndHjoYbtYPrM2tvvLYLWz1PFVGsReX/xJNkZufZj2x8Dsc2U590aRpkEEaGgH
+         N8dtq7gByyIE9X2+TkV55PcQzWfcG0InWSyB6bXPArWsnotMn0m+UlEFa2ptAR5MN/a20X7ea1X6ojUZ
+         4kEEuVwknYT0F+PjlaEnQlQotUBnHMFYgeuCjBe3IqU/xZniHKXlbJDzQJiNOTOsx2vrgy/WTKsHjd88
+         5zKSMDHRqFOuoH+IAgAAAAAAAAROT05FADIBAAAACxEJBxl2qRRs7kd5CHIvdApqfOmMDp1dyrD6Mois
+         gARXAQAAAAAAAAROT05FAA==
+         ================================================================================
+         """.strip())
 
 
-      asc_sig = """
-=====TXSIGCOLLECT-5JxmLy4T======================================================
-AQAAAAsRCQcAAAAAAf3EAQEAAAALEQkH/XsoFKgwJMVZsviXpv+aOun4BQHRm+Cuvs/X7O/J3n8BAAAA
-/QMBAQAAAAGcgxlJ0d+ZHi+MzG+laL4qTx/jVH/lPbbKmrGLA1oc8AAAAACMSTBGAiEArOklwdcihg72
-fMu+GvnKF+AdFiMmeT7CWV4KMZmA3kcCIQDyjBMqkI6tFVXMG/yhbBhVg7TNYsAGLjM5UWLfVx57WgFB
-BLmTMVBhjWo901GrcZzZMNBUectdX4ZsVyHhMNjZpaAJxlpQqnjiK9PAvrNqOIgMq8itz9S3KDaOs/Kh
-W6/lJNL/////AsAOFgIAAAAAGXapFInbjSGPxqYLm35NTXhzcAkVf8h8iKwwq98DAAAAABl2qRSBj0Gs
-NlhCyvZkoRO2iRw54544foisAAAAAAAA/////wFBBJ6i78WXHp6ywhTupFpF7A0V2jwQEjE9pWO1+7wZ
-qS+IM59Dur1Ut5OC+yUycjeFHQdqemkBDFT97zMCJalmtXxHMEQCIF12j4Vj1Shf49BkDWwVzf1kRgYr
-4EIPObgRTVPQz2KkAiAQ28gOniv2A5ozeBCk/rpWHTw2DqqkraEUDYLAPr83NQEAAuIBAAAACxEJB8lS
-QQRqBKuY2eR3StgG4wLd3rY76ha1y18iPud0eOhhu1g+sza2+8tgtbPU8VUaxF5f/Ek2Rm59mPbHwOxz
-ZTn3RpGmQQRoaAc3x22ruAHLIgT1fb5ORXnk9xDNZ9wbQidZLIHptc8Ctayei0yfSb5SUQVram0BHkw3
-9rbRft5rVfqiNRniQQS5XCSdhPQX4+OVoSdCVCi1QGccwViB64KMF7cipT/FmeIcpeVskPNAmI05M6zH
-a+uDL9ZMqweN3zznMpIwMdGoU66gf4gCAAAAAAAABE5PTkUAMgEAAAALEQkHGXapFGzuR3kIci90Cmp8
-6YwOnV3KsPoyiKyABFcBAAAAAAAABE5PTkUA
-================================================================================
-         """.strip()
+      asc_sig = textwrap.dedent("""
+         =====TXSIGCOLLECT-5JxmLy4T======================================================
+         AQAAAAsRCQcAAAAAAf3EAQEAAAALEQkH/XsoFKgwJMVZsviXpv+aOun4BQHRm+Cuvs/X7O/J3n8BAAAA
+         /QMBAQAAAAGcgxlJ0d+ZHi+MzG+laL4qTx/jVH/lPbbKmrGLA1oc8AAAAACMSTBGAiEArOklwdcihg72
+         fMu+GvnKF+AdFiMmeT7CWV4KMZmA3kcCIQDyjBMqkI6tFVXMG/yhbBhVg7TNYsAGLjM5UWLfVx57WgFB
+         BLmTMVBhjWo901GrcZzZMNBUectdX4ZsVyHhMNjZpaAJxlpQqnjiK9PAvrNqOIgMq8itz9S3KDaOs/Kh
+         W6/lJNL/////AsAOFgIAAAAAGXapFInbjSGPxqYLm35NTXhzcAkVf8h8iKwwq98DAAAAABl2qRSBj0Gs
+         NlhCyvZkoRO2iRw54544foisAAAAAAAA/////wFBBJ6i78WXHp6ywhTupFpF7A0V2jwQEjE9pWO1+7wZ
+         qS+IM59Dur1Ut5OC+yUycjeFHQdqemkBDFT97zMCJalmtXxHMEQCIF12j4Vj1Shf49BkDWwVzf1kRgYr
+         4EIPObgRTVPQz2KkAiAQ28gOniv2A5ozeBCk/rpWHTw2DqqkraEUDYLAPr83NQEAAuIBAAAACxEJB8lS
+         QQRqBKuY2eR3StgG4wLd3rY76ha1y18iPud0eOhhu1g+sza2+8tgtbPU8VUaxF5f/Ek2Rm59mPbHwOxz
+         ZTn3RpGmQQRoaAc3x22ruAHLIgT1fb5ORXnk9xDNZ9wbQidZLIHptc8Ctayei0yfSb5SUQVram0BHkw3
+         9rbRft5rVfqiNRniQQS5XCSdhPQX4+OVoSdCVCi1QGccwViB64KMF7cipT/FmeIcpeVskPNAmI05M6zH
+         a+uDL9ZMqweN3zznMpIwMdGoU66gf4gCAAAAAAAABE5PTkUAMgEAAAALEQkHGXapFGzuR3kIci90Cmp8
+         6YwOnV3KsPoyiKyABFcBAAAAAAAABE5PTkUA
+         ================================================================================
+         """.strip())
 
 
       # For this manual construction to work, I had to save the signed funding
