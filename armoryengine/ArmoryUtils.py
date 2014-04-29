@@ -996,6 +996,12 @@ def GetSystemDetails():
    out.NumCores = multiprocessing.cpu_count()
    out.IsX64 = platform.machine().lower() == 'x86_64'
    out.Memory = out.Memory / (1024*1024.)
+
+   def getHddSize(adir):
+      s = os.statvfs(adir)
+      return s.f_bavail * s.f_frsize
+   out.HddAvailA = getHddSize(ARMORY_HOME_DIR) / (1024**3)
+   out.HddAvailB = getHddSize(BTC_HOME_DIR)    / (1024**3)
    return out
 
 SystemSpecs = None
@@ -1005,11 +1011,13 @@ except:
    LOGEXCEPT('Error getting system details:')
    LOGERROR('Skipping.')
    SystemSpecs = DumbStruct()
-   SystemSpecs.Memory   = -1
-   SystemSpecs.CpuStr   = 'Unknown'
-   SystemSpecs.NumCores = -1
-   SystemSpecs.IsX64    = 'Unknown'
-   SystemSpecs.Machine  = platform.machine().lower()
+   SystemSpecs.Memory    = -1
+   SystemSpecs.CpuStr    = 'Unknown'
+   SystemSpecs.NumCores  = -1
+   SystemSpecs.IsX64     = 'Unknown'
+   SystemSpecs.Machine   = platform.machine().lower()
+   SystemSpecs.HddAvailA = -1
+   SystemSpecs.HddAvailB = -1
 
 
 LOGINFO('')
@@ -1033,6 +1041,8 @@ LOGINFO('   Number of CPU cores   : %d cores', SystemSpecs.NumCores)
 LOGINFO('   System is 64-bit      : ' + str(SystemSpecs.IsX64))
 LOGINFO('   Preferred Encoding    : ' + locale.getpreferredencoding())
 LOGINFO('   Machine Arch          : ' + SystemSpecs.Machine)
+LOGINFO('   Available HDD (ARM)   : %d GB' % SystemSpecs.HddAvailA)
+LOGINFO('   Available HDD (BTC)   : %d GB' % SystemSpecs.HddAvailB)
 LOGINFO('')
 LOGINFO('Network Name: ' + NETWORKS[ADDRBYTE])
 LOGINFO('Satoshi Port: %d', BITCOIN_PORT)

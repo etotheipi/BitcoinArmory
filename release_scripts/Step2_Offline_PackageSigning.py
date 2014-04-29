@@ -2,18 +2,19 @@
 
 # Take a directory full of things to be signed, and do the right thing.
 # Make sure you cert-sign the windows installers, first
-import sys
 import os
 import time
 import shutil
 import getpass
+from sys import argv
 from subprocess import Popen, PIPE
 from release_utils import *
 
 #####
-from master_list import masterPkgList
+from master_list import getMasterPackageList
 #####
 
+masterPkgList = getMasterPackageList()
 
 
 if len(argv)<6:
@@ -41,15 +42,14 @@ outDir = makeOutputDir(outDir, wipe=False)
 
 # Other defaults -- same for all Armory releases
 builder      = 'Armory Technologies, Inc.'
-gitRepo      = './BitcoinArmory' 
 gituser      = 'Armory Technologies, Inc.'
 gitemail     = 'contact@bitcoinarmory.com'
-signAddress  = '1NWvhByxfTXPYNT4zMBmEY3VL8QJQtQoei'
+#signAddress  = '1NWvhByxfTXPYNT4zMBmEY3VL8QJQtQoei'
+signAddress  = '1PpAJyNoocJt38Vcf4AfPffaxo76D4AAEe'
 announceName = 'announce.txt'
 bucketURL    = 'https://s3.amazonaws.com/bitcoinarmory-media/'
 
 #if CLI_OPTIONS.testAnnounceCode:
-   #signAddress  = '1PpAJyNoocJt38Vcf4AfPffaxo76D4AAEe'
    #announceName = 'testannounce.txt'
    #bucketURL   = 'https://s3.amazonaws.com/bitcoinarmory-testing/'
 
@@ -76,22 +76,27 @@ instList = [fn for fn in os.listdir(srcInstalls)]
 topVerInt,topVerStr,topVerType = getLatestVerFromList2(instList)
 
 # A shortcut to get the full path of the installer filename for a given pkg
-def getInstPath(pkgName):
-   pkgSuffix = masterPkgList[pkgName]['FileSuffix']
+def getSrcPath(pkgName, suffixStr='FileSuffix'):
+   pkgSuffix = masterPkgList[pkgName][suffixStr]
    fname = 'armory_%s%s_%s' % (topVerStr, topVerType, pkgSuffix)
    return os.path.join(srcInstalls, fname)
 
+def getDstPath(pkgName, suffixStr='FileSuffix'):
+   pkgSuffix = masterPkgList[pkgName][suffixStr]
+   fname = 'armory_%s%s_%s' % (topVerStr, topVerType, pkgSuffix)
+   return os.path.join(dstInstalls, fname)
+
 # Check that all the master packages exist, as well as any bundle dirs
 for pkgName,pkgInfo in masterPkgList.iteritems():
-   checkExists(getInstPath(pkgName))
-   logprint('Regular pacakge "%s": %s' % (pkgName.ljust(20), getInstPath(pkgName)))
+   checkExists(getSrcPath(pkgName))
+   logprint('Regular pacakge "%s": %s' % (pkgName.ljust(20), getSrcPath(pkgName)))
 
    if pkgInfo['HasBundle']:
       logprint('Offline bundle  "%s": %s' % (pkgName.ljust(20), pkgInfo['BundleDeps']))
       checkExists(os.path.join(bundleDir, pkgInfo['BundleDeps']))
    
 # Check for wallet in ARMORY_HOME_DIR
-wltPath = checkExists('~/.armory/wallet_%s_.wallet' % btcWltID)
+wltPath = checkExists('~/.armory/armory_%s_.wallet' % btcWltID)
 
 logprint('*'*80)
 logprint('Please confirm all parameters before continuing:')
@@ -105,7 +110,7 @@ logprint('   This is release of type    : "%s"' % topVerType)
 logprint('   Use the following GPG key  : "%s"' % gpgKeyID)
 logprint('   Use the following wallet   : "%s"' % wltPath)
 logprint('   Builder for signing deb    : "%s"' % builder)
-logprint('   Git repo to be signed is   : "%s", branch: "%s"' % (gitRepo,gitBranch))
+logprint('   Git branch to be signed is : "%s"' % gitBranch)
 logprint('   Git user to tag release    : "%s" / <%s>' % (gituser, gitemail))
 
 
@@ -126,7 +131,7 @@ if srcCoreSHA:
 
 
 reply = raw_input('Does all this look correct? [Y/n]')
-if not reply.lower().startswith('y'):
+if reply.lower().startswith('n'):
    logprint('User aborted')
    exit(0)
 
@@ -137,29 +142,33 @@ logprint('')
 # First thing: sign all debs
 logprint('Signing all .deb files:')
 for pkgName in masterPkgList:
-   pkgPath = getInstPath(pkgName) 
-   if pkgPath.endswith('.deb'):
-      logprint('Signing: ' + pkgPath)
-      cmd = 'dpkg-sig -s builder -m "%s" -k %s %s' % (builder, gpgKeyID, fn)
+   pkgSrc = getSrcPath(pkgName)
+   pkgDst = getDstPath(pkgName)
+   shutil.copy(pkgSrc, pkgDst)
+   if pkgDst.endswith('.deb'):
+      logprint('Signing: ' + pkgDst)
+      cmd = 'dpkg-sig -s builder -m "%s" -k %s %s' % (builder, gpgKeyID, pkgDst)
       logprint('EXEC: ' + cmd)
       execAndWait(cmd)
-      logprint(execAndWait('dpkg-sig --verify %s' % fn)[0])
+      logprint(execAndWait('dpkg-sig --verify %s' % pkgDst)[0])
 
-   shutil.copy(pkgPath, dstInstalls)
 
 
 ################################################################################
 logprint('Creating bundles:')
 for pkgName,pkgInfo in masterPkgList.iteritems():
+   if not pkgInfo['HasBundle']:
+      continue
 
-   bname = 'armory_%s%s_%s' % (topVerStr, topVerType, pkgInfo['BundleSuffix'])
-   bpath = os.path.join(outDir, bname)
+   bpath = getDstPath(pkgName, 'BundleSuffix')
    tempDir  = 'OfflineBundle'
-   makeOutputDir(tempDir)
+   if os.path.exists(tempDir):
+      logprint('Removing temp bundle directory: ' + tempDir)
+      shutil.rmtree(tempDir)
 
    logprint('\tCopying bundle dependencies')
    shutil.copytree(os.path.join(bundleDir, pkgInfo['BundleDeps']), tempDir)
-   shutil.copy(getInstPath(pkgName), tempDir)
+   shutil.copy(getSrcPath(pkgName), tempDir)
    execAndWait('tar -zcf %s %s/*' % (bpath, tempDir))
       
    if os.path.exists(tempDir):
@@ -170,11 +179,15 @@ for pkgName,pkgInfo in masterPkgList.iteritems():
 # Finally, create the signed hashes file
 filesToSign = []
 for pkgName,pkgInfo in masterPkgList.iteritems():
-   filesToSign.append(getInstPath(pkgName))
+   filesToSign.append(getDstPath(pkgName))
    if pkgInfo['HasBundle']:
-      bname = 'armory_%s%s_%s' % (topVerStr, topVerType, pkgInfo['BundleSuffix'])
-      filesToSign.append(os.path.join(dstInstalls, bname))
+      filesToSign.append(getDstPath(pkgName, 'BundleSuffix'))
       
+
+logprint('All files to be included in hashes file:')
+for f in filesToSign:
+   logprint('   ' + f)
+   
 
 newHashes = getAllHashes(filesToSign)
 hashname = 'armory_%s%s_sha256sum.txt' % (topVerStr, topVerType)
@@ -227,7 +240,7 @@ def doSignFile(inFile, outFile):
    with open(outFile, 'wb') as f:
       f.write(sigBlock)
 
-def getFileHash(basedir, fname):
+def getFileHash(baseDir, fname):
    fullpath = os.path.join(baseDir, fn)
    with open(fullpath, 'rb') as fdata:
       return binary_to_hex(sha256(fdata.read()))
@@ -239,7 +252,7 @@ fnew.write('\n')
 for pkgName,pkgInfo in masterPkgList.iteritems():
    fn = 'armory_%s%s_%s' % (topVerStr, topVerType, pkgInfo['FileSuffix'])
    outputStr = ['Armory', 
-                verStr, 
+                topVerStr, 
                 pkgInfo['OSNameLink'],
                 pkgInfo['OSVarLink'],
                 pkgInfo['OSArchLink'],
@@ -251,7 +264,7 @@ for pkgName,pkgInfo in masterPkgList.iteritems():
       # Note different 4th arg for OSVar -- because bundles have different reqts
       fn = 'armory_%s%s_%s' % (topVerStr, topVerType, pkgInfo['BundleSuffix'])
       outputStr = ['ArmoryOffline', 
-                   verStr, 
+                   topVerStr, 
                    pkgInfo['OSNameLink'],
                    pkgInfo['BundleOSVar'],
                    pkgInfo['OSArchLink'],
@@ -362,13 +375,14 @@ logprint('   Email: ' + gitemail)
 
 gitmsg = raw_input('Put your commit message here: ')
 
-os.chdir(gitRepo)
-execAndWait('git checkout %s' % gitBranch, cwd=gitRepo)
-execAndWait('git config user.name "%s"' % gituser, cwd=gitRepo)
-execAndWait('git config user.email %s' % gitemail, cwd=gitRepo)
-execAndWait('git tag -s %s -u %s -m "%s"' % (gittag, gpgKeyID, gitmsg), cwd=gitRepo)
+shutil.copytree(srcGitRepo, dstGitRepo)
+os.chdir(dstGitRepo)
+execAndWait('git checkout %s' % gitBranch, cwd=dstGitRepo)
+execAndWait('git config user.name "%s"' % gituser, cwd=dstGitRepo)
+execAndWait('git config user.email %s' % gitemail, cwd=dstGitRepo)
+execAndWait('git tag -s %s -u %s -m "%s"' % (gittag, gpgKeyID, gitmsg), cwd=dstGitRepo)
 
-out,err = execAndWait('git tag -v %s' % gittag, cwd=gitRepo)
+out,err = execAndWait('git tag -v %s' % gittag, cwd=dstGitRepo)
 logprint(out)
 logprint(err)
 
@@ -377,7 +391,7 @@ logprint('*'*80)
 logprint('CLEAN UP & BUNDLE EVERYTHING TOGETHER')
 toExport = instFiles[:]
 toExport.append(hashpath + '.asc')
-toExport.append("%s" % gitRepo)
+toExport.append("%s" % dstGitRepo)
 
 execAndWait('tar -zcf signed_release_%s%s.tar.gz %s' % (topVerStr, topVerType, ' '.join(toExport)))
 
