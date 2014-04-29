@@ -867,7 +867,6 @@ class DlgLockboxManager(ArmoryDialog):
    def showLedgerTx(self):
       row = self.ledgerView.selectedIndexes()[0].row()
       txHash = str(self.ledgerView.model().index(row, LEDGERCOLS.TxHash).data().toString())
-      wltID  = str(self.ledgerView.model().index(row, LEDGERCOLS.WltID).data().toString())
       txtime = unicode(self.ledgerView.model().index(row, LEDGERCOLS.DateStr).data().toString())
 
       pytx = None
@@ -883,8 +882,16 @@ class DlgLockboxManager(ArmoryDialog):
          'in Armory\'s database.  This is unusual...', QMessageBox.Ok)
          return
 
-      # Need get the wallet to display this info
-      # DlgDispTxInfo( pytx, ????, self, self.main, txtime=txtime).exec_()
+      lboxId  = str(self.ledgerView.model().index(row, LEDGERCOLS.WltID).data().toString())
+      lbox = self.main.allLockboxes[self.main.lockboxIDMap[lboxId]]
+      wltID = None
+      for a160 in lbox.a160List:
+         wltID = self.main.getWalletForAddr160(a160)
+         if len(wltID)>0:
+            wlt = self.main.walletMap[wltID]
+            break
+
+      DlgDispTxInfo( pytx, wlt, self, self.main, txtime=txtime).exec_()
    
    #############################################################################
    def showContextMenuLedger(self):
@@ -942,7 +949,7 @@ class DlgLockboxManager(ArmoryDialog):
       if True:  actionCopyBalance = menu.addAction("Copy Balance")
       selectedIndexes = self.lboxView.selectedIndexes()
       if len(selectedIndexes)>0:
-         idx = [0]
+         idx = selectedIndexes[0]
          action = menu.exec_(QCursor.pos())
    
    
