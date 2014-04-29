@@ -138,11 +138,12 @@ class AllWalletsDispModel(QAbstractTableModel):
 ################################################################################
 class LedgerDispModelSimple(QAbstractTableModel):
    """ Displays an Nx10 table of pre-formatted/processed ledger entries """
-   def __init__(self, ledgerTable, parent=None, main=None):
+   def __init__(self, ledgerTable, parent=None, main=None, isLboxModel=False):
       super(LedgerDispModelSimple, self).__init__()
       self.parent = parent
       self.main   = main
       self.ledger = ledgerTable
+      self.isLboxModel = isLboxModel
 
    def rowCount(self, index=QModelIndex()):
       return len(self.ledger)
@@ -265,7 +266,7 @@ class LedgerDispModelSimple(QAbstractTableModel):
          if orientation==Qt.Horizontal:
             if section==COL.NumConf: return QVariant()
             if section==COL.DateStr: return QVariant('Date')
-            if section==COL.WltName: return QVariant('Wallet')
+            if section==COL.WltName: return QVariant('Lockbox') if self.isLboxModel else QVariant('Wallet')
             if section==COL.Comment: return QVariant('Comments')
             if section==COL.TxDir:   return QVariant()
             if section==COL.Amount:  return QVariant('Amount')

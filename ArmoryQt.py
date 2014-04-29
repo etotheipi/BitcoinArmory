@@ -303,7 +303,7 @@ class ArmoryMainWindow(QMainWindow):
       # Another table and model, for lockboxes
       self.lockboxLedgTable = []
       self.lockboxLedgModel = LedgerDispModelSimple(self.lockboxLedgTable, 
-                                                                   self, self)
+                                                                   self, self, isLboxModel=True)
 
       dateWidth    = tightSizeStr(self.ledgerView, '_9999-Dec-99 99:99pm__')[0]
       nameWidth    = tightSizeStr(self.ledgerView, '9'*32)[0]
