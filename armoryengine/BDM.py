@@ -904,17 +904,12 @@ class BlockDataManagerThread(threading.Thread):
       blockdir = blkdir
       leveldbdir = self.ldbdir
       
-      if getattr(sys, 'frozen', False):
+      if isinstance(ARMORY_HOME_DIR, unicode):
          armory_homedir = ARMORY_HOME_DIR.encode('utf8')
+      if isinstance(blkdir, unicode):
          blockdir = blkdir.encode('utf8')
+      if isinstance(self.ldbdir, unicode):
          leveldbdir = self.ldbdir.encode('utf8')
-      elif OS_WINDOWS:
-         if isinstance(ARMORY_HOME_DIR, unicode):
-            armory_homedir = ARMORY_HOME_DIR.encode('utf8')
-         if isinstance(blkdir, unicode):
-            blockdir = blkdir.encode('utf8')
-         if isinstance(self.ldbdir, unicode):
-            leveldbdir = self.ldbdir.encode('utf8')
 
       self.bdm.SetDatabaseModes(ARMORY_DB_BARE, DB_PRUNE_NONE);
       self.bdm.SetHomeDirLocation(armory_homedir)
