@@ -689,7 +689,9 @@ class DlgLockboxManager(ArmoryDialog):
             SIGNAL('doubleClicked(QModelIndex)'), 
             self.dblClickLockbox)
 
-      self.txtLockboxInfo = QPlainTextEdit()
+      self.txtLockboxInfo = QTextEdit()
+      self.txtLockboxInfo.acceptRichText()
+      self.txtLockboxInfo.setStyleSheet('QTextEdit { background-color : %s }' % htmlColor('SlightBkgdLight'))
       self.txtLockboxInfo.setReadOnly(True)
       self.txtLockboxInfo.setFont(GETFONT('Fixed', 9))
 
@@ -1022,9 +1024,9 @@ class DlgLockboxManager(ArmoryDialog):
    def singleClickLockbox(self, index=None, *args):
       lb = self.getSelectedLockbox()
       if lb:
-         self.txtLockboxInfo.setPlainText(lb.getDisplayPlainText())
+         self.txtLockboxInfo.setText(lb.getDisplayRichText())
       else:
-         self.txtLockboxInfo.setPlainText('')
+         self.txtLockboxInfo.setText('')
 
       self.updateButtonDisable()
 

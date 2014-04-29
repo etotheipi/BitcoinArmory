@@ -4,6 +4,7 @@ import json
 import ast
 from armoryengine.ArmoryUtils import *
 from armoryengine.Transaction import *
+from armorycolors import htmlColor
 
 MULTISIG_VERSION = 0
 
@@ -277,7 +278,7 @@ class MultiSigLockbox(object):
          self.M, self.N, unixTimeToFormatStr(self.createDate), self.shortName)
 
    #############################################################################
-   def getDisplayPlainText(self, tr=None, dateFmt=None):
+   def getDisplayRichText(self, tr=None, dateFmt=None):
 
       if dateFmt is None:
          dateFmt = DEFAULT_DATE_FORMAT
@@ -293,24 +294,21 @@ class MultiSigLockbox(object):
 
       longDescr = toUnicode(self.longDescr)
       if len(longDescr.strip())==0:
-         longDescr = u'<No Extended Info>'
-
+         longDescr = '--- No Extended Info ---'
+      longDescr = longDescr.replace('\n','<br>')
+      longDescr = longDescr.replace(' ','&nbsp;')
       formattedDate = unixTimeToFormatStr(self.createDate, dateFmt)
       
       lines = []
-      lines.append(tr('Lockbox Information for %s:') % self.uniqueIDB58)
-      lines.append(tr('Multisig:      %d-of-%d') % (self.M, self.N))
-      lines.append(tr('Lockbox ID:    %s') % self.uniqueIDB58)
-      lines.append(tr('P2SH Address:     %s') % binScript_to_p2shAddrStr(self.binScript))
-      lines.append(tr('Lockbox Name:  %s') % self.shortName)
-      lines.append(tr('Created:       %s') % formattedDate) 
-      lines.append(tr('Extended Info:'))
-      lines.append(EMPTYLINE)
-      lines.append(tr('-'*10))
-      lines.append(longDescr)
-      lines.append(tr('-'*10))
-      lines.append(EMPTYLINE)
-      lines.append(tr('Stored Key Details'))
+      lines.append(tr("""<font color="%s"><font size=6><center>Lockbox Information for 
+         <b>%s</font></b>""") % (htmlColor("TextBlue"), self.uniqueIDB58))
+      lines.append(tr('<b>Multisig:</b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%d-of-%d') % (self.M, self.N))
+      lines.append(tr('<b>Lockbox ID:</b>&nbsp;&nbsp;&nbsp;&nbsp;%s') % self.uniqueIDB58)
+      lines.append(tr('<b>P2SH Address:</b>&nbsp;&nbsp;%s') % binScript_to_p2shAddrStr(self.binScript))
+      lines.append(tr('<b>Lockbox Name:</b>&nbsp;&nbsp;%s') % self.shortName)
+      lines.append(tr('<b>Created:</b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%s') % formattedDate) 
+      lines.append(tr('<b>Extended Info:</b><hr><blockquote>%s</blockquote><hr>') % longDescr)
+      lines.append(tr('<b>Stored Key Details</b>'))
       for i in range(len(self.pubKeys)):
          comm = self.commentList[i]
          addr = hash160_to_addrStr(self.a160List[i])
@@ -319,13 +317,13 @@ class MultiSigLockbox(object):
          if len(comm.strip())==0:
             comm = '<No Info>'
 
-         lines.append(tr('  Key #%d') % (i+1))
-         lines.append(tr('     Name/ID: %s') % comm)
-         lines.append(tr('     Address: %s') % addr)
-         lines.append(tr('     PubKey:  %s') % pubk)
+         lines.append(tr('&nbsp;&nbsp;<b>Key #%d</b>') % (i+1))
+         lines.append(tr('&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<b>Name/ID:</b>&nbsp;%s') % comm)
+         lines.append(tr('&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<b>Address:</b>&nbsp;%s') % addr)
+         lines.append(tr('&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<b>PubKey:</b>&nbsp;&nbsp;%s') % pubk)
          lines.append(EMPTYLINE)
-
-      return '\n'.join(lines)
+      lines.append(tr('</font>'))
+      return '<br>'.join(lines)
 
 
    ################################################################################
