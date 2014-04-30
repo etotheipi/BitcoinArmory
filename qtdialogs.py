@@ -1960,13 +1960,16 @@ class DlgWalletDetails(ArmoryDialog):
       if dlgCrypt.exec_():
          self.disableEncryption = dlgCrypt.chkDisableCrypt.isChecked()
          newPassphrase = SecureBinaryData(str(dlgCrypt.edtPasswd1.text()))
+         dlgCrypt.edtPasswd1.clear()
+         dlgCrypt.edtPasswd2.clear()
 
          if self.wlt.useEncryption:
             origPassphrase = SecureBinaryData(str(dlgCrypt.edtPasswdOrig.text()))
+            dlgCrypt.edtPasswdOrig.clear()
             if self.wlt.verifyPassphrase(origPassphrase):
                unlockProgress = DlgProgress(self, self.main, HBar=1, 
                                             Title="Unlocking Wallet")
-               unlockProgress.exec_(self.wlt.unlock)
+               unlockProgress.exec_(self.wlt.unlock, securePassphrase=origPassphrase)
             else:
                # Even if the wallet is already unlocked, enter pwd again to change it
                QMessageBox.critical(self, 'Invalid Passphrase', \
@@ -1990,8 +1993,7 @@ class DlgWalletDetails(ArmoryDialog):
             unlockProgress = DlgProgress(self, self.main, HBar=2, 
                                          Title="Changing Encryption")
             unlockProgress.exec_(self.wlt.changeWalletEncryption, 
-                                 securePassphrase=newPassphrase,
-                                 Progress=unlockProgress.UpdateHBar)
+                                 securePassphrase=newPassphrase)
             self.labelValues[WLTFIELDS.Secure].setText('Encrypted (AES256)')
             # self.accept()
 
