@@ -998,8 +998,15 @@ def GetSystemDetails():
    out.Memory = out.Memory / (1024*1024.)
 
    def getHddSize(adir):
-      s = os.statvfs(adir)
-      return s.f_bavail * s.f_frsize
+      if OS_WINDOWS:
+        free_bytes = ctypes.c_ulonglong(0)
+        ctypes.windll.kernel32.GetDiskFreeSpaceExW(ctypes.c_wchar_p(adir), \
+                                                   None, None, \
+                                                   ctypes.pointer(free_bytes))
+        return free_bytes.value
+      else:
+         s = os.statvfs(adir)
+         return s.f_bavail * s.f_frsize
    out.HddAvailA = getHddSize(ARMORY_HOME_DIR) / (1024**3)
    out.HddAvailB = getHddSize(BTC_HOME_DIR)    / (1024**3)
    return out
