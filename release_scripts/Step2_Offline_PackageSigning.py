@@ -259,9 +259,10 @@ def getFileHash(baseDir, fname):
 fnew = open(newDLFile, 'w')
 fnew.write(open(origDLFile, 'r').read())
 fnew.write('\n')
+typeSuffix = 'Testing' if testParams else ''
 for pkgName,pkgInfo in masterPkgList.iteritems():
    fn = 'armory_%s%s_%s' % (topVerStr, topVerType, pkgInfo['FileSuffix'])
-   outputStr = ['Armory', 
+   outputStr = ['Armory%s' % typeSuffix, 
                 topVerStr, 
                 pkgInfo['OSNameLink'],
                 pkgInfo['OSVarLink'],
@@ -273,7 +274,7 @@ for pkgName,pkgInfo in masterPkgList.iteritems():
    if pkgInfo['HasBundle']:
       # Note different 4th arg for OSVar -- because bundles have different reqts
       fn = 'armory_%s%s_%s' % (topVerStr, topVerType, pkgInfo['BundleSuffix'])
-      outputStr = ['ArmoryOffline', 
+      outputStr = ['ArmoryOffline%s' % typeSuffix, 
                    topVerStr, 
                    pkgInfo['OSNameLink'],
                    pkgInfo['BundleOSVar'],

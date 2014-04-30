@@ -1864,7 +1864,7 @@ def ParseWallet(wltPath, wlt, mode, dlg, Progress=emptyFunc):
                       % (wltPath))
    
    if dlg:                  
-      dlg.setRecoveryDone(wlterror, goodWallets, fixedWlt) 
+      dlg.setRecoveryDone(wlterror, goodWallets, fixedWlt, [recovObj])
    else: 
       return wltStatus
 

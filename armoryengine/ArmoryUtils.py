@@ -58,6 +58,7 @@ SATOSHI_PUBLIC_KEY = ( '04'
 
 
 indent = ' '*3
+haveGUI = [False, None]
 
 parser = optparse.OptionParser(usage="%prog [options]\n")
 parser.add_option("--settings",        dest="settingsPath",default='DEFAULT', type="str",          help="load Armory with a specific settings file")

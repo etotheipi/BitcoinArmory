@@ -39,10 +39,10 @@ RELEASE = getReleaseParams(testParams)
 signAddress    = RELEASE['SignAddr']
 announceName   = RELEASE['AnnounceFile']
 bucketPrefix   = RELEASE['BucketPrefix']
-htmlRelease    = bucketPrefix + RELEASE['BucketAnnounce']
-htmlAnnounce   = bucketPrefix + RELEASE['BucketReleases']
-s3Release      = 's3://%s' % RELEASE['BucketAnnounce']
-s3Announce     = 's3://%s' % RELEASE['BucketReleases']
+htmlRelease    = bucketPrefix + RELEASE['BucketReleases']
+htmlAnnounce   = bucketPrefix + RELEASE['BucketAnnounce']
+s3Release      = 's3://%s' % RELEASE['BucketReleases']
+s3Announce     = 's3://%s' % RELEASE['BucketAnnounce']
 gpgKeyID       = RELEASE['GPGKeyID']
 btcWltID       = RELEASE['BTCWltID']
 
@@ -165,36 +165,37 @@ uploads = []
 for pkgName,pkgInfo in masterPkgList.iteritems():
    pkgDict = {}
    pkgDict['SrcFile']   = getPkgFilename(pkgName)
-   pkgDict['SrcPath']   = os.path.join(inDir, pkgDict['SrcFile'])
+   pkgDict['SrcPath']   = os.path.join(inDir, 'installers', pkgDict['SrcFile'])
    pkgDict['OSName']    = pkgInfo['OSNameDisp']
    pkgDict['OSVar']     = pkgInfo['OSVarDisp']
    pkgDict['OSArch']    = pkgInfo['OSArchDisp']
    pkgDict['IsHash']    = False
    pkgDict['IsBundle']  = False
-   pkgDict['DstUpload'] = '%s/%s' % (s3Release,   pkgDict['SrcFile'])
-   pkgDict['DstHtml']   = '%s/%s' % (htmlRelease, pkgDict['SrcFile'])
+   pkgDict['DstUpload'] = '%s%s' % (s3Release,   pkgDict['SrcFile'])
+   pkgDict['DstHtml']   = '%s%s' % (htmlRelease, pkgDict['SrcFile'])
    uploads.append(pkgDict)
 
    if pkgInfo['HasBundle']:
       pkgDict = {}
       pkgDict['SrcFile']   = getPkgFilename(pkgName, offline=True)
-      pkgDict['SrcPath']   = os.path.join(inDir, pkgDict['SrcFile'])
+      pkgDict['SrcPath']   = os.path.join(inDir, 'installers', pkgDict['SrcFile'])
       pkgDict['OSName']    = pkgInfo['OSNameDisp']
       pkgDict['OSVar']     = pkgInfo['BundleOSVar']
       pkgDict['OSArch']    = pkgInfo['OSArchDisp']
       pkgDict['IsHash']    = False
       pkgDict['IsBundle']  = True
-      pkgDict['DstUpload'] = '%s/%s' % (s3Release,   pkgDict['SrcFile'])
-      pkgDict['DstHtml']   = '%s/%s' % (htmlRelease, pkgDict['SrcFile'])
+      pkgDict['DstUpload'] = '%s%s' % (s3Release,   pkgDict['SrcFile'])
+      pkgDict['DstHtml']   = '%s%s' % (htmlRelease, pkgDict['SrcFile'])
       uploads.append(pkgDict)
    
 
 ascDict = {}
 ascDict['SrcFile']   = getPkgFilename('SHAFILE_ASC')
-ascDict['SrcPath']   = os.path.join(inDir, ascDict['SrcFile'])
+ascDict['SrcPath']   = os.path.join(inDir, 'installers', ascDict['SrcFile'])
 ascDict['IsHash']    = True
-pkgDict['DstUpload'] = '%s%s' % (s3Release,   pkgDict['SrcFile'])
-pkgDict['DstHtml']   = '%s%s' % (htmlRelease, pkgDict['SrcFile'])
+ascDict['IsBundle']    = True
+ascDict['DstUpload'] = '%s%s' % (s3Release,   pkgDict['SrcFile'])
+ascDict['DstHtml']   = '%s%s' % (htmlRelease, pkgDict['SrcFile'])
 uploads.append(ascDict)
 
 
@@ -205,7 +206,6 @@ for upl in uploads:
    print ''
 
 
-exit(0)
 
 for pkgDict in uploads:
 
@@ -239,7 +239,7 @@ for pkgDict in uploads:
 announceDir = os.path.join(inDir, 'signedannounce')
 for fn in os.listdir(announceDir):
    fpath = os.path.join(announceDir, fn)
-   uploadurl = '%s/%s' % (s3Announce, fn)
+   uploadurl = '%s%s' % (s3Announce, fn)
    s3cmd = 's3cmd put --acl-public %s %s' % (fpath, uploadurl)
    s3cmdList.append(s3cmd)
    
@@ -260,18 +260,20 @@ logprint('\nS3CMD UPLOAD COMMANDS')
 for txt in s3cmdList:
    logprint('  '+txt)
 
-logprint('')
-yn = raw_input('Continue with upload? [y/N]')
+if not isDryRun:
+   
+   logprint('')
+   yn = raw_input('Continue with upload? [y/N]')
 
-if yn.lower().startswith('y'):
-   logprint('STARTING UPLOADS')
-   for s3cmd in s3cmdList:
-      logprint('Uploading: ' + s3cmd.split()[-1].strip())
-      execAndWait(s3cmd, usepipes=False)
+   if yn.lower().startswith('y'):
+      logprint('STARTING UPLOADS')
+      for s3cmd in s3cmdList:
+         logprint('Uploading: ' + s3cmd.split()[-1].strip())
+         execAndWait(s3cmd, usepipes=False)
 
 
-logprint('')
-logprint('Not actually pushing the signed tag; do it manually --')
-logprint('Copy the following command to push the tag:')
-logprint('   cd %s/BitcoinArmory; git push origin v%s' % (unpackDir, verFullStr))
+   logprint('')
+   logprint('Not actually pushing the signed tag; do it manually --')
+   logprint('Copy the following command to push the tag:')
+   logprint('   cd %s/BitcoinArmory; git push origin v%s' % (inDir, verFullStr))
 
