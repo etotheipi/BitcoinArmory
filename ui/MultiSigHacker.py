@@ -646,13 +646,14 @@ class DlgLockboxManager(ArmoryDialog):
    def __init__(self, parent, main):
       super(DlgLockboxManager, self).__init__(parent, main)
 
-      QMessageBox.warning(self, tr('Dangerous Feature!'), tr("""
-         Multi-signature transactions are an 
-         <b>EXPERIMENTAL</b> feature in this version of Armory.  It is 
-         <u><b>not</b></u> intended to be used with real money, until all 
-         the warnings like this one go away.
-         <br><br>
-         <b>Use at your own risk!</b>"""), QMessageBox.Ok)
+      if not USE_TESTNET:
+         QMessageBox.warning(self, tr('Dangerous Feature!'), tr("""
+            Multi-signature transactions are an 
+            <b>EXPERIMENTAL</b> feature in this version of Armory.  It is 
+            <u><b>not</b></u> intended to be used with real money, until all 
+            the warnings like this one go away.
+            <br><br>
+            <b>Use at your own risk!</b>"""), QMessageBox.Ok)
 
 
       lblDescr = QRichLabel(tr("""
@@ -1163,7 +1164,6 @@ class DlgLockboxManager(ArmoryDialog):
                            title, descr, ftypes, UnsignedTransaction)
          dlgImport.exec_()
          if dlgImport.returnObj:
-            self.accept()
             ustx = dlgImport.returnObj
             DlgMultiSpendReview(self, self.main, ustx).exec_()
 
@@ -2094,6 +2094,14 @@ class DlgMultiSpendReview(ArmoryDialog):
 
       dlg = DlgImportAsciiBlock(self, self.main, title, descr, ftypes, importType)
       if dlg.exec_():
+         # Merge signatures if the current ustx ID matchs the imported file
+         if self.ustx.uniqueIDB58 == dlg.returnObj.uniqueIDB58:
+            for i in range(len(dlg.returnObj.ustxInputs)):
+               for j in range(len(dlg.returnObj.ustxInputs[i].signatures)):
+                  if len(self.ustx.ustxInputs[i].signatures[j]) > 0:
+                     dlg.returnObj.ustxInputs[i].signatures[j] = \
+                        self.ustx.ustxInputs[i].signatures[j]
+               
          # FIXME: This is a serious hack because I didn't have time to implement
          #        reloading an existing dialog with a new USTX, so I just recurse
          #        for now (it's because all the layouts are set in the __init__

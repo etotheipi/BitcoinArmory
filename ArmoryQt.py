@@ -89,6 +89,14 @@ class ArmoryMainWindow(QMainWindow):
          if Colors.isDarkBkgd:
             self.lblLogoIcon.setPixmap(QPixmap(':/armory_logo_white_text_green_h56.png'))
       else:
+         QMessageBox.warning(self, tr('Dangerous Armory Version!'), tr("""
+               This version of Armory implements Multi-signature transactions which is an 
+               <b>EXPERIMENTAL</b> feature.  It is 
+               <u><b>not</b></u> intended to be used with real money, until all 
+               the warnings like this one go away.
+               <br><br>
+               <b>Use at your own risk!</b>"""), QMessageBox.Ok)
+
          self.setWindowTitle('Armory - Bitcoin Wallet Management')
          self.iconfile = ':/armory_icon_32x32.png'
          self.lblLogoIcon.setPixmap(QPixmap(':/armory_logo_h44.png'))
