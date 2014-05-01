@@ -13420,7 +13420,7 @@ class DlgBroadcastBlindTx(ArmoryDialog):
             <li>The transaction will be "broadcast" by sending it
                 to the connected Bitcon Core instance.  If you are
                 broadcasting a non-standard transaction on the main
-                network, it is <b>will</b> to be dropped before it 
+                network, it <b>will</b> to be dropped before it 
                 reaches any other nodes.  Any <i>valid</i> transaction 
                 should work with this dialog on testnet.</li>
             <li>Only <u>standard</u> transactions will successfully

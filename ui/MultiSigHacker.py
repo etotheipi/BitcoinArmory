@@ -1506,22 +1506,26 @@ class DlgImportLockbox(QDialog):
       except:
          LOGEXCEPT('Error unserializing the entered text')
          return
-         
-      lbID = self.importedLockbox.uniqueIDB58
-      if not self.main.getLockboxByID(lbID) is None:
-         reply = QMessageBox.warning(self, tr("Duplicate Lockbox"), tr("""
-            You just attempted to import a lockbox with ID, %s.  This
-            lockbox is already in your available list of lockboxes.
-            <br><br>
-            Even with the same ID, the lockbox information 
-            may be different.  Would you like to overwrite the lockbox
-            information already stored for %s?""") % (lbID,lbID), \
-            QMessageBox.Yes | QMessageBox.Cancel)
-
-         if not reply==QMessageBox.Yes:
-            return
-
-      self.accept()
+      if self.importedLockbox == None:
+         QMessageBox.critical(self, tr('Non-lockbox'), tr("""
+               You are attempting to load something that is not a Lockbox.
+               Please clear the display and try again."""), QMessageBox.Ok)
+      else:
+         lbID = self.importedLockbox.uniqueIDB58
+         if not self.main.getLockboxByID(lbID) is None:
+            reply = QMessageBox.warning(self, tr("Duplicate Lockbox"), tr("""
+               You just attempted to import a lockbox with ID, %s.  This
+               lockbox is already in your available list of lockboxes.
+               <br><br>
+               Even with the same ID, the lockbox information 
+               may be different.  Would you like to overwrite the lockbox
+               information already stored for %s?""") % (lbID,lbID), \
+               QMessageBox.Yes | QMessageBox.Cancel)
+   
+            if not reply==QMessageBox.Yes:
+               return
+   
+         self.accept()
 
 
 ################################################################################
