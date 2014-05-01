@@ -22,7 +22,7 @@ pipVer     = '1.5.2'
 psutilVer  = '1.2.1'
 twistedVer = '13.2.0'
 libpngVer  = '1.6.8'
-qtVer      = '4.8.5'
+qtVer      = '4.8.6'
 sipVer     = '4.15.5' # NB: I'm occasionally forced to upgrade alongside PyQt.
 pyQtVer    = '4.10.4' # NB: When I'm upgraded, SIP usually has to be upgraded too.
 LOGFILE    = 'build-app.log.txt'
@@ -75,11 +75,11 @@ def main():
       
    # For git repos, the "ID" is branch name.  Otherwise, its' the md5sum 
    for pkgname, fname, url, ID in distfiles:
-      # Skip download Qt-git if downloading Qt, and vice versa
       logprint('\n\n')
-      if((pkgname.lower()=='qt-git' and     CLIOPTS.precompiledQt) or \
-         (pkgname.lower()=='qt'     and not CLIOPTS.precompiledQt)     ):
-         continue
+      # Skip download of Qt-git if downloading Qt, and vice versa.
+      #if((pkgname.lower()=='qt-git' and     CLIOPTS.precompiledQt) or \
+      #   (pkgname.lower()=='qt'     and not CLIOPTS.precompiledQt)     ):
+      #   continue
       downloadPkg(pkgname, fname, url, ID)
 
    logprint("\n\nALL DOWNLOADS COMPLETED.\n\n")
@@ -354,26 +354,28 @@ distfiles.append( [ 'libpng', \
 #                    "http://download.qt-project.org/official_releases/qt/5.2/5.2.1/single/qt-everywhere-opensource-src-5.2.1.tar.gz", \
 #                    "31a5cf175bb94dbde3b52780d3be802cbeb19d65" ] )
 
-# Pre-packaged source not used for now. Use Git instead.
+# Pre-packaged source can lag a bit but provides for more consistent user
+# support. Use pre-packaged source instead of Git whenever possible.
 distfiles.append( [ "Qt", \
                     "qt-everywhere-opensource-src-%s.tar.gz" % qtVer, \
                     "http://download.qt-project.org/official_releases/qt/4.8/%s/qt-everywhere-opensource-src-%s.tar.gz" % (qtVer, qtVer), \
                     "745f9ebf091696c0d5403ce691dc28c039d77b9e" ] )
 
+# Skipping Git for now.
 #distfiles.append( [ "Qt-git", \
 #                    "qt5_git_repo.tar.gz", \
 #                    'git://gitorious.org/qt/qt5.git',
 #                    'stable' ] )
 
-distfiles.append( [ "Qt-git", \
-                    "qt4_git_repo.tar.gz", \
-                    'git://gitorious.org/qt/qt.git',
-                    '4.8' ] )
+#distfiles.append( [ "Qt-git", \
+#                    "qt4_git_repo.tar.gz", \
+#                    'git://gitorious.org/qt/qt.git',
+#                    '4.8' ] )
 
 distfiles.append( [ "Webkit-for-Qt", \
                     "libWebKitSystemInterfaceMavericks.a", \
-                    "http://trac.webkit.org/export/162166/trunk/WebKitLibraries/libWebKitSystemInterfaceMavericks.a", \
-                    "bb071fb69cad0cec1f2ecb082ee34f44bd76ac93" ] )
+                    "http://trac.webkit.org/export/167824/trunk/WebKitLibraries/libWebKitSystemInterfaceMavericks.a", \
+                    "ca6a8292cf0e0c44b38e3916e56139cff2a41ae7" ] )
 
 #distfiles.append( [ "Qt-p1", \
                     #"Ie9a72e3b.patch", \
@@ -486,10 +488,11 @@ def compile_qt():
    # qtBuildDir.   Then we will build inside the qtBuildDir, using qtInstDir 
    # as the prefix.
    qtDLDir    = path.join(DLDIR, 'qt')
-   qtBuildDir = path.join(UNPACKDIR, 'qt')
+   qtBuildDir = path.join(UNPACKDIR, 'qt-everywhere-opensource-src-%s' % qtVer)
    qtInstDir  = path.join(INSTALLDIR, 'qt')
-   qtTarFile   = path.join(DLDIR, 'qt4_git_repo.tar.gz')
-#   qtTarFile   = path.join(DLDIR, 'qt5_git_repo.tar.gz')
+   qtTarFile   = path.join(DLDIR, 'qt-everywhere-opensource-src-%s.tar.gz' % qtVer)
+   #qtTarFile   = path.join(DLDIR, 'qt4_git_repo.tar.gz')
+   #qtTarFile   = path.join(DLDIR, 'qt5_git_repo.tar.gz')
 
    # If we did a fresh download, it's already uncompressed in DLDir.  Move it
    # to where it should be in the UNPACKDIR
@@ -503,15 +506,16 @@ def compile_qt():
    if not path.exists(qtBuildDir):
       if not path.exists(qtTarFile):
          raise RuntimeError('*** ERROR: No cloned repo and no tar file...? ***')
-      logprint('Unpacking qt repo from tarfile')
-      logprint('Remove qt4_git_repo.tar.gz to re-clone HEAD')
-#      logprint('Remove qt5_git_repo.tar.gz to re-clone HEAD')
-      gitdir = unpack(tarfilesToDL['Qt-git'])
+      logprint('Unpacking Qt from tarfile')
+      qtBuildDir = unpack(tarfilesToDL['Qt'])
+      #logprint('Remove qt4_git_repo.tar.gz to re-clone HEAD')
+      #logprint('Remove qt5_git_repo.tar.gz to re-clone HEAD')
    elif not path.exists(qtTarFile):
-      logprint('Tarring downloaded repo for future use')
+      # Useful only if we're grabbing Qt from Git.
+      logprint('Tarring downloaded repo for future use.')
       execAndWait('tar -zcf %s qt' % qtTarFile, cwd=UNPACKDIR)
 
-   # Webkit-for-Qt is not a tar archive, it's actually just a single .a file
+   # Webkit-for-Qt is not a tar archive. It's actually just a single .a file.
    webkita = tarfilesToDL['Webkit-for-Qt']
    src = path.join(DLDIR, webkita)
    dst = path.join(qtBuildDir, 'src/3rdparty/webkit/WebKitLibraries', webkita)
@@ -536,11 +540,12 @@ def compile_qt():
 
 ################################################################################
 def install_qt():
-   if CLIOPTS.precompiledQt:
-      logprint('Unpacking precompiled Qt.')
-      qtdir = unpack(tarfilesToDL['Qt'])
-      raise RuntimeError('Using precompiled Qt is not supported, yet')
-   else:
+   # We really don't need this arg for now, but maybe it'll be useful later?
+   #if CLIOPTS.precompiledQt:
+   #   logprint('Unpacking precompiled Qt.')
+   #   qtdir = unpack(tarfilesToDL['Qt'])
+   #   raise RuntimeError('Using precompiled Qt is not supported yet.')
+   #else:
       if not path.exists(QTBUILTFLAG):
          compile_qt()
          execAndWait('touch %s' % QTBUILTFLAG)
@@ -552,7 +557,7 @@ def install_qt():
       # Run of this script, so all "make install" steps need to be re-run
       qtInstDir  = path.join(INSTALLDIR, 'qt')
       qtBinDir = path.join(qtInstDir, 'bin')
-      qtBuildDir = path.join(UNPACKDIR, 'qt')
+      qtBuildDir = path.join(UNPACKDIR, 'qt-everywhere-opensource-src-%s' % qtVer)
 
       qtconf = path.join(qtBinDir, 'qt.conf')
       execAndWait('make install', cwd=qtBuildDir)
@@ -605,8 +610,8 @@ def compile_sip():
 ################################################################################
 def compile_pyqt():
    logprint('Install PyQt4')
-#   logprint('Install PyQt5')
-#   if path.exists(path.join(PYSITEPKGS, 'PyQt5')):
+   #logprint('Install PyQt5')
+   #if path.exists(path.join(PYSITEPKGS, 'PyQt5')):
    if path.exists(path.join(PYSITEPKGS, 'PyQt4')):
       logprint('Pyqt is already installed.')
    else:
