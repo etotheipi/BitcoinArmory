@@ -297,6 +297,7 @@ class QRichLabel(QLabel):
       # Fixes a problem with QLabel resizing based on content
       # ACR:  ... and makes other problems.  Removing for now.
       #self.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.MinimumExpanding)
+      #self.setMinimumHeight(int(relaxedSizeStr(self, 'QWERTYqypgj')[1]))
 
    def setText(self, text, color=None, size=None, bold=None, italic=None):
       text = unicode(text)

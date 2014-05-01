@@ -193,9 +193,9 @@ ascDict = {}
 ascDict['SrcFile']   = getPkgFilename('SHAFILE_ASC')
 ascDict['SrcPath']   = os.path.join(inDir, 'installers', ascDict['SrcFile'])
 ascDict['IsHash']    = True
-ascDict['IsBundle']    = True
-ascDict['DstUpload'] = '%s%s' % (s3Release,   pkgDict['SrcFile'])
-ascDict['DstHtml']   = '%s%s' % (htmlRelease, pkgDict['SrcFile'])
+ascDict['IsBundle']  = False
+ascDict['DstUpload'] = '%s%s' % (s3Release,   ascDict['SrcFile'])
+ascDict['DstHtml']   = '%s%s' % (htmlRelease, ascDict['SrcFile'])
 uploads.append(ascDict)
 
 
@@ -259,6 +259,7 @@ for txt in htmlTextList:
 logprint('\nS3CMD UPLOAD COMMANDS')
 for txt in s3cmdList:
    logprint('  '+txt)
+
 
 if not isDryRun:
    

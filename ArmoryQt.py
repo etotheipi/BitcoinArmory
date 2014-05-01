@@ -6328,7 +6328,7 @@ class ArmoryMainWindow(QMainWindow):
       while prgAt[2] != 2:
          time.sleep(0.1)
       if nerrors == 0:
-         self.emit(SIGNAL('UWCS'), [1, 'Wallet Consistency Check', 10000, dlgrdy])
+         self.emit(SIGNAL('UWCS'), [1, 'All wallets are consistent', 10000, dlgrdy])
          self.emit(SIGNAL('checkForNegImports'))
       else:
          while not dlgrdy:

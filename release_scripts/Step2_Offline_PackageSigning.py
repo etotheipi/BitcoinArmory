@@ -15,7 +15,7 @@ from release_settings import getReleaseParams, getMasterPackageList
 #####
 
 
-if len(argv)<6:
+if len(argv)<4:
    import textwrap
    print textwrap.dedent("""
       Script Arguments (* is optional)
@@ -23,8 +23,9 @@ if len(argv)<6:
          argv[1]   inputDir  (from Step1)
          argv[2]   outputDir (for Step3)
          argv[3]   bundleDir 
-         argv[4]*  git branch to tag (default ~ "master")
-         argv[5]*  use testing settings (default ~ "0")
+         argv[4]   isTestingRelease  (default ~ "0")
+         argv[5]*  git branch to tag (default ~ "master")
+         argv[6]*  use testing settings (default ~ "0")
             """) % argv[0]
    exit(1)
 
@@ -32,8 +33,9 @@ if len(argv)<6:
 inDir      = checkExists(argv[1])
 outDir     = argv[2]
 bundleDir  = argv[3]
-gitBranch  = 'master' if len(argv)<4 else argv[4]
-testParams = (len(argv)>5 and not argv[5]=="0")
+isTestRelease = (len(argv)>4 and not argv[4]=="0")
+gitBranch  = 'master' if len(argv)<5 else argv[5]
+testParams = (len(argv)>6 and not argv[6]=="0")
 outDir = makeOutputDir(outDir, wipe=False)
 
 
@@ -259,7 +261,7 @@ def getFileHash(baseDir, fname):
 fnew = open(newDLFile, 'w')
 fnew.write(open(origDLFile, 'r').read())
 fnew.write('\n')
-typeSuffix = 'Testing' if testParams else ''
+typeSuffix = 'Testing' if isTestRelease else ''
 for pkgName,pkgInfo in masterPkgList.iteritems():
    fn = 'armory_%s%s_%s' % (topVerStr, topVerType, pkgInfo['FileSuffix'])
    outputStr = ['Armory%s' % typeSuffix, 
