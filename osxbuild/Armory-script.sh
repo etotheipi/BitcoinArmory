@@ -17,7 +17,7 @@ export DYLD_FRAMEWORK_PATH="${LIBDIR}:${FRDIR}"
 # if there are args to pass.
 #OSXVER=`sw_vers -productVersion | awk '{ print substr( $0, 0, 4 ) }'`
 if [ $# == "0" ]; then
-	$DIRNAME/Python $ARMORYDIR/ArmoryQt.py
+	$FRDIR/Python.framework/Versions/2.7/Resources/Python.app/Contents/MacOS/Python $ARMORYDIR/ArmoryQt.py "$@"
 else
-	$DIRNAME/Python $ARMORYDIR/ArmoryQt.py "$@"
+	$FRDIR/Python.framework/Versions/2.7/Resources/Python.app/Contents/MacOS/Python $ARMORYDIR/ArmoryQt.py "$@"
 fi
