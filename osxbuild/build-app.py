@@ -440,15 +440,8 @@ def compile_python():
 
    # make
    execAndWait('make %s' % MAKEFLAGS, cwd=bldPath)
-   pyexe = path.join(APPDIR, 'Contents/MacOS/Python')
-
-   # make install
-   # HACK: Am applying a temporary hack to get around "Build Applet.app" no
-   # longer being included under Python 2.7.6. To be fixed sooner or later....
-   srcDir = path.join(INSTALLDIR, '../Armory.app/Contents/Frameworks/Python.framework/Versions/2.7/Resources/Python.app/Contents/MacOS/Python')
-   dstDir = path.join(APPDIR, 'Contents/MacOS')
+   # pyexe = path.join(APPDIR, 'Contents/MacOS/Python')
    execAndWait('make install PYTHONAPPSDIR=%s' % INSTALLDIR, cwd=bldPath)
-   execAndWait('cp -p "%s" %s' % (srcDir, dstDir), cwd=bldPath)
 
    # Update $PATH var
    newPath = path.join(PYPREFIX, 'bin')
