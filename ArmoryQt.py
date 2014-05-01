@@ -624,13 +624,25 @@ class ArmoryMainWindow(QMainWindow):
       def openMsgSigning():
          MessageSigningVerificationDialog(self,self).exec_()
 
+      def openBlindBroad():
+         if not self.bitcoindIsAvailable():
+            QMessageBox.warning(self, tr("Not Online"), tr("""
+               Bitcoin Core is not available, so Armory will not be able
+               to broadcast any transactions for you."""), QMessageBox.Ok)
+            return
+         DlgBroadcastBlindTx(self,self).exec_()
+
+
+
       actOpenSigner = self.createAction('&Message Signing/Verification', openMsgSigning)
       if currmode=='Expert':
          actOpenTools  = self.createAction('&EC Calculator',   lambda: DlgECDSACalc(self,self, 1).exec_())
+         actBlindBroad = self.createAction('&Broadcast Raw Transaction', openBlindBroad)
 
       self.menusList[MENUS.Tools].addAction(actOpenSigner)
       if currmode=='Expert':
          self.menusList[MENUS.Tools].addAction(actOpenTools)
+         self.menusList[MENUS.Tools].addAction(actBlindBroad)
 
 
       if not self.usermode==USERMODE.Expert:

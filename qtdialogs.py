@@ -13401,6 +13401,140 @@ class DlgForkedImports(ArmoryDialog):
 ###
 
 
+################################################################################
+class DlgBroadcastBlindTx(ArmoryDialog):
+   def __init__(self, main=None, parent=None):
+      super(DlgBroadcastBlindTx, self).__init__(parent, main)
+
+      self.pytx = None
+
+      lblDescr = QRichLabel(tr("""
+         Copy a raw, hex-encoded transaction below to have Armory 
+         broadcast it to the Bitcoin network.  This function is 
+         provided as a convenience to expert users, and carries 
+         no guarantees of usefulness.
+         <br><br>
+         Specifically, be aware of the following limitations of 
+         this broadcast function:
+         <ul>
+            <li>The transaction will be "broadcast" by sending it
+                to the connected Bitcon Core instance.  If you are
+                broadcasting a non-standard transaction on the main
+                network, it is <b>will</b> to be dropped before it 
+                reaches any other nodes.  Any <i>valid</i> transaction 
+                should work with this dialog on testnet.</li>
+            <li>Only <u>standard</u> transactions will successfully
+                be forwarded by Bitcoin Core on the main Bitcoin 
+                network.  On testnet, any valid transaction <i>should</i>    
+                successfully make it.
+            <li>There will be no feedback as to whether the
+                transaction succeeded.  If the transaction sends 
+                funds directly to or from an address in one of your
+                wallets, you will see it on the main transaction 
+                ledger.  Otherwise, there will be no indication whether
+                it worked or not.</li>
+         </ul>"""))
+
+      self.txtRawTx = QPlainTextEdit()
+      self.txtRawTx.setFont(GETFONT('Fixed', 9))
+      w,h = relaxedSizeNChar(self.txtRawTx, 90)
+      self.txtRawTx.setMinimumWidth(w)
+      self.txtRawTx.setMinimumHeight(h*5)
+      self.connect(self.txtRawTx, SIGNAL('textChanged()'), self.txChanged)
+
+      lblTxInfo = QRichLabel(tr('Parsed Transaction:'))
+
+      self.txtTxInfo = QPlainTextEdit()
+      self.txtTxInfo.setFont(GETFONT('Fixed', 9))
+      self.txtTxInfo.setMinimumWidth(w)
+      self.txtTxInfo.setMinimumHeight(h*7)
+      self.txtTxInfo.setReadOnly(True)
+
+      self.lblInvalid = QRichLabel('')
+
+      self.btnCancel = QPushButton(tr("Cancel"))
+      self.btnBroad  = QPushButton(tr("Broadcast"))
+      self.btnBroad.setEnabled(False)
+      self.connect(self.btnCancel, SIGNAL('clicked()'), self.reject)
+      self.connect(self.btnBroad, SIGNAL('clicked()'), self.doBroadcast)
+      frmButtons = makeHorizFrame(['Stretch', self.btnCancel, self.btnBroad])
+
+      layout = QVBoxLayout()
+      layout.addWidget(lblDescr)
+      layout.addWidget(self.txtRawTx)
+      layout.addWidget(lblTxInfo)
+      layout.addWidget(self.txtTxInfo)
+      layout.addWidget(self.lblInvalid)
+      layout.addWidget(HLINE())
+      layout.addWidget(frmButtons)
+
+      self.setLayout(layout)
+      self.setWindowTitle(tr("Broadcast Raw Transaction"))
+      
+      
+   #############################################################################
+   def txChanged(self):
+      try:
+         txt = str(self.txtRawTx.toPlainText()).strip()
+         txt = ''.join(txt.split())  # removes all whitespace
+         self.pytx = PyTx().unserialize(hex_to_binary(txt))
+         self.txtTxInfo.setPlainText(self.pytx.toString()) 
+         LOGINFO('Valid tx entered:')
+         LOGINFO(self.pytx.toString())
+         self.setReady(True)
+      except:
+         LOGEXCEPT('Failed to parse tx')
+         self.setReady(False)
+         self.pytx = None
+      
+
+   #############################################################################
+   def setReady(self, isTrue):
+      self.btnBroad.setEnabled(isTrue)
+      self.lblInvalid.setText("")
+      if not isTrue:
+         self.txtTxInfo.setPlainText('')
+         if len(str(self.txtRawTx.toPlainText()).strip()) > 0:
+            self.lblInvalid.setText(tr("""<font color="%s"><b>Raw transaction 
+            is invalid!</font></b>""") % htmlColor('TextWarn'))
+
+
+   #############################################################################
+   def doBroadcast(self):
+      txhash = self.pytx.getHash()
+      self.main.NetworkingFactory.sendTx(self.pytx)
+      
+      time.sleep(0.5)
+      msg = PyMessage('getdata')
+      msg.payload.invList.append( [MSG_INV_TX, txhash] )
+      self.main.NetworkingFactory.sendMessage(msg)
+
+      hexhash = binary_to_hex(txhash, endOut=BIGENDIAN)
+      QMessageBox.information(self, tr("Broadcast!"), tr("""
+         Your transaction was successfully sent to the local Bitcoin
+         Core instance, though there is no guarantees that it was
+         forwarded to the rest of the network.   On testnet, just about
+         every valid transaction will successfully propagate.  On the
+         main Bitcoin network, this will fail unless it was a standard
+         transaction type.
+
+         The transaction 
+         had the following hash:
+         <br><br>
+         %s
+         <br><br>
+         If this is test
+         You can check whether it was seen by other nodes on the network
+         blockchain.info (this link will not work on testnet):
+         <br><br>
+         <a href="https://blockchain.info/search/%s">
+         https://blockchain.info/search/%s...</a>""") % \
+         (hexhash, hexhash, hexhash[:16]), QMessageBox.Ok)
+
+      self.accept()
+      
+
+
 
 # Put circular imports at the end
 from ui.WalletFrames import SelectWalletFrame, WalletBackupFrame,\

@@ -548,7 +548,7 @@ class PyTxIn(BlockComponent):
       result = ''.join([result, '\n',  indstr2 + 'TxOutIndex:', \
                                     str(self.outpoint.txOutIndex)])
       result = ''.join([result, '\n',  indstr2 + 'Script:    ', \
-                  '('+binary_to_hex(self.binScript)[:64]+')'])
+                  '('+binary_to_hex(self.binScript)[:64]+'...)'])
       addrStr = TxInExtractAddrStrIfAvail(self)
       if len(addrStr)>0:
          result = ''.join([result, '\n',  indstr2 + 'Sender:    ', addrStr])
