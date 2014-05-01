@@ -60,6 +60,7 @@ from armoryengine.ALL import *
 from jsonrpc import ServiceProxy
 from armoryengine.Decorators import EmailOutput
 from armoryengine.ArmoryUtils import addrStr_to_hash160
+from armoryengine.PyBtcWalletRecovery import ParseWallet
 
 
 # Some non-twisted json imports from jgarzik's code and his UniversalEncoder
@@ -114,7 +115,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
    #############################################################################
    def jsonrpc_listunspent(self):
       utxoList = self.wallet.getTxOutList('unspent')
-      result = [u.serialize() for u in utxoList]
+      result = [u.getOutPoint().serialize() for u in utxoList]
       return result
          
    #############################################################################
@@ -847,6 +848,11 @@ class Armory_Daemon(object):
 
       # Check if armoryd is already running, bail if it is
       self.checkForAlreadyRunning()
+      self.lock = threading.Lock()
+      self.lastChecked
+      
+      #check wallet consistency every hour
+      self.checkStep = 3600
 
       print ''
       print '*'*80
@@ -908,6 +914,13 @@ class Armory_Daemon(object):
 
    #############################################################################
    def start(self):
+      #run a wallet consistency check before starting the BDM
+      self.checkWallet()
+      
+      #try to grab checkWallet lock to block start() until the check is over
+      self.lock.acquire()
+      self.lock.release()
+      
       # This is not a UI so no need to worry about the main thread being blocked.
       # Any UI that uses this Daemon can put the call to the Daemon on it's own thread.
       TheBDM.setBlocking(True)
@@ -1050,6 +1063,22 @@ class Armory_Daemon(object):
             PyTx().unserialize(binunpacker)
       except:
          os.remove(mempoolname);
+         
+   #############################################################################
+   @AllowAsync
+   def checkWallet(self):
+      if self.lock.acquire(False) == False: return
+      wltStatus = ParseWallet(None, self.wallet, 5, None)
+      if wltStatus != 0:
+         print 'Wallet consistency check failed in wallet %s!!!' \
+                % (self.wallet.uniqueIDB58)
+         print 'Aborting...'
+         
+         quit()
+      else:
+         self.lastChecked = datetime.time.now()
+      self.lock.release()
+      
 
    #############################################################################
    def Heartbeat(self, nextBeatSec=1):
@@ -1060,7 +1089,14 @@ class Armory_Daemon(object):
       """
       # Check for new blocks in the blk000X.dat file
       if TheBDM.getBDMState()=='BlockchainReady':
-
+         
+         #check wallet every checkStep seconds
+         nextCheck = self.lastChecked + \
+                     datetime.timedelta(seconds=self.checkStep)
+         if nextCheck >= datetime.time.now():
+            self.checkWallet()
+         
+         # Check for new blocks in the blk000X.dat file         
          prevTopBlock = TheBDM.getTopBlockHeight()
          newBlks = TheBDM.readBlkFileUpdate()
          if newBlks>0:

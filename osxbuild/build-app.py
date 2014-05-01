@@ -99,6 +99,7 @@ def main():
    cleanup_app()
    # Force Finder to update the Icon
    execAndWait("touch " + APPDIR)
+   make_targz()
 
 ################################################################################
 # Write the string to both console and log file
@@ -697,6 +698,27 @@ def cleanup_app():
    remove_python_files(PYPREFIX)
    remove_python_files(path.join(APPDIR, 'Contents/MacOS/py'))
    show_app_size()
+
+################################################################################
+def make_targz():
+   ver = getVersionStr()
+   execAndWait('tar -zcf ../armory_%s_osx.tar.gz Armory.app' % ver, cwd=WORKDIR)
+
+################################################################################
+def getVersionStr():
+   with open('../armoryengine/ArmoryUtils.py') as f:
+      for line in f.readlines():
+         if line.startswith('BTCARMORY_VERSION'):
+            vstr = line[line.index('(')+1:line.index(')')]
+            vquad = tuple([int(v) for v in vstr.replace(' ','').split(',')])
+            print vquad, len(vquad)
+            vstr = '%d.%02d' % vquad[:2]
+            if (vquad[2] > 0 or vquad[3] > 0):
+               vstr += '.%d' % vquad[2]
+            if vquad[3] > 0:
+               vstr += '.%d' % vquad[3]
+            return vstr
+
 
 ################################################################################
 def show_app_size():

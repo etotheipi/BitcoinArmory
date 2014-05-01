@@ -38,6 +38,7 @@ HORIZONTAL = 'horizontal'
 CHANGE_ADDR_DESCR_STRING = '[[ Change received ]]'
 HTTP_VERSION_FILE = 'https://bitcoinarmory.com/versions.txt'
 BUG_REPORT_URL = 'https://bitcoinarmory.com/scripts/receive_debug.php'
+PRIVACY_URL = 'https://bitcoinarmory.com/privacy-policy'
 # For announcements handling
 ANNOUNCE_FETCH_INTERVAL = 1 * HOUR
 if CLI_OPTIONS.testAnnounceCode:
@@ -296,6 +297,7 @@ class QRichLabel(QLabel):
       # Fixes a problem with QLabel resizing based on content
       # ACR:  ... and makes other problems.  Removing for now.
       #self.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.MinimumExpanding)
+      #self.setMinimumHeight(int(relaxedSizeStr(self, 'QWERTYqypgj')[1]))
 
    def setText(self, text, color=None, size=None, bold=None, italic=None):
       text = unicode(text)
@@ -434,7 +436,8 @@ class QLabelButton(QLabel):
 ################################################################################
 # The optionalMsg argument is not word wrapped so the caller is responsible for limiting
 # the length of the longest line in the optionalMsg
-def MsgBoxCustom(wtype, title, msg, wCancel=False, yesStr=None, noStr=None, optionalMsg=None): 
+def MsgBoxCustom(wtype, title, msg, wCancel=False, yesStr=None, noStr=None, 
+                                                      optionalMsg=None): 
    """
    Creates a message box with custom button text and icon
    """
@@ -467,6 +470,7 @@ def MsgBoxCustom(wtype, title, msg, wCancel=False, yesStr=None, noStr=None, opti
          lblMsg.setTextFormat(Qt.RichText)
          lblMsg.setWordWrap(True)
          lblMsg.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+         lblMsg.setOpenExternalLinks(True)
          w,h = tightSizeNChar(lblMsg, 70)
          lblMsg.setMinimumSize( w, 3.2*h )
          buttonbox = QDialogButtonBox()
