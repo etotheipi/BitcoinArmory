@@ -16,7 +16,7 @@ from subprocess import Popen, PIPE
 
 # Set some constants up front
 #swigBinVer = '2.0.12'
-pythonVer  = '2.7.5'
+pythonVer  = '2.7.6'
 setToolVer = '2.1.2'
 pipVer     = '1.5.2'
 psutilVer  = '1.2.1'
@@ -223,9 +223,14 @@ def getTarUnpackPath(tarName, inDir=None):
    if inDir is not None:
       tarPath = path.join(inDir, tarName)
 
-   tar = tarfile.open(tarPath,'r')
-   theDir = tar.next().name.split('/')[0]
-   tar.close()
+   # HACK: XZ support was added to tarfile.open() in Python 3.3. Can't use for
+   # now, so we'll have to apply a hack to get around this.
+   if tarName == "Python-%s.tar.xz" % pythonVer:
+      theDir = "Python-%s" % pythonVer
+   else:
+      tar = tarfile.open(tarPath,'r')
+      theDir = tar.next().name.split('/')[0]
+      tar.close()
    return theDir
 
 ################################################################################
@@ -241,7 +246,7 @@ def unpack(tarName, fromDir=DLDIR, toDir=UNPACKDIR, overwrite=False):
    if not path.exists(toDir):
       os.mkdir(toDir)
 
-   # Use tarfile module to pick out the base dir u
+   # Use tarfile module to pick out the base dir.
    extractPath = getTarUnpackPath(tarName, fromDir)
    extractPath = path.join(toDir, extractPath)
    if path.exists(extractPath):
@@ -255,6 +260,8 @@ def unpack(tarName, fromDir=DLDIR, toDir=UNPACKDIR, overwrite=False):
       execAndWait('tar -zxf %s -C %s' % (tardl, toDir))
    elif tarName.endswith('tar.bz2') or tarName.endswith('tbz'):
       execAndWait('tar -jxf %s -C %s' % (tardl, toDir))
+   elif tarName.endswith('tar.xz') or tarName.endswith('xz'):
+      execAndWait('tar -Jxf %s -C %s' % (tardl, toDir))
    else:
       raise RuntimeError('Not a recognized tar name')
    newStuff = []
@@ -304,9 +311,9 @@ def downloadPkg(pkgname, fname, url, ID, toDir=DLDIR):
 # (Name, filename, url, sha-1 or None)
 distfiles = []
 distfiles.append( [ 'Python', \
-                    "Python-%s.tar.bz2" % pythonVer, \
-                    "http://python.org/ftp/python/%s/Python-%s.tar.bz2" % (pythonVer, pythonVer), \
-                    "6cfada1a739544a6fa7f2601b500fba02229656b" ] )
+                    "Python-%s.tar.xz" % pythonVer, \
+                    "http://python.org/ftp/python/%s/Python-%s.tar.xz" % (pythonVer, pythonVer), \
+                    "8321636af2acbeaa68fc635d7dda7369ed446a80" ] )
 
 distfiles.append( [ 'setuptools', \
                     "setuptools-%s.tar.gz" % setToolVer, \
