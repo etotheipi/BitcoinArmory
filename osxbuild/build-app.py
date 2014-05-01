@@ -300,6 +300,9 @@ def downloadPkg(pkgname, fname, url, ID, toDir=DLDIR):
    # Start the download if needed
    if doDL:
       if isGitRepo:
+         # NB: The "git checkout" line appears to be temporarily broken. As of
+         # May 2014, we're passing in "4.8" for Qt. The actual repository is
+         # "qt" but the default branch is "4.8", so we're okay. Clean up later?
          logprint('Cloning "%s" to "%s"' % (url, clonedir))
          execAndWait('git clone %s' % url, cwd=toDir)
          execAndWait('git checkout %s' % ID) 
@@ -440,7 +443,9 @@ def compile_python():
    pyexe = path.join(APPDIR, 'Contents/MacOS/Python')
 
    # make install
-   srcDir = path.join(INSTALLDIR, 'Build Applet.app/Contents/MacOS/Python')
+   # HACK: Am applying a temporary hack to get around "Build Applet.app" no
+   # longer being included under Python 2.7.6. To be fixed sooner or later....
+   srcDir = path.join(INSTALLDIR, '../Armory.app/Contents/Frameworks/Python.framework/Versions/2.7/Resources/Python.app/Contents/MacOS/Python')
    dstDir = path.join(APPDIR, 'Contents/MacOS')
    execAndWait('make install PYTHONAPPSDIR=%s' % INSTALLDIR, cwd=bldPath)
    execAndWait('cp -p "%s" %s' % (srcDir, dstDir), cwd=bldPath)
