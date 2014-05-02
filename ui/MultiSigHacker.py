@@ -336,8 +336,6 @@ class DlgLockboxEditor(ArmoryDialog):
       for i in range(self.maxN):
 
          pkStr = str(self.widgetMap[i]['EDT_PUBK'].text())
-         if not 'forceUpdate' in kwargs and len(pkStr) == self.prevTextLength[i]:
-            continue
 
          self.prevTextLength[i] = len(pkStr)
 
@@ -361,11 +359,10 @@ class DlgLockboxEditor(ArmoryDialog):
             self.widgetMap[i]['LBL_ASTR'].setText( \
                '<font color="%s">%s</font>' % \
                (htmlColor("TextBlue"), addrStr))
-            if len(str(self.widgetMap[i]['LBL_NAME'].text()).strip())==0:
-               self.widgetMap[i]['LBL_NAME'].setText( \
-                  '%s (%s)' % (self.main.walletMap[wid].labelName, wid))
+            self.widgetMap[i]['LBL_NAME'].setText( \
+               '%s (%s)' % (self.main.walletMap[wid].labelName, wid))
             self.widgetMap[i]['LBL_NAME'].setStyleSheet( \
-                     'QLabel {color : "%s"; }' % htmlColor('TextBlue'))
+               'QLabel {color : "%s"; }' % htmlColor('TextBlue'))
 
       # Disable the continue button if not all keys are in
       M = int(str(self.comboM.currentText()))
