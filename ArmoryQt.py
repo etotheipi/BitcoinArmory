@@ -5647,8 +5647,9 @@ class ArmoryMainWindow(QMainWindow):
                notifyOut = self.getSettingOrSetDefault('NotifyBtcOut', not OS_MACOSX)
                if (le.getValue() <= 0 and notifyOut) or (le.getValue() > 0 and notifyIn):
                   self.notifyQueue.append([wltID, le, False]) # notifiedAlready=False
-               self.createCombinedLedger()
-               self.walletModel.reset()
+               
+      self.createCombinedLedger()
+      self.walletModel.reset()
 
    #############################################################################
    @TimeThisFunction
