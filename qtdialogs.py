@@ -1432,7 +1432,7 @@ class DlgWalletDetails(ArmoryDialog):
       self.lblUnc.setText('<b>Unconfirmed:</b>')
 
       # if self.main.blkMode in (BLOCKCHAINMODE.Offline, BLOCKCHAINMODE.Rescanning):
-      if TheBDM.getBDMState() in ('Uninitialized', 'Offline', 'Scanning'):
+      if TheBDM.getState() in ('Uninitialized', 'Offline', 'Scanning'):
          totStr = '-' * 12
          spdStr = '-' * 12
          ucnStr = '-' * 12
@@ -2855,7 +2855,7 @@ class DlgImportAddress(ArmoryDialog):
          if TheBDM.getBDMState() == 'BlockchainReady':
             nblk = TheBDM.numBlocksToRescan(self.wlt.cppWallet, wait=True)
             if nblk < 2016:
-               self.wlt.syncWithBlockchain(0)
+               self.wlt.syncWithBlockchainLite(0)
                QMessageBox.information(self, 'Import Successful', \
                   'The address was imported into your wallet successfully, and '
                   'all the information needed to acquire its balance was already '
@@ -3078,7 +3078,7 @@ class DlgImportAddress(ArmoryDialog):
          if TheBDM.getBDMState() == 'BlockchainReady':
             nblk = TheBDM.numBlocksToRescan(self.wlt.cppWallet, wait=True)
             if nblk < 2016:
-               self.wlt.syncWithBlockchain(0)
+               self.wlt.syncWithBlockchainLite(0)
                QMessageBox.information(self, 'Import Successful', \
                   'The addresses were imported into your wallet successfully, and '
                   'all the information needed to acquire their balances were already '
@@ -3358,7 +3358,7 @@ class DlgAddressInfo(ArmoryDialog):
             'This is the current <i>spendable</i> balance of this address, '
             'not including zero-confirmation transactions from others.'))
       lbls[-1].append(QRichLabel('<b>Current Balance</b>'))
-      balCoin = cppAddr.getSpendableBalance(self.main.currBlockNum, IGNOREZC)
+      balCoin = cppAddr.getSpendableBalance(TheBDM.getCurrBlock(), IGNOREZC)
       balStr = coin2str(balCoin, maxZeros=1)
       if balCoin > 0:
          goodColor = htmlColor('MoneyPos')
@@ -4140,7 +4140,7 @@ class DlgRemoveWallet(ArmoryDialog):
       #        But I should verify that this is actually the case.
       wltEmpty = True
       if TheBDM.getBDMState() == 'BlockchainReady':
-         wlt.syncWithBlockchain()
+         wlt.syncWithBlockchainLite()
          bal = wlt.getBalance('Full')
          lbls.append([])
          lbls[3].append(QLabel('Current Balance (w/ unconfirmed):'))
@@ -4373,7 +4373,7 @@ class DlgRemoveWallet(ArmoryDialog):
                wlt.forkOnlineWallet(newWltPath, wlt.labelName, wlt.labelDescr)
                newWlt = PyBtcWallet().readWalletFile(newWltPath)
                newWlt.setBlockchainSyncFlag(BLOCKCHAIN_READONLY)
-               newWlt.syncWithBlockchain()
+               newWlt.syncWithBlockchainLite()
 
                os.remove(thepath)
                os.remove(thepathBackup)
@@ -4436,7 +4436,6 @@ class DlgRemoveAddress(ArmoryDialog):
 
       addrEmpty = True
       if TheBDM.getBDMState() == 'BlockchainReady':
-         # wlt.syncWithBlockchain()
          bal = wlt.getAddrBalance(addr160, 'Full')
          lbls.append([])
          lbls[-1].append(QLabel('Address Balance (w/ unconfirmed):'))

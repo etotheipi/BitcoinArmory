@@ -29,6 +29,8 @@
 
 %include "std_string.i"
 %include "std_vector.i"
+%include "std_set.i"
+%include "std_map.i"
 
 %typedef std::string string;
 %typedef unsigned char      uint8_t;
@@ -58,7 +60,14 @@ namespace std
    %template(vector_BtcWallet) std::vector<BtcWallet*>;
    %template(vector_AddressBookEntry) std::vector<AddressBookEntry>;
    %template(vector_RegisteredTx) std::vector<RegisteredTx>;
+   %template(set_BtcWallet) std::set<BtcWallet*>;
+   %template(map_rsa) std::map<BinaryData, RegisteredScrAddr>;
 }
+
+%include "ThreadSafeContainer.h"
+
+%template(ts_setBtcWallet) ThreadSafeSTL<set_BtcWallet>;
+
 /******************************************************************************/
 /* Convert Python(str) to C++(BinaryData) */
 %typemap(in) BinaryData

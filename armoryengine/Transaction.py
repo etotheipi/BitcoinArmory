@@ -902,7 +902,7 @@ class PyTxDistProposal(object):
       self.relevantTxMap  = {}  # needed to support input values of each TxIn
       self.p2shScripts    = []
 
-      if len(txMap)==0 and not TheBDM.getBDMState()=='BlockchainReady':
+      if len(txMap)==0 and not TheBDM.getState()=='BlockchainReady':
          # TxDP includes the transactions that supply the inputs to this 
          # transaction, so the BDM needs to be available to fetch those.
          raise BlockchainUnavailableError, ('Must input supporting transactions '
@@ -922,8 +922,8 @@ class PyTxDistProposal(object):
                raise InvalidHashError, ('Could not find the referenced tx '
                                         'in supplied txMap')
             pyPrevTx = txMap[txhash].copy()
-         elif TheBDM.getBDMState()=='BlockchainReady':
-            cppPrevTx = TheBDM.getTxByHash(txhash)
+         elif TheBDM.getState()=='BlockchainReady':
+            cppPrevTx = TheBDM.bdm.getTxByHash(txhash)
             if not cppPrevTx:
                raise InvalidHashError, 'Could not find the referenced tx'
             pyPrevTx = PyTx().unserialize(cppPrevTx.serialize())
@@ -1546,8 +1546,8 @@ def determineSentToSelfAmt(le, wlt):
           creative with this tx, this may not actually work.
    """
    amt = 0
-   if TheBDM.isInitialized() and le.isSentToSelf():
-      txref = TheBDM.getTxByHash(le.getTxHash())
+   if le.isSentToSelf():
+      txref = TheBDM.bdm.getTxByHash(le.getTxHash())
       if not txref.isInitialized():
          return (0, 0)
       if txref.getNumTxOut()==1:

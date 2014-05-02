@@ -88,8 +88,8 @@
       </PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
-      <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;_CRT_SECURE_NO_WARNINGS;_VARIADIC_MAX=10
-;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_DEBUG;_CRT_SECURE_NO_WARNINGS;_VARIADIC_MAX=10
+;USE_CONDVAR;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>..\leveldb;..\leveldb\include;..\leveldb_windows_port\win32_posix;..\gtest\gtest;..\cryptopp;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
     </ClCompile>
@@ -126,7 +126,7 @@
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;_CRT_SECURE_NO_WARNINGS;_VARIADIC_MAX=10;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>NDEBUG;_CRT_SECURE_NO_WARNINGS;_VARIADIC_MAX=10;USE_CONDVAR;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>..\leveldb;..\leveldb\include;..\leveldb_windows_port\win32_posix;..\cryptopp;C:\Python27\include;C:\Python26\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
     </ClCompile>
@@ -174,6 +174,7 @@
     <ClInclude Include="..\UniversalTimer.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\BDM_mainthread.cpp" />
     <ClCompile Include="..\BinaryData.cpp" />
     <ClCompile Include="..\Blockchain.cpp" />
     <ClCompile Include="..\BlockObj.cpp" />

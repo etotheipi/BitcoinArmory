@@ -1,7 +1,7 @@
 #ifndef BDM_MAINTHREAD_H
 #define BDM_MAINTHREAD_H
 
-#include "BlockUtils.h"
+#include "pthread.h"
 
 #ifdef _MSC_VER
    #ifndef _WIN32_
@@ -13,10 +13,11 @@ class BDM_CallBack
 {
 public:
    virtual ~BDM_CallBack();
-   virtual void run(int action, int arg)=0;
+   virtual void run(int action, int arg, int block=0)=0;
 };
 
 // let an outsider call functions from the BDM thread
+
 class BDM_Inject
 {
    struct BDM_Inject_Impl;
@@ -35,11 +36,20 @@ public:
    void wait(unsigned ms);
 };
 
+class BlockDataManager_LevelDB;
+
 BlockDataManager_LevelDB *startBDM(
    int mode,
    BDM_CallBack *callback,
    BDM_Inject *inject
 );
 
+struct ThreadParams
+{
+   BlockDataManager_LevelDB *bdm;
+   BDM_CallBack *callback;
+   BDM_Inject *inject;
+   pthread_t tID;
+};
 
 #endif

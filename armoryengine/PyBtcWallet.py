@@ -256,40 +256,6 @@ class PyBtcWallet(object):
 
    #############################################################################
    @TimeThisFunction
-   def syncWithBlockchain(self, startBlk=None):
-      """
-      Will block until getTopBlockHeader() returns, which could be a while.
-      If you don't want to wait, check TheBDM.getBDMState()=='BlockchainReady'
-      before calling this method.  If you expect the blockchain will have to
-      be rescanned, then call TheBDM.rescanBlockchain or TheBDM.loadBlockchain
-
-      If this method is called from the BDM itself, calledFromBDM will signal
-      to use the BDM methods directly, not the queue.  This will deadlock 
-      otherwise.
-      """
-      if TheBDM.getBDMState() in ('Offline', 'Uninitialized'):
-         LOGWARN('Called syncWithBlockchain but BDM is %s', TheBDM.getBDMState())
-         return
-
-      if not self.doBlockchainSync==BLOCKCHAIN_DONOTUSE:
-         if startBlk==None:
-            startBlk = self.lastSyncBlockNum + 1
-
-         # calledFromBDM means that ultimately the BDM itself called this
-         # method and is blocking waiting for it.  So we can't use the 
-         # BDM-thread queue, must call its methods directly
-         if self.calledFromBDM:
-            #TheBDM.scanBlockchainForTx_bdm_direct(self.cppWallet, startBlk)
-            self.lastSyncBlockNum = TheBDM.getTopBlockHeight_bdm_direct()
-         else:
-            #TheBDM.queued(lambda : TheBDM.bdm.scanBlockchainForTx(self.cppWallet, startBlk) )
-            self.lastSyncBlockNum = TheBDM.queued( lambda : TheBDM.bdm.blockchain().top().getBlockHeight() )    
-      else:
-         LOGERROR('Blockchain-sync requested, but current wallet')
-         LOGERROR('is set to BLOCKCHAIN_DONOTUSE')
-
-   #############################################################################
-   @TimeThisFunction
    def syncWithBlockchainLite(self, startBlk=None):
       """
       This is just like a regular sync, but it won't rescan the whole blockchain
@@ -298,38 +264,21 @@ class PyBtcWallet(object):
       non-lite version to allow a full scan.
       """
 
-      if TheBDM.getBDMState() in ('Offline', 'Uninitialized'):
-         LOGWARN('Called syncWithBlockchainLite but BDM is %s', TheBDM.getBDMState())
-         return
-
-      if not self.doBlockchainSync==BLOCKCHAIN_DONOTUSE:
-         # calledFromBDM means that ultimately the BDM itself called this
-         # method and is blocking waiting for it.  So we can't use the 
-         # BDM-thread queue, must call its methods directly
-         
-         if self.calledFromBDM:
-            #TheBDM.scanRegisteredTxForWallet_bdm_direct(self.cppWallet, startBlk)
-            self.lastSyncBlockNum = TheBDM.getTopBlockHeight_bdm_direct()
-         else:
-            #TheBDM.queued( lambda : TheBDM.bdm.scanRegisteredTxForWallet(self.cppWallet, startBlk) )
-            self.lastSyncBlockNum = TheBDM.queued( lambda : TheBDM.bdm.blockchain().top().getBlockHeight() )
+      self.lastSyncBlockNum = TheBDM.getCurrBlock()
             
-            wltLE = self.cppWallet.getTxLedgerForComments()
-            for le in wltLE:
-               txHash = le.getTxHash()
-               if not self.txAddrMap.has_key(txHash):
-                  self.txAddrMap[txHash] = []
-               scrAddr = SecureBinaryData(le.getScrAddr())
-               try:
-                  addrStr = scrAddr_to_addrStr(scrAddr.toBinStr())
-                  addr160 = addrStr_to_hash160(addrStr)[1] 
-                  if addr160 not in self.txAddrMap[txHash]:              
-                     self.txAddrMap[txHash].append(addr160)
-               except:
-                  continue
-      else:
-         LOGERROR('Blockchain-sync requested, but current wallet')
-         LOGERROR('is set to BLOCKCHAIN_DONOTUSE')
+      wltLE = self.cppWallet.getTxLedgerForComments()
+      for le in wltLE:
+         txHash = le.getTxHash()
+         if not self.txAddrMap.has_key(txHash):
+            self.txAddrMap[txHash] = []
+         scrAddr = SecureBinaryData(le.getScrAddr())
+         try:
+            addrStr = scrAddr_to_addrStr(scrAddr.toBinStr())
+            addr160 = addrStr_to_hash160(addrStr)[1] 
+            if addr160 not in self.txAddrMap[txHash]:              
+               self.txAddrMap[txHash].append(addr160)
+         except:
+            continue
 
    #############################################################################
    def getCommentForAddrBookEntry(self, abe):
@@ -387,24 +336,20 @@ class PyBtcWallet(object):
    # change was always deprioritized, but using --nospendzeroconfchange makes
    # it totally unspendable
    def getBalance(self, balType="Spendable"):
-      if not TheBDM.getBDMState()=='BlockchainReady' and not self.calledFromBDM:
-         return -1
+      currBlk = TheBDM.getCurrBlock()
+      if balType.lower() in ('spendable','spend'):
+         return self.cppWallet.getSpendableBalance(currBlk, IGNOREZC)
+      elif balType.lower() in ('unconfirmed','unconf'):
+         return self.cppWallet.getUnconfirmedBalance(currBlk, IGNOREZC)
+      elif balType.lower() in ('total','ultimate','unspent','full'):
+         return self.cppWallet.getFullBalance()
       else:
-         currBlk = TheBDM.queued( lambda : TheBDM.bdm.blockchain().top().getBlockHeight() )
-         if balType.lower() in ('spendable','spend'):
-            return self.cppWallet.getSpendableBalance(currBlk, IGNOREZC)
-         elif balType.lower() in ('unconfirmed','unconf'):
-            return self.cppWallet.getUnconfirmedBalance(currBlk, IGNOREZC)
-         elif balType.lower() in ('total','ultimate','unspent','full'):
-            return self.cppWallet.getFullBalance()
-         else:
-            raise TypeError('Unknown balance type! "' + balType + '"')
+         raise TypeError('Unknown balance type! "' + balType + '"')
 
 
    #############################################################################
    def getAddrBalance(self, addr160, balType="Spendable", currBlk=UINT32_MAX):
-      if (not TheBDM.getBDMState()=='BlockchainReady' and not self.calledFromBDM) or \
-                                                               not self.hasAddr(addr160):
+      if not self.hasAddr(addr160):
          return -1
       else:
          addr = self.cppWallet.getScrAddrObjByKey(Hash160ToScrAddr(addr160))
@@ -422,33 +367,29 @@ class PyBtcWallet(object):
       """ 
       Gets the ledger entries for the entire wallet, from C++/SWIG data structs
       """
-      if not TheBDM.getBDMState()=='BlockchainReady' and not self.calledFromBDM:
-         return []
+      ledgBlkChain = self.cppWallet.getTxLedger()
+      ledgZeroConf = self.cppWallet.getZeroConfLedger()
+      if ledgType.lower() in ('full','all','ultimate'):
+         ledg = []
+         ledg.extend(ledgBlkChain)
+         ledg.extend(ledgZeroConf)
+         return ledg
+      elif ledgType.lower() in ('blk', 'blkchain', 'blockchain'):
+         return ledgBlkChain
+      elif ledgType.lower() in ('zeroconf', 'zero'):
+         return ledgZeroConf
       else:
-         ledgBlkChain = self.cppWallet.getTxLedger()
-         ledgZeroConf = self.cppWallet.getZeroConfLedger()
-         if ledgType.lower() in ('full','all','ultimate'):
-            ledg = []
-            ledg.extend(ledgBlkChain)
-            ledg.extend(ledgZeroConf)
-            return ledg
-         elif ledgType.lower() in ('blk', 'blkchain', 'blockchain'):
-            return ledgBlkChain
-         elif ledgType.lower() in ('zeroconf', 'zero'):
-            return ledgZeroConf
-         else:
-            raise TypeError('Unknown ledger type! "' + ledgType + '"')
+         raise TypeError('Unknown ledger type! "' + ledgType + '"')
 
 
 
 
-   #############################################################################
+   ############################################################################
    def getAddrTxLedger(self, addr160, ledgType='Full'):
       """ 
       Gets the ledger entries for the entire wallet, from C++/SWIG data structs
       """
-      if (not TheBDM.getBDMState()=='BlockchainReady' and not self.calledFromBDM) or \
-                                                            not self.hasAddr(addr160):
+      if not self.hasAddr(addr160):
          return []
       else:
          scrAddr = Hash160ToScrAddr(addr160)
@@ -470,11 +411,9 @@ class PyBtcWallet(object):
    #############################################################################
    def getTxOutList(self, txType='Spendable'):
       """ Returns UnspentTxOut/C++ objects """
-      if TheBDM.getBDMState()=='BlockchainReady' and \
-         not self.doBlockchainSync==BLOCKCHAIN_DONOTUSE:
+      if not self.doBlockchainSync==BLOCKCHAIN_DONOTUSE:
 
-         currBlk = TheBDM.queued( lambda : TheBDM.bdm.blockchain().top().getBlockHeight() )
-         self.syncWithBlockchain()
+         currBlk = TheBDM.getCurrBlock()
          if txType.lower() in ('spend', 'spendable'):
             return self.cppWallet.getSpendableTxOutList(currBlk, IGNOREZC);
          elif txType.lower() in ('full', 'all', 'unspent', 'ultimate'):
@@ -488,16 +427,11 @@ class PyBtcWallet(object):
    #############################################################################
    def getAddrTxOutList(self, addr160, txType='Spendable'):
       """ Returns UnspentTxOut/C++ objects """
-      if TheBDM.getBDMState()=='BlockchainReady' and \
-            self.hasAddr(addr160) and \
-            not self.doBlockchainSync==BLOCKCHAIN_DONOTUSE:
+      if not self.doBlockchainSync==BLOCKCHAIN_DONOTUSE:
 
-         if self.calledFromBDM:
-            currBlk = TheBDM.bdm.blockchain().top().getBlockHeight()
-         else:
-            currBlk = TheBDM.queued(lambda : TheBDM.bdm.blockchain().top().getBlockHeight())
+         currBlk = TheBDM.getCurrBlock()
     
-         self.syncWithBlockchain()
+         self.syncWithBlockchainLite()
          scrAddrStr = Hash160ToScrAddr(addr160)
          cppAddr = self.cppWallet.getScrAddrObjByKey(scrAddrStr)
          if txType.lower() in ('spend', 'spendable'):
@@ -664,7 +598,7 @@ class PyBtcWallet(object):
 
       # We might be holding the wallet temporarily and not ready to register it
       if doRegisterWithBDM:
-         TheBDM.registerWallet(self.cppWallet, isFresh=isActuallyNew) # new wallet
+         TheBDM.registerWallet(self.cppWallet, isFresh=isActuallyNew)
 
       newfile.write(fileData.getBinaryString())
       newfile.close()
@@ -836,7 +770,7 @@ class PyBtcWallet(object):
 
       # We might be holding the wallet temporarily and not ready to register it
       if doRegisterWithBDM:
-         TheBDM.registerWallet(self.cppWallet, isFresh=isActuallyNew) # new wallet
+         TheBDM.registerWallet(self.cppWallet, isFresh=isActuallyNew)
 
 
       newfile.write(fileData.getBinaryString())
@@ -930,20 +864,14 @@ class PyBtcWallet(object):
 
       # In the future we will enable first/last seen, but not yet
       time0,blk0 = getCurrTimeAndBlock() if isActuallyNew else (0,0)
-      self.cppWallet.addScrAddress_5_(Hash160ToScrAddr(new160), \
+      if doRegister:
+         self.cppWallet.addScrAddress_5_(Hash160ToScrAddr(new160), \
                                    time0,blk0,time0,blk0)
 
       # For recovery rescans, this method will be called directly by
       # the BDM, which may cause a deadlock if we go through the 
       # thread queue.  The calledFromBDM is "permission" to access the
       # BDM private methods directly
-      if doRegister:
-         if self.calledFromBDM:
-            TheBDM.registerScrAddr_bdm_direct(Hash160ToScrAddr(new160), timeInfo=isActuallyNew)
-         else:
-            # This uses the thread queue, which means the address will be
-            # registered next time the BDM is not busy
-            TheBDM.registerScrAddr(Hash160ToScrAddr(new160), isFresh=isActuallyNew)
 
       return new160
       
@@ -1037,15 +965,12 @@ class PyBtcWallet(object):
       which will actually extend the address pool as necessary to find the
       highest address used.      
       """
-      if not TheBDM.getBDMState()=='BlockchainReady' and not self.calledFromBDM:
-         LOGERROR('Cannot detect any usage information without the blockchain')
-         return -1
 
       oldSync = self.doBlockchainSync
       self.doBlockchainSync = BLOCKCHAIN_READONLY
       if fullscan:
          # Will initiate rescan if wallet is dirty
-         self.syncWithBlockchain(self.lastSyncBlockNum)  
+         self.syncWithBlockchainLite(self.lastSyncBlockNum)  
       else:
          # Will only use data already scanned, even if wallet is dirty
          self.syncWithBlockchainLite(self.lastSyncBlockNum)  
@@ -1674,13 +1599,10 @@ class PyBtcWallet(object):
 
    #############################################################################
    def getAddrCommentIfAvail(self, txHash):
-      if not TheBDM.getBDMState()=='BlockchainReady':
-         return self.getComment(txHash)
-         
       # If we haven't extracted relevant addresses for this tx, yet -- do it
       if not self.txAddrMap.has_key(txHash):
          self.txAddrMap[txHash] = []
-         tx = TheBDM.getTxByHash(txHash)
+         tx = TheBDM.bdm.getTxByHash(txHash)
          if tx.isInitialized():
             for i in range(tx.getNumTxOut()):
                txout = tx.getTxOutCopy(i)
@@ -1948,7 +1870,7 @@ class PyBtcWallet(object):
       wltfile.close()
 
       self.cppWallet = Cpp.BtcWallet()
-      TheBDM.bdm.registerWallet( self.cppWallet )
+      TheBDM.registerWallet( self.cppWallet )
       self.unpackHeader(wltdata)
 
       self.lastComputedChainIndex = -UINT32_MAX
@@ -1996,7 +1918,7 @@ class PyBtcWallet(object):
           self.doBlockchainSync==BLOCKCHAIN_DONOTUSE):
          pass
       else:
-         self.syncWithBlockchain()
+         self.syncWithBlockchainLite()
 
 
       ### Update the wallet version if necessary ###
@@ -2418,9 +2340,6 @@ class PyBtcWallet(object):
 
       # The following line MAY deadlock if this method is called from the BDM
       # thread.  Do not write any BDM methods that calls this method!
-      TheBDM.registerImportedScrAddr(Hash160ToScrAddr(newAddr160), 
-                                     firstTime, firstBlk, lastTime,  lastBlk)
-
 
       return newAddr160
 

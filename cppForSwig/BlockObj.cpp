@@ -493,6 +493,7 @@ Tx::Tx(TxRef  txref)
 void Tx::unserialize(uint8_t const * ptr, uint32_t size)
 {
    uint32_t nBytes = BtcUtils::TxCalcLength(ptr, size, &offsetsTxIn_, &offsetsTxOut_);
+   
    if (nBytes > size)
       throw BlockDeserializingException();
    dataCopy_.copyFrom(ptr, nBytes);

@@ -198,7 +198,7 @@ class SelectWalletFrame(ArmoryFrame):
          self.dispDescr.setText(wlt.labelDescr)
          self.selectedID = wltID
          
-         if not TheBDM.getBDMState() == 'BlockchainReady':
+         if not TheBDM.getState() == 'BlockchainReady':
             self.dispBal.setText('-' * 12)
          else:
             bal = wlt.getBalance('Spendable')
@@ -240,7 +240,7 @@ class SelectWalletFrame(ArmoryFrame):
          self.dispBal.setText(rawValTxt + ' <font color="%s">(of %s)</font>' % \
                                     (htmlColor('DisableFG'), coin2str(fullBal, maxZeros=0)))
 
-      if not TheBDM.getBDMState() == 'BlockchainReady':
+      if not TheBDM.getState() == 'BlockchainReady':
          self.dispBal.setText('(available when online)', color='DisableFG')
       self.repaint()
       if self.coinControlCallback:

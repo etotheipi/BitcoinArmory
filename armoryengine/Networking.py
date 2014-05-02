@@ -186,18 +186,18 @@ class ArmoryClient(Protocol):
          getdataMsg = PyMessage('getdata')
          for inv in invobj.invList:
             if inv[0]==MSG_INV_BLOCK:
-               if self.factory.bdm and (self.factory.bdm.getBDMState()=='Scanning' or \
-                  self.factory.bdm.queued( lambda : self.factory.bdm.bdm.blockchain().hasHeaderWithHash(inv[1]))):
+               if self.factory.bdm and (self.factory.bdm.getState()=='Scanning' or \
+                  self.factory.bdm.bdm.blockchain().hasHeaderWithHash(inv[1])):
                   continue
                getdataMsg.payload.invList.append(inv)
             if inv[0]==MSG_INV_TX:
-               if self.factory.bdm and (self.factory.bdm.getBDMState()=='Scanning' or \
-                  self.factory.bdm.queued( lambda : self.factory.bdm.bdm.hasTxWithHash(inv[1]))):
+               if self.factory.bdm and (self.factory.bdm.getState()=='Scanning' or \
+                  self.factory.bdm.bdm.hasTxWithHash(inv[1])):
                   continue
                getdataMsg.payload.invList.append(inv)
 
          # Now send the full request
-         if self.factory.bdm and not self.factory.bdm.getBDMState()=='Scanning':
+         if self.factory.bdm and not self.factory.bdm.getState()=='Scanning':
             self.sendMessage(getdataMsg)
 
       if msg.cmd=='tx':
@@ -220,7 +220,7 @@ class ArmoryClient(Protocol):
       msg = PyMessage('getheaders')
       msg.payload.version  = 1
       if self.factory.bdm:
-         msg.payload.hashList = [self.factory.bdm.getHeaderByHeight(i).getHash() for i in numList]
+         msg.payload.hashList = [self.factory.bdm.bdm.getHeaderByHeight(i).getHash() for i in numList]
       else:
          msg.payload.hashList = []
       msg.payload.hashStop = '\x00'*32
@@ -235,7 +235,7 @@ class ArmoryClient(Protocol):
       msg = PyMessage('getblocks')
       msg.payload.version  = 1
       if self.factory.bdm:
-         msg.payload.hashList = [self.factory.bdm.getHeaderByHeight(i).getHash() for i in numList]
+         msg.payload.hashList = [self.factory.bdm.bdm.getHeaderByHeight(i).getHash() for i in numList]
       else:
          msg.payload.hashList = []
       msg.payload.hashStop = '\x00'*32

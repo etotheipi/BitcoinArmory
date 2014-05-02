@@ -118,9 +118,9 @@ public:
    template<typename Collection>
    void updateWalletsAfterReorg(Collection & col)
    {
-      for (typename Collection::iterator i = col.begin(); i != col.end(); ++i)
+      for (col.begin(); !col.end(); col++)
       {
-         updateWalletAfterReorg(**i);
+         updateWalletAfterReorg(**col);
       }
    }
    
@@ -325,9 +325,8 @@ void BlockDataManager_LevelDB::registeredScrAddrScan(
       static OutPoint op;
       op.unserialize(txStartPtr + (*txInOffsets)[iin], txSize - (*txInOffsets)[iin]);
 
-      for(wltIter  = registeredWallets_.begin();
-          wltIter != registeredWallets_.end();
-          wltIter++)
+      TSIterator<set<BtcWallet*>> wltIter(registeredWallets_.GetCurrent());
+      for(wltIter; !wltIter.end(); wltIter++)
       {
          wlt = *wltIter;
          if(wlt->countOutPoints(op) > 0)
@@ -353,9 +352,8 @@ void BlockDataManager_LevelDB::registeredScrAddrScan(
          // Std TxOut with 25-byte script
          addr160.copyFrom(ptr+4, 20);
 
-         for(wltIter  = registeredWallets_.begin();
-             wltIter != registeredWallets_.end();
-             wltIter++)
+         TSIterator<set<BtcWallet*>> wltIter(registeredWallets_.GetCurrent());
+         for(wltIter; !wltIter.end(); wltIter++)
          {
             wlt = *wltIter;
             if( wlt->scrAddrIsRegistered(HASH160PREFIX + addr160) )
@@ -371,9 +369,8 @@ void BlockDataManager_LevelDB::registeredScrAddrScan(
          // Std spend-coinbase TxOut script
          BtcUtils::getHash160_NoSafetyCheck(ptr+2, 65, addr160);
 
-         for(wltIter  = registeredWallets_.begin();
-             wltIter != registeredWallets_.end();
-             wltIter++)
+         TSIterator<set<BtcWallet*>> wltIter(registeredWallets_.GetCurrent());
+         for(wltIter; !wltIter.end(); wltIter++)
          {
             wlt = *wltIter;
 
@@ -436,12 +433,10 @@ BlockDataManager_LevelDB::BlockDataManager_LevelDB(void)
 /////////////////////////////////////////////////////////////////////////////
 BlockDataManager_LevelDB::~BlockDataManager_LevelDB(void)
 {
-   set<BtcWallet*>::iterator iter;
-   for(iter  = registeredWallets_.begin();
-       iter != registeredWallets_.end();
-       iter++)
+   TSIterator<set<BtcWallet*>> wltIter(registeredWallets_.GetCurrent());
+   for(wltIter; !wltIter.end(); wltIter++)
    {
-      delete *iter;
+      registeredWallets_.Remove(*wltIter);
    }
    
    iface_->closeDatabases();
@@ -1063,7 +1058,7 @@ void BlockDataManager_LevelDB::reset(void)
    allScannedUpToBlk_ = 0;
 
    //for 1:1 wallets and BDM push model
-   run_ = true;
+   run_ = false;
    rescanZC_ = false;
 
 }
@@ -1241,22 +1236,29 @@ vector<BinaryData> BlockDataManager_LevelDB::prefixSearchAddress(BinaryData cons
 }
 */
 
-
-
-
-
 /////////////////////////////////////////////////////////////////////////////
 bool BlockDataManager_LevelDB::registerWallet(BtcWallet* wltPtr, bool wltIsNew)
 {
    SCOPED_TIMER("registerWallet");
 
+   /***
+   The registered wallets are constantly being iterated over. Inserting or 
+   removing items from the set can call non atomic resize operations that 
+   would leave the set in an undefined state half way through an iteration.
+
+   Solution: use a top level, mutex locked set to save wallets, add them to the
+   actual set at the top of each BDM main thread iteration. Of course the 
+   assumption is that nothing but the BDM main thread calls scan and update
+   operations on the registerWallets_ map, which is an approach we want to move
+   towards.
+   ***/
+
    // Check if the wallet is already registered
    //if(registeredWallets_.find(wltPtr) != registeredWallets_.end())
-   if(KEY_IN_MAP(wltPtr, registeredWallets_))
-      return false;
+   if(registeredWallets_.isInMap(wltPtr)) return false;
 
    // Add it to the list of wallets to watch
-   registeredWallets_.insert(wltPtr);
+   registeredWallets_.Add(wltPtr);
 
    // Now add all the individual addresses from the wallet
    for(uint32_t i=0; i<wltPtr->getNumScrAddr(); i++)
@@ -1272,7 +1274,13 @@ bool BlockDataManager_LevelDB::registerWallet(BtcWallet* wltPtr, bool wltIsNew)
 
    // We need to make sure the wallet can tell the BDM when an address is added
    wltPtr->setBdmPtr(this);
+
    return true;
+}
+
+void BlockDataManager_LevelDB::unregisterWallet(BtcWallet* wltPtr)
+{
+   registeredWallets_.RemoveAndWait(wltPtr);
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -1282,20 +1290,18 @@ uint32_t BlockDataManager_LevelDB::evalLowestBlockNextScan(void)
 
    uint32_t lowestBlk = UINT32_MAX;
 
-   for(set<BtcWallet*>::iterator wltIter = registeredWallets_.begin();
-       wltIter != registeredWallets_.end();
-       wltIter++)
+   TSIterator<set<BtcWallet*>> wltIter(registeredWallets_.GetCurrent());
+   for(wltIter; !wltIter.end(); wltIter++)
    {
-      const map<HashString, RegisteredScrAddr>& regScrAddrMap
+      ThreadSafeSTLPair<map<HashString, RegisteredScrAddr>>* regScrAddrMap
          = (*wltIter)->getRegisteredScrAddrMap();
-      for(map<HashString, RegisteredScrAddr>::const_iterator rsaIter
-            = regScrAddrMap.begin();
-          rsaIter != regScrAddrMap.end();
-          rsaIter++)
+      TSIterator<map<HashString, RegisteredScrAddr>> rsaIter( \
+                                       regScrAddrMap->GetCurrent());
+      for(rsaIter; !rsaIter.end(); rsaIter++)
       {
          // If we happen to have any imported addresses, this will set the
          // lowest block to 0, which will require a full rescan
-         lowestBlk = min(lowestBlk, rsaIter->second.alreadyScannedUpToBlk_);
+         lowestBlk = min(lowestBlk, (*rsaIter).second.alreadyScannedUpToBlk_);
       }
    }
    return lowestBlk;
@@ -1309,21 +1315,19 @@ uint32_t BlockDataManager_LevelDB::evalLowestScrAddrCreationBlock(void)
 
    uint32_t lowestBlk = UINT32_MAX;
    map<HashString, RegisteredScrAddr>::iterator rsaIter;
-   set<BtcWallet*>::iterator wltIter;
-   map<HashString, RegisteredScrAddr> regScrAddrMap;
+   ThreadSafeSTLPair<map<HashString, RegisteredScrAddr>>* regScrAddrMap;
 
-   for(wltIter  = registeredWallets_.begin();
-       wltIter != registeredWallets_.end();
-       wltIter++)
+   TSIterator<set<BtcWallet*>> wltIter(registeredWallets_.GetCurrent());
+   for(wltIter; !wltIter.end(); wltIter++)
    {
       regScrAddrMap = (*wltIter)->getRegisteredScrAddrMap();
-      for(rsaIter  = regScrAddrMap.begin();
-          rsaIter != regScrAddrMap.end();
-          rsaIter++)
+      TSIterator<map<HashString, RegisteredScrAddr>> rsaIter( \
+                                    regScrAddrMap->GetCurrent());
+      for(rsaIter; !rsaIter.end(); rsaIter++)
       {
          // If we happen to have any imported addresses, this will set the
          // lowest block to 0, which will require a full rescan
-         lowestBlk = min(lowestBlk, rsaIter->second.blkCreated_);
+         lowestBlk = min(lowestBlk, (*rsaIter).second.blkCreated_);
       }
    }
    return lowestBlk;
@@ -1379,7 +1383,8 @@ uint32_t BlockDataManager_LevelDB::numBlocksToRescan( BtcWallet & wlt,
    // The wallet isn't registered with the BDM, but there's a chance that 
    // each of its addresses are -- if any one is not, do rescan
    uint32_t maxAddrBehind = 0;
-   map<BinaryData, RegisteredScrAddr> regScrAddrMap = wlt.getRegisteredScrAddrMap();
+   ThreadSafeSTLPair<map<BinaryData, RegisteredScrAddr>>* regScrAddrMap = \
+                                          wlt.getRegisteredScrAddrMap();
 
    for(uint32_t i=0; i<wlt.getNumScrAddr(); i++)
    {
@@ -1387,10 +1392,10 @@ uint32_t BlockDataManager_LevelDB::numBlocksToRescan( BtcWallet & wlt,
 
       // If any address is not registered, will have to do a full scan
       //if(registeredScrAddrMap_.find(addr.getScrAddr()) == registeredScrAddrMap_.end())
-      if(KEY_NOT_IN_MAP(addr.getScrAddr(), regScrAddrMap))
+      if(regScrAddrMap->isInMap(addr.getScrAddr()))
          return endBlk;  // Gotta do a full rescan!
 
-      RegisteredScrAddr & ra = regScrAddrMap[addr.getScrAddr()];
+      RegisteredScrAddr & ra = regScrAddrMap->Get(addr.getScrAddr());
       maxAddrBehind = max(maxAddrBehind, endBlk-ra.alreadyScannedUpToBlk_);
    }
 
@@ -1402,16 +1407,10 @@ uint32_t BlockDataManager_LevelDB::numBlocksToRescan( BtcWallet & wlt,
 ////////////////////////////////////////////////////////////////////////////////
 void BlockDataManager_LevelDB::updateRegisteredScrAddrs(uint32_t newTopBlk)
 {
-   set<BtcWallet*>::iterator wltIter;
-   BtcWallet* wlt;
-   map<HashString, RegisteredScrAddr>::iterator rsaIter;
-   
-   for(wltIter  = registeredWallets_.begin();
-       wltIter != registeredWallets_.end();
-       wltIter++)
+   TSIterator<set<BtcWallet*>> wltIter(registeredWallets_.GetCurrent());
+   for(wltIter; !wltIter.end(); wltIter++)
    {
-      wlt = *wltIter;
-      wlt->updateRegisteredScrAddrs(newTopBlk);
+      (*wltIter)->updateRegisteredScrAddrs(newTopBlk);
    }
 }
 
@@ -1420,14 +1419,12 @@ void BlockDataManager_LevelDB::resetRegisteredWallets(void)
 {
    SCOPED_TIMER("resetRegisteredWallets");
 
-   set<BtcWallet*>::iterator wltPtrIter;
-   for(wltPtrIter  = registeredWallets_.begin();
-       wltPtrIter != registeredWallets_.end();
-       wltPtrIter++)
+   TSIterator<set<BtcWallet*>> wltIter(registeredWallets_.GetCurrent());
+   for(wltIter; !wltIter.end(); wltIter++)
    {
       // I'm not sure if there's anything else to do
       // I think it's all encapsulated in this call!
-      (*wltPtrIter)->clearBlkData();
+      (*wltIter)->clearBlkData();
    }
 
    // Reset all addresses to "new"
@@ -1437,22 +1434,19 @@ void BlockDataManager_LevelDB::resetRegisteredWallets(void)
 /////////////////////////////////////////////////////////////////////////////
 bool BlockDataManager_LevelDB::walletIsRegistered(BtcWallet & wlt)
 {
-   //return (registeredWallets_.find(&wlt)!=registeredWallets_.end());
-   return KEY_IN_MAP(&wlt, registeredWallets_);
+   return registeredWallets_.isInMap(&wlt);
 }
 
 /////////////////////////////////////////////////////////////////////////////
 bool BlockDataManager_LevelDB::scrAddrIsRegistered(HashString scraddr)
 {
-   //return (registeredScrAddrMap_.find(scraddr)!=registeredScrAddrMap_.end());
-   set<BtcWallet*>::iterator wltIter;
-   map<BinaryData, RegisteredScrAddr> regScrAddrMap;
-   for(wltIter = registeredWallets_.begin();
-       wltIter != registeredWallets_.end();
-       wltIter++)
+   ThreadSafeSTLPair<map<BinaryData, RegisteredScrAddr>>* regScrAddrMap;
+
+   TSIterator<set<BtcWallet*>> wltIter(registeredWallets_.GetCurrent());
+   for(wltIter; !wltIter.end(); wltIter++)
    {
       regScrAddrMap = (*wltIter)->getRegisteredScrAddrMap();
-      if(KEY_IN_MAP(scraddr, regScrAddrMap)) return true;
+      if(regScrAddrMap->isInMap(scraddr)) return true;
    }
 
    return false;
@@ -1500,7 +1494,6 @@ void BlockDataManager_LevelDB::scanBlockchainForTx(BtcWallet & myWallet,
                                                    bool fetchFirst)
 {
    SCOPED_TIMER("scanBlockchainForTx");
-
    // TODO:  We should implement selective fetching!  (i.e. only fetch
    //        and register scraddr data that is between those two blocks).
    //        At the moment, it is 
@@ -1522,6 +1515,7 @@ void BlockDataManager_LevelDB::scanBlockchainForTx(BtcWallet & myWallet,
 
    // *********************************************************************** //
    // Finally, walk through all the registered tx
+   myWallet.setIgnoreLastScanned();
    myWallet.scanRegisteredTxForWallet(startBlknum, endBlknum);
 
 
@@ -1535,10 +1529,8 @@ void BlockDataManager_LevelDB::scanBlockchainForTx(uint32_t startBlknum,
                                                    uint32_t endBlknum,
                                                    bool fetchFirst)
 {
-   set<BtcWallet*>::iterator wltIter;
-   for(wltIter  = registeredWallets_.begin();
-       wltIter != registeredWallets_.end();
-       wltIter++)
+   TSIterator<set<BtcWallet*>> wltIter(registeredWallets_.GetCurrent());
+   for(wltIter; !wltIter.end(); wltIter++)
    {
       scanBlockchainForTx(*(*wltIter), startBlknum, endBlknum, fetchFirst);
    }
@@ -1546,10 +1538,8 @@ void BlockDataManager_LevelDB::scanBlockchainForTx(uint32_t startBlknum,
 
 void BlockDataManager_LevelDB::rescanWalletZeroConf()
 {
-   set<BtcWallet*>::iterator wltIter;
-   for(wltIter  = registeredWallets_.begin();
-       wltIter != registeredWallets_.end();
-       wltIter++)
+   TSIterator<set<BtcWallet*>> wltIter(registeredWallets_.GetCurrent());
+   for(wltIter; !wltIter.end(); wltIter++)
    {
       rescanWalletZeroConf(*(*wltIter));
    }
@@ -1678,17 +1668,17 @@ void BlockDataManager_LevelDB::writeProgressFile(DB_BUILD_PHASE phase,
 /////////////////////////////////////////////////////////////////////////////
 void BlockDataManager_LevelDB::pprintRegisteredWallets(void)
 {
-   set<BtcWallet*>::iterator iter;
-   for(iter  = registeredWallets_.begin(); 
-       iter != registeredWallets_.end(); 
-       iter++)
+   BtcWallet* wlt;
+   TSIterator<set<BtcWallet*>> wltIter(registeredWallets_.GetCurrent());
+   for(wltIter; !wltIter.end(); wltIter++)
    {
+      wlt = *wltIter;
       cout << "Wallet:";
-      cout << "\tBalance: " << (*iter)->getFullBalance();
-      cout << "\tNAddr:   " << (*iter)->getNumScrAddr();
-      cout << "\tNTxio:   " << (*iter)->getTxIOMap().size();
-      cout << "\tNLedg:   " << (*iter)->getTxLedger().size();
-      cout << "\tNZC:     " << (*iter)->getZeroConfLedger().size() << endl;      
+      cout << "\tBalance: " << wlt->getFullBalance();
+      cout << "\tNAddr:   " << wlt->getNumScrAddr();
+      cout << "\tNTxio:   " << wlt->getTxIOMap().size();
+      cout << "\tNLedg:   " << wlt->getTxLedger().size();
+      cout << "\tNZC:     " << wlt->getZeroConfLedger().size() << endl;      
    }
 }
 
@@ -1699,12 +1689,10 @@ void BlockDataManager_LevelDB::pprintRegisteredWallets(void)
 void BlockDataManager_LevelDB::scanRegisteredTxForWallets( uint32_t blkStart,
                                                           uint32_t blkEnd)
 {
-   set<BtcWallet*>::iterator wltIter;
-   for(wltIter  = registeredWallets_.begin();
-       wltIter != registeredWallets_.end();
-       wltIter++)
+   TSIterator<set<BtcWallet*>> wltIter(registeredWallets_.GetCurrent());
+   for(wltIter; !wltIter.end(); wltIter++)
 	{
-		BtcWallet* wlt = *wltIter;
+		BtcWallet* wlt = (*wltIter);
 		wlt->scanRegisteredTxForWallet(blkStart, blkEnd);
 	}
 }
@@ -2112,12 +2100,10 @@ bool BlockDataManager_LevelDB::processNewHeadersInBlkFiles(uint32_t fnumStart,
 
 void BlockDataManager_LevelDB::fetchWalletsRegisteredScrAddrData(void)
 {
-   set<BtcWallet*>::iterator wltIter;
-   for(wltIter  = registeredWallets_.begin();
-       wltIter != registeredWallets_.end();
-       wltIter++)
+   TSIterator<set<BtcWallet*>> wltIter(registeredWallets_.GetCurrent());
+   for(wltIter; !wltIter.end(); wltIter++)
    {
-      BtcWallet* wlt = *wltIter;
+      BtcWallet* wlt = (*wltIter);
       wlt->fetchWalletRegisteredScrAddrData();
    }
 }
@@ -2379,12 +2365,10 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
    // came in... let's get it.
    readBlkFileUpdate();
 
-	set<BtcWallet*>::iterator wltIter;
-   for(wltIter  = registeredWallets_.begin();
-       wltIter != registeredWallets_.end();
-       wltIter++)
+   TSIterator<set<BtcWallet*>> wltIter(registeredWallets_.GetCurrent());
+   for(wltIter; !wltIter.end(); wltIter++)
 	{
-		BtcWallet* wlt = *wltIter;
+		BtcWallet* wlt = *(wltIter);
       if(forceRebuild || forceRescan || skipFetch)
          wlt->setIgnoreLastScanned();
 
@@ -2686,24 +2670,26 @@ void BlockDataManager_LevelDB::saveScrAddrHistories(void)
    InterfaceToLDB::Batch batch(iface_, BLKDATA);
 
    uint32_t i=0;
-   set<BtcWallet*>::iterator wltIter;
-   for(wltIter  = registeredWallets_.begin();
-       wltIter != registeredWallets_.end();
-       wltIter++)
+   BtcWallet* wlt;
+   TSIterator<set<BtcWallet*>> wltIter(registeredWallets_.GetCurrent());
+   for(wltIter; !wltIter.end(); wltIter++)
    {
-      for(uint32_t a=0; a<(*wltIter)->getNumScrAddr(); a++)
+      wlt = (*wltIter);
+      for(uint32_t a=0; a<wlt->getNumScrAddr(); a++)
       { 
-         ScrAddrObj & scrAddr = (*wltIter)->getScrAddrObjByIndex(a);
+         ScrAddrObj & scrAddr = wlt->getScrAddrObjByIndex(a);
          BinaryData uniqKey = scrAddr.getScrAddr();
 
-         if(KEY_NOT_IN_MAP(uniqKey, (*wltIter)->getRegisteredScrAddrMap()))
+         ThreadSafeSTLPair<map<BinaryData, RegisteredScrAddr>> *regScrAddrMap \
+               = wlt->getRegisteredScrAddrMap();
+         if(!regScrAddrMap->isInMap(uniqKey))
          {
             LOGERR << "How does the wallet have a non-registered ScrAddr?";
             LOGERR << uniqKey.toHexStr().c_str();
             continue;
          }
 
-         RegisteredScrAddr & rsa = (*wltIter)->getRegisteredScrAddr(uniqKey);
+         RegisteredScrAddr & rsa = wlt->getRegisteredScrAddr(uniqKey);
          vector<TxIOPair*> & txioList = scrAddr.getTxIOList();
 
          StoredScriptHistory ssh;
@@ -2718,7 +2704,7 @@ void BlockDataManager_LevelDB::saveScrAddrHistories(void)
       }
    }
 
-      LOGINFO << "Saved wallet history to DB";
+   LOGINFO << "Saved wallet history to DB";
 }
 
 
@@ -2898,7 +2884,8 @@ uint32_t BlockDataManager_LevelDB::readBlkFileUpdate(void)
                registeredScrAddrScan(tx.getPtr(), tx.getSize());
             }
             
-            reorg.updateWalletsAfterReorg(registeredWallets_);
+            TSIterator<set<BtcWallet*>> wltIter(registeredWallets_.GetCurrent());
+            reorg.updateWalletsAfterReorg(wltIter);
          }
          else if(state.hasNewTop)
          {
@@ -3335,10 +3322,8 @@ bool BlockDataManager_LevelDB::addNewZeroConfTx(BinaryData const & rawTx,
       Tx txObj(rawTx);
 
       bool isOurs = false;
-      set<BtcWallet*>::iterator wltIter;
-      for(wltIter  = registeredWallets_.begin();
-          wltIter != registeredWallets_.end();
-          wltIter++)
+      TSIterator<set<BtcWallet*>> wltIter(registeredWallets_.GetCurrent());
+      for(wltIter; !wltIter.end(); wltIter++)
       {
          // The bulk filter returns pair<isRelatedToUs, inputIsOurs>
          isOurs = isOurs || (*wltIter)->isMineBulkFilter(txObj).first;
@@ -3620,12 +3605,10 @@ void BlockDataManager_LevelDB::addRawBlockToDB(BinaryRefReader & brr)
 vector<TxIOPair> BlockDataManager_LevelDB::getHistoryForScrAddr(BinaryDataRef uniqKey, 
                                           bool withMultisig)
 {
-   set<BtcWallet*>::iterator wltIter;
    vector<TxIOPair> rt_TxIOPair, wltTxIOPair;
 
-   for(wltIter  = registeredWallets_.begin();
-       wltIter != registeredWallets_.end();
-       wltIter++)
+   TSIterator<set<BtcWallet*>> wltIter(registeredWallets_.GetCurrent());
+   for(wltIter; !wltIter.end(); wltIter++)
    {
       wltTxIOPair = (*wltIter)->getHistoryForScrAddr(uniqKey, withMultisig);
       rt_TxIOPair.insert(rt_TxIOPair.end(), wltTxIOPair.begin(), wltTxIOPair.end());
@@ -3636,14 +3619,21 @@ vector<TxIOPair> BlockDataManager_LevelDB::getHistoryForScrAddr(BinaryDataRef un
 
 void BlockDataManager_LevelDB::eraseTx(const BinaryData& txHash)
 {
-   set<BtcWallet*>::iterator wltIter;
-
-   for(wltIter  = registeredWallets_.begin();
-       wltIter != registeredWallets_.end();
-       wltIter++)
+   TSIterator<set<BtcWallet*>> wltIter(registeredWallets_.GetCurrent());
+   for(wltIter; !wltIter.end(); wltIter++)
    {
       (*wltIter)->eraseTx(txHash);
    }
+}
+
+void BlockDataManager_LevelDB::doShutdown()
+{
+   run_ = false;
+   if(!tp_) return;
+
+   tp_->inject->notify();
+   pthread_join(tp_->tID, NULL);
+   tp_ = 0;
 }
 
 ////////////////////////////////////////////////////////////////////////////////

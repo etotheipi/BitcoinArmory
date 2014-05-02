@@ -7,9 +7,9 @@ int pthread_mutex_init(pthread_mutex_t *mu, const int mutex_attr)
 	return 0;
 }
 
-DWORD pthread_self()
+pthread_t pthread_self()
 {
-	return GetCurrentThreadId();
+	return GetCurrentThread();
 }
 
 int pthread_mutex_lock(pthread_mutex_t *mu)
@@ -35,10 +35,17 @@ int pthread_mutex_destroy(pthread_mutex_t *mu)
 
 int pthread_create(pthread_t *tid, pthread_attr_t *attr, void*(*start)(void*), void *arg)
 {
-	if(CreateThread(NULL, NULL, (LPTHREAD_START_ROUTINE)start, arg, 0, tid)) return 0;
+	if(*tid = (pthread_t)CreateThread(NULL, NULL, (LPTHREAD_START_ROUTINE)start, arg, 0, 0)) return 0;
 
 	return -1;
 }
+
+int pthread_join(pthread_t tid, void **value_ptr)
+{
+   WaitForSingleObject(tid, INFINITE);
+   return 0;
+}
+
 
 #ifdef USE_CONDVAR
 int pthread_cond_init(pthread_cond_t *cond, const pthread_condattr_t *attr)
@@ -72,9 +79,10 @@ int pthread_cond_timedwait(pthread_cond_t * cond, pthread_mutex_t *mutex, const 
 {
    const ULONGLONG now = GetTickCount64();
 	
-	ULONGLONG diff = *tickcount64-now;
-	if (diff > now)
-		diff = 0;
+	if(now > *tickcount64)
+		return 0;
+	
+   ULONGLONG diff = *tickcount64 - now;
 
    SleepConditionVariableCS(cond, mutex, (DWORD)diff);
 	return 0;

@@ -1499,7 +1499,7 @@ if Test_EncryptedWallet:
    print '\n(10) Now syncing this wallet with the blockchain'
    # While using the blk0001.dat maintained by satoshi client, never write data
    wlt.setBlockchainSyncFlag(BLOCKCHAIN_READONLY)
-   wlt.syncWithBlockchain()
+   wlt.syncWithBlockchainLite()
 
    utxoList = wlt.getUnspentTxOutList()
    pprintUnspentTxOutList(utxoList, 'Unspent TxOuts for your wallet: ')
@@ -1545,7 +1545,7 @@ if Test_EncryptedWallet:
    print '\n(11) One more blockchain test, this time with online/watching-only'
    wlt2.readWalletFile('OnlineVersionOfEncryptedWallet.bin')
    wlt2.doBlockchainSync=BLOCKCHAIN_READONLY  
-   wlt2.syncWithBlockchain()
+   wlt2.syncWithBlockchainLite()
    wlt2.pprint(indent=' '*5, allAddrInfo=debugPrint)
    
    print '\n(11) Search for unspent TxOuts for this online wallet'
@@ -1608,7 +1608,7 @@ if Test_TxDistProposals:
    wlt.setBlockchainSyncFlag(BLOCKCHAIN_READONLY)
 
    # Get all the unspent TxOuts for this addr
-   wlt.syncWithBlockchain()
+   wlt.syncWithBlockchainLite()
    utxoList = wlt.getTxOutList('Spendable')
    pprintUnspentTxOutList(utxoList, 'Unspent TxOuts for your wallet: ')
 

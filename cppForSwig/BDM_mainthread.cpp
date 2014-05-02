@@ -1,6 +1,5 @@
 #include "BDM_mainthread.h"
-#include "pthread.h"
-
+#include "BlockUtils.h"
 #include <unistd.h>
 
 
@@ -49,7 +48,7 @@ void BDM_Inject::wait(unsigned ms)
       pthread_cond_timedwait(&pimpl->notifier, &pimpl->notifierLock, &abstime); 
       
       ULONGLONG latertime = GetTickCount64();
-      if (latertime <= abstime)
+      if (latertime >= abstime)
          break;
    }
    pthread_mutex_unlock(&pimpl->notifierLock);
@@ -76,13 +75,6 @@ void BDM_Inject::wait(unsigned ms)
 #endif
 }
 
-struct ThreadParams
-{
-   BlockDataManager_LevelDB *bdm;
-   BDM_CallBack *callback;
-   BDM_Inject *inject;
-};
-
 static void* run(void *_threadparams)
 {
    ThreadParams *const threadparams = static_cast<ThreadParams*>(_threadparams);
@@ -108,19 +100,20 @@ static void* run(void *_threadparams)
          //scan registered tx
          theBDM->scanBlockchainForTx(
             currentBlock,
-            theBDM->blockchain().top().getBlockHeight(),
+            theBDM->blockchain().top().getBlockHeight() +1,
             true
          );
+         
          theBDM->rescanWalletZeroConf();
+         theBDM->saveScrAddrHistories();
 
          currentBlock = theBDM->blockchain().top().getBlockHeight();
          
          //notify Python that new blocks have been parsed
-         callback->run(4, newBlocks);
+         callback->run(4, newBlocks, theBDM->getTopBlockHeight());
       }
       
       threadparams->inject->wait(1000);
-
    }
 
    theBDM->saveScrAddrHistories();
@@ -141,6 +134,7 @@ BlockDataManager_LevelDB * startBDM(
    tp->bdm = &BlockDataManager().getBDM();
    tp->callback = callback;
    tp->inject = inject;
+   tp->bdm->setRun(true);
    
    //don't call this unless you're trying to get online
    if(!mode) tp->bdm->doInitialSyncOnLoad();
@@ -149,11 +143,11 @@ BlockDataManager_LevelDB * startBDM(
    tp->bdm->saveScrAddrHistories();
 
    //push 'bdm is ready' to Python
-   callback->run(1, 0);
+   callback->run(1, 0, tp->bdm->getTopBlockHeight());
 
    //start maintenance thread
-   pthread_t tID;
-   pthread_create(&tID, 0, run, tp);
+   pthread_create(&tp->tID, 0, run, tp);
+   tp->bdm->setThreadParams(tp);
    
    return &BlockDataManager().getBDM();
 }

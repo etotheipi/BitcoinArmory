@@ -15,6 +15,7 @@ vector<LedgerEntry> BtcWallet::EmptyLedger_(0);
 /////////////////////////////////////////////////////////////////////////////
 BtcWallet::~BtcWallet(void)
 {
+   //how am I gonna fit this in the threading model?
    if(bdmPtr_)
       bdmPtr_->unregisterWallet(this);
 }
@@ -1122,17 +1123,19 @@ void BtcWallet::scanRegisteredTxForWallet(uint32_t blkStart, uint32_t blkEnd)
 
 void BtcWallet::updateRegisteredScrAddrs(uint32_t newTopBlk)
 {
-   map<HashString, RegisteredScrAddr>::iterator rsaIter;
+   TSIterator<map<HashString, RegisteredScrAddr>> \
+            rsaIter(registeredScrAddrMap_.GetCurrent());
    
-   for(rsaIter  = registeredScrAddrMap_.begin();
-       rsaIter != registeredScrAddrMap_.end();
-       rsaIter++)
+   for(rsaIter; !rsaIter.end(); rsaIter++)
    {
-      rsaIter->second.alreadyScannedUpToBlk_ = newTopBlk;
+      RegisteredScrAddr rsa = (*rsaIter).second;
+
+      rsa.alreadyScannedUpToBlk_ = newTopBlk;
+      registeredScrAddrMap_.Set((*rsaIter).first, rsa);
    }
 }
 
-uint32_t BtcWallet::numBlocksToRescan(uint32_t endBlk) const
+uint32_t BtcWallet::numBlocksToRescan(uint32_t endBlk)
 {
    SCOPED_TIMER("numBlocksToRescan");
    // This method tells us whether we have to scan ANY blocks from disk
@@ -1151,17 +1154,17 @@ uint32_t BtcWallet::numBlocksToRescan(uint32_t endBlk) const
 
       // If any address is not registered, will have to do a full scan
       //if(registeredScrAddrMap_.find(addr.getScrAddr()) == registeredScrAddrMap_.end())
-      if(KEY_NOT_IN_MAP(addr.getScrAddr(), registeredScrAddrMap_))
+      if(!registeredScrAddrMap_.isInMap(addr.getScrAddr()))
          return endBlk;  // Gotta do a full rescan!
 
-      map<BinaryData, RegisteredScrAddr>::const_iterator rai
-         = registeredScrAddrMap_.find(addr.getScrAddr());
-      if (rai == registeredScrAddrMap_.end())
+      ThreadSafeSTLPair<map<HashString, RegisteredScrAddr>>::findResult rai = \
+                                 registeredScrAddrMap_.find(addr.getScrAddr());
+      if (!rai.found)
       {
          LOGWARN << "item not found in registeredScrAddrMap_";
          continue;
       }
-      const RegisteredScrAddr & ra = rai->second;
+      const RegisteredScrAddr & ra = rai.iter->second;
       maxAddrBehind = max(maxAddrBehind, endBlk-ra.alreadyScannedUpToBlk_);
    }
 
@@ -1169,13 +1172,14 @@ uint32_t BtcWallet::numBlocksToRescan(uint32_t endBlk) const
    return maxAddrBehind;
 }
 
+///////////////////////////////////////////////////////////////////////////////
 bool BtcWallet::registerNewScrAddr(HashString scraddr)
 {
-   if(KEY_IN_MAP(scraddr, registeredScrAddrMap_))
+   if(registeredScrAddrMap_.isInMap(scraddr))
       return false;
 
    uint32_t currBlk = bdmPtr_->getTopBlockHeight();
-   registeredScrAddrMap_[scraddr] = RegisteredScrAddr(scraddr, currBlk);
+   registeredScrAddrMap_.Add(scraddr, RegisteredScrAddr(scraddr, currBlk));
    
    return true;
 }
@@ -1184,17 +1188,20 @@ bool BtcWallet::registerImportedScrAddr(HashString scraddr,
                                                     uint32_t createBlk)
 {
    SCOPED_TIMER("registerImportedScrAddr");
-   if(KEY_IN_MAP(scraddr, registeredScrAddrMap_))
+   if(registeredScrAddrMap_.isInMap(scraddr))
       return false;
 
    // In some cases we may have used UINT32_MAX to specify "don't know"
    if(createBlk==UINT32_MAX)
       createBlk = 0;
 
-   registeredScrAddrMap_[scraddr] = RegisteredScrAddr(scraddr, createBlk);
+   registeredScrAddrMap_.Add(scraddr, RegisteredScrAddr(scraddr, createBlk));
    allScannedUpToBlk_ = min(createBlk, allScannedUpToBlk_);
+
    return true;
 }
+
+///////////////////////////////////////////////////////////////////////////////
 
 vector<TxIOPair> BtcWallet::getHistoryForScrAddr(
                                                 BinaryDataRef uniqKey,
@@ -1204,14 +1211,18 @@ vector<TxIOPair> BtcWallet::getHistoryForScrAddr(
    InterfaceToLDB *iface_ = bdmPtr_->getIFace();
    iface_->getStoredScriptHistory(ssh, uniqKey);
 
-   map<BinaryData, RegisteredScrAddr>::iterator iter;
-   iter = registeredScrAddrMap_.find(uniqKey);
-   if(ITER_IN_MAP(iter, registeredScrAddrMap_))
+   ThreadSafeSTLPair<map<HashString, RegisteredScrAddr>>::findResult findRes;
+   findRes = registeredScrAddrMap_.find(uniqKey);
+
+   if(findRes.found)
    {
+      RegisteredScrAddr rsa = findRes.iter->second;
       if (ssh.alreadyScannedUpToBlk_ == 123456789)
-         iter->second.alreadyScannedUpToBlk_ = bdmPtr_->getAppliedToHeightInDB();
+         rsa.alreadyScannedUpToBlk_ = bdmPtr_->getAppliedToHeightInDB();
       else
-         iter->second.alreadyScannedUpToBlk_ = ssh.alreadyScannedUpToBlk_;
+         rsa.alreadyScannedUpToBlk_ = ssh.alreadyScannedUpToBlk_;
+
+      registeredScrAddrMap_.Set(findRes.iter->first, rsa);
    }
    
    vector<TxIOPair> outVect(0);

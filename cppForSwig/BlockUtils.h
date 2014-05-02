@@ -40,6 +40,10 @@
 #include "UniversalTimer.h"
 #include "leveldb/db.h"
 
+#include "pthread.h"
+#include "ThreadSafeContainer.h"
+#include "BDM_mainthread.h"
+
 
 #define NUM_BLKS_BATCH_THRESH 30
 
@@ -68,14 +72,17 @@ typedef enum
 
 class BtcWallet;
 
+typedef set<BtcWallet*> set_BtcWallet;
+template class ThreadSafeSTL<set_BtcWallet>;
+typedef ThreadSafeSTL<set_BtcWallet> ts_setBtcWallet;
+template class TSIterator<set_BtcWallet>;
+
 struct ZeroConfData
 {
    Tx            txobj_;   
    uint32_t      txtime_;
    list<BinaryData>::iterator iter_;
 };
-
-
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
@@ -174,11 +181,7 @@ private:
    // comment being written), then we don't have anything to track -- the DB
    // will automatically update for all addresses, period.  And we'd best not 
    // track those in RAM (maybe on a huge server...?)
-   set<BtcWallet*>                    registeredWallets_;
-   //map<BinaryData, RegisteredScrAddr> registeredScrAddrMap_;
-   //list<RegisteredTx>                 registeredTxList_;
-   //set<HashString>                    registeredTxSet_;
-   //set<OutPoint>                      registeredOutPoints_;
+   ts_setBtcWallet                    registeredWallets_;
    uint32_t                           allScannedUpToBlk_; // one past top
 
    // list of block headers that appear to be missing 
@@ -187,7 +190,8 @@ private:
    // list of blocks whose contents are invalid but we have
    // their headers
    vector<BinaryData>                 missingBlockHashes_;
-
+   
+   ThreadParams*                      tp_;
    
    // TODO: We eventually want to maintain some kind of master TxIO map, instead
    // of storing them in the individual wallets.  With the new DB, it makes more
@@ -294,7 +298,7 @@ public:
    // sure that the intial blockchain scan picks up wallet-relevant stuff as 
    // it goes, and does a full [re-]scan of the blockchain only if necessary.
    bool     registerWallet(BtcWallet* wallet, bool wltIsNew=false);
-   void     unregisterWallet(BtcWallet* wlt) {registeredWallets_.erase(wlt);}
+   void     unregisterWallet(BtcWallet* wltPtr);
 
    uint32_t evalLowestBlockNextScan(void);
    uint32_t evalLowestScrAddrCreationBlock(void);
@@ -369,8 +373,11 @@ public:
                      {return &blockchain_.getHeaderPtrForTx(theTx);}
    bool isZcEnabled() {return zcEnabled_;}
    uint32_t getTopBlockHeight() {return blockchain_.top().getBlockHeight();}
-   bool doRun() {return run_;}
-   void doShutdown() {run_ = false;}
+   bool doRun(void) {return run_;}
+   void setRun(bool toSet) {run_ = toSet;}
+   void doShutdown(void);
+   void setThreadParams(ThreadParams *tp) 
+                     {tp_ = tp;}
    void scanBlockchainForTx(uint32_t startBlknum, uint32_t endBlknum,
                                                    bool fetchFirst);
    void rescanWalletZeroConf();

@@ -46,6 +46,7 @@
 #define DEFAULT_BUFFER_SIZE 32*1048576
 
 #include "UniversalTimer.h"
+#include "AtomicInt32.h"
 
 
 #define READHEX        BinaryData::CreateFromHex

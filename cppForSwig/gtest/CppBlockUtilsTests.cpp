@@ -5835,6 +5835,215 @@ TEST_F(DISABLED_PartialMerkleTest, EmptyTree)
    
 }
 
+class ThreadSafeSTLTest : public ::testing::Test
+{
+   protected:
+      static ThreadSafeSTL<vector<int>> testTSS;
+      static AtomicInt32 removeTotal;
+
+      virtual void SetUp(void)
+      {
+         removeTotal = 0;
+      }
+
+      virtual void TearDown(void)
+      {
+         testTSS.clear();
+      }
+
+      static void* Add(void *in)
+      {
+         int c = *((int*)in);
+         c *= 1000;
+         for(int i=0; i<1000; i++)
+            testTSS.Add(++c);
+
+         return 0;
+      }
+
+      static void* Remove(void *in)
+      {
+         int c = *((int*)in);
+         c *= 1000;
+         int total = 0;
+         for(int i=0; i<1000; i++)
+         {
+            ++c;
+            if(!(rand() % 3))
+            {
+               testTSS.Remove(c);
+               total += c;
+            }
+         }
+
+         removeTotal.Fetch_Add(total);
+         return 0;
+      }
+};
+
+ThreadSafeSTL<vector<int>> ThreadSafeSTLTest::testTSS;
+AtomicInt32                ThreadSafeSTLTest::removeTotal;
+
+TEST_F(ThreadSafeSTLTest, AddRemoveClearAdd)
+{
+   testTSS.Add(1);
+   testTSS.Add(2);
+   testTSS.Add(3);
+   testTSS.Add(4);
+
+   TSIterator<vector<int>>* testIter = new TSIterator<vector<int>>(testTSS.GetCurrent());
+
+   int expect = 1+2+3+4;
+   int total  = 0;
+   for(testIter; !testIter->end(); (*testIter)++)
+      total += *(*testIter);
+
+   EXPECT_EQ(total, expect);
+   delete testIter;
+
+   
+   testTSS.Remove(3);
+   testIter = new TSIterator<vector<int>>(testTSS.GetCurrent());
+
+   expect = 1+2+4;
+   total  = 0;
+
+   for(testIter; !testIter->end(); (*testIter)++)
+      total += *(*testIter);
+
+   EXPECT_EQ(total, expect);
+   delete testIter;
+
+   //grab same snapshot
+   testIter = new TSIterator<vector<int>>(testTSS.GetCurrent());
+   expect = 1+2+4;
+   total  = 0;
+
+   for(testIter; !testIter->end(); (*testIter)++)
+      total += *(*testIter);
+
+   EXPECT_EQ(total, expect);
+   delete testIter;
+
+   testTSS.clear();
+   testIter = new TSIterator<vector<int>>(testTSS.GetCurrent());
+
+   expect = 0;
+   total  = 0;
+
+   for(testIter; !testIter->end(); (*testIter)++)
+      total += *(*testIter);
+
+   EXPECT_EQ(total, expect);
+   delete testIter;
+
+   testTSS.Add(5);
+   testTSS.Add(6);
+   testTSS.Add(7);
+
+   testIter = new TSIterator<vector<int>>(testTSS.GetCurrent());
+
+   expect = 5+6+7;
+   total  = 0;
+   for(testIter; !testIter->end(); (*testIter)++)
+      total += *(*testIter);
+
+   EXPECT_EQ(total, expect);
+   delete testIter;
+}
+
+TEST_F(ThreadSafeSTLTest, MultiThreaded_AddRemoveClearAdd)
+{
+   int nThreads = 4;
+   pthread_t* tssThreads = (pthread_t*)malloc(sizeof(pthread_t)*nThreads);
+   int *threadParam = (int*)malloc(sizeof(int)*nThreads);
+
+   //fill the vector
+   int i;
+   for(i=0; i<nThreads; i++)
+   {
+      threadParam[i] = i;
+      pthread_create(tssThreads +i, 0, Add, threadParam +i);
+   }
+
+   for(i=0; i<nThreads; i++)
+      pthread_join(tssThreads[i], 0);
+
+   //get iterator for add
+   TSIterator<vector<int>>* tssIter = \
+      new TSIterator<vector<int>>(testTSS.GetCurrent());
+
+   //randomly remove some elements
+   for(i=0; i<nThreads; i++)
+      pthread_create(tssThreads +i, 0, Remove, threadParam +i);
+
+   //run through iterator
+   int expect = ((nThreads*nThreads*1000*1000)+nThreads*1000)/2;
+   int total  = 0;
+   for(tssIter; !tssIter->end(); (*tssIter)++)
+      total += *(*tssIter);
+   
+   EXPECT_EQ(total, expect);
+   delete tssIter;
+
+   //wait on the remove threads
+   for(i=0; i<nThreads; i++)
+      pthread_join(tssThreads[i], 0);
+
+   //get iterator for remove
+   tssIter = new TSIterator<vector<int>>(testTSS.GetCurrent());
+
+   //clear
+   testTSS.clear();
+
+   //run through iterator
+   expect -= removeTotal.Get();
+   total  = 0;
+   for(tssIter; !tssIter->end(); (*tssIter)++)
+      total += **tssIter;
+
+   EXPECT_EQ(total, expect);
+   delete tssIter;
+
+   //get iterator for clear
+   tssIter = new TSIterator<vector<int>>(testTSS.GetCurrent());
+
+   //new round of add
+   for(i=0; i<nThreads; i++)
+   {
+      threadParam[i] = i+nThreads;
+      pthread_create(tssThreads +i, 0, Add, threadParam +i);
+   }
+
+   //run through clear iterator
+   expect = 0;
+   total  = 0;
+   for(tssIter; !tssIter->end(); (*tssIter)++)
+      total += **tssIter;
+
+   EXPECT_EQ(total, expect);
+   delete tssIter;
+
+   //wait on new add
+   for(i=0; i<nThreads; i++)
+      pthread_join(tssThreads[i], 0);
+
+   //grab last iterator
+   tssIter = new TSIterator<vector<int>>(testTSS.GetCurrent());
+   
+   //run through last iterator
+   expect = (3*nThreads*nThreads*1000000 + nThreads*1000)/2;
+   total  = 0;
+   for(tssIter; !tssIter->end(); (*tssIter)++)
+      total += **tssIter;
+
+   EXPECT_EQ(total, expect);
+   delete tssIter;
+   
+   free(tssThreads);
+   free(threadParam);
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 // THESE ARE ARMORY_DB_BARE tests.  Identical to above except for the mode.
@@ -6041,6 +6250,103 @@ TEST_F(BlockUtilsBare, Load4Blocks_Plus1)
    EXPECT_EQ(scrobj->getFullBalance(),  0*COIN);
    scrobj = &wlt.getScrAddrObjByKey(scrAddrC_);
    EXPECT_EQ(scrobj->getFullBalance(), 50*COIN);
+   try
+   {
+      scrobj = &wlt.getScrAddrObjByKey(scrAddrD_);
+      EXPECT_TRUE(false);  //unreachable
+   }
+   catch (...)
+   {
+      // hasn't been scanned yet
+   }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(BlockUtilsBare, Load4Blocks_ZC_Plus1)
+{
+   BtcWallet wlt;
+   wlt.addScrAddress(scrAddrA_);
+   wlt.addScrAddress(scrAddrB_);
+   wlt.addScrAddress(scrAddrC_);
+   TheBDM.registerWallet(&wlt);
+   wlt.registerNewScrAddr(scrAddrD_);
+   
+   // Copy only the first four blocks.  Will copy the full file next to test
+   // readBlkFileUpdate method on non-reorg blocks.
+   BtcUtils::copyFile("../reorgTest/blk_0_to_4.dat", blk0dat_, 1596);
+   TheBDM.doInitialSyncOnLoad(); 
+   TheBDM.scanBlockchainForTx(wlt);
+   EXPECT_EQ(iface_->getTopBlockHeight(HEADERS), 3);
+   EXPECT_EQ(iface_->getTopBlockHash(HEADERS), blkHash3);
+   EXPECT_TRUE(TheBDM.blockchain().getHeaderByHash(blkHash3).isMainBranch());
+   
+   ScrAddrObj * scrobj;
+   
+   scrobj = &wlt.getScrAddrObjByKey(scrAddrA_);
+   EXPECT_EQ(scrobj->getFullBalance(), 50*COIN);
+   scrobj = &wlt.getScrAddrObjByKey(scrAddrB_);
+   EXPECT_EQ(scrobj->getFullBalance(), 50*COIN);
+   scrobj = &wlt.getScrAddrObjByKey(scrAddrC_);
+   EXPECT_EQ(scrobj->getFullBalance(), 50*COIN);
+
+   uint32_t wltsize = wlt.getTxLedger().size();
+
+   ULONGLONG fullBalance = wlt.getFullBalance();
+   ULONGLONG spendableBalance = wlt.getSpendableBalance(4);
+   ULONGLONG unconfirmedBalance = wlt.getUnconfirmedBalance(4);
+   EXPECT_EQ(fullBalance, 150*COIN);
+   EXPECT_EQ(spendableBalance, 0*COIN);
+   EXPECT_EQ(unconfirmedBalance, 150*COIN);
+
+   BinaryData rawZC(131);
+   FILE *ff = fopen("../reorgTest/ZCtx.tx", "rb");
+   fread(rawZC.getPtr(), 131, 1, ff);
+   fclose(ff);
+
+   wltsize = wlt.getTxLedger().size();
+
+   TheBDM.addNewZeroConfTx(rawZC, 0, false);
+   TheBDM.rescanWalletZeroConf();
+   scrobj = &wlt.getScrAddrObjByKey(scrAddrA_);
+   EXPECT_EQ(scrobj->getFullBalance(), 100*COIN);
+   scrobj = &wlt.getScrAddrObjByKey(scrAddrB_);
+   EXPECT_EQ(scrobj->getFullBalance(), 50*COIN);
+   scrobj = &wlt.getScrAddrObjByKey(scrAddrC_);
+   EXPECT_EQ(scrobj->getFullBalance(), 50*COIN);
+
+   fullBalance = wlt.getFullBalance();
+   spendableBalance = wlt.getSpendableBalance(4);
+   unconfirmedBalance = wlt.getUnconfirmedBalance(4);
+   EXPECT_EQ(fullBalance, 200*COIN);
+   EXPECT_EQ(spendableBalance, 0*COIN);
+   EXPECT_EQ(unconfirmedBalance, 200*COIN);
+
+   
+   BtcUtils::copyFile("../reorgTest/blk_0_to_4.dat", blk0dat_);
+   TheBDM.readBlkFileUpdate(); 
+   TheBDM.scanBlockchainForTx(0, 5, true);
+   TheBDM.rescanWalletZeroConf();
+
+   EXPECT_EQ(iface_->getTopBlockHeight(HEADERS), 4);
+   EXPECT_EQ(iface_->getTopBlockHash(HEADERS), blkHash4);
+   EXPECT_TRUE(TheBDM.blockchain().getHeaderByHash(blkHash4).isMainBranch());
+
+   scrobj = &wlt.getScrAddrObjByKey(scrAddrA_);
+   EXPECT_EQ(scrobj->getFullBalance(),100*COIN);
+   scrobj = &wlt.getScrAddrObjByKey(scrAddrB_);
+   EXPECT_EQ(scrobj->getFullBalance(),  0*COIN);
+   scrobj = &wlt.getScrAddrObjByKey(scrAddrC_);
+   EXPECT_EQ(scrobj->getFullBalance(), 50*COIN);
+
+   fullBalance = wlt.getFullBalance();
+   spendableBalance = wlt.getSpendableBalance(5);
+   unconfirmedBalance = wlt.getUnconfirmedBalance(5);
+   EXPECT_EQ(fullBalance, 150*COIN);
+   EXPECT_EQ(spendableBalance, 0*COIN);
+   EXPECT_EQ(unconfirmedBalance, 150*COIN);
+
+   wltsize = wlt.getTxLedger().size();
+
    try
    {
       scrobj = &wlt.getScrAddrObjByKey(scrAddrD_);

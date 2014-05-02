@@ -294,7 +294,7 @@ class SendBitcoinsFrame(ArmoryFrame):
    def setWallet(self, wlt, isDoubleClick=False):
       self.wlt = wlt
       self.wltID = wlt.uniqueIDB58 if wlt else None
-      if not TheBDM.getBDMState() == 'BlockchainReady':
+      if not TheBDM.getState() == 'BlockchainReady':
          self.lblSummaryBal.setText('(available when online)', color='DisableFG')
       if self.main.usermode == USERMODE.Expert:
          # Pre-set values based on settings
@@ -639,7 +639,6 @@ class SendBitcoinsFrame(ArmoryFrame):
                if len(commentStr) > 0:
                   self.wlt.setComment(finalTx.getHash(), commentStr)
                self.main.broadcastTransaction(finalTx)
-               TheBDM.queued(lambda : TheBDM.bdm.saveScrAddrHistories())
             except:
                LOGEXCEPT('Problem sending transaction!')
                # TODO: not sure what errors to catch here, yet...
