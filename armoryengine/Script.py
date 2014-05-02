@@ -93,6 +93,28 @@ def scriptPushData(binObj):
       return '\x4d' + lenBytes + binObj
    else:
       InvalidScriptError('Cannot use PUSHDATA for len(obj)>65536')
+
+
+
+class ScriptBuilder(object):
+   def __init__(self):
+      self.opList = []
+
+   def pushCode(self, opStr):
+      self.opList.append(getOpCode(opStr))
+      
+   def pushData(self, data):
+      self.opList.append(scriptPushData(data))
+
+   def getBinaryScript(self):
+      return ''.join(self.opList)
+
+   def getHexScript(self):
+      return binary_to_hex(''.join(self.opList))
+
+   def getHumanScript(self):
+      # Human-readable
+      return ' '.join(convertScriptToOpStrings(self.getBinaryScript()))
       
 
 TX_INVALID = 0

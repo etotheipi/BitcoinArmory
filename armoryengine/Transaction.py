@@ -1708,7 +1708,6 @@ class UnsignedTransaction(object):
                                             'or access to the blockchain, to '
                                             'create the TxDP')
 
-
       ustxiList = []
       dtxoList = []
 

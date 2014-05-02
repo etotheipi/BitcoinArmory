@@ -3041,7 +3041,8 @@ class ArmoryMainWindow(QMainWindow):
       lbox = self.allLockboxes[self.lockboxIDMap[lboxId]]
       for a160 in lbox.a160List:
          wltID = self.getWalletForAddr160(a160)
-         commentSet.add(self.walletMap[wltID].getCommentForLE(le))
+         if wltID:
+            commentSet.add(self.walletMap[wltID].getCommentForLE(le))
       return ' '.join(commentSet)
 
    #############################################################################
