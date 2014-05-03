@@ -701,7 +701,7 @@ class PyBtcWalletRecovery(object):
             self.rawError.append('   chainIndex 0 was not derived from the \
                                   root address')
 
-         testroot.lock()
+         testroot.binPrivKey32_Plain.destroy()
 
       if rmode != RECOVERMODE.Meta:
          currSequence = addrDict[0][2]
@@ -923,7 +923,7 @@ class PyBtcWalletRecovery(object):
                      validAddr.keyChanged = True
                      
                      if validAddr.useEncryption:
-                        validAddr.lock()
+                        validAddr.lock(secureKdfOutput=toRecover.kdfKey)
                      
                      if isPubForked is not True:
                         self.forkedPublicKeyChain.append([newAddr.chainIndex, \
@@ -964,7 +964,7 @@ class PyBtcWalletRecovery(object):
                         validAddr.keyChanged = True
                         
                         if validAddr.useEncryption:
-                           validAddr.lock()
+                           validAddr.lock(secureKdfOutput=toRecover.kdfKey)
                                                                                                  
                      validPrivKey.destroy()   
                                        
