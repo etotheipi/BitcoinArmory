@@ -865,7 +865,7 @@ class PyBtcWalletRecovery(object):
             if newAddr.chainIndex > 0 and keymismatch != 2:
                #if the wallet has the private key, derive it from the 
                #chainIndex and compare. If they mismatch, save the bad 
-               #private key as index -3 in the saved wallet. Additionally, 
+               #private key as -3 -chainIndex in the saved wallet. Additionally, 
                #derive the private key in case it is missing (keymismatch==4)
                
                gap = newAddr.chainIndex

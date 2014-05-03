@@ -1,7 +1,7 @@
 
 from CppBlockUtils import SecureBinaryData, CryptoECDSA, CryptoAES
 from armoryengine.PyBtcAddress import PyBtcAddress
-from armoryengine.ArmoryUtils import hex_to_binary, binary_to_hex, HMAC256
+from armoryengine.ArmoryUtils import *
 from armoryengine.BinaryUnpacker import BinaryUnpacker
 from armoryengine.PyBtcWallet import PyBtcWallet
 from armoryengine.PyBtcWalletRecovery import PyBtcWalletRecovery, RECOVERMODE
@@ -54,6 +54,18 @@ class PyBtcWalletRecoveryTest(unittest.TestCase):
       crpWlt.lastComputedChainAddr160 = newAddr.addrStr20
       crpWlt.fillAddressPool(250)
       
+      lastAddr = crpWlt.addrMap[crpWlt.lastComputedChainAddr160]
+      PrivKey = hex_to_binary('e3b0c44298fc1c149afbf4c8996fb92427ae41e5978fe51ca495991b00000000')
+      lastAddr.binPrivKey32_Plain = SecureBinaryData(PrivKey)
+      lastAddr.binPublicKey65 = CryptoECDSA().ComputePublicKey( \
+                                                lastAddr.binPrivKey32_Plain)      
+      lastAddr.keyChanged = True
+      crpWlt.kdfKey = crpWlt.kdf.DeriveKey(SecureBinaryData('testing'))
+      lastAddr.lock(secureKdfOutput=crpWlt.kdfKey)
+      lastAddr.useEncryption = True
+      
+      crpWlt.fillAddressPool(350);
+      
       #TODO: corrupt a private key  
       #break an address entry at binary level    
       return crpWlt.uniqueIDB58
@@ -68,13 +80,13 @@ class PyBtcWalletRecoveryTest(unittest.TestCase):
       
       self.assertTrue(len(brkWltResult['sequenceGaps'])==1, \
                       "Sequence Gap Undetected")
-      self.assertTrue(len(brkWltResult['forkedPublicKeyChain'])==2, \
+      self.assertTrue(len(brkWltResult['forkedPublicKeyChain'])==3, \
                       "Address Chain Forks Undetected")
       self.assertTrue(len(brkWltResult['unmatchedPair'])==100, \
                       "Unmatched Priv/Pub Key Undetected")
       self.assertTrue(len(brkWltResult['misc'])==50, \
                       "Wallet Encryption Inconsistency Undetected")
-      self.assertTrue(brkWltResult['nErrors']==153, \
+      self.assertTrue(brkWltResult['nErrors']==154, \
                       "Unexpected Errors Found")   
       
       #check obfuscated keys yield the valid key
@@ -128,7 +140,7 @@ class PyBtcWalletRecoveryTest(unittest.TestCase):
       rcvWltResult = recThread.output
       
       self.assertTrue(rcvWltResult['nErrors']==0, "Unexpected Errors Found")
-      self.assertTrue(len(rcvWltResult['negativeImports'])==50, \
+      self.assertTrue(len(rcvWltResult['negativeImports'])==99, \
                       "Missing neg Imports")
       
 ###############################################################################
