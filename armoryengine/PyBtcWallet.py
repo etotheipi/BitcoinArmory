@@ -2617,7 +2617,8 @@ class PyBtcWallet(object):
          else:
             LOGERROR('Unknown txOut script type')
 
-      self.lock()
+      if self.useEncryption:
+         self.lock()
       
       prevHighestIndex = self.highestUsedChainIndex  
       if prevHighestIndex<maxChainIndex:

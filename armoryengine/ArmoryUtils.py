@@ -241,7 +241,12 @@ SUBDIR = 'testnet3' if USE_TESTNET else ''
 if OS_WINDOWS:
    OS_NAME         = 'Windows'
    OS_VARIANT      = platform.win32_ver()
-   USER_HOME_DIR   = os.getenv('APPDATA')
+   
+   import ctypes
+   buffer = ctypes.create_unicode_buffer(u'\0' * 260)
+   rt = ctypes.windll.shell32.SHGetFolderPathW(0, 26, 0, 0, ctypes.byref(buffer))
+   USER_HOME_DIR = unicode(buffer.value)
+               
    BTC_HOME_DIR    = os.path.join(USER_HOME_DIR, 'Bitcoin', SUBDIR)
    ARMORY_HOME_DIR = os.path.join(USER_HOME_DIR, 'Armory', SUBDIR)
    BLKFILE_DIR     = os.path.join(BTC_HOME_DIR, 'blocks')

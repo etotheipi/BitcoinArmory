@@ -2553,7 +2553,11 @@ class ArmoryMainWindow(QMainWindow):
                   os.remove(mempoolfile)
             else:
                self.checkMemoryPoolCorruption(mempoolfile)
-            TheBDM.enableZeroConf(mempoolfile)
+               
+            cppMempoolFile = mempoolfile
+            if OS_WINDOWS and isinstance(mempoolfile, unicode):
+               cppMempoolFile = mempoolfile.encode('utf8')
+            TheBDM.enableZeroConf(cppMempoolFile)
             self.memPoolInit = True
 
          for wltID in self.walletMap.iterkeys():
