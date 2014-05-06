@@ -241,11 +241,6 @@ class ArmoryMainWindow(QMainWindow):
 
       self.statusBar().insertPermanentWidget(0, self.lblArmoryStatus)
 
-      # Keep a persistent printer object for paper backups
-      self.printer = QPrinter(QPrinter.HighResolution)
-      self.printer.setPageSize(QPrinter.Letter)
-
-
       # Table for all the wallets
       self.walletModel = AllWalletsDispModel(self)
       self.walletsView  = QTableView()
