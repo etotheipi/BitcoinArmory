@@ -261,6 +261,7 @@ class ArmoryMainWindow(QMainWindow):
       self.walletsView.verticalHeader().setDefaultSectionSize(sectionSz)
       self.walletsView.setMinimumSize(viewWidth, viewHeight)
       self.walletsView.setItemDelegate(AllWalletsCheckboxDelegate(self))
+      self.walletsView.setColumnWidth(WLTVIEWCOLS.Visible,   20)
 
 
       if self.usermode == USERMODE.Standard:
@@ -270,9 +271,10 @@ class ArmoryMainWindow(QMainWindow):
          initialColResize(self.walletsView, [28, 0.15, 0.30, 0.2, 0.20])
 
 
-      self.connect(self.walletsView, SIGNAL('doubleClicked(QModelIndex)'), \
+      self.connect(self.walletsView, SIGNAL('doubleClicked(QModelIndex)'), 
                    self.execDlgWalletDetails)
-
+      self.connect(self.walletsView, SIGNAL('clicked(QModelIndex)'), 
+                   self.execClickRow)
 
       w,h = tightSizeNChar(GETFONT('var'), 100)
 
@@ -2397,7 +2399,7 @@ class ArmoryMainWindow(QMainWindow):
                # Maintain some linear lists of wallet info
                self.walletIDSet.add(wltID)
                self.walletIDList.append(wltID)
-               defaultVisible = self.getWltSetting(wltID, 'LedgerShow')
+               defaultVisible = self.getWltSetting(wltID, 'LedgerShow', True)
                self.walletVisibleList.append(defaultVisible)
                wltLoad.mainWnd = self
          except:
@@ -2493,14 +2495,16 @@ class ArmoryMainWindow(QMainWindow):
       return fullPath
 
    ##############################################################################
-   def getWltSetting(self, wltID, propName):
+   def getWltSetting(self, wltID, propName, defaultValue=''):
       # Sometimes we need to settings specific to individual wallets -- we will
       # prefix the settings name with the wltID.
       wltPropName = 'Wallet_%s_%s' % (wltID, propName)
       try:
          return self.settings.get(wltPropName)
       except KeyError:
-         return ''
+         if defaultValue:
+            self.setWltSetting(wltID, propName, defaultValue)
+         return defaultValue
 
    #############################################################################
    def setWltSetting(self, wltID, propName, value):
@@ -2918,6 +2922,7 @@ class ArmoryMainWindow(QMainWindow):
       """
       start = RightNow()
       if wltIDList==None:
+
          # Create a list of [wltID, type] pairs
          typelist = [[wid, determineWalletType(self.walletMap[wid], self)[0]] \
                                                       for wid in self.walletIDList]
@@ -3182,6 +3187,23 @@ class ArmoryMainWindow(QMainWindow):
       #self.walletListChanged()
 
    #############################################################################
+   def execClickRow(self, index=None):
+      row,col = index.row(), index.column()
+      if not col==WLTVIEWCOLS.Visible:
+         return
+
+      wltID = self.walletIDList[row]
+      currEye = self.walletVisibleList[row]
+      self.walletVisibleList[row] = not currEye 
+      self.setWltSetting(wltID, 'LedgerShow', not currEye)
+      
+      if TheBDM.getBDMState()=='BlockchainReady':
+         self.createCombinedLedger()
+         self.ledgerModel.reset()
+         self.walletModel.reset()
+
+
+   #############################################################################
    def updateTxCommentFromView(self, view):
       index = view.selectedIndexes()[0]
       row, col = index.row(), index.column()
@@ -3264,8 +3286,9 @@ class ArmoryMainWindow(QMainWindow):
       # Maintain some linear lists of wallet info
       self.walletIDSet.add(newWltID)
       self.walletIDList.append(newWltID)
-      self.walletVisibleList.append(True)
-      self.setWltSetting(newWltID, 'LedgerShow', True)
+      showByDefault = (determineWalletType(wlt, self)[0] != WLTTYPES.WatchOnly)
+      self.walletVisibleList.append(showByDefault)
+      self.setWltSetting(newWltID, 'LedgerShow', showByDefault)
 
       ledger = []
       wlt = self.walletMap[newWltID]

@@ -148,6 +148,10 @@ class AllWalletsDispModel(QAbstractTableModel):
    #}
 
 
+# This was an almost-successful attempt to use a delegate to manage visibility
+# Will kind of hack around it, using a simpler delegate and a QTableView 
+# signal to do the toggling
+'''
 class AllWalletsCheckboxDelegate(QStyledItemDelegate):
    """
    Taken from http://stackoverflow.com/a/3366899/1610471
@@ -190,11 +194,11 @@ class AllWalletsCheckboxDelegate(QStyledItemDelegate):
 
 
    def editorEvent(self, event, model, option, index):
-      '''
+      """
       Change the data in the model and the state of the checkbox
       if the user presses the left mousebutton or presses
       Key_Space or Key_Select and this cell is editable. Otherwise do nothing.
-      '''
+      """
       if index.column()==WLTVIEWCOLS.Visible:
          #if not (index.flags() & Qt.ItemIsEditable) > 0:
             #return False
@@ -244,7 +248,40 @@ class AllWalletsCheckboxDelegate(QStyledItemDelegate):
       if index.column()==WLTVIEWCOLS.Visible:
          return QSize(28,28)
       return QStyledItemDelegate.sizeHint(self, option, index)
+'''
 
+################################################################################
+class AllWalletsCheckboxDelegate(QStyledItemDelegate):
+   """
+   Taken from http://stackoverflow.com/a/3366899/1610471
+   """
+   EYESIZE = 20
+
+   def __init__(self, parent=None):
+      super(AllWalletsCheckboxDelegate, self).__init__(parent)   
+
+   #############################################################################
+   def paint(self, painter, option, index):
+      bgcolor = QColor(index.model().data(index, Qt.BackgroundColorRole))
+      if option.state & QStyle.State_Selected:
+         bgcolor = QApplication.palette().highlight().color()
+
+      if index.column() == WLTVIEWCOLS.Visible:
+         isVisible = index.model().data(index)
+         image=None
+         painter.fillRect(option.rect, bgcolor)
+         if isVisible:
+            image = QImage('img/visible2.png').scaled(self.EYESIZE,self.EYESIZE)
+            pixmap = QPixmap.fromImage(image)
+            painter.drawPixmap(option.rect, pixmap)
+      else:
+         QStyledItemDelegate.paint(self, painter, option, index)
+
+   #############################################################################
+   def sizeHint(self, option, index):
+      if index.column()==WLTVIEWCOLS.Visible:
+         return QSize(self.EYESIZE,self.EYESIZE)
+      return QStyledItemDelegate.sizeHint(self, option, index)
 
 ################################################################################
 class LedgerDispModelSimple(QAbstractTableModel):
