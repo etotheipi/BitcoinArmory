@@ -500,8 +500,7 @@ class DlgLockboxEditor(ArmoryDialog):
 
 
 
-      txOutScript = pubkeylist_to_multisig_script(pubKeyList, currM, \
-                                                         withSort=False)  
+      txOutScript = pubkeylist_to_multisig_script(pubKeyList, currM)  
       opCodeList = convertScriptToOpStrings(txOutScript)
       scraddr = script_to_scrAddr(txOutScript)
 
