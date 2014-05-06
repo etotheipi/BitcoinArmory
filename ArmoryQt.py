@@ -575,10 +575,10 @@ class ArmoryMainWindow(QMainWindow):
             DlgExportTxHistory(self,self).exec_()
 
 
-      actExportTx    = self.createAction('&Export Transactions', exportTx)
-      actSettings    = self.createAction('&Settings', self.openSettings)
+      actExportTx    = self.createAction('&Export Transactions...', exportTx)
+      actSettings    = self.createAction('&Settings...', self.openSettings)
       actMinimApp    = self.createAction('&Minimize Armory', self.minimizeArmory)
-      actExportLog   = self.createAction('Export &Log File', self.exportLogFile)
+      actExportLog   = self.createAction('Export &Log File...', self.exportLogFile)
       actCloseApp    = self.createAction('&Quit Armory', self.closeForReal)
       self.menusList[MENUS.File].addAction(actExportTx)
       self.menusList[MENUS.File].addAction(actSettings)
@@ -634,10 +634,10 @@ class ArmoryMainWindow(QMainWindow):
 
 
 
-      actOpenSigner = self.createAction('&Message Signing/Verification', openMsgSigning)
+      actOpenSigner = self.createAction('&Message Signing/Verification...', openMsgSigning)
       if currmode=='Expert':
-         actOpenTools  = self.createAction('&EC Calculator',   lambda: DlgECDSACalc(self,self, 1).exec_())
-         actBlindBroad = self.createAction('&Broadcast Raw Transaction', openBlindBroad)
+         actOpenTools  = self.createAction('&EC Calculator...',   lambda: DlgECDSACalc(self,self, 1).exec_())
+         actBlindBroad = self.createAction('&Broadcast Raw Transaction...', openBlindBroad)
 
       self.menusList[MENUS.Tools].addAction(actOpenSigner)
       if currmode=='Expert':
@@ -650,20 +650,20 @@ class ArmoryMainWindow(QMainWindow):
 
 
       # Addresses
-      actAddrBook   = self.createAction('View &Address Book',          self.execAddressBook)
-      actSweepKey   = self.createAction('&Sweep Private Key/Address',  self.menuSelectSweepKey)
-      actImportKey  = self.createAction('&Import Private Key/Address', self.menuSelectImportKey)
+      actAddrBook   = self.createAction('View &Address Book...',          self.execAddressBook)
+      actSweepKey   = self.createAction('&Sweep Private Key/Address...',  self.menuSelectSweepKey)
+      actImportKey  = self.createAction('&Import Private Key/Address...', self.menuSelectImportKey)
 
       self.menusList[MENUS.Addresses].addAction(actAddrBook)
       if not currmode=='Standard':
          self.menusList[MENUS.Addresses].addAction(actImportKey)
          self.menusList[MENUS.Addresses].addAction(actSweepKey)
 
-      actCreateNew    = self.createAction('&Create New Wallet',        self.startWalletWizard)
-      actImportWlt    = self.createAction('&Import or Restore Wallet', self.execImportWallet)
-      actAddressBook  = self.createAction('View &Address Book',        self.execAddressBook)
+      actCreateNew    = self.createAction('&Create New Wallet...',        self.startWalletWizard)
+      actImportWlt    = self.createAction('&Import or Restore Wallet...', self.execImportWallet)
+      actAddressBook  = self.createAction('View &Address Book...',        self.execAddressBook)
 
-      actRecoverWlt   = self.createAction('Recover Damaged Wallet',    self.RecoverWallet)
+      actRecoverWlt   = self.createAction('Recover Damaged Wallet...',    self.RecoverWallet)
       #actRescanOnly   = self.createAction('Rescan Blockchain', self.forceRescanDB)
       #actRebuildAll   = self.createAction('Rescan with Database Rebuild', self.forceRebuildAndRescan)
 
@@ -687,16 +687,16 @@ class ArmoryMainWindow(QMainWindow):
 
 
       execVerifySigned = lambda: VerifyOfflinePackageDialog(self, self).exec_()
-      actAboutWindow  = self.createAction(tr('About Armory'), execAbout)
-      actVersionCheck = self.createAction(tr('Armory Version...'), execVersion)
+      actAboutWindow  = self.createAction(tr('&About Armory...'), execAbout)
+      actVersionCheck = self.createAction(tr('Armory Version'), execVersion)
       actDownloadUpgrade = self.createAction(tr('Update Software...'), self.openDownloaderAll)
       actVerifySigned = self.createAction(tr('Verify Signed Package...'), execVerifySigned)
-      actTroubleshoot = self.createAction(tr('Troubleshooting Armory'), execTrouble)
-      actSubmitBug    = self.createAction(tr('Submit Bug Report'), execBugReport)
-      actClearMemPool = self.createAction(tr('Clear All Unconfirmed'), self.clearMemoryPool)
-      actRescanDB     = self.createAction(tr('Rescan Databases'), self.rescanNextLoad)
-      actRebuildDB    = self.createAction(tr('Rebuild and Rescan Databases'), self.rebuildNextLoad)
-      actFactoryReset = self.createAction(tr('Factory Reset'), self.factoryReset)
+      actTroubleshoot = self.createAction(tr('Troubleshooting Armory...'), execTrouble)
+      actSubmitBug    = self.createAction(tr('Submit &Bug Report...'), execBugReport)
+      actClearMemPool = self.createAction(tr('Clear All Unconfirmed...'), self.clearMemoryPool)
+      actRescanDB     = self.createAction(tr('Rescan Databases...'), self.rescanNextLoad)
+      actRebuildDB    = self.createAction(tr('Rebuild and Rescan Databases...'), self.rebuildNextLoad)
+      actFactoryReset = self.createAction(tr('Factory Reset...'), self.factoryReset)
 
       self.menusList[MENUS.Help].addAction(actAboutWindow)
       self.menusList[MENUS.Help].addAction(actVersionCheck)
@@ -716,7 +716,7 @@ class ArmoryMainWindow(QMainWindow):
       execMSHack = lambda: DlgSelectMultiSigOption(self,self).exec_()
       execBrowse = lambda: DlgLockboxManager(self,self).exec_()
       actMultiHacker = self.createAction(tr('Multi-Sig Lockboxes'), execMSHack)
-      actBrowseLockboxes = self.createAction(tr('Lockbox Manager'), execBrowse)
+      actBrowseLockboxes = self.createAction(tr('Lockbox Manager...'), execBrowse)
       #self.menusList[MENUS.MultiSig].addAction(actMultiHacker)
       self.menusList[MENUS.MultiSig].addAction(actBrowseLockboxes)
 
