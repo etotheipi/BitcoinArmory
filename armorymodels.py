@@ -25,7 +25,7 @@ sys.path.append('../cppForSwig')
 
 
 
-WLTVIEWCOLS = enum('ID', 'Name', 'Secure', 'Bal')
+WLTVIEWCOLS = enum('Visible', 'ID', 'Name', 'Secure', 'Bal')
 LEDGERCOLS  = enum('NumConf', 'UnixTime', 'DateStr', 'TxDir', 'WltName', 'Comment', \
                    'Amount', 'isOther', 'WltID', 'TxHash', 'isCoinbase', 'toSelf', 'DoubleSpend')
 ADDRESSCOLS  = enum('ChainIdx', 'Address', 'Comment', 'NumTx', 'Balance')
@@ -48,22 +48,25 @@ class AllWalletsDispModel(QAbstractTableModel):
       return len(self.main.walletMap)
 
    def columnCount(self, index=QModelIndex()):
-      return 4
+      return 5
 
    def data(self, index, role=Qt.DisplayRole):
       COL = WLTVIEWCOLS
       row,col = index.row(), index.column()
       wlt = self.main.walletMap[self.main.walletIDList[row]]
       wltID = wlt.uniqueIDB58
+
       if role==Qt.DisplayRole:
-         if col==COL.ID: 
+         if col==COL.Visible:
+            return self.main.walletVisibleList[row]
+         elif col==COL.ID: 
             return QVariant(wltID)
-         if col==COL.Name: 
+         elif col==COL.Name: 
             return QVariant(wlt.labelName.ljust(32))
-         if col==COL.Secure: 
+         elif col==COL.Secure: 
             wtype,typestr = determineWalletType(wlt, self.main)
             return QVariant(typestr)
-         if col==COL.Bal: 
+         elif col==COL.Bal: 
             if not TheBDM.getBDMState()=='BlockchainReady':
                return QVariant('(...)')
             bal = wlt.getBalance('Total')
@@ -96,8 +99,17 @@ class AllWalletsDispModel(QAbstractTableModel):
       return QVariant()
 
 
+   # 
+   def setData(self, index, value, role):
+      print 'setdata called'
+      if index.column()==WLTVIEWCOLS:
+         wltID = self.main.walletIDList[index.row()]
+         self.main.walletVisibleList[index.row()] = value
+         self.main.setWltSetting(wltID, 'LedgerShow', value)
+
+
    def headerData(self, section, orientation, role=Qt.DisplayRole):
-      colLabels = ['ID', 'Wallet Name', 'Security', 'Balance']
+      colLabels = ['', 'ID', 'Wallet Name', 'Security', 'Balance']
       if role==Qt.DisplayRole:
          if orientation==Qt.Horizontal:
             return QVariant( colLabels[section])
@@ -134,6 +146,105 @@ class AllWalletsDispModel(QAbstractTableModel):
         #document.drawContents(painter);
         #painter->translate(-option.rect.topLeft());
    #}
+
+
+class AllWalletsCheckboxDelegate(QStyledItemDelegate):
+   """
+   Taken from http://stackoverflow.com/a/3366899/1610471
+   """
+   def __init__(self, parent=None):
+      super(AllWalletsCheckboxDelegate, self).__init__(parent)   
+
+
+   def createEditor(self, parent, option, index):
+      """ Without this, an editor is created if the user clicks in this cell."""
+      return None
+
+
+   def paint(self, painter, option, index):
+      if not index.column() == WLTVIEWCOLS.Visible:
+         QStyledItemDelegate.paint(self, painter, option, index)
+      else:
+         # Paint a checkbox without the label.
+         checked = bool(index.model().data(index, Qt.DisplayRole))
+         check_box_style_option = QStyleOptionButton()
+
+         if (index.flags() & Qt.ItemIsEditable) > 0:
+            check_box_style_option.state |= QStyle.State_Enabled
+         else:
+            check_box_style_option.state |= QStyle.State_ReadOnly
+
+         if checked:
+            check_box_style_option.state |= QStyle.State_On
+         else:
+            check_box_style_option.state |= QStyle.State_Off
+
+         check_box_style_option.rect = self.getCheckboxRect(option)
+
+         #if not index.model().hasFlag(index, Qt.ItemIsEditable):
+            #check_box_style_option.state |= QStyle.State_ReadOnly
+
+         QApplication.style().drawControl(QStyle.CE_CheckBox, 
+                                          check_box_style_option, 
+                                          painter)
+
+
+   def editorEvent(self, event, model, option, index):
+      '''
+      Change the data in the model and the state of the checkbox
+      if the user presses the left mousebutton or presses
+      Key_Space or Key_Select and this cell is editable. Otherwise do nothing.
+      '''
+      if index.column()==WLTVIEWCOLS.Visible:
+         #if not (index.flags() & Qt.ItemIsEditable) > 0:
+            #return False
+
+         # Do not change the checkbox-state
+         if event.type() == QEvent.MouseButtonRelease or \
+            event.type() == QEvent.MouseButtonDblClick:
+            if event.button() != Qt.LeftButton or \
+               not self.getCheckboxRect(option).contains(event.pos()):
+               return False
+            if event.type() == QEvent.MouseButtonDblClick:
+               return True
+            elif event.type() == QEvent.KeyPress:
+               if event.key() != Qt.Key_Space and \
+                  event.key() != Qt.Key_Select:
+                  return False
+            else:
+               return False
+
+         # Change the checkbox-state
+         self.setModelData(None, model, index)
+         return True
+      else:
+         return False
+      
+
+
+   def setModelData(self, editor, model, index):
+      """ The user wanted to change the old state in the opposite """
+      newValue = not bool(index.model().data(index, Qt.DisplayRole))
+      model.setData(index, newValue, Qt.EditRole)
+
+
+   def getCheckboxRect(self, option):
+      check_box_style_option = QStyleOptionButton()
+      check_box_rect = QApplication.style().subElementRect( \
+            QStyle.SE_CheckBoxIndicator, check_box_style_option, None)
+      check_box_point = QPoint( option.rect.x() +
+                                option.rect.width() / 2 -
+                                check_box_rect.width() / 2,
+                                option.rect.y() +
+                                option.rect.height() / 2 -
+                                check_box_rect.height() / 2)
+      return QRect(check_box_point, check_box_rect.size())
+
+   def sizeHint(self, option, index):
+      if index.column()==WLTVIEWCOLS.Visible:
+         return QSize(28,28)
+      return QStyledItemDelegate.sizeHint(self, option, index)
+
 
 ################################################################################
 class LedgerDispModelSimple(QAbstractTableModel):

@@ -260,13 +260,14 @@ class ArmoryMainWindow(QMainWindow):
       self.walletsView.setSelectionMode(QTableView.SingleSelection)
       self.walletsView.verticalHeader().setDefaultSectionSize(sectionSz)
       self.walletsView.setMinimumSize(viewWidth, viewHeight)
+      self.walletsView.setItemDelegate(AllWalletsCheckboxDelegate(self))
 
 
       if self.usermode == USERMODE.Standard:
-         initialColResize(self.walletsView, [0, 0.35, 0.2, 0.2])
+         initialColResize(self.walletsView, [28, 0, 0.35, 0.2, 0.2])
          self.walletsView.hideColumn(0)
       else:
-         initialColResize(self.walletsView, [0.15, 0.30, 0.2, 0.20])
+         initialColResize(self.walletsView, [28, 0.15, 0.30, 0.2, 0.20])
 
 
       self.connect(self.walletsView, SIGNAL('doubleClicked(QModelIndex)'), \
@@ -2345,6 +2346,7 @@ class ArmoryMainWindow(QMainWindow):
 
       # I need some linear lists for accessing by index
       self.walletIDList = []
+      self.walletVisibleList = []
       self.combinedLedger = []
       self.ledgerSize = 0
       self.ledgerTable = []
@@ -2395,6 +2397,8 @@ class ArmoryMainWindow(QMainWindow):
                # Maintain some linear lists of wallet info
                self.walletIDSet.add(wltID)
                self.walletIDList.append(wltID)
+               defaultVisible = self.getWltSetting(wltID, 'LedgerShow')
+               self.walletVisibleList.append(defaultVisible)
                wltLoad.mainWnd = self
          except:
             LOGEXCEPT( '***WARNING: Wallet could not be loaded: %s (skipping)', fpath)
@@ -3260,6 +3264,8 @@ class ArmoryMainWindow(QMainWindow):
       # Maintain some linear lists of wallet info
       self.walletIDSet.add(newWltID)
       self.walletIDList.append(newWltID)
+      self.walletVisibleList.append(True)
+      self.setWltSetting(newWltID, 'LedgerShow', True)
 
       ledger = []
       wlt = self.walletMap[newWltID]
@@ -3281,6 +3287,7 @@ class ArmoryMainWindow(QMainWindow):
       del self.walletIndices[wltID]
       self.walletIDSet.remove(wltID)
       del self.walletIDList[idx]
+      del self.walletVisibleList[idx]
 
       # Reconstruct walletIndices
       for i,wltID in enumerate(self.walletIDList):
