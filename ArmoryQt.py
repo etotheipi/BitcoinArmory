@@ -3363,6 +3363,8 @@ class ArmoryMainWindow(QMainWindow):
       if not isinstance(sweepFromAddrObjList, (list, tuple)):
          sweepFromAddrObjList = [sweepFromAddrObjList]
 
+      
+      addr160List = [a.getAddr160() for a in sweepFromAddrObjList]
       utxoList = getUnspentTxOutsForAddr160List(addr160List, 'Sweep', 0)
       if len(utxoList)==0:
          return [None, 0, 0]
