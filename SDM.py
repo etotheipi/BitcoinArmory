@@ -375,8 +375,17 @@ class SatoshiDaemonManager(object):
          searchPaths.extend([os.path.join(sp, 'Bitcoin') for sp in searchPaths])
          searchPaths.extend([os.path.join(sp, 'daemon') for sp in searchPaths])
 
-         # First check desktop for links
-         possBaseDir = []
+         possBaseDir = []         
+         
+         from platform import machine
+         if '64' in machine():
+            possBaseDir.append(os.getenv("ProgramW6432"))            
+            possBaseDir.append(os.getenv('PROGRAMFILES(X86)'))
+         else:
+            possBaseDir.append(os.getenv('PROGRAMFILES'))
+        
+         # check desktop for links
+
          home      = os.path.expanduser('~')
          desktop   = os.path.join(home, 'Desktop')
 
@@ -393,12 +402,7 @@ class SatoshiDaemonManager(object):
 
          # Also look in default place in ProgramFiles dirs
 
-         from platform import machine
-         if '64' in machine():
-            possBaseDir.append(os.getenv('PROGRAMFILES(X86)'))
-            possBaseDir.append(os.getenv("ProgramW6432"))
-         else:
-            possBaseDir.append(os.getenv('PROGRAMFILES'))
+
 
 
          # Now look at a few subdirs of the
@@ -493,12 +497,17 @@ class SatoshiDaemonManager(object):
             LOGERROR('    %s', bitconf)
          else:
             LOGINFO('Setting permissions on bitcoin.conf')
-            import win32api
-            username = win32api.GetUserName()
+            import ctypes
+            username_u16 = ctypes.create_unicode_buffer(u'\0', 512)
+            str_length = ctypes.c_int(512)
+            ctypes.windll.Advapi32.GetUserNameW(ctypes.byref(username_u16), 
+                                                ctypes.byref(str_length))
+            
             LOGINFO('Setting permissions on bitcoin.conf')
-            cmd_icacls = ['icacls',bitconf,'/inheritance:r','/grant:r', '%s:F' % username]
+            cmd_icacls = [u'icacls',bitconf,u'/inheritance:r',u'/grant:r', u'%s:F' % username_u16.value]
             icacls_out = subprocess_check_output(cmd_icacls, shell=True)
             LOGINFO('icacls returned: %s', icacls_out)
+            
       else:
          LOGINFO('Setting permissions on bitcoin.conf')
          os.chmod(bitconf, stat.S_IRUSR | stat.S_IWUSR)
@@ -904,5 +913,7 @@ class SatoshiDaemonManager(object):
       print '\t', 'SDM State Str'.ljust(20), ':', self.getSDMState()
       for key,value in self.returnSDMInfo().iteritems():
          print '\t', str(key).ljust(20), ':', str(value)
+
+   
 
 

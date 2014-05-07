@@ -804,6 +804,21 @@ SecureBinaryData CryptoECDSA::ComputeChainedPublicKey(
    return CryptoECDSA::SerializePublicKey(newPubKey);
 }
 
+////////////////////////////////////////////////////////////////////////////////
+SecureBinaryData CryptoECDSA::InvMod(const SecureBinaryData& m)
+{
+   static BinaryData N = BinaryData::CreateFromHex(
+           "fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141");
+   CryptoPP::Integer cppM;
+   CryptoPP::Integer cppModulo;
+   cppM.Decode(m.getPtr(), m.getSize(), UNSIGNED);
+   cppModulo.Decode(N.getPtr(), N.getSize(), UNSIGNED);
+   CryptoPP::Integer cppResult = cppM.InverseMod(cppModulo);
+   SecureBinaryData result(32);
+   cppResult.Encode(result.getPtr(), result.getSize(), UNSIGNED);
+   return result;
+}
+
 
 ////////////////////////////////////////////////////////////////////////////////
 bool CryptoECDSA::ECVerifyPoint(BinaryData const & x,
@@ -1004,12 +1019,3 @@ SecureBinaryData CryptoECDSA::UncompressPoint(SecureBinaryData const & pubKey33)
    EC_KEY_free(pubKey);
    return SecureBinaryData(sigSpace.getPtr(), sigSize);
    */
-
-
-
-
-
-
-
-
-

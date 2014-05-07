@@ -907,17 +907,17 @@ class BlockDataManagerThread(threading.Thread):
       blockdir = blkdir
       leveldbdir = self.ldbdir
       
-      if getattr(sys, 'frozen', False):
-         armory_homedir = ARMORY_HOME_DIR.encode('utf8')
-         blockdir = blkdir.encode('utf8')
-         leveldbdir = self.ldbdir.encode('utf8')
-      elif OS_WINDOWS:
+      if OS_WINDOWS:
          if isinstance(ARMORY_HOME_DIR, unicode):
             armory_homedir = ARMORY_HOME_DIR.encode('utf8')
          if isinstance(blkdir, unicode):
             blockdir = blkdir.encode('utf8')
          if isinstance(self.ldbdir, unicode):
             leveldbdir = self.ldbdir.encode('utf8')
+
+      LOGINFO('Setting Armory Home Dir: %s' % armory_homedir)
+      LOGINFO('Setting BlkFile Dir:     %s' % blockdir)
+      LOGINFO('Setting LevelDB Dir:     %s' % leveldbdir)
 
       self.bdm.SetDatabaseModes(ARMORY_DB_BARE, DB_PRUNE_NONE);
       self.bdm.SetHomeDirLocation(armory_homedir)
@@ -1433,7 +1433,7 @@ else:
    cppLogFile = os.path.join(ARMORY_HOME_DIR, 'armorycpplog.txt')
    
    cpplf = cppLogFile
-   if getattr(sys, 'frozen', False):
+   if OS_WINDOWS and isinstance(cppLogFile, unicode):
       cpplf = cppLogFile.encode('utf8')
    
    TheBDM.StartCppLogging(cpplf, 4)
