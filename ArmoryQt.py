@@ -261,14 +261,13 @@ class ArmoryMainWindow(QMainWindow):
       self.walletsView.verticalHeader().setDefaultSectionSize(sectionSz)
       self.walletsView.setMinimumSize(viewWidth, viewHeight)
       self.walletsView.setItemDelegate(AllWalletsCheckboxDelegate(self))
-      self.walletsView.setColumnWidth(WLTVIEWCOLS.Visible,   20)
 
 
       if self.usermode == USERMODE.Standard:
-         initialColResize(self.walletsView, [28, 0, 0.35, 0.2, 0.2])
+         initialColResize(self.walletsView, [20, 0, 0.35, 0.2, 0.2])
          self.walletsView.hideColumn(0)
       else:
-         initialColResize(self.walletsView, [28, 0.15, 0.30, 0.2, 0.20])
+         initialColResize(self.walletsView, [20, 0.15, 0.30, 0.2, 0.20])
 
 
       self.connect(self.walletsView, SIGNAL('doubleClicked(QModelIndex)'), 
@@ -276,6 +275,7 @@ class ArmoryMainWindow(QMainWindow):
       self.connect(self.walletsView, SIGNAL('clicked(QModelIndex)'), 
                    self.execClickRow)
 
+      self.walletsView.setColumnWidth(WLTVIEWCOLS.Visible, 20)
       w,h = tightSizeNChar(GETFONT('var'), 100)
 
 
@@ -364,14 +364,8 @@ class ArmoryMainWindow(QMainWindow):
                    self.changeLedgerSorting)
 
 
-      # Create the new ledger twice:  can't update the ledger up/down
-      # widgets until we know how many ledger entries there are from
-      # the first call
-      def createLedg():
-         self.createCombinedLedger()
-         if self.frmLedgUpDown.isVisible():
-            self.changeNumShow()
-      self.connect(self.comboWltSelect, SIGNAL('activated(int)'), createLedg)
+      self.connect(self.comboWltSelect, SIGNAL('activated(int)'), 
+                   self.changeWltFilter)
 
       self.lblTot  = QRichLabel('<b>Maximum Funds:</b>', doWrap=False);
       self.lblSpd  = QRichLabel('<b>Spendable Funds:</b>', doWrap=False);
@@ -767,6 +761,58 @@ class ArmoryMainWindow(QMainWindow):
          if self.walletMap[wltID].watchingOnly:
             result.append(wltID)
       return result
+
+
+   ####################################################
+   def changeWltFilter(self):
+
+      currIdx  = max(self.comboWltSelect.currentIndex(), 0)
+      currText = str(self.comboWltSelect.currentText()).lower()
+
+      # If "custom" is selected, do nothing...
+      if currIdx==4:
+         return
+
+      for i in range(len(self.walletVisibleList)):
+         self.walletVisibleList[i] = False
+         self.setWltSetting(self.walletIDList[i], 'LedgerShow', False)
+
+      # If a specific wallet is selected, just set that and you're done
+      if currIdx >= 4:
+         self.walletVisibleList[currIdx-7] = True
+         self.setWltSetting(self.walletIDList[currIdx-7], 'LedgerShow', True)
+      else:
+         # Else we walk through the wallets and flag the particular ones
+         typelist = [[wid, determineWalletType(self.walletMap[wid], self)[0]] \
+                                                   for wid in self.walletIDList]
+
+         for i,winfo in enumerate(typelist):
+            wid,wtype = winfo[:]
+            if currIdx==0:
+               # My wallets
+               doShow = wtype in [WLTTYPES.Offline,WLTTYPES.Crypt,WLTTYPES.Plain]
+               self.walletVisibleList[i] = doShow
+               self.setWltSetting(wid, 'LedgerShow', doShow)
+            elif currIdx==1:
+               # Offline wallets
+               doShow = winfo[1] in [WLTTYPES.Offline]
+               self.walletVisibleList[i] = doShow
+               self.setWltSetting(wid, 'LedgerShow', doShow)
+            elif currIdx==2:
+               # Others' Wallets
+               doShow = winfo[1] in [WLTTYPES.WatchOnly]
+               self.walletVisibleList[i] = doShow
+               self.setWltSetting(wid, 'LedgerShow', doShow)
+            elif currIdx==3:
+               # All Wallets
+               self.walletVisibleList[i] = True
+               self.setWltSetting(wid, 'LedgerShow', True)
+
+      self.walletsView.reset()
+      self.createCombinedLedger()
+      if self.frmLedgUpDown.isVisible():
+         self.changeNumShow()
+
 
    ####################################################
    def factoryReset(self):
@@ -2399,11 +2445,14 @@ class ArmoryMainWindow(QMainWindow):
                # Maintain some linear lists of wallet info
                self.walletIDSet.add(wltID)
                self.walletIDList.append(wltID)
-               defaultVisible = self.getWltSetting(wltID, 'LedgerShow', True)
+               wtype = determineWalletType(wltLoad, self)[0]
+               notWatch = (not wtype == WLTTYPES.WatchOnly)
+               defaultVisible = self.getWltSetting(wltID, 'LedgerShow', notWatch)
                self.walletVisibleList.append(defaultVisible)
                wltLoad.mainWnd = self
          except:
-            LOGEXCEPT( '***WARNING: Wallet could not be loaded: %s (skipping)', fpath)
+            LOGEXCEPT( '***WARNING: Wallet could not be loaded: %s (skipping)', 
+                                                                           fpath)
             raise
 
 
@@ -2499,10 +2548,10 @@ class ArmoryMainWindow(QMainWindow):
       # Sometimes we need to settings specific to individual wallets -- we will
       # prefix the settings name with the wltID.
       wltPropName = 'Wallet_%s_%s' % (wltID, propName)
-      try:
+      if self.settings.hasSetting('wltPropName'):
          return self.settings.get(wltPropName)
-      except KeyError:
-         if defaultValue:
+      else:
+         if not defaultValue=='':
             self.setWltSetting(wltID, propName, defaultValue)
          return defaultValue
 
@@ -2922,33 +2971,11 @@ class ArmoryMainWindow(QMainWindow):
       """
       start = RightNow()
       if wltIDList==None:
-
-         # Create a list of [wltID, type] pairs
-         typelist = [[wid, determineWalletType(self.walletMap[wid], self)[0]] \
-                                                      for wid in self.walletIDList]
-
-         # We need to figure out which wallets to combine here...
          currIdx  = max(self.comboWltSelect.currentIndex(), 0)
-         currText = str(self.comboWltSelect.currentText()).lower()
-         if currIdx>=4:
-            wltIDList = [self.walletIDList[currIdx-6]]
-         else:
-            listOffline  = [t[0] for t in filter(lambda x: x[1]==WLTTYPES.Offline,   typelist)]
-            listWatching = [t[0] for t in filter(lambda x: x[1]==WLTTYPES.WatchOnly, typelist)]
-            listCrypt    = [t[0] for t in filter(lambda x: x[1]==WLTTYPES.Crypt,     typelist)]
-            listPlain    = [t[0] for t in filter(lambda x: x[1]==WLTTYPES.Plain,     typelist)]
-
-            if currIdx==0:
-               wltIDList = listOffline + listCrypt + listPlain
-            elif currIdx==1:
-               wltIDList = listOffline
-            elif currIdx==2:
-               wltIDList = listWatching
-            elif currIdx==3:
-               wltIDList = self.walletIDList
-            else:
-               pass
-               #raise WalletExistsError('Bad combo-box selection: ' + str(currIdx))
+         wltIDList = []
+         for i,vis in enumerate(self.walletVisibleList):
+            if vis:
+               wltIDList.append(self.walletIDList[i])
          self.writeSetting('LastFilterState', currIdx)
 
 
@@ -3152,10 +3179,11 @@ class ArmoryMainWindow(QMainWindow):
       self.comboWltSelect.addItem( 'Offline Wallets'   )
       self.comboWltSelect.addItem( 'Other\'s wallets'  )
       self.comboWltSelect.addItem( 'All Wallets'       )
+      self.comboWltSelect.addItem( 'Custom Filter'     )
       for wltID in self.walletIDList:
          self.comboWltSelect.addItem( self.walletMap[wltID].labelName )
-      self.comboWltSelect.insertSeparator(4)
-      self.comboWltSelect.insertSeparator(4)
+      self.comboWltSelect.insertSeparator(5)
+      self.comboWltSelect.insertSeparator(5)
       comboIdx = self.getSettingOrSetDefault('LastFilterState', 0)
       self.comboWltSelect.setCurrentIndex(comboIdx)
 
@@ -3196,6 +3224,9 @@ class ArmoryMainWindow(QMainWindow):
       currEye = self.walletVisibleList[row]
       self.walletVisibleList[row] = not currEye 
       self.setWltSetting(wltID, 'LedgerShow', not currEye)
+      
+      # Set it to "Custom Filter"
+      self.comboWltSelect.setCurrentIndex(4)
       
       if TheBDM.getBDMState()=='BlockchainReady':
          self.createCombinedLedger()
