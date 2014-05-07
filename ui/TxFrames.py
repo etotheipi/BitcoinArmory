@@ -744,8 +744,8 @@ class SendBitcoinsFrame(ArmoryFrame):
                         commentStr += '%s (%s);  ' % (self.comments[i][0], coin2str_approx(amt).strip())
       
       
-               tx = self.wlt.signUnsignedTx(ustx)
-               finalTx = tx.prepareFinalTx()
+               ustxSigned = self.wlt.signUnsignedTx(ustx)
+               finalTx = ustxSigned.getSignedPyTx()
                if len(commentStr) > 0:
                   self.wlt.setComment(finalTx.getHash(), commentStr)
                self.main.broadcastTransaction(finalTx)
@@ -1714,11 +1714,15 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
 
 
       try:
-         finalTx = self.ustxObj.prepareFinalTx()
+         finalTx = self.ustxObj.getSignedPyTx()
+      except SignatureError:
+         QMessageBox.warning(self, 'Signature Error', tr("""
+            Not all signatures are valid.  This transaction
+            cannot be broadcast."""), QMessageBox.Ok)
       except:
-         QMessageBox.warning(self, 'Error', \
-            'There was an error processing this transaction, for reasons '
-            'that are probably not your fault...', QMessageBox.Ok)
+         QMessageBox.warning(self, tr('Error'), tr("""
+            There was an error processing this transaction, for reasons 
+            that are probably not your fault..."""), QMessageBox.Ok)
          return
 
       # We should provide the same confirmation dialog here, as we do when
@@ -1838,7 +1842,7 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
    def copyTxHex(self):
       clipb = QApplication.clipboard()
       clipb.clear()
-      clipb.setText(binary_to_hex(self.ustxObj.prepareFinalTx().serialize()))
+      clipb.setText(binary_to_hex(self.ustxObj.getSignedPyTx().serialize()))
       self.lblCopied.setText('<i>Copied!</i>')
          
 

@@ -2111,7 +2111,7 @@ class DlgMultiSpendReview(ArmoryDialog):
 
 
    def doBroadcast(self):
-      finalTx = self.ustx.prepareFinalTx(doVerifySigs=True)
+      finalTx = self.ustx.getSignedPyTx(doVerifySigs=True)
       if not finalTx:
          self.ustx.evaluateSigningStatus().pprint()
          QMessageBox.critical(self, tr('Invalid Signatures'), tr("""
@@ -2123,7 +2123,7 @@ class DlgMultiSpendReview(ArmoryDialog):
             from the correct wallets.  Perhaps try collecting signatures
             again...?"""), QMessageBox.Ok)
 
-         finalTx = self.ustx.prepareFinalTx(doVerifySigs=False)
+         finalTx = self.ustx.getSignedPyTx(doVerifySigs=False)
 
       self.main.broadcastTransaction(finalTx, withOldSigWarning=False)
       try:

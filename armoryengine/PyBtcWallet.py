@@ -1669,7 +1669,8 @@ class PyBtcWallet(object):
                   if self.hasAddr(addr160):
                      self.txAddrMap[txHash].append(addr160)
                else: 
-                  LOGERROR("Unrecognized scraddr: " + binary_to_hex(scrAddr))
+                  pass
+                  #LOGERROR("Unrecognized scraddr: " + binary_to_hex(scrAddr))
                
      
 

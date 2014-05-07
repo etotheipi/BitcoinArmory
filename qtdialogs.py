@@ -5881,7 +5881,7 @@ class DlgDispTxInfo(ArmoryDialog):
       ustx = None
       if isinstance(pytx, UnsignedTransaction):
          ustx = pytx
-         pytx = ustx.pytxObj.copy()
+         pytx = ustx.getPyTxSignedIfPossible()
 
 
       self.pytx = pytx.copy()
@@ -6014,10 +6014,9 @@ class DlgDispTxInfo(ArmoryDialog):
                '</font>'))
 
       if tempPyTx:
-         if endianness == BIGENDIAN:
-            lbls[-1].append(QLabel(binary_to_hex(tempPyTx.getHash(), endOut=BIGENDIAN)))
-         else:
-            lbls[-1].append(QLabel(binary_to_hex(tempPyTx.getHash(), endOut=LITTLEENDIAN)))
+         txHash = binary_to_hex(tempPyTx.getHash(), endOut=endianness)
+         lbls[-1].append(QLabel(txHash))
+
 
       lbls[-1][-1].setMinimumWidth(w)
 
@@ -8067,6 +8066,7 @@ class DlgAddressBook(ArmoryDialog):
       self.wltDispView.horizontalHeader().setStretchLastSection(True)
       self.wltDispView.verticalHeader().setDefaultSectionSize(20)
       self.wltDispView.setMaximumHeight(rowHeight * 7.7)
+      self.wltDispView.hideColumn(WLTVIEWCOLS.Visible)
       initialColResize(self.wltDispView, [0.15, 0.30, 0.2, 0.20])
       self.connect(self.wltDispView.selectionModel(), \
                    SIGNAL('currentChanged(const QModelIndex &, const QModelIndex &)'), \
@@ -8409,7 +8409,18 @@ class DlgAddressBook(ArmoryDialog):
          self.useBareMultiSigCheckBox.setEnabled(True)
          selectedLockBoxId = str(currIndex.model().index(row, LOCKBOXCOLS.ID).data().toString())
          self.btnSelectAddr.setText( createLockboxEntryStr(selectedLockBoxId,
-                                           self.useBareMultiSigCheckBox.isChecked()))
+                                      self.useBareMultiSigCheckBox.isChecked()))
+
+         # Disable Bare multisig if mainnet and N>3
+         lb = self.main.getLockboxByID(selectedLockBoxId)
+         if lb.N>3 and not USE_TESTNET:
+            self.useBareMultiSigCheckBox.setEnabled(False)
+            self.useBareMultiSigCheckBox.setChecked(False)
+            self.useBareMultiSigCheckBox.setToolTip(tr("""
+               Bare multi-sig is not available for M-of-N lockboxes on the 
+               main Bitcoin network with N higher than 3."""))
+         else:
+            self.useBareMultiSigCheckBox.setEnabled(True)
 
    #############################################################################
    def dblClickAddressTx(self, index):

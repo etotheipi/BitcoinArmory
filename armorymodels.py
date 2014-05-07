@@ -745,7 +745,7 @@ class TxInDispModel(QAbstractTableModel):
       ustx = None
       if isinstance(pytx, UnsignedTransaction):
          ustx = pytx
-         pytx = ustx.pytxObj.copy()
+         pytx = ustx.getPyTxSignedIfPossible()
       self.tx = pytx.copy()
       
       for i,txin in enumerate(self.tx.inputs):
@@ -773,8 +773,8 @@ class TxInDispModel(QAbstractTableModel):
                self.dispTable[-1].append(CPP_TXIN_SCRIPT_NAMES[scrType])
             else:
                # TODO:  Assume NO multi-sig... will be updated soon!
-               sig = ustx.ustxInputs[i].signatures[0] 
-               self.dispTable[-1].append('Signed' if len(sig)>0 else 'Unsigned')
+               isSigned = ustx.ustxInputs[i].evaluateSigningStatus().allSigned
+               self.dispTable[-1].append('Signed' if isSigned else 'Unsigned')
                
             self.dispTable[-1].append(int_to_hex(txin.intSeq, widthBytes=4))
             self.dispTable[-1].append(binary_to_hex(txin.binScript))
