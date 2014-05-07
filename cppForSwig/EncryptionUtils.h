@@ -410,6 +410,9 @@ public:
                            SecureBinaryData const & chainCode,
                            SecureBinaryData* multiplierOut=NULL);
 
+   /////////////////////////////////////////////////////////////////////////////
+   // We need some direct access to Crypto++ math functions
+   SecureBinaryData InvMod(const SecureBinaryData& m);
 
    /////////////////////////////////////////////////////////////////////////////
    // Some standard ECC operations
@@ -440,17 +443,3 @@ public:
 
 
 #endif
-
-
-
-
-
-
-
-
-
-
-
-
-
-

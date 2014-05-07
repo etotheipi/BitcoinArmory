@@ -961,7 +961,7 @@ class Popen(object):
                 #startup_info.dwFlags |= 0x00000001
                 startup_info.wShowWindow = 0
                 comspec = os.environ.get("COMSPEC", "cmd.exe")
-                w9args = '{} /c "{}"'.format (comspec, args)
+                #w9args = '{} /c "{}"'.format (comspec, args)
                 if (_subprocess.GetVersion() >= 0x80000000 or
                         os.path.basename(comspec).lower() == "command.com"):
                     # Win9x, or using command.com on NT. We need to
@@ -984,9 +984,7 @@ class Popen(object):
             p_i = PROCESS_INFORMATION()
             try:
                args_u16 = unicode(args)
-               efg = ctypes.windll.kernel32.CreateProcessW(executable, args_u16,
-               #hp, ht, pid, tid = _subprocess.CreateProcess(executable, args,
-                                       # no special security
+               ctypes.windll.kernel32.CreateProcessW(executable, args_u16,
                                          None, None,
                                          0,
                                          creationflags,

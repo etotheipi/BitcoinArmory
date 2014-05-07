@@ -34,18 +34,19 @@ for line in open('armoryengine/ArmoryUtils.py','r').readlines():
 print 'Armory version:', verStr 
    
 
-setEnv('ARMROOT', '/tmp/armroot')
-setEnv('DESTDIR', 'armory_rpi')
-setEnv('CXX', 'r-pi/tools/arm-bcm2708/gcc-linaro-arm-linux-gnueabihf-raspbian/bin/arm-linux-gnueabihf-c++')
-setEnv('PYVER', 'python2.7')
-setEnv('PYTHON_INCLUDE', '$ARMROOT/usr/include/python2.7/')
-setEnv('PYTHON_LIB', '-L$ARMROOT/usr/lib/python2.7/config-arm-linux-gnueabihf')
+#setEnv('ARMROOT', '/tmp/armroot')
+#setEnv('DESTDIR', 'armory_rpi')
+#setEnv('CXX', 'r-pi/tools/arm-bcm2708/gcc-linaro-arm-linux-gnueabihf-raspbian/bin/arm-linux-gnueabihf-c++')
+#setEnv('PYVER', 'python2.7')
+#setEnv('PYTHON_INCLUDE', '$ARMROOT/usr/include/python2.7/')
+#setEnv('PYTHON_LIB', '-L$ARMROOT/usr/lib/python2.7/config-arm-linux-gnueabihf')
 
-deststr = 'DESTDIR=%s' % os.environ['DESTDIR']
-tarFN = 'armory_%s_raspbian.tar.gz' % verStr
+instDir = 'armory_%s_raspbian-armhf' % verStr
+targz   = '../' + instDir + '.tar.gz'
+os.makedirs(instDir)
 
-popen(['make'])
-popen(['make', 'install', deststr])
-popen(['tar','-zcf', tarFN, os.environ['DESTDIR']])
+popen(['make', 'CXX=/home/alan/x-tools/arm-unknown-linux-gnueabi/bin/arm-unknown-linux-gnueabi-g++'])
+popen(['make', 'install', 'DESTDIR=%s'%instDir])
+popen(['tar','-zcf', targz, instDir])
 
 
