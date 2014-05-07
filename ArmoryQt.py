@@ -255,19 +255,22 @@ class ArmoryMainWindow(QMainWindow):
       self.walletsView.setSelectionMode(QTableView.SingleSelection)
       self.walletsView.verticalHeader().setDefaultSectionSize(sectionSz)
       self.walletsView.setMinimumSize(viewWidth, viewHeight)
+      self.walletsView.setItemDelegate(AllWalletsCheckboxDelegate(self))
 
 
       if self.usermode == USERMODE.Standard:
-         initialColResize(self.walletsView, [0, 0.35, 0.2, 0.2])
+         initialColResize(self.walletsView, [20, 0, 0.35, 0.2, 0.2])
          self.walletsView.hideColumn(0)
       else:
-         initialColResize(self.walletsView, [0.15, 0.30, 0.2, 0.20])
+         initialColResize(self.walletsView, [20, 0.15, 0.30, 0.2, 0.20])
 
 
-      self.connect(self.walletsView, SIGNAL('doubleClicked(QModelIndex)'), \
+      self.connect(self.walletsView, SIGNAL('doubleClicked(QModelIndex)'), 
                    self.execDlgWalletDetails)
+      self.connect(self.walletsView, SIGNAL('clicked(QModelIndex)'), 
+                   self.execClickRow)
 
-
+      self.walletsView.setColumnWidth(WLTVIEWCOLS.Visible, 20)
       w,h = tightSizeNChar(GETFONT('var'), 100)
 
 
@@ -356,14 +359,8 @@ class ArmoryMainWindow(QMainWindow):
                    self.changeLedgerSorting)
 
 
-      # Create the new ledger twice:  can't update the ledger up/down
-      # widgets until we know how many ledger entries there are from
-      # the first call
-      def createLedg():
-         self.createCombinedLedger()
-         if self.frmLedgUpDown.isVisible():
-            self.changeNumShow()
-      self.connect(self.comboWltSelect, SIGNAL('activated(int)'), createLedg)
+      self.connect(self.comboWltSelect, SIGNAL('activated(int)'), 
+                   self.changeWltFilter)
 
       self.lblTot  = QRichLabel('<b>Maximum Funds:</b>', doWrap=False);
       self.lblSpd  = QRichLabel('<b>Spendable Funds:</b>', doWrap=False);
@@ -759,6 +756,58 @@ class ArmoryMainWindow(QMainWindow):
          if self.walletMap[wltID].watchingOnly:
             result.append(wltID)
       return result
+
+
+   ####################################################
+   def changeWltFilter(self):
+
+      currIdx  = max(self.comboWltSelect.currentIndex(), 0)
+      currText = str(self.comboWltSelect.currentText()).lower()
+
+      # If "custom" is selected, do nothing...
+      if currIdx==4:
+         return
+
+      for i in range(len(self.walletVisibleList)):
+         self.walletVisibleList[i] = False
+         self.setWltSetting(self.walletIDList[i], 'LedgerShow', False)
+
+      # If a specific wallet is selected, just set that and you're done
+      if currIdx >= 4:
+         self.walletVisibleList[currIdx-7] = True
+         self.setWltSetting(self.walletIDList[currIdx-7], 'LedgerShow', True)
+      else:
+         # Else we walk through the wallets and flag the particular ones
+         typelist = [[wid, determineWalletType(self.walletMap[wid], self)[0]] \
+                                                   for wid in self.walletIDList]
+
+         for i,winfo in enumerate(typelist):
+            wid,wtype = winfo[:]
+            if currIdx==0:
+               # My wallets
+               doShow = wtype in [WLTTYPES.Offline,WLTTYPES.Crypt,WLTTYPES.Plain]
+               self.walletVisibleList[i] = doShow
+               self.setWltSetting(wid, 'LedgerShow', doShow)
+            elif currIdx==1:
+               # Offline wallets
+               doShow = winfo[1] in [WLTTYPES.Offline]
+               self.walletVisibleList[i] = doShow
+               self.setWltSetting(wid, 'LedgerShow', doShow)
+            elif currIdx==2:
+               # Others' Wallets
+               doShow = winfo[1] in [WLTTYPES.WatchOnly]
+               self.walletVisibleList[i] = doShow
+               self.setWltSetting(wid, 'LedgerShow', doShow)
+            elif currIdx==3:
+               # All Wallets
+               self.walletVisibleList[i] = True
+               self.setWltSetting(wid, 'LedgerShow', True)
+
+      self.walletsView.reset()
+      self.createCombinedLedger()
+      if self.frmLedgUpDown.isVisible():
+         self.changeNumShow()
+
 
    ####################################################
    def factoryReset(self):
@@ -2340,6 +2389,7 @@ class ArmoryMainWindow(QMainWindow):
 
       # I need some linear lists for accessing by index
       self.walletIDList = []
+      self.walletVisibleList = []
       self.combinedLedger = []
       self.ledgerSize = 0
       self.ledgerTable = []
@@ -2390,9 +2440,14 @@ class ArmoryMainWindow(QMainWindow):
                # Maintain some linear lists of wallet info
                self.walletIDSet.add(wltID)
                self.walletIDList.append(wltID)
+               wtype = determineWalletType(wltLoad, self)[0]
+               notWatch = (not wtype == WLTTYPES.WatchOnly)
+               defaultVisible = self.getWltSetting(wltID, 'LedgerShow', notWatch)
+               self.walletVisibleList.append(defaultVisible)
                wltLoad.mainWnd = self
          except:
-            LOGEXCEPT( '***WARNING: Wallet could not be loaded: %s (skipping)', fpath)
+            LOGEXCEPT( '***WARNING: Wallet could not be loaded: %s (skipping)', 
+                                                                           fpath)
             raise
 
 
@@ -2484,14 +2539,16 @@ class ArmoryMainWindow(QMainWindow):
       return fullPath
 
    ##############################################################################
-   def getWltSetting(self, wltID, propName):
+   def getWltSetting(self, wltID, propName, defaultValue=''):
       # Sometimes we need to settings specific to individual wallets -- we will
       # prefix the settings name with the wltID.
       wltPropName = 'Wallet_%s_%s' % (wltID, propName)
-      try:
+      if self.settings.hasSetting('wltPropName'):
          return self.settings.get(wltPropName)
-      except KeyError:
-         return ''
+      else:
+         if not defaultValue=='':
+            self.setWltSetting(wltID, propName, defaultValue)
+         return defaultValue
 
    #############################################################################
    def setWltSetting(self, wltID, propName, value):
@@ -2909,32 +2966,11 @@ class ArmoryMainWindow(QMainWindow):
       """
       start = RightNow()
       if wltIDList==None:
-         # Create a list of [wltID, type] pairs
-         typelist = [[wid, determineWalletType(self.walletMap[wid], self)[0]] \
-                                                      for wid in self.walletIDList]
-
-         # We need to figure out which wallets to combine here...
          currIdx  = max(self.comboWltSelect.currentIndex(), 0)
-         currText = str(self.comboWltSelect.currentText()).lower()
-         if currIdx>=4:
-            wltIDList = [self.walletIDList[currIdx-6]]
-         else:
-            listOffline  = [t[0] for t in filter(lambda x: x[1]==WLTTYPES.Offline,   typelist)]
-            listWatching = [t[0] for t in filter(lambda x: x[1]==WLTTYPES.WatchOnly, typelist)]
-            listCrypt    = [t[0] for t in filter(lambda x: x[1]==WLTTYPES.Crypt,     typelist)]
-            listPlain    = [t[0] for t in filter(lambda x: x[1]==WLTTYPES.Plain,     typelist)]
-
-            if currIdx==0:
-               wltIDList = listOffline + listCrypt + listPlain
-            elif currIdx==1:
-               wltIDList = listOffline
-            elif currIdx==2:
-               wltIDList = listWatching
-            elif currIdx==3:
-               wltIDList = self.walletIDList
-            else:
-               pass
-               #raise WalletExistsError('Bad combo-box selection: ' + str(currIdx))
+         wltIDList = []
+         for i,vis in enumerate(self.walletVisibleList):
+            if vis:
+               wltIDList.append(self.walletIDList[i])
          self.writeSetting('LastFilterState', currIdx)
 
 
@@ -3138,10 +3174,11 @@ class ArmoryMainWindow(QMainWindow):
       self.comboWltSelect.addItem( 'Offline Wallets'   )
       self.comboWltSelect.addItem( 'Other\'s wallets'  )
       self.comboWltSelect.addItem( 'All Wallets'       )
+      self.comboWltSelect.addItem( 'Custom Filter'     )
       for wltID in self.walletIDList:
          self.comboWltSelect.addItem( self.walletMap[wltID].labelName )
-      self.comboWltSelect.insertSeparator(4)
-      self.comboWltSelect.insertSeparator(4)
+      self.comboWltSelect.insertSeparator(5)
+      self.comboWltSelect.insertSeparator(5)
       comboIdx = self.getSettingOrSetDefault('LastFilterState', 0)
       self.comboWltSelect.setCurrentIndex(comboIdx)
 
@@ -3171,6 +3208,26 @@ class ArmoryMainWindow(QMainWindow):
       dialog = DlgWalletDetails(wlt, self.usermode, self, self)
       dialog.exec_()
       #self.walletListChanged()
+
+   #############################################################################
+   def execClickRow(self, index=None):
+      row,col = index.row(), index.column()
+      if not col==WLTVIEWCOLS.Visible:
+         return
+
+      wltID = self.walletIDList[row]
+      currEye = self.walletVisibleList[row]
+      self.walletVisibleList[row] = not currEye 
+      self.setWltSetting(wltID, 'LedgerShow', not currEye)
+      
+      # Set it to "Custom Filter"
+      self.comboWltSelect.setCurrentIndex(4)
+      
+      if TheBDM.getBDMState()=='BlockchainReady':
+         self.createCombinedLedger()
+         self.ledgerModel.reset()
+         self.walletModel.reset()
+
 
    #############################################################################
    def updateTxCommentFromView(self, view):
@@ -3255,6 +3312,9 @@ class ArmoryMainWindow(QMainWindow):
       # Maintain some linear lists of wallet info
       self.walletIDSet.add(newWltID)
       self.walletIDList.append(newWltID)
+      showByDefault = (determineWalletType(wlt, self)[0] != WLTTYPES.WatchOnly)
+      self.walletVisibleList.append(showByDefault)
+      self.setWltSetting(newWltID, 'LedgerShow', showByDefault)
 
       ledger = []
       wlt = self.walletMap[newWltID]
@@ -3276,6 +3336,7 @@ class ArmoryMainWindow(QMainWindow):
       del self.walletIndices[wltID]
       self.walletIDSet.remove(wltID)
       del self.walletIDList[idx]
+      del self.walletVisibleList[idx]
 
       # Reconstruct walletIndices
       for i,wltID in enumerate(self.walletIDList):
