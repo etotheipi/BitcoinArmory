@@ -5901,7 +5901,7 @@ class DlgDispTxInfo(ArmoryDialog):
 
 
       self.btnIOList = QPushButton('')
-      self.btnCopy = QPushButton('Copy Raw Tx')
+      self.btnCopy = QPushButton('Copy Raw Tx (Hex)')
       self.lblCopied = QRichLabel('')
       self.btnOk = QPushButton('OK')
       self.btnIOList.setCheckable(True)
@@ -6004,6 +6004,7 @@ class DlgDispTxInfo(ArmoryDialog):
    def copyRawTx(self):
       clipb = QApplication.clipboard()
       clipb.clear()
+      print "Binscript: " + binary_to_hex(self.pytx.inputs[0].binScript)
       clipb.setText(binary_to_hex(self.pytx.serialize()))
       self.lblCopied.setText('<i>Copied to Clipboard!</i>')
 
