@@ -1285,7 +1285,6 @@ class ArmoryMainWindow(QMainWindow):
 
          dontAsk = self.getSettingOrSetDefault('DNAA_DefaultApp', False)
          dontAskDefault = self.getSettingOrSetDefault('AlwaysArmoryURI', False)
-         print dontAsk, justDoIt, dontAskDefault
          if justDoIt:
             LOGINFO('URL-register: just doing it')
             action = 'DoIt'
@@ -3312,12 +3311,11 @@ class ArmoryMainWindow(QMainWindow):
       # Maintain some linear lists of wallet info
       self.walletIDSet.add(newWltID)
       self.walletIDList.append(newWltID)
-      showByDefault = (determineWalletType(wlt, self)[0] != WLTTYPES.WatchOnly)
+      showByDefault = (determineWalletType(newWallet, self)[0] != WLTTYPES.WatchOnly)
       self.walletVisibleList.append(showByDefault)
       self.setWltSetting(newWltID, 'LedgerShow', showByDefault)
 
       ledger = []
-      wlt = self.walletMap[newWltID]
       self.walletListChanged()
       self.mainWnd = self
 
@@ -4518,7 +4516,7 @@ class ArmoryMainWindow(QMainWindow):
       elif OS_MACOSX:
          pass
       else:
-         print 'Unrecognized OS!'
+         LOGERROR('Unrecognized OS!')
 
 
       self.frmDashMgmtButtons = QFrame()
@@ -4943,7 +4941,6 @@ class ArmoryMainWindow(QMainWindow):
             webbrowser.open('http://www.bitcoin.org/en/download')
             return
 
-         print self.downloadDict['SATOSHI']['Windows']
          theLink = self.downloadDict['SATOSHI']['Windows'][0]
          theHash = self.downloadDict['SATOSHI']['Windows'][1]
          dlg = DlgDownloadFile(self, self, theLink, theHash, \
@@ -6280,7 +6277,7 @@ class ArmoryMainWindow(QMainWindow):
                LOGDEBUG('Wallet restore completed.  Add to application.')
                while len(self.newWalletList)>0:
                   wlt,isFresh = self.newWalletList.pop()
-                  print 'Registering %s wallet' % ('NEW' if isFresh else 'IMPORTED')
+                  LOGDEBUG('Registering %s wallet' % ('NEW' if isFresh else 'IMPORTED'))
                   TheBDM.registerWallet(wlt.cppWallet, isFresh)
                   self.addWalletToApplication(wlt, walletIsNew=isFresh)
                self.setDashboardDetails()
@@ -6319,7 +6316,6 @@ class ArmoryMainWindow(QMainWindow):
                prevLedgSize = dict([(wltID, len(self.walletMap[wltID].getTxLedger())) \
                                                    for wltID in self.walletMap.keys()])
 
-               print 'New Block: ', self.currBlockNum
 
                self.ledgerModel.reset()
 
@@ -6360,7 +6356,7 @@ class ArmoryMainWindow(QMainWindow):
 
       except:
          LOGEXCEPT('Error in heartbeat function')
-         print sys.exc_info()
+         LOGERROR(sys.exc_info())
       finally:
          reactor.callLater(nextBeatSec, self.Heartbeat)
 
@@ -6508,7 +6504,7 @@ class ArmoryMainWindow(QMainWindow):
 
                else:
                   # Non-standard script. Just skip it.
-                  print 'This is a non-standard script. We will skip it.'
+                  LOGINFO('This is a non-standard script. We will skip it.')
 
          # Wait for 5 seconds before processing the next queue object.
          self.notifyBlockedUntil = RightNow() + 5
@@ -6903,7 +6899,6 @@ if 1:
 
    from twisted.internet import reactor
    def endProgram():
-      print 'Resetting BlockDataMgr, freeing memory'
       LOGINFO('Resetting BlockDataMgr, freeing memory')
       TheBDM.Reset()
       TheBDM.execCleanShutdown(wait=False)
