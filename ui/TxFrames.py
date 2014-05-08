@@ -1313,7 +1313,7 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
       self.btnSave = QPushButton('Save file...')
       self.btnLoad = QPushButton('Load file...')
       self.btnCopy = QPushButton('Copy Text')
-      self.btnCopyHex = QPushButton('Copy Final Tx (Hex)')
+      self.btnCopyHex = QPushButton('Copy Raw Tx (Hex)')
       self.lblCopied = QRichLabel('')
       self.lblCopied.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
 
