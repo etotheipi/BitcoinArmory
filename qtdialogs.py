@@ -3127,6 +3127,14 @@ class DlgImportAddress(ArmoryDialog):
             binKeyData = SBDbinKeyData.toBinStr()
             SBDbinKeyData.destroy()  
          
+         zeroes32 = '\x00'*32
+         if binKeyData==zeroes32:
+            QMessageBox.critical(self, tr('Invalid Private Key'), tr("""
+               You entered all zeros.  This is not a valid private key!"""), 
+               QMessageBox.Ok)
+            LOGERROR('User attempted import of private key 0x00*32')
+            return
+            
          if binary_to_int(binKeyData, BIGENDIAN) >= SECP256K1_ORDER:
             QMessageBox.critical(self, 'Invalid Private Key', \
                'The private key you have entered is actually not valid '
@@ -3139,8 +3147,10 @@ class DlgImportAddress(ArmoryDialog):
                'Please try a different private key.', QMessageBox.Ok)
             LOGERROR('User attempted import of invalid private key!')
             return
+
          addr160 = convertKeyDataToAddress(privKey=binKeyData)
          addrStr = hash160_to_addrStr(addr160)
+
       except InvalidHashError, e:
          QMessageBox.warning(self, 'Entry Error',
             'The private key data you supplied appears to '
@@ -8609,7 +8619,7 @@ class DlgHelpAbout(ArmoryDialog):
                                     getVersionString(BTCARMORY_VERSION), doWrap=False)
       lblWebpage = QRichLabel('<a href="https://www.bitcoinarmory.com">https://www.bitcoinarmory.com</a>')
       lblWebpage.setOpenExternalLinks(True)
-      lblCopyright = QRichLabel(u'Copyright \xa9 2011-2013 Armory Technologies, Inc.')
+      lblCopyright = QRichLabel(u'Copyright \xa9 2011-2014 Armory Technologies, Inc.')
       lblLicense = QRichLabel(tr(u'Licensed under the '
                               '<a href="http://www.gnu.org/licenses/agpl-3.0.html">'
                               'Affero General Public License, Version 3</a> (AGPLv3)'))

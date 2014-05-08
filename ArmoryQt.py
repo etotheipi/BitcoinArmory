@@ -260,12 +260,17 @@ class ArmoryMainWindow(QMainWindow):
       self.walletsView.horizontalHeader().setResizeMode(0, QHeaderView.Fixed)
 
 
+
+      self.walletsView.hideColumn(0)
       if self.usermode == USERMODE.Standard:
          initialColResize(self.walletsView, [20, 0, 0.35, 0.2, 0.2])
-         self.walletsView.hideColumn(0)
       else:
          initialColResize(self.walletsView, [20, 0.15, 0.30, 0.2, 0.20])
 
+
+      if self.settings.hasSetting('LastFilterState'):
+         if self.settings.get('LastFilterState')==4:
+            self.walletsView.showColumn(0)
 
 
       self.connect(self.walletsView, SIGNAL('doubleClicked(QModelIndex)'), 
@@ -768,6 +773,12 @@ class ArmoryMainWindow(QMainWindow):
 
       currIdx  = max(self.comboWltSelect.currentIndex(), 0)
       currText = str(self.comboWltSelect.currentText()).lower()
+
+      if currText.lower().startswith('custom filter'):
+         self.walletsView.showColumn(0)
+      else:
+         self.walletsView.hideColumn(0)
+
 
       # If "custom" is selected, do nothing...
       if currIdx==4:
@@ -2922,6 +2933,8 @@ class ArmoryMainWindow(QMainWindow):
       self.updateAnnounceTab()  # make sure satoshi version info is up to date
       self.removeBootstrapDat()  # if we got here, we're *really* done with it
       self.walletModel.reset()
+
+      self.changeWltFilter()
 
       qLen = self.delayedURIData['qLen']
       if qLen > 0:
