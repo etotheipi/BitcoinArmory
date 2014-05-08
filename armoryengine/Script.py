@@ -100,10 +100,13 @@ class ScriptBuilder(object):
    def __init__(self):
       self.opList = []
 
-   def pushCode(self, opStr):
+   def addOpCode(self, opStr):
       self.opList.append(getOpCode(opStr))
       
    def pushData(self, data):
+      if data.startswith('OP_'):
+         LOGWARN('Looks like you accidentally called pushData instead of addOpCode')
+         LOGWARN('Pushing data: ' + data)
       self.opList.append(scriptPushData(data))
 
    def getBinaryScript(self):

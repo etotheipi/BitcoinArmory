@@ -13510,6 +13510,13 @@ class DlgBroadcastBlindTx(ArmoryDialog):
       self.main.NetworkingFactory.sendMessage(msg)
 
       hexhash = binary_to_hex(txhash, endOut=BIGENDIAN)
+      if USE_TESTNET:
+         linkToExplorer = 'http://blockexplorer.com/testnet/tx/%s' % hexhash
+         dispToExplorer = 'http://blockexplorer.com/testnet/tx/%s...' % hexhash[:16]
+      else:
+         linkToExplorer = 'https://blockchain.info/search/%s' % hexhash
+         dispToExplorer = 'https://blockchain.info/search/%s...' % hexhash[:16]
+
       QMessageBox.information(self, tr("Broadcast!"), tr("""
          Your transaction was successfully sent to the local Bitcoin
          Core instance, though there is no guarantees that it was
@@ -13527,9 +13534,9 @@ class DlgBroadcastBlindTx(ArmoryDialog):
          You can check whether it was seen by other nodes on the network
          blockchain.info (this link will not work on testnet):
          <br><br>
-         <a href="https://blockchain.info/search/%s">
-         https://blockchain.info/search/%s...</a>""") % \
-         (hexhash, hexhash, hexhash[:16]), QMessageBox.Ok)
+         <a href="%s">
+         %s""") % \
+         (hexhash, linkToExplorer, dispToExplorer), QMessageBox.Ok)
 
       self.accept()
       

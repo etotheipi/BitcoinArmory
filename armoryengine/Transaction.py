@@ -1792,9 +1792,9 @@ class UnsignedTransaction(object):
 
          intType = getTxOutScriptType(script)
          if intType==CPP_TXOUT_NONSTANDARD:
-            LOGERROR('Only standard script types are valid for this call')
-            LOGERROR('Script: ' + binary_to_hex(script))
-            raise BadAddressError('Invalid script for tx creation')
+            LOGWARN('Including non-standard script output')
+            LOGWARN('Script: ' + binary_to_hex(script))
+            #raise BadAddressError('Invalid script for tx creation')
 
          txout.binScript = script[:]
          thePyTx.outputs.append(txout)
