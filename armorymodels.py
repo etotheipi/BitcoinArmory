@@ -904,7 +904,18 @@ class TxOutDispModel(QAbstractTableModel):
          if col==COLS.Btc:     return QVariant(coin2str(txout.getValue(),maxZeros=2))
          if col==COLS.Recip:   
             if stype in CPP_TXOUT_HAS_ADDRSTR:
-               return QVariant(script_to_addrStr(txout.binScript))
+               addrText = script_to_addrStr(txout.binScript)
+               if stype == CPP_TXOUT_P2SH:
+                  lboxID = self.main.getLockboxByP2SHAddrStr(addrText) 
+                  lbox = self.main.getLockboxByID(lboxID)
+                  if lbox:
+                     dispStr = 'Lockbox %d-of-%d (%s) ' % (lbox.M, lbox.N, 
+                                                      lboxID)
+                  else:
+                     dispStr = '(Unrecognized Lockbox) '
+                  return QVariant(dispStr + addrText)
+               else:
+                  return QVariant(addrText)
             elif stype==CPP_TXOUT_MULTISIG:
                lbID = calcLockboxID(txout.binScript)
                lb = self.main.getLockboxByID(lbID)
