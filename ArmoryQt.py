@@ -257,6 +257,7 @@ class ArmoryMainWindow(QMainWindow):
       self.walletsView.verticalHeader().setDefaultSectionSize(sectionSz)
       self.walletsView.setMinimumSize(viewWidth, viewHeight)
       self.walletsView.setItemDelegate(AllWalletsCheckboxDelegate(self))
+      self.walletsView.horizontalHeader().setResizeMode(0, QHeaderView.Fixed)
 
 
       if self.usermode == USERMODE.Standard:
@@ -264,6 +265,7 @@ class ArmoryMainWindow(QMainWindow):
          self.walletsView.hideColumn(0)
       else:
          initialColResize(self.walletsView, [20, 0.15, 0.30, 0.2, 0.20])
+
 
 
       self.connect(self.walletsView, SIGNAL('doubleClicked(QModelIndex)'), 
