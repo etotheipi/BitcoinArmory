@@ -46,6 +46,7 @@ from ui.UpgradeDownloader import UpgradeDownloaderDialog
 from jasvet import verifySignature, readSigBlock
 from announcefetch import AnnounceDataFetcher, ANNOUNCE_URL, ANNOUNCE_URL_BACKUP
 from armoryengine.parseAnnounce import *
+from armoryengine.PyBtcWalletRecovery import WalletConsistencyCheck
 
 from armoryengine.MultiSigUtils import MultiSigLockbox
 from ui.MultiSigHacker import DlgSelectMultiSigOption, DlgLockboxManager
@@ -166,8 +167,8 @@ class ArmoryMainWindow(QMainWindow):
 
       #Setup the signal to spawn progress dialogs from the main thread
       self.connect(self, SIGNAL('initTrigger') , self.initTrigger)
-      self.connect(self, SIGNAL('spawnTrigger'), self.spawnTrigger)
-      self.connect(self, SIGNAL('checkForkedImports'), self.checkForkedImports)
+      self.connect(self, SIGNAL('execTrigger'), self.execTrigger)
+      self.connect(self, SIGNAL('checkForNegImports'), self.checkForNegImports)
 
       # We want to determine whether the user just upgraded to a new version
       self.firstLoadNewVersion = False
@@ -241,11 +242,6 @@ class ArmoryMainWindow(QMainWindow):
 
       self.statusBar().insertPermanentWidget(0, self.lblArmoryStatus)
 
-      # Keep a persistent printer object for paper backups
-      self.printer = QPrinter(QPrinter.HighResolution)
-      self.printer.setPageSize(QPrinter.Letter)
-
-
       # Table for all the wallets
       self.walletModel = AllWalletsDispModel(self)
       self.walletsView  = QTableView()
@@ -260,19 +256,29 @@ class ArmoryMainWindow(QMainWindow):
       self.walletsView.setSelectionMode(QTableView.SingleSelection)
       self.walletsView.verticalHeader().setDefaultSectionSize(sectionSz)
       self.walletsView.setMinimumSize(viewWidth, viewHeight)
+      self.walletsView.setItemDelegate(AllWalletsCheckboxDelegate(self))
+      self.walletsView.horizontalHeader().setResizeMode(0, QHeaderView.Fixed)
 
 
+
+      self.walletsView.hideColumn(0)
       if self.usermode == USERMODE.Standard:
-         initialColResize(self.walletsView, [0, 0.35, 0.2, 0.2])
-         self.walletsView.hideColumn(0)
+         initialColResize(self.walletsView, [20, 0, 0.35, 0.2, 0.2])
       else:
-         initialColResize(self.walletsView, [0.15, 0.30, 0.2, 0.20])
+         initialColResize(self.walletsView, [20, 0.15, 0.30, 0.2, 0.20])
 
 
-      self.connect(self.walletsView, SIGNAL('doubleClicked(QModelIndex)'), \
+      if self.settings.hasSetting('LastFilterState'):
+         if self.settings.get('LastFilterState')==4:
+            self.walletsView.showColumn(0)
+
+
+      self.connect(self.walletsView, SIGNAL('doubleClicked(QModelIndex)'), 
                    self.execDlgWalletDetails)
+      self.connect(self.walletsView, SIGNAL('clicked(QModelIndex)'), 
+                   self.execClickRow)
 
-
+      self.walletsView.setColumnWidth(WLTVIEWCOLS.Visible, 20)
       w,h = tightSizeNChar(GETFONT('var'), 100)
 
 
@@ -361,14 +367,8 @@ class ArmoryMainWindow(QMainWindow):
                    self.changeLedgerSorting)
 
 
-      # Create the new ledger twice:  can't update the ledger up/down
-      # widgets until we know how many ledger entries there are from
-      # the first call
-      def createLedg():
-         self.createCombinedLedger()
-         if self.frmLedgUpDown.isVisible():
-            self.changeNumShow()
-      self.connect(self.comboWltSelect, SIGNAL('activated(int)'), createLedg)
+      self.connect(self.comboWltSelect, SIGNAL('activated(int)'), 
+                   self.changeWltFilter)
 
       self.lblTot  = QRichLabel('<b>Maximum Funds:</b>', doWrap=False);
       self.lblSpd  = QRichLabel('<b>Spendable Funds:</b>', doWrap=False);
@@ -505,7 +505,7 @@ class ArmoryMainWindow(QMainWindow):
       self.connect(btnOfflineTx,SIGNAL('clicked()'), self.execOfflineTx)
       self.connect(btnMultisig, SIGNAL('clicked()'), self.browseLockboxes)
 
-      verStr = 'Armory %s-multisig / %s' % (getVersionString(BTCARMORY_VERSION), \
+      verStr = 'v%s-multisig-beta / %s' % (getVersionString(BTCARMORY_VERSION),
                                               UserModeStr(self.usermode))
       lblInfo = QRichLabel(verStr, doWrap=False)
       lblInfo.setFont(GETFONT('var',10))
@@ -575,10 +575,10 @@ class ArmoryMainWindow(QMainWindow):
             DlgExportTxHistory(self,self).exec_()
 
 
-      actExportTx    = self.createAction('&Export Transactions', exportTx)
-      actSettings    = self.createAction('&Settings', self.openSettings)
+      actExportTx    = self.createAction('&Export Transactions...', exportTx)
+      actSettings    = self.createAction('&Settings...', self.openSettings)
       actMinimApp    = self.createAction('&Minimize Armory', self.minimizeArmory)
-      actExportLog   = self.createAction('Export &Log File', self.exportLogFile)
+      actExportLog   = self.createAction('Export &Log File...', self.exportLogFile)
       actCloseApp    = self.createAction('&Quit Armory', self.closeForReal)
       self.menusList[MENUS.File].addAction(actExportTx)
       self.menusList[MENUS.File].addAction(actSettings)
@@ -634,10 +634,10 @@ class ArmoryMainWindow(QMainWindow):
 
 
 
-      actOpenSigner = self.createAction('&Message Signing/Verification', openMsgSigning)
+      actOpenSigner = self.createAction('&Message Signing/Verification...', openMsgSigning)
       if currmode=='Expert':
-         actOpenTools  = self.createAction('&EC Calculator',   lambda: DlgECDSACalc(self,self, 1).exec_())
-         actBlindBroad = self.createAction('&Broadcast Raw Transaction', openBlindBroad)
+         actOpenTools  = self.createAction('&EC Calculator...',   lambda: DlgECDSACalc(self,self, 1).exec_())
+         actBlindBroad = self.createAction('&Broadcast Raw Transaction...', openBlindBroad)
 
       self.menusList[MENUS.Tools].addAction(actOpenSigner)
       if currmode=='Expert':
@@ -650,9 +650,9 @@ class ArmoryMainWindow(QMainWindow):
 
 
       # Addresses
-      actAddrBook   = self.createAction('View &Address Book',          self.execAddressBook)
-      actSweepKey   = self.createAction('&Sweep Private Key/Address',  self.menuSelectSweepKey)
-      actImportKey  = self.createAction('&Import Private Key/Address', self.menuSelectImportKey)
+      actAddrBook   = self.createAction('View &Address Book...',          self.execAddressBook)
+      actSweepKey   = self.createAction('&Sweep Private Key/Address...',  self.menuSelectSweepKey)
+      actImportKey  = self.createAction('&Import Private Key/Address...', self.menuSelectImportKey)
 
       self.menusList[MENUS.Addresses].addAction(actAddrBook)
       if not currmode=='Standard':
@@ -662,8 +662,7 @@ class ArmoryMainWindow(QMainWindow):
       actCreateNew    = self.createAction('&Create New Wallet',        self.startWalletWizard)
       actImportWlt    = self.createAction('&Import or Restore Wallet', self.execImportWallet)
       actAddressBook  = self.createAction('View &Address Book',        self.execAddressBook)
-
-      actRecoverWlt   = self.createAction('Recover Damaged Wallet',    self.RecoverWallet)
+      actRecoverWlt   = self.createAction('Fix Damaged Wallet',        self.RecoverWallet)
       #actRescanOnly   = self.createAction('Rescan Blockchain', self.forceRescanDB)
       #actRebuildAll   = self.createAction('Rescan with Database Rebuild', self.forceRebuildAndRescan)
 
@@ -687,8 +686,8 @@ class ArmoryMainWindow(QMainWindow):
 
 
       execVerifySigned = lambda: VerifyOfflinePackageDialog(self, self).exec_()
-      actAboutWindow  = self.createAction(tr('About Armory'), execAbout)
-      actVersionCheck = self.createAction(tr('Armory Version...'), execVersion)
+      actAboutWindow  = self.createAction(tr('&About Armory...'), execAbout)
+      actVersionCheck = self.createAction(tr('Armory Version'), execVersion)
       actDownloadUpgrade = self.createAction(tr('Update Software...'), self.openDownloaderAll)
       actVerifySigned = self.createAction(tr('Verify Signed Package...'), execVerifySigned)
       actTroubleshoot = self.createAction(tr('Troubleshooting Armory'), execTrouble)
@@ -697,6 +696,7 @@ class ArmoryMainWindow(QMainWindow):
       actRescanDB     = self.createAction(tr('Rescan Databases'), self.rescanNextLoad)
       actRebuildDB    = self.createAction(tr('Rebuild and Rescan Databases'), self.rebuildNextLoad)
       actFactoryReset = self.createAction(tr('Factory Reset'), self.factoryReset)
+      actPrivacyPolicy = self.createAction(tr('Armory Privacy Policy'), self.showPrivacyGeneric)
 
       self.menusList[MENUS.Help].addAction(actAboutWindow)
       self.menusList[MENUS.Help].addAction(actVersionCheck)
@@ -705,6 +705,7 @@ class ArmoryMainWindow(QMainWindow):
       self.menusList[MENUS.Help].addSeparator()
       self.menusList[MENUS.Help].addAction(actTroubleshoot)
       self.menusList[MENUS.Help].addAction(actSubmitBug)
+      self.menusList[MENUS.Help].addAction(actPrivacyPolicy)
       self.menusList[MENUS.Help].addSeparator()
       self.menusList[MENUS.Help].addAction(actClearMemPool)
       self.menusList[MENUS.Help].addAction(actRescanDB)
@@ -716,7 +717,7 @@ class ArmoryMainWindow(QMainWindow):
       execMSHack = lambda: DlgSelectMultiSigOption(self,self).exec_()
       execBrowse = lambda: DlgLockboxManager(self,self).exec_()
       actMultiHacker = self.createAction(tr('Multi-Sig Lockboxes'), execMSHack)
-      actBrowseLockboxes = self.createAction(tr('Lockbox Manager'), execBrowse)
+      actBrowseLockboxes = self.createAction(tr('Lockbox Manager...'), execBrowse)
       #self.menusList[MENUS.MultiSig].addAction(actMultiHacker)
       self.menusList[MENUS.MultiSig].addAction(actBrowseLockboxes)
 
@@ -740,7 +741,8 @@ class ArmoryMainWindow(QMainWindow):
       haveGUI[1] = self
       BDMcurrentBlock[1] = 1
 
-      if not SKIPWALLETCHECK: self.checkWallets()
+      if DO_WALLET_CHECK: 
+         self.checkWallets()
 
       self.setDashboardDetails()
 
@@ -765,6 +767,64 @@ class ArmoryMainWindow(QMainWindow):
             result.append(wltID)
       return result
 
+
+   ####################################################
+   def changeWltFilter(self):
+
+      currIdx  = max(self.comboWltSelect.currentIndex(), 0)
+      currText = str(self.comboWltSelect.currentText()).lower()
+
+      if currText.lower().startswith('custom filter'):
+         self.walletsView.showColumn(0)
+      else:
+         self.walletsView.hideColumn(0)
+
+
+      # If "custom" is selected, do nothing...
+      if currIdx==4:
+         return
+
+      for i in range(len(self.walletVisibleList)):
+         self.walletVisibleList[i] = False
+         self.setWltSetting(self.walletIDList[i], 'LedgerShow', False)
+
+      # If a specific wallet is selected, just set that and you're done
+      if currIdx >= 4:
+         self.walletVisibleList[currIdx-7] = True
+         self.setWltSetting(self.walletIDList[currIdx-7], 'LedgerShow', True)
+      else:
+         # Else we walk through the wallets and flag the particular ones
+         typelist = [[wid, determineWalletType(self.walletMap[wid], self)[0]] \
+                                                   for wid in self.walletIDList]
+
+         for i,winfo in enumerate(typelist):
+            wid,wtype = winfo[:]
+            if currIdx==0:
+               # My wallets
+               doShow = wtype in [WLTTYPES.Offline,WLTTYPES.Crypt,WLTTYPES.Plain]
+               self.walletVisibleList[i] = doShow
+               self.setWltSetting(wid, 'LedgerShow', doShow)
+            elif currIdx==1:
+               # Offline wallets
+               doShow = winfo[1] in [WLTTYPES.Offline]
+               self.walletVisibleList[i] = doShow
+               self.setWltSetting(wid, 'LedgerShow', doShow)
+            elif currIdx==2:
+               # Others' Wallets
+               doShow = winfo[1] in [WLTTYPES.WatchOnly]
+               self.walletVisibleList[i] = doShow
+               self.setWltSetting(wid, 'LedgerShow', doShow)
+            elif currIdx==3:
+               # All Wallets
+               self.walletVisibleList[i] = True
+               self.setWltSetting(wid, 'LedgerShow', True)
+
+      self.walletsView.reset()
+      self.createCombinedLedger()
+      if self.frmLedgUpDown.isVisible():
+         self.changeNumShow()
+
+
    ####################################################
    def factoryReset(self):
       """
@@ -788,6 +848,9 @@ class ArmoryMainWindow(QMainWindow):
          self.closeForReal()
 
 
+   ####################################################
+   def showPrivacyGeneric(self):
+      DlgPrivacyPolicy().exec_()
 
    ####################################################
    def clearMemoryPool(self):
@@ -1241,7 +1304,6 @@ class ArmoryMainWindow(QMainWindow):
 
          dontAsk = self.getSettingOrSetDefault('DNAA_DefaultApp', False)
          dontAskDefault = self.getSettingOrSetDefault('AlwaysArmoryURI', False)
-         print dontAsk, justDoIt, dontAskDefault
          if justDoIt:
             LOGINFO('URL-register: just doing it')
             action = 'DoIt'
@@ -1577,30 +1639,31 @@ class ArmoryMainWindow(QMainWindow):
                   self.versionNotification['LONGDESCR'] = \
                      self.getVersionNotifyLongDescr(verStr).replace('\n','<br>')
                      
-            for verStr,vermap in self.downloadLinks['ArmoryTesting'].iteritems():
-               dlVer = getVersionInt(readVersionString(verStr))
-               if dlVer > maxVer:
-                  maxVer = dlVer
-                  self.armoryVersions[1] = verStr
-                  if thisVer >= maxVer:
-                     continue
+            if 'ArmoryTesting' in self.downloadLinks:
+               for verStr,vermap in self.downloadLinks['ArmoryTesting'].iteritems():
+                  dlVer = getVersionInt(readVersionString(verStr))
+                  if dlVer > maxVer:
+                     maxVer = dlVer
+                     self.armoryVersions[1] = verStr
+                     if thisVer >= maxVer:
+                        continue
 
-                  shortDescr = tr('Armory Testing version %s is now available!') % verStr
-                  notifyID = binary_to_hex(hash256(shortDescr)[:4])
-                  self.versionNotification['UNIQUEID'] = notifyID
-                  self.versionNotification['VERSION'] = '0'
-                  self.versionNotification['STARTTIME'] = '0'
-                  self.versionNotification['EXPIRES'] = '%d' % long(UINT64_MAX)
-                  self.versionNotification['CANCELID'] = '[]'
-                  self.versionNotification['MINVERSION'] = '*'
-                  self.versionNotification['MAXVERSION'] = '<%s' % verStr
-                  self.versionNotification['PRIORITY'] = '1024'
-                  self.versionNotification['ALERTTYPE'] = 'upgrade-testing'
-                  self.versionNotification['NOTIFYSEND'] = 'False'
-                  self.versionNotification['NOTIFYRECV'] = 'False'
-                  self.versionNotification['SHORTDESCR'] = shortDescr
-                  self.versionNotification['LONGDESCR'] = \
-                     self.getVersionNotifyLongDescr(verStr, True).replace('\n','<br>')
+                     shortDescr = tr('Armory Testing version %s is now available!') % verStr
+                     notifyID = binary_to_hex(hash256(shortDescr)[:4])
+                     self.versionNotification['UNIQUEID'] = notifyID
+                     self.versionNotification['VERSION'] = '0'
+                     self.versionNotification['STARTTIME'] = '0'
+                     self.versionNotification['EXPIRES'] = '%d' % long(UINT64_MAX)
+                     self.versionNotification['CANCELID'] = '[]'
+                     self.versionNotification['MINVERSION'] = '*'
+                     self.versionNotification['MAXVERSION'] = '<%s' % verStr
+                     self.versionNotification['PRIORITY'] = '1024'
+                     self.versionNotification['ALERTTYPE'] = 'upgrade-testing'
+                     self.versionNotification['NOTIFYSEND'] = 'False'
+                     self.versionNotification['NOTIFYRECV'] = 'False'
+                     self.versionNotification['SHORTDESCR'] = shortDescr
+                     self.versionNotification['LONGDESCR'] = \
+                        self.getVersionNotifyLongDescr(verStr, True).replace('\n','<br>')
 
 
          # For Satoshi updates, we don't trigger any notifications like we
@@ -2345,6 +2408,7 @@ class ArmoryMainWindow(QMainWindow):
 
       # I need some linear lists for accessing by index
       self.walletIDList = []
+      self.walletVisibleList = []
       self.combinedLedger = []
       self.ledgerSize = 0
       self.ledgerTable = []
@@ -2395,9 +2459,14 @@ class ArmoryMainWindow(QMainWindow):
                # Maintain some linear lists of wallet info
                self.walletIDSet.add(wltID)
                self.walletIDList.append(wltID)
+               wtype = determineWalletType(wltLoad, self)[0]
+               notWatch = (not wtype == WLTTYPES.WatchOnly)
+               defaultVisible = self.getWltSetting(wltID, 'LedgerShow', notWatch)
+               self.walletVisibleList.append(defaultVisible)
                wltLoad.mainWnd = self
          except:
-            LOGEXCEPT( '***WARNING: Wallet could not be loaded: %s (skipping)', fpath)
+            LOGEXCEPT( '***WARNING: Wallet could not be loaded: %s (skipping)', 
+                                                                           fpath)
             raise
 
 
@@ -2489,14 +2558,16 @@ class ArmoryMainWindow(QMainWindow):
       return fullPath
 
    ##############################################################################
-   def getWltSetting(self, wltID, propName):
+   def getWltSetting(self, wltID, propName, defaultValue=''):
       # Sometimes we need to settings specific to individual wallets -- we will
       # prefix the settings name with the wltID.
       wltPropName = 'Wallet_%s_%s' % (wltID, propName)
-      try:
+      if self.settings.hasSetting('wltPropName'):
          return self.settings.get(wltPropName)
-      except KeyError:
-         return ''
+      else:
+         if not defaultValue=='':
+            self.setWltSetting(wltID, propName, defaultValue)
+         return defaultValue
 
    #############################################################################
    def setWltSetting(self, wltID, propName, value):
@@ -2783,7 +2854,11 @@ class ArmoryMainWindow(QMainWindow):
                   os.remove(mempoolfile)
             else:
                self.checkMemoryPoolCorruption(mempoolfile)
-            TheBDM.enableZeroConf(mempoolfile)
+               
+            cppMempoolFile = mempoolfile
+            if OS_WINDOWS and isinstance(mempoolfile, unicode):
+               cppMempoolFile = mempoolfile.encode('utf8')
+            TheBDM.enableZeroConf(cppMempoolFile)
             self.memPoolInit = True
 
          for wltID in self.walletMap.iterkeys():
@@ -2859,6 +2934,8 @@ class ArmoryMainWindow(QMainWindow):
       self.removeBootstrapDat()  # if we got here, we're *really* done with it
       self.walletModel.reset()
 
+      self.changeWltFilter()
+
       qLen = self.delayedURIData['qLen']
       if qLen > 0:
          #delayed URI parses, feed them back to the uri parser now
@@ -2914,32 +2991,11 @@ class ArmoryMainWindow(QMainWindow):
       """
       start = RightNow()
       if wltIDList==None:
-         # Create a list of [wltID, type] pairs
-         typelist = [[wid, determineWalletType(self.walletMap[wid], self)[0]] \
-                                                      for wid in self.walletIDList]
-
-         # We need to figure out which wallets to combine here...
          currIdx  = max(self.comboWltSelect.currentIndex(), 0)
-         currText = str(self.comboWltSelect.currentText()).lower()
-         if currIdx>=4:
-            wltIDList = [self.walletIDList[currIdx-6]]
-         else:
-            listOffline  = [t[0] for t in filter(lambda x: x[1]==WLTTYPES.Offline,   typelist)]
-            listWatching = [t[0] for t in filter(lambda x: x[1]==WLTTYPES.WatchOnly, typelist)]
-            listCrypt    = [t[0] for t in filter(lambda x: x[1]==WLTTYPES.Crypt,     typelist)]
-            listPlain    = [t[0] for t in filter(lambda x: x[1]==WLTTYPES.Plain,     typelist)]
-
-            if currIdx==0:
-               wltIDList = listOffline + listCrypt + listPlain
-            elif currIdx==1:
-               wltIDList = listOffline
-            elif currIdx==2:
-               wltIDList = listWatching
-            elif currIdx==3:
-               wltIDList = self.walletIDList
-            else:
-               pass
-               #raise WalletExistsError('Bad combo-box selection: ' + str(currIdx))
+         wltIDList = []
+         for i,vis in enumerate(self.walletVisibleList):
+            if vis:
+               wltIDList.append(self.walletIDList[i])
          self.writeSetting('LastFilterState', currIdx)
 
 
@@ -3143,10 +3199,11 @@ class ArmoryMainWindow(QMainWindow):
       self.comboWltSelect.addItem( 'Offline Wallets'   )
       self.comboWltSelect.addItem( 'Other\'s wallets'  )
       self.comboWltSelect.addItem( 'All Wallets'       )
+      self.comboWltSelect.addItem( 'Custom Filter'     )
       for wltID in self.walletIDList:
          self.comboWltSelect.addItem( self.walletMap[wltID].labelName )
-      self.comboWltSelect.insertSeparator(4)
-      self.comboWltSelect.insertSeparator(4)
+      self.comboWltSelect.insertSeparator(5)
+      self.comboWltSelect.insertSeparator(5)
       comboIdx = self.getSettingOrSetDefault('LastFilterState', 0)
       self.comboWltSelect.setCurrentIndex(comboIdx)
 
@@ -3176,6 +3233,26 @@ class ArmoryMainWindow(QMainWindow):
       dialog = DlgWalletDetails(wlt, self.usermode, self, self)
       dialog.exec_()
       #self.walletListChanged()
+
+   #############################################################################
+   def execClickRow(self, index=None):
+      row,col = index.row(), index.column()
+      if not col==WLTVIEWCOLS.Visible:
+         return
+
+      wltID = self.walletIDList[row]
+      currEye = self.walletVisibleList[row]
+      self.walletVisibleList[row] = not currEye 
+      self.setWltSetting(wltID, 'LedgerShow', not currEye)
+      
+      # Set it to "Custom Filter"
+      self.comboWltSelect.setCurrentIndex(4)
+      
+      if TheBDM.getBDMState()=='BlockchainReady':
+         self.createCombinedLedger()
+         self.ledgerModel.reset()
+         self.walletModel.reset()
+
 
    #############################################################################
    def updateTxCommentFromView(self, view):
@@ -3260,9 +3337,11 @@ class ArmoryMainWindow(QMainWindow):
       # Maintain some linear lists of wallet info
       self.walletIDSet.add(newWltID)
       self.walletIDList.append(newWltID)
+      showByDefault = (determineWalletType(newWallet, self)[0] != WLTTYPES.WatchOnly)
+      self.walletVisibleList.append(showByDefault)
+      self.setWltSetting(newWltID, 'LedgerShow', showByDefault)
 
       ledger = []
-      wlt = self.walletMap[newWltID]
       self.walletListChanged()
       self.mainWnd = self
 
@@ -3281,6 +3360,7 @@ class ArmoryMainWindow(QMainWindow):
       del self.walletIndices[wltID]
       self.walletIDSet.remove(wltID)
       del self.walletIDList[idx]
+      del self.walletVisibleList[idx]
 
       # Reconstruct walletIndices
       for i,wltID in enumerate(self.walletIDList):
@@ -3309,6 +3389,8 @@ class ArmoryMainWindow(QMainWindow):
       if not isinstance(sweepFromAddrObjList, (list, tuple)):
          sweepFromAddrObjList = [sweepFromAddrObjList]
 
+      
+      addr160List = [a.getAddr160() for a in sweepFromAddrObjList]
       utxoList = getUnspentTxOutsForAddr160List(addr160List, 'Sweep', 0)
       if len(utxoList)==0:
          return [None, 0, 0]
@@ -4105,7 +4187,7 @@ class ArmoryMainWindow(QMainWindow):
    def exportLogFile(self):
       LOGDEBUG('exportLogFile')
       reply = QMessageBox.warning(self, tr('Bug Reporting'), tr("""
-         As of version 0.91-beta, Armory now includes a form for reporting
+         As of version 0.91, Armory now includes a form for reporting
          problems with the software.  Please use
          <i>"Help"</i>\xe2\x86\x92<i>"Submit Bug Report"</i>
          to send a report directly to the Armory team, which will include
@@ -4118,18 +4200,77 @@ class ArmoryMainWindow(QMainWindow):
          self.saveCombinedLogFile()
 
    #############################################################################
+   def getUserAgreeToPrivacy(self, getAgreement=False):
+      ptype = 'submitbug' if getAgreement else 'generic'
+      dlg = DlgPrivacyPolicy(self, self, ptype)
+      if not dlg.exec_():
+         return False
+
+      return dlg.chkUserAgrees.isChecked()
+
+   #############################################################################
+   def logFileTriplePrivacyWarning(self):
+      return MsgBoxCustom(MSGBOX.Warning, tr('Privacy Warning'), tr("""
+         <b><u><font size=4>ATI Privacy Policy</font></u></b>
+         <br><br>
+         You should review the <a href="%s">Armory Technologies, Inc. privacy 
+         policy</a> before sending any data to ATI servers.
+         <br><br>
+
+         <b><u><font size=3>Wallet Analysis Log Files</font></u></b>
+         <br><br>
+         The wallet analysis logs contain no personally-identifiable
+         information, only a record of errors and inconsistencies 
+         found in your wallet file.  No private keys or even public 
+         keys are included.
+         <br><br>
+
+         <b><u><font size=3>Regular Log Files</font></u></b>
+         <br><br>
+         The regular log files do not contain any <u>security</u>-sensitive
+         information, but some users may consider the information to be
+         <u>privacy</u>-sensitive.  The log files may identify some addresses
+         and transactions that are related to your wallets.  It is always 
+         recommended you include your log files with any request to the
+         Armory team, unless you are uncomfortable with the privacy 
+         implications.
+         <br><br>
+
+         <b><u><font size=3>Watching-only Wallet</font></u></b>
+         <br><br>
+         A watching-only wallet is a copy of a regular wallet that does not 
+         contain any signing keys.  This allows the holder to see the balance
+         and transaction history of the wallet, but not spend any of the funds.
+         <br><br>
+         You may be requested to submit a watching-only copy of your wallet
+         to <i>Armory Technologies, Inc.</i> to make sure that there is no 
+         risk to the security of your funds.  You should not even consider 
+         sending your
+         watching-only wallet unless it was specifically requested by an
+         Armory representative.""") % PRIVACY_URL, yesStr="&Ok")
+          
+
+   #############################################################################
    def logFilePrivacyWarning(self, wCancel=False):
       return MsgBoxCustom(MSGBOX.Warning, tr('Privacy Warning'), tr("""
+         <b><u><font size=4>ATI Privacy Policy</font></u></b>
+         <br>
+         You should review the <a href="%s">Armory Technologies, Inc. privacy 
+         policy</a> before sending any data to ATI servers.
+         <br><br>
+
          Armory log files do not contain any <u>security</u>-sensitive
          information, but some users may consider the information to be
-         <u>privacy</u>-sensitive.  The log file may identify some addresses
+         <u>privacy</u>-sensitive.  The log files may identify some addresses
          and transactions that are related to your wallets.
          <br><br>
-         <b>No private key data is ever written to the log file</b>.
+
+         <b>No signing-key data is ever written to the log file</b>.
          Only enough data is there to help the Armory developers
          track down bugs in the software, but it may still be considered
          sensitive information to some users.
          <br><br>
+
          Please do not send the log file to the Armory developers if you
          are not comfortable with the privacy implications!  However, if you
          do not send the log file, it may be very difficult or impossible
@@ -4462,7 +4603,7 @@ class ArmoryMainWindow(QMainWindow):
       elif OS_MACOSX:
          pass
       else:
-         print 'Unrecognized OS!'
+         LOGERROR('Unrecognized OS!')
 
 
       self.frmDashMgmtButtons = QFrame()
@@ -4887,7 +5028,6 @@ class ArmoryMainWindow(QMainWindow):
             webbrowser.open('http://www.bitcoin.org/en/download')
             return
 
-         print self.downloadDict['SATOSHI']['Windows']
          theLink = self.downloadDict['SATOSHI']['Windows'][0]
          theHash = self.downloadDict['SATOSHI']['Windows'][1]
          dlg = DlgDownloadFile(self, self, theLink, theHash, \
@@ -6224,7 +6364,7 @@ class ArmoryMainWindow(QMainWindow):
                LOGDEBUG('Wallet restore completed.  Add to application.')
                while len(self.newWalletList)>0:
                   wlt,isFresh = self.newWalletList.pop()
-                  print 'Registering %s wallet' % ('NEW' if isFresh else 'IMPORTED')
+                  LOGDEBUG('Registering %s wallet' % ('NEW' if isFresh else 'IMPORTED'))
                   TheBDM.registerWallet(wlt.cppWallet, isFresh)
                   self.addWalletToApplication(wlt, walletIsNew=isFresh)
                self.setDashboardDetails()
@@ -6263,7 +6403,6 @@ class ArmoryMainWindow(QMainWindow):
                prevLedgSize = dict([(wltID, len(self.walletMap[wltID].getTxLedger())) \
                                                    for wltID in self.walletMap.keys()])
 
-               print 'New Block: ', self.currBlockNum
 
                self.ledgerModel.reset()
 
@@ -6304,7 +6443,7 @@ class ArmoryMainWindow(QMainWindow):
 
       except:
          LOGEXCEPT('Error in heartbeat function')
-         print sys.exc_info()
+         LOGERROR(sys.exc_info())
       finally:
          reactor.callLater(nextBeatSec, self.Heartbeat)
 
@@ -6452,7 +6591,7 @@ class ArmoryMainWindow(QMainWindow):
 
                else:
                   # Non-standard script. Just skip it.
-                  print 'This is a non-standard script. We will skip it.'
+                  LOGINFO('This is a non-standard script. We will skip it.')
 
          # Wait for 5 seconds before processing the next queue object.
          self.notifyBlockedUntil = RightNow() + 5
@@ -6569,32 +6708,66 @@ class ArmoryMainWindow(QMainWindow):
 
 
    #############################################################################
-   def spawnTrigger(self, toSpawn):
-      if isinstance(toSpawn, DlgProgress):
-         super(DlgProgress, toSpawn).exec_()
+   def execTrigger(self, toSpawn):
+      super(ArmoryDialog, toSpawn).exec_()
 
+
+   #############################################################################
    def initTrigger(self, toInit):
       if isinstance(toInit, DlgProgress):
          toInit.setup(self)
          toInit.status = 1
 
+
    #############################################################################
-   def checkForkedImports(self):
+   def checkForNegImports(self):
       
-      forkedImports = []
+      negativeImports = []
       
       for wlt in self.walletMap:
-         if self.walletMap[wlt].hasForkedImports:
-            forkedImports.append(self.walletMap[wlt].uniqueIDB58)
+         if self.walletMap[wlt].hasNegativeImports:
+            negativeImports.append(self.walletMap[wlt].uniqueIDB58)
             
-      if len(forkedImports):
-         DlgForkedImports(forkedImports, self, self).show()            
+      # If we detect any negative import
+      if len(negativeImports) > 0:
+         logDirs = []
+         for wltID in negativeImports:
+            if not wltID in self.walletMap:
+               continue
+
+            homedir = os.path.dirname(self.walletMap[wltID].walletPath)
+            wltlogdir  = os.path.join(homedir, wltID)
+            if not os.path.exists(wltlogdir):
+               continue
+   
+            for subdirname in os.listdir(wltlogdir):
+               subdirpath = os.path.join(wltlogdir, subdirname)
+               logDirs.append([wltID, subdirpath])
+
+         
+         DlgInconsistentWltReport(self, self, logDirs).exec_()
+
+
+   #############################################################################
+   def getAllRecoveryLogDirs(self, wltIDList):
+      self.logDirs = []
+      for wltID in wltIDList:
+         if not wltID in self.walletMap:
+            continue
+
+         homedir = os.path.dirname(self.walletMap[wltID].walletPath)
+         logdir  = os.path.join(homedir, wltID)
+         if not os.path.exists(logdir):
+            continue
+
+         self.logDirs.append([wltID, logdir])
+
+      return self.logDirs 
+
       
    #############################################################################
    @AllowAsync
    def CheckWalletConsistency(self, wallets, prgAt=None):
-
-      from armoryengine.PyBtcWalletRecovery import WalletConsistencyCheck
 
       if prgAt:
          totalSize = 0
@@ -6616,49 +6789,49 @@ class ArmoryMainWindow(QMainWindow):
             i = f +i
 
          self.wltCstStatus = WalletConsistencyCheck(wallets[wlt], prgAt)
-         if self.wltCstStatus != 0 and (not isinstance(self.wltCstStatus, dict) or self.wltCstStatus['nErrors'] != 0):
-            self.WltCstError(wallets[wlt], self.wltCstStatus, dlgrdy)
+         if self.wltCstStatus[0] != 0:
+            self.WltCstError(wallets[wlt], self.wltCstStatus[1], dlgrdy)
             while not dlgrdy[0]:
                time.sleep(0.01)
             nerrors = nerrors +1
 
       prgAt[2] = 1
 
-      #if self.UpdateWalletConsistencyPBar in self.extraHeartbeatAlways:
-         #self.extraHeartbeatAlways.remove(self.UpdateWalletConsistencyPBar)
-
       dlgrdy[0] = 0
       while prgAt[2] != 2:
          time.sleep(0.1)
       if nerrors == 0:
-         self.emit(SIGNAL('UWCS'), [1, 'No Wallet Error Found', 10000, dlgrdy])
-         self.emit(SIGNAL('checkForkedImports'))
+         self.emit(SIGNAL('UWCS'), [1, 'All wallets are consistent', 10000, dlgrdy])
+         self.emit(SIGNAL('checkForNegImports'))
       else:
          while not dlgrdy:
-            self.emit(SIGNAL('UWCS'), [1, 'Found Errors in your Wallets!!!', 0, dlgrdy])
+            self.emit(SIGNAL('UWCS'), [1, 'Consistency Check Failed!', 0, dlgrdy])
             time.sleep(1)
 
-         #make sure nothing is running right before forcing the 'fix your wallet' dialog up
          self.checkRdyForFix()
+
 
    def checkRdyForFix(self):
       #check BDM first
       time.sleep(1)
       self.dlgCptWlt.emit(SIGNAL('Show'))
-      dots = 0
       while 1:
-         dotsstr = '.'*((dots % 3)+1)
-         dots = dots +1
          if TheBDM.getBDMState() == 'Scanning':
-            canFix = 'Currently Scanning Blockchain. Fixing will be available once Armory is done loading' + dotsstr +\
-                     '<br>You can close this window, it will reappear once your wallets are ready to be fixed'
+            canFix = tr("""
+               The wallet analysis tool will become available
+               as soon as Armory is done loading.   You can close this 
+               window and it will reappear when ready.""")
             self.dlgCptWlt.UpdateCanFix([canFix])
             time.sleep(1)
+         elif TheBDM.getBDMState() == 'Offline' or \
+              TheBDM.getBDMState() == 'Uninitialized':
+            TheSDM.setDisabled(True)
+            CLI_OPTIONS.offline = True
+            break
          else:
             break
 
       #check running dialogs
-
       self.dlgCptWlt.emit(SIGNAL('Show'))
       runningList = []
       while 1:
@@ -6670,14 +6843,16 @@ class ArmoryMainWindow(QMainWindow):
                listchanged = 1
 
          for dlg in runningDialogsList:
-            if dlg.__class__.__name__ != 'DlgCorruptWallet':
+            if not isinstance(dlg, DlgCorruptWallet):
                if dlg not in runningList:
                   runningList.append(dlg)
                   listchanged = 1
 
          if len(runningList):
             if listchanged:
-               canFix.append('<u style="color: orange">The following windows need closed before you can Fix your wallets:</u>')
+               canFix.append(tr("""
+                  <b>The following windows need closed before you can 
+                  run the wallet analysis tool:</b>"""))
                canFix.extend([str(myobj.windowTitle()) for myobj in runningList])
                self.dlgCptWlt.UpdateCanFix(canFix)
             time.sleep(0.2)
@@ -6685,9 +6860,9 @@ class ArmoryMainWindow(QMainWindow):
             break
 
 
-      canFix.append('Ready to fix your wallets!')
+      canFix.append('Ready to analyze inconsistent wallets!')
       self.dlgCptWlt.UpdateCanFix(canFix, True)
-      self.dlgCptWlt.emit(SIGNAL('Exec'))
+      self.dlgCptWlt.exec_()
 
    def checkWallets(self):
       nwallets = len(self.walletMap)
@@ -6717,6 +6892,7 @@ class ArmoryMainWindow(QMainWindow):
 
       self.emit(SIGNAL('UWCS'), [2])
       self.prgAt[2] = 2
+
    def UpdateWalletConsistencyStatus(self, msg):
       if msg[0] == 0:
          self.pbarWalletProgress.setValue(msg[1])
@@ -6728,10 +6904,9 @@ class ArmoryMainWindow(QMainWindow):
 
    def WltCstError(self, wlt, status, dlgrdy):
       self.emit(SIGNAL('PWCE'), dlgrdy, wlt, status)
-      self.extraHeartbeatAlways.append([LOGERROR, ['Failed consistency check on wallet %s%s' % (wlt.uniqueIDB58, ' (' + wlt.labelName +')' if len(wlt.labelName) != 0 else '')], False])
+      LOGERROR('Wallet consistency check failed! (%s)', wlt.uniqueIDB58)
 
    def PromptWltCstError(self, dlgrdy, wallet=None, status='', mode=None):
-
       if not self.dlgCptWlt:
          self.dlgCptWlt = DlgCorruptWallet(wallet, status, self, self)
          dlgrdy[0] = 1
@@ -6847,7 +7022,6 @@ if 1:
 
    from twisted.internet import reactor
    def endProgram():
-      print 'Resetting BlockDataMgr, freeing memory'
       LOGINFO('Resetting BlockDataMgr, freeing memory')
       TheBDM.Reset()
       TheBDM.execCleanShutdown(wait=False)

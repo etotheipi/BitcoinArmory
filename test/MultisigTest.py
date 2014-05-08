@@ -5,12 +5,9 @@ Created on Aug 4, 2013
 '''
 import sys
 import unittest
-sys.path.append('..')
-
-from armoryengine.ArmoryUtils import hex_to_binary, binary_to_hex, hex_to_int, \
-   ONE_BTC, BIGENDIAN, addrStr_to_hash160, hash160_to_p2pkhash_script, \
-   CryptoECDSA, SecureBinaryData, \
-   pubkeylist_to_multisig_script, addrStr_to_scrAddr, scrAddr_to_script
+sys.argv.append('--nologging')
+sys.argv.append('--testnet')
+from armoryengine.ArmoryUtils import *
 from armoryengine.BinaryUnpacker import BinaryUnpacker
 from armoryengine.Block import PyBlock
 from armoryengine.PyBtcAddress import PyBtcAddress
@@ -323,6 +320,9 @@ class MSUtilsTest(unittest.TestCase):
          print 'PrivKey %d:', prv.toHexStr()
 
       msScript = pubkeylist_to_multisig_script(pubStrs, 2)
+      msScriptReverse = pubkeylist_to_multisig_script(pubStrs[::-1], 2)
+      self.assertEqual(msScript, msScriptReverse)
+      
       for opStr in convertScriptToOpStrings(msScript):
          print '   ', opStr
 

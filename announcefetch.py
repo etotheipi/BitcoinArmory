@@ -227,7 +227,10 @@ class AnnounceDataFetcher(object):
             LOGERR('Unrecognized OS while constructing version URL')
             argsMap['osvar'] = 'unk'
    
-         argsMap['id'] = binary_to_hex(hash256(USER_HOME_DIR)[:4])
+         if OS_WINDOWS:
+            argsMap['id'] = binary_to_hex(hash256(USER_HOME_DIR.encode('utf8'))[:4])
+         else:
+            argsMap['id'] = binary_to_hex(hash256(USER_HOME_DIR)[:4])
 
       return url + '?' + urllib.urlencode(argsMap)
 

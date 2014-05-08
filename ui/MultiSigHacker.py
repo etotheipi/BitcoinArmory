@@ -500,8 +500,7 @@ class DlgLockboxEditor(ArmoryDialog):
 
 
 
-      txOutScript = pubkeylist_to_multisig_script(pubKeyList, currM, \
-                                                         withSort=False)  
+      txOutScript = pubkeylist_to_multisig_script(pubKeyList, currM)  
       opCodeList = convertScriptToOpStrings(txOutScript)
       scraddr = script_to_scrAddr(txOutScript)
 
@@ -1580,13 +1579,9 @@ class DlgMultiSpendReview(ArmoryDialog):
          returning to the same lockbox from where it came).  If there is 
          any ambiguity, Armory will display all outputs."""))
 
-      KEYW = 25
-      KEYH = 36
-      CHKW = 32
-      CHKH = 32
-      PIEW = 32
-      PIEH = 32
-
+      KEYW,KEYH = 25,36
+      CHKW,CHKH = 32,32
+      PIEW,PIEH = 32,32
 
       # These need to return copies
       self.pixGreen = lambda: QPixmap(':/keyhole_green.png').scaled(KEYW,KEYH)
@@ -2112,7 +2107,7 @@ class DlgMultiSpendReview(ArmoryDialog):
 
 
    def doBroadcast(self):
-      finalTx = self.ustx.prepareFinalTx(doVerifySigs=True)
+      finalTx = self.ustx.getSignedPyTx(doVerifySigs=True)
       if not finalTx:
          self.ustx.evaluateSigningStatus().pprint()
          QMessageBox.critical(self, tr('Invalid Signatures'), tr("""
@@ -2124,7 +2119,7 @@ class DlgMultiSpendReview(ArmoryDialog):
             from the correct wallets.  Perhaps try collecting signatures
             again...?"""), QMessageBox.Ok)
 
-         finalTx = self.ustx.prepareFinalTx(doVerifySigs=False)
+         finalTx = self.ustx.getSignedPyTx(doVerifySigs=False)
 
       self.main.broadcastTransaction(finalTx, withOldSigWarning=False)
       try:

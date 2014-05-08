@@ -42,7 +42,7 @@ from qrcodenative import QRCode, QRErrorCorrectLevel
 
 
 # Version Numbers
-BTCARMORY_VERSION    = (0, 91,  9, 0)  # (Major, Minor, Bugfix, AutoIncrement)
+BTCARMORY_VERSION    = (0, 91,  99, 0)  # (Major, Minor, Bugfix, AutoIncrement)
 PYBTCWALLET_VERSION  = (1, 35,  0, 0)  # (Major, Minor, Bugfix, AutoIncrement)
 
 ARMORY_DONATION_ADDR = '1ArmoryXcfq7TnCSuZa9fQjRYwJ4bkRKfv'
@@ -91,8 +91,8 @@ parser.add_option("--disable-torrent", dest="disableTorrent", default=False,    
 parser.add_option("--test-announce", dest="testAnnounceCode", default=False,     action="store_true", help="Only used for developers needing to test announcement code with non-offline keys")
 #parser.add_option("--rebuildwithblocksize", dest="newBlockSize",default='32kB', type="str",          help="Rebuild databases with new blocksize")
 parser.add_option("--nospendzeroconfchange",dest="ignoreAllZC",default=False, action="store_true", help="All zero-conf funds will be unspendable, including sent-to-self coins")
-parser.add_option("--nowalletcheck", dest="noWalletCheck", default=False, action="store_true", help="Skip the wallet sanity check on startup")
 parser.add_option("--multisigfile",  dest="multisigFile",  default='DEFAULT', type='str',          help="File to store information about multi-signature transactions")
+parser.add_option("--force-wallet-check", dest="forceWalletCheck", default=False, action="store_true", help="Force the wallet sanity check on startup")
 
 # Pre-10.9 OS X sometimes passes a process serial number as -psn_0_xxxxxx. Nuke!
 if sys.platform == 'darwin':
@@ -231,7 +231,6 @@ if CLI_OPTIONS.interport < 0:
 # Pass this bool to all getSpendable* methods, and it will consider
 # all zero-conf UTXOs as unspendable, including sent-to-self (change)
 IGNOREZC  = CLI_OPTIONS.ignoreAllZC
-SKIPWALLETCHECK = CLI_OPTIONS.noWalletCheck
 
 
 # Figure out the default directories for Satoshi client, and BicoinArmory
@@ -245,7 +244,12 @@ SUBDIR = 'testnet3' if USE_TESTNET else ''
 if OS_WINDOWS:
    OS_NAME         = 'Windows'
    OS_VARIANT      = platform.win32_ver()
-   USER_HOME_DIR   = os.getenv('APPDATA')
+   
+   import ctypes
+   buffer = ctypes.create_unicode_buffer(u'\0' * 260)
+   rt = ctypes.windll.shell32.SHGetFolderPathW(0, 26, 0, 0, ctypes.byref(buffer))
+   USER_HOME_DIR = unicode(buffer.value)
+               
    BTC_HOME_DIR    = os.path.join(USER_HOME_DIR, 'Bitcoin', SUBDIR)
    ARMORY_HOME_DIR = os.path.join(USER_HOME_DIR, 'Armory', SUBDIR)
    BLKFILE_DIR     = os.path.join(BTC_HOME_DIR, 'blocks')
@@ -292,6 +296,10 @@ NETWORKS['\x6f'] = "Test Network"
 NETWORKS['\xc4'] = "Test Network"
 NETWORKS['\x34'] = "Namecoin Network"
 
+
+# We disable wallet checks on ARM for the sake of resources (unless forced)
+DO_WALLET_CHECK = CLI_OPTIONS.forceWalletCheck or \
+                  not platform.machine().lower().startswith('arm')
 
 # Version Handling Code
 def getVersionString(vquad, numPieces=4):
@@ -521,6 +529,7 @@ if sys.argv[0]=='ArmoryQt.py':
    print '   LevelDB directory     :', LEVELDB_DIR
    print '   Armory settings file  :', SETTINGS_PATH
    print '   Armory log file       :', ARMORY_LOG_FILE
+   print '   Do wallet checking    :', DO_WALLET_CHECK
 
 
 
@@ -714,8 +723,8 @@ DEFAULT_RAWDATA_LOGLEVEL  = logging.DEBUG
 rootLogger = logging.getLogger('')
 if CLI_OPTIONS.doDebug or CLI_OPTIONS.netlog or CLI_OPTIONS.mtdebug:
    # Drop it all one level: console will see INFO, file will see DEBUG
-   DEFAULT_CONSOLE_LOGTHRESH  -= 10
-   DEFAULT_FILE_LOGTHRESH     -= 10
+   DEFAULT_CONSOLE_LOGTHRESH  -= 20
+   DEFAULT_FILE_LOGTHRESH     -= 20
 
 
 def chopLogFile(filename, size):
@@ -956,6 +965,7 @@ def GetSystemDetails():
    CPU,COR,X64,MEM = range(4)
    sysParam = [None,None,None,None]
    out.CpuStr = 'UNKNOWN'
+   out.Machine  = platform.machine().lower()
    if OS_LINUX:
       # Get total RAM
       freeStr = subprocess_check_output('free -m', shell=True)
@@ -1003,8 +1013,21 @@ def GetSystemDetails():
       raise OSError("Can't get system specs in: %s" % platform.system())
 
    out.NumCores = multiprocessing.cpu_count()
-   out.IsX64 = platform.architecture()[0].startswith('64')
+   out.IsX64 = platform.machine().lower() == 'x86_64'
    out.Memory = out.Memory / (1024*1024.)
+
+   def getHddSize(adir):
+      if OS_WINDOWS:
+        free_bytes = ctypes.c_ulonglong(0)
+        ctypes.windll.kernel32.GetDiskFreeSpaceExW(ctypes.c_wchar_p(adir), \
+                                                   None, None, \
+                                                   ctypes.pointer(free_bytes))
+        return free_bytes.value
+      else:
+         s = os.statvfs(adir)
+         return s.f_bavail * s.f_frsize
+   out.HddAvailA = getHddSize(ARMORY_HOME_DIR) / (1024**3)
+   out.HddAvailB = getHddSize(BTC_HOME_DIR)    / (1024**3)
    return out
 
 SystemSpecs = None
@@ -1014,10 +1037,13 @@ except:
    LOGEXCEPT('Error getting system details:')
    LOGERROR('Skipping.')
    SystemSpecs = DumbStruct()
-   SystemSpecs.Memory   = -1
-   SystemSpecs.CpuStr   = 'Unknown'
-   SystemSpecs.NumCores = -1
-   SystemSpecs.IsX64    = 'Unknown'
+   SystemSpecs.Memory    = -1
+   SystemSpecs.CpuStr    = 'Unknown'
+   SystemSpecs.NumCores  = -1
+   SystemSpecs.IsX64     = 'Unknown'
+   SystemSpecs.Machine   = platform.machine().lower()
+   SystemSpecs.HddAvailA = -1
+   SystemSpecs.HddAvailB = -1
 
 
 LOGINFO('')
@@ -1040,9 +1066,13 @@ LOGINFO('   CPU ID string         : ' + SystemSpecs.CpuStr)
 LOGINFO('   Number of CPU cores   : %d cores', SystemSpecs.NumCores)
 LOGINFO('   System is 64-bit      : ' + str(SystemSpecs.IsX64))
 LOGINFO('   Preferred Encoding    : ' + locale.getpreferredencoding())
+LOGINFO('   Machine Arch          : ' + SystemSpecs.Machine)
+LOGINFO('   Available HDD (ARM)   : %d GB' % SystemSpecs.HddAvailA)
+LOGINFO('   Available HDD (BTC)   : %d GB' % SystemSpecs.HddAvailB)
 LOGINFO('')
 LOGINFO('Network Name: ' + NETWORKS[ADDRBYTE])
 LOGINFO('Satoshi Port: %d', BITCOIN_PORT)
+LOGINFO('Do wlt check: %s', str(DO_WALLET_CHECK))
 LOGINFO('Named options/arguments to armoryengine.py:')
 for key,val in ast.literal_eval(str(CLI_OPTIONS)).iteritems():
    LOGINFO('    %-16s: %s', key,val)
@@ -1586,6 +1616,10 @@ RightNow = time.time
 def RightNowUTC():
    return time.mktime(time.gmtime(RightNow()))
 
+def RightNowStr(fmt=DEFAULT_DATE_FORMAT):
+   return unixTimeToFormatStr(RightNow(), fmt)
+   
+
 # Define all the hashing functions we're going to need.  We don't actually
 # use any of the first three directly (sha1, sha256, ripemd160), we only
 # use hash256 and hash160 which use the first three to create the ONLY hash
@@ -1880,6 +1914,9 @@ def binScript_to_p2shAddrStr(binScript):
 
 ################################################################################
 def addrStr_is_p2sh(b58Str):
+   if isLikelyDataType(b58Str) == DATATYPE.Binary:
+      return False
+      
    binStr = base58_to_binary(b58Str)
    if not len(binStr)==25:
       return False
@@ -2854,6 +2891,7 @@ class PyBackgroundThread(threading.Thread):
       try:
          self.output = self.func()
       except Exception as e:
+         LOGEXCEPT('Error in pybkgdthread: %s', str(e))
          self.errorThrown = e
       self.finishedAt = RightNow()
 
@@ -2893,6 +2931,8 @@ def AllowAsync(func):
    return wrappedFunc
 
 
+def emptyFunc(*args, **kwargs):
+   return
 
 
 def EstimateCumulativeBlockchainSize(blkNum):

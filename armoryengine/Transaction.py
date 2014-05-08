@@ -773,7 +773,7 @@ class PyTx(BlockComponent):
       result = ''.join([result, '\n',   indstr + indent + 'Inputs: '])
       for inp in self.inputs:
          result = ''.join([result, '\n',   inp.toString(nIndent+2, endian=endian)])
-      print indstr + indent + 'Outputs: '
+      result = ''.join([result, '\n', indstr + indent + 'Outputs: '])
       for out in self.outputs:
          result = ''.join([result, '\n',  out.toString(nIndent+2, endian=endian)])
       return result
@@ -2022,11 +2022,18 @@ class UnsignedTransaction(object):
 
 
    #############################################################################
-   def prepareFinalTx(self, doVerifySigs=True):
+   def getUnsignedPyTx(self, doVerifySigs=True):
+      return self.pytxObj.copy()
+
+
+   #############################################################################
+   def getSignedPyTx(self, doVerifySigs=True):
       # Make sure the USTXI list is synchronous with the pytx input list
       if not self.verifyInputsMatchPyTxObj():
          LOGERROR('Invalid USTXI set or ordering')
          return None
+
+      finalTx = self.pytxObj.copy()
 
       # Check signatures are valid (if not skipped)
       # TODO: I would've used PyScriptProcessor since it evaluates the scripts
@@ -2044,10 +2051,17 @@ class UnsignedTransaction(object):
          sigScript = ustxi.createSigScript()
          if not sigScript:
             return None
-         self.pytxObj.inputs[iin].binScript = sigScript
+         finalTx.inputs[iin].binScript = sigScript
+
+      return finalTx
 
 
-      return self.pytxObj
+   #############################################################################
+   def getPyTxSignedIfPossible(self, doVerifySigs=True):
+      if self.evaluateSigningStatus().canBroadcast:
+         return self.getSignedPyTx()
+      else:
+         return self.getUnsignedPyTx()
 
 
    #############################################################################
@@ -2098,7 +2112,7 @@ class UnsignedTransaction(object):
    #############################################################################
    def getBroadcastTxIfReady(self, verifySigs=True):
       try:
-         return self.prepareFinalTx(verifySigs)
+         return self.getSignedPyTx(verifySigs)
       except SignatureError, msg:
          return None
 
@@ -2169,7 +2183,7 @@ def PyCreateAndSignTx(ustxiList, dtxoList, sbdPrivKeyMap):
    if not ustx.verifySigsAllInputs():
       raise SignatureError('Not all signatures are present or valid')
 
-   return ustx.prepareFinalTx(doVerifySigs=False) # already checked them
+   return ustx.getSignedPyTx(doVerifySigs=False) # already checked them
 
 
 
