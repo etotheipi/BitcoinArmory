@@ -38,7 +38,7 @@ all-test-tools: all
 	$(MAKE) -C cppForSwig/gtest
 
 test: all-test-tools
-	./cppForSwig/gtest/CppBlockUtilsTests
+	cd cppForSwig/gtest && ./CppBlockUtilsTests
 
 osx :
 	chmod +x osxbuild/deploy.sh
