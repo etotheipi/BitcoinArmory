@@ -8,10 +8,11 @@ from qtdialogs import createAddrBookButton, DlgSetComment, DlgSendBitcoins, \
 from armoryengine.ALL import *
 from armorymodels import *
 from armoryengine.MultiSigUtils import MultiSigLockbox, calcLockboxID,\
-   createLockboxEntryStr
+   createLockboxEntryStr, readLockboxEntryStr
 from ui.MultiSigModels import \
             LockboxDisplayModel,  LockboxDisplayProxy, LOCKBOXCOLS
 import webbrowser
+from armoryengine.CoinSelection import PySelectCoins, PyUnspentTxOut
 
          
 
@@ -1119,9 +1120,15 @@ class DlgLockboxManager(ArmoryDialog):
             <li>All other parties in the escrow are fully trusted</li>
             <li>This lockbox is being used for personal savings</li>
          </ul>
-         If none of the above are true, please do not continue sending
-         funds to this lockbox!""") % htmlColor('TextWarn'), \
-         QMessageBox.Ok | QMessageBox.Cancel)
+         Click "Ok" to continue regular funding.  Click "Yes" to try our 
+         experimental "simulfunding" interface.""") % htmlColor('TextWarn'), 
+         QMessageBox.Yes | QMessageBox.Ok | QMessageBox.Cancel)
+
+      if reply==QMessageBox.Yes:
+         lbID = self.getSelectedLBID()
+         prefill = createLockboxEntryStr(lbID)
+         DlgCreatePromNote(self, self.main, prefill).exec_()
+         return
 
       if not reply==QMessageBox.Ok:
          return 
@@ -2130,6 +2137,203 @@ class DlgMultiSpendReview(ArmoryDialog):
          
 
 
+################################################################################
+class DlgCreatePromNote(ArmoryDialog):
+
+   #############################################################################
+   def __init__(self, parent, main, defaultTargStr=None):
+      super(DlgCreatePromNote, self).__init__(parent, main)
+
+      lblDescr  = QRichLabel(tr("""
+         <font color="%s" size=4><b>Create Simulfunding Promissory Note
+         </b></font>""") % htmlColor('TextBlue'), 
+         hAlign=Qt.AlignHCenter, doWrap=False)
+
+      lblDescr2 = QRichLabel(tr("""
+         Use this form to create a
+         "promissory note" which can be combined with notes from other 
+         parties to fund an address or lockbox simultaneously
+         (<i>"simulfunding"</i>).  This funding
+         transaction will not be valid until all promissory notes are 
+         merged into a single transaction, then all funding parties 
+         will review and sign it.  
+         <br><br>
+         If this lockbox is being funded by only one party, using this
+         interface is unnecessary.  Have the funding party send Bitcoins 
+         to the destination address or lockbox in the normal way."""))
+
+      lblNoteSrc = QRichLabel(tr("""
+         <b>NOTE:</b> At the moment, simulfunding is restricted to using
+         single-signature wallets/addresses for funding.    More
+         complex simulfunding transactions will be possible in a future 
+         version of Armory."""))
+
+      if len(self.main.walletIDList)>0:
+         self.spendFromWltID = self.main.walletIDList[0]
+      else:
+         self.spendFromWltID = ''
+
+
+      def selectWalletFunc(wlt):
+         self.spendFromWltID = wlt.uniqueIDB58
+      
+      wltFrame = SelectWalletFrame(self, self.main, HORIZONTAL, 
+                           selectWltCallback=selectWalletFunc)
+                                                  
+
+      # Create the frame that specifies the target of the funding
+
+      lblAddress = QRichLabel(tr('Address:'))
+      lblAmount  = QRichLabel(tr('Amount:'))
+      lblFee     = QRichLabel(tr('Add fee:'))
+      lblBTC1    = QRichLabel(tr('BTC'))
+      lblBTC2    = QRichLabel(tr('BTC'))
+
+      self.edtFundTarget = QLineEdit()
+      if defaultTargStr:
+         self.edtFundTarget.setText(defaultTargStr)
+
+      self.btnSelectTarg = createAddrBookButton(
+                                 parent=self, 
+                                 targWidget=self.edtFundTarget, 
+                                 defaultWlt=None,
+                                 actionStr='Select', 
+                                 showLockBoxes=True)
+      self.lblTargetID = QRichLabel('')
+      self.connect(self.edtFundTarget, SIGNAL('textChanged(QString)'), 
+                   self.updateTargetLabel)
+                                          
+
+      self.edtAmountBTC = QLineEdit()
+      self.edtAmountBTC.setFont(GETFONT('Fixed'))
+      self.edtAmountBTC.setMinimumWidth(tightSizeNChar(GETFONT('Fixed'), 16)[0])
+      self.edtAmountBTC.setAlignment(Qt.AlignLeft)
+
+      self.edtFeeBtc = QLineEdit()
+      self.edtFeeBtc.setFont(GETFONT('Fixed'))
+      self.edtFeeBtc.setMinimumWidth(tightSizeNChar(GETFONT('Fixed'), 16)[0])
+      self.edtFeeBtc.setAlignment(Qt.AlignLeft)
+
+
+      gboxIn  = QGroupBox(tr('Source of Funding'))
+      gboxInLayout = QVBoxLayout()
+      gboxInLayout.addWidget(lblNoteSrc)
+      gboxInLayout.addWidget(wltFrame)
+      gboxIn.setLayout(gboxInLayout) 
+
+      gboxOut = QGroupBox(tr('Funding Destination'))
+      gboxOutLayout = QGridLayout()
+      gboxOutLayout.addWidget(lblAddress,            0,0)
+      gboxOutLayout.addWidget(self.edtFundTarget,    0,1, 1,3)
+      gboxOutLayout.addWidget(self.btnSelectTarg,    0,4)
+
+      gboxOutLayout.addWidget(self.lblTargetID,      1,1, 1,4)
+
+      gboxOutLayout.addWidget(lblAmount,             2,0)
+      gboxOutLayout.addWidget(self.edtAmountBTC,     2,1)
+      gboxOutLayout.addWidget(lblBTC,                2,2)
+
+      gboxOutLayout.addWidget(lblFee,                3,0)
+      gboxOutLayout.addWidget(self.edtFeeBTC,        3,1)
+      gboxOutLayout.addWidget(lblBTC2,               3,2)
+
+      gboxOutLayout.setColumnStretch(0, 0)
+      gboxOutLayout.setColumnStretch(1, 0)
+      gboxOutLayout.setColumnStretch(2, 0)
+      gboxOutLayout.setColumnStretch(3, 1)
+      gboxOutLayout.setColumnStretch(4, 0)
+      gboxOut.setLayout(gboxOutLayout)
+
+      btnExit = QPushButton(tr('Cancel'))
+      btnDone = QPushButton(tr('Continue'))
+      self.connect(btnExit, SIGNAL('clicked()'), self.reject)
+      self.connect(btnDone, SIGNAL('clicked()'), self.doContinue)
+      frmButtons = makeHorizFrame([btnExit, 'Stretch', btnDone])
+
+      mainLayout = QVBoxLayout()
+      mainLayout.addWidget(lblDescr)
+      mainLayout.addWidget(lblDescr2)
+      mainLayout.addWidget(HLINE())
+      mainLayout.addWidget(gboxIn)
+      mainLayout.addWidget(HLINE())
+      mainLayout.addWidget(gboxOut)
+      mainLayout.addWidget(HLINE())
+      mainLayout.addWidget(frmButtons)
+      self.setLayout(mainLayout)
+
+      self.setWindowTitle('Create Promissory Note')
+
+      self.updateTargetLabel()
+
+
+   #############################################################################
+   def updateTargetLabel(self):
+      try:
+         addrText = str(self.edtFundTarget.text())
+         if addrStr_is_p2sh(addrText):
+            lboxID = self.main.getLockboxByP2SHAddrStr(addrText) 
+         else:
+            lboxID = readLockboxEntryStr(addrText)
+
+         if lboxID:
+            lbox = self.main.getLockboxByID(lboxID)
+            if lbox:
+               dispStr = '<b>%s-of-%s</b>: %s' % (lbox.M, lbox.N, lbox.shortName)
+            else:
+               dispStr = 'Unrecognized Lockbox'
+
+            self.lblTargetID.setVisible(True)
+            self.lblTargetID.setText(dispStr, color='TextBlue')
+            return
+
+         wltID = self.main.getWalletForAddr160(addrStr_to_hash160(addrText)[1])
+         if wltID:
+            wlt = self.main.walletMap[wltID]
+            dispStr = '%s (%s)' % (wlt.labelName, wlt.uniqueIDB58)
+            self.lblTargetID.setVisible(True)
+            self.lblTargetID.setText(dispStr, color='TextBlue')
+            return
+
+         self.lblTargetID.setVisible(False)
+
+      except:
+         LOGEXCEPT('')
+         self.lblTargetID.setVisible(False)
+
+
+   #############################################################################
+   def doContinue(self):
+
+      if not TheBDM.getBDMState()=='BlockchainReady':
+         LOGERROR('Blockchain not avail for creating prom note')
+         QMessageBox.critical(self, tr('Blockchain Not Available'), tr("""
+            The blockchain has become unavailable since you opened this
+            window.  Creation of the promissory note cannot continue.  If 
+            you think you should be online, please try again in a minute,
+            or after restarting Armory"""), QMessageBox.Ok)
+         return
+
+      wltID = self.spendFromWltID
+      wlt = self.main.walletMap.get(wltID, None)
+      if wlt is None:
+         LOGERROR('Wallet ID did not match any in wallet map: "%s"' % wltID)
+         QMessageBox.critical(self, tr('No Wallet Selected'), tr("""
+            The wallet selected is not available.  Select another wallet."""),
+            QMessageBox.Ok)
+         return
+
+      utxoList = self.wlt.getTxOutList('Spendable')
+      utxoSelect = PySelectCoins(utxoList, 
+
+
+
+################################################################################
+class DlgMergePromNotes(ArmoryDialog):
+
+   #############################################################################
+   def __init__(self, parent, main, defaultTargStr=None):
+      super(DlgMergePromNotes, self).__init__(parent, main)
+
 
 
 ################################################################################
@@ -2255,3 +2459,7 @@ class DlgSelectMultiSigOption(ArmoryDialog):
    #############################################################################
    def openSpend(self):
       DlgSpendFromLockbox(self, self.main).exec_()
+
+
+
+from ui.WalletFrames import SelectWalletFrame

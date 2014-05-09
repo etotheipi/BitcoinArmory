@@ -8595,7 +8595,8 @@ def createAddrBookButton(parent, targWidget, defaultWlt, actionStr="Select",
          QMessageBox.warning(parent, 'No wallets!', 'You have no wallets so '
             'there is no address book to display.', QMessageBox.Ok)
          return
-      dlg = DlgAddressBook(parent, parent.main, targWidget, defaultWlt, actionStr, selectExistingOnly, selectMineOnly, getPubKey,
+      dlg = DlgAddressBook(parent, parent.main, targWidget, defaultWlt, 
+                    actionStr, selectExistingOnly, selectMineOnly, getPubKey,
                            showLockBoxes)
       dlg.exec_()
 

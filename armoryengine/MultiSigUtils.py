@@ -343,7 +343,7 @@ class MultiSigLockbox(object):
    def makeFundingTxFromPromNotes(self, promList):
       ustxiAccum = []
       
-      totalPay = sum([prom.payAmt for prom in promList])
+      totalPay = sum([prom.dtxoTarget.value for prom in promList])
       totalFee = sum([prom.feeAmt for prom in promList])
 
       # DTXO list always has at least the lockbox itself
@@ -442,11 +442,10 @@ class MultiSigPromissoryNote(object):
 
 
    #############################################################################
-   def __init__(self, boxID=None, payAmt=None, feeAmt=None, ustxInputs=None, 
+   def __init__(self, dtxoTarget=None, feeAmt=None, ustxInputs=None, 
                                     dtxoChange=None, version=MULTISIG_VERSION):
       self.version     = 0
-      self.boxID       = boxID
-      self.payAmt      = payAmt
+      self.dtxoTarget  = dtxoTarget
       self.feeAmt      = feeAmt
       self.ustxInputs  = ustxInputs
       self.dtxoChange  = dtxoChange
@@ -458,19 +457,17 @@ class MultiSigPromissoryNote(object):
       self.lockboxKey     = ''
       self.lockboxKeyInfo = ''
 
-      if boxID is not None:
-         self.setParams(boxID, payAmt, feeAmt, dtxoChange, ustxInputs, version)
+      if dtxoTarget is not None:
+         self.setParams(dtxoTarg, feeAmt, dtxoChange, ustxInputs, version)
 
 
    #############################################################################
-   def setParams(self, boxID=None, payAmt=None, feeAmt=None, dtxoChange=None,
+   def setParams(self, dtxoTarget=None, feeAmt=None, dtxoChange=None,
                                     ustxInputs=None, version=MULTISIG_VERSION):
       
       # Set params will only overwrite with non-None data
-      self.boxID = boxID
-      
-      if payAmt is not None:
-         self.payAmt = payAmt
+      if dtxoTarget is not None:
+         self.dtxoTarget = dtxoTarget
 
       if feeAmt is not None:
          self.feeAmt = feeAmt
@@ -493,7 +490,7 @@ class MultiSigPromissoryNote(object):
          totalInputs += ustxi.value
          ustxi.contribID = self.promID
 
-      changeAmt = totalInputs - (self.payAmt + self.feeAmt)
+      changeAmt = totalInputs - (self.dtxoTarget.value + self.feeAmt)
       if changeAmt > 0:
          if not self.dtxoChange.value==changeAmt:
             LOGERROR('dtxoChange.value==%s, computed %s',
@@ -502,7 +499,7 @@ class MultiSigPromissoryNote(object):
       elif changeAmt < 0:
          LOGERROR('Insufficient prom inputs for payAmt and feeAmt')
          LOGERROR('Total inputs: %s', coin2strNZS(totalInputs))
-         LOGERROR('(PayAmt, FeeAmt)=(%s,%s)', coin2strNZS(self.payAmt), 
+         LOGERROR('(Amt, Fee)=(%s,%s)', coin2strNZS(self.dtxoTarget.value), 
                                               coin2strNZS(self.feeAmt))
          raise ValueError('Insufficient prom inputs for pay & fee')
 
@@ -529,17 +526,18 @@ class MultiSigPromissoryNote(object):
    #############################################################################
    def serialize(self):
 
-      if not self.boxID:
+      if not self.dtxoTarget:
          LOGERROR('Cannot serialize uninitialized promissory note')
          return None
 
       bp = BinaryPacker()
       bp.put(UINT32,       self.version)
       bp.put(BINARY_CHUNK, MAGIC_BYTES)
-      bp.put(VAR_STR,      self.boxID)
-      bp.put(UINT64,       self.payAmt)
-      bp.put(UINT64,       self.feeAmt)
+      #bp.put(VAR_STR,      self.boxID)
+      #bp.put(UINT64,       self.payAmt)
+      bp.put(VAR_STR,      self.dtxoTarget.serialize())
       bp.put(VAR_STR,      self.dtxoChange.serialize())
+      bp.put(UINT64,       self.feeAmt)
       bp.put(VAR_INT,      len(self.ustxInputs))
       for ustxi in self.ustxInputs:
          bp.put(VAR_STR,      ustxi.serialize())
@@ -556,10 +554,11 @@ class MultiSigPromissoryNote(object):
       bu = BinaryUnpacker(rawData)
       version         = bu.get(UINT32)
       magicBytes      = bu.get(BINARY_CHUNK, 4)
-      lboxID          = bu.get(VAR_STR)
-      payAmt          = bu.get(UINT64)
-      feeAmt          = bu.get(UINT64)
+      #lboxID          = bu.get(VAR_STR)
+      #payAmt          = bu.get(UINT64)
+      dtxoTarg        = bu.get(VAR_STR)
       dtxoChange      = bu.get(VAR_STR)
+      feeAmt          = bu.get(UINT64)
       contribLabel    = toUnicode(bu.get(VAR_STR))
       numUSTXI        = bu.get(VAR_INT)
       
@@ -574,7 +573,7 @@ class MultiSigPromissoryNote(object):
          LOGWARN('   PromNote Version: %d' % version)
          LOGWARN('   Armory   Version: %d' % MULTISIG_VERSION)
 
-      self.setParams(lboxID, payAmt, feeAmt, dtxoChange, ustxiList)
+      self.setParams(dtxoTarg, feeAmt, dtxoChange, ustxiList)
 
       if expectID and not expectID==self.promID:
          LOGERROR('Promissory note ID does not match expected')
@@ -588,7 +587,7 @@ class MultiSigPromissoryNote(object):
 
    #############################################################################
    def serializeAscii(self, wid=80, newline='\n'):
-      headStr = 'PROMISSORY-%s-%s' % (self.boxID, self.promID)
+      headStr = 'PROMISSORY-%s' % self.promID
       return makeAsciiBlock(self.serialize(), headStr, wid, newline)
 
 
@@ -601,27 +600,24 @@ class MultiSigPromissoryNote(object):
          LOGERROR('Expected header str "PROMISSORY", got "%s"' % headStr)
          return None
 
-      # We should have "PROMISSORY-BOXID-PROMID" in the headstr
+      # We should have "PROMISSORY-PROMID" in the headstr
       promID = headStr.split('-')[-1]
       return self.unserialize(rawData, promID)
 
 
    #############################################################################
    def pprint(self):
-      chngStr = getTxOutScriptDisplayStr(self.dtxoChange.binScript)
 
-      self.lockboxKey     = ''
-      self.lockboxKeyInfo = ''
+      #self.lockboxKey     = ''
+      #self.lockboxKeyInfo = ''
       print 'Promissory Note:'
       print '   Version     :', self.version
       print '   Unique ID   :', self.promID
       print '   Num Inputs  :', len(self.ustxInputs)
-      print '   For Lockbox :', self.boxID
-      print '   Pay Amount  :', self.payAmt
+      print '   Target Addr :', self.dtxoTarget.getRecipStr()
+      print '   Pay Amount  :', self.dtxoTarget.value
       print '   Fee Amount  :', self.feeAmt
-      print '   ChangeAddr  :', chngStr
-      #for ustxi in self.ustxInputs:
-         #ustxi.pprintOneLine(indent=6)
+      print '   ChangeAddr  :', self.dtxoChange.getRecipStr()
 
 
 

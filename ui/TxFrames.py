@@ -1106,6 +1106,7 @@ class SendBitcoinsFrame(ArmoryFrame):
             lboxID = self.main.getLockboxByP2SHAddrStr(addrtext) 
          else:
             lboxID = readLockboxEntryStr(addrtext)
+
          if lboxID:
             lbox = self.main.getLockboxByID(lboxID)
             if lbox:

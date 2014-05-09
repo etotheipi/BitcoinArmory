@@ -271,7 +271,7 @@ class AllWalletsCheckboxDelegate(QStyledItemDelegate):
          image=None
          painter.fillRect(option.rect, bgcolor)
          if isVisible:
-            image = QImage('img/visible2.png').scaled(self.EYESIZE,self.EYESIZE)
+            image = QImage(':/visible2.png').scaled(self.EYESIZE,self.EYESIZE)
             pixmap = QPixmap.fromImage(image)
             painter.drawPixmap(option.rect, pixmap)
       else:

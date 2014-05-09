@@ -203,8 +203,9 @@ class SelectWalletFrame(ArmoryFrame):
          layout.addWidget(makeLayoutFrame(HORIZONTAL, [self.walletListBox, wltInfoFrame]) )
 
       self.setLayout(layout)
+
       # Make sure this is called once so that the default selection is displayed
-      #self.updateOnWalletChange()
+      self.updateOnWalletChange()
 
    
    def getWalletIdList(self, onlyOfflineWallets):
@@ -272,8 +273,10 @@ class SelectWalletFrame(ArmoryFrame):
                self.dispBal.setText('<font color="red"><b>%s</b></font>' % balStr)
             else:
                self.dispBal.setText('<b>' + balStr + '</b>')     
+
          if self.selectWltCallback:
             self.selectWltCallback(wlt)
+
          self.repaint()
          # Reset the coin control variables after a new wallet is selected
          if self.coinControlCallback:
