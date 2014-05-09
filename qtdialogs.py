@@ -1590,7 +1590,7 @@ class DlgWalletDetails(ArmoryDialog):
 
    def execSendBtc(self):
       # if self.main.blkMode == BLOCKCHAINMODE.Offline:
-      if TheBDM.getBDMState() in ('Offline', 'Uninitialized'):
+      if TheBDM.getState() in ('Offline', 'Uninitialized'):
          QMessageBox.warning(self, 'Offline Mode', \
            'Armory is currently running in offline mode, and has no '
            'ability to determine balances or create transactions. '
@@ -1600,7 +1600,7 @@ class DlgWalletDetails(ArmoryDialog):
            'or initiate an "offline transaction" using a watching-only '
            'wallet on an online computer.', QMessageBox.Ok)
          return
-      if TheBDM.getBDMState() == 'Scanning':
+      if TheBDM.getState() == 'Scanning':
          QMessageBox.warning(self, 'Armory Not Ready', \
            'Armory is currently scanning the blockchain to collect '
            'the information needed to create transactions.  This typically '
@@ -2226,7 +2226,7 @@ class DlgKeypoolSettings(ArmoryDialog):
 
    #############################################################################
    def reject(self):
-      if self.addressesWereGenerated and not TheBDM.getBDMState() in ('Offline', 'Uninitialized'):
+      if self.addressesWereGenerated and not TheBDM.getState() in ('Offline', 'Uninitialized'):
          QMessageBox.warning(self, 'Rescan Required', \
             'New addresses have been generated for your wallet, but their '
             'balances are not yet reflected on the main screen.  You must '
@@ -4840,7 +4840,7 @@ class DlgOfflineSelect(ArmoryDialog):
 
       btnCreate = QPushButton('Create New Offline Transaction')
       broadcastButton = QPushButton('Sign and/or Broadcast Transaction')
-      if not TheBDM.getBDMState() == 'BlockchainReady':
+      if not TheBDM.getState() == 'BlockchainReady':
          btnCreate.setEnabled(False)
          if len(self.main.walletMap) == 0:
             broadcastButton = QPushButton('No wallets available!')
@@ -5282,7 +5282,7 @@ def extractTxInfo(pytx, rcvTime=None):
    sumTxOut = sum([t[1] for t in txOutToList])
 
    txcpp = Tx()
-   if TheBDM.getBDMState() == 'BlockchainReady':
+   if TheBDM.getState() == 'BlockchainReady':
       txcpp = TheBDM.getTxByHash(txHash)
       if txcpp.isInitialized():
          hgt = txcpp.getBlockHeight()
@@ -5304,7 +5304,7 @@ def extractTxInfo(pytx, rcvTime=None):
             txIdx = -1
 
    txinFromList = []
-   if TheBDM.getBDMState() == 'BlockchainReady' and txcpp.isInitialized():
+   if TheBDM.getState() == 'BlockchainReady' and txcpp.isInitialized():
       # Use BDM to get all the info about the TxOut being spent
       # Recip, value, block-that-incl-tx, tx-that-incl-txout, txOut-index
       haveAllInput = True

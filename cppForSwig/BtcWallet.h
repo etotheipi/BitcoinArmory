@@ -4,6 +4,7 @@
 #include "BinaryData.h"
 #include "BlockObj.h"
 #include "ScrAddrObj.h"
+#include "StoredBlockObj.h"
 #include "ThreadSafeContainer.h"
 
 class BlockDataManager_LevelDB;
@@ -57,7 +58,7 @@ class BtcWallet
 public:
    BtcWallet(BlockDataManager_LevelDB* bdm=0)
       : bdmPtr_(bdm), lastScanned_(0), allScannedUpToBlk_(0), 
-        ignoreLastScanned_(true) {}
+        ignoreLastScanned_(true), isInitialized_(true) {}
    ~BtcWallet(void);
 
    /////////////////////////////////////////////////////////////////////////////
@@ -192,7 +193,7 @@ public:
    void insertRegisteredTxIfNew(HashString txHash);
    bool scrAddrIsRegistered(HashString scraddr)
                      {return registeredScrAddrMap_.isInMap(scraddr);}
-   void scanRegisteredTxForWallet( uint32_t blkStart, uint32_t blkEnd);
+   void scanRegisteredTxList( uint32_t blkStart, uint32_t blkEnd);
    void updateRegisteredScrAddrs(uint32_t newTopBlk);
    uint32_t numBlocksToRescan(uint32_t endBlk);
    RegisteredScrAddr& getRegisteredScrAddr(const BinaryData& uniqKey)
@@ -211,10 +212,30 @@ public:
                      { return txLedgerForComments_; }
    void reorgChangeBlkNum(uint32_t blkNum);
    void setIgnoreLastScanned(void) {ignoreLastScanned_ = true;}
+   
+   //new all purpose wallet scanning call
+   void scanWallet(uint32_t startBlock=UINT32_MAX, 
+                   uint32_t endBlock=UINT32_MAX,
+                   bool forceRescan=false);
+   
+   //wallet side reorg processing
+   void updateAfterReorg(uint32_t lastValidBlockHeight);
+
+   void scanBlocksAgainstRegisteredScrAddr(uint32_t blk0, 
+                                           uint32_t blk1 = UINT32_MAX);
+   
+   void registeredScrAddrScan(Tx & theTx);
+   void registeredScrAddrScan(uint8_t const * txptr,
+      uint32_t txSize = 0,
+      vector<uint32_t> * txInOffsets = NULL,
+      vector<uint32_t> * txOutOffsets = NULL);
+
+   bool removeRegisteredTx(BinaryData const & txHash);
+   void rescanWalletZeroConf(void);
    //end of 1:1 wallets
    
-   void fetchWalletRegisteredScrAddrData();
-   void fetchWalletRegisteredScrAddrData(BinaryData const & scrAddr);
+   void fetchDBRegisteredScrAddrData(void);
+   void fetchDBRegisteredScrAddrData(BinaryData const & scrAddr);
 
 
 private:
@@ -245,6 +266,10 @@ private:
 
    BlockDataManager_LevelDB*    bdmPtr_;
    static vector<LedgerEntry>   EmptyLedger_; // just a null-reference object
+
+   //marks if the DB was scanned against registeredScrAddrMap, to fill its
+   //registeredTxList with existing data
+   bool                         isInitialized_;
 };
 
 #endif

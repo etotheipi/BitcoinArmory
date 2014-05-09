@@ -87,30 +87,24 @@ static void* run(void *_threadparams)
       uint32_t currentBlock = theBDM->blockchain().top().getBlockHeight();
       if(theBDM->rescanZC_)
       {
-         theBDM->rescanWalletZeroConf();
+         theBDM->scanWallets();
          theBDM->rescanZC_ = false;
 
          //notify ZC
          callback->run(3, 0);
       }
 
-      uint32_t newBlocks;
-      if(newBlocks = theBDM->readBlkFileUpdate())
+      uint32_t prevTopBlk;
+      if(prevTopBlk = theBDM->readBlkFileUpdate())
       {
-         //scan registered tx
-         theBDM->scanBlockchainForTx(
-            currentBlock,
-            theBDM->blockchain().top().getBlockHeight() +1,
-            true
-         );
-         
-         theBDM->rescanWalletZeroConf();
+         theBDM->scanWallets(prevTopBlk);
          theBDM->saveScrAddrHistories();
 
          currentBlock = theBDM->blockchain().top().getBlockHeight();
          
          //notify Python that new blocks have been parsed
-         callback->run(4, newBlocks, theBDM->getTopBlockHeight());
+         callback->run(4, theBDM->blockchain().top().getBlockHeight() - \
+                       prevTopBlk, theBDM->getTopBlockHeight());
       }
       
       threadparams->inject->wait(1000);

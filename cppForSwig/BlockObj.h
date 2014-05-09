@@ -478,6 +478,7 @@ private:
 ////////////////////////////////////////////////////////////////////////////////
 class Tx
 {
+   friend class BtcWallet;
    friend class BlockDataManager_LevelDB;
    friend class InterfaceToLDB;
 

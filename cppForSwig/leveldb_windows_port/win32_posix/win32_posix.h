@@ -95,7 +95,7 @@ int fread_unlockd(void *_DstBuf, size_t _EleSize, size_t _Count, FILE *_file);
 wchar_t *posix_path_to_win32(const char *posix_path);
 wchar_t *posix_path_to_win32_full(const char *posix_path);
 
-#define va_copy(d,s) ((d) = (s))
+//#define va_copy(d,s) ((d) = (s))
 
 #define pread pread_win32
 int pread_win32(int fd, void *buff, unsigned int size, off_t offset);

@@ -303,16 +303,10 @@ public:
    uint32_t evalLowestBlockNextScan(void);
    uint32_t evalLowestScrAddrCreationBlock(void);
    bool     evalRescanIsRequired(void);
-   void     updateRegisteredScrAddrs(uint32_t newTopBlk);
 
    bool     walletIsRegistered(BtcWallet & wlt);
    bool     scrAddrIsRegistered(HashString scrAddr);
 
-   void     registeredScrAddrScan( Tx & theTx );
-   void     registeredScrAddrScan( uint8_t const * txptr,
-                                   uint32_t txSize=0,
-                                   vector<uint32_t> * txInOffsets=NULL,
-                                   vector<uint32_t> * txOutOffsets=NULL);
 public:
    void     resetRegisteredWallets(void);
    void     pprintRegisteredWallets(void);
@@ -368,7 +362,6 @@ public:
    void saveScrAddrHistories(void);
    
    //for 1:1 wallets
-   void fetchWalletsRegisteredScrAddrData(void);
    const BlockHeader* getHeaderPtrForTx(Tx& theTx)
                      {return &blockchain_.getHeaderPtrForTx(theTx);}
    bool isZcEnabled() {return zcEnabled_;}
@@ -378,14 +371,39 @@ public:
    void doShutdown(void);
    void setThreadParams(ThreadParams *tp) 
                      {tp_ = tp;}
-   void scanBlockchainForTx(uint32_t startBlknum, uint32_t endBlknum,
-                                                   bool fetchFirst);
-   void rescanWalletZeroConf();
    InterfaceToLDB *getIFace(void) {return iface_;}
    vector<TxIOPair> getHistoryForScrAddr(BinaryDataRef uniqKey, 
                                           bool withMultisig=false);
    void eraseTx(const BinaryData& txHash);
    uint32_t numBlocksToRescan( BtcWallet & wlt, uint32_t endBlk);
+   void scanWallets(uint32_t startBlock=UINT32_MAX,
+                    uint32_t endBlock=UINT32_MAX, 
+                    bool forceScan=false);
+
+   LDBIter getIterator(DB_SELECT db, bool fill_cache = true)
+   {
+      return iface_->getIterator(db, fill_cache);
+   }
+   
+   bool readStoredBlockAtIter(LDBIter & iter, StoredHeader & sbh)
+   {
+      return iface_->readStoredBlockAtIter(iter, sbh);
+   }
+
+   uint8_t getValidDupIDForHeight(uint32_t blockHgt)
+   {
+      return iface_->getValidDupIDForHeight(blockHgt);
+   }
+
+   list<BinaryData> const * getZeroConfRawTxList(void)
+   {
+      return &zeroConfRawTxList_;
+   }
+
+   map<HashString, ZeroConfData> const * getZeroConfMap(void)
+   {
+      return &zeroConfMap_;
+   }
 
 
    // Check for availability of data with a given hash
@@ -403,10 +421,6 @@ public:
    // Traverse the blockchain and update the wallet[s] with the relevant Tx data
    // See comments above the scanBlockchainForTx in the .cpp, for more info
    // NOTE: THIS ASSUMES THAT registeredTxSet_/List_ is already populated!
-   void scanBlockchainForTx(BtcWallet & myWallet,
-                            uint32_t startBlknum=0,
-                            uint32_t endBlknum=UINT32_MAX,
-                            bool fetchFirst=true);
 
 private:
    void writeProgressFile(DB_BUILD_PHASE phase, 
@@ -414,14 +428,6 @@ private:
                           string timerName);
 
 public:
-   // This will only be used by the above method, probably wouldn't be called
-   // directly from any other code
-   void scanRegisteredTxForWallets( uint32_t blkStart=0,
-                                   uint32_t blkEnd=UINT32_MAX);
-private:
-   void scanDBForRegisteredTx(uint32_t blk0=0, uint32_t blk1=UINT32_MAX);
-public:
- 
    /////////////////////////////////////////////////////////////////////////////
    // With the blockchain in supernode mode, we can just query address balances
    // and UTXO sets directly.  These will fail if not supernode mode
@@ -439,7 +445,6 @@ public:
    void pprintZeroConfPool(void);
    void rewriteZeroConfFile(void);
    bool isTxFinal(const Tx & tx) const;
-   void rescanWalletZeroConf(BtcWallet & wlt);
 
 public:
    // Use these two methods to get ALL information about your unused TxOuts

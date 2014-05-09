@@ -1,6 +1,8 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Express 2012 for Windows Desktop
+# Visual Studio Express 2013 for Windows Desktop
+VisualStudioVersion = 12.0.21005.1
+MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "guardian", "guardian\guardian.vcxproj", "{D35F732D-55D7-4037-9C6D-E141F740F802}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "cryptopp", "cryptopp\cryptopp.vcxproj", "{B1055DA3-83CE-47BF-98E6-2850E3411D39}"
@@ -45,6 +47,7 @@ Global
 		{19329A6B-FE96-4917-B69A-2B0375C12017}.Debug|x64.ActiveCfg = Debug|x64
 		{19329A6B-FE96-4917-B69A-2B0375C12017}.Debug|x64.Build.0 = Debug|x64
 		{19329A6B-FE96-4917-B69A-2B0375C12017}.Release|Win32.ActiveCfg = Release|Win32
+		{19329A6B-FE96-4917-B69A-2B0375C12017}.Release|Win32.Build.0 = Release|Win32
 		{19329A6B-FE96-4917-B69A-2B0375C12017}.Release|x64.ActiveCfg = Release|x64
 		{19329A6B-FE96-4917-B69A-2B0375C12017}.Release|x64.Build.0 = Release|x64
 		{19329A6B-FE96-4917-B69A-2B0375C12017}.WinXP_32|Win32.ActiveCfg = WinXP_32|Win32
@@ -56,7 +59,6 @@ Global
 		{D9733F9E-BE30-466F-B100-B686DF663C4D}.Debug|x64.ActiveCfg = Debug|x64
 		{D9733F9E-BE30-466F-B100-B686DF663C4D}.Debug|x64.Build.0 = Debug|x64
 		{D9733F9E-BE30-466F-B100-B686DF663C4D}.Release|Win32.ActiveCfg = Release|Win32
-		{D9733F9E-BE30-466F-B100-B686DF663C4D}.Release|Win32.Build.0 = Release|Win32
 		{D9733F9E-BE30-466F-B100-B686DF663C4D}.Release|x64.ActiveCfg = Release|x64
 		{D9733F9E-BE30-466F-B100-B686DF663C4D}.WinXP_32|Win32.ActiveCfg = Release|Win32
 		{D9733F9E-BE30-466F-B100-B686DF663C4D}.WinXP_32|Win32.Build.0 = Release|Win32

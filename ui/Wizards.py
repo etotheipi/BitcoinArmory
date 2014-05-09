@@ -170,7 +170,7 @@ class WalletWizard(ArmoryWizard):
       wltpath = self.newWallet.walletPath
       walletFromDisk = PyBtcWallet().readWalletFile(wltpath)
       self.main.addWalletToApplication(walletFromDisk, walletIsNew=True)
-      if TheBDM.getBDMState() in ('Uninitialized', 'Offline'):
+      if TheBDM.getState() in ('Uninitialized', 'Offline'):
          TheBDM.registerWallet(walletFromDisk, isFresh=True, wait=False)
       else:
          self.main.newWalletList.append([walletFromDisk, True])
