@@ -2904,7 +2904,7 @@ class ArmoryMainWindow(QMainWindow):
                but it <i>is</i> possible.  If you experience crashing,
                or see incorrect balances on any wallets, it is strongly
                recommended you re-download the blockchain using:
-               "<b>Help</i>"\xe2\x86\x92"<i>Factory Reset</i>"."""), \
+               "<i>Help</i>"\xe2\x86\x92"<i>Factory Reset</i>"."""), \
                 QMessageBox.Ok)
 
 

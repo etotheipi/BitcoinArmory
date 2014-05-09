@@ -12,7 +12,8 @@ from armoryengine.MultiSigUtils import MultiSigLockbox, calcLockboxID,\
 from ui.MultiSigModels import \
             LockboxDisplayModel,  LockboxDisplayProxy, LOCKBOXCOLS
 import webbrowser
-from armoryengine.CoinSelection import PySelectCoins, PyUnspentTxOut
+from armoryengine.CoinSelection import PySelectCoins, PyUnspentTxOut, \
+                                    pprintUnspentTxOutList
 
          
 
@@ -2209,10 +2210,11 @@ class DlgCreatePromNote(ArmoryDialog):
       self.edtAmountBTC.setMinimumWidth(tightSizeNChar(GETFONT('Fixed'), 16)[0])
       self.edtAmountBTC.setAlignment(Qt.AlignLeft)
 
-      self.edtFeeBtc = QLineEdit()
-      self.edtFeeBtc.setFont(GETFONT('Fixed'))
-      self.edtFeeBtc.setMinimumWidth(tightSizeNChar(GETFONT('Fixed'), 16)[0])
-      self.edtFeeBtc.setAlignment(Qt.AlignLeft)
+      self.edtFeeBTC = QLineEdit()
+      self.edtFeeBTC.setFont(GETFONT('Fixed'))
+      self.edtFeeBTC.setMinimumWidth(tightSizeNChar(GETFONT('Fixed'), 16)[0])
+      self.edtFeeBTC.setAlignment(Qt.AlignLeft)
+      self.edtFeeBTC.setText('0.0')
 
 
       gboxIn  = QGroupBox(tr('Source of Funding'))
@@ -2224,18 +2226,18 @@ class DlgCreatePromNote(ArmoryDialog):
       gboxOut = QGroupBox(tr('Funding Destination'))
       gboxOutLayout = QGridLayout()
       gboxOutLayout.addWidget(lblAddress,            0,0)
-      gboxOutLayout.addWidget(self.edtFundTarget,    0,1, 1,3)
-      gboxOutLayout.addWidget(self.btnSelectTarg,    0,4)
+      gboxOutLayout.addWidget(self.edtFundTarget,    0,1, 1,5)
+      gboxOutLayout.addWidget(self.btnSelectTarg,    0,6)
 
-      gboxOutLayout.addWidget(self.lblTargetID,      1,1, 1,4)
+      gboxOutLayout.addWidget(self.lblTargetID,      1,1, 1,5)
 
       gboxOutLayout.addWidget(lblAmount,             2,0)
       gboxOutLayout.addWidget(self.edtAmountBTC,     2,1)
-      gboxOutLayout.addWidget(lblBTC,                2,2)
+      gboxOutLayout.addWidget(lblBTC1,               2,2)
 
-      gboxOutLayout.addWidget(lblFee,                3,0)
-      gboxOutLayout.addWidget(self.edtFeeBTC,        3,1)
-      gboxOutLayout.addWidget(lblBTC2,               3,2)
+      gboxOutLayout.addWidget(lblFee,                2,4)
+      gboxOutLayout.addWidget(self.edtFeeBTC,        2,5)
+      gboxOutLayout.addWidget(lblBTC2,               2,6)
 
       gboxOutLayout.setColumnStretch(0, 0)
       gboxOutLayout.setColumnStretch(1, 0)
@@ -2264,6 +2266,7 @@ class DlgCreatePromNote(ArmoryDialog):
       self.setWindowTitle('Create Promissory Note')
 
       self.updateTargetLabel()
+      self.setMinimumWidth(600)
 
 
    #############################################################################
@@ -2304,6 +2307,7 @@ class DlgCreatePromNote(ArmoryDialog):
    #############################################################################
    def doContinue(self):
 
+
       if not TheBDM.getBDMState()=='BlockchainReady':
          LOGERROR('Blockchain not avail for creating prom note')
          QMessageBox.critical(self, tr('Blockchain Not Available'), tr("""
@@ -2311,21 +2315,158 @@ class DlgCreatePromNote(ArmoryDialog):
             window.  Creation of the promissory note cannot continue.  If 
             you think you should be online, please try again in a minute,
             or after restarting Armory"""), QMessageBox.Ok)
-         return
+         return False
 
-      wltID = self.spendFromWltID
-      wlt = self.main.walletMap.get(wltID, None)
-      if wlt is None:
-         LOGERROR('Wallet ID did not match any in wallet map: "%s"' % wltID)
+      # TODO:  Expand this to allow simulfunding from lockbox(es)
+      wlt   = self.main.walletMap.get(self.spendFromWltID, None)
+      lbox  = self.main.getLockboxByID(self.spendFromWltID)
+      if lbox is not None:
+         LOGERROR('Simulfunding from lockbox not currently implemented')
+         QMessageBox.critical(self, tr('Lockbox Selected'), tr("""
+            Currently, Armory does not implement simulfunding with lockbox
+            inputs.  Please choose a regular wallet as your input"""),
+            QMessageBox.Ok)
+         return False
+      elif wlt is None:
+         LOGERROR('No wallet in map with ID: "%s"' % self.spendFromWltID)
          QMessageBox.critical(self, tr('No Wallet Selected'), tr("""
             The wallet selected is not available.  Select another wallet."""),
             QMessageBox.Ok)
-         return
+         return False
 
-      utxoList = self.wlt.getTxOutList('Spendable')
-      utxoSelect = PySelectCoins(utxoList)
+      # Read the user-supplied BTC value to contribute
+      try:
+         valueStr = str(self.edtAmountBTC.text())
+         valueAmt = str2coin(valueStr)
+         if valueAmt == 0:
+            QMessageBox.critical(self, tr('Zero Amount'), tr("""
+               You cannot promise 0 BTC.   <br>Please enter 
+               a positive amount."""), QMessageBox.Ok)
+            return False
+      except NegativeValueError:
+         QMessageBox.critical(self, tr('Negative Value'), tr("""
+            You have specified a negative amount. <br>Only
+            positive values are allowed!"""), QMessageBox.Ok)
+         return False
+      except TooMuchPrecisionError:
+         QMessageBox.critical(self, tr('Too much precision'), tr("""
+            Bitcoins can only be specified down to 8 decimal places. 
+            The smallest value that can be sent is  0.0000 0001 BTC. 
+            Please enter a new amount"""), QMessageBox.Ok)
+         return False
+      except ValueError:
+         QMessageBox.critical(self, tr('Missing amount'), tr("""
+            'You did not specify an amount to promise!"""), QMessageBox.Ok)
+         return False
+      except:
+         QMessageBox.critical(self, tr('Invalid Value String'), tr("""
+            The amount you specified is invalid (%s).""") % valueStr, 
+            QMessageBox.Ok)
+         LOGEXCEPT('Invalid amount specified: "%s"', valueStr)
+         return False
+      
+      # Read the fee string
+      try:
+         feeStr = str(self.edtFeeBTC.text())
+         feeAmt = str2coin(feeStr)
+      except NegativeValueError:
+         QMessageBox.critical(self, tr('Negative Fee'), tr("""
+            You have specified a negative amount. <br>Only
+            positive values are allowed!"""), QMessageBox.Ok)
+         return False
+      except TooMuchPrecisionError:
+         QMessageBox.critical(self, tr('Too much precision'), tr("""
+            Bitcoins can only be specified down to 8 decimal places. 
+            The smallest value that can be sent is  0.0000 0001 BTC. 
+            Please enter a new amount"""), QMessageBox.Ok)
+         return False
+      except ValueError:
+         QMessageBox.critical(self, tr('Missing amount'), tr("""
+            'You did not specify an amount to promise!"""), QMessageBox.Ok)
+         return False
+      except:
+         QMessageBox.critical(self, tr('Invalid Fee String'), tr("""
+            The amount you specified is invalid (%s).""") % feeStr, 
+            QMessageBox.Ok)
+         LOGEXCEPT('Invalid amount specified: "%s"', feeStr)
+         return False
 
+      utxoList = wlt.getTxOutList('Spendable')
+      utxoSelect = PySelectCoins(utxoList, valueAmt, feeAmt)
 
+      if len(utxoSelect) == 0:
+         QMessageBox.critical(self, tr('Coin Selection Error'), tr("""
+            There was an error constructing your transaction, due to a 
+            quirk in the way Bitcoin transactions work.  If you see this
+            error more than once, try sending your BTC in two or more 
+            separate transactions."""), QMessageBox.Ok)
+         return False
+
+      # Create the target DTXO
+      targetStr = str(self.edtFundTarget.text())
+      targetScript = getScriptForInputStr(targetStr, self.main)
+      dtxoTarget = DecoratedTxOut(targetScript, valueAmt)
+
+      # Create the change DTXO
+      # TODO:  Expand this to allow simulfunding from lockbox(es)
+      pprintUnspentTxOutList(utxoSelect)
+      changeAmt = sumTxOutList(utxoSelect) - (valueAmt + feeAmt)
+      dtxoChange = None
+      if changeAmt > 0:
+         changeAddr160 = wlt.getNextUnusedAddress().getAddr160()
+         changeScript = hash160_to_p2pkhash_script(changeAddr160)
+         dtxoChange = DecoratedTxOut(changeScript, changeAmt)
+      else:
+         LOGINFO('Had exact change for prom note:  dtxoChange=None')
+
+      # If we got here, we can carry through with creating the prom note
+      ustxiList = []
+      for i in range(len(utxoSelect)):
+         utxo = utxoSelect[i]
+         txHash = utxo.getTxHash()
+         txoIdx = utxo.getTxOutIndex()
+         cppTx = TheBDM.getTxByHash(txHash)
+         if not cppTx.isInitialized():
+            LOGERROR('UTXO was supplied for which we could not find prev Tx')
+            QMessageBox.warning(self, tr('Transaction Not Found'), tr("""
+               There was an error creating the promissory note -- the selected
+               coins were not found in the blockchain.  Please go to 
+               "<i>Help</i>"\xe2\x86\x92"<i>Submit Bug Report</i>" from 
+               the main window and submit your log files so the Armory team
+               can review this error."""), QMessageBox.Ok)
+
+         rawTx = cppTx.serialize()
+         utxoScrAddr = utxo.getRecipientScrAddr()
+         aobj = wlt.getAddrByHash160(CheckHash160(utxoScrAddr))
+         pubKeys = {utxoScrAddr: aobj.binPublicKey65.toBinStr()}
+         ustxiList.append(UnsignedTxInput(rawTx, txoIdx, None, pubKeys))
+         
+      prom = MultiSigPromissoryNote(dtxoTarget, feeAmt, ustxiList, dtxoChange)
+      LOGINFO('Successfully created prom note: %s' % prom.promID)
+      prom.pprint()
+
+      title = tr("Export Promissory Note")
+      descr = tr("""
+         The text below includes all the data needed to represent your
+         contribution to a simulfunding transaction.  Your money cannot move
+         because you have not signed anything, yet.  Once all promissory
+         notes are collected, you will be able to review the entire funding 
+         transaction before signing.""")
+         
+      ftypes = ['Promissory Notes (*.promnote)']
+      defaultFN = 'Contrib_%s_%sBTC.promnote' % \
+            (prom.promID, coin2strNZS(valueAmt))
+         
+
+      if not DlgExportAsciiBlock(self, self.main, prom, title, descr,    
+                                                ftypes, defaultFN).exec_():
+         return False
+      else:
+         self.accept()
+      
+      
+
+         
 
 ################################################################################
 class DlgMergePromNotes(ArmoryDialog):

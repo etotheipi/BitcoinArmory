@@ -387,21 +387,6 @@ class SendBitcoinsFrame(ArmoryFrame):
       self.altBalance = altBalance
 
 
-   #############################################################################
-   def getScriptForInputStr(self, inputStr):
-      result = None
-      # The addrStr_to_scrAddr method fails if not reg Addr, or P2SH
-      if isLockbox(inputStr):
-         lbox = self.main.getLockboxByID(readLockboxEntryStr(inputStr))
-         result = lbox.binScript if lbox else None
-         
-      elif isP2SHLockbox(inputStr):
-         lbox = self.main.getLockboxByID(readLockboxEntryStr(inputStr))
-         result = script_to_p2sh_script(lbox.binScript) if lbox else None
-      else:
-         scrAddr = addrStr_to_scrAddr(inputStr)
-         result = scrAddr_to_script(scrAddr)
-      return result
 
 
    #############################################################################
@@ -419,7 +404,7 @@ class SendBitcoinsFrame(ArmoryFrame):
          addrIsValid = True
          addrList.append(addrStr)
          try:
-            scripts.append(self.getScriptForInputStr(addrStr))
+            scripts.append(getScriptForInputStr(addrStr, self.main))
          except:
             LOGEXCEPT('Failed to parse entered address: %s', addrStr)
             addrIsValid = False
@@ -488,7 +473,7 @@ class SendBitcoinsFrame(ArmoryFrame):
             return False
 
          totalSend += value
-         script = self.getScriptForInputStr(recipStr)
+         script = getScriptForInputStr(recipStr, self.main)
          scraddr = script_to_scrAddr(script)
 
          scriptValPairs.append([script, value])

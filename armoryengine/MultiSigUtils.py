@@ -432,7 +432,7 @@ def computePromissoryID(ustxiList):
       return None
 
    outptList = sorted([ustxi.outpoint.serialize() for ustxi in ustxiList])
-   return binary_to_base58(hash256(''.join(outptList)))[:4]
+   return binary_to_base58(hash256(''.join(outptList)))[:8]
    
 
 
@@ -458,7 +458,7 @@ class MultiSigPromissoryNote(object):
       self.lockboxKeyInfo = ''
 
       if dtxoTarget is not None:
-         self.setParams(dtxoTarg, feeAmt, dtxoChange, ustxInputs, version)
+         self.setParams(dtxoTarget, feeAmt, dtxoChange, ustxInputs, version)
 
 
    #############################################################################
@@ -530,13 +530,18 @@ class MultiSigPromissoryNote(object):
          LOGERROR('Cannot serialize uninitialized promissory note')
          return None
 
+      if self.dtxoChange is None:
+         serChange = ''
+      else:
+         serChange = self.dtxoChange.serialize()
+
       bp = BinaryPacker()
       bp.put(UINT32,       self.version)
       bp.put(BINARY_CHUNK, MAGIC_BYTES)
       #bp.put(VAR_STR,      self.boxID)
       #bp.put(UINT64,       self.payAmt)
       bp.put(VAR_STR,      self.dtxoTarget.serialize())
-      bp.put(VAR_STR,      self.dtxoChange.serialize())
+      bp.put(VAR_STR,      serChange)
       bp.put(UINT64,       self.feeAmt)
       bp.put(VAR_INT,      len(self.ustxInputs))
       for ustxi in self.ustxInputs:
@@ -556,8 +561,8 @@ class MultiSigPromissoryNote(object):
       magicBytes      = bu.get(BINARY_CHUNK, 4)
       #lboxID          = bu.get(VAR_STR)
       #payAmt          = bu.get(UINT64)
-      dtxoTarg        = bu.get(VAR_STR)
-      dtxoChange      = bu.get(VAR_STR)
+      target          = bu.get(VAR_STR)
+      change          = bu.get(VAR_STR)
       feeAmt          = bu.get(UINT64)
       contribLabel    = toUnicode(bu.get(VAR_STR))
       numUSTXI        = bu.get(VAR_INT)
@@ -572,6 +577,9 @@ class MultiSigPromissoryNote(object):
          LOGWARN('Unserialing promissory note of different version')
          LOGWARN('   PromNote Version: %d' % version)
          LOGWARN('   Armory   Version: %d' % MULTISIG_VERSION)
+
+      dtxoTarget = DecoratedTxOut().unserialize(target)
+      dtxoChange = DecoratedTxOut().unserialize(change) if change else None
 
       self.setParams(dtxoTarg, feeAmt, dtxoChange, ustxiList)
 
@@ -617,7 +625,8 @@ class MultiSigPromissoryNote(object):
       print '   Target Addr :', self.dtxoTarget.getRecipStr()
       print '   Pay Amount  :', self.dtxoTarget.value
       print '   Fee Amount  :', self.feeAmt
-      print '   ChangeAddr  :', self.dtxoChange.getRecipStr()
+      if self.dtxoChange is not None:
+         print '   ChangeAddr  :', self.dtxoChange.getRecipStr()
 
 
 
