@@ -125,6 +125,7 @@
       <file alias="splashlogo_testnet.png">img/splashlogo_testnet.png</file>
       <file alias="unlockedIcon.png">img/unlockedIcon.png</file>
       <file alias="visible.png">img/visible.png</file>
+      <file alias="visible2.png">img/visible2.png</file>
       <file alias="view-refresh-4.png">img/view-refresh-4.png</file>
       <file alias="wallet_16x12.png">img/wallet_16x12.png</file>
    </qresource>

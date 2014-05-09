@@ -505,7 +505,7 @@ class ArmoryMainWindow(QMainWindow):
       self.connect(btnOfflineTx,SIGNAL('clicked()'), self.execOfflineTx)
       self.connect(btnMultisig, SIGNAL('clicked()'), self.browseLockboxes)
 
-      verStr = 'v%s-multisig-beta / %s' % (getVersionString(BTCARMORY_VERSION),
+      verStr = 'v%s-multisig-alpha / %s' % (getVersionString(BTCARMORY_VERSION),
                                               UserModeStr(self.usermode))
       lblInfo = QRichLabel(verStr, doWrap=False)
       lblInfo.setFont(GETFONT('var',10))
@@ -2933,8 +2933,6 @@ class ArmoryMainWindow(QMainWindow):
       self.updateAnnounceTab()  # make sure satoshi version info is up to date
       self.removeBootstrapDat()  # if we got here, we're *really* done with it
       self.walletModel.reset()
-
-      self.changeWltFilter()
 
       qLen = self.delayedURIData['qLen']
       if qLen > 0:
