@@ -2467,7 +2467,7 @@ uint32_t BlockDataManager_LevelDB::readBlkFileUpdate(void)
             LOGWARN << "Blockchain Reorganization detected!";
             ReorgUpdater reorg(state, &blockchain_, iface_);
             
-            prevTopBlk = state.reorgBranchPoint->getBlockHeight() +1;
+            prevTopBlk = state.reorgBranchPoint->getBlockHeight();
             //purgeZeroConfPool();
          }
          else if(state.hasNewTop)

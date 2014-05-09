@@ -1481,7 +1481,7 @@ void BtcWallet::updateAfterReorg(uint32_t lastValidBlockHeight)
    for (txIter = registeredTxList_.begin();
       txIter != registeredTxList_.end(); txIter++)
    {
-      if (txIter->blkNum_ >= lastValidBlockHeight)
+      if (txIter->blkNum_ > lastValidBlockHeight)
          txJustInvalidated.insert(txIter->txHash_);
    }
 
