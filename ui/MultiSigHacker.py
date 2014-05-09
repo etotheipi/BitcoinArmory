@@ -2323,7 +2323,7 @@ class DlgCreatePromNote(ArmoryDialog):
          return
 
       utxoList = self.wlt.getTxOutList('Spendable')
-      utxoSelect = PySelectCoins(utxoList, 
+      utxoSelect = PySelectCoins(utxoList)
 
 
 
