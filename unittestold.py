@@ -1528,7 +1528,7 @@ if Test_EncryptedWallet:
       wlt.signTxDistProposal(txdp)
       if debugPrint: txdp.pprint('   ')
    
-      txToBroadcast = txdp.prepareFinalTx()
+      txToBroadcast = txdp.getPyTxSignedIfPossible()
       print ''
       txToBroadcast.pprint()
       print ''
@@ -1648,7 +1648,7 @@ if Test_TxDistProposals:
    
    print '\n(1) Preparing TxDP for broadcast'
    txdp3 = PyTxDistProposal().unserializeAscii(asciiBlock)
-   txToBroadcast = txdpSigned.prepareFinalTx()
+   txToBroadcast = txdpSigned.getPyTxSignedIfPossible()
    print '\n(1) Final tx to broadcast!'
    print binary_to_hex(txToBroadcast.serialize())
    print ''

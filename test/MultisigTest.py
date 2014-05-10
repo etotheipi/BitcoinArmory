@@ -381,7 +381,7 @@ class MSUtilsTest(unittest.TestCase):
       ustx.createAndInsertSignatureForInput(0, privKeys[2])
 
       print ustx.serializeAscii()
-      print binary_to_hex(ustx.prepareFinalTx().serialize())
+      print binary_to_hex(ustx.getPyTxSignedIfPossible().serialize())
       
 
    """
