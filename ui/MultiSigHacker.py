@@ -1381,7 +1381,7 @@ class DlgSimulfundSelect(ArmoryDialog):
 
       lblTitle = QRichLabel(tr("""
          <font color="%s" size=4><b>Simultaneous Lockbox 
-         Funding</b></font>""") % htmlColor('TextBlue'))
+         Funding</b></font>""") % htmlColor('TextBlue'), hAlign=Qt.AlignHCenter)
 
       lblDescr = QRichLabel(tr("""
          To have multiple parties simultaneously fund a lockbox, each party
@@ -2660,15 +2660,15 @@ class DlgMergePromNotes(ArmoryDialog):
 
 
       lblTitle  = QRichLabel(tr("""
-         <font color="%s" size=4><b>Merge Simulfunding Promissory Notes
+         <font color="%s" size=4><b>Merge Promissory Notes
          </b></font>""") % htmlColor('TextBlue'), 
          hAlign=Qt.AlignHCenter, doWrap=False)
          
       lblDescr = QRichLabel(tr("""
-         Use this form to collect promissory notes from two or more parties
+         Collect promissory notes from two or more parties
          to combine them into a single <i>simulfunding</i> transaction.  Once
-         all notes are merged into a single transaction, you will be able to
-         send it to each contributing party for signing."""))
+         all notes are collected you will be able to
+         send it to each contributing party for review and signing."""))
 
 
       lbTargStr = '<font color="%s"><b>Lockbox %s-of-%s</b>: %s (%s)</font>' % \
