@@ -1122,7 +1122,6 @@ class DlgLockboxManager(ArmoryDialog):
          requires being funded by multiple participants, you <u>must</u> use
          a special funding process to ensure simultaneous funding.  Otherwise,
          one of the other parties may be able to scam you!  
-         Armory does not yet support simultaneous funding, but will soon.
          <br><br>
          It is safe to continue if any of the following conditions are true:
          <ul>
@@ -1412,7 +1411,7 @@ class DlgSimulfundSelect(ArmoryDialog):
 
       if TheBDM.getBDMState()=='BlockchainReady':
          lblCreate = QRichLabel(tr("""
-            Create a commitment to simulfunding transaction"""))
+            Create a commitment to a simulfunding transaction"""))
       else:
          btnCreate.setEnabled(False)
          lblCreate = QRichLabel(tr("""
@@ -1424,7 +1423,7 @@ class DlgSimulfundSelect(ArmoryDialog):
 
       lblReview = QRichLabel(tr("""
          Review and signed a simulfunding transaction (after all promissory
-         notes have been collected"""))
+         notes have been collected)"""))
 
       self.connect(btnCreate,  SIGNAL('clicked()'), self.doCreate)
       self.connect(btnCollect, SIGNAL('clicked()'), self.doCollect)
@@ -2062,7 +2061,7 @@ class DlgMultiSpendReview(ArmoryDialog):
 
 
 
-      self.btnLoadImport  = QPushButton(tr('Load/Import'))
+      self.btnLoadImport  = QPushButton(tr('Import/Merge'))
       self.lblFinalMsg    = QRichLabel('')
       self.lblFinalChk    = QLabel()
       self.btnFinalBroad  = QPushButton(tr('Broadcast'))
@@ -2648,7 +2647,7 @@ class DlgCreatePromNote(ArmoryDialog):
 class DlgMergePromNotes(ArmoryDialog):
 
    #############################################################################
-   def __init__(self, parent, main, targetLockboxID):
+   def __init__(self, parent, main, targetLockboxID=None):
       super(DlgMergePromNotes, self).__init__(parent, main)
 
 
@@ -2656,6 +2655,7 @@ class DlgMergePromNotes(ArmoryDialog):
       self.cumulFee = 0
       self.promNotes = []
       self.promIDSet = set([])
+
       self.lbox = self.main.getLockboxByID(targetLockboxID)
 
 
@@ -2676,7 +2676,7 @@ class DlgMergePromNotes(ArmoryDialog):
            self.lbox.shortName, self.lbox.uniqueIDB58)
 
 
-      lblTarg = QRichLabel(lbTargStr)
+      self.lblTarg = QRichLabel(lbTargStr)
       lblPayText = QRichLabel('Total Funding:', doWrap=False)
       lblFeeText = QRichLabel('Total Fee:', doWrap=False)
       self.lblCurrPay = QMoneyLabel(0, maxZeros=2)
@@ -2687,7 +2687,7 @@ class DlgMergePromNotes(ArmoryDialog):
       
       gboxTarget  = QGroupBox(tr('Lockbox Being Funded'))
       gboxTargetLayout = QGridLayout()
-      gboxTargetLayout.addWidget(lblTarg,           1,0,  1,6)
+      gboxTargetLayout.addWidget(self.lblTarg,      1,0,  1,6)
 
       gboxTargetLayout.addItem(QSpacerItem(20,20),  2,0)
       gboxTargetLayout.addWidget(lblPayText,        2,1)
