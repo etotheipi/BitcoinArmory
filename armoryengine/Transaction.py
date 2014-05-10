@@ -1589,10 +1589,20 @@ class DecoratedTxOut(object):
       return self
 
 
-   #def pprint(self, indent=3):
-      #ind = ' '*indent
-      #scrType   = CPP_TXOUT_SCRIPT_NAMES[self.scriptType]
-      #print 'DecoratedTxOut --  ' % (txHashStr, txoIdx, scrType)
+   def pprint(self, indent=3):
+      ind = ' '*indent
+      scrType   = CPP_TXOUT_SCRIPT_NAMES[self.scriptType]
+
+      print ind + 'Version:     ', self.version
+      if self.scriptType in CPP_TXOUT_HAS_ADDRSTR:
+         print ind + 'Address:     ', scrAddr_to_addrStr(self.scrAddr)
+         if self.p2shScript:
+            print ind + 'P2SH Script: ', binary_to_hex(self.p2shScript)[:50]
+      elif self.scriptType==CPP_TXOUT_MULTISIG:
+         print ind + 'Multisig:      %(M)s-of-%(N)s' % self.multiInfo
+      print ind + 'Value:       ', coin2strNZS(self.value)
+      print ind + 'ContribID:   ', self.contribID
+      
 
 
 
@@ -1834,6 +1844,7 @@ class UnsignedTransaction(object):
 
 
    #############################################################################
+   """
    def createFromPromNoteList(self, promList):
       # Decorated txout list always has at least the target, probably a lockbox
       ustxiAccum = []
@@ -1853,6 +1864,7 @@ class UnsignedTransaction(object):
             dtxoList.append(prom.dtxoChange)
    
       return UnsignedTransaction().createFromUnsignedTxIO(ustxiAccum, dtxoAccum)
+   """
 
 
          

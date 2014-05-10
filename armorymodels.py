@@ -34,6 +34,7 @@ ADDRBOOKCOLS = enum('Address', 'WltID', 'NumSent', 'Comment')
 TXINCOLS  = enum('WltID', 'Sender', 'Btc', 'OutPt', 'OutIdx', 'FromBlk', \
                                        'ScrType', 'Sequence', 'Script')
 TXOUTCOLS = enum('WltID', 'Recip', 'Btc', 'ScrType', 'Script')
+PROMCOLS = enum('PromID', 'Info', 'PayAmt', 'FeeAmt')
 
 
 class AllWalletsDispModel(QAbstractTableModel):
@@ -99,13 +100,6 @@ class AllWalletsDispModel(QAbstractTableModel):
       return QVariant()
 
 
-   # 
-   def setData(self, index, value, role):
-      print 'setdata called'
-      if index.column()==WLTVIEWCOLS:
-         wltID = self.main.walletIDList[index.row()]
-         self.main.walletVisibleList[index.row()] = value
-         self.main.setWltSetting(wltID, 'LedgerShow', value)
 
 
    def headerData(self, section, orientation, role=Qt.DisplayRole):
@@ -1078,365 +1072,66 @@ class SentAddrSortProxy(QSortFilterProxyModel):
          return super(SentAddrSortProxy, self).lessThan(idxLeft, idxRight)
 
 
-"""
-
-class HeaderDataModel(QAbstractTableModel):
-   def __init__(self):
-      super(HeaderDataModel, self).__init__()
-      self.bdm = BlockDataManager().getBDM()
-
-   def rowCount(self, index=QModelIndex()):
-
-   def columnCount(self, index=QModelIndex()):
-
-   def data(self, index, role=Qt.DisplayRole):
-      nHead = self.rowCount()
-      row,col = index.row(), index.column()
-      if role==Qt.DisplayRole:
-         if col== HEAD_DATE: return QVariant(someStr)
-      elif role==Qt.TextAlignmentRole:
-         if col in (HEAD_BLKNUM, HEAD_DIFF, HEAD_NUMTX, HEAD_BTC):
-            return QVariant(int(Qt.AlignRight | Qt.AlignVCenter))
-         else: 
-            return QVariant(int(Qt.AlignLeft | Qt.AlignVCenter))
-      elif role==Qt.BackgroundColorRole:
-         return QVariant( QColor(235,235,255) )
-      return QVariant()
-
-   def headerData(self, section, orientation, role=Qt.DisplayRole):
-      if role==Qt.DisplayRole:
-         if orientation==Qt.Horizontal:
-            return QVariant( headColLabels[section] )
-      elif role==Qt.TextAlignmentRole:
-         return QVariant( int(Qt.AlignHCenter | Qt.AlignVCenter) )
-
-
-
 ################################################################################
-# Below is PyBtcEngine testing code -- A blockchain explorer may be a nice 
-# feature in the future, but not right now -- IGNORE THIS SECTION
-################################################################################
+class PromissoryCollectModel(QAbstractTableModel):
+   
+   # The columns enumeration
 
-HEAD_BLKNUM, HEAD_HASH, HEAD_DIFF, HEAD_NUMTX, HEAD_BTC, HEAD_DATE = range(6)
-TX_INDEX, TX_HASH, TX_BTC, TX_SRC, TX_RECIP, TX_SIZE = range(6)
-TXIN_SRC, TXIN_BTC, TXIN_SBLK, TXIN_STYPE, TXIN_SEQ, = range(5)
-TXOUT_RECIP, TXOUT_BTC, TXOUT_STYPE, = range(3)
+   def __init__(self, main, promNoteList):
+      super(PromissoryCollectModel, self).__init__()
+      self.main = main
+      self.promNoteList = promNoteList
 
-headColLabels = {HEAD_BLKNUM: 'Block#', \
-                 HEAD_HASH:   'Hash', \
-                 HEAD_DIFF:   'Difficulty', \
-                 HEAD_NUMTX:  '#Tx', \
-                 HEAD_BTC:    'Total BTC', \
-                 HEAD_DATE:   'Date & Time'}
-txColLabels   = {TX_INDEX:    'Index', \
-                 TX_HASH:     'Hash', \
-                 TX_BTC:      'BTC', \
-                 TX_SRC:      'Source', \
-                 TX_RECIP:    'Recipient', \
-                 TX_SIZE:     'Size' }
-txinColLabels = {TXIN_SRC:    'Sender', \
-                 TXIN_BTC:    'BTC', \
-                 TXIN_SBLK:   'From#', \
-                 TXIN_STYPE:  'Script Type'}
-                 #TXIN_SEQ:    'Sequence'}
-txoutColLabels ={TXOUT_RECIP: 'Recipient',\
-                 TXOUT_BTC:   'BTC', \
-                 TXOUT_STYPE: 'Script Type'}
-
-
-b2h = lambda x: binary_to_hex(x)
-h2b = lambda x: hex_to_binary(x)
-
-
-class HeaderDataModel(QAbstractTableModel):
-
-   def __init__(self):
-      super(HeaderDataModel, self).__init__()
-      self.bdm = BlockDataManager().getBDM()
-      self.headerData = []
-      self.endianSelect = BIGENDIAN
 
    def rowCount(self, index=QModelIndex()):
-      return self.bdm.getTopBlockHeader().getBlockHeight()+1
+      return len(self.promNoteList)
 
    def columnCount(self, index=QModelIndex()):
-      return len(headColLabels)
+      return 4
 
-   def sumBtcInHeader(self, header):
-      txlist = header.getTxRefPtrList()
-      total = 0
-      for tx in txlist:
-         txcopy = tx.getTxCopy()
-         total += txcopy.getSumOfOutputs()
-      return total
 
    def data(self, index, role=Qt.DisplayRole):
-      nHead = self.rowCount()
+      COL = PROMCOLS
       row,col = index.row(), index.column()
-      if not index.isValid() or not (0 <= row < nHead):
-         return QVariant()
+      prom = self.promNoteList[row]
+
+      #PROMCOLS = enum('PromID', 'Info', 'PayAmt', 'FeeAmt')
 
       if role==Qt.DisplayRole:
-         h = nHead-row-1
-         cppHeader = self.bdm.getHeaderByHeight(h)
-         if cppHeader == None or not h>0:
-            return QVariant()
-         if col == HEAD_BLKNUM:
-            return QVariant(cppHeader.getBlockHeight())
-         elif col== HEAD_HASH:
-            return QVariant(binary_to_hex(cppHeader.getThisHash(), self.endianSelect))
-         elif col== HEAD_DIFF:
-            return QVariant("%0.2f" % cppHeader.getDifficulty())
-         elif col== HEAD_NUMTX:
-            return QVariant("%d  " % cppHeader.getNumTx())
-         elif col== HEAD_BTC:
-            return QVariant("%0.4f" % float(self.sumBtcInHeader(cppHeader)/1e8))
-         elif col== HEAD_DATE:
-            return QVariant(unixTimeToFormatStr(cppHeader.getTimestamp()))
+         if col==COL.PromID:
+            return prom.promID
+         elif col==COL.Info: 
+            return prom.lockboxKeyInfo
+         elif col==COL.PayAmt: 
+            return QVariant(coin2str(prom.dtxoTarget.value, maxZeros=2))
+         elif col==COL.FeeAmt: 
+            return QVariant(coin2str(prom.feeAmt, maxZeros=2))
       elif role==Qt.TextAlignmentRole:
-         if col in (HEAD_BLKNUM, HEAD_DIFF, HEAD_NUMTX, HEAD_BTC):
-            return QVariant(int(Qt.AlignRight | Qt.AlignVCenter))
-         else: 
-            return QVariant(int(Qt.AlignLeft | Qt.AlignVCenter))
-      elif role==Qt.BackgroundColorRole:
-         return QVariant( QColor(235,235,255) )
-      return QVariant()
-
-   def headerData(self, section, orientation, role=Qt.DisplayRole):
-      if role==Qt.TextAlignmentRole:
-         return QVariant( int(Qt.AlignHCenter | Qt.AlignVCenter) )
-      
-      if role==Qt.DisplayRole:
-         if self.endianSelect==BIGENDIAN:
-            headColLabels[HEAD_HASH] = 'Hash (BE)'
-         else:
-            headColLabels[HEAD_HASH] = 'Hash (LE)'
-
-         if orientation==Qt.Horizontal:
-            return QVariant( headColLabels[section] )
-
-
-   #def getInfoDict(self, header):
-      
-      
-
-
-class TxDataModel(QAbstractTableModel):
-
-   def __init__(self):
-      super(TxDataModel, self).__init__()
-      self.bdm = BlockDataManager().getBDM()
-      self.endianSelect = BIGENDIAN
-      self.txHashList = None 
-
-   def rowCount(self, index=QModelIndex()):
-      if self.txHashList:
-         return len(self.txHashList)
-      return 0
-
-   def columnCount(self, index=QModelIndex()):
-      return len(txColLabels)
-
-   def getTxSrcStr(self, tx):
-      if tx.getNumTxIn() > 1:
-         return '<%d sources>' % tx.getNumTxIn()
-      else:
-         txin = tx.getTxIn(0)
-         if txin.isCoinbase():
-            return '<COINBASE>'
-         else:
-            return hash160_to_addrStr(self.bdm.getSenderAddr20(txin))
-
-   def getTxDstStr(self, tx):
-      if tx.getNumTxOut() > 1:
-         return '<%d recipients>' % tx.getNumTxOut()
-      else:
-         return hash160_to_addrStr(tx.getTxOut(0).getRecipientAddr())
-
-   def data(self, index, role=Qt.DisplayRole):
-      nTx = self.rowCount()
-      row,col = index.row(), index.column()
-      if not index.isValid() or not (0 <= row < nTx):
-         return QVariant()
-
-      if role==Qt.DisplayRole:
-         cppTx = self.bdm.getTxByHash(self.txHashList[row])
-         if cppTx == None:
-            return QVariant()
-         if col == TX_INDEX:
-            return QVariant('%d  ' % int(row+1))
-         elif col== TX_HASH:
-            return QVariant(binary_to_hex(cppTx.getThisHash(), self.endianSelect))
-         elif col== TX_BTC:
-            return QVariant("%0.4f" % float(cppTx.getSumOfOutputs()/1e8))
-         elif col== TX_SRC:
-            return QVariant(self.getTxSrcStr(cppTx))
-         elif col== TX_RECIP:
-            return QVariant(self.getTxDstStr(cppTx))
-         elif col== TX_SIZE:
-            return QVariant("%0.2f kB" % float(cppTx.getSize()/1024.))
-      elif role==Qt.TextAlignmentRole:
-         if col in (TX_INDEX, TX_BTC, TX_SIZE):
-            return QVariant(int(Qt.AlignRight | Qt.AlignVCenter))
-         else: 
-            return QVariant(int(Qt.AlignLeft | Qt.AlignVCenter))
-      elif role==Qt.BackgroundColorRole:
-         return QVariant( QColor(235,250,235) )
-      return QVariant()
-
-   def headerData(self, section, orientation, role=Qt.DisplayRole):
-      if role==Qt.TextAlignmentRole:
-         return QVariant( int(Qt.AlignHCenter | Qt.AlignVCenter) )
-      
-      if role==Qt.DisplayRole:
-         if self.endianSelect==BIGENDIAN:
-            txColLabels[TX_HASH] = 'Hash (BE)'
-         else:
-            txColLabels[TX_HASH] = 'Hash (LE)'
-         if orientation==Qt.Horizontal:
-            return QVariant( txColLabels[section] )
-
-
-class TxInDataModel(QAbstractTableModel):
-
-   def __init__(self,tx):
-      super(TxInDataModel, self).__init__()
-      self.bdm = BlockDataManager().getBDM()
-      self.endianSelect = BIGENDIAN
-      self.tx = tx.copy()
-
-   def rowCount(self, index=QModelIndex()):
-      return self.tx.getNumTxIn()
-
-
-   def columnCount(self, index=QModelIndex()):
-      return 5
-
-   def data(self, index, role=Qt.DisplayRole):
-      nTxIn = self.rowCount()
-      row,col = index.row(), index.column()
-
-      if role==Qt.DisplayRole:
-         cppTxIn = self.tx.getTxIn(row)
-         if cppTxIn == None:
-            return QVariant()
-         if col == TXIN_SRC:
-            if cppTxIn.isCoinbase():
-               return QVariant("COINBASE")
-            addr20 = self.bdm.getSenderAddr20(cppTxIn)
-            return QVariant(hash160_to_addrStr(addr20))
-         elif col== TXIN_BTC:
-            if cppTxIn.isCoinbase():
-               return QVariant("%0.4f" % float(self.tx.getSumOfOutputs()/1e8))
-            return QVariant("%0.4f" % float(self.bdm.getSentValue(cppTxIn)/1e8))
-         elif col== TXIN_STYPE:
-            if cppTxIn.isScriptUncomprKey():
-               return QVariant('REG-PUBKEY')
-            if cppTxIn.isScriptComprKey():
-               return QVariant('COMPR-PUBKEY')
-            elif cppTxIn.isScriptCoinbase():
-               return QVariant('<ARBITRARY>')
-            elif cppTxIn.isScriptSpendPubKey():
-               return QVariant('SPEND-PUBKEY')
-            elif cppTxIn.isScriptSpendP2SH():
-               return QVariant('SPEND-P2SH')
-            elif cppTxIn.isScriptNonStd():
-               return QVariant('UNKNOWN')
-         elif col== TXIN_SBLK:
-            if cppTxIn.isCoinbase():
-               return QVariant('GENERATION')
-            tx = self.bdm.getPrevTxOut(cppTxIn).getParentTxPtr()
-            return QVariant("%d" % tx.getBlockHeight())
-         #elif col== TXIN_SEQ:
-            #return QVariant(int_to_hex(cppTxIn.getSequence(), 4, BIGENDIAN))
-      elif role==Qt.TextAlignmentRole:
-         if col in (TXIN_STYPE, TXIN_SBLK):
+         if col in [COL.PromID, COL.Info]:
             return QVariant(int(Qt.AlignHCenter | Qt.AlignVCenter))
-         elif col in (TXIN_BTC,):
-            return QVariant(int(Qt.AlignRight | Qt.AlignVCenter))
-         else: 
+         else:
             return QVariant(int(Qt.AlignLeft | Qt.AlignVCenter))
-      elif role==Qt.BackgroundColorRole:
-         return QVariant( QColor(235,250,235) )
+      elif role==Qt.ForegroundRole:
+         if col == COL.PayAmt:
+            if prom.dtxoTarget.value>0:  
+               return QVariant(Colors.TextGreen)
+         elif col == COL.FeeAmt:
+            if prom.feeAmt>0:
+               return QVariant(Colors.TextGreen)
+      elif role==Qt.FontRole:
+         if col in [COL.PayAmt, COL.FeeAmt]:
+            return GETFONT('Fixed')
+
       return QVariant()
 
+
+
    def headerData(self, section, orientation, role=Qt.DisplayRole):
-      if role==Qt.TextAlignmentRole:
-         return QVariant( int(Qt.AlignHCenter | Qt.AlignVCenter) )
+      colLabels = ['Note ID', 'Label', 'Funding', 'Fee']
       if role==Qt.DisplayRole:
          if orientation==Qt.Horizontal:
-            return QVariant( txinColLabels[section] )
-
-
-class TxOutDataModel(QAbstractTableModel):
-
-   def __init__(self):
-      super(TxOutDataModel, self).__init__()
-      self.bdm = BlockDataManager().getBDM()
-      self.endianSelect = BIGENDIAN
-      self.txSelect = None 
-
-   def rowCount(self, index=QModelIndex()):
-      if self.txSelect:
-         return self.txSelect.getNumTxOut()
-      return 0
-
-   def columnCount(self, index=QModelIndex()):
-      return len(txoutColLabels)
-
-   def data(self, index, role=Qt.DisplayRole):
-      nTxOut = self.rowCount()
-      row,col = index.row(), index.column()
-      if not index.isValid() or not (0 <= row < nTxOut):
-         return QVariant()
-
-      if role==Qt.DisplayRole:
-         cppTxOut = self.txSelect.getTxOut(row)
-         if cppTxOut == None:
-            return QVariant()
-         if col == TXOUT_RECIP:
-            return QVariant(hash160_to_addrStr(cppTxOut.getRecipientAddr()))
-         elif col== TXOUT_BTC:
-            return QVariant("%0.4f" % float(cppTxOut.getValue()/1e8))
-         elif col== TXOUT_STYPE:
-            if cppTxOut.isScriptStdHash160():
-               return QVariant('P2HASH160)')
-            elif cppTxOut.isScriptStdPubKey65():
-               return QVariant('P2PUBKEY65')
-            elif cppTxOut.isScriptStdPubKey33():
-               return QVariant('P2PUBKEY33')
-            elif cppTxOut.isScriptP2SH():
-               return QVariant('P2SH')
-            elif cppTxOut.isScriptNonStd():
-               return QVariant('UNKNOWN')
+            return QVariant(colLabels[section])
       elif role==Qt.TextAlignmentRole:
-         if col in (TXOUT_STYPE,):
-            return QVariant(int(Qt.AlignHCenter | Qt.AlignVCenter))
-         elif col in (TXOUT_BTC,):
-            return QVariant(int(Qt.AlignRight | Qt.AlignVCenter))
-         else: 
-            return QVariant(int(Qt.AlignLeft | Qt.AlignVCenter))
-      elif role==Qt.BackgroundColorRole:
-         return QVariant( QColor(235,250,235) )
-      return QVariant()
-      
-
-   def headerData(self, section, orientation, role=Qt.DisplayRole):
-      if role==Qt.TextAlignmentRole:
          return QVariant( int(Qt.AlignHCenter | Qt.AlignVCenter) )
-      if role==Qt.DisplayRole:
-         if orientation==Qt.Horizontal:
-            return QVariant( txoutColLabels[section] )
-
-
-"""
-
-
-
-
-
-
-
-
 
 

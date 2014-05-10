@@ -7,6 +7,7 @@ from qtdialogs import createAddrBookButton, DlgSetComment, DlgSendBitcoins, \
    DlgDispTxInfo
 from armoryengine.ALL import *
 from armorymodels import *
+from armorycolors import *
 from armoryengine.MultiSigUtils import MultiSigLockbox, calcLockboxID,\
    createLockboxEntryStr, readLockboxEntryStr
 from ui.MultiSigModels import \
@@ -24,7 +25,7 @@ from armoryengine.CoinSelection import PySelectCoins, PyUnspentTxOut, \
 class DlgLockboxEditor(ArmoryDialog):
 
    #############################################################################
-   def __init__(self, parent, main, maxM=5, maxN=5, loadBox=None):
+   def __init__(self, parent, main, maxM=7, maxN=7, loadBox=None):
       super(DlgLockboxEditor, self).__init__(parent, main)
 
       lblDescr = QRichLabel(tr("""
@@ -701,6 +702,7 @@ class DlgLockboxManager(ArmoryDialog):
       self.btnExport = QPushButton(tr('Export'))
       self.btnDelete = QPushButton(tr('Remove'))
       self.btnFundIt = QPushButton(tr('Deposit Funds'))
+      self.btnSimul  = QPushButton(tr('Simulfunding'))
       self.btnSpend  = QPushButton(tr('Spend Funds'))
 
       self.connect(self.btnCreate,   SIGNAL('clicked()'), self.doCreate)
@@ -709,6 +711,7 @@ class DlgLockboxManager(ArmoryDialog):
       self.connect(self.btnExport,   SIGNAL('clicked()'), self.doExport)
       self.connect(self.btnDelete,   SIGNAL('clicked()'), self.doDelete)
       self.connect(self.btnFundIt,   SIGNAL('clicked()'), self.doFundIt)
+      self.connect(self.btnSimul,    SIGNAL('clicked()'), self.doSimul)
       self.connect(self.btnSpend,    SIGNAL('clicked()'), self.doSpend)
       
       frmManageBtns = makeVertFrame([ 'Stretch',
@@ -722,6 +725,7 @@ class DlgLockboxManager(ArmoryDialog):
                                       self.btnDelete,
                                       'Space(10)',
                                       self.btnFundIt,
+                                      self.btnSimul,
                                       self.btnSpend,
                                       'Stretch'])
 
@@ -1006,6 +1010,7 @@ class DlgLockboxManager(ArmoryDialog):
       self.btnDelete.setDisabled(noSelection)
 
       self.btnFundIt.setDisabled(noSelection or isOffline)
+      self.btnSimul.setDisabled(noSelection)
       self.btnSpend.setDisabled(noSelection)
       
    #############################################################################
@@ -1101,35 +1106,31 @@ class DlgLockboxManager(ArmoryDialog):
          self.singleClickLockbox()
 
       self.updateButtonDisable()
+
+
    
    #############################################################################
    def doFundIt(self):
 
       reply = QMessageBox.warning(self, tr('[WARNING]'), tr("""
-         <b><font color="%s">WARNING:</font> 
-         Armory does not yet support simultaneous funding of lockboxes!</b>
-         <br><br>
+         <b><font color="%s">WARNING:</font> </b>
          If this lockbox is being used to hold escrow for multiple parties, and
          requires being funded by multiple participants, you <u>must</u> use
          a special funding process to ensure simultaneous funding.  Otherwise,
-         one of the other parties may be able to scam you!  Unfortunately, 
+         one of the other parties may be able to scam you!  
          Armory does not yet support simultaneous funding, but will soon.
          <br><br>
-         It is safe to continue in the any of the following situations:
+         It is safe to continue if any of the following conditions are true:
          <ul>
             <li>You are the only one expected to fund the escrow</li>
             <li>All other parties in the escrow are fully trusted</li>
             <li>This lockbox is being used for personal savings</li>
          </ul>
-         Click "Ok" to continue regular funding.  Click "Yes" to try our 
-         experimental "simulfunding" interface.""") % htmlColor('TextWarn'), 
-         QMessageBox.Yes | QMessageBox.Ok | QMessageBox.Cancel)
+         If the above does not apply to you, please press "Cancel" and 
+         use the "Simulfunding" button in the Lockbox manager to continue.
+         """) % htmlColor('TextWarn'), 
+         QMessageBox.Ok | QMessageBox.Cancel)
 
-      if reply==QMessageBox.Yes:
-         lbID = self.getSelectedLBID()
-         prefill = createLockboxEntryStr(lbID)
-         DlgCreatePromNote(self, self.main, prefill).exec_()
-         return
 
       if not reply==QMessageBox.Ok:
          return 
@@ -1140,6 +1141,38 @@ class DlgLockboxManager(ArmoryDialog):
                     'message': tr('Funding %d-of-%d') % (lb.M, lb.N) }
       
       DlgSendBitcoins(None, self, self.main, prefillMap).exec_()
+      self.updateButtonDisable()
+
+   #############################################################################
+   def doSimul(self):
+      
+      lbID = self.getSelectedLBID()
+      dlgSimul = DlgSimulfundSelect(self, self.main, lbID)
+      dlgSimul.exec_()
+
+      if dlgSimul.selection is None:
+         return
+      elif dlgSimul.selection=='Create':
+         DlgCreatePromNote(self, self.main, lbID).exec_()
+      elif dlgSimul.selection=='Collect':
+         DlgMergePromNotes(self, self.main, lbID).exec_()
+      elif dlgSimul.selection=='Review':
+
+         title = tr("Import Signature Collector")
+         descr = tr("""
+            Import a <i>Signature Collector</i> text block to review and
+            sign the simulfunding transaction.  This text block is produced
+            by the party that collected and merged all the promissory notes.
+            Files containing signature-collecting data usually end with
+            <i>*.sigcollect.tx</i>.""")
+         ftypes = ['Signature Collectors (*.sigcollect.tx)']
+         dlgImport = DlgImportAsciiBlock(self, self.main, 
+                           title, descr, ftypes, UnsignedTransaction)
+         dlgImport.exec_()
+         if dlgImport.returnObj:
+            ustx = dlgImport.returnObj
+            DlgMultiSpendReview(self, self.main, ustx).exec_()
+
       self.updateButtonDisable()
 
 
@@ -1332,6 +1365,109 @@ class DlgSpendFromLockbox(ArmoryDialog):
       self.selection = 'Review'
       self.accept()
 
+################################################################################
+class DlgSimulfundSelect(ArmoryDialog):
+   def __init__(self, parent, main, lbID):
+      super(DlgSimulfundSelect, self).__init__(parent, main)
+   
+      self.selection = None
+
+      lbox = self.main.getLockboxByID(lbID)
+      dispStr = '<font color="%s"><b>%s-of-%s</b>: %s (%s)</font>' % \
+         (htmlColor('TextBlue'), lbox.M, lbox.N, lbox.shortName, lbox.uniqueIDB58)
+
+      lblTitle = QRichLabel(tr("""
+         <font color="%s" size=4><b>Simultaneous Lockbox 
+         Funding</b></font>""") % htmlColor('TextBlue'))
+
+      lblDescr = QRichLabel(tr("""
+         To have multiple parties simultaneously fund a lockbox, each party
+         will need to create a "promissory note," and any other party will
+         collect all of them to create a single simulfunding transaction.
+         This transaction will be signed by all parties after reviewing that
+         it meets their expectations.  This process guarantees that either 
+         all parties commit funds simultaneously, or no one does.  The
+         signature that you provide using this interface is only valid if 
+         all the other funding commitments are also signed.
+         <br><br>
+         If you are both creating a promissory note and merging all the 
+         notes together, you should first create the promissory note and
+         save it to disk or copy it to your clipboard.  Once all other 
+         funding commitments have been received, open this dialog again 
+         and load all of them at once.  Sign for your contribution and
+         send the result to all the other parties.
+         <br><br>
+         You are currently handling a simulfunding operation for lockbox:
+         <br>%s.""") % dispStr)
+         
+
+      btnCreate  = QPushButton(tr('Create Promissory Note'))
+      btnCollect = QPushButton(tr('Collect and Merge Notes'))
+      btnReview  = QPushButton(tr('Sign Simulfunding Transaction'))
+      btnCancel  = QPushButton(tr("Cancel"))
+
+      if TheBDM.getBDMState()=='BlockchainReady':
+         lblCreate = QRichLabel(tr("""
+            Create a commitment to simulfunding transaction"""))
+      else:
+         btnCreate.setEnabled(False)
+         lblCreate = QRichLabel(tr("""
+            Note creation is not available when offline."""))
+
+      lblCollect = QRichLabel(tr("""
+         Collect multiple promissory notes into a single simulfunding
+         transaction"""))
+
+      lblReview = QRichLabel(tr("""
+         Review and signed a simulfunding transaction (after all promissory
+         notes have been collected"""))
+
+      self.connect(btnCreate,  SIGNAL('clicked()'), self.doCreate)
+      self.connect(btnCollect, SIGNAL('clicked()'), self.doCollect)
+      self.connect(btnReview,  SIGNAL('clicked()'), self.doReview)
+      self.connect(btnCancel,  SIGNAL('clicked()'), self.reject)
+
+      frmTop = makeVertFrame([lblTitle, lblDescr], STYLE_STYLED)
+
+      layoutBot = QGridLayout()
+      layoutBot.addWidget(btnCreate,   0,0)
+      layoutBot.addWidget(lblCreate,   0,1)
+      layoutBot.addWidget(HLINE(),     1,0, 1,2)
+      layoutBot.addWidget(btnCollect,  2,0)
+      layoutBot.addWidget(lblCollect,  2,1)
+      layoutBot.addWidget(HLINE(),     3,0, 1,2)
+      layoutBot.addWidget(btnReview,   4,0)
+      layoutBot.addWidget(lblReview,   4,1)
+
+      layoutBot.setColumnStretch(0, 0)
+      layoutBot.setColumnStretch(1, 1)
+
+      frmBot = QFrame()
+      frmBot.setLayout(layoutBot)
+      frmBot.setFrameStyle(STYLE_STYLED)
+
+      frmCancel = makeHorizFrame([btnCancel, 'Stretch'])
+
+      layoutMain = QVBoxLayout()
+      layoutMain.addWidget(frmTop,    1)
+      layoutMain.addWidget(frmBot,    1)
+      layoutMain.addWidget(frmCancel, 0)
+      self.setLayout(layoutMain)
+
+      self.setMinimumWidth(600)
+
+
+   def doCreate(self):
+      self.selection = 'Create'
+      self.accept()
+
+   def doCollect(self):
+      self.selection = 'Collect'
+      self.accept()
+
+   def doReview(self):
+      self.selection = 'Review'
+      self.accept()
 
 ################################################################################
 class DlgImportAsciiBlock(QDialog):
@@ -2142,7 +2278,7 @@ class DlgMultiSpendReview(ArmoryDialog):
 class DlgCreatePromNote(ArmoryDialog):
 
    #############################################################################
-   def __init__(self, parent, main, defaultTargStr=None):
+   def __init__(self, parent, main, defaultID=None):
       super(DlgCreatePromNote, self).__init__(parent, main)
 
       lblDescr  = QRichLabel(tr("""
@@ -2191,8 +2327,8 @@ class DlgCreatePromNote(ArmoryDialog):
       lblBTC2    = QRichLabel(tr('BTC'))
 
       self.edtFundTarget = QLineEdit()
-      if defaultTargStr:
-         self.edtFundTarget.setText(defaultTargStr)
+      if defaultID:
+         self.edtFundTarget.setText(createLockboxEntryStr(defaultID))
 
       self.btnSelectTarg = createAddrBookButton(
                                  parent=self, 
@@ -2472,8 +2608,279 @@ class DlgCreatePromNote(ArmoryDialog):
 class DlgMergePromNotes(ArmoryDialog):
 
    #############################################################################
-   def __init__(self, parent, main, defaultTargStr=None):
+   def __init__(self, parent, main, targetLockboxID):
       super(DlgMergePromNotes, self).__init__(parent, main)
+
+
+      self.cumulPay = 0
+      self.cumulFee = 0
+      self.promNotes = []
+      self.promIDSet = set([])
+      self.lbox = self.main.getLockboxByID(targetLockboxID)
+
+
+      lblTitle  = QRichLabel(tr("""
+         <font color="%s" size=4><b>Merge Simulfunding Promissory Notes
+         </b></font>""") % htmlColor('TextBlue'), 
+         hAlign=Qt.AlignHCenter, doWrap=False)
+         
+      lblDescr = QRichLabel(tr("""
+         Use this form to collect promissory notes from two or more parties
+         to combine them into a single <i>simulfunding</i> transaction.  Once
+         all notes are merged into a single transaction, you will be able to
+         send it to each contributing party for signing."""))
+
+
+      lbTargStr = '<font color="%s"><b>Lockbox %s-of-%s</b>: %s (%s)</font>' % \
+           (htmlColor('TextBlue'), self.lbox.M, self.lbox.N, 
+           self.lbox.shortName, self.lbox.uniqueIDB58)
+
+
+      lblTarg = QRichLabel(lbTargStr)
+      lblPayText = QRichLabel('Funding Amount:')
+      lblFeeText = QRichLabel('Total Fee:')
+      self.lblCurrPay = QMoneyLabel(0, maxZeros=2)
+      self.lblCurrFee = QMoneyLabel(0, maxZeros=2)
+      self.lblPayUnits = QRichLabel('BTC')
+      self.lblFeeUnits = QRichLabel('BTC')
+
+      
+      gboxTarget  = QGroupBox(tr('Lockbox Being Funded'))
+      gboxTargetLayout = QGridLayout()
+      gboxTargetLayout.addWidget(lblTarg,           1,0,  1,6)
+
+      gboxTargetLayout.addItem(QSpacerItem(20,20),  2,0)
+      gboxTargetLayout.addWidget(lblPayText,        2,1)
+      gboxTargetLayout.addItem(QSpacerItem(20,20),  2,2)
+      gboxTargetLayout.addWidget(self.lblCurrPay,   2,3)
+      gboxTargetLayout.addWidget(self.lblPayUnits,  2,4)
+
+      gboxTargetLayout.addItem(QSpacerItem(20,20),  3,0)
+      gboxTargetLayout.addWidget(lblFeeText,        3,1)
+      gboxTargetLayout.addItem(QSpacerItem(20,20),  3,2)
+      gboxTargetLayout.addWidget(self.lblCurrFee,   3,3)
+      gboxTargetLayout.addWidget(self.lblFeeUnits,  3,4)
+      gboxTargetLayout.setColumnStretch(0,0)
+      gboxTargetLayout.setColumnStretch(1,0)
+      gboxTargetLayout.setColumnStretch(2,0)
+      gboxTargetLayout.setColumnStretch(3,0)
+      gboxTargetLayout.setColumnStretch(4,0)
+      gboxTargetLayout.setColumnStretch(5,1)
+      gboxTarget.setLayout(gboxTargetLayout) 
+
+
+      # For when there's no prom note yet
+      self.gboxLoaded = QGroupBox(tr('Loaded Promissory Notes'))
+      lblNoInfo = QRichLabel(tr("""
+         <font size=4><b>No Promissory Notes Have Been Added</b></font>"""),
+         hAlign=Qt.AlignHCenter, vAlign=Qt.AlignVCenter)
+      gboxLayout = QVBoxLayout()
+      gboxLayout.addWidget(lblNoInfo)
+      self.gboxLoaded.setLayout(gboxLayout)
+      
+      self.promModel = PromissoryCollectModel(self.main, self.promNotes)
+      self.promView  = QTableView()
+      self.promView.setModel(self.promModel)
+      self.promView.setSelectionMode(QTableView.NoSelection)
+      width0  = relaxedSizeNChar(self.promView,    12)[0]
+      width23 = relaxedSizeNChar(GETFONT('Fixed'), 12)[0]
+      initialColResize(self.promView, [width0, 300, width23, width23])
+      self.promView.horizontalHeader().setStretchLastSection(True)
+      self.promView.verticalHeader().setDefaultSectionSize(20)
+
+      self.promLoadStacked = QStackedWidget()
+      self.promLoadStacked.addWidget(self.gboxLoaded)
+      self.promLoadStacked.addWidget(self.promView)
+      self.updatePromTable()
+
+      btnImport = QPushButton(tr('Add Promissory Note'))
+      self.connect(btnImport, SIGNAL('clicked()'), self.addPromNote)
+      frmImport = makeHorizFrame(['Stretch', btnImport, 'Stretch'])
+
+      btnCancel = QPushButton(tr('Cancel'))
+      btnFinish = QPushButton(tr('Continue'))
+      self.connect(btnCancel, SIGNAL('clicked()'), self.reject)
+      self.connect(btnFinish, SIGNAL('clicked()'), self.mergeNotesCreateUSTX)
+      frmButtons = makeHorizFrame([btnCancel, 'Stretch', btnFinish])
+
+      
+      mainLayout = QVBoxLayout()
+      mainLayout.addWidget(lblTitle, 0)
+      mainLayout.addWidget(lblDescr, 0)
+      mainLayout.addWidget(HLINE(), 0)
+      mainLayout.addWidget(frmImport, 0)
+      mainLayout.addWidget(HLINE(), 0)
+      mainLayout.addWidget(self.promLoadStacked, 1)
+      mainLayout.addWidget(HLINE(), 0)
+      mainLayout.addWidget(gboxTarget, 0)
+      mainLayout.addWidget(HLINE(), 0)
+      mainLayout.addWidget(frmButtons, 0)
+
+      self.setLayout(mainLayout)
+      self.setMinimumWidth(700)
+
+      
+      
+   #############################################################################
+   def addPromNote(self):
+      title = tr('Import Promissory Note')
+      descr = tr("""
+         Import a promissory note to add to this simulfunding transaction""") 
+      ftypes = ['Promissory Notes (*.promnote)']
+      dlgImport = DlgImportAsciiBlock(self, self.main, 
+                        title, descr, ftypes, MultiSigPromissoryNote)
+      dlgImport.exec_()
+      promnote = None
+      if dlgImport.returnObj:
+         promnote = dlgImport.returnObj
+
+      # 
+      if not promnote:
+         QMessageBox.critical(self, tr('Invalid Promissory Note'), tr("""
+            No promissory note was loaded."""), QMessageBox.Ok)
+         return
+      
+      # 
+      if promnote.promID in self.promIDSet:
+         QMessageBox.critical(self, tr('Already Loaded'), tr(""" This 
+            promissory note has already been loaded!"""), QMessageBox.Ok)
+         return
+
+      
+      def reduceScript(script):
+         scrType = getTxOutScriptType(script)
+         if scrType==CPP_TXOUT_MULTISIG:
+            # This is already 
+            script = script_to_p2sh_script(script)
+         return script_to_scrAddr(script)
+         
+
+      compareA = reduceScript(promnote.dtxoTarget.binScript)
+      compareB = reduceScript(self.lbox.binScript)
+
+      
+      if not compareA==compareB:
+         QMessageBox.critical(self, tr('Mismatched Funding Target'), tr("""
+            The promissory note you loaded is for a different funding target. 
+            Please make sure that all promissory notes are for the target
+            specified on the previous window"""), QMessageBox.Ok)
+         return
+
+
+      self.promNotes.append(promnote)
+      self.promIDSet.add(promnote.promID)
+      self.cumulPay += promnote.dtxoTarget.value
+      self.cumulFee += promnote.feeAmt
+      
+      self.lblCurrPay.setValueText(self.cumulPay, maxZeros=2, wBold=True)
+      self.lblCurrFee.setValueText(self.cumulFee, maxZeros=2, wBold=True)
+
+      self.updatePromTable()
+
+
+   #############################################################################
+   def updatePromTable(self):
+      if len(self.promNotes)==0:
+         self.promLoadStacked.setCurrentIndex(0)
+      else:
+         self.promLoadStacked.setCurrentIndex(1)
+      self.promModel.reset()
+   
+      '''
+         lblFundHeader = QRichLabel(tr('<b>Funding Amt</b>'))
+         lblFeeHeader  = QRichLabel(tr('<b>Fee Contrib</b>'))
+         
+         row = 0
+         gboxLayout.addWidget(lblFundHeader,   row,4)
+         gboxLayout.addWidget(lblFeeHeader,    row,6)
+         row += 1
+         gboxLayout.addWidget(HLINE(),         row,0,  1,7)
+         for widg in self.promWidgets:
+            gboxLayout.addItem(QSpacerItem(20,20),     row,0)
+            gboxLayout.addWidget(widg['LBLPROMID'],    row,1)
+            gboxLayout.addWidget(widg['LBLINFO'],      row,2)
+            gboxLayout.addWidget(widg['LBLPAYAMT'],    row,4)
+            gboxLayout.addWidget(widg['LBLFEEAMT'],    row,6)
+            row += 1
+
+         gboxLayout.addWidget(HLINE(),  row,0,  1,6)
+         
+         lblTotal    = QRichLabel('<b>Total</b>:')
+         lblTotalPay = QMoneyLabel(self.cumulPay, wBold=True)
+         lblTotalFee = QMoneyLabel(self.cumulFee, wBold=True)
+   
+         gboxLayout.addWidget(HLINE(),       row,0,  1,7)
+         row += 1
+         gboxLayout.addWidget(lblTotal,      row,1,  1,3)
+         gboxLayout.addWidget(lblTotalPay,   row,4)
+         gboxLayout.addWidget(lblTotalFee,   row,6)
+         row += 1
+         gboxLayout.addWidget(HLINE(),       row,0,  1,7)
+
+         gboxLayout.setColumnStretch(1,1)
+   
+      
+      gboxProms = QGroupBox(tr('Loaded Promissory Notes'))
+      gboxProms.setLayout(gboxLayout)
+
+      self.gboxStacked.addWidget(gboxProms)
+      self.gboxStacked.setCurrentIndex(self.numStack)
+      self.numStack += 1
+      '''
+      
+      
+
+
+   #############################################################################
+   def mergeNotesCreateUSTX(self):
+
+      if len(self.promNotes)==0:
+         QMessageBox.warning(self, tr('Nothing Loaded'), tr("""
+            No promissory notes were loaded.  Cannot create simulfunding 
+            transaction."""), QMessageBox.Ok)
+         return 
+
+      ustxiList = []
+      dtxoList = []
+
+      # We've already made sure all promNotes have the same target
+      dtxoTarget = self.promNotes[0].dtxoTarget
+      dtxoTarget.value = self.cumulPay
+      dtxoList.append(dtxoTarget)
+
+      for prom in self.promNotes:
+         for ustxi in prom.ustxInputs:
+            updUstxi = UnsignedTxInput().unserialize(ustxi.serialize())
+            updUstxi.contribID = prom.promID
+            ustxiList.append(updUstxi)
+
+         if prom.dtxoChange:
+            updDtxo = DecoratedTxOut().unserialize(prom.dtxoChange.serialize())
+            updDtxo.contribID = prom.promID
+            dtxoList.append(updDtxo)
+
+      ustx = UnsignedTransaction().createFromUnsignedTxIO(ustxiList, dtxoList)
+
+      title = tr('Export Simulfunding Transaction')
+      descr = tr("""
+         The text block below contains the simulfunding transaction to be
+         signed by all parties funding this lockbox.  Copy the text block
+         into an email to all parties contributing funds.  Each party can
+         review the final simulfunding transaction, add their signature(s),
+         then send back to you to finalize it.  
+         <br><br>
+         When you click "Done", you will be taken to a window that you can
+         use to merge the SIGCOLLECT blocks from all parties and broadcast
+         the final transaction.""")
+      ftypes = ['Signature Collectors (*.sigcollect.tx)']
+      defaultFN = 'Simulfund_%s.sigcollect.tx' % ustx.uniqueIDB58
+         
+      DlgExportAsciiBlock(self, self.main, ustx, title, descr, 
+                                                    ftypes, defaultFN).exec_()
+
+      # Assume that it has been exported
+      self.accept()
+      DlgMultiSpendReview(self, self.main, ustx).exec_()
 
 
 

@@ -255,6 +255,7 @@ class MultiSigLockbox(object):
       print '   Unique ID:  ', self.uniqueIDB58
       print '   Created:    ', unixTimeToFormatStr(self.createDate)
       print '   Box Name:   ', self.shortName
+      print '   P2SHAddr:   ', scrAddr_to_addrStr(self.p2shScrAddr)
       print '   Box Desc:   '
       print '     ', self.longDescr[:70]
       print '   Key List:   '
@@ -538,8 +539,6 @@ class MultiSigPromissoryNote(object):
       bp = BinaryPacker()
       bp.put(UINT32,       self.version)
       bp.put(BINARY_CHUNK, MAGIC_BYTES)
-      #bp.put(VAR_STR,      self.boxID)
-      #bp.put(UINT64,       self.payAmt)
       bp.put(VAR_STR,      self.dtxoTarget.serialize())
       bp.put(VAR_STR,      serChange)
       bp.put(UINT64,       self.feeAmt)
@@ -559,16 +558,13 @@ class MultiSigPromissoryNote(object):
       bu = BinaryUnpacker(rawData)
       version         = bu.get(UINT32)
       magicBytes      = bu.get(BINARY_CHUNK, 4)
-      #lboxID          = bu.get(VAR_STR)
-      #payAmt          = bu.get(UINT64)
       target          = bu.get(VAR_STR)
       change          = bu.get(VAR_STR)
       feeAmt          = bu.get(UINT64)
-      contribLabel    = toUnicode(bu.get(VAR_STR))
       numUSTXI        = bu.get(VAR_INT)
       
       for i in range(numUSTXI):
-         ustxiList.append( UnsignedTxInput.unserialize(bu.get(VAR_STR)) )
+         ustxiList.append( UnsignedTxInput().unserialize(bu.get(VAR_STR)) )
 
       lockboxKey      = bu.get(VAR_STR)
       lockboxKeyInfo  = toUnicode(bu.get(VAR_STR))
@@ -581,7 +577,7 @@ class MultiSigPromissoryNote(object):
       dtxoTarget = DecoratedTxOut().unserialize(target)
       dtxoChange = DecoratedTxOut().unserialize(change) if change else None
 
-      self.setParams(dtxoTarg, feeAmt, dtxoChange, ustxiList)
+      self.setParams(dtxoTarget, feeAmt, dtxoChange, ustxiList)
 
       if expectID and not expectID==self.promID:
          LOGERROR('Promissory note ID does not match expected')
