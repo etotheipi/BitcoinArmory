@@ -31,6 +31,9 @@ TX_ID1_OUTPUT1_VALUE = 139367000
 
 PASSPHRASE1 = 'abcde'
 UNLOCK_TIMEOUT = 5
+TIAB_DIR = '.\\tiab'
+TEST_TIAB_DIR = '.\\test\\tiab'
+NEED_TIAB_MSG = "This Test must be run with J:/Development_Stuff/bitcoin-testnet-boxV2.7z (Armory jungle disk). Copy to the test directory."
 
 class ArmoryDTiabTest(unittest.TestCase):      
    def removeFileList(self, fileList):
@@ -40,12 +43,21 @@ class ArmoryDTiabTest(unittest.TestCase):
             
    @classmethod
    def setUpClass(self):
+      currentPath = os.path.curdir
+      # Handle both calling the this test from the context of the test directory
+      # and calling this test from the context of the main directory. 
+      # The latter happens if you run all of the tests in the directory
+      if os.path.exists(TIAB_DIR):
+         tiabDataDir = TIAB_DIR
+      elif os.path.exists(TEST_TIAB_DIR):
+         tiabDataDir = TEST_TIAB_DIR
+      else:
+         self.fail(NEED_TIAB_MSG)
       self.tiab = Tiab.TiabSession(tiabdatadir='.\\tiab')
+      if TheBDM.getBDMState()=='BlockchainReady':
+         TheBDM.Reset(wait=True)
       TheBDM.setSatoshiDir(self.tiab.directory + '\\1\\testnet3')
       TheBDM.setLevelDBDir(self.tiab.directory + '\\armory\\databases')
-      # This is not a UI so no need to worry about the main thread being blocked.
-      # Any UI that uses this Daemon can put the call to the Daemon on it's own thread.
-      TheBDM.Reset()
       TheBDM.setBlocking(True)
       TheBDM.setOnlineMode(True)
       while not TheBDM.getBDMState()=='BlockchainReady':
@@ -53,17 +65,11 @@ class ArmoryDTiabTest(unittest.TestCase):
 
    @classmethod
    def tearDownClass(self):
-      # This is not a UI so no need to worry about the main thread being blocked.
-      # Any UI that uses this Daemon can put the call to the Daemon on it's own thread.
-      TheBDM.Reset()
-      TheBDM.setBlocking(True)
-      TheBDM.setOnlineMode(True)
-      while not TheBDM.getBDMState()=='BlockchainReady':
-         time.sleep(2)
       self.tiab.clean()
 
 
    def setUp(self):
+      self.assertEqual(TheBDM.getTopBlockHeight(), 56109, NEED_TIAB_MSG)
       # Load the primary file from the test net in a box
       self.fileA    = os.path.join(self.tiab.directory, 'armory\\armory_%s_.wallet' % TEST_WALLET_ID)
       self.wallet = PyBtcWallet().readWalletFile(self.fileA, doScanNow=True)

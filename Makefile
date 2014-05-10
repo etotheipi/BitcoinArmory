@@ -33,7 +33,12 @@ install : all
 	sed "s:python /usr:python $(PREFIX):g" < dpkgfiles/armory.desktop > $(DESTDIR)$(PREFIX)/share/applications/armory.desktop
 	sed "s:python /usr:python $(PREFIX):g" < dpkgfiles/armoryoffline.desktop > $(DESTDIR)$(PREFIX)/share/applications/armoryoffline.desktop
 	sed "s:python /usr:python $(PREFIX):g" < dpkgfiles/armorytestnet.desktop > $(DESTDIR)$(PREFIX)/share/applications/armorytestnet.desktop
-	
+
+all-test-tools: all
+	$(MAKE) -C cppForSwig/gtest
+
+test: all-test-tools
+	cd cppForSwig/gtest && ./CppBlockUtilsTests
 
 osx :
 	chmod +x osxbuild/deploy.sh

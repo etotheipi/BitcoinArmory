@@ -226,7 +226,7 @@ def distributeBtc(masterWallet, amount, sendingAddrList):
       masterWallet.unlock(securePassphrase = SecureBinaryData(getpass('Enter your secret string:')))
       # Sign and prepare the final transaction for broadcast
       masterWallet.signTxDistProposal(txdp)
-      pytx = txdp.prepareFinalTx()
+      pytx = txdp.getPyTxSignedIfPossible()
    
       print '\nSigned transaction to be broadcast using Armory "offline transactions"...'
       print txdp.serializeAscii()
@@ -273,7 +273,7 @@ def sweepImportedAddrs(masterWallet):
    masterWallet.unlock(securePassphrase = SecureBinaryData(getpass('Enter your secret string:')))
    # Sign and prepare the final transaction for broadcast
    masterWallet.signTxDistProposal(txdp)
-   pytx = txdp.prepareFinalTx()
+   pytx = txdp.getPyTxSignedIfPossible()
 
    print '\nSigned transaction to be broadcast using Armory "offline transactions"...'
    print txdp.serializeAscii()

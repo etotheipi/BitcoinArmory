@@ -48,7 +48,7 @@ class ArmoryEngineTest(unittest.TestCase):
    def testToUnicode(self):
       self.assertEqual(toUnicode(ASCII_STRING), unicode(ASCII_STRING, 'utf-8'))
       self.assertEqual(toUnicode(UNICODE_STRING), UNICODE_STRING)
-      self.assertEqual(toUnicode(5),None)
+      self.assertEqual(toUnicode(5),unicode(5))
 
    #############################################################################
    def testToPreferred(self):
