@@ -1949,10 +1949,10 @@ class DlgMultiSpendReview(ArmoryDialog):
                comm = lbox.commentList[i] if lbox else None
 
                wltID = ''
-               if iBundle.wltOfflineSign[i]:
-                  wltID = iBundle.wltOfflineSign[i][0]
-               if iBundle.wltSignRightNow[i]:
-                  wltID = iBundle.wltSignRightNow[i][0]
+               if ib.wltOfflineSign[i]:
+                  wltID = ib.wltOfflineSign[i][0]
+               elif ib.wltSignRightNow[i]:
+                  wltID = ib.wltSignRightNow[i][0]
 
                wltName = '' 
                if wltID:
@@ -2126,10 +2126,17 @@ class DlgMultiSpendReview(ArmoryDialog):
                QMessageBox.Ok)
             return
 
-         
-      for ustxi in ib.ustxiList:
-         addrObj = wlt.getAddrByHash160(a160)
-         ustxi.createAndInsertSignature(pytx, addrObj.binPrivKey32_Plain)
+      if ib.lockbox:
+         # If a lockbox, all USTXIs require the same signing key
+         for ustxi in ib.ustxiList:
+            addrObj = wlt.getAddrByHash160(a160)
+            ustxi.createAndInsertSignature(pytx, addrObj.binPrivKey32_Plain)
+      else:
+         # Not lockboxes... may have to access multiple keys in wallet
+         for ustxi in ib.ustxiList:
+            a160 = CheckHash160(ustxi.scrAddrs[0])
+            addrObj = wlt.getAddrByHash160(a160)
+            ustxi.createAndInsertSignature(pytx, addrObj.binPrivKey32_Plain)
 
       self.evalSigStat()
       
