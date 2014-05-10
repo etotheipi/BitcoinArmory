@@ -355,16 +355,16 @@ class QMoneyLabel(QRichLabel):
       When we set the text of the QMoneyLabel, remember previous values unless
       explicitly respecified
       """
-      if not ndec==None:
+      if not ndec is None:
          self.ndec = ndec
 
-      if not maxZeros==None:
+      if not maxZeros is None:
          self.max0 = maxZeros
 
-      if not wColor==None:
+      if not wColor is None:
          self.colr = wColor
 
-      if not wBold==None:
+      if not wBold is None:
          self.bold = wBold
          
 

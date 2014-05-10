@@ -645,6 +645,9 @@ class ArmoryMainWindow(QMainWindow):
          self.menusList[MENUS.Tools].addAction(actBlindBroad)
 
 
+      cjsf = lambda: DlgMergePromNotes(self, self.main).exec_()
+      actCoinJoin = self.createAction('&CoinJoin/Simulfund', cjsf, True)
+
       if not self.usermode==USERMODE.Expert:
          self.menusList[MENUS.MultiSig].menuAction().setVisible(False)
 
@@ -720,6 +723,9 @@ class ArmoryMainWindow(QMainWindow):
       actBrowseLockboxes = self.createAction(tr('Lockbox Manager...'), execBrowse)
       #self.menusList[MENUS.MultiSig].addAction(actMultiHacker)
       self.menusList[MENUS.MultiSig].addAction(actBrowseLockboxes)
+      
+      # TODO:  Enable when the merge-prom-note dialog can handle no-default LB
+      #self.menusList[MENUS.MultiSig].addAction(actCoinJoin)
 
 
 
@@ -2731,7 +2737,7 @@ class ArmoryMainWindow(QMainWindow):
                   (lb.shortName, lb.M, lb.N, lb.uniqueIDB58)
             return outStr, ('LB:%s' % lb.uniqueIDB58)
 
-      # At this point, we can use the contrib ID
+      # At this point, we can use the contrib ID (and know we can't sign it)
       if contribID:
          outStr = 'Contributor ' + contribID
          return outStr, ('CID:%s' % contribID)

@@ -1598,6 +1598,7 @@ class DecoratedTxOut(object):
          print ind + 'Address:     ', scrAddr_to_addrStr(self.scrAddr)
          if self.p2shScript:
             print ind + 'P2SH Script: ', binary_to_hex(self.p2shScript)[:50]
+
       elif self.scriptType==CPP_TXOUT_MULTISIG:
          print ind + 'Multisig:      %(M)s-of-%(N)s' % self.multiInfo
       print ind + 'Value:       ', coin2strNZS(self.value)

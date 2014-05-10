@@ -884,6 +884,8 @@ class SendBitcoinsFrame(ArmoryFrame):
       funcSetMax = lambda:  self.setMaximum(targWidget)
       self.connect(newBtn, SIGNAL(CLICKED), funcSetMax)
       return newBtn
+
+
    #####################################################################
    def makeRecipFrame(self, nRecip):
       prevNRecip = len(self.widgetTable)
