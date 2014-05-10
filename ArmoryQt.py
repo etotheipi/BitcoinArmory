@@ -49,7 +49,8 @@ from armoryengine.parseAnnounce import *
 from armoryengine.PyBtcWalletRecovery import WalletConsistencyCheck
 
 from armoryengine.MultiSigUtils import MultiSigLockbox
-from ui.MultiSigHacker import DlgSelectMultiSigOption, DlgLockboxManager
+from ui.MultiSigHacker import DlgSelectMultiSigOption, DlgLockboxManager, \
+                              DlgMergePromNotes, DlgCreatePromNote
 
 # HACK ALERT: Qt has a bug in OS X where the system font settings will override
 # the app's settings when a window is activated (e.g., Armory starts, the user
@@ -644,9 +645,19 @@ class ArmoryMainWindow(QMainWindow):
          self.menusList[MENUS.Tools].addAction(actOpenTools)
          self.menusList[MENUS.Tools].addAction(actBlindBroad)
 
+      def mkprom():
+         if not TheBDM.getBDMState()=='BlockchainReady':
+            QMessageBox.warning(self, tr('Offline'), tr("""
+               Armory is currently offline, and cannot determine what funds are
+               available for simulfunding.  Please try again when Armory is in
+               online mode."""), QMessageBox.Ok)
+         else:
+            DlgCreatePromNote(self, self).exec_()
 
-      cjsf = lambda: DlgMergePromNotes(self, self.main).exec_()
-      actCoinJoin = self.createAction('&CoinJoin/Simulfund', cjsf, True)
+
+      cjsf   = lambda: DlgMergePromNotes(self, self).exec_()
+      actMakeProm    = self.createAction('&CoinJoin/Simulfund Promise', mkprom)
+      actPromCollect = self.createAction('&CoinJoin/Simulfund Collect', cjsf)
 
       if not self.usermode==USERMODE.Expert:
          self.menusList[MENUS.MultiSig].menuAction().setVisible(False)
@@ -723,9 +734,8 @@ class ArmoryMainWindow(QMainWindow):
       actBrowseLockboxes = self.createAction(tr('Lockbox Manager...'), execBrowse)
       #self.menusList[MENUS.MultiSig].addAction(actMultiHacker)
       self.menusList[MENUS.MultiSig].addAction(actBrowseLockboxes)
-      
-      # TODO:  Enable when the merge-prom-note dialog can handle no-default LB
-      #self.menusList[MENUS.MultiSig].addAction(actCoinJoin)
+      self.menusList[MENUS.MultiSig].addAction(actMakeProm)
+      self.menusList[MENUS.MultiSig].addAction(actPromCollect)
 
 
 

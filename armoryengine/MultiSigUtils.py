@@ -427,13 +427,24 @@ class MultiSigLockbox(object):
 
 
 ################################################################################
-def computePromissoryID(ustxiList):
+def computePromissoryID(ustxiList=None, dtxoTarget=None, feeAmt=None, 
+                        dtxoChange=None, prom=None):
+
+   if prom:
+      ustxiList  = prom.ustxInputs
+      dtxoTarget = prom.dtxoTarget
+      feeAmt     = prom.feeAmt
+      dtxoChange = prom.dtxoChange
+
    if not ustxiList:
       LOGERROR("Empty ustxiList in computePromissoryID")
       return None
 
    outptList = sorted([ustxi.outpoint.serialize() for ustxi in ustxiList])
-   return binary_to_base58(hash256(''.join(outptList)))[:8]
+   targStr  = dtxoTarget.binScript 
+   targStr += int_to_binary(dtxoTarget.value, widthBytes=8)
+   targStr += dtxoChange.binScript
+   return binary_to_base58(hash256(''.join(outptList) + targStr))[:8]
    
 
 
@@ -483,7 +494,7 @@ class MultiSigPromissoryNote(object):
       self.version = version
       self.magicBytes = MAGIC_BYTES
 
-      self.promID = computePromissoryID(self.ustxInputs)
+      self.promID = computePromissoryID(prom=self)
 
       # Make sure that the change output matches expected, also set contribIDs
       totalInputs = 0

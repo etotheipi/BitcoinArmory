@@ -2320,6 +2320,14 @@ class DlgCreatePromNote(ArmoryDialog):
    def __init__(self, parent, main, defaultID=None):
       super(DlgCreatePromNote, self).__init__(parent, main)
 
+      if not TheBDM.getBDMState()=='BlockchainReady':
+         QMessageBox.warning(self, tr('Offline'), tr("""
+            Armory is currently offline, and cannot determine what funds are
+            available for simulfunding.  Please try again when Armory is in
+            online mode."""), QMessageBox.Ok)
+         self.reject()
+         return
+
       lblDescr  = QRichLabel(tr("""
          <font color="%s" size=4><b>Create Simulfunding Promissory Note
          </b></font>""") % htmlColor('TextBlue'), 
@@ -2647,7 +2655,7 @@ class DlgCreatePromNote(ArmoryDialog):
 class DlgMergePromNotes(ArmoryDialog):
 
    #############################################################################
-   def __init__(self, parent, main, targetLockboxID=None):
+   def __init__(self, parent, main, lboxID=None):
       super(DlgMergePromNotes, self).__init__(parent, main)
 
 
@@ -2656,7 +2664,13 @@ class DlgMergePromNotes(ArmoryDialog):
       self.promNotes = []
       self.promIDSet = set([])
 
-      self.lbox = self.main.getLockboxByID(targetLockboxID)
+      # Will be none
+      if lboxID is None:
+         self.lbox = None
+         self.promMustMatch = None
+      else:
+         self.lbox = self.main.getLockboxByID(lboxID)
+         self.promMustMatch = self.reduceScript(self.lbox.binScript)
 
 
       lblTitle  = QRichLabel(tr("""
@@ -2671,9 +2685,14 @@ class DlgMergePromNotes(ArmoryDialog):
          send it to each contributing party for review and signing."""))
 
 
-      lbTargStr = '<font color="%s"><b>Lockbox %s-of-%s</b>: %s (%s)</font>' % \
-           (htmlColor('TextBlue'), self.lbox.M, self.lbox.N, 
-           self.lbox.shortName, self.lbox.uniqueIDB58)
+      if self.lbox:
+         lbTargStr = '<font color="%s"><b>Lockbox %s-of-%s</b>: %s (%s)</font>' % \
+            (htmlColor('TextBlue'), self.lbox.M, self.lbox.N, 
+            self.lbox.shortName, self.lbox.uniqueIDB58)
+         gboxTarget  = QGroupBox(tr('Lockbox Being Funded'))
+      else:
+         lbTargStr = '<Nothing Loaded Yet>'
+         gboxTarget  = QGroupBox(tr('Address Being Funded'))
 
 
       self.lblTarg = QRichLabel(lbTargStr)
@@ -2685,7 +2704,7 @@ class DlgMergePromNotes(ArmoryDialog):
       self.lblFeeUnits = QRichLabel('BTC')
 
       
-      gboxTarget  = QGroupBox(tr('Lockbox Being Funded'))
+
       gboxTargetLayout = QGridLayout()
       gboxTargetLayout.addWidget(self.lblTarg,      1,0,  1,6)
 
@@ -2787,25 +2806,25 @@ class DlgMergePromNotes(ArmoryDialog):
          return
 
       
-      def reduceScript(script):
-         scrType = getTxOutScriptType(script)
-         if scrType==CPP_TXOUT_MULTISIG:
-            # This is already 
-            script = script_to_p2sh_script(script)
-         return script_to_scrAddr(script)
-         
 
-      compareA = reduceScript(promnote.dtxoTarget.binScript)
-      compareB = reduceScript(self.lbox.binScript)
-
+      promTarget = self.reduceScript(promnote.dtxoTarget.binScript)
       
-      if not compareA==compareB:
+      if not self.promMustMatch:
+         self.promMustMatch = promTarget
+         promScript = promnote.dtxoTarget.binScript 
+         extraStr = ''
+         if getTxOutScriptType(promScript) in CPP_TXOUT_HAS_ADDRSTR:
+            extraStr = '  [%s]' % script_to_addrStr(promScript)
+         contribStr = self.main.getContribStr(promScript, '')[0]
+         self.lblTarg.setText('<font color="%s"><b>%s</b> %s</font>' % \
+            (htmlColor('TextBlue'), contribStr, extraStr ))
+
+      if not promTarget==self.promMustMatch:
          QMessageBox.critical(self, tr('Mismatched Funding Target'), tr("""
             The promissory note you loaded is for a different funding target. 
             Please make sure that all promissory notes are for the target
             specified on the previous window"""), QMessageBox.Ok)
          return
-
 
       self.promNotes.append(promnote)
       self.promIDSet.add(promnote.promID)
@@ -2817,6 +2836,15 @@ class DlgMergePromNotes(ArmoryDialog):
 
       self.updatePromTable()
 
+
+   #############################################################################
+   def reduceScript(self, script):
+      scrType = getTxOutScriptType(script)
+      if scrType==CPP_TXOUT_MULTISIG:
+         # This is already 
+         script = script_to_p2sh_script(script)
+      return script_to_scrAddr(script)
+         
 
    #############################################################################
    def updatePromTable(self):
