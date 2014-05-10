@@ -2731,7 +2731,7 @@ class ArmoryMainWindow(QMainWindow):
                   (lb.shortName, lb.M, lb.N, lb.uniqueIDB58)
             return outStr, ('LB:%s' % lb.uniqueIDB58)
 
-      # At this point, we can use the contrib ID
+      # At this point, we can use the contrib ID (and know we can't sign it)
       if contribID:
          outStr = 'Contributor ' + contribID
          return outStr, ('CID:%s' % contribID)

@@ -1097,7 +1097,11 @@ class DlgLockboxManager(ArmoryDialog):
          will have to re-import it again later in order to send any funds
          to or from the lockbox.
          <br><br>
-         Really remove this lockbox?"""), QMessageBox.Yes | QMessageBox.No) 
+         You are about to remove the following lockbox:
+         <br><br>
+         <font color="%s"><b>Lockbox %s-of-%s: %s</b> (%s)</font> """) % \
+         (htmlColor('TextBlue'), lb.M, lb.N, lb.shortName, lb.uniqueIDB58), 
+         QMessageBox.Yes | QMessageBox.No) 
 
       if reply==QMessageBox.Yes:
          lbObj = self.getSelectedLockbox()
@@ -1711,6 +1715,10 @@ class DlgMultiSpendReview(ArmoryDialog):
       super(DlgMultiSpendReview, self).__init__(parent, main)
 
 
+      LOGDEBUG('Debugging information for multi-spend USTX')
+      ustx.pprint()
+
+
       lblDescr = QRichLabel(tr("""
          The following transaction is a proposed spend of funds controlled
          by multiple parties.  The keyholes next to each input represent 
@@ -1783,6 +1791,7 @@ class DlgMultiSpendReview(ArmoryDialog):
          iBundle.ustxiList.append(ustxi)
          iBundle.sendAmt += ustxi.value
          iBundle.dispStr = hrStr
+         '''
          if not idStr[:2] in ['LB']:
             LOGERROR('Something other than a lockbox on input side')
             QMessageBox.critical(self, tr('Non-lockbox'), tr("""
@@ -1796,31 +1805,56 @@ class DlgMultiSpendReview(ArmoryDialog):
                manager.  <br><br>
                Input that failed:  %s""") % hrStr, QMessageBox.Ok)
             self.reject()
+         '''
 
-         # (ASSUMPTION q38JmNa5) Take note of which lockbox this is
-         iBundle.lockbox = self.main.getLockboxByID(idStr.split(':')[-1])
+         if idStr[:2] in ['LB']:
+            # (ASSUMPTION q38JmNa5) Take note of which lockbox this is
+            iBundle.lockbox = self.main.getLockboxByID(idStr.split(':')[-1])
 
-         # (ASSUMPTION q38JmNa5)
-         # Check whether we have the capability to sign this lockbox
-         iBundle.binScript = iBundle.lockbox.binScript
-         M,N = iBundle.lockbox.M, iBundle.lockbox.N
-         self.maxN = max(N, self.maxN)
-         iBundle.wltOfflineSign  = [None]*N
-         iBundle.wltSignRightNow = [None]*N
-         iBundle.keyholePixmap   = [None]*N
-         for i in range(N):
-            a160 = iBundle.lockbox.a160List[i]
-            wltID = self.main.getWalletForAddr160(a160)
-            iBundle.keyholePixmap[i] = QLabel()
-            iBundle.keyholePixmap[i].setPixmap(self.pixWhite())
-            if wltID:
+            # (ASSUMPTION q38JmNa5)
+            # Check whether we have the capability to sign this lockbox
+            iBundle.binScript = iBundle.lockbox.binScript
+            M,N = iBundle.lockbox.M, iBundle.lockbox.N
+            self.maxN = max(N, self.maxN)
+            iBundle.wltOfflineSign  = [None]*N
+            iBundle.wltSignRightNow = [None]*N
+            iBundle.keyholePixmap   = [None]*N
+            for i in range(N):
+               a160 = iBundle.lockbox.a160List[i]
+               wltID = self.main.getWalletForAddr160(a160)
+               iBundle.keyholePixmap[i] = QLabel()
+               iBundle.keyholePixmap[i].setPixmap(self.pixWhite())
+               if wltID:
+                  wlt = self.main.walletMap[wltID]
+                  wltType = determineWalletType(wlt, self.main)[0]
+                  if wltType in [WLTTYPES.WatchOnly, WLTTYPES.Offline]:
+                     iBundle.wltOfflineSign[i] = [wltID, a160]
+                  else:
+                     iBundle.wltSignRightNow[i] = [wltID, a160]
+                     iBundle.keyholePixmap[i].setPixmap(self.pixGreen())
+         else:
+            iBundle.wltOfflineSign  = [None]
+            iBundle.wltSignRightNow = [None]
+            iBundle.keyholePixmap   = [None]
+            M,N = 1,1
+            self.maxN = 1 
+            if idStr[:3] in ['WLT']:
+               iBundle.keyholePixmap[0] = QLabel()
+               wltID = idStr.split(':')[-1]
                wlt = self.main.walletMap[wltID]
                wltType = determineWalletType(wlt, self.main)[0]
+               a160 = CheckHash160(script_to_scrAddr(ustxi.txoScript))
                if wltType in [WLTTYPES.WatchOnly, WLTTYPES.Offline]:
-                  iBundle.wltOfflineSign[i] = [wltID, a160]
+                  iBundle.wltOfflineSign[0] = [wltID, a160]
+                  iBundle.keyholePixmap[0].setPixmap(self.pixWhite())
                else:
-                  iBundle.wltSignRightNow[i] = [wltID, a160]
-                  iBundle.keyholePixmap[i].setPixmap(self.pixGreen())
+                  iBundle.wltSignRightNow[0] = [wltID, a160]
+                  iBundle.keyholePixmap[0].setPixmap(self.pixGreen())
+            elif idStr[:3] in ['CID', 'ADD', 'NS:', 'MS:']:
+               # In these cases, nothing really to do
+               pass
+               
+            
                
 
       # The output bundles are quite a bit simpler 
@@ -1854,10 +1888,12 @@ class DlgMultiSpendReview(ArmoryDialog):
 
          ib = self.inputBundles[idStr]
 
+         # The header line lists the name and value and any multisig pies
          iWidgMap['HeadLbl'] = QRichLabel(tr("""
             <b><u>Spending:</u> <font color="%s">%s</b></font>""") % \
             (htmlColor('TextBlue'), self.inputBundles[idStr].dispStr), \
             doWrap=False)
+
          val = self.inputBundles[idStr].sendAmt
          iWidgMap['Amount'] = QMoneyLabel(-val, txtSize=12, wBold=True)
 
@@ -1866,7 +1902,7 @@ class DlgMultiSpendReview(ArmoryDialog):
          iWidgMap['KeyImg']  = [None]*self.maxN
          iWidgMap['KeyLbl']  = [None]*self.maxN
          iWidgMap['ChkImg']  = [None]*self.maxN
-         iWidgMap['SignBtn']  = [None]*self.maxN
+         iWidgMap['SignBtn'] = [None]*self.maxN
 
          for i in range(self.maxN):
             iWidgMap['HeadImg'][i] = QLabel()
@@ -1874,7 +1910,6 @@ class DlgMultiSpendReview(ArmoryDialog):
             iWidgMap['KeyLbl' ][i] = QRichLabel('', doWrap=False)
             iWidgMap['ChkImg' ][i] = QLabel()
             iWidgMap['SignBtn'][i] = QPushButton('')
-         
             iWidgMap['ChkImg'][i].setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
 
          # Now actually insert the widgets into a layout
@@ -1903,13 +1938,15 @@ class DlgMultiSpendReview(ArmoryDialog):
 
             # (ASSUMPTION q38JmNa5)
             lbox = self.inputBundles[idStr].lockbox
-            if i >= lbox.N:
+            M = lbox.M if lbox else 1
+            N = lbox.N if lbox else 1
+            if i >= N:
                iWidgMap['SignBtn'][i].setVisible(False)
                iWidgMap['KeyImg' ][i].setVisible(False)
                iWidgMap['KeyLbl' ][i].setVisible(False)
                iWidgMap['ChkImg' ][i].setVisible(False)
             else:
-               comm = lbox.commentList[i]
+               comm = lbox.commentList[i] if lbox else None
 
                wltID = ''
                if iBundle.wltOfflineSign[i]:
@@ -1930,13 +1967,16 @@ class DlgMultiSpendReview(ArmoryDialog):
                   if not wltName:
                      dispStr = comm
                   else:
-                     dispStr = '%s [%s]' % (comm,wltName)
-               iWidgMap['KeyLbl' ][i].setText(dispStr)
+                     dispStr = '%s [%s]' % (comm, wltName)
 
-               iWidgMap['HeadImg'][i].setPixmap(self.pixPie(lbox.M))
+               iWidgMap['KeyLbl' ][i].setText(dispStr)
+               iWidgMap['HeadImg'][i].setPixmap(self.pixPie(M))
                iWidgMap['KeyImg' ][i].setMinimumSize(KEYW,KEYH)
                iWidgMap['ChkImg' ][i].setMinimumSize(CHKW,CHKH)
                iWidgMap['KeyLbl' ][i].setWordWrap(False)
+            
+               if not lbox:
+                  iWidgMap['HeadImg'][i].setVisible(False)
    
             
 
@@ -1945,8 +1985,9 @@ class DlgMultiSpendReview(ArmoryDialog):
                continue
 
             for i in range(self.maxN):
-               lockbox = self.inputBundles[idStr].lockbox
-               if i>= lockbox.N:
+               lbox = self.inputBundles[idStr].lockbox
+               N = lbox.N if lbox else 1
+               if i >= N:
                   widgetList[i].setVisible(False)
             
 
@@ -1995,7 +2036,7 @@ class DlgMultiSpendReview(ArmoryDialog):
             for i in range(self.maxN):
                if i < N:
                   oWidgMap['HeadImg'][i].setPixmap(self.pixPie(M))
-                  oWidgMap['HeadImg'][i].setMinimumSize(KEYW,KEYH)
+                  oWidgMap['HeadImg'][i].setMinimumSize(PIEW,PIEH)
             
 
 
@@ -2081,7 +2122,7 @@ class DlgMultiSpendReview(ArmoryDialog):
          dlg = DlgUnlockWallet(wlt, self, self.main, 'Sign Lockbox')
          if not dlg.exec_():
             QMessageBox.critical(self, 'Wallet is locked',
-               'Cannot sign this lockbox without unlocking wallet!', 
+               'Cannot sign without unlocking wallet!', 
                QMessageBox.Ok)
             return
 
@@ -2098,22 +2139,13 @@ class DlgMultiSpendReview(ArmoryDialog):
       self.canSignMap    = {}
       self.alreadySigned = {}
 
+      # Not sure if we really need this...
       for wltID,pyWlt in self.main.walletMap.iteritems():
          txss = self.ustx.evaluateSigningStatus(pyWlt.cppWallet)
          self.relevancyMap[wltID]  = txss.wltIsRelevant
          self.canSignMap[wltID]    = txss.wltCanSign
          self.alreadySigned[wltID] = txss.wltAlreadySigned
 
-      #class InputBundle(object):
-         #def __init__(self):
-            #self.binScript = ''
-            #self.sendAmt = 0
-            #self.dispStr = ''
-            #self.ustxiList = []
-            #self.lockbox = None
-            #self.wltOfflineSign = []
-            #self.wltSignRightNow = []
-            #self.keyholePixmap = []
 
       # This is complex, for sure.  
       #    The outermost loop goes over all inputs and outputs
@@ -2127,7 +2159,8 @@ class DlgMultiSpendReview(ArmoryDialog):
          # be either ALREADY_SIGNED or NO_SIGNATURE (no WLT* possible)
          isigstat = ib.ustxiList[0].evaluateSigningStatus()
 
-         for i in range(ib.lockbox.N):
+         N = ib.lockbox.N if ib.lockbox else 1
+         for i in range(N):
             signBtn = iWidgMap['SignBtn'][i]
             chkLbl  = iWidgMap['ChkImg'][i]
             keyImg  = iWidgMap['KeyImg'][i]
@@ -2637,8 +2670,8 @@ class DlgMergePromNotes(ArmoryDialog):
 
 
       lblTarg = QRichLabel(lbTargStr)
-      lblPayText = QRichLabel('Funding Amount:')
-      lblFeeText = QRichLabel('Total Fee:')
+      lblPayText = QRichLabel('Total Funding:', doWrap=False)
+      lblFeeText = QRichLabel('Total Fee:', doWrap=False)
       self.lblCurrPay = QMoneyLabel(0, maxZeros=2)
       self.lblCurrFee = QMoneyLabel(0, maxZeros=2)
       self.lblPayUnits = QRichLabel('BTC')
@@ -2844,7 +2877,8 @@ class DlgMergePromNotes(ArmoryDialog):
       dtxoList = []
 
       # We've already made sure all promNotes have the same target
-      dtxoTarget = self.promNotes[0].dtxoTarget
+      firstProm = self.promNotes[0].dtxoTarget
+      dtxoTarget = DecoratedTxOut().unserialize(firstProm.serialize())
       dtxoTarget.value = self.cumulPay
       dtxoList.append(dtxoTarget)
 
