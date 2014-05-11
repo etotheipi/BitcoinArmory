@@ -1216,7 +1216,7 @@ class PyBtcWalletRecovery(object):
                   for i in range(0, self.ncomments):
                      UIupdate = '<b>- Saving comment entries:</b>   %d/%d<br>' \
                                  % (i+1, self.ncomments)
-                     if Progress.UpdateText(self.UIreport + UIupdate) == 0:
+                     if Progress(self.UIreport + UIupdate) == 0:
                         if SecurePassphrase: SecurePassphrase.destroy()
                         if toRecover.kdfKey: toRecover.kdfKey.destroy()
                         if RecoveredWallet.kdfKey: 
