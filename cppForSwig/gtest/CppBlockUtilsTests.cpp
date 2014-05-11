@@ -5838,8 +5838,8 @@ TEST_F(DISABLED_PartialMerkleTest, EmptyTree)
 class ThreadSafeSTLTest : public ::testing::Test
 {
    protected:
-      static ThreadSafeSTL<vector<int>> testTSS;
-      static AtomicInt32 removeTotal;
+      static ts_container<vector<int>> testTSS;
+      static std::atomic_int32_t removeTotal;
 
       virtual void SetUp(void)
       {
@@ -5856,7 +5856,7 @@ class ThreadSafeSTLTest : public ::testing::Test
          int c = *((int*)in);
          c *= 1000;
          for(int i=0; i<1000; i++)
-            testTSS.Add(++c);
+            testTSS.push_back(++c);
 
          return 0;
       }
@@ -5871,85 +5871,91 @@ class ThreadSafeSTLTest : public ::testing::Test
             ++c;
             if(!(rand() % 3))
             {
-               testTSS.Remove(c);
+               testTSS.erase(c);
                total += c;
             }
          }
 
-         removeTotal.Fetch_Add(total);
+         removeTotal.fetch_add(total);
          return 0;
       }
 };
 
-ThreadSafeSTL<vector<int>> ThreadSafeSTLTest::testTSS;
-AtomicInt32                ThreadSafeSTLTest::removeTotal;
+ts_container<vector<int>> ThreadSafeSTLTest::testTSS;
+std::atomic_int32_t       ThreadSafeSTLTest::removeTotal;
 
 TEST_F(ThreadSafeSTLTest, AddRemoveClearAdd)
 {
-   testTSS.Add(1);
-   testTSS.Add(2);
-   testTSS.Add(3);
-   testTSS.Add(4);
+   testTSS.push_back(1);
+   testTSS.push_back(2);
+   testTSS.push_back(3);
+   testTSS.push_back(4);
 
-   TSIterator<vector<int>>* testIter = new TSIterator<vector<int>>(testTSS.GetCurrent());
+   ts_container<vector<int>>::const_snapshot* testSnapshot = \
+      new ts_container<vector<int>>::const_snapshot(testTSS);
+   ts_container<vector<int>>::const_iterator testIter;
 
    int expect = 1+2+3+4;
    int total  = 0;
-   for(testIter; !testIter->end(); (*testIter)++)
-      total += *(*testIter);
+   for(testIter = testSnapshot->begin(); 
+       testIter!= testSnapshot->end(); testIter++)
+      total += (*testIter);
 
    EXPECT_EQ(total, expect);
-   delete testIter;
-
+   delete testSnapshot;
    
-   testTSS.Remove(3);
-   testIter = new TSIterator<vector<int>>(testTSS.GetCurrent());
+   testTSS.erase(3);
+   testSnapshot = new ts_container<vector<int>>::const_snapshot(testTSS);
 
    expect = 1+2+4;
    total  = 0;
 
-   for(testIter; !testIter->end(); (*testIter)++)
-      total += *(*testIter);
+   for (testIter = testSnapshot->begin();
+      testIter != testSnapshot->end(); testIter++)
+      total += (*testIter);
 
    EXPECT_EQ(total, expect);
-   delete testIter;
+   delete testSnapshot;
 
    //grab same snapshot
-   testIter = new TSIterator<vector<int>>(testTSS.GetCurrent());
-   expect = 1+2+4;
+   testSnapshot = new ts_container<vector<int>>::const_snapshot(testTSS);
+   expect = 1 + 2 + 4;
    total  = 0;
 
-   for(testIter; !testIter->end(); (*testIter)++)
-      total += *(*testIter);
+   for (testIter = testSnapshot->begin();
+      testIter != testSnapshot->end(); testIter++)
+      total += (*testIter);
 
    EXPECT_EQ(total, expect);
-   delete testIter;
+   delete testSnapshot;
 
    testTSS.clear();
-   testIter = new TSIterator<vector<int>>(testTSS.GetCurrent());
+   testSnapshot = new ts_container<vector<int>>::const_snapshot(testTSS);
 
    expect = 0;
    total  = 0;
 
-   for(testIter; !testIter->end(); (*testIter)++)
-      total += *(*testIter);
+   for (testIter = testSnapshot->begin();
+      testIter != testSnapshot->end(); testIter++)
+      total += (*testIter);
 
    EXPECT_EQ(total, expect);
-   delete testIter;
+   delete testSnapshot;
 
-   testTSS.Add(5);
-   testTSS.Add(6);
-   testTSS.Add(7);
+   testTSS.push_back(5);
+   testTSS.push_back(6);
+   testTSS.push_back(7);
 
-   testIter = new TSIterator<vector<int>>(testTSS.GetCurrent());
+   testSnapshot = new ts_container<vector<int>>::const_snapshot(testTSS);
 
    expect = 5+6+7;
    total  = 0;
-   for(testIter; !testIter->end(); (*testIter)++)
-      total += *(*testIter);
+   for (testIter = testSnapshot->begin();
+      testIter != testSnapshot->end(); testIter++)
+      total += (*testIter);
 
    EXPECT_EQ(total, expect);
-   delete testIter;
+   delete testSnapshot;
 }
 
 TEST_F(ThreadSafeSTLTest, MultiThreaded_AddRemoveClearAdd)
@@ -5970,8 +5976,9 @@ TEST_F(ThreadSafeSTLTest, MultiThreaded_AddRemoveClearAdd)
       pthread_join(tssThreads[i], 0);
 
    //get iterator for add
-   TSIterator<vector<int>>* tssIter = \
-      new TSIterator<vector<int>>(testTSS.GetCurrent());
+   ts_container<vector<int>>::const_snapshot* testSnapshot = \
+      new ts_container<vector<int>>::const_snapshot(testTSS);
+   ts_container<vector<int>>::const_iterator testIter;
 
    //randomly remove some elements
    for(i=0; i<nThreads; i++)
@@ -5980,33 +5987,35 @@ TEST_F(ThreadSafeSTLTest, MultiThreaded_AddRemoveClearAdd)
    //run through iterator
    int expect = ((nThreads*nThreads*1000*1000)+nThreads*1000)/2;
    int total  = 0;
-   for(tssIter; !tssIter->end(); (*tssIter)++)
-      total += *(*tssIter);
-   
+   for (testIter = testSnapshot->begin();
+      testIter != testSnapshot->end(); testIter++)
+      total += (*testIter);
+
    EXPECT_EQ(total, expect);
-   delete tssIter;
+   delete testSnapshot;
 
    //wait on the remove threads
    for(i=0; i<nThreads; i++)
       pthread_join(tssThreads[i], 0);
 
    //get iterator for remove
-   tssIter = new TSIterator<vector<int>>(testTSS.GetCurrent());
+   testSnapshot = new ts_container<vector<int>>::const_snapshot(testTSS);
 
    //clear
    testTSS.clear();
 
    //run through iterator
-   expect -= removeTotal.Get();
+   expect -= removeTotal.load();
    total  = 0;
-   for(tssIter; !tssIter->end(); (*tssIter)++)
-      total += **tssIter;
+   for (testIter = testSnapshot->begin();
+      testIter != testSnapshot->end(); testIter++)
+      total += (*testIter);
 
    EXPECT_EQ(total, expect);
-   delete tssIter;
+   delete testSnapshot;
 
    //get iterator for clear
-   tssIter = new TSIterator<vector<int>>(testTSS.GetCurrent());
+   testSnapshot = new ts_container<vector<int>>::const_snapshot(testTSS);
 
    //new round of add
    for(i=0; i<nThreads; i++)
@@ -6018,28 +6027,30 @@ TEST_F(ThreadSafeSTLTest, MultiThreaded_AddRemoveClearAdd)
    //run through clear iterator
    expect = 0;
    total  = 0;
-   for(tssIter; !tssIter->end(); (*tssIter)++)
-      total += **tssIter;
+   for (testIter = testSnapshot->begin();
+      testIter != testSnapshot->end(); testIter++)
+      total += (*testIter);
 
    EXPECT_EQ(total, expect);
-   delete tssIter;
+   delete testSnapshot;
 
    //wait on new add
    for(i=0; i<nThreads; i++)
       pthread_join(tssThreads[i], 0);
 
    //grab last iterator
-   tssIter = new TSIterator<vector<int>>(testTSS.GetCurrent());
-   
+   testSnapshot = new ts_container<vector<int>>::const_snapshot(testTSS);
+
    //run through last iterator
    expect = (3*nThreads*nThreads*1000000 + nThreads*1000)/2;
    total  = 0;
-   for(tssIter; !tssIter->end(); (*tssIter)++)
-      total += **tssIter;
+   for (testIter = testSnapshot->begin();
+      testIter != testSnapshot->end(); testIter++)
+      total += (*testIter);
 
    EXPECT_EQ(total, expect);
-   delete tssIter;
-   
+   delete testSnapshot;
+
    free(tssThreads);
    free(threadParam);
 }
@@ -6464,7 +6475,6 @@ TEST_F(BlockUtilsBare, Load5Blocks_RescanOps)
 
    // Rebuild on-the-fly
    TheBDM.doRebuildDatabases();
-   //TheBDM.scanBlockchainForTx(wlt);
 
    scrobj = &wlt.getScrAddrObjByKey(scrAddrA_);
    EXPECT_EQ(scrobj->getFullBalance(),100*COIN);
@@ -6475,7 +6485,6 @@ TEST_F(BlockUtilsBare, Load5Blocks_RescanOps)
 
    // Rebuild on-the-fly
    TheBDM.doFullRescanRegardlessOfSync();
-   //TheBDM.scanBlockchainForTx(wlt);
 
    scrobj = &wlt.getScrAddrObjByKey(scrAddrA_);
    EXPECT_EQ(scrobj->getFullBalance(),100*COIN);
@@ -6486,7 +6495,6 @@ TEST_F(BlockUtilsBare, Load5Blocks_RescanOps)
    
 
    TheBDM.doSyncIfNeeded();
-   //TheBDM.scanBlockchainForTx(wlt);
 
    scrobj = &wlt.getScrAddrObjByKey(scrAddrA_);
    EXPECT_EQ(scrobj->getFullBalance(),100*COIN);

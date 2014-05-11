@@ -10,9 +10,8 @@
 class BlockDataManager_LevelDB;
 
 typedef map<BinaryData, RegisteredScrAddr> rsaMap;
-template class ThreadSafeSTLPair<rsaMap>;
-typedef ThreadSafeSTLPair<rsaMap> ts_rsaMap;
-template class TSIterator<rsaMap>;
+template class ts_pair_container<rsaMap>;
+typedef ts_pair_container<rsaMap> ts_rsaMap;
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -192,18 +191,18 @@ public:
    int  countOutPoints(const OutPoint &op) const {return registeredOutPoints_.count(op);}
    void insertRegisteredTxIfNew(HashString txHash);
    bool scrAddrIsRegistered(HashString scraddr)
-                     {return registeredScrAddrMap_.isInMap(scraddr);}
+                     {return registeredScrAddrMap_.contains(scraddr);}
    void scanRegisteredTxList( uint32_t blkStart, uint32_t blkEnd);
    void updateRegisteredScrAddrs(uint32_t newTopBlk);
    uint32_t numBlocksToRescan(uint32_t endBlk);
-   RegisteredScrAddr& getRegisteredScrAddr(const BinaryData& uniqKey)
+   const RegisteredScrAddr& getRegisteredScrAddr(const BinaryData& uniqKey)
    {
-      ThreadSafeSTLPair<map<HashString, RegisteredScrAddr>>::findResult \
-                             findRes = registeredScrAddrMap_.find(uniqKey);
+      ts_rsaMap::const_snapshot rsaMap_snapshot(registeredScrAddrMap_);
+      rsaMap::const_iterator rsaMap_iter = rsaMap_snapshot.find(uniqKey);
       
-      if (!findRes.found)
+      if (rsaMap_iter != rsaMap_snapshot.end())
          throw std::runtime_error("Could not find RegisteredScrAddr with key=" + uniqKey.toHexStr());
-      return findRes.iter->second;
+      return (*rsaMap_iter).second;
    }
    ts_rsaMap* getRegisteredScrAddrMap(void)
          { return &registeredScrAddrMap_; }

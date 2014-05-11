@@ -11,13 +11,6 @@
 
 #include <stdio.h>
 #include <iostream>
-//#ifdef WIN32
-//#include <cstdint>
-//#else
-//#include <stdlib.h>
-//#include <inttypes.h>
-//#include <cstring>
-//#endif
 #include <fstream>
 #include <vector>
 #include <queue>
@@ -73,9 +66,8 @@ typedef enum
 class BtcWallet;
 
 typedef set<BtcWallet*> set_BtcWallet;
-template class ThreadSafeSTL<set_BtcWallet>;
-typedef ThreadSafeSTL<set_BtcWallet> ts_setBtcWallet;
-template class TSIterator<set_BtcWallet>;
+template class ts_container<set_BtcWallet>;
+typedef ts_container<set_BtcWallet> ts_setBtcWallet;
 
 struct ZeroConfData
 {
