@@ -64,9 +64,9 @@ namespace std
    %template(map_rsa) std::map<BinaryData, RegisteredScrAddr>;
 }
 
-%include "ThreadSafeContainer.h"
+/*%include "ThreadSafeContainer.h"*/
 
-%template(ts_setBtcWallet) ThreadSafeSTL<set_BtcWallet>;
+/*%template(ts_setBtcWallet) ts_pair_container<rsaMap>;*/
 
 /******************************************************************************/
 /* Convert Python(str) to C++(BinaryData) */

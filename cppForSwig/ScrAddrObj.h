@@ -63,11 +63,11 @@ public:
    // only a convenience, if you want to be able to calculate numConf from
    // the Utxos in the list.  If you don't care (i.e. you only want to 
    // know what TxOuts are available to spend, you can pass in 0 for currBlk
-   uint64_t getFullBalance(void);
+   uint64_t getFullBalance(void) const;
    uint64_t getSpendableBalance(uint32_t currBlk=0, 
-                                bool ignoreAllZeroConf=false);
+                                bool ignoreAllZeroConf=false) const;
    uint64_t getUnconfirmedBalance(uint32_t currBlk, 
-                                  bool includeAllZeroConf=false);
+                                  bool includeAllZeroConf=false) const;
    vector<UnspentTxOut> getFullTxOutList(uint32_t currBlk=0);
    vector<UnspentTxOut> getSpendableTxOutList(uint32_t currBlk=0, 
                                               bool ignoreAllZeroConf=false);
@@ -78,6 +78,9 @@ public:
    vector<LedgerEntry> & getZeroConfLedger(void) { return ledgerZC_; }
 
    vector<TxIOPair*> &   getTxIOList(void) { return relevantTxIOPtrs_; }
+   const vector<TxIOPair*> & getTxIOList(void) const 
+                           { return relevantTxIOPtrs_; }
+
 
    void addTxIO(TxIOPair * txio, bool isZeroConf=false);
    void addTxIO(TxIOPair & txio, bool isZeroConf=false);
@@ -86,7 +89,10 @@ public:
    void pprintLedger(void);
    void clearBlkData(void);
 
-   
+   bool operator== (const ScrAddrObj& rhs) const
+   {
+      return (scrAddr_ == rhs.scrAddr_);
+   }
 
 private:
    BinaryData     scrAddr_; // this includes the prefix byte!

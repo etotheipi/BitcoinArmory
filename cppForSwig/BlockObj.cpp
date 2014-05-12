@@ -1016,7 +1016,7 @@ pair<bool,bool> TxIOPair::reassessValidity(void)
 
 
 //////////////////////////////////////////////////////////////////////////////
-bool TxIOPair::isSpent(void)
+bool TxIOPair::isSpent(void) const
 { 
    // Not sure whether we should verify hasTxOut.  It wouldn't make much 
    // sense to have TxIn but not TxOut, but there might be a preferred 
@@ -1026,14 +1026,14 @@ bool TxIOPair::isSpent(void)
 
 
 //////////////////////////////////////////////////////////////////////////////
-bool TxIOPair::isUnspent(void)
+bool TxIOPair::isUnspent(void) const
 { 
    return ( (hasTxOutInMain() || hasTxOutZC()) && !isSpent());
 
 }
 
 //////////////////////////////////////////////////////////////////////////////
-bool TxIOPair::isSpendable(uint32_t currBlk, bool ignoreAllZeroConf)
+bool TxIOPair::isSpendable(uint32_t currBlk, bool ignoreAllZeroConf) const
 { 
    // Spendable TxOuts are ones with at least 1 confirmation, or zero-conf
    // TxOuts that were sent-to-self.  Obviously, they should be unspent, too
@@ -1056,7 +1056,7 @@ bool TxIOPair::isSpendable(uint32_t currBlk, bool ignoreAllZeroConf)
 }
 
 //////////////////////////////////////////////////////////////////////////////
-bool TxIOPair::isMineButUnconfirmed(uint32_t currBlk, bool inclAllZC)
+bool TxIOPair::isMineButUnconfirmed(uint32_t currBlk, bool inclAllZC) const
 {
    // All TxOuts that were from our own transactions are always confirmed
    if(isTxOutFromSelf())

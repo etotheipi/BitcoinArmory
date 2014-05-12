@@ -657,10 +657,11 @@ public:
    bool isSourceUnknown(void) { return ( !hasTxOut() &&  hasTxIn() ); }
    bool isStandardTxOutScript(void);
 
-   bool isSpent(void);
-   bool isUnspent(void);
-   bool isSpendable(uint32_t currBlk=0, bool ignoreAllZeroConf=false);
-   bool isMineButUnconfirmed(uint32_t currBlk, bool includeAllZeroConf=false);
+   bool isSpent(void) const;
+   bool isUnspent(void) const;
+   bool isSpendable(uint32_t currBlk=0, bool ignoreAllZeroConf=false) const;
+   bool isMineButUnconfirmed(\
+        uint32_t currBlk, bool includeAllZeroConf=false) const;
    void clearZCFields(void);
    void pprintOneLine(void);
 

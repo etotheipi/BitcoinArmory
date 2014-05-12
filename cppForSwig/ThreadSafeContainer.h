@@ -6,17 +6,48 @@ data over concurent read/write.
 The class is split between sinlge and pair containers, to support the diverging
 mechanics of single type containers (list, vector) and paired ones (map)
 
+YOU CANNOT GET THE CONTAINED OBJECTS BY REFERENCE WITH THESE CLASSES
+
+Get an iterator pointing at the contained object, or use operator[]
+when it applies, modify the object, then reassign it to the container:
+
+*with operator[]*
+   ts_pair_container<std::map<int, myObj>> tsMap;
+
+   *...populate the container...*
+
+   ts_pair<std::map<int, myObj>> somePair = tsMap[someIndex];
+   myObj theObj = somePair.get();
+
+   *...update theObj...*
+
+   somePair = theObj; //updates pair and container
+
+*with snapshot and iterator*
+
+   ts_pair_container<std::map<int, myObj>> tsMap;
+
+   *...populate the container...*
+
+   ts_pair_container<std::vector<int>>::snapshot mapSS(tsMap);
+   ts_pair_container<std::vector<int>>::itertor  mapIter;
+
+   mapIter = mapSS.find(someObj);
+
+   if(mapIter != mapSS.end())
+      mapIter = newObj; //updates iter, snapshot and container.
+
 The classes function on a 3 layer basis:
 
 1) The "container" class maintains the main object and updates it. It creates 
 snapshots of the main object on demand. It can be used to directly insert or
 delete objects, as with regular STL containers. The following code is valid:
 
-ts_container<std::vector<int>> ts_intvector;
-ts_intvector.push_back(1);
-ts_intvector.push_back(10);
-ts_intvector.erase(1)
-ts_intvector.clear();
+   ts_container<std::vector<int>> ts_intvector;
+   ts_intvector.push_back(1);
+   ts_intvector.push_back(10);
+   ts_intvector.erase(1)
+   ts_intvector.clear();
 
 You cannot iterate over the container class, only snapshots. It does not expose
 begin() or end() methods. No find() is exposed either, for the same purpose.
@@ -25,8 +56,8 @@ Use a snapshot to find().
 The container class exposes the type of its
 snapshot and iterator:
 
-ts_container<T>::snapshot
-ts_container<T>::iterator
+   ts_container<T>::snapshot
+   ts_container<T>::iterator
 
 2) The "snapshot" class is meant to create snapshots, maintain changes, and
 be iterated over. It does not have a void constructor. It will always be
@@ -58,21 +89,21 @@ from which begin() was called. This allows for modification to each increment
 of the iterator to be mirrored in the snapshot and its container. This behavior
 is only available with paired iterators. The following is valid:
 
-ts_pair_container<std::map<std::string, myobj>> myts_map;
+   ts_pair_container<std::map<std::string, myobj>> myts_map;
 
-*...modify the object...*
+   *...modify the object...*
 
-ts_pair_container<std::map<std::string, myobj>>::snapshot 
-                                                 myts_snapshot(myts_map);
+   ts_pair_container<std::map<std::string, myobj>>::snapshot 
+                                                    myts_snapshot(myts_map);
 
-ts_pair_container<std::map<std::string, myobj>>::iterator iter;
+   ts_pair_container<std::map<std::string, myobj>>::iterator iter;
 
-for(iter = myts_snapshot.begin(); iter != myts_snapshot.end(); iter++)
-{
-   myobj modded_obj = (*iter).second
-   *...modify modded_obj...*
-   iter = modded_obj
-}
+   for(iter = myts_snapshot.begin(); iter != myts_snapshot.end(); iter++)
+   {
+      myobj modded_obj = (*iter).second
+      *...modify modded_obj...*
+      iter = modded_obj
+   }
 
 This will not work with single containers. Syntax wise, the iterator class is
 meant to behave like its STL counter part.
@@ -147,19 +178,20 @@ template <typename T> class ts_container
 
    public:
       typedef typename T::iterator I;
+      typedef typename T::const_iterator CI;
       typedef typename std::iterator_traits<I>::value_type obj_type;
 
    protected:
       
       struct findResult
       {
-         I iter;
+         CI iter;
          bool found;
       };
 
-      ObjectContainer* current_;
-      ObjectContainer* expire_;
-      ObjectContainer* expireNext_;
+      mutable ObjectContainer* current_;
+      mutable ObjectContainer* expire_;
+      mutable ObjectContainer* expireNext_;
 
       ObjectContainer*  toModify_;
       ObjectContainer*  lastModifyItem_;
@@ -168,12 +200,14 @@ template <typename T> class ts_container
       std::atomic_int32_t writeLock_;
       std::atomic_int32_t commitLock_;
       std::atomic_int32_t deleteLock_;
-      std::atomic_int32_t updateLock_;
-      std::atomic_int32_t expireLock_;
+      
+      mutable std::atomic_int32_t expireLock_;
+      mutable std::atomic_int32_t updateLock_;
 
       T mainObject_;
 
       unsigned long long id_;
+      uint32_t nObjects_;
 
       void WipeToModify(void)
       {
@@ -321,10 +355,8 @@ template <typename T> class ts_container
          //not implemented yet
       }
 
-      const ObjectContainer* GetConstCurrent(void)
+      const ObjectContainer* GetConstCurrent(void) const
       {
-         CommitChanges();
-
          while (1)
          {
             ObjectContainer *toIterate = NULL;
@@ -431,7 +463,8 @@ template <typename T> class ts_container
       typedef typename ts_const_snapshot<T> const_snapshot;
       typedef typename ts_const_iterator<T> const_iterator;
 
-      static const unsigned int maxMergePerThread_ = 1000;
+      //this can get in the way of consting GetCurrent
+      static const unsigned int maxMergePerThread_ = 5000;
 
       ts_container(void)
       {
@@ -449,7 +482,8 @@ template <typename T> class ts_container
          updateLock_ = 0;
          expireLock_ = 0;
 
-         id_=0;
+         id_ = 0;
+         nObjects_ = 0;
       }
 
       ~ts_container(void)
@@ -481,13 +515,13 @@ template <typename T> class ts_container
          WipeToModify();
       }
 
-      virtual bool contains(const obj_type& toFind)
+      virtual bool contains(const obj_type& toFind) const
       {
          const ObjectContainer* toSearch = GetConstCurrent();
                
          bool found = false;
          T* theObject = (T*)toSearch->object_;
-         I result = std::find(theObject->begin(), theObject->end(), toFind);
+         CI result = std::find(theObject->begin(), theObject->end(), toFind);
          if(result != theObject->end())
             found = true;
 
@@ -523,6 +557,11 @@ template <typename T> class ts_container
       {
          Remove((*toErase));
       }
+
+      uint32_t size(void) const
+      {
+         return nObjects_;
+      }
 };
 
 template <typename T> class ts_pair_container :
@@ -534,19 +573,20 @@ public ts_container<T>
 
    friend class ts_const_pair_snapshot<T>;
    friend class ts_const_pair_iterator<T>;
-
-   private:
+      
+   public:
       typedef typename obj_type::first_type key_type;
       typedef typename obj_type::second_type mapped_type;
 
-      void Add(key_type first, mapped_type second)
+   private:
+      void Add(const key_type& first, const mapped_type& second)
       {
          std::pair<key_type, mapped_type> toAdd(first, second);
 
          Modify(toAdd, 1);
       }
 
-      void Remove(key_type first)
+      void Remove(const key_type& first)
       {
          mapped_type second;
          std::pair<key_type, mapped_type> toRemove(first, second);
@@ -564,7 +604,7 @@ public ts_container<T>
          updateLock_.store(0, std::memory_order_release);
       }
 
-      void Modify(obj_type& input, int change)
+      void Modify(const obj_type& input, int change)
       {
          ObjectContainer* addMod = new ObjectContainer;
          obj_type* obj = new obj_type(input.first, input.second);
@@ -599,9 +639,11 @@ public ts_container<T>
                mainObject_.insert(mainObject_.end(),
                   *(obj_type*)toModify_->object_);
 
+               toModify_->counter_ = 0;
+               nObjects_++;
+               
                writeSema_.fetch_sub(1, std::memory_order_release);
                addCounter++;
-               toModify_->counter_ = 0;
             }
             else if (toModify_->counter_ == -1)
             {
@@ -611,6 +653,8 @@ public ts_container<T>
                   mainObject_.erase(toErase);
 
                toModify_->counter_ = 0;
+               nObjects_--;
+               
                writeSema_.fetch_sub(1, std::memory_order_release);
                addCounter++;
             }
@@ -630,12 +674,12 @@ public ts_container<T>
          DeleteExpired();
       }
 
-      findResult Find(const key_type& toFind)
+      findResult Find(const key_type& toFind) const
       {
          const ObjectContainer* lookIn = GetConstCurrent();
          T* lookInObj = (T*)lookIn->object_;
 
-         I iter = lookInObj->find(toFind);
+         CI iter = lookInObj->find(toFind);
 
          findResult res;
          res.iter = iter;
@@ -663,21 +707,22 @@ public ts_container<T>
 
       typedef typename ts_pair_snapshot<T> snapshot;
       typedef typename ts_pair_iterator<T> iterator;
+      typedef typename ts_pair<T> pair;
 
       typedef typename ts_const_pair_snapshot<T> const_snapshot;
       typedef typename ts_const_pair_iterator<T> const_iterator;
-
+      
       ts_pair_container(void) : ts_container()
       {}
 
 
-      bool contains(const key_type& toFind)
+      bool contains(const key_type& toFind) const
       {
          const ObjectContainer* toSearch = GetConstCurrent();
 
          bool found = false;
          T* theObject = (T*)toSearch->object_;
-         I result = theObject->find(toFind);
+         CI result = theObject->find(toFind);
          if (result != theObject->end())
             found = true;
 
@@ -702,6 +747,14 @@ public ts_container<T>
 
             return returnPair;
          }
+      }
+
+      const mapped_type& operator[] (const key_type& rhs) const
+      {
+         //const version, undefined if the key isnt in map
+         findResult toFind = Find(rhs);
+
+         return (*toFind.iter).second;
       }
 };
 
@@ -743,9 +796,11 @@ template<typename T> class ts_snapshot
          return object_->end();
       }
 
-      I find(const obj_type& toFind)
+      ts_iterator<T> find(const obj_type& toFind)
       {
-         return object_->find(toFind);
+         ts_iterator<T> iter;
+         iter.Set(object_->find(toFind), this);
+         return iter;
       }
       
       void push_back(const obj_type& toAdd)
@@ -779,7 +834,7 @@ template<typename T> class ts_const_snapshot
       const T *object_;
 
    public:
-      ts_const_snapshot(ts_container<T>& parent) :
+      ts_const_snapshot(const ts_container<T>& parent):
          object_(NULL)
       {
          parent_ = &parent;
@@ -871,7 +926,7 @@ public ts_const_snapshot<T>
       const ts_pair_container<T> *parent_;
 
    public:
-      ts_const_pair_snapshot(ts_pair_container<T>& parent) 
+      ts_const_pair_snapshot(const ts_pair_container<T>& parent) 
          : ts_const_snapshot(parent)
       {
          parent_ = &parent;
@@ -930,10 +985,9 @@ template <typename T> class ts_iterator
          return *iter_;
       }
 
-      void operator= (const ts_snapshot<T>* rhs)
+      void operator= (const obj_type& rhs)
       {
-         snapshot_ = rhs;
-         iter_ = snapshot_->object_->begin();
+         iter_ = snapshot_->Set(iter_, rhs);
       }
 
       bool operator!= (const I& rhs)
@@ -941,6 +995,10 @@ template <typename T> class ts_iterator
          return (iter_ != rhs);
       }
 
+      bool operator== (const I& rhs) const
+      {
+         return iter_ == rhs;
+      }
 };
 
 template <typename T> class ts_const_iterator
@@ -981,6 +1039,11 @@ template <typename T> class ts_const_iterator
       bool operator!= (const I& rhs)
       {
          return (iter_ != rhs);
+      }
+
+      bool operator== (const I& rhs) const
+      {
+         return iter_ == rhs;
       }
 };
 
@@ -1046,46 +1109,53 @@ public ts_const_iterator<T>
 
 template <typename T> class ts_pair
 {
-private:
-   typedef typename T::iterator I;
-   typedef typename std::iterator_traits<I>::value_type pair_type;
+   private:
+      typedef typename T::iterator I;
+      typedef typename T::const_iterator CI;
+      typedef typename std::iterator_traits<I>::value_type pair_type;
 
-   typedef typename pair_type::first_type key_type;
-   typedef typename pair_type::second_type mapped_type;
+      typedef typename pair_type::first_type key_type;
+      typedef typename pair_type::second_type mapped_type;
    
-   ts_pair_container<T> *container_;
-   key_type first_;
-   mapped_type second_;
+      ts_pair_container<T> *container_;
+      key_type first_;
+      mapped_type second_;
 
-public:
+   public:
 
-   ts_pair(const key_type& f, const mapped_type& s,
-      ts_pair_container<T> * const cont) :
-      first_(f) 
-   {
-      second_ = s;
-      container_ = cont;
-   }
+      ts_pair(const key_type& f, const mapped_type& s,
+         ts_pair_container<T> * const cont) :
+         first_(f) 
+      {
+         second_ = s;
+         container_ = cont;
+      }
 
-   ts_pair(I &iter, ts_pair_container<T> *cont) :
-      first_((*iter).first)
-   {
-      second_ = (*iter).second;
-      container_ = cont;
-   }
+      ts_pair(const I &iter, ts_pair_container<T> *cont) :
+         first_((*iter).first)
+      {
+         second_ = (*iter).second;
+         container_ = cont;
+      }
 
-   mapped_type& operator= (const mapped_type& rhs)
-   {
-      container_->Set(first_, rhs);
-      second_ = rhs;
+      ts_pair(const CI &iter, ts_pair_container<T> *cont) :
+         first_((*iter).first)
+      {
+         second_ = (*iter).second;
+         container_ = cont;
+      }
 
-      return second_;
-   }
+      mapped_type& operator= (const mapped_type& rhs)
+      {
+         container_->Set(first_, rhs);
+         second_ = rhs;
 
-   const mapped_type& get(void)
-   {
-      return second_;
-   }
+         return second_;
+      }
+
+      const mapped_type& get(void) const
+      {
+         return second_;
+      }
 };
-
 #endif

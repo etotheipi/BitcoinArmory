@@ -13,6 +13,10 @@ typedef map<BinaryData, RegisteredScrAddr> rsaMap;
 template class ts_pair_container<rsaMap>;
 typedef ts_pair_container<rsaMap> ts_rsaMap;
 
+typedef map<BinaryData, ScrAddrObj> saMap;
+template class ts_pair_container<saMap>;
+typedef ts_pair_container<saMap> ts_saMap;
+
 
 ////////////////////////////////////////////////////////////////////////////////
 class AddressBookEntry
@@ -57,7 +61,7 @@ class BtcWallet
 public:
    BtcWallet(BlockDataManager_LevelDB* bdm=0)
       : bdmPtr_(bdm), lastScanned_(0), allScannedUpToBlk_(0), 
-        ignoreLastScanned_(true), isInitialized_(true) {}
+        ignoreLastScanned_(true), isInitialized_(false) {}
    ~BtcWallet(void);
 
    /////////////////////////////////////////////////////////////////////////////
@@ -127,31 +131,40 @@ public:
    // only a convenience, if you want to be able to calculate numConf from
    // the Utxos in the list.  If you don't care (i.e. you only want to 
    // know what TxOuts are available to spend, you can pass in 0 for currBlk
-   uint64_t getFullBalance(void);
+   uint64_t getFullBalance(void) const;
    uint64_t getSpendableBalance(uint32_t currBlk=0, 
-                                bool ignoreAllZeroConf=false);
+                                bool ignoreAllZeroConf=false) const;
    uint64_t getUnconfirmedBalance(uint32_t currBlk,
-                                  bool includeAllZeroConf=false);
+                                  bool includeAllZeroConf=false) const;
+
+   /*uint64_t getFullBalance(void);
+   uint64_t getSpendableBalance(uint32_t currBlk = 0,
+      bool ignoreAllZeroConf = false);
+   uint64_t getUnconfirmedBalance(uint32_t currBlk,
+      bool includeAllZeroConf = false);*/
+
+
    vector<UnspentTxOut> getFullTxOutList(uint32_t currBlk=0);
    vector<UnspentTxOut> getSpendableTxOutList(uint32_t currBlk=0,
                                               bool ignoreAllZeroConf=false);
    void clearZeroConfPool(void);
 
-   
-   uint32_t     getNumScrAddr(void) const {return scrAddrMap_.size();}
-   ScrAddrObj& getScrAddrObjByIndex(uint32_t i) { return *(scrAddrPtrs_[i]); }
-   const ScrAddrObj & getScrAddrObjByIndex(uint32_t i) const { return *(scrAddrPtrs_[i]); }
    const ScrAddrObj& getScrAddrObjByKey(BinaryData const & a) const
    {
-      map<BinaryData, ScrAddrObj>::const_iterator i = scrAddrMap_.find(a);
-      if (i == scrAddrMap_.end())
+      ts_saMap::const_snapshot saSnapshot(scrAddrMap_);
+      map<BinaryData, ScrAddrObj>::const_iterator i = saSnapshot.find(a);
+      
+      if (i == saSnapshot.end())
          throw std::runtime_error("Could not find ScrAddrObject with key=" + a.toHexStr());
       return i->second;
    }
-   ScrAddrObj& getScrAddrObjByKey(BinaryData const & a)
+
+   const ScrAddrObj& getScrAddrObjByKey(BinaryData const & a)
    {
-      map<BinaryData, ScrAddrObj>::iterator i = scrAddrMap_.find(a);
-      if (i == scrAddrMap_.end())
+      ts_saMap::const_snapshot saSnapshot(scrAddrMap_);
+      map<BinaryData, ScrAddrObj>::const_iterator i = saSnapshot.find(a);
+
+      if (i == saSnapshot.end())
          throw std::runtime_error("Could not find ScrAddrObject with key=" + a.toHexStr());
       return i->second;
    }
@@ -159,8 +172,10 @@ public:
    void     sortLedger(void);
    uint32_t removeInvalidEntries(void);
 
-   vector<LedgerEntry> &     getZeroConfLedger(BinaryData const * scrAddr=NULL);
-   vector<LedgerEntry> &     getTxLedger(BinaryData const * scrAddr=NULL); 
+   const vector<LedgerEntry> 
+      getZeroConfLedger(BinaryData const * scrAddr = NULL) const;
+   const vector<LedgerEntry> 
+      getTxLedger(BinaryData const * scrAddr=NULL) const; 
    map<OutPoint, TxIOPair> & getTxIOMap(void)    {return txioMap_;}
    map<OutPoint, TxIOPair> & getNonStdTxIO(void) {return nonStdTxioMap_;}
 
@@ -194,13 +209,13 @@ public:
                      {return registeredScrAddrMap_.contains(scraddr);}
    void scanRegisteredTxList( uint32_t blkStart, uint32_t blkEnd);
    void updateRegisteredScrAddrs(uint32_t newTopBlk);
-   uint32_t numBlocksToRescan(uint32_t endBlk);
+   uint32_t numBlocksToRescan(uint32_t endBlk) const;
    const RegisteredScrAddr& getRegisteredScrAddr(const BinaryData& uniqKey)
    {
       ts_rsaMap::const_snapshot rsaMap_snapshot(registeredScrAddrMap_);
       rsaMap::const_iterator rsaMap_iter = rsaMap_snapshot.find(uniqKey);
       
-      if (rsaMap_iter != rsaMap_snapshot.end())
+      if (rsaMap_iter == rsaMap_snapshot.end())
          throw std::runtime_error("Could not find RegisteredScrAddr with key=" + uniqKey.toHexStr());
       return (*rsaMap_iter).second;
    }
@@ -231,8 +246,14 @@ public:
 
    bool removeRegisteredTx(BinaryData const & txHash);
    void rescanWalletZeroConf(void);
+   uint32_t evalLowestBlockNextScan(void);
+   
+   //saving scrAddr data to the DB from wallet side
+   void saveScrAddrHistories(void);
+
    //end of 1:1 wallets
    
+   uint32_t getNumScrAddr(void) const { return scrAddrMap_.size(); }
    void fetchDBRegisteredScrAddrData(void);
    void fetchDBRegisteredScrAddrData(BinaryData const & scrAddr);
 
@@ -241,8 +262,7 @@ private:
    vector<LedgerEntry> & getEmptyLedger(void) { EmptyLedger_.clear(); return EmptyLedger_;}
 
 private:
-   vector<ScrAddrObj*>          scrAddrPtrs_;
-   map<BinaryData, ScrAddrObj>  scrAddrMap_;
+   ts_saMap                     scrAddrMap_;
    map<OutPoint, TxIOPair>      txioMap_;
 
    //for 1:1 wallets

@@ -98,7 +98,6 @@ static void* run(void *_threadparams)
       if(prevTopBlk = theBDM->readBlkFileUpdate())
       {
          theBDM->scanWallets(prevTopBlk);
-         theBDM->saveScrAddrHistories();
 
          currentBlock = theBDM->blockchain().top().getBlockHeight();
          
@@ -110,7 +109,6 @@ static void* run(void *_threadparams)
       threadparams->inject->wait(1000);
    }
 
-   theBDM->saveScrAddrHistories();
    theBDM->reset();
 
    delete threadparams;
@@ -134,7 +132,6 @@ BlockDataManager_LevelDB * startBDM(
    if(!mode) tp->bdm->doInitialSyncOnLoad();
    else if(mode==1) tp->bdm->doInitialSyncOnLoad_Rescan();
    else if(mode==2) tp->bdm->doInitialSyncOnLoad_Rebuild();
-   tp->bdm->saveScrAddrHistories();
 
    //push 'bdm is ready' to Python
    callback->run(1, 0, tp->bdm->getTopBlockHeight());

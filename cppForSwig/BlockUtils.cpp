@@ -889,6 +889,7 @@ void BlockDataManager_LevelDB::reset(void)
    run_ = false;
    rescanZC_ = false;
 
+   tp_ = NULL;
 }
 
 void BlockDataManager_LevelDB::DestroyInstance()
@@ -1068,40 +1069,15 @@ vector<BinaryData> BlockDataManager_LevelDB::prefixSearchAddress(BinaryData cons
 bool BlockDataManager_LevelDB::registerWallet(BtcWallet* wltPtr, bool wltIsNew)
 {
    SCOPED_TIMER("registerWallet");
-
-   /***
-   The registered wallets are constantly being iterated over. Inserting or 
-   removing items from the set can call non atomic resize operations that 
-   would leave the set in an undefined state half way through an iteration.
-
-   Solution: use a top level, mutex locked set to save wallets, add them to the
-   actual set at the top of each BDM main thread iteration. Of course the 
-   assumption is that nothing but the BDM main thread calls scan and update
-   operations on the registerWallets_ map, which is an approach we want to move
-   towards.
-   ***/
-
    // Check if the wallet is already registered
    //if(registeredWallets_.find(wltPtr) != registeredWallets_.end())
    if(registeredWallets_.contains(wltPtr)) return false;
 
-   // Add it to the list of wallets to watch
-   registeredWallets_.push_back(wltPtr);
-
-   // Now add all the individual addresses from the wallet
-   for(uint32_t i=0; i<wltPtr->getNumScrAddr(); i++)
-   {
-      // If this is a new wallet, the value of getFirstBlockNum is irrelevant
-      ScrAddrObj & addr = wltPtr->getScrAddrObjByIndex(i);
-
-      if(wltIsNew)
-         wltPtr->registerNewScrAddr(addr.getScrAddr());
-      else
-         wltPtr->registerImportedScrAddr(addr.getScrAddr(), addr.getFirstBlockNum());
-   }
-
    // We need to make sure the wallet can tell the BDM when an address is added
    wltPtr->setBdmPtr(this);
+
+   // Add it to the list of wallets to watch
+   registeredWallets_.push_back(wltPtr);
 
    return true;
 }
@@ -1202,40 +1178,9 @@ bool BlockDataManager_LevelDB::isDirty(
 
 /////////////////////////////////////////////////////////////////////////////
 uint32_t BlockDataManager_LevelDB::numBlocksToRescan( BtcWallet & wlt,
-                                                       uint32_t endBlk)
+                                                       uint32_t endBlk) const
 {
-   SCOPED_TIMER("numBlocksToRescan");
-   // This method tells us whether we have to scan ANY blocks from disk
-   // in order to produce accurate balances and TxOut lists.  If this
-   // returns false, we can get away without any disk access at all, and
-   // just use the registeredTxList_ object to get our information.
-   uint32_t currNextBlk = blockchain_.top().getBlockHeight() + 1;
-   endBlk = min(endBlk, currNextBlk);
-
-   // If wallet is registered and current, no rescan necessary
-   if(walletIsRegistered(wlt))
-      return (endBlk - allScannedUpToBlk_);
-
-   // The wallet isn't registered with the BDM, but there's a chance that 
-   // each of its addresses are -- if any one is not, do rescan
-   uint32_t maxAddrBehind = 0;
-   ts_rsaMap& regScrAddrMap = *wlt.getRegisteredScrAddrMap();
-
-   for(uint32_t i=0; i<wlt.getNumScrAddr(); i++)
-   {
-      ScrAddrObj & addr = wlt.getScrAddrObjByIndex(i);
-
-      // If any address is not registered, will have to do a full scan
-      //if(registeredScrAddrMap_.find(addr.getScrAddr()) == registeredScrAddrMap_.end())
-      if(regScrAddrMap.contains(addr.getScrAddr()))
-         return endBlk;  // Gotta do a full rescan!
-
-      const RegisteredScrAddr & ra = regScrAddrMap[addr.getScrAddr()].get();
-      maxAddrBehind = max(maxAddrBehind, endBlk-ra.alreadyScannedUpToBlk_);
-   }
-
-   // If we got here, then all addr are already registered and current
-   return maxAddrBehind;
+   return wlt.numBlocksToRescan(endBlk);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1256,7 +1201,7 @@ void BlockDataManager_LevelDB::resetRegisteredWallets(void)
 }
 
 /////////////////////////////////////////////////////////////////////////////
-bool BlockDataManager_LevelDB::walletIsRegistered(BtcWallet & wlt)
+bool BlockDataManager_LevelDB::walletIsRegistered(BtcWallet & wlt) const
 {
    return registeredWallets_.contains(&wlt);
 }
@@ -2273,65 +2218,6 @@ void BlockDataManager_LevelDB::deleteHistories(void)
       
    } while(ldbIter.advanceAndRead(DB_PREFIX_SCRIPT));
 }
-
-
-////////////////////////////////////////////////////////////////////////////////
-void BlockDataManager_LevelDB::saveScrAddrHistories(void)
-{
-   LOGINFO << "Saving wallet history to DB";
-
-   if(DBUtils.getArmoryDbType() != ARMORY_DB_BARE)
-   {
-      LOGERR << "Should only use saveScrAddrHistories in ARMORY_DB_BARE mode";
-      LOGERR << "Aborting save operation.";
-      return;
-   }
-
-   InterfaceToLDB::Batch batch(iface_, BLKDATA);
-
-   uint32_t i=0;
-   BtcWallet* wlt;
-
-   ts_setBtcWallet::const_snapshot wltSnapshot(registeredWallets_);
-   ts_setBtcWallet::const_iterator wltIter;
-
-   for(wltIter = wltSnapshot.begin(); wltIter != wltSnapshot.end(); wltIter++)
-   {
-      wlt = (*wltIter);
-      for(uint32_t a=0; a<wlt->getNumScrAddr(); a++)
-      { 
-         ScrAddrObj & scrAddr = wlt->getScrAddrObjByIndex(a);
-         BinaryData uniqKey = scrAddr.getScrAddr();
-
-         ts_rsaMap* regScrAddrMap = wlt->getRegisteredScrAddrMap();
-         
-         ts_rsaMap::const_snapshot rsaSnapshot(*regScrAddrMap);
-         ts_rsaMap::const_iterator rsaIter;
-
-         if (!regScrAddrMap->contains(uniqKey))
-         {
-            LOGERR << "How does the wallet have a non-registered ScrAddr?";
-            LOGERR << uniqKey.toHexStr().c_str();
-            continue;
-         }
-
-         const RegisteredScrAddr & rsa = wlt->getRegisteredScrAddr(uniqKey);
-         vector<TxIOPair*> & txioList = scrAddr.getTxIOList();
-
-         StoredScriptHistory ssh;
-         ssh.uniqueKey_ = scrAddr.getScrAddr();
-         ssh.version_ = ARMORY_DB_VERSION;
-         ssh.alreadyScannedUpToBlk_ = rsa.alreadyScannedUpToBlk_;
-         for(uint32_t t=0; t<txioList.size(); t++)
-            ssh.insertTxio(*(txioList[t]));
-
-         iface_->putStoredScriptHistory(ssh); 
-      }
-   }
-
-   LOGINFO << "Saved wallet history to DB";
-}
-
 
 ////////////////////////////////////////////////////////////////////////////////
 // This method checks whether your blk0001.dat file is bigger than it was when

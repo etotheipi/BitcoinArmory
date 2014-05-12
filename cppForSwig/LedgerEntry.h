@@ -96,7 +96,7 @@ public:
    bool operator==(LedgerEntry const & le2) const;
 
    void pprint(void);
-   void pprintOneLine(void);
+   void pprintOneLine(void) const;
 
 private:
    

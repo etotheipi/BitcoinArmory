@@ -6095,7 +6095,7 @@ class ArmoryMainWindow(QMainWindow):
 
          if TheBDM.getState()=='Scanning':
             LOGINFO('BDM state is scanning -- force shutdown BDM')
-            TheBDM.execCleanShutdown(wait=False)
+            TheBDM.execCleanShutdown()
          else:
             LOGINFO('BDM is safe for clean shutdown')
             TheBDM.execCleanShutdown()

@@ -296,7 +296,7 @@ public:
    uint32_t evalLowestScrAddrCreationBlock(void);
    bool     evalRescanIsRequired(void);
 
-   bool     walletIsRegistered(BtcWallet & wlt);
+   bool     walletIsRegistered(BtcWallet & wlt) const;
    bool     scrAddrIsRegistered(HashString scrAddr);
 
 public:
@@ -351,7 +351,6 @@ private:
 
    void deleteHistories(void);
 public:
-   void saveScrAddrHistories(void);
    
    //for 1:1 wallets
    const BlockHeader* getHeaderPtrForTx(Tx& theTx)
@@ -367,7 +366,7 @@ public:
    vector<TxIOPair> getHistoryForScrAddr(BinaryDataRef uniqKey, 
                                           bool withMultisig=false);
    void eraseTx(const BinaryData& txHash);
-   uint32_t numBlocksToRescan( BtcWallet & wlt, uint32_t endBlk);
+   uint32_t numBlocksToRescan( BtcWallet & wlt, uint32_t endBlk) const;
    void scanWallets(uint32_t startBlock=UINT32_MAX,
                     uint32_t endBlock=UINT32_MAX, 
                     bool forceScan=false);

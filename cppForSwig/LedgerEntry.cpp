@@ -57,7 +57,7 @@ void LedgerEntry::pprint(void)
 }
 
 //////////////////////////////////////////////////////////////////////////////
-void LedgerEntry::pprintOneLine(void)
+void LedgerEntry::pprintOneLine(void) const
 {
    printf("   Addr:%s Tx:%s:%02d   BTC:%0.3f   Blk:%06d\n", 
                            "   ",

@@ -25,7 +25,8 @@ ScrAddrObj::ScrAddrObj(HashString    addr,
 
 
 ////////////////////////////////////////////////////////////////////////////////
-uint64_t ScrAddrObj::getSpendableBalance(uint32_t currBlk, bool ignoreAllZC) 
+uint64_t ScrAddrObj::getSpendableBalance(\
+                     uint32_t currBlk, bool ignoreAllZC) const
 {
    uint64_t balance = 0;
    for(uint32_t i=0; i<relevantTxIOPtrs_.size(); i++)
@@ -43,7 +44,8 @@ uint64_t ScrAddrObj::getSpendableBalance(uint32_t currBlk, bool ignoreAllZC)
 
 
 ////////////////////////////////////////////////////////////////////////////////
-uint64_t ScrAddrObj::getUnconfirmedBalance(uint32_t currBlk, bool inclAllZC)
+uint64_t ScrAddrObj::getUnconfirmedBalance(\
+                     uint32_t currBlk, bool inclAllZC) const
 {
    uint64_t balance = 0;
    for(uint32_t i=0; i<relevantTxIOPtrs_.size(); i++)
@@ -60,7 +62,7 @@ uint64_t ScrAddrObj::getUnconfirmedBalance(uint32_t currBlk, bool inclAllZC)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-uint64_t ScrAddrObj::getFullBalance(void)
+uint64_t ScrAddrObj::getFullBalance(void) const
 {
    uint64_t balance = 0;
    for(uint32_t i=0; i<relevantTxIOPtrs_.size(); i++)
