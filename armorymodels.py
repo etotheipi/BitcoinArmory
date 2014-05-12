@@ -34,7 +34,7 @@ ADDRBOOKCOLS = enum('Address', 'WltID', 'NumSent', 'Comment')
 TXINCOLS  = enum('WltID', 'Sender', 'Btc', 'OutPt', 'OutIdx', 'FromBlk', \
                                        'ScrType', 'Sequence', 'Script')
 TXOUTCOLS = enum('WltID', 'Recip', 'Btc', 'ScrType', 'Script')
-PROMCOLS = enum('PromID', 'Info', 'PayAmt', 'FeeAmt')
+PROMCOLS = enum('PromID', 'Label', 'PayAmt', 'FeeAmt')
 
 
 class AllWalletsDispModel(QAbstractTableModel):
@@ -1095,19 +1095,19 @@ class PromissoryCollectModel(QAbstractTableModel):
       row,col = index.row(), index.column()
       prom = self.promNoteList[row]
 
-      #PROMCOLS = enum('PromID', 'Info', 'PayAmt', 'FeeAmt')
+      #PROMCOLS = enum('PromID', 'Label', 'PayAmt', 'FeeAmt')
 
       if role==Qt.DisplayRole:
          if col==COL.PromID:
-            return prom.promID
-         elif col==COL.Info: 
-            return prom.lockboxKeyInfo
+            return QVariant(prom.promID)
+         elif col==COL.Label: 
+            return QVariant(prom.promLabel)
          elif col==COL.PayAmt: 
             return QVariant(coin2str(prom.dtxoTarget.value, maxZeros=2))
          elif col==COL.FeeAmt: 
             return QVariant(coin2str(prom.feeAmt, maxZeros=2))
       elif role==Qt.TextAlignmentRole:
-         if col in [COL.PromID, COL.Info]:
+         if col in [COL.PromID, COL.Label]:
             return QVariant(int(Qt.AlignHCenter | Qt.AlignVCenter))
          else:
             return QVariant(int(Qt.AlignLeft | Qt.AlignVCenter))

@@ -240,7 +240,7 @@ def relaxedSizeNChar(obj, nChar):
 #############################################################################
 def determineWalletType(wlt, wndw):
    if wlt.watchingOnly:
-      if wndw.getWltSetting(wlt.uniqueIDB58,'IsMine'):
+      if wndw.getWltSetting(wlt.uniqueIDB58, 'IsMine'):
          return [WLTTYPES.Offline, 'Offline']
       else:
          return [WLTTYPES.WatchOnly, 'Watching-Only']

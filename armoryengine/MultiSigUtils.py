@@ -243,7 +243,7 @@ class MultiSigLockbox(object):
       headStr, rawData = readAsciiBlock(boxBlock, 'LOCKBOX')
       if rawData is None:
          LOGERROR('Expected header str "LOCKBOX", got "%s"' % headStr)
-         return None
+         raise UnserializeError('Expected LOCKBOX block, got something else')
 
       # We should have "LOCKBOX-BOXID" in the headstr
       boxID = headStr.split('-')[-1]
@@ -455,27 +455,29 @@ class MultiSigPromissoryNote(object):
 
    #############################################################################
    def __init__(self, dtxoTarget=None, feeAmt=None, ustxInputs=None, 
-                                    dtxoChange=None, version=MULTISIG_VERSION):
+                                    dtxoChange=None, promLabel=None,
+                                    version=MULTISIG_VERSION):
       self.version     = 0
       self.dtxoTarget  = dtxoTarget
       self.feeAmt      = feeAmt
       self.ustxInputs  = ustxInputs
       self.dtxoChange  = dtxoChange
       self.promID      = None
+      self.promLabel   = promLabel if promLabel else ''
 
       # We MIGHT use this object to simultaneously promise funds AND 
       # provide a key to include in the target multisig lockbox (which would 
       # save a round of exchanging data, if the use-case allows it)
-      self.lockboxKey     = ''
-      self.lockboxKeyInfo = ''
+      self.lockboxKey = ''
 
       if dtxoTarget is not None:
-         self.setParams(dtxoTarget, feeAmt, dtxoChange, ustxInputs, version)
+         self.setParams(dtxoTarget, feeAmt, dtxoChange, ustxInputs, 
+                                                   promLabel, version)
 
 
    #############################################################################
    def setParams(self, dtxoTarget=None, feeAmt=None, dtxoChange=None,
-                                    ustxInputs=None, version=MULTISIG_VERSION):
+                    ustxInputs=None, promLabel=None, version=MULTISIG_VERSION):
       
       # Set params will only overwrite with non-None data
       if dtxoTarget is not None:
@@ -489,6 +491,9 @@ class MultiSigPromissoryNote(object):
 
       if ustxInputs is not None:
          self.ustxInputs = ustxInputs
+
+      if promLabel is not None:
+         self.promLabel = promLabel
 
       # Compute some other data members
       self.version = version
@@ -517,7 +522,7 @@ class MultiSigPromissoryNote(object):
 
 
    #############################################################################
-   def setLockboxKey(self, binPubKey, keyInfo=None):
+   def setLockboxKey(self, binPubKey):
       keyPair = [binPubKey[0], len(binPubKey)] 
       if not keyPair in [['\x02', 33], ['\x03', 33], ['\x04', 65]]:
          LOGERROR('Invalid public key supplied')
@@ -529,9 +534,6 @@ class MultiSigPromissoryNote(object):
             return False
 
       self.lockboxKey = binPubKey[:]
-      if keyInfo:
-         self.lockboxKeyInfo = toUnicode(keyInfo)
-
       return True
       
       
@@ -557,8 +559,8 @@ class MultiSigPromissoryNote(object):
       for ustxi in self.ustxInputs:
          bp.put(VAR_STR,      ustxi.serialize())
 
+      bp.put(VAR_STR,      toBytes(self.promLabel))
       bp.put(VAR_STR,      self.lockboxKey)
-      bp.put(VAR_STR,      toBytes(self.lockboxKeyInfo))
 
       return bp.getBinaryString()
 
@@ -567,18 +569,18 @@ class MultiSigPromissoryNote(object):
       ustxiList = []
       
       bu = BinaryUnpacker(rawData)
-      version         = bu.get(UINT32)
-      magicBytes      = bu.get(BINARY_CHUNK, 4)
-      target          = bu.get(VAR_STR)
-      change          = bu.get(VAR_STR)
-      feeAmt          = bu.get(UINT64)
-      numUSTXI        = bu.get(VAR_INT)
+      version     = bu.get(UINT32)
+      magicBytes  = bu.get(BINARY_CHUNK, 4)
+      target      = bu.get(VAR_STR)
+      change      = bu.get(VAR_STR)
+      feeAmt      = bu.get(UINT64)
+      numUSTXI    = bu.get(VAR_INT)
       
       for i in range(numUSTXI):
          ustxiList.append( UnsignedTxInput().unserialize(bu.get(VAR_STR)) )
 
-      lockboxKey      = bu.get(VAR_STR)
-      lockboxKeyInfo  = toUnicode(bu.get(VAR_STR))
+      promLabel   = toUnicode(bu.get(VAR_STR))
+      lockboxKey  = bu.get(VAR_STR)
 
       if not version==MULTISIG_VERSION:
          LOGWARN('Unserialing promissory note of different version')
@@ -588,14 +590,15 @@ class MultiSigPromissoryNote(object):
       dtxoTarget = DecoratedTxOut().unserialize(target)
       dtxoChange = DecoratedTxOut().unserialize(change) if change else None
 
-      self.setParams(dtxoTarget, feeAmt, dtxoChange, ustxiList)
+      self.setParams(dtxoTarget, feeAmt, dtxoChange, ustxiList, promLabel)
 
       if expectID and not expectID==self.promID:
          LOGERROR('Promissory note ID does not match expected')
          return None
 
       if len(lockboxKey)>0:
-         self.setLockboxKey(lockboxKey, lockboxKeyInfo)
+         self.setLockboxKey(lockboxKey)
+      
 
       return self
 
@@ -613,7 +616,7 @@ class MultiSigPromissoryNote(object):
 
       if rawData is None:
          LOGERROR('Expected header str "PROMISSORY", got "%s"' % headStr)
-         return None
+         raise UnserializeError('Expected PROMISSORY block, got something else')
 
       # We should have "PROMISSORY-PROMID" in the headstr
       promID = headStr.split('-')[-1]
@@ -634,6 +637,8 @@ class MultiSigPromissoryNote(object):
       print '   Fee Amount  :', self.feeAmt
       if self.dtxoChange is not None:
          print '   ChangeAddr  :', self.dtxoChange.getRecipStr()
+      print '   LB Key      :', self.lockboxKey
+      print '   LB Key Info :', self.promLabel
 
 
 

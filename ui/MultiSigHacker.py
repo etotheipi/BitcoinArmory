@@ -90,7 +90,7 @@ class DlgLockboxEditor(ArmoryDialog):
       self.lblMasterIcon = QLabel()
 
       # Used to optimize update-on-every-key-press
-      self.prevTextLength = [0]*self.maxN
+      self.prevPubKeyStr = ['']*self.maxN
 
 
 
@@ -142,7 +142,7 @@ class DlgLockboxEditor(ArmoryDialog):
                       SIGNAL('textChanged(QString)'), \
                       self.updateLabels)
 
-         self.prevTextLength[i] = -1
+         self.prevPubKeyStr[i] = ''
          
          self.widgetMap[i]['EDT_PUBK'].setFont(GETFONT('Fixed', 9))
          w,h = tightSizeNChar(self.widgetMap[i]['EDT_PUBK'], 50)
@@ -226,15 +226,8 @@ class DlgLockboxEditor(ArmoryDialog):
 
 
       btnClear  = QPushButton(tr('Clear All'))
-      #btnLoad   = QPushButton(tr('Load Existing'))
-      #btnImport = QPushButton(tr('Import'))
 
       self.connect(btnClear,  SIGNAL('clicked()'), self.clearAll)
-      #self.connect(btnLoad,   SIGNAL('clicked()'), self.loadSaved)
-      #self.connect(btnImport, SIGNAL('clicked()'), self.importNew)
-      
-      #frmLoadImport = makeVertFrame([btnLoad, btnImport, btnClear])
-      #frmLoadImport.layout().setSpacing(0)
 
 
       layoutMNSelect = QGridLayout()
@@ -340,7 +333,10 @@ class DlgLockboxEditor(ArmoryDialog):
 
          pkStr = str(self.widgetMap[i]['EDT_PUBK'].text())
 
-         self.prevTextLength[i] = len(pkStr)
+         if pkStr == self.prevPubKeyStr[i]:
+            continue 
+
+         self.prevPubKeyStr[i] = pkStr
 
          if not self.isValidHexPubKey(pkStr):
             self.widgetMap[i]['LBL_ASTR'].setText('')
@@ -502,6 +498,19 @@ class DlgLockboxEditor(ArmoryDialog):
          pubKeyList.append(pkBin)
 
 
+      # Extract the labels for each pubKey
+      self.NameIDList = \
+         [unicode(self.widgetMap[i]['LBL_NAME'].text()) for i in range(currN)]
+
+
+      # ACR:  Andy added sorting, but didn't realize that the comments for 
+      #       associated with each key also need to be sorted.  Use DSU
+      decorated  = [[pk,comm] for pk,comm in zip(pubKeyList, self.NameIDList)]
+      decorSort  =sorted(decorated, key=lambda pair: pair[0])
+      for i,pair in enumerate(decorSort):
+         pubKeyList[i]      = pair[0]
+         self.NameIDList[i] = pair[1]
+      
 
       txOutScript = pubkeylist_to_multisig_script(pubKeyList, currM)  
       opCodeList = convertScriptToOpStrings(txOutScript)
@@ -526,9 +535,6 @@ class DlgLockboxEditor(ArmoryDialog):
                self.createDate = long(RightNow())
             
 
-      self.NameIDList   = \
-         [unicode(self.widgetMap[i]['LBL_NAME'].text()) for i in range(currN)]
-
 
       LOGINFO('Got a valid TxOut script:')
       LOGINFO('ScrAddrStr: ' + binary_to_hex(scraddr))
@@ -544,20 +550,6 @@ class DlgLockboxEditor(ArmoryDialog):
                                  self.NameIDList, 
                                  self.createDate)
 
-      """
-      print 'pprint Box:'
-      self.lockbox.pprint()
-      print 'Print encoded:'
-      ser = self.lockbox.serialize()
-      print ser
-      box2 = MultiSigLockbox().unserialize(ser)
-      print 'pprint box:'
-      box2.pprint()
-      print 'Print encoded:'
-      ser2 = box2.serialize()
-      print ser2
-      print 'Equal: ', ser==ser2
-      """
 
       self.main.updateOrAddLockbox(self.lockbox, isFresh=True)
       
@@ -1700,18 +1692,28 @@ class DlgContributeFundLockbox(ArmoryDialog):
 
 ################################################################################
 class DlgMultiSpendReview(ArmoryDialog):
-   """
-   ASSUMPTION q38JmNa5:  USTX has no inputs other than a single lockbox
-                         (though that lockbox may have multiple UTXOs)
-
-   Of course, we will eventually expand this to handle more diverse types
-   of multi-spend transactions, but for now we had to iron out this common
-   case before doing more complex things
-   """
 
    #############################################################################
-   def __init__(self, parent, main, ustx):
+   def __init__(self, parent, main, ustx=None):
       super(DlgMultiSpendReview, self).__init__(parent, main)
+
+
+      if ustx is None:
+         title = tr('Import Multi-Spend Transaction')
+         descr = tr("""
+            Import a signature-collector text block for review and signing.  
+            It is usually a block of text with "TXSIGCOLLECT" in the first line,
+            or a <i>*.sigcollect.tx</i> file.""")
+         ftypes = ['Signature Collectors (*.sigcollect.tx)']
+         dlgImport = DlgImportAsciiBlock(self, self.main, 
+                           title, descr, ftypes, UnsignedTransaction)
+         dlgImport.exec_()
+         if dlgImport.returnObj:
+            ustx = dlgImport.returnObj
+         else:
+            from twisted.internet import reactor
+            reactor.callLater(0.1,  self.reject)
+            return
 
 
       LOGDEBUG('Debugging information for multi-spend USTX')
@@ -1745,8 +1747,6 @@ class DlgMultiSpendReview(ArmoryDialog):
 
       layout = QVBoxLayout()
 
-      #self.lboxID = lboxID
-      #self.lbox   = self.main.getLockboxByID(lboxID)
       self.ustx = UnsignedTransaction().unserialize(ustx.serialize())
       self.feeAmt = self.ustx.calculateFee()
 
@@ -1784,33 +1784,18 @@ class DlgMultiSpendReview(ArmoryDialog):
       # Accumulate and prepare all static info (that doesn't change with sigs)
       self.maxN = 0
       for ustxi in self.ustx.ustxInputs:
-         hrStr,idStr = self.main.getContribStr(ustxi.txoScript, ustxi.contribID)
+         hrStr,idStr = self.main.getContribStr(ustxi.txoScript, 
+                                               ustxi.contribID,
+                                               ustxi.contribLabel)
 
          iBundle = self.inputBundles.setdefault(idStr, InputBundle())
          iBundle.ustxiList.append(ustxi)
          iBundle.sendAmt += ustxi.value
          iBundle.dispStr = hrStr
-         '''
-         if not idStr[:2] in ['LB']:
-            LOGERROR('Something other than a lockbox on input side')
-            QMessageBox.critical(self, tr('Non-lockbox'), tr("""
-               You loaded a transaction that is more complex that just
-               spending from a single lockbox.  Armory does not currently
-               handle this condition.  <br><br>
-               This error can occur when you attempt to spend multi-signature
-               coins for which you have not imported the appropriate lockbox
-               information.  Please have the party that created the lockbox
-               export it for you, and then you can import it in the lockbox
-               manager.  <br><br>
-               Input that failed:  %s""") % hrStr, QMessageBox.Ok)
-            self.reject()
-         '''
 
          if idStr[:2] in ['LB']:
-            # (ASSUMPTION q38JmNa5) Take note of which lockbox this is
             iBundle.lockbox = self.main.getLockboxByID(idStr.split(':')[-1])
 
-            # (ASSUMPTION q38JmNa5)
             # Check whether we have the capability to sign this lockbox
             iBundle.binScript = iBundle.lockbox.binScript
             M,N = iBundle.lockbox.M, iBundle.lockbox.N
@@ -1858,7 +1843,9 @@ class DlgMultiSpendReview(ArmoryDialog):
 
       # The output bundles are quite a bit simpler 
       for dtxo in self.ustx.decorTxOuts:
-         hrStr,idStr = self.main.getContribStr(dtxo.binScript, dtxo.contribID)
+         hrStr,idStr = self.main.getContribStr(dtxo.binScript, 
+                                               dtxo.contribID,
+                                               dtxo.contribLabel)
          if idStr in self.inputBundles:
             self.inputBundles[idStr].sendAmt -= dtxo.value
          else:
@@ -1885,15 +1872,29 @@ class DlgMultiSpendReview(ArmoryDialog):
          topRow = (self.maxN+1)*iin
          iin += 1
 
-         ib = self.inputBundles[idStr]
+         iBundle = self.inputBundles[idStr]
+
+      
+         contribID = ''
+         contribLabel = ''
+         if len(iBundle.ustxiList) > 0:
+            contribID    = iBundle.ustxiList[0].contribID.strip()
+            contribLabel = iBundle.ustxiList[0].contribLabel.strip()
 
          # The header line lists the name and value and any multisig pies
-         iWidgMap['HeadLbl'] = QRichLabel(tr("""
-            <b><u>Spending:</u> <font color="%s">%s</b></font>""") % \
-            (htmlColor('TextBlue'), self.inputBundles[idStr].dispStr), \
-            doWrap=False)
+         if not contribLabel:
+            iWidgMap['HeadLbl'] = QRichLabel(tr("""
+               <b><u>Spending:</u> <font color="%s">%s</b></font>""") % \
+               (htmlColor('TextBlue'), iBundle.dispStr), doWrap=False)
+         else: 
+            if contribID:
+               contribID = ' (%s)' % contribID
+            iWidgMap['HeadLbl'] = QRichLabel(tr("""
+               <b><u>Contributor:</u> <font color="%s">%s</b>%s</font>""") % \
+               (htmlColor('TextBlue'), contribLabel, contribID), doWrap=False)
 
-         val = self.inputBundles[idStr].sendAmt
+
+         val = iBundle.sendAmt
          iWidgMap['Amount'] = QMoneyLabel(-val, txtSize=12, wBold=True)
 
          # These are images that show up to N=5
@@ -1935,8 +1936,7 @@ class DlgMultiSpendReview(ArmoryDialog):
             self.connect(iWidgMap['SignBtn'][i], SIGNAL('clicked()'), \
                                            createSignCallback(idStr, i))
 
-            # (ASSUMPTION q38JmNa5)
-            lbox = self.inputBundles[idStr].lockbox
+            lbox = iBundle.lockbox
             M = lbox.M if lbox else 1
             N = lbox.N if lbox else 1
             if i >= N:
@@ -1945,13 +1945,19 @@ class DlgMultiSpendReview(ArmoryDialog):
                iWidgMap['KeyLbl' ][i].setVisible(False)
                iWidgMap['ChkImg' ][i].setVisible(False)
             else:
-               comm = lbox.commentList[i] if lbox else None
+
+               if lbox:
+                  comm = lbox.commentList[i]
+               elif len(iBundle.ustxiList) > 0:
+                  comm = iBundle.ustxiList[0].contribLabel
+               else:
+                  comm = None
 
                wltID = ''
-               if ib.wltOfflineSign[i]:
-                  wltID = ib.wltOfflineSign[i][0]
-               elif ib.wltSignRightNow[i]:
-                  wltID = ib.wltSignRightNow[i][0]
+               if iBundle.wltOfflineSign[i]:
+                  wltID = iBundle.wltOfflineSign[i][0]
+               elif iBundle.wltSignRightNow[i]:
+                  wltID = iBundle.wltSignRightNow[i][0]
 
                wltName = '' 
                if wltID:
@@ -1966,7 +1972,10 @@ class DlgMultiSpendReview(ArmoryDialog):
                   if not wltName:
                      dispStr = comm
                   else:
-                     dispStr = '%s [%s]' % (comm, wltName)
+                     if lbox:
+                        dispStr = '%s [%s]' % (comm, wltName)
+                     else:
+                        dispStr = '%s' % wltName
 
                iWidgMap['KeyLbl' ][i].setText(dispStr)
                iWidgMap['HeadImg'][i].setPixmap(self.pixPie(M))
@@ -1984,7 +1993,7 @@ class DlgMultiSpendReview(ArmoryDialog):
                continue
 
             for i in range(self.maxN):
-               lbox = self.inputBundles[idStr].lockbox
+               lbox = iBundle.lockbox
                N = lbox.N if lbox else 1
                if i >= N:
                   widgetList[i].setVisible(False)
@@ -2000,6 +2009,8 @@ class DlgMultiSpendReview(ArmoryDialog):
       # Maybe one day we'll do full listing of lockboxes on the output side
       # But for now, it will only further complicate things...
       for idStr in self.outputBundles:
+         lbox = self.outputBundles[idStr].lockbox
+         M,N = [1,1] if lbox is None else [lbox.M, lbox.N]
 
          self.oWidgets[idStr] = {}
          oWidgMap = self.oWidgets[idStr]
@@ -2014,9 +2025,9 @@ class DlgMultiSpendReview(ArmoryDialog):
          val = self.outputBundles[idStr].recvAmt
          oWidgMap['Amount'] = QMoneyLabel(val, txtSize=12, wBold=True)
 
-         # These are images that show up to N=3
-         oWidgMap['HeadImg'] = [None]*self.maxN
-         for i in range(self.maxN):
+         # These are the pie images
+         oWidgMap['HeadImg'] = [None]*N
+         for i in range(N):
             oWidgMap['HeadImg'][i] = QLabel()
 
 
@@ -2027,15 +2038,10 @@ class DlgMultiSpendReview(ArmoryDialog):
          headerLine.append(oWidgMap['Amount'])
          layoutOutputs.addWidget(makeHorizFrame(headerLine), topRow,0, 1,5)
 
-         lbox = self.outputBundles[idStr].lockbox
-         if lbox is None:
-            M,N = 1,1
-         else:
-            M,N = lbox.M, lbox.N
-            for i in range(self.maxN):
-               if i < N:
-                  oWidgMap['HeadImg'][i].setPixmap(self.pixPie(M))
-                  oWidgMap['HeadImg'][i].setMinimumSize(PIEW,PIEH)
+         if N>1:
+            for i in range(N):
+               oWidgMap['HeadImg'][i].setPixmap(self.pixPie(M))
+               oWidgMap['HeadImg'][i].setMinimumSize(PIEW,PIEH)
             
 
 
@@ -2159,8 +2165,6 @@ class DlgMultiSpendReview(ArmoryDialog):
       for idStr,ib in self.inputBundles.iteritems():
          iWidgMap = self.iWidgets[idStr]
 
-         # (ASSUMPTION q38JmNa5) Only one type of input, a single lockbox
-         #                       (therefore only need to examine first ustxi)
          # Since we are calling this without a wlt, each key state can only
          # be either ALREADY_SIGNED or NO_SIGNATURE (no WLT* possible)
          isigstat = ib.ustxiList[0].evaluateSigningStatus()
@@ -2320,14 +2324,6 @@ class DlgCreatePromNote(ArmoryDialog):
    def __init__(self, parent, main, defaultID=None):
       super(DlgCreatePromNote, self).__init__(parent, main)
 
-      if not TheBDM.getBDMState()=='BlockchainReady':
-         QMessageBox.warning(self, tr('Offline'), tr("""
-            Armory is currently offline, and cannot determine what funds are
-            available for simulfunding.  Please try again when Armory is in
-            online mode."""), QMessageBox.Ok)
-         self.reject()
-         return
-
       lblDescr  = QRichLabel(tr("""
          <font color="%s" size=4><b>Create Simulfunding Promissory Note
          </b></font>""") % htmlColor('TextBlue'), 
@@ -2400,10 +2396,21 @@ class DlgCreatePromNote(ArmoryDialog):
       self.edtFeeBTC.setText('0.0')
 
 
+      lblComment  = QRichLabel('Funder Label (optional):')
+      self.edtKeyLabel  = QLineEdit()
+      ttipFunder = self.main.createToolTipWidget(tr("""
+         This label will be attached to the promissory note to help identify
+         who is committing these funds.  If you do not fill this in, each
+         other party signing will see <i>[[Unknown Signer]]</i> for the ID."""))
+         
+
+      frmKeyComment = makeHorizFrame([lblComment, self.edtKeyLabel, ttipFunder])
+
       gboxIn  = QGroupBox(tr('Source of Funding'))
       gboxInLayout = QVBoxLayout()
       gboxInLayout.addWidget(lblNoteSrc)
       gboxInLayout.addWidget(wltFrame)
+      gboxInLayout.addWidget(frmKeyComment)
       gboxIn.setLayout(gboxInLayout) 
 
       gboxOut = QGroupBox(tr('Funding Destination'))
@@ -2445,6 +2452,8 @@ class DlgCreatePromNote(ArmoryDialog):
       mainLayout.addWidget(HLINE())
       mainLayout.addWidget(frmButtons)
       self.setLayout(mainLayout)
+
+      self.layout().setSizeConstraint(QLayout.SetFixedSize)
 
       self.setWindowTitle('Create Promissory Note')
 
@@ -2624,9 +2633,13 @@ class DlgCreatePromNote(ArmoryDialog):
          pubKeys = {utxoScrAddr: aobj.binPublicKey65.toBinStr()}
          ustxiList.append(UnsignedTxInput(rawTx, txoIdx, None, pubKeys))
          
-      prom = MultiSigPromissoryNote(dtxoTarget, feeAmt, ustxiList, dtxoChange)
+
+      funderStr = str(self.edtKeyLabel.text()).strip()
+      prom = MultiSigPromissoryNote(dtxoTarget, feeAmt, ustxiList, dtxoChange,
+                                                                    funderStr)
+                                          
+
       LOGINFO('Successfully created prom note: %s' % prom.promID)
-      prom.pprint()
 
       title = tr("Export Promissory Note")
       descr = tr("""
@@ -2757,10 +2770,21 @@ class DlgMergePromNotes(ArmoryDialog):
       frmImport = makeHorizFrame(['Stretch', btnImport, 'Stretch'])
 
       btnCancel = QPushButton(tr('Cancel'))
+      self.chkBareMS = QCheckBox(tr('Use bare multisig (no P2SH)'))
       btnFinish = QPushButton(tr('Continue'))
       self.connect(btnCancel, SIGNAL('clicked()'), self.reject)
       self.connect(btnFinish, SIGNAL('clicked()'), self.mergeNotesCreateUSTX)
-      frmButtons = makeHorizFrame([btnCancel, 'Stretch', btnFinish])
+      frmButtons = makeHorizFrame([btnCancel, 
+                                   'Stretch', 
+                                   self.chkBareMS, 
+                                   btnFinish])
+
+      # If this was opened with default lockbox, set visibility, save ms script
+      # If opened generic, this will be set first time addPromNote() is called
+      self.chkBareMS.setVisible(False)
+      if self.lbox is not None:
+         self.chkBareMS.setVisible(True)
+         self.msTarget = self.lbox.binScript   
 
       
       mainLayout = QVBoxLayout()
@@ -2792,6 +2816,7 @@ class DlgMergePromNotes(ArmoryDialog):
       promnote = None
       if dlgImport.returnObj:
          promnote = dlgImport.returnObj
+         promnote.pprint()
 
       # 
       if not promnote:
@@ -2806,19 +2831,42 @@ class DlgMergePromNotes(ArmoryDialog):
          return
 
       
-
-      promTarget = self.reduceScript(promnote.dtxoTarget.binScript)
+      # reduceScript returns the same scrAddr for a bare multi-sig as it does
+      # for it's P2SH form
+      targetScript = promnote.dtxoTarget.binScript 
+      promTarget = self.reduceScript(targetScript)
       
+      # If loaded from main window menu, we have nothing to match yet; set it
       if not self.promMustMatch:
          self.promMustMatch = promTarget
-         promScript = promnote.dtxoTarget.binScript 
+
          extraStr = ''
-         if getTxOutScriptType(promScript) in CPP_TXOUT_HAS_ADDRSTR:
-            extraStr = '  [%s]' % script_to_addrStr(promScript)
-         contribStr = self.main.getContribStr(promScript, '')[0]
+         if getTxOutScriptType(targetScript) in CPP_TXOUT_HAS_ADDRSTR:
+            extraStr = '  [%s]' % script_to_addrStr(targetScript)
+
+         contribStr = self.main.getContribStr(targetScript)[0]
          self.lblTarg.setText('<font color="%s"><b>%s</b> %s</font>' % \
             (htmlColor('TextBlue'), contribStr, extraStr ))
 
+
+
+         # If this is a multi-sig target, or it's a P2SH multisig we recognize
+         # then provide the option to use bare multi-sig (which may be 
+         # desriable in certain contexts).
+         self.chkBareMS.setVisible(False)
+         for lbID,cppWlt in self.main.cppLockboxWltMap.iteritems():
+            if cppWlt.hasScrAddress(promTarget):
+               LOGINFO('Have lockbox for the funding target: %s' % lbID)
+               lb = self.main.getLockboxByID(lbID) 
+               if lb and lb.binScript and \
+                      getTxOutScriptType(lb.binScript)==CPP_TXOUT_MULTISIG:
+                  self.msTarget = lb.binScript   
+                  self.chkBareMS.setVisible(True)                   
+                  break
+               
+
+
+      # By now, we should always know what target addr ... make sure it matches
       if not promTarget==self.promMustMatch:
          QMessageBox.critical(self, tr('Mismatched Funding Target'), tr("""
             The promissory note you loaded is for a different funding target. 
@@ -2854,48 +2902,6 @@ class DlgMergePromNotes(ArmoryDialog):
          self.promLoadStacked.setCurrentIndex(1)
       self.promModel.reset()
    
-      '''
-         lblFundHeader = QRichLabel(tr('<b>Funding Amt</b>'))
-         lblFeeHeader  = QRichLabel(tr('<b>Fee Contrib</b>'))
-         
-         row = 0
-         gboxLayout.addWidget(lblFundHeader,   row,4)
-         gboxLayout.addWidget(lblFeeHeader,    row,6)
-         row += 1
-         gboxLayout.addWidget(HLINE(),         row,0,  1,7)
-         for widg in self.promWidgets:
-            gboxLayout.addItem(QSpacerItem(20,20),     row,0)
-            gboxLayout.addWidget(widg['LBLPROMID'],    row,1)
-            gboxLayout.addWidget(widg['LBLINFO'],      row,2)
-            gboxLayout.addWidget(widg['LBLPAYAMT'],    row,4)
-            gboxLayout.addWidget(widg['LBLFEEAMT'],    row,6)
-            row += 1
-
-         gboxLayout.addWidget(HLINE(),  row,0,  1,6)
-         
-         lblTotal    = QRichLabel('<b>Total</b>:')
-         lblTotalPay = QMoneyLabel(self.cumulPay, wBold=True)
-         lblTotalFee = QMoneyLabel(self.cumulFee, wBold=True)
-   
-         gboxLayout.addWidget(HLINE(),       row,0,  1,7)
-         row += 1
-         gboxLayout.addWidget(lblTotal,      row,1,  1,3)
-         gboxLayout.addWidget(lblTotalPay,   row,4)
-         gboxLayout.addWidget(lblTotalFee,   row,6)
-         row += 1
-         gboxLayout.addWidget(HLINE(),       row,0,  1,7)
-
-         gboxLayout.setColumnStretch(1,1)
-   
-      
-      gboxProms = QGroupBox(tr('Loaded Promissory Notes'))
-      gboxProms.setLayout(gboxLayout)
-
-      self.gboxStacked.addWidget(gboxProms)
-      self.gboxStacked.setCurrentIndex(self.numStack)
-      self.numStack += 1
-      '''
-      
       
 
 
@@ -2912,8 +2918,14 @@ class DlgMergePromNotes(ArmoryDialog):
       dtxoList = []
 
       # We've already made sure all promNotes have the same target
-      firstProm = self.promNotes[0].dtxoTarget
-      dtxoTarget = DecoratedTxOut().unserialize(firstProm.serialize())
+      firstDtxo = self.promNotes[0].dtxoTarget
+      dtxoTarget = DecoratedTxOut().unserialize(firstDtxo.serialize())
+
+      if self.chkBareMS.isChecked():
+         LOGINFO('Using bare-multisig')
+         dtxoTarget.binScript = self.msTarget
+
+
       dtxoTarget.value = self.cumulPay
       dtxoList.append(dtxoTarget)
 
@@ -2921,6 +2933,7 @@ class DlgMergePromNotes(ArmoryDialog):
          for ustxi in prom.ustxInputs:
             updUstxi = UnsignedTxInput().unserialize(ustxi.serialize())
             updUstxi.contribID = prom.promID
+            updUstxi.contribLabel = prom.promLabel
             ustxiList.append(updUstxi)
 
          if prom.dtxoChange:
@@ -2939,7 +2952,7 @@ class DlgMergePromNotes(ArmoryDialog):
          then send back to you to finalize it.  
          <br><br>
          When you click "Done", you will be taken to a window that you can
-         use to merge the SIGCOLLECT blocks from all parties and broadcast
+         use to merge the TXSIGCOLLECT blocks from all parties and broadcast
          the final transaction.""")
       ftypes = ['Signature Collectors (*.sigcollect.tx)']
       defaultFN = 'Simulfund_%s.sigcollect.tx' % ustx.uniqueIDB58

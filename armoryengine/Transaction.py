@@ -965,6 +965,7 @@ class UnsignedTxInput(object):
                       insertSigs=None,
                       insertWltLocs=None,
                       contribID=None,
+                      contribLabel=None,
                       sequence=UINT32_MAX,
                       version=UNSIGNED_TX_VERSION):
 
@@ -984,6 +985,7 @@ class UnsignedTxInput(object):
       self.scriptType  = getTxOutScriptType(self.txoScript)
       self.value       = txout.getValue()
       self.contribID   = '' if contribID is None else contribID
+      self.contribLabel= '' if contribLabel is None else contribLabel
       self.p2shScript  = '' if p2sh is None else p2sh
       self.sequence    = sequence
 
@@ -1012,6 +1014,7 @@ class UnsignedTxInput(object):
       #####
       if not self.sequence==UINT32_MAX:
          LOGWARN('WARNING: NON-MAX SEQUENCE NUMBER ON UNSIGNEDTX INPUT!')
+         LOGWARN('Sequence: %d' % self.sequence)
 
       #####
       # If this is P2SH, let's check things, and then use the sub-script
@@ -1331,6 +1334,7 @@ class UnsignedTxInput(object):
       bp.put(VAR_STR,      self.supportTx)
       bp.put(VAR_STR,      self.p2shScript)
       bp.put(VAR_STR,      self.contribID)
+      bp.put(VAR_STR,      toBytes(self.contribLabel))
       bp.put(UINT32,       self.sequence)
       bp.put(VAR_INT,      self.keysListed)
 
@@ -1346,14 +1350,15 @@ class UnsignedTxInput(object):
    def unserialize(self, rawBinaryData):
 
       bu = BinaryUnpacker(rawBinaryData)
-      version  = bu.get(UINT32)
-      magic    = bu.get(BINARY_CHUNK, 4)
-      outpt    = bu.get(BINARY_CHUNK, 36)
-      suppTx   = bu.get(VAR_STR)
-      p2shScr  = bu.get(VAR_STR)
-      contrib  = bu.get(VAR_STR)
-      seq      = bu.get(UINT32)
-      nEntry   = bu.get(VAR_INT)
+      version    = bu.get(UINT32)
+      magic      = bu.get(BINARY_CHUNK, 4)
+      outpt      = bu.get(BINARY_CHUNK, 36)
+      suppTx     = bu.get(VAR_STR)
+      p2shScr    = bu.get(VAR_STR)
+      contrib    = bu.get(VAR_STR)
+      contribLbl = toUnicode(bu.get(VAR_STR))
+      seq        = bu.get(UINT32)
+      nEntry     = bu.get(VAR_INT)
 
       keysiginfo = []
       pubMap, sigList, locList = {},[],[]
@@ -1389,6 +1394,7 @@ class UnsignedTxInput(object):
                     sigList,
                     locList,
                     contrib,
+                    contribLbl,
                     seq,
                     version)
 
@@ -1475,10 +1481,16 @@ class DecoratedTxOut(object):
    As of this writing, we're not utilizing any of these auth techniques,
    yet, so we simply assume it will be None, or that it has a .serialize()
    and .unserialize() method so this class doesn't have to care
+
+   ContribID and ContribLabel are optional fields that help in simulfunding
+   situations, where there may be tons of inputs and outputs (change) that 
+   would otherwise appear unrelated.  We need a way to associate them so we 
+   can display intelligent stuff to the user.
    """
    def __init__(self, script=None, value=None, p2sh=None,
                       wltLocator=None, authMethod='NONE', authInfo=None,
-                      contribID=None, version=UNSIGNED_TX_VERSION):
+                      contribID=None, contribLabel=None, 
+                      version=UNSIGNED_TX_VERSION):
 
       if None in [script, value]:
          self.isInitialized = False
@@ -1493,6 +1505,7 @@ class DecoratedTxOut(object):
       self.authMethod = authMethod
       self.authInfo   = authInfo if authInfo else NullAuthInfo()
       self.contribID  = contribID if contribID else ''
+      self.contribLabel = contribLabel if contribLabel else ''
 
       # Derived values
       self.scrAddr    = script_to_scrAddr(script)
@@ -1551,6 +1564,7 @@ class DecoratedTxOut(object):
       bp.put(VAR_STR,      self.authMethod)
       bp.put(VAR_STR,      self.authInfo.serialize())
       bp.put(VAR_STR,      self.contribID)
+      bp.put(VAR_STR,      self.contribLabel)
 
       return bp.getBinaryString()
 
@@ -1559,15 +1573,16 @@ class DecoratedTxOut(object):
    #############################################################################
    def unserialize(self, rawData):
       bu = BinaryUnpacker(rawData)
-      version  = bu.get(UINT32)
-      magic    = bu.get(BINARY_CHUNK, 4)
-      script   = bu.get(VAR_STR)
-      value    = bu.get(UINT64)
-      p2shScr  = bu.get(VAR_STR)
-      wltLoc   = bu.get(VAR_STR)
-      authMeth = bu.get(VAR_STR)
-      authInfo = bu.get(VAR_STR)
-      contrib  = bu.get(VAR_STR)
+      version    = bu.get(UINT32)
+      magic      = bu.get(BINARY_CHUNK, 4)
+      script     = bu.get(VAR_STR)
+      value      = bu.get(UINT64)
+      p2shScr    = bu.get(VAR_STR)
+      wltLoc     = bu.get(VAR_STR)
+      authMeth   = bu.get(VAR_STR)
+      authInfo   = bu.get(VAR_STR)
+      contribID  = bu.get(VAR_STR)
+      contribLBL = toUnicode(bu.get(VAR_STR))
 
       if not magic==MAGIC_BYTES:
          LOGERROR('WRONG NETWORK!')
@@ -1585,10 +1600,11 @@ class DecoratedTxOut(object):
       authInfoObj = NullAuthInfo().unserialize(authInfo)
 
       self.__init__(script, value, p2shScr, wltLoc, 
-                                 authMeth, authInfoObj, contrib)
+                             authMeth, authInfoObj, contribID, contribLBL)
       return self
 
 
+   #############################################################################
    def pprint(self, indent=3):
       ind = ' '*indent
       scrType   = CPP_TXOUT_SCRIPT_NAMES[self.scriptType]
@@ -1603,6 +1619,7 @@ class DecoratedTxOut(object):
          print ind + 'Multisig:      %(M)s-of-%(N)s' % self.multiInfo
       print ind + 'Value:       ', coin2strNZS(self.value)
       print ind + 'ContribID:   ', self.contribID
+      print ind + 'ContribLabel:', self.contribLabel
       
 
 
@@ -1758,7 +1775,10 @@ class UnsignedTransaction(object):
                raise InvalidHashError('P2SH script not supplied')
 
 
-         ustxiList.append(UnsignedTxInput(pyPrevTx.serialize(), txoIdx, p2sh, pubKeyMap))
+         ustxiList.append(UnsignedTxInput(pyPrevTx.serialize(), 
+                                          txoIdx, 
+                                          p2sh, 
+                                          pubKeyMap))
 
 
 
@@ -1844,28 +1864,6 @@ class UnsignedTransaction(object):
       return self.createFromUnsignedTxIO(ustxiList, dtxoList, lockTime)
 
 
-   #############################################################################
-   """
-   def createFromPromNoteList(self, promList):
-      # Decorated txout list always has at least the target, probably a lockbox
-      ustxiAccum = []
-      dtxoAccum  = [dtxoTarget]
-   
-      # Accumulate all inputs from all prom notes, as well as change outputs
-      # Errors with the change values should've been caught in setParams
-      # Set all the "contribID" values to the same thing, so that you can 
-      # later identify which inputs and outputs belong to each party
-      for prom in promList:
-         for ustxi in prom.ustxInputs:
-            ustxi.contribID = promID
-            ustxiAccum.append(ustxi)
-   
-         if prom.dtxoChange.value > 0:
-            dtxo.contribID = promID
-            dtxoList.append(prom.dtxoChange)
-   
-      return UnsignedTransaction().createFromUnsignedTxIO(ustxiAccum, dtxoAccum)
-   """
 
 
          
@@ -2457,3 +2455,4 @@ from armoryengine.BDM import TheBDM
 from armoryengine.PyBtcAddress import PyBtcAddress
 from armoryengine.CoinSelection import pprintUnspentTxOutList, sumTxOutList
 from armoryengine.Script import *
+from armoryengine.MultiSigUtils import calcLockboxID

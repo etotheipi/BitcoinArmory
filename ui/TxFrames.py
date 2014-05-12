@@ -67,6 +67,45 @@ class SendBitcoinsFrame(ArmoryFrame):
       self.edtFeeAmt.setAlignment(Qt.AlignRight)
       self.edtFeeAmt.setText(coin2str(txFee, maxZeros=1).strip())
 
+
+
+      # This used to be in the later, expert-only section, but some of these
+      # are actually getting referenced before being declared.  So moved them
+      # up to here.
+      self.chkDefaultChangeAddr = QCheckBox('Use an existing address for change')
+      self.radioFeedback = QRadioButton('Send change to first input address')
+      self.radioSpecify = QRadioButton('Specify a change address')
+      self.lblChangeAddr = QRichLabel('Send Change To:')
+      self.edtChangeAddr = QLineEdit()
+      self.btnChangeAddr = createAddrBookButton(parent, self.edtChangeAddr, \
+                                       None, 'Send change to')
+      self.chkRememberChng = QCheckBox('Remember for future transactions')
+      self.vertLine = VLINE()
+
+      self.ttipSendChange = self.main.createToolTipWidget(\
+            'Most transactions end up with oversized inputs and Armory will send '
+            'the change to the next address in this wallet.  You may change this '
+            'behavior by checking this box.')
+      self.ttipFeedback = self.main.createToolTipWidget(\
+            'Guarantees that no new addresses will be created to receive '
+            'change. This reduces anonymity, but is useful if you '
+            'created this wallet solely for managing imported addresses, '
+            'and want to keep all funds within existing addresses.')
+      self.ttipSpecify = self.main.createToolTipWidget(\
+            'You can specify any valid Bitcoin address for the change.  '
+            '<b>NOTE:</b> If the address you specify is not in this wallet, '
+            'Armory will not be able to distinguish the outputs when it shows '
+            'up in your ledger.  The change will look like a second recipient, '
+            'and the total debit to your wallet will be equal to the amount '
+            'you sent to the recipient <b>plus</b> the change.')
+      self.ttipUnsigned = self.main.createToolTipWidget(\
+         'Check this box to create an unsigned transaction to be signed'
+         ' and/or broadcast later.')
+      self.unsignedCheckbox = QCheckBox('Create Unsigned')
+      self.btnSend = QPushButton('Send!')
+
+
+
       # Created a standard wallet chooser frame. Pass the call back method
       # for when the user selects a wallet.
       if self.lbox is None:
@@ -90,9 +129,6 @@ class SendBitcoinsFrame(ArmoryFrame):
       # Only the Create  Unsigned Transaction button if there is a callback for it.
       # Otherwise the containing dialog or wizard will provide the offlien tx button
       if self.createUnsignedTxCallback:
-         self.ttipUnsigned = self.main.createToolTipWidget(\
-            'Check this box to create an unsigned transaction to be signed and/or broadcast later.')
-         self.unsignedCheckbox = QCheckBox('Create Unsigned')
          self.connect(self.unsignedCheckbox, SIGNAL(CLICKED), self.unsignedCheckBoxUpdate)
          frmUnsigned = makeHorizFrame([self.unsignedCheckbox, self.ttipUnsigned])
          componentList.append(frmUnsigned)
@@ -100,7 +136,6 @@ class SendBitcoinsFrame(ArmoryFrame):
       # Only add the Send Button if there's a callback for it
       # Otherwise the containing dialog or wizard will provide the send button
       if self.sendCallback:
-         self.btnSend = QPushButton('Send!')
          self.connect(self.btnSend, SIGNAL(CLICKED), self.createTxAndBroadcast)
          componentList.append(self.btnSend)
          
@@ -131,32 +166,6 @@ class SendBitcoinsFrame(ArmoryFrame):
       ########################################################################
       # In Expert usermode, allow the user to modify source addresses
       if self.main.usermode == USERMODE.Expert:
-         self.chkDefaultChangeAddr = QCheckBox('Use an existing address for change')
-         self.radioFeedback = QRadioButton('Send change to first input address')
-         self.radioSpecify = QRadioButton('Specify a change address')
-         self.lblChangeAddr = QRichLabel('Send Change To:')
-         self.edtChangeAddr = QLineEdit()
-         self.btnChangeAddr = createAddrBookButton(parent, self.edtChangeAddr, \
-                                       None, 'Send change to')
-         self.chkRememberChng = QCheckBox('Remember for future transactions')
-         self.vertLine = VLINE()
-
-         self.ttipSendChange = self.main.createToolTipWidget(\
-               'Most transactions end up with oversized inputs and Armory will send '
-               'the change to the next address in this wallet.  You may change this '
-               'behavior by checking this box.')
-         self.ttipFeedback = self.main.createToolTipWidget(\
-               'Guarantees that no new addresses will be created to receive '
-               'change. This reduces anonymity, but is useful if you '
-               'created this wallet solely for managing imported addresses, '
-               'and want to keep all funds within existing addresses.')
-         self.ttipSpecify = self.main.createToolTipWidget(\
-               'You can specify any valid Bitcoin address for the change.  '
-               '<b>NOTE:</b> If the address you specify is not in this wallet, '
-               'Armory will not be able to distinguish the outputs when it shows '
-               'up in your ledger.  The change will look like a second recipient, '
-               'and the total debit to your wallet will be equal to the amount '
-               'you sent to the recipient <b>plus</b> the change.')
 
 
          # Make sure that there can only be one selection

@@ -656,8 +656,10 @@ class ArmoryMainWindow(QMainWindow):
 
 
       cjsf   = lambda: DlgMergePromNotes(self, self).exec_()
-      actMakeProm    = self.createAction('&CoinJoin/Simulfund Promise', mkprom)
-      actPromCollect = self.createAction('&CoinJoin/Simulfund Collect', cjsf)
+      mspend = lambda:  DlgMultiSpendReview(self, self).exec_()
+      actMakeProm    = self.createAction('CoinJoin/Simulfund &Promise', mkprom)
+      actPromCollect = self.createAction('CoinJoin/Simulfund &Collect', cjsf)
+      actMultiSpend  = self.createAction('CoinJoin/Simulfund &Review&&Sign', mspend)
 
       if not self.usermode==USERMODE.Expert:
          self.menusList[MENUS.MultiSig].menuAction().setVisible(False)
@@ -731,11 +733,12 @@ class ArmoryMainWindow(QMainWindow):
       execMSHack = lambda: DlgSelectMultiSigOption(self,self).exec_()
       execBrowse = lambda: DlgLockboxManager(self,self).exec_()
       actMultiHacker = self.createAction(tr('Multi-Sig Lockboxes'), execMSHack)
-      actBrowseLockboxes = self.createAction(tr('Lockbox Manager...'), execBrowse)
+      actBrowseLockboxes = self.createAction(tr('Lockbox &Manager...'), execBrowse)
       #self.menusList[MENUS.MultiSig].addAction(actMultiHacker)
       self.menusList[MENUS.MultiSig].addAction(actBrowseLockboxes)
       self.menusList[MENUS.MultiSig].addAction(actMakeProm)
       self.menusList[MENUS.MultiSig].addAction(actPromCollect)
+      self.menusList[MENUS.MultiSig].addAction(actMultiSpend)
 
 
 
@@ -2578,7 +2581,7 @@ class ArmoryMainWindow(QMainWindow):
       # Sometimes we need to settings specific to individual wallets -- we will
       # prefix the settings name with the wltID.
       wltPropName = 'Wallet_%s_%s' % (wltID, propName)
-      if self.settings.hasSetting('wltPropName'):
+      if self.settings.hasSetting(wltPropName):
          return self.settings.get(wltPropName)
       else:
          if not defaultValue=='':
@@ -2724,7 +2727,7 @@ class ArmoryMainWindow(QMainWindow):
 
 
    #############################################################################
-   def getContribStr(self, binScript, contribID):
+   def getContribStr(self, binScript, contribID='', contribLabel=''):
       """ 
       We need to be very careful and not rely any more than we have to
       on the contribID fields: those could be manipulated to deceive you.
@@ -2748,8 +2751,19 @@ class ArmoryMainWindow(QMainWindow):
             return outStr, ('LB:%s' % lb.uniqueIDB58)
 
       # At this point, we can use the contrib ID (and know we can't sign it)
-      if contribID:
-         outStr = 'Contributor ' + contribID
+      if contribID or contribLabel:
+         if contribID:
+            if contribLabel:
+               outStr = 'Contributor "%s" (%s)' % (contribLabel, contribID)
+            else:
+               outStr = 'Contributor %s' % contribID
+         else:
+            if contribLabel:
+               outStr = 'Contributor "%s"' % contribLabel
+            else:
+               outStr = 'Unknown Contributor'
+               LOGERROR('How did we get to this impossible else-statement?')
+
          return outStr, ('CID:%s' % contribID)
 
       # If no contrib ID, then salvage anything
