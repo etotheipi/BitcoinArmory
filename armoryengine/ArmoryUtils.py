@@ -42,7 +42,7 @@ from qrcodenative import QRCode, QRErrorCorrectLevel
 
 
 # Version Numbers
-BTCARMORY_VERSION    = (0, 91,  99, 1)  # (Major, Minor, Bugfix, AutoIncrement)
+BTCARMORY_VERSION    = (0, 91,  99, 2)  # (Major, Minor, Bugfix, AutoIncrement)
 PYBTCWALLET_VERSION  = (1, 35,  0, 0)  # (Major, Minor, Bugfix, AutoIncrement)
 
 ARMORY_DONATION_ADDR = '1ArmoryXcfq7TnCSuZa9fQjRYwJ4bkRKfv'

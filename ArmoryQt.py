@@ -657,9 +657,9 @@ class ArmoryMainWindow(QMainWindow):
 
       cjsf   = lambda: DlgMergePromNotes(self, self).exec_()
       mspend = lambda:  DlgMultiSpendReview(self, self).exec_()
-      actMakeProm    = self.createAction('CoinJoin/Simulfund &Promise', mkprom)
-      actPromCollect = self.createAction('CoinJoin/Simulfund &Collect', cjsf)
-      actMultiSpend  = self.createAction('CoinJoin/Simulfund &Review&&Sign', mspend)
+      actMakeProm    = self.createAction('Simulfund &Promissory Note', mkprom)
+      actPromCollect = self.createAction('Simulfund &Collect && Merge', cjsf)
+      actMultiSpend  = self.createAction('Simulfund &Review && Sign', mspend)
 
       if not self.usermode==USERMODE.Expert:
          self.menusList[MENUS.MultiSig].menuAction().setVisible(False)
