@@ -327,7 +327,7 @@ if operation == '--create':
       masterWallet = importAddrsToMasterWallet( \
             masterWallet, walletList, addrsPerWallet, "Master Promo Wallet", )
       # Didn't want to fit these into the argument list. Need to edit based on event
-      printWalletList(walletList, "some amount of bitcoin. ", "June 1st, 2014")
+      printWalletList(walletList, "some amount of bitcoin. ", "July 1st, 2014")
 elif operation == '--distribute':
    if len(promoKitArgList)<4:
       printHelp()
