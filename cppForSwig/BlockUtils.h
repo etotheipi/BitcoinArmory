@@ -1033,6 +1033,13 @@ public:
    
    BlockDataManager_LevelDB & getBDM(void) { return *bdm_; }
 
+   void DestroyBDM(void)
+   { 
+      BlockDataManager_LevelDB::DestroyInstance();
+      bdm_ = &(BlockDataManager_LevelDB::GetInstance());
+   }
+
+
 private:
    BlockDataManager_LevelDB* bdm_;
 };
