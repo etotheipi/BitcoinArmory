@@ -144,15 +144,11 @@ smart_pointer, but I'm gonna refrain from that for now.
 
 struct ObjectContainer
 {
-   mutable std::atomic_int32_t counter_;
-   void* object_;
-   void* next_;
-   unsigned long long id_;
-   bool readonly_;
-
-   ObjectContainer(void) : 
-      counter_(0), object_(NULL), next_(NULL), 
-      id_(0), readonly_(false) {}
+   mutable std::atomic<int32_t> counter_;
+   void* object_ = nullptr;
+   void* next_ = nullptr;
+   unsigned long long id_ = 0;
+   bool readonly_=false;
 };
 
 template <typename T> class ts_pair;
@@ -196,13 +192,13 @@ template <typename T> class ts_container
       ObjectContainer*  toModify_;
       ObjectContainer*  lastModifyItem_;
 
-      std::atomic_int32_t writeSema_;
-      std::atomic_int32_t writeLock_;
-      std::atomic_int32_t commitLock_;
-      std::atomic_int32_t deleteLock_;
+      std::atomic<int32_t> writeSema_;
+      std::atomic<int32_t> writeLock_;
+      std::atomic<int32_t> commitLock_;
+      std::atomic<int32_t> deleteLock_;
       
-      mutable std::atomic_int32_t expireLock_;
-      mutable std::atomic_int32_t updateLock_;
+      mutable std::atomic<int32_t> expireLock_;
+      mutable std::atomic<int32_t> updateLock_;
 
       T mainObject_;
 
@@ -457,11 +453,11 @@ template <typename T> class ts_container
       }
 
    public:
-      typedef typename ts_snapshot<T> snapshot;
-      typedef typename ts_iterator<T> iterator;
+      typedef ts_snapshot<T> snapshot;
+      typedef ts_iterator<T> iterator;
 
-      typedef typename ts_const_snapshot<T> const_snapshot;
-      typedef typename ts_const_iterator<T> const_iterator;
+      typedef ts_const_snapshot<T> const_snapshot;
+      typedef ts_const_iterator<T> const_iterator;
 
       //this can get in the way of consting GetCurrent
       static const unsigned int maxMergePerThread_ = 5000;
@@ -575,8 +571,8 @@ public ts_container<T>
    friend class ts_const_pair_iterator<T>;
       
    public:
-      typedef typename obj_type::first_type key_type;
-      typedef typename obj_type::second_type mapped_type;
+      typedef typename ts_container<T>::obj_type::first_type key_type;
+      typedef typename ts_container<T>::obj_type::second_type mapped_type;
 
    private:
       void Add(const key_type& first, const mapped_type& second)
@@ -596,92 +592,93 @@ public ts_container<T>
 
       void Set(const key_type& index, const mapped_type& data)
       {
-         while (updateLock_.fetch_or(1, std::memory_order_acquire));
+         while (this->updateLock_.fetch_or(1, std::memory_order_acquire));
 
-         mainObject_[index] = data;
-         id_++;
+         this->mainObject_[index] = data;
+         this->id_++;
 
-         updateLock_.store(0, std::memory_order_release);
+         this->updateLock_.store(0, std::memory_order_release);
       }
 
-      void Modify(const obj_type& input, int change)
+      void Modify(const typename ts_container<T>::obj_type& input, int change)
       {
          ObjectContainer* addMod = new ObjectContainer;
-         obj_type* obj = new obj_type(input.first, input.second);
+         typename ts_container<T>::obj_type* obj
+            = new typename ts_container<T>::obj_type(input.first, input.second);
 
-         addMod->object_ = (void*)obj;
+         addMod->object_ = obj;
          addMod->counter_ = change;
 
-         while (writeLock_.fetch_or(1, std::memory_order_consume));
+         while (this->writeLock_.fetch_or(1, std::memory_order_consume));
 
-         if (lastModifyItem_) lastModifyItem_->next_ = addMod;
-         else toModify_ = addMod;
-         lastModifyItem_ = addMod;
+         if (this->lastModifyItem_) this->lastModifyItem_->next_ = addMod;
+         else this->toModify_ = addMod;
+         this->lastModifyItem_ = addMod;
 
-         writeLock_.store(0, std::memory_order_release);
-         writeSema_.fetch_add(1, std::memory_order_release);
+         this->writeLock_.store(0, std::memory_order_release);
+         this->writeSema_.fetch_add(1, std::memory_order_release);
          CommitChanges();
       }
 
       void CommitChanges()
       {
-         if (writeSema_.load(std::memory_order_consume) == 0) return;
-         if (commitLock_.fetch_or(1, std::memory_order_acquire)) return;
+         if (this->writeSema_.load(std::memory_order_consume) == 0) return;
+         if (this->commitLock_.fetch_or(1, std::memory_order_acquire)) return;
 
          int addCounter = 0;
-         while (writeSema_.load(std::memory_order_consume) != 0
-            && addCounter < maxMergePerThread_)
+         while (this->writeSema_.load(std::memory_order_consume) != 0
+            && addCounter < this->maxMergePerThread_)
          {
-            while (updateLock_.fetch_or(1, std::memory_order_consume));
+            while (this->updateLock_.fetch_or(1, std::memory_order_consume));
 
-            if (toModify_->counter_ == 1)
+            if (this->toModify_->counter_ == 1)
             {
-               mainObject_.insert(mainObject_.end(),
-                  *(obj_type*)toModify_->object_);
+               this->mainObject_.insert(this->mainObject_.end(),
+                  *static_cast<typename ts_container<T>::obj_type*>(this->toModify_->object_));
 
-               toModify_->counter_ = 0;
-               nObjects_++;
+               this->toModify_->counter_ = 0;
+               this->nObjects_++;
                
-               writeSema_.fetch_sub(1, std::memory_order_release);
+               this->writeSema_.fetch_sub(1, std::memory_order_release);
                addCounter++;
             }
-            else if (toModify_->counter_ == -1)
+            else if (this->toModify_->counter_ == -1)
             {
-               obj_type* toFind = (obj_type*)toModify_->object_;
-               I toErase = mainObject_.find(toFind->first);
-               if (toErase != mainObject_.end())
-                  mainObject_.erase(toErase);
+               typename ts_container<T>::obj_type* toFind = static_cast<typename ts_container<T>::obj_type*>(ts_container<T>::toModify_->object_);
+               typename ts_container<T>::I toErase = this->mainObject_.find(toFind->first);
+               if (toErase != this->mainObject_.end())
+                  this->mainObject_.erase(toErase);
 
-               toModify_->counter_ = 0;
-               nObjects_--;
+               this->toModify_->counter_ = 0;
+               this->nObjects_--;
                
-               writeSema_.fetch_sub(1, std::memory_order_release);
+               this->writeSema_.fetch_sub(1, std::memory_order_release);
                addCounter++;
             }
 
-            toModify_->counter_ = 0;
-            if (toModify_->next_)
+            this->toModify_->counter_ = 0;
+            if (this->toModify_->next_)
             {
-               delete (obj_type*)toModify_->object_;
-               toModify_ = (ObjectContainer*)toModify_->next_;
+               delete static_cast<typename ts_container<T>::obj_type*>(this->toModify_->object_);
+               this->toModify_ = static_cast<ObjectContainer*>(this->toModify_->next_);
             }
 
-            id_++;
-            updateLock_.store(0, std::memory_order_release);
+            this->id_++;
+            this->updateLock_.store(0, std::memory_order_release);
          }
 
-         commitLock_ = 0;
-         DeleteExpired();
+         this->commitLock_ = 0;
+         this->DeleteExpired();
       }
 
-      findResult Find(const key_type& toFind) const
+      typename ts_container<T>::findResult Find(const key_type& toFind) const
       {
-         const ObjectContainer* lookIn = GetConstCurrent();
-         T* lookInObj = (T*)lookIn->object_;
+         const ObjectContainer* lookIn = this->GetConstCurrent();
+         T* lookInObj = static_cast<T*>(lookIn->object_);
 
-         CI iter = lookInObj->find(toFind);
+         typename ts_container<T>::CI iter = lookInObj->find(toFind);
 
-         findResult res;
+         typename ts_container<T>::findResult res;
          res.iter = iter;
          res.found = false;
 
@@ -694,7 +691,7 @@ public ts_container<T>
       
       mapped_type Get(const key_type& toGet)
       {
-         findResult findRes = Find(toGet);
+         typename ts_container<T>::findResult findRes = this->Find(toGet);
          mapped_type toReturn;
 
          if (findRes.found)
@@ -705,24 +702,20 @@ public ts_container<T>
 
    public:
 
-      typedef typename ts_pair_snapshot<T> snapshot;
-      typedef typename ts_pair_iterator<T> iterator;
-      typedef typename ts_pair<T> pair;
+      typedef ts_pair_snapshot<T> snapshot;
+      typedef ts_pair_iterator<T> iterator;
+      typedef ts_pair<T> pair;
 
-      typedef typename ts_const_pair_snapshot<T> const_snapshot;
-      typedef typename ts_const_pair_iterator<T> const_iterator;
+      typedef ts_const_pair_snapshot<T> const_snapshot;
+      typedef ts_const_pair_iterator<T> const_iterator;
       
-      ts_pair_container(void) : ts_container()
-      {}
-
-
       bool contains(const key_type& toFind) const
       {
-         const ObjectContainer* toSearch = GetConstCurrent();
+         const ObjectContainer* toSearch = this->GetConstCurrent();
 
          bool found = false;
-         T* theObject = (T*)toSearch->object_;
-         CI result = theObject->find(toFind);
+         T* theObject = static_cast<T*>(toSearch->object_);
+         typename ts_container<T>::CI result = theObject->find(toFind);
          if (result != theObject->end())
             found = true;
 
@@ -732,7 +725,7 @@ public ts_container<T>
 
       ts_pair<T> operator[] (const key_type& rhs)
       {
-         findResult toFind = Find(rhs);
+         typename ts_container<T>::findResult toFind = Find(rhs);
          if (toFind.found)
             return ts_pair<T>(toFind.iter, this);
          else
@@ -740,7 +733,7 @@ public ts_container<T>
             //default constructor spaghetti
             mapped_type* second = new mapped_type;
 
-            Add(rhs, *second);
+            this->Add(rhs, *second);
             
             ts_pair<T> returnPair(rhs, *second, this);
             delete second;
@@ -752,9 +745,9 @@ public ts_container<T>
       const mapped_type& operator[] (const key_type& rhs) const
       {
          //const version, undefined if the key isnt in map
-         findResult toFind = Find(rhs);
+         typename ts_container<T>::findResult toFind = this->Find(rhs);
 
-         return (*toFind.iter).second;
+         return toFind.iter->second;
       }
 };
 
@@ -882,11 +875,11 @@ public ts_snapshot<T>
       void Set(key_type& first, const mapped_type& second)
       {
          parent_->Set(first, second);
-         (*object_)[first] = second;
+         (*this->object_)[first] = second;
       }
 
    public:
-      ts_pair_snapshot(ts_pair_container<T>& parent) : ts_snapshot(parent) 
+      ts_pair_snapshot(ts_pair_container<T>& parent) : ts_snapshot<T>(parent) 
       {
          parent_ = &parent;
       }
@@ -894,18 +887,18 @@ public ts_snapshot<T>
       ts_pair_iterator<T> begin(void)
       {
          ts_pair_iterator<T> iter;
-         iter.Set(object_->begin(), this);
+         iter.Set(this->object_->begin(), this);
          return iter;
       }
 
       I end(void)
       {
-         return object_->end();
+         return this->object_->end();
       }
 
       ts_pair_iterator<T> find(const key_type& toFind)
       {
-         I findIt = object_->find(toFind);
+         I findIt = this->object_->find(toFind);
          ts_pair_iterator<T> return_iter;
 
          return_iter.Set(findIt, this);
@@ -927,7 +920,7 @@ public ts_const_snapshot<T>
 
    public:
       ts_const_pair_snapshot(const ts_pair_container<T>& parent) 
-         : ts_const_snapshot(parent)
+         : ts_const_snapshot<T>(parent)
       {
          parent_ = &parent;
       }
@@ -935,18 +928,18 @@ public ts_const_snapshot<T>
       ts_const_pair_iterator<T> begin(void)
       {
          ts_const_pair_iterator<T> iter;
-         iter.Set(object_->begin(), this);
+         iter.Set(this->object_->begin(), this);
          return iter;
       }
 
       I end(void)
       {
-         return object_->end();
+         return this->object_->end();
       }
 
       I find(const key_type& toFind)
       {
-         return object_->find(toFind);
+         return this->object_->find(toFind);
       }
 };
 
@@ -1054,29 +1047,24 @@ template <typename T> class ts_pair_iterator :
    friend class ts_pair_snapshot<T>;
 
    private:
-      typedef typename obj_type::first_type key_type;
-      typedef typename obj_type::second_type mapped_type;
+      typedef typename ts_iterator<T>::obj_type::first_type key_type;
+      typedef typename ts_iterator<T>::obj_type::second_type mapped_type;
 
-      ts_pair_snapshot<T> *snapshot_;
+      ts_pair_snapshot<T> *snapshot_ = nullptr;
 
-      void Set(I& iter, ts_pair_snapshot<T>* snapshot)
+      void Set(const typename ts_iterator<T>::I& iter, ts_pair_snapshot<T>* snapshot)
       {
          snapshot_ = snapshot;
-         iter_ = iter;
+         this->iter_ = iter;
       }
 
    public:
-      ts_pair_iterator(void) : ts_iterator() 
-      {
-         snapshot_ = NULL;
-      }
-
       void operator= (const mapped_type& rhs)
       {
          T& object = *snapshot_->object_;
 
-         object[(*iter_).first] = rhs;
-         snapshot_->Set((*iter_).first, rhs);
+         object[this->iter_->first] = rhs;
+         snapshot_->Set(this->iter_->first, rhs);
       }
 };
 
@@ -1086,23 +1074,18 @@ public ts_const_iterator<T>
    friend class ts_const_pair_snapshot<T>;
 
    protected:
-      ts_const_pair_snapshot<T>* snapshot_;
+      ts_const_pair_snapshot<T>* snapshot_=nullptr;
 
-      void Set(I& iter, ts_const_pair_snapshot<T>* snapshot)
+      void Set(const typename ts_const_iterator<T>::I& iter, ts_const_pair_snapshot<T>* snapshot)
       {
          snapshot_ = snapshot;
-         iter_ = iter;
+         this->iter_ = iter;
       }
 
    public:
-      ts_const_pair_iterator(void) 
+      bool operator!= (const typename ts_const_iterator<T>::I& rhs)
       {
-         snapshot_ = NULL;
-      }
-
-      bool operator!= (const I& rhs)
-      {
-         return (iter_ != rhs);
+         return (this->iter_ != rhs);
       }
 };
 

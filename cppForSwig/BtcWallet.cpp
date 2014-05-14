@@ -1630,14 +1630,14 @@ void BtcWallet::rescanWalletZeroConf()
          continue;
 
       BtcUtils::getHash256(*iter, txHash);
-      map<HashString, ZeroConfData>::const_iterator & zcd = \
-                                          zeroConfMap->find(txHash);
+      map<HashString, ZeroConfData>::const_iterator zcd
+         = zeroConfMap->find(txHash);
 
       if (!bdmPtr_->isTxFinal((*zcd).second.txobj_))
          continue;
 
-      Tx & tx = (Tx)(*zcd).second.txobj_;
-      scanTx(tx, 0, (uint32_t)(*zcd).second.txtime_, 
+      Tx &tx = const_cast<Tx&>((*zcd).second.txobj_);
+      scanTx(tx, 0, (*zcd).second.txtime_, 
              UINT32_MAX);
    }
 }
