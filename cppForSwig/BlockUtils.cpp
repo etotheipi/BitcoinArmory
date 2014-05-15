@@ -10,7 +10,6 @@
 #include <time.h>
 #include <stdio.h>
 #include "BlockUtils.h"
-#include "Util.h"
 #include "BtcWallet.h"
 #include "BlockWriteBatcher.h"
 

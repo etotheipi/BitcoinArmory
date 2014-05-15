@@ -1,5 +1,4 @@
 #include "Blockchain.h"
-#include "Util.h"
 
 // remove this when the BDM can tell me the genesis hash by constructor
 #include "BlockUtils.h"
@@ -73,7 +72,7 @@ BlockHeader& Blockchain::getGenesisBlock() const
 BlockHeader& Blockchain::getHeaderByHeight(unsigned index) const
 {
    if(index>=headersByHeight_.size())
-      throw std::range_error("Cannot get block at height " + Util::to_string(index));
+      throw std::range_error("Cannot get block at height " + to_string(index));
 
    return *headersByHeight_[index];
 }

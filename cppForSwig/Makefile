@@ -18,7 +18,7 @@ endif
 LINK = $(CXX)
 
 OBJS = UniversalTimer.o BinaryData.o leveldb_wrapper.o StoredBlockObj.o \
-	BtcUtils.o BlockObj.o BlockUtils.o EncryptionUtils.o Util.o \
+	BtcUtils.o BlockObj.o BlockUtils.o EncryptionUtils.o \
 	BtcWallet.o LedgerEntry.o ScrAddrObj.o Blockchain.o BlockWriteBatcher.o \
 	BDM_mainthread.o \
 	libcryptopp.a libleveldb.a 
