@@ -269,19 +269,18 @@ public:
 //        (-classic SWIG doesn't support static methods)
 class BtcUtils
 {
-public:
+   static const BinaryData        BadAddress_;
+   static const BinaryData        EmptyHash_;
 
+public:
    // Block of code to be called by SWIG -- i.e. made available to python
    BtcUtils(void) {}
-   BinaryData hash256(BinaryData const & str) {return getHash256(str);}
-   BinaryData hash160(BinaryData const & str) {return getHash160(str);}
-
-   static BinaryData        BadAddress_;
-   static BinaryData        EmptyHash_;
+   static BinaryData hash256(BinaryData const & str) {return getHash256(str);}
+   static BinaryData hash160(BinaryData const & str) {return getHash160(str);}
 
    /////////////////////////////////////////////////////////////////////////////
-   static BinaryData BadAddress(void) { return BadAddress_; }
-   static BinaryData EmptyHash(void)  { return EmptyHash_;  }
+   static const BinaryData& BadAddress() { return BadAddress_; }
+   static const BinaryData& EmptyHash() { return EmptyHash_;  }
 
    /////////////////////////////////////////////////////////////////////////////
    static pair<uint64_t, uint8_t> readVarInt(BinaryRefReader & brr)
@@ -468,7 +467,7 @@ public:
    }
 
    /////////////////////////////////////////////////////////////////////////////
-   static list<bool> UnpackBits(BinaryData bits, uint32_t nBits)
+   static list<bool> UnpackBits(const BinaryData& bits, uint32_t nBits)
    {
       list<bool> out;
       for(uint32_t i=0; i<nBits; i++)
@@ -541,7 +540,7 @@ public:
 
 
    /////////////////////////////////////////////////////////////////////////////
-   static BinaryData getHash256(BinaryDataRef strToHash)
+   static BinaryData getHash256(const BinaryDataRef& strToHash)
    {
       BinaryData hashOutput(32);
       getHash256(strToHash.getPtr(), strToHash.getSize(), hashOutput);
@@ -596,7 +595,7 @@ public:
    }
 
    /////////////////////////////////////////////////////////////////////////////
-   static BinaryData getHash160(BinaryDataRef strToHash)
+   static BinaryData getHash160(const BinaryDataRef& strToHash)
    {
       BinaryData hashOutput(20);
       getHash160(strToHash.getPtr(), strToHash.getSize(), hashOutput);
@@ -1490,7 +1489,7 @@ public:
          }
          else if(nextOp < 76)
          {
-            opList.push_back("[PUSHDATA -- " + num2str(nextOp) + " BYTES:]");
+            opList.push_back("[PUSHDATA -- " + to_string(nextOp) + " BYTES:]");
             opList.push_back(script.getSliceCopy(i+1, nextOp).toHexStr());
             i += nextOp+1;
          }
@@ -1499,7 +1498,7 @@ public:
             uint8_t nb = READ_UINT8_LE(script.getPtr() + i+1);
             if(i+1+1+nb > sz) { error=true; break; }
             BinaryData binObj = script.getSliceCopy(i+2, nb);
-            opList.push_back("[OP_PUSHDATA1 -- " + num2str(nb) + " BYTES:]");
+            opList.push_back("[OP_PUSHDATA1 -- " + to_string(nb) + " BYTES:]");
             opList.push_back(binObj.toHexStr());
             i += nb+2;
          }
@@ -1508,7 +1507,7 @@ public:
             uint16_t nb = READ_UINT16_LE(script.getPtr() + i+1);
             if(i+1+2+nb > sz) { error=true; break; }
             BinaryData binObj = script.getSliceCopy(i+3, min((int)nb,256));
-            opList.push_back("[OP_PUSHDATA2 -- " + num2str(nb) + " BYTES:]");
+            opList.push_back("[OP_PUSHDATA2 -- " + to_string(nb) + " BYTES:]");
             opList.push_back(binObj.toHexStr() + "...");
             i += nb+3;
          }
@@ -1517,7 +1516,7 @@ public:
             uint32_t nb = READ_UINT32_LE(script.getPtr() + i+1);
             if(i+1+4+nb > sz) { error=true; break; }
             BinaryData binObj = script.getSliceCopy(i+5, min((int)nb,256));
-            opList.push_back("[OP_PUSHDATA4 -- " + num2str(nb) + " BYTES:]");
+            opList.push_back("[OP_PUSHDATA4 -- " + to_string(nb) + " BYTES:]");
             opList.push_back(binObj.toHexStr() + "...");
             i += nb+5;
          }
@@ -1545,13 +1544,6 @@ public:
          op++;
       }
       return vectOut;
-   }
-   
-   static string num2str(uint64_t n)
-   {
-      stringstream out;
-      out << n;
-      return out.str();
    }
    
    static void pprintScript(BinaryData const & script)
@@ -1585,20 +1577,13 @@ public:
 
    /////////////////////////////////////////////////////////////////////////////
    // Simple method for copying files (works in all OS, probably not efficient)
-   static bool appendFile(string src, string dst)
+   static bool appendFile(const string& src, const string& dst)
    {
-      uint64_t srcsz = GetFileSize(src);
-      if(srcsz == FILE_DOES_NOT_EXIST)
-         return false;
-   
-      BinaryData temp((size_t)srcsz);
       ifstream is(src.c_str(), ios::in  | ios::binary);
-      is.read((char*)temp.getPtr(), srcsz);
-      is.close();
-   
+      if (!is.is_open())
+         return false;
       ofstream os(dst.c_str(), ios::app | ios::binary);
-      os.write((char*)temp.getPtr(), srcsz);
-      os.close();
+      os << is.rdbuf();
       return true;
    }
 

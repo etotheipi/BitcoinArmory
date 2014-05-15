@@ -46,8 +46,8 @@ public:
    BinaryData const &  getScrAddr(void) const    {return scrAddr_;       }
    uint32_t       getFirstBlockNum(void) const   {return firstBlockNum_; }
    uint32_t       getFirstTimestamp(void) const  {return firstTimestamp_;}
-   uint32_t       getLastBlockNum(void)          {return lastBlockNum_;  }
-   uint32_t       getLastTimestamp(void)         {return lastTimestamp_; }
+   uint32_t       getLastBlockNum(void) const    {return lastBlockNum_;  }
+   uint32_t       getLastTimestamp(void) const   {return lastTimestamp_; }
    void           setFirstBlockNum(uint32_t b)   { firstBlockNum_  = b; }
    void           setFirstTimestamp(uint32_t t)  { firstTimestamp_ = t; }
    void           setLastBlockNum(uint32_t b)    { lastBlockNum_   = b; }
@@ -83,10 +83,9 @@ public:
 
 
    void addTxIO(TxIOPair * txio, bool isZeroConf=false);
-   void addTxIO(TxIOPair & txio, bool isZeroConf=false);
    void addLedgerEntry(LedgerEntry const & le, bool isZeroConf=false); 
 
-   void pprintLedger(void);
+   void pprintLedger(void) const;
    void clearBlkData(void);
 
    bool operator== (const ScrAddrObj& rhs) const

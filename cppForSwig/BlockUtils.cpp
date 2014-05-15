@@ -57,7 +57,7 @@ static void createUndoDataFromBlock(
          uint16_t   prevIndex = txin.getOutPoint().getTxOutIndex();
 
          // Skip if coinbase input
-         if(prevHash == BtcUtils::EmptyHash_)
+         if(prevHash == BtcUtils::EmptyHash())
             continue;
          
          // Above we checked the block to be undone is full, but we
@@ -171,7 +171,7 @@ private:
       //       from the branch point and walk up
       thisHeaderPtr = branchPtr; // note branch block was not undone, skip it
       LOGINFO << "Marking new-chain transactions valid...";
-      while( thisHeaderPtr->getNextHash() != BtcUtils::EmptyHash_ &&
+      while( thisHeaderPtr->getNextHash() != BtcUtils::EmptyHash() &&
             thisHeaderPtr->getNextHash().getSize() > 0 ) 
       {
          thisHeaderPtr = &blockchain_->getHeaderByHash(thisHeaderPtr->getNextHash());
@@ -1637,7 +1637,7 @@ bool BlockDataManager_LevelDB::extractHeadersInBlkFile(uint32_t fnum,
       // (unless the previous hash is 0)
       // most should be there, so search the map before checking for 0
       if (!blockchain_.hasHeaderWithHash(addedBlock.getPrevHash())
-         && BtcUtils::EmptyHash_ != addedBlock.getPrevHash()
+         && BtcUtils::EmptyHash() != addedBlock.getPrevHash()
          )
       {
          LOGWARN << "Block header " << addedBlock.getThisHash().toHexStr()

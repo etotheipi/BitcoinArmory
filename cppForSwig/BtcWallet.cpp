@@ -341,7 +341,7 @@ void BtcWallet::scanTx(Tx & tx,
       TxIn txin = tx.getTxInCopy(iin);
       OutPoint outpt = txin.getOutPoint();
       // Empty hash in Outpoint means it's a COINBASE tx --> no addr inputs
-      if(outpt.getTxHashRef() == BtcUtils::EmptyHash_)
+      if(outpt.getTxHashRef() == BtcUtils::EmptyHash())
       {
          isCoinbaseTx = true;
          continue;
@@ -483,7 +483,7 @@ void BtcWallet::scanTx(Tx & tx,
                // and now being re-added
                txioIter->second.setTxOutZC(&tx, iout);
                txioIter->second.setValue((uint64_t)thisVal);
-               thisAddr.addTxIO( txioIter->second, isZeroConf);
+               thisAddr.addTxIO( &txioIter->second, isZeroConf);
                doAddLedgerEntry = true;
             }
             else
@@ -499,7 +499,7 @@ void BtcWallet::scanTx(Tx & tx,
                // but that will be removed)
                txioIter->second.setTxOut(tx.getTxRef(), iout);
                txioIter->second.setValue((uint64_t)thisVal);
-               thisAddr.addTxIO( txioIter->second, isZeroConf);
+               thisAddr.addTxIO( &txioIter->second, isZeroConf);
                doAddLedgerEntry = true;
             }
          }
@@ -514,7 +514,7 @@ void BtcWallet::scanTx(Tx & tx,
 
             pair<OutPoint, TxIOPair> toBeInserted(outpt, newTxio);
             txioIter = txioMap_.insert(toBeInserted).first;
-            thisAddr.addTxIO( txioIter->second, isZeroConf);
+            thisAddr.addTxIO( &txioIter->second, isZeroConf);
             doAddLedgerEntry = true;
          }
 
@@ -614,7 +614,7 @@ LedgerEntry BtcWallet::calcLedgerEntryForTx(Tx & tx)
       static OutPoint op;
       op.unserialize(txStartPtr + tx.getTxInOffset(iin), tx.getSize()-tx.getTxInOffset(iin));
 
-      if(op.getTxHashRef() == BtcUtils::EmptyHash_)
+      if(op.getTxHashRef() == BtcUtils::EmptyHash())
          isCoinbaseTx = true;
 
       //if(txioMap_.find(op) != txioMap_.end())

@@ -146,7 +146,7 @@ BlockHeader* Blockchain::organizeChain(bool forceRebuild)
          iter->second.difficultySum_  = -1;
          iter->second.blockHeight_    =  0;
          iter->second.isFinishedCalc_ =  false;
-         iter->second.nextHash_       =  BtcUtils::EmptyHash_;
+         iter->second.nextHash_       =  BtcUtils::EmptyHash();
          iter->second.isMainBranch_   =  false;
       }
       topBlockPtr_ = NULL;
@@ -193,7 +193,7 @@ BlockHeader* Blockchain::organizeChain(bool forceRebuild)
    // Walk down the list one more time, set nextHash fields
    // Also set headersByHeight_;
    bool prevChainStillValid = (topBlockPtr_ == &prevTopBlock);
-   topBlockPtr_->nextHash_ = BtcUtils::EmptyHash_;
+   topBlockPtr_->nextHash_ = BtcUtils::EmptyHash();
    BlockHeader* thisHeaderPtr = topBlockPtr_;
    //headersByHeight_.reserve(topBlockPtr_->getBlockHeight()+32768);
    headersByHeight_.resize(topBlockPtr_->getBlockHeight()+1);

@@ -292,7 +292,7 @@ bool TxIn::getSenderScrAddrIfAvail(BinaryData & addrTarget) const
    if(scriptType_ == TXIN_SCRIPT_NONSTANDARD ||
       scriptType_ == TXIN_SCRIPT_COINBASE)
    {
-      addrTarget = BtcUtils::BadAddress_;
+      addrTarget = BtcUtils::BadAddress();
       return false;
    }
    
@@ -714,7 +714,7 @@ void TxRef::setRef(BinaryDataRef bdr, InterfaceToLDB* iface)
 /////////////////////////////////////////////////////////////////////////////
 uint32_t TxRef::getBlockTimestamp(void)
 {
-   static StoredHeader sbh;
+   StoredHeader sbh;
 
    if(dbIface_!=NULL && dbKey6B_.getSize() == 6)
    {
@@ -728,14 +728,14 @@ uint32_t TxRef::getBlockTimestamp(void)
 /////////////////////////////////////////////////////////////////////////////
 BinaryData TxRef::getBlockHash(void) const
 {
-   static StoredHeader sbh;
+   StoredHeader sbh;
    if(dbIface_!=NULL && dbKey6B_.getSize() == 6)
    {
       dbIface_->getStoredHeader(sbh, getBlockHeight(), getDuplicateID(), false);
       return sbh.thisHash_;
    }
    else
-      return BtcUtils::EmptyHash_;
+      return BtcUtils::EmptyHash();
 }
 
 
@@ -883,7 +883,7 @@ TxIOPair::TxIOPair(BinaryData txOutKey8B, uint64_t val) :
 HashString TxIOPair::getTxHashOfOutput(void) const
 {
    if(!hasTxOut())
-      return BtcUtils::EmptyHash_;
+      return BtcUtils::EmptyHash();
    else if(txRefOfOutput_.isInitialized())
       return txRefOfOutput_.getThisHash();
    else
@@ -894,7 +894,7 @@ HashString TxIOPair::getTxHashOfOutput(void) const
 HashString TxIOPair::getTxHashOfInput(void) const
 {
    if(!hasTxIn())
-      return BtcUtils::EmptyHash_;
+      return BtcUtils::EmptyHash();
    else if(txRefOfInput_.isInitialized())
       return txRefOfInput_.getThisHash();
    else
@@ -1140,7 +1140,7 @@ void TxIOPair::pprintOneLine(void)
 
 ////////////////////////////////////////////////////////////////////////////////
 UnspentTxOut::UnspentTxOut(void) :
-   txHash_(BtcUtils::EmptyHash_),
+   txHash_(BtcUtils::EmptyHash()),
    txOutIndex_(0),
    txHeight_(0),
    value_(0),

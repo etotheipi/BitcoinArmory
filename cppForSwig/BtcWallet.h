@@ -24,7 +24,7 @@ class AddressBookEntry
 public:
 
    /////
-   AddressBookEntry(void) : scrAddr_(BtcUtils::EmptyHash_) { txList_.clear(); }
+   AddressBookEntry(void) : scrAddr_(BtcUtils::EmptyHash()) { txList_.clear(); }
    explicit AddressBookEntry(BinaryData scraddr) : scrAddr_(scraddr) { txList_.clear(); }
    void addTx(Tx & tx) { txList_.push_back( RegisteredTx(tx) ); }
    BinaryData getScrAddr(void) { return scrAddr_; }

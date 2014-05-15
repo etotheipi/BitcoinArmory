@@ -174,16 +174,7 @@ void ScrAddrObj::addTxIO(TxIOPair * txio, bool isZeroConf)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void ScrAddrObj::addTxIO(TxIOPair & txio, bool isZeroConf)
-{ 
-   if(isZeroConf)
-      relevantTxIOPtrsZC_.push_back(&txio);
-   else
-      relevantTxIOPtrs_.push_back(&txio);
-}
-
-////////////////////////////////////////////////////////////////////////////////
-void ScrAddrObj::pprintLedger(void)
+void ScrAddrObj::pprintLedger() const
 { 
    cout << "Address Ledger: " << getScrAddr().toHexStr() << endl;
    for(uint32_t i=0; i<ledger_.size(); i++)

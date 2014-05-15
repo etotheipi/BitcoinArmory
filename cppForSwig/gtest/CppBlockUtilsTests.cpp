@@ -1741,7 +1741,7 @@ TEST_F(BtcUtilsTest, TxOutScriptID_NonStd)
    // This was from block 150951 which was erroneously produced by MagicalTux
    // This is not only non-standard, it's non-spendable
    BinaryData script = READHEX("76a90088ac");
-   BinaryData a160   = BtcUtils::BadAddress_;
+   BinaryData a160   = BtcUtils::BadAddress();
    BinaryData unique = READHEX("ff") + BtcUtils::getHash160(READHEX("76a90088ac"));
    TXOUT_SCRIPT_TYPE scrType = BtcUtils::getTxOutScriptType(script);
    EXPECT_EQ(scrType, TXOUT_SCRIPT_NONSTANDARD );
@@ -1782,7 +1782,7 @@ TEST_F(BtcUtilsTest, TxOutScriptID_Multisig)
       "03fe96237629128a0ae8c3825af8a4be8fe3109b16f62af19cec0b1eb93b8717e2");
    BinaryData addr1  = READHEX("b3348abf9dd2d1491359f937e2af64b1bb6d525a");
    BinaryData addr2  = READHEX("785652a6b8e721e80ffa353e5dfd84f0658284a9");
-   BinaryData a160   = BtcUtils::BadAddress_;
+   BinaryData a160   = BtcUtils::BadAddress();
    BinaryData unique = READHEX(
       "fe0202785652a6b8e721e80ffa353e5dfd84f0658284a9b3348abf9dd2d14913"
       "59f937e2af64b1bb6d525a");
@@ -1805,7 +1805,7 @@ TEST_F(BtcUtilsTest, TxOutScriptID_MultiList)
       "b93b8717e252ae");
    BinaryData addr0  = READHEX("785652a6b8e721e80ffa353e5dfd84f0658284a9");
    BinaryData addr1  = READHEX("b3348abf9dd2d1491359f937e2af64b1bb6d525a");
-   BinaryData a160   = BtcUtils::BadAddress_;
+   BinaryData a160   = BtcUtils::BadAddress();
    BinaryData unique = READHEX(
       "fe0202785652a6b8e721e80ffa353e5dfd84f0658284a9b3348abf9dd2d14913"
       "59f937e2af64b1bb6d525a");
@@ -1889,7 +1889,7 @@ TEST_F(BtcUtilsTest, TxInScriptID_Coinbase)
 {
    BinaryData script = READHEX(
       "0310920304000071c3124d696e656420627920425443204775696c640800b75f950e000000");
-   BinaryData a160 =  BtcUtils::BadAddress_;
+   BinaryData a160 =  BtcUtils::BadAddress();
    BinaryData prevHash = prevHashCB_;
 
    TXIN_SCRIPT_TYPE scrType = BtcUtils::getTxInScriptType(script, prevHash);
@@ -1906,7 +1906,7 @@ TEST_F(BtcUtilsTest, TxInScriptID_SpendPubKey)
       "47304402201ffc44394e5a3dd9c8b55bdc12147e18574ac945d15dac026793bf"
       "3b8ff732af022035fd832549b5176126f735d87089c8c1c1319447a458a09818"
       "e173eaf0c2eef101");
-   BinaryData a160 =  BtcUtils::BadAddress_;
+   BinaryData a160 =  BtcUtils::BadAddress();
    BinaryData prevHash = prevHashReg_;
 
    TXIN_SCRIPT_TYPE scrType = BtcUtils::getTxInScriptType(script, prevHash);
@@ -1929,7 +1929,7 @@ TEST_F(BtcUtilsTest, TxInScriptID_SpendMultisig)
       "520db45494ec095ce80148304502206ee62f539d5cd94f990b7abfda77750f58"
       "ff91043c3f002501e5448ef6dba2520221009d29229cdfedda1dd02a1a90bb71"
       "b30b77e9c3fc28d1353f054c86371f6c2a8101");
-   BinaryData a160 =  BtcUtils::BadAddress_;
+   BinaryData a160 =  BtcUtils::BadAddress();
    BinaryData prevHash = prevHashReg_;
    TXIN_SCRIPT_TYPE scrType = BtcUtils::getTxInScriptType(script, prevHash);
    EXPECT_EQ(scrType, TXIN_SCRIPT_SPENDMULTI);
@@ -5839,7 +5839,7 @@ class ThreadSafeSTLTest : public ::testing::Test
 {
    protected:
       static ts_container<vector<int>> testTSS;
-      static std::atomic_int32_t removeTotal;
+      static std::atomic<int32_t> removeTotal;
 
       virtual void SetUp(void)
       {
@@ -5880,9 +5880,9 @@ class ThreadSafeSTLTest : public ::testing::Test
          return 0;
       }
 };
-
 ts_container<vector<int>> ThreadSafeSTLTest::testTSS;
-std::atomic_int32_t       ThreadSafeSTLTest::removeTotal;
+std::atomic<int32_t> ThreadSafeSTLTest::removeTotal;
+
 
 TEST_F(ThreadSafeSTLTest, AddRemoveClearAdd)
 {
@@ -5891,71 +5891,72 @@ TEST_F(ThreadSafeSTLTest, AddRemoveClearAdd)
    testTSS.push_back(3);
    testTSS.push_back(4);
 
-   ts_container<vector<int>>::const_snapshot* testSnapshot = \
-      new ts_container<vector<int>>::const_snapshot(testTSS);
-   ts_container<vector<int>>::const_iterator testIter;
+   {
+      ts_container<vector<int>>::const_snapshot testSnapshot(testTSS);
 
-   int expect = 1+2+3+4;
-   int total  = 0;
-   for(testIter = testSnapshot->begin(); 
-       testIter!= testSnapshot->end(); testIter++)
-      total += (*testIter);
+      int expect = 1+2+3+4;
+      int total  = 0;
+      for(ts_container<vector<int>>::const_iterator testIter = testSnapshot.begin();
+         testIter!= testSnapshot.end(); ++testIter)
+         total += (*testIter);
 
-   EXPECT_EQ(total, expect);
-   delete testSnapshot;
+      EXPECT_EQ(total, expect);
+   }
    
    testTSS.erase(3);
-   testSnapshot = new ts_container<vector<int>>::const_snapshot(testTSS);
+   {
+      ts_container<vector<int>>::const_snapshot testSnapshot(testTSS);
 
-   expect = 1+2+4;
-   total  = 0;
+      int expect = 1+2+4;
+      int total  = 0;
 
-   for (testIter = testSnapshot->begin();
-      testIter != testSnapshot->end(); testIter++)
-      total += (*testIter);
+      for (ts_container<vector<int>>::const_iterator testIter = testSnapshot.begin();
+         testIter != testSnapshot.end(); ++testIter)
+         total += (*testIter);
 
-   EXPECT_EQ(total, expect);
-   delete testSnapshot;
+      EXPECT_EQ(total, expect);
+   }
+   
+   {
+      //grab same snapshot
+      ts_container<vector<int>>::const_snapshot testSnapshot(testTSS);
+      int expect = 1 + 2 + 4;
+      int total  = 0;
 
-   //grab same snapshot
-   testSnapshot = new ts_container<vector<int>>::const_snapshot(testTSS);
-   expect = 1 + 2 + 4;
-   total  = 0;
+      for (ts_container<vector<int>>::const_iterator testIter = testSnapshot.begin();
+         testIter != testSnapshot.end(); ++testIter)
+         total += (*testIter);
 
-   for (testIter = testSnapshot->begin();
-      testIter != testSnapshot->end(); testIter++)
-      total += (*testIter);
-
-   EXPECT_EQ(total, expect);
-   delete testSnapshot;
-
+      EXPECT_EQ(total, expect);
+   }
+   
    testTSS.clear();
-   testSnapshot = new ts_container<vector<int>>::const_snapshot(testTSS);
+   {   
+      ts_container<vector<int>>::const_snapshot testSnapshot(testTSS);
 
-   expect = 0;
-   total  = 0;
+      int expect = 0;
+      int total  = 0;
 
-   for (testIter = testSnapshot->begin();
-      testIter != testSnapshot->end(); testIter++)
-      total += (*testIter);
+      for (ts_container<vector<int>>::const_iterator testIter = testSnapshot.begin();
+         testIter != testSnapshot.end(); ++testIter)
+         total += (*testIter);
 
-   EXPECT_EQ(total, expect);
-   delete testSnapshot;
-
+      EXPECT_EQ(total, expect);
+   }
    testTSS.push_back(5);
    testTSS.push_back(6);
    testTSS.push_back(7);
+   {
+      ts_container<vector<int>>::const_snapshot testSnapshot(testTSS);
 
-   testSnapshot = new ts_container<vector<int>>::const_snapshot(testTSS);
+      int expect = 5+6+7;
+      int total  = 0;
+      for (ts_container<vector<int>>::const_iterator testIter = testSnapshot.begin();
+         testIter != testSnapshot.end(); ++testIter)
+         total += (*testIter);
 
-   expect = 5+6+7;
-   total  = 0;
-   for (testIter = testSnapshot->begin();
-      testIter != testSnapshot->end(); testIter++)
-      total += (*testIter);
-
-   EXPECT_EQ(total, expect);
-   delete testSnapshot;
+      EXPECT_EQ(total, expect);
+   }
 }
 
 TEST_F(ThreadSafeSTLTest, MultiThreaded_AddRemoveClearAdd)
@@ -5988,7 +5989,7 @@ TEST_F(ThreadSafeSTLTest, MultiThreaded_AddRemoveClearAdd)
    int expect = ((nThreads*nThreads*1000*1000)+nThreads*1000)/2;
    int total  = 0;
    for (testIter = testSnapshot->begin();
-      testIter != testSnapshot->end(); testIter++)
+      testIter != testSnapshot->end(); ++testIter)
       total += (*testIter);
 
    EXPECT_EQ(total, expect);
@@ -6008,7 +6009,7 @@ TEST_F(ThreadSafeSTLTest, MultiThreaded_AddRemoveClearAdd)
    expect -= removeTotal.load();
    total  = 0;
    for (testIter = testSnapshot->begin();
-      testIter != testSnapshot->end(); testIter++)
+      testIter != testSnapshot->end(); ++testIter)
       total += (*testIter);
 
    EXPECT_EQ(total, expect);
@@ -6028,7 +6029,7 @@ TEST_F(ThreadSafeSTLTest, MultiThreaded_AddRemoveClearAdd)
    expect = 0;
    total  = 0;
    for (testIter = testSnapshot->begin();
-      testIter != testSnapshot->end(); testIter++)
+      testIter != testSnapshot->end(); ++testIter)
       total += (*testIter);
 
    EXPECT_EQ(total, expect);
@@ -6045,7 +6046,7 @@ TEST_F(ThreadSafeSTLTest, MultiThreaded_AddRemoveClearAdd)
    expect = (3*nThreads*nThreads*1000000 + nThreads*1000)/2;
    total  = 0;
    for (testIter = testSnapshot->begin();
-      testIter != testSnapshot->end(); testIter++)
+      testIter != testSnapshot->end(); ++testIter)
       total += (*testIter);
 
    EXPECT_EQ(total, expect);
@@ -6299,9 +6300,9 @@ TEST_F(BlockUtilsBare, Load4Blocks_ZC_Plus1)
    scrobj = &wlt.getScrAddrObjByKey(scrAddrC_);
    EXPECT_EQ(scrobj->getFullBalance(), 50*COIN);
 
-   ULONGLONG fullBalance = wlt.getFullBalance();
-   ULONGLONG spendableBalance = wlt.getSpendableBalance(4);
-   ULONGLONG unconfirmedBalance = wlt.getUnconfirmedBalance(4);
+   uint64_t fullBalance = wlt.getFullBalance();
+   uint64_t spendableBalance = wlt.getSpendableBalance(4);
+   uint64_t unconfirmedBalance = wlt.getUnconfirmedBalance(4);
    EXPECT_EQ(fullBalance, 150*COIN);
    EXPECT_EQ(spendableBalance, 0*COIN);
    EXPECT_EQ(unconfirmedBalance, 150*COIN);
@@ -7931,4 +7932,5 @@ GTEST_API_ int main(int argc, char **argv)
    return exitCode;
 }
 
+// kate: indent-width 3; replace-tabs on;
 
