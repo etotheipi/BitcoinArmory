@@ -151,19 +151,9 @@ public:
 
    const ScrAddrObj& getScrAddrObjByKey(BinaryData const & a) const
    {
-      ts_saMap::const_snapshot saSnapshot(scrAddrMap_);
-      map<BinaryData, ScrAddrObj>::const_iterator i = saSnapshot.find(a);
+      const ts_saMap::const_snapshot saSnapshot(scrAddrMap_);
+      const ts_saMap::const_iterator i = saSnapshot.find(a);
       
-      if (i == saSnapshot.end())
-         throw std::runtime_error("Could not find ScrAddrObject with key=" + a.toHexStr());
-      return i->second;
-   }
-
-   const ScrAddrObj& getScrAddrObjByKey(BinaryData const & a)
-   {
-      ts_saMap::const_snapshot saSnapshot(scrAddrMap_);
-      map<BinaryData, ScrAddrObj>::const_iterator i = saSnapshot.find(a);
-
       if (i == saSnapshot.end())
          throw std::runtime_error("Could not find ScrAddrObject with key=" + a.toHexStr());
       return i->second;
@@ -210,14 +200,14 @@ public:
    void scanRegisteredTxList( uint32_t blkStart, uint32_t blkEnd);
    void updateRegisteredScrAddrs(uint32_t newTopBlk);
    uint32_t numBlocksToRescan(uint32_t endBlk) const;
-   const RegisteredScrAddr& getRegisteredScrAddr(const BinaryData& uniqKey)
+   const RegisteredScrAddr& getRegisteredScrAddr(const BinaryData& uniqKey) const
    {
-      ts_rsaMap::const_snapshot rsaMap_snapshot(registeredScrAddrMap_);
-      rsaMap::const_iterator rsaMap_iter = rsaMap_snapshot.find(uniqKey);
+      const ts_rsaMap::const_snapshot rsaMap_snapshot(registeredScrAddrMap_);
+      const ts_rsaMap::const_iterator rsaMap_iter = rsaMap_snapshot.find(uniqKey);
       
       if (rsaMap_iter == rsaMap_snapshot.end())
          throw std::runtime_error("Could not find RegisteredScrAddr with key=" + uniqKey.toHexStr());
-      return (*rsaMap_iter).second;
+      return rsaMap_iter->second;
    }
    ts_rsaMap* getRegisteredScrAddrMap(void)
          { return &registeredScrAddrMap_; }

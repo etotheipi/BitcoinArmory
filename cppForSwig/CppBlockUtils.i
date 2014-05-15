@@ -45,7 +45,6 @@
 %typedef unsigned int       TXIN_SCRIPT_TYPE;
 %typedef unsigned int       TXOUT_SCRIPT_TYPE;
 
-%ignore getScrAddrObjByKey(const BinaryData &a) const;
 %ignore readVarInt(BinaryRefReader & brr);
 
 namespace std

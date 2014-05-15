@@ -66,7 +66,6 @@ typedef enum
 class BtcWallet;
 
 typedef set<BtcWallet*> set_BtcWallet;
-template class ts_container<set_BtcWallet>;
 typedef ts_container<set_BtcWallet> ts_setBtcWallet;
 
 struct ZeroConfData

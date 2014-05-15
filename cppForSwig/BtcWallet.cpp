@@ -262,7 +262,7 @@ void BtcWallet::pprintAlot(uint32_t topBlk, bool withAddr)
       ts_saMap::const_snapshot saSnapshot(scrAddrMap_);
       ts_saMap::const_iterator saIter;
 
-      for(saIter = saSnapshot.begin(); saIter != saSnapshot.end(); saIter++)
+      for(saIter = saSnapshot.begin(); saIter != saSnapshot.end(); ++saIter)
       {
          const ScrAddrObj & addr = (*saIter).second;
          HashString scraddr = addr.getScrAddr();
@@ -704,7 +704,7 @@ void BtcWallet::clearBlkData(void)
    ts_saMap::iterator saIter;
 
    for (saIter = saSnapshot.begin();
-      saIter != saSnapshot.end(); saIter++)
+      saIter != saSnapshot.end(); ++saIter)
    {
       ScrAddrObj sa = (*saIter).second;
       sa.clearBlkData();
@@ -1024,7 +1024,7 @@ void BtcWallet::clearZeroConfPool(void)
    ts_saMap::iterator saIter;
 
    for (saIter = saSnapshot.begin();
-      saIter != saSnapshot.end(); saIter++)
+      saIter != saSnapshot.end(); ++saIter)
    {
       ScrAddrObj sa = (*saIter).second;
       sa.clearZeroConfPool();
@@ -1198,7 +1198,7 @@ void BtcWallet::updateRegisteredScrAddrs(uint32_t newTopBlk)
    ts_rsaMap::iterator rsaIter;
 
    for (rsaIter = rsaSnapshot.begin(); 
-      rsaIter != rsaSnapshot.end(); rsaIter++)
+      rsaIter != rsaSnapshot.end(); ++rsaIter)
    {
       RegisteredScrAddr rsa = (*rsaIter).second;
 
@@ -1225,7 +1225,7 @@ uint32_t BtcWallet::numBlocksToRescan(uint32_t endBlk) const
    ts_saMap::const_iterator saIter;
    ts_rsaMap::const_snapshot rai(registeredScrAddrMap_);
 
-   for(saIter = saSnapshot.begin(); saIter != saSnapshot.end(); saIter++)
+   for(saIter = saSnapshot.begin(); saIter != saSnapshot.end(); ++saIter)
    {
       const ScrAddrObj & addr = (*saIter).second;
 
@@ -1234,7 +1234,7 @@ uint32_t BtcWallet::numBlocksToRescan(uint32_t endBlk) const
       if(!registeredScrAddrMap_.contains(addr.getScrAddr()))
          return endBlk;  // Gotta do a full rescan!
 
-      rsaMap::const_iterator getRai = rai.find(addr.getScrAddr());
+      ts_rsaMap::const_iterator getRai = rai.find(addr.getScrAddr());
       if (getRai == rai.end())
       {
          LOGWARN << "item not found in registeredScrAddrMap_";
@@ -1352,7 +1352,7 @@ void BtcWallet::fetchDBRegisteredScrAddrData()
    ts_saMap::const_snapshot saSnapshot(scrAddrMap_);
    ts_saMap::const_iterator saIter;
 
-   for(saIter = saSnapshot.begin(); saIter != saSnapshot.end(); saIter++)
+   for(saIter = saSnapshot.begin(); saIter != saSnapshot.end(); ++saIter)
    {
       const ScrAddrObj & scrAddrObj = (*saIter).second;
       fetchDBRegisteredScrAddrData(scrAddrObj.getScrAddr());
@@ -1593,7 +1593,7 @@ void BtcWallet::updateAfterReorg(uint32_t lastValidBlockHeight)
    ts_saMap::snapshot saSnapshot(scrAddrMap_);
    ts_saMap::iterator saIter;
 
-   for (saIter = saSnapshot.begin(); saIter != saSnapshot.end(); saIter++)
+   for (saIter = saSnapshot.begin(); saIter != saSnapshot.end(); ++saIter)
    {
       ScrAddrObj addr = (*saIter).second;
       vector<LedgerEntry> & addrLedg = addr.getTxLedger();
@@ -1652,7 +1652,7 @@ uint32_t BtcWallet::evalLowestBlockNextScan(void)
    ts_rsaMap::const_iterator rsaIter;
 
    for (rsaIter = rsaSnapshot.begin(); rsaIter != rsaSnapshot.end();
-         rsaIter++)
+         ++rsaIter)
    {
       // If we happen to have any imported addresses, this will set the
       // lowest block to 0, which will require a full rescan
@@ -1681,7 +1681,7 @@ void BtcWallet::saveScrAddrHistories(void)
    ts_saMap::const_snapshot saSnapshot(scrAddrMap_);
    ts_saMap::const_iterator saIter;
 
-   for (saIter = saSnapshot.begin(); saIter != saSnapshot.end(); saIter++)
+   for (saIter = saSnapshot.begin(); saIter != saSnapshot.end(); ++saIter)
    {
       const ScrAddrObj & scrAddr = (*saIter).second;
       BinaryData uniqKey = scrAddr.getScrAddr();

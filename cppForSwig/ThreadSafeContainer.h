@@ -757,8 +757,9 @@ template<typename T> class ts_snapshot
    friend class ts_iterator<T>;
 
    protected:
-      typedef typename T::iterator I;
-      typedef typename std::iterator_traits<I>::value_type obj_type;
+      typedef ts_iterator<T> iterator;
+      typedef ts_const_iterator<T> const_iterator;
+      typedef typename std::iterator_traits<typename T::iterator>::value_type obj_type;
 
       ts_container<T> *parent_;
       ObjectContainer *cont_;
@@ -777,16 +778,32 @@ template<typename T> class ts_snapshot
          cont_->counter_.fetch_sub(1, std::memory_order_release);
       }
 
-      ts_iterator<T> begin(void)
+      iterator begin()
       {
-         ts_iterator<T> iter;
+         iterator iter;
          iter.Set(object_->begin(), this);
          return iter;
       }
 
-      I end(void)
+      iterator end()
       {
-         return object_->end();
+         iterator iter;
+         iter.Set(object_->end(), this);
+         return iter;
+      }
+      
+      const_iterator begin() const
+      {
+         const_iterator iter;
+         iter.Set(object_->begin(), this);
+         return iter;
+      }
+
+      const_iterator end() const
+      {
+         const_iterator iter;
+         iter.Set(object_->end(), this);
+         return iter;
       }
 
       ts_iterator<T> find(const obj_type& toFind)
@@ -808,7 +825,7 @@ template<typename T> class ts_snapshot
          object_->erase(toErase);
       }
 
-      void erase(const I& toErase)
+      void erase(const iterator& toErase)
       {
          parent_->erase(toErase);
          object_->erase(toErase);
@@ -819,53 +836,53 @@ template<typename T> class ts_snapshot
 template<typename T> class ts_const_snapshot
 {
    protected:
-      typedef typename T::const_iterator I;
-      typedef typename std::iterator_traits<I>::value_type obj_type;
+      typedef ts_const_iterator<T> const_iterator;
+      typedef typename std::iterator_traits<typename T::const_iterator>::value_type value_type;
       
-      const ts_container<T> *parent_;
-      const ObjectContainer *cont_;
-      const T *object_;
+      const ts_container<T> &parent_;
+      const ObjectContainer *const cont_;
+      const T *const object_;
 
    public:
-      ts_const_snapshot(const ts_container<T>& parent):
-         object_(NULL)
-      {
-         parent_ = &parent;
-         cont_ = parent.GetConstCurrent();
-         object_ = (T*)cont_->object_;
-      }
+      ts_const_snapshot(const ts_container<T>& parent)
+         : parent_(parent)
+         , cont_(parent.GetConstCurrent())
+         , object_(static_cast<const T*>(cont_->object_))
+      { }
 
-      ~ts_const_snapshot(void)
+      ~ts_const_snapshot()
       {
          cont_->counter_.fetch_sub(1, std::memory_order_release);
       }
 
-      ts_const_iterator<T> begin(void)
+      const_iterator begin() const
       {
-         ts_const_iterator<T> iter;
+         const_iterator iter;
          iter.Set(object_->begin(), this);
          return iter;
       }
 
-      I end(void)
+      const_iterator end() const
       {
-         return object_->end();
+         const_iterator iter;
+         iter.Set(object_->end(), this);
+         return iter;
       }
 
-      I find(const obj_type& toFind)
+      const_iterator find(const value_type& toFind) const
       {
          return object_->find(toFind);
       }
 };
 
-template<typename T> class ts_pair_snapshot :
-public ts_snapshot<T>
+template<typename T> class ts_pair_snapshot : private ts_snapshot<T>
 {
    friend class ts_pair_iterator<T>;
 
    private:
-      typedef typename T::iterator I;
-      typedef typename std::iterator_traits<I>::value_type obj_type;
+      typedef ts_pair_iterator<T> iterator;
+      typedef ts_const_pair_iterator<T> const_iterator;
+      typedef typename std::iterator_traits<typename T::iterator>::value_type obj_type;
 
       typedef typename obj_type::first_type key_type;
       typedef typename obj_type::second_type mapped_type;
@@ -884,62 +901,84 @@ public ts_snapshot<T>
          parent_ = &parent;
       }
 
-      ts_pair_iterator<T> begin(void)
+      iterator begin()
       {
-         ts_pair_iterator<T> iter;
+         iterator iter;
          iter.Set(this->object_->begin(), this);
          return iter;
       }
 
-      I end(void)
+      iterator end()
       {
-         return this->object_->end();
+         iterator iter;
+         iter.Set(this->object_->end(), this);
+         return iter;
+      }
+      
+      const_iterator begin() const
+      {
+         const_iterator iter;
+         iter.Set(this->object_->begin(), this);
+         return iter;
       }
 
-      ts_pair_iterator<T> find(const key_type& toFind)
+      const_iterator end() const
       {
-         I findIt = this->object_->find(toFind);
-         ts_pair_iterator<T> return_iter;
+         const_iterator iter;
+         iter.Set(this->object_->end(), this);
+         return iter;
+      }
 
-         return_iter.Set(findIt, this);
+      iterator find(const key_type& toFind)
+      {
+         iterator return_iter;
+         return_iter.Set(this->object_->find(toFind), this);
+         return return_iter;
+      }
+      const_iterator find(const key_type& toFind) const
+      {
+         const_iterator return_iter;
+         return_iter.Set(this->object_->find(toFind), this);
          return return_iter;
       }
 };
 
-template<typename T> class ts_const_pair_snapshot :
-public ts_const_snapshot<T>
+template<typename T> class ts_const_pair_snapshot
+   : private ts_const_snapshot<T>
 {
    private:
-      typedef typename T::const_iterator I;
-      typedef typename std::iterator_traits<I>::value_type obj_type;
+      typedef ts_const_pair_iterator<T> const_iterator;
+      typedef typename std::iterator_traits<typename T::const_iterator>::value_type value_type;
 
-      typedef typename obj_type::first_type key_type;
-      typedef typename obj_type::second_type mapped_type;
+      typedef typename value_type::first_type key_type;
+      typedef typename value_type::second_type mapped_type;
 
-      const ts_pair_container<T> *parent_;
+      const ts_pair_container<T> &parent_;
 
    public:
       ts_const_pair_snapshot(const ts_pair_container<T>& parent) 
-         : ts_const_snapshot<T>(parent)
-      {
-         parent_ = &parent;
-      }
+         : ts_const_snapshot<T>(parent), parent_(parent)
+      { }
 
-      ts_const_pair_iterator<T> begin(void)
+      const_iterator begin() const
       {
          ts_const_pair_iterator<T> iter;
          iter.Set(this->object_->begin(), this);
          return iter;
       }
 
-      I end(void)
+      const_iterator end() const
       {
-         return this->object_->end();
+         ts_const_pair_iterator<T> iter;
+         iter.Set(this->object_->end(), this);
+         return iter;
       }
 
-      I find(const key_type& toFind)
+      const_iterator find(const key_type& toFind) const
       {
-         return this->object_->find(toFind);
+         ts_const_pair_iterator<T> iter;
+         iter.Set(this->object_->find(toFind), this);
+         return iter;
       }
 };
 
@@ -961,21 +1000,31 @@ template <typename T> class ts_iterator
       }
 
    public:      
-      ts_iterator(void) {}
+      ts_iterator() {}
 
-      I operator++(void)
+      ts_iterator& operator++()
       {
-         return iter_++;
+          ++iter_;
+          return *this;
       }
 
-      I operator++(int)
-      {
-         return iter_++;
-      }
 
-      const obj_type& operator* (void)
+      auto operator* () -> decltype(*iter_)
       {
          return *iter_;
+      }
+      obj_type* operator-> ()
+      {
+         return &*iter_;
+      }
+
+      const obj_type& operator* () const
+      {
+         return *iter_;
+      }
+      const obj_type* operator-> () const
+      {
+         return &*iter_;
       }
 
       void operator= (const obj_type& rhs)
@@ -983,14 +1032,14 @@ template <typename T> class ts_iterator
          iter_ = snapshot_->Set(iter_, rhs);
       }
 
-      bool operator!= (const I& rhs)
+      bool operator!= (const ts_iterator& rhs) const
       {
-         return (iter_ != rhs);
+         return (iter_ != rhs.iter_);
       }
 
-      bool operator== (const I& rhs) const
+      bool operator== (const ts_iterator& rhs) const
       {
-         return iter_ == rhs;
+         return iter_ == rhs.iter_;
       }
 };
 
@@ -1003,40 +1052,41 @@ template <typename T> class ts_const_iterator
       typedef typename std::iterator_traits<I>::value_type obj_type;
 
       I iter_;
-      ts_const_snapshot<T>* snapshot_;
+      const ts_const_snapshot<T>* snapshot_=nullptr;
    
-      void Set(I iter, ts_const_snapshot<T>* snapshot)
+      void Set(I iter, const ts_const_snapshot<T>* snapshot)
       {
          iter_ = iter;
          snapshot_ = snapshot;
       }
 
    public:
-      ts_const_iterator(void) {}
+      ts_const_iterator() {}
 
-      I operator++(void)
+      ts_const_iterator operator++()
       {
-         return iter_++;
+         ++iter_;
+         return *this;
       }
 
-      I operator++(int)
-      {
-         return iter_++;
-      }
-
-      const obj_type& operator* (void)
+      const obj_type& operator* () const
       {
          return *iter_;
       }
-
-      bool operator!= (const I& rhs)
+      
+      const obj_type* operator-> () const
       {
-         return (iter_ != rhs);
+         return &*iter_;
       }
 
-      bool operator== (const I& rhs) const
+      bool operator!= (const ts_const_iterator& rhs) const
       {
-         return iter_ == rhs;
+         return (iter_ != rhs.iter_);
+      }
+
+      bool operator== (const ts_const_iterator& rhs) const
+      {
+         return iter_ == rhs.iter_;
       }
 };
 
@@ -1074,20 +1124,25 @@ public ts_const_iterator<T>
    friend class ts_const_pair_snapshot<T>;
 
    protected:
-      ts_const_pair_snapshot<T>* snapshot_=nullptr;
+      const ts_const_pair_snapshot<T>* snapshot_=nullptr;
 
-      void Set(const typename ts_const_iterator<T>::I& iter, ts_const_pair_snapshot<T>* snapshot)
+      void Set(const typename ts_const_iterator<T>::I& iter, const ts_const_pair_snapshot<T>* snapshot)
       {
          snapshot_ = snapshot;
          this->iter_ = iter;
       }
 
    public:
-      bool operator!= (const typename ts_const_iterator<T>::I& rhs)
+      bool operator!= (const ts_const_pair_iterator& rhs) const
       {
-         return (this->iter_ != rhs);
+         return (this->iter_ != rhs.iter_);
+      }
+      bool operator== (const ts_const_pair_iterator& rhs) const
+      {
+         return (this->iter_ == rhs.iter_);
       }
 };
+
 
 
 template <typename T> class ts_pair
@@ -1095,10 +1150,10 @@ template <typename T> class ts_pair
    private:
       typedef typename T::iterator I;
       typedef typename T::const_iterator CI;
-      typedef typename std::iterator_traits<I>::value_type pair_type;
+      typedef typename std::iterator_traits<I>::value_type value_type;
 
-      typedef typename pair_type::first_type key_type;
-      typedef typename pair_type::second_type mapped_type;
+      typedef typename value_type::first_type key_type;
+      typedef typename value_type::second_type mapped_type;
    
       ts_pair_container<T> *container_;
       key_type first_;
