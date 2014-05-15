@@ -1,9 +1,19 @@
+import sys
+# This Code chunk has to appear before ArmoryUtils is imported
+# If not, it will run the tests in Mainnet.
+# TODO: Fix the code base so that nothing is started during imports.
+sys.argv.append('--testnet')
+sys.argv.append('--debug')
 
 import os
+import time
+import CppBlockUtils
 import tempfile
 import shutil
 import subprocess
 import copy
+import unittest
+from armoryengine.BDM import TheBDM, BlockDataManagerThread
 
 # runs a Test In a Box (TIAB) bitcoind session. By copying a prebuilt
 # testnet with a known state
@@ -23,7 +33,7 @@ class TiabSession:
       if not self.tiabdatadir:
          self.tiabdatadir = os.environ['ARMORY_TIAB_PATH'+tiab_repository]
       # an obvious race condition lives here
-      self.directory = tempfile.mkdtemp("armory_tiab")
+      self.tiabDirectory = tempfile.mkdtemp("armory_tiab")
       
       self.running = False
       
@@ -37,15 +47,12 @@ class TiabSession:
       if not self.running:
          return
       TiabSession.numInstances -= 1
-      try:
-         for x in self.processes:
-            x.kill()
-         for x in self.processes:
-            x.wait()
-         self.processes = []
-         shutil.rmtree(self.directory)
-      except:
-         pass
+      for x in self.processes:
+         x.kill()
+      for x in self.processes:
+         x.wait()
+      self.processes = []
+      shutil.rmtree(self.tiabDirectory)
       self.running=False
    
    # returns the port the first bitcoind is running on
@@ -73,15 +80,54 @@ class TiabSession:
          raise RuntimeError("Cannot have more than one Test-In-A-Box session simultaneously (yet)")
       
       TiabSession.numInstances += 1
-      os.rmdir(self.directory)
-      shutil.copytree(self.tiabdatadir, self.directory)
+      os.rmdir(self.tiabDirectory)
+      shutil.copytree(self.tiabdatadir, self.tiabDirectory)
       try:
-         print "executing in datadir " + self.directory
-         self.callBitcoinD(["-datadir=" + self.directory + "\\1", "-debugnet", "-debug"])
-         self.callBitcoinD(["-datadir=" + self.directory + "\\2", "-debugnet", "-debug"])
+         self.callBitcoinD(["-datadir=" + self.tiabDirectory + "\\1", "-debug"])
+         self.callBitcoinD(["-datadir=" + self.tiabDirectory + "\\2", "-debug"])
       except:
          self.clean()
          raise
       self.running = True
       
-# kate: indent-width 3; replace-tabs on;
+TEST_WALLET_NAME = 'Test Wallet Name'
+TEST_WALLET_DESCRIPTION = 'Test Wallet Description'
+TEST_WALLET_ID = 'PMjjFm6E'
+TIAB_DIR = '.\\tiab'
+TEST_TIAB_DIR = '.\\test\\tiab'
+NEED_TIAB_MSG = "This Test must be run with J:/Development_Stuff/bitcoin-testnet-boxV2.7z (Armory jungle disk). Copy to the test directory."
+
+class TiabTest(unittest.TestCase):      
+   @classmethod
+   def setUpClass(self):
+      global TheBDM
+      # Handle both calling the this test from the context of the test directory
+      # and calling this test from the context of the main directory. 
+      # The latter happens if you run all of the tests in the directory
+      if os.path.exists(TIAB_DIR):
+         tiabDataDir = TIAB_DIR
+      elif os.path.exists(TEST_TIAB_DIR):
+         tiabDataDir = TEST_TIAB_DIR
+      else:
+         self.fail(NEED_TIAB_MSG)
+      self.tiab = TiabSession(tiabdatadir=tiabDataDir)
+      # Need to destroy whatever BDM may have been created automatically 
+      CppBlockUtils.BlockDataManager().DestroyBDM()
+      TheBDM = BlockDataManagerThread(isOffline=False, blocking=False)
+      TheBDM.setDaemon(True)
+      TheBDM.start()
+      TheBDM.setSatoshiDir(self.tiab.tiabDirectory + '\\1\\testnet3')
+      TheBDM.setLevelDBDir(self.tiab.tiabDirectory + '\\armory\\databases')
+      TheBDM.setBlocking(True)
+      TheBDM.setOnlineMode(wait=True)
+      while not TheBDM.getBDMState()=='BlockchainReady':
+         time.sleep(2)
+
+   @classmethod
+   def tearDownClass(self):
+      CppBlockUtils.BlockDataManager().DestroyBDM()
+      self.tiab.clean()
+
+   def verifyBlockHeight(self):
+      blockHeight = TheBDM.getTopBlockHeight()
+      self.assertEqual(blockHeight, 242, NEED_TIAB_MSG)

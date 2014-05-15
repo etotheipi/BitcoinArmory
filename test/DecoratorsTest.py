@@ -12,6 +12,7 @@
 # Orig Date:  2 January, 2014
 #
 ################################################################################
+from test.Tiab import TiabTest
 import unittest
 from armoryengine.Decorators import EmailOutput
 
@@ -20,7 +21,7 @@ from armoryengine.Decorators import EmailOutput
 # uncomment the decorator and specify the email arguments
 # The email arguments should never be pushed to the repo
 # Run the test and check your email
-class EmailOutputTest(unittest.TestCase):
+class EmailOutputTest(TiabTest):
 
    def testEmailOutput(self):
       actualResult = someStringOutputFunction("World!")

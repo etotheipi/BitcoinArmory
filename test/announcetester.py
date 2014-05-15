@@ -1,20 +1,13 @@
-
-import os
-import sys
-import time
-import unittest
-
-sys.argv.append('--nologging')
-sys.argv.append('--testnet')
-
+from test.Tiab import TiabTest
 from armoryengine.ALL import *
 from announcefetch import AnnounceDataFetcher
+import unittest
 
 
 forceTestURL = 'https://s3.amazonaws.com/bitcoinarmory-testing/testannounce.txt'
 fetchDump = './fetchedFiles'
 
-class AnnouncementTester(unittest.TestCase):
+class AnnouncementTester(TiabTest):
 
    def setUp(self):
       pass
@@ -95,9 +88,5 @@ class AnnouncementTester(unittest.TestCase):
       except KeyboardInterrupt:
          print 'Exiting...'
 
-
-if __name__ == "__main__":
-   del sys.argv[1:]
-   unittest.main()
 
 

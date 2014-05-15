@@ -3,6 +3,7 @@ Created on Jan 10, 2014
 
 @author: Alan
 '''
+from test.Tiab import TiabTest
 import sys
 import unittest
 
@@ -12,7 +13,7 @@ from armoryengine.ALL import *
 
 # Unserialize an reserialize
 
-class TransactionTest(unittest.TestCase):
+class TransactionTest(TiabTest):
 
    
    def setUp(self):

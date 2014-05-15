@@ -3,11 +3,8 @@ Created on Aug 4, 2013
 
 @author: Andy
 '''
-import sys
+from test.Tiab import TiabTest
 import unittest
-from armoryengine.BDM import BlockDataManagerThread, TheBDM
-sys.path.append('..')
-
 from armoryengine.ArmoryUtils import hex_to_binary, binary_to_hex, hex_to_int, \
    ONE_BTC
 from armoryengine.BinaryUnpacker import BinaryUnpacker
@@ -17,6 +14,7 @@ from armoryengine.Script import PyScriptProcessor
 from armoryengine.Transaction import PyTx, PyTxIn, PyOutPoint, PyTxOut, \
    PyCreateAndSignTx, getMultisigScriptInfo, BlockComponent,\
    PyCreateAndSignTx_old
+from armoryengine.BDM import TheBDM
 
 
 
@@ -113,15 +111,7 @@ tx2Fake = PyTx().unserialize(hex_to_binary( (
 
 ALL_ZERO_OUTPOINT = hex_to_binary('00' * 36)
 
-class PyTXTest(unittest.TestCase):
-
-   
-   def setUp(self):
-      TheBDM.Reset(wait=True)
-   
-   def tearDown(self):
-      pass
-   
+class PyTXTest(TiabTest):
    
    def testMinimizeDERSignaturePadding(self):
       multiTx1  = PyTx().unserialize(multiTx1raw)

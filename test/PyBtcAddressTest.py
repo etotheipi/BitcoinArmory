@@ -3,6 +3,8 @@ Created on Aug 6, 2013
 
 @author: Andy
 '''
+from test.Tiab import TiabTest
+
 import sys
 import unittest
 
@@ -35,7 +37,7 @@ TEST_BLOCK_NUM = 100
 FAKE_KDF_OUTPUT1 = SecureBinaryData( hex_to_binary('11'*32) )
 FAKE_KDF_OUTPUT2 = SecureBinaryData( hex_to_binary('22'*32) )
 
-class PyBtcAddressTest(unittest.TestCase):
+class PyBtcAddressTest(TiabTest):
 
 
    def setUp(self):
