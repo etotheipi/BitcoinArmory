@@ -64,3 +64,6 @@ class ArmoryDTiabTest(TiabTest):
                           AmountToJSON(self.wallet.getBalance(ballanceType)))
       self.assertEqual(self.jsonServer.jsonrpc_getbalance('bogus'), -1)
 
+if __name__ == "__main__":
+   #import sys;sys.argv = ['', 'Test.testName']
+   unittest.main()

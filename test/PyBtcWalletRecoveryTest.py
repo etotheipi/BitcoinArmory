@@ -144,6 +144,6 @@ class PyBtcWalletRecoveryTest(TiabTest):
       self.assertTrue(len(rcvWltResult['negativeImports'])==99, \
                       "Missing neg Imports")
       
-###############################################################################
 if __name__ == "__main__":
-   unittest.main()     
+   #import sys;sys.argv = ['', 'Test.testName']
+   unittest.main() 

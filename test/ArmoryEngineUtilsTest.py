@@ -504,3 +504,6 @@ class BinaryPackerUnpackerTest(TiabTest):
       self.assertRaises(UnpackerError, bu.get, UNKNOWN_TYPE)
       self.assertRaises(UnpackerError, bu.get, BINARY_CHUNK, 1)
 
+if __name__ == "__main__":
+   #import sys;sys.argv = ['', 'Test.testName']
+   unittest.main()
