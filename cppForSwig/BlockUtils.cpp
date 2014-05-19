@@ -1099,13 +1099,12 @@ uint32_t BlockDataManager_LevelDB::evalLowestBlockNextScan(void)
    {
       ts_rsaMap::const_snapshot 
          rsaSnapshot(*wlt->getRegisteredScrAddrMap());
-      ts_rsaMap::const_iterator rsaIter;
 
       for(auto rsa : rsaSnapshot)
       {
          // If we happen to have any imported addresses, this will set the
          // lowest block to 0, which will require a full rescan
-         lowestBlk = min(lowestBlk, rsaIter->second.alreadyScannedUpToBlk_);
+         lowestBlk = min(lowestBlk, rsa.second.alreadyScannedUpToBlk_);
       }
    }
    return lowestBlk;
