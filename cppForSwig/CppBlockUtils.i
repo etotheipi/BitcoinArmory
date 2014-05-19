@@ -24,6 +24,7 @@
 #include "ScrAddrObj.h"
 #include "Blockchain.h"
 #include "BDM_mainthread.h"
+#include "BlockDataManagerConfig.h"
 %}
 
 
@@ -113,8 +114,6 @@ namespace std
    $result = PyString_FromStringAndSize((char*)($1->getPtr()), $1->getSize());
 }
 
-
-
 /* With our typemaps, we can finally include our other objects */
 %include "BlockObj.h"
 %include "BlockUtils.h"
@@ -124,6 +123,7 @@ namespace std
 %include "LedgerEntry.h"
 %include "ScrAddrObj.h"
 %include "Blockchain.h"
+%include "BlockDataManagerConfig.h"
 %include "BDM_mainthread.h"
 
 

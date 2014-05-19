@@ -275,8 +275,8 @@ public:
                       BinaryData const & genesisBlkHash,
                       BinaryData const & genesisTxHash,
                       BinaryData const & magic,
-                      ARMORY_DB_TYPE     dbtype=ARMORY_DB_WHATEVER,
-                      DB_PRUNE_TYPE      pruneType=DB_PRUNE_WHATEVER);
+                      ARMORY_DB_TYPE     dbtype,
+                      DB_PRUNE_TYPE      pruneType);
 
    /////////////////////////////////////////////////////////////////////////////
    void nukeHeadersDB(void);
@@ -669,9 +669,9 @@ private:
    BinaryData           genesisBlkHash_;
    BinaryData           genesisTxHash_;
    BinaryData           magicBytes_;
-
-   ARMORY_DB_TYPE       armoryDbType_;
-   DB_PRUNE_TYPE        dbPruneType_;
+   
+   ARMORY_DB_TYPE armoryDbType_;
+   DB_PRUNE_TYPE dbPruneType_;
 
    //leveldb::Iterator*     iters_[2];
    leveldb::WriteBatch*   batches_[2];

@@ -8,6 +8,7 @@ class StoredHeader;
 class StoredUndoData;
 class StoredTx;
 class StoredScriptHistory;
+class BlockDataManagerConfig;
 
 /*
  This class accumulates changes to write to the database,
@@ -18,7 +19,7 @@ class BlockWriteBatcher
 public:
    static const uint64_t UPDATE_BYTES_THRESH = 96*1024*1024;
    
-   BlockWriteBatcher(InterfaceToLDB* iface);
+   BlockWriteBatcher(const BlockDataManagerConfig &config, InterfaceToLDB* iface);
    ~BlockWriteBatcher();
    
    void applyBlockToDB(StoredHeader &sbh);
@@ -37,6 +38,7 @@ private:
                            StoredTx &       thisSTX,
                            StoredUndoData * sud);
 private:
+   const BlockDataManagerConfig &config_;
    InterfaceToLDB* const iface_;
 
    // turn off batches by setting this to 0

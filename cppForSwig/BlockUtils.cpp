@@ -94,15 +94,19 @@ class ReorgUpdater
    vector<BlockHeader*> previouslyValidBlockHeaderPtrs_;
    
    list<StoredTx> removedTxes_, addedTxes_;
+   
+   const BlockDataManagerConfig &config_;
 
 public:
    ReorgUpdater(
       const Blockchain::ReorganizationState& state,
-      Blockchain *blockchain, 
-      InterfaceToLDB* iface
+      Blockchain *blockchain,
+      InterfaceToLDB* iface,
+      const BlockDataManagerConfig &config
    )
       : blockchain_(blockchain)
       , iface_(iface)
+      , config_(config)
    {
       reassessAfterReorg(
          state.prevTopBlock,
@@ -127,7 +131,7 @@ private:
       // Walk down invalidated chain first, until we get to the branch point
       // Mark transactions as invalid
      
-      BlockWriteBatcher blockWrites(iface_);
+      BlockWriteBatcher blockWrites(config_, iface_);
       
       BlockHeader* thisHeaderPtr = oldTopPtr;
       LOGINFO << "Invalidating old-chain transactions...";
@@ -137,7 +141,7 @@ private:
          uint32_t hgt = thisHeaderPtr->getBlockHeight();
          uint8_t  dup = thisHeaderPtr->getDuplicateID();
 
-         if(DBUtils.getArmoryDbType() != ARMORY_DB_BARE)
+         if(config_.armoryDbType != ARMORY_DB_BARE)
          {
             // Added with leveldb... in addition to reversing blocks in RAM, 
             // we also need to undo the blocks in the DB
@@ -181,7 +185,7 @@ private:
          StoredHeader sbh;
          iface_->getStoredHeader(sbh, hgt, dup, true);
 
-         if(DBUtils.getArmoryDbType() != ARMORY_DB_BARE)
+         if(config_.armoryDbType != ARMORY_DB_BARE)
             blockWrites.applyBlockToDB(sbh);
 
          /*for(uint32_t i=0; i<sbh.numTx_; i++)
@@ -240,6 +244,30 @@ static bool scanForMagicBytes(BinaryStreamBuffer& bsb, const BinaryData &bytes, 
 //  
 
 
+BlockDataManagerConfig::BlockDataManagerConfig()
+{
+   armoryDbType = ARMORY_DB_BARE;
+   pruneType = DB_PRUNE_NONE;
+   
+   levelDBBlockSize = 0;
+   levelDBMaxOpenFiles = 0;
+}
+
+void BlockDataManagerConfig::selectNetwork(const string &netname)
+{
+   if(netname == "Main")
+   {
+      genesisBlockHash = READHEX(MAINNET_GENESIS_HASH_HEX);
+      genesisTxHash = READHEX(MAINNET_GENESIS_TX_HASH_HEX);
+      magicBytes = READHEX(MAINNET_MAGIC_BYTES);
+   }
+   else if(netname == "Test")
+   {
+      genesisBlockHash = READHEX(TESTNET_GENESIS_HASH_HEX);
+      genesisTxHash = READHEX(TESTNET_GENESIS_TX_HASH_HEX);
+      magicBytes = READHEX(TESTNET_MAGIC_BYTES);
+   }
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
@@ -248,15 +276,80 @@ static bool scanForMagicBytes(BinaryStreamBuffer& bsb, const BinaryData &bytes, 
 //
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
-BlockDataManager_LevelDB::BlockDataManager_LevelDB(void) 
-   : iface_(LevelDBWrapper::GetInterfacePtr())
+BlockDataManager_LevelDB::BlockDataManager_LevelDB(const BlockDataManagerConfig &bdmConfig) 
+   : config_(bdmConfig)
+   , iface_(LevelDBWrapper::GetInterfacePtr())
    , blockchain_(this)
 {
-   reset();
+   LOGINFO << "Set home directory: " << config_.homeDirLocation;
+   LOGINFO << "Set blkfile dir: " << config_.blkFileLocation;
+   LOGINFO << "Set leveldb dir: " << config_.levelDBLocation;
+   if(config_.genesisBlockHash.getSize() == 0)
+   {
+      throw runtime_error("ERROR: Genesis Block Hash not set!");
+   }
+
+   blkProgressFile_ = config_.homeDirLocation + "/blkfiles.txt";
+   abortLoadFile_   = config_.homeDirLocation + "/abortload.txt";
+   
+   zcEnabled_  = false;
+   zcLiteMode_ = false;
+   zcFilename_ = "";
+
+   numBlkFiles_ = UINT32_MAX;
+
+   endOfLastBlockByte_ = 0;
+
+   startHeaderHgt_ = 0;
+   startRawBlkHgt_ = 0;
+   startApplyHgt_ = 0;
+   startHeaderBlkFile_ = 0;
+   startHeaderOffset_ = 0;
+   startRawBlkFile_ = 0;
+   startRawOffset_ = 0;
+   startApplyBlkFile_ = 0;
+   startApplyOffset_ = 0;
+   lastTopBlock_ = 0;
+
+   totalBlockchainBytes_ = 0;
+   bytesReadSoFar_ = 0;
+   blocksReadSoFar_ = 0;
+   filesReadSoFar_ = 0;
+
+   corruptHeadersDB_ = false;
+
+   allScannedUpToBlk_ = 0;
+
+   //for 1:1 wallets and BDM push model
+   run_ = false;
+   rescanZC_ = false;
+
+   tp_ = nullptr;
+   
+   detectAllBlkFiles();
+   
+   if(numBlkFiles_==0)
+   {
+      throw runtime_error("No blockfiles could be found!");
+   }
+   
+   iface_->setLdbBlockSize(config_.levelDBBlockSize);
+   iface_->setMaxOpenFiles(config_.levelDBMaxOpenFiles);
+   
+   bool openWithErr = iface_->openDatabases(
+      config_.levelDBLocation, 
+      config_.genesisBlockHash, 
+      config_.genesisTxHash, 
+      config_.magicBytes,
+      config_.armoryDbType, 
+      config_.pruneType);
+   
+   if (!openWithErr)
+      throw runtime_error("Failed to open LevelDB database \"" + config_.levelDBLocation + "\"");
 }
 
 /////////////////////////////////////////////////////////////////////////////
-BlockDataManager_LevelDB::~BlockDataManager_LevelDB(void)
+BlockDataManager_LevelDB::~BlockDataManager_LevelDB()
 {
    ts_setBtcWallet::snapshot wltSnapshot(registeredWallets_);
    ts_setBtcWallet::iterator wltIter;
@@ -267,130 +360,6 @@ BlockDataManager_LevelDB::~BlockDataManager_LevelDB(void)
    }
    
    iface_->closeDatabases();
-
-   reset();
-}
-
-/////////////////////////////////////////////////////////////////////////////
-// We must set the network-specific data for this blockchain
-//
-// bdm.SetBtcNetworkParams( READHEX(MAINNET_GENESIS_HASH_HEX),
-//                          READHEX(MAINNET_GENESIS_TX_HASH_HEX),
-//                          READHEX(MAINNET_MAGIC_BYTES));
-//
-// The above call will work 
-void BlockDataManager_LevelDB::SetBtcNetworkParams(
-                                    BinaryData const & GenHash,
-                                    BinaryData const & GenTxHash,
-                                    BinaryData const & MagicBytes)
-{
-   LOGINFO << "SetBtcNetworkParams";
-   GenesisHash_.copyFrom(GenHash);
-   GenesisTxHash_.copyFrom(GenTxHash);
-   MagicBytes_.copyFrom(MagicBytes);
-   
-   // this is needed for making gtest work, I don't know why (~CS)
-   blockchain_.clear();
-}
-
-
-
-/////////////////////////////////////////////////////////////////////////////
-void BlockDataManager_LevelDB::SetHomeDirLocation(string homeDir)
-{
-   // This will eventually be used to store blocks/DB
-   LOGINFO << "Set home directory: " << armoryHomeDir_.c_str();
-   armoryHomeDir_   = homeDir; 
-   blkProgressFile_ = homeDir + string("/blkfiles.txt");
-   abortLoadFile_   = homeDir + string("/abortload.txt");
-}
-
-/////////////////////////////////////////////////////////////////////////////
-// Bitcoin-Qt/bitcoind 0.8+ changed the location and naming convention for 
-// the blkXXXX.dat files.  The first block file use to be:
-//
-//    ~/.bitcoin/blocks/blk00000.dat   
-//
-// UPDATE:  Compatibility with pre-0.8 nodes removed after 6+ months and
-//          a hard-fork that makes it tougher to use old versions.
-//
-bool BlockDataManager_LevelDB::SetBlkFileLocation(string blkdir)
-{
-   blkFileDir_    = blkdir; 
-   isBlkParamsSet_ = true;
-
-   detectAllBlkFiles();
-
-   LOGINFO << "Set blkfile dir: " << blkFileDir_.c_str();
-
-   return (numBlkFiles_!=UINT16_MAX);
-}
-
-/////////////////////////////////////////////////////////////////////////////
-void BlockDataManager_LevelDB::SetLevelDBLocation(string ldbdir)
-{
-   leveldbDir_    = ldbdir; 
-   isLevelDBSet_  = true;
-   LOGINFO << "Set leveldb dir: " << leveldbDir_.c_str();
-}
-
-/////////////////////////////////////////////////////////////////////////////
-void BlockDataManager_LevelDB::SelectNetwork(string netName)
-{
-   if(netName.compare("Main") == 0)
-   {
-      SetBtcNetworkParams( READHEX(MAINNET_GENESIS_HASH_HEX),
-                           READHEX(MAINNET_GENESIS_TX_HASH_HEX),
-                           READHEX(MAINNET_MAGIC_BYTES)         );
-   }
-   else if(netName.compare("Test") == 0)
-   {
-      SetBtcNetworkParams( READHEX(TESTNET_GENESIS_HASH_HEX),
-                           READHEX(TESTNET_GENESIS_TX_HASH_HEX),
-                           READHEX(TESTNET_MAGIC_BYTES)         );
-   }
-   else
-      LOGERR << "ERROR: Unrecognized network name";
-
-}
-
-
-
-//////////////////////////////////////////////////////////////////////////
-// This method opens the databases, and figures out up to what block each
-// of them is sync'd to.  Then it figures out where that corresponds in
-// the blk*.dat files, so that it can pick up where it left off.  You can 
-// use the last argument to specify an approximate amount of blocks 
-// (specified in bytes) that you would like to replay:  i.e. if 10 MB,
-// startScanBlkFile_ and endOfLastBlockByte_ variables will be set to
-// the first block that is approximately 10 MB behind your latest block.
-// Then you can pick up from there and let the DB clean up any mess that
-// was left from an unclean shutdown.
-bool BlockDataManager_LevelDB::initializeDBInterface(ARMORY_DB_TYPE dbtype,
-                                                     DB_PRUNE_TYPE  prtype)
-{
-   SCOPED_TIMER("initializeDBInterface");
-   if(!isBlkParamsSet_ || !isLevelDBSet_)
-   {
-      LOGERR << "Cannot sync DB until blkfile and LevelDB paths are set. ";
-      return false;
-   }
-
-   if(iface_->databasesAreOpen())
-   {
-      LOGERR << "Attempted to initialize a database that was already open";
-      return false;
-   }
-
-
-   bool openWithErr = iface_->openDatabases(leveldbDir_, 
-                                            GenesisHash_, 
-                                            GenesisTxHash_, 
-                                            MagicBytes_,
-                                            dbtype, 
-                                            prtype);
-
-   return openWithErr;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -402,12 +371,6 @@ bool BlockDataManager_LevelDB::detectCurrentSyncState(
    detectAllBlkFiles();
    vector<BinaryData> firstHashes = getFirstHashOfEachBlkFile();
    LOGINFO << "Total blk*.dat files:                 " << numBlkFiles_;
-
-   if(!iface_->databasesAreOpen())
-   {
-      LOGERR << "Could not open databases!";
-      return false;
-   }
 
    // We add 1 to each of these, since we always use exclusive upperbound
    startHeaderHgt_ = getTopBlockHeightInDB(HEADERS) + 1;
@@ -537,7 +500,7 @@ bool BlockDataManager_LevelDB::detectCurrentSyncState(
    LOGINFO << "First blkfile not in DB:            " << startRawBlkFile_;
    LOGINFO << "Location of first block not in DB:  " << startRawOffset_;
 
-   if(DBUtils.getArmoryDbType() != ARMORY_DB_BARE)
+   if(config_.armoryDbType != ARMORY_DB_BARE)
    {
       // TODO:  finish this
       findFirstUnappliedBlock();
@@ -580,12 +543,6 @@ bool BlockDataManager_LevelDB::detectCurrentSyncState(
 ////////////////////////////////////////////////////////////////////////////////
 vector<BinaryData> BlockDataManager_LevelDB::getFirstHashOfEachBlkFile(void) const
 {
-   if(!isBlkParamsSet_)
-   {
-      LOGERR << "Can't get blk files until blkfile params are set";
-      return vector<BinaryData>(0);
-   }
-
    uint32_t nFile = (uint32_t)blkFileList_.size();
    BinaryData magic(4), szstr(4), rawHead(HEADER_SIZE);
    vector<BinaryData> headHashes(nFile);
@@ -604,7 +561,7 @@ vector<BinaryData> BlockDataManager_LevelDB::getFirstHashOfEachBlkFile(void) con
 
       is.read((char*)magic.getPtr(), 4);
       is.read((char*)szstr.getPtr(), 4);
-      if(magic != MagicBytes_)
+      if(magic != config_.magicBytes)
       {
          is.close(); 
          LOGERR << "Magic bytes mismatch.  Block file is for another network!";
@@ -633,7 +590,7 @@ uint32_t BlockDataManager_LevelDB::findOffsetFirstUnrecognized(uint32_t fnum)
 
    
       // This is not an error, it just simply hit the padding
-      if(magic!=MagicBytes_)  
+      if(magic != config_.magicBytes)  
          break;
 
       is.read((char*)szstr.getPtr(), 4);
@@ -651,7 +608,6 @@ uint32_t BlockDataManager_LevelDB::findOffsetFirstUnrecognized(uint32_t fnum)
 
    }
    
-   is.close();
    return loc;
 }
 
@@ -672,7 +628,7 @@ uint32_t BlockDataManager_LevelDB::findFirstBlkApproxOffset(uint32_t fnum,
    {
       is.read((char*)magic.getPtr(), 4);
       if(is.eof()) break;
-      if(magic!=MagicBytes_)
+      if(magic!= config_.magicBytes)
          return UINT32_MAX;
 
       is.read((char*)szstr.getPtr(), 4);
@@ -683,7 +639,6 @@ uint32_t BlockDataManager_LevelDB::findFirstBlkApproxOffset(uint32_t fnum,
       is.seekg(blksize, ios::cur);
    }
 
-   is.close();
    return loc;
 }
 
@@ -730,7 +685,7 @@ pair<uint32_t, uint32_t> BlockDataManager_LevelDB::findFileAndOffsetForHgt(
    {
       is.read((char*)magic.getPtr(), 4);
       if(is.eof()) break;
-      if(magic!=MagicBytes_)
+      if(magic!= config_.magicBytes)
          break;
 
       is.read((char*)szstr.getPtr(), 4);
@@ -828,73 +783,6 @@ uint32_t BlockDataManager_LevelDB::getAppliedToHeightInDB(void)
    StoredDBInfo sdbi;
    iface_->getStoredDBInfo(BLKDATA, sdbi, false); 
    return sdbi.appliedToHgt_;
-}
-
-
-/////////////////////////////////////////////////////////////////////////////
-void BlockDataManager_LevelDB::reset(void)
-{
-   SCOPED_TIMER("BDM::Reset");
-
-   // Clear out all the "real" data in the blkfile
-   blkFileDir_ = "";
-   blockchain_.clear();
-
-   zeroConfRawTxList_.clear();
-   zeroConfMap_.clear();
-   zcEnabled_  = false;
-   zcLiteMode_ = false;
-   zcFilename_ = "";
-
-   isBlkParamsSet_ = false;
-   isLevelDBSet_ = false;
-   armoryHomeDir_ = string("");
-   blkFileDir_ = string("");
-   blkFileList_.clear();
-   numBlkFiles_ = UINT32_MAX;
-
-   endOfLastBlockByte_ = 0;
-
-   startHeaderHgt_ = 0;
-   startRawBlkHgt_ = 0;
-   startApplyHgt_ = 0;
-   startHeaderBlkFile_ = 0;
-   startHeaderOffset_ = 0;
-   startRawBlkFile_ = 0;
-   startRawOffset_ = 0;
-   startApplyBlkFile_ = 0;
-   startApplyOffset_ = 0;
-   lastTopBlock_ = 0;
-
-   GenesisHash_.resize(0);
-   GenesisTxHash_.resize(0);
-   MagicBytes_.resize(0);
-   
-   totalBlockchainBytes_ = 0;
-   bytesReadSoFar_ = 0;
-   blocksReadSoFar_ = 0;
-   filesReadSoFar_ = 0;
-
-   isInitialized_ = false;
-   corruptHeadersDB_ = false;
-
-   // Clear out any of the registered tx data we have collected so far.
-   // Doesn't take any time to recollect if it we have to rescan, anyway.
-
-   registeredWallets_.clear();
-   allScannedUpToBlk_ = 0;
-
-   //for 1:1 wallets and BDM push model
-   run_ = false;
-   rescanZC_ = false;
-
-   tp_ = NULL;
-}
-
-void BlockDataManager_LevelDB::DestroyInstance()
-{
-   iface_->closeDatabases();
-   reset();
 }
 
 
@@ -1159,15 +1047,12 @@ bool BlockDataManager_LevelDB::evalRescanIsRequired(void)
 // "evalRescanIsRequired()" answers a different question, and iterates 
 // through the list of registered addresses, which may be changing in 
 // another thread.  
-bool BlockDataManager_LevelDB::isDirty( 
-                              uint32_t numBlocksToBeConsideredDirty ) const
+bool BlockDataManager_LevelDB::isDirty(
+   uint32_t numBlocksToBeConsideredDirty
+) const
 {
-   if(!isInitialized_)
-      return false;
-   
    uint32_t numBlocksBehind = lastTopBlock_-allScannedUpToBlk_;
    return (numBlocksBehind > numBlocksToBeConsideredDirty);
-  
 }
 
 
@@ -1232,15 +1117,15 @@ void BlockDataManager_LevelDB::applyBlockRangeToDB(uint32_t blk0, uint32_t blk1)
 
    blk1 = min(blk1, blockchain_.top().getBlockHeight()+1);
 
-   BinaryData startKey = DBUtils.getBlkDataKey(blk0, 0);
-   BinaryData endKey   = DBUtils.getBlkDataKey(blk1, 0);
+   BinaryData startKey = DBUtils::getBlkDataKey(blk0, 0);
+   BinaryData endKey   = DBUtils::getBlkDataKey(blk1, 0);
 
    LDBIter ldbIter = iface_->getIterator(BLKDATA);
    ldbIter.seekTo(startKey);
 
    // Start scanning and timer
    //bool doBatches = (blk1-blk0 > NUM_BLKS_BATCH_THRESH);
-   BlockWriteBatcher blockWrites(iface_);
+   BlockWriteBatcher blockWrites(config_, iface_);
 
    do
    {
@@ -1284,7 +1169,7 @@ void BlockDataManager_LevelDB::writeProgressFile(DB_BUILD_PHASE phase,
                                                     string timerName)
 {
    // Nothing to write if we don't even have a home dir
-   if(armoryHomeDir_.size() == 0 || bfile.size() == 0)
+   if(config_.homeDirLocation.empty() || bfile.size() == 0)
       return;
 
    time_t currTime;
@@ -1563,10 +1448,10 @@ bool BlockDataManager_LevelDB::extractHeadersInBlkFile(uint32_t fnum,
 
    ifstream is(filename.c_str(), ios::in | ios::binary);
    BinaryData fileMagic(4);
-   is.read((char*)(fileMagic.getPtr()), 4);
+   is.read(reinterpret_cast<char*>(fileMagic.getPtr()), 4);
    is.seekg(startOffset, ios::beg);
 
-   if( !(fileMagic == MagicBytes_ ) )
+   if( fileMagic != config_.magicBytes )
    {
       LOGERR << "Block file is the wrong network!  MagicBytes: "
              << fileMagic.toHexStr().c_str();
@@ -1584,7 +1469,7 @@ bool BlockDataManager_LevelDB::extractHeadersInBlkFile(uint32_t fnum,
       if (is.eof())
          break;
          
-      if(magic!=MagicBytes_)
+      if(magic!=config_.magicBytes)
       {
          // I have to start scanning for MagicBytes
          
@@ -1596,7 +1481,7 @@ bool BlockDataManager_LevelDB::extractHeadersInBlkFile(uint32_t fnum,
          LOGERR << "Did not find block header in expected location, "
             "possible corrupt data, searching for next block header.";
          
-         if (!scanFor(is, MagicBytes_.getPtr(), MagicBytes_.getSize()))
+         if (!scanFor(is, config_.magicBytes.getPtr(), config_.magicBytes.getSize()))
          {
             LOGERR << "No more blocks found in file " << filename;
             break;
@@ -1605,11 +1490,11 @@ bool BlockDataManager_LevelDB::extractHeadersInBlkFile(uint32_t fnum,
          LOGERR << "Next block header found at offset " << uint64_t(is.tellg())-4;
       }
       
-      is.read((char*)szstr.getPtr(), 4);
+      is.read(reinterpret_cast<char*>(szstr.getPtr()), 4);
       uint32_t nextBlkSize = READ_UINT32_LE(szstr.getPtr());
       if(is.eof()) break;
 
-      is.read((char*)rawHead.getPtr(), HEAD_AND_NTX_SZ); // plus #tx var_int
+      is.read(reinterpret_cast<char*>(rawHead.getPtr()), HEAD_AND_NTX_SZ); // plus #tx var_int
       if(is.eof()) break;
 
       // Create a reader for the entire block, grab header, skip rest
@@ -1619,7 +1504,7 @@ bool BlockDataManager_LevelDB::extractHeadersInBlkFile(uint32_t fnum,
       block.unserialize(brr);
       HashString blockhash = block.getThisHash();
       
-      uint32_t nTx = (uint32_t)brr.get_var_int();
+      const uint32_t nTx = brr.get_var_int();
       BlockHeader& addedBlock = blockchain_.addBlock(blockhash, block);
 
       // is there any reason I can't just do this to "block"?
@@ -1648,13 +1533,12 @@ bool BlockDataManager_LevelDB::extractHeadersInBlkFile(uint32_t fnum,
       
    }
 
-   is.close();
    return true;
 }
 
 
 /////////////////////////////////////////////////////////////////////////////
-uint32_t BlockDataManager_LevelDB::detectAllBlkFiles(void)
+uint32_t BlockDataManager_LevelDB::detectAllBlkFiles()
 {
    SCOPED_TIMER("detectAllBlkFiles");
 
@@ -1668,7 +1552,7 @@ uint32_t BlockDataManager_LevelDB::detectAllBlkFiles(void)
    blkFileCumul_.clear();
    while(numBlkFiles_ < UINT16_MAX)
    {
-      string path = BtcUtils::getBlkFilename(blkFileDir_, numBlkFiles_);
+      string path = BtcUtils::getBlkFilename(config_.blkFileLocation, numBlkFiles_);
       uint64_t filesize = BtcUtils::GetFileSize(path);
       if(filesize == FILE_DOES_NOT_EXIST)
          break;
@@ -1845,9 +1729,6 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
    // Will use this updating the GUI with progress bar
    progressTimer_ = (uint32_t)time(0);
 
-   if(!iface_->databasesAreOpen())
-      initializeDBInterface(DBUtils.getArmoryDbType(), DBUtils.getDbPruneType());
-      
    LOGDEBUG << "Called build&scan with ("
             << (forceRescan ? 1 : 0) << ","
             << (forceRebuild ? 1 : 0) << ","
@@ -1892,22 +1773,6 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
       _wunlink(OS_TranslatePath(abortLoadFile_).c_str());
 #endif
    
-   if(!initialLoad)
-      detectAllBlkFiles(); // only need to spend time on this on the first call
-
-   if(numBlkFiles_==0)
-   {
-      LOGERR << "No blockfiles could be found!  Aborting...";
-      return;
-   }
-
-   if(GenesisHash_.getSize() == 0)
-   {
-      LOGERR << "***ERROR: Set net params before loading blockchain!";
-      return;
-   }
-
-
    /////////////////////////////////////////////////////////////////////////////
    // New with LevelDB:  must read and organize headers before handling the
    // full blockchain data.  We need to figure out the longest chain and write
@@ -1956,7 +1821,7 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
            <<  (int)timeElapsed << " seconds)";
 
    // If bare mode, we don't do
-   if (DBUtils.getArmoryDbType() != ARMORY_DB_BARE)
+   if (config_.armoryDbType != ARMORY_DB_BARE)
    {
       // In any DB type other than bare, we will be walking through the blocks
       // and updating the spentness fields and script histories
@@ -1970,7 +1835,7 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
    lastTopBlock_ = blockchain_.top().getBlockHeight() + 1;
 
    // Now start scanning the raw blocks
-   if(DBUtils.getArmoryDbType() != ARMORY_DB_SUPER)
+   if(config_.armoryDbType != ARMORY_DB_SUPER)
    {
       // We don't do this in SUPER mode because there is no rescanning 
       // For progress bar purposes, let's find the blkfile location of scanStart
@@ -1998,7 +1863,6 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
 
    allScannedUpToBlk_ = lastTopBlock_;
 
-   isInitialized_ = true;
    purgeZeroConfPool();
 
    #ifdef _DEBUG
@@ -2020,8 +1884,8 @@ void BlockDataManager_LevelDB::readRawBlocksInFile(uint32_t fnum, uint32_t foffs
    // Open the file, and check the magic bytes on the first block
    ifstream is(blkfile.c_str(), ios::in | ios::binary);
    BinaryData fileMagic(4);
-   is.read((char*)(fileMagic.getPtr()), 4);
-   if( !(fileMagic == MagicBytes_ ) )
+   is.read(reinterpret_cast<char*>(fileMagic.getPtr()), 4);
+   if( fileMagic != config_.magicBytes )
    {
       LOGERR << "Block file is the wrong network!  MagicBytes: "
              << fileMagic.toHexStr().c_str();
@@ -2059,7 +1923,7 @@ void BlockDataManager_LevelDB::readRawBlocksInFile(uint32_t fnum, uint32_t foffs
          if(!alreadyRead8B)
          {
             bsb.reader().get_BinaryData(firstFour, 4);
-            if(firstFour!=MagicBytes_)
+            if(firstFour!=config_.magicBytes)
             {
                isEOF = true; 
                break;
@@ -2099,7 +1963,7 @@ void BlockDataManager_LevelDB::readRawBlocksInFile(uint32_t fnum, uint32_t foffs
             }
             
             uint32_t bytesSkipped;
-            const bool next = scanForMagicBytes(bsb, MagicBytes_, &bytesSkipped);
+            const bool next = scanForMagicBytes(bsb, config_.magicBytes, &bytesSkipped);
             if (!next)
             {
                LOGERR << "Could not find another block in the file";
@@ -2157,7 +2021,7 @@ StoredHeader BlockDataManager_LevelDB::getBlockFromDB(uint32_t hgt, uint8_t dup)
    StoredHeader returnSBH;
 
    LDBIter ldbIter = iface_->getIterator(BLKDATA);
-   BinaryData firstKey = DBUtils.getBlkDataKey(hgt, dup);
+   BinaryData firstKey = DBUtils::getBlkDataKey(hgt, dup);
 
    if(!ldbIter.seekToExact(firstKey))
       return nullSBH;
@@ -2263,7 +2127,7 @@ uint32_t BlockDataManager_LevelDB::readBlkFileUpdate(void)
          is.seekg(endOfNewLastBlock, ios::beg);
          is.read((char*)fourBytes.getPtr(), 4);
 
-         if(fourBytes != MagicBytes_)
+         if(fourBytes != config_.magicBytes)
             break;
          else
          {
@@ -2278,7 +2142,7 @@ uint32_t BlockDataManager_LevelDB::readBlkFileUpdate(void)
 
    // Check to see if there was a blkfile split, and we have to switch
    // to tracking the new file..  this condition triggers about once a week
-   string nextFilename = BtcUtils::getBlkFilename(blkFileDir_, numBlkFiles_);
+   string nextFilename = BtcUtils::getBlkFilename(config_.blkFileLocation, numBlkFiles_);
    uint64_t nextBlkBytesToRead = BtcUtils::GetFileSize(nextFilename);
    if(nextBlkBytesToRead == FILE_DOES_NOT_EXIST)
       nextBlkBytesToRead = 0;
@@ -2347,7 +2211,7 @@ uint32_t BlockDataManager_LevelDB::readBlkFileUpdate(void)
       ////////////
       // The reader should be at the start of magic bytes of the new block
       brr.get_BinaryData(fourBytes, 4);
-      if(fourBytes != MagicBytes_)
+      if(fourBytes != config_.magicBytes)
          break;
          
       uint32_t nextBlockSize = brr.get_uint32_t();
@@ -2367,7 +2231,7 @@ uint32_t BlockDataManager_LevelDB::readBlkFileUpdate(void)
          if(!state.prevTopBlockStillValid)
          {
             LOGWARN << "Blockchain Reorganization detected!";
-            ReorgUpdater reorg(state, &blockchain_, iface_);
+            ReorgUpdater reorg(state, &blockchain_, iface_, config_);
             
             prevTopBlk = state.reorgBranchPoint->getBlockHeight();
             //purgeZeroConfPool();
@@ -2378,10 +2242,10 @@ uint32_t BlockDataManager_LevelDB::readBlkFileUpdate(void)
             uint32_t hgt = bh.getBlockHeight();
             uint8_t  dup = bh.getDuplicateID();
       
-            if(DBUtils.getArmoryDbType() != ARMORY_DB_BARE) 
+            if(config_.armoryDbType != ARMORY_DB_BARE) 
             {
                LOGINFO << "Applying block to DB!";
-               BlockWriteBatcher batcher(iface_);
+               BlockWriteBatcher batcher(config_, iface_);
                batcher.applyBlockToDB(hgt, dup);
             }
          }
@@ -2991,7 +2855,7 @@ void BlockDataManager_LevelDB::addRawBlockToDB(BinaryRefReader & brr)
    BinaryDataRef first4 = brr.get_BinaryDataRef(4);
    
    // Skip magic bytes and block sz if exist, put ptr at beginning of header
-   if(first4 == MagicBytes_)
+   if(first4 == config_.magicBytes)
       brr.advance(4);
    else
       brr.rewind(4);
@@ -3093,16 +2957,5 @@ void BlockDataManager_LevelDB::scanWallets(uint32_t startBlock,
    }
 }
 
-
-////////////////////////////////////////////////////////////////////////////////
-// We may use this to trigger flushing the queued DB updates
-//bool BlockDataManager_LevelDB::estimateDBUpdateSize(
-                        //map<BinaryData, StoredTx> &            stxToModify,
-                        //map<BinaryData, StoredScriptHistory> & sshToModify)
-//{
- 
-//}
-
-BlockDataManager_LevelDB* BlockDataManager::bdm_=0;
 
 // kate: indent-width 3; replace-tabs on;

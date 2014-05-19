@@ -2321,6 +2321,7 @@ class ArmoryMainWindow(QMainWindow):
          dispStr +=  '(Encrypted)' if wlt.useEncryption else '(No Encryption)'
          LOGINFO(dispStr)
          # Register all wallets with TheBDM
+         
          TheBDM.bdm.registerWallet(wlt.cppWallet)
 
 

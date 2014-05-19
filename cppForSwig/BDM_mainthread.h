@@ -9,6 +9,8 @@
    #endif
 #endif
 
+struct BlockDataManagerConfig;
+
 class BDM_CallBack
 {
 public:
@@ -38,7 +40,14 @@ public:
 
 class BlockDataManager_LevelDB;
 
-BlockDataManager_LevelDB *startBDM(
+BlockDataManager_LevelDB * createBDM(
+   const BlockDataManagerConfig &config
+);
+
+void destroyBDM(BlockDataManager_LevelDB *bdm);
+
+BlockDataManager_LevelDB * startBDM(
+   BlockDataManager_LevelDB *bdm,
    int mode,
    BDM_CallBack *callback,
    BDM_Inject *inject
@@ -50,6 +59,10 @@ struct ThreadParams
    BDM_CallBack *callback;
    BDM_Inject *inject;
    pthread_t tID;
+   int mode;
 };
+
+
+// kate: indent-width 3; replace-tabs on;
 
 #endif

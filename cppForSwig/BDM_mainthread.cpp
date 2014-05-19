@@ -78,69 +78,86 @@ void BDM_Inject::wait(unsigned ms)
 static void* run(void *_threadparams)
 {
    ThreadParams *const threadparams = static_cast<ThreadParams*>(_threadparams);
-   BlockDataManager_LevelDB *const theBDM = threadparams->bdm;
+   BlockDataManager_LevelDB *const bdm = threadparams->bdm;
    
    BDM_CallBack *const callback = threadparams->callback;
 
-   while(theBDM->doRun())
+   //don't call this unless you're trying to get online
+   if(threadparams->mode==0) threadparams->bdm->doInitialSyncOnLoad();
+   else if(threadparams->mode==1) threadparams->bdm->doInitialSyncOnLoad_Rescan();
+   else if(threadparams->mode==2) threadparams->bdm->doInitialSyncOnLoad_Rebuild();
+
+   //push 'bdm is ready' to Python
+   callback->run(1, 0, threadparams->bdm->getTopBlockHeight());
+   
+   
+   while(bdm->doRun())
    {
-      uint32_t currentBlock = theBDM->blockchain().top().getBlockHeight();
-      if(theBDM->rescanZC_)
+      uint32_t currentBlock = bdm->blockchain().top().getBlockHeight();
+      if(bdm->rescanZC_)
       {
-         theBDM->scanWallets();
-         theBDM->rescanZC_ = false;
+         bdm->scanWallets();
+         bdm->rescanZC_ = false;
 
          //notify ZC
          callback->run(3, 0);
       }
 
       uint32_t prevTopBlk;
-      if(prevTopBlk = theBDM->readBlkFileUpdate())
+      if(prevTopBlk = bdm->readBlkFileUpdate())
       {
-         theBDM->scanWallets(prevTopBlk);
+         bdm->scanWallets(prevTopBlk);
 
-         currentBlock = theBDM->blockchain().top().getBlockHeight();
+         currentBlock = bdm->blockchain().top().getBlockHeight();
          
          //notify Python that new blocks have been parsed
-         callback->run(4, theBDM->blockchain().top().getBlockHeight() - \
-                       prevTopBlk, theBDM->getTopBlockHeight());
+         callback->run(4,
+            bdm->blockchain().top().getBlockHeight()
+               - prevTopBlk, bdm->getTopBlockHeight()
+         );
       }
       
       threadparams->inject->wait(1000);
    }
 
-   theBDM->reset();
-
+   delete bdm;
+   
    delete threadparams;
    
    return 0;
 }
 
+BlockDataManager_LevelDB * createBDM(
+   const BlockDataManagerConfig &config
+)
+{
+   return new BlockDataManager_LevelDB(config);
+}
+
+void destroyBDM(BlockDataManager_LevelDB *bdm)
+{
+   delete bdm;
+}
+
 BlockDataManager_LevelDB * startBDM(
+   BlockDataManager_LevelDB *bdm,
    int mode,
    BDM_CallBack *callback,
    BDM_Inject *inject
 )
 {
    ThreadParams *const tp = new ThreadParams;
-   tp->bdm = &BlockDataManager().getBDM();
+   tp->bdm = bdm;
    tp->callback = callback;
    tp->inject = inject;
    tp->bdm->setRun(true);
+   tp->mode = mode;
    
-   //don't call this unless you're trying to get online
-   if(!mode) tp->bdm->doInitialSyncOnLoad();
-   else if(mode==1) tp->bdm->doInitialSyncOnLoad_Rescan();
-   else if(mode==2) tp->bdm->doInitialSyncOnLoad_Rebuild();
-
-   //push 'bdm is ready' to Python
-   callback->run(1, 0, tp->bdm->getTopBlockHeight());
-
    //start maintenance thread
    pthread_create(&tp->tID, 0, run, tp);
    tp->bdm->setThreadParams(tp);
    
-   return &BlockDataManager().getBDM();
+   return tp->bdm;
 }
 
 // kate: indent-width 3; replace-tabs on;

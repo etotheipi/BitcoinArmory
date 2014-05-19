@@ -743,7 +743,7 @@ BinaryData TxRef::getBlockHash(void) const
 uint32_t TxRef::getBlockHeight(void) const
 {
    if(dbKey6B_.getSize() == 6)
-      return DBUtils.hgtxToHeight(dbKey6B_.getSliceCopy(0,4));
+      return DBUtils::hgtxToHeight(dbKey6B_.getSliceCopy(0,4));
    else
       return UINT32_MAX;
 }
@@ -752,7 +752,7 @@ uint32_t TxRef::getBlockHeight(void) const
 uint8_t TxRef::getDuplicateID(void) const
 {
    if(dbKey6B_.getSize() == 6)
-      return DBUtils.hgtxToDupID(dbKey6B_.getSliceCopy(0,4));
+      return DBUtils::hgtxToDupID(dbKey6B_.getSliceCopy(0,4));
    else
       return UINT8_MAX;
 }

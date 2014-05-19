@@ -20,6 +20,7 @@
 
 #define READHEX BinaryData::CreateFromHex
 
+#define TheBDM (*theBDM)
 
 /* This didn't work at all
 class BitcoinEnvironment : public ::testing::Environment 
@@ -188,8 +189,8 @@ public:
       sbh_.unserialize(rawHead_);
 
       // Make sure the global DB type and prune type are reset for each test
-      DBUtils.setArmoryDbType(ARMORY_DB_FULL);
-      DBUtils.setDbPruneType(DB_PRUNE_NONE);
+      DBUtils::setArmoryDbType(ARMORY_DB_FULL);
+      DBUtils::setDbPruneType(DB_PRUNE_NONE);
    }
 
    BinaryData rawHead_;
@@ -2678,10 +2679,6 @@ protected:
 
 
       sbh_.unserialize(rawHead_);
-
-      // Make sure the global DB type and prune type are reset for each test
-      DBUtils.setArmoryDbType(ARMORY_DB_FULL);
-      DBUtils.setDbPruneType(DB_PRUNE_NONE);
    }
 
    BinaryData PREFBYTE(DB_PREFIX pref) 
@@ -2851,23 +2848,23 @@ TEST_F(StoredBlockObjTest, LengthFragged)
 ////////////////////////////////////////////////////////////////////////////////
 TEST_F(StoredBlockObjTest, BlkDataKeys)
 {
-   uint32_t hgt = 0x001a332b;
-   uint8_t  dup = 0x01;
-   uint16_t tix = 0x0102;
-   uint16_t tox = 0x0021;
+   const uint32_t hgt = 0x001a332b;
+   const uint8_t  dup = 0x01;
+   const uint16_t tix = 0x0102;
+   const uint16_t tox = 0x0021;
    
-   EXPECT_EQ(DBUtils.getBlkDataKey(hgt, dup),           
+   EXPECT_EQ(DBUtils::getBlkDataKey(hgt, dup),           
                                                READHEX("031a332b01"));
-   EXPECT_EQ(DBUtils.getBlkDataKey(hgt, dup, tix),      
+   EXPECT_EQ(DBUtils::getBlkDataKey(hgt, dup, tix),      
                                                READHEX("031a332b010102"));
-   EXPECT_EQ(DBUtils.getBlkDataKey(hgt, dup, tix, tox), 
+   EXPECT_EQ(DBUtils::getBlkDataKey(hgt, dup, tix, tox), 
                                                READHEX("031a332b0101020021"));
 
-   EXPECT_EQ(DBUtils.getBlkDataKeyNoPrefix(hgt, dup),           
+   EXPECT_EQ(DBUtils::getBlkDataKeyNoPrefix(hgt, dup),           
                                                READHEX("1a332b01"));
-   EXPECT_EQ(DBUtils.getBlkDataKeyNoPrefix(hgt, dup, tix),      
+   EXPECT_EQ(DBUtils::getBlkDataKeyNoPrefix(hgt, dup, tix),      
                                                READHEX("1a332b010102"));
-   EXPECT_EQ(DBUtils.getBlkDataKeyNoPrefix(hgt, dup, tix, tox), 
+   EXPECT_EQ(DBUtils::getBlkDataKeyNoPrefix(hgt, dup, tix, tox), 
                                                READHEX("1a332b0101020021"));
 }
 
@@ -2893,14 +2890,14 @@ TEST_F(StoredBlockObjTest, ReadBlkKeyData)
    /////////////////////////////////////////////////////////////////////////////
    // 5 bytes, with prefix
    brr.setNewData(key5p);
-   bdtype = DBUtils.readBlkDataKey(brr, hgt, dup);
+   bdtype = DBUtils::readBlkDataKey(brr, hgt, dup);
    EXPECT_EQ( hgt,     123000);
    EXPECT_EQ( dup,         15);
    EXPECT_EQ( brr.getSizeRemaining(), 0);
    EXPECT_EQ( bdtype, BLKDATA_HEADER);
 
    brr.setNewData(key5p);
-   bdtype = DBUtils.readBlkDataKey(brr, hgt, dup, txi);
+   bdtype = DBUtils::readBlkDataKey(brr, hgt, dup, txi);
    EXPECT_EQ( hgt,     123000);
    EXPECT_EQ( dup,         15);
    EXPECT_EQ( txi, UINT16_MAX);
@@ -2908,7 +2905,7 @@ TEST_F(StoredBlockObjTest, ReadBlkKeyData)
    EXPECT_EQ( bdtype, BLKDATA_HEADER);
    
    brr.setNewData(key5p);
-   bdtype = DBUtils.readBlkDataKey(brr, hgt, dup, txi, txo);
+   bdtype = DBUtils::readBlkDataKey(brr, hgt, dup, txi, txo);
    EXPECT_EQ( hgt,     123000);
    EXPECT_EQ( dup,         15);
    EXPECT_EQ( txi, UINT16_MAX);
@@ -2920,14 +2917,14 @@ TEST_F(StoredBlockObjTest, ReadBlkKeyData)
    /////////////////////////////////////////////////////////////////////////////
    // 7 bytes, with prefix
    brr.setNewData(key7p);
-   bdtype = DBUtils.readBlkDataKey(brr, hgt, dup);
+   bdtype = DBUtils::readBlkDataKey(brr, hgt, dup);
    EXPECT_EQ( hgt,     123000);
    EXPECT_EQ( dup,         15);
    EXPECT_EQ( brr.getSizeRemaining(), 0);
    EXPECT_EQ( bdtype, BLKDATA_TX);
 
    brr.setNewData(key7p);
-   bdtype = DBUtils.readBlkDataKey(brr, hgt, dup, txi);
+   bdtype = DBUtils::readBlkDataKey(brr, hgt, dup, txi);
    EXPECT_EQ( hgt,     123000);
    EXPECT_EQ( dup,         15);
    EXPECT_EQ( txi,          7);
@@ -2935,7 +2932,7 @@ TEST_F(StoredBlockObjTest, ReadBlkKeyData)
    EXPECT_EQ( bdtype, BLKDATA_TX);
    
    brr.setNewData(key7p);
-   bdtype = DBUtils.readBlkDataKey(brr, hgt, dup, txi, txo);
+   bdtype = DBUtils::readBlkDataKey(brr, hgt, dup, txi, txo);
    EXPECT_EQ( hgt,     123000);
    EXPECT_EQ( dup,         15);
    EXPECT_EQ( txi,          7);
@@ -2947,14 +2944,14 @@ TEST_F(StoredBlockObjTest, ReadBlkKeyData)
    /////////////////////////////////////////////////////////////////////////////
    // 9 bytes, with prefix
    brr.setNewData(key9p);
-   bdtype = DBUtils.readBlkDataKey(brr, hgt, dup);
+   bdtype = DBUtils::readBlkDataKey(brr, hgt, dup);
    EXPECT_EQ( hgt,     123000);
    EXPECT_EQ( dup,         15);
    EXPECT_EQ( brr.getSizeRemaining(), 0);
    EXPECT_EQ( bdtype, BLKDATA_TXOUT);
 
    brr.setNewData(key9p);
-   bdtype = DBUtils.readBlkDataKey(brr, hgt, dup, txi);
+   bdtype = DBUtils::readBlkDataKey(brr, hgt, dup, txi);
    EXPECT_EQ( hgt,     123000);
    EXPECT_EQ( dup,         15);
    EXPECT_EQ( txi,          7);
@@ -2962,7 +2959,7 @@ TEST_F(StoredBlockObjTest, ReadBlkKeyData)
    EXPECT_EQ( bdtype, BLKDATA_TXOUT);
    
    brr.setNewData(key9p);
-   bdtype = DBUtils.readBlkDataKey(brr, hgt, dup, txi, txo);
+   bdtype = DBUtils::readBlkDataKey(brr, hgt, dup, txi, txo);
    EXPECT_EQ( hgt,     123000);
    EXPECT_EQ( dup,         15);
    EXPECT_EQ( txi,          7);
@@ -2974,14 +2971,14 @@ TEST_F(StoredBlockObjTest, ReadBlkKeyData)
    /////////////////////////////////////////////////////////////////////////////
    // 5 bytes, no prefix
    brr.setNewData(key5);
-   bdtype = DBUtils.readBlkDataKeyNoPrefix(brr, hgt, dup);
+   bdtype = DBUtils::readBlkDataKeyNoPrefix(brr, hgt, dup);
    EXPECT_EQ( hgt,     123000);
    EXPECT_EQ( dup,         15);
    EXPECT_EQ( brr.getSizeRemaining(), 0);
    EXPECT_EQ( bdtype, BLKDATA_HEADER);
 
    brr.setNewData(key5);
-   bdtype = DBUtils.readBlkDataKeyNoPrefix(brr, hgt, dup, txi);
+   bdtype = DBUtils::readBlkDataKeyNoPrefix(brr, hgt, dup, txi);
    EXPECT_EQ( hgt,     123000);
    EXPECT_EQ( dup,         15);
    EXPECT_EQ( txi, UINT16_MAX);
@@ -2989,7 +2986,7 @@ TEST_F(StoredBlockObjTest, ReadBlkKeyData)
    EXPECT_EQ( bdtype, BLKDATA_HEADER);
    
    brr.setNewData(key5);
-   bdtype = DBUtils.readBlkDataKeyNoPrefix(brr, hgt, dup, txi, txo);
+   bdtype = DBUtils::readBlkDataKeyNoPrefix(brr, hgt, dup, txi, txo);
    EXPECT_EQ( hgt,     123000);
    EXPECT_EQ( dup,         15);
    EXPECT_EQ( txi, UINT16_MAX);
@@ -3001,14 +2998,14 @@ TEST_F(StoredBlockObjTest, ReadBlkKeyData)
    /////////////////////////////////////////////////////////////////////////////
    // 7 bytes, no prefix
    brr.setNewData(key7);
-   bdtype = DBUtils.readBlkDataKeyNoPrefix(brr, hgt, dup);
+   bdtype = DBUtils::readBlkDataKeyNoPrefix(brr, hgt, dup);
    EXPECT_EQ( hgt,     123000);
    EXPECT_EQ( dup,         15);
    EXPECT_EQ( brr.getSizeRemaining(), 0);
    EXPECT_EQ( bdtype, BLKDATA_TX);
 
    brr.setNewData(key7);
-   bdtype = DBUtils.readBlkDataKeyNoPrefix(brr, hgt, dup, txi);
+   bdtype = DBUtils::readBlkDataKeyNoPrefix(brr, hgt, dup, txi);
    EXPECT_EQ( hgt,     123000);
    EXPECT_EQ( dup,         15);
    EXPECT_EQ( txi,          7);
@@ -3016,7 +3013,7 @@ TEST_F(StoredBlockObjTest, ReadBlkKeyData)
    EXPECT_EQ( bdtype, BLKDATA_TX);
    
    brr.setNewData(key7);
-   bdtype = DBUtils.readBlkDataKeyNoPrefix(brr, hgt, dup, txi, txo);
+   bdtype = DBUtils::readBlkDataKeyNoPrefix(brr, hgt, dup, txi, txo);
    EXPECT_EQ( hgt,     123000);
    EXPECT_EQ( dup,         15);
    EXPECT_EQ( txi,          7);
@@ -3028,14 +3025,14 @@ TEST_F(StoredBlockObjTest, ReadBlkKeyData)
    /////////////////////////////////////////////////////////////////////////////
    // 9 bytes, no prefix
    brr.setNewData(key9);
-   bdtype = DBUtils.readBlkDataKeyNoPrefix(brr, hgt, dup);
+   bdtype = DBUtils::readBlkDataKeyNoPrefix(brr, hgt, dup);
    EXPECT_EQ( hgt,     123000);
    EXPECT_EQ( dup,         15);
    EXPECT_EQ( brr.getSizeRemaining(), 0);
    EXPECT_EQ( bdtype, BLKDATA_TXOUT);
 
    brr.setNewData(key9);
-   bdtype = DBUtils.readBlkDataKeyNoPrefix(brr, hgt, dup, txi);
+   bdtype = DBUtils::readBlkDataKeyNoPrefix(brr, hgt, dup, txi);
    EXPECT_EQ( hgt,     123000);
    EXPECT_EQ( dup,         15);
    EXPECT_EQ( txi,          7);
@@ -3043,7 +3040,7 @@ TEST_F(StoredBlockObjTest, ReadBlkKeyData)
    EXPECT_EQ( bdtype, BLKDATA_TXOUT);
    
    brr.setNewData(key9);
-   bdtype = DBUtils.readBlkDataKeyNoPrefix(brr, hgt, dup, txi, txo);
+   bdtype = DBUtils::readBlkDataKeyNoPrefix(brr, hgt, dup, txi, txo);
    EXPECT_EQ( hgt,     123000);
    EXPECT_EQ( dup,         15);
    EXPECT_EQ( txi,          7);
@@ -3072,8 +3069,8 @@ TEST_F(StoredBlockObjTest, SHeaderUnserialize)
 ////////////////////////////////////////////////////////////////////////////////
 TEST_F(StoredBlockObjTest, SHeaderDBSerFull_H)
 {
-   DBUtils.setArmoryDbType(ARMORY_DB_FULL);
-   DBUtils.setDbPruneType(DB_PRUNE_NONE);
+//    DBUtils::setArmoryDbType(ARMORY_DB_FULL);
+//    DBUtils::setDbPruneType(DB_PRUNE_NONE);
 
    sbh_.blockHeight_      = 65535;
    sbh_.duplicateID_      = 1;
@@ -3085,7 +3082,7 @@ TEST_F(StoredBlockObjTest, SHeaderDBSerFull_H)
 
    // SetUp already contains sbh_.unserialize(rawHead_);
    BinaryData last4 = READHEX("00ffff01");
-   EXPECT_EQ(sbh_.serializeDBValue(HEADERS), rawHead_ + last4);
+   EXPECT_EQ(serializeDBValue(sbh_, HEADERS, ARMORY_DB_FULL, DB_PRUNE_NONE), rawHead_ + last4);
 }
 
 
@@ -3094,8 +3091,8 @@ TEST_F(StoredBlockObjTest, SHeaderDBSerFull_B1)
 {
    // ARMORY_DB_FULL means no merkle string (cause all Tx are in the DB
    // so the merkle tree would be redundant.
-   DBUtils.setArmoryDbType(ARMORY_DB_FULL);
-   DBUtils.setDbPruneType(DB_PRUNE_NONE);
+//    DBUtils::setArmoryDbType(ARMORY_DB_FULL);
+//    DBUtils::setDbPruneType(DB_PRUNE_NONE);
 
    sbh_.blockHeight_      = 65535;
    sbh_.duplicateID_      = 1;
@@ -3111,7 +3108,7 @@ TEST_F(StoredBlockObjTest, SHeaderDBSerFull_B1)
    BinaryData nbyte = READHEX("ffff0000");
 
    BinaryData headBlkData = flags + rawHead_ + ntx + nbyte;
-   EXPECT_EQ(sbh_.serializeDBValue(BLKDATA), headBlkData);
+   EXPECT_EQ(serializeDBValue(sbh_, BLKDATA, ARMORY_DB_FULL, DB_PRUNE_NONE), headBlkData);
 }
 
 
@@ -3119,8 +3116,8 @@ TEST_F(StoredBlockObjTest, SHeaderDBSerFull_B1)
 TEST_F(StoredBlockObjTest, SHeaderDBSerFull_B2)
 {
    // With merkle string
-   DBUtils.setArmoryDbType(ARMORY_DB_PARTIAL);
-   DBUtils.setDbPruneType(DB_PRUNE_NONE);
+//    DBUtils::setArmoryDbType(ARMORY_DB_PARTIAL);
+//    DBUtils::setDbPruneType(DB_PRUNE_NONE);
 
    BinaryWriter bw;
 
@@ -3138,14 +3135,14 @@ TEST_F(StoredBlockObjTest, SHeaderDBSerFull_B2)
    BinaryData nbyte = READHEX("ffff0000");
 
    BinaryData headBlkData = flags + rawHead_ + ntx + nbyte + sbh_.merkle_;
-   EXPECT_EQ(sbh_.serializeDBValue(BLKDATA), headBlkData);
+   EXPECT_EQ(serializeDBValue(sbh_, BLKDATA, ARMORY_DB_PARTIAL, DB_PRUNE_NONE), headBlkData);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 TEST_F(StoredBlockObjTest, SHeaderDBSerFull_B3)
 {
-   DBUtils.setArmoryDbType(ARMORY_DB_LITE);
-   DBUtils.setDbPruneType(DB_PRUNE_ALL);
+//    DBUtils::setArmoryDbType(ARMORY_DB_LITE);
+//    DBUtils::setDbPruneType(DB_PRUNE_ALL);
 
    BinaryWriter bw;
 
@@ -3163,7 +3160,7 @@ TEST_F(StoredBlockObjTest, SHeaderDBSerFull_B3)
    BinaryData nbyte = READHEX("ffff0000");
 
    BinaryData headBlkData = flags + rawHead_ + ntx + nbyte;
-   EXPECT_EQ(sbh_.serializeDBValue(BLKDATA), headBlkData);
+   EXPECT_EQ(serializeDBValue(sbh_, BLKDATA, ARMORY_DB_LITE, DB_PRUNE_ALL), headBlkData);
 }
 
 
@@ -3352,8 +3349,8 @@ TEST_F(StoredBlockObjTest, STxSerUnfragToFrag)
 ////////////////////////////////////////////////////////////////////////////////
 TEST_F(StoredBlockObjTest, STxSerDBValue_1)
 {
-   DBUtils.setArmoryDbType(ARMORY_DB_FULL);
-   DBUtils.setDbPruneType(DB_PRUNE_NONE);
+//    DBUtils::setArmoryDbType(ARMORY_DB_FULL);
+//    DBUtils::setDbPruneType(DB_PRUNE_NONE);
    
    Tx origTx(rawTxUnfrag_);
 
@@ -3370,7 +3367,7 @@ TEST_F(StoredBlockObjTest, STxSerDBValue_1)
    BinaryData  txHash  = origTx.getThisHash();
    BinaryData  fragged = stx.getSerializedTxFragged();
    BinaryData  output  = first2 + txHash + fragged;
-   EXPECT_EQ(stx.serializeDBValue(), output);
+   EXPECT_EQ(serializeDBValue(stx, ARMORY_DB_FULL, DB_PRUNE_NONE), output);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -3378,8 +3375,8 @@ TEST_F(StoredBlockObjTest, DISABLED_STxSerDBValue_2)
 {
    // I modified the ARMORY_DB_SUPER code to frag, as well.  There's no
    // mode that doesn't frag, now.
-   DBUtils.setArmoryDbType(ARMORY_DB_SUPER);
-   DBUtils.setDbPruneType(DB_PRUNE_NONE);
+   //DBUtils::setArmoryDbType(ARMORY_DB_SUPER);
+   //DBUtils::setDbPruneType(DB_PRUNE_NONE);
    
    Tx origTx(rawTxUnfrag_);
 
@@ -3396,7 +3393,7 @@ TEST_F(StoredBlockObjTest, DISABLED_STxSerDBValue_2)
    BinaryData  txHash  = origTx.getThisHash();
    BinaryData  fragged = stx.getSerializedTx();  // Full Tx this time
    BinaryData  output  = first2 + txHash + fragged;
-   EXPECT_EQ(stx.serializeDBValue(), output);
+   EXPECT_EQ(serializeDBValue(stx, ARMORY_DB_SUPER, DB_PRUNE_NONE), output);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -3510,8 +3507,8 @@ TEST_F(StoredBlockObjTest, STxOutUnserialize)
 ////////////////////////////////////////////////////////////////////////////////
 TEST_F(StoredBlockObjTest, STxOutSerDBValue_1)
 {
-   DBUtils.setArmoryDbType(ARMORY_DB_FULL);
-   DBUtils.setDbPruneType(DB_PRUNE_NONE);
+//    DBUtils::setArmoryDbType(ARMORY_DB_FULL);
+//    DBUtils::setDbPruneType(DB_PRUNE_NONE);
 
    StoredTxOut stxo0;
 
@@ -3526,15 +3523,15 @@ TEST_F(StoredBlockObjTest, STxOutSerDBValue_1)
    //
    // For this example:  DBVer=0, TxVer=1, TxSer=FRAGGED[1]
    //   0000   01    00   0  --- ----
-   EXPECT_EQ(stxo0.serializeDBValue(),  READHEX("0400") + rawTxOut0_);
+   EXPECT_EQ(serializeDBValue(stxo0, ARMORY_DB_FULL, DB_PRUNE_NONE),  READHEX("0400") + rawTxOut0_);
 }
    
 
 ////////////////////////////////////////////////////////////////////////////////
 TEST_F(StoredBlockObjTest, STxOutSerDBValue_2)
 {
-   DBUtils.setArmoryDbType(ARMORY_DB_FULL);
-   DBUtils.setDbPruneType(DB_PRUNE_NONE);
+//    DBUtils::setArmoryDbType(ARMORY_DB_FULL);
+//    DBUtils::setDbPruneType(DB_PRUNE_NONE);
 
    StoredTxOut stxo0;
    stxo0.unserialize(rawTxOut0_);
@@ -3543,10 +3540,13 @@ TEST_F(StoredBlockObjTest, STxOutSerDBValue_2)
 
    // Test a spent TxOut
    //   0000   01    01   0  --- ----
-   BinaryData spentStr = DBUtils.getBlkDataKeyNoPrefix( 100000, 1, 127, 15);
+   BinaryData spentStr = DBUtils::getBlkDataKeyNoPrefix( 100000, 1, 127, 15);
    stxo0.spentness_ = TXOUT_SPENT;
    stxo0.spentByTxInKey_ = spentStr;
-   EXPECT_EQ(stxo0.serializeDBValue(), READHEX("0500")+rawTxOut0_+spentStr);
+   EXPECT_EQ(
+      serializeDBValue(stxo0, ARMORY_DB_FULL, DB_PRUNE_NONE),
+      READHEX("0500")+rawTxOut0_+spentStr
+   );
 }
 
 
@@ -3554,8 +3554,8 @@ TEST_F(StoredBlockObjTest, STxOutSerDBValue_2)
 ////////////////////////////////////////////////////////////////////////////////
 TEST_F(StoredBlockObjTest, STxOutSerDBValue_3)
 {
-   DBUtils.setArmoryDbType(ARMORY_DB_FULL);
-   DBUtils.setDbPruneType(DB_PRUNE_NONE);
+//    DBUtils::setArmoryDbType(ARMORY_DB_FULL);
+//    DBUtils::setDbPruneType(DB_PRUNE_NONE);
 
    StoredTxOut stxo0;
    stxo0.unserialize(rawTxOut0_);
@@ -3564,12 +3564,13 @@ TEST_F(StoredBlockObjTest, STxOutSerDBValue_3)
 
    // Test a spent TxOut but in lite mode where we don't record spentness
    //   0000   01    01   1  --- ----
-   DBUtils.setArmoryDbType(ARMORY_DB_LITE);
-   DBUtils.setDbPruneType(DB_PRUNE_NONE);
-   BinaryData spentStr = DBUtils.getBlkDataKeyNoPrefix( 100000, 1, 127, 15);
+   BinaryData spentStr = DBUtils::getBlkDataKeyNoPrefix( 100000, 1, 127, 15);
    stxo0.spentness_ = TXOUT_SPENT;
    stxo0.spentByTxInKey_ = spentStr;
-   EXPECT_EQ(stxo0.serializeDBValue(), READHEX("0680")+rawTxOut0_);
+   EXPECT_EQ(
+      serializeDBValue(stxo0, ARMORY_DB_LITE, DB_PRUNE_NONE),
+      READHEX("0680")+rawTxOut0_
+   );
 }
 
 
@@ -3654,8 +3655,8 @@ TEST_F(StoredBlockObjTest, SHeaderFullBlock)
 ////////////////////////////////////////////////////////////////////////////////
 TEST_F(StoredBlockObjTest, SUndoDataSer)
 {
-   DBUtils.setArmoryDbType(ARMORY_DB_FULL);
-   DBUtils.setDbPruneType(DB_PRUNE_NONE);
+//    DBUtils::setArmoryDbType(ARMORY_DB_FULL);
+//    DBUtils::setDbPruneType(DB_PRUNE_NONE);
 
    BinaryData arbHash  = READHEX("11112221111222111122222211112222"
                                  "11112221111222111122211112221111");
@@ -3709,7 +3710,7 @@ TEST_F(StoredBlockObjTest, SUndoDataSer)
                op0.serialize() +
                op1.serialize();
 
-   EXPECT_EQ(sud.serializeDBValue(), answer);
+   EXPECT_EQ(serializeDBValue(sud, ARMORY_DB_FULL, DB_PRUNE_NONE), answer);
 }
 
 
@@ -3717,8 +3718,8 @@ TEST_F(StoredBlockObjTest, SUndoDataSer)
 ////////////////////////////////////////////////////////////////////////////////
 TEST_F(StoredBlockObjTest, SUndoDataUnser)
 {
-   DBUtils.setArmoryDbType(ARMORY_DB_FULL);
-   DBUtils.setDbPruneType(DB_PRUNE_NONE);
+//    DBUtils::setArmoryDbType(ARMORY_DB_FULL);
+//    DBUtils::setDbPruneType(DB_PRUNE_NONE);
 
    BinaryData arbHash  = READHEX("11112221111222111122222211112222"
                                  "11112221111222111122211112221111");
@@ -3751,7 +3752,7 @@ TEST_F(StoredBlockObjTest, SUndoDataUnser)
       "bbbbffffbbbbffffbbbb02000000");
 
    StoredUndoData sud;
-   sud.unserializeDBValue(sudToUnser);
+   sud.unserializeDBValue(sudToUnser, ARMORY_DB_FULL, DB_PRUNE_NONE);
 
    ASSERT_EQ(sud.outPointsAddedByBlock_.size(), 2);
    ASSERT_EQ(sud.stxOutsRemovedByBlock_.size(), 2);
@@ -3776,9 +3777,9 @@ TEST_F(StoredBlockObjTest, SUndoDataUnser)
 ////////////////////////////////////////////////////////////////////////////////
 TEST_F(StoredBlockObjTest, STxHintsSer)
 {
-   BinaryData hint0 = DBUtils.getBlkDataKeyNoPrefix(123000,  7, 255);
-   BinaryData hint1 = DBUtils.getBlkDataKeyNoPrefix(123000, 15, 127);
-   BinaryData hint2 = DBUtils.getBlkDataKeyNoPrefix(183922, 15,   3);
+   BinaryData hint0 = DBUtils::getBlkDataKeyNoPrefix(123000,  7, 255);
+   BinaryData hint1 = DBUtils::getBlkDataKeyNoPrefix(123000, 15, 127);
+   BinaryData hint2 = DBUtils::getBlkDataKeyNoPrefix(183922, 15,   3);
 
    StoredTxHints sths;
    sths.txHashPrefix_ = READHEX("aaaaffff");
@@ -3815,9 +3816,9 @@ TEST_F(StoredBlockObjTest, STxHintsSer)
 ////////////////////////////////////////////////////////////////////////////////
 TEST_F(StoredBlockObjTest, STxHintsReorder)
 {
-   BinaryData hint0 = DBUtils.getBlkDataKeyNoPrefix(123000,  7, 255);
-   BinaryData hint1 = DBUtils.getBlkDataKeyNoPrefix(123000, 15, 127);
-   BinaryData hint2 = DBUtils.getBlkDataKeyNoPrefix(183922, 15,   3);
+   BinaryData hint0 = DBUtils::getBlkDataKeyNoPrefix(123000,  7, 255);
+   BinaryData hint1 = DBUtils::getBlkDataKeyNoPrefix(123000, 15, 127);
+   BinaryData hint2 = DBUtils::getBlkDataKeyNoPrefix(183922, 15,   3);
 
    StoredTxHints sths;
    sths.txHashPrefix_ = READHEX("aaaaffff");
@@ -3839,9 +3840,9 @@ TEST_F(StoredBlockObjTest, STxHintsReorder)
 ////////////////////////////////////////////////////////////////////////////////
 TEST_F(StoredBlockObjTest, STxHintsUnser)
 {
-   BinaryData hint0 = DBUtils.getBlkDataKeyNoPrefix(123000,  7, 255);
-   BinaryData hint1 = DBUtils.getBlkDataKeyNoPrefix(123000, 15, 127);
-   BinaryData hint2 = DBUtils.getBlkDataKeyNoPrefix(183922, 15,   3);
+   BinaryData hint0 = DBUtils::getBlkDataKeyNoPrefix(123000,  7, 255);
+   BinaryData hint1 = DBUtils::getBlkDataKeyNoPrefix(123000, 15, 127);
+   BinaryData hint2 = DBUtils::getBlkDataKeyNoPrefix(183922, 15,   3);
 
    BinaryData in0 = READHEX("00");
    BinaryData in1 = READHEX("01""01e0780700ff");
@@ -4037,7 +4038,7 @@ TEST_F(StoredBlockObjTest, SScriptHistorySer)
    // Empty SSH (probably shouldn't even be serialized/written, in the future)
    BinaryData expect, expSub1, expSub2;
    expect = READHEX("0400""ffff0000""00");
-   EXPECT_EQ(ssh.serializeDBValue(), expect);
+   EXPECT_EQ(serializeDBValue(ssh, ARMORY_DB_BARE, DB_PRUNE_NONE), expect); // ???
 
    /////////////////////////////////////////////////////////////////////////////
    // With a single TxIO
@@ -4048,7 +4049,7 @@ TEST_F(StoredBlockObjTest, SScriptHistorySer)
    ssh.insertTxio(txio0);
 
    expect = READHEX("0400""ffff0000""01""00""0100000000000000""0000ff00""0001""0001");
-   EXPECT_EQ(ssh.serializeDBValue(), expect);
+   EXPECT_EQ(serializeDBValue(ssh, ARMORY_DB_BARE, DB_PRUNE_NONE), expect); // ???
 
    /////////////////////////////////////////////////////////////////////////////
    // Added a second one, different subSSH
@@ -4057,9 +4058,9 @@ TEST_F(StoredBlockObjTest, SScriptHistorySer)
    expect  = READHEX("0480""ffff0000""02""0102000000000000");
    expSub1 = READHEX("01""00""0100000000000000""0001""0001");
    expSub2 = READHEX("01""00""0002000000000000""0002""0002");
-   EXPECT_EQ(ssh.serializeDBValue(), expect);
-   EXPECT_EQ(ssh.subHistMap_[READHEX("0000ff00")].serializeDBValue(), expSub1);
-   EXPECT_EQ(ssh.subHistMap_[READHEX("00010000")].serializeDBValue(), expSub2);
+   EXPECT_EQ(serializeDBValue(ssh, ARMORY_DB_BARE, DB_PRUNE_NONE), expect);
+   EXPECT_EQ(serializeDBValue(ssh.subHistMap_[READHEX("0000ff00")], ARMORY_DB_BARE, DB_PRUNE_NONE), expSub1);
+   EXPECT_EQ(serializeDBValue(ssh.subHistMap_[READHEX("00010000")], ARMORY_DB_BARE, DB_PRUNE_NONE), expSub2);
 
    /////////////////////////////////////////////////////////////////////////////
    // Added another TxIO to the second subSSH
@@ -4071,9 +4072,9 @@ TEST_F(StoredBlockObjTest, SScriptHistorySer)
    expSub2 = READHEX("02"
                        "00""0002000000000000""0002""0002"
                        "00""0000030000000000""0004""0004");
-   EXPECT_EQ(ssh.serializeDBValue(), expect);
-   EXPECT_EQ(ssh.subHistMap_[READHEX("0000ff00")].serializeDBValue(), expSub1);
-   EXPECT_EQ(ssh.subHistMap_[READHEX("00010000")].serializeDBValue(), expSub2);
+   EXPECT_EQ(serializeDBValue(ssh, ARMORY_DB_BARE, DB_PRUNE_NONE), expect);
+   EXPECT_EQ(serializeDBValue(ssh.subHistMap_[READHEX("0000ff00")], ARMORY_DB_BARE, DB_PRUNE_NONE), expSub1);
+   EXPECT_EQ(serializeDBValue(ssh.subHistMap_[READHEX("00010000")], ARMORY_DB_BARE, DB_PRUNE_NONE), expSub2);
 
    /////////////////////////////////////////////////////////////////////////////
    // Now we explicitly delete a TxIO (with pruning, this should be basically
@@ -4085,9 +4086,9 @@ TEST_F(StoredBlockObjTest, SScriptHistorySer)
                        "00""0100000000000000""0001""0001");
    expSub2 = READHEX("01"
                        "00""0000030000000000""0004""0004");
-   EXPECT_EQ(ssh.serializeDBValue(), expect);
-   EXPECT_EQ(ssh.subHistMap_[READHEX("0000ff00")].serializeDBValue(), expSub1);
-   EXPECT_EQ(ssh.subHistMap_[READHEX("00010000")].serializeDBValue(), expSub2);
+   EXPECT_EQ(serializeDBValue(ssh, ARMORY_DB_BARE, DB_PRUNE_NONE), expect);
+   EXPECT_EQ(serializeDBValue(ssh.subHistMap_[READHEX("0000ff00")], ARMORY_DB_BARE, DB_PRUNE_NONE), expSub1);
+   EXPECT_EQ(serializeDBValue(ssh.subHistMap_[READHEX("00010000")], ARMORY_DB_BARE, DB_PRUNE_NONE), expSub2);
    
    /////////////////////////////////////////////////////////////////////////////
    // Insert a multisig TxIO -- this should increment totalTxioCount_, but not 
@@ -4101,9 +4102,9 @@ TEST_F(StoredBlockObjTest, SScriptHistorySer)
    expSub2 = READHEX("02"
                        "00""0000030000000000""0004""0004"
                        "10""0000000400000000""0006""0006");
-   EXPECT_EQ(ssh.serializeDBValue(), expect);
-   EXPECT_EQ(ssh.subHistMap_[READHEX("0000ff00")].serializeDBValue(), expSub1);
-   EXPECT_EQ(ssh.subHistMap_[READHEX("00010000")].serializeDBValue(), expSub2);
+   EXPECT_EQ(serializeDBValue(ssh, ARMORY_DB_BARE, DB_PRUNE_NONE), expect);
+   EXPECT_EQ(serializeDBValue(ssh.subHistMap_[READHEX("0000ff00")], ARMORY_DB_BARE, DB_PRUNE_NONE), expSub1);
+   EXPECT_EQ(serializeDBValue(ssh.subHistMap_[READHEX("00010000")], ARMORY_DB_BARE, DB_PRUNE_NONE), expSub2);
    
    /////////////////////////////////////////////////////////////////////////////
    // Remove the multisig
@@ -4113,9 +4114,9 @@ TEST_F(StoredBlockObjTest, SScriptHistorySer)
                        "00""0100000000000000""0001""0001");
    expSub2 = READHEX("01"
                        "00""0000030000000000""0004""0004");
-   EXPECT_EQ(ssh.serializeDBValue(), expect);
-   EXPECT_EQ(ssh.subHistMap_[READHEX("0000ff00")].serializeDBValue(), expSub1);
-   EXPECT_EQ(ssh.subHistMap_[READHEX("00010000")].serializeDBValue(), expSub2);
+   EXPECT_EQ(serializeDBValue(ssh, ARMORY_DB_BARE, DB_PRUNE_NONE), expect);
+   EXPECT_EQ(serializeDBValue(ssh.subHistMap_[READHEX("0000ff00")], ARMORY_DB_BARE, DB_PRUNE_NONE), expSub1);
+   EXPECT_EQ(serializeDBValue(ssh.subHistMap_[READHEX("00010000")], ARMORY_DB_BARE, DB_PRUNE_NONE), expSub2);
 
    /////////////////////////////////////////////////////////////////////////////
    // Remove a full subSSH (it shouldn't be deleted, though, that will be done
@@ -4125,9 +4126,9 @@ TEST_F(StoredBlockObjTest, SScriptHistorySer)
    expSub1 = READHEX("00");
    expSub2 = READHEX("01"
                        "00""0000030000000000""0004""0004");
-   EXPECT_EQ(ssh.serializeDBValue(), expect);
-   EXPECT_EQ(ssh.subHistMap_[READHEX("0000ff00")].serializeDBValue(), expSub1);
-   EXPECT_EQ(ssh.subHistMap_[READHEX("00010000")].serializeDBValue(), expSub2);
+   EXPECT_EQ(serializeDBValue(ssh, ARMORY_DB_BARE, DB_PRUNE_NONE), expect);
+   EXPECT_EQ(serializeDBValue(ssh.subHistMap_[READHEX("0000ff00")], ARMORY_DB_BARE, DB_PRUNE_NONE), expSub1);
+   EXPECT_EQ(serializeDBValue(ssh.subHistMap_[READHEX("00010000")], ARMORY_DB_BARE, DB_PRUNE_NONE), expSub2);
    
 }
 
@@ -4251,8 +4252,8 @@ TEST_F(StoredBlockObjTest, SScriptHistoryUnser)
 /*
 TEST_F(StoredBlockObjTest, SScriptHistoryMarkSpent)
 {
-   DBUtils.setArmoryDbType(ARMORY_DB_SUPER);
-   DBUtils.setDbPruneType(DB_PRUNE_NONE);
+   DBUtils::setArmoryDbType(ARMORY_DB_SUPER);
+   DBUtils::setDbPruneType(DB_PRUNE_NONE);
 
    StoredScriptHistory ssh;
 
@@ -4385,13 +4386,22 @@ class LevelDBTest : public ::testing::Test
 protected:
    virtual void SetUp(void) 
    {
+      #ifdef _MSC_VER
+         rmdir("./ldbtestdir/level*");
+      #else
+         system("rm -rf ./ldbtestdir/level*");
+      #endif
+      
       iface_ = LevelDBWrapper::GetInterfacePtr();
       magic_ = READHEX(MAINNET_MAGIC_BYTES);
       ghash_ = READHEX(MAINNET_GENESIS_HASH_HEX);
       gentx_ = READHEX(MAINNET_GENESIS_TX_HASH_HEX);
       zeros_ = READHEX("00000000");
-      DBUtils.setArmoryDbType(ARMORY_DB_FULL);
-      DBUtils.setDbPruneType(DB_PRUNE_NONE);
+      // Make sure the global DB type and prune type are reset for each test
+      //iface_->openDatabases( ldbdir_, ghash_, gentx_, magic_, 
+      //                        ARMORY_DB_BARE, DB_PRUNE_NONE);
+//       DBUtils::setArmoryDbType(ARMORY_DB_FULL);
+//       DBUtils::setDbPruneType(DB_PRUNE_NONE);
 
       rawHead_ = READHEX(
          "01000000"
@@ -4580,10 +4590,6 @@ protected:
       tx2_.unserialize(rawTx1_);
       sbh_.unserialize(rawHead_);
 
-      // Make sure the global DB type and prune type are reset for each test
-      DBUtils.setArmoryDbType(ARMORY_DB_FULL);
-      DBUtils.setDbPruneType(DB_PRUNE_NONE);
-   
       LOGDISABLESTDOUT();
    }
 
@@ -4860,11 +4866,10 @@ TEST_F(LevelDBTest, DISABLED_OpenCloseOpenMismatch)
    iface_->openDatabases( string("ldbtestdir"),
                           ghash_,
                           gentx_,
-                          magic_);
+                          magic_,
+                          ARMORY_DB_FULL,
+                          DB_PRUNE_NONE);
    ASSERT_TRUE( iface_->databasesAreOpen());
-
-   EXPECT_EQ(   DBUtils.getArmoryDbType(), ARMORY_DB_FULL);
-   EXPECT_EQ(   DBUtils.getDbPruneType(),  DB_PRUNE_NONE);
 
    KVLIST HList = iface_->getAllDatabaseEntries(HEADERS);
    KVLIST BList = iface_->getAllDatabaseEntries(BLKDATA);
@@ -4956,11 +4961,14 @@ TEST_F(LevelDBTest, STxOutPutGet)
 
    StoredTxOut stxoGet;
    iface_->getStoredTxOut(stxoGet, 123000, 15, 7, 1);
-   EXPECT_EQ(stxoGet.serializeDBValue(), stxo0.serializeDBValue());
+   EXPECT_EQ(
+      serializeDBValue(stxoGet, ARMORY_DB_FULL, DB_PRUNE_NONE),
+      serializeDBValue(stxo0, ARMORY_DB_FULL, DB_PRUNE_NONE)
+   );
 
    //iface_->validDupByHeight_[123000] = 15;
    //iface_->getStoredTxOut(stxoGet, 123000, 7, 1);
-   //EXPECT_EQ(stxoGet.serializeDBValue(), stxo0.serializeDBValue());
+   //EXPECT_EQ(serializeDBValue(stxoGet), serializeDBValue(stxo0));
    
    StoredTxOut stxo1;
    stxo1.txVersion_   = 1;
@@ -4975,9 +4983,15 @@ TEST_F(LevelDBTest, STxOutPutGet)
    iface_->putStoredTxOut(stxo1);
 
    iface_->getStoredTxOut(stxoGet, 123000, 15, 7, 1);
-   EXPECT_EQ(stxoGet.serializeDBValue(), stxo0.serializeDBValue());
+   EXPECT_EQ(
+      serializeDBValue(stxoGet, ARMORY_DB_FULL, DB_PRUNE_NONE),
+      serializeDBValue(stxo0, ARMORY_DB_FULL, DB_PRUNE_NONE)
+   );
    iface_->getStoredTxOut(stxoGet, 200333,  3, 7, 1);
-   EXPECT_EQ(stxoGet.serializeDBValue(), stxo1.serializeDBValue());
+   EXPECT_EQ(
+      serializeDBValue(stxoGet, ARMORY_DB_FULL, DB_PRUNE_NONE),
+      serializeDBValue(stxo1, ARMORY_DB_FULL, DB_PRUNE_NONE)
+   );
 
    addOutPairB(stxoKey, stxoVal);
    ASSERT_TRUE(compareKVListRange(0,1, 0,3));
@@ -4987,8 +5001,8 @@ TEST_F(LevelDBTest, STxOutPutGet)
 ////////////////////////////////////////////////////////////////////////////////
 TEST_F(LevelDBTest, PutFullTxNoOuts)
 {
-   DBUtils.setArmoryDbType(ARMORY_DB_FULL);
-   DBUtils.setDbPruneType(DB_PRUNE_NONE);
+//    DBUtils::setArmoryDbType(ARMORY_DB_FULL);
+//    DBUtils::setDbPruneType(DB_PRUNE_NONE);
 
    ASSERT_TRUE(standardOpenDBs());
 
@@ -5008,8 +5022,8 @@ TEST_F(LevelDBTest, PutFullTxNoOuts)
 ////////////////////////////////////////////////////////////////////////////////
 TEST_F(LevelDBTest, PutFullTx)
 {
-   DBUtils.setArmoryDbType(ARMORY_DB_FULL);
-   DBUtils.setDbPruneType(DB_PRUNE_NONE);
+//    DBUtils::setArmoryDbType(ARMORY_DB_FULL);
+//    DBUtils::setDbPruneType(DB_PRUNE_NONE);
 
    BinaryData TXP     = WRITE_UINT8_BE((uint8_t)DB_PREFIX_TXDATA);
    BinaryData stxoVal = READHEX("0400") + rawTxOut0_;
@@ -5055,8 +5069,8 @@ TEST_F(LevelDBTest, PutFullTx)
 ////////////////////////////////////////////////////////////////////////////////
 TEST_F(LevelDBTest, PutFullBlockNoTx)
 {
-   DBUtils.setArmoryDbType(ARMORY_DB_FULL);
-   DBUtils.setDbPruneType(DB_PRUNE_NONE);
+//    DBUtils::setArmoryDbType(ARMORY_DB_FULL);
+//    DBUtils::setDbPruneType(DB_PRUNE_NONE);
 
    StoredHeader sbh;
    BinaryRefReader brr(rawBlock_);
@@ -5095,8 +5109,8 @@ TEST_F(LevelDBTest, PutFullBlockNoTx)
 ////////////////////////////////////////////////////////////////////////////////
 TEST_F(LevelDBTest, PutGetBareHeader)
 {
-   DBUtils.setArmoryDbType(ARMORY_DB_FULL);
-   DBUtils.setDbPruneType(DB_PRUNE_NONE);
+//    DBUtils::setArmoryDbType(ARMORY_DB_FULL);
+//    DBUtils::setDbPruneType(DB_PRUNE_NONE);
 
    StoredHeader sbh;
    BinaryRefReader brr(rawBlock_);
@@ -5166,8 +5180,8 @@ TEST_F(LevelDBTest, PutGetBareHeader)
 ////////////////////////////////////////////////////////////////////////////////
 TEST_F(LevelDBTest, PutFullBlock)
 {
-   DBUtils.setArmoryDbType(ARMORY_DB_FULL);
-   DBUtils.setDbPruneType(DB_PRUNE_NONE);
+//    DBUtils::setArmoryDbType(ARMORY_DB_FULL);
+//    DBUtils::setDbPruneType(DB_PRUNE_NONE);
    ASSERT_TRUE(standardOpenDBs());
 
    StoredHeader sbh;
@@ -5276,8 +5290,8 @@ TEST_F(LevelDBTest, PutFullBlock)
 // DB to the repo.
 TEST_F(LevelDBTest, GetFullBlock)
 {
-   DBUtils.setArmoryDbType(ARMORY_DB_FULL);
-   DBUtils.setDbPruneType(DB_PRUNE_NONE);
+//    DBUtils::setArmoryDbType(ARMORY_DB_FULL);
+//    DBUtils::setDbPruneType(DB_PRUNE_NONE);
    ASSERT_TRUE(standardOpenDBs());
 
    StoredHeader sbh;
@@ -6064,28 +6078,28 @@ TEST_F(ThreadSafeSTLTest, MultiThreaded_AddRemoveClearAdd)
 class BlockUtilsBare : public ::testing::Test
 {
 protected:
-   BlockDataManager_LevelDB TheBDM;
+   BlockDataManager_LevelDB *theBDM;
 
    /////////////////////////////////////////////////////////////////////////////
-   virtual void SetUp(void) 
+   virtual void SetUp()
    {
       LOGDISABLESTDOUT();
-      iface_ = LevelDBWrapper::GetInterfacePtr();
       magic_ = READHEX(MAINNET_MAGIC_BYTES);
       ghash_ = READHEX(MAINNET_GENESIS_HASH_HEX);
       gentx_ = READHEX(MAINNET_GENESIS_TX_HASH_HEX);
       zeros_ = READHEX("00000000");
-      DBUtils.setArmoryDbType(ARMORY_DB_BARE);
-      DBUtils.setDbPruneType(DB_PRUNE_NONE);
+//       DBUtils::setArmoryDbType(ARMORY_DB_BARE);
+//       DBUtils::setDbPruneType(DB_PRUNE_NONE);
 
       blkdir_  = string("./blkfiletest");
       homedir_ = string("./fakehomedir");
       ldbdir_  = string("./ldbtestdir");
 
-      iface_->openDatabases( ldbdir_, ghash_, gentx_, magic_, 
-                             ARMORY_DB_BARE, DB_PRUNE_NONE);
-      if(!iface_->databasesAreOpen())
-         LOGERR << "ERROR OPENING DATABASES FOR TESTING!";
+      
+//       iface_->openDatabases( ldbdir_, ghash_, gentx_, magic_, 
+//                              ARMORY_DB_BARE, DB_PRUNE_NONE);
+//       if(!iface_->databasesAreOpen())
+//          LOGERR << "ERROR OPENING DATABASES FOR TESTING!";
 
       mkdir(blkdir_);
       mkdir(homedir_);
@@ -6094,10 +6108,19 @@ protected:
       blk0dat_ = BtcUtils::getBlkFilename(blkdir_, 0);
       BtcUtils::copyFile("../reorgTest/blk_0_to_4.dat", blk0dat_);
 
-      TheBDM.SelectNetwork("Main");
-      TheBDM.SetBlkFileLocation(blkdir_);
-      TheBDM.SetHomeDirLocation(homedir_);
-      TheBDM.SetLevelDBLocation(ldbdir_);
+      BlockDataManagerConfig config;
+      config.armoryDbType = ARMORY_DB_BARE;
+      config.pruneType = DB_PRUNE_NONE;
+      config.homeDirLocation = homedir_;
+      config.blkFileLocation = blkdir_;
+      config.levelDBLocation = ldbdir_;
+      
+      config.genesisBlockHash = ghash_;
+      config.genesisTxHash = gentx_;
+      config.magicBytes = magic_;
+      
+      theBDM = new BlockDataManager_LevelDB(config);
+      iface_ = LevelDBWrapper::GetInterfacePtr();
 
       blkHash0 = READHEX("6fe28c0ab6f1b372c1a6a246ae63f74f931e8365e15a089c68d6190000000000");
       blkHash1 = READHEX("1b5514b83257d924be7f10c65b95b1f3c0e50081e1dfd8943eece5eb00000000");
@@ -6124,15 +6147,14 @@ protected:
    /////////////////////////////////////////////////////////////////////////////
    virtual void TearDown(void)
    {
-      TheBDM.BlockDataManager_LevelDB::DestroyInstance();
-
+      delete theBDM;
+      theBDM=nullptr;
+      
       rmdir(blkdir_);
       rmdir(homedir_);
 
-      char* delstr = new char[4096];
-      sprintf(delstr, "%s/level*", ldbdir_.c_str());
+      string delstr = ldbdir_ + "/level*";
       rmdir(delstr);
-      delete[] delstr;
 
       LOGENABLESTDOUT();
    }
@@ -6684,8 +6706,8 @@ protected:
       ghash_ = READHEX(MAINNET_GENESIS_HASH_HEX);
       gentx_ = READHEX(MAINNET_GENESIS_TX_HASH_HEX);
       zeros_ = READHEX("00000000");
-      //DBUtils.setArmoryDbType(ARMORY_DB_BARE);
-      //DBUtils.setDbPruneType(DB_PRUNE_NONE);
+      //DBUtils::setArmoryDbType(ARMORY_DB_BARE);
+      //DBUtils::setDbPruneType(DB_PRUNE_NONE);
 
       blkdatadir_ = string("./databases/leveldb_blkdata");
    }
@@ -6739,7 +6761,7 @@ TEST_F(FullScanTest, DISABLED_TestSuperRaw)
    leveldb::Iterator* iter = dbptr->NewIterator(readopts);
 
 
-   BinaryData firstKeyBD = DBUtils.getBlkDataKey(0,0);
+   BinaryData firstKeyBD = DBUtils::getBlkDataKey(0,0);
    leveldb::Slice firstKey = binaryDataToSlice(firstKeyBD);
    iter->Seek(firstKey);
 
@@ -6766,7 +6788,7 @@ TEST_F(FullScanTest, DISABLED_TestSuperRaw)
       if(!currKey_.getRawRef().startsWith(pref))
          break;
 
-      bdtype = DBUtils.readBlkDataKey(currKey_, hgt, dup, txi, txo);      
+      bdtype = DBUtils::readBlkDataKey(currKey_, hgt, dup, txi, txo);      
 
       if(bdtype==BLKDATA_HEADER)
       {
@@ -6954,15 +6976,15 @@ TEST_F(FullScanTest, ReadSuperRawDB)
 class LoadTestnetBareTest : public ::testing::Test
 {
 protected:
-   BlockDataManager_LevelDB TheBDM;
+   BlockDataManager_LevelDB *theBDM;
 
    /////////////////////////////////////////////////////////////////////////////
    virtual void TearDown(void)  {}
 
    virtual void SetUp(void) 
    {
-      DBUtils.setArmoryDbType(ARMORY_DB_BARE);
-      DBUtils.setDbPruneType(DB_PRUNE_NONE);
+//       DBUtils::setArmoryDbType(ARMORY_DB_BARE);
+//       DBUtils::setDbPruneType(DB_PRUNE_NONE);
 
       blkdir_  = string("/home/alan/.bitcoin/testnet3/blocks");
       homedir_ = string("/home/alan/.armory/testnet3");
@@ -6971,11 +6993,18 @@ protected:
 
       mkdir(ldbdir_);
       mkdir(homedir_);
-
-      TheBDM.SelectNetwork("Test");
-      TheBDM.SetBlkFileLocation(blkdir_);
-      TheBDM.SetHomeDirLocation(homedir_);
-      TheBDM.SetLevelDBLocation(ldbdir_);
+      
+      BlockDataManagerConfig config;
+      
+      config.armoryDbType = ARMORY_DB_BARE;
+      config.pruneType = DB_PRUNE_NONE;
+      config.homeDirLocation = homedir_;
+      config.blkFileLocation = blkdir_;
+      config.levelDBLocation = ldbdir_;
+      
+      config.selectNetwork("Test");
+      
+      theBDM = new BlockDataManager_LevelDB(config);
    }
 
    void mkdir(string newdir)
@@ -7040,7 +7069,6 @@ protected:
    virtual void SetUp(void) 
    {
       LOGDISABLESTDOUT();
-      iface_ = LevelDBWrapper::GetInterfacePtr();
       magic_ = READHEX(MAINNET_MAGIC_BYTES);
       ghash_ = READHEX(MAINNET_GENESIS_HASH_HEX);
       gentx_ = READHEX(MAINNET_GENESIS_TX_HASH_HEX);
@@ -7050,7 +7078,6 @@ protected:
       homedir_ = string("./fakehomedir");
       ldbdir_  = string("./ldbtestdir");
 
-
       mkdir(blkdir_);
       mkdir(homedir_);
 
@@ -7058,16 +7085,18 @@ protected:
       blk0dat_ = BtcUtils::getBlkFilename(blkdir_, 0);
       BtcUtils::copyFile("../reorgTest/blk_0_to_4.dat", blk0dat_);
 
-      TheBDM.SetDatabaseModes(ARMORY_DB_SUPER, DB_PRUNE_NONE);
-      TheBDM.SelectNetwork("Main");
-      TheBDM.SetBlkFileLocation(blkdir_);
-      TheBDM.SetHomeDirLocation(homedir_);
-      TheBDM.SetLevelDBLocation(ldbdir_);
-
-      iface_->openDatabases( ldbdir_, ghash_, gentx_, magic_, 
-                             ARMORY_DB_SUPER, DB_PRUNE_NONE);
-      if(!iface_->databasesAreOpen())
-         LOGERR << "ERROR OPENING DATABASES FOR TESTING!";
+      BlockDataManagerConfig config;
+      config.armoryDbType = ARMORY_DB_SUPER;
+      config.pruneType = DB_PRUNE_NONE;
+      config.homeDirLocation = homedir_;
+      config.blkFileLocation = blkdir_;
+      config.levelDBLocation = ldbdir_;
+      
+      config.genesisBlockHash = ghash_;
+      config.genesisTxHash = gentx_;
+      config.magicBytes = magic_;
+      
+      theBDM = new BlockDataManager_LevelDB(config);
 
       blkHash0 = READHEX("6fe28c0ab6f1b372c1a6a246ae63f74f931e8365e15a089c68d6190000000000");
       blkHash1 = READHEX("1b5514b83257d924be7f10c65b95b1f3c0e50081e1dfd8943eece5eb00000000");
@@ -7087,14 +7116,16 @@ protected:
       scrAddrB_ = HASH160PREFIX + addrB_;
       scrAddrC_ = HASH160PREFIX + addrC_;
       scrAddrD_ = HASH160PREFIX + addrD_;
-
+      
+      iface_ = LevelDBWrapper::GetInterfacePtr();
    }
 
 
    /////////////////////////////////////////////////////////////////////////////
    virtual void TearDown(void)
    {
-      TheBDM.DestroyInstance();
+      delete theBDM;
+      theBDM=nullptr;
 
       rmdir(blkdir_);
       rmdir(homedir_);
@@ -7219,8 +7250,8 @@ TEST_F(BlockUtilsSuper, HeadersOnly_Reorg)
 ////////////////////////////////////////////////////////////////////////////////
 TEST_F(BlockUtilsSuper, Load5Blocks)
 {
-   DBUtils.setArmoryDbType(ARMORY_DB_SUPER);
-   DBUtils.setDbPruneType(DB_PRUNE_NONE);
+//    DBUtils::setArmoryDbType(ARMORY_DB_SUPER);
+//    DBUtils::setDbPruneType(DB_PRUNE_NONE);
    TheBDM.doInitialSyncOnLoad(); 
 
    StoredScriptHistory ssh;
@@ -7267,8 +7298,8 @@ TEST_F(BlockUtilsSuper, Load4BlocksPlus1)
 ////////////////////////////////////////////////////////////////////////////////
 TEST_F(BlockUtilsSuper, Load5Blocks_Plus2NoReorg)
 {
-   DBUtils.setArmoryDbType(ARMORY_DB_SUPER);
-   DBUtils.setDbPruneType(DB_PRUNE_NONE);
+//    DBUtils::setArmoryDbType(ARMORY_DB_SUPER);
+//    DBUtils::setDbPruneType(DB_PRUNE_NONE);
    TheBDM.doInitialSyncOnLoad(); 
 
 
@@ -7289,8 +7320,8 @@ TEST_F(BlockUtilsSuper, Load5Blocks_Plus2NoReorg)
 ////////////////////////////////////////////////////////////////////////////////
 TEST_F(BlockUtilsSuper, Load5Blocks_FullReorg)
 {
-   DBUtils.setArmoryDbType(ARMORY_DB_SUPER);
-   DBUtils.setDbPruneType(DB_PRUNE_NONE);
+//    DBUtils::setArmoryDbType(ARMORY_DB_SUPER);
+//    DBUtils::setDbPruneType(DB_PRUNE_NONE);
    TheBDM.doInitialSyncOnLoad(); 
 
    BtcUtils::copyFile("../reorgTest/blk_3A.dat", blk0dat_);
@@ -7340,14 +7371,7 @@ TEST_F(BlockUtilsSuper, DISABLED_RestartDBAfterBuild)
    BtcUtils::copyFile("../reorgTest/blk_0_to_4.dat", blk0dat_);
 
    // Now reinitialize the DB and hopefully detect the new blocks and update
-   TheBDM.SelectNetwork("Main");
-   TheBDM.SetBlkFileLocation(blkdir_);
-   TheBDM.SetHomeDirLocation(homedir_);
-   TheBDM.SetLevelDBLocation(ldbdir_);
-   DBUtils.setArmoryDbType(ARMORY_DB_SUPER);
-   DBUtils.setDbPruneType(DB_PRUNE_NONE);
 
-   TheBDM.SetDatabaseModes(ARMORY_DB_SUPER, DB_PRUNE_NONE);
    TheBDM.doInitialSyncOnLoad();
    
    EXPECT_EQ(TheBDM.getTopBlockHeightInDB(HEADERS), 4);
@@ -7393,17 +7417,8 @@ TEST_F(BlockUtilsSuper, DISABLED_RestartDBAfterBuild_withReplay)
    BtcUtils::copyFile("../reorgTest/blk_0_to_4.dat", blk0dat_);
 
    // Now reinitialize the DB and hopefully detect the new blocks and update
-   TheBDM.SelectNetwork("Main");
-   TheBDM.SetBlkFileLocation(blkdir_);
-   TheBDM.SetHomeDirLocation(homedir_);
-   TheBDM.SetLevelDBLocation(ldbdir_);
-   DBUtils.setArmoryDbType(ARMORY_DB_SUPER);
-   DBUtils.setDbPruneType(DB_PRUNE_NONE);
 
    uint32_t replayRewind = 700;
-   TheBDM.SetDatabaseModes(ARMORY_DB_SUPER, DB_PRUNE_NONE);
-   TheBDM.doInitialSyncOnLoad();
-                                               
 
    TheBDM.doInitialSyncOnLoad();
    
@@ -7449,17 +7464,14 @@ TEST_F(BlockUtilsSuper, DISABLED_RestartDBAfterBuild_withReplay)
 ////////////////////////////////////////////////////////////////////////////////
 TEST_F(BlockUtilsSuper, DISABLED_TimeAndSpaceTest_usuallydisabled)
 {
-   DBUtils.setArmoryDbType(ARMORY_DB_SUPER);
-   DBUtils.setDbPruneType(DB_PRUNE_NONE);
+//    DBUtils::setArmoryDbType(ARMORY_DB_SUPER);
+//    DBUtils::setDbPruneType(DB_PRUNE_NONE);
 
    string oldblkdir = blkdir_;
    //blkdir_  = string("/home/alan/.bitcoin/blks3");
    //blkdir_  = string("/home/alan/.bitcoin/blocks");
    //TheBDM.SelectNetwork("Main");
    blkdir_  = string("/home/alan/.bitcoin/testnet3/blocks");
-   TheBDM.SelectNetwork("Test");
-   TheBDM.SetBlkFileLocation(blkdir_);
-   TheBDM.SetHomeDirLocation(homedir_);
 
    StoredScriptHistory ssh;
    TheBDM.doInitialSyncOnLoad(); 
@@ -7489,12 +7501,11 @@ TEST_F(BlockUtilsSuper, DISABLED_TimeAndSpaceTest_usuallydisabled)
 class BlockUtilsWithWalletTest: public ::testing::Test
 {
 protected:
-   BlockDataManager_LevelDB TheBDM;
+   BlockDataManager_LevelDB *theBDM;
    /////////////////////////////////////////////////////////////////////////////
    virtual void SetUp(void) 
    {
       LOGDISABLESTDOUT();
-      iface_ = LevelDBWrapper::GetInterfacePtr();
       magic_ = READHEX(MAINNET_MAGIC_BYTES);
       ghash_ = READHEX(MAINNET_GENESIS_HASH_HEX);
       gentx_ = READHEX(MAINNET_GENESIS_TX_HASH_HEX);
@@ -7510,12 +7521,22 @@ protected:
       // Put the first 5 blocks into the blkdir
       blk0dat_ = BtcUtils::getBlkFilename(blkdir_, 0);
       BtcUtils::copyFile("../reorgTest/blk_0_to_4.dat", blk0dat_);
-
-      TheBDM.SetDatabaseModes(ARMORY_DB_SUPER, DB_PRUNE_NONE);
-      TheBDM.SelectNetwork("Main");
-      TheBDM.SetBlkFileLocation(blkdir_);
-      TheBDM.SetHomeDirLocation(homedir_);
-      TheBDM.SetLevelDBLocation(ldbdir_);
+      
+      BlockDataManagerConfig config;
+      config.armoryDbType = ARMORY_DB_SUPER;
+      config.pruneType = DB_PRUNE_NONE;
+      config.homeDirLocation = homedir_;
+      config.blkFileLocation = blkdir_;
+      config.levelDBLocation = ldbdir_;
+      
+      config.genesisBlockHash = ghash_;
+      config.genesisTxHash = gentx_;
+      config.magicBytes = magic_;
+      
+      theBDM = new BlockDataManager_LevelDB(config);
+      iface_ = LevelDBWrapper::GetInterfacePtr();
+     
+      
 
       blkHash0 = READHEX("6fe28c0ab6f1b372c1a6a246ae63f74f931e8365e15a089c68d6190000000000");
       blkHash1 = READHEX("1b5514b83257d924be7f10c65b95b1f3c0e50081e1dfd8943eece5eb00000000");
@@ -7542,7 +7563,8 @@ protected:
    /////////////////////////////////////////////////////////////////////////////
    virtual void TearDown(void)
    {
-      TheBDM.DestroyInstance();
+      delete theBDM;
+      theBDM=nullptr;
       rmdir(blkdir_);
       rmdir(homedir_);
 
@@ -7716,8 +7738,8 @@ protected:
       ghash_ = READHEX(MAINNET_GENESIS_HASH_HEX);
       gentx_ = READHEX(MAINNET_GENESIS_TX_HASH_HEX);
       zeros_ = READHEX("00000000");
-      DBUtils.setArmoryDbType(ARMORY_DB_FULL);
-      DBUtils.setDbPruneType(DB_PRUNE_NONE);
+      DBUtils::setArmoryDbType(ARMORY_DB_FULL);
+      DBUtils::setDbPruneType(DB_PRUNE_NONE);
 
       blkdir_  = string("/home/alan/.bitcoin");
       homedir_ = string("./fakehomedir");

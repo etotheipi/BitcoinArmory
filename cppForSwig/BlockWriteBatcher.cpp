@@ -1,15 +1,24 @@
 #include "BlockWriteBatcher.h"
 
 #include "StoredBlockObj.h"
+#include "BlockDataManagerConfig.h"
+
 #include "leveldb_wrapper.h"
 
 
 static const uint64_t UPDATE_BYTES_SSH = 25;
 static const uint64_t UPDATE_BYTES_SUBSSH = 75;
 
-static void updateBlkDataHeader(InterfaceToLDB* iface, StoredHeader const & sbh)
+static void updateBlkDataHeader(
+      const BlockDataManagerConfig &config,
+      InterfaceToLDB* iface,
+      StoredHeader const & sbh
+   )
 {
-   iface->putValue(BLKDATA, sbh.getDBKey(), sbh.serializeDBValue(BLKDATA));
+   iface->putValue(
+      BLKDATA, sbh.getDBKey(),
+      serializeDBValue(sbh, BLKDATA, config.armoryDbType, config.pruneType)
+   );
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -186,11 +195,13 @@ static StoredScriptHistory* makeSureSSHInMap(
 //            to have been added already but is different.
 //
 ////////////////////////////////////////////////////////////////////////////////
-BlockWriteBatcher::BlockWriteBatcher(InterfaceToLDB* iface)
-   : iface_(iface), dbUpdateSize_(0), mostRecentBlockApplied_(0)
-{
-
-}
+BlockWriteBatcher::BlockWriteBatcher(
+   const BlockDataManagerConfig &config,
+   InterfaceToLDB* iface
+)
+   : config_(config), iface_(iface),
+   dbUpdateSize_(0), mostRecentBlockApplied_(0)
+{ }
 
 BlockWriteBatcher::~BlockWriteBatcher()
 {
@@ -230,7 +241,7 @@ void BlockWriteBatcher::applyBlockToDB(StoredHeader &sbh)
    // At this point we should have a list of STX and SSH with all the correct
    // modifications (or creations) to represent this block.  Let's apply it.
    sbh.blockAppliedToDB_ = true;
-   updateBlkDataHeader(iface_, sbh);
+   updateBlkDataHeader(config_, iface_, sbh);
    //iface_->putStoredHeader(sbh, false);
 
    { // we want to commit the undo data at the same time as actual changes
@@ -244,7 +255,7 @@ void BlockWriteBatcher::applyBlockToDB(StoredHeader &sbh)
       // Only if pruning, we need to store 
       // TODO: this is going to get run every block, probably should batch it 
       //       like we do with the other data...when we actually implement pruning
-      if(DBUtils.getDbPruneType() == DB_PRUNE_ALL)
+      if(config_.pruneType == DB_PRUNE_ALL)
          iface_->putStoredUndoData(sud);
    }
 }
@@ -273,7 +284,7 @@ void BlockWriteBatcher::undoBlockFromDB(StoredUndoData & sud)
    mostRecentBlockApplied_ = sud.blockHeight_;
 
    // In the future we will accommodate more user modes
-   if(DBUtils.getArmoryDbType() != ARMORY_DB_SUPER)
+   if(config_.armoryDbType != ARMORY_DB_SUPER)
    {
       LOGERR << "Don't know what to do this in non-supernode mode!";
    }
@@ -296,7 +307,7 @@ void BlockWriteBatcher::undoBlockFromDB(StoredUndoData & sud)
       
       const uint16_t stxoIdx = sudStxo.txOutIndex_;
 
-      if(DBUtils.getDbPruneType() == DB_PRUNE_NONE)
+      if(config_.pruneType == DB_PRUNE_NONE)
       {
          // If full/super, we have the TxOut in DB, just need mark it unspent
          map<uint16_t,StoredTxOut>::iterator iter = stxptr->stxoMap_.find(stxoIdx);
@@ -358,10 +369,14 @@ void BlockWriteBatcher::undoBlockFromDB(StoredUndoData & sud)
          }
 
          // Now get the TxIOPair in the StoredScriptHistory and mark unspent
-         sshptr->markTxOutUnspent(stxoReAdd.getDBKey(false),
-                                 stxoReAdd.getValue(),
-                                 stxoReAdd.isCoinbase_,
-                                 false);
+         sshptr->markTxOutUnspent(
+            stxoReAdd.getDBKey(false),
+            config_.armoryDbType,
+            config_.pruneType,
+            stxoReAdd.getValue(),
+            stxoReAdd.isCoinbase_,
+            false
+         );
 
          
          // If multisig, we need to update the SSHs for individual addresses
@@ -376,10 +391,14 @@ void BlockWriteBatcher::undoBlockFromDB(StoredUndoData & sud)
                StoredScriptHistory* sshms = makeSureSSHInMap(iface_, uniqKey, 
                                                             stxoReAdd.getHgtX(),
                                                             sshToModify_, &dbUpdateSize_);
-               sshms->markTxOutUnspent(stxoReAdd.getDBKey(false),
-                                       stxoReAdd.getValue(),
-                                       stxoReAdd.isCoinbase_,
-                                       true);
+               sshms->markTxOutUnspent(
+                  stxoReAdd.getDBKey(false),
+                  config_.armoryDbType,
+                  config_.pruneType,
+                  stxoReAdd.getValue(),
+                  stxoReAdd.isCoinbase_,
+                  true
+               );
             }
          }
       }
@@ -454,7 +473,7 @@ void BlockWriteBatcher::undoBlockFromDB(StoredUndoData & sud)
 
    // Finally, mark this block as UNapplied.
    sbh.blockAppliedToDB_ = false;
-   updateBlkDataHeader(iface_, sbh);
+   updateBlkDataHeader(config_, iface_, sbh);
    
    if (dbUpdateSize_ > UPDATE_BYTES_THRESH)
       commit();
@@ -545,7 +564,7 @@ bool BlockWriteBatcher::applyTxToBatchWriteData(
       stxoSpend.spentness_      = TXOUT_SPENT;
       stxoSpend.spentByTxInKey_ = thisSTX.getDBKeyOfChild(iin, false);
 
-      if(DBUtils.getArmoryDbType() != ARMORY_DB_SUPER)
+      if(config_.armoryDbType != ARMORY_DB_SUPER)
       {
          LOGERR << "Don't know what to do this in non-supernode mode!";
       }
@@ -565,8 +584,12 @@ bool BlockWriteBatcher::applyTxToBatchWriteData(
       // Assuming supernode, we don't need to worry about removing references
       // to multisig scripts that reference this script.  Simply find and 
       // update the correct SSH TXIO directly
-      sshptr->markTxOutSpent(stxoSpend.getDBKey(false),
-                             thisSTX.getDBKeyOfChild(iin, false));
+      sshptr->markTxOutSpent(
+         stxoSpend.getDBKey(false),
+         thisSTX.getDBKeyOfChild(iin, false),
+         config_.armoryDbType,
+         config_.pruneType
+      );
    }
 
 
@@ -588,10 +611,14 @@ bool BlockWriteBatcher::applyTxToBatchWriteData(
          );
 
       // Add reference to the next STXO to the respective SSH object
-      sshptr->markTxOutUnspent(stxoToAdd.getDBKey(false),
-                               stxoToAdd.getValue(),
-                               stxoToAdd.isCoinbase_,
-                               false);
+      sshptr->markTxOutUnspent(
+         stxoToAdd.getDBKey(false),
+         config_.armoryDbType,
+         config_.pruneType,
+         stxoToAdd.getValue(),
+         stxoToAdd.isCoinbase_,
+         false
+      );
                              
       // If this was a multisig address, add a ref to each individual scraddr
       if(uniqKey[0] == SCRIPT_PREFIX_MULTISIG)
@@ -609,10 +636,14 @@ bool BlockWriteBatcher::applyTxToBatchWriteData(
                   sshToModify_,
                   &dbUpdateSize_
                );
-            sshms->markTxOutUnspent(stxoToAdd.getDBKey(false),
-                                    stxoToAdd.getValue(),
-                                    stxoToAdd.isCoinbase_,
-                                    true);
+            sshms->markTxOutUnspent(
+               stxoToAdd.getDBKey(false),
+               config_.armoryDbType,
+               config_.pruneType,
+               stxoToAdd.getValue(),
+               stxoToAdd.isCoinbase_,
+               true
+            );
          }
       }
    }

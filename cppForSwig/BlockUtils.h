@@ -26,6 +26,7 @@
 #include "BtcUtils.h"
 #include "BlockObj.h"
 #include "StoredBlockObj.h"
+#include "BlockDataManagerConfig.h"
 #include "leveldb_wrapper.h"
 
 #include "cryptlib.h"
@@ -75,6 +76,7 @@ struct ZeroConfData
    list<BinaryData>::iterator iter_;
 };
 
+
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 //
@@ -89,6 +91,8 @@ class BlockDataManager_LevelDB
 {
 private:
 
+   BlockDataManagerConfig config_;
+   
    // This is our permanent link to the two databases used
    InterfaceToLDB* iface_;
    
@@ -102,11 +106,6 @@ private:
    string                             zcFilename_;
 
    // This is for detecting external changes made to the blk0001.dat file
-   bool                               isBlkParamsSet_;
-   bool                               isLevelDBSet_;
-   string                             armoryHomeDir_;
-   string                             leveldbDir_;
-   string                             blkFileDir_;
    vector<string>                     blkFileList_;
    vector<uint64_t>                   blkFileSizes_; // bytes before this blk
    vector<uint64_t>                   blkFileCumul_;
@@ -142,14 +141,8 @@ private:
 
    bool                               corruptHeadersDB_;
 
-   bool                               isInitialized_;
    int32_t                            lastScannedBlock_;
 
-   // These will be set for the specific network we are testing
-   BinaryData GenesisHash_;
-   BinaryData GenesisTxHash_;
-   BinaryData MagicBytes_;
-   
    //for C++ side maintenance thread
    bool run_;
 
@@ -193,8 +186,8 @@ private:
    Blockchain blockchain_;
    
 public:
-   BlockDataManager_LevelDB(void);
-   ~BlockDataManager_LevelDB(void);
+   BlockDataManager_LevelDB(const BlockDataManagerConfig &config);
+   ~BlockDataManager_LevelDB();
 
    //for 1:1 wallets
    bool rescanZC_;
@@ -203,14 +196,15 @@ public:
 
    Blockchain& blockchain() { return blockchain_; }
    const Blockchain& blockchain() const { return blockchain_; }
+   
+   const BlockDataManagerConfig &config() const { return config_; }
 
-   bool isInitialized(void) const { return isInitialized_;}
-
+   /*
    void SetDatabaseModes(ARMORY_DB_TYPE atype, DB_PRUNE_TYPE dtype)
-             { DBUtils.setArmoryDbType(atype); DBUtils.setDbPruneType(dtype);}
+             { DBUtils::setArmoryDbType(atype); DBUtils::setDbPruneType(dtype);}
    void SetDatabaseModes(int atype, int dtype)
-             { DBUtils.setArmoryDbType((ARMORY_DB_TYPE)atype); 
-               DBUtils.setDbPruneType((DB_PRUNE_TYPE)dtype);}
+             { DBUtils::setArmoryDbType((ARMORY_DB_TYPE)atype); 
+               DBUtils::setDbPruneType((DB_PRUNE_TYPE)dtype);}
    void SelectNetwork(string netName);
    void SetHomeDirLocation(string homeDir);
    bool SetBlkFileLocation(string blkdir);
@@ -220,6 +214,7 @@ public:
                              BinaryData const & MagicBytes);
    void reset(void);
    void DestroyInstance(void);
+   */
 
 private:
    //////////////////////////////////////////////////////////////////////////
@@ -243,9 +238,9 @@ private:
 public:
    /////////////////////////////////////////////////////////////////////////////
    // Get the parameters of the network as they've been set
-   const BinaryData& getGenesisHash(void) const  { return GenesisHash_;   }
-   const BinaryData& getGenesisTxHash(void) const { return GenesisTxHash_; }
-   const BinaryData& getMagicBytes(void) const   { return MagicBytes_;    }
+   const BinaryData& getGenesisHash(void) const  { return config_.genesisBlockHash;   }
+   const BinaryData& getGenesisTxHash(void) const { return config_.genesisTxHash; }
+   const BinaryData& getMagicBytes(void) const   { return config_.magicBytes;    }
 
    /////////////////////////////////////////////////////////////////////////////
    // These don't actually work while scanning in another thread!? 
@@ -272,7 +267,6 @@ private:
    /////////////////////////////////////////////////////////////////////////////
 public:
    int32_t          getNumConfirmations(BinaryData txHash);
-   string           getBlockfilePath(void) {return blkFileDir_;}
 
    TxRef            getTxRefByHash(BinaryData const & txHash);
    Tx               getTxByHash(BinaryData const & txHash);
@@ -355,8 +349,8 @@ public:
    const BlockHeader* getHeaderPtrForTx(Tx& theTx)
                      {return &blockchain_.getHeaderPtrForTx(theTx);}
    bool isZcEnabled() {return zcEnabled_;}
-   uint32_t getTopBlockHeight() {return blockchain_.top().getBlockHeight();}
-   bool doRun(void) {return run_;}
+   uint32_t getTopBlockHeight() const {return blockchain_.top().getBlockHeight();}
+   bool doRun() const {return run_;}
    void setRun(bool toSet) {run_ = toSet;}
    void doShutdown(void);
    void setThreadParams(ThreadParams *tp) 
@@ -456,19 +450,12 @@ public:
 
    void pprintSSHInfoAboutHash160(BinaryData const & a160);
 
-   
-   /////////////////////////////////////////////////////////////////////////////
-   void     setMaxOpenFiles(uint32_t n) {iface_->setMaxOpenFiles(n);}
-   uint32_t getMaxOpenFiles(void)       {return iface_->getMaxOpenFiles();}
-   void     setLdbBlockSize(uint32_t sz){iface_->setLdbBlockSize(sz);}
-   uint32_t getLdbBlockSize(void)       {return iface_->getLdbBlockSize();}
-
    // Simple wrapper around the logger so that they are easy to access from SWIG
-   void StartCppLogging(string fname, int lvl) { STARTLOGGING(fname, (LogLevel)lvl); }
-   void ChangeCppLogLevel(int lvl) { SETLOGLEVEL((LogLevel)lvl); }
-   void DisableCppLogging(void) { SETLOGLEVEL(LogLvlDisabled); }
-   void EnableCppLogStdOut(void) { LOGENABLESTDOUT(); }
-   void DisableCppLogStdOut(void) { LOGDISABLESTDOUT(); }
+   static void StartCppLogging(string fname, int lvl) { STARTLOGGING(fname, (LogLevel)lvl); }
+   static void ChangeCppLogLevel(int lvl) { SETLOGLEVEL((LogLevel)lvl); }
+   static void DisableCppLogging() { SETLOGLEVEL(LogLvlDisabled); }
+   static void EnableCppLogStdOut() { LOGENABLESTDOUT(); }
+   static void DisableCppLogStdOut() { LOGDISABLESTDOUT(); }
 
    ////////////////////////////////////////////////////////////////////////////////
    void debugPrintDatabases(void) { iface_->pprintBlkDataDB(BLKDATA); }
@@ -484,34 +471,6 @@ public:
    vector<BinaryData> missingBlockHashes() const { return missingBlockHashes_; }
 };
 
-
-////////////////////////////////////////////////////////////////////////////////
-//
-// We have a problem with "classic" swig refusing to compile static functions,
-// which gives me no way to access BDM which is a singleton class accessed by
-// a static class method.  This class simply wraps the call to be invoked in
-// python/swig
-//
-////////////////////////////////////////////////////////////////////////////////
-class BlockDataManager
-{
-public:
-   BlockDataManager_LevelDB & getBDM(void)
-   {
-      if (!bdm_)
-         bdm_ = new BlockDataManager_LevelDB;
-      return *bdm_;
-   }
-   
-   void destroy()
-   {
-      delete bdm_;
-      bdm_ = 0;
-   }
-
-private:
-   static BlockDataManager_LevelDB* bdm_;
-};
 
 // kate: indent-width 3; replace-tabs on;
 

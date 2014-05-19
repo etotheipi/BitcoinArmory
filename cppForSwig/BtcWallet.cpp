@@ -1503,7 +1503,7 @@ void BtcWallet::scanBlocksAgainstRegisteredScrAddr(uint32_t blk0,
    }
 
    LDBIter ldbIter = bdmPtr_->getIterator(BLKDATA, BULK_SCAN);
-   BinaryData firstKey = DBUtils.getBlkDataKey(blk0, 0);
+   BinaryData firstKey = DBUtils::getBlkDataKey(blk0, 0);
    ldbIter.seekTo(firstKey);
 
    TIMER_START("ScanBlockchain");
@@ -1662,11 +1662,11 @@ uint32_t BtcWallet::evalLowestBlockNextScan(void)
    return lowestBlk;
 }
 
-void BtcWallet::saveScrAddrHistories(void)
+void BtcWallet::saveScrAddrHistories()
 {
    LOGINFO << "Saving wallet history to DB";
 
-   if (DBUtils.getArmoryDbType() != ARMORY_DB_BARE)
+   if (bdmPtr_->config().armoryDbType != ARMORY_DB_BARE)
    {
       LOGERR << "Should only use saveScrAddrHistories in ARMORY_DB_BARE mode";
       LOGERR << "Aborting save operation.";
@@ -1787,7 +1787,7 @@ void BtcWallet::scanWallet(uint32_t startBlock, uint32_t endBlock,
 
    if (startBlock < endBlock)
    {
-      if (DBUtils.getArmoryDbType() != ARMORY_DB_SUPER)
+      if (bdmPtr_->config().armoryDbType != ARMORY_DB_SUPER)
       {
          uint32_t scanDBFrom = startBlock;
 

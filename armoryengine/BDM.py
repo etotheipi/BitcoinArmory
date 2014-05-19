@@ -181,10 +181,9 @@ class BlockDataManager(object):
          self.blkMode  = BLOCKCHAINMODE.Uninitialized
          self.prefMode = BLOCKCHAINMODE.Full
 
-      self.bdm = Cpp.BlockDataManager().getBDM()
+      self.bdm = None
 
       # Flags
-      self.startBDM      = False
       self.doShutdown    = False
       self.aboutToRescan = False
       self.errorOut      = 0
@@ -200,17 +199,20 @@ class BlockDataManager(object):
       self.lastPctLoad = 0
       
       self.currentBlock = 0
+      
+      self.createBDM()
    
+   #############################################################################
+   def createBDM(self):
+      if self.bdm:
+         Cpp.destroyBDM(self.bdm)
+         self.bdm = None
+      self.bdm = Cpp.createBDM(self.bdmConfig())
+      
    #############################################################################
    def goOnline(self, flag):
       if flag == True:
-         try:
-            mode = self.startLoadBlockchain()
-         except Exception as e:
-            raise e
-         
-         thr = PyBackgroundThread(Cpp.startBDM, mode, callback, inject)
-         thr.start()
+         Cpp.startBDM(self.bdm, self.bdmMode(), callback, inject)
          self.bdmState = 'Scanning'
 
    #############################################################################
@@ -240,9 +242,18 @@ class BlockDataManager(object):
          os.makedirs(ldbdir)
 
       self.ldbdir = ldbdir
+   
+   def bdmMode(self):
+      if CLI_OPTIONS.rebuild:
+         mode = 2
+      elif CLI_OPTIONS.rescan:
+         mode = 1
+      else:
+         mode = 0
+      return mode
       
    #############################################################################
-   def startLoadBlockchain(self):
+   def bdmConfig(self):
       # Remove "blkfiles.txt" to make sure we get accurate TGO
       bfile = os.path.join(ARMORY_HOME_DIR,'blkfiles.txt')
       if os.path.exists(bfile):
@@ -278,21 +289,29 @@ class BlockDataManager(object):
          if isinstance(self.ldbdir, unicode):
             leveldbdir = self.ldbdir.encode('utf8')
 
-      self.bdm.SetDatabaseModes(ARMORY_DB_BARE, DB_PRUNE_NONE);
-      self.bdm.SetHomeDirLocation(armory_homedir)
-      self.bdm.SetBlkFileLocation(blockdir)
-      self.bdm.SetLevelDBLocation(leveldbdir)
-      self.bdm.SetBtcNetworkParams( GENESIS_BLOCK_HASH, \
-                                    GENESIS_TX_HASH,    \
-                                    MAGIC_BYTES)
+            
+      bdmConfig = Cpp.BlockDataManagerConfig()
+      bdmConfig.armoryDbType = Cpp.ARMORY_DB_BARE
+      bdmConfig.pruneType = Cpp.DB_PRUNE_NONE
+      bdmConfig.homeDirLocation = armory_homedir
+      bdmConfig.blkFileLocation = blockdir
+      bdmConfig.levelDBLocation = leveldbdir
+      bdmConfig.setGenesisBlockHash(GENESIS_BLOCK_HASH)
+      bdmConfig.setGenesisTxHash(GENESIS_TX_HASH)
+      bdmConfig.setMagicBytes(MAGIC_BYTES)
+         
+      # 32-bit linux has an issue with max open files.  Rather than modifying
+      # the system, we can tell LevelDB to take it easy with max files to open
+      if OS_LINUX and not SystemSpecs.IsX64:
+         LOGINFO('Lowering max-open-files parameter in LevelDB for 32-bit linux')
+         bdmConfig.levelDBMaxOpenFiles = 75
 
-      # Now we actually startup the BDM and run with it
-      if CLI_OPTIONS.rebuild:
-         return 2
-      elif CLI_OPTIONS.rescan:
-         return 1
-      else:
-         return 0
+      # Override the above if they explicitly specify it as CLI arg
+      if CLI_OPTIONS.maxOpenFiles > 0:
+         LOGINFO('Overriding max files via command-line arg')
+         bdmConfig.levelDBMaxOpenFiles = CLI_OPTIONS.maxOpenFiles
+
+      return bdmConfig
 
    #############################################################################
    def predictLoadTime(self):
@@ -386,19 +405,8 @@ else:
    cpplf = cppLogFile
    if getattr(sys, 'frozen', False):
       cpplf = cppLogFile.encode('utf8')
-   TheBDM.bdm.StartCppLogging(cpplf, 4)
-   TheBDM.bdm.EnableCppLogStdOut()    
-         
-   # 32-bit linux has an issue with max open files.  Rather than modifying
-   # the system, we can tell LevelDB to take it easy with max files to open
-   if OS_LINUX and not SystemSpecs.IsX64:
-      LOGINFO('Lowering max-open-files parameter in LevelDB for 32-bit linux')
-      TheBDM.setMaxOpenFiles(75)
-
-   # Override the above if they explicitly specify it as CLI arg
-   if CLI_OPTIONS.maxOpenFiles > 0:
-      LOGINFO('Overriding max files via command-line arg')
-      TheBDM.setMaxOpenFiles( CLI_OPTIONS.maxOpenFiles )
+   Cpp.BlockDataManager_LevelDB_StartCppLogging(cpplf, 4)
+   Cpp.BlockDataManager_LevelDB_EnableCppLogStdOut()    
 
    #LOGINFO('LevelDB max-open-files is %d', TheBDM.getMaxOpenFiles())
 
