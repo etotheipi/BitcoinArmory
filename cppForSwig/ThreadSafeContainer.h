@@ -255,7 +255,7 @@ template <typename T> class ts_container
          if(writeSema_ == 0) return;
          if(commitLock_.fetch_or(1, std::memory_order_consume)) return;
 
-         int addCounter = 0;
+         unsigned addCounter = 0;
          while(writeSema_.load(std::memory_order_consume) != 0 \
                && addCounter < maxMergePerThread_)
          {
@@ -486,7 +486,6 @@ template <typename T> class ts_container
       {
          if(current_)
          {
-            T* thelist = (T*)current_->object_;
             delete (T*)current_->object_;
             delete current_;
          }
