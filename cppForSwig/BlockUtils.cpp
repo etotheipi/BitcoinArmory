@@ -321,11 +321,8 @@ BlockDataManager_LevelDB::BlockDataManager_LevelDB(const BlockDataManagerConfig 
    allScannedUpToBlk_ = 0;
 
    //for 1:1 wallets and BDM push model
-   run_ = false;
    rescanZC_ = false;
 
-   tp_ = nullptr;
-   
    detectAllBlkFiles();
    
    if(numBlkFiles_==0)
@@ -2934,16 +2931,6 @@ void BlockDataManager_LevelDB::eraseTx(const BinaryData& txHash)
    {
       (*wltIter)->eraseTx(txHash);
    }
-}
-
-void BlockDataManager_LevelDB::doShutdown()
-{
-   run_ = false;
-   if(!tp_) return;
-
-   tp_->inject->notify();
-   pthread_join(tp_->tID, NULL);
-   tp_ = 0;
 }
 
 void BlockDataManager_LevelDB::scanWallets(uint32_t startBlock, 

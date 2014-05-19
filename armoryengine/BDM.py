@@ -181,6 +181,7 @@ class BlockDataManager(object):
          self.blkMode  = BLOCKCHAINMODE.Uninitialized
          self.prefMode = BLOCKCHAINMODE.Full
 
+      self.bdmThread = None
       self.bdm = None
 
       # Flags
@@ -205,14 +206,17 @@ class BlockDataManager(object):
    #############################################################################
    def createBDM(self):
       if self.bdm:
-         Cpp.destroyBDM(self.bdm)
+         self.bdmThread.shutdown()
+         self.bdmThread = None
          self.bdm = None
-      self.bdm = Cpp.createBDM(self.bdmConfig())
+
+      self.bdmThread = Cpp.BlockDataManagerThread(self.bdmConfig());
+      self.bdm = self.bdmThread.bdm()
       
    #############################################################################
    def goOnline(self, flag):
       if flag == True:
-         Cpp.startBDM(self.bdm, self.bdmMode(), callback, inject)
+         self.bdmThread.start(self.bdmMode(), callback, inject)
          self.bdmState = 'Scanning'
 
    #############################################################################
@@ -372,7 +376,7 @@ class BlockDataManager(object):
 
    #############################################################################
    def execCleanShutdown(self):
-      self.bdm.doShutdown()
+      self.bdmThread.shutdown()
       
 ################################################################################
 # Make TheBDM reference the asyncrhonous BlockDataManager wrapper if we are 

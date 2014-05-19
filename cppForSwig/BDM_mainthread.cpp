@@ -75,23 +75,77 @@ void BDM_Inject::wait(unsigned ms)
 #endif
 }
 
-static void* run(void *_threadparams)
+struct BlockDataManagerThread::BlockDataManagerThreadImpl
 {
-   ThreadParams *const threadparams = static_cast<ThreadParams*>(_threadparams);
-   BlockDataManager_LevelDB *const bdm = threadparams->bdm;
+   BlockDataManager_LevelDB *bdm=nullptr;
+   BDM_CallBack *callback=nullptr;
+   BDM_Inject *inject=nullptr;
+   pthread_t tID=0;
+   int mode=0;
+   volatile bool run=false;
+};
+
+BlockDataManagerThread::BlockDataManagerThread(const BlockDataManagerConfig &config)
+{
+   pimpl = new BlockDataManagerThreadImpl;
+   pimpl->bdm = new BlockDataManager_LevelDB(config);
+}
+
+BlockDataManagerThread::~BlockDataManagerThread()
+{
+   if (pimpl->run)
+   {
+      LOGERR << "Destroying BlockDataManagerThread without shutting down first";
+   }
+   else
+   {
+      delete pimpl;
+   }
+}
+
+
+void BlockDataManagerThread::start(int mode, BDM_CallBack *callback, BDM_Inject *inject)
+{
+   pimpl->callback = callback;
+   pimpl->inject = inject;
+   pimpl->mode = mode;
    
-   BDM_CallBack *const callback = threadparams->callback;
+   pimpl->run = true;
+   
+   if (0 != pthread_create(&pimpl->tID, nullptr, thrun, this))
+      throw std::runtime_error("Failed to start BDM thread");
+}
+
+BlockDataManager_LevelDB *BlockDataManagerThread::bdm()
+{
+   return pimpl->bdm;
+}
+
+
+
+// stop the BDM thread
+void BlockDataManagerThread::shutdown()
+{
+   pimpl->run = false;
+   pimpl->inject->notify();
+   pthread_join(pimpl->tID, nullptr);
+}
+
+void BlockDataManagerThread::run()
+{
+   BlockDataManager_LevelDB *const bdm = this->bdm();
+   
+   BDM_CallBack *const callback = pimpl->callback;
 
    //don't call this unless you're trying to get online
-   if(threadparams->mode==0) threadparams->bdm->doInitialSyncOnLoad();
-   else if(threadparams->mode==1) threadparams->bdm->doInitialSyncOnLoad_Rescan();
-   else if(threadparams->mode==2) threadparams->bdm->doInitialSyncOnLoad_Rebuild();
+   if(pimpl->mode==0) bdm->doInitialSyncOnLoad();
+   else if(pimpl->mode==1) bdm->doInitialSyncOnLoad_Rescan();
+   else if(pimpl->mode==2) bdm->doInitialSyncOnLoad_Rebuild();
 
    //push 'bdm is ready' to Python
-   callback->run(1, 0, threadparams->bdm->getTopBlockHeight());
+   callback->run(1, 0, bdm->getTopBlockHeight());
    
-   
-   while(bdm->doRun())
+   while(pimpl->run)
    {
       uint32_t currentBlock = bdm->blockchain().top().getBlockHeight();
       if(bdm->rescanZC_)
@@ -117,48 +171,18 @@ static void* run(void *_threadparams)
          );
       }
       
-      threadparams->inject->wait(1000);
+      pimpl->inject->wait(1000);
    }
+}
 
-   delete bdm;
-   
-   delete threadparams;
-   
+void* BlockDataManagerThread::thrun(void *_self)
+{
+   BlockDataManagerThread *const self
+      = static_cast<BlockDataManagerThread*>(_self);
+   self->run();
    return 0;
 }
 
-BlockDataManager_LevelDB * createBDM(
-   const BlockDataManagerConfig &config
-)
-{
-   return new BlockDataManager_LevelDB(config);
-}
-
-void destroyBDM(BlockDataManager_LevelDB *bdm)
-{
-   delete bdm;
-}
-
-BlockDataManager_LevelDB * startBDM(
-   BlockDataManager_LevelDB *bdm,
-   int mode,
-   BDM_CallBack *callback,
-   BDM_Inject *inject
-)
-{
-   ThreadParams *const tp = new ThreadParams;
-   tp->bdm = bdm;
-   tp->callback = callback;
-   tp->inject = inject;
-   tp->bdm->setRun(true);
-   tp->mode = mode;
-   
-   //start maintenance thread
-   pthread_create(&tp->tID, 0, run, tp);
-   tp->bdm->setThreadParams(tp);
-   
-   return tp->bdm;
-}
 
 // kate: indent-width 3; replace-tabs on;
 

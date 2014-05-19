@@ -40,28 +40,30 @@ public:
 
 class BlockDataManager_LevelDB;
 
-BlockDataManager_LevelDB * createBDM(
-   const BlockDataManagerConfig &config
-);
-
-void destroyBDM(BlockDataManager_LevelDB *bdm);
-
-BlockDataManager_LevelDB * startBDM(
-   BlockDataManager_LevelDB *bdm,
-   int mode,
-   BDM_CallBack *callback,
-   BDM_Inject *inject
-);
-
-struct ThreadParams
+class BlockDataManagerThread
 {
-   BlockDataManager_LevelDB *bdm;
-   BDM_CallBack *callback;
-   BDM_Inject *inject;
-   pthread_t tID;
-   int mode;
-};
+   struct BlockDataManagerThreadImpl;
+   BlockDataManagerThreadImpl *pimpl;
+   
+public:
+   BlockDataManagerThread(const BlockDataManagerConfig &config);
+   ~BlockDataManagerThread();
+   
+   // start the BDM thread
+   void start(int mode, BDM_CallBack *callback, BDM_Inject *inject);
+   
+   BlockDataManager_LevelDB *bdm();
+   
+   // stop the BDM thread
+   void shutdown();
 
+private:
+   static void* thrun(void *);
+   void run();
+
+private:
+   BlockDataManagerThread(const BlockDataManagerThread&);
+};
 
 // kate: indent-width 3; replace-tabs on;
 
