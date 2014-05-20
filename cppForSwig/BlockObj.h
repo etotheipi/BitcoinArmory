@@ -822,12 +822,6 @@ public:
                                     { return uniqueKey_ >  ra2.uniqueKey_;}
 
    
-   void setUniqueKey(BinaryData const & key)
-   {
-      addrType_ = uniqueKey_[0];
-      uniqueKey_.copyFrom(key.getPtr()+1, key.getSize()-1);
-   }
-
    BinaryData        uniqueKey_;
    uint8_t           addrType_;
    uint32_t          blkCreated_;
