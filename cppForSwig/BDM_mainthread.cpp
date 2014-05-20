@@ -126,9 +126,12 @@ BlockDataManager_LevelDB *BlockDataManagerThread::bdm()
 // stop the BDM thread
 void BlockDataManagerThread::shutdown()
 {
-   pimpl->run = false;
-   pimpl->inject->notify();
-   pthread_join(pimpl->tID, nullptr);
+   if (pimpl->run)
+   {
+      pimpl->run = false;
+      pimpl->inject->notify();
+      pthread_join(pimpl->tID, nullptr);
+   }
 }
 
 void BlockDataManagerThread::run()
