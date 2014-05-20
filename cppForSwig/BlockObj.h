@@ -487,7 +487,6 @@ public:
    explicit Tx(BinaryRefReader & brr)     { unserialize(brr);       }
    explicit Tx(BinaryData const & str)    { unserialize(str);       }
    explicit Tx(BinaryDataRef const & str) { unserialize(str);       }
-   explicit Tx(TxRef txref);
      
    uint8_t const *    getPtr(void)  const { return dataCopy_.getPtr();  }
    uint32_t           getSize(void) const { return dataCopy_.getSize(); }
