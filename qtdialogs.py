@@ -1664,11 +1664,11 @@ class DlgWalletDetails(ArmoryDialog):
       # if True:              optLayout.addWidget(lbtnRecover)
       # Not sure yet that we want to include the password finer in here
 
-      if True:                optLayout.addWidget(createVBoxSeparator())
+      if adv:               optLayout.addWidget(createVBoxSeparator())
 
       if hasPriv and adv:   optLayout.addWidget(lbtnImportA)
       if hasPriv and adv:   optLayout.addWidget(lbtnDeleteA)
-      if adv:                 optLayout.addWidget(lbtnExpRootPKCC)
+      if adv:               optLayout.addWidget(lbtnExpRootPKCC)
       # if hasPriv and adv:   optLayout.addWidget(lbtnSweepA)
 
       optLayout.addStretch()
@@ -2166,22 +2166,26 @@ class DlgWalletDetails(ArmoryDialog):
          pass
 
 
-# DOUG DEBUG: Add some stuff here....
+   #############################################################################
    def execExpRootPKCC(self):
+      '''Function executed when a user executes the \"Export Public Key & Chain
+         Code\" option.'''
       # This should never happen....
       if not self.wlt.addrMap['ROOT'].hasChainCode():
-         QMessageBox.warning(self, 'Move along...', \
-           'This wallet does not have a chain code. Backups are pointless!', QMessageBox.Ok)
+         QMessageBox.warning(self, 'Move along... This wallet does not have', \
+                             'a chain code. Backups are pointless!', \
+                             QMessageBox.Ok)
          return
 
-      # Proceed to the export center.
+      # Proceed to the actual export center, where the heavy lifting will occur.
       # NB: This is not the final version! For now, we're hopping directly to
       # the digital output version, as printing isn't enabled yet. Once printing
-      # is enabled, we'll keep the code but move it and other things around.
-#      dlg = DlgRootPKCCExpCenter(self.wlt, self, self.main)
+      # is enabled, we'll keep the digital backup code but move it and other
+      # things around.
+      # dlg = DlgRootPKCCExpCenter(self.wlt, self, self.main)
       dlg = DlgRootPKCCExpDigital(self.wlt, self, self.main)
       if dlg.exec_():
-         pass  # not sure that I don't handle everything in the dialog itself
+         pass  # Once executed, we're done.
 
 
    def saveWalletCopy(self):
@@ -11038,6 +11042,7 @@ class QRadioButtonBackupCtr(QRadioButton):
                                           # htmlColor('Background'))
 
 
+# Class that will eventually product the window 
 ################################################################################
 class DlgRootPKCCExpCenter(ArmoryDialog):
 
@@ -11063,33 +11068,6 @@ class DlgRootPKCCExpCenter(ArmoryDialog):
       self.setWindowTitle("Root Public Key/Chain Code Export Center")
       self.setMinimumSize(640, 350)
 
-
-################################################################################
-class DlgBackupCenter(ArmoryDialog):
-
-   #############################################################################
-   def __init__(self, parent, main, wlt):
-      super(DlgBackupCenter, self).__init__(parent, main)
-
-      self.wlt = wlt
-      wltID = wlt.uniqueIDB58
-      wltName = wlt.labelName
-
-      self.walletBackupFrame = WalletBackupFrame(parent, main)
-      self.walletBackupFrame.setWallet(wlt)
-      self.btnDone = QPushButton('Done')
-      self.connect(self.btnDone, SIGNAL(CLICKED), self.reject)
-      frmBottomBtns = makeHorizFrame([STRETCH, self.btnDone])
-
-      layoutDialog = QVBoxLayout()
-
-      layoutDialog.addWidget(self.walletBackupFrame)
-
-      layoutDialog.addWidget(frmBottomBtns)
-
-      self.setLayout(layoutDialog)
-      self.setWindowTitle("Backup Center")
-      self.setMinimumSize(640, 350)
 
 ################################################################################
 class DlgSimpleBackup(ArmoryDialog):
@@ -11177,6 +11155,8 @@ class DlgSimpleBackup(ArmoryDialog):
       self.setWindowTitle(tr('Backup Options'))
 
 
+# Class that produces a dialog with the root public key & chain code data to be
+# exported via digital means (i.e., writing to or copying & pasting to a file).
 ################################################################################
 class DlgRootPKCCExpDigital(ArmoryDialog):
    """
@@ -11233,7 +11213,7 @@ class DlgRootPKCCExpDigital(ArmoryDialog):
 
       # TODO:  Dear god this is terrible, but for my life I cannot figure
       #        out how to move the vbar, because you can't do it until
-      #        the dialog is drawn which doesn't happen til after __init__
+      #        the dialog is drawn which doesn't happen til after __init__.
       from twisted.internet import reactor
       reactor.callLater(0.05, self.resizeEvent)
 
@@ -11760,12 +11740,14 @@ class DlgUniversalRestoreSelect(ArmoryDialog):
          self.main.execGetImportWltName()
          self.accept()
       elif self.rdoPKCC.isChecked():
+         # Attempt to restore the root public key & chain code for a wallet.
+         # When done, ask for a wallet rescan.
          self.accept()
          dlg = DlgRestorePKCC(self.parent, self.main, doTest)
          if dlg.exec_():
+            LOGINFO('Watching-Only Wallet Restore Complete! Will ask for a' \
+                    'rescan.')
             self.main.addWalletToAppAndAskAboutRescan(dlg.newWallet)
-            LOGINFO('Watching-Only Wallet Restore Complete!')
-            # TheBDM.main.startRescanBlockchain()
 
 
 ################################################################################
@@ -12114,6 +12096,8 @@ class DlgRestoreSingle(ArmoryDialog):
       self.accept()
 
 
+# Class that will create the root public key & chain code wallet restoration
+# window.
 ################################################################################
 class DlgRestorePKCC(ArmoryDialog):
    #############################################################################
@@ -12143,29 +12127,30 @@ class DlgRestorePKCC(ArmoryDialog):
          public key/chain code printout or import the public key & chain code
          from a file."""))
 
-      # Create the line that will contain the imported ID. FIX THE NAMES!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-      self.lblSP = QRichLabel(tr('Root ID:'), doWrap=False)
-      self.editSecurePrint = QLineEdit()
-      self.editSecurePrint.setFont(GETFONT('Fixed', 9))
-      self.frmSP = makeHorizFrame([STRETCH, self.lblSP, self.editSecurePrint])
+      # Create the line that will contain the imported ID.
+      self.rootIDLabel = QRichLabel(tr('Root ID:'), doWrap=False)
+      self.rootIDLine = QLineEdit()
+      self.rootIDLine.setFont(GETFONT('Fixed', 9))
+      self.rootIDFrame = makeHorizFrame([STRETCH, self.rootIDLabel, \
+                                         self.rootIDLine])
 
       # Create the lines that will contain the imported key/code data.
-      self.prfxList = [QLabel(tr('Data:')), QLabel(''), QLabel(''), QLabel('')]
-      for y in self.prfxList:
+      self.pkccList = [QLabel(tr('Data:')), QLabel(''), QLabel(''), QLabel('')]
+      for y in self.pkccListLabels:
          y.setFont(GETFONT('Fixed', 9))
       inpMask = '<AAAA\ AAAA\ AAAA\ AAAA\ \ AAAA\ AAAA\ AAAA\ AAAA\ \ AAAA!'
-      self.edtList = [MaskedInputLineEdit(inpMask) for i in range(4)]
-      for x in self.edtList:
+      self.pkccList = [MaskedInputLineEdit(inpMask) for i in range(4)]
+      for x in self.pkccList:
          x.setFont(GETFONT('Fixed', 9))
 
       # Build the frame that will contain both the ID and the key/code data.
       frmAllInputs = QFrame()
       frmAllInputs.setFrameStyle(STYLE_RAISED)
       layoutAllInp = QGridLayout()
-      layoutAllInp.addWidget(self.frmSP, 0, 0, 1, 2)
+      layoutAllInp.addWidget(self.rootIDFrame, 0, 0, 1, 2)
       for i in range(4):
-         layoutAllInp.addWidget(self.prfxList[i], i + 1, 0)
-         layoutAllInp.addWidget(self.edtList[i], i + 1, 1)
+         layoutAllInp.addWidget(self.pkccListLabels[i], i + 1, 0)
+         layoutAllInp.addWidget(self.pkccList[i], i + 1, 1)
       frmAllInputs.setLayout(layoutAllInp)
 
       # Put together the button code.
@@ -12186,7 +12171,6 @@ class DlgRestorePKCC(ArmoryDialog):
       finalLayout.addWidget(lblDescr)
       finalLayout.addWidget(HLINE())
       finalLayout.addWidget(frmAllInputs)
-#      finalLayout.addWidget(buttonBox)
       finalLayout.addWidget(self.btnLoad)
       finalLayout.addWidget(self.btnAccept)
       finalLayout.addWidget(self.btnCancel)
@@ -12212,6 +12196,7 @@ class DlgRestorePKCC(ArmoryDialog):
 
    #############################################################################
    def loadPKCCFile(self):
+      '''Function for loading a root public key/chain code (\"pkcc\") file.'''
       fn = self.main.getFileLoad('Import Wallet File')
       if not os.path.exists(fn):
          return
@@ -12226,22 +12211,19 @@ class DlgRestorePKCC(ArmoryDialog):
       if pkccFileVer != 1:
          return
       else:
-#          pkccET16Lines = []
-#          pkccID = bu.get(VAR_STR)
-         self.editSecurePrint.setText(QString(bu.get(VAR_STR)))
+         self.rootIDLine.setText(QString(bu.get(VAR_STR)))
          numLines = bu.get(UINT8)
          for lines in range(numLines):
-            self.edtList[lines].setText(QString(bu.get(VAR_STR)))
+            self.pkccList[lines].setText(QString(bu.get(VAR_STR)))
 
       # Verify the input
-#      self.editSecurePrint.setText(QString(pkccID))
-#      for i in range(4):
-#         self.edtList[i].setText(QString(pkccET))
       self.verifyUserInput()
 
 
    #############################################################################
    def verifyUserInput(self):
+      '''Function that verifies the input for a root public key/chain code
+         restoration validation.'''
       inRootIDData = ''
       inputLines = []
       nError = 0
@@ -12251,14 +12233,13 @@ class DlgRestorePKCC(ArmoryDialog):
 
       # Read in the root ID data and handle any errors.
       try:
-         rawID = easyType16_to_binary(str(self.editSecurePrint.text()))
-         print 'DOUG DEBUG LATER DATA LENGTH:', len(rawID)
+         rawID = easyType16_to_binary(str(self.rootIDLine.text()))
          if len(rawID) != 9:
             raise ValueError('Must supply 9 byte input for the ID')
-         inRootData = rawID[:7]
-         inRootChksum = rawID[7:]
-         print 'DOUG DEBUG LATER DATA:', binary_to_hex(inRootData)
-         print 'DOUG DEBUG LATER CHECKSUM:', binary_to_hex(inRootChksum)
+         
+         # Grab the data and apply the checksum to make sure it's okay.
+         inRootData = rawID[:7]   # 7 bytes
+         inRootChksum = rawID[7:] # 2 bytes
          inRootChecked = verifyChecksum(inRootData, inRootChksum)
          if len(inRootChecked) != 7:
             hasError = True
@@ -12267,6 +12248,7 @@ class DlgRestorePKCC(ArmoryDialog):
       except:
          hasError = True
 
+      # If the root ID is busted, stop.
       if hasError:
          reply = QMessageBox.critical(self, tr('Invalid Data'), tr("""
                There is an error in the root data ID you entered that could not
@@ -12277,22 +12259,23 @@ class DlgRestorePKCC(ArmoryDialog):
          return
 
       # Save the version/key byte and the root ID. For now, ignore the version.
-      inRootVer = inRootChecked[0]
-      inRootID = inRootChecked[1:7]
+      inRootVer = inRootChecked[0]  # 1 byte
+      inRootID = inRootChecked[1:7] # 6 bytes
 
       # Read in the root data (public key & chain code) and handle any errors.
       for i in range(nLine):
          hasError = False
          try:
-            rawEntry = str(self.edtList[i].text())
+            rawEntry = str(self.pkccList[i].text())
             rawBin, err = readSixteenEasyBytes(rawEntry.replace(' ', ''))
-            if err == 'Error_2+':
+            if err == 'Error_2+':  # 2+ bytes are wrong, so we need to stop.
                hasError = True
-            elif err == 'Fixed_1':
+            elif err == 'Fixed_1': # 1 byte is wrong, so we may be okay.
                nError += 1
          except:
             hasError = True
 
+         # If the root ID is busted, stop.
          if hasError:
             lineNumber = i+1
             reply = QMessageBox.critical(self, tr('Invalid Data'), tr("""
@@ -12304,33 +12287,29 @@ class DlgRestorePKCC(ArmoryDialog):
             LOGERROR('Error in root data restore field')
             return
 
+         # If we've gotten this far, save the incoming line.
          inputLines.append(rawBin)
 
-      # Set up the data. Do some basic setup.
+      # Set up the root ID data.
       pkVer = binary_to_int(inRootVer) & PYROOTPKCCVERMASK  # Ignored for now.
       pkSignByte = ((binary_to_int(inRootVer) & PYROOTPKCCSIGNMASK) >> 7) + 2
-      print 'DOUG DEBUG POST-EVERYTHING SIGN:', pkSignByte
-      rootPKBin = int_to_binary(pkSignByte) + ''.join(inputLines[:2])
-      print 'DOUG DEBUG POST-EVERYTHING KEY:', binary_to_hex(rootPKBin)
+      rootPKComBin = int_to_binary(pkSignByte) + ''.join(inputLines[:2])
+      rootPubKey = CryptoECDSA().UncompressPoint(SecureBinaryData(rootPKComBin))
       rootChainCode = SecureBinaryData(''.join(inputLines[2:]))
-      rootPubKey = CryptoECDSA().UncompressPoint(SecureBinaryData(rootPKBin))
-      print 'DOUG DEBUG POST-EVERYTHING PUB KEY:', rootPubKey.toHexStr()
-      print 'DOUG DEBUG POST-EVERYTHING CHAIN CODE:', rootChainCode.toHexStr()
 
-      # . Let's create the wallet and accept the dlg
-      # Now we should have a fully-plaintext rootkey and chaincode
+      # Now we should have a fully-plaintext root key and chain code, and can
+      # get some related data.
       root = PyBtcAddress().createFromPublicKeyData(rootPubKey)
       root.chaincode = rootChainCode
-
       first = root.extendAddressChain()
       newWltID = binary_to_base58(inRootIDData)
 
-      # Stop here if this was just a test  (NEEDED??????????????????????????????????????????)
+      # Stop here if this was just a test
       if self.thisIsATest:
          verifyRecoveryTestID(self, newWltID, self.testWltID)
          return
 
-      # FIX ME UP!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      # If we already have the wallet, instantiate a wallet replacement dialog.
       dlgOwnWlt = None
       if self.main.walletMap.has_key(newWltID):
          dlgOwnWlt = DlgReplaceWallet(newWltID, self.parent, self.main)
@@ -12342,37 +12321,28 @@ class DlgRestorePKCC(ArmoryDialog):
             self.reject()
             return
       else:
-         # SOMETHING ELSE SHOULD GO HERE!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+         # Make sure the user is restoring the wallet they want to restore.
          reply = QMessageBox.question(self, 'Verify Wallet ID', \
                   'The data you entered corresponds to a wallet with a wallet '
                   'ID: \n\n\t' + binary_to_base58(inRootID) + '\n\nDoes this '
-                  'IDmatch the "Wallet Unique ID" printed on your paper '
-                  'backup? If not, click "No" and enter the key and chain-code '
-                  'data again.', QMessageBox.Yes | QMessageBox.No)
+                  'ID match the "Wallet Unique ID" you intend to restore? '
+                  'If not, click "No" and enter the key and chain-code data '
+                  'again.', QMessageBox.Yes | QMessageBox.No)
          if reply == QMessageBox.No:
             return
 
-      shortl = ''
-      longl  = ''
-      nPool  = 1000
-
-      # AM I NEEDED?????????????????????????????????????????????????????????????????????????????????
-      if dlgOwnWlt is not None:
-         if dlgOwnWlt.Meta is not None:
-            shortl = ' - %s' % (dlgOwnWlt.Meta['shortLabel'])
-            longl  = dlgOwnWlt.Meta['longLabel']
-            nPool = max(nPool, dlgOwnWlt.Meta['naddress'])
-
+      # Create the wallet.
       self.newWallet = PyBtcWallet().createNewWalletFromPKCC(rootPubKey, \
                                                              rootChainCode)
 
+      # Create some more addresses.
+      nPool = 1000
       def fillAddrPoolAndAccept():
          self.newWallet.fillAddressPool(numPool=nPool)
+      DlgExecLongProcess(fillAddrPoolAndAccept, "Creating wallet...", self, \
+                         self.main).exec_()
 
-      # Will pop up a little "please wait..." window while filling addr pool
-      DlgExecLongProcess(fillAddrPoolAndAccept, "Creating wallet...", self, self.main).exec_()
-
-      # AM I NEDED???????????????????????????????????????????????????????????????????????????????????????
+      # (Is this needed?)
       if dlgOwnWlt is not None:
          if dlgOwnWlt.Meta is not None:
             from armoryengine.PyBtcWallet import WLT_UPDATE_ADD
