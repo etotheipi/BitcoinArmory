@@ -624,7 +624,7 @@ public ts_container<T>
          if (this->writeSema_.load(std::memory_order_consume) == 0) return;
          if (this->commitLock_.fetch_or(1, std::memory_order_acquire)) return;
 
-         int addCounter = 0;
+         unsigned addCounter = 0;
          while (this->writeSema_.load(std::memory_order_consume) != 0
             && addCounter < this->maxMergePerThread_)
          {
