@@ -6,8 +6,6 @@
 #include <deque>
 #include <map>
 
-class BlockDataManager_LevelDB;
-
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 //
@@ -17,7 +15,7 @@ class BlockDataManager_LevelDB;
 class Blockchain
 {
 public:
-   Blockchain(BlockDataManager_LevelDB* bdm);
+   Blockchain(const HashString &genesisHash);
    // implemented but not used:
    //vector<BlockHeader*> getHeadersNotOnMainChain(void);
 
@@ -84,7 +82,7 @@ private:
    double traceChainDown(BlockHeader & bhpStart);
 
 private:
-   BlockDataManager_LevelDB *const bdm_;
+   const HashString genesisHash_;
    map<HashString, BlockHeader> headerMap_;
    deque<BlockHeader*> headersByHeight_;
    BlockHeader *topBlockPtr_;

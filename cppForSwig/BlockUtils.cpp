@@ -279,7 +279,7 @@ void BlockDataManagerConfig::selectNetwork(const string &netname)
 BlockDataManager_LevelDB::BlockDataManager_LevelDB(const BlockDataManagerConfig &bdmConfig) 
    : config_(bdmConfig)
    , iface_(LevelDBWrapper::GetInterfacePtr())
-   , blockchain_(this)
+   , blockchain_(config_.genesisBlockHash)
 {
    LOGINFO << "Set home directory: " << config_.homeDirLocation;
    LOGINFO << "Set blkfile dir: " << config_.blkFileLocation;

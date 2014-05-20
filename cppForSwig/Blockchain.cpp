@@ -1,8 +1,5 @@
 #include "Blockchain.h"
 
-// remove this when the BDM can tell me the genesis hash by constructor
-#include "BlockUtils.h"
-
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 //
@@ -11,8 +8,8 @@
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 
-Blockchain::Blockchain(BlockDataManager_LevelDB* bdm)
-   : bdm_(bdm)
+Blockchain::Blockchain(const HashString &genesisHash)
+   : genesisHash_(genesisHash)
 {
    clear();
 }
@@ -22,7 +19,7 @@ void Blockchain::clear()
    headerMap_.clear();
    headersByHeight_.resize(0);
    topBlockPtr_ = genesisBlockBlockPtr_ = &headerMap_[
-         bdm_->getGenesisHash()
+         genesisHash_
       ];
 }
 
@@ -31,7 +28,7 @@ BlockHeader& Blockchain::addBlock(
       const BlockHeader &block
    )
 {
-   if (hasHeaderWithHash(blockhash) && blockhash != bdm_->getGenesisHash())
+   if (hasHeaderWithHash(blockhash) && blockhash != genesisHash_)
    { // we don't show this error for the genesis block
       LOGWARN << "Somehow tried to add header that's already in map";
       LOGWARN << "Header Hash: " << blockhash.toHexStr();
