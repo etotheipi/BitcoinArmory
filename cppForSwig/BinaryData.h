@@ -113,10 +113,24 @@ public:
    BinaryData(string const & str)              { copyFrom(str);          }
    BinaryData(BinaryData const & bd)           { copyFrom(bd);           }
 
+   BinaryData(BinaryData && copy)
+      { data_.swap(copy.data_);           }
+
    BinaryData(BinaryDataRef const & bdRef);
    size_t getSize(void) const               { return data_.size(); }
 
    bool isNull(void) { return (data_.size()==0);}
+   
+   BinaryData& operator=(const BinaryData &o)
+   {
+      data_ = o.data_;
+      return *this;
+   }
+   BinaryData& operator=(BinaryData &&o)
+   {
+      swap(data_, o.data_);
+      return *this;
+   }
 
    /////////////////////////////////////////////////////////////////////////////
    uint8_t const * getPtr(void) const       
