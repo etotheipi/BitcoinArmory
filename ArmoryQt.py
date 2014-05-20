@@ -1427,17 +1427,20 @@ class ArmoryMainWindow(QMainWindow):
 
    #############################################################################
    def makeWalletCopy(self, parent, wlt, copyType='Same', suffix='', changePass=False):
+      '''Create a digital backup of your wallet.'''
       if changePass:
          LOGERROR('Changing password is not implemented yet!')
          raise NotImplementedError
 
+      # Set the file name.
       fn = 'armory_%s_%s.wallet' % (wlt.uniqueIDB58, suffix)
-      if wlt.watchingOnly:
+      if wlt.watchingOnly and copyType.lower() != 'pkcc':
          fn = 'armory_%s_%s.watchonly.wallet' % (wlt.uniqueIDB58, suffix)
       savePath = unicode(self.getFileSave(defaultFilename=fn))
       if not len(savePath)>0:
          return False
 
+      # Create the file based on the type you want.
       if copyType.lower()=='same':
          wlt.writeFreshWalletFile(savePath)
       elif copyType.lower()=='decrypt':
@@ -1458,6 +1461,8 @@ class ArmoryMainWindow(QMainWindow):
             newPassphrase = SecureBinaryData(str(dlgCrypt.edtPasswd1.text()))
 
          wlt.makeEncryptedWalletCopy(savePath, newPassphrase)
+      elif copyType.lower() == 'pkcc':
+         wlt.writePKCCFile(savePath)
       else:
          LOGERROR('Invalid "copyType" supplied to makeWalletCopy: %s', copyType)
          return False
