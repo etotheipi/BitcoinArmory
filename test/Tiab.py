@@ -13,7 +13,8 @@ import shutil
 import subprocess
 import copy
 import unittest
-from armoryengine.BDM import TheBDM, BlockDataManagerThread
+from zipfile import ZipFile
+from armoryengine.BDM import TheBDM, BlockDataManagerThread, newTheBDM
 
 # runs a Test In a Box (TIAB) bitcoind session. By copying a prebuilt
 # testnet with a known state
@@ -27,13 +28,10 @@ class TiabSession:
    # tiab_repository is used to name which flavor of box is used if
    # tiabdatadir is not used - It is intended to be used for when we
    # have multiple testnets in a box with different properties
-   def __init__(self, tiab_repository="", tiabdatadir=None):
-      self.tiabdatadir = tiabdatadir
+   def __init__(self, tiabZipPath="tiab.zip"):
       self.processes = []
-      if not self.tiabdatadir:
-         self.tiabdatadir = os.environ['ARMORY_TIAB_PATH'+tiab_repository]
-      # an obvious race condition lives here
       self.tiabDirectory = tempfile.mkdtemp("armory_tiab")
+      self.tiabZipPath = tiabZipPath
       
       self.running = False
       
@@ -81,10 +79,11 @@ class TiabSession:
       
       TiabSession.numInstances += 1
       os.rmdir(self.tiabDirectory)
-      shutil.copytree(self.tiabdatadir, self.tiabDirectory)
+      with ZipFile(self.tiabZipPath, "r") as z:
+         z.extractall(self.tiabDirectory)
       try:
-         self.callBitcoinD(["-datadir=" + self.tiabDirectory + "\\1", "-debug"])
-         self.callBitcoinD(["-datadir=" + self.tiabDirectory + "\\2", "-debug"])
+         self.callBitcoinD(["-datadir=" + self.tiabDirectory + "\\tiab\\1", "-debug"])
+         self.callBitcoinD(["-datadir=" + self.tiabDirectory + "\\tiab\\2", "-debug"])
       except:
          self.clean()
          raise
@@ -93,31 +92,30 @@ class TiabSession:
 TEST_WALLET_NAME = 'Test Wallet Name'
 TEST_WALLET_DESCRIPTION = 'Test Wallet Description'
 TEST_WALLET_ID = 'PMjjFm6E'
-TIAB_DIR = '.\\tiab'
-TEST_TIAB_DIR = '.\\test\\tiab'
+TIAB_ZIPFILE_NAME = '.\\tiab.zip'
+TEST_TIAB_ZIPFILE_NAME = '.\\test\\tiab.zip'
 NEED_TIAB_MSG = "This Test must be run with J:/Development_Stuff/bitcoin-testnet-boxV2.7z (Armory jungle disk). Copy to the test directory."
 
 class TiabTest(unittest.TestCase):      
    @classmethod
    def setUpClass(self):
-      global TheBDM
       # Handle both calling the this test from the context of the test directory
       # and calling this test from the context of the main directory. 
       # The latter happens if you run all of the tests in the directory
-      if os.path.exists(TIAB_DIR):
-         tiabDataDir = TIAB_DIR
-      elif os.path.exists(TEST_TIAB_DIR):
-         tiabDataDir = TEST_TIAB_DIR
+      if os.path.exists(TIAB_ZIPFILE_NAME):
+         tiabZipPath = TIAB_ZIPFILE_NAME
+      elif os.path.exists(TEST_TIAB_ZIPFILE_NAME):
+         tiabZipPath = TEST_TIAB_ZIPFILE_NAME
       else:
          self.fail(NEED_TIAB_MSG)
-      self.tiab = TiabSession(tiabdatadir=tiabDataDir)
+      self.tiab = TiabSession(tiabZipPath=tiabZipPath)
       # Need to destroy whatever BDM may have been created automatically 
       CppBlockUtils.BlockDataManager().DestroyBDM()
-      TheBDM = BlockDataManagerThread(isOffline=False, blocking=False)
+      newTheBDM()
       TheBDM.setDaemon(True)
       TheBDM.start()
-      TheBDM.setSatoshiDir(self.tiab.tiabDirectory + '\\1\\testnet3')
-      TheBDM.setLevelDBDir(self.tiab.tiabDirectory + '\\armory\\databases')
+      TheBDM.setSatoshiDir(self.tiab.tiabDirectory + '\\tiab\\1\\testnet3')
+      TheBDM.setLevelDBDir(self.tiab.tiabDirectory + '\\tiab\\armory\\databases')
       TheBDM.setBlocking(True)
       TheBDM.setOnlineMode(wait=True)
       while not TheBDM.getBDMState()=='BlockchainReady':
