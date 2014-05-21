@@ -357,6 +357,7 @@ BlockDataManager_LevelDB::~BlockDataManager_LevelDB()
    }
    
    iface_->closeDatabases();
+   delete iface_;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
