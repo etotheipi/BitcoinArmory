@@ -60,7 +60,7 @@ from armoryengine.ALL import *
 from jsonrpc import ServiceProxy
 from armoryengine.Decorators import EmailOutput
 from armoryengine.ArmoryUtils import addrStr_to_hash160
-from armoryengine.PyBtcWalletRecovery import ParseWallet
+from armoryengine.PyBtcWalletRecovery import *
 
 
 # Some non-twisted json imports from jgarzik's code and his UniversalEncoder
@@ -1068,7 +1068,8 @@ class Armory_Daemon(object):
    @AllowAsync
    def checkWallet(self):
       if self.lock.acquire(False) == False: return
-      wltStatus = ParseWallet(None, self.wallet, 5, None)
+      #wltStatus = ParseWallet(None, self.wallet, 5, None)
+      wltStatus = PyBtcWalletRecovery().ProcessWallet(None, self.wallet, Mode=5)
       if wltStatus != 0:
          print 'Wallet consistency check failed in wallet %s!!!' \
                 % (self.wallet.uniqueIDB58)
