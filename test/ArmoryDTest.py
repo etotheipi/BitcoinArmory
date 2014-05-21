@@ -31,6 +31,7 @@ TX_ID1_OUTPUT1_VALUE = 97999990000L
 PASSPHRASE1 = 'abcde'
 UNLOCK_TIMEOUT = 5
 
+# These tests could be run in or out of the TiaB
 class ArmoryDTest(TiabTest):      
    def removeFileList(self, fileList):
       for f in fileList:

@@ -91,7 +91,7 @@ public:
    void           setBlockFileOffset(uint64_t offs) {blkFileOffset_ = offs;}
 
    /////////////////////////////////////////////////////////////////////////////
-   void          pprint(ostream & os=cout, int nIndent=0, bool pBigendian=true) const;
+   void          c(ostream & os=cout, int nIndent=0, bool pBigendian=true) const;
    void          pprintAlot(ostream & os=cout);
 
    /////////////////////////////////////////////////////////////////////////////

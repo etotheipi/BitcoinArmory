@@ -12,7 +12,6 @@ from CppBlockUtils import CryptoECDSA, SecureBinaryData
 from armoryengine.ArmoryUtils import hex_to_binary, RightNow, int_to_binary, \
    checkAddrStrValid, hash256, UnserializeError, hash160_to_addrStr
 from armoryengine.PyBtcAddress import PyBtcAddress
-from armoryengine.BDM import TheBDM
 
 
 sys.argv.append('--nologging')
@@ -32,21 +31,13 @@ PUBLIC_KEY  = CryptoECDSA().ComputePublicKey(PRIVATE_KEY)
 ADDRESS_20  = PUBLIC_KEY.getHash160()
 
 TEST_BLOCK_NUM = 100
+TEST_BLOCK_NUM2 = 242
 
 # We pretend that we plugged some passphrases through a KDF
 FAKE_KDF_OUTPUT1 = SecureBinaryData( hex_to_binary('11'*32) )
 FAKE_KDF_OUTPUT2 = SecureBinaryData( hex_to_binary('22'*32) )
 
 class PyBtcAddressTest(TiabTest):
-
-
-   def setUp(self):
-      TheBDM.Reset()
-      
-   def tearDown(self):
-      pass
-
-
    # TODO: This test needs more verification of the results.
    def testEncryptedAddress(self):
 
@@ -346,14 +337,14 @@ class PyBtcAddressTest(TiabTest):
       self.assertEqual(testAddr.timeRange[1], long(rightNow))
       testAddr.touch(blkNum=TEST_BLOCK_NUM)
       self.assertEqual(testAddr.blkRange[0], TEST_BLOCK_NUM)
-      self.assertEqual(testAddr.blkRange[1], TEST_BLOCK_NUM)
+      self.assertEqual(testAddr.blkRange[1], TEST_BLOCK_NUM2)
       testAddr.touch(blkNum=0)
       self.assertEqual(testAddr.blkRange[0], 0)
-      self.assertEqual(testAddr.blkRange[1], TEST_BLOCK_NUM)
+      self.assertEqual(testAddr.blkRange[1], TEST_BLOCK_NUM2)
       # Cover the case where the blkRange[0] starts at 0 
       testAddr.touch(blkNum=TEST_BLOCK_NUM)
       self.assertEqual(testAddr.blkRange[0], TEST_BLOCK_NUM)
-      self.assertEqual(testAddr.blkRange[1], TEST_BLOCK_NUM)
+      self.assertEqual(testAddr.blkRange[1], TEST_BLOCK_NUM2)
       
    def testCopy(self):
       testAddr = PyBtcAddress().createFromPlainKeyData(PRIVATE_KEY, ADDRESS_20, publicKey65=PUBLIC_KEY)
