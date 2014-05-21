@@ -40,7 +40,7 @@
 # https://bitcointalk.org/index.php?topic=92496.0
 #####
 
-import datetime
+from datetime import datetime, timedelta
 import decimal
 import json
 import os
@@ -849,7 +849,7 @@ class Armory_Daemon(object):
       # Check if armoryd is already running, bail if it is
       self.checkForAlreadyRunning()
       self.lock = threading.Lock()
-      self.lastChecked
+      self.lastChecked = datetime.now()
       
       #check wallet consistency every hour
       self.checkStep = 3600
@@ -1076,7 +1076,7 @@ class Armory_Daemon(object):
          
          quit()
       else:
-         self.lastChecked = datetime.time.now()
+         self.lastChecked = datetime.now()
       self.lock.release()
       
 
@@ -1091,9 +1091,8 @@ class Armory_Daemon(object):
       if TheBDM.getBDMState()=='BlockchainReady':
          
          #check wallet every checkStep seconds
-         nextCheck = self.lastChecked + \
-                     datetime.timedelta(seconds=self.checkStep)
-         if nextCheck >= datetime.time.now():
+         nextCheck = self.lastChecked + timedelta(seconds=self.checkStep)
+         if nextCheck >= datetime.now():
             self.checkWallet()
          
          # Check for new blocks in the blk000X.dat file         
