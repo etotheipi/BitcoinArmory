@@ -172,7 +172,7 @@ public:
    bool isOutPointMine(BinaryData const & hsh, uint32_t idx);
 
    void pprintLedger(void);
-   void pprintAlot(uint32_t topBlk=0, bool withAddr=false);
+   void pprintAlot(InterfaceToLDB *db, uint32_t topBlk=0, bool withAddr=false);
 
    void setBdmPtr(BlockDataManager_LevelDB * bdmptr) {bdmPtr_=bdmptr;}
    void clearBlkData(void);

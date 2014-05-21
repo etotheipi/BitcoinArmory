@@ -708,42 +708,6 @@ private:
 };
 
 
-////////////////////////////////////////////////////////////////////////////////
-// A semi-singleton class: this basically allows you 
-class LevelDBWrapper
-{
-public:
-
-   /////////////////////////////////////////////////////////////////////////////
-   static InterfaceToLDB & GetInterface(uint32_t i=0)
-   {
-      if(ifaceVect_.size() < i+1)
-      {
-         ifaceVect_.resize(i+1); 
-         ifaceVect_[i] = new InterfaceToLDB;
-         ifaceVect_[i]->init();
-      }
-
-      return *(ifaceVect_[i]);
-   }
-
-   /////////////////////////////////////////////////////////////////////////////
-   static InterfaceToLDB* GetInterfacePtr(uint32_t i=0)
-   {
-      if(ifaceVect_.size() < i+1)
-      {
-         ifaceVect_.resize(i+1); 
-         ifaceVect_[i] = new InterfaceToLDB;
-         ifaceVect_[i]->init();
-      }
-
-      return ifaceVect_[i];
-   }
-
-private:
-
-   static vector<InterfaceToLDB*> ifaceVect_;
-};
 
 
 #endif

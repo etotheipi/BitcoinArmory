@@ -370,6 +370,7 @@ void BlockWriteBatcher::undoBlockFromDB(StoredUndoData & sud)
 
          // Now get the TxIOPair in the StoredScriptHistory and mark unspent
          sshptr->markTxOutUnspent(
+            iface_,
             stxoReAdd.getDBKey(false),
             config_.armoryDbType,
             config_.pruneType,
@@ -392,6 +393,7 @@ void BlockWriteBatcher::undoBlockFromDB(StoredUndoData & sud)
                                                             stxoReAdd.getHgtX(),
                                                             sshToModify_, &dbUpdateSize_);
                sshms->markTxOutUnspent(
+                  iface_,
                   stxoReAdd.getDBKey(false),
                   config_.armoryDbType,
                   config_.pruneType,
@@ -446,7 +448,7 @@ void BlockWriteBatcher::undoBlockFromDB(StoredUndoData & sud)
    
          // If we are tracking that SSH, remove the reference to this OutPoint
          if(sshptr != NULL)
-            sshptr->eraseTxio(stxoKey);
+            sshptr->eraseTxio(iface_, stxoKey);
    
          // Now remove any multisig entries that were added due to this TxOut
          if(uniqKey[0] == SCRIPT_PREFIX_MULTISIG)
@@ -465,7 +467,7 @@ void BlockWriteBatcher::undoBlockFromDB(StoredUndoData & sud)
                      &dbUpdateSize_,
                      false
                   );
-               sshms->eraseTxio(stxoKey);
+               sshms->eraseTxio(iface_, stxoKey);
             }
          }
       }
@@ -585,6 +587,7 @@ bool BlockWriteBatcher::applyTxToBatchWriteData(
       // to multisig scripts that reference this script.  Simply find and 
       // update the correct SSH TXIO directly
       sshptr->markTxOutSpent(
+         iface_,
          stxoSpend.getDBKey(false),
          thisSTX.getDBKeyOfChild(iin, false),
          config_.armoryDbType,
@@ -612,6 +615,7 @@ bool BlockWriteBatcher::applyTxToBatchWriteData(
 
       // Add reference to the next STXO to the respective SSH object
       sshptr->markTxOutUnspent(
+         iface_,
          stxoToAdd.getDBKey(false),
          config_.armoryDbType,
          config_.pruneType,
@@ -637,6 +641,7 @@ bool BlockWriteBatcher::applyTxToBatchWriteData(
                   &dbUpdateSize_
                );
             sshms->markTxOutUnspent(
+               iface_,
                stxoToAdd.getDBKey(false),
                config_.armoryDbType,
                config_.pruneType,

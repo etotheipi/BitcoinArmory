@@ -145,6 +145,7 @@ private:
 
 
 ////////////////////////////////////////////////////////////////////////////////
+class DBTxRef;
 
 class TxRef
 {
@@ -153,19 +154,18 @@ class TxRef
 
 public:
    /////////////////////////////////////////////////////////////////////////////
-   TxRef(void) { setRef(); }
+   TxRef() { }
    TxRef(BinaryDataRef bdr) { setRef(bdr); }
-   TxRef(BinaryDataRef bdr, InterfaceToLDB* ifc) { setRef(bdr, ifc); }
 
    /////////////////////////////////////////////////////////////////////////////
-   void setRef(BinaryDataRef bdr=BinaryDataRef(), InterfaceToLDB* iface=NULL);
+   void setRef(BinaryDataRef bdr);
+
+   DBTxRef attached(InterfaceToLDB* db) const;
+   
      
    /////////////////////////////////////////////////////////////////////////////
-   BinaryData     getThisHash(void) const;
-   Tx             getTxCopy(void) const;
-   bool           isMainBranch(void)  const;
    bool           isInitialized(void)  const {return dbKey6B_.getSize()>0;}
-   bool           isBound(void)  const {return dbIface_!=NULL;}
+   bool           isNull(void) const { return !isInitialized();}
 
    /////////////////////////////////////////////////////////////////////////////
    BinaryData     getDBKey(void) const   { return dbKey6B_;}
@@ -173,28 +173,14 @@ public:
    void           setDBKey(BinaryData    const & bd) {dbKey6B_.copyFrom(bd);}
    void           setDBKey(BinaryDataRef const & bd) {dbKey6B_.copyFrom(bd);}
 
-   bool           isNull(void) const { return !isInitialized();}
 
    /////////////////////////////////////////////////////////////////////////////
    BinaryData     getDBKeyOfChild(uint16_t i) const
-                                          {return dbKey6B_+WRITE_UINT16_BE(i);}
+      {return dbKey6B_+WRITE_UINT16_BE(i);}
 
-   /////////////////////////////////////////////////////////////////////////////
-   // This as fast as you can get a single TxIn or TxOut from the DB.  But if 
-   // need multiple of them from the same Tx, you should getTxCopy() and then
-   // iterate over them in the Tx object
-   TxIn  getTxInCopy(uint32_t i); 
-   TxOut getTxOutCopy(uint32_t i);
-
-   /////////////////////////////////////////////////////////////////////////////
-   BinaryData         serialize(void) const; 
-
-   /////////////////////////////////////////////////////////////////////////////
-   BinaryData         getBlockHash(void) const;
-   uint32_t           getBlockTimestamp(void);
+   uint16_t           getBlockTxIndex(void) const;
    uint32_t           getBlockHeight(void) const;
    uint8_t            getDuplicateID(void) const;
-   uint16_t           getBlockTxIndex(void) const;
 
    /////////////////////////////////////////////////////////////////////////////
    void               pprint(ostream & os=cout, int nIndent=0) const;
@@ -203,7 +189,7 @@ public:
    bool operator==(BinaryData const & dbkey) const { return dbKey6B_ == dbkey; }
    bool operator==(TxRef const & txr) const  { return dbKey6B_ == txr.dbKey6B_;}
 
-private:
+protected:
    //FileDataPtr        blkFilePtr_;
    //BlockHeader*       headerPtr_;
 
@@ -216,10 +202,41 @@ private:
 
    // TxRefs are associated with a particular interface (at this time, there
    // will only be one interface).
-   InterfaceToLDB*  dbIface_;  
+};
+
+class DBTxRef : public TxRef
+{
+public:
+   DBTxRef()
+   { }
+   DBTxRef( const TxRef &txref, InterfaceToLDB* db)
+      : TxRef(txref), db_(db)
+   { }
+   
+   BinaryData serialize() const; 
+   
+   BinaryData getBlockHash() const;
+   uint32_t getBlockTimestamp();
+   BinaryData getThisHash() const;
+   Tx getTxCopy() const;
+   bool isMainBranch()  const;
+   
+   /////////////////////////////////////////////////////////////////////////////
+   // This as fast as you can get a single TxIn or TxOut from the DB.  But if 
+   // need multiple of them from the same Tx, you should getTxCopy() and then
+   // iterate over them in the Tx object
+   TxIn  getTxInCopy(uint32_t i); 
+   TxOut getTxOutCopy(uint32_t i);
+
+private:
+   InterfaceToLDB*  db_;  
 };
 
 
+inline DBTxRef TxRef::attached(InterfaceToLDB* db) const
+{
+   return DBTxRef(*this, db);
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
@@ -314,7 +331,7 @@ public:
 
    uint32_t         getSequence(void)   { return READ_UINT32_LE(getPtr()+getSize()-4); }
 
-   BinaryData       getParentHash(void);
+   BinaryData       getParentHash(InterfaceToLDB *db);
    uint32_t         getParentHeight(void);
 
    void             setParentHash(BinaryData const & txhash) {parentHash_ = txhash;}
@@ -425,7 +442,7 @@ public:
    BinaryData         serialize(void) { return BinaryData(dataCopy_); }
    BinaryDataRef      serializeRef(void) { return dataCopy_; }
 
-   BinaryData         getParentHash(void);
+   BinaryData         getParentHash(InterfaceToLDB *db);
    uint32_t           getParentHeight(void);
 
    void               setParentHash(BinaryData const & txhash) {parentHash_ = txhash;}
@@ -496,7 +513,7 @@ public:
    uint32_t           getNumTxIn(void)   const { return offsetsTxIn_.size()-1;}
    uint32_t           getNumTxOut(void)  const { return offsetsTxOut_.size()-1;}
    BinaryData         getThisHash(void)  const;
-   bool               isMainBranch(void) const;
+   //bool               isMainBranch(void) const;
    bool               isInitialized(void) const { return isInitialized_; }
 
    /////////////////////////////////////////////////////////////////////////////
@@ -537,10 +554,11 @@ public:
    TxIn   getTxInCopy(int i) const;
    TxOut  getTxOutCopy(int i) const;
 
+
    /////////////////////////////////////////////////////////////////////////////
    // All these methods return UINTX_MAX if txRefObj.isNull()
-   BinaryData getBlockHash(void)      { return txRefObj_.getBlockHash();      }
-   uint32_t   getBlockTimestamp(void) { return txRefObj_.getBlockTimestamp(); }
+   // BinaryData getBlockHash(void)      { return txRefObj_.getBlockHash();      }
+   // uint32_t   getBlockTimestamp(void) { return txRefObj_.getBlockTimestamp(); }
    uint32_t   getBlockHeight(void)    { return txRefObj_.getBlockHeight();    }
    uint8_t    getDuplicateID(void)    { return txRefObj_.getDuplicateID();    }
    uint16_t   getBlockTxIndex(void)   { return txRefObj_.getBlockTxIndex();   }
@@ -608,8 +626,8 @@ public:
    // Lots of accessors
    bool      hasTxOut(void) const   { return (txRefOfOutput_.isInitialized()); }
    bool      hasTxIn(void) const    { return (txRefOfInput_.isInitialized()); }
-   bool      hasTxOutInMain(void) const;
-   bool      hasTxInInMain(void) const;
+   bool      hasTxOutInMain(InterfaceToLDB *db) const;
+   bool      hasTxInInMain(InterfaceToLDB *db) const;
    bool      hasTxOutZC(void) const;
    bool      hasTxInZC(void) const;
    bool      hasValue(void) const   { return (amount_!=0); }
@@ -617,17 +635,15 @@ public:
    void      setValue(uint64_t newVal) { amount_ = newVal;}
 
    //////////////////////////////////////////////////////////////////////////////
-   TxOut     getTxOutCopy(void);
-   TxIn      getTxInCopy(void);
    TxOut     getTxOutZC(void) const {return txOfOutputZC_->getTxOutCopy(indexOfOutputZC_);}
    TxIn      getTxInZC(void) const  {return txOfInputZC_->getTxInCopy(indexOfInputZC_);}
    TxRef     getTxRefOfOutput(void) const { return txRefOfOutput_; }
    TxRef     getTxRefOfInput(void) const  { return txRefOfInput_;  }
    uint32_t  getIndexOfOutput(void) const { return indexOfOutput_; }
    uint32_t  getIndexOfInput(void) const  { return indexOfInput_;  }
-   OutPoint  getOutPoint(void) const { return OutPoint(getTxHashOfOutput(),indexOfOutput_);}
+   OutPoint  getOutPoint(InterfaceToLDB *db) const { return OutPoint(getTxHashOfOutput(db),indexOfOutput_);}
 
-   pair<bool,bool> reassessValidity(void);
+   pair<bool,bool> reassessValidity(InterfaceToLDB *db);
    bool  isTxOutFromSelf(void) const  { return isTxOutFromSelf_; }
    void setTxOutFromSelf(bool isTrue=true) { isTxOutFromSelf_ = isTrue; }
    bool  isFromCoinbase(void) const { return isFromCoinbase_; }
@@ -641,27 +657,33 @@ public:
                { return txRefOfInput_.getDBKeyOfChild(indexOfInput_);}
 
    //////////////////////////////////////////////////////////////////////////////
-   BinaryData    getTxHashOfInput(void) const;
-   BinaryData    getTxHashOfOutput(void) const;
+   BinaryData    getTxHashOfInput(InterfaceToLDB *db) const;
+   BinaryData    getTxHashOfOutput(InterfaceToLDB *db) const;
+   TxOut getTxOutCopy(InterfaceToLDB *db);
+   TxIn getTxInCopy(InterfaceToLDB *db);
 
    bool setTxIn   (TxRef  txref, uint32_t index);
    bool setTxIn   (BinaryData dbKey8B);
    bool setTxOut  (TxRef  txref, uint32_t index);
    bool setTxOut  (BinaryData dbKey8B);
-   bool setTxInZC (Tx*    tx,    uint32_t index);
-   bool setTxOutZC(Tx*    tx,    uint32_t index);
+   bool setTxInZC (InterfaceToLDB *db, Tx*    tx,    uint32_t index);
+   bool setTxOutZC(InterfaceToLDB *db, Tx*    tx,    uint32_t index);
 
    //////////////////////////////////////////////////////////////////////////////
    bool isSourceUnknown(void) { return ( !hasTxOut() &&  hasTxIn() ); }
-   bool isStandardTxOutScript(void);
 
-   bool isSpent(void) const;
-   bool isUnspent(void) const;
-   bool isSpendable(uint32_t currBlk=0, bool ignoreAllZeroConf=false) const;
-   bool isMineButUnconfirmed(\
-        uint32_t currBlk, bool includeAllZeroConf=false) const;
+   bool isSpent(InterfaceToLDB *db) const;
+   bool isUnspent(InterfaceToLDB *db) const;
+   bool isSpendable(
+      InterfaceToLDB *db,
+      uint32_t currBlk=0, bool ignoreAllZeroConf=false
+   ) const;
+   bool isMineButUnconfirmed(
+      InterfaceToLDB *db,
+      uint32_t currBlk, bool includeAllZeroConf=false
+   ) const;
    void clearZCFields(void);
-   void pprintOneLine(void);
+   void pprintOneLine(InterfaceToLDB *db);
 
    bool operator<(TxIOPair const & t2)
       { return (getDBKeyOfOutput() < t2.getDBKeyOfOutput()); }
@@ -736,7 +758,7 @@ class UnspentTxOut
 {
 public:
    UnspentTxOut(void);
-   UnspentTxOut(TxOut & txout, uint32_t blknum) { init(txout, blknum);}
+   UnspentTxOut(InterfaceToLDB *db, TxOut & txout, uint32_t blknum) { init(db, txout, blknum);}
 
 
    UnspentTxOut(BinaryData const & hash, uint32_t outIndex, uint32_t height, 
@@ -744,7 +766,7 @@ public:
       txHash_(hash), txOutIndex_(outIndex), txHeight_(height),
       value_(val), script_(script) {}
 
-   void init(TxOut & txout, uint32_t blknum, bool isMultiRef=false);
+   void init(InterfaceToLDB *db, TxOut & txout, uint32_t blknum, bool isMultiRef=false);
 
    BinaryData   getTxHash(void) const      { return txHash_;     }
    uint32_t     getTxOutIndex(void) const  { return txOutIndex_; }
@@ -845,7 +867,8 @@ public:
 
 
    TxRef      getTxRef()     { return txRefObj_; }
-   Tx         getTxCopy()    { return txRefObj_.getTxCopy(); }
+   Tx         getTxCopy(InterfaceToLDB *db)
+      { return txRefObj_.attached(db).getTxCopy(); }
    BinaryData getTxHash()    { return txHash_; }
    uint32_t   getBlkNum()    { return blkNum_; }
    uint16_t   getTxIndex()   { return txIndex_; }
@@ -862,26 +885,21 @@ public:
          blkNum_(blkNum),
          txIndex_(txIndex) { }
 
-   RegisteredTx( TxRef txref, 
+   explicit RegisteredTx(Tx & tx) :
+         txRefObj_(tx.getTxRef()),
+         txHash_(tx.getThisHash()),
+         blkNum_(tx.getBlockHeight()),
+         txIndex_(tx.getBlockTxIndex()) { }
+
+   RegisteredTx( const TxRef& txref, 
                  BinaryData const & txHash,
                  uint32_t blkNum,
                  uint16_t txIndex) :
          txRefObj_(txref),
          txHash_(txHash),
          blkNum_(blkNum),
-         txIndex_(txIndex) { }
-
-   explicit RegisteredTx(TxRef txref) :
-         txRefObj_(txref),
-         txHash_(txref.getThisHash()),
-         blkNum_(txref.getBlockHeight()),
-         txIndex_(txref.getBlockTxIndex()) { }
-
-   explicit RegisteredTx(Tx & tx) :
-         txRefObj_(tx.getTxRef()),
-         txHash_(tx.getThisHash()),
-         blkNum_(tx.getBlockHeight()),
-         txIndex_(tx.getBlockTxIndex()) { }
+         txIndex_(txIndex)
+   { }
 
    bool operator<(RegisteredTx const & rt2) const 
    {

@@ -18,8 +18,6 @@
 #include "StoredBlockObj.h"
 #include "leveldb_wrapper.h"
 
-vector<InterfaceToLDB*> LevelDBWrapper::ifaceVect_(0);
-
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -976,7 +974,7 @@ bool InterfaceToLDB::readStoredScriptHistoryAtIter(LDBIter & ldbIter,
 
    BinaryDataRef sshKey = ldbIter.getKeyRef();
    ssh.unserializeDBKey(sshKey, true);
-   ssh.unserializeDBValue(ldbIter.getValueReader());
+   ssh.unserializeDBValue(ldbIter.getValueReader(), this);
 
    if(!ssh.useMultipleEntries_)
       return true;
@@ -1029,7 +1027,7 @@ void InterfaceToLDB::putStoredScriptHistory( StoredScriptHistory & ssh)
       return;
    }
 
-   putValue(BLKDATA, ssh.getDBKey(), serializeDBValue(ssh, armoryDbType_, dbPruneType_));
+   putValue(BLKDATA, ssh.getDBKey(), serializeDBValue(ssh, this, armoryDbType_, dbPruneType_));
 
    if(!ssh.useMultipleEntries_)
       return;
@@ -1041,7 +1039,9 @@ void InterfaceToLDB::putStoredScriptHistory( StoredScriptHistory & ssh)
    {
       StoredSubHistory & subssh = iter->second;
       if(subssh.txioSet_.size() > 0)
-         putValue(BLKDATA, subssh.getDBKey(), serializeDBValue(subssh, armoryDbType_, dbPruneType_));
+         putValue(BLKDATA, subssh.getDBKey(),
+            serializeDBValue(subssh, this, armoryDbType_, dbPruneType_)
+         );
    }
 }
 
@@ -1059,7 +1059,7 @@ void InterfaceToLDB::getStoredScriptHistorySummary( StoredScriptHistory & ssh,
    }
 
    ssh.unserializeDBKey(ldbIter.getKeyRef());
-   ssh.unserializeDBValue(ldbIter.getValueRef());
+   ssh.unserializeDBValue(ldbIter.getValueRef(), this);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1998,7 +1998,7 @@ TxOut InterfaceToLDB::getTxOutCopy( BinaryData ldbKey6B, uint16_t txOutIdx)
       return TxOut();
    }
 
-   TxRef parent(ldbKey6B, this);
+   TxRef parent(ldbKey6B);
 
    brr.advance(2);
    txoOut.unserialize_checked(brr.getCurrPtr(), brr.getSizeRemaining(), 0, parent, (uint32_t)txOutIdx);
@@ -2041,7 +2041,7 @@ TxIn InterfaceToLDB::getTxInCopy( BinaryData ldbKey6B, uint16_t txInIdx)
          LOGERR << "Requested TxIn with index greater than numTxIn";
          return TxIn();
       }
-      TxRef parent(ldbKey6B, this);
+      TxRef parent(ldbKey6B);
       uint8_t const * txInStart = brr.exposeDataPtr() + 34 + offsetsIn[txInIdx];
       uint32_t txInLength = offsetsIn[txInIdx+1] - offsetsIn[txInIdx];
       TxIn txin;
@@ -2463,7 +2463,7 @@ TxRef InterfaceToLDB::getTxRef( BinaryDataRef txHash )
    if(seekToTxByHash(ldbIter, txHash))
    {
       ldbIter.getKeyReader().advance(1);
-      return TxRef(ldbIter.getKeyReader().get_BinaryDataRef(6), this);
+      return TxRef(ldbIter.getKeyReader().get_BinaryDataRef(6));
    }
    
    return TxRef();
@@ -2475,7 +2475,7 @@ TxRef InterfaceToLDB::getTxRef(BinaryData hgtx, uint16_t txIndex)
    BinaryWriter bw;
    bw.put_BinaryData(hgtx);
    bw.put_uint16_t(txIndex, BIGENDIAN);
-   return TxRef(bw.getDataRef(), this);
+   return TxRef(bw.getDataRef());
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -2484,7 +2484,7 @@ TxRef InterfaceToLDB::getTxRef( uint32_t hgt, uint8_t  dup, uint16_t txIndex)
    BinaryWriter bw;
    bw.put_BinaryData(DBUtils::heightAndDupToHgtx(hgt,dup));
    bw.put_uint16_t(txIndex, BIGENDIAN);
-   return TxRef(bw.getDataRef(), this);
+   return TxRef(bw.getDataRef());
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -2712,7 +2712,7 @@ void InterfaceToLDB::pprintBlkDataDB(uint32_t indent)
          {
             // New SSH object, base entry
             ssh.unserializeDBKey(key); 
-            ssh.unserializeDBValue(val); 
+            ssh.unserializeDBValue(val, this); 
             ssh.pprintFullSSH(indent + 3); 
             lastSSH = key;
          }

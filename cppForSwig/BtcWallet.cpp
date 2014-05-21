@@ -230,7 +230,7 @@ pair<bool,bool> BtcWallet::isMineBulkFilter(
 
 
 /////////////////////////////////////////////////////////////////////////////
-void BtcWallet::pprintAlot(uint32_t topBlk, bool withAddr)
+void BtcWallet::pprintAlot(InterfaceToLDB *db, uint32_t topBlk, bool withAddr)
 {
    uint32_t numLedg = ledgerAllAddr_.size();
    uint32_t numLedgZC = ledgerAllAddrZC_.size();
@@ -254,7 +254,7 @@ void BtcWallet::pprintAlot(uint32_t topBlk, bool withAddr)
        iter != txioMap_.end();
        iter++)
    {
-      iter->second.pprintOneLine();
+      iter->second.pprintOneLine(db);
    }
 
    if(withAddr)
@@ -267,9 +267,9 @@ void BtcWallet::pprintAlot(uint32_t topBlk, bool withAddr)
          const ScrAddrObj & addr = (*saIter).second;
          HashString scraddr = addr.getScrAddr();
          cout << "\nAddress: " << scraddr.toHexStr().c_str() << endl;
-         cout << "   Tot: " << addr.getFullBalance() << endl;
-         cout << "   Spd: " << addr.getSpendableBalance(topBlk) << endl;
-         cout << "   Ucn: " << addr.getUnconfirmedBalance(topBlk) << endl;
+         cout << "   Tot: " << addr.getFullBalance(db) << endl;
+         cout << "   Spd: " << addr.getSpendableBalance(db, topBlk) << endl;
+         cout << "   Ucn: " << addr.getUnconfirmedBalance(db,topBlk) << endl;
                   
          cout << "   Ledger: " << endl;
          for(uint32_t i=0; i<addr.ledger_.size(); i++)
@@ -283,13 +283,13 @@ void BtcWallet::pprintAlot(uint32_t topBlk, bool withAddr)
          map<OutPoint, TxIOPair>::iterator iter;
          for(uint32_t t=0; t<addr.relevantTxIOPtrs_.size(); t++)
          {
-            addr.relevantTxIOPtrs_[t]->pprintOneLine();
+            addr.relevantTxIOPtrs_[t]->pprintOneLine(db);
          }
 
          cout << "   TxioPtrs (Zero-conf):" << endl;
          for(uint32_t t=0; t<addr.relevantTxIOPtrsZC_.size(); t++)
          {
-            addr.relevantTxIOPtrsZC_[t]->pprintOneLine();
+            addr.relevantTxIOPtrsZC_[t]->pprintOneLine(db);
          }
       }
    }
@@ -358,7 +358,7 @@ void BtcWallet::scanTx(Tx & tx,
          // We will get here for every address in the search, even 
          // though it is only relevant to one of the addresses.
          TxIOPair & txio  = txioIter->second;
-         TxOut txout = txio.getTxOutCopy();
+         TxOut txout = txio.getTxOutCopy(bdmPtr_->getIFace());
 
          // It's our TxIn, so address should be in this wallet
          scraddr  = txout.getScrAddressStr();
@@ -382,7 +382,7 @@ void BtcWallet::scanTx(Tx & tx,
          if( isZeroConf && txio.hasTxInZC() )
             return; // this tx can't be valid, might as well bail now
 
-         if( !txio.hasTxInInMain() && !(isZeroConf && txio.hasTxInZC())  )
+         if( !txio.hasTxInInMain(bdmPtr_->getIFace()) && !(isZeroConf && txio.hasTxInZC())  )
          {
             // isValidNew only identifies whether this set-call succeeded
             // If it didn't, it's because this is from a zero-conf tx but this 
@@ -390,7 +390,7 @@ void BtcWallet::scanTx(Tx & tx,
             // (i.e. we have a ref to the prev output, but it's been spent!)
             bool isValidNew;
             if(isZeroConf)
-               isValidNew = txio.setTxInZC(&tx, iin);
+               isValidNew = txio.setTxInZC(bdmPtr_->getIFace(), &tx, iin);
             else
                isValidNew = txio.setTxIn(tx.getTxRef(), iin);
 
@@ -429,7 +429,7 @@ void BtcWallet::scanTx(Tx & tx,
          if(KEY_IN_MAP(outpt, nonStdTxioMap_))
          {
             if(isZeroConf)
-               nonStdTxioMap_[outpt].setTxInZC(&tx, iin);
+               nonStdTxioMap_[outpt].setTxInZC(bdmPtr_->getIFace(), &tx, iin);
             else
                nonStdTxioMap_[outpt].setTxIn(tx.getTxRef(), iin);
             nonStdUnspentOutPoints_.erase(outpt);
@@ -474,21 +474,24 @@ void BtcWallet::scanTx(Tx & tx,
             if(isZeroConf) 
             {
                // This is a real txOut, in the blockchain
-               if(txioIter->second.hasTxOutZC() || txioIter->second.hasTxOutInMain())
+               if(
+                  txioIter->second.hasTxOutZC()
+                     || txioIter->second.hasTxOutInMain(bdmPtr_->getIFace())
+               )
                   continue; 
 
                // If we got here, somehow the Txio existed already, but 
                // there was no existing TxOut referenced by it.  Probably,
                // there was, but that TxOut was invalidated due to reorg
                // and now being re-added
-               txioIter->second.setTxOutZC(&tx, iout);
+               txioIter->second.setTxOutZC(bdmPtr_->getIFace(), &tx, iout);
                txioIter->second.setValue((uint64_t)thisVal);
                thisAddr.addTxIO( &txioIter->second, isZeroConf);
                doAddLedgerEntry = true;
             }
             else
             {
-               if(txioIter->second.hasTxOutInMain()) // ...but we already have one
+               if(txioIter->second.hasTxOutInMain(bdmPtr_->getIFace())) // ...but we already have one
                   continue;
 
                // If we got here, we have an in-blockchain TxOut that is 
@@ -508,7 +511,7 @@ void BtcWallet::scanTx(Tx & tx,
             // TxIO is not in the map yet -- create and add it
             TxIOPair newTxio(thisVal);
             if(isZeroConf)
-               newTxio.setTxOutZC(&tx, iout);
+               newTxio.setTxOutZC(bdmPtr_->getIFace(), &tx, iout);
             else
                newTxio.setTxOut(tx.getTxRef(), iout);
 
@@ -679,7 +682,7 @@ LedgerEntry BtcWallet::calcLedgerEntryForTx(Tx & tx)
 ////////////////////////////////////////////////////////////////////////////////
 LedgerEntry BtcWallet::calcLedgerEntryForTx(TxRef & txref)
 {
-   Tx theTx = txref.getTxCopy();
+   Tx theTx = txref.attached(bdmPtr_->getIFace()).getTxCopy();
    return calcLedgerEntryForTx(theTx);
 }
 
@@ -772,14 +775,14 @@ uint64_t BtcWallet::getSpendableBalance(\
        iter != txioMap_.end();
        iter++)
    {
-      if(iter->second.isSpendable(currBlk, ignoreAllZC))
+      if(iter->second.isSpendable(bdmPtr_->getIFace(), currBlk, ignoreAllZC))
          balance += iter->second.getValue();      
    }
    return balance;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-uint64_t BtcWallet::getUnconfirmedBalance(\
+uint64_t BtcWallet::getUnconfirmedBalance(
                     uint32_t currBlk, bool inclAllZC) const
 {
    uint64_t balance = 0;
@@ -788,7 +791,7 @@ uint64_t BtcWallet::getUnconfirmedBalance(\
        iter != txioMap_.end();
        iter++)
    {
-      if(iter->second.isMineButUnconfirmed(currBlk, inclAllZC))
+      if(iter->second.isMineButUnconfirmed(bdmPtr_->getIFace(), currBlk, inclAllZC))
          balance += iter->second.getValue();      
    }
    return balance;
@@ -803,7 +806,7 @@ uint64_t BtcWallet::getFullBalance(void) const
        iter != txioMap_.end();
        iter++)
    {
-      if(iter->second.isUnspent())
+      if(iter->second.isUnspent(bdmPtr_->getIFace()))
          balance += iter->second.getValue();      
    }
    return balance;
@@ -866,10 +869,10 @@ vector<UnspentTxOut> BtcWallet::getSpendableTxOutList(uint32_t blkNum,
        iter++)
    {
       TxIOPair & txio = iter->second;
-      if(txio.isSpendable(blkNum, ignoreAllZC))
+      if(txio.isSpendable(bdmPtr_->getIFace(), blkNum, ignoreAllZC))
       {
-         TxOut txout = txio.getTxOutCopy();
-         utxoList.push_back(UnspentTxOut(txout, blkNum) );
+         TxOut txout = txio.getTxOutCopy(bdmPtr_->getIFace());
+         utxoList.push_back(UnspentTxOut(bdmPtr_->getIFace(), txout, blkNum) );
       }
    }
    return utxoList;
@@ -886,10 +889,10 @@ vector<UnspentTxOut> BtcWallet::getFullTxOutList(uint32_t blkNum)
        iter++)
    {
       TxIOPair & txio = iter->second;
-      if(txio.isUnspent())
+      if(txio.isUnspent(bdmPtr_->getIFace()))
       {
-         TxOut txout = txio.getTxOutCopy();
-         utxoList.push_back(UnspentTxOut(txout, blkNum) );
+         TxOut txout = txio.getTxOutCopy(bdmPtr_->getIFace());
+         utxoList.push_back(UnspentTxOut(bdmPtr_->getIFace(), txout, blkNum) );
       }
    }
    return utxoList;
@@ -970,7 +973,7 @@ vector<AddressBookEntry> BtcWallet::createAddressBook(void)
       if( !txio.hasTxIn() )
          continue;
 
-      Tx thisTx = txio.getTxRefOfInput().getTxCopy();
+      Tx thisTx = txio.getTxRefOfInput().attached(bdmPtr_->getIFace()).getTxCopy();
       HashString txHash = thisTx.getThisHash();
 
       if(allTxList.count(txHash) > 0)
@@ -1105,7 +1108,7 @@ void BtcWallet::insertRegisteredTxIfNew(HashString txHash)
    // .insert() function returns pair<iter,bool> with bool true if inserted
    if(registeredTxSet_.insert(txHash).second == true)
    {
-      TxRef txref = bdmPtr_->getTxRefByHash(txHash);
+      DBTxRef txref = bdmPtr_->getTxRefByHash(txHash).attached(bdmPtr_->getIFace());
       RegisteredTx regTx(txref,
                          txref.getThisHash(),
                          txref.getBlockHeight(),
@@ -1147,7 +1150,7 @@ void BtcWallet::scanRegisteredTxList(uint32_t blkStart, uint32_t blkEnd)
        txIter++)
    {
       // Pull the tx from disk and check it for the supplied wallet
-      Tx theTx = txIter->getTxCopy();
+      Tx theTx = txIter->getTxCopy(bdmPtr_->getIFace());
       if( !theTx.isInitialized() )
       {
          LOGWARN << "***WARNING: How did we get a NULL tx?";
@@ -1373,7 +1376,7 @@ void BtcWallet::fetchDBRegisteredScrAddrData(BinaryData const & scrAddr)
       iface->getStoredTx(stx, txref.getDBKey());
       RegisteredTx regTx(txref, stx.thisHash_, stx.blockHeight_, stx.txIndex_);
       insertRegisteredTxIfNew(regTx);
-      registerOutPoint(hist[i].getOutPoint());
+      registerOutPoint(hist[i].getOutPoint(iface));
 
       txref = hist[i].getTxRefOfInput();
       if(txref.isNull())
@@ -1701,7 +1704,7 @@ void BtcWallet::saveScrAddrHistories()
       ssh.version_ = ARMORY_DB_VERSION;
       ssh.alreadyScannedUpToBlk_ = rsa.alreadyScannedUpToBlk_;
       for (uint32_t t = 0; t<txioList.size(); t++)
-         ssh.insertTxio(*(txioList[t]));
+         ssh.insertTxio(bdmPtr_->getIFace(), *(txioList[t]));
 
       iface->putStoredScriptHistory(ssh);
    }

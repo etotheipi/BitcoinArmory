@@ -278,7 +278,7 @@ void BlockDataManagerConfig::selectNetwork(const string &netname)
 ////////////////////////////////////////////////////////////////////////////////
 BlockDataManager_LevelDB::BlockDataManager_LevelDB(const BlockDataManagerConfig &bdmConfig) 
    : config_(bdmConfig)
-   , iface_(LevelDBWrapper::GetInterfacePtr())
+   , iface_(new InterfaceToLDB)
    , blockchain_(config_.genesisBlockHash)
 {
    LOGINFO << "Set home directory: " << config_.homeDirLocation;
@@ -823,7 +823,7 @@ Tx BlockDataManager_LevelDB::getTxByHash(HashString const & txhash)
    TxRef txrefobj = getTxRefByHash(txhash);
 
    if(!txrefobj.isNull())
-      return txrefobj.getTxCopy();
+      return txrefobj.attached(iface_).getTxCopy();
    else
    {
       // It's not in the blockchain, but maybe in the zero-conf tx list
