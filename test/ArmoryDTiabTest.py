@@ -7,7 +7,7 @@ import os
 import unittest
 from test.Tiab import TiabTest
 from armoryengine.ArmoryUtils import *
-from armoryd import AmountToJSON, Armory_Json_Rpc_Server, JSONtoAmount
+from armoryd import AmountToJSON, Armory_Json_Rpc_Server, JSONtoAmount, startArmoryDaemon
 from armoryengine.BDM import TheBDM
 from armoryengine.PyBtcWallet import PyBtcWallet
 from armoryengine.Transaction import UnsignedTransaction
