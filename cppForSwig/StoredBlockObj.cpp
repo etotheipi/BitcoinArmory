@@ -981,8 +981,6 @@ void StoredTxOut::serializeDBValue(BinaryWriter & bw, DB_TYPE_PARAMS,
       }
    }
 
-   uint16_t isCbase = (isCoinbase_ ? 1 : 0);
-
    BitPacker<uint16_t> bitpack;
    bitpack.putBits((uint16_t)ARMORY_DB_VERSION,  4);
    bitpack.putBits((uint16_t)txVersion_,         2);
@@ -1248,12 +1246,12 @@ void StoredTxOut::pprintOneLine(uint32_t indent)
 void StoredScriptHistory::unserializeDBValue(BinaryRefReader & brr, InterfaceToLDB *db)
 {
    // Now read the stored data fro this registered address
-   DB_PRUNE_TYPE pruneType;
-   SCRIPT_UTXO_TYPE txoListType;
    BitUnpacker<uint16_t> bitunpack(brr);
    version_            =                    bitunpack.getBits(4);
-   pruneType           = (DB_PRUNE_TYPE)    bitunpack.getBits(2);
-   txoListType         = (SCRIPT_UTXO_TYPE) bitunpack.getBits(2);
+   DB_PRUNE_TYPE pruneType = (DB_PRUNE_TYPE)    bitunpack.getBits(2);
+   (void)pruneType;
+   SCRIPT_UTXO_TYPE txoListType = (SCRIPT_UTXO_TYPE) bitunpack.getBits(2);
+   (void)txoListType;
    useMultipleEntries_ =                    bitunpack.getBit();
 
    alreadyScannedUpToBlk_ = brr.get_uint32_t();

@@ -424,7 +424,6 @@ bool InterfaceToLDB::openDatabases(string basedir,
    closeDatabases();
 
 
-   vector<leveldb::DB*> dbs[2];
    for(uint32_t db=0; db<DB_COUNT; db++)
    {
 
@@ -902,7 +901,6 @@ bool InterfaceToLDB::startBlkDataIteration(LDBIter & ldbIter, DB_PREFIX prefix)
 // because we checked it and decide we don't care, so we want to skip it.
 bool InterfaceToLDB::advanceToNextBlock(LDBIter & ldbIter, bool skip)
 {
-   char prefix = DB_PREFIX_TXDATA;
    BinaryData key;
    while(1) 
    {
@@ -1050,7 +1048,7 @@ void InterfaceToLDB::getStoredScriptHistorySummary( StoredScriptHistory & ssh,
                                                     BinaryDataRef scrAddrStr)
 {
    LDBIter ldbIter = getIterator(BLKDATA);
-   bool seekTrue = ldbIter.seekTo(DB_PREFIX_SCRIPT, scrAddrStr);
+   ldbIter.seekTo(DB_PREFIX_SCRIPT, scrAddrStr);
 
    if(!ldbIter.seekToExact(DB_PREFIX_SCRIPT, scrAddrStr))
    {
@@ -1194,7 +1192,7 @@ void InterfaceToLDB::addRegisteredScript(BinaryDataRef rawScript,
                                          uint32_t      blockCreated)
 {
    BinaryData uniqKey = BtcUtils::getTxOutScrAddr(rawScript);
-   bool       isMulti = BtcUtils::isMultisigScript(rawScript);
+   // bool       isMulti = BtcUtils::isMultisigScript(rawScript);
 
    StoredScriptHistory ssh;
    getStoredScriptHistory(ssh, uniqKey);
@@ -1304,7 +1302,7 @@ uint8_t InterfaceToLDB::getValidDupIDForHeight_fromDB(uint32_t blockHgt)
    for(uint8_t i=0; i<numDup; i++)
    {
       uint8_t dup8 = brrHgts.get_uint8_t(); 
-      BinaryDataRef thisHash = brrHgts.get_BinaryDataRef(lenEntry-1);
+      // BinaryDataRef thisHash = brrHgts.get_BinaryDataRef(lenEntry-1);
       if((dup8 & 0x80) > 0)
          return (dup8 & 0x7f);
    }
@@ -1777,6 +1775,8 @@ bool InterfaceToLDB::readStoredBlockAtIter(LDBIter & ldbIter, StoredHeader & sbh
                                                    tempDup,
                                                    currIdx);
 
+      (void)bdtype;
+      
       if(currIdx >= sbh.numTx_)
       {
          LOGERR << "Invalid txIndex at height " << (sbh.blockHeight_)
@@ -2020,7 +2020,9 @@ TxIn InterfaceToLDB::getTxInCopy( BinaryData ldbKey6B, uint16_t txInIdx)
 
    BitUnpacker<uint16_t> bitunpack(brr); // flags
    uint16_t dbVer   = bitunpack.getBits(4);
+   (void)dbVer;
    uint16_t txVer   = bitunpack.getBits(2);
+   (void)txVer;
    uint16_t txSer   = bitunpack.getBits(4);
    
    brr.advance(32);
@@ -2188,6 +2190,7 @@ bool InterfaceToLDB::getStoredTx_byHash( StoredTx & stx,
 
       BLKDATA_TYPE bdtype = DBUtils::readBlkDataKey(ldbIter.getKeyReader(), 
                                                    height, dup, txIdx);
+      (void)bdtype;
       
       // We don't actually know for sure whether the seekTo() found 
       BinaryData key6 = DBUtils::getBlkDataKeyNoPrefix(height, dup, txIdx);

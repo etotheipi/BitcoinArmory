@@ -60,8 +60,12 @@ class BtcWallet
 {
 public:
    BtcWallet(BlockDataManager_LevelDB* bdm=0)
-      : bdmPtr_(bdm), lastScanned_(0), allScannedUpToBlk_(0), 
-        ignoreLastScanned_(true), isInitialized_(false) {}
+      : bdmPtr_(bdm),
+      allScannedUpToBlk_(0), 
+      lastScanned_(0),
+      ignoreLastScanned_(true),
+      isInitialized_(false)
+   {}
    ~BtcWallet(void);
 
    /////////////////////////////////////////////////////////////////////////////
@@ -252,6 +256,7 @@ private:
    vector<LedgerEntry> & getEmptyLedger(void) { EmptyLedger_.clear(); return EmptyLedger_;}
 
 private:
+   BlockDataManager_LevelDB*    bdmPtr_;
    ts_saMap                     scrAddrMap_;
    map<OutPoint, TxIOPair>      txioMap_;
 
@@ -273,7 +278,6 @@ private:
    map<OutPoint, TxIOPair>      nonStdTxioMap_;
    set<OutPoint>                nonStdUnspentOutPoints_;
 
-   BlockDataManager_LevelDB*    bdmPtr_;
    static vector<LedgerEntry>   EmptyLedger_; // just a null-reference object
 
    //marks if the DB was scanned against registeredScrAddrMap, to fill its

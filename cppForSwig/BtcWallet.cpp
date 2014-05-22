@@ -203,6 +203,7 @@ pair<bool,bool> BtcWallet::isMineBulkFilter(
 
             BinaryRefReader brrmsig(msigkey);
             uint8_t M = brrmsig.get_uint8_t();
+            (void)M;
             uint8_t N = brrmsig.get_uint8_t();
             for(uint8_t a=0; a<N; a++)
                if(hasScrAddress(HASH160PREFIX + brr.get_BinaryDataRef(20)))
@@ -1679,8 +1680,6 @@ void BtcWallet::saveScrAddrHistories()
    InterfaceToLDB* iface = bdmPtr_->getIFace();
    InterfaceToLDB::Batch batch(iface, BLKDATA);
 
-   uint32_t i = 0;
-   
    ts_saMap::const_snapshot saSnapshot(scrAddrMap_);
    ts_saMap::const_iterator saIter;
 

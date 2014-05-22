@@ -39,8 +39,6 @@
 #include <assert.h>
 
 // We can remove these includes (Crypto++ ) if we remove the GenerateRandom()
-#include "cryptlib.h"
-#include "osrng.h"
 #include "log.h"
 
 #define DEFAULT_BUFFER_SIZE 32*1048576
@@ -529,16 +527,6 @@ public:
          uint8_t char2 = binLookupTable[ (uint8_t)str[2*i+1] ];
          data_[i] = (char1 << 4) | char2;
       }
-   }
-
-
-   // Can remove this method if we don't have crypto++ linked
-   static BinaryData GenerateRandom(size_t numBytes)
-   {
-      static CryptoPP::AutoSeededRandomPool prng;
-      BinaryData randData(numBytes);
-      prng.GenerateBlock(randData.getPtr(), numBytes);
-      return randData;
    }
 
 

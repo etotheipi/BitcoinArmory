@@ -245,17 +245,19 @@ public:
 class StoredHeader
 {
 public:
-   StoredHeader(void) : dataCopy_(0), 
-                        thisHash_(0), 
-                        numTx_(UINT32_MAX), 
-                        numBytes_(UINT32_MAX), 
-                        blockHeight_(UINT32_MAX), 
-                        duplicateID_(UINT8_MAX), 
-                        merkle_(0), 
-                        isMainBranch_(false),
-                        blockAppliedToDB_(false), 
-                        merkleIsPartial_(false),
-                        hasBlockHeader_(false) {}
+   StoredHeader(void)
+      : dataCopy_(0), 
+      thisHash_(0), 
+      numTx_(UINT32_MAX), 
+      numBytes_(UINT32_MAX), 
+      blockHeight_(UINT32_MAX), 
+      duplicateID_(UINT8_MAX), 
+      merkle_(0), 
+      merkleIsPartial_(false),
+      isMainBranch_(false),
+      blockAppliedToDB_(false), 
+      hasBlockHeader_(false)
+   {}
                            
 
    bool isInitialized(void) const {return dataCopy_.getSize() > 0;}
@@ -425,16 +427,18 @@ public:
 class StoredTxOut
 {
 public:
-   StoredTxOut(void) : txVersion_(UINT32_MAX), 
-                       dataCopy_(0), 
-                       blockHeight_(UINT32_MAX), 
-                       duplicateID_(UINT8_MAX), 
-                       parentHash_(0),
-                       txIndex_(UINT16_MAX), 
-                       txOutIndex_(UINT16_MAX), 
-                       spentness_(TXOUT_SPENTUNK), 
-                       isCoinbase_(false), 
-                       spentByTxInKey_(0) {}
+   StoredTxOut(void)
+      : txVersion_(UINT32_MAX), 
+      dataCopy_(0), 
+      blockHeight_(UINT32_MAX), 
+      duplicateID_(UINT8_MAX), 
+      txIndex_(UINT16_MAX), 
+      txOutIndex_(UINT16_MAX), 
+      parentHash_(0),
+      spentness_(TXOUT_SPENTUNK), 
+      isCoinbase_(false), 
+      spentByTxInKey_(0) 
+   {}
 
    bool isInitialized(void) const {return dataCopy_.getSize() > 0;}
    bool isNull(void) { return !isInitialized(); }

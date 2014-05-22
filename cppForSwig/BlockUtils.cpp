@@ -1384,7 +1384,6 @@ vector<TxRef*> BlockDataManager_LevelDB::findAllNonStdTx(void)
 
 static bool scanFor(std::istream &in, const uint8_t * bytes, const unsigned len)
 {
-   unsigned matched=0; // how many bytes we've matched so far
    std::vector<uint8_t> ahead(len); // the bytes matched
    
    in.read((char*)&ahead.front(), len);
@@ -2155,8 +2154,6 @@ uint32_t BlockDataManager_LevelDB::readBlkFileUpdate(void)
    // Observe if everything was up to date when we started, because we're 
    // going to add new blockchain data and don't want to trigger a rescan 
    // if this is just a normal update.
-   const uint32_t nextBlk = blockchain_.top().getBlockHeight() + 1;
-   const bool prevRegisteredUpToDate = (allScannedUpToBlk_==nextBlk);
    
    // Pull in the remaining data in old/curr blkfile, and beginning of new
    BinaryData newBlockDataRaw((size_t)(currBlkBytesToRead+nextBlkBytesToRead));

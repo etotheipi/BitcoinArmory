@@ -65,7 +65,6 @@ void BDM_Inject::wait(unsigned ms)
       abstimets.tv_nsec = abstime.tv_usec*1000;
       pthread_cond_timedwait(&pimpl->notifier, &pimpl->notifierLock, &abstimets); 
       
-      unsigned mselapsed;
       struct timeval latertime;
       gettimeofday(&latertime, 0);
       if (latertime.tv_sec >= abstime.tv_sec && latertime.tv_usec >= abstime.tv_usec)
