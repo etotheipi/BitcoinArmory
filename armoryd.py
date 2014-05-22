@@ -22,11 +22,11 @@
 # This is a json-rpc interface to armory - http://bitcoinarmory.com/
 #
 # Where possible this follows conventions established by the Satoshi client.
-# Does not require armory to be installed or running, this is a standalone application.
-# Requires bitcoind process to be running before starting armory-daemon.
-# Requires an armory wallet (can be watching only) to be in the same folder as the
-# armory-daemon script.
-# Works with testnet, use --testnet flag when starting the script.
+# Does not require armory to be installed or running, this is a standalone
+# application. Requires bitcoind process to be running before starting armoryd.
+# Requires an armory wallet (can be watching only) to be in the same folder as
+# the armoryd script. Works with testnet, use --testnet flag when starting the
+# script.
 #
 # BEWARE:
 # This is relatively untested, please use caution. There should be no chance for
@@ -48,6 +48,7 @@ import random
 import socket
 import sys
 import time
+import bitcoinrpc_jsonrpc
 
 from twisted.cred.checkers import FilePasswordDB
 from twisted.internet import reactor
@@ -57,7 +58,7 @@ from txjsonrpc.web import jsonrpc
 
 from CppBlockUtils import SecureBinaryData
 from armoryengine.ALL import *
-from jsonrpc import ServiceProxy
+from bitcoinrpc_jsonrpc import ServiceProxy
 from armoryengine.Decorators import EmailOutput
 from armoryengine.ArmoryUtils import addrStr_to_hash160
 from armoryengine.PyBtcWalletRecovery import *
@@ -73,7 +74,6 @@ class UniversalEncoder(json.JSONEncoder):
 ARMORYD_CONF_FILE = os.path.join(ARMORY_HOME_DIR, 'armoryd.conf')
 
 
-
 # From https://en.bitcoin.it/wiki/Proper_Money_Handling_(JSON-RPC)
 def JSONtoAmount(value):
     return long(round(float(value) * 1e8))
@@ -83,12 +83,6 @@ def AmountToJSON(amount):
 
 # Define some specific errors that can be thrown and caught
 class UnrecognizedCommand(Exception): pass
-
-
-################################################################################
-
-################################################################################
-################################################################################
 class NotEnoughCoinsError(Exception): pass
 class CoinSelectError(Exception): pass
 class WalletUnlockNeeded(Exception): pass
@@ -97,30 +91,32 @@ class PrivateKeyNotFound(Exception): pass
 class AddressNotInWallet(Exception): pass
 
 
-
 NOT_IMPLEMENTED = '--Not Implemented--'
 
 class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
-
-   ###########################################################################g##
+   ##############################################################################
    def __init__(self, wallet):
       self.wallet = wallet
       # Used with wallet notification code 
       self.addressMetaData = {}
-      
+
+
    #############################################################################
    def jsonrpc_backupwallet(self, backupFilePath):
       self.wallet.backupWalletFile(backupFilePath)
+
 
    #############################################################################
    def jsonrpc_listunspent(self):
       utxoList = self.wallet.getTxOutList('unspent')
       result = [u.getOutPoint().serialize() for u in utxoList]
       return result
-         
+
+
    #############################################################################
    def jsonrpc_importprivkey(self, privkey):
       self.wallet.importExternalAddressData(privKey=privkey)
+
 
    #############################################################################
    def jsonrpc_getrawtransaction(self, txHash, verbose=0, endianness=BIGENDIAN):
@@ -140,7 +136,8 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
          result = None
 
       return result
-   
+
+
    #############################################################################
    def jsonrpc_gettxout(self, txHash, n):
       txOut = None
@@ -155,20 +152,22 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       else:    
          LOGERROR('Tx hash not recognized by TheBDM: %s' % binary_to_hex(txHash))
       return txOut
-   
+
+
    #############################################################################
    def jsonrpc_encryptwallet(self, passphrase):
       if self.wallet.isLocked:
          raise WalletUnlockNeeded
       self.wallet.changeWalletEncryption( securePassphrase=SecureBinaryData(passphrase) )
       self.wallet.lock()
-      
+
+
    #############################################################################
    def jsonrpc_unlockwallet(self, passphrase, timeout):
       self.wallet.unlock( securePassphrase=SecureBinaryData(passphrase),
                             tempKeyLifetime=timeout)
 
-   
+
    #############################################################################
    def getScriptPubKey(self, txOut):
       addrList = []
@@ -191,6 +190,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
                'reqSigs'   : M,
                'type'      : CPP_TXOUT_SCRIPT_NAMES[scriptType],
                'addresses' : addrList }
+
 
    #############################################################################
    def jsonrpc_decoderawtransaction(self, hexString):
@@ -241,6 +241,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       addr = self.wallet.getNextUnusedAddress()
       return addr.getAddrStr()
 
+
    #############################################################################
    def jsonrpc_dumpprivkey(self, addr58):
       # Cannot dump the private key for a locked wallet
@@ -257,7 +258,8 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       if pyBtcAddress == None:
          raise PrivateKeyNotFound
       return pyBtcAddress.serializePlainPrivateKey()
-            
+
+
    #############################################################################
    def jsonrpc_getwalletinfo(self):
       wltInfo = { \
@@ -270,14 +272,17 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
                }
       return wltInfo
 
+
    #############################################################################
    def jsonrpc_getbalance(self, baltype='spendable'):
       if not baltype in ['spendable','spend', 'unconf', 'unconfirmed', \
                           'total', 'ultimate','unspent', 'full']:
+         print 'DOUG DEBUG: getbalance str', baltype
          LOGERROR('Unrecognized getbalance string: "%s"', baltype)
          return -1
          
       return AmountToJSON(self.wallet.getBalance(baltype))
+
 
    #############################################################################
    def jsonrpc_getreceivedbyaddress(self, address):
@@ -290,6 +295,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       balance = sum([x.getValue() for x in txs if x.getValue() > 0])
       return AmountToJSON(balance)
 
+
    #############################################################################
    def jsonrpc_sendtoaddress(self, bitcoinaddress, amount):
       if CLI_OPTIONS.offline:
@@ -297,6 +303,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       scraddr = addrStr_to_scrAddr(bitcoinaddress)
       amtCoin = JSONtoAmount(amount)
       return self.create_unsigned_transaction([[scraddr, amtCoin]])
+
 
    #############################################################################
    def jsonrpc_sendmany(self, *args):
@@ -314,6 +321,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
    #############################################################################
    def jsonrpc_getledgersimple(self, tx_count=10, from_tx=0):
       return self.jsonrpc_getledger(tx_count, from_tx, simple=True)
+
 
    #############################################################################
    def jsonrpc_getledger(self, tx_count=10, from_tx=0, simple=False):
@@ -350,7 +358,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
          isToSelf = le.isSentToSelf()
          netCoins = le.getValue()
          feeCoins = getFeeForTx(txHashBin)
-      
+
          scrAddrs = [cppTx.getTxOutCopy(i).getScrAddressStr() for i in range(cppTx.getNumTxOut())]
          allRecips = [CheckHash160(r) for r in scrAddrs]
          first160 = ''
@@ -383,7 +391,8 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
                   change160 = recip160
 
 
-         # amtCoins: amt of BTC transacted, always positive (how big are outputs minus change?)
+         # amtCoins: amt of BTC transacted, always positive (how big are outputs
+         #           minus change?)
          # netCoins: net effect on wallet (positive or negative)
          # feeCoins: how much fee was paid for this tx 
 
@@ -398,7 +407,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
          firstAddr = hash160_to_addrStr(first160)
          changeAddr = '' if len(change160)==0 else hash160_to_addrStr(change160)
 
-         nconf = TheBDM.getTopBlockHeader().getBlockHeight() - le.getBlockNum() + 1
+         nconf = TheBDM.getTopBlockHeader().getBlockHeight()-le.getBlockNum()+1
 
 
          myinputs,  otherinputs = [],[]
@@ -408,7 +417,6 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
             addTo  = (myinputs if self.wallet.hasAddr(sender) else otherinputs)
             addTo.append( {'address': hash160_to_addrStr(sender), \
                            'amount':  AmountToJSON(val)} )
-            
 
          myoutputs, otheroutputs = [], []
          for iout in range(cppTx.getNumTxOut()):
@@ -418,7 +426,6 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
             addTo.append( {'address': hash160_to_addrStr(recip), \
                            'amount':  AmountToJSON(val)} )
 
-         
          tx_info = {
                      'direction' :    txDir,
                      'wallet' :       self.wallet.uniqueIDB58,
@@ -445,9 +452,6 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
          final_le_list.append(tx_info)
 
       return final_le_list
-      
-
-
 
 
    #############################################################################
@@ -456,7 +460,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
       final_tx_list = []
       ledgerEntries = self.wallet.getTxLedger('blk')
-         
+
       sz = len(ledgerEntries)
       lower = min(sz, from_tx)
       upper = min(sz, from_tx+tx_count)
@@ -488,7 +492,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
          isToSelf   = le.isSentToSelf()
          feeCoin   = getFeeForTx(txHashBin)
          totalBalDiff = le.getValue()
-         nconf = TheBDM.getTopBlockHeader().getBlockHeight() - le.getBlockNum() + 1
+         nconf = TheBDM.getTopBlockHeader().getBlockHeight()-le.getBlockNum()+1
 
 
          # We have potentially change outputs on any outgoing transactions.
@@ -499,8 +503,6 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
             recip = CheckHash160(cppTx.getTxOutCopy(iout).getScrAddressStr())
             val   = cppTx.getTxOutCopy(iout).getValue()
             recipVals.append([recip,val])
-            
-
 
          if cppTx.getNumTxOut()==1:
             changeAddr160 = ""
@@ -529,7 +531,6 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
                   break
             targAddr160 = recipVals[0][0]
             changeAddr160 = ''
-            
 
          # We always add one entry for the total balance diff on outgoing tx
          if totalBalDiff<-feeCoin:
@@ -552,20 +553,18 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
                      }
             final_tx_list.append(tx_info)
 
-
-
-
          for a160,val in recipVals:
             # Change outputs have already been removed
             if totalBalDiff>0 and not self.wallet.hasAddr(a160):
-               # This is a receiving tx and this is other addr sending to other addr
+               # This is a receiving tx and this is other addr sending to other
+               # addr
                continue
 
             if a160=='\x00'*20:
                address = '<Non-Standard Script>'
             else:
                address = hash160_to_addrStr(a160)
-            
+
             if not self.wallet.hasAddr(a160):
                category = 'send'
                amt = -AmountToJSON(val)
@@ -604,6 +603,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
             final_tx_list.append(tx_info)
 
       return final_tx_list
+ 
  
    #############################################################################
    def jsonrpc_getinfo(self):
@@ -656,7 +656,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
          out['tx'][i] = binary_to_hex(txlist[i].getThisHash(), BIGENDIAN)
    
       return out
-      
+
 
    #############################################################################
    def jsonrpc_gettransaction(self, txHash):
@@ -688,7 +688,6 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
                                'ismine':   False,
                                'fromtxid': binary_to_hex(op.getTxHash(), BIGENDIAN),
                                'fromtxindex': op.getTxOutIndex()})
-                               
          else:
             txout = prevtx.getTxOutCopy(op.getTxOutIndex())
             inputvalues.append(txout.getValue())
@@ -719,7 +718,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
          return out
 
       # The tx is in a block, fill in the rest of the data
-      out['confirmations'] = TheBDM.getTopBlockHeight() - tx.getBlockHeight() + 1
+      out['confirmations'] = TheBDM.getTopBlockHeight()-tx.getBlockHeight()+1
       out['time'] = tx.getBlockTimestamp()
       out['orderinblock'] = tx.getBlockTxIndex()
 
@@ -727,7 +726,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       amt = le.getValue()
       out['netdiff']     = AmountToJSON(amt)
       out['totalinputs'] = AmountToJSON(sum(inputvalues))
-   
+
       if le.getTxHash()=='\x00'*32:
          out['category']  = 'unrelated'
          out['direction'] = 'unrelated'
@@ -740,10 +739,9 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       else:
          out['category']  = 'receive'
          out['direction'] = 'receive'
-         
 
-   
       return out
+
 
    #############################################################################
    # https://bitcointalk.org/index.php?topic=92496.msg1126310#msg1126310
@@ -766,7 +764,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
          fee = minFeeRec
 
       if len(utxoSelect)==0:
-         raise CoinSelectError, "Somehow, coin selection failed.  This shouldn't happen"
+         raise CoinSelectError, "Coin selection failed. This shouldn't happen."
 
       totalSelected = sum([u.getValue() for u in utxoSelect])
       totalChange = totalSelected - (totalSend  + fee)
@@ -777,19 +775,22 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
          outputPairs.append( [addrStr_to_scrAddr(nextAddr), totalChange] )
 
       random.shuffle(outputPairs)
-      txdp = UnsignedTransaction().createFromTxOutSelection(utxoSelect, outputPairs)
+      txdp = UnsignedTransaction().createFromTxOutSelection(utxoSelect, \
+                                                            outputPairs)
 
       return txdp.serializeAscii()
 
+
    ################################################################################
    # For each transaction in a block that triggers a notification:
-   #  List the inputs, and output, indicate the one we are watching, displays balance data
-   #  Also, display meta data associated with the address.
+   #  List the inputs, and output, indicate the one we are watching, displays
+   #  balance data. Also, display meta data associated with the address.
    #
    # Example usage:
    # started the daemon with these arguments: --testnet armory_286jcNJRc_.wallet
    # Then I called the daemon with: --testnet watchwallet <email args>
-   def jsonrpc_watchwallet(self, send_from=None, password=None, send_to=None, subject=None):
+   def jsonrpc_watchwallet(self, send_from=None, password=None, send_to=None, \
+                           subject=None):
       
       @EmailOutput(send_from, password, [send_to], subject)
       def reportTxFromAddrInNewBlock(pyHeader, pyTxList):
@@ -798,21 +799,27 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
             for pyTxIn in pyTx.inputs:
                sendingAddrStr = TxInExtractAddrStrIfAvail(pyTxIn)
                if len(sendingAddrStr) > 0:
-                  sendingAddrHash160 = addrStr_to_hash160(sendingAddrStr, False)[1]
+                  sendingAddrHash160 = addrStr_to_hash160(sendingAddrStr, \
+                                                          False)[1]
                   if self.wallet.addrMap.has_key(sendingAddrHash160):
                      sendingAddr = self.wallet.addrMap[sendingAddrHash160]
-                     result = ''.join([result, '\n', sendingAddr.toString(), '\n'])
+                     result = ''.join([result, '\n', sendingAddr.toString(), \
+                                       '\n'])
                      # print the meta data
                      if sendingAddrStr in self.addressMetaData:
-                        result = ''.join([result, "\nMeta Data: ", str(self.addressMetaData[sendingAddrStr]), '\n'])
+                        result = ''.join([result, "\nMeta Data: ", \
+                                          str(self.addressMetaData[sendingAddrStr]), \
+                                          '\n'])
                      result = ''.join([result, '\n', pyTx.toString()])
          return result
 
-      # TODO: Need stop assuming that this is the only method using newBlockFunctions
-      # Remove existing newBlockFunction to allow user to change the email args
+      # TODO: Need stop assuming that this is the only method using
+      # newBlockFunctions(). Remove existing newBlockFunction() to allow user to
+      # change the email args.
       rpc_server.newBlockFunctions = []
       rpc_server.newBlockFunctions.append(reportTxFromAddrInNewBlock)
-   
+
+
    ################################################################################
    # Associate meta data to an address or addresses
    # Example input:  "{\"mzAtXhy3Z6SLd7rAwNJrL17e8mQkjDVDXh\": {\"chain\": 5,
@@ -827,81 +834,88 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
          if not self.wallet.addrMap.has_key(addrStr_to_hash160(addr, False)[1]):
             raise AddressNotInWallet
       self.addressMetaData.update(newAddressMetaData)
-   
-   ################################################################################
+
+
+   #############################################################################
    # Clear the meta data
    def jsonrpc_clearaddressmetadata(self):
       self.addressMetaData = {}
-         
-   ################################################################################
+
+
+   #############################################################################
    # get the meta data
    def jsonrpc_getaddressmetadata(self):
       return self.addressMetaData
-         
-################################################################################
+
+
 ################################################################################
 class Armory_Daemon(object):
 
 
    #############################################################################
    def __init__(self):
-
       # Check if armoryd is already running, bail if it is
-      self.checkForAlreadyRunning()
-      self.lock = threading.Lock()
-      self.lastChecked = datetime.now()
-      
-      #check wallet consistency every hour
-      self.checkStep = 3600
+      armorydIsRunning = self.checkForAlreadyRunning()
+      if armorydIsRunning == True:
+         # Execute the command and return to the command line.
+         self.executeCommand()
+         os._exit(0)
+      else:
+         self.lock = threading.Lock()
+         self.lastChecked = datetime.now()
 
-      print ''
-      print '*'*80
-      print '* '
-      print '* WARNING!  WALLET FILE ACCESS IS NOT THREAD-SAFE!'
-      print '*           DO NOT run armoryd at the same time as ArmoryQt if '
-      print '*           they are managing the same wallet file.  If you want '
-      print '*           to manage the same wallet with both applications '
-      print '*           you must make a digital copy/backup of the wallet file '
-      print '*           into another directory and point armoryd at that one.  '
-      print '*           '
-      print '*           As long as the two processes do not share the same '
-      print '*           actual file, there is no risk of wallet corruption. '
-      print '*           Just be aware that addresses may end up being reused '
-      print '*           if you execute transactions at approximately the same '
-      print '*           time with both apps. '
-      print '* '
-      print '*'*80
-      print ''
+         #check wallet consistency every hour
+         self.checkStep = 3600
 
-      # ...otherwise, setup the server
-      self.newTxFunctions = []
-      self.newBlockFunctions = []
-      self.heartbeatFunctions = []
+         print ''
+         print '*'*80
+         print '* '
+         print '* WARNING!  WALLET FILE ACCESS IS NOT THREAD-SAFE!'
+         print '*           DO NOT run armoryd at the same time as ArmoryQt if '
+         print '*           they are managing the same wallet file.  If you want '
+         print '*           to manage the same wallet with both applications '
+         print '*           you must make a digital copy/backup of the wallet file '
+         print '*           into another directory and point armoryd at that one.  '
+         print '*           '
+         print '*           As long as the two processes do not share the same '
+         print '*           actual file, there is no risk of wallet corruption. '
+         print '*           Just be aware that addresses may end up being reused '
+         print '*           if you execute transactions at approximately the same '
+         print '*           time with both apps. '
+         print '* '
+         print '*'*80
+         print ''
 
-      # The only argument that armoryd.py takes is the wallet to serve
-      if len(CLI_ARGS)==0:
-         LOGERROR('Please supply the wallet for this server to serve')
-         LOGERROR('USAGE:  %s [--testnet] [--whatever] file.wallet' % sys.argv[0])
-         os._exit(1)
-      wltpath = CLI_ARGS[0]
-      if not os.path.exists(wltpath):
-         LOGERROR('Wallet does not exist!  (%s)', wltpath)
-         return
+         # ...otherwise, setup the server
+         self.newTxFunctions = []
+         self.newBlockFunctions = []
+         self.heartbeatFunctions = []
 
-      self.wallet = PyBtcWallet().readWalletFile(wltpath)
+         # The only argument that armoryd.py takes is the wallet to serve
+         if len(CLI_ARGS)==0:
+            LOGERROR('Please supply the wallet for this server to serve')
+            LOGERROR('USAGE:  %s [--testnet] [--whatever] file.wallet' % \
+                     sys.argv[0])
+            os._exit(1)
+         wltpath = CLI_ARGS[0]
+         if not os.path.exists(wltpath):
+            LOGERROR('Wallet does not exist!  (%s)', wltpath)
+            return
 
-      LOGINFO("Initialising RPC server on port %d", ARMORY_RPC_PORT)
-      resource = Armory_Json_Rpc_Server(self.wallet)
-      secured_resource = self.set_auth(resource)
+         self.wallet = PyBtcWallet().readWalletFile(wltpath)
 
-      # This is LISTEN call for armory RPC server
-      reactor.listenTCP(ARMORY_RPC_PORT, \
-                        server.Site(secured_resource), \
-                        interface="127.0.0.1")
+         LOGINFO("Initialising RPC server on port %d", ARMORY_RPC_PORT)
+         resource = Armory_Json_Rpc_Server(self.wallet)
+         secured_resource = self.set_auth(resource)
+
+         # This is LISTEN call for armory RPC server
+         reactor.listenTCP(ARMORY_RPC_PORT, \
+                           server.Site(secured_resource), \
+                           interface="127.0.0.1")
 
 
-      # Setup the heartbeat function to run every 
-      reactor.callLater(3, self.Heartbeat)
+         # Setup the heartbeat function to run every 
+         reactor.callLater(3, self.Heartbeat)
 
 
    #############################################################################
@@ -912,6 +926,7 @@ class Armory_Daemon(object):
       wrapper = wrapResource(resource, [checker], realmName=realmName)
       return wrapper
 
+
    #############################################################################
    def start(self):
       #run a wallet consistency check before starting the BDM
@@ -921,8 +936,9 @@ class Armory_Daemon(object):
       self.lock.acquire()
       self.lock.release()
       
-      # This is not a UI so no need to worry about the main thread being blocked.
-      # Any UI that uses this Daemon can put the call to the Daemon on it's own thread.
+      # This is not a UI so no need to worry about the main thread being
+      # blocked. Any UI that uses this Daemon can put the call to the Daemon on
+      # its own thread.
       TheBDM.setBlocking(True)
       LOGINFO('Server started...')
       if(not TheBDM.getBDMState()=='Offline'):
@@ -934,7 +950,8 @@ class Armory_Daemon(object):
             time.sleep(2)
 
          self.latestBlockNum = TheBDM.getTopBlockHeight()
-         LOGINFO('Blockchain loading finished.  Top block is %d', TheBDM.getTopBlockHeight())
+         LOGINFO('Blockchain loading finished.  Top block is %d', \
+                 TheBDM.getTopBlockHeight())
 
          mempoolfile = os.path.join(ARMORY_HOME_DIR,'mempool.bin')
          self.checkMemoryPoolCorruption(mempoolfile)
@@ -943,7 +960,8 @@ class Armory_Daemon(object):
          self.wallet.setBlockchainSyncFlag(BLOCKCHAIN_READONLY)
          self.wallet.syncWithBlockchain()
          LOGINFO('Blockchain load and wallet sync finished')
-         LOGINFO('Wallet balance: %s' % coin2str(self.wallet.getBalance('Spendable')))
+         LOGINFO('Wallet balance: %s' % \
+                 coin2str(self.wallet.getBalance('Spendable')))
 
          # This is CONNECT call for armoryd to talk to bitcoind
          LOGINFO('Set up connection to bitcoind')
@@ -959,52 +977,75 @@ class Armory_Daemon(object):
 
    #############################################################################
    def checkForAlreadyRunning(self):
+      retVal = True
+      sock = ''
+
+      # Try to create a connection to the Armory server. If an error is thrown,
+      # that means the server doesn't exist.
       try:
-         # If create doesn't throw an error, there's another Armory open already!
+         # For now, all we want to do is see if the server exists.
          sock = socket.create_connection(('127.0.0.1',ARMORY_RPC_PORT), 0.1);
-   
-         # If this is the first instance of armoryd.py, connection will fail,
-         # we hit the except clause, and continue happily starting the server.
-         # If armoryd is already running, the rest of this try-clause will exec.
-         LOGINFO('Another instance of armoryd.py is already runnning!')
-         with open(ARMORYD_CONF_FILE, 'r') as f:
-            usr,pwd = f.readline().strip().split(':')
-         
-         if CLI_ARGS:
-            proxyobj = ServiceProxy("http://%s:%s@127.0.0.1:%d" % (usr,pwd,ARMORY_RPC_PORT))
-            try:
-               #if not proxyobj.__hasattr__(CLI_ARGS[0]):
-                  #raise UnrecognizedCommand, 'No json command %s'%CLI_ARGS[0]
-               extraArgs = []
-               for arg in ([] if len(CLI_ARGS)==1 else CLI_ARGS[1:]):
-                  if arg[0] == '{':
-                     extraArgs.append(json.loads(arg))
-                  else:
-                     extraArgs.append(arg)
-               result = proxyobj.__getattr__(CLI_ARGS[0])(*extraArgs)
-               print json.dumps(result,
-                                indent=4, \
-                                sort_keys=True, \
-                                cls=UniversalEncoder)
-            except Exception as e:
-               errtype = str(type(e))
-               errtype = errtype.replace("<class '",'')
-               errtype = errtype.replace("<type '",'')
-               errtype = errtype.replace("'>",'')
-               errordict = { 'error': {
-                                       'errortype': errtype,
-                                       'jsoncommand': CLI_ARGS[0],
-                                       'jsoncommandargs': ([] if len(CLI_ARGS)==1 else CLI_ARGS[1:]),
-                                       'extrainfo': str(e) if len(e.args)<2 else e.args}}
-                              
-               print json.dumps( errordict, indent=4, sort_keys=True, cls=UniversalEncoder)
-               
-                
-         sock.close()
-         os._exit(0)
       except socket.error:
          LOGINFO('No other armoryd.py instance is running.  We\'re the first.')
-         pass
+         retVal = False
+
+      # Clean up the socket and return the result.
+      sock.close()
+      return retVal
+
+
+   #############################################################################
+   def executeCommand(self):
+      # Open the armoryd.conf config file. At present, it's just a username and
+      # password (e.g., "frank:abc123").
+      '''
+      Function that sets up and executes an armoryd command using JSON-RPC.
+      '''
+      with open(ARMORYD_CONF_FILE, 'r') as f:
+         usr,pwd = f.readline().strip().split(':')
+
+      # If the user gave a command, create a connection to the armoryd server
+      # and attempt to execute the command.
+      if CLI_ARGS:
+         proxyobj = ServiceProxy("http://%s:%s@127.0.0.1:%d" % \
+                                 (usr,pwd,ARMORY_RPC_PORT))
+         try:
+            #if not proxyobj.__hasattr__(CLI_ARGS[0]):
+               #raise UnrecognizedCommand, 'No json command %s'%CLI_ARGS[0]
+            extraArgs = []
+            for arg in ([] if len(CLI_ARGS)==1 else CLI_ARGS[1:]):
+               # It is possible to pass in JSON-formatted data (e.g.,
+               # {"myName":"Terry"}). This isn't smart because no armoryd
+               # commands can handle them. But, just in case this changes in the
+               # future, we'll decode them anyway and let the functions fail on
+               # their own terms. "Normal" args, however, will work for now.
+               if arg[0] == '{':
+                  # JSON input example:  {"Ages":(10.23, 39.21)}
+                  # json.loads() output: {u'Ages', [10.23, 39.21]}
+                  extraArgs.append(json.loads(arg))
+               else:
+                  extraArgs.append(arg)
+
+            # Call the user's command (e.g., "getbalance full" ->
+            # jsonrpc_getbalance(full)) and print results.
+            result = proxyobj.__getattr__(CLI_ARGS[0])(*extraArgs)
+            print json.dumps(result, indent=4, sort_keys=True, \
+                             cls=UniversalEncoder)
+
+         except Exception as e:
+            # The command was bad. Print a message.
+            errtype = str(type(e))
+            errtype = errtype.replace("<class '",'')
+            errtype = errtype.replace("<type '",'')
+            errtype = errtype.replace("'>",'')
+            errordict = { 'error': {
+                          'errortype': errtype,
+                          'jsoncommand': CLI_ARGS[0],
+                          'jsoncommandargs': ([] if len(CLI_ARGS)==1 else CLI_ARGS[1:]),
+                          'extrainfo': str(e) if len(e.args)<2 else e.args}}
+
+            print json.dumps( errordict, indent=4, sort_keys=True, cls=UniversalEncoder)
+
 
    #############################################################################
    def execOnNewTx(self, pytxObj):
@@ -1037,14 +1078,15 @@ class Armory_Daemon(object):
       # or tx data in a vacuum (without any reliance on TheBDM)
       pass
 
+
    #############################################################################
    def showOfflineMsg(self):
       LOGINFO('Offline - not tracking blockchain')
 
+
    #############################################################################
    def showOnlineMsg(self):
       LOGINFO('Online - tracking blockchain')
-
 
 
    #############################################################################
@@ -1063,12 +1105,13 @@ class Armory_Daemon(object):
             PyTx().unserialize(binunpacker)
       except:
          os.remove(mempoolname);
-         
+
+
    #############################################################################
    @AllowAsync
    def checkWallet(self):
-      if self.lock.acquire(False) == False: return
-      #wltStatus = ParseWallet(None, self.wallet, 5, None)
+      if self.lock.acquire(False) == False:
+         return
       wltStatus = PyBtcWalletRecovery().ProcessWallet(None, self.wallet, Mode=5)
       if wltStatus != 0:
          print 'Wallet consistency check failed in wallet %s!!!' \
@@ -1079,7 +1122,7 @@ class Armory_Daemon(object):
       else:
          self.lastChecked = datetime.now()
       self.lock.release()
-      
+
 
    #############################################################################
    def Heartbeat(self, nextBeatSec=1):
@@ -1088,7 +1131,7 @@ class Armory_Daemon(object):
       run every 2 seconds, or whatever is specified in the nextBeatSec
       argument.
       """
-      # Check for new blocks in the blk000X.dat file
+      # Check for new blocks in the latest blk0XXXX.dat file.
       if TheBDM.getBDMState()=='BlockchainReady':
          
          #check wallet every checkStep seconds
@@ -1133,6 +1176,10 @@ class Armory_Daemon(object):
       reactor.callLater(nextBeatSec, self.Heartbeat)
 
 
+if __name__ == "__main__":
+   rpc_server = Armory_Daemon()
+   rpc_server.start()
+
 
 """
 # This is from jgarzik's python-bitcoinrpc tester
@@ -1151,15 +1198,3 @@ access = ServiceProxy("http://alan:ak3lfd98031knmzwks1ke@127.0.0.1:7070")
 # TODO use asserts on this, for now manual inspection will do
 newaddress = access.getnewaddress()
 """
-
-
-
-if __name__ == "__main__":
-   rpc_server = Armory_Daemon()
-   rpc_server.start()
-
-
-
-
-
-
