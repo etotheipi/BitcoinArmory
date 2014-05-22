@@ -95,11 +95,31 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
 
    #############################################################################
-   def jsonrpc_receivedfromaddress(self, bitcoinaddress):
+   def jsonrpc_receivedfromaddress(self, sender):
+      totalReceived = 0.0
       ledgerEntries = self.wlt.getTxLedger('blk')
       for entry in ledgerEntries:
-         entry.pprint()
-      return None
+         cppTx = TheBDM.getTxByHash(entry.getTxHash())
+         if cppTx.isInitialized():
+            txBinary = cppTx.serialize()
+            pyTx = PyTx().unserialize(txBinary)
+            inputsFromSender = 0
+            for txin in pyTx.inputs:
+               txInAddr = TxInExtractAddrStrIfAvail(txin)
+               if sender == txInAddr:
+                  inputsFromSender += 1
+            if inputsFromSender == len(pyTx.inputs):
+               for txout in pyTx.outputs:
+                  if self.wlt.hasAddr(script_to_addrStr(txout.getScript())):
+                     totalReceived += txout.value
+                  
+            elif inputsFromSender > 0:
+               # Some inputs are from the sender and other are not
+               # TODO: Find the best way to handle this case
+               # for now require all inputs to be from the sender to be included
+               # in the tally
+               pass
+      return AmountToJSON(totalReceived)
       
    #############################################################################
    def jsonrpc_backupwallet(self, backupFilePath):

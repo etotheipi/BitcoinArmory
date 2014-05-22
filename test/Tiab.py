@@ -93,7 +93,7 @@ TEST_WALLET_NAME = 'Test Wallet Name'
 TEST_WALLET_DESCRIPTION = 'Test Wallet Description'
 TEST_WALLET_ID = 'PMjjFm6E'
 TIAB_ZIPFILE_NAME = 'tiab.zip'
-NEED_TIAB_MSG = "This Test must be run with J:/Development_Stuff/bitcoin-testnet-boxV2.7z (Armory jungle disk). Copy to the test directory."
+NEED_TIAB_MSG = "This Test must be run with <TBD>. Copy to the test directory. Actual Block Height is "
 
 class TiabTest(unittest.TestCase):      
    @classmethod
@@ -127,4 +127,4 @@ class TiabTest(unittest.TestCase):
 
    def verifyBlockHeight(self):
       blockHeight = TheBDM.getTopBlockHeight()
-      self.assertEqual(blockHeight, 242, NEED_TIAB_MSG)
+      self.assertEqual(blockHeight, 247, NEED_TIAB_MSG + str(blockHeight))
