@@ -25,9 +25,9 @@ TIAB_DIR = '.\\tiab'
 TEST_TIAB_DIR = '.\\test\\tiab'
 NEED_TIAB_MSG = "This Test must be run with J:/Development_Stuff/bitcoin-testnet-boxV2.7z (Armory jungle disk). Copy to the test directory."
 
-EXPECTED_TIAB_BALANCE = 938.8997
+EXPECTED_TIAB_BALANCE = 964.8997
 EXPECTED_TIAB_NEXT_ADDR = 'muEePRR9ShvRm2nqeiJyD8pJRHPuww2ECG'
-EXPECTED_UNSPENT_TX = '721507bc7c4cdbd7cf798d362272b2e5941e619f2f300f46ac956933cb42181100000000'
+EXPECTED_UNSPENT_TX = '4434b3eab23189af20d56a81a7bc5ac560f42f4097a90f834535cb94a8d5578201000000'
 
 TIAB_WLT_1_ADDR_1 = 'muxkzd4sitPbMz4BXmkEJKT6ccshxDFsrn'
 TIAB_WLT_1_PK_1 = '92vsXfvjpbTj1sN75VSV2M7DWyqoVx5nayp3dE7ZaG9rRVRYU4P'
@@ -82,7 +82,10 @@ class ArmoryDTiabTest(TiabTest):
       TheBDM.registerWallet(self.wlt)
    
    def  testReceivedfromaddress(self):
+      result = self.jsonServer.jsonrpc_receivedfromaddress(TIAB_WLT_3_ADDR_3)
+      self.assertEqual(result, 6)
       result = self.jsonServer.jsonrpc_receivedfromaddress(TIAB_WLT_1_ADDR_3)
+      self.assertEqual(result, 0)
    
    def testGettransaction(self):
       tx = self.jsonServer.jsonrpc_gettransaction('db0ee46beff3a61f38bfc563f92c11449ed57c3d7d5cd5aafbe0114e5a9ceee4')
@@ -91,7 +94,7 @@ class ArmoryDTiabTest(TiabTest):
                             'direction': 'send', 'fee': 0.0001, 'totalinputs': 1000.0, 'outputs':
                              [{'address': 'mpXd2u8fPVYdL1Nf9bZ4EFnqhkNyghGLxL', 'value': 20.0, 'ismine': False},
                               {'address': 'mgLjhTCUtbeLPP9fDkBnG8oztWgJaXZQjn', 'value': 979.9999, 'ismine': True}],
-                            'txid': 'db0ee46beff3a61f38bfc563f92c11449ed57c3d7d5cd5aafbe0114e5a9ceee4', 'confirmations': 5,
+                            'txid': 'db0ee46beff3a61f38bfc563f92c11449ed57c3d7d5cd5aafbe0114e5a9ceee4', 'confirmations': 10,
                             'orderinblock': 1, 'mainbranch': True, 'numtxin': 1, 'time': 3947917907L, 'numtxout': 2,
                             'netdiff': -20.0001, 'infomissing': False})
    
@@ -103,15 +106,15 @@ class ArmoryDTiabTest(TiabTest):
       
    def testGetinfo(self):
       info = self.jsonServer.jsonrpc_getinfo()
-      self.assertEqual(info, {'blocks': 242, 'bdmstate': 'BlockchainReady', 'walletversion': 13500000,
+      self.assertEqual(info, {'blocks': 247, 'bdmstate': 'BlockchainReady', 'walletversion': 13500000,
                     'difficulty': 1.0, 'proxy': '', 'connections': 0, 'testnet': True, 'version': 9199002,
-                    'protocolversion': 0, 'balance': 938.8997, 'keypoolsize': 10})
+                    'protocolversion': 0, 'balance': EXPECTED_TIAB_BALANCE, 'keypoolsize': 10})
    
    def testListtransactions(self):
       txList = self.jsonServer.jsonrpc_listtransactions(100)
       self.assertTrue(len(txList)>10)
       self.assertEqual(txList[0], {'blockhash': '0000000064a1ad1f15981a713a6ef08fd98f69854c781dc7b8789cc5f678e01f',
-                  'blockindex': 1, 'confirmations': 26, 'address': 'mtZ2d1jFZ9YNp3Ku5Fb2u8Tfu3RgimBHAD',
+                  'blockindex': 1, 'confirmations': 31, 'address': 'mtZ2d1jFZ9YNp3Ku5Fb2u8Tfu3RgimBHAD',
                   'category': 'receive', 'account': '',
                   'txid': '04b865ecf5fca3a56f6ce73a571a09a668f4b7aa5a7547a5f51fae08eadcdbb5',
                   'blocktime': 1392588256, 'amount': 1000.0, 'timereceived': 1392588256, 'time': 1392588256})
@@ -127,9 +130,9 @@ class ArmoryDTiabTest(TiabTest):
       
    def testGetledger(self):
       ledger = self.jsonServer.jsonrpc_getledger()
-      self.assertTrue(len(ledger)>4)
+      self.assertTrue(len(ledger)>6)
       amountList = [row['amount'] for row in ledger]
-      expectedAmountList = [1000.0, 20.0, 30.0, 0.8, 10.0]
+      expectedAmountList = [1000.0, 20.0, 30.0, 0.8, 10.0, 6.0, 20.0]
       self.assertEqual(amountList, expectedAmountList)
       self.assertEqual(ledger[0]['direction'], 'receive')
       self.assertEqual(len(ledger[0]['recipme']), 1)
@@ -173,7 +176,7 @@ class ArmoryDTiabTest(TiabTest):
 
    def testListunspent(self):
       actualResult = self.jsonServer.jsonrpc_listunspent()
-      self.assertEqual(len(actualResult), 1)
+      self.assertEqual(len(actualResult), 5)
       self.assertEqual(binary_to_hex(actualResult[0]), EXPECTED_UNSPENT_TX)
       
    
