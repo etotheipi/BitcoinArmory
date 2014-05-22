@@ -81,6 +81,9 @@ class ArmoryDTiabTest(TiabTest):
       self.jsonServer = Armory_Json_Rpc_Server(self.wlt)
       TheBDM.registerWallet(self.wlt)
    
+   def  testReceivedfromaddress(self):
+      result = self.jsonServer.jsonrpc_receivedfromaddress(TIAB_WLT_1_ADDR_3)
+   
    def testGettransaction(self):
       tx = self.jsonServer.jsonrpc_gettransaction('db0ee46beff3a61f38bfc563f92c11449ed57c3d7d5cd5aafbe0114e5a9ceee4')
       self.assertEqual(tx, {'category': 'send', 'inputs': [{'fromtxid': '04b865ecf5fca3a56f6ce73a571a09a668f4b7aa5a7547a5f51fae08eadcdbb5',

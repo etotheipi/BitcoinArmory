@@ -61,7 +61,7 @@ BDMINPUTTYPE  = enum('RegisterAddr', \
 
 def newTheBDM(isOffline=False, blocking=False):
    global TheBDM
-   TheBDM = BlockDataManagerThread(isOffline=False, blocking=False)
+   TheBDM = BlockDataManagerThread(isOffline=isOffline, blocking=blocking)
    
 
 # Make TheBDM act like it's a singleton. Always use the global singleton TheBDM

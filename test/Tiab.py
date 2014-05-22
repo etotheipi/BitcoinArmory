@@ -92,8 +92,7 @@ class TiabSession:
 TEST_WALLET_NAME = 'Test Wallet Name'
 TEST_WALLET_DESCRIPTION = 'Test Wallet Description'
 TEST_WALLET_ID = 'PMjjFm6E'
-TIAB_ZIPFILE_NAME = '.\\tiab.zip'
-TEST_TIAB_ZIPFILE_NAME = '.\\test\\tiab.zip'
+TIAB_ZIPFILE_NAME = 'tiab.zip'
 NEED_TIAB_MSG = "This Test must be run with J:/Development_Stuff/bitcoin-testnet-boxV2.7z (Armory jungle disk). Copy to the test directory."
 
 class TiabTest(unittest.TestCase):      
@@ -104,8 +103,8 @@ class TiabTest(unittest.TestCase):
       # The latter happens if you run all of the tests in the directory
       if os.path.exists(TIAB_ZIPFILE_NAME):
          tiabZipPath = TIAB_ZIPFILE_NAME
-      elif os.path.exists(TEST_TIAB_ZIPFILE_NAME):
-         tiabZipPath = TEST_TIAB_ZIPFILE_NAME
+      elif os.path.exists(os.path.join('test',TIAB_ZIPFILE_NAME)):
+         tiabZipPath = (os.path.join('test',TIAB_ZIPFILE_NAME))
       else:
          self.fail(NEED_TIAB_MSG)
       self.tiab = TiabSession(tiabZipPath=tiabZipPath)
@@ -114,8 +113,8 @@ class TiabTest(unittest.TestCase):
       newTheBDM()
       TheBDM.setDaemon(True)
       TheBDM.start()
-      TheBDM.setSatoshiDir(self.tiab.tiabDirectory + '\\tiab\\1\\testnet3')
-      TheBDM.setLevelDBDir(self.tiab.tiabDirectory + '\\tiab\\armory\\databases')
+      TheBDM.setSatoshiDir(os.path.join(self.tiab.tiabDirectory,'tiab','1','testnet3'))
+      TheBDM.setLevelDBDir(os.path.join(self.tiab.tiabDirectory,'tiab','armory','databases'))
       TheBDM.setBlocking(True)
       TheBDM.setOnlineMode(wait=True)
       while not TheBDM.getBDMState()=='BlockchainReady':

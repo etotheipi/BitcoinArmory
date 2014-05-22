@@ -103,6 +103,13 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       self.addressMetaData = {}
       
    #############################################################################
+   def jsonrpc_receivedfromaddress(self, bitcoinaddress):
+      ledgerEntries = self.wlt.getTxLedger('blk')
+      for entry in ledgerEntries:
+         entry.pprint()
+      return None
+      
+   #############################################################################
    def jsonrpc_backupwallet(self, backupFilePath):
       self.wlt.backupWalletFile(backupFilePath)
 
