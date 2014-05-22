@@ -53,7 +53,7 @@ from armoryengine.ALL import *
 from bitcoinrpc_jsonrpc import ServiceProxy
 from armoryengine.Decorators import EmailOutput
 from armoryengine.ArmoryUtils import addrStr_to_hash160
-from armoryengine.PyBtcWalletRecovery import ProcessWallet
+from armoryengine.PyBtcWalletRecovery import *
 from datetime import timedelta
 
 
