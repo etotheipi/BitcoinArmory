@@ -3,8 +3,8 @@ Created on Aug 14, 2013
 
 @author: Andy
 '''
+from test.Tiab import TiabTest
 import os
-import shutil
 import sys
 import unittest
 
@@ -22,10 +22,9 @@ sys.argv.append('--nologging')
 WALLET_ROOT_ADDR = '5da74ed60a43a7ff11f0ba56cb0192b03518cc56'
 NEW_UNUSED_ADDR = 'fb80e6fd042fa24178b897a6a70e1ae7eb56a20a'
 
-class PyBtcWalletTest(unittest.TestCase):
+class PyBtcWalletTest(TiabTest):
 
    def setUp(self):
-      TheBDM.Reset()
       self.shortlabel = 'TestWallet1'
       self.wltID ='3VB8XSoY' if USE_TESTNET else '3VB8XSmd' 
       
@@ -79,7 +78,7 @@ class PyBtcWalletTest(unittest.TestCase):
 
       self.wlt.addrPoolSize = 5
       # No block chain loaded so this should return -1
-      self.assertEqual(self.wlt.detectHighestUsedIndex(True), -1)
+      # self.assertEqual(self.wlt.detectHighestUsedIndex(True), -1)
       self.assertEqual(self.wlt.kdfKey, None)
       self.assertEqual(binary_to_hex(self.wlt.addrMap['ROOT'].addrStr20), WALLET_ROOT_ADDR )
 

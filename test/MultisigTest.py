@@ -3,21 +3,14 @@ Created on Aug 4, 2013
 
 @author: Andy
 '''
-import sys
+from test.Tiab import TiabTest
 import unittest
-sys.argv.append('--nologging')
-sys.argv.append('--testnet')
 from armoryengine.ArmoryUtils import *
-from armoryengine.BinaryUnpacker import BinaryUnpacker
-from armoryengine.Block import PyBlock
-from armoryengine.PyBtcAddress import PyBtcAddress
-from armoryengine.Script import PyScriptProcessor, convertScriptToOpStrings
-from armoryengine.Transaction import PyTx, PyTxIn, PyOutPoint, PyTxOut, \
-   PyCreateAndSignTx, getMultisigScriptInfo, \
-   BlockComponent, UnsignedTransaction, UnsignedTxInput, DecoratedTxOut, \
-   TXIN_SIGSTAT, TX_SIGSTAT
+from armoryengine.Script import convertScriptToOpStrings
 from armoryengine.MultiSigUtils import calcLockboxID, computePromissoryID, \
    MultiSigLockbox, MultiSigPromissoryNote
+from armoryengine.Transaction import PyTx, UnsignedTxInput, DecoratedTxOut,\
+   UnsignedTransaction, TXIN_SIGSTAT
 
 
 
@@ -114,7 +107,7 @@ tx2Fake = PyTx().unserialize(hex_to_binary( (
 
 ALL_ZERO_OUTPOINT = hex_to_binary('00' * 36)
 
-class MSUtilsTest(unittest.TestCase):
+class MSUtilsTest(TiabTest):
 
    
    def setUp(self):

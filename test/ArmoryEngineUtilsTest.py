@@ -3,15 +3,9 @@ Created on Jul 29, 2013
 
 @author: Andy
 '''
-import hashlib
-import locale
-from random import shuffle
+from test.Tiab import TiabTest
 import sys
-import time
 import unittest
-
-sys.path.append('..')
-
 from armoryengine.ArmoryUtils import *
 from armoryengine.BinaryPacker import *
 from armoryengine.BinaryUnpacker import *
@@ -29,7 +23,7 @@ LONG_TEST_NUMBER = 98753178900
 
 ################################################################################
 ################################################################################
-class ArmoryEngineTest(unittest.TestCase):
+class ArmoryEngineTest(TiabTest):
 
 
    #############################################################################
@@ -441,7 +435,7 @@ class ArmoryEngineTest(unittest.TestCase):
 
 ################################################################################
 ################################################################################
-class BinaryPackerUnpackerTest(unittest.TestCase):
+class BinaryPackerUnpackerTest(TiabTest):
 
    #############################################################################
    def testBinaryUnpacker(self):
@@ -510,9 +504,6 @@ class BinaryPackerUnpackerTest(unittest.TestCase):
       self.assertRaises(UnpackerError, bu.get, UNKNOWN_TYPE)
       self.assertRaises(UnpackerError, bu.get, BINARY_CHUNK, 1)
 
-
-
-
 if __name__ == "__main__":
-   #import sys;sys.argv = ['', 'Test.testArmoryEngine']
+   #import sys;sys.argv = ['', 'Test.testName']
    unittest.main()

@@ -1,8 +1,5 @@
-import os
-import sys
+from test.Tiab import TiabTest
 import unittest
-
-sys.path.append('..')
 
 from armoryengine.parseAnnounce import *
 from armoryengine.ArmoryUtils import *
@@ -196,7 +193,7 @@ U0zy72vLLx9mpKJQdDmV7k0=
 
 
 
-class parseChangelogTest(unittest.TestCase):
+class parseChangelogTest(TiabTest):
 
 
    def setUp(self):
@@ -232,7 +229,7 @@ class parseChangelogTest(unittest.TestCase):
 
 
 ################################################################################
-class parseDownloadTest(unittest.TestCase):
+class parseDownloadTest(TiabTest):
    
    def setUp(self):
       self.dl = downloadLinkParser(filetext=downloadTestText)
@@ -263,7 +260,7 @@ class parseDownloadTest(unittest.TestCase):
 
 
 ################################################################################
-class parseNotifyTest(unittest.TestCase):
+class parseNotifyTest(TiabTest):
    
    def setUp(self):
       self.notify = notificationParser(filetext=notifyTestText)

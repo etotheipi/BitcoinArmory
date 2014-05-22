@@ -1447,6 +1447,10 @@ def addrStr_to_scrAddr(addrStr):
       BadAddressError('Invalid address: "%s"' % addrStr)
 
 
+################################################################################
+def addrStr_to_script(addrStr):
+   """ Convert an addr string to a binary script """
+   return scrAddr_to_script(addrStr_to_scrAddr(addrStr))
 
 
 
@@ -1587,7 +1591,7 @@ NONSTDPREFIX   = '\xff'
 def CheckHash160(scrAddr):
    if not len(scrAddr)==21:
       raise BadAddressError("Supplied scrAddr is not a Hash160 value!")
-   if not scrAddr[0] == HASH160PREFIX:
+   if not scrAddr[0] in [HASH160PREFIX, P2SHPREFIX]:
       raise BadAddressError("Supplied scrAddr is not a Hash160 value!")
    return scrAddr[1:]
 

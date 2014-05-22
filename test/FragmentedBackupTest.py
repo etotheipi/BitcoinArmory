@@ -5,11 +5,11 @@
 # See LICENSE or http://www.gnu.org/licenses/agpl.html                         #
 #                                                                              #
 ################################################################################
+from test.Tiab import TiabTest
 import sys
 from armoryengine.ArmoryUtils import SplitSecret, binary_to_hex, ReconstructSecret,\
    FiniteFieldError
 import itertools
-sys.argv.append('--nologging')
 import unittest
 
 
@@ -29,7 +29,7 @@ def splitSecretToFragmentMap(splitSecret):
    return fragMap
 
 
-class Test(unittest.TestCase):
+class Test(TiabTest):
 
    def setUp(self):
       pass
@@ -82,4 +82,5 @@ class Test(unittest.TestCase):
 
       
 if __name__ == "__main__":
+   #import sys;sys.argv = ['', 'Test.testName']
    unittest.main()

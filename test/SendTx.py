@@ -1,8 +1,4 @@
-import unittest
-import sys
-sys.argv.append('--nologging')
-sys.argv.append('--testnet')
-
+from test.Tiab import TiabTest
 
 from armoryengine.ALL import *
 
@@ -10,6 +6,9 @@ from twisted.internet import reactor
 
 from test import Tiab
 
+TIAB_DIR = '.\\tiab'
+TEST_TIAB_DIR = '.\\test\\tiab'
+NEED_TIAB_MSG = "This Test must be run with J:/Development_Stuff/bitcoin-testnet-boxV2.7z (Armory jungle disk). Copy to the test directory."
 
 class Test:
    def __init__(self):
@@ -31,21 +30,17 @@ class Test:
       self.success=False
 
 
-   def run(self):
+   def run(self, tiab):
       class T:
          def port(self, p):
             if p == 0:
                return 19000
             else:
                return 19010
-
-      #tiab = T()
-      tiab = Tiab.TiabSession(tiabdatadir='.\\tiab')
       # sends 10BTC between primary two wallets
-      tx = hex_to_binary("0100000001b547cc4ec882fb7bf79d7409310c9f4f439cd8f9d5d1f86fbda987f3f41536d2010000008a473044022069ad6c556d9b8c7a91355e031e191b1eee73747292f04ff756910f98342db5d8022036eb3d42aa8cb430edf2a81d1686ed164bb245fa230e1ca6feb3c7667be4eafe0141040af91327d33ae74b487ce5b42b2f8ec872bd9b11ff0be02a2b8b1884eee3dae58e2fdd8bcd9fcb3d5f50706f2f73261f9c7a6aa8bea241d30f84cd0e8bed2bb3ffffffff0200ca9a3b000000001976a914c03d7ae9d043213ce013d56b464c5e986592768688acd0048ef9390000001976a9143504d74e81775e4d087b76d3a03c46fa7ec84ab288ac00000000");
+      tx = hex_to_binary("0100000001721507bc7c4cdbd7cf798d362272b2e5941e619f2f300f46ac956933cb421811000000008b4830450220045e83813973971742e87a00a1dae5de02475ec4d9111373d77cac8b22b30dd802210095ced701b5ebfe41bf32a551e94fcd254189b6386f7ebaae06c22cd61aa93b2801410462326939525c697781dc280cd80a5d93f1a92ed480e30adfbeebe1b1bc1e161b3f06a222dcca62ba045c7536d3a31de2554842a58a2706b996bbdfe3bcc46a8fffffffff02404eaca0150000001976a914bec7782c7a686b60300f7831032d2740288b3fb888ac00ca9a3b000000001976a914d2f1cb6d6cee483b9c18c6ebfe371d37ad381b0488ac00000000");
 
-
-      success=False
+      self.success=False
 
       def sendTx(protoObj):
          # print "sent"
@@ -66,32 +61,14 @@ class Test:
 
       reactor.callLater(15, self.timeout)
       reactor.run()
-
-      tiab.clean()
       
       return self.success
    
 
 
-class TiabSendTxTest(unittest.TestCase):
-
-   def setUp(self):
-      pass
-      
-   def tearDown(self):
-      pass
-   
+class TiabSendTxTest(TiabTest):
+  
    def test_sendtx(self):
-      self.assertTrue(Test().run())
+      self.assertTrue(Test().run(self.tiab))
 
-
-if not USE_TESTNET:
-   LOGERROR("Must be run with --testnet")
-   sys.exit(1)
    
-if __name__ == "__main__":
-   s = Test().run()
-   if not s:
-      print "Failed"
-
-# kate: indent-width 3; replace-tabs on;

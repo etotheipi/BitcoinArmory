@@ -3,6 +3,8 @@ Created on Aug 4, 2013
 
 @author: Andy
 '''
+from test.Tiab import TiabTest
+
 from random import shuffle
 import sys
 import unittest
@@ -32,7 +34,7 @@ TEST_MULT_VECT_RESULT3 = [[7, 10], [15, 22], [23, 34]]
 TEST_MULT_VECT_RESULT4 = [[248, 5, 249], [6, 241, 4], [248, 5, 249]]
 TEST_MULT_VECT_RESULT5 = [[0, 0, 0], [0, 0, 0], [0, 0, 0]]
 
-class SplitSecretTest(unittest.TestCase):
+class SplitSecretTest(TiabTest):
 
 
    def testFiniteFieldTest(self):

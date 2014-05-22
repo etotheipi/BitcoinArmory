@@ -1,3 +1,4 @@
+from test.Tiab import TiabTest
 
 from CppBlockUtils import SecureBinaryData, CryptoECDSA, CryptoAES
 from armoryengine.PyBtcAddress import PyBtcAddress
@@ -10,7 +11,7 @@ import os
 
 from armoryengine.ArmoryUtils import SECP256K1_ORDER, binary_to_int, BIGENDIAN
 
-class PyBtcWalletRecoveryTest(unittest.TestCase):
+class PyBtcWalletRecoveryTest(TiabTest):
    def setUp(self):
       self.corruptWallet = 'corrupt_wallet.wallet'
       
@@ -143,6 +144,6 @@ class PyBtcWalletRecoveryTest(unittest.TestCase):
       self.assertTrue(len(rcvWltResult['negativeImports'])==99, \
                       "Missing neg Imports")
       
-###############################################################################
 if __name__ == "__main__":
-   unittest.main()     
+   #import sys;sys.argv = ['', 'Test.testName']
+   unittest.main() 
