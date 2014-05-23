@@ -964,7 +964,7 @@ class Armory_Daemon(object):
       TheBDM.setBlocking(True)
       LOGINFO('Server started...')
       if(not TheBDM.getBDMState()=='Offline'):
-         TheBDM.registerWallet(self.wallet)
+         TheBDM.registerWallet(self.wlt)
          TheBDM.setOnlineMode(True)
 
          LOGINFO('Blockchain loading')
@@ -978,11 +978,11 @@ class Armory_Daemon(object):
          mempoolfile = os.path.join(ARMORY_HOME_DIR,'mempool.bin')
          self.checkMemoryPoolCorruption(mempoolfile)
          TheBDM.enableZeroConf(mempoolfile)
-         LOGINFO('Syncing wallet: %s' % self.wallet.uniqueIDB58)
-         self.wallet.setBlockchainSyncFlag(BLOCKCHAIN_READONLY)
-         self.wallet.syncWithBlockchain()
+         LOGINFO('Syncing wallet: %s' % self.wlt.uniqueIDB58)
+         self.wlt.setBlockchainSyncFlag(BLOCKCHAIN_READONLY)
+         self.wlt.syncWithBlockchain()
          LOGINFO('Blockchain load and wallet sync finished')
-         LOGINFO('Wallet balance: %s' % coin2str(self.wallet.getBalance('Spendable')))
+         LOGINFO('Wallet balance: %s' % coin2str(self.wlt.getBalance('Spendable')))
 
          # This is CONNECT call for armoryd to talk to bitcoind
          LOGINFO('Set up connection to bitcoind')
