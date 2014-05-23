@@ -31,7 +31,7 @@ PUBLIC_KEY  = CryptoECDSA().ComputePublicKey(PRIVATE_KEY)
 ADDRESS_20  = PUBLIC_KEY.getHash160()
 
 TEST_BLOCK_NUM = 100
-TEST_BLOCK_NUM2 = 242
+TEST_BLOCK_NUM2 = 247
 
 # We pretend that we plugged some passphrases through a KDF
 FAKE_KDF_OUTPUT1 = SecureBinaryData( hex_to_binary('11'*32) )
