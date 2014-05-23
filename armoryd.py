@@ -54,8 +54,6 @@ from jsonrpc import ServiceProxy
 from armoryengine.Decorators import EmailOutput
 from armoryengine.ArmoryUtils import addrStr_to_hash160
 from armoryengine.PyBtcWalletRecovery import ParseWallet
-from datetime import timedelta
-
 
 # Some non-twisted json imports from jgarzik's code and his UniversalEncoder
 class UniversalEncoder(json.JSONEncoder):
@@ -945,6 +943,10 @@ class Armory_Daemon(object):
    #############################################################################
    def set_auth(self, resource):
       passwordfile = ARMORYD_CONF_FILE
+      # Create User Name & Password file to use locally
+      if not os.path.exists(passwordfile):
+         with open(passwordfile,'a') as f:
+            f.write('generated_by_armory:%s' % binary_to_base58(SecureBinaryData().GenerateRandom(32).toBinStr()))
       checker = FilePasswordDB(passwordfile)
       realmName = "Armory JSON-RPC App"
       wrapper = wrapResource(resource, [checker], realmName=realmName)
@@ -1130,8 +1132,7 @@ class Armory_Daemon(object):
       if TheBDM.getBDMState()=='BlockchainReady':
          
          #check wallet every checkStep seconds
-         nextCheck = self.lastChecked + \
-                     timedelta(seconds=self.checkStep)
+         nextCheck = self.lastChecked + self.checkStep
          if nextCheck >= RightNow():
             self.checkWallet()
          
