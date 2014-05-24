@@ -54,8 +54,6 @@ from bitcoinrpc_jsonrpc import ServiceProxy
 from armoryengine.Decorators import EmailOutput
 from armoryengine.ArmoryUtils import addrStr_to_hash160
 from armoryengine.PyBtcWalletRecovery import *
-from datetime import timedelta
-
 
 # Some non-twisted json imports from jgarzik's code and his UniversalEncoder
 class UniversalEncoder(json.JSONEncoder):
@@ -958,6 +956,10 @@ class Armory_Daemon(object):
    #############################################################################
    def set_auth(self, resource):
       passwordfile = ARMORYD_CONF_FILE
+      # Create User Name & Password file to use locally
+      if not os.path.exists(passwordfile):
+         with open(passwordfile,'a') as f:
+            f.write('generated_by_armory:%s' % binary_to_base58(SecureBinaryData().GenerateRandom(32).toBinStr()))
       checker = FilePasswordDB(passwordfile)
       realmName = "Armory JSON-RPC App"
       wrapper = wrapResource(resource, [checker], realmName=realmName)
@@ -979,7 +981,7 @@ class Armory_Daemon(object):
       TheBDM.setBlocking(True)
       LOGINFO('Server started...')
       if(not TheBDM.getBDMState()=='Offline'):
-         TheBDM.registerWallet(self.wallet)
+         TheBDM.registerWallet(self.wlt)
          TheBDM.setOnlineMode(True)
 
          LOGINFO('Blockchain loading')
@@ -994,12 +996,11 @@ class Armory_Daemon(object):
          mempoolfile = os.path.join(ARMORY_HOME_DIR,'mempool.bin')
          self.checkMemoryPoolCorruption(mempoolfile)
          TheBDM.enableZeroConf(mempoolfile)
-         LOGINFO('Syncing wallet: %s' % self.wallet.uniqueIDB58)
-         self.wallet.setBlockchainSyncFlag(BLOCKCHAIN_READONLY)
-         self.wallet.syncWithBlockchain()
+         LOGINFO('Syncing wallet: %s' % self.wlt.uniqueIDB58)
+         self.wlt.setBlockchainSyncFlag(BLOCKCHAIN_READONLY)
+         self.wlt.syncWithBlockchain()
          LOGINFO('Blockchain load and wallet sync finished')
-         LOGINFO('Wallet balance: %s' % \
-                 coin2str(self.wallet.getBalance('Spendable')))
+         LOGINFO('Wallet balance: %s' % coin2str(self.wlt.getBalance('Spendable')))
 
          # This is CONNECT call for armoryd to talk to bitcoind
          LOGINFO('Set up connection to bitcoind')
@@ -1174,8 +1175,7 @@ class Armory_Daemon(object):
       if TheBDM.getBDMState()=='BlockchainReady':
          
          #check wallet every checkStep seconds
-         nextCheck = self.lastChecked + \
-                     timedelta(seconds=self.checkStep)
+         nextCheck = self.lastChecked + self.checkStep
          if nextCheck >= RightNow():
             self.checkWallet()
          
