@@ -32,12 +32,13 @@ class ScrAddrObj
    friend class BtcWallet;
 public:
 
-   ScrAddrObj(void) : 
+   ScrAddrObj() :
+      db_(nullptr),
       scrAddr_(0), firstBlockNum_(0), firstTimestamp_(0), 
       lastBlockNum_(0), lastTimestamp_(0), 
       relevantTxIOPtrs_(0), ledger_(0) {}
 
-   ScrAddrObj(BinaryData    addr, 
+   ScrAddrObj(InterfaceToLDB *db, BinaryData    addr, 
               uint32_t      firstBlockNum  = UINT32_MAX,
               uint32_t      firstTimestamp = UINT32_MAX,
               uint32_t      lastBlockNum   = 0,
@@ -53,7 +54,7 @@ public:
    void           setLastBlockNum(uint32_t b)    { lastBlockNum_   = b; }
    void           setLastTimestamp(uint32_t t)   { lastTimestamp_  = t; }
 
-   void           setScrAddr(BinaryData bd)    { scrAddr_.copyFrom(bd);}
+   void           setScrAddr(InterfaceToLDB *db, BinaryData bd) { db_ = db; scrAddr_.copyFrom(bd);}
 
    void     sortLedger(void);
    uint32_t removeInvalidEntries(void);
@@ -63,20 +64,17 @@ public:
    // only a convenience, if you want to be able to calculate numConf from
    // the Utxos in the list.  If you don't care (i.e. you only want to 
    // know what TxOuts are available to spend, you can pass in 0 for currBlk
-   uint64_t getFullBalance(InterfaceToLDB *db) const;
+   uint64_t getFullBalance() const;
    uint64_t getSpendableBalance(
-      InterfaceToLDB *db,
       uint32_t currBlk=0, 
       bool ignoreAllZeroConf=false
    ) const;
    uint64_t getUnconfirmedBalance(
-      InterfaceToLDB *db,
       uint32_t currBlk, 
       bool includeAllZeroConf=false
    ) const;
-   vector<UnspentTxOut> getFullTxOutList(InterfaceToLDB *db, uint32_t currBlk=0);
+   vector<UnspentTxOut> getFullTxOutList(uint32_t currBlk=0);
    vector<UnspentTxOut> getSpendableTxOutList(
-      InterfaceToLDB *db,
       uint32_t currBlk=0, 
       bool ignoreAllZeroConf=false
    );
@@ -103,6 +101,8 @@ public:
    }
 
 private:
+   InterfaceToLDB *db_;
+   
    BinaryData     scrAddr_; // this includes the prefix byte!
    uint32_t       firstBlockNum_;
    uint32_t       firstTimestamp_;

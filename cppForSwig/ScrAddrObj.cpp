@@ -7,11 +7,12 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
-ScrAddrObj::ScrAddrObj(HashString    addr, 
+ScrAddrObj::ScrAddrObj(InterfaceToLDB *db, HashString    addr, 
                        uint32_t      firstBlockNum,
                        uint32_t      firstTimestamp,
                        uint32_t      lastBlockNum,
                        uint32_t      lastTimestamp) :
+      db_(db),
       scrAddr_(addr), 
       firstBlockNum_(firstBlockNum), 
       firstTimestamp_(firstTimestamp),
@@ -26,19 +27,18 @@ ScrAddrObj::ScrAddrObj(HashString    addr,
 
 ////////////////////////////////////////////////////////////////////////////////
 uint64_t ScrAddrObj::getSpendableBalance(
-   InterfaceToLDB *db,
    uint32_t currBlk, bool ignoreAllZC
 ) const
 {
    uint64_t balance = 0;
    for(uint32_t i=0; i<relevantTxIOPtrs_.size(); i++)
    {
-     if(relevantTxIOPtrs_[i]->isSpendable(db, currBlk, ignoreAllZC))
+     if(relevantTxIOPtrs_[i]->isSpendable(db_, currBlk, ignoreAllZC))
          balance += relevantTxIOPtrs_[i]->getValue();
    }
    for(uint32_t i=0; i<relevantTxIOPtrsZC_.size(); i++)
    {
-     if(relevantTxIOPtrsZC_[i]->isSpendable(db, currBlk, ignoreAllZC))
+     if(relevantTxIOPtrsZC_[i]->isSpendable(db_, currBlk, ignoreAllZC))
          balance += relevantTxIOPtrsZC_[i]->getValue();
    }
    return balance;
@@ -47,38 +47,37 @@ uint64_t ScrAddrObj::getSpendableBalance(
 
 ////////////////////////////////////////////////////////////////////////////////
 uint64_t ScrAddrObj::getUnconfirmedBalance(
-   InterfaceToLDB *db,
    uint32_t currBlk, bool inclAllZC
 ) const
 {
    uint64_t balance = 0;
    for(uint32_t i=0; i<relevantTxIOPtrs_.size(); i++)
    {
-      if(relevantTxIOPtrs_[i]->isMineButUnconfirmed(db, currBlk, inclAllZC))
+      if(relevantTxIOPtrs_[i]->isMineButUnconfirmed(db_, currBlk, inclAllZC))
          balance += relevantTxIOPtrs_[i]->getValue();
    }
    for(uint32_t i=0; i<relevantTxIOPtrsZC_.size(); i++)
    {
-      if(relevantTxIOPtrsZC_[i]->isMineButUnconfirmed(db, currBlk, inclAllZC))
+      if(relevantTxIOPtrsZC_[i]->isMineButUnconfirmed(db_, currBlk, inclAllZC))
          balance += relevantTxIOPtrsZC_[i]->getValue();
    }
    return balance;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-uint64_t ScrAddrObj::getFullBalance(InterfaceToLDB *db) const
+uint64_t ScrAddrObj::getFullBalance() const
 {
    uint64_t balance = 0;
    for(uint32_t i=0; i<relevantTxIOPtrs_.size(); i++)
    {
       TxIOPair & txio = *relevantTxIOPtrs_[i];
-      if(txio.isUnspent(db))
+      if(txio.isUnspent(db_))
          balance += txio.getValue();
    }
    for(uint32_t i=0; i<relevantTxIOPtrsZC_.size(); i++)
    {
       TxIOPair & txio = *relevantTxIOPtrsZC_[i];
-      if(txio.isUnspent(db))
+      if(txio.isUnspent(db_))
          balance += txio.getValue();
    }
    return balance;
@@ -86,7 +85,6 @@ uint64_t ScrAddrObj::getFullBalance(InterfaceToLDB *db) const
 
 ////////////////////////////////////////////////////////////////////////////////
 vector<UnspentTxOut> ScrAddrObj::getSpendableTxOutList(
-   InterfaceToLDB *db,
    uint32_t blkNum,
    bool ignoreAllZC
 )
@@ -95,45 +93,45 @@ vector<UnspentTxOut> ScrAddrObj::getSpendableTxOutList(
    for(uint32_t i=0; i<relevantTxIOPtrs_.size(); i++)
    {
       TxIOPair & txio = *relevantTxIOPtrs_[i];
-      if(txio.isSpendable(db, blkNum, ignoreAllZC))
+      if(txio.isSpendable(db_, blkNum, ignoreAllZC))
       {
-         TxOut txout = txio.getTxOutCopy(db);
-         utxoList.push_back( UnspentTxOut(db, txout, blkNum) );
+         TxOut txout = txio.getTxOutCopy(db_);
+         utxoList.push_back( UnspentTxOut(db_, txout, blkNum) );
       }
    }
 
    for(uint32_t i=0; i<relevantTxIOPtrsZC_.size(); i++)
    {
       TxIOPair & txio = *relevantTxIOPtrsZC_[i];
-      if(txio.isSpendable(db, blkNum, ignoreAllZC))
+      if(txio.isSpendable(db_, blkNum, ignoreAllZC))
       {
-         TxOut txout = txio.getTxOutCopy(db);
-         utxoList.push_back( UnspentTxOut(db, txout, blkNum) );
+         TxOut txout = txio.getTxOutCopy(db_);
+         utxoList.push_back( UnspentTxOut(db_, txout, blkNum) );
       }
    }
    return utxoList;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-vector<UnspentTxOut> ScrAddrObj::getFullTxOutList(InterfaceToLDB *db, uint32_t blkNum)
+vector<UnspentTxOut> ScrAddrObj::getFullTxOutList(uint32_t blkNum)
 {
    vector<UnspentTxOut> utxoList(0);
    for(uint32_t i=0; i<relevantTxIOPtrs_.size(); i++)
    {
       TxIOPair & txio = *relevantTxIOPtrs_[i];
-      if(txio.isUnspent(db))
+      if(txio.isUnspent(db_))
       {
-         TxOut txout = txio.getTxOutCopy(db);
-         utxoList.push_back( UnspentTxOut(db, txout, blkNum) );
+         TxOut txout = txio.getTxOutCopy(db_);
+         utxoList.push_back( UnspentTxOut(db_, txout, blkNum) );
       }
    }
    for(uint32_t i=0; i<relevantTxIOPtrsZC_.size(); i++)
    {
       TxIOPair & txio = *relevantTxIOPtrsZC_[i];
-      if(txio.isUnspent(db))
+      if(txio.isUnspent(db_))
       {
-         TxOut txout = txio.getTxOutCopy(db);
-         utxoList.push_back( UnspentTxOut(db, txout, blkNum) );
+         TxOut txout = txio.getTxOutCopy(db_);
+         utxoList.push_back( UnspentTxOut(db_, txout, blkNum) );
       }
    }
    return utxoList;

@@ -34,7 +34,7 @@ void BtcWallet::addScrAddress(HashString    scrAddr,
    if (scrAddrMap_.contains(scrAddr))
       return;
 
-   ScrAddrObj addrPtr = ScrAddrObj(scrAddr, firstTimestamp, firstBlockNum,
+   ScrAddrObj addrPtr = ScrAddrObj(bdmPtr_->getIFace(), scrAddr, firstTimestamp, firstBlockNum,
                                   lastTimestamp,  lastBlockNum);
    scrAddrMap_[scrAddr] = addrPtr;
 
@@ -47,7 +47,7 @@ void BtcWallet::addNewScrAddress(BinaryData scrAddr)
    if (scrAddrMap_.contains(scrAddr))
       return;
 
-   ScrAddrObj addrPtr = ScrAddrObj(scrAddr, 0, 0, 0, 0);
+   ScrAddrObj addrPtr = ScrAddrObj(bdmPtr_->getIFace(), scrAddr, 0, 0, 0, 0);
    scrAddrMap_[scrAddr] = addrPtr;
 
    if(bdmPtr_)
@@ -268,9 +268,9 @@ void BtcWallet::pprintAlot(InterfaceToLDB *db, uint32_t topBlk, bool withAddr)
          const ScrAddrObj & addr = (*saIter).second;
          HashString scraddr = addr.getScrAddr();
          cout << "\nAddress: " << scraddr.toHexStr().c_str() << endl;
-         cout << "   Tot: " << addr.getFullBalance(db) << endl;
-         cout << "   Spd: " << addr.getSpendableBalance(db, topBlk) << endl;
-         cout << "   Ucn: " << addr.getUnconfirmedBalance(db,topBlk) << endl;
+         cout << "   Tot: " << addr.getFullBalance() << endl;
+         cout << "   Spd: " << addr.getSpendableBalance(topBlk) << endl;
+         cout << "   Ucn: " << addr.getUnconfirmedBalance(topBlk) << endl;
                   
          cout << "   Ledger: " << endl;
          for(uint32_t i=0; i<addr.ledger_.size(); i++)
