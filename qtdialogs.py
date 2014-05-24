@@ -1694,7 +1694,7 @@ class DlgWalletDetails(ArmoryDialog):
 
    def execImportAddress(self):
 
-      # if TheBDM.getBDMState()=='Scanning':
+      # if TheBDM.getState()=='Scanning':
          # QMessageBox.warning(self, 'Armory Not Ready',
             # 'Armory is currently in the process of scanning the blockchain '
             # 'for your existing wallets.  This operation must finish before '
@@ -2105,7 +2105,7 @@ class DlgWalletDetails(ArmoryDialog):
 def showRecvCoinsWarningIfNecessary(wlt, main):
 
    numTimesOnline = main.getSettingOrSetDefault("SyncSuccessCount", 0)
-   if numTimesOnline < 1 and not TheBDM.getBDMState() == 'Offline':
+   if numTimesOnline < 1 and not TheBDM.getState() == 'Offline':
       result = QMessageBox.warning(main, tr('Careful!'), tr("""
          Armory is not online yet, and will eventually need to be online to
          access any funds sent to your wallet.  Please <u><b>do not</b></u>
@@ -2238,7 +2238,7 @@ class DlgKeypoolSettings(ArmoryDialog):
 
    #############################################################################
    def clickCompute(self):
-      # if TheBDM.getBDMState()=='Scanning':
+      # if TheBDM.getState()=='Scanning':
          # QMessageBox.warning(self, 'Armory is Busy', \
             # 'Armory is in the middle of a scan, and cannot add addresses to '
             # 'any of its wallets until the scan is finished.  Please wait until '
@@ -2432,7 +2432,7 @@ class DlgNewAddressDisp(ArmoryDialog):
 
       from twisted.internet import reactor
 
-      #if TheBDM.getBDMState()=='BlockchainReady':
+      #if TheBDM.getState()=='BlockchainReady':
          #reactor.callLater(0.1, TheBDM.saveScrAddrHistories)
 
       try:
@@ -2565,17 +2565,17 @@ class DlgImportAddress(ArmoryDialog):
 
 
       # # Sweep option (only available when online)
-      if TheBDM.getBDMState() == 'BlockchainReady':
+      if TheBDM.getState() == 'BlockchainReady':
          self.radioSweep = QRadioButton('Sweep any funds owned by this address '
                                          'into your wallet\n'
                                          'Select this option if someone else gave you this key')
          self.radioSweep.setChecked(True)
       else:
-         if TheBDM.getBDMState() in ('Offline', 'Uninitialized'):
+         if TheBDM.getState() in ('Offline', 'Uninitialized'):
             self.radioSweep = QRadioButton('Sweep any funds owned by this address '
                                             'into your wallet\n'
                                             '(Not available in offline mode)')
-         elif TheBDM.getBDMState() == 'Scanning':
+         elif TheBDM.getState() == 'Scanning':
             self.radioSweep = QRadioButton(tr("""
                Sweep any funds owned by this address into your wallet"""))
          self.radioImport.setChecked(True)
@@ -2788,7 +2788,7 @@ class DlgImportAddress(ArmoryDialog):
                   return
 
 
-         # if not TheBDM.getBDMState()=='BlockchainReady':
+         # if not TheBDM.getState()=='BlockchainReady':
             # reply = QMessageBox.critical(self, 'Cannot Sweep Address', \
             # 'You need access to the Bitcoin network and the blockchain in order '
             # 'to find the balance of this address and sweep its funds. ', \
@@ -2852,7 +2852,7 @@ class DlgImportAddress(ArmoryDialog):
                                  + addrStr + ' into wallet ' + self.wlt.uniqueIDB58, 10000)
 
          #######################################################################
-         if TheBDM.getBDMState() == 'BlockchainReady':
+         if TheBDM.getState() == 'BlockchainReady':
             nblk = TheBDM.numBlocksToRescan(self.wlt.cppWallet, wait=True)
             if nblk < 2016:
                self.wlt.syncWithBlockchainLite(0)
@@ -2882,7 +2882,7 @@ class DlgImportAddress(ArmoryDialog):
                self.main.setDashboardDetails()
 
          #######################################################################
-         elif TheBDM.getBDMState() == 'Scanning':
+         elif TheBDM.getState() == 'Scanning':
             warnMsg = (\
                'The address was imported successfully, but your wallet balance '
                'will be incorrect until the global transaction history is '
@@ -3075,7 +3075,7 @@ class DlgImportAddress(ArmoryDialog):
 
 
          #######################################################################
-         if TheBDM.getBDMState() == 'BlockchainReady':
+         if TheBDM.getState() == 'BlockchainReady':
             nblk = TheBDM.numBlocksToRescan(self.wlt.cppWallet, wait=True)
             if nblk < 2016:
                self.wlt.syncWithBlockchainLite(0)
@@ -3105,7 +3105,7 @@ class DlgImportAddress(ArmoryDialog):
                self.main.setDashboardDetails()
 
          #######################################################################
-         elif TheBDM.getBDMState() == 'Scanning':
+         elif TheBDM.getState() == 'Scanning':
             warnMsg = tr(\
                'The addresses were imported successfully, but your wallet balance '
                'will be incorrect until the global transaction history is '
@@ -4139,7 +4139,7 @@ class DlgRemoveWallet(ArmoryDialog):
       #        current wallets should already be registered and up-to-date.
       #        But I should verify that this is actually the case.
       wltEmpty = True
-      if TheBDM.getBDMState() == 'BlockchainReady':
+      if TheBDM.getState() == 'BlockchainReady':
          wlt.syncWithBlockchainLite()
          bal = wlt.getBalance('Full')
          lbls.append([])
@@ -4435,7 +4435,7 @@ class DlgRemoveAddress(ArmoryDialog):
       lbls[-1].append(QLabel('"%s" (%s)' % (wlt.labelName, wlt.uniqueIDB58)))
 
       addrEmpty = True
-      if TheBDM.getBDMState() == 'BlockchainReady':
+      if TheBDM.getState() == 'BlockchainReady':
          bal = wlt.getAddrBalance(addr160, 'Full')
          lbls.append([])
          lbls[-1].append(QLabel('Address Balance (w/ unconfirmed):'))
@@ -5395,7 +5395,7 @@ class DlgDispTxInfo(ArmoryDialog):
       txHash = data[FIELDS.Hash]
 
       haveWallet = (wlt != None)
-      haveBDM = TheBDM.getBDMState() == 'BlockchainReady'
+      haveBDM = TheBDM.getState() == 'BlockchainReady'
 
       # Should try to identify what is change and what's not
       wltLE = None
@@ -5602,7 +5602,7 @@ class DlgDispTxInfo(ArmoryDialog):
                   'is produced approximately every 10 minutes.'))
             lbls[-1].append(QLabel('Included in Block:'))
             lbls[-1].append(QRichLabel(str(data[FIELDS.Blk]) + idxStr))
-            if TheBDM.getBDMState() == 'BlockchainReady':
+            if TheBDM.getState() == 'BlockchainReady':
                nConf = TheBDM.queued( lambda : TheBDM.bdm.blockchain().top().getBlockHeight()) - data[FIELDS.Blk] + 1
                lbls.append([])
                lbls[-1].append(self.main.createToolTipWidget(
@@ -12917,7 +12917,7 @@ class DlgCorruptWallet(DlgProgress):
          newWallet = PyBtcWallet().readWalletFile(wlt)
          self.main.addWalletToApplication(newWallet, walletIsNew=True)
 
-         if TheBDM.getBDMState() in ('Uninitialized', 'Offline'):
+         if TheBDM.getState() in ('Uninitialized', 'Offline'):
             TheBDM.registerWallet(newWallet, isFresh=True, wait=False)
          else:
             self.main.newWalletList.append([newWallet, True])

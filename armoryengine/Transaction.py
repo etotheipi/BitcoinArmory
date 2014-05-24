@@ -1523,7 +1523,7 @@ def PyCreateAndSignTx(srcTxOuts, dstAddrsVals):
 
 #############################################################################
 def getFeeForTx(txHash):
-   if TheBDM.getBDMState()=='BlockchainReady':
+   if TheBDM.getState()=='BlockchainReady':
       if not TheBDM.hasTxWithHash(txHash):
          LOGERROR('Attempted to get fee for tx we don\'t have...?  %s', \
                                              binary_to_hex(txHash,BIGENDIAN))
@@ -1603,14 +1603,14 @@ def getUnspentTxOutsForAddr160List(addr160List, utxoType='Sweep', startBlk=-1, \
 
          <... do some other stuff ...>
    
-         if TheBDM.getBDMState()=='BlockchainReady':
+         if TheBDM.getState()=='BlockchainReady':
             TheBDM.updateWalletsAfterScan(wait=True) # fast after a rescan
             bal      = cppWlt.getBalance('Spendable')
             utxoList = cppWlt.getUnspentTxOutList()
          else:
             <...come back later...>
    """
-   if TheBDM.getBDMState()=='BlockchainReady' or \
+   if TheBDM.getState()=='BlockchainReady' or \
          (TheBDM.isScanning() and not abortIfBDMBusy):
       if not isinstance(addr160List, (list,tuple)):
          addr160List = [addr160List]

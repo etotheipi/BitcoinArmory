@@ -998,7 +998,7 @@ class PyBtcAddress(object):
 
          <... do some other stuff ...>
 
-         if TheBDM.getBDMState()=='BlockchainReady':
+         if TheBDM.getState()=='BlockchainReady':
             TheBDM.updateWalletsAfterScan(wait=True) # fast after a rescan
             bal      = cppWlt.getBalance('Spendable')
             utxoList = cppWlt.getUnspentTxOutList()
@@ -1006,7 +1006,7 @@ class PyBtcAddress(object):
             <...come back later...>
 
       """
-      if TheBDM.getBDMState()=='BlockchainReady' or \
+      if TheBDM.getState()=='BlockchainReady' or \
                             (TheBDM.isScanning() and not abortIfBDMBusy):
          LOGDEBUG('Scanning blockchain for address')
 

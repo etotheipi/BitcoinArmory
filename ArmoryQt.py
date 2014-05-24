@@ -542,7 +542,7 @@ class ArmoryMainWindow(QMainWindow):
 
 
       def exportTx():
-         if not TheBDM.getBDMState()=='BlockchainReady':
+         if not TheBDM.getState()=='BlockchainReady':
             QMessageBox.warning(self, 'Transactions Unavailable', \
                'Transaction history cannot be collected until Armory is '
                'in online mode.  Please try again when Armory is online. ',
@@ -2190,7 +2190,7 @@ class ArmoryMainWindow(QMainWindow):
             'again when Armory is online.', \
             QMessageBox.Ok)
          return
-      elif not TheBDM.getBDMState()=='BlockchainReady':
+      elif not TheBDM.getState()=='BlockchainReady':
          # BDM isnt ready yet, saved URI strings in the delayed URIDict to
          # call later through finishLoadBlockChain
          qLen = self.delayedURIData['qLen']
@@ -2438,11 +2438,11 @@ class ArmoryMainWindow(QMainWindow):
 
    #############################################################################
    def startRescanBlockchain(self, forceFullScan=False):
-      if TheBDM.getBDMState() in ('Offline','Uninitialized'):
+      if TheBDM.getState() in ('Offline','Uninitialized'):
          LOGWARN('Rescan requested but Armory is in offline mode')
          return
 
-      if TheBDM.getBDMState()=='Scanning':
+      if TheBDM.getState()=='Scanning':
          LOGINFO('Queueing rescan after current scan completes.')
       else:
          LOGINFO('Starting blockchain rescan...')
@@ -3029,7 +3029,7 @@ class ArmoryMainWindow(QMainWindow):
 
 
       confirmed=False
-      if TheBDM.getBDMState() in ('Offline', 'Uninitialized'):
+      if TheBDM.getState() in ('Offline', 'Uninitialized'):
          #LOGERROR('Somehow ended up at confirm-sweep while in offline mode')
          #QMessageBox.info(self, 'Armory is Offline', \
             #'Armory is currently in offline mode.  You must be in online '
@@ -3052,11 +3052,11 @@ class ArmoryMainWindow(QMainWindow):
             'able to create transactions.  The scan may take several minutes.'
             '<br><br>' % ('keys' if gt1 else 'key'))
 
-         if TheBDM.getBDMState()=='Scanning':
+         if TheBDM.getState()=='Scanning':
             msgConfirm += ( \
                'There is currently another scan operation being performed.  '
                'Would you like to start the sweep operation after it completes? ')
-         elif TheBDM.getBDMState()=='BlockchainReady':
+         elif TheBDM.getState()=='BlockchainReady':
             msgConfirm += ( \
                '<b>Would you like to start the scan operation right now?</b>')
 
@@ -3124,7 +3124,7 @@ class ArmoryMainWindow(QMainWindow):
       if DlgVerifySweep(dispIn, dispOut, outVal, fee).exec_():
          self.broadcastTransaction(finishedTx, dryRun=False)
 
-      if TheBDM.getBDMState()=='BlockchainReady':
+      if TheBDM.getState()=='BlockchainReady':
          wlt.syncWithBlockchainLite(0)
 
       self.walletListChanged()
@@ -3280,11 +3280,11 @@ class ArmoryMainWindow(QMainWindow):
       self.addWalletToAppAndAskAboutRescan(newWlt)
 
       """ I think the addWalletToAppAndAskAboutRescan replaces this...
-      if TheBDM.getBDMState() in ('Uninitialized', 'Offline'):
+      if TheBDM.getState() in ('Uninitialized', 'Offline'):
          self.addWalletToApplication(newWlt, walletIsNew=False)
          return
 
-      if TheBDM.getBDMState()=='BlockchainReady':
+      if TheBDM.getState()=='BlockchainReady':
          doRescanNow = QMessageBox.question(self, 'Rescan Needed', \
             'The wallet was imported successfully, but cannot be displayed '
             'until the global transaction history is '
@@ -3344,13 +3344,13 @@ class ArmoryMainWindow(QMainWindow):
 
       # If we are offline, then we can't assume there will ever be a
       # rescan.  Just add the wallet to the application
-      if TheBDM.getBDMState() in ('Uninitialized', 'Offline'):
+      if TheBDM.getState() in ('Uninitialized', 'Offline'):
          TheBDM.registerWallet(newWallet.cppWallet)
          self.addWalletToApplication(newWallet, walletIsNew=False)
          return
 
       """  TODO:  Temporarily removed recovery-rescan operations
-      elif TheBDM.getBDMState()=='BlockchainReady':
+      elif TheBDM.getState()=='BlockchainReady':
          doRescanNow = QMessageBox.question(self, 'Rescan Needed', \
             'The wallet was recovered successfully, but cannot be displayed '
             'until the global transaction history is '
@@ -3377,7 +3377,7 @@ class ArmoryMainWindow(QMainWindow):
 
       doRescanNow = QMessageBox.Cancel
 
-      if TheBDM.getBDMState()=='BlockchainReady':
+      if TheBDM.getState()=='BlockchainReady':
          doRescanNow = QMessageBox.question(self, tr('Rescan Needed'), \
             tr("""The wallet was restored successfully but its balance
             cannot be displayed until the blockchain is rescanned.
@@ -3435,12 +3435,12 @@ class ArmoryMainWindow(QMainWindow):
 
    #############################################################################
    def execAddressBook(self):
-      if TheBDM.getBDMState()=='Scanning':
+      if TheBDM.getState()=='Scanning':
          QMessageBox.warning(self, 'Blockchain Not Ready', \
             'The address book is created from transaction data available in '
             'the blockchain, which has not finished loading.  The address '
             'book will become available when Armory is online.', QMessageBox.Ok)
-      elif TheBDM.getBDMState() in ('Uninitialized','Offline'):
+      elif TheBDM.getState() in ('Uninitialized','Offline'):
          QMessageBox.warning(self, 'Blockchain Not Ready', \
             'The address book is created from transaction data available in '
             'the blockchain, but Armory is currently offline.  The address '
@@ -3857,7 +3857,7 @@ class ArmoryMainWindow(QMainWindow):
                self.startBitcoindIfNecessary()
          else:
             self.startBitcoindIfNecessary()
-      elif TheBDM.getBDMState() == 'BlockchainReady' and TheBDM.isDirty():
+      elif TheBDM.getState() == 'BlockchainReady' and TheBDM.isDirty():
          #self.resetBdmBeforeScan()
          self.startRescanBlockchain()
       elif TheBDM.getState() in ('Offline','Uninitialized'):
@@ -6184,7 +6184,7 @@ class ArmoryMainWindow(QMainWindow):
       while 1:
          dotsstr = '.'*((dots % 3)+1)
          dots = dots +1
-         if TheBDM.getBDMState() == 'Scanning':
+         if TheBDM.getState() == 'Scanning':
             canFix = 'Currently Scanning Blockchain. Fixing will be available once Armory is done loading' + dotsstr +\
                      '<br>You can close this window, it will reappear once your wallets are ready to be fixed'
             self.dlgCptWlt.UpdateCanFix([canFix])

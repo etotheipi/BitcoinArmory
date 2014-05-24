@@ -338,7 +338,7 @@ class ArmoryClientFactory(ReconnectingClientFactory):
 
    #############################################################################
    def addTxToMemoryPool(self, pytx):
-      if self.bdm and not self.bdm.getBDMState()=='Offline':
+      if self.bdm and not self.bdm.getState()=='Offline':
          self.bdm.addNewZeroConfTx(pytx.serialize(), long(RightNow()), True)    
       
 

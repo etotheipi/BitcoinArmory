@@ -1914,7 +1914,7 @@ class PyBtcWallet(object):
 
 
       if (not doScanNow or \
-          not TheBDM.getBDMState()=='BlockchainReady' or \
+          not TheBDM.getState()=='BlockchainReady' or \
           self.doBlockchainSync==BLOCKCHAIN_DONOTUSE):
          pass
       else:
@@ -2473,7 +2473,7 @@ class PyBtcWallet(object):
          LOGERROR('Called checkIfRescanRequired() from BDM method!')
          LOGERROR('Don\'t do this!')
 
-      if TheBDM.getBDMState()=='BlockchainReady':
+      if TheBDM.getState()=='BlockchainReady':
          return (TheBDM.numBlocksToRescan(self.cppWallet) > 2016)
       else:
          return False
