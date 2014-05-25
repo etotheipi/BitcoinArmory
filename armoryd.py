@@ -86,8 +86,9 @@ NOT_IMPLEMENTED = '--Not Implemented--'
 
 class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
    ##############################################################################
-   def __init__(self, wallet):
+   def __init__(self, wallet, inWltSet):
       self.curWlt = wallet
+      self.serverWltSet = inWltSet
       # Used with wallet notification code 
       self.addressMetaData = {}
 
@@ -149,7 +150,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
             result['hex'] = rawTx
          else:
             result = rawTx
-      else:    
+      else:
          LOGERROR('Tx hash not recognized by TheBDM: %s' % txHash)
          result = None
 
@@ -869,23 +870,60 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
 
    #############################################################################
-   # Clear the meta data
+   # Clear the metadata.
    def jsonrpc_clearaddressmetadata(self):
       self.addressMetaData = {}
 
 
    #############################################################################
-   # get the meta data
+   # Get the metadata.
    def jsonrpc_getaddressmetadata(self):
       return self.addressMetaData
 
 
-################################################################################
-class Armory_Daemon(object):
+   #############################################################################
+   # Function that gets the B58 string of the currently active wallet.
+   def jsonrpc_getactivewallet(self):
+      # Return the B58 string of the currently active wallet.
+      return self.curWlt.uniqueIDB58
 
 
    #############################################################################
+   # Function that sets theactive wallet using a B58 string.
+   def jsonrpc_setactivewallet(self, newIDB58):
+      # Return a string indicating whether or not the active wallet was set to a
+      # new wallet. If the change fails, keep the currently active wallet.
+      retStr = ''
+      try:
+         newWlt = self.serverWltSet[newIDB58]
+         self.curWlt = newWlt  # Separate in case ID's wrong & error's thrown.
+         retStr = 'Wallet %s is now active.' % newIDB58
+      except:
+         LOGERROR('setactivewallet - Wallet %s does not exist.' % newIDB58)
+         retStr = 'Wallet %s does not exist.' % newIDB58
+      return retStr
+
+
+   #############################################################################
+   # Function that lists all the loaded wallets.
+   def jsonrpc_listactivewallets(self):
+      # Return a dictionary with a string as the key and a wallet B58 value as
+      # the value.
+      curKey = 1
+      walletList = {}
+      for k in self.serverWltSet.keys():
+         curWltStr = 'Wallet %d' % curKey
+         walletList[curWltStr] = k
+         curKey += 1
+      return walletList
+
+
+################################################################################
+class Armory_Daemon(object):
    def __init__(self, wlt=None):
+      self.wltSet = {}
+      self.walletIDSet = set()
+
       # Check if armoryd is already running, bail if it is
       armorydIsRunning = self.checkForAlreadyRunning()
       if armorydIsRunning == True:
@@ -923,24 +961,47 @@ class Armory_Daemon(object):
          self.newBlockFunctions = []
          self.heartbeatFunctions = []
 
-         # The only argument that armoryd.py takes is the wallet to serve
+         # The only argument that armoryd.py takes, other than "--testnet" and
+         # armoryd commands, is the wallet to load on the server. If no wallets
+         # are specified, all wallets in the Armory home directory will be
+         # loaded instead.
          if wlt:
             self.curWlt = wlt
          else:
             if len(CLI_ARGS)==0:
-               LOGERROR('Please supply the wallet for this server to serve')
-               LOGERROR('USAGE:  %s [--testnet] [--whatever] file.wallet' % \
-                        sys.argv[0])
-               os._exit(1)
-            wltpath = CLI_ARGS[0]
-            if not os.path.exists(wltpath):
-               LOGERROR('Wallet does not exist!  (%s)', wltpath)
-               return
+               wltPaths = readWalletFiles()
+               self.addMultWallets(wltPaths)
 
-            self.curWlt = PyBtcWallet().readWalletFile(wltpath)
+               # Log info on the wallets we've loaded.
+               numWallets = len(self.wltSet)
+               LOGINFO('Number of wallets read in: %d', numWallets)
+               for wltID, wlt in self.wltSet.iteritems():
+                  dispStr  = ('   Wallet (%s):' % wlt.uniqueIDB58).ljust(25)
+                  dispStr +=  '"'+wlt.labelName.ljust(32)+'"   '
+                  dispStr +=  '(Encrypted)' if wlt.useEncryption else '(No Encryption)'
+                  LOGINFO(dispStr)
+
+               # Load the first wallet we encountered. (This is arbitrary.)
+               if numWallets > 0:
+                  self.curWlt = self.wltSet[self.wltSet.keys()[0]]
+                  LOGWARN('Active wallet is set to %s' % \
+                          self.curWlt.uniqueIDB58)
+               else:
+                  LOGWARN('No wallets could be loaded!')
+                  return
+
+            else:
+               wltpath = CLI_ARGS[0]
+               if not os.path.exists(wltpath):
+                  LOGERROR('Wallet does not exist!  (%s)', wltpath)
+                  return
+
+               self.curWlt = PyBtcWallet().readWalletFile(wltpath)
+               self.wltSet[self.curWlt.uniqueIDB58] = self.curWlt
+               self.walletIDSet.add(wltID)
 
          LOGINFO("Initialising RPC server on port %d", ARMORY_RPC_PORT)
-         resource = Armory_Json_Rpc_Server(self.curWlt)
+         resource = Armory_Json_Rpc_Server(self.curWlt, self.wltSet)
          secured_resource = self.set_auth(resource)
 
          # This is LISTEN call for armory RPC server
@@ -948,9 +1009,49 @@ class Armory_Daemon(object):
                            server.Site(secured_resource), \
                            interface="127.0.0.1")
 
-
          # Setup the heartbeat function to run every 
          reactor.callLater(3, self.Heartbeat)
+
+
+   #############################################################################
+   def addMultWallets(self, inWltPaths):
+      '''Function that adds multiple wallets to an armoryd server.'''
+      for aWlt in inWltPaths:
+         # Logic basically taken from loadWalletsAndSettings()
+         try:
+            wltLoad = PyBtcWallet().readWalletFile(aWlt)
+            wltID = wltLoad.uniqueIDB58
+
+            # For now, no wallets are excluded. If this changes....
+            #if aWlt in wltExclude or wltID in wltExclude:
+            #   continue
+
+            # A directory can have multiple versions of the same
+            # wallet. We'd prefer to skip watch-only wallets.
+            if wltID in self.walletIDSet:
+               LOGWARN('***WARNING: Duplicate wallet detected, %s', \
+                       wltID)
+               wo1 = self.wltSet[wltID].watchingOnly
+               wo2 = wltLoad.watchingOnly
+               if wo1 and not wo2:
+                  prevWltPath = self.wltSet[wltID].walletPath
+                  self.wltSet[wltID] = wltLoad
+                  LOGWARN('First wallet is more useful than the second one...')
+                  LOGWARN('     Wallet 1 (loaded):  %s', aWlt)
+                  LOGWARN('     Wallet 2 (skipped): %s', prevWltPath)
+               else:
+                  LOGWARN('Second wallet is more useful than the first one...')
+                  LOGWARN('     Wallet 1 (skipped): %s', aWlt)
+                  LOGWARN('     Wallet 2 (loaded):  %s', \
+                          self.wltSet[wltID].walletPath)
+            else:
+               # Update the wallet structs.
+               self.wltSet[wltID] = wltLoad
+               self.walletIDSet.add(wltID)
+         except:
+            LOGEXCEPT('***WARNING: Unable to load wallet %s. Skipping.', \
+                      aWlt)
+            raise
 
 
    #############################################################################

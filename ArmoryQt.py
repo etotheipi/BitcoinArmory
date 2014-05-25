@@ -2425,7 +2425,6 @@ class ArmoryMainWindow(QMainWindow):
 
 
       # Load wallets found in the .armory directory
-      wltPaths = []
       self.walletMap = {}
       self.walletIndices = {}
       self.walletIDSet = set()
@@ -2439,18 +2438,8 @@ class ArmoryMainWindow(QMainWindow):
 
       self.currBlockNum = 0
 
-
-
       LOGINFO('Loading wallets...')
-      for f in os.listdir(ARMORY_HOME_DIR):
-         fullPath = os.path.join(ARMORY_HOME_DIR, f)
-         if os.path.isfile(fullPath) and not fullPath.endswith('backup.wallet'):
-            openfile = open(fullPath, 'rb')
-            first8 = openfile.read(8)
-            openfile.close()
-            if first8=='\xbaWALLET\x00':
-               wltPaths.append(fullPath)
-
+      wltPaths = readWalletFiles()
 
       wltExclude = self.settings.get('Excluded_Wallets', expectList=True)
       wltOffline = self.settings.get('Offline_WalletIDs', expectList=True)
@@ -2473,8 +2462,8 @@ class ArmoryMainWindow(QMainWindow):
                   LOGWARN('     Wallet 2 (skipped): %s', prevWltPath)
                else:
                   LOGWARN('Second wallet is more useful than the first one...')
-                  LOGWARN('     Wallet 1 (loaded):  %s', self.walletMap[wltID].walletPath)
-                  LOGWARN('     Wallet 2 (skipped): %s', fpath)
+                  LOGWARN('     Wallet 1 (skipped): %s', fpath)
+                  LOGWARN('     Wallet 2 (loaded):  %s', self.walletMap[wltID].walletPath)
             else:
                # Update the maps/dictionaries
                self.walletMap[wltID] = wltLoad
