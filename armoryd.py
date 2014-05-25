@@ -1017,7 +1017,7 @@ class Armory_Daemon(object):
    #############################################################################
    def checkForAlreadyRunning(self):
       retVal = True
-      sock = ''
+      sock = socket.socket()
 
       # Try to create a connection to the Armory server. If an error is thrown,
       # that means the server doesn't exist.
