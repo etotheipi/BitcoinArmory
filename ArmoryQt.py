@@ -6176,6 +6176,102 @@ class ArmoryMainWindow(QMainWindow):
       lbl.mousePressEvent = pressEv
       return lbl
 
+   #############################################################################
+   def createAddressEntryWidgets(self, parent, titleText='Recipient:', **cabbKWArgs):
+      """
+      Returns five widgets that can be put into layouts:
+         [[Label: Address #3]] [[QLineEdit: addr/pubkey]] [[Button: Addrbook]]
+                               [[Label: If pubkey entry, show addr]]
+                               [[Label: Wallet/Lockbox autodetect]]
+      """
+
+      widgOut = {}
+      widgOut['LabelTitle']   = QRichLabel(titleText)
+      widgOut['LineEditAddr'] = QLineEdit()
+      widgOut['BtnAddrBook']  = createAddrBookButton( parent, 
+                        widgOut['LineEditAddr'], defaultWlt, **cabbKWArgs)
+      widgOut['LabelDetectAddr'] = QRichLabel('')
+      widgOut['LabelDetectWlt']  = QRichLabel('')
+
+      ##########################################################################
+      # Connect the address-entry QLineEdit to labels that show addrs/wlts/lbs
+      def updateAddrDetectLabels():
+         try:
+            addrtext = str(widgOut['LineEditAddr'].text()).strip()
+            
+            if addrStr_is_p2sh(addrtext):
+               lboxID = self.getLockboxByP2SHAddrStr(addrtext) 
+            else:
+               lboxID = readLockboxEntryStr(addrtext)
+   
+            if lboxID:
+               lbox = self.getLockboxByID(lboxID)
+               if lbox:
+                  dispStr = '<b>Lockbox: %s-of-%s</b>: "%s" (%s)' % \
+                                      (lbox.M, lbox.N, lbox.shortName, lboxID)
+               else:
+                  dispStr = 'Unrecognized Lockbox'
+   
+               self.widgetTable[idx][idCol].setVisible(True)
+               widgOut['LabelDetectWlt'].setText(dispStr, color='TextBlue')
+               widgOut['LabelDetectWlt'].setVisible(True)
+
+               if addrStr_is_p2sh(addrtext):
+                  widgOut['LabelDetectAddr'].setVisible(False)
+               else:
+                  p2shStr = scrAddr_to_addrStr(lbox.scrAddr)
+                  widgOut['LabelDetectAddr'].setText(p2shStr, color='TextBlue')
+                  widgOut['LabelDetectAddr'].setVisible(True)
+               return
+   
+            isPubKey = (len(addrtext)==130)
+            if isPubKey:
+               a160 = hash160(hex_to_binary(addrtext))
+               wltID = self.getWalletForAddr160(a160)
+            else:
+               wltID = self.getWalletForAddr160(addrStr_to_hash160(addrtext)[1])
+
+            if wltID:
+               wlt = self.walletMap[wltID]
+               dispStr = '%s (%s)' % (wlt.labelName, wlt.uniqueIDB58)
+               self.widgetTable[idx][idCol].setVisible(True)
+               self.widgetTable[idx][idCol].setText(dispStr, color='TextBlue')
+
+               if isPubKey:
+                  addrstr = hash160_to_addrStr(hash160(hex_to_binary(addrtext)))
+                  widgOut['LabelDetectAddr'].setText(addrstr, color='TextBlue')
+                  widgOut['LabelDetectAddr'].setVisible(True)
+               else:
+                  widgOut['LabelDetectAddr'].setVisible(False)
+
+               return
+   
+            # It's a valid str but not a wlt or lockbox we recog
+            widgOut['LabelDetectAddr'].setVisible(False)
+            widgOut['LabelDetectWlt'].setVisible(False)
+
+         except:
+            LOGEXCEPT('Invalid recipient string')
+            widgOut['LabelDetectAddr'].setVisible(False)
+            widgOut['LabelDetectWlt'].setVisible(False)
+      # End 
+      ##########################################################################
+            
+      # Now actually connect them
+      parent.connect(widgOut['LineEditAddr'], SIGNAL('textChanged(QString)'), 
+                                                         updateAddrDetectLabels)
+
+
+      # We also need a function that returns information about the entered data
+
+      widgOut['GetUserEntry'] = 
+
+
+
+   #############################################################################
+   def getRecipInfoForUserAddrInput(self, userStr):
+      userStr = userStr.strip()
+
 
    #############################################################################
    @TimeThisFunction

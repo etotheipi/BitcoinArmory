@@ -8584,7 +8584,7 @@ class DlgAddressBook(ArmoryDialog):
 
 
 ################################################################################
-def createAddrBookButton(parent, targWidget, defaultWlt, actionStr="Select",
+def createAddrBookButton(parent, targWidget, defaultWlt=None, actionStr="Select",
                          selectExistingOnly=False, selectMineOnly=False, getPubKey=False,
                          showLockBoxes=True):
    btn = QPushButton('')
