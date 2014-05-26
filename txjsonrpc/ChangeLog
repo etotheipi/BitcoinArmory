@@ -1,0 +1,238 @@
+2012.01.06
+
+* Added a Makefile that will eventually replace the admin scripts.
+* Added *ignore files.
+* Updated Makefile with improved (and more) targets as well as support for both
+bzr and git.
+* Added a silly version script (used by the Makefile).
+* Fixed the MANIFEST.in file (this addresses a long-standing bug in this
+version of txJSON-RPC).
+* Incremented the version number due to the bug fix for the included docs in
+the source build.
+* Fixed the virtual-env build make target.
+* Fixed up the dist util module to account for the renamed README.
+* Fixed the json import for modern versions of Python.
+* Removed web2 support.
+* Updated HISTORY file.
+
+2009.11.09
+
+* Removed the version hack and determined version of the request made to the
+server by message format/spec support.
+
+2009.11.08
+
+* Added import checks in auth.py.
+* Added test case for auth imports.
+* Fixed up the import unit tests with reloads.
+* Added unit tests for realm test case.
+* Restructured the get* methods for the web and web2 modules.
+* Added unit tests for wrapped resource test case.
+* Removed version 1 test methods in JSONRPC test case.
+* Added unit tests for jsonrpclib.dumps.
+* Added unit tests for jsonrpc.BaseProxy.
+* Updated defs with svn branch.
+* Added unit tests for base query factory.
+* Started a test case for the jsonrpclib loads function.
+* Fixed the server's render callback where the version was being passed as
+unicode instead of an int.
+* Touched up a unit test.
+* Updated the spec docs with a change.
+
+2009.11.07
+
+* Added authentication support with cred for twisted.web2-based JSON-RPC
+reources.
+* Updated history file.
+* Added test case for auth imports.
+
+2009.11.06
+
+* Reverted trunk to pre-version-work point.
+* Cherry-picked the change that added missing deferred returns in two tests.
+* Cherry-picked the change that added the testing helper subpackage.
+* Cherry-picked the change that added the doctest runner.
+* Cherry-picked changes to the examples and updated the example-runner.
+* Added authentication infrasturcture so that twisted.web-based txJSON-RPC
+servers can be written to support twisted.cred.
+
+2009.10.22
+
+* Added support for version 1.0 of the JSON-RPC spec to jsonrpclib.
+* Finished the pre-version 1.0 spec.
+* Updated the version 1.0 spec with response examples.
+* Updated web and web2 JSON-RPC to extract and pass the id and version
+parameters.
+
+2009.10.21
+
+* Updated the QueryFactory to take a version parameter in the constructor.
+* Added a payload creator that uses the version to determine which payload to
+build.
+* Changed the constructor to use a new private method for creating the payload.
+* Changed the async Proxy classes in web and netstring to accept a version
+parameter in the constructor as well as in the callRemote method.
+* Updated license file with more recent copyright info.
+* Added an exmaple for web client.
+* Updated netstring JSON-RPC with support for version parameters in contructor
+and callRemote.
+* Added a jsonrpc module for abstracting base-classes and removing redundancy
+between the three JSON-RPC implementations.
+* Added a BaseProxy class.
+* Import cleanup.
+* Moved more common methods into the base query factory class.
+* Created a BaseSubhandler subclass for http and netstring RPC classes.
+* Removed session code from netstring RPC test.
+* Moved introspection into base module.
+* Changed introspection to behave like a mixin instead of a subclass.
+* Updated JSON-RPC web2 to use new base classes.
+* Updated JSON-RPC web2's Introspection class to use the base introspection
+class.
+
+2009.10.20
+
+* Added clean.sh admin script.
+* Cleaned up TODO file.
+* Updated meta file with more data and incremented the version to 0.3.
+* Added utils subpackage.
+* Updated setup.py to use the new utils subpackage.
+* Added docs.
+* Updated README.
+* Cleaned up lots of unused imports.
+* Formatting tweaks.
+* Added a call to strip for the help-string-returning methods.
+* Added a maxLength attribute to QueryFactory for custom settings by users.
+* Updated proxy to instantiate QueryFactory with an optional maxLength
+override.
+* Updated history file.
+* Cleaned up examples.
+* Added an admin script for testing examples.
+* Updated the commit script to run the exmaple tests.
+* Added missing error handling in commit script.
+* Added PYTHONPATH to example runner commands.
+* Removed PYTHONPATH from admin/defs.sh.
+* Removed debugging echo statement from commit.sh.
+* Removed manual PYTHONPATH setting in example runner.
+* Formatting tweaks.
+* Updated TODO and README.
+* Added admin upload script.
+* Added placeholders for version spec files.
+* Added missing deferred returns in two tests.
+* Added testing helper subpackage.
+* Added doctest runner.
+* Added manifest file.
+* Updated the commit script to run the doctest runner.
+* Added headings to the spec files.
+* Added request info to the specs.
+* Added versioned request functions to jsonrpclib.py and updated the
+ServerProxy with a version-sensitive dispatcher.
+* Removed non-pertinent sections from pre-version 1 spec.
+
+2008.11.10
+
+* Added a test for None/null.
+* Added a serializer for Python datetime -> JSON.
+* Updated the version.
+* Updated the commitAndPush script to pass the skip_tests parameter (and fixed
+its filename extention).
+* Added missing sudo to cleanup function.
+* Removed unused clean script (and made sure that the other scripts use the
+clean function).
+* Converted checkBuild to function and removed script.
+* Made the error function take a message parameter.
+* Updated the bzr push command for svn.
+* Fixed failing test for new "none" check.
+* Removed sudo calls from admin scripts.
+* Updated the ChangeLog with missing notes from earlier today.
+* Moved version info into meta package file.
+
+2008.07.18
+
+* Added more admin scripts.
+
+2008.07.16
+
+* Applied a patch from Moshe Zadka: "When getting a long reply, the client
+library, using code from xmlrpclib, will attempt to call feed multiple times
+with partial messages. The supplied parser assumes feed will only be called
+with a complete message."
+
+2008.06.15
+
+* Added Fault class.
+* Updated SimpleParser to properly return results when using jsonrpclib
+(synchronous, blocking code).
+* Added Transport and ServerProxy.
+* Added web example (in addition to the already-extant web2 example).
+* Removed extraneous print/debug code.
+* Incremented version number.
+* Added missing NOT_FOUND to web.jsonrpc.
+* Updated the version number.
+
+2008.06.14
+
+* Removed extraneous while space.
+* Added NoSuchFunction class.
+
+2008.06.11
+
+* Updated the commit script to work with bzr-svn.
+* Added a path hack to commit.sh for running trial.
+* Renamed adytum to txjsonrpc.
+* Moved web and web2 up and renamed twisted to netstring.
+* Removed .pyc files.
+* Tweaked the commit script.
+* Added license.
+* Removed ez_setup.py.
+* Updated TODO.
+* Renamed the main package from adytum to txjsonrpc.
+* Updated setup.py.
+* Removed ez_setup support.
+* Removed setuptools support.
+* Changed to the new way of flushing logs in twisted.trial.
+* Adjusted tests to use the new package and subpackage names.
+* Adjusted examples to use the new package and subpackage names.
+* Incremented the version number.
+* Removed trial path hack from commit.sh.
+* Test commit to svn and bzr from a freshly checked out branch.
+* Cool! It worked. Removed testfile.
+* Changed the commit script to point to 'main' on launchpad.
+* One more change to the launchpad destination in the commit script.
+* Updated the stat script to use bzr instead of svn.
+
+2006.05.07
+
+* Added a.t.jsonrpc.RPCFactory to __all__.
+* Renamed some of the variables in the examples to be more accurate.
+
+2006.05.06
+
+* Added a beginning sketch of JSON over TCP in protocols.json.
+* Some protocol tweaks.
+* Added test top-level directory as well as an adytum.twisted-level test
+directory.
+* Converted a.t.w2.jsonrpc and the client portion of a.t.w.jsonrpc to use the
+NetstringReceiver protocol for JSON-RPC over TCP.
+* Removed protocol code, since we don't need a custom protocol for JSON-RCP
+over TCP.
+* Commented out the support for returning a dict with keys "result" and
+"error" as it seems like unessary overhead for now. Someone convince me
+otherwise, and I'll put it back in.
+* Changed methodology for adding subhandlers.
+* Fixed introspection.
+
+2006.05.05
+
+* Added directory place holders and __init__.py files.
+* Added basic files.
+* Copied jsonrpc.py from the adytum library.
+* Moved proto-jsonrpclib code out of a.t.web.jsonrpc and into
+adytum.jsonrpclib.
+* Added copies of t.w2.xmlrpc and tests and renamed them to jsonrpc.
+* a.t.w2.jsonrpc has been ported and passes all tests.
+* Updated setup.py.
+* Added ez_setup.py.
+* Added client and server examples.
+* Made adytum and adytum.twisted setuptools namespaces.
+* Updated the example client.
+* Updated the TODO file.

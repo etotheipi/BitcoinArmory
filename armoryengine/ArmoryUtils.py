@@ -929,6 +929,22 @@ if CLI_OPTIONS.testAnnounceCode:
       '62fe30376497ad3efcd2964aa0be366010c11b8d7fc8209f586eac00bb763015')
 
 
+#############################################################################
+def readWalletFiles():
+   '''Function that finds the paths of all non-backup wallets in the Armory
+      home directory.'''
+   wltPaths = []
+   for f in os.listdir(ARMORY_HOME_DIR):
+      fullPath = os.path.join(ARMORY_HOME_DIR, f)
+      if os.path.isfile(fullPath) and not fullPath.endswith('backup.wallet'):
+         openfile = open(fullPath, 'rb')
+         first8 = openfile.read(8)
+         openfile.close()
+         if first8=='\xbaWALLET\x00':
+            wltPaths.append(fullPath)
+
+   return wltPaths
+
 
 ################################################################################
 # Load the C++ utilites here
@@ -1544,6 +1560,8 @@ def enum(*sequential, **named):
    return type('Enum', (), enums)
 
 DATATYPE = enum("Binary", 'Base58', 'Hex')
+
+
 def isLikelyDataType(theStr, dtype=None):
    """
    This really shouldn't be used on short strings.  Hence
@@ -2528,7 +2546,12 @@ def ReadFragIDLineHex(hexLine):
 ################################################################################
 
 
-
+################################################################################
+def stripJSONStrChars(inStr):
+   '''Function that strips the extra characters from a JSON-encoded string.'''
+   # When Python decodes a JSON string, extra characters are added. For example,
+   # "Hello" becomes "u'Hello'". We want to get the original string.
+   return inStr[2:-1]
 
 
 ################################################################################

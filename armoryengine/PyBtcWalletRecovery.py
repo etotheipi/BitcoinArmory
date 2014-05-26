@@ -1833,10 +1833,11 @@ def ParseWallet(wltPath, wlt, mode, dlg, Progress=emptyFunc):
    fixedWlt = []
    wlterror = []
    goodWallets = []
+   inPassphrase = dlg.AskUnlock if dlg else None
    
    wltStatus, extraData, recovObj = FixWallet(wltPath, wlt, mode, True, 
-                                       Passphrase=dlg.AskUnlock if dlg else None, 
-                                       Progress=Progress)
+                                              Passphrase=inPassphrase, 
+                                              Progress=Progress)
    if wltStatus == 0:
       goodWallets.append(1)
       fixedWlt.append(1)

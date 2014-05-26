@@ -133,6 +133,29 @@ class PyBtcAddress(object):
    def hasPubKey(self):
       return (self.binPublicKey65.getSize() != 0)
 
+
+   ##############################################################################
+   def getPubKey(self):
+      '''Return the uncompressed public key of the address.'''
+      if len(self.binPublicKey65) != 65:
+         raise KeyDataError, 'PyBtcAddress does not have a public key!'
+      return self.binPublicKey65
+
+
+   #############################################################################
+   def hasChainCode(self):
+      '''Return a boolean indicating if the address has a chain code.'''
+      return (self.chaincode.getSize() != 0)
+
+
+   #############################################################################
+   def getChainCode(self):
+      '''Return the chain code of the address.'''
+      if len(self.chaincode) != 32:
+         raise KeyDataError, 'PyBtcAddress does not have a chain code!'
+      return self.chaincode
+
+
    #############################################################################
    def getAddrStr(self, netbyte=ADDRBYTE):
       chksum = hash256(netbyte + self.addrStr20)[:4]

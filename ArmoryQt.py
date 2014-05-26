@@ -1427,17 +1427,20 @@ class ArmoryMainWindow(QMainWindow):
 
    #############################################################################
    def makeWalletCopy(self, parent, wlt, copyType='Same', suffix='', changePass=False):
+      '''Create a digital backup of your wallet.'''
       if changePass:
          LOGERROR('Changing password is not implemented yet!')
          raise NotImplementedError
 
+      # Set the file name.
       fn = 'armory_%s_%s.wallet' % (wlt.uniqueIDB58, suffix)
-      if wlt.watchingOnly:
+      if wlt.watchingOnly and copyType.lower() != 'pkcc':
          fn = 'armory_%s_%s.watchonly.wallet' % (wlt.uniqueIDB58, suffix)
       savePath = unicode(self.getFileSave(defaultFilename=fn))
       if not len(savePath)>0:
          return False
 
+      # Create the file based on the type you want.
       if copyType.lower()=='same':
          wlt.writeFreshWalletFile(savePath)
       elif copyType.lower()=='decrypt':
@@ -1458,6 +1461,8 @@ class ArmoryMainWindow(QMainWindow):
             newPassphrase = SecureBinaryData(str(dlgCrypt.edtPasswd1.text()))
 
          wlt.makeEncryptedWalletCopy(savePath, newPassphrase)
+      elif copyType.lower() == 'pkcc':
+         wlt.writePKCCFile(savePath)
       else:
          LOGERROR('Invalid "copyType" supplied to makeWalletCopy: %s', copyType)
          return False
@@ -2420,7 +2425,6 @@ class ArmoryMainWindow(QMainWindow):
 
 
       # Load wallets found in the .armory directory
-      wltPaths = []
       self.walletMap = {}
       self.walletIndices = {}
       self.walletIDSet = set()
@@ -2434,18 +2438,8 @@ class ArmoryMainWindow(QMainWindow):
 
       self.currBlockNum = 0
 
-
-
       LOGINFO('Loading wallets...')
-      for f in os.listdir(ARMORY_HOME_DIR):
-         fullPath = os.path.join(ARMORY_HOME_DIR, f)
-         if os.path.isfile(fullPath) and not fullPath.endswith('backup.wallet'):
-            openfile = open(fullPath, 'rb')
-            first8 = openfile.read(8)
-            openfile.close()
-            if first8=='\xbaWALLET\x00':
-               wltPaths.append(fullPath)
-
+      wltPaths = readWalletFiles()
 
       wltExclude = self.settings.get('Excluded_Wallets', expectList=True)
       wltOffline = self.settings.get('Offline_WalletIDs', expectList=True)
@@ -2468,8 +2462,8 @@ class ArmoryMainWindow(QMainWindow):
                   LOGWARN('     Wallet 2 (skipped): %s', prevWltPath)
                else:
                   LOGWARN('Second wallet is more useful than the first one...')
-                  LOGWARN('     Wallet 1 (loaded):  %s', self.walletMap[wltID].walletPath)
-                  LOGWARN('     Wallet 2 (skipped): %s', fpath)
+                  LOGWARN('     Wallet 1 (skipped): %s', fpath)
+                  LOGWARN('     Wallet 2 (loaded):  %s', self.walletMap[wltID].walletPath)
             else:
                # Update the maps/dictionaries
                self.walletMap[wltID] = wltLoad
