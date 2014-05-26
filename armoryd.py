@@ -296,11 +296,25 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
    def jsonrpc_getbalance(self, baltype='spendable'):
       if not baltype in ['spendable','spend', 'unconf', 'unconfirmed', \
                           'total', 'ultimate','unspent', 'full']:
-         print 'DOUG DEBUG: getbalance str', baltype
          LOGERROR('Unrecognized getbalance string: "%s"', baltype)
          return -1
          
       return AmountToJSON(self.curWlt.getBalance(baltype))
+
+
+   #############################################################################
+   def jsonrpc_getaddrbalance(self, inB58, baltype='spendable'):
+      retVal = AmountToJSON(0)
+      if not baltype in ['spendable','spend', 'unconf', 'unconfirmed', \
+                         'ultimate','unspent', 'full']:
+         LOGERROR('Unrecognized getaddrbalance string: "%s"', baltype)
+      else:
+         # For now, allow only Base58 addresses.
+         a160 = addrStr_to_hash160(inB58, False)[1]
+         if self.curWlt.addrMap.has_key(a160):
+            retVal = AmountToJSON(self.curWlt.getAddrBalance(a160, baltype))
+
+      return retVal
 
 
    #############################################################################
@@ -890,6 +904,8 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
    #############################################################################
    # Function that sets theactive wallet using a B58 string.
+   # NB: It appears that more neds to be done here. Certain functionality
+   # doesn't seem to be correct when a wallet is switched.
    def jsonrpc_setactivewallet(self, newIDB58):
       # Return a string indicating whether or not the active wallet was set to a
       # new wallet. If the change fails, keep the currently active wallet.
@@ -906,7 +922,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
    #############################################################################
    # Function that lists all the loaded wallets.
-   def jsonrpc_listactivewallets(self):
+   def jsonrpc_listloadedwallets(self):
       # Return a dictionary with a string as the key and a wallet B58 value as
       # the value.
       curKey = 1

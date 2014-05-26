@@ -472,7 +472,7 @@ class PyBtcWallet(object):
          elif ledgType.lower() in ('zeroconf', 'zero'):
             return ledgZeroConf
          else:
-            raise TypeError('Unknown balance type! "' + ledgType + '"')
+            raise TypeError('Unknown ledger type! "' + ledgType + '"')
 
 
    #############################################################################
@@ -488,7 +488,7 @@ class PyBtcWallet(object):
          elif txType.lower() in ('full', 'all', 'unspent', 'ultimate'):
             return self.cppWallet.getFullTxOutList(currBlk);
          else:
-            raise TypeError('Unknown balance type! ' + txType)
+            raise TypeError('Unknown TxOut type! ' + txType)
       else:
          LOGERROR('***Blockchain is not available for accessing wallet-tx data')
          return []
