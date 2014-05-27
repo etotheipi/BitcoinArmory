@@ -274,7 +274,7 @@ class BlockDataManager(object):
       if not os.path.exists(blk1st):
          LOGERROR('Blockchain data not available: %s', blk1st)
          self.prefMode = BLOCKCHAINMODE.Offline
-         raise FileExistsError, ('Blockchain data not available: %s' % self.blk1st)
+         raise FileExistsError, ('Blockchain data not available: %s' % blk1st)
 
  
       armory_homedir = ARMORY_HOME_DIR
