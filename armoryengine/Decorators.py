@@ -12,16 +12,23 @@
 # Orig Date:  20 November, 2011
 #
 ################################################################################
+
+################################################################################
+#
+# Note that, for now, the code ONLY supports sending e-mails from a GMail
+# account.
+#
+################################################################################
+
 from armoryengine.ArmoryUtils import LOGWARN, LOGERROR
-
-
-import smtplib
-import os
 from email.MIMEMultipart import MIMEMultipart
 from email.MIMEBase import MIMEBase
 from email.MIMEText import MIMEText
 from email.Utils import COMMASPACE, formatdate
 from email import Encoders
+
+import smtplib
+import os
 import functools
 
 def send_email(send_from, password, send_to, subject, text):
@@ -53,11 +60,3 @@ def EmailOutput(send_from, password, send_to, subject='Armory Output'):
          return ret
       return wrapper
    return ActualEmailOutputDecorator
-
-
-
-
-
-
-
-
