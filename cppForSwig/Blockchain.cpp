@@ -31,7 +31,7 @@ BlockHeader& Blockchain::addBlock(
    if (hasHeaderWithHash(blockhash) && blockhash != genesisHash_)
    { // we don't show this error for the genesis block
       LOGWARN << "Somehow tried to add header that's already in map";
-      LOGWARN << "Header Hash: " << blockhash.toHexStr();
+      LOGWARN << "    Header Hash: " << blockhash.toHexStr();
    }
    return headerMap_[blockhash] = block;
 }

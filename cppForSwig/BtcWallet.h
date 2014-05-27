@@ -170,13 +170,12 @@ public:
       getZeroConfLedger(BinaryData const * scrAddr = NULL) const;
    const vector<LedgerEntry> 
       getTxLedger(BinaryData const * scrAddr=NULL) const; 
-   map<OutPoint, TxIOPair> & getTxIOMap(void)    {return txioMap_;}
-   map<OutPoint, TxIOPair> & getNonStdTxIO(void) {return nonStdTxioMap_;}
 
    bool isOutPointMine(BinaryData const & hsh, uint32_t idx);
 
    void pprintLedger(void);
    void pprintAlot(InterfaceToLDB *db, uint32_t topBlk=0, bool withAddr=false);
+   void pprintAlittle(std::ostream &os) const;
 
    void setBdmPtr(BlockDataManager_LevelDB * bdmptr) {bdmPtr_=bdmptr;}
    void clearBlkData(void);

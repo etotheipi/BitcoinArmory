@@ -34,8 +34,12 @@ void BtcWallet::addScrAddress(HashString    scrAddr,
    if (scrAddrMap_.contains(scrAddr))
       return;
 
-   ScrAddrObj addrPtr = ScrAddrObj(bdmPtr_->getIFace(), scrAddr, firstTimestamp, firstBlockNum,
-                                  lastTimestamp,  lastBlockNum);
+   ScrAddrObj addrPtr(
+      bdmPtr_->getIFace(),
+      scrAddr,
+      firstTimestamp, firstBlockNum,
+      lastTimestamp,  lastBlockNum
+   );
    scrAddrMap_[scrAddr] = addrPtr;
 
    registerImportedScrAddr(scrAddr, firstBlockNum);
@@ -296,6 +300,16 @@ void BtcWallet::pprintAlot(InterfaceToLDB *db, uint32_t topBlk, bool withAddr)
    }
 }
 
+void BtcWallet::pprintAlittle(std::ostream &os) const
+{
+   os << "\tBalance: " << getFullBalance();
+   os << "\tNAddr:   " << getNumScrAddr();
+   os << "\tNTxio:   " << txioMap_.size();
+   os << "\tNLedg:   " << getTxLedger().size();
+   os << "\tNZC:     " << getZeroConfLedger().size() << endl;      
+
+}
+
 /////////////////////////////////////////////////////////////////////////////
 // Pass this wallet a TxRef and current time/blknumber.  I used to just pass
 // in the BlockHeader with it, but this may be a Tx not in a block yet, 
@@ -516,8 +530,7 @@ void BtcWallet::scanTx(Tx & tx,
             else
                newTxio.setTxOut(tx.getTxRef(), iout);
 
-            pair<OutPoint, TxIOPair> toBeInserted(outpt, newTxio);
-            txioIter = txioMap_.insert(toBeInserted).first;
+            txioIter = txioMap_.insert(make_pair(outpt, newTxio)).first;
             thisAddr.addTxIO( &txioIter->second, isZeroConf);
             doAddLedgerEntry = true;
          }

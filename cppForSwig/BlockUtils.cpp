@@ -1226,17 +1226,11 @@ void BlockDataManager_LevelDB::pprintRegisteredWallets(void)
 {
    BtcWallet* wlt;
    ts_setBtcWallet::const_snapshot wltSnapshot(registeredWallets_);
-   ts_setBtcWallet::const_iterator wltIter;
 
-   for (wltIter = wltSnapshot.begin(); wltIter != wltSnapshot.end(); ++wltIter)
+   for (const BtcWallet *wlt : wltSnapshot)
    {
-      wlt = *wltIter;
       cout << "Wallet:";
-      cout << "\tBalance: " << wlt->getFullBalance();
-      cout << "\tNAddr:   " << wlt->getNumScrAddr();
-      cout << "\tNTxio:   " << wlt->getTxIOMap().size();
-      cout << "\tNLedg:   " << wlt->getTxLedger().size();
-      cout << "\tNZC:     " << wlt->getZeroConfLedger().size() << endl;      
+      wlt->pprintAlittle(cout);
    }
 }
 
@@ -2878,11 +2872,16 @@ void BlockDataManager_LevelDB::addRawBlockToDB(BinaryRefReader & brr)
 
          // Don't put it into the DB if it's not proper!
          if(sbh.blockHeight_==UINT32_MAX || sbh.duplicateID_==UINT8_MAX)
-            throw BlockDeserializingException("Error parsing block (corrupt?) - Cannot add raw block to DB without hgt & dup");
+            throw BlockDeserializingException(
+               "Error parsing block (corrupt?) - Cannot add raw block to DB without hgt & dup (hash="
+                  + bh.getThisHash().toHexStr() + ")"
+               );
 
          iface_->putStoredHeader(sbh, true);
          missingBlockHashes_.push_back( sbh.thisHash_ );
-         throw BlockDeserializingException("Error parsing block (corrupt?) - block header valid");
+         throw BlockDeserializingException("Error parsing block (corrupt?) - block header valid (hash="
+            + bh.getThisHash().toHexStr() + ")"
+         );
       }
       else
       {
@@ -2897,7 +2896,11 @@ void BlockDataManager_LevelDB::addRawBlockToDB(BinaryRefReader & brr)
 
    // Don't put it into the DB if it's not proper!
    if(sbh.blockHeight_==UINT32_MAX || sbh.duplicateID_==UINT8_MAX)
-      throw BlockDeserializingException("Cannot add raw block to DB without hgt & dup");
+   {
+      throw BlockDeserializingException("Cannot add raw block to DB without hgt & dup (hash="
+         + bh.getThisHash().toHexStr() + ")"
+      );
+   }
    iface_->putStoredHeader(sbh, true);
 }
 
