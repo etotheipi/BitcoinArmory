@@ -600,7 +600,11 @@ class PyBtcWallet(object):
    def backupWalletFile(self, backupPath = None):
       walletFileBackup = self.getWalletPath('backup') if backupPath == None \
                                                                else backupPath
-      shutil.copy(self.walletPath, walletFileBackup)
+      try:
+         shutil.copy(self.walletPath, walletFileBackup)
+      except IOERROR, errPath:
+         print 'Unable to copy file %s' % errPath
+
 
    #############################################################################
    #  THIS WAS CREATED ORIGINALLY TO SUPPORT BITSAFE INTEGRATION INTO ARMORY

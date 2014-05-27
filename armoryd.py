@@ -40,6 +40,18 @@
 # https://bitcointalk.org/index.php?topic=92496.0
 #####
 
+################################################################################
+#
+# Random JSON notes should be placed here as desired.
+#
+# - JSON can only send back data as strings or floats.
+# - If a returned string has a newline char, JSON will convert it to the string
+#   "\n" (minus quotation marks).
+# - JSON can only send back data as an individual value or dictionary (i.e., no
+#   lists or other structs are allowed).
+#
+################################################################################
+
 import decimal
 import json
 
@@ -119,17 +131,48 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
                # in the tally
                pass
       return AmountToJSON(totalReceived)
-      
+
+
    #############################################################################
    def jsonrpc_backupwallet(self, backupFilePath):
-      self.curWlt.backupWalletFile(backupFilePath)
+      retStr = 'File %s does not exist. Backup failed.' % backupFilePath
+      if os.path.isfile(backupFilePath):
+         self.curWlt.backupWalletFile(backupFilePath)
+         retStr = 'Backup of %s succeeded.' % backupFilePath
+
+      return retStr
 
 
    #############################################################################
    def jsonrpc_listunspent(self):
       utxoList = self.curWlt.getTxOutList('unspent')
-      result = [u.getOutPoint().serialize() for u in utxoList]
-      return result
+      # Return a dictionary with a string as the key and a wallet B58 value as
+      # the value.
+      curTxOut = 1
+      utxoList = self.curWlt.getTxOutList('unspent')
+      utxoDict = {}
+      for u in utxoList:
+         curTxOutStr = 'UTXO %05d' % curTxOut
+         utxoDict[curTxOutStr] = binary_to_hex(u.getOutPoint().serialize())
+         curTxOut += 1
+      return utxoDict
+
+
+   #############################################################################
+   def jsonrpc_listaddrunspent(self, inB58):
+      #
+      curTxOut = 1
+      utxoDict = {}
+      a160 = addrStr_to_hash160(inB58, False)[1]
+      if self.curWlt.addrMap.has_key(a160):
+         utxoList = self.curWlt.getAddrByHash160(a160).scanBlockchainForAddress()
+
+      for u in utxoList:
+         # I NEED TO REDO THIS STRING.
+         curTxOutStr = 'UTXO %05d' % curTxOut
+         utxoDict[curTxOutStr] = binary_to_hex(u.getOutPoint().serialize())
+         curTxOut += 1
+      return utxoDict
 
 
    #############################################################################
@@ -158,18 +201,25 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
 
    #############################################################################
-   def jsonrpc_gettxout(self, txHash, n):
+   def jsonrpc_gettxout(self, txHash, n, binary=0):
+      n = int(n)
       txOut = None
       cppTx = TheBDM.getTxByHash(hex_to_binary(txHash, BIGENDIAN))
       if cppTx.isInitialized():
          txBinary = cppTx.serialize()
          pyTx = PyTx().unserialize(txBinary)
          if n < len(pyTx.outputs):
-            txOut = pyTx.outputs[n]
+            # If the user doesn't want binary data, return a formatted string,
+            # otherwise return a hex string with the raw TxOut data.
+            if binary == 0:
+               txOut = pyTx.outputs[n].toString()
+            else:
+               txOut = binary_to_hex(pyTx.outputs[n].serialize())
          else:
-            LOGERROR('Tx no output #: %s' % n)
+            LOGERROR('Tx output index is invalid: #%d' % n)
       else:    
          LOGERROR('Tx hash not recognized by TheBDM: %s' % binary_to_hex(txHash))
+
       return txOut
 
 
@@ -271,7 +321,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       if not checkAddrStrValid(addr58):
          raise InvalidBitcoinAddress
 
-      atype, addr160 = addrStr_to_hash160(addr58, False)
+      addr160 = addrStr_to_hash160(addr58, False)[1]
 
       pyBtcAddress = self.curWlt.getAddrByHash160(addr160)
       if pyBtcAddress == None:
@@ -322,7 +372,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       if CLI_OPTIONS.offline:
          raise ValueError('Cannot get received amount when offline')
       # Only gets correct amount for addresses in the wallet, otherwise 0
-      atype, addr160 = addrStr_to_hash160(address, False)
+      addr160 = addrStr_to_hash160(address, False)[1]
 
       txs = self.curWlt.getAddrTxLedger(addr160)
       balance = sum([x.getValue() for x in txs if x.getValue() > 0])
@@ -357,8 +407,11 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
 
    #############################################################################
+   # NB: For now, this is incompatible with lockboxes.
    def jsonrpc_getledger(self, tx_count=10, from_tx=0, simple=False):
       final_le_list = []
+      tx_count = int(tx_count)
+      from_tx = int(from_tx)
       ledgerEntries = self.curWlt.getTxLedger('blk')
          
       sz = len(ledgerEntries)
@@ -488,6 +541,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
 
    #############################################################################
+   # NB: For now, this is incompatible with lockboxes.
    def jsonrpc_listtransactions(self, tx_count=10, from_tx=0):
       # This does not use 'account's like in the Satoshi client
 
@@ -642,17 +696,17 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
    def jsonrpc_getinfo(self):
       isReady = TheBDM.getBDMState() == 'BlockchainReady'
       info = { \
-               'version':           getVersionInt(BTCARMORY_VERSION),
-               'protocolversion':   0,  
-               'walletversion':     getVersionInt(PYBTCWALLET_VERSION),
-               'bdmstate':          TheBDM.getBDMState(),
-               'balance':           AmountToJSON(self.curWlt.getBalance()) if isReady else -1,
-               'blocks':            TheBDM.getTopBlockHeight(),
-               'connections':       (0 if isReady else 1),
-               'proxy':             '',
-               'difficulty':        TheBDM.getTopBlockHeader().getDifficulty() if isReady else -1,
-               'testnet':           USE_TESTNET,
-               'keypoolsize':       self.curWlt.addrPoolSize
+               'armory_version':     getVersionInt(BTCARMORY_VERSION),
+               'protocol_version':   0,  
+               'wallet_version':     getVersionInt(PYBTCWALLET_VERSION),
+               'bdm_state':          TheBDM.getBDMState(),
+               'wallet_balance':     AmountToJSON(self.curWlt.getBalance()) if isReady else -1,
+               'total_blocks':       TheBDM.getTopBlockHeight(),
+               'connections':        (0 if isReady else 1),
+               'proxy':              '',
+               'network_difficulty': TheBDM.getTopBlockHeader().getDifficulty() if isReady else -1,
+               'testnet':            USE_TESTNET,
+               'keypool_size':       self.curWlt.addrPoolSize
             }
       return info
 
@@ -668,22 +722,22 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
          return {'error': 'header not found'}
       
       out = {}
-      out['hash'] = blkhash
-      out['confirmations'] = TheBDM.getTopBlockHeight()-head.getBlockHeight()+1
-      # TODO fix size. It returns max int
-      # out['size'] = head.getBlockSize()
-      out['height'] = head.getBlockHeight()
-      out['time'] = head.getTimestamp()
-      out['nonce'] = head.getNonce()
-      out['difficulty'] = head.getDifficulty()
-      out['difficultysum'] = head.getDifficultySum()
-      out['mainbranch'] = head.isMainBranch()
-      out['bits'] = binary_to_hex(head.getDiffBits())
-      out['merkleroot'] = binary_to_hex(head.getMerkleRoot(), BIGENDIAN)
-      out['version'] = head.getVersion()
-      out['rawheader'] = binary_to_hex(head.serialize())
+      out['block_hash']      = blkhash
+      out['confirmations']   = TheBDM.getTopBlockHeight()-head.getBlockHeight()+1
+      # TODO fix size. It returns max int, as does # Tx. They're never set.
+      # out['block_size']      = head.getBlockSize()
+      out['block_height']    = head.getBlockHeight()
+      out['timestamp']       = head.getTimestamp()
+      out['nonce']           = head.getNonce()
+      out['difficulty']      = head.getDifficulty()
+      out['difficulty_sum']  = head.getDifficultySum()
+      out['main_branch']     = head.isMainBranch()
+      out['difficulty_bits'] = binary_to_hex(head.getDiffBits(), BIGENDIAN)
+      out['merkle_root']     = binary_to_hex(head.getMerkleRoot(), BIGENDIAN)
+      out['header_version']  = head.getVersion()
+      out['raw_header']      = binary_to_hex(head.serialize())
       
-      # TODO: Fix this part. getTxRefPtrList is undefined
+      # TODO: Fix this part. getTxRefPtrList was never defined.
       # txlist = head.getTxRefPtrList() 
       # ntx = len(txlist)
       # out['tx'] = ['']*ntx
@@ -836,9 +890,9 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
    # Example usage:
    # started the daemon with these arguments: --testnet armory_286jcNJRc_.wallet
    # Then I called the daemon with: --testnet watchwallet <email args>
+   # NB: This doesn't appear to work. More research needed....
    def jsonrpc_watchwallet(self, send_from=None, password=None, send_to=None, \
                            subject=None):
-      
       @EmailOutput(send_from, password, [send_to], subject)
       def reportTxFromAddrInNewBlock(pyHeader, pyTxList):
          result = ''
