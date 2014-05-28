@@ -149,7 +149,6 @@ void BlockDataManagerThread::run()
    
    while(pimpl->run)
    {
-      uint32_t currentBlock = bdm->blockchain().top().getBlockHeight();
       if(bdm->rescanZC_)
       {
          bdm->scanWallets();
@@ -159,13 +158,11 @@ void BlockDataManagerThread::run()
          callback->run(3, 0);
       }
 
-      uint32_t prevTopBlk;
-      if(prevTopBlk = bdm->readBlkFileUpdate())
+      const uint32_t prevTopBlk = bdm->readBlkFileUpdate();
+      if(prevTopBlk)
       {
          bdm->scanWallets(prevTopBlk);
 
-         currentBlock = bdm->blockchain().top().getBlockHeight();
-         
          //notify Python that new blocks have been parsed
          callback->run(4,
             bdm->blockchain().top().getBlockHeight()
