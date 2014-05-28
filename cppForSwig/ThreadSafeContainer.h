@@ -1025,15 +1025,6 @@ template <typename T> class ts_iterator
       }
 
 
-      auto operator* () -> decltype(*iter_)
-      {
-         return *iter_;
-      }
-      obj_type* operator-> ()
-      {
-         return &*iter_;
-      }
-
       const obj_type& operator* () const
       {
          return *iter_;

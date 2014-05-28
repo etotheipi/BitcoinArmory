@@ -141,16 +141,12 @@ public:
    uint64_t getUnconfirmedBalance(uint32_t currBlk,
                                   bool includeAllZeroConf=false) const;
 
-   /*uint64_t getFullBalance(void);
-   uint64_t getSpendableBalance(uint32_t currBlk = 0,
-      bool ignoreAllZeroConf = false);
-   uint64_t getUnconfirmedBalance(uint32_t currBlk,
-      bool includeAllZeroConf = false);*/
-
 
    vector<UnspentTxOut> getFullTxOutList(uint32_t currBlk=0);
-   vector<UnspentTxOut> getSpendableTxOutList(uint32_t currBlk=0,
-                                              bool ignoreAllZeroConf=false);
+   vector<UnspentTxOut> getSpendableTxOutList(
+      uint32_t currBlk=0,
+      bool ignoreAllZeroConf=false
+   ) const;
    void clearZeroConfPool(void);
 
    const ScrAddrObj& getScrAddrObjByKey(BinaryData const & a) const

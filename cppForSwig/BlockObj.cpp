@@ -763,7 +763,7 @@ TxIn  DBTxRef::getTxInCopy(uint32_t i)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-TxOut DBTxRef::getTxOutCopy(uint32_t i) 
+TxOut DBTxRef::getTxOutCopy(uint32_t i)
 {
    return db_->getTxOutCopy(dbKey6B_, i);
 }

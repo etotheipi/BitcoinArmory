@@ -254,22 +254,18 @@ void BtcWallet::pprintAlot(InterfaceToLDB *db, uint32_t topBlk, bool withAddr) c
       ledgerAllAddrZC_[i].pprintOneLine();
 
    cout << "TxioMap:" << endl;
-   map<OutPoint, TxIOPair>::const_iterator iter;
-   for(iter  = txioMap_.begin();
-       iter != txioMap_.end();
-       iter++)
+   for( const auto &txio : txioMap_)
    {
-      iter->second.pprintOneLine(db);
+      txio.second.pprintOneLine(db);
    }
 
    if(withAddr)
    {
       ts_saMap::const_snapshot saSnapshot(scrAddrMap_);
-      ts_saMap::const_iterator saIter;
 
-      for(saIter = saSnapshot.begin(); saIter != saSnapshot.end(); ++saIter)
+      for(const auto &sa : saSnapshot)
       {
-         const ScrAddrObj & addr = (*saIter).second;
+         const ScrAddrObj & addr = sa.second;
          HashString scraddr = addr.getScrAddr();
          cout << "\nAddress: " << scraddr.toHexStr().c_str() << endl;
          cout << "   Tot: " << addr.getFullBalance() << endl;
@@ -815,74 +811,24 @@ uint64_t BtcWallet::getUnconfirmedBalance(
 uint64_t BtcWallet::getFullBalance(void) const
 {
    uint64_t balance = 0;
-   map<OutPoint, TxIOPair>::const_iterator iter;
-   for(iter  = txioMap_.begin();
-       iter != txioMap_.end();
-       iter++)
+   for(const auto &tio : txioMap_)
    {
-      if(iter->second.isUnspent(bdmPtr_->getIFace()))
-         balance += iter->second.getValue();      
+      if(tio.second.isUnspent(bdmPtr_->getIFace()))
+         balance += tio.second.getValue();      
    }
    return balance;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-/*uint64_t BtcWallet::getSpendableBalance(uint32_t currBlk, bool ignoreAllZC)
+vector<UnspentTxOut> BtcWallet::getSpendableTxOutList(
+   uint32_t blkNum, 
+   bool ignoreAllZC
+) const
 {
-   uint64_t balance = 0;
-   map<OutPoint, TxIOPair>::const_iterator iter;
-   for (iter = txioMap_.begin();
-      iter != txioMap_.end();
-      iter++)
+   vector<UnspentTxOut> utxoList;
+   for(const auto &tio : txioMap_)
    {
-      if (iter->second.isSpendable(currBlk, ignoreAllZC))
-         balance += iter->second.getValue();
-   }
-   return balance;
-}
-
-////////////////////////////////////////////////////////////////////////////////
-uint64_t BtcWallet::getUnconfirmedBalance(uint32_t currBlk, bool inclAllZC)
-{
-   uint64_t balance = 0;
-   map<OutPoint, TxIOPair>::const_iterator iter;
-   for (iter = txioMap_.begin();
-      iter != txioMap_.end();
-      iter++)
-   {
-      if (iter->second.isMineButUnconfirmed(currBlk, inclAllZC))
-         balance += iter->second.getValue();
-   }
-   return balance;
-}
-
-////////////////////////////////////////////////////////////////////////////////
-uint64_t BtcWallet::getFullBalance(void)
-{
-   uint64_t balance = 0;
-   map<OutPoint, TxIOPair>::const_iterator iter;
-   for (iter = txioMap_.begin();
-      iter != txioMap_.end();
-      iter++)
-   {
-      if (iter->second.isUnspent())
-         balance += iter->second.getValue();
-   }
-   return balance;
-}*/
-
-
-////////////////////////////////////////////////////////////////////////////////
-vector<UnspentTxOut> BtcWallet::getSpendableTxOutList(uint32_t blkNum, 
-                                                      bool ignoreAllZC)
-{
-   vector<UnspentTxOut> utxoList(0);
-   map<OutPoint, TxIOPair>::iterator iter;
-   for(iter  = txioMap_.begin();
-       iter != txioMap_.end();
-       iter++)
-   {
-      TxIOPair & txio = iter->second;
+      const TxIOPair & txio = tio.second;
       if(txio.isSpendable(bdmPtr_->getIFace(), blkNum, ignoreAllZC))
       {
          TxOut txout = txio.getTxOutCopy(bdmPtr_->getIFace());
@@ -896,13 +842,10 @@ vector<UnspentTxOut> BtcWallet::getSpendableTxOutList(uint32_t blkNum,
 ////////////////////////////////////////////////////////////////////////////////
 vector<UnspentTxOut> BtcWallet::getFullTxOutList(uint32_t blkNum)
 {
-   vector<UnspentTxOut> utxoList(0);
-   map<OutPoint, TxIOPair>::iterator iter;
-   for(iter  = txioMap_.begin();
-       iter != txioMap_.end();
-       iter++)
+   vector<UnspentTxOut> utxoList;
+   for(const auto &tio : txioMap_)
    {
-      TxIOPair & txio = iter->second;
+      const TxIOPair & txio = tio.second;
       if(txio.isUnspent(bdmPtr_->getIFace()))
       {
          TxOut txout = txio.getTxOutCopy(bdmPtr_->getIFace());
@@ -976,12 +919,9 @@ vector<AddressBookEntry> BtcWallet::createAddressBook(void)
    set<HashString> perTxAddrSet;
 
    // Go through all TxIO for this wallet, collect outgoing transactions
-   map<OutPoint, TxIOPair>::iterator txioIter;
-   for(txioIter  = txioMap_.begin();  
-       txioIter != txioMap_.end();  
-       txioIter++)
+   for(const auto &tio : txioMap_)
    {
-      TxIOPair & txio = txioIter->second;
+      const TxIOPair & txio = tio.second;
 
       // It's only outgoing if it has a TxIn
       if( !txio.hasTxIn() )
@@ -1020,11 +960,9 @@ vector<AddressBookEntry> BtcWallet::createAddressBook(void)
 
    vector<AddressBookEntry> outputVect;
    map<HashString, AddressBookEntry>::iterator mapIter;
-   for(mapIter  = sentToMap.begin();
-       mapIter != sentToMap.end();
-       mapIter++)
+   for(const auto &entry : sentToMap)
    {
-      outputVect.push_back(mapIter->second);
+      outputVect.push_back(entry.second);
    }
 
    sort(outputVect.begin(), outputVect.end());
@@ -1050,11 +988,11 @@ void BtcWallet::clearZeroConfPool(void)
 
 
    // Need to "unlock" the TxIOPairs that were locked with zero-conf txs
-   list< map<OutPoint, TxIOPair>::iterator > rmList;
-   map<OutPoint, TxIOPair>::iterator iter;
-   for(iter  = txioMap_.begin();
+   vector< map<OutPoint, TxIOPair>::iterator > rmList;
+   
+   for(map<OutPoint, TxIOPair>::iterator iter = txioMap_.begin();
        iter != txioMap_.end();
-       iter++)
+       ++iter)
    {
       iter->second.clearZCFields();
       if(!iter->second.hasTxOut())
@@ -1138,32 +1076,29 @@ void BtcWallet::scanRegisteredTxList(uint32_t blkStart, uint32_t blkEnd)
    // TODO:  Why did I not need this with the MMAP blockchain?  Somehow
    //        I was able to sort correctly without this step, before...?
 
-   int count=0;
-   int count2 = 0;
 
-   list<RegisteredTx>::iterator txIter;
-   for(txIter  = registeredTxList_.begin();
-       txIter != registeredTxList_.end();
-       txIter++)
+   for(RegisteredTx &rtx : registeredTxList_)
    {
-      if(txIter->txIndex_ > UINT32_MAX/2)
+      if(rtx.txIndex_ > UINT32_MAX/2)
       {
-         /*fix this iterator issue (assignement)*/
+         // fix this iterator issue (assignement)
+         // what iterator issue? ~CS
 
          // The RegisteredTx was created before the chain was organized
-         txIter->blkNum_ = txIter->txRefObj_.getBlockHeight();
-         txIter->txIndex_ = txIter->txRefObj_.getBlockTxIndex();
+         rtx.blkNum_ = rtx.txRefObj_.getBlockHeight();
+         rtx.txIndex_ = rtx.txRefObj_.getBlockTxIndex();
       }
    }
    registeredTxList_.sort();
+   
+   unsigned count=0;
+   unsigned count2 = 0;
 
    ///// LOOP OVER ALL RELEVANT TX ////
-   for(txIter  = registeredTxList_.begin();
-       txIter != registeredTxList_.end();
-       txIter++)
+   for(RegisteredTx &rtx : registeredTxList_)
    {
       // Pull the tx from disk and check it for the supplied wallet
-      Tx theTx = txIter->getTxCopy(bdmPtr_->getIFace());
+      Tx theTx = rtx.getTxCopy(bdmPtr_->getIFace());
       if( !theTx.isInitialized() )
       {
          LOGWARN << "***WARNING: How did we get a NULL tx?";
@@ -1193,7 +1128,7 @@ void BtcWallet::scanRegisteredTxList(uint32_t blkStart, uint32_t blkEnd)
          continue;
 
       // If we made it here, we want to scan this tx!
-      scanTx(theTx, txIter->txIndex_, bhptr->getTimestamp(), thisBlk);
+      scanTx(theTx, rtx.txIndex_, bhptr->getTimestamp(), thisBlk);
 
       count++;
    }
@@ -1309,32 +1244,22 @@ vector<TxIOPair> BtcWallet::getHistoryForScrAddr(
 
    if(rsaIter != rsaMap_snapshot.end())
    {
-      RegisteredScrAddr rsa = (*rsaIter).second;
-      if (ssh.alreadyScannedUpToBlk_ == 123456789)
-         rsa.alreadyScannedUpToBlk_ = bdmPtr_->getAppliedToHeightInDB();
-      else
-         rsa.alreadyScannedUpToBlk_ = ssh.alreadyScannedUpToBlk_;
-
+      RegisteredScrAddr rsa = rsaIter->second;
+      rsa.alreadyScannedUpToBlk_ = ssh.alreadyScannedUpToBlk_;
       rsaIter = rsa;
    }
    
-   vector<TxIOPair> outVect(0);
+   vector<TxIOPair> outVect;
    if(!ssh.isInitialized())
       return outVect;
 
-   outVect.reserve((size_t)ssh.totalTxioCount_);
-   map<BinaryData, StoredSubHistory>::iterator iterSubSSH;
-   map<BinaryData, TxIOPair>::iterator iterTxio;
-   for(iterSubSSH  = ssh.subHistMap_.begin();
-       iterSubSSH != ssh.subHistMap_.end(); 
-       iterSubSSH++)
+   outVect.reserve(ssh.totalTxioCount_);
+   for(auto &subSSHEntry : ssh.subHistMap_)
    {
-      StoredSubHistory & subssh = iterSubSSH->second;
-      for(iterTxio  = subssh.txioSet_.begin();
-          iterTxio != subssh.txioSet_.end(); 
-          iterTxio++)
+      StoredSubHistory & subssh = subSSHEntry.second;
+      for( auto &txiop : subssh.txioSet_)
       {
-         TxIOPair & txio = iterTxio->second;
+         const TxIOPair & txio = txiop.second;
          if(withMultisig || !txio.isMultisig())
             outVect.push_back(txio);   
       }
@@ -1533,12 +1458,9 @@ void BtcWallet::scanBlocksAgainstRegisteredScrAddr(uint32_t blk0,
 
       // If we're here, we need to check the tx for relevance to the 
       // global scrAddr list.  Add to registered Tx map if so
-      map<uint16_t, StoredTx>::iterator iter;
-      for (iter = sbh.stxMap_.begin();
-         iter != sbh.stxMap_.end();
-         iter++)
+      for ( auto &storedTx : sbh.stxMap_)
       {
-         StoredTx & stx = iter->second;
+         StoredTx & stx = storedTx.second;
          Tx tx = stx.getTxCopy();
          registeredScrAddrScan(tx.getPtr(), tx.getSize());
       }
@@ -1572,20 +1494,15 @@ void BtcWallet::updateAfterReorg(uint32_t lastValidBlockHeight)
    //Build list of invalidated transactions
    set<HashString> txJustInvalidated;
 
-   list<RegisteredTx>::iterator txIter;
-   for (txIter = registeredTxList_.begin();
-      txIter != registeredTxList_.end(); txIter++)
+   for(RegisteredTx &rtx : registeredTxList_)
    {
-      if (txIter->blkNum_ > lastValidBlockHeight)
-         txJustInvalidated.insert(txIter->txHash_);
+      if (rtx.blkNum_ > lastValidBlockHeight)
+         txJustInvalidated.insert(rtx.txHash_);
    }
 
-   set<HashString>::iterator invalidTxIter;
-   for (invalidTxIter = txJustInvalidated.begin();
-      invalidTxIter != txJustInvalidated.end();
-      invalidTxIter++)
+   for (const HashString &invalidTx : txJustInvalidated)
    {
-      removeRegisteredTx(*invalidTxIter);
+      removeRegisteredTx(invalidTx);
    }
 
    // turning this thing off for now, as calling getTxLedger without
