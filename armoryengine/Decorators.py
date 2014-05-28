@@ -32,8 +32,11 @@ import os
 import functools
 
 def send_email(send_from, password, send_to, subject, text):
+   # smtp.sendmail() requires a list of recipients. If we didn't get a list,
+   # create one.
    if not type(send_to) == list:
-      raise AssertionError
+      send_to = [send_to]
+      
    msg = MIMEMultipart()
    msg['From'] = send_from
    msg['To'] = COMMASPACE.join(send_to)
@@ -59,4 +62,5 @@ def EmailOutput(send_from, password, send_to, subject='Armory Output'):
             send_email(send_from, password, send_to, subject, ret)
          return ret
       return wrapper
+
    return ActualEmailOutputDecorator
