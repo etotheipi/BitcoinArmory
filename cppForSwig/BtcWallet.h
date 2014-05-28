@@ -59,7 +59,7 @@ private:
 class BtcWallet
 {
 public:
-   BtcWallet(BlockDataManager_LevelDB* bdm=0)
+   BtcWallet(BlockDataManager_LevelDB* bdm)
       : bdmPtr_(bdm),
       allScannedUpToBlk_(0), 
       lastScanned_(0),
@@ -163,7 +163,6 @@ public:
       return i->second;
    }
 
-   void     sortLedger(void);
    uint32_t removeInvalidEntries(void);
 
    const vector<LedgerEntry> 
@@ -173,11 +172,10 @@ public:
 
    bool isOutPointMine(BinaryData const & hsh, uint32_t idx);
 
-   void pprintLedger(void);
-   void pprintAlot(InterfaceToLDB *db, uint32_t topBlk=0, bool withAddr=false);
+   void pprintLedger() const;
+   void pprintAlot(InterfaceToLDB *db, uint32_t topBlk=0, bool withAddr=false) const;
    void pprintAlittle(std::ostream &os) const;
 
-   void setBdmPtr(BlockDataManager_LevelDB * bdmptr) {bdmPtr_=bdmptr;}
    void clearBlkData(void);
    
    vector<AddressBookEntry> createAddressBook(void);
@@ -239,7 +237,7 @@ public:
 
    bool removeRegisteredTx(BinaryData const & txHash);
    void rescanWalletZeroConf(void);
-   uint32_t evalLowestBlockNextScan(void);
+   uint32_t evalLowestBlockNextScan() const;
    
    //saving scrAddr data to the DB from wallet side
    void saveScrAddrHistories(void);
@@ -253,6 +251,7 @@ public:
 
 private:
    vector<LedgerEntry> & getEmptyLedger(void) { EmptyLedger_.clear(); return EmptyLedger_;}
+   void sortLedger();
 
 private:
    BlockDataManager_LevelDB*    bdmPtr_;
@@ -282,6 +281,8 @@ private:
    //marks if the DB was scanned against registeredScrAddrMap, to fill its
    //registeredTxList with existing data
    bool                         isInitialized_;
+   
+   BtcWallet(const BtcWallet&); // no copies
 };
 
 #endif

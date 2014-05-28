@@ -230,12 +230,12 @@ pair<bool,bool> BtcWallet::isMineBulkFilter(
    }
 
    // If we got here, it's either non std or not ours
-   return pair<bool,bool>(false,false);
+   return make_pair(false,false);
 }
 
 
 /////////////////////////////////////////////////////////////////////////////
-void BtcWallet::pprintAlot(InterfaceToLDB *db, uint32_t topBlk, bool withAddr)
+void BtcWallet::pprintAlot(InterfaceToLDB *db, uint32_t topBlk, bool withAddr) const
 {
    uint32_t numLedg = ledgerAllAddr_.size();
    uint32_t numLedgZC = ledgerAllAddrZC_.size();
@@ -254,7 +254,7 @@ void BtcWallet::pprintAlot(InterfaceToLDB *db, uint32_t topBlk, bool withAddr)
       ledgerAllAddrZC_[i].pprintOneLine();
 
    cout << "TxioMap:" << endl;
-   map<OutPoint, TxIOPair>::iterator iter;
+   map<OutPoint, TxIOPair>::const_iterator iter;
    for(iter  = txioMap_.begin();
        iter != txioMap_.end();
        iter++)
@@ -328,9 +328,9 @@ void BtcWallet::scanTx(Tx & tx,
 
    vector<bool> thisTxOutIsOurs(tx.getNumTxOut(), false);
 
-   pair<bool,bool> boolPair = isMineBulkFilter(tx);
-   bool txIsRelevant  = boolPair.first;
-   bool anyTxInIsOurs = boolPair.second;
+   const pair<bool,bool> boolPair = isMineBulkFilter(tx);
+   const bool txIsRelevant  = boolPair.first;
+   const bool anyTxInIsOurs = boolPair.second;
 
    if( !txIsRelevant )
       return;
@@ -933,7 +933,7 @@ uint32_t BtcWallet::removeInvalidEntries(void)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void BtcWallet::sortLedger(void)
+void BtcWallet::sortLedger()
 {
    sort(ledgerAllAddr_.begin(), ledgerAllAddr_.end());
 }
@@ -949,7 +949,7 @@ bool BtcWallet::isOutPointMine(HashString const & hsh, uint32_t idx)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void BtcWallet::pprintLedger(void)
+void BtcWallet::pprintLedger() const
 { 
    cout << "Wallet Ledger:  " << getFullBalance()/1e8 << endl;
    for(uint32_t i=0; i<ledgerAllAddr_.size(); i++)
@@ -1065,8 +1065,7 @@ void BtcWallet::clearZeroConfPool(void)
    // remove to ensure that it won't conflict with any logic that only 
    // checks for the *existence* of a TxIOPair, whereas the TxIOPair might 
    // actually be "empty" but would throw off some other logic.
-   list< map<OutPoint, TxIOPair>::iterator >::iterator rmIter;
-   for(rmIter  = rmList.begin();
+   for(auto rmIter = rmList.begin();
        rmIter != rmList.end();
        rmIter++)
    {
@@ -1081,7 +1080,7 @@ const vector<LedgerEntry>
    SCOPED_TIMER("BtcWallet::getTxLedger");
 
    // Make sure to rebuild the ZC ledgers before calling this method
-   if(scraddr==NULL)
+   if(!scraddr)
       return ledgerAllAddr_;
    else
    {
@@ -1102,7 +1101,7 @@ const vector<LedgerEntry>
    SCOPED_TIMER("BtcWallet::getZeroConfLedger");
 
    // Make sure to rebuild the ZC ledgers before calling this method
-   if(scraddr==NULL)
+   if(!scraddr)
       return ledgerAllAddrZC_;
    else
    {
@@ -1297,8 +1296,9 @@ bool BtcWallet::registerImportedScrAddr(HashString scraddr,
 ///////////////////////////////////////////////////////////////////////////////
 
 vector<TxIOPair> BtcWallet::getHistoryForScrAddr(
-                                                BinaryDataRef uniqKey,
-                                                bool withMultisig)
+   BinaryDataRef uniqKey,
+   bool withMultisig
+)
 {
    StoredScriptHistory ssh;
    InterfaceToLDB *iface_ = bdmPtr_->getIFace();
@@ -1347,17 +1347,7 @@ void BtcWallet::eraseTx(const BinaryData& txHash)
 {
    if(registeredTxSet_.erase(txHash))
    {
-      list<RegisteredTx>::iterator iter;
-      for(iter  = registeredTxList_.begin();
-          iter != registeredTxList_.end();
-          iter++)
-      {
-         if(iter->txHash_ == txHash)
-         {
-            registeredTxList_.erase(iter);
-            return;
-         }
-      }
+      removeRegisteredTx(txHash);
    }
 }
 
@@ -1417,11 +1407,10 @@ void BtcWallet::registeredScrAddrScan(
    vector<uint32_t> * txInOffsets,
    vector<uint32_t> * txOutOffsets)
 {
-   // Probably doesn't matter, but I'll keep these on the heap between calls
-   static vector<uint32_t> localOffsIn;
-   static vector<uint32_t> localOffsOut;
+   vector<uint32_t> localOffsIn;
+   vector<uint32_t> localOffsOut;
 
-   if (txSize == 0 || txInOffsets == NULL || txOutOffsets == NULL)
+   if (txSize == 0 || !txInOffsets || !txOutOffsets)
    {
       txInOffsets = &localOffsIn;
       txOutOffsets = &localOffsOut;
@@ -1430,12 +1419,13 @@ void BtcWallet::registeredScrAddrScan(
 
    uint32_t nTxIn = txInOffsets->size() - 1;
    uint32_t nTxOut = txOutOffsets->size() - 1;
+   
+   OutPoint op; // reused for performance
 
    uint8_t const * txStartPtr = txptr;
    for (uint32_t iin = 0; iin<nTxIn; iin++)
    {
       // We have the txin, now check if it contains one of our TxOuts
-      static OutPoint op;
       op.unserialize(txStartPtr + (*txInOffsets)[iin], txSize - (*txInOffsets)[iin]);
 
       if (countOutPoints(op) > 0)
@@ -1500,10 +1490,12 @@ void BtcWallet::registeredScrAddrScan(
 
 void BtcWallet::registeredScrAddrScan(Tx & theTx)
 {
-   registeredScrAddrScan(theTx.getPtr(),
+   registeredScrAddrScan(
+      theTx.getPtr(),
       theTx.getSize(),
       &theTx.offsetsTxIn_,
-      &theTx.offsetsTxOut_);
+      &theTx.offsetsTxOut_
+   );
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1557,17 +1549,17 @@ void BtcWallet::scanBlocksAgainstRegisteredScrAddr(uint32_t blk0,
 ////////////////////////////////////////////////////////////////////////////////
 bool BtcWallet::removeRegisteredTx(BinaryData const & txHash)
 {
-   list<RegisteredTx>::iterator iter;
-   for (iter = registeredTxList_.begin();
-      iter != registeredTxList_.end();
-      iter++)
+   list<RegisteredTx>::iterator rtx
+      = std::find_if(
+         registeredTxList_.begin(),
+         registeredTxList_.end(),
+         [&txHash] (const RegisteredTx &rtx) { return rtx.txHash_ == txHash; }
+      );
+   if (rtx != registeredTxList_.end())
    {
-      if (iter->txHash_ == txHash)
-      {
-         registeredTxSet_.erase(iter->txHash_);
-         registeredTxList_.erase(iter);
-         return true;
-      }
+      registeredTxSet_.erase(rtx->txHash_);
+      registeredTxList_.erase(rtx);
+      return true;
    }
 
    return false;
@@ -1659,7 +1651,7 @@ void BtcWallet::rescanWalletZeroConf()
    }
 }
 
-uint32_t BtcWallet::evalLowestBlockNextScan(void)
+uint32_t BtcWallet::evalLowestBlockNextScan(void) const
 {
    SCOPED_TIMER("evalLowestBlockNextScan");
 
@@ -1716,7 +1708,7 @@ void BtcWallet::saveScrAddrHistories()
       ssh.version_ = ARMORY_DB_VERSION;
       ssh.alreadyScannedUpToBlk_ = rsa.alreadyScannedUpToBlk_;
       for (uint32_t t = 0; t<txioList.size(); t++)
-         ssh.insertTxio(bdmPtr_->getIFace(), *(txioList[t]));
+         ssh.insertTxio(bdmPtr_->getIFace(), *txioList[t]);
 
       iface->putStoredScriptHistory(ssh);
    }

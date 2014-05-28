@@ -660,8 +660,8 @@ public:
    //////////////////////////////////////////////////////////////////////////////
    BinaryData    getTxHashOfInput(InterfaceToLDB *db) const;
    BinaryData    getTxHashOfOutput(InterfaceToLDB *db) const;
-   TxOut getTxOutCopy(InterfaceToLDB *db);
-   TxIn getTxInCopy(InterfaceToLDB *db);
+   TxOut getTxOutCopy(InterfaceToLDB *db) const;
+   TxIn getTxInCopy(InterfaceToLDB *db) const;
 
    bool setTxIn   (TxRef  txref, uint32_t index);
    bool setTxIn   (BinaryData dbKey8B);
@@ -684,7 +684,7 @@ public:
       uint32_t currBlk, bool includeAllZeroConf=false
    ) const;
    void clearZCFields(void);
-   void pprintOneLine(InterfaceToLDB *db);
+   void pprintOneLine(InterfaceToLDB *db) const;
 
    bool operator<(TxIOPair const & t2)
       { return (getDBKeyOfOutput() < t2.getDBKeyOfOutput()); }
@@ -845,10 +845,8 @@ public:
 
    
    BinaryData        uniqueKey_;
-   uint8_t           addrType_;
    uint32_t          blkCreated_;
    uint32_t          alreadyScannedUpToBlk_;
-   uint64_t          sumValue_;
 };
 
 

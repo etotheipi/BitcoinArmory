@@ -829,6 +829,11 @@ template<typename T> class ts_snapshot
          parent_->erase(toErase);
          object_->erase(toErase);
       }
+      
+      bool contains(const obj_type& f) const
+      {
+         return find(f) != end();
+      }
 
 };
 
@@ -871,6 +876,10 @@ template<typename T> class ts_const_snapshot
       const_iterator find(const value_type& toFind) const
       {
          return object_->find(toFind);
+      }
+      bool contains(const value_type& f) const
+      {
+         return find(f) != end();
       }
 };
 
@@ -940,6 +949,10 @@ template<typename T> class ts_pair_snapshot : private ts_snapshot<T>
          return_iter.Set(this->object_->find(toFind), this);
          return return_iter;
       }
+      bool contains(const key_type& f) const
+      {
+         return find(f) != end();
+      }
 };
 
 template<typename T> class ts_const_pair_snapshot
@@ -978,6 +991,10 @@ template<typename T> class ts_const_pair_snapshot
          ts_const_pair_iterator<T> iter;
          iter.Set(this->object_->find(toFind), this);
          return iter;
+      }
+      bool contains(const key_type& f) const
+      {
+         return find(f) != end();
       }
 };
 

@@ -958,9 +958,6 @@ bool BlockDataManager_LevelDB::registerWallet(BtcWallet* wltPtr, bool wltIsNew)
    //if(registeredWallets_.find(wltPtr) != registeredWallets_.end())
    if(registeredWallets_.contains(wltPtr)) return false;
 
-   // We need to make sure the wallet can tell the BDM when an address is added
-   wltPtr->setBdmPtr(this);
-
    // Add it to the list of wallets to watch
    registeredWallets_.push_back(wltPtr);
 

@@ -873,7 +873,7 @@ HashString TxIOPair::getTxHashOfInput(InterfaceToLDB *db) const
       return BinaryData(0);
 }
 //////////////////////////////////////////////////////////////////////////////
-TxOut TxIOPair::getTxOutCopy(InterfaceToLDB *db) 
+TxOut TxIOPair::getTxOutCopy(InterfaceToLDB *db) const
 {
    // I actually want this to segfault when there is no TxOut... 
    // we should't ever be trying to access it without checking it 
@@ -886,7 +886,7 @@ TxOut TxIOPair::getTxOutCopy(InterfaceToLDB *db)
 
 
 //////////////////////////////////////////////////////////////////////////////
-TxIn TxIOPair::getTxInCopy(InterfaceToLDB *db) 
+TxIn TxIOPair::getTxInCopy(InterfaceToLDB *db) const
 {
    // I actually want this to segfault when there is no TxIn... 
    // we should't ever be trying to access it without checking it 
@@ -1076,7 +1076,7 @@ void TxIOPair::clearZCFields(void)
 }
 
 
-void TxIOPair::pprintOneLine(InterfaceToLDB *db)
+void TxIOPair::pprintOneLine(InterfaceToLDB *db) const
 {
    printf("   Val:(%0.3f)\t  (STS, O,I, Omb,Imb, Oz,Iz)  %d  %d%d %d%d %d%d\n", 
            (double)getValue()/1e8,

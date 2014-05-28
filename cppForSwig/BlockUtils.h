@@ -368,12 +368,12 @@ public:
       return iface_->getValidDupIDForHeight(blockHgt);
    }
 
-   list<BinaryData> const * getZeroConfRawTxList(void)
+   const list<BinaryData> * getZeroConfRawTxList() const
    {
       return &zeroConfRawTxList_;
    }
 
-   map<HashString, ZeroConfData> const * getZeroConfMap(void)
+   map<HashString, ZeroConfData> * getZeroConfMap()
    {
       return &zeroConfMap_;
    }
