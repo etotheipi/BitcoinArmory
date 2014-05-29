@@ -3494,10 +3494,9 @@ class ArmoryMainWindow(QMainWindow):
 
       pytx = None
       txHashBin = hex_to_binary(txHash)
-      if TheBDM.isInitialized():
-         cppTx = TheBDM.getTxByHash(txHashBin)
-         if cppTx.isInitialized():
-            pytx = PyTx().unserialize(cppTx.serialize())
+      cppTx = TheBDM.getTxByHash(txHashBin)
+      if cppTx.isInitialized():
+         pytx = PyTx().unserialize(cppTx.serialize())
 
       if pytx==None:
          QMessageBox.critical(self, 'Invalid Tx:',

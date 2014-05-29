@@ -217,7 +217,7 @@ public:
    BinaryData serialize() const; 
    
    BinaryData getBlockHash() const;
-   uint32_t getBlockTimestamp();
+   uint32_t getBlockTimestamp() const;
    BinaryData getThisHash() const;
    Tx getTxCopy() const;
    bool isMainBranch()  const;
@@ -325,7 +325,7 @@ public:
    bool             isScriptSpendP2SH(void)  { return scriptType_ == TXIN_SCRIPT_SPENDP2SH; }
    bool             isScriptNonStd(void)     { return scriptType_ == TXIN_SCRIPT_NONSTANDARD; }
 
-   TxRef            getParentTxRef(void) { return parentTx_; }
+   TxRef            getParentTxRef() const { return parentTx_; }
    uint32_t         getIndex(void) { return index_; }
 
    //void setParentTx(TxRef txref, int32_t idx=-1) {parentTx_=txref; index_=idx;}
@@ -333,7 +333,7 @@ public:
    uint32_t         getSequence(void)   { return READ_UINT32_LE(getPtr()+getSize()-4); }
 
    BinaryData       getParentHash(InterfaceToLDB *db);
-   uint32_t         getParentHeight(void);
+   uint32_t         getParentHeight() const;
 
    void             setParentHash(BinaryData const & txhash) {parentHash_ = txhash;}
    void             setParentHeight(uint32_t blkheight) {parentHeight_ = blkheight;}
@@ -412,7 +412,7 @@ public:
    uint64_t        getValue(void) const { return READ_UINT64_LE(dataCopy_.getPtr()); }
    bool            isStandard(void) const { return scriptType_ != TXOUT_SCRIPT_NONSTANDARD; }
    bool            isInitialized(void) const {return dataCopy_.getSize() > 0; }
-   TxRef           getParentTxRef(void) { return parentTx_; }
+   TxRef           getParentTxRef() const { return parentTx_; }
    uint32_t        getIndex(void) { return index_; }
 
    //void setParentTx(TxRef txref, uint32_t idx=-1) { parentTx_=txref; index_=idx;}
@@ -444,7 +444,7 @@ public:
    BinaryDataRef      serializeRef(void) { return dataCopy_; }
 
    BinaryData         getParentHash(InterfaceToLDB *db);
-   uint32_t           getParentHeight(void);
+   uint32_t           getParentHeight() const;
 
    void               setParentHash(BinaryData const & txhash) {parentHash_ = txhash;}
    void               setParentHeight(uint32_t blkheight) {parentHeight_ = blkheight;}
