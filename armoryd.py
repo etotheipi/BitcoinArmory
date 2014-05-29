@@ -66,6 +66,7 @@ from bitcoinrpc_jsonrpc import ServiceProxy
 from armoryengine.Decorators import EmailOutput
 from armoryengine.ArmoryUtils import addrStr_to_hash160
 from armoryengine.PyBtcWalletRecovery import *
+from sets import Set
 
 # Some non-twisted json imports from jgarzik's code and his UniversalEncoder
 class UniversalEncoder(json.JSONEncoder):
@@ -98,9 +99,11 @@ NOT_IMPLEMENTED = '--Not Implemented--'
 
 class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
    ##############################################################################
-   def __init__(self, wallet, inWltSet):
+   def __init__(self, wallet, inWltSet=Set([])):
       self.curWlt = wallet
       self.serverWltSet = inWltSet
+      self.serverWltSet.add(wallet)
+         
       # Used with wallet notification code 
       self.addressMetaData = {}
 
@@ -134,18 +137,15 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
 
    #############################################################################
+   # backupFilePath is the file to backup the current wallet to.
+   # It does not necessarily exist yet.
    def jsonrpc_backupwallet(self, backupFilePath):
-      retStr = 'File %s does not exist. Backup failed.' % backupFilePath
-      if os.path.isfile(backupFilePath):
-         self.curWlt.backupWalletFile(backupFilePath)
-         retStr = 'Backup of %s succeeded.' % backupFilePath
-
-      return retStr
+      self.curWlt.backupWalletFile(backupFilePath)
+      return "Backup succeeded."
 
 
    #############################################################################
    def jsonrpc_listunspent(self):
-      utxoList = self.curWlt.getTxOutList('unspent')
       # Return a dictionary with a string as the key and a wallet B58 value as
       # the value.
       curTxOut = 1
@@ -211,16 +211,15 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
          if n < len(pyTx.outputs):
             # If the user doesn't want binary data, return a formatted string,
             # otherwise return a hex string with the raw TxOut data.
-            if binary == 0:
-               txOut = pyTx.outputs[n].toString()
-            else:
-               txOut = binary_to_hex(pyTx.outputs[n].serialize())
+            txOut = pyTx.outputs[n]
+            result = {'value' : AmountToJSON(txOut.value),
+                      'script' : txOut.binScript if binary else binary_to_hex(txOut.binScript)}
          else:
             LOGERROR('Tx output index is invalid: #%d' % n)
       else:    
          LOGERROR('Tx hash not recognized by TheBDM: %s' % binary_to_hex(txHash))
 
-      return txOut
+      return result
 
 
    #############################################################################
@@ -696,17 +695,17 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
    def jsonrpc_getinfo(self):
       isReady = TheBDM.getBDMState() == 'BlockchainReady'
       info = { \
-               'armory_version':     getVersionInt(BTCARMORY_VERSION),
-               'protocol_version':   0,  
-               'wallet_version':     getVersionInt(PYBTCWALLET_VERSION),
-               'bdm_state':          TheBDM.getBDMState(),
-               'wallet_balance':     AmountToJSON(self.curWlt.getBalance()) if isReady else -1,
-               'total_blocks':       TheBDM.getTopBlockHeight(),
-               'connections':        (0 if isReady else 1),
-               'proxy':              '',
-               'network_difficulty': TheBDM.getTopBlockHeader().getDifficulty() if isReady else -1,
-               'testnet':            USE_TESTNET,
-               'keypool_size':       self.curWlt.addrPoolSize
+               'version':           getVersionInt(BTCARMORY_VERSION),
+               'protocolversion':   0,  
+               'walletversion':     getVersionInt(PYBTCWALLET_VERSION),
+               'bdmstate':          TheBDM.getBDMState(),
+               'balance':           AmountToJSON(self.curWlt.getBalance()) if isReady else -1,
+               'blocks':            TheBDM.getTopBlockHeight(),
+               'connections':       (0 if isReady else 1),
+               'proxy':             '',
+               'difficulty':        TheBDM.getTopBlockHeader().getDifficulty() if isReady else -1,
+               'testnet':           USE_TESTNET,
+               'keypoolsize':       self.curWlt.addrPoolSize
             }
       return info
 
@@ -722,20 +721,20 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
          return {'error': 'header not found'}
       
       out = {}
-      out['block_hash']      = blkhash
-      out['confirmations']   = TheBDM.getTopBlockHeight()-head.getBlockHeight()+1
+      out['hash'] = blkhash
+      out['confirmations'] = TheBDM.getTopBlockHeight()-head.getBlockHeight()+1
       # TODO fix size. It returns max int, as does # Tx. They're never set.
-      # out['block_size']      = head.getBlockSize()
-      out['block_height']    = head.getBlockHeight()
-      out['timestamp']       = head.getTimestamp()
-      out['nonce']           = head.getNonce()
-      out['difficulty']      = head.getDifficulty()
-      out['difficulty_sum']  = head.getDifficultySum()
-      out['main_branch']     = head.isMainBranch()
-      out['difficulty_bits'] = binary_to_hex(head.getDiffBits(), BIGENDIAN)
-      out['merkle_root']     = binary_to_hex(head.getMerkleRoot(), BIGENDIAN)
-      out['header_version']  = head.getVersion()
-      out['raw_header']      = binary_to_hex(head.serialize())
+      # out['size'] = head.getBlockSize()
+      out['height'] = head.getBlockHeight()
+      out['time'] = head.getTimestamp()
+      out['nonce'] = head.getNonce()
+      out['difficulty'] = head.getDifficulty()
+      out['difficultysum'] = head.getDifficultySum()
+      out['mainbranch'] = head.isMainBranch()
+      out['bits'] = binary_to_hex(head.getDiffBits(), BIGENDIAN)
+      out['merkleroot'] = binary_to_hex(head.getMerkleRoot(), BIGENDIAN)
+      out['version'] = head.getVersion()
+      out['rawheader'] = binary_to_hex(head.serialize())
       
       # TODO: Fix this part. getTxRefPtrList was never defined.
       # txlist = head.getTxRefPtrList() 
