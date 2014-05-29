@@ -882,42 +882,55 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
 
    ################################################################################
-   # For each transaction in a block that triggers a notification:
-   #  List the inputs, and output, indicate the one we are watching, displays
-   #  balance data. Also, display meta data associated with the address.
+   # Receive a notification via e-mail when money is sent from the active wallet.
+   # The e-mail will list the address(es) that sent the money, along with the
+   # accompanying transaction(s) and any metadata associated with the
+   # address(es).
    #
    # Example usage:
    # started the daemon with these arguments: --testnet armory_286jcNJRc_.wallet
    # Then I called the daemon with: --testnet watchwallet <email args>
    # NB: This doesn't appear to work. More research needed....
    def jsonrpc_watchwallet(self, send_from=None, password=None, send_to=None, \
-                           subject=None):
-      @EmailOutput(send_from, password, [send_to], subject)
-      def reportTxFromAddrInNewBlock(pyHeader, pyTxList):
-         result = ''
-         for pyTx in pyTxList:
-            for pyTxIn in pyTx.inputs:
-               sendingAddrStr = TxInExtractAddrStrIfAvail(pyTxIn)
-               if len(sendingAddrStr) > 0:
-                  sendingAddrHash160 = addrStr_to_hash160(sendingAddrStr, \
-                                                          False)[1]
-                  if self.curWlt.addrMap.has_key(sendingAddrHash160):
-                     sendingAddr = self.curWlt.addrMap[sendingAddrHash160]
-                     result = ''.join([result, '\n', sendingAddr.toString(), \
-                                       '\n'])
-                     # print the meta data
-                     if sendingAddrStr in self.addressMetaData:
-                        result = ''.join([result, "\nMeta Data: ", \
-                                          str(self.addressMetaData[sendingAddrStr]), \
+                           subject=None, watchCmd='add'):
+      # TODO: Implement command functionality.
+      if not watchCmd in ['add', 'remove']:
+         LOGERROR('Unrecognized watchwallet command: "%s"', watchCmd)
+      else:
+         @EmailOutput(send_from, password, send_to, subject)
+         def reportTxFromAddrInNewBlock(pyHeader, pyTxList):
+            result = ''
+            self.bbb = 'Howdy'
+            for pyTx in pyTxList:
+               for pyTxIn in pyTx.inputs:
+                  sendingAddrStr = TxInExtractAddrStrIfAvail(pyTxIn)
+                  if len(sendingAddrStr) > 0:
+                     sendingAddrHash160 = addrStr_to_hash160(sendingAddrStr, \
+                                                             False)[1]
+                     if self.curWlt.addrMap.has_key(sendingAddrHash160):
+                        sendingAddr = self.curWlt.addrMap[sendingAddrHash160]
+                        result = ''.join([result, '\n', sendingAddr.toString(), \
                                           '\n'])
-                     result = ''.join([result, '\n', pyTx.toString()])
-         return result
+                        # print the meta data
+                        if sendingAddrStr in self.addressMetaData:
+                           result = ''.join([result, "\nMeta Data: ", \
+                                             str(self.addressMetaData[sendingAddrStr]), \
+                                             '\n'])
+                        result = ''.join([result, '\n', pyTx.toString()])
 
-      # TODO: Need stop assuming that this is the only method using
-      # newBlockFunctions(). Remove existing newBlockFunction() to allow user to
-      # change the email args.
-      rpc_server.newBlockFunctions = []
-      rpc_server.newBlockFunctions.append(reportTxFromAddrInNewBlock)
+            return result
+
+         # Remove existing newBlockFunction() to allow user to change the email
+         # args.
+         # TODO: Need to stop assuming that this is the only method using
+         # newBlockFunctions(). One solution is to delete based on a keyword
+         # (e.g., sender's e-mail address). The data from jsonrpc_watchwallet is
+         # saved in the __closure__ tuple for reportTxFromAddrInNewBlock but
+         # there appears to be no good way to consistently access this data. So,
+         # placing the function in a dictionary, with a search key, is probably
+         # the best idea.
+         rpc_server.newBlockFunctions = []
+         rpc_server.newBlockFunctions.append(reportTxFromAddrInNewBlock)
 
 
    ################################################################################
