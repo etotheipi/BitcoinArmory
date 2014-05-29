@@ -57,7 +57,7 @@ private:
 class BtcWallet
 {
 public:
-   BtcWallet(BlockDataManager_LevelDB* bdm)
+   BtcWallet(BlockDataManager_LevelDB* bdm=nullptr)
       : bdmPtr_(bdm),
       allScannedUpToBlk_(0), 
       lastScanned_(0),
@@ -178,6 +178,11 @@ public:
    bool registerNewScrAddr(HashString scraddr);
    bool registerImportedScrAddr(HashString scraddr, uint32_t createBlk);
 
+   void setBDMptr(BlockDataManager_LevelDB *bdmPtr)
+   {
+      bdmPtr_ = bdmPtr;
+   }
+
    void insertRegisteredTxIfNew(RegisteredTx & regTx)
    {
       // .insert() function returns pair<iter,bool> with bool true if inserted
@@ -248,9 +253,9 @@ private:
    void sortLedger();
 
 private:
-   BlockDataManager_LevelDB*    bdmPtr_;
-   ts_saMap                     scrAddrMap_;
-   map<OutPoint, TxIOPair>      txioMap_;
+   BlockDataManager_LevelDB*          bdmPtr_;
+   ts_saMap                           scrAddrMap_;
+   map<OutPoint, TxIOPair>            txioMap_;
 
    //for 1:1 wallets
    ts_rsaMap                          registeredScrAddrMap_;
