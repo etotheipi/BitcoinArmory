@@ -66,7 +66,6 @@ from bitcoinrpc_jsonrpc import ServiceProxy
 from armoryengine.Decorators import EmailOutput
 from armoryengine.ArmoryUtils import addrStr_to_hash160
 from armoryengine.PyBtcWalletRecovery import *
-from sets import Set
 
 # Some non-twisted json imports from jgarzik's code and his UniversalEncoder
 class UniversalEncoder(json.JSONEncoder):
@@ -99,13 +98,15 @@ NOT_IMPLEMENTED = '--Not Implemented--'
 
 class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
    ##############################################################################
-   def __init__(self, wallet, inWltSet=Set([])):
+   def __init__(self, wallet, inWltSet={}):
+      # Save the incoming info. If the user didn't pass in a wallet set, put the
+      # wallet in the set (actually a dictionary w/ the wallet ID as the key).
+      self.addressMetaData = {}
       self.curWlt = wallet
       self.serverWltSet = inWltSet
-      self.serverWltSet.add(wallet)
-         
-      # Used with wallet notification code 
-      self.addressMetaData = {}
+      if inWltSet == {} and wallet != None:
+         wltID = wallet.uniqueIDB58
+         self.serverWltSet[wltID] = wallet
 
 
    #############################################################################
@@ -1052,27 +1053,15 @@ class Armory_Daemon(object):
             self.curWlt = wlt
          else:
             if len(CLI_ARGS)==0:
+               # Get the wallets in the Armory home directory and store pointers
+               # to them if no wallets are specified. Also, set the current
+               # wallet to the 1st wallet in the set. (The choice is arbitrary.)
                wltPaths = readWalletFiles()
                self.addMultWallets(wltPaths)
-
-               # Log info on the wallets we've loaded.
-               numWallets = len(self.wltSet)
-               LOGINFO('Number of wallets read in: %d', numWallets)
-               for wltID, wlt in self.wltSet.iteritems():
-                  dispStr  = ('   Wallet (%s):' % wlt.uniqueIDB58).ljust(25)
-                  dispStr +=  '"'+wlt.labelName.ljust(32)+'"   '
-                  dispStr +=  '(Encrypted)' if wlt.useEncryption else '(No Encryption)'
-                  LOGINFO(dispStr)
-
-               # Load the first wallet we encountered. (This is arbitrary.)
-               if numWallets > 0:
+               if len(self.wltSet) > 0:
                   self.curWlt = self.wltSet[self.wltSet.keys()[0]]
-                  LOGWARN('Active wallet is set to %s' % \
-                          self.curWlt.uniqueIDB58)
-               else:
-                  LOGWARN('No wallets could be loaded!')
-                  return
 
+            # Load the specified wallet if it exists.
             else:
                wltpath = CLI_ARGS[0]
                if not os.path.exists(wltpath):
@@ -1081,7 +1070,23 @@ class Armory_Daemon(object):
 
                self.curWlt = PyBtcWallet().readWalletFile(wltpath)
                self.wltSet[self.curWlt.uniqueIDB58] = self.curWlt
-               self.walletIDSet.add(wltID)
+               self.walletIDSet.add(self.curWlt.uniqueIDB58)
+
+         # Log info on the wallets we've loaded.
+         numWallets = len(self.wltSet)
+         LOGINFO('Number of wallets read in: %d', numWallets)
+         for wltID, wlt in self.wltSet.iteritems():
+            dispStr  = ('   Wallet (%s):' % wlt.uniqueIDB58).ljust(25)
+            dispStr +=  '"'+wlt.labelName.ljust(32)+'"   '
+            dispStr +=  '(Encrypted)' if wlt.useEncryption else '(No Encryption)'
+            LOGINFO(dispStr)
+
+         # Check and make sure we have at least 1 wallet.
+         if numWallets > 0:
+            LOGWARN('Active wallet is set to %s' % self.curWlt.uniqueIDB58)
+         else:
+            LOGWARN('No wallets could be loaded!')
+            return
 
          LOGINFO("Initialising RPC server on port %d", ARMORY_RPC_PORT)
          resource = Armory_Json_Rpc_Server(self.curWlt, self.wltSet)
@@ -1363,7 +1368,7 @@ class Armory_Daemon(object):
          if nextCheck >= RightNow():
             self.checkWallet()
          
-         # Check for new blocks in the blk000X.dat file         
+         # Check for new blocks in the blk000X.dat file
          prevTopBlock = TheBDM.getTopBlockHeight()
          newBlks = TheBDM.readBlkFileUpdate()
          if newBlks>0:
