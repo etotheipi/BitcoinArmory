@@ -31,7 +31,8 @@ void BtcWallet::addScrAddress(HashString    scrAddr,
                               uint32_t      lastTimestamp,
                               uint32_t      lastBlockNum)
 {
-   if (scrAddrMap_.find(scrAddr) == true)
+   ts_saMap::const_snapshot saSS(scrAddrMap_);
+   if (saSS.find(scrAddr) != saSS.end())
       return;
 
    ScrAddrObj addrPtr(
@@ -48,7 +49,8 @@ void BtcWallet::addScrAddress(HashString    scrAddr,
 /////////////////////////////////////////////////////////////////////////////
 void BtcWallet::addNewScrAddress(BinaryData scrAddr)
 {
-   if (scrAddrMap_.find(scrAddr) == true)
+   ts_saMap::const_snapshot saSS(scrAddrMap_);
+   if (saSS.find(scrAddr) != saSS.end())
       return;
 
    ScrAddrObj addrPtr = ScrAddrObj(bdmPtr_->getIFace(), scrAddr, 0, 0, 0, 0);
@@ -61,8 +63,8 @@ void BtcWallet::addNewScrAddress(BinaryData scrAddr)
 /////////////////////////////////////////////////////////////////////////////
 void BtcWallet::addScrAddress(ScrAddrObj const & newScrAddr)
 {
-   //if(scrAddrMap_.find(newScrAddr.getScrAddr()) != scrAddrMap_.end())
-   if(scrAddrMap_.find(newScrAddr.getScrAddr()) == true)
+   ts_saMap::const_snapshot saSS(scrAddrMap_);
+   if (saSS.find(newScrAddr.getScrAddr()) != saSS.end())
       return;
 
    if(newScrAddr.getScrAddr().getSize() > 0)
@@ -110,8 +112,8 @@ void BtcWallet::addScrAddress_5_(HashString    scrAddr,
 /////////////////////////////////////////////////////////////////////////////
 bool BtcWallet::hasScrAddress(HashString const & scrAddr) const
 {
-   //return scrAddrMap_.find(scrAddr) != scrAddrMap_.end();
-   return scrAddrMap_.find(scrAddr).state();
+   ts_saMap::const_snapshot saSS(scrAddrMap_);
+   return (saSS.find(scrAddr) != saSS.end());
 }
 
 
@@ -1022,7 +1024,8 @@ const vector<LedgerEntry>
       return ledgerAllAddr_;
    else
    {
-      if(scrAddrMap_.find(*scraddr) == false)
+      ts_saMap::const_snapshot saSS(scrAddrMap_);
+      if(saSS.find(*scraddr) == saSS.end())
          return vector<LedgerEntry>(0);
       else
       {
@@ -1043,8 +1046,8 @@ const vector<LedgerEntry>
       return ledgerAllAddrZC_;
    else
    {
-      //if(scrAddrMap_.find(*scraddr) == scrAddrMap_.end())
-      if(scrAddrMap_.find(*scraddr) == false)
+      ts_saMap::const_snapshot saSS(scrAddrMap_);
+      if (saSS.find(*scraddr) == saSS.end())
          return vector<LedgerEntry>(0);
       else
       {
@@ -1176,12 +1179,14 @@ uint32_t BtcWallet::numBlocksToRescan(uint32_t endBlk) const
    ts_saMap::const_iterator saIter;
    ts_rsaMap::const_snapshot rai(registeredScrAddrMap_);
 
+   ts_rsaMap::const_snapshot rsaSS(registeredScrAddrMap_);
+
    for(saIter = saSnapshot.begin(); saIter != saSnapshot.end(); ++saIter)
    {
       const ScrAddrObj & addr = (*saIter).second;
 
       // If any address is not registered, will have to do a full scan
-      if(registeredScrAddrMap_.find(addr.getScrAddr()) == false)
+      if(rsaSS.find(addr.getScrAddr()) == rsaSS.end())
          return endBlk;  // Gotta do a full rescan!
 
       ts_rsaMap::const_iterator getRai = rai.find(addr.getScrAddr());
@@ -1201,7 +1206,9 @@ uint32_t BtcWallet::numBlocksToRescan(uint32_t endBlk) const
 ///////////////////////////////////////////////////////////////////////////////
 bool BtcWallet::registerNewScrAddr(HashString scraddr)
 {
-   if(registeredScrAddrMap_.find(scraddr) == true)
+   ts_rsaMap::const_snapshot rsaSS(registeredScrAddrMap_);
+
+   if(rsaSS.find(scraddr) != rsaSS.end())
       return false;
 
    uint32_t currBlk = bdmPtr_->getTopBlockHeight();
@@ -1214,7 +1221,10 @@ bool BtcWallet::registerImportedScrAddr(HashString scraddr,
                                                     uint32_t createBlk)
 {
    SCOPED_TIMER("registerImportedScrAddr");
-   if(registeredScrAddrMap_.find(scraddr) == true)
+   
+   ts_rsaMap::const_snapshot rsaSS(registeredScrAddrMap_);
+
+   if(rsaSS.find(scraddr) != rsaSS.end())
       return false;
 
    // In some cases we may have used UINT32_MAX to specify "don't know"
@@ -1546,6 +1556,7 @@ void BtcWallet::rescanWalletZeroConf()
 
    HashString txHash(32);
    ts_BinDataMap::const_snapshot zcListSS(*zeroConfRawTxMap);
+   ts_ZCMap::const_snapshot zcSS(*zeroConfMap);
 
    for (ts_BinDataMap::const_iterator iter = zcListSS.begin();
       iter != zcListSS.end();
@@ -1555,18 +1566,15 @@ void BtcWallet::rescanWalletZeroConf()
       if (iter->second.getSize() == 0)
          continue;
 
-      ts_ZCMap::findReturn zcdFR = zeroConfMap->find(iter->first);
+      ts_ZCMap::const_iterator zcdFR = zcSS.find(iter->first);
 
-      if (zcdFR == true)
+      if (zcdFR != zcSS.end())
       {
-         map<HashString, ZeroConfData>::const_iterator zcd
-            = zcdFR.getIter();
-
-         if (!bdmPtr_->isTxFinal((*zcd).second.txobj_))
+         if (!bdmPtr_->isTxFinal(zcdFR->second.txobj_))
             continue;
 
-         Tx &tx = const_cast<Tx&>((*zcd).second.txobj_);
-         scanTx(tx, 0, (*zcd).second.txtime_,
+         Tx &tx = const_cast<Tx&>(zcdFR->second.txobj_);
+         scanTx(tx, 0, zcdFR->second.txtime_,
             UINT32_MAX);
       }
    }
@@ -1608,13 +1616,14 @@ void BtcWallet::saveScrAddrHistories()
 
    ts_saMap::const_snapshot saSnapshot(scrAddrMap_);
    ts_saMap::const_iterator saIter;
+   ts_rsaMap::const_snapshot rsaSS(registeredScrAddrMap_);
 
    for (saIter = saSnapshot.begin(); saIter != saSnapshot.end(); ++saIter)
    {
       const ScrAddrObj & scrAddr = (*saIter).second;
       BinaryData uniqKey = scrAddr.getScrAddr();
 
-      if (registeredScrAddrMap_.find(uniqKey) == false)
+      if (rsaSS.find(uniqKey) == rsaSS.end())
       {
          LOGERR << "How does the wallet have a non-registered ScrAddr?";
          LOGERR << uniqKey.toHexStr().c_str();
@@ -1659,16 +1668,12 @@ void BtcWallet::scanWallet(uint32_t startBlock, uint32_t endBlock,
       the last valid scanned block height. Default to UINT32_MAX, which will be 
       replaced by lastScannedBlock_
 
-      endBlock: The heigh scanning should stop at. For scanning maintenance
+      endBlock: The height scanning should stop at. For scanning maintenance
       purpose, always pass the highest block heigh in DB. Default to
       UINT32_MAX, which will be replaced by the current top block height.
 
-      forceScan: set to true to force scanning DB against registered scrAddr
-      from block 0. Default to false.
-
-      removedTxs: pointer to a list of removed Tx in case of a reorg. Defaults
-      to NULL. If the list is not NULL, all the Txs in this list will be 
-      removed from the wallet's registeredTxList_
+      forceScan: set to true to force scanning DB against registered scrAddr map
+      from block 0. Defaults to false.
 
    Uninitialized wallets will first call fetchDBRegisteredScrAddrData,
    to look for existing scrAddr data in the DB.

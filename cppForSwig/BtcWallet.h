@@ -190,8 +190,11 @@ public:
    void registerOutPoint(const OutPoint &op) {registeredOutPoints_.insert(op);}
    int  countOutPoints(const OutPoint &op) const {return registeredOutPoints_.count(op);}
    void insertRegisteredTxIfNew(HashString txHash);
-   bool scrAddrIsRegistered(HashString scraddr)
-                     {return registeredScrAddrMap_.find(scraddr).state();}
+   bool scrAddrIsRegistered(HashString scraddr) const
+   {
+      ts_rsaMap::const_snapshot rsaSS(registeredScrAddrMap_);
+      return rsaSS.find(scraddr) != rsaSS.end();
+   }
    void scanRegisteredTxList( uint32_t blkStart, uint32_t blkEnd);
    void updateRegisteredScrAddrs(uint32_t newTopBlk);
    uint32_t numBlocksToRescan(uint32_t endBlk) const;

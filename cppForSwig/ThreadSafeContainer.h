@@ -176,14 +176,11 @@ template <typename T> class ts_pair_iterator;
 template <typename T> class ts_const_iterator;
 template <typename T> class ts_const_pair_iterator;
 
-template <typename T> class findResult;
-
 
 template <typename T> class ts_container
 {
    friend class ts_snapshot<T>;
    friend class ts_const_snapshot<T>;
-
 
    public:
       typedef typename T::iterator I;
@@ -203,7 +200,6 @@ template <typename T> class ts_container
       std::atomic<int32_t> writeSema_;
       std::atomic<int32_t> writeLock_;
       std::atomic<int32_t> commitLock_;
-      std::atomic<int32_t> deleteLock_;
       
       mutable std::atomic<int32_t> expireLock_;
       mutable std::atomic<int32_t> updateLock_;
@@ -400,11 +396,6 @@ template <typename T> class ts_container
       typedef ts_const_snapshot<T> const_snapshot;
       typedef ts_const_iterator<T> const_iterator;
 
-      typedef findResult<T> findReturn;
-
-      //this can get in the way of consting GetCurrent
-      static const unsigned int maxMergePerThread_ = 5000;
-
       ts_container(void)
       {
          toModify_       = NULL;
@@ -413,7 +404,6 @@ template <typename T> class ts_container
          writeSema_  = 0; 
          writeLock_  = 0;
          commitLock_ = 0;
-         deleteLock_ = 0;
          updateLock_ = 0;
          expireLock_ = 0;
 
@@ -426,20 +416,6 @@ template <typename T> class ts_container
          current_.reset();
          
          WipeToModify();
-      }
-
-      findReturn find(const obj_type& toFind) const
-      {
-         bool found = false;
-         while (updateLock_.fetch_or(1, std::memory_order_consume));
-
-         typename ts_container<T>::CI result = mainObject_.find(toFind);
-         if (result != mainObject_.end())
-            found = true;
-
-         updateLock_.store(0, std::memory_order_release);
-
-         return findReturn(result, found);
       }
 
       void clear(void)
@@ -594,17 +570,6 @@ public ts_container<T>
          this->commitLock_ = 0;
       }
       
-      mapped_type Get(const key_type& toGet) const
-      {
-         typename ts_container<T>::findReturn findRes = this->find(toGet);
-         mapped_type toReturn;
-
-         if (findRes == true)
-            toReturn = findRes.getIter()->second;
-
-         return toReturn;
-      }
-
    public:
 
       typedef ts_pair_snapshot<T> snapshot;
@@ -614,25 +579,20 @@ public ts_container<T>
       typedef ts_const_pair_snapshot<T> const_snapshot;
       typedef ts_const_pair_iterator<T> const_iterator;
       
-      typename ts_container<T>::findReturn find(const key_type& toFind) const
+
+      ts_pair<T> operator[] (const key_type& rhs)
       {
          bool found = false;
          while (this->updateLock_.fetch_or(1, std::memory_order_consume));
 
-         typename ts_container<T>::CI result = this->mainObject_.find(toFind);
+         typename ts_container<T>::CI result = this->mainObject_.find(rhs);
          if (result != this->mainObject_.end())
             found = true;
 
          this->updateLock_.store(0, std::memory_order_release);
 
-         return typename ts_container<T>::findReturn(result, found);
-      }
-
-      ts_pair<T> operator[] (const key_type& rhs)
-      {
-         typename ts_container<T>::findReturn toFind = find(rhs);
-         if (toFind.state())
-            return ts_pair<T>(toFind.getIter(), this);
+         if (found)
+            return ts_pair<T>(result, this);
          else
          {
             //default constructor spaghetti
@@ -649,9 +609,13 @@ public ts_container<T>
       const mapped_type& operator[] (const key_type& rhs) const
       {
          //const version, undefined if the key isnt in map
-         typename ts_container<T>::findReturn toFind = this->find(rhs);
+         while (this->updateLock_.fetch_or(1, std::memory_order_consume));
 
-         return toFind.getIter()->second;
+         typename ts_container<T>::CI result = this->mainObject_.find(rhs);
+
+         this->updateLock_.store(0, std::memory_order_release);
+
+         return result->second;
       }
 
       void erase(const key_type& toErase)
@@ -665,48 +629,6 @@ public ts_container<T>
       }
 
 };
-
-template <typename T> class findResult
-{
-   private:
-      typedef typename T::const_iterator const_iterator;
-      typedef typename std::iterator_traits<const_iterator>::\
-                                            value_type obj_type;
-
-      const_iterator iter_;
-      bool found_;
-   
-   public:
-      findResult(void) :
-         iter_(false) {}
-
-      findResult(const_iterator iter, bool found) :
-         iter_(iter), found_(found) {}
-
-      findResult(const findResult<T>& fR) :
-         iter_(fR.iter_), found_(fR.found_) {}
-
-      bool state(void) const
-      {
-         return found_;
-      }
-
-      bool operator!= (bool b) const
-      {
-         return found_ != b;
-      }
-
-      bool operator== (bool b) const
-      {
-         return found_ == b;
-      }
-
-      const_iterator getIter(void) const
-      {
-         return iter_;
-      }
-};
-
 
 
 template<typename T> class ts_snapshot
@@ -765,6 +687,13 @@ template<typename T> class ts_snapshot
          iter.Set(object_->find(toFind), this);
          return iter;
       }
+
+      iterator find(const obj_type& toFind)
+      {
+         iterator iter;
+         iter.Set(object->find(toFind, this));
+         return iter;
+      }
       
       void push_back(const obj_type& toAdd)
       {
@@ -783,12 +712,6 @@ template<typename T> class ts_snapshot
          parent_->erase(toErase);
          object_->erase(toErase);
       }
-      
-      bool contains(const obj_type& f) const
-      {
-         return find(f) != end();
-      }
-
 };
 
 template<typename T> class ts_const_snapshot
@@ -796,7 +719,8 @@ template<typename T> class ts_const_snapshot
    protected:
       typedef ObjectContainer<T> snapshot_container;
       typedef ts_const_iterator<T> const_iterator;
-      typedef typename std::iterator_traits<typename T::const_iterator>::value_type value_type;
+      typedef typename 
+         std::iterator_traits<typename T::const_iterator>::value_type obj_type;
       
       const ts_container<T> &parent_;
       const std::shared_ptr<snapshot_container> cont_;
@@ -828,13 +752,11 @@ template<typename T> class ts_const_snapshot
          return iter;
       }
 
-      const_iterator find(const value_type& toFind) const
+      const_iterator find(const obj_type& toFind) const
       {
-         return object_->find(toFind);
-      }
-      bool contains(const value_type& f) const
-      {
-         return find(f) != end();
+         const_iterator iter;
+         iter.Set(object_->find(toFind), this);
+         return iter;
       }
 };
 
@@ -904,10 +826,6 @@ template<typename T> class ts_pair_snapshot : private ts_snapshot<T>
          return_iter.Set(this->object_->find(toFind), this);
          return return_iter;
       }
-      bool contains(const key_type& f) const
-      {
-         return find(f) != end();
-      }
 };
 
 template<typename T> class ts_const_pair_snapshot
@@ -947,10 +865,6 @@ template<typename T> class ts_const_pair_snapshot
          iter.Set(this->object_->find(toFind), this);
          return iter;
       }
-      bool contains(const key_type& f) const
-      {
-         return find(f) != end();
-      }
 };
 
 
@@ -989,7 +903,7 @@ template <typename T> class ts_iterator
          return &*iter_;
       }
 
-      void operator= (const obj_type& rhs)
+      void update (const obj_type& rhs)
       {
          iter_ = snapshot_->Set(iter_, rhs);
       }
@@ -1049,11 +963,6 @@ template <typename T> class ts_const_iterator
       bool operator== (const ts_const_iterator& rhs) const
       {
          return iter_ == rhs.iter_;
-      }
-
-      virtual I getIter(void) const
-      {
-         return iter_;
       }
 };
 

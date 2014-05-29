@@ -8,7 +8,7 @@ class StoredHeader;
 class StoredUndoData;
 class StoredTx;
 class StoredScriptHistory;
-class BlockDataManagerConfig;
+struct BlockDataManagerConfig;
 
 /*
  This class accumulates changes to write to the database,

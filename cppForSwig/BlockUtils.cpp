@@ -828,11 +828,12 @@ Tx BlockDataManager_LevelDB::getTxByHash(HashString const & txhash)
    else
    {
       // It's not in the blockchain, but maybe in the zero-conf tx list
-      ts_ZCMap::findReturn findR = zeroConfMap_.find(txhash);
-      if(findR == false)
+      ts_ZCMap::const_snapshot zcSS(zeroConfMap_);
+      ts_ZCMap::const_iterator iter = zcSS.find(txhash);
+      if(iter == zcSS.end())
          return Tx();
       else
-         return findR.getIter()->second.txobj_;
+         return iter->second.txobj_;
    }
 }
 
@@ -842,8 +843,8 @@ TX_AVAILABILITY BlockDataManager_LevelDB::getTxHashAvail(BinaryDataRef txHash)
 {
    if(getTxRefByHash(txHash).isNull())
    {
-      //if(zeroConfMap_.find(txHash)==zeroConfMap_.end())
-      if (zeroConfMap_.find(txHash) == false)
+      ts_ZCMap::const_snapshot zcSS(zeroConfMap_);
+      if (zcSS.find(txHash) == zcSS.end())
          return TX_DNE;  // No tx at all
       else
          return TX_ZEROCONF;  // Zero-conf tx
@@ -864,7 +865,10 @@ bool BlockDataManager_LevelDB::hasTxWithHash(BinaryData const & txHash)
    if(iface_->getTxRef(txHash).isInitialized())
       return true;
    else
-      return zeroConfMap_.find(txHash).state();
+   {
+      ts_ZCMap::const_snapshot zcSS(zeroConfMap_);
+      return ( zcSS.find(txHash) != zcSS.end() );
+   }
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -954,8 +958,8 @@ bool BlockDataManager_LevelDB::registerWallet(BtcWallet* wltPtr, bool wltIsNew)
 {
    SCOPED_TIMER("registerWallet");
    // Check if the wallet is already registered
-   //if(registeredWallets_.find(wltPtr) != registeredWallets_.end())
-   if(registeredWallets_.find(wltPtr) == true) return false;
+   ts_setBtcWallet::const_snapshot btcWltSS(registeredWallets_);
+   if (btcWltSS.find(wltPtr) != btcWltSS.end()) return false;
 
    // Add it to the list of wallets to watch
    registeredWallets_.push_back(wltPtr);
@@ -1077,22 +1081,22 @@ void BlockDataManager_LevelDB::resetRegisteredWallets(void)
 /////////////////////////////////////////////////////////////////////////////
 bool BlockDataManager_LevelDB::walletIsRegistered(BtcWallet & wlt) const
 {
-   return registeredWallets_.find(&wlt).state();
+   ts_setBtcWallet::const_snapshot btcWltSS(registeredWallets_);
+   return (btcWltSS.find(&wlt) != btcWltSS.end());
 }
 
 /////////////////////////////////////////////////////////////////////////////
 bool BlockDataManager_LevelDB::scrAddrIsRegistered(HashString scraddr)
 {
-   ts_rsaMap* regScrAddrMap;
-
    ts_setBtcWallet::const_snapshot wltSnapshot(registeredWallets_);
    ts_setBtcWallet::const_iterator wltIter;
 
    for (wltIter = wltSnapshot.begin(); wltIter != wltSnapshot.end();
       ++wltIter)
    {
-      regScrAddrMap = (*wltIter)->getRegisteredScrAddrMap();
-      if(regScrAddrMap->find(scraddr) == true) return true;
+      ts_rsaMap::const_snapshot
+         regScrAddrMap((*(*wltIter)->getRegisteredScrAddrMap()));
+      if(regScrAddrMap.find(scraddr) != regScrAddrMap.end()) return true;
    }
 
    return false;
@@ -2676,7 +2680,7 @@ bool BlockDataManager_LevelDB::addNewZeroConfTx(BinaryData const & rawTx,
 void BlockDataManager_LevelDB::purgeZeroConfPool(void)
 {
    SCOPED_TIMER("purgeZeroConfPool");
-   list< map<HashString, ZeroConfData>::const_iterator > mapRmList;
+   list< ts_ZCMap::const_iterator > mapRmList;
 
    // Find all zero-conf transactions that made it into the blockchain
    ts_ZCMap::const_snapshot ssZCMap(zeroConfMap_);
@@ -2686,19 +2690,19 @@ void BlockDataManager_LevelDB::purgeZeroConfPool(void)
        ++iter)
    {
       if (!getTxRefByHash(iter->first).isNull())
-         mapRmList.insert(mapRmList.end(), iter.getIter());
+         mapRmList.insert(mapRmList.end(), iter);
    }
 
    // We've made a list of the zc tx to remove, now let's remove them
    // I decided this was safer than erasing the data as we were iterating
    // over it in the previous loop
-   list< map<HashString, ZeroConfData>::const_iterator >::iterator rmIter;
+   list< ts_ZCMap::const_iterator >::iterator rmIter;
    for(rmIter  = mapRmList.begin();
        rmIter != mapRmList.end();
        rmIter++)
    {
       zeroConfRawTxMap_.erase( (*rmIter)->first );
-      zeroConfMap_.erase( *rmIter );
+      zeroConfMap_.erase( (*rmIter)->first );
    }
 
    // Rewrite the zero-conf pool file
