@@ -48,6 +48,9 @@
     <ClInclude Include="..\leveldb_windows_port\win32_posix\Win_TranslatePath.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\ThreadSafeContainer.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\BinaryData.cpp">
@@ -96,9 +99,6 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\ScrAddrObj.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\Util.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\BDM_mainthread.cpp">

@@ -568,7 +568,12 @@ public:
    void pprint(ostream & os=cout, int nIndent=0, bool pBigendian=true);
    void pprintAlot(ostream & os=cout);
 
-
+   bool operator==(const Tx& rhs) const
+   {
+      if (this->isInitialized() && rhs.isInitialized())
+         return this->thisHash_ == rhs.thisHash_;
+      return false;
+   }
 
 private:
    // Full copy of the serialized tx

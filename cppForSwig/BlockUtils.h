@@ -72,8 +72,22 @@ struct ZeroConfData
 {
    Tx            txobj_;   
    uint32_t      txtime_;
-   list<BinaryData>::iterator iter_;
+   //list<BinaryData>::iterator iter_;
+
+   bool operator==(const ZeroConfData& rhs) const
+   {
+      return (this->txobj_ == rhs.txobj_) && (this->txtime_ == rhs.txtime_);
+   }
 };
+
+typedef set<BtcWallet*> set_BtcWallet;
+typedef ts_container<set_BtcWallet> ts_setBtcWallet;
+
+typedef map<HashString, ZeroConfData> ZCMap;
+typedef map<HashString, BinaryData>   BinDataMap;
+
+typedef ts_pair_container<BinDataMap> ts_BinDataMap;
+typedef ts_pair_container<ZCMap>      ts_ZCMap;
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -98,8 +112,8 @@ private:
    // Need a separate memory pool just for zero-confirmation transactions
    // We need the second map to make sure we can find the data to remove
    // it, when necessary
-   list<BinaryData>                   zeroConfRawTxList_;
-   map<HashString, ZeroConfData>      zeroConfMap_;
+   ts_BinDataMap                      zeroConfRawTxMap_;
+   ts_ZCMap                           zeroConfMap_;
    bool                               zcEnabled_;
    bool                               zcLiteMode_;
    string                             zcFilename_;
@@ -368,12 +382,12 @@ public:
       return iface_->getValidDupIDForHeight(blockHgt);
    }
 
-   const list<BinaryData> * getZeroConfRawTxList() const
+   const ts_BinDataMap * getZeroConfRawTxMap() const
    {
-      return &zeroConfRawTxList_;
+      return &zeroConfRawTxMap_;
    }
 
-   map<HashString, ZeroConfData> * getZeroConfMap()
+   const ts_ZCMap * getZeroConfMap() const
    {
       return &zeroConfMap_;
    }
@@ -415,7 +429,7 @@ public:
    void readZeroConfFile(string filename);
    bool addNewZeroConfTx(BinaryData const & rawTx, uint32_t txtime, bool writeToFile);
    void purgeZeroConfPool(void);
-   void pprintZeroConfPool(void);
+   void pprintZeroConfPool(void) const;
    void rewriteZeroConfFile(void);
    bool isTxFinal(const Tx & tx) const;
 

@@ -31,7 +31,7 @@ void BtcWallet::addScrAddress(HashString    scrAddr,
                               uint32_t      lastTimestamp,
                               uint32_t      lastBlockNum)
 {
-   if (scrAddrMap_.contains(scrAddr))
+   if (scrAddrMap_.find(scrAddr) == true)
       return;
 
    ScrAddrObj addrPtr(
@@ -48,7 +48,7 @@ void BtcWallet::addScrAddress(HashString    scrAddr,
 /////////////////////////////////////////////////////////////////////////////
 void BtcWallet::addNewScrAddress(BinaryData scrAddr)
 {
-   if (scrAddrMap_.contains(scrAddr))
+   if (scrAddrMap_.find(scrAddr) == true)
       return;
 
    ScrAddrObj addrPtr = ScrAddrObj(bdmPtr_->getIFace(), scrAddr, 0, 0, 0, 0);
@@ -62,7 +62,7 @@ void BtcWallet::addNewScrAddress(BinaryData scrAddr)
 void BtcWallet::addScrAddress(ScrAddrObj const & newScrAddr)
 {
    //if(scrAddrMap_.find(newScrAddr.getScrAddr()) != scrAddrMap_.end())
-   if(scrAddrMap_.contains(newScrAddr.getScrAddr()))
+   if(scrAddrMap_.find(newScrAddr.getScrAddr()) == true)
       return;
 
    if(newScrAddr.getScrAddr().getSize() > 0)
@@ -111,7 +111,7 @@ void BtcWallet::addScrAddress_5_(HashString    scrAddr,
 bool BtcWallet::hasScrAddress(HashString const & scrAddr) const
 {
    //return scrAddrMap_.find(scrAddr) != scrAddrMap_.end();
-   return scrAddrMap_.contains(scrAddr);
+   return scrAddrMap_.find(scrAddr).state();
 }
 
 
@@ -1022,7 +1022,7 @@ const vector<LedgerEntry>
       return ledgerAllAddr_;
    else
    {
-      if(!scrAddrMap_.contains(*scraddr))
+      if(scrAddrMap_.find(*scraddr) == false)
          return vector<LedgerEntry>(0);
       else
       {
@@ -1044,7 +1044,7 @@ const vector<LedgerEntry>
    else
    {
       //if(scrAddrMap_.find(*scraddr) == scrAddrMap_.end())
-      if(!scrAddrMap_.contains(*scraddr))
+      if(scrAddrMap_.find(*scraddr) == false)
          return vector<LedgerEntry>(0);
       else
       {
@@ -1181,8 +1181,7 @@ uint32_t BtcWallet::numBlocksToRescan(uint32_t endBlk) const
       const ScrAddrObj & addr = (*saIter).second;
 
       // If any address is not registered, will have to do a full scan
-      //if(registeredScrAddrMap_.find(addr.getScrAddr()) == registeredScrAddrMap_.end())
-      if(!registeredScrAddrMap_.contains(addr.getScrAddr()))
+      if(registeredScrAddrMap_.find(addr.getScrAddr()) == false)
          return endBlk;  // Gotta do a full rescan!
 
       ts_rsaMap::const_iterator getRai = rai.find(addr.getScrAddr());
@@ -1202,7 +1201,7 @@ uint32_t BtcWallet::numBlocksToRescan(uint32_t endBlk) const
 ///////////////////////////////////////////////////////////////////////////////
 bool BtcWallet::registerNewScrAddr(HashString scraddr)
 {
-   if(registeredScrAddrMap_.contains(scraddr))
+   if(registeredScrAddrMap_.find(scraddr) == true)
       return false;
 
    uint32_t currBlk = bdmPtr_->getTopBlockHeight();
@@ -1215,7 +1214,7 @@ bool BtcWallet::registerImportedScrAddr(HashString scraddr,
                                                     uint32_t createBlk)
 {
    SCOPED_TIMER("registerImportedScrAddr");
-   if(registeredScrAddrMap_.contains(scraddr))
+   if(registeredScrAddrMap_.find(scraddr) == true)
       return false;
 
    // In some cases we may have used UINT32_MAX to specify "don't know"
@@ -1541,30 +1540,36 @@ void BtcWallet::rescanWalletZeroConf()
    // Clear the whole list, rebuild
    clearZeroConfPool();
 
-   const list<BinaryData> *zeroConfRawTxList = bdmPtr_->getZeroConfRawTxList();
-   const map<HashString, ZeroConfData> *zeroConfMap = bdmPtr_->getZeroConfMap();
+   const ts_BinDataMap *zeroConfRawTxMap = bdmPtr_->getZeroConfRawTxMap();
+   const ts_ZCMap *zeroConfMap = bdmPtr_->getZeroConfMap();
 
 
-   static HashString txHash(32);
-   list<HashString>::const_iterator iter;
-   for (iter = zeroConfRawTxList->begin();
-      iter != zeroConfRawTxList->end();
+   HashString txHash(32);
+   ts_BinDataMap::const_snapshot zcListSS(*zeroConfRawTxMap);
+   ts_BinDataMap::const_iterator iter;
+
+   for (iter = zcListSS.begin();
+      iter != zcListSS.end();
       iter++)
    {
 
-      if (iter->getSize() == 0)
+      if (iter->second.getSize() == 0)
          continue;
 
-      BtcUtils::getHash256(*iter, txHash);
-      map<HashString, ZeroConfData>::const_iterator zcd
-         = zeroConfMap->find(txHash);
+      ts_ZCMap::findReturn zcdFR = zeroConfMap->find(iter->first);
 
-      if (!bdmPtr_->isTxFinal((*zcd).second.txobj_))
-         continue;
+      if (zcdFR == true)
+      {
+         map<HashString, ZeroConfData>::const_iterator zcd
+            = zcdFR.getIter();
 
-      Tx &tx = const_cast<Tx&>((*zcd).second.txobj_);
-      scanTx(tx, 0, (*zcd).second.txtime_, 
-             UINT32_MAX);
+         if (!bdmPtr_->isTxFinal((*zcd).second.txobj_))
+            continue;
+
+         Tx &tx = const_cast<Tx&>((*zcd).second.txobj_);
+         scanTx(tx, 0, (*zcd).second.txtime_,
+            UINT32_MAX);
+      }
    }
 }
 
@@ -1610,7 +1615,7 @@ void BtcWallet::saveScrAddrHistories()
       const ScrAddrObj & scrAddr = (*saIter).second;
       BinaryData uniqKey = scrAddr.getScrAddr();
 
-      if (!registeredScrAddrMap_.contains(uniqKey))
+      if (registeredScrAddrMap_.find(uniqKey) == false)
       {
          LOGERR << "How does the wallet have a non-registered ScrAddr?";
          LOGERR << uniqKey.toHexStr().c_str();

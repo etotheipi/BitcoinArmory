@@ -424,6 +424,7 @@ copy ..\libs\Win32\BitcoinArmory_SwigDLL.dll ..\..\_CppBlockUtils.pyd
     <ClInclude Include="..\leveldb_wrapper.h" />
     <ClInclude Include="..\log.h" />
     <ClInclude Include="..\StoredBlockObj.h" />
+    <ClInclude Include="..\ThreadSafeContainer.h" />
     <ClInclude Include="..\UniversalTimer.h" />
   </ItemGroup>
   <ItemGroup>
@@ -443,7 +444,6 @@ copy ..\libs\Win32\BitcoinArmory_SwigDLL.dll ..\..\_CppBlockUtils.pyd
     <ClCompile Include="..\ScrAddrObj.cpp" />
     <ClCompile Include="..\StoredBlockObj.cpp" />
     <ClCompile Include="..\UniversalTimer.cpp" />
-    <ClCompile Include="..\Util.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

@@ -10,11 +10,9 @@
 class BlockDataManager_LevelDB;
 
 typedef map<BinaryData, RegisteredScrAddr> rsaMap;
-template class ts_pair_container<rsaMap>;
 typedef ts_pair_container<rsaMap> ts_rsaMap;
 
 typedef map<BinaryData, ScrAddrObj> saMap;
-template class ts_pair_container<saMap>;
 typedef ts_pair_container<saMap> ts_saMap;
 
 
@@ -193,7 +191,7 @@ public:
    int  countOutPoints(const OutPoint &op) const {return registeredOutPoints_.count(op);}
    void insertRegisteredTxIfNew(HashString txHash);
    bool scrAddrIsRegistered(HashString scraddr)
-                     {return registeredScrAddrMap_.contains(scraddr);}
+                     {return registeredScrAddrMap_.find(scraddr).state();}
    void scanRegisteredTxList( uint32_t blkStart, uint32_t blkEnd);
    void updateRegisteredScrAddrs(uint32_t newTopBlk);
    uint32_t numBlocksToRescan(uint32_t endBlk) const;

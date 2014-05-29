@@ -828,12 +828,11 @@ Tx BlockDataManager_LevelDB::getTxByHash(HashString const & txhash)
    else
    {
       // It's not in the blockchain, but maybe in the zero-conf tx list
-      map<HashString, ZeroConfData>::const_iterator iter = zeroConfMap_.find(txhash);
-      //if(iter==zeroConfMap_.end())
-      if(ITER_NOT_IN_MAP(iter, zeroConfMap_))
+      ts_ZCMap::findReturn findR = zeroConfMap_.find(txhash);
+      if(findR == false)
          return Tx();
       else
-         return iter->second.txobj_;
+         return findR.getIter()->second.txobj_;
    }
 }
 
@@ -844,7 +843,7 @@ TX_AVAILABILITY BlockDataManager_LevelDB::getTxHashAvail(BinaryDataRef txHash)
    if(getTxRefByHash(txHash).isNull())
    {
       //if(zeroConfMap_.find(txHash)==zeroConfMap_.end())
-      if(KEY_NOT_IN_MAP(txHash, zeroConfMap_))
+      if (zeroConfMap_.find(txHash) == false)
          return TX_DNE;  // No tx at all
       else
          return TX_ZEROCONF;  // Zero-conf tx
@@ -865,7 +864,7 @@ bool BlockDataManager_LevelDB::hasTxWithHash(BinaryData const & txHash)
    if(iface_->getTxRef(txHash).isInitialized())
       return true;
    else
-      return KEY_IN_MAP(txHash, zeroConfMap_);
+      return zeroConfMap_.find(txHash).state();
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -956,7 +955,7 @@ bool BlockDataManager_LevelDB::registerWallet(BtcWallet* wltPtr, bool wltIsNew)
    SCOPED_TIMER("registerWallet");
    // Check if the wallet is already registered
    //if(registeredWallets_.find(wltPtr) != registeredWallets_.end())
-   if(registeredWallets_.contains(wltPtr)) return false;
+   if(registeredWallets_.find(wltPtr) == true) return false;
 
    // Add it to the list of wallets to watch
    registeredWallets_.push_back(wltPtr);
@@ -1078,7 +1077,7 @@ void BlockDataManager_LevelDB::resetRegisteredWallets(void)
 /////////////////////////////////////////////////////////////////////////////
 bool BlockDataManager_LevelDB::walletIsRegistered(BtcWallet & wlt) const
 {
-   return registeredWallets_.contains(&wlt);
+   return registeredWallets_.find(&wlt).state();
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -1093,7 +1092,7 @@ bool BlockDataManager_LevelDB::scrAddrIsRegistered(HashString scraddr)
       ++wltIter)
    {
       regScrAddrMap = (*wltIter)->getRegisteredScrAddrMap();
-      if(regScrAddrMap->contains(scraddr)) return true;
+      if(regScrAddrMap->find(scraddr) == true) return true;
    }
 
    return false;
@@ -1221,7 +1220,6 @@ void BlockDataManager_LevelDB::writeProgressFile(DB_BUILD_PHASE phase,
 /////////////////////////////////////////////////////////////////////////////
 void BlockDataManager_LevelDB::pprintRegisteredWallets(void)
 {
-   BtcWallet* wlt;
    ts_setBtcWallet::const_snapshot wltSnapshot(registeredWallets_);
 
    for (const BtcWallet *wlt : wltSnapshot)
@@ -2652,11 +2650,12 @@ bool BlockDataManager_LevelDB::addNewZeroConfTx(BinaryData const & rawTx,
    }
     
    
-   zeroConfMap_[txHash] = ZeroConfData();
-   ZeroConfData & zc = zeroConfMap_[txHash];
-   zc.iter_ = zeroConfRawTxList_.insert(zeroConfRawTxList_.end(), rawTx);
-   zc.txobj_.unserialize(*(zc.iter_));
+   zeroConfRawTxMap_[txHash] = rawTx;
+   
+   ZeroConfData zc;
+   zc.txobj_.unserialize(rawTx);
    zc.txtime_ = txtime;
+   zeroConfMap_[txHash] = zc;
 
    // Record time.  Write to file
    if(writeToFile)
@@ -2677,27 +2676,29 @@ bool BlockDataManager_LevelDB::addNewZeroConfTx(BinaryData const & rawTx,
 void BlockDataManager_LevelDB::purgeZeroConfPool(void)
 {
    SCOPED_TIMER("purgeZeroConfPool");
-   list< map<HashString, ZeroConfData>::iterator > mapRmList;
+   list< map<HashString, ZeroConfData>::const_iterator > mapRmList;
 
    // Find all zero-conf transactions that made it into the blockchain
-   map<HashString, ZeroConfData>::iterator iter;
-   for(iter  = zeroConfMap_.begin();
-       iter != zeroConfMap_.end();
+   ts_ZCMap::const_snapshot ssZCMap(zeroConfMap_);
+   ts_ZCMap::const_iterator iter;
+
+   for (iter = ssZCMap.begin();
+       iter != ssZCMap.end();
        iter++)
    {
-      if(!getTxRefByHash(iter->first).isNull())
-         mapRmList.push_back(iter);
+      if (!getTxRefByHash(iter->first).isNull())
+         mapRmList.insert(mapRmList.end(), iter.getIter());
    }
 
    // We've made a list of the zc tx to remove, now let's remove them
    // I decided this was safer than erasing the data as we were iterating
    // over it in the previous loop
-   list< map<HashString, ZeroConfData>::iterator >::iterator rmIter;
+   list< map<HashString, ZeroConfData>::const_iterator >::iterator rmIter;
    for(rmIter  = mapRmList.begin();
        rmIter != mapRmList.end();
        rmIter++)
    {
-      zeroConfRawTxList_.erase( (*rmIter)->second.iter_ );
+      zeroConfRawTxMap_.erase( (*rmIter)->first );
       zeroConfMap_.erase( *rmIter );
    }
 
@@ -2714,14 +2715,14 @@ void BlockDataManager_LevelDB::rewriteZeroConfFile(void)
    SCOPED_TIMER("rewriteZeroConfFile");
    ofstream zcFile(zcFilename_.c_str(), ios::out | ios::binary);
 
-   static HashString txHash(32);
-   list<HashString>::iterator iter;
-   for(iter  = zeroConfRawTxList_.begin();
-       iter != zeroConfRawTxList_.end();
+   ts_BinDataMap::const_snapshot listSS(zeroConfRawTxMap_);
+   ts_BinDataMap::const_iterator iter;
+
+   for(iter  = listSS.begin();
+       iter != listSS.end();
        iter++)
    {
-      BtcUtils::getHash256(*iter, txHash);
-      ZeroConfData & zcd = zeroConfMap_[txHash];
+      const ZeroConfData& zcd = zeroConfMap_[iter->first].get();
       zcFile.write( (char*)(&zcd.txtime_), sizeof(uint64_t) );
       zcFile.write( (char*)(zcd.txobj_.getPtr()),  zcd.txobj_.getSize());
    }
@@ -2760,17 +2761,16 @@ void BlockDataManager_LevelDB::pprintSSHInfoAboutHash160(BinaryData const & a160
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void BlockDataManager_LevelDB::pprintZeroConfPool(void)
+void BlockDataManager_LevelDB::pprintZeroConfPool(void) const
 {
    static HashString txHash(32);
-   list<HashString>::iterator iter;
-   for(iter  = zeroConfRawTxList_.begin();
-       iter != zeroConfRawTxList_.end();
-       iter++)
+   ts_BinDataMap::const_snapshot listSS(zeroConfRawTxMap_);
+   ts_BinDataMap::const_iterator iter;
+
+   for (iter = listSS.begin(); iter != listSS.end(); iter++)
    {
-      BtcUtils::getHash256(*iter, txHash);
-      ZeroConfData & zcd = zeroConfMap_[txHash];
-      Tx & tx = zcd.txobj_;
+      const ZeroConfData & zcd = zeroConfMap_[iter->first];
+      const Tx & tx = zcd.txobj_;
       cout << tx.getThisHash().getSliceCopy(0,8).toHexStr().c_str() << " ";
       for(uint32_t i=0; i<tx.getNumTxOut(); i++)
          cout << tx.getTxOutCopy(i).getValue() << " ";

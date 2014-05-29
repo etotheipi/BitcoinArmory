@@ -141,14 +141,24 @@ smart_pointer, but I'm gonna refrain from that for now.
 
 #include <atomic>
 #include <iterator>
+#include <memory>
 
-struct ObjectContainer
+template <typename T> class ObjectContainer
 {
-   mutable std::atomic<int32_t> counter_;
-   void* object_ = nullptr;
-   void* next_ = nullptr;
-   unsigned long long id_ = 0;
-   bool readonly_=false;
+   public:
+      mutable std::atomic<int32_t> counter_;
+      T* object_;
+      ObjectContainer* next_;
+      unsigned long long id_;
+      bool readonly_;
+
+      ObjectContainer(void) : object_(nullptr), next_(nullptr),
+         id_(0), readonly_(false) {}
+
+      ~ObjectContainer(void)
+      {
+         delete this->object_;
+      }
 };
 
 template <typename T> class ts_pair;
@@ -166,31 +176,29 @@ template <typename T> class ts_pair_iterator;
 template <typename T> class ts_const_iterator;
 template <typename T> class ts_const_pair_iterator;
 
+template <typename T> class findResult;
+
 
 template <typename T> class ts_container
 {
    friend class ts_snapshot<T>;
    friend class ts_const_snapshot<T>;
 
+
    public:
       typedef typename T::iterator I;
       typedef typename T::const_iterator CI;
       typedef typename std::iterator_traits<I>::value_type obj_type;
+   
 
    protected:
+      typedef typename ObjectContainer<T>        snapshot_container;
+      typedef typename ObjectContainer<obj_type> modify_container;
       
-      struct findResult
-      {
-         CI iter;
-         bool found;
-      };
+      mutable std::shared_ptr<snapshot_container> current_;
 
-      mutable ObjectContainer* current_;
-      mutable ObjectContainer* expire_;
-      mutable ObjectContainer* expireNext_;
-
-      ObjectContainer*  toModify_;
-      ObjectContainer*  lastModifyItem_;
+      modify_container*  toModify_;
+      modify_container*  lastModifyItem_;
 
       std::atomic<int32_t> writeSema_;
       std::atomic<int32_t> writeLock_;
@@ -210,18 +218,17 @@ template <typename T> class ts_container
          if(!toModify_) return;
          while(writeLock_.fetch_or(1, std::memory_order_consume));
 
-         ObjectContainer* toDelete;
+         modify_container* toDelete;
 
          writeSema_ = 0;
          while(toModify_->next_)
          {
             toDelete = toModify_;
-            toModify_ = (ObjectContainer*)toModify_->next_;
-            delete (obj_type*)toDelete->object_;
+            toModify_ = toModify_->next_;
+
             delete toDelete;
          }
 
-         delete (obj_type*)toModify_->object_;
          delete toModify_;
 
          toModify_ = NULL;
@@ -230,13 +237,11 @@ template <typename T> class ts_container
          writeLock_.store(0, std::memory_order_release);
       }
 
-      void Modify(obj_type& input, int change)
+      void Modify(const obj_type& input, int change)
       {
-         ObjectContainer* addMod = new ObjectContainer;
-         obj_type* obj = new obj_type;
-         *obj = input;
-
-         addMod->object_  = (void*)obj;
+         modify_container* addMod = new modify_container;
+         
+         addMod->object_ = new obj_type(input);
          addMod->counter_ = change;
 
          while(writeLock_.fetch_or(1, std::memory_order_consume));
@@ -256,15 +261,14 @@ template <typename T> class ts_container
          if(commitLock_.fetch_or(1, std::memory_order_consume)) return;
 
          unsigned addCounter = 0;
-         while(writeSema_.load(std::memory_order_consume) != 0 \
-               && addCounter < maxMergePerThread_)
+         while(writeSema_.load(std::memory_order_consume) != 0)
          {
             while(updateLock_.fetch_or(1, std::memory_order_consume));
 
             if (toModify_->counter_ == 1)
             {
                mainObject_.insert(mainObject_.end(), 
-                                  *(obj_type*)toModify_->object_);
+                                  *toModify_->object_);
                
                writeSema_--;
                addCounter++;
@@ -274,7 +278,7 @@ template <typename T> class ts_container
             else if (toModify_->counter_ == -1)
             {
                I toErase = std::find(mainObject_.begin(), mainObject_.end(), 
-                                     *(obj_type*)toModify_->object_);
+                                     *toModify_->object_);
                if(toErase != mainObject_.end())
                   mainObject_.erase(toErase);
                
@@ -287,53 +291,16 @@ template <typename T> class ts_container
             toModify_->counter_ = 0;
             if(toModify_->next_)
             {
-               delete (obj_type*)toModify_->object_;
-               toModify_ = (ObjectContainer*)toModify_->next_;
+               modify_container* toDelete = this->toModify_;
+               this->toModify_ = this->toModify_->next_;
+
+               delete toDelete;
             }
 
             updateLock_.store(0, std::memory_order_release);
          }
 
          commitLock_ = 0;
-         DeleteExpired();
-      }
-
-      void DeleteExpired()
-      {
-         if(!expire_) return;
-         if(deleteLock_.fetch_or(1, std::memory_order_consume)) return;
-
-         ObjectContainer *expireSnapshot = expire_;
-         ObjectContainer *lastDeleted    = expire_;
-         ObjectContainer *prev;
-
-         bool dontDelete = false;
-         while(1)
-         {
-            if(!expireSnapshot->next_) break;
-            
-            prev = expireSnapshot;
-            expireSnapshot = (ObjectContainer*)expireSnapshot->next_;
-
-            if(expireSnapshot->counter_.load(std::memory_order_consume) == -1 \
-               && !dontDelete) 
-            {
-               lastDeleted = expireSnapshot;
-               delete (T*)prev->object_;
-               delete prev;
-            }
-            else
-            {
-               int expected = 0;
-               if (expireSnapshot->counter_.compare_exchange_strong(expected, 
-                  -1, std::memory_order_release,
-                  std::memory_order_consume))
-                  dontDelete = true;
-            }
-         }
-
-         expire_ = lastDeleted;
-         deleteLock_.store(0, std::memory_order_release);
       }
 
       void Add(obj_type input)
@@ -349,107 +316,81 @@ template <typename T> class ts_container
       void RemoveAndWait(obj_type input)
       {
          //not implemented yet
+         //the idea is to offer a remove method that will only
+         //return after the object has been deleted from mainObject_
       }
 
-      const ObjectContainer* GetConstCurrent(void) const
+      const std::shared_ptr<snapshot_container> GetConstCurrent(void) const
       {
-         while (1)
+         /***const version of GetCurrent
+         This function returns a read only snapshot. For that reason, these
+         snapshots can be recycled as long as their modify counter matches the
+         current one. The modify counter is represent in both snapshot and main
+         object by the id_ member.
+         Each time the main object is modified, id_ is incremented. Matching
+         id_ guarantees the main object and the snapshot are representingt the
+         same data.
+
+         current_ should also be checked to make sure it is read only, as id_ 
+         may match, but the snapshot pointed at by current_ is non const.
+
+         Since this call is const'ed, it call CommitChanges (to possibly 
+         update the container) before creating a snapshot
+         ***/
+         snapshot_container* current_cont = current_.get();
+         if (current_cont)
          {
-            ObjectContainer *toIterate = NULL;
-
-            if (current_)
-            {
-               if (current_->readonly_ && current_->id_ == id_)
-                  toIterate = current_;
-            }
-
-            if (toIterate == NULL)
-            {
-               toIterate = new ObjectContainer;
-               toIterate->readonly_ = true;
-               T* snapshot = new T;
-
-               while (updateLock_.fetch_or(1, std::memory_order_consume));
-
-               std::copy(mainObject_.begin(), mainObject_.end(),
-                  std::inserter(*snapshot, snapshot->begin()));
-               toIterate->id_ = id_;
-
-               updateLock_.store(0, std::memory_order_release);
-
-               toIterate->object_ = (void*)snapshot;
-
-               while(expireLock_.fetch_or(1, std::memory_order_consume));
-               if (current_)
-               {
-                  if (expire_) expireNext_->next_ = current_;
-                  else expire_ = current_;
-                  expireNext_ = current_;
-               }
-               expireLock_.store(0, std::memory_order_release);
-
-               current_ = toIterate;
-            }
-
-            if (toIterate->counter_.fetch_add(1,
-               std::memory_order_consume) != -1)
-            {
-               return toIterate;
-            }
-            else
-            {
-               toIterate->id_ = -1;
-               toIterate->counter_.store(-1, std::memory_order_release);
-            }
+            if (current_cont->readonly_ && current_cont->id_ == id_)
+               return current_;
          }
+
+         std::shared_ptr<snapshot_container> 
+                  shared_cont(new snapshot_container);
+         snapshot_container* cont = shared_cont.get();
+         cont->readonly_ = true;
+         T* snapshot = new T;
+
+         while (updateLock_.fetch_or(1, std::memory_order_consume));
+
+         std::copy(mainObject_.begin(), mainObject_.end(),
+            std::inserter(*snapshot, snapshot->begin()));
+         cont->id_ = id_;
+
+         updateLock_.store(0, std::memory_order_release);
+
+         cont->object_ = snapshot;
+               
+         current_ = shared_cont;
+         return shared_cont;
       }
 
-      ObjectContainer* GetCurrent(void)
+      const std::shared_ptr<snapshot_container> GetCurrent(void)
       {
+         /***
+         Commits all queued changes and creates a unique snapshot of the main
+         container. These snapshot can be modified, and their changes will be 
+         reflected in the main container, thus they are meant to be unique.
+         ***/
+
          CommitChanges();
 
-         while (1)
-         {
-            ObjectContainer *toIterate = NULL;
+         std::shared_ptr<snapshot_container> 
+                  shared_cont(new snapshot_container);
+         snapshot_container* cont = shared_cont.get();
+         T* snapshot = new T;
 
-            if (toIterate == NULL)
-            {
-               toIterate = new ObjectContainer;
-               T* snapshot = new T;
+         while (updateLock_.fetch_or(1, std::memory_order_consume));
 
-               while (updateLock_.fetch_or(1, std::memory_order_consume));
+         std::copy(mainObject_.begin(), mainObject_.end(),
+            std::inserter(*snapshot, snapshot->begin()));
+         cont->id_ = id_;
 
-               std::copy(mainObject_.begin(), mainObject_.end(),
-                  std::inserter(*snapshot, snapshot->begin()));
-               toIterate->id_ = id_;
+         updateLock_.store(0, std::memory_order_release);
 
-               updateLock_.store(0, std::memory_order_release);
+         cont->object_ = snapshot;
 
-               toIterate->object_ = (void*)snapshot;
-
-               while (expireLock_.fetch_or(1, std::memory_order_consume));
-               if (current_)
-               {
-                  if (expire_) expireNext_->next_ = current_;
-                  else expire_ = current_;
-                  expireNext_ = current_;
-               }
-               expireLock_.store(0, std::memory_order_release);
-
-               current_ = toIterate;
-            }
-
-            if (toIterate->counter_.fetch_add(1,
-               std::memory_order_consume) != -1)
-            {
-               return toIterate;
-            }
-            else
-            {
-               toIterate->id_ = -1;
-               toIterate->counter_.store(-1, std::memory_order_release);
-            }
-         }
+         current_ = shared_cont;
+         return shared_cont;
       }
 
    public:
@@ -459,14 +400,14 @@ template <typename T> class ts_container
       typedef ts_const_snapshot<T> const_snapshot;
       typedef ts_const_iterator<T> const_iterator;
 
+      typedef findResult<T> findReturn;
+
       //this can get in the way of consting GetCurrent
       static const unsigned int maxMergePerThread_ = 5000;
 
       ts_container(void)
       {
          current_    = NULL;
-         expire_     = NULL;
-         expireNext_ = NULL;
          
          toModify_       = NULL;
          lastModifyItem_ = NULL; 
@@ -485,43 +426,23 @@ template <typename T> class ts_container
       ~ts_container(void)
       {
          if(current_)
-         {
-            delete (T*)current_->object_;
-            delete current_;
-         }
+            current_.reset();
          
-         if(expire_)
-         {
-            ObjectContainer* toDelete;
-            
-            while(expire_->next_)
-            {
-               toDelete = expire_;
-               expire_ = (ObjectContainer*)expire_->next_;
-
-               delete (T*)toDelete->object_;
-               delete toDelete;
-            }
-
-            delete (T*)expire_->object_;
-            delete expire_;
-         }
-
          WipeToModify();
       }
 
-      virtual bool contains(const obj_type& toFind) const
+      findReturn find(const obj_type& toFind) const
       {
-         const ObjectContainer* toSearch = GetConstCurrent();
-               
          bool found = false;
-         T* theObject = (T*)toSearch->object_;
-         CI result = std::find(theObject->begin(), theObject->end(), toFind);
-         if(result != theObject->end())
+         while (updateLock_.fetch_or(1, std::memory_order_consume));
+
+         typename ts_container<T>::CI result = mainObject_.find(toFind);
+         if (result != mainObject_.end())
             found = true;
 
-         toSearch->counter_.fetch_sub(1, std::memory_order_release);
-         return found;
+         updateLock_.store(0, std::memory_order_release);
+
+         return findReturn(result, found);
       }
 
       void clear(void)
@@ -535,7 +456,6 @@ template <typename T> class ts_container
          updateLock_.store(0, std::memory_order_release);
 
          commitLock_.store(0, std::memory_order_release);
-         DeleteExpired();
       }
 
       void push_back(const obj_type& toAdd)
@@ -543,12 +463,17 @@ template <typename T> class ts_container
          Add(toAdd);
       }
 
-      void erase(const obj_type& toErase)
+      virtual void erase(const obj_type& toErase)
       {
          Remove(toErase);
       }
 
       void erase(const I& toErase)
+      {
+         Remove((*toErase));
+      }
+      
+      virtual void erase(CI& toErase)
       {
          Remove((*toErase));
       }
@@ -601,11 +526,10 @@ public ts_container<T>
 
       void Modify(const typename ts_container<T>::obj_type& input, int change)
       {
-         ObjectContainer* addMod = new ObjectContainer;
-         typename ts_container<T>::obj_type* obj
-            = new typename ts_container<T>::obj_type(input.first, input.second);
+         modify_container* addMod = new modify_container;
+         addMod->object_ = 
+            new typename ts_container<T>::obj_type(input.first, input.second);
 
-         addMod->object_ = obj;
          addMod->counter_ = change;
 
          while (this->writeLock_.fetch_or(1, std::memory_order_consume));
@@ -625,15 +549,14 @@ public ts_container<T>
          if (this->commitLock_.fetch_or(1, std::memory_order_acquire)) return;
 
          unsigned addCounter = 0;
-         while (this->writeSema_.load(std::memory_order_consume) != 0
-            && addCounter < this->maxMergePerThread_)
+         while (this->writeSema_.load(std::memory_order_consume) != 0)
          {
             while (this->updateLock_.fetch_or(1, std::memory_order_consume));
 
             if (this->toModify_->counter_ == 1)
             {
                this->mainObject_.insert(this->mainObject_.end(),
-                  *static_cast<typename ts_container<T>::obj_type*>(this->toModify_->object_));
+                                        *(this->toModify_->object_));
 
                this->toModify_->counter_ = 0;
                this->nObjects_++;
@@ -643,8 +566,10 @@ public ts_container<T>
             }
             else if (this->toModify_->counter_ == -1)
             {
-               typename ts_container<T>::obj_type* toFind = static_cast<typename ts_container<T>::obj_type*>(ts_container<T>::toModify_->object_);
-               typename ts_container<T>::I toErase = this->mainObject_.find(toFind->first);
+               typename ts_container<T>::obj_type* toFind = 
+                                       this->toModify_->object_;
+               typename ts_container<T>::I toErase = 
+                                       this->mainObject_.find(toFind->first);
                if (toErase != this->mainObject_.end())
                   this->mainObject_.erase(toErase);
 
@@ -658,8 +583,10 @@ public ts_container<T>
             this->toModify_->counter_ = 0;
             if (this->toModify_->next_)
             {
-               delete static_cast<typename ts_container<T>::obj_type*>(this->toModify_->object_);
-               this->toModify_ = static_cast<ObjectContainer*>(this->toModify_->next_);
+               modify_container* toDelete = this->toModify_;
+               this->toModify_ = this->toModify_->next_;
+
+               delete toDelete;
             }
 
             this->id_++;
@@ -667,34 +594,15 @@ public ts_container<T>
          }
 
          this->commitLock_ = 0;
-         this->DeleteExpired();
-      }
-
-      typename ts_container<T>::findResult Find(const key_type& toFind) const
-      {
-         const ObjectContainer* lookIn = this->GetConstCurrent();
-         T* lookInObj = static_cast<T*>(lookIn->object_);
-
-         typename ts_container<T>::CI iter = lookInObj->find(toFind);
-
-         typename ts_container<T>::findResult res;
-         res.iter = iter;
-         res.found = false;
-
-         if (iter != lookInObj->end())
-            res.found = true;
-
-         lookIn->counter_.fetch_sub(1, std::memory_order_release);
-         return res;
       }
       
-      mapped_type Get(const key_type& toGet)
+      mapped_type Get(const key_type& toGet) const
       {
-         typename ts_container<T>::findResult findRes = this->Find(toGet);
+         typename ts_container<T>::findReturn findRes = this->find(toGet);
          mapped_type toReturn;
 
-         if (findRes.found)
-            toReturn = (*findRes.iter).second;
+         if (findRes == true)
+            toReturn = findRes.getIter()->second;
 
          return toReturn;
       }
@@ -708,25 +616,25 @@ public ts_container<T>
       typedef ts_const_pair_snapshot<T> const_snapshot;
       typedef ts_const_pair_iterator<T> const_iterator;
       
-      bool contains(const key_type& toFind) const
+      findReturn find(const key_type& toFind) const
       {
-         const ObjectContainer* toSearch = this->GetConstCurrent();
-
          bool found = false;
-         T* theObject = static_cast<T*>(toSearch->object_);
-         typename ts_container<T>::CI result = theObject->find(toFind);
-         if (result != theObject->end())
+         while (updateLock_.fetch_or(1, std::memory_order_consume));
+
+         typename ts_container<T>::CI result = mainObject_.find(toFind);
+         if (result != mainObject_.end())
             found = true;
 
-         toSearch->counter_.fetch_sub(1, std::memory_order_release);
-         return found;
+         updateLock_.store(0, std::memory_order_release);
+
+         return findReturn(result, found);
       }
 
       ts_pair<T> operator[] (const key_type& rhs)
       {
-         typename ts_container<T>::findResult toFind = Find(rhs);
-         if (toFind.found)
-            return ts_pair<T>(toFind.iter, this);
+         typename ts_container<T>::findReturn toFind = find(rhs);
+         if (toFind.state())
+            return ts_pair<T>(toFind.getIter(), this);
          else
          {
             //default constructor spaghetti
@@ -744,11 +652,64 @@ public ts_container<T>
       const mapped_type& operator[] (const key_type& rhs) const
       {
          //const version, undefined if the key isnt in map
-         typename ts_container<T>::findResult toFind = this->Find(rhs);
+         typename ts_container<T>::findReturn toFind = this->find(rhs);
 
-         return toFind.iter->second;
+         return toFind.getIter()->second;
+      }
+
+      void erase(const key_type& toErase)
+      {
+         Remove(toErase);
+      }
+
+      void erase(CI& toErase)
+      {
+         Remove(toErase->first);
+      }
+
+};
+
+template <typename T> class findResult
+{
+   private:
+      typedef typename T::const_iterator const_iterator;
+      typedef typename std::iterator_traits<const_iterator>::\
+                                            value_type obj_type;
+
+      const_iterator iter_;
+      bool found_;
+   
+   public:
+      findResult(void) :
+         iter_(false) {}
+
+      findResult(const_iterator iter, bool found) :
+         iter_(iter), found_(found) {}
+
+      findResult(findResult<T>& fR) :
+         iter_(fR.iter_), found_(fR.found_) {}
+
+      bool state(void) const
+      {
+         return found_;
+      }
+
+      bool operator!= (bool b) const
+      {
+         return found_ != b;
+      }
+
+      bool operator== (bool b) const
+      {
+         return found_ == b;
+      }
+
+      const_iterator getIter(void) const
+      {
+         return iter_;
       }
 };
+
 
 
 template<typename T> class ts_snapshot
@@ -756,12 +717,13 @@ template<typename T> class ts_snapshot
    friend class ts_iterator<T>;
 
    protected:
+      typedef typename ObjectContainer<T> snapshot_container;
       typedef ts_iterator<T> iterator;
       typedef ts_const_iterator<T> const_iterator;
       typedef typename std::iterator_traits<typename T::iterator>::value_type obj_type;
 
       ts_container<T> *parent_;
-      ObjectContainer *cont_;
+      std::shared_ptr<snapshot_container> cont_;
       T *object_;
 
    public:
@@ -769,12 +731,12 @@ template<typename T> class ts_snapshot
       {
          parent_ = &parent;
          cont_ = parent.GetCurrent();
-         object_ = (T*)cont_->object_;
+         object_ = cont_->object_;
       }
 
       ~ts_snapshot(void)
       {
-         cont_->counter_.fetch_sub(1, std::memory_order_release);
+         cont_.reset();
       }
 
       iterator begin()
@@ -805,9 +767,9 @@ template<typename T> class ts_snapshot
          return iter;
       }
 
-      ts_iterator<T> find(const obj_type& toFind)
+      const_iterator find(const obj_type& toFind) const
       {
-         ts_iterator<T> iter;
+         const_iterator iter;
          iter.Set(object_->find(toFind), this);
          return iter;
       }
@@ -840,18 +802,19 @@ template<typename T> class ts_snapshot
 template<typename T> class ts_const_snapshot
 {
    protected:
+      typedef typename ObjectContainer<T> snapshot_container;
       typedef ts_const_iterator<T> const_iterator;
       typedef typename std::iterator_traits<typename T::const_iterator>::value_type value_type;
       
       const ts_container<T> &parent_;
-      const ObjectContainer *const cont_;
+      const std::shared_ptr<snapshot_container> cont_;
       const T *const object_;
 
    public:
       ts_const_snapshot(const ts_container<T>& parent)
          : parent_(parent)
          , cont_(parent.GetConstCurrent())
-         , object_(static_cast<const T*>(cont_->object_))
+         , object_(cont_.get()->object_)
       { }
 
       ~ts_const_snapshot()
@@ -1094,6 +1057,11 @@ template <typename T> class ts_const_iterator
       bool operator== (const ts_const_iterator& rhs) const
       {
          return iter_ == rhs.iter_;
+      }
+
+      virtual I getIter(void) const
+      {
+         return iter_;
       }
 };
 
