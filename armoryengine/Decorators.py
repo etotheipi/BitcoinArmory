@@ -33,9 +33,9 @@ import functools
 
 def send_email(send_from, password, send_to, subject, text):
    # smtp.sendmail() requires a list of recipients. If we didn't get a list,
-   # create one.
+   # create one, and delimit based on a colon.
    if not type(send_to) == list:
-      send_to = [send_to]
+      send_to = split(":")
       
    msg = MIMEMultipart()
    msg['From'] = send_from

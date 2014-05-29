@@ -897,10 +897,11 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       if not watchCmd in ['add', 'remove']:
          LOGERROR('Unrecognized watchwallet command: "%s"', watchCmd)
       else:
+         send_to = send_to.split(":")
+
          @EmailOutput(send_from, password, send_to, subject)
          def reportTxFromAddrInNewBlock(pyHeader, pyTxList):
             result = ''
-            self.bbb = 'Howdy'
             for pyTx in pyTxList:
                for pyTxIn in pyTx.inputs:
                   sendingAddrStr = TxInExtractAddrStrIfAvail(pyTxIn)
