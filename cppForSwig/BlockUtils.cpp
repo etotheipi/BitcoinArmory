@@ -958,7 +958,6 @@ bool BlockDataManager_LevelDB::registerWallet(BtcWallet* wltPtr, bool wltIsNew)
    if(registeredWallets_.find(wltPtr) == true) return false;
 
    // Add it to the list of wallets to watch
-   wltPtr->setBDMptr(this);
    registeredWallets_.push_back(wltPtr);
 
    return true;

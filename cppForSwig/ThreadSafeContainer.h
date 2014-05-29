@@ -625,7 +625,7 @@ public ts_container<T>
 
          this->updateLock_.store(0, std::memory_order_release);
 
-         return ts_container<T>::findReturn(result, found);
+         return typename ts_container<T>::findReturn(result, found);
       }
 
       ts_pair<T> operator[] (const key_type& rhs)
@@ -636,12 +636,11 @@ public ts_container<T>
          else
          {
             //default constructor spaghetti
-            mapped_type* second = new mapped_type;
+            mapped_type second;
 
-            this->Add(rhs, *second);
+            this->Add(rhs, second);
             
-            ts_pair<T> returnPair(rhs, *second, this);
-            delete second;
+            ts_pair<T> returnPair(rhs, second, this);
 
             return returnPair;
          }
@@ -684,7 +683,7 @@ template <typename T> class findResult
       findResult(const_iterator iter, bool found) :
          iter_(iter), found_(found) {}
 
-      findResult(findResult<T>& fR) :
+      findResult(const findResult<T>& fR) :
          iter_(fR.iter_), found_(fR.found_) {}
 
       bool state(void) const

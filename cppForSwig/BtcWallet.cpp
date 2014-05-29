@@ -1546,11 +1546,10 @@ void BtcWallet::rescanWalletZeroConf()
 
    HashString txHash(32);
    ts_BinDataMap::const_snapshot zcListSS(*zeroConfRawTxMap);
-   ts_BinDataMap::const_iterator iter;
 
-   for (iter = zcListSS.begin();
+   for (ts_BinDataMap::const_iterator iter = zcListSS.begin();
       iter != zcListSS.end();
-      iter++)
+      ++iter)
    {
 
       if (iter->second.getSize() == 0)
