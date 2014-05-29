@@ -1070,8 +1070,9 @@ vector<LedgerEntry>
    }
    else
    {
-		if(!scrAddr)
+		if(!scraddr)
 			return ledgerAllAddr_;
+
       ts_saMap::const_snapshot saSS(scrAddrMap_);
       if(saSS.find(*scraddr) == saSS.end())
          return vector<LedgerEntry>(0);
