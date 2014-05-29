@@ -2681,11 +2681,10 @@ void BlockDataManager_LevelDB::purgeZeroConfPool(void)
 
    // Find all zero-conf transactions that made it into the blockchain
    ts_ZCMap::const_snapshot ssZCMap(zeroConfMap_);
-   ts_ZCMap::const_iterator iter;
-
-   for (iter = ssZCMap.begin();
+   
+   for (ts_ZCMap::const_iterator iter = ssZCMap.begin();
        iter != ssZCMap.end();
-       iter++)
+       ++iter)
    {
       if (!getTxRefByHash(iter->first).isNull())
          mapRmList.insert(mapRmList.end(), iter.getIter());
@@ -2717,11 +2716,11 @@ void BlockDataManager_LevelDB::rewriteZeroConfFile(void)
    ofstream zcFile(zcFilename_.c_str(), ios::out | ios::binary);
 
    ts_BinDataMap::const_snapshot listSS(zeroConfRawTxMap_);
-   ts_BinDataMap::const_iterator iter;
+   ;
 
-   for(iter  = listSS.begin();
+   for(ts_BinDataMap::const_iterator iter = listSS.begin();
        iter != listSS.end();
-       iter++)
+       ++iter)
    {
       const ZeroConfData& zcd = zeroConfMap_[iter->first].get();
       zcFile.write( (char*)(&zcd.txtime_), sizeof(uint64_t) );
@@ -2764,11 +2763,12 @@ void BlockDataManager_LevelDB::pprintSSHInfoAboutHash160(BinaryData const & a160
 ////////////////////////////////////////////////////////////////////////////////
 void BlockDataManager_LevelDB::pprintZeroConfPool(void) const
 {
-   static HashString txHash(32);
+   HashString txHash(32);
    ts_BinDataMap::const_snapshot listSS(zeroConfRawTxMap_);
-   ts_BinDataMap::const_iterator iter;
 
-   for (iter = listSS.begin(); iter != listSS.end(); iter++)
+   for (ts_BinDataMap::const_iterator iter = listSS.begin();
+      iter != listSS.end(); ++iter
+   )
    {
       const ZeroConfData & zcd = zeroConfMap_[iter->first];
       const Tx & tx = zcd.txobj_;

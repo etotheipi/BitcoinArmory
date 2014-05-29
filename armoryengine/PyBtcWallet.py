@@ -592,7 +592,7 @@ class PyBtcWallet(object):
       time0,blk0 = getCurrTimeAndBlock() if isActuallyNew else (0,0)
 
       # Don't forget to sync the C++ wallet object
-      self.cppWallet = Cpp.BtcWallet()
+      self.cppWallet = Cpp.BtcWallet(TheBDM.bdm)
       self.cppWallet.addAddress_5_(rootAddr.getAddr160(), time0,blk0,time0,blk0)
       self.cppWallet.addAddress_5_(first160,              time0,blk0,time0,blk0)
 
@@ -762,7 +762,7 @@ class PyBtcWallet(object):
       time0,blk0 = getCurrTimeAndBlock() if isActuallyNew else (0,0)
 
       # Don't forget to sync the C++ wallet object
-      self.cppWallet = Cpp.BtcWallet()
+      self.cppWallet = Cpp.BtcWallet(TheBDM.bdm)
       self.cppWallet.addScrAddress_5_(Hash160ToScrAddr(rootAddr.getAddr160()), \
                                                       time0,blk0,time0,blk0)
       self.cppWallet.addScrAddress_5_(Hash160ToScrAddr(first160), \
@@ -1869,7 +1869,7 @@ class PyBtcWallet(object):
       wltdata = BinaryUnpacker(wltfile.read())
       wltfile.close()
 
-      self.cppWallet = Cpp.BtcWallet()
+      self.cppWallet = Cpp.BtcWallet(TheBDM.bdm)
       TheBDM.registerWallet( self.cppWallet )
       self.unpackHeader(wltdata)
 

@@ -192,8 +192,8 @@ template <typename T> class ts_container
    
 
    protected:
-      typedef typename ObjectContainer<T>        snapshot_container;
-      typedef typename ObjectContainer<obj_type> modify_container;
+      typedef ObjectContainer<T>        snapshot_container;
+      typedef ObjectContainer<obj_type> modify_container;
       
       mutable std::shared_ptr<snapshot_container> current_;
 
@@ -407,8 +407,6 @@ template <typename T> class ts_container
 
       ts_container(void)
       {
-         current_    = NULL;
-         
          toModify_       = NULL;
          lastModifyItem_ = NULL; 
          
@@ -425,8 +423,7 @@ template <typename T> class ts_container
 
       ~ts_container(void)
       {
-         if(current_)
-            current_.reset();
+         current_.reset();
          
          WipeToModify();
       }
@@ -526,7 +523,8 @@ public ts_container<T>
 
       void Modify(const typename ts_container<T>::obj_type& input, int change)
       {
-         modify_container* addMod = new modify_container;
+         typename ts_container<T>::modify_container* addMod
+            = new typename ts_container<T>::modify_container;
          addMod->object_ = 
             new typename ts_container<T>::obj_type(input.first, input.second);
 
@@ -583,7 +581,7 @@ public ts_container<T>
             this->toModify_->counter_ = 0;
             if (this->toModify_->next_)
             {
-               modify_container* toDelete = this->toModify_;
+               typename ts_container<T>::modify_container* toDelete = this->toModify_;
                this->toModify_ = this->toModify_->next_;
 
                delete toDelete;
@@ -616,18 +614,18 @@ public ts_container<T>
       typedef ts_const_pair_snapshot<T> const_snapshot;
       typedef ts_const_pair_iterator<T> const_iterator;
       
-      findReturn find(const key_type& toFind) const
+      typename ts_container<T>::findReturn find(const key_type& toFind) const
       {
          bool found = false;
-         while (updateLock_.fetch_or(1, std::memory_order_consume));
+         while (this->updateLock_.fetch_or(1, std::memory_order_consume));
 
-         typename ts_container<T>::CI result = mainObject_.find(toFind);
-         if (result != mainObject_.end())
+         typename ts_container<T>::CI result = this->mainObject_.find(toFind);
+         if (result != this->mainObject_.end())
             found = true;
 
-         updateLock_.store(0, std::memory_order_release);
+         this->updateLock_.store(0, std::memory_order_release);
 
-         return findReturn(result, found);
+         return ts_container<T>::findReturn(result, found);
       }
 
       ts_pair<T> operator[] (const key_type& rhs)
@@ -662,7 +660,7 @@ public ts_container<T>
          Remove(toErase);
       }
 
-      void erase(CI& toErase)
+      void erase(typename ts_container<T>::CI& toErase)
       {
          Remove(toErase->first);
       }
@@ -717,7 +715,7 @@ template<typename T> class ts_snapshot
    friend class ts_iterator<T>;
 
    protected:
-      typedef typename ObjectContainer<T> snapshot_container;
+      typedef ObjectContainer<T> snapshot_container;
       typedef ts_iterator<T> iterator;
       typedef ts_const_iterator<T> const_iterator;
       typedef typename std::iterator_traits<typename T::iterator>::value_type obj_type;
@@ -732,11 +730,6 @@ template<typename T> class ts_snapshot
          parent_ = &parent;
          cont_ = parent.GetCurrent();
          object_ = cont_->object_;
-      }
-
-      ~ts_snapshot(void)
-      {
-         cont_.reset();
       }
 
       iterator begin()
@@ -802,7 +795,7 @@ template<typename T> class ts_snapshot
 template<typename T> class ts_const_snapshot
 {
    protected:
-      typedef typename ObjectContainer<T> snapshot_container;
+      typedef ObjectContainer<T> snapshot_container;
       typedef ts_const_iterator<T> const_iterator;
       typedef typename std::iterator_traits<typename T::const_iterator>::value_type value_type;
       
