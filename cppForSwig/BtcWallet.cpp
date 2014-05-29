@@ -808,15 +808,37 @@ uint64_t BtcWallet::getUnconfirmedBalance(
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-uint64_t BtcWallet::getFullBalance(void) const
+uint64_t BtcWallet::getFullBalance() const
 {
-   uint64_t balance = 0;
-   for(const auto &tio : txioMap_)
+   if (bdmPtr_->config().armoryDbType == ARMORY_DB_SUPER)
    {
-      if(tio.second.isUnspent(bdmPtr_->getIFace()))
-         balance += tio.second.getValue();      
+      uint64_t balance = 0;
+      ts_saMap::const_snapshot saSnapshot(scrAddrMap_);
+
+      for(const auto &sa : saSnapshot)
+      {
+         const ScrAddrObj & addr = sa.second;
+         for(const TxIOPair &txio : getHistoryForScrAddr(addr.getScrAddr()))
+         {
+            if (txio.isUnspent(bdmPtr_->getIFace()))
+            {
+               balance += txio.getValue();
+            }
+         }
+      }
+      return balance;
    }
-   return balance;
+   else
+   {
+      uint64_t balance = 0;
+      for(const auto &tio : txioMap_)
+      {
+         if(tio.second.isUnspent(bdmPtr_->getIFace()))
+            balance += tio.second.getValue();      
+      }
+      return balance;
+
+   }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1012,16 +1034,44 @@ void BtcWallet::clearZeroConfPool(void)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-const vector<LedgerEntry> 
+vector<LedgerEntry> 
    BtcWallet::getTxLedger(HashString const * scraddr) const
 {
    SCOPED_TIMER("BtcWallet::getTxLedger");
 
-   // Make sure to rebuild the ZC ledgers before calling this method
-   if(!scraddr)
-      return ledgerAllAddr_;
+   if (bdmPtr_->config().armoryDbType == ARMORY_DB_SUPER)
+   {
+      vector<LedgerEntry> ledgerEntries;
+      ts_saMap::const_snapshot saSnapshot(scrAddrMap_);
+      for(const auto &sa : saSnapshot)
+      {
+         const ScrAddrObj & addr = sa.second;
+         for(const TxIOPair &txio : getHistoryForScrAddr(addr.getScrAddr()))
+         {
+            const TxOut txout = txio.getTxOutCopy(bdmPtr_->getIFace());
+            //const TxIn txin = txio.getTxInCopy(bdmPtr_->getIFace());
+            const DBTxRef tx = txout.getParentTxRef().attached(bdmPtr_->getIFace());
+            
+            LedgerEntry e(
+               addr.getScrAddr(),
+               txout.getValue(),
+               txout.getParentHeight(),
+               tx.getThisHash(),
+               tx.getBlockTxIndex(),
+               tx.getBlockTimestamp()
+            );
+            
+            ledgerEntries.push_back(e);
+         }
+      }
+      return ledgerEntries;
+   }
    else
    {
+      if(!scraddr)
+         return ledgerAllAddr_;
+      
+      // Make sure to rebuild the ZC ledgers before calling this method
       if(scrAddrMap_.find(*scraddr) == false)
          return vector<LedgerEntry>(0);
       else
@@ -1232,21 +1282,14 @@ bool BtcWallet::registerImportedScrAddr(HashString scraddr,
 vector<TxIOPair> BtcWallet::getHistoryForScrAddr(
    BinaryDataRef uniqKey,
    bool withMultisig
-)
+) const
 {
+   InterfaceToLDB *const iface_ = bdmPtr_->getIFace();
+   
    StoredScriptHistory ssh;
-   InterfaceToLDB *iface_ = bdmPtr_->getIFace();
    iface_->getStoredScriptHistory(ssh, uniqKey);
 
-   ts_rsaMap::snapshot rsaMap_snapshot(registeredScrAddrMap_);
-   ts_rsaMap::iterator rsaIter = rsaMap_snapshot.find(uniqKey);
-
-   if(rsaIter != rsaMap_snapshot.end())
-   {
-      RegisteredScrAddr rsa = rsaIter->second;
-      rsa.alreadyScannedUpToBlk_ = ssh.alreadyScannedUpToBlk_;
-      rsaIter = rsa;
-   }
+   ts_rsaMap::const_snapshot rsaMap_snapshot(registeredScrAddrMap_);
    
    vector<TxIOPair> outVect;
    if(!ssh.isInitialized())

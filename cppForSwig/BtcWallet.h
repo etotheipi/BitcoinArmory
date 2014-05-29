@@ -160,9 +160,9 @@ public:
    uint32_t removeInvalidEntries(void);
 
    const vector<LedgerEntry> 
-      getZeroConfLedger(BinaryData const * scrAddr = NULL) const;
-   const vector<LedgerEntry> 
-      getTxLedger(BinaryData const * scrAddr=NULL) const; 
+      getZeroConfLedger(BinaryData const * scrAddr = nullptr) const;
+   vector<LedgerEntry> 
+      getTxLedger(BinaryData const * scrAddr=nullptr) const; 
 
    bool isOutPointMine(BinaryData const & hsh, uint32_t idx);
 
@@ -184,8 +184,10 @@ public:
       if(registeredTxSet_.insert(regTx.getTxHash()).second == true)
          registeredTxList_.push_back(regTx);
    }
-   vector<TxIOPair> getHistoryForScrAddr(BinaryDataRef uniqKey, 
-                                          bool withMultisig=false);
+   vector<TxIOPair> getHistoryForScrAddr(
+      BinaryDataRef uniqKey, 
+      bool withMultisig=false
+   ) const;
 
    void registerOutPoint(const OutPoint &op) {registeredOutPoints_.insert(op);}
    int  countOutPoints(const OutPoint &op) const {return registeredOutPoints_.count(op);}

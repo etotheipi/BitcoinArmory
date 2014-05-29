@@ -327,7 +327,7 @@ BinaryData TxIn::getParentHash(InterfaceToLDB *db)
 
 
 ////////////////////////////////////////////////////////////////////////////////
-uint32_t TxIn::getParentHeight(void)
+uint32_t TxIn::getParentHeight() const
 {
    if(!parentTx_.isInitialized())
       return parentHeight_;
@@ -436,7 +436,7 @@ void TxOut::unserialize( BinaryRefReader & brr,
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-uint32_t TxOut::getParentHeight(void)
+uint32_t TxOut::getParentHeight() const
 {
    if(!parentTx_.isInitialized())
       return parentHeight_;
@@ -685,7 +685,7 @@ void TxRef::setRef(BinaryDataRef bdr)
 }
 
 /////////////////////////////////////////////////////////////////////////////
-uint32_t DBTxRef::getBlockTimestamp(void)
+uint32_t DBTxRef::getBlockTimestamp() const
 {
    StoredHeader sbh;
 
