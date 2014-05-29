@@ -691,7 +691,7 @@ template<typename T> class ts_snapshot
       iterator find(const obj_type& toFind)
       {
          iterator iter;
-         iter.Set(object->find(toFind, this));
+         iter.Set(object_->find(toFind, this));
          return iter;
       }
       
