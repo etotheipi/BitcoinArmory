@@ -895,7 +895,8 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
    # NB: This doesn't appear to work. More research needed....
    def jsonrpc_watchwallet(self, send_from=None, password=None, send_to=None, \
                            subject=None, watchCmd='add'):
-      # TODO: Implement command functionality.
+      retStr = 'watchwallet command failed due to a bad command.'
+
       if not watchCmd in ['add', 'remove']:
          LOGERROR('Unrecognized watchwallet command: "%s"', watchCmd)
       else:
@@ -925,16 +926,14 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
             return result
 
-         # Remove existing newBlockFunction() to allow user to change the email
-         # args.
-         # TODO: Need to stop assuming that this is the only method using
-         # newBlockFunctions(). One solution is to delete based on a keyword
-         # (e.g., sender's e-mail address). The data from jsonrpc_watchwallet is
-         # saved in the __closure__ tuple for reportTxFromAddrInNewBlock but
-         # there appears to be no good way to consistently access this data. So,
-         # placing the function in a dictionary, with a search key, is probably
-         # the best idea.
-         rpc_server.newBlockFunctions[send_from].append(reportTxFromAddrInNewBlock)
+         # Add or remove e-mail functs based on the user's command.
+         if watchCmd == 'add':
+            rpc_server.newBlockFunctions[send_from].append(reportTxFromAddrInNewBlock)
+         elif watchCmd == 'remove':
+            rpc_server.newBlockFunctions[send_from] = []
+         retStr = 'watchwallet command succeeded.'
+
+      return retStr
 
 
    ################################################################################
