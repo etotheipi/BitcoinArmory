@@ -959,7 +959,7 @@ void StoredTxOut::unserializeDBValue(BinaryRefReader & brr)
 
 
 ////////////////////////////////////////////////////////////////////////////////
-void StoredTxOut::serializeDBValue(BinaryWriter & bw, DB_TYPE_PARAMS,
+void StoredTxOut::serializeDBValue(BinaryWriter & bw, ARMORY_DB_TYPE dbType, DB_PRUNE_TYPE pruneType,
                                    bool forceSaveSpentness) const
 {
    TXOUT_SPENTNESS writeSpent = spentness_;
@@ -1305,7 +1305,7 @@ void StoredScriptHistory::unserializeDBValue(BinaryRefReader & brr, InterfaceToL
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void StoredScriptHistory::serializeDBValue(BinaryWriter & bw, InterfaceToLDB *db, DB_TYPE_PARAMS ) const
+void StoredScriptHistory::serializeDBValue(BinaryWriter & bw, InterfaceToLDB *db, ARMORY_DB_TYPE dbType, DB_PRUNE_TYPE pruneType ) const
 {
    // Write out all the flags
    BitPacker<uint16_t> bitpack;
@@ -1634,7 +1634,7 @@ bool StoredScriptHistory::mergeSubHistory(StoredSubHistory & subssh)
 // This adds the TxOut if it doesn't exist yet
 uint64_t StoredScriptHistory::markTxOutSpent(InterfaceToLDB *db, BinaryData txOutKey8B, 
                                              BinaryData txInKey8B,
-                                             DB_TYPE_PARAMS)
+                                             ARMORY_DB_TYPE dbType, DB_PRUNE_TYPE pruneType)
 {
    if(!isInitialized())
       return UINT64_MAX;
@@ -1666,7 +1666,7 @@ uint64_t StoredScriptHistory::markTxOutSpent(InterfaceToLDB *db, BinaryData txOu
 
 ////////////////////////////////////////////////////////////////////////////////
 uint64_t StoredScriptHistory::markTxOutUnspent(InterfaceToLDB *db, BinaryData txOutKey8B, 
-                                               DB_TYPE_PARAMS,
+                                               ARMORY_DB_TYPE dbType, DB_PRUNE_TYPE pruneType,
                                                uint64_t   value,
                                                bool       isCoinbase,
                                                bool       isMultisig)
@@ -1862,7 +1862,7 @@ void StoredSubHistory::unserializeDBValue(BinaryRefReader & brr)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void StoredSubHistory::serializeDBValue(BinaryWriter & bw, InterfaceToLDB *db, DB_TYPE_PARAMS) const
+void StoredSubHistory::serializeDBValue(BinaryWriter & bw, InterfaceToLDB *db, ARMORY_DB_TYPE dbType, DB_PRUNE_TYPE pruneType) const
 {
    bw.put_var_int(txioSet_.size());
    map<BinaryData, TxIOPair>::const_iterator iter;
@@ -2107,7 +2107,7 @@ uint64_t StoredSubHistory::getSubHistoryBalance(bool withMultisig)
 uint64_t StoredSubHistory::markTxOutSpent(
    InterfaceToLDB *db,
    BinaryData txOutKey8B, 
-   BinaryData txInKey8B, DB_TYPE_PARAMS
+   BinaryData txInKey8B, ARMORY_DB_TYPE dbType, DB_PRUNE_TYPE pruneType
 )
 {
    // We found the TxIO we care about 
@@ -2167,7 +2167,7 @@ uint64_t StoredSubHistory::markTxOutSpent(
 // Returns the difference to be applied to totalUnspent_ in the outer SSH
 // (unless it's UINT64_MAX which is interpretted as failure)
 uint64_t StoredSubHistory::markTxOutUnspent(InterfaceToLDB *db, BinaryData txOutKey8B, 
-                                                  DB_TYPE_PARAMS,
+                                                  ARMORY_DB_TYPE dbType, DB_PRUNE_TYPE pruneType,
                                                   uint64_t   value,
                                                   bool       isCoinbase,
                                                   bool       isMultisigRef)
@@ -2239,7 +2239,7 @@ vector<uint64_t> StoredSubHistory::getSubHistoryValues(void)
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
-void StoredUndoData::unserializeDBValue(BinaryRefReader & brr, DB_TYPE_PARAMS)
+void StoredUndoData::unserializeDBValue(BinaryRefReader & brr, ARMORY_DB_TYPE dbType, DB_PRUNE_TYPE pruneType)
 {
    brr.get_BinaryData(blockHash_, 32);
 
@@ -2282,7 +2282,7 @@ void StoredUndoData::unserializeDBValue(BinaryRefReader & brr, DB_TYPE_PARAMS)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void StoredUndoData::serializeDBValue(BinaryWriter & bw, DB_TYPE_PARAMS ) const
+void StoredUndoData::serializeDBValue(BinaryWriter & bw, ARMORY_DB_TYPE dbType, DB_PRUNE_TYPE pruneType ) const
 {
    bw.put_BinaryData(blockHash_);
 
@@ -2334,14 +2334,14 @@ void StoredUndoData::serializeDBValue(BinaryWriter & bw, DB_TYPE_PARAMS ) const
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void StoredUndoData::unserializeDBValue(BinaryData const & bd, DB_TYPE_PARAMS)
+void StoredUndoData::unserializeDBValue(BinaryData const & bd, ARMORY_DB_TYPE dbType, DB_PRUNE_TYPE pruneType)
 {
    BinaryRefReader brr(bd);
    unserializeDBValue(brr, dbType, pruneType);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void StoredUndoData::unserializeDBValue(BinaryDataRef bdr, DB_TYPE_PARAMS)
+void StoredUndoData::unserializeDBValue(BinaryDataRef bdr, ARMORY_DB_TYPE dbType, DB_PRUNE_TYPE pruneType)
                                   
 {
    BinaryRefReader brr(bdr);
