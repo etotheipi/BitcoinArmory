@@ -41,7 +41,7 @@ from qrcodenative import QRCode, QRErrorCorrectLevel
 
 
 # Version Numbers
-BTCARMORY_VERSION    = (0, 91,  3, 0)  # (Major, Minor, Bugfix, AutoIncrement)
+BTCARMORY_VERSION    = (0, 91,  4, 0)  # (Major, Minor, Bugfix, AutoIncrement)
 PYBTCWALLET_VERSION  = (1, 35,  0, 0)  # (Major, Minor, Bugfix, AutoIncrement)
 
 ARMORY_DONATION_ADDR = '1ArmoryXcfq7TnCSuZa9fQjRYwJ4bkRKfv'
@@ -91,6 +91,7 @@ parser.add_option("--test-announce", dest="testAnnounceCode", default=False,    
 #parser.add_option("--rebuildwithblocksize", dest="newBlockSize",default='32kB', type="str",          help="Rebuild databases with new blocksize")
 parser.add_option("--nospendzeroconfchange",dest="ignoreAllZC",default=False, action="store_true", help="All zero-conf funds will be unspendable, including sent-to-self coins")
 parser.add_option("--force-wallet-check", dest="forceWalletCheck", default=False, action="store_true", help="Force the wallet sanity check on startup")
+parser.add_option("--disable-conf-permis", dest="disableConfPermis", default=False, action="store_true", help="Disable forcing permissions on bitcoin.conf")
 
 # Pre-10.9 OS X sometimes passes a process serial number as -psn_0_xxxxxx. Nuke!
 if sys.platform == 'darwin':

@@ -503,14 +503,20 @@ class SatoshiDaemonManager(object):
             ctypes.windll.Advapi32.GetUserNameW(ctypes.byref(username_u16), 
                                                 ctypes.byref(str_length))
             
-            LOGINFO('Setting permissions on bitcoin.conf')
-            cmd_icacls = [u'icacls',bitconf,u'/inheritance:r',u'/grant:r', u'%s:F' % username_u16.value]
-            icacls_out = subprocess_check_output(cmd_icacls, shell=True)
-            LOGINFO('icacls returned: %s', icacls_out)
+            if not CLI_OPTIONS.disableConfPermis:
+               LOGINFO('Setting permissions on bitcoin.conf')
+               cmd_icacls = [u'icacls',bitconf,u'/inheritance:r',u'/grant:r', u'%s:F' % username_u16.value]
+               icacls_out = subprocess_check_output(cmd_icacls, shell=True)
+               LOGINFO('icacls returned: %s', icacls_out)
+            else:
+               LOGWARN('Skipped setting permissions on bitcoin.conf file')
             
       else:
-         LOGINFO('Setting permissions on bitcoin.conf')
-         os.chmod(bitconf, stat.S_IRUSR | stat.S_IWUSR)
+         if not CLI_OPTIONS.disableConfPermis:
+            LOGINFO('Setting permissions on bitcoin.conf')
+            os.chmod(bitconf, stat.S_IRUSR | stat.S_IWUSR)
+         else:
+            LOGWARN('Skipped setting permissions on bitcoin.conf file')
 
 
       with open(bitconf,'r') as f:

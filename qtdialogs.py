@@ -12836,7 +12836,7 @@ class DlgReplaceWallet(ArmoryDialog):
 
       oldpath = os.path.join(homedir, self.WalletID, datestr)
       try: 
-         if not os.path.exists(oldPath):
+         if not os.path.exists(oldpath):
             os.makedirs(oldpath)
       except:
          LOGEXCEPT('Cannot create new folder in dataDir! Missing credentials?')
