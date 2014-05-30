@@ -66,6 +66,7 @@ from bitcoinrpc_jsonrpc import ServiceProxy
 from armoryengine.Decorators import EmailOutput
 from armoryengine.ArmoryUtils import addrStr_to_hash160
 from armoryengine.PyBtcWalletRecovery import *
+from collections import defaultdict
 
 # Some non-twisted json imports from jgarzik's code and his UniversalEncoder
 class UniversalEncoder(json.JSONEncoder):
@@ -98,11 +99,15 @@ NOT_IMPLEMENTED = '--Not Implemented--'
 
 class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
    ##############################################################################
-   def __init__(self, wallet, inWltSet):
+   def __init__(self, wallet, inWltSet={}):
+      # Save the incoming info. If the user didn't pass in a wallet set, put the
+      # wallet in the set (actually a dictionary w/ the wallet ID as the key).
+      self.addressMetaData = {}
       self.curWlt = wallet
       self.serverWltSet = inWltSet
-      # Used with wallet notification code 
-      self.addressMetaData = {}
+      if inWltSet == {} and wallet != None:
+         wltID = wallet.uniqueIDB58
+         self.serverWltSet[wltID] = wallet
 
 
    #############################################################################
@@ -134,18 +139,15 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
 
    #############################################################################
+   # backupFilePath is the file to backup the current wallet to.
+   # It does not necessarily exist yet.
    def jsonrpc_backupwallet(self, backupFilePath):
-      retStr = 'File %s does not exist. Backup failed.' % backupFilePath
-      if os.path.isfile(backupFilePath):
-         self.curWlt.backupWalletFile(backupFilePath)
-         retStr = 'Backup of %s succeeded.' % backupFilePath
-
-      return retStr
+      self.curWlt.backupWalletFile(backupFilePath)
+      return "Backup succeeded."
 
 
    #############################################################################
    def jsonrpc_listunspent(self):
-      utxoList = self.curWlt.getTxOutList('unspent')
       # Return a dictionary with a string as the key and a wallet B58 value as
       # the value.
       curTxOut = 1
@@ -211,16 +213,15 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
          if n < len(pyTx.outputs):
             # If the user doesn't want binary data, return a formatted string,
             # otherwise return a hex string with the raw TxOut data.
-            if binary == 0:
-               txOut = pyTx.outputs[n].toString()
-            else:
-               txOut = binary_to_hex(pyTx.outputs[n].serialize())
+            txOut = pyTx.outputs[n]
+            result = {'value' : AmountToJSON(txOut.value),
+                      'script' : txOut.binScript if binary else binary_to_hex(txOut.binScript)}
          else:
             LOGERROR('Tx output index is invalid: #%d' % n)
       else:    
          LOGERROR('Tx hash not recognized by TheBDM: %s' % binary_to_hex(txHash))
 
-      return txOut
+      return result
 
 
    #############################################################################
@@ -722,20 +723,20 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
          return {'error': 'header not found'}
       
       out = {}
-      out['block_hash']      = blkhash
-      out['confirmations']   = TheBDM.getTopBlockHeight()-head.getBlockHeight()+1
+      out['hash'] = blkhash
+      out['confirmations'] = TheBDM.getTopBlockHeight()-head.getBlockHeight()+1
       # TODO fix size. It returns max int, as does # Tx. They're never set.
-      # out['block_size']      = head.getBlockSize()
-      out['block_height']    = head.getBlockHeight()
-      out['timestamp']       = head.getTimestamp()
-      out['nonce']           = head.getNonce()
-      out['difficulty']      = head.getDifficulty()
-      out['difficulty_sum']  = head.getDifficultySum()
-      out['main_branch']     = head.isMainBranch()
-      out['difficulty_bits'] = binary_to_hex(head.getDiffBits(), BIGENDIAN)
-      out['merkle_root']     = binary_to_hex(head.getMerkleRoot(), BIGENDIAN)
-      out['header_version']  = head.getVersion()
-      out['raw_header']      = binary_to_hex(head.serialize())
+      # out['size'] = head.getBlockSize()
+      out['height'] = head.getBlockHeight()
+      out['time'] = head.getTimestamp()
+      out['nonce'] = head.getNonce()
+      out['difficulty'] = head.getDifficulty()
+      out['difficultysum'] = head.getDifficultySum()
+      out['mainbranch'] = head.isMainBranch()
+      out['bits'] = binary_to_hex(head.getDiffBits(), BIGENDIAN)
+      out['merkleroot'] = binary_to_hex(head.getMerkleRoot(), BIGENDIAN)
+      out['version'] = head.getVersion()
+      out['rawheader'] = binary_to_hex(head.serialize())
       
       # TODO: Fix this part. getTxRefPtrList was never defined.
       # txlist = head.getTxRefPtrList() 
@@ -883,42 +884,56 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
 
    ################################################################################
-   # For each transaction in a block that triggers a notification:
-   #  List the inputs, and output, indicate the one we are watching, displays
-   #  balance data. Also, display meta data associated with the address.
+   # Receive a notification via e-mail when money is sent from the active wallet.
+   # The e-mail will list the address(es) that sent the money, along with the
+   # accompanying transaction(s) and any metadata associated with the
+   # address(es).
    #
    # Example usage:
    # started the daemon with these arguments: --testnet armory_286jcNJRc_.wallet
    # Then I called the daemon with: --testnet watchwallet <email args>
    # NB: This doesn't appear to work. More research needed....
    def jsonrpc_watchwallet(self, send_from=None, password=None, send_to=None, \
-                           subject=None):
-      @EmailOutput(send_from, password, [send_to], subject)
-      def reportTxFromAddrInNewBlock(pyHeader, pyTxList):
-         result = ''
-         for pyTx in pyTxList:
-            for pyTxIn in pyTx.inputs:
-               sendingAddrStr = TxInExtractAddrStrIfAvail(pyTxIn)
-               if len(sendingAddrStr) > 0:
-                  sendingAddrHash160 = addrStr_to_hash160(sendingAddrStr, \
-                                                          False)[1]
-                  if self.curWlt.addrMap.has_key(sendingAddrHash160):
-                     sendingAddr = self.curWlt.addrMap[sendingAddrHash160]
-                     result = ''.join([result, '\n', sendingAddr.toString(), \
-                                       '\n'])
-                     # print the meta data
-                     if sendingAddrStr in self.addressMetaData:
-                        result = ''.join([result, "\nMeta Data: ", \
-                                          str(self.addressMetaData[sendingAddrStr]), \
-                                          '\n'])
-                     result = ''.join([result, '\n', pyTx.toString()])
-         return result
+                           subject=None, watchCmd='add'):
+      retStr = 'watchwallet command failed due to a bad command.'
 
-      # TODO: Need stop assuming that this is the only method using
-      # newBlockFunctions(). Remove existing newBlockFunction() to allow user to
-      # change the email args.
-      rpc_server.newBlockFunctions = []
-      rpc_server.newBlockFunctions.append(reportTxFromAddrInNewBlock)
+      if not watchCmd in ['add', 'remove']:
+         LOGERROR('Unrecognized watchwallet command: "%s"', watchCmd)
+      else:
+         send_to = send_to.split(":")
+
+         # Write the funct to be run when a block arrives with a transaction
+         # where a wallet has sent money.
+         @EmailOutput(send_from, password, send_to, subject)
+         def reportTxFromAddrInNewBlock(pyHeader, pyTxList):
+            result = ''
+            for pyTx in pyTxList:
+               for pyTxIn in pyTx.inputs:
+                  sendingAddrStr = TxInExtractAddrStrIfAvail(pyTxIn)
+                  if len(sendingAddrStr) > 0:
+                     sendingAddrHash160 = addrStr_to_hash160(sendingAddrStr, \
+                                                             False)[1]
+                     if self.curWlt.addrMap.has_key(sendingAddrHash160):
+                        sendingAddr = self.curWlt.addrMap[sendingAddrHash160]
+                        result = ''.join([result, '\n', sendingAddr.toString(), \
+                                          '\n'])
+                        # print the meta data
+                        if sendingAddrStr in self.addressMetaData:
+                           result = ''.join([result, "\nMeta Data: ", \
+                                             str(self.addressMetaData[sendingAddrStr]), \
+                                             '\n'])
+                        result = ''.join([result, '\n', pyTx.toString()])
+
+            return result
+
+         # Add or remove e-mail functs based on the user's command.
+         if watchCmd == 'add':
+            rpc_server.newBlockFunctions[send_from].append(reportTxFromAddrInNewBlock)
+         elif watchCmd == 'remove':
+            rpc_server.newBlockFunctions[send_from] = []
+         retStr = 'watchwallet command succeeded.'
+
+      return retStr
 
 
    ################################################################################
@@ -1026,10 +1041,12 @@ class Armory_Daemon(object):
          print '*'*80
          print ''
 
-         # ...otherwise, setup the server
+         # Otherwise, set up the server. This includes a defaultdict with a list
+         # of functs to execute. This is done so that multiple functs can be
+         # associated with the same search key.
          self.newTxFunctions = []
-         self.newBlockFunctions = []
          self.heartbeatFunctions = []
+         self.newBlockFunctions = defaultdict(list)
 
          # The only argument that armoryd.py takes, other than "--testnet" and
          # armoryd commands, is the wallet to load on the server. If no wallets
@@ -1039,27 +1056,15 @@ class Armory_Daemon(object):
             self.curWlt = wlt
          else:
             if len(CLI_ARGS)==0:
+               # Get the wallets in the Armory home directory and store pointers
+               # to them if no wallets are specified. Also, set the current
+               # wallet to the 1st wallet in the set. (The choice is arbitrary.)
                wltPaths = readWalletFiles()
                self.addMultWallets(wltPaths)
-
-               # Log info on the wallets we've loaded.
-               numWallets = len(self.wltSet)
-               LOGINFO('Number of wallets read in: %d', numWallets)
-               for wltID, wlt in self.wltSet.iteritems():
-                  dispStr  = ('   Wallet (%s):' % wlt.uniqueIDB58).ljust(25)
-                  dispStr +=  '"'+wlt.labelName.ljust(32)+'"   '
-                  dispStr +=  '(Encrypted)' if wlt.useEncryption else '(No Encryption)'
-                  LOGINFO(dispStr)
-
-               # Load the first wallet we encountered. (This is arbitrary.)
-               if numWallets > 0:
+               if len(self.wltSet) > 0:
                   self.curWlt = self.wltSet[self.wltSet.keys()[0]]
-                  LOGWARN('Active wallet is set to %s' % \
-                          self.curWlt.uniqueIDB58)
-               else:
-                  LOGWARN('No wallets could be loaded!')
-                  return
 
+            # Load the specified wallet if it exists.
             else:
                wltpath = CLI_ARGS[0]
                if not os.path.exists(wltpath):
@@ -1068,7 +1073,23 @@ class Armory_Daemon(object):
 
                self.curWlt = PyBtcWallet().readWalletFile(wltpath)
                self.wltSet[self.curWlt.uniqueIDB58] = self.curWlt
-               self.walletIDSet.add(wltID)
+               self.walletIDSet.add(self.curWlt.uniqueIDB58)
+
+         # Log info on the wallets we've loaded.
+         numWallets = len(self.wltSet)
+         LOGINFO('Number of wallets read in: %d', numWallets)
+         for wltID, wlt in self.wltSet.iteritems():
+            dispStr  = ('   Wallet (%s):' % wlt.uniqueIDB58).ljust(25)
+            dispStr +=  '"'+wlt.labelName.ljust(32)+'"   '
+            dispStr +=  '(Encrypted)' if wlt.useEncryption else '(No Encryption)'
+            LOGINFO(dispStr)
+
+         # Check and make sure we have at least 1 wallet.
+         if numWallets > 0:
+            LOGWARN('Active wallet is set to %s' % self.curWlt.uniqueIDB58)
+         else:
+            LOGWARN('No wallets could be loaded!')
+            return
 
          LOGINFO("Initialising RPC server on port %d", ARMORY_RPC_PORT)
          resource = Armory_Json_Rpc_Server(self.curWlt, self.wltSet)
@@ -1344,13 +1365,12 @@ class Armory_Daemon(object):
       """
       # Check for new blocks in the latest blk0XXXX.dat file.
       if TheBDM.getBDMState()=='BlockchainReady':
-         
          #check wallet every checkStep seconds
          nextCheck = self.lastChecked + self.checkStep
          if nextCheck >= RightNow():
             self.checkWallet()
-         
-         # Check for new blocks in the blk000X.dat file         
+
+         # Check for new blocks in the blk000X.dat file
          prevTopBlock = TheBDM.getTopBlockHeight()
          newBlks = TheBDM.readBlkFileUpdate()
          if newBlks>0:
@@ -1376,8 +1396,9 @@ class Armory_Daemon(object):
                   cppBlock = TheBDM.getMainBlockFromDB(blknum)
                   pyTxList = [PyTx().unserialize(cppBlock.getSerializedTx(i)) for
                                  i in range(cppBlock.getNumTx())]
-                  for blockFunc in self.newBlockFunctions:
-                     blockFunc(pyHeader, pyTxList)
+                  for funcKey in self.newBlockFunctions:
+                     for blockFunc in self.newBlockFunctions[funcKey]:
+                        blockFunc(pyHeader, pyTxList)
 
       self.curWlt.checkWalletLockTimeout()
       reactor.callLater(nextBeatSec, self.Heartbeat)
