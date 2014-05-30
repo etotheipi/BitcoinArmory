@@ -982,6 +982,8 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       try:
          newWlt = self.serverWltSet[newIDB58]
          self.curWlt = newWlt  # Separate in case ID's wrong & error's thrown.
+         LOGINFO('Syncing wallet: %s' % newIDB58)
+         self.curWlt.syncWithBlockchain() # Call after each BDM operation.
          retStr = 'Wallet %s is now active.' % newIDB58
       except:
          LOGERROR('setactivewallet - Wallet %s does not exist.' % newIDB58)
@@ -1079,7 +1081,7 @@ class Armory_Daemon(object):
          numWallets = len(self.wltSet)
          LOGINFO('Number of wallets read in: %d', numWallets)
          for wltID, wlt in self.wltSet.iteritems():
-            dispStr  = ('   Wallet (%s):' % wlt.uniqueIDB58).ljust(25)
+            dispStr  = ('   Wallet (%s):' % wltID).ljust(25)
             dispStr +=  '"'+wlt.labelName.ljust(32)+'"   '
             dispStr +=  '(Encrypted)' if wlt.useEncryption else '(No Encryption)'
             LOGINFO(dispStr)
@@ -1171,15 +1173,17 @@ class Armory_Daemon(object):
       # blocked. Any UI that uses this Daemon can put the call to the Daemon on
       # its own thread.
       TheBDM.setBlocking(True)
-      LOGINFO('Server started...')
+      LOGWARN('Server started...')
       if(not TheBDM.getBDMState()=='Offline'):
-         TheBDM.registerWallet(self.curWlt)
+         # Put the BDM in online mode only after registering all wallets.
+         for wltID, wlt in self.wltSet.iteritems():
+            LOGWARN('Registering wallet: %s' % wltID)
+            TheBDM.registerWallet(wlt)
          TheBDM.setOnlineMode(True)
 
          LOGINFO('Blockchain loading')
          while not TheBDM.getBDMState()=='BlockchainReady':
             time.sleep(2)
-
 
          self.latestBlockNum = TheBDM.getTopBlockHeight()
          LOGINFO('Blockchain loading finished.  Top block is %d', \
@@ -1189,7 +1193,6 @@ class Armory_Daemon(object):
          self.checkMemoryPoolCorruption(mempoolfile)
          TheBDM.enableZeroConf(mempoolfile)
          LOGINFO('Syncing wallet: %s' % self.curWlt.uniqueIDB58)
-         self.curWlt.setBlockchainSyncFlag(BLOCKCHAIN_READONLY)
          self.curWlt.syncWithBlockchain()
          LOGINFO('Blockchain load and wallet sync finished')
          LOGINFO('Wallet balance: %s' % coin2str(self.curWlt.getBalance('Spendable')))
