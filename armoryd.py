@@ -66,6 +66,7 @@ from bitcoinrpc_jsonrpc import ServiceProxy
 from armoryengine.Decorators import EmailOutput
 from armoryengine.ArmoryUtils import addrStr_to_hash160
 from armoryengine.PyBtcWalletRecovery import *
+from collections import defaultdict
 
 # Some non-twisted json imports from jgarzik's code and his UniversalEncoder
 class UniversalEncoder(json.JSONEncoder):
@@ -900,6 +901,8 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       else:
          send_to = send_to.split(":")
 
+         # Write the funct to be run when a block arrives with a transaction
+         # where a wallet has sent money.
          @EmailOutput(send_from, password, send_to, subject)
          def reportTxFromAddrInNewBlock(pyHeader, pyTxList):
             result = ''
@@ -931,8 +934,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
          # there appears to be no good way to consistently access this data. So,
          # placing the function in a dictionary, with a search key, is probably
          # the best idea.
-         rpc_server.newBlockFunctions = []
-         rpc_server.newBlockFunctions.append(reportTxFromAddrInNewBlock)
+         rpc_server.newBlockFunctions[send_from].append(reportTxFromAddrInNewBlock)
 
 
    ################################################################################
@@ -1040,10 +1042,12 @@ class Armory_Daemon(object):
          print '*'*80
          print ''
 
-         # ...otherwise, setup the server
+         # Otherwise, set up the server. This includes a defaultdict with a list
+         # of functs to execute. This is done so that multiple functs can be
+         # associated with the same search key.
          self.newTxFunctions = []
-         self.newBlockFunctions = []
          self.heartbeatFunctions = []
+         self.newBlockFunctions = defaultdict(list)
 
          # The only argument that armoryd.py takes, other than "--testnet" and
          # armoryd commands, is the wallet to load on the server. If no wallets
@@ -1362,12 +1366,11 @@ class Armory_Daemon(object):
       """
       # Check for new blocks in the latest blk0XXXX.dat file.
       if TheBDM.getBDMState()=='BlockchainReady':
-         
          #check wallet every checkStep seconds
          nextCheck = self.lastChecked + self.checkStep
          if nextCheck >= RightNow():
             self.checkWallet()
-         
+
          # Check for new blocks in the blk000X.dat file
          prevTopBlock = TheBDM.getTopBlockHeight()
          newBlks = TheBDM.readBlkFileUpdate()
@@ -1394,8 +1397,9 @@ class Armory_Daemon(object):
                   cppBlock = TheBDM.getMainBlockFromDB(blknum)
                   pyTxList = [PyTx().unserialize(cppBlock.getSerializedTx(i)) for
                                  i in range(cppBlock.getNumTx())]
-                  for blockFunc in self.newBlockFunctions:
-                     blockFunc(pyHeader, pyTxList)
+                  for funcKey in self.newBlockFunctions:
+                     for blockFunc in self.newBlockFunctions[funcKey]:
+                        blockFunc(pyHeader, pyTxList)
 
       self.curWlt.checkWalletLockTimeout()
       reactor.callLater(nextBeatSec, self.Heartbeat)
