@@ -692,7 +692,7 @@ uint32_t DBTxRef::getBlockTimestamp() const
    if(dbKey6B_.getSize() == 6)
    {
       db_->getStoredHeader(sbh, getBlockHeight(), getDuplicateID(), false);
-      return READ_UINT32_BE(sbh.dataCopy_.getPtr()+68);
+      return READ_UINT32_LE(sbh.dataCopy_.getPtr()+68);
    }
    else
       return UINT32_MAX;
