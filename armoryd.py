@@ -1057,12 +1057,12 @@ class Armory_Daemon(object):
          if wlt:
             self.curWlt = wlt
          else:
+            # Get the wallets in the Armory home directory and store pointers
+            # to them if no wallets are specified. Also, set the current
+            # wallet to the 1st wallet in the set. (The choice is arbitrary.)
+            wltPaths = readWalletFiles()
+            self.addMultWallets(wltPaths)
             if len(CLI_ARGS)==0:
-               # Get the wallets in the Armory home directory and store pointers
-               # to them if no wallets are specified. Also, set the current
-               # wallet to the 1st wallet in the set. (The choice is arbitrary.)
-               wltPaths = readWalletFiles()
-               self.addMultWallets(wltPaths)
                if len(self.wltSet) > 0:
                   self.curWlt = self.wltSet[self.wltSet.keys()[0]]
 
@@ -1210,6 +1210,7 @@ class Armory_Daemon(object):
 
 
    #############################################################################
+   @classmethod
    def checkForAlreadyRunning(self):
       retVal = True
       sock = socket.socket()

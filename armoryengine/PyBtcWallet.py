@@ -39,6 +39,10 @@ PYROOTPKCCVER = 1 # Current version of root pub key/chain code backup format
 PYROOTPKCCVERMASK = 0x7F
 PYROOTPKCCSIGNMASK = 0x80
 
+
+def buildWltFileName(uniqueIDB58):
+   return 'armory_%s_.wallet' % uniqueIDB58
+   
 class PyBtcWallet(object):
    """
    This class encapsulates all the concepts and variables in a "wallet",
@@ -656,7 +660,7 @@ class PyBtcWallet(object):
          # This was really only needed when we were putting name in filename
          #for c in ',?;:\'"?/\\=+-|[]{}<>':
             #shortName = shortName.replace(c,'_')
-         newName = 'armory_%s_.wallet' % self.uniqueIDB58
+         newName = buildWltFileName(self.uniqueIDB58)
          self.walletPath = os.path.join(ARMORY_HOME_DIR, newName)
 
       LOGINFO('   New wallet will be written to: %s', self.walletPath)
@@ -928,7 +932,7 @@ class PyBtcWallet(object):
          # This was really only needed when we were putting name in filename
          #for c in ',?;:\'"?/\\=+-|[]{}<>':
             #shortName = shortName.replace(c,'_')
-         newName = 'armory_%s_.wallet' % self.uniqueIDB58
+         newName = buildWltFileName(self.uniqueIDB58)
          self.walletPath = os.path.join(ARMORY_HOME_DIR, newName)
 
       LOGINFO('   New wallet will be written to: %s', self.walletPath)
@@ -1789,7 +1793,7 @@ class PyBtcWallet(object):
       fpath = self.walletPath
 
       if self.walletPath=='':
-         fpath = os.path.join(ARMORY_HOME_DIR, 'armory_%s_.wallet' % self.uniqueIDB58)
+         fpath = os.path.join(ARMORY_HOME_DIR, buildWltFileName(self.uniqueIDB58))
 
       if not nameSuffix==None:
          pieces = os.path.splitext(fpath)
