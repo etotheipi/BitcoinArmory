@@ -92,7 +92,12 @@ Python's path (site-packages).
    [sudo] pip install qt4reactor
 
 
-7) Optionally install py2exe and/or py2exe2msi and/or PyInstaller
+7) Install psutil with PIP:
+
+   [sudo] pip install psutil
+
+
+8) Optionally install py2exe and/or py2exe2msi and/or PyInstaller
    (with pywin32 if using with Windows).  All of which can be
    installed with PIP except for py2exe for Python 2.x.
 
@@ -102,7 +107,7 @@ Python's path (site-packages).
    http://sourceforge.net/projects/pywin32/files/
 
 
-8) Learn to love PIP, your dependency resolution for all things
+9) Learn to love PIP, your dependency resolution for all things
    Pythonic.  More information on PIP is available here:
 
    https://pip.pypa.io/en/latest/installing.html
