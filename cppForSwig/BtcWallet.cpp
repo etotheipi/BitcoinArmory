@@ -1184,8 +1184,6 @@ void BtcWallet::scanRegisteredTxList(uint32_t blkStart, uint32_t blkEnd)
 
       count++;
    }
-
-   LOGINFO << "scanned " << count << " Txs out of " << count2;
  
    sortLedger();
 
