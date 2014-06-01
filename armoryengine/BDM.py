@@ -376,6 +376,7 @@ class BlockDataManager(object):
 
    #############################################################################
    def execCleanShutdown(self):
+      self.bdm.resetRegisteredWallets()
       self.bdmThread.shutdown()
       
 ################################################################################

@@ -5686,22 +5686,12 @@ class ArmoryMainWindow(QMainWindow):
             
       elif action == 'newZC':
          # If we have new zero-conf transactions, scan them and update ledger
-         for wltID in self.walletMap:
-            LOGERROR("new ZC, ledger size: %d, ZCledger size is: %d" % \
-                        (len(self.walletMap[wltID].cppWallet.getTxLedger()), 
-                         len(self.walletMap[wltID].cppWallet.getZeroConfLedger())))
-            
          self.checkNewZeroConf()
          self.setDashboardDetails()          
 
       elif action == 'newblock':
          newBlocks = args[0]
-         if newBlocks>0 and not TheBDM.isDirty():
-            for wltID in self.walletMap:
-               LOGERROR("new block, ledger size: %d, ZCledger size is: %d" % \
-                           (len(self.walletMap[wltID].cppWallet.getTxLedger()), 
-                            len(self.walletMap[wltID].cppWallet.getZeroConfLedger())))            
-            
+         if newBlocks>0 and not TheBDM.isDirty():       
             prevLedgSize = dict([(wltID, len(self.walletMap[wltID].getTxLedger())) \
                                                 for wltID in self.walletMap.keys()])
 

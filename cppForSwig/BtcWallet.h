@@ -6,6 +6,7 @@
 #include "ScrAddrObj.h"
 #include "StoredBlockObj.h"
 #include "ThreadSafeContainer.h"
+#include "pthread.h"
 
 class BlockDataManager_LevelDB;
 
@@ -15,6 +16,7 @@ typedef ts_pair_container<rsaMap> ts_rsaMap;
 typedef map<BinaryData, ScrAddrObj> saMap;
 typedef ts_pair_container<saMap> ts_saMap;
 
+typedef ts_container<set<pthread_t>> ts_threadIDs;
 
 ////////////////////////////////////////////////////////////////////////////////
 class AddressBookEntry
@@ -186,8 +188,11 @@ public:
    }
    vector<TxIOPair> getHistoryForScrAddr(
       BinaryDataRef uniqKey, 
-      bool withMultisig=false
-   ) const;
+      bool withMultisig=false);
+
+   vector<TxIOPair> BtcWallet::getHistoryForScrAddr(
+      BinaryDataRef uniqKey,
+      bool withMultisig=false) const;
 
    void registerOutPoint(const OutPoint &op) {registeredOutPoints_.insert(op);}
    int  countOutPoints(const OutPoint &op) const {return registeredOutPoints_.count(op);}
@@ -216,7 +221,9 @@ public:
                      { return txLedgerForComments_; }
    void reorgChangeBlkNum(uint32_t blkNum);
    void setIgnoreLastScanned(void) {ignoreLastScanned_ = true;}
-   
+      
+   void reset(void);
+
    //new all purpose wallet scanning call
    void scanWallet(uint32_t startBlock=UINT32_MAX, 
                    uint32_t endBlock=UINT32_MAX,
@@ -240,6 +247,8 @@ public:
    
    //saving scrAddr data to the DB from wallet side
    void saveScrAddrHistories(void);
+   
+   void terminateThreads(void);
 
    //end of 1:1 wallets
    
@@ -259,6 +268,9 @@ private:
 
    //for 1:1 wallets
    ts_rsaMap                          registeredScrAddrMap_;
+
+   //ongoing threads for this wallet
+   ts_threadIDs                       threadIDs_;
 
    list<RegisteredTx>                 registeredTxList_;
    set<HashString>                    registeredTxSet_;

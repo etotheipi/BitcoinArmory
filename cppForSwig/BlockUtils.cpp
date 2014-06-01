@@ -983,15 +983,7 @@ uint32_t BlockDataManager_LevelDB::evalLowestBlockNextScan(void)
 
    for (BtcWallet* wlt : wltSnapshot)
    {
-      ts_rsaMap::const_snapshot 
-         rsaSnapshot(*wlt->getRegisteredScrAddrMap());
-
-      for(auto rsa : rsaSnapshot)
-      {
-         // If we happen to have any imported addresses, this will set the
-         // lowest block to 0, which will require a full rescan
-         lowestBlk = min(lowestBlk, rsa.second.alreadyScannedUpToBlk_);
-      }
+      lowestBlk = min(lowestBlk, wlt->evalLowestBlockNextScan());
    }
    return lowestBlk;
 }
@@ -1073,8 +1065,7 @@ void BlockDataManager_LevelDB::resetRegisteredWallets(void)
    {
       // I'm not sure if there's anything else to do
       // I think it's all encapsulated in this call!
-      (*wltIter)->clearBlkData();
-      (*wltIter)->updateRegisteredScrAddrs(0);
+      (*wltIter)->reset();
    }
 }
 
@@ -1713,7 +1704,6 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
    missingBlockHashes_.clear();
    
    SCOPED_TIMER("buildAndScanDatabases");
-   //LOGINFO << "Number of registered addr: " << registeredScrAddrMap_.size();
 
    
    // Will use this updating the GUI with progress bar
@@ -1829,24 +1819,9 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
    {
       // We don't do this in SUPER mode because there is no rescanning 
       // For progress bar purposes, let's find the blkfile location of scanStart
-      if(forceRescan)
-      {
-         startScanHgt_ = 0;
-         startScanBlkFile_ = 0;
-         startScanOffset_ = 0;
-      }
-      else
-      {
-         startScanHgt_     = evalLowestBlockNextScan();
-         // Rewind 4 days, to rescan recent history in case problem last shutdown
-         startScanHgt_ = (startScanHgt_>576 ? startScanHgt_-576 : 0);
-         pair<uint32_t, uint32_t> blkLoc = findFileAndOffsetForHgt(startScanHgt_);
-         startScanBlkFile_ = blkLoc.first;
-         startScanOffset_  = blkLoc.second;
-      }
 
-      LOGINFO << "Starting scan from block height: " << startScanHgt_;
-      scanWallets(startScanHgt_, lastTopBlock_, forceRescan || forceRebuild);
+
+      scanWallets(0, lastTopBlock_, forceRescan || forceRebuild);
       LOGINFO << "Finished blockchain scan in " 
               << TIMER_READ_SEC("ScanBlockchain") << " seconds";
    }
@@ -2935,15 +2910,66 @@ void BlockDataManager_LevelDB::eraseTx(const BinaryData& txHash)
    }
 }
 
-void BlockDataManager_LevelDB::scanWallets(uint32_t startBlock, 
-                                 uint32_t endBlock, bool forceScan)
+struct walletArg
 {
+   BtcWallet *wlt_;
+   uint32_t startBlock_;
+   uint32_t endBlock_;
+   bool forceScan_;
+
+   void Set(BtcWallet *wlt, uint32_t startBlock, 
+            uint32_t endBlock, bool forceScan)
+   {
+      wlt_        = wlt;
+      startBlock_ = startBlock;
+      endBlock_   = endBlock;
+      forceScan_  = forceScan;
+   }
+   
+   void ScanWallet()
+   {
+      if (wlt_)
+         wlt_->scanWallet(startBlock_, endBlock_, forceScan_);
+   }
+};
+
+void* scanWallet(void* arg)
+{
+   walletArg *WA = (walletArg*)arg;
+
+   WA->ScanWallet();
+
+   return 0;
+}
+
+void BlockDataManager_LevelDB::scanWallets(uint32_t startBlock,
+                                           uint32_t endBlock, 
+                                           bool forceScan)
+{
+   uint32_t nWallets = registeredWallets_.size();
+   walletArg *wltArgs = (walletArg*)malloc( \
+      sizeof(walletArg) * nWallets);
+
+   pthread_t *tID = (pthread_t*)malloc(\
+      sizeof(pthread_t) * nWallets);
+
    ts_setBtcWallet::snapshot wltSnapshot(registeredWallets_);
 
+
+   uint32_t i = 0;
    for (BtcWallet* wallet : wltSnapshot)
    {
-      wallet->scanWallet(startBlock, endBlock, forceScan);
+      wltArgs[i].Set(wallet, 0, endBlock, forceScan);
+
+      pthread_create(tID + i, NULL, scanWallet, wltArgs + i);
+      i++;
    }
+
+   for (i = 0; i < nWallets; i++)
+      pthread_join(tID[i], 0);
+
+   free(wltArgs);
+   free(tID);
 }
 
 

@@ -40,6 +40,11 @@ int pthread_create(pthread_t *tid, pthread_attr_t *attr, void*(*start)(void*), v
 	return -1;
 }
 
+int pthread_cancel(pthread_t tid)
+{
+   return (!TerminateThread(tid, 0));
+}
+
 int pthread_join(pthread_t tid, void **value_ptr)
 {
    WaitForSingleObject(tid, INFINITE);

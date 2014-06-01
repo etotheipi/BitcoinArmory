@@ -40,7 +40,7 @@ void BDM_Inject::wait(unsigned ms)
 {
 #ifdef _WIN32_
    ULONGLONG abstime = GetTickCount64();
-   abstime += 1000;
+   abstime += ms;
    
    pthread_mutex_lock(&pimpl->notifierLock);
    while (!pimpl->hasSomething)
@@ -55,7 +55,7 @@ void BDM_Inject::wait(unsigned ms)
 #else
    struct timeval abstime;
    gettimeofday(&abstime, 0);
-   abstime.tv_sec += 1;
+   abstime.tv_sec += ms/1000;
    
    pthread_mutex_lock(&pimpl->notifierLock);
    while (!pimpl->hasSomething)
@@ -165,7 +165,7 @@ void BlockDataManagerThread::run()
 
          //notify Python that new blocks have been parsed
          callback->run(4,
-            bdm->blockchain().top().getBlockHeight()
+            bdm->blockchain().top().getBlockHeight() +1
                - prevTopBlk, bdm->getTopBlockHeight()
          );
       }

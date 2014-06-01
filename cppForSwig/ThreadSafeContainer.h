@@ -207,7 +207,6 @@ template <typename T> class ts_container
       T mainObject_;
 
       unsigned long long id_;
-      uint32_t nObjects_;
 
       void WipeToModify(void)
       {
@@ -408,7 +407,6 @@ template <typename T> class ts_container
          expireLock_ = 0;
 
          id_ = 0;
-         nObjects_ = 0;
       }
 
       ~ts_container(void)
@@ -453,8 +451,13 @@ template <typename T> class ts_container
 
       uint32_t size(void) const
       {
-         return nObjects_;
+         while (updateLock_.fetch_or(1, std::memory_order_consume));
+         uint32_t objSize = mainObject_.size();
+         updateLock_.store(0, std::memory_order_release);
+
+         return objSize;
       }
+
 };
 
 template <typename T> class ts_pair_container :
@@ -533,7 +536,6 @@ public ts_container<T>
                                         *(this->toModify_->object_));
 
                this->toModify_->counter_ = 0;
-               this->nObjects_++;
                
                this->writeSema_.fetch_sub(1, std::memory_order_release);
                addCounter++;
@@ -548,7 +550,6 @@ public ts_container<T>
                   this->mainObject_.erase(toErase);
 
                this->toModify_->counter_ = 0;
-               this->nObjects_--;
                
                this->writeSema_.fetch_sub(1, std::memory_order_release);
                addCounter++;
@@ -767,6 +768,7 @@ template<typename T> class ts_pair_snapshot : private ts_snapshot<T>
    private:
       typedef ts_pair_iterator<T> iterator;
       typedef ts_const_pair_iterator<T> const_iterator;
+      typedef typename T::iterator I;
       typedef typename std::iterator_traits<typename T::iterator>::value_type obj_type;
 
       typedef typename obj_type::first_type key_type;
@@ -774,10 +776,11 @@ template<typename T> class ts_pair_snapshot : private ts_snapshot<T>
 
       ts_pair_container<T> *parent_;
 
-      void Set(key_type& first, const mapped_type& second)
+      I Set(key_type& first, const mapped_type& second)
       {
          parent_->Set(first, second);
          (*this->object_)[first] = second;
+         return this->object_->find(first);
       }
 
    public:
@@ -893,7 +896,6 @@ template <typename T> class ts_iterator
           return *this;
       }
 
-
       const obj_type& operator* () const
       {
          return *iter_;
@@ -903,10 +905,7 @@ template <typename T> class ts_iterator
          return &*iter_;
       }
 
-      void update (const obj_type& rhs)
-      {
-         iter_ = snapshot_->Set(iter_, rhs);
-      }
+
 
       bool operator!= (const ts_iterator& rhs) const
       {
@@ -985,12 +984,12 @@ template <typename T> class ts_pair_iterator :
       }
 
    public:
-      void operator= (const mapped_type& rhs)
+      void update (const mapped_type& rhs)
       {
          T& object = *snapshot_->object_;
 
          object[this->iter_->first] = rhs;
-         snapshot_->Set(this->iter_->first, rhs);
+         iter_ = snapshot_->Set(this->iter_->first, rhs);
       }
 };
 

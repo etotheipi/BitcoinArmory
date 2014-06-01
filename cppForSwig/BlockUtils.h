@@ -72,7 +72,6 @@ struct ZeroConfData
 {
    Tx            txobj_;   
    uint32_t      txtime_;
-   //list<BinaryData>::iterator iter_;
 
    bool operator==(const ZeroConfData& rhs) const
    {
@@ -88,7 +87,6 @@ typedef map<HashString, BinaryData>   BinDataMap;
 
 typedef ts_pair_container<BinDataMap> ts_BinDataMap;
 typedef ts_pair_container<ZCMap>      ts_ZCMap;
-
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
@@ -363,10 +361,11 @@ public:
                                           bool withMultisig=false);
    void eraseTx(const BinaryData& txHash);
    uint32_t numBlocksToRescan( BtcWallet & wlt, uint32_t endBlk) const;
-   void scanWallets(uint32_t startBlock=UINT32_MAX,
+   
+   void scanWallets(uint32_t startBlock=UINT32_MAX, 
                     uint32_t endBlock=UINT32_MAX, 
                     bool forceScan=false);
-
+   
    LDBIter getIterator(DB_SELECT db, bool fill_cache = true)
    {
       return iface_->getIterator(db, fill_cache);
