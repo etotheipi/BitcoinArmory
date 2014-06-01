@@ -202,8 +202,6 @@ public:
                                       bool rewindWhenDone=false);
 };
 
-#define DB_TYPE_PARAMS ARMORY_DB_TYPE dbType, DB_PRUNE_TYPE pruneType
-
 ////////////////////////////////////////////////////////////////////////////////
 class StoredDBInfo
 {
@@ -384,7 +382,7 @@ public:
    void       unserializeDBValue(BinaryRefReader & brr);
    void         serializeDBValue(
       BinaryWriter &    bw,
-      DB_TYPE_PARAMS
+      ARMORY_DB_TYPE dbType, DB_PRUNE_TYPE pruneType
    ) const;
    void       unserializeDBValue(BinaryData const & bd);
    void       unserializeDBValue(BinaryDataRef      bd);
@@ -447,7 +445,7 @@ public:
    void unserialize(BinaryRefReader & brr);
 
    void       unserializeDBValue(BinaryRefReader &  brr);
-   void         serializeDBValue(BinaryWriter & bw, DB_TYPE_PARAMS,
+   void         serializeDBValue(BinaryWriter & bw, ARMORY_DB_TYPE dbType, DB_PRUNE_TYPE pruneType,
       bool forceSaveSpent=false) const;
    void       unserializeDBValue(BinaryData const & bd);
    void       unserializeDBValue(BinaryDataRef      bd);
@@ -521,7 +519,7 @@ public:
    bool isNull(void) { return !isInitialized(); }
 
    void       unserializeDBValue(BinaryRefReader & brr, InterfaceToLDB *db);
-   void         serializeDBValue(BinaryWriter    & bw, InterfaceToLDB *db, DB_TYPE_PARAMS ) const;
+   void         serializeDBValue(BinaryWriter    & bw, InterfaceToLDB *db, ARMORY_DB_TYPE dbType, DB_PRUNE_TYPE pruneType ) const;
    void       unserializeDBValue(BinaryData const & bd, InterfaceToLDB *db);
    void       unserializeDBValue(BinaryDataRef      bd, InterfaceToLDB *db);
    void       unserializeDBKey(BinaryDataRef key, bool withPrefix=true);
@@ -551,14 +549,14 @@ public:
 
    // This adds the TxOut if it doesn't exist yet
    uint64_t   markTxOutUnspent(InterfaceToLDB *db, BinaryData txOutKey8B, 
-                               DB_TYPE_PARAMS,
+                               ARMORY_DB_TYPE dbType, DB_PRUNE_TYPE pruneType,
                                uint64_t   value=UINT64_MAX,
                                bool       isCoinbase=false,
                                bool       isMultisigRef=false);
 
    uint64_t   markTxOutSpent(InterfaceToLDB *db, BinaryData txOutKey8B, 
                              BinaryData  txInKey8B,
-                             DB_TYPE_PARAMS);
+                             ARMORY_DB_TYPE dbType, DB_PRUNE_TYPE pruneType);
 
    BinaryData     uniqueKey_;  // includes the prefix byte!
    uint32_t       version_;
@@ -596,7 +594,7 @@ public:
    bool isNull(void) { return !isInitialized(); }
 
    void       unserializeDBValue(BinaryRefReader & brr);
-   void         serializeDBValue(BinaryWriter    & bw, InterfaceToLDB *db, DB_TYPE_PARAMS ) const;
+   void         serializeDBValue(BinaryWriter    & bw, InterfaceToLDB *db, ARMORY_DB_TYPE dbType, DB_PRUNE_TYPE pruneType ) const;
    void       unserializeDBValue(BinaryData const & bd);
    void       unserializeDBValue(BinaryDataRef      bd);
    void       unserializeDBKey(BinaryDataRef key, bool withPrefix=true);
@@ -616,14 +614,14 @@ public:
    
    // This adds the TxOut if it doesn't exist yet
    uint64_t   markTxOutUnspent(InterfaceToLDB *db, BinaryData txOutKey8B,
-                               DB_TYPE_PARAMS,
+                               ARMORY_DB_TYPE dbType, DB_PRUNE_TYPE pruneType,
                                uint64_t   value=UINT64_MAX,
                                bool       isCoinbase=false,
                                bool       isMultisigRef=false);
 
    uint64_t   markTxOutSpent(InterfaceToLDB *db, BinaryData txOutKey8B, 
                              BinaryData  txInKey8B,
-                             DB_TYPE_PARAMS);
+                             ARMORY_DB_TYPE dbType, DB_PRUNE_TYPE pruneType);
                               
 
    uint64_t getSubHistoryBalance(bool withMultisig=false);
@@ -651,10 +649,10 @@ public:
    bool isInitialized(void) { return (outPointsAddedByBlock_.size() > 0);}
    bool isNull(void) { return !isInitialized(); }
 
-   void       unserializeDBValue(BinaryRefReader & brr, DB_TYPE_PARAMS);
-   void         serializeDBValue(BinaryWriter    & bw, DB_TYPE_PARAMS ) const;
-   void       unserializeDBValue(BinaryData const & bd, DB_TYPE_PARAMS);
-   void       unserializeDBValue(BinaryDataRef      bd, DB_TYPE_PARAMS);
+   void       unserializeDBValue(BinaryRefReader & brr, ARMORY_DB_TYPE dbType, DB_PRUNE_TYPE pruneType);
+   void         serializeDBValue(BinaryWriter    & bw, ARMORY_DB_TYPE dbType, DB_PRUNE_TYPE pruneType ) const;
+   void       unserializeDBValue(BinaryData const & bd, ARMORY_DB_TYPE dbType, DB_PRUNE_TYPE pruneType);
+   void       unserializeDBValue(BinaryDataRef      bd, ARMORY_DB_TYPE dbType, DB_PRUNE_TYPE pruneType);
 
    BinaryData getDBKey(bool withPrefix=true) const;
 
