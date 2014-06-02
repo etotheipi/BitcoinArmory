@@ -82,3 +82,5 @@ class BinaryPacker(object):
             self.binaryConcat += theData.ljust(width, '\x00')
       else:
          raise PackerError, "Var type not recognized!  VarType="+str(varType)
+
+

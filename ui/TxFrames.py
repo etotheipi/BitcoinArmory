@@ -11,11 +11,16 @@ from PyQt4.QtGui import * #@UnusedWildImport
 
 from armoryengine.BDM import TheBDM
 from qtdefines import * #@UnusedWildImport
-from armoryengine.Transaction import PyTxDistProposal
+from armoryengine.Transaction import UnsignedTransaction, getTxOutScriptType
+from armoryengine.Script import convertScriptToOpStrings
 from armoryengine.CoinSelection import PySelectCoins, calcMinSuggestedFees,\
-   PyUnspentTxOut
-from ui.WalletFrames import SelectWalletFrame
+   calcMinSuggestedFeesHackMS, PyUnspentTxOut
+from ui.WalletFrames import SelectWalletFrame, LockboxSelectFrame
+from armoryengine.MultiSigUtils import \
+      calcLockboxID, readLockboxEntryStr, createLockboxEntryStr, isLockbox,\
+   isP2SHLockbox
  
+
 
 class SendBitcoinsFrame(ArmoryFrame):
    COLS = enum('LblAddr', 'Addr', 'AddrBook', 'LblWltID', 'LblAmt', 'Btc', \
@@ -23,7 +28,8 @@ class SendBitcoinsFrame(ArmoryFrame):
    def __init__(self, parent, main, initLabel='',
                  wlt=None, prefill=None, wltIDList=None,
                  selectWltCallback = None, onlyOfflineWallets=False,
-                 sendCallback = None, createUnsignedTxCallback = None):
+                 sendCallback = None, createUnsignedTxCallback = None,
+                 spendFromLockboxID=None):
       super(SendBitcoinsFrame, self).__init__(parent, main)
       self.maxHeight = tightSizeNChar(GETFONT('var'), 1)[1] + 8
       self.sourceAddrList = None
@@ -34,12 +40,15 @@ class SendBitcoinsFrame(ArmoryFrame):
       self.selectWltCallback = selectWltCallback
       self.sendCallback = sendCallback
       self.createUnsignedTxCallback = createUnsignedTxCallback
+      self.lbox = self.main.getLockboxByID(spendFromLockboxID)
       self.onlyOfflineWallets = onlyOfflineWallets
       txFee = self.main.getSettingOrSetDefault('Default_Fee', MIN_TX_FEE)
       self.widgetTable = []
       self.scrollRecipArea = QScrollArea()
       lblRecip = QRichLabel('<b>Enter Recipients:</b>')
       lblRecip.setAlignment(Qt.AlignLeft | Qt.AlignBottom)
+
+
 
       self.freeOfErrors = True
 
@@ -58,12 +67,60 @@ class SendBitcoinsFrame(ArmoryFrame):
       self.edtFeeAmt.setAlignment(Qt.AlignRight)
       self.edtFeeAmt.setText(coin2str(txFee, maxZeros=1).strip())
 
+
+
+      # This used to be in the later, expert-only section, but some of these
+      # are actually getting referenced before being declared.  So moved them
+      # up to here.
+      self.chkDefaultChangeAddr = QCheckBox('Use an existing address for change')
+      self.radioFeedback = QRadioButton('Send change to first input address')
+      self.radioSpecify = QRadioButton('Specify a change address')
+      self.lblChangeAddr = QRichLabel('Send Change To:')
+      self.edtChangeAddr = QLineEdit()
+      self.btnChangeAddr = createAddrBookButton(parent, self.edtChangeAddr, \
+                                       None, 'Send change to')
+      self.chkRememberChng = QCheckBox('Remember for future transactions')
+      self.vertLine = VLINE()
+
+      self.ttipSendChange = self.main.createToolTipWidget(\
+            'Most transactions end up with oversized inputs and Armory will send '
+            'the change to the next address in this wallet.  You may change this '
+            'behavior by checking this box.')
+      self.ttipFeedback = self.main.createToolTipWidget(\
+            'Guarantees that no new addresses will be created to receive '
+            'change. This reduces anonymity, but is useful if you '
+            'created this wallet solely for managing imported addresses, '
+            'and want to keep all funds within existing addresses.')
+      self.ttipSpecify = self.main.createToolTipWidget(\
+            'You can specify any valid Bitcoin address for the change.  '
+            '<b>NOTE:</b> If the address you specify is not in this wallet, '
+            'Armory will not be able to distinguish the outputs when it shows '
+            'up in your ledger.  The change will look like a second recipient, '
+            'and the total debit to your wallet will be equal to the amount '
+            'you sent to the recipient <b>plus</b> the change.')
+      self.ttipUnsigned = self.main.createToolTipWidget(\
+         'Check this box to create an unsigned transaction to be signed'
+         ' and/or broadcast later.')
+      self.unsignedCheckbox = QCheckBox('Create Unsigned')
+      self.btnSend = QPushButton('Send!')
+
+
+
       # Created a standard wallet chooser frame. Pass the call back method
       # for when the user selects a wallet.
-      coinControlCallback = self.coinControlUpdate if self.main.usermode == USERMODE.Expert else None
-      self.walletSelector = SelectWalletFrame(parent, main, VERTICAL, self.wltID, \
-                  wltIDList=self.wltIDList, selectWltCallback=self.setWallet, \
-                  coinControlCallback=coinControlCallback, onlyOfflineWallets=self.onlyOfflineWallets)
+      if self.lbox is None:
+         coinControlCallback = self.coinControlUpdate if self.main.usermode == USERMODE.Expert else None
+         self.frmSelectedWlt = SelectWalletFrame(parent, main, 
+                     VERTICAL, 
+                     self.wltID, 
+                     wltIDList=self.wltIDList, 
+                     selectWltCallback=self.setWallet, \
+                     coinControlCallback=coinControlCallback, 
+                     onlyOfflineWallets=self.onlyOfflineWallets)
+      else:
+         self.frmSelectedWlt = LockboxSelectFrame(parent, main, 
+                                    VERTICAL,
+                                    self.lbox.uniqueIDB58)
 
       componentList = [ QLabel('Fee:'), \
                         self.edtFeeAmt, \
@@ -72,9 +129,6 @@ class SendBitcoinsFrame(ArmoryFrame):
       # Only the Create  Unsigned Transaction button if there is a callback for it.
       # Otherwise the containing dialog or wizard will provide the offlien tx button
       if self.createUnsignedTxCallback:
-         self.ttipUnsigned = self.main.createToolTipWidget(\
-            'Check this box to create an unsigned transaction to be signed and/or broadcast later.')
-         self.unsignedCheckbox = QCheckBox('Create Unsigned')
          self.connect(self.unsignedCheckbox, SIGNAL(CLICKED), self.unsignedCheckBoxUpdate)
          frmUnsigned = makeHorizFrame([self.unsignedCheckbox, self.ttipUnsigned])
          componentList.append(frmUnsigned)
@@ -82,7 +136,6 @@ class SendBitcoinsFrame(ArmoryFrame):
       # Only add the Send Button if there's a callback for it
       # Otherwise the containing dialog or wizard will provide the send button
       if self.sendCallback:
-         self.btnSend = QPushButton('Send!')
          self.connect(self.btnSend, SIGNAL(CLICKED), self.createTxAndBroadcast)
          componentList.append(self.btnSend)
          
@@ -94,7 +147,7 @@ class SendBitcoinsFrame(ArmoryFrame):
          'URL links from webpages and email.  '
          'Click this button to copy a link directly into Armory')
       self.connect(btnEnterURI, SIGNAL("clicked()"), self.clickEnterURI)
-      fromFrameList = [self.walletSelector]
+      fromFrameList = [self.frmSelectedWlt]
       if not USE_TESTNET:
          btnDonate = QPushButton("Donate to Armory Developers!")
          ttipDonate = self.main.createToolTipWidget(\
@@ -113,32 +166,6 @@ class SendBitcoinsFrame(ArmoryFrame):
       ########################################################################
       # In Expert usermode, allow the user to modify source addresses
       if self.main.usermode == USERMODE.Expert:
-         self.chkDefaultChangeAddr = QCheckBox('Use an existing address for change')
-         self.radioFeedback = QRadioButton('Send change to first input address')
-         self.radioSpecify = QRadioButton('Specify a change address')
-         self.lblChangeAddr = QRichLabel('Send Change To:')
-         self.edtChangeAddr = QLineEdit()
-         self.btnChangeAddr = createAddrBookButton(parent, self.edtChangeAddr, \
-                                       None, 'Send change to')
-         self.chkRememberChng = QCheckBox('Remember for future transactions')
-         self.vertLine = VLINE()
-
-         self.ttipSendChange = self.main.createToolTipWidget(\
-               'Most transactions end up with oversized inputs and Armory will send '
-               'the change to the next address in this wallet.  You may change this '
-               'behavior by checking this box.')
-         self.ttipFeedback = self.main.createToolTipWidget(\
-               'Guarantees that no new addresses will be created to receive '
-               'change. This reduces anonymity, but is useful if you '
-               'created this wallet solely for managing imported addresses, '
-               'and want to keep all funds within existing addresses.')
-         self.ttipSpecify = self.main.createToolTipWidget(\
-               'You can specify any valid Bitcoin address for the change.  '
-               '<b>NOTE:</b> If the address you specify is not in this wallet, '
-               'Armory will not be able to distinguish the outputs when it shows '
-               'up in your ledger.  The change will look like a second recipient, '
-               'and the total debit to your wallet will be equal to the amount '
-               'you sent to the recipient <b>plus</b> the change.')
 
 
          # Make sure that there can only be one selection
@@ -207,17 +234,22 @@ class SendBitcoinsFrame(ArmoryFrame):
 
 
       if prefill:
-         get = lambda s: prefill[s] if prefill.has_key(s) else ''
-         atype, addr160 = addrStr_to_hash160(get('address'))
-         amount = get('amount')
-         message = get('message')
-         label = get('label')
-         self.addOneRecipient(addr160, amount, message, label)
+         amount = prefill.get('amount','')
+         message = prefill.get('message','')
+         label = prefill.get('label','')
+         if prefill.get('lockbox',''):
+            plainStr = createLockboxEntryStr(prefill.get('lockbox',''))
+            self.addOneRecipient(None, amount, message, None, plainStr)
+         else:
+            atype, addr160 = addrStr_to_hash160(prefill.get('address',''))
+            self.addOneRecipient(addr160, amount, message, label)
 
-      elif not self.main == None and loadCount % donateFreq == (donateFreq - 1) and \
-         not loadCount == lastPestering and not dnaaDonate:
+      elif not self.main == None and \
+           loadCount % donateFreq == (donateFreq-1) and \
+           not loadCount == lastPestering and \
+           not dnaaDonate:
          result = MsgBoxWithDNAA(MSGBOX.Question, 'Please donate!', \
-            '<i>Armory</i> is the result of over 3,000 hours of development '
+            '<i>Armory</i> is the result of over 5,000 hours of development '
             'and dozens of late nights bug-hunting and testing.  Yet, this software '
             'has been given to you for free to benefit the greater Bitcoin '
             'community! '
@@ -238,6 +270,13 @@ class SendBitcoinsFrame(ArmoryFrame):
          if result[1] == True:
             self.main.writeSetting('DonateDNAA', True)
 
+
+
+      if self.lbox:
+         self.toggleSpecify(False)
+         self.toggleChngAddr(False)
+
+
       hexgeom = self.main.settings.get('SendBtcGeometry')
       if len(hexgeom) > 0:
          geom = QByteArray.fromHex(hexgeom)
@@ -249,7 +288,12 @@ class SendBitcoinsFrame(ArmoryFrame):
       # Set the wallet in the wallet selector and let all of display components
       # react to it. This is at the end so that we can be sure that all of the
       # components that react to setting the wallet exist.
-      self.walletSelector.updateOnWalletChange()
+      if self.lbox:
+         self.unsignedCheckbox.setChecked(True)
+         self.unsignedCheckbox.setEnabled(False)
+      else:
+         self.frmSelectedWlt.updateOnWalletChange()
+
       self.unsignedCheckBoxUpdate()
 
 
@@ -264,8 +308,13 @@ class SendBitcoinsFrame(ArmoryFrame):
       
 
    #############################################################################
-   def addOneRecipient(self, addr160, amt, msg, label=''):
-      if len(label) > 0:
+   def addOneRecipient(self, addr160, amt, msg, label=None, plainText=None):
+      """
+      plainText arg can be used, and will override addr160.  It is for 
+      injecting either fancy script types, or special keywords into the 
+      address field, such as a lockbox ID
+      """
+      if label is not None:
          self.wlt.setComment(addr160, label)
 
       COLS = self.COLS
@@ -280,7 +329,10 @@ class SendBitcoinsFrame(ArmoryFrame):
       if amt:
          amt = coin2str(amt, maxZeros=2).strip()
 
-      self.widgetTable[-1][self.COLS.Addr].setText(hash160_to_addrStr(addr160))
+      if plainText is None:
+         plainText = hash160_to_addrStr(addr160)
+
+      self.widgetTable[-1][self.COLS.Addr].setText(plainText)
       self.widgetTable[-1][self.COLS.Addr].setCursorPosition(0)
       self.widgetTable[-1][self.COLS.Btc].setText(amt)
       self.widgetTable[-1][self.COLS.Btc].setCursorPosition(0)
@@ -343,11 +395,15 @@ class SendBitcoinsFrame(ArmoryFrame):
       self.sourceAddrList = sourceAddrList
       self.altBalance = altBalance
 
+
+
+
    #############################################################################
-   def validateInputsGetTxDP(self):
+   def validateInputsGetUSTX(self):
+
       COLS = self.COLS
       self.freeOfErrors = True
-      scrAddrs = []
+      scripts = []
       addrList = []
       self.comments = []
       for i in range(len(self.widgetTable)):
@@ -357,16 +413,16 @@ class SendBitcoinsFrame(ArmoryFrame):
          addrIsValid = True
          addrList.append(addrStr)
          try:
-            # The addrStr_to_scrAddr method fails if not reg Addr, or P2SH
-            scrAddrs.append(addrStr_to_scrAddr(addrStr))
+            scripts.append(getScriptForInputStr(addrStr, self.main))
          except:
+            LOGEXCEPT('Failed to parse entered address: %s', addrStr)
             addrIsValid = False
-            scrAddrs.append('')
+            scripts.append('')
             self.freeOfErrors = False
             self.updateAddrField(i, COLS.Addr, Colors.SlightRed)
 
 
-      numChkFail = sum([1 if len(b)==0 else 0 for b in scrAddrs])
+      numChkFail = sum([1 if len(b)==0 else 0 for b in scripts])
       if not self.freeOfErrors:
          QMessageBox.critical(self, tr('Invalid Address'), tr("""
            You have entered %d invalid @{address|addresses}@.  
@@ -390,7 +446,7 @@ class SendBitcoinsFrame(ArmoryFrame):
          return False
 
       # Construct recipValuePairs and check that all metrics check out
-      scraddrValuePairs = []
+      scriptValPairs = []
       totalSend = 0
       for i in range(len(self.widgetTable)):
          try:
@@ -426,10 +482,11 @@ class SendBitcoinsFrame(ArmoryFrame):
             return False
 
          totalSend += value
-         scraddr = addrStr_to_scrAddr(recipStr)
+         script = getScriptForInputStr(recipStr, self.main)
+         scraddr = script_to_scrAddr(script)
 
-         scraddrValuePairs.append((scraddr, value))
-         self.comments.append(str(self.widgetTable[i][COLS.Comm].text()))
+         scriptValPairs.append([script, value])
+         self.comments.append((str(self.widgetTable[i][COLS.Comm].text()), value))
 
       try:
          feeStr = str(self.edtFeeAmt.text())
@@ -486,7 +543,13 @@ class SendBitcoinsFrame(ArmoryFrame):
             feeTry = minFee
          utxoList = self.getUsableTxOutList()
          utxoSelect = PySelectCoins(utxoList, totalSend, feeTry)
-         minFee = calcMinSuggestedFees(utxoSelect, totalSend, feeTry, len(scraddrValuePairs))[1]
+      
+         if self.lbox is None:
+            minFee = calcMinSuggestedFees(utxoSelect, totalSend, feeTry, \
+                                             len(scriptValPairs))[1]
+         else:
+            minFee = calcMinSuggestedFeesHackMS(utxoSelect, totalSend, feeTry, \
+                                             len(scriptValPairs))[1]
 
 
       # We now have a min-fee that we know we can match if the user agrees
@@ -557,50 +620,91 @@ class SendBitcoinsFrame(ArmoryFrame):
       totalTxSelect = sum([u.getValue() for u in utxoSelect])
       totalChange = totalTxSelect - (totalSend + fee)
 
-      self.origSVPairs = list(scraddrValuePairs) # copy
       self.changeScrAddr = ''
       self.selectedBehavior = ''
-      if totalChange > 0:
-         self.changeScrAddr = self.determineChangeAddr(utxoSelect)
-         LOGINFO('Change address behavior: %s', self.selectedBehavior)
-         if not self.changeScrAddr:
-            return False
-         scraddrValuePairs.append([self.changeScrAddr, totalChange])
-      else:
-         if self.main.usermode == USERMODE.Expert and \
-            self.chkDefaultChangeAddr.isChecked():
-            self.selectedBehavior = NO_CHANGE
-      
-      changePair = None
-      if len(self.selectedBehavior) > 0:
-         changePair = (self.changeScrAddr, self.selectedBehavior)
+      if self.lbox is None:
+         if totalChange > 0:
+            self.changeScrAddr = self.determineChangeAddr(utxoSelect)
+            # For now assume that change is always CPP_TXOUT_HAS_ADDRSTR
+            changeScript = scrAddr_to_script(self.changeScrAddr)
+            LOGINFO('Change address behavior: %s', self.selectedBehavior)
+            if not self.changeScrAddr:
+               return False
+            scriptValPairs.append([changeScript, totalChange])
+         else:
+            if self.main.usermode == USERMODE.Expert and \
+               self.chkDefaultChangeAddr.isChecked():
+               self.selectedBehavior = NO_CHANGE
+         
+         changePair = None
+         if len(self.selectedBehavior) > 0:
+            changePair = (self.changeScrAddr, self.selectedBehavior)
+      elif totalChange > 0:
+         changePair = (self.lbox.scrAddr, 'Feedback')
+         LOGWARN('Change from LOCKBOX tx goes back to the same LOCKBOX!')
+         scriptValPairs.append([self.lbox.binScript, totalChange])
+
+      # Keep a copy of the originally-sorted list for display
+      origSVPairs = scriptValPairs[:]
 
       # Anonymize the outputs
-      random.shuffle(scraddrValuePairs)
+      random.shuffle(scriptValPairs)
 
-      # Convert all scrAddrs to scripts for creation
-      recipPairs = [[scrAddr_to_script(s),v] for s,v in scraddrValuePairs]
 
-      # Now create the unsigned TxDP
-      txdp = PyTxDistProposal().createFromTxOutSelection(utxoSelect, recipPairs)
+      # In order to create the USTXI objects, need to make we supply a
+      # map of public keys that can be included
+      if self.lbox:
+         p2shMap = {binary_to_hex(script_to_scrAddr(script_to_p2sh_script(
+                        self.lbox.binScript))) : self.lbox.binScript}
+         ustx = UnsignedTransaction().createFromTxOutSelection( \
+                                       utxoSelect, scriptValPairs,
+                                       p2shMap = p2shMap)
+
+         for i in range(len(ustx.ustxInputs)):
+            ustx.ustxInputs[i].contribID = self.lbox.uniqueIDB58
+
+         for i in range(len(ustx.decorTxOuts)):
+            print binary_to_hex(ustx.decorTxOuts[i].binScript)
+            print binary_to_hex(self.lbox.binScript)
+            if ustx.decorTxOuts[i].binScript == self.lbox.binScript:
+               ustx.decorTxOuts[i].contribID = self.lbox.uniqueIDB58
+
+      else:
+         # If this has nothing to do with lockboxes, we need to make sure
+         # we're providing a key map for the inputs
+         pubKeyMap = {}
+         for utxo in utxoSelect:
+            scrType = getTxOutScriptType(utxo.getScript())
+            if scrType in CPP_TXOUT_STDSINGLESIG:
+               scrAddr = utxo.getRecipientScrAddr()
+               a160 = scrAddr_to_hash160(scrAddr)[1]
+               addrObj = self.wlt.getAddrByHash160(a160)
+               if addrObj:
+                  pubKeyMap[scrAddr] = addrObj.binPublicKey65.toBinStr()
+
+         # Now create the unsigned USTX
+         ustx = UnsignedTransaction().createFromTxOutSelection( \
+                                       utxoSelect, scriptValPairs, pubKeyMap)
+
+      ustx.pprint()
 
       txValues = [totalSend, fee, totalChange]
       if not self.unsignedCheckbox.isChecked():
-         dlg = DlgConfirmSend(self.wlt, self.origSVPairs, txValues[1], self, \
-                                                      self.main, True, changePair)
+         dlg = DlgConfirmSend(self.wlt, origSVPairs, txValues[1], self, \
+                                                  self.main, True, changePair)
    
          if not dlg.exec_():
             return False
       
-      return txdp
+      return ustx
    
   
    def createTxAndBroadcast(self):
       # The Send! button is clicked validate and broadcast tx
-      txdp = self.validateInputsGetTxDP()
-      if txdp:
+      ustx = self.validateInputsGetUSTX()
+      if ustx:
          if self.createUnsignedTxCallback and self.unsignedCheckbox.isChecked():
-            self.createUnsignedTxCallback(txdp)
+            self.createUnsignedTxCallback(ustx)
          else:
             try:
                if self.wlt.isLocked:
@@ -626,16 +730,16 @@ class SendBitcoinsFrame(ArmoryFrame):
       
                commentStr = ''
                if len(self.comments) == 1:
-                  commentStr = self.comments[0]
+                  commentStr = self.comments[0][0]
                else:
                   for i in range(len(self.comments)):
-                     amt = self.origRVPairs[i][1]
-                     if len(self.comments[i].strip()) > 0:
-                        commentStr += '%s (%s);  ' % (self.comments[i], coin2str_approx(amt).strip())
+                     amt = self.comments[i][1]
+                     if len(self.comments[i][0].strip()) > 0:
+                        commentStr += '%s (%s);  ' % (self.comments[i][0], coin2str_approx(amt).strip())
       
       
-               tx = self.wlt.signTxDistProposal(txdp)
-               finalTx = tx.prepareFinalTx()
+               ustxSigned = self.wlt.signUnsignedTx(ustx)
+               finalTx = ustxSigned.getSignedPyTx()
                if len(commentStr) > 0:
                   self.wlt.setComment(finalTx.getHash(), commentStr)
                self.main.broadcastTransaction(finalTx)
@@ -648,25 +752,50 @@ class SendBitcoinsFrame(ArmoryFrame):
 
    #############################################################################
    def getUsableBalance(self):
-      if self.altBalance == None:
-         return self.wlt.getBalance('Spendable')
+      if self.lbox is None:
+         if self.altBalance == None:
+            return self.wlt.getBalance('Spendable')
+         else:
+            return self.altBalance
       else:
-         return self.altBalance
+         lbID = self.lbox.uniqueIDB58
+         cppWlt = self.main.cppLockboxWltMap.get(lbID)
+         if cppWlt is None:
+            LOGERROR('Somehow failed to get cppWlt for lockbox: %s', lbID)
+
+         return cppWlt.getSpendableBalance(self.main.currBlockNum, IGNOREZC)
+         
+         
 
 
    #############################################################################
    def getUsableTxOutList(self):
-      if self.altBalance == None:
-         return list(self.wlt.getTxOutList('Spendable'))
+      if self.lbox is None:
+         if self.altBalance is None:
+            return list(self.wlt.getTxOutList('Spendable'))
+         else:
+            utxoList = []
+            for a160 in self.sourceAddrList:
+               # Trying to avoid a swig bug involving iteration over vector<> types
+               utxos = self.wlt.getAddrTxOutList(a160)
+               for i in range(len(utxos)):
+                  utxos[i].pprintOneLine(290000)
+                  utxoList.append(PyUnspentTxOut().createFromCppUtxo(utxos[i]))
+            return utxoList
       else:
-         utxoList = []
-         for a160 in self.sourceAddrList:
-            # Trying to avoid a swig bug involving iteration over vector<> types
-            utxos = self.wlt.getAddrTxOutList(a160)
-            for i in range(len(utxos)):
-               utxos[i].pprintOneLine(290000)
-               utxoList.append(PyUnspentTxOut().createFromCppUtxo(utxos[i]))
-         return utxoList
+         lbID = self.lbox.uniqueIDB58
+         cppWlt = self.main.cppLockboxWltMap.get(lbID)
+         if cppWlt is None:
+            LOGERROR('Somehow failed to get cppWlt for lockbox: %s', lbID)
+
+         txoList = cppWlt.getSpendableTxOutList(self.main.currBlockNum, IGNOREZC)
+         pyUtxoList = []
+         for i in range(len(txoList)):
+            script = self.lbox.binScript
+            pyUtxo = PyUnspentTxOut().createFromCppUtxo(txoList[i], script)
+            pyUtxoList.append( pyUtxo)
+            pyUtxoList[-1].pprint()
+         return pyUtxoList
 
 
    #############################################################################
@@ -763,6 +892,8 @@ class SendBitcoinsFrame(ArmoryFrame):
       funcSetMax = lambda:  self.setMaximum(targWidget)
       self.connect(newBtn, SIGNAL(CLICKED), funcSetMax)
       return newBtn
+
+
    #####################################################################
    def makeRecipFrame(self, nRecip):
       prevNRecip = len(self.widgetTable)
@@ -781,6 +912,12 @@ class SendBitcoinsFrame(ArmoryFrame):
 
       COLS = self.COLS
 
+      def changeColorCallback(row):
+         def callbk():
+            self.updateAddrField(row, COLS.Addr, Colors.Background)
+         return callbk
+         
+
       self.widgetTable = []
       for r in range(nRecip):
          self.widgetTable.append([])
@@ -792,29 +929,8 @@ class SendBitcoinsFrame(ArmoryFrame):
          self.widgetTable[r][-1].setMaximumHeight(self.maxHeight)
          self.widgetTable[r][-1].setFont(GETFONT('var', 9))
 
-         # This is the hack of all hacks -- but I have no other way to make this work.
-         # For some reason, the references on variable r are carrying over between loops
-         # and all widgets are getting connected to the last one.  The only way I could
-         # work around this was just ultra explicit garbage.  I'll pay 0.1 BTC to anyone
-         # who figures out why my original code was failing...
-         # idx = r+0
-         # chgColor = lambda x: self.updateAddrField(idx, COLS.Addr, QColor(255,255,255))
-         # self.connect(self.widgetTable[idx][-1], SIGNAL('textChanged(QString)'), chgColor)
-         if r == 0:
-            chgColor = lambda x: self.updateAddrField(0, COLS.Addr, QColor(255, 255, 255))
-            self.connect(self.widgetTable[0][-1], SIGNAL('textChanged(QString)'), chgColor)
-         elif r == 1:
-            chgColor = lambda x: self.updateAddrField(1, COLS.Addr, QColor(255, 255, 255))
-            self.connect(self.widgetTable[1][-1], SIGNAL('textChanged(QString)'), chgColor)
-         elif r == 2:
-            chgColor = lambda x: self.updateAddrField(2, COLS.Addr, QColor(255, 255, 255))
-            self.connect(self.widgetTable[2][-1], SIGNAL('textChanged(QString)'), chgColor)
-         elif r == 3:
-            chgColor = lambda x: self.updateAddrField(3, COLS.Addr, QColor(255, 255, 255))
-            self.connect(self.widgetTable[3][-1], SIGNAL('textChanged(QString)'), chgColor)
-         elif r == 4:
-            chgColor = lambda x: self.updateAddrField(4, COLS.Addr, QColor(255, 255, 255))
-            self.connect(self.widgetTable[4][-1], SIGNAL('textChanged(QString)'), chgColor)
+         self.connect(self.widgetTable[r][-1], SIGNAL('textChanged(QString)'), 
+                                                        changeColorCallback(r))
 
 
          addrEntryBox = self.widgetTable[r][-1]
@@ -895,7 +1011,6 @@ class SendBitcoinsFrame(ArmoryFrame):
 
       # widgetsForWidth = [COLS.LblAddr, COLS.Addr, COLS.LblAmt, COLS.Btc]
       # minScrollWidth = sum([self.widgetTable[0][col].width() for col in widgetsForWidth])
-
       frmRecipLayout.addWidget(btnFrm)
       frmRecipLayout.addStretch()
       frmRecip.setLayout(frmRecipLayout)
@@ -980,24 +1095,44 @@ class SendBitcoinsFrame(ArmoryFrame):
       self.widgetTable[idx][col].setPalette(palette);
       self.widgetTable[idx][col].setAutoFillBackground(True);
       try:
+         idCol = self.COLS.LblWltID
          addrtext = str(self.widgetTable[idx][self.COLS.Addr].text())
-         wid = self.main.getWalletForAddr160(addrStr_to_hash160(addrtext)[1])
-         if wid:
-            wlt = self.main.walletMap[wid]
-            dispStr = '%s (%s)' % (wlt.labelName, wlt.uniqueIDB58)
-            self.widgetTable[idx][self.COLS.LblWltID].setVisible(True)
-            self.widgetTable[idx][self.COLS.LblWltID].setText(dispStr, color='TextBlue')
+         if addrStr_is_p2sh(addrtext):
+            lboxID = self.main.getLockboxByP2SHAddrStr(addrtext) 
          else:
-            self.widgetTable[idx][self.COLS.LblWltID].setVisible(False)
+            lboxID = readLockboxEntryStr(addrtext)
+
+         if lboxID:
+            lbox = self.main.getLockboxByID(lboxID)
+            if lbox:
+               dispStr = '<b>%s-of-%s</b>: %s' % (lbox.M, lbox.N, 
+                                                      lbox.shortName)
+            else:
+               dispStr = 'Unrecognized Lockbox'
+
+            self.widgetTable[idx][idCol].setVisible(True)
+            self.widgetTable[idx][idCol].setText(dispStr, color='TextBlue')
+            return
+
+         wltID = self.main.getWalletForAddr160(addrStr_to_hash160(addrtext)[1])
+         if wltID:
+            wlt = self.main.walletMap[wltID]
+            dispStr = '%s (%s)' % (wlt.labelName, wlt.uniqueIDB58)
+            self.widgetTable[idx][idCol].setVisible(True)
+            self.widgetTable[idx][idCol].setText(dispStr, color='TextBlue')
+            return
+
+         self.widgetTable[idx][idCol].setVisible(False)
+
       except:
-         self.widgetTable[idx][self.COLS.LblWltID].setVisible(False)
+         self.widgetTable[idx][idCol].setVisible(False)
 
 
 class ReviewOfflineTxFrame(ArmoryDialog):
    def __init__(self, parent=None, main=None, initLabel=''):
       super(ReviewOfflineTxFrame, self).__init__(parent, main)
 
-      self.txdp = None
+      self.ustx = None
       self.wlt = None
       self.lblDescr = QRichLabel('')
 
@@ -1013,7 +1148,7 @@ class ReviewOfflineTxFrame(ArmoryDialog):
          'a computer that contains the private keys for this wallet.')
 
       btnCopy = QPushButton('Copy to clipboard')
-      self.connect(btnCopy, SIGNAL(CLICKED), self.copyAsciiTxDP)
+      self.connect(btnCopy, SIGNAL(CLICKED), self.copyAsciiUSTX)
       self.lblCopied = QRichLabel('  ')
       self.lblCopied.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
 
@@ -1029,12 +1164,12 @@ class ReviewOfflineTxFrame(ArmoryDialog):
 
       # Wow, I just cannot get the txtEdits to be the right size without
       # forcing them very explicitly
-      w, h = tightSizeStr(GETFONT('Fixed', 8), '0' * 93)[0], int(12 * 8.2)
-      self.txtTxDP = QTextEdit()
-      self.txtTxDP.setFont(GETFONT('Fixed', 8))
-      self.txtTxDP.setMinimumWidth(w)
-      self.txtTxDP.setMinimumHeight(h)
-      self.txtTxDP.setReadOnly(True)
+      self.txtUSTX = QTextEdit()
+      self.txtUSTX.setFont(GETFONT('Fixed', 8))
+      w,h = relaxedSizeNChar(self.txtUSTX, 85)[0], int(12 * 8.2)
+      self.txtUSTX.setMinimumWidth(w)
+      self.txtUSTX.setMinimumHeight(h)
+      self.txtUSTX.setReadOnly(True)
 
 
 
@@ -1043,7 +1178,7 @@ class ReviewOfflineTxFrame(ArmoryDialog):
       frmLowerLayout = QGridLayout()
 
       frmLowerLayout.addWidget(frmUTX, 0, 0, 1, 3)
-      frmLowerLayout.addWidget(self.txtTxDP, 1, 0, 3, 1)
+      frmLowerLayout.addWidget(self.txtUSTX, 1, 0, 3, 1)
       frmLowerLayout.addWidget(btnSave, 1, 1, 1, 1)
       frmLowerLayout.addWidget(ttipSave, 1, 2, 1, 1)
       frmLowerLayout.addWidget(btnCopy, 2, 1, 1, 1)
@@ -1077,10 +1212,10 @@ class ReviewOfflineTxFrame(ArmoryDialog):
 
       self.setLayout(dlgLayout)
    
-   def setTxDp(self, txdp):
-      self.txdp = txdp
-      self.lblUTX.setText('<b>Transaction Data</b> \t (Unsigned ID: %s)' % txdp.uniqueB58)
-      self.txtTxDP.setText(txdp.serializeAscii())
+   def setUSTX(self, ustx):
+      self.ustx = ustx
+      self.lblUTX.setText('<b>Transaction Data</b> \t (Unsigned ID: %s)' % ustx.uniqueIDB58)
+      self.txtUSTX.setText(ustx.serializeAscii())
    
    def setWallet(self, wlt):
       self.wlt = wlt
@@ -1113,15 +1248,15 @@ class ReviewOfflineTxFrame(ArmoryDialog):
             sign and broadcast the transaction when you are ready"""))
            
          
-   def copyAsciiTxDP(self):
+   def copyAsciiUSTX(self):
       clipb = QApplication.clipboard()
       clipb.clear()
-      clipb.setText(self.txtTxDP.toPlainText())
+      clipb.setText(self.txtUSTX.toPlainText())
       self.lblCopied.setText('<i>Copied!</i>')
 
    def doSaveFile(self):
       """ Save the Unsigned-Tx block of data """
-      dpid = self.txdp.uniqueB58
+      dpid = self.ustx.uniqueIDB58
       suffix = ('' if OS_WINDOWS else '.unsigned.tx')
       toSave = self.main.getFileSave(\
                       'Save Unsigned Transaction', \
@@ -1133,7 +1268,7 @@ class ReviewOfflineTxFrame(ArmoryDialog):
       LOGINFO('Saving unsigned tx file: %s', toSave)
       try:
          theFile = open(toSave, 'w')
-         theFile.write(self.txtTxDP.toPlainText())
+         theFile.write(self.txtUSTX.toPlainText())
          theFile.close()
       except IOError:
          LOGEXCEPT('Failed to save file: %s', toSave)
@@ -1161,25 +1296,27 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
          'you will have the opportunity to broadcast it to '
          'the Bitcoin network to make it final.')
 
-      w, h = tightSizeStr(GETFONT('Fixed', 8), '0' * 90)[0], int(12 * 8.2)
-      self.txtTxDP = QTextEdit()
-      self.txtTxDP.setFont(GETFONT('Fixed', 8))
-      self.txtTxDP.sizeHint = lambda: QSize(w, h)
-      self.txtTxDP.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+      self.txtUSTX = QTextEdit()
+      self.txtUSTX.setFont(GETFONT('Fixed', 8))
+      w,h = relaxedSizeNChar(self.txtUSTX, 80)
+      #self.txtUSTX.sizeHint = lambda: QSize(w, h)
+      self.txtUSTX.setMinimumWidth(w)
+      self.txtUSTX.setMinimumHeight(8*h)
+      self.txtUSTX.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
       self.btnSign = QPushButton('Sign')
       self.btnBroadcast = QPushButton('Broadcast')
       self.btnSave = QPushButton('Save file...')
       self.btnLoad = QPushButton('Load file...')
       self.btnCopy = QPushButton('Copy Text')
-      self.btnCopyHex = QPushButton('Copy Final Tx (Hex)')
+      self.btnCopyHex = QPushButton('Copy Raw Tx (Hex)')
       self.lblCopied = QRichLabel('')
       self.lblCopied.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
 
       self.btnSign.setEnabled(False)
       self.btnBroadcast.setEnabled(False)
 
-      self.connect(self.txtTxDP, SIGNAL('textChanged()'), self.processTxDP)
+      self.connect(self.txtUSTX, SIGNAL('textChanged()'), self.processUSTX)
 
 
       self.connect(self.btnSign, SIGNAL(CLICKED), self.signTx)
@@ -1263,7 +1400,7 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
       frmBottom = QFrame()
       frmBottom.setFrameStyle(STYLE_SUNKEN)
       frmBottomLayout = QGridLayout()
-      frmBottomLayout.addWidget(self.txtTxDP, 0, 0, 1, 1)
+      frmBottomLayout.addWidget(self.txtUSTX, 0, 0, 1, 1)
       frmBottomLayout.addWidget(frmBtn, 0, 1, 2, 1)
       frmBottomLayout.addWidget(frmInfo, 1, 0, 1, 1)
       # frmBottomLayout.addWidget(frmMoreInfo,   1,1,  1,1)
@@ -1274,47 +1411,48 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
       layout.addWidget(frmBottom)
 
       self.setLayout(layout)
-      self.processTxDP()
+      self.processUSTX()
 
-   def processTxDP(self):
+   def processUSTX(self):
       # TODO:  it wouldn't be TOO hard to modify this dialog to take
       #        arbitrary hex-serialized transactions for broadcast...
       #        but it's not trivial either (for instance, I assume
       #        that we have inputs values, etc)
       self.wlt = None
       self.leValue = None
-      self.txdpObj = None
+      self.ustxObj = None
       self.idxSelf = []
       self.idxOther = []
       self.lblStatus.setText('')
       self.lblCopied.setText('')
       self.enoughSigs = False
       self.sigsValid = False
-      self.txdpReadable = False
+      self.ustxReadable = False
 
-      txdpStr = str(self.txtTxDP.toPlainText())
+      ustxStr = str(self.txtUSTX.toPlainText())
       try:
-         self.txdpObj = PyTxDistProposal().unserializeAscii(txdpStr)
-         self.enoughSigs = self.txdpObj.checkTxHasEnoughSignatures()
-         self.sigsValid = self.txdpObj.checkTxHasEnoughSignatures(alsoVerify=True)
-         self.txdpReadable = True
+         self.ustxObj = UnsignedTransaction().unserializeAscii(ustxStr)
+         self.signStat = self.ustxObj.evaluateSigningStatus()
+         self.enoughSigs = self.signStat.canBroadcast
+         self.sigsValid = self.ustxObj.verifySigsAllInputs()
+         self.ustxReadable = True
       except BadAddressError:
          QMessageBox.critical(self, 'Inconsistent Data!', \
             'This transaction contains inconsistent information.  This '
             'is probably not your fault...', QMessageBox.Ok)
-         self.txdpObj = None
-         self.txdpReadable = False
+         self.ustxObj = None
+         self.ustxReadable = False
       except NetworkIDError:
          QMessageBox.critical(self, 'Wrong Network!', \
             'This transaction is actually for a different network!  '
             'Did you load the correct transaction?', QMessageBox.Ok)
-         self.txdpObj = None
-         self.txdpReadable = False
+         self.ustxObj = None
+         self.ustxReadable = False
       except (UnserializeError, IndexError, ValueError):
-         self.txdpObj = None
-         self.txdpReadable = False
+         self.ustxObj = None
+         self.ustxReadable = False
 
-      if not self.enoughSigs or not self.sigsValid or not self.txdpReadable:
+      if not self.enoughSigs or not self.sigsValid or not self.ustxReadable:
          self.btnBroadcast.setEnabled(False)
       else:
          if self.main.netMode == NETWORKMODE.Full:
@@ -1325,8 +1463,8 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
 
       self.btnSave.setEnabled(True)
       self.btnCopyHex.setEnabled(False)
-      if not self.txdpReadable:
-         if len(txdpStr) > 0:
+      if not self.ustxReadable:
+         if len(ustxStr) > 0:
             self.lblStatus.setText('<b><font color="red">Unrecognized!</font></b>')
          else:
             self.lblStatus.setText('')
@@ -1360,7 +1498,7 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
       #        multi-sig code, I will have to either make a different dialog,
       #        or add some logic to this one
       FIELDS = enum('Hash', 'OutList', 'SumOut', 'InList', 'SumIn', 'Time', 'Blk', 'Idx')
-      data = extractTxInfo(self.txdpObj, -1)
+      data = extractTxInfo(self.ustxObj, -1)
 
       # Collect the input wallets (hopefully just one of them)
       fromWlts = set()
@@ -1393,8 +1531,13 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
       theirOutSum = 0
       rvPairs = []
       idx = 0
-      for scrType, amt, recip in data[FIELDS.OutList]:
-         wltID = self.main.getWalletForAddr160(recip)
+      for scrType, amt, binScript, multiSigList in data[FIELDS.OutList]:
+         recip = script_to_scrAddr(binScript)
+         try:
+            wltID = self.main.getWalletForAddr160(CheckHash160(recip))
+         except BadAddressError:
+            wltID = ''
+            
          if wltID == spendWltID:
             toWlts.add(wltID)
             myOutSum += amt
@@ -1419,7 +1562,7 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
    ############################################################################
    def makeReviewFrame(self):
       # ##
-      if self.txdpObj == None:
+      if self.ustxObj == None:
          self.infoLbls[0][2].setText('')
          self.infoLbls[1][2].setText('')
          self.infoLbls[2][2].setText('')
@@ -1436,7 +1579,7 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
             self.infoLbls[1][2].setText('')
 
          ##### 2
-         self.infoLbls[2][2].setText(self.txdpObj.uniqueB58)
+         self.infoLbls[2][2].setText(self.ustxObj.uniqueIDB58)
 
          ##### 3
          if self.leValue:
@@ -1448,28 +1591,28 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
 
    def execMoreTxInfo(self):
 
-      if not self.txdpObj:
-         self.processTxDP()
+      if not self.ustxObj:
+         self.processUSTX()
 
-      if not self.txdpObj:
+      if not self.ustxObj:
          QMessageBox.warning(self, 'Invalid Transaction', \
             'Transaction data is invalid and cannot be shown!', QMessageBox.Ok)
          return
 
-      dlgTxInfo = DlgDispTxInfo(self.txdpObj, self.wlt, self.parent(), self.main, \
+      dlgTxInfo = DlgDispTxInfo(self.ustxObj, self.wlt, self.parent(), self.main, \
                           precomputeIdxGray=self.idxSelf, precomputeAmt=-self.leValue, txtime=-1)
       dlgTxInfo.exec_()
 
 
 
    def signTx(self):
-      if not self.txdpObj:
+      if not self.ustxObj:
          QMessageBox.critical(self, 'Cannot Sign', \
                'This transaction is not relevant to any of your wallets.'
                'Did you load the correct transaction?', QMessageBox.Ok)
          return
 
-      if self.txdpObj == None:
+      if self.ustxObj == None:
          QMessageBox.warning(self, 'Not Signable', \
                'This is not a valid transaction, and thus it cannot '
                'be signed. ', QMessageBox.Ok)
@@ -1492,36 +1635,31 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
       # We should provide the same confirmation dialog here, as we do when
       # sending a regular (online) transaction.  But the DlgConfirmSend was
       # not really designed
-      txdp = self.txdpObj
-      rvpairs = []
-      rvpairsMine = []
-      outInfo = txdp.pytxObj.makeRecipientsList()
-      theFee = sum(txdp.inputValues) - sum([info[1] for info in outInfo])
-      for info in outInfo:
-         if not info[0] in CPP_TXOUT_HAS_ADDRSTR:
-            rvpairs.append(['Non-Standard Output', info[1]])
-            continue
+      ustx = self.ustxObj
+      svpairs = []
+      svpairsMine = []
+      theFee = ustx.calculateFee()
+      for scrType,value,script,msInfo in ustx.pytxObj.makeRecipientsList():
+         svpairs.append([script, value])
+         if scrType in CPP_TXOUT_STDSINGLESIG:
+            addrStr = script_to_addrStr(script)
+            if self.wlt.hasAddr(addrStr_to_hash160(addrStr)[1]):
+               svpairsMine.append([script, value])
 
-         addrStr = script_to_addrStr(info[2])
-         addr160 = addrStr_to_hash160(addrStr)[1]
-         scrAddr = script_to_scrAddr(info[2])
-         rvpairs.append([scrAddr, info[1]])
-         if self.wlt.hasAddr(addr160):
-            rvpairsMine.append([scrAddr, info[1]])
+      if len(svpairsMine) == 0 and len(svpairs) > 1:
+         QMessageBox.warning(self, tr('Missing Change'), tr("""
+            This transaction has %d recipients, and none of them 
+            are addresses in this wallet (for receiving change).  
+            This can happen if you specified a custom change address 
+            for this transaction, or sometimes happens solely by 
+            chance with a multi-recipient transaction.  It could also 
+            be the result of someone tampering with the transaction. 
+            <br><br>The transaction is valid and ready to be signed.  
+            Please verify the recipient and amounts carefully before 
+            confirming the transaction on the next screen.""") % \
+            len(svpairs), QMessageBox.Ok)
 
-      if len(rvpairsMine) == 0 and len(rvpairs) > 1:
-         QMessageBox.warning(self, 'Missing Change', \
-            'This transaction has %d recipients, and none of them '
-            'are addresses in this wallet (for receiving change).  '
-            'This can happen if you specified a custom change address '
-            'for this transaction, or sometimes happens solely by '
-            'chance with a multi-recipient transaction.  It could also '
-            'be the result of someone tampering with the transaction. '
-            '<br><br>The transaction is valid and ready to be signed.  Please '
-            'verify the recipient and amounts carefully before '
-            'confirming the transaction on the next screen.' % len(rvpairs), \
-            QMessageBox.Ok)
-      dlg = DlgConfirmSend(self.wlt, rvpairs, theFee, self, self.main)
+      dlg = DlgConfirmSend(self.wlt, svpairs, theFee, self, self.main)
       if not dlg.exec_():
          return
 
@@ -1545,10 +1683,10 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
             self.wlt.kdfKey = self.wlt.kdf.DeriveKey(Passphrase)
             Passphrase.destroy()                                              
 
-      newTxdp = self.wlt.signTxDistProposal(self.txdpObj)
+      newUstx = self.wlt.signUnsignedTx(self.ustxObj)
       self.wlt.advanceHighestIndex()
-      self.txtTxDP.setText(newTxdp.serializeAscii())
-      self.txdpObj = newTxdp
+      self.txtUSTX.setText(newUstx.serializeAscii())
+      self.ustxObj = newUstx
 
       if not self.fileLoaded == None:
          self.saveTxAuto()
@@ -1572,34 +1710,30 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
 
 
       try:
-         finalTx = self.txdpObj.prepareFinalTx()
+         finalTx = self.ustxObj.getSignedPyTx()
+      except SignatureError:
+         QMessageBox.warning(self, 'Signature Error', tr("""
+            Not all signatures are valid.  This transaction
+            cannot be broadcast."""), QMessageBox.Ok)
       except:
-         QMessageBox.warning(self, 'Error', \
-            'There was an error processing this transaction, for reasons '
-            'that are probably not your fault...', QMessageBox.Ok)
+         QMessageBox.warning(self, tr('Error'), tr("""
+            There was an error processing this transaction, for reasons 
+            that are probably not your fault..."""), QMessageBox.Ok)
          return
 
       # We should provide the same confirmation dialog here, as we do when
       # sending a regular (online) transaction.  But the DlgConfirmSend was
       # not really designed
-      txdp = self.txdpObj
-      rvpairs = []
-      rvpairsMine = []
-      outInfo = txdp.pytxObj.makeRecipientsList()
-      theFee = sum(txdp.inputValues) - sum([info[1] for info in outInfo])
-      for info in outInfo:
-         if not info[0] in CPP_TXOUT_HAS_ADDRSTR:
-            rvpairs.append(['Non-Standard Output', info[1]])
-            continue
+      ustx = self.ustxObj
+      svpairs = [[r[2],r[1]] for r in ustx.pytxObj.makeRecipientsList()]
+      theFee = ustx.calculateFee()
 
-         addrStr = script_to_addrStr(info[2])
-         addr160 = addrStr_to_hash160(addrStr)[1]
-         scrAddr = script_to_scrAddr(info[2])
-         rvpairs.append([scrAddr, info[1]])
+      doIt = True
+      if self.wlt:
+         dlg = DlgConfirmSend(self.wlt, svpairs, theFee, self, self.main)
+         doIt = dlg.exec_()
 
-      dlg = DlgConfirmSend(self.wlt, rvpairs, theFee, self, self.main)
-      
-      if dlg.exec_():
+      if doIt:
          self.main.broadcastTransaction(finalTx)
          if self.fileLoaded and os.path.exists(self.fileLoaded):
             try:
@@ -1611,12 +1745,17 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
                   'The file could not be deleted.  If you want to delete '
                   'it, please do so manually.  The file was loaded from: '
                   '<br><br>%s: ' % self.fileLoaded, QMessageBox.Ok)
-         if self.parent() is ArmoryDialog:
+
+         try:
             self.parent().accept()
+         except:
+            # This just attempts to close the OfflineReview&Sign window.  If 
+            # it fails, the user can close it themselves.
+            LOGEXCEPT('Could not close/accept parent dialog.')            
 
 
    def saveTxAuto(self):
-      if not self.txdpReadable:
+      if not self.ustxReadable:
          QMessageBox.warning(self, 'Formatting Error', \
             'The transaction data was not in a format recognized by '
             'Armory.')
@@ -1627,7 +1766,7 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
          newSaveFile = self.fileLoaded.replace('unsigned', 'signed')
          print newSaveFile
          f = open(newSaveFile, 'w')
-         f.write(str(self.txtTxDP.toPlainText()))
+         f.write(str(self.txtUSTX.toPlainText()))
          f.close()
          if not newSaveFile == self.fileLoaded:
             os.remove(self.fileLoaded)
@@ -1639,7 +1778,7 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
          return
 
    def saveTx(self):
-      if not self.txdpReadable:
+      if not self.ustxReadable:
          QMessageBox.warning(self, 'Formatting Error', \
             'The transaction data was not in a format recognized by '
             'Armory.')
@@ -1650,14 +1789,14 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
       # adds the ffilter suffix to the default filename, where as it needs to
       # be explicitly added in PyQt in Linux.  Not sure why this behavior exists.
       defaultFilename = ''
-      if not self.txdpObj == None:
+      if not self.ustxObj == None:
          if self.enoughSigs and self.sigsValid:
             suffix = '' if OS_WINDOWS else '.signed.tx'
-            defaultFilename = 'armory_%s_%s' % (self.txdpObj.uniqueB58, suffix)
+            defaultFilename = 'armory_%s_%s' % (self.ustxObj.uniqueIDB58, suffix)
             ffilt = 'Transactions (*.signed.tx *.unsigned.tx)'
          else:
             suffix = '' if OS_WINDOWS else '.unsigned.tx'
-            defaultFilename = 'armory_%s_%s' % (self.txdpObj.uniqueB58, suffix)
+            defaultFilename = 'armory_%s_%s' % (self.ustxObj.uniqueIDB58, suffix)
             ffilt = 'Transactions (*.unsigned.tx *.signed.tx)'
       filename = self.main.getFileSave('Save Transaction', \
                              [ffilt], \
@@ -1671,19 +1810,19 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
       if len(str(filename)) > 0:
          LOGINFO('Saving transaction file: %s', filename)
          f = open(filename, 'w')
-         f.write(str(self.txtTxDP.toPlainText()))
+         f.write(str(self.txtUSTX.toPlainText()))
          f.close()
 
 
    def loadTx(self):
-      filename = self.main.getFileLoad('Load Transaction', \
-                             ['Transactions (*.signed.tx *.unsigned.tx)'])
+      filename = self.main.getFileLoad(tr('Load Transaction'), \
+                    ['Transactions (*.signed.tx *.unsigned.tx *.SENT.tx)'])
 
       if len(str(filename)) > 0:
          LOGINFO('Selected transaction file to load: %s', filename)
          print filename
          f = open(filename, 'r')
-         self.txtTxDP.setText(f.read())
+         self.txtUSTX.setText(f.read())
          f.close()
          self.fileLoaded = filename
          print self.fileLoaded
@@ -1692,17 +1831,20 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
    def copyTx(self):
       clipb = QApplication.clipboard()
       clipb.clear()
-      clipb.setText(str(self.txtTxDP.toPlainText()))
+      clipb.setText(str(self.txtUSTX.toPlainText()))
       self.lblCopied.setText('<i>Copied!</i>')
 
 
    def copyTxHex(self):
       clipb = QApplication.clipboard()
       clipb.clear()
-      clipb.setText(binary_to_hex(self.txdpObj.prepareFinalTx().serialize()))
+      clipb.setText(binary_to_hex(self.ustxObj.getSignedPyTx().serialize()))
       self.lblCopied.setText('<i>Copied!</i>')
          
+
 # Need to put circular imports at the end of the script to avoid an import deadlock
 from qtdialogs import CLICKED, STRETCH, createAddrBookButton,\
       DlgConfirmSend, DlgUriCopyAndPaste, DlgUnlockWallet,\
    extractTxInfo, DlgDispTxInfo, NO_CHANGE
+
+

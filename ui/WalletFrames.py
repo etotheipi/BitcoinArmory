@@ -14,6 +14,72 @@ from qtdefines import * #@UnusedWildImport
 
 WALLET_DATA_ENTRY_FIELD_WIDTH = 60
 
+
+class LockboxSelectFrame(ArmoryFrame):
+   def __init__(self, parent, main, layoutDir=VERTICAL, spendFromLBID=None):
+      super(LockboxSelectFrame, self).__init__(parent, main)
+
+      self.lbox = self.main.getLockboxByID(spendFromLBID)
+      self.cppWlt = self.main.cppLockboxWltMap[spendFromLBID]
+
+      if not self.lbox:
+         QMessageBox.warning(self, tr("Invalid Lockbox"), tr(""" There was 
+         an error loading the specified lockbox (%s).""") % spendFromLBID, 
+         QMessageBox.Ok)
+         self.reject()
+         return
+
+      lblSpendFromLB = QRichLabel(tr(""" <font color="%s" size=4><b><u>Lockbox   
+         %s (%d-of-%d)</u></b></font>""") % (htmlColor('TextBlue'), \
+         self.lbox.uniqueIDB58, self.lbox.M, self.lbox.N))
+      lblSpendFromLB.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
+
+      lbls = []
+      lbls.append(QRichLabel("Lockbox ID:", doWrap=False))
+      lbls.append(QRichLabel("Name:", doWrap=False))
+      lbls.append(QRichLabel("Description:", doWrap=False))
+      lbls.append(QRichLabel("Spendable BTC:", doWrap=False))
+
+      layoutDetails = QGridLayout()
+      for i,lbl in enumerate(lbls):
+         lbl.setAlignment(Qt.AlignLeft | Qt.AlignTop)
+         lbl.setText('<b>' + str(lbls[i].text()) + '</b>')
+         layoutDetails.addWidget(lbl, i+1, 0)
+         
+      self.dispID = QRichLabel(spendFromLBID)
+      self.dispName = QRichLabel(self.lbox.shortName)
+      self.dispName.setWordWrap(True)
+      # This line fixes squished text when word wrapping
+      self.dispName.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
+      self.dispDescr = QRichLabel(self.lbox.longDescr)
+      self.dispDescr.setWordWrap(True)
+      # This line fixes squished text when word wrapping
+      self.dispDescr.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
+      bal = self.cppWlt.getSpendableBalance(self.main.currBlockNum, IGNOREZC)
+      self.dispBal = QMoneyLabel(bal, wBold=True)
+      self.dispBal.setTextFormat(Qt.RichText)
+
+      layoutDetails.addWidget(self.dispID, 1, 1)
+      layoutDetails.addWidget(self.dispName, 2, 1)
+      layoutDetails.addWidget(self.dispDescr, 3, 1)
+      layoutDetails.addWidget(self.dispBal, 4, 1)
+      layoutDetails.setColumnStretch(0,0)
+      layoutDetails.setColumnStretch(1,1)
+      frmDetails = QFrame()
+      frmDetails.setLayout(layoutDetails)
+      frmDetails.setFrameStyle(STYLE_SUNKEN)
+
+      layout = QVBoxLayout()
+      layout.addWidget(lblSpendFromLB)
+      layout.addWidget(frmDetails)
+
+      self.setLayout(layout)
+
+      
+      
+
+
+
 # This class has all of the select wallet display and control functionality for
 # selecting a wallet, and doing coin control. It can be dropped into any dialog
 # and will interface with the dialog with select wlt and coin control callbacks.
@@ -100,7 +166,6 @@ class SelectWalletFrame(ArmoryFrame):
       # This line fixes squished text when word wrapping
       self.dispDescr.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
       self.dispBal = QMoneyLabel(0)
-
       self.dispBal.setTextFormat(Qt.RichText)
       
       wltInfoFrame = QFrame()
@@ -138,8 +203,9 @@ class SelectWalletFrame(ArmoryFrame):
          layout.addWidget(makeLayoutFrame(HORIZONTAL, [self.walletListBox, wltInfoFrame]) )
 
       self.setLayout(layout)
+
       # Make sure this is called once so that the default selection is displayed
-      #self.updateOnWalletChange()
+      self.updateOnWalletChange()
 
    
    def getWalletIdList(self, onlyOfflineWallets):
@@ -207,8 +273,10 @@ class SelectWalletFrame(ArmoryFrame):
                self.dispBal.setText('<font color="red"><b>%s</b></font>' % balStr)
             else:
                self.dispBal.setText('<b>' + balStr + '</b>')     
+
          if self.selectWltCallback:
             self.selectWltCallback(wlt)
+
          self.repaint()
          # Reset the coin control variables after a new wallet is selected
          if self.coinControlCallback:
@@ -245,6 +313,10 @@ class SelectWalletFrame(ArmoryFrame):
       self.repaint()
       if self.coinControlCallback:
          self.coinControlCallback(self.sourceAddrList, self.altBalance)
+
+
+
+
 
 # Container for controls used in configuring a wallet to be added to any
 # dialog or wizard. Currently it is only used the create wallet wizard.
@@ -392,8 +464,8 @@ class SetPassphraseFrame(ArmoryFrame):
       super(SetPassphraseFrame, self).__init__(parent, main)
       self.passphraseCallback = passphraseCallback
       layout = QGridLayout()
-      lblDlgDescr = QLabel('Please enter an passphrase for wallet encryption.\n\n'
-                           'A good passphrase consists of at 10 or more\n'
+      lblDlgDescr = QLabel('Please enter a passphrase for wallet encryption.\n\n'
+                           'A good passphrase consists of at least 10 or more\n'
                            'random letters, or 6 or more random words.\n')
       lblDlgDescr.setWordWrap(True)
       layout.addWidget(lblDlgDescr, 0, 0, 1, 2)
@@ -878,8 +950,16 @@ class WalletBackupFrame(ArmoryFrame):
       
    def clickedDoIt(self):
       isBackupCreated = False
+      
       if self.passphrase:
-         self.wlt.unlock(securePassphrase=SecureBinaryData(self.passphrase))
+         from qtdialogs import DlgProgress
+         unlockProgress = DlgProgress(self, self.main, HBar=1,
+                                      Title="Unlocking Wallet")
+         unlockProgress.exec_(self.wlt.unlock, 
+                              securePassphrase=SecureBinaryData( \
+                              self.passphrase),
+                              Progress=unlockProgress.UpdateHBar)
+         
       if self.optPaperBackupOne.isChecked():
          isBackupCreated = OpenPaperBackupWindow('Single', self.parent(), self.main, self.wlt)
       elif self.optPaperBackupFrag.isChecked():

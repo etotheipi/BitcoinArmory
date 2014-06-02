@@ -11,7 +11,9 @@ endif
 platform=$(shell uname)
 
 ifeq ($(shell uname), Darwin)
-LDFLAGS += -undefined dynamic_lookup 
+MACOSX_DEPLOYMENT_TARGET=10.7
+export MACOSX_DEPLOYMENT_TARGET
+LDFLAGS += -undefined dynamic_lookup -headerpad_max_install_names
 endif
 
 #**************************************************************************
@@ -93,6 +95,3 @@ hardclean:
 	rm -f pypaths.txt
 	$(MAKE) -C cryptopp clean
 	$(MAKE) -C leveldb clean
-	
-
-

@@ -15,6 +15,7 @@ import urllib
 from armorycolors import Colors, htmlColor
 from armoryengine.ArmoryUtils import *
 from armoryengine.BinaryUnpacker import *
+from armoryengine.MultiSigUtils import *
 
 
 SETTINGS_PATH   = os.path.join(ARMORY_HOME_DIR, 'ArmorySettings.txt')
@@ -37,8 +38,8 @@ VERTICAL = 'vertical'
 HORIZONTAL = 'horizontal'
 CHANGE_ADDR_DESCR_STRING = '[[ Change received ]]'
 HTTP_VERSION_FILE = 'https://bitcoinarmory.com/versions.txt'
-BUG_REPORT_URL = 'https://scripts.bitcoinarmory.com/receive_debug.php'
-
+BUG_REPORT_URL = 'https://bitcoinarmory.com/scripts/receive_debug.php'
+PRIVACY_URL = 'https://bitcoinarmory.com/privacy-policy'
 # For announcements handling
 ANNOUNCE_FETCH_INTERVAL = 1 * HOUR
 if CLI_OPTIONS.testAnnounceCode:
@@ -239,7 +240,7 @@ def relaxedSizeNChar(obj, nChar):
 #############################################################################
 def determineWalletType(wlt, wndw):
    if wlt.watchingOnly:
-      if wndw.getWltSetting(wlt.uniqueIDB58,'IsMine'):
+      if wndw.getWltSetting(wlt.uniqueIDB58, 'IsMine'):
          return [WLTTYPES.Offline, 'Offline']
       else:
          return [WLTTYPES.WatchOnly, 'Watching-Only']
@@ -248,6 +249,23 @@ def determineWalletType(wlt, wndw):
    else:
       return [WLTTYPES.Plain, 'No Encryption']
 
+
+
+################################################################################
+def getScriptForInputStr(inputStr, main):
+   result = None
+
+   # The addrStr_to_scrAddr method fails if not reg Addr, or P2SH
+   if isLockbox(inputStr):
+      lbox = main.getLockboxByID(readLockboxEntryStr(inputStr))
+      result = lbox.binScript if lbox else None
+   elif isP2SHLockbox(inputStr):
+      lbox = main.getLockboxByID(readLockboxEntryStr(inputStr))
+      result = script_to_p2sh_script(lbox.binScript) if lbox else None
+   else:
+      scrAddr = addrStr_to_scrAddr(inputStr)
+      result = scrAddr_to_script(scrAddr)
+   return result
 
 
 
@@ -297,6 +315,7 @@ class QRichLabel(QLabel):
       # Fixes a problem with QLabel resizing based on content
       # ACR:  ... and makes other problems.  Removing for now.
       #self.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.MinimumExpanding)
+      #self.setMinimumHeight(int(relaxedSizeStr(self, 'QWERTYqypgj')[1]))
 
    def setText(self, text, color=None, size=None, bold=None, italic=None):
       text = unicode(text)
@@ -323,31 +342,33 @@ class QRichLabel(QLabel):
 
 
 class QMoneyLabel(QRichLabel):
-   def __init__(self, nSatoshi, ndec=8, maxZeros=2, wColor=True, wBold=False):
+   def __init__(self, nSatoshi, ndec=8, maxZeros=2, wColor=True, 
+                              wBold=False, txtSize=10):
       QLabel.__init__(self, coin2str(nSatoshi))
 
-      self.setValueText(nSatoshi, ndec, maxZeros, wColor, wBold)
+      self.setValueText(nSatoshi, ndec, maxZeros, wColor, wBold, txtSize)
 
 
-   def setValueText(self, nSatoshi, ndec=None, maxZeros=None, wColor=None, wBold=None):
+   def setValueText(self, nSatoshi, ndec=None, maxZeros=None, wColor=None, 
+                                             wBold=None, txtSize=10):
       """
       When we set the text of the QMoneyLabel, remember previous values unless
       explicitly respecified
       """
-      if not ndec==None:
+      if not ndec is None:
          self.ndec = ndec
 
-      if not maxZeros==None:
+      if not maxZeros is None:
          self.max0 = maxZeros
 
-      if not wColor==None:
+      if not wColor is None:
          self.colr = wColor
 
-      if not wBold==None:
+      if not wBold is None:
          self.bold = wBold
          
 
-      theFont = GETFONT("Fixed", 10)
+      theFont = GETFONT("Fixed", txtSize)
       if self.bold:
          theFont.setWeight(QFont.Bold)
 
@@ -435,7 +456,8 @@ class QLabelButton(QLabel):
 ################################################################################
 # The optionalMsg argument is not word wrapped so the caller is responsible for limiting
 # the length of the longest line in the optionalMsg
-def MsgBoxCustom(wtype, title, msg, wCancel=False, yesStr=None, noStr=None, optionalMsg=None): 
+def MsgBoxCustom(wtype, title, msg, wCancel=False, yesStr=None, noStr=None, 
+                                                      optionalMsg=None): 
    """
    Creates a message box with custom button text and icon
    """
@@ -468,6 +490,7 @@ def MsgBoxCustom(wtype, title, msg, wCancel=False, yesStr=None, noStr=None, opti
          lblMsg.setTextFormat(Qt.RichText)
          lblMsg.setWordWrap(True)
          lblMsg.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+         lblMsg.setOpenExternalLinks(True)
          w,h = tightSizeNChar(lblMsg, 70)
          lblMsg.setMinimumSize( w, 3.2*h )
          buttonbox = QDialogButtonBox()

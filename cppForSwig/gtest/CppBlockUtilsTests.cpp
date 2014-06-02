@@ -10,10 +10,17 @@
 #include "../StoredBlockObj.h"
 #include "../PartialMerkle.h"
 #include "../leveldb_wrapper.h"
+#include "../EncryptionUtils.h"
 #include "../BlockUtils.h"
 #include "../BtcWallet.h"
 
+
+
 #ifdef _MSC_VER
+   #ifdef mlock
+      #undef mlock
+      #undef munlock
+   #endif
    #include "win32_posix.h"
 	#undef close
 
@@ -7592,7 +7599,6 @@ protected:
    }
 
 
-
 #if ! defined(_MSC_VER) && ! defined(__MINGW32__)
 
    /////////////////////////////////////////////////////////////////////////////
@@ -7738,6 +7744,105 @@ TEST_F(BlockUtilsWithWalletTest, PostRegisterScrAddr)
    
    balanceDB  = iface_->getBalanceForScrAddr(scrAddrD_);
    EXPECT_EQ(balanceDB,   100*COIN);
+}
+
+
+// Comments need to be added....
+// Most of this data is from the BIP32 test vectors.
+class TestCryptoECDSA : public ::testing::Test
+{
+protected:
+   /////////////////////////////////////////////////////////////////////////////
+   virtual void SetUp(void)
+   {
+      verifyX = READHEX("39a36013301597daef41fbe593a02cc513d0b55527ec2df1050e2e8ff49c85c2");
+      verifyY = READHEX("3cbe7ded0e7ce6a594896b8f62888fdbc5c8821305e2ea42bf01e37300116281");
+
+      multScalarA = READHEX("79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798");
+      multScalarB = READHEX("483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8");
+      multRes = READHEX("805714a252d0c0b58910907e85b5b801fff610a36bdf46847a4bf5d9ae2d10ed");
+
+      multScalar = READHEX("04bfb2dd60fa8921c2a4085ec15507a921f49cdc839f27f0f280e9c1495d44b5");
+      multPointX = READHEX("79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798");
+      multPointY = READHEX("483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8");
+      multPointRes = READHEX("7f8bd85f90169a606b0b4323c70e5a12e8a89cbc76647b6ed6a39b4b53825214c590a32f111f857573cf8f2c85d969815e4dd35ae0dc9c7e868195c309b8bada");
+
+      addAX = READHEX("79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798");
+      addAY = READHEX("483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8");
+      addBX = READHEX("5a784662a4a20a65bf6aab9ae98a6c068a81c52e4b032c0fb5400c706cfccc56");
+      addBY = READHEX("7f717885be239daadce76b568958305183ad616ff74ed4dc219a74c26d35f839");
+      addRes = READHEX("fe2f7c8109d9ae628856d51a02ab25300a8757e088fc336d75cb8dc4cc2ce3339013be71e57c3abeee6ad158646df81d92f8c0778f88100eeb61535f9ff9776d");
+
+      invAX = READHEX("79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798");
+      invAY = READHEX("483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8");
+      invRes = READHEX("79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798b7c52588d95c3b9aa25b0403f1eef75702e84bb7597aabe663b82f6f04ef2777");
+
+      compPointPrv1 = READHEX("000f479245fb19a38a1954c5c7c0ebab2f9bdfd96a17563ef28a6a4b1a2a764ef4");
+      compPointPub1 = READHEX("02e8445082a72f29b75ca48748a914df60622a609cacfce8ed0e35804560741d29");
+      uncompPointPub1 = READHEX("04e8445082a72f29b75ca48748a914df60622a609cacfce8ed0e35804560741d292728ad8d58a140050c1016e21f285636a580f4d2711b7fac3957a594ddf416a0");
+
+      compPointPrv2 = READHEX("00e8f32e723decf4051aefac8e2c93c9c5b214313817cdb01a1494b917c8436b35");
+      compPointPub2 = READHEX("0339a36013301597daef41fbe593a02cc513d0b55527ec2df1050e2e8ff49c85c2");
+      uncompPointPub2 = READHEX("0439a36013301597daef41fbe593a02cc513d0b55527ec2df1050e2e8ff49c85c23cbe7ded0e7ce6a594896b8f62888fdbc5c8821305e2ea42bf01e37300116281");
+
+      invModRes = READHEX("000000000000000000000000000000000000000000000000000000000000006b");
+
+      LOGDISABLESTDOUT();
+   }
+
+
+   /////////////////////////////////////////////////////////////////////////////
+   virtual void TearDown(void)
+   {
+   }
+
+
+   SecureBinaryData verifyX;
+   SecureBinaryData verifyY;
+
+   SecureBinaryData multScalarA;
+   SecureBinaryData multScalarB;
+   SecureBinaryData multRes;
+
+   SecureBinaryData multScalar;
+   SecureBinaryData multPointX;
+   SecureBinaryData multPointY;
+   SecureBinaryData multPointRes;
+
+   SecureBinaryData addAX;
+   SecureBinaryData addAY;
+   SecureBinaryData addBX;
+   SecureBinaryData addBY;
+   SecureBinaryData addRes;
+
+   SecureBinaryData invAX;
+   SecureBinaryData invAY;
+   SecureBinaryData invRes;
+
+   SecureBinaryData compPointPrv1;
+   SecureBinaryData uncompPointPub1;
+   SecureBinaryData compPointPub1;
+   SecureBinaryData compPointPrv2;
+   SecureBinaryData uncompPointPub2;
+   SecureBinaryData compPointPub2;
+
+   SecureBinaryData invModRes;
+};
+
+// Verify that a point known to be on the secp256k1 curve is recognized as such.
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(TestCryptoECDSA, VerifySECP256K1Point)
+{
+   EXPECT_TRUE(CryptoECDSA().ECVerifyPoint(verifyX, verifyY));
+}
+
+// Multiply two scalars and check the result.
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(TestCryptoECDSA, SECP256K1MultScalars)
+{
+   SecureBinaryData testRes = CryptoECDSA().ECMultiplyScalars(multScalarA,
+                                                              multScalarB);
+   EXPECT_EQ(multRes, testRes);
 }
 
 ////////////////////////////////////////////////////////////////////////////////

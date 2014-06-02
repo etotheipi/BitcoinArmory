@@ -8,9 +8,10 @@
 from CppBlockUtils import SecureBinaryData, CryptoAES, CryptoECDSA
 from armoryengine.ArmoryUtils import ADDRBYTE, hash256, binary_to_base58, \
    KeyDataError, RightNow, LOGERROR, ChecksumError, convertKeyDataToAddress, \
-   verifyChecksum, WalletLockError, createSigScriptFromRS, binary_to_int, computeChecksum, \
-   getVersionInt, PYBTCWALLET_VERSION, bitset_to_int, LOGDEBUG, Hash160ToScrAddr, \
-   int_to_bitset, UnserializeError, hash160_to_addrStr, int_to_binary, BIGENDIAN, \
+   verifyChecksum, WalletLockError, createDERSigFromRS, binary_to_int, \
+   computeChecksum, getVersionInt, PYBTCWALLET_VERSION, bitset_to_int, \
+   LOGDEBUG, Hash160ToScrAddr, int_to_bitset, UnserializeError, \
+   hash160_to_addrStr, int_to_binary, BIGENDIAN, \
    BadAddressError, checkAddrStrValid, binary_to_hex
 from armoryengine.BinaryPacker import BinaryPacker, UINT8, UINT16, UINT32, UINT64, \
    INT8, INT16, INT32, INT64, VAR_INT, VAR_STR, FLOAT, BINARY_CHUNK
@@ -131,6 +132,29 @@ class PyBtcAddress(object):
    #############################################################################
    def hasPubKey(self):
       return (self.binPublicKey65.getSize() != 0)
+
+
+   ##############################################################################
+   def getPubKey(self):
+      '''Return the uncompressed public key of the address.'''
+      if len(self.binPublicKey65) != 65:
+         raise KeyDataError, 'PyBtcAddress does not have a public key!'
+      return self.binPublicKey65
+
+
+   #############################################################################
+   def hasChainCode(self):
+      '''Return a boolean indicating if the address has a chain code.'''
+      return (self.chaincode.getSize() != 0)
+
+
+   #############################################################################
+   def getChainCode(self):
+      '''Return the chain code of the address.'''
+      if len(self.chaincode) != 32:
+         raise KeyDataError, 'PyBtcAddress does not have a chain code!'
+      return self.chaincode
+
 
    #############################################################################
    def getAddrStr(self, netbyte=ADDRBYTE):
@@ -256,8 +280,9 @@ class PyBtcAddress(object):
          if self.hasPubKey():
             verified = (self.binPublicKey65==computedPubKey)
          else:
-            self.binPublicKey65 = computedPubKey
             verified = (computedPubKey.getHash160()==self.addrStr20)
+            if verified:
+               self.binPublicKey65 = computedPubKey
 
       decryptedKey.destroy()
       return verified
@@ -688,7 +713,7 @@ class PyBtcAddress(object):
 
          rBin   = sigstr[:32 ]
          sBin   = sigstr[ 32:]
-         return createSigScriptFromRS(rBin, sBin)
+         return createDERSigFromRS(rBin, sBin)
 
       except:
          LOGERROR('Failed signature generation')
@@ -711,30 +736,10 @@ class PyBtcAddress(object):
       if not self.hasPubKey():
          raise KeyDataError, 'No public key available for this address!'
 
-      if not isinstance(derSig, str):
-         # In case this is a SecureBinaryData object...
-         derSig = derSig.toBinStr()
-
-      codeByte = derSig[0]
-      nBytes   = binary_to_int(derSig[1])
-      rsStr    = derSig[2:2+nBytes]
-      assert(codeByte == '\x30')
-      assert(nBytes == len(rsStr))
-      # Read r
-      codeByte  = rsStr[0]
-      rBytes    = binary_to_int(rsStr[1])
-      r         = rsStr[2:2+rBytes]
-      assert(codeByte == '\x02')
-      sStr      = rsStr[2+rBytes:]
-      # Read s
-      codeByte  = sStr[0]
-      sBytes    = binary_to_int(sStr[1])
-      s         = sStr[2:2+sBytes]
-      assert(codeByte == '\x02')
-      # Now we have the (r,s) values of the
+      rBin, sBin = getRSFromDERSig(derSig)
 
       secMsg    = SecureBinaryData(binMsgVerify)
-      secSig    = SecureBinaryData(r[-32:] + s[-32:])
+      secSig    = SecureBinaryData(rBin + sBin)
       secPubKey = SecureBinaryData(self.binPublicKey65)
       return CryptoECDSA().VerifyData(secMsg, secSig, secPubKey)
 

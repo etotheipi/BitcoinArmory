@@ -1077,7 +1077,7 @@ bool BlockDataManager_LevelDB::walletIsRegistered(BtcWallet & wlt) const
 }
 
 /////////////////////////////////////////////////////////////////////////////
-bool BlockDataManager_LevelDB::scrAddrIsRegistered(HashString scraddr)
+bool BlockDataManager_LevelDB::scrAddrIsRegistered(BinaryData scraddr)
 {
    ts_setBtcWallet::const_snapshot wltSnapshot(registeredWallets_);
    ts_setBtcWallet::const_iterator wltIter;
@@ -2059,7 +2059,7 @@ uint32_t BlockDataManager_LevelDB::readBlkFileUpdate(void)
    string filename = blkFileList_[blkFileList_.size()-1];
 
    uint64_t filesize = FILE_DOES_NOT_EXIST;
-   ifstream is(filename.c_str(), ios::in|ios::binary);
+   ifstream is(OS_TranslatePath(filename).c_str(), ios::in|ios::binary);
    if(is.is_open())
    {
       is.seekg(0, ios::end);

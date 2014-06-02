@@ -32,7 +32,7 @@ from armoryengine.ArmoryUtils import LOGINFO, RightNow, getVersionString, \
    bitset_to_int, unixTimeToFormatStr
 from armoryengine.BDM import TheBDM
 from armoryengine.BinaryPacker import BinaryPacker, BINARY_CHUNK, UINT32, UINT64, \
-   UINT16, VAR_INT, INT32, INT64, VAR_STR
+   UINT16, VAR_INT, INT32, INT64, VAR_STR, INT8
 from armoryengine.BinaryUnpacker import BinaryUnpacker, UnpackerError
 from armoryengine.Block import PyBlockHeader
 from armoryengine.Transaction import PyTx, indent
@@ -1009,6 +1009,41 @@ class PayloadAlert(object):
    def pprint(self, nIndent=0):
       print nIndent*'\t' + 'ALERT(...)'
 
+REJECT_MALFORMED_CODE = 0x01
+REJECT_INVALID_CODE = 0x10
+REJECT_OBSOLETE_CODE = 0x11
+REJECT_DUPLICATE_CODE = 0x12
+REJECT_NONSTANDARD_CODE = 0x40
+REJECT_DUST_CODE = 0x41
+REJECT_INSUFFICIENTFEE_CODE = 0x42
+REJECT_CHECKPOINT_CODE = 0x43
+
+################################################################################
+class PayloadReject(object):
+   command = 'reject'
+
+   def __init__(self):
+      self.messageType = ''
+      self.message = ''
+      self.data = ''
+      self.serializedData = None
+      self.rejectCode = None
+      
+   def unserialize(self, toUnpack):
+      bu = BinaryUnpacker(toUnpack)
+      self.messageType = bu.get(VAR_STR)
+      self.rejectCode = bu.get(INT8)
+      self.message = bu.get(VAR_STR)
+      self.data = bu.get(BINARY_CHUNK, bu.getRemainingSize())
+      self.serializedData = toUnpack
+      return self
+
+   def serialize(self):
+      return self.serializedData
+
+   def pprint(self, nIndent=0):
+      print nIndent*'\t' + 'REJECT - Tx: ' + self.message
+      
 ################################################################################
 # Use this map to figure out which object to serialize/unserialize from a cmd
 PayloadMap = {
@@ -1023,7 +1058,8 @@ PayloadMap = {
    'getblocks':   PayloadGetBlocks,
    'block':       PayloadBlock,
    'headers':     PayloadHeaders,
-   'alert':       PayloadAlert }
+   'alert':       PayloadAlert,
+   'reject':      PayloadReject }
 
 
 class FakeClientFactory(ReconnectingClientFactory):

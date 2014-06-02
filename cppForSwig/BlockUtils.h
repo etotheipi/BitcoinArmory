@@ -296,7 +296,7 @@ public:
    bool     evalRescanIsRequired(void);
 
    bool     walletIsRegistered(BtcWallet & wlt) const;
-   bool     scrAddrIsRegistered(HashString scrAddr);
+   bool     scrAddrIsRegistered(BinaryData scrAddr);
 
 public:
    void     resetRegisteredWallets(void);

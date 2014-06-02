@@ -71,6 +71,22 @@ BLOCKCHAINMODE  = enum('Offline', \
                        'FullPrune', \
                        'Lite')
 
+def newTheBDM(isOffline=False, blocking=False):
+   global TheBDM
+   TheBDM = BlockDataManagerThread(isOffline=isOffline, blocking=blocking)
+   
+
+# Make TheBDM act like it's a singleton. Always use the global singleton TheBDM
+# instance that exists in this module regardless of the instance that passed as self
+def ActLikeASingletonBDM(func):
+   def inner(*args, **kwargs):
+      if TheBDM and len(args) > 0:
+         newArgs = (TheBDM,) + args[1:]
+         return func(*newArgs, **kwargs)
+      else:
+         return func(*args, **kwargs)
+   return inner
+
 ################################################################################
 class BlockDataManager(object):
    """ 
@@ -233,6 +249,7 @@ class BlockDataManager(object):
       self.bdm.registerWallet(toRegister, isNew)
 
    #############################################################################
+   @ActLikeASingletonBDM
    def setSatoshiDir(self, newBtcDir):
       if not os.path.exists(newBtcDir):
          LOGERROR('setSatoshiDir: directory does not exist: %s', newBtcDir)
@@ -241,6 +258,7 @@ class BlockDataManager(object):
       self.btcdir = newBtcDir
 
    #############################################################################
+   @ActLikeASingletonBDM
    def setLevelDBDir(self, ldbdir):
       if not os.path.exists(ldbdir):
          os.makedirs(ldbdir)
@@ -281,11 +299,7 @@ class BlockDataManager(object):
       blockdir = blkdir
       leveldbdir = self.ldbdir
       
-      if getattr(sys, 'frozen', False):
-         armory_homedir = ARMORY_HOME_DIR.encode('utf8')
-         blockdir = blkdir.encode('utf8')
-         leveldbdir = self.ldbdir.encode('utf8')
-      elif OS_WINDOWS:
+      if OS_WINDOWS:
          if isinstance(ARMORY_HOME_DIR, unicode):
             armory_homedir = ARMORY_HOME_DIR.encode('utf8')
          if isinstance(blkdir, unicode):
@@ -408,7 +422,7 @@ else:
 
    cppLogFile = os.path.join(ARMORY_HOME_DIR, 'armorycpplog.txt')
    cpplf = cppLogFile
-   if getattr(sys, 'frozen', False):
+   if OS_WINDOWS and isinstance(cppLogFile, unicode):
       cpplf = cppLogFile.encode('utf8')
    Cpp.BlockDataManager_LevelDB_StartCppLogging(cpplf, 4)
    Cpp.BlockDataManager_LevelDB_EnableCppLogStdOut()    

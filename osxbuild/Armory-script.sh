@@ -13,11 +13,9 @@ export PYTHONPATH="$ARMORYDIR"
 export DYLD_LIBRARY_PATH="${LIBDIR}:${FRDIR}"
 export DYLD_FRAMEWORK_PATH="${LIBDIR}:${FRDIR}"
 
-# OS X chokes if you try to pass command line args when none exist. Pass only
-# if there are args to pass.
+# Misc. crap to keep around in case it's ever needed.
 #OSXVER=`sw_vers -productVersion | awk '{ print substr( $0, 0, 4 ) }'`
-if [ $# == "0" ]; then
-	$DIRNAME/Python $ARMORYDIR/ArmoryQt.py
-else
-	$DIRNAME/Python $ARMORYDIR/ArmoryQt.py "$@"
-fi
+#if [ $# == "0" ]; then # <-- If 0 CL args....
+
+# Call ArmoryQt and get this party started!
+$FRDIR/Python.framework/Versions/2.7/Resources/Python.app/Contents/MacOS/Python $ARMORYDIR/ArmoryQt.py "$@"

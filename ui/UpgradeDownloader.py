@@ -218,16 +218,10 @@ class UpgradeDownloader:
       self.progressBar.setRange(0, size)
       self.progressBar.setValue(len(self.receivedData))
 
-      if size >= 1024*1024*10:
-         total = size/1024/1024.
-         sofar = len(self.receivedData)/1024/1024.
-         s = tr("%0.1f / %0.1f MiB downloaded") % (sofar, total)
-         self.progressBar.setFormat(s)
-      else:
-         total = size/1024
-         sofar = len(self.receivedData)/1024
-         s = tr("{0}/{1} KiB downloaded").format(sofar, total)
-         self.progressBar.setFormat(s)
+      totalStr = bytesToHumanSize(size)
+      sofarStr = bytesToHumanSize(len(self.receivedData))
+      s = tr("{0} / {1} downloaded").format(sofarStr, totalStr)
+      self.progressBar.setFormat(s)
 
       QTimer.singleShot(250, self.progressTimer)
 
@@ -385,19 +379,18 @@ class UpgradeDownloaderDialog(ArmoryDialog):
 
       # Above we had to select *something*, we should check that the
       # architecture actually matches our system.  If not, warn
-      trueBits = '64' if SystemSpecs.IsX64 else '32'
-      selectBits = self.itemData(self.osarch)[:2]
-      if showPackage and not trueBits==selectBits:
-         QMessageBox.warning(self, tr("Wrong Architecture"), tr("""
-            You appear to be on a %s-bit architecture, but the only
-            available download is for %s-bit systems.  It is unlikely
-            that this download will work on this operating system.
-            <br><br>
-            Please make sure that the correct operating system is
-            selected before attempting to download and install any
-            packages.""") % (trueBits, selectBits), QMessageBox.Ok)
-
-         self.bitsColor = htmlColor('TextRed')
+      #trueBits = '64' if SystemSpecs.IsX64 else '32'
+      #selectBits = self.itemData(self.osarch)[:2]
+      #if showPackage and not trueBits==selectBits:
+         #QMessageBox.warning(self, tr("Wrong Architecture"), tr("""
+            #You appear to be on a %s-bit architecture, but the only
+            #available download is for %s-bit systems.  It is unlikely
+            #that this download will work on this operating system.
+            #<br><br>
+            #Please make sure that the correct operating system is
+            #selected before attempting to download and install any
+            #packages.""") % (trueBits, selectBits), QMessageBox.Ok)
+         #self.bitsColor = htmlColor('TextRed')
 
 
       if showPackage == 'Armory':
@@ -405,23 +398,25 @@ class UpgradeDownloaderDialog(ArmoryDialog):
       elif showPackage == 'Satoshi':
          expectVer = self.main.satoshiVersions[1]
 
-      if showPackage:
-         for n in range(0, packages.topLevelItemCount()):
-            row = packages.topLevelItem(n)
-            if str(row.data(0, 32).toString())==showPackage:
-               packages.setCurrentItem(row)
-               if not expectVer or str(row.data(1, 32).toString())==expectVer:
-                  break
-            self.useSelectedPackage()
-         else:
-            foundPackage = False
-            self.stackedDisplay.setCurrentIndex(1)
-            QMessageBox.warning(self, tr("Not Found"), tr("""
-               Armory could not determine an appropriate download for
-               your operating system.  You will have to manually select
-               the correct download on the next window."""), QMessageBox.Ok)
-      else:
-         self.stackedDisplay.setCurrentIndex(1)
+      # This is currently broken... will have to fix later
+      #if showPackage:
+         #for n in range(0, packages.topLevelItemCount()):
+            #row = packages.topLevelItem(n)
+            #if str(row.data(0, 32).toString())==showPackage:
+               #packages.setCurrentItem(row)
+               #if not expectVer or str(row.data(1, 32).toString())==expectVer:
+                  #break
+            #self.useSelectedPackage()
+         #else:
+            #foundPackage = False
+
+      self.stackedDisplay.setCurrentIndex(1)
+      QMessageBox.warning(self, tr("Not Found"), tr("""
+         Armory could not determine an appropriate download for
+         your operating system.  You will have to manually select
+         the correct download on the next window."""), QMessageBox.Ok)
+      #else:
+         #self.stackedDisplay.setCurrentIndex(1)
 
 
       self.setLayout(layout)
@@ -583,7 +578,7 @@ class UpgradeDownloaderDialog(ArmoryDialog):
       pkgver = tr(pkgver)
       osname = tr(self.itemData(self.os))
       osver  = tr(self.itemData(self.osver))
-      osarch = tr(self.itemData(self.osarch))
+      osarch = self.itemData(self.osarch)
       inst   = os.path.basename(pkgurl)
       QMessageBox.information(self, tr('Package Information'), tr("""
          Download information for <b>%(pkgname)s version %(pkgver)s:</b>
@@ -591,7 +586,7 @@ class UpgradeDownloaderDialog(ArmoryDialog):
          <ul>
             <li><u><b>Operating System</b></u>:</li>  
             <ul>
-               <li>%(osname)s %(osver)s %(osarch)s</li>
+               <li>%(osname)s %(osver)s %(osarch)s-bit</li>
             </ul>
             <li><u><b>Installer Filename</b></u>:</li>  
             <ul>

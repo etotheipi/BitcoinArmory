@@ -17,7 +17,7 @@ from qtdefines import USERMODE, GETFONT, tr, AddToRunningDialogsList
 from armoryengine.PyBtcWallet import PyBtcWallet
 from CppBlockUtils import SecureBinaryData
 from armoryengine.BDM import TheBDM
-from qtdialogs import DlgExecLongProcess, DlgConfirmSend
+from qtdialogs import DlgProgress, DlgConfirmSend
 
 # This class is intended to be an abstract Wizard class that
 # will hold all of the functionality that is common to all 
@@ -98,8 +98,8 @@ class WalletWizard(ArmoryWizard):
       self.hasCWOWPage = False
       if self.main.usermode==USERMODE.Expert or not self.main.internetAvail:
          self.hasCWOWPage = True
-         self.createWatchingOnlyWalletPage = CreateWatchingOnlyWalletPage(self)
-         self.addPage(self.createWatchingOnlyWalletPage)
+         self.createWOWPage = CreateWatchingOnlyWalletPage(self)
+         self.addPage(self.createWOWPage)
 
       self.setButtonLayout([QWizard.BackButton,
                             QWizard.Stretch,
@@ -111,8 +111,8 @@ class WalletWizard(ArmoryWizard):
       if self.currentPage() == self.verifyPassphrasePage:
          self.verifyPassphrasePage.setPassphrase(
                self.setPassphrasePage.pageFrame.getPassphrase())
-      elif self.hasCWOWPage and self.currentPage() == self.createWatchingOnlyWalletPage:
-         self.createWatchingOnlyWalletPage.pageFrame.setWallet(self.newWallet)
+      elif self.hasCWOWPage and self.currentPage() == self.createWOWPage:
+         self.createWOWPage.pageFrame.setWallet(self.newWallet)
          
       if self.currentPage() == self.walletBackupPage:
          self.createNewWalletFromWizard()
@@ -162,8 +162,10 @@ class WalletWizard(ArmoryWizard):
       self.newWallet.unlock(securePassphrase=
                SecureBinaryData(self.setPassphrasePage.pageFrame.getPassphrase()))
       # We always want to fill the address pool, right away.  
-      fillpool = lambda: self.newWallet.fillAddressPool(doRegister=False)
-      DlgExecLongProcess(fillpool, 'Creating Wallet...', self, self).exec_()
+      fillPoolProgress = DlgProgress(self, self.main, HBar=1, \
+                                     Title="Creating Wallet") 
+      fillPoolProgress.exec_(self.newWallet.fillAddressPool, doRegister=False,
+                             Progress=fillPoolProgress.UpdateHBar)
 
       # Reopening from file helps make sure everything is correct -- don't
       # let the user use a wallet that triggers errors on reading it
@@ -176,7 +178,7 @@ class WalletWizard(ArmoryWizard):
          self.main.newWalletList.append([walletFromDisk, True])
    
    def cleanupPage(self, *args, **kwargs):
-      if self.currentPage() == self.createWatchingOnlyWalletPage:
+      if self.hasCWOWPage and self.currentPage() == self.createWOWPage:
          self.setButtonLayout([QWizard.Stretch,
                                QWizard.NextButton,
                                QWizard.FinishButton])

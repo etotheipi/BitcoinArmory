@@ -79,7 +79,6 @@ def pprintScript(binScript, nIndent=0):
    for op in opList:
       print indstr + indent + op
 
-
 def serializeBytesWithPushData(binObj):
    sz = len(binObj) 
    if sz <= 76:
@@ -93,6 +92,29 @@ def serializeBytesWithPushData(binObj):
       return '\x4d' + lenBytes + binObj
    else:
       InvalidScriptError('Cannot use PUSHDATA for len(obj)>65536')
+
+class ScriptBuilder(object):
+   def __init__(self):
+      self.opList = []
+
+   def addOpCode(self, opStr):
+      self.opList.append(getOpCode(opStr))
+      
+   def pushData(self, data):
+      if data.startswith('OP_'):
+         LOGWARN('Looks like you accidentally called pushData instead of addOpCode')
+         LOGWARN('Pushing data: ' + data)
+      self.opList.append(serializeBytesWithPushData(data))
+
+   def getBinaryScript(self):
+      return ''.join(self.opList)
+
+   def getHexScript(self):
+      return binary_to_hex(''.join(self.opList))
+
+   def getHumanScript(self):
+      # Human-readable
+      return ' '.join(convertScriptToOpStrings(self.getBinaryScript()))
       
 
 TX_INVALID = 0

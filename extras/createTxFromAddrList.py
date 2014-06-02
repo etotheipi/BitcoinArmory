@@ -173,7 +173,7 @@ if __name__ == '__main__':
    print txdp.checkTxHasEnoughSignatures(alsoVerify=True)
    
    print 'Preparing final transaction...'
-   pytx = txdp.prepareFinalTx()
+   pytx = txdp.getPyTxSignedIfPossible()
 
    print '\nRaw transaction (pretty):'
    pprintHex(binary_to_hex(pytx.serialize()))

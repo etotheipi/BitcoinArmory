@@ -16,15 +16,15 @@ from subprocess import Popen, PIPE
 
 # Set some constants up front
 #swigBinVer = '2.0.12'
-pythonVer  = '2.7.5'
+pythonVer  = '2.7.6'
 setToolVer = '2.1.2'
 pipVer     = '1.5.2'
 psutilVer  = '1.2.1'
 twistedVer = '13.2.0'
 libpngVer  = '1.6.8'
-qtVer      = '4.8.5'
-sipVer     = '4.15.4'
-pyQtVer    = '4.10.3'
+qtVer      = '4.8.6'
+sipVer     = '4.15.5' # NB: I'm occasionally forced to upgrade alongside PyQt.
+pyQtVer    = '4.10.4' # NB: When I'm upgraded, SIP usually has to be upgraded too.
 LOGFILE    = 'build-app.log.txt'
 LOGPATH    = path.abspath( path.join(os.getcwd(), LOGFILE))
 ARMORYDIR  = '..'
@@ -75,11 +75,11 @@ def main():
       
    # For git repos, the "ID" is branch name.  Otherwise, its' the md5sum 
    for pkgname, fname, url, ID in distfiles:
-      # Skip download Qt-git if downloading Qt, and vice versa
       logprint('\n\n')
-      if((pkgname.lower()=='qt-git' and     CLIOPTS.precompiledQt) or \
-         (pkgname.lower()=='qt'     and not CLIOPTS.precompiledQt)     ):
-         continue
+      # Skip download of Qt-git if downloading Qt, and vice versa.
+      #if((pkgname.lower()=='qt-git' and     CLIOPTS.precompiledQt) or \
+      #   (pkgname.lower()=='qt'     and not CLIOPTS.precompiledQt)     ):
+      #   continue
       downloadPkg(pkgname, fname, url, ID)
 
    logprint("\n\nALL DOWNLOADS COMPLETED.\n\n")
@@ -99,6 +99,7 @@ def main():
    cleanup_app()
    # Force Finder to update the Icon
    execAndWait("touch " + APPDIR)
+   make_targz()
 
 ################################################################################
 # Write the string to both console and log file
@@ -223,9 +224,14 @@ def getTarUnpackPath(tarName, inDir=None):
    if inDir is not None:
       tarPath = path.join(inDir, tarName)
 
-   tar = tarfile.open(tarPath,'r')
-   theDir = tar.next().name.split('/')[0]
-   tar.close()
+   # HACK: XZ support was added to tarfile.open() in Python 3.3. Can't use for
+   # now, so we'll have to apply a hack to get around this.
+   if tarName == "Python-%s.tar.xz" % pythonVer:
+      theDir = "Python-%s" % pythonVer
+   else:
+      tar = tarfile.open(tarPath,'r')
+      theDir = tar.next().name.split('/')[0]
+      tar.close()
    return theDir
 
 ################################################################################
@@ -241,7 +247,7 @@ def unpack(tarName, fromDir=DLDIR, toDir=UNPACKDIR, overwrite=False):
    if not path.exists(toDir):
       os.mkdir(toDir)
 
-   # Use tarfile module to pick out the base dir u
+   # Use tarfile module to pick out the base dir.
    extractPath = getTarUnpackPath(tarName, fromDir)
    extractPath = path.join(toDir, extractPath)
    if path.exists(extractPath):
@@ -255,6 +261,8 @@ def unpack(tarName, fromDir=DLDIR, toDir=UNPACKDIR, overwrite=False):
       execAndWait('tar -zxf %s -C %s' % (tardl, toDir))
    elif tarName.endswith('tar.bz2') or tarName.endswith('tbz'):
       execAndWait('tar -jxf %s -C %s' % (tardl, toDir))
+   elif tarName.endswith('tar.xz') or tarName.endswith('xz'):
+      execAndWait('tar -Jxf %s -C %s' % (tardl, toDir))
    else:
       raise RuntimeError('Not a recognized tar name')
    newStuff = []
@@ -293,6 +301,9 @@ def downloadPkg(pkgname, fname, url, ID, toDir=DLDIR):
    # Start the download if needed
    if doDL:
       if isGitRepo:
+         # NB: The "git checkout" line appears to be temporarily broken. As of
+         # May 2014, we're passing in "4.8" for Qt. The actual repository is
+         # "qt" but the default branch is "4.8", so we're okay. Clean up later?
          logprint('Cloning "%s" to "%s"' % (url, clonedir))
          execAndWait('git clone %s' % url, cwd=toDir)
          execAndWait('git checkout %s' % ID) 
@@ -304,9 +315,9 @@ def downloadPkg(pkgname, fname, url, ID, toDir=DLDIR):
 # (Name, filename, url, sha-1 or None)
 distfiles = []
 distfiles.append( [ 'Python', \
-                    "Python-%s.tar.bz2" % pythonVer, \
-                    "http://python.org/ftp/python/%s/Python-%s.tar.bz2" % (pythonVer, pythonVer), \
-                    "6cfada1a739544a6fa7f2601b500fba02229656b" ] )
+                    "Python-%s.tar.xz" % pythonVer, \
+                    "http://python.org/ftp/python/%s/Python-%s.tar.xz" % (pythonVer, pythonVer), \
+                    "8321636af2acbeaa68fc635d7dda7369ed446a80" ] )
 
 distfiles.append( [ 'setuptools', \
                     "setuptools-%s.tar.gz" % setToolVer, \
@@ -344,26 +355,28 @@ distfiles.append( [ 'libpng', \
 #                    "http://download.qt-project.org/official_releases/qt/5.2/5.2.1/single/qt-everywhere-opensource-src-5.2.1.tar.gz", \
 #                    "31a5cf175bb94dbde3b52780d3be802cbeb19d65" ] )
 
-# Pre-packaged source not used for now. Use Git instead.
+# Pre-packaged source can lag a bit but provides for more consistent user
+# support. Use pre-packaged source instead of Git whenever possible.
 distfiles.append( [ "Qt", \
                     "qt-everywhere-opensource-src-%s.tar.gz" % qtVer, \
                     "http://download.qt-project.org/official_releases/qt/4.8/%s/qt-everywhere-opensource-src-%s.tar.gz" % (qtVer, qtVer), \
                     "745f9ebf091696c0d5403ce691dc28c039d77b9e" ] )
 
+# Skipping Git for now.
 #distfiles.append( [ "Qt-git", \
 #                    "qt5_git_repo.tar.gz", \
 #                    'git://gitorious.org/qt/qt5.git',
 #                    'stable' ] )
 
-distfiles.append( [ "Qt-git", \
-                    "qt4_git_repo.tar.gz", \
-                    'git://gitorious.org/qt/qt.git',
-                    '4.8' ] )
+#distfiles.append( [ "Qt-git", \
+#                    "qt4_git_repo.tar.gz", \
+#                    'git://gitorious.org/qt/qt.git',
+#                    '4.8' ] )
 
 distfiles.append( [ "Webkit-for-Qt", \
                     "libWebKitSystemInterfaceMavericks.a", \
-                    "http://trac.webkit.org/export/162166/trunk/WebKitLibraries/libWebKitSystemInterfaceMavericks.a", \
-                    "bb071fb69cad0cec1f2ecb082ee34f44bd76ac93" ] )
+                    "http://trac.webkit.org/export/167824/trunk/WebKitLibraries/libWebKitSystemInterfaceMavericks.a", \
+                    "ca6a8292cf0e0c44b38e3916e56139cff2a41ae7" ] )
 
 #distfiles.append( [ "Qt-p1", \
                     #"Ie9a72e3b.patch", \
@@ -430,13 +443,8 @@ def compile_python():
 
    # make
    execAndWait('make %s' % MAKEFLAGS, cwd=bldPath)
-   pyexe = path.join(APPDIR, 'Contents/MacOS/Python')
-
-   # make install
-   srcDir = path.join(INSTALLDIR, 'Build Applet.app/Contents/MacOS/Python')
-   dstDir = path.join(APPDIR, 'Contents/MacOS')
+   # pyexe = path.join(APPDIR, 'Contents/MacOS/Python')
    execAndWait('make install PYTHONAPPSDIR=%s' % INSTALLDIR, cwd=bldPath)
-   execAndWait('cp -p "%s" %s' % (srcDir, dstDir), cwd=bldPath)
 
    # Update $PATH var
    newPath = path.join(PYPREFIX, 'bin')
@@ -481,10 +489,11 @@ def compile_qt():
    # qtBuildDir.   Then we will build inside the qtBuildDir, using qtInstDir 
    # as the prefix.
    qtDLDir    = path.join(DLDIR, 'qt')
-   qtBuildDir = path.join(UNPACKDIR, 'qt')
+   qtBuildDir = path.join(UNPACKDIR, 'qt-everywhere-opensource-src-%s' % qtVer)
    qtInstDir  = path.join(INSTALLDIR, 'qt')
-   qtTarFile   = path.join(DLDIR, 'qt4_git_repo.tar.gz')
-#   qtTarFile   = path.join(DLDIR, 'qt5_git_repo.tar.gz')
+   qtTarFile   = path.join(DLDIR, 'qt-everywhere-opensource-src-%s.tar.gz' % qtVer)
+   #qtTarFile   = path.join(DLDIR, 'qt4_git_repo.tar.gz')
+   #qtTarFile   = path.join(DLDIR, 'qt5_git_repo.tar.gz')
 
    # If we did a fresh download, it's already uncompressed in DLDir.  Move it
    # to where it should be in the UNPACKDIR
@@ -498,22 +507,23 @@ def compile_qt():
    if not path.exists(qtBuildDir):
       if not path.exists(qtTarFile):
          raise RuntimeError('*** ERROR: No cloned repo and no tar file...? ***')
-      logprint('Unpacking qt repo from tarfile')
-      logprint('Remove qt4_git_repo.tar.gz to re-clone HEAD')
-#      logprint('Remove qt5_git_repo.tar.gz to re-clone HEAD')
-      gitdir = unpack(tarfilesToDL['Qt-git'])
+      logprint('Unpacking Qt from tarfile')
+      qtBuildDir = unpack(tarfilesToDL['Qt'])
+      #logprint('Remove qt4_git_repo.tar.gz to re-clone HEAD')
+      #logprint('Remove qt5_git_repo.tar.gz to re-clone HEAD')
    elif not path.exists(qtTarFile):
-      logprint('Tarring downloaded repo for future use')
+      # Useful only if we're grabbing Qt from Git.
+      logprint('Tarring downloaded repo for future use.')
       execAndWait('tar -zcf %s qt' % qtTarFile, cwd=UNPACKDIR)
 
-   # Webkit-for-Qt is not a tar archive, it's actually just a single .a file
+   # Webkit-for-Qt is not a tar archive. It's actually just a single .a file.
    webkita = tarfilesToDL['Webkit-for-Qt']
    src = path.join(DLDIR, webkita)
    dst = path.join(qtBuildDir, 'src/3rdparty/webkit/WebKitLibraries', webkita)
    copyfile(src, dst)
    #for patch in ['Qt-p1', 'Qt-p2', 'Qt-p3']:
    #   execAndWait('patch -p1 < ../../downloads/' + tarfilesToDL[patch], cwd=qtBuildDir)
-   execAndWait('patch -p1 < ../../../qt-maverick-stability.patch', cwd=qtBuildDir)
+   #execAndWait('patch -p1 < ../../../qt-maverick-stability.patch', cwd=qtBuildDir)
 
    ##### Configure
    command  = './configure -prefix "%s" -system-zlib -confirm-license -opensource ' 
@@ -531,11 +541,12 @@ def compile_qt():
 
 ################################################################################
 def install_qt():
-   if CLIOPTS.precompiledQt:
-      logprint('Unpacking precompiled Qt.')
-      qtdir = unpack(tarfilesToDL['Qt'])
-      raise RuntimeError('Using precompiled Qt is not supported, yet')
-   else:
+   # We really don't need this arg for now, but maybe it'll be useful later?
+   #if CLIOPTS.precompiledQt:
+   #   logprint('Unpacking precompiled Qt.')
+   #   qtdir = unpack(tarfilesToDL['Qt'])
+   #   raise RuntimeError('Using precompiled Qt is not supported yet.')
+   #else:
       if not path.exists(QTBUILTFLAG):
          compile_qt()
          execAndWait('touch %s' % QTBUILTFLAG)
@@ -547,13 +558,13 @@ def install_qt():
       # Run of this script, so all "make install" steps need to be re-run
       qtInstDir  = path.join(INSTALLDIR, 'qt')
       qtBinDir = path.join(qtInstDir, 'bin')
-      qtBuildDir = path.join(UNPACKDIR, 'qt')
+      qtBuildDir = path.join(UNPACKDIR, 'qt-everywhere-opensource-src-%s' % qtVer)
 
       qtconf = path.join(qtBinDir, 'qt.conf')
       execAndWait('make install', cwd=qtBuildDir)
 
       newcwd = path.join(APPDIR, 'Contents/Frameworks')
-      for mod in ['QtCore', 'QtGui', 'QtXml']:
+      for mod in ['QtCore', 'QtGui', 'QtXml', 'QtNetwork']:
          src = path.join(qtInstDir, 'lib', mod+'.framework')
          dst = path.join(APPDIR, 'Contents/Frameworks', mod+'.framework')
          if path.exists(dst):
@@ -600,8 +611,8 @@ def compile_sip():
 ################################################################################
 def compile_pyqt():
    logprint('Install PyQt4')
-#   logprint('Install PyQt5')
-#   if path.exists(path.join(PYSITEPKGS, 'PyQt5')):
+   #logprint('Install PyQt5')
+   #if path.exists(path.join(PYSITEPKGS, 'PyQt5')):
    if path.exists(path.join(PYSITEPKGS, 'PyQt4')):
       logprint('Pyqt is already installed.')
    else:
@@ -672,7 +683,6 @@ def compile_armory():
 ################################################################################
 def make_resources():
    "Populate the Resources folder."
-
    cont = path.join(APPDIR, 'Contents')
    copyfile('Info.plist', cont)
 
@@ -698,6 +708,27 @@ def cleanup_app():
    remove_python_files(PYPREFIX)
    remove_python_files(path.join(APPDIR, 'Contents/MacOS/py'))
    show_app_size()
+
+################################################################################
+def make_targz():
+   ver = getVersionStr()
+   execAndWait('tar -zcf ../armory_%s_osx.tar.gz Armory.app' % ver, cwd=WORKDIR)
+
+################################################################################
+def getVersionStr():
+   with open('../armoryengine/ArmoryUtils.py') as f:
+      for line in f.readlines():
+         if line.startswith('BTCARMORY_VERSION'):
+            vstr = line[line.index('(')+1:line.index(')')]
+            vquad = tuple([int(v) for v in vstr.replace(' ','').split(',')])
+            print vquad, len(vquad)
+            vstr = '%d.%02d' % vquad[:2]
+            if (vquad[2] > 0 or vquad[3] > 0):
+               vstr += '.%d' % vquad[2]
+            if vquad[3] > 0:
+               vstr += '.%d' % vquad[3]
+            return vstr
+
 
 ################################################################################
 def show_app_size():
