@@ -3972,7 +3972,7 @@ class ArmoryMainWindow(QMainWindow):
 
       pytx = None
       txHashBin = hex_to_binary(txHash)
-      cppTx = TheBDM.getTxByHash(txHashBin)
+      cppTx = TheBDM.runBDM( lambda : TheBDM.bdm.getTxByHash(txHashBin) )
       if cppTx.isInitialized():
          pytx = PyTx().unserialize(cppTx.serialize())
 

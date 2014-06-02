@@ -10,7 +10,7 @@ struct BDM_Inject::BDM_Inject_Impl
 {
    pthread_mutex_t notifierLock;
    pthread_cond_t notifier;
-   bool hasSomething;
+   bool wantsToRun;
 };
 
 BDM_Inject::BDM_Inject()
@@ -18,7 +18,7 @@ BDM_Inject::BDM_Inject()
    pimpl = new BDM_Inject_Impl;
    pthread_mutex_init(&pimpl->notifierLock, 0);
    pthread_cond_init(&pimpl->notifier, 0);
-   pimpl->hasSomething = false;
+   pimpl->wantsToRun = false;
 }
 
 BDM_Inject::~BDM_Inject()
@@ -31,7 +31,7 @@ BDM_Inject::~BDM_Inject()
 void BDM_Inject::notify()
 {
    pthread_mutex_lock(&pimpl->notifierLock);
-   pimpl->hasSomething=true;
+   pimpl->wantsToRun=true;
    pthread_cond_signal(&pimpl->notifier);
    pthread_mutex_unlock(&pimpl->notifierLock);
 }
@@ -43,7 +43,7 @@ void BDM_Inject::wait(unsigned ms)
    abstime += ms;
    
    pthread_mutex_lock(&pimpl->notifierLock);
-   while (!pimpl->hasSomething)
+   while (!pimpl->wantsToRun)
    {
       pthread_cond_timedwait(&pimpl->notifier, &pimpl->notifierLock, &abstime); 
       
@@ -51,6 +51,10 @@ void BDM_Inject::wait(unsigned ms)
       if (latertime >= abstime)
          break;
    }
+   if (pimpl->wantsToRun)
+      run();
+   pimpl->wantsToRun=false;
+   pthread_cond_signal(&pimpl->notifier);
    pthread_mutex_unlock(&pimpl->notifierLock);
 #else
    struct timeval abstime;
@@ -58,7 +62,7 @@ void BDM_Inject::wait(unsigned ms)
    abstime.tv_sec += ms/1000;
    
    pthread_mutex_lock(&pimpl->notifierLock);
-   while (!pimpl->hasSomething)
+   while (!pimpl->wantsToRun)
    {
       struct timespec abstimets;
       abstimets.tv_sec = abstime.tv_sec;
@@ -70,8 +74,23 @@ void BDM_Inject::wait(unsigned ms)
       if (latertime.tv_sec >= abstime.tv_sec && latertime.tv_usec >= abstime.tv_usec)
          break;
    }
+   if (pimpl->wantsToRun)
+      run();
+   pimpl->wantsToRun=false;
+   pthread_cond_signal(&pimpl->notifier);
    pthread_mutex_unlock(&pimpl->notifierLock);
 #endif
+
+}
+
+void BDM_Inject::waitRun()
+{
+   pthread_mutex_lock(&pimpl->notifierLock);
+   while (pimpl->wantsToRun)
+   {
+      pthread_cond_wait(&pimpl->notifier, &pimpl->notifierLock); 
+   }
+   pthread_mutex_unlock(&pimpl->notifierLock);
 }
 
 struct BlockDataManagerThread::BlockDataManagerThreadImpl

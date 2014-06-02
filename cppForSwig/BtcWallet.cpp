@@ -1041,7 +1041,7 @@ vector<LedgerEntry>
 {
    SCOPED_TIMER("BtcWallet::getTxLedger");
 
-   if (bdmPtr_->config().armoryDbType == ARMORY_DB_SUPER)
+//   if (bdmPtr_->config().armoryDbType == ARMORY_DB_SUPER)
    {
       vector<LedgerEntry> ledgerEntries;
       ts_saMap::const_snapshot saSnapshot(scrAddrMap_);
@@ -1068,10 +1068,10 @@ vector<LedgerEntry>
       }
       return ledgerEntries;
    }
-   else
+/*   else
    {
-		if(!scraddr)
-			return ledgerAllAddr_;
+      if(!scraddr)
+         return ledgerAllAddr_;
 
       ts_saMap::const_snapshot saSS(scrAddrMap_);
       if(saSS.find(*scraddr) == saSS.end())
@@ -1082,6 +1082,7 @@ vector<LedgerEntry>
          return sa.getTxLedger();
       }
    }
+*/
 }
 
 ////////////////////////////////////////////////////////////////////////////////

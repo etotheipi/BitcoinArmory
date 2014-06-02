@@ -5810,12 +5810,12 @@ def extractTxInfo(pytx, rcvTime=None):
 
    txcpp = Tx()
    if TheBDM.getState() == 'BlockchainReady':
-      txcpp = TheBDM.getTxByHash(txHash)
+      txcpp = TheBDM.runBDM( lambda : TheBDM.bdm.getTxByHash(txHash) )
       if txcpp.isInitialized():
          hgt = txcpp.getBlockHeight()
-         if hgt < TheBDM.queued( lambda : TheBDM.bdm.blockchain().top().getBlockHeight()):
-            headref = TheBDM.queued( lambda : TheBDM.bdm.blockchain().getHeaderByHeight(hgt))
-            txTime = unixTimeToFormatStr(TheBDM.queued( lambda : headref.getTimestamp() ))
+         if hgt < TheBDM.runBDM( lambda : TheBDM.bdm.blockchain().top().getBlockHeight()):
+            headref = TheBDM.runBDM( lambda : TheBDM.bdm.blockchain().getHeaderByHeight(hgt))
+            txTime = unixTimeToFormatStr(TheBDM.runBDM( lambda : headref.getTimestamp() ))
             txBlk = headref.getBlockHeight()
             txIdx = txcpp.getBlockTxIndex()
          else:
@@ -5839,11 +5839,11 @@ def extractTxInfo(pytx, rcvTime=None):
          txinFromList.append([])
          cppTxin = txcpp.getTxInCopy(i)
          prevTxHash = cppTxin.getOutPoint().getTxHash()
-         if TheBDM.getTxByHash(prevTxHash).isInitialized():
-            prevTx = TheBDM.queued( lambda : TheBDM.bdm.getPrevTx(cppTxin))
+         if TheBDM.runBDM( lambda : TheBDM.bdm.getTxByHash(prevTxHash) ).isInitialized():
+            prevTx = TheBDM.runBDM( lambda : TheBDM.bdm.getPrevTx(cppTxin))
             prevTxOut = prevTx.getTxOutCopy(cppTxin.getOutPoint().getTxOutIndex())
-            txinFromList[-1].append(TheBDM.queued( lambda : TheBDM.bdm.getSenderScrAddr(cppTxin)))
-            txinFromList[-1].append(TheBDM.queued( lambda : TheBDM.bdm.getSentValue(cppTxin)))
+            txinFromList[-1].append(TheBDM.runBDM( lambda : TheBDM.bdm.getSenderScrAddr(cppTxin)))
+            txinFromList[-1].append(TheBDM.runBDM( lambda : TheBDM.bdm.getSentValue(cppTxin)))
             if prevTx.isInitialized():
                txinFromList[-1].append(prevTx.getBlockHeight())
                txinFromList[-1].append(prevTx.getThisHash())
@@ -6115,7 +6115,7 @@ class DlgDispTxInfo(ArmoryDialog):
             lbls[-1].append(QLabel('Included in Block:'))
             lbls[-1].append(QRichLabel(str(data[FIELDS.Blk]) + idxStr))
             if TheBDM.getState() == 'BlockchainReady':
-               nConf = TheBDM.queued( lambda : TheBDM.bdm.blockchain().top().getBlockHeight()) - data[FIELDS.Blk] + 1
+               nConf = TheBDM.runBDM( lambda : TheBDM.bdm.blockchain().top().getBlockHeight()) - data[FIELDS.Blk] + 1
                lbls.append([])
                lbls[-1].append(self.main.createToolTipWidget(
                      'The number of blocks that have been produced since '

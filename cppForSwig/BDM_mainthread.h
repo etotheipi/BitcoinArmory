@@ -28,6 +28,7 @@ public:
    
    BDM_Inject();
    virtual ~BDM_Inject();
+   
    virtual void run()=0;
    
    // instruct the BDM to wake up and call run() ASAP
@@ -36,6 +37,10 @@ public:
    // Block for 'ms' milliseconds or until someone
    // notify()es me
    void wait(unsigned ms);
+   
+   // once notify() is called, only returns on your
+   // thread after run() is called
+   void waitRun();
 };
 
 class BlockDataManager_LevelDB;

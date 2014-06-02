@@ -43,17 +43,32 @@ class PySide_CallBack(Cpp.BDM_CallBack):
 class BDM_Inject(Cpp.BDM_Inject):
    def __init__(self):
       Cpp.BDM_Inject.__init__(self)
+      self.command = None
+      self.response = None
+      self.hasResponse = False
       
    def run(self):
-      pass
-      # in here, run anything that's queued up
-      # (this runs from inside the BDM thread)
+      try:
+         if self.command:
+            cmd = self.command
+            self.command = None
+            self.response = cmd()
+            self.hasResponse = True
+      except:
+         LOGEXCEPT('Error in running thread callback')
+         print sys.exc_info()
 
+   def runCommand(self, fn):
+      self.hasResponse = False
+      self.command = fn
       
-#register callbacks
-callback = PySide_CallBack().__disown__()
-inject = BDM_Inject().__disown__()
-
+      while not self.hasResponse:
+         self.notify()
+         self.waitRun();
+      res = self.response
+      self.response=None
+      return res
+      
 def getCurrTimeAndBlock():
    time0 = long(RightNowUTC())
    return (time0, TheBDM.getCurrBlock())
@@ -197,6 +212,10 @@ class BlockDataManager(object):
          self.blkMode  = BLOCKCHAINMODE.Uninitialized
          self.prefMode = BLOCKCHAINMODE.Full
 
+      #register callbacks
+      self.callback = PySide_CallBack().__disown__()
+      self.inject = BDM_Inject().__disown__()
+
       self.bdmThread = None
       self.bdm = None
 
@@ -232,7 +251,7 @@ class BlockDataManager(object):
    #############################################################################
    def goOnline(self, flag):
       if flag == True:
-         self.bdmThread.start(self.bdmMode(), callback, inject)
+         self.bdmThread.start(self.bdmMode(), self.callback, self.inject)
          self.bdmState = 'Scanning'
 
    #############################################################################
@@ -307,8 +326,8 @@ class BlockDataManager(object):
          if isinstance(self.ldbdir, unicode):
             leveldbdir = self.ldbdir.encode('utf8')
 
-            
       bdmConfig = Cpp.BlockDataManagerConfig()
+      #bdmConfig.armoryDbType = Cpp.ARMORY_DB_SUPER
       bdmConfig.armoryDbType = Cpp.ARMORY_DB_BARE
       bdmConfig.pruneType = Cpp.DB_PRUNE_NONE
       bdmConfig.homeDirLocation = armory_homedir
@@ -367,7 +386,9 @@ class BlockDataManager(object):
          raise
          return [-1,-1,-1,-1]
             
-   #############################################################################
+   ################
+   
+   #############################################################
    def isDirty(self):
       return self.bdm.isDirty()
 
@@ -392,7 +413,10 @@ class BlockDataManager(object):
    def execCleanShutdown(self):
       self.bdm.resetRegisteredWallets()
       self.bdmThread.shutdown()
-      
+   
+   def runBDM(self, fn):
+      return self.inject.runCommand(fn)
+   
 ################################################################################
 # Make TheBDM reference the asyncrhonous BlockDataManager wrapper if we are 
 # running 
