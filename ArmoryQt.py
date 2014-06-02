@@ -6177,27 +6177,33 @@ class ArmoryMainWindow(QMainWindow):
       return lbl
 
    #############################################################################
-   def createAddressEntryWidgets(self, parent, titleText='Recipient:', **cabbKWArgs):
+   def createAddressEntryWidgets(self, parent, initString='', **cabbKWArgs):
       """
-      Returns five widgets that can be put into layouts:
-         [[Label: Address #3]] [[QLineEdit: addr/pubkey]] [[Button: Addrbook]]
-                               [[Label: If pubkey entry, show addr]]
-                               [[Label: Wallet/Lockbox autodetect]]
+      Returns four widgets that can be put into layouts:
+         [[QLineEdit: addr/pubkey]]              [[Button: Addrbook]]
+         [[Label: If pubkey/lockbox, show addr]]
+         [[Label: Wallet/Lockbox autodetect]]
       """
 
-      widgOut = {}
-      widgOut['LabelTitle']   = QRichLabel(titleText)
-      widgOut['LineEditAddr'] = QLineEdit()
-      widgOut['BtnAddrBook']  = createAddrBookButton( parent, 
-                        widgOut['LineEditAddr'], defaultWlt, **cabbKWArgs)
-      widgOut['LabelDetectAddr'] = QRichLabel('')
-      widgOut['LabelDetectWlt']  = QRichLabel('')
+      addrEntryObjs = {}
+      addrEntryObjs['QLE_ADDR'] = QLineEdit()
+      addrEntryObjs['QLE_ADDR'].setText(initString)
+      addrEntryObjs['BTN_BOOK']  = createAddrBookButton(parent, 
+                                                        addrEntryObjs['QLE_ADDR'], 
+                                                        **cabbKWArgs)
+      addrEntryObjs['LBL_DETECTADDR'] = QRichLabel('')
+      addrEntryObjs['LBL_DETECTWLT']  = QRichLabel('')
 
       ##########################################################################
-      # Connect the address-entry QLineEdit to labels that show addrs/wlts/lbs
+      # Create a function that reads the user string and updates labels if 
+      # the entry is recognized.  This will be used to automatically show the
+      # user that what they entered is recognized and gives them more info
+      # 
+      # It's a little awkward to put this whole thing in here... this could
+      # probably use some refactoring
       def updateAddrDetectLabels():
          try:
-            addrtext = str(widgOut['LineEditAddr'].text()).strip()
+            addrtext = str(addrEntryObjs['QLE_ADDR'].text()).strip()
             
             if addrStr_is_p2sh(addrtext):
                lboxID = self.getLockboxByP2SHAddrStr(addrtext) 
@@ -6207,70 +6213,89 @@ class ArmoryMainWindow(QMainWindow):
             if lboxID:
                lbox = self.getLockboxByID(lboxID)
                if lbox:
-                  dispStr = '<b>Lockbox: %s-of-%s</b>: "%s" (%s)' % \
-                                      (lbox.M, lbox.N, lbox.shortName, lboxID)
+                  dispStr = '<b>Lockbox: %s-of-%s</b>: "%s"' % \
+                                      (lbox.M, lbox.N, lbox.shortName)
                else:
                   dispStr = 'Unrecognized Lockbox'
    
-               self.widgetTable[idx][idCol].setVisible(True)
-               widgOut['LabelDetectWlt'].setText(dispStr, color='TextBlue')
-               widgOut['LabelDetectWlt'].setVisible(True)
+               addrEntryObjs['LBL_DETECTWLT'].setText(dispStr, color='TextBlue')
+               addrEntryObjs['LBL_DETECTWLT'].setVisible(True)
 
                if addrStr_is_p2sh(addrtext):
-                  widgOut['LabelDetectAddr'].setVisible(False)
+                  addrEntryObjs['LBL_DETECTADDR'].setVisible(False)
                else:
-                  p2shStr = scrAddr_to_addrStr(lbox.scrAddr)
-                  widgOut['LabelDetectAddr'].setText(p2shStr, color='TextBlue')
-                  widgOut['LabelDetectAddr'].setVisible(True)
+                  p2shStr = scrAddr_to_addrStr(lbox.p2shScrAddr)
+                  addrEntryObjs['LBL_DETECTADDR'].setText(p2shStr)
+                  addrEntryObjs['LBL_DETECTADDR'].setVisible(True)
                return
    
-            isPubKey = (len(addrtext)==130)
-            if isPubKey:
+            # Not a lockbox... could be addrStr or pubkey.  If pubkey, show the
+            # equiv addrStr below it. Either way, check if recognize its wltID
+            isPubKey = (len(addrtext) in [66, 130])
+            if not isPubKey:
+               wltID = self.getWalletForAddr160(addrStr_to_hash160(addrtext)[1])
+               addrEntryObjs['LBL_DETECTADDR'].setVisible(False)
+            else:
                a160 = hash160(hex_to_binary(addrtext))
                wltID = self.getWalletForAddr160(a160)
-            else:
-               wltID = self.getWalletForAddr160(addrStr_to_hash160(addrtext)[1])
 
+               # Regardless of whether we recognize the pubkey, show its addrStr
+               pubAddrStr = hash160_to_addrStr(a160)
+               addrEntryObjs['LBL_DETECTADDR'].setText(pubAddrStr)
+               addrEntryObjs['LBL_DETECTADDR'].setVisible(True)
+
+
+            # wltID is None/'' if none of the loaded wallets contain this addr
             if wltID:
                wlt = self.walletMap[wltID]
                dispStr = '%s (%s)' % (wlt.labelName, wlt.uniqueIDB58)
-               self.widgetTable[idx][idCol].setVisible(True)
-               self.widgetTable[idx][idCol].setText(dispStr, color='TextBlue')
-
-               if isPubKey:
-                  addrstr = hash160_to_addrStr(hash160(hex_to_binary(addrtext)))
-                  widgOut['LabelDetectAddr'].setText(addrstr, color='TextBlue')
-                  widgOut['LabelDetectAddr'].setVisible(True)
-               else:
-                  widgOut['LabelDetectAddr'].setVisible(False)
-
-               return
-   
-            # It's a valid str but not a wlt or lockbox we recog
-            widgOut['LabelDetectAddr'].setVisible(False)
-            widgOut['LabelDetectWlt'].setVisible(False)
+               addrEntryObjs['LBL_DETECTWLT'].setVisible(True)
+               addrEntryObjs['LBL_DETECTWLT'].setText(dispStr, color='TextBlue')
+            else:
+               addrEntryObjs['LBL_DETECTWLT'].setVisible(False)
 
          except:
             LOGEXCEPT('Invalid recipient string')
-            widgOut['LabelDetectAddr'].setVisible(False)
-            widgOut['LabelDetectWlt'].setVisible(False)
-      # End 
+            addrEntryObjs['LBL_DETECTADDR'].setVisible(False)
+            addrEntryObjs['LBL_DETECTWLT'].setVisible(False)
+      # End function to be connected
       ##########################################################################
             
-      # Now actually connect them
-      parent.connect(widgOut['LineEditAddr'], SIGNAL('textChanged(QString)'), 
+      # Now actually connect the entry widgets
+      parent.connect(addrEntryObjs['QLE_ADDR'], SIGNAL('textChanged(QString)'), 
                                                          updateAddrDetectLabels)
 
+      updateAddrDetectLabels()
 
-      # We also need a function that returns information about the entered data
+      # Create a func that can be called to get the script that was entered
+      def getScript():
+         entered = str(addrEntryObjs['QLE_ADDR'].text()).strip()
+         return self.getScriptForUserString(entered)
 
-      widgOut['GetUserEntry'] = 
+      addrEntryObjs['CALLBACK_GETSCRIPT'] = getScript
+
+      return addrEntryObjs
 
 
 
    #############################################################################
-   def getRecipInfoForUserAddrInput(self, userStr):
-      userStr = userStr.strip()
+   def getScriptForUserString(self, userStr):
+      try:
+         userStr = userStr.strip()
+         if isBareLockbox(userStr):
+            lbox = self.getLockboxByID(readLockboxEntryStr(userStr))
+            result = lbox.binScript if lbox else None
+         elif isP2SHLockbox(userStr):
+            lbox = self.getLockboxByID(readLockboxEntryStr(userStr))
+            result = script_to_p2sh_script(lbox.binScript) if lbox else None
+         else:
+            scrAddr = addrStr_to_scrAddr(userStr)
+            result = scrAddr_to_script(scrAddr)
+
+         return result
+      except:
+         LOGEXCEPT('Invalid user string entered')
+         return None
 
 
    #############################################################################

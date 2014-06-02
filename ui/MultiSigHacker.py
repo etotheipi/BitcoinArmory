@@ -2369,6 +2369,7 @@ class DlgCreatePromNote(ArmoryDialog):
       lblBTC1    = QRichLabel(tr('BTC'))
       lblBTC2    = QRichLabel(tr('BTC'))
 
+      """
       self.edtFundTarget = QLineEdit()
       if defaultID:
          self.edtFundTarget.setText(createLockboxEntryStr(defaultID))
@@ -2382,6 +2383,17 @@ class DlgCreatePromNote(ArmoryDialog):
       self.lblTargetID = QRichLabel('')
       self.connect(self.edtFundTarget, SIGNAL('textChanged(QString)'), 
                    self.updateTargetLabel)
+      """
+      startStr = ''
+      if defaultID:
+         startStr = createLockboxEntryStr(defaultID)
+
+      aewMap = self.main.createAddressEntryWidgets(self, startStr)
+      self.edtFundTarget = aewMap['QLE_ADDR']
+      self.btnSelectTarg = aewMap['BTN_BOOK']
+      self.lblDetectAddr = aewMap['LBL_DETECTADDR']
+      self.lblDetectWlt  = aewMap['LBL_DETECTWLT']
+      self.parseEntryFunc = aewMap['CALLBACK_GETSCRIPT']
                                           
 
       self.edtAmountBTC = QLineEdit()
@@ -2419,15 +2431,16 @@ class DlgCreatePromNote(ArmoryDialog):
       gboxOutLayout.addWidget(self.edtFundTarget,    0,1, 1,5)
       gboxOutLayout.addWidget(self.btnSelectTarg,    0,6)
 
-      gboxOutLayout.addWidget(self.lblTargetID,      1,1, 1,5)
+      gboxOutLayout.addWidget(self.lblDetectAddr,    1,1, 1,5)
+      gboxOutLayout.addWidget(self.lblDetectWlt,     2,1, 1,5)
 
-      gboxOutLayout.addWidget(lblAmount,             2,0)
-      gboxOutLayout.addWidget(self.edtAmountBTC,     2,1)
-      gboxOutLayout.addWidget(lblBTC1,               2,2)
+      gboxOutLayout.addWidget(lblAmount,             3,0)
+      gboxOutLayout.addWidget(self.edtAmountBTC,     3,1)
+      gboxOutLayout.addWidget(lblBTC1,               3,2)
 
-      gboxOutLayout.addWidget(lblFee,                2,4)
-      gboxOutLayout.addWidget(self.edtFeeBTC,        2,5)
-      gboxOutLayout.addWidget(lblBTC2,               2,6)
+      gboxOutLayout.addWidget(lblFee,                3,4)
+      gboxOutLayout.addWidget(self.edtFeeBTC,        3,5)
+      gboxOutLayout.addWidget(lblBTC2,               3,6)
 
       gboxOutLayout.setColumnStretch(0, 0)
       gboxOutLayout.setColumnStretch(1, 0)
@@ -2457,7 +2470,7 @@ class DlgCreatePromNote(ArmoryDialog):
 
       self.setWindowTitle('Create Promissory Note')
 
-      self.updateTargetLabel()
+      #self.updateTargetLabel()
       self.setMinimumWidth(600)
 
 
@@ -2595,8 +2608,7 @@ class DlgCreatePromNote(ArmoryDialog):
          return False
 
       # Create the target DTXO
-      targetStr = str(self.edtFundTarget.text())
-      targetScript = getScriptForInputStr(targetStr, self.main)
+      targetScript = self.parseEntryFunc()
       dtxoTarget = DecoratedTxOut(targetScript, valueAmt)
 
       # Create the change DTXO

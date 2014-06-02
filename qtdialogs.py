@@ -25,7 +25,7 @@ from armoryengine.PyBtcAddress import calcWalletIDFromRoot
 from announcefetch import DEFAULT_MIN_PRIORITY
 from ui.UpgradeDownloader import UpgradeDownloaderDialog
 from armoryengine.MultiSigUtils import calcLockboxID, createLockboxEntryStr,\
-   LBPREFIX, isLockbox, isP2SHLockbox
+   LBPREFIX, isBareLockbox, isP2SHLockbox
 from ui.MultiSigModels import LockboxDisplayModel, LockboxDisplayProxy,\
    LOCKBOXCOLS
 from armoryengine.PyBtcWalletRecovery import RECOVERMODE
@@ -8468,7 +8468,8 @@ class DlgAddressBook(ArmoryDialog):
 
    #############################################################################
    def acceptAddrSelection(self):
-      if isLockbox(str(self.btnSelectAddr.text())) or isP2SHLockbox(str(self.btnSelectAddr.text())):
+      if isBareLockbox(str(self.btnSelectAddr.text())) or \
+         isP2SHLockbox(str(self.btnSelectAddr.text())):
          self.acceptLockBoxSelection()
       else: 
          atype,a160 = addrStr_to_hash160(self.selectedAddr)

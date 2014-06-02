@@ -99,9 +99,9 @@ def createLockboxEntryStr(lbID, isBareMultiSig=False):
 ################################################################################
 def readLockboxEntryStr(addrtext):
    result = None
-   if isLockbox(addrtext) or isP2SHLockbox(addrtext):
-      len(LBPREFIX if isLockbox(addrtext) else LBP2SHPREFIX)
-      idStr = addrtext[len(LBPREFIX if isLockbox(addrtext) else LBP2SHPREFIX):
+   if isBareLockbox(addrtext) or isP2SHLockbox(addrtext):
+      len(LBPREFIX if isBareLockbox(addrtext) else LBP2SHPREFIX)
+      idStr = addrtext[len(LBPREFIX if isBareLockbox(addrtext) else LBP2SHPREFIX):
                        addrtext.find(LBSUFFIX)]
       if len(idStr)==LOCKBOXIDSIZE:
          result = idStr
@@ -112,7 +112,7 @@ def isP2SHLockbox(addrtext):
    return addrtext.startswith(LBP2SHPREFIX)
 
 ################################################################################
-def isLockbox(addrtext):
+def isBareLockbox(addrtext):
    return addrtext.startswith(LBPREFIX)
 
 ################################################################################

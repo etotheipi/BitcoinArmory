@@ -17,7 +17,7 @@ from armoryengine.CoinSelection import PySelectCoins, calcMinSuggestedFees,\
    calcMinSuggestedFeesHackMS, PyUnspentTxOut
 from ui.WalletFrames import SelectWalletFrame, LockboxSelectFrame
 from armoryengine.MultiSigUtils import \
-      calcLockboxID, readLockboxEntryStr, createLockboxEntryStr, isLockbox,\
+      calcLockboxID, readLockboxEntryStr, createLockboxEntryStr, isBareLockbox,\
    isP2SHLockbox
  
 

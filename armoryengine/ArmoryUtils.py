@@ -1914,9 +1914,12 @@ def binScript_to_p2shAddrStr(binScript):
 
 ################################################################################
 def addrStr_is_p2sh(b58Str):
-   if isLikelyDataType(b58Str) == DATATYPE.Binary:
+   if len(b58Str)==0:
       return False
-      
+
+   if sum([(0 if c in BASE58CHARS else 1) for c in b58Str]) > 0:
+      return False
+
    binStr = base58_to_binary(b58Str)
    if not len(binStr)==25:
       return False

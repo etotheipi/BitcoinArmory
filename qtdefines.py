@@ -256,7 +256,7 @@ def getScriptForInputStr(inputStr, main):
    result = None
 
    # The addrStr_to_scrAddr method fails if not reg Addr, or P2SH
-   if isLockbox(inputStr):
+   if isBareLockbox(inputStr):
       lbox = main.getLockboxByID(readLockboxEntryStr(inputStr))
       result = lbox.binScript if lbox else None
    elif isP2SHLockbox(inputStr):
