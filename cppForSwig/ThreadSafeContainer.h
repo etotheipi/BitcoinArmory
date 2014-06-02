@@ -152,7 +152,7 @@ template <typename T> class ObjectContainer
       unsigned long long id_;
       bool readonly_;
 
-      ObjectContainer(void) : object_(nullptr), next_(nullptr),
+      ObjectContainer(void) : counter_(0), object_(nullptr), next_(nullptr),
          id_(0), readonly_(false) {}
 
       ~ObjectContainer(void)
