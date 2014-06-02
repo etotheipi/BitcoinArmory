@@ -989,7 +989,7 @@ template <typename T> class ts_pair_iterator :
          T& object = *snapshot_->object_;
 
          object[this->iter_->first] = rhs;
-         iter_ = snapshot_->Set(this->iter_->first, rhs);
+         this->iter_ = snapshot_->Set(this->iter_->first, rhs);
       }
 };
 

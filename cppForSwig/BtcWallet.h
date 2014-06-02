@@ -190,7 +190,7 @@ public:
       BinaryDataRef uniqKey, 
       bool withMultisig=false);
 
-   vector<TxIOPair> BtcWallet::getHistoryForScrAddr(
+   vector<TxIOPair> getHistoryForScrAddr(
       BinaryDataRef uniqKey,
       bool withMultisig=false) const;
 
