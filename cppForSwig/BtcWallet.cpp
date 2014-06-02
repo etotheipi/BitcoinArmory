@@ -1876,7 +1876,7 @@ void BtcWallet::terminateThreads()
       ts_threadIDs::const_snapshot thrSS(threadIDs_);
       ts_threadIDs::const_iterator iter;
 
-      for (iter = thrSS.begin(); iter != thrSS.end(); iter++)
+      for (iter = thrSS.begin(); iter != thrSS.end(); ++iter)
       {
          pthread_cancel(*iter);
       }

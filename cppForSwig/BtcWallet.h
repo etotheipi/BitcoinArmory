@@ -16,7 +16,7 @@ typedef ts_pair_container<rsaMap> ts_rsaMap;
 typedef map<BinaryData, ScrAddrObj> saMap;
 typedef ts_pair_container<saMap> ts_saMap;
 
-typedef ts_container<set<pthread_t>> ts_threadIDs;
+typedef ts_container<set<pthread_t> > ts_threadIDs;
 
 ////////////////////////////////////////////////////////////////////////////////
 class AddressBookEntry
