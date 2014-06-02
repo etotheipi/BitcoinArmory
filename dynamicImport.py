@@ -1,5 +1,6 @@
 import os
 import sys
+from armoryengine.ArmoryUtils import LOGEXCEPT
 
 
 def getModuleList(inDir):
@@ -12,19 +13,26 @@ def getModuleList(inDir):
       if not fn.endswith('.py') and not fn.endswith('.sig'):
          continue
 
-      modName = os.path.splitext(fn)[0]
-      fullfn = os.path.join(inDir, fn)
-      with open(fullfn, 'r') as f:
-         fileData = f.read()
+      try:
+         modName = fn.split('.')[0]
+         fullfn = os.path.join(inDir, fn)
+         with open(fullfn, 'r') as f:
+            fileData = f.read()
 
-      if not modName in moduleMap:
-         moduleMap[modName] = {}
+         if not modName in moduleMap:
+            moduleMap[modName] = {}
       
-      if fn.endswith('.py'):
-         moduleMap[modName]['Source'] = fileData
-      elif fn.endswith('.sig'):
-         moduleMap[modName]['Signature'] = fileData
+         if fn.endswith('.py'):
+            moduleMap[modName]['SourceCode'] = fileData
+            moduleMap[modName]['SourceDir']  = inDir
+            moduleMap[modName]['Filename']   = fn
+         elif fn.endswith('.sig'):
+            moduleMap[modName]['Signature']  = fileData
+      except:
+         LOGEXCEPT('Loading plugin %s failed.  Skipping' % fullfn)
+         
       
+   return moduleMap
       
 
 def dynamicImport(inDir, moduleName, injectLocals=None):
@@ -43,12 +51,14 @@ def dynamicImport(inDir, moduleName, injectLocals=None):
    if injectLocals is None:
       injectLocals = {}
 
-   if not os.path.exists(inDir, moduleName+'.py'):
+   pluginPath = os.path.join(inDir, moduleName+'.py')  
+   if not os.path.exists(pluginPath):
       return None
 
    # Join using a character that would be invalid in a pathname
    prevSysPath = '\x00'.join(sys.path)
    sys.path.append(inDir)
+
 
    modTemp = __import__(moduleName)
    modTemp.__dict__.update(injectLocals)

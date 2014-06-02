@@ -222,8 +222,12 @@ class ArmoryMainWindow(QMainWindow):
       self.setupUriRegistration()
 
 
-      self.extraHeartbeatSpecial = []
-      self.extraHeartbeatOnline = []
+      self.extraHeartbeatSpecial  = []
+      self.extraHeartbeatAlways   = []
+      self.extraHeartbeatOnline   = []
+      self.extraNewTxFunctions    = []
+      self.extraNewBlockFunctions = []
+      self.extraShutdownFunctions = []
 
       """
       pass a function to extraHeartbeatAlways to run on every heartbeat.
@@ -236,7 +240,6 @@ class ArmoryMainWindow(QMainWindow):
          extraHeartbeatAlways on the next iteration
       """
 
-      self.extraHeartbeatAlways = []
 
       self.lblArmoryStatus = QRichLabel('<font color=%s>Offline</font> ' %
                                       htmlColor('TextWarn'), doWrap=False)
@@ -492,6 +495,10 @@ class ArmoryMainWindow(QMainWindow):
       self.mainDisplayTabs.addTab(self.tabDashboard, 'Dashboard')
       self.mainDisplayTabs.addTab(self.tabActivity,  'Transactions')
       self.mainDisplayTabs.addTab(self.tabAnnounce,  'Announcements')
+
+      ## PLUGINS -- UNCOMMENT TO ENABLE
+      self.loadPlugins()
+      ## PLUGINS -- UNCOMMENT TO ENABLE
 
 
       btnSendBtc   = QPushButton(tr("Send Bitcoins"))
@@ -844,7 +851,80 @@ class ArmoryMainWindow(QMainWindow):
          self.changeNumShow()
 
 
-   ####################################################
+   ############################################################################
+   def loadPlugins(self):
+      """
+      This method checks for any .py files
+      """ 
+
+      pluginDir = os.path.join(ARMORY_HOME_DIR, 'plugins')
+      if not os.path.exists(pluginDir):
+         return
+
+      from dynamicImport import getModuleList, dynamicImport
+
+      # This call does not eval any code in the modules.  It simply
+      # loads the python files as raw chunks of text so we can
+      # check hashes and/or signatures
+      modMap = getModuleList(pluginDir)
+      for name,infoMap in modMap.iteritems():
+         modPath = os.path.join(infoMap['SourceDir'], infoMap['Filename'])
+         modHash = binary_to_hex(sha256(infoMap['SourceCode']))
+         reply = QMessageBox.warning(self, tr("Unverified Module"), tr("""
+            Armory detected the following module in your plugins directory:
+            <br><br>
+               Module Name:  %s<br>
+               Module Path:  %s<br>
+               Module Hash:  %s<br>
+            <br><br>
+            Do you want to allow this module to be loaded?""") % \
+            (name, modPath, modHash), QMessageBox.Yes | QMessageBox.No)
+
+         if not reply==QMessageBox.Yes:
+            continue
+
+
+         plugin = dynamicImport(pluginDir, name, globals())
+         plugObj = plugin.PluginObject()
+
+         if not hasattr(plugObj,'getTabToDisplay') or \
+            not hasattr(plugObj,'tabName'):
+            LOGERROR('Plugin is malformed!  No tabToDisplay or tabName attrs')
+            QMessageBox.critical(self, tr("Bad Plugin"), tr("""
+               The plugin you attempted to load (%s) is malformed.  It is 
+               missing attributes that are needed for Armory to load it.  
+               It will be skipped.""") % name, QMessageBox.Ok)
+            continue
+               
+
+         # All plugins should have "tabToDisplay" and "tabName" attributes
+         LOGWARN('Adding plugin to tab list: "' + plugObj.tabName + '"')
+         self.mainDisplayTabs.addTab(plugObj.getTabToDisplay(), plugObj.tabName)
+
+         # Also inject any extra methods that will be 
+         injectFuncList = [ \
+               ['injectHeartbeatAlwaysFunc', 'extraHeartbeatAlways'], 
+               ['injectHeartbeatOnlineFunc', 'extraHeartbeatOnline'], 
+               ['injectNewTxFunc',           'extraNewTxFunctions'], 
+               ['injectNewBlockFunc',        'extraNewBlockFunctions'], 
+               ['injectShutdownFunc',        'extraShutdownFunctions'] ]
+
+         # Add any methods
+         for plugFuncName,funcListName in injectFuncList:
+            if not hasattr(plugObj, plugFuncName):
+               continue
+      
+            if not hasattr(self, funcListName):
+               LOGERROR('Missing an ArmoryQt list variable: %s' % funcListName)
+               continue
+
+            LOGINFO('Found plugin function: %s' % plugFuncName)
+            funcList = getattr(self, funcListName)
+            plugFunc = getattr(plugObj, plugFuncName)
+            funcList.append(plugFunc)
+                                    
+
+   ############################################################################
    def factoryReset(self):
       """
       reply = QMessageBox.information(self,'Factory Reset', \
@@ -2275,6 +2355,9 @@ class ArmoryMainWindow(QMainWindow):
       self.newZeroConfSinceLastUpdate.append(pytxObj.serialize())
       #LOGDEBUG('Added zero-conf tx to pool: ' + binary_to_hex(pytxObj.thisHash))
 
+      # All extra tx functions take one arg:  the PyTx object of the new ZC tx
+      for txFunc in self.extraNewTxFunctions:
+         txFunc(pytxObj)   
 
 
 
@@ -6578,8 +6661,18 @@ class ArmoryMainWindow(QMainWindow):
                      '<font color=%s>Connected (%s blocks)</font> ' % \
                      (htmlColor('TextGreen'), self.currBlockNum))
 
+
                # Update the wallet view to immediately reflect new balances
                self.walletModel.reset()
+
+               # Any extra functions that may have been injected to be run
+               # when new blocks are received.  
+               if len(self.extraNewBlockFunctions) > 0:
+                  cppHead = TheBDM.getMainBlockFromDB(self.currBlockNum)
+                  pyBlock = PyBlock().unserialize(cppHead.getSerializedBlock())
+                  for blockFunc in self.extraNewBlockFunctions:
+                     blockFunc(pyBlock)
+
 
             blkRecvAgo  = RightNow() - self.blkReceived
             #blkStampAgo = RightNow() - TheBDM.getTopBlockHeader().getTimestamp()
@@ -6846,6 +6939,13 @@ class ArmoryMainWindow(QMainWindow):
          # Don't want a strange error here interrupt shutdown
          LOGEXCEPT('Strange error during shutdown')
 
+
+      # Any extra shutdown activities, perhaps added by plugins
+      for fn in self.extraShutdownFunctions:
+         try:
+            fn()
+         except:
+            LOGEXCEPT('Shutdown function failed.  Skipping.')
 
 
       from twisted.internet import reactor
