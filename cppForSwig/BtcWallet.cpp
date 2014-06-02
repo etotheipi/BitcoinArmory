@@ -983,7 +983,6 @@ vector<AddressBookEntry> BtcWallet::createAddressBook(void)
 
 
    vector<AddressBookEntry> outputVect;
-   map<HashString, AddressBookEntry>::iterator mapIter;
    for(const auto &entry : sentToMap)
    {
       outputVect.push_back(entry.second);
