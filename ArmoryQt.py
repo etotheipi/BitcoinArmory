@@ -885,7 +885,7 @@ class ArmoryMainWindow(QMainWindow):
 
 
          plugin = dynamicImport(pluginDir, name, globals())
-         plugObj = plugin.PluginObject()
+         plugObj = plugin.PluginObject(self)
 
          if not hasattr(plugObj,'getTabToDisplay') or \
             not hasattr(plugObj,'tabName'):
