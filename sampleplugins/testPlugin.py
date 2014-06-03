@@ -197,7 +197,6 @@ class PluginObject(object):
          usdVal = convertVal * float(newBTCVal.replace(',',''))
          self.edtEnterUSD.setText(self.addCommasToPrice('%0.2f' % usdVal))
       except:
-         LOGEXCEPT('ERR')  # delete me... just for debugging
          self.edtEnterUSD.setText('')
          
    #############################################################################
@@ -207,8 +206,7 @@ class PluginObject(object):
          btcVal = float(newUSDVal.replace(',','')) / convertVal
          self.edtEnterBTC.setText(self.addCommasToPrice('%0.8f' % btcVal))
       except:
-         LOGEXCEPT('ERR')  # delete me... just for debugging
-         self.edtEnterUSD.setText('')
+         self.edtEnterBTC.setText('')
       
       
    #############################################################################
@@ -223,15 +221,17 @@ class PluginObject(object):
          wltValueUSD = '(...)'
          if TheBDM.getBDMState()=='BlockchainReady':
             convertVal = float(self.lastSellStr.replace(',',''))
-            wltBal = wlt.getBalance('Total')
+            wltBal = wltObj.getBalance('Total')
             wltValueBTC = coin2str(wltBal, maxZeros=2)
-            wltValueUSD = self.addCommasToPrice('$%0.2f' % (wltBal*convertVal))
+            wltValueUSD = self.addCommasToPrice('$%0.2f' % (wltBal*convertVal/1e8))
 
          rowItems = []
          rowItems.append(QTableWidgetItem(wltID))
          rowItems.append(QTableWidgetItem(wltObj.labelName))
          rowItems.append(QTableWidgetItem(wltValueBTC))
          rowItems.append(QTableWidgetItem(wltValueUSD))
+         rowItems[-2].setTextAlignment(Qt.AlignRight)
+         rowItems[-1].setTextAlignment(Qt.AlignRight)
 
          for i,item in enumerate(rowItems):
             self.wltTable.setItem(row, i, item)
