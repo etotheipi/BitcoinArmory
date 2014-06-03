@@ -269,6 +269,56 @@ void BlockDataManagerConfig::selectNetwork(const string &netname)
    }
 }
 
+
+class ProgressMeasurer
+{
+   const uint64_t total_;
+   
+   time_t then_;
+   uint64_t lastSample_=0;
+   
+   double avgSpeed_=0.0;
+   
+   
+public:
+   ProgressMeasurer(uint64_t total)
+      : total_(total)
+   {
+      then_ = time(0);
+   }
+   
+   void advance(uint64_t to)
+   {
+      static const double smoothingFactor=.75;
+      
+      if (to == lastSample_) return;
+      const time_t now = time(0);
+      if (now == then_) return;
+      
+      if (now < then_+10) return;
+      
+      double speed = (to-lastSample_)/double(now-then_);
+      
+      if (lastSample_ == 0)
+         avgSpeed_ = speed;
+      lastSample_ = to;
+
+      avgSpeed_ = smoothingFactor*speed + (1-smoothingFactor)*avgSpeed_;
+      
+      then_ = now;
+   }
+
+   double fractionCompleted() const { return lastSample_/double(total_); }
+   
+   double unitsPerSecond() const { return avgSpeed_; }
+   
+   time_t remainingSeconds() const
+   {
+      return total_/unitsPerSecond();
+   }
+};
+
+
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 //
@@ -289,9 +339,6 @@ BlockDataManager_LevelDB::BlockDataManager_LevelDB(const BlockDataManagerConfig 
       throw runtime_error("ERROR: Genesis Block Hash not set!");
    }
 
-   blkProgressFile_ = config_.homeDirLocation + "/blkfiles.txt";
-   abortLoadFile_   = config_.homeDirLocation + "/abortload.txt";
-   
    zcEnabled_  = false;
    zcLiteMode_ = false;
    zcFilename_ = "";
@@ -1144,73 +1191,11 @@ void BlockDataManager_LevelDB::applyBlockRangeToDB(uint32_t blk0, uint32_t blk1)
 
       bytesReadSoFar_ += sbh.numBytes_;
 
-      // Will write out about once every 5 sec
-      writeProgressFile(DB_BUILD_APPLY, blkProgressFile_, "applyBlockRangeToDB");
+      //writeProgressFile(DB_BUILD_APPLY, blkProgressFile_, "applyBlockRangeToDB");
 
    } while(iface_->advanceToNextBlock(ldbIter, false));
 
 }
-
-
-/////////////////////////////////////////////////////////////////////////////
-void BlockDataManager_LevelDB::writeProgressFile(DB_BUILD_PHASE phase,
-                                                    string bfile,
-                                                    string timerName)
-{
-   // Nothing to write if we don't even have a home dir
-   if(config_.homeDirLocation.empty() || bfile.size() == 0)
-      return;
-
-   time_t currTime;
-   time(&currTime);
-   int32_t diffTime = (int32_t)currTime - (int32_t)progressTimer_;
-
-   // Don't write out more than once every 5 sec
-   if(diffTime < 5)
-      return;
-   else
-      progressTimer_ = (uint32_t)currTime;
-
-   uint64_t offset;
-   uint32_t height, blkfile;
-
-   if(phase==DB_BUILD_ADD_RAW)
-   {
-      height  = startRawBlkHgt_;
-      blkfile = startRawBlkFile_;
-      offset  = startRawOffset_;
-   }
-   else if(phase==DB_BUILD_SCAN)
-   {
-      height  = startScanHgt_;
-      blkfile = startScanBlkFile_;
-      offset  = startScanOffset_;
-   }
-   else if(phase==DB_BUILD_APPLY)
-   {
-      height  = startApplyHgt_;
-      blkfile = startApplyBlkFile_;
-      offset  = startApplyOffset_;
-   }
-   else
-   {
-      LOGERR << "What the heck build phase are we in: " << (uint32_t)phase;
-      return;
-   }
-
-   uint64_t startAtByte = 0;
-   if(height!=0)
-      startAtByte = blkFileCumul_[blkfile] + offset;
-      
-   ofstream topblks(OS_TranslatePath(bfile.c_str()), ios::app);
-   double t = TIMER_READ_SEC(timerName);
-   topblks << (uint32_t)phase << " "
-           << startAtByte << " " 
-           << bytesReadSoFar_ << " " 
-           << totalBlockchainBytes_ << " " 
-           << t << endl;
-}
-
 
 /////////////////////////////////////////////////////////////////////////////
 void BlockDataManager_LevelDB::pprintRegisteredWallets(void)
@@ -1637,50 +1622,50 @@ void BlockDataManager_LevelDB::destroyAndResetDatabases(void)
 
 
 /////////////////////////////////////////////////////////////////////////////
-void BlockDataManager_LevelDB::doRebuildDatabases(void)
+void BlockDataManager_LevelDB::doRebuildDatabases(function<void(double,unsigned)> fn)
 {
    LOGINFO << "Executing: doRebuildDatabases";
-   buildAndScanDatabases(true,   true,   true,   false);
+   buildAndScanDatabases(fn, true,   true,   true,   false);
    //                    Rescan  Rebuild !Fetch  Initial                    
 }
 
 /////////////////////////////////////////////////////////////////////////////
-void BlockDataManager_LevelDB::doFullRescanRegardlessOfSync(void)
+void BlockDataManager_LevelDB::doFullRescanRegardlessOfSync(function<void(double,unsigned)> fn)
 {
    LOGINFO << "Executing: doFullRescanRegardlessOfSync";
-   buildAndScanDatabases(true,   false,  true,   false);
+   buildAndScanDatabases(fn, true,   false,  true,   false);
    //                    Rescan  Rebuild !Fetch  Initial                    
 }
 
 /////////////////////////////////////////////////////////////////////////////
-void BlockDataManager_LevelDB::doSyncIfNeeded(void)
+void BlockDataManager_LevelDB::doSyncIfNeeded(function<void(double,unsigned)> fn)
 {
    LOGINFO << "Executing: doSyncIfNeeded";
-   buildAndScanDatabases(false,  false,  true,   false);
+   buildAndScanDatabases(fn, false,  false,  true,   false);
    //                    Rescan  Rebuild !Fetch  Initial                    
 }
 
 /////////////////////////////////////////////////////////////////////////////
-void BlockDataManager_LevelDB::doInitialSyncOnLoad(void)
+void BlockDataManager_LevelDB::doInitialSyncOnLoad(function<void(double,unsigned)> fn)
 {
    LOGINFO << "Executing: doInitialSyncOnLoad";
-   buildAndScanDatabases(false,  false,  false,  true);
+   buildAndScanDatabases(fn, false,  false,  false,  true);
    //                    Rescan  Rebuild !Fetch  Initial                    
 }
 
 /////////////////////////////////////////////////////////////////////////////
-void BlockDataManager_LevelDB::doInitialSyncOnLoad_Rescan(void)
+void BlockDataManager_LevelDB::doInitialSyncOnLoad_Rescan(function<void(double,unsigned)> fn)
 {
    LOGINFO << "Executing: doInitialSyncOnLoad_Rescan";
-   buildAndScanDatabases(true,   false,  false,  true);
+   buildAndScanDatabases(fn, true,   false,  false,  true);
    //                    Rescan  Rebuild !Fetch  Initial                    
 }
 
 /////////////////////////////////////////////////////////////////////////////
-void BlockDataManager_LevelDB::doInitialSyncOnLoad_Rebuild(void)
+void BlockDataManager_LevelDB::doInitialSyncOnLoad_Rebuild(function<void(double,unsigned)> fn)
 {
    LOGINFO << "Executing: doInitialSyncOnLoad_Rebuild";
-   buildAndScanDatabases(false,  true,   true,   true);
+   buildAndScanDatabases(fn, false,  true,   true,   true);
    //                    Rescan  Rebuild !Fetch  Initial                    
 }
 
@@ -1696,25 +1681,23 @@ void BlockDataManager_LevelDB::doInitialSyncOnLoad_Rebuild(void)
 // any data out of the database when this is called, but if all our 
 // wallets are already synchronized, we won't bother rescanning
 void BlockDataManager_LevelDB::buildAndScanDatabases(
-                                             bool forceRescan, 
-                                             bool forceRebuild,
-                                             bool skipFetch,
-                                             bool initialLoad)
+   function<void(double,unsigned)> progress,
+   bool forceRescan, 
+   bool forceRebuild,
+   bool skipFetch,
+   bool initialLoad
+)
 {
    missingBlockHashes_.clear();
    
    SCOPED_TIMER("buildAndScanDatabases");
 
    
-   // Will use this updating the GUI with progress bar
-   progressTimer_ = (uint32_t)time(0);
-
    LOGDEBUG << "Called build&scan with ("
             << (forceRescan ? 1 : 0) << ","
             << (forceRebuild ? 1 : 0) << ","
             << (skipFetch ? 1 : 0) << ","
             << (initialLoad ? 1 : 0) << ")";
-
 
    // This will figure out where we should start reading headers, blocks,
    // and where we should start applying or scanning
@@ -1739,20 +1722,6 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
       resetRegisteredWallets();
    }
 
-   // Remove this file
-
-#ifndef _MSC_VER
-   if(BtcUtils::GetFileSize(blkProgressFile_) != FILE_DOES_NOT_EXIST)
-      remove(blkProgressFile_.c_str());
-   if(BtcUtils::GetFileSize(abortLoadFile_) != FILE_DOES_NOT_EXIST)
-      remove(abortLoadFile_.c_str());
-#else
-   if(BtcUtils::GetFileSize(blkProgressFile_) != FILE_DOES_NOT_EXIST)
-      _wunlink(OS_TranslatePath(blkProgressFile_).c_str());
-   if(BtcUtils::GetFileSize(abortLoadFile_) != FILE_DOES_NOT_EXIST)
-      _wunlink(OS_TranslatePath(abortLoadFile_).c_str());
-#endif
-   
    /////////////////////////////////////////////////////////////////////////////
    // New with LevelDB:  must read and organize headers before handling the
    // full blockchain data.  We need to figure out the longest chain and write
@@ -1773,6 +1742,7 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
    // Add the raw blocks from the blk*.dat files into the DB
    blocksReadSoFar_ = 0;
    bytesReadSoFar_ = 0;
+   
 
    if(initialLoad || forceRebuild)
    {
@@ -1780,18 +1750,36 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
       LOGINFO << "Total blockchain bytes: " 
               << BtcUtils::numToStrWCommas(totalBlockchainBytes_);
       TIMER_START("dumpRawBlocksToDB");
+      
+      uint64_t totalBytesDoneSoFar=0;
+      ProgressMeasurer progressMeasurer(totalBlockchainBytes_);
+      
       for(uint32_t fnum=startRawBlkFile_; fnum<numBlkFiles_; fnum++)
       {
          string blkfile = blkFileList_[fnum];
          LOGINFO << "Parsing blockchain file: " << blkfile.c_str();
-   
+         
+         const uint64_t thisfileSize = BtcUtils::GetFileSize(blkFileList_[fnum]);
+         
+         auto singleFileProgress =
+            [&progressMeasurer, totalBytesDoneSoFar, &progress] (uint64_t bytes)
+            {
+               progressMeasurer.advance(totalBytesDoneSoFar+bytes);
+               progress(
+                  progressMeasurer.fractionCompleted(),
+                  progressMeasurer.remainingSeconds()
+               );
+            };
+         
          // The supplied offset only applies to the first blockfile we're reading.
          // After that, the offset is always zero
          uint32_t startOffset = 0;
          if(fnum==startRawBlkFile_)
             startOffset = (uint32_t)startRawOffset_;
       
-         readRawBlocksInFile(fnum, startOffset);
+         readRawBlocksInFile(singleFileProgress, fnum, startOffset);
+         
+         totalBytesDoneSoFar += thisfileSize;
       }
       TIMER_STOP("dumpRawBlocksToDB");
    }
@@ -1839,7 +1827,10 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void BlockDataManager_LevelDB::readRawBlocksInFile(uint32_t fnum, uint32_t foffset)
+void BlockDataManager_LevelDB::readRawBlocksInFile(
+   function<void(uint64_t)> progress,
+   uint32_t fnum, uint32_t foffset
+)
 {
    string blkfile = blkFileList_[fnum];
    uint64_t filesize = BtcUtils::GetFileSize(blkfile);
@@ -1956,12 +1947,7 @@ void BlockDataManager_LevelDB::readRawBlocksInFile(uint32_t fnum, uint32_t foffs
          locInBlkFile += nextBlkSize;
          bsb.reader().advance(nextBlkSize);
 
-         // This is a hack of hacks, but I can't seem to pass this data 
-         // out through getLoadProgress* methods, because they don't 
-         // update properly (from the main python thread) when the BDM 
-         // is actively loading/scanning in a separate thread.
-         // We'll watch for this file from the python code.
-         writeProgressFile(DB_BUILD_ADD_RAW, blkProgressFile_, "dumpRawBlocksToDB");
+         progress(is.tellg());
 
          // Don't read past the last header we processed (in case new 
          // blocks were added since we processed the headers

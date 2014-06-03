@@ -1,6 +1,8 @@
 #include "BDM_mainthread.h"
 #include "BlockUtils.h"
+
 #include <unistd.h>
+#include "pthread.h"
 
 
 BDM_CallBack::~BDM_CallBack()
@@ -158,11 +160,25 @@ void BlockDataManagerThread::run()
    
    BDM_CallBack *const callback = pimpl->callback;
 
-   //don't call this unless you're trying to get online
-   if(pimpl->mode==0) bdm->doInitialSyncOnLoad();
-   else if(pimpl->mode==1) bdm->doInitialSyncOnLoad_Rescan();
-   else if(pimpl->mode==2) bdm->doInitialSyncOnLoad_Rebuild();
-
+   {
+      double lastprog=0;
+      unsigned lasttime=0;
+      
+      const auto progress
+         = [&] (double prog,unsigned time)
+      {
+         if (prog == lastprog && time==lasttime)
+            return; // don't go to python if nothing's changed
+         callback->progress("blk", prog, time);
+         lastprog = prog;
+         lasttime = time;
+      };
+      //don't call this unless you're trying to get online
+      if(pimpl->mode==0) bdm->doInitialSyncOnLoad(progress);
+      else if(pimpl->mode==1) bdm->doInitialSyncOnLoad_Rescan(progress);
+      else if(pimpl->mode==2) bdm->doInitialSyncOnLoad_Rebuild(progress);
+   }
+   
    //push 'bdm is ready' to Python
    callback->run(1, 0, bdm->getTopBlockHeight());
    

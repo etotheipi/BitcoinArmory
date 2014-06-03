@@ -1,7 +1,7 @@
 #ifndef BDM_MAINTHREAD_H
 #define BDM_MAINTHREAD_H
 
-#include "pthread.h"
+#include <string>
 
 #ifdef _MSC_VER
    #ifndef _WIN32_
@@ -16,6 +16,10 @@ class BDM_CallBack
 public:
    virtual ~BDM_CallBack();
    virtual void run(int action, int arg, int block=0)=0;
+   virtual void progress(
+      const std::string &state,
+      float progress, unsigned secondsRem
+   )=0;
 };
 
 // let an outsider call functions from the BDM thread

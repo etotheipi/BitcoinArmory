@@ -4414,7 +4414,6 @@ class ArmoryMainWindow(QMainWindow):
       if TheBDM.getState()=='Scanning':
          LOGINFO('Aborting load')
          touchFile(os.path.join(ARMORY_HOME_DIR,'abortload.txt'))
-         os.remove(os.path.join(ARMORY_HOME_DIR,'blkfiles.txt'))
 
       TheBDM.Reset(wait=False)
       for wid,wlt in self.walletMap.iteritems():

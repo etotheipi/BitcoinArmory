@@ -123,12 +123,6 @@ private:
    uint32_t                           numBlkFiles_;
    uint64_t                           endOfLastBlockByte_;
 
-   // These files are for signaling to python code, which had to be hacked 
-   // in order to work while TheBDM is scanning
-   string                             blkProgressFile_;
-   string                             abortLoadFile_;
-   uint32_t                           progressTimer_;
-
    // On DB initialization, we start processing here
    uint32_t                           startHeaderHgt_;
    uint32_t                           startRawBlkHgt_;
@@ -319,18 +313,21 @@ public:
    bool     processNewHeadersInBlkFiles(uint32_t fnumStart=0, uint64_t offset=0);
    //bool     processHeadersInFile(string filename);
    void     destroyAndResetDatabases(void);
-   void     buildAndScanDatabases(bool forceRescan=false, 
-                                  bool forceRebuild=false, 
-                                  bool skipFetch=false,
-                                  bool initialLoad=false);
-   void readRawBlocksInFile(uint32_t blkFileNum, uint32_t offset);
+   void     buildAndScanDatabases(
+      function<void(double,unsigned)> fn,
+      bool forceRescan=false, 
+      bool forceRebuild=false, 
+      bool skipFetch=false,
+      bool initialLoad=false
+   );
+   void readRawBlocksInFile(function<void(uint64_t)> fn, uint32_t blkFileNum, uint32_t offset);
    // These are wrappers around "buildAndScanDatabases"
-   void doRebuildDatabases(void);
-   void doFullRescanRegardlessOfSync(void);
-   void doSyncIfNeeded(void);
-   void doInitialSyncOnLoad(void);
-   void doInitialSyncOnLoad_Rescan(void);
-   void doInitialSyncOnLoad_Rebuild(void);
+   void doRebuildDatabases(function<void(double,unsigned)> fn);
+   void doFullRescanRegardlessOfSync(function<void(double,unsigned)> fn);
+   void doSyncIfNeeded(function<void(double,unsigned)> fn);
+   void doInitialSyncOnLoad(function<void(double,unsigned)> fn);
+   void doInitialSyncOnLoad_Rescan(function<void(double,unsigned)> fn);
+   void doInitialSyncOnLoad_Rebuild(function<void(double,unsigned)> fn);
 
 private:
    void addRawBlockToDB(BinaryRefReader & brr);
@@ -402,16 +399,6 @@ public:
    StoredHeader getMainBlockFromDB(uint32_t hgt);
    uint8_t      getMainDupFromDB(uint32_t hgt);
    StoredHeader getBlockFromDB(uint32_t hgt, uint8_t dup);
-
-
-   // Traverse the blockchain and update the wallet[s] with the relevant Tx data
-   // See comments above the scanBlockchainForTx in the .cpp, for more info
-   // NOTE: THIS ASSUMES THAT registeredTxSet_/List_ is already populated!
-
-private:
-   void writeProgressFile(DB_BUILD_PHASE phase, 
-                          string bfile, 
-                          string timerName);
 
 public:
    /////////////////////////////////////////////////////////////////////////////

@@ -18,8 +18,11 @@ import CppBlockUtils as Cpp
 
 
 class PySide_CallBack(Cpp.BDM_CallBack):
-   def __init__(self):
+   def __init__(self, bdm):
       Cpp.BDM_CallBack.__init__(self)
+      self.bdm = bdm
+      self.bdm.progressComplete=0
+      self.bdm.secondsRemaining=0
       
    def run(self, action, arg, block):
       act = ''
@@ -39,6 +42,13 @@ class PySide_CallBack(Cpp.BDM_CallBack):
          TheBDM.currentBlock = block
    
       cppPushTrigger[0](act, arglist)
+   def progress(self, state, prog, seconds):
+      try:
+         self.bdm.progressComplete = prog
+         self.bdm.secondsRemaining = seconds
+      except:
+         LOGEXCEPT('Error in running progress callback')
+         print sys.exc_info()
 
 class BDM_Inject(Cpp.BDM_Inject):
    def __init__(self):
@@ -213,7 +223,7 @@ class BlockDataManager(object):
          self.prefMode = BLOCKCHAINMODE.Full
 
       #register callbacks
-      self.callback = PySide_CallBack().__disown__()
+      self.callback = PySide_CallBack(self).__disown__()
       self.inject = BDM_Inject().__disown__()
 
       self.bdmThread = None
@@ -295,11 +305,6 @@ class BlockDataManager(object):
       
    #############################################################################
    def bdmConfig(self):
-      # Remove "blkfiles.txt" to make sure we get accurate TGO
-      bfile = os.path.join(ARMORY_HOME_DIR,'blkfiles.txt')
-      if os.path.exists(bfile):
-         os.remove(bfile)
-
       # Check for the existence of the Bitcoin-Qt directory
       if not os.path.exists(self.btcdir):
          raise FileExistsError, ('Directory does not exist: %s' % self.btcdir)
@@ -352,42 +357,8 @@ class BlockDataManager(object):
 
    #############################################################################
    def predictLoadTime(self):
-      # Apparently we can't read the C++ state while it's scanning, 
-      # specifically getLoadProgress* methods.  Thus we have to resort
-      # to communicating via files... bleh 
-      bfile = os.path.join(ARMORY_HOME_DIR,'blkfiles.txt')
-      if not os.path.exists(bfile):
-         return [-1,-1,-1,-1]
-
-      try:
-         with open(bfile,'r') as f:
-            tmtrx = [line.split() for line in f.readlines() if len(line.strip())>0]
-            phases  = [float(row[0])  for row in tmtrx]
-            currPhase = phases[-1]
-            startat = [float(row[1]) for row in tmtrx if float(row[0])==currPhase]
-            sofar   = [float(row[2]) for row in tmtrx if float(row[0])==currPhase]
-            total   = [float(row[3]) for row in tmtrx if float(row[0])==currPhase]
-            times   = [float(row[4]) for row in tmtrx if float(row[0])==currPhase]
+      return (1, self.progressComplete, 42, self.secondsRemaining)
             
-            todo = total[0] - startat[0]
-            pct0 = sofar[0]  / todo
-            pct1 = sofar[-1] / todo
-            t0,t1 = times[0], times[-1]
-            if (not t1>t0) or todo<0:
-               return [-1,-1,-1,-1]
-            rate = (pct1-pct0) / (t1-t0) 
-            tleft = (1-pct1)/rate
-            totalPct = (startat[-1] + sofar[-1]) / total[-1]
-            if not self.lastPctLoad == pct1:
-               LOGINFO('Reading blockchain, pct complete: %0.1f', 100*totalPct)
-            self.lastPctLoad = totalPct 
-            return (currPhase,totalPct,rate,tleft)
-      except:
-         raise
-         return [-1,-1,-1,-1]
-            
-   ################
-   
    #############################################################
    def isDirty(self):
       return self.bdm.isDirty()
