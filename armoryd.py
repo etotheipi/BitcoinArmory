@@ -64,9 +64,12 @@ from txjsonrpc.web import jsonrpc
 from armoryengine.ALL import *
 from bitcoinrpc_jsonrpc import ServiceProxy
 from armoryengine.Decorators import EmailOutput
-from armoryengine.ArmoryUtils import addrStr_to_hash160
+from armoryengine.ArmoryUtils import addrStr_to_hash160, LB_MAXM, LB_MAXN, \
+                                     isValidPK
 from armoryengine.PyBtcWalletRecovery import *
 from collections import defaultdict
+from itertools import islice
+from armoryengine.MultiSigUtils import MultiSigLockbox, calcLockboxID
 
 # Some non-twisted json imports from jgarzik's code and his UniversalEncoder
 class UniversalEncoder(json.JSONEncoder):
@@ -881,6 +884,203 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       txdp = UnsignedTransaction().createFromTxOutSelection(utxoSelect, outputPairs, pubKeyMap)
 
       return txdp.serializeAscii()
+
+
+   #############################################################################
+   # Helper function that gets an uncompressed public key from a wallet, based
+   # on an index value.
+   def getPKFromWallet(self, inWlt, inIdx):
+      retStr = ''
+      lbWltAddrList = inWlt.getAddrList()
+      if lbWltAddrList[inIdx].hasPubKey():
+         retStr = lbWltAddrList[inIdx].getPubKey().toHexStr()
+      else:
+         retStr = 'Wallet %s doesn\'t have a public key at index %d' % \
+                  (inWlt.uniqueIDB58, inIdx)
+      return retStr
+
+
+   #############################################################################
+   # Create a multisig lockbox. The user must specify the number of keys needed
+   # to unlock a lockbox and the number of keys in a lockbox. Optionally, the
+   # user may specify the public keys or wallets to use. If wallets are
+   # specified, an address will be chosen from the wallet. If public keys are
+   # specified, keys may be compressed or uncompressed. (For now, compressed
+   # keys will be decompressed inside Armory before being used.) If no extra
+   # arguments are specified, the number of addresses in the lockbox must be
+   # less than or equal to the number currently loaded into armoryd, and one
+   # address each will be chosen from a random subset of lockboxes.
+   #
+   # Example: We wish to create a 2-of-3 lockbox based on 2 loaded wallets
+   # (27TchD13 and AaAaaAQ4) and a compressed public key. The following command
+   # would be executed.
+   # armoryd 2 3 27TchD13 AaAaaAQ4 02010203040506070809....
+   def jsonrpc_createlockbox(self, numM, numN, *args):
+      m = int(numM)
+      n = int(numN)
+      errStr = ''
+      errName = 'Error'
+      retDict = {}
+
+      # Do some basic error checking before proceeding.
+      if m > n:
+         errStr = 'The user requires more addresses to unlock a lockbox (%d) ' \
+                  'than are required to create a lockbox (%d).' % (m, n)
+         LOGERROR(errStr)
+         retDict[errName] = errStr
+      elif m > LB_MAXM:
+         errStr = 'The number of signatures required to unlock a lockbox ' \
+                  '(%d) exceeds the maximum allowed (%d)' % (m, LB_MAXM)
+         LOGERROR(errStr)
+         retDict[errName] = errStr
+      elif n > LB_MAXN:
+         errStr = 'The number of wallets required to create a lockbox (%d) ' \
+                  'exceeds the maximum allowed (%d)' % (n, LB_MAXN)
+         LOGERROR(errStr)
+         retDict[errName] = errStr
+      elif args and len(args) > n:
+         errStr = 'The number of arguments specified to create a lockbox ' \
+                  '(%d) exceeds the number required to create the lockbox ' \
+                  '(%d)' % (len(args), n)
+         LOGERROR(errStr)
+         retDict[errName] = errStr
+      elif not args and n > len(self.serverWltSet):
+         errStr = 'The number of addresses required to create a lockbox ' \
+                  '(%d) exceeds the number of loaded wallets (%d)' % \
+                  (n, len(self.serverWltSet))
+         LOGERROR(errStr)
+         retDict[errName] = errStr
+      else:
+         allArgsValid = True
+         badArg = ''
+         self.addrList = []
+         self.addrNameList = []
+
+         # We need to determine which args are keys, which are wallets and which
+         # are garbage.
+         if args:
+            for lockboxItem in args:
+               # First, check if the arg is a wallet ID. If not, check if it's a
+               # valid pub key. If not, the input's invalid.
+               try:
+                  # If search item's a pub key, it'll cause a KeyError to be
+                  # thrown. That's fine. We can catch it and keep on truckin'.
+                  lbWlt = self.serverWltSet[lockboxItem]
+                  lbWltHighestIdx = lbWlt.getHighestUsedIndex()
+                  lbWltPK = self.getPKFromWallet(lbWlt, lbWltHighestIdx)
+                  self.addrList.append(hex_to_binary(lbWltPK))
+                  addrName = 'Addr %d from wallet %s' % (lbWltHighestIdx, \
+                                                         lockboxItem)
+                  self.addrNameList.append(addrName)
+
+               except KeyError:
+                  # A screwy wallet ID will end up here, so we need to catch a
+                  # TypeError. End of the line if the error's thrown.
+                  try:
+                     # In case the key is compressed, we'll decompress first.
+                     keyVal = decompressPK(lockboxItem, True)
+
+                     # A pub key could be fake but in the proper form, so we
+                     # have a second place where a value can fail. Catch it.
+                     # NB: We decompress the key before saving it, but save the
+                     # decompressed key in a comment. This is because we don't
+                     # want people to create multiple lockboxes from the same
+                     # keys. Decompressing all keys stops this from happening.
+                     if isValidPK(keyVal):
+                        self.addrList.append(keyVal)
+                        addrName = 'Addr starting with %s' % lockboxItem[0:12]
+                        self.addrNameList.append(addrName)
+                     else:
+                        badArg = lockboxItem
+                        allArgsValid = False
+                        break
+
+                  except TypeError:
+                     badArg = lockboxItem
+                     allArgsValid = False
+                     break
+
+         else:
+            # If we have no args, we'll just dip into the loaded wallets. Just
+            # make sure we get the proper # of wallets. For now, the wallets we
+            # use will essentially be chosen at random.
+            numWlts = min(n, len(self.serverWltSet))
+            for lbWlt in islice(self.serverWltSet.values(), 0, numWlts):
+               lbWltHighestIdx = lbWlt.getHighestUsedIndex()
+               lbWltPK = self.getPKFromWallet(lbWlt, lbWltHighestIdx)
+               self.addrList.append(hex_to_binary(lbWltPK))
+               addrName = 'Addr %d from wallet %s' % (lbWltHighestIdx, \
+                                                      lbWlt.uniqueIDB58)
+               self.addrNameList.append(addrName)
+
+         # Do some basic error checking before proceeding.
+         if allArgsValid == False:
+            errStr = 'The user has specified an argument (%s) that is ' \
+                     'invalid.' % badArg
+            LOGERROR(errStr)
+            retDict[errName] = errStr
+         else:
+            # We must sort the addresses and comments together. It's important
+            # to keep this code in sync with any other code creating lockboxes.
+            # Also, convert the key list from hex to binary.
+            decorated  = [[pk,comm] for pk,comm in zip(self.addrList, \
+                                                       self.addrNameList)]
+            decorSort  = sorted(decorated, key=lambda pair: pair[0])
+            for i, pair in enumerate(decorSort):
+               self.addrList[i]     = pair[0]
+               self.addrNameList[i] = pair[1]
+
+            # Let the lockbox creation begin! We'll write it to a file and
+            # return the hex representation via JSON.
+            pkListScript = pubkeylist_to_multisig_script(self.addrList, m)
+            lbID = calcLockboxID(pkListScript)
+            lbCreateDate = long(RightNow())
+            lbName = 'Lockbox %s' % lbID
+            lbDescrip = '%s - %d-of-%d - Created by armoryd' % (lbID, m, n)
+            self.lockbox = MultiSigLockbox(pkListScript, lbName, \
+                                           lbDescrip, self.addrNameList, \
+                                           lbCreateDate)
+
+            # To be safe, we'll write the LB only if Armory doesn't already have
+            # a copy.
+            lbFound = False
+            for lbIDItem in getLockboxList():
+               if lbIDItem == lbID:
+                  lbFound = True
+                  break
+
+            if not lbFound:
+               # Write both to the "master" LB list used by Armory and an
+               # individual file.
+               lbFileName = 'Multikey_%s.lockbox.txt' % lbID
+               lbFilePath = os.path.join(ARMORY_HOME_DIR, lbFileName)
+               writeLockboxesFile([self.lockbox], MULTISIG_FILE, True)
+               writeLockboxesFile([self.lockbox], lbFilePath, False)
+
+               # Finally, we'll write lockbox data to the return dict.
+               for curKeyNum, curKey in enumerate(self.addrList):
+                  curKeyStr = 'Key %02d' % (curKeyNum + 1)
+                  retDict[curKeyStr] = binary_to_hex(curKey)
+
+               for curKeyComNum, curKeyCom in enumerate(self.addrNameList):
+                  curKeyComStr = 'Key %02d Comment' % (curKeyComNum + 1)
+                  retDict[curKeyComStr] = curKeyCom
+
+               lbDStr = 'Lockbox Description'
+               retDict[lbDStr] = lbDescrip
+               lbStr = 'Lockbox ID'
+               retDict[lbStr] = lbID
+               reqSigStr = 'Required Signature Number'
+               retDict[reqSigStr] = numM
+               totalSigStr = 'Total Signature Number'
+               retDict[totalSigStr] = numN
+
+            else:
+               errStr = 'Lockbox %s already exists' % lbID
+               LOGWARN(errStr)
+               retDict[errName] = errStr
+
+      return retDict
 
 
    ################################################################################

@@ -25,7 +25,7 @@ from armoryengine.CoinSelection import PySelectCoins, PyUnspentTxOut, \
 class DlgLockboxEditor(ArmoryDialog):
 
    #############################################################################
-   def __init__(self, parent, main, maxM=7, maxN=7, loadBox=None):
+   def __init__(self, parent, main, maxM=LB_MAXM, maxN=LB_MAXN, loadBox=None):
       super(DlgLockboxEditor, self).__init__(parent, main)
 
       lblDescr = QRichLabel(tr("""
@@ -621,9 +621,7 @@ class DlgExportLockbox(ArmoryDialog):
                                  ['Lockboxes (*.lockbox.txt)'], 
                             'Multikey_%s.lockbox.txt'%self.lockbox.uniqueIDB58)
       if fn:
-         with open(fn,'w') as f:
-            f.write(self.boxText + '\n')
-         self.accept()
+         writeLockboxesFile([self.lockbox], fn)
 
    def clipcopy(self):
       clipb = QApplication.clipboard()
@@ -2258,7 +2256,7 @@ class DlgMultiSpendReview(ArmoryDialog):
          safe to send this data via email or USB key.  No data is included 
          that would compromise the security of any of the signing devices.""")
       ftypes = ['Signature Collectors (*.sigcollect.tx)']
-      defaultFN = 'MultikeyTransaction_%s.sigcollect.tx' % self.ustx.uniqueIDB58
+      defaultFN = 'MultikeyTransaction_%s_' % self.ustx.uniqueIDB58
          
       DlgExportAsciiBlock(self, self.main, self.ustx, title, descr, 
                                                     ftypes, defaultFN).exec_()
@@ -2295,6 +2293,11 @@ class DlgMultiSpendReview(ArmoryDialog):
 
    def doBroadcast(self):
       finalTx = self.ustx.getSignedPyTx(doVerifySigs=True)
+      print "TXIN BINSCRIPT: " + ph(finalTx.inputs[0].binScript)
+      print "PPRINTHEX----------------------------------"
+      finalTx.pprintHex()
+      print "PPRINT-------------------------------------------"
+      finalTx.pprint()
       if not finalTx:
          self.ustx.evaluateSigningStatus().pprint()
          QMessageBox.critical(self, tr('Invalid Signatures'), tr("""
@@ -2307,6 +2310,7 @@ class DlgMultiSpendReview(ArmoryDialog):
             again...?"""), QMessageBox.Ok)
 
          finalTx = self.ustx.getSignedPyTx(doVerifySigs=False)
+         
 
       self.main.broadcastTransaction(finalTx, withOldSigWarning=False)
       try:
