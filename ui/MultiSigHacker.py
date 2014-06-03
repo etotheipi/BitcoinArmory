@@ -25,7 +25,7 @@ from armoryengine.CoinSelection import PySelectCoins, PyUnspentTxOut, \
 class DlgLockboxEditor(ArmoryDialog):
 
    #############################################################################
-   def __init__(self, parent, main, maxM=7, maxN=7, loadBox=None):
+   def __init__(self, parent, main, maxM=LB_MAXM, maxN=LB_MAXN, loadBox=None):
       super(DlgLockboxEditor, self).__init__(parent, main)
 
       lblDescr = QRichLabel(tr("""
@@ -621,9 +621,7 @@ class DlgExportLockbox(ArmoryDialog):
                                  ['Lockboxes (*.lockbox.txt)'], 
                             'Multikey_%s.lockbox.txt'%self.lockbox.uniqueIDB58)
       if fn:
-         with open(fn,'w') as f:
-            f.write(self.boxText + '\n')
-         self.accept()
+         writeLockboxesFile([self.lockbox], fn)
 
    def clipcopy(self):
       clipb = QApplication.clipboard()

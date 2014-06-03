@@ -2662,7 +2662,7 @@ class ArmoryMainWindow(QMainWindow):
             # Replace the original
             self.allLockboxes[index] = lbObj
 
-         self.writeLockboxesFile()
+         writeLockboxesFile(self.allLockboxes, MULTISIG_FILE)
       except:
          LOGEXCEPT('Failed to add/update lockbox')
         
@@ -2676,7 +2676,7 @@ class ArmoryMainWindow(QMainWindow):
       else:
          del self.allLockboxes[index]
          self.reconstructLockboxMaps()
-         self.writeLockboxesFile()
+         writeLockboxesFile(self.allLockboxes, MULTISIG_FILE)
 
 
    #############################################################################
@@ -2699,19 +2699,6 @@ class ArmoryMainWindow(QMainWindow):
          if p2shAddrStr == binScript_to_p2shAddrStr(lbox.binScript):
             return lboxId
       return None
-
-   #############################################################################
-   def writeLockboxesFile(self):
-      # Do all the serializing and bail-on-error before opening the file 
-      # for writing, or we might delete it all by accident
-      textOut = '\n\n'.join([lb.serializeAscii() for lb in self.allLockboxes])
-      with open(MULTISIG_FILE, 'w') as f:
-         f.write(textOut)
-         f.flush()
-         os.fsync(f.fileno())
-
-
-      
 
 
    #############################################################################

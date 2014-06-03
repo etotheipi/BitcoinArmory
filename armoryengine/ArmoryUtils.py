@@ -135,11 +135,17 @@ WEEK     = 7*DAY
 MONTH    = 30*DAY
 YEAR     = 365*DAY
 
+UNCOMP_PK_LEN = 65
+COMP_PK_LEN   = 33
+
 KILOBYTE = 1024.0
 MEGABYTE = 1024*KILOBYTE
 GIGABYTE = 1024*MEGABYTE
 TERABYTE = 1024*GIGABYTE
 PETABYTE = 1024*TERABYTE
+
+LB_MAXM = 7
+LB_MAXN = 7
 
 # Set the default-default
 DEFAULT_DATE_FORMAT = '%Y-%b-%d %I:%M%p'
@@ -3054,6 +3060,101 @@ def EstimateCumulativeBlockchainSize(blkNum):
       return dend+extraOnTop
 
 
+################################################################################
+# Function checks to see if a binary value that's passed in is a valid public
+# key. The incoming key may be binary or hex. The return value is a boolean
+# indicating whether or not the key is valid.
+def isValidPK(inPK, inStr=False):
+   retVal = False
+   checkVal = '\x00'
+
+   if inStr:
+      checkVal = hex_to_binary(inPK)
+   else:
+      checkVal = inPK
+   pkLen = len(checkVal)
+
+   if pkLen == UNCOMP_PK_LEN or pkLen == COMP_PK_LEN:
+      # The "proper" way to check the key is to feed it to Crypto++.
+      if not CryptoECDSA().VerifyPublicKeyValid(SecureBinaryData(inPK)):
+         LOGWARN('Pub key %s is invalid.' % binary_to_hex(inPK))
+      else:
+         retVal = True
+   else:
+      LOGWARN('Pub key %s has an invalid length (%d bytes).' % \
+              (len(inPK), binary_to_hex(inPK)))
+
+   return retVal
+
+
+################################################################################
+# Function that gets a list of all the lockboxes loaded into Armory.
+def getLockboxList():
+   lbList = []
+
+   # Go through every line in the multisig file used by Armory and look for the
+   # line with "LOCKBOX-<LockboxID>" (e.g., LOCKBOX-45Tw1FfA). Strip everything
+   # except the ID and add it to a list that'll be returned to the caller.
+   with open(MULTISIG_FILE, 'r') as f:
+      for line in f:
+         if "LOCKBOX-" in line:
+            stripLine = line.replace("=", "").replace("LOCKBOX-", "").replace("\n", "")
+            lbList.append(stripLine)
+
+      f.flush()
+      os.fsync(f.fileno())
+
+   return lbList
+
+
+################################################################################
+# Decompress an incoming public key. The incoming key may be binary or hex. The
+# decompressed key is binary.
+def decompressPK(inKey, inStr=False):
+   outKey = '\x00'
+   checkKey = '\x00'
+
+   # Let's support strings and binary data.
+   if inStr:
+      checkKey = hex_to_binary(inKey)
+   else:
+      checkKey = inKey
+   lenInKey = len(checkKey)
+
+   # WARNING: This function won't verify the input. It just passes it along.
+   if lenInKey == UNCOMP_PK_LEN:
+       LOGWARN('The public key is already decompressed.')
+       outKey = checkKey
+   elif lenInKey != COMP_PK_LEN:
+       LOGERROR('The public key has an incorrect size (%d bytes).' % lenInKey)
+   else:
+      if checkKey[0] == '\x02' or checkKey[1] == '\x03':
+         cppKeyVal = SecureBinaryData(checkKey)
+         outKey = CryptoECDSA().UncompressPoint(cppKeyVal).toBinStr()
+         keyStr = binary_to_hex(outKey)
+      else:
+         LOGERROR('The public key\'s first byte (%s) is incorrectly ' \
+                  'formatted.' % binary_to_hex(checkKey[0]))
+
+   return outKey
+
+
+################################################################################
+# Function that writes a lockbox to a file. The lockbox can be appended to a
+# previously existing file or can overwrite what was already in the file.
+def writeLockboxesFile(inLockboxes, lbFilePath, append=False):
+   writeMode = 'w'
+   if append:
+      writeMode = 'a'
+
+   # Do all the serializing and bail-on-error before opening the file 
+   # for writing, or we might delete it all by accident
+   textOut = '\n\n'.join([lb.serializeAscii() for lb in inLockboxes]) + '\n'
+   with open(lbFilePath, writeMode) as f:
+      f.write(textOut)
+      f.flush()
+      os.fsync(f.fileno())
+
 
 #############################################################################
 def DeriveChaincodeFromRootKey(sbdPrivKey):
@@ -3343,7 +3444,3 @@ except:
 # We only use BITTORRENT for mainnet
 if USE_TESTNET:
    DISABLE_TORRENTDL = True
-
-
-
-

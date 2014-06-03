@@ -373,7 +373,7 @@ public:
    SecureBinaryData ComputePublicKey(SecureBinaryData const & cppPrivKey);
 
    /////////////////////////////////////////////////////////////////////////////
-   bool VerifyPublicKeyValid(SecureBinaryData const & pubKey65);
+   bool VerifyPublicKeyValid(SecureBinaryData const & pubKey);
 
    /////////////////////////////////////////////////////////////////////////////
    bool CheckPubPrivKeyMatch(SecureBinaryData const & privKey32,
