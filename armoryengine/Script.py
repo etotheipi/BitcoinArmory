@@ -79,7 +79,7 @@ def pprintScript(binScript, nIndent=0):
    for op in opList:
       print indstr + indent + op
 
-def serializeBytesWithPushData(binObj):
+def scriptPushData(binObj):
    sz = len(binObj) 
    if sz <= 76:
       lenByte = int_to_binary(sz, widthBytes=1)
@@ -104,7 +104,7 @@ class ScriptBuilder(object):
       if data.startswith('OP_'):
          LOGWARN('Looks like you accidentally called pushData instead of addOpCode')
          LOGWARN('Pushing data: ' + data)
-      self.opList.append(serializeBytesWithPushData(data))
+      self.opList.append(scriptPushData(data))
 
    def getBinaryScript(self):
       return ''.join(self.opList)

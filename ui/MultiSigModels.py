@@ -46,7 +46,7 @@ class LockboxDisplayModel(QAbstractTableModel):
       lwlt = self.main.cppLockboxWltMap[lbID]
 
       nTx, bal = 0, 0
-      if TheBDM.getBDMState()=='BlockchainReady':
+      if TheBDM.getState()=='BlockchainReady':
          nTx = len(lwlt.getTxLedger())
          bal = lwlt.getFullBalance()
 
@@ -70,11 +70,11 @@ class LockboxDisplayModel(QAbstractTableModel):
          elif col==LOCKBOXCOLS.Key4: 
             return QVariant(self.getKeyDisp(lbox, 4))
          elif col==LOCKBOXCOLS.NumTx: 
-            if not TheBDM.getBDMState()=='BlockchainReady':
+            if not TheBDM.getState()=='BlockchainReady':
                return QVariant('(...)') 
             return QVariant(nTx)
          elif col==LOCKBOXCOLS.Balance: 
-            if not TheBDM.getBDMState()=='BlockchainReady':
+            if not TheBDM.getState()=='BlockchainReady':
                return QVariant('(...)') 
             return QVariant(coin2str(bal, maxZeros=2))
          elif col==LOCKBOXCOLS.UnixTime: 

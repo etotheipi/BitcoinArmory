@@ -110,10 +110,10 @@ public:
    // you will save time by not checking addresses that are much newer than
    // the block
    pair<bool,bool> isMineBulkFilter( Tx & tx,   
-                                     bool withMultiSig=false) const;
+                                     bool withMultiSig = false) const;
    pair<bool,bool> isMineBulkFilter( Tx & tx, 
                                      map<OutPoint, TxIOPair> const & txiomap,
-                                     bool withMultiSig=false) const;
+                                     bool withMultiSig = false) const;
 
    void scanTx(Tx & tx, 
                uint32_t txIndex = UINT32_MAX,
@@ -174,7 +174,7 @@ public:
 
    void clearBlkData(void);
    
-   vector<AddressBookEntry> createAddressBook(void);
+   vector<AddressBookEntry> createAddressBook(void) const;
 
    //for 1:1 wallets
    bool registerNewScrAddr(HashString scraddr);
@@ -239,7 +239,8 @@ public:
    void registeredScrAddrScan(uint8_t const * txptr,
       uint32_t txSize = 0,
       vector<uint32_t> * txInOffsets = NULL,
-      vector<uint32_t> * txOutOffsets = NULL);
+      vector<uint32_t> * txOutOffsets = NULL,
+      bool withSecondOrderMultisig = true);
 
    bool removeRegisteredTx(BinaryData const & txHash);
    void rescanWalletZeroConf(void);

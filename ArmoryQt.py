@@ -2643,11 +2643,10 @@ class ArmoryMainWindow(QMainWindow):
             self.lockboxIDMap[lbID] = len(self.allLockboxes)-1
    
             # Create new wallet to hold the lockbox, register it with BDM
-            self.cppLockboxWltMap[lbID] = BtcWallet()
+            self.cppLockboxWltMap[lbID] = BtcWallet(TheBDM.bdm)
             scraddrReg = script_to_scrAddr(lbObj.binScript)
             scraddrP2SH = script_to_scrAddr(script_to_p2sh_script(lbObj.binScript))
             TheBDM.registerWallet(self.cppLockboxWltMap[lbID], isFresh)
-            TheBDM.bdm.registerWallet(self.cppLockboxWltMap[lbID], isFresh)
             if not isFresh:
                self.cppLockboxWltMap[lbID].addScrAddress_1_(scraddrReg)
                self.cppLockboxWltMap[lbID].addScrAddress_1_(scraddrP2SH)
@@ -2656,7 +2655,7 @@ class ArmoryMainWindow(QMainWindow):
                self.cppLockboxWltMap[lbID].addNewScrAddress(scraddrP2SH)
 
             # Save the scrAddr histories again to make sure no rescan nexttime
-            if TheBDM.getBDMState()=='BlockchainReady':
+            if TheBDM.getState()=='BlockchainReady':
                TheBDM.saveScrAddrHistories()
          else:
             # Replace the original
@@ -2883,9 +2882,8 @@ class ArmoryMainWindow(QMainWindow):
             '<font color=%s>Connected (%s blocks)</font> ' %
             (htmlColor('TextGreen'), TheBDM.getCurrBlock()))
 
-         # The lockboxes are in a raw C++ wallet, not in the list above
-         for lbID,cppWallet in self.cppLockboxWltMap.iteritems():
-            TheBDM.scanRegisteredTxForWallet(cppWallet, 0, wait=True)
+
+
 
          self.createCombinedLedger()
          self.ledgerSize = len(self.combinedLedger)

@@ -1729,7 +1729,7 @@ class UnsignedTransaction(object):
       p2shMap = {} if not p2shMap   else p2shMap
 
 
-      if len(txMap)==0 and not TheBDM.getBDMState()=='BlockchainReady':
+      if len(txMap)==0 and not TheBDM.getState()=='BlockchainReady':
          # TxDP includes the transactions that supply the inputs to this
          # transaction, so the BDM needs to be available to fetch those.
          raise BlockchainUnavailableError, ('Must input supporting transactions '

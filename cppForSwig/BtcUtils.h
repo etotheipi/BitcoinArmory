@@ -857,33 +857,33 @@ public:
    static TXOUT_SCRIPT_TYPE getTxOutScriptType(BinaryDataRef s)
    {
       uint32_t sz = s.getSize();
-      if(sz < 23) 
+      if (sz < 23)
          return TXOUT_SCRIPT_NONSTANDARD;
-      else if( sz      == 25   &&
-               s[0]    == 0x76 && 
-               s[1]    == 0xa9 &&
-               s[2]    == 0x14 &&  
-               s[-2]   == 0x88 &&
-               s[-1]   == 0xac   )
+      else if (sz == 25 &&
+         s[0] == 0x76 &&
+         s[1] == 0xa9 &&
+         s[2] == 0x14 &&
+         s[-2] == 0x88 &&
+         s[-1] == 0xac)
          return TXOUT_SCRIPT_STDHASH160;
-      else if( sz      == 67   &&
-               s[0]    == 0x41 &&
-               s[1]    == 0x04 &&
-               s[-1]   == 0xac)
+      else if (sz == 67 &&
+         s[0] == 0x41 &&
+         s[1] == 0x04 &&
+         s[-1] == 0xac)
          return TXOUT_SCRIPT_STDPUBKEY65;
-      else if( sz      == 35   &&
-               s[0]    == 0x21 &&
-              (s[1]    == 0x02 || s[1] == 0x03) &&
-               s[-1]   == 0xac)
+      else if (sz == 35 &&
+         s[0] == 0x21 &&
+         (s[1] == 0x02 || s[1] == 0x03) &&
+         s[-1] == 0xac)
          return TXOUT_SCRIPT_STDPUBKEY33;
-      else if( sz      == 23   &&
-               s[0]    == 0xa9 &&
-               s[1]    == 0x14 &&
-               s[-1]   == 0x87)
+      else if (sz == 23 &&
+         s[0] == 0xa9 &&
+         s[1] == 0x14 &&
+         s[-1] == 0x87)
          return TXOUT_SCRIPT_P2SH;
-      else if( s[-1]   == 0xae && isMultisigScript(s))
+      else if (s[-1] == 0xae && isMultisigScript(s))
          return TXOUT_SCRIPT_MULTISIG;
-      else 
+      else
          return TXOUT_SCRIPT_NONSTANDARD;
    }
 
@@ -969,35 +969,35 @@ public:
    /////////////////////////////////////////////////////////////////////////////
    // We use this for LevelDB keys, to return same key if the same priv/pub 
    // pair is used, and also saving a few bytes for common script types
-   static BinaryData getTxOutScrAddr(BinaryDataRef script, 
-                                    TXOUT_SCRIPT_TYPE type=TXOUT_SCRIPT_NONSTANDARD)
+   static BinaryData getTxOutScrAddr(BinaryDataRef script,
+      TXOUT_SCRIPT_TYPE type = TXOUT_SCRIPT_NONSTANDARD)
    {
-      BinaryWriter bw; 
-      if(type==TXOUT_SCRIPT_NONSTANDARD)
+      BinaryWriter bw;
+      if (type == TXOUT_SCRIPT_NONSTANDARD)
          type = getTxOutScriptType(script);
-      switch(type)
+      switch (type)
       {
-         case(TXOUT_SCRIPT_STDHASH160):  
+         case(TXOUT_SCRIPT_STDHASH160) :
             bw.put_uint8_t(SCRIPT_PREFIX_HASH160);
-            bw.put_BinaryData(script.getSliceCopy(3,20));
+            bw.put_BinaryData(script.getSliceCopy(3, 20));
             return bw.getData();
-         case(TXOUT_SCRIPT_STDPUBKEY65): 
+         case(TXOUT_SCRIPT_STDPUBKEY65) :
             bw.put_uint8_t(SCRIPT_PREFIX_HASH160);
-            bw.put_BinaryData( getHash160(script.getSliceRef(1,65)));
+            bw.put_BinaryData(getHash160(script.getSliceRef(1, 65)));
             return bw.getData();
-         case(TXOUT_SCRIPT_STDPUBKEY33): 
+         case(TXOUT_SCRIPT_STDPUBKEY33) :
             bw.put_uint8_t(SCRIPT_PREFIX_HASH160);
-            bw.put_BinaryData( getHash160(script.getSliceRef(1,33)));
+            bw.put_BinaryData(getHash160(script.getSliceRef(1, 33)));
             return bw.getData();
-         case(TXOUT_SCRIPT_P2SH):       
+         case(TXOUT_SCRIPT_P2SH) :
             bw.put_uint8_t(SCRIPT_PREFIX_P2SH);
-            bw.put_BinaryData(script.getSliceCopy(2,20));
+            bw.put_BinaryData(script.getSliceCopy(2, 20));
             return bw.getData();
-         case(TXOUT_SCRIPT_NONSTANDARD):     
+         case(TXOUT_SCRIPT_NONSTANDARD) :
             bw.put_uint8_t(SCRIPT_PREFIX_NONSTD);
             bw.put_BinaryData(getHash160(script));
             return bw.getData();
-         case(TXOUT_SCRIPT_MULTISIG):     
+         case(TXOUT_SCRIPT_MULTISIG) :
             bw.put_uint8_t(SCRIPT_PREFIX_MULTISIG);
             bw.put_BinaryData(getMultisigUniqueKey(script));
             return bw.getData();

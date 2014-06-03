@@ -977,7 +977,8 @@ class SentToAddrBookModel(QAbstractTableModel):
       # http://sourceforge.net/tracker/?func=detail&atid=101645&aid=3403085&group_id=1645
       # Must use awkwardness to get around iterating a vector<RegisteredTx> in
       # the python code... :(
-      for abe in TheBDM.getAddressBook(self.wlt.cppWallet):     
+      addressBook = self.wlt.cppWallet.createAddressBook();
+      for abe in addressBook:     
 
          scrAddr = abe.getScrAddr()
          try:

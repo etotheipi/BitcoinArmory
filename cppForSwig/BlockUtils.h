@@ -36,6 +36,8 @@
 
 #include "pthread.h"
 #include "ThreadSafeContainer.h"
+#include <functional>
+
 
 
 #define NUM_BLKS_BATCH_THRESH 30
