@@ -1,21 +1,20 @@
 # This is a sample plugin file that will be used to create a new tab 
 # in the Armory main window.  All plugin files (such as this one) will 
-# be injected with the locals() from ArmoryQt.py, which includes pretty
-# much 100% of Bitcoin & Armory related stuff that you need.  So this 
+# be injected with the globals() from ArmoryQt.py, which includes pretty
+# much all of Bitcoin & Armory related stuff that you need.  So this 
 # file can use any utils or objects accessible to functions in ArmoryQt.py.
 
 import urllib2
 
 
-# Normally we create layouts like this inside of functions or dialogs.
-# In plugins, all the top-level variables will be imported behind the 
-# module (i.e.  plugin.topLevelVar), so the top-level space here behaves
-# very much like a scoped namespace.  
-
-
+# ArmoryQt will access this by importing PluginObject and initializing one
+#   -- It adds plugin.getTabToDisplay() to the main window tab list
+#   -- It uses plugin.tabName as the label for that tab.
+#   -- It uses plugin.tabName as the label for that tab.
 class PluginObject(object):
 
    tabName = 'Exchange Rates'
+   maxVersion = '0.92'
    
    #############################################################################
    def __init__(self, main):
@@ -75,7 +74,7 @@ class PluginObject(object):
       self.wltTable.setRowCount(numWallets)
       self.wltTable.setColumnCount(4)
       self.wltTable.horizontalHeader().setStretchLastSection(True)
-      self.wltTable.setMinimumWidth(500)
+      self.wltTable.setMinimumWidth(600)
 
 
       ##########################################################################
@@ -166,6 +165,7 @@ class PluginObject(object):
 
       self.updateLastTimeStr()
       self.updateWalletTable()
+      self.updateCalcUSD(self.edtEnterBTC.text())
    
 
    #############################################################################
@@ -178,6 +178,9 @@ class PluginObject(object):
       self.lblLastTime.setText(tr("""<font color="%s">Last updated:  
          %s ago</font>""") % (htmlColor('DisableFG'), tstr))
 
+   #############################################################################
+   def injectGoOnlineFunc(self, topBlock):
+      self.checkUpdatePrice()
 
    #############################################################################
    def injectHeartbeatAlwaysFunc(self):
@@ -230,11 +233,15 @@ class PluginObject(object):
          rowItems.append(QTableWidgetItem(wltObj.labelName))
          rowItems.append(QTableWidgetItem(wltValueBTC))
          rowItems.append(QTableWidgetItem(wltValueUSD))
+
          rowItems[-2].setTextAlignment(Qt.AlignRight)
          rowItems[-1].setTextAlignment(Qt.AlignRight)
+         rowItems[-2].setFont(GETFONT('Fixed', 10))
+         rowItems[-1].setFont(GETFONT('Fixed', 10))
 
          for i,item in enumerate(rowItems):
             self.wltTable.setItem(row, i, item)
+            item.setFlags(Qt.NoItemFlags)
 
          self.wltTable.setHorizontalHeaderItem(0, QTableWidgetItem(tr('Wallet ID')))
          self.wltTable.setHorizontalHeaderItem(1, QTableWidgetItem(tr('Wallet Name')))
@@ -244,9 +251,3 @@ class PluginObject(object):
 
          row += 1
       
-
-
-   
-
-
-   

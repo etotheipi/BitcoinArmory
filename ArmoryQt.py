@@ -228,6 +228,7 @@ class ArmoryMainWindow(QMainWindow):
       self.extraNewTxFunctions    = []
       self.extraNewBlockFunctions = []
       self.extraShutdownFunctions = []
+      self.extraGoOnlineFunctions = []
 
       """
       pass a function to extraHeartbeatAlways to run on every heartbeat.
@@ -873,9 +874,9 @@ class ArmoryMainWindow(QMainWindow):
          reply = QMessageBox.warning(self, tr("Unverified Module"), tr("""
             Armory detected the following module in your plugins directory:
             <br><br>
-               Module Name:  %s<br>
-               Module Path:  %s<br>
-               Module Hash:  %s<br>
+               <b>Module Name:</b>  %s<br>
+               <b>Module Path:</b>  %s<br>
+               <b>Module Hash:</b>  %s<br>
             <br><br>
             Do you want to allow this module to be loaded?""") % \
             (name, modPath, modHash), QMessageBox.Yes | QMessageBox.No)
@@ -896,6 +897,20 @@ class ArmoryMainWindow(QMainWindow):
                It will be skipped.""") % name, QMessageBox.Ok)
             continue
                
+         verPluginInt = getVersionInt(readVersionString(plugObj.maxVersion))
+         verArmoryInt = getVersionInt(BTCARMORY_VERSION)
+         if verArmoryInt >verPluginInt:
+            reply = QMessageBox.warning(self, tr("Outdated Plugin"), tr("""
+               Plugin "%s" is only specified to work up to Armory version %s.
+               You are using Armory version %s.  Please remove the plugin if
+               you experience any problems with it, or contact the maintainer
+               for a new version.
+               <br><br>
+               Do you want to continue loading the plugin?"""), 
+               QMessageBox.Yes | QMessageBox.No)
+
+            if not reply==QMessageBox.Yes:
+               continue
 
          # All plugins should have "tabToDisplay" and "tabName" attributes
          LOGWARN('Adding plugin to tab list: "' + plugObj.tabName + '"')
@@ -905,6 +920,7 @@ class ArmoryMainWindow(QMainWindow):
          injectFuncList = [ \
                ['injectHeartbeatAlwaysFunc', 'extraHeartbeatAlways'], 
                ['injectHeartbeatOnlineFunc', 'extraHeartbeatOnline'], 
+               ['injectGoOnlineFunc',        'extraGoOnlineFunctions'], 
                ['injectNewTxFunc',           'extraNewTxFunctions'], 
                ['injectNewBlockFunc',        'extraNewBlockFunctions'], 
                ['injectShutdownFunc',        'extraShutdownFunctions'] ]
@@ -3034,6 +3050,9 @@ class ArmoryMainWindow(QMainWindow):
 
          self.mainDisplayTabs.setCurrentIndex(self.MAINTABS.Ledger)
 
+         
+         for fn in self.extraGoOnlineFunctions:
+            fn(self.currBlockNum)
 
          self.netMode = NETWORKMODE.Full
          self.settings.set('FailedLoadCount', 0)
