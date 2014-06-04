@@ -111,10 +111,6 @@ public:
    // the block
    pair<bool,bool> isMineBulkFilter( Tx & tx,   
                                      bool withMultiSig = false) const;
-   pair<bool,bool> isMineBulkFilter( Tx & tx, 
-                                     map<OutPoint, TxIOPair> const & txiomap,
-                                     bool withMultiSig = false) const;
-
    void scanTx(Tx & tx, 
                uint32_t txIndex = UINT32_MAX,
                uint32_t blktime = UINT32_MAX,

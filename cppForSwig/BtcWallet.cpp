@@ -118,20 +118,13 @@ bool BtcWallet::hasScrAddress(HashString const & scrAddr) const
 
 
 /////////////////////////////////////////////////////////////////////////////
-pair<bool,bool> BtcWallet::isMineBulkFilter(Tx & tx, 
-                                            bool withMultiSig) const
-{
-   return isMineBulkFilter(tx, txioMap_, withMultiSig);
-}
-
-/////////////////////////////////////////////////////////////////////////////
-// Determine, as fast as possible, whether this tx is relevant to us
-// Return  <IsOurs, InputIsOurs>
 pair<bool,bool> BtcWallet::isMineBulkFilter(
-                                 Tx & tx, 
-                                 map<OutPoint, TxIOPair> const & txiomap,
-                                 bool withSecondOrderMultisig) const
+   Tx & tx, 
+   bool withSecondOrderMultisig
+) const
 {
+   map<OutPoint, TxIOPair> const & txiomap = txioMap_;
+   
    // Since 99.999%+ of all transactions are not ours, let's do the 
    // fastest bulk filter possible, even though it will add 
    // redundant computation to the tx that are ours.  In fact,
