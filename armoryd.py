@@ -977,15 +977,8 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
                   # A screwy wallet ID will end up here, so we need to catch a
                   # TypeError. End of the line if the error's thrown.
                   try:
-                     # In case the key is compressed, we'll decompress first.
-                     keyVal = decompressPK(lockboxItem, True)
-
                      # A pub key could be fake but in the proper form, so we
                      # have a second place where a value can fail. Catch it.
-                     # NB: We decompress the key before saving it, but save the
-                     # decompressed key in a comment. This is because we don't
-                     # want people to create multiple lockboxes from the same
-                     # keys. Decompressing all keys stops this from happening.
                      if isValidPK(keyVal):
                         self.addrList.append(keyVal)
                         addrName = 'Addr starting with %s' % lockboxItem[0:12]
