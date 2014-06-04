@@ -2931,12 +2931,12 @@ void BlockDataManager_LevelDB::scanWallets(uint32_t startBlock,
                                            uint32_t endBlock, 
                                            bool forceScan)
 {
-   uint32_t nWallets = registeredWallets_.size();
+   /*uint32_t nWallets = registeredWallets_.size();
    walletArg *wltArgs = (walletArg*)malloc( \
       sizeof(walletArg) * nWallets);
 
    pthread_t *tID = (pthread_t*)malloc(\
-      sizeof(pthread_t) * nWallets);
+      sizeof(pthread_t) * nWallets);*/
 
    ts_setBtcWallet::snapshot wltSnapshot(registeredWallets_);
 
@@ -2944,17 +2944,19 @@ void BlockDataManager_LevelDB::scanWallets(uint32_t startBlock,
    uint32_t i = 0;
    for (BtcWallet* wallet : wltSnapshot)
    {
-      wltArgs[i].Set(wallet, 0, endBlock, forceScan);
+      /*wltArgs[i].Set(wallet, 0, endBlock, forceScan);
 
       pthread_create(tID + i, NULL, scanWallet, wltArgs + i);
-      i++;
+      i++;*/
+
+      wallet->scanWallet(0, endBlock, forceScan);
    }
 
-   for (i = 0; i < nWallets; i++)
+   /*for (i = 0; i < nWallets; i++)
       pthread_join(tID[i], 0);
 
    free(wltArgs);
-   free(tID);
+   free(tID);*/
 }
 
 

@@ -1797,7 +1797,7 @@ void BtcWallet::terminateThreads()
 
 void BtcWallet::reset()
 {
-   terminateThreads();
+   //terminateThreads();
    clearBlkData();
    updateRegisteredScrAddrs(0);
    isInitialized_ = false;
