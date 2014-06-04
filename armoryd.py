@@ -1077,17 +1077,23 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
 
    ################################################################################
-   # Receive a notification via e-mail when money is sent from the active wallet.
+   # Receive a e-mail notification when money is sent from the active wallet.
    # The e-mail will list the address(es) that sent the money, along with the
    # accompanying transaction(s) and any metadata associated with the
-   # address(es).
+   # address(es). Examples of usage are as follows, with clarification of
+   # command line arguments provided as needed.
    #
-   # Example usage:
-   # started the daemon with these arguments: --testnet armory_286jcNJRc_.wallet
-   # Then I called the daemon with: --testnet watchwallet <email args>
-   # NB: This doesn't appear to work. More research needed....
-   def jsonrpc_watchwallet(self, send_from=None, password=None, send_to=None, \
-                           subject=None, watchCmd='add'):
+   # 1)SMTP server port specified, 1 recipient, e-mail subject specified,
+   #   "add" command used by default.
+   #   armoryd watchwallet s@x.com smtp.x.com:465 myPass123 r@y.org Hi\ Friend\!
+   # 2)SMTP server port defaults to 587, 2 recipients (delimited by a colon), no
+   #   subject specified, "add" command specified.
+   #   armoryd watchwallet sender@a.com smtp.a.com 321PassMy
+   #     recip1@gmail.com:recip2@yahoo.com watchCmd=add
+   # 3)E-mail notifications from a given e-mail address are stopped.
+   #   armoryd watchwallet sender@c.net watchCmd=remove
+   def jsonrpc_watchwallet(self, send_from, smtpServer=None, password=None,
+                           send_to=None, subject=None, watchCmd='add'):
       retStr = 'watchwallet command failed due to a bad command.'
 
       if not watchCmd in ['add', 'remove']:
@@ -1097,7 +1103,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
          # Write the funct to be run when a block arrives with a transaction
          # where a wallet has sent money.
-         @EmailOutput(send_from, password, send_to, subject)
+         @EmailOutput(send_from, smtpServer, password, send_to, subject)
          def reportTxFromAddrInNewBlock(pyHeader, pyTxList):
             result = ''
             for pyTx in pyTxList:
