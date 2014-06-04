@@ -2727,7 +2727,6 @@ void BlockDataManager_LevelDB::pprintSSHInfoAboutHash160(BinaryData const & a160
 ////////////////////////////////////////////////////////////////////////////////
 void BlockDataManager_LevelDB::pprintZeroConfPool(void) const
 {
-   HashString txHash(32);
    ts_BinDataMap::const_snapshot listSS(zeroConfRawTxMap_);
 
    for (ts_BinDataMap::const_iterator iter = listSS.begin();

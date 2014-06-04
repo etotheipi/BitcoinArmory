@@ -138,15 +138,15 @@ pair<bool,bool> BtcWallet::isMineBulkFilter(
    // we will skip the TxIn/TxOut convenience methods and follow the
    // pointers directly to the data we want
 
+   OutPoint op; // reused
    uint8_t const * txStartPtr = tx.getPtr();
    for (uint32_t iin = 0; iin<tx.getNumTxIn(); iin++)
    {
       // We have the txin, now check if it contains one of our TxOuts
-      static OutPoint op;
       op.unserialize(txStartPtr + tx.getTxInOffset(iin),
          tx.getSize() - tx.getTxInOffset(iin));
       if (KEY_IN_MAP(op, txiomap))
-         return pair<bool, bool>(true, true);
+         return make_pair(true, true);
    }
 
    // Simply convert the TxOut scripts to scrAddrs and check if registered
@@ -155,7 +155,7 @@ pair<bool,bool> BtcWallet::isMineBulkFilter(
       TxOut txout = tx.getTxOutCopy(iout);
       BinaryData scrAddr = txout.getScrAddressStr();
       if (hasScrAddress(scrAddr))
-         return pair<bool, bool>(true, false);
+         return make_pair(true, false);
 
       // It's still possible this is a multisig addr involving one of our 
       // existing scrAddrs, even if we aren't explicitly looking for this multisig
@@ -167,12 +167,12 @@ pair<bool,bool> BtcWallet::isMineBulkFilter(
          uint8_t N = brrmsig.get_uint8_t();
          for (uint8_t a = 0; a<N; a++)
          if (hasScrAddress(HASH160PREFIX + brrmsig.get_BinaryDataRef(20)))
-            return pair<bool, bool>(true, false);
+            return make_pair(true, false);
       }
    }
 
    // If we got here, it's either non std or not ours
-   return pair<bool, bool>(false, false);
+   return make_pair(false, false);
 }
 
 
@@ -553,10 +553,10 @@ LedgerEntry BtcWallet::calcLedgerEntryForTx(Tx & tx)
    bool anyTxInIsOurs = false;
    bool allTxOutIsOurs = true;
    bool isCoinbaseTx = false;
+   OutPoint op; // reused
    for(uint32_t iin=0; iin<tx.getNumTxIn(); iin++)
    {
       // We have the txin, now check if it contains one of our TxOuts
-      static OutPoint op;
       op.unserialize(txStartPtr + tx.getTxInOffset(iin), tx.getSize()-tx.getTxInOffset(iin));
 
       if(op.getTxHashRef() == BtcUtils::EmptyHash())
@@ -572,7 +572,6 @@ LedgerEntry BtcWallet::calcLedgerEntryForTx(Tx & tx)
 
 
    // This became much simpler once we implemented arbirtrary scrAddrs
-   HashString scraddr(21);
    for (uint32_t iout = 0; iout<tx.getNumTxOut(); iout++)
    {
       uint32_t valOffset = tx.getTxOutOffset(iout);
@@ -677,10 +676,9 @@ void BtcWallet::scanNonStdTx(uint32_t blknum,
 
       OutPoint outpt(tx.getThisHash(), txoutidx);      
       nonStdUnspentOutPoints_.insert(outpt);
-      pair< map<OutPoint, TxIOPair>::iterator, bool> insResult;
-      pair<OutPoint, TxIOPair> toBeInserted(outpt, TxIOPair(tx.getTxRef(),txoutidx));
-      insResult = nonStdTxioMap_.insert(toBeInserted);
-      //insResult = txioMap_.insert(toBeInserted);
+      nonStdTxioMap_.insert(
+         make_pair(outpt, TxIOPair(tx.getTxRef(),txoutidx))
+      );
    }
 
 }
