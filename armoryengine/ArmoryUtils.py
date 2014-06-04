@@ -3121,7 +3121,8 @@ def decompressPK(inKey, inStr=False):
       checkKey = inKey
    lenInKey = len(checkKey)
 
-   # WARNING: This function won't verify the input. It just passes it along.
+   # WARNING: This function won't verify the input. It just passes the input
+   # down the line.
    if lenInKey == UNCOMP_PK_LEN:
        LOGWARN('The public key is already decompressed.')
        outKey = checkKey
