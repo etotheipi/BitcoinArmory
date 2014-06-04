@@ -2291,7 +2291,7 @@ class ArmoryMainWindow(QMainWindow):
       LOGINFO('The following URI string was parsed:')
       LOGINFO(uriStr.replace('%','%%'))
       uriDict = parseBitcoinURI(uriStr)
-      if TheBDM.gettate() in ('Offline','Uninitialized'):
+      if TheBDM.getState() in ('Offline','Uninitialized'):
          LOGERROR('%sed "bitcoin:" link in offline mode.' % ClickOrEnter)
          self.bringArmoryToFront()
          QMessageBox.warning(self, 'Offline Mode',

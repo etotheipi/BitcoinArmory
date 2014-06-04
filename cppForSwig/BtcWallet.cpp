@@ -550,7 +550,8 @@ LedgerEntry BtcWallet::calcLedgerEntryForTx(Tx & tx)
    for(uint32_t iin=0; iin<tx.getNumTxIn(); iin++)
    {
       // We have the txin, now check if it contains one of our TxOuts
-      op.unserialize(txStartPtr + tx.getTxInOffset(iin), tx.getSize()-tx.getTxInOffset(iin));
+      op.unserialize(txStartPtr + tx.getTxInOffset(iin), 
+                     tx.getSize()-tx.getTxInOffset(iin));
 
       if(op.getTxHashRef() == BtcUtils::EmptyHash())
          isCoinbaseTx = true;
@@ -943,7 +944,7 @@ vector<LedgerEntry> BtcWallet::getTxLedger(HashString const & scraddr) const
       vector<LedgerEntry> ledgerEntries;
       for(const TxIOPair &txio : getHistoryForScrAddr(scraddr))
       {
-         const TxOut txout = txio.getTxOutCopy(bdmPtr_->getIFace());
+         const TxOut& txout = txio.getTxOutCopy(bdmPtr_->getIFace());
          //const TxIn txin = txio.getTxInCopy(bdmPtr_->getIFace());
          const DBTxRef tx = txout.getParentTxRef().attached(bdmPtr_->getIFace());
          

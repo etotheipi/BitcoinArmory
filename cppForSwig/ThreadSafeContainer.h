@@ -298,12 +298,12 @@ template <typename T> class ts_container
          commitLock_ = 0;
       }
 
-      void Add(obj_type input)
+      void Add(const obj_type& input)
       {
          Modify(input, 1);
       }
 
-      void Remove(obj_type input)
+      void Remove(const obj_type& input)
       {
          Modify(input, -1);
       }
