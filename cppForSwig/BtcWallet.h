@@ -164,7 +164,9 @@ public:
    const vector<LedgerEntry> 
       getZeroConfLedger(BinaryData const * scrAddr = nullptr) const;
    vector<LedgerEntry> 
-      getTxLedger(BinaryData const * scrAddr=nullptr) const; 
+      getTxLedger(BinaryData const &scrAddr) const; 
+   vector<LedgerEntry> 
+      getTxLedger() const; 
 
    bool isOutPointMine(BinaryData const & hsh, uint32_t idx);
 

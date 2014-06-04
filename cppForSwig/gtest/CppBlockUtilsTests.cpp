@@ -6237,7 +6237,7 @@ protected:
 ////////////////////////////////////////////////////////////////////////////////
 TEST_F(BlockUtilsBare, BuildNoRegisterWlt)
 {
-   TheBDM.doInitialSyncOnLoad(); 
+   TheBDM.doInitialSyncOnLoad( [] (double,unsigned) {} ); 
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -6250,7 +6250,7 @@ TEST_F(BlockUtilsBare, Load5Blocks)
    TheBDM.registerWallet(&wlt);
    wlt.registerNewScrAddr(scrAddrD_);
    
-   TheBDM.doInitialSyncOnLoad(); 
+   TheBDM.doInitialSyncOnLoad([] (double,unsigned) {});
 
    const ScrAddrObj *scrobj;
    scrobj = &wlt.getScrAddrObjByKey(scrAddrA_);
@@ -6285,7 +6285,7 @@ TEST_F(BlockUtilsBare, Load4Blocks_Plus1)
    // Copy only the first four blocks.  Will copy the full file next to test
    // readBlkFileUpdate method on non-reorg blocks.
    BtcUtils::copyFile("../reorgTest/blk_0_to_4.dat", blk0dat_, 1596);
-   TheBDM.doInitialSyncOnLoad(); 
+   TheBDM.doInitialSyncOnLoad([] (double,unsigned) {}); 
    //TheBDM.scanBlockchainForTx(wlt);
    EXPECT_EQ(iface_->getTopBlockHeight(HEADERS), 3);
    EXPECT_EQ(iface_->getTopBlockHash(HEADERS), blkHash3);
@@ -6330,7 +6330,7 @@ TEST_F(BlockUtilsBare, Load4Blocks_ZC_Plus1)
    // Copy only the first four blocks.  Will copy the full file next to test
    // readBlkFileUpdate method on non-reorg blocks.
    BtcUtils::copyFile("../reorgTest/blk_0_to_4.dat", blk0dat_, 1596);
-   TheBDM.doInitialSyncOnLoad(); 
+   TheBDM.doInitialSyncOnLoad([] (double,unsigned) {});
    EXPECT_EQ(iface_->getTopBlockHeight(HEADERS), 3);
    EXPECT_EQ(iface_->getTopBlockHash(HEADERS), blkHash3);
    EXPECT_TRUE(TheBDM.blockchain().getHeaderByHash(blkHash3).isMainBranch());
@@ -6420,7 +6420,7 @@ TEST_F(BlockUtilsBare, Load5Blocks_FullReorg)
    wlt2.addScrAddress(scrAddrD_);
    TheBDM.registerWallet(&wlt2);
    
-   TheBDM.doInitialSyncOnLoad(); 
+   TheBDM.doInitialSyncOnLoad([] (double,unsigned) {});
 
    BtcUtils::copyFile("../reorgTest/blk_3A.dat", blk0dat_);
    TheBDM.readBlkFileUpdate();
@@ -6458,7 +6458,7 @@ TEST_F(BlockUtilsBare, CorruptedBlock)
    wlt2.addScrAddress(scrAddrD_);
    TheBDM.registerWallet(&wlt2);
 
-   TheBDM.doInitialSyncOnLoad(); 
+   TheBDM.doInitialSyncOnLoad([] (double,unsigned) {});
    //TheBDM.scanBlockchainForTx(wlt);
    //TheBDM.scanBlockchainForTx(wlt2);
 
@@ -6481,7 +6481,6 @@ TEST_F(BlockUtilsBare, CorruptedBlock)
    }
 
    TheBDM.readBlkFileUpdate();
-   
 
    //TheBDM.scanBlockchainForTx(wlt);
    //TheBDM.scanBlockchainForTx(wlt2);
@@ -6508,7 +6507,7 @@ TEST_F(BlockUtilsBare, Load5Blocks_RescanOps)
    TheBDM.registerWallet(&wlt);
 
    // Regular sync
-   TheBDM.doInitialSyncOnLoad();
+   TheBDM.doInitialSyncOnLoad([] (double,unsigned) {});
 
    scrobj = &wlt.getScrAddrObjByKey(scrAddrA_);
    EXPECT_EQ(scrobj->getFullBalance(),100*COIN);
@@ -6518,7 +6517,7 @@ TEST_F(BlockUtilsBare, Load5Blocks_RescanOps)
    EXPECT_EQ(scrobj->getFullBalance(), 50*COIN);
 
    // Rebuild on-the-fly
-   TheBDM.doRebuildDatabases();
+   TheBDM.doRebuildDatabases([] (double,unsigned) {});
 
    scrobj = &wlt.getScrAddrObjByKey(scrAddrA_);
    EXPECT_EQ(scrobj->getFullBalance(),100*COIN);
@@ -6528,7 +6527,7 @@ TEST_F(BlockUtilsBare, Load5Blocks_RescanOps)
    EXPECT_EQ(scrobj->getFullBalance(), 50*COIN);
 
    // Rebuild on-the-fly
-   TheBDM.doFullRescanRegardlessOfSync();
+   TheBDM.doFullRescanRegardlessOfSync([] (double,unsigned) {});
 
    scrobj = &wlt.getScrAddrObjByKey(scrAddrA_);
    EXPECT_EQ(scrobj->getFullBalance(),100*COIN);
@@ -6538,7 +6537,7 @@ TEST_F(BlockUtilsBare, Load5Blocks_RescanOps)
    EXPECT_EQ(scrobj->getFullBalance(), 50*COIN);
    
 
-   TheBDM.doSyncIfNeeded();
+   TheBDM.doSyncIfNeeded([] (double,unsigned) {});
 
    scrobj = &wlt.getScrAddrObjByKey(scrAddrA_);
    EXPECT_EQ(scrobj->getFullBalance(),100*COIN);
@@ -6563,7 +6562,7 @@ TEST_F(BlockUtilsBare, Load5Blocks_RescanEmptyDB)
    wlt.addScrAddress(scrAddrC_);
    TheBDM.registerWallet(&wlt);
 
-   TheBDM.doInitialSyncOnLoad_Rescan();
+   TheBDM.doInitialSyncOnLoad_Rescan([] (double,unsigned) {});
    //TheBDM.scanBlockchainForTx(wlt);
 
    const ScrAddrObj * scrobj;
@@ -6585,7 +6584,7 @@ TEST_F(BlockUtilsBare, Load5Blocks_RebuildEmptyDB)
    TheBDM.registerWallet(&wlt);
 
    ///////////////////////////////////////////
-   TheBDM.doInitialSyncOnLoad_Rebuild();
+   TheBDM.doInitialSyncOnLoad_Rebuild([] (double,unsigned) {});
    ///////////////////////////////////////////
 
    //TheBDM.scanBlockchainForTx(wlt);
@@ -6610,7 +6609,7 @@ TEST_F(BlockUtilsBare, Load5Blocks_ForceFullRewhatever)
    TheBDM.registerWallet(&wlt);
 
    // This is just a regular load
-   TheBDM.doInitialSyncOnLoad();
+   TheBDM.doInitialSyncOnLoad([] (double,unsigned) {});
    //TheBDM.scanBlockchainForTx(wlt);
 
    wlt.addScrAddress(scrAddrD_);
@@ -6625,7 +6624,7 @@ TEST_F(BlockUtilsBare, Load5Blocks_ForceFullRewhatever)
    EXPECT_EQ(scrobj->getFullBalance(),  0*COIN);
 
    ///////////////////////////////////////////
-   TheBDM.doFullRescanRegardlessOfSync();
+   TheBDM.doFullRescanRegardlessOfSync([] (double,unsigned) {});
    ///////////////////////////////////////////
    
    //TheBDM.scanBlockchainForTx(wlt);
@@ -6640,7 +6639,7 @@ TEST_F(BlockUtilsBare, Load5Blocks_ForceFullRewhatever)
    EXPECT_EQ(scrobj->getFullBalance(),100*COIN);
 
    ///////////////////////////////////////////
-   TheBDM.doRebuildDatabases();
+   TheBDM.doRebuildDatabases([] (double,unsigned) {});
    ///////////////////////////////////////////
    
    //TheBDM.scanBlockchainForTx(wlt);
@@ -6666,7 +6665,7 @@ TEST_F(BlockUtilsBare, Load5Blocks_ScanWhatIsNeeded)
    TheBDM.registerWallet(&wlt);
 
    // This is just a regular load
-   TheBDM.doInitialSyncOnLoad();
+   TheBDM.doInitialSyncOnLoad([] (double,unsigned) {});
    //TheBDM.scanBlockchainForTx(wlt);
 
    wlt.addScrAddress(scrAddrD_);
@@ -6681,7 +6680,7 @@ TEST_F(BlockUtilsBare, Load5Blocks_ScanWhatIsNeeded)
    EXPECT_EQ(scrobj->getFullBalance(),  0*COIN);
 
    ///////////////////////////////////////////
-   TheBDM.doSyncIfNeeded();
+   TheBDM.doSyncIfNeeded([] (double,unsigned) {});
    ///////////////////////////////////////////
 
    //TheBDM.scanBlockchainForTx(wlt);
@@ -6696,7 +6695,7 @@ TEST_F(BlockUtilsBare, Load5Blocks_ScanWhatIsNeeded)
    EXPECT_EQ(scrobj->getFullBalance(),100*COIN);
 
    ///////////////////////////////////////////
-   TheBDM.doSyncIfNeeded();
+   TheBDM.doSyncIfNeeded([] (double,unsigned) {});
    ///////////////////////////////////////////
 
    //TheBDM.scanBlockchainForTx(wlt);
@@ -7072,7 +7071,7 @@ TEST_F(LoadTestnetBareTest, DISABLED_StepThroughDebug_usually_disabled)
    wlt.addScrAddress(scrAddrC_);
    TheBDM.registerWallet(&wlt);
 
-   TheBDM.doInitialSyncOnLoad();
+   TheBDM.doInitialSyncOnLoad([] (double,unsigned) {});
    //TheBDM.scanBlockchainForTx(wlt);
 }
 
@@ -7274,7 +7273,7 @@ TEST_F(BlockUtilsSuper, Load5Blocks)
 {
 //    DBUtils::setArmoryDbType(ARMORY_DB_SUPER);
 //    DBUtils::setDbPruneType(DB_PRUNE_NONE);
-   TheBDM.doInitialSyncOnLoad(); 
+   TheBDM.doInitialSyncOnLoad([] (double,unsigned) {});
 
    StoredScriptHistory ssh;
 
@@ -7305,7 +7304,7 @@ TEST_F(BlockUtilsSuper, Load4BlocksPlus1)
    // Copy only the first four blocks.  Will copy the full file next to test
    // readBlkFileUpdate method on non-reorg blocks.
    BtcUtils::copyFile("../reorgTest/blk_0_to_4.dat", blk0dat_, 1596);
-   TheBDM.doInitialSyncOnLoad(); 
+   TheBDM.doInitialSyncOnLoad([] (double,unsigned) {});
    EXPECT_EQ(iface_->getTopBlockHeight(HEADERS), 3);
    EXPECT_EQ(iface_->getTopBlockHash(HEADERS), blkHash3);
    EXPECT_TRUE(TheBDM.blockchain().getHeaderByHash(blkHash3).isMainBranch());
@@ -7322,7 +7321,7 @@ TEST_F(BlockUtilsSuper, Load5Blocks_Plus2NoReorg)
 {
 //    DBUtils::setArmoryDbType(ARMORY_DB_SUPER);
 //    DBUtils::setDbPruneType(DB_PRUNE_NONE);
-   TheBDM.doInitialSyncOnLoad(); 
+   TheBDM.doInitialSyncOnLoad([] (double,unsigned) {});
 
 
    BtcUtils::copyFile("../reorgTest/blk_3A.dat", blk0dat_);
@@ -7344,7 +7343,7 @@ TEST_F(BlockUtilsSuper, Load5Blocks_FullReorg)
 {
 //    DBUtils::setArmoryDbType(ARMORY_DB_SUPER);
 //    DBUtils::setDbPruneType(DB_PRUNE_NONE);
-   TheBDM.doInitialSyncOnLoad(); 
+   TheBDM.doInitialSyncOnLoad([] (double,unsigned) {});
 
    BtcUtils::copyFile("../reorgTest/blk_3A.dat", blk0dat_);
    TheBDM.readBlkFileUpdate();
@@ -7384,7 +7383,7 @@ TEST_F(BlockUtilsSuper, DISABLED_RestartDBAfterBuild)
    // Copy only the first four blocks.  Will copy the full file next to test
    // readBlkFileUpdate method on non-reorg blocks.
    BtcUtils::copyFile("../reorgTest/blk_0_to_4.dat", blk0dat_, 926);
-   TheBDM.doInitialSyncOnLoad(); 
+   TheBDM.doInitialSyncOnLoad([] (double,unsigned) {});
    EXPECT_EQ(iface_->getTopBlockHeight(HEADERS), 2);
    EXPECT_EQ(iface_->getTopBlockHash(HEADERS), blkHash2);
    EXPECT_TRUE(TheBDM.blockchain().getHeaderByHash(blkHash2).isMainBranch());
@@ -7394,7 +7393,7 @@ TEST_F(BlockUtilsSuper, DISABLED_RestartDBAfterBuild)
 
    // Now reinitialize the DB and hopefully detect the new blocks and update
 
-   TheBDM.doInitialSyncOnLoad();
+   TheBDM.doInitialSyncOnLoad([] (double,unsigned) {});
    
    EXPECT_EQ(TheBDM.getTopBlockHeightInDB(HEADERS), 4);
    EXPECT_EQ(TheBDM.getTopBlockHeightInDB(BLKDATA), 4);
@@ -7430,7 +7429,7 @@ TEST_F(BlockUtilsSuper, DISABLED_RestartDBAfterBuild_withReplay)
    // Copy only the first four blocks.  Will copy the full file next to test
    // readBlkFileUpdate method on non-reorg blocks.
    BtcUtils::copyFile("../reorgTest/blk_0_to_4.dat", blk0dat_, 926);
-   TheBDM.doInitialSyncOnLoad(); 
+   TheBDM.doInitialSyncOnLoad([] (double,unsigned) {});
    EXPECT_EQ(iface_->getTopBlockHeight(HEADERS), 2);
    EXPECT_EQ(iface_->getTopBlockHash(HEADERS), blkHash2);
    EXPECT_TRUE(TheBDM.blockchain().getHeaderByHash(blkHash2).isMainBranch());
@@ -7442,7 +7441,7 @@ TEST_F(BlockUtilsSuper, DISABLED_RestartDBAfterBuild_withReplay)
 
    uint32_t replayRewind = 700;
 
-   TheBDM.doInitialSyncOnLoad();
+   TheBDM.doInitialSyncOnLoad([] (double,unsigned) {});
    
    EXPECT_EQ(TheBDM.getTopBlockHeightInDB(HEADERS), 4);
    EXPECT_EQ(TheBDM.getTopBlockHeightInDB(BLKDATA), 4);
@@ -7496,7 +7495,7 @@ TEST_F(BlockUtilsSuper, DISABLED_TimeAndSpaceTest_usuallydisabled)
    blkdir_  = string("/home/alan/.bitcoin/testnet3/blocks");
 
    StoredScriptHistory ssh;
-   TheBDM.doInitialSyncOnLoad(); 
+   TheBDM.doInitialSyncOnLoad([] (double,unsigned) {});
    BinaryData scrAddr  = READHEX("11b366edfc0a8b66feebae5c2e25a7b6a5d1cf31");
    BinaryData scrAddr2 = READHEX("39aa3d569e06a1d7926dc4be1193c99bf2eb9ee0");
    BinaryData scrAddr3 = READHEX("758e51b5e398a32c6abd091b3fde383291267cfa");
@@ -7663,7 +7662,7 @@ TEST_F(BlockUtilsWithWalletTest, PreRegisterScrAddrs)
    wlt.registerNewScrAddr(scrAddrD_);
 
    BtcUtils::copyFile("../reorgTest/blk_0_to_4.dat", blk0dat_);
-   TheBDM.doInitialSyncOnLoad();
+   TheBDM.doInitialSyncOnLoad([] (double,unsigned) {});
 
    TheBDM.scanWallets();
 
@@ -7702,7 +7701,7 @@ TEST_F(BlockUtilsWithWalletTest, PreRegisterScrAddrs)
 TEST_F(BlockUtilsWithWalletTest, PostRegisterScrAddr)
 {
    BtcUtils::copyFile("../reorgTest/blk_0_to_4.dat", blk0dat_);
-   TheBDM.doInitialSyncOnLoad();
+   TheBDM.doInitialSyncOnLoad([] (double,unsigned) {});
 
    // We do all the database stuff first, THEN load the addresses
    BtcWallet wlt(theBDM);
@@ -7950,7 +7949,7 @@ protected:
 ////////////////////////////////////////////////////////////////////////////////
 TEST_F(BlockUtilsWithWalletTest, TestBalanceMainnet_usuallydisabled)
 {
-   TheBDM.doInitialSyncOnLoad();
+   TheBDM.doInitialSyncOnLoad([] (double,unsigned) {});
 
    // We do all the database stuff first, THEN load the addresses
    BtcWallet wlt(theBDM);
@@ -8001,7 +8000,7 @@ TEST_F(BlockUtilsWithWalletTest, ZeroConfUpdate)
    TheBDM.registerWallet(&wlt);
 
    TheBDM.enableZeroConf("");
-   TheBDM.doInitialSyncOnLoad();
+   TheBDM.doInitialSyncOnLoad([] (double,unsigned) {});
    TheBDM.scanWallets();
 
    EXPECT_EQ(wlt.getScrAddrObjByKey(scrAddrA_).getFullBalance(),  50*COIN);

@@ -943,54 +943,67 @@ void BtcWallet::clearZeroConfPool(void)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-vector<LedgerEntry> 
-   BtcWallet::getTxLedger(HashString const * scraddr) const
+vector<LedgerEntry> BtcWallet::getTxLedger(HashString const & scraddr) const
 {
    SCOPED_TIMER("BtcWallet::getTxLedger");
 
-//   if (bdmPtr_->config().armoryDbType == ARMORY_DB_SUPER)
+   if (bdmPtr_->config().armoryDbType == ARMORY_DB_SUPER)
+   {
+      vector<LedgerEntry> ledgerEntries;
+      for(const TxIOPair &txio : getHistoryForScrAddr(scraddr))
+      {
+         const TxOut txout = txio.getTxOutCopy(bdmPtr_->getIFace());
+         //const TxIn txin = txio.getTxInCopy(bdmPtr_->getIFace());
+         const DBTxRef tx = txout.getParentTxRef().attached(bdmPtr_->getIFace());
+         
+         LedgerEntry e(
+            scraddr,
+            txout.getValue(),
+            txout.getParentHeight(),
+            tx.getThisHash(),
+            tx.getBlockTxIndex(),
+            tx.getBlockTimestamp()
+         );
+         
+         ledgerEntries.push_back(e);
+      }
+      return ledgerEntries;
+   }
+   else
+   {
+      ts_saMap::const_snapshot saSS(scrAddrMap_);
+      if(saSS.find(scraddr) == saSS.end())
+         return vector<LedgerEntry>();
+      else
+      {
+         ScrAddrObj sa = scrAddrMap_[scraddr];
+         return sa.getTxLedger();
+      }
+   }
+}
+
+vector<LedgerEntry> BtcWallet::getTxLedger() const
+{
+   SCOPED_TIMER("BtcWallet::getTxLedger");
+
+   if (bdmPtr_->config().armoryDbType == ARMORY_DB_SUPER)
    {
       vector<LedgerEntry> ledgerEntries;
       ts_saMap::const_snapshot saSnapshot(scrAddrMap_);
       for(const auto &sa : saSnapshot)
       {
          const ScrAddrObj & addr = sa.second;
-         for(const TxIOPair &txio : getHistoryForScrAddr(addr.getScrAddr()))
-         {
-            const TxOut txout = txio.getTxOutCopy(bdmPtr_->getIFace());
-            //const TxIn txin = txio.getTxInCopy(bdmPtr_->getIFace());
-            const DBTxRef tx = txout.getParentTxRef().attached(bdmPtr_->getIFace());
-            
-            LedgerEntry e(
-               addr.getScrAddr(),
-               txout.getValue(),
-               txout.getParentHeight(),
-               tx.getThisHash(),
-               tx.getBlockTxIndex(),
-               tx.getBlockTimestamp()
-            );
-            
-            ledgerEntries.push_back(e);
-         }
+         const vector<LedgerEntry> e = getTxLedger(addr.getScrAddr());
+         copy(e.begin(), e.end(), back_inserter(ledgerEntries));
       }
       return ledgerEntries;
    }
-/*   else
+   else
    {
-      if(!scraddr)
-         return ledgerAllAddr_;
-
-      ts_saMap::const_snapshot saSS(scrAddrMap_);
-      if(saSS.find(*scraddr) == saSS.end())
-         return vector<LedgerEntry>(0);
-      else
-      {
-         ScrAddrObj sa = scrAddrMap_[*scraddr];
-         return sa.getTxLedger();
-      }
+      return ledgerAllAddr_;
    }
-*/
 }
+
 
 ////////////////////////////////////////////////////////////////////////////////
 const vector<LedgerEntry> 
