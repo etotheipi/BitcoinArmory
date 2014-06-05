@@ -1263,9 +1263,6 @@ class ReviewOfflineTxFrame(ArmoryDialog):
                       'Save Unsigned Transaction', \
                       ['Armory Transactions (*.unsigned.tx)'], \
                       'armory_%s_%s' % (dpid, suffix))
-      # In windows, we get all these superfluous file suffixes
-      toSave = toSave.replace('unsigned.tx.unsigned.tx', 'unsigned.tx')
-      toSave = toSave.replace('unsigned.tx.unsigned.tx', 'unsigned.tx')
       LOGINFO('Saving unsigned tx file: %s', toSave)
       try:
          theFile = open(toSave, 'w')
@@ -1802,12 +1799,6 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
       filename = self.main.getFileSave('Save Transaction', \
                              [ffilt], \
                              defaultFilename)
-
-      filename = filename.replace('unsigned.tx.unsigned.tx', 'unsigned.tx')
-      filename = filename.replace('unsigned.tx.unsigned.tx', 'unsigned.tx')
-      filename = filename.replace('signed.tx.signed.tx', 'signed.tx')
-      filename = filename.replace('signed.tx.signed.tx', 'signed.tx')
-      filename = filename.replace('unsigned.tx.signed.tx', 'signed.tx')
       if len(str(filename)) > 0:
          LOGINFO('Saving transaction file: %s', filename)
          f = open(filename, 'w')

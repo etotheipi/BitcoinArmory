@@ -1045,7 +1045,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
             if not lbFound:
                # Write both to the "master" LB list used by Armory and an
                # individual file.
-               lbFileName = 'Multikey_%s.lockbox.txt' % lbID
+               lbFileName = 'Multisig_%s.lockbox.txt' % lbID
                lbFilePath = os.path.join(ARMORY_HOME_DIR, lbFileName)
                writeLockboxesFile([self.lockbox], MULTISIG_FILE, True)
                writeLockboxesFile([self.lockbox], lbFilePath, False)

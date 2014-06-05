@@ -66,3 +66,25 @@ def EmailOutput(send_from, server, password, send_to, subject='Armory Output'):
       return wrapper
 
    return ActualEmailOutputDecorator
+
+# windows does not handle extensions very well in QFileDialog.getSaveFileName
+# When double extensions (e.g. .sigcollect.tx) are used windows will return duplicates.
+# 
+# This decorator removes just the longest repeating extension
+# Examples:
+#     filename.a.b.c.a.b.c will reduce to filename.a.b.c
+#     filename.a.b.b.a.b.b will reduce to filename.a.b
+
+def RemoveRepeatingExtensions(func):
+   def inner(*args, **kwargs):
+      rv = func(*args, **kwargs)
+      segs = rv.split('.')
+      isDupExt = lambda s, n : s[-n*2:-n] == s[-n:]
+      # Try the maximum amount of repeating extensions first.
+      for i in range(1, len(segs)/2 + 1)[::-1]:
+         if isDupExt(segs, i):
+            while isDupExt(segs, i):
+               segs = segs[:-i]
+      return '.'.join(segs)
+   return inner
+      
