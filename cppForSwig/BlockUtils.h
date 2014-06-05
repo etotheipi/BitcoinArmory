@@ -358,7 +358,6 @@ public:
    InterfaceToLDB *getIFace(void) {return iface_;}
    vector<TxIOPair> getHistoryForScrAddr(BinaryDataRef uniqKey, 
                                           bool withMultisig=false);
-   void eraseTx(const BinaryData& txHash);
    uint32_t numBlocksToRescan( BtcWallet & wlt, uint32_t endBlk) const;
    
    void scanWallets(uint32_t startBlock=UINT32_MAX, 

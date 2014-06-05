@@ -2878,17 +2878,6 @@ vector<TxIOPair> BlockDataManager_LevelDB::getHistoryForScrAddr(BinaryDataRef un
    return rt_TxIOPair;
 }
 
-void BlockDataManager_LevelDB::eraseTx(const BinaryData& txHash)
-{
-   ts_setBtcWallet::const_snapshot wltSnapshot(registeredWallets_);
-   ts_setBtcWallet::const_iterator wltIter;
-
-   for(wltIter = wltSnapshot.begin(); wltIter != wltSnapshot.end();
-       ++wltIter)
-   {
-      (*wltIter)->eraseTx(txHash);
-   }
-}
 
 struct walletArg
 {
