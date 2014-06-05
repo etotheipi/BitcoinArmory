@@ -2479,7 +2479,7 @@ class DlgCreatePromNote(ArmoryDialog):
       try:
          addrText = str(self.edtFundTarget.text())
          if addrStr_is_p2sh(addrText):
-            lboxID = self.main.getLockboxByP2SHAddrStr(addrText) 
+            lboxID = self.main.getLockboxByP2SHAddrStr(addrText).uniqueIDB58
          else:
             lboxID = readLockboxEntryStr(addrText)
 

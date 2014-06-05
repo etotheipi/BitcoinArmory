@@ -76,9 +76,18 @@ class SendBitcoinsFrame(ArmoryFrame):
       self.radioFeedback = QRadioButton('Send change to first input address')
       self.radioSpecify = QRadioButton('Specify a change address')
       self.lblChangeAddr = QRichLabel('Send Change To:')
-      self.edtChangeAddr = QLineEdit()
-      self.btnChangeAddr = createAddrBookButton(parent, self.edtChangeAddr, \
-                                       None, 'Send change to')
+
+      # Replaced with createAddressEntryWidgets
+      #self.edtChangeAddr = QLineEdit()
+      #self.btnChangeAddr = createAddrBookButton(parent, self.edtChangeAddr, \
+                                       #None, 'Send change to')
+      addrWidgets = self.main.createAddressEntryWidgets(self, defaultWltID=self.wltID)
+      self.edtChangeAddr   = addrWidg['QLE_ADDR']
+      self.btnChangeAddr   = addrWidg['BTN_BOOK']
+      self.lblDetectedWlt  = addrWidg['LBL_DETECTWLT']
+      self.getChangeScript = addrWidg['CALLBACK_GETSCRIPT']
+      #self.lblDetectedAddr = addrWidg['LBL_DETECTADDR'] # we don't have space for this
+
       self.chkRememberChng = QCheckBox('Remember for future transactions')
       self.vertLine = VLINE()
 
@@ -167,6 +176,10 @@ class SendBitcoinsFrame(ArmoryFrame):
       # In Expert usermode, allow the user to modify source addresses
       if self.main.usermode == USERMODE.Expert:
 
+         frmChange = QFrame()
+         frmChangeLayout = QGridLayout()
+         frmChangeLayout = 
+         
 
          # Make sure that there can only be one selection
          btngrp = QButtonGroup(self)
@@ -624,11 +637,9 @@ class SendBitcoinsFrame(ArmoryFrame):
       self.selectedBehavior = ''
       if self.lbox is None:
          if totalChange > 0:
-            self.changeScrAddr = self.determineChangeAddr(utxoSelect)
-            # For now assume that change is always CPP_TXOUT_HAS_ADDRSTR
-            changeScript = scrAddr_to_script(self.changeScrAddr)
             LOGINFO('Change address behavior: %s', self.selectedBehavior)
-            if not self.changeScrAddr:
+            changeScript = self.determineChangeScript(utxoSelect)
+            if not changeScript
                return False
             scriptValPairs.append([changeScript, totalChange])
          else:
@@ -800,7 +811,7 @@ class SendBitcoinsFrame(ArmoryFrame):
 
 
    #############################################################################
-   def determineChangeAddr(self, utxoList):
+   def determineChangeScript(self, utxoList):
       changeAddrStr = ''
       changeAddr160 = ''
       changeScrAddr = ''
@@ -824,15 +835,13 @@ class SendBitcoinsFrame(ArmoryFrame):
                changeScrAddr = utxoList[0].getRecipientScrAddr()
                self.selectedBehavior = 'Feedback'
             elif self.radioSpecify.isChecked():
-               addrStr = str(self.edtChangeAddr.text()).strip()
-               if not checkAddrStrValid(addrStr):
+               #addrStr = str(self.edtChangeAddr.text()).strip()
+               changeScript = self.getChangeScript()
+               if changeScript is None:
                   QMessageBox.warning(self, tr('Invalid Address'), tr("""
                      You specified an invalid change address for this 
                      transcation."""), QMessageBox.Ok)
-                  return '', False
-               changeScrAddr = addrStr_to_scrAddr(addrStr)
-               if addrStr_to_hash160(addrStr)[0]==P2SHBYTE:
-                  LOGWARN('P2SH address used in change output')
+                  return None
                self.selectedBehavior = 'Specify'
 
       if self.main.usermode == USERMODE.Expert and self.chkRememberChng.isChecked():
@@ -842,7 +851,7 @@ class SendBitcoinsFrame(ArmoryFrame):
       else:
          self.main.setWltSetting(self.wltID, 'ChangeBehavior', 'NewAddr')
 
-      return changeScrAddr
+      return changeScript
 
    #####################################################################
    def setMaximum(self, targWidget):
@@ -1099,7 +1108,7 @@ class SendBitcoinsFrame(ArmoryFrame):
          idCol = self.COLS.LblWltID
          addrtext = str(self.widgetTable[idx][self.COLS.Addr].text())
          if addrStr_is_p2sh(addrtext):
-            lboxID = self.main.getLockboxByP2SHAddrStr(addrtext) 
+            lboxID = self.main.getLockboxByP2SHAddrStr(addrtext).uniqueIDB58
          else:
             lboxID = readLockboxEntryStr(addrtext)
 

@@ -900,7 +900,7 @@ class TxOutDispModel(QAbstractTableModel):
             if stype in CPP_TXOUT_HAS_ADDRSTR:
                addrText = script_to_addrStr(txout.binScript)
                if stype == CPP_TXOUT_P2SH:
-                  lboxID = self.main.getLockboxByP2SHAddrStr(addrText) 
+                  lboxID = self.main.getLockboxByP2SHAddrStr(addrText).uniqueIDB58
                   lbox = self.main.getLockboxByID(lboxID)
                   if lbox:
                      dispStr = 'Lockbox %d-of-%d (%s) ' % (lbox.M, lbox.N, 

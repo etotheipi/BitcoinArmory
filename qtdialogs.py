@@ -5118,6 +5118,8 @@ class DlgConfirmSend(ArmoryDialog):
             "<b>%s</b>" (%s).  Here are the outputs:""") % \
             (sumStr, wlt.labelName, wlt.uniqueIDB58))
 
+      leftColWidth = 50
+
       recipLbls = []
       ffixBold = GETFONT('Fixed')
       ffixBold.setWeight(QFont.Bold)
@@ -5141,18 +5143,18 @@ class DlgConfirmSend(ArmoryDialog):
             dispStr = 'Non-standard [UNRECOGNIZED]'
 
          coinStr = coin2str(val, rJust=True, maxZeros=4)
-         recipLbls.append(QLabel(dispStr.ljust(38) + coinStr))
+         recipLbls.append(QLabel(dispStr.ljust(leftColWidth) + coinStr))
          recipLbls[-1].setFont(ffixBold)
 
 
       if fee > 0:
          recipLbls.append(QSpacerItem(10, 10))
-         recipLbls.append(QLabel('Transaction Fee : '.ljust(38) +
+         recipLbls.append(QLabel('Transaction Fee : '.ljust(leftColWidth) +
                            coin2str(fee, rJust=True, maxZeros=4)))
          recipLbls[-1].setFont(GETFONT('Fixed'))
 
       recipLbls.append(HLINE(QFrame.Sunken))
-      recipLbls.append(QLabel('Total bitcoins Sent: '.ljust(38) +
+      recipLbls.append(QLabel('Total bitcoins Sent: '.ljust(leftColWidth) +
                         coin2str(totalSend, rJust=True, maxZeros=4)))
       recipLbls[-1].setFont(GETFONT('Fixed'))
 
@@ -5174,6 +5176,7 @@ class DlgConfirmSend(ArmoryDialog):
             atype, chngAddr160 = addrStr_to_hash160(chngAddrStr)
             if atype == P2SHBYTE:
                LOGWARN('P2SH change address specified')
+
          chngBehaveStr = changeBehave[1]
          if chngBehaveStr == 'Feedback':
             lblSpecialChange.setText('*Change will be sent back to first input address')
@@ -8585,7 +8588,7 @@ class DlgAddressBook(ArmoryDialog):
 
 
 ################################################################################
-def createAddrBookButton(parent, targWidget, defaultWlt=None, actionStr="Select",
+def createAddrBookButton(parent, targWidget, defaultWltID=None, actionStr="Select",
                          selectExistingOnly=False, selectMineOnly=False, getPubKey=False,
                          showLockBoxes=True):
    btn = QPushButton('')
@@ -8596,7 +8599,7 @@ def createAddrBookButton(parent, targWidget, defaultWlt=None, actionStr="Select"
          QMessageBox.warning(parent, 'No wallets!', 'You have no wallets so '
             'there is no address book to display.', QMessageBox.Ok)
          return
-      dlg = DlgAddressBook(parent, parent.main, targWidget, defaultWlt, 
+      dlg = DlgAddressBook(parent, parent.main, targWidget, defaultWltID, 
                     actionStr, selectExistingOnly, selectMineOnly, getPubKey,
                            showLockBoxes)
       dlg.exec_()
