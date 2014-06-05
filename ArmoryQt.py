@@ -2605,35 +2605,12 @@ class ArmoryMainWindow(QMainWindow):
       self.cppLockboxWltMap = {}
       if not os.path.exists(fn):
          return
-         
-      with open(fn, 'r') as f:
-         allData = f.read()
 
-      startMark = '=====LOCKBOX'
+      lbList = readLockboxesFile(fn)
+      for lb in lbList:
+         self.updateOrAddLockbox(lb)
 
-      if not startMark in allData:
-         return
 
-      try:
-         
-         pos = allData.find(startMark)
-         i = 0
-         while pos >= 0:
-            nextPos = allData.find(startMark, pos+1)
-            if nextPos < 0:
-               nextPos = len(allData)
-
-            lbBlock = allData[pos:nextPos].strip()
-            lbox = MultiSigLockbox().unserializeAscii(lbBlock)
-            self.updateOrAddLockbox(lbox)
-            LOGINFO('Read in Lockbox: %s' % lbox.uniqueIDB58)
-
-            pos = allData.find(startMark, pos+1)
-            i += 1
-      except:
-         LOGEXCEPT('Error reading lockboxes file')
-         shutil.move(fn, fn+'.%d.bak'% long(RightNow()))
-   
    #############################################################################
    def updateOrAddLockbox(self, lbObj, isFresh=False):
       try:

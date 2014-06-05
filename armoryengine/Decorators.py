@@ -13,45 +13,8 @@
 #
 ################################################################################
 
-from armoryengine.ArmoryUtils import LOGWARN, LOGERROR
-from email.MIMEMultipart import MIMEMultipart
-from email.MIMEBase import MIMEBase
-from email.MIMEText import MIMEText
-from email.Utils import COMMASPACE, formatdate
-from email import Encoders
-
-import smtplib
-import os
+from armoryengine.ArmoryUtils import send_email
 import functools
-
-def send_email(send_from, server, password, send_to, subject, text):
-   # smtp.sendmail() requires a list of recipients. If we didn't get a list,
-   # create one, and delimit based on a colon.
-   if not type(send_to) == list:
-      send_to = send_to.split(":")
-
-   # Split the server info. Also, use a default port in case the user goofed and
-   # didn't specify a port.
-   server = server.split(":")
-   serverAddr = server[0]
-   serverPort = 587
-   if len(server) > 1:
-      serverPort = server[1]
-
-   # Some of this may have to be modded to support non-TLS servers.
-   msg = MIMEMultipart()
-   msg['From'] = send_from
-   msg['To'] = COMMASPACE.join(send_to)
-   msg['Date'] = formatdate(localtime=True)
-   msg['Subject'] = subject
-   msg.attach(MIMEText(text))
-   mailServer = smtplib.SMTP(serverAddr, serverPort)
-   mailServer.ehlo()
-   mailServer.starttls()
-   mailServer.ehlo()
-   mailServer.login(send_from, password)
-   mailServer.sendmail(send_from, send_to, msg.as_string())
-   mailServer.close()
 
 # Following this pattern to allow arguments to be passed to this decorator:
 # http://stackoverflow.com/questions/10176226/how-to-pass-extra-arguments-to-python-decorator

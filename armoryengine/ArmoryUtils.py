@@ -12,8 +12,14 @@
 # Orig Date:  20 November, 2011
 #
 ################################################################################
+#from armoryengine.MultiSigUtils import MultiSigLockbox
 import ast
 from datetime import datetime
+from email.MIMEMultipart import MIMEMultipart
+from email.MIMEBase import MIMEBase
+from email.MIMEText import MIMEText
+from email.Utils import COMMASPACE, formatdate
+from email import Encoders
 import hashlib
 import inspect
 import locale
@@ -25,6 +31,7 @@ import os
 import platform
 import random
 import signal
+import smtplib
 from struct import pack, unpack
 #from subprocess import PIPE
 import sys
@@ -109,9 +116,9 @@ parser.add_option("--coverage_include", dest="coverageInclude", default=None, ty
 # Some useful constants to be used throughout everything
 BASE58CHARS  = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
 BASE16CHARS  = '0123 4567 89ab cdef'.replace(' ','')
-LITTLEENDIAN  = '<';
-BIGENDIAN     = '>';
-NETWORKENDIAN = '!';
+LITTLEENDIAN  = '<'
+BIGENDIAN     = '>'
+NETWORKENDIAN = '!'
 ONE_BTC       = long(100000000)
 DONATION       = long(5000000)
 CENT          = long(1000000)
@@ -301,7 +308,6 @@ NETWORKS['\x05'] = "Main Network"
 NETWORKS['\x6f'] = "Test Network"
 NETWORKS['\xc4'] = "Test Network"
 NETWORKS['\x34'] = "Namecoin Network"
-
 
 # We disable wallet checks on ARM for the sake of resources (unless forced)
 DO_WALLET_CHECK = CLI_OPTIONS.forceWalletCheck or \
@@ -3076,7 +3082,7 @@ def isValidPK(inPK, inStr=False):
 
    if pkLen == UNCOMP_PK_LEN or pkLen == COMP_PK_LEN:
       # The "proper" way to check the key is to feed it to Crypto++.
-      if not CryptoECDSA().VerifyPublicKeyValid(SecureBinaryData(inPK)):
+      if not CryptoECDSA().VerifyPublicKeyValid(SecureBinaryData(checkVal)):
          LOGWARN('Pub key %s is invalid.' % binary_to_hex(inPK))
       else:
          retVal = True
@@ -3141,20 +3147,35 @@ def decompressPK(inKey, inStr=False):
 
 
 ################################################################################
-# Function that writes a lockbox to a file. The lockbox can be appended to a
-# previously existing file or can overwrite what was already in the file.
-def writeLockboxesFile(inLockboxes, lbFilePath, append=False):
-   writeMode = 'w'
-   if append:
-      writeMode = 'a'
+# Function that can be used to send an e-mail to multiple recipients.
+def send_email(send_from, server, password, send_to, subject, text):
+   # smtp.sendmail() requires a list of recipients. If we didn't get a list,
+   # create one, and delimit based on a colon.
+   if not type(send_to) == list:
+      send_to = send_to.split(":")
 
-   # Do all the serializing and bail-on-error before opening the file 
-   # for writing, or we might delete it all by accident
-   textOut = '\n\n'.join([lb.serializeAscii() for lb in inLockboxes]) + '\n'
-   with open(lbFilePath, writeMode) as f:
-      f.write(textOut)
-      f.flush()
-      os.fsync(f.fileno())
+   # Split the server info. Also, use a default port in case the user goofed and
+   # didn't specify a port.
+   server = server.split(":")
+   serverAddr = server[0]
+   serverPort = 587
+   if len(server) > 1:
+      serverPort = int(server[1])
+
+   # Some of this may have to be modded to support non-TLS servers.
+   msg = MIMEMultipart()
+   msg['From'] = send_from
+   msg['To'] = COMMASPACE.join(send_to)
+   msg['Date'] = formatdate(localtime=True)
+   msg['Subject'] = subject
+   msg.attach(MIMEText(text))
+   mailServer = smtplib.SMTP(serverAddr, serverPort)
+   mailServer.ehlo()
+   mailServer.starttls()
+   mailServer.ehlo()
+   mailServer.login(send_from, password)
+   mailServer.sendmail(send_from, send_to, msg.as_string())
+   mailServer.close()
 
 
 #############################################################################
