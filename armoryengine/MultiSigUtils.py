@@ -115,6 +115,78 @@ def isP2SHLockbox(addrtext):
 def isLockbox(addrtext):
    return addrtext.startswith(LBPREFIX)
 
+
+################################################################################
+# Function that writes a lockbox to a file. The lockbox can be appended to a
+# previously existing file or can overwrite what was already in the file.
+def writeLockboxesFile(inLockboxes, lbFilePath, append=False):
+   writeMode = 'w'
+   if append:
+      writeMode = 'a'
+
+   # Do all the serializing and bail-on-error before opening the file 
+   # for writing, or we might delete it all by accident
+   textOut = '\n\n'.join([lb.serializeAscii() for lb in inLockboxes]) + '\n'
+   with open(lbFilePath, writeMode) as f:
+      f.write(textOut)
+      f.flush()
+      os.fsync(f.fileno())
+
+
+################################################################################
+# Function that can be used to send an e-mail to multiple recipients.
+def readLockboxesFile(lbFilePath):
+   retLBList = []
+
+   # Read in the lockbox file.
+   with open(lbFilePath, 'r') as lbFileData:
+      allData = lbFileData.read()
+
+   # Find the lockbox starting point.
+   startMark = '=====LOCKBOX'
+   if startMark in allData:
+      try:
+         # Find the point where the start mark begins and collect either all the
+         # data before the next LB or the remaining data in the file (i.e.,
+         # we're on the final LB).
+         pos = allData.find(startMark)
+         while pos >= 0:
+            nextPos = allData.find(startMark, pos+1)
+            if nextPos < 0:
+               nextPos = len(allData)
+
+            # Pull in all the LB data, process it and add it to the LB list.
+            lbBlock = allData[pos:nextPos].strip()
+            lbox = MultiSigLockbox().unserializeAscii(lbBlock)
+            LOGINFO('Read in Lockbox: %s' % lbox.uniqueIDB58)
+            retLBList.append(lbox)
+            pos = allData.find(startMark, pos+1)
+      except:
+         LOGEXCEPT('Error reading lockboxes file')
+         shutil.copy(lbFilePath, lbFilePath+'.%d.bak'% long(RightNow()))
+
+   return retLBList
+
+
+#############################################################################
+def getLockboxFilePaths():
+   '''Function that finds the paths of all lockboxes in the Armory
+      home directory.'''
+   lbPaths = []
+
+   # We're just going to get various paths. Even if a file has no valid
+   # lockboxes, other code will actually determine that.
+   if os.path.isfile(MULTISIG_FILE):
+      lbPaths.append(MULTISIG_FILE)
+
+   for f in os.listdir(ARMORY_HOME_DIR):
+      fullPath = os.path.join(ARMORY_HOME_DIR, f)
+      if os.path.isfile(fullPath) and not fullPath.endswith('lockbox.txt'):
+         lbPaths.append(fullPath)
+
+   return lbPaths
+
+
 ################################################################################
 ################################################################################
 class MultiSigLockbox(object):
