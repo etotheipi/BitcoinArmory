@@ -2641,29 +2641,24 @@ bool BlockDataManager_LevelDB::addNewZeroConfTx(BinaryData const & rawTx,
 void BlockDataManager_LevelDB::purgeZeroConfPool(void)
 {
    SCOPED_TIMER("purgeZeroConfPool");
-   list< ts_ZCMap::const_iterator > mapRmList;
+   vector< ts_ZCMap::const_iterator > mapRmList;
 
    // Find all zero-conf transactions that made it into the blockchain
    ts_ZCMap::const_snapshot ssZCMap(zeroConfMap_);
    
-   for (ts_ZCMap::const_iterator iter = ssZCMap.begin();
-       iter != ssZCMap.end();
-       ++iter)
+   for (ts_ZCMap::const_iterator i = ssZCMap.begin(); i != ssZCMap.end(); ++i)
    {
-      if (!getTxRefByHash(iter->first).isNull())
-         mapRmList.insert(mapRmList.end(), iter);
+      if (!getTxRefByHash(i->first).isNull())
+         mapRmList.push_back(i);
    }
 
    // We've made a list of the zc tx to remove, now let's remove them
    // I decided this was safer than erasing the data as we were iterating
    // over it in the previous loop
-   list< ts_ZCMap::const_iterator >::iterator rmIter;
-   for(rmIter  = mapRmList.begin();
-       rmIter != mapRmList.end();
-       rmIter++)
+   for(const ts_ZCMap::const_iterator &rm : mapRmList)
    {
-      zeroConfRawTxMap_.erase( (*rmIter)->first );
-      zeroConfMap_.erase( (*rmIter)->first );
+      zeroConfRawTxMap_.erase( rm->first );
+      zeroConfMap_.erase( rm->first );
    }
 
    // Rewrite the zero-conf pool file
@@ -2940,8 +2935,7 @@ void BlockDataManager_LevelDB::scanWallets(uint32_t startBlock,
 
    ts_setBtcWallet::snapshot wltSnapshot(registeredWallets_);
 
-
-   uint32_t i = 0;
+   //uint32_t i = 0;
    for (BtcWallet* wallet : wltSnapshot)
    {
       /*wltArgs[i].Set(wallet, 0, endBlock, forceScan);
