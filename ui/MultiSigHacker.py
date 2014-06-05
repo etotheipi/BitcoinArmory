@@ -1663,30 +1663,6 @@ class DlgImportLockbox(QDialog):
          self.accept()
 
 
-################################################################################
-def createContribBlock(self, msScript, walletID, amt, fee=0):
-
-   pass 
-
-
-################################################################################
-class DlgConfirmLockbox(ArmoryDialog):
-
-   #############################################################################
-   def __init__(self, parent, main, msScript):
-      super(DlgConfirmLockbox, self).__init__(parent, main)
-
-      
-
-
-
-################################################################################
-class DlgContributeFundLockbox(ArmoryDialog):
-
-   #############################################################################
-   def __init__(self, parent, main, msScript):
-      super(DlgContributeFundLockbox, self).__init__(parent, main)
-
 
 
 

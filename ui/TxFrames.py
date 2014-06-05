@@ -85,7 +85,7 @@ class SendBitcoinsFrame(ArmoryFrame):
       self.edtChangeAddr   = addrWidg['QLE_ADDR']
       self.btnChangeAddr   = addrWidg['BTN_BOOK']
       self.lblDetectedWlt  = addrWidg['LBL_DETECTWLT']
-      self.getChangeScript = addrWidg['CALLBACK_GETSCRIPT']
+      self.getSpecChangeScript = addrWidg['CALLBACK_GETSCRIPT']
       #self.lblDetectedAddr = addrWidg['LBL_DETECTADDR'] # we don't have space for this
 
       self.chkRememberChng = QCheckBox('Remember for future transactions')
@@ -131,16 +131,14 @@ class SendBitcoinsFrame(ArmoryFrame):
                                     VERTICAL,
                                     self.lbox.uniqueIDB58)
 
-      componentList = [ QLabel('Fee:'), \
-                        self.edtFeeAmt, \
-                        feetip, \
-                        STRETCH]
+
       # Only the Create  Unsigned Transaction button if there is a callback for it.
       # Otherwise the containing dialog or wizard will provide the offlien tx button
+      componentList = [ QLabel('Fee:'), self.edtFeeAmt, feetip, 'Stretch']
       if self.createUnsignedTxCallback:
          self.connect(self.unsignedCheckbox, SIGNAL(CLICKED), self.unsignedCheckBoxUpdate)
-         frmUnsigned = makeHorizFrame([self.unsignedCheckbox, self.ttipUnsigned])
-         componentList.append(frmUnsigned)
+         componentList.append(self.unsignedCheckbox)
+         componentList.append(self.ttipUnsigned)
       
       # Only add the Send Button if there's a callback for it
       # Otherwise the containing dialog or wizard will provide the send button
@@ -148,7 +146,7 @@ class SendBitcoinsFrame(ArmoryFrame):
          self.connect(self.btnSend, SIGNAL(CLICKED), self.createTxAndBroadcast)
          componentList.append(self.btnSend)
          
-      txFrm = makeLayoutFrame(HORIZONTAL, componentList)
+      txFrm = makeHorizFrame(componentList)
 
       btnEnterURI = QPushButton('Manually Enter "bitcoin:" Link')
       ttipEnterURI = self.main.createToolTipWidget(\
@@ -633,24 +631,25 @@ class SendBitcoinsFrame(ArmoryFrame):
       totalTxSelect = sum([u.getValue() for u in utxoSelect])
       totalChange = totalTxSelect - (totalSend + fee)
 
-      self.changeScrAddr = ''
+      self.changeScript = ''
       self.selectedBehavior = ''
-      if self.lbox is None:
-         if totalChange > 0:
-            LOGINFO('Change address behavior: %s', self.selectedBehavior)
-            changeScript = self.determineChangeScript(utxoSelect)
-            if not changeScript
-               return False
-            scriptValPairs.append([changeScript, totalChange])
-         else:
-            if self.main.usermode == USERMODE.Expert and \
-               self.chkDefaultChangeAddr.isChecked():
-               self.selectedBehavior = NO_CHANGE
+      if totalChange > 0:
+         script,behavior = self.determineChangeScript(utxoSelect)
+         self.changeScript = script
+         self.selectedBehavior = behavior
+         if not self.changeScript:
+            return False
+         scriptValPairs.append([self.changeScript, totalChange])
+         LOGINFO('Change address behavior: %s', self.selectedBehavior)
+      elif self.main.usermode == USERMODE.Expert and \
+           self.chkDefaultChangeAddr.isChecked():
+         self.selectedBehavior = NO_CHANGE
          
-         changePair = None
-         if len(self.selectedBehavior) > 0:
-            changePair = (self.changeScrAddr, self.selectedBehavior)
+      changePair = None
+      if len(self.selectedBehavior) > 0:
+         changePair = (self.changeScript, self.selectedBehavior)
       elif totalChange > 0:
+         lkjflkdsjflkdj how does this work with lockboxes?
          changePair = (self.lbox.scrAddr, 'Feedback')
          LOGWARN('Change from LOCKBOX tx goes back to the same LOCKBOX!')
          scriptValPairs.append([self.lbox.binScript, totalChange])
@@ -812,46 +811,57 @@ class SendBitcoinsFrame(ArmoryFrame):
 
    #############################################################################
    def determineChangeScript(self, utxoList):
+      changeScript = ''
       changeAddrStr = ''
       changeAddr160 = ''
-      changeScrAddr = ''
-      self.selectedBehavior = 'NewAddr'
-      addrStr = ''
+      
       if not self.main.usermode == USERMODE.Expert:
-         changeAddrStr = self.wlt.getNextUnusedAddress().getAddrStr()
-         changeAddr160 = addrStr_to_hash160(changeAddrStr)[1]
-         changeScrAddr = addrStr_to_scrAddr(changeAddrStr)
-         self.wlt.setComment(changeAddr160, CHANGE_ADDR_DESCR_STRING)
+         # Default behavior for regular wallets is 'NewAddr', but for lockboxes
+         # the default behavior is "Feedback" (send back to the original addr
+         if self.lbox is None:
+            changeAddrStr = self.wlt.getNextUnusedAddress().getAddrStr()
+            changeAddr160 = addrStr_to_hash160(changeAddrStr)[1]
+            changeScript  = scrAddr_to_script(addrStr_to_scrAddr(changeAddrStr))
+            self.wlt.setComment(changeAddr160, CHANGE_ADDR_DESCR_STRING)
+            selectedBehavior = 'NewAddr'
+         else:
+            changeScript  = self.lbox.binScript
+            selectedBehavior = 'Feedback'
       else:
          if not self.chkDefaultChangeAddr.isChecked():
             changeAddrStr = self.wlt.getNextUnusedAddress().getAddrStr()
             changeAddr160 = addrStr_to_hash160(changeAddrStr)[1]
-            changeScrAddr = addrStr_to_scrAddr(changeAddrStr)
+            changeScript  = scrAddr_to_script(addrStr_to_scrAddr(changeAddrStr))
             self.wlt.setComment(changeAddr160, CHANGE_ADDR_DESCR_STRING)
             # If generate new address, remove previously-remembered behavior
-            self.main.setWltSetting(self.wltID, 'ChangeBehavior', self.selectedBehavior)
+            self.main.setWltSetting(self.wltID, 'ChangeBehavior', selectedBehavior)
          else:
             if self.radioFeedback.isChecked():
-               changeScrAddr = utxoList[0].getRecipientScrAddr()
-               self.selectedBehavior = 'Feedback'
+               changeScript = utxoList[0].getScript()
+               selectedBehavior = 'Feedback'
             elif self.radioSpecify.isChecked():
-               #addrStr = str(self.edtChangeAddr.text()).strip()
-               changeScript = self.getChangeScript()
+               changeScript = self.getSpecChangeScript()
                if changeScript is None:
                   QMessageBox.warning(self, tr('Invalid Address'), tr("""
                      You specified an invalid change address for this 
                      transcation."""), QMessageBox.Ok)
                   return None
-               self.selectedBehavior = 'Specify'
+               scrType = getTxOutScriptType(changeScript)
+               if scrType in CPP_TXOUT_HAS_ADDRSTR:
+                  changeAddrStr = script_to_addrStr(changeScript)
+               elif scrType==CPP_TXOUT_MULTISIG:
+                  scrP2SH = script_to_p2sh_script(changeScript)
+                  changeAddrStr = script_to_addrStr(scrP2SH)
+               selectedBehavior = 'Specify'
 
       if self.main.usermode == USERMODE.Expert and self.chkRememberChng.isChecked():
-         self.main.setWltSetting(self.wltID, 'ChangeBehavior', self.selectedBehavior)
-         if self.selectedBehavior == 'Specify' and len(addrStr) > 0:
-            self.main.setWltSetting(self.wltID, 'ChangeAddr', addrStr)
+         self.main.setWltSetting(self.wltID, 'ChangeBehavior', selectedBehavior)
+         if selectedBehavior == 'Specify' and len(changeAddrStr) > 0:
+            self.main.setWltSetting(self.wltID, 'ChangeAddr', changeAddrStr)
       else:
          self.main.setWltSetting(self.wltID, 'ChangeBehavior', 'NewAddr')
 
-      return changeScript
+      return changeScript,selectedBehavior
 
    #####################################################################
    def setMaximum(self, targWidget):

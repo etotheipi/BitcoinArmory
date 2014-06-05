@@ -6412,107 +6412,11 @@ class ArmoryMainWindow(QMainWindow):
 
 
    #############################################################################
-   def getDisplayStringForScript(self, binScript, prefIDOverAddr=False, maxChars=256):
-      """
-      We have a script and want to show the user something useful about it.
-      We have a couple different display modes, since some formats are space-
-      constrained.  For instance, the DlgConfirmSend dialog only has space
-      for 34 letters, as it was designed to be showing an address string.
-   
-      This is similar to self.getContribStr, but that method is more focused
-      on identifying participants of a multi-sig transaction.  It almost
-      works here, but we need one that's more general.
-
-      Consider a 3-of-5 lockbox with ID Abcd1234z and label 
-      "My long-term savings super-secure" and p2sh address 2m83zQr9981pmKnrSwa32
-
-                      10        20        30        40        50        60        70
-            |         |         |         |         |         |         |         |
-      256   Lockbox 3-of-5 "Long-term savings" (2m83zQr9981p...)
-      256   Lockbox 3-of-5 "Long-term savings" (Abcd1234z)
-       50   Lockbox 3-of-5 "Long-term sa..." (2m83zQr9981p...)
-       35   Lockbox 3-of-5 "Long-term savings"
-       32   Lockbox 3-of-5 "Long-term sa..."
-
-      256   Wallet "LabelLabelLabelLabelLabelLabel" (1j93CnrAA3xn...)
-      256   Wallet "LabelLabelLabelLabelLabelLabel" (Abcd1234z)
-       50   Wallet "LabelLabelLa..." (1j93CnrAA3xn...)
-       50   Wallet "LabelLabelLa..." (1j93CnrAA3xn...)
-       35   Wallet "LabelLabelLa..." 
-
-      So we will always show the type and the label (possibly truncated).  If
-      can show the ID or Addr (whichever is preferred) we will
-      """
-
-      if maxChars<32:
-         LOGERROR('getDisplayStringForScript() req at least 32 bytes output')
-         return None
-
-      scriptType = getTxOutScriptType(binScript) 
-      scrAddr = script_to_scrAddr(binScript)
-      wltID = self.getWalletForScrAddr(scrAddr)
-
-      strType = ''
-      strLabel = ''
-      strLast = ''
-
-      if wltID:
-         wlt = self.walletMap[wltID]
-         strType = 'Wallet'
-         strLabel = wlt.labelName
-         if not prefIDOverAddr and scriptType in CPP_TXOUT_HAS_ADDRSTR:
-            strLast = scrAddr_to_addrStr(scrAddr)[12:] + '...'
-         else:
-            strLast = wlt.uniqueIDB58
-      elif scriptType==CPP_TXOUT_P2SH:
-         p2shAddrStr = scrAddr_to_addrStr(scrAddr)
-         lbox = self.getLockboxByP2SHAddrStr(p2shAddrStr)
-         if lbox:
-            strType  = 'Lockbox %d-of-%d' % (lbox.M, lbox.N)
-            strLabel = lbox.shortName
-            if prefAddrOverID:
-               strLast = p2shAddrStr[:12] + '...'
-            else:
-               strLast = lbox.uniqueIDB58
-
-
-      if len(strType) > 0:
-         # We have something to display... do it and return
-         lenType  = len(strType)
-         lenLabel = len(strLabel) + 3
-         lenLast  = len(strLast) + 3
-         lenLabelTrunc = 18
-
-         if lenType + lenLabel + lenLast <= maxChars:
-            dispStr  = '%s "%s"' % (strType, strLabel)
-            dispStr += (' (%s)' % strLast)  if lenLast>0  else ''
-            return dispStr
-         elif lenType + lenLabelTrunc + lenLast <= maxChars:
-            dispStr  = '%s "%s..."' % (strType, strLabel[:12])
-            dispStr += (' (%s)' % strLast)  if lenLast>0  else ''
-            return dispStr
-         elif lenType + lenLabel <= maxChars:
-            dispStr  = '%s "%s"' % (strType, strLabel)
-         elif lenType + lenLabelTrunc <= maxChars:
-            dispStr  = '%s "%s..."' % (strType, strLabel[:12])
-
-         return dispStr
- 
-
-      # If we're here, it didn't match any loaded wlt or lockbox
-      if scriptType in CPP_TXOUT_HAS_ADDRSTR:
-         return script_to_addrStr(binScript)
-      elif scriptType == CPP_TXOUT_MULTISIG:
-         M,N,a160s,pubs = getMultisigScriptInfo(binScript)
-         lbID = calcLockboxID(binScript)
-         outStr = 'Unknown %d-of-%d (%s)' % (M,N,lbID)
-         if outStr + 18 <= maxChars:
-            addrStr = script_to_addrStr(script_to_p2sh_script(binScript))
-            outStr += ' [%s...]' % addrStr[:12]
-         return outStr
-      else:
-         p2shEquiv = script_to_addrStr(script_to_p2sh_script(binScript)))
-         outStr = 'Non-Standard: %s...' % p2shEquiv[:12]
+   def getDisplayStringForScript(self, binScript, prefIDOverAddr=False, 
+                                 maxChars=256, lblTrunc=12, lastTrunc=12):
+      return getDisplayStringForScript(binScript, self.walletMap, 
+                                       self.allLockboxes, prefIDOverAddr,
+                                       maxChars, lblTrunc, lastTrunc)
 
 
    #############################################################################

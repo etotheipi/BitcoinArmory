@@ -5052,6 +5052,7 @@ def excludeChange(outputPairs, wlt):
             nonChangeOutputPairs.append([script,val])
    return nonChangeOutputPairs
 
+
 ################################################################################
 class DlgConfirmSend(ArmoryDialog):
 
@@ -5094,67 +5095,54 @@ class DlgConfirmSend(ArmoryDialog):
       totalSend = sum([val for script,val in sendPairs]) + fee
       sumStr = coin2str(totalSend, maxZeros=1)
       if len(returnPairs) > 0:
-         if changeBehave == None and self.main.usermode == USERMODE.Expert:
+         if changeBehave is None and self.main.usermode == USERMODE.Expert:
             lblMsg.setText(tr("""
-               This transaction will spend <b>%s BTC</b> from wallet 
-               "<b>%s</b>" (%s). 
+               This transaction will spend <b>%s BTC</b> from 
+               <font color="%s">Wallet "<b>%s</b>" (%s)</font>.
                <br><br><b>Note:</b> Starred entries in the below list are 
                going to the same wallet from which they came, and thus have 
                no effect on your overall balance. When using Expert usermode 
                features, Armory cannot always distinguish the starred outputs 
                from the change address.""") % \
-               (sumStr, wlt.labelName, wlt.uniqueIDB58))
+               (sumStr, htmlColor('TextBlue'), wlt.labelName, wlt.uniqueIDB58))
          else:
             lblMsg.setText(tr("""
-               This transaction will spend <b>%s BTC</b> from wallet 
-               "<b>%s</b>" (%s).
+               This transaction will spend <b>%s BTC</b> from 
+               <font color="%s">Wallet "<b>%s</b>" (%s)</font>.
                <br><br><b>Note:</b> Any starred outputs are are going to the
                same wallet from which they came, and will have no effect on
                the wallet's overall balance.""") % \
-               (sumStr, wlt.labelName, wlt.uniqueIDB58))
+               (sumStr, htmlColor('TextBlue'), wlt.labelName, wlt.uniqueIDB58))
       else:
          lblMsg.setText(tr("""
-            This transaction will spend <b>%s BTC</b> from wallet 
-            "<b>%s</b>" (%s).  Here are the outputs:""") % \
-            (sumStr, wlt.labelName, wlt.uniqueIDB58))
+            This transaction will spend <b>%s BTC</b> from 
+            <font color="%s">Wallet "<b>%s</b>" (%s)</font>.
+            to the following recipients:""") % \
+            (sumStr, htmlColor('TextBlue'), wlt.labelName, wlt.uniqueIDB58))
 
-      leftColWidth = 50
+      addrColWidth = 52
 
       recipLbls = []
       ffixBold = GETFONT('Fixed')
       ffixBold.setWeight(QFont.Bold)
       for script,val in sendPairs:
-         scrType = getTxOutScriptType(script)
-         if scrType in CPP_TXOUT_HAS_ADDRSTR:
-            # Standard P2PKH or P2SH
-            dispStr = scrAddr_to_addrStr(script_to_scrAddr(script))
-            if [script,val] in returnPairs:
-               dispStr = '*'+dispStr
-         elif scrType==CPP_TXOUT_MULTISIG:
-            # Display multi-sig/lockbox
-            lbID = calcLockboxID(script)
-            lb = self.main.getLockboxByID(lbID)
-            if lb:
-               dispStr = 'Lockbox %d-of-%d (%s)' % (lb.M, lb.N, lb.uniqueIDB58)
-            else:
-               M,N,a160s,pubkeys = getMultisigScriptInfo(script)
-               dispStr = 'Multi-sig %d-of-%d [UNRECOGNIZED]' % (M,N)
-         else:
-            dispStr = 'Non-standard [UNRECOGNIZED]'
+         dispStr = self.main.getDisplayStringForScript(script, addrColWidth)
+         if [script,val] in returnPairs:
+            dispStr = '*'+dispStr
 
          coinStr = coin2str(val, rJust=True, maxZeros=4)
-         recipLbls.append(QLabel(dispStr.ljust(leftColWidth) + coinStr))
+         recipLbls.append(QLabel(dispStr + coinStr))
          recipLbls[-1].setFont(ffixBold)
 
 
       if fee > 0:
          recipLbls.append(QSpacerItem(10, 10))
-         recipLbls.append(QLabel('Transaction Fee : '.ljust(leftColWidth) +
+         recipLbls.append(QLabel('Transaction Fee : '.ljust(addrColWidth) +
                            coin2str(fee, rJust=True, maxZeros=4)))
          recipLbls[-1].setFont(GETFONT('Fixed'))
 
       recipLbls.append(HLINE(QFrame.Sunken))
-      recipLbls.append(QLabel('Total bitcoins Sent: '.ljust(leftColWidth) +
+      recipLbls.append(QLabel('Total bitcoins Sent: '.ljust(addrColWidth) +
                         coin2str(totalSend, rJust=True, maxZeros=4)))
       recipLbls[-1].setFont(GETFONT('Fixed'))
 
@@ -5174,8 +5162,6 @@ class DlgConfirmSend(ArmoryDialog):
          if len(chngScrAddr) > 0:
             chngAddrStr = scrAddr_to_addrStr(chngScrAddr)
             atype, chngAddr160 = addrStr_to_hash160(chngAddrStr)
-            if atype == P2SHBYTE:
-               LOGWARN('P2SH change address specified')
 
          chngBehaveStr = changeBehave[1]
          if chngBehaveStr == 'Feedback':
