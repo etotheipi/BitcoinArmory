@@ -619,7 +619,7 @@ class DlgExportLockbox(ArmoryDialog):
    def savefile(self):
       fn = self.main.getFileSave(tr('Export Lockbox Info'), 
                                  ['Lockboxes (*.lockbox.txt)'], 
-                            'Multikey_%s.lockbox.txt'%self.lockbox.uniqueIDB58)
+                            'Multisig_%s.lockbox.txt'%self.lockbox.uniqueIDB58)
       if fn:
          writeLockboxesFile([self.lockbox], fn)
 

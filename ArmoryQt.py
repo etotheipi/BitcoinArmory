@@ -51,6 +51,7 @@ from armoryengine.PyBtcWalletRecovery import WalletConsistencyCheck
 from armoryengine.MultiSigUtils import MultiSigLockbox
 from ui.MultiSigHacker import DlgSelectMultiSigOption, DlgLockboxManager, \
                               DlgMergePromNotes, DlgCreatePromNote
+from armoryengine.Decorators import RemoveRepeatingExtensions
 
 # HACK ALERT: Qt has a bug in OS X where the system font settings will override
 # the app's settings when a window is activated (e.g., Armory starts, the user
@@ -2511,6 +2512,7 @@ class ArmoryMainWindow(QMainWindow):
 
 
    #############################################################################
+   @RemoveRepeatingExtensions
    def getFileSave(self, title='Save Wallet File', \
                          ffilter=['Wallet files (*.wallet)'], \
                          defaultFilename=None):
