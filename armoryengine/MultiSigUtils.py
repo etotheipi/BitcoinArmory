@@ -108,12 +108,14 @@ def readLockboxEntryStr(addrtext):
    return result
 
 ################################################################################
-def isP2SHLockbox(addrtext):
-   return addrtext.startswith(LBP2SHPREFIX)
-
-################################################################################
 def isBareLockbox(addrtext):
    return addrtext.startswith(LBPREFIX)
+
+################################################################################
+def isP2SHLockbox(addrtext):
+   # Bugfix:  Bare prefix includes P2SH prefix, whoops.  Return false if Bare
+   return addrtext.startswith(LBP2SHPREFIX) and not isBareLockbox(addrtext)
+
 
 ################################################################################
 ################################################################################

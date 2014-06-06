@@ -6282,8 +6282,13 @@ class ArmoryMainWindow(QMainWindow):
       return lbl
 
    #############################################################################
-   def createAddressEntryWidgets(self, parent, initString='', **cabbKWArgs):
+   def createAddressEntryWidgets(self, parent, initString='', maxDetectLen=128,\
+                                                                  **cabbKWArgs):
       """
+      If you are putting the LBL_DETECT somewhere that is space-constrained,
+      set maxDetectLen to a smaller value.  It will limit the number of chars
+      to be included in the autodetect label.
+
       "cabbKWArgs" is "create address book button kwargs"
       Here's the signature of that function... you can pass any named args
       to this function and they will be passed along to createAddrBookButton
@@ -6291,10 +6296,10 @@ class ArmoryMainWindow(QMainWindow):
                                   actionStr="Select", selectExistingOnly=False, 
                                   selectMineOnly=False, getPubKey=False,
                                   showLockBoxes=True)
-      Returns four widgets that can be put into layouts:
-         [[QLineEdit: addr/pubkey]]              [[Button: Addrbook]]
-         [[Label: If pubkey/lockbox, show addr]]
-         [[Label: Wallet/Lockbox autodetect]]
+
+      Returns three widgets that can be put into layouts:
+         [[QLineEdit: addr/pubkey]]  [[Button: Addrbook]]
+         [[Label: Wallet/Lockbox/Addr autodetect]]
       """
 
       addrEntryObjs = {}
@@ -6303,8 +6308,7 @@ class ArmoryMainWindow(QMainWindow):
       addrEntryObjs['BTN_BOOK']  = createAddrBookButton(parent, 
                                                         addrEntryObjs['QLE_ADDR'], 
                                                         **cabbKWArgs)
-      addrEntryObjs['LBL_DETECTADDR'] = QRichLabel('')
-      addrEntryObjs['LBL_DETECTWLT']  = QRichLabel('')
+      addrEntryObjs['LBL_DETECT'] = QRichLabel('')
       addrEntryObjs['CALLBACK_GETSCRIPT'] = None
 
       ##########################################################################
@@ -6316,61 +6320,26 @@ class ArmoryMainWindow(QMainWindow):
       # probably use some refactoring
       def updateAddrDetectLabels():
          try:
-            addrtext = str(addrEntryObjs['QLE_ADDR'].text()).strip()
+            enteredText = str(addrEntryObjs['QLE_ADDR'].text()).strip()
+
+            enteredScript, wltID, lboxID, preferShowID = \
+                                       self.getScriptForUserString(enteredText)
             
-            if addrStr_is_p2sh(addrtext):
-               lboxID = self.getLockboxByP2SHAddrStr(addrtext).uniqueIDB58
+            dispStr = self.getDisplayStringForScript(detectedScript, 
+                                                     preferShowID, 
+                                                     maxDetectLen)
+
+            if wltID is None and lboxID is None:
+               addrEntryObjs['LBL_DETECT'].setText(dispStr)
             else:
-               lboxID = readLockboxEntryStr(addrtext)
-   
-            if lboxID:
-               lbox = self.getLockboxByID(lboxID)
-               if lbox:
-                  dispStr = '<b>Lockbox: %s-of-%s</b>: "%s"' % \
-                                      (lbox.M, lbox.N, lbox.shortName)
-               else:
-                  dispStr = 'Unrecognized Lockbox'
-   
-               addrEntryObjs['LBL_DETECTWLT'].setText(dispStr, color='TextBlue')
-               addrEntryObjs['LBL_DETECTWLT'].setVisible(True)
+               addrEntryObjs['LBL_DETECT'].setText(dispStr, color='TextBlue')
 
-               if addrStr_is_p2sh(addrtext):
-                  addrEntryObjs['LBL_DETECTADDR'].setVisible(False)
-               else:
-                  p2shStr = scrAddr_to_addrStr(lbox.p2shScrAddr)
-                  addrEntryObjs['LBL_DETECTADDR'].setText(p2shStr)
-                  addrEntryObjs['LBL_DETECTADDR'].setVisible(True)
-               return
-   
-            # Not a lockbox... could be addrStr or pubkey.  If pubkey, show the
-            # equiv addrStr below it. Either way, check if recognize its wltID
-            isPubKey = (len(addrtext) in [66, 130])
-            if not isPubKey:
-               wltID = self.getWalletForAddr160(addrStr_to_hash160(addrtext)[1])
-               addrEntryObjs['LBL_DETECTADDR'].setVisible(False)
-            else:
-               a160 = hash160(hex_to_binary(addrtext))
-               wltID = self.getWalletForAddr160(a160)
-
-               # Regardless of whether we recognize the pubkey, show its addrStr
-               pubAddrStr = hash160_to_addrStr(a160)
-               addrEntryObjs['LBL_DETECTADDR'].setText(pubAddrStr)
-               addrEntryObjs['LBL_DETECTADDR'].setVisible(True)
-
-
-            # wltID is None/'' if none of the loaded wallets contain this addr
-            if wltID:
-               wlt = self.walletMap[wltID]
-               dispStr = '%s (%s)' % (wlt.labelName, wlt.uniqueIDB58)
-               addrEntryObjs['LBL_DETECTWLT'].setVisible(True)
-               addrEntryObjs['LBL_DETECTWLT'].setText(dispStr, color='TextBlue')
-            else:
-               addrEntryObjs['LBL_DETECTWLT'].setVisible(False)
+            addrEntryObjs['LBL_DETECT'].setVisible(True)
 
          except:
             LOGEXCEPT('Invalid recipient string')
-            addrEntryObjs['LBL_DETECTADDR'].setVisible(False)
-            addrEntryObjs['LBL_DETECTWLT'].setVisible(False)
+            addrEntryObjs['LBL_DETECT'].setVisible(False)
+            addrEntryObjs['LBL_DETECT'].setVisible(False)
       # End function to be connected
       ##########################################################################
             
@@ -6381,34 +6350,22 @@ class ArmoryMainWindow(QMainWindow):
       updateAddrDetectLabels()
 
       # Create a func that can be called to get the script that was entered
+      # This uses getScriptForUserString() which actually returns 4 vals
+      #        rawScript, wltIDorNone, lboxIDorNone, addrStringEntered
+      # (The last one is really only used to determine what info is most 
+      #  relevant to display to the user...it can be ignored in most cases)
       def getScript():
          entered = str(addrEntryObjs['QLE_ADDR'].text()).strip()
          return self.getScriptForUserString(entered)
 
       addrEntryObjs['CALLBACK_GETSCRIPT'] = getScript
-
       return addrEntryObjs
 
 
 
    #############################################################################
    def getScriptForUserString(self, userStr):
-      try:
-         userStr = userStr.strip()
-         if isBareLockbox(userStr):
-            lbox = self.getLockboxByID(readLockboxEntryStr(userStr))
-            result = lbox.binScript if lbox else None
-         elif isP2SHLockbox(userStr):
-            lbox = self.getLockboxByID(readLockboxEntryStr(userStr))
-            result = script_to_p2sh_script(lbox.binScript) if lbox else None
-         else:
-            scrAddr = addrStr_to_scrAddr(userStr)
-            result = scrAddr_to_script(scrAddr)
-
-         return result
-      except:
-         LOGEXCEPT('Invalid user string entered')
-         return None
+      getScriptForUserString(userStr, self.walletMap, self.allLockboxes)
 
 
    #############################################################################

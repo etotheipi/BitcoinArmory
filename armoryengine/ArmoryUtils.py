@@ -1340,11 +1340,10 @@ def pubkey_to_p2pk_script(binStr33or65):
 # will do that by default.  If you require a different order, pre-sort them
 # and pass withSort=False.
 #
-# NOTE:  About the hardcoded bytes in here:
-#        I made a mistake when making the databases, and hardcoded the
-#        mainnet addrByte and P2SH bytes into DB format.  This means that
-#        that any ScrAddr object will use the mainnet prefix bytes, despite
-#        being in testnet.  I will at some point fix this.
+# NOTE:  About the hardcoded bytes in here: the mainnet addrByte and P2SH  
+#        bytes are hardcoded into DB format.  This means that
+#        that any ScrAddr object will use the mainnet prefix bytes, regardless
+#        of whether it is in testnet.  
 def pubkeylist_to_multisig_script(pkList, M, withSort=True):
 
    if sum([  (0 if len(pk) in [33,65] else 1)   for pk in pkList]) > 0:
@@ -1947,143 +1946,6 @@ def addrStr_to_hash160(b58Str, p2shAllowed=True):
       raise BadAddressError('Unknown addr prefix: %s' % binary_to_hex(binStr[0]))
 
    return (binStr[0], binStr[1:-4])
-
-
-
-################################################################################
-def getDisplayStringForScript(binScript, wltMap, lboxList, prefIDOverAddr=True, 
-                              maxChars=256, lblTrunc=15, lastTrunc=15):
-   """
-   NOTE: This was originally in ArmoryQt.py, but we really needed this to be
-   more widely accessible.  And it's easier to test when this is in ArmoryUtils.  
-   Yes, I realize that it's awkward that we have wltMap {WltID-->Wallet} but
-   we have a lboxList [Lbox0, Lbox1, ...].  I will have to standardize the 
-   member names and lookup structures.
-
-   We have a script and want to show the user something useful about it.
-   We have a couple different display modes, since some formats are space-
-   constrained.  For instance, the DlgConfirmSend dialog only has space
-   for 34 letters, as it was designed to be showing an address string.
-
-   This is similar to self.getContribStr, but that method is more focused
-   on identifying participants of a multi-sig transaction.  It almost
-   works here, but we need one that's more general.
-
-   Consider a 3-of-5 lockbox with ID Abcd1234z and label 
-   "My long-term savings super-secure" and p2sh address 2m83zQr9981pmKnrSwa32
-
-                   10        20        30        40        50        60        70
-         |         |         |         |         |         |         |         |
-   256   Lockbox 3-of-5 "Long-term savings" (2m83zQr9981p...)
-   256   Lockbox 3-of-5 "Long-term savings" (Abcd1234z)
-    50   Lockbox 3-of-5 "Long-term sa..." (2m83zQr9981p...)
-    35   Lockbox 3-of-5 "Long-term savings"
-    32   Lockbox 3-of-5 "Long-term sa..."
-
-   256   Wallet "LabelLabelLabelLabelLabelLabel" (1j93CnrAA3xn...)
-   256   Wallet "LabelLabelLabelLabelLabelLabel" (Abcd1234z)
-    50   Wallet "LabelLabelLa..." (1j93CnrAA3xn...)
-    50   Wallet "LabelLabelLa..." (1j93CnrAA3xn...)
-    35   Wallet "LabelLabelLa..." 
-
-   So we will always show the type and the label (possibly truncated).  If
-   can show the ID or Addr (whichever is preferred) we will
-   """
-   from MultiSigUtils import calcLockboxID
-   from Transaction import getTxOutScriptType, getMultisigScriptInfo
-
-   if maxChars<32:
-      LOGERROR('getDisplayStringForScript() req at least 32 bytes output')
-      return None
-
-   scriptType = getTxOutScriptType(binScript) 
-   scrAddr = script_to_scrAddr(binScript)
-
-   wlt = None
-   for iterID,iterWlt in wltMap.iteritems():
-      if iterWlt.hasScrAddr(scrAddr):
-         wlt = iterWlt
-         break
-
-   lbox = None
-   if wlt is None:
-      searchScrAddr = scrAddr
-      if scriptType==CPP_TXOUT_MULTISIG:
-         searchScrAddr = script_to_scrAddr(script_to_p2sh_script(binScript))
-         
-      for iterLbox in lboxList:
-         if searchScrAddr == iterLbox.p2shScrAddr:
-            lbox = iterLbox
-            break
-
-
-   if wlt is not None:
-      strType = 'Wallet'
-      strLabel = wlt.labelName
-      if not prefIDOverAddr and scriptType in CPP_TXOUT_HAS_ADDRSTR:
-         strLast = scrAddr_to_addrStr(scrAddr)[:lastTrunc] + '...'
-      else:
-         strLast = wlt.uniqueIDB58
-   elif lbox is not None:
-      strType  = 'Lockbox %d-of-%d' % (lbox.M, lbox.N)
-      strLabel = lbox.shortName
-      if prefIDOverAddr:
-         strLast = lbox.uniqueIDB58
-      else:
-         strLast = scrAddr_to_addrStr(lbox.p2shScrAddr)[:lastTrunc] + '...'
-   else:
-      strType = ''
-      strLabel = ''
-      strLast = ''
-
-
-   if len(strType) > 0:
-      # We have something to display... do it and return
-      lenType  = len(strType)
-      lenLabel = len(strLabel) + 3
-      lenLast  = len(strLast) + 3
-      lenLabelTrunc = lblTrunc + 6
-
-      dispStr = ''
-      if lenType + lenLabel + lenLast <= maxChars:
-         dispStr += '%s "%s"' % (strType, strLabel)
-         dispStr += (' (%s)' % strLast)  if lenLast>0  else ''
-         return dispStr
-      elif lenType + lenLabelTrunc + lenLast <= maxChars:
-         dispStr += '%s "%s..."' % (strType, strLabel[:lblTrunc])
-         dispStr += (' (%s)' % strLast)  if lenLast>0  else ''
-         return dispStr
-      elif lenType + lenLabel <= maxChars:
-         dispStr += '%s "%s"' % (strType, strLabel)
-      elif lenType + lenLabelTrunc <= maxChars:
-         dispStr += '%s "%s..."' % (strType, strLabel[:lblTrunc])
-
-      return dispStr
-
-
-   # If we're here, it didn't match any loaded wlt or lockbox
-   if scriptType in CPP_TXOUT_HAS_ADDRSTR:
-      dispStr = script_to_addrStr(binScript)
-      if len(dispStr) > maxChars:
-         dispStr = dispStr[:maxChars-3] + '...'
-      return dispStr
-   elif scriptType == CPP_TXOUT_MULTISIG:
-      M,N,a160s,pubs = getMultisigScriptInfo(binScript)
-      lbID = calcLockboxID(binScript)
-      dispStr = 'Unknown %d-of-%d (%s)' % (M,N,lbID)
-      addrStr = script_to_addrStr(script_to_p2sh_script(binScript))
-      if len(dispStr) + len(addrStr) + 3 <= maxChars:
-         dispStr += ' [%s]' % addrStr
-      elif len(dispStr) + lastTrunc + 6 <= maxChars:
-         dispStr += ' [%s...]' % addrStr[:lastTrunc]
-      return dispStr
-   else:
-      p2shEquiv = script_to_addrStr(script_to_p2sh_script(binScript))
-      dispStr = 'Non-Standard: %s' % p2shEquiv
-      if len(dispStr) > maxChars:
-         dispStr = dispStr[:maxChars-3] + '...'
-      return dispStr
-
 
 
 ###### Typing-friendly Base16 #####

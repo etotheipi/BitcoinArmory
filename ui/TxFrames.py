@@ -85,7 +85,7 @@ class SendBitcoinsFrame(ArmoryFrame):
       self.edtChangeAddr   = addrWidg['QLE_ADDR']
       self.btnChangeAddr   = addrWidg['BTN_BOOK']
       self.lblDetectedWlt  = addrWidg['LBL_DETECTWLT']
-      self.getSpecChangeScript = addrWidg['CALLBACK_GETSCRIPT']
+      self.getUserChangeScript = addrWidg['CALLBACK_GETSCRIPT']
       #self.lblDetectedAddr = addrWidg['LBL_DETECTADDR'] # we don't have space for this
 
       self.chkRememberChng = QCheckBox('Remember for future transactions')
@@ -840,7 +840,7 @@ class SendBitcoinsFrame(ArmoryFrame):
                changeScript = utxoList[0].getScript()
                selectedBehavior = 'Feedback'
             elif self.radioSpecify.isChecked():
-               changeScript = self.getSpecChangeScript()
+               changeScript = self.getUserChangeScript()[0]
                if changeScript is None:
                   QMessageBox.warning(self, tr('Invalid Address'), tr("""
                      You specified an invalid change address for this 
