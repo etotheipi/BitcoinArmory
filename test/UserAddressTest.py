@@ -124,7 +124,8 @@ class ScriptToDispStrTest(unittest.TestCase):
             for pref in [True, False]:
                print '   PrefID:', str(pref)
                for lenMax in lenList:
-                  outStr = getDisplayStringForScript(scr, wltMap, lboxList, pref, lenMax)
+                  outStr = getDisplayStringForScript(scr, wltMap, lboxList, lenMax, 
+                                                               prefIDOverAddr=pref)
                   lenStr = str(len(outStr)).rjust(3)
                   print '      ', lenStr,outStr
                   self.assertTrue(isinstance(outStr, basestring))

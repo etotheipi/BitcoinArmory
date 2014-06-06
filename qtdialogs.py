@@ -5032,13 +5032,10 @@ def excludeChange(outputPairs, wlt):
    currentMaxChainPair = None
    for script,val in outputPairs:
       scrType = getTxOutScriptType(script)
-      addr160 = ''
+      addr = ''
       if scrType in CPP_TXOUT_HAS_ADDRSTR:
          scrAddr = script_to_scrAddr(script)
-         addr160 = scrAddr_to_hash160(scrAddr)[1]
-
-      print binary_to_hex(addr160)
-      addr = wlt.getAddrByHash160(addr160)
+         addr    = wlt.getAddrByHash160(scrAddr_to_hash160(scrAddr)[1])
 
       # this logic excludes the pair with the maximum chainIndex from the
       # returned list
@@ -5084,13 +5081,18 @@ class DlgConfirmSend(ArmoryDialog):
       # and exclude it from the returnPairs list
       # and not in expert mode (because in expert mode the change could be anywhere
       #if changeBehave == None and returnPairs > 0:
-      print 'FIXME: always exclude change... should disable under some conditions'
+      print 'FIXME: currently always excluding change... should disable under some conditions'
       returnPairs = excludeChange(returnPairs, wlt)
          
       sendPairs.extend(returnPairs)
+
+      # TODO:  Explicit change ID was broken, this might not be the correct fix
+      if changeBehave:
+         for i in range(len(sendPairs)):
+            if sendPairs[i][0]==changeBehave:
+               del sendPairs[i]
+               break
       
-      # If there are multiple outputs coming back to wallet
-      # assume that the one with the highest index is change.
       lblMsg = QRichLabel('')         
       totalSend = sum([val for script,val in sendPairs]) + fee
       sumStr = coin2str(totalSend, maxZeros=1)
@@ -5126,7 +5128,7 @@ class DlgConfirmSend(ArmoryDialog):
       ffixBold = GETFONT('Fixed')
       ffixBold.setWeight(QFont.Bold)
       for script,val in sendPairs:
-         dispStr = self.main.getDisplayStringForScript(script, maxChars=addrColWidth)
+         dispStr = self.main.getDisplayStringForScript(script, addrColWidth)
          dispStr = dispStr.ljust(addrColWidth)
          if [script,val] in returnPairs:
             dispStr = '*'+dispStr
@@ -5161,16 +5163,13 @@ class DlgConfirmSend(ArmoryDialog):
       if self.main.usermode == USERMODE.Expert and changeBehave:
          changeScript = changeBehave[0]
          if len(changeScript) > 0:
-            changeDispStr = self.main.getDisplayStringForScript(changeScript, maxChars=60)
+            changeDispStr = self.main.getDisplayStringForScript(changeScript, 60)
 
          chngBehaveStr = changeBehave[1]
          if chngBehaveStr == 'Feedback':
             lblSpecialChange.setText('*Change will be sent back to first input address')
          elif chngBehaveStr == 'Specify':
-            msg = '*Change will be sent to %s' % changeDispStr
-            if wltID:
-               msg += ' (Wallet: %s)' % wltID
-            lblSpecialChange.setText(msg)
+            lblSpecialChange.setText('*Change will be sent to %s' % changeDispStr)
          elif chngBehaveStr == NO_CHANGE:
             lblSpecialChange.setText('(This transaction is exact -- there are no change outputs)')
 

@@ -2365,12 +2365,13 @@ class DlgCreatePromNote(ArmoryDialog):
          startStr = createLockboxEntryStr(defaultID)
 
       aewMap = self.main.createAddressEntryWidgets(self, startStr, 
-                                                    boldDetectParts=2)
+                                       maxDetectLen=72, boldDetectParts=2)
       self.edtFundTarget = aewMap['QLE_ADDR']
       self.btnSelectTarg = aewMap['BTN_BOOK']
       self.lblAutoDetect = aewMap['LBL_DETECT']
       self.parseEntryFunc = aewMap['CALLBACK_GETSCRIPT']
                                           
+      self.lblAutoDetect.setWordWrap(False)
 
       self.edtAmountBTC = QLineEdit()
       self.edtAmountBTC.setFont(GETFONT('Fixed'))

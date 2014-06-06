@@ -844,7 +844,7 @@ class SendBitcoinsFrame(ArmoryFrame):
                changeScript = utxoList[0].getScript()
             elif self.radioSpecify.isChecked():
                selectedBehavior = 'Specify'
-               changeScript = self.getUserChangeScript()[0]
+               changeScript = self.getUserChangeScript()['Script']
                if changeScript is None:
                   QMessageBox.warning(self, tr('Invalid Address'), tr("""
                      You specified an invalid change address for this 

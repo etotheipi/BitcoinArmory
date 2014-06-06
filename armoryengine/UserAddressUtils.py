@@ -113,8 +113,9 @@ def getScriptForUserString(userStr, wltMap, lboxList):
 
 
 ################################################################################
-def getDisplayStringForScript(binScript, wltMap, lboxList, prefIDOverAddr=True, 
-                              maxChars=256, lblTrunc=12, lastTrunc=10, doBold=0):
+def getDisplayStringForScript(binScript, wltMap, lboxList, maxChars=256, 
+                              doBold=0, prefIDOverAddr=True, 
+                              lblTrunc=12, lastTrunc=12):
    """
    NOTE: This was originally in ArmoryQt.py, but we really needed this to be
    more widely accessible.  And it's easier to test when this is in ArmoryUtils.  

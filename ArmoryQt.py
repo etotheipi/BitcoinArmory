@@ -6323,10 +6323,9 @@ class ArmoryMainWindow(QMainWindow):
             enteredText = str(addrEntryObjs['QLE_ADDR'].text()).strip()
 
             scriptInfo = self.getScriptForUserString(enteredText)
-            dispStr = self.getDisplayStringForScript(scriptInfo['Script'],
-                                                     scriptInfo['ShowID'], 
-                                                     maxDetectLen,
-                                                     doBold=boldDetectParts)
+            dispStr = self.getDisplayStringForScript(
+                           scriptInfo['Script'], maxDetectLen, boldDetectParts,
+                           prefIDOverAddr=scriptInfo['ShowID'])
 
             if scriptInfo['WltID'] is None and scriptInfo['LboxID'] is None:
                addrEntryObjs['LBL_DETECT'].setText(dispStr)
@@ -6336,7 +6335,7 @@ class ArmoryMainWindow(QMainWindow):
             addrEntryObjs['LBL_DETECT'].setVisible(True)
 
          except:
-            LOGEXCEPT('Invalid recipient string')
+            #LOGEXCEPT('Invalid recipient string')
             addrEntryObjs['LBL_DETECT'].setVisible(False)
             addrEntryObjs['LBL_DETECT'].setVisible(False)
       # End function to be connected
@@ -6368,11 +6367,12 @@ class ArmoryMainWindow(QMainWindow):
 
 
    #############################################################################
-   def getDisplayStringForScript(self, binScript, prefIDOverAddr=False, 
-                            maxChars=256, lblTrunc=12, lastTrunc=12, doBold=0):
+   def getDisplayStringForScript(self, binScript, maxChars=256, 
+                                 doBold=0, prefIDOverAddr=False, 
+                                 lblTrunc=12, lastTrunc=12):
       return getDisplayStringForScript(binScript, self.walletMap, 
-                                       self.allLockboxes, prefIDOverAddr,
-                                       maxChars, lblTrunc, lastTrunc, doBold)
+                                       self.allLockboxes, maxChars, doBold,
+                                       prefIDOverAddr, lblTrunc, lastTrunc) 
 
 
    #############################################################################
@@ -6401,7 +6401,7 @@ class ArmoryMainWindow(QMainWindow):
                                                        not OS_MACOSX)
                if (le.getValue() <= 0 and notifyOut) or \
                   (le.getValue() > 0 and notifyIn):
-                  # notifiedAleready = False, isSingleAddr = True
+                  # notifiedAlready = False, isSingleAddr = True
                   self.notifyQueue.append([wltID, le, False, True])
                self.createCombinedLedger()
                self.walletModel.reset()
@@ -6414,7 +6414,7 @@ class ArmoryMainWindow(QMainWindow):
             le = cppWlt.calcLedgerEntryForTxStr(rawTx)
             if not le.getTxHash() == '\x00' * 32:
                LOGDEBUG('ZerConf tx for LOCKBOX: %s' % lbID)
-               # notifiedAleready = False, isSingleAddr = True
+               # notifiedAlready = False, isSingleAddr = False
                self.notifyQueue.append([lbID, le, False, False])
                self.createCombinedLedger()
                self.walletModel.reset()
@@ -6725,19 +6725,39 @@ class ArmoryMainWindow(QMainWindow):
       '''
       dispLines = []
       title = ''
-      totalStr = coin2str(txAmt, maxZeros=1)
+      totalStr = coin2strNZS(txAmt)
+
+
+      if moneyID in self.walletMap:
+         wlt = self.walletMap[moneyID]
+         if len(wlt.labelName) <= 20:
+            dispName = '"%s"' % wlt.labelName
+         else:
+            dispName = '"%s..."' % wlt.labelName[:17]
+         dispName = 'Wallet %s (%s)' % (dispName, wlt.uniqueIDB58)
+      elif moneyID in self.cppLockboxWltMap:
+         lbox = self.getLockboxByID(moneyID)
+         if len(lbox.shortName) <= 20:
+            dispName = '%d-of-%d "%s"' % (lbox.M, lbox.N, lbox.shortName)
+         else:
+            dispName = '%d-of-%d "%s..."' % (lbox.M, lbox.N, lbox.shortName[:17])
+         dispName = 'Lockbox %s (%s)' % (dispName, lbox.uniqueIDB58)
+      else:
+         LOGERROR('Asked to show notification for wlt/lbox we do not have')
+         return
 
       # Collected everything we need to display, now construct it and do it.
       if ledgerAmt > 0:
          # Received!
          title = 'Bitcoins Received!'
-         dispLines.append('Amount: \t%s BTC' % totalStr.strip())
-         dispLines.append('Recipient:\tID[%s]' % moneyID)
+         dispLines.append('Amount:  %s BTC' % totalStr)
+         dispLines.append('Recipient:  %s' % dispName)
       elif ledgerAmt < 0:
          # Sent!
          title = 'Bitcoins Sent!'
-         dispLines.append('Amount: \t%s BTC' % totalStr.strip())
-         dispLines.append('Sender:\tID[%s]' % moneyID)
+         dispLines.append('Amount:  %s BTC' % totalStr)
+         dispLines.append('Sender:  %s' % dispName)
+
       self.sysTray.showMessage(title, \
                                '\n'.join(dispLines),  \
                                QSystemTrayIcon.Information, \
@@ -6764,16 +6784,6 @@ class ArmoryMainWindow(QMainWindow):
       for i in range(len(self.notifyQueue)):
          moneyID, le, alreadyNotified, isSingleAddr = self.notifyQueue[i]
 
-         # Make sure the wallet ID or lockbox ID keys are actually valid before
-         # using them to grab the appropriate C++ wallet.
-         if ((isSingleAddr and not self.walletMap.has_key(moneyID)) and \
-            (not isSingleAddr and not self.cppLockboxWltMap.has_key(moneyID))):
-            continue
-         if isSingleAddr:
-             wlt = self.walletMap[moneyID].cppWallet
-         else:
-             wlt = self.cppLockboxWltMap[moneyID]
-
          # Skip the ones we've notified of already.
          if alreadyNotified:
             continue
@@ -6781,6 +6791,18 @@ class ArmoryMainWindow(QMainWindow):
          # Notification is not actually for us.
          if le.getTxHash()=='\x00'*32:
             continue
+
+         # Make sure the wallet ID or lockbox ID keys are actually valid before
+         # using them to grab the appropriate C++ wallet.
+         if ((isSingleAddr and not self.walletMap.has_key(moneyID)) and \
+            (not isSingleAddr and not self.cppLockboxWltMap.has_key(moneyID))):
+            continue
+
+         if isSingleAddr:
+             wlt = self.walletMap[moneyID].cppWallet
+         else:
+             wlt = self.cppLockboxWltMap[moneyID]
+
 
          # Mark the transactions as having gone through the queue. If the
          # transaction stayed within the wallet, send a special notification,
@@ -6800,9 +6822,7 @@ class ArmoryMainWindow(QMainWindow):
          else:
             txref = TheBDM.getTxByHash(le.getTxHash())
             nOut = txref.getNumTxOut()
-#            nIn = txref.getNumTxIn()
             getScrAddrOut = lambda i: txref.getTxOutCopy(i).getScrAddressStr()
-#            getScrAddrIn = lambda i: txref.getTxOutCopy(i).getScrAddressStr()
 
             # Iterate through each TxOut.
             for i in range(nOut):
