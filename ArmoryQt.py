@@ -6322,8 +6322,11 @@ class ArmoryMainWindow(QMainWindow):
          try:
             enteredText = str(addrEntryObjs['QLE_ADDR'].text()).strip()
 
-            enteredScript, wltID, lboxID, preferShowID = \
-                                       self.getScriptForUserString(enteredText)
+            scriptInfo = self.getScriptForUserString(enteredText)
+            enteredScript = scriptInfo['Script']
+            wltID         = scriptInfo['WltID']
+            lboxID        = scriptInfo['LboxID']
+            preferShowID  = scriptInfo['ShowID']
             
             dispStr = self.getDisplayStringForScript(detectedScript, 
                                                      preferShowID, 

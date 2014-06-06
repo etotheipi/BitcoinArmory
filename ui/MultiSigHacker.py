@@ -2367,8 +2367,7 @@ class DlgCreatePromNote(ArmoryDialog):
       aewMap = self.main.createAddressEntryWidgets(self, startStr)
       self.edtFundTarget = aewMap['QLE_ADDR']
       self.btnSelectTarg = aewMap['BTN_BOOK']
-      self.lblDetectAddr = aewMap['LBL_DETECTADDR']
-      self.lblDetectWlt  = aewMap['LBL_DETECTWLT']
+      self.lblAutoDetect = aewMap['LBL_DETECT']
       self.parseEntryFunc = aewMap['CALLBACK_GETSCRIPT']
                                           
 
@@ -2407,8 +2406,7 @@ class DlgCreatePromNote(ArmoryDialog):
       gboxOutLayout.addWidget(self.edtFundTarget,    0,1, 1,5)
       gboxOutLayout.addWidget(self.btnSelectTarg,    0,6)
 
-      gboxOutLayout.addWidget(self.lblDetectAddr,    1,1, 1,5)
-      gboxOutLayout.addWidget(self.lblDetectWlt,     2,1, 1,5)
+      gboxOutLayout.addWidget(self.lblAutoDetect,    1,1, 1,5)
 
       gboxOutLayout.addWidget(lblAmount,             3,0)
       gboxOutLayout.addWidget(self.edtAmountBTC,     3,1)
@@ -2584,7 +2582,7 @@ class DlgCreatePromNote(ArmoryDialog):
          return False
 
       # Create the target DTXO
-      targetScript = self.parseEntryFunc()
+      targetScript = self.parseEntryFunc()[0]
       dtxoTarget = DecoratedTxOut(targetScript, valueAmt)
 
       # Create the change DTXO

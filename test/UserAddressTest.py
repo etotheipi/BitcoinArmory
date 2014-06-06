@@ -264,13 +264,12 @@ class UserAddressToScript(unittest.TestCase):
       wltMap = {}
       lboxList = []
 
-      enteredScript, wltID, lboxID, preferShowID = \
-         getScriptForUserString(self.validInputStrings[0], wltMap, lboxList) 
+      scrInfo = getScriptForUserString(self.validInputStrings[0], wltMap, lboxList) 
 
-      self.assertEqual(enteredScript, self.binScriptP2PKH)
-      self.assertEqual(wltID, None)
-      self.assertEqual(lboxID, None)
-      self.assertTrue(preferShowID)
+      self.assertEqual(scrInfo['Script'], self.binScriptP2PKH)
+      self.assertEqual(scrInfo['WltID'], None)
+      self.assertEqual(scrInfo['LboxID'], None)
+      self.assertTrue(scrInfo['ShowID'])
 
 
       wltMap = {}
@@ -278,13 +277,12 @@ class UserAddressToScript(unittest.TestCase):
       wltMap[self.wlt2.uniqueIDB58] = self.wlt2
       lboxList = [self.lbox]
 
-      enteredScript, wltID, lboxID, preferShowID = \
-         getScriptForUserString(self.validInputStrings[0], wltMap, lboxList) 
+      scrInfo = getScriptForUserString(self.validInputStrings[0], wltMap, lboxList) 
 
-      self.assertEqual(enteredScript, self.binScriptP2PKH)
-      self.assertEqual(wltID,  'AbCd1234z')
-      self.assertEqual(lboxID, None)
-      self.assertTrue(preferShowID)
+      self.assertEqual(scrInfo['Script'], self.binScriptP2PKH)
+      self.assertEqual(scrInfo['WltID'],  'AbCd1234z')
+      self.assertEqual(scrInfo['LboxID'], None)
+      self.assertTrue(scrInfo['ShowID'])
 
 
    #############################################################################
@@ -300,13 +298,12 @@ class UserAddressToScript(unittest.TestCase):
       wltMap = {}
       lboxList = []
 
-      enteredScript, wltID, lboxID, preferShowID = \
-         getScriptForUserString(self.validInputStrings[1], wltMap, lboxList) 
+      scrInfo = getScriptForUserString(self.validInputStrings[1], wltMap, lboxList) 
 
-      self.assertEqual(enteredScript, self.binScriptP2SH_MS)
-      self.assertEqual(wltID, None)
-      self.assertEqual(lboxID, None)
-      self.assertTrue(preferShowID)
+      self.assertEqual(scrInfo['Script'], self.binScriptP2SH_MS)
+      self.assertEqual(scrInfo['WltID'], None)
+      self.assertEqual(scrInfo['LboxID'], None)
+      self.assertTrue(scrInfo['ShowID'])
 
 
       wltMap = {}
@@ -314,13 +311,12 @@ class UserAddressToScript(unittest.TestCase):
       wltMap[self.wlt2.uniqueIDB58] = self.wlt2
       lboxList = [self.lbox]
 
-      enteredScript, wltID, lboxID, preferShowID = \
-         getScriptForUserString(self.validInputStrings[1], wltMap, lboxList) 
+      scrInfo = getScriptForUserString(self.validInputStrings[1], wltMap, lboxList) 
 
-      self.assertEqual(enteredScript, self.binScriptP2SH_MS)
-      self.assertEqual(wltID,  None)
-      self.assertEqual(lboxID, self.lboxID)
-      self.assertTrue(preferShowID)
+      self.assertEqual(scrInfo['Script'], self.binScriptP2SH_MS)
+      self.assertEqual(scrInfo['WltID'],  None)
+      self.assertEqual(scrInfo['LboxID'], self.lboxID)
+      self.assertTrue(scrInfo['ShowID'])
 
    #############################################################################
    def testReadLockboxP2SH(self):
@@ -335,12 +331,11 @@ class UserAddressToScript(unittest.TestCase):
       wltMap = {}
       lboxList = []
 
-      enteredScript, wltID, lboxID, preferShowID = \
-         getScriptForUserString(self.validInputStrings[2], wltMap, lboxList) 
+      scrInfo = getScriptForUserString(self.validInputStrings[2], wltMap, lboxList) 
 
-      self.assertEqual(enteredScript, None)
-      self.assertEqual(wltID, None)
-      self.assertEqual(lboxID, None)
+      self.assertEqual(scrInfo['Script'], None)
+      self.assertEqual(scrInfo['WltID'], None)
+      self.assertEqual(scrInfo['LboxID'], None)
 
 
       wltMap = {}
@@ -348,13 +343,12 @@ class UserAddressToScript(unittest.TestCase):
       wltMap[self.wlt2.uniqueIDB58] = self.wlt2
       lboxList = [self.lbox]
 
-      enteredScript, wltID, lboxID, preferShowID = \
-         getScriptForUserString(self.validInputStrings[2], wltMap, lboxList) 
+      scrInfo = getScriptForUserString(self.validInputStrings[2], wltMap, lboxList) 
 
-      self.assertEqual(enteredScript, self.binScriptP2SH_MS)
-      self.assertEqual(wltID,  None)
-      self.assertEqual(lboxID, self.lboxID)
-      self.assertFalse(preferShowID)
+      self.assertEqual(scrInfo['Script'], self.binScriptP2SH_MS)
+      self.assertEqual(scrInfo['WltID'],  None)
+      self.assertEqual(scrInfo['LboxID'], self.lboxID)
+      self.assertFalse(scrInfo['ShowID'])
 
 
    #############################################################################
@@ -370,12 +364,11 @@ class UserAddressToScript(unittest.TestCase):
       wltMap = {}
       lboxList = []
 
-      enteredScript, wltID, lboxID, preferShowID = \
-         getScriptForUserString(self.validInputStrings[3], wltMap, lboxList) 
+      scrInfo = getScriptForUserString(self.validInputStrings[3], wltMap, lboxList) 
 
-      self.assertEqual(enteredScript, None)
-      self.assertEqual(wltID, None)
-      self.assertEqual(lboxID, None)
+      self.assertEqual(scrInfo['Script'], None)
+      self.assertEqual(scrInfo['WltID'], None)
+      self.assertEqual(scrInfo['LboxID'], None)
 
 
       wltMap = {}
@@ -383,13 +376,12 @@ class UserAddressToScript(unittest.TestCase):
       wltMap[self.wlt2.uniqueIDB58] = self.wlt2
       lboxList = [self.lbox]
 
-      enteredScript, wltID, lboxID, preferShowID = \
-         getScriptForUserString(self.validInputStrings[3], wltMap, lboxList) 
+      scrInfo = getScriptForUserString(self.validInputStrings[3], wltMap, lboxList) 
 
-      self.assertEqual(enteredScript, self.binScriptMS)
-      self.assertEqual(wltID,  None)
-      self.assertEqual(lboxID, self.lboxID)
-      self.assertFalse(preferShowID)
+      self.assertEqual(scrInfo['Script'], self.binScriptMS)
+      self.assertEqual(scrInfo['WltID'],  None)
+      self.assertEqual(scrInfo['LboxID'], self.lboxID)
+      self.assertFalse(scrInfo['ShowID'])
 
 
    #############################################################################
@@ -405,13 +397,12 @@ class UserAddressToScript(unittest.TestCase):
       wltMap = {}
       lboxList = []
 
-      enteredScript, wltID, lboxID, preferShowID = \
-         getScriptForUserString(self.validInputStrings[4], wltMap, lboxList) 
+      scrInfo = getScriptForUserString(self.validInputStrings[4], wltMap, lboxList) 
 
-      self.assertEqual(enteredScript, self.binScriptP2PKH)
-      self.assertEqual(wltID, None)
-      self.assertEqual(lboxID, None)
-      self.assertFalse(preferShowID)
+      self.assertEqual(scrInfo['Script'], self.binScriptP2PKH)
+      self.assertEqual(scrInfo['WltID'], None)
+      self.assertEqual(scrInfo['LboxID'], None)
+      self.assertFalse(scrInfo['ShowID'])
 
 
       wltMap = {}
@@ -419,13 +410,12 @@ class UserAddressToScript(unittest.TestCase):
       wltMap[self.wlt2.uniqueIDB58] = self.wlt2
       lboxList = [self.lbox]
 
-      enteredScript, wltID, lboxID, preferShowID = \
-         getScriptForUserString(self.validInputStrings[4], wltMap, lboxList) 
+      scrInfo = getScriptForUserString(self.validInputStrings[4], wltMap, lboxList) 
 
-      self.assertEqual(enteredScript, self.binScriptP2PKH)
-      self.assertEqual(wltID,  'AbCd1234z')
-      self.assertEqual(lboxID, None)
-      self.assertFalse(preferShowID)
+      self.assertEqual(scrInfo['Script'], self.binScriptP2PKH)
+      self.assertEqual(scrInfo['WltID'],  'AbCd1234z')
+      self.assertEqual(scrInfo['LboxID'], None)
+      self.assertFalse(scrInfo['ShowID'])
 
    #############################################################################
    def testReadPubKeyCompr(self):
@@ -440,13 +430,12 @@ class UserAddressToScript(unittest.TestCase):
       wltMap = {}
       lboxList = []
 
-      enteredScript, wltID, lboxID, preferShowID = \
-         getScriptForUserString(self.validInputStrings[5], wltMap, lboxList) 
+      scrInfo = getScriptForUserString(self.validInputStrings[5], wltMap, lboxList) 
 
-      self.assertEqual(enteredScript, self.binScriptP2PKHCompr)
-      self.assertEqual(wltID, None)
-      self.assertEqual(lboxID, None)
-      self.assertFalse(preferShowID)
+      self.assertEqual(scrInfo['Script'], self.binScriptP2PKHCompr)
+      self.assertEqual(scrInfo['WltID'], None)
+      self.assertEqual(scrInfo['LboxID'], None)
+      self.assertFalse(scrInfo['ShowID'])
 
 
       wltMap = {}
@@ -454,13 +443,12 @@ class UserAddressToScript(unittest.TestCase):
       wltMap[self.wlt2.uniqueIDB58] = self.wlt2
       lboxList = [self.lbox]
 
-      enteredScript, wltID, lboxID, preferShowID = \
-         getScriptForUserString(self.validInputStrings[5], wltMap, lboxList) 
+      scrInfo = getScriptForUserString(self.validInputStrings[5], wltMap, lboxList) 
 
-      self.assertEqual(enteredScript, self.binScriptP2PKHCompr)
-      self.assertEqual(wltID,  'BcDe2345y')
-      self.assertEqual(lboxID, None)
-      self.assertFalse(preferShowID)
+      self.assertEqual(scrInfo['Script'], self.binScriptP2PKHCompr)
+      self.assertEqual(scrInfo['WltID'],  'BcDe2345y')
+      self.assertEqual(scrInfo['LboxID'], None)
+      self.assertFalse(scrInfo['ShowID'])
 
 
    #############################################################################
@@ -470,12 +458,11 @@ class UserAddressToScript(unittest.TestCase):
       lboxList = []
 
       for badStr in self.badInputStrings:
-         enteredScript, wltID, lboxID, preferShowID = \
-            getScriptForUserString(badStr, wltMap, lboxList) 
+         scrInfo = getScriptForUserString(badStr, wltMap, lboxList) 
 
-         self.assertEqual(enteredScript, None)
-         self.assertEqual(wltID, None)
-         self.assertEqual(lboxID, None)
+         self.assertEqual(scrInfo['Script'], None)
+         self.assertEqual(scrInfo['WltID'], None)
+         self.assertEqual(scrInfo['LboxID'], None)
 
 
       wltMap = {}
@@ -484,12 +471,11 @@ class UserAddressToScript(unittest.TestCase):
       lboxList = [self.lbox]
 
       for badStr in self.badInputStrings:
-         enteredScript, wltID, lboxID, preferShowID = \
-            getScriptForUserString(badStr, wltMap, lboxList) 
+         scrInfo = getScriptForUserString(badStr, wltMap, lboxList) 
 
-         self.assertEqual(enteredScript, None)
-         self.assertEqual(wltID, None)
-         self.assertEqual(lboxID, None)
+         self.assertEqual(scrInfo['Script'], None)
+         self.assertEqual(scrInfo['WltID'], None)
+         self.assertEqual(scrInfo['LboxID'], None)
 
 
 if __name__ == "__main__":

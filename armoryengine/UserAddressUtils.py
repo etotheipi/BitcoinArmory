@@ -99,10 +99,17 @@ def getScriptForUserString(userStr, wltMap, lboxList):
       # Caller might be expecting to see None, instead of '' (empty string)
       wltID  = None if not wltID  else wltID
       lboxID = None if not lboxID else lboxID
-      return (outScript, wltID, lboxID, hasAddrInIt)
+      return {'Script': outScript, 
+              'WltID':  wltID, 
+              'LboxID': lboxID, 
+              'ShowID': hasAddrInIt}
    except:
-      LOGEXCEPT('Invalid user string entered')
-      return (None,None,None,None)
+      #LOGEXCEPT('Invalid user string entered')
+      return {'Script': None,
+              'WltID':  None,
+              'LboxID': None,
+              'ShowID': None}
+
 
 
 ################################################################################

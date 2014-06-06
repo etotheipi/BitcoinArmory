@@ -81,12 +81,11 @@ class SendBitcoinsFrame(ArmoryFrame):
       #self.edtChangeAddr = QLineEdit()
       #self.btnChangeAddr = createAddrBookButton(parent, self.edtChangeAddr, \
                                        #None, 'Send change to')
-      addrWidgets = self.main.createAddressEntryWidgets(self, defaultWltID=self.wltID)
+      addrWidgets = self.main.createAddressEntryWidgets(self, '', self.wltID)
       self.edtChangeAddr   = addrWidg['QLE_ADDR']
       self.btnChangeAddr   = addrWidg['BTN_BOOK']
-      self.lblDetectedWlt  = addrWidg['LBL_DETECTWLT']
+      self.lblDetectedWlt  = addrWidg['LBL_DETECT']
       self.getUserChangeScript = addrWidg['CALLBACK_GETSCRIPT']
-      #self.lblDetectedAddr = addrWidg['LBL_DETECTADDR'] # we don't have space for this
 
       self.chkRememberChng = QCheckBox('Remember for future transactions')
       self.vertLine = VLINE()
