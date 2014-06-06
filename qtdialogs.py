@@ -3135,7 +3135,7 @@ class DlgImportAddress(ArmoryDialog):
       if self.radioImportOne.isChecked():
          self.processUserString(pwd)
       else:
-         self.processMultiKey(pwd)
+         self.processMultiSig(pwd)
 
 
    #############################################################################
@@ -3385,7 +3385,7 @@ class DlgImportAddress(ArmoryDialog):
 
 
    #############################################################################
-   def processMultiKey(self, pwd=None):
+   def processMultiSig(self, pwd=None):
       thisWltID = self.wlt.uniqueIDB58
 
       inputText = str(self.txtPrivBulk.toPlainText())

@@ -9,17 +9,12 @@ from armoryengine.ALL import *
 from armorymodels import *
 from armorycolors import *
 from armoryengine.MultiSigUtils import MultiSigLockbox, calcLockboxID,\
-   createLockboxEntryStr, readLockboxEntryStr
+   createLockboxEntryStr, readLockboxEntryStr, isMofNNonStandardToSpend
 from ui.MultiSigModels import \
             LockboxDisplayModel,  LockboxDisplayProxy, LOCKBOXCOLS
 import webbrowser
 from armoryengine.CoinSelection import PySelectCoins, PyUnspentTxOut, \
                                     pprintUnspentTxOutList
-
-         
-
-
-
 
 #############################################################################
 class DlgLockboxEditor(ArmoryDialog):
@@ -463,7 +458,7 @@ class DlgLockboxEditor(ArmoryDialog):
       self.updateWidgetTable(boxObj.M, boxObj.N)
       self.updateLabels(forceUpdate=True)
       
-      
+   
    #############################################################################
    def doContinue(self):
 
@@ -488,7 +483,7 @@ class DlgLockboxEditor(ArmoryDialog):
             if not CryptoECDSA().VerifyPublicKeyValid(SecureBinaryData(pkBin)):
                isValid = False
             
-         if not isValid:
+         if not isValid: 
             QMessageBox.critical(self, tr('Invalid Public Key'), tr("""
                The data specified for public key <b>%d</b> is not valid.
                Please double-check the data was entered correctly.""") % i, \
@@ -533,8 +528,26 @@ class DlgLockboxEditor(ArmoryDialog):
                return
             else:
                self.createDate = long(RightNow())
-            
-
+      
+      if isMofNNonStandardToSpend(currM, currN):
+         reply = QMessageBox.warning(self, tr('Non-Standard to Spend'), tr("""
+               Due to the size of M and N (%d-of-%d), spending funds from this
+               Lockbox is valid but non-standard for versions of Bitcoin prior
+               to 0.10.0. This means if your version of Bitcoin is 0.9.x or
+               below, and you try to broadcast a transaction that spends from
+               this Lockbox the transaction will not be accepted. If you have
+               version 0.10.0, but all of your peers have an older version
+               your transaction will not be forwarded to the rest of the
+               network. If you deposit Bitcoins into this Lockbox you may
+               have to wait until you and at least some of your peers have
+               upgraded to 0.10.0 before those Bitcoins can be spent.
+               Alternatively, if you have enough computing power to mine your
+               own transactions, or know someone who does, you can arrange to
+               have any valid but non-standard transaction included in the
+               block chain.""") % \
+               (currM, currN), QMessageBox.Ok | QMessageBox.Cancel)
+         if not reply==QMessageBox.Ok:
+            return
 
       LOGINFO('Got a valid TxOut script:')
       LOGINFO('ScrAddrStr: ' + binary_to_hex(scraddr))
@@ -2256,7 +2269,7 @@ class DlgMultiSpendReview(ArmoryDialog):
          safe to send this data via email or USB key.  No data is included 
          that would compromise the security of any of the signing devices.""")
       ftypes = ['Signature Collectors (*.sigcollect.tx)']
-      defaultFN = 'MultikeyTransaction_%s_' % self.ustx.uniqueIDB58
+      defaultFN = 'MultisigTransaction_%s_' % self.ustx.uniqueIDB58
          
       DlgExportAsciiBlock(self, self.main, self.ustx, title, descr, 
                                                     ftypes, defaultFN).exec_()

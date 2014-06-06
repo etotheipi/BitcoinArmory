@@ -3639,7 +3639,7 @@ class ArmoryMainWindow(QMainWindow):
                   '<br><br>If the transaction did fail, please consider '
                   'reporting this error the the Armory '
                   'developers.  From the main window, go to '
-                  '"<i>File</i>"\xe2\x86\x92"<i>Export Log File</i>" to make a copy of your '
+                  '"<i>File</i>" and select "<i>Export Log File</i>" to make a copy of your '
                   'log file to send via email to support@bitcoinarmory.com.  ' \
                    % (searchstr,searchstr[:8]), \
                   QMessageBox.Ok)
