@@ -2364,7 +2364,8 @@ class DlgCreatePromNote(ArmoryDialog):
       if defaultID:
          startStr = createLockboxEntryStr(defaultID)
 
-      aewMap = self.main.createAddressEntryWidgets(self, startStr)
+      aewMap = self.main.createAddressEntryWidgets(self, startStr, 
+                                                    boldDetectParts=2)
       self.edtFundTarget = aewMap['QLE_ADDR']
       self.btnSelectTarg = aewMap['BTN_BOOK']
       self.lblAutoDetect = aewMap['LBL_DETECT']
@@ -2582,7 +2583,7 @@ class DlgCreatePromNote(ArmoryDialog):
          return False
 
       # Create the target DTXO
-      targetScript = self.parseEntryFunc()[0]
+      targetScript = self.parseEntryFunc()['Script']
       dtxoTarget = DecoratedTxOut(targetScript, valueAmt)
 
       # Create the change DTXO

@@ -5120,13 +5120,14 @@ class DlgConfirmSend(ArmoryDialog):
             to the following recipients:""") % \
             (sumStr, htmlColor('TextBlue'), wlt.labelName, wlt.uniqueIDB58))
 
-      addrColWidth = 52
+      addrColWidth = 50
 
       recipLbls = []
       ffixBold = GETFONT('Fixed')
       ffixBold.setWeight(QFont.Bold)
       for script,val in sendPairs:
-         dispStr = self.main.getDisplayStringForScript(script, addrColWidth)
+         dispStr = self.main.getDisplayStringForScript(script, maxChars=addrColWidth)
+         dispStr = dispStr.ljust(addrColWidth)
          if [script,val] in returnPairs:
             dispStr = '*'+dispStr
 
@@ -5158,17 +5159,15 @@ class DlgConfirmSend(ArmoryDialog):
       # Acknowledge if the user has selected a non-std change location
       lblSpecialChange = QRichLabel('')
       if self.main.usermode == USERMODE.Expert and changeBehave:
-         chngScrAddr = changeBehave[0]
-         if len(chngScrAddr) > 0:
-            chngAddrStr = scrAddr_to_addrStr(chngScrAddr)
-            atype, chngAddr160 = addrStr_to_hash160(chngAddrStr)
+         changeScript = changeBehave[0]
+         if len(changeScript) > 0:
+            changeDispStr = self.main.getDisplayStringForScript(changeScript, maxChars=60)
 
          chngBehaveStr = changeBehave[1]
          if chngBehaveStr == 'Feedback':
             lblSpecialChange.setText('*Change will be sent back to first input address')
          elif chngBehaveStr == 'Specify':
-            wltID = self.main.getWalletForAddr160(chngAddr160)
-            msg = '*Change will be sent to %s...' % chngAddrStr[:12]
+            msg = '*Change will be sent to %s' % changeDispStr
             if wltID:
                msg += ' (Wallet: %s)' % wltID
             lblSpecialChange.setText(msg)

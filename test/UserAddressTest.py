@@ -89,7 +89,7 @@ class ScriptToDispStrTest(unittest.TestCase):
                [self.binScriptNonStd,   '3NgtiSVM5yiGfnGao3WEVqoairJTVeiXt5']]
 
       
-      self.maxLengthTestList = [256, 60, 45, 32]
+      self.maxLengthTestList = [256, 60, 58, 54, 45, 32]
 
    #############################################################################
    def makePubKey(self, byte):

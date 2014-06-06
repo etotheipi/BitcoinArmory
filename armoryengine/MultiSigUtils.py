@@ -303,8 +303,8 @@ class MultiSigLockbox(object):
       formattedDate = unixTimeToFormatStr(self.createDate, dateFmt)
       
       lines = []
-      lines.append(tr("""<font color="%s"><font size=6><center>Lockbox Information for 
-         <b>%s</font></b>""") % (htmlColor("TextBlue"), self.uniqueIDB58))
+      lines.append(tr("""<font color="%s" size=4><center><u>Lockbox Information for 
+         <b>%s</b></u></center></font>""") % (htmlColor("TextBlue"), self.uniqueIDB58))
       lines.append(tr('<b>Multisig:</b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%d-of-%d') % (self.M, self.N))
       lines.append(tr('<b>Lockbox ID:</b>&nbsp;&nbsp;&nbsp;&nbsp;%s') % self.uniqueIDB58)
       lines.append(tr('<b>P2SH Address:</b>&nbsp;&nbsp;%s') % binScript_to_p2shAddrStr(self.binScript))

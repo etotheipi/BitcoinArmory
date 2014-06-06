@@ -114,7 +114,7 @@ def getScriptForUserString(userStr, wltMap, lboxList):
 
 ################################################################################
 def getDisplayStringForScript(binScript, wltMap, lboxList, prefIDOverAddr=True, 
-                              maxChars=256, lblTrunc=12, lastTrunc=12):
+                              maxChars=256, lblTrunc=12, lastTrunc=10, doBold=0):
    """
    NOTE: This was originally in ArmoryQt.py, but we really needed this to be
    more widely accessible.  And it's easier to test when this is in ArmoryUtils.  
@@ -148,7 +148,14 @@ def getDisplayStringForScript(binScript, wltMap, lboxList, prefIDOverAddr=True,
     35   Wallet "LabelLabelLa..." 
 
    So we will always show the type and the label (possibly truncated).  If
-   can show the ID or Addr (whichever is preferred) we will
+   we can show the ID or Addr (whichever is preferred) we will do so, otherwise
+   it gets left out.   If our truncation leaves the string too short, we 
+   usually try to add back in a few chars.  It's not perfect, but it seems to 
+   work reliably.
+
+   The doBold arg indicates that we want to add html bold tags around the 
+   first N parts of the return.  This is applied after the length calculations
+   are performed, as bolding will have a very small impact on width
    """
 
    if maxChars<32:
@@ -177,14 +184,14 @@ def getDisplayStringForScript(binScript, wltMap, lboxList, prefIDOverAddr=True,
 
 
    if wlt is not None:
-      strType = 'Wallet'
+      strType = 'Wallet:'
       strLabel = wlt.labelName
       if not prefIDOverAddr and scriptType in CPP_TXOUT_HAS_ADDRSTR:
          strLast = scrAddr_to_addrStr(scrAddr)
       else:
          strLast = wlt.uniqueIDB58
    elif lbox is not None:
-      strType  = 'Lockbox %d-of-%d' % (lbox.M, lbox.N)
+      strType  = 'Lockbox %d-of-%d:' % (lbox.M, lbox.N)
       strLabel = lbox.shortName
       if prefIDOverAddr:
          strLast = lbox.uniqueIDB58
@@ -196,6 +203,12 @@ def getDisplayStringForScript(binScript, wltMap, lboxList, prefIDOverAddr=True,
       strLast = ''
 
 
+   def truncateStr(theStr, maxLen):
+      if len(theStr) <= maxLen:
+         return theStr
+      else:
+         return theStr[:maxLen-3] + '...'
+
    if len(strType) > 0:
       # We have something to display... do it and return
       lenType  = len(strType)
@@ -204,25 +217,39 @@ def getDisplayStringForScript(binScript, wltMap, lboxList, prefIDOverAddr=True,
       lenLabelTrunc = min(lenLabel + 3, lblTrunc  + 6)
       lenLastTrunc  = min(lenLast  + 3, lastTrunc + 6)
 
-      dispStr = ''
       if lenType + lenLabel + lenLast <= maxChars:
-         dispStr += '%s "%s"' % (strType, strLabel)
-         dispStr += (' (%s)' % strLast)  if lenLast>0  else ''
-         return dispStr
+         strLabel = ' "%s"' % strLabel
+         strLast  = ' (%s)' % strLast  if lenLast>0  else ''
       elif lenType + lenLabel + lenLastTrunc <= maxChars:
-         dispStr += '%s "%s..."' % (strType, strLabel[:lblTrunc])
-         dispStr += (' (%s...)' % strLast[:lastTrunc])  if lenLast>0  else ''
-         return dispStr
+         extraChars = maxChars - (lenType + lenLabel + lenLastTrunc)
+         lastTrunc += extraChars
+         strLabel = ' "%s"' % strLabel
+         strLast  = ' (%s)' % truncateStr(strLast,lastTrunc) if lenLast>0 else ''
       elif lenType + lenLabelTrunc + lenLastTrunc <= maxChars:
-         dispStr += '%s "%s..."' % (strType, strLabel[:lblTrunc])
-         dispStr += (' (%s...)' % strLast[:lastTrunc])  if lenLast>0  else ''
-         return dispStr
+         extraChars = maxChars - (lenType + lenLabelTrunc + lenLastTrunc)
+         lblTrunc += extraChars/2 
+         lastTrunc += extraChars/2 
+         strLabel = ' "%s"' % truncateStr(strLabel, lblTrunc)
+         strLast  = ' (%s)' % truncateStr(strLast, lastTrunc) if lenLast>0 else ''
       elif lenType + lenLabel <= maxChars:
-         dispStr += '%s "%s"' % (strType, strLabel)
+         strLabel = ' "%s"' % strLabel
+         strLast  = ''
       elif lenType + lenLabelTrunc <= maxChars:
-         dispStr += '%s "%s..."' % (strType, strLabel[:lblTrunc])
+         lblTrunc += maxChars - (lenType + lenLabelTrunc)
+         strLabel = ' "%s"' % truncateStr(strLabel, lblTrunc)
+         strLast  = ''
+      else:
+         # Total last resort, actually leave the label out...
+         # If we still can't fit it... too bad, we have to show something
+         lastTrunc = max(maxChars - (lenType + 4), 6)
+         strLabel = ''
+         strLast  = ' %s' % truncateStr(strLast, lastTrunc)
 
-      return dispStr
+      if doBold>0:   strType  = '<b>%s</b>' % strType
+      if doBold>1:   strLabel = '<b>%s</b>' % strLabel
+      if doBold>2:   strLast  = '<b>%s</b>' % strLast
+      return  ''.join([strType, strLabel, strLast])
+
 
 
    # If we're here, it didn't match any loaded wlt or lockbox

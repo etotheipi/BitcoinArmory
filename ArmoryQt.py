@@ -6282,8 +6282,8 @@ class ArmoryMainWindow(QMainWindow):
       return lbl
 
    #############################################################################
-   def createAddressEntryWidgets(self, parent, initString='', maxDetectLen=128,\
-                                                                  **cabbKWArgs):
+   def createAddressEntryWidgets(self, parent, initString='', maxDetectLen=128,
+                                           boldDetectParts=0, **cabbKWArgs):
       """
       If you are putting the LBL_DETECT somewhere that is space-constrained,
       set maxDetectLen to a smaller value.  It will limit the number of chars
@@ -6323,16 +6323,12 @@ class ArmoryMainWindow(QMainWindow):
             enteredText = str(addrEntryObjs['QLE_ADDR'].text()).strip()
 
             scriptInfo = self.getScriptForUserString(enteredText)
-            enteredScript = scriptInfo['Script']
-            wltID         = scriptInfo['WltID']
-            lboxID        = scriptInfo['LboxID']
-            preferShowID  = scriptInfo['ShowID']
-            
-            dispStr = self.getDisplayStringForScript(detectedScript, 
-                                                     preferShowID, 
-                                                     maxDetectLen)
+            dispStr = self.getDisplayStringForScript(scriptInfo['Script'],
+                                                     scriptInfo['ShowID'], 
+                                                     maxDetectLen,
+                                                     doBold=boldDetectParts)
 
-            if wltID is None and lboxID is None:
+            if scriptInfo['WltID'] is None and scriptInfo['LboxID'] is None:
                addrEntryObjs['LBL_DETECT'].setText(dispStr)
             else:
                addrEntryObjs['LBL_DETECT'].setText(dispStr, color='TextBlue')
@@ -6368,15 +6364,15 @@ class ArmoryMainWindow(QMainWindow):
 
    #############################################################################
    def getScriptForUserString(self, userStr):
-      getScriptForUserString(userStr, self.walletMap, self.allLockboxes)
+      return getScriptForUserString(userStr, self.walletMap, self.allLockboxes)
 
 
    #############################################################################
    def getDisplayStringForScript(self, binScript, prefIDOverAddr=False, 
-                                 maxChars=256, lblTrunc=12, lastTrunc=12):
+                            maxChars=256, lblTrunc=12, lastTrunc=12, doBold=0):
       return getDisplayStringForScript(binScript, self.walletMap, 
                                        self.allLockboxes, prefIDOverAddr,
-                                       maxChars, lblTrunc, lastTrunc)
+                                       maxChars, lblTrunc, lastTrunc, doBold)
 
 
    #############################################################################
