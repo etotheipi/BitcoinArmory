@@ -1071,6 +1071,8 @@ class DlgLockboxManager(ArmoryDialog):
    #############################################################################
    def doDelete(self):
       lb = self.getSelectedLockbox()
+      dispInfo = self.main.getDisplayStringForScript(lb.binScript, 100, 2,
+                                                      prefIDOverAddr=True)
       reply = QMessageBox.warning(self, tr('Confirm Delete'), tr("""
          "Removing" a lockbox does not delete any signing keys, so you 
          maintain signing authority for any coins that are sent there.     
@@ -1080,9 +1082,8 @@ class DlgLockboxManager(ArmoryDialog):
          <br><br>
          You are about to remove the following lockbox:
          <br><br>
-         <font color="%s"><b>Lockbox %s-of-%s: %s</b> (%s)</font> """) % \
-         (htmlColor('TextBlue'), lb.M, lb.N, lb.shortName, lb.uniqueIDB58), 
-         QMessageBox.Yes | QMessageBox.No) 
+         <font color="%s">%s</font> """) % (htmlColor('TextBlue'), 
+         dispInfo['String']), QMessageBox.Yes | QMessageBox.No) 
 
       if reply==QMessageBox.Yes:
          lbObj = self.getSelectedLockbox()

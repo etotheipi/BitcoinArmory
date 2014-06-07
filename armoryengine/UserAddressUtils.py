@@ -183,25 +183,30 @@ def getDisplayStringForScript(binScript, wltMap, lboxList, maxChars=256,
             lbox = iterLbox
             break
 
+   # Return these with the display string
+   wltID  = wlt.uniqueIDB58  if wlt  else None
+   lboxID = lbox.uniqueIDB58 if lbox else None
+
 
    if wlt is not None:
       strType = 'Wallet:'
       strLabel = wlt.labelName
-      if not prefIDOverAddr and scriptType in CPP_TXOUT_HAS_ADDRSTR:
-         strLast = scrAddr_to_addrStr(scrAddr)
-      else:
-         strLast = wlt.uniqueIDB58
+      addrStr = None
+      if scriptType in CPP_TXOUT_HAS_ADDRSTR:
+         addrStr = scrAddr_to_addrStr(scrAddr)
+
+      strLast = wlt.uniqueIDB58 if addrStr is None else addrStr
    elif lbox is not None:
       strType  = 'Lockbox %d-of-%d:' % (lbox.M, lbox.N)
       strLabel = lbox.shortName
-      if prefIDOverAddr:
-         strLast = lbox.uniqueIDB58
-      else:
-         strLast = scrAddr_to_addrStr(lbox.p2shScrAddr)
+      addrStr = scrAddr_to_addrStr(lbox.p2shScrAddr)
+      strLast = lbox.uniqueIDB58 if prefIDOverAddr else addrStr
    else:
       strType = ''
       strLabel = ''
       strLast = ''
+      addrStr = None
+
 
 
    def truncateStr(theStr, maxLen):
@@ -249,16 +254,22 @@ def getDisplayStringForScript(binScript, wltMap, lboxList, maxChars=256,
       if doBold>0:   strType  = '<b>%s</b>' % strType
       if doBold>1:   strLabel = '<b>%s</b>' % strLabel
       if doBold>2:   strLast  = '<b>%s</b>' % strLast
-      return  ''.join([strType, strLabel, strLast])
+      displayStr = ''.join([strType, strLabel, strLast])
+      return {'String':  displayStr,
+              'WltID':   wltID,
+              'LboxID':  lboxID,
+              'AddrStr': addrStr}
 
 
 
    # If we're here, it didn't match any loaded wlt or lockbox
+   dispStr = ''
    if scriptType in CPP_TXOUT_HAS_ADDRSTR:
-      dispStr = script_to_addrStr(binScript)
-      if len(dispStr) > maxChars:
-         dispStr = dispStr[:maxChars-3] + '...'
-      return dispStr
+      addrStr = script_to_addrStr(binScript)
+      if len(addrStr) <= maxChars:
+         dispStr = addrStr
+      else:
+         dispStr = addrStr[:maxChars-3] + '...'
    elif scriptType == CPP_TXOUT_MULTISIG:
       M,N,a160s,pubs = getMultisigScriptInfo(binScript)
       lbID = calcLockboxID(binScript)
@@ -268,11 +279,14 @@ def getDisplayStringForScript(binScript, wltMap, lboxList, maxChars=256,
          dispStr += ' [%s]' % addrStr
       elif len(dispStr) + lastTrunc + 6 <= maxChars:
          dispStr += ' [%s...]' % addrStr[:lastTrunc]
-      return dispStr
    else:
-      p2shEquiv = script_to_addrStr(script_to_p2sh_script(binScript))
-      dispStr = 'Non-Standard: %s' % p2shEquiv
+      addrStr = script_to_addrStr(script_to_p2sh_script(binScript))
+      dispStr = 'Non-Standard: %s' % addrStr
       if len(dispStr) > maxChars:
          dispStr = dispStr[:maxChars-3] + '...'
-      return dispStr
+
+   return {'String':  dispStr,
+           'WltID':   None,
+           'LboxID':  None,
+           'AddrStr': addrStr}
 

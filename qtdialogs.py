@@ -5128,8 +5128,8 @@ class DlgConfirmSend(ArmoryDialog):
       ffixBold = GETFONT('Fixed')
       ffixBold.setWeight(QFont.Bold)
       for script,val in sendPairs:
-         dispStr = self.main.getDisplayStringForScript(script, addrColWidth)
-         dispStr = dispStr.ljust(addrColWidth)
+         displayInfo = self.main.getDisplayStringForScript(script, addrColWidth)
+         dispStr = displayInfo['String'].ljust(addrColWidth)
          if [script,val] in returnPairs:
             dispStr = '*'+dispStr
 
@@ -5163,7 +5163,8 @@ class DlgConfirmSend(ArmoryDialog):
       if self.main.usermode == USERMODE.Expert and changeBehave:
          changeScript = changeBehave[0]
          if len(changeScript) > 0:
-            changeDispStr = self.main.getDisplayStringForScript(changeScript, 60)
+            displayInfo = self.main.getDisplayStringForScript(changeScript, 60)
+            changeDispStr = displayInfo['String']
 
          chngBehaveStr = changeBehave[1]
          if chngBehaveStr == 'Feedback':
@@ -14288,7 +14289,7 @@ from ui.WalletFrames import SelectWalletFrame, WalletBackupFrame,\
    AdvancedOptionsFrame
 from ui.TxFrames import  SendBitcoinsFrame, SignBroadcastOfflineTxFrame,\
    ReviewOfflineTxFrame
-from ui.MultiSigHacker import DlgMultiSpendReview
+from ui.MultiSigDialogs import DlgMultiSpendReview
 
 
 

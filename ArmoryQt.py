@@ -49,7 +49,7 @@ from armoryengine.parseAnnounce import *
 from armoryengine.PyBtcWalletRecovery import WalletConsistencyCheck
 
 from armoryengine.MultiSigUtils import MultiSigLockbox
-from ui.MultiSigHacker import DlgSelectMultiSigOption, DlgLockboxManager, \
+from ui.MultiSigDialogs import DlgSelectMultiSigOption, DlgLockboxManager, \
                               DlgMergePromNotes, DlgCreatePromNote
 
 # HACK ALERT: Qt has a bug in OS X where the system font settings will override
@@ -6323,11 +6323,12 @@ class ArmoryMainWindow(QMainWindow):
             enteredText = str(addrEntryObjs['QLE_ADDR'].text()).strip()
 
             scriptInfo = self.getScriptForUserString(enteredText)
-            dispStr = self.getDisplayStringForScript(
+            displayInfo = self.getDisplayStringForScript(
                            scriptInfo['Script'], maxDetectLen, boldDetectParts,
                            prefIDOverAddr=scriptInfo['ShowID'])
 
-            if scriptInfo['WltID'] is None and scriptInfo['LboxID'] is None:
+            dispStr = displayInfo['String']
+            if displayInfo['WltID'] is None and displayInfo['LboxID'] is None:
                addrEntryObjs['LBL_DETECT'].setText(dispStr)
             else:
                addrEntryObjs['LBL_DETECT'].setText(dispStr, color='TextBlue')
