@@ -5035,7 +5035,7 @@ def excludeChange(outputPairs, wlt):
       addr = ''
       if scrType in CPP_TXOUT_HAS_ADDRSTR:
          scrAddr = script_to_scrAddr(script)
-         addr    = wlt.getAddrByHash160(scrAddr_to_hash160(scrAddr)[1])
+         addr = wlt.getAddrByHash160(scrAddr_to_hash160(scrAddr)[1])
 
       # this logic excludes the pair with the maximum chainIndex from the
       # returned list

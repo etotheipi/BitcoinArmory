@@ -113,21 +113,20 @@ class DlgLockboxEditor(ArmoryDialog):
          self.widgetMap[i]['LBL_ROWN'] = QRichLabel(tr("""
             Public Key #<font size=4 color="%s">%d</font>:""") % \
             (htmlColor('TextBlue'), i+1), doWrap=False, hAlign=Qt.AlignRight)
-         self.widgetMap[i]['LBL_ADRN'] = QRichLabel(tr('Address:'), \
-                                                    doWrap=False, \
-                                                    hAlign=Qt.AlignRight)
          self.widgetMap[i]['LBL_WLTN'] = QRichLabel(tr('Name or ID:'), \
                                                     doWrap=False, \
                                                     hAlign=Qt.AlignRight)
-         self.widgetMap[i]['EDT_PUBK'] = QLineEdit()
-         self.widgetMap[i]['BTN_BOOK'] = \
-            createAddrBookButton(self, self.widgetMap[i]['EDT_PUBK'], None, \
-                                 getPubKey=True, selectMineOnly=True, showLockBoxes=False)
-         self.widgetMap[i]['LBL_ASTR'] = QRichLabel('', doWrap=False)
-         self.widgetMap[i]['LBL_NAME'] = QRichLabel('', doWrap=False)
 
+
+         addrWidgets = self.main.createAddressEntryWidgets(self, '', 70, 2, 
+                                       getPubKey=True, showLockBoxes=False)
+         self.widgetMap[i]['QLE_PUBK'] = addrWidgets['QLE_ADDR']
+         self.widgetMap[i]['BTN_BOOK'] = addrWidgets['BTN_BOOK']
+         self.widgetMap[i]['LBL_DETECT']=addrWidgets['LBL_DETECT']
+         self.widgetMap[i]['LBL_NAME'] = QRichLabel('', doWrap=False)
          self.widgetMap[i]['BTN_NAME'] = QLabelButton(tr('Edit'))
          self.widgetMap[i]['BTN_NAME'].setContentsMargins(0,0,0,0)
+         self.widgetMap[i]['LBL_DETECT'].setWordWrap(False)
 
          def createCallBack(i):
             def nameClick():
@@ -137,21 +136,16 @@ class DlgLockboxEditor(ArmoryDialog):
          self.connect(self.widgetMap[i]['BTN_NAME'], SIGNAL('clicked()'), \
                                                             createCallBack(i))
          
-
-         self.connect(self.widgetMap[i]['EDT_PUBK'], \
-                      SIGNAL('textChanged(QString)'), \
-                      self.updateLabels)
-
          self.prevPubKeyStr[i] = ''
          
-         self.widgetMap[i]['EDT_PUBK'].setFont(GETFONT('Fixed', 9))
-         w,h = tightSizeNChar(self.widgetMap[i]['EDT_PUBK'], 50)
-         self.widgetMap[i]['EDT_PUBK'].setMinimumWidth(w)
+         #self.widgetMap[i]['QLE_PUBK'].setFont(GETFONT('Fixed', 9))
+         w,h = tightSizeNChar(self.widgetMap[i]['QLE_PUBK'], 50)
+         self.widgetMap[i]['QLE_PUBK'].setMinimumWidth(w)
          
          
       self.btnCancel   = QPushButton(tr('Exit'))
       self.btnContinue = QPushButton(tr('Save Lockbox'))
-      self.btnContinue.setEnabled(False)
+      #self.btnContinue.setEnabled(False)
       self.connect(self.btnContinue, SIGNAL('clicked()'), self.doContinue)
       self.connect(self.btnCancel, SIGNAL('clicked()'), self.reject)
       self.lblFinal = QRichLabel('')
@@ -179,25 +173,24 @@ class DlgLockboxEditor(ArmoryDialog):
       for i in range(self.maxN):
          pkFrameList.append(QFrame())
          layoutThisRow = QGridLayout()
-         layoutThisRow.addWidget(self.widgetMap[i]['IMG_ICON'],  0, 0, 3,1)
-         layoutThisRow.addWidget(self.widgetMap[i]['LBL_ROWN'],  0, 1)
-         layoutThisRow.addWidget(self.widgetMap[i]['LBL_ADRN'],  1, 1)
-         layoutThisRow.addWidget(self.widgetMap[i]['LBL_WLTN'],  2, 1)
-         layoutThisRow.addItem(QSpacerItem(10,10),               0, 2)
-         layoutThisRow.addWidget(self.widgetMap[i]['EDT_PUBK'],  0, 3)
-         layoutThisRow.addWidget(self.widgetMap[i]['BTN_BOOK'],  0, 4)
+         layoutThisRow.addWidget(self.widgetMap[i]['IMG_ICON'],   0,0, 3,1)
+         layoutThisRow.addWidget(self.widgetMap[i]['LBL_ROWN'],   0,1)
+         layoutThisRow.addWidget(self.widgetMap[i]['LBL_WLTN'],   2,1)
+         layoutThisRow.addItem(QSpacerItem(10,10),                0,2)
+         layoutThisRow.addWidget(self.widgetMap[i]['QLE_PUBK'],   0,3)
+         layoutThisRow.addWidget(self.widgetMap[i]['BTN_BOOK'],   0,4)
+         layoutThisRow.addWidget(self.widgetMap[i]['LBL_DETECT'], 1,3, 1,2)
 
          layoutName = QHBoxLayout()
          layoutName.addWidget(self.widgetMap[i]['LBL_NAME'])
          layoutName.addItem(QSpacerItem(5,5))
          layoutName.addWidget(self.widgetMap[i]['BTN_NAME'])
          layoutName.addStretch()
-
-         layoutThisRow.addWidget(self.widgetMap[i]['LBL_ASTR'],  1,3, 1,2)
-         layoutThisRow.addLayout(layoutName,                     2,3, 1,2)
+         layoutThisRow.addLayout(layoutName,                      2,3, 1,2)
 
          layoutThisRow.setColumnStretch(3, 1)
          layoutThisRow.setSpacing(0)
+
          pkFrameList[-1].setLayout(layoutThisRow)
 
       pkFrameList.append('Stretch')
@@ -258,14 +251,14 @@ class DlgLockboxEditor(ArmoryDialog):
       layoutMaster.addWidget(frmFinish)
 
       self.updateWidgetTable(defaultM, defaultN)
-      self.updateLabels(forceUpdate=True)
+      self.updateLabels()
 
       if loadBox is not None:
          self.fillForm(loadBox)
          
 
       self.setLayout(layoutMaster)
-      self.setWindowTitle('Multi-Sig Hacker [EXPERIMENTAL]')
+      self.setWindowTitle('Multi-Sig Lockbox Editor')
       self.setMinimumWidth(750)
        
 
@@ -314,7 +307,7 @@ class DlgLockboxEditor(ArmoryDialog):
       
 
    #############################################################################
-   def isValidHexPubKey(self, pkstr):
+   def isPotentiallyValidHexPubKey(self, pkstr):
       # Don't check for valid pub keys in 65-byte fields; it would be slow
       # (this will be run after every key press)
       if len(pkstr) == 33*2:
@@ -328,54 +321,19 @@ class DlgLockboxEditor(ArmoryDialog):
    #############################################################################
    def updateLabels(self, *args, **kwargs):
 
-      # Walk through the QLineEdits and verify
-      for i in range(self.maxN):
-
-         pkStr = str(self.widgetMap[i]['EDT_PUBK'].text())
-
-         if pkStr == self.prevPubKeyStr[i]:
-            continue 
-
-         self.prevPubKeyStr[i] = pkStr
-
-         if not self.isValidHexPubKey(pkStr):
-            self.widgetMap[i]['LBL_ASTR'].setText('')
-            self.widgetMap[i]['LBL_NAME'].setText('')
-            self.widgetMap[i]['BTN_NAME'].setVisible(False)
-            continue
-            
-         addr160 = hash160(hex_to_binary(pkStr))
-         addrStr = hash160_to_addrStr(addr160)
-         wid = self.main.getWalletForAddr160(addr160)
-         self.widgetMap[i]['LBL_NAME'].setVisible(True)
-         self.widgetMap[i]['BTN_NAME'].setVisible(True)
-         if not wid:
-            self.widgetMap[i]['LBL_ASTR'].setText(addrStr)
-            #self.widgetMap[i]['LBL_NAME'].setText('')
-            self.widgetMap[i]['LBL_NAME'].setStyleSheet( \
-                     'QLabel {color : "%s"; }' % htmlColor('Foreground'))
-         else:
-            self.widgetMap[i]['LBL_ASTR'].setText( \
-               '<font color="%s">%s</font>' % \
-               (htmlColor("TextBlue"), addrStr))
-            self.widgetMap[i]['LBL_NAME'].setText( \
-               '%s (%s)' % (self.main.walletMap[wid].labelName, wid))
-            self.widgetMap[i]['LBL_NAME'].setStyleSheet( \
-               'QLabel {color : "%s"; }' % htmlColor('TextBlue'))
-
       # Disable the continue button if not all keys are in
       M = int(str(self.comboM.currentText()))
       N = int(str(self.comboN.currentText()))
 
       for i in range(N):
-         pkStr = str(self.widgetMap[i]['EDT_PUBK'].text())
-         if not self.isValidHexPubKey(pkStr):
-            self.btnContinue.setEnabled(False)
+         pkStr = str(self.widgetMap[i]['QLE_PUBK'].text()).strip()
+         if not self.isPotentiallyValidHexPubKey(pkStr):
+            #self.btnContinue.setEnabled(False)
             self.lblFinal.setText('')
             break
       else:
          self.formFilled = True
-         self.btnContinue.setEnabled(True)
+         #self.btnContinue.setEnabled(True)
          self.lblFinal.setText(tr("""
             Using the <font color="%s"><b>%d</b></font> public keys above, 
             a multi-sig lockbox will be created requiring
@@ -420,12 +378,12 @@ class DlgLockboxEditor(ArmoryDialog):
 
       for i in range(self.maxN):
          if i>=N:
-            self.widgetMap[i]['EDT_PUBK'].setText('')
+            self.widgetMap[i]['QLE_PUBK'].setText('')
 
          for k,v in self.widgetMap[i].iteritems():
             v.setVisible(i<N)
 
-      self.updateLabels(forceUpdate=True)
+      self.updateLabels()
          
 
 
@@ -436,32 +394,32 @@ class DlgLockboxEditor(ArmoryDialog):
       self.longDescr = ''
       for index,widMap in self.widgetMap.iteritems():
          for key,widget in widMap.iteritems():
-            if key in ['EDT_PUBK', 'LBL_ASTR', 'LBL_NAME']:
+            if key in ['QLE_PUBK', 'LBL_NAME']:
                widget.clear()
 
    
    #############################################################################
-   def fillForm(self, boxObj):
+   def fillForm(self, lboxObj):
 
-      self.edtBoxName.setText(boxObj.shortName)
-      self.longDescr = boxObj.longDescr
-      self.loadedID = boxObj.uniqueIDB58
-      self.createDate = boxObj.createDate
+      self.edtBoxName.setText(lboxObj.shortName)
+      self.longDescr = lboxObj.longDescr
+      self.loadedID = lboxObj.uniqueIDB58
+      self.createDate = lboxObj.createDate
 
-      for i in range(boxObj.N):
-         self.widgetMap[i]['EDT_PUBK'].setText(binary_to_hex(boxObj.pubKeys[i]))
-         self.widgetMap[i]['LBL_NAME'].setText(boxObj.commentList[i])
+      for i in range(lboxObj.N):
+         self.widgetMap[i]['QLE_PUBK'].setText(binary_to_hex(lboxObj.pubKeys[i]))
+         self.widgetMap[i]['LBL_NAME'].setText(lboxObj.commentList[i])
 
       def setCombo(cmb, val):
          for i in range(cmb.count()):
             if str(cmb.itemText(i))==str(val):
                cmb.setCurrentIndex(i)
 
-      setCombo(self.comboM, boxObj.M)
-      setCombo(self.comboN, boxObj.N)
+      setCombo(self.comboM, lboxObj.M)
+      setCombo(self.comboN, lboxObj.N)
 
-      self.updateWidgetTable(boxObj.M, boxObj.N)
-      self.updateLabels(forceUpdate=True)
+      self.updateWidgetTable(lboxObj.M, lboxObj.N)
+      self.updateLabels()
       
       
    #############################################################################
@@ -472,18 +430,27 @@ class DlgLockboxEditor(ArmoryDialog):
 
       if len(str(self.edtBoxName.text()).strip())==0:
          QMessageBox.warning(self, tr('Missing Name'), tr("""
-            You did not specify a name for this lockbox, at the top of 
-            the list of public keys.  You should also make sure you that
-            you have set the extended information (next to it), for better
-            documentation of what this lockbox is used for"""), QMessageBox.Ok)
+            Lockboxes cannot be saved without a name (at the top of 
+            the public key list).  It is also recommended to set the
+            extended information next to it, for documenting the purpose
+            of the lockbox."""), QMessageBox.Ok)
          return
 
       # If we got here, we already know all the public keys are valid strings
       pubKeyList = []
+      acceptedBlankComment = False
       for i in range(currN):
-         pkHex = str(self.widgetMap[i]['EDT_PUBK'].text())  
+         pkHex = str(self.widgetMap[i]['QLE_PUBK'].text()).strip()
+
+         if len(pkHex)==0:
+            QMessageBox.critical(self, tr('Not Enough Keys'), tr(""" 
+               You specified less than <b>%d</b> public keys.  Please enter 
+               a public key into every field before continuing.""") % currN,
+               QMessageBox.Ok)
+            return
+
          pkBin = hex_to_binary(pkHex)
-         isValid = self.isValidHexPubKey(pkHex)
+         isValid = self.isPotentiallyValidHexPubKey(pkHex)
          if len(pkBin) == 65:
             if not CryptoECDSA().VerifyPublicKeyValid(SecureBinaryData(pkBin)):
                isValid = False
@@ -491,11 +458,33 @@ class DlgLockboxEditor(ArmoryDialog):
          if not isValid:
             QMessageBox.critical(self, tr('Invalid Public Key'), tr("""
                The data specified for public key <b>%d</b> is not valid.
-               Please double-check the data was entered correctly.""") % i, \
+               Please double-check the data was entered correctly.""") % (i+1),
                QMessageBox.Ok)
             return
 
          pubKeyList.append(pkBin)
+
+         # Finally, throw a warning if the comment is not set 
+         strComment = str(self.widgetMap[i]['LBL_NAME'].text()).strip()
+         if len(strComment)==0 and not acceptedBlankComment:
+            reply =QMessageBox.warning(self, tr('Empty Name/ID Field'), tr(""" 
+               You did not specify a name/ID/comment for one or more of 
+               the public keys.  If you do not do this,
+               other devices and/or participants receiving this lockbox info
+               will not be able to determine the identity of any 
+               public keys except their own.  If this is a multi-party
+               lockbox, it is recommended you put in contact information
+               for each party, such as name, email and/or phone number.
+               <br><br>
+               Continue with some fields blank?
+               <br>(click "No" to go back and finish filling in the form)"""), 
+               QMessageBox.Yes | QMessageBox.No)
+
+            if reply==QMessageBox.Yes:
+               acceptedBlankComment = True
+            else:
+               return
+      
 
 
       # Extract the labels for each pubKey

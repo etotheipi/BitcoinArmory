@@ -6333,6 +6333,7 @@ class ArmoryMainWindow(QMainWindow):
                addrEntryObjs['LBL_DETECT'].setText(dispStr, color='TextBlue')
 
             addrEntryObjs['LBL_DETECT'].setVisible(True)
+            addrEntryObjs['QLE_ADDR'].setCursorPosition(0)
 
          except:
             #LOGEXCEPT('Invalid recipient string')
