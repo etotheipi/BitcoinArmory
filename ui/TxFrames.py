@@ -406,6 +406,7 @@ class SendBitcoinsFrame(ArmoryFrame):
       scripts = []
       addrList = []
       self.comments = []
+      isSendToNonStandardLockbox = False
       for i in range(len(self.widgetTable)):
          # Verify validity of address strings
          addrStr = str(self.widgetTable[i][COLS.Addr].text()).strip()
@@ -483,7 +484,36 @@ class SendBitcoinsFrame(ArmoryFrame):
 
          totalSend += value
          script = getScriptForInputStr(recipStr, self.main)
-         scraddr = script_to_scrAddr(script)
+
+         # Checking for sending bitcoins to a Lockbox using P2SH that is
+         # non-standard to spend.
+         # only P2SH matters, if it's a bare multi sig, you won't be able to
+         # deposit if it's non-standard. In other words if it standard to spend from
+         # a bare sig lockbox it's standard to deposit into it.
+         # This is not necessarily so for P2SH. Must warn the user or else they
+         # may get some bitcoins stuck in a lockbox until they upgrade to bitcoin
+         # 0.10.0
+         if isP2SHLockbox(recipStr):
+            lbox = self.main.getLockboxByID(readLockboxEntryStr(recipStr))
+            if isMofNNonStandardToSpend(lbox.M, lbox.N):
+               reply = QMessageBox.warning(self, tr('Non-Standard to Spend'), tr("""
+                  Due to the Lockbox size (%d-of-%d) of recipient %d, spending
+                  funds from this Lockbox is valid but non-standard for versions
+                  of Bitcoin prior to 0.10.0. This means if your version of
+                  Bitcoin is 0.9.x or below, and you try to broadcast a
+                  transaction that spends from this Lockbox the transaction
+                  will not be accepted. If you have version 0.10.0, but all
+                  of your peers have an older version your transaction will
+                  not be forwarded to the rest of the network. If you deposit
+                  Bitcoins into this Lockbox you may have to wait until you
+                  and at least some of your peers have upgraded to 0.10.0
+                  before those Bitcoins can be spent. Alternatively, if you
+                  have enough computing power to mine your own transactions,
+                  or know someone who does, you can arrange to have any valid
+                  but non-standard transaction included in the block chain.""") % \
+                  (lbox.M, lbox.N, i + 1), QMessageBox.Ok | QMessageBox.Cancel)
+               if not reply==QMessageBox.Ok:
+                  return
 
          scriptValPairs.append([script, value])
          self.comments.append((str(self.widgetTable[i][COLS.Comm].text()), value))

@@ -186,7 +186,18 @@ def getLockboxFilePaths():
 
    return lbPaths
 
-
+#############################################################################
+def isMofNNonStandardToSpend(m, n):
+   # Minimum non-standard tx spends
+   # 4 of 4
+   # 3 of 5
+   # 2 of 6
+   # any of 7
+   return (n > 3 and m > 3) or \
+          (n > 4 and m > 2) or \
+          (n > 5 and m > 1) or \
+          n > 6
+          
 ################################################################################
 ################################################################################
 class MultiSigLockbox(object):

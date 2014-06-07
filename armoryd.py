@@ -1442,7 +1442,7 @@ class Armory_Daemon(object):
       #try to grab checkWallet lock to block start() until the check is over
       self.lock.acquire()
       self.lock.release()
-      
+
       # This is not a UI so no need to worry about the main thread being
       # blocked. Any UI that uses this Daemon can put the call to the Daemon on
       # its own thread.
@@ -1619,18 +1619,18 @@ class Armory_Daemon(object):
    #############################################################################
    @AllowAsync
    def checkWallet(self):
-      if self.lock.acquire(False) == False:
-         return
+      if self.lock.acquire(False):
+         wltStatus = PyBtcWalletRecovery().ProcessWallet(None, self.curWlt, \
+                                                         Mode=5)
+         if wltStatus != 0:
+            print 'Wallet consistency check failed in wallet %s!!!' \
+                   % (self.curWlt.uniqueIDB58)
+            print 'Aborting...'
 
-      wltStatus = PyBtcWalletRecovery().ProcessWallet(None, self.curWlt, Mode=5)
-      if wltStatus != 0:
-         print 'Wallet consistency check failed in wallet %s!!!' \
-                % (self.curWlt.uniqueIDB58)
-         print 'Aborting...'
+            quit()
+         else:
+            self.lastChecked = RightNow()
 
-         quit()
-      else:
-         self.lastChecked = RightNow()
       self.lock.release()
 
 
@@ -1645,7 +1645,7 @@ class Armory_Daemon(object):
       if TheBDM.getBDMState()=='BlockchainReady':
          #check wallet every checkStep seconds
          nextCheck = self.lastChecked + self.checkStep
-         if nextCheck >= RightNow():
+         if RightNow() >= nextCheck:
             self.checkWallet()
 
          # Check for new blocks in the blk000X.dat file
