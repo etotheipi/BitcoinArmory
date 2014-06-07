@@ -186,7 +186,7 @@ void BlockDataManagerThread::run()
    {
       if(bdm->rescanZC_)
       {
-         bdm->scanWallets();
+         bdm->scanWallets(0, 0);
          bdm->rescanZC_ = false;
 
          //notify ZC

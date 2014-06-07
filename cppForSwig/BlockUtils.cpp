@@ -2932,7 +2932,7 @@ void BlockDataManager_LevelDB::scanWallets(uint32_t startBlock,
       pthread_create(tID + i, NULL, scanWallet, wltArgs + i);
       i++;*/
 
-      wallet->scanWallet(0, endBlock, forceScan);
+      wallet->scanWallet(startBlock, endBlock, forceScan);
    }
 
    /*for (i = 0; i < nWallets; i++)
