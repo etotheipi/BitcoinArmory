@@ -35,6 +35,14 @@ WLT_DATATYPE_DELETED     = 4
 DEFAULT_COMPUTE_TIME_TARGET = 0.25
 DEFAULT_MAXMEM_LIMIT        = 32*1024*1024
 
+PYROOTPKCCVER = 1 # Current version of root pub key/chain code backup format
+PYROOTPKCCVERMASK = 0x7F
+PYROOTPKCCSIGNMASK = 0x80
+
+
+def buildWltFileName(uniqueIDB58):
+   return 'armory_%s_.wallet' % uniqueIDB58
+   
 class PyBtcWallet(object):
    """
    This class encapsulates all the concepts and variables in a "wallet",
@@ -468,7 +476,7 @@ class PyBtcWallet(object):
          elif ledgType.lower() in ('zeroconf', 'zero'):
             return ledgZeroConf
          else:
-            raise TypeError('Unknown balance type! "' + ledgType + '"')
+            raise TypeError('Unknown ledger type! "' + ledgType + '"')
 
 
    #############################################################################
@@ -484,7 +492,7 @@ class PyBtcWallet(object):
          elif txType.lower() in ('full', 'all', 'unspent', 'ultimate'):
             return self.cppWallet.getFullTxOutList(currBlk);
          else:
-            raise TypeError('Unknown balance type! ' + txType)
+            raise TypeError('Unknown TxOut type! ' + txType)
       else:
          LOGERROR('***Blockchain is not available for accessing wallet-tx data')
          return []
@@ -596,7 +604,11 @@ class PyBtcWallet(object):
    def backupWalletFile(self, backupPath = None):
       walletFileBackup = self.getWalletPath('backup') if backupPath == None \
                                                                else backupPath
-      shutil.copy(self.walletPath, walletFileBackup)
+      try:
+         shutil.copy(self.walletPath, walletFileBackup)
+      except IOERROR, errPath:
+         print 'Unable to copy file %s' % errPath
+
 
    #############################################################################
    #  THIS WAS CREATED ORIGINALLY TO SUPPORT BITSAFE INTEGRATION INTO ARMORY
@@ -648,7 +660,7 @@ class PyBtcWallet(object):
          # This was really only needed when we were putting name in filename
          #for c in ',?;:\'"?/\\=+-|[]{}<>':
             #shortName = shortName.replace(c,'_')
-         newName = 'armory_%s_.wallet' % self.uniqueIDB58
+         newName = buildWltFileName(self.uniqueIDB58)
          self.walletPath = os.path.join(ARMORY_HOME_DIR, newName)
 
       LOGINFO('   New wallet will be written to: %s', self.walletPath)
@@ -694,9 +706,109 @@ class PyBtcWallet(object):
 
       return self
 
-      
 
-   
+   #############################################################################
+   def createNewWalletFromPKCC(self, plainPubKey, chaincode, newWalletFilePath=None, \
+                               isActuallyNew=True, doRegisterWithBDM=True, \
+                               skipBackupFile=False):
+      """
+      This method will create a new wallet based on a root public key, chain
+      code and wallet ID.
+      """
+
+      # Is this needed? Just in case....
+      if self.calledFromBDM:
+         LOGERROR('Called createNewWallet() from BDM method!')
+         LOGERROR('Don\'t do this!')
+         return None
+
+      LOGINFO('***Creating watching-only wallet from a public key & chain code')
+
+      # Prep for C++ usage, then create the root address object and first public
+      # address and its Hash160.
+      plainPubKey = SecureBinaryData(plainPubKey)
+      chaincode = SecureBinaryData(chaincode)
+      rootAddr = PyBtcAddress().createFromPublicKeyData(plainPubKey)
+      rootAddr.markAsRootAddr(chaincode)
+      firstAddr = rootAddr.extendAddressChain()
+      first160  = firstAddr.getAddr160()
+
+      # Update wallet object with the new data.
+      # NEW IN WALLET VERSION 1.35: unique ID is now based on the first chained
+      # address. This guarantees that the unique ID is based not only on the
+      # private key, BUT ALSO THE CHAIN CODE.
+      self.useEncryption = False
+      self.watchingOnly = True
+      self.wltCreateDate = long(RightNow())
+
+      self.addrMap['ROOT'] = rootAddr
+      self.addrMap[firstAddr.getAddr160()] = firstAddr
+      self.uniqueIDBin = (ADDRBYTE + firstAddr.getAddr160()[:5])[::-1]
+      self.uniqueIDB58 = binary_to_base58(self.uniqueIDBin)
+      self.labelName  = (self.uniqueIDB58 + ' (Watch)')[:32]
+      self.labelDescr  = (self.uniqueIDB58 + ' (Watching-only copy)')[:256]
+      self.lastComputedChainAddr160 = first160
+      self.lastComputedChainIndex  = firstAddr.chainIndex
+      self.highestUsedChainIndex   = firstAddr.chainIndex-1
+      self.linearAddr160List = [first160]
+      self.chainIndexMap[firstAddr.chainIndex] = first160
+
+      # We don't have to worry about atomic file operations when creating the
+      # wallet, so we just do it here, naively.
+      self.walletPath = newWalletFilePath
+      if not newWalletFilePath:
+         shortName = self.labelName .replace(' ','_')
+         # This was really only needed when we were putting name in filename
+         #for c in ',?;:\'"?/\\=+-|[]{}<>':
+            #shortName = shortName.replace(c,'_')
+         newName = 'armory_%s_.WatchOnly.wallet' % self.uniqueIDB58
+         self.walletPath = os.path.join(ARMORY_HOME_DIR, newName)
+
+      # Start writing the wallet.
+      LOGINFO('   New wallet will be written to: %s', self.walletPath)
+      newfile = open(self.walletPath, 'wb')
+      fileData = BinaryPacker()
+
+      # packHeader method writes KDF params and root address
+      headerBytes = self.packHeader(fileData)
+
+      # We make sure we have byte locations of the two addresses, to start
+      self.addrMap[first160].walletByteLoc = headerBytes + 21
+
+      fileData.put(BINARY_CHUNK, '\x00' + first160 + firstAddr.serialize())
+
+      # Store the current localtime and blocknumber. Block number is always 
+      # accurate if available, but time may not be exactly right. Whenever 
+      # basing anything on time, please assume that it is up to one day off!
+      time0,blk0 = getCurrTimeAndBlock() if isActuallyNew else (0,0)
+
+      # Don't forget to sync the C++ wallet object.
+      self.cppWallet = Cpp.BtcWallet()
+      self.cppWallet.addScrAddress_5_(Hash160ToScrAddr(rootAddr.getAddr160()), \
+                                                      time0,blk0,time0,blk0)
+      self.cppWallet.addScrAddress_5_(Hash160ToScrAddr(first160), \
+                                                      time0,blk0,time0,blk0)
+
+      # We'll probably want to register the new wallet for the necessary rescan.
+      if doRegisterWithBDM:
+         TheBDM.registerWallet(self.cppWallet, isFresh=isActuallyNew)
+
+      # Write the actual wallet file and close it. Create a backup if necessary.
+      newfile.write(fileData.getBinaryString())
+      newfile.close()
+
+      if not skipBackupFile:
+         walletFileBackup = self.getWalletPath('backup')
+         shutil.copy(self.walletPath, walletFileBackup)
+
+      # Let's fill the address pool while we are unlocked. It will get a lot
+      # more expensive if we do it on the next unlock.
+      if doRegisterWithBDM:
+         self.fillAddressPool(self.addrPoolSize, isActuallyNew=isActuallyNew)
+
+      return self
+
+
    #############################################################################
    def createNewWallet(self, newWalletFilePath=None, \
                              plainRootKey=None, chaincode=None, \
@@ -803,8 +915,8 @@ class PyBtcWallet(object):
       self.addrMap[firstAddr.getAddr160()] = firstAddr
       self.uniqueIDBin = (ADDRBYTE + firstAddr.getAddr160()[:5])[::-1]
       self.uniqueIDB58 = binary_to_base58(self.uniqueIDBin)
-      self.labelName  = shortLabel[:32]
-      self.labelDescr  = longLabel[:256]
+      self.labelName  = shortLabel[:32]   # aka "Wallet Name"
+      self.labelDescr  = longLabel[:256]  # aka "Description"
       self.lastComputedChainAddr160 = first160
       self.lastComputedChainIndex  = firstAddr.chainIndex
       self.highestUsedChainIndex   = firstAddr.chainIndex-1
@@ -820,7 +932,7 @@ class PyBtcWallet(object):
          # This was really only needed when we were putting name in filename
          #for c in ',?;:\'"?/\\=+-|[]{}<>':
             #shortName = shortName.replace(c,'_')
-         newName = 'armory_%s_.wallet' % self.uniqueIDB58
+         newName = buildWltFileName(self.uniqueIDB58)
          self.walletPath = os.path.join(ARMORY_HOME_DIR, newName)
 
       LOGINFO('   New wallet will be written to: %s', self.walletPath)
@@ -1178,10 +1290,110 @@ class PyBtcWallet(object):
       self.unlock(securePassphrase=securePassphrase)
       self.changeWalletEncryption(None)
       return True
-   
 
-      
 
+   #############################################################################
+   def getRootPKCC(self, pkIsCompressed=False):
+      '''Get the root public key and chain code for this wallet. The key may be
+         compressed or uncompressed.'''
+      root = self.addrMap['ROOT']
+      wltRootPubKey = root.binPublicKey65.copy().toBinStr()
+      wltChainCode = root.chaincode.copy().toBinStr()
+
+      # Neither should happen, but just in case....
+      if len(wltRootPubKey) != 65:
+         QMessageBox.critical(self, 'There\'s something wrong with your', \
+            'watching-only wallet! The root public key can\'t be retrieved.', \
+            QMessageBox.Ok)
+         self.accept()
+         return
+      if len(wltChainCode) != 32:
+         QMessageBox.critical(self, 'There\'s something wrong with your', \
+            'watching-only wallet! The root chain code can\'t be retrieved.', \
+            QMessageBox.Ok)
+         self.accept()
+         return
+
+      # Finish assembling data for the final output.
+      if pkIsCompressed == True:
+         wltRootCompPubKey = \
+            CryptoECDSA().CompressPoint(SecureBinaryData(wltRootPubKey))
+         wltRootPubKey = wltRootCompPubKey.toBinStr()
+
+      return (wltRootPubKey, wltChainCode)
+
+
+   #############################################################################
+   def getRootPKCCBackupData(self, pkIsCompressed=True, et16=True):
+      '''
+      Get the root public key and chain code for this wallet. The root pub
+      key/chain code output format will be as follows. All data will be output
+      in EasyType16 format.
+
+      ---PART 1: Root Data ID (9 bytes)---
+      - Compressed pub key's "sign byte" flag (mask 0x80) + root data format
+        version (mask 0x7F)  (1 byte)
+      - Wallet ID  (6 bytes)
+      - Checksum of the initial byte + the wallet ID  (2 bytes)
+
+      ---PART 2: Root Data (64 bytes)---
+      - Compressed public key minus the first ("sign") byte  (32 bytes)
+      - Chain code  (32 bytes)
+      '''
+      # Get the root pub key & chain code. The key will be compressed.
+      self.wltRootPubKey, self.wltChainCode = self.getRootPKCC(True)
+
+      # The "version byte" will actually contain the root data format version
+      # (mask 0x7F) and a bit (mask 0x80) indicating if the first byte of the
+      # compressed public key is 0x02 (0) or 0x03 (1). Done so that the ET16
+      # output of the PK & CC will cover 4 lines, with a 5th chunk of data
+      # containing everything else.
+      rootPKCCFormatVer = PYROOTPKCCVER
+      if self.wltRootPubKey[0] == '\x03':
+         rootPKCCFormatVer ^= 0x80
+
+      # Produce the root ID object. Convert to ET16 if necessary.
+      wltRootIDConcat = int_to_binary(rootPKCCFormatVer) + self.uniqueIDBin
+      rootIDConcatChksum = computeChecksum(wltRootIDConcat, nBytes=2)
+      wltRootIDConcat += rootIDConcatChksum
+      if et16 == True:
+         wltRootIDConcat = binary_to_easyType16(wltRootIDConcat)
+
+      # Get 4 rows of PK & CC data. Convert to ET16 data if necessary.
+      pkccLines = []
+      wltPKCCConcat = self.wltRootPubKey[1:] + self.wltChainCode
+      for i in range(0, len(wltPKCCConcat), 16):
+         concatData = wltPKCCConcat[i:i+16]
+         if et16 == True:
+            concatData = makeSixteenBytesEasy(concatData)
+         pkccLines.append(concatData)
+
+      # Return the root ID & the PK/CC data.
+      return (wltRootIDConcat, pkccLines)
+
+
+   #############################################################################
+   def writePKCCFile(self, newPath):
+      '''Make a copy of this wallet with only the public key and chain code.'''
+      # Open the PKCC file for writing.
+      newFile = open(newPath, 'wb')
+      bp = BinaryPacker()
+
+      # Write the data to the file. The file format is as follows:
+      # PKCC data format version  (UINT8)
+      # Root ID  (VAR_STR)
+      # Number of PKCC lines  (UINT8)
+      # PKCC lines  (VAR_STR)
+      outRootIDET16, outPKCCET16Lines = self.getRootPKCCBackupData(True)
+      bp.put(UINT8, PYROOTPKCCVER)
+      bp.put(VAR_STR, outRootIDET16)
+      bp.put(UINT8, len(outPKCCET16Lines))
+      for a in outPKCCET16Lines:
+         bp.put(VAR_STR, a)
+
+      # Write to the file and clean everything up.
+      newFile.write(bp.getBinaryString())
+      newFile.close()
 
    #############################################################################
    def forkOnlineWallet(self, newWalletFile, shortLabel='', longLabel=''):
@@ -1581,7 +1793,7 @@ class PyBtcWallet(object):
       fpath = self.walletPath
 
       if self.walletPath=='':
-         fpath = os.path.join(ARMORY_HOME_DIR, 'armory_%s_.wallet' % self.uniqueIDB58)
+         fpath = os.path.join(ARMORY_HOME_DIR, buildWltFileName(self.uniqueIDB58))
 
       if not nameSuffix==None:
          pieces = os.path.splitext(fpath)

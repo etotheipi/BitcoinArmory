@@ -9,23 +9,18 @@ from armoryengine.ALL import *
 from armorymodels import *
 from armorycolors import *
 from armoryengine.MultiSigUtils import MultiSigLockbox, calcLockboxID,\
-   createLockboxEntryStr, readLockboxEntryStr
+   createLockboxEntryStr, readLockboxEntryStr, isMofNNonStandardToSpend
 from ui.MultiSigModels import \
             LockboxDisplayModel,  LockboxDisplayProxy, LOCKBOXCOLS
 import webbrowser
 from armoryengine.CoinSelection import PySelectCoins, PyUnspentTxOut, \
                                     pprintUnspentTxOutList
 
-         
-
-
-
-
 #############################################################################
 class DlgLockboxEditor(ArmoryDialog):
 
    #############################################################################
-   def __init__(self, parent, main, maxM=7, maxN=7, loadBox=None):
+   def __init__(self, parent, main, maxM=LB_MAXM, maxN=LB_MAXN, loadBox=None):
       super(DlgLockboxEditor, self).__init__(parent, main)
 
       lblDescr = QRichLabel(tr("""
@@ -421,7 +416,7 @@ class DlgLockboxEditor(ArmoryDialog):
       self.updateWidgetTable(lboxObj.M, lboxObj.N)
       self.updateLabels()
       
-      
+   
    #############################################################################
    def doContinue(self):
 
@@ -455,7 +450,7 @@ class DlgLockboxEditor(ArmoryDialog):
             if not CryptoECDSA().VerifyPublicKeyValid(SecureBinaryData(pkBin)):
                isValid = False
             
-         if not isValid:
+         if not isValid: 
             QMessageBox.critical(self, tr('Invalid Public Key'), tr("""
                The data specified for public key <b>%d</b> is not valid.
                Please double-check the data was entered correctly.""") % (i+1),
@@ -522,8 +517,26 @@ class DlgLockboxEditor(ArmoryDialog):
                return
             else:
                self.createDate = long(RightNow())
-            
-
+      
+      if isMofNNonStandardToSpend(currM, currN):
+         reply = QMessageBox.warning(self, tr('Non-Standard to Spend'), tr("""
+               Due to the size of M and N (%d-of-%d), spending funds from this
+               Lockbox is valid but non-standard for versions of Bitcoin prior
+               to 0.10.0. This means if your version of Bitcoin is 0.9.x or
+               below, and you try to broadcast a transaction that spends from
+               this Lockbox the transaction will not be accepted. If you have
+               version 0.10.0, but all of your peers have an older version
+               your transaction will not be forwarded to the rest of the
+               network. If you deposit Bitcoins into this Lockbox you may
+               have to wait until you and at least some of your peers have
+               upgraded to 0.10.0 before those Bitcoins can be spent.
+               Alternatively, if you have enough computing power to mine your
+               own transactions, or know someone who does, you can arrange to
+               have any valid but non-standard transaction included in the
+               block chain.""") % \
+               (currM, currN), QMessageBox.Ok | QMessageBox.Cancel)
+         if not reply==QMessageBox.Ok:
+            return
 
       LOGINFO('Got a valid TxOut script:')
       LOGINFO('ScrAddrStr: ' + binary_to_hex(scraddr))
@@ -608,11 +621,9 @@ class DlgExportLockbox(ArmoryDialog):
    def savefile(self):
       fn = self.main.getFileSave(tr('Export Lockbox Info'), 
                                  ['Lockboxes (*.lockbox.txt)'], 
-                            'Multikey_%s.lockbox.txt'%self.lockbox.uniqueIDB58)
+                            'Multisig_%s.lockbox.txt'%self.lockbox.uniqueIDB58)
       if fn:
-         with open(fn,'w') as f:
-            f.write(self.boxText + '\n')
-         self.accept()
+         writeLockboxesFile([self.lockbox], fn)
 
    def clipcopy(self):
       clipb = QApplication.clipboard()
@@ -822,6 +833,168 @@ class DlgLockboxManager(ArmoryDialog):
          restoreTableView(self.lboxView, tblgeom)
       if len(ledggeom) > 0:
          restoreTableView(self.ledgerView, ledggeom)
+
+
+   #############################################################################
+   def createLockboxDashboardTab(self):
+
+      ORGANIZER   = 'Organizer'
+      PARTICIPANT = 'Participant'
+
+      allDashboardItems = \
+      [ \
+         {'cell':    (0,0),
+          'user':    ORGANIZER,
+          'doit':    self.doCreate,
+          'button':  tr('Create New Lockbox'),
+          'reglbl':  tr("""Collect public keys from all devices or
+                          participants to create multi-sig storage"""),
+          'offline': None,
+          'select':  None},
+
+
+         {'cell':    (0,1),
+          'user':    PARTICIPANT,
+          'doit':    self.doSelectKey,
+          'button':  tr('Provide Public Keys'),
+          'reglbl':  tr("""Create or select an existing public key 
+                                  to send to the organizer"""),
+          'offline': None,
+          'select':  None},
+
+         {'cell':    (0,2),
+          'user':    ORGANIZER,
+          'button':  tr('Distribute Lockbox'),
+          'reglbl':  tr("""Share the final lockbox definition with all
+                           other parties or devices"""),
+          'offline': None,
+          'select':  None},
+                     
+
+         {'cell':    (1,0),
+          'user':    PARTICIPANT,
+          'button':  tr('Send Funds to a Lockbox'),
+          'reglbl':  tr("""Send bitcoins to a lockbox from any of 
+                           your existing wallets or lockboxes"""),
+          'offline': tr('Armory must be in online mode to send bitcoins'),
+          'select':  tr('Select a lockbox to fund from the table above')},
+      
+
+         {'cell':    (2,0),
+          'user':    ORGANIZER,
+          'button':  tr('Merge Promissory Notes'),
+          'reglbl':  tr("""Collect and merge promissory notes for simultaneous 
+                           multi-party funding of a lockbox/escrow"""),
+          'offline': None,
+          'select':  None},
+
+
+         {'cell':    (2,1),
+          'user':    PARTICIPANT,
+          'button':  tr('Create Promissory Note'),
+          'reglbl':  tr("""Create a promissory note to state your intended 
+                           contribution to a lockbox/escrow"""),
+          'offline': tr('Armory must be in online mode to send bitcoins'),
+          'select':  tr('Select a target lockbox from the table above')},
+
+
+         {'cell':    (2,2),
+          'user':    ORGANIZER,
+          'button':  tr('Merge Signatures and Broadcast'),
+          'reglbl':  tr("""Collect and merge promissory notes for simultaneous 
+                           multi-party funding of a lockbox/escrow"""),
+          'offline': None,
+          'select':  None},
+
+
+
+         {'cell':    (3,0),
+          'user':    ORGANIZER,
+          'button':  tr('Create Lockbox Spend Transaction'),
+          'reglbl':  tr("""Create a spend of funds from a lockbox to
+                           be signed by enough devices/parties"""),
+          'offline': tr("""Armory must be in online mode to create spending 
+                           transactions"""),
+          'select':  tr('Select the lockbox from which you want to spend')},
+
+
+         {'cell':    (3,1),
+          'user':    PARTICIPANT,
+          'button':  tr('Review and Sign a Transaction'),
+          'reglbl':  tr("""Review a proposed transaction then sign and
+                           send back to the organizer"""),
+          'offline': None,
+          'select':  None},
+
+
+         {'cell':    (3,2),
+          'user':    ORGANIZER,
+          'button':  tr('Merge Signatures and Broadcast'),
+          'reglbl':  tr("""Collect and merge promissory notes for simultaneous 
+                           multi-party funding of a lockbox/escrow"""),
+          'offline': tr('You need to be online to broadcast the final transaction'),
+          'select':  None} \
+      ]
+         
+
+      lblRow0_Create = QRichLabel(tr("""<font size=3><b>CREATE</b></font>"""), 
+                                                         hAlign=Qt.AlignHCenter)
+
+      lblRow1_Fund   = QRichLabel(tr("""<font size=3><b>FUND</b></font>"""), 
+                                                         hAlign=Qt.AlignHCenter)
+
+      lblRow2_Spend  = QRichLabel(tr("""<font size=3><b>SPEND</b></font>"""), 
+                                                         hAlign=Qt.AlignHCenter)
+
+      optFundSingle = QRadioButton(tr("Simple"))
+      optFundSimul  = QRadioButton(tr("Simul/Escrow"))
+      btngrp = QButtonGroup(self)
+      btngrp.addButton(optFundSingle)
+      btngrp.addButton(optFundSimul)
+      btngrp.setExclusive(True)
+      optFundSingle.setChecked(True)
+
+
+      def createCellWidgets(infoMap):
+         widgets = {}
+         if infoMap['User'] == ORGANIZER:
+            userColor = htmlColor('TextGreen') 
+         else:
+            userColor = htmlColor('TextBlue') 
+
+         userLabel = '<b>'+infoMap['user']+'</b>'
+         widgets['LBL_USER'] = QRichLabel(userLabel, 
+                                          bold=True,
+                                          color=userColor,
+                                          hAlign=Qt.AlignHCenter)
+
+         widgets['BTN_DOIT'] = QPushButton(infoMap['button'])
+         widgets['LBL_DESCR'] = QRichLabel('', hAlign=Qt.AlignHCenter)
+         
+         def updateDescr(hasSelect, isOnline):
+            # Default to regular label
+            widgets['LBL_DESCR'].setText(infoMap['reglbl'])
+            if isOnline:
+               if not hasSelect and infoMap['select'] is not None:
+                  widgets['LBL_DESCR'].setText(infoMap['select'])
+            else:
+               if infoMap['offline'] is not None:
+                  widgets['LBL_DESCR'].setText(infoMap['offline'])
+               else:
+                  if not hasSelect and infoMap['select'] is not None:
+                     widgets['LBL_DESCR'].setText(infoMap['select'])
+
+         widgets['FUNC_UPDATE'] = updateDescr
+         return widgets
+      
+
+      for infoMap in allDashboardItems:
+         r,c = infoMap['cell']
+         widgets = createCellWidgets(infoMap)
+         frmBtn = makeHorizFrame(['Stretch', widgets['BTN_DOIT'], 'Stretch'])
+
+
+      
 
    #############################################################################
    def updateTxCommentFromView(self, view):
@@ -1040,6 +1213,9 @@ class DlgLockboxManager(ArmoryDialog):
          self.singleClickLockbox()
       self.updateButtonDisable()
          
+   #############################################################################
+   def doSelectKey(self):
+      pass
 
    #############################################################################
    def doImport(self):
@@ -2224,7 +2400,7 @@ class DlgMultiSpendReview(ArmoryDialog):
          safe to send this data via email or USB key.  No data is included 
          that would compromise the security of any of the signing devices.""")
       ftypes = ['Signature Collectors (*.sigcollect.tx)']
-      defaultFN = 'MultikeyTransaction_%s.sigcollect.tx' % self.ustx.uniqueIDB58
+      defaultFN = 'MultisigTransaction_%s_' % self.ustx.uniqueIDB58
          
       DlgExportAsciiBlock(self, self.main, self.ustx, title, descr, 
                                                     ftypes, defaultFN).exec_()
@@ -2261,6 +2437,11 @@ class DlgMultiSpendReview(ArmoryDialog):
 
    def doBroadcast(self):
       finalTx = self.ustx.getSignedPyTx(doVerifySigs=True)
+      print "TXIN BINSCRIPT: " + ph(finalTx.inputs[0].binScript)
+      print "PPRINTHEX----------------------------------"
+      finalTx.pprintHex()
+      print "PPRINT-------------------------------------------"
+      finalTx.pprint()
       if not finalTx:
          self.ustx.evaluateSigningStatus().pprint()
          QMessageBox.critical(self, tr('Invalid Signatures'), tr("""
@@ -2273,6 +2454,7 @@ class DlgMultiSpendReview(ArmoryDialog):
             again...?"""), QMessageBox.Ok)
 
          finalTx = self.ustx.getSignedPyTx(doVerifySigs=False)
+         
 
       self.main.broadcastTransaction(finalTx, withOldSigWarning=False)
       try:

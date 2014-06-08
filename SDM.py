@@ -11,7 +11,7 @@ import socket
 import stat
 import time
 from threading import Event
-from jsonrpc import ServiceProxy
+from bitcoinrpc_jsonrpc import ServiceProxy
 from CppBlockUtils import SecureBinaryData, CryptoECDSA
 from armoryengine.ArmoryUtils import BITCOIN_PORT, LOGERROR, hex_to_binary, \
    ARMORY_INFO_SIGN_PUBLICKEY, LOGINFO, BTC_HOME_DIR, LOGDEBUG, OS_WINDOWS, \
@@ -20,7 +20,7 @@ from armoryengine.ArmoryUtils import BITCOIN_PORT, LOGERROR, hex_to_binary, \
    launchProcess, killProcessTree, killProcess, LOGWARN, RightNow, HOUR, \
    PyBackgroundThread, touchFile, DISABLE_TORRENTDL, secondsToHumanTime, \
    bytesToHumanSize, MAGIC_BYTES, deleteBitcoindDBs, TheTDM
-from jsonrpc import authproxy
+from bitcoinrpc_jsonrpc import authproxy
 
 
 #############################################################################

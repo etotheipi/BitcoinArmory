@@ -51,6 +51,7 @@ from armoryengine.PyBtcWalletRecovery import WalletConsistencyCheck
 from armoryengine.MultiSigUtils import MultiSigLockbox
 from ui.MultiSigDialogs import DlgSelectMultiSigOption, DlgLockboxManager, \
                               DlgMergePromNotes, DlgCreatePromNote
+from armoryengine.Decorators import RemoveRepeatingExtensions
 
 # HACK ALERT: Qt has a bug in OS X where the system font settings will override
 # the app's settings when a window is activated (e.g., Armory starts, the user
@@ -498,7 +499,8 @@ class ArmoryMainWindow(QMainWindow):
       self.mainDisplayTabs.addTab(self.tabAnnounce,  'Announcements')
 
       ##########################################################################
-      #self.loadPlugins()   # PLUGINS: uncomment to enable
+      if USE_TESTNET:
+         self.loadPlugins()   
       ##########################################################################
 
 
@@ -858,7 +860,8 @@ class ArmoryMainWindow(QMainWindow):
       This method checks for any .py files
       """ 
 
-      pluginDir = os.path.join(ARMORY_HOME_DIR, 'plugins')
+      EXECDIR = GetExecDir()
+      pluginDir = os.path.join(EXECDIR, 'plugins')
       if not os.path.exists(pluginDir):
          return
 
@@ -1523,17 +1526,20 @@ class ArmoryMainWindow(QMainWindow):
 
    #############################################################################
    def makeWalletCopy(self, parent, wlt, copyType='Same', suffix='', changePass=False):
+      '''Create a digital backup of your wallet.'''
       if changePass:
          LOGERROR('Changing password is not implemented yet!')
          raise NotImplementedError
 
+      # Set the file name.
       fn = 'armory_%s_%s.wallet' % (wlt.uniqueIDB58, suffix)
-      if wlt.watchingOnly:
+      if wlt.watchingOnly and copyType.lower() != 'pkcc':
          fn = 'armory_%s_%s.watchonly.wallet' % (wlt.uniqueIDB58, suffix)
       savePath = unicode(self.getFileSave(defaultFilename=fn))
       if not len(savePath)>0:
          return False
 
+      # Create the file based on the type you want.
       if copyType.lower()=='same':
          wlt.writeFreshWalletFile(savePath)
       elif copyType.lower()=='decrypt':
@@ -1554,6 +1560,8 @@ class ArmoryMainWindow(QMainWindow):
             newPassphrase = SecureBinaryData(str(dlgCrypt.edtPasswd1.text()))
 
          wlt.makeEncryptedWalletCopy(savePath, newPassphrase)
+      elif copyType.lower() == 'pkcc':
+         wlt.writePKCCFile(savePath)
       else:
          LOGERROR('Invalid "copyType" supplied to makeWalletCopy: %s', copyType)
          return False
@@ -2519,7 +2527,6 @@ class ArmoryMainWindow(QMainWindow):
 
 
       # Load wallets found in the .armory directory
-      wltPaths = []
       self.walletMap = {}
       self.walletIndices = {}
       self.walletIDSet = set()
@@ -2533,18 +2540,8 @@ class ArmoryMainWindow(QMainWindow):
 
       self.currBlockNum = 0
 
-
-
       LOGINFO('Loading wallets...')
-      for f in os.listdir(ARMORY_HOME_DIR):
-         fullPath = os.path.join(ARMORY_HOME_DIR, f)
-         if os.path.isfile(fullPath) and not fullPath.endswith('backup.wallet'):
-            openfile = open(fullPath, 'rb')
-            first8 = openfile.read(8)
-            openfile.close()
-            if first8=='\xbaWALLET\x00':
-               wltPaths.append(fullPath)
-
+      wltPaths = readWalletFiles()
 
       wltExclude = self.settings.get('Excluded_Wallets', expectList=True)
       wltOffline = self.settings.get('Offline_WalletIDs', expectList=True)
@@ -2567,8 +2564,8 @@ class ArmoryMainWindow(QMainWindow):
                   LOGWARN('     Wallet 2 (skipped): %s', prevWltPath)
                else:
                   LOGWARN('Second wallet is more useful than the first one...')
-                  LOGWARN('     Wallet 1 (loaded):  %s', self.walletMap[wltID].walletPath)
-                  LOGWARN('     Wallet 2 (skipped): %s', fpath)
+                  LOGWARN('     Wallet 1 (skipped): %s', fpath)
+                  LOGWARN('     Wallet 2 (loaded):  %s', self.walletMap[wltID].walletPath)
             else:
                # Update the maps/dictionaries
                self.walletMap[wltID] = wltLoad
@@ -2616,6 +2613,7 @@ class ArmoryMainWindow(QMainWindow):
 
 
    #############################################################################
+   @RemoveRepeatingExtensions
    def getFileSave(self, title='Save Wallet File', \
                          ffilter=['Wallet files (*.wallet)'], \
                          defaultFilename=None):
@@ -2708,35 +2706,12 @@ class ArmoryMainWindow(QMainWindow):
       self.cppLockboxWltMap = {}
       if not os.path.exists(fn):
          return
-         
-      with open(fn, 'r') as f:
-         allData = f.read()
 
-      startMark = '=====LOCKBOX'
+      lbList = readLockboxesFile(fn)
+      for lb in lbList:
+         self.updateOrAddLockbox(lb)
 
-      if not startMark in allData:
-         return
 
-      try:
-         
-         pos = allData.find(startMark)
-         i = 0
-         while pos >= 0:
-            nextPos = allData.find(startMark, pos+1)
-            if nextPos < 0:
-               nextPos = len(allData)
-
-            lbBlock = allData[pos:nextPos].strip()
-            lbox = MultiSigLockbox().unserializeAscii(lbBlock)
-            self.updateOrAddLockbox(lbox)
-            LOGINFO('Read in Lockbox: %s' % lbox.uniqueIDB58)
-
-            pos = allData.find(startMark, pos+1)
-            i += 1
-      except:
-         LOGEXCEPT('Error reading lockboxes file')
-         shutil.move(fn, fn+'.%d.bak'% long(RightNow()))
-   
    #############################################################################
    def updateOrAddLockbox(self, lbObj, isFresh=False):
       try:
@@ -2767,7 +2742,7 @@ class ArmoryMainWindow(QMainWindow):
             # Replace the original
             self.allLockboxes[index] = lbObj
 
-         self.writeLockboxesFile()
+         writeLockboxesFile(self.allLockboxes, MULTISIG_FILE)
       except:
          LOGEXCEPT('Failed to add/update lockbox')
         
@@ -2781,7 +2756,7 @@ class ArmoryMainWindow(QMainWindow):
       else:
          del self.allLockboxes[index]
          self.reconstructLockboxMaps()
-         self.writeLockboxesFile()
+         writeLockboxesFile(self.allLockboxes, MULTISIG_FILE)
 
 
    #############################################################################
@@ -2804,19 +2779,6 @@ class ArmoryMainWindow(QMainWindow):
          if p2shAddrStr == binScript_to_p2shAddrStr(lbox.binScript):
             return lbox
       return None
-
-   #############################################################################
-   def writeLockboxesFile(self):
-      # Do all the serializing and bail-on-error before opening the file 
-      # for writing, or we might delete it all by accident
-      textOut = '\n\n'.join([lb.serializeAscii() for lb in self.allLockboxes])
-      with open(MULTISIG_FILE, 'w') as f:
-         f.write(textOut)
-         f.flush()
-         os.fsync(f.fileno())
-
-
-      
 
 
    #############################################################################
@@ -3784,7 +3746,7 @@ class ArmoryMainWindow(QMainWindow):
                   '<br><br>If the transaction did fail, please consider '
                   'reporting this error the the Armory '
                   'developers.  From the main window, go to '
-                  '"<i>File</i>"\xe2\x86\x92"<i>Export Log File</i>" to make a copy of your '
+                  '"<i>File</i>" and select "<i>Export Log File</i>" to make a copy of your '
                   'log file to send via email to support@bitcoinarmory.com.  ' \
                    % (searchstr,searchstr[:8]), \
                   QMessageBox.Ok)
