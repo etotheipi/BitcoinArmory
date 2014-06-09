@@ -861,7 +861,7 @@ class DlgLockboxManager(ArmoryDialog):
          'ExportLB':   {'button':  tr('Export Lockbox'),
                         'callbk':  self.doExport,
                         'organiz': False,
-                        'lbltxt':  tr('Send to other lockbox participants'),
+                        'lbltxt':  tr('Send to other devices or parties'),
                         'tiptxt':  tr('Send lockbox to other devices or parties'),
                         'select':  tr('Select lockbox to export'),
                         'offline': None},
@@ -869,7 +869,7 @@ class DlgLockboxManager(ArmoryDialog):
          'ImportLB':   {'button':  tr('Import Lockbox'),
                         'callbk':  self.doImport,
                         'organiz': False,
-                        'lbltxt':  tr('Received from any other participant'),
+                        'lbltxt':  tr('Received from other participant'),
                         'tiptxt':  tr("""Import lockbox definition from organizer 
                                          or other lockbox participants"""),
                         'select':  None,
@@ -964,7 +964,7 @@ class DlgLockboxManager(ArmoryDialog):
       #'CreateTx':   {'button':  tr('Spend From Lockbox'),
 
       cellWidth = 150
-      cellStyle = STYLE_STYLED
+      cellStyle = STYLE_RAISED
       def createHeaderCell(headStr):
          lbl = QRichLabel(headStr, bold=True, size=4,
                                    hAlign=Qt.AlignHCenter,
@@ -982,7 +982,7 @@ class DlgLockboxManager(ArmoryDialog):
             layout = QGridLayout()
             btnMap = self.allDashButtons[stk][key]
             btnMap['BTN'] = QPushButton(btnMap['button'])
-            btnMap['LBL'] = QRichLabel('', doWrap=True, hAlign=Qt.AlignHCenter)
+            btnMap['LBL'] = QRichLabel('', doWrap=True, hAlign=Qt.AlignHCenter, vAlign=Qt.AlignTop)
             btnMap['TTIP'] = self.main.createToolTipWidget(btnMap['tiptxt'])
             if btnMap['organiz']:
                btnMap['BTN'].setAutoFillBackground(True)
@@ -1012,18 +1012,22 @@ class DlgLockboxManager(ArmoryDialog):
 
                   btnMap['BTN'].setText(btnMap['button'])
                   btnMap['BTN'].setEnabled(True)
+                  btnMap['LBL'].setEnabled(True)
                   if isOnline:
                      if not hasSelect and btnMap['select'] is not None:
                         lbltxt = btnMap['select']
                         btnMap['BTN'].setEnabled(False)
+                        btnMap['LBL'].setEnabled(False)
                   else:
                      if btnMap['offline'] is not None:
                         lbltxt = btnMap['offline']
                         btnMap['BTN'].setEnabled(False)
+                        btnMap['LBL'].setEnabled(False)
                      else:
                         if not hasSelect and btnMap['select'] is not None:
                            lbltxt = btnMap['select']
                            btnMap['BTN'].setEnabled(False)
+                           btnMap['LBL'].setEnabled(False)
 
                   if btnMap['organiz']:
                      lbltxt = orgtxt + lbltxt
@@ -1036,7 +1040,7 @@ class DlgLockboxManager(ArmoryDialog):
 
          frmCell = QFrame()
          frmCell.setLayout(layoutMulti)
-         frmCell.setFrameStyle(STYLE_STYLED)
+         frmCell.setFrameStyle(STYLE_RAISED)
          return frmCell
             
 
@@ -1466,29 +1470,31 @@ class DlgLockboxManager(ArmoryDialog):
    def doSpend(self):
 
 
-      dlgSpend = DlgSpendFromLockbox(self, self.main)
-      dlgSpend.exec_()
+      #dlgSpend = DlgSpendFromLockbox(self, self.main)
+      #dlgSpend.exec_()
 
-      if dlgSpend.selection is None:
-         return
-      elif dlgSpend.selection=='Create':
-         lbID = self.getSelectedLBID()
-         dlg = DlgSendBitcoins(None, self, self.main, spendFromLockboxID=lbID)
-         dlg.exec_()
-      elif dlgSpend.selection=='Review':
-         title = tr("Import Signature Collector")
-         descr = tr("""
-            If someone else made a transaction that you need to sign, either 
-            copy and paste it into the box below, or load it from file.  Files
-            containing signature-collecting data usually end with
-            <i>*.sigcollect.tx</i>.""")
-         ftypes = ['Signature Collectors (*.sigcollect.tx)']
-         dlgImport = DlgImportAsciiBlock(self, self.main, 
-                           title, descr, ftypes, UnsignedTransaction)
-         dlgImport.exec_()
-         if dlgImport.returnObj:
-            ustx = dlgImport.returnObj
-            DlgMultiSpendReview(self, self.main, ustx).exec_()
+      #if dlgSpend.selection is None:
+         #return
+      #elif dlgSpend.selection=='Create':
+
+      lbID = self.getSelectedLBID()
+      dlg = DlgSendBitcoins(None, self, self.main, spendFromLockboxID=lbID)
+      dlg.exec_()
+
+      #elif dlgSpend.selection=='Review':
+         #title = tr("Import Signature Collector")
+         #descr = tr("""
+            #If someone else made a transaction that you need to sign, either 
+            #copy and paste it into the box below, or load it from file.  Files
+            #containing signature-collecting data usually end with
+            #<i>*.sigcollect.tx</i>.""")
+         #ftypes = ['Signature Collectors (*.sigcollect.tx)']
+         #dlgImport = DlgImportAsciiBlock(self, self.main, 
+                           #title, descr, ftypes, UnsignedTransaction)
+         #dlgImport.exec_()
+         #if dlgImport.returnObj:
+            #ustx = dlgImport.returnObj
+            #DlgMultiSpendReview(self, self.main, ustx).exec_()
 
       self.updateButtonDisable()
       
