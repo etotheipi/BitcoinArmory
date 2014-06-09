@@ -1242,6 +1242,71 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       return walletList
 
 
+   #############################################################################
+   # Pull in a signed Tx and get the raw Tx hex data to broadcast. This call
+   # works with a regular signed Tx and a signed lockbox Tx if there are already
+   # enough signatures.
+   def jsonrpc_gethextxtobroadcast(self, txASCIIFile):
+      ustxObj = None
+      enoughSigs = False
+      sigStatus = None
+      sigsValid = False
+      ustxReadable = False
+      allData = ''
+      finalTx = None
+      self.retStr = 'The transaction data cannot be broadcast'
+
+      # Read in the signed Tx data. HANDLE UNREADABLE FILE!!!
+      with open(txASCIIFile, 'r') as lbTxData:
+         allData = lbTxData.read()
+
+      # Try to decipher the Tx and make sure it's actually signed.
+      try:
+         ustxObj = UnsignedTransaction().unserializeAscii(allData)
+         sigStatus = ustxObj.evaluateSigningStatus()
+         enoughSigs = sigStatus.canBroadcast
+         sigsValid = ustxObj.verifySigsAllInputs()
+         ustxReadable = True
+      except BadAddressError:
+         LOGERROR('This transaction contains inconsistent information. This ' \
+                  'is probably not your fault...')
+         ustxObj = None
+         ustxReadable = False
+      except NetworkIDError:
+         LOGERROR('This transaction is actually for a different network! Did' \
+                  'you load the correct transaction?')
+         ustxObj = None
+         ustxReadable = False
+      except (UnserializeError, IndexError, ValueError):
+         LOGERROR('This transaction can\'t be read.')
+         ustxObj = None
+         ustxReadable = False
+
+      # If we have a signed Tx object, let's make sure it's actually usable.
+      if ustxObj:
+         if not enoughSigs or not sigsValid or not ustxReadable:
+            if not ustxReadable:
+               if len(allData) > 0:
+                  LOGERROR('The Tx data was read but was corrupt.')
+               else:
+                  LOGERROR('The Tx data couldn\'t be read.')
+            if not sigsValid:
+                  LOGERROR('The Tx data doesn\'t have valid signatures.')
+            if not enoughSigs:
+                  LOGERROR('The Tx data doesn\'t have enough signatures.')
+         else:
+            finalTx = ustxObj.getBroadcastTxIfReady()
+            if finalTx:
+               newTxHash = finalTx.getHash()
+               LOGINFO('Tx %s may be broadcast - %s' % \
+                       (binary_to_hex(newTxHash), finalTx.serialize()))
+               self.retStr = binary_to_hex(finalTx.serialize())
+            else:
+               LOGERROR('The Tx data isn\'t ready to be broadcast')
+
+      return self.retStr
+
+
 ################################################################################
 class Armory_Daemon(object):
    def __init__(self, wlt=None, lb=None):
