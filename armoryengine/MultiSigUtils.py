@@ -2,6 +2,7 @@ from os import path
 import base64
 import json
 import ast
+import textwrap      
 from armoryengine.ArmoryUtils import *
 from armoryengine.Transaction import *
 from armorycolors import htmlColor
@@ -99,21 +100,23 @@ def createLockboxEntryStr(lbID, isBareMultiSig=False):
 ################################################################################
 def readLockboxEntryStr(addrtext):
    result = None
-   if isLockbox(addrtext) or isP2SHLockbox(addrtext):
-      len(LBPREFIX if isLockbox(addrtext) else LBP2SHPREFIX)
-      idStr = addrtext[len(LBPREFIX if isLockbox(addrtext) else LBP2SHPREFIX):
+   if isBareLockbox(addrtext) or isP2SHLockbox(addrtext):
+      len(LBPREFIX if isBareLockbox(addrtext) else LBP2SHPREFIX)
+      idStr = addrtext[len(LBPREFIX if isBareLockbox(addrtext) else LBP2SHPREFIX):
                        addrtext.find(LBSUFFIX)]
       if len(idStr)==LOCKBOXIDSIZE:
          result = idStr
    return result
 
 ################################################################################
-def isP2SHLockbox(addrtext):
-   return addrtext.startswith(LBP2SHPREFIX)
+def isBareLockbox(addrtext):
+   return addrtext.startswith(LBPREFIX)
 
 ################################################################################
-def isLockbox(addrtext):
-   return addrtext.startswith(LBPREFIX)
+def isP2SHLockbox(addrtext):
+   # Bugfix:  Bare prefix includes P2SH prefix, whoops.  Return false if Bare
+   return addrtext.startswith(LBP2SHPREFIX) and not isBareLockbox(addrtext)
+
 
 
 ################################################################################
@@ -380,12 +383,14 @@ class MultiSigLockbox(object):
       if len(longDescr.strip())==0:
          longDescr = '--- No Extended Info ---'
       longDescr = longDescr.replace('\n','<br>')
-      longDescr = longDescr.replace(' ','&nbsp;')
+      longDescr = textwrap.fill(longDescr, width=60)
+
+
       formattedDate = unixTimeToFormatStr(self.createDate, dateFmt)
       
       lines = []
-      lines.append(tr("""<font color="%s"><font size=6><center>Lockbox Information for 
-         <b>%s</font></b>""") % (htmlColor("TextBlue"), self.uniqueIDB58))
+      lines.append(tr("""<font color="%s" size=4><center><u>Lockbox Information for 
+         <b>%s</b></u></center></font>""") % (htmlColor("TextBlue"), self.uniqueIDB58))
       lines.append(tr('<b>Multisig:</b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%d-of-%d') % (self.M, self.N))
       lines.append(tr('<b>Lockbox ID:</b>&nbsp;&nbsp;&nbsp;&nbsp;%s') % self.uniqueIDB58)
       lines.append(tr('<b>P2SH Address:</b>&nbsp;&nbsp;%s') % binScript_to_p2shAddrStr(self.binScript))

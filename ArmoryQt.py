@@ -49,7 +49,7 @@ from armoryengine.parseAnnounce import *
 from armoryengine.PyBtcWalletRecovery import WalletConsistencyCheck
 
 from armoryengine.MultiSigUtils import MultiSigLockbox
-from ui.MultiSigHacker import DlgSelectMultiSigOption, DlgLockboxManager, \
+from ui.MultiSigDialogs import DlgSelectMultiSigOption, DlgLockboxManager, \
                               DlgMergePromNotes, DlgCreatePromNote
 from armoryengine.Decorators import RemoveRepeatingExtensions
 
@@ -223,8 +223,13 @@ class ArmoryMainWindow(QMainWindow):
       self.setupUriRegistration()
 
 
-      self.extraHeartbeatSpecial = []
-      self.extraHeartbeatOnline = []
+      self.extraHeartbeatSpecial  = []
+      self.extraHeartbeatAlways   = []
+      self.extraHeartbeatOnline   = []
+      self.extraNewTxFunctions    = []
+      self.extraNewBlockFunctions = []
+      self.extraShutdownFunctions = []
+      self.extraGoOnlineFunctions = []
 
       """
       pass a function to extraHeartbeatAlways to run on every heartbeat.
@@ -237,7 +242,6 @@ class ArmoryMainWindow(QMainWindow):
          extraHeartbeatAlways on the next iteration
       """
 
-      self.extraHeartbeatAlways = []
 
       self.lblArmoryStatus = QRichLabel('<font color=%s>Offline</font> ' %
                                       htmlColor('TextWarn'), doWrap=False)
@@ -493,6 +497,11 @@ class ArmoryMainWindow(QMainWindow):
       self.mainDisplayTabs.addTab(self.tabDashboard, 'Dashboard')
       self.mainDisplayTabs.addTab(self.tabActivity,  'Transactions')
       self.mainDisplayTabs.addTab(self.tabAnnounce,  'Announcements')
+
+      ##########################################################################
+      if USE_TESTNET:
+         self.loadPlugins()   
+      ##########################################################################
 
 
       btnSendBtc   = QPushButton(tr("Send Bitcoins"))
@@ -845,7 +854,96 @@ class ArmoryMainWindow(QMainWindow):
          self.changeNumShow()
 
 
-   ####################################################
+   ############################################################################
+   def loadPlugins(self):
+      """
+      This method checks for any .py files
+      """ 
+
+      EXECDIR = GetExecDir()
+      pluginDir = os.path.join(EXECDIR, 'plugins')
+      if not os.path.exists(pluginDir):
+         return
+
+      from dynamicImport import getModuleList, dynamicImport
+
+      # This call does not eval any code in the modules.  It simply
+      # loads the python files as raw chunks of text so we can
+      # check hashes and/or signatures
+      modMap = getModuleList(pluginDir)
+      for name,infoMap in modMap.iteritems():
+         modPath = os.path.join(infoMap['SourceDir'], infoMap['Filename'])
+         modHash = binary_to_hex(sha256(infoMap['SourceCode']))
+         reply = QMessageBox.warning(self, tr("Unverified Module"), tr("""
+            Armory detected the following module in your plugins directory:
+            <br><br>
+               <b>Module Name:</b>  %s<br>
+               <b>Module Path:</b>  %s<br>
+               <b>Module Hash:</b>  %s<br>
+            <br><br>
+            Do you want to allow this module to be loaded?""") % \
+            (name, modPath, modHash), QMessageBox.Yes | QMessageBox.No)
+
+         if not reply==QMessageBox.Yes:
+            continue
+
+
+         plugin = dynamicImport(pluginDir, name, globals())
+         plugObj = plugin.PluginObject(self)
+
+         if not hasattr(plugObj,'getTabToDisplay') or \
+            not hasattr(plugObj,'tabName'):
+            LOGERROR('Plugin is malformed!  No tabToDisplay or tabName attrs')
+            QMessageBox.critical(self, tr("Bad Plugin"), tr("""
+               The plugin you attempted to load (%s) is malformed.  It is 
+               missing attributes that are needed for Armory to load it.  
+               It will be skipped.""") % name, QMessageBox.Ok)
+            continue
+               
+         verPluginInt = getVersionInt(readVersionString(plugObj.maxVersion))
+         verArmoryInt = getVersionInt(BTCARMORY_VERSION)
+         if verArmoryInt >verPluginInt:
+            reply = QMessageBox.warning(self, tr("Outdated Plugin"), tr("""
+               Plugin "%s" is only specified to work up to Armory version %s.
+               You are using Armory version %s.  Please remove the plugin if
+               you experience any problems with it, or contact the maintainer
+               for a new version.
+               <br><br>
+               Do you want to continue loading the plugin?"""), 
+               QMessageBox.Yes | QMessageBox.No)
+
+            if not reply==QMessageBox.Yes:
+               continue
+
+         # All plugins should have "tabToDisplay" and "tabName" attributes
+         LOGWARN('Adding plugin to tab list: "' + plugObj.tabName + '"')
+         self.mainDisplayTabs.addTab(plugObj.getTabToDisplay(), plugObj.tabName)
+
+         # Also inject any extra methods that will be 
+         injectFuncList = [ \
+               ['injectHeartbeatAlwaysFunc', 'extraHeartbeatAlways'], 
+               ['injectHeartbeatOnlineFunc', 'extraHeartbeatOnline'], 
+               ['injectGoOnlineFunc',        'extraGoOnlineFunctions'], 
+               ['injectNewTxFunc',           'extraNewTxFunctions'], 
+               ['injectNewBlockFunc',        'extraNewBlockFunctions'], 
+               ['injectShutdownFunc',        'extraShutdownFunctions'] ]
+
+         # Add any methods
+         for plugFuncName,funcListName in injectFuncList:
+            if not hasattr(plugObj, plugFuncName):
+               continue
+      
+            if not hasattr(self, funcListName):
+               LOGERROR('Missing an ArmoryQt list variable: %s' % funcListName)
+               continue
+
+            LOGINFO('Found plugin function: %s' % plugFuncName)
+            funcList = getattr(self, funcListName)
+            plugFunc = getattr(plugObj, plugFuncName)
+            funcList.append(plugFunc)
+                                    
+
+   ############################################################################
    def factoryReset(self):
       """
       reply = QMessageBox.information(self,'Factory Reset', \
@@ -2281,6 +2379,9 @@ class ArmoryMainWindow(QMainWindow):
       self.newZeroConfSinceLastUpdate.append(pytxObj.serialize())
       #LOGDEBUG('Added zero-conf tx to pool: ' + binary_to_hex(pytxObj.thisHash))
 
+      # All extra tx functions take one arg:  the PyTx object of the new ZC tx
+      for txFunc in self.extraNewTxFunctions:
+         txFunc(pytxObj)   
 
 
 
@@ -2676,7 +2777,7 @@ class ArmoryMainWindow(QMainWindow):
       for lboxId in self.lockboxIDMap.keys():
          lbox = self.allLockboxes[self.lockboxIDMap[lboxId]]
          if p2shAddrStr == binScript_to_p2shAddrStr(lbox.binScript):
-            return lboxId
+            return lbox
       return None
 
 
@@ -2689,9 +2790,12 @@ class ArmoryMainWindow(QMainWindow):
    #############################################################################
    def getContribStr(self, binScript, contribID='', contribLabel=''):
       """ 
-      We need to be very careful and not rely any more than we have to
-      on the contribID fields: those could be manipulated to deceive you.
-      We should extract as much information as possible without it.  This
+      This is used to display info for the lockbox interface.  It might also be
+      useful as a general script_to_user_string method, where you have a 
+      binScript and you want to tell the user something about it.  However,
+      it is verbose, so it won't fit in a send-confirm dialog, necessarily.
+
+      We should extract as much information as possible without contrib*.  This
       at least guarantees that we see the correct data for our own wallets
       and lockboxes, even if the data for other parties is incorrect.
       """
@@ -2911,6 +3015,9 @@ class ArmoryMainWindow(QMainWindow):
 
          self.mainDisplayTabs.setCurrentIndex(self.MAINTABS.Ledger)
 
+         
+         for fn in self.extraGoOnlineFunctions:
+            fn(self.currBlockNum)
 
          self.netMode = NETWORKMODE.Full
          self.settings.set('FailedLoadCount', 0)
@@ -6136,6 +6243,101 @@ class ArmoryMainWindow(QMainWindow):
       lbl.mousePressEvent = pressEv
       return lbl
 
+   #############################################################################
+   def createAddressEntryWidgets(self, parent, initString='', maxDetectLen=128,
+                                           boldDetectParts=0, **cabbKWArgs):
+      """
+      If you are putting the LBL_DETECT somewhere that is space-constrained,
+      set maxDetectLen to a smaller value.  It will limit the number of chars
+      to be included in the autodetect label.
+
+      "cabbKWArgs" is "create address book button kwargs"
+      Here's the signature of that function... you can pass any named args
+      to this function and they will be passed along to createAddrBookButton
+         def createAddrBookButton(parent, targWidget, defaultWltID=None, 
+                                  actionStr="Select", selectExistingOnly=False, 
+                                  selectMineOnly=False, getPubKey=False,
+                                  showLockBoxes=True)
+
+      Returns three widgets that can be put into layouts:
+         [[QLineEdit: addr/pubkey]]  [[Button: Addrbook]]
+         [[Label: Wallet/Lockbox/Addr autodetect]]
+      """
+
+      addrEntryObjs = {}
+      addrEntryObjs['QLE_ADDR'] = QLineEdit()
+      addrEntryObjs['QLE_ADDR'].setText(initString)
+      addrEntryObjs['BTN_BOOK']  = createAddrBookButton(parent, 
+                                                        addrEntryObjs['QLE_ADDR'], 
+                                                        **cabbKWArgs)
+      addrEntryObjs['LBL_DETECT'] = QRichLabel('')
+      addrEntryObjs['CALLBACK_GETSCRIPT'] = None
+
+      ##########################################################################
+      # Create a function that reads the user string and updates labels if 
+      # the entry is recognized.  This will be used to automatically show the
+      # user that what they entered is recognized and gives them more info
+      # 
+      # It's a little awkward to put this whole thing in here... this could
+      # probably use some refactoring
+      def updateAddrDetectLabels():
+         try:
+            enteredText = str(addrEntryObjs['QLE_ADDR'].text()).strip()
+
+            scriptInfo = self.getScriptForUserString(enteredText)
+            displayInfo = self.getDisplayStringForScript(
+                           scriptInfo['Script'], maxDetectLen, boldDetectParts,
+                           prefIDOverAddr=scriptInfo['ShowID'])
+
+            dispStr = displayInfo['String']
+            if displayInfo['WltID'] is None and displayInfo['LboxID'] is None:
+               addrEntryObjs['LBL_DETECT'].setText(dispStr)
+            else:
+               addrEntryObjs['LBL_DETECT'].setText(dispStr, color='TextBlue')
+
+            addrEntryObjs['LBL_DETECT'].setVisible(True)
+            addrEntryObjs['QLE_ADDR'].setCursorPosition(0)
+
+         except:
+            #LOGEXCEPT('Invalid recipient string')
+            addrEntryObjs['LBL_DETECT'].setVisible(False)
+            addrEntryObjs['LBL_DETECT'].setVisible(False)
+      # End function to be connected
+      ##########################################################################
+            
+      # Now actually connect the entry widgets
+      parent.connect(addrEntryObjs['QLE_ADDR'], SIGNAL('textChanged(QString)'), 
+                                                         updateAddrDetectLabels)
+
+      updateAddrDetectLabels()
+
+      # Create a func that can be called to get the script that was entered
+      # This uses getScriptForUserString() which actually returns 4 vals
+      #        rawScript, wltIDorNone, lboxIDorNone, addrStringEntered
+      # (The last one is really only used to determine what info is most 
+      #  relevant to display to the user...it can be ignored in most cases)
+      def getScript():
+         entered = str(addrEntryObjs['QLE_ADDR'].text()).strip()
+         return self.getScriptForUserString(entered)
+
+      addrEntryObjs['CALLBACK_GETSCRIPT'] = getScript
+      return addrEntryObjs
+
+
+
+   #############################################################################
+   def getScriptForUserString(self, userStr):
+      return getScriptForUserString(userStr, self.walletMap, self.allLockboxes)
+
+
+   #############################################################################
+   def getDisplayStringForScript(self, binScript, maxChars=256, 
+                                 doBold=0, prefIDOverAddr=False, 
+                                 lblTrunc=12, lastTrunc=12):
+      return getDisplayStringForScript(binScript, self.walletMap, 
+                                       self.allLockboxes, maxChars, doBold,
+                                       prefIDOverAddr, lblTrunc, lastTrunc) 
+
 
    #############################################################################
    @TimeThisFunction
@@ -6163,7 +6365,7 @@ class ArmoryMainWindow(QMainWindow):
                                                        not OS_MACOSX)
                if (le.getValue() <= 0 and notifyOut) or \
                   (le.getValue() > 0 and notifyIn):
-                  # notifiedAleready = False, isSingleAddr = True
+                  # notifiedAlready = False, isSingleAddr = True
                   self.notifyQueue.append([wltID, le, False, True])
                self.createCombinedLedger()
                self.walletModel.reset()
@@ -6176,7 +6378,7 @@ class ArmoryMainWindow(QMainWindow):
             le = cppWlt.calcLedgerEntryForTxStr(rawTx)
             if not le.getTxHash() == '\x00' * 32:
                LOGDEBUG('ZerConf tx for LOCKBOX: %s' % lbID)
-               # notifiedAleready = False, isSingleAddr = True
+               # notifiedAlready = False, isSingleAddr = False
                self.notifyQueue.append([lbID, le, False, False])
                self.createCombinedLedger()
                self.walletModel.reset()
@@ -6417,8 +6619,18 @@ class ArmoryMainWindow(QMainWindow):
                      '<font color=%s>Connected (%s blocks)</font> ' % \
                      (htmlColor('TextGreen'), self.currBlockNum))
 
+
                # Update the wallet view to immediately reflect new balances
                self.walletModel.reset()
+
+               # Any extra functions that may have been injected to be run
+               # when new blocks are received.  
+               if len(self.extraNewBlockFunctions) > 0:
+                  cppHead = TheBDM.getMainBlockFromDB(self.currBlockNum)
+                  pyBlock = PyBlock().unserialize(cppHead.getSerializedBlock())
+                  for blockFunc in self.extraNewBlockFunctions:
+                     blockFunc(pyBlock)
+
 
             blkRecvAgo  = RightNow() - self.blkReceived
             #blkStampAgo = RightNow() - TheBDM.getTopBlockHeader().getTimestamp()
@@ -6477,19 +6689,39 @@ class ArmoryMainWindow(QMainWindow):
       '''
       dispLines = []
       title = ''
-      totalStr = coin2str(txAmt, maxZeros=1)
+      totalStr = coin2strNZS(txAmt)
+
+
+      if moneyID in self.walletMap:
+         wlt = self.walletMap[moneyID]
+         if len(wlt.labelName) <= 20:
+            dispName = '"%s"' % wlt.labelName
+         else:
+            dispName = '"%s..."' % wlt.labelName[:17]
+         dispName = 'Wallet %s (%s)' % (dispName, wlt.uniqueIDB58)
+      elif moneyID in self.cppLockboxWltMap:
+         lbox = self.getLockboxByID(moneyID)
+         if len(lbox.shortName) <= 20:
+            dispName = '%d-of-%d "%s"' % (lbox.M, lbox.N, lbox.shortName)
+         else:
+            dispName = '%d-of-%d "%s..."' % (lbox.M, lbox.N, lbox.shortName[:17])
+         dispName = 'Lockbox %s (%s)' % (dispName, lbox.uniqueIDB58)
+      else:
+         LOGERROR('Asked to show notification for wlt/lbox we do not have')
+         return
 
       # Collected everything we need to display, now construct it and do it.
       if ledgerAmt > 0:
          # Received!
          title = 'Bitcoins Received!'
-         dispLines.append('Amount: \t%s BTC' % totalStr.strip())
-         dispLines.append('Recipient:\tID[%s]' % moneyID)
+         dispLines.append('Amount:  %s BTC' % totalStr)
+         dispLines.append('Recipient:  %s' % dispName)
       elif ledgerAmt < 0:
          # Sent!
          title = 'Bitcoins Sent!'
-         dispLines.append('Amount: \t%s BTC' % totalStr.strip())
-         dispLines.append('Sender:\tID[%s]' % moneyID)
+         dispLines.append('Amount:  %s BTC' % totalStr)
+         dispLines.append('Sender:  %s' % dispName)
+
       self.sysTray.showMessage(title, \
                                '\n'.join(dispLines),  \
                                QSystemTrayIcon.Information, \
@@ -6516,16 +6748,6 @@ class ArmoryMainWindow(QMainWindow):
       for i in range(len(self.notifyQueue)):
          moneyID, le, alreadyNotified, isSingleAddr = self.notifyQueue[i]
 
-         # Make sure the wallet ID or lockbox ID keys are actually valid before
-         # using them to grab the appropriate C++ wallet.
-         if ((isSingleAddr and not self.walletMap.has_key(moneyID)) and \
-            (not isSingleAddr and not self.cppLockboxWltMap.has_key(moneyID))):
-            continue
-         if isSingleAddr:
-             wlt = self.walletMap[moneyID].cppWallet
-         else:
-             wlt = self.cppLockboxWltMap[moneyID]
-
          # Skip the ones we've notified of already.
          if alreadyNotified:
             continue
@@ -6533,6 +6755,18 @@ class ArmoryMainWindow(QMainWindow):
          # Notification is not actually for us.
          if le.getTxHash()=='\x00'*32:
             continue
+
+         # Make sure the wallet ID or lockbox ID keys are actually valid before
+         # using them to grab the appropriate C++ wallet.
+         if ((isSingleAddr and not self.walletMap.has_key(moneyID)) and \
+            (not isSingleAddr and not self.cppLockboxWltMap.has_key(moneyID))):
+            continue
+
+         if isSingleAddr:
+             wlt = self.walletMap[moneyID].cppWallet
+         else:
+             wlt = self.cppLockboxWltMap[moneyID]
+
 
          # Mark the transactions as having gone through the queue. If the
          # transaction stayed within the wallet, send a special notification,
@@ -6552,9 +6786,7 @@ class ArmoryMainWindow(QMainWindow):
          else:
             txref = TheBDM.getTxByHash(le.getTxHash())
             nOut = txref.getNumTxOut()
-#            nIn = txref.getNumTxIn()
             getScrAddrOut = lambda i: txref.getTxOutCopy(i).getScrAddressStr()
-#            getScrAddrIn = lambda i: txref.getTxOutCopy(i).getScrAddressStr()
 
             # Iterate through each TxOut.
             for i in range(nOut):
@@ -6685,6 +6917,13 @@ class ArmoryMainWindow(QMainWindow):
          # Don't want a strange error here interrupt shutdown
          LOGEXCEPT('Strange error during shutdown')
 
+
+      # Any extra shutdown activities, perhaps added by plugins
+      for fn in self.extraShutdownFunctions:
+         try:
+            fn()
+         except:
+            LOGEXCEPT('Shutdown function failed.  Skipping.')
 
 
       from twisted.internet import reactor
