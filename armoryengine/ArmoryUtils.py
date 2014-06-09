@@ -49,7 +49,7 @@ from qrcodenative import QRCode, QRErrorCorrectLevel
 
 
 # Version Numbers
-BTCARMORY_VERSION    = (0, 91,  99, 2)  # (Major, Minor, Bugfix, AutoIncrement)
+BTCARMORY_VERSION    = (0, 91,  99, 4)  # (Major, Minor, Bugfix, AutoIncrement)
 PYBTCWALLET_VERSION  = (1, 35,  0, 0)  # (Major, Minor, Bugfix, AutoIncrement)
 
 ARMORY_DONATION_ADDR = '1ArmoryXcfq7TnCSuZa9fQjRYwJ4bkRKfv'
@@ -1119,6 +1119,13 @@ def GetExecDir():
    srcfile = inspect.getsourcefile(GetExecDir)
    srcpath = os.path.dirname(srcfile)
    srcpath = os.path.abspath(srcpath)
+   if OS_WINDOWS and srcpath.endswith('.zip'):
+      srcpath = os.path.dirname(srcpath)
+
+   if not os.path.exists(srcpath):
+      LOGERROR('Determined that exec dir is %s but it does not exist' % srcpath)
+      return None
+
    return srcpath
 
 
@@ -1368,11 +1375,10 @@ def pubkey_to_p2pk_script(binStr33or65):
 # will do that by default.  If you require a different order, pre-sort them
 # and pass withSort=False.
 #
-# NOTE:  About the hardcoded bytes in here:
-#        I made a mistake when making the databases, and hardcoded the
-#        mainnet addrByte and P2SH bytes into DB format.  This means that
-#        that any ScrAddr object will use the mainnet prefix bytes, despite
-#        being in testnet.  I will at some point fix this.
+# NOTE:  About the hardcoded bytes in here: the mainnet addrByte and P2SH  
+#        bytes are hardcoded into DB format.  This means that
+#        that any ScrAddr object will use the mainnet prefix bytes, regardless
+#        of whether it is in testnet.  
 def pubkeylist_to_multisig_script(pkList, M, withSort=True):
 
    if sum([  (0 if len(pk) in [33,65] else 1)   for pk in pkList]) > 0:
@@ -1948,9 +1954,12 @@ def binScript_to_p2shAddrStr(binScript):
 
 ################################################################################
 def addrStr_is_p2sh(b58Str):
-   if isLikelyDataType(b58Str) == DATATYPE.Binary:
+   if len(b58Str)==0:
       return False
-      
+
+   if sum([(0 if c in BASE58CHARS else 1) for c in b58Str]) > 0:
+      return False
+
    binStr = base58_to_binary(b58Str)
    if not len(binStr)==25:
       return False

@@ -25,7 +25,7 @@ from armoryengine.PyBtcAddress import calcWalletIDFromRoot
 from announcefetch import DEFAULT_MIN_PRIORITY
 from ui.UpgradeDownloader import UpgradeDownloaderDialog
 from armoryengine.MultiSigUtils import calcLockboxID, createLockboxEntryStr,\
-   LBPREFIX, isLockbox, isP2SHLockbox
+   LBPREFIX, isBareLockbox, isP2SHLockbox
 from ui.MultiSigModels import LockboxDisplayModel, LockboxDisplayProxy,\
    LOCKBOXCOLS
 from armoryengine.PyBtcWalletRecovery import RECOVERMODE
@@ -5058,13 +5058,10 @@ def excludeChange(outputPairs, wlt):
    currentMaxChainPair = None
    for script,val in outputPairs:
       scrType = getTxOutScriptType(script)
-      addr160 = ''
+      addr = ''
       if scrType in CPP_TXOUT_HAS_ADDRSTR:
          scrAddr = script_to_scrAddr(script)
-         addr160 = scrAddr_to_hash160(scrAddr)[1]
-
-      print binary_to_hex(addr160)
-      addr = wlt.getAddrByHash160(addr160)
+         addr = wlt.getAddrByHash160(scrAddr_to_hash160(scrAddr)[1])
 
       # this logic excludes the pair with the maximum chainIndex from the
       # returned list
@@ -5077,6 +5074,7 @@ def excludeChange(outputPairs, wlt):
          else:
             nonChangeOutputPairs.append([script,val])
    return nonChangeOutputPairs
+
 
 ################################################################################
 class DlgConfirmSend(ArmoryDialog):
@@ -5109,76 +5107,71 @@ class DlgConfirmSend(ArmoryDialog):
       # and exclude it from the returnPairs list
       # and not in expert mode (because in expert mode the change could be anywhere
       #if changeBehave == None and returnPairs > 0:
-      print 'FIXME: always exclude change... should disable under some conditions'
+      print 'FIXME: currently always excluding change... should disable under some conditions'
       returnPairs = excludeChange(returnPairs, wlt)
          
       sendPairs.extend(returnPairs)
+
+      # TODO:  Explicit change ID was broken, this might not be the correct fix
+      if changeBehave:
+         for i in range(len(sendPairs)):
+            if sendPairs[i][0]==changeBehave:
+               del sendPairs[i]
+               break
       
-      # If there are multiple outputs coming back to wallet
-      # assume that the one with the highest index is change.
       lblMsg = QRichLabel('')         
       totalSend = sum([val for script,val in sendPairs]) + fee
       sumStr = coin2str(totalSend, maxZeros=1)
       if len(returnPairs) > 0:
-         if changeBehave == None and self.main.usermode == USERMODE.Expert:
+         if changeBehave is None and self.main.usermode == USERMODE.Expert:
             lblMsg.setText(tr("""
-               This transaction will spend <b>%s BTC</b> from wallet 
-               "<b>%s</b>" (%s). 
+               This transaction will spend <b>%s BTC</b> from 
+               <font color="%s">Wallet "<b>%s</b>" (%s)</font>.
                <br><br><b>Note:</b> Starred entries in the below list are 
                going to the same wallet from which they came, and thus have 
                no effect on your overall balance. When using Expert usermode 
                features, Armory cannot always distinguish the starred outputs 
                from the change address.""") % \
-               (sumStr, wlt.labelName, wlt.uniqueIDB58))
+               (sumStr, htmlColor('TextBlue'), wlt.labelName, wlt.uniqueIDB58))
          else:
             lblMsg.setText(tr("""
-               This transaction will spend <b>%s BTC</b> from wallet 
-               "<b>%s</b>" (%s).
+               This transaction will spend <b>%s BTC</b> from 
+               <font color="%s">Wallet "<b>%s</b>" (%s)</font>.
                <br><br><b>Note:</b> Any starred outputs are are going to the
                same wallet from which they came, and will have no effect on
                the wallet's overall balance.""") % \
-               (sumStr, wlt.labelName, wlt.uniqueIDB58))
+               (sumStr, htmlColor('TextBlue'), wlt.labelName, wlt.uniqueIDB58))
       else:
          lblMsg.setText(tr("""
-            This transaction will spend <b>%s BTC</b> from wallet 
-            "<b>%s</b>" (%s).  Here are the outputs:""") % \
-            (sumStr, wlt.labelName, wlt.uniqueIDB58))
+            This transaction will spend <b>%s BTC</b> from 
+            <font color="%s">Wallet "<b>%s</b>" (%s)</font>.
+            to the following recipients:""") % \
+            (sumStr, htmlColor('TextBlue'), wlt.labelName, wlt.uniqueIDB58))
+
+      addrColWidth = 50
 
       recipLbls = []
       ffixBold = GETFONT('Fixed')
       ffixBold.setWeight(QFont.Bold)
       for script,val in sendPairs:
-         scrType = getTxOutScriptType(script)
-         if scrType in CPP_TXOUT_HAS_ADDRSTR:
-            # Standard P2PKH or P2SH
-            dispStr = scrAddr_to_addrStr(script_to_scrAddr(script))
-            if [script,val] in returnPairs:
-               dispStr = '*'+dispStr
-         elif scrType==CPP_TXOUT_MULTISIG:
-            # Display multi-sig/lockbox
-            lbID = calcLockboxID(script)
-            lb = self.main.getLockboxByID(lbID)
-            if lb:
-               dispStr = 'Lockbox %d-of-%d (%s)' % (lb.M, lb.N, lb.uniqueIDB58)
-            else:
-               M,N,a160s,pubkeys = getMultisigScriptInfo(script)
-               dispStr = 'Multi-sig %d-of-%d [UNRECOGNIZED]' % (M,N)
-         else:
-            dispStr = 'Non-standard [UNRECOGNIZED]'
+         displayInfo = self.main.getDisplayStringForScript(script, addrColWidth)
+         dispStr = displayInfo['String'].ljust(addrColWidth)
+         if [script,val] in returnPairs:
+            dispStr = '*'+dispStr
 
          coinStr = coin2str(val, rJust=True, maxZeros=4)
-         recipLbls.append(QLabel(dispStr.ljust(38) + coinStr))
+         recipLbls.append(QLabel(dispStr + coinStr))
          recipLbls[-1].setFont(ffixBold)
 
 
       if fee > 0:
          recipLbls.append(QSpacerItem(10, 10))
-         recipLbls.append(QLabel('Transaction Fee : '.ljust(38) +
+         recipLbls.append(QLabel('Transaction Fee : '.ljust(addrColWidth) +
                            coin2str(fee, rJust=True, maxZeros=4)))
          recipLbls[-1].setFont(GETFONT('Fixed'))
 
       recipLbls.append(HLINE(QFrame.Sunken))
-      recipLbls.append(QLabel('Total bitcoins Sent: '.ljust(38) +
+      recipLbls.append(QLabel('Total bitcoins Sent: '.ljust(addrColWidth) +
                         coin2str(totalSend, rJust=True, maxZeros=4)))
       recipLbls[-1].setFont(GETFONT('Fixed'))
 
@@ -5194,21 +5187,16 @@ class DlgConfirmSend(ArmoryDialog):
       # Acknowledge if the user has selected a non-std change location
       lblSpecialChange = QRichLabel('')
       if self.main.usermode == USERMODE.Expert and changeBehave:
-         chngScrAddr = changeBehave[0]
-         if len(chngScrAddr) > 0:
-            chngAddrStr = scrAddr_to_addrStr(chngScrAddr)
-            atype, chngAddr160 = addrStr_to_hash160(chngAddrStr)
-            if atype == P2SHBYTE:
-               LOGWARN('P2SH change address specified')
+         changeScript = changeBehave[0]
+         if len(changeScript) > 0:
+            displayInfo = self.main.getDisplayStringForScript(changeScript, 60)
+            changeDispStr = displayInfo['String']
+
          chngBehaveStr = changeBehave[1]
          if chngBehaveStr == 'Feedback':
             lblSpecialChange.setText('*Change will be sent back to first input address')
          elif chngBehaveStr == 'Specify':
-            wltID = self.main.getWalletForAddr160(chngAddr160)
-            msg = '*Change will be sent to %s...' % chngAddrStr[:12]
-            if wltID:
-               msg += ' (Wallet: %s)' % wltID
-            lblSpecialChange.setText(msg)
+            lblSpecialChange.setText('*Change will be sent to %s' % changeDispStr)
          elif chngBehaveStr == NO_CHANGE:
             lblSpecialChange.setText('(This transaction is exact -- there are no change outputs)')
 
@@ -8494,7 +8482,8 @@ class DlgAddressBook(ArmoryDialog):
 
    #############################################################################
    def acceptAddrSelection(self):
-      if isLockbox(str(self.btnSelectAddr.text())) or isP2SHLockbox(str(self.btnSelectAddr.text())):
+      if isBareLockbox(str(self.btnSelectAddr.text())) or \
+         isP2SHLockbox(str(self.btnSelectAddr.text())):
          self.acceptLockBoxSelection()
       else: 
          atype,a160 = addrStr_to_hash160(self.selectedAddr)
@@ -8610,7 +8599,7 @@ class DlgAddressBook(ArmoryDialog):
 
 
 ################################################################################
-def createAddrBookButton(parent, targWidget, defaultWlt, actionStr="Select",
+def createAddrBookButton(parent, targWidget, defaultWltID=None, actionStr="Select",
                          selectExistingOnly=False, selectMineOnly=False, getPubKey=False,
                          showLockBoxes=True):
    btn = QPushButton('')
@@ -8621,7 +8610,7 @@ def createAddrBookButton(parent, targWidget, defaultWlt, actionStr="Select",
          QMessageBox.warning(parent, 'No wallets!', 'You have no wallets so '
             'there is no address book to display.', QMessageBox.Ok)
          return
-      dlg = DlgAddressBook(parent, parent.main, targWidget, defaultWlt, 
+      dlg = DlgAddressBook(parent, parent.main, targWidget, defaultWltID, 
                     actionStr, selectExistingOnly, selectMineOnly, getPubKey,
                            showLockBoxes)
       dlg.exec_()
@@ -14671,7 +14660,7 @@ from ui.WalletFrames import SelectWalletFrame, WalletBackupFrame,\
    AdvancedOptionsFrame
 from ui.TxFrames import  SendBitcoinsFrame, SignBroadcastOfflineTxFrame,\
    ReviewOfflineTxFrame
-from ui.MultiSigHacker import DlgMultiSpendReview
+from ui.MultiSigDialogs import DlgMultiSpendReview
 
 
 
