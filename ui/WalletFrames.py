@@ -55,7 +55,7 @@ class LockboxSelectFrame(ArmoryFrame):
       self.dispDescr.setWordWrap(True)
       # This line fixes squished text when word wrapping
       self.dispDescr.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
-      bal = self.cppWlt.getSpendableBalance(self.main.currBlockNum, IGNOREZC)
+      bal = self.cppWlt.getSpendableBalance(TheBDM.getCurrBlock(), IGNOREZC)
       self.dispBal = QMoneyLabel(bal, wBold=True)
       self.dispBal.setTextFormat(Qt.RichText)
 

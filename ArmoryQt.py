@@ -6197,22 +6197,21 @@ class ArmoryMainWindow(QMainWindow):
                   # notifiedAleready = False, isSingleAddr = True
                   self.notifyQueue.append([wltID, le, False, True])
                
-      self.createCombinedLedger()
-      self.walletModel.reset()
 
          # Iterate through the C++ lockbox wallets and create a ledger entry for
          # the transaction. If the transaction is for us, put it on the
          # notification queue, create the combined ledger, and reset the Qt
          # table models.
-      for lbID,cppWlt in self.cppLockboxWltMap.iteritems():
-         le = cppWlt.calcLedgerEntryForTxStr(rawTx)
-         if not le.getTxHash() == '\x00' * 32:
-            LOGDEBUG('ZerConf tx for LOCKBOX: %s' % lbID)
-            # notifiedAleready = False, isSingleAddr = True
-            self.notifyQueue.append([lbID, le, False, False])
-            self.createCombinedLedger()
-            self.walletModel.reset()
-            self.lockboxLedgModel.reset()
+         for lbID,cppWlt in self.cppLockboxWltMap.iteritems():
+            le = cppWlt.calcLedgerEntryForTxStr(rawTx)
+            if not le.getTxHash() == '\x00' * 32:
+               LOGDEBUG('ZerConf tx for LOCKBOX: %s' % lbID)
+               # notifiedAleready = False, isSingleAddr = True
+               self.notifyQueue.append([lbID, le, False, False])
+      
+      self.createCombinedLedger()
+      self.walletModel.reset()
+      self.lockboxLedgModel.reset()
 
    #############################################################################
    @TimeThisFunction

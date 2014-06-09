@@ -1307,7 +1307,7 @@ class DlgSpendFromLockbox(ArmoryDialog):
       btnReview = QPushButton(tr("Review and Sign"))
       btnCancel = QPushButton(tr("Cancel"))
 
-      if TheBDM.getBDMState()=='BlockchainReady':
+      if TheBDM.getState()=='BlockchainReady':
          lblCreate = QRichLabel(tr("""
             I am creating a new proposed spending transaction and will pass
             it to each party or device that needs to sign it"""))

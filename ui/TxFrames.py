@@ -763,7 +763,7 @@ class SendBitcoinsFrame(ArmoryFrame):
          if cppWlt is None:
             LOGERROR('Somehow failed to get cppWlt for lockbox: %s', lbID)
 
-         return cppWlt.getSpendableBalance(self.main.currBlockNum, IGNOREZC)
+         return cppWlt.getSpendableBalance(TheBDM.getCurrBlock(), IGNOREZC)
          
          
 
@@ -788,7 +788,7 @@ class SendBitcoinsFrame(ArmoryFrame):
          if cppWlt is None:
             LOGERROR('Somehow failed to get cppWlt for lockbox: %s', lbID)
 
-         txoList = cppWlt.getSpendableTxOutList(self.main.currBlockNum, IGNOREZC)
+         txoList = cppWlt.getSpendableTxOutList(TheBDM.getCurrBlock(), IGNOREZC)
          pyUtxoList = []
          for i in range(len(txoList)):
             script = self.lbox.binScript
