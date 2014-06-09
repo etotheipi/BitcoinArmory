@@ -681,6 +681,7 @@ class DlgLockboxManager(ArmoryDialog):
       self.txtLockboxInfo.setFont(GETFONT('Fixed', 9))
 
 
+      """
       self.btnCreate = QPushButton(tr('Create New'))
       self.btnImport = QPushButton(tr('Import New'))
       self.btnEdit   = QPushButton(tr('Edit'))
@@ -714,13 +715,12 @@ class DlgLockboxManager(ArmoryDialog):
                                       self.btnSpend,
                                       'Stretch'])
 
-      """
       if not TheBDM.getBDMState()=='BlockchainReady':
          self.btnSpend.setDisabled(True)
          self.btnFundIt.setDisabled(True)
-      """
             
       frmManageBtns.layout().setSpacing(2)
+      """
 
       btnDone = QPushButton(tr('Done'))
       frmDone = makeHorizFrame(['Stretch', btnDone])
@@ -780,7 +780,7 @@ class DlgLockboxManager(ArmoryDialog):
       # Setup the details tab
       self.tabDetails = QWidget()
       layoutDetails = QHBoxLayout()
-      layoutDetails.addWidget(frmManageBtns)
+      #layoutDetails.addWidget(frmManageBtns)  # Removed when added dash tab
       layoutDetails.addWidget(self.txtLockboxInfo, 1)
       self.tabDetails.setLayout(layoutDetails)
 
@@ -795,10 +795,11 @@ class DlgLockboxManager(ArmoryDialog):
 
       self.tabbedDisplay = QTabWidget()
       self.tabbedDisplay.addTab(self.stkDashboard, tr("Dashboard"))
-      self.tabbedDisplay.addTab(self.tabDetails, tr("Manage"))
+      self.tabbedDisplay.addTab(self.tabDetails, tr("Info"))
       self.tabbedDisplay.addTab(self.tabLedger, tr("Transactions"))
 
 
+      self.tabbedDisplay.setTabEnabled(2, TheBDM.getBDMState()=='BlockchainReady')
 
 
       splitter = QSplitter()
@@ -840,8 +841,12 @@ class DlgLockboxManager(ArmoryDialog):
 
       self.allDashButtons = [{}, {}]
 
-      self.allDashButtons[0] = \
-      {
+
+      # We need two of these dictionaries:  we're going to put the widgets
+      # directly into them, and we need one for each of the two stack pages
+      for i in [0,1]:
+         self.allDashButtons[i] = \
+         {
          'CreateLB':   {'button':  tr('Create Lockbox'),
                         'callbk':  self.doCreate,
                         'organiz': True,
@@ -854,7 +859,7 @@ class DlgLockboxManager(ArmoryDialog):
                         'callbk':  self.doSelectKey,
                         'organiz': False,
                         'lbltxt':  tr('Send to organizer'),
-                        'tiptxt':  tr('Select key to give to lockbox organizer'),
+                        'tiptxt':  tr('Select key to send to organizer'),
                         'select':  None,
                         'offline': None},
 
@@ -869,7 +874,7 @@ class DlgLockboxManager(ArmoryDialog):
          'ImportLB':   {'button':  tr('Import Lockbox'),
                         'callbk':  self.doImport,
                         'organiz': False,
-                        'lbltxt':  tr('Received from other participant'),
+                        'lbltxt':  'From organizer or other device',
                         'tiptxt':  tr("""Import lockbox definition from organizer 
                                          or other lockbox participants"""),
                         'select':  None,
@@ -891,7 +896,7 @@ class DlgLockboxManager(ArmoryDialog):
                         'select':  tr('Select a lockbox to fund'),
                         'offline': tr('Must be online to fund')},
 
-         'MergeProm':  {'button':  tr('Merge Funding Notes'),
+         'MergeProm':  {'button':  tr('Merge Promissory Notes'),
                         'callbk':  self.doMergeProm,
                         'organiz': True,
                         'lbltxt':  '',
@@ -915,14 +920,6 @@ class DlgLockboxManager(ArmoryDialog):
                         'select':  None,
                         'offline': None},
 
-         'MergeSigs':  {'button':  tr('Merge Sigs && Broadcast'),
-                        'callbk':  self.doReview,
-                        'organiz': True,
-                        'lbltxt':  '',
-                        'tiptxt':  tr('Merge signatures and broadcast transaction'),
-                        'select':  None,
-                        'offline': tr('Must be online to broadcast')},
-
          'CreateTx':   {'button':  tr('Create Spend Tx'),
                         'callbk':  self.doSpend,
                         'organiz': True,
@@ -930,11 +927,16 @@ class DlgLockboxManager(ArmoryDialog):
                         'tiptxt':  tr('Create proposed spend from lockbox to other wallet or lockbox'),
                         'select':  tr('Select lockbox to spend from'),
                         'offline': tr('Must be online to spend')},
-      }
 
-      # We need two of these dictionaries:  we're going to put the widgets
-      # directly into them, and we need one for each of the two stack pages
-      self.allDashButtons[1] = self.allDashButtons[0].copy()
+
+         'MergeSigs':  {'button':  tr('Collect Sigs && Broadcast'),
+                        'callbk':  self.doReview,
+                        'organiz': True,
+                        'lbltxt':  tr('Merge signatures to finalize'),
+                        'tiptxt':  tr('Merge signatures and broadcast transaction'),
+                        'select':  None,
+                        'offline': tr('(must be online to broadcast)')},
+      }
 
 
       # 
@@ -947,6 +949,25 @@ class DlgLockboxManager(ArmoryDialog):
 
       #self.connect(self.optFundTypeSimple, SIGNAL('clicked()'), self.updLayout)
       #self.connect(self.optFundTypeSimul,  SIGNAL('clicked()'), self.updLayout)
+
+      simultxt = 'Simul'
+      self.chkSimulfundA = QCheckBox(simultxt)
+      self.chkSimulfundB = QCheckBox(simultxt)
+
+      def clickSimulA():
+         self.chkSimulfundB.setChecked(self.chkSimulfundA.isChecked())
+         stk = 1 if self.chkSimulfundA.isChecked() else 0
+         self.stkDashboard.setCurrentIndex(stk)
+
+      def clickSimulB():
+         self.chkSimulfundA.setChecked(self.chkSimulfundB.isChecked())
+         stk = 1 if self.chkSimulfundB.isChecked() else 0
+         self.stkDashboard.setCurrentIndex(stk)
+      
+         self.chkSimulfundB.setChecked(self.chkSimulfundA.isChecked())
+
+      self.connect(self.chkSimulfundA, SIGNAL('clicked()'), clickSimulA)
+      self.connect(self.chkSimulfundB, SIGNAL('clicked()'), clickSimulB)
 
 
       self.stkDashboard = QStackedWidget()
@@ -965,12 +986,17 @@ class DlgLockboxManager(ArmoryDialog):
 
       cellWidth = 150
       cellStyle = STYLE_RAISED
-      def createHeaderCell(headStr):
+      def createHeaderCell(headStr, extraWidg=None):
          lbl = QRichLabel(headStr, bold=True, size=4,
                                    hAlign=Qt.AlignHCenter,
                                    vAlign=Qt.AlignVCenter)
           
-         frm = makeHorizFrame([lbl], cellStyle) 
+         if extraWidg is None:
+            frm = makeVertFrame([lbl], cellStyle) 
+         else:
+            frm = makeVertFrame([lbl, extraWidg], cellStyle) 
+            frm.layout().setAlignment(extraWidg, Qt.AlignHCenter)
+
          return frm
 
 
@@ -1033,6 +1059,17 @@ class DlgLockboxManager(ArmoryDialog):
                      lbltxt = orgtxt + lbltxt
                   btnMap['LBL'].setText(lbltxt)
 
+                  # Semi-hack:  
+                  #    The 'MergeSigs' button is the only one that kinda makes 
+                  #    sense to not work offline, but there may be isolated 
+                  #    cases where the user would merge without intending to 
+                  #    broadcast.  Having it disabled in offline mode would
+                  #    make them go mad.  So I'm going to explicitly make sure
+                  #    that just that button is always enabled, even though
+                  #    it might look like a bug.
+                  if btnKey=='MergeSigs':
+                     btnMap['BTN'].setEnabled(True)
+
                return updateFunc
 
             # Add the func to the list of things to call on context change
@@ -1049,9 +1086,6 @@ class DlgLockboxManager(ArmoryDialog):
          #widgMap['button'].setMinimumWidth(maxWidth)
          
 
-      frmSingle = QFrame()
-      frmSingleLayout = QGridLayout()
-
       #'CreateLB':   {'button':  tr('Create Lockbox')
       #'SelectKey':  {'button':  tr('Select Public Key'),
       #'ExportLB':   {'button':  tr('Distribute Lockbox'),
@@ -1064,6 +1098,10 @@ class DlgLockboxManager(ArmoryDialog):
       #'MergeSigs':  {'button':  tr('Merge Sigs && Broadcast'),
       #'CreateTx':   {'button':  tr('Spend From Lockbox'),
 
+      # First frame is for regular funding.  Switch to frmMulti if chkSimulfundA
+      frmSingle = QFrame()
+      frmSingleLayout = QGridLayout()
+
       firstRow  = createCell(0, ['CreateLB', 'SelectKey', 'ExportLB', 'ImportLB'], HORIZONTAL)
       secondRow = createCell(0, ['RegFund'], HORIZONTAL)
       thirdRow  = createCell(0, ['CreateTx', 'RevSign', 'MergeSigs'], HORIZONTAL)
@@ -1071,7 +1109,8 @@ class DlgLockboxManager(ArmoryDialog):
       frmSingleLayout.addWidget(createHeaderCell('CREATE'),    0,0)
       frmSingleLayout.addWidget(firstRow,                      0,1,  1,3)
 
-      frmSingleLayout.addWidget(createHeaderCell('FUND'),      1,0)
+      frmSingleLayout.addWidget(createHeaderCell('FUND', self.chkSimulfundA),      
+                                                               1,0)
       frmSingleLayout.addWidget(secondRow,                     1,1,  1,3)
 
       frmSingleLayout.addWidget(createHeaderCell('SPEND'),     2,0)
@@ -1084,9 +1123,41 @@ class DlgLockboxManager(ArmoryDialog):
 
       frmSingle.setLayout(frmSingleLayout)
       frmSingle.setFrameStyle(STYLE_STYLED)
-      
-      self.stkDashboard = frmSingle
+      self.stkDashboard.addWidget(frmSingle)
 
+
+      # Second frame is for simulfunding
+      frmMulti = QFrame()
+      frmMultiLayout = QGridLayout()
+
+      firstRow  = createCell(1, ['CreateLB', 'SelectKey', 'ExportLB', 'ImportLB'], HORIZONTAL)
+      secondRow = createCell(1, ['MergeProm', 'CreateProm'], HORIZONTAL)
+      lastCol   = createCell(1, ['RevSign', 'MergeSigs'], VERTICAL)
+      thirdRow  = createCell(1, ['CreateTx'], HORIZONTAL)
+
+      frmMultiLayout.addWidget(createHeaderCell('CREATE'),    0,0)
+      frmMultiLayout.addWidget(firstRow,                      0,1,  1,3)
+
+      frmMultiLayout.addWidget(createHeaderCell('FUND', self.chkSimulfundB),
+                                                              1,0)
+      frmMultiLayout.addWidget(secondRow,                     1,1,  1,2)
+      frmMultiLayout.addWidget(lastCol,                       1,3,  2,1)
+
+      frmMultiLayout.addWidget(createHeaderCell('SPEND'),     2,0)
+      frmMultiLayout.addWidget(thirdRow,                      2,1,  1,2)
+
+
+      frmMultiLayout.setColumnStretch(0,0)
+      frmMultiLayout.setColumnStretch(1,1)
+      frmMultiLayout.setColumnStretch(2,1)
+      frmMultiLayout.setColumnStretch(3,1)
+
+      frmMulti.setLayout(frmMultiLayout)
+      frmMulti.setFrameStyle(STYLE_STYLED)
+      self.stkDashboard.addWidget(frmMulti)
+
+      # Default is to use frmSingle
+      self.stkDashboard.setCurrentIndex(0)
 
          
       
@@ -1254,6 +1325,8 @@ class DlgLockboxManager(ArmoryDialog):
       noSelection = (self.getSelectedLBID() is None)
       isOffline = (not TheBDM.getBDMState()=='BlockchainReady')
 
+      """
+      # Removed all these when we added the dashboard tab
       self.btnEdit.setDisabled(noSelection)
       self.btnExport.setDisabled(noSelection)
       self.btnDelete.setDisabled(noSelection)
@@ -1261,6 +1334,12 @@ class DlgLockboxManager(ArmoryDialog):
       self.btnFundIt.setDisabled(noSelection or isOffline)
       self.btnSimul.setDisabled(noSelection)
       self.btnSpend.setDisabled(noSelection)
+      """
+      
+      if noSelection:
+         self.txtLockboxInfo.setText(tr(""" <br><br><font color="%s"><center><b>
+            Select a lockbox from the table above to view its info</b></center>
+            </font>""") % htmlColor('DisableFG'))
 
       for fn in self.updateDashFuncs:
          # Whoops, made the args inverses of what the func takes, oh well
@@ -1346,11 +1425,15 @@ class DlgLockboxManager(ArmoryDialog):
 
    #############################################################################
    def doMergeProm(self):
+      lb = self.getSelectedLockbox()
+      lbID = None if lb is None else lb.uniqueIDB58
       DlgMergePromNotes(self, self.main, lbID).exec_()
                         
 
    #############################################################################
    def doCreateProm(self):
+      lb = self.getSelectedLockbox()
+      lbID = None if lb is None else lb.uniqueIDB58
       DlgCreatePromNote(self, self.main, lbID).exec_()
 
 
@@ -1412,12 +1495,12 @@ class DlgLockboxManager(ArmoryDialog):
          <br><br>
          It is safe to continue if any of the following conditions are true:
          <ul>
-            <li>You are the only one expected to fund the escrow</li>
-            <li>All other parties in the escrow are fully trusted</li>
+            <li>You are the only one expected to fund this lockbox/escrow</li>
+            <li>All other parties in the lockbox/escrow are fully trusted</li>
             <li>This lockbox is being used for personal savings</li>
          </ul>
          If the above does not apply to you, please press "Cancel" and 
-         use the "Simulfunding" button in the Lockbox manager to continue.
+         select the "Simul" checkbox on the lockbox dashboard.
          """) % htmlColor('TextWarn'), 
          QMessageBox.Ok | QMessageBox.Cancel)
 
