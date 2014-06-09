@@ -24,24 +24,16 @@ class DlgLockboxEditor(ArmoryDialog):
       super(DlgLockboxEditor, self).__init__(parent, main)
 
       lblDescr = QRichLabel(tr("""
-         <b><u><font size=5 color="%s">Multi-sig is an experimental 
-         feature!</font></u>  
-         <br><br>
-         Please do not use this with money you cannot afford to 
-         lose!""") % htmlColor("TextRed"), hAlign=Qt.AlignHCenter)
+         <b><u><font size=5 color="%s">Multi-signature Lockboxes</font></u>  
+         """) % htmlColor("TextBlue"), hAlign=Qt.AlignHCenter)
 
       lblDescr2 = QRichLabel(tr("""
-         Use this form to create a "multi-sig lockbox" to hold
-         coins in escrow between multiple parties, or to share signing
-         authority between multiple devices or wallets.  Once the lockbox is
-         created, you can send coins to it by selecting it in your 
-         address book from the "Send Bitcoins" window.  Spending or 
-         moving bitcoins held in the lockbox requires a special 
-         preparation and signing procedure, which can be accessed via
-         the "MultiSig" menu on the main screen"""))
+         Create a "multi-sig lockbox" to hold
+         coins that have signing authority split between multiple devices 
+         for personal funds, or split between multiple parties for escrow."""))
 
       lblDescr3 = QRichLabel(tr("""
-         <b>Multi-sig "lockboxes" require <u>public keys</u>, not 
+         <b><u>NOTE:</u> Multi-sig "lockboxes" require <u>public keys</u>, not 
          the address strings most Bitcoin users are familiar with.</b>
          <a href="None">Click for more info</a>."""))
 
@@ -189,14 +181,14 @@ class DlgLockboxEditor(ArmoryDialog):
          pkFrameList[-1].setLayout(layoutThisRow)
 
       pkFrameList.append('Stretch')
-      frmPubKeys = makeVertFrame( [frmName, lblDescr3]+pkFrameList, STYLE_RAISED)
+      frmPubKeys = makeVertFrame( [frmName]+pkFrameList, STYLE_RAISED)
 
       self.scrollPubKeys = QScrollArea()
       self.scrollPubKeys.setWidget(frmPubKeys)
       self.scrollPubKeys.setWidgetResizable(True)
 
 
-      frmTop = makeVertFrame([lblDescr, HLINE(), lblDescr2], STYLE_RAISED)
+      frmTop = makeVertFrame([lblDescr, lblDescr2, lblDescr3], STYLE_RAISED)
       
 
       
@@ -637,24 +629,25 @@ class DlgLockboxManager(ArmoryDialog):
    def __init__(self, parent, main):
       super(DlgLockboxManager, self).__init__(parent, main)
 
-      if not USE_TESTNET:
-         QMessageBox.warning(self, tr('Dangerous Feature!'), tr("""
-            Multi-signature transactions are an 
-            <b>EXPERIMENTAL</b> feature in this version of Armory.  It is 
-            <u><b>not</b></u> intended to be used with real money, until all 
-            the warnings like this one go away.
-            <br><br>
-            <b>Use at your own risk!</b>"""), QMessageBox.Ok)
+      #if not USE_TESTNET:
+         #QMessageBox.warning(self, tr('Dangerous Feature!'), tr("""
+            #Multi-signature transactions are an 
+            #<b>EXPERIMENTAL</b> feature in this version of Armory.  It is 
+            #<u><b>not</b></u> intended to be used with real money, until all 
+            #the warnings like this one go away.
+            #<br><br>
+            #<b>Use at your own risk!</b>"""), QMessageBox.Ok)
 
 
       lblDescr = QRichLabel(tr("""
          <font color="%s" size=4><b>Manage Multi-Sig Lockbox Info</b></font>
-         <br> <b>Multi-Sig is an <u>EXPERIMENTAL</u> feature.  
-         Use at your own risk!</b>""") % htmlColor('TextBlue'), 
-         hAlign=Qt.AlignHCenter)
+         """) % htmlColor('TextBlue'), hAlign=Qt.AlignHCenter)
       
-      #frmDescr = makeVertFrame([lblDescr1, lblDescr2], STYLE_RAISED)
       frmDescr = makeVertFrame([lblDescr], STYLE_RAISED)
+
+
+      # For the dashboard
+      self.updateDashboardFuncs = []
    
       self.lboxModel = LockboxDisplayModel(self.main, \
                                     self.main.allLockboxes, \
@@ -797,7 +790,11 @@ class DlgLockboxManager(ArmoryDialog):
       layoutLedger.addWidget(self.ledgerView)
       self.tabLedger.setLayout(layoutLedger)
 
+      # Creates self.stkDashboard
+      self.createLockboxDashboardTab()
+
       self.tabbedDisplay = QTabWidget()
+      self.tabbedDisplay.addTab(self.stkDashboard, tr("Dashboard"))
       self.tabbedDisplay.addTab(self.tabDetails, tr("Manage"))
       self.tabbedDisplay.addTab(self.tabLedger, tr("Transactions"))
 
@@ -839,161 +836,255 @@ class DlgLockboxManager(ArmoryDialog):
    def createLockboxDashboardTab(self):
 
       ORGANIZER   = 'Organizer'
-      PARTICIPANT = 'Participant'
+      ANYONE = 'Anyone'
 
-      allDashboardItems = \
-      [ \
-         {'cell':    (0,0),
-          'user':    ORGANIZER,
-          'doit':    self.doCreate,
-          'button':  tr('Create New Lockbox'),
-          'reglbl':  tr("""Collect public keys from all devices or
-                          participants to create multi-sig storage"""),
-          'offline': None,
-          'select':  None},
+      self.allDashButtons = [{}, {}]
+
+      self.allDashButtons[0] = \
+      {
+         'CreateLB':   {'button':  tr('Create Lockbox'),
+                        'callbk':  self.doCreate,
+                        'organiz': True,
+                        'lbltxt':  '',
+                        'tiptxt':  tr('Create multi-party or multi-device bitcoin storage'),
+                        'select':  None,
+                        'offline': None},
+
+         'SelectKey':  {'button':  tr('Select Public Key'),
+                        'callbk':  self.doSelectKey,
+                        'organiz': False,
+                        'lbltxt':  tr('Send to organizer'),
+                        'tiptxt':  tr('Select key to give to lockbox organizer'),
+                        'select':  None,
+                        'offline': None},
+
+         'ExportLB':   {'button':  tr('Export Lockbox'),
+                        'callbk':  self.doExport,
+                        'organiz': False,
+                        'lbltxt':  tr('Send to other lockbox participants'),
+                        'tiptxt':  tr('Send lockbox to other devices or parties'),
+                        'select':  tr('Select lockbox to export'),
+                        'offline': None},
+
+         'ImportLB':   {'button':  tr('Import Lockbox'),
+                        'callbk':  self.doImport,
+                        'organiz': False,
+                        'lbltxt':  tr('Received from any other participant'),
+                        'tiptxt':  tr("""Import lockbox definition from organizer 
+                                         or other lockbox participants"""),
+                        'select':  None,
+                        'offline': None},
+
+         'EditLB':     {'button':  tr('Edit Lockbox'),
+                        'callbk':  self.doEdit,
+                        'organiz': False,
+                        'lbltxt':  '',
+                        'tiptxt':  tr('Edit an existing lockbox'),
+                        'select':  tr('Select lockbox to edit'),
+                        'offline': None},
+
+         'RegFund':    {'button':  tr('Fund Lockbox'),
+                        'callbk':  self.doFundIt,
+                        'organiz': False,
+                        'lbltxt':  tr('Fund the selected lockbox from any wallet'),
+                        'tiptxt':  tr('Send bitcoins from a wallet to the selected lockbox'),
+                        'select':  tr('Select a lockbox to fund'),
+                        'offline': tr('Must be online to fund')},
+
+         'MergeProm':  {'button':  tr('Merge Funding Notes'),
+                        'callbk':  self.doMergeProm,
+                        'organiz': True,
+                        'lbltxt':  '',
+                        'tiptxt':  tr('Merge promissory notes from funders'),
+                        'select':  None,
+                        'offline': None},
+
+         'CreateProm': {'button':  tr('Create Promissory Note'),
+                        'callbk':  self.doCreateProm,
+                        'organiz': False,
+                        'lbltxt':  tr('Make a funding commitment to a lockbox'),
+                        'tiptxt':  tr('Make a funding commitment to a lockbox'),
+                        'select':  tr('Select lockbox to commit funds to'),
+                        'offline': tr('Must be online to create')},
+
+         'RevSign':    {'button':  tr('Review and Sign'),
+                        'callbk':  self.doReview,
+                        'organiz': False,
+                        'lbltxt':  tr('Any kind of multi-sig transaction'),
+                        'tiptxt':  tr('Review and sign any multi-sig transaction'),
+                        'select':  None,
+                        'offline': None},
+
+         'MergeSigs':  {'button':  tr('Merge Sigs && Broadcast'),
+                        'callbk':  self.doReview,
+                        'organiz': True,
+                        'lbltxt':  '',
+                        'tiptxt':  tr('Merge signatures and broadcast transaction'),
+                        'select':  None,
+                        'offline': tr('Must be online to broadcast')},
+
+         'CreateTx':   {'button':  tr('Create Spend Tx'),
+                        'callbk':  self.doSpend,
+                        'organiz': True,
+                        'lbltxt':  '',
+                        'tiptxt':  tr('Create proposed spend from lockbox to other wallet or lockbox'),
+                        'select':  tr('Select lockbox to spend from'),
+                        'offline': tr('Must be online to spend')},
+      }
+
+      # We need two of these dictionaries:  we're going to put the widgets
+      # directly into them, and we need one for each of the two stack pages
+      self.allDashButtons[1] = self.allDashButtons[0].copy()
 
 
-         {'cell':    (0,1),
-          'user':    PARTICIPANT,
-          'doit':    self.doSelectKey,
-          'button':  tr('Provide Public Keys'),
-          'reglbl':  tr("""Create or select an existing public key 
-                                  to send to the organizer"""),
-          'offline': None,
-          'select':  None},
+      # 
+      #btngrp = QButtonGroup(self)
+      #self.optFundTypeSimple = QRadioButton(tr('Simple'))
+      #self.optFundTypeSimul  = QRadioButton(tr('Simul/Escrow'))
+      #btngrp.addButton(self.optFundTypeSimple)
+      #btngrp.addButton(self.optFundTypeSimul)
+      #btngrp.setExclusive(True)
 
-         {'cell':    (0,2),
-          'user':    ORGANIZER,
-          'button':  tr('Distribute Lockbox'),
-          'reglbl':  tr("""Share the final lockbox definition with all
-                           other parties or devices"""),
-          'offline': None,
-          'select':  None},
-                     
-
-         {'cell':    (1,0),
-          'user':    PARTICIPANT,
-          'button':  tr('Send Funds to a Lockbox'),
-          'reglbl':  tr("""Send bitcoins to a lockbox from any of 
-                           your existing wallets or lockboxes"""),
-          'offline': tr('Armory must be in online mode to send bitcoins'),
-          'select':  tr('Select a lockbox to fund from the table above')},
-      
-
-         {'cell':    (2,0),
-          'user':    ORGANIZER,
-          'button':  tr('Merge Promissory Notes'),
-          'reglbl':  tr("""Collect and merge promissory notes for simultaneous 
-                           multi-party funding of a lockbox/escrow"""),
-          'offline': None,
-          'select':  None},
+      #self.connect(self.optFundTypeSimple, SIGNAL('clicked()'), self.updLayout)
+      #self.connect(self.optFundTypeSimul,  SIGNAL('clicked()'), self.updLayout)
 
 
-         {'cell':    (2,1),
-          'user':    PARTICIPANT,
-          'button':  tr('Create Promissory Note'),
-          'reglbl':  tr("""Create a promissory note to state your intended 
-                           contribution to a lockbox/escrow"""),
-          'offline': tr('Armory must be in online mode to send bitcoins'),
-          'select':  tr('Select a target lockbox from the table above')},
+      self.stkDashboard = QStackedWidget()
+
+      #'CreateLB':   {'button':  tr('Create Lockbox')
+      #'SelectKey':  {'button':  tr('Select Public Key'),
+      #'ExportLB':   {'button':  tr('Distribute Lockbox'),
+      #'ImportLB':   {'button':  tr('Import Lockbox'),
+      #'EditLB':     {'button':  tr('Edit Lockbox'),
+      #'RegFund':    {'button':  tr('Fund Lockbox'),
+      #'MergeProm':  {'button':  tr('Merge Promissory Notes'),
+      #'CreateProm': {'button':  tr('Create Promissory Note'),
+      #'RevSign':    {'button':  tr('Review and Sign'),
+      #'MergeSigs':  {'button':  tr('Merge Sigs && Broadcast'),
+      #'CreateTx':   {'button':  tr('Spend From Lockbox'),
+
+      cellWidth = 150
+      cellStyle = STYLE_STYLED
+      def createHeaderCell(headStr):
+         lbl = QRichLabel(headStr, bold=True, size=4,
+                                   hAlign=Qt.AlignHCenter,
+                                   vAlign=Qt.AlignVCenter)
+          
+         frm = makeHorizFrame([lbl], cellStyle) 
+         return frm
 
 
-         {'cell':    (2,2),
-          'user':    ORGANIZER,
-          'button':  tr('Merge Signatures and Broadcast'),
-          'reglbl':  tr("""Collect and merge promissory notes for simultaneous 
-                           multi-party funding of a lockbox/escrow"""),
-          'offline': None,
-          'select':  None},
+      self.updateDashFuncs = []
+      def createCell(stk, btnKeyList, direct=HORIZONTAL):
+         layoutMulti = QHBoxLayout() if direct==HORIZONTAL else QVBoxLayout()
 
+         for key in btnKeyList:
+            layout = QGridLayout()
+            btnMap = self.allDashButtons[stk][key]
+            btnMap['BTN'] = QPushButton(btnMap['button'])
+            btnMap['LBL'] = QRichLabel('', doWrap=True, hAlign=Qt.AlignHCenter)
+            btnMap['TTIP'] = self.main.createToolTipWidget(btnMap['tiptxt'])
+            if btnMap['organiz']:
+               btnMap['BTN'].setAutoFillBackground(True)
+               btnMap['BTN'].setStyleSheet(\
+                  'QPushButton { background-color : %s }' % htmlColor('SlightMoreBlue'))
 
+            layout.addWidget(btnMap['BTN'],   0,0)
+            layout.addWidget(btnMap['TTIP'],  0,1)
+            layout.addWidget(btnMap['LBL'],   1,0)
+            layout.setColumnStretch(0,1)
+            layout.setColumnStretch(1,0)
+            self.connect(btnMap['BTN'], SIGNAL('clicked()'), btnMap['callbk'])
 
-         {'cell':    (3,0),
-          'user':    ORGANIZER,
-          'button':  tr('Create Lockbox Spend Transaction'),
-          'reglbl':  tr("""Create a spend of funds from a lockbox to
-                           be signed by enough devices/parties"""),
-          'offline': tr("""Armory must be in online mode to create spending 
-                           transactions"""),
-          'select':  tr('Select the lockbox from which you want to spend')},
+            slayout = QHBoxLayout()
+            slayout.addStretch()
+            slayout.addLayout(layout)
+            slayout.addStretch()
+            layoutMulti.addLayout(slayout)
 
+            def updateWidgets(stkPage, btnKey):
+               btnMap = self.allDashButtons[stkPage][btnKey]
+               def updateFunc(hasSelect, isOnline):
+                  # Default to regular label
+                  lbltxt = btnMap['lbltxt']
+                  orgtxt = '<font color="%s"><b>Organizer Only</b></font><br>' % \
+                                                       htmlColor('TextBlue')
 
-         {'cell':    (3,1),
-          'user':    PARTICIPANT,
-          'button':  tr('Review and Sign a Transaction'),
-          'reglbl':  tr("""Review a proposed transaction then sign and
-                           send back to the organizer"""),
-          'offline': None,
-          'select':  None},
+                  btnMap['BTN'].setText(btnMap['button'])
+                  btnMap['BTN'].setEnabled(True)
+                  if isOnline:
+                     if not hasSelect and btnMap['select'] is not None:
+                        lbltxt = btnMap['select']
+                        btnMap['BTN'].setEnabled(False)
+                  else:
+                     if btnMap['offline'] is not None:
+                        lbltxt = btnMap['offline']
+                        btnMap['BTN'].setEnabled(False)
+                     else:
+                        if not hasSelect and btnMap['select'] is not None:
+                           lbltxt = btnMap['select']
+                           btnMap['BTN'].setEnabled(False)
 
+                  if btnMap['organiz']:
+                     lbltxt = orgtxt + lbltxt
+                  btnMap['LBL'].setText(lbltxt)
 
-         {'cell':    (3,2),
-          'user':    ORGANIZER,
-          'button':  tr('Merge Signatures and Broadcast'),
-          'reglbl':  tr("""Collect and merge promissory notes for simultaneous 
-                           multi-party funding of a lockbox/escrow"""),
-          'offline': tr('You need to be online to broadcast the final transaction'),
-          'select':  None} \
-      ]
+               return updateFunc
+
+            # Add the func to the list of things to call on context change
+            self.updateDashFuncs.append(updateWidgets(stk, key))
+
+         frmCell = QFrame()
+         frmCell.setLayout(layoutMulti)
+         frmCell.setFrameStyle(STYLE_STYLED)
+         return frmCell
+            
+
+      # Now apply the max width
+      #for key,widgMap in self.allDashButtons.iteritems():
+         #widgMap['button'].setMinimumWidth(maxWidth)
          
 
-      lblRow0_Create = QRichLabel(tr("""<font size=3><b>CREATE</b></font>"""), 
-                                                         hAlign=Qt.AlignHCenter)
+      frmSingle = QFrame()
+      frmSingleLayout = QGridLayout()
 
-      lblRow1_Fund   = QRichLabel(tr("""<font size=3><b>FUND</b></font>"""), 
-                                                         hAlign=Qt.AlignHCenter)
+      #'CreateLB':   {'button':  tr('Create Lockbox')
+      #'SelectKey':  {'button':  tr('Select Public Key'),
+      #'ExportLB':   {'button':  tr('Distribute Lockbox'),
+      #'ImportLB':   {'button':  tr('Import Lockbox'),
+      #'EditLB':     {'button':  tr('Edit Lockbox'),
+      #'RegFund':    {'button':  tr('Fund Lockbox'),
+      #'MergeProm':  {'button':  tr('Merge Funding Notes'),
+      #'CreateProm': {'button':  tr('Create Promissory Note'),
+      #'RevSign':    {'button':  tr('Review and Sign'),
+      #'MergeSigs':  {'button':  tr('Merge Sigs && Broadcast'),
+      #'CreateTx':   {'button':  tr('Spend From Lockbox'),
 
-      lblRow2_Spend  = QRichLabel(tr("""<font size=3><b>SPEND</b></font>"""), 
-                                                         hAlign=Qt.AlignHCenter)
+      firstRow  = createCell(0, ['CreateLB', 'SelectKey', 'ExportLB', 'ImportLB'], HORIZONTAL)
+      secondRow = createCell(0, ['RegFund'], HORIZONTAL)
+      thirdRow  = createCell(0, ['CreateTx', 'RevSign', 'MergeSigs'], HORIZONTAL)
 
-      optFundSingle = QRadioButton(tr("Simple"))
-      optFundSimul  = QRadioButton(tr("Simul/Escrow"))
-      btngrp = QButtonGroup(self)
-      btngrp.addButton(optFundSingle)
-      btngrp.addButton(optFundSimul)
-      btngrp.setExclusive(True)
-      optFundSingle.setChecked(True)
+      frmSingleLayout.addWidget(createHeaderCell('CREATE'),    0,0)
+      frmSingleLayout.addWidget(firstRow,                      0,1,  1,3)
 
+      frmSingleLayout.addWidget(createHeaderCell('FUND'),      1,0)
+      frmSingleLayout.addWidget(secondRow,                     1,1,  1,3)
 
-      def createCellWidgets(infoMap):
-         widgets = {}
-         if infoMap['User'] == ORGANIZER:
-            userColor = htmlColor('TextGreen') 
-         else:
-            userColor = htmlColor('TextBlue') 
+      frmSingleLayout.addWidget(createHeaderCell('SPEND'),     2,0)
+      frmSingleLayout.addWidget(thirdRow,                      2,1,  1,3)
 
-         userLabel = '<b>'+infoMap['user']+'</b>'
-         widgets['LBL_USER'] = QRichLabel(userLabel, 
-                                          bold=True,
-                                          color=userColor,
-                                          hAlign=Qt.AlignHCenter)
+      frmSingleLayout.setColumnStretch(0,0)
+      frmSingleLayout.setColumnStretch(1,1)
+      frmSingleLayout.setColumnStretch(2,1)
+      frmSingleLayout.setColumnStretch(3,1)
 
-         widgets['BTN_DOIT'] = QPushButton(infoMap['button'])
-         widgets['LBL_DESCR'] = QRichLabel('', hAlign=Qt.AlignHCenter)
-         
-         def updateDescr(hasSelect, isOnline):
-            # Default to regular label
-            widgets['LBL_DESCR'].setText(infoMap['reglbl'])
-            if isOnline:
-               if not hasSelect and infoMap['select'] is not None:
-                  widgets['LBL_DESCR'].setText(infoMap['select'])
-            else:
-               if infoMap['offline'] is not None:
-                  widgets['LBL_DESCR'].setText(infoMap['offline'])
-               else:
-                  if not hasSelect and infoMap['select'] is not None:
-                     widgets['LBL_DESCR'].setText(infoMap['select'])
-
-         widgets['FUNC_UPDATE'] = updateDescr
-         return widgets
+      frmSingle.setLayout(frmSingleLayout)
+      frmSingle.setFrameStyle(STYLE_STYLED)
       
-
-      for infoMap in allDashboardItems:
-         r,c = infoMap['cell']
-         widgets = createCellWidgets(infoMap)
-         frmBtn = makeHorizFrame(['Stretch', widgets['BTN_DOIT'], 'Stretch'])
+      self.stkDashboard = frmSingle
 
 
+         
       
 
    #############################################################################
@@ -1166,6 +1257,10 @@ class DlgLockboxManager(ArmoryDialog):
       self.btnFundIt.setDisabled(noSelection or isOffline)
       self.btnSimul.setDisabled(noSelection)
       self.btnSpend.setDisabled(noSelection)
+
+      for fn in self.updateDashFuncs:
+         # Whoops, made the args inverses of what the func takes, oh well
+         fn(not noSelection, not isOffline)
       
    #############################################################################
    def getSelectedLBID(self):
@@ -1243,6 +1338,36 @@ class DlgLockboxManager(ArmoryDialog):
       lb = self.getSelectedLockbox()
       DlgExportLockbox(self, self.main, lb).exec_()
       self.updateButtonDisable()
+
+
+   #############################################################################
+   def doMergeProm(self):
+      DlgMergePromNotes(self, self.main, lbID).exec_()
+                        
+
+   #############################################################################
+   def doCreateProm(self):
+      DlgCreatePromNote(self, self.main, lbID).exec_()
+
+
+   
+   #############################################################################
+   def doReview(self):
+      title = tr("Import Signature Collector")
+      descr = tr("""
+         Import a <i>Signature Collector</i> text block to review and
+         sign the simulfunding transaction.  This text block is produced
+         by the party that collected and merged all the promissory notes.
+         Files containing signature-collecting data usually end with
+         <i>*.sigcollect.tx</i>.""")
+      ftypes = ['Signature Collectors (*.sigcollect.tx)']
+      dlgImport = DlgImportAsciiBlock(self, self.main, 
+                        title, descr, ftypes, UnsignedTransaction)
+      dlgImport.exec_()
+      if dlgImport.returnObj:
+         ustx = dlgImport.returnObj
+         DlgMultiSpendReview(self, self.main, ustx).exec_()
+
 
    #############################################################################
    def doDelete(self):
@@ -3234,7 +3359,7 @@ class DlgSelectMultiSigOption(ArmoryDialog):
 
       self.setMinimumWidth(550)
       self.setLayout(layoutMaster)
-      self.setWindowTitle(tr('Multi-Sig Lockboxes [EXPERIMENTAL]'))
+      self.setWindowTitle(tr('Multi-Sig Lockboxes'))
       
 
 
