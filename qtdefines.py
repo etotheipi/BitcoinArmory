@@ -251,22 +251,6 @@ def determineWalletType(wlt, wndw):
 
 
 
-################################################################################
-def getScriptForInputStr(inputStr, main):
-   result = None
-
-   # The addrStr_to_scrAddr method fails if not reg Addr, or P2SH
-   if isBareLockbox(inputStr):
-      lbox = main.getLockboxByID(readLockboxEntryStr(inputStr))
-      result = lbox.binScript if lbox else None
-   elif isP2SHLockbox(inputStr):
-      lbox = main.getLockboxByID(readLockboxEntryStr(inputStr))
-      result = script_to_p2sh_script(lbox.binScript) if lbox else None
-   else:
-      scrAddr = addrStr_to_scrAddr(inputStr)
-      result = scrAddr_to_script(scrAddr)
-   return result
-
 
 
 #############################################################################

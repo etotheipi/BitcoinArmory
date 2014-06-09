@@ -11,6 +11,11 @@ import urllib2
 #   -- It adds plugin.getTabToDisplay() to the main window tab list
 #   -- It uses plugin.tabName as the label for that tab.
 #   -- It uses plugin.tabName as the label for that tab.
+#
+# Make sure you test your plugin not only when it's online, but also when
+#   -- Armory is in offline mode, and internet is not accessible
+#   -- Armory is in offline mode, and internet *is* accessible
+#   -- User uses skip-offline-check so online, but service can't be reached
 class PluginObject(object):
 
    tabName = 'Exchange Rates'
@@ -31,6 +36,9 @@ class PluginObject(object):
       self.lblBuyLabel  = QRichLabel(tr('Coinbase <b>Buy</b> Price (USD):'),  doWrap=False)
       self.lblSellPrice = QRichLabel('<Not Available>')
       self.lblBuyPrice  = QRichLabel('<Not Available>')
+
+      self.lastSellStr = ''
+      self.lastBuyStr = ''
 
       self.btnUpdate = QPushButton(tr('Check Now'))
       self.main.connect(self.btnUpdate, SIGNAL('clicked()'), self.checkUpdatePrice)
@@ -160,12 +168,14 @@ class PluginObject(object):
                                            (htmlColor('TextBlue'), self.lastBuyStr))
       
          self.lastPriceFetch = RightNow()
-      except:
-         LOGEXCEPT('Failed to fetch price data from %s' % urlBase)
 
-      self.updateLastTimeStr()
-      self.updateWalletTable()
-      self.updateCalcUSD(self.edtEnterBTC.text())
+         self.updateLastTimeStr()
+         self.updateWalletTable()
+         self.updateCalcUSD(self.edtEnterBTC.text())
+      except:
+         #LOGEXCEPT('Failed to fetch price data from %s' % urlBase)
+         pass
+
    
 
    #############################################################################

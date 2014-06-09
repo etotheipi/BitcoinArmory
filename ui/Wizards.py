@@ -17,7 +17,7 @@ from qtdefines import USERMODE, GETFONT, tr, AddToRunningDialogsList
 from armoryengine.PyBtcWallet import PyBtcWallet
 from CppBlockUtils import SecureBinaryData
 from armoryengine.BDM import TheBDM
-from qtdialogs import DlgProgress, DlgConfirmSend
+from qtdialogs import DlgProgress
 
 # This class is intended to be an abstract Wizard class that
 # will hold all of the functionality that is common to all 

@@ -12,8 +12,14 @@
 # Orig Date:  20 November, 2011
 #
 ################################################################################
+#from armoryengine.MultiSigUtils import MultiSigLockbox
 import ast
 from datetime import datetime
+from email.MIMEMultipart import MIMEMultipart
+from email.MIMEBase import MIMEBase
+from email.MIMEText import MIMEText
+from email.Utils import COMMASPACE, formatdate
+from email import Encoders
 import hashlib
 import inspect
 import locale
@@ -25,6 +31,7 @@ import os
 import platform
 import random
 import signal
+import smtplib
 from struct import pack, unpack
 #from subprocess import PIPE
 import sys
@@ -109,9 +116,9 @@ parser.add_option("--coverage_include", dest="coverageInclude", default=None, ty
 # Some useful constants to be used throughout everything
 BASE58CHARS  = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
 BASE16CHARS  = '0123 4567 89ab cdef'.replace(' ','')
-LITTLEENDIAN  = '<';
-BIGENDIAN     = '>';
-NETWORKENDIAN = '!';
+LITTLEENDIAN  = '<'
+BIGENDIAN     = '>'
+NETWORKENDIAN = '!'
 ONE_BTC       = long(100000000)
 DONATION       = long(5000000)
 CENT          = long(1000000)
@@ -135,11 +142,17 @@ WEEK     = 7*DAY
 MONTH    = 30*DAY
 YEAR     = 365*DAY
 
+UNCOMP_PK_LEN = 65
+COMP_PK_LEN   = 33
+
 KILOBYTE = 1024.0
 MEGABYTE = 1024*KILOBYTE
 GIGABYTE = 1024*MEGABYTE
 TERABYTE = 1024*GIGABYTE
 PETABYTE = 1024*TERABYTE
+
+LB_MAXM = 7
+LB_MAXN = 7
 
 # Set the default-default
 DEFAULT_DATE_FORMAT = '%Y-%b-%d %I:%M%p'
@@ -295,7 +308,6 @@ NETWORKS['\x05'] = "Main Network"
 NETWORKS['\x6f'] = "Test Network"
 NETWORKS['\xc4'] = "Test Network"
 NETWORKS['\x34'] = "Namecoin Network"
-
 
 # We disable wallet checks on ARM for the sake of resources (unless forced)
 DO_WALLET_CHECK = CLI_OPTIONS.forceWalletCheck or \
@@ -929,6 +941,22 @@ if CLI_OPTIONS.testAnnounceCode:
       '62fe30376497ad3efcd2964aa0be366010c11b8d7fc8209f586eac00bb763015')
 
 
+#############################################################################
+def readWalletFiles():
+   '''Function that finds the paths of all non-backup wallets in the Armory
+      home directory.'''
+   wltPaths = []
+   for f in os.listdir(ARMORY_HOME_DIR):
+      fullPath = os.path.join(ARMORY_HOME_DIR, f)
+      if os.path.isfile(fullPath) and not fullPath.endswith('backup.wallet'):
+         openfile = open(fullPath, 'rb')
+         first8 = openfile.read(8)
+         openfile.close()
+         if first8=='\xbaWALLET\x00':
+            wltPaths.append(fullPath)
+
+   return wltPaths
+
 
 ################################################################################
 # Load the C++ utilites here
@@ -1091,6 +1119,13 @@ def GetExecDir():
    srcfile = inspect.getsourcefile(GetExecDir)
    srcpath = os.path.dirname(srcfile)
    srcpath = os.path.abspath(srcpath)
+   if OS_WINDOWS and srcpath.endswith('.zip'):
+      srcpath = os.path.dirname(srcpath)
+
+   if not os.path.exists(srcpath):
+      LOGERROR('Determined that exec dir is %s but it does not exist' % srcpath)
+      return None
+
    return srcpath
 
 
@@ -1340,11 +1375,10 @@ def pubkey_to_p2pk_script(binStr33or65):
 # will do that by default.  If you require a different order, pre-sort them
 # and pass withSort=False.
 #
-# NOTE:  About the hardcoded bytes in here:
-#        I made a mistake when making the databases, and hardcoded the
-#        mainnet addrByte and P2SH bytes into DB format.  This means that
-#        that any ScrAddr object will use the mainnet prefix bytes, despite
-#        being in testnet.  I will at some point fix this.
+# NOTE:  About the hardcoded bytes in here: the mainnet addrByte and P2SH  
+#        bytes are hardcoded into DB format.  This means that
+#        that any ScrAddr object will use the mainnet prefix bytes, regardless
+#        of whether it is in testnet.  
 def pubkeylist_to_multisig_script(pkList, M, withSort=True):
 
    if sum([  (0 if len(pk) in [33,65] else 1)   for pk in pkList]) > 0:
@@ -1447,6 +1481,10 @@ def addrStr_to_scrAddr(addrStr):
       BadAddressError('Invalid address: "%s"' % addrStr)
 
 
+################################################################################
+def addrStr_to_script(addrStr):
+   """ Convert an addr string to a binary script """
+   return scrAddr_to_script(addrStr_to_scrAddr(addrStr))
 
 
 
@@ -1540,6 +1578,8 @@ def enum(*sequential, **named):
    return type('Enum', (), enums)
 
 DATATYPE = enum("Binary", 'Base58', 'Hex')
+
+
 def isLikelyDataType(theStr, dtype=None):
    """
    This really shouldn't be used on short strings.  Hence
@@ -1587,7 +1627,7 @@ NONSTDPREFIX   = '\xff'
 def CheckHash160(scrAddr):
    if not len(scrAddr)==21:
       raise BadAddressError("Supplied scrAddr is not a Hash160 value!")
-   if not scrAddr[0] == HASH160PREFIX:
+   if not scrAddr[0] in [HASH160PREFIX, P2SHPREFIX]:
       raise BadAddressError("Supplied scrAddr is not a Hash160 value!")
    return scrAddr[1:]
 
@@ -2527,7 +2567,12 @@ def ReadFragIDLineHex(hexLine):
 ################################################################################
 
 
-
+################################################################################
+def stripJSONStrChars(inStr):
+   '''Function that strips the extra characters from a JSON-encoded string.'''
+   # When Python decodes a JSON string, extra characters are added. For example,
+   # "Hello" becomes "u'Hello'". We want to get the original string.
+   return inStr[2:-1]
 
 
 ################################################################################
@@ -3030,6 +3075,117 @@ def EstimateCumulativeBlockchainSize(blkNum):
       return dend+extraOnTop
 
 
+################################################################################
+# Function checks to see if a binary value that's passed in is a valid public
+# key. The incoming key may be binary or hex. The return value is a boolean
+# indicating whether or not the key is valid.
+def isValidPK(inPK, inStr=False):
+   retVal = False
+   checkVal = '\x00'
+
+   if inStr:
+      checkVal = hex_to_binary(inPK)
+   else:
+      checkVal = inPK
+   pkLen = len(checkVal)
+
+   if pkLen == UNCOMP_PK_LEN or pkLen == COMP_PK_LEN:
+      # The "proper" way to check the key is to feed it to Crypto++.
+      if not CryptoECDSA().VerifyPublicKeyValid(SecureBinaryData(checkVal)):
+         LOGWARN('Pub key %s is invalid.' % binary_to_hex(inPK))
+      else:
+         retVal = True
+   else:
+      LOGWARN('Pub key %s has an invalid length (%d bytes).' % \
+              (len(inPK), binary_to_hex(inPK)))
+
+   return retVal
+
+
+################################################################################
+# Function that gets a list of all the lockboxes loaded into Armory.
+def getLockboxList():
+   lbList = []
+
+   # Go through every line in the multisig file used by Armory and look for the
+   # line with "LOCKBOX-<LockboxID>" (e.g., LOCKBOX-45Tw1FfA). Strip everything
+   # except the ID and add it to a list that'll be returned to the caller.
+   with open(MULTISIG_FILE, 'r') as f:
+      for line in f:
+         if "LOCKBOX-" in line:
+            stripLine = line.replace("=", "").replace("LOCKBOX-", "").replace("\n", "")
+            lbList.append(stripLine)
+
+      f.flush()
+      os.fsync(f.fileno())
+
+   return lbList
+
+
+################################################################################
+# Decompress an incoming public key. The incoming key may be binary or hex. The
+# decompressed key is binary.
+def decompressPK(inKey, inStr=False):
+   outKey = '\x00'
+   checkKey = '\x00'
+
+   # Let's support strings and binary data.
+   if inStr:
+      checkKey = hex_to_binary(inKey)
+   else:
+      checkKey = inKey
+   lenInKey = len(checkKey)
+
+   # WARNING: This function won't verify the input. It just passes the input
+   # down the line.
+   if lenInKey == UNCOMP_PK_LEN:
+       LOGWARN('The public key is already decompressed.')
+       outKey = checkKey
+   elif lenInKey != COMP_PK_LEN:
+       LOGERROR('The public key has an incorrect size (%d bytes).' % lenInKey)
+   else:
+      if checkKey[0] == '\x02' or checkKey[1] == '\x03':
+         cppKeyVal = SecureBinaryData(checkKey)
+         outKey = CryptoECDSA().UncompressPoint(cppKeyVal).toBinStr()
+         keyStr = binary_to_hex(outKey)
+      else:
+         LOGERROR('The public key\'s first byte (%s) is incorrectly ' \
+                  'formatted.' % binary_to_hex(checkKey[0]))
+
+   return outKey
+
+
+################################################################################
+# Function that can be used to send an e-mail to multiple recipients.
+def send_email(send_from, server, password, send_to, subject, text):
+   # smtp.sendmail() requires a list of recipients. If we didn't get a list,
+   # create one, and delimit based on a colon.
+   if not type(send_to) == list:
+      send_to = send_to.split(":")
+
+   # Split the server info. Also, use a default port in case the user goofed and
+   # didn't specify a port.
+   server = server.split(":")
+   serverAddr = server[0]
+   serverPort = 587
+   if len(server) > 1:
+      serverPort = int(server[1])
+
+   # Some of this may have to be modded to support non-TLS servers.
+   msg = MIMEMultipart()
+   msg['From'] = send_from
+   msg['To'] = COMMASPACE.join(send_to)
+   msg['Date'] = formatdate(localtime=True)
+   msg['Subject'] = subject
+   msg.attach(MIMEText(text))
+   mailServer = smtplib.SMTP(serverAddr, serverPort)
+   mailServer.ehlo()
+   mailServer.starttls()
+   mailServer.ehlo()
+   mailServer.login(send_from, password)
+   mailServer.sendmail(send_from, send_to, msg.as_string())
+   mailServer.close()
+
 
 #############################################################################
 def DeriveChaincodeFromRootKey(sbdPrivKey):
@@ -3319,7 +3475,3 @@ except:
 # We only use BITTORRENT for mainnet
 if USE_TESTNET:
    DISABLE_TORRENTDL = True
-
-
-
-

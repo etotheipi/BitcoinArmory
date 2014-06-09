@@ -49,8 +49,9 @@ from armoryengine.parseAnnounce import *
 from armoryengine.PyBtcWalletRecovery import WalletConsistencyCheck
 
 from armoryengine.MultiSigUtils import MultiSigLockbox
-from ui.MultiSigHacker import DlgSelectMultiSigOption, DlgLockboxManager, \
+from ui.MultiSigDialogs import DlgSelectMultiSigOption, DlgLockboxManager, \
                               DlgMergePromNotes, DlgCreatePromNote
+from armoryengine.Decorators import RemoveRepeatingExtensions
 
 # HACK ALERT: Qt has a bug in OS X where the system font settings will override
 # the app's settings when a window is activated (e.g., Armory starts, the user
@@ -497,9 +498,10 @@ class ArmoryMainWindow(QMainWindow):
       self.mainDisplayTabs.addTab(self.tabActivity,  'Transactions')
       self.mainDisplayTabs.addTab(self.tabAnnounce,  'Announcements')
 
-      ## PLUGINS -- UNCOMMENT TO ENABLE
-      self.loadPlugins()
-      ## PLUGINS -- UNCOMMENT TO ENABLE
+      ##########################################################################
+      if USE_TESTNET:
+         self.loadPlugins()   
+      ##########################################################################
 
 
       btnSendBtc   = QPushButton(tr("Send Bitcoins"))
@@ -858,7 +860,8 @@ class ArmoryMainWindow(QMainWindow):
       This method checks for any .py files
       """ 
 
-      pluginDir = os.path.join(ARMORY_HOME_DIR, 'plugins')
+      EXECDIR = GetExecDir()
+      pluginDir = os.path.join(EXECDIR, 'plugins')
       if not os.path.exists(pluginDir):
          return
 
@@ -1523,17 +1526,20 @@ class ArmoryMainWindow(QMainWindow):
 
    #############################################################################
    def makeWalletCopy(self, parent, wlt, copyType='Same', suffix='', changePass=False):
+      '''Create a digital backup of your wallet.'''
       if changePass:
          LOGERROR('Changing password is not implemented yet!')
          raise NotImplementedError
 
+      # Set the file name.
       fn = 'armory_%s_%s.wallet' % (wlt.uniqueIDB58, suffix)
-      if wlt.watchingOnly:
+      if wlt.watchingOnly and copyType.lower() != 'pkcc':
          fn = 'armory_%s_%s.watchonly.wallet' % (wlt.uniqueIDB58, suffix)
       savePath = unicode(self.getFileSave(defaultFilename=fn))
       if not len(savePath)>0:
          return False
 
+      # Create the file based on the type you want.
       if copyType.lower()=='same':
          wlt.writeFreshWalletFile(savePath)
       elif copyType.lower()=='decrypt':
@@ -1554,6 +1560,8 @@ class ArmoryMainWindow(QMainWindow):
             newPassphrase = SecureBinaryData(str(dlgCrypt.edtPasswd1.text()))
 
          wlt.makeEncryptedWalletCopy(savePath, newPassphrase)
+      elif copyType.lower() == 'pkcc':
+         wlt.writePKCCFile(savePath)
       else:
          LOGERROR('Invalid "copyType" supplied to makeWalletCopy: %s', copyType)
          return False
@@ -2519,7 +2527,6 @@ class ArmoryMainWindow(QMainWindow):
 
 
       # Load wallets found in the .armory directory
-      wltPaths = []
       self.walletMap = {}
       self.walletIndices = {}
       self.walletIDSet = set()
@@ -2533,18 +2540,8 @@ class ArmoryMainWindow(QMainWindow):
 
       self.currBlockNum = 0
 
-
-
       LOGINFO('Loading wallets...')
-      for f in os.listdir(ARMORY_HOME_DIR):
-         fullPath = os.path.join(ARMORY_HOME_DIR, f)
-         if os.path.isfile(fullPath) and not fullPath.endswith('backup.wallet'):
-            openfile = open(fullPath, 'rb')
-            first8 = openfile.read(8)
-            openfile.close()
-            if first8=='\xbaWALLET\x00':
-               wltPaths.append(fullPath)
-
+      wltPaths = readWalletFiles()
 
       wltExclude = self.settings.get('Excluded_Wallets', expectList=True)
       wltOffline = self.settings.get('Offline_WalletIDs', expectList=True)
@@ -2567,8 +2564,8 @@ class ArmoryMainWindow(QMainWindow):
                   LOGWARN('     Wallet 2 (skipped): %s', prevWltPath)
                else:
                   LOGWARN('Second wallet is more useful than the first one...')
-                  LOGWARN('     Wallet 1 (loaded):  %s', self.walletMap[wltID].walletPath)
-                  LOGWARN('     Wallet 2 (skipped): %s', fpath)
+                  LOGWARN('     Wallet 1 (skipped): %s', fpath)
+                  LOGWARN('     Wallet 2 (loaded):  %s', self.walletMap[wltID].walletPath)
             else:
                # Update the maps/dictionaries
                self.walletMap[wltID] = wltLoad
@@ -2616,6 +2613,7 @@ class ArmoryMainWindow(QMainWindow):
 
 
    #############################################################################
+   @RemoveRepeatingExtensions
    def getFileSave(self, title='Save Wallet File', \
                          ffilter=['Wallet files (*.wallet)'], \
                          defaultFilename=None):
@@ -2708,35 +2706,12 @@ class ArmoryMainWindow(QMainWindow):
       self.cppLockboxWltMap = {}
       if not os.path.exists(fn):
          return
-         
-      with open(fn, 'r') as f:
-         allData = f.read()
 
-      startMark = '=====LOCKBOX'
+      lbList = readLockboxesFile(fn)
+      for lb in lbList:
+         self.updateOrAddLockbox(lb)
 
-      if not startMark in allData:
-         return
 
-      try:
-         
-         pos = allData.find(startMark)
-         i = 0
-         while pos >= 0:
-            nextPos = allData.find(startMark, pos+1)
-            if nextPos < 0:
-               nextPos = len(allData)
-
-            lbBlock = allData[pos:nextPos].strip()
-            lbox = MultiSigLockbox().unserializeAscii(lbBlock)
-            self.updateOrAddLockbox(lbox)
-            LOGINFO('Read in Lockbox: %s' % lbox.uniqueIDB58)
-
-            pos = allData.find(startMark, pos+1)
-            i += 1
-      except:
-         LOGEXCEPT('Error reading lockboxes file')
-         shutil.move(fn, fn+'.%d.bak'% long(RightNow()))
-   
    #############################################################################
    def updateOrAddLockbox(self, lbObj, isFresh=False):
       try:
@@ -2767,7 +2742,7 @@ class ArmoryMainWindow(QMainWindow):
             # Replace the original
             self.allLockboxes[index] = lbObj
 
-         self.writeLockboxesFile()
+         writeLockboxesFile(self.allLockboxes, MULTISIG_FILE)
       except:
          LOGEXCEPT('Failed to add/update lockbox')
         
@@ -2781,7 +2756,7 @@ class ArmoryMainWindow(QMainWindow):
       else:
          del self.allLockboxes[index]
          self.reconstructLockboxMaps()
-         self.writeLockboxesFile()
+         writeLockboxesFile(self.allLockboxes, MULTISIG_FILE)
 
 
    #############################################################################
@@ -2802,21 +2777,8 @@ class ArmoryMainWindow(QMainWindow):
       for lboxId in self.lockboxIDMap.keys():
          lbox = self.allLockboxes[self.lockboxIDMap[lboxId]]
          if p2shAddrStr == binScript_to_p2shAddrStr(lbox.binScript):
-            return lboxId
+            return lbox
       return None
-
-   #############################################################################
-   def writeLockboxesFile(self):
-      # Do all the serializing and bail-on-error before opening the file 
-      # for writing, or we might delete it all by accident
-      textOut = '\n\n'.join([lb.serializeAscii() for lb in self.allLockboxes])
-      with open(MULTISIG_FILE, 'w') as f:
-         f.write(textOut)
-         f.flush()
-         os.fsync(f.fileno())
-
-
-      
 
 
    #############################################################################
@@ -2828,9 +2790,12 @@ class ArmoryMainWindow(QMainWindow):
    #############################################################################
    def getContribStr(self, binScript, contribID='', contribLabel=''):
       """ 
-      We need to be very careful and not rely any more than we have to
-      on the contribID fields: those could be manipulated to deceive you.
-      We should extract as much information as possible without it.  This
+      This is used to display info for the lockbox interface.  It might also be
+      useful as a general script_to_user_string method, where you have a 
+      binScript and you want to tell the user something about it.  However,
+      it is verbose, so it won't fit in a send-confirm dialog, necessarily.
+
+      We should extract as much information as possible without contrib*.  This
       at least guarantees that we see the correct data for our own wallets
       and lockboxes, even if the data for other parties is incorrect.
       """
@@ -3781,7 +3746,7 @@ class ArmoryMainWindow(QMainWindow):
                   '<br><br>If the transaction did fail, please consider '
                   'reporting this error the the Armory '
                   'developers.  From the main window, go to '
-                  '"<i>File</i>"\xe2\x86\x92"<i>Export Log File</i>" to make a copy of your '
+                  '"<i>File</i>" and select "<i>Export Log File</i>" to make a copy of your '
                   'log file to send via email to support@bitcoinarmory.com.  ' \
                    % (searchstr,searchstr[:8]), \
                   QMessageBox.Ok)
@@ -6279,12 +6244,24 @@ class ArmoryMainWindow(QMainWindow):
       return lbl
 
    #############################################################################
-   def createAddressEntryWidgets(self, parent, initString='', **cabbKWArgs):
+   def createAddressEntryWidgets(self, parent, initString='', maxDetectLen=128,
+                                           boldDetectParts=0, **cabbKWArgs):
       """
-      Returns four widgets that can be put into layouts:
-         [[QLineEdit: addr/pubkey]]              [[Button: Addrbook]]
-         [[Label: If pubkey/lockbox, show addr]]
-         [[Label: Wallet/Lockbox autodetect]]
+      If you are putting the LBL_DETECT somewhere that is space-constrained,
+      set maxDetectLen to a smaller value.  It will limit the number of chars
+      to be included in the autodetect label.
+
+      "cabbKWArgs" is "create address book button kwargs"
+      Here's the signature of that function... you can pass any named args
+      to this function and they will be passed along to createAddrBookButton
+         def createAddrBookButton(parent, targWidget, defaultWltID=None, 
+                                  actionStr="Select", selectExistingOnly=False, 
+                                  selectMineOnly=False, getPubKey=False,
+                                  showLockBoxes=True)
+
+      Returns three widgets that can be put into layouts:
+         [[QLineEdit: addr/pubkey]]  [[Button: Addrbook]]
+         [[Label: Wallet/Lockbox/Addr autodetect]]
       """
 
       addrEntryObjs = {}
@@ -6293,8 +6270,8 @@ class ArmoryMainWindow(QMainWindow):
       addrEntryObjs['BTN_BOOK']  = createAddrBookButton(parent, 
                                                         addrEntryObjs['QLE_ADDR'], 
                                                         **cabbKWArgs)
-      addrEntryObjs['LBL_DETECTADDR'] = QRichLabel('')
-      addrEntryObjs['LBL_DETECTWLT']  = QRichLabel('')
+      addrEntryObjs['LBL_DETECT'] = QRichLabel('')
+      addrEntryObjs['CALLBACK_GETSCRIPT'] = None
 
       ##########################################################################
       # Create a function that reads the user string and updates labels if 
@@ -6305,61 +6282,26 @@ class ArmoryMainWindow(QMainWindow):
       # probably use some refactoring
       def updateAddrDetectLabels():
          try:
-            addrtext = str(addrEntryObjs['QLE_ADDR'].text()).strip()
-            
-            if addrStr_is_p2sh(addrtext):
-               lboxID = self.getLockboxByP2SHAddrStr(addrtext) 
+            enteredText = str(addrEntryObjs['QLE_ADDR'].text()).strip()
+
+            scriptInfo = self.getScriptForUserString(enteredText)
+            displayInfo = self.getDisplayStringForScript(
+                           scriptInfo['Script'], maxDetectLen, boldDetectParts,
+                           prefIDOverAddr=scriptInfo['ShowID'])
+
+            dispStr = displayInfo['String']
+            if displayInfo['WltID'] is None and displayInfo['LboxID'] is None:
+               addrEntryObjs['LBL_DETECT'].setText(dispStr)
             else:
-               lboxID = readLockboxEntryStr(addrtext)
-   
-            if lboxID:
-               lbox = self.getLockboxByID(lboxID)
-               if lbox:
-                  dispStr = '<b>Lockbox: %s-of-%s</b>: "%s"' % \
-                                      (lbox.M, lbox.N, lbox.shortName)
-               else:
-                  dispStr = 'Unrecognized Lockbox'
-   
-               addrEntryObjs['LBL_DETECTWLT'].setText(dispStr, color='TextBlue')
-               addrEntryObjs['LBL_DETECTWLT'].setVisible(True)
+               addrEntryObjs['LBL_DETECT'].setText(dispStr, color='TextBlue')
 
-               if addrStr_is_p2sh(addrtext):
-                  addrEntryObjs['LBL_DETECTADDR'].setVisible(False)
-               else:
-                  p2shStr = scrAddr_to_addrStr(lbox.p2shScrAddr)
-                  addrEntryObjs['LBL_DETECTADDR'].setText(p2shStr)
-                  addrEntryObjs['LBL_DETECTADDR'].setVisible(True)
-               return
-   
-            # Not a lockbox... could be addrStr or pubkey.  If pubkey, show the
-            # equiv addrStr below it. Either way, check if recognize its wltID
-            isPubKey = (len(addrtext) in [66, 130])
-            if not isPubKey:
-               wltID = self.getWalletForAddr160(addrStr_to_hash160(addrtext)[1])
-               addrEntryObjs['LBL_DETECTADDR'].setVisible(False)
-            else:
-               a160 = hash160(hex_to_binary(addrtext))
-               wltID = self.getWalletForAddr160(a160)
-
-               # Regardless of whether we recognize the pubkey, show its addrStr
-               pubAddrStr = hash160_to_addrStr(a160)
-               addrEntryObjs['LBL_DETECTADDR'].setText(pubAddrStr)
-               addrEntryObjs['LBL_DETECTADDR'].setVisible(True)
-
-
-            # wltID is None/'' if none of the loaded wallets contain this addr
-            if wltID:
-               wlt = self.walletMap[wltID]
-               dispStr = '%s (%s)' % (wlt.labelName, wlt.uniqueIDB58)
-               addrEntryObjs['LBL_DETECTWLT'].setVisible(True)
-               addrEntryObjs['LBL_DETECTWLT'].setText(dispStr, color='TextBlue')
-            else:
-               addrEntryObjs['LBL_DETECTWLT'].setVisible(False)
+            addrEntryObjs['LBL_DETECT'].setVisible(True)
+            addrEntryObjs['QLE_ADDR'].setCursorPosition(0)
 
          except:
-            LOGEXCEPT('Invalid recipient string')
-            addrEntryObjs['LBL_DETECTADDR'].setVisible(False)
-            addrEntryObjs['LBL_DETECTWLT'].setVisible(False)
+            #LOGEXCEPT('Invalid recipient string')
+            addrEntryObjs['LBL_DETECT'].setVisible(False)
+            addrEntryObjs['LBL_DETECT'].setVisible(False)
       # End function to be connected
       ##########################################################################
             
@@ -6370,34 +6312,31 @@ class ArmoryMainWindow(QMainWindow):
       updateAddrDetectLabels()
 
       # Create a func that can be called to get the script that was entered
+      # This uses getScriptForUserString() which actually returns 4 vals
+      #        rawScript, wltIDorNone, lboxIDorNone, addrStringEntered
+      # (The last one is really only used to determine what info is most 
+      #  relevant to display to the user...it can be ignored in most cases)
       def getScript():
          entered = str(addrEntryObjs['QLE_ADDR'].text()).strip()
          return self.getScriptForUserString(entered)
 
       addrEntryObjs['CALLBACK_GETSCRIPT'] = getScript
-
       return addrEntryObjs
 
 
 
    #############################################################################
    def getScriptForUserString(self, userStr):
-      try:
-         userStr = userStr.strip()
-         if isBareLockbox(userStr):
-            lbox = self.getLockboxByID(readLockboxEntryStr(userStr))
-            result = lbox.binScript if lbox else None
-         elif isP2SHLockbox(userStr):
-            lbox = self.getLockboxByID(readLockboxEntryStr(userStr))
-            result = script_to_p2sh_script(lbox.binScript) if lbox else None
-         else:
-            scrAddr = addrStr_to_scrAddr(userStr)
-            result = scrAddr_to_script(scrAddr)
+      return getScriptForUserString(userStr, self.walletMap, self.allLockboxes)
 
-         return result
-      except:
-         LOGEXCEPT('Invalid user string entered')
-         return None
+
+   #############################################################################
+   def getDisplayStringForScript(self, binScript, maxChars=256, 
+                                 doBold=0, prefIDOverAddr=False, 
+                                 lblTrunc=12, lastTrunc=12):
+      return getDisplayStringForScript(binScript, self.walletMap, 
+                                       self.allLockboxes, maxChars, doBold,
+                                       prefIDOverAddr, lblTrunc, lastTrunc) 
 
 
    #############################################################################
@@ -6426,7 +6365,7 @@ class ArmoryMainWindow(QMainWindow):
                                                        not OS_MACOSX)
                if (le.getValue() <= 0 and notifyOut) or \
                   (le.getValue() > 0 and notifyIn):
-                  # notifiedAleready = False, isSingleAddr = True
+                  # notifiedAlready = False, isSingleAddr = True
                   self.notifyQueue.append([wltID, le, False, True])
                self.createCombinedLedger()
                self.walletModel.reset()
@@ -6439,7 +6378,7 @@ class ArmoryMainWindow(QMainWindow):
             le = cppWlt.calcLedgerEntryForTxStr(rawTx)
             if not le.getTxHash() == '\x00' * 32:
                LOGDEBUG('ZerConf tx for LOCKBOX: %s' % lbID)
-               # notifiedAleready = False, isSingleAddr = True
+               # notifiedAlready = False, isSingleAddr = False
                self.notifyQueue.append([lbID, le, False, False])
                self.createCombinedLedger()
                self.walletModel.reset()
@@ -6750,19 +6689,39 @@ class ArmoryMainWindow(QMainWindow):
       '''
       dispLines = []
       title = ''
-      totalStr = coin2str(txAmt, maxZeros=1)
+      totalStr = coin2strNZS(txAmt)
+
+
+      if moneyID in self.walletMap:
+         wlt = self.walletMap[moneyID]
+         if len(wlt.labelName) <= 20:
+            dispName = '"%s"' % wlt.labelName
+         else:
+            dispName = '"%s..."' % wlt.labelName[:17]
+         dispName = 'Wallet %s (%s)' % (dispName, wlt.uniqueIDB58)
+      elif moneyID in self.cppLockboxWltMap:
+         lbox = self.getLockboxByID(moneyID)
+         if len(lbox.shortName) <= 20:
+            dispName = '%d-of-%d "%s"' % (lbox.M, lbox.N, lbox.shortName)
+         else:
+            dispName = '%d-of-%d "%s..."' % (lbox.M, lbox.N, lbox.shortName[:17])
+         dispName = 'Lockbox %s (%s)' % (dispName, lbox.uniqueIDB58)
+      else:
+         LOGERROR('Asked to show notification for wlt/lbox we do not have')
+         return
 
       # Collected everything we need to display, now construct it and do it.
       if ledgerAmt > 0:
          # Received!
          title = 'Bitcoins Received!'
-         dispLines.append('Amount: \t%s BTC' % totalStr.strip())
-         dispLines.append('Recipient:\tID[%s]' % moneyID)
+         dispLines.append('Amount:  %s BTC' % totalStr)
+         dispLines.append('Recipient:  %s' % dispName)
       elif ledgerAmt < 0:
          # Sent!
          title = 'Bitcoins Sent!'
-         dispLines.append('Amount: \t%s BTC' % totalStr.strip())
-         dispLines.append('Sender:\tID[%s]' % moneyID)
+         dispLines.append('Amount:  %s BTC' % totalStr)
+         dispLines.append('Sender:  %s' % dispName)
+
       self.sysTray.showMessage(title, \
                                '\n'.join(dispLines),  \
                                QSystemTrayIcon.Information, \
@@ -6789,16 +6748,6 @@ class ArmoryMainWindow(QMainWindow):
       for i in range(len(self.notifyQueue)):
          moneyID, le, alreadyNotified, isSingleAddr = self.notifyQueue[i]
 
-         # Make sure the wallet ID or lockbox ID keys are actually valid before
-         # using them to grab the appropriate C++ wallet.
-         if ((isSingleAddr and not self.walletMap.has_key(moneyID)) and \
-            (not isSingleAddr and not self.cppLockboxWltMap.has_key(moneyID))):
-            continue
-         if isSingleAddr:
-             wlt = self.walletMap[moneyID].cppWallet
-         else:
-             wlt = self.cppLockboxWltMap[moneyID]
-
          # Skip the ones we've notified of already.
          if alreadyNotified:
             continue
@@ -6806,6 +6755,18 @@ class ArmoryMainWindow(QMainWindow):
          # Notification is not actually for us.
          if le.getTxHash()=='\x00'*32:
             continue
+
+         # Make sure the wallet ID or lockbox ID keys are actually valid before
+         # using them to grab the appropriate C++ wallet.
+         if ((isSingleAddr and not self.walletMap.has_key(moneyID)) and \
+            (not isSingleAddr and not self.cppLockboxWltMap.has_key(moneyID))):
+            continue
+
+         if isSingleAddr:
+             wlt = self.walletMap[moneyID].cppWallet
+         else:
+             wlt = self.cppLockboxWltMap[moneyID]
+
 
          # Mark the transactions as having gone through the queue. If the
          # transaction stayed within the wallet, send a special notification,
@@ -6825,9 +6786,7 @@ class ArmoryMainWindow(QMainWindow):
          else:
             txref = TheBDM.getTxByHash(le.getTxHash())
             nOut = txref.getNumTxOut()
-#            nIn = txref.getNumTxIn()
             getScrAddrOut = lambda i: txref.getTxOutCopy(i).getScrAddressStr()
-#            getScrAddrIn = lambda i: txref.getTxOutCopy(i).getScrAddressStr()
 
             # Iterate through each TxOut.
             for i in range(nOut):

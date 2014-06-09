@@ -2,6 +2,7 @@ from os import path
 import base64
 import json
 import ast
+import textwrap      
 from armoryengine.ArmoryUtils import *
 from armoryengine.Transaction import *
 from armorycolors import htmlColor
@@ -108,13 +109,98 @@ def readLockboxEntryStr(addrtext):
    return result
 
 ################################################################################
-def isP2SHLockbox(addrtext):
-   return addrtext.startswith(LBP2SHPREFIX)
-
-################################################################################
 def isBareLockbox(addrtext):
    return addrtext.startswith(LBPREFIX)
 
+################################################################################
+def isP2SHLockbox(addrtext):
+   # Bugfix:  Bare prefix includes P2SH prefix, whoops.  Return false if Bare
+   return addrtext.startswith(LBP2SHPREFIX) and not isBareLockbox(addrtext)
+
+
+
+################################################################################
+# Function that writes a lockbox to a file. The lockbox can be appended to a
+# previously existing file or can overwrite what was already in the file.
+def writeLockboxesFile(inLockboxes, lbFilePath, append=False):
+   writeMode = 'w'
+   if append:
+      writeMode = 'a'
+
+   # Do all the serializing and bail-on-error before opening the file 
+   # for writing, or we might delete it all by accident
+   textOut = '\n\n'.join([lb.serializeAscii() for lb in inLockboxes]) + '\n'
+   with open(lbFilePath, writeMode) as f:
+      f.write(textOut)
+      f.flush()
+      os.fsync(f.fileno())
+
+
+################################################################################
+# Function that can be used to send an e-mail to multiple recipients.
+def readLockboxesFile(lbFilePath):
+   retLBList = []
+
+   # Read in the lockbox file.
+   with open(lbFilePath, 'r') as lbFileData:
+      allData = lbFileData.read()
+
+   # Find the lockbox starting point.
+   startMark = '=====LOCKBOX'
+   if startMark in allData:
+      try:
+         # Find the point where the start mark begins and collect either all the
+         # data before the next LB or the remaining data in the file (i.e.,
+         # we're on the final LB).
+         pos = allData.find(startMark)
+         while pos >= 0:
+            nextPos = allData.find(startMark, pos+1)
+            if nextPos < 0:
+               nextPos = len(allData)
+
+            # Pull in all the LB data, process it and add it to the LB list.
+            lbBlock = allData[pos:nextPos].strip()
+            lbox = MultiSigLockbox().unserializeAscii(lbBlock)
+            LOGINFO('Read in Lockbox: %s' % lbox.uniqueIDB58)
+            retLBList.append(lbox)
+            pos = allData.find(startMark, pos+1)
+      except:
+         LOGEXCEPT('Error reading lockboxes file')
+         shutil.copy(lbFilePath, lbFilePath+'.%d.bak'% long(RightNow()))
+
+   return retLBList
+
+
+#############################################################################
+def getLockboxFilePaths():
+   '''Function that finds the paths of all lockboxes in the Armory
+      home directory.'''
+   lbPaths = []
+
+   # We're just going to get various paths. Even if a file has no valid
+   # lockboxes, other code will actually determine that.
+   if os.path.isfile(MULTISIG_FILE):
+      lbPaths.append(MULTISIG_FILE)
+
+   for f in os.listdir(ARMORY_HOME_DIR):
+      fullPath = os.path.join(ARMORY_HOME_DIR, f)
+      if os.path.isfile(fullPath) and not fullPath.endswith('lockbox.txt'):
+         lbPaths.append(fullPath)
+
+   return lbPaths
+
+#############################################################################
+def isMofNNonStandardToSpend(m, n):
+   # Minimum non-standard tx spends
+   # 4 of 4
+   # 3 of 5
+   # 2 of 6
+   # any of 7
+   return (n > 3 and m > 3) or \
+          (n > 4 and m > 2) or \
+          (n > 5 and m > 1) or \
+          n > 6
+          
 ################################################################################
 ################################################################################
 class MultiSigLockbox(object):
@@ -297,12 +383,14 @@ class MultiSigLockbox(object):
       if len(longDescr.strip())==0:
          longDescr = '--- No Extended Info ---'
       longDescr = longDescr.replace('\n','<br>')
-      longDescr = longDescr.replace(' ','&nbsp;')
+      longDescr = textwrap.fill(longDescr, width=60)
+
+
       formattedDate = unixTimeToFormatStr(self.createDate, dateFmt)
       
       lines = []
-      lines.append(tr("""<font color="%s"><font size=6><center>Lockbox Information for 
-         <b>%s</font></b>""") % (htmlColor("TextBlue"), self.uniqueIDB58))
+      lines.append(tr("""<font color="%s" size=4><center><u>Lockbox Information for 
+         <b>%s</b></u></center></font>""") % (htmlColor("TextBlue"), self.uniqueIDB58))
       lines.append(tr('<b>Multisig:</b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%d-of-%d') % (self.M, self.N))
       lines.append(tr('<b>Lockbox ID:</b>&nbsp;&nbsp;&nbsp;&nbsp;%s') % self.uniqueIDB58)
       lines.append(tr('<b>P2SH Address:</b>&nbsp;&nbsp;%s') % binScript_to_p2shAddrStr(self.binScript))
