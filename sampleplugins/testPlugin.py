@@ -127,7 +127,7 @@ class PluginObject(object):
 
    #############################################################################
    def addCommasToPrice(self, pstr):
-      dispStr = pstr.split('.')[0] 
+      dispStr = pstr.strip().split('.')[0] 
       dispStr = ','.join([dispStr[::-1][3*i:3*(i+1)][::-1] \
                             for i in range((len(dispStr)-1)/3+1)][::-1])
       if '.' in pstr:
@@ -226,7 +226,7 @@ class PluginObject(object):
             convertVal = float(self.lastSellStr.replace(',',''))
             wltBal = wltObj.getBalance('Total')
             wltValueBTC = coin2str(wltBal, maxZeros=2)
-            wltValueUSD = self.addCommasToPrice('$%0.2f' % (wltBal*convertVal/1e8))
+            wltValueUSD = '$' + self.addCommasToPrice('%0.2f' % (wltBal*convertVal/1e8))
 
          rowItems = []
          rowItems.append(QTableWidgetItem(wltID))
