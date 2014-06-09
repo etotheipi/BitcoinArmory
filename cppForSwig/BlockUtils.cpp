@@ -556,32 +556,6 @@ bool BlockDataManager_LevelDB::detectCurrentSyncState(
 
    // If we're content here, just return
    return true;
-
-   /*
-
-   // If we want to replay some blocks, we need to adjust startScanBlkFile_
-   // and startScanOffset_ to be approx "replayNBytes" behind where
-   // they are currently set.
-   int32_t targOffset = (int32_t)startScanOffset_ - (int32_t)replayNBytes;
-   if(targOffset > 0 || startScanBlkFile_==0)
-   {
-      targOffset = max(0, targOffset);
-      startScanOffset_ = findFirstBlkApproxOffset(startScanBlkFile_, targOffset); 
-   }
-   else
-   {
-      startScanBlkFile_--;
-      uint32_t prevFileSize = BtcUtils::GetFileSize(blkFileList_[startScanBlkFile_]);
-      targOffset = (int32_t)prevFileSize - (int32_t)replayNBytes;
-      targOffset = max(0, targOffset);
-      startScanOffset_ = findFirstBlkApproxOffset(startScanBlkFile_, targOffset); 
-   }
-
-   LOGINFO << "Rewinding start block to enforce DB integrity";
-   LOGINFO << "Start at blockfile:              " << startScanBlkFile_;
-   LOGINFO << "Start location in above blkfile: " << startScanOffset_;
-   return true;
-   */
 }
 
 
@@ -1572,11 +1546,14 @@ bool BlockDataManager_LevelDB::processNewHeadersInBlkFiles(uint32_t fnumStart,
    }
 
    {
-      InterfaceToLDB::Batch batch(iface_, HEADERS);
+
+      //InterfaceToLDB::Batch batch(iface_, HEADERS);
+      map<HashString, BlockHeader>& allHeaders = blockchain_.allHeaders();
+      map<HashString, BlockHeader>::iterator iter;
          
-      for(unsigned i = 0; i < blockchain_.numHeaders(); ++i)
+      for(iter = allHeaders.begin(); iter != allHeaders.end(); iter++)
       {
-         BlockHeader &block = blockchain_.getHeaderByHeight(i);
+         BlockHeader &block = iter->second;
          StoredHeader sbh;
          sbh.createFromBlockHeader(block);
          uint8_t dup = iface_->putBareHeader(sbh);

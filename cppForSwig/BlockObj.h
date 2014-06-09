@@ -102,7 +102,7 @@ public:
    void          pprintAlot(ostream & os=cout);
 
    /////////////////////////////////////////////////////////////////////////////
-   BinaryData    serialize(void)    { return dataCopy_; }
+   BinaryData    serialize(void) const   { return dataCopy_; }
 
    /////////////////////////////////////////////////////////////////////////////
    // Just in case we ever want to calculate a difficulty-1 header via CPU...

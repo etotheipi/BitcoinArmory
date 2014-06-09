@@ -264,7 +264,7 @@ public:
    BlockHeader getBlockHeaderCopy(void) const;
    BinaryData getSerializedBlock(void) const;
    BinaryData getSerializedBlockHeader(void) const;
-   void createFromBlockHeader(BlockHeader & bh);
+   void createFromBlockHeader(const BlockHeader & bh);
 
    uint32_t getNumTx() { return (isNull() ? 0 : numTx_); } 
 

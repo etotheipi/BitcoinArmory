@@ -171,7 +171,7 @@ BinaryData StoredHeader::getDBKey(bool withPrefix) const
 
 
 /////////////////////////////////////////////////////////////////////////////
-void StoredHeader::createFromBlockHeader(BlockHeader & bh)
+void StoredHeader::createFromBlockHeader(const BlockHeader & bh)
 {
    if(!bh.isInitialized())
    {
