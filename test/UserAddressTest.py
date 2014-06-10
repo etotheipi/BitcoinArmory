@@ -2,10 +2,7 @@ import unittest
 from test.Tiab import TiabTest
 
 from CppBlockUtils import SecureBinaryData, CryptoECDSA
-from armoryengine.ArmoryUtils import CPP_TXOUT_P2SH, script_to_scrAddr, \
-   CPP_TXOUT_MULTISIG, script_to_p2sh_script, BadAddressError, \
-   pubkeylist_to_multisig_script, pubkey_to_p2pk_script, hash160, \
-   hash160_to_p2pkhash_script, binary_to_hex
+from armoryengine.ArmoryUtils import *
 from armoryengine.MultiSigUtils import calcLockboxID
 from armoryengine.Transaction import getTxOutScriptType
 from armoryengine.UserAddressUtils import getDisplayStringForScript, \
@@ -247,17 +244,34 @@ class UserAddressToScript(TiabTest):
       sbd33 = SecureBinaryData('\x02' + byte*32)
       return CryptoECDSA().UncompressPoint(sbd33).toBinStr()
 
-
-
    #############################################################################
    def testReadP2PKH(self):
-      #self.validInputStrings = [ \
-         #'1CAGDKTRT1erLn2pHUQjZcUHuQvEyxGp3j',
-         #'3HGSXsQN6CtM73E6QnPj6RPCKcQyXS4Sek',
-         #'Lockbox[%s]' % self.lboxID,
-         #'Lockbox[Bare:%s]' % self.lboxID,
-         #binary_to_hex(self.pubKeyList[0]),
-         #binary_to_hex(pubKeyCompr]   # a compressed key
+
+      wltMap = {}
+      lboxList = []
+
+      scrInfo = getScriptForUserString(self.validInputStrings[0], wltMap, lboxList) 
+
+      self.assertEqual(scrInfo['Script'], self.binScriptP2PKH)
+      self.assertEqual(scrInfo['WltID'], None)
+      self.assertEqual(scrInfo['LboxID'], None)
+      self.assertTrue(scrInfo['ShowID'])
+
+
+      wltMap = {}
+      wltMap[self.wlt.uniqueIDB58]  = self.wlt
+      wltMap[self.wlt2.uniqueIDB58] = self.wlt2
+      lboxList = [self.lbox]
+
+      scrInfo = getScriptForUserString(self.validInputStrings[0], wltMap, lboxList) 
+
+      self.assertEqual(scrInfo['Script'], self.binScriptP2PKH)
+      self.assertEqual(scrInfo['WltID'],  'AbCd1234z')
+      self.assertEqual(scrInfo['LboxID'], None)
+      self.assertTrue(scrInfo['ShowID'])
+
+   #############################################################################
+   def testReadP2SH(self):
 
       wltMap = {}
       lboxList = []
@@ -281,6 +295,8 @@ class UserAddressToScript(TiabTest):
       self.assertEqual(scrInfo['WltID'],  None)
       self.assertEqual(scrInfo['LboxID'], self.lboxID)
       self.assertTrue(scrInfo['ShowID'])
+
+
 
    #############################################################################
    def testReadLockboxP2SH(self):
