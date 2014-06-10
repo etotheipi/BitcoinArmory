@@ -3,7 +3,7 @@ Created on Aug 4, 2013
 
 @author: Andy
 '''
-from test.Tiab import TiabTest
+from pytest.Tiab import TiabTest
 import unittest
 from armoryengine.ArmoryUtils import *
 from armoryengine.Script import convertScriptToOpStrings
@@ -384,7 +384,7 @@ class PubKeyBlockTest(TiabTest):
       self.pubKey = hex_to_binary( \
          '048d103d81ac9691cf13f3fc94e44968ef67b27f58b27372c13108552d24a6ee04'
            '785838f34624b294afee83749b64478bb8480c20b242c376e77eea2b3dc48b4b')
-      self.comment = 'This is a sample comment!\xe2\x84\xa2'
+      self.comment = 'This is a sample comment!'
    
    def tearDown(self):
       pass

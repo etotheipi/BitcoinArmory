@@ -1,4 +1,4 @@
-from test.Tiab import TiabTest
+from pytest.Tiab import TiabTest
 import unittest
 
 from armoryengine.parseAnnounce import *

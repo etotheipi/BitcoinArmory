@@ -1,10 +1,8 @@
-from test.Tiab import TiabTest
+from pytest.Tiab import TiabTest
 
 from armoryengine.ALL import *
 
 from twisted.internet import reactor
-
-from test import Tiab
 
 TIAB_DIR = '.\\tiab'
 TEST_TIAB_DIR = '.\\test\\tiab'

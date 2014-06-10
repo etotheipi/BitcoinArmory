@@ -3,7 +3,7 @@ Created on Aug 14, 2013
 
 @author: Andy
 '''
-from test.Tiab import TiabTest
+from pytest.Tiab import TiabTest
 import os
 import sys
 import unittest

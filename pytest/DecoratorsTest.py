@@ -12,7 +12,7 @@
 # Orig Date:  2 January, 2014
 #
 ################################################################################
-from test.Tiab import TiabTest
+from pytest.Tiab import TiabTest
 import unittest
 from armoryengine.Decorators import EmailOutput
 

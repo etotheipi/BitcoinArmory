@@ -1,4 +1,4 @@
-from test.Tiab import TiabTest
+from pytest.Tiab import TiabTest
 
 from CppBlockUtils import SecureBinaryData, CryptoECDSA, CryptoAES
 from armoryengine.PyBtcAddress import PyBtcAddress

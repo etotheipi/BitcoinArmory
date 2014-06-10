@@ -1,5 +1,5 @@
 import unittest
-from test.Tiab import TiabTest
+from pytest.Tiab import TiabTest
 
 from CppBlockUtils import SecureBinaryData, CryptoECDSA
 from armoryengine.ArmoryUtils import *
