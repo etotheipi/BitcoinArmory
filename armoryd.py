@@ -1593,8 +1593,14 @@ class Armory_Daemon(object):
       # If the user gave a command, create a connection to the armoryd server
       # and attempt to execute the command.
       if CLI_ARGS:
+         # Make sure the command is lowercase.
+         CLI_ARGS[0] = CLI_ARGS[0].lower()
+
+         # Create a proxy pointing to the armoryd server.
          proxyobj = ServiceProxy("http://%s:%s@127.0.0.1:%d" % \
                                  (usr,pwd,ARMORY_RPC_PORT))
+
+         # Let's try to get everything set up for successful command execution.
          try:
             #if not proxyobj.__hasattr__(CLI_ARGS[0]):
                #raise UnrecognizedCommand, 'No json command %s'%CLI_ARGS[0]
@@ -1611,6 +1617,16 @@ class Armory_Daemon(object):
                   extraArgs.append(json.loads(arg))
                else:
                   extraArgs.append(arg)
+
+            # Just in case we wish to give the user any info/warnings before the
+            # command is executed, do it here.
+            emailWarning = 'WARNING: For now, the password for your e-mail ' \
+                           'account will sit in memory and in your shell ' \
+                           'history. We highly recommend that you use a ' \
+                           'disposable account which may be compromised ' \
+                           'without exposing sensitive information.'
+            if CLI_ARGS[0] == 'watchwallet' or CLI_ARGS[0] == 'sendlockbox':
+               print emailWarning
 
             # Call the user's command (e.g., "getbalance full" ->
             # jsonrpc_getbalance(full)) and print results.
