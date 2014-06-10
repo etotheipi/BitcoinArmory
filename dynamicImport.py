@@ -27,7 +27,7 @@ def getModuleList(inDir):
             moduleMap[modName]['SourceDir']  = inDir
             moduleMap[modName]['Filename']   = fn
          elif fn.endswith('.sig'):
-            moduleMap[modName]['Signature']  = fileData
+            moduleMap[modName]['SigData']  = fileData
       except:
          LOGEXCEPT('Loading plugin %s failed.  Skipping' % fullfn)
          

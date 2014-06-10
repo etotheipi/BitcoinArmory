@@ -8,7 +8,7 @@ import unittest
 from armoryengine.ArmoryUtils import *
 from armoryengine.Script import convertScriptToOpStrings
 from armoryengine.MultiSigUtils import calcLockboxID, computePromissoryID, \
-   MultiSigLockbox, MultiSigPromissoryNote
+   MultiSigLockbox, MultiSigPromissoryNote, LockboxPublicKey
 from armoryengine.Transaction import PyTx, UnsignedTxInput, DecoratedTxOut,\
    UnsignedTransaction, TXIN_SIGSTAT
 
@@ -376,6 +376,31 @@ class MSUtilsTest(TiabTest):
       print ustx.serializeAscii()
       print binary_to_hex(ustx.getPyTxSignedIfPossible().serialize())
       
+
+class PubKeyBlockTest(TiabTest):
+
+   
+   def setUp(self):
+      self.pubKey = hex_to_binary( \
+         '048d103d81ac9691cf13f3fc94e44968ef67b27f58b27372c13108552d24a6ee04'
+           '785838f34624b294afee83749b64478bb8480c20b242c376e77eea2b3dc48b4b')
+      self.comment = 'This is a sample comment!\xe2\x84\xa2'
+   
+   def tearDown(self):
+      pass
+   
+
+   def testPubKey_serialize_roundtrip(self):
+      lbPubKey = LockboxPublicKey(self.pubKey, self.comment)
+      self.assertEqual(self.pubKey, lbPubKey.binPubKey)
+      self.assertEqual(self.comment, lbPubKey.keyComment)
+
+      serKey = lbPubKey.serialize()
+      lbPubKey2 = LockboxPublicKey().unserialize(serKey)
+   
+      self.assertEqual(lbPubKey.binPubKey,  lbPubKey2.binPubKey)
+      self.assertEqual(lbPubKey.keyComment, lbPubKey2.keyComment)
+
 
    """
    def testMinimizeDERSignaturePadding(self):

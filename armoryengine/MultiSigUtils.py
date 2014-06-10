@@ -512,6 +512,108 @@ class MultiSigLockbox(object):
       return UnsignedTransaction().createFromUnsignedTxIO(ustxiAccum, dtxoAccum)
       
 
+################################################################################
+################################################################################
+class LockboxPublicKey(object):
+   #############################################################################
+   def __init__(self, binPubKey=None, keyComment=None):
+      self.version    = 0
+      self.binPubKey  = binPubKey
+      self.keyComment = toUnicode(keyComment)
+
+      if binPubKey is not None:
+         self.setParams(binPubKey, keyComment, version=self.version)
+
+
+   #############################################################################
+   def setParams(self, binPubKey, keyComment=None, version=MULTISIG_VERSION):
+      
+      # Set params will only overwrite with non-None data
+      self.binPubKey = binPubKey
+      
+      if keyComment is not None:
+         self.keyComment = toUnicode(keyComment)
+
+      self.version = version
+
+      pubkeyAddr = hash160_to_addrStr(hash160(binPubKey))
+      self.pubKeyID = pubkeyAddr[:12].upper()
+      
+
+
+   #############################################################################
+   def serialize(self):
+
+      if not self.binPubKey:
+         LOGERROR('Cannot serialize uninitialized pubkey')
+         return None
+
+      bp = BinaryPacker()
+      bp.put(UINT32,       self.version)
+      bp.put(BINARY_CHUNK, MAGIC_BYTES)
+      bp.put(VAR_STR,      self.binPubKey)
+      bp.put(VAR_STR,      toBytes(self.keyComment))
+      return bp.getBinaryString()
+
+   #############################################################################
+   def unserialize(self, rawData, expectID=None):
+      ustxiList = []
+      
+      bu = BinaryUnpacker(rawData)
+      version     = bu.get(UINT32)
+      magicBytes  = bu.get(BINARY_CHUNK, 4)
+      binPubKey   = bu.get(VAR_STR)
+      keyComment  = toUnicode(bu.get(VAR_STR))
+
+      # Check the magic bytes of the lockbox match
+      if not magicBytes == MAGIC_BYTES:
+         LOGERROR('Wrong network!')
+         LOGERROR('    PubKey Magic: ' + binary_to_hex(magicBytes))
+         LOGERROR('    Armory Magic: ' + binary_to_hex(MAGIC_BYTES))
+         raise NetworkIDError('Network magic bytes mismatch')
+      
+      if not version==MULTISIG_VERSION:
+         LOGWARN('Unserialing LB pubkey of different version')
+         LOGWARN('   PubKey  Version: %d' % version)
+         LOGWARN('   Armory  Version: %d' % MULTISIG_VERSION)
+
+      self.setParams(binPubKey, keyComment, version)
+
+      if expectID and not expectID==self.pubKeyID:
+         LOGERROR('Pubkey block ID does not match expected')
+         return None
+
+      return self
+
+
+   #############################################################################
+   def serializeAscii(self, wid=80, newline='\n'):
+      if not self.binPubKey:
+         return None
+
+      headStr = 'PUBLICKEY-%s' % self.pubKeyID
+      return makeAsciiBlock(self.serialize(), headStr, wid, newline)
+
+
+
+   #############################################################################
+   def unserializeAscii(self, pubkeyBlock):
+
+      headStr, rawData = readAsciiBlock(pubkeyBlock, 'PUBLICKEY')
+
+      if rawData is None:
+         LOGERROR('Expected header str "PUBLICKEY", got "%s"' % headStr)
+         raise UnserializeError('Expected PUBLICKEY block, got something else')
+
+      # We should have "PUBLICKEY" in the headstr
+      pkID = headStr.split('-')[-1]
+      return self.unserialize(rawData, pkID)
+
+
+   #############################################################################
+   def pprint(self):
+      print 'pprint of LockboxPublicKey is not implemented'
+      
 
 
 ################################################################################
@@ -663,6 +765,13 @@ class MultiSigPromissoryNote(object):
       change      = bu.get(VAR_STR)
       feeAmt      = bu.get(UINT64)
       numUSTXI    = bu.get(VAR_INT)
+
+      # Check the magic bytes of the lockbox match
+      if not magicBytes == MAGIC_BYTES:
+         LOGERROR('Wrong network!')
+         LOGERROR('    PromNote Magic: ' + binary_to_hex(magicBytes))
+         LOGERROR('    Armory   Magic: ' + binary_to_hex(MAGIC_BYTES))
+         raise NetworkIDError('Network magic bytes mismatch')
       
       for i in range(numUSTXI):
          ustxiList.append( UnsignedTxInput().unserialize(bu.get(VAR_STR)) )

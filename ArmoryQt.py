@@ -499,8 +499,8 @@ class ArmoryMainWindow(QMainWindow):
       self.mainDisplayTabs.addTab(self.tabAnnounce,  'Announcements')
 
       ##########################################################################
-      if USE_TESTNET:
-         self.loadPlugins()   
+      if not CLI_OPTIONS.disableModules:
+         self.loadArmoryModules()   
       ##########################################################################
 
 
@@ -855,47 +855,71 @@ class ArmoryMainWindow(QMainWindow):
 
 
    ############################################################################
-   def loadPlugins(self):
+   def loadArmoryModules(self):
       """
-      This method checks for any .py files
+      This method checks for any .py files in the exec directory
       """ 
-
-      EXECDIR = GetExecDir()
-      pluginDir = os.path.join(EXECDIR, 'plugins')
-      if not os.path.exists(pluginDir):
+      moduleDir = os.path.join(GetExecDir(), 'modules')
+      if not os.path.exists(moduleDir):
          return
 
       from dynamicImport import getModuleList, dynamicImport
 
       # This call does not eval any code in the modules.  It simply
       # loads the python files as raw chunks of text so we can
-      # check hashes and/or signatures
-      modMap = getModuleList(pluginDir)
+      # check hashes and signatures
+      modMap = getModuleList(moduleDir)
       for name,infoMap in modMap.iteritems():
          modPath = os.path.join(infoMap['SourceDir'], infoMap['Filename'])
          modHash = binary_to_hex(sha256(infoMap['SourceCode']))
-         reply = QMessageBox.warning(self, tr("Unverified Module"), tr("""
-            Armory detected the following module in your plugins directory:
-            <br><br>
-               <b>Module Name:</b>  %s<br>
-               <b>Module Path:</b>  %s<br>
-               <b>Module Hash:</b>  %s<br>
-            <br><br>
-            Do you want to allow this module to be loaded?""") % \
-            (name, modPath, modHash), QMessageBox.Yes | QMessageBox.No)
 
-         if not reply==QMessageBox.Yes:
-            continue
+         isSignedByATI = False
+         if 'Signature' in infoMap:
+            """
+            Signature file contains multiple lines, of the form "key=value\n"
+            The last line is the hex-encoded signature, which is over the 
+            source code + everything in the sig file up to the last line.
+            The key-value lines may contain properties such as signature 
+            validity times/expiration, contact info of author, etc.
+            """
+            sigFile = infoMap['SigData']
+            sigLines = [line.strip() for line in sigFile.strip().split('\n')]
+            properties = dict([line.split('=') for line in sigLines[:-1]])
+            msgSigned = infoMap['SourceCode'] + '\x00' + '\n'.join(sigLines[:1])
+
+            sbdMsg = SecureBinaryData(sha256(msgSigned))
+            sbdSig = SecureBinaryData(hex_to_binary(sigLines[-1]))
+            sbdPub = SecureBinaryData(hex_to_binary(ARMORY_INFO_SIGN_PUBLICKEY))
+            isSignedByATI = CryptoECDSA().VerifyData(sbdMsg, sbdSig, sbdPub)
+            LOGWARN('Sig on "%s" is valid: %s' % (name, str(isSignedByATI)))
+            
+
+         if not isSignedByATI and not USE_TESTNET:
+            reply = QMessageBox.warning(self, tr("UNSIGNED Module"), tr("""
+               Armory detected the following module which is 
+               <font color="%s"><b>unsigned</b></font> and may be dangerous:
+               <br><br>
+                  <b>Module Name:</b>  %s<br>
+                  <b>Module Path:</b>  %s<br>
+                  <b>Module Hash:</b>  %s<br>
+               <br><br>
+               You should <u>never</u> trust unsigned modules!  At this time,
+               Armory will not allow you to run this module unless you are 
+               in testnet mode.""") % \
+               (name, modPath, modHash[:16]), QMessageBox.Ok)
+
+            if not reply==QMessageBox.Yes:
+               continue
 
 
-         plugin = dynamicImport(pluginDir, name, globals())
-         plugObj = plugin.PluginObject(self)
+         module = dynamicImport(moduleDir, name, globals())
+         plugObj = module.PluginObject(self)
 
          if not hasattr(plugObj,'getTabToDisplay') or \
             not hasattr(plugObj,'tabName'):
-            LOGERROR('Plugin is malformed!  No tabToDisplay or tabName attrs')
-            QMessageBox.critical(self, tr("Bad Plugin"), tr("""
-               The plugin you attempted to load (%s) is malformed.  It is 
+            LOGERROR('Module is malformed!  No tabToDisplay or tabName attrs')
+            QMessageBox.critical(self, tr("Bad Module"), tr("""
+               The module you attempted to load (%s) is malformed.  It is 
                missing attributes that are needed for Armory to load it.  
                It will be skipped.""") % name, QMessageBox.Ok)
             continue
@@ -903,20 +927,20 @@ class ArmoryMainWindow(QMainWindow):
          verPluginInt = getVersionInt(readVersionString(plugObj.maxVersion))
          verArmoryInt = getVersionInt(BTCARMORY_VERSION)
          if verArmoryInt >verPluginInt:
-            reply = QMessageBox.warning(self, tr("Outdated Plugin"), tr("""
-               Plugin "%s" is only specified to work up to Armory version %s.
-               You are using Armory version %s.  Please remove the plugin if
+            reply = QMessageBox.warning(self, tr("Outdated Module"), tr("""
+               Module "%s" is only specified to work up to Armory version %s.
+               You are using Armory version %s.  Please remove the module if
                you experience any problems with it, or contact the maintainer
                for a new version.
                <br><br>
-               Do you want to continue loading the plugin?"""), 
+               Do you want to continue loading the module?"""), 
                QMessageBox.Yes | QMessageBox.No)
 
             if not reply==QMessageBox.Yes:
                continue
 
          # All plugins should have "tabToDisplay" and "tabName" attributes
-         LOGWARN('Adding plugin to tab list: "' + plugObj.tabName + '"')
+         LOGWARN('Adding module to tab list: "' + plugObj.tabName + '"')
          self.mainDisplayTabs.addTab(plugObj.getTabToDisplay(), plugObj.tabName)
 
          # Also inject any extra methods that will be 
@@ -937,7 +961,7 @@ class ArmoryMainWindow(QMainWindow):
                LOGERROR('Missing an ArmoryQt list variable: %s' % funcListName)
                continue
 
-            LOGINFO('Found plugin function: %s' % plugFuncName)
+            LOGINFO('Found module function: %s' % plugFuncName)
             funcList = getattr(self, funcListName)
             plugFunc = getattr(plugObj, plugFuncName)
             funcList.append(plugFunc)
@@ -6918,7 +6942,7 @@ class ArmoryMainWindow(QMainWindow):
          LOGEXCEPT('Strange error during shutdown')
 
 
-      # Any extra shutdown activities, perhaps added by plugins
+      # Any extra shutdown activities, perhaps added by modules
       for fn in self.extraShutdownFunctions:
          try:
             fn()
