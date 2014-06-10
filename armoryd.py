@@ -154,14 +154,18 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
    def jsonrpc_listunspent(self):
       # Return a dictionary with a string as the key and a wallet B58 value as
       # the value.
-      curTxOut = 1
       utxoList = self.curWlt.getTxOutList('unspent')
       utxoDict = {}
 
-      for u in utxoList:
-         curTxOutStr = 'UTXO %05d' % curTxOut
-         utxoDict[curTxOutStr] = binary_to_hex(u.getOutPoint().serialize())
-         curTxOut += 1
+      if TheBDM.getBDMState()=='BlockchainReady':
+         curTxOut = 1
+         for u in utxoList:
+            curTxOutStr = 'UTXO %05d' % curTxOut
+            utxoDict[curTxOutStr] = binary_to_hex(u.getOutPoint().serialize())
+            curTxOut += 1
+      else:
+         LOGERROR('Blockchain not ready. Values will not be reported.')
+
       return utxoDict
 
 
@@ -346,23 +350,31 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
                   'keypoolsize':  self.curWlt.addrPoolSize,
                   'numaddrgen': len(self.curWlt.addrMap),
                   'highestusedindex': self.curWlt.highestUsedChainIndex
-               }
+                }
       return wltInfo
 
 
    #############################################################################
    def jsonrpc_getbalance(self, baltype='spendable'):
-      if not baltype in ['spendable','spend', 'unconf', 'unconfirmed', \
-                          'total', 'ultimate','unspent', 'full']:
-         LOGERROR('Unrecognized getbalance string: "%s"', baltype)
-         return -1
-         
-      return AmountToJSON(self.curWlt.getBalance(baltype))
+      retVal = AmountToJSON(-1)
+
+      # Proceed only if the blockchain's good. Wallet value could be unreliable
+      # otherwise.
+      if TheBDM.getBDMState()=='BlockchainReady':
+         if not baltype in ['spendable', 'spend', 'unconf', 'unconfirmed', \
+                            'total', 'ultimate', 'unspent', 'full']:
+            LOGERROR('Unrecognized getbalance string: "%s"', baltype)
+         else:
+            retVal = AmountToJSON(self.curWlt.getBalance(baltype))
+      else:
+         LOGERROR('Blockchain not ready. Values will not be reported.')
+
+      return retVal
 
 
    #############################################################################
    def jsonrpc_getaddrbalance(self, inB58, baltype='spendable'):
-      retVal = AmountToJSON(0)
+      retVal = AmountToJSON(-1)
       if not baltype in ['spendable','spend', 'unconf', 'unconfirmed', \
                          'ultimate','unspent', 'full']:
          LOGERROR('Unrecognized getaddrbalance string: "%s"', baltype)
