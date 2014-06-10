@@ -111,6 +111,7 @@ Colors.TextBlue         = tweakColor(Colors.Foreground, '+', [ -40,  -40, +100])
 Colors.SlightRed        = tweakColor(Colors.Background, '*', [1.05, 0.95, 0.95])
 Colors.SlightGreen      = tweakColor(Colors.Background, '*', [0.95, 1.05, 0.95])
 Colors.SlightBlue       = tweakColor(Colors.Background, '*', [0.95, 0.95, 1.05])
+Colors.SlightMoreBlue   = tweakColor(Colors.Background, '*', [0.95, 0.95, 1.15])
 Colors.SlightBkgdDark   = tweakColor(Colors.Background, '*', [0.95, 0.95, 0.95])
 Colors.SlightBkgdLight  = tweakColor(Colors.Background, '*', [1.05, 1.05, 1.05])
 
