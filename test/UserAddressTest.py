@@ -1,16 +1,15 @@
-
-
-import hashlib
-import locale
-from random import shuffle
-import sys
-import time
 import unittest
+from test.Tiab import TiabTest
 
-sys.path.append('..')
-from armoryengine.ALL import *
-from armoryengine.UserAddressUtils import *
-
+from CppBlockUtils import SecureBinaryData, CryptoECDSA
+from armoryengine.ArmoryUtils import CPP_TXOUT_P2SH, script_to_scrAddr, \
+   CPP_TXOUT_MULTISIG, script_to_p2sh_script, BadAddressError, \
+   pubkeylist_to_multisig_script, pubkey_to_p2pk_script, hash160, \
+   hash160_to_p2pkhash_script, binary_to_hex
+from armoryengine.MultiSigUtils import calcLockboxID
+from armoryengine.Transaction import getTxOutScriptType
+from armoryengine.UserAddressUtils import getDisplayStringForScript, \
+   getScriptForUserString
 
 
 ################################################################################
@@ -41,7 +40,7 @@ class MockLockbox(object):
          raise BadAddressError('Must initialize [mocked] lbox with MS or P2SH')
 
 ################################################################################
-class ScriptToDispStrTest(unittest.TestCase):
+class ScriptToDispStrTest(TiabTest):
    """
    I know, these are not real unit tests!   The problem here is that it's going
    to take a ton of time to prepare the 300 different test outputs, and it's 
@@ -52,8 +51,6 @@ class ScriptToDispStrTest(unittest.TestCase):
    Once this method is settled down, we can make it a real unit test
    """
    def setUp(self):
-      from armoryengine.MultiSigUtils import calcLockboxID
-
       self.pubKeyList    = [self.makePubKey(a) for a in ['\xbb','\xaa','\xcc']]
       self.binScriptMS   = pubkeylist_to_multisig_script(self.pubKeyList, 2) 
       self.binScriptP2PK = pubkey_to_p2pk_script(self.pubKeyList[0])
@@ -82,11 +79,11 @@ class ScriptToDispStrTest(unittest.TestCase):
                                                    self.binScriptMSOther, 3, 5)
 
       self.binScriptTestList = [ \
-               [self.binScriptP2PKH,    '1CAGDKTRT1erLn2pHUQjZcUHuQvEyxGp3j'],
-               [self.binScriptP2PK,     '1CAGDKTRT1erLn2pHUQjZcUHuQvEyxGp3j'],
-               [self.binScriptMS,       '3HGSXsQN6CtM73E6QnPj6RPCKcQyXS4Sek'],
-               [self.binScriptP2SH_MS,  '3HGSXsQN6CtM73E6QnPj6RPCKcQyXS4Sek'], 
-               [self.binScriptNonStd,   '3NgtiSVM5yiGfnGao3WEVqoairJTVeiXt5']]
+               [self.binScriptP2PKH,    'mfi7ZGQSEUSudTFeXrSnZUpo9u1dAtTBon'],
+               [self.binScriptP2PK,     'mfi7ZGQSEUSudTFeXrSnZUpo9u1dAtTBon'],
+               [self.binScriptMS,       '2N8pebcLPhfPhJpre5v1biNNTXxd9Qt3rcx'],
+               [self.binScriptP2SH_MS,  '2N8pebcLPhfPhJpre5v1biNNTXxd9Qt3rcx'], 
+               [self.binScriptNonStd,   '2NEF6nBRNhSDcsZu8UB877nnqwCWdKXbZXq']]
 
       
       self.maxLengthTestList = [256, 60, 58, 54, 45, 32]
@@ -179,15 +176,13 @@ class ScriptToDispStrTest(unittest.TestCase):
 
 
 ################################################################################
-class UserAddressToScript(unittest.TestCase):
+class UserAddressToScript(TiabTest):
    """
    Test a bunch of different strings that the user could enter, and check
    the output of getScriptForUserString(), with and without relevant wallets
    loaded/available
    """
    def setUp(self):
-      from armoryengine.MultiSigUtils import calcLockboxID
-
       self.pubKeyList    = [self.makePubKey(a) for a in ['\xaa','\x33','\x44']]
       self.binScriptMS   = pubkeylist_to_multisig_script(self.pubKeyList, 2) 
       self.binScriptP2PK = pubkey_to_p2pk_script(self.pubKeyList[0])
@@ -224,8 +219,8 @@ class UserAddressToScript(unittest.TestCase):
 
       # When all wallets and lockboxes are avail, these will all be recognized
       self.validInputStrings = [ \
-         '1A7wsNQmL3ytTQkGt26gqe3gdVoMHWpJRp',
-         '3AAsD3G7WB25d4cSvGsRgDZG9Uzhri8rt8',
+         'mpduARVk95R9EXDtbb54fZG1VVQ4Asg7jf',
+         '2N1j5GnC97dXRprEzbQVJJAYXMqCsffdX29',
          'Lockbox[%s]' % self.lboxID,
          'Lockbox[Bare:%s]' % self.lboxID,
          binary_to_hex(self.pubKeyList[0]),
@@ -233,7 +228,7 @@ class UserAddressToScript(unittest.TestCase):
          
       # Now a few others that should fail to return useful info
       self.badInputStrings = [ \
-         '1A7wsNQmL3ytTQkGt26gqe3gdVoMHWpJRr',   # bad checksum on addr
+         'mpduARVk95R9EXDtbb54fZG1VVQ4CWZmY6',   # bad checksum on addr
          'Lockbox{%s}' % self.lboxID,   
          'Lockbox[BARE:%s]' % self.lboxID,   # wrong casing
          'abc123',
@@ -252,39 +247,6 @@ class UserAddressToScript(unittest.TestCase):
       sbd33 = SecureBinaryData('\x02' + byte*32)
       return CryptoECDSA().UncompressPoint(sbd33).toBinStr()
 
-
-   #############################################################################
-   def testReadP2PKH(self):
-      #self.validInputStrings = [ \
-         #'1CAGDKTRT1erLn2pHUQjZcUHuQvEyxGp3j',
-         #'3HGSXsQN6CtM73E6QnPj6RPCKcQyXS4Sek',
-         #'Lockbox[%s]' % self.lboxID,
-         #'Lockbox[Bare:%s]' % self.lboxID,
-         #binary_to_hex(self.pubKeyList[0]),
-         #binary_to_hex(pubKeyCompr]   # a compressed key
-
-      wltMap = {}
-      lboxList = []
-
-      scrInfo = getScriptForUserString(self.validInputStrings[0], wltMap, lboxList) 
-
-      self.assertEqual(scrInfo['Script'], self.binScriptP2PKH)
-      self.assertEqual(scrInfo['WltID'], None)
-      self.assertEqual(scrInfo['LboxID'], None)
-      self.assertTrue(scrInfo['ShowID'])
-
-
-      wltMap = {}
-      wltMap[self.wlt.uniqueIDB58]  = self.wlt
-      wltMap[self.wlt2.uniqueIDB58] = self.wlt2
-      lboxList = [self.lbox]
-
-      scrInfo = getScriptForUserString(self.validInputStrings[0], wltMap, lboxList) 
-
-      self.assertEqual(scrInfo['Script'], self.binScriptP2PKH)
-      self.assertEqual(scrInfo['WltID'],  'AbCd1234z')
-      self.assertEqual(scrInfo['LboxID'], None)
-      self.assertTrue(scrInfo['ShowID'])
 
 
    #############################################################################
