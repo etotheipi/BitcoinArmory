@@ -154,14 +154,18 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
    def jsonrpc_listunspent(self):
       # Return a dictionary with a string as the key and a wallet B58 value as
       # the value.
-      curTxOut = 1
       utxoList = self.curWlt.getTxOutList('unspent')
       utxoDict = {}
 
-      for u in utxoList:
-         curTxOutStr = 'UTXO %05d' % curTxOut
-         utxoDict[curTxOutStr] = binary_to_hex(u.getOutPoint().serialize())
-         curTxOut += 1
+      if TheBDM.getBDMState()=='BlockchainReady':
+         curTxOut = 1
+         for u in utxoList:
+            curTxOutStr = 'UTXO %05d' % curTxOut
+            utxoDict[curTxOutStr] = binary_to_hex(u.getOutPoint().serialize())
+            curTxOut += 1
+      else:
+         LOGERROR('Blockchain not ready. Values will not be reported.')
+
       return utxoDict
 
 
@@ -346,23 +350,31 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
                   'keypoolsize':  self.curWlt.addrPoolSize,
                   'numaddrgen': len(self.curWlt.addrMap),
                   'highestusedindex': self.curWlt.highestUsedChainIndex
-               }
+                }
       return wltInfo
 
 
    #############################################################################
    def jsonrpc_getbalance(self, baltype='spendable'):
-      if not baltype in ['spendable','spend', 'unconf', 'unconfirmed', \
-                          'total', 'ultimate','unspent', 'full']:
-         LOGERROR('Unrecognized getbalance string: "%s"', baltype)
-         return -1
-         
-      return AmountToJSON(self.curWlt.getBalance(baltype))
+      retVal = AmountToJSON(-1)
+
+      # Proceed only if the blockchain's good. Wallet value could be unreliable
+      # otherwise.
+      if TheBDM.getBDMState()=='BlockchainReady':
+         if not baltype in ['spendable', 'spend', 'unconf', 'unconfirmed', \
+                            'total', 'ultimate', 'unspent', 'full']:
+            LOGERROR('Unrecognized getbalance string: "%s"', baltype)
+         else:
+            retVal = AmountToJSON(self.curWlt.getBalance(baltype))
+      else:
+         LOGERROR('Blockchain not ready. Values will not be reported.')
+
+      return retVal
 
 
    #############################################################################
    def jsonrpc_getaddrbalance(self, inB58, baltype='spendable'):
-      retVal = AmountToJSON(0)
+      retVal = AmountToJSON(-1)
       if not baltype in ['spendable','spend', 'unconf', 'unconfirmed', \
                          'ultimate','unspent', 'full']:
          LOGERROR('Unrecognized getaddrbalance string: "%s"', baltype)
@@ -1581,8 +1593,14 @@ class Armory_Daemon(object):
       # If the user gave a command, create a connection to the armoryd server
       # and attempt to execute the command.
       if CLI_ARGS:
+         # Make sure the command is lowercase.
+         CLI_ARGS[0] = CLI_ARGS[0].lower()
+
+         # Create a proxy pointing to the armoryd server.
          proxyobj = ServiceProxy("http://%s:%s@127.0.0.1:%d" % \
                                  (usr,pwd,ARMORY_RPC_PORT))
+
+         # Let's try to get everything set up for successful command execution.
          try:
             #if not proxyobj.__hasattr__(CLI_ARGS[0]):
                #raise UnrecognizedCommand, 'No json command %s'%CLI_ARGS[0]
@@ -1599,6 +1617,16 @@ class Armory_Daemon(object):
                   extraArgs.append(json.loads(arg))
                else:
                   extraArgs.append(arg)
+
+            # Just in case we wish to give the user any info/warnings before the
+            # command is executed, do it here.
+            emailWarning = 'WARNING: For now, the password for your e-mail ' \
+                           'account will sit in memory and in your shell ' \
+                           'history. We highly recommend that you use a ' \
+                           'disposable account which may be compromised ' \
+                           'without exposing sensitive information.'
+            if CLI_ARGS[0] == 'watchwallet' or CLI_ARGS[0] == 'sendlockbox':
+               print emailWarning
 
             # Call the user's command (e.g., "getbalance full" ->
             # jsonrpc_getbalance(full)) and print results.
