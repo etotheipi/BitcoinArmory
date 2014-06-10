@@ -15,6 +15,7 @@ from ui.MultiSigModels import \
 import webbrowser
 from armoryengine.CoinSelection import PySelectCoins, PyUnspentTxOut, \
                                     pprintUnspentTxOutList
+import cStringIO
 
 #############################################################################
 class DlgLockboxEditor(ArmoryDialog):
@@ -2145,16 +2146,19 @@ class DlgExportAsciiBlock(ArmoryDialog):
       txt.setMinimumHeight(h*9)
       txt.setPlainText(self.asciiBlock)
 
-      self.lblCopied = QRichLabel('')
+      self.lblCopyMail = QRichLabel('')
       btnCopy = QPushButton(tr("Copy to Clipboard"))
       btnSave = QPushButton(tr("Save to File"))
+      btnMail = QPushButton(tr("Produce Lockbox Email"))
       btnDone = QPushButton(tr("Done"))
-   
+
       self.connect(btnCopy, SIGNAL('clicked()'), self.clipcopy)
       self.connect(btnSave, SIGNAL('clicked()'), self.savefile)
+      self.connect(btnMail, SIGNAL('clicked()'), self.mailLB)
       self.connect(btnDone, SIGNAL('clicked()'), self.accept)
 
-      frmCopy = makeHorizFrame([btnSave, btnCopy, self.lblCopied, 'Stretch'])
+      frmCopy = makeHorizFrame([btnSave, btnCopy, btnMail, self.lblCopyMail, \
+                                'Stretch'])
       frmDone = makeHorizFrame(['Stretch', btnDone])
       frmMain = makeVertFrame([lblDescr, txt, frmCopy], STYLE_RAISED)
 
@@ -2180,7 +2184,23 @@ class DlgExportAsciiBlock(ArmoryDialog):
       clipb = QApplication.clipboard()
       clipb.clear()
       clipb.setText(self.asciiBlock)
-      self.lblCopied.setText('<i>Copied!</i>')
+      self.lblCopyMail.setText('<i>Copied!</i>')
+
+
+   def mailLB(self):
+      # Iterate over the text block and get the public key ID.
+      # WARNING: For now, the code assumes there will be only one ID returned.
+      # If this changes in the future, the code must be adjusted as necessary.
+      blockIO = cStringIO.StringIO(self.asciiBlock)
+      pkID = getBlockID(blockIO, 'PUBLICKEY-')[0]
+
+      # Prepare to send an email with the public key. For now, the email text
+      # is the public key and nothing else.
+      urlText = 'mailto:?subject=Public Key [%s]&body=%s' % (pkID, \
+                                                             self.asciiBlock)
+      finalUrl = QUrl(urlText)
+      QDesktopServices.openUrl(finalUrl)
+      self.lblCopyMail.setText('<i>Email produced!</i>')
 
 
 ################################################################################
@@ -2221,6 +2241,7 @@ class DlgImportLockbox(QDialog):
       self.setWindowTitle(tr('Import Lockbox'))
       self.setMinimumWidth(450)
 
+
    #############################################################################
    def loadfile(self):
       boxPath = self.main.getFileLoad(tr('Load Lockbox'),
@@ -2230,6 +2251,7 @@ class DlgImportLockbox(QDialog):
       with open(boxPath) as f:
          data = f.read()
       self.txtBoxBlock.setPlainText(data)
+
 
    #############################################################################
    def clickedDone(self):
@@ -3653,7 +3675,7 @@ class DlgSelectMultiSigOption(ArmoryDialog):
       frmBottom = QFrame()
       frmBottom.setFrameStyle(STYLE_RAISED)
       frmBottom.setLayout(layoutBottom)
-      
+
 
       btnDone = QPushButton(tr("Done"))
       self.connect(btnDone, SIGNAL('clicked()'), self.accept)
@@ -3667,21 +3689,22 @@ class DlgSelectMultiSigOption(ArmoryDialog):
       self.setMinimumWidth(550)
       self.setLayout(layoutMaster)
       self.setWindowTitle(tr('Multi-Sig Lockboxes'))
-      
 
 
    #############################################################################
    def openCreate(self):
       DlgLockboxEditor(self, self.main).exec_()
 
+
    #############################################################################
    def openFund(self):
       DlgFundLockbox(self, self.main).exec_()
+
 
    #############################################################################
    def openSpend(self):
       DlgSpendFromLockbox(self, self.main).exec_()
 
 
-
+# Get around circular dependencies
 from ui.WalletFrames import SelectWalletFrame
