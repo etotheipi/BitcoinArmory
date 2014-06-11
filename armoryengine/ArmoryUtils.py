@@ -3141,6 +3141,7 @@ def getLockboxList():
    with open(MULTISIG_FILE, 'r') as f:
       lbList = getBlockID(f, 'LOCKBOX-')
 
+      # Don't wait for Python or the OS to write the file. Flush the buffers!
       f.flush()
       os.fsync(f.fileno())
 
