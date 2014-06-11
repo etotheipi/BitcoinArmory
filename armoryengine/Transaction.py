@@ -1620,13 +1620,6 @@ class DecoratedTxOut(object):
       print ind + 'Value:       ', coin2strNZS(self.value)
       print ind + 'ContribID:   ', self.contribID
       print ind + 'ContribLabel:', self.contribLabel
-      
-
-
-
-
-
-
 
 ################################################################################
 ################################################################################
