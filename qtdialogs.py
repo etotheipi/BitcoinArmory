@@ -5102,21 +5102,14 @@ class DlgConfirmSend(ArmoryDialog):
             # We assume that anything without an addrStr is going external
             sendPairs.append([script,val])
 
-      # if we do not know the change behavior then we have to
-      # guess that the highest chain index is the change
-      # and exclude it from the returnPairs list
-      # and not in expert mode (because in expert mode the change could be anywhere
-      #if changeBehave == None and returnPairs > 0:
-      print 'FIXME: currently always excluding change... should disable under some conditions'
-      returnPairs = excludeChange(returnPairs, wlt)
-         
-      sendPairs.extend(returnPairs)
-
-      # TODO:  Explicit change ID was broken, this might not be the correct fix
       if changeBehave:
          for i in range(len(sendPairs)):
-            if sendPairs[i][0]==changeBehave:
+            if sendPairs[i][0]==changeBehave[0]:
                del sendPairs[i]
+               break
+         for i in range(len(returnPairs)):
+            if returnPairs[i][0]==changeBehave[0]:
+               del returnPairs[i]
                break
       
       lblMsg = QRichLabel('')         
@@ -5153,6 +5146,7 @@ class DlgConfirmSend(ArmoryDialog):
       recipLbls = []
       ffixBold = GETFONT('Fixed')
       ffixBold.setWeight(QFont.Bold)
+      sendPairs.extend(returnPairs)
       for script,val in sendPairs:
          displayInfo = self.main.getDisplayStringForScript(script, addrColWidth)
          dispStr = displayInfo['String'].ljust(addrColWidth)
