@@ -216,7 +216,7 @@ class UserAddressToScript(TiabTest):
 
       # When all wallets and lockboxes are avail, these will all be recognized
       self.validInputStrings = [ \
-         'mpduARVk95R9EXDtbb54fZG1VVQ4Asg7jf',
+         'n4TMVYp9BX4yDtjqPgJHrnRPu7zdZ2aLGj',
          '2N1j5GnC97dXRprEzbQVJJAYXMqCsffdX29',
          'Lockbox[%s]' % self.lboxID,
          'Lockbox[Bare:%s]' % self.lboxID,
