@@ -1,4 +1,4 @@
-from test.Tiab import TiabTest
+from pytest.Tiab import TiabTest
 from armoryengine.ALL import *
 from announcefetch import AnnounceDataFetcher
 import unittest

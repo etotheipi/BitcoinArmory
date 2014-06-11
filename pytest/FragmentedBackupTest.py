@@ -5,7 +5,7 @@
 # See LICENSE or http://www.gnu.org/licenses/agpl.html                         #
 #                                                                              #
 ################################################################################
-from test.Tiab import TiabTest
+from pytest.Tiab import TiabTest
 import sys
 from armoryengine.ArmoryUtils import SplitSecret, binary_to_hex, ReconstructSecret,\
    FiniteFieldError

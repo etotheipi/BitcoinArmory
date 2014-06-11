@@ -3104,6 +3104,33 @@ def isValidPK(inPK, inStr=False):
 
 
 ################################################################################
+# Function that extracts IDs from a given text block and returns a list of all
+# the IDs. The format should follow the example below, with "12345678" and
+# "AbCdEfGh" being the IDs, and "LOCKBOX" being the key. There may be extra
+# newline characters. The characters will be ignored.
+#
+# =====LOCKBOX-12345678=====================================================
+# ckhc3hqhhuih7gGGOUT78hweds
+# ==========================================================================
+# =====LOCKBOX-AbCdEfGh=====================================================
+# ckhc3hqhhuih7gGGOUT78hweds
+# ==========================================================================
+#
+# In addition, the incoming block of text must be from a file (using something
+# like "with open() as x") or a StringIO/cStringIO object.
+def getBlockID(asciiText, asciiKey):
+   blockList = []
+
+   # Iterate over each line in the text and get the IDs.
+   for asciiLine in asciiText:
+      if asciiKey in asciiLine:
+         stripT = asciiLine.replace("=", "").replace(asciiKey, "").replace("\n", "")
+         blockList.append(stripT)
+
+   return blockList
+
+
+################################################################################
 # Function that gets a list of all the lockboxes loaded into Armory.
 def getLockboxList():
    lbList = []
@@ -3112,10 +3139,7 @@ def getLockboxList():
    # line with "LOCKBOX-<LockboxID>" (e.g., LOCKBOX-45Tw1FfA). Strip everything
    # except the ID and add it to a list that'll be returned to the caller.
    with open(MULTISIG_FILE, 'r') as f:
-      for line in f:
-         if "LOCKBOX-" in line:
-            stripLine = line.replace("=", "").replace("LOCKBOX-", "").replace("\n", "")
-            lbList.append(stripLine)
+      lbList = getBlockID(f, 'LOCKBOX-')
 
       f.flush()
       os.fsync(f.fileno())

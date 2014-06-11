@@ -3,7 +3,7 @@ Created on Aug 6, 2013
 
 @author: Andy
 '''
-from test.Tiab import TiabTest, TOP_TIAB_BLOCK
+from pytest.Tiab import TiabTest, TOP_TIAB_BLOCK
 
 import sys
 import unittest
