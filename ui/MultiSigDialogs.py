@@ -28,9 +28,9 @@ class DlgLockboxEditor(ArmoryDialog):
          """) % htmlColor("TextBlue"), hAlign=Qt.AlignHCenter)
 
       lblDescr2 = QRichLabel(tr("""
-         Create a "multi-sig lockbox" to hold
-         coins that have signing authority split between multiple devices 
-         for personal funds, or split between multiple parties for escrow."""))
+         Create a "lockbox" to hold coins that have signing authority split 
+         between multiple devices for personal funds, or split between 
+         multiple parties for escrow."""))
 
       lblDescr3 = QRichLabel(tr("""
          <b><u>NOTE:</u> Multi-sig "lockboxes" require <u>public keys</u>, not 
@@ -105,23 +105,31 @@ class DlgLockboxEditor(ArmoryDialog):
                                                     hAlign=Qt.AlignRight)
 
 
-         addrWidgets = self.main.createAddressEntryWidgets(self, '', 70, 2, 
+         addrWidgets = self.main.createAddressEntryWidgets(self, '', 60, 2, 
                                        getPubKey=True, showLockBoxes=False)
          self.widgetMap[i]['QLE_PUBK'] = addrWidgets['QLE_ADDR']
          self.widgetMap[i]['BTN_BOOK'] = addrWidgets['BTN_BOOK']
          self.widgetMap[i]['LBL_DETECT']=addrWidgets['LBL_DETECT']
          self.widgetMap[i]['LBL_NAME'] = QRichLabel('', doWrap=False)
-         self.widgetMap[i]['BTN_NAME'] = QLabelButton(tr('Edit'))
+         self.widgetMap[i]['BTN_NAME']  = QLabelButton(tr('Edit'))
+         self.widgetMap[i]['BTN_IMPORT'] = QLabelButton(tr('Import'))
          self.widgetMap[i]['BTN_NAME'].setContentsMargins(0,0,0,0)
          self.widgetMap[i]['LBL_DETECT'].setWordWrap(False)
 
-         def createCallBack(i):
+         def createCallback(i):
             def nameClick():
                self.clickNameButton(i)
             return nameClick
 
+         def createImportCallback(i):
+            def importClick():
+               self.clickImportButton(i)
+            return importClick
+
          self.connect(self.widgetMap[i]['BTN_NAME'], SIGNAL('clicked()'), \
-                                                            createCallBack(i))
+                                                            createCallback(i))
+         self.connect(self.widgetMap[i]['BTN_IMPORT'], SIGNAL('clicked()'), \
+                                                       createImportCallback(i))
          
          self.prevPubKeyStr[i] = ''
          
@@ -156,9 +164,9 @@ class DlgLockboxEditor(ArmoryDialog):
 
 
       layoutPubKeys = QGridLayout()
-      pkFrameList = []
+      self.pkFrameList = []
       for i in range(self.maxN):
-         pkFrameList.append(QFrame())
+         self.pkFrameList.append(QFrame())
          layoutThisRow = QGridLayout()
          layoutThisRow.addWidget(self.widgetMap[i]['IMG_ICON'],   0,0, 3,1)
          layoutThisRow.addWidget(self.widgetMap[i]['LBL_ROWN'],   0,1)
@@ -166,7 +174,14 @@ class DlgLockboxEditor(ArmoryDialog):
          layoutThisRow.addItem(QSpacerItem(10,10),                0,2)
          layoutThisRow.addWidget(self.widgetMap[i]['QLE_PUBK'],   0,3)
          layoutThisRow.addWidget(self.widgetMap[i]['BTN_BOOK'],   0,4)
-         layoutThisRow.addWidget(self.widgetMap[i]['LBL_DETECT'], 1,3, 1,2)
+
+      
+         layoutDetect = QHBoxLayout()
+         layoutDetect.addWidget(self.widgetMap[i]['LBL_DETECT'])
+         layoutDetect.addStretch()
+         layoutDetect.addItem(QSpacerItem(5,5))
+         layoutDetect.addWidget(self.widgetMap[i]['BTN_IMPORT'])
+         layoutThisRow.addLayout(layoutDetect,                    1,3, 1,2)
 
          layoutName = QHBoxLayout()
          layoutName.addWidget(self.widgetMap[i]['LBL_NAME'])
@@ -176,12 +191,13 @@ class DlgLockboxEditor(ArmoryDialog):
          layoutThisRow.addLayout(layoutName,                      2,3, 1,2)
 
          layoutThisRow.setColumnStretch(3, 1)
-         layoutThisRow.setSpacing(0)
+         layoutThisRow.setSpacing(3)
 
-         pkFrameList[-1].setLayout(layoutThisRow)
+         self.pkFrameList[-1].setLayout(layoutThisRow)
+         self.pkFrameList[-1].setFrameStyle(STYLE_SUNKEN)
 
-      pkFrameList.append('Stretch')
-      frmPubKeys = makeVertFrame( [frmName]+pkFrameList, STYLE_RAISED)
+      self.pkFrameList.append('Stretch')
+      frmPubKeys = makeVertFrame( [frmName]+self.pkFrameList, STYLE_RAISED)
 
       self.scrollPubKeys = QScrollArea()
       self.scrollPubKeys.setWidget(frmPubKeys)
@@ -253,9 +269,35 @@ class DlgLockboxEditor(ArmoryDialog):
    def clickNameButton(self, i):
       currName = unicode(self.widgetMap[i]['LBL_NAME'].text())
       dlgComm = DlgSetComment(self, self.main, currName, \
-                              'Multi-Sig', 'Name or Idenifier (such as email)')
+                              'public key', 'ID or contact info')
       if dlgComm.exec_():
          self.widgetMap[i]['LBL_NAME'].setText(dlgComm.edtComment.text())
+
+
+   #############################################################################
+   def clickImportButton(self, i):
+
+      title = tr("Import Public Key Block")
+      descr = tr("""
+         <center><b><u>Import Public Key Block</u></b></center>
+         <br>
+         Copy and paste a PUBLICKEY block into the text field below, 
+         or load it from file.  PUBLICKEY files usually have the 
+         extension <i>*.lockbox.pub</i>.  If you were given a chunk of hex
+         characters starting with "02", "03" or "04", that is a raw public 
+         key and can be entered directly into the public key field in the
+         lockbox creation window.""")
+      ftypes = ['Public Key Blocks (*.lockbox.pub)']
+
+      dlgImport = DlgImportAsciiBlock(self, self.main, 
+                        title, descr, ftypes, LockboxPublicKey)
+      dlgImport.exec_()
+      if dlgImport.returnObj:
+         binPubKey  = dlgImport.returnObj.binPubKey
+         keyComment = dlgImport.returnObj.keyComment
+
+         self.widgetMap[i]['QLE_PUBK'].setText(binary_to_hex(binPubKey))
+         self.widgetMap[i]['LBL_NAME'].setText(keyComment)
 
 
    #############################################################################
@@ -364,11 +406,9 @@ class DlgLockboxEditor(ArmoryDialog):
       self.lblMasterIcon.setPixmap(self.imgPie.scaled(64,64))
 
       for i in range(self.maxN):
+         self.pkFrameList[i].setVisible(i<N)
          if i>=N:
             self.widgetMap[i]['QLE_PUBK'].setText('')
-
-         for k,v in self.widgetMap[i].iteritems():
-            v.setVisible(i<N)
 
       self.updateLabels()
          
@@ -984,7 +1024,7 @@ class DlgLockboxManager(ArmoryDialog):
                'offline': None},
 
          'CreateTx':   { \
-               'button':  tr('Create Spend Tx'),
+               'button':  tr('Create Spending Tx'),
                'callbk':  self.doSpend,
                'organiz': True,
                'lbltxt':  tr('Send bitcoins from lockbox'),
