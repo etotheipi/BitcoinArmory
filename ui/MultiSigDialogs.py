@@ -4,7 +4,7 @@ from PyQt4.QtNetwork import *
 from qtdefines import *
 from qtdialogs import createAddrBookButton, DlgSetComment, DlgSendBitcoins, \
                       DlgUnlockWallet, DlgQRCodeDisplay, DlgRequestPayment,\
-   DlgDispTxInfo
+                      DlgDispTxInfo
 from armoryengine.ALL import *
 from armorymodels import *
 from armorycolors import *
@@ -15,6 +15,7 @@ from ui.MultiSigModels import \
 import webbrowser
 from armoryengine.CoinSelection import PySelectCoins, PyUnspentTxOut, \
                                     pprintUnspentTxOutList
+import cStringIO
 
 #############################################################################
 class DlgLockboxEditor(ArmoryDialog):
@@ -28,9 +29,9 @@ class DlgLockboxEditor(ArmoryDialog):
          """) % htmlColor("TextBlue"), hAlign=Qt.AlignHCenter)
 
       lblDescr2 = QRichLabel(tr("""
-         Create a "multi-sig lockbox" to hold
-         coins that have signing authority split between multiple devices 
-         for personal funds, or split between multiple parties for escrow."""))
+         Create a "lockbox" to hold coins that have signing authority split 
+         between multiple devices for personal funds, or split between 
+         multiple parties for escrow."""))
 
       lblDescr3 = QRichLabel(tr("""
          <b><u>NOTE:</u> Multi-sig "lockboxes" require <u>public keys</u>, not 
@@ -105,23 +106,31 @@ class DlgLockboxEditor(ArmoryDialog):
                                                     hAlign=Qt.AlignRight)
 
 
-         addrWidgets = self.main.createAddressEntryWidgets(self, '', 70, 2, 
+         addrWidgets = self.main.createAddressEntryWidgets(self, '', 60, 2, 
                                        getPubKey=True, showLockBoxes=False)
          self.widgetMap[i]['QLE_PUBK'] = addrWidgets['QLE_ADDR']
          self.widgetMap[i]['BTN_BOOK'] = addrWidgets['BTN_BOOK']
          self.widgetMap[i]['LBL_DETECT']=addrWidgets['LBL_DETECT']
          self.widgetMap[i]['LBL_NAME'] = QRichLabel('', doWrap=False)
-         self.widgetMap[i]['BTN_NAME'] = QLabelButton(tr('Edit'))
+         self.widgetMap[i]['BTN_NAME']  = QLabelButton(tr('Edit'))
+         self.widgetMap[i]['BTN_IMPORT'] = QLabelButton(tr('Import'))
          self.widgetMap[i]['BTN_NAME'].setContentsMargins(0,0,0,0)
          self.widgetMap[i]['LBL_DETECT'].setWordWrap(False)
 
-         def createCallBack(i):
+         def createCallback(i):
             def nameClick():
                self.clickNameButton(i)
             return nameClick
 
+         def createImportCallback(i):
+            def importClick():
+               self.clickImportButton(i)
+            return importClick
+
          self.connect(self.widgetMap[i]['BTN_NAME'], SIGNAL('clicked()'), \
-                                                            createCallBack(i))
+                                                            createCallback(i))
+         self.connect(self.widgetMap[i]['BTN_IMPORT'], SIGNAL('clicked()'), \
+                                                       createImportCallback(i))
          
          self.prevPubKeyStr[i] = ''
          
@@ -156,9 +165,9 @@ class DlgLockboxEditor(ArmoryDialog):
 
 
       layoutPubKeys = QGridLayout()
-      pkFrameList = []
+      self.pkFrameList = []
       for i in range(self.maxN):
-         pkFrameList.append(QFrame())
+         self.pkFrameList.append(QFrame())
          layoutThisRow = QGridLayout()
          layoutThisRow.addWidget(self.widgetMap[i]['IMG_ICON'],   0,0, 3,1)
          layoutThisRow.addWidget(self.widgetMap[i]['LBL_ROWN'],   0,1)
@@ -166,7 +175,14 @@ class DlgLockboxEditor(ArmoryDialog):
          layoutThisRow.addItem(QSpacerItem(10,10),                0,2)
          layoutThisRow.addWidget(self.widgetMap[i]['QLE_PUBK'],   0,3)
          layoutThisRow.addWidget(self.widgetMap[i]['BTN_BOOK'],   0,4)
-         layoutThisRow.addWidget(self.widgetMap[i]['LBL_DETECT'], 1,3, 1,2)
+
+      
+         layoutDetect = QHBoxLayout()
+         layoutDetect.addWidget(self.widgetMap[i]['LBL_DETECT'])
+         layoutDetect.addStretch()
+         layoutDetect.addItem(QSpacerItem(5,5))
+         layoutDetect.addWidget(self.widgetMap[i]['BTN_IMPORT'])
+         layoutThisRow.addLayout(layoutDetect,                    1,3, 1,2)
 
          layoutName = QHBoxLayout()
          layoutName.addWidget(self.widgetMap[i]['LBL_NAME'])
@@ -176,12 +192,13 @@ class DlgLockboxEditor(ArmoryDialog):
          layoutThisRow.addLayout(layoutName,                      2,3, 1,2)
 
          layoutThisRow.setColumnStretch(3, 1)
-         layoutThisRow.setSpacing(0)
+         layoutThisRow.setSpacing(3)
 
-         pkFrameList[-1].setLayout(layoutThisRow)
+         self.pkFrameList[-1].setLayout(layoutThisRow)
+         self.pkFrameList[-1].setFrameStyle(STYLE_SUNKEN)
 
-      pkFrameList.append('Stretch')
-      frmPubKeys = makeVertFrame( [frmName]+pkFrameList, STYLE_RAISED)
+      self.pkFrameList.append('Stretch')
+      frmPubKeys = makeVertFrame( [frmName]+self.pkFrameList, STYLE_RAISED)
 
       self.scrollPubKeys = QScrollArea()
       self.scrollPubKeys.setWidget(frmPubKeys)
@@ -253,9 +270,35 @@ class DlgLockboxEditor(ArmoryDialog):
    def clickNameButton(self, i):
       currName = unicode(self.widgetMap[i]['LBL_NAME'].text())
       dlgComm = DlgSetComment(self, self.main, currName, \
-                              'Multi-Sig', 'Name or Idenifier (such as email)')
+                              'public key', 'ID or contact info')
       if dlgComm.exec_():
          self.widgetMap[i]['LBL_NAME'].setText(dlgComm.edtComment.text())
+
+
+   #############################################################################
+   def clickImportButton(self, i):
+
+      title = tr("Import Public Key Block")
+      descr = tr("""
+         <center><b><u>Import Public Key Block</u></b></center>
+         <br>
+         Copy and paste a PUBLICKEY block into the text field below, 
+         or load it from file.  PUBLICKEY files usually have the 
+         extension <i>*.lockbox.pub</i>.  If you were given a chunk of hex
+         characters starting with "02", "03" or "04", that is a raw public 
+         key and can be entered directly into the public key field in the
+         lockbox creation window.""")
+      ftypes = ['Public Key Blocks (*.lockbox.pub)']
+
+      dlgImport = DlgImportAsciiBlock(self, self.main, 
+                        title, descr, ftypes, LockboxPublicKey)
+      dlgImport.exec_()
+      if dlgImport.returnObj:
+         binPubKey  = dlgImport.returnObj.binPubKey
+         keyComment = dlgImport.returnObj.keyComment
+
+         self.widgetMap[i]['QLE_PUBK'].setText(binary_to_hex(binPubKey))
+         self.widgetMap[i]['LBL_NAME'].setText(keyComment)
 
 
    #############################################################################
@@ -364,11 +407,9 @@ class DlgLockboxEditor(ArmoryDialog):
       self.lblMasterIcon.setPixmap(self.imgPie.scaled(64,64))
 
       for i in range(self.maxN):
+         self.pkFrameList[i].setVisible(i<N)
          if i>=N:
             self.widgetMap[i]['QLE_PUBK'].setText('')
-
-         for k,v in self.widgetMap[i].iteritems():
-            v.setVisible(i<N)
 
       self.updateLabels()
          
@@ -638,10 +679,13 @@ class DlgLockboxManager(ArmoryDialog):
             #<br><br>
             #<b>Use at your own risk!</b>"""), QMessageBox.Ok)
 
+      extraTxt = ''
+      if len(self.main.allLockboxes) > 0:
+         extraTxt = tr('<br>Double-click on a lockbox to edit')
 
       lblDescr = QRichLabel(tr("""
          <font color="%s" size=4><b>Manage Multi-Sig Lockbox Info</b></font>
-         """) % htmlColor('TextBlue'), hAlign=Qt.AlignHCenter)
+         %s""") % (htmlColor('TextBlue'), extraTxt), hAlign=Qt.AlignHCenter)
       
       frmDescr = makeVertFrame([lblDescr], STYLE_RAISED)
 
@@ -722,8 +766,13 @@ class DlgLockboxManager(ArmoryDialog):
       frmManageBtns.layout().setSpacing(2)
       """
 
+      lbGuideURL = "https://bitcoinarmory.com/about/using-lockboxes/"
+      lblLinkToMSWebpage = QRichLabel(tr("""Check out our 
+         <a href="%s">lockbox documentation</a>""") % lbGuideURL, doWrap=False)
+      lblLinkToMSWebpage.setOpenExternalLinks(True)
+
       btnDone = QPushButton(tr('Done'))
-      frmDone = makeHorizFrame(['Stretch', btnDone])
+      frmDone = makeHorizFrame([lblLinkToMSWebpage, 'Stretch', btnDone])
       self.connect(btnDone, SIGNAL('clicked()'), self.accept)
 
 
@@ -847,112 +896,177 @@ class DlgLockboxManager(ArmoryDialog):
       for i in [0,1]:
          self.allDashButtons[i] = \
          {
-         'CreateLB':   {'button':  tr('Create Lockbox'),
-                        'callbk':  self.doCreate,
-                        'organiz': True,
-                        'lbltxt':  '',
-                        'tiptxt':  tr('Create multi-party or multi-device bitcoin storage'),
-                        'select':  None,
-                        'offline': None},
+         'CreateLB':   { \
+               'button':  tr('Create Lockbox'),
+               'callbk':  self.doCreate,
+               'organiz': True,
+               'lbltxt':  tr('Collect public keys'),
+               'tiptxt':  tr("""Create a lockbox by collecting public keys
+                                from each device or person that will be 
+                                a signing authority over the funds.  Once
+                                created you will be given a chunk of text
+                                to send to each party so they can recognize
+                                and sign transactions related to the 
+                                lockbox."""),
+               'select':  None,
+               'offline': None},
 
-         'SelectKey':  {'button':  tr('Select Public Key'),
-                        'callbk':  self.doSelectKey,
-                        'organiz': False,
-                        'lbltxt':  tr('Send to organizer'),
-                        'tiptxt':  tr('Select key to send to organizer'),
-                        'select':  None,
-                        'offline': None},
+         'SelectKey':  { \
+               'button':  tr('Select Public Key'),
+               'callbk':  self.doSelectKey,
+               'organiz': False,
+               'lbltxt':  tr('Send to organizer'),
+               'tiptxt':  tr("""In order to create a lockbox all devices 
+                                and/or parties need to provde a public key 
+                                that they control to be merged by the 
+                                organizer.  Once all keys are collected,
+                                the organizer will send you the final
+                                lockbox definition to import."""),
+               'select':  None,
+               'offline': None},
 
-         'ExportLB':   {'button':  tr('Export Lockbox'),
-                        'callbk':  self.doExport,
-                        'organiz': False,
-                        'lbltxt':  tr('Send to other devices or parties'),
-                        'tiptxt':  tr('Send lockbox to other devices or parties'),
-                        'select':  tr('Select lockbox to export'),
-                        'offline': None},
+         'ExportLB':   { \
+               'button':  tr('Export Lockbox'),
+               'callbk':  self.doExport,
+               'organiz': False,
+               'lbltxt':  tr('Send to other devices or parties'),
+               'tiptxt':  tr("""Export a lockbox definition to be imported
+                                by other devices are parties.  Normally the 
+                                lockbox organizer will do this after all public
+                                keys are collected, but any participant who 
+                                already has it can send it, such as if one 
+                                party/device accidentally deletes it."""),
+               'select':  tr('Select lockbox to export'),
+               'offline': None},
 
-         'ImportLB':   {'button':  tr('Import Lockbox'),
-                        'callbk':  self.doImport,
-                        'organiz': False,
-                        'lbltxt':  'From organizer or other device',
-                        'tiptxt':  tr("""Import lockbox definition from organizer 
-                                         or other lockbox participants"""),
-                        'select':  None,
-                        'offline': None},
+         'ImportLB':   { \
+               'button':  tr('Import Lockbox'),
+               'callbk':  self.doImport,
+               'organiz': False,
+               'lbltxt':  tr('From organizer or other device'),
+               'tiptxt':  tr("""Import a lockbox definition to begin
+                                tracking its funds and to be able to
+                                sign related transactions.
+                                Normally, the organizer will send you 
+                                send you the data to import after you
+                                provide a public key from one of your
+                                wallets."""),
+               'select':  None,
+               'offline': None},
 
-         'EditLB':     {'button':  tr('Edit Lockbox'),
-                        'callbk':  self.doEdit,
-                        'organiz': False,
-                        'lbltxt':  '',
-                        'tiptxt':  tr('Edit an existing lockbox'),
-                        'select':  tr('Select lockbox to edit'),
-                        'offline': None},
+         'EditLB':     { \
+               'button':  tr('Edit Lockbox'),
+               'callbk':  self.doEdit,
+               'organiz': False,
+               'lbltxt':  '',
+               'tiptxt':  tr('Edit an existing lockbox'),
+               'select':  tr('Select lockbox to edit'),
+               'offline': None},
 
-         'RegFund':    {'button':  tr('Fund Lockbox'),
-                        'callbk':  self.doFundIt,
-                        'organiz': False,
-                        'lbltxt':  tr('Fund the selected lockbox from any wallet'),
-                        'tiptxt':  tr('Send bitcoins from a wallet to the selected lockbox'),
-                        'select':  tr('Select a lockbox to fund'),
-                        'offline': tr('Must be online to fund')},
+         'RegFund':    { \
+               'button':  tr('Fund Lockbox'),
+               'callbk':  self.doFundIt,
+               'organiz': False,
+               'lbltxt':  tr('Fund selected lockbox from any wallet'),
+               'tiptxt':  tr("""If you would like to fund this lockbox
+                                from another lockbox, select the funding 
+                                lockbox in the table and click the
+                                "Create Spending Tx" button.  Use the 
+                                address book to select this lockbox as the
+                                recipient of that transaction. 
+                                <br><br> 
+                                If multiple people will be funding
+                                this lockbox and not all of them are fully 
+                                trusted, click the "Simul" checkbox on the 
+                                left to see the "simulfunding" options."""),
+               'select':  tr('Select a lockbox to fund'),
+               'offline': tr('Must be online to fund')},
 
-         'MergeProm':  {'button':  tr('Merge Promissory Notes'),
-                        'callbk':  self.doMergeProm,
-                        'organiz': True,
-                        'lbltxt':  '',
-                        'tiptxt':  tr('Merge promissory notes from funders'),
-                        'select':  None,
-                        'offline': None},
+         'MergeProm':  { \
+               'button':  tr('Merge Promissory Notes'),
+               'callbk':  self.doMergeProm,
+               'organiz': True,
+               'lbltxt':  '',
+               'tiptxt':  tr("""Collect promissory notes from all funders
+                                of a simulfunding transaction.  Use this to
+                                merge them into a single transaction that 
+                                the funders can review and sign."""),
+               'select':  None,
+               'offline': None},
 
-         'CreateProm': {'button':  tr('Create Promissory Note'),
-                        'callbk':  self.doCreateProm,
-                        'organiz': False,
-                        'lbltxt':  tr('Make a funding commitment to a lockbox'),
-                        'tiptxt':  tr('Make a funding commitment to a lockbox'),
-                        'select':  tr('Select lockbox to commit funds to'),
-                        'offline': tr('Must be online to create')},
+         'CreateProm': { \
+               'button':  tr('Create Promissory Note'),
+               'callbk':  self.doCreateProm,
+               'organiz': False,
+               'lbltxt':  tr('Make a funding commitment to a lockbox'),
+               'tiptxt':  tr("""A "promissory note" provides blockchain
+                                information about how your wallet will 
+                                contribute funds to a simulfunding transaction.
+                                A promissory note does <b>not</b>
+                                move any money in your wallet.  The organizer
+                                will create a single transaction that includes
+                                all promissory notes and you will be able to 
+                                review it in its entirety before signing."""),
+               'select':  tr('Select lockbox to commit funds to'),
+               'offline': tr('Must be online to create')},
 
-         'RevSign':    {'button':  tr('Review and Sign'),
-                        'callbk':  self.doReview,
-                        'organiz': False,
-                        'lbltxt':  tr('Any kind of multi-sig transaction'),
-                        'tiptxt':  tr('Review and sign any multi-sig transaction'),
-                        'select':  None,
-                        'offline': None},
+         'RevSign':    { \
+               'button':  tr('Review and Sign'),
+               'callbk':  self.doReview,
+               'organiz': False,
+               'lbltxt':  tr('Multi-sig spend or simulfunding'),
+               'tiptxt':  tr("""Review and sign any lockbox-related
+                                transaction that requires multiple 
+                                signatures.  This includes spending 
+                                transactions from a regular lockbox,
+                                as well as completing a simulfunding
+                                transaction."""),
+               'select':  None,
+               'offline': None},
 
-         'CreateTx':   {'button':  tr('Create Spend Tx'),
-                        'callbk':  self.doSpend,
-                        'organiz': True,
-                        'lbltxt':  '',
-                        'tiptxt':  tr('Create proposed spend from lockbox to other wallet or lockbox'),
-                        'select':  tr('Select lockbox to spend from'),
-                        'offline': tr('Must be online to spend')},
+         'CreateTx':   { \
+               'button':  tr('Create Spending Tx'),
+               'callbk':  self.doSpend,
+               'organiz': True,
+               'lbltxt':  tr('Send bitcoins from lockbox'),
+               'tiptxt':  tr("""Create a proposed transaction sending bitcoins
+                                to an address, wallet or another lockbox.  
+                                The transaction will not be final until enough
+                                signatures have been collected and then 
+                                broadcast from an online computer."""),
+               'select':  tr('Select lockbox to spend from'),
+               'offline': tr('Must be online to spend')},
 
 
-         'MergeSigs':  {'button':  tr('Collect Sigs && Broadcast'),
-                        'callbk':  self.doReview,
-                        'organiz': True,
-                        'lbltxt':  tr('Merge signatures to finalize'),
-                        'tiptxt':  tr('Merge signatures and broadcast transaction'),
-                        'select':  None,
-                        'offline': tr('(must be online to broadcast)')},
+         'MergeSigs':  { \
+               'button':  tr('Collect Sigs && Broadcast'),
+               'callbk':  self.doReview,
+               'organiz': True,
+               'lbltxt':  tr('Merge signatures to finalize'),
+               'tiptxt':  tr('Merge signatures and broadcast transaction'),
+               'select':  None,
+               'offline': tr('(must be online to broadcast)')},
       }
 
 
-      # 
-      #btngrp = QButtonGroup(self)
-      #self.optFundTypeSimple = QRadioButton(tr('Simple'))
-      #self.optFundTypeSimul  = QRadioButton(tr('Simul/Escrow'))
-      #btngrp.addButton(self.optFundTypeSimple)
-      #btngrp.addButton(self.optFundTypeSimul)
-      #btngrp.setExclusive(True)
-
-      #self.connect(self.optFundTypeSimple, SIGNAL('clicked()'), self.updLayout)
-      #self.connect(self.optFundTypeSimul,  SIGNAL('clicked()'), self.updLayout)
+      # We will have two pages on the stack.  The first one is for regular
+      # funding with all the simulfunding options missing.  The second one
+      # is re-arranged (but mostly the same widgets) but with the additional
+      # simulfunding widgets
+      self.stkDashboard = QStackedWidget()
 
       simultxt = 'Simul'
       self.chkSimulfundA = QCheckBox(simultxt)
       self.chkSimulfundB = QCheckBox(simultxt)
+
+      ttipSimulTxt = tr("""
+         If this lockbox will be funded by multiple parties and not all
+         parties are 100% trusted, then you should use "simulfunding" to
+         make sure that all funds are committed at the same time.  Check
+         the "Simul" box to show the simulfunding options on in the table.""")
+      ttipSimulA = self.main.createToolTipWidget(ttipSimulTxt)
+      ttipSimulB = self.main.createToolTipWidget(ttipSimulTxt)
+         
 
       def clickSimulA():
          self.chkSimulfundB.setChecked(self.chkSimulfundA.isChecked())
@@ -970,32 +1084,28 @@ class DlgLockboxManager(ArmoryDialog):
       self.connect(self.chkSimulfundB, SIGNAL('clicked()'), clickSimulB)
 
 
-      self.stkDashboard = QStackedWidget()
-
-      #'CreateLB':   {'button':  tr('Create Lockbox')
-      #'SelectKey':  {'button':  tr('Select Public Key'),
-      #'ExportLB':   {'button':  tr('Distribute Lockbox'),
-      #'ImportLB':   {'button':  tr('Import Lockbox'),
-      #'EditLB':     {'button':  tr('Edit Lockbox'),
-      #'RegFund':    {'button':  tr('Fund Lockbox'),
-      #'MergeProm':  {'button':  tr('Merge Promissory Notes'),
-      #'CreateProm': {'button':  tr('Create Promissory Note'),
-      #'RevSign':    {'button':  tr('Review and Sign'),
-      #'MergeSigs':  {'button':  tr('Merge Sigs && Broadcast'),
-      #'CreateTx':   {'button':  tr('Spend From Lockbox'),
-
       cellWidth = 150
       cellStyle = STYLE_RAISED
-      def createHeaderCell(headStr, extraWidg=None):
+      def createHeaderCell(headStr, extraWidgList=None):
          lbl = QRichLabel(headStr, bold=True, size=4,
                                    hAlign=Qt.AlignHCenter,
                                    vAlign=Qt.AlignVCenter)
           
-         if extraWidg is None:
+          
+         if extraWidgList is None:
             frm = makeVertFrame([lbl], cellStyle) 
          else:
-            frm = makeVertFrame([lbl, extraWidg], cellStyle) 
-            frm.layout().setAlignment(extraWidg, Qt.AlignHCenter)
+            botLayout = QHBoxLayout()
+            for widg in extraWidgList:
+               botLayout.addWidget(widg)
+            botLayout.setSpacing(0)
+            cellLayout = QVBoxLayout()
+            cellLayout.addWidget(lbl)
+            cellLayout.addLayout(botLayout)
+            frm = QFrame()
+            frm.setLayout(cellLayout)
+            frm.setFrameStyle(cellStyle)
+            
 
          return frm
 
@@ -1109,8 +1219,8 @@ class DlgLockboxManager(ArmoryDialog):
       frmSingleLayout.addWidget(createHeaderCell('CREATE'),    0,0)
       frmSingleLayout.addWidget(firstRow,                      0,1,  1,3)
 
-      frmSingleLayout.addWidget(createHeaderCell('FUND', self.chkSimulfundA),      
-                                                               1,0)
+      frmSingleLayout.addWidget(createHeaderCell('FUND', 
+                            [self.chkSimulfundA, ttipSimulA]), 1,0)
       frmSingleLayout.addWidget(secondRow,                     1,1,  1,3)
 
       frmSingleLayout.addWidget(createHeaderCell('SPEND'),     2,0)
@@ -1138,8 +1248,8 @@ class DlgLockboxManager(ArmoryDialog):
       frmMultiLayout.addWidget(createHeaderCell('CREATE'),    0,0)
       frmMultiLayout.addWidget(firstRow,                      0,1,  1,3)
 
-      frmMultiLayout.addWidget(createHeaderCell('FUND', self.chkSimulfundB),
-                                                              1,0)
+      frmMultiLayout.addWidget(createHeaderCell('FUND', 
+                           [self.chkSimulfundB, ttipSimulB]), 1,0)
       frmMultiLayout.addWidget(secondRow,                     1,1,  1,2)
       frmMultiLayout.addWidget(lastCol,                       1,3,  2,1)
 
@@ -1393,7 +1503,7 @@ class DlgLockboxManager(ArmoryDialog):
          
    #############################################################################
    def doSelectKey(self):
-      pass
+      dlg = DlgSelectPublicKey(self, self.main).exec_()
 
    #############################################################################
    def doImport(self):
@@ -1909,6 +2019,155 @@ class DlgImportAsciiBlock(QDialog):
 
 
 ################################################################################
+class DlgSelectPublicKey(ArmoryDialog):
+   def __init__(self, parent, main):
+      super(DlgSelectPublicKey, self).__init__(parent, main)
+
+      lblDescr = QRichLabel(tr("""
+         <center><font size=4><b><u>Select Public Key for Lockbox 
+         Creation</u></b></font></center>
+         <br>
+         Lockbox creation requires <b>public keys</b> not the regular Bitcoin
+         addresses most users are accustomed to.  A public key is much longer
+         than a regular bitcoin address, usually starting with "02", "03" or
+         "04".  Once you have selected a public key, send it to the lockbox 
+         organizer (person or device).  The oragnizer will create the lockbox 
+         which then must be imported by all devices that will track the funds
+         and/or sign transactions.
+         <br><br>
+         It is recommended that you select a <i>new</i> key from one of your
+         wallets that will not be used for any other purpose.
+         You <u>can</u> use a public key from a watching-only wallet (for 
+         an offline wallet), but you will have to sign the transactions the
+         same way you would a regular offline transaction.  Additionally the 
+         offline computer will need to have Armory version 0.92 or later.
+         <br><br>
+         <b><font color="%s">BACKUP WARNING</b></b>:  
+         It is highly recommended that you select a public key from a
+         wallet for which you have good backups!  If you are creating a lockbox
+         requiring the same number of signatures as there are authorities 
+         (such as 2-of-2 or 3-of-3), the loss of the wallet <u>will</u> lead 
+         to loss of lockbox funds!  
+         """) % htmlColor('TextRed'))
+
+      lblSelect  = QRichLabel(tr('Select Public Key:'), doWrap=False)
+      lblContact = QRichLabel(tr('Notes or Contact Info:'), doWrap=False)
+      ttipContact = self.main.createToolTipWidget(tr("""
+         If multiple people will be part of this lockbox, you should 
+         specify name and contact info in the box below, which will be
+         available to all parties that import the finalized lockbox.
+         <br><br>
+         If this lockbox will be shared among devices you own (such as for
+         personal savings), specify information that helps you identify which
+         device is associated with this public key."""))
+
+      self.edtContact = QLineEdit()
+      w,h = relaxedSizeNChar(self.edtContact, 60)
+      self.edtContact.setMinimumWidth(w)
+      
+      frmDescr = makeVertFrame([lblDescr], STYLE_RAISED)
+
+      addrWidgets = self.main.createAddressEntryWidgets(self, '', 60, 2, 
+                                       getPubKey=True, showLockBoxes=False)
+
+      self.edtPubKey   = addrWidgets['QLE_ADDR']
+      self.btnAddrBook = addrWidgets['BTN_BOOK']
+      self.lblDetect   = addrWidgets['LBL_DETECT']
+      self.lblDetect.setVisible(True)
+
+      btnExportKey = QPushButton(tr('Send to Organizer'))
+      self.connect(btnExportKey, SIGNAL('clicked()'), self.doExportKey)
+      frmButtons = makeHorizFrame([QRichLabel(tr('When finished:')),
+                                   btnExportKey, 
+                                   'Stretch'])
+
+      layoutAddrEntry = QGridLayout()
+      layoutAddrEntry.addWidget(lblSelect,                  0,0)
+      layoutAddrEntry.addWidget(self.edtPubKey,             0,1)
+      layoutAddrEntry.addWidget(self.btnAddrBook,           0,2)
+      layoutAddrEntry.addWidget(self.lblDetect,             1,1,  1,2)
+      layoutAddrEntry.addWidget(lblContact,                 2,0)
+      layoutAddrEntry.addWidget(self.edtContact,            2,1)
+      layoutAddrEntry.addWidget(ttipContact,                2,2)
+      layoutAddrEntry.addWidget(frmButtons,                 3,0,  1,3)
+      layoutAddrEntry.setColumnStretch(0,0)
+      layoutAddrEntry.setColumnStretch(1,1)
+      layoutAddrEntry.setColumnStretch(2,0)
+      frmAddrEntry = QFrame()
+      frmAddrEntry.setLayout(layoutAddrEntry)
+      
+
+      btnDone = QPushButton(tr('Done'))
+      self.connect(btnDone, SIGNAL('clicked()'), self.accept)
+      frmDone = makeHorizFrame(['Stretch', btnDone])
+      
+
+      mainLayout = QVBoxLayout()
+      mainLayout.addWidget(frmDescr)
+      mainLayout.addWidget(frmAddrEntry)
+      mainLayout.addWidget(HLINE())
+      mainLayout.addWidget(frmDone)
+      self.setLayout(mainLayout)
+      self.setMinimumWidth(600)
+
+      self.setWindowTitle(tr('Select Public Key for Lockbox'))
+      self.setWindowIcon(QIcon(self.main.iconfile))
+
+
+   #############################################################################
+   def collectKeyData(self):
+      try:
+         binPub = hex_to_binary(str(self.edtPubKey.text()).strip())
+         if binPub[0] in ['\x02', '\x03'] and len(binPub)==33:
+            pass  # valid key
+         elif binPub[0]=='\x04' and len(binPub)==65:
+            if not CryptoECDSA().VerifyPublicKeyValid(SecureBinaryData(binPub)):
+               raise BadAddressError('Public key starting with 0x04 is invalid')
+         else:
+            raise BadAddressError('Invalid pub key entered, or not a pub key')
+
+      except:
+         LOGEXCEPT('Invalid public key entered')
+         QMessageBox.warning(self, tr('Invalid Public Key'), tr("""
+            You must enter a public key into the box, <b>not</b> a regular 
+            Bitcoin address that most users are accustomed to.  A public key 
+            is much longer than a Bitcoin address, and always starts with 
+            "02", "03" or "04"."""), QMessageBox.Ok)
+         return None
+
+      comm = unicode(self.edtContact.text()).strip() 
+      lbPubKey = LockboxPublicKey(binPub, comm)
+      return lbPubKey.serializeAscii()
+      
+      
+
+   #############################################################################
+   def doExportKey(self):
+      toCopy = self.collectKeyData()
+      if not toCopy:
+         return 
+
+      lbPubKey = LockboxPublicKey().unserializeAscii(toCopy)
+
+      title = tr("Export Public Key for Lockbox")
+      descr = tr("""
+         The text below includes both the public key and the notes/contact info
+         you entered.  Please send this text to the organizer (person or device) 
+         to be used to create the lockbox.  This data is <u>not</u> sensitive 
+         and it is appropriate be sent via email or transferred via USB storage.
+         """)
+         
+      ftypes = ['Public Key Blocks (*.lockbox.pub)']
+      defaultFN = 'LockboxPubKey_%s_' % lbPubKey.pubKeyID
+         
+      DlgExportAsciiBlock(self, self.main, lbPubKey, title, descr, 
+                                                    ftypes, defaultFN).exec_()
+
+      
+
+
+
+################################################################################
 class DlgExportAsciiBlock(ArmoryDialog):
    def __init__(self, parent, main, exportObj, title, descr, ftypes, defaultFN):
       super(DlgExportAsciiBlock, self).__init__(parent, main)
@@ -1927,16 +2186,19 @@ class DlgExportAsciiBlock(ArmoryDialog):
       txt.setMinimumHeight(h*9)
       txt.setPlainText(self.asciiBlock)
 
-      self.lblCopied = QRichLabel('')
+      self.lblCopyMail = QRichLabel('')
       btnCopy = QPushButton(tr("Copy to Clipboard"))
       btnSave = QPushButton(tr("Save to File"))
+      btnMail = QPushButton(tr("Produce Lockbox Email"))
       btnDone = QPushButton(tr("Done"))
-   
+
       self.connect(btnCopy, SIGNAL('clicked()'), self.clipcopy)
       self.connect(btnSave, SIGNAL('clicked()'), self.savefile)
+      self.connect(btnMail, SIGNAL('clicked()'), self.mailLB)
       self.connect(btnDone, SIGNAL('clicked()'), self.accept)
 
-      frmCopy = makeHorizFrame([btnSave, btnCopy, self.lblCopied, 'Stretch'])
+      frmCopy = makeHorizFrame([btnSave, btnCopy, btnMail, self.lblCopyMail, \
+                                'Stretch'])
       frmDone = makeHorizFrame(['Stretch', btnDone])
       frmMain = makeVertFrame([lblDescr, txt, frmCopy], STYLE_RAISED)
 
@@ -1962,7 +2224,23 @@ class DlgExportAsciiBlock(ArmoryDialog):
       clipb = QApplication.clipboard()
       clipb.clear()
       clipb.setText(self.asciiBlock)
-      self.lblCopied.setText('<i>Copied!</i>')
+      self.lblCopyMail.setText('<i>Copied!</i>')
+
+
+   def mailLB(self):
+      # Iterate over the text block and get the public key ID.
+      # WARNING: For now, the code assumes there will be only one ID returned.
+      # If this changes in the future, the code must be adjusted as necessary.
+      blockIO = cStringIO.StringIO(self.asciiBlock)
+      pkID = getBlockID(blockIO, 'PUBLICKEY-')[0]
+
+      # Prepare to send an email with the public key. For now, the email text
+      # is the public key and nothing else.
+      urlText = 'mailto:?subject=Public Key [%s]&body=%s' % (pkID, \
+                                                             self.asciiBlock)
+      finalUrl = QUrl(urlText)
+      QDesktopServices.openUrl(finalUrl)
+      self.lblCopyMail.setText('<i>Email produced!</i>')
 
 
 ################################################################################
@@ -2003,6 +2281,7 @@ class DlgImportLockbox(QDialog):
       self.setWindowTitle(tr('Import Lockbox'))
       self.setMinimumWidth(450)
 
+
    #############################################################################
    def loadfile(self):
       boxPath = self.main.getFileLoad(tr('Load Lockbox'),
@@ -2012,6 +2291,7 @@ class DlgImportLockbox(QDialog):
       with open(boxPath) as f:
          data = f.read()
       self.txtBoxBlock.setPlainText(data)
+
 
    #############################################################################
    def clickedDone(self):
@@ -3435,7 +3715,7 @@ class DlgSelectMultiSigOption(ArmoryDialog):
       frmBottom = QFrame()
       frmBottom.setFrameStyle(STYLE_RAISED)
       frmBottom.setLayout(layoutBottom)
-      
+
 
       btnDone = QPushButton(tr("Done"))
       self.connect(btnDone, SIGNAL('clicked()'), self.accept)
@@ -3449,21 +3729,22 @@ class DlgSelectMultiSigOption(ArmoryDialog):
       self.setMinimumWidth(550)
       self.setLayout(layoutMaster)
       self.setWindowTitle(tr('Multi-Sig Lockboxes'))
-      
 
 
    #############################################################################
    def openCreate(self):
       DlgLockboxEditor(self, self.main).exec_()
 
+
    #############################################################################
    def openFund(self):
       DlgFundLockbox(self, self.main).exec_()
+
 
    #############################################################################
    def openSpend(self):
       DlgSpendFromLockbox(self, self.main).exec_()
 
 
-
+# Get around circular dependencies
 from ui.WalletFrames import SelectWalletFrame

@@ -105,8 +105,8 @@ class TiabTest(unittest.TestCase):
       # The latter happens if you run all of the tests in the directory
       if os.path.exists(TIAB_ZIPFILE_NAME):
          tiabZipPath = TIAB_ZIPFILE_NAME
-      elif os.path.exists(os.path.join('test',TIAB_ZIPFILE_NAME)):
-         tiabZipPath = (os.path.join('test',TIAB_ZIPFILE_NAME))
+      elif os.path.exists(os.path.join('pytest',TIAB_ZIPFILE_NAME)):
+         tiabZipPath = (os.path.join('pytest',TIAB_ZIPFILE_NAME))
       else:
          self.fail(NEED_TIAB_MSG)
       self.tiab = TiabSession(tiabZipPath=tiabZipPath)

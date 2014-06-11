@@ -3,7 +3,7 @@ Created on Aug 4, 2013
 
 @author: Andy
 '''
-from test.Tiab import TiabTest
+from pytest.Tiab import TiabTest
 
 from random import shuffle
 import sys

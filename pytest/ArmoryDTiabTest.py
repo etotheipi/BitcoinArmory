@@ -5,7 +5,7 @@ Created on Oct 8, 2013
 '''
 import os
 import unittest
-from test.Tiab import TiabTest, TOP_TIAB_BLOCK
+from pytest.Tiab import TiabTest, TOP_TIAB_BLOCK
 from armoryengine.ArmoryUtils import *
 from armoryd import AmountToJSON, Armory_Json_Rpc_Server, JSONtoAmount
 from armoryengine.BDM import TheBDM
@@ -199,8 +199,6 @@ class ArmoryDTiabTest(TiabTest):
          result = self.jsonServer.jsonrpc_getbalance(ballanceType)
          self.assertEqual(result,
                           AmountToJSON(self.wlt.getBalance(ballanceType)))
-      self.assertEqual(self.jsonServer.jsonrpc_getbalance('bogus'), -1)
-
 if __name__ == "__main__":
    #import sys;sys.argv = ['', 'Test.testName']
    unittest.main()

@@ -5,7 +5,7 @@ Created on Oct 8, 2013
 '''
 import os
 import time
-from test.Tiab import TiabTest
+from pytest.Tiab import TiabTest
 from CppBlockUtils import SecureBinaryData, CryptoECDSA
 from armoryd import Armory_Json_Rpc_Server, PrivateKeyNotFound, \
    InvalidBitcoinAddress, WalletUnlockNeeded, Armory_Daemon, AmountToJSON
@@ -192,7 +192,6 @@ class ArmoryDTest(TiabTest):
                            'unconfirmed', 'total', 'ultimate','unspent', 'full']:
          self.assertEqual(self.jsonServer.jsonrpc_getbalance(ballanceType),
                           AmountToJSON(self.wallet.getBalance(ballanceType)))
-      self.assertEqual(self.jsonServer.jsonrpc_getbalance('bogus'), -1)
       
       
 if __name__ == "__main__":

@@ -3,7 +3,7 @@ Created on Aug 4, 2013
 
 @author: Andy
 '''
-from test.Tiab import TiabTest
+from pytest.Tiab import TiabTest
 import unittest
 from armoryengine.ArmoryUtils import hex_to_binary, binary_to_hex, hex_to_int, \
    ONE_BTC
