@@ -1377,7 +1377,6 @@ class PyBtcWallet(object):
       '''Make a copy of this wallet with only the public key and chain code.'''
       # Open the PKCC file for writing.
       newFile = open(newPath, 'wb')
-      bp = BinaryPacker()
 
       # Write the data to the file. The file format is as follows:
       # PKCC data format version  (UINT8)
@@ -1385,15 +1384,14 @@ class PyBtcWallet(object):
       # Number of PKCC lines  (UINT8)
       # PKCC lines  (VAR_STR)
       outRootIDET16, outPKCCET16Lines = self.getRootPKCCBackupData(True)
-      bp.put(UINT8, PYROOTPKCCVER)
-      bp.put(VAR_STR, outRootIDET16)
-      bp.put(UINT8, len(outPKCCET16Lines))
+      newFile.write(str(PYROOTPKCCVER) + '\n')
+      newFile.write(outRootIDET16 + '\n')
       for a in outPKCCET16Lines:
-         bp.put(VAR_STR, a)
+         newFile.write(a + '\n')
 
-      # Write to the file and clean everything up.
-      newFile.write(bp.getBinaryString())
+      # Clean everything up.
       newFile.close()
+
 
    #############################################################################
    def forkOnlineWallet(self, newWalletFile, shortLabel='', longLabel=''):

@@ -1588,7 +1588,7 @@ class DlgWalletDetails(ArmoryDialog):
       lbtnForkWlt = QLabelButton('Create Watching-Only Copy')
       lbtnBackups = QLabelButton('<b>Backup This Wallet</b>')
       lbtnRemove = QLabelButton('Delete/Remove Wallet')
-      lbtnExpRootPKCC = QLabelButton('Export Root Public Key & Chain Code')
+      lbtnExpRootPKCC = QLabelButton('Export Watching-Only Data')
       #lbtnRecover = QLabelButton('Recover Password Wallet')
 
       # LOGERROR('remove me!')
@@ -1632,8 +1632,8 @@ class DlgWalletDetails(ArmoryDialog):
       lbtnRemove.setToolTip('<u></u>Permanently delete this wallet, or just delete '
                             'the private keys to convert it to a watching-only '
                             'wallet.')
-      lbtnExpRootPKCC.setToolTip('<u></u>Export the public key & chain code of '
-                                 'this watching-only wallet.')
+      lbtnExpRootPKCC.setToolTip('<u></u>Export the data of this watching-only '
+                                 'wallet.')
       #lbtnRecover.setToolTip('<u></u>Attempt to recover a lost password using '
       #                      'details that you remember.')
       if not self.wlt.watchingOnly:
@@ -11048,7 +11048,7 @@ class DlgRootPKCCExpCenter(ArmoryDialog):
       layoutDialog.addWidget(frmBottomBtns)
 
       self.setLayout(layoutDialog)
-      self.setWindowTitle("Root Public Key/Chain Code Export Center")
+      self.setWindowTitle("Watch-Only Data Export Center")
       self.setMinimumSize(640, 350)
 
 
@@ -11161,10 +11161,9 @@ class DlgRootPKCCExpDigital(ArmoryDialog):
       self.connect(self.expButton, SIGNAL(CLICKED), self.clickedExpButton)
 
       # Let's put the window together.
-      # NB: For now, the text formatting is crap. The font should be fixed.
       layout = QVBoxLayout()
       headerSz = 4
-      headerStr = tr("""Root Public Key & Chain Code Export for wallet %s""", \
+      headerStr = tr("""Watch-Only Data Export for wallet %s""", \
                      wltIDB58)
       lblHeader =  QRichLabel(tr("""
          <font size=%d color="%s"><b>%s</b></font><br>""") % \
@@ -11176,9 +11175,10 @@ class DlgRootPKCCExpDigital(ArmoryDialog):
       for j in pkccET16Lines:
          self.dispText += '<br><b>%s</b>' % tr(j)
 
-      titleStr = tr('Root Public Key & Chain Code Export')
+      titleStr = tr('Watch-Only Data Export')
 
       self.txtLongDescr = QTextBrowser()
+      self.txtLongDescr.setFont(GETFONT('Fixed', 9))
       self.txtLongDescr.setHtml(self.dispText)
 
       layout.addWidget(lblHeader)
@@ -11192,7 +11192,7 @@ class DlgRootPKCCExpDigital(ArmoryDialog):
       layout.setStretch(3, 0)
       layout.setStretch(4, 0)
       self.setLayout(layout)
-      self.setMinimumWidth(600)
+      self.setMinimumWidth(400)
 
       # TODO:  Dear god this is terrible, but for my life I cannot figure
       #        out how to move the vbar, because you can't do it until
@@ -11653,7 +11653,7 @@ class DlgUniversalRestoreSelect(ArmoryDialog):
       self.rdoSingle = QRadioButton(tr('Single-Sheet Backup (printed)'))
       self.rdoFragged = QRadioButton(tr('Fragmented Backup (incl. mix of paper and files)'))
       self.rdoDigital = QRadioButton(tr('Import digital backup or watching-only wallet'))
-      self.rdoPKCC = QRadioButton(tr('Import watching-only wallet (root public key && chain code)'))
+      self.rdoPKCC = QRadioButton(tr('Import watching-only wallet'))
       self.chkTest = QCheckBox(tr('This is a test recovery to make sure my backup works'))
       btngrp = QButtonGroup(self)
       btngrp.addButton(self.rdoSingle)
@@ -12095,20 +12095,18 @@ class DlgRestorePKCC(ArmoryDialog):
       # Write the text at the top of the window.
       if thisIsATest:
          lblDescr = QRichLabel(tr("""
-         <b><u><font color="blue" size="4">Test a Watching-Only Wallet Restore</font></u></b>
-         <br><br>
-         Use this window to test a restoration of a watching-only wallet using
-         the wallet's root public key and chain code. You can either type the
-         data on a public key/chain code printout or import the public key &
-         chain code from a file."""))
+         <b><u><font color="blue" size="4">Test a Watch-Only Wallet Restore
+         </font></u></b><br><br>
+         Use this window to test the restoration of a watch-only wallet using 
+         the wallet's data. You can either type the data on a root data 
+         printout or import the data from a file."""))
       else:
          lblDescr = QRichLabel(tr("""
-         <b><u><font color="blue" size="4">Restore a Watching-Only Wallet</font></u></b>
-         <br><br>
-         Use this window to restore a watching-only wallet using the wallet's
-         root public key and chain code. You can either type the data on a
-         public key/chain code printout or import the public key & chain code
-         from a file."""))
+         <b><u><font color="blue" size="4">Restore a Watch-Only Wallet
+         </font></u></b><br><br>
+         Use this window to restore a watch-only wallet using the wallet's 
+         data. You can either type the data on a root data printout or import 
+         the data from a file."""))
 
       # Create the line that will contain the imported ID.
       self.rootIDLabel = QRichLabel(tr('Root ID:'), doWrap=False)
@@ -12118,8 +12116,8 @@ class DlgRestorePKCC(ArmoryDialog):
                                          self.rootIDLine])
 
       # Create the lines that will contain the imported key/code data.
-      self.pkccList = [QLabel(tr('Data:')), QLabel(''), QLabel(''), QLabel('')]
-      for y in self.pkccListLabels:
+      self.pkccLList = [QLabel(tr('Data:')), QLabel(''), QLabel(''), QLabel('')]
+      for y in self.pkccLList:
          y.setFont(GETFONT('Fixed', 9))
       inpMask = '<AAAA\ AAAA\ AAAA\ AAAA\ \ AAAA\ AAAA\ AAAA\ AAAA\ \ AAAA!'
       self.pkccList = [MaskedInputLineEdit(inpMask) for i in range(4)]
@@ -12132,13 +12130,13 @@ class DlgRestorePKCC(ArmoryDialog):
       layoutAllInp = QGridLayout()
       layoutAllInp.addWidget(self.rootIDFrame, 0, 0, 1, 2)
       for i in range(4):
-         layoutAllInp.addWidget(self.pkccListLabels[i], i + 1, 0)
+         layoutAllInp.addWidget(self.pkccLList[i], i + 1, 0)
          layoutAllInp.addWidget(self.pkccList[i], i + 1, 1)
       frmAllInputs.setLayout(layoutAllInp)
 
       # Put together the button code.
       doItText = tr('Test Backup' if thisIsATest else 'Restore Wallet')
-      self.btnLoad   = QPushButton("Load PKCC File")
+      self.btnLoad   = QPushButton("Load Watch-Only Data File")
       self.btnAccept = QPushButton(doItText)
       self.btnCancel = QPushButton("Cancel")
       self.connect(self.btnLoad, SIGNAL(CLICKED), self.loadPKCCFile)
@@ -12168,9 +12166,9 @@ class DlgRestorePKCC(ArmoryDialog):
 
       # Set window title.
       if thisIsATest:
-         self.setWindowTitle('Test Root Public Key/Chain Code Backup')
+         self.setWindowTitle('Test Watch-Only Wallet Backup')
       else:
-         self.setWindowTitle('Restore Root Public Key/Chain Code Backup')
+         self.setWindowTitle('Restore Watch-Only Wallet Backup')
 
       # Set final window layout options.
       self.setMinimumWidth(500)
@@ -12185,22 +12183,19 @@ class DlgRestorePKCC(ArmoryDialog):
          return
 
       # Read in the data.
+      # Protip: readlines() leaves in '\n'. read().splitlines() nukes '\n'.
       loadFile = open(fn, 'rb')
-      bu = BinaryUnpacker(loadFile.read())
+      fileLines = loadFile.read().splitlines()
       loadFile.close()
 
       # Confirm that we have an actual PKCC file.
-      pkccFileVer = bu.get(UINT8)
+      pkccFileVer = int(fileLines[0], 10)
       if pkccFileVer != 1:
          return
       else:
-         self.rootIDLine.setText(QString(bu.get(VAR_STR)))
-         numLines = bu.get(UINT8)
-         for lines in range(numLines):
-            self.pkccList[lines].setText(QString(bu.get(VAR_STR)))
-
-      # Verify the input
-      self.verifyUserInput()
+         self.rootIDLine.setText(QString(fileLines[1]))
+         for curLineNum, curLine in enumerate(fileLines[2:6]):
+            self.pkccList[curLineNum].setText(QString(curLine))
 
 
    #############################################################################
