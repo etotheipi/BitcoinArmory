@@ -678,12 +678,9 @@ class SendBitcoinsFrame(ArmoryFrame):
          script,behavior = self.determineChangeScript(utxoSelect)
          self.changeScript = script
          self.selectedBehavior = behavior
-         if not self.changeScript:
-            return False
          scriptValPairs.append([self.changeScript, totalChange])
          LOGINFO('Change address behavior: %s', self.selectedBehavior)
-      elif self.main.usermode == USERMODE.Expert and \
-           self.chkDefaultChangeAddr.isChecked():
+      else:
          self.selectedBehavior = NO_CHANGE
          
       changePair = None

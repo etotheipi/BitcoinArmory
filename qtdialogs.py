@@ -5116,15 +5116,14 @@ class DlgConfirmSend(ArmoryDialog):
       totalSend = sum([val for script,val in sendPairs]) + fee
       sumStr = coin2str(totalSend, maxZeros=1)
       if len(returnPairs) > 0:
-         if changeBehave is None and self.main.usermode == USERMODE.Expert:
+         if changeBehave is None:
             lblMsg.setText(tr("""
                This transaction will spend <b>%s BTC</b> from 
                <font color="%s">Wallet "<b>%s</b>" (%s)</font>.
                <br><br><b>Note:</b> Starred entries in the below list are 
                going to the same wallet from which they came, and thus have 
-               no effect on your overall balance. When using Expert usermode 
-               features, Armory cannot always distinguish the starred outputs 
-               from the change address.""") % \
+               no effect on your overall balance. Armory cannot always distinguish
+               the starred outputs from the change address.""") % \
                (sumStr, htmlColor('TextBlue'), wlt.labelName, wlt.uniqueIDB58))
          else:
             lblMsg.setText(tr("""
@@ -5150,10 +5149,14 @@ class DlgConfirmSend(ArmoryDialog):
       for script,val in sendPairs:
          displayInfo = self.main.getDisplayStringForScript(script, addrColWidth)
          dispStr = displayInfo['String'].ljust(addrColWidth)
-         if [script,val] in returnPairs:
-            dispStr = '*'+dispStr
+
 
          coinStr = coin2str(val, rJust=True, maxZeros=4)
+         if [script,val] in returnPairs:
+            dispStr = '*'+dispStr
+            # Need to line up the columns when a star is added.
+            if coinStr[0] == ' ':
+               coinStr = coinStr[1:]
          recipLbls.append(QLabel(dispStr + coinStr))
          recipLbls[-1].setFont(ffixBold)
 
@@ -5179,8 +5182,14 @@ class DlgConfirmSend(ArmoryDialog):
 
 
       # Acknowledge if the user has selected a non-std change location
+      # Correction to above comment:
+      #    Change behavior now indicates the behavior of change whether 
+      #    the user selected the behavior or not.
+      #    Change behavior is only None when we don't know it. That is
+      #    whenever the proposed tx is being signed or broadcast after
+      #    after it's creation.
       lblSpecialChange = QRichLabel('')
-      if self.main.usermode == USERMODE.Expert and changeBehave:
+      if changeBehave:
          changeScript = changeBehave[0]
          if len(changeScript) > 0:
             displayInfo = self.main.getDisplayStringForScript(changeScript, 60)
@@ -8118,8 +8127,9 @@ class DlgAddressBook(ArmoryDialog):
       self.tabWidget.addTab(self.addrBookRxView, 'Receiving (Mine)')
       if not selectMineOnly:
          self.tabWidget.addTab(self.addrBookTxView, 'Sending (Other\'s)')
-      # DISPLAY Lockboxes
-      if showLockBoxes:
+      # DISPLAY Lockboxes - Regardles off what showLockBoxes says only show
+      # Lockboxes in Expert mode
+      if showLockBoxes and self.main.usermode == USERMODE.Expert:
          self.lboxModel = LockboxDisplayModel(self.main, \
                                     self.main.allLockboxes, \
                                     self.main.getPreferredDateFormat())
