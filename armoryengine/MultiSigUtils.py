@@ -205,6 +205,9 @@ def isMofNNonStandardToSpend(m, n):
 ################################################################################
 class MultiSigLockbox(object):
 
+   OBJNAME = 'Lockbox'
+   BLKSTRING = 'LOCKBOX'
+
    #############################################################################
    def __init__(self, script=None, name=None, descr=None, \
                                           commList=None, createDate=None):
@@ -219,6 +222,8 @@ class MultiSigLockbox(object):
       if script is not None:
          self.setParams(script, name, descr, commList)
 
+      self.uniqueIDB58 = None
+      self.asciiID     = None
 
    #############################################################################
    def setParams(self, script, name=None, descr=None, commList=None, \
@@ -256,6 +261,7 @@ class MultiSigLockbox(object):
       self.M, self.N, self.a160List, self.pubKeys = getMultisigScriptInfo(script)
       self.opStrList = convertScriptToOpStrings(script)
 
+      self.asciiID = self.uniqueIDB58 # need a common member name in all classes
       
       
    #############################################################################
@@ -320,16 +326,16 @@ class MultiSigLockbox(object):
 
    #############################################################################
    def serializeAscii(self, wid=80, newline='\n'):
-      headStr = 'LOCKBOX-%s' % self.uniqueIDB58
+      headStr = '%s-%s' % (self.BLKSTRING, self.uniqueIDB58)
       return makeAsciiBlock(self.serialize(), headStr, wid, newline)
 
 
    #############################################################################
    def unserializeAscii(self, boxBlock):
-      headStr, rawData = readAsciiBlock(boxBlock, 'LOCKBOX')
+      headStr, rawData = readAsciiBlock(boxBlock, self.BLKSTRING)
       if rawData is None:
-         LOGERROR('Expected header str "LOCKBOX", got "%s"' % headStr)
-         raise UnserializeError('Expected LOCKBOX block, got something else')
+         LOGERROR('Expected str "%s", got "%s"' % (self.BLKSTRING, headStr))
+         raise UnserializeError('Unexpected BLKSTRING')
 
       # We should have "LOCKBOX-BOXID" in the headstr
       boxID = headStr.split('-')[-1]
@@ -515,11 +521,17 @@ class MultiSigLockbox(object):
 ################################################################################
 ################################################################################
 class LockboxPublicKey(object):
+
+   OBJNAME = 'PublicKey'
+   BLKSTRING = 'PUBLICKEY'
+
    #############################################################################
    def __init__(self, binPubKey=None, keyComment=None):
       self.version    = 0
       self.binPubKey  = binPubKey
       self.keyComment = toUnicode(keyComment)
+      self.pubKeyID   = None
+      self.asciiID    = None
 
       if binPubKey is not None:
          self.setParams(binPubKey, keyComment, version=self.version)
@@ -537,7 +549,8 @@ class LockboxPublicKey(object):
       self.version = version
 
       pubkeyAddr = hash160_to_addrStr(hash160(binPubKey))
-      self.pubKeyID = pubkeyAddr[:12].upper()
+      self.pubKeyID = pubkeyAddr[:12]
+      self.asciiID = self.pubKeyID # need a common member name in all classes
       
 
 
@@ -591,7 +604,7 @@ class LockboxPublicKey(object):
       if not self.binPubKey:
          return None
 
-      headStr = 'PUBLICKEY-%s' % self.pubKeyID
+      headStr = '%s-%s' % (self.BLKSTRING, self.pubKeyID)
       return makeAsciiBlock(self.serialize(), headStr, wid, newline)
 
 
@@ -599,11 +612,11 @@ class LockboxPublicKey(object):
    #############################################################################
    def unserializeAscii(self, pubkeyBlock):
 
-      headStr, rawData = readAsciiBlock(pubkeyBlock, 'PUBLICKEY')
+      headStr, rawData = readAsciiBlock(pubkeyBlock, self.BLKSTRING)
 
       if rawData is None:
-         LOGERROR('Expected header str "PUBLICKEY", got "%s"' % headStr)
-         raise UnserializeError('Expected PUBLICKEY block, got something else')
+         LOGERROR('Expected str "%s", got "%s"' % (self.BLKSTRING, headStr))
+         raise UnserializeError('Unexpected BLKSTRING')
 
       # We should have "PUBLICKEY" in the headstr
       pkID = headStr.split('-')[-1]
@@ -633,7 +646,7 @@ def computePromissoryID(ustxiList=None, dtxoTarget=None, feeAmt=None,
    outptList = sorted([ustxi.outpoint.serialize() for ustxi in ustxiList])
    targStr  = dtxoTarget.binScript 
    targStr += int_to_binary(dtxoTarget.value, widthBytes=8)
-   targStr += dtxoChange.binScript
+   targStr += dtxoChange.binScript if dtxoChange else ''
    return binary_to_base58(hash256(''.join(outptList) + targStr))[:8]
    
 
@@ -642,6 +655,8 @@ def computePromissoryID(ustxiList=None, dtxoTarget=None, feeAmt=None,
 ################################################################################
 class MultiSigPromissoryNote(object):
 
+   OBJNAME = 'PromNote'
+   BLKSTRING = 'PROMISSORY'
 
    #############################################################################
    def __init__(self, dtxoTarget=None, feeAmt=None, ustxInputs=None, 
@@ -653,6 +668,7 @@ class MultiSigPromissoryNote(object):
       self.ustxInputs  = ustxInputs
       self.dtxoChange  = dtxoChange
       self.promID      = None
+      self.asciiID     = None
       self.promLabel   = promLabel if promLabel else ''
 
       # We MIGHT use this object to simultaneously promise funds AND 
@@ -689,7 +705,8 @@ class MultiSigPromissoryNote(object):
       self.version = version
       self.magicBytes = MAGIC_BYTES
 
-      self.promID = computePromissoryID(prom=self)
+      self.promID  = computePromissoryID(prom=self)
+      self.asciiID = self.promID  # need a common member name in all classes
 
       # Make sure that the change output matches expected, also set contribIDs
       totalInputs = 0
@@ -802,20 +819,20 @@ class MultiSigPromissoryNote(object):
 
    #############################################################################
    def serializeAscii(self, wid=80, newline='\n'):
-      headStr = 'PROMISSORY-%s' % self.promID
+      headStr = '%s-%s' % (self.BLKSTRING, self.promID)
       return makeAsciiBlock(self.serialize(), headStr, wid, newline)
 
 
    #############################################################################
    def unserializeAscii(self, promBlock):
 
-      headStr, rawData = readAsciiBlock(promBlock, 'PROMISSORY')
+      headStr, rawData = readAsciiBlock(promBlock, self.BLKSTRING)
 
       if rawData is None:
-         LOGERROR('Expected header str "PROMISSORY", got "%s"' % headStr)
-         raise UnserializeError('Expected PROMISSORY block, got something else')
+         LOGERROR('Expected str "%s", got "%s"' % (self.BLKSTRING,headStr))
+         raise UnserializeError('Unexpected BLKSTRING')
 
-      # We should have "PROMISSORY-PROMID" in the headstr
+      # We should have "PROMISSORY" in the headstr
       promID = headStr.split('-')[-1]
       return self.unserialize(rawData, promID)
 

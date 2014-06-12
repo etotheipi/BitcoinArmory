@@ -192,7 +192,7 @@ class DlgLockboxEditor(ArmoryDialog):
          layoutThisRow.addLayout(layoutName,                      2,3, 1,2)
 
          layoutThisRow.setColumnStretch(3, 1)
-         layoutThisRow.setSpacing(3)
+         layoutThisRow.setSpacing(2)
 
          self.pkFrameList[-1].setLayout(layoutThisRow)
          self.pkFrameList[-1].setFrameStyle(STYLE_SUNKEN)
@@ -589,80 +589,32 @@ class DlgLockboxEditor(ArmoryDialog):
       self.main.updateOrAddLockbox(self.lockbox, isFresh=True)
       
       self.accept()
-      DlgExportLockbox(self, self.main, self.lockbox).exec_()
+      doExportLockbox(self, self.main, self.lockbox).exec_()
 
 
 
 ################################################################################
-class DlgExportLockbox(ArmoryDialog):
-   def __init__(self, parent, main, lockbox):
-      super(DlgExportLockbox, self).__init__(parent, main)
+def doExportLockbox(parent, main, lockbox):
+   title = tr('Export Lockbox Definition')
+   descr = tr("""
+      <b><font color="%s">IMPORTANT:</font> 
+      All labels and descriptions you have entered for 
+      this lockbox are included in this text block below!</b>  
+      <br><br>
+      Before you send this to any other parties, <em>please</em> confirm
+      that you have not entered any sensitive or embarassing information 
+      into any of the lockbox fields.  Each lockbox has a name and 
+      extended information, as well as a comment for each public key.
+      <br><br>
+      All parties or devices that have [partial] signing authority
+      over this lockbox need to import this data into their local 
+      lockbox manager in order to use it.""") % htmlColor('TextWarn')
+   ftypes = ['Lockbox definitions (*.lockbox.def)']
+   defaultFN = 'Lockbox_%s_.lockbox.def' % lockbox.asciiID
 
+   DlgExportAsciiBlock(parent, main, lockbox, title, descr, 
+                                                 ftypes, defaultFN).exec_()
 
-      lblDescr = QRichLabel(tr("""
-         <b><font color="%s">IMPORTANT:</font> 
-         All labels and descriptions you have entered for 
-         this lockbox are included in this text block below!</b>  
-         <br><br>
-         Before you send this to any other parties, <em>please</em> confirm
-         that you have not entered any sensitive or embarassing information 
-         into any of the lockbox fields.  Each lockbox has a name and 
-         extended information, as well as a comment for each public key.
-         <br><br>
-         All parties or devices that have [partial] signing authority
-         over this lockbox need to import this data into their local 
-         lockbox manager in order to use it.""") % htmlColor('TextWarn'))
-         #<br><br>
-         #Also, please make sure that all details for the lockbox, and each
-         #public key are accurate, including your own.  For instance, if you
-         #are storing everyone else's contact information in the lockbox 
-         #info, make sure you include your own, as well, for their benefit."""))
-
-      self.lockbox = lockbox
-      self.boxText = lockbox.serializeAscii()
-
-      txt = QPlainTextEdit()
-      txt.setFont(GETFONT('Fixed', 9))
-      w,h = relaxedSizeNChar(txt, 80)
-      txt.setMinimumWidth(w)
-      txt.setMinimumHeight(h*9)
-      txt.setPlainText(self.boxText)
-
-      self.lblCopied = QRichLabel('')
-      btnCopy = QPushButton(tr("Copy to Clipboard"))
-      btnSave = QPushButton(tr("Save to File"))
-      btnDone = QPushButton(tr("Done"))
-   
-      self.connect(btnCopy, SIGNAL('clicked()'), self.clipcopy)
-      self.connect(btnSave, SIGNAL('clicked()'), self.savefile)
-      self.connect(btnDone, SIGNAL('clicked()'), self.accept)
-
-      frmCopy = makeHorizFrame([btnSave, btnCopy, self.lblCopied, 'Stretch'])
-      frmDone = makeHorizFrame(['Stretch', btnDone])
-
-      frmMain = makeVertFrame([lblDescr, txt, frmCopy], STYLE_RAISED)
-
-      layout = QVBoxLayout()
-      layout.addWidget(frmMain)
-      layout.addWidget(frmDone)
-      self.setLayout(layout)
-
-      self.setWindowTitle(tr("Export Lockbox Info"))
-      self.setWindowIcon(QIcon(self.main.iconfile))
-
-
-   def savefile(self):
-      fn = self.main.getFileSave(tr('Export Lockbox Info'), 
-                                 ['Lockboxes (*.lockbox.txt)'], 
-                            'Multisig_%s.lockbox.txt'%self.lockbox.uniqueIDB58)
-      if fn:
-         writeLockboxesFile([self.lockbox], fn)
-
-   def clipcopy(self):
-      clipb = QApplication.clipboard()
-      clipb.clear()
-      clipb.setText(self.boxText)
-      self.lblCopied.setText('<i>Copied!</i>')
       
 
 ################################################################################
@@ -767,8 +719,9 @@ class DlgLockboxManager(ArmoryDialog):
       """
 
       lbGuideURL = "https://bitcoinarmory.com/about/using-lockboxes/"
-      lblLinkToMSWebpage = QRichLabel(tr("""Check out our 
-         <a href="%s">lockbox documentation</a>""") % lbGuideURL, doWrap=False)
+      lblLinkToMSWebpage = QRichLabel(tr("""Consult our 
+         <a href="%s">lockbox documentation</a> for lockbox usage 
+         examples and info""") % lbGuideURL, doWrap=False)
       lblLinkToMSWebpage.setOpenExternalLinks(True)
 
       btnDone = QPushButton(tr('Done'))
@@ -1529,7 +1482,7 @@ class DlgLockboxManager(ArmoryDialog):
    #############################################################################
    def doExport(self):
       lb = self.getSelectedLockbox()
-      DlgExportLockbox(self, self.main, lb).exec_()
+      doExportLockbox(self, self.main, lb).exec_()
       self.updateButtonDisable()
 
 
@@ -2158,7 +2111,7 @@ class DlgSelectPublicKey(ArmoryDialog):
          """)
          
       ftypes = ['Public Key Blocks (*.lockbox.pub)']
-      defaultFN = 'LockboxPubKey_%s_' % lbPubKey.pubKeyID
+      defaultFN = 'PubKey_%s_.lockbox.pub' % lbPubKey.pubKeyID
          
       DlgExportAsciiBlock(self, self.main, lbPubKey, title, descr, 
                                                     ftypes, defaultFN).exec_()
@@ -2189,7 +2142,7 @@ class DlgExportAsciiBlock(ArmoryDialog):
       self.lblCopyMail = QRichLabel('')
       btnCopy = QPushButton(tr("Copy to Clipboard"))
       btnSave = QPushButton(tr("Save to File"))
-      btnMail = QPushButton(tr("Produce Lockbox Email"))
+      btnMail = QPushButton(tr("Send Email"))
       btnDone = QPushButton(tr("Done"))
 
       self.connect(btnCopy, SIGNAL('clicked()'), self.clipcopy)
@@ -2232,12 +2185,12 @@ class DlgExportAsciiBlock(ArmoryDialog):
       # WARNING: For now, the code assumes there will be only one ID returned.
       # If this changes in the future, the code must be adjusted as necessary.
       blockIO = cStringIO.StringIO(self.asciiBlock)
-      pkID = getBlockID(blockIO, 'PUBLICKEY-')[0]
+      pkID = getBlockID(blockIO, self.exportObj.BLKSTRING+'-')[0]
 
       # Prepare to send an email with the public key. For now, the email text
       # is the public key and nothing else.
-      urlText = 'mailto:?subject=Public Key [%s]&body=%s' % (pkID, \
-                                                             self.asciiBlock)
+      urlText = 'mailto:?subject=Armory %s-%s&body=%s' % \
+            (self.exportObj.OBJNAME, self.exportObj.asciiID, self.asciiBlock)
       finalUrl = QUrl(urlText)
       QDesktopServices.openUrl(finalUrl)
       self.lblCopyMail.setText('<i>Email produced!</i>')
@@ -2285,7 +2238,7 @@ class DlgImportLockbox(QDialog):
    #############################################################################
    def loadfile(self):
       boxPath = self.main.getFileLoad(tr('Load Lockbox'),
-                                                 ['Lockboxes (*.lockbox.txt)'])
+                                                 ['Lockboxes (*.lockbox.def)'])
       if not boxPath:
          return
       with open(boxPath) as f:
@@ -2894,7 +2847,7 @@ class DlgMultiSpendReview(ArmoryDialog):
          safe to send this data via email or USB key.  No data is included 
          that would compromise the security of any of the signing devices.""")
       ftypes = ['Signature Collectors (*.sigcollect.tx)']
-      defaultFN = 'MultisigTransaction_%s_' % self.ustx.uniqueIDB58
+      defaultFN = 'MultisigTransaction_%s_.sigcollect.tx' % self.ustx.uniqueIDB58
          
       DlgExportAsciiBlock(self, self.main, self.ustx, title, descr, 
                                                     ftypes, defaultFN).exec_()
@@ -3011,21 +2964,6 @@ class DlgCreatePromNote(ArmoryDialog):
       lblBTC1    = QRichLabel(tr('BTC'))
       lblBTC2    = QRichLabel(tr('BTC'))
 
-      """
-      self.edtFundTarget = QLineEdit()
-      if defaultID:
-         self.edtFundTarget.setText(createLockboxEntryStr(defaultID))
-
-      self.btnSelectTarg = createAddrBookButton(
-                                 parent=self, 
-                                 targWidget=self.edtFundTarget, 
-                                 defaultWlt=None,
-                                 actionStr='Select', 
-                                 showLockBoxes=True)
-      self.lblTargetID = QRichLabel('')
-      self.connect(self.edtFundTarget, SIGNAL('textChanged(QString)'), 
-                   self.updateTargetLabel)
-      """
       startStr = ''
       if defaultID:
          startStr = createLockboxEntryStr(defaultID)
@@ -3236,6 +3174,13 @@ class DlgCreatePromNote(ArmoryDialog):
             The amount you specified is invalid (%s).""") % feeStr, 
             QMessageBox.Ok)
          LOGEXCEPT('Invalid amount specified: "%s"', feeStr)
+         return False
+
+      
+      if valueAmt+feeAmt > wlt.getBalance('Spendable'):
+         QMessageBox.critical(self, tr('Not enough funds!'), tr("""
+            You specified <b>%s</b> BTC (amount + fee), but the selected wallet
+            only has <b>%s</b> BTC spendable."""), QMessageBox.Ok)
          return False
 
       utxoList = wlt.getTxOutList('Spendable')

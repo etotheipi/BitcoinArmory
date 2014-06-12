@@ -18,4 +18,4 @@ export DYLD_FRAMEWORK_PATH="${LIBDIR}:${FRDIR}"
 #if [ $# == "0" ]; then # <-- If 0 CL args....
 
 # Call ArmoryQt and get this party started!
-$FRDIR/Python.framework/Versions/2.7/Resources/Python.app/Contents/MacOS/Python $ARMORYDIR/ArmoryQt.py "$@"
+"$FRDIR/Python.framework/Versions/2.7/Resources/Python.app/Contents/MacOS/Python" "$ARMORYDIR/ArmoryQt.py" "$@"

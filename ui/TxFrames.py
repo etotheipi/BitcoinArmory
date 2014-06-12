@@ -229,8 +229,8 @@ class SendBitcoinsFrame(ArmoryFrame):
       leftFrame = makeVertFrame([lblSend, frmBottomLeft], condenseMargins=True)
       rightFrame = makeVertFrame([lblRecip, self.scrollRecipArea, txFrm], condenseMargins=True)
       layout = QHBoxLayout()
-      layout.addWidget(leftFrame)
-      layout.addWidget(rightFrame)
+      layout.addWidget(leftFrame, 0)
+      layout.addWidget(rightFrame, 1)
       layout.setContentsMargins(0,0,0,0)
       layout.setSpacing(0)
       self.setLayout(layout)
@@ -1016,7 +1016,7 @@ class SendBitcoinsFrame(ArmoryFrame):
          subLayout.addWidget(self.widgetTable[r]['QLE_ADDR'],  0,1, 1,5)
          subLayout.addWidget(self.widgetTable[r]['BTN_BOOK'],  0,6, 1,1)
 
-         subLayout.addWidget(self.widgetTable[r]['LBL_DETECT'], 1,1, 1,5)
+         subLayout.addWidget(self.widgetTable[r]['LBL_DETECT'], 1,1, 1,6)
 
          subLayout.addWidget(self.widgetTable[r]['LBL_AMT'],   2,0, 1,1)
          subLayout.addWidget(self.widgetTable[r]['QLE_AMT'],   2,1, 1,2)
@@ -1052,6 +1052,7 @@ class SendBitcoinsFrame(ArmoryFrame):
       frmRecip.setLayout(frmRecipLayout)
       # return frmRecip
       self.scrollRecipArea.setWidget(frmRecip)
+      self.scrollRecipArea.setWidgetResizable(True)
 
 
    #############################################################################
