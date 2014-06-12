@@ -3118,13 +3118,13 @@ def isValidPK(inPK, inStr=False):
 #
 # In addition, the incoming block of text must be from a file (using something
 # like "with open() as x") or a StringIO/cStringIO object.
-def getBlockID(asciiText, asciiKey):
+def getBlockID(asciiText, key):
    blockList = []
 
    # Iterate over each line in the text and get the IDs.
-   for asciiLine in asciiText:
-      if asciiKey in asciiLine:
-         stripT = asciiLine.replace("=", "").replace(asciiKey, "").replace("\n", "")
+   for line in asciiText:
+      if key in line:
+         stripT = line.replace("=", "").replace(key, "").replace("\n", "")
          blockList.append(stripT)
 
    return blockList

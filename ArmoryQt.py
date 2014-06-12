@@ -499,7 +499,7 @@ class ArmoryMainWindow(QMainWindow):
       self.mainDisplayTabs.addTab(self.tabAnnounce,  'Announcements')
 
       ##########################################################################
-      if not CLI_OPTIONS.disableModules:
+      if USE_TESTNET and not CLI_OPTIONS.disableModules:
          self.loadArmoryModules()   
       ##########################################################################
 
@@ -859,9 +859,11 @@ class ArmoryMainWindow(QMainWindow):
       """
       This method checks for any .py files in the exec directory
       """ 
-      moduleDir = os.path.join(GetExecDir(), 'modules')
+      moduleDir = os.path.join(GetExecDir(), '../modules')
+      LOGWARN('Attempting to load modules from: %s' % moduleDir)
       if not os.path.exists(moduleDir):
          return
+
 
       from dynamicImport import getModuleList, dynamicImport
 
