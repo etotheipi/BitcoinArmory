@@ -734,7 +734,7 @@ class SendBitcoinsFrame(ArmoryFrame):
       txValues = [totalSend, fee, totalChange]
       if not self.unsignedCheckbox.isChecked():
          dlg = DlgConfirmSend(self.wlt, origSVPairs, txValues[1], self, \
-                                                  self.main, True, changePair)
+                                                  self.main, True)
    
          if not dlg.exec_():
             return False

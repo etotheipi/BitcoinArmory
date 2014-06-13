@@ -5080,13 +5080,14 @@ def excludeChange(outputPairs, wlt):
 class DlgConfirmSend(ArmoryDialog):
 
    def __init__(self, wlt, scriptValPairs, fee, parent=None, main=None, \
-                                          sendNow=False, changeBehave=None):
+                                          sendNow=False):
       super(DlgConfirmSend, self).__init__(parent, main)
       layout = QGridLayout()
       lblInfoImg = QLabel()
       lblInfoImg.setPixmap(QPixmap(':/MsgBox_info48.png'))
       lblInfoImg.setAlignment(Qt.AlignHCenter | Qt.AlignTop)
       
+      changeRemoved = False
       sendPairs = []
       returnPairs = []
       for script,val in scriptValPairs:
@@ -5102,51 +5103,50 @@ class DlgConfirmSend(ArmoryDialog):
             # We assume that anything without an addrStr is going external
             sendPairs.append([script,val])
 
-      if changeBehave:
-         for i in range(len(sendPairs)):
-            if sendPairs[i][0]==changeBehave[0]:
-               del sendPairs[i]
-               break
-         for i in range(len(returnPairs)):
-            if returnPairs[i][0]==changeBehave[0]:
-               del returnPairs[i]
-               break
-      
+      # If there are more than 3 return pairs then this is a 1%'er tx we should
+      # not presume to know which pair is change. It's a weird corner case so
+      # it's best to leave it alone. 
+      # 0 return is an exact change tx, no need to deal with it so this 
+      # chunk of code that removes change only cares about 1 and 2 return pairs.
+      # if 1 remove it, if 2 remove the one with a higher index.
+      # Exception: IF no send pairs, it's a tx for max to a single internal address
+      if len(returnPairs) == 1 and len(sendPairs) > 0:
+         returnPairs = []
+         changeRemoved = True
+      elif len(returnPairs) == 2:
+         returnPairs = excludeChange(returnPairs, wlt)
+         changeRemoved = True
+         
       lblMsg = QRichLabel('')         
-      totalSend = sum([val for script,val in sendPairs]) + fee
-      sumStr = coin2str(totalSend, maxZeros=1)
+      totalSendFromWallet = sum([val for script,val in sendPairs]) + fee
+      totalSend = totalSendFromWallet + sum([val for script,val in returnPairs])
+      sendFromWalletStr = coin2str(totalSend, maxZeros=1)
+      changeRemovedText =  '<br><br>Change has been removed from the table below.<br>' +\
+         '<a href="https://bitcoinarmory.com/all-about-change">Click here to read ' +\
+         'more about how Armory handles change.</a>' \
+         if changeRemoved else ''
+       
       if len(returnPairs) > 0:
-         if changeBehave is None:
-            lblMsg.setText(tr("""
-               This transaction will spend <b>%s BTC</b> from 
-               <font color="%s">Wallet "<b>%s</b>" (%s)</font>.
-               <br><br><b>Note:</b> Starred entries in the below list are 
-               going to the same wallet from which they came, and thus have 
-               no effect on your overall balance. Armory cannot always distinguish
-               the starred outputs from the change address.""") % \
-               (sumStr, htmlColor('TextBlue'), wlt.labelName, wlt.uniqueIDB58))
-         else:
-            lblMsg.setText(tr("""
-               This transaction will spend <b>%s BTC</b> from 
-               <font color="%s">Wallet "<b>%s</b>" (%s)</font>.
-               <br><br><b>Note:</b> Any starred outputs are are going to the
-               same wallet from which they came, and will have no effect on
-               the wallet's overall balance.""") % \
-               (sumStr, htmlColor('TextBlue'), wlt.labelName, wlt.uniqueIDB58))
+         lblMsg.setText(tr("""
+            This transaction will spend <b>%s BTC</b> from 
+            <font color="%s">Wallet "<b>%s</b>" (%s)</font>.
+            <br><br><b>Note:</b> Any starred outputs are are going to the
+            same wallet from which they came, and will have no effect on
+            the wallet's overall balance. %s""") % \
+            (sendFromWalletStr, htmlColor('TextBlue'), wlt.labelName, wlt.uniqueIDB58, changeRemovedText))
       else:
          lblMsg.setText(tr("""
             This transaction will spend <b>%s BTC</b> from 
             <font color="%s">Wallet "<b>%s</b>" (%s)</font>.
-            to the following recipients:""") % \
-            (sumStr, htmlColor('TextBlue'), wlt.labelName, wlt.uniqueIDB58))
+            to the following recipients: %s""") % \
+            (sendFromWalletStr, htmlColor('TextBlue'), wlt.labelName, wlt.uniqueIDB58, changeRemovedText))
 
       addrColWidth = 50
 
       recipLbls = []
       ffixBold = GETFONT('Fixed')
       ffixBold.setWeight(QFont.Bold)
-      sendPairs.extend(returnPairs)
-      for script,val in sendPairs:
+      for script,val in sendPairs + returnPairs:
          displayInfo = self.main.getDisplayStringForScript(script, addrColWidth)
          dispStr = displayInfo['String'].ljust(addrColWidth)
 
@@ -5168,9 +5168,13 @@ class DlgConfirmSend(ArmoryDialog):
          recipLbls[-1].setFont(GETFONT('Fixed'))
 
       recipLbls.append(HLINE(QFrame.Sunken))
-      recipLbls.append(QLabel('Total bitcoins Sent: '.ljust(addrColWidth) +
-                        coin2str(totalSend, rJust=True, maxZeros=4)))
+      recipLbls.append(QLabel('Total bitcoins to send from Wallet: '.ljust(addrColWidth) +
+                        coin2str(totalSendFromWallet, rJust=True, maxZeros=4)))
       recipLbls[-1].setFont(GETFONT('Fixed'))
+      if len(returnPairs) > 0:
+         recipLbls.append(QLabel('Total bitcoins to send: '.ljust(addrColWidth) +
+                           coin2str(totalSend, rJust=True, maxZeros=4)))
+         recipLbls[-1].setFont(GETFONT('Fixed'))
 
       lblLastConfirm = QLabel('Are you sure you want to execute this transaction?')
 
@@ -5179,29 +5183,6 @@ class DlgConfirmSend(ArmoryDialog):
       else:
          self.btnAccept = QPushButton('Continue')
          lblLastConfirm.setText('')
-
-
-      # Acknowledge if the user has selected a non-std change location
-      # Correction to above comment:
-      #    Change behavior now indicates the behavior of change whether 
-      #    the user selected the behavior or not.
-      #    Change behavior is only None when we don't know it. That is
-      #    whenever the proposed tx is being signed or broadcast after
-      #    after it's creation.
-      lblSpecialChange = QRichLabel('')
-      if changeBehave:
-         changeScript = changeBehave[0]
-         if len(changeScript) > 0:
-            displayInfo = self.main.getDisplayStringForScript(changeScript, 60)
-            changeDispStr = displayInfo['String']
-
-         chngBehaveStr = changeBehave[1]
-         if chngBehaveStr == 'Feedback':
-            lblSpecialChange.setText('*Change will be sent back to first input address')
-         elif chngBehaveStr == 'Specify':
-            lblSpecialChange.setText('*Change will be sent to %s' % changeDispStr)
-         elif chngBehaveStr == NO_CHANGE:
-            lblSpecialChange.setText('(This transaction is exact -- there are no change outputs)')
 
       self.btnCancel = QPushButton("Cancel")
       self.connect(self.btnAccept, SIGNAL(CLICKED), self.accept)
@@ -5215,7 +5196,6 @@ class DlgConfirmSend(ArmoryDialog):
       frmRight = makeVertFrame([ lblMsg, \
                                   'Space(20)', \
                                   frmTable, \
-                                  lblSpecialChange, \
                                   'Space(10)', \
                                   lblLastConfirm, \
                                   'Space(10)', \
