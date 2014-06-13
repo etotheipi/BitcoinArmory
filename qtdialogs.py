@@ -5120,7 +5120,7 @@ class DlgConfirmSend(ArmoryDialog):
       lblMsg = QRichLabel('')         
       totalSendFromWallet = sum([val for script,val in sendPairs]) + fee
       totalSend = totalSendFromWallet + sum([val for script,val in returnPairs])
-      sendFromWalletStr = coin2str(totalSend, maxZeros=1)
+      sendFromWalletStr = coin2str(totalSendFromWallet, maxZeros=1)
       changeRemovedText =  '<br><br>Change has been removed from the table below.<br>' +\
          '<a href="https://bitcoinarmory.com/all-about-change">Click here to read ' +\
          'more about how Armory handles change.</a>' \
