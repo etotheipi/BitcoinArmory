@@ -1620,13 +1620,6 @@ class DecoratedTxOut(object):
       print ind + 'Value:       ', coin2strNZS(self.value)
       print ind + 'ContribID:   ', self.contribID
       print ind + 'ContribLabel:', self.contribLabel
-      
-
-
-
-
-
-
 
 ################################################################################
 ################################################################################
@@ -1647,16 +1640,18 @@ class UnsignedTransaction(object):
    of those inputs have signatures (so far), then it would be good to
    know that, say, there's only two other people that need to provide
    sigs, not 88.
-
-
-
    """
+
+   OBJNAME = "UnsignedTx"
+   BLKSTRING = "SIGCOLLECT"
+
    #############################################################################
    def __init__(self, pytx=None, pubKeyMap=None, txMap=None, p2shMap=None,
                                        version=UNSIGNED_TX_VERSION):
       self.version         = version
       self.pytxObj         = UNINITIALIZED
       self.uniqueIDB58     = ''
+      self.asciiID         = ''  # need a common name for all ser/unser classes
       self.lockTime        = 0
       self.ustxInputs  = []
       self.decorTxOuts = []
@@ -1713,6 +1708,7 @@ class UnsignedTransaction(object):
 
       rawTxNoSigs = self.pytxObj.serialize()
       self.uniqueIDB58 = binary_to_base58(hash256(rawTxNoSigs))[:8]
+      self.asciiID = self.uniqueIDB58
       return self
 
 

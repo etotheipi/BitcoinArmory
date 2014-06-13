@@ -15,9 +15,8 @@
 ################################################################################
 
 
-
 #####
-# ORIGINAL comments from Ian Coleman:
+# ORIGINAL comments from Ian Coleman, circa July 2012:
 #
 # This is a json-rpc interface to armory - http://bitcoinarmory.com/
 #
@@ -49,6 +48,10 @@
 #   "\n" (minus quotation marks).
 # - JSON can only send back data as an individual value or dictionary (i.e., no
 #   lists or other structs are allowed).
+# - In general, if you need to pass an actual newline via the command line, type
+#   $'\n' instead of \n or \\n. (Files have no special requirements.)
+# - When all else fails, and you have no clue how to pass data via JSON, read
+#   RFC 4627.
 #
 ################################################################################
 
@@ -82,9 +85,9 @@ ARMORYD_CONF_FILE = os.path.join(ARMORY_HOME_DIR, 'armoryd.conf')
 
 # From https://en.bitcoin.it/wiki/Proper_Money_Handling_(JSON-RPC)
 def JSONtoAmount(value):
-    return long(round(float(value) * 1e8))
+   return long(round(float(value) * 1e8))
 def AmountToJSON(amount):
-    return float(amount / 1e8)
+   return float(amount / 1e8)
 
 
 # Define some specific errors that can be thrown and caught
@@ -131,7 +134,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
                for txout in pyTx.outputs:
                   if self.curWlt.hasAddr(script_to_addrStr(txout.getScript())):
                      totalReceived += txout.value
-                  
+
             elif inputsFromSender > 0:
                # Some inputs are from the sender and other are not
                # TODO: Find the best way to handle this case
@@ -229,7 +232,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
                       'script' : txOut.binScript if binary else binary_to_hex(txOut.binScript)}
          else:
             LOGERROR('Tx output index is invalid: #%d' % n)
-      else:    
+      else:
          LOGERROR('Tx hash not recognized by TheBDM: %s' % binary_to_hex(txHash))
 
       return result
@@ -304,7 +307,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
          voutList.append( { 'value' : AmountToJSON(txout.value),
                             'n' : n,
                             'scriptPubKey' : self.getScriptPubKey(txout) } )
-         
+
 
       #####
       # Accumulate all the data to return
@@ -710,8 +713,8 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
             final_tx_list.append(tx_info)
 
       return final_tx_list
- 
- 
+
+
    #############################################################################
    def jsonrpc_getinfo(self):
       isReady = TheBDM.getBDMState() == 'BlockchainReady'
@@ -756,14 +759,14 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       out['merkleroot'] = binary_to_hex(head.getMerkleRoot(), BIGENDIAN)
       out['version'] = head.getVersion()
       out['rawheader'] = binary_to_hex(head.serialize())
-      
+
       # TODO: Fix this part. getTxRefPtrList was never defined.
       # txlist = head.getTxRefPtrList() 
       # ntx = len(txlist)
       # out['tx'] = ['']*ntx
       # for i in range(ntx):
       #    out['tx'][i] = binary_to_hex(txlist[i].getThisHash(), BIGENDIAN)
-   
+
       return out
 
 
@@ -884,7 +887,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
          outputPairs.append( [addrStr_to_script(nextAddr), totalChange] )
 
       random.shuffle(outputPairs)
-      
+
       # If this has nothing to do with lockboxes, we need to make sure
       # we're providing a key map for the inputs
       pubKeyMap = {}
@@ -896,7 +899,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
             addrObj = self.curWlt.getAddrByHash160(a160)
             if addrObj:
                pubKeyMap[scrAddr] = addrObj.binPublicKey65.toBinStr()
-      
+
       txdp = UnsignedTransaction().createFromTxOutSelection(utxoSelect, outputPairs, pubKeyMap)
 
       return txdp.serializeAscii()
@@ -1504,7 +1507,12 @@ class Armory_Daemon(object):
       # Create User Name & Password file to use locally
       if not os.path.exists(passwordfile):
          with open(passwordfile,'a') as f:
-            f.write('generated_by_armory:%s' % binary_to_base58(SecureBinaryData().GenerateRandom(32).toBinStr()))
+            # Don't wait for Python or the OS to write the file. Flush buffers.
+            genVal = SecureBinaryData().GenerateRandom(32).toBinStr()
+            f.write('generated_by_armory:%s' % binary_to_base58(genVal))
+            f.flush()
+            os.fsync(f.fileno())
+
       checker = FilePasswordDB(passwordfile)
       realmName = "Armory JSON-RPC App"
       wrapper = wrapResource(resource, [checker], realmName=realmName)

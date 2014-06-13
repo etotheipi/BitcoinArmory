@@ -144,7 +144,7 @@ class SendBitcoinsFrame(ArmoryFrame):
          self.connect(self.btnSend, SIGNAL(CLICKED), self.createTxAndBroadcast)
          componentList.append(self.btnSend)
          
-      txFrm = makeHorizFrame(componentList)
+      txFrm = makeHorizFrame(componentList, condenseMargins=True)
 
       btnEnterURI = QPushButton('Manually Enter "bitcoin:" Link')
       ttipEnterURI = self.main.createToolTipWidget(\
@@ -161,11 +161,11 @@ class SendBitcoinsFrame(ArmoryFrame):
             'You will have the ability to change the donation amount '
             'before finalizing the transaction.')
          self.connect(btnDonate, SIGNAL("clicked()"), self.addDonation)
-         frmDonate = makeHorizFrame([btnDonate, ttipDonate])
+         frmDonate = makeHorizFrame([btnDonate, ttipDonate], condenseMargins=True)
          fromFrameList.append(frmDonate)
 
       if not self.main.usermode == USERMODE.Standard:
-         frmEnterURI = makeHorizFrame([btnEnterURI, ttipEnterURI])
+         frmEnterURI = makeHorizFrame([btnEnterURI, ttipEnterURI], condenseMargins=True)
          fromFrameList.append(frmEnterURI)
 
       ########################################################################
@@ -220,17 +220,19 @@ class SendBitcoinsFrame(ArmoryFrame):
          fromFrameList.append(frmChangeAddr)
       else:
          fromFrameList.append('Stretch')
-      frmBottomLeft = makeVertFrame(fromFrameList, STYLE_RAISED)
+      frmBottomLeft = makeVertFrame(fromFrameList, STYLE_RAISED, condenseMargins=True)
 
       lblSend = QRichLabel('<b>Sending from Wallet:</b>')
       lblSend.setAlignment(Qt.AlignLeft | Qt.AlignBottom)
 
 
-      leftFrame = makeVertFrame([lblSend, frmBottomLeft])
-      rightFrame = makeVertFrame([lblRecip, self.scrollRecipArea, txFrm])
+      leftFrame = makeVertFrame([lblSend, frmBottomLeft], condenseMargins=True)
+      rightFrame = makeVertFrame([lblRecip, self.scrollRecipArea, txFrm], condenseMargins=True)
       layout = QHBoxLayout()
-      layout.addWidget(leftFrame)
-      layout.addWidget(rightFrame)
+      layout.addWidget(leftFrame, 0)
+      layout.addWidget(rightFrame, 1)
+      layout.setContentsMargins(0,0,0,0)
+      layout.setSpacing(0)
       self.setLayout(layout)
 
       self.makeRecipFrame(1)
@@ -676,22 +678,14 @@ class SendBitcoinsFrame(ArmoryFrame):
          script,behavior = self.determineChangeScript(utxoSelect)
          self.changeScript = script
          self.selectedBehavior = behavior
-         if not self.changeScript:
-            return False
          scriptValPairs.append([self.changeScript, totalChange])
          LOGINFO('Change address behavior: %s', self.selectedBehavior)
-      elif self.main.usermode == USERMODE.Expert and \
-           self.chkDefaultChangeAddr.isChecked():
+      else:
          self.selectedBehavior = NO_CHANGE
          
       changePair = None
       if len(self.selectedBehavior) > 0:
          changePair = (self.changeScript, self.selectedBehavior)
-      #elif totalChange > 0:
-         # WTF was this conditional about?  
-         #changePair = (self.lbox.scrAddr, 'Feedback')
-         #LOGWARN('Change from LOCKBOX tx goes back to the same LOCKBOX!')
-         #scriptValPairs.append([self.lbox.binScript, totalChange])
 
       # Keep a copy of the originally-sorted list for display
       origSVPairs = scriptValPairs[:]
@@ -982,7 +976,7 @@ class SendBitcoinsFrame(ArmoryFrame):
          addrEntryWidgets = self.main.createAddressEntryWidgets(self, maxDetectLen=45, boldDetectParts=1)
          self.widgetTable[r]['FUNC_GETSCRIPT'] = addrEntryWidgets['CALLBACK_GETSCRIPT']
          self.widgetTable[r]['QLE_ADDR'] = addrEntryWidgets['QLE_ADDR']
-         self.widgetTable[r]['QLE_ADDR'].setMinimumWidth(relaxedSizeNChar(GETFONT('var'), 38)[0])
+         self.widgetTable[r]['QLE_ADDR'].setMinimumWidth(relaxedSizeNChar(GETFONT('var'), 20)[0])
          self.widgetTable[r]['QLE_ADDR'].setMaximumHeight(self.maxHeight)
          self.widgetTable[r]['QLE_ADDR'].setFont(GETFONT('var', 9))
 
@@ -1022,7 +1016,7 @@ class SendBitcoinsFrame(ArmoryFrame):
          subLayout.addWidget(self.widgetTable[r]['QLE_ADDR'],  0,1, 1,5)
          subLayout.addWidget(self.widgetTable[r]['BTN_BOOK'],  0,6, 1,1)
 
-         subLayout.addWidget(self.widgetTable[r]['LBL_DETECT'], 1,1, 1,5)
+         subLayout.addWidget(self.widgetTable[r]['LBL_DETECT'], 1,1, 1,6)
 
          subLayout.addWidget(self.widgetTable[r]['LBL_AMT'],   2,0, 1,1)
          subLayout.addWidget(self.widgetTable[r]['QLE_AMT'],   2,1, 1,2)
@@ -1032,7 +1026,7 @@ class SendBitcoinsFrame(ArmoryFrame):
 
          subLayout.addWidget(self.widgetTable[r]['LBL_COMM'],  3,0, 1,1)
          subLayout.addWidget(self.widgetTable[r]['QLE_COMM'],  3,1, 1,6)
-         subLayout.setContentsMargins(15, 15, 15, 15)
+         subLayout.setContentsMargins(5, 5, 5, 5)
          subLayout.setSpacing(3)
          subfrm.setLayout(subLayout)
 
@@ -1058,6 +1052,7 @@ class SendBitcoinsFrame(ArmoryFrame):
       frmRecip.setLayout(frmRecipLayout)
       # return frmRecip
       self.scrollRecipArea.setWidget(frmRecip)
+      self.scrollRecipArea.setWidgetResizable(True)
 
 
    #############################################################################

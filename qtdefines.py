@@ -607,7 +607,7 @@ def MsgBoxWithDNAA(wtype, title, msg, dnaaMsg, wCancel=False, \
    return (result, dlg.chkDnaa.isChecked())
 
  
-def makeLayoutFrame(dirStr, widgetList, style=QFrame.NoFrame):
+def makeLayoutFrame(dirStr, widgetList, style=QFrame.NoFrame, condenseMargins=False):
    frm = QFrame()
    frm.setFrameStyle(style)
 
@@ -643,19 +643,23 @@ def makeLayoutFrame(dirStr, widgetList, style=QFrame.NoFrame):
       else:
          frmLayout.addWidget(w)
 
-   frmLayout.setContentsMargins(5,5,5,5)
+   if condenseMargins:
+      frmLayout.setContentsMargins(3,3,3,3)
+      frmLayout.setSpacing(3)
+   else:
+      frmLayout.setContentsMargins(5,5,5,5)
    frm.setLayout(frmLayout)
    return frm
    
 
-def addFrame(widget, style=STYLE_SUNKEN):
-   return makeLayoutFrame(HORIZONTAL, [widget], style)
+def addFrame(widget, style=STYLE_SUNKEN, condenseMargins=False):
+   return makeLayoutFrame(HORIZONTAL, [widget], style, condenseMargins)
    
-def makeVertFrame(widgetList, style=QFrame.NoFrame):
-   return makeLayoutFrame(VERTICAL, widgetList, style)
+def makeVertFrame(widgetList, style=QFrame.NoFrame, condenseMargins=False):
+   return makeLayoutFrame(VERTICAL, widgetList, style, condenseMargins)
 
-def makeHorizFrame(widgetList, style=QFrame.NoFrame):
-   return makeLayoutFrame(HORIZONTAL, widgetList, style)
+def makeHorizFrame(widgetList, style=QFrame.NoFrame, condenseMargins=False):
+   return makeLayoutFrame(HORIZONTAL, widgetList, style, condenseMargins)
 
 
 def QImageLabel(imgfn, size=None, stretch='NoStretch'):
