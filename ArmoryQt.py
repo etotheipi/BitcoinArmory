@@ -636,7 +636,7 @@ class ArmoryMainWindow(QMainWindow):
          MessageSigningVerificationDialog(self,self).exec_()
 
       def openBlindBroad():
-         if not self.bitcoindIsAvailable():
+         if not satoshiIsAvailable():
             QMessageBox.warning(self, tr("Not Online"), tr("""
                Bitcoin Core is not available, so Armory will not be able
                to broadcast any transactions for you."""), QMessageBox.Ok)
@@ -2102,7 +2102,7 @@ class ArmoryMainWindow(QMainWindow):
 
 
       LOGINFO('Internet connection is Available: %s', self.internetAvail)
-      LOGINFO('Bitcoin-Qt/bitcoind is Available: %s', self.bitcoindIsAvailable())
+      LOGINFO('Bitcoin-Qt/bitcoind is Available: %s', satoshiIsAvailable())
       LOGINFO('The first blk*.dat was Available: %s', str(self.checkHaveBlockfiles()))
       LOGINFO('Online mode currently possible:   %s', self.onlineModeIsPossible())
 
@@ -2315,9 +2315,6 @@ class ArmoryMainWindow(QMainWindow):
          TheBDM.setOnlineMode(False, wait=False)
 
 
-
-
-
    #############################################################################
    def checkHaveBlockfiles(self):
       return os.path.exists(os.path.join(TheBDM.btcdir, 'blocks'))
@@ -2325,14 +2322,8 @@ class ArmoryMainWindow(QMainWindow):
    #############################################################################
    def onlineModeIsPossible(self):
       return ((self.internetAvail or self.forceOnline) and \
-               self.bitcoindIsAvailable() and \
+               satoshiIsAvailable() and \
                self.checkHaveBlockfiles())
-
-
-   #############################################################################
-   def bitcoindIsAvailable(self):
-      return satoshiIsAvailable('127.0.0.1', BITCOIN_PORT)
-
 
 
    #############################################################################
@@ -6145,7 +6136,7 @@ class ArmoryMainWindow(QMainWindow):
                self.lblDashModeSync.setText( 'Armory is <u>offline</u>', \
                                          size=4, color='TextWarn', bold=True)
 
-               if not self.bitcoindIsAvailable():
+               if not satoshiIsAvailable():
                   if self.internetAvail:
                      descr = self.GetDashStateText('User','OfflineNoSatoshi')
                      setBtnRowVisible(DASHBTNS.Settings, True)

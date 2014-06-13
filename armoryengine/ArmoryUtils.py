@@ -40,6 +40,7 @@ import time
 import traceback
 import shutil
 import base64
+import socket
 
 #from psutil import Popen
 import psutil
@@ -1567,8 +1568,24 @@ def unicode_truncate(theStr, length, encoding='utf-8'):
     encoded = theStr.encode(encoding)[:length]
     return encoded.decode(encoding, 'ignore')
 
-################################################################################
 
+#############################################################################
+def satoshiIsAvailable(host='127.0.0.1', port=BITCOIN_PORT, timeout=0.01):
+
+   if not isinstance(port, (list,tuple)):
+      port = [port]
+
+   for p in port:
+      s = socket.socket()
+      s.settimeout(timeout)   # Most of the time checking localhost -- FAST
+      try:
+         s.connect((host, p))
+         s.close()
+         return p
+      except:
+         pass
+
+   return 0
 
 
 # This is a sweet trick for create enum-like dictionaries.
@@ -1717,9 +1734,6 @@ def prettyHex(theStr, indent='', withAddr=True, major=8, minor=8):
    return outStr
 
 
-
-
-
 ################################################################################
 def pprintHex(theStr, indent='', withAddr=True, major=8, minor=8):
    """
@@ -1735,7 +1749,6 @@ def pprintHex(theStr, indent='', withAddr=True, major=8, minor=8):
    print prettyHex(theStr, indent, withAddr, major, minor)
 
 
-
 def pprintDiff(str1, str2, indent=''):
    if not len(str1)==len(str2):
       print 'pprintDiff: Strings are different length!'
@@ -1749,8 +1762,6 @@ def pprintDiff(str1, str2, indent=''):
          byteDiff.append('X')
 
    pprintHex(''.join(byteDiff), indent=indent)
-
-
 
 
 ##### Switch endian-ness #####

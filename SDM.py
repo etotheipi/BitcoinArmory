@@ -23,25 +23,6 @@ from armoryengine.ArmoryUtils import BITCOIN_PORT, LOGERROR, hex_to_binary, \
 from bitcoinrpc_jsonrpc import authproxy
 
 
-#############################################################################
-def satoshiIsAvailable(host='127.0.0.1', port=BITCOIN_PORT, timeout=0.01):
-
-   if not isinstance(port, (list,tuple)):
-      port = [port]
-
-   for p in port:
-      s = socket.socket()
-      s.settimeout(timeout)   # Most of the time checking localhost -- FAST
-      try:
-         s.connect((host, p))
-         s.close()
-         return p
-      except:
-         pass
-
-   return 0
-
-
 ################################################################################
 def extractSignedDataFromVersionsDotTxt(wholeFile, doVerify=True):
    """
