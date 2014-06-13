@@ -11041,6 +11041,32 @@ class DlgRootPKCCExpCenter(ArmoryDialog):
       self.setWindowTitle("Watch-Only Data Export Center")
       self.setMinimumSize(640, 350)
 
+################################################################################
+class DlgBackupCenter(ArmoryDialog):
+
+   #############################################################################
+   def __init__(self, parent, main, wlt):
+      super(DlgBackupCenter, self).__init__(parent, main)
+
+      self.wlt = wlt
+      wltID = wlt.uniqueIDB58
+      wltName = wlt.labelName
+
+      self.walletBackupFrame = WalletBackupFrame(parent, main)
+      self.walletBackupFrame.setWallet(wlt)
+      self.btnDone = QPushButton('Done')
+      self.connect(self.btnDone, SIGNAL(CLICKED), self.reject)
+      frmBottomBtns = makeHorizFrame([STRETCH, self.btnDone])
+
+      layoutDialog = QVBoxLayout()
+
+      layoutDialog.addWidget(self.walletBackupFrame)
+
+      layoutDialog.addWidget(frmBottomBtns)
+
+      self.setLayout(layoutDialog)
+      self.setWindowTitle("Backup Center")
+      self.setMinimumSize(640, 350)
 
 ################################################################################
 class DlgSimpleBackup(ArmoryDialog):
@@ -13403,7 +13429,7 @@ class DlgReplaceWallet(ArmoryDialog):
 
       oldpath = os.path.join(homedir, self.WalletID, datestr)
       try: 
-         if not os.path.exists(oldPath):
+         if not os.path.exists(oldpath):
             os.makedirs(oldpath)
       except:
          LOGEXCEPT('Cannot create new folder in dataDir! Missing credentials?')
