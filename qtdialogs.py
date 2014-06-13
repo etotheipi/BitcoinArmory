@@ -11015,7 +11015,8 @@ class QRadioButtonBackupCtr(QRadioButton):
                                           # htmlColor('Background'))
 
 
-# Class that will eventually product the window 
+# Class that might eventually handle the watch-only wallet data. Chances are
+# this will eventually get nuked, but just in case....
 ################################################################################
 class DlgRootPKCCExpCenter(ArmoryDialog):
 
@@ -11034,12 +11035,13 @@ class DlgRootPKCCExpCenter(ArmoryDialog):
       frmBottomBtns = makeHorizFrame([STRETCH, self.btnDone])
 
       layoutDialog = QVBoxLayout()
-      layoutDialog.addWidget(self.walletRootPKCCExpFrame)
+      layoutDialog.addWidget(self.walletPKCCExpFrame)
       layoutDialog.addWidget(frmBottomBtns)
 
       self.setLayout(layoutDialog)
       self.setWindowTitle("Watch-Only Data Export Center")
       self.setMinimumSize(640, 350)
+
 
 ################################################################################
 class DlgBackupCenter(ArmoryDialog):
