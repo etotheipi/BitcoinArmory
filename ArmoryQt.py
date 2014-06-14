@@ -1294,7 +1294,7 @@ class ArmoryMainWindow(QMainWindow):
       rdfexternalApp = 'about=\"urn:scheme:externalApplication:bitcoin\"'
 
       #find mimeTypes.rdf file
-      home = os.getenv('HOME')
+      home = os.path.join(os.getenv('HOME'), '.mozilla', 'firefox')
       out,err = execAndWait('find %s -type f -name \"mimeTypes.rdf\"' % home)
 
       for rdfs in out.split('\n'):
