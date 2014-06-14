@@ -218,12 +218,12 @@ class MultiSigLockbox(object):
       self.commentList = commList
       self.createDate = long(RightNow()) if createDate is None else createDate
       self.magicBytes = MAGIC_BYTES
-
-      if script is not None:
-         self.setParams(script, name, descr, commList)
-
       self.uniqueIDB58 = None
       self.asciiID     = None
+
+
+      if script is not None:
+         self.setParams(script, name, descr, commList, createDate)
 
    #############################################################################
    def setParams(self, script, name=None, descr=None, commList=None, \

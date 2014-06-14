@@ -860,7 +860,7 @@ class SendBitcoinsFrame(ArmoryFrame):
             changeScript  = scrAddr_to_script(addrStr_to_scrAddr(changeAddrStr))
             self.wlt.setComment(changeAddr160, CHANGE_ADDR_DESCR_STRING)
          else:
-            changeScript  = self.lbox.binScript
+            changeScript  = script_to_p2sh_script(self.lbox.binScript)
 
       if self.main.usermode == USERMODE.Expert:
          if not self.chkDefaultChangeAddr.isChecked():

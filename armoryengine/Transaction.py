@@ -1102,6 +1102,7 @@ class UnsignedTxInput(object):
 
    #############################################################################
    def setSignature(self, msIndex, sigStr):
+      LOGDEBUG('Setting signature in key index: %d' % msIndex)
       self.signatures[msIndex] = sigStr
 
 
@@ -1209,7 +1210,7 @@ class UnsignedTxInput(object):
          raise SignatureError('No TxIn in tx that matches this USTXI')
 
       msg,hc = generatePreHashTxMsgToSign(pytx, txiIdx, 
-               self.getTxoScriptToSign(), hashcode)
+                                    self.getTxoScriptToSign(), hashcode)
       sbdSig = CryptoECDSA().SignData(SecureBinaryData(msg), sbdPrivKey)
       binSig = sbdSig.toBinStr()
       return createDERSigFromRS(binSig[:32], binSig[32:]) + hc
@@ -1217,13 +1218,23 @@ class UnsignedTxInput(object):
 
    #############################################################################
    def insertSignature(self, sigStr, pubKey):
-      try:
-         msIdx = self.pubKeys.index(pubKey)
-      except ValueError:
-         return -1
-
-      self.setSignature(msIdx, sigStr)
-      return msIdx
+      """
+      Returns -1 if no sig can be added, index of last sig added otherwise 
+      (usually only one sig added, but if this is a multisig and has repeated
+      public keys, it will insert the sig in every slot for which it is valid)
+      """
+      msIdx = -1
+      
+      while(True):
+         try:
+            newIdx = self.pubKeys.index(pubKey, msIdx+1)
+         except ValueError:
+            # Eventually we run out of slots to insert into and error out.    
+            # Since we're using [].index(), exception-control-flow is easiest
+            return msIdx
+   
+         msIdx = newIdx
+         self.setSignature(msIdx, sigStr)
 
 
    #############################################################################
@@ -2183,7 +2194,7 @@ def PyCreateAndSignTx(ustxiList, dtxoList, sbdPrivKeyMap):
          scrAddr = ustxi.scrAddrs[iin]
          sbdPriv = sbdPrivKeyMap.get(sbdPriv)
          if sbdPriv is None:
-            raise BadAddressError('Supplied key map cannot sign all inputs')
+            raise SignatureError('Supplied key map cannot sign all inputs')
          ustx.createAndInsertSignatureForInput(iin, sbdPriv)
 
    # Make sure everythign was good
