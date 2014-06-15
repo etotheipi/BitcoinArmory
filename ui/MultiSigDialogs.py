@@ -932,8 +932,12 @@ class DlgLockboxManager(ArmoryDialog):
                                 this lockbox and not all of them are fully 
                                 trusted, click the "Simul" checkbox on the 
                                 left to see the "simulfunding" options."""),
-               'select':  tr('Select a lockbox to fund'),
-               'offline': tr('Must be online to fund')},
+               'select':  tr('Select a lockbox to fund<br>'),
+               'offline': tr('Must be online to fund<br>')},
+               # Added <br> to the labels to force to be two lines... this
+               # is a hack to make sure that the row inits to a reasonable
+               # size on open
+               
 
          'MergeProm':  { \
                'button':  tr('Merge Promissory Notes'),
@@ -1286,31 +1290,39 @@ class DlgLockboxManager(ArmoryDialog):
       if len(self.ledgerView.selectedIndexes())==0:
          return
 
-      actViewTx     = menu.addAction("View Details")
-      actViewBlkChn = menu.addAction("View on www.blockchain.info")
-      actComment    = menu.addAction("Change Comment")
-      actCopyTxID   = menu.addAction("Copy Transaction ID")
       row = self.ledgerView.selectedIndexes()[0].row()
-      action = menu.exec_(QCursor.pos())
 
       txHash = str(self.ledgerView.model().index(row, LEDGERCOLS.TxHash).data().toString())
       txHash = hex_switchEndian(txHash)
       wltID  = str(self.ledgerView.model().index(row, LEDGERCOLS.WltID).data().toString())
 
-      blkchnURL = 'https://blockchain.info/tx/%s' % txHash
+      if USE_TESTNET:
+         blkExploreTitle = 'View on blockexplorer.com'
+         blkExploreURL   = 'http://blockexplorer.com/testnet/tx/%s' % txHash
+      else:
+         blkExploreTitle = 'View on blockchain.info'
+         blkExploreURL   = 'https://blockchain.info/tx/%s' % txHash
+
+
+      actViewTx     = menu.addAction("View Details")
+      actViewBlkChn = menu.addAction(blkExploreTitle)
+      actComment    = menu.addAction("Change Comment")
+      actCopyTxID   = menu.addAction("Copy Transaction ID")
+      action = menu.exec_(QCursor.pos())
+
 
       if action==actViewTx:
          self.showLedgerTx()
       elif action==actViewBlkChn:
          try:
-            webbrowser.open(blkchnURL)
+            webbrowser.open(blkExploreURL)
          except:
             LOGEXCEPT('Failed to open webbrowser')
             QMessageBox.critical(self, 'Could not open browser', \
                'Armory encountered an error opening your web browser.  To view '
                'this transaction on blockchain.info, please copy and paste '
                'the following URL into your browser: '
-               '<br><br>%s' % blkchnURL, QMessageBox.Ok)
+               '<br><br>%s' % blkExploreURL, QMessageBox.Ok)
       elif action==actCopyTxID:
          clipb = QApplication.clipboard()
          clipb.clear()
@@ -1326,13 +1338,14 @@ class DlgLockboxManager(ArmoryDialog):
       adv = (self.main.usermode == USERMODE.Advanced)
       dev = (self.main.usermode == USERMODE.Expert)
 
-      if True:  actionCopyAddr = menu.addAction("Copy P2SH Address")
-      if True:  actionShowQRCode = menu.addAction("Display P2SH Address QR Code")
-      if True:  actionBlkChnInfo = menu.addAction("View P2SH Address on www.blockchain.info")
-      if True:  actionReqPayment = menu.addAction("Request Payment to this P2SH Address")
-      if dev:   actionCopyHash160 = menu.addAction("Copy Hash160 (hex)")
-      if dev:   actionCopyPubKey  = menu.addAction("Copy Lock Box ID")
-      if True:  actionCopyBalance = menu.addAction("Copy Balance")
+      
+
+      if True:  actionCopyAddr    = menu.addAction("Copy P2SH address")
+      if True:  actionShowQRCode  = menu.addAction("Display address QR code")
+      if True:  actionBlkChnInfo  = menu.addAction("View address on %s" % BLOCKEXPLORE_NAME)
+      if True:  actionReqPayment  = menu.addAction("Request payment to this lockbox")
+      if dev:   actionCopyHash160 = menu.addAction("Copy hash160 value (hex)")
+      if True:  actionCopyBalance = menu.addAction("Copy balance")
       selectedIndexes = self.lboxView.selectedIndexes()
       if len(selectedIndexes)>0:
          idx = selectedIndexes[0]
@@ -1353,27 +1366,47 @@ class DlgLockboxManager(ArmoryDialog):
          if action == actionCopyAddr:
             clippy = p2shAddr
          elif action == actionBlkChnInfo:
+            urlToOpen = BLOCKEXPLORE_URL_ADDR % p2shAddr
             try:
                import webbrowser
-               blkchnURL = 'https://blockchain.info/address/%s' % p2shAddr
-               webbrowser.open(blkchnURL)
+               webbrowser.open(urlToOpen)
             except:
-               QMessageBox.critical(self, 'Could not open browser', \
-                  'Armory encountered an error opening your web browser.  To view '
-                  'this address on blockchain.info, please copy and paste '
-                  'the following URL into your browser: '
-                  '<br><br>%s' % blkchnURL, QMessageBox.Ok)
+               QMessageBox.critical(self, tr('Could not open browser'), tr("""
+                  Armory encountered an error opening your web browser.  To view 
+                  this address on %s, please copy and paste 
+                  the following URL into your browser: 
+                  <br><br>
+                  <a href="%s">%s</a>""") % (BLOCKEXPLORE_NAME, urlToOpen, 
+                  urlToOpen), QMessageBox.Ok)
             return
          elif action == actionShowQRCode:
             DlgQRCodeDisplay(self, self.main, p2shAddr, p2shAddr, createLockboxEntryStr(lboxId)).exec_()
             return
          elif action == actionReqPayment:
+            if not self.main.getSettingOrSetDefault('DNAA_P2SHCompatWarn', False):
+               oldStartChar = "'m' or 'n'" if USE_TESTNET else "'1'"
+               newStartChar = "'2'"        if USE_TESTNET else "'3'"
+               reply = MsgBoxWithDNAA(MSGBOX.Warning, tr('Compatibility Warning'), 
+                  tr("""You are about to request payment to a "P2SH" address 
+                  which is the format used for receiving to multi-signature
+                  addresses/lockboxes.  "P2SH" are like regular Bitcoin 
+                  addresses but start with %s instead of %s.
+                  <br><br>
+                  Unfortunately, not all software and services support sending 
+                  to P2SH addresses.  If the sender or service indicates   
+                  an error sending to this address, you might have to request
+                  payment to a regular wallet address and then send the funds
+                  from that wallet to the lockbox once it is confirmed.""") % \
+                  (newStartChar, oldStartChar), 
+                  dnaaMsg=tr('Do not show this message again'))
+               
+               if reply[1]==True:
+                  self.main.writeSetting('DNAA_P2SHCompatWarn', True)
+         
             DlgRequestPayment(self, self.main, p2shAddr).exec_()
             return
          elif dev and action == actionCopyHash160:
             clippy = binary_to_hex(addrStr_to_hash160(p2shAddr)[1])
-         elif dev and action == actionCopyPubKey:
-            clippy = lboxId
          elif action == actionCopyBalance:
             clippy = getModelStr(LOCKBOXCOLS.Balance)
          else:

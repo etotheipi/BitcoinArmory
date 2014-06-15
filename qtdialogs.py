@@ -1892,7 +1892,7 @@ class DlgWalletDetails(ArmoryDialog):
 
       if True:  actionCopyAddr = menu.addAction("Copy Address")
       if True:  actionShowQRCode = menu.addAction("Display Address QR Code")
-      if True:  actionBlkChnInfo = menu.addAction("View Address on www.blockchain.info")
+      if True:  actionBlkChnInfo = menu.addAction("View Address on %s" % BLOCKEXPLORE_NAME)
       if True:  actionReqPayment = menu.addAction("Request Payment to this Address")
       if dev:   actionCopyHash160 = menu.addAction("Copy Hash160 (hex)")
       if dev:   actionCopyPubKey  = menu.addAction("Copy Public Key (hex)")
@@ -1913,16 +1913,17 @@ class DlgWalletDetails(ArmoryDialog):
       if action == actionCopyAddr:
          clippy = addr
       elif action == actionBlkChnInfo:
+         blkchnURL = BLOCKEXPLORE_URL_ADDR % addr
          try:
             import webbrowser
-            blkchnURL = 'https://blockchain.info/address/%s' % addr
             webbrowser.open(blkchnURL)
          except:
-            QMessageBox.critical(self, 'Could not open browser', \
-               'Armory encountered an error opening your web browser.  To view '
-               'this address on blockchain.info, please copy and paste '
-               'the following URL into your browser: '
-               '<br><br>%s' % blkchnURL, QMessageBox.Ok)
+            QMessageBox.critical(self, tr('Could not open browser'), tr("""
+               Armory encountered an error opening your web browser.  To view 
+               this address on blockchain.info, please copy and paste 
+               the following URL into your browser: 
+               <br><br>
+               <a href="%s">%s</a>""") % (blkchnURL, blkchnURL), QMessageBox.Ok)
          return
       elif action == actionShowQRCode:
          wltstr = 'Wallet: %s (%s)' % (self.wlt.labelName, self.wlt.uniqueIDB58)

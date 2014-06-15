@@ -3740,33 +3740,38 @@ class ArmoryMainWindow(QMainWindow):
                LOGRAWDATA(pytx.serialize(), logging.ERROR)
                LOGERROR('Transaction details')
                LOGPPRINT(pytx, logging.ERROR)
-               searchstr = binary_to_hex(newTxHash, BIGENDIAN)
-               QMessageBox.warning(self, 'Invalid Transaction', \
-                  'The transaction that you just executed, does not '
-                  'appear to have been accepted by the Bitcoin network. '
-                  'This can happen for a variety of reasons, but it is '
-                  'usually due to a bug in the Armory software.  '
-                  '<br><br>On some occasions the transaction actually did succeed '
-                  'and this message is the bug itself!  To confirm whether the '
-                  'the transaction actually succeeded, you can try this direct link '
-                  'to blockchain.info:'
-                  '<br><br>'
-                  '<a href="https://blockchain.info/search/%s">'
-                  'https://blockchain.info/search/%s...</a>.  '
-                  '<br><br>'
-                  'If you do not see the '
-                  'transaction on that webpage within one minute, it failed and you '
-                  'should attempt to re-send it. '
-                  'If it <i>does</i> show up, then you do not need to do anything '
-                  'else -- it will show up in Armory as soon as it receives 1 '
-                  'confirmation. '
-                  '<br><br>If the transaction did fail, please consider '
-                  'reporting this error the the Armory '
-                  'developers.  From the main window, go to '
-                  '"<i>File</i>" and select "<i>Export Log File</i>" to make a copy of your '
-                  'log file to send via email to support@bitcoinarmory.com.  ' \
-                   % (searchstr,searchstr[:8]), \
-                  QMessageBox.Ok)
+               searchstr  = binary_to_hex(newTxHash, BIGENDIAN)
+
+               supportURL       = 'https://bitcoinarmory.com/support' 
+               blkexplURL       = BLOCKEXPLORE_URL_TX % searchstr
+               blkexplURL_short = BLOCKEXPLORE_URL_TX % searchstr[:20]
+
+               QMessageBox.warning(self, tr('Transaction Not Accepted'), tr("""
+                  The transaction that you just executed, does not 
+                  appear to have been accepted by the Bitcoin network. 
+                  This can happen for a variety of reasons, but it is 
+                  usually due to a bug in the Armory software.  
+                  <br><br>On some occasions the transaction actually did succeed 
+                  and this message is the bug itself!  To confirm whether the 
+                  the transaction actually succeeded, you can try this direct link 
+                  to %s:
+                  <br><br>
+                  <a href="%s">%s...</a>  
+                  <br><br>
+                  If you do not see the 
+                  transaction on that webpage within one minute, it failed and you 
+                  should attempt to re-send it. 
+                  If it <i>does</i> show up, then you do not need to do anything 
+                  else -- it will show up in Armory as soon as it receives one
+                  confirmation. 
+                  <br><br>If the transaction did fail, please consider 
+                  reporting this error the the Armory developers.  
+                  From the main window, go to "<i>Help</i>" and select 
+                  "<i>Submit Bug Report</i>".  Or use "<i>File</i>" -> 
+                  "<i>Export Log File</i>" and then attach it to a support 
+                  ticket at 
+                  <a href="%s">%s</a>""") % (BLOCKEXPLORE_NAME, blkexplURL, 
+                  blkexplURL_short, supportURL, supportURL), QMessageBox.Ok)
 
          self.mainDisplayTabs.setCurrentIndex(self.MAINTABS.Ledger)
          reactor.callLater(4, sendGetDataMsg)
@@ -4082,32 +4087,32 @@ class ArmoryMainWindow(QMainWindow):
       if len(self.ledgerView.selectedIndexes())==0:
          return
 
-      actViewTx     = menu.addAction("View Details")
-      actViewBlkChn = menu.addAction("View on www.blockchain.info")
-      actComment    = menu.addAction("Change Comment")
-      actCopyTxID   = menu.addAction("Copy Transaction ID")
-      actOpenWallet = menu.addAction("Open Relevant Wallet")
       row = self.ledgerView.selectedIndexes()[0].row()
-      action = menu.exec_(QCursor.pos())
 
       txHash = str(self.ledgerView.model().index(row, LEDGERCOLS.TxHash).data().toString())
       txHash = hex_switchEndian(txHash)
       wltID  = str(self.ledgerView.model().index(row, LEDGERCOLS.WltID).data().toString())
 
-      blkchnURL = 'https://blockchain.info/tx/%s' % txHash
+
+      actViewTx     = menu.addAction("View Details")
+      actViewBlkChn = menu.addAction("View on %s" % BLOCKEXPLORE_NAME)
+      actComment    = menu.addAction("Change Comment")
+      actCopyTxID   = menu.addAction("Copy Transaction ID")
+      actOpenWallet = menu.addAction("Open Relevant Wallet")
+      action = menu.exec_(QCursor.pos())
 
       if action==actViewTx:
          self.showLedgerTx()
       elif action==actViewBlkChn:
          try:
-            webbrowser.open(blkchnURL)
+            webbrowser.open(BLOCKEXPLORE_URL_TX % txHash)
          except:
             LOGEXCEPT('Failed to open webbrowser')
             QMessageBox.critical(self, 'Could not open browser', \
                'Armory encountered an error opening your web browser.  To view '
                'this transaction on blockchain.info, please copy and paste '
                'the following URL into your browser: '
-               '<br><br>%s' % blkchnURL, QMessageBox.Ok)
+               '<br><br>%s' % (BLOCKEXPLORE_URL_TX % txHash), QMessageBox.Ok)
       elif action==actCopyTxID:
          clipb = QApplication.clipboard()
          clipb.clear()
