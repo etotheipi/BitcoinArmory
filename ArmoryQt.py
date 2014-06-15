@@ -50,7 +50,7 @@ from armoryengine.PyBtcWalletRecovery import WalletConsistencyCheck
 
 from armoryengine.MultiSigUtils import MultiSigLockbox
 from ui.MultiSigDialogs import DlgSelectMultiSigOption, DlgLockboxManager, \
-                              DlgMergePromNotes, DlgCreatePromNote
+                    DlgMergePromNotes, DlgCreatePromNote, DlgImportAsciiBlock
 from armoryengine.Decorators import RemoveRepeatingExtensions
 
 # HACK ALERT: Qt has a bug in OS X where the system font settings will override
@@ -665,11 +665,24 @@ class ArmoryMainWindow(QMainWindow):
             DlgCreatePromNote(self, self).exec_()
 
 
-      cjsf   = lambda: DlgMergePromNotes(self, self).exec_()
-      mspend = lambda:  DlgMultiSpendReview(self, self).exec_()
+      def msrevsign():
+         title = tr('Import Multi-Spend Transaction')
+         descr = tr("""
+            Import a signature-collector text block for review and signing.  
+            It is usually a block of text with "TXSIGCOLLECT" in the first line,
+            or a <i>*.sigcollect.tx</i> file.""")
+         ftypes = ['Signature Collectors (*.sigcollect.tx)']
+         dlgImport = DlgImportAsciiBlock(self, self, title, descr, ftypes, 
+                                                         UnsignedTransaction)
+         dlgImport.exec_()
+         if dlgImport.returnObj:
+            DlgMultiSpendReview(self, self, dlgImport.returnObj).exec_()
+            
+
+      simulMerge   = lambda: DlgMergePromNotes(self, self).exec_()
       actMakeProm    = self.createAction('Simulfund &Promissory Note', mkprom)
-      actPromCollect = self.createAction('Simulfund &Collect && Merge', cjsf)
-      actMultiSpend  = self.createAction('Simulfund &Review && Sign', mspend)
+      actPromCollect = self.createAction('Simulfund &Collect && Merge', simulMerge)
+      actMultiSpend  = self.createAction('Simulfund &Review && Sign', msrevsign)
 
       if not self.usermode==USERMODE.Expert:
          self.menusList[MENUS.MultiSig].menuAction().setVisible(False)

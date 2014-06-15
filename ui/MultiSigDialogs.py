@@ -2949,8 +2949,11 @@ class DlgMultiSpendReview(ArmoryDialog):
 class DlgCreatePromNote(ArmoryDialog):
 
    #############################################################################
-   def __init__(self, parent, main, defaultID=None):
+   def __init__(self, parent, main, defaultID=None, skipExport=False):
       super(DlgCreatePromNote, self).__init__(parent, main)
+
+      self.finalPromNote = None
+      self.skipExport = skipExport
 
       lblDescr  = QRichLabel(tr("""
          <font color="%s" size=4><b>Create Simulfunding Promissory Note
@@ -3267,30 +3270,33 @@ class DlgCreatePromNote(ArmoryDialog):
          
 
       funderStr = str(self.edtKeyLabel.text()).strip()
-      prom = MultiSigPromissoryNote(dtxoTarget, feeAmt, ustxiList, dtxoChange,
-                                                                    funderStr)
+      self.finalPromNote = MultiSigPromissoryNote(dtxoTarget, feeAmt, 
+                                       ustxiList, dtxoChange, funderStr)
                                           
 
-      LOGINFO('Successfully created prom note: %s' % prom.promID)
+      LOGINFO('Successfully created prom note: %s' % self.finalPromNote.promID)
 
-      title = tr("Export Promissory Note")
-      descr = tr("""
-         The text below includes all the data needed to represent your
-         contribution to a simulfunding transaction.  Your money cannot move
-         because you have not signed anything, yet.  Once all promissory
-         notes are collected, you will be able to review the entire funding 
-         transaction before signing.""")
-         
-      ftypes = ['Promissory Notes (*.promnote)']
-      defaultFN = 'Contrib_%s_%sBTC.promnote' % \
-            (prom.promID, coin2strNZS(valueAmt))
-         
-
-      if not DlgExportAsciiBlock(self, self.main, prom, title, descr,    
-                                                ftypes, defaultFN).exec_():
-         return False
-      else:
+      if self.skipExport:
          self.accept()
+      else:
+         title = tr("Export Promissory Note")
+         descr = tr("""
+            The text below includes all the data needed to represent your
+            contribution to a simulfunding transaction.  Your money cannot move
+            because you have not signed anything, yet.  Once all promissory
+            notes are collected, you will be able to review the entire funding 
+            transaction before signing.""")
+         
+         ftypes = ['Promissory Notes (*.promnote)']
+         defaultFN = 'Contrib_%s_%sBTC.promnote' % \
+               (self.finalPromNote.promID, coin2strNZS(valueAmt))
+            
+   
+         if not DlgExportAsciiBlock(self, self.main, self.finalPromNote, title, 
+                                             descr, ftypes, defaultFN).exec_():
+            return False
+         else:
+            self.accept()
       
       
 
@@ -3397,9 +3403,11 @@ class DlgMergePromNotes(ArmoryDialog):
       self.promLoadStacked.addWidget(self.promView)
       self.updatePromTable()
 
-      btnImport = QPushButton(tr('Add Promissory Note'))
-      self.connect(btnImport, SIGNAL('clicked()'), self.addPromNote)
-      frmImport = makeHorizFrame(['Stretch', btnImport, 'Stretch'])
+      btnImport = QPushButton(tr('Import Promissory Note'))
+      btnCreate = QPushButton(tr('Create && Add Promissory Note'))
+      self.connect(btnImport, SIGNAL('clicked()'), self.importNote)
+      self.connect(btnCreate, SIGNAL('clicked()'), self.createPromAdd)
+      frmImport = makeHorizFrame(['Stretch', btnImport, btnCreate, 'Stretch'])
 
       btnCancel = QPushButton(tr('Cancel'))
       self.chkBareMS = QCheckBox(tr('Use bare multisig (no P2SH)'))
@@ -3412,7 +3420,7 @@ class DlgMergePromNotes(ArmoryDialog):
                                    btnFinish])
 
       # If this was opened with default lockbox, set visibility, save ms script
-      # If opened generic, this will be set first time addPromNote() is called
+      # If opened generic, this will be set first time importNote() is called
       self.chkBareMS.setVisible(False)
       if self.lbox is not None:
          self.chkBareMS.setVisible(True)
@@ -3437,7 +3445,7 @@ class DlgMergePromNotes(ArmoryDialog):
       
       
    #############################################################################
-   def addPromNote(self):
+   def importNote(self):
       title = tr('Import Promissory Note')
       descr = tr("""
          Import a promissory note to add to this simulfunding transaction""") 
@@ -3450,19 +3458,47 @@ class DlgMergePromNotes(ArmoryDialog):
          promnote = dlgImport.returnObj
          promnote.pprint()
 
-      # 
       if not promnote:
          QMessageBox.critical(self, tr('Invalid Promissory Note'), tr("""
             No promissory note was loaded."""), QMessageBox.Ok)
          return
       
-      # 
+
+      self.addNote(promnote)
+
+
+   #############################################################################
+   def createPromAdd(self):
+      if not TheBDM.getBDMState()=='BlockchainReady':
+         QMessageBox.warning(self, tr("Not Online"), tr("""
+            Armory is currently in offline mode and cannot create any 
+            transactions or promissory notes.  You can only merge 
+            pre-existing promissory notes at this time."""), QMessageBox.Ok)
+         return
+            
+  
+      lbID = None
+      if self.promMustMatch:
+         for lbox in self.main.allLockboxes:
+            if lbox.p2shScrAddr == self.promMustMatch:
+               lbID = lbox.uniqueIDB58
+               
+         
+      dlg = DlgCreatePromNote(self, self.main, lbID, skipExport=True)
+      dlg.exec_()
+      if dlg.finalPromNote:
+         self.addNote(dlg.finalPromNote)
+      
+
+
+   #############################################################################
+   def addNote(self, promnote):
+      
       if promnote.promID in self.promIDSet:
          QMessageBox.critical(self, tr('Already Loaded'), tr(""" This 
             promissory note has already been loaded!"""), QMessageBox.Ok)
          return
 
-      
       # reduceScript returns the same scrAddr for a bare multi-sig as it does
       # for it's P2SH form
       targetScript = promnote.dtxoTarget.binScript 
@@ -3515,6 +3551,7 @@ class DlgMergePromNotes(ArmoryDialog):
       self.lblCurrFee.setValueText(self.cumulFee, maxZeros=2, wBold=True)
 
       self.updatePromTable()
+
 
 
    #############################################################################
