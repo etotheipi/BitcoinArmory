@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////
 //                                                                            //
-//  Copyright(C) 2011-2013, Armory Technologies, Inc.                         //
+//  Copyright (C) 2011-2014, Armory Technologies, Inc.                        //
 //  Distributed under the GNU Affero General Public License (AGPL v3)         //
 //  See LICENSE or http://www.gnu.org/licenses/agpl.html                      //
 //                                                                            //
@@ -33,6 +33,12 @@
 #define STD_WRITE_OPTS      leveldb::WriteOptions()
 
 #define KVLIST vector<pair<BinaryData,BinaryData> > 
+
+#define DEFAULT_LDB_BLOCK_SIZE 32*1024
+
+// Use this to create iterators that are intended for bulk scanning
+// It's actually that the ReadOptions::fill_cache arg needs to be false
+#define BULK_SCAN false
 
 class BlockHeader;
 class Tx;
@@ -143,12 +149,6 @@ class StoredScriptHistory;
 //         understand how to use it safely.  Only use getValue() unless there
 //         is reason to believe that the optimization is needed.
 //
-//         Similarly, when using the seek/start/advance iterator methods, 
-//         keep in mind that various submethods you call may move the 
-//         iterator out from under you.  To be safe from this issue, it is
-//         best to copy the data behind currReadKey_ and currReadValue_ 
-//         after you move the iterator.
-//
 //
 //
 // NOTE 2: Batch writing operations are smoothed so that multiple, nested
@@ -160,6 +160,77 @@ class StoredScriptHistory;
 //          
 
 
+////////////////////////////////////////////////////////////////////////////////
+class LDBIter
+{
+public: 
+
+   // fill_cache argument should be false for large bulk scans
+   LDBIter(void) { db_=NULL; iter_=NULL; isDirty_=true;}
+   LDBIter(leveldb::DB* dbptr, bool fill_cache=true);
+   ~LDBIter(void) { destroy(); }
+   void destroy(void) {if(iter_!=NULL) delete iter_; iter_ = NULL; db_ = NULL;}
+
+   bool isNull(void) { return iter_==NULL; }
+   bool isValid(void) { return (!isNull() && iter_->Valid()); }
+   bool isValid(DB_PREFIX dbpref);
+
+   bool readIterData(void);
+
+   bool advance(void);
+   bool advance(DB_PREFIX prefix);
+   bool advanceAndRead(void);
+   bool advanceAndRead(DB_PREFIX prefix);
+
+   BinaryData       getKey(void) ;
+   BinaryData       getValue(void) ;
+   BinaryDataRef    getKeyRef(void) ;
+   BinaryDataRef    getValueRef(void) ;
+   BinaryRefReader& getKeyReader(void) ;
+   BinaryRefReader& getValueReader(void) ;
+
+   // All the seekTo* methods do the exact same thing, the variant simply 
+   // determines the meaning of the return true/false value.
+   bool seekTo(BinaryDataRef key);
+   bool seekTo(DB_PREFIX pref, BinaryDataRef key);
+   bool seekToExact(BinaryDataRef key);
+   bool seekToExact(DB_PREFIX pref, BinaryDataRef key);
+   bool seekToStartsWith(BinaryDataRef key);
+   bool seekToStartsWith(DB_PREFIX prefix);
+   bool seekToStartsWith(DB_PREFIX pref, BinaryDataRef key);
+   bool seekToFirst(void);
+
+   // Return true if the iterator is currently on valid data, with key match
+   bool checkKeyExact(BinaryDataRef key);
+   bool checkKeyExact(DB_PREFIX prefix, BinaryDataRef key);
+   bool checkKeyStartsWith(BinaryDataRef key);
+   bool checkKeyStartsWith(DB_PREFIX prefix, BinaryDataRef key);
+
+   bool verifyPrefix(DB_PREFIX prefix, bool advanceReader=true);
+
+   void resetReaders(void){currKey_.resetPosition();currValue_.resetPosition();}
+
+   leveldb::Slice binaryDataToSlice(BinaryData const & bd) 
+         {return leveldb::Slice((char*)bd.getPtr(), bd.getSize());}
+   leveldb::Slice binaryDataRefToSlice(BinaryDataRef const & bdr)
+         {return leveldb::Slice((char*)bdr.getPtr(), bdr.getSize());}
+
+private:
+
+
+   leveldb::DB* db_;
+   leveldb::Iterator* iter_;
+
+   BinaryRefReader  currKey_;
+   BinaryRefReader  currValue_;
+   bool isDirty_;
+   
+   
+};
+
+
+
+////////////////////////////////////////////////////////////////////////////////
 class InterfaceToLDB
 {
 private:
@@ -171,17 +242,6 @@ private:
          {return leveldb::Slice((char*)bdr.getPtr(), bdr.getSize());}
 
 
-   /////////////////////////////////////////////////////////////////////////////
-   // NOTE:  These ref readers become invalid as soon as the iterator is moved!
-   void iteratorToRefReaders( leveldb::Iterator* it, 
-                              BinaryRefReader & brrKey,
-                              BinaryRefReader & brrValue);
-
-
-   
-
-   /////////////////////////////////////////////////////////////////////////////
-   void deleteIterator(DB_SELECT db);
 
    /////////////////////////////////////////////////////////////////////////////
    // These four sliceTo* methods make copies, and thus safe to use even after
@@ -199,9 +259,6 @@ private:
    BinaryRefReader sliceToBinaryRefReader(leveldb::Slice slice);
 
 
-   /////////////////////////////////////////////////////////////////////////////
-   void resetIterReaders(void) 
-               { currReadKey_.resetPosition(); currReadValue_.resetPosition(); }
 public:
 
    /////////////////////////////////////////////////////////////////////////////
@@ -240,7 +297,9 @@ public:
    uint32_t   getTopBlockHeight(DB_SELECT db);
    
    /////////////////////////////////////////////////////////////////////////////
-   void resetIterator(DB_SELECT db, bool seekToPrevKey=false);
+   LDBIter getIterator(DB_SELECT db, bool fill_cache=true) 
+                                    { return LDBIter(dbs_[db], fill_cache); }
+   
 
    /////////////////////////////////////////////////////////////////////////////
    // Get value using pre-created slice
@@ -269,9 +328,6 @@ public:
    BinaryRefReader getValueReader(DB_SELECT db, BinaryDataRef keyWithPrefix);
    BinaryRefReader getValueReader(DB_SELECT db, DB_PREFIX prefix, BinaryDataRef key);
 
-   BinaryData getIterKeyCopy(void)   { return currReadKey_.getRawRef().copy();}
-   BinaryData getIterValueCopy(void) { return currReadValue_.getRawRef().copy();}
-
 
    BinaryData getHashForDBKey(BinaryData dbkey);
    BinaryData getHashForDBKey(uint32_t hgt,
@@ -297,7 +353,7 @@ public:
                BinaryDataRef key);
 
    // Move the iterator to the first entry >= txHash
-   bool seekToTxByHash(BinaryDataRef txHash);
+   bool seekToTxByHash(LDBIter & ldbIter, BinaryDataRef txHash);
 
 
    /////////////////////////////////////////////////////////////////////////////
@@ -305,8 +361,7 @@ public:
    // the iterator already on the next desired block.  So our "advance" op may
    // have finished before it started.  Alternatively, we may be on this block 
    // because we checked it and decide we don't care, so we want to skip it.
-   bool advanceToNextBlock(bool skip=false);
-   bool advanceIterAndRead(leveldb::Iterator* iter);
+   bool advanceToNextBlock(LDBIter & iter, bool skip=false);
    bool advanceIterAndRead(DB_SELECT, DB_PREFIX);
 
    bool dbIterIsValid(DB_SELECT db, DB_PREFIX prefix=DB_PREFIX_COUNT);
@@ -328,7 +383,7 @@ public:
    
 
    /////////////////////////////////////////////////////////////////////////////
-   bool startBlkDataIteration(DB_PREFIX prefix);
+   bool startBlkDataIteration(LDBIter & iter, DB_PREFIX prefix);
 
 
    /////////////////////////////////////////////////////////////////////////////
@@ -498,14 +553,22 @@ public:
    // Some methods to grab data at the current iterator location.  Return
    // false if reading fails (maybe because we were expecting to find the
    // specified DB entry type, but the prefix byte indicated something else
-   bool readStoredBlockAtIter(StoredHeader & sbh);
+   bool readStoredBlockAtIter(LDBIter & iter, 
+                              StoredHeader & sbh);
 
-   bool readStoredTxAtIter(uint32_t height, uint8_t dupID, StoredTx & stx);
+   bool readStoredTxAtIter(LDBIter & iter, 
+                           uint32_t height, 
+                           uint8_t dupID, 
+                           StoredTx & stx);
 
-   bool readStoredTxOutAtIter(uint32_t height, uint8_t  dupID, uint16_t txIndex,
-                                                            StoredTxOut & stxo);
+   bool readStoredTxOutAtIter(LDBIter & iter, 
+                              uint32_t height, 
+                              uint8_t  dupID, 
+                              uint16_t txIndex,
+                              StoredTxOut & stxo);
 
-   bool readStoredScriptHistoryAtIter( StoredScriptHistory & ssh);
+   bool readStoredScriptHistoryAtIter(LDBIter & iter, 
+                                      StoredScriptHistory & ssh);
 
 
    // TxRefs are much simpler with LDB than the previous FileDataPtr construct
@@ -551,15 +614,14 @@ public:
                                 StoredUndoData & sud);
 
 
-   /////////////////////////////////////////////////////////////////////////////
-   inline bool checkPrefixByte(DB_PREFIX prefix, bool rewindWhenDone=false)
-         { return DBUtils.checkPrefixByte(currReadKey_, prefix, rewindWhenDone); }
 
    /////////////////////////////////////////////////////////////////////////////
    bool checkStatus(leveldb::Status stat, bool warn=true);
 
    void     setMaxOpenFiles(uint32_t n) {  maxOpenFiles_ = n;   }
    uint32_t getMaxOpenFiles(void)       { return maxOpenFiles_; }
+   void     setLdbBlockSize(uint32_t sz){ ldbBlockSize_ = sz;   }
+   uint32_t getLdbBlockSize(void)       { return ldbBlockSize_; }
 
 
    KVLIST getAllDatabaseEntries(DB_SELECT db);
@@ -582,7 +644,7 @@ private:
    ARMORY_DB_TYPE       armoryDbType_;
    DB_PRUNE_TYPE        dbPruneType_;
 
-   leveldb::Iterator*     iters_[2];
+   //leveldb::Iterator*     iters_[2];
    leveldb::WriteBatch*   batches_[2];
    leveldb::DB*           dbs_[2];  
    string                 dbPaths_[2];
@@ -597,11 +659,12 @@ private:
 
    vector<uint8_t>      validDupByHeight_;
 
-   BinaryRefReader      currReadKey_;
-   BinaryRefReader      currReadValue_;;
-   
+   //BinaryRefReader      currReadKey_;
+   //BinaryRefReader      currReadValue_;;
    string               lastGetValue_;
+   
    bool                 dbIsOpen_;
+   uint32_t             ldbBlockSize_;
 
    uint32_t             lowestScannedUpTo_;
 

@@ -1,6 +1,6 @@
 ################################################################################
 #                                                                              #
-# Copyright (C) 2011-2013, Armory Technologies, Inc.                           #
+# Copyright (C) 2011-2014, Armory Technologies, Inc.                           #
 # Distributed under the GNU Affero General Public License (AGPL v3)            #
 # See LICENSE or http://www.gnu.org/licenses/agpl.html                         #
 #                                                                              #
@@ -61,15 +61,15 @@ def killProcessTree(pid):
    # In this case, Windows is easier because we know it has the get_children
    # call, because have bundled a recent version of psutil.  Linux, however,
    # does not have that function call in earlier versions.
-   if not OS_LINUX:
+   if OS_WINDOWS:
       for child in psutil.Process(pid).get_children():
-         killProcess(child.pid)
+         kill(child.pid)
    else:
-      proc = Popen("ps -o pid --ppid %d --noheaders" % pid, shell=True, stdout=PIPE)
+      proc = subprocess.Popen("ps -o pid --ppid %d --noheaders" % pid, shell=True, stdout=subprocess.PIPE)
       out,err = proc.communicate()
       for pid_str in out.split("\n")[:-1]:
-         killProcess(int(pid_str))
-      
+         kill(int(pid_str))
+
 
 
 # Verify the two PIDs are valid
@@ -98,11 +98,11 @@ while True:
    if not check_pid(pid_bitcoind, proc_name_bitcoind):
       #print 'bitcoind disappeared -- guardian exiting'
       exit(0)
-   
+
 
 if check_pid(pid_bitcoind, proc_name_bitcoind):
 
-   # Depending on how popen was called, bitcoind may be a child of 
+   # Depending on how popen was called, bitcoind may be a child of
    # pid_bitcoind.  But psutil makes it easy to find those child procs
    # and kill them.
    killProcessTree(pid_bitcoind)

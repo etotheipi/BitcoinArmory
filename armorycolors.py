@@ -1,6 +1,6 @@
 ################################################################################
 #                                                                              #
-# Copyright (C) 2011-2013, Armory Technologies, Inc.                           #
+# Copyright (C) 2011-2014, Armory Technologies, Inc.                           #
 # Distributed under the GNU Affero General Public License (AGPL v3)            #
 # See LICENSE or http://www.gnu.org/licenses/agpl.html                         #
 #                                                                              #
@@ -84,6 +84,11 @@ def luminance(qcolor):
 
 QAPP = QApplication(sys.argv)
 qpal = QAPP.palette()
+
+# workaround for https://bugs.launchpad.net/ubuntu/+source/qt4-x11/+bug/877236
+qpal.setColor(QPalette.ToolTipBase, qpal.color(QPalette.Window))
+qpal.setColor(QPalette.ToolTipText, qpal.color(QPalette.WindowText))
+QAPP.setPalette(qpal)
 
 # Some of the standard colors to be tweaked
 class ArbitraryStruct: pass

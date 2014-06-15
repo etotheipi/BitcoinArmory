@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////
 //                                                                            //
-//  Copyright(C) 2011-2013, Armory Technologies, Inc.                         //
+//  Copyright (C) 2011-2014, Armory Technologies, Inc.                        //
 //  Distributed under the GNU Affero General Public License (AGPL v3)         //
 //  See LICENSE or http://www.gnu.org/licenses/agpl.html                      //
 //                                                                            //
@@ -126,8 +126,8 @@ class GlobalDBUtilities
 {
 public:
 
-   static uint32_t   hgtxToHeight(BinaryData hgtx);
-   static uint8_t    hgtxToDupID(BinaryData hgtx);
+   static uint32_t   hgtxToHeight(const BinaryData& hgtx);
+   static uint8_t    hgtxToDupID(const BinaryData& hgtx);
    static BinaryData heightAndDupToHgtx(uint32_t hgt, uint8_t dup);
 
    /////////////////////////////////////////////////////////////////////////////
@@ -255,6 +255,7 @@ public:
       pruneType_(DBUtils.getDbPruneType())   {}
 
    bool isInitialized(void) const { return magic_.getSize() > 0; }
+   bool isNull(void) { return !isInitialized(); }
 
    static BinaryData getDBKey(void);
    
@@ -290,15 +291,23 @@ public:
                         merkle_(0), 
                         isMainBranch_(false),
                         blockAppliedToDB_(false), 
-						merkleIsPartial_(false) {}
+                        merkleIsPartial_(false),
+                        hasBlockHeader_(false) {}
                            
 
    bool isInitialized(void) const {return dataCopy_.getSize() > 0;}
+   bool isNull(void) const {return !isInitialized(); }
    bool haveFullBlock(void) const;
    BlockHeader getBlockHeaderCopy(void) const;
    BinaryData getSerializedBlock(void) const;
    BinaryData getSerializedBlockHeader(void) const;
    void createFromBlockHeader(BlockHeader & bh);
+
+   uint32_t getNumTx() { return (isNull() ? 0 : numTx_); } 
+
+   Tx getTxCopy(uint16_t i);
+   BinaryData getSerializedTx(uint16_t i);
+    
 
    void addTxToMap(uint16_t txIdx, Tx & tx);
    void addStoredTxToMap(uint16_t txIdx, StoredTx & tx);
@@ -363,6 +372,8 @@ public:
    DB_PRUNE_TYPE   unserPrType_;
    MERKLE_SER_TYPE unserMkType_;
    
+   bool hasBlockHeader_;
+   
 };
 
 
@@ -380,6 +391,7 @@ public:
                     fragBytes_(UINT32_MAX) {}
    
    bool       isInitialized(void) const {return dataCopy_.getSize() > 0;}
+   bool       isNull(void) { return !isInitialized(); }
    bool       haveAllTxOut(void) const;
 
    StoredTx&  createFromTx(Tx & tx, 
@@ -455,6 +467,7 @@ public:
                        spentByTxInKey_(0) {}
 
    bool isInitialized(void) const {return dataCopy_.getSize() > 0;}
+   bool isNull(void) { return !isInitialized(); }
    void unserialize(BinaryData const & data);
    void unserialize(BinaryDataRef data);
    void unserialize(BinaryRefReader & brr);
@@ -531,6 +544,7 @@ public:
                                
 
    bool isInitialized(void) const { return uniqueKey_.getSize() > 0; }
+   bool isNull(void) { return !isInitialized(); }
 
    void       unserializeDBValue(BinaryRefReader & brr);
    void         serializeDBValue(BinaryWriter    & bw ) const;
@@ -604,6 +618,7 @@ public:
                                
 
    bool isInitialized(void) { return uniqueKey_.getSize() > 0; }
+   bool isNull(void) { return !isInitialized(); }
 
    void       unserializeDBValue(BinaryRefReader & brr);
    void         serializeDBValue(BinaryWriter    & bw ) const;
@@ -616,8 +631,8 @@ public:
    SCRIPT_PREFIX getScriptType(void) const;
    uint64_t      getTxioCount(void) const {return (uint64_t)txioSet_.size();}
 
-   void pprintOneLine(uint32_t indent=3);
-   void pprintFullSSH(uint32_t indent=3);
+   //void pprintOneLine(uint32_t indent=3);
+   //void pprintFullSSH(uint32_t indent=3);
 
    TxIOPair*   findTxio(BinaryData const & dbKey8B, bool includeMultisig=false);
    TxIOPair& insertTxio(TxIOPair const & txio, bool withOverwrite=true);
@@ -658,6 +673,7 @@ public:
    StoredUndoData(void) {}
 
    bool isInitialized(void) { return (outPointsAddedByBlock_.size() > 0);}
+   bool isNull(void) { return !isInitialized(); }
 
    void       unserializeDBValue(BinaryRefReader & brr);
    void         serializeDBValue(BinaryWriter    & bw ) const;
@@ -683,6 +699,7 @@ public:
    StoredTxHints(void) : txHashPrefix_(0), dbKeyList_(0), preferredDBKey_(0) {}
 
    bool isInitialized(void) { return txHashPrefix_.getSize() > 0; }
+   bool isNull(void) { return !isInitialized(); }
 
    uint32_t      getNumHints(void) const   { return dbKeyList_.size();      }
    BinaryDataRef getHint(uint32_t i) const { return dbKeyList_[i].getRef(); }
@@ -736,6 +753,7 @@ public:
    BinaryData getDBKey(bool withPrefix=true) const;
 
    bool isInitialized(void) { return (height_ != UINT32_MAX);}
+   bool isNull(void) { return !isInitialized(); }
 
    void setPreferredDupID(uint8_t newDup) {preferredDup_ = newDup;}
 

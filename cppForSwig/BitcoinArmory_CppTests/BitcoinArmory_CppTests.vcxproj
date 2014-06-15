@@ -96,7 +96,7 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>cryptopp_d.lib;leveldb_msvc11_port_d.lib;snappy_d.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>cryptopp_d.lib;leveldb_msvc11_port_d.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>$(SolutionDir)libs\$(Platform)\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
@@ -167,6 +167,7 @@
     <ClInclude Include="..\BtcUtils.h" />
     <ClInclude Include="..\EncryptionUtils.h" />
     <ClInclude Include="..\gtest\gtest.h" />
+    <ClInclude Include="..\leveldb_windows_port\win32_posix\Win_TranslatePath.h" />
     <ClInclude Include="..\leveldb_wrapper.h" />
     <ClInclude Include="..\log.h" />
     <ClInclude Include="..\StoredBlockObj.h" />
@@ -180,6 +181,7 @@
     <ClCompile Include="..\EncryptionUtils.cpp" />
     <ClCompile Include="..\gtest\CppBlockUtilsTests.cpp" />
     <ClCompile Include="..\gtest\gtest-all.cc" />
+    <ClCompile Include="..\leveldb_windows_port\win32_posix\Win_TranslatePath.cpp" />
     <ClCompile Include="..\leveldb_wrapper.cpp" />
     <ClCompile Include="..\StoredBlockObj.cpp" />
     <ClCompile Include="..\UniversalTimer.cpp" />

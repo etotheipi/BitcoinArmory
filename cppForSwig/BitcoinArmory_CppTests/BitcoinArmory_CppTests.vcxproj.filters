@@ -45,6 +45,9 @@
     <ClInclude Include="..\gtest\gtest.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\leveldb_windows_port\win32_posix\Win_TranslatePath.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\BinaryData.cpp">
@@ -75,6 +78,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\gtest\gtest-all.cc">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\leveldb_windows_port\win32_posix\Win_TranslatePath.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

@@ -11,9 +11,17 @@
 #include "../PartialMerkle.h"
 #include "../leveldb_wrapper.h"
 #include "../BlockUtils.h"
+#include "../EncryptionUtils.h"
+
+
 
 #ifdef _MSC_VER
+   #ifdef mlock
+      #undef mlock
+      #undef munlock
+   #endif
    #include "win32_posix.h"
+	#undef close
 #endif
 
 #define READHEX BinaryData::CreateFromHex
@@ -1771,10 +1779,12 @@ TEST_F(BtcUtilsTest, TxOutScriptID_Multisig)
       "5221034758cefcb75e16e4dfafb32383b709fa632086ea5ca982712de6add93"
       "060b17a2103fe96237629128a0ae8c3825af8a4be8fe3109b16f62af19cec0b1"
       "eb93b8717e252ae");
-   BinaryData pub1   = READHEX("034758cefcb75e16e4dfafb32383b709fa632086ea5ca982712de6add93060b17a");
-   BinaryData pub2   = READHEX("03fe96237629128a0ae8c3825af8a4be8fe3109b16f62af19cec0b1eb93b8717e2");
-   BinaryData addr1  = READHEX("785652a6b8e721e80ffa353e5dfd84f0658284a9");
-   BinaryData addr2  = READHEX("b3348abf9dd2d1491359f937e2af64b1bb6d525a");
+   BinaryData pub1   = READHEX(
+      "034758cefcb75e16e4dfafb32383b709fa632086ea5ca982712de6add93060b17a");
+   BinaryData pub2   = READHEX(
+      "03fe96237629128a0ae8c3825af8a4be8fe3109b16f62af19cec0b1eb93b8717e2");
+   BinaryData addr1  = READHEX("b3348abf9dd2d1491359f937e2af64b1bb6d525a");
+   BinaryData addr2  = READHEX("785652a6b8e721e80ffa353e5dfd84f0658284a9");
    BinaryData a160   = BtcUtils::BadAddress_;
    BinaryData unique = READHEX(
       "fe0202785652a6b8e721e80ffa353e5dfd84f0658284a9b3348abf9dd2d14913"
@@ -1803,6 +1813,11 @@ TEST_F(BtcUtilsTest, TxOutScriptID_MultiList)
       "fe0202785652a6b8e721e80ffa353e5dfd84f0658284a9b3348abf9dd2d14913"
       "59f937e2af64b1bb6d525a");
 
+   BinaryData pub0 = READHEX(
+      "034758cefcb75e16e4dfafb32383b709fa632086ea5ca982712de6add93060b17a");
+   BinaryData pub1 = READHEX(
+      "03fe96237629128a0ae8c3825af8a4be8fe3109b16f62af19cec0b1eb93b8717e2");
+
    vector<BinaryData> a160List;
    uint32_t M;
 
@@ -1812,6 +1827,14 @@ TEST_F(BtcUtilsTest, TxOutScriptID_MultiList)
    
    EXPECT_EQ(a160List[0], addr0);
    EXPECT_EQ(a160List[1], addr1);
+
+   vector<BinaryData> pkList;
+   M = BtcUtils::getMultisigPubKeyList(script, pkList);
+   EXPECT_EQ(M, 2);              
+   EXPECT_EQ(pkList.size(), 2); // N
+   
+   EXPECT_EQ(pkList[0], pub0);
+   EXPECT_EQ(pkList[1], pub1);
 }
 
 
@@ -2264,7 +2287,7 @@ TEST_F(BlockObjTest, OutPointSerialize)
    BinaryData prevIdx = READHEX(
       "01000000");
 
-   OutPoint op(rawOP.getPtr());
+   OutPoint op(rawOP.getPtr(), rawOP.getSize());
    EXPECT_EQ(op.getTxHash().getSize(), 32);
    EXPECT_EQ(op.getTxOutIndex(), 1);
    EXPECT_EQ(op.getTxHash(), prevHash);
@@ -2299,7 +2322,7 @@ TEST_F(BlockObjTest, TxInNoInit)
 TEST_F(BlockObjTest, TxInUnserialize)
 {
    BinaryRefReader brr(rawTxIn_);
-   uint32_t len = rawTxIn_.getSize();
+   const uint32_t len = rawTxIn_.getSize();
    BinaryData srcAddr = BtcUtils::getHash160( READHEX("04"
       "5d74feae58c4c36d7c35beac05eddddc78b3ce4b02491a2eea72043978056a8b"
       "c439b99ddaad327207b09ef16a8910828e805b0cc8c11fba5caea2ee939346d7"));
@@ -2307,16 +2330,15 @@ TEST_F(BlockObjTest, TxInUnserialize)
       "0044fbc929d78e4203eed6f1d3d39c0157d8e5c100bbe0886779c0ebf6a69324"
       "01000000");
 
-   vector<TxIn> txins(7);
-   txins[0] = TxIn(rawTxIn_.getPtr()); 
-   txins[1] = TxIn(rawTxIn_.getPtr(), len); 
-   txins[2] = TxIn(rawTxIn_.getPtr(), len, TxRef(), 12); 
-   txins[3].unserialize(rawTxIn_.getPtr());
-   txins[4].unserialize(rawTxIn_.getRef());
-   txins[5].unserialize(brr);
-   txins[6].unserialize_swigsafe_(rawTxIn_);
+   vector<TxIn> txins(6);
+   txins[0].unserialize_checked(rawTxIn_.getPtr(), len); 
+   txins[1].unserialize_checked(rawTxIn_.getPtr(), len, len); 
+   txins[2].unserialize_checked(rawTxIn_.getPtr(), len, len, TxRef(), 12); 
+   txins[3].unserialize(rawTxIn_.getRef());
+   txins[4].unserialize(brr);
+   txins[5].unserialize_swigsafe_(rawTxIn_);
 
-   for(uint32_t i=0; i<7; i++)
+   for(uint32_t i=0; i<6; i++)
    {
       EXPECT_TRUE( txins[i].isInitialized());
       EXPECT_EQ(   txins[i].serialize().getSize(), len);
@@ -2347,16 +2369,15 @@ TEST_F(BlockObjTest, TxOutUnserialize)
    uint32_t len = rawTxOut_.getSize();
    BinaryData dstAddr = READHEX("8dce8946f1c7763bb60ea5cf16ef514cbed0633b");
 
-   vector<TxOut> txouts(7);
-   txouts[0] = TxOut(rawTxOut_.getPtr()); 
-   txouts[1] = TxOut(rawTxOut_.getPtr(), len); 
-   txouts[2] = TxOut(rawTxOut_.getPtr(), len, TxRef(), 12); 
-   txouts[3].unserialize(rawTxOut_.getPtr());
-   txouts[4].unserialize(rawTxOut_.getRef());
-   txouts[5].unserialize(brr);
-   txouts[6].unserialize_swigsafe_(rawTxOut_);
+   vector<TxOut> txouts(6);
+   txouts[0].unserialize_checked(rawTxOut_.getPtr(), len); 
+   txouts[1].unserialize_checked(rawTxOut_.getPtr(), len, len); 
+   txouts[2].unserialize_checked(rawTxOut_.getPtr(), len, len, TxRef(), 12); 
+   txouts[3].unserialize(rawTxOut_.getRef());
+   txouts[4].unserialize(brr);
+   txouts[5].unserialize_swigsafe_(rawTxOut_);
 
-   for(uint32_t i=0; i<7; i++)
+   for(uint32_t i=0; i<6; i++)
    {
       EXPECT_TRUE( txouts[i].isInitialized());
       EXPECT_EQ(   txouts[i].getSize(), len);
@@ -2428,11 +2449,11 @@ TEST_F(BlockObjTest, TxUnserialize)
 
    Tx tx;
    vector<Tx> txs(10);
-   txs[0] = Tx(rawTx0_.getPtr()); 
+   txs[0] = Tx(rawTx0_.getPtr(), len); 
    txs[1] = Tx(brr);  brr.resetPosition();
    txs[2] = Tx(rawTx0_);
    txs[3] = Tx(rawTx0_.getRef());
-   txs[4].unserialize(rawTx0_.getPtr());
+   txs[4].unserialize(rawTx0_.getPtr(), len);
    txs[5].unserialize(rawTx0_);
    txs[6].unserialize(rawTx0_.getRef());
    txs[7].unserialize(brr);  brr.resetPosition();
@@ -4565,6 +4586,8 @@ protected:
       // Make sure the global DB type and prune type are reset for each test
       DBUtils.setArmoryDbType(ARMORY_DB_FULL);
       DBUtils.setDbPruneType(DB_PRUNE_NONE);
+   
+      LOGDISABLESTDOUT();
    }
 
    /////
@@ -6057,6 +6080,57 @@ TEST_F(BlockUtilsBare, Load5Blocks_FullReorg)
    EXPECT_EQ(wlt.getFullBalance(), 160*COIN);
 }
 
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(BlockUtilsBare, CorruptedBlock)
+{
+   BtcWallet wlt;
+   wlt.addScrAddress(scrAddrA_);
+   wlt.addScrAddress(scrAddrB_);
+   wlt.addScrAddress(scrAddrC_);
+   TheBDM.registerWallet(&wlt);
+   TheBDM.registerNewScrAddr(scrAddrD_);
+
+   BtcWallet wlt2;
+   wlt2.addScrAddress(scrAddrD_);
+   
+   TheBDM.doInitialSyncOnLoad(); 
+   TheBDM.scanBlockchainForTx(wlt);
+   TheBDM.scanBlockchainForTx(wlt2);
+
+   // corrupt blk_5A
+   {
+      const std::string src = "../reorgTest/blk_5A.dat";
+      const std::string dst = blk0dat_;
+      
+      const uint64_t srcsz = BtcUtils::GetFileSize(src);
+      
+      BinaryData temp((size_t)srcsz);
+      ifstream is(src.c_str(), ios::in  | ios::binary);
+      is.read((char*)temp.getPtr(), srcsz);
+      is.close();
+      
+      ofstream os(dst.c_str(), ios::out | ios::binary);
+      os.write((char*)temp.getPtr(), 100);
+      os.write((char*)temp.getPtr()+120, srcsz-100-20); // erase 20 bytes
+      os.close();
+   }
+
+   TheBDM.readBlkFileUpdate();
+   
+
+   TheBDM.scanBlockchainForTx(wlt);
+   TheBDM.scanBlockchainForTx(wlt2);
+
+   ScrAddrObj * scrobj;
+   scrobj = &wlt.getScrAddrObjByKey(scrAddrA_);
+   EXPECT_EQ(scrobj->getFullBalance(),100*COIN);
+   scrobj = &wlt.getScrAddrObjByKey(scrAddrB_);
+   EXPECT_EQ(scrobj->getFullBalance(), 0*COIN);
+   //scrobj = &wlt.getScrAddrObjByKey(scrAddrD_);
+   //EXPECT_EQ(scrobj->getFullBalance(),140*COIN);
+
+   EXPECT_EQ(wlt.getFullBalance(), 150*COIN);
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 TEST_F(BlockUtilsBare, Load5Blocks_RescanOps)
@@ -6276,6 +6350,290 @@ TEST_F(BlockUtilsBare, Load5Blocks_ScanWhatIsNeeded)
    EXPECT_EQ(scrobj->getFullBalance(),100*COIN);
 }
 
+
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+/*
+class FullScanTest : public ::testing::Test
+{
+protected:
+
+   /////////////////////////////////////////////////////////////////////////////
+   virtual void SetUp(void) 
+   {
+      LOGDISABLESTDOUT();
+      //iface_ = LevelDBWrapper::GetInterfacePtr();
+      magic_ = READHEX(MAINNET_MAGIC_BYTES);
+      ghash_ = READHEX(MAINNET_GENESIS_HASH_HEX);
+      gentx_ = READHEX(MAINNET_GENESIS_TX_HASH_HEX);
+      zeros_ = READHEX("00000000");
+      //DBUtils.setArmoryDbType(ARMORY_DB_BARE);
+      //DBUtils.setDbPruneType(DB_PRUNE_NONE);
+
+      blkdatadir_ = string("./databases/leveldb_blkdata");
+   }
+
+   /////
+   virtual void TearDown(void)
+   {
+      // This seem to be the best way to remove a dir tree in C++ (in Linux)
+      //iface_->closeDatabases();
+      iface_ = NULL;
+
+   }
+
+   leveldb::Slice binaryDataToSlice(BinaryData const & bd) 
+         {return leveldb::Slice((char*)bd.getPtr(), bd.getSize());}
+   leveldb::Slice binaryDataRefToSlice(BinaryDataRef const & bdr)
+         {return leveldb::Slice((char*)bdr.getPtr(), bdr.getSize());}
+
+   BinaryRefReader sliceToRefReader(leveldb::Slice slice)
+         { return BinaryRefReader( (uint8_t*)(slice.data()), slice.size()); }
+
+   InterfaceToLDB* iface_;
+   BinaryData magic_;
+   BinaryData ghash_;
+   BinaryData gentx_;
+   BinaryData zeros_;
+   string blkdatadir_;
+   BinaryRefReader currKey_;
+   BinaryRefReader currVal_;
+
+};
+
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(FullScanTest, DISABLED_TestSuperRaw)
+{
+
+
+   leveldb::Options opts;
+   opts.compression = leveldb::kNoCompression;
+   //opts.block_cache = leveldb::NewLRUCache(2048 * 1024 * 1024);   
+   leveldb::DB* dbptr;
+   leveldb::Status stat = leveldb::DB::Open(opts, blkdatadir_, &dbptr);
+   
+   if(!stat.ok())
+      cout << "Error opening DB: " << stat.ToString() << endl;
+
+   leveldb::ReadOptions readopts;
+   readopts.fill_cache = false;
+   //cout << "fill_cache = true (bad)" << endl;
+   cout << "fill_cache = false (good)" << endl;
+   leveldb::Iterator* iter = dbptr->NewIterator(readopts);
+
+
+   BinaryData firstKeyBD = DBUtils.getBlkDataKey(0,0);
+   leveldb::Slice firstKey = binaryDataToSlice(firstKeyBD);
+   iter->Seek(firstKey);
+
+   uint32_t hgt;
+   uint8_t  dup;
+   uint16_t txi;
+   uint16_t txo;
+   BLKDATA_TYPE bdtype;
+   BinaryData pref = WRITE_UINT8_LE((uint8_t)DB_PREFIX_TXDATA);
+
+   // This scraddr should have 8 tx
+   BinaryData scraddr = WRITE_UINT8_LE((uint8_t)TXOUT_SCRIPT_STDHASH160);
+   scraddr = scraddr + READHEX("33da2736b16558c9569cc226d4b349ce1aacf649");
+      
+
+   vector<OutPoint> opList;
+
+   BinaryData currTxHash(32);
+   while(iter->Valid())
+   {
+      currKey_.setNewData((uint8_t*)iter->key().data(), iter->key().size());
+      currVal_.setNewData((uint8_t*)iter->value().data(), iter->value().size());
+
+      if(!currKey_.getRawRef().startsWith(pref))
+         break;
+
+      bdtype = DBUtils.readBlkDataKey(currKey_, hgt, dup, txi, txo);      
+
+      if(bdtype==BLKDATA_HEADER)
+      {
+         // Need to do a little reading&processing to make sure it is actually pulling dat afrom disk
+         currVal_.advance(4);
+         BinaryData hhash = currVal_.get_BinaryData(80);
+         if(hhash.startsWith(zeros_))
+            cout << "Starts with four zeros!" << endl;
+      }
+      else if(bdtype==BLKDATA_TX)
+      {
+         currVal_.advance(2);
+         currTxHash = currVal_.get_BinaryData(32);
+      }
+      else if(bdtype==BLKDATA_TXOUT)
+      {
+         currVal_.advance(2);
+
+         TxOut txout;
+         txout.unserialize(currVal_);
+         if(txout.getScrAddressStr() == scraddr)
+         {
+            cout << "Found a txout!" << endl;
+            opList.push_back(OutPoint(currTxHash, txo));
+         }
+      }
+      else if(bdtype==NOT_BLKDATA)
+         break;
+
+      iter->Next();
+   }
+
+   for(uint32_t o=0; o<opList.size(); o++)
+   {
+      cout << o << ": " << opList[o].getTxHash().toHexStr().c_str()
+                << ":" << opList[o].getTxOutIndex() << endl;
+   }
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(FullScanTest, DISABLED_CreateSuperRawDB)
+{
+   string dbdir("./rawdbdir");
+   
+   leveldb::Options opts;
+   opts.compression = leveldb::kNoCompression;
+   opts.create_if_missing = true;
+   opts.block_size = 8*1024*1024;
+   leveldb::DB* dbptr;
+   leveldb::Status stat = leveldb::DB::Open(opts, dbdir, &dbptr);
+   
+   if(!stat.ok())
+      cout << "Error opening DB: " << stat.ToString() << endl;
+
+   //leveldb::Iterator* iter = dbptr->NewIterator(leveldb::ReadOptions());
+   uint32_t i=0;
+   uint32_t nblk=0;
+   uint64_t lastWrite=0;
+   uint64_t writeBytes=0;
+   string fname = BtcUtils::getBlkFilename("/home/alan/.bitcoin/blocks", i);
+   
+   BinaryData magic(4), nbytes(4);
+   BinaryData expectedMagicBytes = READHEX(MAINNET_MAGIC_BYTES);
+
+   leveldb::WriteBatch* writebatch = new leveldb::WriteBatch;
+   
+   while(BtcUtils::GetFileSize(fname) != FILE_DOES_NOT_EXIST)
+   {
+      cout << "Opening: " << fname.c_str() << "(" << BtcUtils::GetFileSize(fname) << ")" << endl;
+      ifstream is(fname.c_str(), ios::in | ios::binary);
+
+      while(!is.eof())
+      {
+         // Magic bytes
+         is.read((char*)magic.getPtr(), 4);
+         if(magic != expectedMagicBytes)
+            break;         
+
+         // Number of bytes in block
+         is.read((char*)nbytes.getPtr(), 4);
+         uint32_t blkBytes = READ_UINT32_LE(nbytes.getPtr());
+
+         // Reading
+         cout << nblk << " Reading " << blkBytes << " bytes in block; ";
+         BinaryReader br(blkBytes);
+         is.read((char*)br.exposeDataPtr(), blkBytes);
+
+         br.advance(80);
+         uint32_t numTx = (uint32_t)br.get_var_int();
+         cout << "Number of tx in block: " << numTx << endl;
+         for(uint32_t tx=0; tx<numTx; tx++)
+         {
+            uint32_t txSize = BtcUtils::TxCalcLength(br.getCurrPtr());
+            BinaryData rawTx, txHash;
+            br.get_BinaryData(rawTx, txSize);
+            BtcUtils::getHash256(rawTx, txHash);
+            leveldb::Slice ldbKey((char*)txHash.getPtr(), 32);
+            leveldb::Slice ldbVal((char*)rawTx.getPtr(), txSize);
+         
+            writeBytes += (uint64_t)txSize;
+            writebatch->Put(ldbKey, ldbVal);
+
+         }
+
+         if(writeBytes - lastWrite > 1024*1024*1024)
+         {
+            lastWrite = writeBytes;
+            dbptr->Write(leveldb::WriteOptions(), writebatch);
+            writebatch->Clear();
+         }
+         nblk++;
+   
+      }
+
+
+      i++;
+      fname = BtcUtils::getBlkFilename("/home/alan/.bitcoin/blocks", i);
+
+   }
+
+   dbptr->Write(leveldb::WriteOptions(), writebatch);
+   writebatch->Clear();
+   delete writebatch;
+   delete dbptr;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(FullScanTest, ReadSuperRawDB)
+{
+   string dbdir("./rawdbdir");
+   BinaryData scraddr = WRITE_UINT8_LE((uint8_t)TXOUT_SCRIPT_STDHASH160);
+   scraddr = scraddr + READHEX("33da2736b16558c9569cc226d4b349ce1aacf649");
+   
+   leveldb::Options opts;
+   opts.compression = leveldb::kNoCompression;
+   opts.block_cache = leveldb::NewLRUCache(2048 * 1024 * 1024);   
+   opts.block_size = 8*1024*1024;
+   leveldb::DB* dbptr;
+   leveldb::Status stat = leveldb::DB::Open(opts, dbdir, &dbptr);
+   
+   if(!stat.ok())
+      cout << "Error opening DB: " << stat.ToString() << endl;
+   
+   leveldb::ReadOptions readopts;
+   readopts.fill_cache = false;
+   leveldb::Iterator* iter = dbptr->NewIterator(readopts);
+   iter->SeekToFirst();
+
+   vector<uint32_t> txinOffsets, txoutOffsets;
+   while(iter->Valid())
+   {
+      currKey_.setNewData((uint8_t*)iter->key().data(), iter->key().size());
+      currVal_.setNewData((uint8_t*)iter->value().data(), iter->value().size());
+
+      uint8_t const * txPtr = currVal_.exposeDataPtr();
+      BtcUtils::TxCalcLength(txPtr, &txinOffsets, &txoutOffsets);
+
+      for(uint32_t txo=0; txo<txoutOffsets.size()-1; txo++)
+      {
+         uint32_t start = txoutOffsets[txo];
+         uint32_t sz    = txoutOffsets[txo+1] - start;
+         BinaryDataRef txoRef(txPtr+start, sz);
+         TxOut txout;
+         txout.unserialize(txoRef);
+         if(txout.getScrAddressStr() == scraddr)
+         {
+            cout << "Found a txout!" << endl;
+         }
+      }
+
+      iter->Next();
+   }
+   
+   cout << "Done!" << endl;
+
+}
+*/
+
+
+
+
+
 class LoadTestnetBareTest : public ::testing::Test
 {
 protected:
@@ -6420,7 +6778,7 @@ protected:
    {
       BlockDataManager_LevelDB::DestroyInstance();
      
-     rmdir(blkdir_);
+      rmdir(blkdir_);
       rmdir(homedir_);
 
       char* delstr = new char[4096];
@@ -6881,7 +7239,6 @@ protected:
    }
 
 
-
 #if ! defined(_MSC_VER) && ! defined(__MINGW32__)
 
    /////////////////////////////////////////////////////////////////////////////
@@ -7013,6 +7370,105 @@ TEST_F(BlockUtilsWithWalletTest, PostRegisterScrAddr)
    balanceDB  = iface_->getBalanceForScrAddr(scrAddrD_);
    EXPECT_EQ(balanceWlt,    0*COIN);  // D is not part of the wallet
    EXPECT_EQ(balanceDB,   100*COIN);
+}
+
+
+// Comments need to be added....
+// Most of this data is from the BIP32 test vectors.
+class TestCryptoECDSA : public ::testing::Test
+{
+protected:
+   /////////////////////////////////////////////////////////////////////////////
+   virtual void SetUp(void)
+   {
+      verifyX = READHEX("39a36013301597daef41fbe593a02cc513d0b55527ec2df1050e2e8ff49c85c2");
+      verifyY = READHEX("3cbe7ded0e7ce6a594896b8f62888fdbc5c8821305e2ea42bf01e37300116281");
+
+      multScalarA = READHEX("79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798");
+      multScalarB = READHEX("483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8");
+      multRes = READHEX("805714a252d0c0b58910907e85b5b801fff610a36bdf46847a4bf5d9ae2d10ed");
+
+      multScalar = READHEX("04bfb2dd60fa8921c2a4085ec15507a921f49cdc839f27f0f280e9c1495d44b5");
+      multPointX = READHEX("79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798");
+      multPointY = READHEX("483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8");
+      multPointRes = READHEX("7f8bd85f90169a606b0b4323c70e5a12e8a89cbc76647b6ed6a39b4b53825214c590a32f111f857573cf8f2c85d969815e4dd35ae0dc9c7e868195c309b8bada");
+
+      addAX = READHEX("79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798");
+      addAY = READHEX("483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8");
+      addBX = READHEX("5a784662a4a20a65bf6aab9ae98a6c068a81c52e4b032c0fb5400c706cfccc56");
+      addBY = READHEX("7f717885be239daadce76b568958305183ad616ff74ed4dc219a74c26d35f839");
+      addRes = READHEX("fe2f7c8109d9ae628856d51a02ab25300a8757e088fc336d75cb8dc4cc2ce3339013be71e57c3abeee6ad158646df81d92f8c0778f88100eeb61535f9ff9776d");
+
+      invAX = READHEX("79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798");
+      invAY = READHEX("483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8");
+      invRes = READHEX("79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798b7c52588d95c3b9aa25b0403f1eef75702e84bb7597aabe663b82f6f04ef2777");
+
+      compPointPrv1 = READHEX("000f479245fb19a38a1954c5c7c0ebab2f9bdfd96a17563ef28a6a4b1a2a764ef4");
+      compPointPub1 = READHEX("02e8445082a72f29b75ca48748a914df60622a609cacfce8ed0e35804560741d29");
+      uncompPointPub1 = READHEX("04e8445082a72f29b75ca48748a914df60622a609cacfce8ed0e35804560741d292728ad8d58a140050c1016e21f285636a580f4d2711b7fac3957a594ddf416a0");
+
+      compPointPrv2 = READHEX("00e8f32e723decf4051aefac8e2c93c9c5b214313817cdb01a1494b917c8436b35");
+      compPointPub2 = READHEX("0339a36013301597daef41fbe593a02cc513d0b55527ec2df1050e2e8ff49c85c2");
+      uncompPointPub2 = READHEX("0439a36013301597daef41fbe593a02cc513d0b55527ec2df1050e2e8ff49c85c23cbe7ded0e7ce6a594896b8f62888fdbc5c8821305e2ea42bf01e37300116281");
+
+      invModRes = READHEX("000000000000000000000000000000000000000000000000000000000000006b");
+
+      LOGDISABLESTDOUT();
+   }
+
+
+   /////////////////////////////////////////////////////////////////////////////
+   virtual void TearDown(void)
+   {
+   }
+
+
+   SecureBinaryData verifyX;
+   SecureBinaryData verifyY;
+
+   SecureBinaryData multScalarA;
+   SecureBinaryData multScalarB;
+   SecureBinaryData multRes;
+
+   SecureBinaryData multScalar;
+   SecureBinaryData multPointX;
+   SecureBinaryData multPointY;
+   SecureBinaryData multPointRes;
+
+   SecureBinaryData addAX;
+   SecureBinaryData addAY;
+   SecureBinaryData addBX;
+   SecureBinaryData addBY;
+   SecureBinaryData addRes;
+
+   SecureBinaryData invAX;
+   SecureBinaryData invAY;
+   SecureBinaryData invRes;
+
+   SecureBinaryData compPointPrv1;
+   SecureBinaryData uncompPointPub1;
+   SecureBinaryData compPointPub1;
+   SecureBinaryData compPointPrv2;
+   SecureBinaryData uncompPointPub2;
+   SecureBinaryData compPointPub2;
+
+   SecureBinaryData invModRes;
+};
+
+// Verify that a point known to be on the secp256k1 curve is recognized as such.
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(TestCryptoECDSA, VerifySECP256K1Point)
+{
+   EXPECT_TRUE(CryptoECDSA().ECVerifyPoint(verifyX, verifyY));
+}
+
+// Multiply two scalars and check the result.
+////////////////////////////////////////////////////////////////////////////////
+TEST_F(TestCryptoECDSA, SECP256K1MultScalars)
+{
+   SecureBinaryData testRes = CryptoECDSA().ECMultiplyScalars(multScalarA,
+                                                              multScalarB);
+   EXPECT_EQ(multRes, testRes);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -7157,78 +7613,53 @@ TEST_F(BlockUtilsWithWalletTest, TestBalanceMainnet_usuallydisabled)
 */
 
 ////////////////////////////////////////////////////////////////////////////////
-/*  TODO: Whoops, never finished this...
 TEST_F(BlockUtilsWithWalletTest, ZeroConfUpdate)
 {
    // Copy only the first four blocks
-   BtcUtils::copyFile("../reorgTest/blk_0_to_4.dat", blk0dat_, 1596);
-   TheBDM.doInitialSyncOnLoad();
+   BtcUtils::copyFile("../reorgTest/blk_0_to_4.dat", blk0dat_, 513);
 
-   // We do all the database stuff first, THEN load the addresses
    BtcWallet wlt;
    wlt.addScrAddress(scrAddrA_);
    wlt.addScrAddress(scrAddrB_);
    wlt.addScrAddress(scrAddrC_);
+   wlt.addScrAddress(scrAddrD_);
+
    TheBDM.registerWallet(&wlt);
-   TheBDM.registerNewScrAddr(scrAddrD_);
+
+   TheBDM.doInitialSyncOnLoad();
    TheBDM.fetchAllRegisteredScrAddrData();
    TheBDM.scanRegisteredTxForWallet(wlt);
 
    uint64_t balanceWlt;
    uint64_t balanceDB;
    
-   balanceWlt = wlt.getScrAddrObjByKey(scrAddrA_).getFullBalance();
-   balanceDB  = iface_->getBalanceForScrAddr(scrAddrA_);
-   EXPECT_EQ(balanceWlt,   50*COIN);
-   EXPECT_EQ(balanceDB,    50*COIN);
+   EXPECT_EQ(wlt.getScrAddrObjByKey(scrAddrA_).getFullBalance(),  50*COIN);
+   EXPECT_EQ(wlt.getScrAddrObjByKey(scrAddrB_).getFullBalance(),  50*COIN);
+   EXPECT_EQ(wlt.getScrAddrObjByKey(scrAddrC_).getFullBalance(),   0*COIN);
+   EXPECT_EQ(wlt.getScrAddrObjByKey(scrAddrD_).getFullBalance(),   0*COIN);
    
-   balanceWlt = wlt.getScrAddrObjByKey(scrAddrB_).getFullBalance();
-   balanceDB  = iface_->getBalanceForScrAddr(scrAddrB_);
-   EXPECT_EQ(balanceWlt,    0*COIN);
-   EXPECT_EQ(balanceDB,     0*COIN);
+   BinaryData txWithChangeHash = READHEX(
+      "7f47caaade4bd25b1dc8639411600fd5c279e402bd01c0a0b3c703caf05cc229");
+   BinaryData txWithChange = READHEX(
+      "0100000001aee7e7fc832d028f454d4fa1ca60ba2f1760d35a80570cb63fe0d6"
+      "dd4755087a000000004a49304602210038fcc428e8f28ebea2e8682a611ac301"
+      "2aedf5289535f3776c3b3acf5fbcff74022100c51c373fab30abd0e9a594be13"
+      "8bdd99a21cdcdb2258cf9795c3d569ac25c3aa01ffffffff0200ca9a3b000000"
+      "001976a914cb2abde8bccacc32e893df3a054b9ef7f227a4ce88ac00286bee00"
+      "0000001976a914ee26c56fc1d942be8d7a24b2a1001dd89469398088ac000000"
+      "00");
 
-   balanceWlt = wlt.getScrAddrObjByKey(scrAddrC_).getFullBalance();
-   balanceDB  = iface_->getBalanceForScrAddr(scrAddrC_);
-   EXPECT_EQ(balanceWlt,  100*COIN);
-   EXPECT_EQ(balanceDB,   100*COIN);
+   /////
+   TheBDM.addNewZeroConfTx(txWithChange, 1300000000, false);
+   TheBDM.rescanWalletZeroConf(wlt);
 
-   balanceWlt = wlt.getScrAddrObjByKey(scrAddrD_).getFullBalance();
-   balanceDB  = iface_->getBalanceForScrAddr(scrAddrD_);
-   EXPECT_EQ(balanceWlt,    0*COIN);  // D is not part of the wallet
-   EXPECT_EQ(balanceDB,    50*COIN);
+   EXPECT_EQ(wlt.getScrAddrObjByKey(scrAddrA_).getFullBalance(),  50*COIN);
+   EXPECT_EQ(wlt.getScrAddrObjByKey(scrAddrB_).getFullBalance(),  40*COIN);
+   EXPECT_EQ(wlt.getScrAddrObjByKey(scrAddrC_).getFullBalance(),  10*COIN);
+   EXPECT_EQ(wlt.getScrAddrObjByKey(scrAddrD_).getFullBalance(),   0*COIN);
 
-
-   BinaryData newTx = READHEX(
-     "01000000019b2468285fc191b7a033b2f32b3de8f0c39d1eac622f5132565f1e"
-     "a8ca74ec8d000000004a4930460221007a284fa21364d749389ff62328e837dd"
-     "2676cbe4e202c0766e3950cbd0a911e40221005ac1541e381b6d358df08cce6a"
-     "2869b76d5ffe05b6aaca5c03ebcba8559c4ede01ffffffff0100f2052a010000"
-     "001976a914c522664fb0e55cdc5c0cea73b4aad97ec834323288ac00000000");
-
-   TheBDM.addNewZeroConfTx(newTx, 1300000000, false);
-
-   balanceWlt = wlt.getScrAddrObjByKey(scrAddrA_).getFullBalance();
-   balanceDB  = iface_->getBalanceForScrAddr(scrAddrA_);
-   EXPECT_EQ(balanceWlt,   50*COIN);
-   EXPECT_EQ(balanceDB,    50*COIN);
-   
-   balanceWlt = wlt.getScrAddrObjByKey(scrAddrB_).getFullBalance();
-   balanceDB  = iface_->getBalanceForScrAddr(scrAddrB_);
-   EXPECT_EQ(balanceWlt,    0*COIN);
-   EXPECT_EQ(balanceDB,     0*COIN);
-
-   balanceWlt = wlt.getScrAddrObjByKey(scrAddrC_).getFullBalance();
-   balanceDB  = iface_->getBalanceForScrAddr(scrAddrC_);
-   EXPECT_EQ(balanceWlt,  100*COIN);
-   EXPECT_EQ(balanceDB,   100*COIN);
-
-   balanceWlt = wlt.getScrAddrObjByKey(scrAddrD_).getFullBalance();
-   balanceDB  = iface_->getBalanceForScrAddr(scrAddrD_);
-   EXPECT_EQ(balanceWlt,    0*COIN);  // D is not part of the wallet
-   EXPECT_EQ(balanceDB,    50*COIN);
    
 }
-*/
 
 // This was really just to time the logging to determine how much impact it 
 // has.  It looks like writing to file is about 1,000,000 logs/sec, while 
@@ -7273,5 +7704,3 @@ GTEST_API_ int main(int argc, char **argv)
 
    return exitCode;
 }
-
-

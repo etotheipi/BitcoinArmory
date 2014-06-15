@@ -6,16 +6,19 @@ import shutil
 from subprocess import Popen, PIPE
 
 ################################################################################
-def execAndWait(cli_str, timeout=0, usepipes=True):
+def execAndWait(cli_str, timeout=0, usepipes=True, cwd=None):
    """ 
    There may actually still be references to this function where check_output
    would've been more appropriate.  But I didn't know about check_output at 
    the time...
    """
+   if isinstance(cli_str, (list, tuple)):
+      cli_str = ' '.join(cli_str)
+   print 'Executing:', '"' + cli_str + '"'
    if usepipes:
-      process = Popen(cli_str, stdin=PIPE, stdout=PIPE, stderr=PIPE, shell=True)
+      process = Popen(cli_str, stdin=PIPE, stdout=PIPE, stderr=PIPE, shell=True, cwd=cwd)
    else:
-      process = Popen(cli_str, shell=True)
+      process = Popen(cli_str, shell=True, cwd=cwd)
 
    pid = process.pid
    start = time.time()
@@ -57,64 +60,49 @@ def getVersionInt(vquad, numPieces=4):
 
 
 ################################################################################
-# Extract [osStr, subOS, armoryVersion, bits]
-def parseInstallerName(fn, ignoreExt=False):
-   if ignoreExt or \
-      fn[-4:] in ('.msi', '.exe', '.deb', '.app', '.dmg') or \
-      fn.endswith('.app.tar.gz'):
+# Extract [osName, verStr, verInt, verType, ext]
+# Example ['winAll', '0.91.1', 91001000, 'rc1', '.exe']
+def parseInstallerName(fn):
+   pcs = fn.split('_')
+   if not len(pcs)==3 or not pcs[0]=='armory':
+      return None
 
-      try:
-         pieces = fn.replace('-','_').split('_')
-         osStr, subOS, bits, armVerInt, armVerStr = None,'',32,None,None
-         for pc in pieces:
-            if 'win' in pc.lower():
-               osStr = 'Win'
-            elif pc.endswith('.deb'):
-               osStr = 'Linux'
-            elif 'osx' in pc.lower():
-               osStr = 'Mac'
-   
-            try:
-               verpieces = [int(a) for a in pc.split('.')]
-               # Could be Armory version or Ubuntu version, or nothing
-               if verpieces[0]>=10:
-                  subOS = pc 
-               else:
-                  while len(verpieces)<4:
-                     verpieces.append(0)
-                  armVerInt = getVersionInt(verpieces)
-                  armVerStr = pc
-            except Exception as e:
-               pass
+   temp,verWhole,osNameExt = pcs[:]
+   vpcs    = verWhole.split('-')
+   verStr  = vpcs[0]
+   verType = ('-'+vpcs[1]) if len(vpcs)>1 else ''
+   epcs    = osNameExt.split('.')
+   osName  = epcs[0]
+   osExt   = '.'.join(epcs[1:])
 
-            if 'amd64' in pc or 'win64' in pc or '64bit' in pc:
-               bits = 64
-               
-         return osStr,subOS,bits,armVerInt,armVerStr
+   verQuad = readVersionString(verStr)
+   verInt  = getVersionInt(verQuad)
+   return [osName, verStr, verInt, verType, osExt]
+        
 
-      except:
-         print 'WARNING: Could not parse installer filename: %s' % fn
-
-      
-   return None
-      
-
+################################################################################
+# Parse filenames to return the latest version number present (and assoc type)
 def getLatestVerFromList(filelist):
-   
    latestVerInt = 0
    latestVerStr = ''
+   verType = ''
    
    # Find the highest version number
    for fn in filelist:
       fivevals = parseInstallerName(fn)
-      if fivevals == None:
+      if fivevals is None:
          continue;
-      verint,verstr = fivevals[-2], fivevals[-1]
-      if verint>latestVerInt:
-         latestVerInt = verint
-         latestVerStr = verstr
 
-   return (latestVerInt, latestVerStr)
+      verstr,verint,vertype = fivevals[1:4]
+      if verint>latestVerInt:
+         latestVerInt  = verint
+         latestVerStr  = verstr
+         latestVerType = vertype
+
+   return (latestVerInt, latestVerStr, latestVerType)
+   
+
+
 
 
 ################################################################################
@@ -124,4 +112,30 @@ def getAllHashes(fnlist):
       out,err = execAndWait('sha256sum %s' % fn)
       hashes.append([fn, out.strip().split()[0]])
    return hashes
+
+
+################################################################################
+def checkExists(fullPath, onDNE='exit'):
+   fullPath = os.path.expanduser(fullPath)
+   if os.path.exists(fullPath):
+      print 'Found file: %s' % fullPath 
+   else:
+      print 'Path does not exist: %s' % fullPath
+      if onDNE=='skip':
+         return None
+      elif onDNE=='exit':
+         exit(1)
+
+   return fullPath
+
+
+def makeOutputDir(dirpath, wipe=True):
+   if os.path.exists(dirpath) and wipe:
+      shutil.rmtree(dirpath)
+
+   if not os.path.exists(dirpath):
+      os.makedirs(dirpath)
+   return dirpath
+
+    
 

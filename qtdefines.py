@@ -1,15 +1,21 @@
 ################################################################################
 #                                                                              #
-# Copyright (C) 2011-2013, Armory Technologies, Inc.                           #
+# Copyright (C) 2011-2014, Armory Technologies, Inc.                           #
 # Distributed under the GNU Affero General Public License (AGPL v3)            #
 # See LICENSE or http://www.gnu.org/licenses/agpl.html                         #
 #                                                                              #
 ################################################################################
-from armoryengine import *
-from PyQt4.QtCore import *
-from PyQt4.QtGui  import *
-from armorycolors import Colors, htmlColor
+import struct
 from tempfile import mkstemp
+
+from PyQt4.QtCore import *
+from PyQt4.QtGui import *
+import urllib
+
+from armorycolors import Colors, htmlColor
+from armoryengine.ArmoryUtils import *
+from armoryengine.BinaryUnpacker import *
+
 
 SETTINGS_PATH   = os.path.join(ARMORY_HOME_DIR, 'ArmorySettings.txt')
 USERMODE        = enum('Standard', 'Advanced', 'Expert')
@@ -27,13 +33,33 @@ STYLE_RAISED = QFrame.Box | QFrame.Raised
 STYLE_PLAIN  = QFrame.Box | QFrame.Plain
 STYLE_STYLED = QFrame.StyledPanel | QFrame.Raised
 STYLE_NONE   = QFrame.NoFrame
-
+VERTICAL = 'vertical'
+HORIZONTAL = 'horizontal'
 CHANGE_ADDR_DESCR_STRING = '[[ Change received ]]'
-HTTP_VERSION_FILE = 'http://bitcoinarmory.com/versions.txt'
+HTTP_VERSION_FILE = 'https://bitcoinarmory.com/versions.txt'
+BUG_REPORT_URL = 'https://bitcoinarmory.com/scripts/receive_debug.php'
+PRIVACY_URL = 'https://bitcoinarmory.com/privacy-policy'
+# For announcements handling
+ANNOUNCE_FETCH_INTERVAL = 1 * HOUR
+if CLI_OPTIONS.testAnnounceCode:
+   HTTP_ANNOUNCE_FILE = \
+      'https://s3.amazonaws.com/bitcoinarmory-testing/testannounce.txt'
+else:
+   HTTP_ANNOUNCE_FILE = 'https://bitcoinarmory.com/atiannounce.txt'
 
+# Keep track of dialogs and wizard that are executing
+runningDialogsList = []
+
+def AddToRunningDialogsList(func):
+   def wrapper(*args, **kwargs):
+      runningDialogsList.append(args[0])
+      result = func(*args, **kwargs)
+      runningDialogsList.remove(args[0])
+      return result
+   return wrapper
 
 ################################################################################
-def tr(txt):
+def tr(txt, replList=None, pluralList=None):
    """
    This is a common convention for implementing translations, where all 
    translatable strings are put int the _(...) function, and that method 
@@ -50,28 +76,43 @@ def tr(txt):
    
    Instead it should really look like: 
       
-      myLabel = QRichLabel( _('''
+      myLabel = QRichLabel( tr('''
          This text is split across mulitple lines 
          and it will acquire a space after each line 
          as well as include newlines because it's HTML
          and uses <br>. ''' ))
+
+   Added easy plural handling:
+
+      Just add an extra argument to specify a variable on which plurality
+      should be chosen, and then decorate your text with 
+
+         @{singular|plural}@
+   
+   For instance:
+
+      tr('The @{cat|cats}@ danced.  @{It was|They were}@ happy.', nCat)
+      tr('The @{cat|%d cats}@ danced.  @{It was|They were}@ happy.'%nCat, nCat)
+      tr('The @{cat|cats}@ attacked the @{dog|dogs}@', nCat, nDog)
+
+   This should work well for 
    """
 
    txt = toUnicode(txt)
    lines = [l.strip() for l in txt.split('\n')]
-   outText = (' '.join(lines)).strip()
+   txt = (' '.join(lines)).strip()
 
    # Eventually we do something cool with this transalate function.
+   # It will be defined elsewhere, but for now stubbed with identity fn
    TRANSLATE = lambda x: x
 
-   return TRANSLATE(outText)
+   txt = TRANSLATE(txt)
 
+   return formatWithPlurals(txt, replList, pluralList)
    
 
 
 ################################################################################
-
-
 def HLINE(style=QFrame.Plain):
    qf = QFrame()
    qf.setFrameStyle(QFrame.HLine | style)
@@ -84,17 +125,21 @@ def VLINE(style=QFrame.Plain):
 
 
 
-
 # Setup fixed-width and var-width fonts
 def GETFONT(ftype, sz=10, bold=False, italic=False):
    fnt = None
    if ftype.lower().startswith('fix'):
       if OS_WINDOWS:
          fnt = QFont("Courier", sz)
+      elif OS_MACOSX:
+         fnt = QFont("Menlo", sz)
       else: 
          fnt = QFont("DejaVu Sans Mono", sz)
    elif ftype.lower().startswith('var'):
-      fnt = QFont("Verdana", sz)
+      if OS_MACOSX:
+         fnt = QFont("Lucida Grande", sz)
+      else:
+         fnt = QFont("Verdana", sz)
       #if OS_WINDOWS:
          #fnt = QFont("Tahoma", sz)
       #else: 
@@ -102,6 +147,8 @@ def GETFONT(ftype, sz=10, bold=False, italic=False):
    elif ftype.lower().startswith('money'):
       if OS_WINDOWS:
          fnt = QFont("Courier", sz)
+      elif OS_MACOSX:
+         fnt = QFont("Menlo", sz)
       else: 
          fnt = QFont("DejaVu Sans Mono", sz)
    else:
@@ -247,6 +294,10 @@ class QRichLabel(QLabel):
       self.setWordWrap(doWrap)
       self.setAlignment(hAlign | vAlign)
       self.setText(txt, **kwargs)
+      # Fixes a problem with QLabel resizing based on content
+      # ACR:  ... and makes other problems.  Removing for now.
+      #self.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.MinimumExpanding)
+      #self.setMinimumHeight(int(relaxedSizeStr(self, 'QWERTYqypgj')[1]))
 
    def setText(self, text, color=None, size=None, bold=None, italic=None):
       text = unicode(text)
@@ -382,24 +433,11 @@ class QLabelButton(QLabel):
       ssStr = "QLabel { background-color : %s }" % htmlColor('LBtnNormalBG')
       self.setStyleSheet(ssStr)
 
-
 ################################################################################
-def createToolTipObject(tiptext, iconSz=2):
-   """
-   The <u></u> is to signal to Qt that it should be interpretted as HTML/Rich 
-   text even if no HTML tags are used.  This appears to be necessary for Qt 
-   to wrap the tooltip text
-   """
-   fgColor = htmlColor('ToolTipQ')
-   lbl = QLabel('<font size=%d color=%s>(?)</font>' % (iconSz, fgColor))
-   lbl.setToolTip('<u></u>' + tiptext)
-   lbl.setMaximumWidth(relaxedSizeStr(lbl, '(?)')[0])
-   lbl.connect(lbl, SIGNAL('clicked()'), lambda: printlbl)
-   return lbl
-
-   
-################################################################################
-def MsgBoxCustom(wtype, title, msg, wCancel=False, yesStr=None, noStr=None): 
+# The optionalMsg argument is not word wrapped so the caller is responsible for limiting
+# the length of the longest line in the optionalMsg
+def MsgBoxCustom(wtype, title, msg, wCancel=False, yesStr=None, noStr=None, 
+                                                      optionalMsg=None): 
    """
    Creates a message box with custom button text and icon
    """
@@ -432,9 +470,9 @@ def MsgBoxCustom(wtype, title, msg, wCancel=False, yesStr=None, noStr=None):
          lblMsg.setTextFormat(Qt.RichText)
          lblMsg.setWordWrap(True)
          lblMsg.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+         lblMsg.setOpenExternalLinks(True)
          w,h = tightSizeNChar(lblMsg, 70)
          lblMsg.setMinimumSize( w, 3.2*h )
-
          buttonbox = QDialogButtonBox()
 
          if dtype==MSGBOX.Question:
@@ -447,14 +485,14 @@ def MsgBoxCustom(wtype, title, msg, wCancel=False, yesStr=None, noStr=None):
             buttonbox.addButton(btnYes,QDialogButtonBox.AcceptRole)
             buttonbox.addButton(btnNo, QDialogButtonBox.RejectRole)
          else:
-            if not yesStr: yesStr = '&OK'
-            if not noStr:  noStr = '&Cancel'
+            cancelStr = '&Cancel' if (noStr is not None or withCancel) else ''
+            yesStr    = '&OK' if (yesStr is None) else yesStr
             btnOk     = QPushButton(yesStr)
-            btnCancel = QPushButton(noStr)
+            btnCancel = QPushButton(cancelStr)
             self.connect(btnOk,     SIGNAL('clicked()'), self.accept)
             self.connect(btnCancel, SIGNAL('clicked()'), self.reject)
             buttonbox.addButton(btnOk, QDialogButtonBox.AcceptRole)
-            if withCancel or noStr:
+            if cancelStr:
                buttonbox.addButton(btnCancel, QDialogButtonBox.RejectRole)
 
          spacer = QSpacerItem(20, 10, QSizePolicy.Fixed, QSizePolicy.Expanding)
@@ -463,7 +501,14 @@ def MsgBoxCustom(wtype, title, msg, wCancel=False, yesStr=None, noStr=None):
          layout.addItem(  spacer,         0,0, 1,2)
          layout.addWidget(msgIcon,        1,0, 1,1)
          layout.addWidget(lblMsg,         1,1, 1,1)
-         layout.addWidget(buttonbox,      3,0, 1,2)
+         if optionalMsg:
+            optionalTextLabel = QLabel(optionalMsg)
+            optionalTextLabel.setTextFormat(Qt.RichText)
+            optionalTextLabel.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+            w,h = tightSizeNChar(optionalTextLabel, 70)
+            optionalTextLabel.setMinimumSize( w, 3.2*h )
+            layout.addWidget(optionalTextLabel, 2,0,1,2)
+         layout.addWidget(buttonbox, 3,0, 1,2)
          layout.setSpacing(20)
          self.setLayout(layout)
          self.setWindowTitle(dtitle)
@@ -528,7 +573,6 @@ def MsgBoxWithDNAA(wtype, title, msg, dnaaMsg, wCancel=False, \
             self.connect(btnNo,  SIGNAL('clicked()'), self.reject)
             buttonbox.addButton(btnYes,QDialogButtonBox.AcceptRole)
             buttonbox.addButton(btnNo, QDialogButtonBox.RejectRole)
-
          else:
             btnOk = QPushButton('Ok')
             self.connect(btnOk, SIGNAL('clicked()'), self.accept)
@@ -564,7 +608,7 @@ def makeLayoutFrame(dirStr, widgetList, style=QFrame.NoFrame):
    frm.setFrameStyle(style)
 
    frmLayout = QHBoxLayout()
-   if dirStr.lower().startswith('vert'):
+   if dirStr.lower().startswith(VERTICAL):
       frmLayout = QVBoxLayout()
       
    for w in widgetList:
@@ -575,12 +619,12 @@ def makeLayoutFrame(dirStr, widgetList, style=QFrame.NoFrame):
          first = w.index('(')+1 
          last  = w.index(')')
          wid,hgt = int(w[first:last]), 1
-         if dirStr.lower().startswith('vert'):
+         if dirStr.lower().startswith(VERTICAL):
             wid,hgt = hgt,wid
          frmLayout.addItem( QSpacerItem(wid,hgt) )
       elif isinstance(w,str) and w.lower().startswith('line'):
          frmLine = QFrame()
-         if dirStr.lower().startswith('vert'):
+         if dirStr.lower().startswith(VERTICAL):
             frmLine.setFrameStyle(QFrame.HLine | QFrame.Plain)
          else:
             frmLine.setFrameStyle(QFrame.VLine | QFrame.Plain)
@@ -601,13 +645,13 @@ def makeLayoutFrame(dirStr, widgetList, style=QFrame.NoFrame):
    
 
 def addFrame(widget, style=STYLE_SUNKEN):
-   return makeLayoutFrame('Horiz', [widget], style)
+   return makeLayoutFrame(HORIZONTAL, [widget], style)
    
 def makeVertFrame(widgetList, style=QFrame.NoFrame):
-   return makeLayoutFrame('Vert', widgetList, style)
+   return makeLayoutFrame(VERTICAL, widgetList, style)
 
 def makeHorizFrame(widgetList, style=QFrame.NoFrame):
-   return makeLayoutFrame('Horiz', widgetList, style)
+   return makeLayoutFrame(HORIZONTAL, widgetList, style)
 
 
 def QImageLabel(imgfn, size=None, stretch='NoStretch'):
@@ -662,6 +706,22 @@ def saveTableView(qtbl):
 
 
 
+################################################################################
+# This class is intended to be an abstract frame class that
+# will hold all of the functionality that is common to all 
+# Frames used in Armory. 
+# The Frames that extend this class should contain all of the
+# display and control components for some screen used in Armory
+# Putting this content in a frame allows it to be used on it's own
+# in a dialog or as a component in a larger frame.
+class ArmoryFrame(QFrame):
+   def __init__(self, parent, main):
+      super(ArmoryFrame, self).__init__(parent)
+      self.main = main
+
+      # Subclasses should implement a method that returns a boolean to control
+      # when done, accept, next, or final button should be enabled.
+      self.isComplete = None
 
 
 ################################################################################
@@ -681,10 +741,11 @@ class ArmoryDialog(QDialog):
       else:
          self.setWindowTitle('Armory - Bitcoin Wallet Management')
          self.setWindowIcon(QIcon(':/armory_icon_32x32.png'))
-
-
-
-
+   
+   @AddToRunningDialogsList
+   def exec_(self):
+      return super(ArmoryDialog, self).exec_()
+      
 
 ################################################################################
 class QRCodeWidget(QWidget):

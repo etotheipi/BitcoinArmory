@@ -30,8 +30,13 @@ osxbuild/env
 
 /CompilerArgs.nsi
 /build/bdist.win32/winexe/temp
-cppForSwig
 /*.dll
 /qrc_img_resources.py
 /.project
 /.pydevproject
+/.settings
+/*.wallet
+
+/findpass.py
+/*.txt
+/sandbox.py

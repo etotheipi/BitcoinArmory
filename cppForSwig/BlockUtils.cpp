@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////
 //                                                                            //
-//  Copyright(C) 2011-2013, Armory Technologies, Inc.                         //
+//  Copyright (C) 2011-2014, Armory Technologies, Inc.                        //
 //  Distributed under the GNU Affero General Public License (AGPL v3)         //
 //  See LICENSE or http://www.gnu.org/licenses/agpl.html                      //
 //                                                                            //
@@ -10,6 +10,132 @@
 #include <time.h>
 #include <stdio.h>
 #include "BlockUtils.h"
+
+
+static void updateBlkDataHeader(InterfaceToLDB* iface, StoredHeader const & sbh)
+{
+   iface->putValue(BLKDATA, sbh.getDBKey(), sbh.serializeDBValue(BLKDATA));
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+static StoredTx* makeSureSTXInMap(
+            InterfaceToLDB* iface,
+            BinaryDataRef txHash,
+            map<BinaryData, StoredTx> & stxMap,
+            uint64_t* additionalSize)
+{
+   // TODO:  If we are pruning, we may have completely removed this tx from
+   //        the DB, which means that it won't be in the map or the DB.
+   //        But this method was written before pruning was ever implemented...
+   StoredTx * stxptr;
+
+   // Get the existing STX or make a new one
+   map<BinaryData, StoredTx>::iterator txIter = stxMap.find(txHash);
+   if(ITER_IN_MAP(txIter, stxMap))
+      stxptr = &(txIter->second);
+   else
+   {
+      StoredTx stxTemp;
+      iface->getStoredTx(stxTemp, txHash);
+      stxMap[txHash] = stxTemp;
+      stxptr = &stxMap[txHash];
+      if (additionalSize)
+         *additionalSize += stxptr->numBytes_;
+   }
+   
+   return stxptr;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// This avoids having to do the double-lookup when fetching by hash.
+// We still pass in the hash anyway, because the map is indexed by the hash,
+// and we'd like to not have to do a lookup for the hash if only provided
+// {hgt, dup, idx}
+static StoredTx* makeSureSTXInMap(
+            InterfaceToLDB* iface,
+            uint32_t hgt,
+            uint8_t  dup,
+            uint16_t txIdx,
+            BinaryDataRef txHash,
+            map<BinaryData, StoredTx> & stxMap,
+            uint64_t* additionalSize)
+{
+   StoredTx * stxptr;
+
+   // Get the existing STX or make a new one
+   map<BinaryData, StoredTx>::iterator txIter = stxMap.find(txHash);
+   if(ITER_IN_MAP(txIter, stxMap))
+      stxptr = &(txIter->second);
+   else
+   {
+      StoredTx &stxTemp = stxMap[txHash];
+      iface->getStoredTx(stxTemp, hgt, dup, txIdx);
+      stxptr = &stxMap[txHash];
+      if (additionalSize)
+         *additionalSize += stxptr->numBytes_;
+   }
+   
+   return stxptr;
+}
+
+static StoredScriptHistory* makeSureSSHInMap(
+            InterfaceToLDB* iface,
+            BinaryDataRef uniqKey,
+            BinaryDataRef hgtX,
+            map<BinaryData, StoredScriptHistory> & sshMap,
+            uint64_t* additionalSize,
+            bool createIfDNE=true)
+{
+   SCOPED_TIMER("makeSureSSHInMap");
+   StoredScriptHistory * sshptr;
+
+   // If already in Map
+   map<BinaryData, StoredScriptHistory>::iterator iter = sshMap.find(uniqKey);
+   if(ITER_IN_MAP(iter, sshMap))
+   {
+      SCOPED_TIMER("___SSH_AlreadyInMap");
+      sshptr = &(iter->second);
+   }
+   else
+   {
+      StoredScriptHistory sshTemp;
+      
+      iface->getStoredScriptHistorySummary(sshTemp, uniqKey);
+      // sshTemp.alreadyScannedUpToBlk_ = getAppliedToHeightInDB(); TODO
+      if (additionalSize)
+         *additionalSize += UPDATE_BYTES_SSH;
+      if(sshTemp.isInitialized())
+      {
+         SCOPED_TIMER("___SSH_AlreadyInDB");
+         // We already have an SSH in DB -- pull it into the map
+         sshMap[uniqKey] = sshTemp; 
+         sshptr = &sshMap[uniqKey];
+      }
+      else
+      {
+         SCOPED_TIMER("___SSH_NeedCreate");
+         if(!createIfDNE)
+            return NULL;
+
+         sshMap[uniqKey] = StoredScriptHistory(); 
+         sshptr = &sshMap[uniqKey];
+         sshptr->uniqueKey_ = uniqKey;
+      }
+   }
+
+
+   // If sub-history for this block doesn't exist, add an empty one before
+   // returning the pointer to the SSH.  Since we haven't actually inserted
+   // anything into the SubSSH, we don't need to adjust the totalTxioCount_
+   uint32_t prevSize = sshptr->subHistMap_.size();
+   iface->fetchStoredSubHistory(*sshptr, hgtX, true, false);
+   uint32_t newSize = sshptr->subHistMap_.size();
+
+   if (additionalSize)
+      *additionalSize += (newSize - prevSize) * UPDATE_BYTES_SUBSSH;
+   return sshptr;
+}
 
 
 
@@ -112,34 +238,34 @@ ScrAddrObj::ScrAddrObj(HashString    addr,
 
 
 ////////////////////////////////////////////////////////////////////////////////
-uint64_t ScrAddrObj::getSpendableBalance(uint32_t currBlk)
+uint64_t ScrAddrObj::getSpendableBalance(uint32_t currBlk, bool ignoreAllZC) 
 {
    uint64_t balance = 0;
    for(uint32_t i=0; i<relevantTxIOPtrs_.size(); i++)
    {
-      if(relevantTxIOPtrs_[i]->isSpendable(currBlk))
+      if(relevantTxIOPtrs_[i]->isSpendable(currBlk, ignoreAllZC))
          balance += relevantTxIOPtrs_[i]->getValue();
    }
    for(uint32_t i=0; i<relevantTxIOPtrsZC_.size(); i++)
    {
-      if(relevantTxIOPtrsZC_[i]->isSpendable(currBlk))
+      if(relevantTxIOPtrsZC_[i]->isSpendable(currBlk, ignoreAllZC))
          balance += relevantTxIOPtrsZC_[i]->getValue();
    }
    return balance;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-uint64_t ScrAddrObj::getUnconfirmedBalance(uint32_t currBlk)
+uint64_t ScrAddrObj::getUnconfirmedBalance(uint32_t currBlk, bool inclAllZC)
 {
    uint64_t balance = 0;
    for(uint32_t i=0; i<relevantTxIOPtrs_.size(); i++)
    {
-      if(relevantTxIOPtrs_[i]->isMineButUnconfirmed(currBlk))
+      if(relevantTxIOPtrs_[i]->isMineButUnconfirmed(currBlk, inclAllZC))
          balance += relevantTxIOPtrs_[i]->getValue();
    }
    for(uint32_t i=0; i<relevantTxIOPtrsZC_.size(); i++)
    {
-      if(relevantTxIOPtrsZC_[i]->isMineButUnconfirmed(currBlk))
+      if(relevantTxIOPtrsZC_[i]->isMineButUnconfirmed(currBlk, inclAllZC))
          balance += relevantTxIOPtrsZC_[i]->getValue();
    }
    return balance;
@@ -165,22 +291,24 @@ uint64_t ScrAddrObj::getFullBalance(void)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-vector<UnspentTxOut> ScrAddrObj::getSpendableTxOutList(uint32_t blkNum)
+vector<UnspentTxOut> ScrAddrObj::getSpendableTxOutList(uint32_t blkNum,
+                                                       bool ignoreAllZC)
 {
    vector<UnspentTxOut> utxoList(0);
    for(uint32_t i=0; i<relevantTxIOPtrs_.size(); i++)
    {
       TxIOPair & txio = *relevantTxIOPtrs_[i];
-      if(txio.isSpendable(blkNum))
+      if(txio.isSpendable(blkNum, ignoreAllZC))
       {
          TxOut txout = txio.getTxOutCopy();
          utxoList.push_back( UnspentTxOut(txout, blkNum) );
       }
    }
+
    for(uint32_t i=0; i<relevantTxIOPtrsZC_.size(); i++)
    {
       TxIOPair & txio = *relevantTxIOPtrsZC_[i];
-      if(txio.isSpendable(blkNum))
+      if(txio.isSpendable(blkNum, ignoreAllZC))
       {
          TxOut txout = txio.getTxOutCopy();
          utxoList.push_back( UnspentTxOut(txout, blkNum) );
@@ -373,13 +501,13 @@ void BtcWallet::addScrAddress_5_(HashString    scrAddr,
                               uint32_t      firstBlockNum,
                               uint32_t      lastTimestamp,
                               uint32_t      lastBlockNum)
-{  
+{
    addScrAddress(scrAddr, firstBlockNum, firstTimestamp, 
                           lastBlockNum,  lastTimestamp); 
 }
 
 /////////////////////////////////////////////////////////////////////////////
-bool BtcWallet::hasScrAddress(HashString const & scrAddr)
+bool BtcWallet::hasScrAddress(HashString const & scrAddr) const
 {
    //return scrAddrMap_.find(scrAddr) != scrAddrMap_.end();
    return KEY_IN_MAP(scrAddr, scrAddrMap_);
@@ -388,7 +516,7 @@ bool BtcWallet::hasScrAddress(HashString const & scrAddr)
 
 /////////////////////////////////////////////////////////////////////////////
 pair<bool,bool> BtcWallet::isMineBulkFilter(Tx & tx, 
-                                            bool withMultiSig)
+                                            bool withMultiSig) const
 {
    return isMineBulkFilter(tx, txioMap_, withMultiSig);
 }
@@ -396,22 +524,24 @@ pair<bool,bool> BtcWallet::isMineBulkFilter(Tx & tx,
 /////////////////////////////////////////////////////////////////////////////
 // Determine, as fast as possible, whether this tx is relevant to us
 // Return  <IsOurs, InputIsOurs>
-pair<bool,bool> BtcWallet::isMineBulkFilter(Tx & tx, 
-                                            map<OutPoint, TxIOPair> & txiomap,
-                                            bool withMultiSig)
+pair<bool,bool> BtcWallet::isMineBulkFilter(
+                                 Tx & tx, 
+                                 map<OutPoint, TxIOPair> const & txiomap,
+                                 bool withMultiSig) const
 {
    // Since 99.999%+ of all transactions are not ours, let's do the 
    // fastest bulk filter possible, even though it will add 
    // redundant computation to the tx that are ours.  In fact,
    // we will skip the TxIn/TxOut convenience methods and follow the
-   // pointers directly the data we want
+   // pointers directly to the data we want
 
    uint8_t const * txStartPtr = tx.getPtr();
    for(uint32_t iin=0; iin<tx.getNumTxIn(); iin++)
    {
       // We have the txin, now check if it contains one of our TxOuts
       static OutPoint op;
-      op.unserialize(txStartPtr + tx.getTxInOffset(iin));
+      op.unserialize(txStartPtr + tx.getTxInOffset(iin), 
+                     tx.getSize()-tx.getTxInOffset(iin));
       if(KEY_IN_MAP(op, txiomap))
          return pair<bool,bool>(true,true);
    }
@@ -565,6 +695,16 @@ void BtcWallet::pprintAlot(uint32_t topBlk, bool withAddr)
    }
 }
 
+void BtcWallet::reorgChangeBlkNum(uint32_t newBlkHgt)                     
+{
+   if(newBlkHgt<lastScanned_) 
+   {
+      lastScanned_ = newBlkHgt;
+      ignoreLastScanned_ = true;
+   }
+}
+
+
 /////////////////////////////////////////////////////////////////////////////
 // This method is used in the registeredScrAddrScan to conditionally create and
 // insert a transaction into the registered list 
@@ -659,7 +799,7 @@ void BlockDataManager_LevelDB::registeredScrAddrScan(
    {
       txInOffsets  = &localOffsIn;
       txOutOffsets = &localOffsOut;
-      BtcUtils::TxCalcLength(txptr, txInOffsets, txOutOffsets);
+      BtcUtils::TxCalcLength(txptr, txSize, txInOffsets, txOutOffsets);
    }
    
    uint32_t nTxIn  = txInOffsets->size()-1;
@@ -674,7 +814,7 @@ void BlockDataManager_LevelDB::registeredScrAddrScan(
    {
       // We have the txin, now check if it contains one of our TxOuts
       static OutPoint op;
-      op.unserialize(txStartPtr + (*txInOffsets)[iin]);
+      op.unserialize(txStartPtr + (*txInOffsets)[iin], txSize - (*txInOffsets)[iin]);
       if(registeredOutPoints_.count(op) > 0)
       {
          insertRegisteredTxIfNew(BtcUtils::getHash256(txptr, txSize));
@@ -769,7 +909,7 @@ void BlockDataManager_LevelDB::registeredScrAddrScan_IterSafe(
    {
       txInOffsets  = &localOffsIn;
       txOutOffsets = &localOffsOut;
-      BtcUtils::TxCalcLength(txStartPtr, txInOffsets, txOutOffsets);
+      BtcUtils::TxCalcLength(txStartPtr, tx.getSize(), txInOffsets, txOutOffsets);
    }
    
    uint32_t nTxIn  = txInOffsets->size()-1;
@@ -779,7 +919,7 @@ void BlockDataManager_LevelDB::registeredScrAddrScan_IterSafe(
    {
       // We have the txin, now check if it spends one of our TxOuts
       static OutPoint op;
-      op.unserialize(txStartPtr + (*txInOffsets)[iin]);
+      op.unserialize(txStartPtr + (*txInOffsets)[iin], tx.getSize()-(*txInOffsets)[iin]);
       if(registeredOutPoints_.count(op) > 0)
       {
          insertRegisteredTxIfNew(tx.getTxRef(),
@@ -870,7 +1010,8 @@ void BlockDataManager_LevelDB::registeredScrAddrScan( Tx & theTx )
 void BtcWallet::scanTx(Tx & tx, 
                        uint32_t txIndex,
                        uint32_t txtime,
-                       uint32_t blknum)
+                       uint32_t blknum,
+                       bool mainwallet)
 {
    
    int64_t totalLedgerAmt = 0;
@@ -896,226 +1037,225 @@ void BtcWallet::scanTx(Tx & tx,
    map<HashString, ScrAddrObj>::iterator addrIter;
    ScrAddrObj* thisAddrPtr;
    HashString  scraddr;
-   //for(uint32_t i=0; i<scrAddrPtrs_.size(); i++)
-   //{
-      //ScrAddrObj & thisAddr = *(scrAddrPtrs_[i]);
-      //HashString const & scraddr = thisAddr.getScrAddr();
 
-      ///// LOOP OVER ALL TXIN IN BLOCK /////
-      for(uint32_t iin=0; iin<tx.getNumTxIn(); iin++)
+   bool savedAsTxIn = false;
+
+   ///// LOOP OVER ALL TXIN IN TX /////
+   for(uint32_t iin=0; iin<tx.getNumTxIn(); iin++)
+   {
+      TxIn txin = tx.getTxInCopy(iin);
+      OutPoint outpt = txin.getOutPoint();
+      // Empty hash in Outpoint means it's a COINBASE tx --> no addr inputs
+      if(outpt.getTxHashRef() == BtcUtils::EmptyHash_)
       {
-         TxIn txin = tx.getTxInCopy(iin);
-         OutPoint outpt = txin.getOutPoint();
-         // Empty hash in Outpoint means it's a COINBASE tx --> no addr inputs
-         if(outpt.getTxHashRef() == BtcUtils::EmptyHash_)
-         {
-            isCoinbaseTx = true;
-            continue;
-         }
+         isCoinbaseTx = true;
+         continue;
+      }
 
-         // We have the txin, now check if it contains one of our TxOuts
-         map<OutPoint, TxIOPair>::iterator txioIter = txioMap_.find(outpt);
-         //bool txioWasInMapAlready = (txioIter != txioMap_.end());
-         bool txioWasInMapAlready = ITER_IN_MAP(txioIter, txioMap_);
-         if(txioWasInMapAlready)
-         {
-            // If we are here, we know that this input is spending an 
-            // output owned by this wallet.
-            // We will get here for every address in the search, even 
-            // though it is only relevant to one of the addresses.
-            TxIOPair & txio  = txioIter->second;
-            TxOut txout = txio.getTxOutCopy();
-
-            // It's our TxIn, so address should be in this wallet
-            scraddr  = txout.getScrAddressStr();
-            addrIter = scrAddrMap_.find(scraddr);
-            //if( addrIter == scrAddrMap_.end())
-            if(ITER_NOT_IN_MAP(addrIter, scrAddrMap_))
-            {
-               // Have TxIO but address is not in the map...?
-               LOGERR << "ERROR: TxIn in TxIO map, but addr not in wallet...?";
-               continue;
-            }
-            thisAddrPtr = &addrIter->second;
-
-            // We need to make sure the ledger entry makes sense, and make
-            // sure we update TxIO objects appropriately
-            int64_t thisVal = (int64_t)txout.getValue();
-            totalLedgerAmt -= thisVal;
-
-            // Skip, if zero-conf-spend, but it's already got a zero-conf
-            if( isZeroConf && txio.hasTxInZC() )
-               return; // this tx can't be valid, might as well bail now
-
-            if( !txio.hasTxInInMain() && !(isZeroConf && txio.hasTxInZC())  )
-            {
-               // isValidNew only identifies whether this set-call succeeded
-               // If it didn't, it's because this is from a zero-conf tx but this 
-               // TxIn already exists in the blockchain spending the same output.
-               // (i.e. we have a ref to the prev output, but it's been spent!)
-               bool isValidNew;
-               if(isZeroConf)
-                  isValidNew = txio.setTxInZC(&tx, iin);
-               else
-                  isValidNew = txio.setTxIn(tx.getTxRef(), iin);
-
-               if(!isValidNew)
-                  continue;
-
-               anyNewTxInIsOurs = true;
-
-               LedgerEntry newEntry(scraddr, 
-                                   -(int64_t)thisVal,
-                                    blknum, 
-                                    tx.getThisHash(), 
-                                    iin,
-                                    txtime,
-                                    isCoinbaseTx,
-                                    false,  // SentToSelf is meaningless for addr ledger
-                                    false); // "isChangeBack" is meaningless for TxIn
-               thisAddrPtr->addLedgerEntry(newEntry, isZeroConf);
-
-               // Update last seen on the network
-               thisAddrPtr->setLastTimestamp(txtime);
-               thisAddrPtr->setLastBlockNum(blknum);
-            }
-         }
-         else
-         {
-            // Lots of txins that we won't have, this is a normal conditional
-            // But we should check the non-std txio list since it may actually
-            // be there
-            //if(nonStdTxioMap_.find(outpt) != nonStdTxioMap_.end())
-            if(KEY_IN_MAP(outpt, nonStdTxioMap_))
-            {
-               if(isZeroConf)
-                  nonStdTxioMap_[outpt].setTxInZC(&tx, iin);
-               else
-                  nonStdTxioMap_[outpt].setTxIn(tx.getTxRef(), iin);
-               nonStdUnspentOutPoints_.erase(outpt);
-            }
-         }
-      } // loop over TxIns
-   //}
-
-
-   //for(uint32_t i=0; i<scrAddrPtrs_.size(); i++)
-   //{
-      //ScrAddrObj & thisAddr = *(scrAddrPtrs_[i]);
-      //HashString const & scraddr = thisAddr.getScrAddr();
-
-      ///// LOOP OVER ALL TXOUT IN TX /////
-      for(uint32_t iout=0; iout<tx.getNumTxOut(); iout++)
+      // We have the txin, now check if it contains one of our TxOuts
+      map<OutPoint, TxIOPair>::iterator txioIter = txioMap_.find(outpt);
+      //bool txioWasInMapAlready = (txioIter != txioMap_.end());
+      bool txioWasInMapAlready = ITER_IN_MAP(txioIter, txioMap_);
+      if(txioWasInMapAlready)
       {
-         TxOut txout = tx.getTxOutCopy(iout);
-         if( txout.getScriptType() == TXOUT_SCRIPT_NONSTANDARD )
-         {
-            //if(txout.getScriptRef().find(scraddr) > -1)
-               //scanNonStdTx(blknum, txIndex, tx, iout, *thisAddrPtr);
-            continue;
-         }
+         // If we are here, we know that this input is spending an 
+         // output owned by this wallet.
+         // We will get here for every address in the search, even 
+         // though it is only relevant to one of the addresses.
+         TxIOPair & txio  = txioIter->second;
+         TxOut txout = txio.getTxOutCopy();
 
-         scraddr   = txout.getScrAddressStr();
+         // It's our TxIn, so address should be in this wallet
+         scraddr  = txout.getScrAddressStr();
          addrIter = scrAddrMap_.find(scraddr);
-         //if( addrIter != scrAddrMap_.end())
-         if(ITER_IN_MAP(addrIter, scrAddrMap_))
+         //if( addrIter == scrAddrMap_.end())
+         if(ITER_NOT_IN_MAP(addrIter, scrAddrMap_))
          {
-            thisAddrPtr = &addrIter->second;
-            // If we got here, at least this TxOut is for this address.
-            // But we still need to find out if it's new and update
-            // ledgers/TXIOs appropriately
-            int64_t thisVal = (int64_t)(txout.getValue());
-            totalLedgerAmt += thisVal;
+            // Have TxIO but address is not in the map...?
+            LOGERR << "ERROR: TxIn in TxIO map, but addr not in wallet...?";
+            continue;
+         }
+         thisAddrPtr = &addrIter->second;
 
-            OutPoint outpt(tx.getThisHash(), iout);      
-            map<OutPoint, TxIOPair>::iterator txioIter = txioMap_.find(outpt);
-            //bool txioWasInMapAlready = (txioIter != txioMap_.end());
-            bool txioWasInMapAlready = ITER_IN_MAP(txioIter, txioMap_);
-            bool doAddLedgerEntry = false;
-            if(txioWasInMapAlready)
-            {
-               if(isZeroConf) 
-               {
-                  // This is a real txOut, in the blockchain
-                  if(txioIter->second.hasTxOutZC() || txioIter->second.hasTxOutInMain())
-                     continue; 
+         // We need to make sure the ledger entry makes sense, and make
+         // sure we update TxIO objects appropriately
+         int64_t thisVal = (int64_t)txout.getValue();
+         totalLedgerAmt -= thisVal;
 
-                  // If we got here, somehow the Txio existed already, but 
-                  // there was no existing TxOut referenced by it.  Probably,
-                  // there was, but that TxOut was invalidated due to reorg
-                  // and now being re-added
-                  txioIter->second.setTxOutZC(&tx, iout);
-                  txioIter->second.setValue((uint64_t)thisVal);
-                  thisAddrPtr->addTxIO( txioIter->second, isZeroConf);
-                  doAddLedgerEntry = true;
-               }
-               else
-               {
-                  if(txioIter->second.hasTxOutInMain()) // ...but we already have one
-                     continue;
+         // Skip, if zero-conf-spend, but it's already got a zero-conf
+         if( isZeroConf && txio.hasTxInZC() )
+            return; // this tx can't be valid, might as well bail now
 
-                  // If we got here, we have an in-blockchain TxOut that is 
-                  // replacing a zero-conf txOut.  Reset the txio to have 
-                  // only this real TxOut, blank out the ZC TxOut.  And the addr 
-                  // relevantTxIOPtrs_ does not have this yet so it needs 
-                  // to be added (it's already part of the relevantTxIOPtrsZC_
-                  // but that will be removed)
-                  txioIter->second.setTxOut(tx.getTxRef(), iout);
-                  txioIter->second.setValue((uint64_t)thisVal);
-                  thisAddrPtr->addTxIO( txioIter->second, isZeroConf);
-                  doAddLedgerEntry = true;
-               }
-            }
+         if( !txio.hasTxInInMain() && !(isZeroConf && txio.hasTxInZC())  )
+         {
+            // isValidNew only identifies whether this set-call succeeded
+            // If it didn't, it's because this is from a zero-conf tx but this 
+            // TxIn already exists in the blockchain spending the same output.
+            // (i.e. we have a ref to the prev output, but it's been spent!)
+            bool isValidNew;
+            if(isZeroConf)
+               isValidNew = txio.setTxInZC(&tx, iin);
             else
-            {
-               // TxIO is not in the map yet -- create and add it
-               TxIOPair newTxio(thisVal);
-               if(isZeroConf)
-                  newTxio.setTxOutZC(&tx, iout);
-               else
-                  newTxio.setTxOut(tx.getTxRef(), iout);
-   
-               pair<OutPoint, TxIOPair> toBeInserted(outpt, newTxio);
-               txioIter = txioMap_.insert(toBeInserted).first;
-               thisAddrPtr->addTxIO( txioIter->second, isZeroConf);
-               doAddLedgerEntry = true;
-            }
+               isValidNew = txio.setTxIn(tx.getTxRef(), iin);
 
-            if(anyTxInIsOurs)
-               txioIter->second.setTxOutFromSelf(true);
-           
-            if(isCoinbaseTx)
-               txioIter->second.setFromCoinbase(true);
+            if(!isValidNew)
+               continue;
 
-            anyNewTxOutIsOurs = true;
-            thisTxOutIsOurs[iout] = true;
+            anyNewTxInIsOurs = true;
 
-            if(doAddLedgerEntry)
-            {
-               LedgerEntry newLedger(scraddr, 
-                                     thisVal, 
-                                     blknum, 
-                                     tx.getThisHash(), 
-                                     iout,
-                                     txtime,
-                                     isCoinbaseTx, // input was coinbase/generation
-                                     false,   // sentToSelf meaningless for addr ledger
-                                     false);  // we don't actually know
-               thisAddrPtr->addLedgerEntry(newLedger, isZeroConf);
-            }
-            // Check if this is the first time we've seen this
-            if(thisAddrPtr->getFirstTimestamp() == 0)
-            {
-               thisAddrPtr->setFirstBlockNum( blknum );
-               thisAddrPtr->setFirstTimestamp( txtime );
-            }
+            LedgerEntry newEntry(scraddr, 
+                                -(int64_t)thisVal,
+                                 blknum, 
+                                 tx.getThisHash(), 
+                                 iin,
+                                 txtime,
+                                 isCoinbaseTx,
+                                 false,  // SentToSelf is meaningless for addr ledger
+                                 false); // "isChangeBack" is meaningless for TxIn
+            thisAddrPtr->addLedgerEntry(newEntry, isZeroConf);
+
+            txLedgerForComments_.push_back(newEntry);
+            savedAsTxIn = true;
+
             // Update last seen on the network
             thisAddrPtr->setLastTimestamp(txtime);
             thisAddrPtr->setLastBlockNum(blknum);
          }
-      } // loop over TxOuts
+      }
+      else
+      {
+         // Lots of txins that we won't have, this is a normal conditional
+         // But we should check the non-std txio list since it may actually
+         // be there
+         //if(nonStdTxioMap_.find(outpt) != nonStdTxioMap_.end())
+         if(KEY_IN_MAP(outpt, nonStdTxioMap_))
+         {
+            if(isZeroConf)
+               nonStdTxioMap_[outpt].setTxInZC(&tx, iin);
+            else
+               nonStdTxioMap_[outpt].setTxIn(tx.getTxRef(), iin);
+            nonStdUnspentOutPoints_.erase(outpt);
+         }
+      }
+   } // loop over TxIns
 
-   //} // loop over all wallet addresses
+
+   //ScrAddrObj & thisAddr = *(scrAddrPtrs_[i]);
+   //HashString const & scraddr = thisAddr.getScrAddr();
+
+   ///// LOOP OVER ALL TXOUT IN TX /////
+   for(uint32_t iout=0; iout<tx.getNumTxOut(); iout++)
+   {
+      TxOut txout = tx.getTxOutCopy(iout);
+      if( txout.getScriptType() == TXOUT_SCRIPT_NONSTANDARD )
+      {
+         //if(txout.getScriptRef().find(scraddr) > -1)
+            //scanNonStdTx(blknum, txIndex, tx, iout, *thisAddrPtr);
+         continue;
+      }
+
+      scraddr   = txout.getScrAddressStr();
+      addrIter = scrAddrMap_.find(scraddr);
+      //if( addrIter != scrAddrMap_.end())
+      if(ITER_IN_MAP(addrIter, scrAddrMap_))
+      {
+         thisAddrPtr = &addrIter->second;
+         // If we got here, at least this TxOut is for this address.
+         // But we still need to find out if it's new and update
+         // ledgers/TXIOs appropriately
+         int64_t thisVal = (int64_t)(txout.getValue());
+         totalLedgerAmt += thisVal;
+
+         OutPoint outpt(tx.getThisHash(), iout);      
+         map<OutPoint, TxIOPair>::iterator txioIter = txioMap_.find(outpt);
+         //bool txioWasInMapAlready = (txioIter != txioMap_.end());
+         bool txioWasInMapAlready = ITER_IN_MAP(txioIter, txioMap_);
+         bool doAddLedgerEntry = false;
+         if(txioWasInMapAlready)
+         {
+            if(isZeroConf) 
+            {
+               // This is a real txOut, in the blockchain
+               if(txioIter->second.hasTxOutZC() || txioIter->second.hasTxOutInMain())
+                  continue; 
+
+               // If we got here, somehow the Txio existed already, but 
+               // there was no existing TxOut referenced by it.  Probably,
+               // there was, but that TxOut was invalidated due to reorg
+               // and now being re-added
+               txioIter->second.setTxOutZC(&tx, iout);
+               txioIter->second.setValue((uint64_t)thisVal);
+               thisAddrPtr->addTxIO( txioIter->second, isZeroConf);
+               doAddLedgerEntry = true;
+            }
+            else
+            {
+               if(txioIter->second.hasTxOutInMain()) // ...but we already have one
+                  continue;
+
+               // If we got here, we have an in-blockchain TxOut that is 
+               // replacing a zero-conf txOut.  Reset the txio to have 
+               // only this real TxOut, blank out the ZC TxOut.  And the addr 
+               // relevantTxIOPtrs_ does not have this yet so it needs 
+               // to be added (it's already part of the relevantTxIOPtrsZC_
+               // but that will be removed)
+               txioIter->second.setTxOut(tx.getTxRef(), iout);
+               txioIter->second.setValue((uint64_t)thisVal);
+               thisAddrPtr->addTxIO( txioIter->second, isZeroConf);
+               doAddLedgerEntry = true;
+            }
+         }
+         else
+         {
+            // TxIO is not in the map yet -- create and add it
+            TxIOPair newTxio(thisVal);
+            if(isZeroConf)
+               newTxio.setTxOutZC(&tx, iout);
+            else
+               newTxio.setTxOut(tx.getTxRef(), iout);
+
+            pair<OutPoint, TxIOPair> toBeInserted(outpt, newTxio);
+            txioIter = txioMap_.insert(toBeInserted).first;
+            thisAddrPtr->addTxIO( txioIter->second, isZeroConf);
+            doAddLedgerEntry = true;
+         }
+
+         if(anyTxInIsOurs)
+            txioIter->second.setTxOutFromSelf(true);
+        
+         if(isCoinbaseTx)
+            txioIter->second.setFromCoinbase(true);
+
+         anyNewTxOutIsOurs = true;
+         thisTxOutIsOurs[iout] = true;
+
+         if(doAddLedgerEntry)
+         {
+            LedgerEntry newLedger(scraddr, 
+                                  thisVal, 
+                                  blknum, 
+                                  tx.getThisHash(), 
+                                  iout,
+                                  txtime,
+                                  isCoinbaseTx, // input was coinbase/generation
+                                  false,   // sentToSelf meaningless for addr ledger
+                                  false);  // we don't actually know
+            thisAddrPtr->addLedgerEntry(newLedger, isZeroConf);
+
+            if(!savedAsTxIn) txLedgerForComments_.push_back(newLedger);
+         }
+         // Check if this is the first time we've seen this
+         if(thisAddrPtr->getFirstTimestamp() == 0)
+         {
+            thisAddrPtr->setFirstBlockNum( blknum );
+            thisAddrPtr->setFirstTimestamp( txtime );
+         }
+         // Update last seen on the network
+         thisAddrPtr->setLastTimestamp(txtime);
+         thisAddrPtr->setLastBlockNum(blknum);
+      }
+   } // loop over TxOuts
+
 
    bool allTxOutIsOurs = true;
    bool anyTxOutIsOurs = false;
@@ -1130,7 +1270,7 @@ void BtcWallet::scanTx(Tx & tx,
    bool isSentToSelf = (anyTxInIsOurs && allTxOutIsOurs);
    bool isChangeBack = (anyTxInIsOurs && anyTxOutIsOurs && !isSentToSelf);
 
-   if(anyNewTxInIsOurs || anyNewTxOutIsOurs)
+   if((anyNewTxInIsOurs || anyNewTxOutIsOurs))
    {
       LedgerEntry le( BinaryData(0),
                       totalLedgerAmt, 
@@ -1170,7 +1310,7 @@ LedgerEntry BtcWallet::calcLedgerEntryForTx(Tx & tx)
    {
       // We have the txin, now check if it contains one of our TxOuts
       static OutPoint op;
-      op.unserialize(txStartPtr + tx.getTxInOffset(iin));
+      op.unserialize(txStartPtr + tx.getTxInOffset(iin), tx.getSize()-tx.getTxInOffset(iin));
 
       if(op.getTxHashRef() == BtcUtils::EmptyHash_)
          isCoinbaseTx = true;
@@ -1325,7 +1465,7 @@ void BtcWallet::scanNonStdTx(uint32_t blknum,
 //uint64_t BtcWallet::getBalance(bool blockchainOnly)
 
 ////////////////////////////////////////////////////////////////////////////////
-uint64_t BtcWallet::getSpendableBalance(uint32_t currBlk)
+uint64_t BtcWallet::getSpendableBalance(uint32_t currBlk, bool ignoreAllZC)
 {
    uint64_t balance = 0;
    map<OutPoint, TxIOPair>::iterator iter;
@@ -1333,14 +1473,14 @@ uint64_t BtcWallet::getSpendableBalance(uint32_t currBlk)
        iter != txioMap_.end();
        iter++)
    {
-      if(iter->second.isSpendable(currBlk))
+      if(iter->second.isSpendable(currBlk, ignoreAllZC))
          balance += iter->second.getValue();      
    }
    return balance;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-uint64_t BtcWallet::getUnconfirmedBalance(uint32_t currBlk)
+uint64_t BtcWallet::getUnconfirmedBalance(uint32_t currBlk, bool inclAllZC)
 {
    uint64_t balance = 0;
    map<OutPoint, TxIOPair>::iterator iter;
@@ -1348,7 +1488,7 @@ uint64_t BtcWallet::getUnconfirmedBalance(uint32_t currBlk)
        iter != txioMap_.end();
        iter++)
    {
-      if(iter->second.isMineButUnconfirmed(currBlk))
+      if(iter->second.isMineButUnconfirmed(currBlk, inclAllZC))
          balance += iter->second.getValue();      
    }
    return balance;
@@ -1370,7 +1510,8 @@ uint64_t BtcWallet::getFullBalance(void)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-vector<UnspentTxOut> BtcWallet::getSpendableTxOutList(uint32_t blkNum)
+vector<UnspentTxOut> BtcWallet::getSpendableTxOutList(uint32_t blkNum, 
+                                                      bool ignoreAllZC)
 {
    vector<UnspentTxOut> utxoList(0);
    map<OutPoint, TxIOPair>::iterator iter;
@@ -1379,7 +1520,7 @@ vector<UnspentTxOut> BtcWallet::getSpendableTxOutList(uint32_t blkNum)
        iter++)
    {
       TxIOPair & txio = iter->second;
-      if(txio.isSpendable(blkNum))
+      if(txio.isSpendable(blkNum, ignoreAllZC))
       {
          TxOut txout = txio.getTxOutCopy();
          utxoList.push_back(UnspentTxOut(txout, blkNum) );
@@ -1527,6 +1668,574 @@ vector<AddressBookEntry> BtcWallet::createAddressBook(void)
    return outputVect;
 }
 
+
+////////////////////////////////////////////////////////////////////////////////
+// AddRawBlockTODB
+//
+// Assumptions:
+//  -- We have already determined the correct height and dup for the header 
+//     and we assume it's part of the sbh object
+//  -- It has definitely been added to the headers DB (bail if not)
+//  -- We don't know if it's been added to the blkdata DB yet
+//
+// Things to do when adding a block:
+//
+//  -- PREPARATION:
+//    -- Create list of all OutPoints affected, and scripts touched
+//    -- If not supernode, then check above data against registeredSSHs_
+//    -- Fetch all StoredTxOuts from DB about to be removed
+//    -- Get/create TXHINT entries for all tx in block
+//    -- Compute all script keys and get/create all StoredScriptHistory objs
+//    -- Check if any multisig scripts are affected, if so get those objs
+//    -- If pruning, create StoredUndoData from TxOuts about to be removed
+//    -- Modify any Tx/TxOuts in the SBH tree to accommodate any tx in this 
+//       block that affect any other tx in this block
+//
+//
+//  -- Check if the block {hgt,dup} has already been written to BLKDATA DB
+//  -- Check if the header has already been added to HEADERS DB
+//  
+//  -- BATCH (HEADERS)
+//    -- Add header to HEADHASH list
+//    -- Add header to HEADHGT list
+//    -- Update validDupByHeight_
+//    -- Update DBINFO top block data
+//
+//  -- BATCH (BLKDATA)
+//    -- Modify StoredTxOut with spentness info (or prep a delete operation
+//       if pruning).
+//    -- Modify StoredScriptHistory objs same as above.  
+//    -- Modify StoredScriptHistory multisig objects as well.
+//    -- Update SSH objects alreadyScannedUpToBlk_, if necessary
+//    -- Write all new TXDATA entries for {hgt,dup}
+//    -- If pruning, write StoredUndoData objs to DB
+//    -- Update DBINFO top block data
+//
+// IMPORTANT: we also need to make sure this method does nothing if the
+//            block has already been added properly (though, it okay for 
+//            it to take time to verify nothing needs to be done).  We may
+//            end up replaying some blocks to force consistency of the DB, 
+//            and this method needs to be robust to replaying already-added
+//            blocks, as well as fixing data if the replayed block appears
+//            to have been added already but is different.
+//
+////////////////////////////////////////////////////////////////////////////////
+BlockWriteBatcher::BlockWriteBatcher(InterfaceToLDB* iface)
+   : iface_(iface), dbUpdateSize_(0), mostRecentBlockApplied_(0)
+{
+
+}
+
+BlockWriteBatcher::~BlockWriteBatcher()
+{
+   commit();
+}
+
+void BlockWriteBatcher::applyBlockToDB(StoredHeader &sbh)
+{
+   if(iface_->getValidDupIDForHeight(sbh.blockHeight_) != sbh.duplicateID_)
+   {
+      LOGERR << "Dup requested is not the main branch for the given height!";
+      return;
+   }
+   else
+      sbh.isMainBranch_ = true;
+   
+   mostRecentBlockApplied_= sbh.blockHeight_;
+
+   // We will accumulate undoData as we apply the tx
+   StoredUndoData sud;
+   sud.blockHash_   = sbh.thisHash_; 
+   sud.blockHeight_ = sbh.blockHeight_;
+   sud.duplicateID_ = sbh.duplicateID_;
+   
+   // Apply all the tx to the update data
+   for(map<uint16_t, StoredTx>::iterator iter = sbh.stxMap_.begin();
+      iter != sbh.stxMap_.end(); iter++)
+   {
+      // This will fetch all the affected [Stored]Tx and modify the maps in 
+      // RAM.  It will check the maps first to see if it's already been pulled,
+      // and then it will modify either the pulled StoredTx or pre-existing
+      // one.  This means that if a single Tx is affected by multiple TxIns
+      // or TxOuts, earlier changes will not be overwritten by newer changes.
+      applyTxToBatchWriteData(iter->second, &sud);
+   }
+
+   // At this point we should have a list of STX and SSH with all the correct
+   // modifications (or creations) to represent this block.  Let's apply it.
+   sbh.blockAppliedToDB_ = true;
+   updateBlkDataHeader(iface_, sbh);
+   //iface_->putStoredHeader(sbh, false);
+
+   // we want to commit the undo data at the same time as actual changes
+   iface_->startBatch(BLKDATA);
+   
+   // Now actually write all the changes to the DB all at once
+   // if we've gotten to that threshold
+   if (dbUpdateSize_ > UPDATE_BYTES_THRESH)
+      commit();
+
+   // Only if pruning, we need to store 
+   // TODO: this is going to get run every block, probably should batch it 
+   //       like we do with the other data...when we actually implement pruning
+   if(DBUtils.getDbPruneType() == DB_PRUNE_ALL)
+      iface_->putStoredUndoData(sud);
+   
+      
+   iface_->commitBatch(BLKDATA);
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+void BlockWriteBatcher::undoBlockFromDB(StoredUndoData & sud)
+{
+   SCOPED_TIMER("undoBlockFromDB");
+
+   StoredHeader sbh;
+   iface_->getStoredHeader(sbh, sud.blockHeight_, sud.duplicateID_);
+   if(!sbh.blockAppliedToDB_)
+   {
+      LOGERR << "This block was never applied to the DB...can't undo!";
+      return /*false*/;
+   }
+   
+   mostRecentBlockApplied_ = sud.blockHeight_;
+
+   // In the future we will accommodate more user modes
+   if(DBUtils.getArmoryDbType() != ARMORY_DB_SUPER)
+   {
+      LOGERR << "Don't know what to do this in non-supernode mode!";
+   }
+   
+   ///// Put the STXOs back into the DB which were removed by this block
+   // Process the stxOutsRemovedByBlock_ in reverse order
+   // Use int32_t index so that -1 != UINT32_MAX and we go into inf loop
+   for(int32_t i=sud.stxOutsRemovedByBlock_.size()-1; i>=0; i--)
+   {
+      StoredTxOut & sudStxo = sud.stxOutsRemovedByBlock_[i];
+      StoredTx * stxptr = makeSureSTXInMap( 
+               iface_,
+               sudStxo.blockHeight_,
+               sudStxo.duplicateID_,
+               sudStxo.txIndex_,
+               sudStxo.parentHash_,
+               stxToModify_,
+               &dbUpdateSize_);
+
+      
+      const uint16_t stxoIdx = sudStxo.txOutIndex_;
+
+      if(DBUtils.getDbPruneType() == DB_PRUNE_NONE)
+      {
+         // If full/super, we have the TxOut in DB, just need mark it unspent
+         map<uint16_t,StoredTxOut>::iterator iter = stxptr->stxoMap_.find(stxoIdx);
+         //if(iter == stxptr->stxoMap_.end())
+         if(ITER_NOT_IN_MAP(iter, stxptr->stxoMap_))
+         {
+            LOGERR << "Expecting to find existing STXO, but DNE";
+            continue;
+         }
+
+         StoredTxOut & stxoReAdd = iter->second;
+         if(stxoReAdd.spentness_ == TXOUT_UNSPENT || 
+            stxoReAdd.spentByTxInKey_.getSize() == 0 )
+         {
+            LOGERR << "STXO needs to be re-added/marked-unspent but it";
+            LOGERR << "was already declared unspent in the DB";
+         }
+         
+         stxoReAdd.spentness_ = TXOUT_UNSPENT;
+         stxoReAdd.spentByTxInKey_ = BinaryData(0);
+      }
+      else
+      {
+         // If we're pruning, we should have the Tx in the DB, but without the
+         // TxOut because it had been pruned by this block on the forward op
+         map<uint16_t,StoredTxOut>::iterator iter = stxptr->stxoMap_.find(stxoIdx);
+         //if(iter != stxptr->stxoMap_.end())
+         if(ITER_IN_MAP(iter, stxptr->stxoMap_))
+            LOGERR << "Somehow this TxOut had not been pruned!";
+         else
+            iter->second = sudStxo;
+
+         iter->second.spentness_      = TXOUT_UNSPENT;
+         iter->second.spentByTxInKey_ = BinaryData(0);
+      }
+
+
+      {
+         ////// Finished updating STX, now update the SSH in the DB
+         // Updating the SSH objects works the same regardless of pruning
+         map<uint16_t,StoredTxOut>::iterator iter = stxptr->stxoMap_.find(stxoIdx);
+         //if(iter == stxptr->stxoMap_.end())
+         if(ITER_NOT_IN_MAP(iter, stxptr->stxoMap_))
+         {
+            LOGERR << "Somehow STXO DNE even though we should've just added it!";
+            continue;
+         }
+
+         StoredTxOut & stxoReAdd = iter->second;
+         BinaryData uniqKey = stxoReAdd.getScrAddress();
+         BinaryData hgtX    = stxoReAdd.getHgtX();
+         StoredScriptHistory* sshptr = makeSureSSHInMap(
+               iface_, uniqKey, hgtX, sshToModify_, &dbUpdateSize_
+            );
+         if(sshptr==NULL)
+         {
+            LOGERR << "No SSH found for marking TxOut unspent on undo";
+            continue;
+         }
+
+         // Now get the TxIOPair in the StoredScriptHistory and mark unspent
+         sshptr->markTxOutUnspent(stxoReAdd.getDBKey(false),
+                                 stxoReAdd.getValue(),
+                                 stxoReAdd.isCoinbase_,
+                                 false);
+
+         
+         // If multisig, we need to update the SSHs for individual addresses
+         if(uniqKey[0] == SCRIPT_PREFIX_MULTISIG)
+         {
+            vector<BinaryData> addr160List;
+            BtcUtils::getMultisigAddrList(stxoReAdd.getScriptRef(), addr160List);
+            for(uint32_t a=0; a<addr160List.size(); i++)
+            {
+               // Get the existing SSH or make a new one
+               BinaryData uniqKey = HASH160PREFIX + addr160List[a];
+               StoredScriptHistory* sshms = makeSureSSHInMap(iface_, uniqKey, 
+                                                            stxoReAdd.getHgtX(),
+                                                            sshToModify_, &dbUpdateSize_);
+               sshms->markTxOutUnspent(stxoReAdd.getDBKey(false),
+                                       stxoReAdd.getValue(),
+                                       stxoReAdd.isCoinbase_,
+                                       true);
+            }
+         }
+      }
+   }
+
+
+   // The OutPoint list is every new, unspent TxOut created by this block.
+   // When they were added, we updated all the StoredScriptHistory objects
+   // to include references to them.  We need to remove them now.
+   // Use int32_t index so that -1 != UINT32_MAX and we go into inf loop
+   for(int16_t itx=sbh.numTx_-1; itx>=0; itx--)
+   {
+      // Ironically, even though I'm using hgt & dup, I still need the hash
+      // in order to key the stxToModify map
+      BinaryData txHash = iface_->getHashForDBKey(sbh.blockHeight_,
+                                                  sbh.duplicateID_,
+                                                  itx);
+
+      StoredTx * stxptr  = makeSureSTXInMap(
+            iface_,
+            sbh.blockHeight_,
+            sbh.duplicateID_,
+            itx, 
+            txHash,
+            stxToModify_,
+            &dbUpdateSize_);
+
+      for(int16_t txoIdx = stxptr->stxoMap_.size()-1; txoIdx >= 0; txoIdx--)
+      {
+
+         StoredTxOut & stxo    = stxptr->stxoMap_[txoIdx];
+         BinaryData    stxoKey = stxo.getDBKey(false);
+
+   
+         // Then fetch the StoredScriptHistory of the StoredTxOut scraddress
+         BinaryData uniqKey = stxo.getScrAddress();
+         BinaryData hgtX    = stxo.getHgtX();
+         StoredScriptHistory * sshptr = makeSureSSHInMap(
+               iface_, uniqKey, 
+               hgtX,
+               sshToModify_, 
+               &dbUpdateSize_,
+               false);
+   
+   
+         // If we are tracking that SSH, remove the reference to this OutPoint
+         if(sshptr != NULL)
+            sshptr->eraseTxio(stxoKey);
+   
+         // Now remove any multisig entries that were added due to this TxOut
+         if(uniqKey[0] == SCRIPT_PREFIX_MULTISIG)
+         {
+            vector<BinaryData> addr160List;
+            BtcUtils::getMultisigAddrList(stxo.getScriptRef(), addr160List);
+            for(uint32_t a=0; a<addr160List.size(); a++)
+            {
+               // Get the individual address obj for this multisig piece
+               BinaryData uniqKey = HASH160PREFIX + addr160List[a];
+               StoredScriptHistory* sshms = makeSureSSHInMap(
+                     iface_,
+                     uniqKey,
+                     hgtX,
+                     sshToModify_, 
+                     &dbUpdateSize_,
+                     false
+                  );
+               sshms->eraseTxio(stxoKey);
+            }
+         }
+      }
+   }
+
+   // Finally, mark this block as UNapplied.
+   sbh.blockAppliedToDB_ = false;
+   updateBlkDataHeader(iface_, sbh);
+   
+   if (dbUpdateSize_ > UPDATE_BYTES_THRESH)
+      commit();
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+// Assume that stx.blockHeight_ and .duplicateID_ are set correctly.
+// We created the maps and sets outside this function, because we need to keep
+// a master list of updates induced by all tx in this block.  
+// TODO:  Make sure that if Tx5 spends an input from Tx2 in the same 
+//        block that it is handled correctly, etc.
+bool BlockWriteBatcher::applyTxToBatchWriteData(
+                        StoredTx &       thisSTX,
+                        StoredUndoData * sud)
+{
+   SCOPED_TIMER("applyTxToBatchWriteData");
+
+   Tx tx = thisSTX.getTxCopy();
+
+   // We never expect thisSTX to already be in the map (other tx in the map
+   // may be affected/retrieved multiple times).  
+   if(KEY_IN_MAP(tx.getThisHash(), stxToModify_))
+      LOGERR << "How did we already add this tx?";
+
+   // I just noticed we never set TxOuts to TXOUT_UNSPENT.  Might as well do 
+   // it here -- by definition if we just added this Tx to the DB, it couldn't
+   // have been spent yet.
+   
+   for(map<uint16_t, StoredTxOut>::iterator iter = thisSTX.stxoMap_.begin(); 
+       iter != thisSTX.stxoMap_.end();
+       iter++)
+      iter->second.spentness_ = TXOUT_UNSPENT;
+
+   // This tx itself needs to be added to the map, which makes it accessible 
+   // to future tx in the same block which spend outputs from this tx, without
+   // doing anything crazy in the code here
+   stxToModify_[tx.getThisHash()] = thisSTX;
+
+   dbUpdateSize_ += thisSTX.numBytes_;
+   
+   // Go through and find all the previous TxOuts that are affected by this tx
+   for(uint32_t iin=0; iin<tx.getNumTxIn(); iin++)
+   {
+      TxIn txin = tx.getTxInCopy(iin);
+      if(txin.isCoinbase())
+         continue;
+
+      // Get the OutPoint data of TxOut being spent
+      const OutPoint      op       = txin.getOutPoint();
+      const BinaryDataRef opTxHash = op.getTxHashRef();
+      const uint32_t      opTxoIdx = op.getTxOutIndex();
+
+      // This will fetch the STX from DB and put it in the stxToModify
+      // map if it's not already there.  Or it will do nothing if it's
+      // already part of the map.  In both cases, it returns a pointer
+      // to the STX that will be written to DB that we can modify.
+      StoredTx    * stxptr = makeSureSTXInMap(iface_, opTxHash, stxToModify_, &dbUpdateSize_);
+      StoredTxOut & stxo   = stxptr->stxoMap_[opTxoIdx];
+      BinaryData    uniqKey   = stxo.getScrAddress();
+
+      // Update the stxo by marking it spent by this Block:TxIndex:TxInIndex
+      map<uint16_t,StoredTxOut>::iterator iter = stxptr->stxoMap_.find(opTxoIdx);
+      
+      // Some sanity checks
+      //if(iter == stxptr->stxoMap_.end())
+      if(ITER_NOT_IN_MAP(iter, stxptr->stxoMap_))
+      {
+         LOGERR << "Needed to get OutPoint for a TxIn, but DNE";
+         continue;
+      }
+
+      // We're aliasing this because "iter->second" is not clear at all
+      StoredTxOut & stxoSpend = iter->second;
+   
+      if(stxoSpend.spentness_ == TXOUT_SPENT)
+      {
+         LOGERR << "Trying to mark TxOut spent, but it's already marked";
+         continue;
+      }
+
+      // Just about to {remove-if-pruning, mark-spent-if-not} STXO
+      // Record it in the StoredUndoData object
+      if(sud != NULL)
+         sud->stxOutsRemovedByBlock_.push_back(stxoSpend);
+
+      // Need to modify existing UTXOs, so that we can delete or mark as spent
+      stxoSpend.spentness_      = TXOUT_SPENT;
+      stxoSpend.spentByTxInKey_ = thisSTX.getDBKeyOfChild(iin, false);
+
+      if(DBUtils.getArmoryDbType() != ARMORY_DB_SUPER)
+      {
+         LOGERR << "Don't know what to do this in non-supernode mode!";
+      }
+
+      ////// Now update the SSH to show this TxIOPair was spent
+      // Same story as stxToModify above, except this will actually create a new
+      // SSH if it doesn't exist in the map or the DB
+      BinaryData hgtX = stxo.getHgtX();
+      StoredScriptHistory* sshptr = makeSureSSHInMap(
+            iface_,
+            uniqKey,
+            hgtX,
+            sshToModify_,
+            &dbUpdateSize_
+         );
+
+      // Assuming supernode, we don't need to worry about removing references
+      // to multisig scripts that reference this script.  Simply find and 
+      // update the correct SSH TXIO directly
+      sshptr->markTxOutSpent(stxoSpend.getDBKey(false),
+                             thisSTX.getDBKeyOfChild(iin, false));
+   }
+
+
+
+   // We don't need to update any TXDATA, since it is part of writing thisSTX
+   // to the DB ... but we do need to update the StoredScriptHistory objects
+   // with references to the new [unspent] TxOuts
+   for(uint32_t iout=0; iout<tx.getNumTxOut(); iout++)
+   {
+      StoredTxOut & stxoToAdd = thisSTX.stxoMap_[iout];
+      BinaryData uniqKey = stxoToAdd.getScrAddress();
+      BinaryData hgtX    = stxoToAdd.getHgtX();
+      StoredScriptHistory* sshptr = makeSureSSHInMap(
+            iface_,
+            uniqKey,
+            hgtX,
+            sshToModify_,
+            &dbUpdateSize_
+         );
+
+      // Add reference to the next STXO to the respective SSH object
+      sshptr->markTxOutUnspent(stxoToAdd.getDBKey(false),
+                               stxoToAdd.getValue(),
+                               stxoToAdd.isCoinbase_,
+                               false);
+                             
+      // If this was a multisig address, add a ref to each individual scraddr
+      if(uniqKey[0] == SCRIPT_PREFIX_MULTISIG)
+      {
+         vector<BinaryData> addr160List;
+         BtcUtils::getMultisigAddrList(stxoToAdd.getScriptRef(), addr160List);
+         for(uint32_t a=0; a<addr160List.size(); a++)
+         {
+            // Get the existing SSH or make a new one
+            BinaryData uniqKey = HASH160PREFIX + addr160List[a];
+            StoredScriptHistory* sshms = makeSureSSHInMap(
+                  iface_,
+                  uniqKey,
+                  hgtX,
+                  sshToModify_,
+                  &dbUpdateSize_
+               );
+            sshms->markTxOutUnspent(stxoToAdd.getDBKey(false),
+                                    stxoToAdd.getValue(),
+                                    stxoToAdd.isCoinbase_,
+                                    true);
+         }
+      }
+   }
+
+   return true;
+}
+
+
+
+void BlockWriteBatcher::commit()
+{
+   // Check for any SSH objects that are now completely empty.  If they exist,
+   // they should be removed from the DB, instead of simply written as empty
+   // objects
+   const set<BinaryData> keysToDelete = searchForSSHKeysToDelete();
+   
+   iface_->startBatch(BLKDATA);
+
+   for(map<BinaryData, StoredTx>::iterator iter_stx = stxToModify_.begin();
+       iter_stx != stxToModify_.end();
+       iter_stx++)
+   {
+      iface_->putStoredTx(iter_stx->second, true);
+   }
+       
+   for(map<BinaryData, StoredScriptHistory>::iterator iter_ssh = sshToModify_.begin();
+       iter_ssh != sshToModify_.end();
+       iter_ssh++)
+   {
+      iface_->putStoredScriptHistory(iter_ssh->second);
+   }
+
+   for(set<BinaryData>::const_iterator iter_del  = keysToDelete.begin();
+       iter_del != keysToDelete.end();
+       iter_del++)
+   {
+      iface_->deleteValue(BLKDATA, *iter_del);
+   }
+
+
+   if(mostRecentBlockApplied_ != 0)
+   {
+      StoredDBInfo sdbi;
+      iface_->getStoredDBInfo(BLKDATA, sdbi);
+      if(!sdbi.isInitialized())
+         LOGERR << "How do we have invalid SDBI in applyMods?";
+      else
+      {
+         sdbi.appliedToHgt_  = mostRecentBlockApplied_;
+         iface_->putStoredDBInfo(BLKDATA, sdbi);
+      }
+   }
+
+   iface_->commitBatch(BLKDATA);
+   
+   stxToModify_.clear();
+   sshToModify_.clear();
+   dbUpdateSize_ = 0;
+}
+
+set<BinaryData> BlockWriteBatcher::searchForSSHKeysToDelete()
+{
+   set<BinaryData> keysToDelete;
+   vector<BinaryData> fullSSHToDelete;
+   
+   for(map<BinaryData, StoredScriptHistory>::iterator iterSSH  = sshToModify_.begin();
+       iterSSH != sshToModify_.end(); )
+   {
+      // get our next one in case we delete the current
+      map<BinaryData, StoredScriptHistory>::iterator nextSSHi = iterSSH;
+      ++nextSSHi;
+      
+      StoredScriptHistory & ssh = iterSSH->second;
+      
+      for(map<BinaryData, StoredSubHistory>::iterator iterSub = ssh.subHistMap_.begin(); 
+          iterSub != ssh.subHistMap_.end(); 
+          iterSub++)
+      {
+         StoredSubHistory & subssh = iterSub->second;
+         if(subssh.txioSet_.size() == 0)
+            keysToDelete.insert(subssh.getDBKey(true));
+      }
+   
+      // If the full SSH is empty (not just sub history), mark it to be removed
+      if(iterSSH->second.totalTxioCount_ == 0)
+      {
+         sshToModify_.erase(iterSSH);
+      }
+      
+      iterSSH = nextSSHi;
+   }
+
+   return keysToDelete;
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
@@ -2221,7 +2930,8 @@ void BlockDataManager_LevelDB::Reset(void)
 
    zeroConfRawTxList_.clear();
    zeroConfMap_.clear();
-   zcEnabled_ = false;
+   zcEnabled_  = false;
+   zcLiteMode_ = false;
    zcFilename_ = "";
 
    isNetParamsSet_ = false;
@@ -2232,7 +2942,6 @@ void BlockDataManager_LevelDB::Reset(void)
    blkFileList_.clear();
    numBlkFiles_ = UINT32_MAX;
 
-   dbUpdateSize_ = 0;
    endOfLastBlockByte_ = 0;
 
    startHeaderHgt_ = 0;
@@ -2283,6 +2992,7 @@ void BlockDataManager_LevelDB::Reset(void)
    registeredTxList_.clear(); 
    registeredOutPoints_.clear(); 
    allScannedUpToBlk_ = 0;
+
 
 }
 
@@ -2728,7 +3438,6 @@ void BlockDataManager_LevelDB::updateRegisteredScrAddrs(uint32_t newTopBlk)
    {
       rsaIter->second.alreadyScannedUpToBlk_ = newTopBlk;
    }
-   
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -2767,6 +3476,10 @@ bool BlockDataManager_LevelDB::scrAddrIsRegistered(HashString scraddr)
 
 
 /////////////////////////////////////////////////////////////////////////////
+// first scans the blockchain and collects the registered tx (all tx relevant
+// to your wallet), then does a heartier scan of that subset to actually
+// collect balance information, utxo sets
+// 
 // This method is now a hybrid of the original, Blockchain-in-RAM code,
 // and the new mmap()-based blockchain operations.  The initial blockchain
 // scan will look for wallet-relevant transactions, and keep track of what 
@@ -2855,27 +3568,22 @@ void BlockDataManager_LevelDB::applyBlockRangeToDB(uint32_t blk0, uint32_t blk1)
 
    BinaryData startKey = DBUtils.getBlkDataKey(blk0, 0);
    BinaryData endKey   = DBUtils.getBlkDataKey(blk1, 0);
-   iface_->seekTo(BLKDATA, startKey);
+
+   LDBIter ldbIter = iface_->getIterator(BLKDATA);
+   ldbIter.seekTo(startKey);
 
    // Start scanning and timer
    //bool doBatches = (blk1-blk0 > NUM_BLKS_BATCH_THRESH);
-   bool doBatches = true;
-   map<BinaryData, StoredTx>             stxToModify;
-   map<BinaryData, StoredScriptHistory>  sshToModify;
-   set<BinaryData>                       keysToDelete;
+   BlockWriteBatcher blockWrites(iface_);
 
-   uint32_t hgt;
-   uint8_t  dup;
    do
    {
-      
       StoredHeader sbh;
-      iface_->readStoredBlockAtIter(sbh);
-      hgt = sbh.blockHeight_;
-      dup = sbh.duplicateID_;
+      iface_->readStoredBlockAtIter(ldbIter, sbh);
+      const uint32_t hgt = sbh.blockHeight_;
+      const uint8_t dup = sbh.duplicateID_;
       if(blk0 > hgt || hgt >= blk1)
          break;
-      
 
       if(hgt%2500 == 2499)
          LOGWARN << "Finished applying blocks up to " << (hgt+1);
@@ -2883,6 +3591,7 @@ void BlockDataManager_LevelDB::applyBlockRangeToDB(uint32_t blk0, uint32_t blk1)
       if(dup != iface_->getValidDupIDForHeight(hgt))
          continue;
 
+      // IS THIS COMMENT STILL RELEVANT? ~CS
       // Ugh!  Design inefficiency: this loop and applyToBlockDB both use
       // the same iterator, which means that applyBlockToDB will usually 
       // leave us with the iterator in a different place than we started.
@@ -2891,46 +3600,14 @@ void BlockDataManager_LevelDB::applyBlockRangeToDB(uint32_t blk0, uint32_t blk1)
       // to have each method create its own iterator... TODO:  profile/test
       // this idea.  For now we will just save the current DB key, and 
       // re-seek to it afterwards.
-      BinaryData prevIterKey(0);
-      if(iface_->dbIterIsValid(BLKDATA))
-         prevIterKey = iface_->getIterKeyCopy();
-
-      if(!doBatches)
-         applyBlockToDB(hgt, dup); 
-      else
-      {
-         bool commit = (dbUpdateSize_ > UPDATE_BYTES_THRESH);
-         if(commit)
-            LOGINFO << "Flushing DB cache after this block: " << hgt;
-         applyBlockToDB(hgt, dup, stxToModify, sshToModify, keysToDelete, commit);
-      }
-
-      // If we had a valid iter position before applyBlockToDB, restore it
-      if(prevIterKey.getSize() > 0)
-         iface_->seekTo(BLKDATA, prevIterKey);
-
+      blockWrites.applyBlockToDB(hgt, dup); 
 
       bytesReadSoFar_ += sbh.numBytes_;
-
-      // TODO:  Check whether this is needed and if there is a performance
-      //        improvement to removing it.  For now, I'm including to be
-      //        absolutely sure that the DB updates properly (not reading
-      //        from an iterator that was created before the DB was last 
-      //        updated).  But it may slow down the process considerably,
-      //        since LevelDB has optimized the hell out of key-order 
-      //        traversal.
-      iface_->resetIterator(BLKDATA, true);
 
       // Will write out about once every 5 sec
       writeProgressFile(DB_BUILD_APPLY, blkProgressFile_, "applyBlockRangeToDB");
 
-   } while(iface_->advanceToNextBlock(false));
-
-
-   // If we're batching, we probably haven't commited the last batch.  Hgt 
-   // and dup vars are still in scope.  
-   if(doBatches)
-      applyModsToDB(stxToModify, sshToModify, keysToDelete);
+   } while(iface_->advanceToNextBlock(ldbIter, false));
 
 }
 
@@ -2985,7 +3662,7 @@ void BlockDataManager_LevelDB::writeProgressFile(DB_BUILD_PHASE phase,
    if(height!=0)
       startAtByte = blkFileCumul_[blkfile] + offset;
       
-   ofstream topblks(bfile.c_str(), ios::app);
+   ofstream topblks(OS_TranslatePath(bfile.c_str()), ios::app);
    double t = TIMER_READ_SEC(timerName);
    topblks << (uint32_t)phase << " "
            << startAtByte << " " 
@@ -3020,7 +3697,6 @@ BtcWallet* BlockDataManager_LevelDB::createNewWallet(void)
    return newWlt;
 }
 
-
 /////////////////////////////////////////////////////////////////////////////
 // This assumes that registeredTxList_ has already been populated from 
 // the initial blockchain scan.  The blockchain contains millions of tx,
@@ -3030,6 +3706,14 @@ void BlockDataManager_LevelDB::scanRegisteredTxForWallet( BtcWallet & wlt,
                                                            uint32_t blkEnd)
 {
    SCOPED_TIMER("scanRegisteredTxForWallet");
+
+   if(!wlt.ignoreLastScanned_)
+	   blkStart = wlt.lastScanned_;
+   else
+      wlt.ignoreLastScanned_ = false;
+
+   bool isMainWallet = true;
+   if(&wlt != (*registeredWallets_.begin())) isMainWallet = false;
 
    // Make sure RegisteredTx objects have correct data, then sort.
    // TODO:  Why did I not need this with the MMAP blockchain?  Somehow
@@ -3077,7 +3761,7 @@ void BlockDataManager_LevelDB::scanRegisteredTxForWallet( BtcWallet & wlt,
          continue;
 
       // If we made it here, we want to scan this tx!
-      wlt.scanTx(theTx, txIter->txIndex_, bhptr->getTimestamp(), thisBlk);
+      wlt.scanTx(theTx, txIter->txIndex_, bhptr->getTimestamp(), thisBlk, isMainWallet);
    }
  
    wlt.sortLedger();
@@ -3087,6 +3771,11 @@ void BlockDataManager_LevelDB::scanRegisteredTxForWallet( BtcWallet & wlt,
    if(zcEnabled_)
       rescanWalletZeroConf(wlt);
 
+	uint32_t topBlk = getTopBlockHeight();
+	if(blkEnd > topBlk)
+		wlt.lastScanned_ = topBlk;
+	else if(blkEnd!=0)
+		wlt.lastScanned_ = blkEnd;
 }
 
 
@@ -3176,8 +3865,10 @@ vector<TxIOPair> BlockDataManager_LevelDB::getHistoryForScrAddr(
    map<BinaryData, RegisteredScrAddr>::iterator iter;
    iter = registeredScrAddrMap_.find(uniqKey);
    if(ITER_IN_MAP(iter, registeredScrAddrMap_))
+   {
       iter->second.alreadyScannedUpToBlk_ = ssh.alreadyScannedUpToBlk_;
-
+   }
+   
    vector<TxIOPair> outVect(0);
    if(!ssh.isInitialized())
       return outVect;
@@ -3271,7 +3962,36 @@ vector<TxRef*> BlockDataManager_LevelDB::findAllNonStdTx(void)
 }
 */
 
-
+static bool scanFor(std::istream &in, const uint8_t * bytes, const unsigned len)
+{
+   unsigned matched=0; // how many bytes we've matched so far
+   std::vector<uint8_t> ahead(len); // the bytes matched
+   
+   in.read((char*)&ahead.front(), len);
+   unsigned count = in.gcount();
+   if (count < len) return false;
+   
+   unsigned offset=0; // the index mod len which we're in ahead
+   
+   do
+   {
+      bool found=true;
+      for (unsigned i=0; i < len; i++)
+      {
+         if (ahead[(i+offset)%len] != bytes[i])
+         {
+            found=false;
+            break;
+         }
+      }
+      if (found)
+         return true;
+      
+      ahead[offset++%len] = in.get();
+      
+   } while (!in.eof());
+   return false;
+}
 
 /////////////////////////////////////////////////////////////////////////////
 // With the LevelDB database integration, we now index all blockchain data
@@ -3288,6 +4008,9 @@ bool BlockDataManager_LevelDB::extractHeadersInBlkFile(uint32_t fnum,
                                                        uint64_t startOffset)
 {
    SCOPED_TIMER("extractHeadersInBlkFile");
+   
+   missingBlockHeaderHashes_.clear();
+   
    string filename = blkFileList_[fnum];
    uint64_t filesize = BtcUtils::GetFileSize(filename);
    if(filesize == FILE_DOES_NOT_EXIST)
@@ -3326,9 +4049,30 @@ bool BlockDataManager_LevelDB::extractHeadersInBlkFile(uint32_t fnum,
    while(!is.eof())
    {
       is.read((char*)magic.getPtr(), 4);
-      if(magic!=MagicBytes_ || is.eof()) 
+      if (is.eof())
          break;
-
+         
+      if(magic!=MagicBytes_)
+      {
+         // I have to start scanning for MagicBytes
+         
+         BinaryData nulls( (const uint8_t*)"\0\0\0\0", 4);
+         
+         if (magic == nulls)
+            break;
+         
+         LOGERR << "Did not find block header in expected location, "
+            "possible corrupt data, searching for next block header.";
+         
+         if (!scanFor(is, MagicBytes_.getPtr(), MagicBytes_.getSize()))
+         {
+            LOGERR << "No more blocks found in file " << filename;
+            break;
+         }
+         
+         LOGERR << "Next block header found at offset " << uint64_t(is.tellg())-4;
+      }
+      
       is.read((char*)szstr.getPtr(), 4);
       uint32_t nextBlkSize = READ_UINT32_LE(szstr.getPtr());
       if(is.eof()) break;
@@ -3362,6 +4106,19 @@ bool BlockDataManager_LevelDB::extractHeadersInBlkFile(uint32_t fnum,
       
       endOfLastBlockByte_ += nextBlkSize+8;
       is.seekg(nextBlkSize - HEAD_AND_NTX_SZ, ios::cur);
+      
+      // now check if the previous hash is in there
+      // (unless the previous hash is 0
+      if (headerMap_.find(bhInputPair.second.getPrevHash()) == headerMap_.end()
+         && BtcUtils::EmptyHash_ != bhInputPair.second.getPrevHash())
+      {
+         LOGWARN << "Block header " << bhInputPair.second.getThisHash().toHexStr()
+            << " refers to missing previous hash "
+            << bhInputPair.second.getPrevHash().toHexStr();
+            
+         missingBlockHeaderHashes_.push_back(bhInputPair.second.getPrevHash());
+      }
+      
    }
 
    is.close();
@@ -3482,6 +4239,14 @@ void BlockDataManager_LevelDB::fetchAllRegisteredScrAddrData(
 {
    SCOPED_TIMER("fetchAllRegisteredScrAddrData");
 
+   set<BtcWallet*>::iterator wltIter;
+
+   for(wltIter  = registeredWallets_.begin();
+       wltIter != registeredWallets_.end();
+       wltIter++)
+   {
+      (*wltIter)->ignoreLastScanned_ = true;
+   }
 
    map<BinaryData, RegisteredScrAddr>::iterator iter;
    for(iter  = addrMap.begin(); iter != addrMap.end(); iter++)
@@ -3599,10 +4364,13 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
                                              bool skipFetch,
                                              bool initialLoad)
 {
-
+   missingBlockHashes_.clear();
+   
    SCOPED_TIMER("buildAndScanDatabases");
    LOGINFO << "Number of registered addr: " << registeredScrAddrMap_.size();
 
+   
+   
    // Will use this updating the GUI with progress bar
    time_t t;
    time(&t);
@@ -3637,6 +4405,7 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
    {
       LOGINFO << "Resetting wallets for rescan";
       skipFetch = true;
+      deleteHistories();
       resetRegisteredWallets();
    }
 
@@ -3647,23 +4416,21 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
       fetchAllRegisteredScrAddrData();
    }
 
-   if(initialLoad && DBUtils.getArmoryDbType() != ARMORY_DB_SUPER)
-   {
-      // We always delete the histories, regardless of whether we read them or
-      // not.  We only save them on a clean shutdown, so we know they are 
-      // consistent.  Unclean shutdowns/kills will force a rescan simply by
-      // the fetch call (at the top) getting nothing out of the database
-      if(initialLoad)
-         deleteHistories();
-
-   }
 
 
    // Remove this file
+
+#ifndef _MSC_VER
    if(BtcUtils::GetFileSize(blkProgressFile_) != FILE_DOES_NOT_EXIST)
       remove(blkProgressFile_.c_str());
    if(BtcUtils::GetFileSize(abortLoadFile_) != FILE_DOES_NOT_EXIST)
       remove(abortLoadFile_.c_str());
+#else
+   if(BtcUtils::GetFileSize(blkProgressFile_) != FILE_DOES_NOT_EXIST)
+      _wunlink(OS_TranslatePath(blkProgressFile_).c_str());
+   if(BtcUtils::GetFileSize(abortLoadFile_) != FILE_DOES_NOT_EXIST)
+      _wunlink(OS_TranslatePath(abortLoadFile_).c_str());
+#endif
    
    if(!initialLoad)
       detectAllBlkFiles(); // only need to spend time on this on the first call
@@ -3691,7 +4458,6 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
       processNewHeadersInBlkFiles(startHeaderBlkFile_, startHeaderOffset_);
    }
 
-   dbUpdateSize_ = 0;
    LOGINFO << "Total number of blk*.dat files: " << numBlkFiles_;
    LOGINFO << "Total number of blocks found:   " << getTopBlockHeight() + 1;
 
@@ -3730,8 +4496,11 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
            <<  (int)timeElapsed << " seconds)";
 
    // Now start scanning the raw blocks
-   if(registeredScrAddrMap_.size() == 0)
+   if(registeredScrAddrMap_.size() == -1)
    {
+      // We think that the lack of scanning was causing some crashes
+      // So we disabled this block, at least temporarily, despite being
+      // "pointless" when no wallets are loaded
       LOGWARN << "No addresses are registered with the BDM, so there's no";
       LOGWARN << "point in doing a blockchain scan yet.";
    }
@@ -3775,12 +4544,31 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
    // Update registered address list so we know what's already been scanned
    lastTopBlock_ = getTopBlockHeight() + 1;
    allScannedUpToBlk_ = lastTopBlock_;
-   updateRegisteredScrAddrs(lastTopBlock_);
 
+   LOGINFO << "Updating registered addresses";
+   updateRegisteredScrAddrs(lastTopBlock_);
 
    // Since loading takes so long, there's a good chance that new block data
    // came in... let's get it.
    readBlkFileUpdate();
+   uint32_t nWallet = 0;
+
+   LOGINFO << "Scanning Wallets";
+   set<BtcWallet*>::iterator wltIter;
+   for(wltIter  = registeredWallets_.begin();
+       wltIter != registeredWallets_.end();
+       wltIter++)
+	{
+      nWallet++;
+		BtcWallet* wlt = *wltIter;
+      if(forceRebuild || forceRescan || skipFetch)
+         wlt->ignoreLastScanned_ = true;
+
+      LOGINFO << "Scanning Wallet #" << nWallet << " from height " << (wlt->ignoreLastScanned_ ? 0 : wlt->lastScanned_);
+
+		scanRegisteredTxForWallet(*wlt, 0, lastTopBlock_);
+	}
+
    isInitialized_ = true;
    purgeZeroConfPool();
 
@@ -3801,11 +4589,35 @@ void BlockDataManager_LevelDB::buildAndScanDatabases(
 
 }
 
+// search for the next byte in bsb that looks like it could be a block
+bool BlockDataManager_LevelDB::scanForMagicBytes(BinaryStreamBuffer& bsb, uint32_t *bytesSkipped) const
+{
+   BinaryData firstFour(4);
+   if (bytesSkipped) *bytesSkipped=0;
+   
+   do
+   {
+      while (bsb.reader().getSizeRemaining() >= 4)
+      {
+         bsb.reader().get_BinaryData(firstFour, 4);
+         if(firstFour==MagicBytes_)
+         {
+            bsb.reader().rewind(4);
+            return true;
+         }
+         // try again at the very next byte
+         if (bytesSkipped) (*bytesSkipped)++;
+         bsb.reader().rewind(3);
+      }
+      
+   } while (bsb.streamPull());
+   
+   return false;
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 void BlockDataManager_LevelDB::readRawBlocksInFile(uint32_t fnum, uint32_t foffset)
 {
-
    string blkfile = blkFileList_[fnum];
    uint64_t filesize = BtcUtils::GetFileSize(blkfile);
    string fsizestr = BtcUtils::numToStrWCommas(filesize);
@@ -3823,6 +4635,8 @@ void BlockDataManager_LevelDB::readRawBlocksInFile(uint32_t fnum, uint32_t foffs
 
    // Seek to the supplied offset
    is.seekg(foffset, ios::beg);
+   
+   uint64_t dbUpdateSize=0;
 
    BinaryStreamBuffer bsb;
    bsb.attachAsStreamBuffer(is, (uint32_t)filesize-foffset);
@@ -3839,11 +4653,13 @@ void BlockDataManager_LevelDB::readRawBlocksInFile(uint32_t fnum, uint32_t foffs
 
    iface_->startBatch(BLKDATA);
 
+   unsigned failedAttempts=0;
+   
    // It turns out that this streambuffering is probably not helping, but
    // it doesn't hurt either, so I'm leaving it alone
    while(bsb.streamPull())
    {
-      while(bsb.reader().getSizeRemaining() > 8)
+      while(bsb.reader().getSizeRemaining() >= 8)
       {
          
          if(!alreadyRead8B)
@@ -3856,6 +4672,7 @@ void BlockDataManager_LevelDB::readRawBlocksInFile(uint32_t fnum, uint32_t foffs
             }
             nextBlkSize = bsb.reader().get_uint32_t();
             bytesReadSoFar_ += 8;
+            locInBlkFile += 8;
          }
 
          if(bsb.reader().getSizeRemaining() < nextBlkSize)
@@ -3866,20 +4683,55 @@ void BlockDataManager_LevelDB::readRawBlocksInFile(uint32_t fnum, uint32_t foffs
          alreadyRead8B = false;
 
          BinaryRefReader brr(bsb.reader().getCurrPtr(), nextBlkSize);
-
-         addRawBlockToDB(brr);
-         dbUpdateSize_ += nextBlkSize;
-
-         if(dbUpdateSize_>UPDATE_BYTES_THRESH && iface_->isBatchOn(BLKDATA))
+         
+         try
          {
-            dbUpdateSize_ = 0;
+            addRawBlockToDB(brr);
+         }
+         catch (BlockDeserializingException &e)
+         {
+            LOGERR << e.what() << " (error encountered processing block at byte "
+               << locInBlkFile << " file "
+               << blkfile << ", blocksize " << nextBlkSize << ")";
+            failedAttempts++;
+            
+            if (failedAttempts >= 4)
+            {
+               // It looks like this file is irredeemably corrupt
+               LOGERR << "Giving up searching " << blkfile
+                  << " after having found 4 block headers with unparseable contents";
+               breakbreak=true;
+               break;
+            }
+            
+            uint32_t bytesSkipped;
+            const bool next = scanForMagicBytes(bsb, &bytesSkipped);
+            if (!next)
+            {
+               LOGERR << "Could not find another block in the file";
+               breakbreak=true;
+               break;
+            }
+            else
+            {
+               locInBlkFile += bytesSkipped;
+               LOGERR << "Found another block header at " << locInBlkFile;
+            }
+
+            continue;
+         }
+         dbUpdateSize += nextBlkSize;
+
+         if(dbUpdateSize>BlockWriteBatcher::UPDATE_BYTES_THRESH && iface_->isBatchOn(BLKDATA))
+         {
+            dbUpdateSize = 0;
             iface_->commitBatch(BLKDATA);
             iface_->startBatch(BLKDATA);
          }
 
          blocksReadSoFar_++;
          bytesReadSoFar_ += nextBlkSize;
-         locInBlkFile += nextBlkSize + 8;
+         locInBlkFile += nextBlkSize;
          bsb.reader().advance(nextBlkSize);
 
          // This is a hack of hacks, but I can't seem to pass this data 
@@ -3909,6 +4761,41 @@ void BlockDataManager_LevelDB::readRawBlocksInFile(uint32_t fnum, uint32_t foffs
 }
 
 
+////////////////////////////////////////////////////////////////////////////////
+StoredHeader BlockDataManager_LevelDB::getBlockFromDB(uint32_t hgt, uint8_t dup)
+{
+   StoredHeader nullSBH;
+   StoredHeader returnSBH;
+
+   LDBIter ldbIter = iface_->getIterator(BLKDATA);
+   BinaryData firstKey = DBUtils.getBlkDataKey(hgt, dup);
+
+   if(!ldbIter.seekToExact(firstKey))
+      return nullSBH;
+
+   // Get the full block from the DB
+   iface_->readStoredBlockAtIter(ldbIter, returnSBH);
+
+   if(returnSBH.blockHeight_ != hgt || returnSBH.duplicateID_ != dup)
+      return nullSBH;
+
+   return returnSBH;
+
+}
+
+////////////////////////////////////////////////////////////////////////////////
+uint8_t BlockDataManager_LevelDB::getMainDupFromDB(uint32_t hgt)
+{
+   return iface_->getValidDupIDForHeight(hgt);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+StoredHeader BlockDataManager_LevelDB::getMainBlockFromDB(uint32_t hgt)
+{
+   uint8_t dupMain = iface_->getValidDupIDForHeight(hgt);
+   return getBlockFromDB(hgt, dupMain);
+}
+
 
 ////////////////////////////////////////////////////////////////////////////////
 void BlockDataManager_LevelDB::scanDBForRegisteredTx(uint32_t blk0,
@@ -3924,15 +4811,16 @@ void BlockDataManager_LevelDB::scanDBForRegisteredTx(uint32_t blk0,
          //remove(bfile.c_str());
    }
 
+   LDBIter ldbIter = iface_->getIterator(BLKDATA, BULK_SCAN);
    BinaryData firstKey = DBUtils.getBlkDataKey(blk0, 0);
-   iface_->seekTo(BLKDATA, firstKey);
+   ldbIter.seekTo(firstKey);
 
    TIMER_START("ScanBlockchain");
-   while(iface_->dbIterIsValid(BLKDATA, DB_PREFIX_TXDATA))
+   while(ldbIter.isValid(DB_PREFIX_TXDATA))
    {
       // Get the full block from the DB
       StoredHeader sbh;
-      iface_->readStoredBlockAtIter(sbh);
+      iface_->readStoredBlockAtIter(ldbIter, sbh);
       bytesReadSoFar_ += sbh.numBytes_;
 
       uint32_t hgt     = sbh.blockHeight_;
@@ -3967,9 +4855,9 @@ void BlockDataManager_LevelDB::deleteHistories(void)
 {
    SCOPED_TIMER("deleteHistories");
 
-   iface_->seekTo(BLKDATA, DB_PREFIX_SCRIPT, BinaryData(0));
+   LDBIter ldbIter = iface_->getIterator(BLKDATA);
 
-   if(!iface_->dbIterIsValid(BLKDATA, DB_PREFIX_SCRIPT))
+   if(!ldbIter.seekToStartsWith(DB_PREFIX_SCRIPT, BinaryData(0)))
       return;
 
    //////////
@@ -3977,7 +4865,7 @@ void BlockDataManager_LevelDB::deleteHistories(void)
 
    do 
    {
-      BinaryData key = iface_->getIterKeyCopy();
+      BinaryData key = ldbIter.getKey();
 
       if(key.getSize() == 0)
          break;
@@ -3987,7 +4875,7 @@ void BlockDataManager_LevelDB::deleteHistories(void)
 
       iface_->deleteValue(BLKDATA, key);
       
-   } while(iface_->advanceIterAndRead(BLKDATA, DB_PREFIX_SCRIPT));
+   } while(ldbIter.advanceAndRead(DB_PREFIX_SCRIPT));
 
    //////////
    iface_->commitBatch(BLKDATA);
@@ -3995,9 +4883,16 @@ void BlockDataManager_LevelDB::deleteHistories(void)
 
 
 ////////////////////////////////////////////////////////////////////////////////
-void BlockDataManager_LevelDB::shutdownSaveScrAddrHistories(void)
+void BlockDataManager_LevelDB::saveScrAddrHistories(void)
 {
-   LOGINFO << "Saving wallet history for next load";
+   LOGINFO << "Saving wallet history to DB";
+
+   if(DBUtils.getArmoryDbType() != ARMORY_DB_BARE)
+   {
+      LOGERR << "Should only use saveScrAddrHistories in ARMORY_DB_BARE mode";
+      LOGERR << "Aborting save operation.";
+      return;
+   }
 
    iface_->startBatch(BLKDATA);
 
@@ -4015,6 +4910,7 @@ void BlockDataManager_LevelDB::shutdownSaveScrAddrHistories(void)
          if(KEY_NOT_IN_MAP(uniqKey, registeredScrAddrMap_))
          {
             LOGERR << "How does the wallet have a non-registered ScrAddr?";
+            LOGERR << uniqKey.toHexStr().c_str();
             continue;
          }
 
@@ -4053,7 +4949,7 @@ uint32_t BlockDataManager_LevelDB::readBlkFileUpdate(void)
    string filename = blkFileList_[blkFileList_.size()-1];
 
    uint64_t filesize = FILE_DOES_NOT_EXIST;
-   ifstream is(filename.c_str(), ios::in|ios::binary);
+   ifstream is(OS_TranslatePath(filename).c_str(), ios::in|ios::binary);
    if(is.is_open())
    {
       is.seekg(0, ios::end);
@@ -4116,8 +5012,8 @@ uint32_t BlockDataManager_LevelDB::readBlkFileUpdate(void)
    // Observe if everything was up to date when we started, because we're 
    // going to add new blockchain data and don't want to trigger a rescan 
    // if this is just a normal update.
-   uint32_t nextBlk = getTopBlockHeight() + 1;
-   bool prevRegisteredUpToDate = (allScannedUpToBlk_==nextBlk);
+   const uint32_t nextBlk = getTopBlockHeight() + 1;
+   const bool prevRegisteredUpToDate = (allScannedUpToBlk_==nextBlk);
    
    // Pull in the remaining data in old/curr blkfile, and beginning of new
    BinaryData newBlockDataRaw((size_t)(currBlkBytesToRead+nextBlkBytesToRead));
@@ -4206,7 +5102,8 @@ uint32_t BlockDataManager_LevelDB::readBlkFileUpdate(void)
          if(DBUtils.getArmoryDbType() != ARMORY_DB_BARE) 
          {
             LOGINFO << "Applying block to DB!";
-            applyBlockToDB(hgt, dup);
+            BlockWriteBatcher batcher(iface_);
+            batcher.applyBlockToDB(hgt, dup);
          }
 
          // Replaced this with the scanDBForRegisteredTx call outside the loop
@@ -4260,7 +5157,6 @@ uint32_t BlockDataManager_LevelDB::readBlkFileUpdate(void)
 	   #endif
    #endif
 
-
    return nBlkRead;
 
 }
@@ -4273,6 +5169,8 @@ uint32_t BlockDataManager_LevelDB::readBlkFileUpdate(void)
 void BlockDataManager_LevelDB::updateWalletAfterReorg(BtcWallet & wlt)
 {
    SCOPED_TIMER("updateWalletAfterReorg");
+
+   uint32_t changeToBlkNum;
 
    // Fix the wallet's ledger
    vector<LedgerEntry> & ledg = wlt.getTxLedger();
@@ -4290,7 +5188,7 @@ void BlockDataManager_LevelDB::updateWalletAfterReorg(BtcWallet & wlt)
    for(uint32_t a=0; a<wlt.getNumScrAddr(); a++)
    {
       ScrAddrObj & addr = wlt.getScrAddrObjByIndex(a);
-	   vector<LedgerEntry> & addrLedg = addr.getTxLedger();
+      vector<LedgerEntry> & addrLedg = addr.getTxLedger();
       for(uint32_t i=0; i<addrLedg.size(); i++)
       {
          HashString const & txHash = addrLedg[i].getTxHash();
@@ -4298,7 +5196,12 @@ void BlockDataManager_LevelDB::updateWalletAfterReorg(BtcWallet & wlt)
             addrLedg[i].setValid(false);
    
          if(txJustAffected_.count(txHash) > 0) 
-            addrLedg[i].changeBlkNum(getTxRefByHash(txHash).getBlockHeight());
+         {
+            changeToBlkNum = getTxRefByHash(txHash).getBlockHeight();
+            addrLedg[i].changeBlkNum(changeToBlkNum);
+
+            wlt.reorgChangeBlkNum(changeToBlkNum);
+         }
       }
    }
 }
@@ -4590,8 +5493,12 @@ void BlockDataManager_LevelDB::reassessAfterReorg( BlockHeader* oldTopPtr,
    // Mark transactions as invalid
    txJustInvalidated_.clear();
    txJustAffected_.clear();
+   
+   BlockWriteBatcher blockWrites(iface_);
+   
    BlockHeader* thisHeaderPtr = oldTopPtr;
    LOGINFO << "Invalidating old-chain transactions...";
+   
    while(thisHeaderPtr != branchPtr)
    {
       uint32_t hgt = thisHeaderPtr->getBlockHeight();
@@ -4603,7 +5510,7 @@ void BlockDataManager_LevelDB::reassessAfterReorg( BlockHeader* oldTopPtr,
          // we also need to undo the blocks in the DB
          StoredUndoData sud;
          createUndoDataFromBlock(hgt, dup, sud);
-         undoBlockFromDB(sud);
+         blockWrites.undoBlockFromDB(sud);
       }
       
       StoredHeader sbh;
@@ -4642,7 +5549,7 @@ void BlockDataManager_LevelDB::reassessAfterReorg( BlockHeader* oldTopPtr,
       iface_->getStoredHeader(sbh, hgt, dup, true);
 
       if(DBUtils.getArmoryDbType() != ARMORY_DB_BARE)
-         applyBlockToDB(sbh);
+         blockWrites.applyBlockToDB(sbh);
 
       for(uint32_t i=0; i<sbh.numTx_; i++)
       {
@@ -5007,14 +5914,17 @@ BlockHeader* BlockDataManager_LevelDB::getHeaderPtrForTx(Tx & txObj)
 ////////////////////////////////////////////////////////////////////////////////
 // Methods for handling zero-confirmation transactions
 ////////////////////////////////////////////////////////////////////////////////
-void BlockDataManager_LevelDB::enableZeroConf(string zcFilename)
+void BlockDataManager_LevelDB::enableZeroConf(string zcFilename, bool zcLite)
 {
    SCOPED_TIMER("enableZeroConf");
-   zcEnabled_  = true; 
+   LOGINFO << "Enabling zero-conf tracking " << (zcLite ? "(lite)" : "");
    zcFilename_ = zcFilename;
+   zcEnabled_  = true; 
+   zcLiteMode_ = zcLite;
 
    readZeroConfFile(zcFilename_); // does nothing if DNE
 }
+
 
 ////////////////////////////////////////////////////////////////////////////////
 void BlockDataManager_LevelDB::readZeroConfFile(string zcFilename)
@@ -5034,7 +5944,7 @@ void BlockDataManager_LevelDB::readZeroConfFile(string zcFilename)
    while(brr.getSizeRemaining() > 8)
    {
       uint64_t txTime = brr.get_uint64_t();
-      uint32_t txSize = BtcUtils::TxCalcLength(brr.getCurrPtr());
+      uint32_t txSize = BtcUtils::TxCalcLength(brr.getCurrPtr(), brr.getSizeRemaining());
       BinaryData rawtx(txSize);
       brr.get_BinaryData(rawtx.getPtr(), txSize);
       addNewZeroConfTx(rawtx, (uint32_t)txTime, false);
@@ -5043,7 +5953,7 @@ void BlockDataManager_LevelDB::readZeroConfFile(string zcFilename)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void BlockDataManager_LevelDB::disableZeroConf(string zcFilename)
+void BlockDataManager_LevelDB::disableZeroConf(void)
 {
    SCOPED_TIMER("disableZeroConf");
    zcEnabled_  = false; 
@@ -5056,21 +5966,38 @@ bool BlockDataManager_LevelDB::addNewZeroConfTx(BinaryData const & rawTx,
                                                 bool writeToFile)
 {
    SCOPED_TIMER("addNewZeroConfTx");
-   // TODO:  We should do some kind of verification check on this tx
-   //        to make sure it's potentially valid.  Right now, it doesn't 
-   //        matter, because the Satoshi client is sitting between
-   //        us and the network and doing the checking for us.
 
    if(txtime==0)
       txtime = (uint32_t)time(NULL);
 
    HashString txHash = BtcUtils::getHash256(rawTx);
-    
+
    // If this is already in the zero-conf map or in the blockchain, ignore it
-   //if(KEY_IN_MAP(txHash, zeroConfMap_) || !getTxRefByHash(txHash).isNull())
    if(hasTxWithHash(txHash))
       return false;
-   
+
+
+   // In zero-conf-lite-mode, we only actually add the ZC if it's related
+   // to one of our registered wallets.  
+   if(zcLiteMode_)
+   {
+      // The bulk filter
+      Tx txObj(rawTx);
+
+      bool isOurs = false;
+      set<BtcWallet*>::iterator wltIter;
+      for(wltIter  = registeredWallets_.begin();
+          wltIter != registeredWallets_.end();
+          wltIter++)
+      {
+         // The bulk filter returns pair<isRelatedToUs, inputIsOurs>
+         isOurs = isOurs || (*wltIter)->isMineBulkFilter(txObj).first;
+      }
+
+      if(!isOurs)
+         return false;
+   }
+    
    
    zeroConfMap_[txHash] = ZeroConfData();
    ZeroConfData & zc = zeroConfMap_[txHash];
@@ -5347,161 +6274,12 @@ bool BlockDataManager_LevelDB::isTxFinal(Tx & tx)
 
 
 
-////////////////////////////////////////////////////////////////////////////////
-// Assume that stx.blockHeight_ and .duplicateID_ are set correctly.
-// We created the maps and sets outside this function, because we need to keep
-// a master list of updates induced by all tx in this block.  
-// TODO:  Make sure that if Tx5 spends an input from Tx2 in the same 
-//        block that it is handled correctly, etc.
-bool BlockDataManager_LevelDB::applyTxToBatchWriteData(
-                        StoredTx &                             thisSTX,
-                        map<BinaryData, StoredTx> &            stxToModify,
-                        map<BinaryData, StoredScriptHistory> & sshToModify,
-                        set<BinaryData> &                      keysToDelete,
-                        StoredUndoData *                       sud)
-{
-   SCOPED_TIMER("applyTxToBatchWriteData");
-
-   Tx tx = thisSTX.getTxCopy();
-
-   // We never expect thisSTX to already be in the map (other tx in the map
-   // may be affected/retrieved multiple times).  
-   if(KEY_IN_MAP(tx.getThisHash(), stxToModify))
-      LOGERR << "How did we already add this tx?";
-
-   // I just noticed we never set TxOuts to TXOUT_UNSPENT.  Might as well do 
-   // it here -- by definition if we just added this Tx to the DB, it couldn't
-   // have been spent yet.
-   map<uint16_t, StoredTxOut>::iterator iter;
-   for(iter  = thisSTX.stxoMap_.begin(); 
-       iter != thisSTX.stxoMap_.end();
-       iter++)
-      iter->second.spentness_ = TXOUT_UNSPENT;
-
-   // This tx itself needs to be added to the map, which makes it accessible 
-   // to future tx in the same block which spend outputs from this tx, without
-   // doing anything crazy in the code here
-   stxToModify[tx.getThisHash()] = thisSTX;
-
-   dbUpdateSize_ += thisSTX.numBytes_;
-   
-   // Go through and find all the previous TxOuts that are affected by this tx
-   StoredTx stxTemp;
-   StoredScriptHistory sshTemp;
-   for(uint32_t iin=0; iin<tx.getNumTxIn(); iin++)
-   {
-      TxIn txin = tx.getTxInCopy(iin);
-      if(txin.isCoinbase())
-         continue;
-
-      // Get the OutPoint data of TxOut being spent
-      OutPoint      op       = txin.getOutPoint();
-      BinaryDataRef opTxHash = op.getTxHashRef();
-      uint32_t      opTxoIdx = op.getTxOutIndex();
-
-      // This will fetch the STX from DB and put it in the stxToModify
-      // map if it's not already there.  Or it will do nothing if it's
-      // already part of the map.  In both cases, it returns a pointer
-      // to the STX that will be written to DB that we can modify.
-      StoredTx    * stxptr = makeSureSTXInMap(opTxHash, stxToModify);
-      StoredTxOut & stxo   = stxptr->stxoMap_[opTxoIdx];
-      BinaryData    uniqKey   = stxo.getScrAddress();
-
-      // Update the stxo by marking it spent by this Block:TxIndex:TxInIndex
-      map<uint16_t,StoredTxOut>::iterator iter = stxptr->stxoMap_.find(opTxoIdx);
-      
-      // Some sanity checks
-      //if(iter == stxptr->stxoMap_.end())
-      if(ITER_NOT_IN_MAP(iter, stxptr->stxoMap_))
-      {
-         LOGERR << "Needed to get OutPoint for a TxIn, but DNE";
-         continue;
-      }
-
-      // We're aliasing this because "iter->second" is not clear at all
-      StoredTxOut & stxoSpend = iter->second;
-   
-      if(stxoSpend.spentness_ == TXOUT_SPENT)
-      {
-         LOGERR << "Trying to mark TxOut spent, but it's already marked";
-         continue;
-      }
-
-      // Just about to {remove-if-pruning, mark-spent-if-not} STXO
-      // Record it in the StoredUndoData object
-      if(sud != NULL)
-         sud->stxOutsRemovedByBlock_.push_back(stxoSpend);
-
-      // Need to modify existing UTXOs, so that we can delete or mark as spent
-      stxoSpend.spentness_      = TXOUT_SPENT;
-      stxoSpend.spentByTxInKey_ = thisSTX.getDBKeyOfChild(iin, false);
-
-      if(DBUtils.getArmoryDbType() != ARMORY_DB_SUPER)
-      {
-         LOGERR << "Don't know what to do this in non-supernode mode!";
-      }
-
-      ////// Now update the SSH to show this TxIOPair was spent
-      // Same story as stxToModify above, except this will actually create a new
-      // SSH if it doesn't exist in the map or the DB
-      BinaryData hgtX = stxo.getHgtX();
-      StoredScriptHistory* sshptr = makeSureSSHInMap(uniqKey, hgtX, sshToModify);
-
-      // Assuming supernode, we don't need to worry about removing references
-      // to multisig scripts that reference this script.  Simply find and 
-      // update the correct SSH TXIO directly
-      sshptr->markTxOutSpent(stxoSpend.getDBKey(false),
-                             thisSTX.getDBKeyOfChild(iin, false));
-   }
-
-
-
-   // We don't need to update any TXDATA, since it is part of writing thisSTX
-   // to the DB ... but we do need to update the StoredScriptHistory objects
-   // with references to the new [unspent] TxOuts
-   for(uint32_t iout=0; iout<tx.getNumTxOut(); iout++)
-   {
-      StoredTxOut & stxoToAdd = thisSTX.stxoMap_[iout];
-      BinaryData uniqKey = stxoToAdd.getScrAddress();
-      BinaryData hgtX    = stxoToAdd.getHgtX();
-      StoredScriptHistory* sshptr = makeSureSSHInMap(uniqKey, hgtX, sshToModify);
-
-      // Add reference to the next STXO to the respective SSH object
-      sshptr->markTxOutUnspent(stxoToAdd.getDBKey(false),
-                               stxoToAdd.getValue(),
-                               stxoToAdd.isCoinbase_,
-                               false);
-                             
-      // If this was a multisig address, add a ref to each individual scraddr
-      if(uniqKey[0] == SCRIPT_PREFIX_MULTISIG)
-      {
-         vector<BinaryData> addr160List;
-         BtcUtils::getMultisigAddrList(stxoToAdd.getScriptRef(), addr160List);
-         for(uint32_t a=0; a<addr160List.size(); a++)
-         {
-            // Get the existing SSH or make a new one
-            BinaryData uniqKey = HASH160PREFIX + addr160List[a];
-            StoredScriptHistory* sshms = makeSureSSHInMap(uniqKey,
-                                                          hgtX,
-                                                          sshToModify, 
-                                                          true);
-            sshms->markTxOutUnspent(stxoToAdd.getDBKey(false),
-                                    stxoToAdd.getValue(),
-                                    stxoToAdd.isCoinbase_,
-                                    true);
-         }
-      }
-   }
-
-   return true;
-}
-
 
 
 
 ////////////////////////////////////////////////////////////////////////////////
 // We must have already added this to the header map and DB and have a dupID
-bool BlockDataManager_LevelDB::addRawBlockToDB(BinaryRefReader & brr)
+void BlockDataManager_LevelDB::addRawBlockToDB(BinaryRefReader & brr)
 {
    SCOPED_TIMER("addRawBlockToDB");
    
@@ -5523,7 +6301,37 @@ bool BlockDataManager_LevelDB::addRawBlockToDB(BinaryRefReader & brr)
    // added to the headerMap and the DB, and we have its correct height 
    // and dupID
    StoredHeader sbh;
-   sbh.unserializeFullBlock(brr, true, false);
+   try
+   {
+      sbh.unserializeFullBlock(brr, true, false);
+   }
+   catch (BlockDeserializingException &)
+   {
+      if (sbh.hasBlockHeader_)
+      {
+         // we still add this block to the chain in this case,
+         // if we miss a few transactions it's better than
+         // missing the entire block
+         BlockHeader & bh = headerMap_[sbh.thisHash_];
+         sbh.blockHeight_  = bh.getBlockHeight();
+         sbh.duplicateID_  = bh.getDuplicateID();
+         sbh.isMainBranch_ = bh.isMainBranch();
+         sbh.blockAppliedToDB_ = false;
+
+         // Don't put it into the DB if it's not proper!
+         if(sbh.blockHeight_==UINT32_MAX || sbh.duplicateID_==UINT8_MAX)
+            throw BlockDeserializingException("Error parsing block (corrupt?) - Cannot add raw block to DB without hgt & dup");
+
+         iface_->putStoredHeader(sbh, true);
+         missingBlockHashes_.push_back( sbh.thisHash_ );
+         throw BlockDeserializingException("Error parsing block (corrupt?) - block header valid");
+      }
+      else
+      {
+         throw BlockDeserializingException("Error parsing block (corrupt?) and block header invalid");
+      }
+      // throw a new exception with a useful "what"
+   }
    BlockHeader & bh = headerMap_[sbh.thisHash_];
    sbh.blockHeight_  = bh.getBlockHeight();
    sbh.duplicateID_  = bh.getDuplicateID();
@@ -5532,177 +6340,11 @@ bool BlockDataManager_LevelDB::addRawBlockToDB(BinaryRefReader & brr)
 
    // Don't put it into the DB if it's not proper!
    if(sbh.blockHeight_==UINT32_MAX || sbh.duplicateID_==UINT8_MAX)
-   {
-      LOGERR << "Cannot add raw block to DB without hgt & dup";
-      return false;
-   }
-
+      throw BlockDeserializingException("Cannot add raw block to DB without hgt & dup");
    iface_->putStoredHeader(sbh, true);
-   return true;
 }
 
 
-////////////////////////////////////////////////////////////////////////////////
-// Not sure if this deserves its own method anymore, but it has it anyway.  
-// Used to update the blockAppliedToDB_ flag, and maybe numTx and numBytes
-// if needed for some reason.
-void BlockDataManager_LevelDB::updateBlkDataHeader(StoredHeader const & sbh)
-{
-   iface_->putValue(BLKDATA, sbh.getDBKey(), sbh.serializeDBValue(BLKDATA));
-}
-
-////////////////////////////////////////////////////////////////////////////////
-// AddRawBlockTODB
-//
-// Assumptions:
-//  -- We have already determined the correct height and dup for the header 
-//     and we assume it's part of the sbh object
-//  -- It has definitely been added to the headers DB (bail if not)
-//  -- We don't know if it's been added to the blkdata DB yet
-//
-// Things to do when adding a block:
-//
-//  -- PREPARATION:
-//    -- Create list of all OutPoints affected, and scripts touched
-//    -- If not supernode, then check above data against registeredSSHs_
-//    -- Fetch all StoredTxOuts from DB about to be removed
-//    -- Get/create TXHINT entries for all tx in block
-//    -- Compute all script keys and get/create all StoredScriptHistory objs
-//    -- Check if any multisig scripts are affected, if so get those objs
-//    -- If pruning, create StoredUndoData from TxOuts about to be removed
-//    -- Modify any Tx/TxOuts in the SBH tree to accommodate any tx in this 
-//       block that affect any other tx in this block
-//
-//
-//  -- Check if the block {hgt,dup} has already been written to BLKDATA DB
-//  -- Check if the header has already been added to HEADERS DB
-//  
-//  -- BATCH (HEADERS)
-//    -- Add header to HEADHASH list
-//    -- Add header to HEADHGT list
-//    -- Update validDupByHeight_
-//    -- Update DBINFO top block data
-//
-//  -- BATCH (BLKDATA)
-//    -- Modify StoredTxOut with spentness info (or prep a delete operation
-//       if pruning).
-//    -- Modify StoredScriptHistory objs same as above.  
-//    -- Modify StoredScriptHistory multisig objects as well.
-//    -- Update SSH objects alreadyScannedUpToBlk_, if necessary
-//    -- Write all new TXDATA entries for {hgt,dup}
-//    -- If pruning, write StoredUndoData objs to DB
-//    -- Update DBINFO top block data
-//
-// IMPORTANT: we also need to make sure this method does nothing if the
-//            block has already been added properly (though, it okay for 
-//            it to take time to verify nothing needs to be done).  We may
-//            end up replaying some blocks to force consistency of the DB, 
-//            and this method needs to be robust to replaying already-added
-//            blocks, as well as fixing data if the replayed block appears
-//            to have been added already but is different.
-//
-////////////////////////////////////////////////////////////////////////////////
-bool BlockDataManager_LevelDB::applyBlockToDB(uint32_t hgt, uint8_t  dup)
-{
-   map<BinaryData, StoredTx>              stxToModify;
-   map<BinaryData, StoredScriptHistory>   sshToModify;
-   set<BinaryData>                        keysToDelete;
-   return applyBlockToDB(hgt, dup, stxToModify, sshToModify, keysToDelete, true);
-}
-
-////////////////////////////////////////////////////////////////////////////////
-bool BlockDataManager_LevelDB::applyBlockToDB(StoredHeader & sbh)
-{
-   map<BinaryData, StoredTx>              stxToModify;
-   map<BinaryData, StoredScriptHistory>   sshToModify;
-   set<BinaryData>                        keysToDelete;
-
-   return applyBlockToDB(sbh, stxToModify, sshToModify, keysToDelete, true);
-}
-
-////////////////////////////////////////////////////////////////////////////////
-bool BlockDataManager_LevelDB::applyBlockToDB( 
-                        uint32_t hgt, 
-                        uint8_t  dup,
-                        map<BinaryData, StoredTx> &            stxToModify,
-                        map<BinaryData, StoredScriptHistory> & sshToModify,
-                        set<BinaryData> &                      keysToDelete,
-                        bool                                   applyWhenDone)
-{
-   StoredHeader sbh;
-   iface_->getStoredHeader(sbh, hgt, dup);
-   return applyBlockToDB(sbh, 
-                         stxToModify, 
-                         sshToModify, 
-                         keysToDelete, 
-                         applyWhenDone);
-
-}
-
-
-////////////////////////////////////////////////////////////////////////////////
-bool BlockDataManager_LevelDB::applyBlockToDB(
-                        StoredHeader & sbh,
-                        map<BinaryData, StoredTx> &            stxToModify,
-                        map<BinaryData, StoredScriptHistory> & sshToModify,
-                        set<BinaryData> &                      keysToDelete,
-                        bool                                   applyWhenDone)
-{
-   SCOPED_TIMER("applyBlockToDB");
-
-   if(iface_->getValidDupIDForHeight(sbh.blockHeight_) != sbh.duplicateID_)
-   {
-      LOGERR << "Dup requested is not the main branch for the given height!";
-      return false;
-   }
-   else
-      sbh.isMainBranch_ = true;
-
-   // We will accumulate undoData as we apply the tx
-   StoredUndoData sud;
-   sud.blockHash_   = sbh.thisHash_; 
-   sud.blockHeight_ = sbh.blockHeight_;
-   sud.duplicateID_ = sbh.duplicateID_;
-
-   // Apply all the tx to the update data
-   map<uint16_t, StoredTx>::iterator iter;
-   for(iter = sbh.stxMap_.begin(); iter != sbh.stxMap_.end(); iter++)
-   {
-      // This will fetch all the affected [Stored]Tx and modify the maps in 
-      // RAM.  It will check the maps first to see if it's already been pulled,
-      // and then it will modify either the pulled StoredTx or pre-existing
-      // one.  This means that if a single Tx is affected by multiple TxIns
-      // or TxOuts, earlier changes will not be overwritten by newer changes.
-      applyTxToBatchWriteData(iter->second, 
-                              stxToModify, 
-                              sshToModify, 
-                              keysToDelete,
-                              &sud);
-   }
-
-   // If, at the end of this process, we have any empty SSH objects
-   // (should only happen if pruning), then remove them from the 
-   // to-modify list, and add to the keysToDelete list.
-   //findSSHEntriesToDelete(sshToModify, keysToDelete);
-
-   // At this point we should have a list of STX and SSH with all the correct
-   // modifications (or creations) to represent this block.  Let's apply it.
-   sbh.blockAppliedToDB_ = true;
-   updateBlkDataHeader(sbh);
-   //iface_->putStoredHeader(sbh, false);
-
-   // Now actually write all the changes to the DB all at once
-   if(applyWhenDone)
-      applyModsToDB(stxToModify, sshToModify, keysToDelete);
-
-   // Only if pruning, we need to store 
-   // TODO: this is going to get run every block, probably should batch it 
-   //       like we do with the other data...when we actually implement pruning
-   if(DBUtils.getDbPruneType() == DB_PRUNE_ALL)
-      iface_->putStoredUndoData(sud);
-
-   return true;
-}
 
 
 
@@ -5780,423 +6422,6 @@ bool BlockDataManager_LevelDB::createUndoDataFromBlock(uint32_t hgt,
 }
 
 
-////////////////////////////////////////////////////////////////////////////////
-void BlockDataManager_LevelDB::applyModsToDB(
-                           map<BinaryData, StoredTx> &            stxToModify,
-                           map<BinaryData, StoredScriptHistory> & sshToModify,
-                           set<BinaryData> &                      keysToDelete)
-{
-   // Before we apply, let's figure out if some DB keys need to be deleted
-   findSSHEntriesToDelete(sshToModify, keysToDelete);
-
-   uint32_t newAppliedToHeight = 0;
-
-   iface_->startBatch(BLKDATA);
-
-   map<BinaryData, StoredTx>::iterator iter_stx;
-   for(iter_stx  = stxToModify.begin();
-       iter_stx != stxToModify.end();
-       iter_stx++)
-   {
-      iface_->putStoredTx(iter_stx->second, true);
-      
-      // This list always contains the latest block num
-      // We detect here instead of complicating the interfaces
-      uint32_t thisHgt = iter_stx->second.blockHeight_;
-      newAppliedToHeight = max(newAppliedToHeight, thisHgt);
-   }
-       
-   map<BinaryData, StoredScriptHistory>::iterator iter_ssh;
-   for(iter_ssh  = sshToModify.begin();
-       iter_ssh != sshToModify.end();
-       iter_ssh++)
-   {
-      iface_->putStoredScriptHistory(iter_ssh->second);
-
-   }
-
-   set<BinaryData>::iterator iter_del;
-   for(iter_del  = keysToDelete.begin();
-       iter_del != keysToDelete.end();
-       iter_del++)
-   {
-      iface_->deleteValue(BLKDATA, *iter_del);
-   }
-
-
-   if(newAppliedToHeight != 0)
-   {
-      StoredDBInfo sdbi;
-      iface_->getStoredDBInfo(BLKDATA, sdbi);
-      if(!sdbi.isInitialized())
-         LOGERR << "How do we have invalid SDBI in applyMods?";
-      else
-      {
-         sdbi.appliedToHgt_  = newAppliedToHeight;
-         iface_->putStoredDBInfo(BLKDATA, sdbi);
-      }
-   }
-
-   iface_->commitBatch(BLKDATA);
-
-   stxToModify.clear();
-   sshToModify.clear();
-   keysToDelete.clear();
-   dbUpdateSize_ = 0;
-}
-                        
-
-////////////////////////////////////////////////////////////////////////////////
-bool BlockDataManager_LevelDB::undoBlockFromDB(StoredUndoData & sud)
-{
-   SCOPED_TIMER("undoBlockFromDB");
-
-   StoredHeader sbh;
-   iface_->getStoredHeader(sbh, sud.blockHeight_, sud.duplicateID_);
-   if(!sbh.blockAppliedToDB_)
-   {
-      LOGERR << "This block was never applied to the DB...can't undo!";
-      return false;
-   }
-
-   map<BinaryData, StoredTx>              stxToModify;
-   map<BinaryData, StoredScriptHistory>   sshToModify;
-   set<BinaryData>                        keysToDelete;
-    
-   // In the future we will accommodate more user modes
-   if(DBUtils.getArmoryDbType() != ARMORY_DB_SUPER)
-   {
-      LOGERR << "Don't know what to do this in non-supernode mode!";
-   }
-   
-
-   ///// Put the STXOs back into the DB which were removed by this block
-   // Process the stxOutsRemovedByBlock_ in reverse order
-   // Use int32_t index so that -1 != UINT32_MAX and we go into inf loop
-   for(int32_t i=sud.stxOutsRemovedByBlock_.size()-1; i>=0; i--)
-   {
-      StoredTxOut & sudStxo = sud.stxOutsRemovedByBlock_[i];
-      StoredTx * stxptr = makeSureSTXInMap( sudStxo.blockHeight_,
-                                            sudStxo.duplicateID_,
-                                            sudStxo.txIndex_,
-                                            sudStxo.parentHash_,
-                                            stxToModify);
-
-      
-      uint16_t stxoIdx = sudStxo.txOutIndex_;
-      map<uint16_t,StoredTxOut>::iterator iter;
-
-
-      if(DBUtils.getDbPruneType() == DB_PRUNE_NONE)
-      {
-         // If full/super, we have the TxOut in DB, just need mark it unspent
-         iter = stxptr->stxoMap_.find(stxoIdx);
-         //if(iter == stxptr->stxoMap_.end())
-         if(ITER_NOT_IN_MAP(iter, stxptr->stxoMap_))
-         {
-            LOGERR << "Expecting to find existing STXO, but DNE";
-            continue;
-         }
-
-         StoredTxOut & stxoReAdd = iter->second;
-         if(stxoReAdd.spentness_ == TXOUT_UNSPENT || 
-            stxoReAdd.spentByTxInKey_.getSize() == 0 )
-         {
-            LOGERR << "STXO needs to be re-added/marked-unspent but it";
-            LOGERR << "was already declared unspent in the DB";
-         }
-         
-         stxoReAdd.spentness_ = TXOUT_UNSPENT;
-         stxoReAdd.spentByTxInKey_ = BinaryData(0);
-      }
-      else
-      {
-         // If we're pruning, we should have the Tx in the DB, but without the
-         // TxOut because it had been pruned by this block on the forward op
-         iter = stxptr->stxoMap_.find(stxoIdx);
-         //if(iter != stxptr->stxoMap_.end())
-         if(ITER_IN_MAP(iter, stxptr->stxoMap_))
-            LOGERR << "Somehow this TxOut had not been pruned!";
-         else
-            iter->second = sudStxo;
-
-         iter->second.spentness_      = TXOUT_UNSPENT;
-         iter->second.spentByTxInKey_ = BinaryData(0);
-      }
-
-
-      ////// Finished updating STX, now update the SSH in the DB
-      // Updating the SSH objects works the same regardless of pruning
-      iter = stxptr->stxoMap_.find(stxoIdx);
-      //if(iter == stxptr->stxoMap_.end())
-      if(ITER_NOT_IN_MAP(iter, stxptr->stxoMap_))
-      {
-         LOGERR << "Somehow STXO DNE even though we should've just added it!";
-         continue;
-      }
-
-      StoredTxOut & stxoReAdd = iter->second;
-      BinaryData uniqKey = stxoReAdd.getScrAddress();
-      BinaryData hgtX    = stxoReAdd.getHgtX();
-      StoredScriptHistory* sshptr = makeSureSSHInMap(uniqKey, hgtX, sshToModify);
-      if(sshptr==NULL)
-      {
-         LOGERR << "No SSH found for marking TxOut unspent on undo";
-         continue;
-      }
-
-      // Now get the TxIOPair in the StoredScriptHistory and mark unspent
-      sshptr->markTxOutUnspent(stxoReAdd.getDBKey(false),
-                               stxoReAdd.getValue(),
-                               stxoReAdd.isCoinbase_,
-                               false);
-
-      
-      // If multisig, we need to update the SSHs for individual addresses
-      if(uniqKey[0] == SCRIPT_PREFIX_MULTISIG)
-      {
-
-         vector<BinaryData> addr160List;
-         BtcUtils::getMultisigAddrList(stxoReAdd.getScriptRef(), addr160List);
-         for(uint32_t a=0; a<addr160List.size(); i++)
-         {
-            // Get the existing SSH or make a new one
-            BinaryData uniqKey = HASH160PREFIX + addr160List[a];
-            StoredScriptHistory* sshms = makeSureSSHInMap(uniqKey, 
-                                                          stxoReAdd.getHgtX(),
-                                                          sshToModify);
-            sshms->markTxOutUnspent(stxoReAdd.getDBKey(false),
-                                    stxoReAdd.getValue(),
-                                    stxoReAdd.isCoinbase_,
-                                    true);
-         }
-      }
-   }
-
-
-   // The OutPoint list is every new, unspent TxOut created by this block.
-   // When they were added, we updated all the StoredScriptHistory objects
-   // to include references to them.  We need to remove them now.
-   // Use int32_t index so that -1 != UINT32_MAX and we go into inf loop
-   for(int16_t itx=sbh.numTx_-1; itx>=0; itx--)
-   {
-      // Ironically, even though I'm using hgt & dup, I still need the hash
-      // in order to key the stxToModify map
-      BinaryData txHash = iface_->getHashForDBKey(sbh.blockHeight_,
-                                                  sbh.duplicateID_,
-                                                  itx);
-
-      StoredTx * stxptr  = makeSureSTXInMap(sbh.blockHeight_,
-                                            sbh.duplicateID_,
-                                            itx, 
-                                            txHash,
-                                            stxToModify);
-
-      for(int16_t txoIdx = stxptr->stxoMap_.size()-1; txoIdx >= 0; txoIdx--)
-      {
-
-         StoredTxOut & stxo    = stxptr->stxoMap_[txoIdx];
-         BinaryData    stxoKey = stxo.getDBKey(false);
-
-   
-         // Then fetch the StoredScriptHistory of the StoredTxOut scraddress
-         BinaryData uniqKey = stxo.getScrAddress();
-         BinaryData hgtX    = stxo.getHgtX();
-         StoredScriptHistory * sshptr = makeSureSSHInMap(uniqKey, 
-                                                         hgtX,
-                                                         sshToModify, 
-                                                         false);
-   
-   
-         // If we are tracking that SSH, remove the reference to this OutPoint
-         if(sshptr != NULL)
-            sshptr->eraseTxio(stxoKey);
-   
-         // Now remove any multisig entries that were added due to this TxOut
-         if(uniqKey[0] == SCRIPT_PREFIX_MULTISIG)
-         {
-            vector<BinaryData> addr160List;
-            BtcUtils::getMultisigAddrList(stxo.getScriptRef(), addr160List);
-            for(uint32_t a=0; a<addr160List.size(); a++)
-            {
-               // Get the individual address obj for this multisig piece
-               BinaryData uniqKey = HASH160PREFIX + addr160List[a];
-               StoredScriptHistory* sshms = makeSureSSHInMap(uniqKey,
-                                                             hgtX,
-                                                             sshToModify, 
-                                                             false);
-               sshms->eraseTxio(stxoKey);
-            }
-         }
-      }
-   }
-
-
-
-   // Check for any SSH objects that are now completely empty.  If they exist,
-   // they should be removed from the DB, instead of simply written as empty
-   // objects
-   findSSHEntriesToDelete(sshToModify, keysToDelete);
-
-
-   // Finally, mark this block as UNapplied.
-   sbh.blockAppliedToDB_ = false;
-   updateBlkDataHeader(sbh);
-   applyModsToDB(stxToModify, sshToModify, keysToDelete);
-
-   return true;
-}
-
-
-
-
-////////////////////////////////////////////////////////////////////////////////
-StoredScriptHistory* BlockDataManager_LevelDB::makeSureSSHInMap(
-                           BinaryDataRef uniqKey,
-                           BinaryDataRef hgtX,
-                           map<BinaryData, StoredScriptHistory> & sshMap,
-                           bool createIfDNE)
-{
-   SCOPED_TIMER("makeSureSSHInMap");
-   StoredScriptHistory * sshptr;
-   StoredScriptHistory   sshTemp;
-
-   // If already in Map
-   map<BinaryData, StoredScriptHistory>::iterator iter = sshMap.find(uniqKey);
-   if(ITER_IN_MAP(iter, sshMap))
-   {
-      SCOPED_TIMER("___SSH_AlreadyInMap");
-      sshptr = &(iter->second);
-   }
-   else
-   {
-      iface_->getStoredScriptHistorySummary(sshTemp, uniqKey);
-      dbUpdateSize_ += UPDATE_BYTES_SSH;
-      if(sshTemp.isInitialized())
-      {
-         SCOPED_TIMER("___SSH_AlreadyInDB");
-         // We already have an SSH in DB -- pull it into the map
-         sshMap[uniqKey] = sshTemp; 
-         sshptr = &sshMap[uniqKey];
-      }
-      else
-      {
-         SCOPED_TIMER("___SSH_NeedCreate");
-         if(!createIfDNE)
-            return NULL;
-
-         sshMap[uniqKey] = StoredScriptHistory(); 
-         sshptr = &sshMap[uniqKey];
-         sshptr->uniqueKey_ = uniqKey;
-      }
-   }
-
-
-   // If sub-history for this block doesn't exist, add an empty one before
-   // returning the pointer to the SSH.  Since we haven't actually inserted
-   // anything into the SubSSH, we don't need to adjust the totalTxioCount_
-   uint32_t prevSize = sshptr->subHistMap_.size();
-   iface_->fetchStoredSubHistory(*sshptr, hgtX, true, false);
-   uint32_t newSize = sshptr->subHistMap_.size();
-
-   dbUpdateSize_ += (newSize - prevSize) * UPDATE_BYTES_SUBSSH;
-   return sshptr;
-}
-
-
-////////////////////////////////////////////////////////////////////////////////
-StoredTx* BlockDataManager_LevelDB::makeSureSTXInMap(
-                                       BinaryDataRef txHash,
-                                       map<BinaryData, StoredTx> & stxMap)
-{
-   // TODO:  If we are pruning, we may have completely removed this tx from
-   //        the DB, which means that it won't be in the map or the DB.
-   //        But this method was written before pruning was ever implemented...
-   StoredTx * stxptr;
-   StoredTx   stxTemp;
-
-   // Get the existing STX or make a new one
-   map<BinaryData, StoredTx>::iterator txIter = stxMap.find(txHash);
-   if(ITER_IN_MAP(txIter, stxMap))
-      stxptr = &(txIter->second);
-   else
-   {
-      iface_->getStoredTx(stxTemp, txHash);
-      stxMap[txHash] = stxTemp;
-      stxptr = &stxMap[txHash];
-      dbUpdateSize_ += stxptr->numBytes_;
-   }
-   
-   return stxptr;
-}
-
-////////////////////////////////////////////////////////////////////////////////
-// This avoids having to do the double-lookup when fetching by hash.
-// We still pass in the hash anyway, because the map is indexed by the hash,
-// and we'd like to not have to do a lookup for the hash if only provided
-// {hgt, dup, idx}
-StoredTx* BlockDataManager_LevelDB::makeSureSTXInMap(
-                                       uint32_t hgt,
-                                       uint8_t  dup,
-                                       uint16_t txIdx,
-                                       BinaryDataRef txHash,
-                                       map<BinaryData, StoredTx> & stxMap)
-{
-   StoredTx * stxptr;
-   StoredTx   stxTemp;
-
-   // Get the existing STX or make a new one
-   map<BinaryData, StoredTx>::iterator txIter = stxMap.find(txHash);
-   if(ITER_IN_MAP(txIter, stxMap))
-      stxptr = &(txIter->second);
-   else
-   {
-      iface_->getStoredTx(stxTemp, hgt, dup, txIdx);
-      stxMap[txHash] = stxTemp;
-      stxptr = &stxMap[txHash];
-      dbUpdateSize_ += stxptr->numBytes_;
-   }
-   
-   return stxptr;
-}
-
-
-////////////////////////////////////////////////////////////////////////////////
-void BlockDataManager_LevelDB::findSSHEntriesToDelete( 
-                     map<BinaryData, StoredScriptHistory> & sshMap,
-                     set<BinaryData> & keysToDelete)
-{
-   vector<BinaryData> fullSSHToDelete(0);
-   map<BinaryData, StoredScriptHistory>::iterator iterSSH;
-   for(iterSSH  = sshMap.begin();
-       iterSSH != sshMap.end();
-       iterSSH++)
-   {
-      StoredScriptHistory & ssh = iterSSH->second;
-      map<BinaryData, StoredSubHistory>::iterator iterSub;
-      for(iterSub = ssh.subHistMap_.begin(); 
-          iterSub != ssh.subHistMap_.end(); 
-          iterSub++)
-      {
-         StoredSubHistory & subssh = iterSub->second;
-         if(subssh.txioSet_.size() == 0)
-            keysToDelete.insert(subssh.getDBKey(true));
-      }
-   
-      // If the full SSH is empty (not just sub history), mark it to be removed
-      if(iterSSH->second.totalTxioCount_ == 0)
-      {
-         fullSSHToDelete.push_back(iterSSH->first);
-         keysToDelete.insert(iterSSH->second.getDBKey(true));
-      }
-   }
-
-   // We have to delete in a separate loop, because we don't want to delete
-   // elements in the map we are iterating over, in the above loop.
-   for(uint32_t i=0; i<fullSSHToDelete.size(); i++)
-      sshMap.erase(fullSSHToDelete[i]);
-}
-
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -6210,14 +6435,4 @@ void BlockDataManager_LevelDB::findSSHEntriesToDelete(
 
 
 
-
-
-
-
-
-
-
-
-
-
-
+// kate: indent-width 3; replace-tabs on;

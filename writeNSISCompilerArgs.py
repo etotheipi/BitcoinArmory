@@ -6,7 +6,7 @@ Created on Sep 24, 2013
 import sys
 from string import join
 sys.argv.append('--nologging')
-from armoryengine import BTCARMORY_VERSION 
+from armoryengine.ArmoryUtils import BTCARMORY_VERSION 
 # need back up 2 directories because this is run from 
 # \cppForSwig\BitcoinArmory_SwigDLL and the output is
 # expected in the base directory

@@ -1,0 +1,85 @@
+Changelog for Developers using the armoryengine codebase
+
+
+-- Refactored code.  To get armoryengine utilities as before, you must use:
+      from armoryengine.ALL import *
+
+-- Method addrStr_to_hash160() used to return just a 20-byte string.  Now it
+   returns both a prefix string.  The prefix is either '\x00' (reg addr), or
+   '\x05' (P2SH addr).  Or the appropriate ones for your network.
+
+-- We have started replacing most things that use "addr160" values with 
+   "scrAddress" values.  "ScrAddr" == Script/Address, and refers to a general
+   TxOut scripts which may not be regular addresses.  Could be P2SH, multisig,
+   or something non-standard.  
+
+-- A scrAddr is unique for a recipient, meaning that if two scripts return 
+   the same scrAddr, it means that the same private keys have control over 
+   it (example:  one TxOut may use pay2pubkey, another may use pay2pubkeyhash.
+   If they are to the same pubkey, they will have the same scrAddr.  
+
+-- Use scrAddr_to_addrStr to convert from this new form to a base58-encoded
+   address-string, if it has such a form (basically, regular adddresses and
+   P2SH).  Will throw a BadAddressError if not.  This is all part of a more
+   general move to handle arbitrary scripts instead of just the standard 
+   Pay2PubKeyHash scripts.  Added a bunch of conversion methods:
+
+      CREATE SCRIPT:
+      
+         hash160_to_p2pkhash_script( a160 )    # DUP HASH <PKHASH> EQUAL CHKSIG
+         hash160_to_p2shStr( a160 )            # HASH <SCRIPTHASH> EQUAL
+         pubkey_to_p2pk_script( a160 )         # <PUBKEY> CHECKSIG
+         scrAddr_to_script( scraddr )          # works for RegAddr and P2SH
+         pubkeylist_to_multisig_script([])     # NOT-TESTED-YET
+
+      ADDR STRINGS:
+
+         scrAddr_to_addrStr(scrAddr)
+         script_to_addrStr(script)
+         addrStr_to_scrAddr(b58str)
+         addrStr_to_hash160(b58str)            # Now returns (PREFIX, 20B)
+         addrStr_is_p2sh(b58str)
+
+      READ SCRIPT: 
+
+         script_to_scrAddr(script)
+         script_to_p2sh_script(script)
+         script_to_addrStr(script)
+
+
+-- Script identification used to be calculated in both the python and C++ 
+   in their own ways.   Now, we have implemented C++ methods to do this, 
+   and leverage those methods through SWIG on the python side.  Wherever
+   you used to use "TXOUT_SCRIPT_*" constants when checking the output of
+   getTxOutScriptType(scr), you now compare against the CPP_TXIN_* and 
+   CPP_TXOUT_* constants listed at the top of cppForSwig/BtcUtils.h, 
+   or around line 400 in armoryengine/ArmoryUtils.py (and listed here!):
+
+      CPP_TXIN_STDUNCOMPR    = 0   # Signature + PubKey65
+      CPP_TXIN_STDCOMPR      = 1   # Signature + PubKey33
+      CPP_TXIN_COINBASE      = 2   # Outpoint is ('00'*32, 'ffffffff')
+      CPP_TXIN_SPENDPUBKEY   = 3   # Signature-only
+      CPP_TXIN_SPENDMULTI    = 4   # OP_0 (M) Sig1 Sig2 ... (N)
+      CPP_TXIN_SPENDP2SH     = 5   # <scriptSolution> <StdTxOutScript>
+      CPP_TXIN_NONSTANDARD   = 6   # Everything else
+
+      CPP_TXOUT_STDHASH160   = 0   # DUP HASH <20B> EQUAL CHKSIG
+      CPP_TXOUT_STDPUBKEY65  = 1   # <PubKey65> CHECKSIG
+      CPP_TXOUT_STDPUBKEY33  = 2   # <PubKey33> CHECKSIG
+      CPP_TXOUT_MULTISIG     = 3   # M <Pub0> ... <PubN> N
+      CPP_TXOUT_P2SH         = 4   # HASH <20B> EQUAL
+      CPP_TXOUT_NONSTANDARD  = 5   # Everything else
+
+   NOTE:  The CPP_TXIN_SPENDP2SH identification should probably be renamed 
+          to CPP_TXIN_PROBP2SH, since it's not *theoretically* 100% reliable.
+          It will be flagged like this only if it is a push-only script,
+          AND the last PushData is, itself, a *STANDARD* TxOut script.  It
+          may very well be a p2sh-spending script but won't be flagged, if 
+          the subscript is non-standard.  This is okay, because the network
+          itself enforces this rule (a P2SH spend is standard, only if the 
+          subscript is standard).  However, I suppose it is possible to have
+          a TxIn script that gets labeled, but is not actually P2SHSPEND.  
+          However, I'm doubtful that such a script could be valid and make
+          it's way through Bitcoin-Qt into the blk*.dat files.
+
+

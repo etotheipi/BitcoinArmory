@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////
 //                                                                            //
-//  Copyright(C) 2011-2013, Armory Technologies, Inc.                         //
+//  Copyright (C) 2011-2014, Armory Technologies, Inc.                        //
 //  Distributed under the GNU Affero General Public License (AGPL v3)         //
 //  See LICENSE or http://www.gnu.org/licenses/agpl.html                      //
 //                                                                            //
@@ -61,6 +61,7 @@
 #include <fstream>
 #include <iostream>
 #include <stdio.h>
+#include "OS_TranslatePath.h"
 
 #define FILEANDLINE "(" << __FILE__ << ":" << __LINE__ << ") "
 #define LOGERR    (LoggerObj(LogLvlError ).getLogStream() << FILEANDLINE )
@@ -129,14 +130,14 @@ public:
    { 
       fname_ = logfile;
       truncateFile(fname_, maxSz);
-      fout_.open(fname_.c_str(), ios::app); 
+      fout_.open(OS_TranslatePath(fname_.c_str()), ios::app); 
       fout_ << "\n\nLog file opened at " << NowTimeInt() << ": " << fname_.c_str() << endl;
    }
 
    
    void truncateFile(string logfile, unsigned long long int maxSizeInBytes)
    {
-      ifstream is(logfile.c_str(), ios::in|ios::binary);
+      ifstream is(OS_TranslatePath(logfile.c_str()), ios::in|ios::binary);
 
       // If file does not exist, nothing to do
       if(!is.is_open())
@@ -155,7 +156,7 @@ public:
       else
       {
          // Otherwise, seek to <maxSize> before end of log file
-         ifstream is(logfile.c_str(), ios::in|ios::binary);
+         ifstream is(OS_TranslatePath(logfile.c_str()), ios::in|ios::binary);
          is.seekg(fsize - maxSizeInBytes);
 
          // Allocate buffer to hold the rest of the file (about maxSizeInBytes)
@@ -166,14 +167,19 @@ public:
          
          // Create temporary file and dump the bytes there
          string tempfile = logfile + string("temp");
-         ofstream os(tempfile.c_str(), ios::out|ios::binary);
+         ofstream os(OS_TranslatePath(tempfile.c_str()), ios::out|ios::binary);
          os.write(lastBytes, bytesToCopy);
          os.close();
          delete[] lastBytes;
 
          // Remove the original and rename the temp file to original
-         remove(logfile.c_str());
-         rename(tempfile.c_str(), logfile.c_str());
+			#ifndef _MSC_VER
+				remove(logfile.c_str());
+				rename(tempfile.c_str(), logfile.c_str());
+			#else
+				_wunlink(OS_TranslatePath(logfile).c_str());
+				_wrename(OS_TranslatePath(tempfile).c_str(), OS_TranslatePath(logfile).c_str());
+			#endif
       }
    }
 
@@ -370,6 +376,7 @@ inline unsigned long long int NowTimeInt(void)
    time(&t);
    return (unsigned long long int)t;
 }
+
 #else
 
 #include <sys/time.h>
