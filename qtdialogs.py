@@ -14212,6 +14212,9 @@ class DlgFactoryReset(ArmoryDialog):
          on the dashboard (8-72 hours depending on your connection)"""))
 
 
+      self.chkSaveSettings = QCheckBox('Do not delete settings files')
+
+
       optFrames = []
       for rdo,txt,lbl in [ \
             [self.rdoSettings,  self.lblSettingsText,  self.lblSettings], \
@@ -14222,6 +14225,9 @@ class DlgFactoryReset(ArmoryDialog):
          txt.setWordWrap(False)
          optLayout.addWidget(makeHorizFrame([rdo, txt, 'Stretch']))
          optLayout.addWidget(lbl, 1,0, 1,3)
+         if len(optFrames)==2:  
+            # Add option to disable deleting settings, on most extreme option
+            optLayout.addWidget(self.chkSaveSettings, 2,0, 1,3)
          optFrames.append(QFrame())
          optFrames[-1].setLayout(optLayout)
          optFrames[-1].setFrameStyle(STYLE_RAISED)
@@ -14292,13 +14298,17 @@ class DlgFactoryReset(ArmoryDialog):
          self.accept()
 
       elif self.rdoBitcoinDB.isChecked():
+         delSetText = 'delete your settings and '
+         if self.chkSaveSettings.isChecked():
+            delSetText = ''
+            
          reply = QMessageBox.warning(self, tr('Confirmation'), tr("""
-            You are about to delete your settings and delete <b>all</b>
+            You are about to %sdelete <b>all</b>
             blockchain databases on your system.  The Bitcoin software will
             have to redownload 15+ GB of blockchain data over the peer-to-peer
             network again which can take from 8 to 72 hours depending on
             your system speed and connection.  <br><br><b>Are you absolutely
-            sure you want to do this?</b>"""), \
+            sure you want to do this?</b>""") % delSetText, \
             QMessageBox.Cancel | QMessageBox.Yes)
 
          if not reply==QMessageBox.Yes:
@@ -14347,7 +14357,9 @@ class DlgFactoryReset(ArmoryDialog):
          #  Always flag the rebuild, and del mempool and settings
          touchFile( os.path.join(ARMORY_HOME_DIR, 'rebuild.flag') )
          touchFile( os.path.join(ARMORY_HOME_DIR, 'clearmempool.flag'))
-         touchFile( os.path.join(ARMORY_HOME_DIR, 'delsettings.flag'))
+         touchFile( os.path.join(ARMORY_HOME_DIR, 'cleartorrent.flag'))
+         if not self.chkSaveSettings.isChecked():
+            touchFile( os.path.join(ARMORY_HOME_DIR, 'delsettings.flag'))
          self.accept()
 
 

@@ -2189,10 +2189,25 @@ class DlgExportAsciiBlock(ArmoryDialog):
 
       # Prepare to send an email with the public key. For now, the email text
       # is the public key and nothing else.
-      urlText = 'mailto:?subject=Armory %s-%s&body=%s' % \
-            (self.exportObj.OBJNAME, self.exportObj.asciiID, self.asciiBlock)
+      urlText = 'mailto:?subject=%s&body=%s\n\n%s' % (self.exportObj.EMAILSUBJ, 
+                                                      self.exportObj.EMAILBODY, 
+                                                      self.asciiBlock)
       finalUrl = QUrl(urlText)
       QDesktopServices.openUrl(finalUrl)
+
+      
+      if not self.main.getSettingOrSetDefault('DNAA_MailtoWarn', False):
+         reply = QMessageBox.warning(self, tr('Email Triggered'), tr("""
+            Armory attempted to execute a "mailto:" link which should trigger
+            your email application or web browser to open a compose-email window 
+            with all the fields pre-filled except the recipient address.  This
+            does not work in all environments.  If no window pops up, you will
+            have to manually copy and paste the text in the box into an email.
+            """), QMessageBox.Ok)
+
+         if reply[1]:
+            self.main.writeSetting('DNAA_MailtoWarn', True)
+
       self.lblCopyMail.setText('<i>Email produced!</i>')
 
 

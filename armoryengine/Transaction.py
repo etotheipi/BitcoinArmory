@@ -1644,6 +1644,17 @@ class UnsignedTransaction(object):
 
    OBJNAME = "UnsignedTx"
    BLKSTRING = "SIGCOLLECT"
+   EMAILSUBJ = 'Armory Multi-sig Transaction to Sign - %s'
+   EMAILBODY = """
+               The chunk of text below is a proposed spending transaction 
+               for which the organizer is requesting your signature.  Open
+               the Lockbox manager in Armory and click on "Review and Sign" 
+               in the bottom row of the dashboard.  Copy this text into the
+               import box, including the first and last lines.  You will be
+               given the opportunity to confirm the transaction before 
+               signing, then you can send the result back to the organizer."""
+           
+               
 
    #############################################################################
    def __init__(self, pytx=None, pubKeyMap=None, txMap=None, p2shMap=None,
