@@ -932,8 +932,12 @@ class DlgLockboxManager(ArmoryDialog):
                                 this lockbox and not all of them are fully 
                                 trusted, click the "Simul" checkbox on the 
                                 left to see the "simulfunding" options."""),
-               'select':  tr('Select a lockbox to fund'),
-               'offline': tr('Must be online to fund')},
+               'select':  tr('Select a lockbox to fund<br>'),
+               'offline': tr('Must be online to fund<br>')},
+               # Added <br> to the labels to force to be two lines... this
+               # is a hack to make sure that the row inits to a reasonable
+               # size on open
+               
 
          'MergeProm':  { \
                'button':  tr('Merge Promissory Notes'),
@@ -1096,7 +1100,7 @@ class DlgLockboxManager(ArmoryDialog):
                def updateFunc(hasSelect, isOnline):
                   # Default to regular label
                   lbltxt = btnMap['lbltxt']
-                  orgtxt = '<font color="%s"><b>Organizer Only</b></font><br>' % \
+                  orgtxt = '<font color="%s"><b>Organizer</b></font><br>' % \
                                                        htmlColor('TextBlue')
 
                   btnMap['BTN'].setText(btnMap['button'])
@@ -1286,31 +1290,39 @@ class DlgLockboxManager(ArmoryDialog):
       if len(self.ledgerView.selectedIndexes())==0:
          return
 
-      actViewTx     = menu.addAction("View Details")
-      actViewBlkChn = menu.addAction("View on www.blockchain.info")
-      actComment    = menu.addAction("Change Comment")
-      actCopyTxID   = menu.addAction("Copy Transaction ID")
       row = self.ledgerView.selectedIndexes()[0].row()
-      action = menu.exec_(QCursor.pos())
 
       txHash = str(self.ledgerView.model().index(row, LEDGERCOLS.TxHash).data().toString())
       txHash = hex_switchEndian(txHash)
       wltID  = str(self.ledgerView.model().index(row, LEDGERCOLS.WltID).data().toString())
 
-      blkchnURL = 'https://blockchain.info/tx/%s' % txHash
+      if USE_TESTNET:
+         blkExploreTitle = 'View on blockexplorer.com'
+         blkExploreURL   = 'http://blockexplorer.com/testnet/tx/%s' % txHash
+      else:
+         blkExploreTitle = 'View on blockchain.info'
+         blkExploreURL   = 'https://blockchain.info/tx/%s' % txHash
+
+
+      actViewTx     = menu.addAction("View Details")
+      actViewBlkChn = menu.addAction(blkExploreTitle)
+      actComment    = menu.addAction("Change Comment")
+      actCopyTxID   = menu.addAction("Copy Transaction ID")
+      action = menu.exec_(QCursor.pos())
+
 
       if action==actViewTx:
          self.showLedgerTx()
       elif action==actViewBlkChn:
          try:
-            webbrowser.open(blkchnURL)
+            webbrowser.open(blkExploreURL)
          except:
             LOGEXCEPT('Failed to open webbrowser')
             QMessageBox.critical(self, 'Could not open browser', \
                'Armory encountered an error opening your web browser.  To view '
                'this transaction on blockchain.info, please copy and paste '
                'the following URL into your browser: '
-               '<br><br>%s' % blkchnURL, QMessageBox.Ok)
+               '<br><br>%s' % blkExploreURL, QMessageBox.Ok)
       elif action==actCopyTxID:
          clipb = QApplication.clipboard()
          clipb.clear()
@@ -1326,13 +1338,14 @@ class DlgLockboxManager(ArmoryDialog):
       adv = (self.main.usermode == USERMODE.Advanced)
       dev = (self.main.usermode == USERMODE.Expert)
 
-      if True:  actionCopyAddr = menu.addAction("Copy P2SH Address")
-      if True:  actionShowQRCode = menu.addAction("Display P2SH Address QR Code")
-      if True:  actionBlkChnInfo = menu.addAction("View P2SH Address on www.blockchain.info")
-      if True:  actionReqPayment = menu.addAction("Request Payment to this P2SH Address")
-      if dev:   actionCopyHash160 = menu.addAction("Copy Hash160 (hex)")
-      if dev:   actionCopyPubKey  = menu.addAction("Copy Lock Box ID")
-      if True:  actionCopyBalance = menu.addAction("Copy Balance")
+      
+
+      if True:  actionCopyAddr    = menu.addAction("Copy P2SH address")
+      if True:  actionShowQRCode  = menu.addAction("Display address QR code")
+      if True:  actionBlkChnInfo  = menu.addAction("View address on %s" % BLOCKEXPLORE_NAME)
+      if True:  actionReqPayment  = menu.addAction("Request payment to this lockbox")
+      if dev:   actionCopyHash160 = menu.addAction("Copy hash160 value (hex)")
+      if True:  actionCopyBalance = menu.addAction("Copy balance")
       selectedIndexes = self.lboxView.selectedIndexes()
       if len(selectedIndexes)>0:
          idx = selectedIndexes[0]
@@ -1353,27 +1366,47 @@ class DlgLockboxManager(ArmoryDialog):
          if action == actionCopyAddr:
             clippy = p2shAddr
          elif action == actionBlkChnInfo:
+            urlToOpen = BLOCKEXPLORE_URL_ADDR % p2shAddr
             try:
                import webbrowser
-               blkchnURL = 'https://blockchain.info/address/%s' % p2shAddr
-               webbrowser.open(blkchnURL)
+               webbrowser.open(urlToOpen)
             except:
-               QMessageBox.critical(self, 'Could not open browser', \
-                  'Armory encountered an error opening your web browser.  To view '
-                  'this address on blockchain.info, please copy and paste '
-                  'the following URL into your browser: '
-                  '<br><br>%s' % blkchnURL, QMessageBox.Ok)
+               QMessageBox.critical(self, tr('Could not open browser'), tr("""
+                  Armory encountered an error opening your web browser.  To view 
+                  this address on %s, please copy and paste 
+                  the following URL into your browser: 
+                  <br><br>
+                  <a href="%s">%s</a>""") % (BLOCKEXPLORE_NAME, urlToOpen, 
+                  urlToOpen), QMessageBox.Ok)
             return
          elif action == actionShowQRCode:
             DlgQRCodeDisplay(self, self.main, p2shAddr, p2shAddr, createLockboxEntryStr(lboxId)).exec_()
             return
          elif action == actionReqPayment:
+            if not self.main.getSettingOrSetDefault('DNAA_P2SHCompatWarn', False):
+               oldStartChar = "'m' or 'n'" if USE_TESTNET else "'1'"
+               newStartChar = "'2'"        if USE_TESTNET else "'3'"
+               reply = MsgBoxWithDNAA(MSGBOX.Warning, tr('Compatibility Warning'), 
+                  tr("""You are about to request payment to a "P2SH" address 
+                  which is the format used for receiving to multi-signature
+                  addresses/lockboxes.  "P2SH" are like regular Bitcoin 
+                  addresses but start with %s instead of %s.
+                  <br><br>
+                  Unfortunately, not all software and services support sending 
+                  to P2SH addresses.  If the sender or service indicates   
+                  an error sending to this address, you might have to request
+                  payment to a regular wallet address and then send the funds
+                  from that wallet to the lockbox once it is confirmed.""") % \
+                  (newStartChar, oldStartChar), 
+                  dnaaMsg=tr('Do not show this message again'))
+               
+               if reply[1]==True:
+                  self.main.writeSetting('DNAA_P2SHCompatWarn', True)
+         
             DlgRequestPayment(self, self.main, p2shAddr).exec_()
             return
          elif dev and action == actionCopyHash160:
             clippy = binary_to_hex(addrStr_to_hash160(p2shAddr)[1])
-         elif dev and action == actionCopyPubKey:
-            clippy = lboxId
          elif action == actionCopyBalance:
             clippy = getModelStr(LOCKBOXCOLS.Balance)
          else:
@@ -2138,6 +2171,7 @@ class DlgExportAsciiBlock(ArmoryDialog):
       txt.setMinimumWidth(w)
       txt.setMinimumHeight(h*9)
       txt.setPlainText(self.asciiBlock)
+      txt.setReadOnly(True)
 
       self.lblCopyMail = QRichLabel('')
       btnCopy = QPushButton(tr("Copy to Clipboard"))
@@ -2189,21 +2223,20 @@ class DlgExportAsciiBlock(ArmoryDialog):
 
       # Prepare to send an email with the public key. For now, the email text
       # is the public key and nothing else.
-      urlText = 'mailto:?subject=%s&body=%s\n\n%s' % (self.exportObj.EMAILSUBJ, 
-                                                      self.exportObj.EMAILBODY, 
-                                                      self.asciiBlock)
+      subj = tr(self.exportObj.EMAILSUBJ) % self.exportObj.asciiID
+      body = tr(self.exportObj.EMAILBODY)
+      urlText = 'mailto:?subject=%s&body=%s\n\n%s' % (subj, body, self.asciiBlock)
       finalUrl = QUrl(urlText)
       QDesktopServices.openUrl(finalUrl)
 
       
       if not self.main.getSettingOrSetDefault('DNAA_MailtoWarn', False):
-         reply = QMessageBox.warning(self, tr('Email Triggered'), tr("""
+         reply = MsgBoxWithDNAA(MSGBOX.Warning, tr('Email Triggered'), tr("""
             Armory attempted to execute a "mailto:" link which should trigger
             your email application or web browser to open a compose-email window 
-            with all the fields pre-filled except the recipient address.  This
-            does not work in all environments.  If no window pops up, you will
-            have to manually copy and paste the text in the box into an email.
-            """), QMessageBox.Ok)
+            This does not work in all environments, and you might have to 
+            manually copy and paste the text in the box into an email.
+            """), dnaaMsg=tr('Do not show this message again'), dnaaStartChk=True)
 
          if reply[1]:
             self.main.writeSetting('DNAA_MailtoWarn', True)
@@ -2931,8 +2964,11 @@ class DlgMultiSpendReview(ArmoryDialog):
 class DlgCreatePromNote(ArmoryDialog):
 
    #############################################################################
-   def __init__(self, parent, main, defaultID=None):
+   def __init__(self, parent, main, defaultID=None, skipExport=False):
       super(DlgCreatePromNote, self).__init__(parent, main)
+
+      self.finalPromNote = None
+      self.skipExport = skipExport
 
       lblDescr  = QRichLabel(tr("""
          <font color="%s" size=4><b>Create Simulfunding Promissory Note
@@ -3249,30 +3285,33 @@ class DlgCreatePromNote(ArmoryDialog):
          
 
       funderStr = str(self.edtKeyLabel.text()).strip()
-      prom = MultiSigPromissoryNote(dtxoTarget, feeAmt, ustxiList, dtxoChange,
-                                                                    funderStr)
+      self.finalPromNote = MultiSigPromissoryNote(dtxoTarget, feeAmt, 
+                                       ustxiList, dtxoChange, funderStr)
                                           
 
-      LOGINFO('Successfully created prom note: %s' % prom.promID)
+      LOGINFO('Successfully created prom note: %s' % self.finalPromNote.promID)
 
-      title = tr("Export Promissory Note")
-      descr = tr("""
-         The text below includes all the data needed to represent your
-         contribution to a simulfunding transaction.  Your money cannot move
-         because you have not signed anything, yet.  Once all promissory
-         notes are collected, you will be able to review the entire funding 
-         transaction before signing.""")
-         
-      ftypes = ['Promissory Notes (*.promnote)']
-      defaultFN = 'Contrib_%s_%sBTC.promnote' % \
-            (prom.promID, coin2strNZS(valueAmt))
-         
-
-      if not DlgExportAsciiBlock(self, self.main, prom, title, descr,    
-                                                ftypes, defaultFN).exec_():
-         return False
-      else:
+      if self.skipExport:
          self.accept()
+      else:
+         title = tr("Export Promissory Note")
+         descr = tr("""
+            The text below includes all the data needed to represent your
+            contribution to a simulfunding transaction.  Your money cannot move
+            because you have not signed anything, yet.  Once all promissory
+            notes are collected, you will be able to review the entire funding 
+            transaction before signing.""")
+         
+         ftypes = ['Promissory Notes (*.promnote)']
+         defaultFN = 'Contrib_%s_%sBTC.promnote' % \
+               (self.finalPromNote.promID, coin2strNZS(valueAmt))
+            
+   
+         if not DlgExportAsciiBlock(self, self.main, self.finalPromNote, title, 
+                                             descr, ftypes, defaultFN).exec_():
+            return False
+         else:
+            self.accept()
       
       
 
@@ -3379,9 +3418,11 @@ class DlgMergePromNotes(ArmoryDialog):
       self.promLoadStacked.addWidget(self.promView)
       self.updatePromTable()
 
-      btnImport = QPushButton(tr('Add Promissory Note'))
-      self.connect(btnImport, SIGNAL('clicked()'), self.addPromNote)
-      frmImport = makeHorizFrame(['Stretch', btnImport, 'Stretch'])
+      btnImport = QPushButton(tr('Import Promissory Note'))
+      btnCreate = QPushButton(tr('Create && Add Promissory Note'))
+      self.connect(btnImport, SIGNAL('clicked()'), self.importNote)
+      self.connect(btnCreate, SIGNAL('clicked()'), self.createPromAdd)
+      frmImport = makeHorizFrame(['Stretch', btnImport, btnCreate, 'Stretch'])
 
       btnCancel = QPushButton(tr('Cancel'))
       self.chkBareMS = QCheckBox(tr('Use bare multisig (no P2SH)'))
@@ -3394,7 +3435,7 @@ class DlgMergePromNotes(ArmoryDialog):
                                    btnFinish])
 
       # If this was opened with default lockbox, set visibility, save ms script
-      # If opened generic, this will be set first time addPromNote() is called
+      # If opened generic, this will be set first time importNote() is called
       self.chkBareMS.setVisible(False)
       if self.lbox is not None:
          self.chkBareMS.setVisible(True)
@@ -3419,7 +3460,7 @@ class DlgMergePromNotes(ArmoryDialog):
       
       
    #############################################################################
-   def addPromNote(self):
+   def importNote(self):
       title = tr('Import Promissory Note')
       descr = tr("""
          Import a promissory note to add to this simulfunding transaction""") 
@@ -3432,19 +3473,47 @@ class DlgMergePromNotes(ArmoryDialog):
          promnote = dlgImport.returnObj
          promnote.pprint()
 
-      # 
       if not promnote:
          QMessageBox.critical(self, tr('Invalid Promissory Note'), tr("""
             No promissory note was loaded."""), QMessageBox.Ok)
          return
       
-      # 
+
+      self.addNote(promnote)
+
+
+   #############################################################################
+   def createPromAdd(self):
+      if not TheBDM.getBDMState()=='BlockchainReady':
+         QMessageBox.warning(self, tr("Not Online"), tr("""
+            Armory is currently in offline mode and cannot create any 
+            transactions or promissory notes.  You can only merge 
+            pre-existing promissory notes at this time."""), QMessageBox.Ok)
+         return
+            
+  
+      lbID = None
+      if self.promMustMatch:
+         for lbox in self.main.allLockboxes:
+            if lbox.p2shScrAddr == self.promMustMatch:
+               lbID = lbox.uniqueIDB58
+               
+         
+      dlg = DlgCreatePromNote(self, self.main, lbID, skipExport=True)
+      dlg.exec_()
+      if dlg.finalPromNote:
+         self.addNote(dlg.finalPromNote)
+      
+
+
+   #############################################################################
+   def addNote(self, promnote):
+      
       if promnote.promID in self.promIDSet:
          QMessageBox.critical(self, tr('Already Loaded'), tr(""" This 
             promissory note has already been loaded!"""), QMessageBox.Ok)
          return
 
-      
       # reduceScript returns the same scrAddr for a bare multi-sig as it does
       # for it's P2SH form
       targetScript = promnote.dtxoTarget.binScript 
@@ -3497,6 +3566,7 @@ class DlgMergePromNotes(ArmoryDialog):
       self.lblCurrFee.setValueText(self.cumulFee, maxZeros=2, wBold=True)
 
       self.updatePromTable()
+
 
 
    #############################################################################

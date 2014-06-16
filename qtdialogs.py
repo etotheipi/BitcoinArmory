@@ -1892,7 +1892,7 @@ class DlgWalletDetails(ArmoryDialog):
 
       if True:  actionCopyAddr = menu.addAction("Copy Address")
       if True:  actionShowQRCode = menu.addAction("Display Address QR Code")
-      if True:  actionBlkChnInfo = menu.addAction("View Address on www.blockchain.info")
+      if True:  actionBlkChnInfo = menu.addAction("View Address on %s" % BLOCKEXPLORE_NAME)
       if True:  actionReqPayment = menu.addAction("Request Payment to this Address")
       if dev:   actionCopyHash160 = menu.addAction("Copy Hash160 (hex)")
       if dev:   actionCopyPubKey  = menu.addAction("Copy Public Key (hex)")
@@ -1913,16 +1913,17 @@ class DlgWalletDetails(ArmoryDialog):
       if action == actionCopyAddr:
          clippy = addr
       elif action == actionBlkChnInfo:
+         blkchnURL = BLOCKEXPLORE_URL_ADDR % addr
          try:
             import webbrowser
-            blkchnURL = 'https://blockchain.info/address/%s' % addr
             webbrowser.open(blkchnURL)
          except:
-            QMessageBox.critical(self, 'Could not open browser', \
-               'Armory encountered an error opening your web browser.  To view '
-               'this address on blockchain.info, please copy and paste '
-               'the following URL into your browser: '
-               '<br><br>%s' % blkchnURL, QMessageBox.Ok)
+            QMessageBox.critical(self, tr('Could not open browser'), tr("""
+               Armory encountered an error opening your web browser.  To view 
+               this address on blockchain.info, please copy and paste 
+               the following URL into your browser: 
+               <br><br>
+               <a href="%s">%s</a>""") % (blkchnURL, blkchnURL), QMessageBox.Ok)
          return
       elif action == actionShowQRCode:
          wltstr = 'Wallet: %s (%s)' % (self.wlt.labelName, self.wlt.uniqueIDB58)
@@ -5080,13 +5081,14 @@ def excludeChange(outputPairs, wlt):
 class DlgConfirmSend(ArmoryDialog):
 
    def __init__(self, wlt, scriptValPairs, fee, parent=None, main=None, \
-                                          sendNow=False, changeBehave=None):
+                                          sendNow=False):
       super(DlgConfirmSend, self).__init__(parent, main)
       layout = QGridLayout()
       lblInfoImg = QLabel()
       lblInfoImg.setPixmap(QPixmap(':/MsgBox_info48.png'))
       lblInfoImg.setAlignment(Qt.AlignHCenter | Qt.AlignTop)
       
+      changeRemoved = False
       sendPairs = []
       returnPairs = []
       for script,val in scriptValPairs:
@@ -5102,58 +5104,60 @@ class DlgConfirmSend(ArmoryDialog):
             # We assume that anything without an addrStr is going external
             sendPairs.append([script,val])
 
-      if changeBehave:
-         for i in range(len(sendPairs)):
-            if sendPairs[i][0]==changeBehave[0]:
-               del sendPairs[i]
-               break
-         for i in range(len(returnPairs)):
-            if returnPairs[i][0]==changeBehave[0]:
-               del returnPairs[i]
-               break
-      
+      # If there are more than 3 return pairs then this is a 1%'er tx we should
+      # not presume to know which pair is change. It's a weird corner case so
+      # it's best to leave it alone. 
+      # 0 return is an exact change tx, no need to deal with it so this 
+      # chunk of code that removes change only cares about 1 and 2 return pairs.
+      # if 1 remove it, if 2 remove the one with a higher index.
+      # Exception: IF no send pairs, it's a tx for max to a single internal address
+      if len(returnPairs) == 1 and len(sendPairs) > 0:
+         returnPairs = []
+         changeRemoved = True
+      elif len(returnPairs) == 2:
+         returnPairs = excludeChange(returnPairs, wlt)
+         changeRemoved = True
+         
       lblMsg = QRichLabel('')         
-      totalSend = sum([val for script,val in sendPairs]) + fee
-      sumStr = coin2str(totalSend, maxZeros=1)
+      totalSendFromWallet = sum([val for script,val in sendPairs]) + fee
+      totalSend = totalSendFromWallet + sum([val for script,val in returnPairs])
+      sendFromWalletStr = coin2str(totalSendFromWallet, maxZeros=1)
+      changeRemovedText =  '<br><br>Change has been removed from the table below.<br>' +\
+         '<a href="https://bitcoinarmory.com/all-about-change">Click here to read ' +\
+         'more about how Armory handles change.</a>' \
+         if changeRemoved else ''
+       
       if len(returnPairs) > 0:
-         if changeBehave is None and self.main.usermode == USERMODE.Expert:
-            lblMsg.setText(tr("""
-               This transaction will spend <b>%s BTC</b> from 
-               <font color="%s">Wallet "<b>%s</b>" (%s)</font>.
-               <br><br><b>Note:</b> Starred entries in the below list are 
-               going to the same wallet from which they came, and thus have 
-               no effect on your overall balance. When using Expert usermode 
-               features, Armory cannot always distinguish the starred outputs 
-               from the change address.""") % \
-               (sumStr, htmlColor('TextBlue'), wlt.labelName, wlt.uniqueIDB58))
-         else:
-            lblMsg.setText(tr("""
-               This transaction will spend <b>%s BTC</b> from 
-               <font color="%s">Wallet "<b>%s</b>" (%s)</font>.
-               <br><br><b>Note:</b> Any starred outputs are are going to the
-               same wallet from which they came, and will have no effect on
-               the wallet's overall balance.""") % \
-               (sumStr, htmlColor('TextBlue'), wlt.labelName, wlt.uniqueIDB58))
+         lblMsg.setText(tr("""
+            This transaction will spend <b>%s BTC</b> from 
+            <font color="%s">Wallet "<b>%s</b>" (%s)</font>.
+            <br><br><b>Note:</b> Any starred outputs are are going to the
+            same wallet from which they came, and will have no effect on
+            the wallet's overall balance. %s""") % \
+            (sendFromWalletStr, htmlColor('TextBlue'), wlt.labelName, wlt.uniqueIDB58, changeRemovedText))
       else:
          lblMsg.setText(tr("""
             This transaction will spend <b>%s BTC</b> from 
             <font color="%s">Wallet "<b>%s</b>" (%s)</font>.
-            to the following recipients:""") % \
-            (sumStr, htmlColor('TextBlue'), wlt.labelName, wlt.uniqueIDB58))
+            to the following recipients: %s""") % \
+            (sendFromWalletStr, htmlColor('TextBlue'), wlt.labelName, wlt.uniqueIDB58, changeRemovedText))
 
       addrColWidth = 50
 
       recipLbls = []
       ffixBold = GETFONT('Fixed')
       ffixBold.setWeight(QFont.Bold)
-      sendPairs.extend(returnPairs)
-      for script,val in sendPairs:
+      for script,val in sendPairs + returnPairs:
          displayInfo = self.main.getDisplayStringForScript(script, addrColWidth)
          dispStr = displayInfo['String'].ljust(addrColWidth)
-         if [script,val] in returnPairs:
-            dispStr = '*'+dispStr
+
 
          coinStr = coin2str(val, rJust=True, maxZeros=4)
+         if [script,val] in returnPairs:
+            dispStr = '*'+dispStr
+            # Need to line up the columns when a star is added.
+            if coinStr[0] == ' ':
+               coinStr = coinStr[1:]
          recipLbls.append(QLabel(dispStr + coinStr))
          recipLbls[-1].setFont(ffixBold)
 
@@ -5165,9 +5169,13 @@ class DlgConfirmSend(ArmoryDialog):
          recipLbls[-1].setFont(GETFONT('Fixed'))
 
       recipLbls.append(HLINE(QFrame.Sunken))
-      recipLbls.append(QLabel('Total bitcoins Sent: '.ljust(addrColWidth) +
-                        coin2str(totalSend, rJust=True, maxZeros=4)))
+      recipLbls.append(QLabel('Total bitcoins to send from Wallet: '.ljust(addrColWidth) +
+                        coin2str(totalSendFromWallet, rJust=True, maxZeros=4)))
       recipLbls[-1].setFont(GETFONT('Fixed'))
+      if len(returnPairs) > 0:
+         recipLbls.append(QLabel('Total bitcoins to send: '.ljust(addrColWidth) +
+                           coin2str(totalSend, rJust=True, maxZeros=4)))
+         recipLbls[-1].setFont(GETFONT('Fixed'))
 
       lblLastConfirm = QLabel('Are you sure you want to execute this transaction?')
 
@@ -5176,23 +5184,6 @@ class DlgConfirmSend(ArmoryDialog):
       else:
          self.btnAccept = QPushButton('Continue')
          lblLastConfirm.setText('')
-
-
-      # Acknowledge if the user has selected a non-std change location
-      lblSpecialChange = QRichLabel('')
-      if self.main.usermode == USERMODE.Expert and changeBehave:
-         changeScript = changeBehave[0]
-         if len(changeScript) > 0:
-            displayInfo = self.main.getDisplayStringForScript(changeScript, 60)
-            changeDispStr = displayInfo['String']
-
-         chngBehaveStr = changeBehave[1]
-         if chngBehaveStr == 'Feedback':
-            lblSpecialChange.setText('*Change will be sent back to first input address')
-         elif chngBehaveStr == 'Specify':
-            lblSpecialChange.setText('*Change will be sent to %s' % changeDispStr)
-         elif chngBehaveStr == NO_CHANGE:
-            lblSpecialChange.setText('(This transaction is exact -- there are no change outputs)')
 
       self.btnCancel = QPushButton("Cancel")
       self.connect(self.btnAccept, SIGNAL(CLICKED), self.accept)
@@ -5206,7 +5197,6 @@ class DlgConfirmSend(ArmoryDialog):
       frmRight = makeVertFrame([ lblMsg, \
                                   'Space(20)', \
                                   frmTable, \
-                                  lblSpecialChange, \
                                   'Space(10)', \
                                   lblLastConfirm, \
                                   'Space(10)', \
@@ -8118,8 +8108,9 @@ class DlgAddressBook(ArmoryDialog):
       self.tabWidget.addTab(self.addrBookRxView, 'Receiving (Mine)')
       if not selectMineOnly:
          self.tabWidget.addTab(self.addrBookTxView, 'Sending (Other\'s)')
-      # DISPLAY Lockboxes
-      if showLockBoxes:
+      # DISPLAY Lockboxes - Regardles off what showLockBoxes says only show
+      # Lockboxes in Expert mode
+      if showLockBoxes and self.main.usermode == USERMODE.Expert:
          self.lboxModel = LockboxDisplayModel(self.main, \
                                     self.main.allLockboxes, \
                                     self.main.getPreferredDateFormat())
@@ -11025,7 +11016,8 @@ class QRadioButtonBackupCtr(QRadioButton):
                                           # htmlColor('Background'))
 
 
-# Class that will eventually product the window 
+# Class that might eventually handle the watch-only wallet data. Chances are
+# this will eventually get nuked, but just in case....
 ################################################################################
 class DlgRootPKCCExpCenter(ArmoryDialog):
 
@@ -11044,13 +11036,40 @@ class DlgRootPKCCExpCenter(ArmoryDialog):
       frmBottomBtns = makeHorizFrame([STRETCH, self.btnDone])
 
       layoutDialog = QVBoxLayout()
-      layoutDialog.addWidget(self.walletRootPKCCExpFrame)
+      layoutDialog.addWidget(self.walletPKCCExpFrame)
       layoutDialog.addWidget(frmBottomBtns)
 
       self.setLayout(layoutDialog)
       self.setWindowTitle("Watch-Only Data Export Center")
       self.setMinimumSize(640, 350)
 
+
+################################################################################
+class DlgBackupCenter(ArmoryDialog):
+
+   #############################################################################
+   def __init__(self, parent, main, wlt):
+      super(DlgBackupCenter, self).__init__(parent, main)
+
+      self.wlt = wlt
+      wltID = wlt.uniqueIDB58
+      wltName = wlt.labelName
+
+      self.walletBackupFrame = WalletBackupFrame(parent, main)
+      self.walletBackupFrame.setWallet(wlt)
+      self.btnDone = QPushButton('Done')
+      self.connect(self.btnDone, SIGNAL(CLICKED), self.reject)
+      frmBottomBtns = makeHorizFrame([STRETCH, self.btnDone])
+
+      layoutDialog = QVBoxLayout()
+
+      layoutDialog.addWidget(self.walletBackupFrame)
+
+      layoutDialog.addWidget(frmBottomBtns)
+
+      self.setLayout(layoutDialog)
+      self.setWindowTitle("Backup Center")
+      self.setMinimumSize(640, 350)
 
 ################################################################################
 class DlgSimpleBackup(ArmoryDialog):
@@ -13413,7 +13432,7 @@ class DlgReplaceWallet(ArmoryDialog):
 
       oldpath = os.path.join(homedir, self.WalletID, datestr)
       try: 
-         if not os.path.exists(oldPath):
+         if not os.path.exists(oldpath):
             os.makedirs(oldpath)
       except:
          LOGEXCEPT('Cannot create new folder in dataDir! Missing credentials?')

@@ -46,15 +46,22 @@ class LockboxSelectFrame(ArmoryFrame):
          lbl.setText('<b>' + str(lbls[i].text()) + '</b>')
          layoutDetails.addWidget(lbl, i+1, 0)
          
+      # LockboxID
       self.dispID = QRichLabel(spendFromLBID)
+
+      # Lockbox Short Description/Name
       self.dispName = QRichLabel(self.lbox.shortName)
       self.dispName.setWordWrap(True)
-      # This line fixes squished text when word wrapping
       self.dispName.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
-      self.dispDescr = QRichLabel(self.lbox.longDescr)
+
+      # Lockbox long descr
+      dispDescr = self.lbox.longDescr[:253]
+      if len(self.lbox.longDescr)>253:
+         dispDescr += '...'
+      self.dispDescr = QRichLabel(dispDescr)
       self.dispDescr.setWordWrap(True)
-      # This line fixes squished text when word wrapping
       self.dispDescr.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
+
       bal = self.cppWlt.getSpendableBalance(self.main.currBlockNum, IGNOREZC)
       self.dispBal = QMoneyLabel(bal, wBold=True)
       self.dispBal.setTextFormat(Qt.RichText)

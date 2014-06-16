@@ -12,7 +12,6 @@
 # Orig Date:  20 November, 2011
 #
 ################################################################################
-#from armoryengine.MultiSigUtils import MultiSigLockbox
 import ast
 from datetime import datetime
 from email.MIMEMultipart import MIMEMultipart
@@ -40,6 +39,7 @@ import time
 import traceback
 import shutil
 import base64
+import socket
 
 #from psutil import Popen
 import psutil
@@ -49,7 +49,7 @@ from qrcodenative import QRCode, QRErrorCorrectLevel
 
 
 # Version Numbers
-BTCARMORY_VERSION    = (0, 91,  99, 4)  # (Major, Minor, Bugfix, AutoIncrement)
+BTCARMORY_VERSION    = (0, 91,  99, 5)  # (Major, Minor, Bugfix, AutoIncrement)
 PYBTCWALLET_VERSION  = (1, 35,  0, 0)  # (Major, Minor, Bugfix, AutoIncrement)
 
 ARMORY_DONATION_ADDR = '1ArmoryXcfq7TnCSuZa9fQjRYwJ4bkRKfv'
@@ -442,6 +442,11 @@ if not USE_TESTNET:
    ADDRBYTE = '\x00'
    P2SHBYTE = '\x05'
    PRIVKEYBYTE = '\x80'
+
+   # This will usually just be used in the GUI to make links for the user
+   BLOCKEXPLORE_NAME     = 'blockchain.info'
+   BLOCKEXPLORE_URL_TX   = 'https://blockchain.info/tx/%s'
+   BLOCKEXPLORE_URL_ADDR = 'https://blockchain.info/address/%s'
 else:
    BITCOIN_PORT = 18333
    BITCOIN_RPC_PORT = 18332
@@ -454,6 +459,11 @@ else:
    ADDRBYTE = '\x6f'
    P2SHBYTE = '\xc4'
    PRIVKEYBYTE = '\xef'
+
+   # 
+   BLOCKEXPLORE_NAME     = 'blockexplorer.com'
+   BLOCKEXPLORE_URL_TX   = 'http://blockexplorer.com/testnet/tx/%s'
+   BLOCKEXPLORE_URL_ADDR = 'http://blockexplorer.com/testnet/address/%s'
 
 # These are the same regardless of network
 # They are the way data is stored in the database which is network agnostic
@@ -506,6 +516,8 @@ CPP_TXIN_SCRIPT_NAMES[CPP_TXIN_SPENDPUBKEY] = 'Plain Signature'
 CPP_TXIN_SCRIPT_NAMES[CPP_TXIN_SPENDMULTI]  = 'Spend Multisig'
 CPP_TXIN_SCRIPT_NAMES[CPP_TXIN_SPENDP2SH]   = 'Spend P2SH'
 CPP_TXIN_SCRIPT_NAMES[CPP_TXIN_NONSTANDARD] = 'Non-Standard'
+
+
 
 
 ################################################################################
@@ -1567,8 +1579,24 @@ def unicode_truncate(theStr, length, encoding='utf-8'):
     encoded = theStr.encode(encoding)[:length]
     return encoded.decode(encoding, 'ignore')
 
-################################################################################
 
+#############################################################################
+def satoshiIsAvailable(host='127.0.0.1', port=BITCOIN_PORT, timeout=0.01):
+
+   if not isinstance(port, (list,tuple)):
+      port = [port]
+
+   for p in port:
+      s = socket.socket()
+      s.settimeout(timeout)   # Most of the time checking localhost -- FAST
+      try:
+         s.connect((host, p))
+         s.close()
+         return p
+      except:
+         pass
+
+   return 0
 
 
 # This is a sweet trick for create enum-like dictionaries.
@@ -1717,9 +1745,6 @@ def prettyHex(theStr, indent='', withAddr=True, major=8, minor=8):
    return outStr
 
 
-
-
-
 ################################################################################
 def pprintHex(theStr, indent='', withAddr=True, major=8, minor=8):
    """
@@ -1735,7 +1760,6 @@ def pprintHex(theStr, indent='', withAddr=True, major=8, minor=8):
    print prettyHex(theStr, indent, withAddr, major, minor)
 
 
-
 def pprintDiff(str1, str2, indent=''):
    if not len(str1)==len(str2):
       print 'pprintDiff: Strings are different length!'
@@ -1749,8 +1773,6 @@ def pprintDiff(str1, str2, indent=''):
          byteDiff.append('X')
 
    pprintHex(''.join(byteDiff), indent=indent)
-
-
 
 
 ##### Switch endian-ness #####

@@ -207,7 +207,7 @@ class MultiSigLockbox(object):
 
    OBJNAME   = 'Lockbox'
    BLKSTRING = 'LOCKBOX'
-   EMAILSUBJ = 'Armory Lockbox Definition - %d-of-%d ID=%s'
+   EMAILSUBJ = 'Armory Lockbox Definition - %s'
    EMAILBODY = """
                The chunk of text below is a complete lockbox definition 
                needed to track the balance of this multi-sig lockbox, as well
@@ -227,12 +227,12 @@ class MultiSigLockbox(object):
       self.commentList = commList
       self.createDate = long(RightNow()) if createDate is None else createDate
       self.magicBytes = MAGIC_BYTES
-
-      if script is not None:
-         self.setParams(script, name, descr, commList)
-
       self.uniqueIDB58 = None
       self.asciiID     = None
+
+
+      if script is not None:
+         self.setParams(script, name, descr, commList, createDate)
 
    #############################################################################
    def setParams(self, script, name=None, descr=None, commList=None, \

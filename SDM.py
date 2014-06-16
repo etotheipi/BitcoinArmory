@@ -19,27 +19,9 @@ from armoryengine.ArmoryUtils import BITCOIN_PORT, LOGERROR, hex_to_binary, \
    BITCOIN_RPC_PORT, binary_to_base58, isASCII, USE_TESTNET, GIGABYTE, \
    launchProcess, killProcessTree, killProcess, LOGWARN, RightNow, HOUR, \
    PyBackgroundThread, touchFile, DISABLE_TORRENTDL, secondsToHumanTime, \
-   bytesToHumanSize, MAGIC_BYTES, deleteBitcoindDBs, TheTDM, ARMORY_HOME_DIR
+   bytesToHumanSize, MAGIC_BYTES, deleteBitcoindDBs, TheTDM, satoshiIsAvailable,\
+   MEGABYTE, ARMORY_HOME_DIR
 from bitcoinrpc_jsonrpc import authproxy
-
-
-#############################################################################
-def satoshiIsAvailable(host='127.0.0.1', port=BITCOIN_PORT, timeout=0.01):
-
-   if not isinstance(port, (list,tuple)):
-      port = [port]
-
-   for p in port:
-      s = socket.socket()
-      s.settimeout(timeout)   # Most of the time checking localhost -- FAST
-      try:
-         s.connect((host, p))
-         s.close()
-         return p
-      except:
-         pass
-
-   return 0
 
 
 ################################################################################
