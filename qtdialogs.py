@@ -1585,10 +1585,10 @@ class DlgWalletDetails(ArmoryDialog):
       lbtnImportA = QLabelButton('Import/Sweep Private Keys')
       lbtnDeleteA = QLabelButton('Remove Imported Address')
       # lbtnSweepA  = QLabelButton('Sweep Wallet/Address')
-      lbtnForkWlt = QLabelButton('Create Watching-Only Copy')
+      lbtnExpWOWlt = QLabelButton('Export Watching-Only Copy')
       lbtnBackups = QLabelButton('<b>Backup This Wallet</b>')
       lbtnRemove = QLabelButton('Delete/Remove Wallet')
-      lbtnExpRootPKCC = QLabelButton('Export Watching-Only Data')
+#      lbtnExpRootPKCC = QLabelButton('Export Watching-Only Data')
       #lbtnRecover = QLabelButton('Recover Password Wallet')
 
       # LOGERROR('remove me!')
@@ -1600,10 +1600,10 @@ class DlgWalletDetails(ArmoryDialog):
       self.connect(lbtnBackups, SIGNAL(CLICKED), self.execBackupDlg)
       # self.connect(lbtnBackups, SIGNAL(CLICKED), fnfrag)
       self.connect(lbtnRemove, SIGNAL(CLICKED), self.execRemoveDlg)
-      self.connect(lbtnExpRootPKCC, SIGNAL(CLICKED), self.execExpRootPKCC)
+#      self.connect(lbtnExpRootPKCC, SIGNAL(CLICKED), self.execExpWOCopy)
       self.connect(lbtnImportA, SIGNAL(CLICKED), self.execImportAddress)
       self.connect(lbtnDeleteA, SIGNAL(CLICKED), self.execDeleteAddress)
-      self.connect(lbtnForkWlt, SIGNAL(CLICKED), self.forkOnlineWallet)
+      self.connect(lbtnExpWOWlt, SIGNAL(CLICKED), self.execExpWOCopy)
       #self.connect(lbtnRecover, SIGNAL(CLICKED), self.recoverPwd)
 
       lbtnSendBtc.setToolTip('<u></u>Send bitcoins to other users, or transfer '
@@ -1622,18 +1622,18 @@ class DlgWalletDetails(ArmoryDialog):
                              'this wallet.  You cannot delete addresses that '
                              'were generated natively by this wallet.')
       # lbtnSweepA .setToolTip('')
-      lbtnForkWlt.setToolTip('<u></u>Save a copy of this wallet that can only be used '
-                             'for generating addresses and monitoring incoming '
-                             'payments.  A watching-only wallet cannot spend '
-                             'the funds, and thus cannot be compromised by an '
-                             'attacker')
+      lbtnExpWOWlt.setToolTip('<u></u>Export a copy of this wallet that can '
+                             'only be used for generating addresses and '
+                             'monitoring incoming payments.  A watching-only '
+                             'wallet cannot spend the funds, and thus cannot '
+                             'be compromised by an attacker')
       lbtnBackups.setToolTip('<u></u>See lots of options for backing up your wallet '
                              'to protect the funds in it.')
       lbtnRemove.setToolTip('<u></u>Permanently delete this wallet, or just delete '
                             'the private keys to convert it to a watching-only '
                             'wallet.')
-      lbtnExpRootPKCC.setToolTip('<u></u>Export the data of this watching-only '
-                                 'wallet.')
+#      lbtnExpRootPKCC.setToolTip('<u></u>Export the data of this watching-only '
+#                                 'wallet.')
       #lbtnRecover.setToolTip('<u></u>Attempt to recover a lost password using '
       #                      'details that you remember.')
       if not self.wlt.watchingOnly:
@@ -1659,7 +1659,7 @@ class DlgWalletDetails(ArmoryDialog):
       if True:              optLayout.addWidget(createVBoxSeparator())
 
       if hasPriv:           optLayout.addWidget(lbtnBackups)
-      if hasPriv and adv:   optLayout.addWidget(lbtnForkWlt)
+      if hasPriv and adv:   optLayout.addWidget(lbtnExpWOWlt)
       if True:              optLayout.addWidget(lbtnRemove)
       # if True:              optLayout.addWidget(lbtnRecover)
       # Not sure yet that we want to include the password finer in here
@@ -1668,7 +1668,7 @@ class DlgWalletDetails(ArmoryDialog):
 
       if hasPriv and adv:   optLayout.addWidget(lbtnImportA)
       if hasPriv and adv:   optLayout.addWidget(lbtnDeleteA)
-      if adv:               optLayout.addWidget(lbtnExpRootPKCC)
+#      if adv:               optLayout.addWidget(lbtnExpRootPKCC)
       # if hasPriv and adv:   optLayout.addWidget(lbtnSweepA)
 
       optLayout.addStretch()
@@ -2131,7 +2131,6 @@ class DlgWalletDetails(ArmoryDialog):
 
 
    def execImportAddress(self):
-
       # if TheBDM.getBDMState()=='Scanning':
          # QMessageBox.warning(self, 'Armory Not Ready',
             # 'Armory is currently in the process of scanning the blockchain '
@@ -2168,7 +2167,7 @@ class DlgWalletDetails(ArmoryDialog):
 
 
    #############################################################################
-   def execExpRootPKCC(self):
+   def execExpWOCopy(self):
       '''Function executed when a user executes the \"Export Public Key & Chain
          Code\" option.'''
       # This should never happen....
@@ -2178,13 +2177,8 @@ class DlgWalletDetails(ArmoryDialog):
                              QMessageBox.Ok)
          return
 
-      # Proceed to the actual export center, where the heavy lifting will occur.
-      # NB: This is not the final version! For now, we're hopping directly to
-      # the digital output version, as printing isn't enabled yet. Once printing
-      # is enabled, we'll keep the digital backup code but move it and other
-      # things around.
-      # dlg = DlgRootPKCCExpCenter(self.wlt, self, self.main)
-      dlg = DlgRootPKCCExpDigital(self.wlt, self, self.main)
+      # Proceed to the actual export center.
+      dlg = DlgExpWOWltData(self.wlt, self, self.main)
       if dlg.exec_():
          pass  # Once executed, we're done.
 
@@ -2198,19 +2192,6 @@ class DlgWalletDetails(ArmoryDialog):
          self.wlt.writeFreshWalletFile(savePath)
          self.main.statusBar().showMessage(\
             'Successfully copied wallet to ' + savePath, 10000)
-
-
-   def forkOnlineWallet(self):
-      currPath = self.wlt.walletPath
-      pieces = os.path.splitext(currPath)
-      currPath = pieces[0] + '.watchonly' + pieces[1]
-
-      saveLoc = self.main.getFileSave('Save Watching-Only Copy', \
-                                      defaultFilename=currPath)
-      if not saveLoc.endswith('.wallet'):
-         saveLoc += '.wallet'
-      self.wlt.forkOnlineWallet(saveLoc, self.wlt.labelName, \
-                             '(Watching-Only) ' + self.wlt.labelDescr)
 
 
 #   def recoverPwd(self):
@@ -2366,9 +2347,6 @@ class DlgWalletDetails(ArmoryDialog):
 
          self.connect(self.labelValues[WLTFIELDS.BelongsTo], SIGNAL(CLICKED), \
                       self.execSetOwner)
-
-
-
 
       if dispCrypto:
          self.labelValues[WLTFIELDS.Time] = QLabelButton('Click to Test')
@@ -7461,15 +7439,22 @@ def OpenPaperBackupWindow(backupType, parent, main, wlt, unlockTitle=None):
       verifyText = tr("""
          If the backup was printed with SecurePrint\xe2\x84\xa2, please
          make sure you wrote the SecurePrint\xe2\x84\xa2 code on the
-         printed sheet of paper.  Note that the code <b><u>is</u></b>
+         printed sheet of paper. Note that the code <b><u>is</u></b>
          case-sensitive!""")
    elif backupType == 'Frag':
       result = DlgFragBackup(parent, main, wlt).exec_()
       verifyText = tr("""
          If the backup was created with SecurePrint\xe2\x84\xa2, please
          make sure you wrote the SecurePrint\xe2\x84\xa2 code on each
-         fragment (or stored with each file fragment).   The code is the
+         fragment (or stored with each file fragment). The code is the
          same for all fragments.""")
+   elif backupType == 'Watch-Only':
+      result = DlgWOBackup(parent, main, wlt).exec_()
+      verifyText = tr("""
+         If the backup was created with SecurePrint\xe2\x84\xa2, please
+         make sure you wrote the SecurePrint\xe2\x84\xa2 code on each
+         printed sheet of paper. Note that the code <b><u>is</u></b>
+         case-sensitive!""")
 
    doTest = MsgBoxCustom(MSGBOX.Warning, tr('Verify Your Backup!'), tr("""
       <b><u>Verify your backup!</u></b>
@@ -7493,8 +7478,10 @@ def OpenPaperBackupWindow(backupType, parent, main, wlt, unlockTitle=None):
    if doTest:
       if backupType == 'Single':
          DlgRestoreSingle(parent, main, True, wlt.uniqueIDB58).exec_()
-      if backupType == 'Frag':
+      elif backupType == 'Frag':
          DlgRestoreFragged(parent, main, True, wlt.uniqueIDB58).exec_()
+#      elif backupType == 'Watch-Only':
+#         DlgRestoreWO(parent, main, True, wlt.uniqueIDB58).exec_()
 
    return result
 
@@ -10992,9 +10979,6 @@ class DlgDownloadFile(ArmoryDialog):
             self.lblSteps[self.STEPS.Verify][1].setPixmap(QPixmap(':/MsgBox_error32.png').scaled(20, 20))
 
 
-
-
-
 ################################################################################
 class QRadioButtonBackupCtr(QRadioButton):
    def __init__(self, parent, txt, index):
@@ -11014,34 +10998,6 @@ class QRadioButtonBackupCtr(QRadioButton):
       # self.parent.setDispFrame(-1)
       # self.setStyleSheet('QRadioButton { background-color : %s }' % \
                                           # htmlColor('Background'))
-
-
-# Class that might eventually handle the watch-only wallet data. Chances are
-# this will eventually get nuked, but just in case....
-################################################################################
-class DlgRootPKCCExpCenter(ArmoryDialog):
-
-   #############################################################################
-   def __init__(self, parent, main, wlt):
-      super(DlgRootPKCCExpCenter, self).__init__(parent, main)
-
-      self.wlt = wlt
-      #wltID = wlt.uniqueIDB58
-      #wltName = wlt.labelName
-
-      self.walletPKCCExpFrame = WalletRootPKCCExpFrame(parent, main)
-      self.walletPKCCExpFrame.setWallet(wlt)
-      self.btnDone = QPushButton('Done')
-      self.connect(self.btnDone, SIGNAL(CLICKED), self.reject)
-      frmBottomBtns = makeHorizFrame([STRETCH, self.btnDone])
-
-      layoutDialog = QVBoxLayout()
-      layoutDialog.addWidget(self.walletPKCCExpFrame)
-      layoutDialog.addWidget(frmBottomBtns)
-
-      self.setLayout(layoutDialog)
-      self.setWindowTitle("Watch-Only Data Export Center")
-      self.setMinimumSize(640, 350)
 
 
 ################################################################################
@@ -11157,18 +11113,20 @@ class DlgSimpleBackup(ArmoryDialog):
       self.setWindowTitle(tr('Backup Options'))
 
 
-# Class that produces a dialog with the root public key & chain code data to be
-# exported via digital means (i.e., writing to or copying & pasting to a file).
+# Class that acts as a center where the user can decide what to do with the
+# watch-only wallet. The data can be displayed, printed, or saved to a file as a
+# wallet or as the watch-only data (i.e., root key & chain code).
 ################################################################################
-class DlgRootPKCCExpDigital(ArmoryDialog):
+class DlgExpWOWltData(ArmoryDialog):
    """
    This dialog will be used to export a wallet's root public key and chain code.
    """
    def __init__(self, wlt, parent, main):
-      super(DlgRootPKCCExpDigital, self).__init__(parent, main)
+      super(DlgExpWOWltData, self).__init__(parent, main)
 
       # Save a copy of the wallet.
-      self.wltToExp = wlt
+      self.wlt = wlt
+      self.main = main
 
       # Get the chain code and uncompressed public key of info from the wallet,
       # along with other useful info.
@@ -11176,8 +11134,13 @@ class DlgRootPKCCExpDigital(ArmoryDialog):
       wltIDB58 = wlt.uniqueIDB58
 
       # Create the data export button.
-      self.expButton = QPushButton('Export Data to File')
-      self.connect(self.expButton, SIGNAL(CLICKED), self.clickedExpButton)
+      self.expWltButton = QLabelButton('Export Watch-Only Wallet to File')
+      self.expDataButton = QLabelButton('Export Watch-Only Data to File')
+      self.printWODataButton = QLabelButton('Print Watch-Only Data')
+      self.connect(self.expWltButton, SIGNAL(CLICKED), self.clickedExpWlt)
+      self.connect(self.expDataButton, SIGNAL(CLICKED), self.clickedExpData)
+      self.connect(self.printWODataButton, SIGNAL(CLICKED), \
+                   self.clickedPrintWOData)
 
       # Let's put the window together.
       layout = QVBoxLayout()
@@ -11189,7 +11152,7 @@ class DlgRootPKCCExpDigital(ArmoryDialog):
                      (headerSz, htmlColor('TextBlue'), headerStr), \
                      doWrap=True, hAlign=Qt.AlignHCenter)
 
-      self.dispText = 'Wallet ID:<br>%s<br>Key/Chain Data:' % \
+      self.dispText = 'Watch-Only Data ID:<br>%s<br>Key/Chain Data:' % \
          tr(wltRootIDConcat)
       for j in pkccET16Lines:
          self.dispText += '<br><b>%s</b>' % tr(j)
@@ -11204,12 +11167,16 @@ class DlgRootPKCCExpDigital(ArmoryDialog):
       layout.addWidget(HLINE())
       layout.addWidget(self.txtLongDescr)
       layout.addItem(QSpacerItem(20, 20))
-      layout.addWidget(self.expButton)
+      layout.addWidget(self.expWltButton)
+      layout.addWidget(self.expDataButton)
+      layout.addWidget(self.printWODataButton)
       layout.setStretch(0, 0)
       layout.setStretch(1, 0)
       layout.setStretch(2, 1)
       layout.setStretch(3, 0)
       layout.setStretch(4, 0)
+      layout.setStretch(5, 0)
+      layout.setStretch(6, 0)
       self.setLayout(layout)
       self.setMinimumWidth(400)
 
@@ -11221,13 +11188,235 @@ class DlgRootPKCCExpDigital(ArmoryDialog):
 
       self.setWindowTitle(titleStr)
 
+
    def resizeEvent(self, ev=None):
-      super(DlgRootPKCCExpDigital, self).resizeEvent(ev)
+      super(DlgExpWOWltData, self).resizeEvent(ev)
       vbar = self.txtLongDescr.verticalScrollBar()
       vbar.setValue(vbar.minimum())
 
-   def clickedExpButton(self):
-      self.main.makeWalletCopy(self, self.wltToExp, 'PKCC', 'pkcc')
+
+   def clickedExpData(self):
+      self.main.makeWalletCopy(self, self.wlt, 'PKCC', 'pkcc')
+
+
+   # CLEAN UP???
+   def clickedPrintWOData(self):
+      self.result = DlgWODataPrintBackup(self, self.main, self.wlt).exec_()
+
+
+   def clickedExpWlt(self):
+      currPath = self.wlt.walletPath
+      pieces = os.path.splitext(currPath)
+      currPath = pieces[0] + '.watchonly' + pieces[1]
+
+      saveLoc = self.main.getFileSave('Save Watching-Only Copy', \
+                                      defaultFilename=currPath)
+      if not saveLoc.endswith('.wallet'):
+         saveLoc += '.wallet'
+      self.wlt.forkOnlineWallet(saveLoc, self.wlt.labelName, \
+                                '(Watching-Only) ' + self.wlt.labelDescr)
+
+
+################################################################################
+class DlgWODataPrintBackup(ArmoryDialog):
+   """
+   Open up a "Make Paper Backup" dialog, so the user can print out a hard
+   copy of whatever data they need to recover their wallet should they lose
+   it.
+   """
+   def __init__(self, parent, main, wlt):
+      super(DlgWODataPrintBackup, self).__init__(parent, main)
+
+      self.wlt = wlt
+
+      # Create the scene and the view.
+      self.scene = SimplePrintableGraphicsScene(self, self.main)
+      self.view = QGraphicsView()
+      self.view.setRenderHint(QPainter.TextAntialiasing)
+      self.view.setScene(self.scene.getScene())
+
+      # Label displayed above the sheet to be printed.
+      lblDescr = QRichLabel(tr("""
+         <b><u>Print a Forever-Backup</u></b><br><br>
+         Printing this sheet protects all <u>previous <b>and</b> future</u>
+         addresses generated by this watch-only wallet! You can copy the "Root
+         Key" and "Chaincode" by hand if a working printer is not available.
+         Please make sure that all data lines contain <b>9 columns</b> of
+         <b>4 characters each</b>."""))
+      lblDescr.setContentsMargins(5, 5, 5, 5)
+      frmDescr = makeHorizFrame([lblDescr], STYLE_RAISED)
+
+      # Buttons shown below the sheet to be printed.
+      btnPrint = QPushButton('&Print...')
+      btnPrint.setMinimumWidth(3 * tightSizeStr(btnPrint, 'Print...')[0])
+      self.btnCancel = QPushButton('&Cancel')
+      self.connect(btnPrint, SIGNAL(CLICKED), self.print_)
+      self.connect(self.btnCancel, SIGNAL(CLICKED), self.reject)
+      frmButtons = makeHorizFrame([self.btnCancel, STRETCH, btnPrint])
+
+      # Draw the sheet??? (FOLLOW UP!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!)
+      self.redrawBackup()
+
+      # Lay out the dialog.
+      layout = QVBoxLayout()
+      layout.addWidget(frmDescr)
+      layout.addWidget(self.view)
+      layout.addWidget(frmButtons)
+      setLayoutStretch(layout, 0, 1, 0)
+      self.setLayout(layout)
+      self.setWindowIcon(QIcon(':/printer_icon.png'))
+      self.setWindowTitle('Print Watch-Only Data Backup')
+
+      # Apparently I can't programmatically scroll until after it's painted
+      def scrollTop():
+         vbar = self.view.verticalScrollBar()
+         vbar.setValue(vbar.minimum())
+      from twisted.internet import reactor
+      reactor.callLater(0.01, scrollTop)
+
+
+   def redrawBackup(self):
+      self.createPrintScene()
+      self.view.update()
+
+
+   def print_(self):
+      LOGINFO('Printing!')
+      self.printer = QPrinter(QPrinter.HighResolution)
+      self.printer.setPageSize(QPrinter.Letter)
+
+      if QPrintDialog(self.printer).exec_():
+         painter = QPainter(self.printer)
+         painter.setRenderHint(QPainter.TextAntialiasing)
+
+         self.createPrintScene()
+         self.scene.getScene().render(painter)
+         painter.end()
+         self.accept()
+
+
+   # IS THIS NEEDED????
+   def accept(self):
+      super(DlgWODataPrintBackup, self).accept()
+
+
+   # IS THIS NEEDED????
+   def reject(self):
+      super(DlgWODataPrintBackup, self).reject()
+
+
+   #############################################################################
+   def createPrintScene(self):
+      # Do initial setup.
+      self.scene.gfxScene.clear()
+      self.scene.resetCursor()
+
+      # Draw the background paper?
+      pr = self.scene.pageRect()
+      self.scene.drawRect(pr.width(), pr.height(), edgeColor=None, \
+                          fillColor=QColor(255, 255, 255))
+      self.scene.resetCursor()
+
+      INCH = self.scene.INCH
+      MARGIN = self.scene.MARGIN_PIXELS
+
+      # Start drawing the page.
+      if USE_TESTNET:
+         self.scene.drawPixmapFile(':/armory_logo_green_h56.png')
+      else:
+         self.scene.drawPixmapFile(':/armory_logo_h36.png')
+      self.scene.newLine()
+
+      self.scene.drawText('Paper Backup for Armory Wallet', GETFONT('Var', 11))
+      self.scene.newLine()
+      self.scene.drawText('http://www.bitcoinarmory.com')
+
+      self.scene.newLine(extra_dy=20)
+      self.scene.drawHLine()
+      self.scene.newLine(extra_dy=20)
+
+      # Print the wallet info.
+      bType = tr('Watch-Only Data')
+      colRect, rowHgt = self.scene.drawColumn(['Wallet ID:', \
+                                               'Wallet Name:', 'Backup Type:'])
+      self.scene.moveCursor(15, 0)
+      colRect, rowHgt = self.scene.drawColumn([self.wlt.uniqueIDB58, \
+                                               self.wlt.labelName, bType])
+      self.scene.moveCursor(15, colRect.y() + colRect.height(), absolute=True)
+
+      # Display warning about unprotected key data.
+      wrap = 0.9 * self.scene.pageRect().width()
+      warnMsg = tr("""
+         <font color="#aa0000"><b>WARNING:</b></font> Anyone who has access to
+         this page can view your wallet's balance!  Please keep this page in a
+         safe place.""")
+      self.scene.newLine()
+      self.scene.drawText(warnMsg, GETFONT('Var', 9), wrapWidth=wrap)
+
+      self.scene.newLine(extra_dy=20)
+      self.scene.drawHLine()
+      self.scene.newLine(extra_dy=20)
+
+      # Draw the description of the data.
+      descrMsg = tr("""
+         The following five lines back up all addresses
+         <i>ever generated</i> by this watch-only wallet (previous and future).
+         This can be used to recover your wallet if you forget your passphrase or
+         suffer hardware failure and lose your wallet files. """)
+      self.scene.drawText(descrMsg, GETFONT('var', 8), wrapWidth=wrap)
+      self.scene.newLine(extra_dy=10)
+
+      # Prepare the data.
+      self.wltRootIDConcat, self.pkccET16Lines = self.wlt.getRootPKCCBackupData(True)
+      Lines = []
+      Prefix = []
+      Prefix.append('Watch-Only ID:');  Lines.append(self.wltRootIDConcat)
+      Prefix.append('Watch-Only Data'); Lines.append(self.pkccET16Lines[0])
+      Prefix.append('');                Lines.append(self.pkccET16Lines[1])
+      Prefix.append('');                Lines.append(self.pkccET16Lines[2])
+      Prefix.append('');                Lines.append(self.pkccET16Lines[3])
+
+      # Draw the prefix data.
+      origX, origY = self.scene.getCursorXY()
+      self.scene.moveCursor(20, 0)
+      colRect, rowHgt = self.scene.drawColumn(['<b>' + l + '</b>' \
+                                               for l in Prefix])
+
+      # Draw the data.
+      nudgeDown = 2  # because the differing font size makes it look unaligned
+      self.scene.moveCursor(20, nudgeDown)
+      self.scene.drawColumn(Lines,
+                              font=GETFONT('Fixed', 8, bold=True), \
+                              rowHeight=rowHgt,
+                              useHtml=False)
+
+      # Draw the rectangle around the data.
+      self.scene.moveCursor(MARGIN, colRect.y() - 2, absolute=True)
+      width = self.scene.pageRect().width() - 2 * MARGIN
+      self.scene.drawRect(width, colRect.height() + 7, \
+                          edgeColor=QColor(0, 0, 0), fillColor=None)
+
+      # Draw the QR-related text below the data.
+      self.scene.newLine(extra_dy=30)
+      self.scene.drawText(tr("""
+         The following QR code is for convenience only.  It contains the
+         exact same data as the five lines above.  If you copy this backup
+         by hand, you can safely ignore this QR code. """), wrapWidth=4 * INCH)
+
+      # Draw the QR code.
+      self.scene.moveCursor(20, 0)
+      x, y = self.scene.getCursorXY()
+      edgeRgt = self.scene.pageRect().width() - MARGIN
+      edgeBot = self.scene.pageRect().height() - MARGIN
+      qrSize = max(1.5 * INCH, min(edgeRgt - x, edgeBot - y, 2.0 * INCH))
+      self.scene.drawQR('\n'.join(Lines), qrSize)
+      self.scene.newLine(extra_dy=25)
+
+      # Clear the data and create a vertical scroll bar.
+      Lines = None
+      vbar = self.view.verticalScrollBar()
+      vbar.setValue(vbar.minimum())
+      self.view.update()
 
 
 ################################################################################
@@ -12128,7 +12317,7 @@ class DlgRestorePKCC(ArmoryDialog):
          the data from a file."""))
 
       # Create the line that will contain the imported ID.
-      self.rootIDLabel = QRichLabel(tr('Root ID:'), doWrap=False)
+      self.rootIDLabel = QRichLabel(tr('Watch-Only ID:'), doWrap=False)
       self.rootIDLine = QLineEdit()
       self.rootIDLine.setFont(GETFONT('Fixed', 9))
       self.rootIDFrame = makeHorizFrame([STRETCH, self.rootIDLabel, \
@@ -12190,7 +12379,7 @@ class DlgRestorePKCC(ArmoryDialog):
          self.setWindowTitle('Restore Watch-Only Wallet Backup')
 
       # Set final window layout options.
-      self.setMinimumWidth(500)
+      self.setMinimumWidth(550)
       self.layout().setSizeConstraint(QLayout.SetFixedSize)
 
 
@@ -12221,7 +12410,7 @@ class DlgRestorePKCC(ArmoryDialog):
    def verifyUserInput(self):
       '''Function that verifies the input for a root public key/chain code
          restoration validation.'''
-      inRootIDData = ''
+      inRootChecked = ''
       inputLines = []
       nError = 0
       rawBin = None
@@ -12230,6 +12419,7 @@ class DlgRestorePKCC(ArmoryDialog):
 
       # Read in the root ID data and handle any errors.
       try:
+         print 'DOUG DEBUG: Text=%s' % str(self.rootIDLine.text())
          rawID = easyType16_to_binary(str(self.rootIDLine.text()))
          if len(rawID) != 9:
             raise ValueError('Must supply 9 byte input for the ID')
@@ -12299,7 +12489,9 @@ class DlgRestorePKCC(ArmoryDialog):
       root = PyBtcAddress().createFromPublicKeyData(rootPubKey)
       root.chaincode = rootChainCode
       first = root.extendAddressChain()
-      newWltID = binary_to_base58(inRootIDData)
+      newWltID = binary_to_base58(inRootID)
+
+      print 'DOUG DEBUG: newWltID=%s' % (newWltID)
 
       # Stop here if this was just a test
       if self.thisIsATest:
@@ -14681,17 +14873,3 @@ from ui.WalletFrames import SelectWalletFrame, WalletBackupFrame,\
 from ui.TxFrames import  SendBitcoinsFrame, SignBroadcastOfflineTxFrame,\
    ReviewOfflineTxFrame
 from ui.MultiSigDialogs import DlgMultiSpendReview
-
-
-
-
-
-
-
-
-
-
-
-
-
-
