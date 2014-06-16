@@ -3,9 +3,11 @@ Created on Oct 8, 2013
 
 @author: Andy
 '''
+import sys
+sys.path.append('..')
 import os
 import unittest
-from pytest.Tiab import TiabTest, TOP_TIAB_BLOCK
+from pytest.Tiab import TiabTest, TOP_TIAB_BLOCK, FIRST_WLT_BALANCE
 from armoryengine.ArmoryUtils import *
 from armoryd import AmountToJSON, Armory_Json_Rpc_Server, JSONtoAmount
 from armoryengine.BDM import TheBDM
@@ -25,7 +27,6 @@ TIAB_DIR = '.\\tiab'
 TEST_TIAB_DIR = '.\\test\\tiab'
 NEED_TIAB_MSG = "This Test must be run with J:/Development_Stuff/bitcoin-testnet-boxV2.7z (Armory jungle disk). Copy to the test directory."
 
-EXPECTED_TIAB_BALANCE = 964.8997
 EXPECTED_TIAB_NEXT_ADDR = 'muEePRR9ShvRm2nqeiJyD8pJRHPuww2ECG'
 EXPECTED_UNSPENT_TX = '4434b3eab23189af20d56a81a7bc5ac560f42f4097a90f834535cb94a8d5578201000000'
 
@@ -80,6 +81,9 @@ class ArmoryDTiabTest(TiabTest):
       self.wlt = PyBtcWallet().readWalletFile(self.fileA, doScanNow=True)
       self.jsonServer = Armory_Json_Rpc_Server(self.wlt)
       TheBDM.registerWallet(self.wlt)
+      
+   def testCreateLockbox(self):
+      actualResult = self.jsonServer.jsonrpc_createlockbox(2, 3, )
    
    def  testReceivedfromaddress(self):
       result = self.jsonServer.jsonrpc_receivedfromaddress(TIAB_WLT_3_ADDR_3)
@@ -110,7 +114,7 @@ class ArmoryDTiabTest(TiabTest):
       self.assertEqual(info['bdmstate'], 'BlockchainReady')
       self.assertEqual(info['walletversion'], 13500000)
       self.assertEqual(info['difficulty'], 1.0)
-      self.assertEqual(info['balance'], EXPECTED_TIAB_BALANCE)
+      self.assertEqual(info['balance'], FIRST_WLT_BALANCE)
       
    def testListtransactions(self):
       txList = self.jsonServer.jsonrpc_listtransactions(100)
@@ -187,14 +191,14 @@ class ArmoryDTiabTest(TiabTest):
       self.assertEqual(actualResult, EXPECTED_TIAB_NEXT_ADDR)
       
    def testGetBalance(self):
-      ballances = {'spendable' : EXPECTED_TIAB_BALANCE, \
-                   'spend' : EXPECTED_TIAB_BALANCE, \
+      ballances = {'spendable' : FIRST_WLT_BALANCE, \
+                   'spend' : FIRST_WLT_BALANCE, \
                    'unconf' : 0, \
                    'unconfirmed' :  0, \
-                   'total' : EXPECTED_TIAB_BALANCE, \
-                   'ultimate'  :  EXPECTED_TIAB_BALANCE, \
-                   'unspent' :  EXPECTED_TIAB_BALANCE, \
-                   'full' :  EXPECTED_TIAB_BALANCE}
+                   'total' : FIRST_WLT_BALANCE, \
+                   'ultimate'  :  FIRST_WLT_BALANCE, \
+                   'unspent' :  FIRST_WLT_BALANCE, \
+                   'full' :  FIRST_WLT_BALANCE}
       for ballanceType in ballances.keys():
          result = self.jsonServer.jsonrpc_getbalance(ballanceType)
          self.assertEqual(result,

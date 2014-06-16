@@ -3,6 +3,8 @@ Created on Oct 8, 2013
 
 @author: Andy
 '''
+import sys
+sys.path.append('..')
 import os
 import time
 from pytest.Tiab import TiabTest
