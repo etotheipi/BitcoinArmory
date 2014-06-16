@@ -1102,6 +1102,7 @@ class UnsignedTxInput(object):
 
    #############################################################################
    def setSignature(self, msIndex, sigStr):
+      LOGDEBUG('Setting signature in key index: %d' % msIndex)
       self.signatures[msIndex] = sigStr
 
 
@@ -1209,7 +1210,7 @@ class UnsignedTxInput(object):
          raise SignatureError('No TxIn in tx that matches this USTXI')
 
       msg,hc = generatePreHashTxMsgToSign(pytx, txiIdx, 
-               self.getTxoScriptToSign(), hashcode)
+                                    self.getTxoScriptToSign(), hashcode)
       sbdSig = CryptoECDSA().SignData(SecureBinaryData(msg), sbdPrivKey)
       binSig = sbdSig.toBinStr()
       return createDERSigFromRS(binSig[:32], binSig[32:]) + hc
@@ -1217,13 +1218,23 @@ class UnsignedTxInput(object):
 
    #############################################################################
    def insertSignature(self, sigStr, pubKey):
-      try:
-         msIdx = self.pubKeys.index(pubKey)
-      except ValueError:
-         return -1
-
-      self.setSignature(msIdx, sigStr)
-      return msIdx
+      """
+      Returns -1 if no sig can be added, index of last sig added otherwise 
+      (usually only one sig added, but if this is a multisig and has repeated
+      public keys, it will insert the sig in every slot for which it is valid)
+      """
+      msIdx = -1
+      
+      while(True):
+         try:
+            newIdx = self.pubKeys.index(pubKey, msIdx+1)
+         except ValueError:
+            # Eventually we run out of slots to insert into and error out.    
+            # Since we're using [].index(), exception-control-flow is easiest
+            return msIdx
+   
+         msIdx = newIdx
+         self.setSignature(msIdx, sigStr)
 
 
    #############################################################################
@@ -1643,7 +1654,19 @@ class UnsignedTransaction(object):
    """
 
    OBJNAME = "UnsignedTx"
-   BLKSTRING = "SIGCOLLECT"
+   BLKSTRING = "TXSIGCOLLECT"
+   EMAILSUBJ = 'Armory Multi-sig Transaction to Sign - %s'
+   EMAILBODY = """
+               The chunk of text below is a proposed spending transaction 
+               with all signatures available so far.  Open
+               the Lockbox manager in Armory and click on "Review and Sign" 
+               in the bottom row of the dashboard.  Copy this text into the
+               import box, including the first and last lines.  You will be
+               given the opportunity to confirm the transaction before 
+               signing.  After it is signed, click "Export" in the bottom-right
+               corner and send it back to me."""
+           
+               
 
    #############################################################################
    def __init__(self, pytx=None, pubKeyMap=None, txMap=None, p2shMap=None,
@@ -1943,15 +1966,15 @@ class UnsignedTransaction(object):
 
    #############################################################################
    def serializeAscii(self):
-      headStr = 'TXSIGCOLLECT-%s' % self.uniqueIDB58
+      headStr = '%s-%s' % (self.BLKSTRING, self.uniqueIDB58)
       return makeAsciiBlock(self.serialize(), headStr)
 
    #############################################################################
    def unserializeAscii(self, ustxBlock):
-      headStr,rawData = readAsciiBlock(ustxBlock, 'TXSIGCOLLECT')
+      headStr,rawData = readAsciiBlock(ustxBlock, self.BLKSTRING)
       if rawData is None:
-         LOGERROR('Expected header str "TXSIGCOLLECT", got "%s"' % headStr)
-         return None
+         LOGERROR('Expected str "%s", got "%s"' % (self.BLKSTRING, headStr))
+         raise UnserializeError('Unexpected BLKSTRING')
 
       expectID = headStr.split('-')[-1]
       return self.unserialize(rawData, expectID)
@@ -2183,7 +2206,7 @@ def PyCreateAndSignTx(ustxiList, dtxoList, sbdPrivKeyMap):
          scrAddr = ustxi.scrAddrs[iin]
          sbdPriv = sbdPrivKeyMap.get(sbdPriv)
          if sbdPriv is None:
-            raise BadAddressError('Supplied key map cannot sign all inputs')
+            raise SignatureError('Supplied key map cannot sign all inputs')
          ustx.createAndInsertSignatureForInput(iin, sbdPriv)
 
    # Make sure everythign was good

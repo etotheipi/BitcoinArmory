@@ -3,11 +3,11 @@ Created on Jan 10, 2014
 
 @author: Alan
 '''
-from pytest.Tiab import TiabTest
 import sys
+sys.path.append('..')
+from pytest.Tiab import TiabTest
 import unittest
 
-sys.path.append('..')
 from armoryengine.ALL import *
 
 

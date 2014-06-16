@@ -3,14 +3,14 @@ Created on Jul 29, 2013
 
 @author: Andy
 '''
+import sys
+sys.path.append('..')
 import hashlib
 import locale
 from random import shuffle
-import sys
 import time
 import unittest
 
-sys.path.append('..')
 
 from armoryengine.ArmoryUtils import *
 from armoryengine.BinaryPacker import *

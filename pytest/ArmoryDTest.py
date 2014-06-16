@@ -3,6 +3,8 @@ Created on Oct 8, 2013
 
 @author: Andy
 '''
+import sys
+sys.path.append('..')
 import os
 import time
 from pytest.Tiab import TiabTest
@@ -60,7 +62,7 @@ class ArmoryDTest(TiabTest):
                                           IV=theIV, \
                                           shortLabel=TEST_WALLET_NAME, \
                                           longLabel=TEST_WALLET_DESCRIPTION)
-      self.jsonServer = Armory_Json_Rpc_Server(self.wallet)
+      self.jsonServer = Armory_Json_Rpc_Server(self.wallet, tiabRun=True)
       TheBDM.registerWallet(self.wallet)
       
    def tearDown(self):

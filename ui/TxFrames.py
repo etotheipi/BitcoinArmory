@@ -734,7 +734,7 @@ class SendBitcoinsFrame(ArmoryFrame):
       txValues = [totalSend, fee, totalChange]
       if not self.unsignedCheckbox.isChecked():
          dlg = DlgConfirmSend(self.wlt, origSVPairs, txValues[1], self, \
-                                                  self.main, True, changePair)
+                                                  self.main, True)
    
          if not dlg.exec_():
             return False
@@ -860,7 +860,7 @@ class SendBitcoinsFrame(ArmoryFrame):
             changeScript  = scrAddr_to_script(addrStr_to_scrAddr(changeAddrStr))
             self.wlt.setComment(changeAddr160, CHANGE_ADDR_DESCR_STRING)
          else:
-            changeScript  = self.lbox.binScript
+            changeScript  = script_to_p2sh_script(self.lbox.binScript)
 
       if self.main.usermode == USERMODE.Expert:
          if not self.chkDefaultChangeAddr.isChecked():

@@ -205,8 +205,17 @@ def isMofNNonStandardToSpend(m, n):
 ################################################################################
 class MultiSigLockbox(object):
 
-   OBJNAME = 'Lockbox'
+   OBJNAME   = 'Lockbox'
    BLKSTRING = 'LOCKBOX'
+   EMAILSUBJ = 'Armory Lockbox Definition - %s'
+   EMAILBODY = """
+               The chunk of text below is a complete lockbox definition 
+               needed to track the balance of this multi-sig lockbox, as well
+               as create signatures for proposed spending transactions.  Open
+               the Lockbox Manager, click "Import Lockbox" in the first row,
+               then copy the text below into the import box, including the
+               first and last lines.  You will need to restart Armory and let
+               it rescan if this lockbox has already been used."""
 
    #############################################################################
    def __init__(self, script=None, name=None, descr=None, \
@@ -218,12 +227,12 @@ class MultiSigLockbox(object):
       self.commentList = commList
       self.createDate = long(RightNow()) if createDate is None else createDate
       self.magicBytes = MAGIC_BYTES
-
-      if script is not None:
-         self.setParams(script, name, descr, commList)
-
       self.uniqueIDB58 = None
       self.asciiID     = None
+
+
+      if script is not None:
+         self.setParams(script, name, descr, commList, createDate)
 
    #############################################################################
    def setParams(self, script, name=None, descr=None, commList=None, \
@@ -522,8 +531,16 @@ class MultiSigLockbox(object):
 ################################################################################
 class LockboxPublicKey(object):
 
-   OBJNAME = 'PublicKey'
+   OBJNAME   = 'PublicKey'
    BLKSTRING = 'PUBLICKEY'
+   EMAILSUBJ = 'Armory Public Key for Lockbox Creation - %s'
+   EMAILBODY = """
+               The chunk of text below is a public key that can be imported
+               into the lockbox creation window in Armory.  
+               Open the lockbox manager, 
+               click on "Create Lockbox", and then use the "Import" button
+               next to the address book button.  Copy the following text
+               into the box, including the first and last lines."""
 
    #############################################################################
    def __init__(self, binPubKey=None, keyComment=None):
@@ -655,8 +672,17 @@ def computePromissoryID(ustxiList=None, dtxoTarget=None, feeAmt=None,
 ################################################################################
 class MultiSigPromissoryNote(object):
 
-   OBJNAME = 'PromNote'
+   OBJNAME   = 'PromNote'
    BLKSTRING = 'PROMISSORY'
+   EMAILSUBJ = 'Armory Promissory Note for Simulfunding - %s'
+   EMAILBODY = """
+               The chunk of text below describes how this wallet will 
+               contribute to a simulfunding transaction.  In the lockbox
+               manager, go to "Merge Promissory Notes" and then click on 
+               "Import Promissory Note."  Copy and paste the block of text 
+               into the import box, including the first and last lines.  
+               You should receive a block of text like this from each party 
+               funding this transaction."""
 
    #############################################################################
    def __init__(self, dtxoTarget=None, feeAmt=None, ustxInputs=None, 

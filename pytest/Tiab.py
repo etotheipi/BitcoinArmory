@@ -18,6 +18,16 @@ from armoryengine.BDM import TheBDM, BlockDataManagerThread, newTheBDM
 
 TOP_TIAB_BLOCK = 247
 
+
+FIRST_WLT_FILE_NAME = "armory_GDHFnMQ2_.wallet"
+SECOND_WLT_FILE_NAME = "armory_DZMmtb2v_.wallet"
+THIRD_WLT_FILE_NAME = "armory_vzgEfJrJ_.wallet"
+FIRST_WLT_NAME = "GDHFnMQ2"
+SECOND_WLT_NAME = "DZMmtb2v"
+THIRD_WLT_NAME = "vzgEfJrJ"
+
+FIRST_WLT_BALANCE = 964.8997
+
 # runs a Test In a Box (TIAB) bitcoind session. By copying a prebuilt
 # testnet with a known state
 # Charles's recommendation is that you keep the TIAB somewhere like ~/.armory/tiab.charles
@@ -90,10 +100,7 @@ class TiabSession:
          self.clean()
          raise
       self.running = True
-      
-TEST_WALLET_NAME = 'Test Wallet Name'
-TEST_WALLET_DESCRIPTION = 'Test Wallet Description'
-TEST_WALLET_ID = 'PMjjFm6E'
+
 TIAB_ZIPFILE_NAME = 'tiab.zip'
 NEED_TIAB_MSG = "This Test must be run with <TBD>. Copy to the test directory. Actual Block Height is "
 

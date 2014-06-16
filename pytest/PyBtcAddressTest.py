@@ -3,6 +3,8 @@ Created on Aug 6, 2013
 
 @author: Andy
 '''
+import sys
+sys.path.append('..')
 from pytest.Tiab import TiabTest, TOP_TIAB_BLOCK
 
 import sys

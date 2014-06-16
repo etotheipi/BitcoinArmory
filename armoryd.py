@@ -103,8 +103,8 @@ class AddressNotInWallet(Exception): pass
 NOT_IMPLEMENTED = '--Not Implemented--'
 
 class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
-   ##############################################################################
-   def __init__(self, wallet, inWltSet={}, inLBSet={}):
+   #############################################################################
+   def __init__(self, wallet, inWltSet={}, inLBSet={}, tiabRun=False):
       # Save the incoming info. If the user didn't pass in a wallet set, put the
       # wallet in the set (actually a dictionary w/ the wallet ID as the key).
       self.addressMetaData = {}
@@ -114,6 +114,12 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       if inWltSet == {} and wallet != None:
          wltID = wallet.uniqueIDB58
          self.serverWltSet[wltID] = wallet
+
+      # If any variables rely on whether or not Testnet in a Box is running,
+      # we'll set everything up here.
+      self.bcPort = BITCOIN_PORT
+      if tiabRun:
+         self.bcPort = 19000  # Hard-coded to 1st TiaB instance. Yuck!
 
 
    #############################################################################
@@ -346,24 +352,30 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
    #############################################################################
    def jsonrpc_getwalletinfo(self):
+      self.isReady = (TheBDM.getBDMState() == 'BlockchainReady' and \
+                      satoshiIsAvailable(port=self.bcPort))
+
       wltInfo = { \
                   'name':  self.curWlt.labelName,
                   'description':  self.curWlt.labelDescr,
-                  'balance':  AmountToJSON(self.curWlt.getBalance('Spend')),
+                  'balance': AmountToJSON(self.curWlt.getBalance('Spend')) if \
+                             self.isReady else -1,
                   'keypoolsize':  self.curWlt.addrPoolSize,
                   'numaddrgen': len(self.curWlt.addrMap),
                   'highestusedindex': self.curWlt.highestUsedChainIndex
                 }
+
       return wltInfo
 
 
    #############################################################################
    def jsonrpc_getbalance(self, baltype='spendable'):
-      retVal = AmountToJSON(-1)
+      retVal = -1
 
       # Proceed only if the blockchain's good. Wallet value could be unreliable
       # otherwise.
-      if TheBDM.getBDMState()=='BlockchainReady':
+      if TheBDM.getBDMState()=='BlockchainReady' and \
+         satoshiIsAvailable(port=self.bcPort):
          if not baltype in ['spendable', 'spend', 'unconf', 'unconfirmed', \
                             'total', 'ultimate', 'unspent', 'full']:
             LOGERROR('Unrecognized getbalance string: "%s"', baltype)
@@ -377,10 +389,13 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
    #############################################################################
    def jsonrpc_getaddrbalance(self, inB58, baltype='spendable'):
-      retVal = AmountToJSON(-1)
+      retVal = -1
+
       if not baltype in ['spendable','spend', 'unconf', 'unconfirmed', \
                          'ultimate','unspent', 'full']:
          LOGERROR('Unrecognized getaddrbalance string: "%s"', baltype)
+      elif not satoshiIsAvailable(port=self.bcPort):
+         LOGERROR('Bitcoin client is not online. Will not give a balance.')
       else:
          # For now, allow only Base58 addresses.
          a160 = addrStr_to_hash160(inB58, False)[1]
@@ -717,7 +732,9 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
    #############################################################################
    def jsonrpc_getinfo(self):
-      isReady = TheBDM.getBDMState() == 'BlockchainReady'
+      isReady = (TheBDM.getBDMState() == 'BlockchainReady' and \
+                 satoshiIsAvailable(port=self.bcPort))
+
       info = { \
                'armory_version':     getVersionInt(BTCARMORY_VERSION),
                'protocol_version':   0,  
@@ -1427,7 +1444,7 @@ class Armory_Daemon(object):
             LOGWARN('Active wallet is set to %s' % self.curWlt.uniqueIDB58)
          else:
             LOGWARN('No wallets could be loaded!')
-            return
+            os._exit(0)
 
          LOGINFO("Initialising RPC server on port %d", ARMORY_RPC_PORT)
          resource = Armory_Json_Rpc_Server(self.curWlt, self.wltSet, self.lbSet)
