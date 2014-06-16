@@ -6,7 +6,7 @@ Examples:
 
 Runs all tests
 
-> pyth RunPyTest.py PyTxTest MultiSigTest
+> python RunPyTest.py PyTxTest MultiSigTest
 
 Runs PyTxTest and MultiSigTest. Any number of module names can be added to the command line to include them in the run.
 
