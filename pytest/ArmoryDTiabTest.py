@@ -8,7 +8,7 @@ sys.path.append('..')
 import os
 import unittest
 from pytest.Tiab import TiabTest, TOP_TIAB_BLOCK, FIRST_WLT_BALANCE,\
-   FIRST_WLT_NAME, SECOND_WLT_NAME, THIRD_WLT_NAME
+   FIRST_WLT_NAME, SECOND_WLT_NAME, THIRD_WLT_NAME, TIAB_SATOSHI_PORT
 from armoryengine.ArmoryUtils import *
 from armoryd import AmountToJSON, Armory_Json_Rpc_Server, JSONtoAmount
 from armoryengine.BDM import TheBDM
@@ -83,7 +83,9 @@ class ArmoryDTiabTest(TiabTest):
       wltB = PyBtcWallet().readWalletFile(fileB, doScanNow=True)
       fileC    = os.path.join(self.tiab.tiabDirectory, 'tiab\\armory\\armory_%s_.wallet' % THIRD_WLT_NAME)
       wltC = PyBtcWallet().readWalletFile(fileC, doScanNow=True)
-      self.jsonServer = Armory_Json_Rpc_Server(self.wlt, {SECOND_WLT_NAME : wltB, THIRD_WLT_NAME : wltC} )
+      self.jsonServer = Armory_Json_Rpc_Server(self.wlt, {SECOND_WLT_NAME : wltB, THIRD_WLT_NAME : wltC},
+                           satoshiPort=TIAB_SATOSHI_PORT,
+                           armoryHomeDir=os.path.join(self.tiab.tiabDirectory, 'tiab\\armory'))
       TheBDM.registerWallet(self.wlt)
       
    def testCreateLockbox(self):

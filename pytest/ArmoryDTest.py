@@ -7,7 +7,7 @@ import sys
 sys.path.append('..')
 import os
 import time
-from pytest.Tiab import TiabTest
+from pytest.Tiab import TiabTest, TIAB_SATOSHI_PORT
 from CppBlockUtils import SecureBinaryData, CryptoECDSA
 from armoryd import Armory_Json_Rpc_Server, PrivateKeyNotFound, \
    InvalidBitcoinAddress, WalletUnlockNeeded, Armory_Daemon, AmountToJSON
@@ -62,7 +62,7 @@ class ArmoryDTest(TiabTest):
                                           IV=theIV, \
                                           shortLabel=TEST_WALLET_NAME, \
                                           longLabel=TEST_WALLET_DESCRIPTION)
-      self.jsonServer = Armory_Json_Rpc_Server(self.wallet, tiabRun=True)
+      self.jsonServer = Armory_Json_Rpc_Server(self.wallet, satoshiPort=TIAB_SATOSHI_PORT)
       TheBDM.registerWallet(self.wallet)
       
    def tearDown(self):

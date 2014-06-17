@@ -28,6 +28,8 @@ THIRD_WLT_NAME = "vzgEfJrJ"
 
 FIRST_WLT_BALANCE = 964.8997
 
+TIAB_SATOSHI_PORT = 19000
+
 # runs a Test In a Box (TIAB) bitcoind session. By copying a prebuilt
 # testnet with a known state
 # Charles's recommendation is that you keep the TIAB somewhere like ~/.armory/tiab.charles
@@ -71,7 +73,7 @@ class TiabSession:
    def port(self, instanceNum):
       instance = instanceNum
       if instance==0:
-         return 19000
+         return TIAB_SATOSHI_PORT
       elif instance==1:
          return 19010
       else:
