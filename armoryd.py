@@ -806,18 +806,17 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
                  satoshiIsAvailable(port=self.bcPort))
 
       info = { \
-               'armory_version':     getVersionInt(BTCARMORY_VERSION),
-               'protocol_version':   0,  
-               'wallet_version':     getVersionInt(PYBTCWALLET_VERSION),
-               'bdm_state':          TheBDM.getBDMState(),
-               'wallet_balance':     AmountToJSON(self.curWlt.getBalance()) if isReady else -1,
-               'total_blocks':       TheBDM.getTopBlockHeight(),
-               'connections':        (0 if isReady else 1),
-               'proxy':              '',
-               'network_difficulty': TheBDM.getTopBlockHeader().getDifficulty() if isReady else -1,
-               'testnet':            USE_TESTNET,
-               'keypool_size':       self.curWlt.addrPoolSize
-            }
+               'version':           getVersionInt(BTCARMORY_VERSION),
+               'protocolversion':   0,  
+               'walletversion':     getVersionInt(PYBTCWALLET_VERSION),
+               'bdmstate':          TheBDM.getBDMState(),
+               'balance':           AmountToJSON(self.curWlt.getBalance()) if isReady else -1,
+               'blocks':            TheBDM.getTopBlockHeight(),
+               'connections':       (0 if isReady else 1),
+               'proxy':             '',
+               'difficulty':        TheBDM.getTopBlockHeader().getDifficulty() if isReady else -1,
+               'testnet':           USE_TESTNET,
+               'keypoolsize':       self.curWlt.addrPoolSize            }
       return info
 
 
