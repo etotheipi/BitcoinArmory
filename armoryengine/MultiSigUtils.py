@@ -7,7 +7,7 @@ from armoryengine.ArmoryUtils import *
 from armoryengine.Transaction import *
 from armorycolors import htmlColor
 
-MULTISIG_VERSION = 0
+MULTISIG_VERSION = 1
 
 ################################################################################
 #
@@ -199,7 +199,7 @@ def isMofNNonStandardToSpend(m, n):
    return (n > 3 and m > 3) or \
           (n > 4 and m > 2) or \
           (n > 5 and m > 1) or \
-          n > 6
+           n > 6
           
 ################################################################################
 ################################################################################
@@ -209,58 +209,47 @@ class MultiSigLockbox(object):
    BLKSTRING = 'LOCKBOX'
 
    #############################################################################
-   def __init__(self, script=None, name=None, descr=None, \
-                                          commList=None, createDate=None):
-      self.version   = 0
-      self.binScript = script
-      self.shortName = name
-      self.longDescr = toUnicode(descr)
-      self.commentList = commList
-      self.createDate = long(RightNow()) if createDate is None else createDate
-      self.magicBytes = MAGIC_BYTES
+   def __init__(self, name=None, descr=None, createDate=None, M=None, N=None, 
+                                     lbPubKeys=None, version=MULTISIG_VERSION):
+      
+      self.version     = MULTISIG_VERSION
+      self.shortName   = toUnicode(name)
+      self.longDescr   = toUnicode(descr)
+      self.createDate  = long(RightNow()) if createDate is None else createDate
+      self.magicBytes  = MAGIC_BYTES
       self.uniqueIDB58 = None
       self.asciiID     = None
 
-
-      if script is not None:
-         self.setParams(script, name, descr, commList, createDate)
+      if (M is not None) and (N is not None) and (lbPubKeys is not None):
+         self.setParams(name, descr, createDate, M, N, lbPubKeys, version)
 
    #############################################################################
-   def setParams(self, script, name=None, descr=None, commList=None, \
-                                 createDate=None, version=MULTISIG_VERSION):
+   def setParams(self, name, descr, M, N, lbPubKeys, createDate=None, 
+                                                   version=MULTISIG_VERSION):
       
-      # Set params will only overwrite with non-None data
-      self.binScript = script
       
-      if name is not None:
-         self.shortName = name
+      self.version = version
+      self.magicBytes = MAGIC_BYTES
 
-      if descr is not None:
-         self.longDescr = toUnicode(descr)
-
-      if commList is not None:
-         self.commentList = commList[:]
+      self.shortName = name
+      self.longDescr = toUnicode(descr)
+      self.M         = M
+      self.N         = N
+      self.lbPubKeys = lbPubKeys[:]
+      binPubKeys     = [p.binPubKey for p in lbPubKeys]
+      self.a160List  = [hash160(p)  for p in binPubKeys]
 
       if createDate is not None:
          self.createDate = createDate
 
-      self.version = version
-      self.magicBytes = MAGIC_BYTES
-
-      scrType = getTxOutScriptType(script)
-      if not scrType==CPP_TXOUT_MULTISIG:
-         LOGERROR('Attempted to create lockbox from non-multi-sig script')
-         self.binScript = None
-         return
-
+      script = pubkeylist_to_multisig_script(binPubKeys, self.M, True)
 
       # Computed some derived members
+      self.binScript = script
       self.scrAddr      = script_to_scrAddr(script)
       self.p2shScrAddr  = script_to_scrAddr(script_to_p2sh_script(script))
       self.uniqueIDB58  = calcLockboxID(script)
-      self.M, self.N, self.a160List, self.pubKeys = getMultisigScriptInfo(script)
-      self.opStrList = convertScriptToOpStrings(script)
-
+      self.opStrList    = convertScriptToOpStrings(script)
       self.asciiID = self.uniqueIDB58 # need a common member name in all classes
       
       
@@ -271,20 +260,26 @@ class MultiSigLockbox(object):
       bp.put(UINT32,       self.version)
       bp.put(BINARY_CHUNK, MAGIC_BYTES)
       bp.put(UINT64,       self.createDate)
-      bp.put(VAR_STR,      self.binScript)
       bp.put(VAR_STR,      toBytes(self.shortName))
       bp.put(VAR_STR,      toBytes(self.longDescr))
-      bp.put(UINT32,       len(self.commentList))
-      for comm in self.commentList:
-         bp.put(VAR_STR,   toBytes(comm))
+      bp.put(UINT8,        self.M)
+      bp.put(UINT8,        self.N)
+      for i in range(self.N):
+         bp.put(VAR_STR,   self.lbPubKeys[i].serialize())
 
       return bp.getBinaryString()
 
 
-
    #############################################################################
-   def unserialize(self, rawData, expectID=None):
-
+   # In the final stages of lockbox design, I changed up the serialization 
+   # format for lockboxes, and decided to see how easy it was to transition
+   # using the version numbers.   Here's the old unserialize version, modified
+   # to map the old data to the new format.  ArmoryQt will read all the
+   # lockboxes in the file, it will call this on each one of them, and then
+   # it will write out all the lockboxes whic effectively, immediately upgrades
+   # all of them.
+   def unserialize_v0(self, rawData, expectID=None):
+      LOGWARN('Version 0 lockbox detected.  Reading and converting')
       bu = BinaryUnpacker(rawData)
       boxVersion = bu.get(UINT32)
       boxMagic   = bu.get(BINARY_CHUNK, 4)
@@ -297,12 +292,6 @@ class MultiSigLockbox(object):
       boxComms = ['']*nComment
       for i in range(nComment):
          boxComms[i] = toUnicode(bu.get(VAR_STR))
-
-      # Issue a warning if the versions don't match
-      if not boxVersion == MULTISIG_VERSION:
-         LOGWARN('Unserialing lockbox of different version')
-         LOGWARN('   Lockbox Version: %d' % boxVersion)
-         LOGWARN('   Armory  Version: %d' % MULTISIG_VERSION)
 
       # Check the magic bytes of the lockbox match
       if not boxMagic == MAGIC_BYTES:
@@ -318,8 +307,63 @@ class MultiSigLockbox(object):
          LOGERROR('ID on lockbox block does not match script')
          raise UnserializeError('ID on lockbox does not match!')
 
+
+      # Now we switch to the new setParams method
+      M,N,a160s,pubs = getMultisigScriptInfo(boxScript) 
+      lbPubKeys = [LockboxPublicKey(pub, com) for pub,com in zip(pubs,boxComms)]
+
       # No need to read magic bytes -- already checked & bailed if incorrect
-      self.setParams(boxScript, boxName, boxDescr, boxComms, created)
+      self.setParams(boxName, boxDescr, M, N, lbPubKeys, created)
+      return self
+
+
+   #############################################################################
+   def unserialize(self, rawData, expectID=None):
+
+      bu = BinaryUnpacker(rawData)
+      boxVersion = bu.get(UINT32)
+
+      # If this is an older version, use conversion method
+      if boxVersion==0:
+         return self.unserialize_v0(rawData, expectID)
+
+      boxMagic   = bu.get(BINARY_CHUNK, 4)
+      created    = bu.get(UINT64)
+      boxName    = toUnicode(bu.get(VAR_STR))
+      boxDescr   = toUnicode(bu.get(VAR_STR))
+      M          = bu.get(UINT8)
+      N          = bu.get(UINT8)
+
+      lbPubKeys = []
+      for i in range(N):
+         lbPubKeys.append(LockboxPublicKey().unserialize(bu.get(VAR_STR)))
+
+
+      # Issue a warning if the versions don't match
+      if not boxVersion == MULTISIG_VERSION:
+         LOGWARN('Unserialing lockbox of different version')
+         LOGWARN('   Lockbox Version: %d' % boxVersion)
+         LOGWARN('   Armory  Version: %d' % MULTISIG_VERSION)
+
+      # Check the magic bytes of the lockbox match
+      if not boxMagic == MAGIC_BYTES:
+         LOGERROR('Wrong network!')
+         LOGERROR('    Lockbox Magic: ' + binary_to_hex(boxMagic))
+         LOGERROR('    Armory  Magic: ' + binary_to_hex(MAGIC_BYTES))
+         raise NetworkIDError('Network magic bytes mismatch')
+
+      
+      binPubKeys = [p.binPubKey for p in lbPubKeys]
+      boxScript = pubkeylist_to_multisig_script(binPubKeys, M)
+
+      # Lockbox ID is written in the first line, it should match the script
+      # If not maybe a version mistmatch, serialization error, or bug
+      if expectID and not calcLockboxID(boxScript) == expectID:
+         LOGERROR('ID on lockbox block does not match script')
+         raise UnserializeError('ID on lockbox does not match!')
+
+      # No need to read magic bytes -- already checked & bailed if incorrect
+      self.setParams(boxName, boxDescr, M, N, lbPubKeys, created)
 
       return self
 
@@ -356,9 +400,9 @@ class MultiSigLockbox(object):
          print '       ', opStr
       print''
       print '   Key Info:   '
-      for i in range(len(self.pubKeys)):
+      for i in range(len(self.lbPubKeys)):
          print '            Key %d' % i
-         print '           ', binary_to_hex(self.pubKeys[i])[:40] + '...'
+         print '           ', binary_to_hex(self.lbPubKeys[i].binPubKey)[:40] + '...'
          print '           ', hash160_to_addrStr(self.a160List[i])
          print '           ', self.commentList[i]
          print ''
@@ -404,10 +448,10 @@ class MultiSigLockbox(object):
       lines.append(tr('<b>Created:</b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%s') % formattedDate) 
       lines.append(tr('<b>Extended Info:</b><hr><blockquote>%s</blockquote><hr>') % longDescr)
       lines.append(tr('<b>Stored Key Details</b>'))
-      for i in range(len(self.pubKeys)):
-         comm = self.commentList[i]
+      for i in range(len(self.lbPubKeys)):
+         comm = self.lbPubKeys[i].keyComment
          addr = hash160_to_addrStr(self.a160List[i])
-         pubk = binary_to_hex(self.pubKeys[i])[:40] + '...'
+         pubk = binary_to_hex(self.lbPubKeys[i].binPubKey)[:40] + '...'
 
          if len(comm.strip())==0:
             comm = '<No Info>'
@@ -526,25 +570,41 @@ class LockboxPublicKey(object):
    BLKSTRING = 'PUBLICKEY'
 
    #############################################################################
-   def __init__(self, binPubKey=None, keyComment=None):
-      self.version    = 0
+   def __init__(self, binPubKey=None, keyComment=None, wltLoc=None, 
+                                             authMethod=None, authData=None):
+      self.version    = MULTISIG_VERSION
       self.binPubKey  = binPubKey
-      self.keyComment = toUnicode(keyComment)
+      self.keyComment = ''
+      self.wltLocator = ''
+      self.authMethod = ''
+      self.authData   = ''
+
       self.pubKeyID   = None
       self.asciiID    = None
 
       if binPubKey is not None:
-         self.setParams(binPubKey, keyComment, version=self.version)
+         self.setParams(binPubKey, keyComment, wltLoc, authMethod, authData,
+                                                          version=self.version)
 
 
    #############################################################################
-   def setParams(self, binPubKey, keyComment=None, version=MULTISIG_VERSION):
+   def setParams(self, binPubKey, keyComment=None, wltLoc=None, authMethod=None,
+                                      authData=None, version=MULTISIG_VERSION):
       
       # Set params will only overwrite with non-None data
       self.binPubKey = binPubKey
       
       if keyComment is not None:
          self.keyComment = toUnicode(keyComment)
+
+      if wltLoc is not None:
+         self.wltLocator = wltLoc
+
+      if authMethod is not None:
+         self.authMethod = authMethod
+
+      if authData is not None:
+         self.authData = authData
 
       self.version = version
 
@@ -566,6 +626,9 @@ class LockboxPublicKey(object):
       bp.put(BINARY_CHUNK, MAGIC_BYTES)
       bp.put(VAR_STR,      self.binPubKey)
       bp.put(VAR_STR,      toBytes(self.keyComment))
+      bp.put(VAR_STR,      self.wltLocator)
+      bp.put(VAR_STR,      self.authMethod)
+      bp.put(VAR_STR,      self.authData)
       return bp.getBinaryString()
 
    #############################################################################
@@ -577,6 +640,9 @@ class LockboxPublicKey(object):
       magicBytes  = bu.get(BINARY_CHUNK, 4)
       binPubKey   = bu.get(VAR_STR)
       keyComment  = toUnicode(bu.get(VAR_STR))
+      wltLoc      = bu.get(VAR_STR)
+      authMeth    = bu.get(VAR_STR)
+      authData    = bu.get(VAR_STR)
 
       # Check the magic bytes of the lockbox match
       if not magicBytes == MAGIC_BYTES:
@@ -590,7 +656,7 @@ class LockboxPublicKey(object):
          LOGWARN('   PubKey  Version: %d' % version)
          LOGWARN('   Armory  Version: %d' % MULTISIG_VERSION)
 
-      self.setParams(binPubKey, keyComment, version)
+      self.setParams(binPubKey, keyComment, wltLoc, authMeth, authData, version)
 
       if expectID and not expectID==self.pubKeyID:
          LOGERROR('Pubkey block ID does not match expected')
@@ -662,7 +728,7 @@ class MultiSigPromissoryNote(object):
    def __init__(self, dtxoTarget=None, feeAmt=None, ustxInputs=None, 
                                     dtxoChange=None, promLabel=None,
                                     version=MULTISIG_VERSION):
-      self.version     = 0
+      self.version     = MULTISIG_VERSION
       self.dtxoTarget  = dtxoTarget
       self.feeAmt      = feeAmt
       self.ustxInputs  = ustxInputs

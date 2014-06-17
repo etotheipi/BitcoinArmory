@@ -1814,7 +1814,7 @@ class UnsignedTransaction(object):
          raise UstxError('More outputs than inputs!')
 
       thePyTx = PyTx()
-      thePyTx.version = 1
+      thePyTx.version = UNSIGNED_TX_VERSION
       thePyTx.lockTime = 0
       thePyTx.inputs = []
       thePyTx.outputs = []
@@ -1896,8 +1896,6 @@ class UnsignedTransaction(object):
          return None
 
       bp = BinaryPacker()
-
-      #bp.put(VAR_STR,  self.pytxObj.serialize())
       bp.put(UINT32,       self.version)
       bp.put(BINARY_CHUNK, MAGIC_BYTES, 4)
       bp.put(UINT32,       self.lockTime)
@@ -1966,6 +1964,102 @@ class UnsignedTransaction(object):
 
       expectID = headStr.split('-')[-1]
       return self.unserialize(rawData, expectID)
+
+
+   #############################################################################
+   def toJSONMap(self, lite=False):
+
+      if self.pytxObj==UNINITIALIZED:
+         LOGERROR('Cannot serialize an uninitialized tx')
+         raise ValueError('Cannot serialize an uninitialized tx')
+
+      outjson = {}
+      outjson['version'] = self.version
+      outjson['magicbytes'] = binary_to_hex(self.MAGIC_BYTES)
+      outjson['id'] = self.uniqueIDB58
+      outjson['locktimeint'] = self.locktime
+      if self.locktime < 500000000:
+         outjson['locktimeblock'] = self.locktime
+         outjson['locktimedate']  = ''
+      else:
+         outjson['locktimeblock'] = -1
+         outjson['locktimedate']  = unixTimeToFormatStr(self.locktime)
+   
+      outjson['numinputs'] = len(self.ustxInputs)
+      outjson['numoutputs'] = len(self.decorTxOuts)
+
+      totalIn  = sum([ustxi.value for ustxi in self.ustxInputs ])
+      totalOut = sum([dtxo.value  for dtxo  in self.decorTxOuts])
+      totalFee = totalIn-totalOut
+
+      outjson['suminputs']  = totalIn
+      outjson['sumoutputs'] = totalOut
+      outjson['fee']        = totalFee
+
+      if lite:
+         return outjson
+
+      outjson['inputs'] = []
+      for ustxi in self.ustxInputs:
+         outjson['inputs'].append(ustxi.toJsonDict())
+
+      outjson['outputs'] = []
+      for dtxo in self.decorTxOuts:
+         outjson['outputs'].append(dtxo.toJsonDict())
+      
+      return outjson
+
+
+
+   def fromJSONMap(self, jsonMap):
+      
+      #bu = BinaryUnpacker(rawData)
+      #ver     = bu.get(UINT32)
+      #magic   = bu.get(BINARY_CHUNK, 4)
+      #lockt   = bu.get(UINT32)
+
+      #numUSTXI = bu.get(VAR_INT)
+      #ustxiList = []
+      #for i in range(numUSTXI):
+         #ustxiList.append( UnsignedTxInput().unserialize(bu.get(VAR_STR)) )
+
+      #numDtxo = bu.get(VAR_INT)
+      #dtxoList = []
+      #for i in range(numDtxo):
+         #dtxoList.append( DecoratedTxOut().unserialize(bu.get(VAR_STR)) )
+
+
+      if not 'inputs' in jsonMap:
+         raise UnserializeError('Incomplete unsigned transaction map')
+
+      ver   = jsonMap['version'] 
+      magic = jsonMap['magicbytes'] 
+      uniq  = jsonMap['id']
+      tlock = jsonMap['locktimeint'] 
+   
+      # Issue a warning if the versions don't match
+      if not ver == UNSIGNED_TX_VERSION:
+         LOGWARN('Unserialing USTX of different version')
+         LOGWARN('   USTX    Version: %d' % ver)
+         LOGWARN('   Armory  Version: %d' % UNSIGNED_TX_VERSION)
+
+      # Check the magic bytes of the lockbox match
+      if not magic == MAGIC_BYTES:
+         LOGERROR('Wrong network!')
+         LOGERROR('    USTX    Magic: ' + binary_to_hex(magic))
+         LOGERROR('    Armory  Magic: ' + binary_to_hex(MAGIC_BYTES))
+         raise NetworkIDError('Network magic bytes mismatch')
+
+      ustxiList = []
+      for ustxi in jsonMap['inputs']:
+         ustxiList.append(UnsignedTxInput().fromJSONMap(ustxi))
+
+      dtxoList = []
+      for dtxo in jsonMap['outputs']:
+         dtxoList.append(DecoratedTxOut().fromJSONMap(dtxo))
+
+      self.createFromUnsignedTxIO(ustxiList, dtxoList, lockt)
+
 
 
    #############################################################################
