@@ -180,7 +180,6 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       self.serverWltIDSet = inWltIDSet
       self.serverLBSet = inLBSet
       self.serverLBIDSet = inLBIDSet
-
       if wallet != None:
          wltID = wallet.uniqueIDB58
          self.serverWltSet[wltID] = wallet
