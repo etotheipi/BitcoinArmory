@@ -2590,7 +2590,7 @@ class DlgMultiSpendReview(ArmoryDialog):
             else:
 
                if lbox:
-                  comm = lbox.lbPubKey[i].keyComment
+                  comm = lbox.lbPubKeys[i].keyComment
                elif len(iBundle.ustxiList) > 0:
                   comm = iBundle.ustxiList[0].contribLabel
                else:
