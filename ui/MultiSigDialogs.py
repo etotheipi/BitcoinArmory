@@ -1104,7 +1104,7 @@ class DlgLockboxManager(ArmoryDialog):
                def updateFunc(hasSelect, isOnline):
                   # Default to regular label
                   lbltxt = btnMap['lbltxt']
-                  orgtxt = '<font color="%s"><b>Organizer Only</b></font><br>' % \
+                  orgtxt = '<font color="%s"><b>Organizer</b></font><br>' % \
                                                        htmlColor('TextBlue')
 
                   btnMap['BTN'].setText(btnMap['button'])
@@ -2224,10 +2224,24 @@ class DlgExportAsciiBlock(ArmoryDialog):
 
       # Prepare to send an email with the public key. For now, the email text
       # is the public key and nothing else.
-      urlText = 'mailto:?subject=Armory %s-%s&body=%s' % \
-            (self.exportObj.OBJNAME, self.exportObj.asciiID, self.asciiBlock)
+      subj = tr(self.exportObj.EMAILSUBJ) % self.exportObj.asciiID
+      body = tr(self.exportObj.EMAILBODY)
+      urlText = 'mailto:?subject=%s&body=%s\n\n%s' % (subj, body, self.asciiBlock)
       finalUrl = QUrl(urlText)
       QDesktopServices.openUrl(finalUrl)
+
+      
+      if not self.main.getSettingOrSetDefault('DNAA_MailtoWarn', False):
+         reply = MsgBoxWithDNAA(MSGBOX.Warning, tr('Email Triggered'), tr("""
+            Armory attempted to execute a "mailto:" link which should trigger
+            your email application or web browser to open a compose-email window 
+            This does not work in all environments, and you might have to 
+            manually copy and paste the text in the box into an email.
+            """), dnaaMsg=tr('Do not show this message again'), dnaaStartChk=True)
+
+         if reply[1]:
+            self.main.writeSetting('DNAA_MailtoWarn', True)
+
       self.lblCopyMail.setText('<i>Email produced!</i>')
 
 

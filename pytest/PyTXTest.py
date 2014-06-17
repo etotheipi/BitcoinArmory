@@ -3,7 +3,8 @@ Created on Aug 4, 2013
 
 @author: Andy
 '''
-from pytest.Tiab import TiabTest
+import sys
+sys.path.append('..')
 import unittest
 from armoryengine.ArmoryUtils import hex_to_binary, binary_to_hex, hex_to_int, \
    ONE_BTC
@@ -14,7 +15,7 @@ from armoryengine.Script import PyScriptProcessor
 from armoryengine.Transaction import PyTx, PyTxIn, PyOutPoint, PyTxOut, \
    PyCreateAndSignTx, getMultisigScriptInfo, BlockComponent,\
    PyCreateAndSignTx_old
-from armoryengine.BDM import TheBDM
+from pytest.Tiab import TiabTest
 
 
 

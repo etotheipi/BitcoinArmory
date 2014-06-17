@@ -3,6 +3,8 @@ Created on Aug 14, 2013
 
 @author: Andy
 '''
+import sys
+sys.path.append('..')
 from pytest.Tiab import TiabTest
 import os
 import sys

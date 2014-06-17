@@ -3,10 +3,11 @@ Created on Aug 4, 2013
 
 @author: Andy
 '''
+import sys
+sys.path.append('..')
 from pytest.Tiab import TiabTest
 
 from random import shuffle
-import sys
 import unittest
 
 from armoryengine.ArmoryUtils import FiniteField, FiniteFieldError, SplitSecret, \

@@ -12,6 +12,8 @@
 # Orig Date:  2 January, 2014
 #
 ################################################################################
+import sys
+sys.path.append('..')
 from pytest.Tiab import TiabTest
 import unittest
 from armoryengine.Decorators import EmailOutput

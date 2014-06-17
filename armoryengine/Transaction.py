@@ -1654,7 +1654,19 @@ class UnsignedTransaction(object):
    """
 
    OBJNAME = "UnsignedTx"
-   BLKSTRING = "SIGCOLLECT"
+   BLKSTRING = "TXSIGCOLLECT"
+   EMAILSUBJ = 'Armory Multi-sig Transaction to Sign - %s'
+   EMAILBODY = """
+               The chunk of text below is a proposed spending transaction 
+               with all signatures available so far.  Open
+               the Lockbox manager in Armory and click on "Review and Sign" 
+               in the bottom row of the dashboard.  Copy this text into the
+               import box, including the first and last lines.  You will be
+               given the opportunity to confirm the transaction before 
+               signing.  After it is signed, click "Export" in the bottom-right
+               corner and send it back to me."""
+           
+               
 
    #############################################################################
    def __init__(self, pytx=None, pubKeyMap=None, txMap=None, p2shMap=None,
@@ -1952,15 +1964,15 @@ class UnsignedTransaction(object):
 
    #############################################################################
    def serializeAscii(self):
-      headStr = 'TXSIGCOLLECT-%s' % self.uniqueIDB58
+      headStr = '%s-%s' % (self.BLKSTRING, self.uniqueIDB58)
       return makeAsciiBlock(self.serialize(), headStr)
 
    #############################################################################
    def unserializeAscii(self, ustxBlock):
-      headStr,rawData = readAsciiBlock(ustxBlock, 'TXSIGCOLLECT')
+      headStr,rawData = readAsciiBlock(ustxBlock, self.BLKSTRING)
       if rawData is None:
-         LOGERROR('Expected header str "TXSIGCOLLECT", got "%s"' % headStr)
-         return None
+         LOGERROR('Expected str "%s", got "%s"' % (self.BLKSTRING, headStr))
+         raise UnserializeError('Unexpected BLKSTRING')
 
       expectID = headStr.split('-')[-1]
       return self.unserialize(rawData, expectID)

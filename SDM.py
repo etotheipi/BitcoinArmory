@@ -20,7 +20,7 @@ from armoryengine.ArmoryUtils import BITCOIN_PORT, LOGERROR, hex_to_binary, \
    launchProcess, killProcessTree, killProcess, LOGWARN, RightNow, HOUR, \
    PyBackgroundThread, touchFile, DISABLE_TORRENTDL, secondsToHumanTime, \
    bytesToHumanSize, MAGIC_BYTES, deleteBitcoindDBs, TheTDM, satoshiIsAvailable,\
-   MEGABYTE
+   MEGABYTE, ARMORY_HOME_DIR
 from bitcoinrpc_jsonrpc import authproxy
 
 
@@ -154,6 +154,19 @@ class SatoshiDaemonManager(object):
          return False
 
       bootfile = os.path.join(self.satoshiHome, 'bootstrap.dat')
+      bootfilePart = bootfile + '.partial'
+      bootfileOld  = bootfile + '.old'
+
+      # cleartorrent.flag means we should remove any pre-existing files
+      delTorrentFlag = os.path.join(ARMORY_HOME_DIR, 'cleartorrent.flag')
+      if os.path.exists(delTorrentFlag):
+         LOGWARN('Flag found to delete any pre-existing torrent files')
+         if os.path.exists(bootfile):       os.remove(bootfile)
+         if os.path.exists(bootfilePart):   os.remove(bootfilePart)
+         if os.path.exists(bootfileOld):    os.remove(bootfileOld)
+         if os.path.exists(delTorrentFlag): os.remove(delTorrentFlag)
+
+
       TheTDM.setupTorrent(torrentPath, bootfile)
       if not TheTDM.getTDMState()=='ReadyToStart':
          LOGERROR('Unknown error trying to start torrent manager')
