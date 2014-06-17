@@ -4516,7 +4516,8 @@ class DlgSetComment(ArmoryDialog):
    """ This will be a dumb dialog for retrieving a comment from user """
 
    #############################################################################
-   def __init__(self, parent, main, currcomment='', ctype='', cwhat='Comment'):
+   def __init__(self, parent, main, currcomment='', ctype='', cwhat='Comment',
+                                                               maxChars=144):
       super(DlgSetComment, self).__init__(parent, main)
 
 
@@ -4535,9 +4536,10 @@ class DlgSetComment(ArmoryDialog):
       if     ctype and not currcomment: lbl = QLabel('Add %s %s:' % (ctype, cwhat))
       if not ctype and not currcomment: lbl = QLabel('Add %s:' % cwhat)
       self.edtComment = QLineEdit()
-      self.edtComment.setText(currcomment)
+      self.edtComment.setText(currcomment[:maxChars])
       h, w = relaxedSizeNChar(self, 50)
       self.edtComment.setMinimumSize(h, w)
+      self.edtComment.setMaxLength(maxChars)
       layout.addWidget(lbl, 0, 0)
       layout.addWidget(self.edtComment, 1, 0)
       layout.addWidget(buttonbox, 2, 0)
@@ -5201,6 +5203,7 @@ class DlgSendBitcoins(ArmoryDialog):
                    spendFromLockboxID=spendFromLockboxID)
       layout.addWidget(self.frame)
       self.setLayout(layout)
+      self.setMinimumWidth(775)
       # Update the any controls based on the initial wallet selection
       self.frame.fireWalletChange()
 

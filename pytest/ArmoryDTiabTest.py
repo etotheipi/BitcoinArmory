@@ -7,7 +7,8 @@ import sys
 sys.path.append('..')
 import os
 import unittest
-from pytest.Tiab import TiabTest, TOP_TIAB_BLOCK, FIRST_WLT_BALANCE
+from pytest.Tiab import TiabTest, TOP_TIAB_BLOCK, FIRST_WLT_BALANCE,\
+   FIRST_WLT_NAME, SECOND_WLT_NAME, THIRD_WLT_NAME
 from armoryengine.ArmoryUtils import *
 from armoryd import AmountToJSON, Armory_Json_Rpc_Server, JSONtoAmount
 from armoryengine.BDM import TheBDM
@@ -16,7 +17,6 @@ from armoryengine.Transaction import UnsignedTransaction
 
 TEST_WALLET_NAME = 'Test Wallet Name'
 TEST_WALLET_DESCRIPTION = 'Test Wallet Description'
-TEST_WALLET_ID = 'GDHFnMQ2'
 
 TX_ID1_OUTPUT0_VALUE = 63000
 TX_ID1_OUTPUT1_VALUE = 139367000
@@ -77,13 +77,21 @@ class ArmoryDTiabTest(TiabTest):
    def setUp(self):
       self.verifyBlockHeight()
       # Load the primary file from the test net in a box
-      self.fileA    = os.path.join(self.tiab.tiabDirectory, 'tiab\\armory\\armory_%s_.wallet' % TEST_WALLET_ID)
+      self.fileA    = os.path.join(self.tiab.tiabDirectory, 'tiab\\armory\\armory_%s_.wallet' % FIRST_WLT_NAME)
       self.wlt = PyBtcWallet().readWalletFile(self.fileA, doScanNow=True)
-      self.jsonServer = Armory_Json_Rpc_Server(self.wlt)
+      fileB    = os.path.join(self.tiab.tiabDirectory, 'tiab\\armory\\armory_%s_.wallet' % SECOND_WLT_NAME)
+      wltB = PyBtcWallet().readWalletFile(fileB, doScanNow=True)
+      fileC    = os.path.join(self.tiab.tiabDirectory, 'tiab\\armory\\armory_%s_.wallet' % THIRD_WLT_NAME)
+      wltC = PyBtcWallet().readWalletFile(fileC, doScanNow=True)
+      self.jsonServer = Armory_Json_Rpc_Server(self.wlt, {SECOND_WLT_NAME : wltB, THIRD_WLT_NAME : wltC} )
       TheBDM.registerWallet(self.wlt)
       
    def testCreateLockbox(self):
-      actualResult = self.jsonServer.jsonrpc_createlockbox(2, 3, )
+      addrFromFirstWlt = self.jsonServer.getPKFromWallet(self.wlt, self.wlt.getHighestUsedIndex())
+      actualResult = self.jsonServer.jsonrpc_createlockbox(2, 3, addrFromFirstWlt, SECOND_WLT_NAME, THIRD_WLT_NAME)
+      self.assertEqual(actualResult['Required Signature Number'], 2)
+      self.assertEqual(actualResult['Total Signature Number'], 3)
+      self.assertEqual(actualResult['Lockbox ID'], 'TTxMo7J6')
    
    def  testReceivedfromaddress(self):
       result = self.jsonServer.jsonrpc_receivedfromaddress(TIAB_WLT_3_ADDR_3)

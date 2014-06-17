@@ -180,7 +180,8 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       self.serverWltIDSet = inWltIDSet
       self.serverLBSet = inLBSet
       self.serverLBIDSet = inLBIDSet
-      if inWltSet == {} and wallet != None:
+
+      if wallet != None:
          wltID = wallet.uniqueIDB58
          self.serverWltSet[wltID] = wallet
 
@@ -1337,7 +1338,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       curKey = 1
       walletList = {}
       for k in self.serverWltSet.keys():
-         curWltStr = 'Wallet %d' % curKey
+         curWltStr = 'Wallet %04d' % curKey
          walletList[curWltStr] = k
          curKey += 1
       return walletList
