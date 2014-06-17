@@ -111,7 +111,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       self.serverLBSet = inLBSet
       self.curWlt = wallet
       self.serverWltSet = inWltSet
-      if inWltSet == {} and wallet != None:
+      if wallet != None:
          wltID = wallet.uniqueIDB58
          self.serverWltSet[wltID] = wallet
 
