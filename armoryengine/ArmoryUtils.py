@@ -954,19 +954,37 @@ if CLI_OPTIONS.testAnnounceCode:
       '62fe30376497ad3efcd2964aa0be366010c11b8d7fc8209f586eac00bb763015')
 
 
-#############################################################################
-def readWalletFiles():
-   '''Function that finds the paths of all non-backup wallets in the Armory
-      home directory.'''
-   wltPaths = []
-   for f in os.listdir(ARMORY_HOME_DIR):
-      fullPath = os.path.join(ARMORY_HOME_DIR, f)
-      if os.path.isfile(fullPath) and not fullPath.endswith('backup.wallet'):
-         openfile = open(fullPath, 'rb')
+################################################################################
+def addWalletToList(inWltPath, inWltList):
+   '''Helper function that checks to see if a path contains a valid wallet. If
+      so, the wallet will be added to the incoming list.'''
+   if os.path.isfile(inWltPath):
+      if not inWltPath.endswith('backup.wallet'):
+         openfile = open(inWltPath, 'rb')
          first8 = openfile.read(8)
          openfile.close()
          if first8=='\xbaWALLET\x00':
-            wltPaths.append(fullPath)
+            inWltList.append(inWltPath)
+   else:
+      if not os.path.isdir(inWltPath):
+         LOGWARN('Path %s does not exist.' % inWltPath)
+      else:
+         LOGDEBUG('%s is a directory.' % inWltPath)
+
+
+################################################################################
+def readWalletFiles(inWltList=None):
+   '''Function that finds the paths of all non-backup wallets in the Armory
+      home directory (nothing passed in) or confirms a valid set of wallets
+      included in paths passed into the function as a list.'''
+   wltPaths = []
+   if not inWltList:
+      for f in os.listdir(ARMORY_HOME_DIR):
+         fullPath = os.path.join(ARMORY_HOME_DIR, f)
+         addWalletToList(fullPath, wltPaths)
+   else:
+      for w in inWltList:
+         addWalletToList(w, wltPaths)
 
    return wltPaths
 
