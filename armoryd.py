@@ -812,8 +812,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
                'proxy':             '',
                'difficulty':        TheBDM.getTopBlockHeader().getDifficulty() if isReady else -1,
                'testnet':           USE_TESTNET,
-               'keypoolsize':       self.curWlt.addrPoolSize
-            }
+               'keypoolsize':       self.curWlt.addrPoolSize            }
       return info
 
 
@@ -1360,7 +1359,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       curKey = 1
       walletList = {}
       for k in self.serverWltSet.keys():
-         curWltStr = 'Wallet %d' % curKey
+         curWltStr = 'Wallet %04d' % curKey
          walletList[curWltStr] = k
          curKey += 1
       return walletList

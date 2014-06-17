@@ -313,7 +313,7 @@ class DlgLockboxEditor(ArmoryDialog):
 
          self.widgetMap[i]['QLE_PUBK'].setText(binary_to_hex(binPub))
          self.widgetMap[i]['LBL_NAME'].setText(keyComm)
-         self.widgetMap[i]['METADATA'][binPub] [wltLoc, authMeth, authData]
+         self.widgetMap[i]['METADATA'][binPub] = [wltLoc, authMeth, authData]
 
 
    #############################################################################
@@ -507,7 +507,11 @@ class DlgLockboxEditor(ArmoryDialog):
             return
 
          keyComment = unicode(self.widgetMap[i]['LBL_NAME'].text())
-         pubKeyList.append(LockboxPublicKey(pkBin, keyComment))
+         #self.widgetMap[i]['METADATA'][binPub] = [wltLoc, authMeth, authData]
+         extras = [None, None, None]
+         if pkBin in self.widgetMap[i]['METADATA']:
+            extras = self.widgetMap[i]['METADATA'][pkBin][:]
+         pubKeyList.append(LockboxPublicKey(pkBin, keyComment, *extras))
 
          # Finally, throw a warning if the comment is not set 
          strComment = str(self.widgetMap[i]['LBL_NAME'].text()).strip()
@@ -593,7 +597,7 @@ class DlgLockboxEditor(ArmoryDialog):
       self.main.updateOrAddLockbox(self.lockbox, isFresh=True)
       
       self.accept()
-      doExportLockbox(self, self.main, self.lockbox).exec_()
+      doExportLockbox(self, self.main, self.lockbox)
 
 
 
@@ -1542,7 +1546,7 @@ class DlgLockboxManager(ArmoryDialog):
    #############################################################################
    def doExport(self):
       lb = self.getSelectedLockbox()
-      doExportLockbox(self, self.main, lb).exec_()
+      doExportLockbox(self, self.main, lb)
       self.updateButtonDisable()
 
 
