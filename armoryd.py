@@ -102,15 +102,85 @@ class AddressNotInWallet(Exception): pass
 
 NOT_IMPLEMENTED = '--Not Implemented--'
 
+################################################################################
+# Utility function that takes a list of wallet paths, gets the paths and adds
+# the wallets to a wallet set (actually a dictionary, with the wallet ID as the
+# key and the wallet as the value), along with adding the wallet ID to a
+# separate set.
+def addMultWallets(inWltPaths, inWltSet, inWltIDSet):
+   '''Function that adds multiple wallets to an armoryd server.'''
+   for aWlt in inWltPaths:
+      # Logic basically taken from loadWalletsAndSettings()
+      try:
+         wltLoad = PyBtcWallet().readWalletFile(aWlt)
+         wltID = wltLoad.uniqueIDB58
+
+         # For now, no wallets are excluded. If this changes....
+         #if aWlt in wltExclude or wltID in wltExclude:
+         #   continue
+
+         # A directory can have multiple versions of the same
+         # wallet. We'd prefer to skip watch-only wallets.
+         if wltID in inWltIDSet:
+            LOGWARN('***WARNING: Duplicate wallet (%s) detected' % wltID)
+            wo1 = inWltSet[wltID].watchingOnly
+            wo2 = wltLoad.watchingOnly
+            if wo1 and not wo2:
+               prevWltPath = inWltSet[wltID].walletPath
+               inWltSet[wltID] = wltLoad
+               LOGWARN('First wallet is more useful than the second one...')
+               LOGWARN('     Wallet 1 (loaded):  %s', aWlt)
+               LOGWARN('     Wallet 2 (skipped): %s', prevWltPath)
+            else:
+               LOGWARN('Second wallet is more useful than the first one...')
+               LOGWARN('     Wallet 1 (skipped): %s', aWlt)
+               LOGWARN('     Wallet 2 (loaded):  %s', \
+                       inWltSet[wltID].walletPath)
+         else:
+            # Update the wallet structs.
+            inWltSet[wltID] = wltLoad
+            inWltIDSet.add(wltID)
+      except:
+         LOGEXCEPT('***WARNING: Unable to load wallet %s. Skipping.', aWlt)
+         raise
+
+
+################################################################################
+# Utility function that takes a list of lockbox paths, gets the paths and adds
+# the lockboxes to a lockbox set (actually a dictionary, with the lockbox ID as
+# the key and the lockbox as the value), along with adding the lockboxy ID to a
+# separate set.
+def addMultLockboxes(inLBPaths, inLBSet, inLBIDSet):
+   '''Function that adds multiple lockboxes to an armoryd server.'''
+   for curLBFile in inLBPaths:
+      try:
+         curLBList = readLockboxesFile(curLBFile)
+         for curLB in curLBList:
+            lbID = curLB.uniqueIDB58
+            if lbID in inLBIDSet:
+               LOGINFO('***WARNING: Duplicate lockbox (%s) detected' % lbID)
+            else:
+               inLBSet[lbID] = curLB
+               inLBIDSet.add(lbID)
+      except:
+         LOGEXCEPT('***WARNING: Unable to load lockbox file %s. Skipping.', \
+                   curLBFile)
+         raise
+
+
 class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
    #############################################################################
-   def __init__(self, wallet, inWltSet={}, inLBSet={}, tiabRun=False):
+   def __init__(self, wallet, inWltSet={}, inLBSet={}, inWltIDSet=set(), \
+                inLBIDSet=set(), tiabRun=False):
       # Save the incoming info. If the user didn't pass in a wallet set, put the
       # wallet in the set (actually a dictionary w/ the wallet ID as the key).
       self.addressMetaData = {}
-      self.serverLBSet = inLBSet
       self.curWlt = wallet
       self.serverWltSet = inWltSet
+      self.serverWltIDSet = inWltIDSet
+      self.serverLBSet = inLBSet
+      self.serverLBIDSet = inLBIDSet
+
       if wallet != None:
          wltID = wallet.uniqueIDB58
          self.serverWltSet[wltID] = wallet
@@ -1339,11 +1409,35 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       return self.retStr
 
 
+   #############################################################################
+   # Function that takes new wallets and adds them to the wallet set available
+   # to armoryd. Wallet paths are passed in and delineated by colons.
+   def jsonrpc_addwallets(self, newWltPaths):
+      newWltPaths = newWltPaths.split(":")
+      wltPaths = readWalletFiles(newWltPaths)
+      addMultWallets(wltPaths, self.serverWltSet, self.serverWltIDSet)
+
+      # TO DO: Return list of wallets added. Mod addMultWallets to return added wallets.
+
+
+   #############################################################################
+   # Function that takes new lockboxes and adds them to the lockbox set
+   # available to armoryd. Lockbox paths are passed in and delineated by colons.
+   def jsonrpc_addlockboxes(self, newLBPaths):
+      newLBPaths = newLBPaths.split(":")
+      lbPaths = readWalletFiles(newLBPaths)
+      addMultLockboxes(lbPaths, self.serverLBSet, self.serverLBIDSet)
+
+      # TO DO: Return list of lockboxes added. Mod addMultLockboxes to return added lockboxes.
+
+
 ################################################################################
 class Armory_Daemon(object):
    def __init__(self, wlt=None, lb=None):
+      # NB: These objects contain ONLY wallet/lockbox data loaded at startup.
+      # Armory_Json_Rpc_Server will contain the active wallet/LB lists.
       self.wltSet = {}
-      self.walletIDSet = set()
+      self.wltIDSet = set()
       self.lbSet = {}
       self.lbIDSet = set()
 
@@ -1397,7 +1491,7 @@ class Armory_Daemon(object):
             # to them if no wallets are specified. Also, set the current
             # wallet to the 1st wallet in the set. (The choice is arbitrary.)
             wltPaths = readWalletFiles()
-            self.addMultWallets(wltPaths)
+            addMultWallets(wltPaths, self.wltSet, self.wltIDSet)
             if len(CLI_ARGS)==0:
                if len(self.wltSet) > 0:
                   self.curWlt = self.wltSet[self.wltSet.keys()[0]]
@@ -1411,7 +1505,7 @@ class Armory_Daemon(object):
 
                self.curWlt = PyBtcWallet().readWalletFile(wltpath)
                self.wltSet[self.curWlt.uniqueIDB58] = self.curWlt
-               self.walletIDSet.add(self.curWlt.uniqueIDB58)
+               self.wltIDSet.add(self.curWlt.uniqueIDB58)
 
          # Let's load all the lockboxes too.
          # NB: For now, lockboxes can't be loaded into armoryd like one can load
@@ -1420,7 +1514,7 @@ class Armory_Daemon(object):
             self.curLB = lb
          else:
             lbPaths = getLockboxFilePaths()
-            self.addMultLockboxes(lbPaths)
+            addMultLockboxes(lbPaths, self.lbSet, self.lbIDSet)
 
          # Log info on the wallets we've loaded.
          numWallets = len(self.wltSet)
@@ -1447,7 +1541,9 @@ class Armory_Daemon(object):
             os._exit(0)
 
          LOGINFO("Initialising RPC server on port %d", ARMORY_RPC_PORT)
-         resource = Armory_Json_Rpc_Server(self.curWlt, self.wltSet, self.lbSet)
+         resource = Armory_Json_Rpc_Server(self.curWlt, self.wltSet, \
+                                           self.lbSet, self.wltIDSet, \
+                                           self.lbIDSet)
          secured_resource = self.set_auth(resource)
 
          # This is LISTEN call for armory RPC server
@@ -1457,65 +1553,6 @@ class Armory_Daemon(object):
 
          # Setup the heartbeat function to run every 
          reactor.callLater(3, self.Heartbeat)
-
-
-   #############################################################################
-   def addMultWallets(self, inWltPaths):
-      '''Function that adds multiple wallets to an armoryd server.'''
-      for aWlt in inWltPaths:
-         # Logic basically taken from loadWalletsAndSettings()
-         try:
-            wltLoad = PyBtcWallet().readWalletFile(aWlt)
-            wltID = wltLoad.uniqueIDB58
-
-            # For now, no wallets are excluded. If this changes....
-            #if aWlt in wltExclude or wltID in wltExclude:
-            #   continue
-
-            # A directory can have multiple versions of the same
-            # wallet. We'd prefer to skip watch-only wallets.
-            if wltID in self.walletIDSet:
-               LOGWARN('***WARNING: Duplicate wallet (%s) detected' % wltID)
-               wo1 = self.wltSet[wltID].watchingOnly
-               wo2 = wltLoad.watchingOnly
-               if wo1 and not wo2:
-                  prevWltPath = self.wltSet[wltID].walletPath
-                  self.wltSet[wltID] = wltLoad
-                  LOGWARN('First wallet is more useful than the second one...')
-                  LOGWARN('     Wallet 1 (loaded):  %s', aWlt)
-                  LOGWARN('     Wallet 2 (skipped): %s', prevWltPath)
-               else:
-                  LOGWARN('Second wallet is more useful than the first one...')
-                  LOGWARN('     Wallet 1 (skipped): %s', aWlt)
-                  LOGWARN('     Wallet 2 (loaded):  %s', \
-                          self.wltSet[wltID].walletPath)
-            else:
-               # Update the wallet structs.
-               self.wltSet[wltID] = wltLoad
-               self.walletIDSet.add(wltID)
-         except:
-            LOGEXCEPT('***WARNING: Unable to load wallet %s. Skipping.', \
-                      aWlt)
-            raise
-
-
-   #############################################################################
-   def addMultLockboxes(self, inLBPaths):
-      '''Function that adds multiple lockboxes to an armoryd server.'''
-      for curLBFile in inLBPaths:
-         try:
-            curLBList = readLockboxesFile(curLBFile)
-            for curLB in curLBList:
-               lbID = curLB.uniqueIDB58
-               if lbID in self.lbIDSet:
-                  LOGINFO('***WARNING: Duplicate lockbox (%s) detected' % lbID)
-               else:
-                  self.lbSet[lbID] = curLB
-                  self.lbIDSet.add(lbID)
-         except:
-            LOGEXCEPT('***WARNING: Unable to load lockbox file %s. Skipping.', \
-                      curLBFile)
-            raise
 
 
    #############################################################################
