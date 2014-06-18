@@ -63,7 +63,7 @@ class ArmoryDTest(TiabTest):
                                           IV=theIV, \
                                           shortLabel=TEST_WALLET_NAME, \
                                           longLabel=TEST_WALLET_DESCRIPTION)
-      self.jsonServer = Armory_Json_Rpc_Server(self.wallet, satoshiPort=TIAB_SATOSHI_PORT)
+      self.jsonServer = Armory_Json_Rpc_Server(self.wallet)
       TheBDM.registerWallet(self.wallet)
       
    def tearDown(self):

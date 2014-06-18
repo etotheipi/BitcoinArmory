@@ -182,8 +182,7 @@ def addMultLockboxes(inLBPaths, inLBSet, inLBIDSet):
 class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
    #############################################################################
    def __init__(self, wallet, inWltSet={}, inLBSet={}, inWltIDSet=set(), \
-                inLBIDSet=set(), satoshiPort=BITCOIN_PORT,
-                armoryHomeDir=ARMORY_HOME_DIR, addrByte=ADDRBYTE):
+                inLBIDSet=set(), armoryHomeDir=ARMORY_HOME_DIR, addrByte=ADDRBYTE):
       # Save the incoming info. If the user didn't pass in a wallet set, put the
       # wallet in the set (actually a dictionary w/ the wallet ID as the key).
       self.addressMetaData = {}
@@ -200,7 +199,6 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
       # If any variables rely on whether or not Testnet in a Box is running,
       # we'll set everything up here.
-      self.satoshiPort = satoshiPort
       self.addrByte = addrByte
 
    
@@ -479,8 +477,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
    def jsonrpc_getwalletinfo(self):
       """Get information on the currently loaded wallet."""
 
-      self.isReady = (TheBDM.getBDMState() == 'BlockchainReady' and \
-                      satoshiIsAvailable(port=self.satoshiPort))
+      self.isReady = TheBDM.getBDMState() == 'BlockchainReady'
 
       wltInfo = { \
                   'name':  self.curWlt.labelName,
@@ -503,8 +500,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
       # Proceed only if the blockchain's good. Wallet value could be unreliable
       # otherwise.
-      if TheBDM.getBDMState()=='BlockchainReady' and \
-         satoshiIsAvailable(port=self.satoshiPort):
+      if TheBDM.getBDMState()=='BlockchainReady':
          if not baltype in ['spendable', 'spend', 'unconf', 'unconfirmed', \
                             'total', 'ultimate', 'unspent', 'full']:
             LOGERROR('Unrecognized getbalance string: "%s"', baltype)
@@ -526,8 +522,6 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       if not baltype in ['spendable','spend', 'unconf', 'unconfirmed', \
                          'ultimate','unspent', 'full']:
          LOGERROR('Unrecognized getaddrbalance string: "%s"', baltype)
-      elif not satoshiIsAvailable(port=self.satoshiPort):
-         LOGERROR('Bitcoin client is not online. Will not give a balance.')
       else:
          # For now, allow only Base58 addresses.
          a160 = addrStr_to_hash160(inB58, False)[1]
@@ -881,8 +875,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
    def jsonrpc_getinfo(self):
       """Get information on the version of armoryd running on the server."""
 
-      isReady = (TheBDM.getBDMState() == 'BlockchainReady' and \
-                 satoshiIsAvailable(port=self.satoshiPort))
+      isReady = TheBDM.getBDMState() == 'BlockchainReady'
 
       info = { \
                'version':           getVersionString(BTCARMORY_VERSION),
