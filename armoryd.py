@@ -67,6 +67,7 @@ from armoryengine.ALL import *
 from collections import defaultdict
 from itertools import islice
 from armoryengine.Decorators import EmailOutput
+from armoryengine.PyBtcWalletRecovery import *
 
 # Some non-twisted json imports from jgarzik's code and his UniversalEncoder
 class UniversalEncoder(json.JSONEncoder):
@@ -937,40 +938,47 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
 
    #############################################################################
+   # Function that takes a paired list of recipients and the amount to be sent
+   # to them, and creates an unsigned transaction based on the current wallet.
+   # The ASCII version of the transaction is sent back.
    # https://bitcointalk.org/index.php?topic=92496.msg1126310#msg1126310
+   # contains out-of-date notes regarding how the code works. A slightly more
+   # up-to-date comparison can be made against the code in
+   # SendBitcoinsFrame::validateInputsGetUSTX() (ui/TxFrames.py).
    def create_unsigned_transaction(self, scriptValuePairs):
-      # Get unspent TxOutList and select the coins
-      #addr160_recipient = addrStr_to_hash160(bitcoinaddress_str)
-
+      # Do initial setup, including choosing the coins you'll use.
       totalSend = long( sum([rv[1] for rv in scriptValuePairs]) )
       fee = 0
-
       spendBal = self.curWlt.getBalance('Spendable')
       utxoList = self.curWlt.getTxOutList('Spendable')
       utxoSelect = PySelectCoins(utxoList, totalSend, fee)
 
-      minFeeRec = calcMinSuggestedFees(utxoSelect, totalSend, fee, len(scriptValuePairs))[1]
-      if fee<minFeeRec:
-         if totalSend + minFeeRec > spendBal:
+      # Calculate the real fee and make sure it's affordable.
+      minFeeRec = calcMinSuggestedFees(utxoSelect, totalSend, fee, \
+                                       len(scriptValuePairs))[1]
+      if fee < minFeeRec:
+         if (totalSend + minFeeRec) > spendBal:
             raise NotEnoughCoinsError, "You can't afford the fee!"
          utxoSelect = PySelectCoins(utxoList, totalSend, minFeeRec)
          fee = minFeeRec
 
+      # If we have no coins, bail out.
       if len(utxoSelect)==0:
          raise CoinSelectError, "Coin selection failed. This shouldn't happen."
 
+      # Calculate the change.
       totalSelected = sum([u.getValue() for u in utxoSelect])
       totalChange = totalSelected - (totalSend  + fee)
 
+      # Generate and shuffle the recipient list.
       outputPairs = scriptValuePairs[:]
       if totalChange > 0:
          nextAddr = self.curWlt.getNextUnusedAddress().getAddrStr()
          outputPairs.append( [addrStr_to_script(nextAddr), totalChange] )
-
       random.shuffle(outputPairs)
 
       # If this has nothing to do with lockboxes, we need to make sure
-      # we're providing a key map for the inputs
+      # we're providing a key map for the inputs.
       pubKeyMap = {}
       for utxo in utxoSelect:
          scrType = getTxOutScriptType(utxo.getScript())
@@ -981,9 +989,11 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
             if addrObj:
                pubKeyMap[scrAddr] = addrObj.binPublicKey65.toBinStr()
 
-      txdp = UnsignedTransaction().createFromTxOutSelection(utxoSelect, outputPairs, pubKeyMap)
-
-      return txdp.serializeAscii()
+      # Create an unsigned transaction and return the ASCII version.
+      usTx = UnsignedTransaction().createFromTxOutSelection(utxoSelect, \
+                                                            outputPairs, \
+                                                            pubKeyMap)
+      return usTx.serializeAscii()
 
 
    #############################################################################
@@ -1445,6 +1455,51 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       # TO DO: Return list of lockboxes added. Mod addMultLockboxes to return added lockboxes.
 
 
+   ##################################
+   # Take the ASCII representation of an unsigned Tx (i.e., the data that is
+   # signed by Armory's offline Tx functionality) and returns an ASCII
+   # representation of the signed Tx, with the current wallet signing the Tx.
+   # See SignBroadcastOfflineTxFrame::signTx() (ui/TxFrames.py) for the GUI's
+   # analog.
+   def jsonrpc_signasciitransaction(self, unsignedTxASCII, wltPasswd):
+      retStr = ''
+      unsignedTx = UnsignedTransaction().unserializeAscii(unsignedTxASCII)
+
+      # If the wallet is encrypted, attempt to decrypt it.
+      decrypted = False
+      if self.curWlt.useEncryption:
+         passwd = SecureBinaryData(str(wltPasswd))
+         if not self.curWlt.verifyPassphrase(passwd):
+            LOGERROR('Passphrase was incorrect! Wallet could not be ' \
+                     'unlocked. Signed transaction will not be created.')
+            retStr = 'Passphrase was incorrect! Wallet could not be ' \
+                     'unlocked. Signed transaction will not be created.'
+         else:
+            self.curWlt.unlock(securePassphrase=passwd)
+            decrypted = True
+
+         passwd.destroy()
+
+      # If the wallet's unencrypted, we want to continue.
+      else:
+         decrypted = True
+
+      # Create the signed transaction and verify it.
+      if decrypted:
+         unsignedTx = self.curWlt.signUnsignedTx(unsignedTx)
+         self.curWlt.advanceHighestIndex()
+         if not unsignedTx.verifySigsAllInputs():
+            LOGERROR('Error signing transaction. Most likely this is not the ' \
+                     'correct wallet.')
+            retStr = 'Error signing transaction. Most likely this is not the ' \
+                     'correct wallet.'
+         else:
+            # The signed Tx is valid.
+            retStr = unsignedTx.serializeAscii()
+
+      return retStr
+
+
 ################################################################################
 class Armory_Daemon(object):
    def __init__(self, wlt=None, lb=None):
@@ -1616,7 +1671,7 @@ class Armory_Daemon(object):
          LOGINFO('Blockchain loading finished.  Top block is %d', \
                  TheBDM.getTopBlockHeight())
 
-         mempoolfile = os.path.join(self.armoryHomeDir,'mempool.bin')
+         mempoolfile = os.path.join(ARMORY_HOME_DIR, 'mempool.bin')
          self.checkMemoryPoolCorruption(mempoolfile)
          TheBDM.enableZeroConf(mempoolfile)
          LOGINFO('Syncing wallet: %s' % self.curWlt.uniqueIDB58)
