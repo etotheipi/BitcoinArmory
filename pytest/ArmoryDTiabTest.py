@@ -4,6 +4,7 @@ Created on Oct 8, 2013
 @author: Andy
 '''
 import sys
+from jasvet import ASv1CS
 sys.path.append('..')
 import os
 import unittest
@@ -71,6 +72,8 @@ TIAB_WLT_3_PK_3 = '93CiEp gZeLrD qVqEX4 p4xkpi KJf3Ty 6Br9VR Dh9cF4 VgYAHj DY6'
 
 BTC_TO_SEND = 1
 
+TEST_MESSAGE = "All your base are belong to us."
+
 # These tests need to be run in the TiaB
 class ArmoryDTiabTest(TiabTest):
    
@@ -84,7 +87,7 @@ class ArmoryDTiabTest(TiabTest):
       fileC    = os.path.join(self.tiab.tiabDirectory, 'tiab\\armory\\armory_%s_.wallet' % THIRD_WLT_NAME)
       wltC = PyBtcWallet().readWalletFile(fileC, doScanNow=True)
       self.jsonServer = Armory_Json_Rpc_Server(self.wlt, {SECOND_WLT_NAME : wltB, THIRD_WLT_NAME : wltC},
-                           satoshiPort=TIAB_SATOSHI_PORT,
+                           satoshiPort=TIAB_SATOSHI_PORT, 
                            armoryHomeDir=os.path.join(self.tiab.tiabDirectory, 'tiab\\armory'))
       TheBDM.registerWallet(self.wlt)
       
@@ -92,6 +95,23 @@ class ArmoryDTiabTest(TiabTest):
       addrFromFirstWlt = self.jsonServer.getPKFromWallet(self.wlt, self.wlt.getHighestUsedIndex())
       actualResult = self.jsonServer.jsonrpc_createlockbox(2, 3, addrFromFirstWlt, SECOND_WLT_NAME, THIRD_WLT_NAME)
       self.assertTrue('LOCKBOX-TTxMo7J6' in actualResult)
+      
+   def  testVerifysignature(self):
+      clearSignMessage = ASv1CS(TIAB_WLT_1_PK_1, TEST_MESSAGE)
+      result = self.jsonServer.jsonrpc_verifysignature(clearSignMessage)
+      self.assertEqual(result['message'], TEST_MESSAGE)
+      self.assertEqual(result['address'], TIAB_WLT_1_ADDR_1)
+      
+   def  testReceivedfromsigner(self):
+      clearSignMessage1 = ASv1CS(TIAB_WLT_3_PK_3, TEST_MESSAGE)
+      result1 = self.jsonServer.jsonrpc_receivedfromsigner(clearSignMessage1)
+      self.assertEqual(result1['message'], TEST_MESSAGE)
+      self.assertEqual(result1['amount'], 6)
+      
+      clearSignMessage2 = ASv1CS(TIAB_WLT_1_PK_3, TEST_MESSAGE)
+      result2 = self.jsonServer.jsonrpc_receivedfromsigner(clearSignMessage2)
+      self.assertEqual(result2['message'], TEST_MESSAGE)
+      self.assertEqual(result2['amount'], 0)
    
    def  testReceivedfromaddress(self):
       result = self.jsonServer.jsonrpc_receivedfromaddress(TIAB_WLT_3_ADDR_3)

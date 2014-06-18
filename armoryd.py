@@ -68,6 +68,7 @@ from collections import defaultdict
 from itertools import islice
 from armoryengine.Decorators import EmailOutput
 from armoryengine.PyBtcWalletRecovery import *
+from jasvet import readSigBlock, verifySignature
 
 # Some non-twisted json imports from jgarzik's code and his UniversalEncoder
 class UniversalEncoder(json.JSONEncoder):
@@ -168,7 +169,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
    #############################################################################
    def __init__(self, wallet, inWltSet={}, inLBSet={}, inWltIDSet=set(), \
                 inLBIDSet=set(), satoshiPort=BITCOIN_PORT,
-                armoryHomeDir=ARMORY_HOME_DIR):
+                armoryHomeDir=ARMORY_HOME_DIR, addrByte=ADDRBYTE):
       # Save the incoming info. If the user didn't pass in a wallet set, put the
       # wallet in the set (actually a dictionary w/ the wallet ID as the key).
       self.addressMetaData = {}
@@ -186,7 +187,25 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       # If any variables rely on whether or not Testnet in a Box is running,
       # we'll set everything up here.
       self.satoshiPort = BITCOIN_PORT
+      self.addrByte = addrByte
 
+   
+   #############################################################################
+   def jsonrpc_receivedfromsigner(self, sigBlock):
+      retDict = {}
+      verification = self.jsonrpc_verifysignature(sigBlock)
+      retDict['message'] = verification['message']
+      retDict['amount'] = self.jsonrpc_receivedfromaddress(verification['address'])
+      return retDict
+
+   #############################################################################
+   def jsonrpc_verifysignature(self, sigBlock):
+      retDict = {}
+      sig, msg = readSigBlock(sigBlock)
+      retDict['message'] = msg
+      addrB58 = verifySignature(sig, msg, 'v1', ord(self.addrByte) )
+      retDict['address'] = addrB58
+      return retDict
 
    #############################################################################
    def jsonrpc_receivedfromaddress(self, sender):
