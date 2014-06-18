@@ -166,8 +166,7 @@ def addMultLockboxes(inLBPaths, inLBSet, inLBIDSet):
 class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
    #############################################################################
    def __init__(self, wallet, inWltSet={}, inLBSet={}, inWltIDSet=set(), \
-                inLBIDSet=set(), tiabRun=False):
-   def __init__(self, wallet, inWltSet={}, inLBSet={}, satoshiPort=BITCOIN_PORT,
+                inLBIDSet=set(), satoshiPort=BITCOIN_PORT,
                 armoryHomeDir=ARMORY_HOME_DIR):
       # Save the incoming info. If the user didn't pass in a wallet set, put the
       # wallet in the set (actually a dictionary w/ the wallet ID as the key).
@@ -1020,42 +1019,42 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       m = int(numM)
       n = int(numN)
       errStr = ''
-      errName = 'Error'
-      retDict = {}
+      result = ''
 
       # Do some basic error checking before proceeding.
       if m > n:
          errStr = 'The user requires more addresses to unlock a lockbox (%d) ' \
                   'than are required to create a lockbox (%d).' % (m, n)
          LOGERROR(errStr)
-         retDict[errName] = errStr
+         result = errStr
       elif m > LB_MAXM:
          errStr = 'The number of signatures required to unlock a lockbox ' \
                   '(%d) exceeds the maximum allowed (%d)' % (m, LB_MAXM)
          LOGERROR(errStr)
-         retDict[errName] = errStr
+         result = errStr
       elif n > LB_MAXN:
          errStr = 'The number of wallets required to create a lockbox (%d) ' \
                   'exceeds the maximum allowed (%d)' % (n, LB_MAXN)
          LOGERROR(errStr)
-         retDict[errName] = errStr
+         result = errStr
       elif args and len(args) > n:
          errStr = 'The number of arguments specified to create a lockbox ' \
                   '(%d) exceeds the number required to create the lockbox ' \
                   '(%d)' % (len(args), n)
          LOGERROR(errStr)
-         retDict[errName] = errStr
+         result = errStr
       elif not args and n > len(self.serverWltSet):
          errStr = 'The number of addresses required to create a lockbox ' \
                   '(%d) exceeds the number of loaded wallets (%d)' % \
                   (n, len(self.serverWltSet))
          LOGERROR(errStr)
-         retDict[errName] = errStr
+         result = errStr
       else:
          allArgsValid = True
          badArg = ''
          addrList = [] # Starts as string list, eventually becomes binary.
          addrNameList = [] # String list
+         lockboxPubKeyList = []
 
          # We need to determine which args are keys, which are wallets and which
          # are garbage.
@@ -1112,7 +1111,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
             errStr = 'The user has specified an argument (%s) that is ' \
                      'invalid.' % badArg
             LOGERROR(errStr)
-            retDict[errName] = errStr
+            result = errStr
          else:
             # We must sort the addresses and comments together. It's important
             # to keep this code in sync with any other code creating lockboxes.
@@ -1122,6 +1121,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
                                                        addrNameList)]
             decorSort  = sorted(decorated, key=lambda pair: pair[0])
             for i, pair in enumerate(decorSort):
+               lockboxPubKeyList.append(LockboxPublicKey(hex_to_binary(pair[0])))
                addrList[i]     = hex_to_binary(pair[0])
                addrNameList[i] = pair[1]
 
@@ -1132,53 +1132,35 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
             lbCreateDate = long(RightNow())
             lbName = 'Lockbox %s' % lbID
             lbDescrip = '%s - %d-of-%d - Created by armoryd' % (lbID, m, n)
-            self.lockbox = MultiSigLockbox(pkListScript, lbName, \
-                                           lbDescrip, addrNameList, \
-                                           lbCreateDate)
+            lockbox = MultiSigLockbox(lbName, lbDescrip, lbCreateDate, m, n,
+                     lockboxPubKeyList)
 
             # To be safe, we'll write the LB only if Armory doesn't already have
             # a copy.
             if lbID in self.serverLBSet.keys():
                errStr = 'Lockbox %s already exists' % lbID
                LOGWARN(errStr)
-               retDict[errName] = errStr
+               result = errStr
             else:
                # Write to the "master" LB list used by Armory and an individual
                # file, and load the LB into our LB set.
                lbFileName = 'Multisig_%s.lockbox.txt' % lbID
                lbFilePath = os.path.join(self.armoryHomeDir, lbFileName)
-               writeLockboxesFile([self.lockbox], 
+               writeLockboxesFile([lockbox], 
                                   os.path.join(self.armoryHomeDir, MULTISIG_FILE_NAME), True)
-               writeLockboxesFile([self.lockbox], lbFilePath, False)
-               self.serverLBSet[lbID] = self.lockbox
+               writeLockboxesFile([lockbox], lbFilePath, False)
+               self.serverLBSet[lbID] = lockbox
 
-               # Finally, we'll write lockbox data to the return dict.
-               for curKeyNum, curKey in enumerate(addrList):
-                  curKeyStr = 'Key %02d' % (curKeyNum + 1)
-                  retDict[curKeyStr] = binary_to_hex(curKey)
+               result = lockbox.serializeAscii()
 
-               for curKeyComNum, curKeyCom in enumerate(addrNameList):
-                  curKeyComStr = 'Key %02d Comment' % (curKeyComNum + 1)
-                  retDict[curKeyComStr] = curKeyCom
-
-               lbDStr = 'Lockbox Description'
-               retDict[lbDStr] = lbDescrip
-               lbStr = 'Lockbox ID'
-               retDict[lbStr] = lbID
-               reqSigStr = 'Required Signature Number'
-               retDict[reqSigStr] = numM
-               totalSigStr = 'Total Signature Number'
-               retDict[totalSigStr] = numN
-
-      return retDict
+      return result
 
    #############################################################################
-   # Get a multisig lockbox info. 
+   # Get info for a lockbox by lockbox ID. 
    def jsonrpc_getlockboxinfo(self, lockboxString):
       retDict = {}
       lockbox = MultiSigLockbox().unserializeAscii(lockboxString)
       
-      # Finally, we'll write lockbox data to the return dict.
       for curKeyNum, curKey in enumerate(lockbox.pubKeys):
          curKeyStr = 'Key %02d' % (curKeyNum + 1)
          retDict[curKeyStr] = binary_to_hex(curKey)
@@ -1195,6 +1177,17 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       retDict[reqSigStr] = lockbox.M
       totalSigStr = 'Total Signature Number'
       retDict[totalSigStr] = lockbox.N
+
+      return retDict
+
+   #############################################################################
+   # Get a dictionary of the lockboxes known to armoryd.
+   # Key - Lockbox ID
+   # Value - Lockbox serialized in ascii
+   def jsonrpc_listlockboxes(self, lockboxString):
+      retDict = {}
+      for lbid in self.serverLBSet.keys():
+         retDict[lbid] = self.serverLBSet.serializeAscii90
 
       return retDict
 

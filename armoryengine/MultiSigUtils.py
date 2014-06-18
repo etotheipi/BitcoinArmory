@@ -230,7 +230,7 @@ class MultiSigLockbox(object):
       self.asciiID     = None
 
       if (M is not None) and (N is not None) and (lbPubKeys is not None):
-         self.setParams(name, descr, createDate, M, N, lbPubKeys, version)
+         self.setParams(name, descr, M, N, lbPubKeys, createDate, version)
 
    #############################################################################
    def setParams(self, name, descr, M, N, lbPubKeys, createDate=None, 

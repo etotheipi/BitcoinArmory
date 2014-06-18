@@ -91,9 +91,7 @@ class ArmoryDTiabTest(TiabTest):
    def testCreateLockbox(self):
       addrFromFirstWlt = self.jsonServer.getPKFromWallet(self.wlt, self.wlt.getHighestUsedIndex())
       actualResult = self.jsonServer.jsonrpc_createlockbox(2, 3, addrFromFirstWlt, SECOND_WLT_NAME, THIRD_WLT_NAME)
-      self.assertEqual(actualResult['Required Signature Number'], 2)
-      self.assertEqual(actualResult['Total Signature Number'], 3)
-      self.assertEqual(actualResult['Lockbox ID'], 'TTxMo7J6')
+      self.assertTrue('LOCKBOX-TTxMo7J6' in actualResult)
    
    def  testReceivedfromaddress(self):
       result = self.jsonServer.jsonrpc_receivedfromaddress(TIAB_WLT_3_ADDR_3)
