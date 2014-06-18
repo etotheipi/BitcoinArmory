@@ -12290,7 +12290,7 @@ class DlgRestoreSingle(ArmoryDialog):
                                                      entrylist[1], 
                                                      entrylist[0]]])
 
-         self.newWallet = PyBtcWallet().readWalletFile(dlgOwnWlt.wltPath)
+         self.newWallet = PyBtcWallet().readWalletFile(self.newWallet.walletPath)
       self.accept()
 
 
@@ -13082,7 +13082,7 @@ class DlgRestoreFragged(ArmoryDialog):
                entrylist = list(dlgOwnWlt.Meta[n_cmt])
                self.newWallet.walletFileSafeUpdate([[WLT_UPDATE_ADD, entrylist[2], entrylist[1], entrylist[0]]])
 
-         self.newWallet = PyBtcWallet().readWalletFile(dlgOwnWlt.wltPath)
+         self.newWallet = PyBtcWallet().readWalletFile(self.newWallet.walletPath)
       self.accept()
 
    #############################################################################
@@ -13603,7 +13603,7 @@ class DlgReplaceWallet(ArmoryDialog):
 
       self.btnAbort = QPushButton('Cancel')
       self.btnReplace = QPushButton('Overwrite')
-      self.btnSaveMeta = QPushButton('Set New Password')
+      self.btnSaveMeta = QPushButton('Merge')
 
       self.connect(self.btnAbort, SIGNAL('clicked()'), self.reject)
       self.connect(self.btnReplace, SIGNAL('clicked()'), self.Replace)
