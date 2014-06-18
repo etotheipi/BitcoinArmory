@@ -106,6 +106,8 @@ NOT_IMPLEMENTED = '--Not Implemented--'
 # separate set.
 def addMultWallets(inWltPaths, inWltSet, inWltIDSet):
    '''Function that adds multiple wallets to an armoryd server.'''
+   newWltList = []
+
    for aWlt in inWltPaths:
       # Logic basically taken from loadWalletsAndSettings()
       try:
@@ -137,9 +139,12 @@ def addMultWallets(inWltPaths, inWltSet, inWltIDSet):
             # Update the wallet structs.
             inWltSet[wltID] = wltLoad
             inWltIDSet.add(wltID)
+            newWltList.append(wltID)
       except:
          LOGEXCEPT('***WARNING: Unable to load wallet %s. Skipping.', aWlt)
          raise
+
+   return newWltList
 
 
 ################################################################################
@@ -149,6 +154,8 @@ def addMultWallets(inWltPaths, inWltSet, inWltIDSet):
 # separate set.
 def addMultLockboxes(inLBPaths, inLBSet, inLBIDSet):
    '''Function that adds multiple lockboxes to an armoryd server.'''
+   newLBList = []
+
    for curLBFile in inLBPaths:
       try:
          curLBList = readLockboxesFile(curLBFile)
@@ -159,10 +166,13 @@ def addMultLockboxes(inLBPaths, inLBSet, inLBIDSet):
             else:
                inLBSet[lbID] = curLB
                inLBIDSet.add(lbID)
+               newLBList.append(lbID)
       except:
          LOGEXCEPT('***WARNING: Unable to load lockbox file %s. Skipping.', \
                    curLBFile)
          raise
+
+   return newLBList
 
 
 class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
@@ -1388,6 +1398,20 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
 
    #############################################################################
+   # Function that lists all the loaded wallets.
+   def jsonrpc_listloadedlockboxes(self):
+      # Return a dictionary with a string as the key and a wallet B58 value as
+      # the value.
+      curKey = 1
+      lockboxList = {}
+      for l in self.serverLBSet.keys():
+         curLBStr = 'Lockbox %04d' % curKey
+         lockboxList[curLBStr] = l
+         curKey += 1
+      return lockboxList
+
+
+   #############################################################################
    # Pull in a signed Tx and get the raw Tx hex data to broadcast. This call
    # works with a regular signed Tx and a signed lockbox Tx if there are already
    # enough signatures.
@@ -1457,10 +1481,20 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
    # to armoryd. Wallet paths are passed in and delineated by colons.
    def jsonrpc_addwallets(self, newWltPaths):
       newWltPaths = newWltPaths.split(":")
-      wltPaths = readWalletFiles(newWltPaths)
-      addMultWallets(wltPaths, self.serverWltSet, self.serverWltIDSet)
+      addWltList = addMultWallets(newWltPaths, self.serverWltSet, \
+                                  self.serverWltIDSet)
 
-      # TO DO: Return list of wallets added. Mod addMultWallets to return added wallets.
+      # Do we need to rescan the blockchain at this point???
+
+      # Return the list of added wallets.
+      retWltList = {}
+      newWltNum = 1
+      for newWltID in addWltList:
+         curWltStr = 'Wallet %04d' % newWltNum
+         retWltList[curWltStr] = newWltID
+         newWltNum += 1
+
+      return retWltList
 
 
    #############################################################################
@@ -1468,10 +1502,20 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
    # available to armoryd. Lockbox paths are passed in and delineated by colons.
    def jsonrpc_addlockboxes(self, newLBPaths):
       newLBPaths = newLBPaths.split(":")
-      lbPaths = readWalletFiles(newLBPaths)
-      addMultLockboxes(lbPaths, self.serverLBSet, self.serverLBIDSet)
+      addLBList = addMultLockboxes(newLBPaths, self.serverLBSet, \
+                                   self.serverLBIDSet)
 
-      # TO DO: Return list of lockboxes added. Mod addMultLockboxes to return added lockboxes.
+      # Do we need to rescan the blockchain at this point???
+
+      # Return the list of added lockboxes.
+      retLBList = {}
+      newLBNum = 1
+      for newLBID in addLBList:
+         curLBStr = 'Lockbox %04d' % newLBNum
+         retLBList[curLBStr] = newLBID
+         newLBNum += 1
+
+      return retLBList
 
 
    ##################################
@@ -1696,7 +1740,8 @@ class Armory_Daemon(object):
          LOGINFO('Syncing wallet: %s' % self.curWlt.uniqueIDB58)
          self.curWlt.syncWithBlockchain()
          LOGINFO('Blockchain load and wallet sync finished')
-         LOGINFO('Wallet balance: %s' % coin2str(self.curWlt.getBalance('Spendable')))
+         LOGINFO('Wallet balance: %s' % \
+                 coin2str(self.curWlt.getBalance('Spendable')))
 
          # This is CONNECT call for armoryd to talk to bitcoind
          LOGINFO('Set up connection to bitcoind')
