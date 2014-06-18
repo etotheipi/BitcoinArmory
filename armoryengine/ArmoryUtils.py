@@ -1614,7 +1614,7 @@ def satoshiIsAvailable(host='127.0.0.1', port=BITCOIN_PORT, timeout=0.01):
       except:
          pass
 
-   return 1
+   return 0
 
 
 # This is a sweet trick for create enum-like dictionaries.
