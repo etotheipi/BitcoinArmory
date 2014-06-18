@@ -196,7 +196,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
       # If any variables rely on whether or not Testnet in a Box is running,
       # we'll set everything up here.
-      self.satoshiPort = BITCOIN_PORT
+      self.satoshiPort = satoshiPort
       self.addrByte = addrByte
 
    

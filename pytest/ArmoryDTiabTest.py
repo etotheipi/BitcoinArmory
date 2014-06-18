@@ -4,10 +4,7 @@ Created on Oct 8, 2013
 @author: Andy
 '''
 import sys
-from jasvet import ASv1CS
 sys.path.append('..')
-import os
-import unittest
 from pytest.Tiab import TiabTest, TOP_TIAB_BLOCK, FIRST_WLT_BALANCE,\
    FIRST_WLT_NAME, SECOND_WLT_NAME, THIRD_WLT_NAME, TIAB_SATOSHI_PORT
 from armoryengine.ArmoryUtils import *
@@ -15,7 +12,9 @@ from armoryd import AmountToJSON, Armory_Json_Rpc_Server, JSONtoAmount
 from armoryengine.BDM import TheBDM
 from armoryengine.PyBtcWallet import PyBtcWallet
 from armoryengine.Transaction import UnsignedTransaction
+import unittest
 
+from jasvet import ASv1CS
 TEST_WALLET_NAME = 'Test Wallet Name'
 TEST_WALLET_DESCRIPTION = 'Test Wallet Description'
 
@@ -97,13 +96,13 @@ class ArmoryDTiabTest(TiabTest):
       self.assertTrue('LOCKBOX-TTxMo7J6' in actualResult)
       
    def  testVerifysignature(self):
-      clearSignMessage = ASv1CS(TIAB_WLT_1_PK_1, TEST_MESSAGE)
+      clearSignMessage = ASv1CS(base58_to_binary(TIAB_WLT_1_PK_1), TEST_MESSAGE)
       result = self.jsonServer.jsonrpc_verifysignature(clearSignMessage)
       self.assertEqual(result['message'], TEST_MESSAGE)
       self.assertEqual(result['address'], TIAB_WLT_1_ADDR_1)
       
    def  testReceivedfromsigner(self):
-      clearSignMessage1 = ASv1CS(TIAB_WLT_3_PK_3, TEST_MESSAGE)
+      clearSignMessage1 = ASv1CS(base58_to_binary(TIAB_WLT_3_PK_3), TEST_MESSAGE)
       result1 = self.jsonServer.jsonrpc_receivedfromsigner(clearSignMessage1)
       self.assertEqual(result1['message'], TEST_MESSAGE)
       self.assertEqual(result1['amount'], 6)

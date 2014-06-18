@@ -41,6 +41,7 @@ class ArmoryDTest(TiabTest):
             os.remove(f)
 
    def setUp(self):
+      self.verifyBlockHeight()
       self.fileA    = os.path.join(ARMORY_HOME_DIR, 'armory_%s_.wallet' % TEST_WALLET_ID)
       self.fileB    = os.path.join(ARMORY_HOME_DIR, 'armory_%s_backup.wallet' % TEST_WALLET_ID)
       self.fileAupd = os.path.join(ARMORY_HOME_DIR, 'armory_%s_backup_unsuccessful.wallet' % TEST_WALLET_ID)
