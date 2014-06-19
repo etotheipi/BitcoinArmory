@@ -5,14 +5,14 @@ Created on Aug 4, 2013
 '''
 import sys
 sys.path.append('..')
-from pytest.Tiab import TiabTest
+#from pytest.Tiab import TiabTest
 import unittest
 from armoryengine.ArmoryUtils import *
-from armoryengine.Script import convertScriptToOpStrings
-from armoryengine.MultiSigUtils import calcLockboxID, computePromissoryID, \
-   MultiSigLockbox, MultiSigPromissoryNote, LockboxPublicKey
 from armoryengine.Transaction import PyTx, UnsignedTxInput, DecoratedTxOut,\
    UnsignedTransaction, TXIN_SIGSTAT
+from armoryengine.Script import convertScriptToOpStrings
+from armoryengine.MultiSigUtils import calcLockboxID, computePromissoryID, \
+   MultiSigLockbox, MultiSigPromissoryNote, DecoratedPublicKey
 
 
 
@@ -109,7 +109,7 @@ tx2Fake = PyTx().unserialize(hex_to_binary( (
 
 ALL_ZERO_OUTPOINT = hex_to_binary('00' * 36)
 
-class MSUtilsTest(TiabTest):
+class MSUtilsTest(unittest.TestCase):
 
    
    def setUp(self):
@@ -379,11 +379,11 @@ class MSUtilsTest(TiabTest):
       print binary_to_hex(ustx.getPyTxSignedIfPossible().serialize())
       
 
-class PubKeyBlockTest(TiabTest):
+class PubKeyBlockTest(unittest.TestCase):
 
    
    def setUp(self):
-      self.pubKey = hex_to_binary( \
+      self.binPubKey = hex_to_binary( \
          '048d103d81ac9691cf13f3fc94e44968ef67b27f58b27372c13108552d24a6ee04'
            '785838f34624b294afee83749b64478bb8480c20b242c376e77eea2b3dc48b4b')
       self.comment = 'This is a sample comment!'
@@ -392,16 +392,49 @@ class PubKeyBlockTest(TiabTest):
       pass
    
 
+   #############################################################################
    def testPubKey_serialize_roundtrip(self):
-      lbPubKey = LockboxPublicKey(self.pubKey, self.comment)
-      self.assertEqual(self.pubKey, lbPubKey.binPubKey)
-      self.assertEqual(self.comment, lbPubKey.keyComment)
+      wltLoc     = 'Armory3cx8J2n#223'  
+      authMethod = 'NullAuthMethod'
+      authData   = 'NullAuthData'
+      dpk = DecoratedPublicKey(self.binPubKey, self.comment, wltLoc, authMethod, authData)
+      self.assertEqual(self.binPubKey, dpk.binPubKey)
+      self.assertEqual(self.comment,   dpk.keyComment)
+      self.assertEqual(wltLoc,         dpk.wltLocator)
+      self.assertEqual(authMethod,     dpk.authMethod)
+      self.assertEqual(authData,       dpk.authData)
 
-      serKey = lbPubKey.serialize()
-      lbPubKey2 = LockboxPublicKey().unserialize(serKey)
-   
-      self.assertEqual(lbPubKey.binPubKey,  lbPubKey2.binPubKey)
-      self.assertEqual(lbPubKey.keyComment, lbPubKey2.keyComment)
+      serKey = dpk.serialize()
+      dpk2 = DecoratedPublicKey().unserialize(serKey)
+
+      self.assertEqual(dpk.binPubKey,  dpk2.binPubKey)
+      self.assertEqual(dpk.keyComment, dpk2.keyComment)
+      self.assertEqual(wltLoc,         dpk2.wltLocator)
+      self.assertEqual(authMethod,     dpk2.authMethod)
+      self.assertEqual(authData,       dpk2.authData)
+
+
+   #############################################################################
+   def testPubKey_serializeAscii_roundtrip(self):
+      wltLoc     = 'Armory3cx8J2n#223'  
+      authMethod = 'NullAuthMethod'
+      authData   = 'NullAuthData'
+      dpk = DecoratedPublicKey(self.binPubKey, self.comment, wltLoc, authMethod, authData)
+      self.assertEqual(self.binPubKey, dpk.binPubKey)
+      self.assertEqual(self.comment,   dpk.keyComment)
+      self.assertEqual(wltLoc,         dpk.wltLocator)
+      self.assertEqual(authMethod,     dpk.authMethod)
+      self.assertEqual(authData,       dpk.authData)
+
+      ascKey = dpk.serializeAscii()
+      dpk2 = DecoratedPublicKey().unserializeAscii(ascKey)
+
+      self.assertEqual(dpk.binPubKey, dpk2.binPubKey)
+      self.assertEqual(dpk.keyComment,dpk2.keyComment)
+      self.assertEqual(wltLoc,        dpk2.wltLocator)
+      self.assertEqual(authMethod,    dpk2.authMethod)
+      self.assertEqual(authData,      dpk2.authData)
+
 
 
    """

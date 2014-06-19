@@ -1330,6 +1330,91 @@ class UnsignedTxInput(object):
       return (numValid >= M)
 
 
+   #############################################################################
+   def toJSONMap(self, lite=False):
+      outjson = {}
+      outjson['version']      = self.version
+      outjson['magicbytes']   = MAGIC_BYTES
+      outjson['id']           = self.asciiID
+      outjson['outpoint']     = binary_to_hex(self.outpoint.serialize())
+      outjson['p2shscript']   = self.p2shScript
+      outjson['contribid']    = self.contribID
+      outjson['contriblabel'] = self.contribLabel
+      outjson['sequence']     = self.sequence
+      outjson['numkeys']      = self.keysListed
+
+      outjson['keys'] = []
+      for i in range(self.keysListed):
+         outjson['keys'][i] = {}
+         outjson['keys'][i]['pubkeyhex'] = binary_to_hex(self.pubKeys[i])
+         outjson['keys'][i]['dersighex'] = binary_to_hex(self.signatures[i])
+         outjson['keys'][i]['wltlochex'] = binary_to_hex(self.wltLocators[i])
+
+
+      # Add a few convenience keys to avoid the caller having to calcs for it
+      supportPyTx = PyTx().unserialize(self.supportTx)
+      txoidx = binary_to_int(self.outpoint.serialize()[-4:], LITTLEENDIAN)
+
+      outjson['supporttxhash_le'] = supportPyTx.getHashHex()
+      outjson['supporttxhash_be'] = hex_switchEndian(supportPyTx.getHashHex())
+      outjson['supporttxhash']    = outjson['supporttxhash_be'] # BE is default
+      outjson['supporttxoutindex']= txoidx
+      outjson['inputvalue'] = supportPyTx().outputs[txoidx].value
+
+      if not lite:
+         outjson['supporttx'] = binary_to_hex(self.supportTx)
+
+      return outjson
+
+   #############################################################################
+   def fromJSONMap(self, jsonMap):
+
+      # There is a lite version of toJSONMap(), but can't create from a lite copy
+      if not 'supporttx' in jsonMap:
+         raise UnserializeError('Incomplete unsigned transaction map')
+
+
+      ver   = jsonMap['version']
+      magic = jsonMap['magicbytes']
+
+      if not ver == UNSIGNED_TX_VERSION:
+         LOGWARN('Unserialing USTX of different version')
+         LOGWARN('   USTX    Version: %d' % ver)
+         LOGWARN('   Armory  Version: %d' % UNSIGNED_TX_VERSION)
+
+      # Check the magic bytes of the lockbox match
+      if not magic == MAGIC_BYTES:
+         LOGERROR('Wrong network!')
+         LOGERROR('    USTX    Magic: ' + binary_to_hex(magic))
+         LOGERROR('    Armory  Magic: ' + binary_to_hex(MAGIC_BYTES))
+         raise NetworkIDError('Network magic bytes mismatch')
+
+      rawSupportTx = jsonMap['supporttx']
+      txoutIndex   = jsonMap['supporttxoutindex']
+      p2sh         = jsonMap['p2shscript']
+      contribID    = jsonMap['contribid']
+      contribLabel = jsonMap['contriblabel']
+      sequence     = jsonMap['sequence']
+      
+      pubkeyMap = {}
+      insertSigs = []
+      insertWltLocs = []
+      for i in range(jsonMap['numkeys']):
+         pub = hex_to_binary(jsonMap['keys'][i]['pubkeyhex'])
+         sig = hex_to_binary(jsonMap['keys'][i]['dersighex'])
+         loc = hex_to_binary(jsonMap['keys'][i]['wltlochex'])
+
+         pubkeyMap[SCRADDR_P2PKH_BYTE + hash160(pub)] = pub
+         insertSigs.append(sig)
+         insertWltLocs.append(loc)
+
+      self.__init__(rawSupportTx, txoutIndex, p2sh, 
+                    pubkeyMap, insertSigs, insertWltLocs,
+                    contribID, contribLabel, sequence)
+
+      return self
+      
+
 
    #############################################################################
    def serialize(self):
@@ -1467,7 +1552,7 @@ class UnsignedTxInput(object):
 
 
 ################################################################################
-class NullAuthInfo(object):
+class NullAuthData(object):
    def __init__(self):
       pass
 
@@ -1483,7 +1568,7 @@ class DecoratedTxOut(object):
    """
    The name is really "UnsignedTx" output ... it is an output of an unsignedTx
 
-   self.authInfo can be anything that the offline computer will recognize
+   self.authData can be anything that the offline computer will recognize
    as authentication of the owner of the txOut script.  This could be our
    planned rootkey + multiplier technique (or multiple root keys and
    multipliers, in multisig), or it could be a chain of X509 certs that
@@ -1499,7 +1584,7 @@ class DecoratedTxOut(object):
    can display intelligent stuff to the user.
    """
    def __init__(self, script=None, value=None, p2sh=None,
-                      wltLocator=None, authMethod='NONE', authInfo=None,
+                      wltLocator=None, authMethod='NONE', authData=None,
                       contribID=None, contribLabel=None, 
                       version=UNSIGNED_TX_VERSION):
 
@@ -1514,7 +1599,7 @@ class DecoratedTxOut(object):
       self.p2shScript = p2sh if p2sh else ''
       self.wltLocator = wltLocator if wltLocator else ''
       self.authMethod = authMethod
-      self.authInfo   = authInfo if authInfo else NullAuthInfo()
+      self.authData   = authData if authData else NullAuthData()
       self.contribID  = contribID if contribID else ''
       self.contribLabel = contribLabel if contribLabel else ''
 
@@ -1539,9 +1624,9 @@ class DecoratedTxOut(object):
 
 
    #############################################################################
-   def setAuthInfo(self, authType, authObj):
+   def setAuthData(self, authType, authObj):
       self.authMethod = authType
-      self.authInfo   = authObj
+      self.authData   = authObj
 
    #############################################################################
    def setWltLocator(self, wltLocStr):
@@ -1558,6 +1643,71 @@ class DecoratedTxOut(object):
       else:
          return ''
 
+   #############################################################################
+   def toJSONMap(self):
+      """
+      No lite version needed, since these are usually very small.
+
+      Below is the list of supported TXOUT types defined around line 500 in 
+      armoryengine/ArmoryUtils.py.  This list will probably not be maintained
+      as regularly as the one in ArmoryUtils.py, since these comments are not
+      required to be accurate for the code to be functional.  Please confirm
+      that it matches the ArmoryUtils list for the current version of Armory
+      before relying on it.
+
+      CPP_TXOUT_STDHASH160   = 0
+      CPP_TXOUT_STDPUBKEY65  = 1
+      CPP_TXOUT_STDPUBKEY33  = 2
+      CPP_TXOUT_MULTISIG     = 3
+      CPP_TXOUT_P2SH         = 4
+      CPP_TXOUT_NONSTANDARD  = 5
+
+      CPP_TXOUT_HAS_ADDRSTR  = [CPP_TXOUT_STDHASH160, 
+                                CPP_TXOUT_STDPUBKEY65,
+                                CPP_TXOUT_STDPUBKEY33,
+                                CPP_TXOUT_P2SH]
+
+      CPP_TXOUT_STDSINGLESIG = [CPP_TXOUT_STDHASH160, 
+                                CPP_TXOUT_STDPUBKEY65,
+                                CPP_TXOUT_STDPUBKEY33]
+
+      CPP_TXOUT_SCRIPT_NAMES = ['']*6
+      CPP_TXOUT_SCRIPT_NAMES[CPP_TXOUT_STDHASH160]  = 'Standard (PKH)'
+      CPP_TXOUT_SCRIPT_NAMES[CPP_TXOUT_STDPUBKEY65] = 'Standard (PK65)'
+      CPP_TXOUT_SCRIPT_NAMES[CPP_TXOUT_STDPUBKEY33] = 'Standard (PK33)'
+      CPP_TXOUT_SCRIPT_NAMES[CPP_TXOUT_MULTISIG]    = 'Multi-Signature'
+      CPP_TXOUT_SCRIPT_NAMES[CPP_TXOUT_P2SH]        = 'Standard (P2SH)'
+      CPP_TXOUT_SCRIPT_NAMES[CPP_TXOUT_NONSTANDARD] = 'Non-Standard'
+      """
+
+      outjson = {}
+      outjson['version']      = self.version
+      outjson['magicbytes']   = MAGIC_BYTES
+      outjson['id']           = self.asciiID
+      outjson['txoutscript']  = self.binScript
+      outjson['txoutvalue']   = self.value
+      outjson['p2shscript']   = self.p2shScript
+      outjson['wltlocator']   = self.wltLocator
+      outjson['authmethod']   = self.authmethod # we expect plaintext
+      outjson['authdata']     = binary_to_hex(self.authData) # we expect this won't be
+      outjson['contribid']    = self.contribID
+      outjson['contriblabel'] = self.contribLabel
+
+      # Some computed values so the caller doesn't have to deal with it
+      scrType = getTxOutScriptType(self.binScript)
+      outjson['scripttypeint'] = scrType  # armoryengine/ArmoryUtils.py line ~500
+      outjson['scripttypestr'] = CPP_TXOUT_SCRIPT_NAMES[scrType]
+      outjson['isp2sh']        = (scrType == CPP_TXOUT_P2SH)
+      outjson['ismultisig']    = (scrType == CPP_TXOUT_MULTISIG)
+
+      outjson['hasaddrstr']    = False
+      outjson['addrstr']       = ''
+      if scrType in CPP_TXOUT_HAS_ADDRSTR:
+         outjson['hasaddrstr']    = True
+         outjson['addrstr']       = scrAddr_to_addrStr(self.binScript)
+
+      return outjson
+
 
    #############################################################################
    def serialize(self):
@@ -1573,7 +1723,7 @@ class DecoratedTxOut(object):
       bp.put(VAR_STR,      self.p2shScript)
       bp.put(VAR_STR,      self.wltLocator)
       bp.put(VAR_STR,      self.authMethod)
-      bp.put(VAR_STR,      self.authInfo.serialize())
+      bp.put(VAR_STR,      self.authData.serialize())
       bp.put(VAR_STR,      self.contribID)
       bp.put(VAR_STR,      self.contribLabel)
 
@@ -1591,7 +1741,7 @@ class DecoratedTxOut(object):
       p2shScr    = bu.get(VAR_STR)
       wltLoc     = bu.get(VAR_STR)
       authMeth   = bu.get(VAR_STR)
-      authInfo   = bu.get(VAR_STR)
+      authData   = bu.get(VAR_STR)
       contribID  = bu.get(VAR_STR)
       contribLBL = toUnicode(bu.get(VAR_STR))
 
@@ -1608,10 +1758,10 @@ class DecoratedTxOut(object):
          LOGWARN('   Armory  Version: %d' % UNSIGNED_TX_VERSION)
 
 
-      authInfoObj = NullAuthInfo().unserialize(authInfo)
+      authDataObj = NullAuthData().unserialize(authData)
 
       self.__init__(script, value, p2shScr, wltLoc, 
-                             authMeth, authInfoObj, contribID, contribLBL)
+                             authMeth, authDataObj, contribID, contribLBL)
       return self
 
 
@@ -2013,11 +2163,11 @@ class UnsignedTransaction(object):
 
       outjson['inputs'] = []
       for ustxi in self.ustxInputs:
-         outjson['inputs'].append(ustxi.toJsonDict())
+         outjson['inputs'].append(ustxi.toJSONMap())
 
       outjson['outputs'] = []
       for dtxo in self.decorTxOuts:
-         outjson['outputs'].append(dtxo.toJsonDict())
+         outjson['outputs'].append(dtxo.toJSONMap())
       
       return outjson
 
@@ -2025,21 +2175,6 @@ class UnsignedTransaction(object):
 
    def fromJSONMap(self, jsonMap):
       
-      #bu = BinaryUnpacker(rawData)
-      #ver     = bu.get(UINT32)
-      #magic   = bu.get(BINARY_CHUNK, 4)
-      #lockt   = bu.get(UINT32)
-
-      #numUSTXI = bu.get(VAR_INT)
-      #ustxiList = []
-      #for i in range(numUSTXI):
-         #ustxiList.append( UnsignedTxInput().unserialize(bu.get(VAR_STR)) )
-
-      #numDtxo = bu.get(VAR_INT)
-      #dtxoList = []
-      #for i in range(numDtxo):
-         #dtxoList.append( DecoratedTxOut().unserialize(bu.get(VAR_STR)) )
-
 
       if not 'inputs' in jsonMap:
          raise UnserializeError('Incomplete unsigned transaction map')
@@ -2072,6 +2207,7 @@ class UnsignedTransaction(object):
 
       self.createFromUnsignedTxIO(ustxiList, dtxoList, lockt)
 
+      return self
 
 
    #############################################################################

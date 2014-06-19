@@ -219,7 +219,7 @@ class MultiSigLockbox(object):
 
    #############################################################################
    def __init__(self, name=None, descr=None, createDate=None, M=None, N=None, 
-                                     lbPubKeys=None, version=MULTISIG_VERSION):
+                                     dPubKeys=None, version=MULTISIG_VERSION):
       
       self.version     = MULTISIG_VERSION
       self.shortName   = toUnicode(name)
@@ -229,11 +229,11 @@ class MultiSigLockbox(object):
       self.uniqueIDB58 = None
       self.asciiID     = None
 
-      if (M is not None) and (N is not None) and (lbPubKeys is not None):
-         self.setParams(name, descr, createDate, M, N, lbPubKeys, version)
+      if (M is not None) and (N is not None) and (dPubKeys is not None):
+         self.setParams(name, descr, createDate, M, N, dPubKeys, version)
 
    #############################################################################
-   def setParams(self, name, descr, M, N, lbPubKeys, createDate=None, 
+   def setParams(self, name, descr, M, N, dPubKeys, createDate=None, 
                                                    version=MULTISIG_VERSION):
       
       
@@ -244,8 +244,8 @@ class MultiSigLockbox(object):
       self.longDescr = toUnicode(descr)
       self.M         = M
       self.N         = N
-      self.lbPubKeys = lbPubKeys[:]
-      binPubKeys     = [p.binPubKey for p in lbPubKeys]
+      self.dPubKeys  = dPubKeys[:]
+      binPubKeys     = [p.binPubKey for p in dPubKeys]
       self.a160List  = [hash160(p)  for p in binPubKeys]
 
       if createDate is not None:
@@ -274,7 +274,7 @@ class MultiSigLockbox(object):
       bp.put(UINT8,        self.M)
       bp.put(UINT8,        self.N)
       for i in range(self.N):
-         bp.put(VAR_STR,   self.lbPubKeys[i].serialize())
+         bp.put(VAR_STR,   self.dPubKeys[i].serialize())
 
       return bp.getBinaryString()
 
@@ -319,10 +319,10 @@ class MultiSigLockbox(object):
 
       # Now we switch to the new setParams method
       M,N,a160s,pubs = getMultisigScriptInfo(boxScript) 
-      lbPubKeys = [LockboxPublicKey(pub, com) for pub,com in zip(pubs,boxComms)]
+      dPubKeys = [DecoratedPublicKey(pub, com) for pub,com in zip(pubs,boxComms)]
 
       # No need to read magic bytes -- already checked & bailed if incorrect
-      self.setParams(boxName, boxDescr, M, N, lbPubKeys, created)
+      self.setParams(boxName, boxDescr, M, N, dPubKeys, created)
       return self
 
 
@@ -343,9 +343,9 @@ class MultiSigLockbox(object):
       M          = bu.get(UINT8)
       N          = bu.get(UINT8)
 
-      lbPubKeys = []
+      dPubKeys = []
       for i in range(N):
-         lbPubKeys.append(LockboxPublicKey().unserialize(bu.get(VAR_STR)))
+         dPubKeys.append(DecoratedPublicKey().unserialize(bu.get(VAR_STR)))
 
 
       # Issue a warning if the versions don't match
@@ -362,7 +362,7 @@ class MultiSigLockbox(object):
          raise NetworkIDError('Network magic bytes mismatch')
 
       
-      binPubKeys = [p.binPubKey for p in lbPubKeys]
+      binPubKeys = [p.binPubKey for p in dPubKeys]
       boxScript = pubkeylist_to_multisig_script(binPubKeys, M)
 
       # Lockbox ID is written in the first line, it should match the script
@@ -372,7 +372,7 @@ class MultiSigLockbox(object):
          raise UnserializeError('ID on lockbox does not match!')
 
       # No need to read magic bytes -- already checked & bailed if incorrect
-      self.setParams(boxName, boxDescr, M, N, lbPubKeys, created)
+      self.setParams(boxName, boxDescr, M, N, dPubKeys, created)
 
       return self
 
@@ -394,6 +394,72 @@ class MultiSigLockbox(object):
       boxID = headStr.split('-')[-1]
       return self.unserialize(rawData, boxID)
 
+
+   #############################################################################
+   def toJSONMap(self):
+      outjson = {}
+      outjson['version']      = self.version
+      outjson['magicbytes']   = MAGIC_BYTES
+      outjson['id']           = self.asciiID
+
+      outjson['lboxname'] =  self.shortName
+      outjson['lboxdescr'] =  self.longDescr
+      outjson['M'] = self.M
+      outjson['N'] = self.M
+
+      outjson['pubkeylist'] = []
+      for dpk in self.dPubKeys:
+         outjson['pubkeylist'].append(dpk.toJSONMap())
+
+      outjson['a160list'] = [hash160(p.binPubKey) for p in self.dPubKeys]
+      outjson['addrstrs'] = [hash160_to_addrStr(a) for a in outjson['a160list']]
+
+      outjson['txoutscript'] = self.binScript
+      outjson['p2shscript']  = self.p2shScript
+      outjson['createdate']  = self.createDate
+      
+      return outjson
+
+
+   #############################################################################
+   def fromJSONMap(self):
+      ver   = jsonMap['version'] 
+      magic = jsonMap['magicbytes'] 
+      uniq  = jsonMap['id']
+   
+      # Issue a warning if the versions don't match
+      if not ver == UNSIGNED_TX_VERSION:
+         LOGWARN('Unserializing Lokcbox of different version')
+         LOGWARN('   USTX    Version: %d' % ver)
+         LOGWARN('   Armory  Version: %d' % UNSIGNED_TX_VERSION)
+
+      # Check the magic bytes of the lockbox match
+      if not magic == MAGIC_BYTES:
+         LOGERROR('Wrong network!')
+         LOGERROR('    USTX    Magic: ' + binary_to_hex(magic))
+         LOGERROR('    Armory  Magic: ' + binary_to_hex(MAGIC_BYTES))
+         raise NetworkIDError('Network magic bytes mismatch')
+
+
+      
+      #def setParams(self, name, descr, M, N, dPubKeys, createDate=None, 
+                                                   #version=MULTISIG_VERSION):
+      name   = jsonMap['lboxname']
+      descr  = jsonMap['lboxdescr']
+      M      = jsonMap['M']
+      N      = jsonMap['N']
+      
+      pubs = []
+      for i in range(N):
+         pubs.append(DecoratedPublicKey().fromJSONMap(jsonMap['pubkeylist']))
+
+      created = jsonMap['createdate']
+      self.setParams(name, descr, M, N, pubs, createDate)
+      return self
+
+
+
+
    #############################################################################
    def pprint(self):
       print 'Multi-signature %d-of-%d lockbox:' % (self.M, self.N)
@@ -409,9 +475,9 @@ class MultiSigLockbox(object):
          print '       ', opStr
       print''
       print '   Key Info:   '
-      for i in range(len(self.lbPubKeys)):
+      for i in range(len(self.dPubKeys)):
          print '            Key %d' % i
-         print '           ', binary_to_hex(self.lbPubKeys[i].binPubKey)[:40] + '...'
+         print '           ', binary_to_hex(self.dPubKeys[i].binPubKey)[:40] + '...'
          print '           ', hash160_to_addrStr(self.a160List[i])
          print '           ', self.commentList[i]
          print ''
@@ -457,10 +523,10 @@ class MultiSigLockbox(object):
       lines.append(tr('<b>Created:</b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;%s') % formattedDate) 
       lines.append(tr('<b>Extended Info:</b><hr><blockquote>%s</blockquote><hr>') % longDescr)
       lines.append(tr('<b>Stored Key Details</b>'))
-      for i in range(len(self.lbPubKeys)):
-         comm = self.lbPubKeys[i].keyComment
+      for i in range(len(self.dPubKeys)):
+         comm = self.dPubKeys[i].keyComment
          addr = hash160_to_addrStr(self.a160List[i])
-         pubk = binary_to_hex(self.lbPubKeys[i].binPubKey)[:40] + '...'
+         pubk = binary_to_hex(self.dPubKeys[i].binPubKey)[:40] + '...'
 
          if len(comm.strip())==0:
             comm = '<No Info>'
@@ -573,7 +639,7 @@ class MultiSigLockbox(object):
 
 ################################################################################
 ################################################################################
-class LockboxPublicKey(object):
+class DecoratedPublicKey(object):
 
    OBJNAME   = 'PublicKey'
    BLKSTRING = 'PUBLICKEY'
@@ -669,7 +735,7 @@ class LockboxPublicKey(object):
          raise NetworkIDError('Network magic bytes mismatch')
       
       if not version==MULTISIG_VERSION:
-         LOGWARN('Unserialing LB pubkey of different version')
+         LOGWARN('Unserializing LB pubkey of different version')
          LOGWARN('   PubKey  Version: %d' % version)
          LOGWARN('   Armory  Version: %d' % MULTISIG_VERSION)
 
@@ -707,8 +773,55 @@ class LockboxPublicKey(object):
 
 
    #############################################################################
+   def toJSONMap(self):
+      outjson = {}
+      outjson['version']      = self.version
+      outjson['magicbytes']   = MAGIC_BYTES
+      outjson['id']           = self.asciiID
+
+      outjson['pubkeyhex']  = binary_to_hex(self.binPubKey)
+      outjson['keycomment'] = self.keyComment
+      outjson['wltLocator'] = binary_to_hex(self.wltLocator)
+      outjson['authmethod'] = self.authMethod # we expect plaintext
+      outjson['authdata']   = binary_to_hex(self.authData) # we expect this won't be
+      
+      return outjson
+
+
+   #############################################################################
+   def fromJSONMap(self):
+      ver   = jsonMap['version'] 
+      magic = jsonMap['magicbytes'] 
+      uniq  = jsonMap['id']
+   
+      # Issue a warning if the versions don't match
+      if not ver == UNSIGNED_TX_VERSION:
+         LOGWARN('Unserializing DPK of different version')
+         LOGWARN('   USTX    Version: %d' % ver)
+         LOGWARN('   Armory  Version: %d' % UNSIGNED_TX_VERSION)
+
+      # Check the magic bytes of the lockbox match
+      if not magic == MAGIC_BYTES:
+         LOGERROR('Wrong network!')
+         LOGERROR('    USTX    Magic: ' + binary_to_hex(magic))
+         LOGERROR('    Armory  Magic: ' + binary_to_hex(MAGIC_BYTES))
+         raise NetworkIDError('Network magic bytes mismatch')
+   
+
+      pub  = hex_to_binary(outjson['pubkeyhex'])
+      comm =               outjson['keycomment']
+      loc  = hex_to_binary(outjson['wltLocator'])
+      meth =               outjson['authmethod']
+      data = hex_to_binary(outjson['authdata'])
+
+      self.setParams(pub,comm,lock,meth.data)
+      
+      return self
+
+
+   #############################################################################
    def pprint(self):
-      print 'pprint of LockboxPublicKey is not implemented'
+      print 'pprint of DecoratedPublicKey is not implemented'
       
 
 
@@ -929,11 +1042,92 @@ class MultiSigPromissoryNote(object):
       return self.unserialize(rawData, promID)
 
 
+
+
+   #############################################################################
+   def toJSONMap(self, lite=False):
+      outjson = {}
+      outjson['version']      = self.version
+      outjson['magicbytes']   = MAGIC_BYTES
+      outjson['id']           = self.asciiID
+
+      #bp = BinaryPacker()
+      #bp.put(UINT32,       self.version)
+      #bp.put(BINARY_CHUNK, MAGIC_BYTES)
+      #bp.put(VAR_STR,      self.dtxoTarget.serialize())
+      #bp.put(VAR_STR,      serChange)
+      #bp.put(UINT64,       self.feeAmt)
+      #bp.put(VAR_INT,      len(self.ustxInputs))
+      #for ustxi in self.ustxInputs:
+         #bp.put(VAR_STR,      ustxi.serialize())
+      #bp.put(VAR_STR,      toBytes(self.promLabel))
+      #bp.put(VAR_STR,      self.lockboxKey)
+
+      if self.dtxoChange is None:
+         dtxoChangeMap = {}
+      else:
+         dtxoChangeMap = self.dtxoChange.toJSONMap()
+
+      outjson['txouttarget'] = self.dtxoTarget.toJSONMap()
+      outjson['txoutchange'] = dtxoChangeMap
+      outjson['fee'] = self.feeAmt
+
+      outjson['numinputs'] = len(self.ustxInputs)
+      outjson['promlabel'] = self.promlabel
+      outjson['lbpubkey'] = self.lockboxKey
+      
+      if not lite:
+         outjson['inputs'] = []
+         for ustxi in self.ustxInputs:
+            outjson['inputs'].append(ustxi.toJSONMap())
+
+      return outjson
+
+
+   #############################################################################
+   def fromJSONMap(self):
+      ver   = jsonMap['version'] 
+      magic = jsonMap['magicbytes'] 
+      uniq  = jsonMap['id']
+   
+      # Issue a warning if the versions don't match
+      if not ver == UNSIGNED_TX_VERSION:
+         LOGWARN('Unserializing Lokcbox of different version')
+         LOGWARN('   USTX    Version: %d' % ver)
+         LOGWARN('   Armory  Version: %d' % UNSIGNED_TX_VERSION)
+
+      # Check the magic bytes of the lockbox match
+      if not magic == MAGIC_BYTES:
+         LOGERROR('Wrong network!')
+         LOGERROR('    USTX    Magic: ' + binary_to_hex(magic))
+         LOGERROR('    Armory  Magic: ' + binary_to_hex(MAGIC_BYTES))
+         raise NetworkIDError('Network magic bytes mismatch')
+
+
+      targ = jsonMap['txouttarget']
+      fee  = jsonMap['fee']
+
+      if len(jsonMap['txoutchange'])>0:
+         chng = jsonMap['txoutchange']
+      else:
+         chng = None
+
+      nin = jsonMap['numinputs']
+      inputs = []
+      for i in range(nin):
+         inputs.append(UnsignedTxInput().fromJSONMap(jsonMap['inputs'][i]))
+         
+      lbl = jsonMap['promlabel']
+      self.setParams(targ, fee, chng, inputs, lbl)
+      
+      return self
+      
+
+
+
    #############################################################################
    def pprint(self):
 
-      #self.lockboxKey     = ''
-      #self.lockboxKeyInfo = ''
       print 'Promissory Note:'
       print '   Version     :', self.version
       print '   Unique ID   :', self.promID

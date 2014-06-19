@@ -117,7 +117,7 @@ class DlgLockboxEditor(ArmoryDialog):
          self.widgetMap[i]['BTN_NAME'].setContentsMargins(0,0,0,0)
          self.widgetMap[i]['LBL_DETECT'].setWordWrap(False)
 
-         # METADATA for a LockboxPublicKey helps lite wallets
+         # METADATA for a DecoratedPublicKey helps lite wallets
          # identify their own keys, or authenticate keys of others.
          # When a pubkey block is imported we store the public key and 
          # its metadata here indexed by pubkey.  Later, we serialize
@@ -302,7 +302,7 @@ class DlgLockboxEditor(ArmoryDialog):
       ftypes = ['Public Key Blocks (*.lockbox.pub)']
 
       dlgImport = DlgImportAsciiBlock(self, self.main, 
-                        title, descr, ftypes, LockboxPublicKey)
+                        title, descr, ftypes, DecoratedPublicKey)
       dlgImport.exec_()
       if dlgImport.returnObj:
          binPub  = dlgImport.returnObj.binPubKey
@@ -450,9 +450,9 @@ class DlgLockboxEditor(ArmoryDialog):
       self.createDate = lboxObj.createDate
 
       for i in range(lboxObj.N):
-         binPub = lboxObj.lbPubKeys[i].binPubKey
+         binPub = lboxObj.dPubKeys[i].binPubKey
          self.widgetMap[i]['QLE_PUBK'].setText(binary_to_hex(binPub))
-         self.widgetMap[i]['LBL_NAME'].setText(lboxObj.lbPubKeys[i].keyComment)
+         self.widgetMap[i]['LBL_NAME'].setText(lboxObj.dPubKeys[i].keyComment)
 
       def setCombo(cmb, val):
          for i in range(cmb.count()):
@@ -511,7 +511,7 @@ class DlgLockboxEditor(ArmoryDialog):
          extras = [None, None, None]
          if pkBin in self.widgetMap[i]['METADATA']:
             extras = self.widgetMap[i]['METADATA'][pkBin][:]
-         pubKeyList.append(LockboxPublicKey(pkBin, keyComment, *extras))
+         pubKeyList.append(DecoratedPublicKey(pkBin, keyComment, *extras))
 
          # Finally, throw a warning if the comment is not set 
          strComment = str(self.widgetMap[i]['LBL_NAME'].text()).strip()
@@ -535,8 +535,8 @@ class DlgLockboxEditor(ArmoryDialog):
 
 
       # Sort the public keys lexicographically
-      lbPubKeys = sorted(pubKeyList, key=lambda lbKey: lbKey.binPubKey)
-      binPubKeys = [p.binPubKey for p in lbPubKeys] 
+      dPubKeys = sorted(pubKeyList, key=lambda lbKey: lbKey.binPubKey)
+      binPubKeys = [p.binPubKey for p in dPubKeys] 
 
       txOutScript = pubkeylist_to_multisig_script(binPubKeys, currM)  
       opCodeList = convertScriptToOpStrings(txOutScript)
@@ -590,7 +590,7 @@ class DlgLockboxEditor(ArmoryDialog):
                                       toUnicode(self.longDescr),
                                       currM, 
                                       currN,
-                                      lbPubKeys,
+                                      dPubKeys,
                                       self.createDate)
 
 
@@ -2066,11 +2066,11 @@ class DlgSelectPublicKey(ArmoryDialog):
       self.lblDetect   = addrWidgets['LBL_DETECT']
       self.lblDetect.setVisible(True)
 
-      btnExportKey = QPushButton(tr('Send to Organizer'))
-      self.connect(btnExportKey, SIGNAL('clicked()'), self.doExportKey)
-      frmButtons = makeHorizFrame([QRichLabel(tr('When finished:')),
-                                   btnExportKey, 
-                                   'Stretch'])
+      #btnExportKey = QPushButton(tr('Send to Organizer'))
+      #self.connect(btnExportKey, SIGNAL('clicked()'), self.doExportKey)
+      #frmButtons = makeHorizFrame([QRichLabel(tr('When finished:')),
+                                   #btnExportKey, 
+                                   #'Stretch'])
 
       layoutAddrEntry = QGridLayout()
       layoutAddrEntry.addWidget(lblSelect,                  0,0)
@@ -2080,7 +2080,7 @@ class DlgSelectPublicKey(ArmoryDialog):
       layoutAddrEntry.addWidget(lblContact,                 2,0)
       layoutAddrEntry.addWidget(self.edtContact,            2,1)
       layoutAddrEntry.addWidget(ttipContact,                2,2)
-      layoutAddrEntry.addWidget(frmButtons,                 3,0,  1,3)
+      #layoutAddrEntry.addWidget(frmButtons,                 3,0,  1,3)
       layoutAddrEntry.setColumnStretch(0,0)
       layoutAddrEntry.setColumnStretch(1,1)
       layoutAddrEntry.setColumnStretch(2,0)
@@ -2088,9 +2088,11 @@ class DlgSelectPublicKey(ArmoryDialog):
       frmAddrEntry.setLayout(layoutAddrEntry)
       
 
-      btnDone = QPushButton(tr('Done'))
-      self.connect(btnDone, SIGNAL('clicked()'), self.accept)
-      frmDone = makeHorizFrame(['Stretch', btnDone])
+      btnDone = QPushButton(tr('Continue'))
+      btnCancel = QPushButton(tr('Cancel'))
+      self.connect(btnDone,   SIGNAL('clicked()'), self.doDone)
+      self.connect(btnCancel, SIGNAL('clicked()'), self.reject)
+      frmDone = makeHorizFrame([btnCancel, 'Stretch', btnDone])
       
 
       mainLayout = QVBoxLayout()
@@ -2127,8 +2129,8 @@ class DlgSelectPublicKey(ArmoryDialog):
          return None
 
       comm = unicode(self.edtContact.text()).strip() 
-      lbPubKey = LockboxPublicKey(binPub, comm)
-      return lbPubKey.serializeAscii()
+      dPubKey = DecoratedPublicKey(binPub, comm)
+      return dPubKey.serializeAscii()
       
       
 
@@ -2138,7 +2140,7 @@ class DlgSelectPublicKey(ArmoryDialog):
       if not toCopy:
          return 
 
-      lbPubKey = LockboxPublicKey().unserializeAscii(toCopy)
+      dPubKey = DecoratedPublicKey().unserializeAscii(toCopy)
 
       title = tr("Export Public Key for Lockbox")
       descr = tr("""
@@ -2149,13 +2151,19 @@ class DlgSelectPublicKey(ArmoryDialog):
          """)
          
       ftypes = ['Public Key Blocks (*.lockbox.pub)']
-      defaultFN = 'PubKey_%s_.lockbox.pub' % lbPubKey.pubKeyID
+      defaultFN = 'PubKey_%s_.lockbox.pub' % dPubKey.pubKeyID
          
-      DlgExportAsciiBlock(self, self.main, lbPubKey, title, descr, 
+      DlgExportAsciiBlock(self, self.main, dPubKey, title, descr, 
                                                     ftypes, defaultFN).exec_()
 
       
+   def doDone(self):
+      if self.collectKeyData() is None:
+         return 
 
+      self.doExportKey()
+      self.accept()
+      
 
 
 ################################################################################
@@ -2594,7 +2602,7 @@ class DlgMultiSpendReview(ArmoryDialog):
             else:
 
                if lbox:
-                  comm = lbox.lbPubKeys[i].keyComment
+                  comm = lbox.dPubKeys[i].keyComment
                elif len(iBundle.ustxiList) > 0:
                   comm = iBundle.ustxiList[0].contribLabel
                else:
