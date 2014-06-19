@@ -5,16 +5,16 @@ Created on Oct 8, 2013
 '''
 import sys
 sys.path.append('..')
-import os
-import unittest
 from pytest.Tiab import TiabTest, TOP_TIAB_BLOCK, FIRST_WLT_BALANCE,\
-   FIRST_WLT_NAME, SECOND_WLT_NAME, THIRD_WLT_NAME
+   FIRST_WLT_NAME, SECOND_WLT_NAME, THIRD_WLT_NAME, TIAB_SATOSHI_PORT
 from armoryengine.ArmoryUtils import *
 from armoryd import AmountToJSON, Armory_Json_Rpc_Server, JSONtoAmount
 from armoryengine.BDM import TheBDM
 from armoryengine.PyBtcWallet import PyBtcWallet
 from armoryengine.Transaction import UnsignedTransaction
+import unittest
 
+from jasvet import ASv1CS
 TEST_WALLET_NAME = 'Test Wallet Name'
 TEST_WALLET_DESCRIPTION = 'Test Wallet Description'
 
@@ -62,14 +62,13 @@ TIAB_WLT_3_PK_1 = '9295sDHkX1xDMzSxit3Bvi8GdLUQq1JFktBQFB8Ca45aLaw8neN'
 TIAB_WLT_3_ADDR_2 = 'mpXd2u8fPVYdL1Nf9bZ4EFnqhkNyghGLxL'
 TIAB_WLT_3_PK_2 = '92Mic29J44mKLn4qKXm31mMv45BtEnywBnJh36jn1Rk2RT9PTsK'
 
+# has 18.90 BTC
 TIAB_WLT_3_ADDR_3 = 'mmfN9oj2wtMTCACKJz7fUcDeAczz4kucvV'
 TIAB_WLT_3_PK_3 = '92ymyLuiEUJJz5madzhPtBTa3of46vLXDSuFPNMAA6DMLSeKA8S'
 
-# has 18.90 BTC
-TIAB_WLT_3_ADDR_3 = 'msw6eseNASK8tGVdnQAPURFbHZaayt1pck'
-TIAB_WLT_3_PK_3 = '93CiEp gZeLrD qVqEX4 p4xkpi KJf3Ty 6Br9VR Dh9cF4 VgYAHj DY6'
-
 BTC_TO_SEND = 1
+
+TEST_MESSAGE = "All your base are belong to us."
 
 # These tests need to be run in the TiaB
 class ArmoryDTiabTest(TiabTest):
@@ -83,19 +82,34 @@ class ArmoryDTiabTest(TiabTest):
       wltB = PyBtcWallet().readWalletFile(fileB, doScanNow=True)
       fileC    = os.path.join(self.tiab.tiabDirectory, 'tiab\\armory\\armory_%s_.wallet' % THIRD_WLT_NAME)
       wltC = PyBtcWallet().readWalletFile(fileC, doScanNow=True)
-      self.jsonServer = Armory_Json_Rpc_Server(self.wlt, {SECOND_WLT_NAME : wltB, THIRD_WLT_NAME : wltC} )
+      self.jsonServer = Armory_Json_Rpc_Server(self.wlt, {SECOND_WLT_NAME : wltB, THIRD_WLT_NAME : wltC},
+                           armoryHomeDir=os.path.join(self.tiab.tiabDirectory, 'tiab\\armory'))
       TheBDM.registerWallet(self.wlt)
       
+   def getPrivateKey(self, address):
+      hash160 = addrStr_to_hash160(address)[1]
+      return self.wlt.addrMap[hash160].binPrivKey32_Plain.toBinStr()
+   
    def testCreateLockbox(self):
       addrFromFirstWlt = self.jsonServer.getPKFromWallet(self.wlt, self.wlt.getHighestUsedIndex())
       actualResult = self.jsonServer.jsonrpc_createlockbox(2, 3, addrFromFirstWlt, SECOND_WLT_NAME, THIRD_WLT_NAME)
-      self.assertEqual(actualResult['Required Signature Number'], 2)
-      self.assertEqual(actualResult['Total Signature Number'], 3)
-      self.assertEqual(actualResult['Lockbox ID'], 'TTxMo7J6')
+      self.assertTrue('LOCKBOX-TTxMo7J6' in actualResult)
+      
+   def  testVerifysignature(self):
+      clearSignMessage = ASv1CS(self.getPrivateKey(TIAB_WLT_1_ADDR_1), TEST_MESSAGE)
+      result = self.jsonServer.jsonrpc_verifysignature(clearSignMessage)
+      self.assertEqual(result['message'], TEST_MESSAGE)
+      self.assertEqual(result['address'], TIAB_WLT_1_ADDR_1)
+      
+   def  testReceivedfromsigner(self):      
+      clearSignMessage2 = ASv1CS(self.getPrivateKey(TIAB_WLT_1_ADDR_3), TEST_MESSAGE)
+      result2 = self.jsonServer.jsonrpc_receivedfromsigner(clearSignMessage2)
+      self.assertEqual(result2['message'], TEST_MESSAGE)
+      self.assertEqual(result2['amount'], 0)
    
    def  testReceivedfromaddress(self):
       result = self.jsonServer.jsonrpc_receivedfromaddress(TIAB_WLT_3_ADDR_3)
-      self.assertEqual(result, 6)
+      self.assertEqual(result, 0)
       result = self.jsonServer.jsonrpc_receivedfromaddress(TIAB_WLT_1_ADDR_3)
       self.assertEqual(result, 0)
    
@@ -120,7 +134,7 @@ class ArmoryDTiabTest(TiabTest):
       info = self.jsonServer.jsonrpc_getinfo()
       self.assertEqual(info['blocks'], TOP_TIAB_BLOCK)
       self.assertEqual(info['bdmstate'], 'BlockchainReady')
-      self.assertEqual(info['walletversion'], 13500000)
+      self.assertEqual(info['walletversion'], '1.35')
       self.assertEqual(info['difficulty'], 1.0)
       self.assertEqual(info['balance'], FIRST_WLT_BALANCE)
       

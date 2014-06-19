@@ -408,8 +408,8 @@ if CLI_OPTIONS.logFile.lower()=='default':
 
 SETTINGS_PATH   = CLI_OPTIONS.settingsPath
 MULT_LOG_FILE   = os.path.join(ARMORY_HOME_DIR, 'multipliers.txt')
-MULTISIG_FILE   = os.path.join(ARMORY_HOME_DIR, 'multisigs.txt')
-
+MULTISIG_FILE_NAME   = 'multisigs.txt'
+MULTISIG_FILE   = os.path.join(ARMORY_HOME_DIR, MULTISIG_FILE_NAME)
 
 
 if not CLI_OPTIONS.multisigFile.lower()=='default':
@@ -1614,7 +1614,7 @@ def satoshiIsAvailable(host='127.0.0.1', port=BITCOIN_PORT, timeout=0.01):
       except:
          pass
 
-   return 1
+   return 0
 
 
 # This is a sweet trick for create enum-like dictionaries.
