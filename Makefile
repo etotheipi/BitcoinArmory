@@ -38,7 +38,8 @@ all-test-tools: all
 	$(MAKE) -C cppForSwig/gtest
 
 test: all-test-tools
-	cd cppForSwig/gtest && ./CppBlockUtilsTests
+	(cd cppForSwig/gtest && ./CppBlockUtilsTests)
+	(cd pytest && python RunPyTest.py)
 
 osx :
 	chmod +x osxbuild/deploy.sh
