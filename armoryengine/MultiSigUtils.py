@@ -658,7 +658,7 @@ class DecoratedPublicKey(object):
       self.keyComment = ''
       self.wltLocator = ''
       self.authMethod = ''
-      self.authData   = ''
+      self.authData   = authData if authData else NullAuthData()
 
       self.pubKeyID   = None
       self.asciiID    = None
@@ -709,7 +709,7 @@ class DecoratedPublicKey(object):
       bp.put(VAR_STR,      toBytes(self.keyComment))
       bp.put(VAR_STR,      self.wltLocator)
       bp.put(VAR_STR,      self.authMethod)
-      bp.put(VAR_STR,      self.authData)
+      bp.put(VAR_STR,      self.authData.serialize())
       return bp.getBinaryString()
 
    #############################################################################
@@ -723,7 +723,8 @@ class DecoratedPublicKey(object):
       keyComment  = toUnicode(bu.get(VAR_STR))
       wltLoc      = bu.get(VAR_STR)
       authMeth    = bu.get(VAR_STR)
-      authData    = bu.get(VAR_STR)
+      authDataStr = bu.get(VAR_STR)
+      authData    = NullAuthData().unserialize(authDataStr)
 
       # Check the magic bytes of the lockbox match
       if not magicBytes == MAGIC_BYTES and not skipMagicCheck:
@@ -781,7 +782,7 @@ class DecoratedPublicKey(object):
       outjson['keycomment'] = self.keyComment
       outjson['wltLocator'] = binary_to_hex(self.wltLocator)
       outjson['authmethod'] = self.authMethod # we expect plaintext
-      outjson['authdata']   = binary_to_hex(self.authData) # we expect this won't be
+      outjson['authdata']   = binary_to_hex(self.authData.serialize()) 
       
       return outjson
 
@@ -812,7 +813,9 @@ class DecoratedPublicKey(object):
       meth =               outjson['authmethod']
       data = hex_to_binary(outjson['authdata'])
 
-      self.setParams(pub,comm,lock,meth.data)
+      authobj = NullAuthData().unserialize(data)
+
+      self.setParams(pub, comm, lock, meth, authobj)
       
       return self
 
