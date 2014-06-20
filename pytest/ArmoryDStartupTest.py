@@ -87,7 +87,7 @@ class ArmoryDStartupTest(TiabTest):
       actualResult = self.armoryDSession.callArmoryD(['getinfo'], True)
       self.assertEqual(actualResult['balance'], FIRST_WLT_BALANCE)
       self.assertEqual(actualResult['bdmstate'], 'BlockchainReady')
-      self.assertEqual(actualResult['blocks'], 247)
+      self.assertEqual(actualResult['blocks'], TOP_TIAB_BLOCK)
       self.assertEqual(actualResult['difficulty'], 1.0)
       self.assertEqual(actualResult['testnet'], True)
       

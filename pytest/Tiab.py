@@ -1,4 +1,5 @@
 import sys
+from armoryengine.ArmoryUtils import BlockchainUnavailableError
 # This Code chunk has to appear before ArmoryUtils is imported
 # If not, it will run the tests in Mainnet.
 # TODO: Fix the code base so that nothing is started during imports.
@@ -92,7 +93,6 @@ class TiabSession:
          raise RuntimeError("Cannot have more than one Test-In-A-Box session simultaneously (yet)")
       
       TiabSession.numInstances += 1
-      os.rmdir(self.tiabDirectory)
       with ZipFile(self.tiabZipPath, "r") as z:
          z.extractall(self.tiabDirectory)
       try:
@@ -128,8 +128,12 @@ class TiabTest(unittest.TestCase):
       TheBDM.setLevelDBDir(os.path.join(self.tiab.tiabDirectory,'tiab','armory','databases'))
       TheBDM.setBlocking(True)
       TheBDM.setOnlineMode(wait=True)
-      while not TheBDM.getBDMState()=='BlockchainReady':
+      i = 0
+      while not TheBDM.getBDMState()=='BlockchainReady' and i < 10:
          time.sleep(2)
+         i += 10
+      if i >= 10:
+         raise BlockchainUnavailableError
 
    @classmethod
    def tearDownClass(self):

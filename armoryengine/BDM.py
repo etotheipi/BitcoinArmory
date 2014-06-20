@@ -470,6 +470,7 @@ class BlockDataManagerThread(threading.Thread):
    def setOnlineMode(self, goOnline=True, wait=None):
       LOGINFO('Setting online mode: %s (wait=%s)' % (str(goOnline), str(wait)))
       expectOutput = False
+      # Wait is tri-state - True, False, or None
       if not wait==False and (self.alwaysBlock or wait==True):
          expectOutput = True
 
