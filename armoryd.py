@@ -1807,7 +1807,7 @@ class Armory_Daemon(object):
          else:
             lbPaths = getLockboxFilePaths()
             addMultLockboxes(lbPaths, self.lbSet, self.lbIDSet)
-            if len(CLI_ARGS) == 0 and len(self.wltSet) > 0:
+            if len(CLI_ARGS) == 1 and len(self.wltSet) > 0:
                self.curLB = self.lbSet[self.lbSet.keys()[0]]
 
             # Load the specified lockbox if it exists.

@@ -66,8 +66,12 @@ class ArmoryDSession:
          self.callArmoryD([os.path.join(self.tiab.tiabDirectory, 'tiab', 'armory',FIRST_WLT_FILE_NAME)], False)
          ArmoryDSession.numInstances += 1
          # Wait for Armory_Daemon to start running
-         while not Armory_Daemon.checkForAlreadyRunning():
+         i = 0
+         while not Armory_Daemon.checkForAlreadyRunning() and i < 10:
             time.sleep(1)
+            i += 1
+         if i >= 10:
+            raise RuntimeError("Cannot have more than one ArmoryD session simultaneously")
 
       except:
          self.clean()
@@ -84,7 +88,7 @@ class ArmoryDStartupTest(TiabTest):
       self.armoryDSession.clean()
             
    def testJSONGetinfo(self):
-      actualResult = self.armoryDSession.callArmoryD(['getinfo'], True)
+      actualResult = self.armoryDSession.callArmoryD(['getarmorydinfo'], True)
       self.assertEqual(actualResult['balance'], FIRST_WLT_BALANCE)
       self.assertEqual(actualResult['bdmstate'], 'BlockchainReady')
       self.assertEqual(actualResult['blocks'], TOP_TIAB_BLOCK)

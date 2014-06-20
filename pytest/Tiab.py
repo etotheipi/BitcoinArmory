@@ -1,5 +1,4 @@
 import sys
-from armoryengine.ArmoryUtils import BlockchainUnavailableError
 # This Code chunk has to appear before ArmoryUtils is imported
 # If not, it will run the tests in Mainnet.
 # TODO: Fix the code base so that nothing is started during imports.
@@ -131,9 +130,10 @@ class TiabTest(unittest.TestCase):
       i = 0
       while not TheBDM.getBDMState()=='BlockchainReady' and i < 10:
          time.sleep(2)
-         i += 10
+         i += 1
       if i >= 10:
-         raise BlockchainUnavailableError
+         raise RuntimeError("Timeout waiting for TheBDM to get into BlockchainReady state.")
+
 
    @classmethod
    def tearDownClass(self):
