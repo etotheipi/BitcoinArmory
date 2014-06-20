@@ -92,7 +92,6 @@ class TiabSession:
          raise RuntimeError("Cannot have more than one Test-In-A-Box session simultaneously (yet)")
       
       TiabSession.numInstances += 1
-      os.rmdir(self.tiabDirectory)
       with ZipFile(self.tiabZipPath, "r") as z:
          z.extractall(self.tiabDirectory)
       try:
@@ -128,8 +127,13 @@ class TiabTest(unittest.TestCase):
       TheBDM.setLevelDBDir(os.path.join(self.tiab.tiabDirectory,'tiab','armory','databases'))
       TheBDM.setBlocking(True)
       TheBDM.setOnlineMode(wait=True)
-      while not TheBDM.getBDMState()=='BlockchainReady':
+      i = 0
+      while not TheBDM.getBDMState()=='BlockchainReady' and i < 10:
          time.sleep(2)
+         i += 1
+      if i >= 10:
+         raise RuntimeError("Timeout waiting for TheBDM to get into BlockchainReady state.")
+
 
    @classmethod
    def tearDownClass(self):
