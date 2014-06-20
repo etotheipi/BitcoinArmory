@@ -218,8 +218,8 @@ class MultiSigLockbox(object):
                it rescan if this lockbox has already been used."""
 
    #############################################################################
-   def __init__(self, name=None, descr=None, createDate=None, M=None, N=None, 
-                                     dPubKeys=None, version=MULTISIG_VERSION):
+   def __init__(self, name=None, descr=None, M=None, N=None, dPubKeys=None, 
+                                     createDate=None, version=MULTISIG_VERSION):
       
       self.version     = MULTISIG_VERSION
       self.shortName   = toUnicode(name)
@@ -287,7 +287,7 @@ class MultiSigLockbox(object):
    # lockboxes in the file, it will call this on each one of them, and then
    # it will write out all the lockboxes whic effectively, immediately upgrades
    # all of them.
-   def unserialize_v0(self, rawData, expectID=None):
+   def unserialize_v0(self, rawData, expectID=None, skipMagicCheck=False):
       LOGWARN('Version 0 lockbox detected.  Reading and converting')
       bu = BinaryUnpacker(rawData)
       boxVersion = bu.get(UINT32)
@@ -303,7 +303,7 @@ class MultiSigLockbox(object):
          boxComms[i] = toUnicode(bu.get(VAR_STR))
 
       # Check the magic bytes of the lockbox match
-      if not boxMagic == MAGIC_BYTES:
+      if not boxMagic == MAGIC_BYTES and not skipMagicCheck:
          LOGERROR('Wrong network!')
          LOGERROR('    Lockbox Magic: ' + binary_to_hex(boxMagic))
          LOGERROR('    Armory  Magic: ' + binary_to_hex(MAGIC_BYTES))
@@ -327,7 +327,7 @@ class MultiSigLockbox(object):
 
 
    #############################################################################
-   def unserialize(self, rawData, expectID=None):
+   def unserialize(self, rawData, expectID=None, skipMagicCheck=False):
 
       bu = BinaryUnpacker(rawData)
       boxVersion = bu.get(UINT32)
@@ -355,7 +355,7 @@ class MultiSigLockbox(object):
          LOGWARN('   Armory  Version: %d' % MULTISIG_VERSION)
 
       # Check the magic bytes of the lockbox match
-      if not boxMagic == MAGIC_BYTES:
+      if not boxMagic == MAGIC_BYTES and not skipMagicCheck:
          LOGERROR('Wrong network!')
          LOGERROR('    Lockbox Magic: ' + binary_to_hex(boxMagic))
          LOGERROR('    Armory  Magic: ' + binary_to_hex(MAGIC_BYTES))
@@ -384,7 +384,7 @@ class MultiSigLockbox(object):
 
 
    #############################################################################
-   def unserializeAscii(self, boxBlock):
+   def unserializeAscii(self, boxBlock, skipMagicCheck=False):
       headStr, rawData = readAsciiBlock(boxBlock, self.BLKSTRING)
       if rawData is None:
          LOGERROR('Expected str "%s", got "%s"' % (self.BLKSTRING, headStr))
@@ -392,7 +392,7 @@ class MultiSigLockbox(object):
 
       # We should have "LOCKBOX-BOXID" in the headstr
       boxID = headStr.split('-')[-1]
-      return self.unserialize(rawData, boxID)
+      return self.unserialize(rawData, boxID, skipMagicCheck)
 
 
    #############################################################################
@@ -422,7 +422,7 @@ class MultiSigLockbox(object):
 
 
    #############################################################################
-   def fromJSONMap(self):
+   def fromJSONMap(self, jsonMap, skipMagicCheck=False):
       ver   = jsonMap['version'] 
       magic = jsonMap['magicbytes'] 
       uniq  = jsonMap['id']
@@ -434,7 +434,7 @@ class MultiSigLockbox(object):
          LOGWARN('   Armory  Version: %d' % UNSIGNED_TX_VERSION)
 
       # Check the magic bytes of the lockbox match
-      if not magic == MAGIC_BYTES:
+      if not magic == MAGIC_BYTES and not skipMagicCheck:
          LOGERROR('Wrong network!')
          LOGERROR('    USTX    Magic: ' + binary_to_hex(magic))
          LOGERROR('    Armory  Magic: ' + binary_to_hex(MAGIC_BYTES))
@@ -442,8 +442,6 @@ class MultiSigLockbox(object):
 
 
       
-      #def setParams(self, name, descr, M, N, dPubKeys, createDate=None, 
-                                                   #version=MULTISIG_VERSION):
       name   = jsonMap['lboxname']
       descr  = jsonMap['lboxdescr']
       M      = jsonMap['M']
@@ -451,7 +449,7 @@ class MultiSigLockbox(object):
       
       pubs = []
       for i in range(N):
-         pubs.append(DecoratedPublicKey().fromJSONMap(jsonMap['pubkeylist']))
+         pubs.append(DecoratedPublicKey().fromJSONMap(jsonMap['pubkeylist'], skipMagicCheck))
 
       created = jsonMap['createdate']
       self.setParams(name, descr, M, N, pubs, createDate)
@@ -715,7 +713,7 @@ class DecoratedPublicKey(object):
       return bp.getBinaryString()
 
    #############################################################################
-   def unserialize(self, rawData, expectID=None):
+   def unserialize(self, rawData, expectID=None, skipMagicCheck=False):
       ustxiList = []
       
       bu = BinaryUnpacker(rawData)
@@ -728,7 +726,7 @@ class DecoratedPublicKey(object):
       authData    = bu.get(VAR_STR)
 
       # Check the magic bytes of the lockbox match
-      if not magicBytes == MAGIC_BYTES:
+      if not magicBytes == MAGIC_BYTES and not skipMagicCheck:
          LOGERROR('Wrong network!')
          LOGERROR('    PubKey Magic: ' + binary_to_hex(magicBytes))
          LOGERROR('    Armory Magic: ' + binary_to_hex(MAGIC_BYTES))
@@ -759,7 +757,7 @@ class DecoratedPublicKey(object):
 
 
    #############################################################################
-   def unserializeAscii(self, pubkeyBlock):
+   def unserializeAscii(self, pubkeyBlock, skipMagicCheck=False):
 
       headStr, rawData = readAsciiBlock(pubkeyBlock, self.BLKSTRING)
 
@@ -769,7 +767,7 @@ class DecoratedPublicKey(object):
 
       # We should have "PUBLICKEY" in the headstr
       pkID = headStr.split('-')[-1]
-      return self.unserialize(rawData, pkID)
+      return self.unserialize(rawData, pkID, skipMagicCheck)
 
 
    #############################################################################
@@ -789,7 +787,7 @@ class DecoratedPublicKey(object):
 
 
    #############################################################################
-   def fromJSONMap(self):
+   def fromJSONMap(self, jsonMap, skipMagicCheck=False):
       ver   = jsonMap['version'] 
       magic = jsonMap['magicbytes'] 
       uniq  = jsonMap['id']
@@ -801,7 +799,7 @@ class DecoratedPublicKey(object):
          LOGWARN('   Armory  Version: %d' % UNSIGNED_TX_VERSION)
 
       # Check the magic bytes of the lockbox match
-      if not magic == MAGIC_BYTES:
+      if not magic == MAGIC_BYTES and not skipMagicCheck:
          LOGERROR('Wrong network!')
          LOGERROR('    USTX    Magic: ' + binary_to_hex(magic))
          LOGERROR('    Armory  Magic: ' + binary_to_hex(MAGIC_BYTES))
@@ -977,7 +975,7 @@ class MultiSigPromissoryNote(object):
       return bp.getBinaryString()
 
    #############################################################################
-   def unserialize(self, rawData, expectID=None):
+   def unserialize(self, rawData, expectID=None, skipMagicCheck=False):
       ustxiList = []
       
       bu = BinaryUnpacker(rawData)
@@ -989,7 +987,7 @@ class MultiSigPromissoryNote(object):
       numUSTXI    = bu.get(VAR_INT)
 
       # Check the magic bytes of the lockbox match
-      if not magicBytes == MAGIC_BYTES:
+      if not magicBytes == MAGIC_BYTES and not skipMagicCheck:
          LOGERROR('Wrong network!')
          LOGERROR('    PromNote Magic: ' + binary_to_hex(magicBytes))
          LOGERROR('    Armory   Magic: ' + binary_to_hex(MAGIC_BYTES))
@@ -1029,7 +1027,7 @@ class MultiSigPromissoryNote(object):
 
 
    #############################################################################
-   def unserializeAscii(self, promBlock):
+   def unserializeAscii(self, promBlock, skipMagicCheck=False):
 
       headStr, rawData = readAsciiBlock(promBlock, self.BLKSTRING)
 
@@ -1039,7 +1037,7 @@ class MultiSigPromissoryNote(object):
 
       # We should have "PROMISSORY" in the headstr
       promID = headStr.split('-')[-1]
-      return self.unserialize(rawData, promID)
+      return self.unserialize(rawData, promID, skipMagicCheck)
 
 
 
@@ -1085,7 +1083,7 @@ class MultiSigPromissoryNote(object):
 
 
    #############################################################################
-   def fromJSONMap(self):
+   def fromJSONMap(self, jsonMap, skipMagicCheck=False):
       ver   = jsonMap['version'] 
       magic = jsonMap['magicbytes'] 
       uniq  = jsonMap['id']
@@ -1097,7 +1095,7 @@ class MultiSigPromissoryNote(object):
          LOGWARN('   Armory  Version: %d' % UNSIGNED_TX_VERSION)
 
       # Check the magic bytes of the lockbox match
-      if not magic == MAGIC_BYTES:
+      if not magic == MAGIC_BYTES and not skipMagicCheck:
          LOGERROR('Wrong network!')
          LOGERROR('    USTX    Magic: ' + binary_to_hex(magic))
          LOGERROR('    Armory  Magic: ' + binary_to_hex(MAGIC_BYTES))
@@ -1115,7 +1113,7 @@ class MultiSigPromissoryNote(object):
       nin = jsonMap['numinputs']
       inputs = []
       for i in range(nin):
-         inputs.append(UnsignedTxInput().fromJSONMap(jsonMap['inputs'][i]))
+         inputs.append(UnsignedTxInput().fromJSONMap(jsonMap['inputs'][i], skipMagicCheck))
          
       lbl = jsonMap['promlabel']
       self.setParams(targ, fee, chng, inputs, lbl)

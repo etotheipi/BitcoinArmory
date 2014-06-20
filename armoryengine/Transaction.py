@@ -465,6 +465,11 @@ class PyOutPoint(BlockComponent):
       self.txHash     = txHash
       self.txOutIndex = txOutIndex
 
+   def __eq__(self, op2):
+      return self.serialize()==op2.serialize()
+   def __ne__(self, op2):
+      return not self.__eq__(op2)
+
    def unserialize(self, toUnpack):
       if isinstance(toUnpack, BinaryUnpacker):
          opData = toUnpack
@@ -1334,10 +1339,9 @@ class UnsignedTxInput(object):
    def toJSONMap(self, lite=False):
       outjson = {}
       outjson['version']      = self.version
-      outjson['magicbytes']   = MAGIC_BYTES
-      outjson['id']           = self.asciiID
+      outjson['magicbytes']   = binary_to_hex(MAGIC_BYTES)
       outjson['outpoint']     = binary_to_hex(self.outpoint.serialize())
-      outjson['p2shscript']   = self.p2shScript
+      outjson['p2shscript']   = binary_to_hex(self.p2shScript)
       outjson['contribid']    = self.contribID
       outjson['contriblabel'] = self.contribLabel
       outjson['sequence']     = self.sequence
@@ -1345,7 +1349,7 @@ class UnsignedTxInput(object):
 
       outjson['keys'] = []
       for i in range(self.keysListed):
-         outjson['keys'][i] = {}
+         outjson['keys'].append({})
          outjson['keys'][i]['pubkeyhex'] = binary_to_hex(self.pubKeys[i])
          outjson['keys'][i]['dersighex'] = binary_to_hex(self.signatures[i])
          outjson['keys'][i]['wltlochex'] = binary_to_hex(self.wltLocators[i])
@@ -1359,7 +1363,7 @@ class UnsignedTxInput(object):
       outjson['supporttxhash_be'] = hex_switchEndian(supportPyTx.getHashHex())
       outjson['supporttxhash']    = outjson['supporttxhash_be'] # BE is default
       outjson['supporttxoutindex']= txoidx
-      outjson['inputvalue'] = supportPyTx().outputs[txoidx].value
+      outjson['inputvalue'] = supportPyTx.outputs[txoidx].value
 
       if not lite:
          outjson['supporttx'] = binary_to_hex(self.supportTx)
@@ -1367,7 +1371,7 @@ class UnsignedTxInput(object):
       return outjson
 
    #############################################################################
-   def fromJSONMap(self, jsonMap):
+   def fromJSONMap(self, jsonMap, skipMagicCheck=False):
 
       # There is a lite version of toJSONMap(), but can't create from a lite copy
       if not 'supporttx' in jsonMap:
@@ -1375,7 +1379,7 @@ class UnsignedTxInput(object):
 
 
       ver   = jsonMap['version']
-      magic = jsonMap['magicbytes']
+      magic = hex_to_binary(jsonMap['magicbytes'])
 
       if not ver == UNSIGNED_TX_VERSION:
          LOGWARN('Unserialing USTX of different version')
@@ -1383,15 +1387,15 @@ class UnsignedTxInput(object):
          LOGWARN('   Armory  Version: %d' % UNSIGNED_TX_VERSION)
 
       # Check the magic bytes of the lockbox match
-      if not magic == MAGIC_BYTES:
+      if not magic == MAGIC_BYTES and not skipMagicCheck:
          LOGERROR('Wrong network!')
          LOGERROR('    USTX    Magic: ' + binary_to_hex(magic))
          LOGERROR('    Armory  Magic: ' + binary_to_hex(MAGIC_BYTES))
          raise NetworkIDError('Network magic bytes mismatch')
 
-      rawSupportTx = jsonMap['supporttx']
+      rawSupportTx = hex_to_binary(jsonMap['supporttx'])
       txoutIndex   = jsonMap['supporttxoutindex']
-      p2sh         = jsonMap['p2shscript']
+      p2sh         = hex_to_binary(jsonMap['p2shscript'])
       contribID    = jsonMap['contribid']
       contribLabel = jsonMap['contriblabel']
       sequence     = jsonMap['sequence']
@@ -1422,6 +1426,7 @@ class UnsignedTxInput(object):
          LOGERROR('Cannot serialize an uninitialzed unsigned txin')
          return None
 
+      tempID = binary_to_base58(hash160(self.outpoint.serialize()))[:4]
 
       bp = BinaryPacker()
       bp.put(UINT32,       self.version)
@@ -1439,11 +1444,12 @@ class UnsignedTxInput(object):
          bp.put(VAR_STR,      self.signatures[i])
          bp.put(VAR_STR,      self.wltLocators[i])
 
+
       return bp.getBinaryString()
 
 
    #############################################################################
-   def unserialize(self, rawBinaryData):
+   def unserialize(self, rawBinaryData, skipMagicCheck=False):
 
       bu = BinaryUnpacker(rawBinaryData)
       version    = bu.get(UINT32)
@@ -1471,7 +1477,7 @@ class UnsignedTxInput(object):
       if not seq==UINT32_MAX:
          LOGWARN('WARNING: NON-MAX SEQUENCE NUMBER ON UNSIGNEDTX INPUT!')
 
-      if not magic==MAGIC_BYTES:
+      if not magic==MAGIC_BYTES and not skipMagicCheck:
          LOGERROR('WRONG NETWORK!')
          LOGERROR('   MAGIC BYTES:  ' + magic)
          LOGERROR('   Expected:     ' + MAGIC_BYTES)
@@ -1536,6 +1542,7 @@ class UnsignedTxInput(object):
       return signStatus
 
 
+   #############################################################################
    def pprint(self, indent=3):
       ind = ' '*indent
       txHashStr = binary_to_hex(self.outpoint.txHash, BIGENDIAN)[:8]
@@ -1546,6 +1553,48 @@ class UnsignedTxInput(object):
 
 
 
+   #############################################################################
+   def __eq__(self, ustxi2):
+      # Things that can be compared directly with no extra help
+      # Use '_' to indicate that the attr should use .compareEqual()
+      if not isinstance(ustxi2, UnsignedTxInput):
+         return False
+
+      compareAttrs = ['version', 'supportTx', 'outpoint', 'txoScript', 'value',
+                      'scriptType', 'contribID', 'contribLabel', 'p2shScript',
+                      'sequence', 'keysListed', 'sigsNeeded']
+
+      compareLists = ['scrAddrs', 'signatures', 'wltLocators', 'pubKeys']
+      compareMaps  = []
+
+      for attr in compareAttrs:
+         if not getattr(self, attr) == getattr(ustxi2, attr):
+            LOGERROR('Compare failed for attribute: %s' % attr)
+            LOGERROR('  self:   %s' % str(getattr(self,attr)))
+            LOGERROR('  other:  %s' % str(getattr(ustxi2,attr)))
+            return False
+
+
+      for attr in compareLists:
+         selfList  = getattr(self, attr)
+         otherList = getattr(ustxi2, attr)
+      
+         if not len(selfList)==len(otherList):
+            LOGERROR('List size compare failed for %s' % attr)
+            return False
+
+         i = -1
+         for a,b in zip(selfList, otherList):
+            i+=1
+            if not a==b:
+               LOGERROR('Failed list compare for attr %s, index %d' % (attr,i))
+               return False
+            
+      return True
+
+
+   def __ne__(self, ustxi2):
+      return not self.__eq__(ustxi2)
 
 
 
@@ -1682,12 +1731,12 @@ class DecoratedTxOut(object):
 
       outjson = {}
       outjson['version']      = self.version
-      outjson['magicbytes']   = MAGIC_BYTES
+      outjson['magicbytes']   = binary_to_hex(MAGIC_BYTES)
       outjson['id']           = self.asciiID
-      outjson['txoutscript']  = self.binScript
+      outjson['txoutscript']  = binary_to_hex(self.binScript)
       outjson['txoutvalue']   = self.value
-      outjson['p2shscript']   = self.p2shScript
-      outjson['wltlocator']   = self.wltLocator
+      outjson['p2shscript']   = binary_to_hex(self.p2shScript)
+      outjson['wltlocator']   = binary_to_hex(self.wltLocator)
       outjson['authmethod']   = self.authmethod # we expect plaintext
       outjson['authdata']     = binary_to_hex(self.authData) # we expect this won't be
       outjson['contribid']    = self.contribID
@@ -1707,6 +1756,40 @@ class DecoratedTxOut(object):
          outjson['addrstr']       = scrAddr_to_addrStr(self.binScript)
 
       return outjson
+
+
+   #############################################################################
+   def fromJSONMap(self, jsonMap, skipMagicCheck=False):
+
+      ver   = jsonMap['version'] 
+      magic = hex_to_binary(jsonMap['magicbytes'])
+
+      # Issue a warning if the versions don't match
+      if not ver == UNSIGNED_TX_VERSION:
+         LOGWARN('Unserialing USTX of different version')
+         LOGWARN('   USTX    Version: %d' % ver)
+         LOGWARN('   Armory  Version: %d' % UNSIGNED_TX_VERSION)
+
+      # Check the magic bytes of the lockbox match
+      if not magic == MAGIC_BYTES and not skipMagicCheck:
+         LOGERROR('Wrong network!')
+         LOGERROR('    USTX    Magic: ' + binary_to_hex(magic))
+         LOGERROR('    Armory  Magic: ' + binary_to_hex(MAGIC_BYTES))
+         raise NetworkIDError('Network magic bytes mismatch')
+
+      script = hex_to_binary(outjson['txoutscript'])
+      value  =               outjson['txoutvalue']
+      p2sh   = hex_to_binary(outjson['p2shscript'])
+      loc    = hex_to_binary(outjson['wltlocator'])
+      meth   =               outjson['authmethod']
+      data   = hex_to_binary(outjson['authdata'])
+      cid    =               outjson['contribid']
+      clbl   =               outjson['contriblabel']
+      
+      self.__init__(script, value, p2sh, loc, meth, data, cid, clbl)
+      return self
+
+   
 
 
    #############################################################################
@@ -1732,7 +1815,7 @@ class DecoratedTxOut(object):
 
 
    #############################################################################
-   def unserialize(self, rawData):
+   def unserialize(self, rawData, skipMagicCheck=False):
       bu = BinaryUnpacker(rawData)
       version    = bu.get(UINT32)
       magic      = bu.get(BINARY_CHUNK, 4)
@@ -1745,7 +1828,7 @@ class DecoratedTxOut(object):
       contribID  = bu.get(VAR_STR)
       contribLBL = toUnicode(bu.get(VAR_STR))
 
-      if not magic==MAGIC_BYTES:
+      if not magic==MAGIC_BYTES and not skipMagicCheck:
          LOGERROR('WRONG NETWORK!')
          LOGERROR('   MAGIC BYTES:  ' + magic)
          LOGERROR('   Expected:     ' + MAGIC_BYTES)
@@ -1803,7 +1886,7 @@ class UnsignedTransaction(object):
    sigs, not 88.
    """
 
-   OBJNAME = "UnsignedTx"
+   OBJNAME   = "UnsignedTx"
    BLKSTRING = "TXSIGCOLLECT"
    EMAILSUBJ = 'Armory Multi-sig Transaction to Sign - %s'
    EMAILBODY = """
@@ -2074,7 +2157,7 @@ class UnsignedTransaction(object):
 
 
    #############################################################################
-   def unserialize(self, rawData, expectID=None):
+   def unserialize(self, rawData, expectID=None, skipMagicCheck=False):
       bu = BinaryUnpacker(rawData)
       ver     = bu.get(UINT32)
       magic   = bu.get(BINARY_CHUNK, 4)
@@ -2083,12 +2166,12 @@ class UnsignedTransaction(object):
       numUSTXI = bu.get(VAR_INT)
       ustxiList = []
       for i in range(numUSTXI):
-         ustxiList.append( UnsignedTxInput().unserialize(bu.get(VAR_STR)) )
+         ustxiList.append( UnsignedTxInput().unserialize(bu.get(VAR_STR), skipMagicCheck) )
 
       numDtxo = bu.get(VAR_INT)
       dtxoList = []
       for i in range(numDtxo):
-         dtxoList.append( DecoratedTxOut().unserialize(bu.get(VAR_STR)) )
+         dtxoList.append( DecoratedTxOut().unserialize(bu.get(VAR_STR), skipMagicCheck) )
 
       # Issue a warning if the versions don't match
       if not ver == UNSIGNED_TX_VERSION:
@@ -2097,7 +2180,7 @@ class UnsignedTransaction(object):
          LOGWARN('   Armory  Version: %d' % UNSIGNED_TX_VERSION)
 
       # Check the magic bytes of the lockbox match
-      if not magic == MAGIC_BYTES:
+      if not magic == MAGIC_BYTES and not skipMagicCheck:
          LOGERROR('Wrong network!')
          LOGERROR('    USTX    Magic: ' + binary_to_hex(magic))
          LOGERROR('    Armory  Magic: ' + binary_to_hex(MAGIC_BYTES))
@@ -2118,14 +2201,14 @@ class UnsignedTransaction(object):
       return makeAsciiBlock(self.serialize(), headStr)
 
    #############################################################################
-   def unserializeAscii(self, ustxBlock):
+   def unserializeAscii(self, ustxBlock, skipMagicCheck=False):
       headStr,rawData = readAsciiBlock(ustxBlock, self.BLKSTRING)
       if rawData is None:
          LOGERROR('Expected str "%s", got "%s"' % (self.BLKSTRING, headStr))
          raise UnserializeError('Unexpected BLKSTRING')
 
       expectID = headStr.split('-')[-1]
-      return self.unserialize(rawData, expectID)
+      return self.unserialize(rawData, expectID, skipMagicCheck)
 
 
    #############################################################################
@@ -2137,7 +2220,7 @@ class UnsignedTransaction(object):
 
       outjson = {}
       outjson['version'] = self.version
-      outjson['magicbytes'] = binary_to_hex(self.MAGIC_BYTES)
+      outjson['magicbytes'] = binary_to_hex(MAGIC_BYTES)
       outjson['id'] = self.uniqueIDB58
       outjson['locktimeint'] = self.locktime
       if self.locktime < 500000000:
@@ -2172,15 +2255,15 @@ class UnsignedTransaction(object):
       return outjson
 
 
-
-   def fromJSONMap(self, jsonMap):
+   #############################################################################
+   def fromJSONMap(self, jsonMap, skipMagicCheck=False):
       
 
       if not 'inputs' in jsonMap:
          raise UnserializeError('Incomplete unsigned transaction map')
 
       ver   = jsonMap['version'] 
-      magic = jsonMap['magicbytes'] 
+      magic = hex_to_binary(jsonMap['magicbytes'])
       uniq  = jsonMap['id']
       tlock = jsonMap['locktimeint'] 
    
@@ -2191,7 +2274,7 @@ class UnsignedTransaction(object):
          LOGWARN('   Armory  Version: %d' % UNSIGNED_TX_VERSION)
 
       # Check the magic bytes of the lockbox match
-      if not magic == MAGIC_BYTES:
+      if not magic == MAGIC_BYTES and not skipMagicCheck:
          LOGERROR('Wrong network!')
          LOGERROR('    USTX    Magic: ' + binary_to_hex(magic))
          LOGERROR('    Armory  Magic: ' + binary_to_hex(MAGIC_BYTES))
@@ -2199,11 +2282,11 @@ class UnsignedTransaction(object):
 
       ustxiList = []
       for ustxi in jsonMap['inputs']:
-         ustxiList.append(UnsignedTxInput().fromJSONMap(ustxi))
+         ustxiList.append(UnsignedTxInput().fromJSONMap(ustxi, skipMagicCheck))
 
       dtxoList = []
       for dtxo in jsonMap['outputs']:
-         dtxoList.append(DecoratedTxOut().fromJSONMap(dtxo))
+         dtxoList.append(DecoratedTxOut().fromJSONMap(dtxo, skipMagicCheck))
 
       self.createFromUnsignedTxIO(ustxiList, dtxoList, lockt)
 
