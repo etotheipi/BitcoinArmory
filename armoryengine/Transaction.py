@@ -1073,7 +1073,6 @@ class UnsignedTxInput(object):
          self.wltLocators  = ['']*N
       else:
          LOGWARN("Non-standard script for TxIn %d" % i)
-         LOGWARN(binary_to_hex(script))
          pass
 
 
@@ -2288,7 +2287,7 @@ class UnsignedTransaction(object):
       for dtxo in jsonMap['outputs']:
          dtxoList.append(DecoratedTxOut().fromJSONMap(dtxo, skipMagicCheck))
 
-      self.createFromUnsignedTxIO(ustxiList, dtxoList, lockt)
+      self.createFromUnsignedTxIO(ustxiList, dtxoList, tlock)
 
       return self
 
@@ -2515,9 +2514,8 @@ def PyCreateAndSignTx(ustxiList, dtxoList, sbdPrivKeyMap):
 
    for ustxi in ustx.ustxInputs:
       for iin in range(len(ustxi.scrAddrs)):
-         pubKey  = ustxi.pubKeys[iin]
          scrAddr = ustxi.scrAddrs[iin]
-         sbdPriv = sbdPrivKeyMap.get(sbdPriv)
+         sbdPriv = sbdPrivKeyMap.get(scrAddr)
          if sbdPriv is None:
             raise SignatureError('Supplied key map cannot sign all inputs')
          ustx.createAndInsertSignatureForInput(iin, sbdPriv)

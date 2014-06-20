@@ -95,6 +95,8 @@ class CoinSelectError(Exception): pass
 class WalletUnlockNeeded(Exception): pass
 class InvalidBitcoinAddress(Exception): pass
 class PrivateKeyNotFound(Exception): pass
+class WalletDoesNotExist(Exception): pass
+class LockboxDoesNotExist(Exception): pass
 class AddressNotInWallet(Exception): pass
 
 # A dictionary that includes the names of all functions an armoryd user can
@@ -181,12 +183,14 @@ def addMultLockboxes(inLBPaths, inLBSet, inLBIDSet):
 
 class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
    #############################################################################
-   def __init__(self, wallet, inWltSet={}, inLBSet={}, inWltIDSet=set(), \
-                inLBIDSet=set(), armoryHomeDir=ARMORY_HOME_DIR, addrByte=ADDRBYTE):
+   def __init__(self, wallet, lockbox, inWltSet={}, inLBSet={}, \
+                inWltIDSet=set(), inLBIDSet=set(), \
+                armoryHomeDir=ARMORY_HOME_DIR, addrByte=ADDRBYTE):
       # Save the incoming info. If the user didn't pass in a wallet set, put the
       # wallet in the set (actually a dictionary w/ the wallet ID as the key).
       self.addressMetaData = {}
       self.curWlt = wallet
+      self.curLB = lockbox
       self.serverWltSet = inWltSet
       self.serverWltIDSet = inWltIDSet
       self.serverLBSet = inLBSet
@@ -474,19 +478,29 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
 
    #############################################################################
-   def jsonrpc_getwalletinfo(self):
+   def jsonrpc_getwalletinfo(self, inWltID=None):
       """Get information on the currently loaded wallet."""
 
+      wltInfo = {}
       self.isReady = TheBDM.getBDMState() == 'BlockchainReady'
+      self.wltToUse = self.curWlt
+
+      # If we're not getting info on the currently loaded wallet, check to make
+      # sure the incoming wallet ID points to an actual wallet.
+      if inWltID:
+         if self.serverWltIDSet[inWltID] != None:
+            self.wltToUse = self.serverWltSet[inWltID]
+         else:
+            raise WalletDoesNotExist
 
       wltInfo = { \
-                  'name':  self.curWlt.labelName,
-                  'description':  self.curWlt.labelDescr,
-                  'balance': AmountToJSON(self.curWlt.getBalance('Spend')) if \
-                             self.isReady else -1,
-                  'keypoolsize':  self.curWlt.addrPoolSize,
-                  'numaddrgen': len(self.curWlt.addrMap),
-                  'highestusedindex': self.curWlt.highestUsedChainIndex
+                  'name':  self.wltToUse.labelName,
+                  'description':  self.wltToUse.labelDescr,
+                  'balance': AmountToJSON(self.wltToUse.getBalance('Spend')) \
+                             if self.isReady else -1,
+                  'keypoolsize':  self.wltToUse.addrPoolSize,
+                  'numaddrgen': len(self.wltToUse.addrMap),
+                  'highestusedindex': self.wltToUse.highestUsedChainIndex
                 }
 
       return wltInfo
@@ -583,9 +597,9 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
    #############################################################################
    # NB: For now, this is incompatible with lockboxes.
+   def jsonrpc_getledger(self, tx_count=10, from_tx=0, simple=False):
       """Get the wallet ledger."""
 
-   def jsonrpc_getledger(self, tx_count=10, from_tx=0, simple=False):
       final_le_list = []
       tx_count = int(tx_count)
       from_tx = int(from_tx)
@@ -872,21 +886,23 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
 
    #############################################################################
-   def jsonrpc_getinfo(self):
+   def jsonrpc_getarmorydinfo(self):
       """Get information on the version of armoryd running on the server."""
 
       isReady = TheBDM.getBDMState() == 'BlockchainReady'
 
       info = { \
                'version':           getVersionString(BTCARMORY_VERSION),
-               'protocolversion':   0,  
+               'protocolversion':   0,
                'walletversion':     getVersionString(PYBTCWALLET_VERSION),
                'bdmstate':          TheBDM.getBDMState(),
-               'balance':           AmountToJSON(self.curWlt.getBalance()) if isReady else -1,
+               'balance':           AmountToJSON(self.curWlt.getBalance()) \
+                                    if isReady else -1,
                'blocks':            TheBDM.getTopBlockHeight(),
                'connections':       (0 if isReady else 1),
                'proxy':             '',
-               'difficulty':        TheBDM.getTopBlockHeader().getDifficulty() if isReady else -1,
+               'difficulty':        TheBDM.getTopBlockHeader().getDifficulty() \
+                                    if isReady else -1,
                'testnet':           USE_TESTNET,
                'keypoolsize':       self.curWlt.addrPoolSize
              }
@@ -1250,32 +1266,49 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
       return result
 
+
    #############################################################################
-   # Get info for a lockbox by lockbox ID. 
-   def jsonrpc_getlockboxinfo(self, lockboxString):
+   # Get info for a lockbox by lockbox ID. If no ID is specified, we'll get info
+   # on the currently loaded LB if an LB exists.
+   def jsonrpc_getlockboxinfo(self, inLBID=None):
       """Get information on the lockbox associated with a lockbox ID string."""
 
-      retDict = {}
-      lockbox = MultiSigLockbox().unserializeAscii(lockboxString)
-      
-      for curKeyNum, curKey in enumerate(lockbox.pubKeys):
-         curKeyStr = 'Key %02d' % (curKeyNum + 1)
-         retDict[curKeyStr] = binary_to_hex(curKey)
+      lbInfo = {}
+      self.lbToUse = self.curLB
 
-      for curKeyComNum, curKeyCom in enumerate(lockbox.commentList):
+      # We'll return info on the currently loaded LB if no LB ID has been
+      # specified. If an LB ID has been specified, we'll get info on it if the
+      # specified LB has been loaded.
+      if inLBID in self.serverLBIDSet:
+         self.lbToUse = self.serverLBSet[inLBID]
+      else:
+         # Unlike wallets, LBs are optional in armoryd, so we need to make sure
+         # the currently loaded LB actually exists.
+         if inLBID != None or self.lbToUse == None:
+            raise LockboxDoesNotExist
+
+      # toJSONMap isn't ready for primetime yet. For now, we'll create the
+      # return value.
+      #lbInfo = self.lbToUse.toJSONMap()
+      for curKeyNum, curKey in enumerate(self.lbToUse.dPubKeys):
+         curKeyStr = 'Key %02d' % (curKeyNum + 1)
+         lbInfo[curKeyStr] = hash160_to_addrStr(self.lbToUse.a160List[curKeyNum])
+
+      for curKeyComNum, curKeyCom in enumerate(self.lbToUse.dPubKeys):
          curKeyComStr = 'Key %02d Comment' % (curKeyComNum + 1)
-         retDict[curKeyComStr] = curKeyCom
+         lbInfo[curKeyComStr] = self.lbToUse.dPubKeys[curKeyComNum].keyComment
 
       lbDStr = 'Lockbox Description'
-      retDict[lbDStr] = lockbox.longDescr
+      lbInfo[lbDStr] = self.lbToUse.longDescr
       lbStr = 'Lockbox ID'
-      retDict[lbStr] = lockbox.uniqueIDB58
+      lbInfo[lbStr] = self.lbToUse.uniqueIDB58
       reqSigStr = 'Required Signature Number'
-      retDict[reqSigStr] = lockbox.M
+      lbInfo[reqSigStr] = self.lbToUse.M
       totalSigStr = 'Total Signature Number'
-      retDict[totalSigStr] = lockbox.N
+      lbInfo[totalSigStr] = self.lbToUse.N
 
-      return retDict
+      return lbInfo
+
 
    #############################################################################
    # Get a dictionary of the lockboxes known to armoryd.
@@ -1289,6 +1322,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
          retDict[lbid] = self.serverLBSet.serializeAscii90
 
       return retDict
+
 
    #############################################################################
    # Receive a e-mail notification when money is sent from the active wallet.
@@ -1436,9 +1470,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
 
    #############################################################################
-   # Function that sets theactive wallet using a B58 string.
-   # NB: It appears that more neds to be done here. Certain functionality
-   # doesn't seem to be correct when a wallet is switched.
+   # Function that sets the active wallet using a B58 string.
    def jsonrpc_setactivewallet(self, newIDB58):
       """Set the currently active wallet to one already loaded on the armoryd
          server."""
@@ -1455,6 +1487,25 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       except:
          LOGERROR('setactivewallet - Wallet %s does not exist.' % newIDB58)
          retStr = 'Wallet %s does not exist.' % newIDB58
+      return retStr
+
+
+   #############################################################################
+   # Function that sets the active lockbox using a B58 string.
+   def jsonrpc_setactivelockbox(self, newIDB58):
+      """Set the currently active lockbox to one already loaded on the armoryd
+         server."""
+
+      # Return a string indicating whether or not the active wallet was set to a
+      # new wallet. If the change fails, keep the currently active wallet.
+      retStr = ''
+      try:
+         newLB = self.serverLBSet[newIDB58]
+         self.curLB = newLB  # Separate in case ID's wrong & error's thrown.
+         retStr = 'Lockbox %s is now active.' % newIDB58
+      except:
+         LOGERROR('setactivelockbox - Lockbox %s does not exist.' % newIDB58)
+         retStr = 'Lockbox %s does not exist.' % newIDB58
       return retStr
 
 
@@ -1736,9 +1787,8 @@ class Armory_Daemon(object):
             # wallet to the 1st wallet in the set. (The choice is arbitrary.)
             wltPaths = readWalletFiles()
             addMultWallets(wltPaths, self.wltSet, self.wltIDSet)
-            if len(CLI_ARGS)==0:
-               if len(self.wltSet) > 0:
-                  self.curWlt = self.wltSet[self.wltSet.keys()[0]]
+            if len(CLI_ARGS) == 0 and len(self.wltSet) > 0:
+               self.curWlt = self.wltSet[self.wltSet.keys()[0]]
 
             # Load the specified wallet if it exists.
             else:
@@ -1752,13 +1802,20 @@ class Armory_Daemon(object):
                self.wltIDSet.add(self.curWlt.uniqueIDB58)
 
          # Let's load all the lockboxes too.
-         # NB: For now, lockboxes can't be loaded into armoryd like one can load
-         # a wallet. They're loaded to build a base for future features.
          if lb:
             self.curLB = lb
          else:
             lbPaths = getLockboxFilePaths()
             addMultLockboxes(lbPaths, self.lbSet, self.lbIDSet)
+            if len(CLI_ARGS) == 0 and len(self.wltSet) > 0:
+               self.curLB = self.lbSet[self.lbSet.keys()[0]]
+
+            # Load the specified lockbox if it exists.
+            else:
+               lbpath = CLI_ARGS[1]
+               if not os.path.exists(lbpath):
+                  LOGERROR('Lockbox does not exist!  (%s)', lbpath)
+                  return
 
          # Log info on the wallets we've loaded.
          numWallets = len(self.wltSet)
@@ -1784,10 +1841,14 @@ class Armory_Daemon(object):
             LOGWARN('No wallets could be loaded!')
             os._exit(0)
 
+         # Check to see if we have at least 1 lockbox.
+         if numLockboxes > 0:
+            LOGWARN('Active lockbox is set to %s' % self.curLB.uniqueIDB58)
+
          LOGINFO("Initialising RPC server on port %d", ARMORY_RPC_PORT)
-         resource = Armory_Json_Rpc_Server(self.curWlt, self.wltSet, \
-                                           self.lbSet, self.wltIDSet, \
-                                           self.lbIDSet)
+         resource = Armory_Json_Rpc_Server(self.curWlt, self.curLB, \
+                                           self.wltSet, self.lbSet, \
+                                           self.wltIDSet, self.lbIDSet)
          secured_resource = self.set_auth(resource)
 
          # This is LISTEN call for armory RPC server
