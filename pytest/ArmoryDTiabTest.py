@@ -82,7 +82,7 @@ class ArmoryDTiabTest(TiabTest):
       wltB = PyBtcWallet().readWalletFile(fileB, doScanNow=True)
       fileC    = os.path.join(self.tiab.tiabDirectory, 'tiab\\armory\\armory_%s_.wallet' % THIRD_WLT_NAME)
       wltC = PyBtcWallet().readWalletFile(fileC, doScanNow=True)
-      self.jsonServer = Armory_Json_Rpc_Server(self.wlt, {SECOND_WLT_NAME : wltB, THIRD_WLT_NAME : wltC},
+      self.jsonServer = Armory_Json_Rpc_Server(self.wlt, inWltSet={SECOND_WLT_NAME : wltB, THIRD_WLT_NAME : wltC},
                            armoryHomeDir=os.path.join(self.tiab.tiabDirectory, 'tiab\\armory'))
       TheBDM.registerWallet(self.wlt)
       
@@ -131,7 +131,7 @@ class ArmoryDTiabTest(TiabTest):
       self.assertEqual(block['rawheader'], '02000000d8778a50d43d3e02c4c20bdd0ed97077a3c4bef3e86ce58975f6f43a00000000d25912cfc67228748494d421512c7a6cc31668fa82b72265261558802a89f4c2e0350153ffff001d10bcc285',)
       
    def testGetinfo(self):
-      info = self.jsonServer.jsonrpc_getinfo()
+      info = self.jsonServer.jsonrpc_getarmorydinfo()
       self.assertEqual(info['blocks'], TOP_TIAB_BLOCK)
       self.assertEqual(info['bdmstate'], 'BlockchainReady')
       self.assertEqual(info['walletversion'], '1.35')

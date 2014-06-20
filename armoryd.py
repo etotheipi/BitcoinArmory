@@ -183,7 +183,7 @@ def addMultLockboxes(inLBPaths, inLBSet, inLBIDSet):
 
 class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
    #############################################################################
-   def __init__(self, wallet, lockbox, inWltSet={}, inLBSet={}, \
+   def __init__(self, wallet, lockbox=None, inWltSet={}, inLBSet={}, \
                 inWltIDSet=set(), inLBIDSet=set(), \
                 armoryHomeDir=ARMORY_HOME_DIR, addrByte=ADDRBYTE):
       # Save the incoming info. If the user didn't pass in a wallet set, put the
@@ -1232,7 +1232,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
                                                        addrNameList)]
             decorSort  = sorted(decorated, key=lambda pair: pair[0])
             for i, pair in enumerate(decorSort):
-               lockboxPubKeyList.append(LockboxPublicKey(hex_to_binary(pair[0])))
+               lockboxPubKeyList.append(DecoratedPublicKey(hex_to_binary(pair[0])))
                addrList[i]     = hex_to_binary(pair[0])
                addrNameList[i] = pair[1]
 
@@ -1243,8 +1243,8 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
             lbCreateDate = long(RightNow())
             lbName = 'Lockbox %s' % lbID
             lbDescrip = '%s - %d-of-%d - Created by armoryd' % (lbID, m, n)
-            lockbox = MultiSigLockbox(lbName, lbDescrip, lbCreateDate, m, n,
-                     lockboxPubKeyList)
+            lockbox = MultiSigLockbox(lbName, lbDescrip, m, n,
+                     lockboxPubKeyList, lbCreateDate)
 
             # To be safe, we'll write the LB only if Armory doesn't already have
             # a copy.

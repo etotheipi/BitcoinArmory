@@ -20,11 +20,13 @@ TOP_TIAB_BLOCK = 247
 
 
 FIRST_WLT_FILE_NAME = "armory_GDHFnMQ2_.wallet"
-SECOND_WLT_FILE_NAME = "armory_DZMmtb2v_.wallet"
-THIRD_WLT_FILE_NAME = "armory_vzgEfJrJ_.wallet"
 FIRST_WLT_NAME = "GDHFnMQ2"
-SECOND_WLT_NAME = "DZMmtb2v"
-THIRD_WLT_NAME = "vzgEfJrJ"
+
+SECOND_WLT_FILE_NAME = "armory_vzgEfJrJ_.wallet"
+SECOND_WLT_NAME = "vzgEfJrJ"
+
+THIRD_WLT_FILE_NAME = "armory_DZMmtb2v_.wallet"
+THIRD_WLT_NAME = "DZMmtb2v"
 
 FIRST_WLT_BALANCE = 964.8997
 
