@@ -10,7 +10,7 @@ sys.path.append('..')
 import unittest
 from armoryengine.ArmoryUtils import *
 from armoryengine.Transaction import PyTx, UnsignedTxInput, DecoratedTxOut,\
-   UnsignedTransaction, TXIN_SIGSTAT
+   UnsignedTransaction, TXIN_SIGSTAT, NullAuthData
 from armoryengine.Script import convertScriptToOpStrings
 from armoryengine.MultiSigUtils import calcLockboxID, computePromissoryID, \
    MultiSigLockbox, MultiSigPromissoryNote, DecoratedPublicKey
@@ -329,21 +329,21 @@ class MSUtilsTest(unittest.TestCase):
       pubKeys  = [CryptoECDSA().ComputePublicKey(prv) for prv in privKeys]
       pubStrs  = [pubk.toBinStr() for pubk in pubKeys]
 
-      for i,prv in enumerate(privKeys):
-         print 'PrivKey %d:', prv.toHexStr()
+      #for i,prv in enumerate(privKeys):
+         #print 'PrivKey %d:', prv.toHexStr()
 
       msScript = pubkeylist_to_multisig_script(pubStrs, 2)
       msScriptReverse = pubkeylist_to_multisig_script(pubStrs[::-1], 2)
       self.assertEqual(msScript, msScriptReverse)
       
-      for opStr in convertScriptToOpStrings(msScript):
-         print '   ', opStr
+      #for opStr in convertScriptToOpStrings(msScript):
+         #print '   ', opStr
 
       dtxo = DecoratedTxOut(msScript, 1.0*ONE_BTC)
 
    
       ustxi = UnsignedTxInput(signedFundMS, 0)
-      ustxi.pprint()
+      #ustxi.pprint()
 
       refund1 = addrStr_to_scrAddr(normalizeAddrStr('mqSvihZRtKt1J3EBbwBJSHeAYVjdxUnpvf'))
       refund2 = addrStr_to_scrAddr(normalizeAddrStr('mjAauu6jzmYaE7jrfFgKqLxtvpStmPxcb7'))
@@ -351,8 +351,8 @@ class MSUtilsTest(unittest.TestCase):
       dtxo2 = DecoratedTxOut(scrAddr_to_script(refund2), long(0.200*ONE_BTC))
 
       ustx = UnsignedTransaction().createFromUnsignedTxIO([ustxi], [dtxo1, dtxo2])
-      ustx.pprint()
-      ustx.evaluateSigningStatus().pprint()
+      #ustx.pprint()
+      #ustx.evaluateSigningStatus().pprint()
 
 
       # Need a candidate tx to test signing
@@ -369,7 +369,7 @@ class MSUtilsTest(unittest.TestCase):
                if j>0: ustxiCopy.createAndInsertSignature(txObj, privKeys[1])
                if k>0: ustxiCopy.createAndInsertSignature(txObj, privKeys[2])
                sstat = ustxiCopy.evaluateSigningStatus()
-               sstat.pprint()
+               #sstat.pprint()
                self.assertEqual(sstat.allSigned, (i+j+k)>1)
                self.assertEqual(sstat.statusM[0], NOSIG if i+j+k==0 else SIG)
                self.assertEqual(sstat.statusM[1], NOSIG if i+j+k<2  else SIG)
@@ -393,33 +393,37 @@ class MSUtilsTest(unittest.TestCase):
       ustx.createAndInsertSignatureForInput(0, privKeys[0])
       ustx.createAndInsertSignatureForInput(0, privKeys[2])
 
-      print ustx.serializeAscii()
-      print binary_to_hex(ustx.getPyTxSignedIfPossible().serialize())
+      #print ustx.serializeAscii()
+      #print binary_to_hex(ustx.getPyTxSignedIfPossible().serialize())
       
 
 ################################################################################
 class AllClassRoundTripTest(unittest.TestCase):
    def setUp(self):
 
+      # We have 6 classes to test, but USTXI and DTXO can use the USTX data
+      self.serMap = {}
+      self.serMap['dpk']      = {}
+      self.serMap['lockbox']  = {}
+      self.serMap['promnote'] = {}
+      self.serMap['ustx']     = {}
 
       
-         
-
-      self.ser_dpk_nocomment = textwrap.dedent("""
+      self.serMap['dpk']['nocomment'] = textwrap.dedent("""
          =====PUBLICKEY-mqQQMsTsUyGJ=====================================================
          AQAAAAsRCQdBBPXISLf5jl7LafjFYbMVfb+OqjzMD8XGVyBauZ1kNA/tMGoZn5lHdfZRVcNN8D9+9vG9
          GpvTn9PUWZ1uETTewPIAAAAA
          ================================================================================
          """.strip())
 
-      self.ser_dpk_wcomment = textwrap.dedent("""
+      self.serMap['dpk']['wcomment'] = textwrap.dedent("""
          =====PUBLICKEY-mqjMCZC4BFRm=====================================================
          AQAAAAsRCQdBBCMhT2Hr0mjRkNu+VR+JFRczrwE+E+Fbzd5l/XNCHJC6i62liVEVRnasthYQCjiFsv2y
          Yw9HN6LxwO6+eQeBKQEcdGhpcyBpcyBhIHVzZWxlc3MgY29tbWVudCFAIQAAAA==
          ================================================================================
          """.strip())
 
-      self.ser_lockbox2of3_nocomments = textwrap.dedent("""
+      self.serMap['lockbox']['nocomments'] = textwrap.dedent("""
          =====LOCKBOX-7mtvkCTa===========================================================
          AQAAAAsRCQclhKNTAAAAAAtTYW1wbGUgMm9mMwACA04BAAAACxEJB0EEIyFPYevSaNGQ275VH4kVFzOv
          AT4T4VvN3mX9c0IckLqLraWJURVGdqy2FhAKOIWy/bJjD0c3ovHA7r55B4EpAQAAAABOAQAAAAsRCQdB
@@ -429,7 +433,7 @@ class AllClassRoundTripTest(unittest.TestCase):
          ================================================================================
          """.strip())
 
-      self.ser_lockbox2of3_nometadata = textwrap.dedent("""
+      self.serMap['lockbox']['nometadata'] = textwrap.dedent("""
          =====LOCKBOX-7mtvkCTa===========================================================
          AQAAAAsRCQclhKNTAAAAAAtTYW1wbGUgMm9mMwACA2ABAAAACxEJB0EEIyFPYevSaNGQ275VH4kVFzOv
          AT4T4VvN3mX9c0IckLqLraWJURVGdqy2FhAKOIWy/bJjD0c3ovHA7r55B4EpARJLZXkgIzEgaW4gdGhl
@@ -442,7 +446,7 @@ class AllClassRoundTripTest(unittest.TestCase):
 
 
 
-      self.ser_promnote_reg = textwrap.dedent("""
+      self.serMap['promnote']['regular'] = textwrap.dedent("""
          =====PROMISSORY-CerrVYjD========================================================
          AQAAAAsRCQcyAQAAAAsRCQcXqRSRUUn/7EjvozN4YtftMtBnm438H4ew1owAAAAAAAAABE5PTkUAAAA0
          AQAAAAsRCQcZdqkU3GEOtRTZmvGtO/RAN/POah+meRyIrEDvBwAAAAAAAAAETk9ORQAAABAnAAAAAAAA
@@ -489,7 +493,7 @@ class AllClassRoundTripTest(unittest.TestCase):
          
 
       # These will be used for all USTX, USTXI and DTXO
-      self.ustxP2PKHSpend = textwrap.dedent("""
+      self.serMap['ustx']['regular'] = textwrap.dedent("""
          =====TXSIGCOLLECT-8rgLHcFg======================================================
          AQAAAAsRCQcAAAAAAv3EAQEAAAALEQkHc4uuUlna6Cw/HRowBY70IQ52kRVtRw8FNAIkl8SsT7kBAAAA
          /QIBAQAAAAEXA5J+qKVnY8IE4dDBE58Pyp+q1uA/RBkeol1FLLoZFQAAAACLSDBFAiEA0dB7emFmICZD
@@ -516,26 +520,93 @@ class AllClassRoundTripTest(unittest.TestCase):
          """.strip())
 
 
-      self.ustxMultisigSpend = textwrap.dedent("""
-         =====TXSIGCOLLECT-5JxmLy4T======================================================
-         AQAAAAsRCQcAAAAAAf3EAQEAAAALEQkH/XsoFKgwJMVZsviXpv+aOun4BQHRm+Cuvs/X7O/J3n8BAAAA
-         /QMBAQAAAAGcgxlJ0d+ZHi+MzG+laL4qTx/jVH/lPbbKmrGLA1oc8AAAAACMSTBGAiEArOklwdcihg72
-         fMu+GvnKF+AdFiMmeT7CWV4KMZmA3kcCIQDyjBMqkI6tFVXMG/yhbBhVg7TNYsAGLjM5UWLfVx57WgFB
-         BLmTMVBhjWo901GrcZzZMNBUectdX4ZsVyHhMNjZpaAJxlpQqnjiK9PAvrNqOIgMq8itz9S3KDaOs/Kh
-         W6/lJNL/////AsAOFgIAAAAAGXapFInbjSGPxqYLm35NTXhzcAkVf8h8iKwwq98DAAAAABl2qRSBj0Gs
-         NlhCyvZkoRO2iRw54544foisAAAAAAAA/////wFBBJ6i78WXHp6ywhTupFpF7A0V2jwQEjE9pWO1+7wZ
-         qS+IM59Dur1Ut5OC+yUycjeFHQdqemkBDFT97zMCJalmtXxHMEQCIF12j4Vj1Shf49BkDWwVzf1kRgYr
-         4EIPObgRTVPQz2KkAiAQ28gOniv2A5ozeBCk/rpWHTw2DqqkraEUDYLAPr83NQEAAuIBAAAACxEJB8lS
-         QQRqBKuY2eR3StgG4wLd3rY76ha1y18iPud0eOhhu1g+sza2+8tgtbPU8VUaxF5f/Ek2Rm59mPbHwOxz
-         ZTn3RpGmQQRoaAc3x22ruAHLIgT1fb5ORXnk9xDNZ9wbQidZLIHptc8Ctayei0yfSb5SUQVram0BHkw3
-         9rbRft5rVfqiNRniQQS5XCSdhPQX4+OVoSdCVCi1QGccwViB64KMF7cipT/FmeIcpeVskPNAmI05M6zH
-         a+uDL9ZMqweN3zznMpIwMdGoU66gf4gCAAAAAAAABE5PTkUAMgEAAAALEQkHGXapFGzuR3kIci90Cmp8
-         6YwOnV3KsPoyiKyABFcBAAAAAAAABE5PTkUA
+      self.serMap['ustx']['multispend_unsigned'] = textwrap.dedent("""
+         =====TXSIGCOLLECT-7oXWAFds======================================================
+         AQAAAAsRCQcAAAAAAf3UAgEAAAALEQkHSowkGdOEuZnpCexUrxsqIaabEZZYENZRdA/3sF/S7OgBAAAA
+         /QABAQAAAAE0v/Sl2nBWCT2EAqEpEUiCmAyCIEOsGcxHYIoqRAFW7gAAAACLSDBFAiBPTE3Xza0azFvA
+         RXvLgjd+AzM98GGvii+mz5MTaYA1JwIhAJ32cV134QHReN+b0W9ZFsYOuTWzAB321/2w4fYl0DSmAUEE
+         QbpfyJgN24LNDxkiRXdynkDwT6fS2LnbhYJ3wPpBCn9RmSOLPhBrsQx742aDQcGL1jxILamFcb8mxF1h
+         8IYaLv////8CUDR0AgAAAAAZdqkUkhXMoG2bpRdRBSEr8QmIRaCwX+OIrAAtMQEAAAAAF6kUlBbexafN
+         63o7rwuhT3h1Msx+kUKHAAAAAMlSQQQjIU9h69Jo0ZDbvlUfiRUXM68BPhPhW83eZf1zQhyQuoutpYlR
+         FUZ2rLYWEAo4hbL9smMPRzei8cDuvnkHgSkBQQTFlOfg3/UHkHyNIvk0TV4iJpzhs6CAMlRioRKWttLj
+         febe3hDfoDmoqaSZhmxcUHsNAtS06pVJ+AuKGjSMA5K6QQTOFdjRK/2+hr00V4iRFlzDXMS0Ll3fT+qJ
+         9YSH519IUTsIvhQenODRMReXXbfJmcCxUPg3N2TQvLX7iI2GRo2jU64IN210dmtDVGEA/////wNBBCMh
+         T2Hr0mjRkNu+VR+JFRczrwE+E+Fbzd5l/XNCHJC6i62liVEVRnasthYQCjiFsv2yYw9HN6LxwO6+eQeB
+         KQEAAEEExZTn4N/1B5B8jSL5NE1eIiac4bOggDJUYqESlrbS433m3t4Q36A5qKmkmYZsXFB7DQLUtOqV
+         SfgLiho0jAOSugAAQQTOFdjRK/2+hr00V4iRFlzDXMS0Ll3fT+qJ9YSH519IUTsIvhQenODRMReXXbfJ
+         mcCxUPg3N2TQvLX7iI2GRo2jAAACNAEAAAALEQkHGXapFCd8VsRZVBUqMoQpIAAPglG9VyAiiKxwb5gA
+         AAAAAAAABE5PTkUAAAAyAQAAAAsRCQcXqRSUFt7Fp83rejuvC6FPeHUyzH6RQoeAlpgAAAAAAAAABE5P
+         TkUAAAA=
          ================================================================================
          """.strip())
 
+      self.serMap['ustx']['multispend_partsign'] = textwrap.dedent("""
+         =====TXSIGCOLLECT-7oXWAFds======================================================
+         AQAAAAsRCQcAAAAAAf0bAwEAAAALEQkHSowkGdOEuZnpCexUrxsqIaabEZZYENZRdA/3sF/S7OgBAAAA
+         /QABAQAAAAE0v/Sl2nBWCT2EAqEpEUiCmAyCIEOsGcxHYIoqRAFW7gAAAACLSDBFAiBPTE3Xza0azFvA
+         RXvLgjd+AzM98GGvii+mz5MTaYA1JwIhAJ32cV134QHReN+b0W9ZFsYOuTWzAB321/2w4fYl0DSmAUEE
+         QbpfyJgN24LNDxkiRXdynkDwT6fS2LnbhYJ3wPpBCn9RmSOLPhBrsQx742aDQcGL1jxILamFcb8mxF1h
+         8IYaLv////8CUDR0AgAAAAAZdqkUkhXMoG2bpRdRBSEr8QmIRaCwX+OIrAAtMQEAAAAAF6kUlBbexafN
+         63o7rwuhT3h1Msx+kUKHAAAAAMlSQQQjIU9h69Jo0ZDbvlUfiRUXM68BPhPhW83eZf1zQhyQuoutpYlR
+         FUZ2rLYWEAo4hbL9smMPRzei8cDuvnkHgSkBQQTFlOfg3/UHkHyNIvk0TV4iJpzhs6CAMlRioRKWttLj
+         febe3hDfoDmoqaSZhmxcUHsNAtS06pVJ+AuKGjSMA5K6QQTOFdjRK/2+hr00V4iRFlzDXMS0Ll3fT+qJ
+         9YSH519IUTsIvhQenODRMReXXbfJmcCxUPg3N2TQvLX7iI2GRo2jU64IN210dmtDVGEA/////wNBBCMh
+         T2Hr0mjRkNu+VR+JFRczrwE+E+Fbzd5l/XNCHJC6i62liVEVRnasthYQCjiFsv2yYw9HN6LxwO6+eQeB
+         KQEAAEEExZTn4N/1B5B8jSL5NE1eIiac4bOggDJUYqESlrbS433m3t4Q36A5qKmkmYZsXFB7DQLUtOqV
+         SfgLiho0jAOSukcwRAIgK0UqQSZCBtaE6vQIQzd2cux7lCYz5F9WOsStmXuAy/4CIBogV6OLRM/W8Ia4
+         nc8m+JpnnQgVh+/LtO8OaNW4ev8+AQBBBM4V2NEr/b6GvTRXiJEWXMNcxLQuXd9P6on1hIfnX0hROwi+
+         FB6c4NExF5ddt8mZwLFQ+Dc3ZNC8tfuIjYZGjaMAAAI0AQAAAAsRCQcZdqkUJ3xWxFlUFSoyhCkgAA+C
+         Ub1XICKIrHBvmAAAAAAAAAAETk9ORQAAADIBAAAACxEJBxepFJQW3sWnzet6O68LoU94dTLMfpFCh4CW
+         mAAAAAAAAAAETk9ORQAAAA==
+         ================================================================================
+         """.strip())
 
-      self.ser_ustx_FromSSToMS_unsigned = textwrap.dedent("""
+      self.serMap['ustx']['multispend_enoughsign'] = textwrap.dedent("""
+         =====TXSIGCOLLECT-7oXWAFds======================================================
+         AQAAAAsRCQcAAAAAAf1jAwEAAAALEQkHSowkGdOEuZnpCexUrxsqIaabEZZYENZRdA/3sF/S7OgBAAAA
+         /QABAQAAAAE0v/Sl2nBWCT2EAqEpEUiCmAyCIEOsGcxHYIoqRAFW7gAAAACLSDBFAiBPTE3Xza0azFvA
+         RXvLgjd+AzM98GGvii+mz5MTaYA1JwIhAJ32cV134QHReN+b0W9ZFsYOuTWzAB321/2w4fYl0DSmAUEE
+         QbpfyJgN24LNDxkiRXdynkDwT6fS2LnbhYJ3wPpBCn9RmSOLPhBrsQx742aDQcGL1jxILamFcb8mxF1h
+         8IYaLv////8CUDR0AgAAAAAZdqkUkhXMoG2bpRdRBSEr8QmIRaCwX+OIrAAtMQEAAAAAF6kUlBbexafN
+         63o7rwuhT3h1Msx+kUKHAAAAAMlSQQQjIU9h69Jo0ZDbvlUfiRUXM68BPhPhW83eZf1zQhyQuoutpYlR
+         FUZ2rLYWEAo4hbL9smMPRzei8cDuvnkHgSkBQQTFlOfg3/UHkHyNIvk0TV4iJpzhs6CAMlRioRKWttLj
+         febe3hDfoDmoqaSZhmxcUHsNAtS06pVJ+AuKGjSMA5K6QQTOFdjRK/2+hr00V4iRFlzDXMS0Ll3fT+qJ
+         9YSH519IUTsIvhQenODRMReXXbfJmcCxUPg3N2TQvLX7iI2GRo2jU64IN210dmtDVGEA/////wNBBCMh
+         T2Hr0mjRkNu+VR+JFRczrwE+E+Fbzd5l/XNCHJC6i62liVEVRnasthYQCjiFsv2yYw9HN6LxwO6+eQeB
+         KQEAAEEExZTn4N/1B5B8jSL5NE1eIiac4bOggDJUYqESlrbS433m3t4Q36A5qKmkmYZsXFB7DQLUtOqV
+         SfgLiho0jAOSukcwRAIgK0UqQSZCBtaE6vQIQzd2cux7lCYz5F9WOsStmXuAy/4CIBogV6OLRM/W8Ia4
+         nc8m+JpnnQgVh+/LtO8OaNW4ev8+AQBBBM4V2NEr/b6GvTRXiJEWXMNcxLQuXd9P6on1hIfnX0hROwi+
+         FB6c4NExF5ddt8mZwLFQ+Dc3ZNC8tfuIjYZGjaNIMEUCIQC5OkpGv/UnK/ih2GiUf9zHhBeJjYJG7YVM
+         ZvaRfXiZTgIgPsSob1XTyyX6i4HrKut4N+BjCQIoFT2xjFxwzXPcxGgBAAI0AQAAAAsRCQcZdqkUJ3xW
+         xFlUFSoyhCkgAA+CUb1XICKIrHBvmAAAAAAAAAAETk9ORQAAADIBAAAACxEJBxepFJQW3sWnzet6O68L
+         oU94dTLMfpFCh4CWmAAAAAAAAAAETk9ORQAAAA==
+         ================================================================================ 
+         """.strip())
+      
+      self.serMap['ustx']['multispend_oversign'] = textwrap.dedent("""
+         =====TXSIGCOLLECT-7oXWAFds======================================================
+         AQAAAAsRCQcAAAAAAf2rAwEAAAALEQkHSowkGdOEuZnpCexUrxsqIaabEZZYENZRdA/3sF/S7OgBAAAA
+         /QABAQAAAAE0v/Sl2nBWCT2EAqEpEUiCmAyCIEOsGcxHYIoqRAFW7gAAAACLSDBFAiBPTE3Xza0azFvA
+         RXvLgjd+AzM98GGvii+mz5MTaYA1JwIhAJ32cV134QHReN+b0W9ZFsYOuTWzAB321/2w4fYl0DSmAUEE
+         QbpfyJgN24LNDxkiRXdynkDwT6fS2LnbhYJ3wPpBCn9RmSOLPhBrsQx742aDQcGL1jxILamFcb8mxF1h
+         8IYaLv////8CUDR0AgAAAAAZdqkUkhXMoG2bpRdRBSEr8QmIRaCwX+OIrAAtMQEAAAAAF6kUlBbexafN
+         63o7rwuhT3h1Msx+kUKHAAAAAMlSQQQjIU9h69Jo0ZDbvlUfiRUXM68BPhPhW83eZf1zQhyQuoutpYlR
+         FUZ2rLYWEAo4hbL9smMPRzei8cDuvnkHgSkBQQTFlOfg3/UHkHyNIvk0TV4iJpzhs6CAMlRioRKWttLj
+         febe3hDfoDmoqaSZhmxcUHsNAtS06pVJ+AuKGjSMA5K6QQTOFdjRK/2+hr00V4iRFlzDXMS0Ll3fT+qJ
+         9YSH519IUTsIvhQenODRMReXXbfJmcCxUPg3N2TQvLX7iI2GRo2jU64IN210dmtDVGEA/////wNBBCMh
+         T2Hr0mjRkNu+VR+JFRczrwE+E+Fbzd5l/XNCHJC6i62liVEVRnasthYQCjiFsv2yYw9HN6LxwO6+eQeB
+         KQFIMEUCIEp1ufpfgI5z1XwcZ9i8B7x7XwJ3mkUyCq56bOcuPTmqAiEA4V68y5iExV7VZbPqcdIxWS/w
+         WA8PpFqbkdqw/kJQNb4BAEEExZTn4N/1B5B8jSL5NE1eIiac4bOggDJUYqESlrbS433m3t4Q36A5qKmk
+         mYZsXFB7DQLUtOqVSfgLiho0jAOSukcwRAIgK0UqQSZCBtaE6vQIQzd2cux7lCYz5F9WOsStmXuAy/4C
+         IBogV6OLRM/W8Ia4nc8m+JpnnQgVh+/LtO8OaNW4ev8+AQBBBM4V2NEr/b6GvTRXiJEWXMNcxLQuXd9P
+         6on1hIfnX0hROwi+FB6c4NExF5ddt8mZwLFQ+Dc3ZNC8tfuIjYZGjaNIMEUCIQC5OkpGv/UnK/ih2GiU
+         f9zHhBeJjYJG7YVMZvaRfXiZTgIgPsSob1XTyyX6i4HrKut4N+BjCQIoFT2xjFxwzXPcxGgBAAI0AQAA
+         AAsRCQcZdqkUJ3xWxFlUFSoyhCkgAA+CUb1XICKIrHBvmAAAAAAAAAAETk9ORQAAADIBAAAACxEJBxep
+         FJQW3sWnzet6O68LoU94dTLMfpFCh4CWmAAAAAAAAAAETk9ORQAAAA==
+         ================================================================================
+         """.strip())
+
+      self.serMap['ustx']['ss2ms_unsigned'] = textwrap.dedent("""
          =====TXSIGCOLLECT-HJqTvsXR======================================================
          AQAAAAsRCQcAAAAAAf17AQEAAAALEQkH0yTdj/1epai7+ozi6P+QAGb7SC7heN8KKd7MXaylqCEBAAAA
          /QABAQAAAAFzi65SWdroLD8dGjAFjvQhDnaRFW1HDwU0AiSXxKxPuQEAAACLSDBFAiEAkbFWoFx5lKs+
@@ -549,7 +620,7 @@ class AllClassRoundTripTest(unittest.TestCase):
          ================================================================================
       """.strip())
 
-      self.ser_ustx_FromSSToMS_signed = textwrap.dedent("""
+      self.serMap['ustx']['ss2ms_signed'] = textwrap.dedent("""
          =====TXSIGCOLLECT-HJqTvsXR======================================================
          AQAAAAsRCQcAAAAAAf3CAQEAAAALEQkH0yTdj/1epai7+ozi6P+QAGb7SC7heN8KKd7MXaylqCEBAAAA
          /QABAQAAAAFzi65SWdroLD8dGjAFjvQhDnaRFW1HDwU0AiSXxKxPuQEAAACLSDBFAiEAkbFWoFx5lKs+
@@ -564,67 +635,6 @@ class AllClassRoundTripTest(unittest.TestCase):
          ================================================================================
          """.strip())
 
-      # Used to have to construct the test objects into pieces to avoid MAGIC_BYTES check
-      # Now added skipMagicCheck to each unserialize method, the following is not used
-      # anymore, though it might be nice to be able to
-      """
-      self.p2pkhMap = { \
-         'supporttx': hex_to_binary( \
-                       '01000000052be55e61218d32d2067862b2179f3b2d1195dc4ddc0972b49d9562'
-                       '562ad629cc000000008b483045022100cc1c907c7cbf1bc7fb0638d3c8c06640'
-                       '31c75313fba9d7c887438a2b73afe7b402200d96cc08c64acbda73befa998ee8'
-                       '65b66383713d3cd62e5c2a1ddd83ef6ddc73014104390042d6c635998d3b0e5c'
-                       'cb75895159cf08bf4ce66a6e7933f6b07f7722ada86a8bcee677260f937b1ef2'
-                       '547180585d0521c651f22a6083e16148c10340928effffffffd0a394a60d802f'
-                       'cc3e02d1da690ee3a94a1227b2fa4dc2fa155d275ffe66d3f7010000008b4830'
-                       '45022100990029d0a393d2eb39adcb602a360ab3a7bbee40cbe250188cd07fe4'
-                       '8de99512022021ffda05d63ad2264c8748ea4a61a074f120135e2b2bd48112c0'
-                       '51d8f60eeb6b0141042d657a705d9e428fc352dc3064d76c6d5e6263c83b1ab4'
-                       '94504bbeb5dfc3350ee21841090730ea08e1c8d77a5727b75abe465b68ce70ce'
-                       'f9598e2c1328742b4affffffff92438ca2633d56794ce88a6ca69b36f6a365d7'
-                       '58931a40c2a73cc709f114723d000000008c493046022100a970ad86d2208a79'
-                       'b3ec83e9ffe4e61008a4e71bc235e5b66d341f9cfedbab71022100ab7990a911'
-                       '5739f5c818c7beca1ecb79bfee940fe1cab9028f7fe935bb036141014104d11c'
-                       'a6446f65c6405a965df542d48c64d4213e2f24947d4954a99346351eb268ff54'
-                       '46e24bbbfc44b91fd8daf7b446ba26942d76879ca004c54aab8a56280f90ffff'
-                       'ffff11c991daee20912f07431f4a077623af6c3563e5c0e87b15f91cad1f161f'
-                       '11bc010000008b483045022063e7c969479f21fd87054bc9cc5ff3fc7938dd6b'
-                       '6ffbcc84d8947800ecb0eacf022100b9d8ebb81112272887ae011c14b247ae46'
-                       'a21200781183fde91d45a4238d0e32014104ac2c2bf768705e4970e677526b8f'
-                       '8544d5f50a62b0d8c9322e1eaec808df40e909a5f332fa59f0122a9c1db4a342'
-                       'f9228fd29a0df935d35e01e0006e65a9b61fffffffff738bae5259dae82c3f1d'
-                       '1a30058ef4210e7691156d470f0534022497c4ac4fb9000000008c4930460221'
-                       '00f393630285c954e304ca897a8c318745bcdab52793ebf350f49df056bc9f7d'
-                       '890221008aa14033ad703a8a19a3c43d4b19163e71dea02e5eaa278d0bfbc355'
-                       '5d658073014104fe89491bcca662fd2415bccba458b416ceb2e274377aa7dc33'
-                       'cf28f3044e2728cc792139fd1e5d6df1fe102025eac4ad8d3fd0db2d607c6a1f'
-                       '83f318fe06f778ffffffff016088a503000000001976a91465c6c8cb1c886184'
-                       'f64553ae78aa6852a994cc1288ac00000000'), 
-         'supporttxoutindex': 0,
-         'p2shscript': '', 
-         'sequence': 4294967295, 
-         'keys': [{'dersig': hex_to_binary( \
-                        '3044022031829505abccd4951123532ceefcfdb2dd02f2c6b73c4c3d763047ff'
-                        '49cb5ae902202a7d443678b7911b74c4aa04514e444f19e11ec7b199f6bddbe2'
-                        'dd8f4042ba2601'),
-                   'pubkey': hex_to_binary( \
-                        '04'
-                        '41ba5fc8980ddb82cd0f19224577729e40f04fa7d2d8b9db858277c0fa410a7f'
-                        '5199238b3e106bb10c7be3668341c18bd63c482da98571bf26c45d61f0861a2e'),
-                   'wltloc': hex_to_binary('')}], 
-         'contriblabel': '', 
-         'contribid': '' }
-
-      self.ustxiP2PKH = UnsignedTxInput( self.p2pkhMap['supporttx'],
-                                         self.p2pkhMap['supporttxoutindex'],
-                                         self.p2pkhMap['p2shscript'],
-                                         [self.p2pkhMap['keys'][0]['pubkey']],
-                                         [self.p2pkhMap['keys'][0]['dersig']],
-                                         [self.p2pkhMap['keys'][0]['wltloc']],
-                                         self.p2pkhMap['contribid'],
-                                         self.p2pkhMap['contriblabel'],
-                                         self.p2pkhMap['sequence'])
-      """
          
       
 
@@ -636,39 +646,83 @@ class AllClassRoundTripTest(unittest.TestCase):
 
 
    #############################################################################
-   def doRoundTrip(self, ustxi, serMethod, unserMethod):
+   def doRoundTrip(self, classObj, serMethod, unserMethod):
       # Test two round-trips with just the serialize methods
       def serialize(a):
          return getattr(a, serMethod)()
       
-      def unserialize(obj, skipMagicCheck=False):
-         tempustxi = UnsignedTxInput() 
-         getattr(tempustxi, unserMethod)(obj, skipMagicCheck=skipMagicCheck)
-         return tempustxi
+      def unserialize(obj, classType, skipMagicCheck=False):
+         tempObj = classType() 
+         getattr(tempObj, unserMethod)(obj, skipMagicCheck=skipMagicCheck)
+         return tempObj
 
-      ser  = serialize(ustxi);  ustxi2 = unserialize(ser,  skipMagicCheck=True)
-      ser2 = serialize(ustxi2); ustxi3 = unserialize(ser2, skipMagicCheck=True)
+      ser  = serialize(classObj);  classObj2 = unserialize(ser,  classObj.__class__, skipMagicCheck=True)
+      ser2 = serialize(classObj2); classObj3 = unserialize(ser2, classObj.__class__, skipMagicCheck=True)
 
-      self.assertEqual(ustxi,  ustxi2)
-      self.assertEqual(ustxi2, ustxi3)
+      self.assertEqual(classObj,  classObj2)
+      self.assertEqual(classObj2, classObj3)
 
 
    # We could do all three of these in one swing with an extra loop, and even
    # test all the different classes by nesting one more layer, but it will look
    # look like there's only one test even though there's really 36, and we have 
    # to go digging to figure out which one failed.... kinda.  Maybe we should 
-   # do it that way...
+   # do it anyway...
+
+   #############################################################################
+   ##### UnsignedTxInput
    #############################################################################
    def testUSTXI_serialize_roundtrip(self):
-      for asciiUstx in [self.ustxP2PKHSpend]:
+      for comment,asciiUstx in self.serMap['ustx'].iteritems():
          ustx = UnsignedTransaction().unserializeAscii(asciiUstx, skipMagicCheck=True) 
-         self.doRoundTrip(ustx.ustxInputs[0], 'serialize', 'unserialize')
+         for ustxi in ustx.ustxInputs:
+            self.doRoundTrip(ustxi, 'serialize', 'unserialize')
 
    #############################################################################
    def testUSTXI_JSON_roundtrip(self):
-      for asciiUstx in [self.ustxP2PKHSpend]:
+      for comment,asciiUstx in self.serMap['ustx'].iteritems():
          ustx = UnsignedTransaction().unserializeAscii(asciiUstx, skipMagicCheck=True) 
-         self.doRoundTrip(ustx.ustxInputs[0], 'toJSONMap', 'fromJSONMap')
+         for ustxi in ustx.ustxInputs:
+            self.doRoundTrip(ustxi, 'toJSONMap', 'fromJSONMap')
+
+
+   #############################################################################
+   ##### DecoratedTxOut
+   #############################################################################
+   def testDTXO_serialize_roundtrip(self):
+      for comment,asciiUstx in self.serMap['ustx'].iteritems():
+         ustx = UnsignedTransaction().unserializeAscii(asciiUstx, skipMagicCheck=True) 
+         for dtxo in ustx.decorTxOuts:
+            self.doRoundTrip(dtxo, 'serialize', 'unserialize')
+
+   #############################################################################
+   def testDTXO_JSON_roundtrip(self):
+      for comment,asciiUstx in self.serMap['ustx'].iteritems():
+         ustx = UnsignedTransaction().unserializeAscii(asciiUstx, skipMagicCheck=True) 
+         for dtxo in ustx.decorTxOuts:
+            self.doRoundTrip(dtxo, 'toJSONMap', 'fromJSONMap')
+
+
+   #############################################################################
+   ##### UnsignedTransaction
+   #############################################################################
+   def testUSTX_serialize_roundtrip(self):
+      for comment,asciiUstx in self.serMap['ustx'].iteritems():
+         ustx = UnsignedTransaction().unserializeAscii(asciiUstx, skipMagicCheck=True) 
+         self.doRoundTrip(ustx, 'serialize', 'unserialize')
+
+   #############################################################################
+   def testUSTX_serializeAscii_roundtrip(self):
+      for comment,asciiUstx in self.serMap['ustx'].iteritems():
+         ustx = UnsignedTransaction().unserializeAscii(asciiUstx, skipMagicCheck=True) 
+         self.doRoundTrip(ustx, 'toJSONMap', 'fromJSONMap')
+
+   #############################################################################
+   def testUSTX_JSON_roundtrip(self):
+      for comment,asciiUstx in self.serMap['ustx'].iteritems():
+         ustx = UnsignedTransaction().unserializeAscii(asciiUstx, skipMagicCheck=True) 
+         self.doRoundTrip(ustx, 'toJSONMap', 'fromJSONMap')
+
 
 
 
@@ -690,7 +744,7 @@ class PubKeyBlockTest(unittest.TestCase):
    def testPubKey_serialize_roundtrip(self):
       wltLoc     = 'Armory3cx8J2n#223'  
       authMethod = 'NullAuthMethod'
-      authData   = 'NullAuthData'
+      authData   = NullAuthData()
       dpk = DecoratedPublicKey(self.binPubKey, self.comment, wltLoc, authMethod, authData)
       self.assertEqual(self.binPubKey, dpk.binPubKey)
       self.assertEqual(self.comment,   dpk.keyComment)
@@ -712,7 +766,7 @@ class PubKeyBlockTest(unittest.TestCase):
    def testPubKey_serializeAscii_roundtrip(self):
       wltLoc     = 'Armory3cx8J2n#223'  
       authMethod = 'NullAuthMethod'
-      authData   = 'NullAuthData'
+      authData   = NullAuthData()
       dpk = DecoratedPublicKey(self.binPubKey, self.comment, wltLoc, authMethod, authData)
       self.assertEqual(self.binPubKey, dpk.binPubKey)
       self.assertEqual(self.comment,   dpk.keyComment)

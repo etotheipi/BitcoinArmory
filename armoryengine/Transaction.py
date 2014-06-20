@@ -1408,8 +1408,8 @@ class UnsignedTxInput(object):
          loc = hex_to_binary(jsonMap['keys'][i]['wltlochex'])
 
          pubkeyMap[SCRADDR_P2PKH_BYTE + hash160(pub)] = pub
-         insertSigs.append(sig)
-         insertWltLocs.append(loc)
+         insertSigs.append([i, sig])
+         insertWltLocs.append([i, loc])
 
       self.__init__(rawSupportTx, txoutIndex, p2sh, 
                     pubkeyMap, insertSigs, insertWltLocs,
@@ -1553,10 +1553,8 @@ class UnsignedTxInput(object):
 
 
    #############################################################################
-   def __eq__(self, ustxi2):
-      # Things that can be compared directly with no extra help
-      # Use '_' to indicate that the attr should use .compareEqual()
-      if not isinstance(ustxi2, UnsignedTxInput):
+   def __eq__(self, obj2):
+      if not isinstance(obj2, self.__class__):
          return False
 
       compareAttrs = ['version', 'supportTx', 'outpoint', 'txoScript', 'value',
@@ -1567,16 +1565,16 @@ class UnsignedTxInput(object):
       compareMaps  = []
 
       for attr in compareAttrs:
-         if not getattr(self, attr) == getattr(ustxi2, attr):
+         if not getattr(self, attr) == getattr(obj2, attr):
             LOGERROR('Compare failed for attribute: %s' % attr)
             LOGERROR('  self:   %s' % str(getattr(self,attr)))
-            LOGERROR('  other:  %s' % str(getattr(ustxi2,attr)))
+            LOGERROR('  other:  %s' % str(getattr(obj2,attr)))
             return False
 
 
       for attr in compareLists:
          selfList  = getattr(self, attr)
-         otherList = getattr(ustxi2, attr)
+         otherList = getattr(obj2, attr)
       
          if not len(selfList)==len(otherList):
             LOGERROR('List size compare failed for %s' % attr)
@@ -1592,8 +1590,8 @@ class UnsignedTxInput(object):
       return True
 
 
-   def __ne__(self, ustxi2):
-      return not self.__eq__(ustxi2)
+   def __ne__(self, obj2):
+      return not self.__eq__(obj2)
 
 
 
@@ -1610,6 +1608,11 @@ class NullAuthData(object):
    def unserialize(self, s):
       return self
 
+   def __eq__(self, nad2):
+      return True
+
+   def __ne__(self, nad2):
+      return False
 
 ################################################################################
 class DecoratedTxOut(object):
@@ -1731,13 +1734,12 @@ class DecoratedTxOut(object):
       outjson = {}
       outjson['version']      = self.version
       outjson['magicbytes']   = binary_to_hex(MAGIC_BYTES)
-      outjson['id']           = self.asciiID
       outjson['txoutscript']  = binary_to_hex(self.binScript)
       outjson['txoutvalue']   = self.value
       outjson['p2shscript']   = binary_to_hex(self.p2shScript)
       outjson['wltlocator']   = binary_to_hex(self.wltLocator)
-      outjson['authmethod']   = self.authmethod # we expect plaintext
-      outjson['authdata']     = binary_to_hex(self.authData) # we expect this won't be
+      outjson['authmethod']   = self.authMethod # we expect plaintext
+      outjson['authdata']     = binary_to_hex(self.authData.serialize()) # we expect this won't be
       outjson['contribid']    = self.contribID
       outjson['contriblabel'] = self.contribLabel
 
@@ -1752,7 +1754,7 @@ class DecoratedTxOut(object):
       outjson['addrstr']       = ''
       if scrType in CPP_TXOUT_HAS_ADDRSTR:
          outjson['hasaddrstr']    = True
-         outjson['addrstr']       = scrAddr_to_addrStr(self.binScript)
+         outjson['addrstr']       = script_to_addrStr(self.binScript)
 
       return outjson
 
@@ -1776,16 +1778,17 @@ class DecoratedTxOut(object):
          LOGERROR('    Armory  Magic: ' + binary_to_hex(MAGIC_BYTES))
          raise NetworkIDError('Network magic bytes mismatch')
 
-      script = hex_to_binary(outjson['txoutscript'])
-      value  =               outjson['txoutvalue']
-      p2sh   = hex_to_binary(outjson['p2shscript'])
-      loc    = hex_to_binary(outjson['wltlocator'])
-      meth   =               outjson['authmethod']
-      data   = hex_to_binary(outjson['authdata'])
-      cid    =               outjson['contribid']
-      clbl   =               outjson['contriblabel']
+      script = hex_to_binary(jsonMap['txoutscript'])
+      value  =               jsonMap['txoutvalue']
+      p2sh   = hex_to_binary(jsonMap['p2shscript'])
+      loc    = hex_to_binary(jsonMap['wltlocator'])
+      meth   =               jsonMap['authmethod']
+      data   = hex_to_binary(jsonMap['authdata'])
+      cid    =               jsonMap['contribid']
+      clbl   =               jsonMap['contriblabel']
       
-      self.__init__(script, value, p2sh, loc, meth, data, cid, clbl)
+      authData = NullAuthData().unserialize(data)
+      self.__init__(script, value, p2sh, loc, meth, authData, cid, clbl)
       return self
 
    
@@ -1863,6 +1866,52 @@ class DecoratedTxOut(object):
       print ind + 'Value:       ', coin2strNZS(self.value)
       print ind + 'ContribID:   ', self.contribID
       print ind + 'ContribLabel:', self.contribLabel
+
+
+   #############################################################################
+   def __eq__(self, obj2):
+
+      if not isinstance(obj2, self.__class__):
+         return False
+
+      compareAttrs = ['version', 'binScript', 'value', 'p2shScript',
+                      'wltLocator', 'authMethod', 'contribID', 'contribLabel',
+                      'scrAddr', 'scriptType', 'multiInfo']
+
+      compareLists = []
+      compareMaps  = []
+
+      for attr in compareAttrs:
+         if not getattr(self, attr) == getattr(obj2, attr):
+            LOGERROR('Compare failed for attribute: %s' % attr)
+            LOGERROR('  self:   %s' % str(getattr(self,attr)))
+            LOGERROR('  other:  %s' % str(getattr(obj2,attr)))
+            return False
+
+
+      for attr in compareLists:
+         selfList  = getattr(self, attr)
+         otherList = getattr(obj2, attr)
+      
+         if not len(selfList)==len(otherList):
+            LOGERROR('List size compare failed for %s' % attr)
+            return False
+
+         i = -1
+         for a,b in zip(selfList, otherList):
+            i+=1
+            if not a==b:
+               LOGERROR('Failed list compare for attr %s, index %d' % (attr,i))
+               return False
+            
+      return True
+
+
+   def __ne__(self, obj2):
+      return not self.__eq__(obj2)
+
+
+
 
 ################################################################################
 ################################################################################
@@ -2221,13 +2270,13 @@ class UnsignedTransaction(object):
       outjson['version'] = self.version
       outjson['magicbytes'] = binary_to_hex(MAGIC_BYTES)
       outjson['id'] = self.uniqueIDB58
-      outjson['locktimeint'] = self.locktime
-      if self.locktime < 500000000:
-         outjson['locktimeblock'] = self.locktime
+      outjson['locktimeint'] = self.lockTime
+      if self.lockTime < 500000000:
+         outjson['locktimeblock'] = self.lockTime
          outjson['locktimedate']  = ''
       else:
          outjson['locktimeblock'] = -1
-         outjson['locktimedate']  = unixTimeToFormatStr(self.locktime)
+         outjson['locktimedate']  = unixTimeToFormatStr(self.lockTime)
    
       outjson['numinputs'] = len(self.ustxInputs)
       outjson['numoutputs'] = len(self.decorTxOuts)
@@ -2500,6 +2549,57 @@ class UnsignedTransaction(object):
          print ' '*2*indent + 'Recip:', addrDisp.ljust(35),
          print valDisp, 'BTC',
          print ('(%s)' % dtxo.contribID) if dtxo.contribID else ''
+
+
+   #############################################################################
+   def __eq__(self, obj2):
+      if not isinstance(obj2, self.__class__):
+         return False
+
+      #bp = BinaryPacker()
+      #bp.put(UINT32,       self.version)
+      #bp.put(BINARY_CHUNK, MAGIC_BYTES, 4)
+      #bp.put(UINT32,       self.lockTime)
+      #bp.put(VAR_INT,  len(self.ustxInputs))
+      #for ustxi in self.ustxInputs:
+         #bp.put(VAR_STR, ustxi.serialize())
+      #bp.put(VAR_INT,  len(self.decorTxOuts))
+      #for dtxo in self.decorTxOuts:
+         #bp.put(VAR_STR, dtxo.serialize())
+
+      compareAttrs = ['version', 'lockTime']
+      compareLists = ['ustxInputs', 'decorTxOuts']
+      compareMaps  = []
+
+      for attr in compareAttrs:
+         if not getattr(self, attr) == getattr(obj2, attr):
+            LOGERROR('Compare failed for attribute: %s' % attr)
+            LOGERROR('  self:   %s' % str(getattr(self,attr)))
+            LOGERROR('  other:  %s' % str(getattr(obj2,attr)))
+            return False
+
+
+      for attr in compareLists:
+         selfList  = getattr(self, attr)
+         otherList = getattr(obj2, attr)
+      
+         if not len(selfList)==len(otherList):
+            LOGERROR('List size compare failed for %s' % attr)
+            return False
+
+         i = -1
+         for a,b in zip(selfList, otherList):
+            i+=1
+            if not a==b:
+               LOGERROR('Failed list compare for attr %s, index %d' % (attr,i))
+               return False
+            
+      return True
+
+
+   def __ne__(self, obj2):
+      return not self.__eq__(obj2)
+      
 
 
 
