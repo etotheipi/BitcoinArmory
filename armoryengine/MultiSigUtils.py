@@ -172,15 +172,15 @@ def getLockboxFilePaths():
       home directory.'''
    lbPaths = []
 
-   # We're just going to get various paths. Even if a file has no valid
-   # lockboxes, other code will actually determine that.
+   # Return the multisig file path.
    if os.path.isfile(MULTISIG_FILE):
       lbPaths.append(MULTISIG_FILE)
 
-   for f in os.listdir(ARMORY_HOME_DIR):
-      fullPath = os.path.join(ARMORY_HOME_DIR, f)
-      if os.path.isfile(fullPath) and not fullPath.endswith('lockbox.txt'):
-         lbPaths.append(fullPath)
+   # For now, no standalone lockboxes will be returned. Maybe later....
+   #for f in os.listdir(ARMORY_HOME_DIR):
+   #   fullPath = os.path.join(ARMORY_HOME_DIR, f)
+   #   if os.path.isfile(fullPath) and not fullPath.endswith('lockbox.txt'):
+   #      lbPaths.append(fullPath)
 
    return lbPaths
 

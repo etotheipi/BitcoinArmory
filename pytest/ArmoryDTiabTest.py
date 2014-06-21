@@ -174,10 +174,12 @@ class ArmoryDTiabTest(TiabTest):
       self.assertEqual(len(ledger[1]['senderother']), 0)
       self.assertEqual(len(ledger[1]['senderme']), 1)
       self.assertEqual(ledger[1]['senderme'][0]['amount'], 1000.0)
-      
+
    def testSendtoaddress(self):
-      # Send 1 BTC 
-      serializedUnsignedTx = self.jsonServer.jsonrpc_sendtoaddress(TIAB_WLT_3_ADDR_3, BTC_TO_SEND)
+      # Send 1 BTC
+      serializedUnsignedTx = \
+         self.jsonServer.jsonrpc_createustxtoaddress(TIAB_WLT_3_ADDR_3, \
+                                                     BTC_TO_SEND)
       unsignedTx = UnsignedTransaction().unserializeAscii(serializedUnsignedTx)
       # Should have 2 txouts to TIAB_WLT_3_ADDR_3 and the change
       self.assertEqual(len(unsignedTx.decorTxOuts), 2)
@@ -189,9 +191,10 @@ class ArmoryDTiabTest(TiabTest):
       self.assertTrue(foundTxOut)
 
    def testSendmany(self):
-      # Send 1 BTC 
-      serializedUnsignedTx = self.jsonServer.jsonrpc_sendmany(':'.join([TIAB_WLT_3_ADDR_2, str(BTC_TO_SEND)]),
-                                                              ':'.join([TIAB_WLT_3_ADDR_3, str(BTC_TO_SEND)]))
+      # Send 1 BTC
+      serializedUnsignedTx = \
+         self.jsonServer.jsonrpc_createustxformany(':'.join([TIAB_WLT_3_ADDR_2, str(BTC_TO_SEND)]), \
+                                                   ':'.join([TIAB_WLT_3_ADDR_3, str(BTC_TO_SEND)]))
       unsignedTx = UnsignedTransaction().unserializeAscii(serializedUnsignedTx)
       # Should have 2 txouts to TIAB_WLT_3_ADDR_3 and the change
       self.assertEqual(len(unsignedTx.decorTxOuts), 3)
