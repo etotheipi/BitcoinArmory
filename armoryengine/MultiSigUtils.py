@@ -84,11 +84,6 @@ def calcLockboxID(script=None, scraddr=None):
       return None
 
    hashedData = hash160(MAGIC_BYTES + scraddr)
-   #M,N = getMultisigScriptInfo(script)[:2]
-   #return '%d%d%s' % (M, N, binary_to_base58(hashedData)[:6])
-
-   # Using letters 1:9 because the first letter has a minimal range of 
-   # values for 32-bytes converted to base58
    return binary_to_base58(hashedData)[1:9]
 
 
@@ -203,7 +198,7 @@ def isMofNNonStandardToSpend(m, n):
           
 ################################################################################
 ################################################################################
-class MultiSigLockbox(object):
+class MultiSigLockbox(AsciiSerializable):
 
    OBJNAME   = 'Lockbox'
    BLKSTRING = 'LOCKBOX'
@@ -312,7 +307,10 @@ class MultiSigLockbox(object):
       
       # Lockbox ID is written in the first line, it should match the script
       # If not maybe a version mistmatch, serialization error, or bug
-      if expectID and not calcLockboxID(boxScript) == expectID:
+      # (unfortunately, for mixed network testing, the lockbox ID is the
+      #  hash of the script & the MAGIC_BYTES, which means we need to
+      #  skip checking the ID if we are skipping MAGIC)
+      if expectID and not calcLockboxID(boxScript) == expectID and not skipMagicCheck:
          LOGERROR('ID on lockbox block does not match script')
          raise UnserializeError('ID on lockbox does not match!')
 
@@ -345,7 +343,8 @@ class MultiSigLockbox(object):
 
       dPubKeys = []
       for i in range(N):
-         dPubKeys.append(DecoratedPublicKey().unserialize(bu.get(VAR_STR)))
+         dPubKeys.append(DecoratedPublicKey().unserialize(bu.get(VAR_STR), 
+                                                skipMagicCheck=skipMagicCheck))
 
 
       # Issue a warning if the versions don't match
@@ -367,8 +366,10 @@ class MultiSigLockbox(object):
 
       # Lockbox ID is written in the first line, it should match the script
       # If not maybe a version mistmatch, serialization error, or bug
-      if expectID and not calcLockboxID(boxScript) == expectID:
+      if expectID and not calcLockboxID(boxScript) == expectID and not skipMagicCheck:
          LOGERROR('ID on lockbox block does not match script')
+         LOGERROR('    Expecting:   %s' % str(expectID))
+         LOGERROR('    Calculated:  %s' % str(calcLockboxID(boxScript)))
          raise UnserializeError('ID on lockbox does not match!')
 
       # No need to read magic bytes -- already checked & bailed if incorrect
@@ -399,7 +400,7 @@ class MultiSigLockbox(object):
    def toJSONMap(self):
       outjson = {}
       outjson['version']      = self.version
-      outjson['magicbytes']   = MAGIC_BYTES
+      outjson['magicbytes']   = binary_to_hex(MAGIC_BYTES)
       outjson['id']           = self.asciiID
 
       outjson['lboxname'] =  self.shortName
@@ -414,8 +415,8 @@ class MultiSigLockbox(object):
       outjson['a160list'] = [hash160(p.binPubKey) for p in self.dPubKeys]
       outjson['addrstrs'] = [hash160_to_addrStr(a) for a in outjson['a160list']]
 
-      outjson['txoutscript'] = self.binScript
-      outjson['p2shscript']  = self.p2shScript
+      outjson['txoutscript'] = binary_to_hex(self.binScript)
+      outjson['p2shscript']  = binary_to_hex(scrAddr_to_script(self.p2shScrAddr))
       outjson['createdate']  = self.createDate
       
       return outjson
@@ -424,7 +425,7 @@ class MultiSigLockbox(object):
    #############################################################################
    def fromJSONMap(self, jsonMap, skipMagicCheck=False):
       ver   = jsonMap['version'] 
-      magic = jsonMap['magicbytes'] 
+      magic = hex_to_binary(jsonMap['magicbytes'])
       uniq  = jsonMap['id']
    
       # Issue a warning if the versions don't match
@@ -449,10 +450,10 @@ class MultiSigLockbox(object):
       
       pubs = []
       for i in range(N):
-         pubs.append(DecoratedPublicKey().fromJSONMap(jsonMap['pubkeylist'], skipMagicCheck))
+         pubs.append(DecoratedPublicKey().fromJSONMap(jsonMap['pubkeylist'][i], skipMagicCheck))
 
       created = jsonMap['createdate']
-      self.setParams(name, descr, M, N, pubs, createDate)
+      self.setParams(name, descr, M, N, pubs, created)
       return self
 
 
@@ -477,7 +478,6 @@ class MultiSigLockbox(object):
          print '            Key %d' % i
          print '           ', binary_to_hex(self.dPubKeys[i].binPubKey)[:40] + '...'
          print '           ', hash160_to_addrStr(self.a160List[i])
-         print '           ', self.commentList[i]
          print ''
       
 
@@ -637,7 +637,7 @@ class MultiSigLockbox(object):
 
 ################################################################################
 ################################################################################
-class DecoratedPublicKey(object):
+class DecoratedPublicKey(AsciiSerializable):
 
    OBJNAME   = 'PublicKey'
    BLKSTRING = 'PUBLICKEY'
@@ -649,6 +649,13 @@ class DecoratedPublicKey(object):
                click on "Create Lockbox", and then use the "Import" button
                next to the address book button.  Copy the following text
                into the box, including the first and last lines."""
+
+   EQ_ATTRS_SIMPLE = ['version', 'binPubKey', 'keyComment', 'wltLocator',
+                      'pubKeyID', 'asciiID', 'authMethod']
+
+   EQ_ATTRS_SERIAL = ['authData']
+
+                      
 
    #############################################################################
    def __init__(self, binPubKey=None, keyComment=None, wltLoc=None, 
@@ -747,29 +754,6 @@ class DecoratedPublicKey(object):
       return self
 
 
-   #############################################################################
-   def serializeAscii(self, wid=80, newline='\n'):
-      if not self.binPubKey:
-         return None
-
-      headStr = '%s-%s' % (self.BLKSTRING, self.pubKeyID)
-      return makeAsciiBlock(self.serialize(), headStr, wid, newline)
-
-
-
-   #############################################################################
-   def unserializeAscii(self, pubkeyBlock, skipMagicCheck=False):
-
-      headStr, rawData = readAsciiBlock(pubkeyBlock, self.BLKSTRING)
-
-      if rawData is None:
-         LOGERROR('Expected str "%s", got "%s"' % (self.BLKSTRING, headStr))
-         raise UnserializeError('Unexpected BLKSTRING')
-
-      # We should have "PUBLICKEY" in the headstr
-      pkID = headStr.split('-')[-1]
-      return self.unserialize(rawData, pkID, skipMagicCheck)
-
 
    #############################################################################
    def toJSONMap(self):
@@ -807,15 +791,15 @@ class DecoratedPublicKey(object):
          raise NetworkIDError('Network magic bytes mismatch')
    
 
-      pub  = hex_to_binary(outjson['pubkeyhex'])
-      comm =               outjson['keycomment']
-      loc  = hex_to_binary(outjson['wltLocator'])
-      meth =               outjson['authmethod']
-      data = hex_to_binary(outjson['authdata'])
+      pub  = hex_to_binary(jsonMap['pubkeyhex'])
+      comm =               jsonMap['keycomment']
+      loc  = hex_to_binary(jsonMap['wltLocator'])
+      meth =               jsonMap['authmethod']
+      data = hex_to_binary(jsonMap['authdata'])
 
       authobj = NullAuthData().unserialize(data)
 
-      self.setParams(pub, comm, lock, meth, authobj)
+      self.setParams(pub, comm, loc, meth, authobj)
       
       return self
 
@@ -824,6 +808,9 @@ class DecoratedPublicKey(object):
    def pprint(self):
       print 'pprint of DecoratedPublicKey is not implemented'
       
+
+
+
 
 
 ################################################################################
@@ -997,7 +984,7 @@ class MultiSigPromissoryNote(object):
          raise NetworkIDError('Network magic bytes mismatch')
       
       for i in range(numUSTXI):
-         ustxiList.append( UnsignedTxInput().unserialize(bu.get(VAR_STR)) )
+         ustxiList.append( UnsignedTxInput().unserialize(bu.get(VAR_STR), skipMagicCheck=skipMagicCheck) )
 
       promLabel   = toUnicode(bu.get(VAR_STR))
       lockboxKey  = bu.get(VAR_STR)
@@ -1007,8 +994,8 @@ class MultiSigPromissoryNote(object):
          LOGWARN('   PromNote Version: %d' % version)
          LOGWARN('   Armory   Version: %d' % MULTISIG_VERSION)
 
-      dtxoTarget = DecoratedTxOut().unserialize(target)
-      dtxoChange = DecoratedTxOut().unserialize(change) if change else None
+      dtxoTarget = DecoratedTxOut().unserialize(target, skipMagicCheck=skipMagicCheck)
+      dtxoChange = DecoratedTxOut().unserialize(change, skipMagicCheck=skipMagicCheck) if change else None
 
       self.setParams(dtxoTarget, feeAmt, dtxoChange, ustxiList, promLabel)
 

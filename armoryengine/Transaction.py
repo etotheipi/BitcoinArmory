@@ -13,6 +13,8 @@ from armoryengine.ArmoryUtils import *
 from armoryengine.BinaryPacker import *
 from armoryengine.BinaryUnpacker import *
 
+from armoryengine.AsciiSerialize import AsciiSerializable
+
 UNSIGNED_TX_VERSION = 1
 
 ################################################################################
@@ -910,7 +912,7 @@ def generatePreHashTxMsgToSign(pytx, txInIndex, prevTxOutScript, hashcode=1):
 
 
 ################################################################################
-class UnsignedTxInput(object):
+class UnsignedTxInput(AsciiSerializable):
    """
    The name is really "UnsignedTx" input ... it is an input of an unsignedTx
 
@@ -961,6 +963,12 @@ class UnsignedTxInput(object):
    The txoScript variable always contains the script that needs to be inserted
    into the TxIn script when signing (look at OP_CHECKSIG for details)
    """
+
+   EQ_ATTRS_SIMPLE = ['version', 'supportTx', 'outpoint', 'txoScript', 'value',
+                      'scriptType', 'contribID', 'contribLabel', 'p2shScript',
+                      'sequence', 'keysListed', 'sigsNeeded']
+   EQ_ATTRS_LISTS  = ['scrAddrs', 'signatures', 'wltLocators', 'pubKeys']
+
 
    #############################################################################
    def __init__(self, rawSupportTx='',
@@ -1553,6 +1561,7 @@ class UnsignedTxInput(object):
 
 
    #############################################################################
+   """
    def __eq__(self, obj2):
       if not isinstance(obj2, self.__class__):
          return False
@@ -1592,6 +1601,7 @@ class UnsignedTxInput(object):
 
    def __ne__(self, obj2):
       return not self.__eq__(obj2)
+   """
 
 
 
@@ -1615,7 +1625,7 @@ class NullAuthData(object):
       return False
 
 ################################################################################
-class DecoratedTxOut(object):
+class DecoratedTxOut(AsciiSerializable):
    """
    The name is really "UnsignedTx" output ... it is an output of an unsignedTx
 
@@ -1918,7 +1928,7 @@ class DecoratedTxOut(object):
 # This class can be used for both multi-signature tx collection, as well as
 # offline wallet signing (you are collecting signatures for a 1-of-1 tx only
 # involving yourself).
-class UnsignedTransaction(object):
+class UnsignedTransaction(AsciiSerializable):
    """
    Let's call this a "USTX" to avoid confusion with "UTXO"s which are
    "unSPENT TxOut"s.
@@ -1947,6 +1957,8 @@ class UnsignedTransaction(object):
                signing.  After it is signed, click "Export" in the bottom-right
                corner and send it back to me."""
            
+   EQ_ATTRS_SIMPLE = ['version', 'lockTime', 'asciiID']
+   EQ_ATTRS_LISTS  = ['ustxInputs', 'decorTxOuts']
                
 
    #############################################################################
@@ -2243,21 +2255,6 @@ class UnsignedTransaction(object):
       return self
 
 
-   #############################################################################
-   def serializeAscii(self):
-      headStr = '%s-%s' % (self.BLKSTRING, self.uniqueIDB58)
-      return makeAsciiBlock(self.serialize(), headStr)
-
-   #############################################################################
-   def unserializeAscii(self, ustxBlock, skipMagicCheck=False):
-      headStr,rawData = readAsciiBlock(ustxBlock, self.BLKSTRING)
-      if rawData is None:
-         LOGERROR('Expected str "%s", got "%s"' % (self.BLKSTRING, headStr))
-         raise UnserializeError('Unexpected BLKSTRING')
-
-      expectID = headStr.split('-')[-1]
-      return self.unserialize(rawData, expectID, skipMagicCheck)
-
 
    #############################################################################
    def toJSONMap(self, lite=False):
@@ -2552,20 +2549,10 @@ class UnsignedTransaction(object):
 
 
    #############################################################################
+   """
    def __eq__(self, obj2):
       if not isinstance(obj2, self.__class__):
          return False
-
-      #bp = BinaryPacker()
-      #bp.put(UINT32,       self.version)
-      #bp.put(BINARY_CHUNK, MAGIC_BYTES, 4)
-      #bp.put(UINT32,       self.lockTime)
-      #bp.put(VAR_INT,  len(self.ustxInputs))
-      #for ustxi in self.ustxInputs:
-         #bp.put(VAR_STR, ustxi.serialize())
-      #bp.put(VAR_INT,  len(self.decorTxOuts))
-      #for dtxo in self.decorTxOuts:
-         #bp.put(VAR_STR, dtxo.serialize())
 
       compareAttrs = ['version', 'lockTime']
       compareLists = ['ustxInputs', 'decorTxOuts']
@@ -2593,6 +2580,23 @@ class UnsignedTransaction(object):
             if not a==b:
                LOGERROR('Failed list compare for attr %s, index %d' % (attr,i))
                return False
+
+      for attr in compareMaps:
+         selfMap  = getattr(self, attr)
+         otherMap = getattr(obj2, attr)
+
+         if not len(selfMap)==len(otherMap):
+            LOGERROR('Map size compare failed for %s' % attr)
+            return False
+
+         for key,val in selfMap.iteritems():
+            if not key in otherMap:
+               LOGERROR('First map has key not in second map: "%s"' % key)
+               return False
+
+            if not val==otherMap[key]:
+               LOGERROR('Value for attr=%s, key=%s does not match' % (attr,key))
+               return False 
             
       return True
 
@@ -2600,6 +2604,7 @@ class UnsignedTransaction(object):
    def __ne__(self, obj2):
       return not self.__eq__(obj2)
       
+   """
 
 
 

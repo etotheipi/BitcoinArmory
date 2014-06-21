@@ -656,8 +656,11 @@ class AllClassRoundTripTest(unittest.TestCase):
          getattr(tempObj, unserMethod)(obj, skipMagicCheck=skipMagicCheck)
          return tempObj
 
-      ser  = serialize(classObj);  classObj2 = unserialize(ser,  classObj.__class__, skipMagicCheck=True)
-      ser2 = serialize(classObj2); classObj3 = unserialize(ser2, classObj.__class__, skipMagicCheck=True)
+      ser  = serialize(classObj);  
+      classObj2 = unserialize(ser,  classObj.__class__, skipMagicCheck=True)
+
+      ser2 = serialize(classObj2); 
+      classObj3 = unserialize(ser2, classObj.__class__, skipMagicCheck=True)
 
       self.assertEqual(classObj,  classObj2)
       self.assertEqual(classObj2, classObj3)
@@ -715,7 +718,7 @@ class AllClassRoundTripTest(unittest.TestCase):
    def testUSTX_serializeAscii_roundtrip(self):
       for comment,asciiUstx in self.serMap['ustx'].iteritems():
          ustx = UnsignedTransaction().unserializeAscii(asciiUstx, skipMagicCheck=True) 
-         self.doRoundTrip(ustx, 'toJSONMap', 'fromJSONMap')
+         self.doRoundTrip(ustx, 'serializeAscii', 'unserializeAscii')
 
    #############################################################################
    def testUSTX_JSON_roundtrip(self):
@@ -725,6 +728,31 @@ class AllClassRoundTripTest(unittest.TestCase):
 
 
 
+   #############################################################################
+   ##### Lockbox
+   #############################################################################
+   def testLockbox_serialize_roundtrip(self):
+      for comment,asciiLockbox in self.serMap['lockbox'].iteritems():
+         lbox = MultiSigLockbox().unserializeAscii(asciiLockbox, skipMagicCheck=True) 
+         self.doRoundTrip(lbox, 'serialize', 'unserialize')
+
+   #############################################################################
+   def testLockbox_serializeAscii_roundtrip(self):
+      for comment,asciiLockbox in self.serMap['lockbox'].iteritems():
+         lbox = MultiSigLockbox().unserializeAscii(asciiLockbox, skipMagicCheck=True) 
+         self.doRoundTrip(lbox, 'serializeAscii', 'unserializeAscii')
+
+   #############################################################################
+   def testLockbox_JSON_roundtrip(self):
+      for comment,asciiLockbox in self.serMap['lockbox'].iteritems():
+         lbox = MultiSigLockbox().unserializeAscii(asciiLockbox, skipMagicCheck=True) 
+         self.doRoundTrip(lbox, 'toJSONMap', 'fromJSONMap')
+
+   #############################################################################
+   #def testLockbox_JSON_roundtrip(self):
+      #for comment,asciiLockbox in self.serMap['lockbox'].iteritems():
+         #lockbox = UnsignedTransaction().unserializeAscii(asciiLockbox, skipMagicCheck=True) 
+         #self.doRoundTrip(lockbox, 'toJSONMap', 'fromJSONMap')
 
 
 
