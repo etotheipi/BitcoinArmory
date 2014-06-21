@@ -183,7 +183,7 @@ def addMultLockboxes(inLBPaths, inLBSet, inLBIDSet):
 
 class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
    #############################################################################
-   def __init__(self, wallet, lockbox, inWltSet={}, inLBSet={}, \
+   def __init__(self, wallet, lockbox=None, inWltSet={}, inLBSet={}, \
                 inWltIDSet=set(), inLBIDSet=set(), \
                 armoryHomeDir=ARMORY_HOME_DIR, addrByte=ADDRBYTE):
       # Save the incoming info. If the user didn't pass in a wallet set, put the
@@ -205,30 +205,43 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       # we'll set everything up here.
       self.addrByte = addrByte
 
-   
+
    #############################################################################
    def jsonrpc_receivedfromsigner(self, sigBlock):
+      """Verify that a message has been signed (RFC 2440: clearsign or Base64),
+         and get the amount of coins sent to the current wallet by the message's
+         signer."""
       retDict = {}
+
       verification = self.jsonrpc_verifysignature(sigBlock)
       retDict['message'] = verification['message']
       retDict['amount'] = self.jsonrpc_receivedfromaddress(verification['address'])
+
       return retDict
+
 
    #############################################################################
    def jsonrpc_verifysignature(self, sigBlock):
+      """Verify that a message has been signed (RFC 2440: clearsign or Base64),
+         and get the message and the signer's Base58 address."""
       retDict = {}
+
+      # Get the signature block's signature and message. The signature must be
+      # formatted for clearsign or Base64 persuant to RFC 2440.
       sig, msg = readSigBlock(sigBlock)
       retDict['message'] = msg
       addrB58 = verifySignature(sig, msg, 'v1', ord(self.addrByte) )
       retDict['address'] = addrB58
+
       return retDict
+
 
    #############################################################################
    def jsonrpc_receivedfromaddress(self, sender):
       """Return the number of coins received from a particular sender."""
-
       totalReceived = 0.0
       ledgerEntries = self.curWlt.getTxLedger('blk')
+
       for entry in ledgerEntries:
          cppTx = TheBDM.getTxByHash(entry.getTxHash())
          if cppTx.isInitialized():
@@ -249,7 +262,10 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
                # TODO: Find the best way to handle this case
                # for now require all inputs to be from the sender to be included
                # in the tally
+               LOGERROR('Inputs not from the sender are detected. 0 will be ' \
+                        'returned.)
                pass
+
       return AmountToJSON(totalReceived)
 
 
@@ -1232,7 +1248,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
                                                        addrNameList)]
             decorSort  = sorted(decorated, key=lambda pair: pair[0])
             for i, pair in enumerate(decorSort):
-               lockboxPubKeyList.append(LockboxPublicKey(hex_to_binary(pair[0])))
+               lockboxPubKeyList.append(DecoratedPublicKey(hex_to_binary(pair[0])))
                addrList[i]     = hex_to_binary(pair[0])
                addrNameList[i] = pair[1]
 
@@ -1243,8 +1259,8 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
             lbCreateDate = long(RightNow())
             lbName = 'Lockbox %s' % lbID
             lbDescrip = '%s - %d-of-%d - Created by armoryd' % (lbID, m, n)
-            lockbox = MultiSigLockbox(lbName, lbDescrip, lbCreateDate, m, n,
-                     lockboxPubKeyList)
+            lockbox = MultiSigLockbox(lbName, lbDescrip, m, n,
+                     lockboxPubKeyList, lbCreateDate)
 
             # To be safe, we'll write the LB only if Armory doesn't already have
             # a copy.
@@ -1308,20 +1324,6 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       lbInfo[totalSigStr] = self.lbToUse.N
 
       return lbInfo
-
-
-   #############################################################################
-   # Get a dictionary of the lockboxes known to armoryd.
-   # Key - Lockbox ID
-   # Value - Lockbox serialized in ascii
-   def jsonrpc_listlockboxes(self, lockboxString):
-      """List the lockbox IDs of all lockboxes loaded on the armoryd server."""
-
-      retDict = {}
-      for lbid in self.serverLBSet.keys():
-         retDict[lbid] = self.serverLBSet.serializeAscii90
-
-      return retDict
 
 
    #############################################################################
@@ -1704,7 +1706,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
    #############################################################################
    # Get a dictionary with all functions the armoryd server can run.
    def jsonrpc_getarmorydfunctions(self):
-      """Get a directionary of all functions the armoryd server can run."""
+      """Get a directionary with all functions the armoryd server can run."""
 
       return jsonFunctDict
 
@@ -2001,6 +2003,10 @@ class Armory_Daemon(object):
             result = proxyobj.__getattr__(CLI_ARGS[0])(*extraArgs)
             print json.dumps(result, indent=4, sort_keys=True, \
                              cls=UniversalEncoder)
+
+            # If there are any special cases where we wish to do some
+            # post-processing on the client side, do it here.
+            # For now, no such post-processing is required.
 
          except Exception as e:
             # The command was bad. Print a message.
