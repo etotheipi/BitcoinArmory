@@ -3,8 +3,7 @@ from PyQt4.QtGui import *
 from PyQt4.QtNetwork import *
 from qtdefines import *
 from qtdialogs import createAddrBookButton, DlgSetComment, DlgSendBitcoins, \
-                      DlgUnlockWallet, DlgQRCodeDisplay, DlgRequestPayment,\
-                     DlgDispTxInfo
+                      DlgUnlockWallet, DlgQRCodeDisplay, DlgRequestPayment
 from armoryengine.ALL import *
 from armorymodels import *
 from armoryengine.MultiSigUtils import MultiSigLockbox, calcLockboxID,\

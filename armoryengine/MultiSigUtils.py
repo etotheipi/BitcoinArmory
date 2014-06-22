@@ -650,10 +650,9 @@ class DecoratedPublicKey(AsciiSerializable):
                next to the address book button.  Copy the following text
                into the box, including the first and last lines."""
 
-   EQ_ATTRS_SIMPLE = ['version', 'binPubKey', 'keyComment', 'wltLocator',
-                      'pubKeyID', 'asciiID', 'authMethod']
 
-   EQ_ATTRS_SERIAL = ['authData']
+   EQ_ATTRS_SIMPLE = ['version', 'binPubKey', 'keyComment', 'wltLocator',
+                      'pubKeyID', 'asciiID', 'authMethod', 'authData']
 
                       
 
@@ -837,7 +836,7 @@ def computePromissoryID(ustxiList=None, dtxoTarget=None, feeAmt=None,
 
 ################################################################################
 ################################################################################
-class MultiSigPromissoryNote(object):
+class MultiSigPromissoryNote(AsciiSerializable):
 
    OBJNAME   = 'PromNote'
    BLKSTRING = 'PROMISSORY'
@@ -850,6 +849,13 @@ class MultiSigPromissoryNote(object):
                into the import box, including the first and last lines.  
                You should receive a block of text like this from each party 
                funding this transaction."""
+
+
+   EQ_ATTRS_SIMPLE = ['version', 'dtxoTarget', 'feeAmt', 'dtxoChange',
+                      'promID', 'asciiID', 'promLabel']
+   EQ_ATTRS_LISTS  = ['ustxInputs']
+
+
 
    #############################################################################
    def __init__(self, dtxoTarget=None, feeAmt=None, ustxInputs=None, 
@@ -1061,7 +1067,7 @@ class MultiSigPromissoryNote(object):
       outjson['fee'] = self.feeAmt
 
       outjson['numinputs'] = len(self.ustxInputs)
-      outjson['promlabel'] = self.promlabel
+      outjson['promlabel'] = self.promLabel
       outjson['lbpubkey'] = self.lockboxKey
       
       if not lite:
@@ -1092,11 +1098,11 @@ class MultiSigPromissoryNote(object):
          raise NetworkIDError('Network magic bytes mismatch')
 
 
-      targ = jsonMap['txouttarget']
+      targ = DecoratedTxOut().fromJSONMap(jsonMap['txouttarget'])
       fee  = jsonMap['fee']
 
       if len(jsonMap['txoutchange'])>0:
-         chng = jsonMap['txoutchange']
+         chng = DecoratedTxOut().fromJSONMap(jsonMap['txoutchange'])
       else:
          chng = None
 

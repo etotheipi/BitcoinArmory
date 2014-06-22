@@ -1196,8 +1196,15 @@ class DlgLockboxManager(ArmoryDialog):
       frmSingleLayout.setColumnStretch(2,1)
       frmSingleLayout.setColumnStretch(3,1)
 
-      frmSingle.setLayout(frmSingleLayout)
+      ctrlayoutS = QHBoxLayout()
+      ctrlayoutS.addStretch()
+      ctrlayoutS.addLayout(frmSingleLayout)
+      ctrlayoutS.addStretch()
+
+      frmSingle.setLayout(ctrlayoutS)
       frmSingle.setFrameStyle(STYLE_STYLED)
+
+      
       self.stkDashboard.addWidget(frmSingle)
 
 
@@ -1227,13 +1234,20 @@ class DlgLockboxManager(ArmoryDialog):
       frmMultiLayout.setColumnStretch(2,1)
       frmMultiLayout.setColumnStretch(3,1)
 
-      frmMulti.setLayout(frmMultiLayout)
+      ctrlayoutM = QHBoxLayout()
+      ctrlayoutM.addStretch()
+      ctrlayoutM.addLayout(frmMultiLayout)
+      ctrlayoutM.addStretch()
+
+      frmMulti.setLayout(ctrlayoutM)
       frmMulti.setFrameStyle(STYLE_STYLED)
       self.stkDashboard.addWidget(frmMulti)
 
       # Default is to use frmSingle
       self.stkDashboard.setCurrentIndex(0)
 
+      frmMultiLayout.setSizeConstraint(QLayout.SetFixedSize)
+      frmSingleLayout.setSizeConstraint(QLayout.SetFixedSize)
          
       
 
@@ -1527,9 +1541,22 @@ class DlgLockboxManager(ArmoryDialog):
       dlg = DlgImportLockbox(self, self.main)
       if dlg.exec_():
          if dlg.importedLockbox is not None:
-            # FIXEME:  For now always assume fresh, restart should catch 
-            #          anything in the last 2016 blocks. Or manual rescan.
             self.main.updateOrAddLockbox(dlg.importedLockbox, isFresh=True)
+            if not self.main.getSettingOrSetDefault('DNAA_LockboxImport', False):
+               MsgBoxWithDNAA(MSGBOX.Info, tr("Import Successful"), tr("""
+                  The lockbox was imported successfully.  If this is a new 
+                  lockbox that has never been used before, then you
+                  can start using it right away.  
+                  <br><br>
+                  If the lockbox is not new and has been used before,
+                  Armory will not know about its history until you rescan
+                  the databases.  You can manually initiate a rescan by
+                  going to "<i>Help</i>"\xe2\x86\x92"<i>Rescan Databases</i>"
+                  from the main window."""), tr("Do not show this message again"))
+
+               if reply[1]:
+                  self.main.writeSetting('DNAA_LockboxImport', True)
+               
          self.lboxModel.reset()
          self.singleClickLockbox()
       self.updateButtonDisable()
@@ -2246,7 +2273,7 @@ class DlgExportAsciiBlock(ArmoryDialog):
       if not self.main.getSettingOrSetDefault('DNAA_MailtoWarn', False):
          reply = MsgBoxWithDNAA(MSGBOX.Warning, tr('Email Triggered'), tr("""
             Armory attempted to execute a "mailto:" link which should trigger
-            your email application or web browser to open a compose-email window 
+            your email application or web browser to open a compose-email window.
             This does not work in all environments, and you might have to 
             manually copy and paste the text in the box into an email.
             """), dnaaMsg=tr('Do not show this message again'), dnaaStartChk=True)
@@ -3247,10 +3274,13 @@ class DlgCreatePromNote(ArmoryDialog):
          return False
 
       
-      if valueAmt+feeAmt > wlt.getBalance('Spendable'):
+      totalAmt = valueAmt + feeAmt
+      availBal = wlt.getBalance('Spendable')
+      if totalAmt > availBal:
          QMessageBox.critical(self, tr('Not enough funds!'), tr("""
             You specified <b>%s</b> BTC (amount + fee), but the selected wallet
-            only has <b>%s</b> BTC spendable."""), QMessageBox.Ok)
+            only has <b>%s</b> BTC spendable.""") % (coin2strNZS(totalAmt), 
+            coin2strNZS(availBal)), QMessageBox.Ok)
          return False
 
       utxoList = wlt.getTxOutList('Spendable')
