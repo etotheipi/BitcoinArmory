@@ -263,7 +263,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
                # for now require all inputs to be from the sender to be included
                # in the tally
                LOGERROR('Inputs not from the sender are detected. 0 will be ' \
-                        'returned.)
+                        'returned.')
                pass
 
       return AmountToJSON(totalReceived)
