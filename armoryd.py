@@ -930,23 +930,24 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
 
    #############################################################################
+   # A semi-analogue to bitcoind's getinfo(). 
    def jsonrpc_getarmorydinfo(self):
       """Get information on the version of armoryd running on the server."""
 
       isReady = TheBDM.getBDMState() == 'BlockchainReady'
 
       info = { \
-               'version':           getVersionString(BTCARMORY_VERSION),
-               'versionint':        getVersionInt(BTCARMORY_VERSION),
-               'protocolversion':   0,
-               'walletversion':     getVersionString(PYBTCWALLET_VERSION),
-               'walletversionint':  getVersionInt(PYBTCWALLET_VERSION),
+               'versionstr':        getVersionString(BTCARMORY_VERSION),
+               'version':           getVersionInt(BTCARMORY_VERSION),
+               #'protocolversion':   0,
+               'walletversionstr':  getVersionString(PYBTCWALLET_VERSION),
+               'walletversion':     getVersionInt(PYBTCWALLET_VERSION),
                'bdmstate':          TheBDM.getBDMState(),
                'balance':           AmountToJSON(self.curWlt.getBalance()) \
                                     if isReady else -1,
                'blocks':            TheBDM.getTopBlockHeight(),
-               'connections':       (0 if isReady else 1),
-               'proxy':             '',
+               #'connections':       (0 if isReady else 1),
+               #'proxy':             '',
                'difficulty':        TheBDM.getTopBlockHeader().getDifficulty() \
                                     if isReady else -1,
                'testnet':           USE_TESTNET,
