@@ -43,15 +43,15 @@
 #
 # Random JSON notes should be placed here as desired.
 #
-# - JSON can only send back data as strings or floats.
 # - If a returned string has a newline char, JSON will convert it to the string
 #   "\n" (minus quotation marks).
-# - JSON can only send back data as an individual value or dictionary (i.e., no
-#   lists or other structs are allowed).
 # - In general, if you need to pass an actual newline via the command line, type
 #   $'\n' instead of \n or \\n. (Files have no special requirements.)
-# - When all else fails, and you have no clue how to pass data via JSON, read
-#   RFC 4627.
+# - The code sometimes returns "bitcoinrpc_jsonrpc.authproxy.JSONRPCException"
+#   if values are returned as binary data. This is something to keep in mind if
+#   bugs occur.
+# - When all else fails, and you have no clue how to deal via JSON, read RFC
+#   4627 and/or the Python manual's section on JSON.
 #
 ################################################################################
 
@@ -1336,7 +1336,6 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
    def jsonrpc_getlockboxinfo(self, inLBID=None):
       """Get information on the lockbox associated with a lockbox ID string."""
 
-      lbInfo = {}
       self.lbToUse = self.curLB
 
       # We'll return info on the currently loaded LB if no LB ID has been
@@ -1350,26 +1349,8 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
          if inLBID != None or self.lbToUse == None:
             raise LockboxDoesNotExist
 
-      # toJSONMap isn't ready for primetime yet. For now, we'll create the
-      # return value.
-      #lbInfo = self.lbToUse.toJSONMap()
-      for curKeyNum, curKey in enumerate(self.lbToUse.dPubKeys):
-         curKeyStr = 'Key %02d' % (curKeyNum + 1)
-         lbInfo[curKeyStr] = hash160_to_addrStr(self.lbToUse.a160List[curKeyNum])
-
-      for curKeyComNum, curKeyCom in enumerate(self.lbToUse.dPubKeys):
-         curKeyComStr = 'Key %02d Comment' % (curKeyComNum + 1)
-         lbInfo[curKeyComStr] = self.lbToUse.dPubKeys[curKeyComNum].keyComment
-
-      lbDStr = 'Lockbox Description'
-      lbInfo[lbDStr] = self.lbToUse.longDescr
-      lbStr = 'Lockbox ID'
-      lbInfo[lbStr] = self.lbToUse.uniqueIDB58
-      reqSigStr = 'Required Signature Number'
-      lbInfo[reqSigStr] = self.lbToUse.M
-      totalSigStr = 'Total Signature Number'
-      lbInfo[totalSigStr] = self.lbToUse.N
-
+      # Return info on the lockbox.
+      lbInfo = self.lbToUse.toJSONMap()
       return lbInfo
 
 
@@ -1516,6 +1497,15 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
       # Return the B58 string of the currently active wallet.
       return self.curWlt.uniqueIDB58
+
+
+   #############################################################################
+   # Function that gets the B58 string of the currently active lockbox.
+   def jsonrpc_getactivelockbox(self):
+      """Get the lockbox ID of the currently active wallet."""
+
+      # Return the B58 string of the currently active lockbox.
+      return self.curLB.uniqueIDB58
 
 
    #############################################################################
