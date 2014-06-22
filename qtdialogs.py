@@ -5089,7 +5089,7 @@ class DlgConfirmSend(ArmoryDialog):
       if len(returnPairs) == 1 and len(sendPairs) > 0:
          returnPairs = []
          changeRemoved = True
-      elif len(returnPairs) == 2:
+      elif len(returnPairs) == 2 and len(sendPairs)==0:
          returnPairs = excludeChange(returnPairs, wlt)
          changeRemoved = True
          
@@ -5101,6 +5101,7 @@ class DlgConfirmSend(ArmoryDialog):
          '<a href="https://bitcoinarmory.com/all-about-change">Click here to read ' +\
          'more about how Armory handles change.</a>' \
          if changeRemoved else ''
+
        
       if len(returnPairs) > 0:
          lblMsg.setText(tr("""
@@ -5144,7 +5145,7 @@ class DlgConfirmSend(ArmoryDialog):
          recipLbls[-1].setFont(GETFONT('Fixed'))
 
       recipLbls.append(HLINE(QFrame.Sunken))
-      recipLbls.append(QLabel('Total bitcoins to send from Wallet: '.ljust(addrColWidth) +
+      recipLbls.append(QLabel('Total bitcoins to leaving your wallet: '.ljust(addrColWidth) +
                         coin2str(totalSendFromWallet, rJust=True, maxZeros=4)))
       recipLbls[-1].setFont(GETFONT('Fixed'))
       if len(returnPairs) > 0:
@@ -5800,9 +5801,11 @@ def extractTxInfo(pytx, rcvTime=None):
                txinFromList[-1].append(prevTx.getBlockHeight())
                txinFromList[-1].append(prevTx.getThisHash())
                txinFromList[-1].append(prevTxOut.getIndex())
+               txinFromList[-1].append(prevTxOut.getScript())
             else:
                LOGERROR('How did we get a bad parent pointer? (extractTxInfo)')
                prevTxOut.pprint()
+               txinFromList[-1].append('')
                txinFromList[-1].append('')
                txinFromList[-1].append('')
                txinFromList[-1].append('')
@@ -5811,6 +5814,7 @@ def extractTxInfo(pytx, rcvTime=None):
             txin = PyTxIn().unserialize(cppTxin.serialize())
             scraddr = addrStr_to_scrAddr(TxInExtractAddrStrIfAvail(txin))
             txinFromList[-1].append(scraddr)
+            txinFromList[-1].append('')
             txinFromList[-1].append('')
             txinFromList[-1].append('')
             txinFromList[-1].append('')
@@ -5825,12 +5829,14 @@ def extractTxInfo(pytx, rcvTime=None):
          txinFromList[-1].append('')
          txinFromList[-1].append(hash256(ustxi.supportTx))
          txinFromList[-1].append(ustxi.outpoint.txOutIndex)
+         txinFromList[-1].append(ustxi.txoScript)
    else:  # BDM is not initialized
       haveAllInput = False
       for i, txin in enumerate(pytx.inputs):
          scraddr = addrStr_to_scrAddr(TxInExtractAddrStrIfAvail(txin))
          txinFromList.append([])
          txinFromList[-1].append(scraddr)
+         txinFromList[-1].append('')
          txinFromList[-1].append('')
          txinFromList[-1].append('')
          txinFromList[-1].append('')
@@ -5892,6 +5898,11 @@ class DlgDispTxInfo(ArmoryDialog):
       indicesMakeGray = []
       idx = 0
       for scrType, amt, script, msInfo in data[FIELDS.OutList]:
+         # If it's a multisig, pretend it's P2SH
+         if scrType == CPP_TXOUT_MULTISIG:
+            script = script_to_p2sh_script(script)
+            scrType = CPP_TXOUT_P2SH
+
          if scrType in CPP_TXOUT_HAS_ADDRSTR:
             addrStr = script_to_addrStr(script)
             addr160 = addrStr_to_hash160(addrStr)[1]
@@ -5903,8 +5914,8 @@ class DlgDispTxInfo(ArmoryDialog):
                svPairOther.append([scrAddr, amt])
                indicesOther.append(idx)
          else:
-            # This isn't actually true:  P2Pool outputs get flagged as non-std...
             IsNonStandard = True
+            indicesOther.append(idx)
          idx += 1
 
       txdir = None
@@ -6203,6 +6214,7 @@ class DlgDispTxInfo(ArmoryDialog):
       self.txInView.hideColumn(TXINCOLS.OutPt)
       self.txInView.hideColumn(TXINCOLS.OutIdx)
       self.txInView.hideColumn(TXINCOLS.Script)
+      self.txInView.hideColumn(TXINCOLS.AddrStr)
 
       if self.mode == USERMODE.Standard:
          initialColResize(self.txInView, [wWlt, wAddr, wAmt, 0, 0, 0, 0, 0, 0])
@@ -6222,7 +6234,7 @@ class DlgDispTxInfo(ArmoryDialog):
       self.txInView.customContextMenuRequested.connect(self.showContextMenuTxIn)
 
       # List of TxOuts/Recipients
-      if not precomputeIdxGray == None:
+      if not precomputeIdxGray is None:
          indicesMakeGray = precomputeIdxGray[:]
       self.txOutModel = TxOutDispModel(self.pytx, self.main, idxGray=indicesMakeGray)
       self.txOutView = QTableView()
@@ -6235,6 +6247,7 @@ class DlgDispTxInfo(ArmoryDialog):
       self.txOutView.setMaximumHeight(5 * (1.3 * h))
       initialColResize(self.txOutView, [wWlt, 0.8 * wAddr, wAmt, 0.25, 0])
       self.txOutView.hideColumn(TXOUTCOLS.Script)
+      self.txOutView.hideColumn(TXOUTCOLS.AddrStr)
       if self.mode == USERMODE.Standard:
          self.txOutView.hideColumn(TXOUTCOLS.ScrType)
          initialColResize(self.txOutView, [wWlt, wAddr, 0.25, 0, 0])
@@ -6292,6 +6305,11 @@ class DlgDispTxInfo(ArmoryDialog):
                   'of the same transaction, and change-back-to-sender outputs '
                   '(change outputs are displayed in light gray).')
 
+      lblChangeDescr = QRichLabel( tr(""" Some outputs might be "change."
+         <a href="https://bitcoinarmory.com/all-about-change">Click for more 
+         info</a>"""), doWrap=False)
+      lblChangeDescr.setOpenExternalLinks(True)
+        
 
 
       inStrip = makeLayoutFrame(HORIZONTAL, [lblInputs, ttipInputs, STRETCH])
@@ -6314,7 +6332,13 @@ class DlgDispTxInfo(ArmoryDialog):
       self.connect(self.btnOk, SIGNAL(CLICKED), self.accept)
       self.connect(self.btnCopy, SIGNAL(CLICKED), self.copyRawTx)
 
-      btnStrip = makeLayoutFrame(HORIZONTAL, [self.btnIOList, self.btnCopy, self.lblCopied, STRETCH, self.btnOk])
+      btnStrip = makeHorizFrame([self.btnIOList, 
+                                 self.btnCopy, 
+                                 self.lblCopied,  
+                                 'Stretch', 
+                                 lblChangeDescr,
+                                 'Stretch',
+                                 self.btnOk])
       if not self.mode == USERMODE.Expert:
          self.btnCopy.setVisible(False)
 
@@ -6432,7 +6456,7 @@ class DlgDispTxInfo(ArmoryDialog):
       if action == actCopyWltID:
          s = str(self.txInView.model().index(idx.row(), TXINCOLS.WltID).data().toString())
       elif action == actCopySender:
-         s = str(self.txInView.model().index(idx.row(), TXINCOLS.Sender).data().toString())
+         s = str(self.txInView.model().index(idx.row(), TXINCOLS.AddrStr).data().toString())
       elif action == actCopyAmount:
          s = str(self.txInView.model().index(idx.row(), TXINCOLS.Btc).data().toString())
       elif dev and action == actCopyOutPt:
@@ -6455,8 +6479,8 @@ class DlgDispTxInfo(ArmoryDialog):
       adv = (self.main.usermode == USERMODE.Advanced)
       dev = (self.main.usermode == USERMODE.Expert)
 
-      if True:   actCopySender = menu.addAction("Copy Recipient Address")
-      if True:   actCopyWltID = menu.addAction("Copy Wallet ID")
+      if True:   actCopyRecip  = menu.addAction("Copy Recipient Address")
+      if True:   actCopyWltID  = menu.addAction("Copy Wallet ID")
       if True:   actCopyAmount = menu.addAction("Copy Amount")
       if dev:    actCopyScript = menu.addAction("Copy Raw Script")
       idx = self.txOutView.selectedIndexes()[0]
@@ -6464,8 +6488,8 @@ class DlgDispTxInfo(ArmoryDialog):
 
       if action == actCopyWltID:
          s = self.txOutView.model().index(idx.row(), TXOUTCOLS.WltID).data().toString()
-      elif action == actCopySender:
-         s = self.txOutView.model().index(idx.row(), TXOUTCOLS.Recip).data().toString()
+      elif action == actCopyRecip:
+         s = self.txOutView.model().index(idx.row(), TXOUTCOLS.AddrStr).data().toString()
       elif action == actCopyAmount:
          s = self.txOutView.model().index(idx.row(), TXOUTCOLS.Btc).data().toString()
       elif dev and action == actCopyScript:

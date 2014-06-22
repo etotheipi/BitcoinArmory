@@ -306,20 +306,43 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
    # passed into the function.
    def jsonrpc_listaddrunspent(self, inB58):
       """Get a list of unspent transactions for the currently loaded wallet that
-         are associated with a given Base58 address."""
+         are associated with a given list of Base58 addresses."""
 
-      # Return a dictionary with a string as the key and a wallet B58 value as
-      # the value.
+      # Return a dictionary with a string as the key and a UTXO reference as the
+      # value.
       curTxOut = 1
+      totalTxOuts = 1
+      totalTxOutsByB58 = []
       utxoDict = {}
-      a160 = addrStr_to_hash160(inB58, False)[1]
-      if self.curWlt.addrMap.has_key(a160):
-         utxoList = self.curWlt.getAddrByHash160(a160).scanBlockchainForAddress()
+      inB58 = inB58.split(":")
 
-      for u in utxoList:
-         curTxOutStr = 'UTXO %05d' % curTxOut
-         utxoDict[curTxOutStr] = binary_to_hex(u.getOutPoint().serialize())
-         curTxOut += 1
+      # Get the UTXOs for each address.
+      for b in inB58:
+         totalTxOutsByB58.append(b)
+         totalTxOutsByB58[b] = 1
+         a160 = addrStr_to_hash160(b, False)[1]
+         if self.curWlt.addrMap.has_key(a160):
+            utxoList = self.curWlt.getAddrByHash160(a160).scanBlockchainForAddress()
+
+         # Place each UTXO in the return dict. Each entry should specify which
+         # address is associated with which UTXO.
+         for u in utxoList:
+            curTxOutStr = 'UTXO %05d (%s)' % (curTxOut, b)
+            utxoDict[curTxOutStr] = binary_to_hex(u.getOutPoint().serialize())
+            curTxOut += 1
+            totalTxOutsByB58[b] += 1
+            totalTxOuts += 1
+
+         curTxOut = 1
+
+      # Let's also return the total number of UTXOs and total UTXOs for each
+      # address.
+      totalTxOutStr = 'Total UTXOs'
+      utxoDict[totalTxOutStr] = totalTxOuts
+      for u in totalTxOutsByB58:
+         totalTxOutStr = 'Total UTXOs (%s)' % u
+         utxoDict[totalTxOutStr] = totalTxOutsByB58[u]
+
       return utxoDict
 
 
@@ -380,18 +403,40 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
    def jsonrpc_encryptwallet(self, passphrase):
       """Encrypt a wallet with a given passphrase."""
 
+      retStr = 'Wallet %s has been encrypted.' % self.curWlt
+
       if self.curWlt.isLocked:
          raise WalletUnlockNeeded
-      self.curWlt.changeWalletEncryption( securePassphrase=SecureBinaryData(passphrase) )
-      self.curWlt.lock()
+      else:
+         sbdPassphrase = securePassphrase=SecureBinaryData(passphrase)
+         self.curWlt.changeWalletEncryption(sbdPassphrase)
+         self.curWlt.lock()
+
+      return retStr
 
 
    #############################################################################
-   def jsonrpc_unlockwallet(self, passphrase, timeout):
+   def jsonrpc_unlockwallet(self, passphrase, timeout=10):
       """Unlock a wallet with a given passphrase and unlock time length."""
 
-      self.curWlt.unlock( securePassphrase=SecureBinaryData(passphrase),
+      retStr = 'Wallet %s is already unlocked.' % self.curWlt
+
+      if not self.curWlt.isLocked:
+         self.curWlt.unlock(securePassphrase=SecureBinaryData(passphrase),
                             tempKeyLifetime=timeout)
+         retStr = 'Wallet %s has been unlocked.' % self.curWlt
+
+      return retStr
+
+
+   #############################################################################
+   def jsonrpc_relockwallet(self):
+      """Re-lock a wallet."""
+
+      # Lock the wallet. It should lock but we'll check to be safe.
+      self.curWlt.lock()
+      retStr = 'Wallet is %slocked.' % '' if self.curWlt.isLocked else 'not '
+      return retStr
 
 
    #############################################################################
@@ -577,7 +622,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
 
    #############################################################################
-   def jsonrpc_sendtoaddress(self, bitcoinaddress, amount):
+   def jsonrpc_createustxtoaddress(self, bitcoinaddress, amount):
       """Create an unsigned transaction to be sent to one recipient from the
          currently loaded wallet."""
 
@@ -589,7 +634,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
 
    #############################################################################
-   def jsonrpc_sendmany(self, *args):
+   def jsonrpc_createustxformany(self, *args):
       """Create an unsigned transaction to be sent to multiple recipients from
          the currently loaded wallet."""
 
@@ -909,8 +954,10 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
       info = { \
                'version':           getVersionString(BTCARMORY_VERSION),
+               'versionint':        getVersionInt(BTCARMORY_VERSION),
                'protocolversion':   0,
                'walletversion':     getVersionString(PYBTCWALLET_VERSION),
+               'walletversionint':  getVersionInt(PYBTCWALLET_VERSION),
                'bdmstate':          TheBDM.getBDMState(),
                'balance':           AmountToJSON(self.curWlt.getBalance()) \
                                     if isReady else -1,
@@ -1613,47 +1660,49 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
    #############################################################################
    # Function that takes new wallets and adds them to the wallet set available
    # to armoryd. Wallet paths are passed in and delineated by colons.
-   def jsonrpc_addwallets(self, newWltPaths):
-      """Add wallets onto the armoryd server."""
+   # NB: This call is currently disabled. Adding a wallet triggers a rescan,
+   # which could take upwards of 20-30 min. A future code change will make this
+   # call go much more smoothly, but for now....
+   #def jsonrpc_addwallets(self, newWltPaths):
+   #   """Add wallets onto the armoryd server."""
 
-      newWltPaths = newWltPaths.split(":")
-      addWltList = addMultWallets(newWltPaths, self.serverWltSet, \
-                                  self.serverWltIDSet)
+   #   newWltPaths = newWltPaths.split(":")
+   #   addWltList = addMultWallets(newWltPaths, self.serverWltSet, \
+   #                               self.serverWltIDSet)
 
-      # Do we need to rescan the blockchain at this point???
+   #   # Return the list of added wallets.
+   #   retWltList = {}
+   #   newWltNum = 1
+   #   for newWltID in addWltList:
+   #      curWltStr = 'Wallet %04d' % newWltNum
+   #      retWltList[curWltStr] = newWltID
+   #      newWltNum += 1
 
-      # Return the list of added wallets.
-      retWltList = {}
-      newWltNum = 1
-      for newWltID in addWltList:
-         curWltStr = 'Wallet %04d' % newWltNum
-         retWltList[curWltStr] = newWltID
-         newWltNum += 1
-
-      return retWltList
+   #   return retWltList
 
 
    #############################################################################
    # Function that takes new lockboxes and adds them to the lockbox set
    # available to armoryd. Lockbox paths are passed in and delineated by colons.
-   def jsonrpc_addlockboxes(self, newLBPaths):
-      """Add lockboxes onto the armoryd server."""
+   # NB: This call is currently disabled. Adding a lockbox triggers a rescan,
+   # which could take upwards of 20-30 min. A future code change will make this
+   # call go much more smoothly, but for now....
+   #def jsonrpc_addlockboxes(self, newLBPaths):
+   #   """Add lockboxes onto the armoryd server."""
 
-      newLBPaths = newLBPaths.split(":")
-      addLBList = addMultLockboxes(newLBPaths, self.serverLBSet, \
-                                   self.serverLBIDSet)
-
-      # Do we need to rescan the blockchain at this point???
+   #   newLBPaths = newLBPaths.split(":")
+   #   addLBList = addMultLockboxes(newLBPaths, self.serverLBSet, \
+   #                                self.serverLBIDSet)
 
       # Return the list of added lockboxes.
-      retLBList = {}
-      newLBNum = 1
-      for newLBID in addLBList:
-         curLBStr = 'Lockbox %04d' % newLBNum
-         retLBList[curLBStr] = newLBID
-         newLBNum += 1
+   #   retLBList = {}
+   #   newLBNum = 1
+   #   for newLBID in addLBList:
+   #      curLBStr = 'Lockbox %04d' % newLBNum
+   #      retLBList[curLBStr] = newLBID
+   #      newLBNum += 1
 
-      return retLBList
+   #   return retLBList
 
 
    ##################################
@@ -1738,7 +1787,7 @@ class Armory_Daemon(object):
       self.lbSet = {}
       self.lbIDSet = set()
 
-      # Check if armoryd is already running, bail if it is
+      # Check if armoryd is already running. If so, just execute the command.
       armorydIsRunning = self.checkForAlreadyRunning()
       if armorydIsRunning == True:
          # Execute the command and return to the command line.
@@ -1777,47 +1826,37 @@ class Armory_Daemon(object):
          self.heartbeatFunctions = []
          self.newBlockFunctions = defaultdict(list)
 
-         # The only argument that armoryd.py takes, other than "--testnet" and
-         # armoryd commands, is the wallet to load on the server. If no wallets
-         # are specified, all wallets in the Armory home directory will be
-         # loaded instead.
-         if wlt:
-            self.curWlt = wlt
-         else:
-            # Get the wallets in the Armory home directory and store pointers
-            # to them if no wallets are specified. Also, set the current
-            # wallet to the 1st wallet in the set. (The choice is arbitrary.)
-            wltPaths = readWalletFiles()
-            addMultWallets(wltPaths, self.wltSet, self.wltIDSet)
-            if len(CLI_ARGS) == 0 and len(self.wltSet) > 0:
-               self.curWlt = self.wltSet[self.wltSet.keys()[0]]
-
-            # Load the specified wallet if it exists.
-            else:
-               wltpath = CLI_ARGS[0]
-               if not os.path.exists(wltpath):
-                  LOGERROR('Wallet does not exist!  (%s)', wltpath)
-                  return
-
-               self.curWlt = PyBtcWallet().readWalletFile(wltpath)
-               self.wltSet[self.curWlt.uniqueIDB58] = self.curWlt
-               self.wltIDSet.add(self.curWlt.uniqueIDB58)
-
-         # Let's load all the lockboxes too.
+         # armoryd can take a default lockbox. If it's not passed in, load some
+         # lockboxes.
          if lb:
             self.curLB = lb
          else:
+            # Get the lockboxes in standard Armory LB file and store pointers
+            # to them. Also, set the current LB to the 1st wallet in the set.
+            # (The choice is arbitrary.)
             lbPaths = getLockboxFilePaths()
             addMultLockboxes(lbPaths, self.lbSet, self.lbIDSet)
-            if len(CLI_ARGS) == 1 and len(self.wltSet) > 0:
+            if len(self.lbSet) > 0:
                self.curLB = self.lbSet[self.lbSet.keys()[0]]
-
-            # Load the specified lockbox if it exists.
             else:
-               lbpath = CLI_ARGS[1]
-               if not os.path.exists(lbpath):
-                  LOGERROR('Lockbox does not exist!  (%s)', lbpath)
-                  return
+               LOGWARN('No lockboxes were loaded.')
+
+         # armoryd can take a default wallet. If it's not passed in, load some
+         # wallets.
+         if wlt:
+            self.curWlt = wlt
+         else:
+            # Get the wallets in the Armory data directory and store pointers
+            # to them. Also, set the current wallet to the 1st wallet in the
+            # set. (The choice is arbitrary.)
+            wltPaths = readWalletFiles()
+            addMultWallets(wltPaths, self.wltSet, self.wltIDSet)
+            if len(self.wltSet) > 0:
+               self.curWlt = self.wltSet[self.wltSet.keys()[0]]
+               self.wltSet[self.curWlt.uniqueIDB58] = self.curWlt
+               self.wltIDSet.add(self.curWlt.uniqueIDB58)
+            else:
+               LOGERROR('No wallets could be loaded! armoryd will exit.')
 
          # Log info on the wallets we've loaded.
          numWallets = len(self.wltSet)
@@ -1836,14 +1875,14 @@ class Armory_Daemon(object):
             dispStr += '"' + lockbox.shortName.ljust(32) + '"'
             LOGINFO(dispStr)
 
-         # Check and make sure we have at least 1 wallet.
+         # Check and make sure we have at least 1 wallet. If we don't, stop
+         # immediately.
          if numWallets > 0:
             LOGWARN('Active wallet is set to %s' % self.curWlt.uniqueIDB58)
          else:
-            LOGWARN('No wallets could be loaded!')
             os._exit(0)
 
-         # Check to see if we have at least 1 lockbox.
+         # Check to see if we have at least 1 lockbox. If we don't, it's okay.
          if numLockboxes > 0:
             LOGWARN('Active lockbox is set to %s' % self.curLB.uniqueIDB58)
 

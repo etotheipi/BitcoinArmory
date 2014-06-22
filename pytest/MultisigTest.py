@@ -490,6 +490,21 @@ class AllClassRoundTripTest(unittest.TestCase):
          IHRlc3RpbmcgY29tbWVudAA=
          ================================================================================
          """.strip())
+
+
+      self.serMap['promnote']['regular'] = textwrap.dedent("""
+         =====PROMISSORY-GVfKYBqK========================================================
+         AQAAAAsRCQcyAQAAAAsRCQcXqRSUFt7Fp83rejuvC6FPeHUyzH6RQodQNHQCAAAAAAAABE5PTkUAAAAA
+         AAAAAAAAAAAB/YMBAQAAAAsRCQdKjCQZ04S5mekJ7FSvGyohppsRllgQ1lF0D/ewX9Ls6AAAAAD9AAEB
+         AAAAATS/9KXacFYJPYQCoSkRSIKYDIIgQ6wZzEdgiipEAVbuAAAAAItIMEUCIE9MTdfNrRrMW8BFe8uC
+         N34DMz3wYa+KL6bPkxNpgDUnAiEAnfZxXXfhAdF435vRb1kWxg65NbMAHfbX/bDh9iXQNKYBQQRBul/I
+         mA3bgs0PGSJFd3KeQPBPp9LYuduFgnfA+kEKf1GZI4s+EGuxDHvjZoNBwYvWPEgtqYVxvybEXWHwhhou
+         /////wJQNHQCAAAAABl2qRSSFcygbZulF1EFISvxCYhFoLBf44isAC0xAQAAAAAXqRSUFt7Fp83rejuv
+         C6FPeHUyzH6RQocAAAAAAAhHVmZLWUJxSwD/////AUEEBgLRFKodcJB0fSX3gNeaAM7uNQNM/tL8RcBZ
+         4+5P1i6RbjURO9yt34sF0flB8XbiR/T/cUqkn66p/S/Ww3FKEwAAJkR1bXBpbmcgYWxsIG15IGNhc2gg
+         aW50byB0aGlzIGRvbmF0aW9uAA==
+         ================================================================================
+         """.strip())
          
 
       # These will be used for all USTX, USTXI and DTXO
@@ -749,10 +764,24 @@ class AllClassRoundTripTest(unittest.TestCase):
          self.doRoundTrip(lbox, 'toJSONMap', 'fromJSONMap')
 
    #############################################################################
-   #def testLockbox_JSON_roundtrip(self):
-      #for comment,asciiLockbox in self.serMap['lockbox'].iteritems():
-         #lockbox = UnsignedTransaction().unserializeAscii(asciiLockbox, skipMagicCheck=True) 
-         #self.doRoundTrip(lockbox, 'toJSONMap', 'fromJSONMap')
+   ##### Promissory Note
+   #############################################################################
+   def testPromNote_serialize_roundtrip(self):
+      for comment,asciiPromNote in self.serMap['promnote'].iteritems():
+         prom = MultiSigPromissoryNote().unserializeAscii(asciiPromNote, skipMagicCheck=True) 
+         self.doRoundTrip(prom, 'serialize', 'unserialize')
+
+   #############################################################################
+   def testPromNote_serializeAscii_roundtrip(self):
+      for comment,asciiPromNote in self.serMap['promnote'].iteritems():
+         prom = MultiSigPromissoryNote().unserializeAscii(asciiPromNote, skipMagicCheck=True) 
+         self.doRoundTrip(prom, 'serializeAscii', 'unserializeAscii')
+
+   #############################################################################
+   def testPromNote_JSON_roundtrip(self):
+      for comment,asciiPromNote in self.serMap['promnote'].iteritems():
+         prom = MultiSigPromissoryNote().unserializeAscii(asciiPromNote, skipMagicCheck=True) 
+         self.doRoundTrip(prom, 'toJSONMap', 'fromJSONMap')
 
 
 

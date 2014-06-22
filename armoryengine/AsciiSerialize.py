@@ -91,13 +91,6 @@ class AsciiSerializable(object):
                LOGERROR('  other:  %s' % str(getattr(aso2,attr)))
                return False
 
-      #### Regular compares using .serialize method
-      if hasattr(self, 'EQ_ATTRS_SERIAL'):
-         for attr in self.EQ_ATTRS_SERIAL:
-            if getattr(self,attr).serialize() != getattr(aso2,attr).serialize():
-               LOGERROR('Compare failed for attribute: %s' % attr)
-               return False
-
       #### List iteration compares
       if hasattr(self, 'EQ_ATTRS_LISTS'):
          for attr in self.EQ_ATTRS_LISTS:

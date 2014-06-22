@@ -1503,7 +1503,7 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
 
       # Collect the input wallets (hopefully just one of them)
       fromWlts = set()
-      for scrAddr, amt, a, b, c in data[FIELDS.InList]:
+      for scrAddr, amt, a, b, c, script in data[FIELDS.InList]:
          wltID = self.main.getWalletForAddr160(scrAddr[1:])
          if not wltID == '':
             fromWlts.add(wltID)
