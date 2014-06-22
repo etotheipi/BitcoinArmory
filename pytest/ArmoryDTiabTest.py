@@ -6,8 +6,7 @@ Created on Oct 8, 2013
 import sys
 sys.path.append('..')
 from pytest.Tiab import TiabTest, TOP_TIAB_BLOCK, FIRST_WLT_BALANCE,\
-   FIRST_WLT_NAME, SECOND_WLT_NAME, THIRD_WLT_NAME, TIAB_SATOSHI_PORT,\
-   FIRST_LB_NAME
+   FIRST_WLT_NAME, SECOND_WLT_NAME, THIRD_WLT_NAME, TIAB_SATOSHI_PORT
 from armoryengine.ArmoryUtils import *
 from armoryd import AmountToJSON, Armory_Json_Rpc_Server, JSONtoAmount
 from armoryengine.BDM import TheBDM
@@ -21,6 +20,9 @@ TEST_WALLET_DESCRIPTION = 'Test Wallet Description'
 
 TX_ID1_OUTPUT0_VALUE = 63000
 TX_ID1_OUTPUT1_VALUE = 139367000
+
+TWO_OF_THREE_LB_NAME = '2fhUSuNL'
+TWO_OF_TWO_LB_NAME = 'WZ2pEKAG'
 
 PASSPHRASE1 = 'abcde'
 UNLOCK_TIMEOUT = 5
@@ -92,6 +94,9 @@ class ArmoryDTiabTest(TiabTest):
       result = self.jsonServer.jsonrpc_getactivewallet()
       self.assertEqual(result, FIRST_WLT_NAME)
       
+      bogusResult = self.jsonServer.jsonrpc_setactivewallet('bogus wallet name')
+      self.assertTrue('does not exist' in bogusResult)
+      
    # Tests all of the address meta data functions at once
    def testAddressMetaData(self):
       testInput = {TIAB_WLT_1_ADDR_1:
@@ -120,13 +125,25 @@ class ArmoryDTiabTest(TiabTest):
       return self.wlt.addrMap[hash160].binPrivKey32_Plain.toBinStr()
    
    # Test Create lockbox and list loaded lockbox at the same time.
-   def testCreateLockboxAndListLoadedLB(self):
+   # Also test set and get active lockbox.
+   def testLockboxMethods(self):
+      self.assertEqual(self.jsonServer.jsonrpc_getactivelockbox(), None)
       addrFromFirstWlt = self.jsonServer.getPKFromWallet(self.wlt, self.wlt.getHighestUsedIndex())
-      actualResult = self.jsonServer.jsonrpc_createlockbox(2, 3, addrFromFirstWlt, SECOND_WLT_NAME, THIRD_WLT_NAME)
-      self.assertTrue(FIRST_LB_NAME in actualResult)
-      listResult = self.jsonServer.jsonrpc_listloadedlockboxes()
-      self.assertEqual(len(listResult.keys()), 1)
-      self.assertTrue(FIRST_LB_NAME in listResult.values())
+      actualResult1 = self.jsonServer.jsonrpc_createlockbox(2, 3, addrFromFirstWlt, SECOND_WLT_NAME, THIRD_WLT_NAME)
+      self.assertTrue(TWO_OF_THREE_LB_NAME in actualResult1)
+      listResult1 = self.jsonServer.jsonrpc_listloadedlockboxes()
+      self.assertEqual(len(listResult1.keys()), 1)
+      self.assertTrue(TWO_OF_THREE_LB_NAME in listResult1.values())
+      
+      actualResult2 = self.jsonServer.jsonrpc_createlockbox(2, 2, SECOND_WLT_NAME, THIRD_WLT_NAME)
+      self.assertTrue(TWO_OF_TWO_LB_NAME in actualResult2)
+      listResult2 = self.jsonServer.jsonrpc_listloadedlockboxes()
+      self.assertEqual(len(listResult2.keys()), 2)
+      self.assertTrue(TWO_OF_TWO_LB_NAME in listResult2.values())
+      self.jsonServer.jsonrpc_setactivelockbox(TWO_OF_TWO_LB_NAME)
+      self.assertEqual(self.jsonServer.jsonrpc_getactivelockbox(), TWO_OF_TWO_LB_NAME)
+      self.jsonServer.jsonrpc_setactivelockbox(TWO_OF_THREE_LB_NAME)
+      self.assertEqual(self.jsonServer.jsonrpc_getactivelockbox(), TWO_OF_THREE_LB_NAME)
       
    def  testVerifysignature(self):
       clearSignMessage = ASv1CS(self.getPrivateKey(TIAB_WLT_1_ADDR_1), TEST_MESSAGE)

@@ -7,11 +7,11 @@ import sys
 sys.path.append('..')
 import os
 import time
-from pytest.Tiab import TiabTest, TIAB_SATOSHI_PORT
+from pytest.Tiab import TiabTest
 from CppBlockUtils import SecureBinaryData, CryptoECDSA
 from armoryd import Armory_Json_Rpc_Server, PrivateKeyNotFound, \
    InvalidBitcoinAddress, WalletUnlockNeeded, Armory_Daemon, AmountToJSON
-from armoryengine.ArmoryUtils import ARMORY_HOME_DIR, hex_to_binary, \
+from armoryengine.ArmoryUtils import hex_to_binary, \
    binary_to_base58, binary_to_hex, convertKeyDataToAddress, hash160_to_addrStr,\
    hex_switchEndian, hash160, BIGENDIAN
 from armoryengine.BDM import TheBDM
@@ -42,10 +42,10 @@ class ArmoryDTest(TiabTest):
 
    def setUp(self):
       self.verifyBlockHeight()
-      self.fileA    = os.path.join(ARMORY_HOME_DIR, 'armory_%s_.wallet' % TEST_WALLET_ID)
-      self.fileB    = os.path.join(ARMORY_HOME_DIR, 'armory_%s_backup.wallet' % TEST_WALLET_ID)
-      self.fileAupd = os.path.join(ARMORY_HOME_DIR, 'armory_%s_backup_unsuccessful.wallet' % TEST_WALLET_ID)
-      self.fileBupd = os.path.join(ARMORY_HOME_DIR, 'armory_%s_update_unsuccessful.wallet' % TEST_WALLET_ID)
+      self.fileA    = os.path.join(self.armoryHomeDir, 'armory_%s_.wallet' % TEST_WALLET_ID)
+      self.fileB    = os.path.join(self.armoryHomeDir, 'armory_%s_backup.wallet' % TEST_WALLET_ID)
+      self.fileAupd = os.path.join(self.armoryHomeDir, 'armory_%s_backup_unsuccessful.wallet' % TEST_WALLET_ID)
+      self.fileBupd = os.path.join(self.armoryHomeDir, 'armory_%s_update_unsuccessful.wallet' % TEST_WALLET_ID)
 
       self.removeFileList([self.fileA, self.fileB, self.fileAupd, self.fileBupd])
    
@@ -62,7 +62,8 @@ class ArmoryDTest(TiabTest):
                                           chaincode=self.chainstr,   \
                                           IV=theIV, \
                                           shortLabel=TEST_WALLET_NAME, \
-                                          longLabel=TEST_WALLET_DESCRIPTION)
+                                          longLabel=TEST_WALLET_DESCRIPTION,
+                                          armoryHomeDir = self.armoryHomeDir)
       self.jsonServer = Armory_Json_Rpc_Server(self.wallet)
       TheBDM.registerWallet(self.wallet)
       
@@ -100,7 +101,7 @@ class ArmoryDTest(TiabTest):
       self.assertEquals(TX_ID1, binary_to_hex(pyTx.getHash(), BIGENDIAN))
 
    def testBackupWallet(self):
-      backupTestPath = os.path.join(ARMORY_HOME_DIR, 'armory_%s_.wallet.backup.test' % TEST_WALLET_ID)
+      backupTestPath = os.path.join(self.armoryHomeDir, 'armory_%s_.wallet.backup.test' % TEST_WALLET_ID)
       # Remove backupTestPath in case it exists
       backupFileList = [backupTestPath, self.fileB]
       self.removeFileList(backupFileList)
