@@ -430,7 +430,7 @@ class MultiSigLockbox(AsciiSerializable):
    
       # Issue a warning if the versions don't match
       if not ver == UNSIGNED_TX_VERSION:
-         LOGWARN('Unserializing Lokcbox of different version')
+         LOGWARN('Unserializing Lockbox of different version')
          LOGWARN('   USTX    Version: %d' % ver)
          LOGWARN('   Armory  Version: %d' % UNSIGNED_TX_VERSION)
 
@@ -441,8 +441,6 @@ class MultiSigLockbox(AsciiSerializable):
          LOGERROR('    Armory  Magic: ' + binary_to_hex(MAGIC_BYTES))
          raise NetworkIDError('Network magic bytes mismatch')
 
-
-      
       name   = jsonMap['lboxname']
       descr  = jsonMap['lboxdescr']
       M      = jsonMap['M']
@@ -455,8 +453,6 @@ class MultiSigLockbox(AsciiSerializable):
       created = jsonMap['createdate']
       self.setParams(name, descr, M, N, pubs, created)
       return self
-
-
 
 
    #############################################################################
@@ -1086,7 +1082,7 @@ class MultiSigPromissoryNote(AsciiSerializable):
    
       # Issue a warning if the versions don't match
       if not ver == UNSIGNED_TX_VERSION:
-         LOGWARN('Unserializing Lokcbox of different version')
+         LOGWARN('Unserializing Lockbox of different version')
          LOGWARN('   USTX    Version: %d' % ver)
          LOGWARN('   Armory  Version: %d' % UNSIGNED_TX_VERSION)
 

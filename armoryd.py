@@ -81,13 +81,6 @@ class UniversalEncoder(json.JSONEncoder):
 ARMORYD_CONF_FILE = os.path.join(ARMORY_HOME_DIR, 'armoryd.conf')
 
 
-# From https://en.bitcoin.it/wiki/Proper_Money_Handling_(JSON-RPC)
-def JSONtoAmount(value):
-   return long(round(float(value) * 1e8))
-def AmountToJSON(amount):
-   return float(amount / 1e8)
-
-
 # Define some specific errors that can be thrown and caught
 class UnrecognizedCommand(Exception): pass
 class NotEnoughCoinsError(Exception): pass
@@ -554,17 +547,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
          else:
             raise WalletDoesNotExist
 
-      wltInfo = { \
-                  'name':  self.wltToUse.labelName,
-                  'description':  self.wltToUse.labelDescr,
-                  'balance': AmountToJSON(self.wltToUse.getBalance('Spend')) \
-                             if self.isReady else -1,
-                  'keypoolsize':  self.wltToUse.addrPoolSize,
-                  'numaddrgen': len(self.wltToUse.addrMap),
-                  'highestusedindex': self.wltToUse.highestUsedChainIndex
-                }
-
-      return wltInfo
+      return self.wltToUse.toJSONMap()
 
 
    #############################################################################
@@ -1350,8 +1333,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
             raise LockboxDoesNotExist
 
       # Return info on the lockbox.
-      lbInfo = self.lbToUse.toJSONMap()
-      return lbInfo
+      return self.lbToUse.toJSONMap()
 
 
    #############################################################################

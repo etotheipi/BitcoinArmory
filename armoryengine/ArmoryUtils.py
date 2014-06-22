@@ -2096,6 +2096,13 @@ def float_to_btc (f):
    return long (round(f * ONE_BTC))
 
 
+# From https://en.bitcoin.it/wiki/Proper_Money_Handling_(JSON-RPC)
+def JSONtoAmount(value):
+   return long(round(float(value) * 1e8))
+def AmountToJSON(amount):
+   return float(amount / 1e8)
+
+
 ##### And a few useful utilities #####
 def unixTimeToFormatStr(unixTime, formatStr=DEFAULT_DATE_FORMAT):
    """
