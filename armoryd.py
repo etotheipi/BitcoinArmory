@@ -1478,7 +1478,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       """Get the wallet ID of the currently active wallet."""
 
       # Return the B58 string of the currently active wallet.
-      return self.curWlt.uniqueIDB58
+      return self.curWlt.uniqueIDB58 if self.curWlt else None
 
 
    #############################################################################
@@ -1487,7 +1487,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       """Get the lockbox ID of the currently active wallet."""
 
       # Return the B58 string of the currently active lockbox.
-      return self.curLB.uniqueIDB58
+      return self.curLB.uniqueIDB58 if self.curLB else None
 
 
    #############################################################################
