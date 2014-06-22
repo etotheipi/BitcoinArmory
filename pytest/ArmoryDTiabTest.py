@@ -87,6 +87,26 @@ class ArmoryDTiabTest(TiabTest):
                            armoryHomeDir=os.path.join(self.tiab.tiabDirectory, 'tiab\\armory'))
       TheBDM.registerWallet(self.wlt)
       
+   def testActiveWallet(self):
+      self.jsonServer.jsonrpc_setactivewallet(FIRST_WLT_NAME)
+      result = self.jsonServer.jsonrpc_getactivewallet()
+      self.assertEqual(result, FIRST_WLT_NAME)
+      
+   # Tests all of the address meta data functions at once
+   def testAddressMetaData(self):
+      testInput = {TIAB_WLT_1_ADDR_1:
+                     {'chain': 5,
+                      'index': 2},
+                  TIAB_WLT_1_ADDR_2:
+                     {'CrazyField': 'what',
+                      '1': 1,
+                      '2': 2}}
+      self.jsonServer.jsonrpc_setaddressmetadata(testInput)
+      testOutput1=self.jsonServer.jsonrpc_getaddressmetadata()
+      self.assertEqual(testOutput1, testInput)
+      self.jsonServer.jsonrpc_clearaddressmetadata()
+      testOutput2=self.jsonServer.jsonrpc_getaddressmetadata()
+      self.assertEqual(testOutput2, {})
       
    def testListloadedwallets(self):
       result = self.jsonServer.jsonrpc_listloadedwallets()
