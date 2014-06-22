@@ -975,9 +975,10 @@ def addWalletToList(inWltPath, inWltList):
 ################################################################################
 def readWalletFiles(inWltList=None):
    '''Function that finds the paths of all non-backup wallets in the Armory
-      home directory (nothing passed in) or confirms a valid set of wallets
-      included in paths passed into the function as a list.'''
+      data directory (nothing passed in) or in a list of wallet paths (paths
+      passed in.'''
    wltPaths = []
+
    if not inWltList:
       for f in os.listdir(ARMORY_HOME_DIR):
          fullPath = os.path.join(ARMORY_HOME_DIR, f)
