@@ -411,8 +411,8 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       if self.curWlt.isLocked:
          raise WalletUnlockNeeded
       else:
-         sbdPassphrase = securePassphrase=SecureBinaryData(passphrase)
-         self.curWlt.changeWalletEncryption(sbdPassphrase)
+         sbdPassphrase = SecureBinaryData(passphrase)
+         self.curWlt.changeWalletEncryption(securePassphrase=sbdPassphrase)
          self.curWlt.lock()
 
       return retStr
@@ -424,7 +424,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
       retStr = 'Wallet %s is already unlocked.' % self.curWlt
 
-      if not self.curWlt.isLocked:
+      if self.curWlt.isLocked:
          self.curWlt.unlock(securePassphrase=SecureBinaryData(passphrase),
                             tempKeyLifetime=timeout)
          retStr = 'Wallet %s has been unlocked.' % self.curWlt
