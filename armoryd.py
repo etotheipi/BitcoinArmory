@@ -285,8 +285,18 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       if TheBDM.getBDMState()=='BlockchainReady':
          curTxOut = 1
          for u in utxoList:
+            curUTXODict = {}
+
             curTxOutStr = 'UTXO %05d' % curTxOut
-            utxoDict[curTxOutStr] = binary_to_hex(u.getOutPoint().serialize())
+            utxoVal = AmountToJSON(u.getValue())
+            curTxOutHexStr = 'Hex'
+            curTxOutPriStr = 'Priority'
+            curTxOutValStr = 'Value'
+            curUTXODict[curTxOutHexStr] = binary_to_hex(u.getOutPoint().serialize())
+            curUTXODict[curTxOutPriStr] = utxoVal * u.getNumConfirm()
+            curUTXODict[curTxOutValStr] = utxoVal
+            utxoDict[curTxOutStr] = curUTXODict
+
             curTxOut += 1
       else:
          LOGERROR('Blockchain not ready. Values will not be reported.')
@@ -401,8 +411,8 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       if self.curWlt.isLocked:
          raise WalletUnlockNeeded
       else:
-         sbdPassphrase = SecureBinaryData(passphrase)
-         self.curWlt.changeWalletEncryption(securePassphrase=sbdPassphrase)
+         sbdPassphrase = securePassphrase=SecureBinaryData(passphrase)
+         self.curWlt.changeWalletEncryption(sbdPassphrase)
          self.curWlt.lock()
 
       return retStr
@@ -414,7 +424,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
       retStr = 'Wallet %s is already unlocked.' % self.curWlt
 
-      if self.curWlt.isLocked:
+      if not self.curWlt.isLocked:
          self.curWlt.unlock(securePassphrase=SecureBinaryData(passphrase),
                             tempKeyLifetime=timeout)
          retStr = 'Wallet %s has been unlocked.' % self.curWlt
@@ -1727,7 +1737,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
    #############################################################################
    # Get a dictionary with all functions the armoryd server can run.
-   def jsonrpc_getarmorydfunctions(self):
+   def jsonrpc_help(self):
       """Get a directionary with all functions the armoryd server can run."""
 
       return jsonFunctDict

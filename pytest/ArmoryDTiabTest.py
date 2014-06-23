@@ -258,7 +258,7 @@ class ArmoryDTiabTest(TiabTest):
    def testListunspent(self):
       actualResult = self.jsonServer.jsonrpc_listunspent()
       self.assertEqual(len(actualResult), 5)
-      self.assertEqual(actualResult['UTXO 00001'], EXPECTED_UNSPENT_TX)
+      self.assertEqual(actualResult['UTXO 00001']['Hex'], EXPECTED_UNSPENT_TX)
       
    
    def testGetNewAddress(self):
@@ -278,6 +278,8 @@ class ArmoryDTiabTest(TiabTest):
          result = self.jsonServer.jsonrpc_getbalance(ballanceType)
          self.assertEqual(result,
                           AmountToJSON(self.wlt.getBalance(ballanceType)))
+
+
 if __name__ == "__main__":
    #import sys;sys.argv = ['', 'Test.testName']
    unittest.main()

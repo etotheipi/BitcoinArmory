@@ -48,6 +48,7 @@ class ArmoryDSession:
             '--datadir=' + os.path.join(self.tiab.tiabDirectory, 'tiab', 'armory'),
             '--satoshi-datadir=' + os.path.join(self.tiab.tiabDirectory, 'tiab', '1')]
       armoryDArgs.extend(additionalArgs)
+
       if waitForOutput:
          # If there is output coming back convert it from a string to a dictionary
          return json.loads(subprocess.check_output(armoryDArgs))
@@ -106,3 +107,8 @@ class ArmoryDStartupTest(TiabTest):
       self.assertTrue(setWltResult.index(THIRD_WLT_NAME) > 0)
       actualResult2 = self.armoryDSession.callArmoryD(['getwalletinfo'])
       self.assertEqual(actualResult2['name'], 'Third Wallet')
+
+
+if __name__ == "__main__":
+   #import sys;sys.argv = ['', 'Test.testName']
+   unittest.main()
