@@ -26,8 +26,8 @@ TWO_OF_TWO_LB_NAME = 'WZ2pEKAG'
 
 PASSPHRASE1 = 'abcde'
 UNLOCK_TIMEOUT = 5
-TIAB_DIR = '.\\tiab'
-TEST_TIAB_DIR = '.\\test\\tiab'
+TIAB_DIR = 'tiab'
+TEST_TIAB_DIR = os.path.join('test','tiab')
 NEED_TIAB_MSG = "This Test must be run with J:/Development_Stuff/bitcoin-testnet-boxV2.7z (Armory jungle disk). Copy to the test directory."
 
 EXPECTED_TIAB_NEXT_ADDR = 'muEePRR9ShvRm2nqeiJyD8pJRHPuww2ECG'
@@ -79,14 +79,14 @@ class ArmoryDTiabTest(TiabTest):
    def setUp(self):
       self.verifyBlockHeight()
       # Load the primary file from the test net in a box
-      self.fileA    = os.path.join(self.tiab.tiabDirectory, 'tiab\\armory\\armory_%s_.wallet' % FIRST_WLT_NAME)
+      self.fileA    = os.path.join(self.tiab.tiabDirectory, 'tiab','armory','armory_%s_.wallet' % FIRST_WLT_NAME)
       self.wlt = PyBtcWallet().readWalletFile(self.fileA, doScanNow=True)
-      fileB    = os.path.join(self.tiab.tiabDirectory, 'tiab\\armory\\armory_%s_.wallet' % SECOND_WLT_NAME)
+      fileB    = os.path.join(self.tiab.tiabDirectory, 'tiab','armory','armory_%s_.wallet' % SECOND_WLT_NAME)
       wltB = PyBtcWallet().readWalletFile(fileB, doScanNow=True)
-      fileC    = os.path.join(self.tiab.tiabDirectory, 'tiab\\armory\\armory_%s_.wallet' % THIRD_WLT_NAME)
+      fileC    = os.path.join(self.tiab.tiabDirectory, 'tiab','armory','armory_%s_.wallet' % THIRD_WLT_NAME)
       wltC = PyBtcWallet().readWalletFile(fileC, doScanNow=True)
       self.jsonServer = Armory_Json_Rpc_Server(self.wlt, inWltSet={SECOND_WLT_NAME : wltB, THIRD_WLT_NAME : wltC},
-                           armoryHomeDir=os.path.join(self.tiab.tiabDirectory, 'tiab\\armory'))
+                           armoryHomeDir=os.path.join(self.tiab.tiabDirectory, 'tiab','armory'))
       TheBDM.registerWallet(self.wlt)
       
    def testActiveWallet(self):
