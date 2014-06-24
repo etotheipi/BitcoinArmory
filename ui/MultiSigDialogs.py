@@ -1985,7 +1985,7 @@ class DlgImportAsciiBlock(QDialog):
 
       self.txtAscii = QPlainTextEdit()
       self.txtAscii.setFont(GETFONT('Fixed', 9))
-      w,h = relaxedSizeNChar(self.txtAscii, 80)
+      w,h = relaxedSizeNChar(self.txtAscii, 70)
       self.txtAscii.setMinimumWidth(w)
       btnLoad = QPushButton(tr("Load from file"))
       btnDone = QPushButton(tr("Done"))
@@ -2207,7 +2207,7 @@ class DlgExportAsciiBlock(ArmoryDialog):
 
       txt = QPlainTextEdit()
       txt.setFont(GETFONT('Fixed', 9))
-      w,h = relaxedSizeNChar(txt, 80)
+      w,h = relaxedSizeNChar(txt, 70)
       txt.setMinimumWidth(w)
       txt.setMinimumHeight(h*9)
       txt.setPlainText(self.asciiBlock)
@@ -2299,7 +2299,7 @@ class DlgImportLockbox(QDialog):
 
       self.txtBoxBlock = QPlainTextEdit()
       self.txtBoxBlock.setFont(GETFONT('Fixed', 9))
-      w,h = relaxedSizeNChar(self.txtBoxBlock, 80)
+      w,h = relaxedSizeNChar(self.txtBoxBlock, 70)
       self.txtBoxBlock.setMinimumWidth(w)
       btnLoad = QPushButton(tr("Load from file"))
       btnDone = QPushButton(tr("Done"))

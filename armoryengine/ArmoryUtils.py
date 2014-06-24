@@ -1241,7 +1241,7 @@ def str2coin(theStr, negAllowed=True, maxDec=8, roundHighPrec=True):
 
 
 ################################################################################
-def makeAsciiBlock(binStr, headStr='', wid=80, newline='\n'):
+def makeAsciiBlock(binStr, headStr='', wid=64, newline='\n'):
    # Convert the raw chunk of binary data
    b64Data = base64.b64encode(binStr)
    sz = len(b64Data)
