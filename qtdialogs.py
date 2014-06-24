@@ -5056,7 +5056,7 @@ def excludeChange(outputPairs, wlt):
 class DlgConfirmSend(ArmoryDialog):
 
    def __init__(self, wlt, scriptValPairs, fee, parent=None, main=None, \
-                                          sendNow=False):
+                                          sendNow=False, pytxOrUstx=None):
       super(DlgConfirmSend, self).__init__(parent, main)
       layout = QGridLayout()
       lblInfoImg = QLabel()
@@ -5086,37 +5086,82 @@ class DlgConfirmSend(ArmoryDialog):
       # chunk of code that removes change only cares about 1 and 2 return pairs.
       # if 1 remove it, if 2 remove the one with a higher index.
       # Exception: IF no send pairs, it's a tx for max to a single internal address
-      if len(returnPairs) == 1 and len(sendPairs) > 0:
-         returnPairs = []
-         changeRemoved = True
-      elif len(returnPairs) == 2 and len(sendPairs)==0:
-         returnPairs = excludeChange(returnPairs, wlt)
-         changeRemoved = True
-         
-      lblMsg = QRichLabel('')         
-      totalSendFromWallet = sum([val for script,val in sendPairs]) + fee
-      totalSend = totalSendFromWallet + sum([val for script,val in returnPairs])
-      sendFromWalletStr = coin2str(totalSendFromWallet, maxZeros=1)
-      changeRemovedText =  '<br><br>Change has been removed from the table below.<br>' +\
-         '<a href="https://bitcoinarmory.com/all-about-change">Click here to read ' +\
-         'more about how Armory handles change.</a>' \
-         if changeRemoved else ''
 
-       
-      if len(returnPairs) > 0:
-         lblMsg.setText(tr("""
-            This transaction will spend <b>%s BTC</b> from 
-            <font color="%s">Wallet "<b>%s</b>" (%s)</font>.
-            <br><br><b>Note:</b> Any starred outputs are are going to the
-            same wallet from which they came, and will have no effect on
-            the wallet's overall balance. %s""") % \
-            (sendFromWalletStr, htmlColor('TextBlue'), wlt.labelName, wlt.uniqueIDB58, changeRemovedText))
+      if len(sendPairs)==1 and len(returnPairs)==0:
+         # Exactly one output, exact change by definition
+         doExcludeChange = False
+         doShowAllMsg    = False
+         doShowLeaveWlt  = False
+      elif len(sendPairs)==0 and len(returnPairs)==1:
+         doExcludeChange = False
+         doShowAllMsg    = False
+         doShowLeaveWlt  = True
+      elif len(returnPairs)==0:
+         # Exact change
+         doExcludeChange = False
+         doShowAllMsg    = False
+         doShowLeaveWlt  = False
+      elif len(returnPairs)==1:
+         # There's a simple change output
+         doExcludeChange = True
+         doShowAllMsg    = False
+         doShowLeaveWlt  = False
+      elif len(sendPairs)==0 and len(returnPairs)==2:
+         # Send-to-self within wallet, with change, no external recips
+         doExcludeChange = True
+         doShowAllMsg    = False
+         doShowLeaveWlt  = True
       else:
-         lblMsg.setText(tr("""
-            This transaction will spend <b>%s BTC</b> from 
-            <font color="%s">Wallet "<b>%s</b>" (%s)</font>.
-            to the following recipients: %s""") % \
-            (sendFromWalletStr, htmlColor('TextBlue'), wlt.labelName, wlt.uniqueIDB58, changeRemovedText))
+         # Everything else just show everything
+         doExcludeChange = False
+         doShowAllMsg    = True
+         doShowLeaveWlt  = True
+         
+
+      if doExcludeChange:
+         returnPairs = excludeChange(returnPairs, wlt)
+
+         
+      # returnPairs now includes only the outputs to be displayed
+      totalLeavingWlt = sum([val for script,val in sendPairs]) + fee
+      totalSend       = sum([val for script,val in returnPairs]) + totalLeavingWlt 
+      sendFromWalletStr = coin2strNZS(totalLeavingWlt)
+      totalSendStr      = coin2strNZS(totalSend)
+
+
+      lblAfterBox = QRichLabel('')
+      
+      # Always include a way to review the tx when in expert mode.  Or whenever
+      # we are showing the entire output list.
+      # If we have a pytx or ustx, we can add a DlgDispTxInfo button 
+      showAllMsg = ''
+      if doShowAllMsg or (pytxOrUstx and self.main.usermode==USERMODE.Expert):
+         showAllMsg = tr(""" To see complete transaction details 
+                             <a href="None">click here</a></font>""")
+
+         def openDlgTxInfo(*args):
+            DlgDispTxInfo(pytxOrUstx, wlt, self.parent, self.main).exec_()
+   
+         self.connect(lblAfterBox, SIGNAL('linkActivated(const QString &)'), openDlgTxInfo)
+
+
+      lblMsg = QRichLabel(tr("""
+         This transaction will spend <b>%s BTC</b> from 
+         <font color="%s">Wallet "<b>%s</b>" (%s)</font> to the following
+         recipients:""") % 
+         (totalSendStr, htmlColor('TextBlue'), wlt.labelName, wlt.uniqueIDB58))
+
+      if doShowLeaveWlt:
+         lblAfterBox.setText(tr("""
+            <font size=3>* Starred 
+            outputs are going to the same wallet from which they came 
+            and do not affect the wallet's final balance.
+            The total balance of the wallet will actually only decrease 
+            <b>%s BTC</b> as a result of this transaction.  %s</font>""") % \
+            (sendFromWalletStr, showAllMsg))
+      elif len(showAllMsg)>0:
+         lblAfterBox.setText(showAllMsg)
+         
 
       addrColWidth = 50
 
@@ -5125,41 +5170,42 @@ class DlgConfirmSend(ArmoryDialog):
       ffixBold.setWeight(QFont.Bold)
       for script,val in sendPairs + returnPairs:
          displayInfo = self.main.getDisplayStringForScript(script, addrColWidth)
-         dispStr = displayInfo['String'].ljust(addrColWidth)
-
+         dispStr = (' '+displayInfo['String']).ljust(addrColWidth)
 
          coinStr = coin2str(val, rJust=True, maxZeros=4)
          if [script,val] in returnPairs:
-            dispStr = '*'+dispStr
-            # Need to line up the columns when a star is added.
-            if coinStr[0] == ' ':
-               coinStr = coinStr[1:]
+            dispStr = '*'+dispStr[1:]
+
          recipLbls.append(QLabel(dispStr + coinStr))
          recipLbls[-1].setFont(ffixBold)
 
 
       if fee > 0:
          recipLbls.append(QSpacerItem(10, 10))
-         recipLbls.append(QLabel('Transaction Fee : '.ljust(addrColWidth) +
+         recipLbls.append(QLabel(' Transaction Fee : '.ljust(addrColWidth) +
                            coin2str(fee, rJust=True, maxZeros=4)))
          recipLbls[-1].setFont(GETFONT('Fixed'))
 
-      recipLbls.append(HLINE(QFrame.Sunken))
-      recipLbls.append(QLabel('Total bitcoins to leaving your wallet: '.ljust(addrColWidth) +
-                        coin2str(totalSendFromWallet, rJust=True, maxZeros=4)))
-      recipLbls[-1].setFont(GETFONT('Fixed'))
-      if len(returnPairs) > 0:
-         recipLbls.append(QLabel('Total bitcoins to send: '.ljust(addrColWidth) +
-                           coin2str(totalSend, rJust=True, maxZeros=4)))
-         recipLbls[-1].setFont(GETFONT('Fixed'))
 
-      lblLastConfirm = QLabel('Are you sure you want to execute this transaction?')
+      recipLbls.append(HLINE(QFrame.Sunken))
+      if doShowLeaveWlt:
+         # We have a separate message saying "total amount actually leaving wlt is..."
+         # We can just give the total of all the outputs in the table above
+         recipLbls.append(QLabel(' Total: '.ljust(addrColWidth) +
+                           coin2str(totalSend, rJust=True, maxZeros=4)))
+      else:
+         # The k
+         recipLbls.append(QLabel(' Total Leaving Wallet: '.ljust(addrColWidth) +
+                           coin2str(totalSend, rJust=True, maxZeros=4)))
+
+      recipLbls[-1].setFont(GETFONT('Fixed'))
 
       if sendNow:
          self.btnAccept = QPushButton('Send')
+         lblLastConfirm = QLabel('Are you sure you want to execute this transaction?')
       else:
          self.btnAccept = QPushButton('Continue')
-         lblLastConfirm.setText('')
+         lblLastConfirm = QLabel('Does the above look correct?')
 
       self.btnCancel = QPushButton("Cancel")
       self.connect(self.btnAccept, SIGNAL(CLICKED), self.accept)
@@ -5173,6 +5219,7 @@ class DlgConfirmSend(ArmoryDialog):
       frmRight = makeVertFrame([ lblMsg, \
                                   'Space(20)', \
                                   frmTable, \
+                                  lblAfterBox, \
                                   'Space(10)', \
                                   lblLastConfirm, \
                                   'Space(10)', \
@@ -5865,7 +5912,7 @@ class DlgDispTxInfo(ArmoryDialog):
 
 
       FIELDS = enum('Hash', 'OutList', 'SumOut', 'InList', 'SumIn', 'Time', 'Blk', 'Idx')
-      data = extractTxInfo(pytx, txtime)
+      self.data = extractTxInfo(pytx, txtime)
 
       # If this is actually a ustx in here...
       ustx = None
@@ -5879,7 +5926,7 @@ class DlgDispTxInfo(ArmoryDialog):
       if self.mode == None:
          self.mode = self.main.usermode
 
-      txHash = data[FIELDS.Hash]
+      txHash = self.data[FIELDS.Hash]
 
       haveWallet = (wlt != None)
       haveBDM = TheBDM.getBDMState() == 'BlockchainReady'
@@ -5888,7 +5935,7 @@ class DlgDispTxInfo(ArmoryDialog):
       wltLE = None
       IsNonStandard = False
       fee = None
-      txAmt = data[FIELDS.SumOut]
+      txAmt = self.data[FIELDS.SumOut]
 
       # Collect our own outputs only, and ID non-std tx
       svPairSelf = []
@@ -5897,7 +5944,7 @@ class DlgDispTxInfo(ArmoryDialog):
       indicesOther = []
       indicesMakeGray = []
       idx = 0
-      for scrType, amt, script, msInfo in data[FIELDS.OutList]:
+      for scrType, amt, script, msInfo in self.data[FIELDS.OutList]:
          # If it's a multisig, pretend it's P2SH
          if scrType == CPP_TXOUT_MULTISIG:
             script = script_to_p2sh_script(script)
@@ -5921,8 +5968,8 @@ class DlgDispTxInfo(ArmoryDialog):
       txdir = None
       changeIndex = None
       svPairDisp = None
-      if haveBDM and haveWallet and data[FIELDS.SumOut] and data[FIELDS.SumIn]:
-         fee = data[FIELDS.SumOut] - data[FIELDS.SumIn]
+      if haveBDM and haveWallet and self.data[FIELDS.SumOut] and self.data[FIELDS.SumIn]:
+         fee = self.data[FIELDS.SumOut] - self.data[FIELDS.SumIn]
          ldgr = wlt.getTxLedger()
          for le in ldgr:
             if le.getTxHash() == txHash:
@@ -5936,12 +5983,12 @@ class DlgDispTxInfo(ArmoryDialog):
                   svPairDisp = []
                   if len(self.pytx.outputs)==1:
                      txAmt = fee
-                     triplet = data[FIELDS.OutList][0]
+                     triplet = self.data[FIELDS.OutList][0]
                      scrAddr = script_to_scrAddr(triplet[2])
                      svPairDisp.append([scrAddr, triplet[1]])
                   else:
                      txAmt, changeIndex = determineSentToSelfAmt(le, wlt)
-                     for i, triplet in enumerate(data[FIELDS.OutList]):
+                     for i, triplet in enumerate(self.data[FIELDS.OutList]):
                         if not i == changeIndex:
                            scrAddr = script_to_scrAddr(triplet[2])
                            svPairDisp.append([scrAddr, triplet[1]])
@@ -6044,9 +6091,9 @@ class DlgDispTxInfo(ArmoryDialog):
          lbls[-1].append(QRichLabel('<font color="gray">[None]</font>'))
 
 
-      if not data[FIELDS.Time] == None:
+      if not self.data[FIELDS.Time] == None:
          lbls.append([])
-         if data[FIELDS.Blk] >= 2 ** 32 - 1:
+         if self.data[FIELDS.Blk] >= 2 ** 32 - 1:
             lbls[-1].append(self.main.createToolTipWidget(
                   'The time that you computer first saw this transaction'))
          else:
@@ -6054,11 +6101,11 @@ class DlgDispTxInfo(ArmoryDialog):
                   'All transactions are eventually included in a "block."  The '
                   'time shown here is the time that the block entered the "blockchain."'))
          lbls[-1].append(QLabel('Transaction Time:'))
-         lbls[-1].append(QLabel(data[FIELDS.Time]))
+         lbls[-1].append(QLabel(self.data[FIELDS.Time]))
 
-      if not data[FIELDS.Blk] == None:
+      if not self.data[FIELDS.Blk] == None:
          nConf = 0
-         if data[FIELDS.Blk] >= 2 ** 32 - 1:
+         if self.data[FIELDS.Blk] >= 2 ** 32 - 1:
             lbls.append([])
             lbls[-1].append(self.main.createToolTipWidget(
                   'This transaction has not yet been included in a block.  '
@@ -6068,17 +6115,17 @@ class DlgDispTxInfo(ArmoryDialog):
             lbls[-1].append(QRichLabel('<i>Not in the blockchain yet</i>'))
          else:
             idxStr = ''
-            if not data[FIELDS.Idx] == None and self.mode == USERMODE.Expert:
-               idxStr = '  (Tx #%d)' % data[FIELDS.Idx]
+            if not self.data[FIELDS.Idx] == None and self.mode == USERMODE.Expert:
+               idxStr = '  (Tx #%d)' % self.data[FIELDS.Idx]
             lbls.append([])
             lbls[-1].append(self.main.createToolTipWidget(
                   'Every transaction is eventually included in a "block" which '
                   'is where the transaction is permanently recorded.  A new block '
                   'is produced approximately every 10 minutes.'))
             lbls[-1].append(QLabel('Included in Block:'))
-            lbls[-1].append(QRichLabel(str(data[FIELDS.Blk]) + idxStr))
+            lbls[-1].append(QRichLabel(str(self.data[FIELDS.Blk]) + idxStr))
             if TheBDM.getBDMState() == 'BlockchainReady':
-               nConf = TheBDM.getTopBlockHeight() - data[FIELDS.Blk] + 1
+               nConf = TheBDM.getTopBlockHeight() - self.data[FIELDS.Blk] + 1
                lbls.append([])
                lbls[-1].append(self.main.createToolTipWidget(
                      'The number of blocks that have been produced since '
@@ -6119,8 +6166,8 @@ class DlgDispTxInfo(ArmoryDialog):
             lbls[-1][-1].setText('<font color="green">' + lbls[-1][-1].text() + '</font> ')
 
 
-      if not data[FIELDS.SumIn] == None:
-         fee = data[FIELDS.SumIn] - data[FIELDS.SumOut]
+      if not self.data[FIELDS.SumIn] == None:
+         fee = self.data[FIELDS.SumIn] - self.data[FIELDS.SumOut]
          lbls.append([])
          lbls[-1].append(self.main.createToolTipWidget(
             'Transaction fees go to users supplying the Bitcoin network with '
@@ -6198,9 +6245,9 @@ class DlgDispTxInfo(ArmoryDialog):
       wAddr = relaxedSizeStr(GETFONT('Var'), 'A' * 31)[0]
       wAmt = relaxedSizeStr(GETFONT('Fixed'), 'A' * 20)[0]
       if ustx:
-         self.txInModel = TxInDispModel(ustx, data[FIELDS.InList], self.main)
+         self.txInModel = TxInDispModel(ustx, self.data[FIELDS.InList], self.main)
       else:
-         self.txInModel = TxInDispModel(pytx, data[FIELDS.InList], self.main)
+         self.txInModel = TxInDispModel(pytx, self.data[FIELDS.InList], self.main)
       self.txInView = QTableView()
       self.txInView.setModel(self.txInModel)
       self.txInView.setSelectionBehavior(QTableView.SelectRows)
@@ -6270,6 +6317,9 @@ class DlgDispTxInfo(ArmoryDialog):
       self.connect(self.txOutView, SIGNAL('clicked(QModelIndex)'), \
                    lambda: self.dispTxioInfo('Out'))
 
+      self.connect(self.txInView, SIGNAL('doubleClicked(QModelIndex)'), self.showTxInDialog)
+      self.connect(self.txOutView, SIGNAL('doubleClicked(QModelIndex)'), self.showTxOutDialog)
+
       # scrFrm = QFrame()
       # scrFrm.setFrameStyle(STYLE_SUNKEN)
       # scrFrmLayout = Q
@@ -6305,10 +6355,10 @@ class DlgDispTxInfo(ArmoryDialog):
                   'of the same transaction, and change-back-to-sender outputs '
                   '(change outputs are displayed in light gray).')
 
-      lblChangeDescr = QRichLabel( tr(""" Some outputs might be "change."
+      self.lblChangeDescr = QRichLabel( tr("""Some outputs might be "change."
          <a href="https://bitcoinarmory.com/all-about-change">Click for more 
          info</a>"""), doWrap=False)
-      lblChangeDescr.setOpenExternalLinks(True)
+      self.lblChangeDescr.setOpenExternalLinks(True)
         
 
 
@@ -6336,9 +6386,10 @@ class DlgDispTxInfo(ArmoryDialog):
                                  self.btnCopy, 
                                  self.lblCopied,  
                                  'Stretch', 
-                                 lblChangeDescr,
+                                 self.lblChangeDescr,
                                  'Stretch',
                                  self.btnOk])
+
       if not self.mode == USERMODE.Expert:
          self.btnCopy.setVisible(False)
 
@@ -6371,13 +6422,16 @@ class DlgDispTxInfo(ArmoryDialog):
          self.frmIOList.setVisible(True)
          self.btnCopy.setVisible(True)
          self.lblCopied.setVisible(True)
-         self.scriptArea.setVisible(self.mode == USERMODE.Expert)
          self.btnIOList.setText('<<< Less Info')
+         self.lblChangeDescr.setVisible(True)
+         self.scriptArea.setVisible(False) # self.mode == USERMODE.Expert)
+         # Disabling script area now that you can double-click to get it
       else:
          self.frmIOList.setVisible(False)
          self.scriptArea.setVisible(False)
          self.btnCopy.setVisible(False)
          self.lblCopied.setVisible(False)
+         self.lblChangeDescr.setVisible(False)
          self.btnIOList.setText('Advanced >>>')
 
    def dispTxioInfo(self, InOrOut):
@@ -6439,6 +6493,26 @@ class DlgDispTxInfo(ArmoryDialog):
 
 
    #############################################################################
+   def showTxInDialog(self, *args):
+      # I really should've just used a dictionary instead of list with enum indices
+      FIELDS = enum('Hash', 'OutList', 'SumOut', 'InList', 'SumIn', 'Time', 'Blk', 'Idx')
+      try:
+         idx = self.txInView.selectedIndexes()[0].row()
+         DlgDisplayTxIn(self, self.main, self.pytx, idx, self.data[FIELDS.InList]).exec_()
+      except:
+         LOGEXCEPT('Error showing TxIn')
+
+   #############################################################################
+   def showTxOutDialog(self, *args):
+      # I really should've just used a dictionary instead of list with enum indices
+      FIELDS = enum('Hash', 'OutList', 'SumOut', 'InList', 'SumIn', 'Time', 'Blk', 'Idx')
+      try:
+         idx = self.txOutView.selectedIndexes()[0].row()
+         DlgDisplayTxOut(self, self.main, self.pytx, idx).exec_()
+      except:
+         LOGEXCEPT('Error showing TxOut')
+
+   #############################################################################
    def showContextMenuTxIn(self, pos):
       menu = QMenu(self.txInView)
       std = (self.main.usermode == USERMODE.Standard)
@@ -6448,23 +6522,24 @@ class DlgDispTxInfo(ArmoryDialog):
       if True:   actCopySender = menu.addAction("Copy Sender Address")
       if True:   actCopyWltID = menu.addAction("Copy Wallet ID")
       if True:   actCopyAmount = menu.addAction("Copy Amount")
-      if dev:    actCopyOutPt = menu.addAction("Copy Outpoint")
-      if dev:    actCopyScript = menu.addAction("Copy Raw Script")
+      if True:   actMoreInfo = menu.addAction("More Info")
       idx = self.txInView.selectedIndexes()[0]
       action = menu.exec_(QCursor.pos())
 
+      if action == actMoreInfo:
+         self.showTxInDialog()
       if action == actCopyWltID:
          s = str(self.txInView.model().index(idx.row(), TXINCOLS.WltID).data().toString())
       elif action == actCopySender:
          s = str(self.txInView.model().index(idx.row(), TXINCOLS.AddrStr).data().toString())
       elif action == actCopyAmount:
          s = str(self.txInView.model().index(idx.row(), TXINCOLS.Btc).data().toString())
-      elif dev and action == actCopyOutPt:
-         s1 = str(self.txInView.model().index(idx.row(), TXINCOLS.OutPt).data().toString())
-         s2 = str(self.txInView.model().index(idx.row(), TXINCOLS.OutIdx).data().toString())
-         s = s1 + ':' + s2
-      elif dev and action == actCopyScript:
-         s = str(self.txInView.model().index(idx.row(), TXINCOLS.Script).data().toString())
+      #elif dev and action == actCopyOutPt:
+         #s1 = str(self.txInView.model().index(idx.row(), TXINCOLS.OutPt).data().toString())
+         #s2 = str(self.txInView.model().index(idx.row(), TXINCOLS.OutIdx).data().toString())
+         #s = s1 + ':' + s2
+      #elif dev and action == actCopyScript:
+         #s = str(self.txInView.model().index(idx.row(), TXINCOLS.Script).data().toString())
       else:
          return
 
@@ -6503,8 +6578,180 @@ class DlgDispTxInfo(ArmoryDialog):
 
 
 
+################################################################################
+class DlgDisplayTxIn(ArmoryDialog):
+   def __init__(self, parent, main, pytxOrUstx, txiIndex, txinListFromBDM=None):
+      super(DlgDisplayTxIn, self).__init__(parent, main)
+
+      lblDescr = QRichLabel(tr("<center><u><b>TxIn Information</b></u></center>"))
+
+      edtBrowse = QTextBrowser()
+      edtBrowse.setFont(GETFONT('Fixed', 9))
+      edtBrowse.setReadOnly(True)
+      edtBrowse.setLineWrapMode(QTextEdit.NoWrap)
+
+      ustx = None
+      pytx = pytxOrUstx
+      if isinstance(pytx, UnsignedTransaction):
+         ustx = pytx
+         pytx = ustx.getPyTxSignedIfPossible()
+
+      txin = pytx.inputs[txiIndex]
+      scrType  = getTxInScriptType(txin)
+      typeName = CPP_TXIN_SCRIPT_NAMES[scrType]
+      txHashBE = binary_to_hex(txin.outpoint.txHash, BIGENDIAN)
+      txIdxBE  = int_to_hex(txin.outpoint.txOutIndex, 4, BIGENDIAN)
+      seqHexBE = int_to_hex(txin.intSeq, 4, BIGENDIAN)
+      opStrings = convertScriptToOpStrings(txin.binScript)
+
+      senderAddr = TxInExtractAddrStrIfAvail(txin)
+      srcStr = ''
+      if not senderAddr:
+         senderAddr = '[[Cannot determine from TxIn Script]]'
+      else:
+         wltID  = self.main.getWalletForAddr160(addrStr_to_hash160(senderAddr)[1])
+         if wltID:
+            wlt = self.main.walletMap[wltID]
+            srcStr = 'Wallet "%s" (%s)' % (wlt.labelName, wlt.uniqueIDB58)
+         else:
+            lbox = self.main.getLockboxByP2SHAddrStr(senderAddr)
+            if lbox:
+               srcStr = 'Lockbox %d-of-%d "%s" (%s)' % \
+                        (lbox.M, lbox.N, lbox.shortName, lbox.uniqueIDB58)
+          
 
 
+      dispLines = []
+      dispLines.append('<font size=4><u><b>Information on TxIn</b></u></font>:')
+      dispLines.append('   <b>TxIn Index:</b>         %d' % txiIndex)
+      dispLines.append('   <b>TxIn Spending:</b>      %s:%s' % (txHashBE, txIdxBE))
+      dispLines.append('   <b>TxIn Sequence</b>:      0x%s' % seqHexBE)
+      if len(txin.binScript)>0:
+         dispLines.append('   <b>TxIn Script Type</b>:   %s' % typeName)
+         dispLines.append('   <b>TxIn Source</b>:        %s' % senderAddr)
+         if srcStr:
+            dispLines.append('   <b>TxIn Wallet</b>:        %s' % srcStr)
+         dispLines.append('   <b>TxIn Script</b>:')
+         for op in opStrings:
+            dispLines.append('      %s' % op)
+
+      wltID = ''
+      scrType = getTxInScriptType(txin)
+      if txinListFromBDM and len(txinListFromBDM[txiIndex][0])>0:
+
+         # We had a BDM to help us get info on each input -- use it
+         scrAddr,val,blk,hsh,idx,script = txinListFromBDM[txiIndex]
+         scrType = getTxOutScriptType(script)
+
+         dispInfo = self.main.getDisplayStringForScript(script, 100, prefIDOverAddr=True)
+         print dispInfo
+         addrStr = dispInfo['String']
+         wltID   = dispInfo['WltID']
+         if not wltID:
+            wltID  = dispInfo['LboxID']
+         if not wltID:
+            wltID = ''
+
+         wouldBeAddrStr = dispInfo['AddrStr']
+         
+
+         dispLines.append('')
+         dispLines.append('')
+         dispLines.append('<font size=4><u><b>Information on TxOut being spent by this TxIn</b></u></font>:')
+         dispLines.append('   <b>Tx Hash:</b>            %s' % txHashBE)
+         dispLines.append('   <b>Tx Out Index:</b>       %d' % txin.outpoint.txOutIndex)
+         dispLines.append('   <b>Tx in Block#:</b>       %s' % str(blk))
+         dispLines.append('   <b>TxOut Value:</b>        %s' % coin2strNZS(val))
+         dispLines.append('   <b>TxOut Script Type:</b>  %s' % CPP_TXOUT_SCRIPT_NAMES[scrType])
+         dispLines.append('   <b>TxOut Address:</b>      %s' % wouldBeAddrStr)
+         if wltID:
+            dispLines.append('   <b>TxOut Wallet:</b>       %s' % dispInfo['String'])
+         dispLines.append('   <b>TxOUt Script:</b>')
+         opStrings = convertScriptToOpStrings(script)
+         for op in opStrings:
+            dispLines.append('      %s' % op)
+
+      
+      edtBrowse.setHtml(('<br>'.join(dispLines)).replace(' ', '&nbsp;'))
+      btnDone = QPushButton(tr("Ok"))
+      self.connect(btnDone, SIGNAL('clicked()'), self.accept)
+
+      layout = QVBoxLayout()
+      layout.addWidget(lblDescr)
+      layout.addWidget(edtBrowse)
+      layout.addWidget(makeHorizFrame(['Stretch', btnDone]))
+      self.setLayout(layout)
+      w,h = tightSizeNChar(edtBrowse, 100)
+      self.setMinimumWidth(max(w, 500))
+      self.setMinimumHeight(max(20*h, 400))
+
+
+################################################################################
+class DlgDisplayTxOut(ArmoryDialog):
+   def __init__(self, parent, main, pytxOrUstx, txoIndex):
+      super(DlgDisplayTxOut, self).__init__(parent, main)
+
+      lblDescr = QRichLabel(tr("<center><u><b>TxOut Information</b></u></center>"))
+
+      edtBrowse = QTextBrowser()
+      edtBrowse.setFont(GETFONT('Fixed', 9))
+      edtBrowse.setReadOnly(True)
+      edtBrowse.setLineWrapMode(QTextEdit.NoWrap)
+
+      ustx = None
+      pytx = pytxOrUstx
+      if isinstance(pytx, UnsignedTransaction):
+         ustx = pytx
+         pytx = ustx.getPyTxSignedIfPossible()
+
+      wltID = ''
+
+      dispLines = []
+
+      txout   = pytx.outputs[txoIndex]
+      val     = txout.value
+      script  = txout.binScript
+      scrAddr = script_to_scrAddr(script)
+      scrType = getTxOutScriptType(script)
+
+      dispInfo = self.main.getDisplayStringForScript(script, 100, prefIDOverAddr=True)
+      print dispInfo
+      addrStr = dispInfo['String']
+      wltID   = dispInfo['WltID']
+      if not wltID:
+         wltID  = dispInfo['LboxID']
+      if not wltID:
+         wltID = ''
+
+      wouldBeAddrStr = dispInfo['AddrStr']
+         
+      dispLines.append('<font size=4><u><b>Information on TxOut</b></u></font>:')
+      dispLines.append('   <b>Tx Out Index:</b>       %d' % txoIndex)
+      dispLines.append('   <b>TxOut Value:</b>        %s' % coin2strNZS(val))
+      dispLines.append('   <b>TxOut Script Type:</b>  %s' % CPP_TXOUT_SCRIPT_NAMES[scrType])
+      dispLines.append('   <b>TxOut Address:</b>      %s' % wouldBeAddrStr)
+      if wltID:
+         dispLines.append('   <b>TxOut Wallet:</b>       %s' % dispInfo['String'])
+      else:
+         dispLines.append('   <b>TxOut Wallet:</b>       [[Unrelated to any loaded wallets]]')
+      dispLines.append('   <b>TxOut Script:</b>')
+      opStrings = convertScriptToOpStrings(script)
+      for op in opStrings:
+         dispLines.append('      %s' % op)
+
+      
+      edtBrowse.setHtml(('<br>'.join(dispLines)).replace(' ', '&nbsp;'))
+      btnDone = QPushButton(tr("Ok"))
+      self.connect(btnDone, SIGNAL('clicked()'), self.accept)
+
+      layout = QVBoxLayout()
+      layout.addWidget(lblDescr)
+      layout.addWidget(edtBrowse)
+      layout.addWidget(makeHorizFrame(['Stretch', btnDone]))
+      self.setLayout(layout)
+      w,h = tightSizeNChar(edtBrowse, 100)
+      self.setMinimumWidth(max(w, 500))
+      self.setMinimumHeight(max(20*h, 400))
 
 class GfxViewPaper(QGraphicsView):
    def __init__(self, parent=None, main=None):
