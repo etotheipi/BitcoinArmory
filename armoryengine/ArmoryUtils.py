@@ -32,6 +32,7 @@ import random
 import signal
 import smtplib
 from struct import pack, unpack
+from itertools import izip
 #from subprocess import PIPE
 import sys
 import threading
@@ -2104,6 +2105,14 @@ def AmountToJSON(amount):
 
 
 ##### And a few useful utilities #####
+# Take an incoming list and return a "zipped" list where every two items in the
+# list are paired and can be iterated over together.
+# http://stackoverflow.com/questions/5389507/iterating-over-every-two-elements-in-a-list
+def getDualIterable(inList):
+   a = iter(inList)
+   return izip(a, a)
+
+
 def unixTimeToFormatStr(unixTime, formatStr=DEFAULT_DATE_FORMAT):
    """
    Converts a unix time (like those found in block headers) to a
