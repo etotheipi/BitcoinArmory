@@ -328,16 +328,16 @@ class MultiSigLockbox(AsciiSerializable):
    def unserialize(self, rawData, expectID=None, skipMagicCheck=False):
 
       bu = BinaryUnpacker(rawData)
-      boxVersion = bu.get(UINT32)
+      lboxVersion = bu.get(UINT32)
 
       # If this is an older version, use conversion method
-      if boxVersion==0:
+      if lboxVersion==0:
          return self.unserialize_v0(rawData, expectID)
 
-      boxMagic   = bu.get(BINARY_CHUNK, 4)
+      lboxMagic   = bu.get(BINARY_CHUNK, 4)
       created    = bu.get(UINT64)
-      boxName    = toUnicode(bu.get(VAR_STR))
-      boxDescr   = toUnicode(bu.get(VAR_STR))
+      lboxName    = toUnicode(bu.get(VAR_STR))
+      lboxDescr   = toUnicode(bu.get(VAR_STR))
       M          = bu.get(UINT8)
       N          = bu.get(UINT8)
 
@@ -348,52 +348,36 @@ class MultiSigLockbox(AsciiSerializable):
 
 
       # Issue a warning if the versions don't match
-      if not boxVersion == MULTISIG_VERSION:
+      if not lboxVersion == MULTISIG_VERSION:
          LOGWARN('Unserialing lockbox of different version')
-         LOGWARN('   Lockbox Version: %d' % boxVersion)
+         LOGWARN('   Lockbox Version: %d' % lboxVersion)
          LOGWARN('   Armory  Version: %d' % MULTISIG_VERSION)
 
       # Check the magic bytes of the lockbox match
-      if not boxMagic == MAGIC_BYTES and not skipMagicCheck:
+      if not lboxMagic == MAGIC_BYTES and not skipMagicCheck:
          LOGERROR('Wrong network!')
-         LOGERROR('    Lockbox Magic: ' + binary_to_hex(boxMagic))
+         LOGERROR('    Lockbox Magic: ' + binary_to_hex(lboxMagic))
          LOGERROR('    Armory  Magic: ' + binary_to_hex(MAGIC_BYTES))
          raise NetworkIDError('Network magic bytes mismatch')
 
       
       binPubKeys = [p.binPubKey for p in dPubKeys]
-      boxScript = pubkeylist_to_multisig_script(binPubKeys, M)
+      lboxScript = pubkeylist_to_multisig_script(binPubKeys, M)
 
       # Lockbox ID is written in the first line, it should match the script
       # If not maybe a version mistmatch, serialization error, or bug
-      if expectID and not calcLockboxID(boxScript) == expectID and not skipMagicCheck:
+      if expectID and not calcLockboxID(lboxScript) == expectID and not skipMagicCheck:
          LOGERROR('ID on lockbox block does not match script')
          LOGERROR('    Expecting:   %s' % str(expectID))
-         LOGERROR('    Calculated:  %s' % str(calcLockboxID(boxScript)))
+         LOGERROR('    Calculated:  %s' % str(calcLockboxID(lboxScript)))
          raise UnserializeError('ID on lockbox does not match!')
 
       # No need to read magic bytes -- already checked & bailed if incorrect
-      self.setParams(boxName, boxDescr, M, N, dPubKeys, created)
+      self.setParams(lboxName, lboxDescr, M, N, dPubKeys, created)
 
       return self
 
 
-   #############################################################################
-   def serializeAscii(self, wid=80, newline='\n'):
-      headStr = '%s-%s' % (self.BLKSTRING, self.uniqueIDB58)
-      return makeAsciiBlock(self.serialize(), headStr, wid, newline)
-
-
-   #############################################################################
-   def unserializeAscii(self, boxBlock, skipMagicCheck=False):
-      headStr, rawData = readAsciiBlock(boxBlock, self.BLKSTRING)
-      if rawData is None:
-         LOGERROR('Expected str "%s", got "%s"' % (self.BLKSTRING, headStr))
-         raise UnserializeError('Unexpected BLKSTRING')
-
-      # We should have "LOCKBOX-BOXID" in the headstr
-      boxID = headStr.split('-')[-1]
-      return self.unserialize(rawData, boxID, skipMagicCheck)
 
 
    #############################################################################
@@ -460,7 +444,7 @@ class MultiSigLockbox(AsciiSerializable):
       print 'Multi-signature %d-of-%d lockbox:' % (self.M, self.N)
       print '   Unique ID:  ', self.uniqueIDB58
       print '   Created:    ', unixTimeToFormatStr(self.createDate)
-      print '   Box Name:   ', self.shortName
+      print '   LBox Name:  ', self.shortName
       print '   P2SHAddr:   ', scrAddr_to_addrStr(self.p2shScrAddr)
       print '   Box Desc:   '
       print '     ', self.longDescr[:70]
@@ -1012,24 +996,6 @@ class MultiSigPromissoryNote(AsciiSerializable):
       return self
 
 
-   #############################################################################
-   def serializeAscii(self, wid=80, newline='\n'):
-      headStr = '%s-%s' % (self.BLKSTRING, self.promID)
-      return makeAsciiBlock(self.serialize(), headStr, wid, newline)
-
-
-   #############################################################################
-   def unserializeAscii(self, promBlock, skipMagicCheck=False):
-
-      headStr, rawData = readAsciiBlock(promBlock, self.BLKSTRING)
-
-      if rawData is None:
-         LOGERROR('Expected str "%s", got "%s"' % (self.BLKSTRING,headStr))
-         raise UnserializeError('Unexpected BLKSTRING')
-
-      # We should have "PROMISSORY" in the headstr
-      promID = headStr.split('-')[-1]
-      return self.unserialize(rawData, promID, skipMagicCheck)
 
 
 

@@ -1890,7 +1890,7 @@ class DlgWalletDetails(ArmoryDialog):
       if True:  actionBlkChnInfo = menu.addAction("View Address on %s" % BLOCKEXPLORE_NAME)
       if True:  actionReqPayment = menu.addAction("Request Payment to this Address")
       if dev:   actionCopyHash160 = menu.addAction("Copy Hash160 (hex)")
-      if dev:   actionCopyPubKey  = menu.addAction("Copy Public Key (hex)")
+      if dev:   actionCopyPubKey  = menu.addAction("Copy Raw Public Key (hex)")
       if True:  actionCopyComment = menu.addAction("Copy Comment")
       if True:  actionCopyBalance = menu.addAction("Copy Balance")
       idx = self.wltAddrView.selectedIndexes()[0]

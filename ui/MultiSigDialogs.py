@@ -1523,7 +1523,7 @@ class DlgLockboxManager(ArmoryDialog):
          if dlg.importedLockbox is not None:
             self.main.updateOrAddLockbox(dlg.importedLockbox, isFresh=True)
             if not self.main.getSettingOrSetDefault('DNAA_LockboxImport', False):
-               MsgBoxWithDNAA(MSGBOX.Info, tr("Import Successful"), tr("""
+               reply = MsgBoxWithDNAA(MSGBOX.Info, tr("Import Successful"), tr("""
                   The lockbox was imported successfully.  If this is a new 
                   lockbox that has never been used before, then you
                   can start using it right away.  
@@ -1965,7 +1965,7 @@ class DlgImportAsciiBlock(QDialog):
 
       self.txtAscii = QPlainTextEdit()
       self.txtAscii.setFont(GETFONT('Fixed', 9))
-      w,h = relaxedSizeNChar(self.txtAscii, 70)
+      w,h = relaxedSizeNChar(self.txtAscii, 80)
       self.txtAscii.setMinimumWidth(w)
       btnLoad = QPushButton(tr("Load from file"))
       btnDone = QPushButton(tr("Done"))
@@ -2187,7 +2187,7 @@ class DlgExportAsciiBlock(ArmoryDialog):
 
       txt = QPlainTextEdit()
       txt.setFont(GETFONT('Fixed', 9))
-      w,h = relaxedSizeNChar(txt, 70)
+      w,h = relaxedSizeNChar(txt, 80)
       txt.setMinimumWidth(w)
       txt.setMinimumHeight(h*9)
       txt.setPlainText(self.asciiBlock)
@@ -2279,7 +2279,7 @@ class DlgImportLockbox(QDialog):
 
       self.txtBoxBlock = QPlainTextEdit()
       self.txtBoxBlock.setFont(GETFONT('Fixed', 9))
-      w,h = relaxedSizeNChar(self.txtBoxBlock, 70)
+      w,h = relaxedSizeNChar(self.txtBoxBlock, 80)
       self.txtBoxBlock.setMinimumWidth(w)
       btnLoad = QPushButton(tr("Load from file"))
       btnDone = QPushButton(tr("Done"))
@@ -2980,7 +2980,8 @@ class DlgMultiSpendReview(ArmoryDialog):
       try:
          self.parent.tabbedDisplay.setCurrentIndex(1)
       except:
-         LOGEXCEPT('Failed to switch parent tabs')
+         #LOGEXCEPT('Failed to switch parent tabs')
+         pass
       self.accept()
          
 
