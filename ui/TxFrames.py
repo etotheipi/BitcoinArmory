@@ -734,7 +734,7 @@ class SendBitcoinsFrame(ArmoryFrame):
       txValues = [totalSend, fee, totalChange]
       if not self.unsignedCheckbox.isChecked():
          dlg = DlgConfirmSend(self.wlt, origSVPairs, txValues[1], self, \
-                                                  self.main, True)
+                                                  self.main, True, ustx)
    
          if not dlg.exec_():
             return False
@@ -1660,7 +1660,7 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
             confirming the transaction on the next screen.""") % \
             len(svpairs), QMessageBox.Ok)
 
-      dlg = DlgConfirmSend(self.wlt, svpairs, theFee, self, self.main)
+      dlg = DlgConfirmSend(self.wlt, svpairs, theFee, self, self.main, pytxOrUstx=ustx)
       if not dlg.exec_():
          return
 
@@ -1731,7 +1731,8 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
 
       doIt = True
       if self.wlt:
-         dlg = DlgConfirmSend(self.wlt, svpairs, theFee, self, self.main)
+         dlg = DlgConfirmSend(self.wlt, svpairs, theFee, self, self.main, 
+                                          sendNow=True, pytxOrUstx=ustx)
          doIt = dlg.exec_()
 
       if doIt:

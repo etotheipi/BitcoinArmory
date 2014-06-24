@@ -729,7 +729,7 @@ class TxInDispModel(QAbstractTableModel):
    def __init__(self,  pytx, txinListFromBDM=None, main=None):
       super(TxInDispModel, self).__init__()
       self.main = main
-      self.txInList = []
+      self.txInList = txinListFromBDM[:]
       self.dispTable = []
 
       # If this is actually a USTX in here, then let's use that
@@ -767,7 +767,6 @@ class TxInDispModel(QAbstractTableModel):
             if ustx is None:
                self.dispTable[-1].append(CPP_TXIN_SCRIPT_NAMES[scrType])
             else:
-               # TODO:  Assume NO multi-sig... will be updated soon!
                isSigned = ustx.ustxInputs[i].evaluateSigningStatus().allSigned
                self.dispTable[-1].append('Signed' if isSigned else 'Unsigned')
                
