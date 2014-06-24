@@ -28,6 +28,7 @@ SECOND_WLT_NAME = "vzgEfJrJ"
 THIRD_WLT_FILE_NAME = "armory_DZMmtb2v_.wallet"
 THIRD_WLT_NAME = "DZMmtb2v"
 
+
 FIRST_WLT_BALANCE = 964.8997
 
 TIAB_SATOSHI_PORT = 19000
@@ -126,6 +127,7 @@ class TiabTest(unittest.TestCase):
       TheBDM.setDaemon(True)
       TheBDM.start()
       TheBDM.setSatoshiDir(os.path.join(self.tiab.tiabDirectory,'tiab','1','testnet3'))
+      self.armoryHomeDir = os.path.join(self.tiab.tiabDirectory,'tiab','armory')
       TheBDM.setLevelDBDir(os.path.join(self.tiab.tiabDirectory,'tiab','armory','databases'))
       TheBDM.setBlocking(True)
       TheBDM.setOnlineMode(wait=True)

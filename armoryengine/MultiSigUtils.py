@@ -406,19 +406,19 @@ class MultiSigLockbox(AsciiSerializable):
       outjson['lboxname'] =  self.shortName
       outjson['lboxdescr'] =  self.longDescr
       outjson['M'] = self.M
-      outjson['N'] = self.M
+      outjson['N'] = self.N
 
-      outjson['pubkeylist'] = []
-      for dpk in self.dPubKeys:
-         outjson['pubkeylist'].append(dpk.toJSONMap())
+      outjson['pubkeylist'] = [dpk.toJSONMap() for dpk in self.dPubKeys]
 
-      outjson['a160list'] = [hash160(p.binPubKey) for p in self.dPubKeys]
-      outjson['addrstrs'] = [hash160_to_addrStr(a) for a in outjson['a160list']]
+      outjson['a160list'] = [binary_to_hex(hash160(p.binPubKey)) \
+                             for p in self.dPubKeys]
+      outjson['addrstrs'] = [hash160_to_addrStr(hex_to_binary(a)) \
+                             for a in outjson['a160list']]
 
       outjson['txoutscript'] = binary_to_hex(self.binScript)
       outjson['p2shscript']  = binary_to_hex(scrAddr_to_script(self.p2shScrAddr))
       outjson['createdate']  = self.createDate
-      
+
       return outjson
 
 
@@ -430,7 +430,7 @@ class MultiSigLockbox(AsciiSerializable):
    
       # Issue a warning if the versions don't match
       if not ver == UNSIGNED_TX_VERSION:
-         LOGWARN('Unserializing Lokcbox of different version')
+         LOGWARN('Unserializing Lockbox of different version')
          LOGWARN('   USTX    Version: %d' % ver)
          LOGWARN('   Armory  Version: %d' % UNSIGNED_TX_VERSION)
 
@@ -441,8 +441,6 @@ class MultiSigLockbox(AsciiSerializable):
          LOGERROR('    Armory  Magic: ' + binary_to_hex(MAGIC_BYTES))
          raise NetworkIDError('Network magic bytes mismatch')
 
-
-      
       name   = jsonMap['lboxname']
       descr  = jsonMap['lboxdescr']
       M      = jsonMap['M']
@@ -455,8 +453,6 @@ class MultiSigLockbox(AsciiSerializable):
       created = jsonMap['createdate']
       self.setParams(name, descr, M, N, pubs, created)
       return self
-
-
 
 
    #############################################################################
@@ -758,7 +754,7 @@ class DecoratedPublicKey(AsciiSerializable):
    def toJSONMap(self):
       outjson = {}
       outjson['version']      = self.version
-      outjson['magicbytes']   = MAGIC_BYTES
+      outjson['magicbytes']   = binary_to_hex(MAGIC_BYTES)
       outjson['id']           = self.asciiID
 
       outjson['pubkeyhex']  = binary_to_hex(self.binPubKey)
@@ -1042,7 +1038,7 @@ class MultiSigPromissoryNote(AsciiSerializable):
    def toJSONMap(self, lite=False):
       outjson = {}
       outjson['version']      = self.version
-      outjson['magicbytes']   = MAGIC_BYTES
+      outjson['magicbytes']   = binary_to_hex(MAGIC_BYTES)
       outjson['id']           = self.asciiID
 
       #bp = BinaryPacker()
@@ -1086,7 +1082,7 @@ class MultiSigPromissoryNote(AsciiSerializable):
    
       # Issue a warning if the versions don't match
       if not ver == UNSIGNED_TX_VERSION:
-         LOGWARN('Unserializing Lokcbox of different version')
+         LOGWARN('Unserializing Lockbox of different version')
          LOGWARN('   USTX    Version: %d' % ver)
          LOGWARN('   Armory  Version: %d' % UNSIGNED_TX_VERSION)
 

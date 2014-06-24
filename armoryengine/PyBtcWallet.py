@@ -817,7 +817,7 @@ class PyBtcWallet(object):
                              kdfMaxMem=DEFAULT_MAXMEM_LIMIT, \
                              shortLabel='', longLabel='', isActuallyNew=True, \
                              doRegisterWithBDM=True, skipBackupFile=False, \
-                             extraEntropy=None, Progress=emptyFunc):
+                             extraEntropy=None, Progress=emptyFunc, armoryHomeDir = ARMORY_HOME_DIR):
       """
       This method will create a new wallet, using as much customizability
       as you want.  You can enable encryption, and set the target params
@@ -933,7 +933,7 @@ class PyBtcWallet(object):
          #for c in ',?;:\'"?/\\=+-|[]{}<>':
             #shortName = shortName.replace(c,'_')
          newName = buildWltFileName(self.uniqueIDB58)
-         self.walletPath = os.path.join(ARMORY_HOME_DIR, newName)
+         self.walletPath = os.path.join(armoryHomeDir, newName)
 
       LOGINFO('   New wallet will be written to: %s', self.walletPath)
       newfile = open(self.walletPath, 'wb')
@@ -2995,7 +2995,7 @@ class PyBtcWallet(object):
                addrList.append(addr)
          
       return addrList
-      
+
 
    #############################################################################
    def getAddress160ByChainIndex(self, desiredIdx):
@@ -3012,7 +3012,6 @@ class PyBtcWallet(object):
          # that a bug may lead to generation of billions of addresses, which
          # would saturate the system's resources and fill the HDD.
          raise WalletAddressError('Chain index is out of range')
-         
 
       if self.chainIndexMap.has_key(desiredIdx):
          return self.chainIndexMap[desiredIdx]
@@ -3054,7 +3053,6 @@ class PyBtcWallet(object):
                addrObj.pprint(indent=indent)
 
 
-
    #############################################################################
    def isEqualTo(self, wlt2, debug=False):
       isEqualTo = True
@@ -3091,7 +3089,42 @@ class PyBtcWallet(object):
          return False
 
       return isEqualTo
-   
+
+
+   #############################################################################
+   def toJSONMap(self):
+      outjson = {}
+      outjson['name']             = self.labelName
+      outjson['description']      = self.labelDescr
+      outjson['walletversion']    = getVersionString(PYBTCWALLET_VERSION)
+      outjson['balance']          =  AmountToJSON(self.getBalance('Spend'))
+      outjson['keypoolsize']      =  self.addrPoolSize
+      outjson['numaddrgen']       = len(self.addrMap)
+      outjson['highestusedindex'] = self.highestUsedChainIndex
+      outjson['watchingonly']     = self.watchingOnly
+      outjson['createdate']       = self.wltCreateDate
+      outjson['walletid']         = self.uniqueIDB58
+
+      return outjson
+
+
+   #############################################################################
+   def fromJSONMap(self, jsonMap, skipMagicCheck=False):
+      self.labelName   = jsonMap['name']
+      self.labelDescr  = jsonMap['description']
+      self.addrPoolSize  = jsonMap['keypoolsize']
+      self.highestUsedChainIndex  = jsonMap['highestusedindex']
+      self.watchingOnly  = jsonMap['watchingonly']
+      self.wltCreateDate  = jsonMap['createdate']
+      self.uniqueIDB58  = jsonMap['walletid']
+      jsonVer = hex_to_binary(jsonMap['walletversion'])
+
+      # Issue a warning if the versions don't match
+      if not jsonVer == getVersionString(PYBTCWALLET_VERSION):
+         LOGWARN('Unserializing wallet of different version')
+         LOGWARN('   Wallet Version: %d' % jsonVer)
+         LOGWARN('   Armory Version: %d' % UNSIGNED_TX_VERSION)
+
 
 ###############################################################################
 def getSuffixedPath(walletPath, nameSuffix):

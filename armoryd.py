@@ -43,15 +43,15 @@
 #
 # Random JSON notes should be placed here as desired.
 #
-# - JSON can only send back data as strings or floats.
 # - If a returned string has a newline char, JSON will convert it to the string
 #   "\n" (minus quotation marks).
-# - JSON can only send back data as an individual value or dictionary (i.e., no
-#   lists or other structs are allowed).
 # - In general, if you need to pass an actual newline via the command line, type
 #   $'\n' instead of \n or \\n. (Files have no special requirements.)
-# - When all else fails, and you have no clue how to pass data via JSON, read
-#   RFC 4627.
+# - The code sometimes returns "bitcoinrpc_jsonrpc.authproxy.JSONRPCException"
+#   if values are returned as binary data. This is something to keep in mind if
+#   bugs occur.
+# - When all else fails, and you have no clue how to deal via JSON, read RFC
+#   4627 and/or the Python manual's section on JSON.
 #
 ################################################################################
 
@@ -79,13 +79,6 @@ class UniversalEncoder(json.JSONEncoder):
       return json.JSONEncoder.default(self, obj)
 
 ARMORYD_CONF_FILE = os.path.join(ARMORY_HOME_DIR, 'armoryd.conf')
-
-
-# From https://en.bitcoin.it/wiki/Proper_Money_Handling_(JSON-RPC)
-def JSONtoAmount(value):
-   return long(round(float(value) * 1e8))
-def AmountToJSON(amount):
-   return float(amount / 1e8)
 
 
 # Define some specific errors that can be thrown and caught
@@ -292,8 +285,18 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       if TheBDM.getBDMState()=='BlockchainReady':
          curTxOut = 1
          for u in utxoList:
+            curUTXODict = {}
+
             curTxOutStr = 'UTXO %05d' % curTxOut
-            utxoDict[curTxOutStr] = binary_to_hex(u.getOutPoint().serialize())
+            utxoVal = AmountToJSON(u.getValue())
+            curTxOutHexStr = 'Hex'
+            curTxOutPriStr = 'Priority'
+            curTxOutValStr = 'Value'
+            curUTXODict[curTxOutHexStr] = binary_to_hex(u.getOutPoint().serialize())
+            curUTXODict[curTxOutPriStr] = utxoVal * u.getNumConfirm()
+            curUTXODict[curTxOutValStr] = utxoVal
+            utxoDict[curTxOutStr] = curUTXODict
+
             curTxOut += 1
       else:
          LOGERROR('Blockchain not ready. Values will not be reported.')
@@ -408,8 +411,8 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       if self.curWlt.isLocked:
          raise WalletUnlockNeeded
       else:
-         sbdPassphrase = securePassphrase=SecureBinaryData(passphrase)
-         self.curWlt.changeWalletEncryption(sbdPassphrase)
+         sbdPassphrase = SecureBinaryData(passphrase)
+         self.curWlt.changeWalletEncryption(securePassphrase=sbdPassphrase)
          self.curWlt.lock()
 
       return retStr
@@ -421,7 +424,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
       retStr = 'Wallet %s is already unlocked.' % self.curWlt
 
-      if not self.curWlt.isLocked:
+      if self.curWlt.isLocked:
          self.curWlt.unlock(securePassphrase=SecureBinaryData(passphrase),
                             tempKeyLifetime=timeout)
          retStr = 'Wallet %s has been unlocked.' % self.curWlt
@@ -554,17 +557,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
          else:
             raise WalletDoesNotExist
 
-      wltInfo = { \
-                  'name':  self.wltToUse.labelName,
-                  'description':  self.wltToUse.labelDescr,
-                  'balance': AmountToJSON(self.wltToUse.getBalance('Spend')) \
-                             if self.isReady else -1,
-                  'keypoolsize':  self.wltToUse.addrPoolSize,
-                  'numaddrgen': len(self.wltToUse.addrMap),
-                  'highestusedindex': self.wltToUse.highestUsedChainIndex
-                }
-
-      return wltInfo
+      return self.wltToUse.toJSONMap()
 
 
    #############################################################################
@@ -947,23 +940,24 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
 
    #############################################################################
+   # A semi-analogue to bitcoind's getinfo(). 
    def jsonrpc_getarmorydinfo(self):
       """Get information on the version of armoryd running on the server."""
 
       isReady = TheBDM.getBDMState() == 'BlockchainReady'
 
       info = { \
-               'version':           getVersionString(BTCARMORY_VERSION),
-               'versionint':        getVersionInt(BTCARMORY_VERSION),
-               'protocolversion':   0,
-               'walletversion':     getVersionString(PYBTCWALLET_VERSION),
-               'walletversionint':  getVersionInt(PYBTCWALLET_VERSION),
+               'versionstr':        getVersionString(BTCARMORY_VERSION),
+               'version':           getVersionInt(BTCARMORY_VERSION),
+               #'protocolversion':   0,
+               'walletversionstr':  getVersionString(PYBTCWALLET_VERSION),
+               'walletversion':     getVersionInt(PYBTCWALLET_VERSION),
                'bdmstate':          TheBDM.getBDMState(),
                'balance':           AmountToJSON(self.curWlt.getBalance()) \
                                     if isReady else -1,
                'blocks':            TheBDM.getTopBlockHeight(),
-               'connections':       (0 if isReady else 1),
-               'proxy':             '',
+               #'connections':       (0 if isReady else 1),
+               #'proxy':             '',
                'difficulty':        TheBDM.getTopBlockHeader().getDifficulty() \
                                     if isReady else -1,
                'testnet':           USE_TESTNET,
@@ -1336,7 +1330,6 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
    def jsonrpc_getlockboxinfo(self, inLBID=None):
       """Get information on the lockbox associated with a lockbox ID string."""
 
-      lbInfo = {}
       self.lbToUse = self.curLB
 
       # We'll return info on the currently loaded LB if no LB ID has been
@@ -1350,27 +1343,8 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
          if inLBID != None or self.lbToUse == None:
             raise LockboxDoesNotExist
 
-      # toJSONMap isn't ready for primetime yet. For now, we'll create the
-      # return value.
-      #lbInfo = self.lbToUse.toJSONMap()
-      for curKeyNum, curKey in enumerate(self.lbToUse.dPubKeys):
-         curKeyStr = 'Key %02d' % (curKeyNum + 1)
-         lbInfo[curKeyStr] = hash160_to_addrStr(self.lbToUse.a160List[curKeyNum])
-
-      for curKeyComNum, curKeyCom in enumerate(self.lbToUse.dPubKeys):
-         curKeyComStr = 'Key %02d Comment' % (curKeyComNum + 1)
-         lbInfo[curKeyComStr] = self.lbToUse.dPubKeys[curKeyComNum].keyComment
-
-      lbDStr = 'Lockbox Description'
-      lbInfo[lbDStr] = self.lbToUse.longDescr
-      lbStr = 'Lockbox ID'
-      lbInfo[lbStr] = self.lbToUse.uniqueIDB58
-      reqSigStr = 'Required Signature Number'
-      lbInfo[reqSigStr] = self.lbToUse.M
-      totalSigStr = 'Total Signature Number'
-      lbInfo[totalSigStr] = self.lbToUse.N
-
-      return lbInfo
+      # Return info on the lockbox.
+      return self.lbToUse.toJSONMap()
 
 
    #############################################################################
@@ -1515,7 +1489,16 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       """Get the wallet ID of the currently active wallet."""
 
       # Return the B58 string of the currently active wallet.
-      return self.curWlt.uniqueIDB58
+      return self.curWlt.uniqueIDB58 if self.curWlt else None
+
+
+   #############################################################################
+   # Function that gets the B58 string of the currently active lockbox.
+   def jsonrpc_getactivelockbox(self):
+      """Get the lockbox ID of the currently active wallet."""
+
+      # Return the B58 string of the currently active lockbox.
+      return self.curLB.uniqueIDB58 if self.curLB else None
 
 
    #############################################################################
@@ -1754,7 +1737,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
    #############################################################################
    # Get a dictionary with all functions the armoryd server can run.
-   def jsonrpc_getarmorydfunctions(self):
+   def jsonrpc_help(self):
       """Get a directionary with all functions the armoryd server can run."""
 
       return jsonFunctDict
