@@ -1131,8 +1131,10 @@ class DlgLockboxManager(ArmoryDialog):
                            btnMap['LBL'].setEnabled(False)
 
                   if btnMap['organiz']:
-                     lbltxt = orgtxt + lbltxt
-                  btnMap['LBL'].setText(lbltxt)
+                     btnMap['LBL'].setText(orgtxt + lbltxt)
+                     btnMap['LBL'].setWordWrap(False)
+                  else:
+                     btnMap['LBL'].setText(lbltxt)
 
                   # Semi-hack:  
                   #    The 'MergeSigs' button is the only one that kinda makes 
@@ -1153,25 +1155,15 @@ class DlgLockboxManager(ArmoryDialog):
          frmCell = QFrame()
          frmCell.setLayout(layoutMulti)
          frmCell.setFrameStyle(STYLE_RAISED)
+
+         
+         # This was calibrated to linux, but at least it will work on one OS
+         # The alternative was squished text on every OS
+         w,h = tightSizeNChar(btnMap['LBL'], 30)
+         frmCell.setMinimumHeight(5.5*h)
+
          return frmCell
             
-
-      # Now apply the max width
-      #for key,widgMap in self.allDashButtons.iteritems():
-         #widgMap['button'].setMinimumWidth(maxWidth)
-         
-
-      #'CreateLB':   {'button':  tr('Create Lockbox')
-      #'SelectKey':  {'button':  tr('Select Public Key'),
-      #'ExportLB':   {'button':  tr('Distribute Lockbox'),
-      #'ImportLB':   {'button':  tr('Import Lockbox'),
-      #'EditLB':     {'button':  tr('Edit Lockbox'),
-      #'RegFund':    {'button':  tr('Fund Lockbox'),
-      #'MergeProm':  {'button':  tr('Merge Funding Notes'),
-      #'CreateProm': {'button':  tr('Create Promissory Note'),
-      #'RevSign':    {'button':  tr('Review and Sign'),
-      #'MergeSigs':  {'button':  tr('Merge Sigs && Broadcast'),
-      #'CreateTx':   {'button':  tr('Spend From Lockbox'),
 
       # First frame is for regular funding.  Switch to frmMulti if chkSimulfundA
       frmSingle = QFrame()
@@ -1195,16 +1187,10 @@ class DlgLockboxManager(ArmoryDialog):
       frmSingleLayout.setColumnStretch(1,1)
       frmSingleLayout.setColumnStretch(2,1)
       frmSingleLayout.setColumnStretch(3,1)
+      frmSingleLayout.setSpacing(1)
 
-      ctrlayoutS = QHBoxLayout()
-      ctrlayoutS.addStretch()
-      ctrlayoutS.addLayout(frmSingleLayout)
-      ctrlayoutS.addStretch()
-
-      frmSingle.setLayout(ctrlayoutS)
+      frmSingle.setLayout(frmSingleLayout)
       frmSingle.setFrameStyle(STYLE_STYLED)
-
-      
       self.stkDashboard.addWidget(frmSingle)
 
 
@@ -1233,21 +1219,15 @@ class DlgLockboxManager(ArmoryDialog):
       frmMultiLayout.setColumnStretch(1,1)
       frmMultiLayout.setColumnStretch(2,1)
       frmMultiLayout.setColumnStretch(3,1)
+      frmMultiLayout.setSpacing(1)
 
-      ctrlayoutM = QHBoxLayout()
-      ctrlayoutM.addStretch()
-      ctrlayoutM.addLayout(frmMultiLayout)
-      ctrlayoutM.addStretch()
-
-      frmMulti.setLayout(ctrlayoutM)
+      frmMulti.setLayout(frmMultiLayout)
       frmMulti.setFrameStyle(STYLE_STYLED)
       self.stkDashboard.addWidget(frmMulti)
 
       # Default is to use frmSingle
       self.stkDashboard.setCurrentIndex(0)
 
-      frmMultiLayout.setSizeConstraint(QLayout.SetFixedSize)
-      frmSingleLayout.setSizeConstraint(QLayout.SetFixedSize)
          
       
 

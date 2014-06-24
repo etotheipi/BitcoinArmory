@@ -48,6 +48,7 @@ class ArmoryDSession:
             '--datadir=' + os.path.join(self.tiab.tiabDirectory, 'tiab', 'armory'),
             '--satoshi-datadir=' + os.path.join(self.tiab.tiabDirectory, 'tiab', '1')]
       armoryDArgs.extend(additionalArgs)
+
       if waitForOutput:
          # If there is output coming back convert it from a string to a dictionary
          return json.loads(subprocess.check_output(armoryDArgs))
@@ -88,7 +89,8 @@ class ArmoryDStartupTest(TiabTest):
       self.armoryDSession.clean()
             
    def testJSONGetinfo(self):
-      actualResult = self.armoryDSession.callArmoryD(['getarmorydinfo'], True)
+      self.armoryDSession.callArmoryD(['setactivewallet', FIRST_WLT_NAME])
+      actualResult = self.armoryDSession.callArmoryD(['getarmorydinfo'])
       self.assertEqual(actualResult['balance'], FIRST_WLT_BALANCE)
       self.assertEqual(actualResult['bdmstate'], 'BlockchainReady')
       self.assertEqual(actualResult['blocks'], TOP_TIAB_BLOCK)
@@ -96,11 +98,17 @@ class ArmoryDStartupTest(TiabTest):
       self.assertEqual(actualResult['testnet'], True)
       
    def testJSONMultipleWallets(self):
+      self.armoryDSession.callArmoryD(['setactivewallet', FIRST_WLT_NAME])
       wltDictionary = self.armoryDSession.callArmoryD(['listloadedwallets'])
       self.assertTrue(len(wltDictionary), 3)
-      actualResult = self.armoryDSession.callArmoryD(['getwalletinfo'], True)
-      self.assertEqual(actualResult, {u'description': u'', u'name': u'Primary Wallet', u'numaddrgen': 22, u'balance': FIRST_WLT_BALANCE, u'highestusedindex': 10, u'keypoolsize': 10})
+      actualResult = self.armoryDSession.callArmoryD(['getwalletinfo'])
+      self.assertEqual(actualResult['name'], 'Primary Wallet')
       setWltResult = self.armoryDSession.callArmoryD(['setactivewallet', THIRD_WLT_NAME])
       self.assertTrue(setWltResult.index(THIRD_WLT_NAME) > 0)
-      actualResult2 = self.armoryDSession.callArmoryD(['getwalletinfo'], True)
-      self.assertEqual(actualResult2, {u'description': u'', u'name': u'Third Wallet', u'numaddrgen': 15, u'balance': 12.8999, u'highestusedindex': 3, u'keypoolsize': 10})
+      actualResult2 = self.armoryDSession.callArmoryD(['getwalletinfo'])
+      self.assertEqual(actualResult2['name'], 'Third Wallet')
+
+
+if __name__ == "__main__":
+   #import sys;sys.argv = ['', 'Test.testName']
+   unittest.main()

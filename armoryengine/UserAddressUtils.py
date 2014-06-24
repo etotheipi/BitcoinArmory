@@ -114,7 +114,7 @@ def getScriptForUserString(userStr, wltMap, lboxList):
 
 ################################################################################
 def getDisplayStringForScript(binScript, wltMap, lboxList, maxChars=256, 
-                              doBold=0, prefIDOverAddr=True, 
+                              doBold=0, prefIDOverAddr=False, 
                               lblTrunc=12, lastTrunc=12):
    """
    NOTE: This was originally in ArmoryQt.py, but we really needed this to be
@@ -196,6 +196,7 @@ def getDisplayStringForScript(binScript, wltMap, lboxList, maxChars=256,
          addrStr = scrAddr_to_addrStr(scrAddr)
 
       strLast = wlt.uniqueIDB58 if addrStr is None else addrStr
+      strLast = wlt.uniqueIDB58 if prefIDOverAddr else strLast
    elif lbox is not None:
       strType  = 'Lockbox %d-of-%d:' % (lbox.M, lbox.N)
       strLabel = lbox.shortName
