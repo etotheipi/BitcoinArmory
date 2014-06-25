@@ -4632,16 +4632,21 @@ class DlgRemoveWallet(ArmoryDialog):
 
       frmInfo.setLayout(frmInfoLayout)
       layout.addWidget(frmInfo, 2, 0, 2, 3)
-
-      if not wltEmpty:
-         if wlt.watchingOnly:
-            lbl = QRichLabel('')
-         else:
+      hasWarningRow = False
+      if not wlt.watchingOnly:
+         if not wltEmpty:
             lbl = QRichLabel('<b>WALLET IS NOT EMPTY.  Only delete this wallet if you '
-                          'have a backup on paper or saved to a another location '
-                          'outside your settings directory.</b>')
-         lbls.append(lbl)
-         layout.addWidget(lbl, 4, 0, 1, 3)
+                             'have a backup on paper or saved to a another location '
+                             'outside your settings directory.</b>')
+            hasWarningRow = True
+         elif wlt.isWltSigningAnyLockbox(self.main.allLockboxes):
+            lbl = QRichLabel('<b>WALLET IS PART OF A LOCKBOX.  Only delete this wallet if you '
+                             'have a backup on paper or saved to a another location '
+                             'outside your settings directory.</b>')
+            hasWarningRow = True
+         if hasWarningRow:
+            lbls.append(lbl)
+            layout.addWidget(lbl, 4, 0, 1, 3)
 
       self.radioExclude = QRadioButton('Add this wallet to the "ignore list"')
       self.radioExclude.setEnabled(False)
@@ -4721,7 +4726,7 @@ class DlgRemoveWallet(ArmoryDialog):
       self.radioDelete.setChecked(True)
       rdoFrm.setLayout(rdoLayout)
 
-      startRow = 6 if wltEmpty else 5
+      startRow = 6 if not hasWarningRow else 5
       layout.addWidget(rdoFrm, startRow, 0, 1, 3)
 
       if wlt.watchingOnly:
