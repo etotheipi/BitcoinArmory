@@ -209,14 +209,29 @@ class SatoshiDaemonManager(object):
          self.launchBitcoindAndGuardian()
 
       #####
-      def torrentFailed():
+      def warnUserHashFail():
+         from PyQt4.QtGui import QMessageBox
+         QMessageBox.warning(self, tr('Hash Failure'), tr("""The torrent download 
+            is currently encountering too many packet hash failures to allow it to 
+            progress properly. As a result, the torrent engine has been halted. You 
+            should report this incident to the Armory team and turn off this feature 
+            until further notice."""), QMessageBox.Ok)      
+      
+      #####
+      def torrentFailed(errMsg=''):
          # Not sure there's actually anything we need to do here...
+         if errMsg == 'hashFail':
+            warnUserHashFail()
+            
          bootsz = '<Unknown>'
          if os.path.exists(bootfile):
             bootsz = bytesToHumanSize(os.path.getsize(bootfile))
 
          LOGERROR('Torrent failed; size of %s is %s', torrentPath, bootsz)
          self.launchBitcoindAndGuardian()
+         
+
+ 
  
       TheTDM.setSecondsBetweenUpdates(90)
       TheTDM.setCallback('displayFunc',  torrentLogToFile)
