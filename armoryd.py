@@ -358,11 +358,13 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       # the value.
       utxoList = self.curWlt.getTxOutList('unspent')
       utxoDict = {}
+      curTxOut = 0
+      totBal = 0
 
       if TheBDM.getBDMState()=='BlockchainReady':
-         curTxOut = 1
          for u in utxoList:
             curUTXODict = {}
+            curTxOut += 1
 
             curTxOutStr = 'UTXO %05d' % curTxOut
             utxoBal = AmountToJSON(u.getValue())
@@ -371,11 +373,12 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
             curUTXODict['Hex'] = binary_to_hex(u.getOutPoint().serialize())
             curUTXODict['Priority'] = utxoBal * u.getNumConfirm()
             utxoDict[curTxOutStr] = curUTXODict
-
-            curTxOut += 1
+            totBal += utxoBal
       else:
          LOGERROR('Blockchain not ready. Values will not be reported.')
 
+      utxoDict['Total UTXOs'] = curTxOut
+      utxoDict['Total Balance'] = totBal
       return utxoDict
 
 
