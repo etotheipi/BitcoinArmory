@@ -15,7 +15,8 @@ clean :
 install : all
 	mkdir -p $(DESTDIR)$(PREFIX)/share/armory/img
 	mkdir -p $(DESTDIR)$(PREFIX)/lib/armory/extras
-	mkdir -p $(DESTDIR)$(PREFIX)/lib/armory/jsonrpc
+	mkdir -p $(DESTDIR)$(PREFIX)/lib/armory/bitcoinrpc_jsonrpc
+	mkdir -p $(DESTDIR)$(PREFIX)/lib/armory/txjsonrpc
 	mkdir -p $(DESTDIR)$(PREFIX)/lib/armory/ui
 	mkdir -p $(DESTDIR)$(PREFIX)/lib/armory/BitTornado/BT1
 	mkdir -p $(DESTDIR)$(PREFIX)/lib/armory/urllib3
@@ -23,7 +24,8 @@ install : all
 	rsync -rupE armoryengine $(DESTDIR)$(PREFIX)/lib/armory/
 	rsync -rupE img $(DESTDIR)$(PREFIX)/share/armory/
 	cp extras/*.py $(DESTDIR)$(PREFIX)/lib/armory/extras
-	cp jsonrpc/*.py $(DESTDIR)$(PREFIX)/lib/armory/jsonrpc
+	cp bitcoinrpc_jsonrpc/*.py $(DESTDIR)$(PREFIX)/lib/armory/bitcoinrpc_jsonrpc
+	cp txjsonrpc/*.py $(DESTDIR)$(PREFIX)/lib/armory/txjsonrpc
 	cp ui/*.py $(DESTDIR)$(PREFIX)/lib/armory/ui
 	cp -r urllib3/* $(DESTDIR)$(PREFIX)/lib/armory/urllib3
 	mkdir -p $(DESTDIR)$(PREFIX)/share/applications
