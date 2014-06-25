@@ -239,6 +239,13 @@ class PyBtcWallet(object):
       #flags the wallet if it has off chain imports (from a consistency repair)
       self.hasNegativeImports = False
       
+   #############################################################################
+   def isWltSigningAnyLockbox(self, lockboxList):
+      for lockbox in lockboxList:
+         for addr160 in lockbox.a160List:
+            if self.addrMap.has_key(addr160):
+               return True
+      return False
 
    #############################################################################
    def getWalletVersion(self):

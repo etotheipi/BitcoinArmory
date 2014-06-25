@@ -5,15 +5,15 @@ Created on Aug 14, 2013
 '''
 import sys
 sys.path.append('..')
-from pytest.Tiab import TiabTest
+from pytest.Tiab import TiabTest, FIRST_WLT_NAME, SECOND_WLT_NAME
 import os
-import sys
 import unittest
 
+from armoryengine.MultiSigUtils import readLockboxesFile
 from CppBlockUtils import SecureBinaryData
-from armoryengine.ArmoryUtils import USE_TESTNET, convertKeyDataToAddress, \
-   hash256, binary_to_hex, hex_to_binary, CLI_OPTIONS, ARMORY_HOME_DIR, \
-   WalletLockError, InterruptTestError
+from armoryengine.ArmoryUtils import convertKeyDataToAddress, \
+   hash256, binary_to_hex, hex_to_binary, CLI_OPTIONS, \
+   WalletLockError, InterruptTestError, MULTISIG_FILE_NAME
 from armoryengine.PyBtcWallet import PyBtcWallet
 from armoryengine.BDM import TheBDM
 
@@ -28,12 +28,12 @@ class PyBtcWalletTest(TiabTest):
 
    def setUp(self):
       self.shortlabel = 'TestWallet1'
-      self.wltID ='3VB8XSoY' if USE_TESTNET else '3VB8XSmd' 
+      self.wltID ='3VB8XSoY'
       
-      self.fileA    = os.path.join(ARMORY_HOME_DIR, 'armory_%s_.wallet' % self.wltID)
-      self.fileB    = os.path.join(ARMORY_HOME_DIR, 'armory_%s_backup.wallet' % self.wltID)
-      self.fileAupd = os.path.join(ARMORY_HOME_DIR, 'armory_%s_backup_unsuccessful.wallet' % self.wltID)
-      self.fileBupd = os.path.join(ARMORY_HOME_DIR, 'armory_%s_update_unsuccessful.wallet' % self.wltID)
+      self.fileA    = os.path.join(self.armoryHomeDir, 'armory_%s_.wallet' % self.wltID)
+      self.fileB    = os.path.join(self.armoryHomeDir, 'armory_%s_backup.wallet' % self.wltID)
+      self.fileAupd = os.path.join(self.armoryHomeDir, 'armory_%s_backup_unsuccessful.wallet' % self.wltID)
+      self.fileBupd = os.path.join(self.armoryHomeDir, 'armory_%s_update_unsuccessful.wallet' % self.wltID)
 
       self.removeFileList([self.fileA, self.fileB, self.fileAupd, self.fileBupd])
    
@@ -49,7 +49,8 @@ class PyBtcWalletTest(TiabTest):
                                           plainRootKey=self.privKey, \
                                           chaincode=self.chainstr,   \
                                           IV=theIV, \
-                                          shortLabel=self.shortlabel)
+                                          shortLabel=self.shortlabel,
+                                          armoryHomeDir = self.armoryHomeDir)
       
    def tearDown(self):
       self.removeFileList([self.fileA, self.fileB, self.fileAupd, self.fileBupd])
@@ -64,7 +65,7 @@ class PyBtcWalletTest(TiabTest):
             os.remove(f)
 
    def testBackupWallet(self):
-      backupTestPath = os.path.join(ARMORY_HOME_DIR, 'armory_%s_.wallet.backup.test' % self.wltID)
+      backupTestPath = os.path.join(self.armoryHomeDir, 'armory_%s_.wallet.backup.test' % self.wltID)
       # Remove backupTestPath in case it exists
       backupFileList = [backupTestPath, self.fileB]
       self.removeFileList(backupFileList)
@@ -74,7 +75,19 @@ class PyBtcWalletTest(TiabTest):
       self.assertTrue(os.path.exists(backupTestPath))
       self.wlt.backupWalletFile()
       self.assertTrue(os.path.exists(self.fileB))
-
+            
+   def testIsWltSigningAnyLockbox(self):
+      lockboxList = readLockboxesFile(os.path.join(self.armoryHomeDir, MULTISIG_FILE_NAME))
+      self.assertFalse(self.wlt.isWltSigningAnyLockbox(lockboxList))
+      
+      lboxWltAFile   = os.path.join(self.armoryHomeDir,'armory_%s_.wallet' % FIRST_WLT_NAME)
+      lboxWltA = PyBtcWallet().readWalletFile(lboxWltAFile, doScanNow=True)
+      self.assertTrue(lboxWltA.isWltSigningAnyLockbox(lockboxList))
+      
+      lboxWltBFile   = os.path.join(self.armoryHomeDir,'armory_%s_.wallet' % SECOND_WLT_NAME)
+      lboxWltB = PyBtcWallet().readWalletFile(lboxWltBFile, doScanNow=True)
+      self.assertTrue(lboxWltB.isWltSigningAnyLockbox(lockboxList))
+      
    # Remove wallet files, need fresh dir for this test
    def testPyBtcWallet(self):
 
@@ -129,7 +142,8 @@ class PyBtcWalletTest(TiabTest):
                                           securePassphrase=self.passphrase2, \
                                           chaincode=self.chainstr2,   \
                                           IV=theIV2, \
-                                          shortLabel=self.shortlabel)
+                                          shortLabel=self.shortlabel,
+                                          armoryHomeDir = self.armoryHomeDir)
       
       #  We should have thrown an error about importing into a  locked wallet...
       self.assertRaises(WalletLockError, wltE.importExternalAddressData, privKey=self.privKey2)
