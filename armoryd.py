@@ -434,13 +434,14 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
                curUTXODict = {}
 
                # Get the UTXO info. The # of confirmations isn't calculated
-               # properly in this case. We'll leave it out for now.
+               # properly in this case. We'll leave it out for now, along with
+               # the priority, which relies on the # of confs.
                curTxOutStr = 'UTXO %05d' % curTxOut
                utxoBal = AmountToJSON(u.getValue())
                curUTXODict['Balance'] = utxoBal
                # curUTXODict['Confirmations'] = u.getNumConfirm()
                curUTXODict['Hex'] = binary_to_hex(u.getOutPoint().serialize())
-               curUTXODict['Priority'] = utxoBal * u.getNumConfirm()
+               # curUTXODict['Priority'] = utxoBal * u.getNumConfirm()
                utxoEntries[curTxOutStr] = curUTXODict
                totalTxOuts += 1
                utxoListBal += utxoBal
