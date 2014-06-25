@@ -6531,7 +6531,7 @@ class DlgDispTxInfo(ArmoryDialog):
       if action == actCopyWltID:
          s = str(self.txInView.model().index(idx.row(), TXINCOLS.WltID).data().toString())
       elif action == actCopySender:
-         s = str(self.txInView.model().index(idx.row(), TXINCOLS.AddrStr).data().toString())
+         s = str(self.txInView.model().index(idx.row(), TXINCOLS.Sender).data().toString())
       elif action == actCopyAmount:
          s = str(self.txInView.model().index(idx.row(), TXINCOLS.Btc).data().toString())
       #elif dev and action == actCopyOutPt:
