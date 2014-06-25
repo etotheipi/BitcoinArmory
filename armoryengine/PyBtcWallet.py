@@ -602,12 +602,21 @@ class PyBtcWallet(object):
    #############################################################################
    # Copy the wallet file to backup
    def backupWalletFile(self, backupPath = None):
+      '''Function that attempts to make a backup copy of the wallet to the file
+         in a given path and returns whether or not the copy succeeded.'''
+
+      # Assume upfront that the copy will work.
+      retVal = True
+
       walletFileBackup = self.getWalletPath('backup') if backupPath == None \
                                                                else backupPath
       try:
          shutil.copy(self.walletPath, walletFileBackup)
       except IOERROR, errPath:
          print 'Unable to copy file %s' % errPath
+         retVal = False
+
+      return retVal
 
 
    #############################################################################

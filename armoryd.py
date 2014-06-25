@@ -243,9 +243,10 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       and get the amount of coins sent to the current wallet by the message's
       signer.
       PARAMETERS:
-      None
+      sigBlock - Message with the RFC 2440 message to be verified.
       RETURN:
-      None 
+      A dictionary with verified message and the amount of money sent to the
+      current wallet by the signer.
       """
       retDict = {}
 
@@ -263,9 +264,9 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       Verify that a message has been signed (RFC 2440: clearsign or Base64),
          and get the message and the signer's Base58 address.
       PARAMETERS:
-      Param1 - Descrip1
+      sigBlock - Message with the RFC 2440 message to be verified.
       RETURN:
-      None
+      A dictionary with verified message and the Base58 address of the signer.
       """
       retDict = {}
 
@@ -285,9 +286,9 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       DESCRIPTION:
       Return the number of coins received from a particular sender.
       PARAMETERS:
-      Param1 - Descrip1
+      sender - Base58 address of the sender to the current wallet.
       RETURN:
-      None
+      Number of Bitcoins sent by the sender to the current wallet.
       """
       totalReceived = 0.0
       ledgerEntries = self.curWlt.getTxLedger('blk')
@@ -327,13 +328,16 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       DESCRIPTION:
       Back up the current wallet to a file at a given location.
       PARAMETERS:
-      Param1 - Descrip1
+      backupFilePath - Path to the location where the backup will be saved.
       RETURN:
-      None
+      A string indicating whether or not the backup succeeded or failed.
       """
 
-      self.curWlt.backupWalletFile(backupFilePath)
-      return "Backup succeeded."
+      retVal = "Backup succeeded."
+      if not self.curWlt.backupWalletFile(backupFilePath):
+         retVal = "Backup failed."
+
+      return retVal
 
 
    #############################################################################
@@ -343,9 +347,10 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       DESCRIPTION:
       Get a list of unspent transactions for the currently loaded wallet.
       PARAMETERS:
-      Param1 - Descrip1
-      RETURN:
       None
+      RETURN:
+      A dictionary containing all UTXOs for the currently loaded wallet, along
+      with information about each UTXO.
       """
 
       # Return a dictionary with a string as the key and a wallet B58 value as
@@ -382,25 +387,29 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       """
       DESCRIPTION:
       Get a list of unspent transactions for the currently loaded wallet that
-      are associated with a given list of Base58 addresses.
+      are associated with a given list of Base58 addresses from the wallet.
       PARAMETERS:
-      Param1 - Descrip1
+      inB58 - The Base58 address to check against the current wallet.
       RETURN:
-      None
+      A dictionary containing all UTXOs for the currently loaded wallet
+      associated with the given Base58 address, along with information about
+      each UTXO.
       """
 
       # Return a dictionary with a string as the key and a UTXO reference as the
       # value.
       curTxOut = 1
-      totalTxOuts = 1
-      totalTxOutsByB58 = []
+      totalTxOuts = 0
+#      totalTxOutsByB58 = [] # Master list of dicts
       utxoDict = {}
+      utxoList = []
       inB58 = inB58.split(":")
 
       # Get the UTXOs for each address.
       for b in inB58:
-         totalTxOutsByB58.append(b)
-         totalTxOutsByB58[b] = 1
+         curTxOut = 1
+         utxoEntries = {}
+#         totalTxOutsByB58[b] = 1
          a160 = addrStr_to_hash160(b, False)[1]
          if self.curWlt.addrMap.has_key(a160):
             utxoList = self.curWlt.getAddrByHash160(a160).scanBlockchainForAddress()
@@ -408,21 +417,29 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
          # Place each UTXO in the return dict. Each entry should specify which
          # address is associated with which UTXO.
          for u in utxoList:
-            curTxOutStr = 'UTXO %05d (%s)' % (curTxOut, b)
-            utxoDict[curTxOutStr] = binary_to_hex(u.getOutPoint().serialize())
-            curTxOut += 1
-            totalTxOutsByB58[b] += 1
+            curUTXODict = {}
+
+            curTxOutStr = 'UTXO %05d' % curTxOut
+            utxoVal = AmountToJSON(u.getValue())
+            curTxOutHexStr = 'Hex'
+            curTxOutPriStr = 'Priority'
+            curTxOutValStr = 'Value'
+            curUTXODict[curTxOutHexStr] = binary_to_hex(u.getOutPoint().serialize())
+            curUTXODict[curTxOutPriStr] = utxoVal * u.getNumConfirm()
+            curUTXODict[curTxOutValStr] = utxoVal
+            utxoEntries[curTxOutStr] = curUTXODict
             totalTxOuts += 1
 
          curTxOut = 1
+         utxoDict[b] = utxoEntries
 
       # Let's also return the total number of UTXOs and total UTXOs for each
       # address.
       totalTxOutStr = 'Total UTXOs'
       utxoDict[totalTxOutStr] = totalTxOuts
-      for u in totalTxOutsByB58:
-         totalTxOutStr = 'Total UTXOs (%s)' % u
-         utxoDict[totalTxOutStr] = totalTxOutsByB58[u]
+#      for u in totalTxOutsByB58:
+#         totalTxOutStr = 'Total UTXOs (%s)' % u
+#         utxoDict[totalTxOutStr] = totalTxOutsByB58[u]
 
       return utxoDict
 
@@ -433,7 +450,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       DESCRIPTION:
       Import a private key into the current wallet.
       PARAMETERS:
-      Param1 - Descrip1
+      privKey - The 32 byte private key to import.
       RETURN:
       None
       """
@@ -447,9 +464,12 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       DESCRIPTION:
       Get the raw transaction string for a given transaction hash.
       PARAMETERS:
-      Param1 - Descrip1
+      txHash - A string representing the hex value of a transaction ID.
+      verbose - (Default=0) Integer indicating whether or not the result should
+                be more verbose.
+      endianness - (Default=BIGENDIAN) Indicates the endianness of the ID.
       RETURN:
-      None
+      A dictionary with the decoded raw transaction and relevant information.
       """
 
       rawTx = None
@@ -476,9 +496,13 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       DESCRIPTION:
       Get the TxOut entries for a given transaction hash.
       PARAMETERS:
-      Param1 - Descrip1
+      txHash - A string representing the hex value of a transaction ID.
+      n - The TxOut index to obtain.
+      binary - (Default=0) Indicates whether or not the resultant binary script
+               should be in binary form or converted to a hex string.
       RETURN:
-      None
+      A dictionary with the Bitcoin amount for the TxOut and the TxOut script in
+      hex string form (default) or binary form.
       """
 
       n = int(n)
@@ -507,9 +531,9 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       DESCRIPTION:
       Encrypt a wallet with a given passphrase.
       PARAMETERS:
-      Param1 - Descrip1
+      passphrase - The wallet's new passphrase.
       RETURN:
-      None
+      A string indicating that the encryption was successful.
       """
 
       retStr = 'Wallet %s has been encrypted.' % self.curWlt
@@ -530,9 +554,12 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       DESCRIPTION:
       Unlock a wallet with a given passphrase and unlock time length.
       PARAMETERS:
-      Param1 - Descrip1
+      passphrase - The wallet's current passphrase.
+      timeout - (Default=10) The time, in seconds, that the wallet will be
+                unlocked.
       RETURN:
-      None
+      A string indicating if the wallet was unlocked or if it was already
+      unlocked.
       """
 
       retStr = 'Wallet %s is already unlocked.' % self.curWlt
@@ -551,9 +578,9 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       DESCRIPTION:
       Re-lock a wallet.
       PARAMETERS:
-      Param1 - Descrip1
-      RETURN:
       None
+      RETURN:
+      A string indicating whether or not the wallet is locked.
       """
 
       # Lock the wallet. It should lock but we'll check to be safe.
@@ -592,9 +619,9 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       DESCRIPTION:
       Decode a raw transaction hex string.
       PARAMETERS:
-      Param1 - Descrip1
+      hexString - A string representing, in hex form, a raw transaction.
       RETURN:
-      None
+      A dictionary containing the decoded transaction's information.
       """
 
       pyTx = PyTx().unserialize(hex_to_binary(hexString))
@@ -645,9 +672,9 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       DESCRIPTION:
       Get a new Base58 address from the currently loaded wallet.
       PARAMETERS:
-      Param1 - Descrip1
-      RETURN:
       None
+      RETURN:
+      The wallet's next unused public address in Base58 form.
       """
 
       addr = self.curWlt.getNextUnusedAddress()
@@ -661,9 +688,9 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       Dump the private key for a given Base58 address associated with the
       currently loaded wallet.
       PARAMETERS:
-      Param1 - Descrip1
+      addr58 - A Base58 public address associated with the current wallet.
       RETURN:
-      None
+      The 32 byte binary private key.
       """
 
       # Cannot dump the private key for a locked wallet
@@ -688,9 +715,10 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       DESCRIPTION:
       Get information on the currently loaded wallet.
       PARAMETERS:
-      Param1 - Descrip1
+      inWltID - (Default=None) If used, armoryd will get info for the wallet for
+                the provided Base58 wallet ID instead of the current wallet.
       RETURN:
-      None
+      A dictionary with information on the current wallet.
       """
 
       wltInfo = {}
@@ -714,9 +742,10 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       DESCRIPTION:
       Get the balance of the currently loaded wallet.
       PARAMETERS:
-      Param1 - Descrip1
+      baltype - (Default=spendable) A string indicating the balance type to
+                retrieve from the current wallet.
       RETURN:
-      None
+      The current wallet balance (BTC), or -1 if an error occurred.
       """
 
       retVal = -1
@@ -742,9 +771,11 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       Get the balance of a Base58 address associated with the currently
       loaded wallet.
       PARAMETERS:
-      Param1 - Descrip1
+      inB58 - The Base58 address associated with the current wallet.
+      baltype - (Default=spendable) A string indicating the balance type to
+                retrieve from the current wallet.
       RETURN:
-      None
+      The current wallet balance (BTC), or -1 if an error occurred.
       """
 
       retVal = -1
@@ -768,9 +799,9 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       Get the number of coins received by a Base58 address associated with
       the currently loaded wallet.
       PARAMETERS:
-      Param1 - Descrip1
+      address - The Base58 address associated with the current wallet.
       RETURN:
-      None
+      The balance received from the incoming address (BTC).
       """
 
       if CLI_OPTIONS.offline:
@@ -790,9 +821,11 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       Create an unsigned transaction to be sent to one recipient from the
       currently loaded wallet.
       PARAMETERS:
-      Param1 - Descrip1
+      bitcoinaddress - The Base58 address of the recipient.
+      amount - The number of Bitcoins to send to the recipient.
       RETURN:
-      None
+      An ASCII-formatted unsigned transaction, similar to the one output by
+      Armory for offline signing.
       """
 
       if CLI_OPTIONS.offline:
@@ -809,9 +842,11 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       Create an unsigned transaction to be sent to multiple recipients from
       the currently loaded wallet.
       PARAMETERS:
-      Param1 - Descrip1
+      args - An indefinite number of strings with a Base58 address recipient, a
+             colon, and the number of Bitcoins to send to the recipient.
       RETURN:
-      None
+      An ASCII-formatted unsigned transaction, similar to the one output by
+      Armory for offline signing.
       """
 
       if CLI_OPTIONS.offline:
@@ -831,9 +866,10 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       DESCRIPTION:
       Get a simple version of the wallet ledger.
       PARAMETERS:
-      Param1 - Descrip1
+      tx_count - (Default=10) The number of entries to get. 
+      from_tx - (Default=0) The first entry to get.
       RETURN:
-      None
+      A dictionary with a wallet ledger of type "simple".
       """
 
       return self.jsonrpc_getledger(tx_count, from_tx, simple=True)
@@ -845,10 +881,12 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       """
       DESCRIPTION:
       Get the wallet ledger.
-      PARAMETERS:
-      Param1 - Descrip1
+      tx_count - (Default=10) The number of entries to get. 
+      from_tx - (Default=0) The first entry to get.
+      simple - (Default=False) Flag indicating if the returned ledger should be
+               simple in format.
       RETURN:
-      None
+      A dictionary with a wallet ledger.
       """
 
       final_le_list = []
@@ -989,9 +1027,10 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       DESCRIPTION:
       List the transactions associated with the currently loaded wallet.
       PARAMETERS:
-      Param1 - Descrip1
+      tx_count - (Default=10) The number of entries to get. 
+      from_tx - (Default=0) The first entry to get.
       RETURN:
-      None
+      A dictionary with information on the retrieved transactions.
       """
 
       # This does not use 'account's like in the Satoshi client
@@ -1150,9 +1189,9 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       DESCRIPTION:
       Get information on the version of armoryd running on the server.
       PARAMETERS:
-      Param1 - Descrip1
-      RETURN:
       None
+      RETURN:
+      A dictionary listing version of armoryd running on the server.
       """
 
       isReady = TheBDM.getBDMState() == 'BlockchainReady'
@@ -1184,9 +1223,10 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       DESCRIPTION:
       Get the block associated with a given block hash.
       PARAMETERS:
-      Param1 - Descrip1
+      blkhash - A hex string representing the block to obtain.
       RETURN:
-      None
+      A dictionary listing information on the desired block, or empty if the
+      block wasn't found.
       """
 
       if TheBDM.getBDMState() in ['Uninitialized', 'Offline']:
@@ -1229,9 +1269,10 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       DESCRIPTION:
       Get the transaction associated with a given transaction hash.
       PARAMETERS:
-      Param1 - Descrip1
+      txHash - A hex string representing the block to obtain.
       RETURN:
-      None
+      A dictionary listing information on the desired transaction, or empty if
+      the transaction wasn't found.
       """
 
       if TheBDM.getBDMState() in ['Uninitialized', 'Offline']:
@@ -1411,9 +1452,14 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       Create an m-of-n lockbox associated with wallets loaded onto the
       armoryd server.
       PARAMETERS:
-      Param1 - Descrip1
+      numM - The number of signatures required to spend lockbox funds.
+      numN - The total number of signatures associated with a lockbox.
+      args - The wallets or public keys associated with a lockbox, which must
+             match <numN> in number. The wallets are represented by their Base58
+             IDs. The may be compressed or uncompressed, although the former
+             will be decompressed before being used by the lockbox. 
       RETURN:
-      None
+      An ASCII-formatted lockbox, like the ones created within Armory.
       """
 
       m = int(numM)
@@ -1547,7 +1593,8 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
                lbFileName = 'Multisig_%s.lockbox.txt' % lbID
                lbFilePath = os.path.join(self.armoryHomeDir, lbFileName)
                writeLockboxesFile([lockbox], 
-                                  os.path.join(self.armoryHomeDir, MULTISIG_FILE_NAME), True)
+                                  os.path.join(self.armoryHomeDir, \
+                                               MULTISIG_FILE_NAME), True)
                writeLockboxesFile([lockbox], lbFilePath, False)
                self.serverLBSet[lbID] = lockbox
 
@@ -1562,11 +1609,15 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
    def jsonrpc_getlockboxinfo(self, inLBID=None):
       """
       DESCRIPTION:
-      Get information on the lockbox associated with a lockbox ID string.
+      Get information on the lockbox associated with a lockbox ID string or, if
+      it exists, the currently active armoryd lockbox.
       PARAMETERS:
-      Param1 - Descrip1
+      inLBID - (Default=None) If used, armoryd will get information on the
+               lockbox with the provided Base58 ID instead of the currently
+               active armoryd lockbox.
       RETURN:
-      None
+      If the lockbox is found, a dictionary with information on the lockbox will
+      be returned.
       """
 
       self.lbToUse = self.curLB
@@ -1608,7 +1659,15 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       DESCRIPTION:
       Send an e-mail notification when the current wallet spends money.
       PARAMETERS:
-      Param1 - Descrip1
+      send_from - The email address of the sender.
+      smtpServer - (Default=None) The SMTP email server.
+      password - (Default=None) The email account password.
+      send_to - (Default=None) The recipient or, if the string is delineated by
+                a colon, a list of recipients.
+      subject - (Default=None) The email subject.
+      watchCmd - (Default=add) A string indicating if emails from the sender
+                 should be sent or, if set to "remove", emails from the sender
+                 that are currently being sent should be stopped.
       RETURN:
       None
       """
@@ -1659,14 +1718,21 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
    # lockboxes from ArmoryQt's master list (multisigs.txt) or from the Armory
    # home directory will be searched.
    def jsonrpc_sendlockbox(self, lbIDs, sender, server, pwd, recips,
-                           msgSubj=None):
+                           msgSubj='Armory Lockbox'):
       """
       DESCRIPTION:
       E-mail ASCII-encoded lockboxes to recipients.
       PARAMETERS:
-      Param1 - Descrip1
+      lbIDs - A colon-delineated list of Base58 IDs of lockboxes to send to an
+              email recipient.
+      sender - The email address of the sender.
+      server - The SMTP email server.
+      pwd - The email account password.
+      recips - The recipient or, if the string is delineated by a colon, a list
+               of recipients.
+      msgSubj - (Default=Armory Lockbox) The email subject.
       RETURN:
-      None
+      A string indicating whether or not the attempt to send was successful.
       """
 
       # Initial setup
@@ -1712,7 +1778,8 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       DESCRIPTION:
       Set armoryd-specific metadata associated with Base58 addresses.
       PARAMETERS:
-      Param1 - Descrip1
+      newAddressMetaData - A dictionary containing arbitrary metadata to attach
+                           to Base58 addresses listed with the metadata.
       RETURN:
       None
       """
@@ -1734,7 +1801,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       DESCRIPTION:
       Clear all armoryd-specific metadata for the currently loaded wallet.
       PARAMETERS:
-      Param1 - Descrip1
+      None
       RETURN:
       None
       """
@@ -1749,9 +1816,9 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       DESCRIPTION:
       Get all armoryd-specific metadata for the currently loaded wallet.
       PARAMETERS:
-      Param1 - Descrip1
-      RETURN:
       None
+      RETURN:
+      A dictionary with all metadata sent to armoryd.
       """
 
       return self.addressMetaData
@@ -1764,9 +1831,9 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       DESCRIPTION:
       Get the wallet ID of the currently active wallet.
       PARAMETERS:
-      Param1 - Descrip1
-      RETURN:
       None
+      RETURN:
+      The Base58 ID for the currently active wallet.
       """
 
       # Return the B58 string of the currently active wallet.
@@ -1778,11 +1845,11 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
    def jsonrpc_getactivelockbox(self):
       """
       DESCRIPTION:
-      Get the lockbox ID of the currently active wallet.
+      Get the lockbox ID of the currently active lockbox.
       PARAMETERS:
-      Param1 - Descrip1
-      RETURN:
       None
+      RETURN:
+      The Base58 ID for the currently active lockbox.
       """
 
       # Return the B58 string of the currently active lockbox.
@@ -1797,9 +1864,9 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       Set the currently active wallet to one already loaded on the armoryd
       server.
       PARAMETERS:
-      Param1 - Descrip1
+      newIDB58 - The Base58 ID of the wallet to be made active.
       RETURN:
-      None
+      A string indicating whether or not the wallet was set as desired.
       """
 
       # Return a string indicating whether or not the active wallet was set to a
@@ -1825,9 +1892,9 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       Set the currently active lockbox to one already loaded on the armoryd
       server.
       PARAMETERS:
-      Param1 - Descrip1
+      newIDB58 - The Base58 ID of the lockbox to be made active.
       RETURN:
-      None
+      A string indicating whether or not the lockbox was set as desired.
       """
 
       # Return a string indicating whether or not the active wallet was set to a
@@ -1850,9 +1917,9 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       DESCRIPTION:
       List all wallets loaded onto the armoryd server.
       PARAMETERS:
-      Param1 - Descrip1
-      RETURN:
       None
+      RETURN:
+      A dictionary with the Base58 values of all wallets loaded in armoryd.
       """
 
       # Return a dictionary with a string as the key and a wallet B58 value as
@@ -1873,9 +1940,9 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       DESCRIPTION:
       List all lockboxes loaded onto the armoryd server.
       PARAMETERS:
-      Param1 - Descrip1
-      RETURN:
       None
+      RETURN:
+      A dictionary with the Base58 values of all lockboxes loaded in armoryd.
       """
 
       # Return a dictionary with a string as the key and a wallet B58 value as
@@ -1898,9 +1965,9 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       DESCRIPTION:
       Get a signed Tx from a file and get the raw hex data to broadcast.
       PARAMETERS:
-      Param1 - Descrip1
+      txASCIIFile - The path to a file with an signed transacion.
       RETURN:
-      None
+      A hex string of the raw transaction data to be transmitted.
       """
 
       ustxObj = None
@@ -2031,14 +2098,17 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
    # representation of the signed Tx, with the current wallet signing the Tx.
    # See SignBroadcastOfflineTxFrame::signTx() (ui/TxFrames.py) for the GUI's
    # analog.
-   def jsonrpc_signasciitransaction(self, unsignedTxASCII, wltPasswd):
+   def jsonrpc_signasciitransaction(self, unsignedTxASCII, wltPasswd=None):
       """
       DESCRIPTION:
       Sign an unsigned transaction and get the signed ASCII data.
       PARAMETERS:
-      Param1 - Descrip1
+      unsignedTxASCII - An ASCII-formatted unsigned transaction, like the one
+                        used by Armory for offline transactions.
+      wltPasswd - (Default=None) If needed, the current wallet's password.
       RETURN:
-      None
+      A string with the ASCII-formatted signed transaction or, if the signing
+      failed, a string indicating failure.
       """
 
       retStr = ''
@@ -2085,17 +2155,11 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       """
       DESCRIPTION:
       Get a directionary with all functions the armoryd server can run.
-      I'm gonna see if this works.
       PARAMETERS:
-      dummy - It's a dummy, sucka!
-              We may need to split across multiple lines.
-      dummy2 - I told you it's a dummy!
-               It's still getting split across multiple lines.
-      dummy3 - Yet another dummy.                             
-               You'll never stop being a dummy!
+      None
       RETURN:
-      A dictionary with information.
-      Simple, eh?
+      A dictionary with all functions available on the armoryd server, along
+      with the function parameters and function return value.
       """
 
       return jsonFunctDict
@@ -2181,6 +2245,8 @@ class Armory_Daemon(object):
       self.wltIDSet = set()
       self.lbSet = {}
       self.lbIDSet = set()
+      self.curWlt = None
+      self.curLB = None
 
       # Check if armoryd is already running. If so, just execute the command.
       armorydIsRunning = self.checkForAlreadyRunning()
