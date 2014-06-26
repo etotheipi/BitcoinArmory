@@ -161,10 +161,7 @@ bool LDBIter::seekTo(DB_PREFIX pref, BinaryDataRef key)
    BinaryWriter bw(key.getSize() + 1);
    bw.put_uint8_t((uint8_t)pref);
    bw.put_BinaryData(key);
-   bool didSucceed = seekTo(bw.getDataRef());
-   if(didSucceed)
-      readIterData();
-   return didSucceed;
+   return seekTo(bw.getDataRef());
 }
 
 
@@ -196,6 +193,7 @@ bool LDBIter::seekToStartsWith(BinaryDataRef key)
 
 }
 
+
 ////////////////////////////////////////////////////////////////////////////////
 bool LDBIter::seekToStartsWith(DB_PREFIX prefix)
 {
@@ -215,6 +213,28 @@ bool LDBIter::seekToStartsWith(DB_PREFIX pref, BinaryDataRef key)
       return false;
 
    return checkKeyStartsWith(pref, key);
+}
+
+
+bool LDBIter::seekToBefore(BinaryDataRef key)
+{
+   iter_.seek(CharacterArrayRef(key.getSize(), key.getPtr()), LMDB::Iterator::Seek_LE);
+   return readIterData();
+}
+
+bool LDBIter::seekToBefore(DB_PREFIX prefix)
+{
+   BinaryWriter bw(1);
+   bw.put_uint8_t((uint8_t)prefix);
+   return seekToBefore(bw.getDataRef());
+}
+
+bool LDBIter::seekToBefore(DB_PREFIX pref, BinaryDataRef key)
+{
+   BinaryWriter bw(key.getSize() + 1);
+   bw.put_uint8_t((uint8_t)pref);
+   bw.put_BinaryData(key);
+   return seekToBefore(bw.getDataRef());
 }
 
 

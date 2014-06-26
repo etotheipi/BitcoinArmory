@@ -117,7 +117,7 @@ public:
    bool isValid(DB_PREFIX dbpref);
 
    bool readIterData(void);
-
+   
    bool advance(void);
    bool advance(DB_PREFIX prefix);
    bool advanceAndRead(void);
@@ -139,6 +139,9 @@ public:
    bool seekToStartsWith(BinaryDataRef key);
    bool seekToStartsWith(DB_PREFIX prefix);
    bool seekToStartsWith(DB_PREFIX pref, BinaryDataRef key);
+   bool seekToBefore(BinaryDataRef key);
+   bool seekToBefore(DB_PREFIX prefix);
+   bool seekToBefore(DB_PREFIX pref, BinaryDataRef key);
    bool seekToFirst(void);
 
    // Return true if the iterator is currently on valid data, with key match

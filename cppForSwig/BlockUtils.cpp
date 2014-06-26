@@ -864,6 +864,7 @@ TxRef BlockDataManager_LevelDB::getTxRefByHash(HashString const & txhash)
 /////////////////////////////////////////////////////////////////////////////
 Tx BlockDataManager_LevelDB::getTxByHash(HashString const & txhash)
 {
+   LMDB::Transaction batch(&iface_->dbs_[BLKDATA]);
 
    TxRef txrefobj = getTxRefByHash(txhash);
 

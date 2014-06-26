@@ -941,6 +941,7 @@ vector<LedgerEntry> BtcWallet::getTxLedger(HashString const & scraddr) const
 
    if (bdmPtr_->config().armoryDbType == ARMORY_DB_SUPER)
    {
+      LMDBBlockDatabase::Batch batch(bdmPtr_->getIFace(), BLKDATA);
       vector<LedgerEntry> ledgerEntries;
       for(const TxIOPair &txio : getHistoryForScrAddr(scraddr))
       {
@@ -980,6 +981,7 @@ vector<LedgerEntry> BtcWallet::getTxLedger() const
 
    if (bdmPtr_->config().armoryDbType == ARMORY_DB_SUPER)
    {
+      LMDBBlockDatabase::Batch batch(bdmPtr_->getIFace(), BLKDATA);
       vector<LedgerEntry> ledgerEntries;
       ts_saMap::const_snapshot saSnapshot(scrAddrMap_);
       for(const auto &sa : saSnapshot)
