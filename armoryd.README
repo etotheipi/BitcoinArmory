@@ -28,7 +28,7 @@
 *             Reimplementing all the networking code would be fraught with bugs,
 *             security holes, and possible blockchain forking.  The reliance
 *             on Bitcoin-Qt right now is actually making Armory more secure!
-*           
+*
 *             armoryd is a command-line program comparable to Bitcoin Core's
 *             bitcoind. armoryd allows users to use Armory functionality solely
 *             from a command line, write scripts that implement Armory
@@ -71,6 +71,17 @@
 *                n3QJ7oiaDHBMxtN5bckLDLBr98zeufEkMv 10 - Create an unsigned
 *                transaction of 10 BTC to be sent to the given address on
 *                testnet.
+*
+*             In order to run armoryd, the user must have bitcoind installed on
+*             the same computer as armoryd. As of June 2014, bitcoind can be
+*             downloaded in binary form for Windows and Linux, alongside
+*             Bitcoin Core downloads, while OS X users must build and install
+*             their own binaries. Go to https://github.com/bitcoin/bitcoin for
+*             more information on how to download, build and install the
+*             bitcoind code. In addition, be sure to download the correct
+*             branch for the latest build. For example, to download the source
+*             code for v0.9.2, https://github.com/bitcoin/bitcoin/tree/0.9.2 is
+*             the link to use, or, if using git, "0.9.2" is the correct branch.
 *
 ********************************************************************************
 *

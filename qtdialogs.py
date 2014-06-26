@@ -11475,10 +11475,9 @@ class DlgExpWOWltData(ArmoryDialog):
          <center><b><u>Export Entire Watch-Only Wallet File: %s</u></b></center>
          <br>
          <i><b><font color="%s">(Recommended)</font></b></i> 
-         An exact copy of your wallet file but without 
-         any of the private 
-         signing keys.  All existing comments and labels will be carried 
-         with the file.  Use this option if it is easy to transfer files 
+         An exact copy of your wallet file but without any of the private 
+         signing keys. All existing comments and labels will be carried 
+         with the file. Use this option if it is easy to transfer files 
          from this system to the target system.""") % \
          (self.wlt.uniqueIDB58, htmlColor('TextBlue')))
 
@@ -11486,8 +11485,8 @@ class DlgExpWOWltData(ArmoryDialog):
          <center><b><u>Export Watch-Only Root Data: %s</u></b></center>
          <br>
          Five lines of data that describe how to regenerate every public 
-         key (Bitcoin address) in your wallet.  Easy to print or copy by
-         hand.  Does not carry any comments or labels with it.""") % \
+         key (Bitcoin address) in your wallet. Easy to print or copy by
+         hand. Does not carry any comments or labels with it.""") % \
          self.wlt.uniqueIDB58)
 
       btnDone = QPushButton(tr('Done'))
@@ -11679,11 +11678,11 @@ class DlgWODataPrintBackup(ArmoryDialog):
       self.scene.newLine()
 
       warnMsg = tr("""
-         <b><font size=4><font color="#aa0000">WARNING:</font>  <u>This is not a wallet 
-         backup!</u></font></b>  
-         <br><br>Please make a regular digital or paper backup 
+         <b><font size=4><font color="#aa0000">WARNING:</font>  <u>This is not 
+         a wallet backup!</u></font></b>  
+         <br><br>Please make a regular digital or paper backup of your wallet 
          of your wallet to keep it protected!  This data simply lets you 
-         monitor the funds in this wallet but no ability to move any 
+         monitor the funds in this wallet but gives you no ability to move any 
          funds.""")
       self.scene.drawText(warnMsg, GETFONT('Var', 9), wrapWidth=wrap)
 
