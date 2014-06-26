@@ -2899,6 +2899,61 @@ def getRSFromDERSig(derSig):
    return r[-32:], s[-32:]
 
 
+#############################################################################
+def newBlockSyncRescanZC(self, wltMap, prevLedgSize):
+   for wltID in wltMap.keys():
+      wltMap[wltID].syncWithBlockchainLite()
+      TheBDM.rescanWalletZeroConf(wltMap[wltID].cppWallet)
+      newLedgerSize = len(wltMap[wltID].getTxLedger())
+      if prevLedgSize[wltID] != newLedgerSize:
+         return True
+
+   return False
+
+
+#############################################################################
+def notifyOnSurpriseTx(self, blk0, blk1, wltMap, gui, notifyQueue=None):
+   # We usually see transactions as zero-conf first, then they show up in
+   # a block. It is a "surprise" when the first time we see it is in a block
+   if gui:
+      notifiedAlready = set([ n[1].getTxHash() for n in self.notifyQueue ])
+      notifyIn  = self.getSettingOrSetDefault('NotifyBtcIn',  not OS_MACOSX)
+      notifyOut = self.getSettingOrSetDefault('NotifyBtcOut', not OS_MACOSX)
+
+   for blk in range(blk0, blk1):
+      sbh = TheBDM.getMainBlockFromDB(blk)
+      for i in range(sbh.getNumTx()):
+         cppTx = sbh.getTxCopy(i)
+         # Iterate through the Python wallets and create a ledger entry for
+         # the transaction. If we haven't already been notified of the
+         # transaction, put it on the notification queue.
+         for wltID,wlt in wltMap.iteritems():
+            le = wlt.cppWallet.calcLedgerEntryForTx(cppTx)
+            if gui and (notifyQueue != None):
+               if not le.getTxHash() in notifiedAlready:
+                  if (le.getValue()<=0 and notifyOut) or (le.getValue>0 and notifyIn):
+                     notifyQueue.append([wltID, le, False])
+               else:
+                  pass
+            else:
+               # There should be a log message here.
+               pass
+         # Iterate through the C++ lockbox wallets and create a ledger entry
+         # for the transaction.If we haven't already been notified of the
+         # transaction, put it on the notification queue.
+         for lbID,cppWlt in self.cppLockboxWltMap.iteritems():
+            le = cppWlt.calcLedgerEntryForTx(cppTx)
+            if gui and (notifyQueue != None):
+               if not le.getTxHash() in notifiedAlready:
+                  if (le.getValue()<=0 and notifyOut) or \
+                     (le.getValue>0 and notifyIn):
+                     notifyQueue.append([lbID, le, False])
+               else:
+                  pass
+            else:
+               # There should be a log message here.
+               pass
+
 
 ################################################################################
 class PyBackgroundThread(threading.Thread):

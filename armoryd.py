@@ -2051,9 +2051,12 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
    #############################################################################
    # Function that takes new wallets and adds them to the wallet set available
    # to armoryd. Wallet paths are passed in and delineated by colons.
-   # NB: This call is currently disabled. Adding a wallet triggers a rescan,
+   # NB 1: This call is currently disabled. Adding a wallet triggers a rescan,
    # which could take upwards of 20-30 min. A future code change will make this
    # call go much more smoothly, but for now....
+   # NB 2: The Armory_Daemon code needs to be able to execute functions whenever
+   # a new Tx comes in for a particular wallet. Moving this code to a utility
+   # funct would probably be wiser.
    #def jsonrpc_addwallets(self, newWltPaths):
    #   """
    #   DESCRIPTION:
@@ -2082,9 +2085,13 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
    #############################################################################
    # Function that takes new lockboxes and adds them to the lockbox set
    # available to armoryd. Lockbox paths are passed in and delineated by colons.
-   # NB: This call is currently disabled. Adding a lockbox triggers a rescan,
+   # NB 1: This call is currently disabled. Adding a lockbox triggers a rescan,
    # which could take upwards of 20-30 min. A future code change will make this
    # call go much more smoothly, but for now....
+   # NB 2: The Armory_Daemon code needs to be able to execute functions whenever
+   # a new Tx comes in for a particular wallet. Moving this code to a utility
+   # funct might be necessary. Chck when the time comes.
+
    #def jsonrpc_addlockboxes(self, newLBPaths):
    #   """
    #   DESCRIPTION:
@@ -2165,6 +2172,31 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
             retStr = unsignedTx.serializeAscii()
 
       return retStr
+
+
+   #############################################################################
+   # Register some code to be run when we encounter a zero-conf Tx or a
+   # "surprise" Tx. The definitions are as follows.
+   #
+   # Zero-conf Tx: A Tx seen by itelf on the network. (This is virtually every
+   #               Tx on the network.)
+   # Surprise Tx: On rare occasions, a transaction will be seen for the first
+   #              time when it appears in a block.
+   #
+   # NB: This code is NOT ready for everyday use and is here primarily to
+   # establish some hooks to support future work. It's also blatantly wrong, as
+   # the code doesn't match the newBlockFunctions code. Hack at your own risk!
+   #def jsonrpc_registertxscript(self, scrPath):
+   #   """
+   #   DESCRIPTION:
+   #   Add wallets onto the armoryd server.
+   #   PARAMETERS:
+   #   None
+   #   RETURN:
+   #   None
+   #   """
+   #
+   #   rpc_server.newTxFunctions[curWlt].append(scrPath)
 
 
    #############################################################################
@@ -2543,12 +2575,11 @@ class Armory_Daemon(object):
 
    #############################################################################
    def execOnNewTx(self, pytxObj):
-      # Gotta do this on every new Tx
+      # Execute on every new Tx.
       TheBDM.addNewZeroConfTx(pytxObj.serialize(), long(RightNow()), True)
       TheBDM.rescanWalletZeroConf(self.curWlt.cppWallet)
 
-      # Add anything else you'd like to do on a new transaction
-      #
+      # Add anything else you'd like to do on a new transaction.
       for txFunc in self.newTxFunctions:
          txFunc(pytxObj)
 
@@ -2559,15 +2590,16 @@ class Armory_Daemon(object):
       # WITH THE NEW BLOCK!  ONLY CALL FUNCTIONS THAT OPERATE PURELY ON
       # THE NEW HEADER AND TXLIST WITHOUT TheBDM.
 
-      # Any functions that you want to execute on new blocks should go in 
+      # Any functions that you want to execute on new blocks should go in
       # the "if newBlocks>0: ... " clause in the Heartbeat function, below
 
       # Armory executes newBlock functions in the readBlkFileUpdate()
-      # which occurs in the heartbeat function.  execOnNewBlock() may be 
-      # called before readBlkFileUpdate() has run, and thus TheBDM may 
-      # not have the new block data yet (there's a variety of reason for 
-      # this design decision, I can enumerate them for you in an email...)
-      
+      # which occurs in the heartbeat function.  execOnNewBlock() may be
+      # called before readBlkFileUpdate() has run, and thus TheBDM may
+      # not have the new block data yet. (There's a variety of reason for
+      # this design decision, I can enumerate them for you in an email....)
+      # If you need to execute anything, execute after readBlkFileUpdate().
+
       # Therefore, if you put anything here, it should operate on the header
       # or tx data in a vacuum (without any reliance on TheBDM)
       pass
@@ -2633,6 +2665,12 @@ class Armory_Daemon(object):
          if RightNow() >= nextCheck:
             self.checkWallet()
 
+         # If there's a new block, use this to determine it affected our wallets.
+         # NB: We may wish to alter this to reflect only the active wallet.
+         #prevLedgSize = dict([(wltID, len(self.walletMap[wltID].getTxLedger())) \
+         #                                    for wltID in wltSet.keys()])
+
+
          # Check for new blocks in the blk000X.dat file
          prevTopBlock = TheBDM.getTopBlockHeight()
          newBlks = TheBDM.readBlkFileUpdate()
@@ -2643,8 +2681,32 @@ class Armory_Daemon(object):
             self.curWlt.syncWithBlockchain()
             TheBDM.rescanWalletZeroConf(self.curWlt.cppWallet)
 
-            # If there are no functions to run, just skip all this
-            if not len(self.newBlockFunctions)==0:
+            # On very rare occasions, we could come across a new Tx in a block
+            # instead of seeing it on the network first. Let's check for this
+            # case and, if desired, execute NewTx user functs.
+            # NB: As written, this code is probably wrong! We only care about
+            # the active wallet, but we're passing in the entire wallet set.
+            # We probably ought to add awareness of the current wallet in the
+            # daemon. Be sure to get the initial wallet and do post-processing
+            # when a user wants to change the active wallet. (For that matter,
+            # we should probably add post-processing when adding wallets so
+            # that we can track what we have.)
+            #surpriseTx = newBlockSyncRescanZC(wltSet, prevLedgSize)
+            #if surpriseTx:
+               #LOGINFO('New Block contained a transaction relevant to us!')
+               # THIS NEEDS TO BE CHECKED! IT STILL USES ARMORYQT VALUES!!!
+               # WLTSET SHOULD ALSO PROBABLY BE CHANGED TO THE CURRENT WALLET!
+               #self.notifyOnSurpriseTx(self.currBlockNum-newBlocks, \
+               #                        self.currBlockNum+1, wltSet, False)
+
+               # If there's user-executed code on a new Tx, execute here before
+               # dealing with any new blocks.
+               # NB: THIS IS PLACEHOLDER CODE THAT MAY BE WRONG!!!
+               #for txFunc in self.newTxFunctions:
+                  #txFunc(pytxObj)
+
+            # If there are no new block functions to run, just skip all this.
+            if len(self.newBlockFunctions) > 0:
                # Here's where we actually execute the new-block calls, because
                # this code is guaranteed to execute AFTER the TheBDM has processed
                # the new block data.

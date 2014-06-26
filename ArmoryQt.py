@@ -6420,18 +6420,6 @@ class ArmoryMainWindow(QMainWindow):
                self.walletModel.reset()
                self.lockboxLedgModel.reset()
 
-   #############################################################################
-   @TimeThisFunction
-   def newBlockSyncRescanZC(self, prevLedgSize):
-      for wltID in self.walletMap.keys():
-         self.walletMap[wltID].syncWithBlockchainLite()
-         TheBDM.rescanWalletZeroConf(self.walletMap[wltID].cppWallet)
-         newLedgerSize = len(self.walletMap[wltID].getTxLedger())
-         if prevLedgSize[wltID] != newLedgerSize:
-            return True
-
-      return False
-
 
    #############################################################################
    #############################################################################
@@ -6637,13 +6625,15 @@ class ArmoryMainWindow(QMainWindow):
                didAffectUs = False
 
                # LITE sync means it won't rescan if addresses have been imported
-               didAffectUs = self.newBlockSyncRescanZC(prevLedgSize)
+               didAffectUs = self.newBlockSyncRescanZC(self.walletMap, \
+                                                       prevLedgSize)
 
                if didAffectUs:
                   LOGINFO('New Block contained a transaction relevant to us!')
                   self.walletListChanged()
                   self.notifyOnSurpriseTx(self.currBlockNum-newBlocks, \
-                                          self.currBlockNum+1)
+                                          self.currBlockNum+1, self.walletMap, \
+                                          True, self.notifyQueue)
 
                self.createCombinedLedger()
                self.blkReceived  = RightNow()
@@ -6683,41 +6673,6 @@ class ArmoryMainWindow(QMainWindow):
          LOGERROR(sys.exc_info())
       finally:
          reactor.callLater(nextBeatSec, self.Heartbeat)
-
-
-   #############################################################################
-   def notifyOnSurpriseTx(self, blk0, blk1):
-      # We usually see transactions as zero-conf first, then they show up in
-      # a block. It is a "surprise" when the first time we see it is in a block
-      notifiedAlready = set([ n[1].getTxHash() for n in self.notifyQueue ])
-      notifyIn  = self.getSettingOrSetDefault('NotifyBtcIn',  not OS_MACOSX)
-      notifyOut = self.getSettingOrSetDefault('NotifyBtcOut', not OS_MACOSX)
-      for blk in range(blk0, blk1):
-         sbh = TheBDM.getMainBlockFromDB(blk)
-         for i in range(sbh.getNumTx()):
-            cppTx = sbh.getTxCopy(i)
-            # Iterate through the Python wallets and create a ledger entry for
-            # the transaction. If we haven't already been notified of the
-            # transaction, put it on the notification queue.
-            for wltID,wlt in self.walletMap.iteritems():
-               le = wlt.cppWallet.calcLedgerEntryForTx(cppTx)
-               if not le.getTxHash() in notifiedAlready:
-                  if (le.getValue()<=0 and notifyOut) or (le.getValue>0 and notifyIn):
-                     self.notifyQueue.append([wltID, le, False])
-               else:
-                  pass
-
-            # Iterate through the C++ lockbox wallets and create a ledger entry
-            # for the transaction.If we haven't already been notified of the
-            # transaction, put it on the notification queue.
-            for lbID,cppWlt in self.cppLockboxWltMap.iteritems():
-               le = cppWlt.calcLedgerEntryForTx(cppTx)
-               if not le.getTxHash() in notifiedAlready:
-                  if (le.getValue()<=0 and notifyOut) or \
-                     (le.getValue>0 and notifyIn):
-                     self.notifyQueue.append([lbID, le, False])
-               else:
-                  pass
 
 
    #############################################################################
