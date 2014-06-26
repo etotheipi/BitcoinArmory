@@ -17,7 +17,9 @@ install : all
 	mkdir -p $(DESTDIR)$(PREFIX)/lib/armory/extras
 	mkdir -p $(DESTDIR)$(PREFIX)/lib/armory/bitcoinrpc_jsonrpc
 	mkdir -p $(DESTDIR)$(PREFIX)/lib/armory/txjsonrpc
+	mkdir -p $(DESTDIR)$(PREFIX)/lib/armory/txjsonrpc/web
 	mkdir -p $(DESTDIR)$(PREFIX)/lib/armory/ui
+	mkdir -p $(DESTDIR)$(PREFIX)/lib/armory/pytest
 	mkdir -p $(DESTDIR)$(PREFIX)/lib/armory/BitTornado/BT1
 	mkdir -p $(DESTDIR)$(PREFIX)/lib/armory/urllib3
 	cp *.py *.so README $(DESTDIR)$(PREFIX)/lib/armory/
@@ -25,8 +27,10 @@ install : all
 	rsync -rupE img $(DESTDIR)$(PREFIX)/share/armory/
 	cp extras/*.py $(DESTDIR)$(PREFIX)/lib/armory/extras
 	cp bitcoinrpc_jsonrpc/*.py $(DESTDIR)$(PREFIX)/lib/armory/bitcoinrpc_jsonrpc
-	cp txjsonrpc/*.py $(DESTDIR)$(PREFIX)/lib/armory/txjsonrpc
+	cp -r txjsonrpc/*.py $(DESTDIR)$(PREFIX)/lib/armory/txjsonrpc
+	cp -r txjsonrpc/web/*.py $(DESTDIR)$(PREFIX)/lib/armory/txjsonrpc/web
 	cp ui/*.py $(DESTDIR)$(PREFIX)/lib/armory/ui
+	cp pytest/*.py $(DESTDIR)$(PREFIX)/lib/armory/pytest
 	cp -r urllib3/* $(DESTDIR)$(PREFIX)/lib/armory/urllib3
 	mkdir -p $(DESTDIR)$(PREFIX)/share/applications
 	cp BitTornado/*.py $(DESTDIR)$(PREFIX)/lib/armory/BitTornado

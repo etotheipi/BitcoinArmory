@@ -398,32 +398,42 @@ class MSUtilsTest(unittest.TestCase):
       
 
 ################################################################################
-class AllClassRoundTripTest(unittest.TestCase):
-   def setUp(self):
-
+# This class tests all Round Trip operations, plus other tests that involve
+# Lockbox Related Objects
+# There are 6 objects that are tested for at least round trip operations
+#    Decorated Public Key
+#    Lockbox
+#    Promisory Note
+#    Unsigned Transaction
+#    Unsigned Transaction Input
+#    Decorated Transaction Output
+class LockboxRelatedObjectsTest(unittest.TestCase):
+   @classmethod
+   def setUpClass(self):
+      global serMap
       # We have 6 classes to test, but USTXI and DTXO can use the USTX data
-      self.serMap = {}
-      self.serMap['dpk']      = {}
-      self.serMap['lockbox']  = {}
-      self.serMap['promnote'] = {}
-      self.serMap['ustx']     = {}
+      serMap = {}
+      serMap['dpk']      = {}
+      serMap['lockbox']  = {}
+      serMap['promnote'] = {}
+      serMap['ustx']     = {}
 
       
-      self.serMap['dpk']['nocomment'] = textwrap.dedent("""
+      serMap['dpk']['nocomment'] = textwrap.dedent("""
          =====PUBLICKEY-mqQQMsTsUyGJ=====================================================
          AQAAAAsRCQdBBPXISLf5jl7LafjFYbMVfb+OqjzMD8XGVyBauZ1kNA/tMGoZn5lHdfZRVcNN8D9+9vG9
          GpvTn9PUWZ1uETTewPIAAAAA
          ================================================================================
          """.strip())
 
-      self.serMap['dpk']['wcomment'] = textwrap.dedent("""
+      serMap['dpk']['wcomment'] = textwrap.dedent("""
          =====PUBLICKEY-mqjMCZC4BFRm=====================================================
          AQAAAAsRCQdBBCMhT2Hr0mjRkNu+VR+JFRczrwE+E+Fbzd5l/XNCHJC6i62liVEVRnasthYQCjiFsv2y
          Yw9HN6LxwO6+eQeBKQEcdGhpcyBpcyBhIHVzZWxlc3MgY29tbWVudCFAIQAAAA==
          ================================================================================
          """.strip())
 
-      self.serMap['lockbox']['nocomments'] = textwrap.dedent("""
+      serMap['lockbox']['nocomments'] = textwrap.dedent("""
          =====LOCKBOX-7mtvkCTa===========================================================
          AQAAAAsRCQclhKNTAAAAAAtTYW1wbGUgMm9mMwACA04BAAAACxEJB0EEIyFPYevSaNGQ275VH4kVFzOv
          AT4T4VvN3mX9c0IckLqLraWJURVGdqy2FhAKOIWy/bJjD0c3ovHA7r55B4EpAQAAAABOAQAAAAsRCQdB
@@ -433,7 +443,7 @@ class AllClassRoundTripTest(unittest.TestCase):
          ================================================================================
          """.strip())
 
-      self.serMap['lockbox']['nometadata'] = textwrap.dedent("""
+      serMap['lockbox']['nometadata'] = textwrap.dedent("""
          =====LOCKBOX-7mtvkCTa===========================================================
          AQAAAAsRCQclhKNTAAAAAAtTYW1wbGUgMm9mMwACA2ABAAAACxEJB0EEIyFPYevSaNGQ275VH4kVFzOv
          AT4T4VvN3mX9c0IckLqLraWJURVGdqy2FhAKOIWy/bJjD0c3ovHA7r55B4EpARJLZXkgIzEgaW4gdGhl
@@ -446,7 +456,7 @@ class AllClassRoundTripTest(unittest.TestCase):
 
 
 
-      self.serMap['promnote']['regular'] = textwrap.dedent("""
+      serMap['promnote']['regular'] = textwrap.dedent("""
          =====PROMISSORY-CerrVYjD========================================================
          AQAAAAsRCQcyAQAAAAsRCQcXqRSRUUn/7EjvozN4YtftMtBnm438H4ew1owAAAAAAAAABE5PTkUAAAA0
          AQAAAAsRCQcZdqkU3GEOtRTZmvGtO/RAN/POah+meRyIrEDvBwAAAAAAAAAETk9ORQAAABAnAAAAAAAA
@@ -492,7 +502,7 @@ class AllClassRoundTripTest(unittest.TestCase):
          """.strip())
 
 
-      self.serMap['promnote']['regular'] = textwrap.dedent("""
+      serMap['promnote']['regular'] = textwrap.dedent("""
          =====PROMISSORY-GVfKYBqK========================================================
          AQAAAAsRCQcyAQAAAAsRCQcXqRSUFt7Fp83rejuvC6FPeHUyzH6RQodQNHQCAAAAAAAABE5PTkUAAAAA
          AAAAAAAAAAAB/YMBAQAAAAsRCQdKjCQZ04S5mekJ7FSvGyohppsRllgQ1lF0D/ewX9Ls6AAAAAD9AAEB
@@ -508,7 +518,7 @@ class AllClassRoundTripTest(unittest.TestCase):
          
 
       # These will be used for all USTX, USTXI and DTXO
-      self.serMap['ustx']['regular'] = textwrap.dedent("""
+      serMap['ustx']['regular'] = textwrap.dedent("""
          =====TXSIGCOLLECT-8rgLHcFg======================================================
          AQAAAAsRCQcAAAAAAv3EAQEAAAALEQkHc4uuUlna6Cw/HRowBY70IQ52kRVtRw8FNAIkl8SsT7kBAAAA
          /QIBAQAAAAEXA5J+qKVnY8IE4dDBE58Pyp+q1uA/RBkeol1FLLoZFQAAAACLSDBFAiEA0dB7emFmICZD
@@ -535,7 +545,7 @@ class AllClassRoundTripTest(unittest.TestCase):
          """.strip())
 
 
-      self.serMap['ustx']['multispend_unsigned'] = textwrap.dedent("""
+      serMap['ustx']['multispend_unsigned'] = textwrap.dedent("""
          =====TXSIGCOLLECT-7oXWAFds======================================================
          AQAAAAsRCQcAAAAAAf3UAgEAAAALEQkHSowkGdOEuZnpCexUrxsqIaabEZZYENZRdA/3sF/S7OgBAAAA
          /QABAQAAAAE0v/Sl2nBWCT2EAqEpEUiCmAyCIEOsGcxHYIoqRAFW7gAAAACLSDBFAiBPTE3Xza0azFvA
@@ -555,7 +565,7 @@ class AllClassRoundTripTest(unittest.TestCase):
          ================================================================================
          """.strip())
 
-      self.serMap['ustx']['multispend_partsign'] = textwrap.dedent("""
+      serMap['ustx']['multispend_partsign'] = textwrap.dedent("""
          =====TXSIGCOLLECT-7oXWAFds======================================================
          AQAAAAsRCQcAAAAAAf0bAwEAAAALEQkHSowkGdOEuZnpCexUrxsqIaabEZZYENZRdA/3sF/S7OgBAAAA
          /QABAQAAAAE0v/Sl2nBWCT2EAqEpEUiCmAyCIEOsGcxHYIoqRAFW7gAAAACLSDBFAiBPTE3Xza0azFvA
@@ -576,7 +586,7 @@ class AllClassRoundTripTest(unittest.TestCase):
          ================================================================================
          """.strip())
 
-      self.serMap['ustx']['multispend_enoughsign'] = textwrap.dedent("""
+      serMap['ustx']['multispend_enoughsign'] = textwrap.dedent("""
          =====TXSIGCOLLECT-7oXWAFds======================================================
          AQAAAAsRCQcAAAAAAf1jAwEAAAALEQkHSowkGdOEuZnpCexUrxsqIaabEZZYENZRdA/3sF/S7OgBAAAA
          /QABAQAAAAE0v/Sl2nBWCT2EAqEpEUiCmAyCIEOsGcxHYIoqRAFW7gAAAACLSDBFAiBPTE3Xza0azFvA
@@ -598,7 +608,7 @@ class AllClassRoundTripTest(unittest.TestCase):
          ================================================================================ 
          """.strip())
       
-      self.serMap['ustx']['multispend_oversign'] = textwrap.dedent("""
+      serMap['ustx']['multispend_oversign'] = textwrap.dedent("""
          =====TXSIGCOLLECT-7oXWAFds======================================================
          AQAAAAsRCQcAAAAAAf2rAwEAAAALEQkHSowkGdOEuZnpCexUrxsqIaabEZZYENZRdA/3sF/S7OgBAAAA
          /QABAQAAAAE0v/Sl2nBWCT2EAqEpEUiCmAyCIEOsGcxHYIoqRAFW7gAAAACLSDBFAiBPTE3Xza0azFvA
@@ -621,7 +631,7 @@ class AllClassRoundTripTest(unittest.TestCase):
          ================================================================================
          """.strip())
 
-      self.serMap['ustx']['ss2ms_unsigned'] = textwrap.dedent("""
+      serMap['ustx']['ss2ms_unsigned'] = textwrap.dedent("""
          =====TXSIGCOLLECT-HJqTvsXR======================================================
          AQAAAAsRCQcAAAAAAf17AQEAAAALEQkH0yTdj/1epai7+ozi6P+QAGb7SC7heN8KKd7MXaylqCEBAAAA
          /QABAQAAAAFzi65SWdroLD8dGjAFjvQhDnaRFW1HDwU0AiSXxKxPuQEAAACLSDBFAiEAkbFWoFx5lKs+
@@ -635,7 +645,7 @@ class AllClassRoundTripTest(unittest.TestCase):
          ================================================================================
       """.strip())
 
-      self.serMap['ustx']['ss2ms_signed'] = textwrap.dedent("""
+      serMap['ustx']['ss2ms_signed'] = textwrap.dedent("""
          =====TXSIGCOLLECT-HJqTvsXR======================================================
          AQAAAAsRCQcAAAAAAf3CAQEAAAALEQkH0yTdj/1epai7+ozi6P+QAGb7SC7heN8KKd7MXaylqCEBAAAA
          /QABAQAAAAFzi65SWdroLD8dGjAFjvQhDnaRFW1HDwU0AiSXxKxPuQEAAACLSDBFAiEAkbFWoFx5lKs+
@@ -649,16 +659,6 @@ class AllClassRoundTripTest(unittest.TestCase):
          1F3d7mcXOTnq/eWIrCD0DgAAAAAAAAAETk9ORQAAAA==
          ================================================================================
          """.strip())
-
-         
-      
-
-         
-
-
-   def tearDown(self):
-      pass
-
 
    #############################################################################
    def doRoundTrip(self, classObj, serMethod, unserMethod):
@@ -691,14 +691,14 @@ class AllClassRoundTripTest(unittest.TestCase):
    ##### UnsignedTxInput
    #############################################################################
    def testUSTXI_serialize_roundtrip(self):
-      for comment,asciiUstx in self.serMap['ustx'].iteritems():
+      for comment,asciiUstx in serMap['ustx'].iteritems():
          ustx = UnsignedTransaction().unserializeAscii(asciiUstx, skipMagicCheck=True) 
          for ustxi in ustx.ustxInputs:
             self.doRoundTrip(ustxi, 'serialize', 'unserialize')
 
    #############################################################################
    def testUSTXI_JSON_roundtrip(self):
-      for comment,asciiUstx in self.serMap['ustx'].iteritems():
+      for comment,asciiUstx in serMap['ustx'].iteritems():
          ustx = UnsignedTransaction().unserializeAscii(asciiUstx, skipMagicCheck=True) 
          for ustxi in ustx.ustxInputs:
             self.doRoundTrip(ustxi, 'toJSONMap', 'fromJSONMap')
@@ -708,14 +708,14 @@ class AllClassRoundTripTest(unittest.TestCase):
    ##### DecoratedTxOut
    #############################################################################
    def testDTXO_serialize_roundtrip(self):
-      for comment,asciiUstx in self.serMap['ustx'].iteritems():
+      for comment,asciiUstx in serMap['ustx'].iteritems():
          ustx = UnsignedTransaction().unserializeAscii(asciiUstx, skipMagicCheck=True) 
          for dtxo in ustx.decorTxOuts:
             self.doRoundTrip(dtxo, 'serialize', 'unserialize')
 
    #############################################################################
    def testDTXO_JSON_roundtrip(self):
-      for comment,asciiUstx in self.serMap['ustx'].iteritems():
+      for comment,asciiUstx in serMap['ustx'].iteritems():
          ustx = UnsignedTransaction().unserializeAscii(asciiUstx, skipMagicCheck=True) 
          for dtxo in ustx.decorTxOuts:
             self.doRoundTrip(dtxo, 'toJSONMap', 'fromJSONMap')
@@ -725,19 +725,19 @@ class AllClassRoundTripTest(unittest.TestCase):
    ##### UnsignedTransaction
    #############################################################################
    def testUSTX_serialize_roundtrip(self):
-      for comment,asciiUstx in self.serMap['ustx'].iteritems():
+      for comment,asciiUstx in serMap['ustx'].iteritems():
          ustx = UnsignedTransaction().unserializeAscii(asciiUstx, skipMagicCheck=True) 
          self.doRoundTrip(ustx, 'serialize', 'unserialize')
 
    #############################################################################
    def testUSTX_serializeAscii_roundtrip(self):
-      for comment,asciiUstx in self.serMap['ustx'].iteritems():
+      for comment,asciiUstx in serMap['ustx'].iteritems():
          ustx = UnsignedTransaction().unserializeAscii(asciiUstx, skipMagicCheck=True) 
          self.doRoundTrip(ustx, 'serializeAscii', 'unserializeAscii')
 
    #############################################################################
    def testUSTX_JSON_roundtrip(self):
-      for comment,asciiUstx in self.serMap['ustx'].iteritems():
+      for comment,asciiUstx in serMap['ustx'].iteritems():
          ustx = UnsignedTransaction().unserializeAscii(asciiUstx, skipMagicCheck=True) 
          self.doRoundTrip(ustx, 'toJSONMap', 'fromJSONMap')
 
@@ -747,44 +747,85 @@ class AllClassRoundTripTest(unittest.TestCase):
    ##### Lockbox
    #############################################################################
    def testLockbox_serialize_roundtrip(self):
-      for comment,asciiLockbox in self.serMap['lockbox'].iteritems():
-         lbox = MultiSigLockbox().unserializeAscii(asciiLockbox, skipMagicCheck=True) 
-         self.doRoundTrip(lbox, 'serialize', 'unserialize')
+      for comment,asciiLockbox in serMap['lockbox'].iteritems():
+         lbox = MultiSigLockbox().unserializeAscii(asciiLockbox, skipMagicCheck=True)
+         # Cannot verify that pprint or pprintOneLine does the correct thing,
+         # but at least this will verify that it doesn't crash
+         # and the output can be examined for manual verification.
+         lbox.pprintOneLine()
+         lbox.pprint()
 
    #############################################################################
    def testLockbox_serializeAscii_roundtrip(self):
-      for comment,asciiLockbox in self.serMap['lockbox'].iteritems():
+      for comment,asciiLockbox in serMap['lockbox'].iteritems():
          lbox = MultiSigLockbox().unserializeAscii(asciiLockbox, skipMagicCheck=True) 
          self.doRoundTrip(lbox, 'serializeAscii', 'unserializeAscii')
 
    #############################################################################
    def testLockbox_JSON_roundtrip(self):
-      for comment,asciiLockbox in self.serMap['lockbox'].iteritems():
+      for comment,asciiLockbox in serMap['lockbox'].iteritems():
          lbox = MultiSigLockbox().unserializeAscii(asciiLockbox, skipMagicCheck=True) 
          self.doRoundTrip(lbox, 'toJSONMap', 'fromJSONMap')
 
+   def testLockboxDisplayInformation(self):
+      lbox = MultiSigLockbox().unserializeAscii(serMap['lockbox'].values()[0], skipMagicCheck=True)
+      # Cannot verify that pprint or pprintOneLine does the correct thing,
+      # but at least this will verify that it doesn't crash
+      lbox.pprintOneLine()
+      lbox.pprint()
+      
+      resultStr = lbox.getDisplayRichText()
+      self.assertTrue(lbox.uniqueIDB58 in resultStr)
+      self.assertTrue(binScript_to_p2shAddrStr(lbox.binScript))
+   
+   
+   def testCreateDecoratedTxOut(self):
+      lbox = MultiSigLockbox().unserializeAscii(serMap['lockbox'].values()[0], skipMagicCheck=True)
+      expectedValue = 1000
+      decoratedTxOutMultiSig = lbox.createDecoratedTxOut(expectedValue)
+      expectedBinScriptMultiSig = hex_to_binary('52410423214f61ebd268d190dbbe551f89151733af013e13e15bcdde65fd73421c90ba8bada58951154676acb616100a3885b2fdb2630f4737a2f1c0eebe79078129014104c594e7e0dff507907c8d22f9344d5e22269ce1b3a080325462a11296b6d2e37de6dede10dfa039a8a9a499866c5c507b0d02d4b4ea9549f80b8a1a348c0392ba4104ce15d8d12bfdbe86bd34578891165cc35cc4b42e5ddf4fea89f58487e75f48513b08be141e9ce0d13117975db7c999c0b150f8373764d0bcb5fb888d86468da353ae')
+      self.assertEquals(decoratedTxOutMultiSig.binScript, expectedBinScriptMultiSig)
+      self.assertEquals(decoratedTxOutMultiSig.value, expectedValue)
+      self.assertEquals(decoratedTxOutMultiSig.scriptType, CPP_TXOUT_MULTISIG)
+      
+      decoratedTxOutP2SH = lbox.createDecoratedTxOut(expectedValue, asP2SH=True)
+      expectedBinScriptP2SH = hex_to_binary('a9149416dec5a7cdeb7a3baf0ba14f787532cc7e914287')
+      self.assertEquals(decoratedTxOutP2SH.binScript, expectedBinScriptP2SH)
+      self.assertEquals(decoratedTxOutP2SH.value, expectedValue)
+      # self.scriptType is the CPP_TXOUT_TYPE of the txoScript *UNLESS* that
+      # script is P2SH -- then it will be the type of the P2SH subscript,
+      # and that subscript will be stored in self.p2shScript
+      self.assertEquals(decoratedTxOutP2SH.scriptType, CPP_TXOUT_MULTISIG)
+      
    #############################################################################
    ##### Promissory Note
    #############################################################################
    def testPromNote_serialize_roundtrip(self):
-      for comment,asciiPromNote in self.serMap['promnote'].iteritems():
+      for comment,asciiPromNote in serMap['promnote'].iteritems():
          prom = MultiSigPromissoryNote().unserializeAscii(asciiPromNote, skipMagicCheck=True) 
          self.doRoundTrip(prom, 'serialize', 'unserialize')
 
    #############################################################################
    def testPromNote_serializeAscii_roundtrip(self):
-      for comment,asciiPromNote in self.serMap['promnote'].iteritems():
+      for comment,asciiPromNote in serMap['promnote'].iteritems():
          prom = MultiSigPromissoryNote().unserializeAscii(asciiPromNote, skipMagicCheck=True) 
          self.doRoundTrip(prom, 'serializeAscii', 'unserializeAscii')
 
    #############################################################################
    def testPromNote_JSON_roundtrip(self):
-      for comment,asciiPromNote in self.serMap['promnote'].iteritems():
+      for comment,asciiPromNote in serMap['promnote'].iteritems():
          prom = MultiSigPromissoryNote().unserializeAscii(asciiPromNote, skipMagicCheck=True) 
          self.doRoundTrip(prom, 'toJSONMap', 'fromJSONMap')
 
-
-
+   def testMakeFundingTxFromPromNotes(self):
+      promNote = MultiSigPromissoryNote().unserializeAscii(
+            serMap['promnote'].values()[0], skipMagicCheck=True) 
+      lbox = MultiSigLockbox().unserializeAscii(serMap['lockbox'].values()[0], skipMagicCheck=True)
+      result = lbox.makeFundingTxFromPromNotes([promNote])
+      # 1 promisory note and no change means 1 input and 1 output
+      self.assertEqual(len(result.ustxInputs), 1)
+      self.assertEqual(len(result.decorTxOuts), 1)
+      self.assertEqual(result.uniqueIDB58, 'NaVk9y4Y')
 
 class PubKeyBlockTest(unittest.TestCase):
    def setUp(self):
