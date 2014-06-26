@@ -345,7 +345,8 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
    def jsonrpc_listunspent(self):
       """
       DESCRIPTION:
-      Get a list of unspent transactions for the currently loaded wallet.
+      Get a list of unspent transactions for the currently loaded wallet. By
+      default, zero-conf UTXOs are included.
       PARAMETERS:
       None
       RETURN:
@@ -357,37 +358,49 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       # the value.
       utxoList = self.curWlt.getTxOutList('unspent')
       utxoDict = {}
+      curTxOut = 0
+      totBal = 0
 
       if TheBDM.getBDMState()=='BlockchainReady':
-         curTxOut = 1
          for u in utxoList:
             curUTXODict = {}
+            curTxOut += 1
 
             curTxOutStr = 'UTXO %05d' % curTxOut
-            utxoVal = AmountToJSON(u.getValue())
-            curTxOutHexStr = 'Hex'
-            curTxOutPriStr = 'Priority'
-            curTxOutValStr = 'Value'
-            curUTXODict[curTxOutHexStr] = binary_to_hex(u.getOutPoint().serialize())
-            curUTXODict[curTxOutPriStr] = utxoVal * u.getNumConfirm()
-            curUTXODict[curTxOutValStr] = utxoVal
+            utxoBal = AmountToJSON(u.getValue())
+            curUTXODict['Balance'] = utxoBal
+            curUTXODict['Confirmations'] = u.getNumConfirm()
+            curUTXODict['Hex'] = binary_to_hex(u.getOutPoint().serialize())
+            curUTXODict['Priority'] = utxoBal * u.getNumConfirm()
             utxoDict[curTxOutStr] = curUTXODict
-
-            curTxOut += 1
+            totBal += utxoBal
       else:
          LOGERROR('Blockchain not ready. Values will not be reported.')
 
+      utxoDict['Total UTXOs'] = curTxOut
+      utxoDict['Total Balance'] = totBal
       return utxoDict
 
 
    #############################################################################
-   # Get a list of UTXOs for the wallet associated with the Base58 address
-   # passed into the function.
+   # Get a dictionary with UTXOs for the wallet associated with the Base58
+   # address passed into the function. By default, zero-conf UTXOs are included.
+   # The basic layout of the dictionary is as follows.
+   # {
+   #    Base58Addr : {
+   #                    Address Info
+   #                    UTXO Dict : {
+   #                                   UTXO Info
+   #                                }
+   #                 }
+   #    Overall Amounts
+   # }                  
    def jsonrpc_listaddrunspent(self, inB58):
       """
       DESCRIPTION:
       Get a list of unspent transactions for the currently loaded wallet that
-      are associated with a given list of Base58 addresses from the wallet.
+      are associated with a given list of Base58 addresses from the wallet. By
+      default, zero-conf UTXOs are included.
       PARAMETERS:
       inB58 - The Base58 address to check against the current wallet.
       RETURN:
@@ -396,50 +409,54 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       each UTXO.
       """
 
-      # Return a dictionary with a string as the key and a UTXO reference as the
-      # value.
-      curTxOut = 1
       totalTxOuts = 0
-#      totalTxOutsByB58 = [] # Master list of dicts
+      totalBal = 0
       utxoDict = {}
       utxoList = []
-      inB58 = inB58.split(":")
 
-      # Get the UTXOs for each address.
+      # Get the UTXO balance & list for each address.
+      inB58 = inB58.split(":")
       for b in inB58:
          curTxOut = 1
          utxoEntries = {}
-#         totalTxOutsByB58[b] = 1
          a160 = addrStr_to_hash160(b, False)[1]
          if self.curWlt.addrMap.has_key(a160):
-            utxoList = self.curWlt.getAddrByHash160(a160).scanBlockchainForAddress()
+            utxoBalance, utxoList = \
+                   self.curWlt.getAddrByHash160(a160).scanBlockchainForAddress()
 
          # Place each UTXO in the return dict. Each entry should specify which
-         # address is associated with which UTXO.
-         for u in utxoList:
-            curUTXODict = {}
+         # address is associated with which UTXO. In addition, we should proceed
+         # only if the balance isn't -1 (i.e., an error didn't occur).
+         if utxoBalance != -1:
+            totalBal += AmountToJSON(utxoBalance)
+            utxoListBal = 0
 
-            curTxOutStr = 'UTXO %05d' % curTxOut
-            utxoVal = AmountToJSON(u.getValue())
-            curTxOutHexStr = 'Hex'
-            curTxOutPriStr = 'Priority'
-            curTxOutValStr = 'Value'
-            curUTXODict[curTxOutHexStr] = binary_to_hex(u.getOutPoint().serialize())
-            curUTXODict[curTxOutPriStr] = utxoVal * u.getNumConfirm()
-            curUTXODict[curTxOutValStr] = utxoVal
-            utxoEntries[curTxOutStr] = curUTXODict
-            totalTxOuts += 1
+            # Create a dict for each UTXO entry - it'll contain info on each
+            # UTXO - and then add it to the UTXO entry dict.
+            for u in utxoList:
+               curUTXODict = {}
 
-         curTxOut = 1
-         utxoDict[b] = utxoEntries
+               # Get the UTXO info. The # of confirmations isn't calculated
+               # properly in this case. We'll leave it out for now, along with
+               # the priority, which relies on the # of confs.
+               curTxOutStr = 'UTXO %05d' % curTxOut
+               utxoBal = AmountToJSON(u.getValue())
+               curUTXODict['Balance'] = utxoBal
+               # curUTXODict['Confirmations'] = u.getNumConfirm()
+               curUTXODict['Hex'] = binary_to_hex(u.getOutPoint().serialize())
+               # curUTXODict['Priority'] = utxoBal * u.getNumConfirm()
+               utxoEntries[curTxOutStr] = curUTXODict
+               totalTxOuts += 1
+               utxoListBal += utxoBal
 
-      # Let's also return the total number of UTXOs and total UTXOs for each
-      # address.
-      totalTxOutStr = 'Total UTXOs'
-      utxoDict[totalTxOutStr] = totalTxOuts
-#      for u in totalTxOutsByB58:
-#         totalTxOutStr = 'Total UTXOs (%s)' % u
-#         utxoDict[totalTxOutStr] = totalTxOutsByB58[u]
+            # Add up the UTXO balances for each address and add it to the UTXO
+            # entry dict, then add the UTXO entry dict to the master dict.
+            utxoEntries['Total Address Balance'] = utxoListBal
+            utxoDict[b] = utxoEntries
+
+      # Let's round out the master dict with more info.
+      utxoDict['Total UTXOs'] = totalTxOuts
+      utxoDict['Total UTXO Balance'] = totalBal
 
       return utxoDict
 
@@ -2022,7 +2039,8 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
             if finalTx:
                newTxHash = finalTx.getHash()
                LOGINFO('Tx %s may be broadcast - %s' % \
-                       (binary_to_hex(newTxHash), finalTx.serialize()))
+                       (binary_to_hex(newTxHash), \
+                        binary_to_hex(finalTx.serialize())))
                self.retStr = binary_to_hex(finalTx.serialize())
             else:
                LOGERROR('The Tx data isn\'t ready to be broadcast')

@@ -495,12 +495,14 @@ class DlgLockboxEditor(ArmoryDialog):
                a public key into every field before continuing.""") % currN,
                QMessageBox.Ok)
             return
-
-         pkBin = hex_to_binary(pkHex)
-         isValid = self.isPotentiallyValidHexPubKey(pkHex)
-         if len(pkBin) == 65:
-            if not CryptoECDSA().VerifyPublicKeyValid(SecureBinaryData(pkBin)):
-               isValid = False
+         
+         isValid = isLikelyDataType(pkHex, DATATYPE.Hex)
+         if isValid:
+            pkBin = hex_to_binary(pkHex)
+            isValid = self.isPotentiallyValidHexPubKey(pkHex)
+            if len(pkBin) == 65:
+               if not CryptoECDSA().VerifyPublicKeyValid(SecureBinaryData(pkBin)):
+                  isValid = False
             
          if not isValid: 
             QMessageBox.critical(self, tr('Invalid Public Key'), tr("""

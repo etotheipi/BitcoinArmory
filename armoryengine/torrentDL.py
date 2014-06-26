@@ -57,8 +57,9 @@ class TorrentDownloadManager(object):
       self.torrentName   = None
       self.savePath      = None
       self.savePath_temp = None
-
-
+      
+      self.nHashFailures = 0
+      self.killAfterNHashFails = 100
       
 
    #############################################################################
@@ -296,6 +297,9 @@ class TorrentDownloadManager(object):
    #############################################################################
    def errorFunc(self, errMsg):
       # Use caller-set function if it exists
+      if 'failed hash check, re-downloading it' in errMsg:
+         self.nHashFailures = self.nHashFailures +1
+      
       if self.hasCustomFunc('errorFunc'):
          self.customCallbacks['errorFunc'](errMsg)
          return
@@ -323,6 +327,9 @@ class TorrentDownloadManager(object):
 
    #############################################################################
    def getTDMState(self):
+      if self.nHashFailures >= self.killAfterNHashFails:
+         return 'HashFailures'
+      
       if self.disabled:
          return 'Disabled'
 
@@ -447,6 +454,10 @@ class TorrentDownloadManager(object):
             self.bt1dow.shutdown()
             break
 
+         if self.nHashFailures >= self.killAfterNHashFails:
+            self.bt1dow.shutdown()
+            self.customCallbacks['errorFunc']('hashFail')
+            break
 
          self.bt1dow.startRerequester()
          self.bt1dow.autoStats()

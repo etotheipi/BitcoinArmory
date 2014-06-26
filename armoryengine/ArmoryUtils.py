@@ -3186,25 +3186,6 @@ def getBlockID(asciiText, key):
 
    return blockList
 
-
-################################################################################
-# Function that gets a list of all the lockboxes loaded into Armory.
-def getLockboxList():
-   lbList = []
-
-   # Go through every line in the multisig file used by Armory and look for the
-   # line with "LOCKBOX-<LockboxID>" (e.g., LOCKBOX-45Tw1FfA). Strip everything
-   # except the ID and add it to a list that'll be returned to the caller.
-   with open(MULTISIG_FILE, 'r') as f:
-      lbList = getBlockID(f, 'LOCKBOX-')
-
-      # Don't wait for Python or the OS to write the file. Flush the buffers!
-      f.flush()
-      os.fsync(f.fileno())
-
-   return lbList
-
-
 ################################################################################
 # Decompress an incoming public key. The incoming key may be binary or hex. The
 # decompressed key is binary.

@@ -33,8 +33,16 @@ TIAB_DIR = 'tiab'
 TEST_TIAB_DIR = os.path.join('test','tiab')
 NEED_TIAB_MSG = "This Test must be run with J:/Development_Stuff/bitcoin-testnet-boxV2.7z (Armory jungle disk). Copy to the test directory."
 
-EXPECTED_TIAB_NEXT_ADDR = 'muEePRR9ShvRm2nqeiJyD8pJRHPuww2ECG'
-EXPECTED_UNSPENT_TX = '4434b3eab23189af20d56a81a7bc5ac560f42f4097a90f834535cb94a8d5578201000000'
+EXPECTED_TIAB_NEXT_ADDR  = 'muEePRR9ShvRm2nqeiJyD8pJRHPuww2ECG'
+EXPECTED_UNSPENT_TX1_BAL  = 20.0
+EXPECTED_UNSPENT_TX1_CONF = 3
+EXPECTED_UNSPENT_TX1_HEX  = '4434b3eab23189af20d56a81a7bc5ac560f42f4097a90f834535cb94a8d5578201000000'
+EXPECTED_UNSPENT_TX1_PRI  = 60.0
+EXPECTED_UNSPENT_TX5_BAL  = 938.8997
+EXPECTED_UNSPENT_TX5_CONF = 8
+EXPECTED_UNSPENT_TX5_HEX  = '721507bc7c4cdbd7cf798d362272b2e5941e619f2f300f46ac956933cb42181100000000'
+EXPECTED_UNSPENT_TX5_PRI  = 7511.1976
+EXPECTED_UNSPENT_TX_TOT   = 964.8997
 
 TIAB_WLT_1_ADDR_1 = 'muxkzd4sitPbMz4BXmkEJKT6ccshxDFsrn'
 TIAB_WLT_1_PK_1 = '92vsXfvjpbTj1sN75VSV2M7DWyqoVx5nayp3dE7ZaG9rRVRYU4P'
@@ -44,10 +52,14 @@ TIAB_WLT_1_PK_2 = '934MLhycJEAWL4kMbFt6JRSkNcgEtQXN3ha6Wh8WZyD85cZZZ4N'
 
 TIAB_WLT_1_ADDR_3 = 'mhrpYhQLgYgAvYs1A4E8Z4Dv4ZoZPyLbLS'
 TIAB_WLT_1_PK_3 = '91rTQa47dLQhNGDenejW9qxcMTL73GRG347zKfa3qVvzun7ZcNe'
+TIAB_WLT_1_PK_UTXO_BAL_3  = 3.0
+TIAB_WLT_1_PK_UTXO_HEX_3  = '507b01123e9416eb6de996f64686b7c8290eacd13b9607438a8bab4a78d3afd503000000'
 
 # Has 938.8997 BTC
 TIAB_WLT_1_ADDR_8 = 'mikxgMUqkk6Tts1D39Hhx6wKEeQbBH3ons'
 TIAB_WLT_1_PK_8 = '92fXG1foeHfn8DYEwTXggCPrFEEY6KpokqoJkp9EhpJw5boc3GY'
+TIAB_WLT_1_PK_UTXO_BAL_8  = 938.8997
+TIAB_WLT_1_PK_UTXO_HEX_8  = '721507bc7c4cdbd7cf798d362272b2e5941e619f2f300f46ac956933cb42181100000000'
 
 TIAB_WLT_2_ADDR_1 = 'mzkKrXNPU6nfBpZCKLmwueb9MvSFaKPDMD'
 TIAB_WLT_2_PK_1 = '91jZJ2BnJbk4B6zpqzJqVfbtaq4RMaPPvP7USr9rtWXusSAYrq7'
@@ -293,29 +305,81 @@ class ArmoryDTiabTest(TiabTest):
             txOutsFound += 1
       self.assertEqual(txOutsFound, 2)
 
-   def testListunspent(self):
+   def testListUnspent(self):
       actualResult = self.jsonServer.jsonrpc_listunspent()
-      self.assertEqual(len(actualResult), 5)
-      self.assertEqual(actualResult['UTXO 00001']['Hex'], EXPECTED_UNSPENT_TX)
-      
-   
+
+      self.assertEqual(len(actualResult), 7)
+      self.assertEqual(actualResult['Total Balance'], EXPECTED_UNSPENT_TX_TOT)
+      self.assertEqual(actualResult['Total UTXOs'], 5)
+      self.assertEqual(actualResult['UTXO 00001']['Balance'], \
+                       EXPECTED_UNSPENT_TX1_BAL)
+      self.assertEqual(actualResult['UTXO 00001']['Confirmations'], \
+                       EXPECTED_UNSPENT_TX1_CONF)
+      self.assertEqual(actualResult['UTXO 00001']['Hex'], \
+                       EXPECTED_UNSPENT_TX1_HEX)
+      self.assertEqual(actualResult['UTXO 00001']['Priority'], \
+                       EXPECTED_UNSPENT_TX1_PRI)
+      self.assertEqual(actualResult['UTXO 00005']['Balance'], \
+                       EXPECTED_UNSPENT_TX5_BAL)
+      self.assertEqual(actualResult['UTXO 00005']['Confirmations'], \
+                       EXPECTED_UNSPENT_TX5_CONF)
+      self.assertEqual(actualResult['UTXO 00005']['Hex'], \
+                       EXPECTED_UNSPENT_TX5_HEX)
+      self.assertEqual(actualResult['UTXO 00005']['Priority'], \
+                       EXPECTED_UNSPENT_TX5_PRI)
+
+
+   def testListAddrUnspent(self):
+      totStr = '%s:%s' % (TIAB_WLT_1_ADDR_3, TIAB_WLT_1_ADDR_8)
+      totBal = TIAB_WLT_1_PK_UTXO_BAL_3 + TIAB_WLT_1_PK_UTXO_BAL_8
+      actualResult = self.jsonServer.jsonrpc_listaddrunspent(totStr)
+
+      self.assertEqual(len(actualResult), 4)
+      self.assertEqual(actualResult[TIAB_WLT_1_ADDR_3]['UTXO 00001']['Balance'], \
+                       TIAB_WLT_1_PK_UTXO_BAL_3)
+      #self.assertEqual(actualResult[TIAB_WLT_1_ADDR_3]['UTXO 00001']['Confirmations'], \
+      #                 EXPECTED_UNSPENT_TX2_CONF)
+      self.assertEqual(actualResult[TIAB_WLT_1_ADDR_3]['UTXO 00001']['Hex'], \
+                       TIAB_WLT_1_PK_UTXO_HEX_3)
+      #self.assertEqual(actualResult[TIAB_WLT_1_ADDR_3]['UTXO 00001']['Priority'], \
+      #                 EXPECTED_UNSPENT_TX2_PRI)
+      self.assertEqual(actualResult[TIAB_WLT_1_ADDR_8]['UTXO 00001']['Balance'], \
+                       TIAB_WLT_1_PK_UTXO_BAL_8)
+      #self.assertEqual(actualResult[TIAB_WLT_1_ADDR_8]['UTXO 00001']['Confirmations'], \
+      #                 EXPECTED_UNSPENT_TX2_CONF)
+      self.assertEqual(actualResult[TIAB_WLT_1_ADDR_8]['UTXO 00001']['Hex'], \
+                       TIAB_WLT_1_PK_UTXO_HEX_8)
+      #self.assertEqual(actualResult[TIAB_WLT_1_ADDR_8]['UTXO 00001']['Priority'], \
+      #                 EXPECTED_UNSPENT_TX2_PRI)
+
+      # NB: Ideally, the TAB asserts would be against addresses with multiple
+      # UTXOs. As is, this test case works but could be better.
+      self.assertEqual(actualResult[TIAB_WLT_1_ADDR_3]['Total Address Balance'], \
+                       TIAB_WLT_1_PK_UTXO_BAL_3)
+      self.assertEqual(actualResult[TIAB_WLT_1_ADDR_8]['Total Address Balance'], \
+                       TIAB_WLT_1_PK_UTXO_BAL_8)
+      self.assertEqual(actualResult['Total UTXOs'], 2)
+      self.assertEqual(actualResult['Total UTXO Balance'], totBal)
+
+
    def testGetNewAddress(self):
       actualResult = self.jsonServer.jsonrpc_getnewaddress()
       self.assertEqual(actualResult, EXPECTED_TIAB_NEXT_ADDR)
-      
+
+
    def testGetBalance(self):
-      ballances = {'spendable' : FIRST_WLT_BALANCE, \
-                   'spend' : FIRST_WLT_BALANCE, \
-                   'unconf' : 0, \
-                   'unconfirmed' :  0, \
-                   'total' : FIRST_WLT_BALANCE, \
-                   'ultimate'  :  FIRST_WLT_BALANCE, \
-                   'unspent' :  FIRST_WLT_BALANCE, \
-                   'full' :  FIRST_WLT_BALANCE}
-      for ballanceType in ballances.keys():
-         result = self.jsonServer.jsonrpc_getbalance(ballanceType)
+      balances = {'spendable' : FIRST_WLT_BALANCE, \
+                  'spend' : FIRST_WLT_BALANCE, \
+                  'unconf' : 0, \
+                  'unconfirmed' :  0, \
+                  'total' : FIRST_WLT_BALANCE, \
+                  'ultimate'  :  FIRST_WLT_BALANCE, \
+                  'unspent' :  FIRST_WLT_BALANCE, \
+                  'full' :  FIRST_WLT_BALANCE}
+      for balanceType in balances.keys():
+         result = self.jsonServer.jsonrpc_getbalance(balanceType)
          self.assertEqual(result,
-                          AmountToJSON(self.wlt.getBalance(ballanceType)))
+                          AmountToJSON(self.wlt.getBalance(balanceType)))
 
 
 if __name__ == "__main__":
