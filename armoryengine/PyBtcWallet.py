@@ -1373,7 +1373,9 @@ class PyBtcWallet(object):
       rootIDConcatChksum = computeChecksum(wltRootIDConcat, nBytes=2)
       wltRootIDConcat += rootIDConcatChksum
       if et16 == True:
-         wltRootIDConcat = binary_to_easyType16(wltRootIDConcat)
+         lineNoSpaces = binary_to_easyType16(wltRootIDConcat)
+         pcs = [lineNoSpaces[i*4:(i+1)*4] for i in range((len(lineNoSpaces)-1)/4+1)]
+         wltRootIDConcat = ' '.join(pcs)
 
       # Get 4 rows of PK & CC data. Convert to ET16 data if necessary.
       pkccLines = []

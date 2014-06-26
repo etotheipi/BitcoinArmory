@@ -1604,9 +1604,8 @@ class DlgLockboxManager(ArmoryDialog):
       reply = QMessageBox.warning(self, tr('Confirm Delete'), tr("""
          "Removing" a lockbox does not delete any signing keys, so you 
          maintain signing authority for any coins that are sent there.     
-         However, it will remove it from the list of lockboxes, and you
-         will have to re-import it again later in order to send any funds
-         to or from the lockbox.
+         However, Armory will stop tracking its history and balance, and you
+         will have to re-import it later in order to sign any transactions.
          <br><br>
          You are about to remove the following lockbox:
          <br><br>

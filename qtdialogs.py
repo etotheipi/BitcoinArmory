@@ -2163,8 +2163,10 @@ class DlgWalletDetails(ArmoryDialog):
 
    #############################################################################
    def execExpWOCopy(self):
-      '''Function executed when a user executes the \"Export Public Key & Chain
-         Code\" option.'''
+      """
+      Function executed when a user executes the \"Export Public Key & Chain
+      Code\" option.
+      """
       # This should never happen....
       if not self.wlt.addrMap['ROOT'].hasChainCode():
          QMessageBox.warning(self, 'Move along... This wallet does not have', \
@@ -2178,6 +2180,7 @@ class DlgWalletDetails(ArmoryDialog):
          pass  # Once executed, we're done.
 
 
+   #############################################################################
    def saveWalletCopy(self):
       fn = 'armory_%s_.wallet' % self.wlt.uniqueIDB58
       if self.wlt.watchingOnly:
@@ -11399,28 +11402,30 @@ class DlgExpWOWltData(ArmoryDialog):
       wltIDB58 = wlt.uniqueIDB58
 
       # Create the data export buttons.
-      self.expWltButton = QLabelButton('Export Watch-Only Wallet File')
-      self.expDataButton = QLabelButton('Export Watch-Only Root')
-      self.printWODataButton = QLabelButton('Print Watch-Only Root')
-      self.connect(self.expWltButton, SIGNAL(CLICKED), self.clickedExpWlt)
-      self.connect(self.expDataButton, SIGNAL(CLICKED), self.clickedExpData)
-      self.connect(self.printWODataButton, SIGNAL(CLICKED), \
+      expWltButton = QPushButton(tr('Export Watch-Only Wallet File'))
+      clipboardBtn = QPushButton(tr('Copy to clipboard'))
+      clipboardLbl = QRichLabel(tr(''), hAlign=Qt.AlignHCenter)
+      expDataButton = QPushButton(tr('Save to Text File'))
+      printWODataButton = QPushButton(tr('Print Root Data'))
+
+
+      self.connect(expWltButton, SIGNAL(CLICKED), self.clickedExpWlt)
+      self.connect(expDataButton, SIGNAL(CLICKED), self.clickedExpData)
+      self.connect(printWODataButton, SIGNAL(CLICKED), \
                    self.clickedPrintWOData)
 
       # Set help text for the data export buttons.
-      self.expWltButton.setToolTip(tr("""
+      expWltButton.setToolTip(tr("""
          <u></u>Save the full watch-only wallet to a file. This carries all 
          data stored in the regular wallet except the private keys."""))
-      self.expDataButton.setToolTip(tr("""
-         <u></u>Export just the root of the watch-only wa"""))
-      self.expDataButton.setToolTip('<u></u>Save the watch-only wallet data to '
+      expDataButton.setToolTip('<u></u>Save the watch-only wallet data to '
                                     'a file. This will contain only the data '
                                     'required to recreate a watch-only wallet. '
                                     'The resultant file will be much smaller '
                                     'than a full watch-only wallet backup but '
                                     'will not contain the watch-only wallet '
                                     'metadata.')
-      self.printWODataButton.setToolTip('<u></u>Print the watch-only wallet '
+      printWODataButton.setToolTip('<u></u>Print the watch-only wallet '
                                         'data. The printout can be used to '
                                         'recreate a watch-only wallet, minus '
                                         'the watch-only wallet\'s original '
@@ -11429,15 +11434,17 @@ class DlgExpWOWltData(ArmoryDialog):
       # Let's put the window together.
       layout = QVBoxLayout()
       headerSz = 4
-      headerStr = tr("""Watch-Only Data Export for wallet %s""", \
+      headerStr = tr("""Export Watch-Only Root Data for wallet %s""", \
                      wltIDB58)
       lblHeader =  QRichLabel(tr("""
          <font size=%d color="%s"><b>%s</b></font><br>""") % \
                      (headerSz, htmlColor('TextBlue'), headerStr), \
                      doWrap=True, hAlign=Qt.AlignHCenter)
 
-      self.dispText = 'Watch-Only Root ID:<br><b>%s</b><br><br>Watch-Only ' \
-                      'Data:' % tr(wltRootIDConcat)
+      self.dispText = tr("""
+         Watch-Only Root ID:<br><b>%s</b>
+         <br><br>
+         Watch-Only Root Data:""") % tr(wltRootIDConcat)
       for j in pkccET16Lines:
          self.dispText += '<br><b>%s</b>' % tr(j)
 
@@ -11447,22 +11454,78 @@ class DlgExpWOWltData(ArmoryDialog):
       self.txtLongDescr.setFont(GETFONT('Fixed', 9))
       self.txtLongDescr.setHtml(self.dispText)
 
-      layout.addWidget(lblHeader)
+      def clippy():
+         clipb = QApplication.clipboard()
+         clipb.clear()
+         clipb.setText(str(self.txtLongDescr.toPlainText()))
+         clipboardLbl.setText(tr('<i>Copied!</i>'))
+
+      self.connect(clipboardBtn, SIGNAL('clicked()'), clippy)
+
+
+      lblDescr = QRichLabel(tr("""
+         Use a watching-only wallet on an online computer to distribute
+         payment addresses, verify transactions and monitor balances, but 
+         without the ability to move the funds."""))
+
+      lblTopHalf = QRichLabel(tr("""
+         <center><b><u>Export Entire Watch-Only Wallet File: %s</u></b></center>
+         <br>
+         <i><b><font color="%s">(Recommended)</font></b></i> 
+         An exact copy of your wallet file but without 
+         any of the private 
+         signing keys.  All existing comments and labels will be carried 
+         with the file.  Use this option if it is easy to transfer files 
+         from this system to the target system.""") % \
+         (self.wlt.uniqueIDB58, htmlColor('TextBlue')))
+
+      lblBotHalf = QRichLabel(tr("""
+         <center><b><u>Export Watch-Only Root Data: %s</u></b></center>
+         <br>
+         Five lines of data that describe how to regenerate every public 
+         key (Bitcoin address) in your wallet.  Easy to print or copy by
+         hand.  Does not carry any comments or labels with it.""") % \
+         self.wlt.uniqueIDB58)
+
+      btnDone = QPushButton(tr('Done'))
+      self.connect(btnDone, SIGNAL('clicked()'), self.accept)
+
+
+      frmButtons = makeVertFrame([clipboardBtn,    
+                                  expDataButton,   
+                                  printWODataButton,  
+                                  clipboardLbl,
+                                  'Stretch'])
+      layoutBottom = QHBoxLayout()
+      layoutBottom.addWidget(frmButtons, 0)
+      layoutBottom.addItem(QSpacerItem(5,5))
+      layoutBottom.addWidget(self.txtLongDescr, 1)
+      layoutBottom.setSpacing(5)
+
+
+      #layout.addWidget(lblHeader)
+      #layout.addWidget(HLINE())
+      #layout.addWidget(self.txtLongDescr)
+      #layout.addItem(QSpacerItem(20, 20))
+      #layout.addWidget(expWltButton)
+      #layout.addWidget(expDataButton)
+      #layout.addWidget(printWODataButton)
+      layout.addWidget(lblDescr)
+      layout.addItem(QSpacerItem(10, 10))
       layout.addWidget(HLINE())
-      layout.addWidget(self.txtLongDescr)
+      layout.addWidget(lblTopHalf, 1)
+      layout.addWidget(makeHorizFrame(['Stretch', expWltButton, 'Stretch']))
       layout.addItem(QSpacerItem(20, 20))
-      layout.addWidget(self.expWltButton)
-      layout.addWidget(self.expDataButton)
-      layout.addWidget(self.printWODataButton)
-      layout.setStretch(0, 0)
-      layout.setStretch(1, 0)
-      layout.setStretch(2, 1)
-      layout.setStretch(3, 0)
-      layout.setStretch(4, 0)
-      layout.setStretch(5, 0)
-      layout.setStretch(6, 0)
+      layout.addWidget(HLINE())
+      layout.addWidget(lblBotHalf, 1)
+      layout.addLayout(layoutBottom)
+      layout.addItem(QSpacerItem(20, 20))
+      layout.addWidget(HLINE())
+      layout.addWidget(makeHorizFrame(['Stretch', btnDone]))
+      layout.setSpacing(3)
+
       self.setLayout(layout)
-      self.setMinimumWidth(400)
+      self.setMinimumWidth(600)
 
       # TODO:  Dear god this is terrible, but for my life I cannot figure
       #        out how to move the vbar, because you can't do it until
@@ -11497,7 +11560,7 @@ class DlgExpWOWltData(ArmoryDialog):
    # The function that is executed when the user wants to save the watch-only
    # data to a file.
    def clickedExpData(self):
-      self.main.makeWalletCopy(self, self.wlt, 'PKCC', 'pkcc')
+      self.main.makeWalletCopy(self, self.wlt, 'PKCC', 'rootpubkey')
 
 
    # The function that is executed when the user wants to print the watch-only
@@ -11603,6 +11666,7 @@ class DlgWODataPrintBackup(ArmoryDialog):
 
       INCH = self.scene.INCH
       MARGIN = self.scene.MARGIN_PIXELS
+      wrap = 0.9 * self.scene.pageRect().width()
 
       # Start drawing the page.
       if USE_TESTNET:
@@ -11611,26 +11675,6 @@ class DlgWODataPrintBackup(ArmoryDialog):
          self.scene.drawPixmapFile(':/armory_logo_h36.png')
       self.scene.newLine()
 
-      self.scene.drawText('Armory Wallet Watch-Only Root', GETFONT('Var', 11))
-      self.scene.newLine()
-      self.scene.drawText('http://www.bitcoinarmory.com')
-
-      self.scene.newLine(extra_dy=20)
-      self.scene.drawHLine()
-      self.scene.newLine(extra_dy=20)
-
-      # Print the wallet info.
-      colRect, rowHgt = self.scene.drawColumn(['Wallet ID:', \
-                                               'Wallet Name:', 
-                                               '<b>Watch-Only Root Data</b>'])
-      self.scene.moveCursor(15, 0)
-      colRect, rowHgt = self.scene.drawColumn([self.wlt.uniqueIDB58,
-                                               self.wlt.labelName, 
-                                               tr('')])
-      self.scene.moveCursor(15, colRect.y() + colRect.height(), absolute=True)
-
-      # Display warning about unprotected key data.
-      wrap = 0.9 * self.scene.pageRect().width()
       warnMsg = tr("""
          <b><font size=4><font color="#aa0000">WARNING:</font>  <u>This is not a wallet 
          backup!</u></font></b>  
@@ -11638,9 +11682,24 @@ class DlgWODataPrintBackup(ArmoryDialog):
          of your wallet to keep it protected!  This data simply lets you 
          monitor the funds in this wallet but no ability to move any 
          funds.""")
-      self.scene.newLine()
       self.scene.drawText(warnMsg, GETFONT('Var', 9), wrapWidth=wrap)
 
+      self.scene.newLine(extra_dy=20)
+      self.scene.drawHLine()
+      self.scene.newLine(extra_dy=20)
+
+      # Print the wallet info.
+      colRect, rowHgt = self.scene.drawColumn(['<b>Watch-Only Root Data</b>',
+                                               'Wallet ID:', 
+                                               'Wallet Name:'])
+      self.scene.moveCursor(15, 0)
+      colRect, rowHgt = self.scene.drawColumn([tr(''),
+                                               self.wlt.uniqueIDB58,
+                                               self.wlt.labelName])
+
+      self.scene.moveCursor(15, colRect.y() + colRect.height(), absolute=True)
+
+      # Display warning about unprotected key data.
       self.scene.newLine(extra_dy=20)
       self.scene.drawHLine()
       self.scene.newLine(extra_dy=20)
@@ -12605,7 +12664,8 @@ class DlgRestoreWOData(ArmoryDialog):
 
       # Create the line that will contain the imported ID.
       self.rootIDLabel = QRichLabel(tr('Watch-Only Root ID:'), doWrap=False)
-      self.rootIDLine = QLineEdit()
+      inpMask = '<AAAA\ AAAA\ AAAA\ AAAA\ AA!'
+      self.rootIDLine = MaskedInputLineEdit(inpMask)
       self.rootIDLine.setFont(GETFONT('Fixed', 9))
       self.rootIDFrame = makeHorizFrame([STRETCH, self.rootIDLabel, \
                                          self.rootIDLine])
@@ -12631,9 +12691,9 @@ class DlgRestoreWOData(ArmoryDialog):
 
       # Put together the button code.
       doItText = tr('Test Backup' if thisIsATest else 'Restore Wallet')
-      self.btnLoad   = QPushButton("Load Watch-Only Data File")
+      self.btnLoad   = QPushButton(tr("Load From Text File"))
       self.btnAccept = QPushButton(doItText)
-      self.btnCancel = QPushButton("Cancel")
+      self.btnCancel = QPushButton(tr("Cancel"))
       self.connect(self.btnLoad, SIGNAL(CLICKED), self.loadWODataFile)
       self.connect(self.btnAccept, SIGNAL(CLICKED), self.verifyUserInput)
       self.connect(self.btnCancel, SIGNAL(CLICKED), self.reject)
@@ -12645,11 +12705,10 @@ class DlgRestoreWOData(ArmoryDialog):
       # Set the final window layout.
       finalLayout = QVBoxLayout()
       finalLayout.addWidget(lblDescr)
+      finalLayout.addWidget(makeHorizFrame(['Stretch',self.btnLoad]))
       finalLayout.addWidget(HLINE())
       finalLayout.addWidget(frmAllInputs)
-      finalLayout.addWidget(self.btnLoad)
-      finalLayout.addWidget(self.btnAccept)
-      finalLayout.addWidget(self.btnCancel)
+      finalLayout.addWidget(makeHorizFrame([self.btnCancel, 'Stretch', self.btnAccept]))
       finalLayout.setStretch(0, 0)
       finalLayout.setStretch(1, 0)
       finalLayout.setStretch(2, 0)
@@ -12673,7 +12732,8 @@ class DlgRestoreWOData(ArmoryDialog):
    #############################################################################
    def loadWODataFile(self):
       '''Function for loading a root public key/chain code (\"pkcc\") file.'''
-      fn = self.main.getFileLoad('Import Wallet File')
+      fn = self.main.getFileLoad('Import Wallet File', 
+                                 ffilter=['Root Pubkey Text Files (*.rootpubkey)'])
       if not os.path.exists(fn):
          return
 

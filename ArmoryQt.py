@@ -1571,7 +1571,11 @@ class ArmoryMainWindow(QMainWindow):
          raise NotImplementedError
 
       # Set the file name.
-      fn = 'armory_%s_%s.wallet' % (wlt.uniqueIDB58, suffix)
+      if copyType.lower()=='pkcc':
+         fn = 'armory_%s.%s' % (wlt.uniqueIDB58, suffix)
+      else:
+         fn = 'armory_%s_%s.wallet' % (wlt.uniqueIDB58, suffix)
+
       if wlt.watchingOnly and copyType.lower() != 'pkcc':
          fn = 'armory_%s_%s.watchonly.wallet' % (wlt.uniqueIDB58, suffix)
       savePath = unicode(self.getFileSave(defaultFilename=fn))
