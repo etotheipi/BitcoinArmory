@@ -673,12 +673,15 @@ def compile_armory():
    with open(pypathpath, 'w') as f:
       f.write(pypathData)
 
-   appscript = path.join(APPDIR, 'Contents/MacOS/Armory')
+   armoryAppScript = path.join(APPDIR, 'Contents/MacOS/Armory')
+   armorydAppScript = path.join(APPDIR, 'Contents/MacOS/armoryd')
    pydir = path.join(APPDIR, 'Contents/MacOS/py')
    execAndWait('make all', cwd='..')
    execAndWait('make DESTDIR="%s" install' % pydir, cwd='..')
-   copyfile('Armory-script.sh', appscript)
-   execAndWait('chmod +x "%s"' % appscript)
+   copyfile('Armory-script.sh', armoryAppScript)
+   copyfile('armoryd-script.sh', armorydAppScript)
+   execAndWait('chmod +x "%s"' % armoryAppScript)
+   execAndWait('chmod +x "%s"' % armorydAppScript)
 
 ################################################################################
 def make_resources():
