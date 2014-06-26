@@ -41,20 +41,23 @@ class DlgLockboxEditor(ArmoryDialog):
       def openMoreInfo(*args): 
          QMessageBox.information(self, tr('Public Key Information'), tr("""
             A public key is much longer than an
-            address string, and always starts with "02", "03" or "04".
+            address string, and always starts with "02", "03" or "04". 
             Most wallet applications do not provide an easy way to access  
             a public key associated with a given address.  This is easiest
-            if everyone is using Armory.
+            if everyone is using Armory. 
             <br><br>
             The address book buttons next to each input box below will show you 
             normal address strings, but will enter the correct public 
             key of the address you select.  
             <br><br>
             If you are creating this lockbox with other
-            Armory users, they can get their public keys by right-clicking 
-            on the address in the wallet properties, and selecting 
-            "Copy Public Key" (only available in Armory versions >0.91, 
-            in "Expert" usermode)."""), QMessageBox.Ok)
+            Armory users, they can use the "Select Public Key" button
+            from the Lockbox Manager dashboard to pick a key and enter
+            their contact info.  You can use the "Import" button
+            on each public key line to import the data they send you."""),
+            QMessageBox.Ok)
+            
+            
 
       lblDescr3.setOpenExternalLinks(False)
       self.connect(lblDescr3, SIGNAL('linkActivated(const QString &)'), \
@@ -1576,11 +1579,12 @@ class DlgLockboxManager(ArmoryDialog):
    def doReview(self):
       title = tr("Import Signature Collector")
       descr = tr("""
-         Import a <i>Signature Collector</i> text block to review and
-         sign the simulfunding transaction.  This text block is produced
-         by the party that collected and merged all the promissory notes.
-         Files containing signature-collecting data usually end with
-         <i>*.sigcollect.tx</i>.""")
+         Import a <i>Signature Collector</i> block to review and
+         sign the lockbox-spend or simulfunding transaction.  This text block 
+         is produced by the organizer and will contain
+         "=====TXSIGCOLLECT" on the first line.   Or you can import it from
+         a file, which is saved by default with a
+         <i>*.sigcollect.tx</i> extension.""")
       ftypes = ['Signature Collectors (*.sigcollect.tx)']
       dlgImport = DlgImportAsciiBlock(self, self.main, 
                         title, descr, ftypes, UnsignedTransaction)
