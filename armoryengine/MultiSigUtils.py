@@ -550,7 +550,7 @@ class MultiSigLockbox(AsciiSerializable):
             totalInputs += ustxi.value
 
          # Add any change outputs
-         if prom.dtxoChange.value > 0:
+         if prom.dtxoChange and prom.dtxoChange.value > 0:
             dtxoAccum.append(prom.dtxoChange)
             totalChange += prom.dtxoChange.value
       
