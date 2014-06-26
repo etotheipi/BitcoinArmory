@@ -5259,7 +5259,8 @@ class DlgSendBitcoins(ArmoryDialog):
                    spendFromLockboxID=spendFromLockboxID)
       layout.addWidget(self.frame)
       self.setLayout(layout)
-      self.setMinimumWidth(775)
+      self.sizeHint = lambda: QSize(850, 600)
+      self.setMinimumWidth(700)
       # Update the any controls based on the initial wallet selection
       self.frame.fireWalletChange()
 
@@ -11453,6 +11454,8 @@ class DlgExpWOWltData(ArmoryDialog):
       self.txtLongDescr = QTextBrowser()
       self.txtLongDescr.setFont(GETFONT('Fixed', 9))
       self.txtLongDescr.setHtml(self.dispText)
+      w,h = tightSizeNChar(self.txtLongDescr, 20)
+      self.txtLongDescr.setMaximumHeight(9.5*h)
 
       def clippy():
          clipb = QApplication.clipboard()

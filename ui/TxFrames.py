@@ -1299,7 +1299,7 @@ class SignBroadcastOfflineTxFrame(ArmoryFrame):
 
       self.txtUSTX = QTextEdit()
       self.txtUSTX.setFont(GETFONT('Fixed', 8))
-      w,h = relaxedSizeNChar(self.txtUSTX, 80)
+      w,h = relaxedSizeNChar(self.txtUSTX, 68)
       #self.txtUSTX.sizeHint = lambda: QSize(w, h)
       self.txtUSTX.setMinimumWidth(w)
       self.txtUSTX.setMinimumHeight(8*h)

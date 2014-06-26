@@ -3631,6 +3631,24 @@ class DlgMergePromNotes(ArmoryDialog):
             transaction."""), QMessageBox.Ok)
          return 
 
+      if len(self.promNotes)==1:
+         reply = QMessageBox.warning(self, tr('Merging One Note'), tr("""
+            Only one promissory note was entered, so there
+            is nothing to merge.  
+            <br><br>
+            The simulfunding interface is intended to merge promissory notes
+            from multiple parties to ensure simultaneous funding 
+            for escrow.  If only person is funding, they 
+            can simply send money to the address or lockbox like they would 
+            any other transaction, without going through the simulfunding 
+            interface.
+            <br><br>
+            Click "Ok" to continue to the multi-signing interface, but there
+            will only be one input to sign."""), QMessageBox.Ok)
+         
+         if not reply==QMessageBox.Ok:
+            return
+
       ustxiList = []
       dtxoList = []
 
@@ -3674,12 +3692,11 @@ class DlgMergePromNotes(ArmoryDialog):
       ftypes = ['Signature Collectors (*.sigcollect.tx)']
       defaultFN = 'Simulfund_%s.sigcollect.tx' % ustx.uniqueIDB58
          
-      DlgExportAsciiBlock(self, self.main, ustx, title, descr, 
-                                                    ftypes, defaultFN).exec_()
-
-      # Assume that it has been exported
-      self.accept()
-      DlgMultiSpendReview(self, self.main, ustx).exec_()
+      if DlgExportAsciiBlock(self, self.main, ustx, title, descr, 
+                                                    ftypes, defaultFN).exec_():
+         # Assume that it has been exported
+         self.accept()
+         DlgMultiSpendReview(self, self.main, ustx).exec_()
 
 
 
