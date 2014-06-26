@@ -2,7 +2,7 @@
 # This is the initial driver script executed by the Armory application on OS X.
 # Its role is to set up the environment before passing control to Python.
 # NB: If any changes are made to this script, you'll probably need to make the
-# same changes to the armoryd script.
+# same changes to the Armory script.
 
 # Set environment variables so the Python executable finds its stuff.
 # Note that `dirname $0` gives a relative path. We'd like the absolute path.
@@ -19,5 +19,5 @@ export DYLD_FRAMEWORK_PATH="${LIBDIR}:${FRDIR}"
 #OSXVER=`sw_vers -productVersion | awk '{ print substr( $0, 0, 4 ) }'`
 #if [ $# == "0" ]; then # <-- If 0 CL args....
 
-# Call ArmoryQt and get this party started!
-"$FRDIR/Python.framework/Versions/2.7/Resources/Python.app/Contents/MacOS/Python" "$ARMORYDIR/ArmoryQt.py" "$@"
+# Call armoryd and get this party started!
+"$FRDIR/Python.framework/Versions/2.7/Resources/Python.app/Contents/MacOS/Python" "$ARMORYDIR/armoryd.py" "$@"

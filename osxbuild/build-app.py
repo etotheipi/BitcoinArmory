@@ -678,6 +678,7 @@ def compile_armory():
    execAndWait('make all', cwd='..')
    execAndWait('make DESTDIR="%s" install' % pydir, cwd='..')
    copyfile('Armory-script.sh', appscript)
+   copyfile('armoryd-script.sh', appscript)
    execAndWait('chmod +x "%s"' % appscript)
 
 ################################################################################
