@@ -3667,7 +3667,7 @@ class ArmoryMainWindow(QMainWindow):
       #######################################################################
       # The createSweepTx method will return instantly because the blockchain
       # has already been rescanned, as described above
-      targScript = scrAddr_to_script(self.sweepAfterScanTarg)
+      targScript = scrAddr_to_script(SCRADDR_P2PKH_BYTE + self.sweepAfterScanTarg)
       finishedTx, outVal, fee = self.createSweepAddrTx(sweepList, targScript)
 
       gt1 = len(sweepList)>1
