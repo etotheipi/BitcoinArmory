@@ -6635,9 +6635,9 @@ class ArmoryMainWindow(QMainWindow):
                if didAffectUs:
                   LOGINFO('New Block contained a transaction relevant to us!')
                   self.walletListChanged()
-                  self.notifyOnSurpriseTx(self.currBlockNum-newBlocks, \
-                                          self.currBlockNum+1, self.walletMap, \
-                                          True, TheBDM, self.notifyQueue)
+                  notifyOnSurpriseTx(self.currBlockNum-newBlocks, \
+                                     self.currBlockNum+1, self.walletMap, \
+                                     True, TheBDM, self.notifyQueue)
 
                self.createCombinedLedger()
                self.blkReceived  = RightNow()
