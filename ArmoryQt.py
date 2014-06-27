@@ -6629,15 +6629,15 @@ class ArmoryMainWindow(QMainWindow):
                didAffectUs = False
 
                # LITE sync means it won't rescan if addresses have been imported
-               didAffectUs = self.newBlockSyncRescanZC(self.walletMap, \
-                                                       prevLedgSize)
+               didAffectUs = newBlockSyncRescanZC(TheBDM, self.walletMap, \
+                                                  prevLedgSize)
 
                if didAffectUs:
                   LOGINFO('New Block contained a transaction relevant to us!')
                   self.walletListChanged()
                   self.notifyOnSurpriseTx(self.currBlockNum-newBlocks, \
                                           self.currBlockNum+1, self.walletMap, \
-                                          True, self.notifyQueue)
+                                          True, TheBDM, self.notifyQueue)
 
                self.createCombinedLedger()
                self.blkReceived  = RightNow()
