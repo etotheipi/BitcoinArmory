@@ -2900,10 +2900,10 @@ def getRSFromDERSig(derSig):
 
 
 #############################################################################
-def newBlockSyncRescanZC(self, wltMap, prevLedgSize):
+def newBlockSyncRescanZC(bdm, wltMap, prevLedgSize):
    for wltID in wltMap.keys():
       wltMap[wltID].syncWithBlockchainLite()
-      TheBDM.rescanWalletZeroConf(wltMap[wltID].cppWallet)
+      bdm.rescanWalletZeroConf(wltMap[wltID].cppWallet)
       newLedgerSize = len(wltMap[wltID].getTxLedger())
       if prevLedgSize[wltID] != newLedgerSize:
          return True
@@ -2912,7 +2912,7 @@ def newBlockSyncRescanZC(self, wltMap, prevLedgSize):
 
 
 #############################################################################
-def notifyOnSurpriseTx(self, blk0, blk1, wltMap, gui, notifyQueue=None):
+def notifyOnSurpriseTx(blk0, blk1, wltMap, gui, bdm, notifyQueue=None):
    # We usually see transactions as zero-conf first, then they show up in
    # a block. It is a "surprise" when the first time we see it is in a block
    if gui:
@@ -2921,7 +2921,7 @@ def notifyOnSurpriseTx(self, blk0, blk1, wltMap, gui, notifyQueue=None):
       notifyOut = self.getSettingOrSetDefault('NotifyBtcOut', not OS_MACOSX)
 
    for blk in range(blk0, blk1):
-      sbh = TheBDM.getMainBlockFromDB(blk)
+      sbh = bdm.getMainBlockFromDB(blk)
       for i in range(sbh.getNumTx()):
          cppTx = sbh.getTxCopy(i)
          # Iterate through the Python wallets and create a ledger entry for

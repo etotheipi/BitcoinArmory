@@ -108,6 +108,10 @@ class PyBtcWalletTest(TiabTest):
       self.assertTrue(self.wlt.isEqualTo(wlt2))
       
       #############################################################################
+      # Test locking an unencrypted wallet does not lock
+      self.assertFalse(self.wlt.useEncryption)
+      self.wlt.lock()
+      self.assertFalse(self.wlt.isLocked)
       # (2)Testing unencrypted wallet import-address'
       originalLength = len(self.wlt.linearAddr160List)
       self.wlt.importExternalAddressData(privKey=self.privKey2)

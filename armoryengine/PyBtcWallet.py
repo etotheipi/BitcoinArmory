@@ -2950,26 +2950,30 @@ class PyBtcWallet(object):
       #       input for PyBtcAddress::lock for "I don't have it".  In most 
       #       cases, it is actually possible to lock the wallet without the 
       #       kdfKey because we saved the encrypted versions before unlocking
-      LOGDEBUG('Attempting to lock wallet: %s', self.uniqueIDB58)
-      i=1
-      nAddr = len(self.addrMap)
-      try:
-         for addr160,addrObj in self.addrMap.iteritems():
-            Progress(i, nAddr)
-            i = i +1
-            
-            self.addrMap[addr160].lock(self.kdfKey)
-
-         if self.kdfKey:
-            self.kdfKey.destroy()
-            self.kdfKey = None
-         self.isLocked = True
-      except WalletLockError:
-         LOGERROR('Locking wallet requires encryption key.  This error')
-         LOGERROR('Usually occurs on newly-encrypted wallets that have')
-         LOGERROR('never been encrypted before.')
-         raise WalletLockError('Unlock with passphrase before locking again')
-      LOGDEBUG('Wallet locked: %s', self.uniqueIDB58)
+      if self.useEncryption:
+         LOGDEBUG('Attempting to lock wallet: %s', self.uniqueIDB58)
+         i=1
+         nAddr = len(self.addrMap)
+         try:
+            for addr160,addrObj in self.addrMap.iteritems():
+               Progress(i, nAddr)
+               i = i +1
+               
+               self.addrMap[addr160].lock(self.kdfKey)
+   
+            if self.kdfKey:
+               self.kdfKey.destroy()
+               self.kdfKey = None
+            self.isLocked = True
+         except WalletLockError:
+            LOGERROR('Locking wallet requires encryption key.  This error')
+            LOGERROR('Usually occurs on newly-encrypted wallets that have')
+            LOGERROR('never been encrypted before.')
+            raise WalletLockError('Unlock with passphrase before locking again')
+         LOGDEBUG('Wallet locked: %s', self.uniqueIDB58)
+      else:
+         LOGWARN('Attempted to lock unencrypted wallet: %s', self.uniqueIDB58)
+         
 
    #############################################################################
    def getAddrListSortedByChainIndex(self, withRoot=False):

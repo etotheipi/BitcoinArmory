@@ -2691,13 +2691,13 @@ class Armory_Daemon(object):
             # when a user wants to change the active wallet. (For that matter,
             # we should probably add post-processing when adding wallets so
             # that we can track what we have.)
-            #surpriseTx = newBlockSyncRescanZC(wltSet, prevLedgSize)
+            #surpriseTx = newBlockSyncRescanZC(TheBDM, wltSet, prevLedgSize)
             #if surpriseTx:
                #LOGINFO('New Block contained a transaction relevant to us!')
                # THIS NEEDS TO BE CHECKED! IT STILL USES ARMORYQT VALUES!!!
                # WLTSET SHOULD ALSO PROBABLY BE CHANGED TO THE CURRENT WALLET!
-               #self.notifyOnSurpriseTx(self.currBlockNum-newBlocks, \
-               #                        self.currBlockNum+1, wltSet, False)
+               #notifyOnSurpriseTx(self.currBlockNum-newBlocks, \
+               #                   self.currBlockNum+1, wltSet, False, TheBDM)
 
                # If there's user-executed code on a new Tx, execute here before
                # dealing with any new blocks.

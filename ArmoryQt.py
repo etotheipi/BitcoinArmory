@@ -6629,15 +6629,15 @@ class ArmoryMainWindow(QMainWindow):
                didAffectUs = False
 
                # LITE sync means it won't rescan if addresses have been imported
-               didAffectUs = self.newBlockSyncRescanZC(self.walletMap, \
-                                                       prevLedgSize)
+               didAffectUs = newBlockSyncRescanZC(TheBDM, self.walletMap, \
+                                                  prevLedgSize)
 
                if didAffectUs:
                   LOGINFO('New Block contained a transaction relevant to us!')
                   self.walletListChanged()
                   self.notifyOnSurpriseTx(self.currBlockNum-newBlocks, \
                                           self.currBlockNum+1, self.walletMap, \
-                                          True, self.notifyQueue)
+                                          True, TheBDM, self.notifyQueue)
 
                self.createCombinedLedger()
                self.blkReceived  = RightNow()
@@ -6673,8 +6673,13 @@ class ArmoryMainWindow(QMainWindow):
                func()
 
       except:
+         # When getting the error info, don't collect the traceback in order to
+         # avoid circular references. https://docs.python.org/2/library/sys.html
+         # has more info.
          LOGEXCEPT('Error in heartbeat function')
-         LOGERROR(sys.exc_info())
+         (errType, errVal) = sys.exc_info()[:2]
+         errStr = 'Error Type: %s\nError Value: %s' % (errType, errVal)
+         LOGERROR(errStr)
       finally:
          reactor.callLater(nextBeatSec, self.Heartbeat)
 
