@@ -558,7 +558,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       if self.curWlt.isLocked:
          raise WalletUnlockNeeded
       else:
-         sbdPassphrase = SecureBinaryData(passphrase)
+         sbdPassphrase = SecureBinaryData(str(passphrase))
          self.curWlt.changeWalletEncryption(securePassphrase=sbdPassphrase)
          self.curWlt.lock()
 
@@ -582,8 +582,8 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       retStr = 'Wallet %s is already unlocked.' % self.curWlt
 
       if self.curWlt.isLocked:
-         self.curWlt.unlock(securePassphrase=SecureBinaryData(passphrase),
-                            tempKeyLifetime=timeout)
+         self.curWlt.unlock(securePassphrase=SecureBinaryData(str(passphrase)),
+                            tempKeyLifetime=int(timeout))
          retStr = 'Wallet %s has been unlocked.' % self.curWlt
 
       return retStr
@@ -713,6 +713,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       # Cannot dump the private key for a locked wallet
       if self.curWlt.isLocked:
          raise WalletUnlockNeeded
+
       # The first byte must be the correct net byte, and the
       # last 4 bytes must be the correct checksum
       if not checkAddrStrValid(addr58):
@@ -723,7 +724,8 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       pyBtcAddress = self.curWlt.getAddrByHash160(addr160)
       if pyBtcAddress == None:
          raise PrivateKeyNotFound
-      return pyBtcAddress.serializePlainPrivateKey()
+
+      return binary_to_hex(pyBtcAddress.serializePlainPrivateKey())
 
 
    #############################################################################
