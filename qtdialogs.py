@@ -12768,10 +12768,10 @@ class DlgRestoreWOData(ArmoryDialog):
 
       # Read in the root ID data and handle any errors.
       try:
-         rawID = easyType16_to_binary(str(self.rootIDLine.text()))
+         rawID = easyType16_to_binary(str(self.rootIDLine.text()).replace(' ', ''))
          if len(rawID) != 9:
             raise ValueError('Must supply 9 byte input for the ID')
-         
+
          # Grab the data and apply the checksum to make sure it's okay.
          inRootData = rawID[:7]   # 7 bytes
          inRootChksum = rawID[7:] # 2 bytes
@@ -12785,12 +12785,15 @@ class DlgRestoreWOData(ArmoryDialog):
 
       # If the root ID is busted, stop.
       if hasError:
+         (errType, errVal) = sys.exc_info()[:2]
          reply = QMessageBox.critical(self, tr('Invalid Data'), tr("""
                There is an error in the root ID you entered that could not
                be fixed automatically.  Please double-check that you entered the
                text exactly as it appears on the wallet-backup page.<br><br>"""),
                QMessageBox.Ok)
          LOGERROR('Error in root ID restore field')
+         LOGERROR('Error Type: %s', errType)
+         LOGERROR('Error Value: %s', errVal)
          return
 
       # Save the version/key byte and the root ID. For now, ignore the version.
@@ -12844,17 +12847,14 @@ class DlgRestoreWOData(ArmoryDialog):
          verifyRecoveryTestID(self, newWltID, self.testWltID)
          return
 
-      # If we already have the wallet, instantiate a wallet replacement dialog.
+      # If we already have the wallet, don't replace it, otherwise proceed.
       dlgOwnWlt = None
       if self.main.walletMap.has_key(newWltID):
-         dlgOwnWlt = DlgReplaceWallet(newWltID, self.parent, self.main)
-
-         if (dlgOwnWlt.exec_()):
-            if dlgOwnWlt.output == 0:
-               return
-         else:
-            self.reject()
-            return
+         QMessageBox.warning(self, tr('Wallet Already Exists'), tr("""The
+                             wallet already exists and will not be
+                             replaced."""), QMessageBox.Ok)
+         self.reject()
+         return
       else:
          # Make sure the user is restoring the wallet they want to restore.
          reply = QMessageBox.question(self, 'Verify Wallet ID', \
@@ -12866,27 +12866,15 @@ class DlgRestoreWOData(ArmoryDialog):
          if reply == QMessageBox.No:
             return
 
-      # Create the wallet.
-      self.newWallet = PyBtcWallet().createNewWalletFromPKCC(rootPubKey, \
-                                                             rootChainCode)
+         # Create the wallet.
+         self.newWallet = PyBtcWallet().createNewWalletFromPKCC(rootPubKey, \
+                                                                rootChainCode)
 
-      # Create some more addresses.
-      nPool = 1000
-      def fillAddrPoolAndAccept():
-         self.newWallet.fillAddressPool(numPool=nPool)
-      DlgExecLongProcess(fillAddrPoolAndAccept, "Creating wallet...", self, \
-                         self.main).exec_()
-
-      # (Is this needed?)
-      if dlgOwnWlt is not None:
-         if dlgOwnWlt.Meta is not None:
-            from armoryengine.PyBtcWallet import WLT_UPDATE_ADD
-            for n_cmt in range(0, dlgOwnWlt.Meta['ncomments']):
-               entrylist = []
-               entrylist = list(dlgOwnWlt.Meta[n_cmt])
-               self.newWallet.walletFileSafeUpdate([[WLT_UPDATE_ADD, entrylist[2], entrylist[1], entrylist[0]]])
-
-         self.newWallet = PyBtcWallet().readWalletFile(dlgOwnWlt.wltPath)
+         # Create some more addresses and show a progress bar while restoring.
+         nPool = 1000
+         fillAddrPoolProgress = DlgProgress(self, self.main, HBar=1,
+                                            Title="Computing New Addresses")
+         fillAddrPoolProgress.exec_(self.newWallet.fillAddressPool, nPool)
 
       self.accept()
 

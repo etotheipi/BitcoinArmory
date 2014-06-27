@@ -725,7 +725,7 @@ class PyBtcWallet(object):
 
    #############################################################################
    def createNewWalletFromPKCC(self, plainPubKey, chaincode, newWalletFilePath=None, \
-                               isActuallyNew=True, doRegisterWithBDM=True, \
+                               isActuallyNew=False, doRegisterWithBDM=True, \
                                skipBackupFile=False):
       """
       This method will create a new wallet based on a root public key, chain
