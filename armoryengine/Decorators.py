@@ -13,8 +13,9 @@
 #
 ################################################################################
 
-from armoryengine.ArmoryUtils import send_email
+from armoryengine.ArmoryUtils import send_email, LOGERROR
 import functools
+import sys
 
 # Following this pattern to allow arguments to be passed to this decorator:
 # http://stackoverflow.com/questions/10176226/how-to-pass-extra-arguments-to-python-decorator
@@ -50,4 +51,36 @@ def RemoveRepeatingExtensions(func):
                segs = segs[:-i]
       return '.'.join(segs)
    return inner
-      
+
+# A decorator meant for the JSON RPC functions. It's important to both log
+# errors on the server and notify the client that an error occurred. This
+# decorator sets up a standardized way to catch errors that occur in a function
+# and report them. The drawback is that any decorated functs that do their own
+# try/catches won't have access to this functionality since those errors will
+# have been caught.
+def catchErrsForJSON(func):
+   def inner(*args, **kwargs):
+      jsonPrefix = "jsonrpc_"
+      rv = None
+
+      # Just call the funct. If no errs are thrown, or if errs are caught before
+      # returning, we'll get through this. Otherwise, get the error info and
+      # place it in the log.
+      try:
+         rv = func(*args, **kwargs)
+      except:
+         (errType, errVal) = sys.exc_info()[:2]
+         errStr = 'An error occurred in %s.' % func.__name__[len(jsonPrefix):]
+         errTypeStr = 'Error Type = \'%s\'' % errType.__name__
+         errValStr = 'Error Value = \'%s\'' % errVal
+
+         rv = []
+         rv.append(errStr)
+         rv.append(errTypeStr)
+         rv.append(errValStr)
+         LOGERROR(errStr)
+         LOGERROR(errTypeStr)
+         LOGERROR(errValStr)
+      finally:
+         return rv
+   return inner

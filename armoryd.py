@@ -101,7 +101,7 @@ from txjsonrpc.web import jsonrpc
 from armoryengine.ALL import *
 from collections import defaultdict
 from itertools import islice
-from armoryengine.Decorators import EmailOutput
+from armoryengine.Decorators import EmailOutput, catchErrsForJSON
 from armoryengine.PyBtcWalletRecovery import *
 from inspect import *
 from jasvet import readSigBlock, verifySignature
@@ -236,6 +236,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
 
    #############################################################################
+   @catchErrsForJSON
    def jsonrpc_receivedfromsigner(self, sigBlock):
       """
       DESCRIPTION:
@@ -258,6 +259,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
 
    #############################################################################
+   @catchErrsForJSON
    def jsonrpc_verifysignature(self, sigBlock):
       """
       DESCRIPTION:
@@ -281,6 +283,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
 
    #############################################################################
+   @catchErrsForJSON
    def jsonrpc_receivedfromaddress(self, sender):
       """
       DESCRIPTION:
@@ -323,6 +326,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
    #############################################################################
    # backupFilePath is the file to backup the current wallet to.
    # It does not necessarily exist yet.
+   @catchErrsForJSON
    def jsonrpc_backupwallet(self, backupFilePath):
       """
       DESCRIPTION:
@@ -342,6 +346,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
    #############################################################################
    # Get a list of UTXOs for the currently loaded wallet.
+   @catchErrsForJSON
    def jsonrpc_listunspent(self):
       """
       DESCRIPTION:
@@ -394,7 +399,8 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
    #                                }
    #                 }
    #    Overall Amounts
-   # }                  
+   # }
+   @catchErrsForJSON
    def jsonrpc_listaddrunspent(self, inB58):
       """
       DESCRIPTION:
@@ -462,6 +468,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
 
    #############################################################################
+   @catchErrsForJSON
    def jsonrpc_importprivkey(self, privkey):
       """
       DESCRIPTION:
@@ -476,6 +483,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
 
    #############################################################################
+   @catchErrsForJSON
    def jsonrpc_getrawtransaction(self, txHash, verbose=0, endianness=BIGENDIAN):
       """
       DESCRIPTION:
@@ -508,6 +516,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
 
    #############################################################################
+   @catchErrsForJSON
    def jsonrpc_gettxout(self, txHash, n, binary=0):
       """
       DESCRIPTION:
@@ -543,6 +552,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
 
    #############################################################################
+   @catchErrsForJSON
    def jsonrpc_encryptwallet(self, passphrase):
       """
       DESCRIPTION:
@@ -566,6 +576,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
 
    #############################################################################
+   @catchErrsForJSON
    def jsonrpc_unlockwallet(self, passphrase, timeout=10):
       """
       DESCRIPTION:
@@ -590,6 +601,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
 
    #############################################################################
+   @catchErrsForJSON
    def jsonrpc_relockwallet(self):
       """
       DESCRIPTION:
@@ -607,6 +619,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
 
    #############################################################################
+   @catchErrsForJSON
    def getScriptPubKey(self, txOut):
       addrList = []
       scriptType = getTxOutScriptType(txOut.binScript)
@@ -631,6 +644,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
 
    #############################################################################
+   @catchErrsForJSON
    def jsonrpc_decoderawtransaction(self, hexString):
       """
       DESCRIPTION:
@@ -684,6 +698,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
 
    #############################################################################
+   @catchErrsForJSON
    def jsonrpc_getnewaddress(self):
       """
       DESCRIPTION:
@@ -699,6 +714,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
 
    #############################################################################
+   @catchErrsForJSON
    def jsonrpc_dumpprivkey(self, addr58):
       """
       DESCRIPTION:
@@ -729,6 +745,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
 
    #############################################################################
+   @catchErrsForJSON
    def jsonrpc_getwalletinfo(self, inWltID=None):
       """
       DESCRIPTION:
@@ -756,6 +773,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
 
    #############################################################################
+   @catchErrsForJSON
    def jsonrpc_getbalance(self, baltype='spendable'):
       """
       DESCRIPTION:
@@ -784,6 +802,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
 
    #############################################################################
+   @catchErrsForJSON
    def jsonrpc_getaddrbalance(self, inB58, baltype='spendable'):
       """
       DESCRIPTION:
@@ -812,6 +831,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
 
    #############################################################################
+   @catchErrsForJSON
    def jsonrpc_getreceivedbyaddress(self, address):
       """
       DESCRIPTION:
@@ -834,6 +854,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
 
    #############################################################################
+   @catchErrsForJSON
    def jsonrpc_createustxtoaddress(self, bitcoinaddress, amount):
       """
       DESCRIPTION:
@@ -855,6 +876,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
 
    #############################################################################
+   @catchErrsForJSON
    def jsonrpc_createustxformany(self, *args):
       """
       DESCRIPTION:
@@ -880,6 +902,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
 
    #############################################################################
+   @catchErrsForJSON
    def jsonrpc_getledgersimple(self, tx_count=10, from_tx=0):
       """
       DESCRIPTION:
@@ -896,6 +919,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
    #############################################################################
    # NB: For now, this is incompatible with lockboxes.
+   @catchErrsForJSON
    def jsonrpc_getledger(self, tx_count=10, from_tx=0, simple=False):
       """
       DESCRIPTION:
@@ -1041,6 +1065,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
    #############################################################################
    # NB: For now, this is incompatible with lockboxes.
+   @catchErrsForJSON
    def jsonrpc_listtransactions(self, tx_count=10, from_tx=0):
       """
       DESCRIPTION:
@@ -1203,6 +1228,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
    #############################################################################
    # A semi-analogue to bitcoind's getinfo().
+   @catchErrsForJSON
    def jsonrpc_getarmorydinfo(self):
       """
       DESCRIPTION:
@@ -1237,6 +1263,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
 
    #############################################################################
+   @catchErrsForJSON
    def jsonrpc_getblock(self, blkhash):
       """
       DESCRIPTION:
@@ -1283,6 +1310,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
 
    #############################################################################
+   @catchErrsForJSON
    def jsonrpc_gettransaction(self, txHash):
       """
       DESCRIPTION:
@@ -1465,6 +1493,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
    # (27TchD13 and AaAaaAQ4) and a compressed public key. The following command
    # would be executed.
    # armoryd 2 3 27TchD13 AaAaaAQ4 02010203040506070809....
+   @catchErrsForJSON
    def jsonrpc_createlockbox(self, numM, numN, *args):
       """
       DESCRIPTION:
@@ -1625,6 +1654,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
    #############################################################################
    # Get info for a lockbox by lockbox ID. If no ID is specified, we'll get info
    # on the currently loaded LB if an LB exists.
+   @catchErrsForJSON
    def jsonrpc_getlockboxinfo(self, inLBID=None):
       """
       DESCRIPTION:
@@ -1672,6 +1702,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
    #     recip1@gmail.com:recip2@yahoo.com watchCmd=add
    # 3)E-mail notifications from a given e-mail address are stopped.
    #   armoryd watchwallet sender@c.net watchCmd=remove
+   @catchErrsForJSON
    def jsonrpc_watchwallet(self, send_from, smtpServer=None, password=None,
                            send_to=None, subject=None, watchCmd='add'):
       """
@@ -1736,6 +1767,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
    # Send ASCII-encoded lockboxes to recipients via e-mail. For now, only
    # lockboxes from ArmoryQt's master list (multisigs.txt) or from the Armory
    # home directory will be searched.
+   @catchErrsForJSON
    def jsonrpc_sendlockbox(self, lbIDs, sender, server, pwd, recips,
                            msgSubj='Armory Lockbox'):
       """
@@ -1792,6 +1824,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
    # Example input:  "{\"mzAtXhy3Z6SLd7rAwNJrL17e8mQkjDVDXh\": {\"chain\": 5,
    # \"index\": 2}, \"mkF5L93F5HLhLmQagX26TdXcvPGHvfjoTM\": {\"CrazyField\": \"what\",
    # \"1\": 1, \"2\": 2}}"
+   @catchErrsForJSON
    def jsonrpc_setaddressmetadata(self, newAddressMetaData):
       """
       DESCRIPTION:
@@ -1815,6 +1848,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
    #############################################################################
    # Clear the metadata.
+   @catchErrsForJSON
    def jsonrpc_clearaddressmetadata(self):
       """
       DESCRIPTION:
@@ -1830,6 +1864,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
    #############################################################################
    # Get the metadata.
+   @catchErrsForJSON
    def jsonrpc_getaddressmetadata(self):
       """
       DESCRIPTION:
@@ -1845,6 +1880,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
    #############################################################################
    # Function that gets the B58 string of the currently active wallet.
+   @catchErrsForJSON
    def jsonrpc_getactivewallet(self):
       """
       DESCRIPTION:
@@ -1861,6 +1897,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
    #############################################################################
    # Function that gets the B58 string of the currently active lockbox.
+   @catchErrsForJSON
    def jsonrpc_getactivelockbox(self):
       """
       DESCRIPTION:
@@ -1877,6 +1914,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
    #############################################################################
    # Function that sets the active wallet using a B58 string.
+   @catchErrsForJSON
    def jsonrpc_setactivewallet(self, newIDB58):
       """
       DESCRIPTION:
@@ -1891,6 +1929,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       # Return a string indicating whether or not the active wallet was set to a
       # new wallet. If the change fails, keep the currently active wallet.
       retStr = ''
+
       try:
          newWlt = self.serverWltSet[newIDB58]
          self.curWlt = newWlt  # Separate in case ID's wrong & error's thrown.
@@ -1905,6 +1944,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
    #############################################################################
    # Function that sets the active lockbox using a B58 string.
+   @catchErrsForJSON
    def jsonrpc_setactivelockbox(self, newIDB58):
       """
       DESCRIPTION:
@@ -1931,6 +1971,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
    #############################################################################
    # Function that lists all the loaded wallets.
+   @catchErrsForJSON
    def jsonrpc_listloadedwallets(self):
       """
       DESCRIPTION:
@@ -1954,6 +1995,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
    #############################################################################
    # Function that lists all the loaded wallets.
+   @catchErrsForJSON
    def jsonrpc_listloadedlockboxes(self):
       """
       DESCRIPTION:
@@ -1979,6 +2021,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
    # Pull in a signed Tx and get the raw Tx hex data to broadcast. This call
    # works with a regular signed Tx and a signed lockbox Tx if there are already
    # enough signatures.
+   @catchErrsForJSON
    def jsonrpc_gethextxtobroadcast(self, txASCIIFile):
       """
       DESCRIPTION:
@@ -2059,6 +2102,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
    # NB 2: The Armory_Daemon code needs to be able to execute functions whenever
    # a new Tx comes in for a particular wallet. Moving this code to a utility
    # funct would probably be wiser.
+   #@catchErrsForJSON
    #def jsonrpc_addwallets(self, newWltPaths):
    #   """
    #   DESCRIPTION:
@@ -2093,7 +2137,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
    # NB 2: The Armory_Daemon code needs to be able to execute functions whenever
    # a new Tx comes in for a particular wallet. Moving this code to a utility
    # funct might be necessary. Chck when the time comes.
-
+   #@catchErrsForJSON
    #def jsonrpc_addlockboxes(self, newLBPaths):
    #   """
    #   DESCRIPTION:
@@ -2125,6 +2169,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
    # representation of the signed Tx, with the current wallet signing the Tx.
    # See SignBroadcastOfflineTxFrame::signTx() (ui/TxFrames.py) for the GUI's
    # analog.
+   @catchErrsForJSON
    def jsonrpc_signasciitransaction(self, unsignedTxASCII, wltPasswd=None):
       """
       DESCRIPTION:
@@ -2188,6 +2233,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
    # NB: This code is NOT ready for everyday use and is here primarily to
    # establish some hooks to support future work. It's also blatantly wrong, as
    # the code doesn't match the newBlockFunctions code. Hack at your own risk!
+   #@catchErrsForJSON
    #def jsonrpc_registertxscript(self, scrPath):
    #   """
    #   DESCRIPTION:
@@ -2203,6 +2249,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
    #############################################################################
    # Get a dictionary with all functions the armoryd server can run.
+   @catchErrsForJSON
    def jsonrpc_help(self):
       """
       DESCRIPTION:
@@ -2229,6 +2276,7 @@ jFuncts = inspect.getmembers(Armory_Json_Rpc_Server, predicate=inspect.ismethod)
 for curJFunct in jFuncts:
    if curJFunct[0].startswith(jFunctPrefix):
       # Remember to strip the prefix before using the funct name.
+      functDoc = {}
       functName = curJFunct[0][len(jFunctPrefix):]
 
       # Save the descrip/param/return data while stripping out the targeted
