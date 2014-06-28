@@ -1522,12 +1522,27 @@ class ArmoryMainWindow(QMainWindow):
 
    #############################################################################
    def execOfflineTx(self):
+      if not self.getSettingOrSetDefault('DNAA_Version092Warn', False):
+         reply = MsgBoxWithDNAA(MSGBOX.Warning, tr("Version Warning"), tr("""
+            Since Armory version 0.92 the formats for offline transaction
+            operations has changed to accommodate multi-signature 
+            transactions.  This format is <u>not</u> compatible with
+            versions of Armory before 0.92.
+            <br><br>
+            To continue, the other system will need to be upgraded to
+            to version 0.92 or later.  If you cannot upgrade the other 
+            system, you will need to reinstall an older version of Armory
+            on this system."""), dnaaMsg='Do not show this warning again')
+         self.writeSetting('DNAA_Version092Warn', reply[1])
+
+
       dlgSelect = DlgOfflineSelect(self, self)
       if dlgSelect.exec_():
 
          # If we got here, one of three buttons was clicked.
          if dlgSelect.do_create:
-            DlgSendBitcoins(self.getSelectedWallet(), self, self, onlyOfflineWallets=True).exec_()
+            DlgSendBitcoins(self.getSelectedWallet(), self, self, 
+                                          onlyOfflineWallets=True).exec_()
          elif dlgSelect.do_broadc:
             DlgSignBroadcastOfflineTx(self,self).exec_()
 
@@ -3232,7 +3247,7 @@ class ArmoryMainWindow(QMainWindow):
 
    #############################################################################
    @TimeThisFunction
-   def convertLedgerToTable(self, ledger):
+   def convertLedgerToTable(self, ledger, showSentToSelfAmt=True):
       table2D = []
       datefmt = self.getPreferredDateFormat()
       for wltID,le in ledger:
@@ -3264,7 +3279,7 @@ class ArmoryMainWindow(QMainWindow):
          # for change , which means the change address MUST have a higher
          # chain index
          amt = le.getValue()
-         if le.isSentToSelf() and wlt:
+         if le.isSentToSelf() and wlt and showSentToSelfAmt:
             amt = determineSentToSelfAmt(le, wlt)[0]
 
          # NumConf

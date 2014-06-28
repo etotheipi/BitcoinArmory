@@ -1170,7 +1170,7 @@ class ReviewOfflineTxFrame(ArmoryDialog):
       # forcing them very explicitly
       self.txtUSTX = QTextEdit()
       self.txtUSTX.setFont(GETFONT('Fixed', 8))
-      w,h = relaxedSizeNChar(self.txtUSTX, 85)[0], int(12 * 8.2)
+      w,h = relaxedSizeNChar(self.txtUSTX, 68)[0], int(12 * 8.2)
       self.txtUSTX.setMinimumWidth(w)
       self.txtUSTX.setMinimumHeight(h)
       self.txtUSTX.setReadOnly(True)

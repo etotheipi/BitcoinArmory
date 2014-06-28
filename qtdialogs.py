@@ -1580,12 +1580,14 @@ class DlgWalletDetails(ArmoryDialog):
          lbtnChangeCrypto = QLabelButton(s)
          self.connect(lbtnChangeCrypto, SIGNAL(CLICKED), self.changeEncryption)
 
+      exportStr = 'Data' if self.wlt.watchingOnly else 'Copy'
+      
       lbtnSendBtc = QLabelButton('Send Bitcoins')
       lbtnGenAddr = QLabelButton('Receive Bitcoins')
       lbtnImportA = QLabelButton('Import/Sweep Private Keys')
       lbtnDeleteA = QLabelButton('Remove Imported Address')
       # lbtnSweepA  = QLabelButton('Sweep Wallet/Address')
-      lbtnExpWOWlt = QLabelButton('Export Watching-Only Copy')
+      lbtnExpWOWlt = QLabelButton('Export Watching-Only %s' % exportStr)
       lbtnBackups = QLabelButton('<b>Backup This Wallet</b>')
       lbtnRemove = QLabelButton('Delete/Remove Wallet')
       #lbtnRecover = QLabelButton('Recover Password Wallet')
@@ -1655,7 +1657,7 @@ class DlgWalletDetails(ArmoryDialog):
       if True:              optLayout.addWidget(createVBoxSeparator())
 
       if hasPriv:           optLayout.addWidget(lbtnBackups)
-      if hasPriv and adv:   optLayout.addWidget(lbtnExpWOWlt)
+      if adv:               optLayout.addWidget(lbtnExpWOWlt)
       if True:              optLayout.addWidget(lbtnRemove)
       # if True:              optLayout.addWidget(lbtnRecover)
       # Not sure yet that we want to include the password finer in here
@@ -9619,9 +9621,6 @@ class DlgExportTxHistory(ArmoryDialog):
 
 
 
-
-
-
       # Add the usual buttons
       self.btnCancel = QPushButton("Cancel")
       self.btnAccept = QPushButton("Export")
@@ -9680,7 +9679,8 @@ class DlgExportTxHistory(ArmoryDialog):
    def doExampleDate(self, qstr=None):
       fmtstr = str(self.edtDateFormat.text())
       try:
-         self.lblDateExample.setText('Example: ' + unixTimeToFormatStr(1030501970, fmtstr))
+         exampleDateStr = unixTimeToFormatStr(1030501970, fmtstr)
+         self.lblDateExample.setText('Example: %s' % exampleDateStr)
          self.isValidFormat = True
       except:
          self.lblDateExample.setText('Example: [[invalid date format]]')
@@ -9699,6 +9699,8 @@ class DlgExportTxHistory(ArmoryDialog):
                   'Cannot create CSV without a valid format for transaction '
                   'dates and times', QMessageBox.Ok)
          return False
+
+      COL = LEDGERCOLS
 
       # This was pretty much copied from the createCombinedLedger method...
       # I rarely do this, but modularizing this piece is a non-trivial
@@ -9726,6 +9728,7 @@ class DlgExportTxHistory(ArmoryDialog):
             pass
 
       totalFunds, spendFunds, unconfFunds, combinedLedger = 0, 0, 0, []
+      wltBalances = {}
       for wltID in wltIDList:
          wlt = self.main.walletMap[wltID]
          id_le_pairs = [[wltID, le] for le in wlt.getTxLedger('Full')]
@@ -9733,10 +9736,25 @@ class DlgExportTxHistory(ArmoryDialog):
          totalFunds += wlt.getBalance('Total')
          spendFunds += wlt.getBalance('Spendable')
          unconfFunds += wlt.getBalance('Unconfirmed')
-      # END createCombinedLedger copy
+         wltBalances[wltID] = 0   # will be accumulated
 
-      ledgerTable = self.main.convertLedgerToTable(combinedLedger)
+      # Each value in COL.Amount will be exactly how much the wallet balance
+      # increased or decreased as a result of this transaction.
+      ledgerTable = self.main.convertLedgerToTable(combinedLedger, 
+                                                   showSentToSelfAmt=False)
 
+      # Sort the data chronologically first, compute the running balance for
+      # each row, then sort it the way that was requested by the user.
+      allBalances = 0
+      ledgerTable.sort(key=lambda x: x[LEDGERCOLS.UnixTime])
+      for row in ledgerTable:
+         rawAmt = str2coin(row[COL.Amount])
+         wltBalances[row[COL.WltID]] += rawAmt
+         allBalances += rawAmt
+         row.append(wltBalances[row[COL.WltID]])
+         row.append(allBalances)
+
+      
       sortTxt = str(self.cmbSortSelect.currentText())
       if 'newest' in sortTxt:
          ledgerTable.sort(key=lambda x: x[LEDGERCOLS.UnixTime], reverse=True)
@@ -9778,8 +9796,12 @@ class DlgExportTxHistory(ArmoryDialog):
             f.write('%s,%s\n' % (wltID, wlt.labelName.replace(',', ';')))
          f.write('\n')
 
-         f.write('Date,Transaction ID,#Conf,Wallet ID, Wallet Name,Total Credit,Total Debit,Fee (wallet paid),Comment\n')
-         COL = LEDGERCOLS
+
+         headerRow = ['Date', 'Transaction ID', '#Conf', 'Wallet ID', 
+                      'Wallet Name', 'Credit', 'Debit', 'Fee (paid by this wallet)', 
+                      'Wallet Balance', 'Total Balance', 'Label']
+
+         f.write(','.join(headerRow) + '\n')
          for row in ledgerTable:
             vals = []
 
@@ -9793,18 +9815,20 @@ class DlgExportTxHistory(ArmoryDialog):
 
             wltEffect = row[COL.Amount]
             txFee = getFeeForTx(hex_to_binary(row[COL.TxHash]))
-            if float(wltEffect) > 0:
+            if float(wltEffect) >= 0:
                vals.append(wltEffect.strip())
                vals.append(' ')
                vals.append(' ')
             else:
                vals.append(' ')
-               vals.append(wltEffect.strip())
-               vals.append(coin2str(-txFee).strip())
+               vals.append(wltEffect.strip()[1:]) # remove negative sign
+               vals.append(coin2str(txFee).strip())
 
+            vals.append(coin2str(row[-2]))
+            vals.append(coin2str(row[-1]))
             vals.append(row[COL.Comment])
 
-            f.write('%s,%s,%d,%s,%s,%s,%s,%s,"%s"\n' % tuple(vals))
+            f.write('%s,%s,%d,%s,%s,%s,%s,%s,%s,%s,"%s"\n' % tuple(vals))
 
          f.close()
       return True
@@ -9837,8 +9861,7 @@ class DlgRequestPayment(ArmoryDialog):
       self.edtMessage.setMaxLength(128)
       if msg:
          self.edtMessage.setText(msg)
-      else:
-         self.edtMessage.setText('Joe\'s Fish Shop - Order #123 - 3 kg tuna - (888)555-1212')
+
       self.edtMessage.setCursorPosition(0)
 
 
@@ -11403,7 +11426,7 @@ class DlgExpWOWltData(ArmoryDialog):
       wltIDB58 = wlt.uniqueIDB58
 
       # Create the data export buttons.
-      expWltButton = QPushButton(tr('Export Watch-Only Wallet File'))
+      expWltButton = QPushButton(tr('Export Watching-Only Wallet File'))
       clipboardBtn = QPushButton(tr('Copy to clipboard'))
       clipboardLbl = QRichLabel(tr(''), hAlign=Qt.AlignHCenter)
       expDataButton = QPushButton(tr('Save to Text File'))
@@ -11415,32 +11438,9 @@ class DlgExpWOWltData(ArmoryDialog):
       self.connect(printWODataButton, SIGNAL(CLICKED), \
                    self.clickedPrintWOData)
 
-      # Set help text for the data export buttons.
-      expWltButton.setToolTip(tr("""
-         <u></u>Save the full watch-only wallet to a file. This carries all 
-         data stored in the regular wallet except the private keys."""))
-      expDataButton.setToolTip('<u></u>Save the watch-only wallet data to '
-                                    'a file. This will contain only the data '
-                                    'required to recreate a watch-only wallet. '
-                                    'The resultant file will be much smaller '
-                                    'than a full watch-only wallet backup but '
-                                    'will not contain the watch-only wallet '
-                                    'metadata.')
-      printWODataButton.setToolTip('<u></u>Print the watch-only wallet '
-                                        'data. The printout can be used to '
-                                        'recreate a watch-only wallet, minus '
-                                        'the watch-only wallet\'s original '
-                                        'metadata.')
 
       # Let's put the window together.
       layout = QVBoxLayout()
-      headerSz = 4
-      headerStr = tr("""Export Watch-Only Root Data for wallet %s""", \
-                     wltIDB58)
-      lblHeader =  QRichLabel(tr("""
-         <font size=%d color="%s"><b>%s</b></font><br>""") % \
-                     (headerSz, htmlColor('TextBlue'), headerStr), \
-                     doWrap=True, hAlign=Qt.AlignHCenter)
 
       self.dispText = tr("""
          Watch-Only Root ID:<br><b>%s</b>
@@ -11467,27 +11467,31 @@ class DlgExpWOWltData(ArmoryDialog):
 
 
       lblDescr = QRichLabel(tr("""
+         <center><b><u><font size=4 color="%s">Export Watch-Only 
+         Wallet: %s</font></u></b></center>
+         <br>
          Use a watching-only wallet on an online computer to distribute
          payment addresses, verify transactions and monitor balances, but 
-         without the ability to move the funds."""))
+         without the ability to move the funds.""") % \
+         (htmlColor('TextBlue'), wlt.uniqueIDB58))
 
       lblTopHalf = QRichLabel(tr("""
-         <center><b><u>Export Entire Watch-Only Wallet File: %s</u></b></center>
+         <center><b><u>Entire Wallet File</u></b></center>
          <br>
          <i><b><font color="%s">(Recommended)</font></b></i> 
          An exact copy of your wallet file but without any of the private 
          signing keys. All existing comments and labels will be carried 
          with the file. Use this option if it is easy to transfer files 
          from this system to the target system.""") % \
-         (self.wlt.uniqueIDB58, htmlColor('TextBlue')))
+         (htmlColor('TextBlue')))
 
       lblBotHalf = QRichLabel(tr("""
-         <center><b><u>Export Watch-Only Root Data: %s</u></b></center>
+         <center><b><u>Only Root Data</u></b></center>
          <br>
-         Five lines of data that describe how to regenerate every public 
-         key (Bitcoin address) in your wallet. Easy to print or copy by
-         hand. Does not carry any comments or labels with it.""") % \
-         self.wlt.uniqueIDB58)
+         Same as above, but only five lines of text that are easy to 
+         print, email inline, or copy by hand.  Only produces the 
+         wallet addresses.   No comments or labels are carried with 
+         it."""))
 
       btnDone = QPushButton(tr('Done'))
       self.connect(btnDone, SIGNAL('clicked()'), self.accept)
@@ -11505,13 +11509,6 @@ class DlgExpWOWltData(ArmoryDialog):
       layoutBottom.setSpacing(5)
 
 
-      #layout.addWidget(lblHeader)
-      #layout.addWidget(HLINE())
-      #layout.addWidget(self.txtLongDescr)
-      #layout.addItem(QSpacerItem(20, 20))
-      #layout.addWidget(expWltButton)
-      #layout.addWidget(expDataButton)
-      #layout.addWidget(printWODataButton)
       layout.addWidget(lblDescr)
       layout.addItem(QSpacerItem(10, 10))
       layout.addWidget(HLINE())
@@ -11835,8 +11832,8 @@ class DlgFragBackup(ArmoryDialog):
       else:
          self.securePrint = self.secureRoot + self.secureChain
 
-      self.chkSecurePrint = QCheckBox(tr("""
-         Use SecurePrint\xe2\x84\xa2 to prevent exposing keys to other devices"""))
+      self.chkSecurePrint = QCheckBox(tr(""" Use SecurePrint\xe2\x84\xa2 
+         to prevent exposing keys to printer or other devices"""))
 
       self.scrollArea = QScrollArea()
       self.createFragDisplay()
@@ -12108,7 +12105,9 @@ class DlgFragBackup(ArmoryDialog):
             SecurePrint\xe2\x84\xa2 encryption code.  You must keep this
             code with the backup in order to use it!  The code <u>is</u>
             case-sensitive!
-            <br><br> <font color="%s" size=5><b>%s</b></font>""") % \
+            <br><br> <font color="%s" size=5><b>%s</b></font>
+            <br><br>
+            The above code <u><b>is</b></u> case-sensitive!""") % \
             (htmlColor('TextWarn'), htmlColor('TextBlue'), self.randpass.toBinStr())
 
       QMessageBox.information(self, 'Success', qmsg, QMessageBox.Ok)
@@ -12942,10 +12941,13 @@ class DlgRestoreFragged(ArmoryDialog):
 
       self.lblRightFrm = QRichLabel('', hAlign=Qt.AlignHCenter)
       self.lblSecureStr = QRichLabel(tr('SecurePrint\xe2\x84\xa2 Code:'), \
-                                     hAlign=Qt.AlignHCenter, \
+                                     hAlign=Qt.AlignHCenter, 
+                                     doWrap=False,
                                      color='TextWarn')
       self.displaySecureString = QLineEdit()
       self.imgPie = QRichLabel('', hAlign=Qt.AlignHCenter)
+      self.imgPie.setMinimumWidth(96)
+      self.imgPie.setMinimumHeight(96)
       self.lblReqd = QRichLabel('', hAlign=Qt.AlignHCenter)
       self.lblWltID = QRichLabel('', doWrap=False, hAlign=Qt.AlignHCenter)
       self.lblFragID = QRichLabel('', doWrap=False, hAlign=Qt.AlignHCenter)
@@ -12994,7 +12996,8 @@ class DlgRestoreFragged(ArmoryDialog):
       layout.addWidget(frmBtns)
       self.setLayout(layout)
       self.setMinimumWidth(650)
-      self.setMinimumHeight(465)
+      self.setMinimumHeight(500)
+      self.sizeHint = lambda: QSize(800, 650)
       self.setWindowTitle(tr('Restore wallet from fragments'))
 
       self.makeFragInputTable()
@@ -13158,7 +13161,7 @@ class DlgRestoreFragged(ArmoryDialog):
          showRightFrm = True
          M, fnum, wltIDBin, doMask, idBase58 = ReadFragIDLineBin(data[0])
          self.lblRightFrm.setText('<b><u>Wallet Being Restored:</u></b>')
-         self.imgPie.setPixmap(QPixmap(':/frag%df.png' % M))
+         self.imgPie.setPixmap(QPixmap(':/frag%df.png' % M).scaled(96,96))
          self.lblReqd.setText(tr('<b>Frags Needed:</b> %d') % M)
          self.lblWltID.setText(tr('<b>Wallet:</b> %s') % binary_to_base58(wltIDBin))
          self.lblFragID.setText(tr('<b>Fragments:</b> %s') % idBase58.split('-')[0])
@@ -14987,21 +14990,21 @@ class DlgBroadcastBlindTx(ArmoryDialog):
          this broadcast function:
          <ul>
             <li>The transaction will be "broadcast" by sending it
-                to the connected Bitcon Core instance.  If you are
-                broadcasting a non-standard transaction on the main
-                network, it <b>will</b> to be dropped before it 
-                reaches any other nodes.  Any <i>valid</i> transaction 
-                should work with this dialog on testnet.</li>
-            <li>Only <u>standard</u> transactions will successfully
-                be forwarded by Bitcoin Core on the main Bitcoin 
-                network.  On testnet, any valid transaction <i>should</i>    
-                successfully make it.
+                to the connected Bitcon Core instance which will
+                forward it to the rest of the Bitcoin network.  
+                However, if the transaction is non-standard or 
+                does not satisfy standard fee rules, Bitcoin Core 
+                <u>will</u> drop it and it 
+                will never be seen by the Bitcoin network. 
+            </li>
             <li>There will be no feedback as to whether the
-                transaction succeeded.  If the transaction sends 
+                transaction succeeded.  You will have to verify the
+                success of this operation via other means.  
+                However, if the transaction sends 
                 funds directly to or from an address in one of your
-                wallets, you will see it on the main transaction 
-                ledger.  Otherwise, there will be no indication whether
-                it worked or not.</li>
+                wallets, it will still generate a notification and show
+                up in your transaction history for that wallet.
+            </li>
          </ul>"""))
 
       self.txtRawTx = QPlainTextEdit()
