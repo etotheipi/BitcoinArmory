@@ -6291,11 +6291,19 @@ class ArmoryMainWindow(QMainWindow):
       """
       fgColor = htmlColor('ToolTipQ')
       lbl = QLabel('<font size=%d color=%s>(?)</font>' % (iconSz, fgColor))
-      lbl.setToolTip('<u></u>' + tiptext)
       lbl.setMaximumWidth(relaxedSizeStr(lbl, '(?)')[0])
-      def pressEv(ev):
-         QWhatsThis.showText(ev.globalPos(), tiptext, self)
-      lbl.mousePressEvent = pressEv
+
+      def setAllText(wself, txt):
+         def pressEv(ev):
+            QWhatsThis.showText(ev.globalPos(), txt, self)
+         wself.mousePressEvent = pressEv
+         wself.setToolTip('<u></u>' + txt)
+         
+      # Calling setText on this widget will update both the tooltip and QWT
+      from types import MethodType
+      lbl.setText = MethodType(setAllText, lbl)
+
+      lbl.setText(tiptext)
       return lbl
 
    #############################################################################
