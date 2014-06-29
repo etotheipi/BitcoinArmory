@@ -3010,11 +3010,14 @@ void* scanScrAddrThread(void *in)
 
    while (startBlock < endBlock)
    {
+      //ADD MECHANISM TO DETECT REORGS
       bdmPtr->applyBlockRangeToDB(startBlock, endBlock, sasd);
 
       startBlock = endBlock;
       endBlock = bdmPtr->blockchain().top().getBlockHeight() + 1;
    }
+
+   sasd->setSSHLastScanned(bdmPtr->getIFace(), endBlock);
    
    //merge with main ScrAddrScanData object
    sasd->merge();

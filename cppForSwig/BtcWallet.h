@@ -58,7 +58,9 @@ public:
       lastScanned_(0),
       ignoreLastScanned_(true),
       isInitialized_(false),
-      isRegistered_(false)
+      isRegistered_(false),
+      mergeLock_(0),
+      mergeFlag_(false)
    {}
    ~BtcWallet(void);
 
@@ -180,6 +182,9 @@ public:
    void purgeLedgerFromHeight(uint32_t height);
 
    LedgerEntry getLedgerEntryForTx(const BinaryData& txHash) const;
+   void preloadScrAddr(const BinaryData& scrAddr);
+
+   void merge(void);
 
 private:
    const vector<LedgerEntry>& getEmptyLedger(void) 
@@ -200,6 +205,10 @@ private:
    uint32_t                            lastScanned_;
 
    BtcWallet(const BtcWallet&); // no copies
+
+   atomic<uint32_t>                    mergeLock_;
+   map<BinaryData, ScrAddrObj>         scrAddrMapToMerge_;
+   bool                                mergeFlag_;
 };
 
 #endif

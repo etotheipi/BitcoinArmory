@@ -894,6 +894,8 @@ void BtcWallet::scanWallet(uint32_t startBlock, uint32_t endBlock,
    current top height.
    ***/
 
+   merge();
+
    if (startBlock == UINT32_MAX)
       startBlock = lastScanned_;
    if (endBlock == UINT32_MAX)
@@ -1054,5 +1056,50 @@ LedgerEntry BtcWallet::getLedgerEntryForTx(const BinaryData& txHash) const
    return LedgerEntry();
 }
 
+////////////////////////////////////////////////////////////////////////////////
+void BtcWallet::preloadScrAddr(const BinaryData& scrAddr)
+{
+   ScrAddrObj newScrAddrObj(bdmPtr_->getIFace(), scrAddr);
 
+   //NOTE: add some check in fetchDBScrAddrData to make sure each SSH is 
+   //scanned up to the last block
+
+   //fetch scrAddrData
+   fetchDBScrAddrData(newScrAddrObj, 0, bdmPtr_->getTopBlockHeight());
+
+   //grab merge lock
+   while (mergeLock_.fetch_or(1, memory_order_acquire));
+
+   //add scrAddr to merge map
+   scrAddrMapToMerge_[scrAddr] = newScrAddrObj;
+
+   //mark merge flag
+   mergeFlag_ = true;
+
+   //release lock
+   mergeLock_.store(0, memory_order_release);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void BtcWallet::merge(void)
+{
+   if (mergeFlag_ == true)
+   {
+      //grab lock
+      while (mergeLock_.fetch_or(1, memory_order_acquire));
+
+      //merge scrAddrMap
+      scrAddrMap_.insert(scrAddrMapToMerge_.begin(), scrAddrMapToMerge_.end());
+
+      //clear merge map
+      scrAddrMapToMerge_.clear();
+
+      //clear flag
+      mergeFlag_ = false;
+
+      //release lock
+      mergeLock_.store(0, memory_order_release);
+
+   }
+}
 // kate: indent-width 3; replace-tabs on;
